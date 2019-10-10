@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"html/template"
 	"reflect"
+	"sort"
 	"strings"
 
 	"github.com/ghodss/yaml"
@@ -177,17 +178,22 @@ var (
 				},
 			},
 			ToFeature: map[name.ComponentName]name.FeatureName{
-				name.IstioBaseComponentName:       name.IstioBaseFeatureName,
-				name.PilotComponentName:           name.TrafficManagementFeatureName,
-				name.GalleyComponentName:          name.ConfigManagementFeatureName,
-				name.SidecarInjectorComponentName: name.AutoInjectionFeatureName,
-				name.PolicyComponentName:          name.PolicyFeatureName,
-				name.TelemetryComponentName:       name.TelemetryFeatureName,
-				name.CitadelComponentName:         name.SecurityFeatureName,
-				name.CertManagerComponentName:     name.SecurityFeatureName,
-				name.NodeAgentComponentName:       name.SecurityFeatureName,
-				name.IngressComponentName:         name.GatewayFeatureName,
-				name.EgressComponentName:          name.GatewayFeatureName,
+				name.IstioBaseComponentName:          name.IstioBaseFeatureName,
+				name.PilotComponentName:              name.TrafficManagementFeatureName,
+				name.GalleyComponentName:             name.ConfigManagementFeatureName,
+				name.SidecarInjectorComponentName:    name.AutoInjectionFeatureName,
+				name.PolicyComponentName:             name.PolicyFeatureName,
+				name.TelemetryComponentName:          name.TelemetryFeatureName,
+				name.CitadelComponentName:            name.SecurityFeatureName,
+				name.CertManagerComponentName:        name.SecurityFeatureName,
+				name.NodeAgentComponentName:          name.SecurityFeatureName,
+				name.IngressComponentName:            name.GatewayFeatureName,
+				name.EgressComponentName:             name.GatewayFeatureName,
+				name.GrafanaComponentName:            name.ThirdPartyFeatureName,
+				name.PrometheusComponentName:         name.ThirdPartyFeatureName,
+				name.TracingComponentName:            name.ThirdPartyFeatureName,
+				name.PrometheusOperatorComponentName: name.ThirdPartyFeatureName,
+				name.KialiComponentName:              name.ThirdPartyFeatureName,
 			},
 			GlobalNamespaces: map[name.ComponentName]string{
 				name.PilotComponentName:      "istioNamespace",
@@ -231,7 +237,13 @@ var (
 					Components: []name.ComponentName{name.IngressComponentName, name.EgressComponentName},
 				},
 				name.ThirdPartyFeatureName: {
-					Components: []name.ComponentName{name.CNIComponentName},
+					Components: []name.ComponentName{
+						name.CNIComponentName,
+						name.PrometheusComponentName,
+						name.PrometheusOperatorComponentName,
+						name.GrafanaComponentName,
+						name.KialiComponentName,
+						name.TracingComponentName},
 				},
 			},
 			ComponentMaps: map[name.ComponentName]*ComponentMaps{
@@ -309,6 +321,41 @@ var (
 					ContainerName:        "istio-proxy",
 					HelmSubdir:           "gateways/istio-egress",
 					ToHelmValuesTreeRoot: "gateways.istio-egressgateway",
+				},
+				name.TracingComponentName: {
+					ResourceType:         K8sDeploymentResourceType,
+					ResourceName:         "istio-tracing",
+					ContainerName:        "jaeger",
+					HelmSubdir:           "istio-telemetry/tracing",
+					ToHelmValuesTreeRoot: "tracing.jaeger",
+				},
+				name.PrometheusOperatorComponentName: {
+					ResourceType:         K8sDeploymentResourceType,
+					ResourceName:         "prometheus",
+					ContainerName:        "prometheus",
+					HelmSubdir:           "istio-telemetry/prometheus-operator",
+					ToHelmValuesTreeRoot: "prometheus",
+				},
+				name.KialiComponentName: {
+					ResourceType:         K8sDeploymentResourceType,
+					ResourceName:         "kiali",
+					ContainerName:        "kiali",
+					HelmSubdir:           "istio-telemetry/kiali",
+					ToHelmValuesTreeRoot: "kiali",
+				},
+				name.GrafanaComponentName: {
+					ResourceType:         K8sDeploymentResourceType,
+					ResourceName:         "grafana",
+					ContainerName:        "grafana",
+					HelmSubdir:           "istio-telemetry/grafana",
+					ToHelmValuesTreeRoot: "grafana",
+				},
+				name.PrometheusComponentName: {
+					ResourceType:         K8sDeploymentResourceType,
+					ResourceName:         "prometheus",
+					ContainerName:        "prometheus",
+					HelmSubdir:           "istio-telemetry/prometheus",
+					ToHelmValuesTreeRoot: "prometheus",
 				},
 			},
 		},
@@ -529,7 +576,14 @@ func (t *Translator) protoToHelmValues(node interface{}, root map[string]interfa
 // setEnablementAndNamespaces translates the enablement and namespace value of each component in the baseYAML values
 // tree, based on feature/component inheritance relationship.
 func (t *Translator) setEnablementAndNamespaces(root map[string]interface{}, icp *v1alpha2.IstioControlPlaneSpec) error {
-	for cn, c := range t.ComponentMaps {
+	var keys []string
+	for k := range t.ComponentMaps {
+		keys = append(keys, string(k))
+	}
+	sort.Strings(keys)
+	for i := len(keys) - 1; i >= 0; i-- {
+		cn := name.ComponentName(keys[i])
+		c := t.ComponentMaps[cn]
 		e, err := t.IsComponentEnabled(cn, icp)
 		if err != nil {
 			return err

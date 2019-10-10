@@ -94,11 +94,11 @@ var (
 		IngressComponentName:         GatewayFeatureName,
 		EgressComponentName:          GatewayFeatureName,
 		// External
-		PrometheusComponentName:         TelemetryFeatureName,
-		PrometheusOperatorComponentName: TelemetryFeatureName,
-		GrafanaComponentName:            TelemetryFeatureName,
-		KialiComponentName:              TelemetryFeatureName,
-		TracingComponentName:            TelemetryFeatureName,
+		PrometheusComponentName:         ThirdPartyFeatureName,
+		PrometheusOperatorComponentName: ThirdPartyFeatureName,
+		GrafanaComponentName:            ThirdPartyFeatureName,
+		KialiComponentName:              ThirdPartyFeatureName,
+		TracingComponentName:            ThirdPartyFeatureName,
 		// ThirdParty
 		CNIComponentName: ThirdPartyFeatureName,
 	}
@@ -139,6 +139,10 @@ func IsFeatureEnabledInSpec(featureName FeatureName, controlPlaneSpec *v1alpha2.
 // IsComponentEnabledInSpec assumes that controlPlaneSpec has been validated.
 // TODO: remove extra validations when comfort level is high enough.
 func IsComponentEnabledInSpec(featureName FeatureName, componentName ComponentName, controlPlaneSpec *v1alpha2.IstioControlPlaneSpec) (bool, error) {
+	//check in Values part as well for third Party components
+	if featureName == ThirdPartyFeatureName {
+		return IsComponentEnabledFromValue(string(componentName), controlPlaneSpec.Values)
+	}
 	featureNodeI, found, err := GetFromStructPath(controlPlaneSpec, string(featureName)+".Enabled")
 	if err != nil {
 		return false, fmt.Errorf("error in IsComponentEnabledInSpec GetFromStructPath featureEnabled for feature=%s, component=%s: %s",
@@ -352,7 +356,7 @@ func getFromStructPath(node interface{}, path util.Path) (interface{}, bool, err
 
 // SetFromPath sets out with the value at path from node. out is not set if the path doesn't exist or the value is nil.
 // All intermediate along path must be type struct ptr. Out must be either a struct ptr or map ptr.
-// TODO: move these out to a separate package.
+// TODO: move these out to a separate package (istio/istio#15494).
 func SetFromPath(node interface{}, path string, out interface{}) (bool, error) {
 	val, found, err := GetFromStructPath(node, path)
 	if err != nil {

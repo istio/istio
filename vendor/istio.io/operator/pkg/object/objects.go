@@ -77,7 +77,7 @@ func NewK8sObject(u *unstructured.Unstructured, json, yaml []byte) *K8sObject {
 // Hash returns a unique, insecure hash based on kind, namespace and name.
 func Hash(kind, namespace, name string) string {
 	switch kind {
-	// TODO: replace strings with k8s const.
+	// TODO: replace strings with k8s const (istio/istio#17237).
 	case "ClusterRole", "ClusterRoleBinding":
 		namespace = ""
 	}
@@ -172,7 +172,6 @@ func (o *K8sObject) YAML() ([]byte, error) {
 	if o.yaml != nil {
 		return o.yaml, nil
 	}
-	// TODO: there has to be a better way.
 	oj, err := o.JSON()
 	if err != nil {
 		return nil, err
