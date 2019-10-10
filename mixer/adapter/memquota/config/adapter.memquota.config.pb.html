@@ -92,6 +92,23 @@ quotas, otherwise the value must be zero.</p>
 
 </td>
 </tr>
+<tr id="Params-Override-dimensions">
+<td><code>dimensions</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>The specific dimensions for which this override applies.
+String representation of instance dimensions is used to check against configured dimensions.</p>
+
+</td>
+</tr>
+<tr id="Params-Override-max_amount">
+<td><code>maxAmount</code></td>
+<td><code>int64</code></td>
+<td>
+<p>The upper limit for this quota.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -140,6 +157,22 @@ quotas, otherwise the value must be zero.</p>
 <td>
 <p>Overrides associated with this quota.
 The first matching override is applied.</p>
+
+</td>
+</tr>
+<tr id="Params-Quota-name">
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>
+<p>The name of the quota</p>
+
+</td>
+</tr>
+<tr id="Params-Quota-max_amount">
+<td><code>maxAmount</code></td>
+<td><code>int64</code></td>
+<td>
+<p>The upper limit for this quota.</p>
 
 </td>
 </tr>

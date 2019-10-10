@@ -99,6 +99,47 @@ before it should ask the adapter again.</p>
 
 </td>
 </tr>
+<tr id="Params-provider_url">
+<td><code>providerUrl</code></td>
+<td><code>string</code></td>
+<td>
+<p>Where to find the list to check against. This may be omitted for a completely local list.</p>
+
+</td>
+</tr>
+<tr id="Params-caching_use_count">
+<td><code>cachingUseCount</code></td>
+<td><code>int32</code></td>
+<td>
+<p>Indicates the number of times a caller of this adapter can use a cached answer
+before it should ask the adapter again.</p>
+
+</td>
+</tr>
+<tr id="Params-overrides">
+<td><code>overrides</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>List entries that are consulted first, before the list from the server</p>
+
+</td>
+</tr>
+<tr id="Params-entry_type">
+<td><code>entryType</code></td>
+<td><code><a href="#Params-ListEntryType">Params.ListEntryType</a></code></td>
+<td>
+<p>Determines the kind of list entry and overrides.</p>
+
+</td>
+</tr>
+<tr id="Params-blacklist">
+<td><code>blacklist</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Whether the list operates as a blacklist or a whitelist.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -114,6 +155,34 @@ before it should ask the adapter again.</p>
 </tr>
 </thead>
 <tbody>
+<tr id="Params-ListEntryType-STRINGS">
+<td><code>STRINGS</code></td>
+<td>
+<p>List entries are treated as plain strings.</p>
+
+</td>
+</tr>
+<tr id="Params-ListEntryType-CASE_INSENSITIVE_STRINGS">
+<td><code>CASE_INSENSITIVE_STRINGS</code></td>
+<td>
+<p>List entries are treated as case-insensitive strings.</p>
+
+</td>
+</tr>
+<tr id="Params-ListEntryType-IP_ADDRESSES">
+<td><code>IP_ADDRESSES</code></td>
+<td>
+<p>List entries are treated as IP addresses and ranges.</p>
+
+</td>
+</tr>
+<tr id="Params-ListEntryType-REGEX">
+<td><code>REGEX</code></td>
+<td>
+<p>List entries are treated as re2 regexp. See <a href="https://github.com/google/re2/wiki/Syntax">here</a> for the supported syntax.</p>
+
+</td>
+</tr>
 <tr id="Params-ListEntryType-STRINGS">
 <td><code>STRINGS</code></td>
 <td>
