@@ -342,7 +342,6 @@ func (c *Controller) GetPodLocality(pod *v1.Pod) string {
 	return model.GetLocalityOrDefault(pod.Labels[model.LocalityLabel], locality)
 }
 
-
 // ManagementPorts implements a service catalog operation
 func (c *Controller) ManagementPorts(addr string) model.PortList {
 	pod := c.pods.getPodByIP(addr)
