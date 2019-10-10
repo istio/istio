@@ -498,15 +498,21 @@ func TestEvaluateTLSState(t *testing.T) {
 }
 
 func TestAnalyzeMTLSSettings(t *testing.T) {
+	fakeConfigMeta := model.ConfigMeta{
+		Name:      "foo",
+		Namespace: "bar",
+	}
 	testCases := []struct {
 		name        string
 		authnPolicy *authn.Policy
+		authnMeta   *model.ConfigMeta
 		destConfig  *model.Config
 		expected    []*v2.AuthenticationDebug
 	}{
 		{
 			name:        "No policy",
 			authnPolicy: nil,
+			authnMeta:   nil,
 			destConfig:  nil,
 			expected: []*v2.AuthenticationDebug{
 				{
@@ -533,12 +539,13 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 					},
 				},
 			},
+			authnMeta:  &fakeConfigMeta,
 			destConfig: nil,
 			expected: []*v2.AuthenticationDebug{
 				{
 					Host:                     "foo.default",
 					Port:                     8080,
-					AuthenticationPolicyName: "???",
+					AuthenticationPolicyName: "foo/bar",
 					DestinationRuleName:      "-",
 					ServerProtocol:           "STRICT",
 					ClientProtocol:           "-",
@@ -559,6 +566,7 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 					},
 				},
 			},
+			authnMeta: &fakeConfigMeta,
 			destConfig: &model.Config{
 				ConfigMeta: model.ConfigMeta{
 					Name:      "some-rule",
@@ -572,7 +580,7 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 				{
 					Host:                     "foo.default",
 					Port:                     8080,
-					AuthenticationPolicyName: "???",
+					AuthenticationPolicyName: "foo/bar",
 					DestinationRuleName:      "some-rule/default",
 					ServerProtocol:           "STRICT",
 					ClientProtocol:           "-",
@@ -593,6 +601,7 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 					},
 				},
 			},
+			authnMeta: &fakeConfigMeta,
 			destConfig: &model.Config{
 				ConfigMeta: model.ConfigMeta{
 					Name:      "some-rule",
@@ -610,7 +619,7 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 				{
 					Host:                     "foo.default",
 					Port:                     8080,
-					AuthenticationPolicyName: "???",
+					AuthenticationPolicyName: "foo/bar",
 					DestinationRuleName:      "some-rule/default",
 					ServerProtocol:           "STRICT",
 					ClientProtocol:           "DISABLE",
@@ -631,6 +640,7 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 					},
 				},
 			},
+			authnMeta: &fakeConfigMeta,
 			destConfig: &model.Config{
 				ConfigMeta: model.ConfigMeta{
 					Name:      "some-rule",
@@ -658,7 +668,7 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 				{
 					Host:                     "foo.default",
 					Port:                     8080,
-					AuthenticationPolicyName: "???",
+					AuthenticationPolicyName: "foo/bar",
 					DestinationRuleName:      "some-rule/default",
 					ServerProtocol:           "STRICT",
 					ClientProtocol:           "ISTIO_MUTUAL",
@@ -679,6 +689,7 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 					},
 				},
 			},
+			authnMeta: &fakeConfigMeta,
 			destConfig: &model.Config{
 				ConfigMeta: model.ConfigMeta{
 					Name:      "some-rule",
@@ -724,7 +735,7 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 				{
 					Host:                     "foo.default",
 					Port:                     8080,
-					AuthenticationPolicyName: "???",
+					AuthenticationPolicyName: "foo/bar",
 					DestinationRuleName:      "some-rule/default",
 					ServerProtocol:           "STRICT",
 					ClientProtocol:           "ISTIO_MUTUAL",
@@ -733,7 +744,7 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 				{
 					Host:                     "foo.default|foobar",
 					Port:                     8080,
-					AuthenticationPolicyName: "???",
+					AuthenticationPolicyName: "foo/bar",
 					DestinationRuleName:      "some-rule/default",
 					ServerProtocol:           "STRICT",
 					ClientProtocol:           "SIMPLE",
@@ -748,7 +759,7 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 			port := model.Port{
 				Port: 8080,
 			}
-			if got := v2.AnalyzeMTLSSettings(host.Name("foo.default"), &port, tc.authnPolicy, tc.destConfig); !reflect.DeepEqual(got, tc.expected) {
+			if got := v2.AnalyzeMTLSSettings(host.Name("foo.default"), &port, tc.authnPolicy, tc.authnMeta, tc.destConfig); !reflect.DeepEqual(got, tc.expected) {
 				t.Errorf("EvaluateTLSState expected to be %+v, got %+v", tc.expected, got)
 			}
 		})
