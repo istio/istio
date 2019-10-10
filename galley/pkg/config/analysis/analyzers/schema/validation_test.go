@@ -85,7 +85,7 @@ func TestSchemaValidationWrapper(t *testing.T) {
 
 	ctx := &testContext{
 		entries: []*resource.Entry{
-			&resource.Entry{
+			{
 				Item: m1,
 			},
 		},
@@ -95,7 +95,7 @@ func TestSchemaValidationWrapper(t *testing.T) {
 
 	ctx = &testContext{
 		entries: []*resource.Entry{
-			&resource.Entry{
+			{
 				Item: m2,
 			},
 		},
