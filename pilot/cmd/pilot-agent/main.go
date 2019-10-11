@@ -106,8 +106,8 @@ var (
 	kubeAppProberNameVar                = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
 	sdsEnabledVar                       = env.RegisterBoolVar("SDS_ENABLED", false, "")
 	sdsUdsPathVar                       = env.RegisterStringVar("SDS_UDS_PATH", "unix:/var/run/sds/uds_path", "SDS address")
-	stackdriverEnabled                  = env.RegisgterBoolVar("STACKDRIVER_ENABLED", false, "If enabled, stackdriver will get configured as the tracer.")
-	stackdriverDebug                    = env.RegisgterBoolVar("STACKDRIVER_DEBUG", false, "")
+	stackdriverEnabled                  = env.RegisterBoolVar("STACKDRIVER_ENABLED", false, "If enabled, stackdriver will get configured as the tracer.")
+	stackdriverDebug                    = env.RegisterBoolVar("STACKDRIVER_DEBUG", false, "")
 	stackdriverMaxNumberOfAnnotations   = env.RegisterIntVar("STACKDRIVER_MAX_NUMBER_OF_ANNOTATIONS", 200, "Sets the max number of annotations for stackdriver")
 	stackdriverMaxNumberOfAttributes    = env.RegisterIntVar("STACKDRIVER_MAX_NUMBER_OF_ATTRIBUTES", 200, "Sets the max number of attributes for stackdriver")
 	stackdriverMaxNumberOfMessageEvents = env.RegisterIntVar("STACKDRIVER_MAX_NUMBER_OF_MESSAGE_EVENTS", 200, "Sets the max number of message events for stackdriver")
@@ -309,10 +309,16 @@ var (
 				proxyConfig.Tracing = &meshconfig.Tracing{
 					Tracer: &meshconfig.Tracing_Stackdriver_{
 						Stackdriver: &meshconfig.Tracing_Stackdriver{
-							Debug:                    stackdriverDebug.Get(),
-							MaxNumberOfAnnotations:   stackdriverMaxNumberOfAnnotations.Get(),
-							MaxNumberOfAttributes:    stackdriverMaxNumberOfAttributes.Get(),
-							MaxNumberOfMessageEvents: stackdriverMaxNumberOfMessageEvents.Get(),
+							Debug: stackdriverDebug.Get(),
+							MaxNumberOfAnnotations: &types.Int64Value{
+								Value: int64(stackdriverMaxNumberOfAnnotations.Get()),
+							},
+							MaxNumberOfAttributes: &types.Int64Value{
+								Value: int64(stackdriverMaxNumberOfAttributes.Get()),
+							},
+							MaxNumberOfMessageEvents: &types.Int64Value{
+								Value: int64(stackdriverMaxNumberOfMessageEvents.Get()),
+							},
 						},
 					},
 				}

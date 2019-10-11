@@ -249,7 +249,7 @@ containers:
   {{- end }}
   {{- if eq .Values.global.proxy.tracer "stackdriver" }}
   - name: STACKDRIVER_ENABLED
-    value: True
+    value: "true"
   - name: STACKDRIVER_DEBUG
     value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetDebug }}"
   - name: STACKDRIVER_MAX_NUMBER_OF_ANNOTATIONS
