@@ -181,13 +181,10 @@ func serverCmd() *cobra.Command {
 	// Hidden, file only flags for validation specific TLS
 	svr.PersistentFlags().StringVar(&serverArgs.ValidationArgs.CertFile, "validation.tls.clientCertificate", "",
 		"File containing the x509 Certificate for HTTPS validation.")
-	_ = svr.PersistentFlags().MarkHidden("validation.tls.clientCertificate")
 	svr.PersistentFlags().StringVar(&serverArgs.ValidationArgs.KeyFile, "validation.tls.privateKey", "",
 		"File containing the x509 private key matching --validation.tls.clientCertificate.")
-	_ = svr.PersistentFlags().MarkHidden("validation.tls.privateKey")
 	svr.PersistentFlags().StringVar(&serverArgs.ValidationArgs.CACertFile, "validation.tls.caCertificates", "",
 		"File containing the caBundle that signed the cert/key specified by --validation.tls.clientCertificate and --validation.tls.privateKey.")
-	_ = svr.PersistentFlags().MarkHidden("validation.tls.caCertificates")
 
 	serverArgs.IntrospectionOptions.AttachCobraFlags(svr)
 	loggingOptions.AttachCobraFlags(svr)

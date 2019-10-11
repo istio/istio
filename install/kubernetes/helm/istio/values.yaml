@@ -595,6 +595,9 @@ global:
   #     dnsNames: [istio-sidecar-injector.istio-system.svc, istio-sidecar-injector.istio-system]
   certificates: []
 
-  # Configures whether Operator manages webhook configurations. The current behavior
+  # Configure whether Operator manages webhook configurations. The current behavior
   # of Galley and Sidecar Injector is that they manage their own webhook configurations.
-  operator: false
+  # When this option is set as true, Istio Operator, instead of webhooks, manages the
+  # webhook configurations. When this option is set as false, webhooks manage their
+  # own webhook configurations.
+  operatorManageWebhooks: false
