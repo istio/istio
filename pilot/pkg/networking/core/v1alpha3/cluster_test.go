@@ -1310,7 +1310,7 @@ func TestClusterDiscoveryTypeAndLbPolicyPassthroughIstioVersion12(t *testing.T) 
 	g.Expect(clusters[0].EdsClusterConfig).To(BeNil())
 }
 
-func TestPassthroughClusterMaxConnections(t *testing.T) {
+func TestBuildClustersDefaultCircuitBreakerThresholds(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	configgen := NewConfigGenerator([]plugin.Plugin{})
@@ -1323,10 +1323,10 @@ func TestPassthroughClusterMaxConnections(t *testing.T) {
 	g.Expect(len(clusters)).ShouldNot(Equal(0))
 
 	for _, cluster := range clusters {
-		if cluster.Name == "PassthroughCluster" {
+		if cluster.Name != "BlackHoleCluster" {
 			fmt.Println(cluster.CircuitBreakers)
 			g.Expect(cluster.CircuitBreakers).NotTo(BeNil())
-			g.Expect(cluster.CircuitBreakers.Thresholds[0].MaxConnections.Value).To(Equal(uint32(102400)))
+			g.Expect(cluster.CircuitBreakers.Thresholds[0]).To(Equal(getDefaultCircuitBreakerThresholds(model.TrafficDirectionOutbound)))
 		}
 	}
 }
