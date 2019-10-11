@@ -43,7 +43,7 @@ func TestMtlsHealthCheck(t *testing.T) {
 		})
 }
 
-func runHealthCheckDeployment(t *testing.T, ctx framework.TestContext, ns namespace.Instance,
+func runHealthCheckDeployment(t *testing.T, ctx framework.TestContext, ns namespace.Instance, //nolint:interfacer
 	name string, rewrite bool, success bool) {
 	t.Helper()
 	policyYAML := fmt.Sprintf(`apiVersion: "authentication.istio.io/v1alpha1"
@@ -75,7 +75,9 @@ spec:
 		ReadinessTimeout: time.Second * 60,
 	}
 	cfg.Annotations = map[echo.Annotation]*echo.AnnotationValue{
-		echo.SidecarRewriteAppHTTPProbers: &echo.AnnotationValue{Value: strconv.FormatBool(rewrite)},
+		echo.SidecarRewriteAppHTTPProbers: &echo.AnnotationValue{
+			Value: strconv.FormatBool(rewrite),
+		},
 	}
 	err := echoboot.NewBuilderOrFail(t, ctx).
 		With(&healthcheck, cfg).
