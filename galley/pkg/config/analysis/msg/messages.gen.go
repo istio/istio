@@ -26,14 +26,6 @@ var (
 	// Description: A feature that the configuration is depending on is now deprecated.
 	Deprecated = diag.NewMessageType(diag.Warning, "IST0004", "Deprecated: %s")
 	
-	// MisplacedAnnotation defines a diag.MessageType for message "MisplacedAnnotation".
-	// Description: An Istio annotation is applied to the wrong kind of resource.
-	MisplacedAnnotation = diag.NewMessageType(diag.Warning, "IST0005", "Misplaced annotation: %s can only be applied to %s")
-	
-	// UnknownAnnotation defines a diag.MessageType for message "UnknownAnnotation".
-	// Description: An Istio annotation is not recognized for any kind of resource
-	UnknownAnnotation = diag.NewMessageType(diag.Warning, "IST0006", "Unknown annotation: %s")
-	
 	// ReferencedResourceNotFound defines a diag.MessageType for message "ReferencedResourceNotFound".
 	// Description: A resource being referenced does not exist.
 	ReferencedResourceNotFound = diag.NewMessageType(diag.Error, "IST0101", "Referenced %s not found: %q")
@@ -57,6 +49,14 @@ var (
 	// SchemaValidationError defines a diag.MessageType for message "SchemaValidationError".
 	// Description: The resource has one or more schema validation errors.
 	SchemaValidationError = diag.NewMessageType(diag.Error, "IST0106", "The resource has one or more schema validation errors: %v")
+	
+	// MisplacedAnnotation defines a diag.MessageType for message "MisplacedAnnotation".
+	// Description: An Istio annotation is applied to the wrong kind of resource.
+	MisplacedAnnotation = diag.NewMessageType(diag.Warning, "IST0107", "Misplaced annotation: %s can only be applied to %s")
+	
+	// UnknownAnnotation defines a diag.MessageType for message "UnknownAnnotation".
+	// Description: An Istio annotation is not recognized for any kind of resource
+	UnknownAnnotation = diag.NewMessageType(diag.Warning, "IST0108", "Unknown annotation: %s")
 	
 )
 
@@ -94,25 +94,6 @@ func NewDeprecated(entry *resource.Entry, detail string) diag.Message {
 		Deprecated,
 		originOrNil(entry),
 			detail,
-	)
-}
-
-// NewMisplacedAnnotation returns a new diag.Message based on MisplacedAnnotation.
-func NewMisplacedAnnotation(entry *resource.Entry, annotation string, kind string) diag.Message {
-	return diag.NewMessage(
-		MisplacedAnnotation,
-		originOrNil(entry),
-			annotation,
-			kind,
-	)
-}
-
-// NewUnknownAnnotation returns a new diag.Message based on UnknownAnnotation.
-func NewUnknownAnnotation(entry *resource.Entry, annotation string) diag.Message {
-	return diag.NewMessage(
-		UnknownAnnotation,
-		originOrNil(entry),
-			annotation,
 	)
 }
 
@@ -172,6 +153,25 @@ func NewSchemaValidationError(entry *resource.Entry, combinedErr error) diag.Mes
 		SchemaValidationError,
 		originOrNil(entry),
 			combinedErr,
+	)
+}
+
+// NewMisplacedAnnotation returns a new diag.Message based on MisplacedAnnotation.
+func NewMisplacedAnnotation(entry *resource.Entry, annotation string, kind string) diag.Message {
+	return diag.NewMessage(
+		MisplacedAnnotation,
+		originOrNil(entry),
+			annotation,
+			kind,
+	)
+}
+
+// NewUnknownAnnotation returns a new diag.Message based on UnknownAnnotation.
+func NewUnknownAnnotation(entry *resource.Entry, annotation string) diag.Message {
+	return diag.NewMessage(
+		UnknownAnnotation,
+		originOrNil(entry),
+			annotation,
 	)
 }
 
