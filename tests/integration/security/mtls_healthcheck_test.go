@@ -12,9 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-// Package healthcheck contains a test to support kubernetes app health check when mTLS is turned on.
-// https://github.com/istio/istio/issues/9150.
-package healthcheck
+package security
 
 import (
 	"fmt"
@@ -33,7 +31,7 @@ import (
 )
 
 // TestMtlsHealthCheck verifies Kubernetes HTTP health check can work when mTLS
-// is enabled.
+// is enabled, https://github.com/istio/istio/issues/9150.
 // Currently this test can only pass on Prow with a real GKE cluster, and fail
 // on Minikube. For more details, see https://github.com/istio/istio/issues/12754.
 func TestMtlsHealthCheck(t *testing.T) {
