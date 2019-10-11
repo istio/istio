@@ -31,7 +31,7 @@ import (
 	binversion "istio.io/operator/version"
 
 	"k8s.io/helm/pkg/releaseutil"
-	"k8s.io/kubernetes/pkg/kubectl"
+	kubectl "k8s.io/kubectl/pkg/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/ghodss/yaml"

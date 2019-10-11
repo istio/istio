@@ -7,38 +7,29 @@ replace k8s.io/klog => github.com/istio/klog v0.0.0-20190424230111-fb7481ea8bcf
 replace github.com/golang/glog => github.com/istio/glog v0.0.0-20190424172949-d7cfb6fa2ccd
 
 require (
-	github.com/DATA-DOG/go-sqlmock v1.3.3 // indirect
-	github.com/containerd/fifo v0.0.0-20190816180239-bda0ff6ed73c // indirect
-	github.com/docker/go-metrics v0.0.1 // indirect
 	github.com/dsnet/compress v0.0.1 // indirect
 	github.com/evanphx/json-patch v4.5.0+incompatible
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-logr/logr v0.1.0
-	github.com/go-openapi/spec v0.19.0
-	github.com/gobuffalo/packr v1.30.1 // indirect
 	github.com/gogo/protobuf v1.3.0
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/protobuf v1.3.2
 	github.com/google/go-cmp v0.3.0
 	github.com/hashicorp/go-version v1.2.0
-	github.com/jmoiron/sqlx v1.2.0 // indirect
 	github.com/kr/pretty v0.1.0
 	github.com/kylelemons/godebug v1.1.0
-	github.com/lib/pq v1.2.0 // indirect
 	github.com/mholt/archiver v3.1.1+incompatible
 	github.com/nwaples/rardecode v1.0.0 // indirect
 	github.com/openshift/api v3.9.1-0.20191008181517-e4fd21196097+incompatible // indirect
 	github.com/openshift/cluster-network-operator v0.0.0-20191009144453-fdceef8e1a7b
 	github.com/operator-framework/operator-sdk v0.10.0
 	github.com/pkg/errors v0.8.1
-	github.com/prometheus/common v0.6.0
-	github.com/rubenv/sql-migrate v0.0.0-20190902133344-8926f37f0bc1 // indirect
+	github.com/prometheus/client_golang v1.1.0 // indirect
 	github.com/spf13/cobra v0.0.5
 	github.com/stretchr/testify v1.3.0
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
-	github.com/ziutek/mymysql v1.5.4 // indirect
-	gopkg.in/gorp.v1 v1.7.2 // indirect
+	golang.org/x/crypto v0.0.0-20190621222207-cc06ce4a13d4 // indirect
 	gopkg.in/yaml.v2 v2.2.2
 	istio.io/pkg v0.0.0-20190515193414-9332430ad747
 	k8s.io/api v0.0.0
@@ -46,13 +37,12 @@ require (
 	k8s.io/apimachinery v0.0.0
 	k8s.io/client-go v11.0.1-0.20190409021438-1a26190bd76a+incompatible
 	k8s.io/helm v2.14.3+incompatible
-	k8s.io/kube-openapi v0.0.0-20190918143330-0270cf2f1c1d
-	k8s.io/kubernetes v1.11.8-beta.0.0.20190124204751-3a10094374f2
+	k8s.io/kube-openapi v0.0.0-20190918143330-0270cf2f1c1d // indirect
+	k8s.io/kube-proxy v0.0.0-00010101000000-000000000000 // indirect
+	k8s.io/kubectl v0.0.0-20191003004222-1f3c0cd90ca9
 	sigs.k8s.io/controller-runtime v0.2.2
 	sigs.k8s.io/yaml v1.1.0
 )
-
-replace k8s.io/kubernetes => k8s.io/kubernetes v1.15.0
 
 replace k8s.io/api => k8s.io/api v0.0.0-20190620084959-7cf5895f2711
 
@@ -93,5 +83,3 @@ replace k8s.io/metrics => k8s.io/metrics v0.0.0-20190620085625-3b22d835f165
 replace k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.0.0-20190620085408-1aef9010884e
 
 replace k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.0.0-20190620085325-f29e2b4a4f84
-
-replace k8s.io/kubectl => k8s.io/kubectl v0.0.0-20190602132728-7075c07e78bf
