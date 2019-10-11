@@ -8,8 +8,6 @@ replace github.com/golang/glog => github.com/istio/glog v0.0.0-20190424172949-d7
 
 require (
 	cloud.google.com/go v0.37.2 // indirect
-	contrib.go.opencensus.io/exporter/ocagent v0.4.11 // indirect
-	github.com/Azure/go-autorest v11.7.0+incompatible // indirect
 	github.com/Masterminds/goutils v1.1.0 // indirect
 	github.com/Masterminds/semver v1.4.2 // indirect
 	github.com/Masterminds/sprig v0.0.0-20190301161902-9f8fceff796f // indirect
@@ -46,7 +44,6 @@ require (
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
 	golang.org/x/crypto v0.0.0-20190621222207-cc06ce4a13d4 // indirect
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
-	google.golang.org/genproto v0.0.0-20190404172233-64821d5d2107 // indirect
 	gopkg.in/yaml.v2 v2.2.2
 	istio.io/pkg v0.0.0-20190515193414-9332430ad747
 	k8s.io/api v0.0.0
