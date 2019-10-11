@@ -34,6 +34,7 @@ var (
 
 func TestMain(m *testing.M) {
 	// Integration test for provisioning DNS certificates.
+	// TODO (lei-tang): investigate whether this test can be moved to integration/security.
 	framework.NewSuite("dns_certificate_test", m).
 		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).

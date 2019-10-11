@@ -94,8 +94,9 @@ func ExamineDNSSecret(secret *v1.Secret, expectedID string) error {
 
 	verifyFields := &util.VerifyFields{
 		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
-		IsCA: false,
-		Host: expectedID,
+		KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		IsCA:        false,
+		Host:        expectedID,
 	}
 
 	if err := util.VerifyCertificate(secret.Data[controller.PrivateKeyID],
