@@ -50,7 +50,7 @@ var (
 	signedCert      = []byte("fake signed cert")
 	istioTestSecret = k8ssecret.BuildSecret("test", "istio.test",
 		"test-ns", certChain, caKey, rootCert, nil, nil, IstioSecretType)
-	cert1Pem        = `
+	cert1Pem = `
 -----BEGIN CERTIFICATE-----
 MIIC3jCCAcagAwIBAgIJAMwyWk0iqlOoMA0GCSqGSIb3DQEBCwUAMBwxGjAYBgNV
 BAoMEWs4cy5jbHVzdGVyLmxvY2FsMB4XDTE4MDkyMTAyMjAzNFoXDTI4MDkxODAy

@@ -445,7 +445,7 @@ func TestSignCSRForCA(t *testing.T) {
 		t.Error(err)
 	}
 
-	ca, err := createCA(365*24*time.Hour)
+	ca, err := createCA(365 * 24 * time.Hour)
 	if err != nil {
 		t.Error(err)
 	}
@@ -499,7 +499,7 @@ func TestSignCSRTTLError(t *testing.T) {
 		t.Error(err)
 	}
 
-	ca, err := createCA(2*time.Hour)
+	ca, err := createCA(2 * time.Hour)
 	if err != nil {
 		t.Error(err)
 	}

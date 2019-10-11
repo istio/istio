@@ -390,11 +390,11 @@ func TestRun(t *testing.T) {
 			expectedErr: "cannot listen on port -1 (error: listen tcp: address -1: invalid port)",
 		},
 		"CA sign error": {
-			ca:                        &mockca.FakeCA{SignErr: caerror.NewError(caerror.CANotReady, fmt.Errorf("cannot sign"))},
-			hostname:                  []string{"localhost"},
-			port:                      0,
-			expectedErr:               "",
-			expectedAuthenticatorsLen: 1, // 2 when ID token authenticators are enabled.
+			ca:                          &mockca.FakeCA{SignErr: caerror.NewError(caerror.CANotReady, fmt.Errorf("cannot sign"))},
+			hostname:                    []string{"localhost"},
+			port:                        0,
+			expectedErr:                 "",
+			expectedAuthenticatorsLen:   1, // 2 when ID token authenticators are enabled.
 			applyServerCertificateError: "cannot sign",
 		},
 		"Bad signed cert": {

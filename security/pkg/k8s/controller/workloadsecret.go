@@ -155,20 +155,20 @@ func NewSecretController(ca certificateAuthority, certTTL time.Duration, gracePe
 	}
 
 	c := &SecretController{
-		ca:                        ca,
-		certTTL:                   certTTL,
-		istioCaStorageNamespace:   istioCaStorageNamespace,
-		gracePeriodRatio:          gracePeriodRatio,
-		certUtil:                  certutil.NewCertUtil(int(gracePeriodRatio * 100)),
-		caSecretController:        NewCaSecretController(core),
-		rootCertFile:              rootCertFile,
-		minGracePeriod:            minGracePeriod,
-		dualUse:                   dualUse,
-		core:                      core,
-		forCA:                     forCA,
-		namespaces:                make(map[string]struct{}),
-		dnsNames:                  dnsNames,
-		monitoring:                newMonitoringMetrics(),
+		ca:                      ca,
+		certTTL:                 certTTL,
+		istioCaStorageNamespace: istioCaStorageNamespace,
+		gracePeriodRatio:        gracePeriodRatio,
+		certUtil:                certutil.NewCertUtil(int(gracePeriodRatio * 100)),
+		caSecretController:      NewCaSecretController(core),
+		rootCertFile:            rootCertFile,
+		minGracePeriod:          minGracePeriod,
+		dualUse:                 dualUse,
+		core:                    core,
+		forCA:                   forCA,
+		namespaces:              make(map[string]struct{}),
+		dnsNames:                dnsNames,
+		monitoring:              newMonitoringMetrics(),
 	}
 
 	for _, ns := range namespaces {
