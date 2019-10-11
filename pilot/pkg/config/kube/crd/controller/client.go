@@ -19,8 +19,9 @@ package controller
 import (
 	"context"
 	"fmt"
-	"istio.io/pkg/ledger"
 	"time"
+
+	"istio.io/pkg/ledger"
 
 	"github.com/golang/sync/errgroup"
 	"github.com/hashicorp/go-multierror"
