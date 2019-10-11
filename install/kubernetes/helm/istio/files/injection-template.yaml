@@ -248,15 +248,15 @@ containers:
     value: "{{ .Values.global.trustDomain }}"
   {{- end }}
   {{- if eq .Values.global.proxy.tracer "stackdriver" }}
-  - name: STACKDRIVER_ENABLED
+  - name: STACKDRIVER_TRACING_ENABLED
     value: "true"
-  - name: STACKDRIVER_DEBUG
+  - name: STACKDRIVER_TRACING_DEBUG
     value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetDebug }}"
-  - name: STACKDRIVER_MAX_NUMBER_OF_ANNOTATIONS
+  - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ANNOTATIONS
     value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAnnotations }}"
-  - name: STACKDRIVER_MAX_NUMBER_OF_ATTRIBUTES
+  - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ATTRIBUTES
     value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAttributes }}"
-  - name: STACKDRIVER_MAX_NUMBER_OF_MESSAGE_EVENTS
+  - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS
     value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfMessageEvents }}"
   {{- end }}
   imagePullPolicy: {{ .Values.global.imagePullPolicy }}

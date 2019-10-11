@@ -1072,21 +1072,6 @@ func ValidateDatadogCollector(d *meshconfig.Tracing_Datadog) error {
 	return ValidateProxyAddress(strings.Replace(d.GetAddress(), "$(HOST_IP)", "127.0.0.1", 1))
 }
 
-// ValidateStackdriverCollector validates the configuration for sending envoy spans to Stackdriver
-func ValidateStackdriverCollector(st *meshconfig.Tracing_Stackdriver) error {
-	var errs error
-	if st.GetMaxNumberOfAnnotations() == nil {
-		errs = multierror.Append(errs, errors.New("maxNumberOfAnnotations is required"))
-	}
-	if st.GetMaxNumberOfAttributes() == nil {
-		errs = multierror.Append(errs, errors.New("maxNumberOfAttributes is required"))
-	}
-	if st.GetMaxNumberOfMessageEvents() == nil {
-		errs = multierror.Append(errs, errors.New("maxNumberOfMessageEvents is required"))
-	}
-	return errs
-}
-
 // ValidateConnectTimeout validates the envoy conncection timeout
 func ValidateConnectTimeout(timeout *types.Duration) error {
 	if err := ValidateDuration(timeout); err != nil {
@@ -1175,12 +1160,6 @@ func ValidateProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
 	if tracer := config.GetTracing().GetDatadog(); tracer != nil {
 		if err := ValidateDatadogCollector(tracer); err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, "invalid datadog config:"))
-		}
-	}
-
-	if tracer := config.GetTracing().GetStackdriver(); tracer != nil {
-		if err := ValidateStackdriverCollector(tracer); err != nil {
-			errs = multierror.Append(errs, multierror.Prefix(err, "invalid stackdriver config:"))
 		}
 	}
 
