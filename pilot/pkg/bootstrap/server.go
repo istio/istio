@@ -798,7 +798,8 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 
 func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCache, error) {
 	kubeCfgFile := s.getKubeCfgFile(args)
-	configClient, err := controller.NewClient(kubeCfgFile, "", schemas.Istio, args.Config.ControllerOptions.DomainSuffix)
+	configClient, err := controller.NewClient(kubeCfgFile, "", schemas.Istio,
+		args.Config.ControllerOptions.DomainSuffix, args.Config.buildLedger())
 	if err != nil {
 		return nil, multierror.Prefix(err, "failed to open a config client.")
 	}
