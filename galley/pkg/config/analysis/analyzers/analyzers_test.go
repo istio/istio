@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"istio.io/istio/galley/pkg/config/analysis"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/annotations"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/auth"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/deprecation"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
@@ -160,6 +161,18 @@ var testGrid = []testCase{
 		analyzer:   &virtualservice.GatewayAnalyzer{},
 		expected: []message{
 			{msg.ReferencedResourceNotFound, "VirtualService/httpbin-bogus"},
+		},
+	},
+	{
+		name: "misannoted",
+		inputFiles: []string{
+			"testdata/misannotated.yaml",
+		},
+		analyzer: &annotations.K8sAnalyzer{},
+		expected: []message{
+			{msg.UnknownAnnotation, "Service/httpbin"},
+			{msg.MisplacedAnnotation, "Service/details"},
+			{msg.MisplacedAnnotation, "Pod/grafana-test"},
 		},
 	},
 }
