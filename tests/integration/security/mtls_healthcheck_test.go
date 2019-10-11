@@ -24,7 +24,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 
-	// "istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -38,7 +37,7 @@ func TestMtlsHealthCheck(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			ns := namespace.ClaimOrFail(t, ctx, "mtls-healthcheck")
+			ns := namespace.ClaimOrFail(t, ctx, "healthcheck")
 			runHealthCheckDeployment(t, ctx, ns, "healthcheck", true, true)
 			runHealthCheckDeployment(t, ctx, ns, "healthcheck-fail", false, false)
 		})
@@ -73,7 +72,7 @@ spec:
 			ServicePort:  8080,
 			InstancePort: 8080,
 		}},
-		ReadinessTimeout: time.Second * 30,
+		ReadinessTimeout: time.Second * 60,
 	}
 	cfg.Annotations = map[echo.Annotation]*echo.AnnotationValue{
 		echo.SidecarRewriteAppHTTPProbers: &echo.AnnotationValue{Value: strconv.FormatBool(rewrite)},
