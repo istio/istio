@@ -14,7 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-for from in "foo" "bar" "legacy"; do
-    kubectl exec "$(kubectl get pod -l app=sleep -n ${from} -o jsonpath={.items..metadata.name})" -c sleep -n "${from}" -- curl http://httpbin.foo:8000/ip -s -o /dev/null -w "sleep.${from} to httpbin.foo: %{http_code}\n";
-done
-
+kubectl create ns foo
+kubectl apply -f <(istioctl kube-inject -f @samples/httpbin/httpbin.yaml@) -n foo
+kubectl apply -f <(istioctl kube-inject -f @samples/sleep/sleep.yaml@) -n foo
+kubectl create ns bar
+kubectl apply -f <(istioctl kube-inject -f @samples/httpbin/httpbin.yaml@) -n bar
+kubectl apply -f <(istioctl kube-inject -f @samples/sleep/sleep.yaml@) -n bar
+kubectl create ns legacy
+kubectl apply -f @samples/sleep/sleep.yaml@ -n legacy
