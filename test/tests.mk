@@ -172,11 +172,10 @@ run-base-reachability: ${GOBIN}/istioctl install-base run-reachability-test
 run-reachability-test:
 	mkdir -p ${GOPATH}/out/logs ${GOPATH}/out/tmp
 	(set -o pipefail; cd ${GOPATH}/src/istio.io/istio; \
-		go test ./tests/integration/security/reachability/... \
+		go test -v -run TestReachability ./tests/integration/security \
 			-istio.test.env kube \
 			-istio.test.kube.config=${KUBECONFIG} \
 			-istio.test.nocleanup \
 			-istio.test.kube.deploy=0 \
 			-istio.test.kube.configNamespace=${ISTIO_CONTROL_NS} \
-			-istio.test.kube.customSidecarInjectorNamespace=${CUSTOM_SIDECAR_INJECTOR_NAMESPACE} \
-			-v)
+			-istio.test.kube.customSidecarInjectorNamespace=${CUSTOM_SIDECAR_INJECTOR_NAMESPACE})
