@@ -14,8 +14,6 @@
 
 package sdsingress
 
-import ()
-
 var (
 	credNames = []string{"bookinfo-credential-1", "bookinfo-credential-2", "bookinfo-credential-3",
 		"bookinfo-credential-4", "bookinfo-credential-5"}
