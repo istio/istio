@@ -15,19 +15,13 @@
 package main
 
 import (
-	"context"
 	"fmt"
-
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
+	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	drm "github.com/openshift/cluster-network-operator/pkg/util/k8s"
-	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
-	"github.com/operator-framework/operator-sdk/pkg/leader"
-	"github.com/operator-framework/operator-sdk/pkg/metrics"
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -40,13 +34,10 @@ import (
 	"istio.io/pkg/log"
 )
 
-// Change below variables to serve metrics on different host or port.
-var (
-	metricsHost              = "0.0.0.0"
-	metricsPort        int32 = 8383
-	metricsServicePort       = []v1.ServicePort{
-		{Port: metricsPort, Name: metrics.OperatorPortName, Protocol: v1.ProtocolTCP, TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: metricsPort}},
-	}
+// Should match deploy/service.yaml
+const (
+	metricsHost       = "0.0.0.0"
+	metricsPort int32 = 8383
 )
 
 func serverCmd() *cobra.Command {
@@ -80,8 +71,17 @@ func serverCmd() *cobra.Command {
 	return serverCmd
 }
 
+// getWatchNamespace returns the namespace the operator should be watching for changes
+func getWatchNamespace() (string, error) {
+	ns, found := os.LookupEnv("WATCH_NAMESPACE")
+	if !found {
+		return "", fmt.Errorf("WATCH_NAMESPACE must be set")
+	}
+	return ns, nil
+}
+
 func run() {
-	namespace, err := k8sutil.GetWatchNamespace()
+	namespace, err := getWatchNamespace()
 	if err != nil {
 		log.Fatalf("Failed to get watch namespace: %v", err)
 	}
@@ -92,20 +92,15 @@ func run() {
 		log.Fatalf("Could not get apiserver config: %v", err)
 	}
 
-	ctx := context.TODO()
-
-	// Become the leader before proceeding
-	err = leader.Become(ctx, "istio-operator-lock")
-	if err != nil {
-		log.Fatalf("Could not become the leader: %v", err)
-	}
-
 	// Create a new Cmd to provide shared dependencies and start components
 	mgr, err := manager.New(cfg, manager.Options{
 		Namespace:          namespace,
 		MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 		// Workaround for https://github.com/kubernetes-sigs/controller-runtime/issues/321
-		MapperProvider: drm.NewDynamicRESTMapper,
+		MapperProvider:          drm.NewDynamicRESTMapper,
+		LeaderElection:          true,
+		LeaderElectionNamespace: namespace,
+		LeaderElectionID:        "istio-operator-lock",
 	})
 	if err != nil {
 		log.Fatalf("Could not create a controller manager: %v", err)
@@ -121,12 +116,6 @@ func run() {
 	// Setup all Controllers
 	if err := controller.AddToManager(mgr); err != nil {
 		log.Fatalf("Could not add all controllers to operator manager: %v", err)
-	}
-
-	// Create Service object to expose the metrics port.
-	_, err = metrics.CreateMetricsService(ctx, cfg, metricsServicePort)
-	if err != nil {
-		log.Errorf("Could not create a service to expose the metrics port: %v", err.Error())
 	}
 
 	log.Info("Starting the Cmd.")

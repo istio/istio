@@ -6,3 +6,4 @@ resources:
 - clusterrole_binding.yaml
 - service_account.yaml
 - operator.yaml
+- service.yaml

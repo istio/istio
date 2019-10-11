@@ -18,11 +18,14 @@ TAG ?= master-latest-daily
 pwd := $(shell pwd)
 
 # make targets
-.PHONY: lint test_with_coverage mandiff build fmt vfsgen update-charts update-goldens
+.PHONY: lint lint-dependencies test_with_coverage mandiff build fmt vfsgen update-charts update-goldens
 
 build: mesh
 
-lint: lint-copyright-banner lint-go lint-python lint-scripts lint-yaml lint-dockerfiles lint-licenses
+lint-dependencies:
+	@! go mod graph | grep k8s.io/kubernetes || echo "depenency on k8s.io/kubernetes not allowed" || exit 2
+
+lint: lint-copyright-banner lint-dependencies lint-go lint-python lint-scripts lint-yaml lint-dockerfiles lint-licenses
 
 test:
 	@go test -race ./...
