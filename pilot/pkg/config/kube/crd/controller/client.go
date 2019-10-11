@@ -131,7 +131,7 @@ func (rc *restClient) updateRESTConfig(cfg *rest.Config) (config *rest.Config, e
 			return nil
 		})
 	err = schemeBuilder.AddToScheme(types)
-	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: serializer.NewCodecFactory(types)}
+	config.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: serializer.NewCodecFactory(types)}
 
 	return
 }
