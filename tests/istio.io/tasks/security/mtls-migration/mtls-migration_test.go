@@ -14,6 +14,7 @@ package tests
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -24,17 +25,33 @@ import (
 )
 
 var (
-	ist istio.Instance
+	ist    istio.Instance
+	spaces = regexp.MustCompile(`\s+`)
 )
 
 func TestMain(m *testing.M) {
 	framework.NewSuite("mtls-migration", m).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
+		SetupOnEnv(environment.Kube, istio.Setup(&ist, setupConfig)).
 		RequireEnvironment(environment.Kube).
 		Run()
 }
 
-func validateInitialPolicies(output string) error {
+//grafana is disabled in the default test framework config. Enable it.
+func setupConfig(cfg *istio.Config) {
+	if cfg == nil {
+		return
+	}
+
+	cfg.Values["grafana.enabled"] = "true"
+}
+
+func getLineParts(line string) []string {
+	//remove any extra spaces from the line before splitting
+	line = spaces.ReplaceAllString(line, " ")
+	return strings.Split(line, " ")
+}
+
+func validateInitialPolicies(output string, err error) error {
 	//verify that only the following exist:
 	// NAMESPACE      NAME                          AGE
 	// istio-system   grafana-ports-mtls-disabled   3m
@@ -44,8 +61,8 @@ func validateInitialPolicies(output string) error {
 		return fmt.Errorf("expected output to be 2 lines; actual: %d", len(lines))
 	}
 
-	parts := strings.Split(lines[1], " ")
-	if len(parts) != 2 {
+	parts := getLineParts(lines[1])
+	if len(parts) != 3 {
 		return fmt.Errorf("expected output to follow: namespace, name, age; actual was: %s", lines[1])
 	}
 
@@ -60,21 +77,20 @@ func validateInitialPolicies(output string) error {
 	return nil
 }
 
-func validateInitialDestinationRules(output string) error {
+func validateInitialDestinationRules(output string, err error) error {
 	//verify that only the following exists:
-	//NAMESPACE      NAME              AGE
-	//istio-system   istio-policy      25m
-	//istio-system   istio-telemetry   25m
+	//NAMESPACE      NAME             HOST                                            AGE
+	//istio-system   istio-policy    istio-policy.istio-system.svc.cluster.local      25m
+	//istio-system   istio-telemetry istio-telemetry.istio-system.svc.cluster.local    25m
 
 	lines := strings.Split(output, "\n")
 	if len(lines) < 3 {
 		return fmt.Errorf("expected output to be 3 lines; actual: %d", len(lines))
 	}
 
-	line := lines[1]
-	parts := strings.Split(line, " ")
-	if len(parts) != 2 {
-		return fmt.Errorf("expected output to follow namespace, name, age; actual was: %s", line)
+	parts := getLineParts(lines[1])
+	if len(parts) != 4 {
+		return fmt.Errorf("expected istio-policy output to follow namespace, name, host, age; actual was: %s", lines[1])
 	}
 
 	if parts[0] != "istio-system" {
@@ -85,14 +101,16 @@ func validateInitialDestinationRules(output string) error {
 		return fmt.Errorf("expected name to be istio-policy; actual: %s", parts[1])
 	}
 
-	line = lines[2]
-	parts = strings.Split(line, " ")
+	parts = getLineParts(lines[2])
+	if len(parts) != 4 {
+		return fmt.Errorf("expected istio-telemetry output to follow namespace, name, host, age; actual was: %s", lines[2])
+	}
 	if parts[0] != "istio-system" {
 		return fmt.Errorf("expected namespace to be istio-system; actual: %s", parts[0])
 	}
 
-	if parts[1] != "istio-policy" {
-		return fmt.Errorf("expected name to be istio-telemetry; actual: %s", parts[2])
+	if parts[1] != "istio-telemetry" {
+		return fmt.Errorf("expected name to be istio-telemetry; actual: %s", parts[1])
 	}
 
 	return nil
@@ -108,8 +126,8 @@ func TestMTLS(t *testing.T) {
 		WaitForPods(examples.NewMultiPodFetch("bar")).
 		WaitForPods(examples.NewMultiPodFetch("legacy")).
 		RunScript("curl-foo-bar-legacy.sh", examples.TextOutput, examples.GetCurlVerifier([]string{"200", "200", "200"})).
-		//RunScript("verify-initial-policies.sh", examples.TextOutput, validateInitialPolicies).
-		//RunScript("verify-initial-destinationrules.sh", examples.TextOutput, validateInitialDestinationRules).
+		RunScript("verify-initial-policies.sh", examples.TextOutput, validateInitialPolicies).
+		RunScript("verify-initial-destinationrules.sh", examples.TextOutput, validateInitialDestinationRules).
 		RunScript("configure-mtls-destinationrule.sh", examples.TextOutput, nil).
 		RunScript("curl-foo-bar-legacy_post_dr.sh", examples.TextOutput, examples.GetCurlVerifier([]string{"200", "200", "200"})).
 		RunScript("httpbin-foo-mtls-only.sh", examples.TextOutput, nil).
