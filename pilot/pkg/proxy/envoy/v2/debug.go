@@ -222,10 +222,10 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 		adsClientsMutex.RLock()
 		for _, con := range adsClients {
 			con.mu.RLock()
-			if con.modelNode != nil {
+			if con.node != nil {
 				// TODO: handle skipped nodes
 				results = append(results, SyncedVersions{
-					ProxyID:         con.modelNode.ID,
+					ProxyID:         con.node.ID,
 					ClusterVersion:  s.getResourceVersion(con.ClusterNonceAcked, resourceID, knownVersions),
 					ListenerVersion: s.getResourceVersion(con.ListenerNonceAcked, resourceID, knownVersions),
 					RouteVersion:    s.getResourceVersion(con.RouteNonceAcked, resourceID, knownVersions),
