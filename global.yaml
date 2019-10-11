@@ -448,6 +448,10 @@ global:
   #
   meshNetworks: {}
 
+  # Network defines the network this cluster belong to. This name
+  # corresponds to the networks in the map of mesh networks.
+  network: ""
+
   # Specifies the global locality load balancing settings.
   # Locality-weighted load balancing allows administrators to control the distribution of traffic to
   # endpoints based on the localities of where the traffic originates and where it will terminate.
