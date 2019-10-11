@@ -35,40 +35,36 @@ test_with_coverage:
 	@curl -s https://codecov.io/bash | bash -s -- -c -F aFlag -f coverage.txt
 
 mandiff: update-charts
-	@PATH=${PATH}:${GOPATH}/bin scripts/run_mandiff.sh
+	@scripts/run_mandiff.sh
 
-fmt: format-go
-	go mod tidy
+fmt: format-go tidy
+
+gen: generate-values generate-types generate-vfs
+
+gen-check: clean gen check-clean-repo tidy
+
+clean: clean-values clean-types clean-vfs clean-charts
+
+tidy:
+	@go mod tidy
 
 update-charts: installer.sha
 	@scripts/run_update_charts.sh `cat installer.sha`
 
 clean-charts:
 	@rm -fr data/charts
-# make target dependencies
-vfsgen: data/ update-charts
-	go generate ./...
+
+generate-vfs: update-charts
+	@go generate ./...
 
 clean-vfs:
 	@rm -fr pkg/vfs/assets.gen.go
 
-gen: generate-values generate-types vfsgen
-generate: gen
-
-tidy:
-	@go mod tidy
-
-gen-check: clean gen tidy check-clean-repo
-
-clean: clean-values clean-types clean-vfs clean-charts
-
-default: mesh
-
-mesh: vfsgen
+mesh: generate-vfs
 	go build -o $(GOBIN)/mesh ./cmd/mesh.go
 	GOARCH=$(TARGET_ARCH) GOOS=$(TARGET_OS) go build -o $(TARGET_OUT)/mesh ./cmd/mesh.go
 
-controller: vfsgen
+controller: generate-vfs
 	go build -o $(GOBIN)/istio-operator ./cmd/manager
 	GOARCH=$(TARGET_ARCH) GOOS=$(TARGET_OS) go build -o $(TARGET_OUT)/istio-operator ./cmd/manager
 
@@ -108,6 +104,7 @@ protoc_gen_docs_plugin := --docs_out=warnings=true,mode=html_fragment_with_front
 protoc_gen_k8s_support_plugins := --jsonshim_out=$(gogo_mapping):$(out_path) --deepcopy_out=$(gogo_mapping):$(out_path)
 
 ########################
+
 types_v1alpha2_path := pkg/apis/istio/v1alpha2
 types_v1alpha2_protos := $(wildcard $(types_v1alpha2_path)/*.proto)
 types_v1alpha2_pb_gos := $(types_v1alpha2_protos:.proto=.pb.go)
@@ -139,7 +136,7 @@ $(values_v1alpha1_pb_gos) $(values_v1alpha1_pb_docs) $(values_v1alpha1_pb_python
 	@$(protoc) $(go_plugin) $(protoc_gen_k8s_support_plugins) $(protoc_gen_docs_plugin)$(values_v1alpha1_path) $(protoc_gen_python_plugin) $^
 	@cp -r ${TMPDIR}/pkg/* pkg/
 	@sed -i 's|github.com/gogo/protobuf/protobuf/google/protobuf|github.com/gogo/protobuf/types|g' $(values_v1alpha1_path)/values_types.pb.go
-	@GOARCH=amd64 GOOS=linux go run $(repo_dir)/pkg/apis/istio/fixup_structs/main.go -f $(values_v1alpha1_path)/values_types.pb.go
+	@go run $(repo_dir)/pkg/apis/istio/fixup_structs/main.go -f $(values_v1alpha1_path)/values_types.pb.go
 
 generate-values: $(values_v1alpha1_pb_gos) $(values_v1alpha1_pb_docs) $(values_v1alpha1_pb_pythons)
 
