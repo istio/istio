@@ -55,7 +55,7 @@ func ToYAML(val interface{}) string {
 
 // ToYAMLWithJSONPB returns a YAML string representation of val (using jsonpb), or the error string if an error occurs.
 func ToYAMLWithJSONPB(val proto.Message) string {
-	m := jsonpb.Marshaler{}
+	m := jsonpb.Marshaler{EnumsAsInts: true}
 	js, err := m.MarshalToString(val)
 	if err != nil {
 		return err.Error()
@@ -69,7 +69,7 @@ func ToYAMLWithJSONPB(val proto.Message) string {
 
 // MarshalWithJSONPB returns a YAML string representation of val (using jsonpb).
 func MarshalWithJSONPB(val proto.Message) (string, error) {
-	m := jsonpb.Marshaler{}
+	m := jsonpb.Marshaler{EnumsAsInts: true}
 	js, err := m.MarshalToString(val)
 	if err != nil {
 		return "", err
