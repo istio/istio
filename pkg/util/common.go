@@ -19,12 +19,19 @@ import (
 	"strings"
 
 	"github.com/ghodss/yaml"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"istio.io/pkg/log"
 )
 
 var (
 	scope = log.RegisterScope("util", "util", 0)
+	// IstioOperatorGVK is GVK for IstioControlPlane
+	IstioOperatorGVK = schema.GroupVersionKind{
+		Version: "v1alpha2",
+		Group:   "install.istio.io",
+		Kind:    "IstioControlPlane",
+	}
 )
 
 // Tree is a tree.

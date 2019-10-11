@@ -21,6 +21,7 @@ import (
 
 	"istio.io/operator/pkg/apis/istio/v1alpha2"
 	"istio.io/operator/pkg/helmreconciler"
+	"istio.io/operator/pkg/util"
 )
 
 const (
@@ -104,14 +105,13 @@ var (
 
 // NewPruningDetails creates a new PruningDetails object specific to the instance.
 func NewIstioPruningDetails(instance *v1alpha2.IstioControlPlane) helmreconciler.PruningDetails {
-	gvk := instance.GetObjectKind().GroupVersionKind()
 	name := instance.GetName()
 	generation := strconv.FormatInt(instance.GetGeneration(), 10)
 	return &helmreconciler.SimplePruningDetails{
 		OwnerLabels: map[string]string{
 			OwnerNameKey:  name,
-			OwnerGroupKey: gvk.Group,
-			OwnerKindKey:  gvk.Kind,
+			OwnerGroupKey: util.IstioOperatorGVK.Group,
+			OwnerKindKey:  util.IstioOperatorGVK.Kind,
 		},
 		OwnerAnnotations: map[string]string{
 			OwnerGenerationKey: generation,
