@@ -610,19 +610,91 @@ func TestValidateProxyConfig(t *testing.T) {
 			isValid: true,
 		},
 		{
-			name: "datadog with invalid address",
+			name: "stackdriver with no max annotations",
 			in: modify(valid,
 				func(c *meshconfig.ProxyConfig) {
 					c.Tracing = &meshconfig.Tracing{
-						Tracer: &meshconfig.Tracing_Datadog_{
-							Datadog: &meshconfig.Tracing_Datadog{
-								Address: "address-missing-port-number",
+						Tracer: &meshconfig.Tracing_Stackdriver_{
+							Stackdriver: &meshconfig.Tracing_Stackdriver{
+								Debug: false,
+								MaxNumberOfMessageEvents: &types.Int64Value{
+									Value: 10,
+								},
+								MaxNumberOfAttributes: &types.Int64Value{
+									Value: 100,
+								},
 							},
 						},
 					}
 				},
 			),
 			isValid: false,
+		},
+		{
+			name: "stackdriver with no max attributes",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.Tracing = &meshconfig.Tracing{
+						Tracer: &meshconfig.Tracing_Stackdriver_{
+							Stackdriver: &meshconfig.Tracing_Stackdriver{
+								Debug: false,
+								MaxNumberOfMessageEvents: &types.Int64Value{
+									Value: 10,
+								},
+								MaxNumberOfAnnotations: &types.Int64Value{
+									Value: 10,
+								},
+							},
+						},
+					}
+				},
+			),
+			isValid: false,
+		},
+		{
+			name: "stackdriver with no max span events",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.Tracing = &meshconfig.Tracing{
+						Tracer: &meshconfig.Tracing_Stackdriver_{
+							Stackdriver: &meshconfig.Tracing_Stackdriver{
+								Debug: false,
+								MaxNumberOfAttributes: &types.Int64Value{
+									Value: 10,
+								},
+								MaxNumberOfAnnotations: &types.Int64Value{
+									Value: 10,
+								},
+							},
+						},
+					}
+				},
+			),
+			isValid: false,
+		},
+		{
+			name: "stackdriver with valid values",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.Tracing = &meshconfig.Tracing{
+						Tracer: &meshconfig.Tracing_Stackdriver_{
+							Stackdriver: &meshconfig.Tracing_Stackdriver{
+								Debug: true,
+								MaxNumberOfAttributes: &types.Int64Value{
+									Value: 10,
+								},
+								MaxNumberOfAnnotations: &types.Int64Value{
+									Value: 10,
+								},
+								MaxNumberOfMessageEvents: &types.Int64Value{
+									Value: 10,
+								},
+							},
+						},
+					}
+				},
+			),
+			isValid: true,
 		},
 	}
 	for _, c := range cases {
