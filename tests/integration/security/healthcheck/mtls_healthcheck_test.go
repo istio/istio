@@ -75,7 +75,7 @@ spec:
 			ServicePort:  8080,
 			InstancePort: 8080,
 		}},
-		ReadinessTimeout: time.Second * 60,
+		ReadinessTimeout: time.Second * 30,
 	}
 	cfg.Annotations = map[echo.Annotation]*echo.AnnotationValue{
 		echo.SidecarRewriteAppHTTPProbers: &echo.AnnotationValue{Value: strconv.FormatBool(rewrite)},
