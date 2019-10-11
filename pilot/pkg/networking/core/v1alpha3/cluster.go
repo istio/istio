@@ -198,10 +198,11 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 
 			setUpstreamProtocol(proxy, defaultCluster, port, model.TrafficDirectionOutbound)
 
-			serviceMTLSMode := authn_v1alpha1_applier.MTLSUnknown
+			serviceMTLSMode := authn_model.MTLSUnknown
 			if !service.MeshExternal {
 				// Only need the authentication MTLS mode when service is not external.
-				serviceMTLSMode = authn_v1alpha1_applier.GetMutualTLSMode(push.AuthenticationPolicyForWorkload(service, port))
+				policy, _ := push.AuthenticationPolicyForWorkload(service, port)
+				serviceMTLSMode = authn_v1alpha1_applier.GetMutualTLSMode(policy)
 			}
 			clusters = append(clusters, defaultCluster)
 			destinationRule := castDestinationRuleOrDefault(destRule)
@@ -324,7 +325,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 					clusterMode:     SniDnatClusterMode,
 					direction:       model.TrafficDirectionOutbound,
 					proxy:           proxy,
-					serviceMTLSMode: authn_v1alpha1_applier.MTLSUnknown,
+					serviceMTLSMode: authn_model.MTLSUnknown,
 				}
 				applyTrafficPolicy(opts, proxy)
 				defaultCluster.Metadata = util.BuildConfigInfoMetadata(destRule.ConfigMeta)
@@ -346,7 +347,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 						clusterMode:     SniDnatClusterMode,
 						direction:       model.TrafficDirectionOutbound,
 						proxy:           proxy,
-						serviceMTLSMode: authn_v1alpha1_applier.MTLSUnknown,
+						serviceMTLSMode: authn_model.MTLSUnknown,
 					}
 					applyTrafficPolicy(opts, proxy)
 
@@ -358,7 +359,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 						clusterMode:     SniDnatClusterMode,
 						direction:       model.TrafficDirectionOutbound,
 						proxy:           proxy,
-						serviceMTLSMode: authn_v1alpha1_applier.MTLSUnknown,
+						serviceMTLSMode: authn_model.MTLSUnknown,
 					}
 					applyTrafficPolicy(opts, proxy)
 
@@ -713,10 +714,10 @@ func conditionallyConvertToIstioMtls(
 	serviceAccounts []string,
 	sni string,
 	proxy *model.Proxy,
-	serviceMTLSMode authn_v1alpha1_applier.MutualTLSMode,
+	serviceMTLSMode authn_model.MutualTLSMode,
 ) *networking.TLSSettings {
 	if tls == nil {
-		if serviceMTLSMode != authn_v1alpha1_applier.MTLSStrict {
+		if serviceMTLSMode != authn_model.MTLSStrict {
 			// Destination service is not in strict-mTLS mode, do nothing.
 			return nil
 		}
@@ -805,7 +806,7 @@ type buildClusterOpts struct {
 	clusterMode     ClusterMode
 	direction       model.TrafficDirection
 	proxy           *model.Proxy
-	serviceMTLSMode authn_v1alpha1_applier.MutualTLSMode
+	serviceMTLSMode authn_model.MutualTLSMode
 }
 
 func applyTrafficPolicy(opts buildClusterOpts, proxy *model.Proxy) {
@@ -1234,7 +1235,7 @@ func buildDefaultCluster(env *model.Environment, name string, discoveryType apiv
 		clusterMode:     DefaultClusterMode,
 		direction:       direction,
 		proxy:           proxy,
-		serviceMTLSMode: authn_v1alpha1_applier.MTLSUnknown,
+		serviceMTLSMode: authn_model.MTLSUnknown,
 	}
 	applyTrafficPolicy(opts, proxy)
 	return cluster

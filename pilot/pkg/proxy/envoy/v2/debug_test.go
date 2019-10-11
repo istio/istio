@@ -28,7 +28,7 @@ import (
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
-	authn_alpha1 "istio.io/istio/pilot/pkg/security/authn/v1alpha1"
+	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/tests/util"
 )
@@ -393,25 +393,25 @@ func TestEvaluateTLSState(t *testing.T) {
 	testCases := []struct {
 		name     string
 		client   *networking.TLSSettings
-		server   authn_alpha1.MutualTLSMode
+		server   authn_model.MutualTLSMode
 		expected string
 	}{
 		{
 			name:     "Auto with mTLS disable",
 			client:   nil,
-			server:   authn_alpha1.MTLSDisable,
+			server:   authn_model.MTLSDisable,
 			expected: "OK",
 		},
 		{
 			name:     "Auto with mTLS permissive",
 			client:   nil,
-			server:   authn_alpha1.MTLSPermissive,
+			server:   authn_model.MTLSPermissive,
 			expected: "OK",
 		},
 		{
 			name:     "Auto with mTLS STRICT",
 			client:   nil,
-			server:   authn_alpha1.MTLSStrict,
+			server:   authn_model.MTLSStrict,
 			expected: "OK",
 		},
 		{
@@ -419,7 +419,7 @@ func TestEvaluateTLSState(t *testing.T) {
 			client: &networking.TLSSettings{
 				Mode: networking.TLSSettings_ISTIO_MUTUAL,
 			},
-			server:   authn_alpha1.MTLSStrict,
+			server:   authn_model.MTLSStrict,
 			expected: "OK",
 		},
 		{
@@ -427,7 +427,7 @@ func TestEvaluateTLSState(t *testing.T) {
 			client: &networking.TLSSettings{
 				Mode: networking.TLSSettings_DISABLE,
 			},
-			server:   authn_alpha1.MTLSDisable,
+			server:   authn_model.MTLSDisable,
 			expected: "OK",
 		},
 		{
@@ -435,7 +435,7 @@ func TestEvaluateTLSState(t *testing.T) {
 			client: &networking.TLSSettings{
 				Mode: networking.TLSSettings_DISABLE,
 			},
-			server:   authn_alpha1.MTLSPermissive,
+			server:   authn_model.MTLSPermissive,
 			expected: "OK",
 		},
 		{
@@ -443,7 +443,7 @@ func TestEvaluateTLSState(t *testing.T) {
 			client: &networking.TLSSettings{
 				Mode: networking.TLSSettings_ISTIO_MUTUAL,
 			},
-			server:   authn_alpha1.MTLSPermissive,
+			server:   authn_model.MTLSPermissive,
 			expected: "OK",
 		},
 		{
@@ -451,7 +451,7 @@ func TestEvaluateTLSState(t *testing.T) {
 			client: &networking.TLSSettings{
 				Mode: networking.TLSSettings_DISABLE,
 			},
-			server:   authn_alpha1.MTLSStrict,
+			server:   authn_model.MTLSStrict,
 			expected: "CONFLICT",
 		},
 		{
@@ -459,7 +459,7 @@ func TestEvaluateTLSState(t *testing.T) {
 			client: &networking.TLSSettings{
 				Mode: networking.TLSSettings_MUTUAL,
 			},
-			server:   authn_alpha1.MTLSStrict,
+			server:   authn_model.MTLSStrict,
 			expected: "CONFLICT",
 		},
 		{
@@ -467,7 +467,7 @@ func TestEvaluateTLSState(t *testing.T) {
 			client: &networking.TLSSettings{
 				Mode: networking.TLSSettings_SIMPLE,
 			},
-			server:   authn_alpha1.MTLSStrict,
+			server:   authn_model.MTLSStrict,
 			expected: "CONFLICT",
 		},
 		{
@@ -475,7 +475,7 @@ func TestEvaluateTLSState(t *testing.T) {
 			client: &networking.TLSSettings{
 				Mode: networking.TLSSettings_SIMPLE,
 			},
-			server:   authn_alpha1.MTLSPermissive,
+			server:   authn_model.MTLSPermissive,
 			expected: "CONFLICT",
 		},
 		{
@@ -483,7 +483,7 @@ func TestEvaluateTLSState(t *testing.T) {
 			client: &networking.TLSSettings{
 				Mode: networking.TLSSettings_SIMPLE,
 			},
-			server:   authn_alpha1.MTLSPermissive,
+			server:   authn_model.MTLSPermissive,
 			expected: "CONFLICT",
 		},
 	}
@@ -498,15 +498,21 @@ func TestEvaluateTLSState(t *testing.T) {
 }
 
 func TestAnalyzeMTLSSettings(t *testing.T) {
+	fakeConfigMeta := model.ConfigMeta{
+		Name:      "foo",
+		Namespace: "bar",
+	}
 	testCases := []struct {
 		name        string
 		authnPolicy *authn.Policy
+		authnMeta   *model.ConfigMeta
 		destConfig  *model.Config
 		expected    []*v2.AuthenticationDebug
 	}{
 		{
 			name:        "No policy",
 			authnPolicy: nil,
+			authnMeta:   nil,
 			destConfig:  nil,
 			expected: []*v2.AuthenticationDebug{
 				{
@@ -533,12 +539,13 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 					},
 				},
 			},
+			authnMeta:  &fakeConfigMeta,
 			destConfig: nil,
 			expected: []*v2.AuthenticationDebug{
 				{
 					Host:                     "foo.default",
 					Port:                     8080,
-					AuthenticationPolicyName: "???",
+					AuthenticationPolicyName: "bar/foo",
 					DestinationRuleName:      "-",
 					ServerProtocol:           "STRICT",
 					ClientProtocol:           "-",
@@ -559,6 +566,7 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 					},
 				},
 			},
+			authnMeta: &fakeConfigMeta,
 			destConfig: &model.Config{
 				ConfigMeta: model.ConfigMeta{
 					Name:      "some-rule",
@@ -572,8 +580,8 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 				{
 					Host:                     "foo.default",
 					Port:                     8080,
-					AuthenticationPolicyName: "???",
-					DestinationRuleName:      "some-rule/default",
+					AuthenticationPolicyName: "bar/foo",
+					DestinationRuleName:      "default/some-rule",
 					ServerProtocol:           "STRICT",
 					ClientProtocol:           "-",
 					TLSConflictStatus:        "OK",
@@ -593,6 +601,7 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 					},
 				},
 			},
+			authnMeta: &fakeConfigMeta,
 			destConfig: &model.Config{
 				ConfigMeta: model.ConfigMeta{
 					Name:      "some-rule",
@@ -610,8 +619,8 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 				{
 					Host:                     "foo.default",
 					Port:                     8080,
-					AuthenticationPolicyName: "???",
-					DestinationRuleName:      "some-rule/default",
+					AuthenticationPolicyName: "bar/foo",
+					DestinationRuleName:      "default/some-rule",
 					ServerProtocol:           "STRICT",
 					ClientProtocol:           "DISABLE",
 					TLSConflictStatus:        "CONFLICT",
@@ -631,6 +640,7 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 					},
 				},
 			},
+			authnMeta: &fakeConfigMeta,
 			destConfig: &model.Config{
 				ConfigMeta: model.ConfigMeta{
 					Name:      "some-rule",
@@ -658,8 +668,8 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 				{
 					Host:                     "foo.default",
 					Port:                     8080,
-					AuthenticationPolicyName: "???",
-					DestinationRuleName:      "some-rule/default",
+					AuthenticationPolicyName: "bar/foo",
+					DestinationRuleName:      "default/some-rule",
 					ServerProtocol:           "STRICT",
 					ClientProtocol:           "ISTIO_MUTUAL",
 					TLSConflictStatus:        "OK",
@@ -679,6 +689,7 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 					},
 				},
 			},
+			authnMeta: &fakeConfigMeta,
 			destConfig: &model.Config{
 				ConfigMeta: model.ConfigMeta{
 					Name:      "some-rule",
@@ -724,8 +735,8 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 				{
 					Host:                     "foo.default",
 					Port:                     8080,
-					AuthenticationPolicyName: "???",
-					DestinationRuleName:      "some-rule/default",
+					AuthenticationPolicyName: "bar/foo",
+					DestinationRuleName:      "default/some-rule",
 					ServerProtocol:           "STRICT",
 					ClientProtocol:           "ISTIO_MUTUAL",
 					TLSConflictStatus:        "OK",
@@ -733,8 +744,8 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 				{
 					Host:                     "foo.default|foobar",
 					Port:                     8080,
-					AuthenticationPolicyName: "???",
-					DestinationRuleName:      "some-rule/default",
+					AuthenticationPolicyName: "bar/foo",
+					DestinationRuleName:      "default/some-rule",
 					ServerProtocol:           "STRICT",
 					ClientProtocol:           "SIMPLE",
 					TLSConflictStatus:        "CONFLICT",
@@ -748,7 +759,7 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 			port := model.Port{
 				Port: 8080,
 			}
-			if got := v2.AnalyzeMTLSSettings(host.Name("foo.default"), &port, tc.authnPolicy, tc.destConfig); !reflect.DeepEqual(got, tc.expected) {
+			if got := v2.AnalyzeMTLSSettings(host.Name("foo.default"), &port, tc.authnPolicy, tc.authnMeta, tc.destConfig); !reflect.DeepEqual(got, tc.expected) {
 				t.Errorf("EvaluateTLSState expected to be %+v, got %+v", tc.expected, got)
 			}
 		})

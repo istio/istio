@@ -21,14 +21,17 @@ import (
 	"net/http"
 	"sort"
 
+	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/ptypes/any"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/model"
 	networking_core "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
+	"istio.io/istio/pilot/pkg/networking/util"
 	authn_alpha1 "istio.io/istio/pilot/pkg/security/authn/v1alpha1"
+	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pkg/config/host"
@@ -38,11 +41,6 @@ const (
 	// configNameNotApplicable is used to represent the name of the authentication policy or
 	// destination rule when they are not specified.
 	configNameNotApplicable = "-"
-
-	// configNameUnknown is used to represent the name of the authentication policy when it is specified,
-	// but the information is not available to show. This is temporary, until we fix the push context to carry
-	// authN policy name.
-	configNameUnknown = "???"
 )
 
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
@@ -100,10 +98,10 @@ func Syncz(w http.ResponseWriter, _ *http.Request) {
 	adsClientsMutex.RLock()
 	for _, con := range adsClients {
 		con.mu.RLock()
-		if con.modelNode != nil {
+		if con.node != nil {
 			syncz = append(syncz, SyncStatus{
-				ProxyID:         con.modelNode.ID,
-				IstioVersion:    con.modelNode.Metadata.IstioVersion,
+				ProxyID:         con.node.ID,
+				IstioVersion:    con.node.Metadata.IstioVersion,
 				ClusterSent:     con.ClusterNonceSent,
 				ClusterAcked:    con.ClusterNonceAcked,
 				ListenerSent:    con.ListenerNonceSent,
@@ -267,9 +265,9 @@ func (p *AuthenticationDebug) String() string {
 		p.DestinationRuleName, p.ServerProtocol, p.ClientProtocol, p.TLSConflictStatus)
 }
 
-func configName(config *model.Config) string {
+func configName(config *model.ConfigMeta) string {
 	if config != nil {
-		return fmt.Sprintf("%s/%s", config.Name, config.Namespace)
+		return fmt.Sprintf("%s/%s", config.Namespace, config.Name)
 	}
 	return configNameNotApplicable
 }
@@ -302,7 +300,7 @@ func (s *DiscoveryServer) Authenticationz(w http.ResponseWriter, req *http.Reque
 				mostRecent = key
 			}
 		}
-		mostRecentProxy = connections[mostRecent].modelNode
+		mostRecentProxy = connections[mostRecent].node
 		svc, _ := s.Env.ServiceDiscovery.Services()
 		info := []*AuthenticationDebug{}
 		for _, ss := range svc {
@@ -311,9 +309,9 @@ func (s *DiscoveryServer) Authenticationz(w http.ResponseWriter, req *http.Reque
 				continue
 			}
 			for _, p := range ss.Ports {
-				authnPolicy := s.globalPushContext().AuthenticationPolicyForWorkload(ss, p)
+				authnPolicy, authnMeta := s.globalPushContext().AuthenticationPolicyForWorkload(ss, p)
 				destConfig := s.globalPushContext().DestinationRule(mostRecentProxy, ss)
-				info = append(info, AnalyzeMTLSSettings(ss.Hostname, p, authnPolicy, destConfig)...)
+				info = append(info, AnalyzeMTLSSettings(ss.Hostname, p, authnPolicy, authnMeta, destConfig)...)
 			}
 		}
 		if b, err := json.MarshalIndent(info, "  ", "  "); err == nil {
@@ -327,28 +325,24 @@ func (s *DiscoveryServer) Authenticationz(w http.ResponseWriter, req *http.Reque
 }
 
 // AnalyzeMTLSSettings returns mTLS compatibility status between client and server policies.
-func AnalyzeMTLSSettings(hostname host.Name, port *model.Port, authnPolicy *authn.Policy,
+func AnalyzeMTLSSettings(hostname host.Name, port *model.Port, authnPolicy *authn.Policy, authnMeta *model.ConfigMeta,
 	destConfig *model.Config) []*AuthenticationDebug {
-	// TODO(diemvu): add policy config name to the cache push config for this.
-	authnPolicyName := configNameNotApplicable
-	if authnPolicy != nil {
-		authnPolicyName = configNameUnknown
-	}
-
+	authnPolicyName := configName(authnMeta)
 	serverMTLSMode := authn_alpha1.GetMutualTLSMode(authnPolicy)
 
 	baseDebugInfo := AuthenticationDebug{
 		Port:                     port.Port,
 		AuthenticationPolicyName: authnPolicyName,
-		DestinationRuleName:      configName(destConfig),
 		ServerProtocol:           serverMTLSMode.String(),
 		ClientProtocol:           configNameNotApplicable,
 	}
 
 	var rule *networking.DestinationRule
+	destinationRuleName := configNameNotApplicable
 
 	if destConfig != nil {
 		rule = destConfig.Spec.(*networking.DestinationRule)
+		destinationRuleName = configName(&destConfig.ConfigMeta)
 	}
 
 	output := []*AuthenticationDebug{}
@@ -363,6 +357,7 @@ func AnalyzeMTLSSettings(hostname host.Name, port *model.Port, authnPolicy *auth
 	for _, ss := range subsets {
 		c := clientTLSModes[ss]
 		info := baseDebugInfo
+		info.DestinationRuleName = destinationRuleName
 		if c != nil {
 			info.ClientProtocol = c.GetMode().String()
 		}
@@ -382,7 +377,7 @@ func AnalyzeMTLSSettings(hostname host.Name, port *model.Port, authnPolicy *auth
 // The output string could be:
 // - "OK": both client and server TLS settings are set correctly.
 // - "CONFLICT": both client and server TLS settings are set, but could be incompatible.
-func EvaluateTLSState(clientMode *networking.TLSSettings, serverMode authn_alpha1.MutualTLSMode) string {
+func EvaluateTLSState(clientMode *networking.TLSSettings, serverMode authn_model.MutualTLSMode) string {
 	const okState string = "OK"
 	const conflictState string = "CONFLICT"
 
@@ -392,9 +387,9 @@ func EvaluateTLSState(clientMode *networking.TLSSettings, serverMode authn_alpha
 		return okState
 	}
 
-	if (serverMode == authn_alpha1.MTLSDisable && clientMode.GetMode() == networking.TLSSettings_DISABLE) ||
-		(serverMode == authn_alpha1.MTLSStrict && clientMode.GetMode() == networking.TLSSettings_ISTIO_MUTUAL) ||
-		(serverMode == authn_alpha1.MTLSPermissive &&
+	if (serverMode == authn_model.MTLSDisable && clientMode.GetMode() == networking.TLSSettings_DISABLE) ||
+		(serverMode == authn_model.MTLSStrict && clientMode.GetMode() == networking.TLSSettings_ISTIO_MUTUAL) ||
+		(serverMode == authn_model.MTLSPermissive &&
 			(clientMode.GetMode() == networking.TLSSettings_ISTIO_MUTUAL || clientMode.GetMode() == networking.TLSSettings_DISABLE)) {
 		return okState
 	}
@@ -453,6 +448,56 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 	}
 	w.WriteHeader(http.StatusBadRequest)
 	_, _ = w.Write([]byte("You must provide a proxyID in the query string"))
+}
+
+// configDump converts the connection internal state into an Envoy Admin API config dump proto
+// It is used in debugging to create a consistent object for comparison between Envoy and Pilot outputs
+func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump, error) {
+	dynamicActiveClusters := []*adminapi.ClustersConfigDump_DynamicCluster{}
+	clusters := s.generateRawClusters(conn.node, s.globalPushContext())
+
+	for _, cs := range clusters {
+		dynamicActiveClusters = append(dynamicActiveClusters, &adminapi.ClustersConfigDump_DynamicCluster{Cluster: cs})
+	}
+	clustersAny, err := util.MessageToAnyWithError(&adminapi.ClustersConfigDump{
+		VersionInfo:           versionInfo(),
+		DynamicActiveClusters: dynamicActiveClusters,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	dynamicActiveListeners := []*adminapi.ListenersConfigDump_DynamicListener{}
+	listeners := s.generateRawListeners(conn, s.globalPushContext())
+	for _, cs := range listeners {
+		dynamicActiveListeners = append(dynamicActiveListeners, &adminapi.ListenersConfigDump_DynamicListener{Listener: cs})
+	}
+	listenersAny, err := util.MessageToAnyWithError(&adminapi.ListenersConfigDump{
+		VersionInfo:            versionInfo(),
+		DynamicActiveListeners: dynamicActiveListeners,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	routes := s.generateRawRoutes(conn, s.globalPushContext())
+	routeConfigAny := util.MessageToAny(&adminapi.RoutesConfigDump{})
+	if len(routes) > 0 {
+		dynamicRouteConfig := []*adminapi.RoutesConfigDump_DynamicRouteConfig{}
+		for _, rs := range routes {
+			dynamicRouteConfig = append(dynamicRouteConfig, &adminapi.RoutesConfigDump_DynamicRouteConfig{RouteConfig: rs})
+		}
+		routeConfigAny, err = util.MessageToAnyWithError(&adminapi.RoutesConfigDump{DynamicRouteConfigs: dynamicRouteConfig})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	bootstrapAny := util.MessageToAny(&adminapi.BootstrapConfigDump{})
+	// The config dump must have all configs with connections specified in
+	// https://www.envoyproxy.io/docs/envoy/latest/api-v2/admin/v2alpha/config_dump.proto
+	configDump := &adminapi.ConfigDump{Configs: []*any.Any{bootstrapAny, clustersAny, listenersAny, routeConfigAny}}
+	return configDump, nil
 }
 
 // PushStatusHandler dumps the last PushContext

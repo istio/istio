@@ -33,9 +33,9 @@ ISTIO_DOCKER_HUB ?= docker.io/istio
 export ISTIO_DOCKER_HUB
 ISTIO_GCS ?= istio-release/releases/$(VERSION)
 ISTIO_URL ?= https://storage.googleapis.com/$(ISTIO_GCS)
-ISTIO_CNI_HUB ?= gcr.io/istio-release
+ISTIO_CNI_HUB ?= gcr.io/istio-testing
 export ISTIO_CNI_HUB
-ISTIO_CNI_TAG ?= master-latest-daily
+ISTIO_CNI_TAG ?= latest
 export ISTIO_CNI_TAG
 
 # cumulatively track the directories/files to delete after a clean
@@ -490,6 +490,10 @@ localTestEnv: build
 localTestEnvCleanup: build
 	bin/testEnvLocalK8S.sh stop
 
+.PHONY: istioio-test
+istioio-test:
+		go test ./tests/istio.io/... ${T} -p 1 --istio.test.env kube -v
+		
 .PHONY: pilot-test
 pilot-test:
 	go test ${T} ./pilot/...

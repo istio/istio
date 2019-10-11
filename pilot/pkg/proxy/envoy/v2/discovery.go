@@ -154,23 +154,29 @@ func NewDiscoveryServer(
 	}
 
 	// Flush cached discovery responses whenever services configuration change.
-	serviceHandler := func(*model.Service, model.Event) {
+	serviceHandler := func(svc *model.Service, _ model.Event) {
 		pushReq := &model.PushRequest{
 			Full:               true,
+			NamespacesUpdated:  map[string]struct{}{svc.Attributes.Namespace: {}},
 			ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
 		}
-		out.clearCache(pushReq)
+		out.ConfigUpdate(pushReq)
 	}
 	if err := ctl.AppendServiceHandler(serviceHandler); err != nil {
 		adsLog.Errorf("Append service handler failed: %v", err)
 		return nil
 	}
 
-	instanceHandler := func(*model.ServiceInstance, model.Event) {
+	instanceHandler := func(si *model.ServiceInstance, _ model.Event) {
 		// TODO: This is an incomplete code. This code path is called for service entries, consul, etc.
 		// In all cases, this is simply an instance update and not a config update. So, we need to update
 		// EDS in all proxies, and do a full config push for the instance that just changed (add/update only).
-		out.clearCache(&model.PushRequest{Full: true})
+		out.ConfigUpdate(&model.PushRequest{
+			Full:              true,
+			NamespacesUpdated: map[string]struct{}{si.Service.Attributes.Namespace: {}},
+			// TODO: extend and set service instance type, so no need re-init push context
+			ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
+		})
 	}
 	if err := ctl.AppendInstanceHandler(instanceHandler); err != nil {
 		adsLog.Errorf("Append instance handler failed: %v", err)
@@ -183,12 +189,12 @@ func NewDiscoveryServer(
 	if configCache != nil {
 		// TODO: changes should not trigger a full recompute of LDS/RDS/CDS/EDS
 		// (especially mixerclient HTTP and quota)
-		configHandler := func(c model.Config, e model.Event) {
+		configHandler := func(c model.Config, _ model.Event) {
 			pushReq := &model.PushRequest{
 				Full:               true,
 				ConfigTypesUpdated: map[string]struct{}{c.Type: {}},
 			}
-			out.clearCache(pushReq)
+			out.ConfigUpdate(pushReq)
 		}
 		for _, descriptor := range schemas.Istio {
 			configCache.RegisterEventHandler(descriptor.Type, configHandler)
@@ -206,8 +212,6 @@ func NewDiscoveryServer(
 
 // Register adds the ADS and EDS handles to the grpc server
 func (s *DiscoveryServer) Register(rpcs *grpc.Server) {
-	// EDS must remain registered for 0.8, for smooth upgrade from 0.7
-	// 0.7 proxies will use this service.
 	ads.RegisterAggregatedDiscoveryServiceServer(rpcs, s)
 }
 
@@ -308,13 +312,7 @@ func (s *DiscoveryServer) globalPushContext() *model.PushContext {
 // ClearCache is wrapper for clearCache method, used when new controller gets
 // instantiated dynamically
 func (s *DiscoveryServer) ClearCache() {
-	s.clearCache(&model.PushRequest{Full: true})
-}
-
-// clearCache will clear all envoy caches. Called by service, instance and config handlers.
-// This will impact the performance, since envoy will need to recalculate.
-func (s *DiscoveryServer) clearCache(pushRequest *model.PushRequest) {
-	s.ConfigUpdate(pushRequest)
+	s.ConfigUpdate(&model.PushRequest{Full: true})
 }
 
 // ConfigUpdate implements ConfigUpdater interface, used to request pushes.

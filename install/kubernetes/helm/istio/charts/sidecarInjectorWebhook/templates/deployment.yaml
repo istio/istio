@@ -97,7 +97,11 @@ spec:
           name: istio
       - name: certs
         secret:
+{{- if .Values.global.certificates }}
+          secretName: dns.istio-sidecar-injector-service-account
+{{- else }}
           secretName: istio.istio-sidecar-injector-service-account
+{{- end }}
       - name: inject-config
         configMap:
           name: istio-sidecar-injector
