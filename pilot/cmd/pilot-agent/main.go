@@ -99,13 +99,18 @@ var (
 
 	wg sync.WaitGroup
 
-	instanceIPVar        = env.RegisterStringVar("INSTANCE_IP", "", "")
-	podNameVar           = env.RegisterStringVar("POD_NAME", "", "")
-	podNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "")
-	istioNamespaceVar    = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
-	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
-	sdsEnabledVar        = env.RegisterBoolVar("SDS_ENABLED", false, "")
-	sdsUdsPathVar        = env.RegisterStringVar("SDS_UDS_PATH", "unix:/var/run/sds/uds_path", "SDS address")
+	instanceIPVar                       = env.RegisterStringVar("INSTANCE_IP", "", "")
+	podNameVar                          = env.RegisterStringVar("POD_NAME", "", "")
+	podNamespaceVar                     = env.RegisterStringVar("POD_NAMESPACE", "", "")
+	istioNamespaceVar                   = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
+	kubeAppProberNameVar                = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
+	sdsEnabledVar                       = env.RegisterBoolVar("SDS_ENABLED", false, "")
+	sdsUdsPathVar                       = env.RegisterStringVar("SDS_UDS_PATH", "unix:/var/run/sds/uds_path", "SDS address")
+	stackdriverEnabled                  = env.RegisgterBoolVar("STACKDRIVER_ENABLED", false, "If enabled, stackdriver will get configured as the tracer.")
+	stackdriverDebug                    = env.RegisgterBoolVar("STACKDRIVER_DEBUG", false, "")
+	stackdriverMaxNumberOfAnnotations   = env.RegisterIntVar("STACKDRIVER_MAX_NUMBER_OF_ANNOTATIONS", 200, "Sets the max number of annotations for stackdriver")
+	stackdriverMaxNumberOfAttributes    = env.RegisterIntVar("STACKDRIVER_MAX_NUMBER_OF_ATTRIBUTES", 200, "Sets the max number of attributes for stackdriver")
+	stackdriverMaxNumberOfMessageEvents = env.RegisterIntVar("STACKDRIVER_MAX_NUMBER_OF_MESSAGE_EVENTS", 200, "Sets the max number of message events for stackdriver")
 
 	sdsUdsWaitTimeout = time.Minute
 
@@ -297,6 +302,17 @@ var (
 					Tracer: &meshconfig.Tracing_Datadog_{
 						Datadog: &meshconfig.Tracing_Datadog{
 							Address: datadogAgentAddress,
+						},
+					},
+				}
+			} else if stackdriverEnabled.Get() {
+				proxyConfig.Tracing = &meshconfig.Tracing{
+					Tracer: &meshconfig.Tracing_Stackdriver_{
+						Stackdriver: &meshconfig.Tracing_Stackdriver{
+							Debug:                    stackdriverDebug.Get(),
+							MaxNumberOfAnnotations:   stackdriverMaxNumberOfAnnotations.Get(),
+							MaxNumberOfAttributes:    stackdriverMaxNumberOfAttributes.Get(),
+							MaxNumberOfMessageEvents: stackdriverMaxNumberOfMessageEvents.Get(),
 						},
 					},
 				}

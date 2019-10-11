@@ -247,6 +247,18 @@ containers:
   - name: ISTIO_META_MESH_ID
     value: "{{ .Values.global.trustDomain }}"
   {{- end }}
+  {{- if eq .Values.global.proxy.tracer "stackdriver" }}
+  - name: STACKDRIVER_ENABLED
+    value: True
+  - name: STACKDRIVER_DEBUG
+    value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetDebug }}"
+  - name: STACKDRIVER_MAX_NUMBER_OF_ANNOTATIONS
+    value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAnnotations }}"
+  - name: STACKDRIVER_MAX_NUMBER_OF_ATTRIBUTES
+    value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAttributes }}"
+  - name: STACKDRIVER_MAX_NUMBER_OF_MESSAGE_EVENTS
+    value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfMessageEvents }}"
+  {{- end }}
   imagePullPolicy: {{ .Values.global.imagePullPolicy }}
   {{ if ne (annotation .ObjectMeta `status.sidecar.istio.io/port` (valueOrDefault .Values.global.proxy.statusPort 0 )) `0` }}
   readinessProbe:
