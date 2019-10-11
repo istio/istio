@@ -276,10 +276,9 @@ func NewServer(args PilotArgs) (*Server, error) {
 	if err := s.initMeshNetworks(&args); err != nil {
 		return nil, fmt.Errorf("mesh networks: %v", err)
 	}
-	// Certificate controller must be created before MCP
-	// controller to avoid deadlocks caused by the circular dependency, i.e.,
-	// MCP server pod waits to mount a certificate while
-	// Pilot waits for MCP server.
+	// Certificate controller is created before MCP
+	// controller in case MCP server pod waits to mount a certificate
+	// to be provisioned by the certificate controller.
 	if err := s.initCertController(&args); err != nil {
 		return nil, fmt.Errorf("certificate controller: %v", err)
 	}
