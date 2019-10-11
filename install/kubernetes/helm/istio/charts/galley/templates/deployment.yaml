@@ -71,6 +71,11 @@ spec:
 {{- if not $.Values.global.configValidation }}
           - --enable-validation=false
 {{- end }}
+{{- if .Values.global.operator }}
+          - --enable-reconcileWebhookConfiguration=false
+{{- else }}
+          - --enable-reconcileWebhookConfiguration=true
+{{- end }}
           - --validation-webhook-config-file
           - /etc/config/validatingwebhookconfiguration.yaml
           - --monitoringPort={{ .Values.global.monitoringPort }}
@@ -117,7 +122,11 @@ spec:
       volumes:
       - name: certs
         secret:
+{{- if .Values.global.certificates }}
+          secretName: dns.istio-galley-service-account
+{{- else }}
           secretName: istio.istio-galley-service-account
+{{- end }}
       - name: config
         configMap:
           name: istio-galley-configuration

@@ -83,6 +83,9 @@ func NewAgent(proxy Proxy, terminationDrainDuration time.Duration) Agent {
 
 // Proxy defines command interface for a proxy
 type Proxy interface {
+	// IsLive returns true if the server is up and running (i.e. past initialization).
+	IsLive() bool
+
 	// Run command for a config, epoch, and abort channel
 	Run(interface{}, int, <-chan error) error
 
@@ -119,18 +122,66 @@ type exitStatus struct {
 }
 
 func (a *agent) Restart(config interface{}) {
-	if !reflect.DeepEqual(a.currentConfig, config) {
-		a.mu.Lock()
-		defer a.mu.Unlock()
-		log.Infof("Received new config")
+	a.mu.Lock()
+	defer a.mu.Unlock()
 
-		a.currentConfig = config
+	if reflect.DeepEqual(a.currentConfig, config) {
+		// Same configuration - nothing to do.
+		return
+	}
 
-		// Increment the latest running epoch
-		a.currentEpoch++
-		abortCh := make(chan error, 1)
-		a.activeEpochs[a.currentEpoch] = abortCh
-		go a.runWait(a.currentConfig, a.currentEpoch, abortCh)
+	log.Infof("Received new config")
+
+	// Make sure the current epoch (if there is one) is live before performing a hot restart.
+	a.waitUntilLive()
+
+	// Increment the latest running epoch
+	a.currentEpoch++
+	a.currentConfig = config
+
+	// Add the new epoch to the map.
+	abortCh := make(chan error, 1)
+	a.activeEpochs[a.currentEpoch] = abortCh
+
+	go a.runWait(a.currentConfig, a.currentEpoch, abortCh)
+}
+
+// waitUntilLive waits for the current epoch (if there is one) to go live.
+func (a *agent) waitUntilLive() {
+	// Make sure there is a currently active epoch. If not, just return.
+	if len(a.activeEpochs) == 0 {
+		log.Info("no previous epoch exists, starting now")
+		return
+	}
+
+	log.Infof("waiting for epoch %d to go live before performing a hot restart", a.currentEpoch)
+
+	// Timeout after 20 seconds. Envoy internally uses a 15s timer, so we set ours a bit above that.
+	interval := time.NewTicker(500 * time.Millisecond)
+	timer := time.NewTimer(20 * time.Second)
+
+	defer func() {
+		interval.Stop()
+		timer.Stop()
+	}()
+
+	// Do an initial check on the live state to avoid any waits if possible.
+	if a.proxy.IsLive() {
+		// It's live!
+		return
+	}
+
+	for {
+		select {
+		case <-timer.C:
+			log.Warnf("timed out waiting for epoch %d to go live.", a.currentEpoch)
+			return
+		case <-interval.C:
+			if a.proxy.IsLive() {
+				// It's live!
+				return
+			}
+		}
 	}
 }
 

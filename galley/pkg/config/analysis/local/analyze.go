@@ -118,6 +118,7 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (diag.Messages, error) {
 	rt.Start()
 	defer rt.Stop()
 
+	scope.Analysis.Debugf("Waiting for analysis messages to be available...")
 	if updater.WaitForReport(cancel) {
 		return updater.Get(), nil
 	}

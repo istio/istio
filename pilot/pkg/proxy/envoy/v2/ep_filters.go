@@ -36,7 +36,7 @@ type EndpointsFilterFunc func(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 // Information for the mesh networks is provided as a MeshNetwork config map.
 func EndpointsByNetworkFilter(endpoints []*endpoint.LocalityLbEndpoints, conn *XdsConnection, env *model.Environment) []*endpoint.LocalityLbEndpoints {
 	// If the sidecar does not specify a network, ignore Split Horizon EDS and return all
-	network := conn.modelNode.Metadata.Network
+	network := conn.node.Metadata.Network
 
 	// calculate the multiples of weight.
 	// It is needed to normalize the LB Weight across different networks.

@@ -97,18 +97,19 @@ function clone_cni() {
 
 function check_kind() {
   echo "Checking KinD is installed..."
-  if ! kind --help > /dev/null; then
+  if ! command -v curl > /dev/null; then
     echo "Looks like KinD is not installed."
     exit 1
   fi
 }
 
 function cleanup_kind_cluster() {
-    kind export logs --name istio-testing "${ARTIFACTS}/kind"
-    if [[ -z "${SKIP_CLEANUP:-}" ]]; then
-      echo "Cleaning up kind cluster"
-      kind delete cluster --name=istio-testing
-    fi
+  echo "Test exited with exit code $?."
+  kind export logs --name istio-testing "${ARTIFACTS}/kind"
+  if [[ -z "${SKIP_CLEANUP:-}" ]]; then
+    echo "Cleaning up kind cluster"
+    kind delete cluster --name=istio-testing
+  fi
 }
 
 function setup_kind_cluster() {
@@ -151,8 +152,8 @@ function setup_kind_cluster() {
 
 function cni_run_daemon_kind() {
   echo 'Run the CNI daemon set'
-  ISTIO_CNI_HUB=${ISTIO_CNI_HUB:-gcr.io/istio-release}
-  ISTIO_CNI_TAG=${ISTIO_CNI_TAG:-master-latest-daily}
+  ISTIO_CNI_HUB=${ISTIO_CNI_HUB:-gcr.io/istio-testing}
+  ISTIO_CNI_TAG=${ISTIO_CNI_TAG:-latest}
 
   # TODO: this should not be pulling from external charts, instead the tests should checkout the CNI repo
   chartdir=$(mktemp -d)

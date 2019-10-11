@@ -40,7 +40,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	authn_v1alpha1_applier "istio.io/istio/pilot/pkg/security/authn/v1alpha1"
+	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -799,7 +799,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 		sans            []string
 		sni             string
 		proxy           *model.Proxy
-		serviceMTLSMode authn_v1alpha1_applier.MutualTLSMode
+		serviceMTLSMode authn_model.MutualTLSMode
 		want            *networking.TLSSettings
 	}{
 		{
@@ -808,7 +808,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			authn_v1alpha1_applier.MTLSUnknown,
+			authn_model.MTLSUnknown,
 			tlsSettings,
 		},
 		{
@@ -824,7 +824,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			authn_v1alpha1_applier.MTLSUnknown,
+			authn_model.MTLSUnknown,
 			&networking.TLSSettings{
 				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
 				CaCertificates:    constants.DefaultRootCert,
@@ -844,7 +844,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 				TLSClientKey:       "/custom/key.pem",
 				TLSClientRootCert:  "/custom/root.pem",
 			}},
-			authn_v1alpha1_applier.MTLSUnknown,
+			authn_model.MTLSUnknown,
 			&networking.TLSSettings{
 				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
 				CaCertificates:    "/custom/root.pem",
@@ -860,7 +860,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			[]string{"spiffee://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			authn_v1alpha1_applier.MTLSUnknown,
+			authn_model.MTLSUnknown,
 			nil,
 		},
 		{
@@ -869,7 +869,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			[]string{"spiffee://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			authn_v1alpha1_applier.MTLSDisable,
+			authn_model.MTLSDisable,
 			nil,
 		},
 		{
@@ -878,7 +878,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			[]string{"spiffee://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			authn_v1alpha1_applier.MTLSPermissive,
+			authn_model.MTLSPermissive,
 			nil,
 		},
 		{
@@ -887,7 +887,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			[]string{"spiffee://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			authn_v1alpha1_applier.MTLSStrict,
+			authn_model.MTLSStrict,
 			&networking.TLSSettings{
 				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
 				CaCertificates:    constants.DefaultRootCert,

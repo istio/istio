@@ -83,6 +83,42 @@ these fields will be ignored by the adapter.</p>
 
 </td>
 </tr>
+<tr id="Template-value">
+<td><code>value</code></td>
+<td><code><a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#Value">istio.policy.v1beta1.Value</a></code></td>
+<td>
+<p>The value being reported.</p>
+
+</td>
+</tr>
+<tr id="Template-dimensions">
+<td><code>dimensions</code></td>
+<td><code>map&lt;string,&nbsp;<a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#Value">istio.policy.v1beta1.Value</a>&gt;</code></td>
+<td>
+<p>The unique identity of the particular metric to report.</p>
+
+</td>
+</tr>
+<tr id="Template-monitored_resource_type">
+<td><code>monitoredResourceType</code></td>
+<td><code>string</code></td>
+<td>
+<p>Optional. An expression to compute the type of the monitored resource this metric is being reported on.
+If the metric backend supports monitored resources, these fields are used to populate that resource. Otherwise
+these fields will be ignored by the adapter.</p>
+
+</td>
+</tr>
+<tr id="Template-monitored_resource_dimensions">
+<td><code>monitoredResourceDimensions</code></td>
+<td><code>map&lt;string,&nbsp;<a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#Value">istio.policy.v1beta1.Value</a>&gt;</code></td>
+<td>
+<p>Optional. A set of expressions that will form the dimensions of the monitored resource this metric is being reported on.
+If the metric backend supports monitored resources, these fields are used to populate that resource. Otherwise
+these fields will be ignored by the adapter.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>

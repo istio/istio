@@ -41,6 +41,11 @@ func New(collection collection.Name) *Instance {
 	}
 }
 
+// Name of the collection
+func (c *Instance) Name() collection.Name {
+	return c.collection
+}
+
 // Get the instance with the given name
 func (c *Instance) Get(name resource.Name) *resource.Entry {
 	c.mu.RLock()
