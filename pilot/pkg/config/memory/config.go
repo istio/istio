@@ -18,9 +18,10 @@ package memory
 import (
 	"errors"
 	"fmt"
-	"istio.io/pkg/log"
 	"sync"
 	"time"
+
+	"istio.io/pkg/log"
 
 	"istio.io/pkg/ledger"
 
@@ -34,7 +35,6 @@ var (
 )
 
 const ledgerLogf = "error tracking pilot config memory versions for distribution: %v"
-
 
 // Make creates an in-memory config store from a config descriptor
 func Make(descriptor schema.Set) model.ConfigStore {
@@ -206,7 +206,7 @@ func (cr *store) Update(config model.Config) (string, error) {
 
 	rev := time.Now().String()
 	config.ResourceVersion = rev
-	_, err:= cr.ledger.Put(buildKey(typ, config.Namespace, config.Name), config.Version)
+	_, err := cr.ledger.Put(buildKey(typ, config.Namespace, config.Name), config.Version)
 	if err != nil {
 		log.Warnf(ledgerLogf, err)
 	}

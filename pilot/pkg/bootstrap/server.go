@@ -171,24 +171,23 @@ type MeshArgs struct {
 // ConfigArgs provide configuration options for the configuration controller. If FileDir is set, that directory will
 // be monitored for CRD yaml files and will update the controller as those files change (This is used for testing
 // purposes). Otherwise, a CRD client is created based on the configuration.
-type ConfigArgs struct{
-	ControllerOptions          	controller2.Options
-	ClusterRegistriesNamespace 	string
-	KubeConfig                 	string
-	FileDir                    	string
+type ConfigArgs struct {
+	ControllerOptions          controller2.Options
+	ClusterRegistriesNamespace string
+	KubeConfig                 string
+	FileDir                    string
 
 	// Controller if specified, this controller overrides the other config settings.
-	Controller                 	model.ConfigStoreCache
+	Controller model.ConfigStoreCache
 
 	// DistributionTracking control
-	DistributionCacheRetention 	time.Duration
+	DistributionCacheRetention time.Duration
 
-	DisableInstallCRDs         	bool
+	DisableInstallCRDs bool
 
 	// DistributionTracking control
-	DistributionTrackingEnabled	bool
+	DistributionTrackingEnabled bool
 }
-
 
 func (ca *ConfigArgs) buildLedger() ledger.Ledger {
 	var result ledger.Ledger
