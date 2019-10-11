@@ -19,6 +19,8 @@ import (
 	"os"
 	"time"
 
+	"istio.io/istio/pilot/pkg/features"
+
 	"istio.io/istio/pkg/spiffe"
 
 	"github.com/spf13/cobra"
@@ -55,6 +57,8 @@ var (
 		Short: "Start Istio proxy discovery service.",
 		Args:  cobra.ExactArgs(0),
 		RunE: func(c *cobra.Command, args []string) error {
+			serverArgs.Config.DistributionTrackingEnabled = features.EnableDistributionTracking
+			serverArgs.Config.DistributionCacheRetention = features.DistributionHistoryRetention
 			cmd.PrintFlags(c.Flags())
 			if err := log.Configure(loggingOptions); err != nil {
 				return err

@@ -233,6 +233,19 @@ var (
 			"HTTP service on port 443 could block all external traffic",
 	).Get()
 
+	EnableDistributionTracking = env.RegisterBoolVar(
+		"PILOT_ENABLE_DISTRIB_TRACKING",
+		false,
+		"If enabled, Pilot will assign meaningful nonces to each Envoy configuration message, and allow "+
+			"users to interrogate which envoy has which config from the debug interface.",
+	).Get()
+
+	DistributionHistoryRetention = env.RegisterDurationVar(
+		"PILOT_DISTRIBUTION_HISTORY_RETENTION",
+		time.Minute*1,
+		"If enabled, Pilot will keep track of old versions of distributed config for this duration.",
+	).Get()
+
 	EnableUnsafeRegex = env.RegisterBoolVar(
 		"PILOT_ENABLE_UNSAFE_REGEX",
 		false,

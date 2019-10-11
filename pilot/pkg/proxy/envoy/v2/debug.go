@@ -21,6 +21,8 @@ import (
 	"net/http"
 	"sort"
 
+	"istio.io/istio/pilot/pkg/features"
+
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/ptypes/any"
@@ -216,6 +218,11 @@ type SyncedVersions struct {
 }
 
 func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.Request) {
+	if !features.EnableDistributionTracking {
+		w.WriteHeader(http.StatusConflict)
+		_, _ = fmt.Fprint(w, "Pilot Version tracking is disables.  Please set the "+
+			"PILOT_ENABLE_DISTRIB_TRACKING environment varialbe to true to enable.")
+	}
 	if resourceID := req.URL.Query().Get("resource"); resourceID != "" {
 		knownVersions := make(map[string]string)
 		var results []SyncedVersions
