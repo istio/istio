@@ -27,6 +27,7 @@ Any dimension that is a part of the metric is converted to a tag automatically. 
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -38,6 +39,9 @@ Any dimension that is a part of the metric is converted to a tag automatically. 
 Default: localhost:8125</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-prefix">
 <td><code>prefix</code></td>
@@ -46,6 +50,9 @@ Default: localhost:8125</p>
 <p>Prefix to prepend to all metrics handled by the adapter. Metric &ldquo;bar&rdquo; with prefix &ldquo;foo.&rdquo; becomes &ldquo;foo.bar&rdquo; in DataDog. In order to make sure the metrics get populated into Datadog properly and avoid any billing issues, it&rsquo;s important to leave the metric prefix to its default value of &lsquo;istio.&rsquo;
 Default: &ldquo;istio.&rdquo;</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Params-buffer_length">
@@ -57,59 +64,8 @@ When buffer is 0, metrics are not buffered.
 Default: 0</p>
 
 </td>
-</tr>
-<tr id="Params-global_tags">
-<td><code>globalTags</code></td>
-<td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
-<p>Tags to add to every metric. &ldquo;global&rdquo;: &ldquo;tag&rdquo; becomes &ldquo;global:tag&rdquo; in DataDog
-Default: []</p>
-
-</td>
-</tr>
-<tr id="Params-sample_rate">
-<td><code>sampleRate</code></td>
-<td><code>double</code></td>
-<td>
-<p>Chance that any particular metric is sampled when emitted; can take the range [0, 1].
-Default: 1</p>
-
-</td>
-</tr>
-<tr id="Params-metrics">
-<td><code>metrics</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#Params-MetricInfo">Params.MetricInfo</a>&gt;</code></td>
-<td>
-<p>Map of a specific metric instance name -&gt; info. If a metric&rsquo;s instance name is not in the map then the metric will not be exported to DataDog.</p>
-
-</td>
-</tr>
-<tr id="Params-address">
-<td><code>address</code></td>
-<td><code>string</code></td>
-<td>
-<p>Address of the dogstatsd server.
-Default: localhost:8125</p>
-
-</td>
-</tr>
-<tr id="Params-prefix">
-<td><code>prefix</code></td>
-<td><code>string</code></td>
-<td>
-<p>Prefix to prepend to all metrics handled by the adapter. Metric &ldquo;bar&rdquo; with prefix &ldquo;foo.&rdquo; becomes &ldquo;foo.bar&rdquo; in DataDog. In order to make sure the metrics get populated into Datadog properly and avoid any billing issues, it&rsquo;s important to leave the metric prefix to its default value of &lsquo;istio.&rsquo;
-Default: &ldquo;istio.&rdquo;</p>
-
-</td>
-</tr>
-<tr id="Params-buffer_length">
-<td><code>bufferLength</code></td>
-<td><code>int32</code></td>
-<td>
-<p>Number of individual metrics to buffer before flushing metrics to the network. When buffered, metrics are flushed every 100ms or when the buffer is filled.
-When buffer is 0, metrics are not buffered.
-Default: 0</p>
-
+No
 </td>
 </tr>
 <tr id="Params-global_tags">
@@ -120,6 +76,9 @@ Default: 0</p>
 Default: []</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-sample_rate">
 <td><code>sampleRate</code></td>
@@ -129,6 +88,9 @@ Default: []</p>
 Default: 1</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-metrics">
 <td><code>metrics</code></td>
@@ -136,6 +98,9 @@ Default: 1</p>
 <td>
 <p>Map of a specific metric instance name -&gt; info. If a metric&rsquo;s instance name is not in the map then the metric will not be exported to DataDog.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -151,6 +116,7 @@ Default: 1</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -161,6 +127,9 @@ Default: 1</p>
 <p>Name of the metric in DataDog</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-MetricInfo-type">
 <td><code>type</code></td>
@@ -168,6 +137,9 @@ Default: 1</p>
 <td>
 <p>The type of metric</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Params-MetricInfo-tags">
@@ -178,30 +150,8 @@ Default: 1</p>
 Default: []</p>
 
 </td>
-</tr>
-<tr id="Params-MetricInfo-name">
-<td><code>name</code></td>
-<td><code>string</code></td>
 <td>
-<p>Name of the metric in DataDog</p>
-
-</td>
-</tr>
-<tr id="Params-MetricInfo-type">
-<td><code>type</code></td>
-<td><code><a href="#Params-MetricInfo-Type">Params.MetricInfo.Type</a></code></td>
-<td>
-<p>The type of metric</p>
-
-</td>
-</tr>
-<tr id="Params-MetricInfo-tags">
-<td><code>tags</code></td>
-<td><code>map&lt;string,&nbsp;string&gt;</code></td>
-<td>
-<p>Tags to add to the metric in addition to the dimensions. &ldquo;tag&rdquo;: &ldquo;val&rdquo; becomes &ldquo;tag:val&rdquo; in DataDog
-Default: []</p>
-
+No
 </td>
 </tr>
 </tbody>
@@ -219,34 +169,6 @@ Default: []</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Params-MetricInfo-Type-UNKNOWN_TYPE">
-<td><code>UNKNOWN_TYPE</code></td>
-<td>
-<p>Default Unknown Type</p>
-
-</td>
-</tr>
-<tr id="Params-MetricInfo-Type-COUNTER">
-<td><code>COUNTER</code></td>
-<td>
-<p>Increments a DataDog counter</p>
-
-</td>
-</tr>
-<tr id="Params-MetricInfo-Type-GAUGE">
-<td><code>GAUGE</code></td>
-<td>
-<p>Sets the new value of a DataDog gauge</p>
-
-</td>
-</tr>
-<tr id="Params-MetricInfo-Type-DISTRIBUTION">
-<td><code>DISTRIBUTION</code></td>
-<td>
-<p>DISTRIBUTION is converted to a Timing Histogram for metrics with a time unit and a Histogram for all other units</p>
-
-</td>
-</tr>
 <tr id="Params-MetricInfo-Type-UNKNOWN_TYPE">
 <td><code>UNKNOWN_TYPE</code></td>
 <td>

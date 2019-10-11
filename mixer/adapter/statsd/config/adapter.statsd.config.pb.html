@@ -24,6 +24,7 @@ number_of_entries: 3
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -34,6 +35,9 @@ number_of_entries: 3
 <p>Address of the statsd server, e.g. localhost:8125</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-prefix">
 <td><code>prefix</code></td>
@@ -41,6 +45,9 @@ number_of_entries: 3
 <td>
 <p>Metric prefix, do not specify for no prefix</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Params-flush_duration">
@@ -51,46 +58,8 @@ number_of_entries: 3
 Metrics are reported when either flush<em>bytes is full or flush</em>duration time has elapsed since the last report.</p>
 
 </td>
-</tr>
-<tr id="Params-flush_bytes">
-<td><code>flushBytes</code></td>
-<td><code>int32</code></td>
 <td>
-<p>Maximum UDP packet size to send; if not specified defaults to 512 bytes. If the statsd server is running on the
-same (private) network 1432 bytes is recommended for better performance.</p>
-
-</td>
-</tr>
-<tr id="Params-sampling_rate">
-<td><code>samplingRate</code></td>
-<td><code>float</code></td>
-<td>
-<p>Chance that any particular metric is sampled when incremented; can take the range [0, 1], defaults to 1 if unspecified.</p>
-
-</td>
-</tr>
-<tr id="Params-metrics">
-<td><code>metrics</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#Params-MetricInfo">Params.MetricInfo</a>&gt;</code></td>
-<td>
-<p>Map of metric name -&gt; info. If a metric&rsquo;s name is not in the map then the metric will not be exported to statsd.</p>
-
-</td>
-</tr>
-<tr id="Params-address">
-<td><code>address</code></td>
-<td><code>string</code></td>
-<td>
-<p>Address of the statsd server, e.g. localhost:8125</p>
-
-</td>
-</tr>
-<tr id="Params-prefix">
-<td><code>prefix</code></td>
-<td><code>string</code></td>
-<td>
-<p>Metric prefix, do not specify for no prefix</p>
-
+No
 </td>
 </tr>
 <tr id="Params-flush_bytes">
@@ -101,6 +70,9 @@ same (private) network 1432 bytes is recommended for better performance.</p>
 same (private) network 1432 bytes is recommended for better performance.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-sampling_rate">
 <td><code>samplingRate</code></td>
@@ -109,6 +81,9 @@ same (private) network 1432 bytes is recommended for better performance.</p>
 <p>Chance that any particular metric is sampled when incremented; can take the range [0, 1], defaults to 1 if unspecified.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-metrics">
 <td><code>metrics</code></td>
@@ -116,6 +91,9 @@ same (private) network 1432 bytes is recommended for better performance.</p>
 <td>
 <p>Map of metric name -&gt; info. If a metric&rsquo;s name is not in the map then the metric will not be exported to statsd.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -131,6 +109,7 @@ same (private) network 1432 bytes is recommended for better performance.</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -139,25 +118,8 @@ same (private) network 1432 bytes is recommended for better performance.</p>
 <td><code><a href="#Params-MetricInfo-Type">Params.MetricInfo.Type</a></code></td>
 <td>
 </td>
-</tr>
-<tr id="Params-MetricInfo-name_template">
-<td><code>nameTemplate</code></td>
-<td><code>string</code></td>
 <td>
-<p>The template will be filled with values from the metric&rsquo;s labels and the resulting string will be used as
-the statsd metric name. This allows easier creation of statsd metrics like <code>action_name-response_code</code>.
-The template strings must conform to go&rsquo;s text/template syntax. For the example of <code>action_name-response_code</code>,
-we use the template:
-   <code>&lbrace;&lbrace;.apiMethod}}-&lbrace;&lbrace;.responseCode}}</code></p>
-
-<p>If name_template is the empty string the Istio metric name will be used for statsd metric&rsquo;s name.</p>
-
-</td>
-</tr>
-<tr id="Params-MetricInfo-type">
-<td><code>type</code></td>
-<td><code><a href="#Params-MetricInfo-Type">Params.MetricInfo.Type</a></code></td>
-<td>
+No
 </td>
 </tr>
 <tr id="Params-MetricInfo-name_template">
@@ -172,6 +134,9 @@ we use the template:
 
 <p>If name_template is the empty string the Istio metric name will be used for statsd metric&rsquo;s name.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -189,26 +154,6 @@ we use the template:
 </tr>
 </thead>
 <tbody>
-<tr id="Params-MetricInfo-Type-UNKNOWN">
-<td><code>UNKNOWN</code></td>
-<td>
-</td>
-</tr>
-<tr id="Params-MetricInfo-Type-COUNTER">
-<td><code>COUNTER</code></td>
-<td>
-</td>
-</tr>
-<tr id="Params-MetricInfo-Type-GAUGE">
-<td><code>GAUGE</code></td>
-<td>
-</td>
-</tr>
-<tr id="Params-MetricInfo-Type-DISTRIBUTION">
-<td><code>DISTRIBUTION</code></td>
-<td>
-</td>
-</tr>
 <tr id="Params-MetricInfo-Type-UNKNOWN">
 <td><code>UNKNOWN</code></td>
 <td>
