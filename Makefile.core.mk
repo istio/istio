@@ -81,8 +81,7 @@ docker.push:
 docker.all: docker docker.push
 
 update-goldens:
-	export REFRESH_GOLDEN=true
-	@go test ./cmd/mesh/...
+	GOARCH=$(TARGET_ARCH) GOOS=$(TARGET_OS) REFRESH_GOLDEN=true go test ./cmd/mesh/...
 
 ########################
 

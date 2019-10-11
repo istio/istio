@@ -33,12 +33,15 @@ type manifestGenerateArgs struct {
 	// set is a string with element format "path=value" where path is an IstioControlPlane path and the value is a
 	// value to set the node at that path to.
 	set []string
+	// force proceeds even if there are validation errors
+	force bool
 }
 
 func addManifestGenerateFlags(cmd *cobra.Command, args *manifestGenerateArgs) {
 	cmd.PersistentFlags().StringVarP(&args.inFilename, "filename", "f", "", filenameFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.outFilename, "output", "o", "", "Manifest output directory path")
 	cmd.PersistentFlags().StringSliceVarP(&args.set, "set", "s", nil, setFlagHelpStr)
+	cmd.PersistentFlags().BoolVar(&args.force, "force", false, "Proceed even with validation errors")
 }
 
 func manifestGenerateCmd(rootArgs *rootArgs, mgArgs *manifestGenerateArgs) *cobra.Command {
@@ -69,7 +72,7 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, l *logger) {
 	if err != nil {
 		l.logAndFatal(err.Error())
 	}
-	manifests, err := genManifests(mgArgs.inFilename, overlayFromSet)
+	manifests, err := genManifests(mgArgs.inFilename, overlayFromSet, mgArgs.force, l)
 	if err != nil {
 		l.logAndFatal(err.Error())
 	}
