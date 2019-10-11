@@ -18,12 +18,13 @@ spec:
         value:
           name: envoy.filters.http.wasm
           config:
-            configuration: |
-              {
-                "debug": "false",
-                "stat_prefix": "istio",
-              }
-            vm_config:
-              vm: envoy.wasm.vm.null
-              code:
-                inline_string: envoy.wasm.stats
+            config:
+              configuration: |
+                {
+                  "debug": "false",
+                  "stat_prefix": "istio",
+                }
+              vm_config:
+                runtime: envoy.wasm.runtime.null
+                code:
+                  inline_string: envoy.wasm.stats
