@@ -574,12 +574,12 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 		// The CA cert from istio-ca-secret is the source of truth. If CA cert
 		// in local keycertbundle does not match the CA cert in istio-ca-secret,
 		// reload root cert into keycertbundle.
-		caCert, _, _, rootCertificate := sc.ca.GetCAKeyCertBundle().GetAllPem()
+		caCert, _, _, _ := sc.ca.GetCAKeyCertBundle().GetAllPem()
 		if !bytes.Equal(caCert, caSecret.Data[caCertID]) {
 			k8sControllerLog.Warn("CA cert in KeyCertBundle does not match CA cert in " +
 				"istio-ca-secret. Start to reload root cert into KeyCertBundle")
 			var err error
-			rootCertificate, err = util.AppendRootCerts(caSecret.Data[caCertID], sc.rootCertFile)
+			rootCertificate, err := util.AppendRootCerts(caSecret.Data[caCertID], sc.rootCertFile)
 			if err != nil {
 				k8sControllerLog.Errorf("failed to append root certificates: %s", err.Error())
 				return

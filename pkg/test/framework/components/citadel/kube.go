@@ -30,7 +30,7 @@ import (
 
 const (
 	// Specifies how long we wait before a secret becomes existent.
-	secretWaitTime = 20 * time.Second
+	secretWaitTime = 60 * time.Second
 	// Name of secret created by Citadel
 	SecretName = "istio.default"
 )
