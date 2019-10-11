@@ -638,7 +638,7 @@ func defaultRestConfig(kubeconfig, configContext string) (*rest.Config, error) {
 	}
 	config.APIPath = "/api"
 	config.GroupVersion = &v1.SchemeGroupVersion
-	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
+	config.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: scheme.Codecs}
 	return config, nil
 }
 
