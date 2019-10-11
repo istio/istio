@@ -16,18 +16,33 @@ package envoy
 
 import (
 	"context"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
+
+	. "github.com/onsi/gomega"
 )
 
 // TestProxy sample struct for proxy
 type TestProxy struct {
 	run     func(interface{}, int, <-chan error) error
 	cleanup func(int)
+	live    func() bool
 }
 
 func (tp TestProxy) Run(config interface{}, epoch int, stop <-chan error) error {
+	if tp.run == nil {
+		return nil
+	}
 	return tp.run(config, epoch, stop)
+}
+
+func (tp TestProxy) IsLive() bool {
+	if tp.live == nil {
+		return true
+	}
+	return tp.live()
 }
 
 func (tp TestProxy) Cleanup(epoch int) {
@@ -40,12 +55,9 @@ func (tp TestProxy) Cleanup(epoch int) {
 func TestStartExit(t *testing.T) {
 	ctx := context.Background()
 	done := make(chan struct{})
-	a := NewAgent(TestProxy{
-		func(config interface{}, i2 int, abort <-chan error) error { return nil },
-		func(i int) {}},
-		0)
+	a := NewAgent(TestProxy{}, 0)
 	go func() {
-		a.Run(ctx)
+		_ = a.Run(ctx)
 		done <- struct{}{}
 	}()
 	a.Restart("config")
@@ -84,8 +96,8 @@ func TestStartDrain(t *testing.T) {
 		}
 		return nil
 	}
-	a := NewAgent(TestProxy{start, nil}, -10*time.Second)
-	go a.Run(ctx)
+	a := NewAgent(TestProxy{run: start}, -10*time.Second)
+	go func() { _ = a.Run(ctx) }()
 	a.Restart(startConfig)
 	<-blockChan
 	cancel()
@@ -95,6 +107,62 @@ func TestStartDrain(t *testing.T) {
 	if proxiesStarted != wantProxiesStarted {
 		t.Errorf("expected %v proxies to be started, got %v", wantProxiesStarted, proxiesStarted)
 	}
+}
+
+// TestWaitForLive tests that a hot restart will not occur until after a previous epoch goes live.
+func TestWaitForLive(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// The delay for the first epoch (i.e. epoch 0) to go "live"
+	delay := time.Second * 2
+	live := uint32(0)
+	var expectedEpoch1StartTime time.Time
+	var epoch1StartTime time.Time
+
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+
+	start := func(config interface{}, epoch int, _ <-chan error) error {
+		switch epoch {
+		case 0:
+			// Epoch 0 has started, get the expected time that epoch 1 should start including the "live" delay.
+			expectedEpoch1StartTime = time.Now().Add(delay)
+			wg.Done()
+
+			// Add a short delay before reporting live.
+			time.Sleep(delay)
+			atomic.StoreUint32(&live, 1)
+		case 1:
+			// Epoch 1 has started, record the time.
+			epoch1StartTime = time.Now()
+			wg.Done()
+		}
+		<-ctx.Done()
+		return nil
+	}
+	isLive := func() bool {
+		return atomic.LoadUint32(&live) > 0
+	}
+	a := NewAgent(TestProxy{run: start, live: isLive}, -10*time.Second)
+	go func() { _ = a.Run(ctx) }()
+
+	// Start the first epoch.
+	a.Restart("config1")
+
+	// Start the second epoch, should wait until the first goes live.
+	a.Restart("config2")
+
+	// Wait for both to start.
+	wg.Wait()
+
+	// An error threshold used for the time comparison. Should (hopefully) be enough to avoid flakes.
+	errThreshold := 1 * time.Second
+
+	// Verify that the second epoch is delayed until epoch 0 was live.
+	g.Expect(epoch1StartTime).Should(BeTemporally("~", expectedEpoch1StartTime, errThreshold))
 }
 
 // TestApplyTwice tests that scheduling the same config does not trigger a restart
@@ -109,9 +177,8 @@ func TestApplyTwice(t *testing.T) {
 		<-ctx.Done()
 		return nil
 	}
-	cleanup := func(epoch int) {}
-	a := NewAgent(TestProxy{start, cleanup}, -10*time.Second)
-	go a.Run(ctx)
+	a := NewAgent(TestProxy{run: start}, -10*time.Second)
+	go func() { _ = a.Run(ctx) }()
 	a.Restart(desired)
 	applyCount++
 	a.Restart(desired)
@@ -169,8 +236,8 @@ func TestStartTwiceStop(t *testing.T) {
 			cancel()
 		}
 	}
-	a := NewAgent(TestProxy{start, cleanup}, 0)
-	go a.Run(ctx)
+	a := NewAgent(TestProxy{run: start, cleanup: cleanup}, 0)
+	go func() { _ = a.Run(ctx) }()
 	a.Restart(desired0)
 	a.Restart(desired1)
 	a.Restart(desired2)
@@ -193,8 +260,8 @@ func TestRecovery(t *testing.T) {
 		<-ctx.Done()
 		return nil
 	}
-	a := NewAgent(TestProxy{start, func(_ int) {}}, 0)
-	go a.Run(ctx)
+	a := NewAgent(TestProxy{run: start}, 0)
+	go func() { _ = a.Run(ctx) }()
 	a.Restart(desired)
 
 	// make sure we don't try to reconcile twice

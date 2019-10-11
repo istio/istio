@@ -260,6 +260,13 @@ spec:
             value: {{ $val }}
           {{- end }}
           {{- end }}
+          {{ if eq $key "istio-ingressgateway" }}
+          {{ $network_set := index $spec.env "ISTIO_META_NETWORK" }}
+          {{- if and (not $network_set) $.Values.global.network }}
+          - name: ISTIO_META_NETWORK
+            value: {{ $.Values.global.network }}
+          {{- end }}
+          {{- end }}
           volumeMounts:
           {{- if $.Values.global.sds.enabled }}
           - name: sdsudspath
