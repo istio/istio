@@ -20,6 +20,8 @@ import (
 	"testing"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 
 	mesh "istio.io/api/mesh/v1alpha1"
 	rbacproto "istio.io/api/rbac/v1alpha1"
@@ -158,8 +160,8 @@ func TestAuthorizationPolicies_ListNamespacesOfServiceRoles(t *testing.T) {
 			authzPolicies := createFakeAuthorizationPolicies(tc.configs, t)
 
 			got := authzPolicies.ListNamespacesOfToV1alpha1Policies()
-			if !reflect.DeepEqual(tc.want, got) {
-				t.Errorf("want:%v\n but got: %v\n", tc.want, got)
+			if diff := cmp.Diff(tc.want, got, cmpopts.SortSlices(func(a, b string) bool { return a < b })); diff != "" {
+				t.Errorf("want:%v\n got: %v diff %v\n", tc.want, got, diff)
 			}
 		})
 	}
