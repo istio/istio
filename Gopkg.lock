@@ -1654,6 +1654,17 @@
   revision = "4a9a2a12a70047350bf30dbb4a15f2a0cb683dc9"
 
 [[projects]]
+  branch = "master"
+  digest = "1:c4e4b60df363ca8d2d42840e13f997a6b7f8527197c27049c4cc327ce72feae4"
+  name = "istio.io/pkg"
+  packages = [
+    "env",
+    "log",
+  ]
+  pruneopts = "NUT"
+  revision = "a5814db5869277312a677a1ab111340a431eb870"
+
+[[projects]]
   branch = "release-1.11"
   digest = "1:6dd53537a34d9b612e66acd39859953cf7ad70e5b5953937bed5ea998355e7b8"
   name = "k8s.io/api"
@@ -2180,6 +2191,8 @@
     "istio.io/api/networking/v1alpha3",
     "istio.io/api/policy/v1beta1",
     "istio.io/api/rbac/v1alpha1",
+    "istio.io/pkg/env",
+    "istio.io/pkg/log",
     "k8s.io/api/admission/v1beta1",
     "k8s.io/api/admissionregistration/v1beta1",
     "k8s.io/api/apps/v1",

@@ -395,6 +395,7 @@ func TestRun(t *testing.T) {
 			port:                      0,
 			expectedErr:               "",
 			expectedAuthenticatorsLen: 1, // 2 when ID token authenticators are enabled.
+			applyServerCertificateError: "cannot sign",
 		},
 		"Bad signed cert": {
 			ca:                        &mockca.FakeCA{SignedCert: []byte(csr)},

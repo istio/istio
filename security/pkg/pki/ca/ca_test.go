@@ -17,7 +17,6 @@ package ca
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
 	"io/ioutil"
@@ -391,7 +390,7 @@ func TestSignCSRForWorkload(t *testing.T) {
 		t.Error(err)
 	}
 
-	ca, err := createCA(time.Hour, false)
+	ca, err := createCA(time.Hour)
 	if err != nil {
 		t.Error(err)
 	}
@@ -446,7 +445,7 @@ func TestSignCSRForCA(t *testing.T) {
 		t.Error(err)
 	}
 
-	ca, err := createCA(365*24*time.Hour, true)
+	ca, err := createCA(365*24*time.Hour)
 	if err != nil {
 		t.Error(err)
 	}
