@@ -71,22 +71,25 @@ func getProxyInfo() (*[]istioVersion.ProxyInfo, error) {
 	}
 
 	// Ask Pilot for the Envoy sidecar sync status, which includes the sidecar version info
-	syncz, err := kubeClient.PilotDiscoveryDo(istioNamespace, "GET", "/debug/syncz", nil)
-	if err != nil {
-		return nil, err
-	}
-	var sss []*sidecarSyncStatus
-	err = json.Unmarshal(syncz, &sss)
+	allSyncz, err := kubeClient.AllPilotsDiscoveryDo(istioNamespace, "GET", "/debug/syncz", nil)
 	if err != nil {
 		return nil, err
 	}
 
 	pi := []istioVersion.ProxyInfo{}
-	for _, ss := range sss {
-		pi = append(pi, istioVersion.ProxyInfo{
-			ID:           ss.ProxyID,
-			IstioVersion: ss.SyncStatus.IstioVersion,
-		})
+	for _, syncz := range allSyncz {
+		var sss []*sidecarSyncStatus
+		err = json.Unmarshal(syncz, &sss)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, ss := range sss {
+			pi = append(pi, istioVersion.ProxyInfo{
+				ID:           ss.ProxyID,
+				IstioVersion: ss.SyncStatus.IstioVersion,
+			})
+		}
 	}
 
 	return &pi, nil
