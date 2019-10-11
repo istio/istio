@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package cmd
 
 import (
@@ -21,7 +20,6 @@ import (
 	"strings"
 
 	"istio.io/istio/tools/istio-iptables/pkg/builder"
-
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 
 	"istio.io/pkg/env"
@@ -30,21 +28,22 @@ import (
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
 
-type Runner struct {
-	iptables *builder.IptablesRulesBuilder
-	ext      dep.Dependencies
-	cfg      *config.Config
+type IptablesConfigurator struct {
+	iptables *builder.IptablesBuilderImpl
+	//TODO(abhide): Fix dep.Dependencies with better interface
+	ext dep.Dependencies
+	cfg *config.Config
 }
 
-func NewRunner(cfg *config.Config) *Runner {
+func NewIptablesConfigurator(cfg *config.Config) *IptablesConfigurator {
 	var ext dep.Dependencies
 	if cfg.DryRun {
 		ext = &dep.StdoutStubDependencies{}
 	} else {
 		ext = &dep.RealDependencies{}
 	}
-	return &Runner{
-		iptables: builder.NewIptables(),
+	return &IptablesConfigurator{
+		iptables: builder.NewIptablesBuilder(),
 		ext:      ext,
 		cfg:      cfg,
 	}
@@ -62,7 +61,7 @@ func split(s string) []string {
 	return strings.Split(s, ",")
 }
 
-func (runner *Runner) separateV4V6(cidrList string) (NetworkRange, NetworkRange, error) {
+func (iptConfigurator *IptablesConfigurator) separateV4V6(cidrList string) (NetworkRange, NetworkRange, error) {
 	if cidrList == "*" {
 		return NetworkRange{IsWildcard: true}, NetworkRange{IsWildcard: true}, nil
 	}
@@ -86,7 +85,7 @@ func (runner *Runner) separateV4V6(cidrList string) (NetworkRange, NetworkRange,
 	return ipv4Ranges, ipv6Ranges, nil
 }
 
-func (runner *Runner) logConfig() {
+func (iptConfigurator *IptablesConfigurator) logConfig() {
 	// Dump out our environment for debugging purposes.
 	fmt.Println("Environment:")
 	fmt.Println("------------")
@@ -100,231 +99,223 @@ func (runner *Runner) logConfig() {
 	fmt.Println(fmt.Sprintf("ISTIO_SERVICE_CIDR=%s", os.Getenv("ISTIO_SERVICE_CIDR")))
 	fmt.Println(fmt.Sprintf("ISTIO_SERVICE_EXCLUDE_CIDR=%s", os.Getenv("ISTIO_SERVICE_EXCLUDE_CIDR")))
 	fmt.Println("")
-	runner.cfg.Print()
+	iptConfigurator.cfg.Print()
 }
 
-func (runner *Runner) handleInboundPortsInclude() {
-	// Handling of inbound ports. Traffic will be redirunner.cfgted to Envoy, which will prunner.cfgess and forward
+func (iptConfigurator *IptablesConfigurator) handleInboundPortsInclude() {
+	// Handling of inbound ports. Traffic will be redirected to Envoy, which will process and forward
 	// to the local service. If not set, no inbound port will be intercepted by istio iptablesOrFail.
 	var table string
-	if runner.cfg.InboundPortsInclude != "" {
-		if runner.cfg.InboundInterceptionMode == constants.TPROXY {
+	if iptConfigurator.cfg.InboundPortsInclude != "" {
+		if iptConfigurator.cfg.InboundInterceptionMode == constants.TPROXY {
 			// When using TPROXY, create a new chain for routing all inbound traffic to
 			// Envoy. Any packet entering this chain gets marked with the ${INBOUND_TPROXY_MARK} mark,
-			// so that they get routed to the loopback interface in order to get redirunner.cfgted to Envoy.
+			// so that they get routed to the loopback interface in order to get redirected to Envoy.
 			// In the ISTIOINBOUND chain, '-j ISTIODIVERT' reroutes to the loopback
 			// interface.
 			// Mark all inbound packets.
-			runner.ext.RunOrFail(dep.IPTABLES, "-t", constants.MANGLE, "-N", constants.ISTIODIVERT)
-			runner.ext.RunOrFail(dep.IPTABLES, "-t", constants.MANGLE, "-A", constants.ISTIODIVERT, "-j", constants.MARK, "--set-mark", runner.cfg.InboundTProxyMark)
-			runner.ext.RunOrFail(dep.IPTABLES, "-t", constants.MANGLE, "-A", constants.ISTIODIVERT, "-j", constants.ACCEPT)
+			iptConfigurator.iptables.AppendRuleV4(constants.ISTIODIVERT, constants.MANGLE, "-j", constants.MARK, "--set-mark", iptConfigurator.cfg.InboundTProxyMark)
+			iptConfigurator.iptables.AppendRuleV4(constants.ISTIODIVERT, constants.MANGLE, "-j", constants.ACCEPT)
 			// Route all packets marked in chain ISTIODIVERT using routing table ${INBOUND_TPROXY_ROUTE_TABLE}.
-			runner.ext.RunOrFail(dep.IP, "-f", "inet", "rule", "add", "fwmark", runner.cfg.InboundTProxyMark, "lookup", runner.cfg.InboundTProxyRouteTable)
+			//TODO: (abhide): Move this out of this method
+			iptConfigurator.ext.RunOrFail(
+				dep.IP, "-f", "inet", "rule", "add", "fwmark", iptConfigurator.cfg.InboundTProxyMark, "lookup", iptConfigurator.cfg.InboundTProxyRouteTable)
 			// In routing table ${INBOUND_TPROXY_ROUTE_TABLE}, create a single default rule to route all traffic to
 			// the loopback interface.
-			err := runner.ext.Run(dep.IP, "-f", "inet", "route", "add", "local", "default", "dev", "lo", "table", runner.cfg.InboundTProxyRouteTable)
+			//TODO: (abhide): Move this out of this method
+			err := iptConfigurator.ext.Run(dep.IP, "-f", "inet", "route", "add", "local", "default", "dev", "lo", "table", iptConfigurator.cfg.InboundTProxyRouteTable)
 			if err != nil {
-				runner.ext.RunOrFail(dep.IP, "route", "show", "table", "all")
+				//TODO: (abhide): Move this out of this method
+				iptConfigurator.ext.RunOrFail(dep.IP, "route", "show", "table", "all")
 			}
-			// Create a new chain for redirunner.cfgting inbound traffic to the common Envoy
+			// Create a new chain for redirecting inbound traffic to the common Envoy
 			// port.
 			// In the ISTIOINBOUND chain, '-j RETURN' bypasses Envoy and
-			// '-j ISTIOTPROXY' redirunner.cfgts to Envoy.
-			runner.ext.RunOrFail(dep.IPTABLES, "-t", constants.MANGLE, "-N", constants.ISTIOTPROXY)
-			runner.ext.RunOrFail(dep.IPTABLES, "-t", constants.MANGLE, "-A", constants.ISTIOTPROXY, "!", "-d", "127.0.0.1/32", "-p", constants.TCP, "-j", constants.TPROXY,
-				"--tproxy-mark", runner.cfg.InboundTProxyMark+"/0xffffffff", "--on-port", runner.cfg.ProxyPort)
+			// '-j ISTIOTPROXY' redirects to Envoy.
+			iptConfigurator.iptables.AppendRuleV4(constants.ISTIOTPROXY, constants.MANGLE, "!", "-d", "127.0.0.1/32", "-p", constants.TCP, "-j", constants.TPROXY,
+				"--tproxy-mark", iptConfigurator.cfg.InboundTProxyMark+"/0xffffffff", "--on-port", iptConfigurator.cfg.ProxyPort)
 			table = constants.MANGLE
 		} else {
 			table = constants.NAT
 		}
-		runner.ext.RunOrFail(dep.IPTABLES, "-t", table, "-N", constants.ISTIOINBOUND)
-		runner.ext.RunOrFail(dep.IPTABLES, "-t", table, "-A", constants.PREROUTING, "-p", constants.TCP, "-j", constants.ISTIOINBOUND)
+		iptConfigurator.iptables.AppendRuleV4(constants.PREROUTING, table, "-p", constants.TCP, "-j", constants.ISTIOINBOUND)
 
-		if runner.cfg.InboundPortsInclude == "*" {
-			// Makes sure SSH is not redirunner.cfgted
-			runner.ext.RunOrFail(dep.IPTABLES, "-t", table, "-A", constants.ISTIOINBOUND, "-p", constants.TCP, "--dport", "22", "-j", constants.RETURN)
+		if iptConfigurator.cfg.InboundPortsInclude == "*" {
+			// Makes sure SSH is not redirected
+			iptConfigurator.iptables.AppendRuleV4(constants.ISTIOINBOUND, table, "-p", constants.TCP, "--dport", "22", "-j", constants.RETURN)
 			// Apply any user-specified port exclusions.
-			if runner.cfg.InboundPortsExclude != "" {
-				for _, port := range split(runner.cfg.InboundPortsExclude) {
-					runner.ext.RunOrFail(dep.IPTABLES, "-t", table, "-A", constants.ISTIOINBOUND, "-p", constants.TCP, "--dport", port, "-j", constants.RETURN)
+			if iptConfigurator.cfg.InboundPortsExclude != "" {
+				for _, port := range split(iptConfigurator.cfg.InboundPortsExclude) {
+					iptConfigurator.iptables.AppendRuleV4(constants.ISTIOINBOUND, table, "-p", constants.TCP, "--dport", port, "-j", constants.RETURN)
 				}
 			}
-			// Redirunner.cfgt remaining inbound traffic to Envoy.
-			if runner.cfg.InboundInterceptionMode == constants.TPROXY {
+			// Redirect remaining inbound traffic to Envoy.
+			if iptConfigurator.cfg.InboundInterceptionMode == constants.TPROXY {
 				// If an inbound packet belongs to an established socket, route it to the
 				// loopback interface.
-				err := runner.ext.Run(dep.IPTABLES, "-t", constants.MANGLE, "-A", constants.ISTIOINBOUND, "-p", constants.TCP, "-m", "socket", "-j", constants.ISTIODIVERT)
-				if err != nil {
-					fmt.Println("No socket match support")
-				}
-				// Otherwise, it's a new connection. Redirunner.cfgt it using TPROXY.
-				runner.ext.RunOrFail(dep.IPTABLES, "-t", constants.MANGLE, "-A", constants.ISTIOINBOUND, "-p", constants.TCP, "-j", constants.ISTIOTPROXY)
+				iptConfigurator.iptables.AppendRuleV4(constants.ISTIOINBOUND, constants.MANGLE, "-p", constants.TCP, "-m", "socket", "-j", constants.ISTIODIVERT)
+				// Otherwise, it's a new connection. Redirect it using TPROXY.
+				iptConfigurator.iptables.AppendRuleV4(constants.ISTIOINBOUND, constants.MANGLE, "-p", constants.TCP, "-j", constants.ISTIOTPROXY)
 			} else {
-				runner.ext.RunOrFail(dep.IPTABLES, "-t", constants.NAT, "-A", constants.ISTIOINBOUND, "-p", constants.TCP, "-j", constants.ISTIOINREDIRECT)
+				iptConfigurator.iptables.AppendRuleV4(constants.ISTIOINBOUND, constants.NAT, "-p", constants.TCP, "-j", constants.ISTIOINREDIRECT)
 			}
 		} else {
-			// User has specified a non-empty list of ports to be redirunner.cfgted to Envoy.
-			for _, port := range split(runner.cfg.InboundPortsInclude) {
-				if runner.cfg.InboundInterceptionMode == constants.TPROXY {
-					err := runner.ext.Run(dep.IPTABLES, "-t", constants.MANGLE, "-A", constants.ISTIOINBOUND, "-p", constants.TCP,
+			// User has specified a non-empty list of ports to be redirected to Envoy.
+			for _, port := range split(iptConfigurator.cfg.InboundPortsInclude) {
+				if iptConfigurator.cfg.InboundInterceptionMode == constants.TPROXY {
+					iptConfigurator.iptables.AppendRuleV4(constants.ISTIOINBOUND, constants.MANGLE, "-p", constants.TCP,
 						"--dport", port, "-m", "socket", "-j", constants.ISTIODIVERT)
-					if err != nil {
-						fmt.Println("No socket match support")
-					}
-					err = runner.ext.Run(dep.IPTABLES, "-t", constants.MANGLE, "-A", constants.ISTIOINBOUND, "-p", constants.TCP, "--dport", port, "-m",
+					iptConfigurator.iptables.AppendRuleV4(constants.ISTIOINBOUND, constants.MANGLE, "-p", constants.TCP, "--dport", port, "-m",
 						"socket", "-j", constants.ISTIODIVERT)
-					if err != nil {
-						fmt.Println("No socket match support")
-					}
-					runner.ext.RunOrFail(dep.IPTABLES, "-t", constants.MANGLE, "-A", constants.ISTIOINBOUND, "-p", constants.TCP, "--dport", port, "-j", constants.ISTIOTPROXY)
+					iptConfigurator.iptables.AppendRuleV4(
+						constants.ISTIOINBOUND, constants.MANGLE, "-p", constants.TCP, "--dport", port, "-j", constants.ISTIOTPROXY)
 				} else {
-					runner.ext.RunOrFail(dep.IPTABLES, "-t", constants.NAT, "-A", constants.ISTIOINBOUND, "-p", constants.TCP, "--dport", port, "-j", constants.ISTIOINREDIRECT)
+					iptConfigurator.iptables.AppendRuleV4(
+						constants.ISTIOINBOUND, constants.NAT, "-p", constants.TCP, "--dport", port, "-j", constants.ISTIOINREDIRECT)
 				}
 			}
 		}
 	}
 }
 
-func (runner *Runner) handleInboundIpv6Rules(ipv6RangesExclude NetworkRange, ipv6RangesInclude NetworkRange) {
-	// If ENABLE_INBOUND_IPV6 is unset (default unset), restrunner.cfgt IPv6 traffic.
-	if runner.cfg.EnableInboundIPv6s != nil {
+func (iptConfigurator *IptablesConfigurator) handleInboundIpv6Rules(ipv6RangesExclude NetworkRange, ipv6RangesInclude NetworkRange) {
+	// If ENABLE_INBOUND_IPV6 is unset (default unset), restrict IPv6 traffic.
+	if iptConfigurator.cfg.EnableInboundIPv6s != nil {
 		var table string
 		// Create a new chain for redirecting outbound traffic to the common Envoy port.
 		// In both chains, '-j RETURN' bypasses Envoy and '-j ISTIOREDIRECT'
-		// redirunner.cfgts to Envoy.
-		runner.ext.RunOrFail(dep.IP6TABLES, "-t", constants.NAT, "-N", constants.ISTIOREDIRECT)
-		runner.ext.RunOrFail(dep.IP6TABLES, "-t", constants.NAT, "-A", constants.ISTIOREDIRECT, "-p", constants.TCP, "-j", constants.REDIRECT, "--to-port", runner.cfg.ProxyPort)
-		// Use this chain also for redirunner.cfgting inbound traffic to the common Envoy port
+		// redirects to Envoy.
+		iptConfigurator.iptables.AppendRuleV6(
+			constants.ISTIOREDIRECT, constants.NAT, "-p", constants.TCP, "-j", constants.REDIRECT, "--to-port", iptConfigurator.cfg.ProxyPort)
+		// Use this chain also for redirecting inbound traffic to the common Envoy port
 		// when not using TPROXY.
-		runner.ext.RunOrFail(dep.IP6TABLES, "-t", constants.NAT, "-N", constants.ISTIOINREDIRECT)
-		if runner.cfg.InboundPortsInclude == "*" {
-			runner.ext.RunOrFail(dep.IP6TABLES, "-t", constants.NAT, "-A", constants.ISTIOINREDIRECT, "-p", constants.TCP, "-j",
-				constants.REDIRECT, "--to-port", runner.cfg.InboundCapturePort)
+		if iptConfigurator.cfg.InboundPortsInclude == "*" {
+			iptConfigurator.iptables.AppendRuleV6(constants.ISTIOINREDIRECT, constants.NAT, "-p", constants.TCP, "-j",
+				constants.REDIRECT, "--to-port", iptConfigurator.cfg.InboundCapturePort)
 		} else {
-			runner.ext.RunOrFail(dep.IP6TABLES, "-t", constants.NAT, "-A", constants.ISTIOINREDIRECT, "-p", constants.TCP, "-j",
-				constants.REDIRECT, "--to-port", runner.cfg.ProxyPort)
+			iptConfigurator.iptables.AppendRuleV6(constants.ISTIOINREDIRECT, constants.NAT, "-p", constants.TCP, "-j",
+				constants.REDIRECT, "--to-port", iptConfigurator.cfg.ProxyPort)
 		}
-		// Handling of inbound ports. Traffic will be redirunner.cfgted to Envoy, which will prunner.cfgess and forward
+		// Handling of inbound ports. Traffic will be redirected to Envoy, which will process and forward
 		// to the local service. If not set, no inbound port will be intercepted by istio iptablesOrFail.
-		if runner.cfg.InboundPortsInclude != "" {
+		if iptConfigurator.cfg.InboundPortsInclude != "" {
 			table = constants.NAT
-			runner.ext.RunOrFail(dep.IP6TABLES, "-t", table, "-N", constants.ISTIOINBOUND)
-			runner.ext.RunOrFail(dep.IP6TABLES, "-t", table, "-A", constants.PREROUTING, "-p", constants.TCP, "-j", constants.ISTIOINBOUND)
+			iptConfigurator.iptables.AppendRuleV6(constants.PREROUTING, table, "-p", constants.TCP, "-j", constants.ISTIOINBOUND)
 
-			if runner.cfg.InboundPortsInclude == "*" {
-				// Makes sure SSH is not redirunner.cfgted
-				runner.ext.RunOrFail(dep.IP6TABLES, "-t", table, "-A", constants.ISTIOINBOUND, "-p", constants.TCP, "--dport", "22", "-j", constants.RETURN)
+			if iptConfigurator.cfg.InboundPortsInclude == "*" {
+				// Makes sure SSH is not redirected
+				iptConfigurator.iptables.AppendRuleV6(constants.ISTIOINBOUND, table, "-p", constants.TCP, "--dport", "22", "-j", constants.RETURN)
 				// Apply any user-specified port exclusions.
-				if runner.cfg.InboundPortsExclude != "" {
-					for _, port := range split(runner.cfg.InboundPortsExclude) {
-						runner.ext.RunOrFail(dep.IP6TABLES, "-t", table, "-A", constants.ISTIOINBOUND, "-p", constants.TCP, "--dport", port, "-j", constants.RETURN)
+				if iptConfigurator.cfg.InboundPortsExclude != "" {
+					for _, port := range split(iptConfigurator.cfg.InboundPortsExclude) {
+						iptConfigurator.iptables.AppendRuleV6(constants.ISTIOINBOUND, table, "-p", constants.TCP, "--dport", port, "-j", constants.RETURN)
 					}
 				}
 				// Redirect left inbound traffic
-				ext.RunOrFail(dep.IP6TABLES, "-t", table, "-A", constants.ISTIOINBOUND, "-p", constants.TCP, "-j", constants.ISTIOINREDIRECT)
+				iptConfigurator.iptables.AppendRuleV6(constants.ISTIOINBOUND, table, "-p", constants.TCP, "-j", constants.ISTIOINREDIRECT)
 			} else {
-				// User has specified a non-empty list of ports to be redirunner.cfgted to Envoy.
-				for _, port := range split(runner.cfg.InboundPortsInclude) {
-					runner.ext.RunOrFail(dep.IP6TABLES, "-t", constants.NAT, "-A", constants.ISTIOINBOUND, "-p", constants.TCP, "--dport", port, "-j", constants.ISTIOINREDIRECT)
+				// User has specified a non-empty list of ports to be redirected to Envoy.
+				for _, port := range split(iptConfigurator.cfg.InboundPortsInclude) {
+					iptConfigurator.iptables.AppendRuleV6(constants.ISTIOINBOUND, constants.NAT, "-p", constants.TCP, "--dport", port, "-j", constants.ISTIOINREDIRECT)
 				}
 			}
 		}
-		// Create a new chain for selectively redirunner.cfgting outbound packets to Envoy.
-		runner.ext.RunOrFail(dep.IP6TABLES, "-t", constants.NAT, "-N", constants.ISTIOOUTPUT)
+		// Create a new chain for selectively redirecting outbound packets to Envoy.
 		// Jump to the ISTIOOUTPUT chain from OUTPUT chain for all tcp traffic.
-		runner.ext.RunOrFail(dep.IP6TABLES, "-t", constants.NAT, "-A", constants.OUTPUT, "-p", constants.TCP, "-j", constants.ISTIOOUTPUT)
-		// Apply port based exclusions. Must be applied before connections back to self are redirunner.cfgted.
-		if runner.cfg.OutboundPortsExclude != "" {
-			for _, port := range split(runner.cfg.OutboundPortsExclude) {
-				runner.ext.RunOrFail(dep.IP6TABLES, "-t", constants.NAT, "-A", constants.ISTIOOUTPUT, "-p", constants.TCP, "--dport", port, "-j", constants.RETURN)
+		iptConfigurator.iptables.AppendRuleV6(constants.OUTPUT, constants.NAT, "-p", constants.TCP, "-j", constants.ISTIOOUTPUT)
+		// Apply port based exclusions. Must be applied before connections back to self are redirected.
+		if iptConfigurator.cfg.OutboundPortsExclude != "" {
+			for _, port := range split(iptConfigurator.cfg.OutboundPortsExclude) {
+				iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-p", constants.TCP, "--dport", port, "-j", constants.RETURN)
 			}
 		}
 
 		// ::6 is bind connect from inbound passthrough cluster
-		runner.ext.RunOrFail(dep.IP6TABLES, "-t", constants.NAT, "-A", constants.ISTIOOUTPUT, "-o", "lo", "-s", "::6/128", "-j", constants.RETURN)
+		iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-s", "::6/128", "-j", constants.RETURN)
 
-		// Redirunner.cfgt app calls to back itself via Envoy when using the service VIP or endpoint
+		// Redirect app calls to back itself via Envoy when using the service VIP or endpoint
 		// address, e.g. appN => Envoy (client) => Envoy (server) => appN.
-		runner.ext.RunOrFail(dep.IP6TABLES, "-t", constants.NAT, "-A", constants.ISTIOOUTPUT, "-o", "lo", "!", "-d", "::1/128", "-j", constants.ISTIOINREDIRECT)
+		iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "!", "-d", "::1/128", "-j", constants.ISTIOINREDIRECT)
 
-		for _, uid := range split(runner.cfg.ProxyUID) {
-			// Avoid infinite loops. Don't redirunner.cfgt Envoy traffic dirunner.cfgtly back to
+		for _, uid := range split(iptConfigurator.cfg.ProxyUID) {
+			// Avoid infinite loops. Don't redirect Envoy traffic directly back to
 			// Envoy for non-loopback traffic.
-			runner.ext.RunOrFail(dep.IP6TABLES, "-t", constants.NAT, "-A", constants.ISTIOOUTPUT, "-m", "owner", "--uid-owner", uid, "-j", constants.RETURN)
+			iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-m", "owner", "--uid-owner", uid, "-j", constants.RETURN)
 		}
 
-		for _, gid := range split(runner.cfg.ProxyGID) {
-			// Avoid infinite loops. Don't redirunner.cfgt Envoy traffic dirunner.cfgtly back to
+		for _, gid := range split(iptConfigurator.cfg.ProxyGID) {
+			// Avoid infinite loops. Don't redirect Envoy traffic directly back to
 			// Envoy for non-loopback traffic.
-			runner.ext.RunOrFail(dep.IP6TABLES, "-t", constants.NAT, "-A", constants.ISTIOOUTPUT, "-m", "owner", "--gid-owner", gid, "-j", constants.RETURN)
+			iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-m", "owner", "--gid-owner", gid, "-j", constants.RETURN)
 		}
-		// Skip redirunner.cfgtion for Envoy-aware applications and
+		// Skip redirection for Envoy-aware applications and
 		// container-to-container traffic both of which explicitly use
 		// localhost.
-		runner.ext.RunOrFail(dep.IP6TABLES, "-t", constants.NAT, "-A", constants.ISTIOOUTPUT, "-d", "::1/128", "-j", constants.RETURN)
+		iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-d", "::1/128", "-j", constants.RETURN)
 		// Apply outbound IPv6 exclusions. Must be applied before inclusions.
 		for _, cidr := range ipv6RangesExclude.IPNets {
-			runner.ext.RunOrFail(dep.IP6TABLES, "-t", constants.NAT, "-A", constants.ISTIOOUTPUT, "-d", cidr.String(), "-j", constants.RETURN)
+			iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-d", cidr.String(), "-j", constants.RETURN)
 		}
 		// Apply outbound IPv6 inclusions.
 		if ipv6RangesInclude.IsWildcard {
-			// Wildcard specified. Redirunner.cfgt all remaining outbound traffic to Envoy.
-			runner.ext.RunOrFail(dep.IP6TABLES, "-t", constants.NAT, "-A", constants.ISTIOOUTPUT, "-j", constants.ISTIOREDIRECT)
-			for _, internalInterface := range split(runner.cfg.KubevirtInterfaces) {
-				runner.ext.RunOrFail(dep.IP6TABLES, "-t", constants.NAT, "-I", constants.PREROUTING, "1", "-i", internalInterface, "-j", constants.RETURN)
+			// Wildcard specified. Redirect all remaining outbound traffic to Envoy.
+			iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-j", constants.ISTIOREDIRECT)
+			for _, internalInterface := range split(iptConfigurator.cfg.KubevirtInterfaces) {
+				iptConfigurator.iptables.InsertRuleV6(constants.PREROUTING, constants.NAT, 1, "-i", internalInterface, "-j", constants.RETURN)
 			}
 		} else if len(ipv6RangesInclude.IPNets) > 0 {
-			// User has specified a non-empty list of cidrs to be redirunner.cfgted to Envoy.
+			// User has specified a non-empty list of cidrs to be redirected to Envoy
 			for _, cidr := range ipv6RangesInclude.IPNets {
-				for _, internalInterface := range split(runner.cfg.KubevirtInterfaces) {
-					runner.ext.RunOrFail(dep.IP6TABLES, "-t", constants.NAT, "-I", constants.PREROUTING, "1", "-i", internalInterface,
+				for _, internalInterface := range split(iptConfigurator.cfg.KubevirtInterfaces) {
+					iptConfigurator.iptables.InsertRuleV6(constants.PREROUTING, constants.NAT, 1, "-i", internalInterface,
 						"-d", cidr.String(), "-j", constants.ISTIOREDIRECT)
 				}
-				runner.ext.RunOrFail(dep.IP6TABLES, "-t", constants.NAT, "-A", constants.ISTIOOUTPUT, "-d", cidr.String(), "-j", constants.ISTIOREDIRECT)
+				iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-d", cidr.String(), "-j", constants.ISTIOREDIRECT)
 			}
-			// All other traffic is not redirunner.cfgted.
-			runner.ext.RunOrFail(dep.IP6TABLES, "-t", constants.NAT, "-A", constants.ISTIOOUTPUT, "-j", constants.RETURN)
+			// All other traffic is not redirected.
+			iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-j", constants.RETURN)
 		}
 	} else {
 		// Drop all inbound traffic except established connections.
-		runner.ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-F", constants.INPUT)
-		runner.ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-A", constants.INPUT, "-m", "state", "--state", "ESTABLISHED", "-j", constants.ACCEPT)
-		runner.ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-A", constants.INPUT, "-i", "lo", "-d", "::1", "-j", constants.ACCEPT)
-		runner.ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-A", constants.INPUT, "-j", constants.REJECT)
+		iptConfigurator.iptables.AppendRuleV6(constants.INPUT, constants.FILTER, "-m", "state", "--state", "ESTABLISHED", "-j", constants.ACCEPT)
+		iptConfigurator.iptables.AppendRuleV6(constants.INPUT, constants.FILTER, "-i", "lo", "-d", "::1", "-j", constants.ACCEPT)
+		iptConfigurator.iptables.AppendRuleV6(constants.INPUT, constants.FILTER, "-j", constants.REJECT)
 	}
 }
 
-func (runner *Runner) handleInboundIpv4Rules(ipv4RangesInclude NetworkRange) {
+func (iptConfigurator *IptablesConfigurator) handleInboundIpv4Rules(ipv4RangesInclude NetworkRange) {
 	// Apply outbound IP inclusions.
 	if ipv4RangesInclude.IsWildcard {
-		// Wildcard specified. Redirunner.cfgt all remaining outbound traffic to Envoy.
-		runner.ext.RunOrFail(dep.IPTABLES, "-t", constants.NAT, "-A", constants.ISTIOOUTPUT, "-j", constants.ISTIOREDIRECT)
-		for _, internalInterface := range split(runner.cfg.KubevirtInterfaces) {
-			runner.ext.RunOrFail(dep.IPTABLES, "-t", constants.NAT, "-I", constants.PREROUTING, "1", "-i", internalInterface, "-j", constants.ISTIOREDIRECT)
+		// Wildcard specified. Redirect all remaining outbound traffic to Envoy.
+		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-j", constants.ISTIOREDIRECT)
+		for _, internalInterface := range split(iptConfigurator.cfg.KubevirtInterfaces) {
+			iptConfigurator.iptables.InsertRuleV4(
+				constants.PREROUTING, constants.NAT, 1, "-i", internalInterface, "-j", constants.ISTIOREDIRECT)
 		}
 	} else if len(ipv4RangesInclude.IPNets) > 0 {
-		// User has specified a non-empty list of cidrs to be redirunner.cfgted to Envoy.
+		// User has specified a non-empty list of cidrs to be redirected to Envoy.
 		for _, cidr := range ipv4RangesInclude.IPNets {
-			for _, internalInterface := range split(runner.cfg.KubevirtInterfaces) {
-				runner.ext.RunOrFail(dep.IPTABLES, "-t", constants.NAT, "-I", constants.PREROUTING, "1", "-i", internalInterface,
+			for _, internalInterface := range split(iptConfigurator.cfg.KubevirtInterfaces) {
+				iptConfigurator.iptables.InsertRuleV4(constants.PREROUTING, constants.NAT, 1, "-i", internalInterface,
 					"-d", cidr.String(), "-j", constants.ISTIOREDIRECT)
 			}
-			runner.ext.RunOrFail(dep.IPTABLES, "-t", constants.NAT, "-A", constants.ISTIOOUTPUT, "-d", cidr.String(), "-j", constants.ISTIOREDIRECT)
+			iptConfigurator.iptables.AppendRuleV4(
+				constants.ISTIOOUTPUT, constants.NAT, "-d", cidr.String(), "-j", constants.ISTIOREDIRECT)
 		}
-		// All other traffic is not redirunner.cfgted.
-		runner.ext.RunOrFail(dep.IPTABLES, "-t", constants.NAT, "-A", constants.ISTIOOUTPUT, "-j", constants.RETURN)
+		// All other traffic is not redirected.
+		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-j", constants.RETURN)
 	}
 }
 
-func (runner *Runner) run() {
+func (iptConfigurator *IptablesConfigurator) run() {
 	defer func() {
-		runner.ext.RunOrFail(dep.IPTABLESSAVE)
-		runner.ext.RunOrFail(dep.IP6TABLESSAVE)
+		iptConfigurator.ext.RunOrFail(dep.IPTABLESSAVE)
+		iptConfigurator.ext.RunOrFail(dep.IP6TABLESSAVE)
 	}()
 
 	// TODO: more flexibility - maybe a whitelist of users to be captured for output instead of a blacklist.
-	if runner.cfg.ProxyUID == "" {
-		usr, err := runner.ext.LookupUser()
+	if iptConfigurator.cfg.ProxyUID == "" {
+		usr, err := iptConfigurator.ext.LookupUser()
 		var userID string
 		// Default to the UID of ENVOY_USER and root
 		if err != nil {
@@ -333,116 +324,130 @@ func (runner *Runner) run() {
 			userID = usr.Uid
 		}
 		// If ENVOY_UID is not explicitly defined (as it would be in k8s env), we add root to the list,
-		// forunner.cfga agent.
-		runner.cfg.ProxyUID = userID + ",0"
+		// for ca agent.
+		iptConfigurator.cfg.ProxyUID = userID + ",0"
 	}
 
 	// for TPROXY as its uid and gid are same
-	if runner.cfg.ProxyGID == "" {
-		runner.cfg.ProxyGID = runner.cfg.ProxyUID
+	if iptConfigurator.cfg.ProxyGID == "" {
+		iptConfigurator.cfg.ProxyGID = iptConfigurator.cfg.ProxyUID
 	}
 
-	podIP, err := runner.ext.GetLocalIP()
+	podIP, err := iptConfigurator.ext.GetLocalIP()
 	if err != nil {
 		panic(err)
 	}
 	// Check if pod's ip is ipv4 or ipv6, in case of ipv6 set variable
 	// to program ip6tablesOrFail
 	if podIP.To4() == nil {
-		runner.cfg.EnableInboundIPv6s = podIP
+		iptConfigurator.cfg.EnableInboundIPv6s = podIP
 	}
 
 	//
 	// Since OUTBOUND_IP_RANGES_EXCLUDE could carry ipv4 and ipv6 ranges
 	// need to split them in different arrays one for ipv4 and one for ipv6
 	// in order to not to fail
-	ipv4RangesExclude, ipv6RangesExclude, err := runner.separateV4V6(runner.cfg.OutboundIPRangesExclude)
+	ipv4RangesExclude, ipv6RangesExclude, err := iptConfigurator.separateV4V6(iptConfigurator.cfg.OutboundIPRangesExclude)
 	if err != nil {
 		panic(err)
 	}
 	if ipv4RangesExclude.IsWildcard {
 		panic("Invalid value for OUTBOUND_IP_RANGES_EXCLUDE")
 	}
-	// FixMe: Do we need similarunner.cfgheck for ipv6RangesExclude as well ??
+	// FixMe: Do we need similar check for ipv6RangesExclude as well ??
 
-	ipv4RangesInclude, ipv6RangesInclude, err := runner.separateV4V6(runner.cfg.OutboundIPRangesInclude)
+	ipv4RangesInclude, ipv6RangesInclude, err := iptConfigurator.separateV4V6(iptConfigurator.cfg.OutboundIPRangesInclude)
 	if err != nil {
 		panic(err)
 	}
 
-	runner.logConfig()
+	iptConfigurator.logConfig()
 
-	if runner.cfg.EnableInboundIPv6s != nil {
-		runner.ext.RunOrFail(dep.IP, "-6", "addr", "add", "::6/128", "dev", "lo")
+	if iptConfigurator.cfg.EnableInboundIPv6s != nil {
+		//TODO: (abhide): Move this out of this method
+		iptConfigurator.ext.RunOrFail(dep.IP, "-6", "addr", "add", "::6/128", "dev", "lo")
 	}
 
-	// Create a new chain for redirunner.cfgting outbound traffic to the common Envoy port.
+	// Create a new chain for redirecting outbound traffic to the common Envoy port.
 	// In both chains, '-j RETURN' bypasses Envoy and '-j ISTIOREDIRECT'
-	// redirunner.cfgts to Envoy.
-	runner.ext.RunOrFail(dep.IPTABLES, "-t", constants.NAT, "-N", constants.ISTIOREDIRECT)
-	runner.ext.RunOrFail(dep.IPTABLES, "-t", constants.NAT, "-A", constants.ISTIOREDIRECT, "-p", constants.TCP, "-j", constants.REDIRECT, "--to-port", runner.cfg.ProxyPort)
-	// Use this chain also for redirunner.cfgting inbound traffic to the common Envoy port
+	// redirects to Envoy.
+	iptConfigurator.iptables.AppendRuleV4(
+		constants.ISTIOREDIRECT, constants.NAT, "-p", constants.TCP, "-j", constants.REDIRECT, "--to-port", iptConfigurator.cfg.ProxyPort)
+	// Use this chain also for redirecting inbound traffic to the common Envoy port
 	// when not using TPROXY.
-	runner.ext.RunOrFail(dep.IPTABLES, "-t", constants.NAT, "-N", constants.ISTIOINREDIRECT)
 
 	// PROXY_INBOUND_CAPTURE_PORT should be used only user explicitly set INBOUND_PORTS_INCLUDE to capture all
-	if runner.cfg.InboundPortsInclude == "*" {
-		runner.ext.RunOrFail(dep.IPTABLES, "-t", constants.NAT, "-A", constants.ISTIOINREDIRECT, "-p", constants.TCP, "-j", constants.REDIRECT,
-			"--to-port", runner.cfg.InboundCapturePort)
+	if iptConfigurator.cfg.InboundPortsInclude == "*" {
+		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOINREDIRECT, constants.NAT, "-p", constants.TCP, "-j", constants.REDIRECT,
+			"--to-port", iptConfigurator.cfg.InboundCapturePort)
 	} else {
-		runner.ext.RunOrFail(dep.IPTABLES, "-t", constants.NAT, "-A", constants.ISTIOINREDIRECT, "-p", constants.TCP, "-j", constants.REDIRECT,
-			"--to-port", runner.cfg.ProxyPort)
+		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOINREDIRECT, constants.NAT, "-p", constants.TCP, "-j", constants.REDIRECT,
+			"--to-port", iptConfigurator.cfg.ProxyPort)
 	}
 
-	runner.handleInboundPortsInclude()
+	iptConfigurator.handleInboundPortsInclude()
 
 	// TODO: change the default behavior to not intercept any output - user may use http_proxy or another
 	// iptablesOrFail wrapper (like ufw). Current default is similar with 0.1
-	// Create a new chain for selectively redirunner.cfgting outbound packets to Envoy.
-	runner.ext.RunOrFail(dep.IPTABLES, "-t", constants.NAT, "-N", constants.ISTIOOUTPUT)
 	// Jump to the ISTIOOUTPUT chain from OUTPUT chain for all tcp traffic.
-	runner.ext.RunOrFail(dep.IPTABLES, "-t", constants.NAT, "-A", constants.OUTPUT, "-p", constants.TCP, "-j", constants.ISTIOOUTPUT)
-
-	// Apply port based exclusions. Must be applied before connections back to self are redirunner.cfgted.
-	if runner.cfg.OutboundPortsExclude != "" {
-		for _, port := range split(runner.cfg.OutboundPortsExclude) {
-			runner.ext.RunOrFail(dep.IPTABLES, "-t", constants.NAT, "-A", constants.ISTIOOUTPUT, "-p", constants.TCP, "--dport", port, "-j", constants.RETURN)
+	iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.NAT, "-p", constants.TCP, "-j", constants.ISTIOOUTPUT)
+	// Apply port based exclusions. Must be applied before connections back to self are redirected.
+	if iptConfigurator.cfg.OutboundPortsExclude != "" {
+		for _, port := range split(iptConfigurator.cfg.OutboundPortsExclude) {
+			iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-p", constants.TCP, "--dport", port, "-j", constants.RETURN)
 		}
 	}
 
 	// 127.0.0.6 is bind connect from inbound passthrough cluster
-	runner.ext.RunOrFail(dep.IPTABLES, "-t", constants.NAT, "-A", constants.ISTIOOUTPUT, "-o", "lo", "-s", "127.0.0.6/32", "-j", constants.RETURN)
+	iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-s", "127.0.0.6/32", "-j", constants.RETURN)
 
 	if env.RegisterStringVar("DISABLE_REDIRECTION_ON_LOCAL_LOOPBACK", "", "").Get() == "" {
-		// Redirunner.cfgt app calls back to itself via Envoy when using the service VIP or endpoint
+		// Redirect app calls back to itself via Envoy when using the service VIP or endpoint
 		// address, e.g. appN => Envoy (client) => Envoy (server) => appN.
-		runner.ext.RunOrFail(dep.IPTABLES, "-t", constants.NAT, "-A", constants.ISTIOOUTPUT, "-o", "lo", "!", "-d", "127.0.0.1/32", "-j", constants.ISTIOINREDIRECT)
+		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "!", "-d", "127.0.0.1/32", "-j", constants.ISTIOINREDIRECT)
 	}
 
-	for _, uid := range split(runner.cfg.ProxyUID) {
-		// Avoid infinite loops. Don't redirunner.cfgt Envoy traffic dirunner.cfgtly back to
+	for _, uid := range split(iptConfigurator.cfg.ProxyUID) {
+		// Avoid infinite loops. Don't redirect Envoy traffic directly back to
 		// Envoy for non-loopback traffic.
-		runner.ext.RunOrFail(dep.IPTABLES, "-t", constants.NAT, "-A", constants.ISTIOOUTPUT, "-m", "owner", "--uid-owner", uid, "-j", constants.RETURN)
+		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-m", "owner", "--uid-owner", uid, "-j", constants.RETURN)
 	}
 
-	for _, gid := range split(runner.cfg.ProxyGID) {
-		// Avoid infinite loops. Don't redirunner.cfgt Envoy traffic dirunner.cfgtly back to
+	for _, gid := range split(iptConfigurator.cfg.ProxyGID) {
+		// Avoid infinite loops. Don't redirect Envoy traffic directly back to
 		// Envoy for non-loopback traffic.
-		runner.ext.RunOrFail(dep.IPTABLES, "-t", constants.NAT, "-A", constants.ISTIOOUTPUT, "-m", "owner", "--gid-owner", gid, "-j", constants.RETURN)
+		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-m", "owner", "--gid-owner", gid, "-j", constants.RETURN)
 	}
-	// Skip redirunner.cfgtion for Envoy-aware applications and
+	// Skip redirection for Envoy-aware applications and
 	// container-to-container traffic both of which explicitly use
 	// localhost.
-	runner.ext.RunOrFail(dep.IPTABLES, "-t", constants.NAT, "-A", constants.ISTIOOUTPUT, "-d", "127.0.0.1/32", "-j", constants.RETURN)
+	iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-d", "127.0.0.1/32", "-j", constants.RETURN)
 	// Apply outbound IPv4 exclusions. Must be applied before inclusions.
 	for _, cidr := range ipv4RangesExclude.IPNets {
-		runner.ext.RunOrFail(dep.IPTABLES, "-t", constants.NAT, "-A", constants.ISTIOOUTPUT, "-d", cidr.String(), "-j", constants.RETURN)
+		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-d", cidr.String(), "-j", constants.RETURN)
 	}
 
-	for _, internalInterface := range split(runner.cfg.KubevirtInterfaces) {
-		runner.ext.RunOrFail(dep.IPTABLES, "-t", constants.NAT, "-I", constants.PREROUTING, "1", "-i", internalInterface, "-j", constants.RETURN)
+	for _, internalInterface := range split(iptConfigurator.cfg.KubevirtInterfaces) {
+		iptConfigurator.iptables.InsertRuleV4(constants.PREROUTING, constants.NAT, 1, "-i", internalInterface, "-j", constants.RETURN)
 	}
 
-	runner.handleInboundIpv4Rules(ipv4RangesInclude)
-	runner.handleInboundIpv6Rules(ipv6RangesExclude, ipv6RangesInclude)
+	iptConfigurator.handleInboundIpv4Rules(ipv4RangesInclude)
+	iptConfigurator.handleInboundIpv6Rules(ipv6RangesExclude, ipv6RangesInclude)
+
+	// Execute iptables commands
+	for _, cmd := range iptConfigurator.iptables.BuildV4() {
+		if len(cmd) > 1 {
+			iptConfigurator.ext.RunOrFail(cmd[0], cmd[1:]...)
+		} else {
+			iptConfigurator.ext.RunOrFail(cmd[0])
+		}
+	}
+
+	for _, cmd := range iptConfigurator.iptables.BuildV6() {
+		if len(cmd) > 1 {
+			iptConfigurator.ext.RunOrFail(cmd[0], cmd[1:]...)
+		} else {
+			iptConfigurator.ext.RunOrFail(cmd[0])
+		}
+	}
 }

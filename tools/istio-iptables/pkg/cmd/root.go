@@ -32,8 +32,8 @@ var rootCmd = &cobra.Command{
 	Long: "Script responsible for setting up port forwarding for Istio sidecar.",
 	Run: func(cmd *cobra.Command, args []string) {
 		config := constructConfig()
-		runner := NewRunner(config)
-		runner.run()
+		iptConfigurator := NewIptablesConfigurator(config)
+		iptConfigurator.run()
 	},
 }
 
