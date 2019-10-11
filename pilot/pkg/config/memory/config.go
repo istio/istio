@@ -18,6 +18,7 @@ package memory
 import (
 	"errors"
 	"fmt"
+	"istio.io/pkg/log"
 	"sync"
 	"time"
 
@@ -31,6 +32,9 @@ var (
 	errNotFound      = errors.New("item not found")
 	errAlreadyExists = errors.New("item already exists")
 )
+
+const ledgerLogf = "error tracking pilot config memory versions for distribution: %v"
+
 
 // Make creates an in-memory config store from a config descriptor
 func Make(descriptor schema.Set) model.ConfigStore {
@@ -132,7 +136,10 @@ func (cr *store) Delete(typ, name, namespace string) error {
 		return errNotFound
 	}
 
-	cr.ledger.Delete(buildKey(typ, name, namespace))
+	err := cr.ledger.Delete(buildKey(typ, name, namespace))
+	if err != nil {
+		log.Warnf(ledgerLogf, err)
+	}
 	ns.Delete(name)
 	return nil
 }
@@ -163,7 +170,10 @@ func (cr *store) Create(config model.Config) (string, error) {
 			config.CreationTimestamp = tnow
 		}
 
-		cr.ledger.Put(buildKey(typ, config.Namespace, config.Name), config.Version)
+		_, err := cr.ledger.Put(buildKey(typ, config.Namespace, config.Name), config.Version)
+		if err != nil {
+			log.Warnf(ledgerLogf, err)
+		}
 		ns.Store(config.Name, config)
 		return config.ResourceVersion, nil
 	}
@@ -196,7 +206,10 @@ func (cr *store) Update(config model.Config) (string, error) {
 
 	rev := time.Now().String()
 	config.ResourceVersion = rev
-	cr.ledger.Put(buildKey(typ, config.Namespace, config.Name), config.Version)
+	_, err:= cr.ledger.Put(buildKey(typ, config.Namespace, config.Name), config.Version)
+	if err != nil {
+		log.Warnf(ledgerLogf, err)
+	}
 	ns.Store(config.Name, config)
 	return rev, nil
 }

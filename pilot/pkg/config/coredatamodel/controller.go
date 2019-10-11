@@ -35,6 +35,7 @@ import (
 )
 
 var errUnsupported = errors.New("this operation is not supported by mcp controller")
+const ledgerLogf = "error tracking pilot config versions for coredatamodel distribution: %v"
 
 // CoreDataModel is a combined interface for ConfigStoreCache
 // MCP Updater and ServiceDiscovery
@@ -187,10 +188,16 @@ func (c *Controller) Apply(change *sink.Change) error {
 			}
 		}
 
-		c.ledger.Put(conf.Key(), obj.Metadata.Version)
+		_, err := c.ledger.Put(conf.Key(), obj.Metadata.Version)
+		if err != nil {
+			log.Warnf(ledgerLogf, err)
+		}
 	}
 	for _, removed := range change.Removed {
-		c.ledger.Delete(kube.KeyFunc(change.Collection, removed))
+		err := c.ledger.Delete(kube.KeyFunc(change.Collection, removed))
+		if err != nil {
+			log.Warnf(ledgerLogf, err)
+		}
 	}
 
 	var prevStore map[string]map[string]*model.Config
