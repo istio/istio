@@ -46,6 +46,8 @@ function setup_and_export_git_sha() {
     # Use the current commit.
     GIT_SHA="$(git rev-parse --verify HEAD)"
     export GIT_SHA
+    GIT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+    export GIT_BRANCH
   fi
   gcloud auth configure-docker -q
 }
