@@ -2,11 +2,11 @@
 package fakes
 
 import (
-	sync "sync"
+	"sync"
 
-	model "istio.io/istio/pilot/pkg/model"
-	labels "istio.io/istio/pkg/config/labels"
-	schema "istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/schema"
 )
 
 type IstioConfigStore struct {
