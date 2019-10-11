@@ -42,7 +42,8 @@ function build_kind_images() {
   done
 	# Archived local images and load it into KinD's docker daemon
 	# Kubernetes in KinD can only access local images from its docker daemon.
-	time k3d import-images "$(docker images "${HUB}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}' | tr '\n' ',')"
+	images="$(docker images "${HUB}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}' | tr '\n' ',')"
+	time k3d import-images "${images::-1}"
 }
 
 function cleanup() {
