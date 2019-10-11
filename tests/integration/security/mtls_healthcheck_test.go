@@ -38,8 +38,8 @@ func TestMtlsHealthCheck(t *testing.T) {
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.ClaimOrFail(t, ctx, "healthcheck")
-			runHealthCheckDeployment(t, ctx, ns, "healthcheck", true, true)
-			runHealthCheckDeployment(t, ctx, ns, "healthcheck-fail", false, false)
+			runHealthCheckDeployment(t, ctx, ns, "ok", true, true)
+			runHealthCheckDeployment(t, ctx, ns, "fail", false, false)
 		})
 }
 
