@@ -45,6 +45,7 @@ spec:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -55,45 +56,8 @@ spec:
 <p>Namespace the target action is taking place in.</p>
 
 </td>
-</tr>
-<tr id="Action-service">
-<td><code>service</code></td>
-<td><code>string</code></td>
 <td>
-<p>The Service the action is being taken on.</p>
-
-</td>
-</tr>
-<tr id="Action-method">
-<td><code>method</code></td>
-<td><code>string</code></td>
-<td>
-<p>What action is being taken.</p>
-
-</td>
-</tr>
-<tr id="Action-path">
-<td><code>path</code></td>
-<td><code>string</code></td>
-<td>
-<p>HTTP REST path within the service</p>
-
-</td>
-</tr>
-<tr id="Action-properties">
-<td><code>properties</code></td>
-<td><code>map&lt;string,&nbsp;<a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#Value">istio.policy.v1beta1.Value</a>&gt;</code></td>
-<td>
-<p>Additional data about the action for use in policy.</p>
-
-</td>
-</tr>
-<tr id="Action-namespace">
-<td><code>namespace</code></td>
-<td><code>string</code></td>
-<td>
-<p>Namespace the target action is taking place in.</p>
-
+No
 </td>
 </tr>
 <tr id="Action-service">
@@ -103,6 +67,9 @@ spec:
 <p>The Service the action is being taken on.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Action-method">
 <td><code>method</code></td>
@@ -110,6 +77,9 @@ spec:
 <td>
 <p>What action is being taken.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Action-path">
@@ -119,6 +89,9 @@ spec:
 <p>HTTP REST path within the service</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Action-properties">
 <td><code>properties</code></td>
@@ -126,6 +99,9 @@ spec:
 <td>
 <p>Additional data about the action for use in policy.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -142,6 +118,7 @@ the caller identity.</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -152,32 +129,8 @@ the caller identity.</p>
 <p>The user name/ID that the subject represents.</p>
 
 </td>
-</tr>
-<tr id="Subject-groups">
-<td><code>groups</code></td>
-<td><code>string</code></td>
 <td>
-<p>Groups the subject belongs to depending on the authentication mechanism,
-&ldquo;groups&rdquo; are normally populated from JWT claim or client certificate.
-The operator can define how it is populated when creating an instance of
-the template.</p>
-
-</td>
-</tr>
-<tr id="Subject-properties">
-<td><code>properties</code></td>
-<td><code>map&lt;string,&nbsp;<a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#Value">istio.policy.v1beta1.Value</a>&gt;</code></td>
-<td>
-<p>Additional attributes about the subject.</p>
-
-</td>
-</tr>
-<tr id="Subject-user">
-<td><code>user</code></td>
-<td><code>string</code></td>
-<td>
-<p>The user name/ID that the subject represents.</p>
-
+No
 </td>
 </tr>
 <tr id="Subject-groups">
@@ -190,6 +143,9 @@ The operator can define how it is populated when creating an instance of
 the template.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Subject-properties">
 <td><code>properties</code></td>
@@ -197,6 +153,9 @@ the template.</p>
 <td>
 <p>Additional attributes about the subject.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -218,6 +177,7 @@ passed to individual authorization adapters to adjudicate.</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -229,22 +189,8 @@ passed to individual authorization adapters to adjudicate.</p>
 the caller identity.</p>
 
 </td>
-</tr>
-<tr id="Template-action">
-<td><code>action</code></td>
-<td><code><a href="#Action">Action</a></code></td>
 <td>
-<p>An action defines &ldquo;how a resource is accessed&rdquo;.</p>
-
-</td>
-</tr>
-<tr id="Template-subject">
-<td><code>subject</code></td>
-<td><code><a href="#Subject">Subject</a></code></td>
-<td>
-<p>A subject contains a list of attributes that identify
-the caller identity.</p>
-
+No
 </td>
 </tr>
 <tr id="Template-action">
@@ -253,6 +199,9 @@ the caller identity.</p>
 <td>
 <p>An action defines &ldquo;how a resource is accessed&rdquo;.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>

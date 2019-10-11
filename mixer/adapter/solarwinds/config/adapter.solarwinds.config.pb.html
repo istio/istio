@@ -85,6 +85,7 @@ spec:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -96,6 +97,9 @@ spec:
 will NOT be shipped to AppOptics</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-appoptics_batch_size">
 <td><code>appopticsBatchSize</code></td>
@@ -106,6 +110,9 @@ AppOptics does not allow batch size greater than 1000.
 If this is unspecified or given a value 0 explicitly, a default batch size of 1000 will be used.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-papertrail_url">
 <td><code>papertrailUrl</code></td>
@@ -114,6 +121,9 @@ If this is unspecified or given a value 0 explicitly, a default batch size of 10
 <p>Papertrail url to ship logs to. If no papertrail url is given then the logs will NOT be shipped but rather
 dropped.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Params-papertrail_local_retention_duration">
@@ -124,49 +134,8 @@ dropped.</p>
 of a network failure. Default value is 1 hour.</p>
 
 </td>
-</tr>
-<tr id="Params-metrics">
-<td><code>metrics</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#Params-MetricInfo">Params.MetricInfo</a>&gt;</code></td>
 <td>
-<p>A map of Istio metric name to solarwinds metric info.</p>
-
-</td>
-</tr>
-<tr id="Params-logs">
-<td><code>logs</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#Params-LogInfo">Params.LogInfo</a>&gt;</code></td>
-<td>
-<p>A map of Istio logentry name to solarwinds log info.</p>
-
-</td>
-</tr>
-<tr id="Params-appoptics_access_token">
-<td><code>appopticsAccessToken</code></td>
-<td><code>string</code></td>
-<td>
-<p>AppOptics Access Token needed to send metrics to AppOptics. If no access token is given then metrics
-will NOT be shipped to AppOptics</p>
-
-</td>
-</tr>
-<tr id="Params-appoptics_batch_size">
-<td><code>appopticsBatchSize</code></td>
-<td><code>int32</code></td>
-<td>
-<p>Optional. Max batch size of metrics to be sent to AppOptics.
-AppOptics does not allow batch size greater than 1000.
-If this is unspecified or given a value 0 explicitly, a default batch size of 1000 will be used.</p>
-
-</td>
-</tr>
-<tr id="Params-papertrail_url">
-<td><code>papertrailUrl</code></td>
-<td><code>string</code></td>
-<td>
-<p>Papertrail url to ship logs to. If no papertrail url is given then the logs will NOT be shipped but rather
-dropped.</p>
-
+No
 </td>
 </tr>
 <tr id="Params-metrics">
@@ -176,6 +145,9 @@ dropped.</p>
 <p>A map of Istio metric name to solarwinds metric info.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-logs">
 <td><code>logs</code></td>
@@ -183,6 +155,9 @@ dropped.</p>
 <td>
 <p>A map of Istio logentry name to solarwinds log info.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -198,6 +173,7 @@ dropped.</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -216,21 +192,8 @@ It will be given the full set of variables for the log to use to construct its r
 If it is not provided, a default template in place will be used.</p>
 
 </td>
-</tr>
-<tr id="Params-LogInfo-payload_template">
-<td><code>payloadTemplate</code></td>
-<td><code>string</code></td>
 <td>
-<p>Optional. A golang text/template template (more details about golang text/template&rsquo;s templating can be
-found here: https://golang.org/pkg/text/template/) that will be executed to construct the payload for
-this log entry.
-An example template that could be used:
-&lbrace;&lbrace;or (.originIp) &ldquo;-&rdquo;}} - &lbrace;&lbrace;or (.sourceUser) &ldquo;-&rdquo;}} [&lbrace;&lbrace;or (.timestamp.Format &ldquo;2006-01-02T15:04:05Z07:00&rdquo;) &ldquo;-&rdquo;}}] &ldquo;&lbrace;&lbrace;or (.method) &ldquo;-&rdquo;}} &lbrace;&lbrace;or (.url) &ldquo;-&rdquo;}} &lbrace;&lbrace;or (.protocol) &ldquo;-&rdquo;}}&rdquo; &lbrace;&lbrace;or (.responseCode) &ldquo;-&rdquo;}} &lbrace;&lbrace;or (.responseSize) &ldquo;-&rdquo;}}
-A sample log that will be created after parsing the template with appropriate variables will look like this:
-Jan 23 21:53:02 istio-mixer-57d88dc4b4-rbgmc istio: 10.32.0.15 - kubernetes://istio-ingress-78545c5bc9-wbr6g.istio-system [2018-01-24T02:53:02Z] &ldquo;GET /productpage http&rdquo; 200 5599
-It will be given the full set of variables for the log to use to construct its result.
-If it is not provided, a default template in place will be used.</p>
-
+No
 </td>
 </tr>
 </tbody>
@@ -246,6 +209,7 @@ If it is not provided, a default template in place will be used.</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -256,13 +220,8 @@ If it is not provided, a default template in place will be used.</p>
 <p>The names of labels to use: these need to match the dimensions of the Istio metric.</p>
 
 </td>
-</tr>
-<tr id="Params-MetricInfo-label_names">
-<td><code>labelNames</code></td>
-<td><code>string[]</code></td>
 <td>
-<p>The names of labels to use: these need to match the dimensions of the Istio metric.</p>
-
+No
 </td>
 </tr>
 </tbody>

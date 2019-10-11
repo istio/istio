@@ -25,6 +25,7 @@ number_of_entries: 3
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -35,29 +36,8 @@ number_of_entries: 3
 <p>PEM-encoded certificate request.</p>
 
 </td>
-</tr>
-<tr id="IstioCertificateRequest-subject_id">
-<td><code>subjectId</code></td>
-<td><code>string</code></td>
 <td>
-<p>Optional subject ID field.</p>
-
-</td>
-</tr>
-<tr id="IstioCertificateRequest-validity_duration">
-<td><code>validityDuration</code></td>
-<td><code>int64</code></td>
-<td>
-<p>Optional: requested certificate validity period, in seconds.</p>
-
-</td>
-</tr>
-<tr id="IstioCertificateRequest-csr">
-<td><code>csr</code></td>
-<td><code>string</code></td>
-<td>
-<p>PEM-encoded certificate request.</p>
-
+No
 </td>
 </tr>
 <tr id="IstioCertificateRequest-subject_id">
@@ -67,6 +47,9 @@ number_of_entries: 3
 <p>Optional subject ID field.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="IstioCertificateRequest-validity_duration">
 <td><code>validityDuration</code></td>
@@ -74,6 +57,9 @@ number_of_entries: 3
 <td>
 <p>Optional: requested certificate validity period, in seconds.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -89,6 +75,7 @@ number_of_entries: 3
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -100,14 +87,8 @@ number_of_entries: 3
 Leaf cert is element &lsquo;0&rsquo;. Root cert is element &lsquo;n&rsquo;.</p>
 
 </td>
-</tr>
-<tr id="IstioCertificateResponse-cert_chain">
-<td><code>certChain</code></td>
-<td><code>string[]</code></td>
 <td>
-<p>PEM-encoded certificate chain.
-Leaf cert is element &lsquo;0&rsquo;. Root cert is element &lsquo;n&rsquo;.</p>
-
+No
 </td>
 </tr>
 </tbody>
