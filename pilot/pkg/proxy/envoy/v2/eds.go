@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 // EDS returns the list of endpoints (IP:port and in future labels) associated with a real
@@ -466,8 +467,9 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 			}
 			adsLog.Infof("Full push, service %s has no endpoints", serviceName)
 			s.ConfigUpdate(&model.PushRequest{
-				Full:              true,
-				NamespacesUpdated: map[string]struct{}{namespace: {}},
+				Full:               true,
+				NamespacesUpdated:  map[string]struct{}{namespace: {}},
+				ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
 			})
 		}
 		return
@@ -527,9 +529,10 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 			edsUpdates = map[string]struct{}{serviceName: {}}
 		}
 		s.ConfigUpdate(&model.PushRequest{
-			Full:              requireFull,
-			NamespacesUpdated: map[string]struct{}{namespace: {}},
-			EdsUpdates:        edsUpdates,
+			Full:               requireFull,
+			NamespacesUpdated:  map[string]struct{}{namespace: {}},
+			ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
+			EdsUpdates:         edsUpdates,
 		})
 	}
 }
