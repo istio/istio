@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-CONTAINER_OPTIONS=--mount type=volume,source=istio-installer-cache,destination="${GOPATH}/src/istio.io"
+CONTAINER_OPTIONS=--mount type=volume,source=istio-installer-cache,destination=${GOPATH}/src/istio.io
 
 # this repo is on the container plan by default
 BUILD_WITH_CONTAINER ?= 1
