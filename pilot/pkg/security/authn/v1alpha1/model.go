@@ -16,44 +16,16 @@ package v1alpha1
 
 import (
 	authn "istio.io/api/authentication/v1alpha1"
-)
-
-// MutualTLSMode is the mutule TLS mode specified by authentication policy.
-type MutualTLSMode int
-
-const (
-	// MTLSUnknown is used to indicate the variable hasn't been initialized correctly (with the authentication policy).
-	MTLSUnknown MutualTLSMode = iota
-
-	// MTLSDisable if authentication policy disable mTLS.
-	MTLSDisable
-
-	// MTLSPermissive if authentication policy enable mTLS in permissive mode.
-	MTLSPermissive
-
-	// MTLSStrict if authentication policy enable mTLS in strict mode.
-	MTLSStrict
+	authn_model "istio.io/istio/pilot/pkg/security/model"
 )
 
 // GetMutualTLSMode returns the mTLS mode for given. If the policy is nil, or doesn't define mTLS, it returns MTLSDisable.
-func GetMutualTLSMode(policy *authn.Policy) MutualTLSMode {
+func GetMutualTLSMode(policy *authn.Policy) authn_model.MutualTLSMode {
 	if mTLSSetting := GetMutualTLS(policy); mTLSSetting != nil {
 		if mTLSSetting.GetMode() == authn.MutualTls_STRICT {
-			return MTLSStrict
+			return authn_model.MTLSStrict
 		}
-		return MTLSPermissive
+		return authn_model.MTLSPermissive
 	}
-	return MTLSDisable
-}
-
-// String converts MutualTLSMode to human readable string for debugging.
-func (mode MutualTLSMode) String() string {
-	// declare an array of strings
-	names := [...]string{
-		"UNKNOWN",
-		"DISABLE",
-		"PERMISSIVE",
-		"STRICT"}
-
-	return names[mode]
+	return authn_model.MTLSDisable
 }

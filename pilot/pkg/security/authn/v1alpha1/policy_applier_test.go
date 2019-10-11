@@ -723,8 +723,8 @@ func TestBuildAuthNFilter(t *testing.T) {
 			if c.expectedFilterConfig == nil {
 				t.Errorf("buildAuthNFilter(%#v), got: \n%#v\n, wanted none", c.in, got)
 			} else {
-				if got.GetName() != AuthnFilterName {
-					t.Errorf("buildAuthNFilter(%#v), filter name is %s, wanted %s", c.in, got.GetName(), AuthnFilterName)
+				if got.GetName() != authn_model.AuthnFilterName {
+					t.Errorf("buildAuthNFilter(%#v), filter name is %s, wanted %s", c.in, got.GetName(), authn_model.AuthnFilterName)
 				}
 				filterConfig := authn_filter.FilterConfig{}
 				if err := proto.Unmarshal(got.GetTypedConfig().GetValue(), &filterConfig); err != nil {
