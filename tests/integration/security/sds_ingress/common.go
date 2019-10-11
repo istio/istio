@@ -14,18 +14,14 @@
 
 package sdsingress
 
-import (
-)
-
+import ()
 
 var (
-        credNames = []string{"bookinfo-credential-1", "bookinfo-credential-2", "bookinfo-credential-3",
-                "bookinfo-credential-4", "bookinfo-credential-5"}
-        hosts = []string{"bookinfo1.example.com", "bookinfo2.example.com", "bookinfo3.example.com",
-                "bookinfo4.example.com", "bookinfo5.example.com"}
+	credNames = []string{"bookinfo-credential-1", "bookinfo-credential-2", "bookinfo-credential-3",
+		"bookinfo-credential-4", "bookinfo-credential-5"}
+	hosts = []string{"bookinfo1.example.com", "bookinfo2.example.com", "bookinfo3.example.com",
+		"bookinfo4.example.com", "bookinfo5.example.com"}
 	credName   = []string{"bookinfo-credential-1"}
-        credCaName = []string{"bookinfo-credential-1-cacert"}
-        host       = "bookinfo1.example.com"
-
+	credCaName = []string{"bookinfo-credential-1-cacert"}
+	host       = "bookinfo1.example.com"
 )
-
