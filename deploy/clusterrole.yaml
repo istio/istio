@@ -5,8 +5,52 @@ metadata:
   name: istio-operator
 rules:
 - apiGroups:
+  - networking.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - rbac.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - config.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterrolebindings
+  - clusterroles
+  verbs:
+  - '*'
+- apiGroups:
+  - policy
+  resources:
+  - poddisruptionbudgets
+  verbs:
+  - '*'
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - mutatingwebhookconfiguration
+  verbs:
+  - '*'
+- apiGroups:
+  - autoscaling
+  resources:
+  - horizontalpodautoscalers
+  verbs:
+  - '*'
+- apiGroups:
   - ""
   resources:
+  - serviceaccounts
   - pods
   - services
   - endpoints
@@ -14,14 +58,9 @@ rules:
   - events
   - configmaps
   - secrets
-  verbs:
-  - '*'
-- apiGroups:
-  - ""
-  resources:
   - namespaces
   verbs:
-  - get
+  - '*'
 - apiGroups:
   - apps
   resources:
@@ -29,6 +68,13 @@ rules:
   - daemonsets
   - replicasets
   - statefulsets
+  verbs:
+  - '*'
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions.apiextensions.k8s.io
+  - customresourcedefinitions
   verbs:
   - '*'
 - apiGroups:
