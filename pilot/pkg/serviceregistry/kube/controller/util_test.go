@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestHasProxyIP(t *testing.T) {
@@ -46,6 +47,44 @@ func TestHasProxyIP(t *testing.T) {
 			got := hasProxyIP(test.addresses, test.proxyIP)
 			if test.expected != got {
 				t.Errorf("Expected %v, but got %v", test.expected, got)
+			}
+		})
+	}
+}
+
+func TestGetLabelValue(t *testing.T) {
+	var tests = []struct {
+		name               string
+		node               *v1.Node
+		expectedLabelValue string
+	}{
+		{
+			"Chooses beta label",
+			&v1.Node{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{NodeRegionLabel: "beta-region", NodeRegionLabelGA: "ga-region"}}},
+			"beta-region",
+		},
+		{
+			"Fallback no beta label defined",
+			&v1.Node{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{NodeRegionLabelGA: "ga-region"}}},
+			"ga-region",
+		},
+		{
+			"Only beta label specified",
+			&v1.Node{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{NodeRegionLabel: "beta-region"}}},
+			"beta-region",
+		},
+		{
+			"No label defined at all",
+			&v1.Node{},
+			"",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := getLabelValue(test.node, NodeRegionLabel, NodeRegionLabelGA)
+			if test.expectedLabelValue != got {
+				t.Errorf("Expected %v, but got %v", test.expectedLabelValue, got)
 			}
 		})
 	}
