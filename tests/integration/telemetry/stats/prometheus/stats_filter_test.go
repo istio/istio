@@ -115,6 +115,8 @@ func TestStatsFilter(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
+			// TODO(bianpengyuan) https://github.com/istio/istio/issues/17811
+			ctx.Skip()
 			ingress := getIngressInstance()
 			addr := ingress.HTTPAddress()
 			url := fmt.Sprintf("http://%s/productpage", addr.String())
