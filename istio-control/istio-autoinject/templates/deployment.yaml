@@ -56,7 +56,7 @@ spec:
             - --port=9443
             - --healthCheckInterval=2s
             - --healthCheckFile=/tmp/health
-{{- if .Values.global.operator }}
+{{- if .Values.global.operatorManageWebhooks }}
             - --reconcileWebhookConfig=false
 {{- else }}
             - --reconcileWebhookConfig=true
@@ -115,6 +115,8 @@ spec:
         secret:
 {{- if .Values.sidecarInjectorWebhook.selfSigned }}
           secretName: istio-sidecar-injector-self-signed
+{{- else if .Values.global.certificates }}
+          secretName: dns.istio-sidecar-injector-service-account
 {{- else }}
           secretName: istio.istio-sidecar-injector-service-account
 {{- end }}

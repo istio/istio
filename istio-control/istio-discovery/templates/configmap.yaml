@@ -122,6 +122,12 @@ data:
 {{ toYaml .Values.global.localityLbSetting | indent 6 }}
     {{- end }}
 
+    # Configures DNS certificates provisioned through Chiron linked into Pilot.
+    # The DNS certificate provisioning is enabled by default now so it get tested.
+    # TODO (lei-tang): we'll decide whether enable it by default or not before Istio 1.4 Release.
+    certificates:
+{{ toYaml .Values.global.certificates | indent 6 }}
+
     defaultConfig:
       #
       # TCP connection timeout between Envoy & the application, and between Envoys.
@@ -208,10 +214,5 @@ data:
         address: {{ .Values.global.proxy.envoyAccessLogService.host }}:{{ .Values.global.proxy.envoyAccessLogService.port }}
     {{- end}}
 
-      # Configures DNS certificates provisioned through Chiron linked into Pilot.
-      # The DNS certificate provisioning is enabled by default now so it get tested.
-      # TODO (lei-tang): we'll decide whether enable it by default or not before Istio 1.4 Release.
-      certificates:
-{{ toYaml .Values.global.certificates | indent 6 }}
 ---
 {{- end }}
