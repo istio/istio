@@ -27,11 +27,11 @@ import (
 
 	authn "istio.io/api/authentication/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/model"
 	networking_core "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_alpha1 "istio.io/istio/pilot/pkg/security/authn/v1alpha1"
+	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pkg/config/host"
@@ -377,7 +377,7 @@ func AnalyzeMTLSSettings(hostname host.Name, port *model.Port, authnPolicy *auth
 // The output string could be:
 // - "OK": both client and server TLS settings are set correctly.
 // - "CONFLICT": both client and server TLS settings are set, but could be incompatible.
-func EvaluateTLSState(clientMode *networking.TLSSettings, serverMode authn_alpha1.MutualTLSMode) string {
+func EvaluateTLSState(clientMode *networking.TLSSettings, serverMode authn_model.MutualTLSMode) string {
 	const okState string = "OK"
 	const conflictState string = "CONFLICT"
 
@@ -387,9 +387,9 @@ func EvaluateTLSState(clientMode *networking.TLSSettings, serverMode authn_alpha
 		return okState
 	}
 
-	if (serverMode == authn_alpha1.MTLSDisable && clientMode.GetMode() == networking.TLSSettings_DISABLE) ||
-		(serverMode == authn_alpha1.MTLSStrict && clientMode.GetMode() == networking.TLSSettings_ISTIO_MUTUAL) ||
-		(serverMode == authn_alpha1.MTLSPermissive &&
+	if (serverMode == authn_model.MTLSDisable && clientMode.GetMode() == networking.TLSSettings_DISABLE) ||
+		(serverMode == authn_model.MTLSStrict && clientMode.GetMode() == networking.TLSSettings_ISTIO_MUTUAL) ||
+		(serverMode == authn_model.MTLSPermissive &&
 			(clientMode.GetMode() == networking.TLSSettings_ISTIO_MUTUAL || clientMode.GetMode() == networking.TLSSettings_DISABLE)) {
 		return okState
 	}

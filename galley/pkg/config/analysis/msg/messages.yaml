@@ -91,3 +91,12 @@ messages:
         type: string
       - name: injectionVersion
         type: string
+
+  - name: "SchemaValidationError"
+    code: IST0106
+    level: Error
+    description: "The resource has one or more schema validation errors."
+    template: "The resource has one or more schema validation errors: %v"
+    args:
+      - name: combinedErr
+        type: error

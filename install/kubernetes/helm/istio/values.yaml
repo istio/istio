@@ -290,7 +290,7 @@ global:
         caCertificates:    # example: /etc/istio/ms/root-cert.pem
         sni:               # example: ms.somedomain
         subjectAltNames: []
-        # - ms.somedomain 
+        # - ms.somedomain
       tcpKeepalive:
         probes: 3
         time: 10s
@@ -550,6 +550,10 @@ global:
   #       port: 443
   #
   meshNetworks: {}
+
+  # Network defines the network this cluster belong to. This name
+  # corresponds to the networks in the map of mesh networks.
+  network: ""
 
   # Specifies the global locality load balancing settings.
   # Locality-weighted load balancing allows administrators to control the distribution of traffic to

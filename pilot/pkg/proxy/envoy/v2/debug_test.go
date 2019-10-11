@@ -28,7 +28,7 @@ import (
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
-	authn_alpha1 "istio.io/istio/pilot/pkg/security/authn/v1alpha1"
+	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/tests/util"
 )
@@ -393,25 +393,25 @@ func TestEvaluateTLSState(t *testing.T) {
 	testCases := []struct {
 		name     string
 		client   *networking.TLSSettings
-		server   authn_alpha1.MutualTLSMode
+		server   authn_model.MutualTLSMode
 		expected string
 	}{
 		{
 			name:     "Auto with mTLS disable",
 			client:   nil,
-			server:   authn_alpha1.MTLSDisable,
+			server:   authn_model.MTLSDisable,
 			expected: "OK",
 		},
 		{
 			name:     "Auto with mTLS permissive",
 			client:   nil,
-			server:   authn_alpha1.MTLSPermissive,
+			server:   authn_model.MTLSPermissive,
 			expected: "OK",
 		},
 		{
 			name:     "Auto with mTLS STRICT",
 			client:   nil,
-			server:   authn_alpha1.MTLSStrict,
+			server:   authn_model.MTLSStrict,
 			expected: "OK",
 		},
 		{
@@ -419,7 +419,7 @@ func TestEvaluateTLSState(t *testing.T) {
 			client: &networking.TLSSettings{
 				Mode: networking.TLSSettings_ISTIO_MUTUAL,
 			},
-			server:   authn_alpha1.MTLSStrict,
+			server:   authn_model.MTLSStrict,
 			expected: "OK",
 		},
 		{
@@ -427,7 +427,7 @@ func TestEvaluateTLSState(t *testing.T) {
 			client: &networking.TLSSettings{
 				Mode: networking.TLSSettings_DISABLE,
 			},
-			server:   authn_alpha1.MTLSDisable,
+			server:   authn_model.MTLSDisable,
 			expected: "OK",
 		},
 		{
@@ -435,7 +435,7 @@ func TestEvaluateTLSState(t *testing.T) {
 			client: &networking.TLSSettings{
 				Mode: networking.TLSSettings_DISABLE,
 			},
-			server:   authn_alpha1.MTLSPermissive,
+			server:   authn_model.MTLSPermissive,
 			expected: "OK",
 		},
 		{
@@ -443,7 +443,7 @@ func TestEvaluateTLSState(t *testing.T) {
 			client: &networking.TLSSettings{
 				Mode: networking.TLSSettings_ISTIO_MUTUAL,
 			},
-			server:   authn_alpha1.MTLSPermissive,
+			server:   authn_model.MTLSPermissive,
 			expected: "OK",
 		},
 		{
@@ -451,7 +451,7 @@ func TestEvaluateTLSState(t *testing.T) {
 			client: &networking.TLSSettings{
 				Mode: networking.TLSSettings_DISABLE,
 			},
-			server:   authn_alpha1.MTLSStrict,
+			server:   authn_model.MTLSStrict,
 			expected: "CONFLICT",
 		},
 		{
@@ -459,7 +459,7 @@ func TestEvaluateTLSState(t *testing.T) {
 			client: &networking.TLSSettings{
 				Mode: networking.TLSSettings_MUTUAL,
 			},
-			server:   authn_alpha1.MTLSStrict,
+			server:   authn_model.MTLSStrict,
 			expected: "CONFLICT",
 		},
 		{
@@ -467,7 +467,7 @@ func TestEvaluateTLSState(t *testing.T) {
 			client: &networking.TLSSettings{
 				Mode: networking.TLSSettings_SIMPLE,
 			},
-			server:   authn_alpha1.MTLSStrict,
+			server:   authn_model.MTLSStrict,
 			expected: "CONFLICT",
 		},
 		{
@@ -475,7 +475,7 @@ func TestEvaluateTLSState(t *testing.T) {
 			client: &networking.TLSSettings{
 				Mode: networking.TLSSettings_SIMPLE,
 			},
-			server:   authn_alpha1.MTLSPermissive,
+			server:   authn_model.MTLSPermissive,
 			expected: "CONFLICT",
 		},
 		{
@@ -483,7 +483,7 @@ func TestEvaluateTLSState(t *testing.T) {
 			client: &networking.TLSSettings{
 				Mode: networking.TLSSettings_SIMPLE,
 			},
-			server:   authn_alpha1.MTLSPermissive,
+			server:   authn_model.MTLSPermissive,
 			expected: "CONFLICT",
 		},
 	}

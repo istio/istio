@@ -51,6 +51,7 @@ spec:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -61,109 +62,8 @@ spec:
 <p>Timestamp of the edge</p>
 
 </td>
-</tr>
-<tr id="Template-source_workload_namespace">
-<td><code>sourceWorkloadNamespace</code></td>
-<td><code>string</code></td>
 <td>
-<p>Namespace of the source workload</p>
-
-</td>
-</tr>
-<tr id="Template-source_workload_name">
-<td><code>sourceWorkloadName</code></td>
-<td><code>string</code></td>
-<td>
-<p>Name of the source workload</p>
-
-</td>
-</tr>
-<tr id="Template-source_owner">
-<td><code>sourceOwner</code></td>
-<td><code>string</code></td>
-<td>
-<p>Owner of the source workload (often k8s deployment)</p>
-
-</td>
-</tr>
-<tr id="Template-source_uid">
-<td><code>sourceUid</code></td>
-<td><code>string</code></td>
-<td>
-<p>UID of the source workload</p>
-
-</td>
-</tr>
-<tr id="Template-destination_workload_namespace">
-<td><code>destinationWorkloadNamespace</code></td>
-<td><code>string</code></td>
-<td>
-<p>Namespace of the destination workload</p>
-
-</td>
-</tr>
-<tr id="Template-destination_workload_name">
-<td><code>destinationWorkloadName</code></td>
-<td><code>string</code></td>
-<td>
-<p>Name of the destination workload</p>
-
-</td>
-</tr>
-<tr id="Template-destination_owner">
-<td><code>destinationOwner</code></td>
-<td><code>string</code></td>
-<td>
-<p>Owner of the destination workload (often k8s deployment)</p>
-
-</td>
-</tr>
-<tr id="Template-destination_uid">
-<td><code>destinationUid</code></td>
-<td><code>string</code></td>
-<td>
-<p>UID of the destination workload</p>
-
-</td>
-</tr>
-<tr id="Template-destination_service_namespace">
-<td><code>destinationServiceNamespace</code></td>
-<td><code>string</code></td>
-<td>
-<p>Namespace of the destination Service</p>
-
-</td>
-</tr>
-<tr id="Template-destination_service_name">
-<td><code>destinationServiceName</code></td>
-<td><code>string</code></td>
-<td>
-<p>Name of the destination Service</p>
-
-</td>
-</tr>
-<tr id="Template-context_protocol">
-<td><code>contextProtocol</code></td>
-<td><code>string</code></td>
-<td>
-<p>Protocol used for communication (http, tcp)</p>
-
-</td>
-</tr>
-<tr id="Template-api_protocol">
-<td><code>apiProtocol</code></td>
-<td><code>string</code></td>
-<td>
-<p>The protocol type of the API call (http, https, grpc)</p>
-
-</td>
-</tr>
-<tr id="Template-timestamp">
-<td><code>timestamp</code></td>
-<td><code><a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#TimeStamp">istio.policy.v1beta1.TimeStamp</a></code></td>
-<td>
-<p>Timestamp of the edge</p>
-
+No
 </td>
 </tr>
 <tr id="Template-source_workload_namespace">
@@ -173,6 +73,9 @@ spec:
 <p>Namespace of the source workload</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Template-source_workload_name">
 <td><code>sourceWorkloadName</code></td>
@@ -180,6 +83,9 @@ spec:
 <td>
 <p>Name of the source workload</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Template-source_owner">
@@ -189,6 +95,9 @@ spec:
 <p>Owner of the source workload (often k8s deployment)</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Template-source_uid">
 <td><code>sourceUid</code></td>
@@ -196,6 +105,9 @@ spec:
 <td>
 <p>UID of the source workload</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Template-destination_workload_namespace">
@@ -205,6 +117,9 @@ spec:
 <p>Namespace of the destination workload</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Template-destination_workload_name">
 <td><code>destinationWorkloadName</code></td>
@@ -212,6 +127,9 @@ spec:
 <td>
 <p>Name of the destination workload</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Template-destination_owner">
@@ -221,6 +139,9 @@ spec:
 <p>Owner of the destination workload (often k8s deployment)</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Template-destination_uid">
 <td><code>destinationUid</code></td>
@@ -228,6 +149,9 @@ spec:
 <td>
 <p>UID of the destination workload</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Template-destination_service_namespace">
@@ -237,6 +161,9 @@ spec:
 <p>Namespace of the destination Service</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Template-destination_service_name">
 <td><code>destinationServiceName</code></td>
@@ -244,6 +171,9 @@ spec:
 <td>
 <p>Name of the destination Service</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Template-context_protocol">
@@ -253,6 +183,9 @@ spec:
 <p>Protocol used for communication (http, tcp)</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Template-api_protocol">
 <td><code>apiProtocol</code></td>
@@ -260,6 +193,9 @@ spec:
 <td>
 <p>The protocol type of the API call (http, https, grpc)</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>

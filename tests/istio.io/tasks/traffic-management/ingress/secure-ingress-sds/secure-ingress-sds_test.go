@@ -76,60 +76,60 @@ func TestIngressSDS(t *testing.T) {
 			env := ctx.Environment().(*kube.Environment)
 			// Configure a TLS ingress gateway for a single host.
 			// https://preliminary.istio.io/docs/tasks/traffic-management/ingress/secure-ingress-sds/#configure-a-tls-ingress-gateway-for-a-single-host
-			ex.RunScript("httpbin-deployment.sh", examples.TextOutput)
-			ex.RunScript("create-httpbin-tls-secret.sh", examples.TextOutput)
-			ex.RunScript("create-httpbin-tls-gateway.sh", examples.TextOutput)
-			ex.RunScript("check-envoy-sds-update-1.sh", examples.TextOutput)
+			ex.RunScript("httpbin-deployment.sh", examples.TextOutput, nil)
+			ex.RunScript("create-httpbin-tls-secret.sh", examples.TextOutput, nil)
+			ex.RunScript("create-httpbin-tls-gateway.sh", examples.TextOutput, nil)
+			ex.RunScript("check-envoy-sds-update-1.sh", examples.TextOutput, nil)
 			// Send an HTTPS request to access the httpbin service TLS gateway.
 			if env.Settings().Minikube {
-				ex.RunScript("curl-httpbin-tls-gateway-minikube.sh", examples.TextOutput)
+				ex.RunScript("curl-httpbin-tls-gateway-minikube.sh", examples.TextOutput, nil)
 			} else {
-				ex.RunScript("curl-httpbin-tls-gateway-gke.sh", examples.TextOutput)
+				ex.RunScript("curl-httpbin-tls-gateway-gke.sh", examples.TextOutput, nil)
 			}
 
 			// Rotate secret and send HTTPS request with new credentials.
-			ex.RunScript("rotate-httpbin-tls-secret.sh", examples.TextOutput)
-			ex.RunScript("check-envoy-sds-update-2.sh", examples.TextOutput)
+			ex.RunScript("rotate-httpbin-tls-secret.sh", examples.TextOutput, nil)
+			ex.RunScript("check-envoy-sds-update-2.sh", examples.TextOutput, nil)
 			if env.Settings().Minikube {
-				ex.RunScript("curl-httpbin-tls-gateway-minikube-new-tls-secret.sh", examples.TextOutput)
+				ex.RunScript("curl-httpbin-tls-gateway-minikube-new-tls-secret.sh", examples.TextOutput, nil)
 			} else {
-				ex.RunScript("curl-httpbin-tls-gateway-gke-new-tls-secret.sh", examples.TextOutput)
+				ex.RunScript("curl-httpbin-tls-gateway-gke-new-tls-secret.sh", examples.TextOutput, nil)
 			}
 
 			// Configure a TLS ingress gateway for multiple hosts.
 			// https://preliminary.istio.io/docs/tasks/traffic-management/ingress/secure-ingress-sds/#configure-a-tls-ingress-gateway-for-multiple-hosts
-			ex.RunScript("restore-httpbin-tls-secret.sh", examples.TextOutput)
-			ex.RunScript("helloworld-deployment.sh", examples.TextOutput)
-			ex.RunScript("create-helloworld-tls-secret.sh", examples.TextOutput)
-			ex.RunScript("create-helloworld-tls-gateway.sh", examples.TextOutput)
+			ex.RunScript("restore-httpbin-tls-secret.sh", examples.TextOutput, nil)
+			ex.RunScript("helloworld-deployment.sh", examples.TextOutput, nil)
+			ex.RunScript("create-helloworld-tls-secret.sh", examples.TextOutput, nil)
+			ex.RunScript("create-helloworld-tls-gateway.sh", examples.TextOutput, nil)
 			// Send an HTTPS request to access the helloworld service TLS gateway.
-			ex.RunScript("check-envoy-sds-update-4.sh", examples.TextOutput)
+			ex.RunScript("check-envoy-sds-update-4.sh", examples.TextOutput, nil)
 			if env.Settings().Minikube {
-				ex.RunScript("curl-helloworld-tls-gateway-minikube.sh", examples.TextOutput)
+				ex.RunScript("curl-helloworld-tls-gateway-minikube.sh", examples.TextOutput, nil)
 			} else {
-				ex.RunScript("curl-helloworld-tls-gateway-gke.sh", examples.TextOutput)
+				ex.RunScript("curl-helloworld-tls-gateway-gke.sh", examples.TextOutput, nil)
 			}
 			// Send an HTTPS request to access the httpbin service TLS gateway.
 			if env.Settings().Minikube {
-				ex.RunScript("curl-httpbin-tls-gateway-minikube.sh", examples.TextOutput)
+				ex.RunScript("curl-httpbin-tls-gateway-minikube.sh", examples.TextOutput, nil)
 			} else {
-				ex.RunScript("curl-httpbin-tls-gateway-gke.sh", examples.TextOutput)
+				ex.RunScript("curl-httpbin-tls-gateway-gke.sh", examples.TextOutput, nil)
 			}
 
 			// Configure a mutual TLS ingress gateway.
 			// https://preliminary.istio.io/docs/tasks/traffic-management/ingress/secure-ingress-sds/#configure-a-mutual-tls-ingress-gateway
-			ex.RunScript("rotate-httpbin-mtls-secret.sh", examples.TextOutput)
-			ex.RunScript("create-httpbin-mtls-gateway.sh", examples.TextOutput)
-			ex.RunScript("check-envoy-sds-update-5.sh", examples.TextOutput)
+			ex.RunScript("rotate-httpbin-mtls-secret.sh", examples.TextOutput, nil)
+			ex.RunScript("create-httpbin-mtls-gateway.sh", examples.TextOutput, nil)
+			ex.RunScript("check-envoy-sds-update-5.sh", examples.TextOutput, nil)
 			// Send an HTTPS request to access the httpbin service mTLS gateway.
 			if env.Settings().Minikube {
-				ex.RunScript("curl-httpbin-mtls-gateway-minikube.sh", examples.TextOutput)
+				ex.RunScript("curl-httpbin-mtls-gateway-minikube.sh", examples.TextOutput, nil)
 			} else {
-				ex.RunScript("curl-httpbin-mtls-gateway-gke.sh", examples.TextOutput)
+				ex.RunScript("curl-httpbin-mtls-gateway-gke.sh", examples.TextOutput, nil)
 			}
 
 			// Cleanup
-			ex.RunScript("cleanup.sh", examples.TextOutput)
+			ex.RunScript("cleanup.sh", examples.TextOutput, nil)
 			ex.Run()
 		})
 }
