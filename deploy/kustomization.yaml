@@ -2,7 +2,7 @@ namespace: istio-operator
 resources:
 - crds/istio_v1alpha2_istiocontrolplane_crd.yaml
 - namespace.yaml
-- role.yaml
-- role_binding.yaml
+- clusterrole.yaml
+- clusterrole_binding.yaml
 - service_account.yaml
 - operator.yaml
