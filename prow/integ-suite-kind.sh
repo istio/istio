@@ -33,6 +33,8 @@ set -x
 source "${ROOT}/prow/lib.sh"
 setup_and_export_git_sha
 
+(cd /tmp; go get github.com/rancher/k3d@v1.3.1)
+
 function build_kind_images() {
   # Build just the images needed for the tests
   for image in pilot proxyv2 app test_policybackend mixer citadel galley sidecar_injector kubectl node-agent-k8s; do
@@ -40,8 +42,15 @@ function build_kind_images() {
   done
 	# Archived local images and load it into KinD's docker daemon
 	# Kubernetes in KinD can only access local images from its docker daemon.
-	docker images "${HUB}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 -P16 kind --loglevel debug --name istio-testing load docker-image
+	time k3d import-images "$(docker images "${HUB}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}' | tr '\n' ',')"
 }
+
+function cleanup() {
+  echo "Test exited with exit code $?."
+  k3d delete
+}
+
+trap cleanup EXIT
 
 while (( "$#" )); do
   case "$1" in
@@ -92,7 +101,9 @@ export T="${T:-"-v"}"
 make init
 
 if [[ -z "${SKIP_SETUP:-}" ]]; then
-  time setup_kind_cluster "${NODE_IMAGE:-}"
+  time k3d create --wait=60
+  KUBECONFIG=$(k3d get-kubeconfig --name='k3s-default')
+  export KUBECONFIG
 fi
 
 if [[ -z "${SKIP_BUILD:-}" ]]; then
