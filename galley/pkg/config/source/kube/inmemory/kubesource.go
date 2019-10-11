@@ -24,9 +24,9 @@ import (
 	kubeJson "k8s.io/apimachinery/pkg/runtime/serializer/json"
 
 	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/galley/pkg/config/meta/schema"
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
-	"istio.io/istio/galley/pkg/config/schema"
-	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/inmemory"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
@@ -194,7 +194,7 @@ func (s *KubeSource) parseContent(r schema.KubeResources, name, yamlText string)
 
 		r, err := s.parseChunk(r, chunk)
 		if err != nil {
-			scope.Source.Errorf("Error processing %s[%d]: %v", name, i, err)
+			scope.Source.Warnf("Error processing %s[%d]: %v", name, i, err)
 			scope.Source.Debugf("Offending Yaml chunk: %v", string(chunk))
 			continue
 		}

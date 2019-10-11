@@ -19,12 +19,17 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 	"time"
 
+	authn "istio.io/api/authentication/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	authn_alpha1 "istio.io/istio/pilot/pkg/security/authn/v1alpha1"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/tests/util"
 )
 
@@ -284,4 +289,479 @@ func getConfigDump(t *testing.T, s *v2.DiscoveryServer, proxyID string, wantCode
 		t.Fatalf(err.Error())
 	}
 	return got
+}
+
+// TestAuthenticationZ tests the /debug/authenticationz handle. Due to the limitation of the test setup,
+// this test converts only one simple scenario. See TestAnalyzeMTLSSettings for more
+func TestAuthenticationZ(t *testing.T) {
+	tests := []struct {
+		name           string
+		proxyID        string
+		wantCode       int
+		expectedLength int
+	}{
+		{
+			name:           "returns 400 if proxyID not provided",
+			proxyID:        "",
+			wantCode:       400,
+			expectedLength: 0,
+		},
+		{
+			name:           "returns 404 if proxy not found",
+			proxyID:        "not-found",
+			wantCode:       404,
+			expectedLength: 0,
+		},
+		{
+			name:           "dumps most recent proxy with 200",
+			proxyID:        "dumpApp-644fc65469-96dza.testns",
+			wantCode:       200,
+			expectedLength: 25,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s, tearDown := initLocalPilotTestEnv(t)
+			defer tearDown()
+
+			envoy, cancel, err := connectADS(util.MockPilotGrpcAddr)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer cancel()
+
+			// Make CDS/LDS/RDS requestst to make the proxy instance available.
+			if err := sendCDSReq(sidecarID(app3Ip, "dumpApp"), envoy); err != nil {
+				t.Fatal(err)
+			}
+			if err := sendLDSReq(sidecarID(app3Ip, "dumpApp"), envoy); err != nil {
+				t.Fatal(err)
+			}
+			if err := sendRDSReq(sidecarID(app3Ip, "dumpApp"), []string{"80", "8080"}, "", envoy); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := adsReceive(envoy, 5*time.Second); err != nil {
+				t.Fatal("Recv failed", err)
+			}
+
+			got := getAuthenticationZ(t, s.EnvoyXdsServer, tt.proxyID, tt.wantCode)
+
+			if len(got) != tt.expectedLength {
+				t.Errorf("AuthenticationZ should have %d entries, got %d", tt.expectedLength, len(got))
+			}
+			for _, info := range got {
+				expectedStatus := "OK"
+				if info.Host == "mymongodb.somedomain" {
+					expectedStatus = "CONFLICT"
+				}
+				if info.TLSConflictStatus != expectedStatus {
+					t.Errorf("want TLS conflict status %q, got %v", expectedStatus, info)
+				}
+			}
+		})
+	}
+}
+
+func getAuthenticationZ(t *testing.T, s *v2.DiscoveryServer, proxyID string, wantCode int) []v2.AuthenticationDebug {
+	path := "/debug/authenticationz"
+	if proxyID != "" {
+		path += fmt.Sprintf("?proxyID=%v", proxyID)
+	}
+	req, err := http.NewRequest("GET", path, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rr := httptest.NewRecorder()
+	authenticationz := http.HandlerFunc(s.Authenticationz)
+	authenticationz.ServeHTTP(rr, req)
+	if rr.Code != wantCode {
+		t.Errorf("wanted response code %v, got %v", wantCode, rr.Code)
+	}
+
+	got := []v2.AuthenticationDebug{}
+	if rr.Code != 200 {
+		t.Logf("/authenticationz returns with error code %v:\n%v", rr.Code, rr.Body)
+	} else if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+
+	return got
+}
+
+func TestEvaluateTLSState(t *testing.T) {
+	testCases := []struct {
+		name     string
+		client   *networking.TLSSettings
+		server   authn_alpha1.MutualTLSMode
+		expected string
+	}{
+		{
+			name:     "Auto with mTLS disable",
+			client:   nil,
+			server:   authn_alpha1.MTLSDisable,
+			expected: "OK",
+		},
+		{
+			name:     "Auto with mTLS permissive",
+			client:   nil,
+			server:   authn_alpha1.MTLSPermissive,
+			expected: "OK",
+		},
+		{
+			name:     "Auto with mTLS STRICT",
+			client:   nil,
+			server:   authn_alpha1.MTLSStrict,
+			expected: "OK",
+		},
+		{
+			name: "OK with mTLS STRICT",
+			client: &networking.TLSSettings{
+				Mode: networking.TLSSettings_ISTIO_MUTUAL,
+			},
+			server:   authn_alpha1.MTLSStrict,
+			expected: "OK",
+		},
+		{
+			name: "OK with mTLS DISABLE",
+			client: &networking.TLSSettings{
+				Mode: networking.TLSSettings_DISABLE,
+			},
+			server:   authn_alpha1.MTLSDisable,
+			expected: "OK",
+		},
+		{
+			name: "OK: plaintext with mTLS PERMISSIVE",
+			client: &networking.TLSSettings{
+				Mode: networking.TLSSettings_DISABLE,
+			},
+			server:   authn_alpha1.MTLSPermissive,
+			expected: "OK",
+		},
+		{
+			name: "OK: ISTIO_MUTUAL with mTLS PERMISSIVE",
+			client: &networking.TLSSettings{
+				Mode: networking.TLSSettings_ISTIO_MUTUAL,
+			},
+			server:   authn_alpha1.MTLSPermissive,
+			expected: "OK",
+		},
+		{
+			name: "Conflict: plaintext with mTLS STRICT",
+			client: &networking.TLSSettings{
+				Mode: networking.TLSSettings_DISABLE,
+			},
+			server:   authn_alpha1.MTLSStrict,
+			expected: "CONFLICT",
+		},
+		{
+			name: "Conflict: (custom) mTLS with mTLS STRICT",
+			client: &networking.TLSSettings{
+				Mode: networking.TLSSettings_MUTUAL,
+			},
+			server:   authn_alpha1.MTLSStrict,
+			expected: "CONFLICT",
+		},
+		{
+			name: "Conflict: TLS simple with mTLS STRICT",
+			client: &networking.TLSSettings{
+				Mode: networking.TLSSettings_SIMPLE,
+			},
+			server:   authn_alpha1.MTLSStrict,
+			expected: "CONFLICT",
+		},
+		{
+			name: "Conflict: TLS simple with mTLS PERMISSIVE",
+			client: &networking.TLSSettings{
+				Mode: networking.TLSSettings_SIMPLE,
+			},
+			server:   authn_alpha1.MTLSPermissive,
+			expected: "CONFLICT",
+		},
+		{
+			name: "Conflict: (custom) mTLS with mTLS PERMISSIVE",
+			client: &networking.TLSSettings{
+				Mode: networking.TLSSettings_SIMPLE,
+			},
+			server:   authn_alpha1.MTLSPermissive,
+			expected: "CONFLICT",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := v2.EvaluateTLSState(tc.client, tc.server); got != tc.expected {
+				t.Errorf("EvaluateTLSState expected to be %q, got %q", tc.expected, got)
+			}
+		})
+	}
+}
+
+func TestAnalyzeMTLSSettings(t *testing.T) {
+	fakeConfigMeta := model.ConfigMeta{
+		Name:      "foo",
+		Namespace: "bar",
+	}
+	testCases := []struct {
+		name        string
+		authnPolicy *authn.Policy
+		authnMeta   *model.ConfigMeta
+		destConfig  *model.Config
+		expected    []*v2.AuthenticationDebug
+	}{
+		{
+			name:        "No policy",
+			authnPolicy: nil,
+			authnMeta:   nil,
+			destConfig:  nil,
+			expected: []*v2.AuthenticationDebug{
+				{
+					Host:                     "foo.default",
+					Port:                     8080,
+					AuthenticationPolicyName: "-",
+					DestinationRuleName:      "-",
+					ServerProtocol:           "DISABLE",
+					ClientProtocol:           "-",
+					TLSConflictStatus:        "OK",
+				},
+			},
+		},
+		{
+			name: "No DR",
+			authnPolicy: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Mtls{
+							Mtls: &authn.MutualTls{
+								Mode: authn.MutualTls_STRICT,
+							},
+						},
+					},
+				},
+			},
+			authnMeta:  &fakeConfigMeta,
+			destConfig: nil,
+			expected: []*v2.AuthenticationDebug{
+				{
+					Host:                     "foo.default",
+					Port:                     8080,
+					AuthenticationPolicyName: "bar/foo",
+					DestinationRuleName:      "-",
+					ServerProtocol:           "STRICT",
+					ClientProtocol:           "-",
+					TLSConflictStatus:        "OK",
+				},
+			},
+		},
+		{
+			name: "DR without TLS Settings",
+			authnPolicy: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Mtls{
+							Mtls: &authn.MutualTls{
+								Mode: authn.MutualTls_STRICT,
+							},
+						},
+					},
+				},
+			},
+			authnMeta: &fakeConfigMeta,
+			destConfig: &model.Config{
+				ConfigMeta: model.ConfigMeta{
+					Name:      "some-rule",
+					Namespace: "default",
+				},
+				Spec: &networking.DestinationRule{
+					TrafficPolicy: &networking.TrafficPolicy{},
+				},
+			},
+			expected: []*v2.AuthenticationDebug{
+				{
+					Host:                     "foo.default",
+					Port:                     8080,
+					AuthenticationPolicyName: "bar/foo",
+					DestinationRuleName:      "default/some-rule",
+					ServerProtocol:           "STRICT",
+					ClientProtocol:           "-",
+					TLSConflictStatus:        "OK",
+				},
+			},
+		},
+		{
+			name: "DR with TLS Settings",
+			authnPolicy: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Mtls{
+							Mtls: &authn.MutualTls{
+								Mode: authn.MutualTls_STRICT,
+							},
+						},
+					},
+				},
+			},
+			authnMeta: &fakeConfigMeta,
+			destConfig: &model.Config{
+				ConfigMeta: model.ConfigMeta{
+					Name:      "some-rule",
+					Namespace: "default",
+				},
+				Spec: &networking.DestinationRule{
+					TrafficPolicy: &networking.TrafficPolicy{
+						Tls: &networking.TLSSettings{
+							Mode: networking.TLSSettings_DISABLE,
+						},
+					},
+				},
+			},
+			expected: []*v2.AuthenticationDebug{
+				{
+					Host:                     "foo.default",
+					Port:                     8080,
+					AuthenticationPolicyName: "bar/foo",
+					DestinationRuleName:      "default/some-rule",
+					ServerProtocol:           "STRICT",
+					ClientProtocol:           "DISABLE",
+					TLSConflictStatus:        "CONFLICT",
+				},
+			},
+		},
+		{
+			name: "DR with port-specific TLS Settings",
+			authnPolicy: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Mtls{
+							Mtls: &authn.MutualTls{
+								Mode: authn.MutualTls_STRICT,
+							},
+						},
+					},
+				},
+			},
+			authnMeta: &fakeConfigMeta,
+			destConfig: &model.Config{
+				ConfigMeta: model.ConfigMeta{
+					Name:      "some-rule",
+					Namespace: "default",
+				},
+				Spec: &networking.DestinationRule{
+					TrafficPolicy: &networking.TrafficPolicy{
+						Tls: &networking.TLSSettings{
+							Mode: networking.TLSSettings_DISABLE,
+						},
+						PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+							{
+								Port: &networking.PortSelector{
+									Number: 8080,
+								},
+								Tls: &networking.TLSSettings{
+									Mode: networking.TLSSettings_ISTIO_MUTUAL,
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: []*v2.AuthenticationDebug{
+				{
+					Host:                     "foo.default",
+					Port:                     8080,
+					AuthenticationPolicyName: "bar/foo",
+					DestinationRuleName:      "default/some-rule",
+					ServerProtocol:           "STRICT",
+					ClientProtocol:           "ISTIO_MUTUAL",
+					TLSConflictStatus:        "OK",
+				},
+			},
+		},
+		{
+			name: "DR with subset",
+			authnPolicy: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Mtls{
+							Mtls: &authn.MutualTls{
+								Mode: authn.MutualTls_STRICT,
+							},
+						},
+					},
+				},
+			},
+			authnMeta: &fakeConfigMeta,
+			destConfig: &model.Config{
+				ConfigMeta: model.ConfigMeta{
+					Name:      "some-rule",
+					Namespace: "default",
+				},
+				Spec: &networking.DestinationRule{
+					TrafficPolicy: &networking.TrafficPolicy{
+						Tls: &networking.TLSSettings{
+							Mode: networking.TLSSettings_DISABLE,
+						},
+						PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+							{
+								Port: &networking.PortSelector{
+									Number: 8080,
+								},
+								Tls: &networking.TLSSettings{
+									Mode: networking.TLSSettings_ISTIO_MUTUAL,
+								},
+							},
+						},
+					},
+					Subsets: []*networking.Subset{
+						{
+							Name:   "foobar",
+							Labels: map[string]string{"foo": "bar"},
+							TrafficPolicy: &networking.TrafficPolicy{
+								PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+									{
+										Port: &networking.PortSelector{
+											Number: 8080,
+										},
+										Tls: &networking.TLSSettings{
+											Mode: networking.TLSSettings_SIMPLE,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: []*v2.AuthenticationDebug{
+				{
+					Host:                     "foo.default",
+					Port:                     8080,
+					AuthenticationPolicyName: "bar/foo",
+					DestinationRuleName:      "default/some-rule",
+					ServerProtocol:           "STRICT",
+					ClientProtocol:           "ISTIO_MUTUAL",
+					TLSConflictStatus:        "OK",
+				},
+				{
+					Host:                     "foo.default|foobar",
+					Port:                     8080,
+					AuthenticationPolicyName: "bar/foo",
+					DestinationRuleName:      "default/some-rule",
+					ServerProtocol:           "STRICT",
+					ClientProtocol:           "SIMPLE",
+					TLSConflictStatus:        "CONFLICT",
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			port := model.Port{
+				Port: 8080,
+			}
+			if got := v2.AnalyzeMTLSSettings(host.Name("foo.default"), &port, tc.authnPolicy, tc.authnMeta, tc.destConfig); !reflect.DeepEqual(got, tc.expected) {
+				t.Errorf("EvaluateTLSState expected to be %+v, got %+v", tc.expected, got)
+			}
+		})
+	}
 }

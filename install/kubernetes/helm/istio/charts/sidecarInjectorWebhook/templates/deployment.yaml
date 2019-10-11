@@ -52,6 +52,11 @@ spec:
             - --meshConfig=/etc/istio/config/mesh
             - --healthCheckInterval=2s
             - --healthCheckFile=/health
+{{- if .Values.global.operator }}
+            - --reconcileWebhookConfig=false
+{{- else }}
+            - --reconcileWebhookConfig=true
+{{- end }}
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
@@ -92,7 +97,11 @@ spec:
           name: istio
       - name: certs
         secret:
+{{- if .Values.global.certificates }}
+          secretName: dns.istio-sidecar-injector-service-account
+{{- else }}
           secretName: istio.istio-sidecar-injector-service-account
+{{- end }}
       - name: inject-config
         configMap:
           name: istio-sidecar-injector

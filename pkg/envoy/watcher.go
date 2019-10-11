@@ -41,13 +41,11 @@ type Watcher interface {
 
 type watcher struct {
 	certs   []string
-	updates chan<- interface{}
+	updates func(interface{})
 }
 
 // NewWatcher creates a new watcher instance from a proxy agent and a set of monitored certificate file paths
-func NewWatcher(
-	certs []string,
-	updates chan<- interface{}) Watcher {
+func NewWatcher(certs []string, updates func(interface{})) Watcher {
 	return &watcher{
 		certs:   certs,
 		updates: updates,
@@ -68,7 +66,7 @@ func (w *watcher) Run(ctx context.Context) {
 func (w *watcher) SendConfig() {
 	h := sha256.New()
 	generateCertHash(h, w.certs)
-	w.updates <- h.Sum(nil)
+	w.updates(h.Sum(nil))
 }
 
 type watchFileEventsFn func(ctx context.Context, wch <-chan *fsnotify.FileEvent,

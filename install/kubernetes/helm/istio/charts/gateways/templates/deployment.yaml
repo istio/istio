@@ -136,13 +136,13 @@ spec:
         {{- if $.Values.global.proxy.envoyMetricsService.enabled }}
           - --envoyMetricsService
           {{- with  $.Values.global.proxy.envoyMetricsService }}
-          - '{"address":"{{ .host }}:{{.port }}"{{ if .tlsSettings }},"tls_settings":{{ .tlsSettings | toJson }}{{- end }}{{ if .tcpKeepalive }},"tcp_keepalive":{{ .tcpKeepalive | toJson }}{{- end }}}'
+          - '{"address":"{{ .host }}:{{.port }}"{{ if .tlsSettings }},"tlsSettings":{{ .tlsSettings | toJson }}{{- end }}{{ if .tcpKeepalive }},"tcpKeepalive":{{ .tcpKeepalive | toJson }}{{- end }}}'
           {{- end }}
         {{- end}}
         {{- if $.Values.global.proxy.envoyAccessLogService.enabled }}
           - --envoyAccessLogService
           {{- with  $.Values.global.proxy.envoyAccessLogService }}
-          - '{"address":"{{ .host }}:{{.port }}"{{ if .tlsSettings }},"tls_settings":{{ .tlsSettings | toJson }}{{- end }}{{ if .tcpKeepalive }},"tcp_keepalive":{{ .tcpKeepalive | toJson }}{{- end }}}'
+          - '{"address":"{{ .host }}:{{.port }}"{{ if .tlsSettings }},"tlsSettings":{{ .tlsSettings | toJson }}{{- end }}{{ if .tcpKeepalive }},"tcpKeepalive":{{ .tcpKeepalive | toJson }}{{- end }}}'
           {{- end }}
         {{- end }}
           - --proxyAdminPort
@@ -241,6 +241,13 @@ spec:
             value: {{ $key }}
           - name: ISTIO_META_OWNER
             value: kubernetes://api/apps/v1/namespaces/{{ $spec.namespace | default $.Release.Namespace }}/deployments/{{ $key }}
+          {{- if $.Values.global.meshID }}
+          - name: ISTIO_META_MESH_ID
+            value: "{{ $.Values.global.meshID }}"
+          {{- else if $.Values.global.trustDomain }}
+          - name: ISTIO_META_MESH_ID
+            value: "{{ $.Values.global.trustDomain }}"
+          {{- end }}
           {{- if $spec.sds }}
           {{- if $spec.sds.enabled }}
           - name: ISTIO_META_USER_SDS

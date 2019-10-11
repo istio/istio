@@ -15,8 +15,8 @@
 package meshcfg
 
 import (
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
-	"istio.io/istio/galley/pkg/config/schema/collection"
 )
 
 // IstioMeshconfig is the name of collection istio/meshconfig

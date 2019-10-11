@@ -10,19 +10,6 @@ import (
 )
 
 type IstioConfigStore struct {
-	AuthenticationPolicyForWorkloadStub        func(*model.Service, labels.Instance, *model.Port) *model.Config
-	authenticationPolicyForWorkloadMutex       sync.RWMutex
-	authenticationPolicyForWorkloadArgsForCall []struct {
-		arg1 *model.Service
-		arg2 labels.Instance
-		arg3 *model.Port
-	}
-	authenticationPolicyForWorkloadReturns struct {
-		result1 *model.Config
-	}
-	authenticationPolicyForWorkloadReturnsOnCall map[int]struct {
-		result1 *model.Config
-	}
 	AuthorizationPoliciesStub        func(string) []model.Config
 	authorizationPoliciesMutex       sync.RWMutex
 	authorizationPoliciesArgsForCall []struct {
@@ -197,68 +184,6 @@ type IstioConfigStore struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
-}
-
-func (fake *IstioConfigStore) AuthenticationPolicyForWorkload(arg1 *model.Service, arg2 labels.Instance, arg3 *model.Port) *model.Config {
-	fake.authenticationPolicyForWorkloadMutex.Lock()
-	ret, specificReturn := fake.authenticationPolicyForWorkloadReturnsOnCall[len(fake.authenticationPolicyForWorkloadArgsForCall)]
-	fake.authenticationPolicyForWorkloadArgsForCall = append(fake.authenticationPolicyForWorkloadArgsForCall, struct {
-		arg1 *model.Service
-		arg2 labels.Instance
-		arg3 *model.Port
-	}{arg1, arg2, arg3})
-	fake.recordInvocation("AuthenticationPolicyForWorkload", []interface{}{arg1, arg2, arg3})
-	fake.authenticationPolicyForWorkloadMutex.Unlock()
-	if fake.AuthenticationPolicyForWorkloadStub != nil {
-		return fake.AuthenticationPolicyForWorkloadStub(arg1, arg2, arg3)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	fakeReturns := fake.authenticationPolicyForWorkloadReturns
-	return fakeReturns.result1
-}
-
-func (fake *IstioConfigStore) AuthenticationPolicyForWorkloadCallCount() int {
-	fake.authenticationPolicyForWorkloadMutex.RLock()
-	defer fake.authenticationPolicyForWorkloadMutex.RUnlock()
-	return len(fake.authenticationPolicyForWorkloadArgsForCall)
-}
-
-func (fake *IstioConfigStore) AuthenticationPolicyForWorkloadCalls(stub func(*model.Service, labels.Instance, *model.Port) *model.Config) {
-	fake.authenticationPolicyForWorkloadMutex.Lock()
-	defer fake.authenticationPolicyForWorkloadMutex.Unlock()
-	fake.AuthenticationPolicyForWorkloadStub = stub
-}
-
-func (fake *IstioConfigStore) AuthenticationPolicyForWorkloadArgsForCall(i int) (*model.Service, labels.Instance, *model.Port) {
-	fake.authenticationPolicyForWorkloadMutex.RLock()
-	defer fake.authenticationPolicyForWorkloadMutex.RUnlock()
-	argsForCall := fake.authenticationPolicyForWorkloadArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
-}
-
-func (fake *IstioConfigStore) AuthenticationPolicyForWorkloadReturns(result1 *model.Config) {
-	fake.authenticationPolicyForWorkloadMutex.Lock()
-	defer fake.authenticationPolicyForWorkloadMutex.Unlock()
-	fake.AuthenticationPolicyForWorkloadStub = nil
-	fake.authenticationPolicyForWorkloadReturns = struct {
-		result1 *model.Config
-	}{result1}
-}
-
-func (fake *IstioConfigStore) AuthenticationPolicyForWorkloadReturnsOnCall(i int, result1 *model.Config) {
-	fake.authenticationPolicyForWorkloadMutex.Lock()
-	defer fake.authenticationPolicyForWorkloadMutex.Unlock()
-	fake.AuthenticationPolicyForWorkloadStub = nil
-	if fake.authenticationPolicyForWorkloadReturnsOnCall == nil {
-		fake.authenticationPolicyForWorkloadReturnsOnCall = make(map[int]struct {
-			result1 *model.Config
-		})
-	}
-	fake.authenticationPolicyForWorkloadReturnsOnCall[i] = struct {
-		result1 *model.Config
-	}{result1}
 }
 
 func (fake *IstioConfigStore) AuthorizationPolicies(arg1 string) []model.Config {
@@ -1146,8 +1071,6 @@ func (fake *IstioConfigStore) UpdateReturnsOnCall(i int, result1 string, result2
 func (fake *IstioConfigStore) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.authenticationPolicyForWorkloadMutex.RLock()
-	defer fake.authenticationPolicyForWorkloadMutex.RUnlock()
 	fake.authorizationPoliciesMutex.RLock()
 	defer fake.authorizationPoliciesMutex.RUnlock()
 	fake.clusterRbacConfigMutex.RLock()

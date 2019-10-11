@@ -141,6 +141,15 @@
       {{- if $.Values.global.trustDomain }}
         - --trust-domain={{ $.Values.global.trustDomain }}
       {{- end }}
+      {{- if $.Values.global.proxy.logLevel }}
+        - --proxyLogLevel={{ $.Values.global.proxy.logLevel }}
+      {{- end}}
+      {{- if $.Values.global.proxy.componentLogLevel }}
+        - --proxyComponentLogLevel={{ $.Values.global.proxy.componentLogLevel }}
+      {{- end}}
+      {{- if $.Values.global.logging.level }}
+        - --log_output_level={{ $.Values.global.logging.level }}
+      {{- end}}
         env:
         - name: POD_NAME
           valueFrom:
@@ -332,6 +341,15 @@
         - --controlPlaneAuthPolicy
         - NONE
       {{- end }}
+      {{- if $.Values.global.proxy.logLevel }}
+        - --proxyLogLevel={{ $.Values.global.proxy.logLevel }}
+      {{- end}}
+      {{- if $.Values.global.proxy.componentLogLevel }}
+        - --proxyComponentLogLevel={{ $.Values.global.proxy.componentLogLevel }}
+      {{- end}}
+      {{- if $.Values.global.logging.level }}
+        - --log_output_level={{ $.Values.global.logging.level }}
+      {{- end}}
         env:
         - name: POD_NAME
           valueFrom:

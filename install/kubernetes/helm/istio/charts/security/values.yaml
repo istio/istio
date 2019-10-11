@@ -17,6 +17,8 @@ podAnnotations: {}
 citadelHealthCheck: false
 # 90*24hour = 2160h
 workloadCertTtl: 2160h
+# Environment variables that configure Citadel.
+env: {}
 
 # Determines Citadel default behavior if the ca.istio.io/env or ca.istio.io/override
 # labels are not found on a given namespace.

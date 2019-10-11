@@ -519,7 +519,7 @@ func TestComputeSha(t *testing.T) {
 }
 
 func TestMetricExpiration(t *testing.T) {
-
+	t.Skip("https://github.com/istio/istio/issues/17182")
 	testPolicy := expPolicy(50*time.Millisecond, 10*time.Millisecond)
 	altPolicy := expPolicy(50*time.Millisecond, 0)
 

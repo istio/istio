@@ -17,8 +17,8 @@ package rt
 import (
 	"fmt"
 
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
-	"istio.io/istio/galley/pkg/config/schema/collection"
 )
 
 // Origin is a K8s specific implementation of resource.Origin

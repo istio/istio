@@ -24,29 +24,28 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/spiffe"
-
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/pkg/log"
 
 	cert "k8s.io/api/certificates/v1beta1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	certclient "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
 )
 
-// Generate a certificate and key from k8s CA
+// GenKeyCertK8sCA generates a certificate and key from k8s CA
 // Working flow:
 // 1. Generate a CSR
 // 2. Submit a CSR
 // 3. Approve a CSR
 // 4. Read the signed certificate
 // 5. Clean up the artifacts (e.g., delete CSR)
-func genKeyCertK8sCA(wc *WebhookController, secretName string, secretNamespace, svcName string) ([]byte, []byte, []byte, error) {
+func GenKeyCertK8sCA(certClient certclient.CertificateSigningRequestInterface, dnsName,
+	secretName, secretNamespace, caFilePath string) ([]byte, []byte, []byte, error) {
 	// 1. Generate a CSR
-	// Construct the dns id from service name and name space.
-	// Example: istio-pilot.istio-system.svc, istio-pilot.istio-system
-	id := fmt.Sprintf("%s.%s.svc,%s.%s", svcName, secretNamespace, svcName, secretNamespace)
 	options := util.CertOptions{
-		Host:       id,
+		Host:       dnsName,
 		RSAKeySize: keySize,
 		IsDualUse:  false,
 		PKCS8Key:   false,
@@ -60,7 +59,7 @@ func genKeyCertK8sCA(wc *WebhookController, secretName string, secretNamespace, 
 	// 2. Submit the CSR
 	csrName := fmt.Sprintf("domain-%s-ns-%s-secret-%s", spiffe.GetTrustDomain(), secretNamespace, secretName)
 	numRetries := 3
-	r, err := submitCSR(wc, csrName, csrPEM, numRetries)
+	r, err := submitCSR(certClient, csrName, csrPEM, numRetries)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -70,16 +69,16 @@ func genKeyCertK8sCA(wc *WebhookController, secretName string, secretNamespace, 
 
 	// 3. Approve a CSR
 	log.Debugf("approve CSR (%v) ...", csrName)
-	csrMsg := fmt.Sprintf("CSR (%s) for the webhook certificate (%s) is approved", csrName, id)
+	csrMsg := fmt.Sprintf("CSR (%s) for the certificate (%s) is approved", csrName, dnsName)
 	r.Status.Conditions = append(r.Status.Conditions, cert.CertificateSigningRequestCondition{
 		Type:    cert.CertificateApproved,
 		Reason:  csrMsg,
 		Message: csrMsg,
 	})
-	reqApproval, err := wc.certClient.CertificateSigningRequests().UpdateApproval(r)
+	reqApproval, err := certClient.UpdateApproval(r)
 	if err != nil {
-		log.Debugf("failed to approve CSR (%v): %v", csrName, err)
-		errCsr := wc.cleanUpCertGen(csrName)
+		log.Errorf("failed to approve CSR (%v): %v", csrName, err)
+		errCsr := cleanUpCertGen(certClient, csrName)
 		if errCsr != nil {
 			log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
 		}
@@ -88,10 +87,11 @@ func genKeyCertK8sCA(wc *WebhookController, secretName string, secretNamespace, 
 	log.Debugf("CSR (%v) is approved: %v", csrName, reqApproval)
 
 	// 4. Read the signed certificate
-	certChain, caCert, err := readSignedCertificate(wc, csrName, certReadInterval, maxNumCertRead)
+	certChain, caCert, err := readSignedCertificate(certClient,
+		csrName, certReadInterval, maxNumCertRead, caFilePath)
 	if err != nil {
-		log.Debugf("failed to read signed cert. (%v): %v", csrName, err)
-		errCsr := wc.cleanUpCertGen(csrName)
+		log.Errorf("failed to read signed cert. (%v): %v", csrName, err)
+		errCsr := cleanUpCertGen(certClient, csrName)
 		if errCsr != nil {
 			log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
 		}
@@ -99,7 +99,7 @@ func genKeyCertK8sCA(wc *WebhookController, secretName string, secretNamespace, 
 	}
 
 	// 5. Clean up the artifacts (e.g., delete CSR)
-	err = wc.cleanUpCertGen(csrName)
+	err = cleanUpCertGen(certClient, csrName)
 	if err != nil {
 		log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
 	}
@@ -157,7 +157,8 @@ func reloadCACert(wc *WebhookController) (bool, error) {
 	return certChanged, nil
 }
 
-func submitCSR(wc *WebhookController, csrName string, csrPEM []byte, numRetries int) (*cert.CertificateSigningRequest, error) {
+func submitCSR(certClient certclient.CertificateSigningRequestInterface, csrName string,
+	csrPEM []byte, numRetries int) (*cert.CertificateSigningRequest, error) {
 	k8sCSR := &cert.CertificateSigningRequest{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "certificates.k8s.io/v1beta1",
@@ -181,7 +182,7 @@ func submitCSR(wc *WebhookController, csrName string, csrPEM []byte, numRetries 
 	var errRet error
 	for i := 0; i < numRetries; i++ {
 		log.Debugf("trial %v to create CSR (%v)", i, csrName)
-		reqRet, errRet = wc.certClient.CertificateSigningRequests().Create(k8sCSR)
+		reqRet, errRet = certClient.Create(k8sCSR)
 		if errRet == nil && reqRet != nil {
 			break
 		}
@@ -192,13 +193,13 @@ func submitCSR(wc *WebhookController, csrName string, csrPEM []byte, numRetries 
 		}
 		// If CSR exists, delete the existing CSR and create again
 		log.Debugf("delete an existing CSR: %v", csrName)
-		errRet = wc.certClient.CertificateSigningRequests().Delete(csrName, nil)
+		errRet = certClient.Delete(csrName, nil)
 		if errRet != nil {
 			log.Errorf("failed to delete CSR (%v): %v", csrName, errRet)
 			continue
 		}
 		log.Debugf("create CSR (%v) after the existing one was deleted", csrName)
-		reqRet, errRet = wc.certClient.CertificateSigningRequests().Create(k8sCSR)
+		reqRet, errRet = certClient.Create(k8sCSR)
 		if errRet == nil && reqRet != nil {
 			break
 		}
@@ -207,30 +208,35 @@ func submitCSR(wc *WebhookController, csrName string, csrPEM []byte, numRetries 
 }
 
 // Read the signed certificate
-func readSignedCertificate(wc *WebhookController, csrName string,
-	readInterval time.Duration, maxNumRead int) ([]byte, []byte, error) {
-	var reqSigned *cert.CertificateSigningRequest
-	for i := 0; i < maxNumRead; i++ {
-		// It takes some time for certificate to be ready, so wait first.
-		time.Sleep(readInterval)
-		r, err := wc.certClient.CertificateSigningRequests().Get(csrName, metav1.GetOptions{})
-		if err != nil {
-			log.Errorf("failed to get the CSR (%v): %v", csrName, err)
-			errCsr := wc.cleanUpCertGen(csrName)
-			if errCsr != nil {
-				log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
+func readSignedCertificate(certClient certclient.CertificateSigningRequestInterface, csrName string,
+	readInterval time.Duration, maxNumRead int, caCertPath string) ([]byte, []byte, error) {
+	// First try to read the signed CSR through a watching mechanism
+	reqSigned := readSignedCsr(certClient, csrName, timeoutForReadingCSR)
+	if reqSigned == nil {
+		// If watching fails, retry reading the signed CSR a few times after waiting.
+		for i := 0; i < maxNumRead; i++ {
+			// It takes some time for certificate to be ready, so wait first.
+			time.Sleep(readInterval)
+			r, err := certClient.Get(csrName, metav1.GetOptions{})
+			if err != nil {
+				log.Errorf("failed to get the CSR (%v): %v", csrName, err)
+				errCsr := cleanUpCertGen(certClient, csrName)
+				if errCsr != nil {
+					log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
+				}
+				return nil, nil, err
 			}
-			return nil, nil, err
-		}
-		if r.Status.Certificate != nil {
-			// Certificate is ready
-			reqSigned = r
-			break
+			if r.Status.Certificate != nil {
+				// Certificate is ready
+				reqSigned = r
+				break
+			}
 		}
 	}
+	// If still failed to read signed CSR, return error.
 	if reqSigned == nil {
 		log.Errorf("failed to read the certificate for CSR (%v), nil CSR", csrName)
-		errCsr := wc.cleanUpCertGen(csrName)
+		errCsr := cleanUpCertGen(certClient, csrName)
 		if errCsr != nil {
 			log.Errorf("failed to clean up CSR (%v): %v", csrName, errCsr)
 		}
@@ -246,7 +252,7 @@ func readSignedCertificate(wc *WebhookController, csrName string,
 				break
 			}
 		}
-		errCsr := wc.cleanUpCertGen(csrName)
+		errCsr := cleanUpCertGen(certClient, csrName)
 		if errCsr != nil {
 			log.Errorf("failed to clean up CSR (%v): %v", csrName, errCsr)
 		}
@@ -257,10 +263,10 @@ func readSignedCertificate(wc *WebhookController, csrName string,
 	log.Debugf("the certificate for CSR (%v) is: %v", csrName, string(reqSigned.Status.Certificate))
 
 	certPEM := reqSigned.Status.Certificate
-	caCert, err := wc.getCACert()
+	caCert, err := readCACert(caCertPath)
 	if err != nil {
 		log.Errorf("error when getting CA cert (%v)", err)
-		errCsr := wc.cleanUpCertGen(csrName)
+		errCsr := cleanUpCertGen(certClient, csrName)
 		if errCsr != nil {
 			log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
 		}
@@ -269,14 +275,14 @@ func readSignedCertificate(wc *WebhookController, csrName string,
 	// Verify the certificate chain before returning the certificate
 	roots := x509.NewCertPool()
 	if roots == nil {
-		errCsr := wc.cleanUpCertGen(csrName)
+		errCsr := cleanUpCertGen(certClient, csrName)
 		if errCsr != nil {
 			log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
 		}
 		return nil, nil, fmt.Errorf("failed to create cert pool")
 	}
 	if ok := roots.AppendCertsFromPEM(caCert); !ok {
-		errCsr := wc.cleanUpCertGen(csrName)
+		errCsr := cleanUpCertGen(certClient, csrName)
 		if errCsr != nil {
 			log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
 		}
@@ -285,7 +291,7 @@ func readSignedCertificate(wc *WebhookController, csrName string,
 	certParsed, err := util.ParsePemEncodedCertificate(certPEM)
 	if err != nil {
 		log.Errorf("failed to parse the certificate: %v", err)
-		errCsr := wc.cleanUpCertGen(csrName)
+		errCsr := cleanUpCertGen(certClient, csrName)
 		if errCsr != nil {
 			log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
 		}
@@ -296,7 +302,7 @@ func readSignedCertificate(wc *WebhookController, csrName string,
 	})
 	if err != nil {
 		log.Errorf("failed to verify the certificate chain: %v", err)
-		errCsr := wc.cleanUpCertGen(csrName)
+		errCsr := cleanUpCertGen(certClient, csrName)
 		if errCsr != nil {
 			log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
 		}
@@ -307,4 +313,43 @@ func readSignedCertificate(wc *WebhookController, csrName string,
 	certChain = append(certChain, caCert...)
 
 	return certChain, caCert, nil
+}
+
+// Return signed CSR through a watcher. If no CSR is read, return nil.
+// The following nonlint is to fix the lint error: `certClient` can be `k8s.io/client-go/tools/cache.Watcher` (interfacer)
+// nolint: interfacer
+func readSignedCsr(certClient certclient.CertificateSigningRequestInterface, csrName string, timeout time.Duration) *cert.CertificateSigningRequest {
+	watcher, err := certClient.Watch(metav1.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector("metadata.name", csrName).String(),
+	})
+	if err != nil {
+		log.Errorf("err when watching CSR %v: %v", csrName, err)
+		return nil
+	}
+	// Set a timeout
+	timer := time.After(timeout)
+	for {
+		select {
+		case r := <-watcher.ResultChan():
+			reqSigned := r.Object.(*cert.CertificateSigningRequest)
+			if reqSigned.Status.Certificate != nil {
+				return reqSigned
+			}
+		case <-timer:
+			log.Errorf("timeout when watching CSR %v", csrName)
+			return nil
+		}
+	}
+}
+
+// Clean up the CSR
+func cleanUpCertGen(certClient certclient.CertificateSigningRequestInterface, csrName string) error {
+	// Delete CSR
+	log.Debugf("delete CSR: %v", csrName)
+	err := certClient.Delete(csrName, nil)
+	if err != nil {
+		log.Errorf("failed to delete CSR (%v): %v", csrName, err)
+		return err
+	}
+	return nil
 }
