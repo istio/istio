@@ -121,6 +121,7 @@ func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) *v1alpha2
 	out := &v1alpha2.InstallStatus{Status: make(map[string]*v1alpha2.InstallStatus_VersionStatus)}
 
 	var wg sync.WaitGroup
+	var mu sync.Mutex
 	for c, m := range manifests {
 		c, m := c, m
 		wg.Add(1)
@@ -132,18 +133,26 @@ func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) *v1alpha2
 				<-s
 				log.Infof("Dependency for %s has completed, proceeding.", c)
 			}
-
+			mu.Lock()
 			if _, ok := out.Status[c]; !ok {
 				out.Status[c] = &v1alpha2.InstallStatus_VersionStatus{}
 			}
-			out.Status[c].Status = v1alpha2.InstallStatus_NONE
+			mu.Unlock()
+			status := v1alpha2.InstallStatus_NONE
+			errString := ""
 			if len(m) != 0 {
-				out.Status[c].Status = v1alpha2.InstallStatus_HEALTHY
+				status = v1alpha2.InstallStatus_HEALTHY
 				if err := h.ProcessManifest(m[0]); err != nil {
-					out.Status[c].Error = err.Error()
-					out.Status[c].Status = v1alpha2.InstallStatus_ERROR
+					errString = err.Error()
+					status = v1alpha2.InstallStatus_ERROR
 				}
 			}
+			mu.Lock()
+			out.Status[c].Status = status
+			if errString != "" {
+				out.Status[c].Error = errString
+			}
+			mu.Unlock()
 
 			// Signal all the components that depend on us.
 			for _, ch := range deps[cn] {
