@@ -146,6 +146,7 @@ components:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -156,11 +157,17 @@ components:
 <p>Selects whether auto injection feature is installed. Must be set for any sub-component to be installed.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="AutoInjectionFeatureSpec-components">
 <td><code>components</code></td>
 <td><code><a href="#AutoInjectionFeatureSpec-Components">AutoInjectionFeatureSpec.Components</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -174,6 +181,7 @@ components:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -184,11 +192,17 @@ components:
 <p>Namespace that auto injections components are installed into.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="AutoInjectionFeatureSpec-Components-injector">
 <td><code>injector</code></td>
 <td><code><a href="#SidecarInjectorComponentSpec">SidecarInjectorComponentSpec</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -204,6 +218,7 @@ components:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -212,17 +227,26 @@ components:
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="CNIComponentSpec-namespace">
 <td><code>namespace</code></td>
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="CNIComponentSpec-k8s">
 <td><code>k8s</code></td>
 <td><code><a href="#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -238,6 +262,7 @@ components:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -248,11 +273,17 @@ components:
 <p>Selects whether gateway feature is installed. Must be set for any sub-component to be installed.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="CNIFeatureSpec-components">
 <td><code>components</code></td>
 <td><code><a href="#CNIFeatureSpec-Components">CNIFeatureSpec.Components</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -266,6 +297,7 @@ components:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -276,11 +308,17 @@ components:
 <p>Namespace that cni components are installed into.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="CNIFeatureSpec-Components-cni">
 <td><code>cni</code></td>
 <td><code><a href="#CNIComponentSpec">CNIComponentSpec</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -296,6 +334,7 @@ components:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -304,17 +343,26 @@ components:
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="CertManagerComponentSpec-namespace">
 <td><code>namespace</code></td>
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="CertManagerComponentSpec-k8s">
 <td><code>k8s</code></td>
 <td><code><a href="#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -330,6 +378,7 @@ components:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -338,17 +387,26 @@ components:
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="CitadelComponentSpec-namespace">
 <td><code>namespace</code></td>
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="CitadelComponentSpec-k8s">
 <td><code>k8s</code></td>
 <td><code><a href="#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -364,6 +422,7 @@ components:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -374,11 +433,17 @@ components:
 <p>Selects whether config management feature is installed. Must be set for any sub-component to be installed.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="ConfigManagementFeatureSpec-components">
 <td><code>components</code></td>
 <td><code><a href="#ConfigManagementFeatureSpec-Components">ConfigManagementFeatureSpec.Components</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -392,6 +457,7 @@ components:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -402,11 +468,17 @@ components:
 <p>Namespace that security components are installed into.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="ConfigManagementFeatureSpec-Components-galley">
 <td><code>galley</code></td>
 <td><code><a href="#GalleyComponentSpec">GalleyComponentSpec</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -422,6 +494,7 @@ components:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -430,11 +503,17 @@ components:
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="DeploymentStrategy-rollingUpdate">
 <td><code>rollingUpdate</code></td>
 <td><code><a href="#RollingUpdateDeployment">RollingUpdateDeployment</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -450,6 +529,7 @@ components:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -458,17 +538,26 @@ components:
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="EgressGatewayComponentSpec-namespace">
 <td><code>namespace</code></td>
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="EgressGatewayComponentSpec-k8s">
 <td><code>k8s</code></td>
 <td><code><a href="#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -484,6 +573,7 @@ components:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -491,6 +581,9 @@ components:
 <td><code>command</code></td>
 <td><code>string[]</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -506,6 +599,7 @@ components:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -514,17 +608,26 @@ components:
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="GalleyComponentSpec-namespace">
 <td><code>namespace</code></td>
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="GalleyComponentSpec-k8s">
 <td><code>k8s</code></td>
 <td><code><a href="#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -540,6 +643,7 @@ components:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -550,11 +654,17 @@ components:
 <p>Selects whether gateway feature is installed. Must be set for any sub-component to be installed.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="GatewayFeatureSpec-components">
 <td><code>components</code></td>
 <td><code><a href="#GatewayFeatureSpec-Components">GatewayFeatureSpec.Components</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -568,6 +678,7 @@ components:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -578,6 +689,9 @@ components:
 <p>Namespace that auto injections components are installed into.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="GatewayFeatureSpec-Components-ingress_gateway">
 <td><code>ingressGateway</code></td>
@@ -586,11 +700,17 @@ components:
 <p>Ingress/egress gateway configuration.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="GatewayFeatureSpec-Components-egress_gateway">
 <td><code>egressGateway</code></td>
 <td><code><a href="#EgressGatewayComponentSpec">EgressGatewayComponentSpec</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -606,6 +726,7 @@ components:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -614,11 +735,17 @@ components:
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="HTTPGetAction-port">
 <td><code>port</code></td>
 <td><code><a href="#TypeIntOrStringForPB">TypeIntOrStringForPB</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="HTTPGetAction-host">
@@ -626,17 +753,26 @@ components:
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="HTTPGetAction-scheme">
 <td><code>scheme</code></td>
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="HTTPGetAction-httpHeaders">
 <td><code>httpHeaders</code></td>
 <td><code><a href="#HTTPHeader">HTTPHeader[]</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -652,6 +788,7 @@ components:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -660,11 +797,17 @@ components:
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="HTTPHeader-value">
 <td><code>value</code></td>
 <td><code>string</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -680,6 +823,7 @@ components:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -688,17 +832,26 @@ components:
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="IngressGatewayComponentSpec-namespace">
 <td><code>namespace</code></td>
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="IngressGatewayComponentSpec-k8s">
 <td><code>k8s</code></td>
 <td><code><a href="#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -714,6 +867,7 @@ components:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -721,6 +875,9 @@ components:
 <td><code>status</code></td>
 <td><code>map&lt;string,&nbsp;<a href="#InstallStatus-VersionStatus">InstallStatus.VersionStatus</a>&gt;</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -767,6 +924,7 @@ components:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -775,17 +933,26 @@ components:
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="InstallStatus-VersionStatus-status">
 <td><code>status</code></td>
 <td><code><a href="#InstallStatus-Status">InstallStatus.Status</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="InstallStatus-VersionStatus-error">
 <td><code>error</code></td>
 <td><code>string</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -801,6 +968,7 @@ components:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -811,6 +979,9 @@ components:
 <p>Spec defines the desired state of IstioControlPlane.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="IstioControlPlane-status">
 <td><code>status</code></td>
@@ -819,17 +990,26 @@ components:
 <p>Status reports the status of the Istio control plane.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="IstioControlPlane-kind">
 <td><code>kind</code></td>
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="IstioControlPlane-apiVersion">
 <td><code>apiVersion</code></td>
 <td><code>string</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -849,6 +1029,7 @@ Because the spec is a customization API, specifying an empty InstallSpec results
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -859,6 +1040,9 @@ Because the spec is a customization API, specifying an empty InstallSpec results
 <p>Default namespace if feature or component namespaces are not set.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="IstioControlPlaneSpec-traffic_management">
 <td><code>trafficManagement</code></td>
@@ -867,11 +1051,17 @@ Because the spec is a customization API, specifying an empty InstallSpec results
 <p>Selection and configuration of core Istio features.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="IstioControlPlaneSpec-policy">
 <td><code>policy</code></td>
 <td><code><a href="#PolicyFeatureSpec">PolicyFeatureSpec</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="IstioControlPlaneSpec-telemetry">
@@ -879,11 +1069,17 @@ Because the spec is a customization API, specifying an empty InstallSpec results
 <td><code><a href="#TelemetryFeatureSpec">TelemetryFeatureSpec</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="IstioControlPlaneSpec-security">
 <td><code>security</code></td>
 <td><code><a href="#SecurityFeatureSpec">SecurityFeatureSpec</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="IstioControlPlaneSpec-config_management">
@@ -891,11 +1087,17 @@ Because the spec is a customization API, specifying an empty InstallSpec results
 <td><code><a href="#ConfigManagementFeatureSpec">ConfigManagementFeatureSpec</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="IstioControlPlaneSpec-auto_injection">
 <td><code>autoInjection</code></td>
 <td><code><a href="#AutoInjectionFeatureSpec">AutoInjectionFeatureSpec</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="IstioControlPlaneSpec-gateways">
@@ -903,11 +1105,17 @@ Because the spec is a customization API, specifying an empty InstallSpec results
 <td><code><a href="#GatewayFeatureSpec">GatewayFeatureSpec</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="IstioControlPlaneSpec-cni">
 <td><code>cni</code></td>
 <td><code><a href="#CNIFeatureSpec">CNIFeatureSpec</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="IstioControlPlaneSpec-values">
@@ -917,6 +1125,9 @@ Because the spec is a customization API, specifying an empty InstallSpec results
 <p>Overrides for default global values.yaml.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="IstioControlPlaneSpec-unvalidatedValues">
 <td><code>unvalidatedValues</code></td>
@@ -924,6 +1135,9 @@ Because the spec is a customization API, specifying an empty InstallSpec results
 <td>
 <p>Unvalidated overrides for default global values.yaml.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="IstioControlPlaneSpec-profile">
@@ -936,6 +1150,9 @@ Because the spec is a customization API, specifying an empty InstallSpec results
 default profile is used if this field is unset.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="IstioControlPlaneSpec-install_package_path">
 <td><code>installPackagePath</code></td>
@@ -944,6 +1161,9 @@ default profile is used if this field is unset.</p>
 <p>Path for the install package. e.g.
     - /tmp/istio-installer/nightly (local file path)</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="IstioControlPlaneSpec-hub">
@@ -955,6 +1175,9 @@ Releases are published to docker hub under &lsquo;istio&rsquo; project.
 Daily builds from prow are on gcr.io, and nightly builds from circle on docker.io/istionightly</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="IstioControlPlaneSpec-tag">
 <td><code>tag</code></td>
@@ -962,6 +1185,9 @@ Daily builds from prow are on gcr.io, and nightly builds from circle on docker.i
 <td>
 <p>Version tag for docker images e.g. 1.0.6</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -977,6 +1203,7 @@ Daily builds from prow are on gcr.io, and nightly builds from circle on docker.i
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -988,6 +1215,9 @@ Daily builds from prow are on gcr.io, and nightly builds from circle on docker.i
 https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="KubernetesResourcesSpec-env">
 <td><code>env</code></td>
@@ -996,6 +1226,9 @@ https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-
 <p>Deployment environment variables.
 https://kubernetes.io/docs/tasks/inject-data-application/define-environment-variable-container/</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="KubernetesResourcesSpec-hpa_spec">
@@ -1006,6 +1239,9 @@ https://kubernetes.io/docs/tasks/inject-data-application/define-environment-vari
 https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="KubernetesResourcesSpec-image_pull_policy">
 <td><code>imagePullPolicy</code></td>
@@ -1014,6 +1250,9 @@ https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/</p>
 <p>k8s imagePullPolicy.
 https://kubernetes.io/docs/concepts/containers/images/</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="KubernetesResourcesSpec-node_selector">
@@ -1024,6 +1263,9 @@ https://kubernetes.io/docs/concepts/containers/images/</p>
 https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="KubernetesResourcesSpec-pod_disruption_budget">
 <td><code>podDisruptionBudget</code></td>
@@ -1032,6 +1274,9 @@ https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector<
 <p>k8s PodDisruptionBudget settings.
 https://kubernetes.io/docs/concepts/workloads/pods/disruptions/#how-disruption-budgets-work</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="KubernetesResourcesSpec-pod_annotations">
@@ -1042,6 +1287,9 @@ https://kubernetes.io/docs/concepts/workloads/pods/disruptions/#how-disruption-b
 https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="KubernetesResourcesSpec-priority_class_name">
 <td><code>priorityClassName</code></td>
@@ -1050,6 +1298,9 @@ https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/</
 <p>k8s priority<em>class</em>name. Default for all resources unless overridden.
 https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="KubernetesResourcesSpec-readiness_probe">
@@ -1061,6 +1312,9 @@ https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-read
 k8s.io.api.core.v1.Probe readiness_probe = 9;</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="KubernetesResourcesSpec-replica_count">
 <td><code>replicaCount</code></td>
@@ -1069,6 +1323,9 @@ k8s.io.api.core.v1.Probe readiness_probe = 9;</p>
 <p>k8s Deployment replicas setting.
 https://kubernetes.io/docs/concepts/workloads/controllers/deployment/</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="KubernetesResourcesSpec-resources">
@@ -1079,6 +1336,9 @@ https://kubernetes.io/docs/concepts/workloads/controllers/deployment/</p>
 https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="KubernetesResourcesSpec-service">
 <td><code>service</code></td>
@@ -1087,6 +1347,9 @@ https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-conta
 <p>k8s Service settings.
 https://kubernetes.io/docs/concepts/services-networking/service/</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="KubernetesResourcesSpec-strategy">
@@ -1097,6 +1360,9 @@ https://kubernetes.io/docs/concepts/services-networking/service/</p>
 https://kubernetes.io/docs/concepts/workloads/controllers/deployment/</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="KubernetesResourcesSpec-tolerations">
 <td><code>tolerations</code></td>
@@ -1106,6 +1372,9 @@ https://kubernetes.io/docs/concepts/workloads/controllers/deployment/</p>
 https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="KubernetesResourcesSpec-overlays">
 <td><code>overlays</code></td>
@@ -1113,6 +1382,9 @@ https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/</p>
 <td>
 <p>Overlays for k8s resources in rendered manifests.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -1128,6 +1400,7 @@ https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -1136,17 +1409,26 @@ https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/</p>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="NodeAgentComponentSpec-namespace">
 <td><code>namespace</code></td>
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="NodeAgentComponentSpec-k8s">
 <td><code>k8s</code></td>
 <td><code><a href="#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -1160,6 +1442,7 @@ https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -1170,11 +1453,17 @@ https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/</p>
 <p>From k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="ObjectMeta-namespace">
 <td><code>namespace</code></td>
 <td><code>string</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -1190,6 +1479,7 @@ https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -1198,17 +1488,26 @@ https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/</p>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="PilotComponentSpec-namespace">
 <td><code>namespace</code></td>
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="PilotComponentSpec-k8s">
 <td><code>k8s</code></td>
 <td><code><a href="#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -1224,6 +1523,7 @@ https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -1232,17 +1532,26 @@ https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/</p>
 <td><code>uint32</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="PodDisruptionBudgetSpec-selector">
 <td><code>selector</code></td>
 <td><code><a href="#k8s-io-apimachinery-pkg-apis-meta-v1-LabelSelector">k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="PodDisruptionBudgetSpec-maxUnavailable">
 <td><code>maxUnavailable</code></td>
 <td><code>uint32</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -1258,6 +1567,7 @@ https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -1266,17 +1576,26 @@ https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/</p>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="PolicyComponentSpec-namespace">
 <td><code>namespace</code></td>
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="PolicyComponentSpec-k8s">
 <td><code>k8s</code></td>
 <td><code><a href="#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -1292,6 +1611,7 @@ https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -1303,11 +1623,17 @@ https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/</p>
 Must be enabled to enable any sub-component.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="PolicyFeatureSpec-components">
 <td><code>components</code></td>
 <td><code><a href="#PolicyFeatureSpec-Components">PolicyFeatureSpec.Components</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -1323,6 +1649,7 @@ Must be enabled to enable any sub-component.</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -1333,11 +1660,17 @@ Must be enabled to enable any sub-component.</p>
 <p>Namespace that all policy components are installed into.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="PolicyFeatureSpec-Components-policy">
 <td><code>policy</code></td>
 <td><code><a href="#PolicyComponentSpec">PolicyComponentSpec</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -1353,6 +1686,7 @@ Must be enabled to enable any sub-component.</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -1361,17 +1695,26 @@ Must be enabled to enable any sub-component.</p>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="ProxyComponentSpec-namespace">
 <td><code>namespace</code></td>
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="ProxyComponentSpec-k8s">
 <td><code>k8s</code></td>
 <td><code><a href="#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -1387,6 +1730,7 @@ Must be enabled to enable any sub-component.</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -1395,11 +1739,17 @@ Must be enabled to enable any sub-component.</p>
 <td><code><a href="#ExecAction">ExecAction</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="ReadinessProbe-httpGet">
 <td><code>httpGet</code></td>
 <td><code><a href="#HTTPGetAction">HTTPGetAction</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="ReadinessProbe-tcpSocket">
@@ -1407,11 +1757,17 @@ Must be enabled to enable any sub-component.</p>
 <td><code><a href="#TCPSocketAction">TCPSocketAction</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="ReadinessProbe-initialDelaySeconds">
 <td><code>initialDelaySeconds</code></td>
 <td><code>int32</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="ReadinessProbe-timeoutSeconds">
@@ -1419,11 +1775,17 @@ Must be enabled to enable any sub-component.</p>
 <td><code>int32</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="ReadinessProbe-periodSeconds">
 <td><code>periodSeconds</code></td>
 <td><code>int32</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="ReadinessProbe-successThreshold">
@@ -1431,11 +1793,17 @@ Must be enabled to enable any sub-component.</p>
 <td><code>int32</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="ReadinessProbe-failureThreshold">
 <td><code>failureThreshold</code></td>
 <td><code>int32</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -1451,6 +1819,7 @@ Must be enabled to enable any sub-component.</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -1459,11 +1828,17 @@ Must be enabled to enable any sub-component.</p>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Resources-requests">
 <td><code>requests</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -1479,6 +1854,7 @@ Must be enabled to enable any sub-component.</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -1487,11 +1863,17 @@ Must be enabled to enable any sub-component.</p>
 <td><code><a href="#TypeIntOrStringForPB">TypeIntOrStringForPB</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="RollingUpdateDeployment-maxSurge">
 <td><code>maxSurge</code></td>
 <td><code><a href="#TypeIntOrStringForPB">TypeIntOrStringForPB</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -1507,6 +1889,7 @@ Must be enabled to enable any sub-component.</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -1517,11 +1900,17 @@ Must be enabled to enable any sub-component.</p>
 <p>Selects whether security feature is installed. Must be set for any sub-component to be installed.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="SecurityFeatureSpec-components">
 <td><code>components</code></td>
 <td><code><a href="#SecurityFeatureSpec-Components">SecurityFeatureSpec.Components</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -1535,6 +1924,7 @@ Must be enabled to enable any sub-component.</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -1545,11 +1935,17 @@ Must be enabled to enable any sub-component.</p>
 <p>Namespace that security components are installed into.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="SecurityFeatureSpec-Components-citadel">
 <td><code>citadel</code></td>
 <td><code><a href="#CitadelComponentSpec">CitadelComponentSpec</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="SecurityFeatureSpec-Components-cert_manager">
@@ -1557,11 +1953,17 @@ Must be enabled to enable any sub-component.</p>
 <td><code><a href="#CertManagerComponentSpec">CertManagerComponentSpec</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="SecurityFeatureSpec-Components-node_agent">
 <td><code>nodeAgent</code></td>
 <td><code><a href="#NodeAgentComponentSpec">NodeAgentComponentSpec</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -1577,6 +1979,7 @@ Must be enabled to enable any sub-component.</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -1585,17 +1988,26 @@ Must be enabled to enable any sub-component.</p>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="SidecarInjectorComponentSpec-namespace">
 <td><code>namespace</code></td>
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="SidecarInjectorComponentSpec-k8s">
 <td><code>k8s</code></td>
 <td><code><a href="#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -1611,6 +2023,7 @@ Must be enabled to enable any sub-component.</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -1619,11 +2032,17 @@ Must be enabled to enable any sub-component.</p>
 <td><code><a href="#TypeIntOrStringForPB">TypeIntOrStringForPB</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="TCPSocketAction-host">
 <td><code>host</code></td>
 <td><code>string</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -1639,6 +2058,7 @@ Must be enabled to enable any sub-component.</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -1647,17 +2067,26 @@ Must be enabled to enable any sub-component.</p>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="TelemetryComponentSpec-namespace">
 <td><code>namespace</code></td>
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="TelemetryComponentSpec-k8s">
 <td><code>k8s</code></td>
 <td><code><a href="#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -1673,6 +2102,7 @@ Must be enabled to enable any sub-component.</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -1684,11 +2114,17 @@ Must be enabled to enable any sub-component.</p>
 Must be enabled to enable any sub-component.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="TelemetryFeatureSpec-components">
 <td><code>components</code></td>
 <td><code><a href="#TelemetryFeatureSpec-Components">TelemetryFeatureSpec.Components</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -1704,6 +2140,7 @@ Must be enabled to enable any sub-component.</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -1714,11 +2151,17 @@ Must be enabled to enable any sub-component.</p>
 <p>Namespace that all telemetry components are installed into.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="TelemetryFeatureSpec-Components-telemetry">
 <td><code>telemetry</code></td>
 <td><code><a href="#TelemetryComponentSpec">TelemetryComponentSpec</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -1734,6 +2177,7 @@ Must be enabled to enable any sub-component.</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -1745,11 +2189,17 @@ Must be enabled to enable any sub-component.</p>
 Must be enabled to enable any sub-component.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="TrafficManagementFeatureSpec-components">
 <td><code>components</code></td>
 <td><code><a href="#TrafficManagementFeatureSpec-Components">TrafficManagementFeatureSpec.Components</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -1765,6 +2215,7 @@ Must be enabled to enable any sub-component.</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -1775,17 +2226,26 @@ Must be enabled to enable any sub-component.</p>
 <p>Namespace that all traffic management components are installed into.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="TrafficManagementFeatureSpec-Components-pilot">
 <td><code>pilot</code></td>
 <td><code><a href="#PilotComponentSpec">PilotComponentSpec</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="TrafficManagementFeatureSpec-Components-proxy">
 <td><code>proxy</code></td>
 <td><code><a href="#ProxyComponentSpec">ProxyComponentSpec</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -1816,6 +2276,7 @@ Must be enabled to enable any sub-component.</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -1826,6 +2287,9 @@ Must be enabled to enable any sub-component.</p>
 <p>scaleTargetRef points to the target resource to scale, and is used to the pods for which metrics
 should be collected, as well as to actually change the replica count.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="k8s-io-api-autoscaling-v2beta1-HorizontalPodAutoscalerSpec-minReplicas">
@@ -1840,6 +2304,9 @@ available.
 +optional</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="k8s-io-api-autoscaling-v2beta1-HorizontalPodAutoscalerSpec-maxReplicas">
 <td><code>maxReplicas</code></td>
@@ -1848,6 +2315,9 @@ available.
 <p>maxReplicas is the upper limit for the number of replicas to which the autoscaler can scale up.
 It cannot be less that minReplicas.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="k8s-io-api-autoscaling-v2beta1-HorizontalPodAutoscalerSpec-metrics">
@@ -1864,6 +2334,9 @@ more information about how each type of metric must respond.
 +optional</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 </tbody>
 </table>
@@ -1878,6 +2351,7 @@ more information about how each type of metric must respond.
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -1889,6 +2363,9 @@ more information about how each type of metric must respond.
 +optional</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="k8s-io-api-core-v1-Affinity-podAffinity">
 <td><code>podAffinity</code></td>
@@ -1898,6 +2375,9 @@ more information about how each type of metric must respond.
 +optional</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="k8s-io-api-core-v1-Affinity-podAntiAffinity">
 <td><code>podAntiAffinity</code></td>
@@ -1906,6 +2386,9 @@ more information about how each type of metric must respond.
 <p>Describes pod anti-affinity scheduling rules (e.g. avoid putting this pod in the same node, zone, etc. as some other pod(s)).
 +optional</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -1921,6 +2404,7 @@ more information about how each type of metric must respond.
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -1930,6 +2414,9 @@ more information about how each type of metric must respond.
 <td>
 <p>Name of the environment variable. Must be a C_IDENTIFIER.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="k8s-io-api-core-v1-EnvVar-value">
@@ -1947,6 +2434,9 @@ Defaults to &ldquo;&rdquo;.
 +optional</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="k8s-io-api-core-v1-EnvVar-valueFrom">
 <td><code>valueFrom</code></td>
@@ -1955,6 +2445,9 @@ Defaults to &ldquo;&rdquo;.
 <p>Source for the environment variable&rsquo;s value. Cannot be used if value is not empty.
 +optional</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -1970,6 +2463,7 @@ Defaults to &ldquo;&rdquo;.
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -1986,6 +2480,9 @@ More info: https://kubernetes.io/docs/concepts/services-networking/service/#virt
 +listMapKey=protocol</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="k8s-io-api-core-v1-ServiceSpec-selector">
 <td><code>selector</code></td>
@@ -1999,6 +2496,9 @@ Ignored if type is ExternalName.
 More info: https://kubernetes.io/docs/concepts/services-networking/service/
 +optional</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="k8s-io-api-core-v1-ServiceSpec-clusterIP">
@@ -2016,6 +2516,9 @@ type is ExternalName.
 More info: https://kubernetes.io/docs/concepts/services-networking/service/#virtual-ips-and-service-proxies
 +optional</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="k8s-io-api-core-v1-ServiceSpec-type">
@@ -2039,6 +2542,9 @@ More info: https://kubernetes.io/docs/concepts/services-networking/service/#publ
 +optional</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="k8s-io-api-core-v1-ServiceSpec-externalIPs">
 <td><code>externalIPs</code></td>
@@ -2051,6 +2557,9 @@ at a node with this IP.  A common example is external load-balancers
 that are not part of the Kubernetes system.
 +optional</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="k8s-io-api-core-v1-ServiceSpec-sessionAffinity">
@@ -2065,6 +2574,9 @@ More info: https://kubernetes.io/docs/concepts/services-networking/service/#virt
 +optional</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="k8s-io-api-core-v1-ServiceSpec-loadBalancerIP">
 <td><code>loadBalancerIP</code></td>
@@ -2078,6 +2590,9 @@ This field will be ignored if the cloud-provider does not support the feature.
 +optional</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="k8s-io-api-core-v1-ServiceSpec-loadBalancerSourceRanges">
 <td><code>loadBalancerSourceRanges</code></td>
@@ -2090,6 +2605,9 @@ More info: https://kubernetes.io/docs/tasks/access-application-cluster/configure
 +optional</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="k8s-io-api-core-v1-ServiceSpec-externalName">
 <td><code>externalName</code></td>
@@ -2101,6 +2619,9 @@ Must be a valid RFC-1123 hostname (https://tools.ietf.org/html/rfc1123)
 and requires Type to be ExternalName.
 +optional</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="k8s-io-api-core-v1-ServiceSpec-externalTrafficPolicy">
@@ -2116,6 +2637,9 @@ another node, but should have good overall load-spreading.
 +optional</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="k8s-io-api-core-v1-ServiceSpec-healthCheckNodePort">
 <td><code>healthCheckNodePort</code></td>
@@ -2128,6 +2652,9 @@ if specified by the client. Only effects when Type is set to LoadBalancer
 and ExternalTrafficPolicy is set to Local.
 +optional</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="k8s-io-api-core-v1-ServiceSpec-publishNotReadyAddresses">
@@ -2143,6 +2670,9 @@ of peer discovery.
 +optional</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="k8s-io-api-core-v1-ServiceSpec-sessionAffinityConfig">
 <td><code>sessionAffinityConfig</code></td>
@@ -2151,6 +2681,9 @@ of peer discovery.
 <p>sessionAffinityConfig contains the configurations of session affinity.
 +optional</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="k8s-io-api-core-v1-ServiceSpec-ipFamily">
@@ -2167,6 +2700,9 @@ cluster (e.g. IPv6 in IPv4 only cluster) is an error condition and will fail dur
 +optional</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 </tbody>
 </table>
@@ -2182,6 +2718,7 @@ the triple &lt;key,value,effect&gt; using the matching operator &lt;operator&gt;
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -2193,6 +2730,9 @@ the triple &lt;key,value,effect&gt; using the matching operator &lt;operator&gt;
 If the key is empty, operator must be Exists; this combination means to match all values and all keys.
 +optional</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="k8s-io-api-core-v1-Toleration-operator">
@@ -2206,6 +2746,9 @@ tolerate all taints of a particular category.
 +optional</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="k8s-io-api-core-v1-Toleration-value">
 <td><code>value</code></td>
@@ -2216,6 +2759,9 @@ If the operator is Exists, the value should be empty, otherwise just a regular s
 +optional</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="k8s-io-api-core-v1-Toleration-effect">
 <td><code>effect</code></td>
@@ -2225,6 +2771,9 @@ If the operator is Exists, the value should be empty, otherwise just a regular s
 When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.
 +optional</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="k8s-io-api-core-v1-Toleration-tolerationSeconds">
@@ -2237,6 +2786,9 @@ it is not set, which means tolerate the taint forever (do not evict). Zero and
 negative values will be treated as 0 (evict immediately) by the system.
 +optional</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -2254,6 +2806,7 @@ label selector matches no objects.</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -2267,6 +2820,9 @@ operator is &ldquo;In&rdquo;, and the values array contains only &ldquo;value&rd
 +optional</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="k8s-io-apimachinery-pkg-apis-meta-v1-LabelSelector-matchExpressions">
 <td><code>matchExpressions</code></td>
@@ -2275,6 +2831,9 @@ operator is &ldquo;In&rdquo;, and the values array contains only &ldquo;value&rd
 <p>matchExpressions is a list of label selector requirements. The requirements are ANDed.
 +optional</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -2290,6 +2849,7 @@ operator is &ldquo;In&rdquo;, and the values array contains only &ldquo;value&rd
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -2300,6 +2860,9 @@ operator is &ldquo;In&rdquo;, and the values array contains only &ldquo;value&rd
 <p>Resource API version.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="k8sObjectOverlay-kind">
 <td><code>kind</code></td>
@@ -2307,6 +2870,9 @@ operator is &ldquo;In&rdquo;, and the values array contains only &ldquo;value&rd
 <td>
 <p>Resource kind.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="k8sObjectOverlay-name">
@@ -2317,6 +2883,9 @@ operator is &ldquo;In&rdquo;, and the values array contains only &ldquo;value&rd
 Namespace is always the component namespace.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="k8sObjectOverlay-patches">
 <td><code>patches</code></td>
@@ -2324,6 +2893,9 @@ Namespace is always the component namespace.</p>
 <td>
 <p>List of patches to apply to resource.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -2337,6 +2909,7 @@ Namespace is always the component namespace.</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -2349,6 +2922,9 @@ Where b:c is a list element selector of the form key:value and :f is a list sele
 All path intermediate nodes must exist.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="k8sObjectOverlay-PathValue-value">
 <td><code>value</code></td>
@@ -2360,6 +2936,9 @@ For delete, value should be unset.
 For replace, path should reference an existing node.
 All values are strings but are converted into appropriate type based on schema.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>

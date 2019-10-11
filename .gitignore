@@ -20,9 +20,6 @@ tools/vagrant/.vagrant/
 cluster.env
 kubedns
 # codegen stuff
-bin/protoc-gen-gogoslick*
-bin/protoc-min-version*
-bin/protoc-gen-docs*
 *.orig
 .mesh-cli.log
 #mandiff output

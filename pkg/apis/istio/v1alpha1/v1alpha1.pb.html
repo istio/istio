@@ -14,6 +14,7 @@ number_of_entries: 81
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -24,11 +25,17 @@ number_of_entries: 81
 <p>Controls whether addon ingress is enabled.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="AddonIngressConfig-hosts">
 <td><code>hosts</code></td>
 <td><code>string[]</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="AddonIngressConfig-annotations">
@@ -36,11 +43,17 @@ number_of_entries: 81
 <td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="AddonIngressConfig-tls">
 <td><code>tls</code></td>
 <td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -56,6 +69,7 @@ number_of_entries: 81
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -66,6 +80,9 @@ number_of_entries: 81
 <p>Sets pod scheduling weight for amd64 arch</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="ArchConfig-ppc64le">
 <td><code>ppc64le</code></td>
@@ -74,6 +91,9 @@ number_of_entries: 81
 <p>Sets pod scheduling weight for ppc64le arch.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="ArchConfig-s390x">
 <td><code>s390x</code></td>
@@ -81,6 +101,9 @@ number_of_entries: 81
 <td>
 <p>Sets pod scheduling weight for s390x arch.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -96,6 +119,7 @@ number_of_entries: 81
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -105,6 +129,9 @@ number_of_entries: 81
 <td>
 <p>Controls whether CNI is enabled.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -120,6 +147,7 @@ number_of_entries: 81
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -131,6 +159,9 @@ number_of_entries: 81
 
 <p>See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -146,6 +177,7 @@ number_of_entries: 81
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -156,6 +188,9 @@ number_of_entries: 81
 <p>Controls whether CertManager is enabled.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="CertManagerConfig-hub">
 <td><code>hub</code></td>
@@ -163,6 +198,9 @@ number_of_entries: 81
 <td>
 <p>Image hub for the CertManager Deployment.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="CertManagerConfig-tag">
@@ -172,6 +210,9 @@ number_of_entries: 81
 <p>Image tag for the CertManager Deployment.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="CertManagerConfig-image">
 <td><code>image</code></td>
@@ -179,6 +220,9 @@ number_of_entries: 81
 <td>
 <p>Image name for the CertManager Deployment.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="CertManagerConfig-nodeSelector">
@@ -190,6 +234,9 @@ number_of_entries: 81
 <p>See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="CertManagerConfig-resources">
 <td><code>resources</code></td>
@@ -199,6 +246,9 @@ number_of_entries: 81
 
 <p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -214,6 +264,7 @@ number_of_entries: 81
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -224,6 +275,9 @@ number_of_entries: 81
 <p>Controls whether CoreDNS is enabled.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="CoreDNSConfig-coreDNSImage">
 <td><code>coreDNSImage</code></td>
@@ -232,11 +286,17 @@ number_of_entries: 81
 <p>Image for Core DNS.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="CoreDNSConfig-coreDNSPluginImage">
 <td><code>coreDNSPluginImage</code></td>
 <td><code>string</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="CoreDNSConfig-nodeSelector">
@@ -248,6 +308,9 @@ number_of_entries: 81
 <p>See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="CoreDNSConfig-replicaCount">
 <td><code>replicaCount</code></td>
@@ -255,6 +318,9 @@ number_of_entries: 81
 <td>
 <p>Number of replicas for Core DNS.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -272,6 +338,7 @@ number_of_entries: 81
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -281,6 +348,9 @@ number_of_entries: 81
 <td>
 <p>Controls whether a PodDisruptionBudget with a default minAvailable value of 1 is created for each deployment.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -296,6 +366,7 @@ number_of_entries: 81
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -307,6 +378,9 @@ number_of_entries: 81
 
 <p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -322,6 +396,7 @@ number_of_entries: 81
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -332,6 +407,9 @@ number_of_entries: 81
 <p>Controls whether auto scaling with a HorizontalPodAutoscaler is enabled.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="EgressGatewayConfig-autoscaleMax">
 <td><code>autoscaleMax</code></td>
@@ -339,6 +417,9 @@ number_of_entries: 81
 <td>
 <p>maxReplicas setting for HorizontalPodAutoscaler.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="EgressGatewayConfig-autoscaleMin">
@@ -348,11 +429,17 @@ number_of_entries: 81
 <p>minReplicas setting for HorizontalPodAutoscaler.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="EgressGatewayConfig-connectTimeout">
 <td><code>connectTimeout</code></td>
 <td><code>string</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="EgressGatewayConfig-cpu">
@@ -364,11 +451,17 @@ number_of_entries: 81
 <p>See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="EgressGatewayConfig-drainDuration">
 <td><code>drainDuration</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="EgressGatewayConfig-enabled">
@@ -378,6 +471,9 @@ number_of_entries: 81
 <p>Controls whether an egress gateway is enabled.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="EgressGatewayConfig-env">
 <td><code>env</code></td>
@@ -386,11 +482,17 @@ number_of_entries: 81
 <p>Environment variables passed to the proxy container.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="EgressGatewayConfig-labels">
 <td><code>labels</code></td>
 <td><code><a href="#GatewayLabelsConfig">GatewayLabelsConfig</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="EgressGatewayConfig-nodeSelector">
@@ -402,6 +504,9 @@ number_of_entries: 81
 <p>See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="EgressGatewayConfig-podAnnotations">
 <td><code>podAnnotations</code></td>
@@ -411,6 +516,9 @@ number_of_entries: 81
 
 <p>See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="EgressGatewayConfig-podAntiAffinityLabelSelector">
@@ -441,6 +549,9 @@ podAntiAffinityLabelSelector:
  “security” and value “S1”.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="EgressGatewayConfig-podAntiAffinityTermLabelSelector">
 <td><code>podAntiAffinityTermLabelSelector</code></td>
@@ -449,6 +560,9 @@ podAntiAffinityLabelSelector:
 <p>See PodAntiAffinityLabelSelector.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="EgressGatewayConfig-ports">
 <td><code>ports</code></td>
@@ -456,6 +570,9 @@ podAntiAffinityLabelSelector:
 <td>
 <p>Ports Configuration for the egress gateway service.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="EgressGatewayConfig-resources">
@@ -467,6 +584,9 @@ podAntiAffinityLabelSelector:
 <p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="EgressGatewayConfig-secretVolumes">
 <td><code>secretVolumes</code></td>
@@ -475,6 +595,9 @@ podAntiAffinityLabelSelector:
 <p>Config for secret volume mounts.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="EgressGatewayConfig-serviceAnnotations">
 <td><code>serviceAnnotations</code></td>
@@ -482,6 +605,9 @@ podAntiAffinityLabelSelector:
 <td>
 <p>Annotations to add to the egress gateway service.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="EgressGatewayConfig-type">
@@ -493,6 +619,9 @@ podAntiAffinityLabelSelector:
 <p>See https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="EgressGatewayConfig-zvpn">
 <td><code>zvpn</code></td>
@@ -500,6 +629,9 @@ podAntiAffinityLabelSelector:
 <td>
 <p>Enables cross-cluster access using SNI matching.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -513,6 +645,7 @@ podAntiAffinityLabelSelector:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -521,17 +654,26 @@ podAntiAffinityLabelSelector:
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="EnvoyAccessLogConfig-host">
 <td><code>host</code></td>
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="EnvoyAccessLogConfig-port">
 <td><code>port</code></td>
 <td><code>string</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -547,6 +689,7 @@ podAntiAffinityLabelSelector:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -557,6 +700,9 @@ podAntiAffinityLabelSelector:
 <p>Enables the Envoy Metrics Service.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="EnvoyMetricsConfig-host">
 <td><code>host</code></td>
@@ -565,6 +711,9 @@ podAntiAffinityLabelSelector:
 <p>Sets the destination Envoy Metrics Service address in Envoy.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="EnvoyMetricsConfig-port">
 <td><code>port</code></td>
@@ -572,6 +721,9 @@ podAntiAffinityLabelSelector:
 <td>
 <p>Sets the destination Envoy Metrics Service port in Envoy.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -587,6 +739,7 @@ podAntiAffinityLabelSelector:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -596,6 +749,9 @@ podAntiAffinityLabelSelector:
 <td>
 <p>Controls whether Galley is enabled.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="GalleyConfig-image">
@@ -609,6 +765,9 @@ podAntiAffinityLabelSelector:
 <p>Examples: custom-galley, docker.io/someuser:custom-galley</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="GalleyConfig-mesh">
 <td><code>mesh</code></td>
@@ -616,6 +775,9 @@ podAntiAffinityLabelSelector:
 <td>
 <p>TODO: Galley appears to use the mesh config - need to find which fields are used and need to be configured (https://github.com/istio/istio/issues/15865).</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="GalleyConfig-podAntiAffinityLabelSelector">
@@ -625,6 +787,9 @@ podAntiAffinityLabelSelector:
 <p>See EgressGatewayConfig.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="GalleyConfig-podAntiAffinityTermLabelSelector">
 <td><code>podAntiAffinityTermLabelSelector</code></td>
@@ -633,6 +798,9 @@ podAntiAffinityLabelSelector:
 <p>See EgressGatewayConfig.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="GalleyConfig-replicaCount">
 <td><code>replicaCount</code></td>
@@ -640,6 +808,9 @@ podAntiAffinityLabelSelector:
 <td>
 <p>Number of replicas in the Galley Deployment.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="GalleyConfig-resources">
@@ -650,6 +821,9 @@ podAntiAffinityLabelSelector:
 
 <p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -665,6 +839,7 @@ podAntiAffinityLabelSelector:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -673,11 +848,17 @@ podAntiAffinityLabelSelector:
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="GatewayLabelsConfig-istio">
 <td><code>istio</code></td>
 <td><code>string</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -693,6 +874,7 @@ podAntiAffinityLabelSelector:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -703,6 +885,9 @@ podAntiAffinityLabelSelector:
 <p>Configuration for an egress gateway.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="GatewaysConfig-enabled">
 <td><code>enabled</code></td>
@@ -711,6 +896,9 @@ podAntiAffinityLabelSelector:
 <p>Controls whether any gateways are enabled.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="GatewaysConfig-istio_ingressgateway">
 <td><code>istioIngressgateway</code></td>
@@ -718,6 +906,9 @@ podAntiAffinityLabelSelector:
 <td>
 <p>Configuration for an ingress gateway.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -733,6 +924,7 @@ podAntiAffinityLabelSelector:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -747,6 +939,9 @@ podAntiAffinityLabelSelector:
   3 - Most preferred</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="GlobalConfig-configNamespace">
 <td><code>configNamespace</code></td>
@@ -754,6 +949,9 @@ podAntiAffinityLabelSelector:
 <td>
 <p>Specifies the namespace for the configuration and validation component.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="GlobalConfig-configValidation">
@@ -763,6 +961,9 @@ podAntiAffinityLabelSelector:
 <p>Controls whether the server-side validation is enabled.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="GlobalConfig-controlPlaneSecurityEnabled">
 <td><code>controlPlaneSecurityEnabled</code></td>
@@ -770,6 +971,9 @@ podAntiAffinityLabelSelector:
 <td>
 <p>Controls whether the MTLS for communication between the control plane components is enabled.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="GlobalConfig-defaultNodeSelector">
@@ -781,6 +985,9 @@ podAntiAffinityLabelSelector:
 <p>See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="GlobalConfig-defaultPodDisruptionBudget">
 <td><code>defaultPodDisruptionBudget</code></td>
@@ -789,6 +996,9 @@ podAntiAffinityLabelSelector:
 <p>Specifies the default pod disruption budget configuration.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="GlobalConfig-disablePolicyChecks">
 <td><code>disablePolicyChecks</code></td>
@@ -796,6 +1006,9 @@ podAntiAffinityLabelSelector:
 <td>
 <p>Controls whether the policy enforcement is enabled.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="GlobalConfig-defaultResources">
@@ -807,6 +1020,9 @@ podAntiAffinityLabelSelector:
 <p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="GlobalConfig-enableHelmTest">
 <td><code>enableHelmTest</code></td>
@@ -814,6 +1030,9 @@ podAntiAffinityLabelSelector:
 <td>
 <p>Controls whether the helm test templates are enabled.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="GlobalConfig-enableTracing">
@@ -825,6 +1044,9 @@ podAntiAffinityLabelSelector:
 <p>See https://opentracing.io/docs/overview/what-is-tracing/</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="GlobalConfig-hub">
 <td><code>hub</code></td>
@@ -832,6 +1054,9 @@ podAntiAffinityLabelSelector:
 <td>
 <p>Specifies the docker hub for Istio images.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="GlobalConfig-imagePullPolicy">
@@ -844,11 +1069,17 @@ Defaults to Always if :latest tag is specified, or IfNotPresent otherwise. Canno
 <p>More info: https://kubernetes.io/docs/concepts/containers/images#updating-images</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="GlobalConfig-imagePullSecrets">
 <td><code>imagePullSecrets</code></td>
 <td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="GlobalConfig-istioNamespace">
@@ -857,6 +1088,9 @@ Defaults to Always if :latest tag is specified, or IfNotPresent otherwise. Canno
 <td>
 <p>Specifies the default namespace for the Istio control plane components.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="GlobalConfig-localityLbSetting">
@@ -883,6 +1117,9 @@ Please set either failover or distribute configuration but not both.</p>
     to: us-east</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="GlobalConfig-k8sIngress">
 <td><code>k8sIngress</code></td>
@@ -890,6 +1127,9 @@ Please set either failover or distribute configuration but not both.</p>
 <td>
 <p>Specifies the Configuration for the legacy kubernetes Ingress.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="GlobalConfig-logging">
@@ -899,6 +1139,9 @@ Please set either failover or distribute configuration but not both.</p>
 <p>Specifies the global logging level settings for the Istio control plane components.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="GlobalConfig-meshExpansion">
 <td><code>meshExpansion</code></td>
@@ -906,6 +1149,9 @@ Please set either failover or distribute configuration but not both.</p>
 <td>
 <p>Specifies the Configuration for Istio mesh expansion to bare metal.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="GlobalConfig-meshNetworks">
@@ -940,6 +1186,9 @@ it still need to be configured manually).</p>
       port: 443</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="GlobalConfig-monitoringPort">
 <td><code>monitoringPort</code></td>
@@ -947,6 +1196,9 @@ it still need to be configured manually).</p>
 <td>
 <p>Specifies the monitor port number for all Istio control plane components.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="GlobalConfig-mtls">
@@ -956,6 +1208,9 @@ it still need to be configured manually).</p>
 <p>Specifies the MTLS settings for the applications that Istio manages.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="GlobalConfig-multiCluster">
 <td><code>multiCluster</code></td>
@@ -963,6 +1218,9 @@ it still need to be configured manually).</p>
 <td>
 <p>Specifies the Configuration for Istio mesh across multiple clusters through Istio gateways.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="GlobalConfig-oneNamespace">
@@ -973,6 +1231,9 @@ it still need to be configured manually).</p>
 If set it to false, the controller watches all namespaces.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="GlobalConfig-outboundTrafficPolicy">
 <td><code>outboundTrafficPolicy</code></td>
@@ -980,6 +1241,9 @@ If set it to false, the controller watches all namespaces.</p>
 <td>
 <p>Controls the default behavior of the sidecar for handling outbound traffic from the application.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="GlobalConfig-policyCheckFailOpen">
@@ -989,6 +1253,9 @@ If set it to false, the controller watches all namespaces.</p>
 <p>Controls whether to allow traffic in cases when the mixer policy service cannot be reached.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="GlobalConfig-policyNamespace">
 <td><code>policyNamespace</code></td>
@@ -996,6 +1263,9 @@ If set it to false, the controller watches all namespaces.</p>
 <td>
 <p>Specifies the namespace for the policy component.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="GlobalConfig-priorityClassName">
@@ -1007,6 +1277,9 @@ If set it to false, the controller watches all namespaces.</p>
 <p>See https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="GlobalConfig-proxy">
 <td><code>proxy</code></td>
@@ -1014,6 +1287,9 @@ If set it to false, the controller watches all namespaces.</p>
 <td>
 <p>Specifies how proxies are configured within Istio.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="GlobalConfig-proxyInit">
@@ -1023,6 +1299,9 @@ If set it to false, the controller watches all namespaces.</p>
 <p>Specifies the Configuration for proxy_init container which sets the pods&rsquo; networking to intercept the inbound/outbound traffic.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="GlobalConfig-sds">
 <td><code>sds</code></td>
@@ -1030,6 +1309,9 @@ If set it to false, the controller watches all namespaces.</p>
 <td>
 <p>Specifies the Configuration for the SecretDiscoveryService instead of using K8S secrets to mount the certificates.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="GlobalConfig-tag">
@@ -1039,6 +1321,9 @@ If set it to false, the controller watches all namespaces.</p>
 <p>Specifies the tag for the Istio docker images.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="GlobalConfig-telemetryNamespace">
 <td><code>telemetryNamespace</code></td>
@@ -1046,6 +1331,9 @@ If set it to false, the controller watches all namespaces.</p>
 <td>
 <p>Specifies the namespace for the telemetry component.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="GlobalConfig-tracer">
@@ -1055,6 +1343,9 @@ If set it to false, the controller watches all namespaces.</p>
 <p>Specifies the Configuration for each of the supported tracers.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="GlobalConfig-trustDomain">
 <td><code>trustDomain</code></td>
@@ -1062,6 +1353,9 @@ If set it to false, the controller watches all namespaces.</p>
 <td>
 <p>Specifies the trust domain that corresponds to the root cert of CA.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="GlobalConfig-useMCP">
@@ -1071,11 +1365,17 @@ If set it to false, the controller watches all namespaces.</p>
 <p>Controls whether to use of Mesh Configuration Protocol to distribute configuration.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="GlobalConfig-logAsJson">
 <td><code>logAsJson</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -1091,6 +1391,7 @@ If set it to false, the controller watches all namespaces.</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -1102,6 +1403,9 @@ If set it to false, the controller watches all namespaces.</p>
 The control plane has different scopes depending on component, but can configure default log level across all components
 If empty, default scope and level will be used as configured in code</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -1117,6 +1421,7 @@ If empty, default scope and level will be used as configured in code</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -1127,6 +1432,9 @@ If empty, default scope and level will be used as configured in code</p>
 <p>Controls whether auto scaling with a HorizontalPodAutoscaler is enabled.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="IngressGatewayConfig-autoscaleMax">
 <td><code>autoscaleMax</code></td>
@@ -1134,6 +1442,9 @@ If empty, default scope and level will be used as configured in code</p>
 <td>
 <p>maxReplicas setting for HorizontalPodAutoscaler.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="IngressGatewayConfig-autoscaleMin">
@@ -1143,11 +1454,17 @@ If empty, default scope and level will be used as configured in code</p>
 <p>minReplicas setting for HorizontalPodAutoscaler.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="IngressGatewayConfig-connectTimeout">
 <td><code>connectTimeout</code></td>
 <td><code>string</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="IngressGatewayConfig-cpu">
@@ -1159,11 +1476,17 @@ If empty, default scope and level will be used as configured in code</p>
 <p>See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="IngressGatewayConfig-customService">
 <td><code>customService</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="IngressGatewayConfig-debug">
@@ -1171,17 +1494,26 @@ If empty, default scope and level will be used as configured in code</p>
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="IngressGatewayConfig-domain">
 <td><code>domain</code></td>
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="IngressGatewayConfig-drainDuration">
 <td><code>drainDuration</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="IngressGatewayConfig-enabled">
@@ -1191,6 +1523,9 @@ If empty, default scope and level will be used as configured in code</p>
 <p>Controls whether an ingress gateway is enabled.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="IngressGatewayConfig-env">
 <td><code>env</code></td>
@@ -1199,11 +1534,17 @@ If empty, default scope and level will be used as configured in code</p>
 <p>Environment variables passed to the proxy container.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="IngressGatewayConfig-externalIPs">
 <td><code>externalIPs</code></td>
 <td><code>string[]</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="IngressGatewayConfig-k8sIngress">
@@ -1211,11 +1552,17 @@ If empty, default scope and level will be used as configured in code</p>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="IngressGatewayConfig-k8sIngressHttps">
 <td><code>k8sIngressHttps</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="IngressGatewayConfig-labels">
@@ -1223,11 +1570,17 @@ If empty, default scope and level will be used as configured in code</p>
 <td><code><a href="#GatewayLabelsConfig">GatewayLabelsConfig</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="IngressGatewayConfig-loadBalancerIP">
 <td><code>loadBalancerIP</code></td>
 <td><code>string</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="IngressGatewayConfig-loadBalancerSourceRanges">
@@ -1235,11 +1588,17 @@ If empty, default scope and level will be used as configured in code</p>
 <td><code>string[]</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="IngressGatewayConfig-meshExpansionPorts">
 <td><code>meshExpansionPorts</code></td>
 <td><code><a href="#PortsConfig">PortsConfig[]</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="IngressGatewayConfig-nodeSelector">
@@ -1251,6 +1610,9 @@ If empty, default scope and level will be used as configured in code</p>
 <p>See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="IngressGatewayConfig-podAnnotations">
 <td><code>podAnnotations</code></td>
@@ -1261,6 +1623,9 @@ If empty, default scope and level will be used as configured in code</p>
 <p>See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="IngressGatewayConfig-podAntiAffinityLabelSelector">
 <td><code>podAntiAffinityLabelSelector</code></td>
@@ -1268,6 +1633,9 @@ If empty, default scope and level will be used as configured in code</p>
 <td>
 <p>See EgressGatewayConfig.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="IngressGatewayConfig-podAntiAffinityTermLabelSelector">
@@ -1277,6 +1645,9 @@ If empty, default scope and level will be used as configured in code</p>
 <p>See EgressGatewayConfig.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="IngressGatewayConfig-ports">
 <td><code>ports</code></td>
@@ -1285,6 +1656,9 @@ If empty, default scope and level will be used as configured in code</p>
 <p>Port Configuration for the ingress gateway.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="IngressGatewayConfig-replicaCount">
 <td><code>replicaCount</code></td>
@@ -1292,6 +1666,9 @@ If empty, default scope and level will be used as configured in code</p>
 <td>
 <p>Number of replicas for the ingress gateway Deployment.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="IngressGatewayConfig-resources">
@@ -1303,6 +1680,9 @@ If empty, default scope and level will be used as configured in code</p>
 <p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="IngressGatewayConfig-sds">
 <td><code>sds</code></td>
@@ -1310,6 +1690,9 @@ If empty, default scope and level will be used as configured in code</p>
 <td>
 <p>Secret Discovery Service (SDS) Configuration for ingress gateway.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="IngressGatewayConfig-secretVolumes">
@@ -1319,6 +1702,9 @@ If empty, default scope and level will be used as configured in code</p>
 <p>Config for secret volume mounts.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="IngressGatewayConfig-serviceAnnotations">
 <td><code>serviceAnnotations</code></td>
@@ -1326,6 +1712,9 @@ If empty, default scope and level will be used as configured in code</p>
 <td>
 <p>Annotations to add to the egress gateway service.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="IngressGatewayConfig-type">
@@ -1337,6 +1726,9 @@ If empty, default scope and level will be used as configured in code</p>
 <p>See https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="IngressGatewayConfig-zvpn">
 <td><code>zvpn</code></td>
@@ -1344,6 +1736,9 @@ If empty, default scope and level will be used as configured in code</p>
 <td>
 <p>Enables cross-cluster access using SNI matching.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="IngressGatewayConfig-rollingMaxSurge">
@@ -1353,6 +1748,9 @@ If empty, default scope and level will be used as configured in code</p>
 <p>K8s rolling update strategy</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="IngressGatewayConfig-rollingMaxUnavailable">
 <td><code>rollingMaxUnavailable</code></td>
@@ -1361,6 +1759,9 @@ If empty, default scope and level will be used as configured in code</p>
 <p>K8s rolling update strategy</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="IngressGatewayConfig-applicationPorts">
 <td><code>applicationPorts</code></td>
@@ -1368,6 +1769,9 @@ If empty, default scope and level will be used as configured in code</p>
 <td>
 <p>Ports to explicitly check for readiness</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -1383,6 +1787,7 @@ If empty, default scope and level will be used as configured in code</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -1393,6 +1798,9 @@ If empty, default scope and level will be used as configured in code</p>
 <p>If true, ingress gateway fetches credentials from SDS server to handle TLS connections.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="IngressGatewaySdsConfig-image">
 <td><code>image</code></td>
@@ -1401,6 +1809,9 @@ If empty, default scope and level will be used as configured in code</p>
 <p>SDS server that watches kubernetes secrets and provisions credentials to ingress gateway.
 This server runs in the same pod as ingress gateway.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -1416,6 +1827,7 @@ This server runs in the same pod as ingress gateway.</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -1426,11 +1838,17 @@ This server runs in the same pod as ingress gateway.</p>
 <p>Controls whether ZeroVPN is enabled.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="IngressGatewayZvpnConfig-suffix">
 <td><code>suffix</code></td>
 <td><code>string</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -1446,6 +1864,7 @@ This server runs in the same pod as ingress gateway.</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -1454,11 +1873,17 @@ This server runs in the same pod as ingress gateway.</p>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="KialiConfig-createDemoSecret">
 <td><code>createDemoSecret</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="KialiConfig-hub">
@@ -1468,6 +1893,9 @@ This server runs in the same pod as ingress gateway.</p>
 <p>Image hub for kiali deployment.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="KialiConfig-tag">
 <td><code>tag</code></td>
@@ -1475,6 +1903,9 @@ This server runs in the same pod as ingress gateway.</p>
 <td>
 <p>Image tag for kiali deployment.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="KialiConfig-replicaCount">
@@ -1484,11 +1915,17 @@ This server runs in the same pod as ingress gateway.</p>
 <p>Number of replicas for Kiali.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="KialiConfig-prometheusNamespace">
 <td><code>prometheusNamespace</code></td>
 <td><code>string</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="KialiConfig-security">
@@ -1496,11 +1933,17 @@ This server runs in the same pod as ingress gateway.</p>
 <td><code><a href="#KialiSecurityConfig">KialiSecurityConfig</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="KialiConfig-dashboard">
 <td><code>dashboard</code></td>
 <td><code><a href="#KialiDashboardConfig">KialiDashboardConfig</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="KialiConfig-ingress">
@@ -1508,11 +1951,17 @@ This server runs in the same pod as ingress gateway.</p>
 <td><code><a href="#KialiIngressConfig">KialiIngressConfig</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="KialiConfig-contextPath">
 <td><code>contextPath</code></td>
 <td><code>string</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="KialiConfig-nodeSelector">
@@ -1524,6 +1973,9 @@ This server runs in the same pod as ingress gateway.</p>
 <p>See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="KialiConfig-podAnnotations">
 <td><code>podAnnotations</code></td>
@@ -1533,6 +1985,9 @@ This server runs in the same pod as ingress gateway.</p>
 
 <p>See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="KialiConfig-podAntiAffinityLabelSelector">
@@ -1563,6 +2018,9 @@ podAntiAffinityLabelSelector:
  “security” and value “S1”.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="KialiConfig-podAntiAffinityTermLabelSelector">
 <td><code>podAntiAffinityTermLabelSelector</code></td>
@@ -1570,6 +2028,9 @@ podAntiAffinityLabelSelector:
 <td>
 <p>See PodAntiAffinityLabelSelector.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -1583,6 +2044,7 @@ podAntiAffinityLabelSelector:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -1591,11 +2053,17 @@ podAntiAffinityLabelSelector:
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="KialiDashboardConfig-usernameKey">
 <td><code>usernameKey</code></td>
 <td><code>string</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="KialiDashboardConfig-passphraseKey">
@@ -1603,11 +2071,17 @@ podAntiAffinityLabelSelector:
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="KialiDashboardConfig-viewOnlyMode">
 <td><code>viewOnlyMode</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="KialiDashboardConfig-grafanaURL">
@@ -1615,11 +2089,17 @@ podAntiAffinityLabelSelector:
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="KialiDashboardConfig-jaegerURL">
 <td><code>jaegerURL</code></td>
 <td><code>string</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -1633,6 +2113,7 @@ podAntiAffinityLabelSelector:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -1641,11 +2122,17 @@ podAntiAffinityLabelSelector:
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="KialiIngressConfig-annotations">
 <td><code>annotations</code></td>
 <td><code>string</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="KialiIngressConfig-tls">
@@ -1653,11 +2140,17 @@ podAntiAffinityLabelSelector:
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="KialiIngressConfig-hosts">
 <td><code>hosts</code></td>
 <td><code>string[]</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -1671,6 +2164,7 @@ podAntiAffinityLabelSelector:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -1679,17 +2173,26 @@ podAntiAffinityLabelSelector:
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="KialiSecurityConfig-cert_file">
 <td><code>certFile</code></td>
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="KialiSecurityConfig-private_key_file">
 <td><code>privateKeyFile</code></td>
 <td><code>string</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -1705,6 +2208,7 @@ podAntiAffinityLabelSelector:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -1716,6 +2220,9 @@ podAntiAffinityLabelSelector:
 
 <p>See: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/kubernetesenv/</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -1731,6 +2238,7 @@ podAntiAffinityLabelSelector:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -1741,6 +2249,9 @@ podAntiAffinityLabelSelector:
 <p>Enables gateway for legacy k8s Ingress.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="KubernetesIngressConfig-enableHttps">
 <td><code>enableHttps</code></td>
@@ -1749,6 +2260,9 @@ podAntiAffinityLabelSelector:
 <p>Enables HTTPS legacy k8s Ingress.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="KubernetesIngressConfig-gatewayName">
 <td><code>gatewayName</code></td>
@@ -1756,6 +2270,9 @@ podAntiAffinityLabelSelector:
 <td>
 <p>Sets the gateway name for legacy k8s Ingress.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -1771,6 +2288,7 @@ podAntiAffinityLabelSelector:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -1779,11 +2297,17 @@ podAntiAffinityLabelSelector:
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="LoadSheddingConfig-mode">
 <td><code>mode</code></td>
 <td><code><a href="#mode">mode</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -1799,6 +2323,7 @@ podAntiAffinityLabelSelector:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -1808,6 +2333,9 @@ podAntiAffinityLabelSelector:
 <td>
 <p>Enables MTLS for service to service traffic.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -1823,6 +2351,7 @@ podAntiAffinityLabelSelector:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -1833,6 +2362,9 @@ podAntiAffinityLabelSelector:
 <p>Exposes Pilot and Citadel mTLS on the ingress gateway.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="MeshExpansionConfig-useILB">
 <td><code>useILB</code></td>
@@ -1840,6 +2372,9 @@ podAntiAffinityLabelSelector:
 <td>
 <p>Exposes Pilot and Citadel mTLS and the plain text Pilot ports on an internal gateway.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -1855,6 +2390,7 @@ podAntiAffinityLabelSelector:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -1865,6 +2401,9 @@ podAntiAffinityLabelSelector:
 <p>Configuration for Kubernetes environment adapter in mixer.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="MixerAdaptersConfig-prometheus">
 <td><code>prometheus</code></td>
@@ -1872,6 +2411,9 @@ podAntiAffinityLabelSelector:
 <td>
 <p>Configuration for Prometheus adapter in mixer.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="MixerAdaptersConfig-stdio">
@@ -1881,12 +2423,18 @@ podAntiAffinityLabelSelector:
 <p>Configuration for stdio adapter in mixer, recommended for debug usage only.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="MixerAdaptersConfig-stackdriver">
 <td><code>stackdriver</code></td>
 <td><code><a href="#StackdriverMixerAdapterConfig">StackdriverMixerAdapterConfig</a></code></td>
 <td>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="MixerAdaptersConfig-useAdapterCRDs">
@@ -1895,6 +2443,9 @@ podAntiAffinityLabelSelector:
 <td>
 <p>Sets the &ndash;useAdapterCRDs mixer startup argument.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -1910,6 +2461,7 @@ podAntiAffinityLabelSelector:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -1920,6 +2472,9 @@ podAntiAffinityLabelSelector:
 <p>MixerPolicyConfig is set of configurations for Mixer Policy</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="MixerConfig-telemetry">
 <td><code>telemetry</code></td>
@@ -1928,6 +2483,9 @@ podAntiAffinityLabelSelector:
 <p>MixerTelemetryConfig is set of configurations for Mixer Telemetry</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="MixerConfig-adapters">
 <td><code>adapters</code></td>
@@ -1935,6 +2493,9 @@ podAntiAffinityLabelSelector:
 <td>
 <p>Configuration for different mixer adapters.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -1950,6 +2511,7 @@ podAntiAffinityLabelSelector:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -1960,6 +2522,9 @@ podAntiAffinityLabelSelector:
 <p>Controls whether a HorizontalPodAutoscaler is installed for Mixer Policy.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="MixerPolicyConfig-autoscaleMax">
 <td><code>autoscaleMax</code></td>
@@ -1968,6 +2533,9 @@ podAntiAffinityLabelSelector:
 <p>Maximum number of replicas in the HorizontalPodAutoscaler for Mixer Policy.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="MixerPolicyConfig-autoscaleMin">
 <td><code>autoscaleMin</code></td>
@@ -1975,6 +2543,9 @@ podAntiAffinityLabelSelector:
 <td>
 <p>Minimum number of replicas in the HorizontalPodAutoscaler for Mixer Policy.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="MixerPolicyConfig-cpu">
@@ -1986,6 +2557,9 @@ podAntiAffinityLabelSelector:
 <p>See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="MixerPolicyConfig-enabled">
 <td><code>enabled</code></td>
@@ -1993,6 +2567,9 @@ podAntiAffinityLabelSelector:
 <td>
 <p>Controls whether Mixer Policy is enabled</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="MixerPolicyConfig-image">
@@ -2006,6 +2583,9 @@ podAntiAffinityLabelSelector:
 <p>Examples: custom-mixer, docker.io/someuser:custom-mixer</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="MixerPolicyConfig-podAnnotations">
 <td><code>podAnnotations</code></td>
@@ -2016,6 +2596,9 @@ podAntiAffinityLabelSelector:
 <p>See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="MixerPolicyConfig-replicaCount">
 <td><code>replicaCount</code></td>
@@ -2024,6 +2607,9 @@ podAntiAffinityLabelSelector:
 <p>Number of replicas in the Mixer Policy Deployment</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="MixerPolicyConfig-adapters">
 <td><code>adapters</code></td>
@@ -2031,6 +2617,9 @@ podAntiAffinityLabelSelector:
 <td>
 <p>Configuration for different mixer adapters.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -2046,6 +2635,7 @@ podAntiAffinityLabelSelector:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -2056,6 +2646,9 @@ podAntiAffinityLabelSelector:
 <p>Controls whether a HorizontalPodAutoscaler is installed for Mixer Telemetry.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="MixerTelemetryConfig-autoscaleMax">
 <td><code>autoscaleMax</code></td>
@@ -2064,6 +2657,9 @@ podAntiAffinityLabelSelector:
 <p>Maximum number of replicas in the HorizontalPodAutoscaler for Mixer Telemetry.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="MixerTelemetryConfig-autoscaleMin">
 <td><code>autoscaleMin</code></td>
@@ -2071,6 +2667,9 @@ podAntiAffinityLabelSelector:
 <td>
 <p>Minimum number of replicas in the HorizontalPodAutoscaler for Mixer Telemetry.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="MixerTelemetryConfig-cpu">
@@ -2082,6 +2681,9 @@ podAntiAffinityLabelSelector:
 <p>See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="MixerTelemetryConfig-enabled">
 <td><code>enabled</code></td>
@@ -2089,6 +2691,9 @@ podAntiAffinityLabelSelector:
 <td>
 <p>Controls whether Mixer Telemetry is enabled.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="MixerTelemetryConfig-env">
@@ -2103,6 +2708,9 @@ env:
   ENV<em>VAR</em>2: value2</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="MixerTelemetryConfig-image">
 <td><code>image</code></td>
@@ -2115,6 +2723,9 @@ env:
 <p>Examples: custom-mixer, docker.io/someuser:custom-mixer</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="MixerTelemetryConfig-loadshedding">
 <td><code>loadshedding</code></td>
@@ -2122,6 +2733,9 @@ env:
 <td>
 <p>LoadSheddingConfig configs when mixer starts rejecting grpc requests.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="MixerTelemetryConfig-nodeSelector">
@@ -2133,6 +2747,9 @@ env:
 <p>See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="MixerTelemetryConfig-podAnnotations">
 <td><code>podAnnotations</code></td>
@@ -2143,6 +2760,9 @@ env:
 <p>See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="MixerTelemetryConfig-replicaCount">
 <td><code>replicaCount</code></td>
@@ -2150,6 +2770,9 @@ env:
 <td>
 <p>Number of replicas in the Mixer Telemetry Deployment.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="MixerTelemetryConfig-rollingMaxSurge">
@@ -2159,6 +2782,9 @@ env:
 <p>K8s rolling update strategy</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="MixerTelemetryConfig-rollingMaxUnavailable">
 <td><code>rollingMaxUnavailable</code></td>
@@ -2166,6 +2792,9 @@ env:
 <td>
 <p>K8s rolling update strategy</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="MixerTelemetryConfig-useMCP">
@@ -2175,17 +2804,26 @@ env:
 <p>Controls whether to use of Mesh Configuration Protocol to distribute configuration.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="MixerTelemetryConfig-reportBatchMaxTime">
 <td><code>reportBatchMaxTime</code></td>
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="MixerTelemetryConfig-reportBatchMaxEntries">
 <td><code>reportBatchMaxEntries</code></td>
 <td><code>uint32</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="MixerTelemetryConfig-resources">
@@ -2197,6 +2835,9 @@ env:
 <p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="MixerTelemetryConfig-sessionAffinityEnabled">
 <td><code>sessionAffinityEnabled</code></td>
@@ -2205,11 +2846,17 @@ env:
 <p>Controls whether to enable the sticky session setting when choosing backend pods.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="MixerTelemetryConfig-podAntiAffinityLabelSelector">
 <td><code>podAntiAffinityLabelSelector</code></td>
 <td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="MixerTelemetryConfig-podAntiAffinityTermLabelSelector">
@@ -2217,11 +2864,17 @@ env:
 <td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="MixerTelemetryConfig-tolerations">
 <td><code>tolerations</code></td>
 <td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -2237,6 +2890,7 @@ env:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -2247,6 +2901,9 @@ env:
 <p>Enables the connection between two kubernetes clusters via their respective ingressgateway services.
 Use if the pods in each cluster cannot directly talk to one another.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -2262,6 +2919,7 @@ Use if the pods in each cluster cannot directly talk to one another.</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -2271,6 +2929,9 @@ Use if the pods in each cluster cannot directly talk to one another.</p>
 <td>
 <p>Controls whether Node Agent is enabled.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="NodeAgentConfig-env">
@@ -2285,6 +2946,9 @@ env:
   ENV<em>VAR</em>2: value2</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="NodeAgentConfig-image">
 <td><code>image</code></td>
@@ -2292,6 +2956,9 @@ env:
 <td>
 <p>Image name for the Node Agent DaemonSet.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="NodeAgentConfig-nodeSelector">
@@ -2302,6 +2969,9 @@ env:
 
 <p>See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -2317,6 +2987,7 @@ env:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -2324,6 +2995,9 @@ env:
 <td><code>mode</code></td>
 <td><code><a href="#OutboundTrafficPolicyConfig-Mode">OutboundTrafficPolicyConfig.Mode</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -2368,6 +3042,7 @@ env:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -2378,6 +3053,9 @@ env:
 <p>Controls whether Pilot is enabled.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="PilotConfig-autoscaleEnabled">
 <td><code>autoscaleEnabled</code></td>
@@ -2385,6 +3063,9 @@ env:
 <td>
 <p>Controls whether a HorizontalPodAutoscaler is installed for Pilot.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="PilotConfig-autoscaleMin">
@@ -2394,6 +3075,9 @@ env:
 <p>Minimum number of replicas in the HorizontalPodAutoscaler for Pilot.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="PilotConfig-autoscaleMax">
 <td><code>autoscaleMax</code></td>
@@ -2402,6 +3086,9 @@ env:
 <p>Maximum number of replicas in the HorizontalPodAutoscaler for Pilot.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="PilotConfig-replicaCount">
 <td><code>replicaCount</code></td>
@@ -2409,6 +3096,9 @@ env:
 <td>
 <p>Number of replicas in the Pilot Deployment.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="PilotConfig-image">
@@ -2422,6 +3112,9 @@ env:
 <p>Examples: custom-pilot, docker.io/someuser:custom-pilot</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="PilotConfig-sidecar">
 <td><code>sidecar</code></td>
@@ -2431,6 +3124,9 @@ env:
 
 <p>Setting to true installs a proxy in the Pilot pod, used primarily for collecting Pilot telemetry.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="PilotConfig-traceSampling">
@@ -2444,6 +3140,9 @@ env:
 <p>Allowed values: 0.0 to 1.0</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="PilotConfig-resources">
 <td><code>resources</code></td>
@@ -2454,6 +3153,9 @@ env:
 <p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="PilotConfig-configNamespace">
 <td><code>configNamespace</code></td>
@@ -2461,6 +3163,9 @@ env:
 <td>
 <p>Namespace that the configuration management feature is installed into, if different from Pilot namespace.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="PilotConfig-cpu">
@@ -2472,6 +3177,9 @@ env:
 <p>See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="PilotConfig-nodeSelector">
 <td><code>nodeSelector</code></td>
@@ -2481,6 +3189,9 @@ env:
 
 <p>See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="PilotConfig-keepaliveMaxServerConnectionAge">
@@ -2494,6 +3205,9 @@ env:
 <p>Examples: 300s, 30m, 1h</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="PilotConfig-deploymentLabels">
 <td><code>deploymentLabels</code></td>
@@ -2504,6 +3218,9 @@ env:
 <p>See https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="PilotConfig-meshNetworks">
 <td><code>meshNetworks</code></td>
@@ -2511,6 +3228,9 @@ env:
 <td>
 <p>Used to override control plane networks.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="PilotConfig-podAntiAffinityLabelSelector">
@@ -2520,6 +3240,9 @@ env:
 <p>See EgressGatewayConfig.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="PilotConfig-podAntiAffinityTermLabelSelector">
 <td><code>podAntiAffinityTermLabelSelector</code></td>
@@ -2527,6 +3250,9 @@ env:
 <td>
 <p>See EgressGatewayConfig.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="PilotConfig-configMap">
@@ -2539,6 +3265,9 @@ env:
 If false, pilot wil use default values or user-supplied values, in that order of preference.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="PilotConfig-ingress">
 <td><code>ingress</code></td>
@@ -2546,6 +3275,9 @@ If false, pilot wil use default values or user-supplied values, in that order of
 <td>
 <p>Controls legacy k8s ingress. Only one pilot profile should enable ingress support.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="PilotConfig-useMCP">
@@ -2556,6 +3288,9 @@ If false, pilot wil use default values or user-supplied values, in that order of
 
 <p>If set to true, Pilot requires an MCP server (like Galley) to be installed.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="PilotConfig-env">
@@ -2570,6 +3305,9 @@ env:
   ENV<em>VAR</em>2: value2</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="PilotConfig-policy">
 <td><code>policy</code></td>
@@ -2577,6 +3315,9 @@ env:
 <td>
 <p>Controls whether Istio policy is applied to Pilot.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="PilotConfig-telemetry">
@@ -2586,6 +3327,9 @@ env:
 <p>Controls whether telemetry is exported for Pilot.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="PilotConfig-rollingMaxSurge">
 <td><code>rollingMaxSurge</code></td>
@@ -2593,6 +3337,9 @@ env:
 <td>
 <p>K8s rolling update strategy</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="PilotConfig-rollingMaxUnavailable">
@@ -2602,6 +3349,9 @@ env:
 <p>K8s rolling update strategy</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="PilotConfig-tolerations">
 <td><code>tolerations</code></td>
@@ -2609,11 +3359,17 @@ env:
 <td>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="PilotConfig-appNamespaces">
 <td><code>appNamespaces</code></td>
 <td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -2629,6 +3385,7 @@ env:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -2643,11 +3400,17 @@ env:
 <p>Allowed values: node-port, istio-ingressgateway, ingress</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="PilotIngressConfig-ingressControllerMode">
 <td><code>ingressControllerMode</code></td>
 <td><code><a href="#ingressControllerMode">ingressControllerMode</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="PilotIngressConfig-ingressClass">
@@ -2656,6 +3419,9 @@ env:
 <td>
 <p>If mode is STRICT, this value must be set on &ldquo;kubernetes.io/ingress.class&rdquo; annotation to activate.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -2671,6 +3437,7 @@ env:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -2680,6 +3447,9 @@ env:
 <td>
 <p>Controls whether Istio policy is applied to Pilot.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -2695,6 +3465,7 @@ env:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -2704,6 +3475,9 @@ env:
 <td>
 <p>Controls whether telemetry is exported for Pilot.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -2719,6 +3493,7 @@ env:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -2729,6 +3504,9 @@ env:
 <p>Port name.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="PortsConfig-port">
 <td><code>port</code></td>
@@ -2736,6 +3514,9 @@ env:
 <td>
 <p>Port number.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="PortsConfig-nodePort">
@@ -2745,6 +3526,9 @@ env:
 <p>NodePort number.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="PortsConfig-targetPort">
 <td><code>targetPort</code></td>
@@ -2752,6 +3536,9 @@ env:
 <td>
 <p>Target port number.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -2767,6 +3554,7 @@ env:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -2775,11 +3563,17 @@ env:
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="PrometheusConfig-enabled">
 <td><code>enabled</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="PrometheusConfig-replicaCount">
@@ -2787,11 +3581,17 @@ env:
 <td><code>uint32</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="PrometheusConfig-hub">
 <td><code>hub</code></td>
 <td><code>string</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="PrometheusConfig-tag">
@@ -2799,11 +3599,17 @@ env:
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="PrometheusConfig-retention">
 <td><code>retention</code></td>
 <td><code>string</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="PrometheusConfig-nodeSelector">
@@ -2813,11 +3619,17 @@ env:
 <p>GOSTRUCT: NodeSelector             map[string]interface&lbrace;}    <code>json:&quot;nodeSelector,omitempty&quot;</code></p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="PrometheusConfig-scrapeInterval">
 <td><code>scrapeInterval</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="PrometheusConfig-contextPath">
@@ -2825,11 +3637,17 @@ env:
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="PrometheusConfig-ingress">
 <td><code>ingress</code></td>
 <td><code><a href="#AddonIngressConfig">AddonIngressConfig</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="PrometheusConfig-service">
@@ -2837,11 +3655,17 @@ env:
 <td><code><a href="#PrometheusServiceConfig">PrometheusServiceConfig</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="PrometheusConfig-security">
 <td><code>security</code></td>
 <td><code><a href="#PrometheusSecurityConfig">PrometheusSecurityConfig</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="PrometheusConfig-tolerations">
@@ -2849,17 +3673,26 @@ env:
 <td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="PrometheusConfig-podAntiAffinityLabelSelector">
 <td><code>podAntiAffinityLabelSelector</code></td>
 <td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="PrometheusConfig-podAntiAffinityTermLabelSelector">
 <td><code>podAntiAffinityTermLabelSelector</code></td>
 <td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -2875,6 +3708,7 @@ env:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -2885,6 +3719,9 @@ env:
 <p>Enables the Prometheus adapter in Mixer.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="PrometheusMixerAdapterConfig-metricsExpiryDuration">
 <td><code>metricsExpiryDuration</code></td>
@@ -2894,6 +3731,9 @@ env:
 
 <p>See: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/prometheus/#Params</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -2909,6 +3749,7 @@ env:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -2918,6 +3759,9 @@ env:
 <td>
 <p>Controls whether Prometheus security is enabled.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -2933,6 +3777,7 @@ env:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -2941,11 +3786,17 @@ env:
 <td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="PrometheusServiceConfig-nodePort">
 <td><code>nodePort</code></td>
 <td><code><a href="#PrometheusServiceNodePortConfig">PrometheusServiceNodePortConfig</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -2961,6 +3812,7 @@ env:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -2971,11 +3823,17 @@ env:
 <p>Controls whether Prometheus NodePort config is enabled.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="PrometheusServiceNodePortConfig-port">
 <td><code>port</code></td>
 <td><code>uint32</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -2991,6 +3849,7 @@ env:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -2998,6 +3857,9 @@ env:
 <td><code>enabled</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="ProxyConfig-accessLogFile">
@@ -3007,6 +3869,9 @@ env:
 <p>Specifies the path to write the sidecar access log file.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="ProxyConfig-accessLogFormat">
 <td><code>accessLogFormat</code></td>
@@ -3015,17 +3880,26 @@ env:
 <p>Configures how and what fields are displayed in sidecar access log.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="ProxyConfig-accessLogEncoding">
 <td><code>accessLogEncoding</code></td>
 <td><code><a href="#accessLogEncoding">accessLogEncoding</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="ProxyConfig-autoInject">
 <td><code>autoInject</code></td>
 <td><code>string</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="ProxyConfig-clusterDomain">
@@ -3037,6 +3911,9 @@ env:
 <p>K8s allows this to be customized, see https://kubernetes.io/docs/tasks/administer-cluster/dns-custom-nameservers/</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="ProxyConfig-componentLogLevel">
 <td><code>componentLogLevel</code></td>
@@ -3046,6 +3923,9 @@ env:
 
 <p>If a component level is not set, then the global &ldquo;logLevel&rdquo; will be used. If left empty, &ldquo;misc:error&rdquo; is used.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="ProxyConfig-concurrency">
@@ -3057,6 +3937,9 @@ env:
 <p>If set to 0 (default), then start worker thread for each CPU thread/core.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="ProxyConfig-dnsRefreshRate">
 <td><code>dnsRefreshRate</code></td>
@@ -3066,6 +3949,9 @@ env:
 
 <p>This must be given it terms of seconds. For example, 300s is valid but 5m is invalid.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="ProxyConfig-enableCoreDump">
@@ -3077,6 +3963,9 @@ env:
 <p>If set, newly injected sidecars will have core dumps enabled.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="ProxyConfig-envoyMetricsService">
 <td><code>envoyMetricsService</code></td>
@@ -3084,6 +3973,9 @@ env:
 <td>
 <p>Configures Envoy Metrics Service.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="ProxyConfig-envoyStatsd">
@@ -3093,6 +3985,9 @@ env:
 <p>Configures statsd export in Envoy.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="ProxyConfig-excludeInboundPorts">
 <td><code>excludeInboundPorts</code></td>
@@ -3101,6 +3996,9 @@ env:
 <p>Specifies the Istio ingress ports not to capture.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="ProxyConfig-excludeIPRanges">
 <td><code>excludeIPRanges</code></td>
@@ -3108,6 +4006,9 @@ env:
 <td>
 <p>Lists the excluded IP ranges of Istio egress traffic that the sidecar captures.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="ProxyConfig-image">
@@ -3120,6 +4021,9 @@ env:
 
 <p>Examples: my-proxy (uses global.hub/tag), docker.io/myrepo/my-proxy:v1.0.0</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="ProxyConfig-includeInboundPorts">
@@ -3134,6 +4038,9 @@ env:
 &ldquo;80,8080&rdquo;:   Redirect only selected ports.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="ProxyConfig-includeIPRanges">
 <td><code>includeIPRanges</code></td>
@@ -3145,6 +4052,9 @@ env:
 This would only capture egress traffic on those two IP Ranges, all other outbound traffic would # be allowed by the sidecar.&rdquo;</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="ProxyConfig-kubevirtInterfaces">
 <td><code>kubevirtInterfaces</code></td>
@@ -3153,6 +4063,9 @@ This would only capture egress traffic on those two IP Ranges, all other outboun
 <p>Comma separated list of virtual interfaces whose inbound traffic (from VM) will be treated as outbound. By default, no interfaces are configured.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="ProxyConfig-logLevel">
 <td><code>logLevel</code></td>
@@ -3160,6 +4073,9 @@ This would only capture egress traffic on those two IP Ranges, all other outboun
 <td>
 <p>Log level for proxy, applies to gateways and sidecars. If left empty, &ldquo;warning&rdquo; is used. Expected values are: trace|debug|info|warning|error|critical|off</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="ProxyConfig-privileged">
@@ -3171,6 +4087,9 @@ This would only capture egress traffic on those two IP Ranges, all other outboun
 <p>See https://kubernetes.io/docs/tasks/configure-pod-container/security-context/</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="ProxyConfig-readinessInitialDelaySeconds">
 <td><code>readinessInitialDelaySeconds</code></td>
@@ -3178,6 +4097,9 @@ This would only capture egress traffic on those two IP Ranges, all other outboun
 <td>
 <p>Sets the initial delay for readiness probes in seconds.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="ProxyConfig-readinessPeriodSeconds">
@@ -3187,6 +4109,9 @@ This would only capture egress traffic on those two IP Ranges, all other outboun
 <p>Sets the interval between readiness probes in seconds.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="ProxyConfig-readinessFailureThreshold">
 <td><code>readinessFailureThreshold</code></td>
@@ -3195,6 +4120,9 @@ This would only capture egress traffic on those two IP Ranges, all other outboun
 <p>Sets the number of successive failed probes before indicating readiness failure.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="ProxyConfig-statusPort">
 <td><code>statusPort</code></td>
@@ -3202,6 +4130,9 @@ This would only capture egress traffic on those two IP Ranges, all other outboun
 <td>
 <p>Default port used for the Pilot agent&rsquo;s health checks.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="ProxyConfig-resources">
@@ -3213,11 +4144,17 @@ This would only capture egress traffic on those two IP Ranges, all other outboun
 <p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="ProxyConfig-tracer">
 <td><code>tracer</code></td>
 <td><code><a href="#tracer">tracer</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="ProxyConfig-protocolDetectionTimeout">
@@ -3225,11 +4162,17 @@ This would only capture egress traffic on those two IP Ranges, all other outboun
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="ProxyConfig-envoyAccessLogService">
 <td><code>envoyAccessLogService</code></td>
 <td><code><a href="#EnvoyAccessLogConfig">EnvoyAccessLogConfig</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="ProxyConfig-excludeOutboundPorts">
@@ -3237,11 +4180,17 @@ This would only capture egress traffic on those two IP Ranges, all other outboun
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="ProxyConfig-drainDuration">
 <td><code>drainDuration</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="ProxyConfig-connectTimeout">
@@ -3249,17 +4198,26 @@ This would only capture egress traffic on those two IP Ranges, all other outboun
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="ProxyConfig-podDnsSearchNamespaces">
 <td><code>podDnsSearchNamespaces</code></td>
 <td><code>string[]</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="ProxyConfig-parentShutdownDuration">
 <td><code>parentShutdownDuration</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -3275,6 +4233,7 @@ This would only capture egress traffic on those two IP Ranges, all other outboun
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -3285,6 +4244,9 @@ This would only capture egress traffic on those two IP Ranges, all other outboun
 <p>Specifies the image for the proxy_init container.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="ProxyInitConfig-resources">
 <td><code>resources</code></td>
@@ -3294,6 +4256,9 @@ This would only capture egress traffic on those two IP Ranges, all other outboun
 
 <p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -3309,6 +4274,7 @@ This would only capture egress traffic on those two IP Ranges, all other outboun
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -3317,11 +4283,17 @@ This would only capture egress traffic on those two IP Ranges, all other outboun
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Resources-requests">
 <td><code>requests</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -3337,6 +4309,7 @@ This would only capture egress traffic on those two IP Ranges, all other outboun
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -3345,11 +4318,17 @@ This would only capture egress traffic on those two IP Ranges, all other outboun
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="ResourcesRequestsConfig-memory">
 <td><code>memory</code></td>
 <td><code>string</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -3365,6 +4344,7 @@ This would only capture egress traffic on those two IP Ranges, all other outboun
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -3375,6 +4355,9 @@ This would only capture egress traffic on those two IP Ranges, all other outboun
 <p>Controls whether the SecretDiscoveryService is enabled.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="SDSConfig-udsPath">
 <td><code>udsPath</code></td>
@@ -3382,6 +4365,9 @@ This would only capture egress traffic on those two IP Ranges, all other outboun
 <td>
 <p>Specifies the Unix Domain Socket through which Envoy communicates with NodeAgent SDS to get key/cert for mTLS.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="SDSConfig-useNormalJwt">
@@ -3391,6 +4377,9 @@ This would only capture egress traffic on those two IP Ranges, all other outboun
 <p>Enables SDS use of k8s normal JWT to request for certificates.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="SDSConfig-useTrustworthyJwt">
 <td><code>useTrustworthyJwt</code></td>
@@ -3398,6 +4387,9 @@ This would only capture egress traffic on those two IP Ranges, all other outboun
 <td>
 <p>Enables SDS use of trustworthy JWT to request for certificates.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -3415,6 +4407,7 @@ This would only capture egress traffic on those two IP Ranges, all other outboun
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -3423,17 +4416,26 @@ This would only capture egress traffic on those two IP Ranges, all other outboun
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="SecretVolume-name">
 <td><code>name</code></td>
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="SecretVolume-secretName">
 <td><code>secretName</code></td>
 <td><code>string</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -3449,6 +4451,7 @@ This would only capture egress traffic on those two IP Ranges, all other outboun
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -3459,6 +4462,9 @@ This would only capture egress traffic on those two IP Ranges, all other outboun
 <p>Controls whether Citadel is enabled.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="SecurityConfig-replicaCount">
 <td><code>replicaCount</code></td>
@@ -3466,6 +4472,9 @@ This would only capture egress traffic on those two IP Ranges, all other outboun
 <td>
 <p>Number of replicas in the Citadel Deployment.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="SecurityConfig-image">
@@ -3479,6 +4488,9 @@ This would only capture egress traffic on those two IP Ranges, all other outboun
 <p>Examples: custom-citadel, docker.io/someuser:custom-citadel</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="SecurityConfig-selfSigned">
 <td><code>selfSigned</code></td>
@@ -3488,6 +4500,9 @@ This would only capture egress traffic on those two IP Ranges, all other outboun
 
 <p>Setting to false if you want to use your own root CA for Citade Deployment.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="SecurityConfig-trustDomain">
@@ -3502,6 +4517,9 @@ The default depends on the environment.
    else:  default dns domain</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="SecurityConfig-dnsCerts">
 <td><code>dnsCerts</code></td>
@@ -3514,6 +4532,9 @@ The default depends on the environment.
   istio-galley-service-account.istio-config: istio-galley.istio-config.svc</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="SecurityConfig-createMeshPolicy">
 <td><code>createMeshPolicy</code></td>
@@ -3524,12 +4545,18 @@ The default depends on the environment.
 <p>Setting to true creates the mesh-wide authentication policy with name &ldquo;default&rdquo;.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="SecurityConfig-enableNamespacesByDefault">
 <td><code>enableNamespacesByDefault</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
 <td>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="SecurityConfig-nodeSelector">
@@ -3540,6 +4567,9 @@ The default depends on the environment.
 
 <p>See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -3555,6 +4585,7 @@ The default depends on the environment.
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -3563,11 +4594,17 @@ The default depends on the environment.
 <td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="ServiceConfig-externalPort">
 <td><code>externalPort</code></td>
 <td><code>uint32</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="ServiceConfig-name">
@@ -3575,11 +4612,17 @@ The default depends on the environment.
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="ServiceConfig-type">
 <td><code>type</code></td>
 <td><code>string</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -3595,6 +4638,7 @@ The default depends on the environment.
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -3605,6 +4649,9 @@ The default depends on the environment.
 <p>Controls whether Sidecar Injector is enabled.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="SidecarInjectorConfig-enableNamespacesByDefault">
 <td><code>enableNamespacesByDefault</code></td>
@@ -3612,6 +4659,9 @@ The default depends on the environment.
 <td>
 <p>Enables sidecar auto-injection in namespaces by default.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="SidecarInjectorConfig-image">
@@ -3625,6 +4675,9 @@ The default depends on the environment.
 <p>Examples: custom-sidecar<em>injector, docker.io/someuser:custom-sidecar</em>injector</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="SidecarInjectorConfig-nodeSelector">
 <td><code>nodeSelector</code></td>
@@ -3634,6 +4687,9 @@ The default depends on the environment.
 
 <p>See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="SidecarInjectorConfig-neverInjectSelector">
@@ -3647,6 +4703,9 @@ Order of evaluation: Pod Annotations → NeverInjectSelector → AlwaysInjectSel
 See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#more-control-adding-exceptions</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="SidecarInjectorConfig-alwaysInjectSelector">
 <td><code>alwaysInjectSelector</code></td>
@@ -3654,6 +4713,9 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <td>
 <p>See NeverInjectSelector.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="SidecarInjectorConfig-podAntiAffinityLabelSelector">
@@ -3663,6 +4725,9 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <p>See EgressGatewayConfig.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="SidecarInjectorConfig-podAntiAffinityTermLabelSelector">
 <td><code>podAntiAffinityTermLabelSelector</code></td>
@@ -3670,6 +4735,9 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <td>
 <p>See EgressGatewayConfig.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="SidecarInjectorConfig-replicaCount">
@@ -3679,6 +4747,9 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <p>Number of replicas in the Sidecar Injector Deployment.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="SidecarInjectorConfig-rewriteAppHTTPProbe">
 <td><code>rewriteAppHTTPProbe</code></td>
@@ -3686,6 +4757,9 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <td>
 <p>If true, webhook or istioctl injector will rewrite PodSpec for liveness health check to redirect request to sidecar. This makes liveness check work even when mTLS is enabled.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="SidecarInjectorConfig-selfSigned">
@@ -3697,11 +4771,17 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <p>Setting to false if you want to use your own root CA.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="SidecarInjectorConfig-injectLabel">
 <td><code>injectLabel</code></td>
 <td><code>string</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -3715,6 +4795,7 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -3723,17 +4804,26 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="StackdriverAuthConfig-apiKey">
 <td><code>apiKey</code></td>
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="StackdriverAuthConfig-serviceAccountPath">
 <td><code>serviceAccountPath</code></td>
 <td><code>string</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -3747,6 +4837,7 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -3754,6 +4845,9 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <td><code>enabled</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -3769,6 +4863,7 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -3777,11 +4872,17 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="StackdriverMixerAdapterConfig-auth">
 <td><code>auth</code></td>
 <td><code><a href="#StackdriverAuthConfig">StackdriverAuthConfig</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="StackdriverMixerAdapterConfig-tracer">
@@ -3789,11 +4890,17 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <td><code><a href="#StackdriverTracerConfig">StackdriverTracerConfig</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="StackdriverMixerAdapterConfig-contextGraph">
 <td><code>contextGraph</code></td>
 <td><code><a href="#StackdriverContextGraph">StackdriverContextGraph</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -3807,6 +4914,7 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -3815,11 +4923,17 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="StackdriverTracerConfig-sampleProbability">
 <td><code>sampleProbability</code></td>
 <td><code>uint32</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -3835,6 +4949,7 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -3845,6 +4960,9 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <p>Enable stdio adapter to output logs and metrics to local machine.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="StdioMixerAdapterConfig-outputAsJson">
 <td><code>outputAsJson</code></td>
@@ -3852,6 +4970,9 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <td>
 <p>Whether to output a console-friendly or json-friendly format.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -3867,6 +4988,7 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -3877,6 +4999,9 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <p>Configuration for the datadog tracing service.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="TracerConfig-lightstep">
 <td><code>lightstep</code></td>
@@ -3885,6 +5010,9 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <p>Configuration for the lightstep tracing service.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="TracerConfig-zipkin">
 <td><code>zipkin</code></td>
@@ -3892,6 +5020,9 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <td>
 <p>Configuration for the zipkin tracing service.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -3907,6 +5038,7 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -3916,6 +5048,9 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <td>
 <p>Address in host:port format for reporting trace data to the Datadog agent.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -3931,6 +5066,7 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -3941,6 +5077,9 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <p>Sets the lightstep satellite pool address in host:port format for reporting trace data.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="TracerLightStepConfig-accessToken">
 <td><code>accessToken</code></td>
@@ -3948,6 +5087,9 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <td>
 <p>Sets the lightstep access token.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="TracerLightStepConfig-cacertPath">
@@ -3957,6 +5099,9 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <p>Sets path to the file containing the cacert to use when verifying TLS.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="TracerLightStepConfig-secure">
 <td><code>secure</code></td>
@@ -3964,6 +5109,9 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <td>
 <p>Enables lightstep secure connection.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -3979,6 +5127,7 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -3990,6 +5139,9 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 
 <p>Example: <zipkin-collector-service>.<zipkin-collector-namespace>:941</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -4005,6 +5157,7 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -4015,6 +5168,9 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <p>Enables tracing systems installation.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="TracingConfig-ingress">
 <td><code>ingress</code></td>
@@ -4023,6 +5179,9 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <p>Controls legacy k8s ingress for addon tracing components.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="TracingConfig-jaeger">
 <td><code>jaeger</code></td>
@@ -4030,6 +5189,9 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <td>
 <p>Defines Configuration for addon Jaeger tracing.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="TracingConfig-nodeSelector">
@@ -4041,6 +5203,9 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <p>See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="TracingConfig-provider">
 <td><code>provider</code></td>
@@ -4048,6 +5213,9 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <td>
 <p>Configures which tracing system to be installed.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="TracingConfig-service">
@@ -4057,6 +5225,9 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <p>Controls K8s service for addon tracing components.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="TracingConfig-zipkin">
 <td><code>zipkin</code></td>
@@ -4065,11 +5236,17 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <p>Defines Configuration for addon Zipkin tracing.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="TracingConfig-opencensus">
 <td><code>opencensus</code></td>
 <td><code><a href="#TracingOpencensusConfig">TracingOpencensusConfig</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="TracingConfig-podAntiAffinityLabelSelector">
@@ -4079,6 +5256,9 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <p>See EgressGatewayConfig.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="TracingConfig-podAntiAffinityTermLabelSelector">
 <td><code>podAntiAffinityTermLabelSelector</code></td>
@@ -4086,6 +5266,9 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <td>
 <p>See EgressGatewayConfig.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -4101,6 +5284,7 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -4111,11 +5295,17 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <p>Enables k8s ingress for addon tracing components.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="TracingIngressConfig-annotations">
 <td><code>annotations</code></td>
 <td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="TracingIngressConfig-hosts">
@@ -4123,11 +5313,17 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <td><code>string[]</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="TracingIngressConfig-tls">
 <td><code>tls</code></td>
 <td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -4143,6 +5339,7 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -4153,6 +5350,9 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <p>Image hub for Jaeger tracing deployment.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="TracingJaegerConfig-tag">
 <td><code>tag</code></td>
@@ -4160,6 +5360,9 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <td>
 <p>Image tag for Jaeger tracing deployment.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="TracingJaegerConfig-memory">
@@ -4169,11 +5372,17 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <p>Configures Jaeger in-memory storage setting.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="TracingJaegerConfig-spanStorageType">
 <td><code>spanStorageType</code></td>
 <td><code>string</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="TracingJaegerConfig-persist">
@@ -4181,17 +5390,26 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="TracingJaegerConfig-storageClassName">
 <td><code>storageClassName</code></td>
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="TracingJaegerConfig-accessMode">
 <td><code>accessMode</code></td>
 <td><code>string</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -4207,6 +5425,7 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -4216,6 +5435,9 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <td>
 <p>Set limit of the amount of traces stored in memory for Jaeger</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -4229,6 +5451,7 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -4239,6 +5462,9 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <p>Image hub for Opencensus tracing deployment.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="TracingOpencensusConfig-tag">
 <td><code>tag</code></td>
@@ -4247,11 +5473,17 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <p>Image tag for Opencensus tracing deployment.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="TracingOpencensusConfig-exporters">
 <td><code>exporters</code></td>
 <td><code><a href="#TracingOpencensusExportersConfig">TracingOpencensusExportersConfig</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="TracingOpencensusConfig-resources">
@@ -4262,6 +5494,9 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 
 <p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -4275,6 +5510,7 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -4282,6 +5518,9 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <td><code>stackdriver</code></td>
 <td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -4297,6 +5536,7 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -4307,6 +5547,9 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <p>Image hub for Zipkin tracing deployment.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="TracingZipkinConfig-tag">
 <td><code>tag</code></td>
@@ -4314,6 +5557,9 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <td>
 <p>Image tag for Zipkin tracing deployment.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="TracingZipkinConfig-probeStartupDelay">
@@ -4323,6 +5569,9 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <p>InitialDelaySeconds of livenessProbe for Zipkin deployment</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="TracingZipkinConfig-queryPort">
 <td><code>queryPort</code></td>
@@ -4330,6 +5579,9 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <td>
 <p>Container port for Zipkin deployment</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="TracingZipkinConfig-resources">
@@ -4341,6 +5593,9 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="TracingZipkinConfig-javaOptsHeap">
 <td><code>javaOptsHeap</code></td>
@@ -4348,6 +5603,9 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <td>
 <p>Configure java heap opts for Zipkin deployment</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="TracingZipkinConfig-maxSpans">
@@ -4359,6 +5617,9 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <p>Example: A safe estimate is 1K of memory per span (each span with 2 annotations + 1 binary annotation), plus 100 MB for a safety buffer</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="TracingZipkinConfig-node">
 <td><code>node</code></td>
@@ -4366,6 +5627,9 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <td>
 <p>Configures GC values of JAVA_OPTS for Zipkin deployment</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -4381,6 +5645,7 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -4390,6 +5655,9 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <td>
 <p>Configures -XX:ConcGCThreads value of JAVA_OPTS for Zipkin deployment</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -4418,6 +5686,7 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -4426,11 +5695,17 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <td><code><a href="#CertManagerConfig">CertManagerConfig</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Values-istioCni">
 <td><code>istioCni</code></td>
 <td><code><a href="#CNIConfig">CNIConfig</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Values-istiocoredns">
@@ -4438,11 +5713,17 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <td><code><a href="#CoreDNSConfig">CoreDNSConfig</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Values-galley">
 <td><code>galley</code></td>
 <td><code><a href="#GalleyConfig">GalleyConfig</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Values-gateways">
@@ -4450,11 +5731,17 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <td><code><a href="#GatewaysConfig">GatewaysConfig</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Values-global">
 <td><code>global</code></td>
 <td><code><a href="#GlobalConfig">GlobalConfig</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Values-grafana">
@@ -4462,11 +5749,17 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Values-mixer">
 <td><code>mixer</code></td>
 <td><code><a href="#MixerConfig">MixerConfig</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Values-nodeagent">
@@ -4474,11 +5767,17 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <td><code><a href="#NodeAgentConfig">NodeAgentConfig</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Values-pilot">
 <td><code>pilot</code></td>
 <td><code><a href="#PilotConfig">PilotConfig</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Values-prometheus">
@@ -4486,11 +5785,17 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <td><code><a href="#PrometheusConfig">PrometheusConfig</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Values-security">
 <td><code>security</code></td>
 <td><code><a href="#SecurityConfig">SecurityConfig</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Values-sidecarInjectorWebhook">
@@ -4498,11 +5803,17 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <td><code><a href="#SidecarInjectorConfig">SidecarInjectorConfig</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Values-tracing">
 <td><code>tracing</code></td>
 <td><code><a href="#TracingConfig">TracingConfig</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Values-kiali">
@@ -4510,17 +5821,26 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <td><code><a href="#KialiConfig">KialiConfig</a></code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Values-version">
 <td><code>version</code></td>
 <td><code>string</code></td>
 <td>
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Values-clusterResources">
 <td><code>clusterResources</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -4536,6 +5856,7 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -4546,11 +5867,17 @@ See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#m
 <p>Controls whether ZeroVPN is enabled.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="ZeroVPNConfig-suffix">
 <td><code>suffix</code></td>
 <td><code>string</code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
