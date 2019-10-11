@@ -20,11 +20,12 @@ import (
 	"fmt"
 	"strconv"
 	"testing"
-	// "time"
+	"time"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+
 	// "istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/environment"
@@ -39,57 +40,9 @@ func TestMtlsHealthCheck(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-
-			ns := namespace.ClaimOrFail(t, ctx, "hck")
+			ns := namespace.ClaimOrFail(t, ctx, "mtls-healthcheck")
 			runHealthCheckDeployment(t, ctx, ns, "healthcheck", true, true)
 			runHealthCheckDeployment(t, ctx, ns, "healthcheck-fail", false, false)
-			// Apply the policy.
-			// 			policyYAML := `apiVersion: "authentication.istio.io/v1alpha1"
-			// kind: "Policy"
-			// metadata:
-			//   name: "mtls-strict-for-healthcheck"
-			// spec:
-			//   targets:
-			//   - name: "healthcheck"
-			//   peers:
-			//     - mtls:
-			//         mode: STRICT
-			// `
-			// 			g.ApplyConfigOrFail(t, ns, policyYAML)
-			// 			defer g.DeleteConfigOrFail(t, ns, policyYAML)
-
-			// 			var healthcheck echo.Instance
-			// 			echoboot.NewBuilderOrFail(t, ctx).
-			// 				With(&healthcheck, echo.Config{
-			// 					Namespace: ns,
-			// 					Service:   "healthcheck",
-			// 					Pilot:     p,
-			// 					Galley:    g,
-			// 					Ports: []echo.Port{{
-			// 						Name:         "http-8080",
-			// 						Protocol:     protocol.HTTP,
-			// 						ServicePort:  8080,
-			// 						InstancePort: 8080,
-			// 					}},
-			// 				}).
-			// 				BuildOrFail(t)
-
-			// err := echoboot.NewBuilderOrFail(t, ctx).
-			// 	With(&failApp, echo.Config{
-			// 		Namespace: ns,
-			// 		Service:   "healthcheck",
-			// 		Version:   "fail",
-			// 		Pilot:     p,
-			// 		Galley:    g,
-			// 		Annotations: map[echo.Annotation]*echo.AnnotationValue{
-			// 			echo.SidecarRewriteAppHTTPProbers: &echo.AnnotationValue{Value: "false"},
-			// 		},
-			// 	}).Build()
-			// t.Logf("jianfeih debugging error %v", err)
-			// if err == nil {
-			// 	t.Errorf("expect error when annotation is used to disable health check rewrite.")
-			// }
-			// time.Sleep(10000 * time.Second)
 		})
 }
 
@@ -122,14 +75,11 @@ spec:
 			ServicePort:  8080,
 			InstancePort: 8080,
 		}},
+		ReadinessTimeout: time.Second * 60,
 	}
 	cfg.Annotations = map[echo.Annotation]*echo.AnnotationValue{
 		echo.SidecarRewriteAppHTTPProbers: &echo.AnnotationValue{Value: strconv.FormatBool(rewrite)},
 	}
-	// TODO: rest is here, the echo builder rely on the kuberenets api to get the endpoints, which
-	// assume the readiness thus the we're stuck there without having the timeout option.
-	// kube/builder.go
-	// if err := inst.(*instance).initialize(instanceEndpoints[i]); err != nil {
 	err := echoboot.NewBuilderOrFail(t, ctx).
 		With(&healthcheck, cfg).
 		Build()
