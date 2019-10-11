@@ -25,13 +25,6 @@ import (
 	"testing"
 )
 
-var (
-	credNames = []string{"bookinfo-credential-1", "bookinfo-credential-2", "bookinfo-credential-3",
-		"bookinfo-credential-4", "bookinfo-credential-5"}
-	hosts = []string{"bookinfo1.example.com", "bookinfo2.example.com", "bookinfo3.example.com",
-		"bookinfo4.example.com", "bookinfo5.example.com"}
-)
-
 // testMultiMtlsGateways deploys multiple mTLS gateways with SDS enabled, and creates kubernetes that store
 // private key, server certificate and CA certificate for each mTLS gateway. Verifies that all gateways are able to terminate
 // mTLS connections successfully.

@@ -24,12 +24,6 @@ import (
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 )
 
-var (
-	credName   = []string{"bookinfo-credential-1"}
-	credCaName = []string{"bookinfo-credential-1-cacert"}
-	host       = "bookinfo1.example.com"
-)
-
 // TestSingleMTLSGateway_ServerKeyCertRotation tests a single mTLS ingress gateway with SDS enabled.
 // Verifies behavior in these scenarios.
 // (1) create two kubernetes secrets to provision server key/cert and client CA cert, and
