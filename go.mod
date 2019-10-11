@@ -8,8 +8,6 @@ replace k8s.io/klog => github.com/istio/klog v0.0.0-20190424230111-fb7481ea8bcf
 
 replace github.com/spf13/viper => github.com/istio/viper v1.3.3-0.20190515210538-2789fed3109c
 
-replace istio.io/pkg => github.com/therealmitchconnors/pkg v0.0.0-20191004225633-97077d703828
-
 require (
 	cloud.google.com/go v0.38.0
 	contrib.go.opencensus.io/exporter/ocagent v0.4.12 // indirect
@@ -18,7 +16,6 @@ require (
 	contrib.go.opencensus.io/exporter/zipkin v0.1.1
 	fortio.org/fortio v1.3.0
 	github.com/Azure/go-autorest v12.0.0+incompatible // indirect
-	github.com/DATA-DOG/go-sqlmock v1.3.3 // indirect
 	github.com/DataDog/datadog-go v2.2.0+incompatible
 	github.com/Masterminds/sprig v2.14.1+incompatible // indirect
 	github.com/Microsoft/go-winio v0.4.12 // indirect
@@ -65,10 +62,8 @@ require (
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/garyburd/redigo v1.6.0 // indirect
 	github.com/ghodss/yaml v1.0.0
-	github.com/go-openapi/spec v0.19.3 // indirect
 	github.com/go-redis/redis v6.10.2+incompatible
 	github.com/go-sql-driver/mysql v1.4.1 // indirect
-	github.com/gobuffalo/packr v1.30.1 // indirect
 	github.com/gocql/gocql v0.0.0-20190423091413-b99afaf3b163 // indirect
 	github.com/gogo/protobuf v1.3.0
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
@@ -101,13 +96,11 @@ require (
 	github.com/hashicorp/vault v0.10.0
 	github.com/howeyc/fsnotify v0.9.0
 	github.com/jefferai/jsonx v1.0.0 // indirect
-	github.com/jmoiron/sqlx v1.2.0 // indirect
 	github.com/juju/errors v0.0.0-20190207033735-e65537c515d7
 	github.com/juju/loggo v0.0.0-20190212223446-d976af380377 // indirect
 	github.com/juju/testing v0.0.0-20190429233213-dfc56b8c09fc // indirect
 	github.com/keybase/go-crypto v0.0.0-20190416182011-b785b22cc757 // indirect
 	github.com/lestrrat-go/jwx v0.9.0
-	github.com/lib/pq v1.2.0 // indirect
 	github.com/mitchellh/copystructure v1.0.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/go-testing-interface v1.0.0 // indirect
@@ -132,7 +125,6 @@ require (
 	github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4
 	github.com/prometheus/common v0.6.0
 	github.com/prometheus/prom2json v1.2.1
-	github.com/rubenv/sql-migrate v0.0.0-20190902133344-8926f37f0bc1 // indirect
 	github.com/ryanuber/go-glob v0.0.0-20160226084822-572520ed46db // indirect
 	github.com/satori/go.uuid v1.2.0
 	github.com/sethgrid/pester v0.0.0-20180227223404-ed9870dad317 // indirect
@@ -149,7 +141,6 @@ require (
 	github.com/yashtewari/glob-intersection v0.0.0-20180206001645-7af743e8ec84 // indirect
 	github.com/yl2chen/cidranger v0.0.0-20180214081945-928b519e5268
 	github.com/yuin/gopher-lua v0.0.0-20180316054350-84ea3a3c79b3 // indirect
-	github.com/ziutek/mymysql v1.5.4 // indirect
 	go.opencensus.io v0.21.0
 	go.uber.org/atomic v1.4.0
 	go.uber.org/zap v1.10.0
@@ -161,7 +152,6 @@ require (
 	google.golang.org/genproto v0.0.0-20190819201941-24fa4b261c55
 	google.golang.org/grpc v1.24.0
 	gopkg.in/d4l3k/messagediff.v1 v1.2.1
-	gopkg.in/gorp.v1 v1.7.2 // indirect
 	gopkg.in/logfmt.v0 v0.3.0 // indirect
 	gopkg.in/mgo.v2 v2.0.0-20180705113604-9856a29383ce // indirect
 	gopkg.in/ory-am/dockertest.v3 v3.3.4 // indirect
@@ -170,8 +160,8 @@ require (
 	gopkg.in/yaml.v2 v2.2.2
 	istio.io/api v0.0.0-20191009011736-593785242b9d
 	istio.io/gogo-genproto v0.0.0-20190930162913-45029607206a
-	istio.io/operator v0.0.0-20191011151422-449b12f70213
-	istio.io/pkg v0.0.0-20191011134721-a5814db58692
+	istio.io/operator v0.0.0-20190923170413-6e6db1228c1f
+	istio.io/pkg v0.0.0-20191011134721-a5814db58692 // indirect
 	k8s.io/api v0.0.0
 	k8s.io/apiextensions-apiserver v0.0.0
 	k8s.io/apimachinery v0.0.0
