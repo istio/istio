@@ -28,7 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/mergepatch"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/kubernetes/pkg/kubectl"
+	kubectl "k8s.io/kubectl/pkg/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

@@ -24,9 +24,9 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/operator/pkg/util"
-
 	"github.com/ghodss/yaml"
+
+	"istio.io/operator/pkg/util"
 
 	"istio.io/operator/pkg/apis/istio/v1alpha2"
 
@@ -49,7 +49,8 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	deploymentutil "k8s.io/kubernetes/pkg/controller/deployment/util"
+
+	kubectlutil "k8s.io/kubectl/pkg/util/deployment"
 
 	"istio.io/operator/pkg/kubectlcmd"
 	"istio.io/operator/pkg/name"
@@ -473,7 +474,7 @@ func waitForResources(objects object.K8sObjects, opts *InstallOptions) error {
 				if err != nil {
 					return false, err
 				}
-				newReplicaSet, err := deploymentutil.GetNewReplicaSet(currentDeployment, cs.AppsV1())
+				_, _, newReplicaSet, err := kubectlutil.GetAllReplicaSets(currentDeployment, cs.AppsV1())
 				if err != nil || newReplicaSet == nil {
 					return false, err
 				}
@@ -565,7 +566,7 @@ func isPodReady(pod *v1.Pod) bool {
 
 func deploymentsReady(deployments []deployment) bool {
 	for _, v := range deployments {
-		if !(v.replicaSets.Status.ReadyReplicas >= *v.deployment.Spec.Replicas-deploymentutil.MaxUnavailable(*v.deployment)) {
+		if v.replicaSets.Status.ReadyReplicas < *v.deployment.Spec.Replicas {
 			logAndPrint("Deployment is not ready: %s/%s", v.deployment.GetNamespace(), v.deployment.GetName())
 			return false
 		}
