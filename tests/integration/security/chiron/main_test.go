@@ -55,7 +55,6 @@ func setupConfig(cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-
-	// Helm values from install/kubernetes/helm/istio/values-istio-dns-cert.yaml
-	cfg.ValuesFile = "values-istio-dns-cert.yaml"
+	// Helm values from install/kubernetes/helm/istio/test-values/values-istio-dns-cert.yaml
+	cfg.ValuesFile = "test-values/values-istio-dns-cert.yaml"
 }
