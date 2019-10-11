@@ -78,7 +78,7 @@ func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l *
 	if len(args) == 1 {
 		profile = args[0]
 	}
-	y, err := genProfile(pdArgs.helmValues, pdArgs.inFilename, profile, "", pdArgs.configPath)
+	y, err := genProfile(pdArgs.helmValues, pdArgs.inFilename, profile, "", pdArgs.configPath, true, l)
 	if err != nil {
 		l.logAndFatal(err.Error())
 	}
@@ -86,7 +86,7 @@ func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l *
 	l.print(y + "\n")
 }
 
-func genProfile(helmValues bool, inFilename, profile, setOverlayYAML, configPath string) (string, error) {
+func genProfile(helmValues bool, inFilename, profile, setOverlayYAML, configPath string, force bool, l *logger) (string, error) {
 	overlayYAML := ""
 	var overlayICPS *v1alpha2.IstioControlPlaneSpec
 	if inFilename != "" {
@@ -133,7 +133,7 @@ func genProfile(helmValues bool, inFilename, profile, setOverlayYAML, configPath
 	if err != nil {
 		return "", fmt.Errorf("could not overlay user config over base: %s", err)
 	}
-	if _, err := unmarshalAndValidateICPS(mergedYAML); err != nil {
+	if _, err := unmarshalAndValidateICPS(mergedYAML, force, l); err != nil {
 		return "", err
 	}
 
@@ -143,7 +143,7 @@ func genProfile(helmValues bool, inFilename, profile, setOverlayYAML, configPath
 		return "", fmt.Errorf("could not overlay --set values over merged: %s", err)
 	}
 
-	finalICPS, err := unmarshalAndValidateICPS(finalYAML)
+	finalICPS, err := unmarshalAndValidateICPS(finalYAML, force, l)
 	if err != nil {
 		return "", err
 	}
@@ -187,13 +187,16 @@ func unmarshalAndValidateICP(crYAML string) (*v1alpha2.IstioControlPlaneSpec, st
 	return icps, icpsYAML, nil
 }
 
-func unmarshalAndValidateICPS(icpsYAML string) (*v1alpha2.IstioControlPlaneSpec, error) {
+func unmarshalAndValidateICPS(icpsYAML string, force bool, l *logger) (*v1alpha2.IstioControlPlaneSpec, error) {
 	icps := &v1alpha2.IstioControlPlaneSpec{}
 	if err := util.UnmarshalWithJSONPB(icpsYAML, icps); err != nil {
 		return nil, fmt.Errorf("could not unmarshal the merged YAML: %s\n\nYAML:\n%s", err, icpsYAML)
 	}
 	if errs := validate.CheckIstioControlPlaneSpec(icps, true); len(errs) != 0 {
-		return nil, fmt.Errorf(errs.Error())
+		if !force {
+			return nil, fmt.Errorf(errs.Error())
+		}
+		l.logAndPrint("Proceeding despite the following validation errors: \n", errs.Error())
 	}
 	return icps, nil
 }

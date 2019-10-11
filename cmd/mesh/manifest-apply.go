@@ -40,6 +40,8 @@ type manifestApplyArgs struct {
 	wait bool
 	// yes means don't ask for confirmation (asking for confirmation not implemented)
 	yes bool
+	// force proceeds even if there are validation errors
+	force bool
 	// set is a string with element format "path=value" where path is an IstioControlPlane path and the value is a
 	// value to set the node at that path to.
 	set []string
@@ -50,6 +52,7 @@ func addManifestApplyFlags(cmd *cobra.Command, args *manifestApplyArgs) {
 	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig", "c", "", "Path to kube config")
 	cmd.PersistentFlags().StringVar(&args.context, "context", "", "The name of the kubeconfig context to use")
 	cmd.PersistentFlags().BoolVarP(&args.yes, "yes", "y", false, "Do not ask for confirmation")
+	cmd.PersistentFlags().BoolVar(&args.force, "force", false, "Proceed even with validation errors")
 	cmd.PersistentFlags().DurationVar(&args.readinessTimeout, "readiness-timeout", 300*time.Second, "Maximum seconds to wait for all Istio resources to be ready."+
 		" The --wait flag must be set for this flag to apply")
 	cmd.PersistentFlags().BoolVarP(&args.wait, "wait", "w", false, "Wait, if set will wait until all Pods, Services, and minimum number of Pods "+
@@ -85,7 +88,7 @@ func manifestApply(args *rootArgs, maArgs *manifestApplyArgs, l *logger) {
 	if err != nil {
 		l.logAndFatal(err.Error())
 	}
-	manifests, err := genManifests(maArgs.inFilename, overlayFromSet)
+	manifests, err := genManifests(maArgs.inFilename, overlayFromSet, maArgs.force, l)
 	if err != nil {
 		l.logAndFatal("Could not generate manifest: ", err)
 	}

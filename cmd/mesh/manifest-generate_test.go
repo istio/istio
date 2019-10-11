@@ -67,6 +67,12 @@ func TestManifestGenerateFlags(t *testing.T) {
 			outputDir:  flagOutputValuesDir,
 			noInput:    true,
 		},
+		{
+			desc:       "flag_force",
+			diffIgnore: "ConfigMap:*:istio",
+			// FIXME: this test should fail without --force flag.
+			flags: "",
+		},
 	})
 	removeDirOrFail(t, flagOutputDir)
 	removeDirOrFail(t, flagOutputValuesDir)
