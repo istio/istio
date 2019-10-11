@@ -75,9 +75,8 @@ spec:
 		ReadinessTimeout: time.Second * 60,
 	}
 	cfg.Annotations = map[echo.Annotation]*echo.AnnotationValue{
-		echo.SidecarRewriteAppHTTPProbers: &echo.AnnotationValue{
-			Value: strconv.FormatBool(rewrite),
-		},
+		echo.SidecarRewriteAppHTTPProbers: {
+			Value: strconv.FormatBool(rewrite)},
 	}
 	err := echoboot.NewBuilderOrFail(t, ctx).
 		With(&healthcheck, cfg).
