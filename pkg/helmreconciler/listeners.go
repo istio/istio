@@ -446,7 +446,7 @@ func NewOwnerReferenceDecorator(instance runtime.Object) (RenderingListener, err
 	}
 	return &ownerReferenceDecorator{
 		DefaultRenderingListener: &DefaultRenderingListener{},
-		ownerReference:           metav1.NewControllerRef(instanceAccessor, instance.GetObjectKind().GroupVersionKind()),
+		ownerReference:           metav1.NewControllerRef(instanceAccessor, util.IstioOperatorGVK),
 		namespace:                instanceAccessor.GetNamespace(),
 	}, nil
 }
