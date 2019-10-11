@@ -261,7 +261,8 @@ spec:
           {{- end }}
           {{- end }}
           {{ if eq $key "istio-ingressgateway" }}
-          {{- if and (not $spec.env.ISTIO_META_NETWORK) $.Values.global.network }}
+          {{ $network_set := index $spec.env "ISTIO_META_NETWORK" }}
+          {{- if and (not $network_set) $.Values.global.network }}
           - name: ISTIO_META_NETWORK
             value: {{ $.Values.global.network }}
           {{- end }}
