@@ -21,7 +21,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
-	"strings"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -90,35 +89,12 @@ type IstioCAOptions struct {
 	RotatorConfig *SelfSignedCARootCertRotatorConfig
 }
 
-// Append root certificates in RootCertFile to the input certificate.
-func appendRootCerts(pemCert []byte, rootCertFile string) ([]byte, error) {
-	var rootCerts []byte
-	if len(pemCert) > 0 {
-		// Copy the input certificate
-		rootCerts = make([]byte, len(pemCert))
-		copy(rootCerts, pemCert)
-	}
-	if len(rootCertFile) > 0 {
-		pkiCaLog.Debugf("append root certificates from %v", rootCertFile)
-		certBytes, err := ioutil.ReadFile(rootCertFile)
-		if err != nil {
-			return rootCerts, fmt.Errorf("failed to read root certificates (%v)", err)
-		}
-		pkiCaLog.Debugf("The root certificates to be appended is: %v", rootCertFile)
-		if len(rootCerts) > 0 {
-			// Append a newline after the last cert
-			rootCerts = []byte(strings.TrimSuffix(string(rootCerts), "\n") + "\n")
-		}
-		rootCerts = append(rootCerts, certBytes...)
-	}
-	return rootCerts, nil
-}
-
 // NewSelfSignedIstioCAOptions returns a new IstioCAOptions instance using self-signed certificate.
 func NewSelfSignedIstioCAOptions(ctx context.Context, readSigningCertOnly bool,
-	caCertTTL, rootCertCheckInverval, certTTL, maxCertTTL time.Duration,
-	org string, dualUse bool, namespace string, readCertRetryInterval time.Duration,
-	client corev1.CoreV1Interface, rootCertFile string) (caOpts *IstioCAOptions, err error) {
+	rootCertGracePeriodPercentile int, caCertTTL, rootCertCheckInverval, certTTL,
+	maxCertTTL time.Duration, org string, dualUse bool, namespace string,
+	readCertRetryInterval time.Duration, client corev1.CoreV1Interface,
+	rootCertFile string, enableJitter bool) (caOpts *IstioCAOptions, err error) {
 	// For the first time the CA is up, if readSigningCertOnly is unset,
 	// it generates a self-signed key/cert pair and write it to CASecret.
 	// For subsequent restart, CA will reads key/cert from CASecret.
@@ -139,7 +115,6 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, readSigningCertOnly bool,
 		}
 	}
 
-	rootCertGracePeriodPercentile := cmd.DefaultRootCertGracePeriodRatio * 100
 	caOpts = &IstioCAOptions{
 		CAType:     selfSignedCA,
 		CertTTL:    certTTL,
@@ -148,12 +123,13 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, readSigningCertOnly bool,
 			CheckInterval:       rootCertCheckInverval,
 			caCertTTL:           caCertTTL,
 			retryInterval:       cmd.ReadSigningCertCheckInterval,
-			certInspector:       certutil.NewCertUtil(int(rootCertGracePeriodPercentile)),
+			certInspector:       certutil.NewCertUtil(rootCertGracePeriodPercentile),
 			caStorageNamespace:  namespace,
 			dualUse:             dualUse,
 			readSigningCertOnly: readSigningCertOnly,
 			org:                 org,
 			rootCertFile:        rootCertFile,
+			enableJitter:        enableJitter,
 			client:              client,
 		},
 	}
@@ -173,7 +149,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, readSigningCertOnly bool,
 			return nil, fmt.Errorf("unable to generate CA cert and key for self-signed CA (%v)", ckErr)
 		}
 
-		rootCerts, err := appendRootCerts(pemCert, rootCertFile)
+		rootCerts, err := util.AppendRootCerts(pemCert, rootCertFile)
 		if err != nil {
 			return nil, fmt.Errorf("failed to append root certificates (%v)", err)
 		}
@@ -191,7 +167,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, readSigningCertOnly bool,
 		pkiCaLog.Infof("Using self-generated public key: %v", string(rootCerts))
 	} else {
 		pkiCaLog.Infof("Load signing key and cert from existing secret %s:%s", caSecret.Namespace, caSecret.Name)
-		rootCerts, err := appendRootCerts(caSecret.Data[caCertID], rootCertFile)
+		rootCerts, err := util.AppendRootCerts(caSecret.Data[caCertID], rootCertFile)
 		if err != nil {
 			return nil, fmt.Errorf("failed to append root certificates (%v)", err)
 		}

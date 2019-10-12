@@ -22,7 +22,7 @@ import (
 	"gopkg.in/square/go-jose.v2/json"
 	"sigs.k8s.io/yaml"
 
-	"istio.io/istio/galley/pkg/config/processor/metadata"
+	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/galley/testdata/validation"
 	"istio.io/istio/pkg/test/util/yml"
 

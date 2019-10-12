@@ -24,7 +24,6 @@ import (
 	"istio.io/istio/galley/pkg/config/meshcfg"
 	"istio.io/istio/galley/pkg/config/processor"
 	"istio.io/istio/galley/pkg/config/source/kube"
-	check2 "istio.io/istio/galley/pkg/config/source/kube/check"
 	fs2 "istio.io/istio/galley/pkg/config/source/kube/fs"
 	"istio.io/istio/galley/pkg/meshconfig"
 	"istio.io/istio/galley/pkg/source/fs"
@@ -48,10 +47,9 @@ var (
 	newFileWatcher              = filewatcher.NewWatcher
 	readFile                    = ioutil.ReadFile
 
-	meshcfgNewFS               = func(path string) (event.Source, error) { return meshcfg.NewFS(path) }
-	processorInitialize        = processor.Initialize
-	checkResourceTypesPresence = check2.ResourceTypesPresence
-	fsNew2                     = fs2.New
+	meshcfgNewFS        = func(path string) (event.Source, error) { return meshcfg.NewFS(path) }
+	processorInitialize = processor.Initialize
+	fsNew2              = fs2.New
 )
 
 func resetPatchTable() {
@@ -69,6 +67,5 @@ func resetPatchTable() {
 
 	meshcfgNewFS = func(path string) (event.Source, error) { return meshcfg.NewFS(path) }
 	processorInitialize = processor.Initialize
-	checkResourceTypesPresence = check2.ResourceTypesPresence
 	fsNew2 = fs2.New
 }

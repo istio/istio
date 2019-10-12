@@ -44,13 +44,18 @@ import (
 	"istio.io/istio/pkg/config/host"
 	configKube "istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 const (
-	// NodeRegionLabel is the well-known label for kubernetes node region
+	// NodeRegionLabel is the well-known label for kubernetes node region in beta
 	NodeRegionLabel = "failure-domain.beta.kubernetes.io/region"
-	// NodeZoneLabel is the well-known label for kubernetes node zone
+	// NodeZoneLabel is the well-known label for kubernetes node zone in beta
 	NodeZoneLabel = "failure-domain.beta.kubernetes.io/zone"
+	// NodeRegionLabelGA is the well-known label for kubernetes node region in ga
+	NodeRegionLabelGA = "failure-domain.kubernetes.io/region"
+	// NodeZoneLabelGA is the well-known label for kubernetes node zone in ga
+	NodeZoneLabelGA = "failure-domain.kubernetes.io/zone"
 	// IstioNamespace used by default for Istio cluster-wide installation
 	IstioNamespace = "istio-system"
 	// IstioConfigMap is used by default
@@ -330,8 +335,9 @@ func (c *Controller) GetPodLocality(pod *v1.Pod) string {
 		return ""
 	}
 
-	region := node.(*v1.Node).Labels[NodeRegionLabel]
-	zone := node.(*v1.Node).Labels[NodeZoneLabel]
+	region := getLabelValue(node.(*v1.Node), NodeRegionLabel, NodeRegionLabelGA)
+	zone := getLabelValue(node.(*v1.Node), NodeZoneLabel, NodeZoneLabelGA)
+
 	if region == "" && zone == "" {
 		return ""
 	}
@@ -824,7 +830,7 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 			}
 		}
 
-		log.Infof("Handle service %s in namespace %s", svc.Name, svc.Namespace)
+		log.Debugf("Handle service %s in namespace %s", svc.Name, svc.Namespace)
 
 		hostname := svc.Name + "." + svc.Namespace
 		ports := map[string]uint32{}
@@ -961,7 +967,12 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 			svc := obj.(*v1.Service)
 			// if the service is headless service, trigger a full push.
 			if svc.Spec.ClusterIP == v1.ClusterIPNone {
-				c.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, NamespacesUpdated: map[string]struct{}{ep.Namespace: {}}})
+				c.XDSUpdater.ConfigUpdate(&model.PushRequest{
+					Full:              true,
+					NamespacesUpdated: map[string]struct{}{ep.Namespace: {}},
+					// TODO: extend and set service instance type, so no need to re-init push context
+					ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
+				})
 				return
 			}
 		}

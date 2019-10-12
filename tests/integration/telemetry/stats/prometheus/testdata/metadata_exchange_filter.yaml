@@ -16,8 +16,9 @@ spec:
         value:
           name: envoy.filters.http.wasm
           config:
-            configuration: envoy.wasm.metadata_exchange
-            vm_config:
-              vm: envoy.wasm.vm.null
-              code:
-                inline_string: envoy.wasm.metadata_exchange
+            config:
+              configuration: envoy.wasm.metadata_exchange
+              vm_config:
+                runtime: envoy.wasm.runtime.null
+                code:
+                  inline_string: envoy.wasm.metadata_exchange

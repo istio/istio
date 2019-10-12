@@ -19,7 +19,7 @@ import (
 	"reflect"
 
 	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/processor/metadata"
+	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/pkg/spiffe"
 

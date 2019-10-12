@@ -154,7 +154,8 @@ spec:
         image: busybox
         name: init-two
         resources: {}
-      - args:
+      - command:
+        - istio-iptables
         - -p
         - "15001"
         - -z

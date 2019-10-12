@@ -18,23 +18,24 @@ import (
 	"testing"
 
 	authn "istio.io/api/authentication/v1alpha1"
+	authn_model "istio.io/istio/pilot/pkg/security/model"
 )
 
 func TestGetMutualTLSMode(t *testing.T) {
 	cases := []struct {
 		name     string
 		in       *authn.Policy
-		expected MutualTLSMode
+		expected authn_model.MutualTLSMode
 	}{
 		{
 			name:     "Null policy",
 			in:       nil,
-			expected: MTLSDisable,
+			expected: authn_model.MTLSDisable,
 		},
 		{
 			name:     "Empty policy",
 			in:       &authn.Policy{},
-			expected: MTLSDisable,
+			expected: authn_model.MTLSDisable,
 		},
 		{
 			name: "Policy with default mTLS mode",
@@ -43,7 +44,7 @@ func TestGetMutualTLSMode(t *testing.T) {
 					Params: &authn.PeerAuthenticationMethod_Mtls{},
 				}},
 			},
-			expected: MTLSStrict,
+			expected: authn_model.MTLSStrict,
 		},
 		{
 			name: "Policy with strict mTLS mode",
@@ -56,7 +57,7 @@ func TestGetMutualTLSMode(t *testing.T) {
 					},
 				}},
 			},
-			expected: MTLSStrict,
+			expected: authn_model.MTLSStrict,
 		},
 		{
 			name: "Policy with permissive mTLS mode",
@@ -69,7 +70,7 @@ func TestGetMutualTLSMode(t *testing.T) {
 					},
 				}},
 			},
-			expected: MTLSPermissive,
+			expected: authn_model.MTLSPermissive,
 		},
 		{
 			name: "Policy with multi peer methods",
@@ -85,7 +86,7 @@ func TestGetMutualTLSMode(t *testing.T) {
 					},
 				},
 			},
-			expected: MTLSStrict,
+			expected: authn_model.MTLSStrict,
 		},
 		{
 			name: "Policy with non-mtls peer method",
@@ -96,7 +97,7 @@ func TestGetMutualTLSMode(t *testing.T) {
 					},
 				},
 			},
-			expected: MTLSDisable,
+			expected: authn_model.MTLSDisable,
 		},
 	}
 	for _, c := range cases {

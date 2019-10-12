@@ -52,20 +52,24 @@ type Message struct {
 	Origin resource.Origin
 }
 
+// Unstructured returns this message as a JSON-style unstructured map
+func (m *Message) Unstructured(includeOrigin bool) map[string]interface{} {
+	result := make(map[string]interface{})
+
+	result["code"] = m.Type.Code()
+	result["level"] = string(m.Type.Level())
+	if includeOrigin && m.Origin != nil {
+		result["origin"] = m.Origin.FriendlyName()
+	}
+	result["message"] = fmt.Sprintf(m.Type.Template(), m.Parameters...)
+
+	return result
+}
+
 // String implements io.Stringer
 func (m *Message) String() string {
-	return m.toString(true)
-}
-
-// StatusString creates a short-form string version of this message, suitable for putting in status fields of
-// individual objects.
-func (m *Message) StatusString() string {
-	return m.toString(false)
-}
-
-func (m *Message) toString(includeOrigin bool) string {
 	origin := ""
-	if includeOrigin && m.Origin != nil {
+	if m.Origin != nil {
 		origin = "(" + m.Origin.FriendlyName() + ")"
 	}
 	return fmt.Sprintf(

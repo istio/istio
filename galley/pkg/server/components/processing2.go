@@ -34,16 +34,17 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis/analyzers"
 	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/galley/pkg/config/meta/metadata"
+	"istio.io/istio/galley/pkg/config/meta/schema"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
+	"istio.io/istio/galley/pkg/config/processor"
 	"istio.io/istio/galley/pkg/config/processor/groups"
-	"istio.io/istio/galley/pkg/config/processor/metadata"
 	"istio.io/istio/galley/pkg/config/processor/transforms"
-	"istio.io/istio/galley/pkg/config/schema"
 	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver/status"
-	"istio.io/istio/galley/pkg/config/source/kube/rt"
+	"istio.io/istio/galley/pkg/config/util/kuberesource"
 	"istio.io/istio/galley/pkg/server/process"
 	"istio.io/istio/galley/pkg/server/settings"
 	configz "istio.io/istio/pkg/mcp/configz/server"
@@ -102,19 +103,35 @@ func (p *Processing2) Start() (err error) {
 
 	m := metadata.MustGet()
 
-	kubeResources := p.disableExcludedKubeResources(m)
+	kubeResources := kuberesource.DisableExcludedKubeResources(m.KubeSource().Resources(), p.args.ExcludedResourceKinds, p.args.EnableServiceDiscovery)
 
 	if src, updater, err = p.createSourceAndStatusUpdater(kubeResources); err != nil {
 		return
 	}
 
-	var distributor snapshotter.Distributor = snapshotter.NewMCPDistributor(p.mcpCache)
-	if p.args.EnableConfigAnalysis {
-		distributor = snapshotter.NewAnalyzingDistributor(updater, analyzers.AllCombined(), distributor, nil)
-	}
 	transformProviders := transforms.Providers(m)
 
-	if p.runtime, err = processorInitialize(m, p.args.DomainSuffix, event.CombineSources(mesh, src), transformProviders, distributor); err != nil {
+	var distributor snapshotter.Distributor = snapshotter.NewMCPDistributor(p.mcpCache)
+	if p.args.EnableConfigAnalysis {
+		settings := snapshotter.AnalyzingDistributorSettings{
+			StatusUpdater:     updater,
+			Analyzer:          analyzers.AllCombined().WithDisabled(kubeResources.DisabledCollections(), transformProviders),
+			Distributor:       distributor,
+			AnalysisSnapshots: []string{metadata.Default, metadata.SyntheticServiceEntry},
+			TriggerSnapshot:   metadata.Default,
+		}
+		distributor = snapshotter.NewAnalyzingDistributor(settings)
+	}
+
+	processorSettings := processor.Settings{
+		Metadata:           m,
+		DomainSuffix:       p.args.DomainSuffix,
+		Source:             event.CombineSources(mesh, src),
+		TransformProviders: transformProviders,
+		Distributor:        distributor,
+		EnabledSnapshots:   []string{metadata.Default, metadata.SyntheticServiceEntry},
+	}
+	if p.runtime, err = processorInitialize(processorSettings); err != nil {
 		return
 	}
 
@@ -222,36 +239,6 @@ func (p *Processing2) Start() (err error) {
 	return nil
 }
 
-func (p *Processing2) disableExcludedKubeResources(m *schema.Metadata) schema.KubeResources {
-
-	// Behave in the same way as existing logic:
-	// - Builtin types are excluded by default.
-	// - If ServiceDiscovery is enabled, any built-in type should be readded.
-
-	var result schema.KubeResources
-	for _, r := range m.KubeSource().Resources() {
-
-		if p.isKindExcluded(r.Kind) {
-			// Found a matching exclude directive for this KubeResource. Disable the resource.
-			r.Disabled = true
-
-			// Check and see if this is needed for Service Discovery. If needed, we will need to re-enable.
-			if p.args.EnableServiceDiscovery {
-				// IsBuiltIn is a proxy for types needed for service discovery
-				a := rt.DefaultProvider().GetAdapter(r)
-				if a.IsBuiltIn() {
-					// This is needed for service discovery. Re-enable.
-					r.Disabled = false
-				}
-			}
-		}
-
-		result = append(result, r)
-	}
-
-	return result
-}
-
 // ConfigZTopic returns the ConfigZTopic for the processor.
 func (p *Processing2) ConfigZTopic() fw.Topic {
 	return p.configzTopic
@@ -302,15 +289,9 @@ func (p *Processing2) createSourceAndStatusUpdater(resources schema.KubeResource
 			return
 		}
 
-		if !p.args.DisableResourceReadyCheck {
-			if err = checkResourceTypesPresence(k, resources); err != nil {
-				return
-			}
-		}
-
 		var statusCtl status.Controller
 		if p.args.EnableConfigAnalysis {
-			statusCtl = status.NewController()
+			statusCtl = status.NewController("validationMessages")
 		}
 
 		o := apiserver.Options{
@@ -324,16 +305,6 @@ func (p *Processing2) createSourceAndStatusUpdater(resources schema.KubeResource
 		updater = s
 	}
 	return
-}
-
-func (p *Processing2) isKindExcluded(kind string) bool {
-	for _, excludedKind := range p.args.ExcludedResourceKinds {
-		if kind == excludedKind {
-			return true
-		}
-	}
-
-	return false
 }
 
 // Stop implements process.Component

@@ -17,8 +17,10 @@ package model
 import (
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	authpb "istio.io/api/security/v1beta1"
+
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schemas"
+
 	istiolog "istio.io/pkg/log"
 )
 
@@ -71,12 +73,14 @@ func GetAuthorizationPolicies(env *Environment) (*AuthorizationPolicies, error) 
 	if err != nil {
 		return nil, err
 	}
+	sortConfigByCreationTime(roles)
 	policy.addServiceRoles(roles)
 
 	bindings, err := env.List(schemas.ServiceRoleBinding.Type, NamespaceAll)
 	if err != nil {
 		return nil, err
 	}
+	sortConfigByCreationTime(bindings)
 	policy.addServiceRoleBindings(bindings)
 
 	policies, err := env.List(schemas.AuthorizationPolicy.Type, NamespaceAll)
@@ -112,6 +116,18 @@ func (policy *AuthorizationPolicies) IsRBACEnabled(service string, namespace str
 func (policy *AuthorizationPolicies) IsGlobalPermissiveEnabled() bool {
 	return policy != nil && policy.rbacConfig != nil &&
 		policy.rbacConfig.EnforcementMode == rbacproto.EnforcementMode_PERMISSIVE
+}
+
+// ListNamespacesOfToV1alpha1Policies returns all namespaces that have V1alpha1 policies.
+func (policy *AuthorizationPolicies) ListNamespacesOfToV1alpha1Policies() []string {
+	if policy == nil {
+		return nil
+	}
+	namespaces := make([]string, 0, len(policy.namespaceToV1alpha1Policies))
+	for ns := range policy.namespaceToV1alpha1Policies {
+		namespaces = append(namespaces, ns)
+	}
+	return namespaces
 }
 
 // ListServiceRoles returns ServiceRole in the given namespace.

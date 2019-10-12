@@ -27,9 +27,10 @@ type StatusUpdater interface {
 
 // InMemoryStatusUpdater is an in-memory implementation of StatusUpdater
 type InMemoryStatusUpdater struct {
-	mu     sync.RWMutex
-	m      diag.Messages
-	waitCh chan struct{}
+	mu      sync.RWMutex
+	m       diag.Messages
+	updated bool
+	waitCh  chan struct{}
 }
 
 var _ StatusUpdater = &InMemoryStatusUpdater{}
@@ -39,6 +40,11 @@ func (u *InMemoryStatusUpdater) Update(m diag.Messages) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 	u.m = m
+
+	// Why an explicit flag here? Go treats an empty slice as if it were nil, so if no messages ever got recorded "u.m == nil" evaluates to true,
+	// and the short-circuit in WaitForReport wouldn't ever fire.
+	u.updated = true
+
 	if u.waitCh != nil {
 		close(u.waitCh)
 	}
@@ -53,8 +59,9 @@ func (u *InMemoryStatusUpdater) Get() diag.Messages {
 
 // WaitForReport blocks until a report is available. Returns true if a report is available, false if cancelCh was closed.
 func (u *InMemoryStatusUpdater) WaitForReport(cancelCh chan struct{}) bool {
+	// Short-circuit to handle the case where Update got called before WaitForReport
 	u.mu.Lock()
-	if u.m != nil {
+	if u.updated {
 		u.mu.Unlock()
 		return true
 	}

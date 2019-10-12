@@ -20,8 +20,8 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	coll "istio.io/istio/galley/pkg/config/collection"
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
-	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/scope"
 )
 
@@ -31,37 +31,50 @@ type CollectionReporterFn func(collection.Name)
 // AnalyzingDistributor is an snapshotter. Distributor implementation that will perform analysis on a snapshot before
 // publishing. It will update the CRD status with the analysis results.
 type AnalyzingDistributor struct {
-	updater     StatusUpdater
-	analyzer    analysis.Analyzer
-	distributor Distributor
+	s AnalyzingDistributorSettings
 
 	analysisMu     sync.Mutex
 	cancelAnalysis chan struct{}
 
 	snapshotsMu   sync.RWMutex
 	lastSnapshots map[string]*Snapshot
-
-	collectionReporter CollectionReporterFn
 }
 
 var _ Distributor = &AnalyzingDistributor{}
 
-const defaultSnapshotGroup = "default"
-const syntheticSnapshotGroup = "syntheticServiceEntry"
+// AnalyzingDistributorSettings are settings for an AnalyzingDistributor
+type AnalyzingDistributorSettings struct {
+	// The status updater to route diagnostic messages to
+	StatusUpdater StatusUpdater
+
+	// The top-level combined analyzer that will perform the analysis
+	Analyzer *analysis.CombinedAnalyzer
+
+	// The downstream distributor to call, after the analysis is done.
+	Distributor Distributor
+
+	// The snapshots that will get analyzed.
+	AnalysisSnapshots []string
+
+	// The snapshot that will trigger the analysis.
+	// TODO(https://github.com/istio/istio/issues/17543): This should be eventually replaced by the AnalysisSnapshots
+	//  and a matching debounce mechanism.
+	TriggerSnapshot string
+
+	// An optional hook that will be called whenever a collection is accessed. Useful for testing.
+	CollectionReporter CollectionReporterFn
+}
 
 // NewAnalyzingDistributor returns a new instance of AnalyzingDistributor.
-func NewAnalyzingDistributor(u StatusUpdater, a analysis.Analyzer, d Distributor, cr CollectionReporterFn) *AnalyzingDistributor {
+func NewAnalyzingDistributor(s AnalyzingDistributorSettings) *AnalyzingDistributor {
 	// collectionReport hook function defaults to no-op
-	if cr == nil {
-		cr = func(collection.Name) {}
+	if s.CollectionReporter == nil {
+		s.CollectionReporter = func(collection.Name) {}
 	}
 
 	return &AnalyzingDistributor{
-		updater:            u,
-		analyzer:           a,
-		distributor:        d,
-		lastSnapshots:      make(map[string]*Snapshot),
-		collectionReporter: cr,
+		s:             s,
+		lastSnapshots: make(map[string]*Snapshot),
 	}
 }
 
@@ -69,17 +82,16 @@ func NewAnalyzingDistributor(u StatusUpdater, a analysis.Analyzer, d Distributor
 func (d *AnalyzingDistributor) Distribute(name string, s *Snapshot) {
 	// Keep the most recent snapshot for each snapshot group we care about for analysis so we can combine them
 	// For analysis, we want default and synthetic, and we can safely combine them since they are disjoint.
-	if name == defaultSnapshotGroup || name == syntheticSnapshotGroup {
+	if d.isAnalysisSnapshot(name) {
 		d.snapshotsMu.Lock()
 		d.lastSnapshots[name] = s
 		d.snapshotsMu.Unlock()
 	}
 
-	// Make use of the fact that "default" is the main snapshot group, currently. Once/if this changes, we will need to
-	// redesign this approach.
-	// We use "default" to trigger analysis, since it has a debounce strategy that means it won't trigger constantly.
-	if name != defaultSnapshotGroup {
-		d.distributor.Distribute(name, s)
+	// If the trigger snapshot is not set, simply bypass.
+	// TODO(https://github.com/istio/istio/issues/17543): This should be replaced by a debounce logic
+	if name != d.s.TriggerSnapshot {
+		d.s.Distributor.Distribute(name, s)
 		return
 	}
 
@@ -95,28 +107,37 @@ func (d *AnalyzingDistributor) Distribute(name string, s *Snapshot) {
 	// start a new analysis session
 	cancelAnalysis := make(chan struct{})
 	d.cancelAnalysis = cancelAnalysis
-	go d.analyzeAndDistribute(cancelAnalysis, s)
-
+	go d.analyzeAndDistribute(cancelAnalysis, name, s)
 }
 
-func (d *AnalyzingDistributor) analyzeAndDistribute(cancelCh chan struct{}, s *Snapshot) {
+func (d *AnalyzingDistributor) isAnalysisSnapshot(s string) bool {
+	for _, sn := range d.s.AnalysisSnapshots {
+		if sn == s {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (d *AnalyzingDistributor) analyzeAndDistribute(cancelCh chan struct{}, name string, s *Snapshot) {
 	// For analysis, we use a combined snapshot
 	ctx := &context{
 		sn:                 d.getCombinedSnapshot(),
 		cancelCh:           cancelCh,
-		collectionReporter: d.collectionReporter,
+		collectionReporter: d.s.CollectionReporter,
 	}
 
 	scope.Analysis.Debugf("Beginning analyzing the current snapshot")
-	d.analyzer.Analyze(ctx)
-	scope.Analysis.Debugf("Finished analzing the current snapshot, found messages: %v", ctx.messages)
+	d.s.Analyzer.Analyze(ctx)
+	scope.Analysis.Debugf("Finished analyzing the current snapshot, found messages: %v", ctx.messages)
 
 	if !ctx.Canceled() {
-		d.updater.Update(ctx.messages)
+		d.s.StatusUpdater.Update(ctx.messages)
 	}
 
-	// Execution only reaches this point for default snapshot group
-	d.distributor.Distribute(defaultSnapshotGroup, s)
+	// Execution only reaches this point for trigger snapshot group
+	d.s.Distributor.Distribute(name, s)
 }
 
 // getCombinedSnapshot creates a new snapshot from the last snapshots of each snapshot group

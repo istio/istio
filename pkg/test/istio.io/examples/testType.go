@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,98 +14,17 @@
 package examples
 
 import (
-	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
-	"istio.io/istio/pkg/test/scopes"
 )
 
 type testStep interface {
 	Run(*kube.Environment, *testing.T) (string, error)
 	Copy(path string) error
-}
-
-type fileTestType struct {
-	path      string
-	namespace string
-	delete    bool
-}
-
-func newStepFile(namespace string, path string, delete bool) testStep {
-	return fileTestType{
-		path:      path,
-		namespace: namespace,
-		delete:    delete,
-	}
-}
-
-func (test fileTestType) Run(env *kube.Environment, t *testing.T) (string, error) {
-	if test.delete {
-		scopes.CI.Infof(fmt.Sprintf("Deleting %s\n", test.path))
-		if err := env.Delete(test.namespace, test.path); err != nil {
-			return "", err
-		}
-	} else {
-		scopes.CI.Infof(fmt.Sprintf("Applying %s\n", test.path))
-		if err := env.Apply(test.namespace, test.path); err != nil {
-			return "", err
-		}
-	}
-
-	return "", nil
-}
-
-func (test fileTestType) Copy(path string) error {
-	return copyFile(test.path, path)
-}
-
-func newStepFunction(testFunction testFunc) testStep {
-	return functionTestType{
-		testFunction: testFunction,
-	}
-}
-
-type functionTestType struct {
-	testFunction testFunc
-}
-
-func (test functionTestType) Run(env *kube.Environment, t *testing.T) (string, error) {
-	scopes.CI.Infof(fmt.Sprintf("Executing function\n"))
-	test.testFunction(t)
-	return "", nil
-}
-
-func (test functionTestType) Copy(path string) error {
-	return nil
-}
-
-func newStepScript(script string, output outputType) testStep {
-	return scriptTestType{
-		script: script,
-		output: output,
-	}
-
-	//todo: what to do for different output types?
-}
-
-type scriptTestType struct {
-	script string
-	output outputType
-}
-
-func (test scriptTestType) Run(env *kube.Environment, t *testing.T) (string, error) {
-	scopes.CI.Infof(fmt.Sprintf("Executing %s\n", test.script))
-	cmd := exec.Command(test.script)
-
-	output, err := cmd.CombinedOutput()
-	return string(output), err
-}
-func (test scriptTestType) Copy(path string) error {
-	return copyFile(test.script, path)
+	String() string
 }
 
 func copyFile(src string, dest string) error {

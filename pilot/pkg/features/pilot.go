@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/duration"
 
 	"istio.io/pkg/env"
 )
@@ -96,7 +97,13 @@ var (
 			"a response to the config requested by Envoy, the Envoy will move on with the init phase. "+
 			"This prevents envoy from getting stuck waiting on config during startup.",
 	)
-	InitialFetchTimeout = ptypes.DurationProto(initialFetchTimeoutVar.Get())
+	InitialFetchTimeout = func() *duration.Duration {
+		timeout, f := initialFetchTimeoutVar.Lookup()
+		if !f {
+			return nil
+		}
+		return ptypes.DurationProto(timeout)
+	}()
 
 	terminationDrainDurationVar = env.RegisterIntVar(
 		"TERMINATION_DRAIN_DURATION_SECONDS",

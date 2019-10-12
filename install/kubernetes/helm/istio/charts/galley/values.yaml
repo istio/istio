@@ -33,3 +33,6 @@ podAntiAffinityTermLabelSelector: []
 
 # Enable service discovery processing in Galley
 enableServiceDiscovery: false
+
+# Enable analysis and status update in Galley
+enableAnalysis: false
