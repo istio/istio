@@ -225,7 +225,7 @@ You can execute all istio.io tests using make.
 
 ```bash
 export KUBECONFIG=~/.kube/config
-make istioio-test
+make test.integration.istio-io.kube.presubmit
 ```
 
 ## Execute individual tests
