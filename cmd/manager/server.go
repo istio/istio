@@ -80,10 +80,24 @@ func getWatchNamespace() (string, error) {
 	return ns, nil
 }
 
+// getLeaderElectionNamespace returns the namespace in which the leader election configmap will be created
+func getLeaderElectionNamespace() (string, error) {
+	ns, found := os.LookupEnv("LEADER_ELECTION_NAMESPACE")
+	if !found {
+		return "", fmt.Errorf("LEADER_ELECTION_NAMESPACE must be set")
+	}
+	return ns, nil
+}
+
 func run() {
-	namespace, err := getWatchNamespace()
+	watchNS, err := getWatchNamespace()
 	if err != nil {
 		log.Fatalf("Failed to get watch namespace: %v", err)
+	}
+
+	leaderElectionNS, err := getLeaderElectionNamespace()
+	if err != nil {
+		log.Fatalf("Failed to get leader election namespace: %v", err)
 	}
 
 	// Get a config to talk to the apiserver
@@ -94,12 +108,12 @@ func run() {
 
 	// Create a new Cmd to provide shared dependencies and start components
 	mgr, err := manager.New(cfg, manager.Options{
-		Namespace:          namespace,
+		Namespace:          watchNS,
 		MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 		// Workaround for https://github.com/kubernetes-sigs/controller-runtime/issues/321
 		MapperProvider:          drm.NewDynamicRESTMapper,
 		LeaderElection:          true,
-		LeaderElectionNamespace: namespace,
+		LeaderElectionNamespace: leaderElectionNS,
 		LeaderElectionID:        "istio-operator-lock",
 	})
 	if err != nil {
