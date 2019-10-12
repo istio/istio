@@ -200,7 +200,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			discoveryType := convertResolution(proxy, service.Resolution)
 			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 			serviceAccounts := push.ServiceAccounts[service.Hostname][port.Port]
-			defaultCluster := buildDefaultCluster(env, clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, port)
+			defaultCluster := buildDefaultCluster(env, clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, port, service.MeshExternal, false)
 			// If stat name is configured, build the alternate stats name.
 			if len(env.Mesh.OutboundClusterStatName) != 0 {
 				defaultCluster.AltStatName = altStatName(env.Mesh.OutboundClusterStatName, string(service.Hostname), "", port, service.Attributes)
@@ -236,6 +236,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 				direction:       model.TrafficDirectionOutbound,
 				proxy:           proxy,
 				serviceMTLSMode: serviceMTLSMode,
+				meshExternal:    service.MeshExternal,
 			}
 
 			applyTrafficPolicy(opts, proxy)
@@ -249,7 +250,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 				if discoveryType != apiv2.Cluster_EDS && len(subset.Labels) != 0 {
 					lbEndpoints = buildLocalityLbEndpoints(env, networkView, service, port.Port, []labels.Instance{subset.Labels})
 				}
-				subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, nil)
+				subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, nil, service.MeshExternal, false)
 				if len(env.Mesh.OutboundClusterStatName) != 0 {
 					subsetCluster.AltStatName = altStatName(env.Mesh.OutboundClusterStatName, string(service.Hostname), subset.Name, port, service.Attributes)
 				}
@@ -266,6 +267,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 					direction:       model.TrafficDirectionOutbound,
 					proxy:           proxy,
 					serviceMTLSMode: serviceMTLSMode,
+					meshExternal:    service.MeshExternal,
 				}
 				applyTrafficPolicy(opts, proxy)
 
@@ -280,6 +282,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 					direction:       model.TrafficDirectionOutbound,
 					proxy:           proxy,
 					serviceMTLSMode: serviceMTLSMode,
+					meshExternal:    service.MeshExternal,
 				}
 				applyTrafficPolicy(opts, proxy)
 
@@ -323,7 +326,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 			discoveryType := convertResolution(proxy, service.Resolution)
 
 			clusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
-			defaultCluster := buildDefaultCluster(env, clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, nil)
+			defaultCluster := buildDefaultCluster(env, clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, nil, service.MeshExternal, false)
 			defaultCluster.TlsContext = nil
 			clusters = append(clusters, defaultCluster)
 
@@ -338,6 +341,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 					direction:       model.TrafficDirectionOutbound,
 					proxy:           proxy,
 					serviceMTLSMode: authn_model.MTLSUnknown,
+					meshExternal:    service.MeshExternal,
 				}
 				applyTrafficPolicy(opts, proxy)
 				defaultCluster.Metadata = util.BuildConfigInfoMetadata(destRule.ConfigMeta)
@@ -348,7 +352,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 					if discoveryType != apiv2.Cluster_EDS && len(subset.Labels) != 0 {
 						lbEndpoints = buildLocalityLbEndpoints(env, networkView, service, port.Port, []labels.Instance{subset.Labels})
 					}
-					subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, nil)
+					subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, nil, service.MeshExternal, false)
 					subsetCluster.TlsContext = nil
 
 					opts = buildClusterOpts{
@@ -360,6 +364,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 						direction:       model.TrafficDirectionOutbound,
 						proxy:           proxy,
 						serviceMTLSMode: authn_model.MTLSUnknown,
+						meshExternal:    service.MeshExternal,
 					}
 					applyTrafficPolicy(opts, proxy)
 
@@ -372,6 +377,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 						direction:       model.TrafficDirectionOutbound,
 						proxy:           proxy,
 						serviceMTLSMode: authn_model.MTLSUnknown,
+						meshExternal:    service.MeshExternal,
 					}
 					applyTrafficPolicy(opts, proxy)
 
@@ -565,7 +571,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 				ManagementClusterHostname, port.Port)
 			localityLbEndpoints := buildInboundLocalityLbEndpoints(actualLocalHost, port.Port)
 			mgmtCluster := buildDefaultCluster(env, clusterName, apiv2.Cluster_STATIC, localityLbEndpoints,
-				model.TrafficDirectionInbound, proxy, nil)
+				model.TrafficDirectionInbound, proxy, nil, false, false) // TODO GregHanson always false/false?
 			setUpstreamProtocol(proxy, mgmtCluster, port, model.TrafficDirectionInbound)
 			clusters = append(clusters, mgmtCluster)
 		}
@@ -670,7 +676,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginPara
 		instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
 	localityLbEndpoints := buildInboundLocalityLbEndpoints(pluginParams.Bind, instance.Endpoint.Port)
 	localCluster := buildDefaultCluster(pluginParams.Env, clusterName, apiv2.Cluster_STATIC, localityLbEndpoints,
-		model.TrafficDirectionInbound, pluginParams.Node, nil)
+		model.TrafficDirectionInbound, pluginParams.Node, nil, false, pluginParams.ServiceInstance.MTLSReady)
 	// If stat name is configured, build the alt statname.
 	if len(pluginParams.Env.Mesh.InboundClusterStatName) != 0 {
 		localCluster.AltStatName = altStatName(pluginParams.Env.Mesh.InboundClusterStatName,
@@ -728,27 +734,25 @@ func conditionallyConvertToIstioMtls(
 	proxy *model.Proxy,
 	serviceMTLSMode authn_model.MutualTLSMode,
 	autoMTLSEnabled bool,
-) (*networking.TLSSettings, bool) {
-	enableTransportSocketMtls := false
+	instMTLSReady bool,
+) *networking.TLSSettings {
 	if tls == nil {
 		switch serviceMTLSMode {
 		case authn_model.MTLSPermissive, authn_model.MTLSUnknown:
-			if autoMTLSEnabled {
+			if autoMTLSEnabled && instMTLSReady {
 				tls = &networking.TLSSettings{
 					Mode: networking.TLSSettings_ISTIO_MUTUAL,
 				}
-				enableTransportSocketMtls = true
 			} else {
-				return nil, false
+				return nil
 			}
 		case authn_model.MTLSStrict:
 			// Always use ISTIO_MUTUAL if destination service is strict-mTLS
 			tls = &networking.TLSSettings{
 				Mode: networking.TLSSettings_ISTIO_MUTUAL,
 			}
-			enableTransportSocketMtls = true
 		case authn_model.MTLSDisable:
-			return nil, false
+			return nil
 		}
 	}
 	if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
@@ -762,10 +766,9 @@ func conditionallyConvertToIstioMtls(
 		if len(subjectAltNamesToUse) == 0 {
 			subjectAltNamesToUse = serviceAccounts
 		}
-		// TODO GregHanson enableTransportSocketMtls always true mode=Istio_Mutual case?
-		return buildIstioMutualTLS(subjectAltNamesToUse, sniToUse, proxy), enableTransportSocketMtls
+		return buildIstioMutualTLS(subjectAltNamesToUse, sniToUse, proxy)
 	}
-	return tls, enableTransportSocketMtls
+	return tls
 }
 
 // buildIstioMutualTLS returns a `TLSSettings` for ISTIO_MUTUAL mode.
@@ -832,6 +835,8 @@ type buildClusterOpts struct {
 	direction       model.TrafficDirection
 	proxy           *model.Proxy
 	serviceMTLSMode authn_model.MutualTLSMode
+	meshExternal    bool
+	instMTLSReady   bool
 }
 
 func applyTrafficPolicy(opts buildClusterOpts, proxy *model.Proxy) {
@@ -841,10 +846,9 @@ func applyTrafficPolicy(opts buildClusterOpts, proxy *model.Proxy) {
 	applyOutlierDetection(opts.cluster, outlierDetection)
 	applyLoadBalancer(opts.cluster, loadBalancer, opts.port, proxy)
 	if opts.clusterMode != SniDnatClusterMode {
-		var enableTransportSocketMtls bool
 		autoMTLSEnabled := opts.env.Mesh.GetEnableAutoMtls().Value
-		tls, enableTransportSocketMtls = conditionallyConvertToIstioMtls(tls, opts.serviceAccounts, opts.sni, opts.proxy, opts.serviceMTLSMode, autoMTLSEnabled)
-		applyUpstreamTLSSettings(opts.env, opts.cluster, tls, opts.proxy, enableTransportSocketMtls)
+		tls = conditionallyConvertToIstioMtls(tls, opts.serviceAccounts, opts.sni, opts.proxy, opts.serviceMTLSMode, autoMTLSEnabled, opts.instMTLSReady)
+		applyUpstreamTLSSettings(opts.env, opts.cluster, tls, opts.proxy, opts.meshExternal)
 	}
 }
 
@@ -1068,7 +1072,7 @@ func applyLocalityLBSetting(
 	}
 }
 
-func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tls *networking.TLSSettings, proxy *model.Proxy, enableTransportSocketMtls bool) {
+func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tls *networking.TLSSettings, proxy *model.Proxy, meshExternal bool) {
 	if tls == nil {
 		return
 	}
@@ -1168,7 +1172,7 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 		}
 	}
 
-	if env.Mesh.GetEnableAutoMtls().Value && enableTransportSocketMtls {
+	if env.Mesh.GetEnableAutoMtls().Value && !meshExternal {
 		tlsContext, err := ptypes.MarshalAny(cluster.TlsContext)
 		if err != nil {
 			log.Errorf("error marshaling cluster tls context to transport_socket config, err=%v", err)
@@ -1196,6 +1200,7 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 			}
 		}
 		// TODO GregHanson nil out cluster.tls field after building mtls transport socket match?
+		cluster.TlsContext = nil
 	}
 }
 
@@ -1260,7 +1265,7 @@ func buildDefaultPassthroughCluster(env *model.Environment, proxy *model.Proxy) 
 
 func buildDefaultCluster(env *model.Environment, name string, discoveryType apiv2.Cluster_DiscoveryType,
 	localityLbEndpoints []*endpoint.LocalityLbEndpoints, direction model.TrafficDirection, proxy *model.Proxy,
-	port *model.Port) *apiv2.Cluster {
+	port *model.Port, meshExternal, instMTLSReady bool) *apiv2.Cluster {
 	cluster := &apiv2.Cluster{
 		Name:                 name,
 		ClusterDiscoveryType: &apiv2.Cluster_Type{Type: discoveryType},
@@ -1294,6 +1299,8 @@ func buildDefaultCluster(env *model.Environment, name string, discoveryType apiv
 		direction:       direction,
 		proxy:           proxy,
 		serviceMTLSMode: authn_model.MTLSUnknown,
+		meshExternal:    meshExternal,
+		instMTLSReady:   instMTLSReady,
 	}
 	applyTrafficPolicy(opts, proxy)
 	return cluster
