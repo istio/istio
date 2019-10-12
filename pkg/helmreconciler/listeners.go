@@ -248,35 +248,31 @@ func (l *LoggingRenderingListener) BeginChart(chart string, manifests []manifest
 
 // BeginResource logs the event and updates the logger to log with values resource=name, kind=kind, apiVersion=api-version
 func (l *LoggingRenderingListener) BeginResource(obj runtime.Object) (runtime.Object, error) {
-	accessor := meta.NewAccessor()
-	kind, _ := accessor.Kind(obj)
-	name, _ := accessor.Name(obj)
-	version, _ := accessor.APIVersion(obj)
-	log.Infof("begin resource update (%s, %s, %s)", version, kind, name)
+	log.Infof("begin resource update: %s", obj.GetObjectKind().GroupVersionKind())
 	return obj, nil
 }
 
 // ResourceCreated logs the event
 func (l *LoggingRenderingListener) ResourceCreated(created runtime.Object) error {
-	log.Info("new resource created")
+	log.Infof("resource created: %s", created.GetObjectKind().GroupVersionKind())
 	return nil
 }
 
 // ResourceUpdated logs the event
 func (l *LoggingRenderingListener) ResourceUpdated(updated runtime.Object, old runtime.Object) error {
-	log.Info("existing resource updated")
+	log.Infof("resource updated: %s", updated.GetObjectKind().GroupVersionKind())
 	return nil
 }
 
 // ResourceDeleted logs the event
 func (l *LoggingRenderingListener) ResourceDeleted(deleted runtime.Object) error {
-	log.Info("resource deleted")
+	log.Infof("resource deleted: %s", deleted.GetObjectKind().GroupVersionKind())
 	return nil
 }
 
 // ResourceError logs the event and the error
 func (l *LoggingRenderingListener) ResourceError(obj runtime.Object, err error) error {
-	log.Errorf("error processing resource: %s", err)
+	log.Errorf("error processing resource: %s", obj.GetObjectKind().GroupVersionKind())
 	return nil
 }
 
