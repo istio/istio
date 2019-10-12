@@ -159,6 +159,8 @@ var (
 
 	applicationProtocolsOverTLS = []string{"istio-http/1.0", "istio-http/1.1", "istio-h2"}
 
+	defaultApplicationProtocol = []string{"istio"}
+
 	// Double the number of filter chains. Half of filter chains are used as http filter chain and half of them are used as tcp proxy
 	// id in [0, len(allChains)/2) are configured as http filter chain, [(len(allChains)/2, len(allChains)) are configured as tcp proxy
 	// If mTLS permissive is enabled, there are five filter chains. The filter chain match should be
@@ -181,7 +183,7 @@ var (
 			Protocol:             plugin.ListenerProtocolHTTP,
 		},
 		{
-			ApplicationProtocols: []string{"istio"},
+			ApplicationProtocols: defaultApplicationProtocol,
 			TransportProtocol:    "tls",
 		},
 		{},
@@ -622,7 +624,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 		// TODO(yxue) fragile here to determine permissive mTLS by number of filter chains
 		// Assumption: listener with permissive mTLS has 2 filter chains, other cases have 1 filter chain.
 		if len(allChains) == 4 {
-			allChains = append(allChains, allChains[3])
+			allChains = append(allChains, plugin.FilterChain{})
 			filterChainMatchOption = permissiveFilterChainMatchOptions
 		} else {
 			filterChainMatchOption = filterChainMatchOptions
