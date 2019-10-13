@@ -24,31 +24,40 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
+          description: 'Configuration for access control on workloads. See more details
+            at: https://istio.io/docs/reference/config/security/v1beta1/authorization-policy.html'
           properties:
             rules:
+              description: Optional.
               items:
                 properties:
                   from:
+                    description: Optional.
                     items:
                       properties:
                         source:
+                          description: Source specifies the source of a request.
                           properties:
                             ipBlocks:
+                              description: Optional.
                               items:
                                 format: string
                                 type: string
                               type: array
                             namespaces:
+                              description: Optional.
                               items:
                                 format: string
                                 type: string
                               type: array
                             principals:
+                              description: Optional.
                               items:
                                 format: string
                                 type: string
                               type: array
                             requestPrincipals:
+                              description: Optional.
                               items:
                                 format: string
                                 type: string
@@ -57,26 +66,32 @@ spec:
                       type: object
                     type: array
                   to:
+                    description: Optional.
                     items:
                       properties:
                         operation:
+                          description: Operation specifies the operation of a request.
                           properties:
                             hosts:
+                              description: Optional.
                               items:
                                 format: string
                                 type: string
                               type: array
                             methods:
+                              description: Optional.
                               items:
                                 format: string
                                 type: string
                               type: array
                             paths:
+                              description: Optional.
                               items:
                                 format: string
                                 type: string
                               type: array
                             ports:
+                              description: Optional.
                               items:
                                 format: string
                                 type: string
@@ -85,12 +100,15 @@ spec:
                       type: object
                     type: array
                   when:
+                    description: Optional.
                     items:
                       properties:
                         key:
+                          description: Required.
                           format: string
                           type: string
                         values:
+                          description: Required.
                           items:
                             format: string
                             type: string
@@ -100,6 +118,7 @@ spec:
                 type: object
               type: array
             selector:
+              description: Optional.
               properties:
                 matchLabels:
                   additionalProperties:

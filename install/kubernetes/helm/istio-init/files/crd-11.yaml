@@ -26,8 +26,11 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
+          description: 'Configuration affecting network reachability of a sidecar.
+            See more details at: https://istio.io/docs/reference/config/networking/v1alpha3/sidecar.html'
           properties:
             egress:
+              description: REQUIRED.
               items:
                 properties:
                   bind:
@@ -45,13 +48,18 @@ spec:
                       type: string
                     type: array
                   port:
+                    description: The port associated with the listener.
                     properties:
                       name:
+                        description: Label assigned to the port.
                         format: string
                         type: string
                       number:
+                        description: 'REQUIRED: A valid non-negative integer port
+                          number.'
                         type: integer
                       protocol:
+                        description: 'REQUIRED: The protocol exposed on the port.'
                         format: string
                         type: string
                     type: object
@@ -61,6 +69,7 @@ spec:
               items:
                 properties:
                   bind:
+                    description: The ip to which the listener should be bound.
                     format: string
                     type: string
                   captureMode:
@@ -73,19 +82,25 @@ spec:
                     format: string
                     type: string
                   port:
+                    description: REQUIRED.
                     properties:
                       name:
+                        description: Label assigned to the port.
                         format: string
                         type: string
                       number:
+                        description: 'REQUIRED: A valid non-negative integer port
+                          number.'
                         type: integer
                       protocol:
+                        description: 'REQUIRED: The protocol exposed on the port.'
                         format: string
                         type: string
                     type: object
                 type: object
               type: array
             outboundTrafficPolicy:
+              description: This allows to configure the outbound traffic policy.
               properties:
                 mode:
                   enum:
