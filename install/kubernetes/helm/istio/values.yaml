@@ -57,12 +57,6 @@ security:
 #
 nodeagent:
   enabled: false
-  image: node-agent-k8s
-  env:
-    CA_PROVIDER: "Citadel"
-    CA_ADDR: "istio-citadel:8060"
-    VALID_TOKEN: true
-
 
 #
 # addon grafana configuration
