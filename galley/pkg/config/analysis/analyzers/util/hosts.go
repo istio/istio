@@ -16,6 +16,7 @@ package util
 
 import (
 	"regexp"
+	"strings"
 
 	"istio.io/istio/galley/pkg/config/resource"
 )
@@ -46,4 +47,17 @@ func getNamespaceAndNameFromFQDN(fqdn string) (string, string) {
 		return "", ""
 	}
 	return result[0][2], result[0][1]
+}
+
+func ConvertHostToFQDN(host, namespace string) string {
+	if (host == "") || (namespace == "") {
+		return ""
+	} else if strings.HasPrefix(host, "*") {
+		return host
+	} else if strings.Contains(host, ".") {
+		return host
+	} else {
+		// need to return Fully Qualified Domain Name
+		return host + "." + namespace + "." + DefaultKubernetesDomain
+	}
 }

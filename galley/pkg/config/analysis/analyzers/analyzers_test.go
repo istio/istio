@@ -140,6 +140,15 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "virtualServiceConflictingMeshGatewayHosts",
+		inputFiles: []string{"testdata/virtualservice_conflictingmeshgatewayhosts.yaml"},
+		analyzer:   &virtualservice.ConflictingMeshGatewayHostsAnalyzer{},
+		expected: []message{
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, ""},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, ""},
+		},
+	},
+	{
 		name:       "virtualServiceDestinationHosts",
 		inputFiles: []string{"testdata/virtualservice_destinationhosts.yaml"},
 		analyzer:   &virtualservice.DestinationHostAnalyzer{},
@@ -272,10 +281,13 @@ func TestAnalyzersHaveUniqueNames(t *testing.T) {
 func extractFields(msgs []diag.Message) []message {
 	result := make([]message, 0)
 	for _, m := range msgs {
-		result = append(result, message{
+		expMsg := message{
 			messageType: m.Type,
-			origin:      m.Origin.FriendlyName(),
-		})
+		}
+		if m.Origin != nil {
+			expMsg.origin = m.Origin.FriendlyName()
+		}
+		result = append(result, expMsg)
 	}
 	return result
 }
