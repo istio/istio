@@ -56,6 +56,10 @@ var (
 	// UnknownAnnotation defines a diag.MessageType for message "UnknownAnnotation".
 	// Description: An Istio annotation is not recognized for any kind of resource
 	UnknownAnnotation = diag.NewMessageType(diag.Warning, "IST0108", "Unknown annotation: %s")
+
+	// ConflictingMeshGatewayVirtualServiceHosts defines a diag.MessageType for message "ConflictingMeshGatewayVirtualServiceHosts".
+	// Description: Conflicting hosts on VirtualServices associated with mesh gateway
+	ConflictingMeshGatewayVirtualServiceHosts = diag.NewMessageType(diag.Error, "IST0109", "The VirtualServices %s associated with mesh gateway define the same host %s which can lead to undefined behavior. This can be fixed by merging the conflicting VirtualServices into a single resource.")
 )
 
 // NewInternalError returns a new diag.Message based on InternalError.
@@ -169,6 +173,16 @@ func NewUnknownAnnotation(entry *resource.Entry, annotation string) diag.Message
 		UnknownAnnotation,
 		originOrNil(entry),
 		annotation,
+	)
+}
+
+// NewConflictingMeshGatewayVirtualServiceHosts returns a new diag.Message based on ConflictingMeshGatewayVirtualServiceHosts.
+func NewConflictingMeshGatewayVirtualServiceHosts(entry *resource.Entry, virtualServices string, host string) diag.Message {
+	return diag.NewMessage(
+		ConflictingMeshGatewayVirtualServiceHosts,
+		originOrNil(entry),
+		virtualServices,
+		host,
 	)
 }
 

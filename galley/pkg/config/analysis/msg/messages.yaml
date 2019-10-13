@@ -121,3 +121,13 @@ messages:
        - name: annotation
          type: string
 
+  - name: "ConflictingMeshGatewayVirtualServiceHosts"
+    code: IST0109
+    level: Error
+    description: "Conflicting hosts on VirtualServices associated with mesh gateway"
+    template: "The VirtualServices %s associated with mesh gateway define the same host %s which can lead to undefined behavior. This can be fixed by merging the conflicting VirtualServices into a single resource."
+    args:
+      - name: virtualServices
+        type: string
+      - name: host
+        type: string

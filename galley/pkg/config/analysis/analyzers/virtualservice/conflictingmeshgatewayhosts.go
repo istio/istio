@@ -1,0 +1,90 @@
+// Copyright 2019 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package virtualservice
+
+import (
+	"strings"
+
+	"istio.io/api/networking/v1alpha3"
+
+	"istio.io/istio/galley/pkg/config/analysis"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
+	"istio.io/istio/galley/pkg/config/analysis/msg"
+	"istio.io/istio/galley/pkg/config/meta/metadata"
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
+	"istio.io/istio/galley/pkg/config/resource"
+)
+
+// ConflictingMeshGatewayHostsAnalyzer checks if multiple VirtualServices associated
+// with mesh gateway have conflicting hosts. The behavior is undefined if
+// conflicts exist.
+type ConflictingMeshGatewayHostsAnalyzer struct{}
+
+var _ analysis.Analyzer = &ConflictingMeshGatewayHostsAnalyzer{}
+
+// Metadata implements Analyzer
+func (c *ConflictingMeshGatewayHostsAnalyzer) Metadata() analysis.Metadata {
+	return analysis.Metadata{
+		Name: "virtualservice.ConflictingMeshGatewayHostsAnalyzer",
+		Inputs: collection.Names{
+			metadata.IstioNetworkingV1Alpha3Virtualservices,
+		},
+	}
+}
+
+// Analyze implements Analyzer
+func (c *ConflictingMeshGatewayHostsAnalyzer) Analyze(ctx analysis.Context) {
+	hs := initSidecarHostsVirtualServices(ctx)
+	for h, vsNames := range hs {
+		if len(vsNames) > 1 {
+			ctx.Report(metadata.IstioNetworkingV1Alpha3Virtualservices,
+				msg.NewConflictingMeshGatewayVirtualServiceHosts(nil, strings.Join(vsNames, ","), h))
+		}
+	}
+}
+
+func initSidecarHostsVirtualServices(ctx analysis.Context) map[string][]string {
+	hostsVirtualServices := map[string][]string{}
+	ctx.ForEach(metadata.IstioNetworkingV1Alpha3Virtualservices, func(r *resource.Entry) bool {
+		vs := r.Item.(*v1alpha3.VirtualService)
+		vsNs, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
+		vsAttachedToMeshGateway := false
+		// No entry in gateways imply "mesh" by default
+		if len(vs.Gateways) == 0 {
+			vsAttachedToMeshGateway = true
+		} else {
+			for _, g := range vs.Gateways {
+				if g == util.MeshGateway {
+					vsAttachedToMeshGateway = true
+				}
+			}
+		}
+		if vsAttachedToMeshGateway {
+			for _, h := range vs.Hosts {
+				fqdn := util.ConvertHostToFQDN(h, vsNs)
+				if fqdn != "" {
+					vsNames := hostsVirtualServices[fqdn]
+					if len(vsNames) == 0 {
+						hostsVirtualServices[fqdn] = []string{r.Metadata.Name.String()}
+					} else {
+						hostsVirtualServices[fqdn] = append(hostsVirtualServices[fqdn], r.Metadata.Name.String())
+					}
+				}
+			}
+		}
+		return true
+	})
+	return hostsVirtualServices
+}
