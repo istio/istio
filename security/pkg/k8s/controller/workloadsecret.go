@@ -113,7 +113,6 @@ type SecretController struct {
 	scrtStore      cache.Store
 
 	caSecretController *CaSecretController
-	rootCertFile       string
 
 	// Controller and store for namespace objects
 	namespaceController cache.Controller
@@ -145,7 +144,7 @@ type SecretController struct {
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
 func NewSecretController(ca certificateAuthority, certTTL time.Duration, gracePeriodRatio float32,
 	minGracePeriod time.Duration, dualUse bool, core corev1.CoreV1Interface, forCA bool, namespaces []string,
-	dnsNames map[string]*DNSNameEntry, istioCaStorageNamespace, rootCertFile string) (*SecretController, error) {
+	dnsNames map[string]*DNSNameEntry, istioCaStorageNamespace string) (*SecretController, error) {
 	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {
 		return nil, fmt.Errorf("grace period ratio %f should be within [0, 1]", gracePeriodRatio)
 	}
@@ -161,7 +160,6 @@ func NewSecretController(ca certificateAuthority, certTTL time.Duration, gracePe
 		gracePeriodRatio:        gracePeriodRatio,
 		certUtil:                certutil.NewCertUtil(int(gracePeriodRatio * 100)),
 		caSecretController:      NewCaSecretController(core),
-		rootCertFile:            rootCertFile,
 		minGracePeriod:          minGracePeriod,
 		dualUse:                 dualUse,
 		core:                    core,
@@ -406,8 +404,11 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 	caCert, _, _, rootCertificate := sc.ca.GetCAKeyCertBundle().GetAllPem()
 
 	// Check if root certificate in key cert bundle is not up-to-date. With mutiple
-	// Citadel deployed in Istio, the root certificate in istio-ca-secret could be
-	// rotated by any Citadel and become newer than the one in local key cert bundle.
+	// Citadel deployed in Istio, and Citadels are in self signed mode, the root
+	// certificate in istio-ca-secret could be rotated by any Citadel and become newer
+	// than the one in local key cert bundle.
+	// When Citadel is in plugged cert mode, the root cert in keycertbundle and root
+	// cert in istio-ca-secret are always identical.
 	if !bytes.Equal(rootCertificate, scrt.Data[RootCertID]) {
 		caSecret, scrtErr := sc.caSecretController.LoadCASecretWithRetry(CASecret,
 			sc.istioCaStorageNamespace, 100*time.Millisecond, 5*time.Second)
@@ -422,12 +423,9 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 		if !bytes.Equal(caCert, caSecret.Data[caCertID]) {
 			log.Warn("CA cert in KeyCertBundle does not match CA cert in " +
 				"istio-ca-secret. Start to reload root cert into KeyCertBundle")
-			var err error
-			rootCertificate, err = util.AppendRootCerts(caSecret.Data[caCertID], sc.rootCertFile)
-			if err != nil {
-				log.Errorf("failed to append root certificates: %s", err.Error())
-				return
-			}
+			// In self signed cert mode, no root cert file is appended, the root cert and ca cert
+			// are the same.
+			rootCertificate = caSecret.Data[caCertID]
 			if err := sc.ca.GetCAKeyCertBundle().VerifyAndSetAll(caSecret.Data[caCertID],
 				caSecret.Data[caPrivateKeyID], nil, rootCertificate); err != nil {
 				log.Errorf("failed to reload root cert into KeyCertBundle (%v)", err)

@@ -47,10 +47,8 @@ import (
 )
 
 const (
-	selfSignedCaCertTTL                     = "CITADEL_SELF_SIGNED_CA_CERT_TTL"
 	selfSignedRootCertCheckInterval         = "CITADEL_SELF_SIGNED_ROOT_CERT_CHECK_INTERVAL"
 	selfSignedRootCertGracePeriodPercentile = "CITADEL_SELF_SIGNED_ROOT_CERT_GRACE_PERIOD_PERCENTILE"
-	workloadCertMinGracePeriod              = "CITADEL_WORKLOAD_CERT_MIN_GRACE_PERIOD"
 	enableJitterForRootCertRotator          = "CITADEL_ENABLE_JITTER_FOR_ROOT_CERT_ROTATOR"
 )
 
@@ -126,9 +124,6 @@ var (
 		loggingOptions:       log.DefaultOptions(),
 		ctrlzOptions:         ctrlz.DefaultOptions(),
 		LivenessProbeOptions: &probe.Options{},
-		selfSignedCACertTTL: env.RegisterDurationVar(selfSignedCaCertTTL,
-			cmd.DefaultSelfSignedCACertTTL,
-			"The TTL of self-signed CA root certificate.").Get(),
 		selfSignedRootCertCheckInterval: env.RegisterDurationVar(selfSignedRootCertCheckInterval,
 			cmd.DefaultSelfSignedRootCertCheckInterval,
 			"The interval that self-signed CA checks its root certificate "+
@@ -138,9 +133,6 @@ var (
 		selfSignedRootCertGracePeriodPercentile: env.RegisterIntVar(selfSignedRootCertGracePeriodPercentile,
 			cmd.DefaultRootCertGracePeriodPercentile,
 			"Grace period percentile for self-signed root cert.").Get(),
-		workloadCertMinGracePeriod: env.RegisterDurationVar(workloadCertMinGracePeriod,
-			cmd.DefaultWorkloadMinCertGracePeriod,
-			"The minimum workload certificate rotation grace period.").Get(),
 		enableJitterForRootCertRotator: env.RegisterBoolVar(enableJitterForRootCertRotator,
 			true,
 			"If true, set up a jitter to start root cert rotator. "+
@@ -208,6 +200,8 @@ func init() {
 	flags.BoolVar(&opts.selfSignedCA, "self-signed-ca", false,
 		"Indicates whether to use auto-generated self-signed CA certificate. "+
 			"When set to true, the '--signing-cert' and '--signing-key' options are ignored.")
+	flags.DurationVar(&opts.selfSignedCACertTTL, "self-signed-ca-cert-ttl", cmd.DefaultSelfSignedCACertTTL,
+		"The TTL of self-signed CA root certificate")
 	flags.StringVar(&opts.trustDomain, "trust-domain", "",
 		"The domain serves to identify the system with spiffe ")
 	// Upstream CA configuration if Citadel interacts with upstream CA.
@@ -226,6 +220,8 @@ func init() {
 	flags.Float32Var(&opts.workloadCertGracePeriodRatio, "workload-cert-grace-period-ratio",
 		cmd.DefaultWorkloadCertGracePeriodRatio, "The workload certificate rotation grace period, as a ratio of the "+
 			"workload certificate TTL.")
+	flags.DurationVar(&opts.workloadCertMinGracePeriod, "workload-cert-min-grace-period",
+		cmd.DefaultWorkloadMinCertGracePeriod, "The minimum workload certificate rotation grace period.")
 
 	// gRPC server for signing CSRs.
 	flags.StringVar(&opts.grpcHosts, "grpc-host-identities", "istio-ca,istio-citadel",
@@ -328,10 +324,11 @@ func runCA() {
 	if !opts.serverOnly {
 		log.Infof("Creating Kubernetes controller to write issued keys and certs into secret ...")
 		// For workloads in K8s, we apply the configured workload cert TTL.
-		sc, err := controller.NewSecretController(ca, opts.workloadCertTTL,
-			opts.workloadCertGracePeriodRatio, opts.workloadCertMinGracePeriod,
-			opts.dualUse, cs.CoreV1(), opts.signCACerts, listenedNamespaces, webhooks,
-			opts.istioCaStorageNamespace, opts.rootCertFile)
+		sc, err := controller.NewSecretController(ca,
+			opts.workloadCertTTL,
+			opts.workloadCertGracePeriodRatio, opts.workloadCertMinGracePeriod, opts.dualUse,
+			cs.CoreV1(), opts.signCACerts, listenedNamespaces, webhooks,
+			opts.istioCaStorageNamespace)
 		if err != nil {
 			fatalf("Failed to create secret controller: %v", err)
 		}
@@ -366,9 +363,8 @@ func runCA() {
 
 		// The CA API uses cert with the max workload cert TTL.
 		hostnames := append(strings.Split(opts.grpcHosts, ","), fqdn())
-		caServer, startErr := caserver.New(ca, opts.maxWorkloadCertTTL,
-			opts.signCACerts, hostnames, opts.grpcPort, spiffe.GetTrustDomain(),
-			opts.sdsEnabled)
+		caServer, startErr := caserver.New(ca, opts.maxWorkloadCertTTL, opts.signCACerts, hostnames,
+			opts.grpcPort, spiffe.GetTrustDomain(), opts.sdsEnabled)
 		if startErr != nil {
 			fatalf("Failed to create istio ca server: %v", startErr)
 		}
@@ -440,7 +436,7 @@ func createCA(client corev1.CoreV1Interface) *ca.IstioCA {
 		defer cancel()
 		var checkInterval time.Duration
 		if opts.readSigningCertOnly {
-			checkInterval = cmd.ReadSigningCertCheckInterval
+			checkInterval = cmd.ReadSigningCertRetryInterval
 		} else {
 			checkInterval = -1
 		}
@@ -448,7 +444,7 @@ func createCA(client corev1.CoreV1Interface) *ca.IstioCA {
 			opts.selfSignedRootCertGracePeriodPercentile, opts.selfSignedCACertTTL,
 			opts.selfSignedRootCertCheckInterval, opts.workloadCertTTL,
 			opts.maxWorkloadCertTTL, spiffe.GetTrustDomain(), opts.dualUse,
-			opts.istioCaStorageNamespace, checkInterval, client, opts.rootCertFile,
+			opts.istioCaStorageNamespace, checkInterval, client,
 			opts.enableJitterForRootCertRotator)
 		if err != nil {
 			fatalf("Failed to create a self-signed Citadel (error: %v)", err)

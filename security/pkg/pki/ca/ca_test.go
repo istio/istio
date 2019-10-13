@@ -94,14 +94,13 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 	org := "test.ca.Org"
 	const caNamespace = "default"
 	client := fake.NewSimpleClientset()
-	rootCertFile := ""
 	readSigningCertOnly := false
 	rootCertCheckInverval := time.Hour
 
 	caopts, err := NewSelfSignedIstioCAOptions(context.Background(), readSigningCertOnly,
 		0, caCertTTL, rootCertCheckInverval, defaultCertTTL,
 		maxCertTTL, org, false, caNamespace, -1, client.CoreV1(),
-		rootCertFile, false)
+		false)
 	if err != nil {
 		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
 	}
@@ -187,14 +186,13 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 	org := "test.ca.Org"
 	caNamespace := "default"
 
-	const rootCertFile = ""
 	readSigningCertOnly := false
 	rootCertCheckInverval := time.Hour
 
 	caopts, err := NewSelfSignedIstioCAOptions(context.Background(), readSigningCertOnly,
 		0, caCertTTL, rootCertCheckInverval, certTTL, maxCertTTL,
 		org, false, caNamespace, -1, client.CoreV1(),
-		rootCertFile, false)
+		false)
 	if err != nil {
 		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
 	}
@@ -253,7 +251,6 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 	maxCertTTL := time.Hour
 	org := "test.ca.Org"
 	caNamespace := "default"
-	const rootCertFile = ""
 	readSigningCertOnly := true
 	rootCertCheckInverval := time.Hour
 
@@ -266,7 +263,7 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 
 	_, err := NewSelfSignedIstioCAOptions(ctx0, readSigningCertOnly, 0,
 		caCertTTL, certTTL, rootCertCheckInverval, maxCertTTL, org, false,
-		caNamespace, time.Millisecond*10, client.CoreV1(), rootCertFile, false)
+		caNamespace, time.Millisecond*10, client.CoreV1(), false)
 	if err == nil {
 		t.Errorf("Expected error, but succeeded.")
 	}
@@ -287,7 +284,7 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 
 	caopts, err := NewSelfSignedIstioCAOptions(ctx1, readSigningCertOnly, 0,
 		caCertTTL, certTTL, rootCertCheckInverval, maxCertTTL, org, false,
-		caNamespace, time.Millisecond*10, client.CoreV1(), rootCertFile, false)
+		caNamespace, time.Millisecond*10, client.CoreV1(), false)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}

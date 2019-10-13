@@ -37,7 +37,6 @@ type SelfSignedCARootCertRotatorConfig struct {
 	certInspector       certutil.CertUtil
 	caStorageNamespace  string
 	org                 string
-	rootCertFile        string
 	client              corev1.CoreV1Interface
 	CheckInterval       time.Duration
 	caCertTTL           time.Duration
@@ -138,17 +137,13 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForReadOnlyCit
 		// KeyCertBundle, this indicates that the local stored root cert is not
 		// up-to-date. Update root cert and key in KeyCertBundle and config map.
 		rootCertRotatorLog.Infof("Load signing key and cert from existing secret %s:%s", caSecret.Namespace, caSecret.Name)
-		rootCerts, err := util.AppendRootCerts(caSecret.Data[caCertID], rotator.config.rootCertFile)
-		if err != nil {
-			rootCertRotatorLog.Errorf("Failed to append root certificates (%v)", err)
-			return
-		}
 		if err := rotator.ca.GetCAKeyCertBundle().VerifyAndSetAll(caSecret.Data[caCertID],
-			caSecret.Data[caPrivateKeyID], nil, rootCerts); err != nil {
+			caSecret.Data[caPrivateKeyID], nil, caSecret.Data[caCertID]); err != nil {
 			rootCertRotatorLog.Errorf("Failed to create CA KeyCertBundle (%v)", err)
 			return
 		}
-		rootCertRotatorLog.Infof("Updated CA KeyCertBundle using existing public key: %v", string(rootCerts))
+		rootCertRotatorLog.Infof("Updated CA KeyCertBundle using existing public key: %v",
+			string(caSecret.Data[caCertID]))
 		return
 		// For read-only self-signed CA instance, don't update root cert in config
 		// map. The self-signed CA instance that updates root cert is responsible for
@@ -179,13 +174,8 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 		if !bytes.Equal(caCert, caSecret.Data[caCertID]) {
 			rootCertRotatorLog.Warn("CA cert in KeyCertBundle does not match CA cert in " +
 				"istio-ca-secret. Start to reload root cert into KeyCertBundle")
-			rootCerts, err := util.AppendRootCerts(caSecret.Data[caCertID], rotator.config.rootCertFile)
-			if err != nil {
-				rootCertRotatorLog.Errorf("failed to append root certificates from file: %s", err.Error())
-				return
-			}
 			if err := rotator.ca.GetCAKeyCertBundle().VerifyAndSetAll(caSecret.Data[caCertID],
-				caSecret.Data[caPrivateKeyID], nil, rootCerts); err != nil {
+				caSecret.Data[caPrivateKeyID], nil, caSecret.Data[caCertID]); err != nil {
 				rootCertRotatorLog.Errorf("failed to reload root cert into KeyCertBundle (%v)", err)
 			}
 			rootCertRotatorLog.Info("Successfully reloaded root cert into KeyCertBundle.")
@@ -209,12 +199,7 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 		return
 	}
 
-	rootCerts, err := util.AppendRootCerts(pemCert, rotator.config.rootCertFile)
-	if err != nil {
-		rootCertRotatorLog.Errorf("failed to append root certificates: %s", err.Error())
-		return
-	}
-	if err := rotator.ca.GetCAKeyCertBundle().VerifyAndSetAll(pemCert, pemKey, nil, rootCerts); err != nil {
+	if err := rotator.ca.GetCAKeyCertBundle().VerifyAndSetAll(pemCert, pemKey, nil, pemCert); err != nil {
 		rootCertRotatorLog.Errorf("failed to create CA KeyCertBundle (%v)", err)
 		return
 	}
@@ -226,7 +211,7 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 			"Abort new root certificate.", err.Error())
 		return
 	}
-	rootCertRotatorLog.Infof("A new self-generated root certificate is written into secret: %v", string(rootCerts))
+	rootCertRotatorLog.Infof("A new self-generated root certificate is written into secret: %v", string(pemCert))
 
 	certEncoded := base64.StdEncoding.EncodeToString(rotator.ca.GetCAKeyCertBundle().GetRootCertPem())
 	if err = rotator.configMapController.InsertCATLSRootCertWithRetry(
@@ -235,5 +220,5 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 			"to configmap (%s). Node agents will not be able to connect.",
 			err.Error())
 	}
-	rootCertRotatorLog.Infof("Updated CA KeyCertBundle using existing public key: %v", string(rootCerts))
+	rootCertRotatorLog.Infof("Updated CA KeyCertBundle using existing public key: %v", string(pemCert))
 }

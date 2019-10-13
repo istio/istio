@@ -307,14 +307,13 @@ func getDefaultSelfSignedIstioCAOptions(client corev1.CoreV1Interface) *IstioCAO
 	if client == nil {
 		client = fake.NewSimpleClientset().CoreV1()
 	}
-	rootCertFile := ""
 	readSigningCertOnly := false
 	rootCertCheckInverval := time.Hour
 
 	caopts, _ := NewSelfSignedIstioCAOptions(context.Background(),
 		readSigningCertOnly, cmd.DefaultRootCertGracePeriodPercentile, caCertTTL,
 		rootCertCheckInverval, defaultCertTTL, maxCertTTL, org, false,
-		caNamespace, -1, client, rootCertFile, false)
+		caNamespace, -1, client, false)
 	return caopts
 }
 
