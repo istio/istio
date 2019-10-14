@@ -103,11 +103,10 @@ require (
 	github.com/pkg/errors v0.8.1
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/pquerna/cachecontrol v0.0.0-20180306154005-525d0eb5f91d // indirect
-	github.com/prometheus/client_golang v0.9.4
+	github.com/prometheus/client_golang v0.9.3
 	github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4
-	github.com/prometheus/common v0.4.1
-	github.com/prometheus/procfs v0.0.5 // indirect
-	github.com/prometheus/prom2json v1.2.2
+	github.com/prometheus/common v0.4.0
+	github.com/prometheus/prom2json v1.2.1
 	github.com/satori/go.uuid v1.2.0
 	github.com/signalfx/com_signalfx_metrics_protobuf v0.0.0-20170330202426-93e507b42f43
 	github.com/signalfx/gohistogram v0.0.0-20160107210732-1ccfd2ff5083 // indirect
