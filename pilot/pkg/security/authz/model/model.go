@@ -35,7 +35,7 @@ const (
 	RBACTCPFilterStatPrefix = "tcp."
 
 	// attributes that could be used in both ServiceRoleBinding and ServiceRole.
-	attrRequestHeader = "request.headers" // header name is surrounded by brackets, e.g. "request.headers[Users-Agent]".
+	attrRequestHeader = "request.headers" // header name is surrounded by brackets, e.g. "request.headers[User-Agent]".
 
 	// attributes that could be used in a ServiceRoleBinding property.
 	attrSrcIP        = "source.ip"        // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
@@ -168,7 +168,7 @@ func NewModelV1Alpha1(trustDomain string, trustDomainAliases []string, role *ist
 }
 
 // NewModelV1beta1 constructs a Model from v1beta1 Rule.
-func NewModelFromV1beta1(trustDomain string, trustDomainAliases []string, rule *security.Rule) *Model {
+func NewModelV1beta1(trustDomain string, trustDomainAliases []string, rule *security.Rule) *Model {
 	m := &Model{}
 
 	conditionsForPrincipal := make([]KeyValues, 0)

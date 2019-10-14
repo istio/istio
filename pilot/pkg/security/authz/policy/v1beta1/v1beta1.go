@@ -71,7 +71,7 @@ func (g *v1beta1Generator) generatePolicy(trustDomain string, trustDomainAliases
 		return nil
 	}
 
-	m := authz_model.NewModelFromV1beta1(trustDomain, trustDomainAliases, rule)
+	m := authz_model.NewModelV1beta1(trustDomain, trustDomainAliases, rule)
 	rbacLog.Debugf("constructed internal model: %+v", m)
 	return m.Generate(nil, forTCPFilter)
 }
