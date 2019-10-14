@@ -412,7 +412,7 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 	// than the one in local key cert bundle.
 	// When Citadel is in plugged cert mode, the root cert in keycertbundle and root
 	// cert in istio-ca-secret are always identical.
-	if sc.lastKCBSyncTime.IsZero() || time.Since(sc.lastKCBSyncTime) > 30 * time.Second {
+	if sc.lastKCBSyncTime.IsZero() || time.Since(sc.lastKCBSyncTime) > 30*time.Second {
 		if !bytes.Equal(rootCertificate, scrt.Data[RootCertID]) {
 			caSecret, scrtErr := sc.caSecretController.LoadCASecretWithRetry(CASecret,
 				sc.istioCaStorageNamespace, 100*time.Millisecond, 5*time.Second)
