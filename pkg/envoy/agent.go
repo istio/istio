@@ -73,7 +73,6 @@ const errOutOfMemory = "signal: killed"
 func NewAgent(proxy Proxy, terminationDrainDuration time.Duration) Agent {
 	return &agent{
 		proxy:                    proxy,
-		mu:                       &sync.Mutex{},
 		statusCh:                 make(chan exitStatus),
 		activeEpochs:             map[int]chan error{},
 		terminationDrainDuration: terminationDrainDuration,
@@ -100,7 +99,8 @@ type agent struct {
 	// proxy commands
 	proxy Proxy
 
-	mu           *sync.Mutex
+	restartMutex sync.Mutex
+	mutex        sync.Mutex
 	activeEpochs map[int]chan error
 
 	// currentEpoch represents the epoch of the most recent proxy. When a new proxy is created this should be incremented
@@ -122,67 +122,89 @@ type exitStatus struct {
 }
 
 func (a *agent) Restart(config interface{}) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
+	// Only allow one restart to execute at a time.
+	a.restartMutex.Lock()
+	defer a.restartMutex.Unlock()
+
+	// Protect access to internal state.
+	a.mutex.Lock()
 
 	if reflect.DeepEqual(a.currentConfig, config) {
 		// Same configuration - nothing to do.
+		a.mutex.Unlock()
 		return
 	}
 
-	log.Infof("Received new config")
-
-	// Make sure the current epoch (if there is one) is live before performing a hot restart.
-	a.waitUntilLive()
+	hasActiveEpoch := len(a.activeEpochs) > 0
+	activeEpoch := a.currentEpoch
 
 	// Increment the latest running epoch
-	a.currentEpoch++
+	epoch := a.currentEpoch + 1
+	log.Infof("Received new config, creating new Envoy epoch %d", epoch)
+
+	a.currentEpoch = epoch
 	a.currentConfig = config
 
 	// Add the new epoch to the map.
 	abortCh := make(chan error, 1)
 	a.activeEpochs[a.currentEpoch] = abortCh
 
-	go a.runWait(a.currentConfig, a.currentEpoch, abortCh)
+	// Unlock before the wait to avoid delaying envoy exit logic.
+	a.mutex.Unlock()
+
+	// Wait for previous epoch to go live (if one exists) before performing a hot restart.
+	if hasActiveEpoch {
+		a.waitUntilLive(activeEpoch)
+	}
+
+	go a.runWait(config, epoch, abortCh)
 }
 
 // waitUntilLive waits for the current epoch (if there is one) to go live.
-func (a *agent) waitUntilLive() {
-	// Make sure there is a currently active epoch. If not, just return.
-	if len(a.activeEpochs) == 0 {
-		log.Info("no previous epoch exists, starting now")
-		return
-	}
-
-	log.Infof("waiting for epoch %d to go live before performing a hot restart", a.currentEpoch)
+func (a *agent) waitUntilLive(epoch int) {
+	log.Infof("waiting for epoch %d to go live before performing a hot restart", epoch)
 
 	// Timeout after 20 seconds. Envoy internally uses a 15s timer, so we set ours a bit above that.
 	interval := time.NewTicker(500 * time.Millisecond)
 	timer := time.NewTimer(20 * time.Second)
+
+	isDone := func() bool {
+		if !a.isActive(epoch) {
+			log.Warnf("epoch %d exited while waiting for it to go live.", epoch)
+			return true
+		}
+
+		return a.proxy.IsLive()
+	}
 
 	defer func() {
 		interval.Stop()
 		timer.Stop()
 	}()
 
-	// Do an initial check on the live state to avoid any waits if possible.
-	if a.proxy.IsLive() {
-		// It's live!
+	// Do an initial check to avoid an initial wait.
+	if isDone() {
 		return
 	}
 
 	for {
 		select {
 		case <-timer.C:
-			log.Warnf("timed out waiting for epoch %d to go live.", a.currentEpoch)
+			log.Warnf("timed out waiting for epoch %d to go live.", epoch)
 			return
 		case <-interval.C:
-			if a.proxy.IsLive() {
-				// It's live!
+			if isDone() {
 				return
 			}
 		}
 	}
+}
+
+func (a *agent) isActive(epoch int) bool {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+	_, ok := a.activeEpochs[epoch]
+	return ok
 }
 
 func (a *agent) Run(ctx context.Context) error {
@@ -190,7 +212,7 @@ func (a *agent) Run(ctx context.Context) error {
 	for {
 		select {
 		case status := <-a.statusCh:
-			a.mu.Lock()
+			a.mutex.Lock()
 			if status.err != nil {
 				if status.err.Error() == errOutOfMemory {
 					log.Warnf("Envoy may have been out of memory killed. Check memory usage and limits.")
@@ -203,7 +225,7 @@ func (a *agent) Run(ctx context.Context) error {
 			delete(a.activeEpochs, status.epoch)
 
 			active := len(a.activeEpochs)
-			a.mu.Unlock()
+			a.mutex.Unlock()
 
 			if active == 0 {
 				log.Infof("No more active epochs, terminating")
@@ -239,8 +261,8 @@ func (a *agent) runWait(config interface{}, epoch int, abortCh <-chan error) {
 
 // abortAll sends abort error to all proxies
 func (a *agent) abortAll() {
-	a.mu.Lock()
-	defer a.mu.Unlock()
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
 	for epoch, abortCh := range a.activeEpochs {
 		log.Warnf("Aborting epoch %d...", epoch)
 		abortCh <- errAbort
