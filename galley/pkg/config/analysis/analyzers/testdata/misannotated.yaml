@@ -73,3 +73,25 @@ spec:
       command: ['curl']
       args: ['http://grafana:{{ .Values.grafana.service.externalPort }}']
   restartPolicy: Never
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fortio-deploy
+  annotations:
+     # This annotation belongs on the spec/template so it can be applied to a pod, not here
+     sidecar.istio.io/statsInclusionPrefixes: cluster.outbound
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fortio
+  template:
+    metadata:
+      annotations:
+        # sidecar.istio.io/statsInclusionPrefixes should be here
+      labels:
+        app: fortio
+    spec:
+      containers:
+      - name: fortio

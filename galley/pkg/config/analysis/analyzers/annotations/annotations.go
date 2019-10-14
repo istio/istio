@@ -15,6 +15,7 @@
 package annotations
 
 import (
+	"fmt"
 	"strings"
 
 	"istio.io/api/annotation"
@@ -99,6 +100,7 @@ func (*K8sAnalyzer) Metadata() analysis.Metadata {
 			metadata.K8SCoreV1Pods,
 			metadata.K8SExtensionsV1Beta1Ingresses,
 			metadata.K8SCoreV1Nodes,
+			metadata.K8SAppsV1Deployments,
 		},
 	}
 }
@@ -127,6 +129,10 @@ func (fa *K8sAnalyzer) Analyze(ctx analysis.Context) {
 	})
 	ctx.ForEach(metadata.K8SExtensionsV1Beta1Ingresses, func(r *resource.Entry) bool {
 		fa.allowAnnotations(r, ctx, "Ingress", metadata.K8SExtensionsV1Beta1Ingresses)
+		return true
+	})
+	ctx.ForEach(metadata.K8SAppsV1Deployments, func(r *resource.Entry) bool {
+		fa.allowAnnotations(r, ctx, "Deployment", metadata.K8SAppsV1Deployments)
 		return true
 	})
 }

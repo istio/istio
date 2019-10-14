@@ -173,6 +173,7 @@ var testGrid = []testCase{
 			{msg.UnknownAnnotation, "Service/httpbin"},
 			{msg.MisplacedAnnotation, "Service/details"},
 			{msg.MisplacedAnnotation, "Pod/grafana-test"},
+			{msg.MisplacedAnnotation, "Deployment/fortio-deploy"},
 		},
 	},
 }
