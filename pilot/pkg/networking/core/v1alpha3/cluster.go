@@ -68,7 +68,14 @@ const (
 )
 
 var (
-	defaultInboundCircuitBreakerThresholds  = v2Cluster.CircuitBreakers_Thresholds{}
+	defaultInboundCircuitBreakerThresholds = v2Cluster.CircuitBreakers_Thresholds{
+		// This disables circuit breaking by default by setting highest possible values.
+		// See: https://www.envoyproxy.io/docs/envoy/v1.11.1/faq/disable_circuit_breaking
+		MaxRetries:         &wrappers.UInt32Value{Value: math.MaxUint32},
+		MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
+		MaxConnections:     &wrappers.UInt32Value{Value: math.MaxUint32},
+		MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
+	}
 	defaultOutboundCircuitBreakerThresholds = v2Cluster.CircuitBreakers_Thresholds{
 		// DefaultMaxRetries specifies the default for the Envoy circuit breaker parameter max_retries. This
 		// defines the maximum number of parallel retries a given Envoy will allow to the upstream cluster. Envoy defaults
