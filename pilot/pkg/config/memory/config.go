@@ -17,7 +17,6 @@ package memory
 
 import (
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
@@ -117,11 +116,6 @@ func (cr *store) List(typ, namespace string) ([]model.Config, error) {
 	return out, nil
 }
 
-func buildKey(typ, name, namespace string) string {
-	// this is equivalent to pilot/pkg/model/config.go - Key()
-	return fmt.Sprintf("%s/%s/%s", typ, name, namespace)
-}
-
 func (cr *store) Delete(typ, name, namespace string) error {
 	data, ok := cr.data[typ]
 	if !ok {
@@ -137,7 +131,7 @@ func (cr *store) Delete(typ, name, namespace string) error {
 		return errNotFound
 	}
 
-	err := cr.ledger.Delete(buildKey(typ, name, namespace))
+	err := cr.ledger.Delete(model.Key(typ, name, namespace))
 	if err != nil {
 		log.Warnf(ledgerLogf, err)
 	}
@@ -171,7 +165,7 @@ func (cr *store) Create(config model.Config) (string, error) {
 			config.CreationTimestamp = tnow
 		}
 
-		_, err := cr.ledger.Put(buildKey(typ, config.Namespace, config.Name), config.Version)
+		_, err := cr.ledger.Put(model.Key(typ, config.Namespace, config.Name), config.Version)
 		if err != nil {
 			log.Warnf(ledgerLogf, err)
 		}
@@ -207,7 +201,7 @@ func (cr *store) Update(config model.Config) (string, error) {
 
 	rev := time.Now().String()
 	config.ResourceVersion = rev
-	_, err := cr.ledger.Put(buildKey(typ, config.Namespace, config.Name), config.Version)
+	_, err := cr.ledger.Put(model.Key(typ, config.Namespace, config.Name), config.Version)
 	if err != nil {
 		log.Warnf(ledgerLogf, err)
 	}
