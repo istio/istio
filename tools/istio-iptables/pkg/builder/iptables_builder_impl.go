@@ -59,7 +59,7 @@ func (rb *IptablesBuilderImpl) InsertRuleV4(chain string, table string, position
 }
 
 func (rb *IptablesBuilderImpl) InsertRuleV6(chain string, table string, position int, params ...string) IptablesProducer {
-	rb.rules.rulesv4 = append(rb.rules.rulesv6, &Rule{
+	rb.rules.rulesv6 = append(rb.rules.rulesv6, &Rule{
 		chain:  chain,
 		table:  table,
 		params: append([]string{"-I", chain, fmt.Sprint(position)}, params...),
@@ -71,7 +71,7 @@ func (rb *IptablesBuilderImpl) AppendRuleV4(chain string, table string, params .
 	rb.rules.rulesv4 = append(rb.rules.rulesv4, &Rule{
 		chain:  chain,
 		table:  table,
-		params: append([]string{chain, "-A"}, params...),
+		params: append([]string{"-A", chain}, params...),
 	})
 	return rb
 }
@@ -80,7 +80,7 @@ func (rb *IptablesBuilderImpl) AppendRuleV6(chain string, table string, params .
 	rb.rules.rulesv6 = append(rb.rules.rulesv6, &Rule{
 		chain:  chain,
 		table:  table,
-		params: append([]string{chain, "-A"}, params...),
+		params: append([]string{"-A", chain}, params...),
 	})
 	return rb
 }
