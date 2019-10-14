@@ -19,6 +19,7 @@ import (
 	"reflect"
 
 	"github.com/gogo/protobuf/proto"
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	v1beta12 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -248,6 +249,34 @@ func (p *Provider) initKnownAdapters() {
 			},
 			parseJSON: func(input []byte) (interface{}, error) {
 				out := &v1beta12.CustomResourceDefinition{}
+				if _, _, err := deserializer.Decode(input, nil, out); err != nil {
+					return nil, err
+				}
+				return out, nil
+			},
+			getStatus: noStatus,
+			isEqual:   resourceVersionsMatch,
+			isBuiltIn: true,
+		},
+
+		asTypesKey("apps", "Deployment"): {
+			extractObject: defaultExtractObject,
+			extractResource: func(o interface{}) (proto.Message, error) {
+				if obj, ok := o.(*appsv1.Deployment); ok {
+					return obj, nil
+				}
+				return nil, fmt.Errorf("unable to convert to v1.Deployment: %T", o)
+			},
+			newInformer: func() (cache.SharedIndexInformer, error) {
+				informer, err := p.sharedInformerFactory()
+				if err != nil {
+					return nil, err
+				}
+
+				return informer.Apps().V1().Deployments().Informer(), nil
+			},
+			parseJSON: func(input []byte) (interface{}, error) {
+				out := &appsv1.Deployment{}
 				if _, _, err := deserializer.Decode(input, nil, out); err != nil {
 					return nil, err
 				}

@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 )
+
 type asset struct {
 	bytes []byte
 	info  os.FileInfo
@@ -85,6 +86,10 @@ collections:
     proto: "k8s.io.api.extensions.v1beta1.IngressSpec"
     protoPackage: "k8s.io/api/extensions/v1beta1"
 
+  - name: "k8s/apps/v1/deployments"
+    proto: "k8s.io.api.apps.v1.Deployment"
+    protoPackage: "k8s.io/api/apps/v1"
+
 # Configuration for input sources
 sources:
   # Kubernetes specific configuration.
@@ -120,6 +125,12 @@ sources:
         kind: "Endpoints"
         plural: "endpoints"
         version: "v1"
+
+      - collection: "k8s/apps/v1/deployments"
+        kind: "Deployment"
+        plural: "deployments"
+        group: "apps"
+        version: "apps/v1"
 
 
 # Transform specific configurations
@@ -237,6 +248,7 @@ type bintree struct {
 	Func     func() (*asset, error)
 	Children map[string]*bintree
 }
+
 var _bintree = &bintree{nil, map[string]*bintree{
 	"k8smeta.yaml": &bintree{k8smetaYaml, map[string]*bintree{}},
 }}
@@ -287,4 +299,3 @@ func _filePath(dir, name string) string {
 	cannonicalName := strings.Replace(name, "\\", "/", -1)
 	return filepath.Join(append([]string{dir}, strings.Split(cannonicalName, "/")...)...)
 }
-

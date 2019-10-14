@@ -9,6 +9,9 @@ import (
 
 var (
 
+	// K8SAppsV1Deployments is the name of collection k8s/apps/v1/deployments
+	K8SAppsV1Deployments = collection.NewName("k8s/apps/v1/deployments")
+
 	// K8SCoreV1Endpoints is the name of collection k8s/core/v1/endpoints
 	K8SCoreV1Endpoints = collection.NewName("k8s/core/v1/endpoints")
 
@@ -31,6 +34,7 @@ var (
 // CollectionNames returns the collection names declared in this package.
 func CollectionNames() []collection.Name {
 	return []collection.Name{
+		K8SAppsV1Deployments,
 		K8SCoreV1Endpoints,
 		K8SCoreV1Namespaces,
 		K8SCoreV1Nodes,
