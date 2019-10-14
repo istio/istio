@@ -115,13 +115,15 @@ func TestPrincipal_Generate(t *testing.T) {
 			wantYAML: `
         andIds:
           ids:
-          - metadata:
-              filter: istio_authn
-              path:
-              - key: source.principal
-              value:
-                stringMatch:
-                  exact: user-1`,
+          - orIds:
+              ids:
+              - metadata:
+                  filter: istio_authn
+                  path:
+                  - key: source.principal
+                  value:
+                    stringMatch:
+                      exact: user-1`,
 		},
 		{
 			name: "principal with names",

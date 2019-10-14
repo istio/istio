@@ -123,7 +123,7 @@ func TestNewModel(t *testing.T) {
 	}
 }
 
-func TestNewModelFromV1beta1(t *testing.T) {
+func TestNewModelV1beta1(t *testing.T) {
 	testCases := []struct {
 		name string
 		rule *security.Rule
@@ -339,7 +339,7 @@ func TestNewModelFromV1beta1(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := NewModelFromV1beta1("", nil, tc.rule)
+			got := NewModelV1beta1("", nil, tc.rule)
 			if !reflect.DeepEqual(*got, tc.want) {
 				t.Errorf("\n got %+v\nwant %+v", *got, tc.want)
 			}
