@@ -17,7 +17,6 @@ package controller
 import (
 	"bytes"
 	"fmt"
-	"reflect"
 	"sort"
 	"strings"
 	"sync"
@@ -66,6 +65,8 @@ const (
 	ServiceAccountNameAnnotationKey = "istio.io/service-account.name"
 	// ConfigMap label key that indicates that the ConfigMap contains additional trusted CA roots.
 	ExtraTrustAnchorsLabel = "security.istio.io/extra-trust-anchors"
+	// periodically refresh the primaryTrustAnchor from the CA.
+	primaryTrustAnchorRefreshTimeout = time.Minute
 
 	secretNamePrefix      = "istio."
 	secretResyncPeriod    = time.Minute
@@ -177,6 +178,8 @@ type SecretController struct {
 	// Keep a copy of the primary trust anchor so we know when to rebuild
 	// the combined list of trust anchors.
 	primaryTrustAnchor []byte
+	// periodically refresh the primaryTrustAnchor from the CA.
+	lastPrimaryTrustAnchorCheck time.Time
 	// Combined list of the primary root CA plus any additional trust
 	// anchors that were added by the user. This is recomputed whenever the
 	// primary root changes or when additional trust anchors are added/removed.
@@ -273,6 +276,7 @@ func NewSecretController(ca certificateAuthority, enableNamespacesByDefault bool
 	// Extra trust anchors related routines. Holding the lock isn't strictly necessary since
 	// the controller hasn't started yet. It's added for completeness.
 	c.extraTrustAnchorMu.Lock()
+	c.lastPrimaryTrustAnchorCheck = time.Now()
 	c.extraTrustAnchors = map[string]map[string]string{}
 	c.refreshTrustAnchorsBundle()
 	c.extraTrustAnchorMu.Unlock()
@@ -677,8 +681,9 @@ func (sc *SecretController) getTrustAnchorsBundle() []byte {
 	sc.extraTrustAnchorMu.Lock()
 	defer sc.extraTrustAnchorMu.Unlock()
 
-	// TODO(ayj) trigger refresh on CA secret change instead of performing this check on every get
-	if !reflect.DeepEqual(sc.primaryTrustAnchor, sc.ca.GetCAKeyCertBundle().GetRootCertPem()) {
+	now := time.Now()
+	if now.After(sc.lastPrimaryTrustAnchorCheck.Add(primaryTrustAnchorRefreshTimeout)) {
+		sc.lastPrimaryTrustAnchorCheck = now
 		sc.refreshTrustAnchorsBundle()
 	}
 	return sc.combinedTrustAnchorsBundle
