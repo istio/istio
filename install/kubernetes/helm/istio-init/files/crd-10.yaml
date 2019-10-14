@@ -3343,8 +3343,8 @@ spec:
                     items:
                       properties:
                         charge:
-                          format: int64
-                          type: integer
+                          format: string
+                          type: string
                         quota:
                           format: string
                           type: string
