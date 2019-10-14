@@ -187,7 +187,7 @@ func patchCertLoop(stopCh <-chan struct{}) error {
 	go func() {
 		var delayedRetryC <-chan time.Time
 		if retry {
-			delayedRetryC = time.After(0)
+			delayedRetryC = time.After(delayedRetryTime)
 		}
 
 		for {
