@@ -38,14 +38,24 @@ func TestMtlsHealthCheck(t *testing.T) {
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.ClaimOrFail(t, ctx, "healthcheck")
-			runHealthCheckDeployment(t, ctx, ns, "ok", true, true)
-			runHealthCheckDeployment(t, ctx, ns, "fail", false, false)
+			for _, testCase := range []struct {
+				name    string
+				rewrite bool
+			}{
+				{name: "norewrite-fail", rewrite: false},
+				{name: "rewrite-success", rewrite: true},
+			} {
+				t.Run(testCase.name, func(t *testing.T) {
+					runHealthCheckDeployment(t, ctx, ns, testCase.name, testCase.rewrite)
+				})
+			}
 		})
 }
 
 func runHealthCheckDeployment(t *testing.T, ctx framework.TestContext, ns namespace.Instance, //nolint:interfacer
-	name string, rewrite bool, success bool) {
+	name string, rewrite bool) {
 	t.Helper()
+	wantSuccess := rewrite
 	policyYAML := fmt.Sprintf(`apiVersion: "authentication.istio.io/v1alpha1"
 kind: "Policy"
 metadata:
@@ -82,7 +92,7 @@ spec:
 		With(&healthcheck, cfg).
 		Build()
 	gotSuccess := err == nil
-	if gotSuccess != success {
-		t.Errorf("health check app %v, got error %v, want success = %v", name, err, success)
+	if gotSuccess != wantSuccess {
+		t.Errorf("health check app %v, got error %v, want success = %v", name, err, wantSuccess)
 	}
 }
