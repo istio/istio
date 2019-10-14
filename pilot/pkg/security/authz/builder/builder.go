@@ -19,6 +19,8 @@ import (
 	http_filter "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	tcp_config "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2"
 
+	istiolog "istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
@@ -26,7 +28,6 @@ import (
 	"istio.io/istio/pilot/pkg/security/authz/policy/v1alpha1"
 	"istio.io/istio/pilot/pkg/security/authz/policy/v1beta1"
 	"istio.io/istio/pkg/config/labels"
-	istiolog "istio.io/pkg/log"
 )
 
 var (
@@ -40,12 +41,12 @@ type Builder struct {
 }
 
 // NewBuilder creates a builder instance that can be used to build corresponding RBAC filter config.
-func NewBuilder(trustDomainAliases []string, serviceInstance *model.ServiceInstance, workloadLabels labels.Collection, configNamespace string,
+func NewBuilder(trustDomain string, trustDomainAliases []string, serviceInstance *model.ServiceInstance, workloadLabels labels.Collection, configNamespace string,
 	policies *model.AuthorizationPolicies, isXDSMarshalingToAnyEnabled bool) *Builder {
 	var generator policy.Generator
 
 	if p := policies.ListAuthorizationPolicies(configNamespace, workloadLabels); len(p) > 0 {
-		generator = v1beta1.NewGenerator(trustDomainAliases, p)
+		generator = v1beta1.NewGenerator(trustDomain, trustDomainAliases, p)
 		rbacLog.Debugf("v1beta1 authorization enabled for workload %v in %s", workloadLabels, configNamespace)
 	} else {
 		if serviceInstance.Service == nil {
@@ -62,7 +63,7 @@ func NewBuilder(trustDomainAliases []string, serviceInstance *model.ServiceInsta
 
 		serviceHostname := string(serviceInstance.Service.Hostname)
 		if policies.IsRBACEnabled(serviceHostname, serviceNamespace) {
-			generator = v1alpha1.NewGenerator(trustDomainAliases, serviceMetadata, policies, policies.IsGlobalPermissiveEnabled())
+			generator = v1alpha1.NewGenerator(trustDomain, trustDomainAliases, serviceMetadata, policies, policies.IsGlobalPermissiveEnabled())
 			rbacLog.Debugf("v1alpha1 RBAC enabled for service %s", serviceHostname)
 		}
 	}

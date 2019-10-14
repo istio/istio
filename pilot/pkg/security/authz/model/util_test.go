@@ -202,21 +202,34 @@ func TestGetIdentityWithNewTrustDomain(t *testing.T) {
 		trustDomainIn string
 		spiffeIn      string
 		out           string
-		expectedError string
 	}{
-		{spiffeIn: "spiffe://cluster.local/ns/foo/sa/bar", expectedError: "wrong SPIFFE format found"},
-		{spiffeIn: "sa/test-sa/ns/default", expectedError: "wrong SPIFFE format found"},
+		{spiffeIn: "spiffe://cluster.local/ns/foo/sa/bar", out: ""},
+		{spiffeIn: "sa/test-sa/ns/default", out: ""},
 		{trustDomainIn: "td", spiffeIn: "cluster.local/ns/foo/sa/bar", out: "td/ns/foo/sa/bar"},
 		{trustDomainIn: "abc", spiffeIn: "xyz/ns/foo/sa/bar", out: "abc/ns/foo/sa/bar"},
 	}
 
 	for _, c := range cases {
-		got, err := getIdentityWithNewTrustDomain(c.trustDomainIn, c.spiffeIn)
-		if err != nil {
-			if !strings.Contains(err.Error(), c.expectedError) {
-				t.Fatalf("unexpected error: %v", err)
-			}
+		got := getIdentityWithNewTrustDomain(c.trustDomainIn, c.spiffeIn)
+		if got != c.out {
+			t.Errorf("expect %s, but got %s", c.out, got)
 		}
+	}
+}
+
+func TestExtractTrustDomainFromAuthzPrincipal(t *testing.T) {
+	cases := []struct {
+		principal string
+		out       string
+	}{
+		{principal: "spiffe://cluster.local/ns/foo/sa/bar", out: ""},
+		{principal: "sa/test-sa/ns/default", out: ""},
+		{principal: "cluster.local/ns/foo/sa/bar", out: "cluster.local"},
+		{principal: "xyz/ns/foo/sa/bar", out: "xyz"},
+	}
+
+	for _, c := range cases {
+		got := extractTrustDomainFromAuthzPrincipal(c.principal)
 		if got != c.out {
 			t.Errorf("expect %s, but got %s", c.out, got)
 		}
