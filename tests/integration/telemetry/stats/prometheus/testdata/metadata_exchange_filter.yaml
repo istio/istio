@@ -18,6 +18,7 @@ spec:
           config:
             config:
               vm_id: inbound_vm
+              root_id: inbound_root
               configuration: envoy.wasm.metadata_exchange
               vm_config:
                 runtime: envoy.wasm.runtime.null
@@ -37,6 +38,7 @@ spec:
           config:
             config:
               vm_id: outbound_vm
+              root_id: outbound_root
               configuration: envoy.wasm.metadata_exchange
               vm_config:
                 runtime: envoy.wasm.runtime.null
@@ -56,6 +58,7 @@ spec:
           config:
             config:
               vm_id: gateway_vm
+              root_id: gateway_root
               configuration: envoy.wasm.metadata_exchange
               vm_config:
                 runtime: envoy.wasm.runtime.null
