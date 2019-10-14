@@ -493,7 +493,7 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 
 	_, waitErr := sc.certUtil.GetWaitTime(scrt.Data[CertChainID], time.Now(), sc.minGracePeriod)
 
-	caCert, _, _, rootCertificate := sc.ca.GetCAKeyCertBundle().GetAllPem()
+	caCertInMem, _, _, rootCertificate := sc.ca.GetCAKeyCertBundle().GetAllPem()
 
 	// Check if root certificate in key cert bundle is not up-to-date. With mutiple
 	// Citadel deployed in Istio, the root certificate in istio-ca-secret could be
@@ -511,7 +511,7 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 			// The CA cert from istio-ca-secret is the source of truth. If CA cert
 			// in local keycertbundle does not match the CA cert in istio-ca-secret,
 			// reload root cert into keycertbundle.
-			if !bytes.Equal(caCert, caSecret.Data[caCertID]) {
+			if !bytes.Equal(caCertInMem, caSecret.Data[caCertID]) {
 				k8sControllerLog.Warn("CA cert in KeyCertBundle does not match CA cert in " +
 					"istio-ca-secret. Start to reload root cert into KeyCertBundle")
 				var err error
