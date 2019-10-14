@@ -924,7 +924,20 @@ func CreateMultiClusterSecret(namespace string, remoteKubeConfig string, localKu
 
 	currentContext = strings.Trim(currentContext, "\n")
 
-	config, err := multicluster.CreateRemoteSecret(remoteKubeConfig, currentContext, namespace, "istio-multi", currentContext)
+	opts := multicluster.RemoteSecretOptions{
+		ServiceAccountName: "istio-multi",
+		AuthType:           multicluster.RemoteSecretAuthTypeBearerToken,
+		KubeOptions: multicluster.KubeOptions{
+			Namespace:  namespace,
+			Context:    currentContext,
+			Kubeconfig: remoteKubeConfig,
+		},
+	}
+	env, err := multicluster.NewKubeEnv(localKubeConfig, currentContext, os.Stdout, os.Stderr)
+	if err != nil {
+		return err
+	}
+	config, err := multicluster.CreateRemoteSecret(opts, env)
 	if err != nil {
 		return err
 	}
