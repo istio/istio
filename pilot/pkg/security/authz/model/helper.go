@@ -38,7 +38,7 @@ func principalTag(tag string) string {
 
 func simplePrincipal(tag string) Principal {
 	return Principal{
-		User: principalTag(tag),
+		Users: []string{principalTag(tag)},
 	}
 }
 
@@ -63,7 +63,7 @@ func fullPermission(tag string) Permission {
 
 func fullPrincipal(tag string) Principal {
 	return Principal{
-		User:          "user-" + tag,
+		Users:         []string{"user-" + tag},
 		Names:         []string{"names-" + tag},
 		NotNames:      []string{"not-names-" + tag},
 		Group:         "group-" + tag,

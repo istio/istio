@@ -54,7 +54,7 @@ func TestPrincipal_ValidateForTCP(t *testing.T) {
 		{
 			name: "good principal",
 			principal: &Principal{
-				User: "user",
+				Users: []string{"user"},
 				Properties: []KeyValues{
 					{
 						attrSrcNamespace: []string{"ns"},
@@ -110,7 +110,7 @@ func TestPrincipal_Generate(t *testing.T) {
 		{
 			name: "principal with user",
 			principal: &Principal{
-				User: "user-1",
+				Users: []string{"user-1"},
 			},
 			wantYAML: `
         andIds:

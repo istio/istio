@@ -255,9 +255,6 @@ func TestV1alpha1_TrustDomainAliases(t *testing.T) {
 			if !found {
 				t.Fatalf("key %s not found", role)
 			}
-			if len(policy.Principals) != len(tc.expectPrincipals) {
-				t.Fatalf("unexpected number of principals. Want %d, got %d", len(tc.expectPrincipals), len(policy.Principals))
-			}
 			principalsStr := spew.Sdump(policy.Principals)
 			for _, expectedPrincipal := range tc.expectPrincipals {
 				if !strings.Contains(principalsStr, expectedPrincipal) {

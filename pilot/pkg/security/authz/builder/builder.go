@@ -41,7 +41,8 @@ type Builder struct {
 }
 
 // NewBuilder creates a builder instance that can be used to build corresponding RBAC filter config.
-func NewBuilder(trustDomain string, trustDomainAliases []string, serviceInstance *model.ServiceInstance, workloadLabels labels.Collection, configNamespace string,
+func NewBuilder(trustDomain string, trustDomainAliases []string, serviceInstance *model.ServiceInstance,
+	workloadLabels labels.Collection, configNamespace string,
 	policies *model.AuthorizationPolicies, isXDSMarshalingToAnyEnabled bool) *Builder {
 	var generator policy.Generator
 
