@@ -24,9 +24,8 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
-
-	mccpb "istio.io/istio/pilot/pkg/networking/plugin/mixer/client"
 	networking "istio.io/api/networking/v1alpha3"
+	mccpb "istio.io/istio/pilot/pkg/networking/plugin/mixer/client"
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"

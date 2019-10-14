@@ -461,7 +461,7 @@ func addFilterConfigToRoute(in *plugin.InputParams, httpRoute *route.Route, attr
 			DisableReportCalls: in.Env.Mesh.GetDisableMixerHttpReports(),
 			MixerAttributes:    &mpb.Attributes{Attributes: attrs},
 			ForwardAttributes:  &mpb.Attributes{Attributes: attrs},
-			QuotaSpec:         quotaSpec,
+			QuotaSpec:          quotaSpec,
 		})
 	} else {
 		httpRoute.PerFilterConfig = addServiceConfig(httpRoute.PerFilterConfig, &mccpb.ServiceConfig{
@@ -469,7 +469,7 @@ func addFilterConfigToRoute(in *plugin.InputParams, httpRoute *route.Route, attr
 			DisableReportCalls: in.Env.Mesh.GetDisableMixerHttpReports(),
 			MixerAttributes:    &mpb.Attributes{Attributes: attrs},
 			ForwardAttributes:  &mpb.Attributes{Attributes: attrs},
-			QuotaSpec:         quotaSpec,
+			QuotaSpec:          quotaSpec,
 		})
 	}
 }
@@ -515,7 +515,7 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 						DisableReportCalls: in.Env.Mesh.GetDisableMixerHttpReports(),
 						MixerAttributes:    &mpb.Attributes{Attributes: attrs},
 						ForwardAttributes:  &mpb.Attributes{Attributes: attrs},
-						QuotaSpec:         getQuotaSpec(in, hostname, isPolicyCheckDisabled),
+						QuotaSpec:          getQuotaSpec(in, hostname, isPolicyCheckDisabled),
 					})
 				} else {
 					weighted.PerFilterConfig = addServiceConfig(weighted.PerFilterConfig, &mccpb.ServiceConfig{
@@ -523,7 +523,7 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 						DisableReportCalls: in.Env.Mesh.GetDisableMixerHttpReports(),
 						MixerAttributes:    &mpb.Attributes{Attributes: attrs},
 						ForwardAttributes:  &mpb.Attributes{Attributes: attrs},
-						QuotaSpec:         getQuotaSpec(in, hostname, isPolicyCheckDisabled),
+						QuotaSpec:          getQuotaSpec(in, hostname, isPolicyCheckDisabled),
 					})
 				}
 			}

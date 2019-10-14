@@ -24,12 +24,11 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
-
-	mccpb "istio.io/istio/pilot/pkg/networking/plugin/mixer/client"
 	networking "istio.io/api/networking/v1alpha3"
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	authz "istio.io/api/security/v1beta1"
 	api "istio.io/api/type/v1beta1"
+	mccpb "istio.io/istio/pilot/pkg/networking/plugin/mixer/client"
 
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
