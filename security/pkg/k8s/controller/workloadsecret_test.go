@@ -355,7 +355,7 @@ func TestUpdateSecret(t *testing.T) {
 		expectedKCBSyncTime bool
 	}{
 		"Does not update non-expiring secret": {
-			expectedActions: []ktesting.Action{},
+			expectedActions:     []ktesting.Action{},
 			ttl:                 time.Hour,
 			gracePeriodRatio:    0.5,
 			minGracePeriod:      10 * time.Minute,
