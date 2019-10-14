@@ -19,7 +19,6 @@ spec:
           name: envoy.filters.http.wasm
           config:
             config:
-              vm_id: outbound_vm
               root_id: outbound_root
               configuration: |
                 {
@@ -27,6 +26,7 @@ spec:
                   "stat_prefix": "istio",
                 }
               vm_config:
+                vm_id: outbound_vm
                 runtime: envoy.wasm.runtime.null
                 code:
                   inline_string: envoy.wasm.stats
@@ -45,7 +45,6 @@ spec:
           name: envoy.filters.http.wasm
           config:
             config:
-              vm_id: inbound_vm
               root_id: inbound_root
               configuration: |
                 {
@@ -53,6 +52,7 @@ spec:
                   "stat_prefix": "istio",
                 }
               vm_config:
+                vm_id: inbound_vm
                 runtime: envoy.wasm.runtime.null
                 code:
                   inline_string: envoy.wasm.stats
@@ -71,7 +71,6 @@ spec:
           name: envoy.filters.http.wasm
           config:
             config:
-              vm_id: gateway_vm
               root_id: gateway_root
               configuration: |
                 {
@@ -79,6 +78,7 @@ spec:
                   "stat_prefix": "istio",
                 }
               vm_config:
+                vm_id: gateway_vm
                 runtime: envoy.wasm.runtime.null
                 code:
                   inline_string: envoy.wasm.stats
