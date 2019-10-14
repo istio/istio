@@ -35,7 +35,7 @@ const (
 	RBACTCPFilterStatPrefix = "tcp."
 
 	// attributes that could be used in both ServiceRoleBinding and ServiceRole.
-	attrRequestHeader = "request.headers" // header name is surrounded by brackets, e.g. "request.headers[User-Agent]".
+	attrRequestHeader = "request.headers" // header name is surrounded by brackets, e.g. "request.headers[Users-Agent]".
 
 	// attributes that could be used in a ServiceRoleBinding property.
 	attrSrcIP        = "source.ip"        // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
@@ -137,28 +137,30 @@ func NewModelV1Alpha1(trustDomain string, trustDomainAliases []string, role *ist
 
 	for _, binding := range bindings {
 		for _, subject := range binding.Subjects {
-			users := getPrincipalsIncludingAliases(trustDomain, trustDomainAliases, []string{subject.User})
-			for _, user := range users {
-				var principal Principal
-				principal.User = user
-				principal.Names = subject.Names
-				principal.NotNames = subject.NotNames
-				principal.Groups = subject.Groups
-				principal.Group = subject.Group
-				principal.NotGroups = subject.NotGroups
-				principal.Namespaces = subject.Namespaces
-				principal.NotNamespaces = subject.NotNamespaces
-				principal.IPs = subject.Ips
-				principal.NotIPs = subject.NotIps
-
-				property := KeyValues{}
-				for k, v := range subject.Properties {
-					property[k] = []string{v}
-				}
-				principal.Properties = []KeyValues{property}
-
-				m.Principals = append(m.Principals, principal)
+			users := []string{}
+			if subject.User != "" {
+				users = getPrincipalsIncludingAliases(trustDomain, trustDomainAliases, []string{subject.User})
 			}
+			principal := Principal{
+				Users:         users,
+				Names:         subject.Names,
+				NotNames:      subject.NotNames,
+				Groups:        subject.Groups,
+				Group:         subject.Group,
+				NotGroups:     subject.NotGroups,
+				Namespaces:    subject.Namespaces,
+				NotNamespaces: subject.NotNamespaces,
+				IPs:           subject.Ips,
+				NotIPs:        subject.NotIps,
+			}
+
+			property := KeyValues{}
+			for k, v := range subject.Properties {
+				property[k] = []string{v}
+			}
+			principal.Properties = []KeyValues{property}
+
+			m.Principals = append(m.Principals, principal)
 		}
 	}
 
@@ -284,14 +286,18 @@ func getPrincipalsIncludingAliases(trustDomain string, trustDomainAliases []stri
 	principalsIncludingAliases := []string{}
 	for _, principal := range principals {
 		trustDomainFromPrincipal := extractTrustDomainFromAuthzPrincipal(principal)
+		if trustDomainFromPrincipal == "" {
+			return principals
+		}
 		// If the current trust domain is the same as the one from the existing principal, there is nothing to do.
 		// NOTE: All |principals| must have the same trust domain.
 		if trustDomainFromPrincipal == trustDomain {
 			return principals
 		}
-		// If the trust domain part from the existing principal is not part of the trust domain aliases,
-		// skip.
-		if !found(trustDomainFromPrincipal, trustDomainAliases) {
+		// Only generate configuration if the extracted trust domain from the policy is part of the trust domain aliases,
+		// or if the extracted/existing trust domain is "cluster.local", which is a pointer to the local trust domain
+		// and its aliases.
+		if !found(trustDomainFromPrincipal, trustDomainAliases) && trustDomainFromPrincipal != "cluster.local" {
 			continue
 		}
 		// Generate configuration for trust domain and trust domain aliases.

@@ -12,4 +12,6 @@ rules:
       principals:
         - andIds:
             ids:
-              - any: true
+              - orIds:
+                  ids:
+                    - any: true

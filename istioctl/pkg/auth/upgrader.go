@@ -257,8 +257,8 @@ func convertBindingToSources(principals []authz_model.Principal) ([]*rbac_v1beta
 		from := rbac_v1beta1.Rule_From{
 			Source: &rbac_v1beta1.Source{},
 		}
-		if subject.User != "" {
-			from.Source.Principals = []string{subject.User}
+		if len(subject.Users) != 0 {
+			from.Source.Principals = subject.Users
 		}
 		if len(subject.Properties) == 0 {
 			ruleFrom = append(ruleFrom, &from)
