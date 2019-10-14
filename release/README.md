@@ -12,4 +12,3 @@ after it passes the automatic daily release tests. These are meant for developer
 Each daily release is versioned and identified by `<branch_name>-<build_datetime>`. For example,
 e.g. `master-20180615-09-15` is cut from master at 9:15AM GMT on June 15, 2018. Daily release artifacts are stored in
 sub-directories using the same naming scheme in [GCS](https://gcsweb.istio.io/gcs/istio-prerelease/daily-build/).
-
