@@ -140,6 +140,8 @@ type SecretController struct {
 	// Whether the certificates are for CAs.
 	forCA bool
 
+	// The most recent time when root cert in keycertbundle is synced with root
+	// cert in istio-ca-secret.
 	lastKCBSyncTime time.Time
 }
 
@@ -436,10 +438,10 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 					return
 				}
 				log.Info("Successfully reloaded root cert into KeyCertBundle.")
+				sc.lastKCBSyncTime = time.Now()
 			} else {
 				log.Info("CA cert in KeyCertBundle matches CA cert in " +
 					"istio-ca-secret. Skip reloading root cert into KeyCertBundle")
-				sc.lastKCBSyncTime = time.Now()
 			}
 		}
 	}
