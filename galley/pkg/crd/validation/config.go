@@ -407,7 +407,7 @@ func (whc *WebhookConfigController) reconcile(stopCh <-chan struct{}) {
 					configTimerC = time.After(retryUpdateAfterFailureTimeout)
 					if !retrying {
 						retrying = true
-						log.Info("webhook create/update failed - retrying")
+						log.Infof("webhook create/update failed - retrying every %v until success", retryUpdateAfterFailureTimeout)
 					}
 				} else if retrying {
 					log.Infof("Retried create/update succeeded")
@@ -419,11 +419,11 @@ func (whc *WebhookConfigController) reconcile(stopCh <-chan struct{}) {
 			if whc.webhookParameters.EnableValidation {
 				// reconcile the desired configuration
 				if retry = whc.createOrUpdateWebhookConfig(); retry && !retrying {
-					log.Info("webhook create/update failed - retrying")
+					log.Infof("webhook create/update failed - retrying every %v until success", retryUpdateAfterFailureTimeout)
 				}
 			} else {
 				if retry = whc.deleteWebhookConfig(); retry && !retrying {
-					log.Info("webhook delete failed - retrying")
+					log.Infof("webhook delete failed - retrying every %v until success", retryUpdateAfterFailureTimeout)
 				}
 			}
 			retrying = retry
