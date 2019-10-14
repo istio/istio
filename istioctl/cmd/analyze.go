@@ -68,8 +68,6 @@ istioctl experimental analyze -k -d false
 				return err
 			}
 
-			sa := local.NewSourceAnalyzer(metadata.MustGet(), analyzers.AllCombined(), nil, sd)
-
 			// We use the "namespace" arg that's provided as part of root istioctl as a flag for specifying what namespace to use
 			// for file resources that don't have one specified.
 			// Note that the current implementation (in root.go) doesn't correctly default this value based on --context, so we do that ourselves
@@ -78,7 +76,7 @@ istioctl experimental analyze -k -d false
 			// so it properly handles the --context option.
 			selectedNamespace := namespace
 
-			// If we're using kube, use that as a base source.
+			var k cfgKube.Interfaces = nil
 			if useKube {
 				// Set up the kube client
 				config := kube.BuildClientCmd(kubeconfig, configContext)
@@ -86,7 +84,7 @@ istioctl experimental analyze -k -d false
 				if err != nil {
 					return err
 				}
-				k := cfgKube.NewInterfaces(restConfig)
+				k = cfgKube.NewInterfaces(restConfig)
 
 				// If a default namespace to inject in files hasn't been explicitly defined already, use whatever is specified in the kube context
 				if selectedNamespace == "" {
@@ -96,18 +94,23 @@ istioctl experimental analyze -k -d false
 					}
 					selectedNamespace = ns
 				}
+			}
 
+			// If default namespace to inject wasn't specified by the user or derived from the k8s context, just use the default.
+			if selectedNamespace == "" {
+				selectedNamespace = defaultNamespace
+			}
+
+			sa := local.NewSourceAnalyzer(metadata.MustGet(), analyzers.AllCombined(), selectedNamespace, nil, sd)
+
+			// If we're using kube, use that as a base source.
+			if k != nil {
 				sa.AddRunningKubeSource(k)
 			}
 
 			// If files are provided, treat them (collectively) as a source.
 			if len(files) > 0 {
-				// // If default namespace to inject wasn't specified by the user or derived from the k8s context, just use the default.
-				if selectedNamespace == "" {
-					selectedNamespace = defaultNamespace
-				}
-
-				if err = sa.AddFileKubeSource(files, selectedNamespace); err != nil {
+				if err = sa.AddFileKubeSource(files); err != nil {
 					return err
 				}
 			}
