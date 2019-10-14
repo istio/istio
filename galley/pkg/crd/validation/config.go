@@ -28,6 +28,7 @@ import (
 	"github.com/ghodss/yaml"
 	"k8s.io/api/admissionregistration/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	admissionregistration "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
 	"k8s.io/client-go/tools/cache"
@@ -65,22 +66,26 @@ func (wh *Webhook) monitorWebhookChanges(stopC <-chan struct{}) chan struct{} {
 	return webhookChangedCh
 }
 
-func (wh *Webhook) createOrUpdateWebhookConfig() {
+func (wh *Webhook) createOrUpdateWebhookConfig() (retry bool) {
 	if wh.webhookConfiguration == nil {
 		scope.Error("validatingwebhookconfiguration update failed: no configuration loaded")
 		reportValidationConfigUpdateError(errors.New("no configuration loaded"))
-		return
+		return false
 	}
 
 	client := wh.clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
 	updated, err := createOrUpdateWebhookConfigHelper(client, wh.webhookConfiguration)
 	if err != nil {
 		scope.Errorf("%v validatingwebhookconfiguration update failed: %v", wh.webhookConfiguration.Name, err)
-		reportValidationConfigUpdateError(err)
-	} else if updated {
+		reportValidationConfigUpdateError(fmt.Errorf("createOrUpdate failed: %v", kerrors.ReasonForError(err)))
+		return true
+	}
+
+	if updated {
 		scope.Infof("%v validatingwebhookconfiguration updated", wh.webhookConfiguration.Name)
 		reportValidationConfigUpdate()
 	}
+	return false
 }
 
 // Create the specified validatingwebhookconfiguration resource or, if the resource
