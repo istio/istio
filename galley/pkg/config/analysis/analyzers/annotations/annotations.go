@@ -15,7 +15,6 @@
 package annotations
 
 import (
-	"fmt"
 	"strings"
 
 	"istio.io/api/annotation"
