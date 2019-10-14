@@ -30,9 +30,11 @@ import (
 
 func TestBuildHTTPFilter(t *testing.T) {
 	testCases := []struct {
-		name     string
-		policies *model.AuthorizationPolicies
-		want     *http_config.RBAC
+		name               string
+		trustDomain        string
+		trustDomainAliases []string
+		policies           *model.AuthorizationPolicies
+		want               *http_config.RBAC
 	}{
 		{
 			name:     "v1beta1 all fields",
@@ -69,6 +71,20 @@ func TestBuildHTTPFilter(t *testing.T) {
 			policies: getPolicies("testdata/v1beta1-single-policy-in.yaml", t),
 			want:     getProto("testdata/v1beta1-single-policy-out.yaml", t),
 		},
+		{
+			name:               "v1beta1 trust domain aliases",
+			trustDomain:        "td1",
+			trustDomainAliases: []string{"cluster.local"},
+			policies:           getPolicies("testdata/v1beta1-simple-policy-td-aliases-in.yaml", t),
+			want:               getProto("testdata/v1beta1-simple-policy-td-aliases-out.yaml", t),
+		},
+		{
+			name:               "v1alpha1 trust domain aliases",
+			trustDomain:        "td1",
+			trustDomainAliases: []string{"cluster.local"},
+			policies:           getPolicies("testdata/v1alpha1-simple-policy-td-aliases-in.yaml", t),
+			want:               getProto("testdata/v1alpha1-simple-policy-td-aliases-out.yaml", t),
+		},
 	}
 
 	httpbinLabels := map[string]string{
@@ -78,7 +94,7 @@ func TestBuildHTTPFilter(t *testing.T) {
 	service := newService("httpbin.foo.svc.cluster.local", httpbinLabels, t)
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			b := NewBuilder(nil, service, labels.Collection{httpbinLabels}, "foo", tc.policies, false)
+			b := NewBuilder(tc.trustDomain, tc.trustDomainAliases, service, labels.Collection{httpbinLabels}, "foo", tc.policies, false)
 			if b == nil {
 				t.Fatalf("failed to create builder")
 			}

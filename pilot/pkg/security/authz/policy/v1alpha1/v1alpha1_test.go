@@ -174,7 +174,7 @@ func TestV1alpha1Generator_Generate(t *testing.T) {
 			if authzPolicies == nil {
 				t.Fatal("failed to create authz policies")
 			}
-			g := NewGenerator(nil, serviceFooInNamespaceA, authzPolicies, tc.isGlobalPermissiveEnabled)
+			g := NewGenerator("cluster.local", nil, serviceFooInNamespaceA, authzPolicies, tc.isGlobalPermissiveEnabled)
 			if g == nil {
 				t.Fatal("failed to create generator")
 			}
@@ -208,6 +208,7 @@ func TestV1alpha1_TrustDomainAliases(t *testing.T) {
 	testCases := []struct {
 		name               string
 		policies           []*model.Config
+		trustDomain        string
 		trustDomainAliases []string
 		expectPrincipals   []string
 	}{
@@ -217,6 +218,7 @@ func TestV1alpha1_TrustDomainAliases(t *testing.T) {
 				policy.SimpleRole(role, namespaceA, serviceFoo),
 				policy.SimpleBinding("binding", namespaceA, role),
 			},
+			trustDomain:        "cluster.local",
 			trustDomainAliases: nil,
 			expectPrincipals:   []string{policy.BindingPrincipal("cluster.local", "binding", "binding")},
 		},
@@ -226,11 +228,11 @@ func TestV1alpha1_TrustDomainAliases(t *testing.T) {
 				policy.SimpleRole(role, namespaceA, serviceFoo),
 				policy.SimpleBinding("binding", namespaceA, role),
 			},
-			trustDomainAliases: []string{"td1", "td2"},
+			trustDomain:        "td1",
+			trustDomainAliases: []string{"cluster.local"},
 			expectPrincipals: []string{
 				policy.BindingPrincipal("cluster.local", "binding", "binding"),
-				policy.BindingPrincipal("td1", "binding", "binding"),
-				policy.BindingPrincipal("td2", "binding", "binding")},
+				policy.BindingPrincipal("td1", "binding", "binding")},
 		},
 	}
 
@@ -240,7 +242,7 @@ func TestV1alpha1_TrustDomainAliases(t *testing.T) {
 			if authzPolicies == nil {
 				t.Fatal("failed to create authz policies")
 			}
-			g := NewGenerator(tc.trustDomainAliases, serviceFooInNamespaceA, authzPolicies, false)
+			g := NewGenerator(tc.trustDomain, tc.trustDomainAliases, serviceFooInNamespaceA, authzPolicies, false)
 			if g == nil {
 				t.Fatal("failed to create generator")
 			}

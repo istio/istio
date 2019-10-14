@@ -112,7 +112,7 @@ type KeyValues map[string][]string
 
 // NewModelV1Alpha1 constructs a Model from a single ServiceRole and a list of ServiceRoleBinding. The ServiceRole
 // is converted to the permission and the ServiceRoleBinding is converted to the principal.
-func NewModelV1Alpha1(trustDomainAliases []string, role *istio_rbac.ServiceRole, bindings []*istio_rbac.ServiceRoleBinding) *Model {
+func NewModelV1Alpha1(trustDomain string, trustDomainAliases []string, role *istio_rbac.ServiceRole, bindings []*istio_rbac.ServiceRoleBinding) *Model {
 	m := &Model{}
 	for _, accessRule := range role.Rules {
 		var permission Permission
@@ -137,7 +137,7 @@ func NewModelV1Alpha1(trustDomainAliases []string, role *istio_rbac.ServiceRole,
 
 	for _, binding := range bindings {
 		for _, subject := range binding.Subjects {
-			users := getPrincipalsIncludingAliases(trustDomainAliases, []string{subject.User})
+			users := getPrincipalsIncludingAliases(trustDomain, trustDomainAliases, []string{subject.User})
 			for _, user := range users {
 				var principal Principal
 				principal.User = user
@@ -165,8 +165,8 @@ func NewModelV1Alpha1(trustDomainAliases []string, role *istio_rbac.ServiceRole,
 	return m
 }
 
-// NewModelV1Alpha1 constructs a Model from v1beta1 Rule.
-func NewModelFromV1beta1(trustDomainAliases []string, rule *security.Rule) *Model {
+// NewModelV1beta1 constructs a Model from v1beta1 Rule.
+func NewModelFromV1beta1(trustDomain string, trustDomainAliases []string, rule *security.Rule) *Model {
 	m := &Model{}
 
 	conditionsForPrincipal := make([]KeyValues, 0)
@@ -183,7 +183,7 @@ func NewModelFromV1beta1(trustDomainAliases []string, rule *security.Rule) *Mode
 
 	for _, from := range rule.From {
 		if source := from.Source; source != nil {
-			names := getPrincipalsIncludingAliases(trustDomainAliases, source.Principals)
+			names := getPrincipalsIncludingAliases(trustDomain, trustDomainAliases, source.Principals)
 			principal := Principal{
 				IPs:               source.IpBlocks,
 				Names:             names,
@@ -273,24 +273,40 @@ func (m *Model) Generate(service *ServiceMetadata, forTCPFilter bool) *envoy_rba
 
 // getPrincipalsIncludingAliases returns a list of users encoded in SPIFFE format with the local
 // trust domain and its aliases.
-// For example, if the local trust domain is "cluster.local", and its aliases are "td1", "td2".
-// For a user "bar" in namespace "foo", getPrincipalsIncludingAliases returns
-// cluster.local/ns/foo/sa/bar, td1/ns/foo/sa/bar, td2/ns/foo/sa/bar
-// The trust domain corresponds to the trust root of a system.
-// Refer to
-// [SPIFFE-ID](https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain)
-// In Istio, an identity is presented in the SPIFFE format, which is:
-// spiffe://<trust-domain>/ns/<some-namespace>/sa/<some-service-account>
-func getPrincipalsIncludingAliases(trustDomainAliases []string, principals []string) []string {
-	usersWithAliases := principals
-	for _, tdAlias := range trustDomainAliases {
-		for _, principal := range principals {
-			newTrustDomainIdentity, err := getIdentityWithNewTrustDomain(tdAlias, principal)
-			if err != nil {
-				return []string{}
-			}
-			usersWithAliases = append(usersWithAliases, newTrustDomainIdentity)
-		}
+// For example, for a user "bar" in namespace "foo".
+// If the local trust domain is "td2" and its alias is "td1" (migrating from td1 to td2),
+// getPrincipalsIncludingAliases returns ["td2/ns/foo/sa/bar", "td2/ns/foo/sa/bar]].
+func getPrincipalsIncludingAliases(trustDomain string, trustDomainAliases []string, principals []string) []string {
+	// If trust domain aliases are empty, return the existing principals.
+	if len(trustDomainAliases) == 0 {
+		return principals
 	}
-	return usersWithAliases
+	principalsIncludingAliases := []string{}
+	for _, principal := range principals {
+		trustDomainFromPrincipal := extractTrustDomainFromAuthzPrincipal(principal)
+		// If the current trust domain is the same as the one from the existing principal, there is nothing to do.
+		// NOTE: All |principals| must have the same trust domain.
+		if trustDomainFromPrincipal == trustDomain {
+			return principals
+		}
+		// If the trust domain part from the existing principal is not part of the trust domain aliases,
+		// skip.
+		if !found(trustDomainFromPrincipal, trustDomainAliases) {
+			continue
+		}
+		// Generate configuration for trust domain and trust domain aliases.
+		principalsIncludingAliases = append(principalsIncludingAliases, getIdentityWithNewTrustDomain(trustDomain, principal))
+		principalsIncludingAliases = append(principalsIncludingAliases, getPrincipalsForAliases(trustDomainAliases, principal)...)
+	}
+	return principalsIncludingAliases
+}
+
+// getPrincipalsForAliases takes a principal and returns a list of new principals with new trust domain
+// from trust domain aliases.
+func getPrincipalsForAliases(trustDomainAliases []string, principal string) []string {
+	principalsForAliases := []string{}
+	for _, tdAlias := range trustDomainAliases {
+		principalsForAliases = append(principalsForAliases, getIdentityWithNewTrustDomain(tdAlias, principal))
+	}
+	return principalsForAliases
 }

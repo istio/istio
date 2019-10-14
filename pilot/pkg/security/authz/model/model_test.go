@@ -105,7 +105,7 @@ func TestNewModel(t *testing.T) {
 		},
 	}
 
-	got := NewModelV1Alpha1(nil, role, []*istio_rbac.ServiceRoleBinding{binding1, binding2})
+	got := NewModelV1Alpha1("", nil, role, []*istio_rbac.ServiceRoleBinding{binding1, binding2})
 	want := Model{
 		Permissions: []Permission{
 			fullPermission("perm-1"),
@@ -339,7 +339,7 @@ func TestNewModelFromV1beta1(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := NewModelFromV1beta1(nil, tc.rule)
+			got := NewModelFromV1beta1("", nil, tc.rule)
 			if !reflect.DeepEqual(*got, tc.want) {
 				t.Errorf("\n got %+v\nwant %+v", *got, tc.want)
 			}
@@ -462,6 +462,7 @@ func TestModel_Generate(t *testing.T) {
 
 func TestGetUsersIncludingAliases(t *testing.T) {
 	type inStruct struct {
+		trustDomain        string
 		trustDomainAliases []string
 		users              []string
 	}
@@ -471,35 +472,31 @@ func TestGetUsersIncludingAliases(t *testing.T) {
 		expect []string
 	}{
 		{
-			name:   "No trust domain aliases",
-			in:     inStruct{nil, []string{"cluster.local/ns/foo/sa/bar"}},
+			name:   "No trust domain aliases (no change in trust domain)",
+			in:     inStruct{"cluster.local", nil, []string{"cluster.local/ns/foo/sa/bar"}},
 			expect: []string{"cluster.local/ns/foo/sa/bar"},
 		},
 		{
 			name:   "One trust domain alias, one principal",
-			in:     inStruct{[]string{"td1"}, []string{"cluster.local/ns/foo/sa/bar"}},
-			expect: []string{"cluster.local/ns/foo/sa/bar", "td1/ns/foo/sa/bar"},
+			in:     inStruct{"td2", []string{"td1"}, []string{"td1/ns/foo/sa/bar"}},
+			expect: []string{"td2/ns/foo/sa/bar", "td1/ns/foo/sa/bar"},
 		},
 		{
 			name:   "One trust domain alias, two principals",
-			in:     inStruct{[]string{"td1"}, []string{"cluster.local/ns/foo/sa/bar", "cluster.local/ns/yyy/sa/zzz"}},
-			expect: []string{"cluster.local/ns/foo/sa/bar", "cluster.local/ns/yyy/sa/zzz", "td1/ns/foo/sa/bar", "td1/ns/yyy/sa/zzz"},
-		},
-		{
-			name:   "Two trust domain aliases, one principal",
-			in:     inStruct{[]string{"td1", "td2"}, []string{"cluster.local/ns/foo/sa/bar"}},
-			expect: []string{"cluster.local/ns/foo/sa/bar", "td1/ns/foo/sa/bar", "td2/ns/foo/sa/bar"},
+			in:     inStruct{"td1", []string{"cluster.local"}, []string{"cluster.local/ns/foo/sa/bar", "cluster.local/ns/yyy/sa/zzz"}},
+			expect: []string{"td1/ns/foo/sa/bar", "cluster.local/ns/foo/sa/bar", "td1/ns/yyy/sa/zzz", "cluster.local/ns/yyy/sa/zzz"},
 		},
 		{
 			name: "Two trust domain aliases, two principals",
-			in:   inStruct{[]string{"td1", "td2"}, []string{"cluster.local/ns/foo/sa/bar", "cluster.local/ns/yyy/sa/zzz"}},
-			expect: []string{"cluster.local/ns/foo/sa/bar", "cluster.local/ns/yyy/sa/zzz",
-				"td1/ns/foo/sa/bar", "td1/ns/yyy/sa/zzz", "td2/ns/foo/sa/bar", "td2/ns/yyy/sa/zzz"},
+			in: inStruct{"td2", []string{"td1", "cluster.local"},
+				[]string{"cluster.local/ns/foo/sa/bar", "td1/ns/yyy/sa/zzz"}},
+			expect: []string{"td2/ns/foo/sa/bar", "td1/ns/foo/sa/bar", "cluster.local/ns/foo/sa/bar",
+				"td2/ns/yyy/sa/zzz", "td1/ns/yyy/sa/zzz", "cluster.local/ns/yyy/sa/zzz"},
 		},
 	}
 
 	for _, tc := range testCases {
-		got := getPrincipalsIncludingAliases(tc.in.trustDomainAliases, tc.in.users)
+		got := getPrincipalsIncludingAliases(tc.in.trustDomain, tc.in.trustDomainAliases, tc.in.users)
 		if !reflect.DeepEqual(got, tc.expect) {
 			t.Errorf("%s failed. Expect: %s. Got: %s", tc.name, tc.expect, got)
 		}

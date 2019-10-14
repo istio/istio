@@ -63,7 +63,7 @@ func TestV1beta1Generator_Generate(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			g := NewGenerator(nil, tc.policies)
+			g := NewGenerator("", nil, tc.policies)
 			if g == nil {
 				t.Fatal("failed to create generator")
 			}
