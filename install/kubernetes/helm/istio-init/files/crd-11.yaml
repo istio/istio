@@ -30,7 +30,6 @@ spec:
             See more details at: https://istio.io/docs/reference/config/networking/v1alpha3/sidecar.html'
           properties:
             egress:
-              description: REQUIRED.
               items:
                 properties:
                   bind:
@@ -55,11 +54,10 @@ spec:
                         format: string
                         type: string
                       number:
-                        description: 'REQUIRED: A valid non-negative integer port
-                          number.'
+                        description: A valid non-negative integer port number.
                         type: integer
                       protocol:
-                        description: 'REQUIRED: The protocol exposed on the port.'
+                        description: The protocol exposed on the port.
                         format: string
                         type: string
                     type: object
@@ -82,18 +80,17 @@ spec:
                     format: string
                     type: string
                   port:
-                    description: REQUIRED.
+                    description: The port associated with the listener.
                     properties:
                       name:
                         description: Label assigned to the port.
                         format: string
                         type: string
                       number:
-                        description: 'REQUIRED: A valid non-negative integer port
-                          number.'
+                        description: A valid non-negative integer port number.
                         type: integer
                       protocol:
-                        description: 'REQUIRED: The protocol exposed on the port.'
+                        description: The protocol exposed on the port.
                         format: string
                         type: string
                     type: object

@@ -104,11 +104,11 @@ spec:
                     items:
                       properties:
                         key:
-                          description: Required.
+                          description: The name of an Istio attribute.
                           format: string
                           type: string
                         values:
-                          description: Required.
+                          description: The allowed values for the attribute.
                           items:
                             format: string
                             type: string
