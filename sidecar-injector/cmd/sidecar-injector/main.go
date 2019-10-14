@@ -215,7 +215,7 @@ func patchCertLoop(stopCh <-chan struct{}) error {
 					if retry := doPatch(client, caCertPem); retry {
 						if delayedRetryC == nil {
 							delayedRetryC = time.After(delayedRetryTime)
-							log.Infof("Patch failed - retrying in", delayedRetryTime)
+							log.Infof("Patch failed - retrying every %v until success", delayedRetryTime)
 						}
 					} else {
 						delayedRetryC = nil
