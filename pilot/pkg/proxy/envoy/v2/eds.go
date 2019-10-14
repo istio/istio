@@ -135,7 +135,7 @@ func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
 	// Istio endpoint level tls transport socket configuation depends on this logic
 	// Do not remove
-	ep.Metadata = endpointMetadata(uid, network, mtlsReady)
+	ep.Metadata = util.BuildLbEndpointMetadata(uid, network, mtlsReady)
 
 	return ep
 }
@@ -166,42 +166,9 @@ func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint, mtlsReady bool) (*
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
 	// Istio endpoint level tls transport socket configuation depends on this logic
 	// Do not remove
-	ep.Metadata = endpointMetadata(e.UID, e.Network, mtlsReady)
+	ep.Metadata = util.BuildLbEndpointMetadata(e.UID, e.Network, mtlsReady)
 
 	return ep, nil
-}
-
-// Create an Istio filter metadata object with the UID, Network and MTLSReady fields (if exist).
-func endpointMetadata(uid string, network string, mtlsReady bool) *core.Metadata {
-	if uid == "" && network == "" {
-		return nil
-	}
-
-	metadata := &core.Metadata{
-		FilterMetadata: map[string]*structpb.Struct{
-			util.IstioMetadataKey: {
-				Fields: map[string]*structpb.Value{},
-			},
-		},
-	}
-
-	if uid != "" {
-		metadata.FilterMetadata[util.IstioMetadataKey].Fields["uid"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: uid}}
-	}
-
-	if network != "" {
-		metadata.FilterMetadata[util.IstioMetadataKey].Fields["network"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: network}}
-	}
-
-	if mtlsReady {
-		metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
-			Fields: map[string]*structpb.Value{
-				model.MTLSReadyLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: "true"}},
-			},
-		}
-	}
-
-	return metadata
 }
 
 // Determine Service associated with a hostname when there is no Sidecar scope. Which namespace the service comes from
@@ -501,7 +468,6 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 		ep = &EndpointShards{
 			Shards:          map[string][]*model.IstioEndpoint{},
 			ServiceAccounts: map[string]bool{},
-			MTLSReady:       false,
 		}
 		s.EndpointShardsByService[serviceName][namespace] = ep
 		if !internal {

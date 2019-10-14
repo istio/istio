@@ -579,3 +579,38 @@ func HandleCrash(handlers ...func()) {
 		}
 	}
 }
+
+// BuildLbEndpointMetadata adds metadata values to a lb endpoint
+func BuildLbEndpointMetadata(uid string, network string, mtlsReady bool) *core.Metadata {
+	if uid == "" && network == "" && !mtlsReady {
+		return nil
+	}
+
+	metadata := &core.Metadata{
+		FilterMetadata: map[string]*pstruct.Struct{},
+	}
+
+	if uid != "" || network != "" {
+		metadata.FilterMetadata[IstioMetadataKey] = &pstruct.Struct{
+			Fields: map[string]*pstruct.Value{},
+		}
+
+		if uid != "" {
+			metadata.FilterMetadata[IstioMetadataKey].Fields["uid"] = &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: uid}}
+		}
+
+		if network != "" {
+			metadata.FilterMetadata[IstioMetadataKey].Fields["network"] = &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: network}}
+		}
+	}
+
+	if mtlsReady {
+		metadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = &pstruct.Struct{
+			Fields: map[string]*pstruct.Value{
+				model.MTLSReadyLabelShortname: {Kind: &pstruct.Value_StringValue{StringValue: "true"}},
+			},
+		}
+	}
+
+	return metadata
+}

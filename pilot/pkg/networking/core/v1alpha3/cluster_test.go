@@ -40,7 +40,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -802,9 +801,10 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 		sans            []string
 		sni             string
 		proxy           *model.Proxy
-		serviceMTLSMode authn_model.MutualTLSMode
-		intsMTLSReady   bool
+		autoMTLSEnabled bool
+		meshExternal    bool
 		want            *networking.TLSSettings
+		wantCtxType     mtlsContextType
 	}{
 		{
 			"Destination rule TLS sni and SAN override",
@@ -812,9 +812,9 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			authn_model.MTLSUnknown,
-			false,
+			false, false,
 			tlsSettings,
+			userSupplied,
 		},
 		{
 			"Destination rule TLS sni and SAN override absent",
@@ -829,8 +829,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			authn_model.MTLSUnknown,
-			false,
+			false, false,
 			&networking.TLSSettings{
 				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
 				CaCertificates:    constants.DefaultRootCert,
@@ -839,6 +838,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 				SubjectAltNames:   []string{"spiffe://foo/serviceaccount/1"},
 				Sni:               "foo.com",
 			},
+			userSupplied,
 		},
 		{
 			"Cert path override",
@@ -850,8 +850,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 				TLSClientKey:       "/custom/key.pem",
 				TLSClientRootCert:  "/custom/root.pem",
 			}},
-			authn_model.MTLSUnknown,
-			false,
+			false, false,
 			&networking.TLSSettings{
 				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
 				CaCertificates:    "/custom/root.pem",
@@ -860,45 +859,15 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 				SubjectAltNames:   []string{"custom.foo.com"},
 				Sni:               "custom.foo.com",
 			},
+			userSupplied,
 		},
 		{
-			"Ignore nil settings when mTLS Unknown",
+			"Auto fill nil settings when mTLS nil for internal service",
 			nil,
 			[]string{"spiffee://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			authn_model.MTLSUnknown,
-			false,
-			nil,
-		},
-		{
-			"Ignore nil settings when mTLS Disable",
-			nil,
-			[]string{"spiffee://foo/serviceaccount/1"},
-			"foo.com",
-			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			authn_model.MTLSDisable,
-			false,
-			nil,
-		},
-		{
-			"Ignore nil settings when mTLS Permissive",
-			nil,
-			[]string{"spiffee://foo/serviceaccount/1"},
-			"foo.com",
-			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			authn_model.MTLSPermissive,
-			false,
-			nil,
-		},
-		{
-			"Auto fill nil settings when mTLS Strict",
-			nil,
-			[]string{"spiffee://foo/serviceaccount/1"},
-			"foo.com",
-			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			authn_model.MTLSStrict,
-			false,
+			true, false,
 			&networking.TLSSettings{
 				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
 				CaCertificates:    constants.DefaultRootCert,
@@ -907,130 +876,28 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 				SubjectAltNames:   []string{"spiffee://foo/serviceaccount/1"},
 				Sni:               "foo.com",
 			},
+			autoDetected,
 		},
 		{
-			"Destination rule TLS sni and SAN override and mTLSReady",
-			tlsSettings,
-			[]string{"spiffe://foo/serviceaccount/1"},
-			"foo.com",
-			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			authn_model.MTLSUnknown,
-			true,
-			tlsSettings,
-		},
-		{
-			"Destination rule TLS sni and SAN override absent and mTLSReady",
-			&networking.TLSSettings{
-				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
-				CaCertificates:    constants.DefaultRootCert,
-				ClientCertificate: constants.DefaultCertChain,
-				PrivateKey:        constants.DefaultKey,
-				SubjectAltNames:   []string{},
-				Sni:               "",
-			},
-			[]string{"spiffe://foo/serviceaccount/1"},
-			"foo.com",
-			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			authn_model.MTLSUnknown,
-			true,
-			&networking.TLSSettings{
-				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
-				CaCertificates:    constants.DefaultRootCert,
-				ClientCertificate: constants.DefaultCertChain,
-				PrivateKey:        constants.DefaultKey,
-				SubjectAltNames:   []string{"spiffe://foo/serviceaccount/1"},
-				Sni:               "foo.com",
-			},
-		},
-		{
-			"Cert path override and mTLSReady",
-			tlsSettings,
-			[]string{},
-			"",
-			&model.Proxy{Metadata: &model.NodeMetadata{
-				TLSClientCertChain: "/custom/chain.pem",
-				TLSClientKey:       "/custom/key.pem",
-				TLSClientRootCert:  "/custom/root.pem",
-			}},
-			authn_model.MTLSUnknown,
-			true,
-			&networking.TLSSettings{
-				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
-				CaCertificates:    "/custom/root.pem",
-				ClientCertificate: "/custom/chain.pem",
-				PrivateKey:        "/custom/key.pem",
-				SubjectAltNames:   []string{"custom.foo.com"},
-				Sni:               "custom.foo.com",
-			},
-		},
-		{
-			"Ignore nil settings when mTLS Unknown and mTLSReady",
+			"Do not auto fill nil settings for external",
 			nil,
 			[]string{"spiffee://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			authn_model.MTLSUnknown,
-			true,
-			&networking.TLSSettings{
-				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
-				CaCertificates:    constants.DefaultRootCert,
-				ClientCertificate: constants.DefaultCertChain,
-				PrivateKey:        constants.DefaultKey,
-				SubjectAltNames:   []string{"spiffee://foo/serviceaccount/1"},
-				Sni:               "foo.com",
-			},
-		},
-		{
-			"Ignore nil settings when mTLS Disable and mTLSReady",
+			true, true,
 			nil,
-			[]string{"spiffee://foo/serviceaccount/1"},
-			"foo.com",
-			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			authn_model.MTLSDisable,
-			true,
-			nil,
-		},
-		{
-			"Auto fill nil settings when mTLS Permissive and mTLSReady",
-			nil,
-			[]string{"spiffee://foo/serviceaccount/1"},
-			"foo.com",
-			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			authn_model.MTLSPermissive,
-			true,
-			&networking.TLSSettings{
-				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
-				CaCertificates:    constants.DefaultRootCert,
-				ClientCertificate: constants.DefaultCertChain,
-				PrivateKey:        constants.DefaultKey,
-				SubjectAltNames:   []string{"spiffee://foo/serviceaccount/1"},
-				Sni:               "foo.com",
-			},
-		},
-		{
-			"Auto fill nil settings when mTLS Strict and mTLSReady",
-			nil,
-			[]string{"spiffee://foo/serviceaccount/1"},
-			"foo.com",
-			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			authn_model.MTLSStrict,
-			true,
-			&networking.TLSSettings{
-				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
-				CaCertificates:    constants.DefaultRootCert,
-				ClientCertificate: constants.DefaultCertChain,
-				PrivateKey:        constants.DefaultKey,
-				SubjectAltNames:   []string{"spiffee://foo/serviceaccount/1"},
-				Sni:               "foo.com",
-			},
+			userSupplied,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := conditionallyConvertToIstioMtls(tt.tls, tt.sans, tt.sni, tt.proxy, tt.serviceMTLSMode, true, tt.intsMTLSReady)
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Expected locality empty result %#v, but got %#v", tt.want, got)
+			gotTls, gotCtxType := conditionallyConvertToIstioMtls(tt.tls, tt.sans, tt.sni, tt.proxy, tt.autoMTLSEnabled, tt.meshExternal)
+			if !reflect.DeepEqual(gotTls, tt.want) {
+				t.Errorf("cluster TLS does not match exppected result want %#v, got %#v", tt.want, gotTls)
+			}
+			if gotCtxType != tt.wantCtxType {
+				t.Errorf("cluster TLS context type does not match expected result want %#v, got %#v", tt.wantCtxType, gotTls)
 			}
 		})
 	}
