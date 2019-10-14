@@ -94,6 +94,11 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (diag.Messages, error) {
 	}
 	src := newPrecedenceSource(sa.sources)
 
+	var namespaces []string
+	if sa.namespace != "" {
+		namespaces = []string{sa.namespace}
+	}
+
 	updater := &snapshotter.InMemoryStatusUpdater{}
 	distributorSettings := snapshotter.AnalyzingDistributorSettings{
 		StatusUpdater:      updater,
@@ -102,7 +107,7 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (diag.Messages, error) {
 		AnalysisSnapshots:  []string{metadata.LocalAnalysis, metadata.SyntheticServiceEntry},
 		TriggerSnapshot:    metadata.LocalAnalysis,
 		CollectionReporter: sa.collectionReporter,
-		AnalysisNamespaces: []string{sa.namespace},
+		AnalysisNamespaces: namespaces,
 	}
 	distributor := snapshotter.NewAnalyzingDistributor(distributorSettings)
 

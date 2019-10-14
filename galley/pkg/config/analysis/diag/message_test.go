@@ -26,6 +26,10 @@ func (o testOrigin) FriendlyName() string {
 	return string(o)
 }
 
+func (o testOrigin) Namespace() string {
+	return ""
+}
+
 func TestMessage_String(t *testing.T) {
 	g := NewGomegaWithT(t)
 	mt := NewMessageType(Error, "IST-0042", "Cheese type not found: %q")
