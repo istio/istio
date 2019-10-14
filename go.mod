@@ -147,6 +147,7 @@ require (
 	go.uber.org/zap v1.10.0
 	golang.org/x/net v0.0.0-20190827160401-ba9fcec4b297
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
+	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
 	golang.org/x/tools v0.0.0-20190624180213-70d37148ca0c
 	google.golang.org/api v0.8.0

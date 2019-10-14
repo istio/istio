@@ -225,12 +225,13 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 		return
 	}
 	if resourceID := req.URL.Query().Get("resource"); resourceID != "" {
+		proxyNamespace := req.URL.Query().Get("proxy_namespace")
 		knownVersions := make(map[string]string)
 		var results []SyncedVersions
 		adsClientsMutex.RLock()
 		for _, con := range adsClients {
 			con.mu.RLock()
-			if con.node != nil {
+			if con.node != nil && (proxyNamespace == "" || proxyNamespace == con.node.ConfigNamespace) {
 				// TODO: handle skipped nodes
 				results = append(results, SyncedVersions{
 					ProxyID:         con.node.ID,
