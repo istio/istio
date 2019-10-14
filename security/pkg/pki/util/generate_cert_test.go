@@ -15,7 +15,6 @@
 package util
 
 import (
-	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -464,65 +463,6 @@ func TestLoadSignerCredsFromFiles(t *testing.T) {
 
 		if cert == nil || key == nil {
 			t.Errorf("[%s] Failed to load signer credentials from files: %v, %v", id, tc.certFile, tc.keyFile)
-		}
-	}
-}
-
-// TestAppendRootCerts verifies that AppendRootCerts works properly.
-func TestAppendRootCerts(t *testing.T) {
-	testCases := map[string]struct {
-		pemCert          []byte
-		rootFile         string
-		expectedErr      string
-		expectedRootCert []byte
-	}{
-		"Empty pem cert and root file": {
-			pemCert:          []byte{},
-			rootFile:         "",
-			expectedErr:      "",
-			expectedRootCert: []byte{},
-		},
-		"Non empty root file": {
-			pemCert:          []byte{},
-			rootFile:         "../testdata/cert.pem",
-			expectedErr:      "",
-			expectedRootCert: []byte(certPem + "\n"),
-		},
-		"Non empty pem cert": {
-			pemCert:          []byte(certPem),
-			rootFile:         "",
-			expectedErr:      "",
-			expectedRootCert: []byte(certPem),
-		},
-		"Non empty pem cert and non empty root file": {
-			pemCert:          []byte(certPem),
-			rootFile:         "../testdata/cert.pem",
-			expectedErr:      "",
-			expectedRootCert: append([]byte(certPem+"\n"), []byte(certPem+"\n")...),
-		},
-		"Not existing root file": {
-			pemCert:  []byte{},
-			rootFile: "../testdata/notexistcert.pem",
-			expectedErr: "failed to read root certificates (open ../testdata/notexistcert.pem: " +
-				"no such file or directory)",
-			expectedRootCert: []byte{},
-		},
-	}
-
-	for id, tc := range testCases {
-		rc, err := AppendRootCerts(tc.pemCert, tc.rootFile)
-		if len(tc.expectedErr) > 0 {
-			if err == nil {
-				t.Errorf("[%s] Succeeded. Error expected: %s", id, tc.expectedErr)
-			} else if err.Error() != tc.expectedErr {
-				t.Errorf("[%s] incorrect error message: %s VS (expected) %s",
-					id, err.Error(), tc.expectedErr)
-			}
-		} else if err != nil {
-			t.Errorf("[%s] Unexpected error: %s", id, err.Error())
-		}
-		if !bytes.Equal(rc, tc.expectedRootCert) {
-			t.Errorf("[%s] root cert does not match. %v VS (expected) %v", id, rc, tc.expectedRootCert)
 		}
 	}
 }
