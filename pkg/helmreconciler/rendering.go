@@ -240,7 +240,7 @@ func (h *HelmReconciler) ProcessObject(obj *unstructured.Unstructured) error {
 				log.Errorf("unexpected error occurred during postprocessing of updated resource: %s", err)
 			}
 		} else {
-			listenerErr := h.customizer.Listener().ResourceError(mutatedObj, err)
+			listenerErr := h.customizer.Listener().ResourceError(obj, err)
 			if listenerErr != nil {
 				log.Errorf("unexpected error occurred invoking ResourceError on listener: %s", listenerErr)
 			}
