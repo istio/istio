@@ -333,14 +333,14 @@ func TestDeletedIstioSecret(t *testing.T) {
 }
 
 func TestUpdateSecret(t *testing.T) {
-	//secretSchema := schema.GroupVersionResource{
-	//	Resource: "secrets",
-	//	Version:  "v1",
-	//}
-	//nsSchema := schema.GroupVersionResource{
-	//	Resource: "namespaces",
-	//	Version:  "v1",
-	//}
+	secretSchema := schema.GroupVersionResource{
+		Resource: "secrets",
+		Version:  "v1",
+	}
+	nsSchema := schema.GroupVersionResource{
+		Resource: "namespaces",
+		Version:  "v1",
+	}
 
 	testCases := map[string]struct {
 		expectedActions     []ktesting.Action
@@ -361,93 +361,93 @@ func TestUpdateSecret(t *testing.T) {
 			minGracePeriod:      10 * time.Minute,
 			originalKCBSyncTime: time.Now(),
 		},
-		//"Update secret in grace period": {
-		//	expectedActions: []ktesting.Action{
-		//		ktesting.NewGetAction(nsSchema, "test-ns", "test-ns"),
-		//		ktesting.NewUpdateAction(secretSchema, "test-ns", istioTestSecret),
-		//	},
-		//	ttl:                 time.Hour,
-		//	gracePeriodRatio:    1, // Always in grace period
-		//	minGracePeriod:      10 * time.Minute,
-		//	originalKCBSyncTime: time.Now(),
-		//},
-		//"Update secret in min grace period": {
-		//	expectedActions: []ktesting.Action{
-		//		ktesting.NewGetAction(nsSchema, "test-ns", "test-ns"),
-		//		ktesting.NewUpdateAction(secretSchema, "test-ns", istioTestSecret),
-		//	},
-		//	ttl:                 10 * time.Minute,
-		//	gracePeriodRatio:    0.5,
-		//	minGracePeriod:      time.Hour, // ttl is always in minGracePeriod
-		//	originalKCBSyncTime: time.Now(),
-		//},
-		//"Update expired secret": {
-		//	expectedActions: []ktesting.Action{
-		//		ktesting.NewGetAction(nsSchema, "test-ns", "test-ns"),
-		//		ktesting.NewUpdateAction(secretSchema, "test-ns", istioTestSecret),
-		//	},
-		//	ttl:                 -time.Second,
-		//	gracePeriodRatio:    0.5,
-		//	minGracePeriod:      10 * time.Minute,
-		//	originalKCBSyncTime: time.Now(),
-		//},
-		//"Reload key cert bundle and update secret with different root cert": {
-		//	expectedActions: []ktesting.Action{
-		//		ktesting.NewCreateAction(secretSchema, "", k8ssecret.BuildSecret("",
-		//			CASecret, "", nil, nil, []byte(cert1Pem),
-		//			[]byte(cert1Pem), []byte(key1Pem), IstioSecretType)),
-		//		ktesting.NewGetAction(secretSchema, "", CASecret),
-		//		ktesting.NewGetAction(nsSchema, "test-ns", "test-ns"),
-		//		ktesting.NewUpdateAction(secretSchema, "test-ns", istioTestSecret),
-		//	},
-		//	ttl:                 time.Hour,
-		//	gracePeriodRatio:    0.5,
-		//	minGracePeriod:      10 * time.Minute,
-		//	rootCert:            []byte("Outdated root cert"),
-		//	createIstioCASecret: true,
-		//	originalKCBSyncTime: time.Time{},
-		//},
-		//"Update secret with invalid certificate": {
-		//	expectedActions: []ktesting.Action{
-		//		ktesting.NewGetAction(nsSchema, "test-ns", "test-ns"),
-		//		ktesting.NewUpdateAction(secretSchema, "test-ns", istioTestSecret),
-		//	},
-		//	ttl:                 time.Hour,
-		//	gracePeriodRatio:    0.5,
-		//	minGracePeriod:      10 * time.Minute,
-		//	certIsInvalid:       true,
-		//	originalKCBSyncTime: time.Now(),
-		//},
-		//"Reload key cert bundle": {
-		//	expectedActions: []ktesting.Action{
-		//		ktesting.NewCreateAction(secretSchema, "", k8ssecret.BuildSecret("",
-		//			CASecret, "", nil, nil, []byte(cert1Pem),
-		//			[]byte(cert1Pem), []byte(key1Pem), IstioSecretType)),
-		//		ktesting.NewGetAction(secretSchema, "", CASecret),
-		//	},
-		//	ttl:                 time.Hour,
-		//	gracePeriodRatio:    0.5,
-		//	minGracePeriod:      10 * time.Minute,
-		//	createIstioCASecret: true,
-		//	rootCert:            []byte(cert1Pem),
-		//	originalKCBSyncTime: time.Time{},
-		//	expectedKCBSyncTime: true,
-		//},
-		//"Skip reloading key cert bundle": {
-		//	expectedActions: []ktesting.Action{
-		//		ktesting.NewCreateAction(secretSchema, "", k8ssecret.BuildSecret("",
-		//			CASecret, "", nil, nil, []byte(cert1Pem),
-		//			[]byte(cert1Pem), []byte(key1Pem), IstioSecretType)),
-		//		ktesting.NewGetAction(nsSchema, "test-ns", "test-ns"),
-		//		ktesting.NewUpdateAction(secretSchema, "test-ns", istioTestSecret),
-		//	},
-		//	ttl:                 time.Hour,
-		//	gracePeriodRatio:    0.5,
-		//	minGracePeriod:      10 * time.Minute,
-		//	createIstioCASecret: true,
-		//	rootCert:            []byte(cert1Pem),
-		//	originalKCBSyncTime: time.Now(),
-		//},
+		"Update secret in grace period": {
+			expectedActions: []ktesting.Action{
+				ktesting.NewGetAction(nsSchema, "test-ns", "test-ns"),
+				ktesting.NewUpdateAction(secretSchema, "test-ns", istioTestSecret),
+			},
+			ttl:                 time.Hour,
+			gracePeriodRatio:    1, // Always in grace period
+			minGracePeriod:      10 * time.Minute,
+			originalKCBSyncTime: time.Now(),
+		},
+		"Update secret in min grace period": {
+			expectedActions: []ktesting.Action{
+				ktesting.NewGetAction(nsSchema, "test-ns", "test-ns"),
+				ktesting.NewUpdateAction(secretSchema, "test-ns", istioTestSecret),
+			},
+			ttl:                 10 * time.Minute,
+			gracePeriodRatio:    0.5,
+			minGracePeriod:      time.Hour, // ttl is always in minGracePeriod
+			originalKCBSyncTime: time.Now(),
+		},
+		"Update expired secret": {
+			expectedActions: []ktesting.Action{
+				ktesting.NewGetAction(nsSchema, "test-ns", "test-ns"),
+				ktesting.NewUpdateAction(secretSchema, "test-ns", istioTestSecret),
+			},
+			ttl:                 -time.Second,
+			gracePeriodRatio:    0.5,
+			minGracePeriod:      10 * time.Minute,
+			originalKCBSyncTime: time.Now(),
+		},
+		"Reload key cert bundle and update secret with different root cert": {
+			expectedActions: []ktesting.Action{
+				ktesting.NewCreateAction(secretSchema, "", k8ssecret.BuildSecret("",
+					CASecret, "", nil, nil, []byte(cert1Pem),
+					[]byte(cert1Pem), []byte(key1Pem), IstioSecretType)),
+				ktesting.NewGetAction(secretSchema, "", CASecret),
+				ktesting.NewGetAction(nsSchema, "test-ns", "test-ns"),
+				ktesting.NewUpdateAction(secretSchema, "test-ns", istioTestSecret),
+			},
+			ttl:                 time.Hour,
+			gracePeriodRatio:    0.5,
+			minGracePeriod:      10 * time.Minute,
+			rootCert:            []byte("Outdated root cert"),
+			createIstioCASecret: true,
+			originalKCBSyncTime: time.Time{},
+		},
+		"Update secret with invalid certificate": {
+			expectedActions: []ktesting.Action{
+				ktesting.NewGetAction(nsSchema, "test-ns", "test-ns"),
+				ktesting.NewUpdateAction(secretSchema, "test-ns", istioTestSecret),
+			},
+			ttl:                 time.Hour,
+			gracePeriodRatio:    0.5,
+			minGracePeriod:      10 * time.Minute,
+			certIsInvalid:       true,
+			originalKCBSyncTime: time.Now(),
+		},
+		"Reload key cert bundle": {
+			expectedActions: []ktesting.Action{
+				ktesting.NewCreateAction(secretSchema, "", k8ssecret.BuildSecret("",
+					CASecret, "", nil, nil, []byte(cert1Pem),
+					[]byte(cert1Pem), []byte(key1Pem), IstioSecretType)),
+				ktesting.NewGetAction(secretSchema, "", CASecret),
+			},
+			ttl:                 time.Hour,
+			gracePeriodRatio:    0.5,
+			minGracePeriod:      10 * time.Minute,
+			createIstioCASecret: true,
+			rootCert:            []byte(cert1Pem),
+			originalKCBSyncTime: time.Time{},
+			expectedKCBSyncTime: true,
+		},
+		"Skip reloading key cert bundle": {
+			expectedActions: []ktesting.Action{
+				ktesting.NewCreateAction(secretSchema, "", k8ssecret.BuildSecret("",
+					CASecret, "", nil, nil, []byte(cert1Pem),
+					[]byte(cert1Pem), []byte(key1Pem), IstioSecretType)),
+				ktesting.NewGetAction(nsSchema, "test-ns", "test-ns"),
+				ktesting.NewUpdateAction(secretSchema, "test-ns", istioTestSecret),
+			},
+			ttl:                 time.Hour,
+			gracePeriodRatio:    0.5,
+			minGracePeriod:      10 * time.Minute,
+			createIstioCASecret: true,
+			rootCert:            []byte(cert1Pem),
+			originalKCBSyncTime: time.Now(),
+		},
 	}
 
 	for k, tc := range testCases {
