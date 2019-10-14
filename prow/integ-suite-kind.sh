@@ -40,7 +40,7 @@ function build_kind_images() {
   done
 	# Archived local images and load it into KinD's docker daemon
 	# Kubernetes in KinD can only access local images from its docker daemon.
-	docker images "${HUB}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 kind --loglevel debug --name istio-testing load docker-image
+    kind --loglevel debug --name istio-testing load docker-image $(docker images "${HUB}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}')
 }
 
 while (( "$#" )); do
