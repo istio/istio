@@ -156,6 +156,10 @@ containers:
 {{- if .Values.global.trustDomain }}
   - --trust-domain={{ .Values.global.trustDomain }}
 {{- end }}
+{{- if .Values.global.proxy.lifecycle }}
+  lifecycle:
+    {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}
+{{- end }}
   env:
   - name: POD_NAME
     valueFrom:
