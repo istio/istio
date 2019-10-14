@@ -498,6 +498,7 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 	// Check if root certificate in key cert bundle is not up-to-date. With mutiple
 	// Citadel deployed in Istio, the root certificate in istio-ca-secret could be
 	// rotated by any Citadel and become newer than the one in local key cert bundle.
+	// Add a 30 seconds interval for key cert bundle sync to prevent I/O burst.
 	if sc.lastKCBSyncTime.IsZero() || time.Since(sc.lastKCBSyncTime) > 30*time.Second {
 		if !bytes.Equal(rootCertificate, scrt.Data[RootCertID]) {
 			caSecret, scrtErr := sc.caSecretController.LoadCASecretWithRetry(CASecret,
