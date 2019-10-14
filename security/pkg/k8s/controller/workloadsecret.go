@@ -406,9 +406,9 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 
 	_, waitErr := sc.certUtil.GetWaitTime(scrt.Data[CertChainID], time.Now(), sc.minGracePeriod)
 
-	caCert, _, _, rootCertificate := sc.ca.GetCAKeyCertBundle().GetAllPem()
+	caCertInMem, _, _, rootCertificate := sc.ca.GetCAKeyCertBundle().GetAllPem()
 
-	// Check if root certificate in key cert bundle is not up-to-date. With mutiple
+	// Check if root certificate in key cert bundle is not up-to-date. With multiple
 	// Citadel deployed in Istio, and Citadels are in self signed mode, the root
 	// certificate in istio-ca-secret could be rotated by any Citadel and become newer
 	// than the one in local key cert bundle.
@@ -426,7 +426,7 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 			// The CA cert from istio-ca-secret is the source of truth. If CA cert
 			// in local keycertbundle does not match the CA cert in istio-ca-secret,
 			// reload root cert into keycertbundle.
-			if !bytes.Equal(caCert, caSecret.Data[caCertID]) {
+			if !bytes.Equal(caCertInMem, caSecret.Data[caCertID]) {
 				log.Warn("CA cert in KeyCertBundle does not match CA cert in " +
 					"istio-ca-secret. Start to reload root cert into KeyCertBundle")
 				// In self signed cert mode, no root cert file is appended, the root cert and ca cert

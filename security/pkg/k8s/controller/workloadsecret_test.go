@@ -360,6 +360,8 @@ func TestUpdateSecret(t *testing.T) {
 		certIsInvalid       bool
 		createIstioCASecret bool
 		rootCertMatchBundle bool
+		originalKCBSyncTime time.Time
+		expectedKCBSyncTime bool
 	}{
 		"Does not update non-expiring secret": {
 			expectedActions: []ktesting.Action{
@@ -369,6 +371,8 @@ func TestUpdateSecret(t *testing.T) {
 			gracePeriodRatio:    0.5,
 			minGracePeriod:      10 * time.Minute,
 			rootCertMatchBundle: true,
+			originalKCBSyncTime: time.Time{},
+			expectedKCBSyncTime: false,
 		},
 		"Update secret in grace period": {
 			expectedActions: []ktesting.Action{
@@ -377,6 +381,8 @@ func TestUpdateSecret(t *testing.T) {
 			ttl:              time.Hour,
 			gracePeriodRatio: 1, // Always in grace period
 			minGracePeriod:   10 * time.Minute,
+			originalKCBSyncTime: time.Now(),
+			expectedKCBSyncTime: false,
 		},
 		"Update secret in min grace period": {
 			expectedActions: []ktesting.Action{
@@ -385,6 +391,8 @@ func TestUpdateSecret(t *testing.T) {
 			ttl:              10 * time.Minute,
 			gracePeriodRatio: 0.5,
 			minGracePeriod:   time.Hour, // ttl is always in minGracePeriod
+			originalKCBSyncTime: time.Now(),
+			expectedKCBSyncTime: false,
 		},
 		"Update expired secret": {
 			expectedActions: []ktesting.Action{
@@ -393,6 +401,8 @@ func TestUpdateSecret(t *testing.T) {
 			ttl:              -time.Second,
 			gracePeriodRatio: 0.5,
 			minGracePeriod:   10 * time.Minute,
+			originalKCBSyncTime: time.Now(),
+			expectedKCBSyncTime: false,
 		},
 		"Update secret with different root cert": {
 			expectedActions: []ktesting.Action{
@@ -407,6 +417,8 @@ func TestUpdateSecret(t *testing.T) {
 			minGracePeriod:      10 * time.Minute,
 			rootCert:            []byte("Outdated root cert"),
 			createIstioCASecret: true,
+			originalKCBSyncTime: time.Time{},
+			expectedKCBSyncTime: false,
 		},
 		"Update secret with invalid certificate": {
 			expectedActions: []ktesting.Action{
@@ -416,6 +428,8 @@ func TestUpdateSecret(t *testing.T) {
 			gracePeriodRatio: 0.5,
 			minGracePeriod:   10 * time.Minute,
 			certIsInvalid:    true,
+			originalKCBSyncTime: time.Now(),
+			expectedKCBSyncTime: false,
 		},
 		"Reload key cert bundle": {
 			expectedActions: []ktesting.Action{
@@ -423,6 +437,20 @@ func TestUpdateSecret(t *testing.T) {
 					CASecret, "", nil, nil, []byte(cert1Pem),
 					[]byte(cert1Pem), []byte(key1Pem), IstioSecretType)),
 				ktesting.NewGetAction(secretSchema, "", CASecret),
+			},
+			ttl:                 time.Hour,
+			gracePeriodRatio:    0.5,
+			minGracePeriod:      10 * time.Minute,
+			createIstioCASecret: true,
+			rootCert:            []byte(cert1Pem),
+			originalKCBSyncTime: time.Time{},
+			expectedKCBSyncTime: true,
+		},
+		"Skip reloading key cert bundle": {
+			expectedActions: []ktesting.Action{
+				ktesting.NewCreateAction(secretSchema, "", k8ssecret.BuildSecret("",
+					CASecret, "", nil, nil, []byte(cert1Pem),
+					[]byte(cert1Pem), []byte(key1Pem), IstioSecretType)),
 				ktesting.NewUpdateAction(secretSchema, "test-ns", istioTestSecret),
 			},
 			ttl:                 time.Hour,
@@ -430,6 +458,8 @@ func TestUpdateSecret(t *testing.T) {
 			minGracePeriod:      10 * time.Minute,
 			createIstioCASecret: true,
 			rootCert:            []byte(cert1Pem),
+			originalKCBSyncTime: time.Now(),
+			expectedKCBSyncTime: false,
 		},
 	}
 
@@ -442,7 +472,7 @@ func TestUpdateSecret(t *testing.T) {
 		if err != nil {
 			t.Errorf("failed to create secret controller: %v", err)
 		}
-
+		controller.lastKCBSyncTime = tc.originalKCBSyncTime
 		scrt := istioTestSecret
 		if rc := tc.rootCert; rc != nil {
 			scrt.Data[RootCertID] = rc
@@ -452,8 +482,8 @@ func TestUpdateSecret(t *testing.T) {
 				[]byte(cert1Pem), []byte(key1Pem), IstioSecretType)
 			client.CoreV1().Secrets("").Create(caScrt)
 			ca.KeyCertBundle = &mockutil.FakeKeyCertBundle{
-				CertBytes:      []byte(cert1Pem),
-				PrivKeyBytes:   []byte(key1Pem),
+				CertBytes:      caCert,
+				PrivKeyBytes:   caKey,
 				CertChainBytes: certChain,
 				RootCertBytes:  rootCert,
 			}
@@ -483,6 +513,11 @@ func TestUpdateSecret(t *testing.T) {
 
 		if err := checkActions(client.Actions(), tc.expectedActions); err != nil {
 			t.Errorf("Case %q: %s", k, err.Error())
+		}
+		if tc.originalKCBSyncTime.IsZero() {
+			if tc.expectedKCBSyncTime && controller.lastKCBSyncTime.IsZero() {
+				t.Errorf("Case %q: controller's lastKCBSyncTime should be set", k)
+			}
 		}
 	}
 }
