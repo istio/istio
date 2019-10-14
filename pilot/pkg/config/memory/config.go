@@ -118,7 +118,8 @@ func (cr *store) List(typ, namespace string) ([]model.Config, error) {
 }
 
 func buildKey(typ, name, namespace string) string {
-	return fmt.Sprintf("%s/%s.%s", typ, name, namespace)
+	// this is equivalent to pilot/pkg/model/config.go - Key()
+	return fmt.Sprintf("%s/%s/%s", typ, name, namespace)
 }
 
 func (cr *store) Delete(typ, name, namespace string) error {

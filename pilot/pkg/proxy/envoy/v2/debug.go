@@ -222,6 +222,7 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 		w.WriteHeader(http.StatusConflict)
 		_, _ = fmt.Fprint(w, "Pilot Version tracking is disabled.  Please set the "+
 			"PILOT_ENABLE_CONFIG_DISTRIBUTION_TRACKING environment variable to true to enable.")
+		return
 	}
 	if resourceID := req.URL.Query().Get("resource"); resourceID != "" {
 		knownVersions := make(map[string]string)
