@@ -66,7 +66,7 @@ const (
 	// ConfigMap label key that indicates that the ConfigMap contains additional trusted CA roots.
 	ExtraTrustAnchorsLabel = "security.istio.io/extra-trust-anchors"
 	// periodically refresh the primaryTrustAnchor from the CA.
-	primaryTrustAnchorRefreshTimeout = time.Minute
+	primaryTrustAnchorRefreshTimeout = time.Second
 
 	secretNamePrefix      = "istio."
 	secretResyncPeriod    = time.Minute
@@ -677,12 +677,14 @@ func (sc *SecretController) refreshTrustAnchorsBundle() []byte {
 	return sc.combinedTrustAnchorsBundle
 }
 
+var timeNowTestStub = time.Now
+
 func (sc *SecretController) getTrustAnchorsBundle() []byte {
 	sc.extraTrustAnchorMu.Lock()
 	defer sc.extraTrustAnchorMu.Unlock()
 
-	now := time.Now()
-	if now.After(sc.lastPrimaryTrustAnchorCheck.Add(primaryTrustAnchorRefreshTimeout)) {
+	now := timeNowTestStub()
+	if true || now.After(sc.lastPrimaryTrustAnchorCheck.Add(primaryTrustAnchorRefreshTimeout)) {
 		sc.lastPrimaryTrustAnchorCheck = now
 		sc.refreshTrustAnchorsBundle()
 	}

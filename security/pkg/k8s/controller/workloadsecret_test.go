@@ -549,6 +549,16 @@ func TestUpdateSecret(t *testing.T) {
 		},
 	}
 
+	// fake the current time advancing faster than the primary trust anchor refresh timeout.
+	var fakeNowTime time.Time
+	timeNowTestStub = func() time.Time {
+		fakeNowTime = fakeNowTime.Add(primaryTrustAnchorRefreshTimeout * 2)
+		return fakeNowTime
+	}
+	defer func() {
+		timeNowTestStub = time.Now
+	}()
+
 	for k, tc := range testCases {
 		client := fake.NewSimpleClientset()
 		ca := createFakeCA()
