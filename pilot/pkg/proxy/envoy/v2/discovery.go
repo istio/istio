@@ -288,7 +288,6 @@ func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	version = versionLocal
 	versionMutex.Unlock()
 
-	push.Version = s.Env.Version()
 	req.Push = push
 	go s.AdsPushAll(versionLocal, req)
 }

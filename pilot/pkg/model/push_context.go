@@ -709,6 +709,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	}
 
 	ps.Env = env
+	ps.Version = env.Version()
 
 	// Must be initialized first
 	// as initServiceRegistry/VirtualServices/Destrules
