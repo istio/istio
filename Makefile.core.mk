@@ -489,10 +489,6 @@ localTestEnv: build
 
 localTestEnvCleanup: build
 	bin/testEnvLocalK8S.sh stop
-
-.PHONY: istioio-test
-istioio-test:
-		go test ./tests/istio.io/... ${T} -p 1 --istio.test.env kube -v
 		
 .PHONY: pilot-test
 pilot-test:

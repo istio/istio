@@ -317,7 +317,7 @@ data:
   meshNetworks: |-
   {{- if .Values.global.meshNetworks }}
     networks:
-{{ toYaml .Values.global.meshNetworks | indent 6 }}
+{{ toYaml .Values.global.meshNetworks | trim | indent 6 }}
   {{- else }}
     networks: {}
   {{- end }}
