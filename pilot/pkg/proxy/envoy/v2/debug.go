@@ -258,10 +258,15 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 	}
 }
 
+// The Config Version is only used as the nonce prefix, but we can reconstruct it because is is a
+// b64 encoding of a 64 bit array, which will always be 12 chars in length.
+// len = ceil(bitlength/(2^6))+1
+const VersionLen = 12
+
 func (s *DiscoveryServer) getResourceVersion(configVersion, key string, cache map[string]string) string {
 	result, ok := cache[key]
 	if !ok {
-		result, err := s.Env.IstioConfigStore.GetResourceAtVersion(configVersion, key)
+		result, err := s.Env.IstioConfigStore.GetResourceAtVersion(configVersion[:VersionLen], key)
 		if err != nil {
 			adsLog.Errorf("Unable to retrieve resource %s at version %s: %v", key, configVersion, err)
 			result = ""
