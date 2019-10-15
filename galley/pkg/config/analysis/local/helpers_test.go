@@ -20,6 +20,7 @@ import (
 
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/source/kube/rt"
 	"istio.io/istio/galley/pkg/config/testing/data"
 )
 
@@ -31,12 +32,16 @@ func createTestEvent(k event.Kind, r *resource.Entry) event.Event {
 	}
 }
 
-func createTestResource(name, version string) *resource.Entry {
+func createTestResource(ns, name, version string) *resource.Entry {
+	rname := resource.NewName(ns, name)
 	return &resource.Entry{
 		Metadata: resource.Metadata{
-			Name:    resource.NewName("ns", name),
+			Name:    rname,
 			Version: resource.Version(version),
 		},
 		Item: &types.Empty{},
+		Origin: &rt.Origin{
+			Name: rname,
+		},
 	}
 }
