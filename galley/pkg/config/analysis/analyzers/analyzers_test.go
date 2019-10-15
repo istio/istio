@@ -193,7 +193,10 @@ func TestAnalyzers(t *testing.T) {
 
 			sa := local.NewSourceAnalyzer(metadata.MustGet(), analysis.Combine("testCombined", testCase.analyzer), "", cr, true)
 
-			sa.AddFileKubeSource(testCase.inputFiles)
+			err := sa.AddFileKubeSource(testCase.inputFiles)
+			if err != nil {
+				t.Fatalf("Error setting up file kube source on testcase %s: %v", testCase.name, err)
+			}
 			cancel := make(chan struct{})
 
 			msgs, err := sa.Analyze(cancel)
