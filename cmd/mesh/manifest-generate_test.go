@@ -73,6 +73,12 @@ func TestManifestGenerateFlags(t *testing.T) {
 			// FIXME: this test should fail without --force flag.
 			flags: "",
 		},
+		{
+			desc:       "flag_output_set_profile",
+			diffIgnore: "ConfigMap:*:istio",
+			flags:      "-s profile=minimal",
+			noInput:    true,
+		},
 	})
 	removeDirOrFail(t, flagOutputDir)
 	removeDirOrFail(t, flagOutputValuesDir)
