@@ -830,7 +830,7 @@ func applyTrafficPolicy(opts buildClusterOpts, proxy *model.Proxy) {
 	applyLoadBalancer(opts.cluster, loadBalancer, opts.port, proxy)
 	if opts.clusterMode != SniDnatClusterMode {
 		autoMTLSEnabled := opts.env.Mesh.GetEnableAutoMtls().Value
-		mtlsCtxType := userSupplied
+		var mtlsCtxType mtlsContextType
 		tls, mtlsCtxType = conditionallyConvertToIstioMtls(tls, opts.serviceAccounts, opts.sni, opts.proxy, autoMTLSEnabled, opts.meshExternal)
 		applyUpstreamTLSSettings(opts.env, opts.cluster, tls, mtlsCtxType, opts.proxy)
 	}
@@ -1163,24 +1163,23 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 			log.Errorf("error marshaling tls context to transport_socket config for cluster %s, err=%v",
 				cluster.Name, err)
 			return // no tls context for the cluster
-		} else {
-			cluster.TransportSocketMatches = []*apiv2.Cluster_TransportSocketMatch{
-				{
-					Name: "mtls",
-					Match: &structpb.Struct{
-						Fields: map[string]*structpb.Value{
-							model.MTLSReadyLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: "true"}},
-						},
-					},
-					TransportSocket: &core.TransportSocket{
-						Name: util.EnvoyTLSSocketName,
-						ConfigType: &core.TransportSocket_TypedConfig{
-							TypedConfig: tlsContext,
-						},
+		}
+		cluster.TransportSocketMatches = []*apiv2.Cluster_TransportSocketMatch{
+			{
+				Name: "mtls",
+				Match: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						model.MTLSReadyLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: "true"}},
 					},
 				},
-				plaintextTransportSocketMatch,
-			}
+				TransportSocket: &core.TransportSocket{
+					Name: util.EnvoyTLSSocketName,
+					ConfigType: &core.TransportSocket_TypedConfig{
+						TypedConfig: tlsContext,
+					},
+				},
+			},
+			plaintextTransportSocketMatch,
 		}
 	}
 }

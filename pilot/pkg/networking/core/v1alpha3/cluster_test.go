@@ -312,6 +312,7 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 				Locality:    "region1/zone1/subzone1",
 				LbWeight:    40,
 			},
+			MTLSReady: true,
 		},
 		{
 			Service: service,
@@ -322,6 +323,7 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 				Locality:    "region1/zone1/subzone2",
 				LbWeight:    20,
 			},
+			MTLSReady: true,
 		},
 		{
 			Service: service,
@@ -332,6 +334,7 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 				Locality:    "region2/zone1/subzone1",
 				LbWeight:    40,
 			},
+			MTLSReady: true,
 		},
 		{
 			Service: service,
@@ -342,6 +345,7 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 				Locality:    "region1/zone1/subzone1",
 				LbWeight:    0,
 			},
+			MTLSReady: true,
 		},
 	}
 
@@ -892,9 +896,9 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotTls, gotCtxType := conditionallyConvertToIstioMtls(tt.tls, tt.sans, tt.sni, tt.proxy, tt.autoMTLSEnabled, tt.meshExternal)
-			if !reflect.DeepEqual(gotTls, tt.want) {
-				t.Errorf("cluster TLS does not match exppected result want %#v, got %#v", tt.want, gotTls)
+			gotTLS, gotCtxType := conditionallyConvertToIstioMtls(tt.tls, tt.sans, tt.sni, tt.proxy, tt.autoMTLSEnabled, tt.meshExternal)
+			if !reflect.DeepEqual(gotTLS, tt.want) {
+				t.Errorf("cluster TLS does not match exppected result want %#v, got %#v", tt.want, gotTLS)
 			}
 			if gotCtxType != tt.wantCtxType {
 				t.Errorf("cluster TLS context type does not match expected result want %#v, got %#v", tt.wantCtxType, gotTls)
@@ -1726,11 +1730,14 @@ func TestAutoMTLSClusterStrictMode(t *testing.T) {
 		},
 	}
 
+	testMesh.EnableAutoMtls.Value = true
+
 	clusters, err := buildTestClustersWithAuthnPolicy(TestServiceNHostname, 0, false, model.SidecarProxy, nil, testMesh, destRule, authnPolicy)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	// For port 8080, (m)TLS settings is automatically added, thus its cluster should have TLS context.
-	g.Expect(clusters[0].TlsContext).NotTo(BeNil())
+	g.Expect(clusters[0].TlsContext).To(BeNil())
+	g.Expect(clusters[0].TransportSocketMatches).To(HaveLen(2))
 
 	// For 9090, use the TLS settings are explicitly specified in DR (which disable TLS)
 	g.Expect(clusters[1].TlsContext).To(BeNil())
@@ -1825,11 +1832,14 @@ func TestAutoMTLSClusterPerPortStrictMode(t *testing.T) {
 		},
 	}
 
+	testMesh.EnableAutoMtls.Value = true
+
 	clusters, err := buildTestClustersWithAuthnPolicy(TestServiceNHostname, 0, false, model.SidecarProxy, nil, testMesh, destRule, authnPolicy)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	// For port 8080, (m)TLS settings is automatically added, thus its cluster should have TLS context.
-	g.Expect(clusters[0].TlsContext).NotTo(BeNil())
+	g.Expect(clusters[0].TlsContext).To(BeNil())
+	g.Expect(clusters[0].TransportSocketMatches).To(HaveLen(2))
 
 	// For 9090, authn policy disable mTLS, so it should not have TLS context.
 	g.Expect(clusters[1].TlsContext).To(BeNil())

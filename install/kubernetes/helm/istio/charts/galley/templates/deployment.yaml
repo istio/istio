@@ -26,9 +26,6 @@ spec:
         heritage: {{ .Release.Service }}
         release: {{ .Release.Name }}
         istio: galley
-{{- if .Values.global.controlPlaneSecurityEnabled }}
-        security.istio.io/mtlsReady: "true"
-{{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
          {{- if .Values.podAnnotations }}
