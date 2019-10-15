@@ -161,7 +161,7 @@ var (
 	// We need to forward these ALPNs to upstream so that the upstream can
 	// properly use a HTTP or TCP listener
 	plaintextHTTPALPNs = []string{"http/1.0", "http/1.1", "h2c"}
-	mtlsHTTPALPNs = []string{"istio-http/1.0", "istio-http/1.1", "istio-h2"}
+	mtlsHTTPALPNs      = []string{"istio-http/1.0", "istio-http/1.1", "istio-h2"}
 
 	mtlsTCPALPNs = []string{"istio"}
 
@@ -173,7 +173,7 @@ var (
 	//  FCM 3: ALPN [istio] Transport protocol: tls                                         --> TCP traffic from sidecar over TLS
 	//  FCM 4: ALPN [] Transport protocol: N/A                                              --> TCP traffic over plain text
 	//  FCM 5: ALPN [] Transport protocol: tls                                              --> TCP traffic over TLS
-	// If traffic is over plain text or mTLS is strict mode, there are two filter chains. The filter chaim match should be
+	// If traffic is over plain text or mTLS is strict mode, there are two filter chains. The filter chain match should be
 	//  FCM 1: ALPN [http/1.0, http/1.1, h2c, istio-http/1.0, istio-http/1.1, istio-h2]     --> HTTP traffic over plain text or TLS
 	//  FCM 2: ALPN []                                                                      --> TCP traffic over plain text or TLS
 	inboundPermissiveFilterChainMatchOptions = []FilterChainMatchOptions{
@@ -181,21 +181,21 @@ var (
 			// client side traffic was detected as HTTP by the outbound listener, sent over mTLS
 			ApplicationProtocols: mtlsHTTPALPNs,
 			// If client sends mTLS traffic, transport protocol will be set by the TLS inspector
-			TransportProtocol:    "tls",
-			Protocol:             plugin.ListenerProtocolHTTP,
+			TransportProtocol: "tls",
+			Protocol:          plugin.ListenerProtocolHTTP,
 		},
 		{
 			// client side traffic could not be identified by the outbound listener, but sent over mTLS
 			ApplicationProtocols: mtlsTCPALPNs,
 			// If client sends mTLS traffic, transport protocol will be set by the TLS inspector
-			TransportProtocol:    "tls",
-			Protocol: plugin.ListenerProtocolTCP,
+			TransportProtocol: "tls",
+			Protocol:          plugin.ListenerProtocolTCP,
 		},
 		{
 			// client side traffic was detected as HTTP by the outbound listener, sent out as plain text
 			ApplicationProtocols: plaintextHTTPALPNs,
 			// No transport protocol match as this filter chain (+match) will be used for plain text connections
-			Protocol:             plugin.ListenerProtocolHTTP,
+			Protocol: plugin.ListenerProtocolHTTP,
 		},
 		{
 			// client side traffic could not be identified by the outbound listener, sent over plaintext
@@ -211,7 +211,7 @@ var (
 			// inspector would detect this as TLS traffic [not necessarily mTLS]. But since there is no ALPN to match,
 			// this filter chain match will treat the traffic as just another TCP proxy.
 			TransportProtocol: "tls",
-			Protocol: plugin.ListenerProtocolTCP,
+			Protocol:          plugin.ListenerProtocolTCP,
 		},
 	}
 
@@ -644,15 +644,15 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 	}
 
 	tlsInspectorEnabled := false
-	allChainsLabel:
-		for _, c := range allChains {
-			for _, lf := range c.ListenerFilters {
-				if lf.Name == wellknown.TlsInspector {
-					tlsInspectorEnabled = true
-					break allChainsLabel
-				}
+allChainsLabel:
+	for _, c := range allChains {
+		for _, lf := range c.ListenerFilters {
+			if lf.Name == wellknown.TlsInspector {
+				tlsInspectorEnabled = true
+				break allChainsLabel
 			}
 		}
+	}
 
 	var filterChainMatchOption []FilterChainMatchOptions
 	// Detect protocol by sniffing and double the filter chain
@@ -690,6 +690,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 			tcpNetworkFilters = buildInboundNetworkFilters(pluginParams.Env, pluginParams.Node, pluginParams.ServiceInstance)
 
 		case plugin.ListenerProtocolAuto:
+			// Make sure id is not out of boundary of filterChainMatchOption
 			if filterChainMatchOption == nil || len(filterChainMatchOption) <= id {
 				continue
 			}
