@@ -25,7 +25,7 @@ import (
 
 func TestWaitCmd(t *testing.T) {
 	cannedResponseObj := []v2.SyncedVersions{
-		v2.SyncedVersions{
+		{
 			ProxyID:         "foo",
 			ClusterVersion:  "1",
 			ListenerVersion: "1",
@@ -53,7 +53,7 @@ func TestWaitCmd(t *testing.T) {
 		},
 		{
 			execClientConfig: cannedResponseMap,
-			args:             strings.Split("experimental wait --resource-version=1 virutal-service foo.bar", " "),
+			args:             strings.Split("experimental wait --resource-version=1 not-service foo.bar", " "),
 			wantException:    true,
 		},
 	}

@@ -99,7 +99,7 @@ will block until the bookinfo virtual service has been distributed to all proxie
 						return err
 					}
 					// TODO: handle output redirects and stuff
-					return fmt.Errorf("timeout expired before resource %s became effective on all sidecars\n",
+					return fmt.Errorf("timeout expired before resource %s became effective on all sidecars",
 						targetResource)
 				}
 			}
@@ -220,6 +220,8 @@ func getAndWatchResource(ictx context.Context, targetResource string) (chan stri
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
+			default:
+				continue
 			}
 		}
 
