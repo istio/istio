@@ -32,6 +32,9 @@ spec:
         chart: {{ template "pilot.chart" . }}
         heritage: {{ .Release.Service }}
         release: {{ .Release.Name }}
+{{- if .Values.global.controlPlaneSecurityEnabled }}
+        security.istio.io/mtlsReady: "true"
+{{- end }}
         istio: pilot
       annotations:
         sidecar.istio.io/inject: "false"
