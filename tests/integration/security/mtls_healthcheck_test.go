@@ -82,7 +82,10 @@ spec:
 			ServicePort:  8080,
 			InstancePort: 8080,
 		}},
-		ReadinessTimeout: time.Second * 60,
+	}
+	// Negative test, we expect the health check fails, so set a timeout duration.
+	if !rewrite {
+		cfg.ReadinessTimeout = time.Second * 40
 	}
 	cfg.Annotations = map[echo.Annotation]*echo.AnnotationValue{
 		echo.SidecarRewriteAppHTTPProbers: {
