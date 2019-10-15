@@ -15,13 +15,16 @@
 package istioctl
 
 import (
+	"io/ioutil"
 	"strings"
 	"testing"
 
 	. "github.com/onsi/gomega"
 
+	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -36,7 +39,7 @@ func TestMain(m *testing.M) {
 		Run()
 }
 
-func TestEmptyClusterNoErrors(t *testing.T) {
+func TestEmptyCluster(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
@@ -48,21 +51,110 @@ func TestEmptyClusterNoErrors(t *testing.T) {
 			})
 
 			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
-			output := runIstioctl(t, istioCtl, []string{"experimental", "analyze", "--use-kube", "--namespace", ns.Name()})
 
+			// For a clean istio install, expect no validation errors
+			output := runIstioctl(t, istioCtl,
+				[]string{"experimental", "analyze", "--namespace", ns.Name(), "--use-kube"})
 			g.Expect(output).To(BeEmpty())
 		})
 }
 
-// TODO: Test files only case
-// TODO: Test kube only case
-// TODO: Test combined case
-// TODO: Test service discovery overrides
+func TestFileOnly(t *testing.T) {
+	framework.
+		NewTest(t).
+		Run(func(ctx framework.TestContext) {
+			g := NewGomegaWithT(t)
+
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "istioctl-analyze",
+				Inject: true,
+			})
+
+			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+
+			output := runIstioctl(t, istioCtl,
+				[]string{"experimental", "analyze", "--namespace", ns.Name(), "testdata/servicerolebinding.yaml"})
+			g.Expect(output).To(HaveLen(1))
+			g.Expect(output[0]).To(ContainSubstring(msg.ReferencedResourceNotFound.Code()))
+
+			//TODO: Also test fixed with both files
+		})
+}
+
+func TestKubeOnly(t *testing.T) {
+	framework.
+		NewTest(t).
+		Run(func(ctx framework.TestContext) {
+			g := NewGomegaWithT(t)
+
+			env := ctx.Environment().(*kube.Environment)
+
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "istioctl-analyze",
+				Inject: true,
+			})
+
+			serviceRoleBindingYaml := readFileOrFail(t, "testdata/servicerolebinding.yaml")
+			err := env.ApplyContents(ns.Name(), serviceRoleBindingYaml)
+			if err != nil {
+				t.Fatalf("Error applying serviceRoleBindingYaml for test scenario: %v", err)
+			}
+
+			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+
+			output := runIstioctl(t, istioCtl,
+				[]string{"experimental", "analyze", "--namespace", ns.Name(), "--use-kube"})
+			g.Expect(output).To(HaveLen(1))
+			g.Expect(output[0]).To(ContainSubstring(msg.ReferencedResourceNotFound.Code()))
+
+			// TODO: Also test fixed with both files
+		})
+}
+
+func TestFileAndKubeCombined(t *testing.T) {
+	framework.
+		NewTest(t).
+		Run(func(ctx framework.TestContext) {
+			g := NewGomegaWithT(t)
+
+			env := ctx.Environment().(*kube.Environment)
+
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "istioctl-analyze",
+				Inject: true,
+			})
+
+			serviceRoleBindingYaml := readFileOrFail(t, "testdata/servicerolebinding.yaml")
+			err := env.ApplyContents(ns.Name(), serviceRoleBindingYaml)
+			if err != nil {
+				t.Fatalf("Error applying serviceRoleBindingYaml for test scenario: %v", err)
+			}
+
+			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+
+			output := runIstioctl(t, istioCtl,
+				[]string{"experimental", "analyze", "--namespace", ns.Name(), "--use-kube", "testdata/servicerole.yaml"})
+			g.Expect(output).To(BeEmpty())
+		})
+}
+
+// TODO: Test service discovery aspects
 
 func runIstioctl(t *testing.T, i istioctl.Instance, args []string) []string {
 	output, err := i.Invoke(args)
 	if err != nil {
 		t.Fatalf("Unwanted exception for 'istioctl %s': %v", strings.Join(args, " "), err)
 	}
-	return strings.Split(output, "\n")
+	if output == "" {
+		return []string{}
+	}
+	return strings.Split(strings.TrimSpace(output), "\n")
+}
+
+func readFileOrFail(t *testing.T, file string) string {
+	b, err := ioutil.ReadFile(file)
+	if err != nil {
+		t.Fatalf("Error reading file %q: %v", file, err)
+	}
+	return string(b)
 }
