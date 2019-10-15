@@ -31,7 +31,7 @@ import (
 
 var (
 	i   istio.Instance
-	env *kube.Environment
+	env *kube.Environment // TODO: Remove, if this isn't used?
 )
 
 // This test requires `--istio.test.env=kube` because it tests istioctl doing PodExec
