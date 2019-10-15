@@ -418,7 +418,7 @@ func TestUpdateSecret(t *testing.T) {
 			certIsInvalid:       true,
 			originalKCBSyncTime: time.Now(),
 		},
-		"Reload key cert bundle": {
+		"Reload key cert bundle only": {
 			expectedActions: []ktesting.Action{
 				ktesting.NewCreateAction(secretSchema, "", k8ssecret.BuildSecret("",
 					CASecret, "", nil, nil, []byte(cert1Pem),
