@@ -98,7 +98,6 @@ will block until the bookinfo virtual service has been distributed to all proxie
 					if err := g.Wait(); err != nil {
 						return err
 					}
-					// TODO: handle output redirects and stuff
 					return fmt.Errorf("timeout expired before resource %s became effective on all sidecars",
 						targetResource)
 				}
@@ -150,7 +149,7 @@ func poll(acceptedVersions []string, targetResource string) (present, notpresent
 	if err != nil {
 		return 0, 0, err
 	}
-	path := fmt.Sprintf("/debug/config_distribution?id=%s", targetResource)
+	path := fmt.Sprintf("/debug/config_distribution?resource=%s", targetResource)
 	pilotResponses, err := kubeClient.AllPilotsDiscoveryDo(istioNamespace, "GET", path, nil)
 	if err != nil {
 		return 0, 0, fmt.Errorf("unable to query pilot for distribution "+
@@ -170,7 +169,7 @@ func poll(acceptedVersions []string, targetResource string) (present, notpresent
 		}
 	}
 
-	for version, _ := range versionCount {
+	for version := range versionCount {
 		if contains(acceptedVersions, version) {
 			present++
 		} else {
