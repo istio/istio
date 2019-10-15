@@ -531,7 +531,7 @@ func TestCrdsRetryAsynchronouslyStoreClose(t *testing.T) {
 	time.Sleep(30 * time.Millisecond)
 	mutex.RLock()
 	if callCount > 5 {
-		t.Errorf("got %v, want no more than 4 calls", callCount)
+		t.Errorf("got %v, want no more than 5 calls", callCount)
 	}
 	mutex.RUnlock()
 }
