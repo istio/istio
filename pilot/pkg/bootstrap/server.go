@@ -30,8 +30,6 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/pkg/ledger"
-
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/security/pkg/k8s/chiron"
@@ -52,6 +50,7 @@ import (
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/env"
 	"istio.io/pkg/filewatcher"
+	"istio.io/pkg/ledger"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 

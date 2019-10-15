@@ -19,8 +19,6 @@ import (
 	"os"
 	"time"
 
-	"istio.io/istio/pilot/pkg/features"
-
 	"istio.io/istio/pkg/spiffe"
 
 	"github.com/spf13/cobra"
@@ -28,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/keepalive"
