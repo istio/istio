@@ -197,27 +197,27 @@ func TestExtractActualServiceAccount(t *testing.T) {
 	}
 }
 
-func TestGetIdentityWithNewTrustDomain(t *testing.T) {
+func TestReplaceTrustDomainInPrincipal(t *testing.T) {
 	cases := []struct {
 		trustDomainIn string
-		spiffeIn      string
+		principal     string
 		out           string
 	}{
-		{spiffeIn: "spiffe://cluster.local/ns/foo/sa/bar", out: ""},
-		{spiffeIn: "sa/test-sa/ns/default", out: ""},
-		{trustDomainIn: "td", spiffeIn: "cluster.local/ns/foo/sa/bar", out: "td/ns/foo/sa/bar"},
-		{trustDomainIn: "abc", spiffeIn: "xyz/ns/foo/sa/bar", out: "abc/ns/foo/sa/bar"},
+		{principal: "spiffe://cluster.local/ns/foo/sa/bar", out: ""},
+		{principal: "sa/test-sa/ns/default", out: ""},
+		{trustDomainIn: "td", principal: "cluster.local/ns/foo/sa/bar", out: "td/ns/foo/sa/bar"},
+		{trustDomainIn: "abc", principal: "xyz/ns/foo/sa/bar", out: "abc/ns/foo/sa/bar"},
 	}
 
 	for _, c := range cases {
-		got := getIdentityWithNewTrustDomain(c.trustDomainIn, c.spiffeIn)
+		got := replaceTrustDomainInPrincipal(c.trustDomainIn, c.principal)
 		if got != c.out {
 			t.Errorf("expect %s, but got %s", c.out, got)
 		}
 	}
 }
 
-func TestExtractTrustDomainFromAuthzPrincipal(t *testing.T) {
+func TestGetTrustDomain(t *testing.T) {
 	cases := []struct {
 		principal string
 		out       string
@@ -229,7 +229,7 @@ func TestExtractTrustDomainFromAuthzPrincipal(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		got := extractTrustDomainFromAuthzPrincipal(c.principal)
+		got := getTrustDomain(c.principal)
 		if got != c.out {
 			t.Errorf("expect %s, but got %s", c.out, got)
 		}

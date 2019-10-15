@@ -110,13 +110,13 @@ func found(key string, list []string) bool {
 	return false
 }
 
-// getIdentityWithNewTrustDomain returns a new SPIFFE identity with the new trust domain.
+// replaceTrustDomainInPrincipal returns a new SPIFFE identity with the new trust domain.
 // The trust domain corresponds to the trust root of a system.
 // Refer to
 // [SPIFFE-ID](https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain)
 // In Istio authorization, an identity is presented in the format:
 // <trust-domain>/ns/<some-namespace>/sa/<some-service-account>
-func getIdentityWithNewTrustDomain(trustDomain, spiffeIdentity string) string {
+func replaceTrustDomainInPrincipal(trustDomain, spiffeIdentity string) string {
 	identityParts := strings.Split(spiffeIdentity, "/")
 	// A valid SPIFFE identity in authorization has no SPIFFE:// prefix.
 	// It is presented as <trust-domain>/ns/<some-namespace>/sa/<some-service-account>
@@ -133,7 +133,7 @@ func getIdentityWithNewTrustDomain(trustDomain, spiffeIdentity string) string {
 // In Istio authorization, an identity is presented in the format:
 // <trust-domain>/ns/<some-namespace>/sa/<some-service-account>
 // Therefore, for example, "cluster.local/ns/default/sa/bookinfo-ratings-v2" will return "cluster.local"
-func extractTrustDomainFromAuthzPrincipal(principal string) string {
+func getTrustDomain(principal string) string {
 	identityParts := strings.Split(principal, "/")
 	// A valid SPIFFE identity in authorization has no SPIFFE:// prefix.
 	// It is presented as <trust-domain>/ns/<some-namespace>/sa/<some-service-account>
