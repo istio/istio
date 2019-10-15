@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pilot/pkg/security/authz/policy"
 )
 
+// TODO(pitlv2109): Add unit tests with trust domain aliases.
 func TestV1beta1Generator_Generate(t *testing.T) {
 	testCases := []struct {
 		name         string

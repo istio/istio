@@ -105,7 +105,7 @@ func TestNewModel(t *testing.T) {
 		},
 	}
 
-	got := NewModelV1Alpha1("", nil, role, []*istio_rbac.ServiceRoleBinding{binding1, binding2})
+	got := NewModelV1alpha1("", nil, role, []*istio_rbac.ServiceRoleBinding{binding1, binding2})
 	want := Model{
 		Permissions: []Permission{
 			fullPermission("perm-1"),
@@ -460,7 +460,7 @@ func TestModel_Generate(t *testing.T) {
 	}
 }
 
-func TestGetUsersIncludingAliases(t *testing.T) {
+func TestReplaceTrustDomainAliases(t *testing.T) {
 	type inStruct struct {
 		trustDomain        string
 		trustDomainAliases []string
@@ -496,7 +496,7 @@ func TestGetUsersIncludingAliases(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		got := getPrincipalsIncludingAliases(tc.in.trustDomain, tc.in.trustDomainAliases, tc.in.users)
+		got := replaceTrustDomainAliases(tc.in.trustDomain, tc.in.trustDomainAliases, tc.in.users)
 		if !reflect.DeepEqual(got, tc.expect) {
 			t.Errorf("%s failed. Expect: %s. Got: %s", tc.name, tc.expect, got)
 		}

@@ -116,6 +116,6 @@ func (g *v1alpha1Generator) generatePolicy(trustDomain string, trustDomainAliase
 		return nil
 	}
 
-	m := authz_model.NewModelV1Alpha1(trustDomain, trustDomainAliases, role, bindings)
+	m := authz_model.NewModelV1alpha1(trustDomain, trustDomainAliases, role, bindings)
 	return m.Generate(g.serviceMetadata, forTCPFilter)
 }

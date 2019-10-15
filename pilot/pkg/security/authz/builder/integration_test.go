@@ -72,14 +72,21 @@ func TestBuildHTTPFilter(t *testing.T) {
 			want:     getProto("testdata/v1beta1-single-policy-out.yaml", t),
 		},
 		{
-			name:               "v1beta1 trust domain aliases",
+			name:               "v1beta1 one trust domain alias",
 			trustDomain:        "td1",
 			trustDomainAliases: []string{"cluster.local"},
 			policies:           getPolicies("testdata/v1beta1-simple-policy-td-aliases-in.yaml", t),
 			want:               getProto("testdata/v1beta1-simple-policy-td-aliases-out.yaml", t),
 		},
 		{
-			name:               "v1alpha1 trust domain aliases",
+			name:               "v1beta1 multiple trust domain aliases",
+			trustDomain:        "td1",
+			trustDomainAliases: []string{"cluster.local", "some-td"},
+			policies:           getPolicies("testdata/v1beta1-simple-policy-multiple-td-aliases-in.yaml", t),
+			want:               getProto("testdata/v1beta1-simple-policy-multiple-td-aliases-out.yaml", t),
+		},
+		{
+			name:               "v1alpha1 one trust domain alias",
 			trustDomain:        "td1",
 			trustDomainAliases: []string{"cluster.local"},
 			policies:           getPolicies("testdata/v1alpha1-simple-policy-td-aliases-in.yaml", t),
