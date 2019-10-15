@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"istio.io/istio/pilot/pkg/model"
 	"sync"
 	"time"
 
@@ -48,7 +49,7 @@ const pollInterval = time.Second
 func waitCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "wait [flags] <target-resource>",
-		Short: "Wait for an Istio Resource",
+		Short: "Wait for an Istio resource",
 		Long: `Waits for the specified condition to be true of an istio resource.  For example:
 
 istioctl experimental wait --for-distribution virtual-service/default/bookinfo
@@ -73,25 +74,31 @@ will block until the bookinfo virtual service has been distributed to all proxie
 			}
 			// wait for all deployed versions to be contained in resourceVersions
 			t := time.NewTicker(pollInterval)
-			resourceVersions := make([]string, 1)
+			resourceVersions := []string{<-versionChan}
 			for {
+				//run the check here as soon as we start
+				// because tickers wont' run immediately
+				present, notpresent, err := poll(resourceVersions)
+				if err != nil {
+					return err
+				} else if float32(present)/float32(present+notpresent) >= threshold {
+					fmt.Printf("Resource %s present on %d out of %d sidecars",
+						targetResource, present, present + notpresent)
+					return nil
+				}
 				select {
 				case newVersion := <-versionChan:
 					resourceVersions = append(resourceVersions, newVersion)
 				case <-t.C:
-					finished, err := poll(resourceVersions)
-					if err != nil {
-						return err
-					} else if finished {
-						return nil
-					}
+					continue
 				case <-ctx.Done():
 					// I think this means the timeout has happened:
 					t.Stop()
 					if err := g.Wait(); err != nil {
 						return err
 					}
-					return errors.New("timeout expired before resource was distributed")
+					return fmt.Errorf("timeout expired before resource %s became effective on all sidecars",
+						targetResource)
 				}
 			}
 		},
@@ -110,13 +117,18 @@ will block until the bookinfo virtual service has been distributed to all proxie
 	cmd.PersistentFlags().DurationVar(&timeout, "timeout", time.Second*30,
 		"the duration to wait before failing (default 30s)")
 	cmd.PersistentFlags().Float32Var(&threshold, "threshold", 1,
-		"The ratio of distribution required for success (default 1.0)")
+		"the ratio of distribution required for success (default 1.0)")
 	cmd.PersistentFlags().StringVar(&resourceVersion, "resource-version", "",
-		"Causes istioctl to wait for a specific version of config to become current, rather than using whatever is latest in k8s")
+		"wait for a specific version of config to become current, rather than using whatever is latest in " +
+		"kubernetes")
 	return cmd
 }
 
 func parseResource(input string) error {
+	typ, _, name := model.UnKey(input)
+	if typ == "" || name == "" {
+		return errors.New("target-resource must be in the form of <type>/[namespace]/<name>")
+	}
 	return nil
 }
 
@@ -128,22 +140,23 @@ func countVersions(versionCount map[string]int, configVersion string) {
 	}
 }
 
-func poll(acceptedVersions []string) (bool, error) {
+func poll(acceptedVersions []string) (present, notpresent int, err error) {
 	kubeClient, err := clientExecFactory(kubeconfig, configContext)
 	if err != nil {
-		return false, err
+		return 0,0, err
 	}
 	path := fmt.Sprintf("/debug/config_distribution?id=%s", targetResource)
 	pilotResponses, err := kubeClient.AllPilotsDiscoveryDo(istioNamespace, "GET", path, nil)
 	if err != nil {
-		return false, err
+		return 0,0, fmt.Errorf("unable to query pilot for distribution " +
+			"(are you using pilot version >= 1.4 with config distribution tracking on): %s", err)
 	}
 	versionCount := make(map[string]int)
 	for _, response := range pilotResponses {
 		var configVersions []v2.SyncedVersions
 		err = json.Unmarshal(response, &configVersions)
 		if err != nil {
-			return false, err
+			return 0,0, err
 		}
 		for _, configVersion := range configVersions {
 			countVersions(versionCount, configVersion.ClusterVersion)
@@ -152,14 +165,14 @@ func poll(acceptedVersions []string) (bool, error) {
 		}
 	}
 
-	finished := true
 	for version, _ := range versionCount {
-		if !contains(acceptedVersions, version) {
-			finished = false
-			break
+		if contains(acceptedVersions, version) {
+			present++
+		} else {
+			notpresent++
 		}
 	}
-	return finished, nil
+	return present, notpresent, nil
 }
 
 // getAndWatchResource ensures that ResourceVersions always contains
@@ -170,7 +183,7 @@ func getAndWatchResource(ictx context.Context, targetResource string) (chan stri
 	g, ctx := errgroup.WithContext(ictx)
 	g.Go(func() error {
 		// retrieve resource version from Kubernetes
-		client, err := kubernetes.NewClient("", "")
+		client, err := kubernetes.NewClient(kubeconfig, configContext)
 		if err != nil {
 			return err
 		}
