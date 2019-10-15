@@ -39,7 +39,7 @@ func promDashCmd() *cobra.Command {
 		Use:     "prometheus",
 		Short:   "Open Prometheus web UI",
 		Long:    `Open Istio's Prometheus dashboard`,
-		Example: `istioctl experimental dashboard prometheus`,
+		Example: `istioctl dashboard prometheus`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := clientExecFactory(kubeconfig, configContext)
 			if err != nil {
@@ -83,7 +83,7 @@ func grafanaDashCmd() *cobra.Command {
 		Use:     "grafana",
 		Short:   "Open Grafana web UI",
 		Long:    `Open Istio's Grafana dashboard`,
-		Example: `istioctl experimental dashboard grafana`,
+		Example: `istioctl dashboard grafana`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := clientExecFactory(kubeconfig, configContext)
 			if err != nil {
@@ -128,7 +128,7 @@ func kialiDashCmd() *cobra.Command {
 		Use:     "kiali",
 		Short:   "Open Kiali web UI",
 		Long:    `Open Istio's Kiali dashboard`,
-		Example: `istioctl experimental dashboard kiali`,
+		Example: `istioctl dashboard kiali`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := clientExecFactory(kubeconfig, configContext)
 			if err != nil {
@@ -172,7 +172,7 @@ func jaegerDashCmd() *cobra.Command {
 		Use:     "jaeger",
 		Short:   "Open Jaeger web UI",
 		Long:    `Open Istio's Jaeger dashboard`,
-		Example: `istioctl experimental dashboard jaeger`,
+		Example: `istioctl dashboard jaeger`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := clientExecFactory(kubeconfig, configContext)
 			if err != nil {
@@ -216,7 +216,7 @@ func zipkinDashCmd() *cobra.Command {
 		Use:     "zipkin",
 		Short:   "Open Zipkin web UI",
 		Long:    `Open Istio's Zipkin dashboard`,
-		Example: `istioctl experimental dashboard zipkin`,
+		Example: `istioctl dashboard zipkin`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := clientExecFactory(kubeconfig, configContext)
 			if err != nil {
@@ -259,7 +259,7 @@ func envoyDashCmd() *cobra.Command {
 		Use:     "envoy <pod-name[.namespace]>",
 		Short:   "Open Envoy admin web UI",
 		Long:    `Open the Envoy admin dashboard for a sidecar`,
-		Example: `istioctl experimental dashboard envoy productpage-123-456.default`,
+		Example: `istioctl dashboard envoy productpage-123-456.default`,
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) < 1 {
 				c.Println(c.UsageString())
@@ -298,7 +298,7 @@ func controlZDashCmd() *cobra.Command {
 		Use:     "controlz <pod-name[.namespace]>",
 		Short:   "Open ControlZ web UI",
 		Long:    `Open the ControlZ web UI for a pod in the Istio control plane`,
-		Example: `istioctl experimental dashboard controlz pilot-123-456.istio-system`,
+		Example: `istioctl dashboard controlz pilot-123-456.istio-system`,
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) < 1 {
 				c.Println(c.UsageString())
