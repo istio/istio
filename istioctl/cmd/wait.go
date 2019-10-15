@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pkg/config/schemas"
 	"sync"
 	"time"
@@ -36,7 +37,7 @@ import (
 
 var (
 	forDistribution bool
-	targetResource  string
+	typ, nameflag  string
 	forDelete       bool
 	threshold       float32
 	timeout         time.Duration
@@ -50,7 +51,7 @@ const pollInterval = time.Second
 // waitCmd represents the wait command
 func waitCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "wait [flags] <target-resource>",
+		Use:   "wait [flags] <type> <name>[.<namespace>]",
 		Short: "Wait for an Istio resource",
 		Long: `Waits for the specified condition to be true of an Istio resource.  For example:
 
@@ -68,6 +69,7 @@ will block until the bookinfo virtual service has been distributed to all proxie
 			var g *errgroup.Group
 			ctx, cancel := context.WithTimeout(context.Background(), timeout)
 			defer cancel()
+			targetResource := model.Key(typ, nameflag, namespace)
 			if resourceVersion == "" {
 				versionChan, g = getAndWatchResource(ctx, targetResource) // setup version getter from kubernetes
 			} else {
@@ -80,7 +82,7 @@ will block until the bookinfo virtual service has been distributed to all proxie
 			for {
 				//run the check here as soon as we start
 				// because tickers wont' run immediately
-				present, notpresent, err := poll(resourceVersions)
+				present, notpresent, err := poll(resourceVersions, targetResource)
 				if err != nil {
 					return err
 				} else if float32(present)/float32(present+notpresent) >= threshold {
@@ -106,11 +108,12 @@ will block until the bookinfo virtual service has been distributed to all proxie
 			}
 		},
 		Args: func(cmd *cobra.Command, args []string) error {
-			if err := cobra.ExactArgs(1)(cmd, args); err != nil {
+			if err := cobra.ExactArgs(2)(cmd, args); err != nil {
 				return err
 			}
-			targetResource = args[0]
-			return parseResource(&targetResource)
+			typ = args[0]
+			nameflag, namespace = handlers.InferPodInfo(args[1], handlers.HandleNamespace(namespace, defaultNamespace))
+			return validateType(&typ)
 		},
 	}
 	cmd.PersistentFlags().BoolVar(&forDistribution, "for-distribution", false,
@@ -127,23 +130,16 @@ will block until the bookinfo virtual service has been distributed to all proxie
 	return cmd
 }
 
-func parseResource(input *string) error {
-	// TODO: add case insensitive comparison
-	typ, namespace, name := model.UnKey(*input)
-	if typ == "" || name == "" {
-		return errors.New("target-resource must be in the form of <type>/[namespace]/<name>")
-	}
+func validateType(typ *string) error {
 	for _, instance := range schemas.Istio {
-		if typ == instance.VariableName {
-			typ = instance.Type
-			// modify type to be the pilot internal representations
-			*input = model.Key(typ, namespace, name)
+		if *typ == instance.VariableName {
+			*typ = instance.Type
 		}
-		if typ == instance.Type {
+		if *typ == instance.Type {
 			return nil
 		}
 	}
-	return fmt.Errorf("type %s is not recognized", typ)
+	return fmt.Errorf("type %s is not recognized", *typ)
 }
 
 func countVersions(versionCount map[string]int, configVersion string) {
@@ -154,7 +150,7 @@ func countVersions(versionCount map[string]int, configVersion string) {
 	}
 }
 
-func poll(acceptedVersions []string) (present, notpresent int, err error) {
+func poll(acceptedVersions []string, targetResource string) (present, notpresent int, err error) {
 	kubeClient, err := clientExecFactory(kubeconfig, configContext)
 	if err != nil {
 		return 0, 0, err

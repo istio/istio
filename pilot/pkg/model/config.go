@@ -160,15 +160,6 @@ func Key(typ, name, namespace string) string {
 	return fmt.Sprintf("%s/%s/%s", typ, namespace, name)
 }
 
-// UnKey reverses the key operation
-func UnKey(key string) (typ, name, namespace string) {
-	composite := strings.Split(key, "/")
-	if len(composite) != 3 {
-		return "", "", ""
-	}
-	return composite[0], composite[2], composite[1]
-}
-
 // Key is the unique identifier for a configuration object
 func (meta *ConfigMeta) Key() string {
 	return Key(meta.Type, meta.Name, meta.Namespace)
