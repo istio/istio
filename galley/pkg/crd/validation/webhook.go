@@ -61,7 +61,8 @@ func init() {
 }
 
 const (
-	watchDebounceDelay = 100 * time.Millisecond
+	watchDebounceDelay             = 100 * time.Millisecond
+	retryUpdateAfterFailureTimeout = time.Second
 
 	httpsHandlerReadyPath = "/ready"
 )
