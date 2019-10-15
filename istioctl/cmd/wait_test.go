@@ -38,22 +38,22 @@ func TestWaitCmd(t *testing.T) {
 	cases := []execTestCase{
 		{
 			execClientConfig: cannedResponseMap,
-			args:             strings.Split("experimental wait virtual-service foo.bar", " "),
+			args:             strings.Split("experimental wait --resource-version=2 --timeout=2s virtual-service foo.bar", " "),
 			wantException:    true,
 		},
 		{
 			execClientConfig: cannedResponseMap,
-			args:             strings.Split("experimental wait --for-distribution --resource-version=1 virtual-service foo.bar", " "),
+			args:             strings.Split("experimental wait --resource-version=1 virtual-service foo.bar", " "),
 			wantException:    false,
 		},
 		{
 			execClientConfig: cannedResponseMap,
-			args:             strings.Split("experimental wait --for-distribution --resource-version=1 VirtualService foo.bar", " "),
+			args:             strings.Split("experimental wait --resource-version=1 VirtualService foo.bar", " "),
 			wantException:    false,
 		},
 		{
 			execClientConfig: cannedResponseMap,
-			args:             strings.Split("experimental wait --for-distribution --resource-version=1 virutal-service foo.bar", " "),
+			args:             strings.Split("experimental wait --resource-version=1 virutal-service foo.bar", " "),
 			wantException:    true,
 		},
 	}

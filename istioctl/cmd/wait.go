@@ -36,9 +36,8 @@ import (
 )
 
 var (
-	forDistribution bool
-	typ, nameflag  string
-	forDelete       bool
+	forFlag         string
+	typ, nameflag   string
 	threshold       float32
 	timeout         time.Duration
 	resourceVersion string
@@ -60,13 +59,13 @@ istioctl experimental wait --for-distribution virtual-service/default/bookinfo
 will block until the bookinfo virtual service has been distributed to all proxies in the mesh.
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if forDelete {
+			if forFlag == "delete" {
 				return errors.New("wait for delete is not yet implemented")
-			} else if !forDistribution {
-				return errors.New("one of for-delete and for-distribution must be specified")
+			} else if forFlag != "distribution" {
+				return fmt.Errorf("--for must be 'delete' or 'distribution', got: %s", forFlag)
 			}
 			var versionChan chan string
-			var g *errgroup.Group
+			g := &errgroup.Group{}
 			ctx, cancel := context.WithTimeout(context.Background(), timeout)
 			defer cancel()
 			targetResource := model.Key(typ, nameflag, namespace)
@@ -116,10 +115,8 @@ will block until the bookinfo virtual service has been distributed to all proxie
 			return validateType(&typ)
 		},
 	}
-	cmd.PersistentFlags().BoolVar(&forDistribution, "for-distribution", false,
-		"wait for the designated resource to be distributed")
-	cmd.PersistentFlags().BoolVar(&forDelete, "for-delete", false,
-		"wait for the designated resource to be distributed")
+	cmd.PersistentFlags().StringVar(&forFlag, "for", "distribution",
+		"wait condition, must be 'distribution' or 'delete'")
 	cmd.PersistentFlags().DurationVar(&timeout, "timeout", time.Second*30,
 		"the duration to wait before failing (default 30s)")
 	cmd.PersistentFlags().Float32Var(&threshold, "threshold", 1,
