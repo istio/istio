@@ -46,6 +46,16 @@ func TestWaitCmd(t *testing.T) {
 			args:             strings.Split("experimental wait --for-distribution --resource-version=1 virtual-service/foo/bar", " "),
 			wantException:    false,
 		},
+		{
+			execClientConfig: cannedResponseMap,
+			args:             strings.Split("experimental wait --for-distribution --resource-version=1 VirtualService/foo/bar", " "),
+			wantException:    false,
+		},
+		{
+			execClientConfig: cannedResponseMap,
+			args:             strings.Split("experimental wait --for-distribution --resource-version=1 virutal-service/foo/bar", " "),
+			wantException:    true,
+		},
 	}
 
 	for i, c := range cases {

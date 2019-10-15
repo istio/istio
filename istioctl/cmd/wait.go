@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"istio.io/istio/pkg/config/schemas"
 	"sync"
 	"time"
 
@@ -83,7 +84,7 @@ will block until the bookinfo virtual service has been distributed to all proxie
 				if err != nil {
 					return err
 				} else if float32(present)/float32(present+notpresent) >= threshold {
-					fmt.Printf("Resource %s present on %d out of %d sidecars",
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Resource %s present on %d out of %d sidecars",
 						targetResource, present, present+notpresent)
 					return nil
 				}
@@ -98,7 +99,8 @@ will block until the bookinfo virtual service has been distributed to all proxie
 					if err := g.Wait(); err != nil {
 						return err
 					}
-					return fmt.Errorf("timeout expired before resource %s became effective on all sidecars",
+					// TODO: handle output redirects and stuff
+					return fmt.Errorf("timeout expired before resource %s became effective on all sidecars\n",
 						targetResource)
 				}
 			}
@@ -108,7 +110,7 @@ will block until the bookinfo virtual service has been distributed to all proxie
 				return err
 			}
 			targetResource = args[0]
-			return parseResource(targetResource)
+			return parseResource(&targetResource)
 		},
 	}
 	cmd.PersistentFlags().BoolVar(&forDistribution, "for-distribution", false,
@@ -125,12 +127,23 @@ will block until the bookinfo virtual service has been distributed to all proxie
 	return cmd
 }
 
-func parseResource(input string) error {
-	typ, _, name := model.UnKey(input)
+func parseResource(input *string) error {
+	// TODO: add case insensitive comparison
+	typ, namespace, name := model.UnKey(*input)
 	if typ == "" || name == "" {
 		return errors.New("target-resource must be in the form of <type>/[namespace]/<name>")
 	}
-	return nil
+	for _, instance := range schemas.Istio {
+		if typ == instance.VariableName {
+			typ = instance.Type
+			// modify type to be the pilot internal representations
+			*input = model.Key(typ, namespace, name)
+		}
+		if typ == instance.Type {
+			return nil
+		}
+	}
+	return fmt.Errorf("type %s is not recognized", typ)
 }
 
 func countVersions(versionCount map[string]int, configVersion string) {
