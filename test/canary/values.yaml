@@ -9,8 +9,8 @@ debug: INFO
 version: ""
 
 global:
-  hub: gcr.io/istio-release
-  tag: master-latest-daily
+  hub: gcr.io/istio-testing
+  tag: latest
 
   imagePullPolicy: Always
 
@@ -57,5 +57,5 @@ global:
 
 
   proxy_init:
-    image: proxy_init
+    image: proxyv2
 

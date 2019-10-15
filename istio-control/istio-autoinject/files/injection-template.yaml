@@ -10,7 +10,8 @@ template: |
   {{- else }}
     image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
   {{- end }}
-    args:
+    command:
+    - istio-iptables
     - "-p"
     - 15001
     - "-z"
@@ -189,6 +190,25 @@ template: |
       valueFrom:
         fieldRef:
           fieldPath: status.hostIP
+  {{- if eq .Values.global.proxy.tracer "datadog" }}
+  {{- if isset .ObjectMeta.Annotations `apm.datadoghq.com/env` }}
+  {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `apm.datadoghq.com/env`) }}
+    - name: {{ $key }}
+      value: "{{ $value }}"
+  {{- end }}
+  {{- end }}
+  {{- end }}
+    - name: ISTIO_META_POD_PORTS
+      value: |-
+        [
+        {{- range $index1, $c := .Spec.Containers }}
+          {{- range $index2, $p := $c.Ports }}
+            {{if or (ne $index1 0) (ne $index2 0)}},{{end}}{{ structToJSON $p }}
+          {{- end}}
+        {{- end}}
+        ]
+    - name: ISTIO_META_CLUSTER_ID
+      value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
     - name: ISTIO_META_POD_NAME
       valueFrom:
         fieldRef:
@@ -197,6 +217,8 @@ template: |
       valueFrom:
         fieldRef:
           fieldPath: metadata.namespace
+    - name: SDS_ENABLED
+      value: "{{ .Values.global.sds.enabled }}"
     - name: ISTIO_META_INTERCEPTION_MODE
       value: "{{ or (index .ObjectMeta.Annotations `sidecar.istio.io/interceptionMode`) .ProxyConfig.InterceptionMode.String }}"
     - name: ISTIO_META_INCLUDE_INBOUND_PORTS
@@ -336,7 +358,7 @@ template: |
       - serviceAccountToken:
           path: istio-token
           expirationSeconds: 43200
-          audience: {{ .Values.global.trustDomain }}
+          audience: {{ .Values.global.sds.token.aud }}
   {{- if .Values.global.sds.customTokenDirectory }}
   - name: custom-sds-token
     secret:

@@ -10,10 +10,10 @@ data:
 
   meshNetworks: |-
     # Network config
-{{ toYaml .Values.pilot.meshNetworks | indent 4 }}
+{{ toYaml .Values.pilot.meshNetworks | trim | indent 4 }}
 
   values.yaml: |-
-{{ toYaml .Values.pilot | indent 4 }}
+{{ toYaml .Values.pilot | trim | indent 4 }}
 
   mesh: |-
     {{- if .Values.global.enableTracing }}
@@ -34,6 +34,11 @@ data:
     {{- if .Values.mixer.telemetry.reportBatchMaxTime }}
     # reportBatchMaxTime is the max waiting time before the telemetry data of a request is sent to the mixer server
     reportBatchMaxTime: {{ .Values.mixer.telemetry.reportBatchMaxTime }}
+    {{- end }}
+
+    {{- if .Values.mixer.telemetry.sessionAffinityEnabled }}
+    # sidecarToTelemetrySessionAffinity will create a STRICT_DNS type cluster for istio-telemetry.
+    sidecarToTelemetrySessionAffinity: {{ .Values.mixer.telemetry.sessionAffinityEnabled }}
     {{- end }}
 
     {{- if .Values.pilot.telemetry.enabled }}
@@ -79,7 +84,7 @@ data:
     {{- if .Values.global.sds.enabled }}
     # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
     # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty.
-    sdsUdsPath: {{ .Values.global.sds.udsPath }}
+    sdsUdsPath: {{ .Values.global.sds.udsPath | quote }}
 
     {{- else }}
     # Set expected values when SDS is disabled
@@ -119,14 +124,14 @@ data:
 
     {{- if  .Values.global.localityLbSetting.enabled }}
     localityLbSetting:
-{{ toYaml .Values.global.localityLbSetting | indent 6 }}
+{{ toYaml .Values.global.localityLbSetting | trim | indent 6 }}
     {{- end }}
 
     # Configures DNS certificates provisioned through Chiron linked into Pilot.
     # The DNS certificate provisioning is enabled by default now so it get tested.
     # TODO (lei-tang): we'll decide whether enable it by default or not before Istio 1.4 Release.
     certificates:
-{{ toYaml .Values.global.certificates | indent 6 }}
+{{ toYaml .Values.global.certificates | trim | indent 6 }}
 
     defaultConfig:
       #

@@ -120,7 +120,7 @@ global:
     # the specified period, defaulting to non mTLS plain TCP
     # traffic. Set this field to tweak the period that Envoy will wait
     # for the client to send the first bits of data. (MUST BE >=1ms)
-    protocolDetectionTimeout: 1s
+    protocolDetectionTimeout: 100ms
 
     #If set to true, istio-proxy container will have privileged securityContext
     privileged: false
@@ -205,7 +205,7 @@ global:
 
   proxy_init:
     # Base name for the proxy_init container, used to configure iptables.
-    image: proxy_init
+    image: proxyv2
     resources:
       limits:
         cpu: 100m
@@ -327,6 +327,9 @@ global:
     # talk to one another. All clusters should be using Istio mTLS and must
     # have a shared root CA for this model to work.
     enabled: false
+    # Should be set to the name of the cluster this installation will run in. This is required for sidecar injection
+    # to properly label proxies
+    clusterName: ""
 
   # A minimal set of requested resources to applied to all deployments so that
   # Horizontal Pod Autoscaler will be able to function (if set).
@@ -418,6 +421,12 @@ global:
     # distributed through the SecretDiscoveryService instead of using K8S secrets to mount the certificates.
     enabled: false
     udsPath: ""
+    # The JWT token for SDS and the aud field of such JWT. See RFC 7519, section 4.1.3.
+    # When a CSR is sent from Citadel Agent to the CA (e.g. Citadel), this aud is to make sure the
+    # JWT is intended for the CA.
+    token:
+      aud: istio-ca
+
 
   # Configure the mesh networks to be used by the Split Horizon EDS.
   #
