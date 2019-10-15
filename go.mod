@@ -14,7 +14,7 @@ require (
 	contrib.go.opencensus.io/exporter/prometheus v0.1.0
 	contrib.go.opencensus.io/exporter/stackdriver v0.6.0
 	contrib.go.opencensus.io/exporter/zipkin v0.1.1
-	fortio.org/fortio v1.3.0
+	fortio.org/fortio v1.3.1
 	github.com/Azure/go-autorest v12.0.0+incompatible // indirect
 	github.com/DataDog/datadog-go v2.2.0+incompatible
 	github.com/Masterminds/sprig v2.14.1+incompatible // indirect
@@ -51,7 +51,7 @@ require (
 	github.com/duosecurity/duo_api_golang v0.0.0-20190308151101-6c680f768e74 // indirect
 	github.com/elazarl/goproxy v0.0.0-20190630181448-f1e96bc0f4c5 // indirect
 	github.com/elazarl/goproxy/ext v0.0.0-20190630181448-f1e96bc0f4c5 // indirect
-	github.com/emicklei/go-restful v2.9.3+incompatible
+	github.com/emicklei/go-restful v2.9.6+incompatible
 	github.com/envoyproxy/go-control-plane v0.9.1-0.20191002184426-9d865299d2ff
 	github.com/evanphx/json-patch v4.5.0+incompatible
 	github.com/facebookgo/stack v0.0.0-20160209184415-751773369052 // indirect
@@ -72,7 +72,7 @@ require (
 	github.com/golang/snappy v0.0.1 // indirect
 	github.com/golang/sync v0.0.0-20180314180146-1d60e4601c6f
 	github.com/google/cel-go v0.2.0
-	github.com/google/go-cmp v0.3.0
+	github.com/google/go-cmp v0.3.1
 	github.com/google/go-github v17.0.0+incompatible
 	github.com/google/uuid v1.1.1
 	github.com/googleapis/gax-go v2.0.2+incompatible
