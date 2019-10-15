@@ -47,15 +47,20 @@ const pollInterval = time.Second
 // waitCmd represents the wait command
 func waitCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "wait",
+		Use:   "wait [flags] <target-resource>",
 		Short: "Wait for an Istio Resource",
-		Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
+		Long: `Waits for the specified condition to be true of an istio resource.  For example:
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+istioctl experimental wait --for-distribution virtual-service/default/bookinfo
+
+will block until the bookinfo virtual service has been distributed to all proxies in the mesh.
+`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if forDelete {
+				return errors.New("wait for delete is not yet implemented")
+			} else if !forDistribution {
+				return errors.New("one of for-delete and for-distribution must be specified")
+			}
 			var versionChan chan string
 			var g *errgroup.Group
 			ctx, cancel := context.WithTimeout(context.Background(), timeout)
