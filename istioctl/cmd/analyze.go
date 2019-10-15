@@ -126,7 +126,7 @@ istioctl experimental analyze -k -d false
 			}
 
 			for _, m := range messages {
-				fmt.Printf("%s%v%s\n", colorPrefix(m), m.String(), colorSuffix(m))
+				fmt.Printf("%s%v%s\n", colorPrefix(m), m.String(), colorSuffix())
 			}
 
 			return nil
@@ -171,7 +171,7 @@ func serviceDiscovery() (bool, error) {
 
 func colorizationDefault() bool {
 	val := os.Getenv("COLORIZE_ISTIOCTL")
-	return val == "" || strings.ToLower(val) == "true"
+	return val == "" || strings.EqualFold(val, "true")
 }
 
 func colorPrefix(m diag.Message) string {
@@ -187,11 +187,10 @@ func colorPrefix(m diag.Message) string {
 	return prefix
 }
 
-func colorSuffix(m diag.Message) string {
+func colorSuffix() string {
 	if !colorize {
 		return ""
 	}
 
-	// was return "\033[39m"
 	return "\033[0m"
 }
