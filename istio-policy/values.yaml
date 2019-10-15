@@ -13,8 +13,7 @@ mixer:
     sessionAffinityEnabled: false
     podAnnotations: {}
 
-    env:
-      GODEBUG: gctrace=1
+    env: {}
 
     adapters:
       useAdapterCRDs: false

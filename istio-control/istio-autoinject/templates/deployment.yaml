@@ -30,7 +30,6 @@ spec:
 {{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
-        checksum/config-volume: {{ .Files.Get "files/injection-template.yaml" | sha256sum }}
         {{- if .Values.sidecarInjectorWebhook.podAnnotations }}
 {{ toYaml .Values.sidecarInjectorWebhook.podAnnotations | indent 8 }}
         {{- end }}

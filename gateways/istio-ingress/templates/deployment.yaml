@@ -1,12 +1,12 @@
-{{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
+{{- $gateway := index .Values "gateways" "istio-ingressgateway" }}
+{{- $labels := (dict "app" "istio-ingressgateway" "istio" "ingressgateway") }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-ingressgateway
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-ingressgateway
-    istio: ingressgateway
+{{ $labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
 spec:
 {{- if not $gateway.autoscaleEnabled }}
@@ -25,8 +25,7 @@ spec:
   template:
     metadata:
       labels:
-        app: istio-ingressgateway
-        istio: ingressgateway
+{{ $labels | toYaml | indent 8 }}
 {{- if eq .Release.Namespace "istio-system"}}
         heritage: Tiller
         release: istio
@@ -226,6 +225,13 @@ spec:
             value: istio-ingressgateway
           - name: ISTIO_META_OWNER
             value: kubernetes://api/apps/v1/namespaces/{{ .Release.Namespace }}/deployments/istio-ingressgateway
+          {{- if $.Values.global.meshID }}
+          - name: ISTIO_META_MESH_ID
+            value: "{{ $.Values.global.meshID }}"
+          {{- else if $.Values.global.trustDomain }}
+          - name: ISTIO_META_MESH_ID
+            value: "{{ $.Values.global.trustDomain }}"
+          {{- end }}
           - name: ISTIO_META_POD_NAME
             valueFrom:
               fieldRef:
@@ -253,6 +259,13 @@ spec:
             value: |
 {{ toJson $gateway.podAnnotations | indent 16}}
 {{ end }}
+          - name: ISTIO_METAJSON_LABELS
+            value: |
+              {{ $labels | toJson }}
+          - name: ISTIO_META_CLUSTER_ID
+            value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
+          - name: SDS_ENABLED
+            value: "{{ .Values.global.sds.enabled }}"
           volumeMounts:
           {{ if .Values.global.sds.enabled }}
           - name: sdsudspath
