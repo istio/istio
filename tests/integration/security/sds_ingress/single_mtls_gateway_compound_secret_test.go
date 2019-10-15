@@ -54,7 +54,7 @@ func TestSingleMTLSGateway_CompoundSecretRotation(t *testing.T) {
 			ingressutil.RotateSecrets(t, ctx, credName, ingress.Mtls, ingressutil.IngressCredentialB)
 			// Use old server CA cert to set up SSL connection would fail.
 			if err := ingressutil.VisitProductPage(ingA, host, ingress.Mtls, tlsContext, 60*time.Second,
-				ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "certificate signed by unknown authority"}, t); serr != nil {
+				ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "certificate signed by unknown authority"}, t); err != nil {
 				t.Errorf("unable to retrieve 404 from product page at host %s: %v", host, err)
 			}
 
