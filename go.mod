@@ -17,7 +17,6 @@ require (
 	github.com/DataDog/datadog-go v2.2.0+incompatible
 	github.com/Masterminds/sprig v2.14.1+incompatible // indirect
 	github.com/Microsoft/go-winio v0.4.12 // indirect
-	github.com/NYTimes/gziphandler v1.0.1 // indirect
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
 	github.com/SAP/go-hdb v0.14.1 // indirect
 	github.com/SermoDigital/jose v0.9.1 // indirect
@@ -95,6 +94,7 @@ require (
 	github.com/hashicorp/vault v0.10.0
 	github.com/howeyc/fsnotify v0.9.0
 	github.com/jefferai/jsonx v1.0.0 // indirect
+	github.com/jstemmer/go-junit-report v0.9.1 // indirect
 	github.com/juju/errors v0.0.0-20190207033735-e65537c515d7
 	github.com/juju/loggo v0.0.0-20190212223446-d976af380377 // indirect
 	github.com/juju/testing v0.0.0-20190429233213-dfc56b8c09fc // indirect
