@@ -19,6 +19,7 @@ import (
 	"sync"
 
 	"github.com/hashicorp/consul/api"
+
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
