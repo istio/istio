@@ -19,9 +19,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"istio.io/istio/pilot/pkg/model"
 	"sync"
 	"time"
+
+	"istio.io/istio/pilot/pkg/model"
 
 	"golang.org/x/sync/errgroup"
 
@@ -50,7 +51,7 @@ func waitCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "wait [flags] <target-resource>",
 		Short: "Wait for an Istio resource",
-		Long: `Waits for the specified condition to be true of an istio resource.  For example:
+		Long: `Waits for the specified condition to be true of an Istio resource.  For example:
 
 istioctl experimental wait --for-distribution virtual-service/default/bookinfo
 
@@ -83,7 +84,7 @@ will block until the bookinfo virtual service has been distributed to all proxie
 					return err
 				} else if float32(present)/float32(present+notpresent) >= threshold {
 					fmt.Printf("Resource %s present on %d out of %d sidecars",
-						targetResource, present, present + notpresent)
+						targetResource, present, present+notpresent)
 					return nil
 				}
 				select {
@@ -119,8 +120,8 @@ will block until the bookinfo virtual service has been distributed to all proxie
 	cmd.PersistentFlags().Float32Var(&threshold, "threshold", 1,
 		"the ratio of distribution required for success (default 1.0)")
 	cmd.PersistentFlags().StringVar(&resourceVersion, "resource-version", "",
-		"wait for a specific version of config to become current, rather than using whatever is latest in " +
-		"kubernetes")
+		"wait for a specific version of config to become current, rather than using whatever is latest in "+
+			"kubernetes")
 	return cmd
 }
 
@@ -143,12 +144,12 @@ func countVersions(versionCount map[string]int, configVersion string) {
 func poll(acceptedVersions []string) (present, notpresent int, err error) {
 	kubeClient, err := clientExecFactory(kubeconfig, configContext)
 	if err != nil {
-		return 0,0, err
+		return 0, 0, err
 	}
 	path := fmt.Sprintf("/debug/config_distribution?id=%s", targetResource)
 	pilotResponses, err := kubeClient.AllPilotsDiscoveryDo(istioNamespace, "GET", path, nil)
 	if err != nil {
-		return 0,0, fmt.Errorf("unable to query pilot for distribution " +
+		return 0, 0, fmt.Errorf("unable to query pilot for distribution "+
 			"(are you using pilot version >= 1.4 with config distribution tracking on): %s", err)
 	}
 	versionCount := make(map[string]int)
@@ -156,7 +157,7 @@ func poll(acceptedVersions []string) (present, notpresent int, err error) {
 		var configVersions []v2.SyncedVersions
 		err = json.Unmarshal(response, &configVersions)
 		if err != nil {
-			return 0,0, err
+			return 0, 0, err
 		}
 		for _, configVersion := range configVersions {
 			countVersions(versionCount, configVersion.ClusterVersion)
