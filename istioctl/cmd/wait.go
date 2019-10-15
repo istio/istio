@@ -19,10 +19,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
+
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pkg/config/schemas"
-	"sync"
-	"time"
 
 	"istio.io/istio/pilot/pkg/model"
 
@@ -41,8 +41,6 @@ var (
 	threshold       float32
 	timeout         time.Duration
 	resourceVersion string
-	//resourceVersions []string
-	rvLock sync.Mutex
 )
 
 const pollInterval = time.Second
