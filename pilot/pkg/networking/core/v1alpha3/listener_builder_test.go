@@ -282,13 +282,15 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 		t.Fatalf("fail to find the ipv4 passthrough filter chain in listener %v", l)
 	}
 
-	if len(l.ListenerFilters) != 2 {
-		t.Fatalf("expected %d listener filters, found %d", 2, len(l.ListenerFilters))
+	if len(l.ListenerFilters) != 3 {
+		t.Fatalf("expected %d listener filters, found %d", 3, len(l.ListenerFilters))
 	}
 
 	if l.ListenerFilters[0].Name != xdsutil.OriginalDestination ||
-		l.ListenerFilters[1].Name != xdsutil.HttpInspector {
-		t.Fatalf("expect listener filters [%q, %q], found [%q, %q]",
-			xdsutil.OriginalDestination, xdsutil.HttpInspector, l.ListenerFilters[0].Name, l.ListenerFilters[1].Name)
+		l.ListenerFilters[1].Name != xdsutil.TlsInspector ||
+		l.ListenerFilters[2].Name != xdsutil.HttpInspector {
+		t.Fatalf("expect listener filters [%q, %q, %q], found [%q, %q, %q]",
+			xdsutil.OriginalDestination, xdsutil.TlsInspector, xdsutil.HttpInspector,
+			l.ListenerFilters[0].Name, l.ListenerFilters[1].Name, l.ListenerFilters[2].Name)
 	}
 }
