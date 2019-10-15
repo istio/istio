@@ -518,7 +518,7 @@ func newHTTPPassThroughFilterChain(configgen *ConfigGeneratorImpl, env *model.En
 			PrefixRanges: []*core.CidrRange{
 				util.ConvertAddressToCidr(matchingIP),
 			},
-			ApplicationProtocols: applicationProtocols,
+			ApplicationProtocols: plaintextHTTPALPNs,
 		}
 
 		filterChain := &listener.FilterChain{

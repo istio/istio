@@ -154,12 +154,16 @@ type FilterChainMatchOptions struct {
 	Protocol plugin.ListenerProtocol
 }
 
+// A set of pre-allocated variables related to protocol sniffing logic for
+// propagating the ALPN to upstreams
 var (
-	applicationProtocols = []string{"http/1.0", "http/1.1", "h2c"}
+	// These are sniffed by the HTTP Inspector in the outbound listener
+	// We need to forward these ALPNs to upstream so that the upstream can
+	// properly use a HTTP or TCP listener
+	plaintextHTTPALPNs = []string{"http/1.0", "http/1.1", "h2c"}
+	mtlsHTTPALPNs = []string{"istio-http/1.0", "istio-http/1.1", "istio-h2"}
 
-	applicationProtocolsOverTLS = []string{"istio-http/1.0", "istio-http/1.1", "istio-h2"}
-
-	defaultApplicationProtocol = []string{"istio"}
+	mtlsTCPALPNs = []string{"istio"}
 
 	// Double the number of filter chains. Half of filter chains are used as http filter chain and half of them are used as tcp proxy
 	// id in [0, len(allChains)/2) are configured as http filter chain, [(len(allChains)/2, len(allChains)) are configured as tcp proxy
@@ -172,32 +176,59 @@ var (
 	// If traffic is over plain text or mTLS is strict mode, there are two filter chains. The filter chaim match should be
 	//  FCM 1: ALPN [http/1.0, http/1.1, h2c, istio-http/1.0, istio-http/1.1, istio-h2]     --> HTTP traffic over plain text or TLS
 	//  FCM 2: ALPN []                                                                      --> TCP traffic over plain text or TLS
-	permissiveFilterChainMatchOptions = []FilterChainMatchOptions{
+	inboundPermissiveFilterChainMatchOptions = []FilterChainMatchOptions{
 		{
-			ApplicationProtocols: applicationProtocolsOverTLS,
+			// client side traffic was detected as HTTP by the outbound listener, sent over mTLS
+			ApplicationProtocols: mtlsHTTPALPNs,
+			// If client sends mTLS traffic, transport protocol will be set by the TLS inspector
 			TransportProtocol:    "tls",
 			Protocol:             plugin.ListenerProtocolHTTP,
 		},
 		{
-			ApplicationProtocols: applicationProtocols,
+			// client side traffic could not be identified by the outbound listener, but sent over mTLS
+			ApplicationProtocols: mtlsTCPALPNs,
+			// If client sends mTLS traffic, transport protocol will be set by the TLS inspector
+			TransportProtocol:    "tls",
+			Protocol: plugin.ListenerProtocolTCP,
+		},
+		{
+			// client side traffic was detected as HTTP by the outbound listener, sent out as plain text
+			ApplicationProtocols: plaintextHTTPALPNs,
+			// No transport protocol match as this filter chain (+match) will be used for plain text connections
 			Protocol:             plugin.ListenerProtocolHTTP,
 		},
 		{
-			ApplicationProtocols: defaultApplicationProtocol,
-			TransportProtocol:    "tls",
+			// client side traffic could not be identified by the outbound listener, sent over plaintext
+			// or it could be that the client has no sidecar. In this case, this filter chain is simply
+			// receiving plaintext TCP traffic.
+			Protocol: plugin.ListenerProtocolTCP,
 		},
-		{},
 		{
+			// client side traffic could not be identified by the outbound listener, sent over one-way
+			// TLS (HTTPS for example) by the downstream application.
+			// or it could be that the client has no sidecar, and it is directly making a HTTPS connection to
+			// this sidecar. In this case, this filter chain is receiving plaintext one-way TLS traffic. The TLS
+			// inspector would detect this as TLS traffic [not necessarily mTLS]. But since there is no ALPN to match,
+			// this filter chain match will treat the traffic as just another TCP proxy.
 			TransportProtocol: "tls",
+			Protocol: plugin.ListenerProtocolTCP,
 		},
 	}
 
-	filterChainMatchOptions = []FilterChainMatchOptions{
+	inboundStrictOrNoneFilterChainMatchOptions = []FilterChainMatchOptions{
 		{
-			ApplicationProtocols: append(applicationProtocols, applicationProtocolsOverTLS...),
+			// client side traffic was detected as HTTP by the outbound listener.
+			// If we are in strict mode, we will get mTLS HTTP ALPNS only. If we are in plaintext mode,
+			// we would get plaintext HTTP ALPNS only. These two are mutually exclusive. So it is
+			// okay to put both of them into one match condition because we have to generate the same
+			// HTTP connection manager.
+			ApplicationProtocols: append(plaintextHTTPALPNs, mtlsHTTPALPNs...),
 			Protocol:             plugin.ListenerProtocolHTTP,
 		},
-		{},
+		{
+			// Could not detect traffic on the client side. Server side has no mTLS.
+			Protocol: plugin.ListenerProtocolTCP,
+		},
 	}
 
 	// Headers added by the metadata exchange filter
@@ -602,35 +633,41 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 	}
 
 	var allChains []plugin.FilterChain
-
 	for _, p := range configgen.Plugins {
 		chains := p.OnInboundFilterChains(pluginParams)
 		allChains = append(allChains, chains...)
 	}
-	// Construct the default filter chain.
-	if len(allChains) != 0 {
-		log.Debugf("Multiple plugins setup inbound filter chains for listener %s, FilterChainMatch may not work as intended!",
-			listenerMapKey)
-	} else {
+
+	if len(allChains) == 0 {
 		// add one empty entry to the list so we generate a default listener below
 		allChains = []plugin.FilterChain{{}}
 	}
+
+	tlsInspectorEnabled := false
+	allChainsLabel:
+		for _, c := range allChains {
+			for _, lf := range c.ListenerFilters {
+				if lf.Name == wellknown.TlsInspector {
+					tlsInspectorEnabled = true
+					break allChainsLabel
+				}
+			}
+		}
 
 	var filterChainMatchOption []FilterChainMatchOptions
 	// Detect protocol by sniffing and double the filter chain
 	if pluginParams.ListenerProtocol == plugin.ListenerProtocolAuto {
 		allChains = append(allChains, allChains...)
-		// permissive mTLS.
-		// TODO(yxue) fragile here to determine permissive mTLS by number of filter chains
-		// Assumption: listener with permissive mTLS has 2 filter chains, other cases have 1 filter chain.
-		if len(allChains) == 4 {
+		if tlsInspectorEnabled {
 			allChains = append(allChains, plugin.FilterChain{})
-			filterChainMatchOption = permissiveFilterChainMatchOptions
+			filterChainMatchOption = inboundPermissiveFilterChainMatchOptions
 		} else {
-			filterChainMatchOption = filterChainMatchOptions
+			filterChainMatchOption = inboundStrictOrNoneFilterChainMatchOptions
 		}
 		listenerOpts.needHTTPInspector = true
 	}
+
+	// name all the filter chains
 
 	for id, chain := range allChains {
 		var httpOpts *httpListenerOpts
@@ -640,10 +677,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 		switch pluginParams.ListenerProtocol {
 		case plugin.ListenerProtocolHTTP:
 			filterChainMatch = chain.FilterChainMatch
-			// This is the filter chain used by permissive mTLS. Append applicationProtocolsOverTLS as the client side will
-			// override the ALPN with applicationProtocolsOverTLS.
 			if filterChainMatch != nil && len(filterChainMatch.ApplicationProtocols) > 0 {
-				filterChainMatch.ApplicationProtocols = append(filterChainMatch.ApplicationProtocols, applicationProtocolsOverTLS...)
+				// This is the filter chain used by permissive mTLS. Append mtlsHTTPALPNs as the client side will
+				// override the ALPN with mtlsHTTPALPNs.
+				// TODO: This should move to authN code instead of us appending additional ALPNs here.
+				filterChainMatch.ApplicationProtocols = append(filterChainMatch.ApplicationProtocols, mtlsHTTPALPNs...)
 			}
 			httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, pluginParams)
 
@@ -1345,7 +1383,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 			}
 
 			// Support HTTP/1.0, HTTP/1.1 and HTTP/2
-			opt.match.ApplicationProtocols = append(opt.match.ApplicationProtocols, applicationProtocols...)
+			opt.match.ApplicationProtocols = append(opt.match.ApplicationProtocols, plaintextHTTPALPNs...)
 		}
 
 		listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, opts...)
@@ -1719,7 +1757,7 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, env *model.Env
 			Name: AlpnFilterName,
 			ConfigType: &http_conn.HttpFilter_TypedConfig{
 				TypedConfig: util.MessageToAny(&alpn_filter.FilterConfig{
-					AlpnOverride: applicationProtocolsOverTLS,
+					AlpnOverride: mtlsHTTPALPNs,
 				}),
 			},
 		})
@@ -2221,7 +2259,7 @@ func mergeFilterChains(httpFilterChain, tcpFilterChain []*listener.FilterChain) 
 			fc.FilterChainMatch = &listener.FilterChainMatch{}
 		}
 
-		fc.FilterChainMatch.ApplicationProtocols = append(fc.FilterChainMatch.ApplicationProtocols, applicationProtocols...)
+		fc.FilterChainMatch.ApplicationProtocols = append(fc.FilterChainMatch.ApplicationProtocols, plaintextHTTPALPNs...)
 		newFilterChan = append(newFilterChan, fc)
 
 	}

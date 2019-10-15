@@ -743,8 +743,8 @@ func verifyHTTPFilterChainMatch(t *testing.T, fc *listener.FilterChain, directio
 	t.Helper()
 	if isTLS {
 		if direction == model.TrafficDirectionInbound &&
-			!reflect.DeepEqual(applicationProtocolsOverTLS, fc.FilterChainMatch.ApplicationProtocols) {
-			t.Fatalf("expected %d application protocols, %v", len(applicationProtocolsOverTLS), applicationProtocolsOverTLS)
+			!reflect.DeepEqual(mtlsHTTPALPNs, fc.FilterChainMatch.ApplicationProtocols) {
+			t.Fatalf("expected %d application protocols, %v", len(mtlsHTTPALPNs), mtlsHTTPALPNs)
 		}
 
 		if fc.FilterChainMatch.TransportProtocol != "tls" {
@@ -752,8 +752,8 @@ func verifyHTTPFilterChainMatch(t *testing.T, fc *listener.FilterChain, directio
 		}
 	} else {
 		if direction == model.TrafficDirectionInbound &&
-			!reflect.DeepEqual(applicationProtocols, fc.FilterChainMatch.ApplicationProtocols) {
-			t.Fatalf("expected %d application protocols, %v", len(applicationProtocols), applicationProtocols)
+			!reflect.DeepEqual(plaintextHTTPALPNs, fc.FilterChainMatch.ApplicationProtocols) {
+			t.Fatalf("expected %d application protocols, %v", len(plaintextHTTPALPNs), plaintextHTTPALPNs)
 		}
 
 		if fc.FilterChainMatch.TransportProtocol != "" {
@@ -762,8 +762,8 @@ func verifyHTTPFilterChainMatch(t *testing.T, fc *listener.FilterChain, directio
 	}
 
 	if direction == model.TrafficDirectionOutbound &&
-		!reflect.DeepEqual(applicationProtocols, fc.FilterChainMatch.ApplicationProtocols) {
-		t.Fatalf("expected %d application protocols, %v", len(applicationProtocols), applicationProtocols)
+		!reflect.DeepEqual(plaintextHTTPALPNs, fc.FilterChainMatch.ApplicationProtocols) {
+		t.Fatalf("expected %d application protocols, %v", len(plaintextHTTPALPNs), plaintextHTTPALPNs)
 	}
 
 	hcm := &http_conn.HttpConnectionManager{}
