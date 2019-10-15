@@ -137,14 +137,13 @@ package v1alpha2
 
 import (
 	fmt "fmt"
-	math "math"
-
 	protobuf "github.com/gogo/protobuf/types"
 	proto "github.com/golang/protobuf/proto"
 	v2beta1 "k8s.io/api/autoscaling/v2beta1"
 	v1 "k8s.io/api/core/v1"
 	v11 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	_ "k8s.io/apimachinery/pkg/runtime"
+	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -191,17 +190,17 @@ func (InstallStatus_Status) EnumDescriptor() ([]byte, []int) {
 
 // IstioControlPlane is a CustomResourceDefinition (CRD) describing an Istio control plane.
 type IstioControlPlane struct {
+	 v11.TypeMeta `json:",inline"`
+	 v11.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 	// Spec defines the desired state of IstioControlPlane.
 	Spec *IstioControlPlaneSpec `protobuf:"bytes,3,opt,name=spec,proto3" json:"spec,omitempty"`
 	// Status reports the status of the Istio control plane.
 	Status               *InstallStatus `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"`
 	Kind                 string         `protobuf:"bytes,5,opt,name=kind,proto3" json:"kind,omitempty"`
 	ApiVersion           string         `protobuf:"bytes,6,opt,name=apiVersion,proto3" json:"apiVersion,omitempty"`
-	v11.ObjectMeta       `json:"metadata,omitempty" protobuf:"bytes,7,opt,name=metadata"`
-	v11.TypeMeta         `json:",inline"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
+	XXX_unrecognized     []byte         `json:"-"`
+	XXX_sizecache        int32          `json:"-"`
 }
 
 func (m *IstioControlPlane) Reset()         { *m = IstioControlPlane{} }
@@ -2180,9 +2179,9 @@ type K8SObjectOverlay_PathValue struct {
 	// For replace, path should reference an existing node.
 	// All values are strings but are converted into appropriate type based on schema.
 	Value                interface{} `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
-	XXX_unrecognized     []byte      `json:"-"`
-	XXX_sizecache        int32       `json:"-"`
+	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
+	XXX_unrecognized     []byte         `json:"-"`
+	XXX_sizecache        int32          `json:"-"`
 }
 
 func (m *K8SObjectOverlay_PathValue) Reset()         { *m = K8SObjectOverlay_PathValue{} }
@@ -2505,14 +2504,14 @@ func (m *ExecAction) GetCommand() []string {
 
 // Mirrors k8s.io.api.core.v1.HTTPGetAction for unmarshaling
 type HTTPGetAction struct {
-	Path                 string            `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	Path                 string                `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
 	Port                 *IntOrStringForPB `protobuf:"bytes,2,opt,name=port,proto3" json:"port,omitempty"`
-	Host                 string            `protobuf:"bytes,3,opt,name=host,proto3" json:"host,omitempty"`
-	Scheme               string            `protobuf:"bytes,4,opt,name=scheme,proto3" json:"scheme,omitempty"`
-	HttpHeaders          []*HTTPHeader     `protobuf:"bytes,5,rep,name=httpHeaders,proto3" json:"httpHeaders,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
-	XXX_unrecognized     []byte            `json:"-"`
-	XXX_sizecache        int32             `json:"-"`
+	Host                 string                `protobuf:"bytes,3,opt,name=host,proto3" json:"host,omitempty"`
+	Scheme               string                `protobuf:"bytes,4,opt,name=scheme,proto3" json:"scheme,omitempty"`
+	HttpHeaders          []*HTTPHeader         `protobuf:"bytes,5,rep,name=httpHeaders,proto3" json:"httpHeaders,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}              `json:"-"`
+	XXX_unrecognized     []byte                `json:"-"`
+	XXX_sizecache        int32                 `json:"-"`
 }
 
 func (m *HTTPGetAction) Reset()         { *m = HTTPGetAction{} }
@@ -2626,10 +2625,10 @@ func (m *HTTPHeader) GetValue() string {
 // Mirrors k8s.io.api.core.v1.TCPSocketAction for unmarshaling
 type TCPSocketAction struct {
 	Port                 *IntOrStringForPB `protobuf:"bytes,1,opt,name=port,proto3" json:"port,omitempty"`
-	Host                 string            `protobuf:"bytes,2,opt,name=host,proto3" json:"host,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
-	XXX_unrecognized     []byte            `json:"-"`
-	XXX_sizecache        int32             `json:"-"`
+	Host                 string                `protobuf:"bytes,2,opt,name=host,proto3" json:"host,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}              `json:"-"`
+	XXX_unrecognized     []byte                `json:"-"`
+	XXX_sizecache        int32                 `json:"-"`
 }
 
 func (m *TCPSocketAction) Reset()         { *m = TCPSocketAction{} }
@@ -2779,9 +2778,9 @@ func (m *DeploymentStrategy) GetRollingUpdate() *RollingUpdateDeployment {
 type RollingUpdateDeployment struct {
 	MaxUnavailable       *IntOrStringForPB `protobuf:"bytes,1,opt,name=maxUnavailable,proto3" json:"maxUnavailable,omitempty"`
 	MaxSurge             *IntOrStringForPB `protobuf:"bytes,2,opt,name=maxSurge,proto3" json:"maxSurge,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
-	XXX_unrecognized     []byte            `json:"-"`
-	XXX_sizecache        int32             `json:"-"`
+	XXX_NoUnkeyedLiteral struct{}              `json:"-"`
+	XXX_unrecognized     []byte                `json:"-"`
+	XXX_sizecache        int32                 `json:"-"`
 }
 
 func (m *RollingUpdateDeployment) Reset()         { *m = RollingUpdateDeployment{} }
@@ -2870,6 +2869,9 @@ func (m *ObjectMeta) GetNamespace() string {
 	}
 	return ""
 }
+
+
+
 
 func init() {
 	proto.RegisterEnum("v1alpha2.InstallStatus_Status", InstallStatus_Status_name, InstallStatus_Status_value)
