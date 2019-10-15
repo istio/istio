@@ -16,6 +16,7 @@ package envoy
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -157,6 +158,60 @@ func TestWaitForLive(t *testing.T) {
 
 	// Wait for both to start.
 	wg.Wait()
+
+	// An error threshold used for the time comparison. Should (hopefully) be enough to avoid flakes.
+	errThreshold := 1 * time.Second
+
+	// Verify that the second epoch is delayed until epoch 0 was live.
+	g.Expect(epoch1StartTime).Should(BeTemporally("~", expectedEpoch1StartTime, errThreshold))
+}
+
+func TestExitDuringWaitForLive(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	epoch0Exit := make(chan error)
+	epoch1Started := make(chan struct{}, 1)
+	start := func(config interface{}, epoch int, _ <-chan error) error {
+		switch epoch {
+		case 0:
+			// The first epoch just waits for the exit error.
+			return <-epoch0Exit
+		case 1:
+			// Indicate that the second epoch was started.
+			close(epoch1Started)
+		}
+		<-ctx.Done()
+		return nil
+	}
+	neverLive := func() bool {
+		// Never go live.
+		return false
+	}
+	a := NewAgent(TestProxy{run: start, live: neverLive}, -10*time.Second)
+	go func() { _ = a.Run(ctx) }()
+
+	// Start the first epoch.
+	a.Restart("config1")
+
+	// Immediately start the second epoch. This will block until the first one exits, since it will never go live.
+	go a.Restart("config2")
+
+	// Trigger the first epoch to exit
+	var epoch1StartTime time.Time
+	expectedEpoch1StartTime := time.Now()
+	epoch0Exit <- errors.New("fake")
+
+	select {
+	case <-epoch1Started:
+		// Started
+		epoch1StartTime = time.Now()
+		break
+	case <-time.After(5 * time.Second):
+		t.Fatalf("timed out waiting for epoch 1 to start")
+	}
 
 	// An error threshold used for the time comparison. Should (hopefully) be enough to avoid flakes.
 	errThreshold := 1 * time.Second
