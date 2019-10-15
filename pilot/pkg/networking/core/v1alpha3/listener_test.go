@@ -1495,13 +1495,16 @@ func (p *fakePlugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeCo
 }
 
 func (p *fakePlugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
-	return []plugin.FilterChain{{
-		ListenerFilters: []*listener.ListenerFilter{
-			{
-				Name: xdsutil.TlsInspector,
+	return []plugin.FilterChain{
+		{
+			ListenerFilters: []*listener.ListenerFilter{
+				{
+					Name: xdsutil.TlsInspector,
+				},
 			},
 		},
-	}, {}}
+		{},
+	}
 }
 
 func isHTTPListener(listener *xdsapi.Listener) bool {
