@@ -16,9 +16,11 @@
 
 function setup_and_export_git_sha() {
   if [[ -n "${CI:-}" ]]; then
+
     if [ -z "${PULL_PULL_SHA:-}" ]; then
       if [ -z "${PULL_BASE_SHA:-}" ]; then
-        export GIT_SHA="$(git rev-parse --verify HEAD)"
+        GIT_SHA="$(git rev-parse --verify HEAD)"
+        export GIT_SHA
       else
         export GIT_SHA="${PULL_BASE_SHA}"
       fi
