@@ -16,9 +16,9 @@ package consul
 
 import (
 	"fmt"
-	"github.com/hashicorp/consul/api"
 	"sync"
 
+	"github.com/hashicorp/consul/api"
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"

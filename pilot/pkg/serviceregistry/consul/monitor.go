@@ -64,7 +64,7 @@ func (m *consulMonitor) Start(stop <-chan struct{}) {
 }
 
 func (m *consulMonitor) watchConsul(change chan struct{}, stop <-chan struct{}) {
-	var consulWaitIndex uint64 = 0
+	var consulWaitIndex uint64
 
 	for {
 		select {
@@ -99,7 +99,7 @@ func (m *consulMonitor) updateRecord(change <-chan struct{}, stop <-chan struct{
 		case <-ticker.C:
 			currentTime := time.Now().Unix()
 			if lastChange > 0 && currentTime-lastChange > int64(refreshIdleTime.Seconds()) {
-				log.Infof("########################### Consul service changed ##############################")
+				log.Infof("Consul service changed")
 				m.updateServiceRecord()
 				m.updateInstanceRecord()
 				lastChange = int64(0)
