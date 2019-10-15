@@ -493,19 +493,22 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 
 	_, waitErr := sc.certUtil.GetWaitTime(scrt.Data[CertChainID], time.Now(), sc.minGracePeriod)
 
-	caCertInMem, _, _, rootCertInMem := sc.ca.GetCAKeyCertBundle().GetAllPem()
-	syncedRootCert, err := sc.tryToSyncKeyCertBundle(rootCertInMem, caCertInMem)
-	if err != nil {
-		k8sControllerLog.Errorf("failed on syncing root cert in KeyCertBundle (%s), skip updating secret %s:%s",
-			err.Error(), namespace, name)
-		return
+	caCert, _, _, rootCertificate := sc.ca.GetCAKeyCertBundle().GetAllPem()
+	if !bytes.Equal(rootCertificate, scrt.Data[RootCertID]) {
+		var err error
+		rootCertificate, err = sc.tryToSyncKeyCertBundle(rootCertificate, caCert)
+		if err != nil {
+			k8sControllerLog.Errorf("failed on syncing root cert in KeyCertBundle (%s), skip updating secret %s:%s",
+				err.Error(), namespace, name)
+			return
+		}
 	}
 
 	// Refresh the secret if 1) the certificate contained in the secret is about
 	// to expire, or 2) the root certificate in the secret is different than the
 	// one held by the ca (this may happen when the CA is restarted and
 	// a new self-signed CA cert is generated).
-	if waitErr != nil || !bytes.Equal(syncedRootCert, scrt.Data[RootCertID]) {
+	if waitErr != nil || !bytes.Equal(rootCertificate, scrt.Data[RootCertID]) {
 		// if the namespace is not managed, don't refresh the expired secret, delete it
 		secretNamespace, err := sc.core.Namespaces().Get(namespace, metav1.GetOptions{})
 		if err == nil {
