@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -28,6 +29,7 @@ import (
 
 	"istio.io/operator/pkg/apis/istio/v1alpha2"
 	"istio.io/operator/pkg/helmreconciler"
+	"istio.io/operator/pkg/util"
 	"istio.io/pkg/log"
 )
 
@@ -109,8 +111,16 @@ func (r *ReconcileIstioControlPlane) Reconcile(request reconcile.Request) (recon
 		return reconcile.Result{}, err
 	}
 
-	deleted := instance.GetDeletionTimestamp() != nil
-	finalizers := instance.GetFinalizers()
+	// Workaroud for issue: https://github.com/istio/istio/issues/17883
+	// Using an unstructured object to get deletionTimestamp and finalizers fields.
+	u := &unstructured.Unstructured{}
+	u.SetGroupVersionKind(util.IstioOperatorGVK)
+	err = r.client.Get(context.TODO(), request.NamespacedName, u)
+	if err != nil {
+		log.Errorf("error getting the unstructured of IstioControlPlane instance: %s", err)
+	}
+	deleted := u.GetDeletionTimestamp() != nil
+	finalizers := u.GetFinalizers()
 	finalizerIndex := indexOf(finalizers, finalizer)
 
 	if deleted {
