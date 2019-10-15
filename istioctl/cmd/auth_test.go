@@ -47,7 +47,7 @@ func runCommandAndCheckExpectedCmdError(name, command, expected string, t *testi
 	if err == nil {
 		t.Fatalf("test %q failed. Expected error: %v", name, expected)
 	}
-	if err != nil && out.Len() != 0 {
+	if out.Len() != 0 {
 		if out.String() != expected {
 			t.Fatalf("test %q failed. \nExpected\n%s\nGot\n%s\n", name, expected, out.String())
 		}
@@ -122,27 +122,41 @@ func TestAuthUpgrade(t *testing.T) {
 		golden            string
 	}{
 		{
-			name:              "RBAC policy with (unsupported) group field",
-			rbacV1alpha1Files: []string{"testdata/auth/upgrade/one-rule-one-service.yaml", "testdata/auth/upgrade/group-in-subject.yaml"},
-			expectedError:     "Error: failed to convert policies: cannot convert binding to sources: serviceRoleBinding with group is not supported\n",
+			name: "RBAC policy with (unsupported) group field",
+			rbacV1alpha1Files: []string{"testdata/auth/upgrade/one-rule-one-service.yaml",
+				"testdata/auth/upgrade/group-in-subject.yaml", "testdata/auth/upgrade/rbac-global-on.yaml"},
+			expectedError: "Error: failed to convert policies: cannot convert binding to sources: serviceRoleBinding with group is not supported\n",
 		},
 		{
-			name:              "One access rule with one service",
-			rbacV1alpha1Files: []string{"testdata/auth/upgrade/one-rule-one-service.yaml", "testdata/auth/upgrade/one-subject.yaml"},
-			servicesFiles:     []string{"testdata/auth/upgrade/svc-bookinfo.yaml"},
-			golden:            "testdata/auth/upgrade/one-rule-one-service.golden.yaml",
+			name:              "Missing ClusterRbacConfig",
+			rbacV1alpha1Files: []string{"testdata/auth/upgrade/one-rule-one-service.yaml"},
+			expectedError:     "Error: failed to convert policies: failed to convert ClusterRbacConfig: no ClusterRbacConfig found\n",
 		},
 		{
-			name:              "One access rule with all services",
-			rbacV1alpha1Files: []string{"testdata/auth/upgrade/one-rule-all-services.yaml", "testdata/auth/upgrade/two-subjects.yaml"},
-			servicesFiles:     []string{"testdata/auth/upgrade/svc-bookinfo.yaml"},
-			golden:            "testdata/auth/upgrade/one-rule-all-services.golden.yaml",
+			name: "One access rule with one service",
+			rbacV1alpha1Files: []string{"testdata/auth/upgrade/one-rule-one-service.yaml",
+				"testdata/auth/upgrade/one-subject.yaml", "testdata/auth/upgrade/rbac-global-on.yaml"},
+			servicesFiles: []string{"testdata/auth/upgrade/svc-bookinfo.yaml"},
+			golden:        "testdata/auth/upgrade/one-rule-one-service.golden.yaml",
 		},
 		{
-			name:              "One access rule with multiple services",
-			rbacV1alpha1Files: []string{"testdata/auth/upgrade/one-rule-multiple-services.yaml", "testdata/auth/upgrade/two-subjects.yaml"},
-			servicesFiles:     []string{"testdata/auth/upgrade/svc-bookinfo.yaml"},
-			golden:            "testdata/auth/upgrade/one-rule-multiple-services.golden.yaml",
+			name: "One access rule with all services",
+			rbacV1alpha1Files: []string{"testdata/auth/upgrade/one-rule-all-services.yaml",
+				"testdata/auth/upgrade/two-subjects.yaml", "testdata/auth/upgrade/rbac-global-on.yaml"},
+			servicesFiles: []string{"testdata/auth/upgrade/svc-bookinfo.yaml"},
+			golden:        "testdata/auth/upgrade/one-rule-all-services.golden.yaml",
+		},
+		{
+			name: "One access rule with multiple services",
+			rbacV1alpha1Files: []string{"testdata/auth/upgrade/one-rule-multiple-services.yaml",
+				"testdata/auth/upgrade/two-subjects.yaml", "testdata/auth/upgrade/rbac-global-on.yaml"},
+			servicesFiles: []string{"testdata/auth/upgrade/svc-bookinfo.yaml"},
+			golden:        "testdata/auth/upgrade/one-rule-multiple-services.golden.yaml",
+		},
+		{
+			name:              "ClusterRbacConfig only",
+			rbacV1alpha1Files: []string{"testdata/auth/upgrade/rbac-global-on.yaml"},
+			golden:            "testdata/auth/upgrade/rbac-global-on.golden.yaml",
 		},
 	}
 	for _, c := range testCases {
