@@ -16,6 +16,7 @@ package analyzers
 
 import (
 	"fmt"
+	"regexp"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -29,8 +30,8 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/local"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
-	"istio.io/istio/galley/pkg/config/processor/metadata"
-	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/meta/metadata"
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 )
 
 type message struct {
@@ -47,124 +48,22 @@ type testCase struct {
 
 // Some notes on setting up tests for Analyzers:
 // * The resources in the input files don't necessarily need to be completely defined, just defined enough for the analyzer being tested.
+// * Please keep this list sorted alphabetically by the pkg.name of the analyzer for convenience
+// * Expected messages are in the format {msg.ValidationMessageType, "<ResourceKind>/<Namespace>/<ResourceName>"}.
+//     * Note that if Namespace is omitted in the input YAML, it will be skipped here.
 var testGrid = []testCase{
 	{
-		name: "serviceRoleBindings",
-		inputFiles: []string{
-			"testdata/servicerolebindings.yaml",
-		},
-		analyzer: &auth.ServiceRoleBindingAnalyzer{},
+		name:       "serviceRoleBindings",
+		inputFiles: []string{"testdata/servicerolebindings.yaml"},
+		analyzer:   &auth.ServiceRoleBindingAnalyzer{},
 		expected: []message{
 			{msg.ReferencedResourceNotFound, "ServiceRoleBinding/test-bogus-binding"},
 		},
 	},
 	{
-		name: "virtualServiceGateways",
-		inputFiles: []string{
-			"testdata/virtualservice_gateways.yaml",
-		},
-		analyzer: &virtualservice.GatewayAnalyzer{},
-		expected: []message{
-			{msg.ReferencedResourceNotFound, "VirtualService/httpbin-bogus"},
-		},
-	},
-	{
-		name: "virtualServiceDestinationHosts",
-		inputFiles: []string{
-			"testdata/virtualservice_destinationhosts.yaml",
-		},
-		analyzer: &virtualservice.DestinationHostAnalyzer{},
-		expected: []message{
-			{msg.ReferencedResourceNotFound, "VirtualService/default/reviews-bogushost"},
-		},
-	},
-	{
-		name: "virtualServiceDestinationRules",
-		inputFiles: []string{
-			"testdata/virtualservice_destinationrules.yaml",
-		},
-		analyzer: &virtualservice.DestinationRuleAnalyzer{},
-		expected: []message{
-			{msg.ReferencedResourceNotFound, "VirtualService/default/reviews-bogussubset"},
-		},
-	},
-	{
-		name: "istioInjection",
-		inputFiles: []string{
-			"testdata/injection.yaml",
-		},
-		analyzer: &injection.Analyzer{},
-		expected: []message{
-			{msg.NamespaceNotInjected, "Namespace/bar"},
-			{msg.PodMissingProxy, "Pod/default/noninjectedpod"},
-		},
-	},
-	{
-		name: "gatewayNoWorkload",
-		inputFiles: []string{
-			"testdata/gateway-no-workload.yaml",
-		},
-		analyzer: &gateway.IngressGatewayPortAnalyzer{},
-		expected: []message{
-			{msg.ReferencedResourceNotFound, "Gateway/httpbin-gateway"},
-		},
-	},
-	{
-		name: "gatewayBadPort",
-		inputFiles: []string{
-			"testdata/gateway-no-port.yaml",
-		},
-		analyzer: &gateway.IngressGatewayPortAnalyzer{},
-		expected: []message{
-			{msg.GatewayPortNotOnWorkload, "Gateway/httpbin-gateway"},
-		},
-	},
-	{
-		name: "gatewayCorrectPort",
-		inputFiles: []string{
-			"testdata/gateway-correct-port.yaml",
-		},
-		analyzer: &gateway.IngressGatewayPortAnalyzer{},
-		expected: []message{
-			// no messages, this test case verifies no false positives
-		},
-	},
-	{
-		name: "gatewayCustomIngressGateway",
-		inputFiles: []string{
-			"testdata/gateway-custom-ingressgateway.yaml",
-		},
-		analyzer: &gateway.IngressGatewayPortAnalyzer{},
-		expected: []message{
-			// no messages, this test case verifies no false positives
-		},
-	},
-	{
-		name: "gatewayCustomIngressGatewayBadPort",
-		inputFiles: []string{
-			"testdata/gateway-custom-ingressgateway-badport.yaml",
-		},
-		analyzer: &gateway.IngressGatewayPortAnalyzer{},
-		expected: []message{
-			{msg.GatewayPortNotOnWorkload, "Gateway/httpbin-gateway"},
-		},
-	},
-	{
-		name: "gatewayServiceMatchPod",
-		inputFiles: []string{
-			"testdata/gateway-custom-ingressgateway-svcselector.yaml",
-		},
-		analyzer: &gateway.IngressGatewayPortAnalyzer{},
-		expected: []message{
-			{msg.GatewayPortNotOnWorkload, "Gateway/httpbin8002-gateway"},
-		},
-	},
-	{
-		name: "deprecation",
-		inputFiles: []string{
-			"testdata/deprecation.yaml",
-		},
-		analyzer: &deprecation.FieldAnalyzer{},
+		name:       "deprecation",
+		inputFiles: []string{"testdata/deprecation.yaml"},
+		analyzer:   &deprecation.FieldAnalyzer{},
 		expected: []message{
 			{msg.Deprecated, "VirtualService/route-egressgateway"},
 			{msg.Deprecated, "VirtualService/tornado"},
@@ -173,6 +72,104 @@ var testGrid = []testCase{
 			{msg.Deprecated, "ServiceRoleBinding/default/bind-mongodb-viewer"},
 		},
 	},
+	{
+		name:       "gatewayNoWorkload",
+		inputFiles: []string{"testdata/gateway-no-workload.yaml"},
+		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
+		expected: []message{
+			{msg.ReferencedResourceNotFound, "Gateway/httpbin-gateway"},
+		},
+	},
+	{
+		name:       "gatewayBadPort",
+		inputFiles: []string{"testdata/gateway-no-port.yaml"},
+		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
+		expected: []message{
+			{msg.GatewayPortNotOnWorkload, "Gateway/httpbin-gateway"},
+		},
+	},
+	{
+		name:       "gatewayCorrectPort",
+		inputFiles: []string{"testdata/gateway-correct-port.yaml"},
+		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
+		expected:   []message{
+			// no messages, this test case verifies no false positives
+		},
+	},
+	{
+		name:       "gatewayCustomIngressGateway",
+		inputFiles: []string{"testdata/gateway-custom-ingressgateway.yaml"},
+		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
+		expected:   []message{
+			// no messages, this test case verifies no false positives
+		},
+	},
+	{
+		name:       "gatewayCustomIngressGatewayBadPort",
+		inputFiles: []string{"testdata/gateway-custom-ingressgateway-badport.yaml"},
+		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
+		expected: []message{
+			{msg.GatewayPortNotOnWorkload, "Gateway/httpbin-gateway"},
+		},
+	},
+	{
+		name:       "gatewayServiceMatchPod",
+		inputFiles: []string{"testdata/gateway-custom-ingressgateway-svcselector.yaml"},
+		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
+		expected: []message{
+			{msg.GatewayPortNotOnWorkload, "Gateway/httpbin8002-gateway"},
+		},
+	},
+
+	{
+		name:       "istioInjection",
+		inputFiles: []string{"testdata/injection.yaml"},
+		analyzer:   &injection.Analyzer{},
+		expected: []message{
+			{msg.NamespaceNotInjected, "Namespace/bar"},
+			{msg.PodMissingProxy, "Pod/default/noninjectedpod"},
+		},
+	},
+	{
+		name:       "istioInjectionVersionMismatch",
+		inputFiles: []string{"testdata/injection-with-mismatched-sidecar.yaml"},
+		analyzer:   &injection.VersionAnalyzer{},
+		expected: []message{
+			{msg.IstioProxyVersionMismatch, "Pod/enabled-namespace/details-v1-pod-old"},
+		},
+	},
+	{
+		name:       "virtualServiceDestinationHosts",
+		inputFiles: []string{"testdata/virtualservice_destinationhosts.yaml"},
+		analyzer:   &virtualservice.DestinationHostAnalyzer{},
+		expected: []message{
+			{msg.ReferencedResourceNotFound, "VirtualService/default/reviews-bogushost"},
+		},
+	},
+	{
+		name:       "virtualServiceDestinationRules",
+		inputFiles: []string{"testdata/virtualservice_destinationrules.yaml"},
+		analyzer:   &virtualservice.DestinationRuleAnalyzer{},
+		expected: []message{
+			{msg.ReferencedResourceNotFound, "VirtualService/default/reviews-bogussubset"},
+		},
+	},
+	{
+		name:       "virtualServiceGateways",
+		inputFiles: []string{"testdata/virtualservice_gateways.yaml"},
+		analyzer:   &virtualservice.GatewayAnalyzer{},
+		expected: []message{
+			{msg.ReferencedResourceNotFound, "VirtualService/httpbin-bogus"},
+		},
+	},
+}
+
+// regex patterns for analyzer names that should be explicitly ignored for testing
+var ignoreAnalyzers = []string{
+	// ValidationAnalyzer doesn't have any of its own logic, it just wraps the schema validation.
+	// We assume that detailed testing for schema validation is being done elsewhere.
+	// Testing the ValidationAnalyzer as a wrapper is done in a separate unit test.)
+	`schema\.ValidationAnalyzer\.*`,
 }
 
 // TestAnalyzers allows for table-based testing of Analyzers.
@@ -194,7 +191,7 @@ func TestAnalyzers(t *testing.T) {
 				requestedInputsByAnalyzer[analyzerName][col] = struct{}{}
 			}
 
-			sa := local.NewSourceAnalyzer(metadata.MustGet(), testCase.analyzer, cr)
+			sa := local.NewSourceAnalyzer(metadata.MustGet(), analysis.Combine("testCombined", testCase.analyzer), cr, true)
 
 			sa.AddFileKubeSource(testCase.inputFiles, "")
 			cancel := make(chan struct{})
@@ -213,8 +210,21 @@ func TestAnalyzers(t *testing.T) {
 	// the collections declared as inputs for each of the analyzers
 	t.Run("CheckMetadataInputs", func(t *testing.T) {
 		g := NewGomegaWithT(t)
+	outer:
 		for _, a := range All() {
 			analyzerName := a.Metadata().Name
+
+			// Skip this check for explicitly ignored analyzers
+			for _, regex := range ignoreAnalyzers {
+				match, err := regexp.MatchString(regex, analyzerName)
+				if err != nil {
+					t.Fatalf("Error compiling ignoreAnalyzers regex %q: %v", regex, err)
+				}
+				if match {
+					continue outer
+				}
+			}
+
 			requestedInputs := make([]collection.Name, 0)
 			for col := range requestedInputsByAnalyzer[analyzerName] {
 				requestedInputs = append(requestedInputs, col)

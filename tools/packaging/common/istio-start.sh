@@ -73,7 +73,7 @@ if [ "${ISTIO_CUSTOM_IP_TABLES}" != "true" ] ; then
 
       # Update iptables, based on current config. This is for backward compatibility with the init image mode.
       # The sidecar image can replace the k8s init image, to avoid downloading 2 different images.
-      "${ISTIO_BIN_BASE}/istio-iptables.sh" "${@}"
+      "${ISTIO_BIN_BASE}/istio-iptables" "${@}"
       exit 0
     fi
 
@@ -83,7 +83,7 @@ if [ "${ISTIO_CUSTOM_IP_TABLES}" != "true" ] ; then
       "${ISTIO_BIN_BASE}/istio-clean-iptables.sh"
 
       # Update iptables, based on config file
-      "${ISTIO_BIN_BASE}/istio-iptables.sh"
+      "${ISTIO_BIN_BASE}/istio-iptables"
     fi
 fi
 

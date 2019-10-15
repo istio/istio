@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/user"
 	"testing"
 	"time"
 
@@ -70,13 +69,11 @@ func resolveConfig(kubeconfig string) (string, error) {
 		kubeconfig = os.Getenv("KUBECONFIG")
 	}
 	if kubeconfig == "" {
-		usr, err := user.Current()
-		if err == nil {
-			defaultCfg := usr.HomeDir + "/.kube/config"
-			_, err := os.Stat(kubeconfig)
-			if err != nil {
-				kubeconfig = defaultCfg
-			}
+		home := os.Getenv("HOME")
+		defaultCfg := home + "/.kube/config"
+		_, err := os.Stat(kubeconfig)
+		if err != nil {
+			kubeconfig = defaultCfg
 		}
 	}
 	if kubeconfig != "" {

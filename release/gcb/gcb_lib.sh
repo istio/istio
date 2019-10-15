@@ -129,7 +129,8 @@ function make_istio() {
   # optionally set their EXTRA_ARTIFACTS environment variable to an arbitrarily
   # long list of space-delimited filepaths --- and each artifact would get
   # injected into the Docker image.
-  go run tools/license/get_dep_licenses.go --branch "${BRANCH}" > LICENSES.txt
+
+  go run istio.io/tools/cmd/license-lint --report > LICENSES.txt
   add_extra_artifacts_to_tar_images \
     "${DOCKER_HUB}" \
     "${TAG}" \

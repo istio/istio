@@ -17,6 +17,7 @@ package ca
 import (
 	"bytes"
 	"encoding/base64"
+	"math/rand"
 	"time"
 
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -33,16 +34,17 @@ import (
 var rootCertRotatorLog = log.RegisterScope("rootCertRotator", "Self-signed CA root cert rotator log", 0)
 
 type SelfSignedCARootCertRotatorConfig struct {
-	CheckInterval       time.Duration
-	caCertTTL           time.Duration
-	retryInterval       time.Duration
 	certInspector       certutil.CertUtil
 	caStorageNamespace  string
-	dualUse             bool
-	readSigningCertOnly bool
 	org                 string
 	rootCertFile        string
 	client              corev1.CoreV1Interface
+	CheckInterval       time.Duration
+	caCertTTL           time.Duration
+	retryInterval       time.Duration
+	dualUse             bool
+	readSigningCertOnly bool
+	enableJitter        bool
 }
 
 // SelfSignedCARootCertRotator automatically checks self-signed signing root
@@ -51,6 +53,7 @@ type SelfSignedCARootCertRotator struct {
 	configMapController *configmap.Controller
 	caSecretController  *controller.CaSecretController
 	config              *SelfSignedCARootCertRotatorConfig
+	backOffTime         time.Duration
 	ca                  *IstioCA
 }
 
@@ -64,11 +67,26 @@ func NewSelfSignedCARootCertRotator(config *SelfSignedCARootCertRotatorConfig,
 		config:              config,
 		ca:                  ca,
 	}
+	if config.enableJitter {
+		// Select a back off time in seconds, which is in the range of [0, rotator.config.CheckInterval).
+		randSource := rand.NewSource(time.Now().UnixNano())
+		randBackOff := rand.New(randSource)
+		backOffSeconds := int(time.Duration(randBackOff.Int63n(int64(rotator.config.CheckInterval))).Seconds())
+		rotator.backOffTime = time.Duration(backOffSeconds) * time.Second
+		rootCertRotatorLog.Infof("Set up back off time %s to start rotator.", rotator.backOffTime.String())
+	} else {
+		rotator.backOffTime = time.Duration(0)
+	}
 	return rotator
 }
 
 // Run refreshes root certs and updates config map accordingly.
 func (rotator *SelfSignedCARootCertRotator) Run(rootCertRotatorChan chan struct{}) {
+	if rotator.config.enableJitter {
+		rootCertRotatorLog.Infof("Jitter is enabled, wait %s before "+
+			"starting root cert rotator.", rotator.backOffTime.String())
+		time.Sleep(rotator.backOffTime)
+	}
 	ticker := time.NewTicker(rotator.config.CheckInterval)
 	for {
 		select {
@@ -120,7 +138,7 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForReadOnlyCit
 		// KeyCertBundle, this indicates that the local stored root cert is not
 		// up-to-date. Update root cert and key in KeyCertBundle and config map.
 		rootCertRotatorLog.Infof("Load signing key and cert from existing secret %s:%s", caSecret.Namespace, caSecret.Name)
-		rootCerts, err := appendRootCerts(caSecret.Data[caCertID], rotator.config.rootCertFile)
+		rootCerts, err := util.AppendRootCerts(caSecret.Data[caCertID], rotator.config.rootCertFile)
 		if err != nil {
 			rootCertRotatorLog.Errorf("Failed to append root certificates (%v)", err)
 			return
@@ -154,6 +172,24 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 	waitTime, err := rotator.config.certInspector.GetWaitTime(caSecret.Data[caCertID], time.Now(), time.Duration(0))
 	if err == nil && waitTime > 0 {
 		rootCertRotatorLog.Info("Root cert is not about to expire, skipping root cert rotation.")
+		caCert, _, _, _ := rotator.ca.GetCAKeyCertBundle().GetAllPem()
+		// If CA certificate is different from the CA certificate in local key
+		// cert bundle, it implies that other Citadels have updated istio-ca-secret.
+		// Reload root certificate into key cert bundle.
+		if !bytes.Equal(caCert, caSecret.Data[caCertID]) {
+			rootCertRotatorLog.Warn("CA cert in KeyCertBundle does not match CA cert in " +
+				"istio-ca-secret. Start to reload root cert into KeyCertBundle")
+			rootCerts, err := util.AppendRootCerts(caSecret.Data[caCertID], rotator.config.rootCertFile)
+			if err != nil {
+				rootCertRotatorLog.Errorf("failed to append root certificates from file: %s", err.Error())
+				return
+			}
+			if err := rotator.ca.GetCAKeyCertBundle().VerifyAndSetAll(caSecret.Data[caCertID],
+				caSecret.Data[caPrivateKeyID], nil, rootCerts); err != nil {
+				rootCertRotatorLog.Errorf("failed to reload root cert into KeyCertBundle (%v)", err)
+			}
+			rootCertRotatorLog.Info("Successfully reloaded root cert into KeyCertBundle.")
+		}
 		return
 	}
 
@@ -173,12 +209,11 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 		return
 	}
 
-	rootCerts, err := appendRootCerts(pemCert, rotator.config.rootCertFile)
+	rootCerts, err := util.AppendRootCerts(pemCert, rotator.config.rootCertFile)
 	if err != nil {
 		rootCertRotatorLog.Errorf("failed to append root certificates: %s", err.Error())
 		return
 	}
-
 	if err := rotator.ca.GetCAKeyCertBundle().VerifyAndSetAll(pemCert, pemKey, nil, rootCerts); err != nil {
 		rootCertRotatorLog.Errorf("failed to create CA KeyCertBundle (%v)", err)
 		return

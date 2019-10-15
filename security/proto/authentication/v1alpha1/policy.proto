@@ -183,7 +183,7 @@ message Jwt {
   // header name.
   //
   // For example, if `header=x-goog-iap-jwt-assertion`, the header
-  // format will be x-goog-iap-jwt-assertion: <JWT>.
+  // format will be `x-goog-iap-jwt-assertion: <JWT>`.
   repeated string jwt_headers = 6;
 
   // JWT is sent in a query parameter. `query` represents the

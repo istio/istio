@@ -181,6 +181,10 @@ func TestPrintMetrics(t *testing.T) {
 	}
 }
 
+func (client mockPromAPI) Alerts(ctx context.Context) (prometheus_v1.AlertsResult, error) {
+	return prometheus_v1.AlertsResult{}, fmt.Errorf("TODO mockPromAPI doesn't mock Alerts")
+}
+
 func (client mockPromAPI) AlertManagers(ctx context.Context) (prometheus_v1.AlertManagersResult, error) {
 	return prometheus_v1.AlertManagersResult{}, fmt.Errorf("TODO mockPromAPI doesn't mock AlertManagers")
 }

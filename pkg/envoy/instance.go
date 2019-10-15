@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"sync"
 	"time"
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
@@ -28,7 +29,8 @@ import (
 )
 
 const (
-	defaultName = "envoy"
+	defaultName        = "envoy"
+	defaultLiveTimeout = 20 * time.Second
 )
 
 // Config for an Envoy Instance.
@@ -69,8 +71,34 @@ type Instance interface {
 	// Config returns the configuration for this Instance.
 	Config() Config
 
+	// BaseID used to start Envoy. If not set, returns InvalidBaseID.
+	BaseID() BaseID
+
+	// Epoch used to start Envoy. If it was not set, defaults to 0.
+	Epoch() Epoch
+
 	// Start the Envoy Instance. The process will be killed if the given context is canceled.
+	//
+	// If this Instance was created via NewInstanceForHotRestart, this method will block until the parent
+	// Instance terminates or goes "live". This is due to the fact that hot restart will fail if the previous
+	// envoy process is still initializing.
 	Start(ctx context.Context) Instance
+
+	// NewInstanceForHotRestart creates a new Envoy Instance that is configured for a hot restart of this
+	// Instance (i.e. epoch is incremented). During a hot restart of Envoy, the old process is drained and
+	// traffic is shifted over to the new process.
+	//
+	// The caller must Start the returned instance to initiate the hot restart.
+	//
+	// If a new Instance is successfully created, it assumes ownership of the Envoy shared memory segment
+	// used for hot restart. This means that when this Instance exits, it will no longer destroy
+	// the shared memory segment, regardless of the value of SkipBaseIDClose.
+	//
+	// If this Instance hasn't been started, calling this method does nothing and simply returns
+	// this Instance since there is nothing to restart.
+	//
+	// This method may only be called once on a given Instance. Subsequent calls will return an error.
+	NewInstanceForHotRestart() (Instance, error)
 
 	// WaitUntilLive polls the Envoy ServerInfo endpoint and waits for it to transition to "live". If the
 	// wait times out, returns the last known error or context.DeadlineExceeded if no error occurred within the
@@ -101,12 +129,6 @@ type Instance interface {
 
 	// ShutdownAndWait is a helper that calls Shutdown and waits for the process to terminate.
 	ShutdownAndWait() Waitable
-
-	// BaseID used to start Envoy. If not set, returns InvalidBaseID.
-	BaseID() BaseID
-
-	// Epoch used to start Envoy.
-	Epoch() Epoch
 }
 
 // FactoryFunc is a function that manufactures Envoy Instances.
@@ -162,14 +184,17 @@ func New(cfg Config) (Instance, error) {
 }
 
 type instance struct {
-	config    Config
-	name      string
-	waitErr   error
-	cmd       *exec.Cmd
-	waitCh    chan struct{}
-	adminPort uint32
-	baseID    BaseID
-	epoch     Epoch
+	config     Config
+	name       string
+	waitErr    error
+	cmd        *exec.Cmd
+	waitCh     chan struct{}
+	adminPort  uint32
+	baseID     BaseID
+	epoch      Epoch
+	started    bool
+	hotRestart Instance
+	mux        sync.Mutex
 }
 
 func (i *instance) Config() Config {
@@ -177,7 +202,17 @@ func (i *instance) Config() Config {
 }
 
 func (i *instance) Start(ctx context.Context) Instance {
-	log.Infof("Starting Envoy(%s) with command: %v", i.name, i.cmd.Args)
+	i.mux.Lock()
+	defer i.mux.Unlock()
+
+	log.Infof("%s starting with command: %v", i.logID(), i.cmd.Args)
+
+	// Make sure we haven't already started.
+	if i.started {
+		log.Infof("%s was already started, skipping Start", i.logID())
+		return i
+	}
+	i.started = true
 
 	// Start Envoy.
 	if err := i.cmd.Start(); err != nil {
@@ -200,16 +235,16 @@ func (i *instance) Start(ctx context.Context) Instance {
 
 		select {
 		case <-ctx.Done():
-			log.Infof("Aborting Envoy(%s): %v", i.name, ctx.Err())
+			log.Infof("%s Aborting: %v", i.logID(), ctx.Err())
 			i.waitErr = ctx.Err()
 
 			// Context aborted ... kill the process.
 			if err := i.Kill(); err != nil {
-				log.Warnf("Failed killing Envoy(%s): %v", i.name, err)
+				log.Warnf("%s kill failed: %v", i.logID(), err)
 			}
 			return
 		case i.waitErr = <-doneCh:
-			log.Infof("Envoy(%s) exited with error: %v", i.name, i.waitErr)
+			log.Infof("%s exited with error: %v", i.logID(), i.waitErr)
 			return
 		}
 	}()
@@ -217,20 +252,69 @@ func (i *instance) Start(ctx context.Context) Instance {
 	return i
 }
 
+func (i *instance) NewInstanceForHotRestart() (Instance, error) {
+	i.mux.Lock()
+	defer i.mux.Unlock()
+
+	if i.hotRestart != nil {
+		return nil, fmt.Errorf("%s already created a hot restart Instance", i.logID())
+	}
+
+	if !i.started {
+		// This instance hasn't been started yet, no restart required.
+		return i, nil
+	}
+
+	// If this is a hot restart, wait for the parent process to be live before creating the new
+	// instance.
+	if err := i.WaitLive().WithTimeout(defaultLiveTimeout).Do(); err != nil {
+		log.Warnf("%s failed to go live: %v. Proceeding with hot restart",
+			i.logID(), err)
+	}
+
+	// Copy the configuration, but replace the epoch.
+	cfg := i.config
+	cfg.Options = make(Options, 0, len(cfg.Options))
+	for _, o := range i.config.Options {
+		if o.FlagName() != Epoch(0).FlagName() {
+			cfg.Options = append(cfg.Options, o)
+		}
+	}
+
+	// Increment the epoch on the new Instance.
+	cfg.Options = append(cfg.Options, i.epoch+1)
+
+	// Create the new instance.
+	hotRestart, err := New(cfg)
+	if err != nil {
+		return nil, err
+	}
+	i.hotRestart = hotRestart
+
+	return hotRestart, nil
+}
+
 func (i *instance) WaitLive() Waitable {
 	return &waitableImpl{
 		instance:    i,
 		retryPeriod: 200 * time.Millisecond,
-		retryHandler: func() error {
+		retryHandler: func() (bool, error) {
 			info, err := GetServerInfo(i.adminPort)
 			if err != nil {
-				return err
+				return true, err
 			}
 
-			if info.State != envoyAdmin.ServerInfo_LIVE {
-				return fmt.Errorf("envoy not live. Server State: %s", info.State)
+			switch info.State {
+			case envoyAdmin.ServerInfo_LIVE:
+				// We're live!
+				return false, nil
+			case envoyAdmin.ServerInfo_DRAINING:
+				// Don't retry, it'll never happen.
+				return false, errors.New("envoy will never go live, it's already draining")
+			default:
+				// Retry.
+				return true, fmt.Errorf("envoy not live. Server State: %s", info.State)
 			}
-			return nil
 		},
 	}
 }
@@ -288,13 +372,20 @@ func (i *instance) ShutdownAndWait() Waitable {
 }
 
 func (i *instance) close() {
-	if !i.config.SkipBaseIDClose {
+	// Delete the shared memory segment (used for hot restart) if configured to do and no
+	// further hot-restarts were initiated. If another restart was initiated, we hand off
+	// ownership of the shared memory to that Instance.
+	if !i.config.SkipBaseIDClose && i.hotRestart == nil {
 		if err := i.baseID.Close(); err != nil {
-			log.Infof("Failed freeing BaseID for Envoy(%s): %v", i.name, err)
+			log.Infof("Failed freeing BaseID for %s: %v", i.logID(), err)
 		}
 	}
 
 	close(i.waitCh)
+}
+
+func (i *instance) logID() string {
+	return fmt.Sprintf("Envoy '%s' (epoch %d)", i.name, i.epoch)
 }
 
 var _ Waitable = &waitableImpl{}
@@ -305,7 +396,7 @@ type waitableImpl struct {
 	creationErr error
 
 	retryPeriod  time.Duration
-	retryHandler func() error
+	retryHandler func() (bool, error)
 
 	timeout time.Duration
 }
@@ -359,10 +450,13 @@ func (w *waitableImpl) Do() error {
 			}
 			return nil
 		case <-retryCh:
-			lastErr = w.retryHandler()
-			if lastErr == nil {
-				return nil
+			shouldRetry, err := w.retryHandler()
+			if !shouldRetry {
+				return err
 			}
+
+			// We're retrying, save the last error.
+			lastErr = err
 		case <-timeoutCh:
 			if lastErr != nil {
 				return lastErr

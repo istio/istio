@@ -398,7 +398,7 @@ func virtualService(portNum uint32, gatewayName, path, host, subset string) *net
 							Host:   host,
 							Subset: subset,
 							Port: &networking.PortSelector{
-								Port: &networking.PortSelector_Number{Number: portNum},
+								Number: portNum,
 							},
 						},
 					},

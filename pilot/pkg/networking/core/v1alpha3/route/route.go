@@ -26,6 +26,7 @@ import (
 	xdsfault "github.com/envoyproxy/go-control-plane/envoy/config/filter/fault/v2"
 	xdshttpfault "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/fault/v2"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type"
+	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
@@ -39,6 +40,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route/retry"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -221,15 +223,8 @@ func buildSidecarVirtualHostsForVirtualService(
 // can be found. Called by translateRule to determine if
 func GetDestinationCluster(destination *networking.Destination, service *model.Service, listenerPort int) string {
 	port := listenerPort
-	if destination.Port != nil {
-		switch selector := destination.Port.Port.(type) {
-		// TODO: remove port name from route.Destination in the API
-		case *networking.PortSelector_Name:
-			log.Debuga("name based destination ports are not allowed => blackhole cluster")
-			return util.BlackHoleCluster
-		case *networking.PortSelector_Number:
-			port = int(selector.Number)
-		}
+	if destination.GetPort() != nil {
+		port = int(destination.GetPort().GetNumber())
 	} else if service != nil && len(service.Ports) == 1 {
 		// if service only has one port defined, use that as the port, otherwise use default listenerPort
 		port = service.Ports[0].Port
@@ -588,7 +583,16 @@ func translateRouteMatch(in *networking.HTTPMatchRequest) *route.RouteMatch {
 		case *networking.StringMatch_Prefix:
 			out.PathSpecifier = &route.RouteMatch_Prefix{Prefix: m.Prefix}
 		case *networking.StringMatch_Regex:
-			out.PathSpecifier = &route.RouteMatch_Regex{Regex: m.Regex}
+			if features.EnableUnsafeRegex.Get() {
+				out.PathSpecifier = &route.RouteMatch_Regex{Regex: m.Regex}
+			} else {
+				out.PathSpecifier = &route.RouteMatch_SafeRegex{
+					SafeRegex: &matcher.RegexMatcher{
+						EngineType: &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{}},
+						Regex:      m.Regex,
+					},
+				}
+			}
 		}
 	}
 
@@ -648,7 +652,16 @@ func translateHeaderMatch(name string, in *networking.StringMatch) route.HeaderM
 		// Golang has a slightly different regex grammar
 		out.HeaderMatchSpecifier = &route.HeaderMatcher_PrefixMatch{PrefixMatch: m.Prefix}
 	case *networking.StringMatch_Regex:
-		out.HeaderMatchSpecifier = &route.HeaderMatcher_RegexMatch{RegexMatch: m.Regex}
+		if features.EnableUnsafeRegex.Get() {
+			out.HeaderMatchSpecifier = &route.HeaderMatcher_RegexMatch{RegexMatch: m.Regex}
+		} else {
+			out.HeaderMatchSpecifier = &route.HeaderMatcher_SafeRegexMatch{
+				SafeRegexMatch: &matcher.RegexMatcher{
+					EngineType: &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{}},
+					Regex:      m.Regex,
+				},
+			}
+		}
 	}
 
 	return out
@@ -696,9 +709,10 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 		case *route.RouteMatch_Path:
 			path = m.GetPath()
 		case *route.RouteMatch_Regex:
-			// Migration tracked in https://github.com/istio/istio/issues/17127
 			//nolint: staticcheck
 			path = m.GetRegex()
+		case *route.RouteMatch_SafeRegex:
+			path = m.GetSafeRegex().GetRegex()
 		}
 	}
 
@@ -818,16 +832,11 @@ func translateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 func portLevelSettingsConsistentHash(dst *networking.Destination,
 	pls []*networking.TrafficPolicy_PortTrafficPolicy) *networking.LoadBalancerSettings_ConsistentHashLB {
 	if dst.Port != nil {
-		switch dst.Port.Port.(type) {
-		case *networking.PortSelector_Name:
-			log.Warnf("using deprecated name on port selector - ignoring")
-		case *networking.PortSelector_Number:
-			portNumber := dst.GetPort().GetNumber()
-			for _, setting := range pls {
-				number := setting.GetPort().GetNumber()
-				if number == portNumber {
-					return setting.GetLoadBalancer().GetConsistentHash()
-				}
+		portNumber := dst.GetPort().GetNumber()
+		for _, setting := range pls {
+			number := setting.GetPort().GetNumber()
+			if number == portNumber {
+				return setting.GetLoadBalancer().GetConsistentHash()
 			}
 		}
 	}
@@ -958,6 +967,9 @@ func getEnvoyRouteTypeAndVal(r *route.Route) (envoyRouteType, string) {
 		iType = envoyPrefix
 	case *route.RouteMatch_Regex:
 		iVal = iR.Regex
+		iType = envoyRegex
+	case *route.RouteMatch_SafeRegex:
+		iVal = iR.SafeRegex.Regex
 		iType = envoyRegex
 	}
 

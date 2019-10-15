@@ -241,6 +241,13 @@ spec:
             value: {{ $key }}
           - name: ISTIO_META_OWNER
             value: kubernetes://api/apps/v1/namespaces/{{ $spec.namespace | default $.Release.Namespace }}/deployments/{{ $key }}
+          {{- if $.Values.global.meshID }}
+          - name: ISTIO_META_MESH_ID
+            value: "{{ $.Values.global.meshID }}"
+          {{- else if $.Values.global.trustDomain }}
+          - name: ISTIO_META_MESH_ID
+            value: "{{ $.Values.global.trustDomain }}"
+          {{- end }}
           {{- if $spec.sds }}
           {{- if $spec.sds.enabled }}
           - name: ISTIO_META_USER_SDS
@@ -251,6 +258,13 @@ spec:
           {{- range $key, $val := $spec.env }}
           - name: {{ $key }}
             value: {{ $val }}
+          {{- end }}
+          {{- end }}
+          {{ if eq $key "istio-ingressgateway" }}
+          {{ $network_set := index $spec.env "ISTIO_META_NETWORK" }}
+          {{- if and (not $network_set) $.Values.global.network }}
+          - name: ISTIO_META_NETWORK
+            value: {{ $.Values.global.network }}
           {{- end }}
           {{- end }}
           volumeMounts:

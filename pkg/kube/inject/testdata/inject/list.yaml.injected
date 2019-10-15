@@ -144,7 +144,8 @@ items:
             name: istio-certs
             readOnly: true
         initContainers:
-        - args:
+        - command:
+          - istio-iptables
           - -p
           - "15001"
           - -z
@@ -330,7 +331,8 @@ items:
             name: istio-certs
             readOnly: true
         initContainers:
-        - args:
+        - command:
+          - istio-iptables
           - -p
           - "15001"
           - -z

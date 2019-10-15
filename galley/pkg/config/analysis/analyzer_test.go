@@ -20,8 +20,11 @@ import (
 	. "github.com/onsi/gomega"
 
 	"istio.io/istio/galley/pkg/config/analysis/diag"
+	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
+	"istio.io/istio/galley/pkg/config/processing"
+	"istio.io/istio/galley/pkg/config/processing/transformer"
 	"istio.io/istio/galley/pkg/config/resource"
-	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/testing/data"
 )
 
@@ -56,11 +59,54 @@ func TestCombinedAnalyzer(t *testing.T) {
 
 	a1 := &analyzer{inputs: collection.Names{data.Collection1}}
 	a2 := &analyzer{inputs: collection.Names{data.Collection2}}
+	a3 := &analyzer{inputs: collection.Names{data.Collection3}}
 
-	a := Combine("combined", a1, a2)
-	g.Expect(a.Metadata().Inputs).To(ConsistOf(data.Collection1, data.Collection2))
+	xform := transformer.NewSimpleTransformerProvider(data.Collection3, data.Collection3, func(_ event.Event, _ event.Handler) {})
+
+	a := Combine("combined", a1, a2, a3).WithDisabled(collection.Names{data.Collection3}, transformer.Providers{xform})
+
+	g.Expect(a.Metadata().Inputs).To(ConsistOf(data.Collection1, data.Collection2, data.Collection3))
 
 	a.Analyze(&context{})
+
 	g.Expect(a1.ran).To(BeTrue())
 	g.Expect(a2.ran).To(BeTrue())
+	g.Expect(a3.ran).To(BeFalse())
+}
+
+func TestGetDisabledOutputs(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	in1 := collection.NewName("in1")
+	in2 := collection.NewName("in2")
+	in3 := collection.NewName("in3")
+	in4 := collection.NewName("in4")
+	in5 := collection.NewName("in5")
+	out1 := collection.NewName("out1")
+	out2 := collection.NewName("out2")
+	out3 := collection.NewName("out3")
+	out4 := collection.NewName("out4")
+
+	blankFn := func(_ processing.ProcessorOptions) event.Transformer {
+		return event.NewFnTransform(collection.Names{}, collection.Names{}, func() {}, func() {}, func(e event.Event, handler event.Handler) {})
+	}
+
+	xformProviders := transformer.Providers{
+		transformer.NewProvider(collection.Names{in1}, collection.Names{out1, out2}, blankFn),
+		transformer.NewProvider(collection.Names{in2}, collection.Names{out3}, blankFn),
+		transformer.NewProvider(collection.Names{in3}, collection.Names{out3}, blankFn),
+		transformer.NewProvider(collection.Names{in4, in5}, collection.Names{out4}, blankFn),
+	}
+
+	expectCollections(g, getDisabledOutputs(collection.Names{in1}, xformProviders), collection.Names{out1, out2})
+	expectCollections(g, getDisabledOutputs(collection.Names{in2}, xformProviders), collection.Names{})
+	expectCollections(g, getDisabledOutputs(collection.Names{in2, in3}, xformProviders), collection.Names{out3})
+	expectCollections(g, getDisabledOutputs(collection.Names{in4}, xformProviders), collection.Names{out4})
+}
+
+func expectCollections(g *GomegaWithT, actualSet map[collection.Name]struct{}, expectedCols collection.Names) {
+	g.Expect(actualSet).To(HaveLen(len(expectedCols)))
+	for _, col := range expectedCols {
+		g.Expect(actualSet).To(HaveKey(col))
+	}
 }

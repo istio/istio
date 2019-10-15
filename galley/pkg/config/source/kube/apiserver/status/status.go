@@ -15,10 +15,11 @@
 package status
 
 import (
+	"reflect"
 	"sync"
 
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
-	"istio.io/istio/galley/pkg/config/schema/collection"
 )
 
 // Status state for a given resource. This contains both desired and last known status of the resource. It also acts
@@ -87,5 +88,6 @@ func (r *status) isEnqueued() bool {
 }
 
 func (r *status) needsChange() bool {
-	return r.observedStatus != r.desiredStatus
+	// Status may be a slice, in which case equality isn't defined, so we use reflect.DeepEqual instead
+	return !reflect.DeepEqual(r.observedStatus, r.desiredStatus)
 }

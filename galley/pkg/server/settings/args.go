@@ -19,8 +19,8 @@ import (
 	"fmt"
 	"time"
 
+	"istio.io/istio/galley/pkg/config/util/kuberesource"
 	"istio.io/istio/galley/pkg/crd/validation"
-	"istio.io/istio/galley/pkg/source/kube/builtin"
 	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/pkg/ctrlz"
@@ -75,6 +75,7 @@ type Args struct { // nolint:maligned
 	ConfigPath string
 
 	// ExcludedResourceKinds is a list of resource kinds for which no source events will be triggered.
+	// DEPRECATED
 	ExcludedResourceKinds []string
 
 	// MeshConfigFile is the path for mesh config
@@ -114,6 +115,7 @@ type Args struct { // nolint:maligned
 	// DisableResourceReadyCheck disables the CRD readiness check. This
 	// allows Galley to start when not all supported CRD are
 	// registered with the kube-apiserver.
+	// DEPRECATED
 	DisableResourceReadyCheck bool
 
 	// keep-alive options for the MCP gRPC Server.
@@ -149,7 +151,7 @@ func DefaultArgs() *Args {
 		ConfigPath:                  "",
 		DomainSuffix:                defaultDomainSuffix,
 		DisableResourceReadyCheck:   false,
-		ExcludedResourceKinds:       defaultExcludedResourceKinds(),
+		ExcludedResourceKinds:       kuberesource.DefaultExcludedResourceKinds(),
 		SinkMeta:                    make([]string, 0),
 		KeepAlive:                   keepalive.DefaultOption(),
 		ValidationArgs:              validation.DefaultArgs(),
@@ -167,14 +169,6 @@ func DefaultArgs() *Args {
 			UpdateInterval: defaultProbeCheckInterval,
 		},
 	}
-}
-
-func defaultExcludedResourceKinds() []string {
-	resources := make([]string, 0)
-	for _, spec := range builtin.GetSchema().All() {
-		resources = append(resources, spec.Kind)
-	}
-	return resources
 }
 
 // String produces a stringified version of the arguments for debugging.

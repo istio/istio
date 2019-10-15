@@ -48,7 +48,7 @@ func (conn *XdsConnection) clusters(response []*xdsapi.Cluster) *xdsapi.Discover
 func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext, version string) error {
 	// TODO: Modify interface to take services, and config instead of making library query registry
 	pushStart := time.Now()
-	rawClusters := s.generateRawClusters(con.modelNode, push)
+	rawClusters := s.generateRawClusters(con.node, push)
 
 	if s.DebugConfigs {
 		con.CDSClusters = rawClusters
@@ -65,7 +65,7 @@ func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext, v
 
 	// The response can't be easily read due to 'any' marshaling.
 	adsLog.Infof("CDS: PUSH for node:%s clusters:%d services:%d version:%s",
-		con.modelNode.ID, len(rawClusters), len(push.Services(nil)), version)
+		con.node.ID, len(rawClusters), len(push.Services(nil)), version)
 	return nil
 }
 

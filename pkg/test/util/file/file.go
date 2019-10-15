@@ -16,9 +16,27 @@ package file
 
 import (
 	"io/ioutil"
+	"os"
 
 	"istio.io/istio/pkg/test"
 )
+
+// Copy the source file to the destination file. Creates the destination file if it doesn't exist,
+// otherwise overwrites it.
+func Copy(src string, dest string) error {
+	// Copy the mode from the source file.
+	info, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+
+	input, err := ioutil.ReadFile(src)
+	if err != nil {
+		return err
+	}
+
+	return ioutil.WriteFile(dest, input, info.Mode())
+}
 
 // AsBytes is a simple wrapper around ioutil.ReadFile provided for completeness.
 func AsBytes(filename string) ([]byte, error) {

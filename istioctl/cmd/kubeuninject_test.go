@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -27,13 +28,13 @@ func TestKubeUninject(t *testing.T) {
 		{ // case 0
 			configs:        []model.Config{},
 			args:           strings.Split("experimental kube-uninject", " "),
-			expectedOutput: "Error: filename not specified (see --filename or -f)\n",
+			expectedRegexp: regexp.MustCompile(`filename not specified \(see --filename or -f\)`),
 			wantException:  true,
 		},
 		{ // case 1
 			configs:        []model.Config{},
 			args:           strings.Split("experimental kube-uninject -f missing.yaml", " "),
-			expectedOutput: "Error: open missing.yaml: no such file or directory\n",
+			expectedRegexp: regexp.MustCompile(`open missing.yaml: no such file or directory`),
 			wantException:  true,
 		},
 		{ // case 2

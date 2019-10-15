@@ -78,6 +78,7 @@ spec:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -90,6 +91,9 @@ configured to be sent to this adapter, it must have a corresponding
 description here.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-ingest_url">
 <td><code>ingestUrl</code></td>
@@ -99,6 +103,9 @@ description here.</p>
 the global ingest server if not specified.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-access_token">
 <td><code>accessToken</code></td>
@@ -107,6 +114,9 @@ the global ingest server if not specified.</p>
 <p>Required. The access token for the SignalFx organization that should
 receive the metrics.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Params-datapoint_interval">
@@ -119,6 +129,9 @@ This will be rounded to the nearest second and rounded values less than
 one second are not valid. Defaults to 10 seconds if not specified.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-enable_metrics">
 <td><code>enableMetrics</code></td>
@@ -128,6 +141,9 @@ one second are not valid. Defaults to 10 seconds if not specified.</p>
 be sent, unless otherwise disabled).</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-enable_tracing">
 <td><code>enableTracing</code></td>
@@ -136,6 +152,9 @@ be sent, unless otherwise disabled).</p>
 <p>Optional.  If set to false, trace spans won&rsquo;t be sent (but metrics will
 be sent, unless otherwise disabled).</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Params-tracing_buffer_size">
@@ -147,6 +166,9 @@ dropping them.  This defaults to 1000 spans but can be configured higher
 if needed.  An error message will be logged if spans are dropped.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-tracing_sample_probability">
 <td><code>tracingSampleProbability</code></td>
@@ -157,6 +179,9 @@ sampled if its parent was not already sampled.  Child spans will always
 be sampled if their parent is.  If not provided, defaults to sending all
 spans.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -172,6 +197,7 @@ spans.</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -180,10 +206,13 @@ spans.</p>
 <td><code>string</code></td>
 <td>
 <p>Required.  The name of the metric as it is sent to the adapter.  In
-Kubernetes this is of the form &ldquo;&lt;name&gt;.metric.&lt;namespace&gt;&rdquo; where
-&ldquo;&lt;name&gt;&rdquo; is the name field of the metric resource, and &ldquo;&lt;namespace&gt;&rdquo;
+Kubernetes this is of the form <code>&lt;name&gt;.metric.&lt;namespace&gt;</code> where
+<code>&lt;name&gt;</code> is the name field of the metric resource, and <code>&lt;namespace&gt;</code>
 is the namespace of the metric resource.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Params-MetricConfig-type">
@@ -192,6 +221,9 @@ is the namespace of the metric resource.</p>
 <td>
 <p>The metric type of the metric</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>

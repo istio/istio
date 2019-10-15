@@ -842,9 +842,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 						Destination: &networking.Destination{
 							Host: "example.org",
 							Port: &networking.PortSelector{
-								Port: &networking.PortSelector_Number{
-									Number: 80,
-								},
+								Number: 80,
 							},
 						},
 					},
@@ -884,9 +882,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 							Destination: &networking.Destination{
 								Host: "example.org",
 								Port: &networking.PortSelector{
-									Port: &networking.PortSelector_Number{
-										Number: 80,
-									},
+									Number: 80,
 								},
 							},
 						},
@@ -975,7 +971,7 @@ func buildEnv(t *testing.T, gateways []pilot_model.Config, virtualServices []pil
 		Mesh:             &m,
 	}
 
-	if err := env.PushContext.InitContext(&env); err != nil {
+	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		t.Fatalf("failed to init push context: %v", err)
 	}
 	return env

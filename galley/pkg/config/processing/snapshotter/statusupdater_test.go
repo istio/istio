@@ -38,6 +38,20 @@ func TestInMemoryStatusUpdaterWriteThenWait(t *testing.T) {
 	g.Expect(su.Get()).To(Equal(msgs))
 }
 
+func TestInMemoryStatusUpdaterWriteNothingThenWait(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	su := &InMemoryStatusUpdater{}
+
+	var msgs diag.Messages
+
+	cancelCh := make(chan struct{})
+
+	su.Update(msgs)
+	g.Expect(su.WaitForReport(cancelCh)).To(BeTrue())
+	g.Expect(su.Get()).To(Equal(msgs))
+}
+
 func TestInMemoryStatusUpdaterWaitThenWrite(t *testing.T) {
 	g := NewGomegaWithT(t)
 

@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 // EDS returns the list of endpoints (IP:port and in future labels) associated with a real
@@ -434,7 +435,8 @@ func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext
 // It replaces InstancesByPort in model - instead of iterating over all endpoints it uses
 // the hostname-keyed map. And it avoids the conversion from Endpoint to ServiceEntry to envoy
 // on each step: instead the conversion happens once, when an endpoint is first discovered.
-func (s *DiscoveryServer) EDSUpdate(clusterID, serviceName string, namespace string, istioEndpoints []*model.IstioEndpoint) error {
+func (s *DiscoveryServer) EDSUpdate(clusterID, serviceName string, namespace string,
+	istioEndpoints []*model.IstioEndpoint) error {
 	inboundEDSUpdates.Increment()
 	s.edsUpdate(clusterID, serviceName, namespace, istioEndpoints, false)
 	return nil
@@ -463,6 +465,12 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 			if svcShards == 0 {
 				delete(s.EndpointShardsByService[serviceName], namespace)
 			}
+			adsLog.Infof("Full push, service %s has no endpoints", serviceName)
+			s.ConfigUpdate(&model.PushRequest{
+				Full:               true,
+				NamespacesUpdated:  map[string]struct{}{namespace: {}},
+				ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
+			})
 		}
 		return
 	}
@@ -521,9 +529,10 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 			edsUpdates = map[string]struct{}{serviceName: {}}
 		}
 		s.ConfigUpdate(&model.PushRequest{
-			Full:              requireFull,
-			NamespacesUpdated: map[string]struct{}{namespace: {}},
-			EdsUpdates:        edsUpdates,
+			Full:               requireFull,
+			NamespacesUpdated:  map[string]struct{}{namespace: {}},
+			ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
+			EdsUpdates:         edsUpdates,
 		})
 	}
 }
@@ -659,7 +668,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 			}
 		}
 
-		l := s.loadAssignmentsForClusterIsolated(con.modelNode, push, clusterName)
+		l := s.loadAssignmentsForClusterIsolated(con.node, push, clusterName)
 
 		if l == nil {
 			continue
@@ -686,11 +695,14 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 
 			// Failover should only be enabled when there is an outlier detection, otherwise Envoy
 			// will never detect the hosts are unhealthy and redirect traffic.
-			enableFailover := hasOutlierDetection(push, con.modelNode, clusterName)
-			loadbalancer.ApplyLocalityLBSetting(con.modelNode.Locality, l, s.Env.Mesh.LocalityLbSetting, enableFailover)
+			enableFailover := hasOutlierDetection(push, con.node, clusterName)
+			loadbalancer.ApplyLocalityLBSetting(con.node.Locality, l, s.Env.Mesh.LocalityLbSetting, enableFailover)
 		}
 
-		endpoints += len(l.Endpoints)
+		for _, e := range l.Endpoints {
+			endpoints += len(e.LbEndpoints)
+		}
+
 		if len(l.Endpoints) == 0 {
 			empty = append(empty, clusterName)
 		}
@@ -709,10 +721,10 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 
 	if edsUpdatedServices == nil {
 		adsLog.Infof("EDS: PUSH for node:%s clusters:%d endpoints:%d empty:%v",
-			con.modelNode.ID, len(con.Clusters), endpoints, empty)
+			con.node.ID, len(con.Clusters), endpoints, empty)
 	} else {
 		adsLog.Infof("EDS: PUSH INC for node:%s clusters:%d endpoints:%d empty:%v",
-			con.modelNode.ID, len(con.Clusters), endpoints, empty)
+			con.node.ID, len(con.Clusters), endpoints, empty)
 	}
 	return nil
 }

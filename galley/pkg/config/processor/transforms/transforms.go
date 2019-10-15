@@ -17,12 +17,12 @@
 package transforms
 
 import (
+	"istio.io/istio/galley/pkg/config/meta/schema"
 	"istio.io/istio/galley/pkg/config/processing/transformer"
 	"istio.io/istio/galley/pkg/config/processor/transforms/authpolicy"
 	"istio.io/istio/galley/pkg/config/processor/transforms/direct"
 	"istio.io/istio/galley/pkg/config/processor/transforms/ingress"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry"
-	"istio.io/istio/galley/pkg/config/schema"
 )
 
 //Providers builds and returns a list of all transformer objects

@@ -54,3 +54,8 @@ podAntiAffinityTermLabelSelector: []
 # to a pilot. It balances out load across pilot instances at the cost of
 # increasing system churn.
 keepaliveMaxServerConnectionAge: 30m
+
+# list of platform service registries to read from
+# options are Consul, Kubernetes, MCP, Mock
+registries:
+  - Kubernetes

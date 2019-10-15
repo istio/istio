@@ -116,7 +116,7 @@ var (
 								Destination: &networking.Destination{
 									Host: "productpage",
 									Port: &networking.PortSelector{
-										Port: &networking.PortSelector_Number{Number: 80},
+										Number: 80,
 									},
 								},
 							},
