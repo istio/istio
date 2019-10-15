@@ -6,12 +6,12 @@ spec:
   peers:
   - mtls: {}
 ---
-apiVersion: "networking.istio.io/v1alpha3"
-kind: "DestinationRule"
-metadata:
-  name: "default"
-spec:
-  host: "*.local"
-  trafficPolicy:
-    tls:
-      mode: ISTIO_MUTUAL
+# apiVersion: "networking.istio.io/v1alpha3"
+# kind: "DestinationRule"
+# metadata:
+#   name: "default"
+# spec:
+#   host: "*.local"
+#   trafficPolicy:
+#     tls:
+#       mode: ISTIO_MUTUAL
