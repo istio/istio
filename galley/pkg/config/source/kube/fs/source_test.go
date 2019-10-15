@@ -185,6 +185,7 @@ func TestAddUpdateDelete_K8sResources(t *testing.T) {
 		event.FullSyncFor(k8smeta.K8SCoreV1Namespaces),
 		event.FullSyncFor(k8smeta.K8SCoreV1Nodes),
 		event.FullSyncFor(k8smeta.K8SCoreV1Pods),
+		event.FullSyncFor(k8smeta.K8SAppsV1Deployments),
 		event.FullSyncFor(k8smeta.K8SCoreV1Services)))
 
 	acc.Clear()
