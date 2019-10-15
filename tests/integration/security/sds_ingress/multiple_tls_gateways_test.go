@@ -34,22 +34,13 @@ func testMultiTLSGateways(t *testing.T, ctx framework.TestContext) { // nolint:i
 	ingressutil.DeployBookinfo(t, ctx, g, ingressutil.MultiTLSGateway)
 
 	ing := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst})
-	err := ingressutil.WaitUntilGatewaySdsStatsGE(t, ing, len(credNames), 30*time.Second)
-	if err != nil {
-		t.Errorf("sds update stats does not match: %v", err)
-	}
-	// Expect two active listeners, one listens on 443 and the other listens on 15090
-	err = ingressutil.WaitUntilGatewayActiveListenerStatsGE(t, ing, 2, 60*time.Second)
-	if err != nil {
-		t.Errorf("total active listener stats does not match: %v", err)
-	}
 	tlsContext := ingressutil.TLSContext{
 		CaCert: ingressutil.CaCertA,
 	}
 	callType := ingress.TLS
 
 	for _, h := range hosts {
-		err := ingressutil.VisitProductPage(ing, h, callType, tlsContext, 30*time.Second,
+		err := ingressutil.VisitProductPage(ing, h, callType, tlsContext, 90*time.Second,
 			ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
 		if err != nil {
 			t.Errorf("unable to retrieve 200 from product page at host %s: %v", h, err)

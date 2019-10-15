@@ -37,16 +37,7 @@ func testMultiMtlsGateways(t *testing.T, ctx framework.TestContext) { // nolint:
 	ing := ingress.NewOrFail(t, ctx, ingress.Config{
 		Istio: inst,
 	})
-	// Expect 2 SDS updates for each listener, one for server key/cert, and one for CA cert.
-	err := ingressutil.WaitUntilGatewaySdsStatsGE(t, ing, 2*len(credNames), 30*time.Second)
-	if err != nil {
-		t.Errorf("sds update stats does not match: %v", err)
-	}
-	// Expect 2 active listeners, one listens on 443 and the other listens on 15090
-	err = ingressutil.WaitUntilGatewayActiveListenerStatsGE(t, ing, 2, 60*time.Second)
-	if err != nil {
-		t.Errorf("total active listener stats does not match: %v", err)
-	}
+
 	tlsContext := ingressutil.TLSContext{
 		CaCert:     ingressutil.CaCertA,
 		PrivateKey: ingressutil.TLSClientKeyA,
@@ -55,7 +46,7 @@ func testMultiMtlsGateways(t *testing.T, ctx framework.TestContext) { // nolint:
 	callType := ingress.Mtls
 
 	for _, h := range hosts {
-		err := ingressutil.VisitProductPage(ing, h, callType, tlsContext, 30*time.Second,
+		err := ingressutil.VisitProductPage(ing, h, callType, tlsContext, 90*time.Second,
 			ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
 		if err != nil {
 			t.Errorf("unable to retrieve 200 from product page at host %s: %v", h, err)

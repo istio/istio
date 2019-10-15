@@ -40,22 +40,12 @@ func TestSingleMTLSGateway_CompoundSecretRotation(t *testing.T) {
 			ingressutil.DeployBookinfo(t, ctx, g, ingressutil.SingleMTLSGateway)
 			// Wait for ingress gateway to fetch key/cert from Gateway agent via SDS.
 			ingA := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst})
-			// Expect 2 SDS updates, one for the server key/cert update, and one for the CA cert update.
-			err := ingressutil.WaitUntilGatewaySdsStatsGE(t, ingA, 2, 30*time.Second)
-			if err != nil {
-				t.Errorf("sds update stats does not match: %v", err)
-			}
-			// Expect 2 active listeners, one listens on 443 and the other listens on 15090
-			err = ingressutil.WaitUntilGatewayActiveListenerStatsGE(t, ingA, 2, 60*time.Second)
-			if err != nil {
-				t.Errorf("total active listener stats does not match: %v", err)
-			}
 			tlsContext := ingressutil.TLSContext{
 				CaCert:     ingressutil.CaCertA,
 				PrivateKey: ingressutil.TLSClientKeyA,
 				Cert:       ingressutil.TLSClientCertA,
 			}
-			err = ingressutil.VisitProductPage(ingA, host, ingress.Mtls, tlsContext, 30*time.Second,
+			err = ingressutil.VisitProductPage(ingA, host, ingress.Mtls, tlsContext, 90*time.Second,
 				ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
 			if err != nil {
 				t.Errorf("unable to retrieve 200 from product page at host %s: %v", host, err)
@@ -63,13 +53,8 @@ func TestSingleMTLSGateway_CompoundSecretRotation(t *testing.T) {
 
 			// key/cert rotation
 			ingressutil.RotateSecrets(t, ctx, credName, ingress.Mtls, ingressutil.IngressCredentialB)
-			// Expect 2 more SDS updates, one for the server key/cert update, and one for the CA cert update.
-			err = ingressutil.WaitUntilGatewaySdsStatsGE(t, ingA, 4, 30*time.Second)
-			if err != nil {
-				t.Errorf("sds update stats does not match: %v", err)
-			}
 			// Use old server CA cert to set up SSL connection would fail.
-			err = ingressutil.VisitProductPage(ingA, host, ingress.Mtls, tlsContext, 30*time.Second,
+			err = ingressutil.VisitProductPage(ingA, host, ingress.Mtls, tlsContext, 60*time.Second,
 				ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "certificate signed by unknown authority"}, t)
 			if err != nil {
 				t.Errorf("unable to retrieve 404 from product page at host %s: %v", host, err)
@@ -82,7 +67,7 @@ func TestSingleMTLSGateway_CompoundSecretRotation(t *testing.T) {
 				PrivateKey: ingressutil.TLSClientKeyB,
 				Cert:       ingressutil.TLSClientCertB,
 			}
-			err = ingressutil.VisitProductPage(ingB, host, ingress.Mtls, tlsContext, 30*time.Second,
+			err = ingressutil.VisitProductPage(ingB, host, ingress.Mtls, tlsContext, 60*time.Second,
 				ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
 			if err != nil {
 				t.Errorf("unable to retrieve 200 from product page at host %s: %v", host, err)
