@@ -76,7 +76,7 @@ istioctl experimental analyze -k -d false
 			// so it properly handles the --context option.
 			selectedNamespace := namespace
 
-			var k cfgKube.Interfaces = nil
+			var k cfgKube.Interfaces
 			if useKube {
 				// Set up the kube client
 				config := kube.BuildClientCmd(kubeconfig, configContext)
