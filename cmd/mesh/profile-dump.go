@@ -89,6 +89,14 @@ func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l *
 func genProfile(helmValues bool, inFilename, profile, setOverlayYAML, configPath string, force bool, l *logger) (string, error) {
 	overlayYAML := ""
 	var overlayICPS *v1alpha2.IstioControlPlaneSpec
+	set := make(map[string]interface{})
+	err := yaml.Unmarshal([]byte(setOverlayYAML), &set)
+	if err != nil {
+		return "", fmt.Errorf("could not Unmarshal overlay Set%s: %s", setOverlayYAML, err)
+	}
+	if setProfile, ok := set["profile"]; ok {
+		profile = setProfile.(string)
+	}
 	if inFilename != "" {
 		b, err := ioutil.ReadFile(inFilename)
 		if err != nil {
