@@ -22,6 +22,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/galley/pkg/config/analysis/analyzers"
+	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/local"
 	"istio.io/istio/galley/pkg/config/meta/metadata"
 	cfgKube "istio.io/istio/galley/pkg/config/source/kube"
@@ -31,6 +32,13 @@ import (
 var (
 	useKube      bool
 	useDiscovery string
+	colorize     bool
+
+	colorPrefixes = map[diag.Level]string{
+		diag.Info:    "",           // no special color for info messages
+		diag.Warning: "\033[33m",   // yellow
+		diag.Error:   "\033[1;31m", // bold red
+	}
 )
 
 // Analyze command
@@ -118,7 +126,7 @@ istioctl experimental analyze -k -d false
 			}
 
 			for _, m := range messages {
-				fmt.Printf("%v\n", m.String())
+				fmt.Printf("%s%v%s\n", colorPrefix(m), m.String(), colorSuffix(m))
 			}
 
 			return nil
@@ -131,6 +139,8 @@ istioctl experimental analyze -k -d false
 		"'true' to enable service discovery, 'false' to disable it. "+
 			"Defaults to true if --use-kube is set, false otherwise. "+
 			"Analyzers requiring resources made available by enabling service discovery will be skipped.")
+	analysisCmd.PersistentFlags().BoolVar(&colorize, "color", colorizationDefault(),
+		"Default true.  Disable with '=false' or set $COLORIZE_ISTIOCTL to false")
 
 	return analysisCmd
 }
@@ -157,4 +167,31 @@ func serviceDiscovery() (bool, error) {
 	default:
 		return false, fmt.Errorf("invalid argument value for discovery")
 	}
+}
+
+func colorizationDefault() bool {
+	val := os.Getenv("COLORIZE_ISTIOCTL")
+	return val == "" || strings.ToLower(val) == "true"
+}
+
+func colorPrefix(m diag.Message) string {
+	if !colorize {
+		return ""
+	}
+
+	prefix, ok := colorPrefixes[m.Type.Level()]
+	if !ok {
+		return ""
+	}
+
+	return prefix
+}
+
+func colorSuffix(m diag.Message) string {
+	if !colorize {
+		return ""
+	}
+
+	// was return "\033[39m"
+	return "\033[0m"
 }
