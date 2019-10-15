@@ -348,6 +348,15 @@ global:
     datadog:
       # Host:Port for submitting traces to the Datadog agent.
       address: "$(HOST_IP):8126"
+    stackdriver:
+      # enables trace output to stdout.
+      debug: false
+      # The global default max number of attributes per span.
+      maxNumberOfAttributes: 200
+      # The global default max number of annotation events per span.
+      maxNumberOfAnnotations: 200
+      # The global default max number of message events per span.
+      maxNumberOfMessageEvents: 200
 
   # Default mtls policy. If true, mtls between services will be enabled by default.
   mtls:
