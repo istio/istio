@@ -31,7 +31,6 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -1360,15 +1359,15 @@ func verifyInboundHTTP10(t *testing.T, http10Expected bool, l *xdsapi.Listener) 
 func verifyFilterChainMatch(t *testing.T, listener *xdsapi.Listener) {
 	if len(listener.FilterChains) != 5 ||
 		!isHTTPFilterChain(listener.FilterChains[0]) ||
-		!isHTTPFilterChain(listener.FilterChains[1]) ||
-		!isTCPFilterChain(listener.FilterChains[2]) ||
+		!isHTTPFilterChain(listener.FilterChains[2]) ||
+		!isTCPFilterChain(listener.FilterChains[1]) ||
 		!isTCPFilterChain(listener.FilterChains[3]) ||
 		!isTCPFilterChain(listener.FilterChains[4]) {
 		t.Fatalf("expectd %d filter chains, %d http filter chains and %d tcp filter chain", 5, 2, 3)
 	}
 
 	verifyHTTPFilterChainMatch(t, listener.FilterChains[0], model.TrafficDirectionInbound, true)
-	verifyHTTPFilterChainMatch(t, listener.FilterChains[1], model.TrafficDirectionInbound, false)
+	verifyHTTPFilterChainMatch(t, listener.FilterChains[2], model.TrafficDirectionInbound, false)
 }
 
 func getOldestService(services ...*model.Service) *model.Service {
@@ -1496,7 +1495,13 @@ func (p *fakePlugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeCo
 }
 
 func (p *fakePlugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
-	return []plugin.FilterChain{{}, {}}
+	return []plugin.FilterChain{{
+		ListenerFilters: []*listener.ListenerFilter{
+			{
+				Name: xdsutil.TlsInspector,
+			},
+		},
+	}, {}}
 }
 
 func isHTTPListener(listener *xdsapi.Listener) bool {

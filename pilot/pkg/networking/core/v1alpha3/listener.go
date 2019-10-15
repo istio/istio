@@ -150,7 +150,7 @@ type FilterChainMatchOptions struct {
 	ApplicationProtocols []string
 	// Transport protocol of the filter chain match. "tls" or empty
 	TransportProtocol string
-	// Filter chain protocol. HTTP for rHTTP proxy and TCP for TCP proxy
+	// Filter chain protocol. HTTP for HTTP proxy and TCP for TCP proxy
 	Protocol plugin.ListenerProtocol
 }
 
