@@ -51,9 +51,8 @@ func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 				PrivateKey: ingressutil.TLSClientKeyA,
 				Cert:       ingressutil.TLSClientCertA,
 			}
-			err = ingressutil.VisitProductPage(ingA, host, ingress.Mtls, tlsContext, 90*time.Second,
-				ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
-			if err != nil {
+			if err := ingressutil.VisitProductPage(ingA, host, ingress.Mtls, tlsContext, 90*time.Second,
+				ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t); err != nil {
 				t.Errorf("unable to retrieve code 200 from product page at host %s: %v", host, err)
 			}
 
@@ -61,9 +60,8 @@ func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 			// at client side.
 			ingressutil.RotateSecrets(t, ctx, credName, ingress.Mtls, ingressutil.IngressCredentialServerKeyCertB)
 			// Client uses old server CA cert to set up SSL connection would fail.
-			err = ingressutil.VisitProductPage(ingA, host, ingress.Mtls, tlsContext, 60*time.Second,
-				ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "certificate signed by unknown authority"}, t)
-			if err != nil {
+			if err := ingressutil.VisitProductPage(ingA, host, ingress.Mtls, tlsContext, 60*time.Second,
+				ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "certificate signed by unknown authority"}, t); err != nil {
 				t.Errorf("unable to retrieve 0 from product page at host %s: %v", host, err)
 			}
 
@@ -71,9 +69,8 @@ func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 			// validation at client side.
 			ingressutil.RotateSecrets(t, ctx, credName, ingress.Mtls, ingressutil.IngressCredentialServerKeyCertA)
 			// Use old CA cert to set up SSL connection would succeed this time.
-			err = ingressutil.VisitProductPage(ingA, host, ingress.Mtls, tlsContext, 60*time.Second,
-				ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
-			if err != nil {
+			if err := ingressutil.VisitProductPage(ingA, host, ingress.Mtls, tlsContext, 60*time.Second,
+				ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t); err != nil {
 				t.Errorf("unable to retrieve code 200 from product page at host %s: %v", host, err)
 			}
 		})

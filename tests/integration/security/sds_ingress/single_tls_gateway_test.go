@@ -41,9 +41,8 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 
 			ingA := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst})
 			tlsContext := ingressutil.TLSContext{CaCert: ingressutil.CaCertA}
-			err = ingressutil.VisitProductPage(ingA, host, ingress.TLS, tlsContext, 90*time.Second,
-				ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
-			if err != nil {
+			if err := ingressutil.VisitProductPage(ingA, host, ingress.TLS, tlsContext, 90*time.Second,
+				ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t); err != nil {
 				t.Errorf("unable to retrieve 200 from product page at host %s: %v", host, err)
 			}
 
@@ -51,18 +50,16 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 			ingressutil.RotateSecrets(t, ctx, credName, ingress.TLS, ingressutil.IngressCredentialB)
 
 			// Client use old server CA cert to set up SSL connection would fail.
-			err = ingressutil.VisitProductPage(ingA, host, ingress.TLS, tlsContext, 50*time.Second,
-				ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "certificate signed by unknown authority"}, t)
-			if err != nil {
+			if err := ingressutil.VisitProductPage(ingA, host, ingress.TLS, tlsContext, 50*time.Second,
+				ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "certificate signed by unknown authority"}, t); err != nil {
 				t.Errorf("unable to retrieve 404 from product page at host %s: %v", host, err)
 			}
 
 			// Client use new server CA cert to set up SSL connection.
 			tlsContext = ingressutil.TLSContext{CaCert: ingressutil.CaCertB}
 			ingB := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst})
-			err = ingressutil.VisitProductPage(ingB, host, ingress.TLS, tlsContext, 30*time.Second,
-				ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
-			if err != nil {
+			if err := ingressutil.VisitProductPage(ingB, host, ingress.TLS, tlsContext, 30*time.Second,
+				ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t); err != nil {
 				t.Errorf("unable to retrieve 200 from product page at host %s: %v", host, err)
 			}
 		})
