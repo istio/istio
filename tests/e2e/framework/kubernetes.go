@@ -581,7 +581,7 @@ func (k *KubeInfo) Teardown() error {
 			}
 			if _, err := util.Shell("kubectl delete ns %s --kubeconfig=%s",
 				k.Namespace, k.KubeConfig); err != nil {
-				log.Errorf("Failed to delete istio-system namespace.")
+				log.Errorf("Failed to delete %s namespace.", k.Namespace)
 				return err
 			}
 		} else {
@@ -627,8 +627,8 @@ func (k *KubeInfo) Teardown() error {
 	log.Infof("Deleting namespace %v", k.Namespace)
 	for attempts := 1; attempts <= maxAttempts; attempts++ {
 		if *useOperator {
-			if _, err := util.Shell("kubectl delete ns istio-operator --grace-period=0 --force",
-				k.Namespace, k.KubeConfig); err != nil {
+			if _, err := util.Shell("kubectl delete ns istio-operator --kubeconfig=%s)",
+				k.KubeConfig); err != nil {
 				log.Errorf("Failed to delete istio-operator namespace.")
 				return err
 			}
@@ -755,31 +755,6 @@ func (k *KubeInfo) deepCopy(src map[string][]string) map[string][]string {
 	return newMap
 }
 
-func (k *KubeInfo) fileCopy(src string, dst string) error {
-	sourceFileStat, err := os.Stat(src)
-	if err != nil {
-		return err
-	}
-
-	if !sourceFileStat.Mode().IsRegular() {
-		return fmt.Errorf("%s is not a regular file", src)
-	}
-
-	source, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer source.Close()
-
-	destination, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer destination.Close()
-	_, err = io.Copy(destination, source)
-	return err
-}
-
 func (k *KubeInfo) deployIstio() error {
 	istioYaml := nonAuthInstallFileNamespace
 	if *multiClusterDir != "" {
@@ -846,7 +821,7 @@ func (k *KubeInfo) deployIstio() error {
 		yamlDir := filepath.Join(istioInstallDir, istioYaml)
 		baseIstioYaml := filepath.Join(k.ReleaseDir, yamlDir)
 		testIstioYaml = filepath.Join(k.TmpDir, "yaml", istioYaml)
-		k.fileCopy(baseIstioYaml, testIstioYaml)
+		util.CopyFile(baseIstioYaml, testIstioYaml)
 		if err := util.KubeApply("istio-operator", testIstioYaml, k.KubeConfig); err != nil {
 			log.Errorf("Istio operator %s deployment failed", testIstioYaml)
 			return err
