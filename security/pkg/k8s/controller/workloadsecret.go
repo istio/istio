@@ -554,7 +554,7 @@ func (sc *SecretController) tryToSyncKeyCertBundle(rootCertInMem, caCertInMem []
 	// reload root cert into keycertbundle.
 	if !bytes.Equal(caCertInMem, caSecret.Data[caCertID]) {
 		k8sControllerLog.Warn("CA cert in KeyCertBundle does not match CA cert in " +
-				"istio-ca-secret. Start to reload root cert into KeyCertBundle")
+			"istio-ca-secret. Start to reload root cert into KeyCertBundle")
 		var err error
 		rootCertInMem, err = util.AppendRootCerts(caSecret.Data[caCertID], sc.rootCertFile)
 		if err != nil {
@@ -568,12 +568,11 @@ func (sc *SecretController) tryToSyncKeyCertBundle(rootCertInMem, caCertInMem []
 		sc.lastKCBSyncTime = time.Now()
 	} else {
 		k8sControllerLog.Info("CA cert in KeyCertBundle matches CA cert in " +
-				"istio-ca-secret. Skip reloading root cert into KeyCertBundle")
+			"istio-ca-secret. Skip reloading root cert into KeyCertBundle")
 	}
 
 	return rootCertInMem, nil
 }
-
 
 // refreshSecret is an inner func to refresh cert secrets when necessary
 func (sc *SecretController) refreshSecret(scrt *v1.Secret) error {
