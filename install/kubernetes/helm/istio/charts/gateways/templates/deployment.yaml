@@ -121,13 +121,26 @@ spec:
           - '10s' #connectTimeout
           - --serviceCluster
           - {{ $key }}
+        {{- if eq $.Values.global.proxy.tracer "lightstep" }}
+          - --lightstepAddress
+          - {{ $.Values.global.tracer.lightstep.address }}
+          - --lightstepAccessToken
+          - {{ $.Values.global.tracer.lightstep.accessToken }}
+          - --lightstepSecure={{ $.Values.global.tracer.lightstep.secure }}
+          - --lightstepCacertPath
+          - {{ $.Values.global.tracer.lightstep.cacertPath }}
+        {{- else if eq $.Values.global.proxy.tracer "zipkin" }}
           - --zipkinAddress
-        {{- if $.Values.global.tracer.zipkin.address }}
+          {{- if $.Values.global.tracer.zipkin.address }}
           - {{ $.Values.global.tracer.zipkin.address }}
-        {{- else if $.Values.global.istioNamespace }}
+          {{- else if $.Values.global.istioNamespace }}
           - zipkin.{{ $.Values.global.istioNamespace }}:9411
-        {{- else }}
+          {{- else }}
           - zipkin:9411
+          {{- end }}
+        {{- else if eq $.Values.global.proxy.tracer "datadog" }}
+          - --datadogAgentAddress
+          - {{ $.Values.global.tracer.datadog.address }}
         {{- end }}
         {{- if $.Values.global.proxy.envoyStatsd.enabled }}
           - --statsdUdpAddress
