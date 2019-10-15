@@ -215,8 +215,7 @@ func getClusterWideInstallFile() string {
 		if *useMCP {
 			if *authSdsEnable {
 				istioYaml = authSdsInstallFile
-			} else
-			if *useOperator {
+			} else if *useOperator {
 				istioYaml = authOperatorInstallFile
 			} else {
 				istioYaml = authInstallFile
@@ -571,17 +570,16 @@ func (k *KubeInfo) Teardown() error {
 		}
 		if *useOperator {
 			// Need an operator unique delete procedure
-			if _, err := util.Shell("kubectl -n %s get IstioControlPlane example-istiocontrolplane -o=json | jq '.metadata.finalizers = null' | kubectl -n %s apply --kubeconfig=%s -f -",
-				 "istio-operator", "istio-operator", k.KubeConfig); err != nil {
-				log.Errorf("Failed to turn off operator finalizer.")
+			if _, err := util.Shell("kubectl -n istio-operator delete IstioControlPlane example-istiocontrolplane"); err != nil {
+				log.Errorf("Failed to delete the Istio CR.")
 				return err
 			}
-			if _, err := util.Shell("kubectl delete ns %s --grace-period=0 --force --kubeconfig=%s",
-				"istio-operator", k.KubeConfig); err != nil {
+			if _, err := util.Shell("kubectl delete ns istio-operator --kubeconfig=%s",
+				k.KubeConfig); err != nil {
 				log.Errorf("Failed to delete istio-operator namespace.")
 				return err
 			}
-			if _, err := util.Shell("kubectl delete ns %s --grace-period=0 --force --kubeconfig=%s",
+			if _, err := util.Shell("kubectl delete ns %s --kubeconfig=%s",
 				k.Namespace, k.KubeConfig); err != nil {
 				log.Errorf("Failed to delete istio-system namespace.")
 				return err
@@ -757,29 +755,29 @@ func (k *KubeInfo) deepCopy(src map[string][]string) map[string][]string {
 	return newMap
 }
 
-func (k *KubeInfo) fileCopy(src string, dst string) (error) {
-        sourceFileStat, err := os.Stat(src)
-        if err != nil {
-                return err
-        }
+func (k *KubeInfo) fileCopy(src string, dst string) error {
+	sourceFileStat, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
 
-        if !sourceFileStat.Mode().IsRegular() {
-                return fmt.Errorf("%s is not a regular file", src)
-        }
+	if !sourceFileStat.Mode().IsRegular() {
+		return fmt.Errorf("%s is not a regular file", src)
+	}
 
-        source, err := os.Open(src)
-        if err != nil {
-                return err
-        }
-        defer source.Close()
+	source, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer source.Close()
 
-        destination, err := os.Create(dst)
-        if err != nil {
-                return err
-        }
-        defer destination.Close()
-        _, err = io.Copy(destination, source)
-        return err
+	destination, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer destination.Close()
+	_, err = io.Copy(destination, source)
+	return err
 }
 
 func (k *KubeInfo) deployIstio() error {
