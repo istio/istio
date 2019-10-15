@@ -289,11 +289,6 @@ func getPrincipalsIncludingAliases(trustDomain string, trustDomainAliases []stri
 		if trustDomainFromPrincipal == "" {
 			return principals
 		}
-		// If the current trust domain is the same as the one from the existing principal, there is nothing to do.
-		// NOTE: All |principals| must have the same trust domain.
-		if trustDomainFromPrincipal == trustDomain {
-			return principals
-		}
 		// Only generate configuration if the extracted trust domain from the policy is part of the trust domain aliases,
 		// or if the extracted/existing trust domain is "cluster.local", which is a pointer to the local trust domain
 		// and its aliases.
