@@ -47,6 +47,8 @@ function setup_and_export_git_sha() {
     GIT_SHA="$(git rev-parse --verify HEAD)"
     export GIT_SHA
   fi
+  GIT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+  export GIT_BRANCH
   gcloud auth configure-docker -q
 }
 
@@ -108,7 +110,7 @@ function clone_cni() {
   if [[ "$PWD" == "${GOPATH}/src/istio.io/istio" ]]; then
       TMP_DIR=$PWD
       cd ../ || return
-      git clone -b master "https://github.com/istio/cni.git"
+      git clone -b "${GIT_BRANCH}" "https://github.com/istio/cni.git"
       cd "${TMP_DIR}" || return
   fi
 }
