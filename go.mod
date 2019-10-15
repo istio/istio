@@ -17,6 +17,7 @@ require (
 	github.com/DataDog/datadog-go v2.2.0+incompatible
 	github.com/Masterminds/sprig v2.14.1+incompatible // indirect
 	github.com/Microsoft/go-winio v0.4.12 // indirect
+	github.com/NYTimes/gziphandler v1.0.1 // indirect
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
 	github.com/SAP/go-hdb v0.14.1 // indirect
 	github.com/SermoDigital/jose v0.9.1 // indirect
@@ -159,7 +160,7 @@ require (
 	gopkg.in/square/go-jose.v2 v2.3.1
 	gopkg.in/stack.v1 v1.7.0 // indirect
 	gopkg.in/yaml.v2 v2.2.2
-	istio.io/api v0.0.0-20191010154924-a7165be19fef
+	istio.io/api v0.0.0-20191015210738-bfa91e88abf1
 	istio.io/gogo-genproto v0.0.0-20190930162913-45029607206a
 	istio.io/operator v0.0.0-20191011173921-550812748053
 	istio.io/pkg v0.0.0-20191015053120-592d80277a1b
