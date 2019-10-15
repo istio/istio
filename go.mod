@@ -119,7 +119,7 @@ require (
 	github.com/ory/dockertest v3.3.4+incompatible // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/philhofer/fwd v1.0.0 // indirect
-	github.com/pierrec/lz4 v2.2.7+incompatible // indirect
+	github.com/pierrec/lz4 v2.2.5+incompatible // indirect
 	github.com/pkg/errors v0.8.1
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/pquerna/cachecontrol v0.0.0-20180306154005-525d0eb5f91d // indirect
@@ -132,7 +132,7 @@ require (
 	github.com/sethgrid/pester v0.0.0-20180227223404-ed9870dad317 // indirect
 	github.com/signalfx/com_signalfx_metrics_protobuf v0.0.0-20170330202426-93e507b42f43
 	github.com/signalfx/gohistogram v0.0.0-20160107210732-1ccfd2ff5083 // indirect
-	github.com/signalfx/golib v1.1.7
+	github.com/signalfx/golib v1.1.6
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.4.0
@@ -146,13 +146,13 @@ require (
 	go.opencensus.io v0.21.0
 	go.uber.org/atomic v1.4.0
 	go.uber.org/zap v1.10.0
-	golang.org/x/net v0.0.0-20191014212845-da9a3fd4c582
+	golang.org/x/net v0.0.0-20190827160401-ba9fcec4b297
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
 	golang.org/x/sys v0.0.0-20191010194322-b09406accb47 // indirect
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
 	golang.org/x/tools v0.0.0-20190624180213-70d37148ca0c
 	google.golang.org/api v0.8.0
-	google.golang.org/genproto v0.0.0-20191009194640-548a555dbc03
+	google.golang.org/genproto v0.0.0-20190819201941-24fa4b261c55
 	google.golang.org/grpc v1.24.0
 	gopkg.in/d4l3k/messagediff.v1 v1.2.1
 	gopkg.in/logfmt.v0 v0.3.0 // indirect
@@ -160,7 +160,7 @@ require (
 	gopkg.in/ory-am/dockertest.v3 v3.3.4 // indirect
 	gopkg.in/square/go-jose.v2 v2.3.1
 	gopkg.in/stack.v1 v1.7.0 // indirect
-	gopkg.in/yaml.v2 v2.2.4
+	gopkg.in/yaml.v2 v2.2.2
 	istio.io/api v0.0.0-20191009011736-593785242b9d
 	istio.io/gogo-genproto v0.0.0-20190930162913-45029607206a
 	istio.io/operator v0.0.0-20191008215643-ac62f7e15efe
@@ -172,7 +172,7 @@ require (
 	k8s.io/client-go v11.0.1-0.20190409021438-1a26190bd76a+incompatible
 	k8s.io/helm v2.14.3+incompatible
 	k8s.io/klog v0.4.0 // indirect
-	k8s.io/kubernetes v1.13.11
+	k8s.io/kubernetes v1.13.1
 	sigs.k8s.io/yaml v1.1.0
 )
 
