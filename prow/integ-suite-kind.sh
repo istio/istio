@@ -102,7 +102,7 @@ export T="${T:-"-v"}"
 make init
 
 if [[ -z "${SKIP_SETUP:-}" ]]; then
-  time k3d create --wait=60
+  time k3d create --image rancher/k3s:v0.9.1 --wait=60
   KUBECONFIG=$(k3d get-kubeconfig --name='k3s-default')
   export KUBECONFIG
 fi
