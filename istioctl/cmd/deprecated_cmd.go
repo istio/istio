@@ -734,7 +734,7 @@ func printYamlOutput(writer io.Writer, configClient model.ConfigStore, configLis
 }
 
 func newClient() (model.ConfigStore, error) {
-	return controller.NewClient(kubeconfig, configContext, schemas.Istio, "")
+	return controller.NewClient(kubeconfig, configContext, schemas.Istio, "", &model.DisabledLedger{})
 }
 
 func supportedTypes(configClient model.ConfigStore) []string {

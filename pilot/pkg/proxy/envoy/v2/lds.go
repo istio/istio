@@ -31,7 +31,7 @@ func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, v
 	if s.DebugConfigs {
 		con.LDSListeners = rawListeners
 	}
-	response := ldsDiscoveryResponse(rawListeners, version)
+	response := ldsDiscoveryResponse(rawListeners, version, push.Version)
 	err := con.send(response)
 	ldsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {
@@ -60,11 +60,11 @@ func (s *DiscoveryServer) generateRawListeners(con *XdsConnection, push *model.P
 }
 
 // LdsDiscoveryResponse returns a list of listeners for the given environment and source node.
-func ldsDiscoveryResponse(ls []*xdsapi.Listener, version string) *xdsapi.DiscoveryResponse {
+func ldsDiscoveryResponse(ls []*xdsapi.Listener, version string, noncePrefix string) *xdsapi.DiscoveryResponse {
 	resp := &xdsapi.DiscoveryResponse{
 		TypeUrl:     ListenerType,
 		VersionInfo: version,
-		Nonce:       nonce(),
+		Nonce:       nonce(noncePrefix),
 	}
 	for _, ll := range ls {
 		if ll == nil {

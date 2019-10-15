@@ -103,6 +103,8 @@ type PushContext struct {
 	AuthnPolicies processedAuthnPolicies `json:"-"`
 
 	initDone bool
+
+	Version string
 }
 
 type processedDestRules struct {
@@ -707,6 +709,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	}
 
 	ps.Env = env
+	ps.Version = env.Version()
 
 	// Must be initialized first
 	// as initServiceRegistry/VirtualServices/Destrules

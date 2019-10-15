@@ -43,10 +43,27 @@ func Make(stores []model.ConfigStore) (model.ConfigStore, error) {
 	if err := union.Validate(); err != nil {
 		return nil, err
 	}
-	return &store{
+	result := &store{
 		descriptor: union,
 		stores:     storeTypes,
-	}, nil
+	}
+
+	// in most cases (all cases supported by helm), pilot has only one configStore, but it is always wrapped in this
+	// aggregate.  This allows us to pass through data from a single config ledger, while gracefully failing in the
+	// unlikely scenario that multiple configSources are supplied.
+	// in the case of multiple configSources, we could simply require that all sources share a single ledger,
+	// but the ledger has to be provided at construction time since it is an implementation detail.  Perhaps we should
+	// consider allowing the ledger to be set on the fly to accommodate this scenario?
+	if len(stores) == 1 {
+		result.getVersion = stores[0].Version
+		result.getResourceAtVersion = stores[0].GetResourceAtVersion
+	} else {
+		result.getVersion = func() string { return "" }
+		result.getResourceAtVersion = func(one, two string) (string, error) {
+			return "", errors.New("config distribution status not supported on multiple configSources")
+		}
+	}
+	return result, nil
 }
 
 // MakeCache creates an aggregate config store cache from several config store
@@ -72,10 +89,22 @@ type store struct {
 
 	// stores is a mapping from config type to a store
 	stores map[string][]model.ConfigStore
+
+	getVersion func() string
+
+	getResourceAtVersion func(version, key string) (resourceVersion string, err error)
+}
+
+func (cr *store) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
+	return cr.getResourceAtVersion(version, key)
 }
 
 func (cr *store) ConfigDescriptor() schema.Set {
 	return cr.descriptor
+}
+
+func (cr *store) Version() string {
+	return cr.getVersion()
 }
 
 // Get the first config found in the stores.
