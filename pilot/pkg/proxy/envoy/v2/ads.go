@@ -133,6 +133,8 @@ type XdsEvent struct {
 
 	// function to call once a push is finished. This must be called or future changes may be blocked.
 	done func()
+
+	noncePrefix string
 }
 
 func newXdsConnection(peerAddr string, stream DiscoveryStream) *XdsConnection {

@@ -62,7 +62,6 @@ require (
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/garyburd/redigo v1.6.0 // indirect
 	github.com/ghodss/yaml v1.0.0
-	github.com/go-openapi/spec v0.19.3 // indirect
 	github.com/go-redis/redis v6.10.2+incompatible
 	github.com/go-sql-driver/mysql v1.4.1 // indirect
 	github.com/gocql/gocql v0.0.0-20190423091413-b99afaf3b163 // indirect
@@ -97,7 +96,6 @@ require (
 	github.com/hashicorp/vault v0.10.0
 	github.com/howeyc/fsnotify v0.9.0
 	github.com/jefferai/jsonx v1.0.0 // indirect
-	github.com/json-iterator/go v1.1.7 // indirect
 	github.com/juju/errors v0.0.0-20190207033735-e65537c515d7
 	github.com/juju/loggo v0.0.0-20190212223446-d976af380377 // indirect
 	github.com/juju/testing v0.0.0-20190429233213-dfc56b8c09fc // indirect
@@ -125,7 +123,8 @@ require (
 	github.com/pquerna/cachecontrol v0.0.0-20180306154005-525d0eb5f91d // indirect
 	github.com/prometheus/client_golang v0.9.3
 	github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4
-	github.com/prometheus/common v0.4.0
+	github.com/prometheus/common v0.4.1
+	github.com/prometheus/procfs v0.0.2 // indirect
 	github.com/prometheus/prom2json v1.2.1
 	github.com/ryanuber/go-glob v0.0.0-20160226084822-572520ed46db // indirect
 	github.com/satori/go.uuid v1.2.0
@@ -148,6 +147,7 @@ require (
 	go.uber.org/zap v1.10.0
 	golang.org/x/net v0.0.0-20190827160401-ba9fcec4b297
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
+	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
 	golang.org/x/tools v0.0.0-20190624180213-70d37148ca0c
 	google.golang.org/api v0.8.0
@@ -163,7 +163,7 @@ require (
 	istio.io/api v0.0.0-20191009011736-593785242b9d
 	istio.io/gogo-genproto v0.0.0-20190930162913-45029607206a
 	istio.io/operator v0.0.0-20191008215643-ac62f7e15efe
-	istio.io/pkg v0.0.0-20191008025934-66d669f9a3fd
+	istio.io/pkg v0.0.0-20191015053120-592d80277a1b
 	k8s.io/api v0.0.0
 	k8s.io/apiextensions-apiserver v0.0.0
 	k8s.io/apimachinery v0.0.0

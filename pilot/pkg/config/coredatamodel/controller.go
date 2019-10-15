@@ -21,6 +21,9 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/pkg/ledger"
+
 	"github.com/gogo/protobuf/types"
 
 	"istio.io/pkg/log"
@@ -33,6 +36,8 @@ import (
 
 var errUnsupported = errors.New("this operation is not supported by mcp controller")
 
+const ledgerLogf = "error tracking pilot config versions for coredatamodel distribution: %v"
+
 // CoreDataModel is a combined interface for ConfigStoreCache
 // MCP Updater and ServiceDiscovery
 type CoreDataModel interface {
@@ -44,6 +49,7 @@ type CoreDataModel interface {
 type Options struct {
 	DomainSuffix              string
 	ClearDiscoveryServerCache func(configType string)
+	ConfigLedger              ledger.Ledger
 }
 
 // Controller is a temporary storage for the changes received
@@ -55,6 +61,7 @@ type Controller struct {
 	descriptorsByCollection map[string]schema.Instance
 	options                 Options
 	eventHandlers           map[string][]func(model.Config, model.Event)
+	ledger                  ledger.Ledger
 
 	syncedMu sync.Mutex
 	synced   map[string]bool
@@ -78,6 +85,7 @@ func NewController(options Options) CoreDataModel {
 		descriptorsByCollection: descriptorsByMessageName,
 		eventHandlers:           make(map[string][]func(model.Config, model.Event)),
 		synced:                  synced,
+		ledger:                  options.ConfigLedger,
 	}
 }
 
@@ -180,6 +188,17 @@ func (c *Controller) Apply(change *sink.Change) error {
 				conf.Name: conf,
 			}
 		}
+
+		_, err := c.ledger.Put(conf.Key(), obj.Metadata.Version)
+		if err != nil {
+			log.Warnf(ledgerLogf, err)
+		}
+	}
+	for _, removed := range change.Removed {
+		err := c.ledger.Delete(kube.KeyFunc(change.Collection, removed))
+		if err != nil {
+			log.Warnf(ledgerLogf, err)
+		}
 	}
 
 	var prevStore map[string]map[string]*model.Config
@@ -220,6 +239,14 @@ func (c *Controller) HasSynced() bool {
 // RegisterEventHandler registers a handler using the type as a key
 func (c *Controller) RegisterEventHandler(typ string, handler func(model.Config, model.Event)) {
 	c.eventHandlers[typ] = append(c.eventHandlers[typ], handler)
+}
+
+func (c *Controller) Version() string {
+	return c.ledger.RootHash()
+}
+
+func (c *Controller) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
+	return c.ledger.GetPreviousValue(version, key)
 }
 
 // Run is not implemented

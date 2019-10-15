@@ -21,6 +21,8 @@ import (
 	"net/http"
 	"sort"
 
+	"istio.io/istio/pilot/pkg/features"
+
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/ptypes/any"
@@ -65,6 +67,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	mux.HandleFunc("/debug/adsz", s.adsz)
 	mux.HandleFunc("/debug/cdsz", cdsz)
 	mux.HandleFunc("/debug/syncz", Syncz)
+	mux.HandleFunc("/debug/config_distribution", s.distributedVersions)
 
 	mux.HandleFunc("/debug/registryz", s.registryz)
 	mux.HandleFunc("/debug/endpointz", s.endpointz)
@@ -204,6 +207,75 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 	_, _ = fmt.Fprint(w, "\n{}]\n")
+}
+
+// SyncedVersions shows what resourceVersion of a given resource has been acked by Envoy.
+type SyncedVersions struct {
+	ProxyID         string `json:"proxy,omitempty"`
+	ClusterVersion  string `json:"cluster_acked,omitempty"`
+	ListenerVersion string `json:"listener_acked,omitempty"`
+	RouteVersion    string `json:"route_acked,omitempty"`
+}
+
+func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.Request) {
+	if !features.EnableDistributionTracking {
+		w.WriteHeader(http.StatusConflict)
+		_, _ = fmt.Fprint(w, "Pilot Version tracking is disabled.  Please set the "+
+			"PILOT_ENABLE_CONFIG_DISTRIBUTION_TRACKING environment variable to true to enable.")
+		return
+	}
+	if resourceID := req.URL.Query().Get("resource"); resourceID != "" {
+		proxyNamespace := req.URL.Query().Get("proxy_namespace")
+		knownVersions := make(map[string]string)
+		var results []SyncedVersions
+		adsClientsMutex.RLock()
+		for _, con := range adsClients {
+			con.mu.RLock()
+			if con.node != nil && (proxyNamespace == "" || proxyNamespace == con.node.ConfigNamespace) {
+				// TODO: handle skipped nodes
+				results = append(results, SyncedVersions{
+					ProxyID:         con.node.ID,
+					ClusterVersion:  s.getResourceVersion(con.ClusterNonceAcked, resourceID, knownVersions),
+					ListenerVersion: s.getResourceVersion(con.ListenerNonceAcked, resourceID, knownVersions),
+					RouteVersion:    s.getResourceVersion(con.RouteNonceAcked, resourceID, knownVersions),
+				})
+			}
+			con.mu.RUnlock()
+		}
+		adsClientsMutex.RUnlock()
+
+		out, err := json.MarshalIndent(&results, "", "    ")
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = fmt.Fprintf(w, "unable to marshal syncedVersion information: %v", err)
+			return
+		}
+		w.Header().Add("Content-Type", "application/json")
+		_, _ = w.Write(out)
+	} else {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		_, _ = fmt.Fprintf(w, "querystring parameter 'resource' is required")
+	}
+}
+
+// The Config Version is only used as the nonce prefix, but we can reconstruct it because is is a
+// b64 encoding of a 64 bit array, which will always be 12 chars in length.
+// len = ceil(bitlength/(2^6))+1
+const VersionLen = 12
+
+func (s *DiscoveryServer) getResourceVersion(configVersion, key string, cache map[string]string) string {
+	result, ok := cache[key]
+	if !ok {
+		result, err := s.Env.IstioConfigStore.GetResourceAtVersion(configVersion[:VersionLen], key)
+		if err != nil {
+			adsLog.Errorf("Unable to retrieve resource %s at version %s: %v", key, configVersion, err)
+			result = ""
+		}
+		// update the cache even on an error, because errors will not resolve themselves, and we don't want to
+		// repeat the same error for many adsClients.
+		cache[key] = result
+	}
+	return result
 }
 
 // Config debugging.

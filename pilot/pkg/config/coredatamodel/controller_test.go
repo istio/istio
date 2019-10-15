@@ -114,6 +114,7 @@ var (
 	testControllerOptions = coredatamodel.Options{
 		DomainSuffix:              "cluster.local",
 		ClearDiscoveryServerCache: func(configType string) {},
+		ConfigLedger:              &model.DisabledLedger{},
 	}
 )
 

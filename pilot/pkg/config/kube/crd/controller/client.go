@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"time"
 
+	"istio.io/pkg/ledger"
+
 	"github.com/golang/sync/errgroup"
 	"github.com/hashicorp/go-multierror"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -50,6 +52,9 @@ type Client struct {
 
 	// domainSuffix for the config metadata
 	domainSuffix string
+
+	// Ledger for tracking config distribution
+	configLedger ledger.Ledger
 }
 
 type restClient struct {
@@ -132,7 +137,7 @@ func (rc *restClient) updateRESTConfig(cfg *rest.Config) (config *rest.Config, e
 }
 
 // NewForConfig creates a client to the Kubernetes API using a rest config.
-func NewForConfig(cfg *rest.Config, descriptor schema.Set, domainSuffix string) (*Client, error) {
+func NewForConfig(cfg *rest.Config, descriptor schema.Set, domainSuffix string, configLedger ledger.Ledger) (*Client, error) {
 	cs, err := newClientSet(descriptor)
 	if err != nil {
 		return nil, err
@@ -141,6 +146,7 @@ func NewForConfig(cfg *rest.Config, descriptor schema.Set, domainSuffix string) 
 	out := &Client{
 		clientset:    cs,
 		domainSuffix: domainSuffix,
+		configLedger: configLedger,
 	}
 
 	for _, v := range out.clientset {
@@ -156,13 +162,13 @@ func NewForConfig(cfg *rest.Config, descriptor schema.Set, domainSuffix string) 
 // Use an empty value for `kubeconfig` to use the in-cluster config.
 // If the kubeconfig file is empty, defaults to in-cluster config as well.
 // You can also choose a config context by providing the desired context name.
-func NewClient(config string, context string, descriptor schema.Set, domainSuffix string) (*Client, error) {
+func NewClient(config string, context string, descriptor schema.Set, domainSuffix string, configLedger ledger.Ledger) (*Client, error) {
 	cfg, err := kubecfg.BuildClientConfig(config, context)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewForConfig(cfg, descriptor, domainSuffix)
+	return NewForConfig(cfg, descriptor, domainSuffix, configLedger)
 }
 
 // RegisterResources sends a request to create CRDs and waits for them to initialize
@@ -443,6 +449,14 @@ func (cl *Client) Delete(typ, name, namespace string) error {
 		Resource(crd.ResourceName(s.Plural)).
 		Name(name).
 		Do().Error()
+}
+
+func (cl *Client) Version() string {
+	return cl.configLedger.RootHash()
+}
+
+func (cl *Client) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
+	return cl.configLedger.GetPreviousValue(version, key)
 }
 
 // List implements store interface
