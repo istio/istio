@@ -16,10 +16,8 @@ package consul
 
 import (
 	"fmt"
-	"sync"
-	"time"
-
 	"github.com/hashicorp/consul/api"
+	"sync"
 
 	"istio.io/pkg/log"
 
@@ -41,12 +39,12 @@ type Controller struct {
 }
 
 // NewController creates a new Consul controller
-func NewController(addr string, interval time.Duration) (*Controller, error) {
+func NewController(addr string) (*Controller, error) {
 	conf := api.DefaultConfig()
 	conf.Address = addr
 
 	client, err := api.NewClient(conf)
-	monitor := NewConsulMonitor(client, interval)
+	monitor := NewConsulMonitor(client)
 	controller := Controller{
 		monitor: monitor,
 		client:  client,

@@ -1065,7 +1065,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 func (s *Server) initConsulRegistry(serviceControllers *aggregate.Controller, args *PilotArgs) error {
 	log.Infof("Consul url: %v", args.Service.Consul.ServerURL)
 	conctl, conerr := consul.NewController(
-		args.Service.Consul.ServerURL, args.Service.Consul.Interval)
+		args.Service.Consul.ServerURL)
 	if conerr != nil {
 		return fmt.Errorf("failed to create Consul controller: %v", conerr)
 	}
