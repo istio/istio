@@ -143,3 +143,11 @@ func (p *podImpl) Evict(eviction *policy.Eviction) error {
 func (p *podImpl) GetLogs(name string, opts *apicorev1.PodLogOptions) *rest.Request {
 	panic("not implemented")
 }
+
+func (p *podImpl) GetEphemeralContainers(podName string, options metav1.GetOptions) (*apicorev1.EphemeralContainers, error) {
+	panic("not implemented")
+}
+
+func (p *podImpl) UpdateEphemeralContainers(podName string, ephemeralContainers *apicorev1.EphemeralContainers) (*apicorev1.EphemeralContainers, error) {
+	panic("not implemented")
+}
