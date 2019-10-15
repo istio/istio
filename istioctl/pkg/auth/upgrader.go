@@ -30,11 +30,11 @@ import (
 
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pkg/config/schemas"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	rbac_v1alpha1 "istio.io/api/rbac/v1alpha1"
 	rbac_v1beta1 "istio.io/api/security/v1beta1"
@@ -67,6 +67,27 @@ const (
 	sourceNamespace      = "source.namespace"
 	sourceIP             = "source.ip"
 	requestAuthPrincipal = "request.auth.principal"
+)
+
+const (
+	rbacGlobalAllowAll = `apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-all
+  namespace: {{ .RootNamespace }}
+spec:
+  rules:
+    - {}
+---
+`
+	rbacGlobalDenyAll = `apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-all
+  namespace: {{ .RootNamespace }}
+spec:
+---
+`
 )
 
 func NewUpgrader(k8sClient *kubernetes.Clientset, v1PolicyFiles, serviceFiles []string) *Upgrader {
@@ -140,10 +161,12 @@ func getAuthorizationPolicies(policies []model.Config) (*model.AuthorizationPoli
 
 // convert is the main function that converts RBAC v1alphal1 to v1beta1 for local policy files
 func (ug *Upgrader) convert(authzPolicies *model.AuthorizationPolicies) error {
-	namespaces := authzPolicies.ListNamespacesOfToV1alpha1Policies()
-	if len(namespaces) == 0 {
-		return fmt.Errorf("no namespace found from the provided authorization policy")
+	// Convert ClusterRbacConfig to AuthorizationPolicy
+	err := ug.convertClusterRbacConfig(authzPolicies)
+	if err != nil {
+		return fmt.Errorf("failed to convert ClusterRbacConfig: %s", err)
 	}
+	namespaces := authzPolicies.ListNamespacesOfToV1alpha1Policies()
 	// Build a model for each ServiceRole and associated list of ServiceRoleBinding
 	for _, ns := range namespaces {
 		bindingsKeyList := authzPolicies.ListServiceRoleBindings(ns)
@@ -159,6 +182,35 @@ func (ug *Upgrader) convert(authzPolicies *model.AuthorizationPolicies) error {
 			}
 		}
 	}
+	return nil
+}
+
+// convertClusterRbacConfig converts ClusterRbacConfig to AuthorizationPolicy.
+func (ug *Upgrader) convertClusterRbacConfig(authzPolicies *model.AuthorizationPolicies) error {
+	clusterRbacConfig := authzPolicies.GetClusterRbacConfig()
+	if clusterRbacConfig == nil {
+		return fmt.Errorf("no ClusterRbacConfig found")
+	}
+
+	type RbacTmplData struct {
+		RootNamespace string
+	}
+	rootNs := RbacTmplData{
+		// https://github.com/istio/istio/issues/17125
+		RootNamespace: "istio-system",
+	}
+	var policy string
+	var err error
+	switch clusterRbacConfig.Mode {
+	case rbac_v1alpha1.RbacConfig_OFF:
+		policy, err = fillTemplate(rbacGlobalAllowAll, rootNs)
+	case rbac_v1alpha1.RbacConfig_ON:
+		policy, err = fillTemplate(rbacGlobalDenyAll, rootNs)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to convert ClusterRbacConfig: %v", err)
+	}
+	ug.ConvertedPolicies.WriteString(policy)
 	return nil
 }
 
