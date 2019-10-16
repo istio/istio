@@ -247,7 +247,7 @@ installIstioAtVersionUsingIstioctl(){
 upgradeIstioAtVersionUsingIstioctl(){
   writeMsg "istioctl upgrade istio using version ${2} from ${3}."
   istioctl_path="${3}"/bin
-  withRetries 3 60 "${istioctl_path}"/istioctl experimental manifest upgrade
+  withRetries 3 60 "${istioctl_path}"/istioctl experimental manifest upgrade --yes
 }
 
 istioInstallOptions() {
