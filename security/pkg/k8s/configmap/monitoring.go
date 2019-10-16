@@ -16,10 +16,6 @@ package configmap
 
 import "istio.io/pkg/monitoring"
 
-const (
-	errorlabel = "error"
-)
-
 var (
 	extraTrustAnchorCounts = monitoring.NewGauge(
 		"citadel_extra_trust_anchor_count",

@@ -123,6 +123,8 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, readSigningCertOnly bool,
 		CAType:     selfSignedCA,
 		CertTTL:    certTTL,
 		MaxCertTTL: maxCertTTL,
+		Client:     client,
+		Namespace:  namespace,
 		RotatorConfig: &SelfSignedCARootCertRotatorConfig{
 			CheckInterval:       rootCertCheckInverval,
 			caCertTTL:           caCertTTL,
