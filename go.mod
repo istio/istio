@@ -159,7 +159,7 @@ require (
 	gopkg.in/square/go-jose.v2 v2.3.1
 	gopkg.in/stack.v1 v1.7.0 // indirect
 	gopkg.in/yaml.v2 v2.2.2
-	istio.io/api v0.0.0-20191010154924-a7165be19fef
+	istio.io/api v0.0.0-20191015210738-bfa91e88abf1
 	istio.io/gogo-genproto v0.0.0-20190930162913-45029607206a
 	istio.io/operator v0.0.0-20191011173921-550812748053
 	istio.io/pkg v0.0.0-20191015053120-592d80277a1b
