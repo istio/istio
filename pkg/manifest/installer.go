@@ -285,7 +285,12 @@ func applyManifest(componentName name.ComponentName, manifestStr string, version
 
 	appliedObjects = append(appliedObjects, objects...)
 
-	extraArgs := []string{"--force", "--prune", "--selector", fmt.Sprintf("%s=%s", istioComponentLabelStr, componentName)}
+	extraArgs := []string{"--force"}
+	// Base components include namespaces and CRDs, pruning them will removes
+	// user configs, which makes it hard to roll back.
+	if componentName != name.IstioBaseComponentName {
+		extraArgs = append(extraArgs, "--prune", "--selector", fmt.Sprintf("%s=%s", istioComponentLabelStr, componentName))
+	}
 
 	logAndPrint("kubectl applying manifest for component %s", componentName)
 
@@ -312,7 +317,8 @@ func applyManifest(componentName name.ComponentName, manifestStr string, version
 	}
 
 	stdout, stderr := "", ""
-	m, err := objects.JSONManifest()
+	nonCrdObjects := nonCRDKindObjects(objects)
+	m, err := nonCrdObjects.JSONManifest()
 	if err != nil {
 		return &ComponentApplyOutput{
 			Stdout: stdoutCRD,
@@ -371,6 +377,16 @@ func cRDKindObjects(objects object.K8sObjects) object.K8sObjects {
 	var ret object.K8sObjects
 	for _, o := range objects {
 		if o.Kind == "CustomResourceDefinition" {
+			ret = append(ret, o)
+		}
+	}
+	return ret
+}
+
+func nonCRDKindObjects(objects object.K8sObjects) object.K8sObjects {
+	var ret object.K8sObjects
+	for _, o := range objects {
+		if o.Kind != "CustomResourceDefinition" {
 			ret = append(ret, o)
 		}
 	}

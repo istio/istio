@@ -63,7 +63,7 @@ func manifestGenerateCmd(rootArgs *rootArgs, mgArgs *manifestGenerateArgs) *cobr
 }
 
 func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, l *logger) {
-	if err := configLogs(args); err != nil {
+	if err := configLogs(args.logToStdErr); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Could not configure logs: %s", err)
 		os.Exit(1)
 	}
