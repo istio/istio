@@ -22,7 +22,7 @@ import (
 
 func TestMessages_Sort(t *testing.T) {
 	g := NewGomegaWithT(t)
-	var msgs Messages
+
 	firstMsg := NewMessage(
 		NewMessageType(Error, "B1", "Template: %q"),
 		testOrigin("B"),
@@ -48,26 +48,18 @@ func TestMessages_Sort(t *testing.T) {
 		testOrigin("B"),
 		"B",
 	)
-	msgs.Add(fifthMsg)
-	msgs.Add(fourthMsg)
-	msgs.Add(thirdMsg)
-	msgs.Add(secondMsg)
-	msgs.Add(firstMsg)
 
-	g.Expect(msgs[0]).To(Equal(fifthMsg))
+	msgs := Messages{fifthMsg, fourthMsg, thirdMsg, secondMsg, firstMsg}
+	expectedMsgs := Messages{firstMsg, secondMsg, thirdMsg, fourthMsg, fifthMsg}
 
 	msgs.Sort()
 
-	g.Expect(msgs[0]).To(Equal(firstMsg))
-	g.Expect(msgs[1]).To(Equal(secondMsg))
-	g.Expect(msgs[2]).To(Equal(thirdMsg))
-	g.Expect(msgs[3]).To(Equal(fourthMsg))
-	g.Expect(msgs[4]).To(Equal(fifthMsg))
+	g.Expect(msgs).To(Equal(expectedMsgs))
 }
 
 func TestMessages_Sorted(t *testing.T) {
 	g := NewGomegaWithT(t)
-	var msgs Messages
+
 	firstMsg := NewMessage(
 		NewMessageType(Error, "B1", "Template: %q"),
 		testOrigin("B"),
@@ -78,14 +70,13 @@ func TestMessages_Sorted(t *testing.T) {
 		testOrigin("B"),
 		"B",
 	)
-	msgs.Add(secondMsg)
-	msgs.Add(firstMsg)
+
+	msgs := Messages{secondMsg, firstMsg}
+	sameMsgs := Messages{secondMsg, firstMsg}
+	expectedMsgs := Messages{firstMsg, secondMsg}
 
 	newMsgs := msgs.Sorted()
 
-	g.Expect(msgs[0]).To(Equal(secondMsg))
-	g.Expect(msgs[1]).To(Equal(firstMsg))
-
-	g.Expect(newMsgs[0]).To(Equal(firstMsg))
-	g.Expect(newMsgs[1]).To(Equal(secondMsg))
+	g.Expect(msgs).To(Equal(sameMsgs))
+	g.Expect(newMsgs).To(Equal(expectedMsgs))
 }
