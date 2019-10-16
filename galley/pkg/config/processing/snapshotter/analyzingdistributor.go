@@ -156,6 +156,7 @@ func (d *AnalyzingDistributor) analyzeAndDistribute(cancelCh chan struct{}, name
 			msgs = append(msgs, m)
 		}
 	}
+	msgs = msgs.Sorted()
 
 	if !ctx.Canceled() {
 		d.s.StatusUpdater.Update(msgs)
