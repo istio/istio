@@ -683,7 +683,7 @@ func (s *Server) initSecureGrpcServer(options *istiokeepalive.Options) error {
 				return nil
 			},
 			NextProtos: []string{"h2", "http/1.1"},
-			ClientAuth: tls.RequestClientCert, // auth will be based on JWT token signed by K8S
+			ClientAuth: tls.NoClientCert, // auth will be based on JWT token signed by K8S
 		},
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.ProtoMajor == 2 && strings.HasPrefix(
