@@ -25,6 +25,15 @@ schemas:
     collection: "istio/networking/v1alpha3/serviceentries"
     description: "describes service entries"
 
+  - type: "synthetic-service-entry"
+    plural: "synthetic-service-entries"
+    group: "networking"
+    version: "v1alpha3"
+    clusterScoped: true
+    messageName: "istio.networking.v1alpha3.ServiceEntry"
+    collection: "istio/networking/v1alpha3/synthetic/serviceentries"
+    description: "describes synthetic service entries"
+
   - type: "destination-rule"
     plural: "destination-rules"
     group: "networking"
