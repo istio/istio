@@ -265,11 +265,13 @@ stringData:
 			opts := RemoteSecretOptions{
 				ServiceAccountName: testServiceAccountName,
 				AuthType:           RemoteSecretAuthTypeBearerToken,
-				Namespace:          testNamespace,
-				Context:            testContext,
-				Kubeconfig:         testKubeconfig,
+				KubeOptions: KubeOptions{
+					Namespace:  testNamespace,
+					Context:    testContext,
+					Kubeconfig: testKubeconfig,
+				},
 			}
-			got, err := CreateRemoteSecret(opts)
+			got, err := CreateRemoteSecret(opts, nil) // TODO
 			if c.wantErrStr != "" {
 				if err == nil {
 					tt.Fatalf("wanted error including %q but got none", c.wantErrStr)
@@ -366,22 +368,15 @@ func TestGetClusterServerFromKubeconfig(t *testing.T) {
 	cluster := "cluster0"
 
 	cases := []struct {
-		name              string
-		badStartingConfig bool
-		config            *api.Config
-		context           string
-		wantErrStr        string
+		name       string
+		config     *api.Config
+		context    string
+		wantErrStr string
 	}{
 		{
-			name:              "bad starting config",
-			context:           context,
-			badStartingConfig: true,
-			config: &api.Config{
-				CurrentContext: context,
-				Clusters: map[string]*api.Cluster{
-					context: {Server: wantServer},
-				},
-			},
+			name:       "bad starting config",
+			context:    context,
+			config:     nil,
 			wantErrStr: "bad starting config",
 		},
 		{
@@ -437,14 +432,7 @@ func TestGetClusterServerFromKubeconfig(t *testing.T) {
 	for i := range cases {
 		c := &cases[i]
 		t.Run(fmt.Sprintf("[%v] %v", i, c.name), func(tt *testing.T) {
-			newStartingConfig = func(_, _ string) (*api.Config, error) {
-				if c.badStartingConfig {
-					return nil, errors.New("bad starting config")
-				}
-				return c.config, nil
-			}
-
-			gotContext, gotServer, err := getCurrentContextAndClusterServerFromKubeconfig("foo", c.context)
+			gotContext, gotServer, err := getCurrentContextAndClusterServerFromKubeconfig("foo", c.config)
 			if c.wantErrStr != "" {
 				if err == nil {
 					tt.Fatalf("wanted error including %q but got none", c.wantErrStr)
@@ -488,6 +476,7 @@ users:
 
 	cases := []struct {
 		name       string
+		uid        types.UID
 		context    string
 		server     string
 		in         *v1.Secret
@@ -498,18 +487,21 @@ users:
 			name:       "missing caData",
 			in:         makeSecret("", "", "token"),
 			context:    "c0",
+			uid:        types.UID("fake-uid-0"),
 			wantErrStr: errMissingRootCAKey.Error(),
 		},
 		{
 			name:       "missing token",
 			in:         makeSecret("", "caData", ""),
 			context:    "c0",
+			uid:        types.UID("fake-uid-0"),
 			wantErrStr: errMissingTokenKey.Error(),
 		},
 		{
 			name:    "success",
 			in:      makeSecret("", "caData", "token"),
 			context: "c0",
+			uid:     types.UID("fake-uid-0"),
 			want: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "c0",
@@ -530,7 +522,7 @@ users:
 	for i := range cases {
 		c := &cases[i]
 		t.Run(fmt.Sprintf("[%v] %v", i, c.name), func(tt *testing.T) {
-			got, err := createRemoteSecretFromTokenAndServer(c.in, c.context, c.context, c.server)
+			got, err := createRemoteSecretFromTokenAndServer(c.in, c.uid, c.context, c.server)
 			if c.wantErrStr != "" {
 				if err == nil {
 					tt.Fatalf("wanted error including %q but none", c.wantErrStr)
@@ -614,6 +606,7 @@ users:
 		name               string
 		in                 *v1.Secret
 		context            string
+		uid                types.UID
 		server             string
 		authProviderConfig *api.AuthProviderConfig
 		want               *v1.Secret
@@ -623,12 +616,14 @@ users:
 			name:       "error on missing caData",
 			in:         makeSecret("", "", "token"),
 			context:    "c0",
+			uid:        types.UID("fake-uid-0"),
 			wantErrStr: errMissingRootCAKey.Error(),
 		},
 		{
 			name:    "success on missing token",
 			in:      makeSecret("", "caData", ""),
 			context: "c0",
+			uid:     types.UID("fake-uid-0"),
 			authProviderConfig: &api.AuthProviderConfig{
 				Name: "foobar",
 				Config: map[string]string{
@@ -654,6 +649,7 @@ users:
 			name:    "success",
 			in:      makeSecret("", "caData", "token"),
 			context: "c0",
+			uid:     types.UID("fake-uid-0"),
 			authProviderConfig: &api.AuthProviderConfig{
 				Name: "foobar",
 				Config: map[string]string{
@@ -680,7 +676,7 @@ users:
 	for i := range cases {
 		c := &cases[i]
 		t.Run(fmt.Sprintf("[%v] %v", i, c.name), func(tt *testing.T) {
-			got, err := createRemoteSecretFromPlugin(c.in, c.context, c.context, c.server, c.authProviderConfig)
+			got, err := createRemoteSecretFromPlugin(c.in, c.context, c.uid, c.server, c.authProviderConfig)
 			if c.wantErrStr != "" {
 				if err == nil {
 					tt.Fatalf("wanted error including %q but none", c.wantErrStr)

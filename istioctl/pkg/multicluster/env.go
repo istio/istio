@@ -36,36 +36,38 @@ type Environment interface {
 	Errorf(format string, a ...interface{})
 }
 
-type kubeEnvironment struct {
+type KubeEnvironment struct {
 	config     *api.Config
 	stdout     io.Writer
 	stderr     io.Writer
 	kubeconfig string
 }
 
-func (e *kubeEnvironment) CreateClientSet(context string) (kubernetes.Interface, error) {
+func (e *KubeEnvironment) CreateClientSet(context string) (kubernetes.Interface, error) {
 	return kube.CreateClientset(e.kubeconfig, context)
 }
 
-func (e *kubeEnvironment) Printf(format string, a ...interface{}) {
+func (e *KubeEnvironment) Printf(format string, a ...interface{}) {
 	_, _ = fmt.Fprintf(e.stdout, format, a...)
 }
-func (e *kubeEnvironment) Errorf(format string, a ...interface{}) {
+func (e *KubeEnvironment) Errorf(format string, a ...interface{}) {
 	_, _ = fmt.Fprintf(e.stderr, format, a...)
 }
 
-func (e *kubeEnvironment) GetConfig() *api.Config                   { return e.config }
-func (e *kubeEnvironment) Stdout() io.Writer                        { return e.stdout }
-func (e *kubeEnvironment) Stderr() io.Writer                        { return e.stderr }
-func (e *kubeEnvironment) ReadFile(filename string) ([]byte, error) { return ioutil.ReadFile(filename) }
+func (e *KubeEnvironment) GetConfig() *api.Config                   { return e.config }
+func (e *KubeEnvironment) Stdout() io.Writer                        { return e.stdout }
+func (e *KubeEnvironment) Stderr() io.Writer                        { return e.stderr }
+func (e *KubeEnvironment) ReadFile(filename string) ([]byte, error) { return ioutil.ReadFile(filename) }
 
-func NewEnvironment(kubeconfig, context string, stdout, stderr io.Writer) (Environment, error) {
+var _ Environment = (*KubeEnvironment)(nil)
+
+func NewEnvironment(kubeconfig, context string, stdout, stderr io.Writer) (*KubeEnvironment, error) {
 	config, err := kube.BuildClientCmd(kubeconfig, context).ConfigAccess().GetStartingConfig()
 	if err != nil {
 		return nil, err
 	}
 
-	return &kubeEnvironment{
+	return &KubeEnvironment{
 		config:     config,
 		stdout:     stdout,
 		stderr:     stderr,

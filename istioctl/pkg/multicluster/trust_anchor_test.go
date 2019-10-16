@@ -65,7 +65,7 @@ func TestCreateTrustAnchorInternal(t *testing.T) {
 	}{
 		{
 			name: "bad anchor name",
-			opts: TrustAnchorOptions{Namespace: testNamespace},
+			opts: TrustAnchorOptions{KubeOptions{Namespace: testNamespace}},
 			config: &api.Config{
 				CurrentContext: testContext,
 				Contexts: map[string]*api.Context{
@@ -80,7 +80,7 @@ func TestCreateTrustAnchorInternal(t *testing.T) {
 		},
 		{
 			name: "missing CA configmap",
-			opts: TrustAnchorOptions{Namespace: testNamespace},
+			opts: TrustAnchorOptions{KubeOptions{Namespace: testNamespace}},
 			config: &api.Config{
 				CurrentContext: testContext,
 				Contexts: map[string]*api.Context{
@@ -95,7 +95,7 @@ func TestCreateTrustAnchorInternal(t *testing.T) {
 		},
 		{
 			name: "missing CA root in configmap",
-			opts: TrustAnchorOptions{Namespace: testNamespace},
+			opts: TrustAnchorOptions{KubeOptions{Namespace: testNamespace}},
 			config: &api.Config{
 				CurrentContext: testContext,
 				Contexts: map[string]*api.Context{
@@ -110,7 +110,7 @@ func TestCreateTrustAnchorInternal(t *testing.T) {
 		},
 		{
 			name: "success with default Context",
-			opts: TrustAnchorOptions{Namespace: testNamespace},
+			opts: TrustAnchorOptions{KubeOptions{Namespace: testNamespace}},
 			config: &api.Config{
 				CurrentContext: testContext,
 				Contexts: map[string]*api.Context{
@@ -139,8 +139,10 @@ func TestCreateTrustAnchorInternal(t *testing.T) {
 		{
 			name: "success with Context override",
 			opts: TrustAnchorOptions{
-				Context:   testOverrideContext,
-				Namespace: testNamespace,
+				KubeOptions{
+					Context:   testOverrideContext,
+					Namespace: testNamespace,
+				},
 			},
 			config: &api.Config{
 				CurrentContext: testOverrideContext,
@@ -190,6 +192,5 @@ func TestCreateTrustAnchorInternal(t *testing.T) {
 }
 
 func TestCreateTrustAnchor(t *testing.T) {
-
 
 }
