@@ -43,12 +43,13 @@ const (
 	rsStatusOk                                    = "ok"
 )
 
-func secretStateAndServer(env Environment, srs remoteSecretsByClusterUID, c *Cluster) (remoteSecretStatus, string) {
+func secretStateAndServer(env Environment, srs remoteSecrets, c *Cluster) (remoteSecretStatus, string) {
 	remoteSecret, ok := srs[c.uid]
 	if !ok {
 		return rsStatusNotFound, ""
 	}
-	kubeconfig, ok := remoteSecret.Data[c.uid]
+	key := string(c.uid)
+	kubeconfig, ok := remoteSecret.Data[key]
 	if !ok {
 		return rsStatusConfigMissing, ""
 	}
@@ -217,7 +218,7 @@ func (o *describeOptions) addFlags(flags *pflag.FlagSet) {
 func NewDescribeCommand() *cobra.Command {
 	opt := describeOptions{}
 	c := &cobra.Command{
-		Use:   "describe",
+		Use:   "describe -f <mesh.yaml> [--all]",
 		Short: `Describe status of the multi-cluster mesh's control plane' `,
 		RunE: func(c *cobra.Command, args []string) error {
 			if err := opt.prepare(c.Flags()); err != nil {

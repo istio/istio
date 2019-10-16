@@ -62,7 +62,7 @@ func generateValuesYAML(mesh *Mesh, current *Cluster, meshNetworks *v1alpha1.Mes
 	values.Global.Network = current.Network
 	values.Global.ControlPlaneSecurityEnabled = true
 	values.Global.MTLS.Enabled = true // required?
-	values.Global.MultiCluster.ClusterName = current.uid
+	values.Global.MultiCluster.ClusterName = string(current.uid)
 	// rRquired for istio <= 1.3 . Newer chart versions use `global.network` to assign the gateway's network.
 	values.Gateways.IstioIngressGateway.Env = map[string]string{"ISTIO_MESH_NETWORK": current.Network}
 
@@ -95,7 +95,7 @@ func generateValues(opt generateOptions, env Environment) error {
 
 	cluster, ok := mesh.clustersByContext[context]
 	if !ok {
-		return fmt.Errorf("Context %v not found", context)
+		return fmt.Errorf("context %v not found", context)
 	}
 
 	meshNetwork, err := meshNetworkForCluster(env, mesh, cluster)
@@ -147,7 +147,7 @@ func meshNetworkForCluster(env Environment, mesh *Mesh, c *Cluster) (*v1alpha1.M
 
 		// Use the cluster uid for the registry name so we have consistency across the mesh. Pilot
 		// uses a special name for the local cluster against which it is running.
-		registry := c.uid
+		registry := string(c.uid)
 		if context == c.context {
 			registry = string(serviceregistry.KubernetesRegistry)
 		}
@@ -195,7 +195,8 @@ func NewGenerateCommand() *cobra.Command {
 func NewGenerateValuesCommand() *cobra.Command {
 	opt := generateOptions{}
 	c := &cobra.Command{
-		Use: "values",
+		Use:   "values -f <mesh.yaml>",
+		Short: `generate a cluster-specific values.yaml file based on the mesh description and runtime state `,
 		RunE: func(c *cobra.Command, args []string) error {
 			if err := opt.prepare(c.Flags()); err != nil {
 				return err

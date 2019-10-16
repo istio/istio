@@ -94,16 +94,6 @@ const (
 	extraTrustAnchorPrefix = "extra-trust-anchor"
 )
 
-func clusterUID(client kubernetes.Interface) (types.UID, error) {
-	// Use UUID of kube-system Namespace as unique identifer for cluster.
-	// (see https://docs.google.com/document/d/1F__vEKeI41P7PPUCMM9PVPYY34pyrvQI5rbTJVnS5c4)
-	kubeSystem, err := client.CoreV1().Namespaces().Get("kube-system", metav1.GetOptions{})
-	if err != nil {
-		return "", fmt.Errorf("failed to auto-generate name: %v", err)
-	}
-	return kubeSystem.UID, nil
-}
-
 func trustAnchorName(client kubernetes.Interface) (string, error) {
 	uid, err := clusterUID(client)
 	if err != nil {

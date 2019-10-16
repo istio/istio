@@ -22,6 +22,7 @@ import (
 	"github.com/spf13/pflag"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"istio.io/istio/pkg/kube/secretcontroller"
@@ -33,15 +34,17 @@ func Join(opt joinOptions, env Environment) error {
 		return err
 	}
 
-	if opt.all {
-		for _, cluster := range mesh.sortedClusters {
-			if err := joinServiceRegistries(mesh, env); err != nil {
-				env.Errorf("error: could not join cluster %v to mesh: %v\n", cluster, err)
+	if opt.serviceDiscovery {
+		if opt.all {
+			for _, cluster := range mesh.sortedClusters {
+				if err := joinServiceRegistries(mesh, env); err != nil {
+					env.Errorf("error: could not join cluster %v to mesh: %v\n", cluster, err)
+				}
 			}
-		}
-	} else {
-		if err := joinServiceRegistries(mesh, env); err != nil {
-			return err
+		} else {
+			if err := joinServiceRegistries(mesh, env); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -73,8 +76,8 @@ func applySecret(cluster *Cluster, curr *v1.Secret) error {
 }
 
 func joinServiceRegistries(mesh *Mesh, env Environment) error {
-	preparedSecrets := make(map[string]*v1.Secret)
-	pruneCandidates := make(map[string]map[string]*v1.Secret)
+	preparedSecrets := make(map[types.UID]*v1.Secret)
+	pruneCandidates := make(map[string]map[types.UID]*v1.Secret)
 
 	for _, cluster := range mesh.sortedClusters {
 		fmt.Printf("creating secret for first %v\n", cluster)
@@ -128,7 +131,7 @@ func joinServiceRegistries(mesh *Mesh, env Environment) error {
 					env.Printf("%v registered with %v\n", s.remote, s.local)
 				}
 
-				delete(pruneCandidates[s.remote.context], remoteSecret.Name)
+				delete(pruneCandidates[s.remote.context], types.UID(remoteSecret.Name))
 			}
 		}
 	}
@@ -163,8 +166,8 @@ func (o *joinOptions) prepare(flags *pflag.FlagSet) error {
 func (o *joinOptions) addFlags(flags *pflag.FlagSet) {
 	o.filenameOption.addFlags(flags)
 
-	flags.BoolVar(&o.trust, "trust", true,
-		"establish trust between clustersByContext in the mesh")
+	//flags.BoolVar(&o.trust, "trust", true,
+	//	"establish trust between clustersByContext in the mesh")
 	flags.BoolVar(&o.serviceDiscovery, "discovery", true,
 		"link Istio service discovery with the clustersByContext service registriesS")
 	flags.BoolVar(&o.all, "all", o.all,
@@ -174,7 +177,7 @@ func (o *joinOptions) addFlags(flags *pflag.FlagSet) {
 func NewJoinCommand() *cobra.Command {
 	opt := joinOptions{}
 	c := &cobra.Command{
-		Use:   "join",
+		Use:   "join  -f <mesh.yaml> [--discovery]",
 		Short: `Join multiple clustersByContext into a single multi-cluster mesh`,
 		RunE: func(c *cobra.Command, args []string) error {
 			if err := opt.prepare(c.Flags()); err != nil {

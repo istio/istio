@@ -20,11 +20,6 @@ import (
 	"github.com/spf13/pflag"
 )
 
-const (
-	defaultIstioNamespace       = "istio-system"
-	defaultServiceAccountReader = "istio-multi"
-)
-
 // TODO(ayj) - add to istio.io/api/annotations
 const clusterContextAnnotationKey = "istio.io/clusterContext"
 

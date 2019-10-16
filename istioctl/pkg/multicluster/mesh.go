@@ -85,7 +85,7 @@ func NewMesh(kubeconfig string, md *MeshDesc, env Environment) (*Mesh, error) {
 		sortedClusters = append(sortedClusters, other)
 	}
 	sort.Slice(sortedClusters, func(i, j int) bool {
-		return strings.Compare(sortedClusters[i].uid, sortedClusters[j].uid) < 0
+		return strings.Compare(string(sortedClusters[i].uid), string(sortedClusters[j].uid)) < 0
 	})
 
 	return &Mesh{

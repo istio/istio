@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/runtime/serializer/versioning"
+	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth" // to avoid 'No Auth Provider found for name "gcp"'
@@ -118,14 +119,14 @@ var (
 	}
 )
 
-func createRemoteServiceAccountSecret(kubeconfig *api.Config, name, context string) (*v1.Secret, error) { // nolint:interfacer
+func createRemoteServiceAccountSecret(kubeconfig *api.Config, uid types.UID, context string) (*v1.Secret, error) { // nolint:interfacer
 	var data bytes.Buffer
 	if err := latest.Codec.Encode(kubeconfig, &data); err != nil {
 		return nil, err
 	}
 	out := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
+			Name: string(uid),
 			Annotations: map[string]string{
 				clusterContextAnnotationKey: context,
 			},
@@ -134,7 +135,7 @@ func createRemoteServiceAccountSecret(kubeconfig *api.Config, name, context stri
 			},
 		},
 		StringData: map[string]string{
-			name: data.String(),
+			string(uid): data.String(),
 		},
 	}
 	return out, nil
@@ -175,17 +176,17 @@ func createPluginKubeconfig(caData []byte, context, server string, authProviderC
 	return c
 }
 
-func createRemoteSecretFromPlugin(tokenSecret *v1.Secret, context, name, server string, authProviderConfig *api.AuthProviderConfig) (*v1.Secret, error) {
+func createRemoteSecretFromPlugin(tokenSecret *v1.Secret, context string, uid types.UID, server string, authProviderConfig *api.AuthProviderConfig) (*v1.Secret, error) {
 	caData, ok := tokenSecret.Data[v1.ServiceAccountRootCAKey]
 	if !ok {
 		return nil, errMissingRootCAKey
 	}
 
 	// Create a Kubeconfig to access the remote cluster using the auth provider plugin.
-	kubeconfig := createPluginKubeconfig(caData, name, server, authProviderConfig)
+	kubeconfig := createPluginKubeconfig(caData, context, server, authProviderConfig)
 
 	// Encode the Kubeconfig in a secret that can be loaded by Istio to dynamically discover and access the remote cluster.
-	return createRemoteServiceAccountSecret(kubeconfig, name, context)
+	return createRemoteServiceAccountSecret(kubeconfig, uid, context)
 }
 
 var (
@@ -193,7 +194,7 @@ var (
 	errMissingTokenKey  = fmt.Errorf("no %q data found", v1.ServiceAccountTokenKey)
 )
 
-func createRemoteSecretFromTokenAndServer(tokenSecret *v1.Secret, context, name, server string) (*v1.Secret, error) {
+func createRemoteSecretFromTokenAndServer(tokenSecret *v1.Secret, uid types.UID, context, server string) (*v1.Secret, error) {
 	caData, ok := tokenSecret.Data[v1.ServiceAccountRootCAKey]
 	if !ok {
 		return nil, errMissingRootCAKey
@@ -207,7 +208,7 @@ func createRemoteSecretFromTokenAndServer(tokenSecret *v1.Secret, context, name,
 	kubeconfig := createBearerTokenKubeconfig(caData, token, context, server)
 
 	// Encode the Kubeconfig in a secret that can be loaded by Istio to dynamically discover and access the remote cluster.
-	return createRemoteServiceAccountSecret(kubeconfig, context, name)
+	return createRemoteServiceAccountSecret(kubeconfig, uid, context)
 }
 
 func getServiceAccountSecretToken(kube kubernetes.Interface, saName, saNamespace string) (*v1.Secret, error) {
@@ -292,14 +293,6 @@ const (
 	RemoteSecretAuthTypePlugin RemoteSecretAuthType = "plugin"
 )
 
-func remoteSecretName(client kubernetes.Interface) (string, error) {
-	uid, err := clusterUID(client)
-	if err != nil {
-		return "", err
-	}
-	return string(uid), nil
-}
-
 // RemoteSecretOptions contains the options for creating a remote secret.
 type RemoteSecretOptions struct {
 	KubeOptions
@@ -337,7 +330,8 @@ func createRemoteSecret(opt RemoteSecretOptions, env Environment) (*v1.Secret, e
 	if err != nil {
 		return nil, err
 	}
-	name, err := remoteSecretName(client)
+
+	uid, err := clusterUID(client)
 	if err != nil {
 		return nil, err
 	}
@@ -355,13 +349,13 @@ func createRemoteSecret(opt RemoteSecretOptions, env Environment) (*v1.Secret, e
 	var remoteSecret *v1.Secret
 	switch opt.AuthType {
 	case RemoteSecretAuthTypeBearerToken:
-		remoteSecret, err = createRemoteSecretFromTokenAndServer(tokenSecret, currentContext, name, server)
+		remoteSecret, err = createRemoteSecretFromTokenAndServer(tokenSecret, uid, currentContext, server)
 	case RemoteSecretAuthTypePlugin:
 		authProviderConfig := &api.AuthProviderConfig{
 			Name:   opt.AuthPluginName,
 			Config: opt.AuthPluginConfig,
 		}
-		remoteSecret, err = createRemoteSecretFromPlugin(tokenSecret, name, currentContext, server, authProviderConfig)
+		remoteSecret, err = createRemoteSecretFromPlugin(tokenSecret, currentContext, uid, server, authProviderConfig)
 	default:
 		err = fmt.Errorf("unsupported authentication type: %v", opt.AuthType)
 	}
