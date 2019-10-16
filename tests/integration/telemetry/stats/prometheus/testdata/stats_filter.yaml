@@ -56,14 +56,6 @@ spec:
                 runtime: envoy.wasm.runtime.null
                 code:
                   inline_string: envoy.wasm.stats
----
-apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-  name: stats-filter
-  namespace: istio-system
-spec:
-  configPatches:
     - applyTo: HTTP_FILTER
       match:
         context: GATEWAY
