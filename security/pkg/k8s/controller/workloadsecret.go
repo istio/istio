@@ -114,10 +114,6 @@ type SecretController struct {
 
 	caSecretController *CaSecretController
 
-	// Controller and store for namespace objects
-	namespaceController cache.Controller
-	namespaceStore      cache.Store
-
 	// Used to coordinate with label and check if this instance of Citadel should create secret
 	istioCaStorageNamespace string
 
