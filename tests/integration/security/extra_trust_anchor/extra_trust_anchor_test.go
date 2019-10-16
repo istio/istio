@@ -364,14 +364,14 @@ func TestExtraTrustAnchorMultiRootTraffic(t *testing.T) {
 		trustAnchorRemoteA := &kubeApiCore.ConfigMap{
 			ObjectMeta: kubeApiMeta.ObjectMeta{
 				Name:   remoteServiceA,
-				Labels: map[string]string{controller.ExtraTrustAnchorsLabel: "true"},
+				Labels: map[string]string{configmap.ExtraTrustAnchorsLabel: "true"},
 			},
 			Data: map[string]string{remoteServiceA: string(remote0RootCert)},
 		}
 		trustAnchorRemoteB := &kubeApiCore.ConfigMap{
 			ObjectMeta: kubeApiMeta.ObjectMeta{
 				Name:   remoteServiceB,
-				Labels: map[string]string{controller.ExtraTrustAnchorsLabel: "true"},
+				Labels: map[string]string{configmap.ExtraTrustAnchorsLabel: "true"},
 			},
 			Data: map[string]string{remoteServiceB: string(remote1RootCert)},
 		}
@@ -460,8 +460,8 @@ func TestExtraTrustAnchorSecretDistribution(t *testing.T) {
 		env := ctx.Environment().(*kube.Environment)
 
 		var (
-			labelsTrue  = map[string]string{controller.ExtraTrustAnchorsLabel: "true"}
-			labelsFalse = map[string]string{controller.ExtraTrustAnchorsLabel: "false"}
+			labelsTrue  = map[string]string{configmap.ExtraTrustAnchorsLabel: "true"}
+			labelsFalse = map[string]string{configmap.ExtraTrustAnchorsLabel: "false"}
 			labelsNone  = map[string]string{}
 
 			root1Data     = map[string]string{"root1": root1}
