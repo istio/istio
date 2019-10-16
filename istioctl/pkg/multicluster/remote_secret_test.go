@@ -38,7 +38,7 @@ const (
 	testServiceAccountName = "test-service-account"
 	testUID                = "54643f96-eca0-11e9-bb97-42010a80000a"
 	testKubeconfig         = "test-Kubeconfig"
-	testContext            = "test-Context"
+	testContext            = "test-context"
 )
 
 var (
@@ -119,34 +119,34 @@ apiVersion: v1
 kind: Secret
 metadata:
   annotations:
-    istio.io/clusterContext: test-Context
+    istio.io/clusterContext: test-context
   creationTimestamp: null
   labels:
     istio/multiCluster: "true"
-  name: istio-remote-secret-54643f96-eca0-11e9-bb97-42010a80000a
+  name: 54643f96-eca0-11e9-bb97-42010a80000a
 stringData:
-  istio-remote-secret-54643f96-eca0-11e9-bb97-42010a80000a: |
+  54643f96-eca0-11e9-bb97-42010a80000a: |
     apiVersion: v1
-    clustersByContext:
+    clusters:
     - cluster:
         certificate-authority-data: Y2FEYXRh
         server: server
-      name: test-Context
+      name: test-context
     contexts:
-    - Context:
-        cluster: test-Context
-        user: test-Context
-      name: test-Context
-    current-Context: test-Context
+    - context:
+        cluster: test-context
+        user: test-context
+      name: test-context
+    current-context: test-context
     kind: Config
     preferences: {}
     users:
-    - name: test-Context
+    - name: test-context
       user:
         token: token
 ---
 `
-	badStartingConfigErrStr := "bad starting config"
+	badStartingConfigErrStr := "could not find cluster for Context"
 
 	cases := []struct {
 		testName string
@@ -171,6 +171,7 @@ stringData:
 		{
 			testName:          "fail to create starting config",
 			objs:              []runtime.Object{fakeKubeSystem, sa, saSecret},
+			config:            api.NewConfig(),
 			badStartingConfig: true,
 			wantErrStr:        badStartingConfigErrStr,
 		},
@@ -271,7 +272,10 @@ stringData:
 					Kubeconfig: testKubeconfig,
 				},
 			}
-			got, err := CreateRemoteSecret(opts, nil) // TODO
+
+			env := newFakeEnvironmentOrDie(t, c.config, c.objs...)
+
+			got, err := CreateRemoteSecret(opts, env) // TODO
 			if c.wantErrStr != "" {
 				if err == nil {
 					tt.Fatalf("wanted error including %q but got none", c.wantErrStr)
@@ -432,7 +436,7 @@ func TestGetClusterServerFromKubeconfig(t *testing.T) {
 	for i := range cases {
 		c := &cases[i]
 		t.Run(fmt.Sprintf("[%v] %v", i, c.name), func(tt *testing.T) {
-			gotContext, gotServer, err := getCurrentContextAndClusterServerFromKubeconfig("foo", c.config)
+			gotContext, gotServer, err := getCurrentContextAndClusterServerFromKubeconfig(c.context, c.config)
 			if c.wantErrStr != "" {
 				if err == nil {
 					tt.Fatalf("wanted error including %q but got none", c.wantErrStr)

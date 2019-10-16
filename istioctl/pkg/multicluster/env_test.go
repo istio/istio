@@ -22,6 +22,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/tools/clientcmd/api/latest"
 )
@@ -45,7 +47,7 @@ users:
     auth-provider:
       name: gcp`
 
-func createFakeKubeconfigFileOrDie(t *testing.T) (string, *api.Config) {
+func createFakeKubeconfigFileOrDie(t *testing.T, kubeconfig string) (string, *api.Config) {
 	t.Helper()
 
 	f, err := ioutil.TempFile("", "fakeKubeconfigForEnvironment")
@@ -85,32 +87,40 @@ func createFakeKubeconfigFileOrDie(t *testing.T) (string, *api.Config) {
 type fakeEnvironment struct {
 	KubeEnvironment
 
-	wOut bytes.Buffer
-	wErr bytes.Buffer
+	client     *fake.Clientset
+	kubeconfig string
+	wOut       bytes.Buffer
+	wErr       bytes.Buffer
 }
 
-func newFakeEnvironmentOrDie(t *testing.T, kubeconfig string) *fakeEnvironment {
+func newFakeEnvironmentOrDie(t *testing.T, config *api.Config, objs ...runtime.Object) *fakeEnvironment {
 	t.Helper()
 
 	var wOut, wErr bytes.Buffer
 
-	kube, err := NewEnvironment(kubeconfig, "", &wOut, &wErr)
-	if err != nil {
-		t.Fatalf("NewEnvironment() failed: %v", err)
-	}
-
 	f := &fakeEnvironment{
-		KubeEnvironment: *kube,
-		wOut:            wOut,
-		wErr:            wErr,
+		KubeEnvironment: KubeEnvironment{
+			config:     config,
+			stdout:     &wOut,
+			stderr:     &wErr,
+			kubeconfig: "unused",
+		},
+		client:     fake.NewSimpleClientset(objs...),
+		kubeconfig: "unused",
+		wOut:       wOut,
+		wErr:       wErr,
 	}
 
 	return f
 }
 
+func (f *fakeEnvironment) CreateClientSet(context string) (kubernetes.Interface, error) {
+	return f.client, nil
+}
+
 func TestNewEnvironment(t *testing.T) {
 	context := "" // empty, use current-context
-	kubeconfig, wantConfig := createFakeKubeconfigFileOrDie(t)
+	kubeconfig, wantConfig := createFakeKubeconfigFileOrDie(t, fakeKubeconfigData)
 
 	var wOut, wErr bytes.Buffer
 
