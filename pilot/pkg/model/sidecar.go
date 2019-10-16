@@ -281,9 +281,9 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 		ConfigNamespace: configNamespace,
 	}
 
-	out.services = out.selectServices(ps.Services(&dummyNode), configNamespace)
 	meshGateway := map[string]bool{constants.IstioMeshGateway: true}
 	out.virtualServices = out.selectVirtualServices(ps.VirtualServices(&dummyNode, meshGateway))
+	out.services = out.selectServices(ps.Services(&dummyNode), configNamespace)
 
 	return out
 }
@@ -480,12 +480,25 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 					portMatched := false
 					// If a listener is defined with port, we should match services with port.
 					if ilw.IstioListener != nil && ilw.IstioListener.Port != nil {
-						// TODO: If service has multiple ports, none of which match the listener port, check if there is
-						// a virtualService with matching port.
 						for _, port := range s.Ports {
 							if port.Port == int(ilw.IstioListener.Port.GetNumber()) {
 								portMatched = true
 								break
+							}
+						}
+						// If service does not have a matching port, check to see if there is a virtual service with matching port.
+						if !portMatched {
+							for _, vs := range ilw.virtualServices {
+								spec := vs.Spec.(*networking.VirtualService)
+								for _, http := range spec.Http {
+									for _, route := range http.Route {
+										if host.Name(route.Destination.Host).Matches(s.Hostname) &&
+											route.Destination.Port.Number == ilw.IstioListener.Port.GetNumber() {
+											portMatched = true
+											break
+										}
+									}
+								}
 							}
 						}
 					} else {

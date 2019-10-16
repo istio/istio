@@ -26,6 +26,7 @@ import (
 
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 var (
@@ -149,6 +150,51 @@ var (
 			},
 		},
 	}
+
+	services6 = []*Service{
+		{
+			Hostname: "bar",
+			Attributes: ServiceAttributes{
+				Name:      "bar",
+				Namespace: "foo",
+			},
+		},
+		{
+			Hostname: "barprime",
+			Attributes: ServiceAttributes{
+				Name:      "barprime",
+				Namespace: "foo",
+			},
+		},
+	}
+
+	virtualServices = []Config{
+		{
+			ConfigMeta: ConfigMeta{
+				Type:      schemas.VirtualService.Type,
+				Version:   schemas.VirtualService.Version,
+				Name:      "barprime",
+				Namespace: "foo",
+			},
+			Spec: &networking.VirtualService{
+				Hosts: []string{"barprime"},
+				Http: []*networking.HTTPRoute{
+					{
+						Route: []*networking.HTTPRouteDestination{
+							{
+								Destination: &networking.Destination{
+									Host: "barprime",
+									Port: &networking.PortSelector{
+										Number: 8000,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 )
 
 func TestCreateSidecarScope(t *testing.T) {
@@ -157,6 +203,8 @@ func TestCreateSidecarScope(t *testing.T) {
 		sidecarConfig *Config
 		// list of available service for a given proxy
 		services []*Service
+		// virtual service definitions
+		virtualServices []Config
 		// list of services expected to be in the listener
 		excpectedServices []string
 	}{
@@ -165,11 +213,13 @@ func TestCreateSidecarScope(t *testing.T) {
 			nil,
 			nil,
 			nil,
+			nil,
 		},
 		{
 			"no-sidecar-config-with-service",
 			nil,
 			services1,
+			nil,
 			[]string{"bar"},
 		},
 		{
@@ -177,28 +227,33 @@ func TestCreateSidecarScope(t *testing.T) {
 			configs1,
 			nil,
 			nil,
+			nil,
 		},
 		{
 			"sidecar-with-multiple-egress-with-service",
 			configs1,
 			services1,
+			nil,
 			[]string{"bar"},
 		},
 		{
 			"sidecar-with-multiple-egress-with-service-on-same-port",
 			configs1,
 			services3,
+			nil,
 			[]string{"bar", "barprime"},
 		},
 		{
 			"sidecar-with-multiple-egress-with-multiple-service",
 			configs1,
 			services4,
+			nil,
 			[]string{"bar", "barprime"},
 		},
 		{
 			"sidecar-with-zero-egress",
 			configs2,
+			nil,
 			nil,
 			nil,
 		},
@@ -207,10 +262,12 @@ func TestCreateSidecarScope(t *testing.T) {
 			configs2,
 			services4,
 			nil,
+			nil,
 		},
 		{
 			"sidecar-with-multiple-egress-noport",
 			configs3,
+			nil,
 			nil,
 			nil,
 		},
@@ -218,19 +275,29 @@ func TestCreateSidecarScope(t *testing.T) {
 			"sidecar-with-multiple-egress-noport-with-specific-service",
 			configs3,
 			services2,
+			nil,
 			[]string{"bar", "barprime"},
 		},
 		{
 			"sidecar-with-multiple-egress-noport-with-services",
 			configs3,
 			services4,
+			nil,
 			[]string{"bar", "barprime"},
 		},
 		{
 			"sidecar-with-egress-port-match-with-services-with-and-without-port",
 			configs4,
 			services5,
+			nil,
 			[]string{"bar"},
+		},
+		{
+			"sidecar-with-egress-port-match-with-virtual-service",
+			configs4,
+			services6,
+			virtualServices,
+			[]string{"barprime"},
 		},
 	}
 
@@ -244,6 +311,9 @@ func TestCreateSidecarScope(t *testing.T) {
 			}
 			if tt.services != nil {
 				ps.publicServices = append(ps.publicServices, tt.services...)
+			}
+			if tt.virtualServices != nil {
+				ps.publicVirtualServices = append(ps.publicVirtualServices, tt.virtualServices...)
 			}
 
 			sidecarConfig := tt.sidecarConfig
