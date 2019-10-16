@@ -151,7 +151,7 @@ func (ug *Upgrader) convert(authzPolicies *model.AuthorizationPolicies) error {
 			roleName := roleConfig.Name
 			if bindings, found := bindingsKeyList[roleName]; found {
 				role := roleConfig.Spec.(*rbac_v1alpha1.ServiceRole)
-				m := authz_model.NewModel(role, bindings)
+				m := authz_model.NewModelV1alpha1("", nil, role, bindings)
 				err := ug.v1alpha1ModelTov1beta1Policy(m, ns)
 				if err != nil {
 					return err
@@ -257,8 +257,8 @@ func convertBindingToSources(principals []authz_model.Principal) ([]*rbac_v1beta
 		from := rbac_v1beta1.Rule_From{
 			Source: &rbac_v1beta1.Source{},
 		}
-		if subject.User != "" {
-			from.Source.Principals = []string{subject.User}
+		if len(subject.Users) != 0 {
+			from.Source.Principals = subject.Users
 		}
 		if len(subject.Properties) == 0 {
 			ruleFrom = append(ruleFrom, &from)
