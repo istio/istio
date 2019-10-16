@@ -87,6 +87,10 @@ type IstioCAOptions struct {
 
 	// Config for creating self-signed root cert rotator.
 	RotatorConfig *SelfSignedCARootCertRotatorConfig
+
+	EnableTrustAnchors bool
+	Namespace          string
+	Client             corev1.CoreV1Interface
 }
 
 // NewSelfSignedIstioCAOptions returns a new IstioCAOptions instance using self-signed certificate.
@@ -244,6 +248,7 @@ type IstioCA struct {
 	// rootCertRotator periodically rotates self-signed root cert for CA. It is nil
 	// if CA is not self-signed CA.
 	rootCertRotator *SelfSignedCARootCertRotator
+	cmcController   *configmap.Controller
 }
 
 // NewIstioCA returns a new IstioCA instance.
@@ -255,8 +260,15 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 		livenessProbe: probe.NewProbe(),
 	}
 
+	cmc, err := configmap.NewController(opts.Namespace, opts.Client, opts.EnableTrustAnchors, ca)
+	if err != nil {
+		return nil, err
+	}
+
+	ca.cmcController = cmc
+
 	if opts.CAType == selfSignedCA && opts.RotatorConfig.CheckInterval > time.Duration(0) {
-		ca.rootCertRotator = NewSelfSignedCARootCertRotator(opts.RotatorConfig, ca)
+		ca.rootCertRotator = NewSelfSignedCARootCertRotator(opts.RotatorConfig, ca, cmc)
 	}
 	return ca, nil
 }
@@ -265,6 +277,10 @@ func (ca *IstioCA) Run(stopChan chan struct{}) {
 	if ca.rootCertRotator != nil {
 		// Start root cert rotator in a separate goroutine.
 		go ca.rootCertRotator.Run(stopChan)
+	}
+	if ca.cmcController != nil {
+		go ca.cmcController.Run(stopChan)
+		ca.cmcController.WaitForSync(stopChan)
 	}
 }
 
@@ -325,9 +341,9 @@ func (ca *IstioCA) GetCAKeyCertBundle() util.KeyCertBundle {
 	return ca.keyCertBundle
 }
 
-func updateCertInConfigmap(namespace string, client corev1.CoreV1Interface, cert []byte, ca configmap.CertificateAuthority) error {
+func updateCertInConfigmap(namespace string, client corev1.CoreV1Interface, cert []byte) error {
 	certEncoded := base64.StdEncoding.EncodeToString(cert)
-	cmc, err := configmap.NewController(namespace, client, true, ca)
+	cmc, err := configmap.NewController(namespace, client, false, nil)
 	if err != nil {
 		return err
 	}

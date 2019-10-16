@@ -160,7 +160,10 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 	}
 
 	// Check the siging cert stored in K8s configmap.
-	cmc := configmap.NewController(caNamespace, client.CoreV1())
+	cmc, err := configmap.NewController(caNamespace, client.CoreV1(), false, nil)
+	if err != nil {
+		t.Fatalf("failed to create configmap controller: %v", err)
+	}
 	strCertFromConfigMap, err := cmc.GetCATLSRootCert()
 	if err != nil {
 		t.Errorf("Cannot get the CA cert from configmap (%v)", err)
@@ -234,7 +237,10 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 	}
 
 	// Check the siging cert stored in K8s configmap.
-	cmc := configmap.NewController(caNamespace, client.CoreV1())
+	cmc, err := configmap.NewController(caNamespace, client.CoreV1(), false, nil)
+	if err != nil {
+		t.Fatalf("failed to create configmap controller: %v", err)
+	}
 	strCertFromConfigMap, err := cmc.GetCATLSRootCert()
 	if err != nil {
 		t.Errorf("Cannot get the CA cert from configmap (%v)", err)
@@ -365,7 +371,10 @@ func TestCreatePluggedCertCA(t *testing.T) {
 	}
 
 	// Check the siging cert stored in K8s configmap.
-	cmc := configmap.NewController(caNamespace, client.CoreV1())
+	cmc, err := configmap.NewController(caNamespace, client.CoreV1(), false, ca)
+	if err != nil {
+		t.Fatalf("failed to create configmap controller: %v", err)
+	}
 	strCertFromConfigMap, err := cmc.GetCATLSRootCert()
 	if err != nil {
 		t.Errorf("Cannot get the CA cert from configmap (%v)", err)

@@ -264,9 +264,6 @@ func NewSecretController(ca certificateAuthority, enableNamespacesByDefault bool
 
 // Run starts the SecretController until a value is sent to stopCh.
 func (sc *SecretController) Run(stopCh chan struct{}) {
-	go sc.configmapController.Run(stopCh)
-	sc.configmapController.WaitForSync(stopCh)
-
 	go sc.scrtController.Run(stopCh)
 
 	// saAdded calls upsertSecret to update and insert secret

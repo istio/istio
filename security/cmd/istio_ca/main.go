@@ -53,6 +53,7 @@ const (
 	selfSignedRootCertGracePeriodPercentile = "CITADEL_SELF_SIGNED_ROOT_CERT_GRACE_PERIOD_PERCENTILE"
 	workloadCertMinGracePeriod              = "CITADEL_WORKLOAD_CERT_MIN_GRACE_PERIOD"
 	enableJitterForRootCertRotator          = "CITADEL_ENABLE_JITTER_FOR_ROOT_CERT_ROTATOR"
+	enableExtraTrustAnchors                 = "CITADEL_ENABLE_EXTRA_TRUST_ANCHORS"
 )
 
 type cliOptions struct { // nolint: maligned
@@ -73,6 +74,7 @@ type cliOptions struct { // nolint: maligned
 	selfSignedRootCertCheckInterval         time.Duration
 	selfSignedRootCertGracePeriodPercentile int
 	enableJitterForRootCertRotator          bool
+	enableExtraTrustAnchors                 bool
 
 	workloadCertTTL    time.Duration
 	maxWorkloadCertTTL time.Duration
@@ -150,6 +152,10 @@ var (
 			"If true, set up a jitter to start root cert rotator. "+
 				"Jitter selects a backoff time in seconds to start root cert rotator, "+
 				"and the back off time is below root cert check interval.").Get(),
+		enableExtraTrustAnchors: env.RegisterBoolVar(enableExtraTrustAnchors,
+			true,
+			"If true, configure citadel to watch for `trust-anchor` configmaps. "+
+				"These extra anchors are appended to the list of roots distributed to workloads").Get(),
 	}
 
 	rootCmd = &cobra.Command{
@@ -171,7 +177,7 @@ var (
 		"istio-galley",
 	}
 
-	rootCertRotatorChan chan struct{}
+	stopCh chan struct{}
 )
 
 func fatalf(template string, args ...interface{}) {
@@ -484,6 +490,9 @@ func createCA(client corev1.CoreV1Interface) *ca.IstioCA {
 
 	caOpts.LivenessProbeOptions = opts.LivenessProbeOptions
 	caOpts.ProbeCheckInterval = opts.probeCheckInterval
+	caOpts.Namespace = opts.istioCaStorageNamespace
+	caOpts.Client = client
+	caOpts.EnableTrustAnchors = true
 
 	istioCA, err := ca.NewIstioCA(caOpts)
 	if err != nil {
@@ -500,12 +509,12 @@ func createCA(client corev1.CoreV1Interface) *ca.IstioCA {
 			livenessProbeChecker.Run()
 		}
 	}
-	// rootCertRotatorChan channel accepts signals to stop root cert rotator for
+	// stopCh channel accepts signals to stop root cert rotator for
 	// self-signed CA.
-	rootCertRotatorChan = make(chan struct{})
+	stopCh = make(chan struct{})
 	// Start root cert rotator in a separate goroutine.
-	istioCA.Run(rootCertRotatorChan)
-	go pkgcmd.WaitSignal(rootCertRotatorChan)
+	istioCA.Run(stopCh)
+	go pkgcmd.WaitSignal(stopCh)
 
 	return istioCA
 }

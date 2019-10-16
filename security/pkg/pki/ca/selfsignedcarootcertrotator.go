@@ -60,9 +60,9 @@ type SelfSignedCARootCertRotator struct {
 // NewSelfSignedCARootCertRotator returns a new root cert rotator instance that
 // rotates self-signed root cert periodically.
 func NewSelfSignedCARootCertRotator(config *SelfSignedCARootCertRotatorConfig,
-	ca *IstioCA) *SelfSignedCARootCertRotator {
+	ca *IstioCA, cmc *configmap.Controller) *SelfSignedCARootCertRotator {
 	rotator := &SelfSignedCARootCertRotator{
-		configMapController: configmap.NewController(config.caStorageNamespace, config.client),
+		configMapController: cmc,
 		caSecretController:  controller.NewCaSecretController(config.client),
 		config:              config,
 		ca:                  ca,
