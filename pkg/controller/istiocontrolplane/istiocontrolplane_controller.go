@@ -34,8 +34,7 @@ import (
 )
 
 const (
-	finalizer = "istio-operator"
-	v1        = "v1alpha2"
+	finalizer = "istio-finalizer.install.istio.io"
 	// finalizerMaxRetries defines the maximum number of attempts to add finalizers.
 	finalizerMaxRetries = 10
 )
@@ -48,11 +47,11 @@ const (
 // Add creates a new IstioControlPlane Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
-	return add(mgr, newReconciler(mgr, v1))
+	return add(mgr, newReconciler(mgr))
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager, _ string) reconcile.Reconciler {
+func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 	factory := &helmreconciler.Factory{CustomizerFactory: &IstioRenderingCustomizerFactory{}}
 	return &ReconcileIstioControlPlane{client: mgr.GetClient(), scheme: mgr.GetScheme(), factory: factory}
 }
@@ -153,6 +152,7 @@ func (r *ReconcileIstioControlPlane) Reconcile(request reconcile.Request) (recon
 		}
 		if finalizerError != nil {
 			log.Errorf("error removing finalizer: %s", finalizerError)
+			return reconcile.Result{}, finalizerError
 		}
 		return reconcile.Result{}, err
 	} else if finalizerIndex < 0 {
