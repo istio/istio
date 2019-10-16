@@ -161,8 +161,6 @@ func (o *joinOptions) prepare(flags *pflag.FlagSet) error {
 func (o *joinOptions) addFlags(flags *pflag.FlagSet) {
 	o.filenameOption.addFlags(flags)
 
-	//flags.BoolVar(&o.trust, "trust", true,
-	//	"establish trust between clustersByContext in the mesh")
 	flags.BoolVar(&o.serviceDiscovery, "discovery", true,
 		"link Istio service discovery with the clustersByContext service registriesS")
 	flags.BoolVar(&o.all, "all", o.all,

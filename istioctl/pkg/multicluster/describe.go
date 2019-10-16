@@ -130,7 +130,7 @@ func describeRemoteSecrets(env Environment, mesh *Mesh, c *Cluster, indent strin
 func describeIngressGateways(env Environment, c *Cluster, indent string) {
 	gatewayAddresses := c.readIngressGatewayAddresses(env)
 
-	env.Printf("gateways: ")
+	env.Printf("%vgateways: ", indent)
 	if len(gatewayAddresses) == 0 {
 		env.Printf("<none>")
 	} else {

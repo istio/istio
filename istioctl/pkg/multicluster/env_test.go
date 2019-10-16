@@ -45,7 +45,7 @@ users:
 - name: prod0
   user:
     auth-provider:
-      name: gcp` // lll
+      name: gcp` // nolint:lll
 
 func createFakeKubeconfigFileOrDie(t *testing.T) (string, *api.Config) {
 	t.Helper()
