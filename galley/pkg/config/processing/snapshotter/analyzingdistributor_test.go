@@ -50,13 +50,13 @@ type analyzerMock struct {
 func (a *analyzerMock) Analyze(c analysis.Context) {
 	ctx := *c.(*context)
 
-	a.analyzeCalls = append(a.analyzeCalls, ctx.sn)
-
 	c.Exists(a.collectionToAccess, resource.NewName("", ""))
 
 	for _, r := range a.entriesToReport {
 		c.Report(a.collectionToAccess, msg.NewInternalError(r, ""))
 	}
+
+	a.analyzeCalls = append(a.analyzeCalls, ctx.sn)
 }
 
 // Name implements Analyzer
@@ -131,6 +131,36 @@ func TestAnalyzeAndDistributeSnapshots(t *testing.T) {
 	for _, m := range u.messages {
 		g.Expect(m.Origin.Namespace()).To(Equal("includedNamespace"))
 	}
+}
+
+func TestAnalyzeNamespaceMessageHasNoOrigin(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	u := &updaterMock{}
+	a := &analyzerMock{
+		collectionToAccess: data.Collection1,
+		entriesToReport: []*resource.Entry{
+			{},
+		},
+	}
+	d := NewInMemoryDistributor()
+
+	settings := AnalyzingDistributorSettings{
+		StatusUpdater:      u,
+		Analyzer:           analysis.Combine("testCombined", a),
+		Distributor:        d,
+		AnalysisSnapshots:  []string{metadata.Default},
+		TriggerSnapshot:    metadata.Default,
+		CollectionReporter: nil,
+		AnalysisNamespaces: []string{"includedNamespace"},
+	}
+	ad := NewAnalyzingDistributor(settings)
+
+	sDefault := getTestSnapshot()
+
+	ad.Distribute(metadata.Default, sDefault)
+	g.Eventually(func() []*Snapshot { return a.analyzeCalls }).Should(Not(BeEmpty()))
+	g.Expect(u.messages).To(HaveLen(1))
 }
 
 func getTestSnapshot(names ...string) *Snapshot {

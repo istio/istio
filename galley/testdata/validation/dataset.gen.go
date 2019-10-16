@@ -9,7 +9,7 @@
 // dataset/config-v1alpha2-HTTPAPISpecBinding-invalid.yaml (128B)
 // dataset/config-v1alpha2-HTTPAPISpecBinding-valid.yaml (228B)
 // dataset/config-v1alpha2-QuotaSpec-invalid.yaml (105B)
-// dataset/config-v1alpha2-QuotaSpec-valid.yaml (237B)
+// dataset/config-v1alpha2-QuotaSpec-valid.yaml (235B)
 // dataset/config-v1alpha2-QuotaSpecBinding-invalid.yaml (120B)
 // dataset/config-v1alpha2-QuotaSpecBinding-valid.yaml (219B)
 // dataset/config-v1alpha2-adapter-invalid.yaml (607B)
@@ -341,7 +341,7 @@ spec:
         api.operation:
           exact: getProducts
     quotas:
-    - charge: "1"
+    - charge: 1
       quota: read-requests
 `)
 
@@ -356,7 +356,7 @@ func datasetConfigV1alpha2QuotaspecValidYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "dataset/config-v1alpha2-QuotaSpec-valid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0x5b, 0x65, 0x91, 0xf0, 0x46, 0xcc, 0x10, 0x9e, 0xb0, 0x5b, 0xef, 0xb9, 0x7a, 0x99, 0xb0, 0xdb, 0x42, 0x8a, 0x3f, 0x95, 0xdd, 0x66, 0x96, 0x3c, 0xaf, 0xa3, 0xe5, 0x13, 0x56, 0xfe, 0xa5, 0xa6}}
+	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0x17, 0x56, 0xb4, 0xc6, 0xde, 0x50, 0x2e, 0x8c, 0x2d, 0xb1, 0x83, 0x6d, 0x7f, 0x9e, 0x71, 0xf4, 0x63, 0xef, 0xf3, 0xfc, 0x4f, 0x26, 0xaa, 0xbd, 0xbf, 0xe9, 0xa2, 0xd9, 0x36, 0x66, 0x1d, 0xc9}}
 	return a, nil
 }
 
