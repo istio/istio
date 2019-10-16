@@ -16,7 +16,6 @@ package v2
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"reflect"
 	"sort"
@@ -233,9 +232,10 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				if con.CDSWatch {
 					// Already received a cluster watch request, this is an ACK
 					if discReq.ErrorDetail != nil {
-						adsLog.Warnf("ADS:CDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.node.ID, discReq.String())
 						errCode := codes.Code(discReq.ErrorDetail.Code)
-						incrementXDSRejects(cdsReject, con.node.ID, fmt.Sprintf("%s:%s", errCode.String(), discReq.ErrorDetail.GetMessage()))
+						adsLog.Warnf("ADS:CDS: ACK ERROR %v %s (%s) %s:%s", peerAddr, con.ConID, con.node.ID, errCode.String(), discReq.ErrorDetail.GetMessage())
+						adsLog.Debugf("ADS:CDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.node.ID, discReq.String())
+						incrementXDSRejects(cdsReject, con.node.ID, errCode.String())
 					} else if discReq.ResponseNonce != "" {
 						con.ClusterNonceAcked = discReq.ResponseNonce
 					}
@@ -256,9 +256,10 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				if con.LDSWatch {
 					// Already received a cluster watch request, this is an ACK
 					if discReq.ErrorDetail != nil {
-						adsLog.Warnf("ADS:LDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.node.ID, discReq.String())
 						errCode := codes.Code(discReq.ErrorDetail.Code)
-						incrementXDSRejects(ldsReject, con.node.ID, fmt.Sprintf("%s:%s", errCode.String(), discReq.ErrorDetail.GetMessage()))
+						adsLog.Warnf("ADS:LDS: ACK ERROR %v %s (%s) %s:%s", peerAddr, con.ConID, con.node.ID, errCode.String(), discReq.ErrorDetail.GetMessage())
+						adsLog.Debugf("ADS:LDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.node.ID, discReq.String())
+						incrementXDSRejects(ldsReject, con.node.ID, errCode.String())
 					} else if discReq.ResponseNonce != "" {
 						con.ListenerNonceAcked = discReq.ResponseNonce
 					}
@@ -275,9 +276,10 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 			case RouteType:
 				if discReq.ErrorDetail != nil {
-					adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.node.ID, discReq.String())
 					errCode := codes.Code(discReq.ErrorDetail.Code)
-					incrementXDSRejects(rdsReject, con.node.ID, fmt.Sprintf("%s:%s", errCode.String(), discReq.ErrorDetail.GetMessage()))
+					adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.node.ID, errCode.String(), discReq.ErrorDetail.GetMessage())
+					adsLog.Debugf("ADS:RDS: ACK ERROR %v %s (%s) %s:%s", peerAddr, con.ConID, con.node.ID, discReq.String())
+					incrementXDSRejects(rdsReject, con.node.ID, errCode.String())
 					continue
 				}
 				routes := discReq.GetResourceNames()
@@ -306,9 +308,10 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					} else if discReq.ErrorDetail != nil {
 						// If versions mismatch then we should either have an error detail or no routes if a protocol error has occurred
 						if discReq.ErrorDetail != nil {
-							adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.node.ID, discReq.String())
 							errCode := codes.Code(discReq.ErrorDetail.Code)
-							incrementXDSRejects(rdsReject, con.node.ID, fmt.Sprintf("%s:%s", errCode.String(), discReq.ErrorDetail.GetMessage()))
+							adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%s) %s:%s", peerAddr, con.ConID, con.node.ID, errCode.String(), discReq.ErrorDetail.GetMessage())
+							adsLog.Debugf("ADS:RDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.node.ID, discReq.String())
+							incrementXDSRejects(rdsReject, con.node.ID, errCode.String())
 						}
 						continue
 					} else if len(routes) == 0 {
@@ -332,9 +335,10 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 			case EndpointType:
 				if discReq.ErrorDetail != nil {
-					adsLog.Warnf("ADS:EDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.node.ID, discReq.String())
 					errCode := codes.Code(discReq.ErrorDetail.Code)
-					incrementXDSRejects(edsReject, con.node.ID, fmt.Sprintf("%s:%s", errCode.String(), discReq.ErrorDetail.GetMessage()))
+					adsLog.Warnf("ADS:EDS: ACK ERROR %v %s (%s) %s:%s", peerAddr, con.ConID, con.node.ID, errCode.String(), discReq.ErrorDetail.GetMessage())
+					adsLog.Debugf("ADS:EDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.node.ID, discReq.String())
+					incrementXDSRejects(edsReject, con.node.ID, errCode.String())
 					continue
 				}
 				clusters := discReq.GetResourceNames()
