@@ -291,7 +291,7 @@ func IsIstioVersionGE13(node *model.Proxy) bool {
 		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 3, Patch: -1}) >= 0
 }
 
-// IsIstioVersionGE13 checks whether the given Istio version is greater than or equals 1.4.
+// IsIstioVersionGE14 checks whether the given Istio version is greater than or equals 1.4.
 func IsIstioVersionGE14(node *model.Proxy) bool {
 	return node.IstioVersion == nil ||
 		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 4, Patch: -1}) >= 0
