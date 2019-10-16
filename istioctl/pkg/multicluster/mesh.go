@@ -9,11 +9,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type MeshDescConfigHints struct {
-	// hints for generating config
-	SelfSigned bool `json:selfSigned,omitempty`
-}
-
 // MeshDesc describes the topology of a multi-cluster mesh. The clustersByContext in the mesh reference the active
 // Kubeconfig file as described by https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig.
 type MeshDesc struct {
@@ -22,10 +17,7 @@ type MeshDesc struct {
 
 	// Collection of clustersByContext in the multi-cluster mesh. Clusters are indexed by Context name and
 	// reference clustersByContext defined in the Kubeconfig following kubectl precedence rules.
-	Clusters map[string]ClusterDesc `json:"clustersByContext,omitempty"`
-
-	// Hints for how multi-cluster configuration should be generated.
-	ConfigHints *MeshDescConfigHints `json:"configHints,omitempty"`
+	Clusters map[string]ClusterDesc `json:"clusters,omitempty"`
 }
 
 // ClusterDesc describes attributes of a cluster and the desired state of joining the mesh.
@@ -84,7 +76,7 @@ func NewMesh(kubeconfig string, md *MeshDesc, env Environment) (*Mesh, error) {
 
 	return &Mesh{
 		meshID:            md.MeshID,
-		clustersByContext: make(map[string]*Cluster),
+		clustersByContext: clusters,
 		sortedClusters:    sortedClusters,
 	}, nil
 }
