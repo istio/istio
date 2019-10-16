@@ -284,6 +284,10 @@ func (ca *IstioCA) Run(stopChan chan struct{}) {
 	}
 }
 
+func (ca *IstioCA) ConfigmapController() *configmap.Controller {
+	return ca.cmcController
+}
+
 // Sign takes a PEM-encoded CSR, subject IDs and lifetime, and returns a signed certificate. If forCA is true,
 // the signed certificate is a CA certificate, otherwise, it is a workload certificate.
 // TODO(myidpt): Add error code to identify the Sign error types.
