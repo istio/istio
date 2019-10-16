@@ -17,7 +17,6 @@ syntax = "proto3";
 import "k8s.io/api/core/v1/generated.proto";
 import "k8s.io/api/autoscaling/v2beta1/generated.proto";
 import "k8s.io/apimachinery/pkg/apis/meta/v1/generated.proto";
-import "k8s.io/apimachinery/pkg/runtime/generated.proto";
 import "github.com/gogo/protobuf/protobuf/google/protobuf/wrappers.proto";
 
 // $title: Operator Installation
@@ -166,14 +165,15 @@ package v1alpha2;
 
 // IstioControlPlane is a CustomResourceDefinition (CRD) describing an Istio control plane.
 message IstioControlPlane {
-    // GOFIELD:v11.TypeMeta `json:",inline"`
-    // GOFIELD:v11.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
     // Spec defines the desired state of IstioControlPlane.
     IstioControlPlaneSpec spec = 3;
     // Status reports the status of the Istio control plane.
     InstallStatus status = 4;
     string kind = 5;
     string apiVersion = 6;
+    // GOFIELD:v11.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,7,opt,name=metadata"`
+    // GOFIELD:v11.TypeMeta `json:",inline"`
+    string placeholder = 111;
 }
 
 // IstioControlPlaneSpec defines the desired state of IstioControlPlane.
