@@ -171,9 +171,9 @@ func poll(acceptedVersions []string, targetResource string) (present, notpresent
 
 	for version, count := range versionCount {
 		if contains(acceptedVersions, version) {
-			present+=count
+			present += count
 		} else {
-			notpresent+=count
+			notpresent += count
 		}
 	}
 	return present, notpresent, nil
