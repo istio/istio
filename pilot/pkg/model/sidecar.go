@@ -486,22 +486,6 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 								break
 							}
 						}
-						// If service does not have a matching port, check to see if there is a virtual service with matching port.
-						if !portMatched {
-							for _, vs := range ilw.virtualServices {
-								spec := vs.Spec.(*networking.VirtualService)
-								for _, http := range spec.Http {
-									for _, route := range http.Route {
-										if host.Name(route.Destination.Host).Matches(s.Hostname) &&
-											route.Destination.Port != nil &&
-											route.Destination.Port.Number == ilw.IstioListener.Port.GetNumber() {
-											portMatched = true
-											break
-										}
-									}
-								}
-							}
-						}
 					} else {
 						portMatched = true
 					}
