@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -64,7 +65,8 @@ func init() {
 }
 
 const (
-	watchDebounceDelay = 100 * time.Millisecond
+	watchDebounceDelay             = 100 * time.Millisecond
+	retryUpdateAfterFailureTimeout = time.Second
 
 	httpsHandlerReadyPath = "/ready"
 )
@@ -323,8 +325,9 @@ func (wh *Webhook) Run(stopCh <-chan struct{}) {
 	// already exist). Setup a persistent monitor to reconcile the
 	// configuration if the observed configuration doesn't match
 	// the desired configuration.
+	var retryAfterSetup bool
 	if err := wh.rebuildWebhookConfig(); err == nil {
-		wh.createOrUpdateWebhookConfig()
+		retryAfterSetup = wh.createOrUpdateWebhookConfig()
 	}
 	webhookChangedCh := wh.monitorWebhookChanges(stopCh)
 
@@ -332,6 +335,11 @@ func (wh *Webhook) Run(stopCh <-chan struct{}) {
 	var keyCertTimerC <-chan time.Time
 	var configTimerC <-chan time.Time
 
+	if retryAfterSetup {
+		configTimerC = time.After(retryUpdateAfterFailureTimeout)
+	}
+
+	var retrying bool
 	for {
 		select {
 		case <-keyCertTimerC:
@@ -343,11 +351,26 @@ func (wh *Webhook) Run(stopCh <-chan struct{}) {
 			// rebuild the desired configuration and reconcile with the
 			// existing configuration.
 			if err := wh.rebuildWebhookConfig(); err == nil {
-				wh.createOrUpdateWebhookConfig()
+				if retry := wh.createOrUpdateWebhookConfig(); retry {
+					configTimerC = time.After(retryUpdateAfterFailureTimeout)
+					if !retrying {
+						retrying = true
+						log.Infof("webhook create/update failed - retrying every %v until success", retryUpdateAfterFailureTimeout)
+					}
+				} else if retrying {
+					log.Infof("Retried create/update succeeded")
+					retrying = false
+				}
 			}
 		case <-webhookChangedCh:
 			// reconcile the desired configuration
-			wh.createOrUpdateWebhookConfig()
+			if retry := wh.createOrUpdateWebhookConfig(); retry {
+				if !retrying {
+					retrying = true
+					log.Infof("webhook create/update failed - retrying every %v until success", retryUpdateAfterFailureTimeout)
+				}
+				time.AfterFunc(retryUpdateAfterFailureTimeout, func() { webhookChangedCh <- struct{}{} })
+			}
 		case event, more := <-wh.keyCertWatcher.Event:
 			if more && (event.IsModify() || event.IsCreate()) && keyCertTimerC == nil {
 				keyCertTimerC = time.After(watchDebounceDelay)
