@@ -232,8 +232,8 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				if con.CDSWatch {
 					// Already received a cluster watch request, this is an ACK
 					if discReq.ErrorDetail != nil {
-						adsLog.Warnf("ADS:CDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.node.ID, discReq.String())
 						errCode := codes.Code(discReq.ErrorDetail.Code)
+						adsLog.Warnf("ADS:CDS: ACK ERROR %v %s (%s) %s:%s", peerAddr, con.ConID, con.node.ID, errCode.String(), discReq.ErrorDetail.GetMessage())
 						incrementXDSRejects(cdsReject, con.node.ID, errCode.String())
 					} else if discReq.ResponseNonce != "" {
 						con.ClusterNonceAcked = discReq.ResponseNonce
@@ -255,8 +255,8 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				if con.LDSWatch {
 					// Already received a cluster watch request, this is an ACK
 					if discReq.ErrorDetail != nil {
-						adsLog.Warnf("ADS:LDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.node.ID, discReq.String())
 						errCode := codes.Code(discReq.ErrorDetail.Code)
+						adsLog.Warnf("ADS:LDS: ACK ERROR %v %s (%s) %s:%s", peerAddr, con.ConID, con.node.ID, errCode.String(), discReq.ErrorDetail.GetMessage())
 						incrementXDSRejects(ldsReject, con.node.ID, errCode.String())
 					} else if discReq.ResponseNonce != "" {
 						con.ListenerNonceAcked = discReq.ResponseNonce
@@ -274,8 +274,8 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 			case RouteType:
 				if discReq.ErrorDetail != nil {
-					adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.node.ID, discReq.String())
 					errCode := codes.Code(discReq.ErrorDetail.Code)
+					adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%s) %s:%s", peerAddr, con.ConID, con.node.ID, errCode.String(), discReq.ErrorDetail.GetMessage())
 					incrementXDSRejects(rdsReject, con.node.ID, errCode.String())
 					continue
 				}
@@ -305,8 +305,8 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					} else if discReq.ErrorDetail != nil {
 						// If versions mismatch then we should either have an error detail or no routes if a protocol error has occurred
 						if discReq.ErrorDetail != nil {
-							adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.node.ID, discReq.String())
 							errCode := codes.Code(discReq.ErrorDetail.Code)
+							adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%s) %s:%s", peerAddr, con.ConID, con.node.ID, errCode.String(), discReq.ErrorDetail.GetMessage())
 							incrementXDSRejects(rdsReject, con.node.ID, errCode.String())
 						}
 						continue
@@ -331,8 +331,8 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 			case EndpointType:
 				if discReq.ErrorDetail != nil {
-					adsLog.Warnf("ADS:EDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.node.ID, discReq.String())
 					errCode := codes.Code(discReq.ErrorDetail.Code)
+					adsLog.Warnf("ADS:EDS: ACK ERROR %v %s (%s) %s:%s", peerAddr, con.ConID, con.node.ID, errCode.String(), discReq.ErrorDetail.GetMessage())
 					incrementXDSRejects(edsReject, con.node.ID, errCode.String())
 					continue
 				}
