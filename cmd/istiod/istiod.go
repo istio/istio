@@ -84,8 +84,7 @@ func main() {
 		k8sServer.WaitForCacheSync(stop)
 	}
 
-	// Off for now - working on replacement/simplified version
-	// StartSDSK8S(baseDir, s.Mesh)
+	StartSDSK8S(istiods.Mesh)
 
 	err = istiods.Start(stop, k8sServer.OnXDSStart)
 	if err != nil {
@@ -138,7 +137,7 @@ func initCerts(server *istiod.Server, client *kubernetes.Clientset, cfg *rest.Co
 //
 // TODO: modify NewSecretFetcher, add method taking a kube client ( for consistency )
 // TODO: modify NewServer, add method taking a grpcServer
-func StartSDSK8S(baseDir string, config *meshv1.MeshConfig) error {
+func StartSDSK8S(config *meshv1.MeshConfig) error {
 
 	// This won't work on VM - only on K8S.
 	var sdsCacheOptions cache.Options
