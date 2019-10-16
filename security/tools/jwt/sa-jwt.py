@@ -17,7 +17,7 @@
 """Python script generates a JWT signed by a Google service account
 
 Example:
-./sa-jwt.py  --iss example-issuer --aud foo,bar --claims=email:foo@google.com,dead:beef key.json 
+./sa-jwt.py  --iss example-issuer --aud foo,bar --claims=email:foo@google.com,dead:beef key.json
 """
 from __future__ import print_function
 import argparse
@@ -76,5 +76,5 @@ if __name__ == '__main__':
     parser.add_argument("-sub", "--sub",
                         help="sub claim. If not provided, it is set to the same as iss claim.")
     parser.add_argument("-claims", "--claims",
-                         help="Other claims in format name1:value1,name2:value2 etc. Only string values are supported.")
+                        help="Other claims in format name1:value1,name2:value2 etc. Only string values are supported.")
     print(main(parser.parse_args()))

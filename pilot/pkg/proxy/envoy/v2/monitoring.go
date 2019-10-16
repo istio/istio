@@ -102,23 +102,31 @@ var (
 	rdsSendErrPushes  = pushes.With(typeTag.Value("rds_senderr"))
 	rdsBuildErrPushes = pushes.With(typeTag.Value("rds_builderr"))
 
+	pushTime = monitoring.NewDistribution(
+		"pilot_xds_push_time",
+		"Total time in seconds Pilot takes to push lds, rds, cds and eds.",
+		[]float64{.01, .1, 1, 3, 5, 10, 20, 30},
+		monitoring.WithLabels(typeTag),
+	)
+
+	cdsPushTime = pushTime.With(typeTag.Value("cds"))
+	edsPushTime = pushTime.With(typeTag.Value("eds"))
+	ldsPushTime = pushTime.With(typeTag.Value("lds"))
+	rdsPushTime = pushTime.With(typeTag.Value("rds"))
+
 	// only supported dimension is millis, unfortunately. default to unitdimensionless.
 	proxiesQueueTime = monitoring.NewDistribution(
 		"pilot_proxy_queue_time",
-		"Time a proxy is in the push queue before being dequeued.",
+		"Time in seconds, a proxy is in the push queue before being dequeued.",
 		[]float64{.1, 1, 3, 5, 10, 20, 30},
 	)
 
 	// only supported dimension is millis, unfortunately. default to unitdimensionless.
 	proxiesConvergeDelay = monitoring.NewDistribution(
 		"pilot_proxy_convergence_time",
-		"Delay between config change and all proxies converging.",
-		[]float64{1, 3, 5, 10, 20, 30, 50, 100},
+		"Delay in seconds between config change and a proxy receiving all required configuration.",
+		[]float64{.1, .5, 1, 3, 5, 10, 20, 30},
 	)
-	proxiesConvergeDelayCdsErrors = proxiesConvergeDelay.With(errTag.Value("cds"))
-	proxiesConvergeDelayEdsErrors = proxiesConvergeDelay.With(errTag.Value("eds"))
-	proxiesConvergeDelayRdsErrors = proxiesConvergeDelay.With(errTag.Value("rds"))
-	proxiesConvergeDelayLdsErrors = proxiesConvergeDelay.With(errTag.Value("lds"))
 
 	pushContextErrors = monitoring.NewSum(
 		"pilot_xds_push_context_errors",
@@ -168,12 +176,9 @@ func init() {
 		xdsClients,
 		xdsResponseWriteTimeouts,
 		pushes,
+		pushTime,
 		proxiesConvergeDelay,
 		proxiesQueueTime,
-		proxiesConvergeDelayCdsErrors,
-		proxiesConvergeDelayEdsErrors,
-		proxiesConvergeDelayRdsErrors,
-		proxiesConvergeDelayLdsErrors,
 		pushContextErrors,
 		totalXDSInternalErrors,
 		inboundUpdates,

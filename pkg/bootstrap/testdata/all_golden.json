@@ -3,7 +3,7 @@
     "id": "sidecar~1.2.3.4~foo~bar",
     "cluster": "istio-proxy",
     "locality": {},
-    "metadata": {"INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","istio":"sidecar","EXCHANGE_KEYS":"NAME,NAMESPACE,INSTANCE_IPS,LABELS,OWNER,PLATFORM_METADATA,WORKLOAD_NAME,CANONICAL_TELEMETRY_SERVICE,MESH_ID,SERVICE_ACCOUNT"}
+    "metadata": {"INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","EXCHANGE_KEYS":"NAME,NAMESPACE,INSTANCE_IPS,LABELS,OWNER,PLATFORM_METADATA,WORKLOAD_NAME,CANONICAL_TELEMETRY_SERVICE,MESH_ID,SERVICE_ACCOUNT"}
   },
   "stats_config": {
     "use_all_default_tags": false,
@@ -119,6 +119,14 @@
       {
         "regex": "(cache\\.(.+?)\\.)",
         "tag_name": "cache"
+      },
+      {
+        "regex": "(component\\.(.+?)\\.)",
+        "tag_name": "component"
+      },
+      {
+        "regex": "(tag\\.(.+?)\\.)",
+        "tag_name": "tag"
       }
     ],
     "stats_matcher": {
@@ -284,7 +292,29 @@
           {
             "socket_address": {"address": "metrics-service", "port_value": 15000}
           }
-        ]
+        ],
+        "tls_context":{ 
+          "common_tls_context":{ 
+             "alpn_protocols":[ 
+                "h2"
+             ],
+             "tls_certificates":[ 
+                { 
+                   "certificate_chain":{ 
+                      "filename":"/etc/istio/ms/client.pem"
+                   },
+                   "private_key":{ 
+                      "filename":"/etc/istio/ms/key.pem"
+                   }
+                }
+             ],
+             "validation_context":{ 
+                "trusted_ca":{ 
+                   "filename":"/etc/istio/ms/ca.pem"
+                }
+             }
+          }
+       }
       }
 
       ,

@@ -40,16 +40,16 @@ func (s *StdoutStubDependencies) LookupUser() (*user.User, error) {
 
 // RunOrFail runs a command and panics, if it fails
 func (s *StdoutStubDependencies) RunOrFail(cmd Cmd, args ...string) {
-	fmt.Printf("%s %s\n", cmd, strings.Join(args, " "))
+	fmt.Println(fmt.Sprintf("%s %s", cmd, strings.Join(args, " ")))
 }
 
 // Run runs a command
 func (s *StdoutStubDependencies) Run(cmd Cmd, args ...string) error {
-	fmt.Printf("%s %s\n", cmd, strings.Join(args, " "))
+	fmt.Println(fmt.Sprintf("%s %s", cmd, strings.Join(args, " ")))
 	return nil
 }
 
 // RunQuietlyAndIgnore runs a command quietly and ignores errors
 func (s *StdoutStubDependencies) RunQuietlyAndIgnore(cmd Cmd, args ...string) {
-	fmt.Printf("%s %s\n", cmd, strings.Join(args, " "))
+	fmt.Println(fmt.Sprintf("%s %s", cmd, strings.Join(args, " ")))
 }

@@ -55,7 +55,7 @@ func getKubeConfigFromFile(dirname string) (string, error) {
 }
 
 func (k *KubeInfo) getEndpointIPForService(svc string) (ip string, err error) {
-	getOpt := meta_v1.GetOptions{IncludeUninitialized: true}
+	getOpt := meta_v1.GetOptions{}
 	var eps *v1.Endpoints
 	// Wait until endpoint is obtained
 	for i := 0; i <= 200; i++ {
@@ -112,7 +112,7 @@ func (k *KubeInfo) generateRemoteIstio(dst string, useAutoInject bool, proxyHub,
 
 	// Set the cluster id
 	config := strings.Split(k.RemoteKubeConfig, "/")
-	helmSetContent += " --set global.multicluster.clusterName=" + config[len(config)-1]
+	helmSetContent += " --set global.multiCluster.clusterName=" + config[len(config)-1]
 
 	// Enabling access log because some tests (e.g. TestGrpc) are validating
 	// based on the pods logs

@@ -19,7 +19,8 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	"istio.io/istio/galley/pkg/config/collection"
+	coll "istio.io/istio/galley/pkg/config/collection"
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/testing/data"
 )
@@ -27,7 +28,7 @@ import (
 func TestSnapshot_Basics(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	set := collection.NewSet([]collection.Name{data.Collection1})
+	set := coll.NewSet([]collection.Name{data.Collection1})
 	set.Collection(data.Collection1).Set(data.EntryN1I1V1)
 	sn := &Snapshot{set: set}
 
@@ -50,7 +51,7 @@ func TestSnapshot_Basics(t *testing.T) {
 func TestSnapshot_SerializeError(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	set := collection.NewSet([]collection.Name{data.Collection1})
+	set := coll.NewSet([]collection.Name{data.Collection1})
 	e := data.Event1Col1AddItem1.Entry.Clone()
 	e.Item = nil
 	set.Collection(data.Collection1).Set(e)
@@ -63,7 +64,7 @@ func TestSnapshot_SerializeError(t *testing.T) {
 func TestSnapshot_WrongCollection(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	set := collection.NewSet([]collection.Name{data.Collection1})
+	set := coll.NewSet([]collection.Name{data.Collection1})
 	set.Collection(data.Collection1).Set(data.Event1Col1AddItem1.Entry)
 	sn := &Snapshot{set: set}
 

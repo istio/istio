@@ -17,28 +17,33 @@ package envoy
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
-)
 
-var (
-	testRetry = Retry{
-		InitialInterval: time.Millisecond,
-		MaxRetries:      10,
-	}
+	. "github.com/onsi/gomega"
 )
 
 // TestProxy sample struct for proxy
 type TestProxy struct {
 	run     func(interface{}, int, <-chan error) error
 	cleanup func(int)
-	panic   func(interface{})
+	live    func() bool
 }
 
 func (tp TestProxy) Run(config interface{}, epoch int, stop <-chan error) error {
+	if tp.run == nil {
+		return nil
+	}
 	return tp.run(config, epoch, stop)
+}
+
+func (tp TestProxy) IsLive() bool {
+	if tp.live == nil {
+		return true
+	}
+	return tp.live()
 }
 
 func (tp TestProxy) Cleanup(epoch int) {
@@ -47,10 +52,17 @@ func (tp TestProxy) Cleanup(epoch int) {
 	}
 }
 
-func (tp TestProxy) Panic(config interface{}) {
-	if tp.panic != nil {
-		tp.panic(config)
-	}
+// TestStartExit starts a proxy and ensures the agent exits once the proxy exits
+func TestStartExit(t *testing.T) {
+	ctx := context.Background()
+	done := make(chan struct{})
+	a := NewAgent(TestProxy{}, 0)
+	go func() {
+		_ = a.Run(ctx)
+		done <- struct{}{}
+	}()
+	a.Restart("config")
+	<-done
 }
 
 // TestStartDrain tests basic start, termination sequence
@@ -85,9 +97,9 @@ func TestStartDrain(t *testing.T) {
 		}
 		return nil
 	}
-	a := NewAgent(TestProxy{start, nil, nil}, testRetry, -10*time.Second)
-	go a.Run(ctx)
-	a.ConfigCh() <- startConfig
+	a := NewAgent(TestProxy{run: start}, -10*time.Second)
+	go func() { _ = a.Run(ctx) }()
+	a.Restart(startConfig)
 	<-blockChan
 	cancel()
 	<-blockChan
@@ -96,6 +108,116 @@ func TestStartDrain(t *testing.T) {
 	if proxiesStarted != wantProxiesStarted {
 		t.Errorf("expected %v proxies to be started, got %v", wantProxiesStarted, proxiesStarted)
 	}
+}
+
+// TestWaitForLive tests that a hot restart will not occur until after a previous epoch goes live.
+func TestWaitForLive(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// The delay for the first epoch (i.e. epoch 0) to go "live"
+	delay := time.Second * 2
+	live := uint32(0)
+	var expectedEpoch1StartTime time.Time
+	var epoch1StartTime time.Time
+
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+
+	start := func(config interface{}, epoch int, _ <-chan error) error {
+		switch epoch {
+		case 0:
+			// Epoch 0 has started, get the expected time that epoch 1 should start including the "live" delay.
+			expectedEpoch1StartTime = time.Now().Add(delay)
+			wg.Done()
+
+			// Add a short delay before reporting live.
+			time.Sleep(delay)
+			atomic.StoreUint32(&live, 1)
+		case 1:
+			// Epoch 1 has started, record the time.
+			epoch1StartTime = time.Now()
+			wg.Done()
+		}
+		<-ctx.Done()
+		return nil
+	}
+	isLive := func() bool {
+		return atomic.LoadUint32(&live) > 0
+	}
+	a := NewAgent(TestProxy{run: start, live: isLive}, -10*time.Second)
+	go func() { _ = a.Run(ctx) }()
+
+	// Start the first epoch.
+	a.Restart("config1")
+
+	// Start the second epoch, should wait until the first goes live.
+	a.Restart("config2")
+
+	// Wait for both to start.
+	wg.Wait()
+
+	// An error threshold used for the time comparison. Should (hopefully) be enough to avoid flakes.
+	errThreshold := 1 * time.Second
+
+	// Verify that the second epoch is delayed until epoch 0 was live.
+	g.Expect(epoch1StartTime).Should(BeTemporally("~", expectedEpoch1StartTime, errThreshold))
+}
+
+func TestExitDuringWaitForLive(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	epoch0Exit := make(chan error)
+	epoch1Started := make(chan struct{}, 1)
+	start := func(config interface{}, epoch int, _ <-chan error) error {
+		switch epoch {
+		case 0:
+			// The first epoch just waits for the exit error.
+			return <-epoch0Exit
+		case 1:
+			// Indicate that the second epoch was started.
+			close(epoch1Started)
+		}
+		<-ctx.Done()
+		return nil
+	}
+	neverLive := func() bool {
+		// Never go live.
+		return false
+	}
+	a := NewAgent(TestProxy{run: start, live: neverLive}, -10*time.Second)
+	go func() { _ = a.Run(ctx) }()
+
+	// Start the first epoch.
+	a.Restart("config1")
+
+	// Immediately start the second epoch. This will block until the first one exits, since it will never go live.
+	go a.Restart("config2")
+
+	// Trigger the first epoch to exit
+	var epoch1StartTime time.Time
+	expectedEpoch1StartTime := time.Now()
+	epoch0Exit <- errors.New("fake")
+
+	select {
+	case <-epoch1Started:
+		// Started
+		epoch1StartTime = time.Now()
+		break
+	case <-time.After(5 * time.Second):
+		t.Fatalf("timed out waiting for epoch 1 to start")
+	}
+
+	// An error threshold used for the time comparison. Should (hopefully) be enough to avoid flakes.
+	errThreshold := 1 * time.Second
+
+	// Verify that the second epoch is delayed until epoch 0 was live.
+	g.Expect(epoch1StartTime).Should(BeTemporally("~", expectedEpoch1StartTime, errThreshold))
 }
 
 // TestApplyTwice tests that scheduling the same config does not trigger a restart
@@ -110,160 +232,13 @@ func TestApplyTwice(t *testing.T) {
 		<-ctx.Done()
 		return nil
 	}
-	cleanup := func(epoch int) {}
-	a := NewAgent(TestProxy{start, cleanup, nil}, testRetry, -10*time.Second)
-	go a.Run(ctx)
-	a.ConfigCh() <- desired
+	a := NewAgent(TestProxy{run: start}, -10*time.Second)
+	go func() { _ = a.Run(ctx) }()
+	a.Restart(desired)
 	applyCount++
-	a.ConfigCh() <- desired
+	a.Restart(desired)
 	applyCount++
 	cancel()
-}
-
-// TestApplyThrice applies same config twice but with a bad config between them
-func TestApplyThrice(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	good := "good"
-	bad := "bad"
-	applied := false
-	var a Agent
-	start := func(config interface{}, epoch int, _ <-chan error) error {
-		if config == bad {
-			return nil
-		}
-		if config == good && applied {
-			t.Errorf("Config has already been applied")
-		}
-		applied = true
-		<-ctx.Done()
-		return nil
-	}
-	cleanup := func(epoch int) {
-		// we should expect to see three epochs only: 0 for good, 1 for bad
-		if epoch == 1 {
-			go func() {
-				a.ConfigCh() <- good
-				time.Sleep(time.Second)
-				cancel()
-			}()
-		} else if epoch != 0 {
-			t.Errorf("Unexpected epoch %d", epoch)
-		}
-	}
-	retry := testRetry
-	retry.MaxRetries = 0
-	a = NewAgent(TestProxy{start, cleanup, nil}, retry, -10*time.Second)
-	go a.Run(ctx)
-	a.ConfigCh() <- good
-	a.ConfigCh() <- bad
-	<-ctx.Done()
-}
-
-// TestAbort checks that successfully started proxies are aborted on error in the child
-func TestAbort(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	good1 := "good1"
-	aborted1 := false
-	good2 := "good2"
-	aborted2 := false
-	bad := "bad"
-	active := 3
-	start := func(config interface{}, epoch int, abort <-chan error) error {
-		if config == bad {
-			return errors.New(bad)
-		}
-		select {
-		case err := <-abort:
-			if config == good1 {
-				aborted1 = true
-			} else if config == good2 {
-				aborted2 = true
-			}
-			return err
-		case <-ctx.Done():
-		}
-		return nil
-	}
-	cleanup := func(epoch int) {
-		// first 2 with an error, then 0 and 1 with abort
-		active--
-		if active == 0 {
-			if !aborted1 {
-				t.Error("Expected first epoch to be aborted")
-			}
-			if !aborted2 {
-				t.Error("Expected second epoch to be aborted")
-			}
-			cancel()
-		}
-	}
-	retry := testRetry
-	retry.InitialInterval = 10 * time.Second
-	a := NewAgent(TestProxy{start, cleanup, nil}, retry, 0)
-	go a.Run(ctx)
-	a.ConfigCh() <- good1
-	a.ConfigCh() <- good2
-	a.ConfigCh() <- bad
-	<-ctx.Done()
-}
-
-// TestStartFail injects an error in 2 tries to start the proxy
-func TestStartFail(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	retry := 0
-	start := func(config interface{}, epoch int, _ <-chan error) error {
-		if epoch == 0 && retry == 0 {
-			retry++
-			return fmt.Errorf("error on try %d", retry)
-		} else if epoch == 0 && retry == 1 {
-			retry++
-			return fmt.Errorf("error on try %d", retry)
-		} else if epoch == 0 && retry == 2 {
-			retry++
-			cancel()
-		} else if _, ok := config.(DrainConfig); !ok { // don't need to validate draining proxy here
-			t.Errorf("Unexpected epoch %d and retry %d", epoch, retry)
-			cancel()
-		}
-		return nil
-	}
-	cleanup := func(epoch int) {}
-	a := NewAgent(TestProxy{start, cleanup, nil}, testRetry, 0)
-	go a.Run(ctx)
-	a.ConfigCh() <- "test"
-	<-ctx.Done()
-}
-
-// TestExceedBudget drives to permanent failure
-func TestExceedBudget(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	retry := 0
-	start := func(config interface{}, epoch int, _ <-chan error) error {
-		if epoch == 0 && retry == 0 {
-			retry++
-			return fmt.Errorf("error on try %d", retry)
-		} else if epoch == 0 && retry == 1 {
-			retry++
-			return fmt.Errorf("error on try %d", retry)
-		} else {
-			t.Errorf("Unexpected epoch %d and retry %d", epoch, retry)
-			cancel()
-		}
-		return nil
-	}
-	cleanup := func(epoch int) {
-		if epoch == 0 && (retry == 0 || retry == 1 || retry == 2) {
-		} else {
-			t.Errorf("Unexpected epoch %d and retry %d", epoch, retry)
-			cancel()
-		}
-	}
-	retryDelay := testRetry
-	retryDelay.MaxRetries = 1
-	a := NewAgent(TestProxy{start, cleanup, func(_ interface{}) { cancel() }}, retryDelay, 0)
-	go a.Run(ctx)
-	a.ConfigCh() <- "test"
-	<-ctx.Done()
 }
 
 // TestStartTwiceStop applies three configs and validates that cleanups are called in order
@@ -309,15 +284,18 @@ func TestStartTwiceStop(t *testing.T) {
 				t.Errorf("Expected epoch 2 to be last to finish")
 			}
 		} else {
-			t.Errorf("Unexpected epoch %d in cleanup", epoch)
+			// epoch 3 is the drain epoch
+			if epoch != 3 {
+				t.Errorf("Unexpected epoch %d in cleanup", epoch)
+			}
 			cancel()
 		}
 	}
-	a := NewAgent(TestProxy{start, cleanup, nil}, testRetry, 0)
-	go a.Run(ctx)
-	a.ConfigCh() <- desired0
-	a.ConfigCh() <- desired1
-	a.ConfigCh() <- desired2
+	a := NewAgent(TestProxy{run: start, cleanup: cleanup}, 0)
+	go func() { _ = a.Run(ctx) }()
+	a.Restart(desired0)
+	a.Restart(desired1)
+	a.Restart(desired2)
 	<-ctx.Done()
 }
 
@@ -337,93 +315,11 @@ func TestRecovery(t *testing.T) {
 		<-ctx.Done()
 		return nil
 	}
-	a := NewAgent(TestProxy{start, func(_ int) {}, nil}, testRetry, 0)
-	go a.Run(ctx)
-	a.ConfigCh() <- desired
+	a := NewAgent(TestProxy{run: start}, 0)
+	go func() { _ = a.Run(ctx) }()
+	a.Restart(desired)
 
 	// make sure we don't try to reconcile twice
 	<-time.After(100 * time.Millisecond)
 	cancel()
-}
-
-// TestCascadingAbort plays a scenario that may trigger self-abort deadlock:
-//  * start three epochs 0, 1, 2
-//  * epoch 2 crashes, triggers abort of 0, 1
-//  * epoch 1 crashes before receiving abort, triggers abort of 0
-//  * epoch 0 aborts, recovery to config 2 follows
-func TestCascadingAbort(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	crash1 := make(chan struct{})
-	start := func(config interface{}, epoch int, abort <-chan error) error {
-		if config == 2 {
-			close(crash1)
-			return errors.New("planned crash for 2")
-		} else if config == 1 {
-			<-crash1
-			// ignore abort, crash by itself
-			<-time.After(100 * time.Millisecond)
-			return errors.New("planned crash for 1")
-		} else if config == 0 {
-			// abort, a bit later
-			<-time.After(300 * time.Millisecond)
-			err := <-abort
-			cancel()
-			return err
-		}
-		return nil
-	}
-	retry := testRetry
-	retry.InitialInterval = 1 * time.Second
-	a := NewAgent(TestProxy{start, func(_ int) {}, nil}, retry, 0)
-	go a.Run(ctx)
-	a.ConfigCh() <- 0
-	a.ConfigCh() <- 1
-	a.ConfigCh() <- 2
-	<-ctx.Done()
-}
-
-// TestLockup plays a scenario that may cause a deadlock
-//  * start epoch 0
-//  * start epoch 1 (wait till sets desired and current config)
-//  * epoch 0 crashes, triggers abort
-//  * epoch 1 aborts
-//  * progress should be made
-func TestLockup(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	crash := make(chan struct{})
-
-	try := 0
-	lock := sync.Mutex{}
-
-	start := func(config interface{}, epoch int, abort <-chan error) error {
-
-		lock.Lock()
-		if try >= 2 {
-			cancel()
-			lock.Unlock()
-			return nil
-		}
-		try++
-		lock.Unlock()
-		switch epoch {
-		case 0:
-			<-crash
-
-			return errors.New("crash")
-		case 1:
-			close(crash)
-			err := <-abort
-			return err
-		}
-		return nil
-	}
-	a := NewAgent(TestProxy{start, func(_ int) {}, nil}, testRetry, 0)
-	go a.Run(ctx)
-	a.ConfigCh() <- 0
-	a.ConfigCh() <- 1
-	select {
-	case <-ctx.Done():
-	case <-time.After(1 * time.Second):
-		t.Error("liveness check failed")
-	}
 }

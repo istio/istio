@@ -22,10 +22,13 @@ import (
 
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 
-	"istio.io/istio/galley/pkg/config/collection"
+	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/schema"
+	"istio.io/istio/galley/pkg/config/meta/schema"
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
+	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"istio.io/istio/galley/pkg/config/scope"
+	"istio.io/istio/galley/pkg/config/source/kube/apiserver/status"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
 )
 
@@ -51,8 +54,8 @@ type Source struct { // nolint:maligned
 	// Indicates whether this source is started or not.
 	started bool
 
-	// Set of resources that we're waiting CRD events for. As CRD events arrive, if they match to entries in expectedResources,
-	// the watchers for those resources will be created.
+	// Set of resources that we're waiting CRD events for. As CRD events arrive, if they match to entries in
+	// expectedResources, the watchers for those resources will be created.
 	expectedResources map[string]schema.KubeResource
 
 	// Set of resources that have been found so far.
@@ -70,15 +73,19 @@ type Source struct { // nolint:maligned
 
 	// watchers for each collection that were created as part of CRD discovery.
 	watchers map[collection.Name]*watcher
+
+	statusCtl status.Controller
 }
 
 var _ event.Source = &Source{}
+var _ snapshotter.StatusUpdater = &Source{}
 
 // New returns a new kube.Source.
 func New(o Options) *Source {
 	s := &Source{
-		options:  o,
-		handlers: &event.Handlers{},
+		options:   o,
+		handlers:  &event.Handlers{},
+		statusCtl: o.StatusController,
 	}
 
 	return s
@@ -116,7 +123,7 @@ func (s *Source) Start() {
 	scope.Source.Infof("Beginning CRD Discovery, to figure out resources that are available...")
 	s.provider = rt.NewProvider(s.options.Client, s.options.ResyncPeriod)
 	a := s.provider.GetAdapter(crdKubeResource)
-	s.crdWatcher = newWatcher(crdKubeResource, a)
+	s.crdWatcher = newWatcher(crdKubeResource, a, s.statusCtl)
 	s.crdWatcher.dispatch(event.HandlerFromFn(s.onCrdEvent))
 	s.crdWatcher.start()
 }
@@ -157,7 +164,8 @@ func (s *Source) onCrdEvent(e event.Event) {
 		s.publishing = true
 
 	case event.Updated, event.Deleted, event.Reset:
-		// The code is currently not equipped to deal with this. Simply publish a reset event to get everything restarted later.
+		// The code is currently not equipped to deal with this. Simply publish a reset event to get everything
+		// restarted later.
 		s.handlers.Handle(event.Event{Kind: event.Reset})
 
 	default:
@@ -199,11 +207,15 @@ func (s *Source) startWatchers() {
 			scope.Source.Debuga("Source.Start: sending immediate FullSync for: ", r.Collection.Name)
 			s.handlers.Handle(event.FullSyncFor(r.Collection.Name))
 		} else {
-			col := newWatcher(r, a)
+			col := newWatcher(r, a, s.statusCtl)
 			col.dispatch(s.handlers)
 			s.watchers[r.Collection.Name] = col
 		}
+	}
 
+	if s.statusCtl != nil {
+		scope.Source.Infof("Starting status controller...")
+		s.statusCtl.Start(s.provider, resources)
 	}
 
 	for c, w := range s.watchers {
@@ -225,8 +237,21 @@ func (s *Source) Stop() {
 	s.stop()
 }
 
+// Update implements processing.StatusUpdater
+func (s *Source) Update(messages diag.Messages) {
+	if s.statusCtl == nil {
+		panic("received diagnostic messages while the source is not configured with a status controller")
+	}
+
+	s.statusCtl.Report(messages)
+}
+
 func (s *Source) stop() {
 	// must be called under lock
+
+	if s.statusCtl != nil {
+		s.statusCtl.Stop()
+	}
 
 	if s.watchers != nil {
 		for c, w := range s.watchers {
@@ -246,7 +271,6 @@ func (s *Source) stop() {
 	s.expectedResources = nil
 
 	s.started = false
-
 }
 
 func asKey(group, kind string) string {

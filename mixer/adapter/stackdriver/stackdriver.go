@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // nolint: lll
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -a mixer/adapter/stackdriver/config/config.proto -i mixer/adapter/stackdriver/config -x "-n stackdriver -t logentry -t tracespan -t metric"
+//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/adapter/stackdriver/config/config.proto -i mixer/adapter/stackdriver/config -x "-n stackdriver -t logentry -t tracespan -t metric"
 
 // Package stackdriver provides an adapter that implements the logEntry and metrics
 // templates to serialize generated values to Stackdriver.

@@ -625,6 +625,15 @@ func TestWebhookInject(t *testing.T) {
 			wantFile:     "TestWebhookInject_http_probe_rewrite_disabled_via_annotation.patch",
 			templateFile: "TestWebhookInject_http_probe_rewrite_disabled_via_annotation_template.yaml",
 		},
+		{
+			inputFile:    "TestWebhookInject_injectorAnnotations.yaml",
+			wantFile:     "TestWebhookInject_injectorAnnotations.patch",
+			templateFile: "TestWebhookInject_injectorAnnotations_template.yaml",
+		},
+		{
+			inputFile: "TestWebhookInject_mtls_not_ready.yaml",
+			wantFile:  "TestWebhookInject_mtls_not_ready.patch",
+		},
 	}
 
 	for i, c := range cases {
@@ -752,6 +761,10 @@ func TestHelmInject(t *testing.T) {
 			inputFile: "user-volume.yaml",
 			wantFile:  "user-volume.yaml.injected",
 		},
+		{
+			inputFile: "hello-mtls-not-ready.yaml",
+			wantFile:  "hello-mtls-not-ready.yaml.injected",
+		},
 	}
 
 	for ci, c := range cases {
@@ -821,7 +834,7 @@ func TestHelmInject(t *testing.T) {
 	}
 }
 
-func createTestWebhook(t testing.TB, sidecarTemplate string) (*Webhook, func()) {
+func createTestWebhook(t testing.TB, configYaml string) (*Webhook, func()) {
 	m := mesh.DefaultMeshConfig()
 	dir, err := ioutil.TempDir("", "webhook_test")
 	if err != nil {
@@ -830,12 +843,12 @@ func createTestWebhook(t testing.TB, sidecarTemplate string) (*Webhook, func()) 
 	cleanup := func() {
 		_ = os.RemoveAll(dir)
 	}
-
+	config := &Config{}
+	if err := yaml.Unmarshal([]byte(configYaml), config); err != nil {
+		t.Fatalf("failed to read webhook config: %v", err)
+	}
 	return &Webhook{
-		sidecarConfig: &Config{
-			Policy:   InjectionPolicyEnabled,
-			Template: sidecarTemplate,
-		},
+		sidecarConfig:          config,
 		sidecarTemplateVersion: "unit-test-fake-version",
 		meshConfig:             &m,
 		valuesConfig:           getValuesWithHelm(nil, t),
@@ -854,11 +867,6 @@ func createTestWebhookFromHelmConfigMap(t *testing.T) (*Webhook, func()) {
 	// variables and generating a new configmap for use by the injection logic.
 	sidecarTemplate := loadConfigMapWithHelm(nil, t)
 	return createTestWebhook(t, sidecarTemplate)
-}
-
-type configMapBody struct {
-	Policy   string `yaml:"policy"`
-	Template string `yaml:"template"`
 }
 
 func loadSidecarTemplate(t testing.TB) string {
@@ -937,13 +945,7 @@ func loadConfigMapWithHelm(params *Params, t testing.TB) string {
 		t.Fatal("ConfigMap yaml missing config field")
 	}
 
-	body := &configMapBody{}
-	err = yaml.Unmarshal([]byte(cfg), body)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return body.Template
+	return cfg
 }
 
 func getHelmValues(t testing.TB) string {
@@ -1388,9 +1390,16 @@ func TestRunAndServe(t *testing.T) {
       "op":"add",
       "path":"/metadata/annotations",
       "value":{
-		  "sidecar.istio.io/status":"{\"version\":\"461c380844de8df1d1e2a80a09b6d7b58b8313c4a7d6796530eb124740a1440f\",\"initContainers\":[\"istio-init\"],\"containers\":[\"istio-proxy\"],\"volumes\":[\"istio-envoy\"],\"imagePullSecrets\":[\"istio-image-pull-secrets\"]}"
+         "sidecar.istio.io/status":"{\"version\":\"461c380844de8df1d1e2a80a09b6d7b58b8313c4a7d6796530eb124740a1440f\",\"initContainers\":[\"istio-init\"],\"containers\":[\"istio-proxy\"],\"volumes\":[\"istio-envoy\"],\"imagePullSecrets\":[\"istio-image-pull-secrets\"]}"
       }
-   }
+   },
+   {
+      "op": "add",
+      "path": "/metadata/labels",
+      "value": {
+         "security.istio.io/mtlsReady": "true"
+      }
+    }
 ]`)
 
 	cases := []struct {
@@ -1482,7 +1491,7 @@ func TestRunAndServe(t *testing.T) {
 			}
 
 			if !bytes.Equal(gotPatch.Bytes(), wantPatch.Bytes()) {
-				t.Fatalf("got bad patch: \n got %v \n want %v", gotPatch, wantPatch)
+				t.Fatalf("got bad patch: \n got  %v \n want %v", gotPatch.String(), wantPatch.String())
 			}
 		})
 	}
@@ -1561,8 +1570,8 @@ func testSideCarInjectorMetrics(t *testing.T, wh *Webhook) {
 func BenchmarkInjectServe(b *testing.B) {
 	mesh := mesh.DefaultMeshConfig()
 	params := &Params{
-		InitImage:           InitImageName(unitTestHub, unitTestTag, false),
-		ProxyImage:          ProxyImageName(unitTestHub, unitTestTag, false),
+		InitImage:           InitImageName(unitTestHub, unitTestTag),
+		ProxyImage:          ProxyImageName(unitTestHub, unitTestTag),
 		ImagePullPolicy:     "IfNotPresent",
 		Verbosity:           DefaultVerbosity,
 		SidecarProxyUID:     DefaultSidecarProxyUID,

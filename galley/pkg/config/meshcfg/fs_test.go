@@ -32,8 +32,6 @@ import (
 )
 
 func TestFsSource_NoInitialFile(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/15987")
-
 	g := NewGomegaWithT(t)
 
 	file := setupDir(t, nil)
@@ -69,8 +67,6 @@ func TestFsSource_NoInitialFile(t *testing.T) {
 }
 
 func TestFsSource_NoInitialFile_UpdateAfterStart(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/15987")
-
 	g := NewGomegaWithT(t)
 
 	file := setupDir(t, nil)
@@ -115,12 +111,10 @@ func TestFsSource_NoInitialFile_UpdateAfterStart(t *testing.T) {
 			Source: IstioMeshconfig,
 		},
 	}
-	g.Eventually(acc.Events).Should(Equal(expected))
+	g.Eventually(acc.Events).Should(ContainElement(expected[0]))
 }
 
 func TestFsSource_InitialFile_UpdateAfterStart(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/15987")
-
 	g := NewGomegaWithT(t)
 
 	mcfg := Default()
@@ -167,12 +161,10 @@ func TestFsSource_InitialFile_UpdateAfterStart(t *testing.T) {
 			Source: IstioMeshconfig,
 		},
 	}
-	g.Eventually(acc.Events).Should(Equal(expected))
+	g.Eventually(acc.Events).Should(ContainElement(expected[0]))
 }
 
 func TestFsSource_InitialFile(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/15987")
-
 	g := NewGomegaWithT(t)
 
 	mcfg := Default()
@@ -210,8 +202,6 @@ func TestFsSource_InitialFile(t *testing.T) {
 }
 
 func TestFsSource_StartStopStart(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/15987")
-
 	g := NewGomegaWithT(t)
 
 	mcfg := Default()
@@ -255,8 +245,6 @@ func TestFsSource_StartStopStart(t *testing.T) {
 }
 
 func TestFsSource_FileRemoved_NoChange(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/15987")
-
 	g := NewGomegaWithT(t)
 
 	mcfg := Default()
@@ -300,7 +288,6 @@ func TestFsSource_FileRemoved_NoChange(t *testing.T) {
 
 func TestFsSource_BogusFile_NoChange(t *testing.T) {
 	t.Skip("https://github.com/istio/istio/issues/15987")
-
 	g := NewGomegaWithT(t)
 
 	mcfg := Default()
@@ -340,7 +327,7 @@ func TestFsSource_BogusFile_NoChange(t *testing.T) {
 	g.Expect(err).To(BeNil())
 
 	time.Sleep(time.Millisecond * 100)
-	g.Consistently(acc.Events()).Should(HaveLen(0))
+	g.Consistently(acc.Events).Should(HaveLen(0))
 }
 
 func setupDir(t *testing.T, m *v1alpha1.MeshConfig) string {
@@ -366,8 +353,6 @@ func writeMeshCfg(t *testing.T, file string, m *v1alpha1.MeshConfig) { // nolint
 }
 
 func TestFsSource_InvalidPath(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/15987")
-
 	g := NewGomegaWithT(t)
 
 	file := setupDir(t, nil)
@@ -378,8 +363,6 @@ func TestFsSource_InvalidPath(t *testing.T) {
 }
 
 func TestFsSource_YamlToJSONError(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/15987")
-
 	g := NewGomegaWithT(t)
 
 	mcfg := Default()

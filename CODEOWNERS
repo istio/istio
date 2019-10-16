@@ -3,7 +3,7 @@
 /galley/                                                         @istio/wg-config-maintainers
 /install/                                                        @istio/wg-environments-maintainers
 /istioctl/                                                       @istio/wg-user-experience-maintainers
-/mixer/                                                          @istio/wg-policy-and-telemetry-maintainers
+/mixer/                                                          @istio/wg-policies-and-telemetry-maintainers
 /pilot/                                                          @istio/wg-networking-maintainers
 /pilot/pkg/security/                                             @istio/wg-security-maintainers
 /pilot/pkg/config/                                               @istio/wg-config-maintainers @istio/wg-networking-maintainers
@@ -21,14 +21,15 @@
 /release/                                                        @istio/wg-test-and-release-maintainers
 /samples/                                                        @istio/wg-docs-maintainers
 /security/                                                       @istio/wg-security-maintainers
+/tests/                                                          @istio/wg-test-and-release-maintainers
 /tests/e2e/local/                                                @istio/wg-test-and-release-maintainers
 /tests/e2e/tests/mixer/                                          @istio/wg-policies-and-telemetry-maintainers
 /tests/e2e/tests/pilot/                                          @istio/wg-networking-maintainers
-/tests/integration/conformance/                                  @istio/wg-test-and-release--maintainers
+/tests/integration/conformance/                                  @istio/wg-test-and-release-maintainers
 /tests/integration/framework/                                    @istio/wg-test-and-release-maintainers
 /tests/integration/galley/                                       @istio/wg-config-maintainers
-/tests/integration/mixer/                                        @istio/wg-policy-and-telemetry-maintainers
-/tests/integration/telemetry/                                    @istio/wg-policy-and-telemetry-maintainers
+/tests/integration/mixer/                                        @istio/wg-policies-and-telemetry-maintainers
+/tests/integration/telemetry/                                    @istio/wg-policies-and-telemetry-maintainers
 /tests/integration/pilot/                                        @istio/wg-networking-maintainers
 /tests/integration/qualification/                                @istio/wg-test-and-release-maintainers
 /tests/integration/security/                                     @istio/wg-security-maintainers

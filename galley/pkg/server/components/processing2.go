@@ -32,15 +32,19 @@ import (
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 
+	"istio.io/istio/galley/pkg/config/analysis/analyzers"
 	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/galley/pkg/config/meta/metadata"
+	"istio.io/istio/galley/pkg/config/meta/schema"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
-	"istio.io/istio/galley/pkg/config/processor/metadata"
-	"istio.io/istio/galley/pkg/config/schema"
+	"istio.io/istio/galley/pkg/config/processor"
+	"istio.io/istio/galley/pkg/config/processor/groups"
+	"istio.io/istio/galley/pkg/config/processor/transforms"
 	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
-	"istio.io/istio/galley/pkg/config/source/kube/rt"
-	"istio.io/istio/galley/pkg/runtime/groups"
+	"istio.io/istio/galley/pkg/config/source/kube/apiserver/status"
+	"istio.io/istio/galley/pkg/config/util/kuberesource"
 	"istio.io/istio/galley/pkg/server/process"
 	"istio.io/istio/galley/pkg/server/settings"
 	configz "istio.io/istio/pkg/mcp/configz/server"
@@ -51,6 +55,8 @@ import (
 	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/mcp/source"
 )
+
+const versionMetadataKey = "config.source.version"
 
 // Processing2 component is the main config processing component that will listen to a config source and publish
 // resources through an MCP server, or a dialout connection.
@@ -89,6 +95,7 @@ func NewProcessing2(a *settings.Args) *Processing2 {
 func (p *Processing2) Start() (err error) {
 	var mesh event.Source
 	var src event.Source
+	var updater snapshotter.StatusUpdater
 
 	if mesh, err = meshcfgNewFS(p.args.MeshConfigFile); err != nil {
 		return
@@ -96,15 +103,35 @@ func (p *Processing2) Start() (err error) {
 
 	m := metadata.MustGet()
 
-	kubeResources := p.disableExcludedKubeResources(m)
+	kubeResources := kuberesource.DisableExcludedKubeResources(m.KubeSource().Resources(), p.args.ExcludedResourceKinds, p.args.EnableServiceDiscovery)
 
-	if src, err = p.createSource(kubeResources); err != nil {
+	if src, updater, err = p.createSourceAndStatusUpdater(kubeResources); err != nil {
 		return
 	}
 
-	var distributor snapshotter.Distributor = snapshotter.NewMCPDistributor(p.mcpCache)
+	transformProviders := transforms.Providers(m)
 
-	if p.runtime, err = processorInitialize(m, p.args.DomainSuffix, event.CombineSources(mesh, src), distributor); err != nil {
+	var distributor snapshotter.Distributor = snapshotter.NewMCPDistributor(p.mcpCache)
+	if p.args.EnableConfigAnalysis {
+		settings := snapshotter.AnalyzingDistributorSettings{
+			StatusUpdater:     updater,
+			Analyzer:          analyzers.AllCombined().WithDisabled(kubeResources.DisabledCollections(), transformProviders),
+			Distributor:       distributor,
+			AnalysisSnapshots: []string{metadata.Default, metadata.SyntheticServiceEntry},
+			TriggerSnapshot:   metadata.Default,
+		}
+		distributor = snapshotter.NewAnalyzingDistributor(settings)
+	}
+
+	processorSettings := processor.Settings{
+		Metadata:           m,
+		DomainSuffix:       p.args.DomainSuffix,
+		Source:             event.CombineSources(mesh, src),
+		TransformProviders: transformProviders,
+		Distributor:        distributor,
+		EnabledSnapshots:   []string{metadata.Default, metadata.SyntheticServiceEntry},
+	}
+	if p.runtime, err = processorInitialize(processorSettings); err != nil {
 		return
 	}
 
@@ -128,7 +155,7 @@ func (p *Processing2) Start() (err error) {
 	grpc.EnableTracing = p.args.EnableGRPCTracing
 	p.grpcServer = grpc.NewServer(grpcOptions...)
 
-	p.reporter = mcpMetricReporter("galley/mcp/source")
+	p.reporter = mcpMetricReporter("galley")
 
 	options := &source.Options{
 		Watcher:            p.mcpCache,
@@ -140,8 +167,8 @@ func (p *Processing2) Start() (err error) {
 	md := grpcMetadata.MD{
 		versionMetadataKey: []string{version.Info.Version},
 	}
-	if err := parseSinkMeta(p.args.SinkMeta, md); err != nil {
-		return err
+	if err = parseSinkMeta(p.args.SinkMeta, md); err != nil {
+		return
 	}
 
 	if p.args.SinkAddress != "" {
@@ -212,36 +239,6 @@ func (p *Processing2) Start() (err error) {
 	return nil
 }
 
-func (p *Processing2) disableExcludedKubeResources(m *schema.Metadata) schema.KubeResources {
-
-	// Behave in the same way as existing logic:
-	// - Builtin types are excluded by default.
-	// - If ServiceDiscovery is enabled, any built-in type should be readded.
-
-	var result schema.KubeResources
-	for _, r := range m.KubeSource().Resources() {
-
-		if p.isKindExcluded(r.Kind) {
-			// Found a matching exclude directive for this KubeResource. Disable the resource.
-			r.Disabled = true
-
-			// Check and see if this is needed for Service Discovery. If needed, we will need to re-enable.
-			if p.args.EnableServiceDiscovery {
-				// IsBuiltIn is a proxy for types needed for service discovery
-				a := rt.DefaultProvider().GetAdapter(r)
-				if a.IsBuiltIn() {
-					// This is needed for service discovery. Re-enable.
-					r.Disabled = false
-				}
-			}
-		}
-
-		result = append(result, r)
-	}
-
-	return result
-}
-
 // ConfigZTopic returns the ConfigZTopic for the processor.
 func (p *Processing2) ConfigZTopic() fw.Topic {
 	return p.configzTopic
@@ -272,47 +269,42 @@ func (p *Processing2) getServerGrpcOptions() []grpc.ServerOption {
 
 func (p *Processing2) getKubeInterfaces() (k kube.Interfaces, err error) {
 	if p.k == nil {
-		p.k, err = newKubeFromConfigFile(p.args.KubeConfig)
+		p.k, err = newInterfaces(p.args.KubeConfig)
 	}
 	k = p.k
 	return
 }
 
-func (p *Processing2) createSource(resources schema.KubeResources) (src event.Source, err error) {
+func (p *Processing2) createSourceAndStatusUpdater(resources schema.KubeResources) (
+	src event.Source, updater snapshotter.StatusUpdater, err error) {
+
 	if p.args.ConfigPath != "" {
 		if src, err = fsNew2(p.args.ConfigPath, resources); err != nil {
 			return
 		}
+		updater = &snapshotter.InMemoryStatusUpdater{}
 	} else {
 		var k kube.Interfaces
 		if k, err = p.getKubeInterfaces(); err != nil {
 			return
 		}
 
-		if !p.args.DisableResourceReadyCheck {
-			if err = checkResourceTypesPresence(k, resources); err != nil {
-				return
-			}
+		var statusCtl status.Controller
+		if p.args.EnableConfigAnalysis {
+			statusCtl = status.NewController("validationMessages")
 		}
 
 		o := apiserver.Options{
-			Client:       k,
-			ResyncPeriod: p.args.ResyncPeriod,
-			Resources:    resources,
+			Client:           k,
+			ResyncPeriod:     p.args.ResyncPeriod,
+			Resources:        resources,
+			StatusController: statusCtl,
 		}
-		src = apiserver.New(o)
+		s := apiserver.New(o)
+		src = s
+		updater = s
 	}
 	return
-}
-
-func (p *Processing2) isKindExcluded(kind string) bool {
-	for _, excludedKind := range p.args.ExcludedResourceKinds {
-		if kind == excludedKind {
-			return true
-		}
-	}
-
-	return false
 }
 
 // Stop implements process.Component
@@ -370,4 +362,15 @@ func (p *Processing2) Address() net.Addr {
 		return nil
 	}
 	return l.Addr()
+}
+
+func parseSinkMeta(pairs []string, md grpcMetadata.MD) error {
+	for _, p := range pairs {
+		kv := strings.Split(p, "=")
+		if len(kv) != 2 || kv[0] == "" || kv[1] == "" {
+			return fmt.Errorf("sinkMeta not in key=value format: %v", p)
+		}
+		md[kv[0]] = append(md[kv[0]], kv[1])
+	}
+	return nil
 }

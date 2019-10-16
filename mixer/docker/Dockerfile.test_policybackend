@@ -14,5 +14,5 @@ FROM gcr.io/distroless/static:latest as distroless
 # This will build the final image based on either default or distroless from above
 # hadolint ignore=DL3006
 FROM ${BASE_DISTRIBUTION}
-COPY mixer-test-policybackend /usr/local/bin/policybackend
+COPY policybackend /usr/local/bin/policybackend
 ENTRYPOINT ["/usr/local/bin/policybackend", "server"]

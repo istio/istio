@@ -17,8 +17,10 @@ package model
 import (
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	authpb "istio.io/api/security/v1beta1"
+
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schemas"
+
 	istiolog "istio.io/pkg/log"
 )
 
@@ -45,6 +47,10 @@ type AuthorizationPolicies struct {
 
 	// Maps from namespace to the v1beta1 Authorization policies.
 	namespaceToV1beta1Policies map[string][]Config
+
+	// The name of the root namespace. Policy in the root namespace applies to workloads in all
+	// namespaces. Only used for v1beta1 Authorization policy.
+	rootNamespace string
 }
 
 // GetAuthorizationPolicies gets the authorization policies in the mesh.
@@ -52,6 +58,7 @@ func GetAuthorizationPolicies(env *Environment) (*AuthorizationPolicies, error) 
 	policy := &AuthorizationPolicies{
 		namespaceToV1alpha1Policies: map[string]*RolesAndBindings{},
 		namespaceToV1beta1Policies:  map[string][]Config{},
+		rootNamespace:               env.Mesh.GetRootNamespace(),
 	}
 
 	rbacConfig := env.IstioConfigStore.ClusterRbacConfig()
@@ -66,18 +73,21 @@ func GetAuthorizationPolicies(env *Environment) (*AuthorizationPolicies, error) 
 	if err != nil {
 		return nil, err
 	}
+	sortConfigByCreationTime(roles)
 	policy.addServiceRoles(roles)
 
 	bindings, err := env.List(schemas.ServiceRoleBinding.Type, NamespaceAll)
 	if err != nil {
 		return nil, err
 	}
+	sortConfigByCreationTime(bindings)
 	policy.addServiceRoleBindings(bindings)
 
 	policies, err := env.List(schemas.AuthorizationPolicy.Type, NamespaceAll)
 	if err != nil {
 		return nil, err
 	}
+	sortConfigByCreationTime(policies)
 	policy.addAuthorizationPolicies(policies)
 
 	return policy, nil
@@ -108,6 +118,18 @@ func (policy *AuthorizationPolicies) IsGlobalPermissiveEnabled() bool {
 		policy.rbacConfig.EnforcementMode == rbacproto.EnforcementMode_PERMISSIVE
 }
 
+// ListNamespacesOfToV1alpha1Policies returns all namespaces that have V1alpha1 policies.
+func (policy *AuthorizationPolicies) ListNamespacesOfToV1alpha1Policies() []string {
+	if policy == nil {
+		return nil
+	}
+	namespaces := make([]string, 0, len(policy.namespaceToV1alpha1Policies))
+	for ns := range policy.namespaceToV1alpha1Policies {
+		namespaces = append(namespaces, ns)
+	}
+	return namespaces
+}
+
 // ListServiceRoles returns ServiceRole in the given namespace.
 func (policy *AuthorizationPolicies) ListServiceRoles(ns string) []Config {
 	if policy == nil {
@@ -135,19 +157,30 @@ func (policy *AuthorizationPolicies) ListServiceRoleBindings(ns string) map[stri
 	return rolesAndBindings.Bindings
 }
 
-// ListAuthorizationPolicies returns the AuthorizationPolicy for the workload in the given namespace.
-func (policy *AuthorizationPolicies) ListAuthorizationPolicies(ns string, workloadLabels labels.Collection) []Config {
+// ListAuthorizationPolicies returns the AuthorizationPolicy for the workload in root namespace and the config namespace.
+func (policy *AuthorizationPolicies) ListAuthorizationPolicies(configNamespace string,
+	workloadLabels labels.Collection) []Config {
 	if policy == nil {
 		return nil
 	}
 
-	var ret []Config
+	var namespaces []string
+	if policy.rootNamespace != "" {
+		namespaces = append(namespaces, policy.rootNamespace)
+	}
+	// To prevent duplicate policies in case root namespace equals proxy's namespace.
+	if configNamespace != policy.rootNamespace {
+		namespaces = append(namespaces, configNamespace)
+	}
 
-	for _, config := range policy.namespaceToV1beta1Policies[ns] {
-		spec := config.Spec.(*authpb.AuthorizationPolicy)
-		selector := labels.Instance(spec.GetSelector().GetMatchLabels())
-		if workloadLabels.IsSupersetOf(selector) {
-			ret = append(ret, config)
+	var ret []Config
+	for _, ns := range namespaces {
+		for _, config := range policy.namespaceToV1beta1Policies[ns] {
+			spec := config.Spec.(*authpb.AuthorizationPolicy)
+			selector := labels.Instance(spec.GetSelector().GetMatchLabels())
+			if workloadLabels.IsSupersetOf(selector) {
+				ret = append(ret, config)
+			}
 		}
 	}
 

@@ -20,6 +20,7 @@ spec:
       creationTimestamp: null
       labels:
         app: traffic
+        security.istio.io/mtlsReady: "true"
     spec:
       containers:
       - image: fake.docker.io/google-samples/traffic-go-gke:1.0
@@ -129,7 +130,8 @@ spec:
           name: istio-certs
           readOnly: true
       initContainers:
-      - args:
+      - command:
+        - istio-iptables
         - -p
         - "15001"
         - -z

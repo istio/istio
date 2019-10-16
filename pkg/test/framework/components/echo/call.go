@@ -40,7 +40,7 @@ type CallOptions struct {
 	// default is chosen for the target Instance.
 	Host string
 
-	// Path specifies the URL path for the request.
+	// Path specifies the URL path for the HTTP(s) request.
 	Path string
 
 	// Count indicates the number of exchanges that should be made with the service endpoint.
@@ -52,4 +52,7 @@ type CallOptions struct {
 
 	// Timeout used for each individual request. Must be > 0, otherwise 30 seconds is used.
 	Timeout time.Duration
+
+	// Message to be sent if this is a GRPC request
+	Message string
 }

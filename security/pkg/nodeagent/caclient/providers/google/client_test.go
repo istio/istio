@@ -40,9 +40,9 @@ type mockCAServer struct {
 	Err   error
 }
 
-func (ca *mockCAServer) CreateCertificate(ctx context.Context, in *gcapb.IstioCertificateRequest) (*gcapb.IstioCertificateResponse, error) {
+func (ca *mockCAServer) CreateCertificate(ctx context.Context, in *gcapb.MeshCertificateRequest) (*gcapb.MeshCertificateResponse, error) {
 	if ca.Err == nil {
-		return &gcapb.IstioCertificateResponse{CertChain: ca.Certs}, nil
+		return &gcapb.MeshCertificateResponse{CertChain: ca.Certs}, nil
 	}
 	return nil, ca.Err
 }
@@ -85,7 +85,7 @@ func TestGoogleCAClient(t *testing.T) {
 		}
 
 		go func() {
-			gcapb.RegisterIstioCertificateServiceServer(s, &tc.server)
+			gcapb.RegisterMeshCertificateServiceServer(s, &tc.server)
 			if err := s.Serve(lis); err != nil {
 				t.Logf("Test case [%s]: failed to serve: %v", id, err)
 			}

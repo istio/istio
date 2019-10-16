@@ -53,6 +53,7 @@ type mRunFn func() int
 // Suite allows the test author to specify suite-related metadata and do setup in a fluent-style, before commencing execution.
 type Suite struct {
 	testID string
+	skip   string
 	mRun   mRunFn
 	osExit func(int)
 	labels label.Set
@@ -85,6 +86,12 @@ func (s *Suite) Label(labels ...label.Instance) *Suite {
 	return s
 }
 
+// Skip marks a suite as skipped with the given reason. This will prevent any setup functions from occurring.
+func (s *Suite) Skip(reason string) *Suite {
+	s.skip = reason
+	return s
+}
+
 // RequireEnvironment ensures that the current environment matches what the suite expects. Otherwise it
 // stops test execution. This also applies the appropriate label to the suite implicitly.
 func (s *Suite) RequireEnvironment(name environment.Name) *Suite {
@@ -96,6 +103,34 @@ func (s *Suite) RequireEnvironment(name environment.Name) *Suite {
 
 			// Adding this for testing purposes.
 			return fmt.Errorf("failed setup: Required environment not found")
+		}
+		return nil
+	}
+
+	// Prepend the function, so that it runs as the first thing.
+	fns := []resource.SetupFn{setupFn}
+	fns = append(fns, s.setupFns...)
+	s.setupFns = fns
+	return s
+}
+
+// RequireEnvironmentVersion validates the environment meets a minimum version
+func (s *Suite) RequireEnvironmentVersion(version string) *Suite {
+	setupFn := func(ctx resource.Context) error {
+
+		if ctx.Environment().EnvironmentName() == environment.Kube {
+			kenv := ctx.Environment().(*kube.Environment)
+			ver, err := kenv.GetKubernetesVersion()
+			if err != nil {
+				return fmt.Errorf("failed to get Kubernetes version: %v", err)
+			}
+			serverVersion := fmt.Sprintf("%s.%s", ver.Major, ver.Minor)
+			if serverVersion < version {
+				scopes.Framework.Infof("Skipping suite %q: Required Kubernetes version (%v) is greater than current: %v",
+					ctx.Settings().TestID, version, serverVersion)
+				s.osExit(0)
+
+			}
 		}
 		return nil
 	}
@@ -148,6 +183,12 @@ func (s *Suite) run() (errLevel int) {
 	}
 
 	ctx := rt.suiteContext()
+
+	// Skip the test if its explicitly skipped
+	if s.skip != "" {
+		scopes.Framework.Infof("Skipping suite %q: %s", ctx.Settings().TestID, s.skip)
+		return 0
+	}
 
 	// Before starting, check whether the current set of labels & label selectors will ever allow us to run tests.
 	// if not, simply exit now.

@@ -19,6 +19,7 @@ import (
 	"reflect"
 
 	"github.com/gogo/protobuf/proto"
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	v1beta12 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -61,6 +62,7 @@ func (p *Provider) initKnownAdapters() {
 				}
 				return out, nil
 			},
+			getStatus: noStatus,
 			isEqual:   resourceVersionsMatch,
 			isBuiltIn: true,
 		},
@@ -88,6 +90,7 @@ func (p *Provider) initKnownAdapters() {
 				}
 				return out, nil
 			},
+			getStatus: noStatus,
 			isEqual:   resourceVersionsMatch,
 			isBuiltIn: true,
 		},
@@ -115,6 +118,7 @@ func (p *Provider) initKnownAdapters() {
 				}
 				return out, nil
 			},
+			getStatus: noStatus,
 			isEqual:   resourceVersionsMatch,
 			isBuiltIn: true,
 		},
@@ -142,6 +146,7 @@ func (p *Provider) initKnownAdapters() {
 				}
 				return out, nil
 			},
+			getStatus: noStatus,
 			isEqual:   resourceVersionsMatch,
 			isBuiltIn: true,
 		},
@@ -183,7 +188,7 @@ func (p *Provider) initKnownAdapters() {
 				// Endpoint updates can be noisy. Make sure that the subsets have actually changed.
 				return reflect.DeepEqual(r1.Subsets, r2.Subsets)
 			},
-
+			getStatus: noStatus,
 			isBuiltIn: true,
 		},
 		asTypesKey("extensions", "Ingress"): {
@@ -209,6 +214,7 @@ func (p *Provider) initKnownAdapters() {
 				}
 				return out, nil
 			},
+			getStatus: noStatus,
 			isEqual:   resourceVersionsMatch,
 			isBuiltIn: true,
 		},
@@ -248,6 +254,30 @@ func (p *Provider) initKnownAdapters() {
 				}
 				return out, nil
 			},
+			getStatus: noStatus,
+			isEqual:   resourceVersionsMatch,
+			isBuiltIn: true,
+		},
+
+		asTypesKey("apps", "Deployment"): {
+			extractObject: defaultExtractObject,
+			extractResource: func(o interface{}) (proto.Message, error) {
+				if obj, ok := o.(*appsv1.Deployment); ok {
+					return obj, nil
+				}
+				return nil, fmt.Errorf("unable to convert to v1.Deployment: %T", o)
+			},
+			newInformer: func() (cache.SharedIndexInformer, error) {
+				return nil, fmt.Errorf("not implemented")
+			},
+			parseJSON: func(input []byte) (interface{}, error) {
+				out := &appsv1.Deployment{}
+				if _, _, err := deserializer.Decode(input, nil, out); err != nil {
+					return nil, err
+				}
+				return out, nil
+			},
+			getStatus: noStatus,
 			isEqual:   resourceVersionsMatch,
 			isBuiltIn: true,
 		},
@@ -265,5 +295,9 @@ func defaultExtractObject(o interface{}) metav1.Object {
 	if obj, ok := o.(metav1.Object); ok {
 		return obj
 	}
+	return nil
+}
+
+func noStatus(_ interface{}) interface{} {
 	return nil
 }

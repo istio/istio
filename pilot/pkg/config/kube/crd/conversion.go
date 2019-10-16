@@ -31,7 +31,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schemas"
-	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 
 // ConvertObject converts an IstioObject k8s-style object to the
@@ -87,7 +87,7 @@ func ConvertObjectFromUnstructured(schema schema.Instance, un *unstructured.Unst
 
 // ConvertConfig translates Istio config to k8s config JSON
 func ConvertConfig(schema schema.Instance, cfg model.Config) (IstioObject, error) {
-	spec, err := protomarshal.ToJSONMap(cfg.Spec)
+	spec, err := gogoprotomarshal.ToJSONMap(cfg.Spec)
 	if err != nil {
 		return nil, err
 	}

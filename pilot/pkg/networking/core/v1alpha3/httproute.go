@@ -20,7 +20,7 @@ import (
 	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -130,7 +130,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 	listenerPort := 0
 	useSniffing := false
 	var err error
-	if util.IsProtocolSniffingEnabledForNode(node) &&
+	if util.IsProtocolSniffingEnabledForOutbound(node) &&
 		!strings.HasPrefix(routeName, model.UnixAddressPrefix) {
 		index := strings.IndexRune(routeName, ':')
 		if index != -1 {

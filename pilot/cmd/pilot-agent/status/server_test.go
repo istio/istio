@@ -27,6 +27,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/util/retry"
+
 	"istio.io/istio/pkg/test/env"
 )
 
@@ -183,10 +185,16 @@ func TestHttpsAppProbe(t *testing.T) {
 	go server.Run(context.Background())
 
 	var statusPort uint16
-	for statusPort == 0 {
+	if err := retry.UntilSuccess(func() error {
 		server.mutex.RLock()
 		statusPort = server.statusPort
 		server.mutex.RUnlock()
+		if statusPort == 0 {
+			return fmt.Errorf("no port allocated")
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("failed to getport: %v", err)
 	}
 	t.Logf("status server starts at port %v, app starts at port %v", statusPort, appPort)
 	testCases := []struct {

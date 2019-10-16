@@ -45,6 +45,7 @@ spec:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -55,6 +56,9 @@ spec:
 <p>Namespace the target action is taking place in.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Action-service">
 <td><code>service</code></td>
@@ -62,6 +66,9 @@ spec:
 <td>
 <p>The Service the action is being taken on.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Action-method">
@@ -71,6 +78,9 @@ spec:
 <p>What action is being taken.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Action-path">
 <td><code>path</code></td>
@@ -79,6 +89,9 @@ spec:
 <p>HTTP REST path within the service</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Action-properties">
 <td><code>properties</code></td>
@@ -86,6 +99,9 @@ spec:
 <td>
 <p>Additional data about the action for use in policy.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -102,6 +118,7 @@ the caller identity.</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -111,6 +128,9 @@ the caller identity.</p>
 <td>
 <p>The user name/ID that the subject represents.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Subject-groups">
@@ -123,6 +143,9 @@ The operator can define how it is populated when creating an instance of
 the template.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Subject-properties">
 <td><code>properties</code></td>
@@ -130,6 +153,9 @@ the template.</p>
 <td>
 <p>Additional attributes about the subject.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -151,6 +177,7 @@ passed to individual authorization adapters to adjudicate.</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -162,6 +189,9 @@ passed to individual authorization adapters to adjudicate.</p>
 the caller identity.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Template-action">
 <td><code>action</code></td>
@@ -169,6 +199,9 @@ the caller identity.</p>
 <td>
 <p>An action defines &ldquo;how a resource is accessed&rdquo;.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>

@@ -17,16 +17,18 @@ package collection
 import (
 	"sort"
 	"strings"
+
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 )
 
 // Set of collections
 type Set struct {
-	collections map[Name]*Instance
+	collections map[collection.Name]*Instance
 }
 
 // NewSet returns a new set of collections
-func NewSet(names []Name) *Set {
-	c := make(map[Name]*Instance)
+func NewSet(names []collection.Name) *Set {
+	c := make(map[collection.Name]*Instance)
 	for _, n := range names {
 		c[n] = New(n)
 	}
@@ -38,7 +40,7 @@ func NewSet(names []Name) *Set {
 
 // NewSetFromCollections creates a new set based on the given collections
 func NewSetFromCollections(collections []*Instance) *Set {
-	c := make(map[Name]*Instance, len(collections))
+	c := make(map[collection.Name]*Instance, len(collections))
 	for _, col := range collections {
 		c[col.collection] = col
 	}
@@ -49,13 +51,13 @@ func NewSetFromCollections(collections []*Instance) *Set {
 }
 
 // Collection returns the named collection
-func (s *Set) Collection(n Name) *Instance {
+func (s *Set) Collection(n collection.Name) *Instance {
 	return s.collections[n]
 }
 
 // Clone the set.
 func (s *Set) Clone() *Set {
-	c := make(map[Name]*Instance, len(s.collections))
+	c := make(map[collection.Name]*Instance, len(s.collections))
 	for k, v := range s.collections {
 		c[k] = v.Clone()
 	}
@@ -66,8 +68,8 @@ func (s *Set) Clone() *Set {
 }
 
 // Names of the collections in the set.
-func (s *Set) Names() Names {
-	result := make([]Name, 0, len(s.collections))
+func (s *Set) Names() collection.Names {
+	result := make([]collection.Name, 0, len(s.collections))
 	for name := range s.collections {
 		result = append(result, name)
 	}

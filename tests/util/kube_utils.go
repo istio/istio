@@ -600,8 +600,6 @@ func PodExec(n, pod, container, command string, muteOutput bool, kubeconfig stri
 
 // CreateTLSSecret creates a secret from the provided cert and key files
 func CreateTLSSecret(secretName, n, keyFile, certFile string, kubeconfig string) (string, error) {
-	//cmd := fmt.Sprintf("kubectl create secret tls %s -n %s --key %s --cert %s", secretName, n, keyFile, certFile)
-	//return Shell(cmd)
 	return Shell("kubectl create secret tls %s -n %s --key %s --cert %s --kubeconfig=%s", secretName, n, keyFile, certFile, kubeconfig)
 }
 

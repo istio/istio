@@ -15,6 +15,6 @@
 package msg
 
 // Create static initializers file
-//go:generate go run "$GOPATH/src/istio.io/istio/galley/pkg/config/analysis/msg/generate.main.go" messages.yaml messages.gen.go
+//go:generate go run "$REPO_ROOT/galley/pkg/config/analysis/msg/generate.main.go" messages.yaml messages.gen.go
 
-//go:generate goimports -w -local istio.io "$GOPATH/src/istio.io/istio/galley/pkg/config/analysis/msg/messages.gen.go"
+//go:generate goimports -w -local istio.io "$REPO_ROOT/galley/pkg/config/analysis/msg/messages.gen.go"

@@ -3,7 +3,7 @@ spec:
   replicas: 7
   selector:
     matchLabels:
-      app: hello  
+      app: hello
       tier: backend
       track: stable
   strategy: {}
@@ -14,6 +14,7 @@ spec:
       creationTimestamp: null
       labels:
         app: hello
+        security.istio.io/mtlsReady: "true"
         tier: backend
         track: stable
     spec:

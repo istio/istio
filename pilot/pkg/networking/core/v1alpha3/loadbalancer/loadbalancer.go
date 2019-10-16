@@ -20,8 +20,8 @@ import (
 	"sort"
 
 	apiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/gogo/protobuf/types"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/golang/protobuf/ptypes/wrappers"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -88,7 +88,7 @@ func applyLocalityWeight(
 				// the load balancing weight for a locality is divided by the sum of the weights of all localities
 				for index, originalWeight := range destLocMap {
 					weight := float64(originalWeight*weight) / float64(totalWeight)
-					loadAssignment.Endpoints[index].LoadBalancingWeight = &types.UInt32Value{
+					loadAssignment.Endpoints[index].LoadBalancingWeight = &wrappers.UInt32Value{
 						Value: uint32(math.Ceil(weight)),
 					}
 				}

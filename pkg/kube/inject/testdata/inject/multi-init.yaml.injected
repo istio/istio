@@ -22,6 +22,7 @@ spec:
       creationTimestamp: null
       labels:
         app: hello
+        security.istio.io/mtlsReady: "true"
         tier: backend
         track: stable
     spec:
@@ -153,7 +154,8 @@ spec:
         image: busybox
         name: init-two
         resources: {}
-      - args:
+      - command:
+        - istio-iptables
         - -p
         - "15001"
         - -z

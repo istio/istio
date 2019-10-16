@@ -97,6 +97,17 @@ func TestPrincipal_Generate(t *testing.T) {
               any: true`,
 		},
 		{
+			name: "allowAll principal",
+			principal: &Principal{
+				Names:    []string{"ignored"},
+				AllowAll: true,
+			},
+			wantYAML: `
+        andIds:
+          ids:
+          - any: true`,
+		},
+		{
 			name: "principal with user",
 			principal: &Principal{
 				User: "user-1",
@@ -162,6 +173,31 @@ func TestPrincipal_Generate(t *testing.T) {
                     value:
                       stringMatch:
                         exact: name-2`,
+		},
+		{
+			name: "principal with requestPrincipal",
+			principal: &Principal{
+				RequestPrincipals: []string{"id-1", "id-2"},
+			},
+			wantYAML: `
+        andIds:
+          ids:
+          - orIds:
+              ids:
+              - metadata:
+                  filter: istio_authn
+                  path:
+                  - key: request.auth.principal
+                  value:
+                    stringMatch:
+                      exact: id-1
+              - metadata:
+                  filter: istio_authn
+                  path:
+                  - key: request.auth.principal
+                  value:
+                    stringMatch:
+                      exact: id-2`,
 		},
 		{
 			name: "principal with group",

@@ -2017,9 +2017,7 @@ func TestValidateDestination(t *testing.T) {
 				Host:   "foo.bar",
 				Subset: "shiny",
 				Port: &networking.PortSelector{
-					Port: &networking.PortSelector_Number{
-						Number: 5000,
-					},
+					Number: 5000,
 				},
 			},
 			valid: true,
@@ -3003,7 +3001,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					ApplyTo: 0,
 				},
 			},
-		}, error: "envoy filter: missing applyTo"},
+		}, error: "Envoy filter: missing applyTo"},
 		{name: "nil patch", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
@@ -3011,7 +3009,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					Patch:   nil,
 				},
 			},
-		}, error: "envoy filter: missing patch"},
+		}, error: "Envoy filter: missing patch"},
 		{name: "invalid patch operation", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
@@ -3019,7 +3017,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					Patch:   &networking.EnvoyFilter_Patch{},
 				},
 			},
-		}, error: "envoy filter: missing patch operation"},
+		}, error: "Envoy filter: missing patch operation"},
 		{name: "nil patch value", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
@@ -3029,7 +3027,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: "envoy filter: missing patch value for non-remove operation"},
+		}, error: "Envoy filter: missing patch value for non-remove operation"},
 		{name: "match with invalid regex", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
@@ -3044,7 +3042,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: "envoy filter: invalid regex for proxy version, [error parsing regexp: invalid nested repetition operator: `++`]"},
+		}, error: "Envoy filter: invalid regex for proxy version, [error parsing regexp: invalid nested repetition operator: `++`]"},
 		{name: "match with valid regex", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
@@ -3074,7 +3072,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: "envoy filter: applyTo for listener class objects cannot have non listener match"},
+		}, error: "Envoy filter: applyTo for listener class objects cannot have non listener match"},
 		{name: "listener with invalid filter match", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
@@ -3094,7 +3092,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: "envoy filter: filter match has no name to match on"},
+		}, error: "Envoy filter: filter match has no name to match on"},
 		{name: "listener with sub filter match and invalid applyTo", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
@@ -3116,7 +3114,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: "envoy filter: subfilter match can be used with applyTo HTTP_FILTER only"},
+		}, error: "Envoy filter: subfilter match can be used with applyTo HTTP_FILTER only"},
 		{name: "listener with sub filter match and invalid filter name", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
@@ -3138,7 +3136,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: "envoy filter: subfilter match requires filter match with envoy.http_connection_manager"},
+		}, error: "Envoy filter: subfilter match requires filter match with envoy.http_connection_manager"},
 		{name: "listener with sub filter match and no sub filter name", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
@@ -3160,7 +3158,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: "envoy filter: subfilter match has no name to match on"},
+		}, error: "Envoy filter: subfilter match has no name to match on"},
 		{name: "route configuration with invalid match", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
@@ -3175,7 +3173,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: "envoy filter: applyTo for http route class objects cannot have non route configuration match"},
+		}, error: "Envoy filter: applyTo for http route class objects cannot have non route configuration match"},
 		{name: "cluster with invalid match", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
@@ -3190,7 +3188,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: "envoy filter: applyTo for cluster class objects cannot have non cluster match"},
+		}, error: "Envoy filter: applyTo for cluster class objects cannot have non cluster match"},
 		{name: "invalid patch value", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
@@ -3212,7 +3210,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: `envoy filter: unknown field "foo" in v2.Cluster`},
+		}, error: `Envoy filter: unknown field "foo" in envoy_api_v2.Cluster`},
 		{name: "happy config", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
@@ -3265,6 +3263,20 @@ func TestValidateServiceEntries(t *testing.T) {
 			Endpoints: []*networking.ServiceEntry_Endpoint{
 				{Address: "lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
+			},
+			Resolution: networking.ServiceEntry_DNS,
+		},
+			valid: true},
+
+		{name: "discovery type DNS, label mtlsReady", in: networking.ServiceEntry{
+			Hosts: []string{"*.google.com"},
+			Ports: []*networking.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+				{Number: 8080, Protocol: "http", Name: "http-valid2"},
+			},
+			Endpoints: []*networking.ServiceEntry_Endpoint{
+				{Address: "lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}, Labels: map[string]string{"security.istio.io/mtlsReady": "true"}},
+				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}, Labels: map[string]string{"security.istio.io/mtlsReady": "true"}},
 			},
 			Resolution: networking.ServiceEntry_DNS,
 		},
@@ -3826,7 +3838,7 @@ func TestValidateAuthenticationMeshPolicy(t *testing.T) {
 	}
 }
 
-func TestValidateAuthorization(t *testing.T) {
+func TestValidateAuthorizationPolicy(t *testing.T) {
 	cases := []struct {
 		name  string
 		in    proto.Message
@@ -3869,11 +3881,11 @@ func TestValidateAuthorization(t *testing.T) {
 						},
 						When: []*authz.Condition{
 							{
-								Key:    "key1",
-								Values: []string{"v1", "v2"},
+								Key:    "source.ip",
+								Values: []string{"1.2.3.4", "5.6.7.0/24"},
 							},
 							{
-								Key:    "key2",
+								Key:    "request.headers[:authority]",
 								Values: []string{"v1", "v2"},
 							},
 						},
@@ -3910,6 +3922,51 @@ func TestValidateAuthorization(t *testing.T) {
 						When: []*authz.Condition{
 							{
 								Values: []string{"v1", "v2"},
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "empty selector: key",
+			in: &authz.AuthorizationPolicy{
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app":     "",
+						"version": "v1",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "empty selector: value",
+			in: &authz.AuthorizationPolicy{
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+						"":    "v1",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid attribute",
+			in: &authz.AuthorizationPolicy{
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+					},
+				},
+				Rules: []*authz.Rule{
+					{
+						When: []*authz.Condition{
+							{
+								Key:    "key1",
+								Values: []string{"v1"},
 							},
 						},
 					},

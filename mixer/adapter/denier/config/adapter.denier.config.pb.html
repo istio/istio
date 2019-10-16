@@ -26,6 +26,7 @@ and the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/tem
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -36,6 +37,9 @@ and the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/tem
 <p>The error to return when denying a request.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-valid_duration">
 <td><code>validDuration</code></td>
@@ -44,6 +48,9 @@ and the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/tem
 <p>The duration for which the denial is valid.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-valid_use_count">
 <td><code>validUseCount</code></td>
@@ -51,6 +58,9 @@ and the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/tem
 <td>
 <p>The number of times the denial may be used.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -122,6 +132,7 @@ be used directly after any stripping needed for security/privacy reasons.</p></l
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -132,6 +143,9 @@ be used directly after any stripping needed for security/privacy reasons.</p></l
 <p>The status code, which should be an enum value of
 <em>google.rpc.Code</em>.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="google-rpc-Status-message">
@@ -144,6 +158,9 @@ user-facing error message should be localized and sent in the
 by the client.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="google-rpc-Status-details">
 <td><code>details</code></td>
@@ -152,6 +169,9 @@ by the client.</p>
 <p>A list of messages that carry the error details.  There is a common set of
 message types for APIs to use.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>

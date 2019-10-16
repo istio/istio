@@ -19,8 +19,8 @@ import (
 	"net"
 	"strings"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/gogo/protobuf/types"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/golang/protobuf/ptypes/wrappers"
 )
 
 // CidrRange converts a CIDR or a single IP string to a corresponding CidrRange. For a single IP
@@ -55,6 +55,6 @@ func CidrRange(v string) (*core.CidrRange, error) {
 
 	return &core.CidrRange{
 		AddressPrefix: address,
-		PrefixLen:     &types.UInt32Value{Value: uint32(prefixLen)},
+		PrefixLen:     &wrappers.UInt32Value{Value: uint32(prefixLen)},
 	}, nil
 }

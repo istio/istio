@@ -28,8 +28,22 @@ func TestInMemoryStatusUpdaterWriteThenWait(t *testing.T) {
 	su := &InMemoryStatusUpdater{}
 
 	msgs := diag.Messages{
-		diag.NewMessage(diag.Error, "test", nil, "test"),
+		diag.NewMessage(diag.NewMessageType(diag.Error, "test", "test"), nil),
 	}
+
+	cancelCh := make(chan struct{})
+
+	su.Update(msgs)
+	g.Expect(su.WaitForReport(cancelCh)).To(BeTrue())
+	g.Expect(su.Get()).To(Equal(msgs))
+}
+
+func TestInMemoryStatusUpdaterWriteNothingThenWait(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	su := &InMemoryStatusUpdater{}
+
+	var msgs diag.Messages
 
 	cancelCh := make(chan struct{})
 
@@ -44,7 +58,7 @@ func TestInMemoryStatusUpdaterWaitThenWrite(t *testing.T) {
 	su := &InMemoryStatusUpdater{}
 
 	msgs := diag.Messages{
-		diag.NewMessage(diag.Error, "test", nil, "test"),
+		diag.NewMessage(diag.NewMessageType(diag.Error, "test", "test"), nil),
 	}
 
 	cancelCh := make(chan struct{})

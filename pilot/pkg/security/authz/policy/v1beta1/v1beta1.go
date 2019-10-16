@@ -15,13 +15,16 @@
 package v1beta1
 
 import (
+	"fmt"
+
 	http_config "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
 	envoy_rbac "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
 
-	istiolog "istio.io/pkg/log"
-
+	istio_rbac "istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/model"
+	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/security/authz/policy"
+	istiolog "istio.io/pkg/log"
 )
 
 var (
@@ -47,8 +50,24 @@ func (g *v1beta1Generator) Generate(forTCPFilter bool) *http_config.RBAC {
 	}
 
 	for _, config := range g.policies {
-		// TODO(yangminzhu): Implement the full authorization v1beta1 policy.
-		rbac.Policies[config.Name] = &envoy_rbac.Policy{}
+		spec := config.Spec.(*istio_rbac.AuthorizationPolicy)
+		for i, rule := range spec.Rules {
+			if p := g.generatePolicy(rule, forTCPFilter); p != nil {
+				name := fmt.Sprintf("ns[%s]-policy[%s]-rule[%d]", config.Namespace, config.Name, i)
+				rbac.Policies[name] = p
+				rbacLog.Debugf("generated policy %s: %+v", name, p)
+			}
+		}
 	}
 	return &http_config.RBAC{Rules: rbac}
+}
+
+func (g *v1beta1Generator) generatePolicy(rule *istio_rbac.Rule, forTCPFilter bool) *envoy_rbac.Policy {
+	if rule == nil {
+		return nil
+	}
+
+	m := authz_model.NewModelFromV1beta1(rule)
+	rbacLog.Debugf("constructed internal model: %+v", m)
+	return m.Generate(nil, forTCPFilter)
 }

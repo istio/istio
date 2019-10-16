@@ -17,7 +17,7 @@ package configdump
 import (
 	"testing"
 
-	proto "github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes/any"
 )
 
 func TestWrapper_GetListenerConfigDump(t *testing.T) {
@@ -50,7 +50,7 @@ func TestWrapper_GetListenerConfigDump(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			w := setupWrapper(t)
 			if tt.noListener {
-				w.Configs = []*proto.Any{}
+				w.Configs = []*any.Any{}
 			}
 			if tt.noConfigs {
 				w.Configs = nil
@@ -110,7 +110,7 @@ func TestWrapper_GetDynamicListenerDump(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			w := setupWrapper(t)
 			if tt.noListener {
-				w.Configs = []*proto.Any{}
+				w.Configs = []*any.Any{}
 			}
 			got, err := w.GetDynamicListenerDump(tt.stripVersion)
 			if (err != nil) != tt.wantErr {

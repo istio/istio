@@ -23,10 +23,10 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/jsonpb"
 
-	messagediff "gopkg.in/d4l3k/messagediff.v1"
+	"gopkg.in/d4l3k/messagediff.v1"
 
 	"istio.io/istio/pkg/test"
 

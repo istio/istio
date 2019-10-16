@@ -1,6 +1,6 @@
 // GENERATED FILE -- DO NOT EDIT
 //
-//go:generate $GOPATH/src/istio.io/istio/galley/tools/gen-meta/gen-meta.sh runtime pkg/metadata/types.gen.go
+//go:generate $REPO_ROOT/galley/tools/gen-meta/gen-meta.sh runtime pkg/metadata/types.gen.go
 //
 
 package metadata

@@ -17,8 +17,8 @@ package v2
 import (
 	"net"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
-	"github.com/gogo/protobuf/types"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	"github.com/golang/protobuf/ptypes/wrappers"
 
 	"istio.io/api/mesh/v1alpha1"
 
@@ -36,11 +36,7 @@ type EndpointsFilterFunc func(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 // Information for the mesh networks is provided as a MeshNetwork config map.
 func EndpointsByNetworkFilter(endpoints []*endpoint.LocalityLbEndpoints, conn *XdsConnection, env *model.Environment) []*endpoint.LocalityLbEndpoints {
 	// If the sidecar does not specify a network, ignore Split Horizon EDS and return all
-	network, found := conn.modelNode.Metadata[model.NodeMetadataNetwork]
-	if !found {
-		// Couldn't find the sidecar network, using default/local
-		network = ""
-	}
+	network := conn.node.Metadata.Network
 
 	// calculate the multiples of weight.
 	// It is needed to normalize the LB Weight across different networks.
@@ -73,7 +69,7 @@ func EndpointsByNetworkFilter(endpoints []*endpoint.LocalityLbEndpoints, conn *X
 			epNetwork := istioMetadata(lbEp, "network")
 			if epNetwork == network {
 				// This is a local endpoint
-				lbEp.LoadBalancingWeight = &types.UInt32Value{
+				lbEp.LoadBalancingWeight = &wrappers.UInt32Value{
 					Value: uint32(multiples),
 				}
 				lbEndpoints = append(lbEndpoints, lbEp)
@@ -116,7 +112,7 @@ func EndpointsByNetworkFilter(endpoints []*endpoint.LocalityLbEndpoints, conn *X
 									Address: epAddr,
 								},
 							},
-							LoadBalancingWeight: &types.UInt32Value{
+							LoadBalancingWeight: &wrappers.UInt32Value{
 								Value: w,
 							},
 						}
@@ -161,11 +157,11 @@ func istioMetadata(ep *endpoint.LbEndpoint, key string) string {
 }
 
 func createLocalityLbEndpoints(base *endpoint.LocalityLbEndpoints, lbEndpoints []*endpoint.LbEndpoint) *endpoint.LocalityLbEndpoints {
-	var weight *types.UInt32Value
+	var weight *wrappers.UInt32Value
 	if len(lbEndpoints) == 0 {
 		weight = nil
 	} else {
-		weight = &types.UInt32Value{}
+		weight = &wrappers.UInt32Value{}
 		for _, lbEp := range lbEndpoints {
 			weight.Value += lbEp.GetLoadBalancingWeight().Value
 		}

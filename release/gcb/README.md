@@ -8,9 +8,9 @@ CNI_BRANCH=master TAG=best_tag_ever DOCKER_HUB=docker.io/awesome_hub bash local.
 The script is going to do next steps.
 
 1. Create manifest file with all repos(istio. cni, tools, proxy, api) SHAs. Make sure that repos on your local machine synced to correct SHAs.
-2. Creates images, saves source code on your local machine.
-3. Creates Istio images with new version tag and pushes to provided hub.
-4. Creates charts with provided TAG and hub.
+1. Creates images, saves source code on your local machine.
+1. Creates Istio images with new version tag and pushes to provided hub.
+1. Creates charts with provided TAG and hub.
 
 When you build the release make sure that your repos are in the state from which you want to build.
 

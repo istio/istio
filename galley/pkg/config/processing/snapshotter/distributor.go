@@ -57,7 +57,7 @@ func NewInMemoryDistributor() *InMemoryDistributor {
 	}
 }
 
-// SetSnapshot is an implementation of Distributor.SetSnapshot
+// Distribute is an implementation of Distributor.Distribute
 func (d *InMemoryDistributor) Distribute(name string, s *Snapshot) {
 	d.snapshotsLock.Lock()
 	defer d.snapshotsLock.Unlock()

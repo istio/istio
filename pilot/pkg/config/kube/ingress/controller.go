@@ -150,15 +150,20 @@ func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model
 		// TODO: This works well for Add and Delete events, but not so for Update:
 		// An updated ingress may also trigger an Add or Delete for one of its constituent sub-rules.
 		switch typ {
-		case schemas.Gateway.Type:
-			//config, _ := ConvertIngressV1alpha3(*ingress, c.domainSuffix)
-			//f(config, event)
 		case schemas.VirtualService.Type:
 			f(model.Config{}, event)
 		}
 
 		return nil
 	})
+}
+
+func (c *controller) Version() string {
+	panic("implement me")
+}
+
+func (c *controller) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
+	panic("implement me")
 }
 
 func (c *controller) HasSynced() bool {

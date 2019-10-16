@@ -20,7 +20,7 @@ import (
 
 	apiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	envoycore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
 
@@ -194,7 +194,7 @@ func buildEnvForClustersWithDistribute(distribute []*meshconfig.LocalityLoadBala
 	}
 
 	env.PushContext = model.NewPushContext()
-	_ = env.PushContext.InitContext(env)
+	_ = env.PushContext.InitContext(env, nil, nil)
 	env.PushContext.SetDestinationRules([]model.Config{
 		{ConfigMeta: model.ConfigMeta{
 			Type:    schemas.DestinationRule.Type,
@@ -256,7 +256,7 @@ func buildEnvForClustersWithFailover() *model.Environment {
 	}
 
 	env.PushContext = model.NewPushContext()
-	_ = env.PushContext.InitContext(env)
+	_ = env.PushContext.InitContext(env, nil, nil)
 	env.PushContext.SetDestinationRules([]model.Config{
 		{ConfigMeta: model.ConfigMeta{
 			Type:    schemas.DestinationRule.Type,

@@ -147,12 +147,6 @@ function gen_file() {
     fi
 }
 
-function gen_istio_files() {
-    for target in istio-demo.yaml istio-demo-auth.yaml; do
-        gen_file $target "${DEST_DIR}"
-    done
-}
-
 function update_istio_install_docker() {
   pushd $TEMP_DIR/templates
   execute_sed "s|image: {PILOT_HUB}/\\(.*\\):{PILOT_TAG}|image: ${PILOT_HUB}/\\1:${PILOT_TAG}|" istio.yaml.tmpl
@@ -221,7 +215,7 @@ fi
 update_version_file
 
 # Generate the istio*.yaml files
-gen_istio_files
+gen_file istio-demo.yaml "${DEST_DIR}"
 
 # Generate platform files (consul)
 gen_platforms_files

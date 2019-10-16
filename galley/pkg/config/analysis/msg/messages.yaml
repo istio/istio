@@ -1,5 +1,7 @@
+# Please keep entries ordered by code.
+# NOTE: The range 0000-0100 is reserved for internal and/or future use.
 messages:
-  - name: "Internal Error"
+  - name: "InternalError"
     code: IST0001
     level: Error
     description: "There was an internal error in the toolchain. This is almost always a bug in the implementation."
@@ -8,7 +10,7 @@ messages:
       - name: detail
         type: string
 
-  - name: "Not Yet Implemented"
+  - name: "NotYetImplemented"
     code: IST0002
     level: Error
     description: "A feature that the configuration is depending on is not implemented yet."
@@ -17,7 +19,7 @@ messages:
       - name: detail
         type: string
 
-  - name: "Parse Error"
+  - name: "ParseError"
     code: IST0003
     level: Warning
     description: "There was a parse error during the parsing of the configuration text"
@@ -35,7 +37,7 @@ messages:
       - name: detail
         type: string
 
-  - name: "Referenced Resource Not Found"
+  - name: "ReferencedResourceNotFound"
     code: IST0101
     level: Error
     description: "A resource being referenced does not exist."
@@ -45,3 +47,77 @@ messages:
         type: string
       - name: refval
         type: string
+
+  - name: "NamespaceNotInjected"
+    code: IST0102
+    level: Warning
+    description: "A namespace is not enabled for Istio injection."
+    template: "The namespace is not enabled for Istio injection. Run 'kubectl label namespace %s istio-injection=enabled' to enable it, or 'kubectl label namespace %s istio-injection=disabled' to explicitly mark it as not needing injection"
+    args:
+      - name: namespace
+        type: string
+      - name: namespace2
+        type: string
+
+  - name: "PodMissingProxy"
+    code: IST0103
+    level: Warning
+    description: "A pod is missing the Istio proxy."
+    template: "The pod is missing its Istio proxy. Run 'kubectl delete pod %s -n %s' to restart it"
+    args:
+      - name: pod
+        type: string
+      - name: namespace
+        type: string
+
+  - name: "GatewayPortNotOnWorkload"
+    code: IST0104
+    level: Warning
+    description: "Unhandled gateway port"
+    template: "The gateway refers to a port that is not exposed on the workload (pod selector %s; port %d)"
+    args:
+      - name: selector
+        type: string
+      - name: port
+        type: int
+  
+  - name: "IstioProxyVersionMismatch"
+    code: IST0105
+    level: Warning
+    description: "The version of the Istio proxy running on the pod does not match the version used by the istio injector."
+    template: "The version of the Istio proxy running on the pod does not match the version used by the istio injector (pod version: %s; injector version: %s). This often happens after upgrading the Istio control-plane and can be fixed by redeploying the pod."
+    args:
+      - name: proxyVersion
+        type: string
+      - name: injectionVersion
+        type: string
+
+  - name: "SchemaValidationError"
+    code: IST0106
+    level: Error
+    description: "The resource has one or more schema validation errors."
+    template: "The resource has one or more schema validation errors: %v"
+    args:
+      - name: combinedErr
+        type: error
+
+  - name: "MisplacedAnnotation"
+    code: IST0107
+    level: Warning
+    description: "An Istio annotation is applied to the wrong kind of resource."
+    template: "Misplaced annotation: %s can only be applied to %s"
+    args:
+       - name: annotation
+         type: string
+       - name: kind
+         type: string
+
+  - name: "UnknownAnnotation"
+    code: IST0108
+    level: Warning
+    description: "An Istio annotation is not recognized for any kind of resource"
+    template: "Unknown annotation: %s"
+    args:
+       - name: annotation
+         type: string
+

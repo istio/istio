@@ -76,8 +76,7 @@ func TestSDSWriterSecretItems(t *testing.T) {
 					},
 				},
 			},
-			expected: append(
-				[]string{"olinger", "source", "destination", "serial_number", "expires", "valid", "type", "certdata"}),
+			expected: []string{"olinger", "source", "destination", "serial_number", "expires", "valid", "type", "certdata"},
 		},
 	}
 	for _, tt := range tests {
@@ -157,8 +156,7 @@ func TestSDSWriterSecretDiff(t *testing.T) {
 					},
 				},
 			},
-			expected: append(
-				[]string{"fields", "should", "serial_number", "expires", "valid", "type", "proxy", "certdata"}),
+			expected: []string{"fields", "should", "serial_number", "expires", "valid", "type", "proxy", "certdata"},
 		},
 	}
 	for _, tt := range tests {

@@ -1,4 +1,6 @@
-# Istio-wide Integration Test Framework ** DEPRECATED. DO NOT USE. **
+# Istio-wide Integration Test Framework
+
+> DEPRECATED. DO NOT USE
 
 This framework provides a universal way to bring various components into a test environment.
 Unlike [e2e tests](https://github.com/istio/istio/tree/master/tests/e2e), integration tests usually don't need to start the whole package of istio
@@ -6,23 +8,28 @@ and application services, instead, each integration test only needs several modu
 This integration test framework is built for this requirement. It's designed to be flexible enough for developers to pick the combination of components based on what behaviors are tested.
 
 ## Concept
+
 The idea is to decouple **component** with **test case**.
 
 ![integration_framework_structure](https://github.com/istio/istio/tree/master/tests/integration_old/images/integration_framework_structure.jpg)
 
 We break down `component`, `test environment` and `framework` into different abstractions.
 
-#### Component
+### Component
+
 `Component` is the smallest element in this framework, it can be any separated modules (mixer, proxy...), applications (bookinfo, echo server) or external tools (prometheus).
 
-#### Environment
+### Environment
+
 `Environment` is the package that combines multiple components as well as some higher level test environment setting.
 
-#### Framework
-`TestEnvManager` is the core part of this framework. It's a test environment manager for environment setting up and tearing down. 
+### Framework
+
+`TestEnvManager` is the core part of this framework. It's a test environment manager for environment setting up and tearing down.
 It takes one environment, brings up everything defined in this environment including components, kicks off tests with results recorded, and then tears down components and cleans up the environment afterwards.
 
-#### Life cycle of a component:  
+### Life cycle of a component
+
 * Components are defined in a environment by creating an instance in `GetComponents() []framework.Component` in `test environment`.
 * In `TestEnvManager.StartUp()` components will be triggered to start at once, and then `TestEnvManager.WaitUntilReady()` is going to check if everything is ready.
 If not, it will wait and retry several times before either the entire environment is ready or some components still fail after multiple attempts.
@@ -48,7 +55,6 @@ shows how to reuse a test cases in different test environments
 [Sample2](https://github.com/istio/istio/tree/master/tests/integration_old/example/tests/sample2)
 shows how to reuse a test environment in different test cases
 
-
 ### Run a single test manually
 
 ```bash
@@ -60,6 +66,7 @@ go test -v ./tests/integration_old/example/tests/sample1 \
 ```
 
 One example:
+
 ```bash
 go test -v ./tests/integration_old/example/tests/sample1
 -envoy_binary /home/bootstrap/go/out/linux_amd64/release/envoy \
@@ -68,8 +75,8 @@ go test -v ./tests/integration_old/example/tests/sample1
 -fortio_binary fortio
 ```
 
-
 ## File Structure
+
 Under istio/tests/integration_old directory, it has three top level folders: **component, framework and example**.
 
 * **component** is a centralized locations for existing components. New reusable components should be put here.
@@ -79,11 +86,6 @@ Under istio/tests/integration_old directory, it has three top level folders: **c
     * integration.sh is the entry script to build and trigger tests.
     * tests contains test files.
     * environment contains TestEnv implementations for tests here.
-
-
-## Add tests
-
-Besides the simple demos, there is another example of using this framework: [security integration](https://github.com/istio/istio/tree/master/security/tests/integration_old)
 
 ### Find the components or create new ones
 
@@ -124,13 +126,14 @@ Create a test environment and define what components are included.
     * `Cleanup()`: Clean everything created by this test environment, not component level
 
 ### Create your test files
-Create tests under your code directory and import framework package. 
-Here are [two example test files](https://github.com/istio/istio/tree/master/tests/integration_old/example/tests). Create multiple test cases with the name “Testxxx” and then add a TestMain(). 
+
+Create tests under your code directory and import framework package.
+Here are [two example test files](https://github.com/istio/istio/tree/master/tests/integration_old/example/tests). Create multiple test cases with the name “Testxxx” and then add a TestMain().
 Only several things need to be included in `TestMain()`.
 
 `testEM.RunTest(m)` handles bringing up environment, triggering tests and teardown.
 
-```bash
+```go
 var (
     testEM *framework.TestEnvManager
 )
@@ -141,7 +144,7 @@ func TestMain(m *testing.M) {
 
       // Create an environment
       testEnv := mixerEnvoyEnv.NewMixerEnvoyEnv(“mixer_envoy_env”)
-      
+
       // Feed the env to a testEnvManager testEM
       testEM = framework.NewTestEnvManager(testEnv, “sample_Test”)
 
@@ -153,4 +156,3 @@ func TestMain(m *testing.M) {
 }
 
 ```
-

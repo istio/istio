@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+	"k8s.io/apimachinery/pkg/version"
 
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/scopes"
@@ -31,7 +32,10 @@ import (
 	kubeExtClient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/client-go/dynamic"
 	kubeClient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	kubeClientCore "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -55,6 +59,7 @@ type Accessor struct {
 	ctl        *kubectl
 	set        *kubeClient.Clientset
 	extSet     *kubeExtClient.Clientset
+	dynClient  dynamic.Interface
 }
 
 // NewAccessor returns a new instance of an accessor.
@@ -65,7 +70,7 @@ func NewAccessor(kubeConfig string, baseWorkDir string) (*Accessor, error) {
 	}
 	restConfig.APIPath = "/api"
 	restConfig.GroupVersion = &kubeApiCore.SchemeGroupVersion
-	restConfig.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
+	restConfig.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: scheme.Codecs}
 
 	set, err := kubeClient.NewForConfig(restConfig)
 	if err != nil {
@@ -77,14 +82,20 @@ func NewAccessor(kubeConfig string, baseWorkDir string) (*Accessor, error) {
 		return nil, err
 	}
 
+	dynClient, err := dynamic.NewForConfig(restConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create dynamic client: %v", err)
+	}
+
 	return &Accessor{
 		restConfig: restConfig,
 		ctl: &kubectl{
 			kubeConfig: kubeConfig,
 			baseDir:    baseWorkDir,
 		},
-		set:    set,
-		extSet: extSet,
+		set:       set,
+		extSet:    extSet,
+		dynClient: dynClient,
 	}, nil
 }
 
@@ -393,6 +404,11 @@ func (a *Accessor) GetServiceAccount(namespace string) kubeClientCore.ServiceAcc
 	return a.set.CoreV1().ServiceAccounts(namespace)
 }
 
+// GetKubernetesVersion returns the Kubernetes server version
+func (a *Accessor) GetKubernetesVersion() (*version.Info, error) {
+	return a.extSet.ServerVersion()
+}
+
 // GetEndpoints returns the endpoints for the given service.
 func (a *Accessor) GetEndpoints(ns, service string, options kubeApiMeta.GetOptions) (*kubeApiCore.Endpoints, error) {
 	return a.set.CoreV1().Endpoints(ns).Get(service, options)
@@ -481,6 +497,16 @@ func (a *Accessor) GetNamespace(ns string) (*kubeApiCore.Namespace, error) {
 	}
 
 	return n, nil
+}
+
+// GetUnstructured returns an unstructured k8s resource object based on the provided schema, namespace, and name.
+func (a *Accessor) GetUnstructured(gvr schema.GroupVersionResource, namespace, name string) (*unstructured.Unstructured, error) {
+	u, err := a.dynClient.Resource(gvr).Namespace(namespace).Get(name, kubeApiMeta.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get resource %v of type %v: %v", name, gvr, err)
+	}
+
+	return u, nil
 }
 
 // ApplyContents applies the given config contents using kubectl.

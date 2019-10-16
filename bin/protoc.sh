@@ -19,31 +19,6 @@ if [[ $# -le 0 ]]; then
     exit 1
 fi
 
-SCRIPTPATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-ROOTDIR="$(dirname "$SCRIPTPATH")"
-
-# Ensure expected GOPATH setup
-if [ "$ROOTDIR" != "${GOPATH-$HOME/go}/src/istio.io/istio" ]; then
-  die "Istio not found in GOPATH/src/istio.io/"
-fi
-
 api=$(go list -m -f "{{.Dir}}" istio.io/api)
-protobuf=$(go list -m -f "{{.Dir}}" github.com/gogo/protobuf)
-gogo_genproto=$(go list -m -f "{{.Dir}}" istio.io/gogo-genproto)
 
-gen_img=gcr.io/istio-testing/build-tools:2019-08-16
-
-docker run \
-  -i \
-  --rm \
-  -v "$ROOTDIR:$ROOTDIR" \
-  -v "${api}:/protos/istio.io/api" \
-  -v "${protobuf}:/protos/github.com/gogo/protobuf" \
-  -v "${gogo_genproto}:/protos/istio.io/gogo-genproto" \
-  -w "$(pwd)" \
-  --entrypoint /usr/bin/protoc \
-  $gen_img \
-  -I/protos/istio.io/api \
-  -I/protos/github.com/gogo/protobuf \
-  -I/protos/istio.io/gogo-genproto/googleapis \
-  "$@"
+protoc -I"${REPO_ROOT}"/common-protos -I"${api}" "$@"

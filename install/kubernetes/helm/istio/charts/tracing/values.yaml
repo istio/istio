@@ -31,7 +31,7 @@ podAntiAffinityTermLabelSelector: []
 jaeger:
   hub: docker.io/jaegertracing
   image: all-in-one
-  tag: 1.12
+  tag: 1.14
   podAnnotations: {}
   memory:
     max_traces: 50000

@@ -24,6 +24,7 @@ import (
 	"strings"
 	"text/template"
 	"time"
+	"unicode/utf8"
 
 	"cloud.google.com/go/logging"
 	"cloud.google.com/go/logging/logadmin"
@@ -226,18 +227,33 @@ func toLabelMap(names []string, variables map[string]interface{}, logEntryTypes 
 		v := variables[name]
 		switch vt := v.(type) {
 		case string:
-			out[name] = vt
+			out[name] = stripBadUTF8(vt)
 		case []byte:
 			if logEntryTypes[name] == istio_policy_v1beta1.IP_ADDRESS {
 				out[name] = net.IP(vt).String()
 			} else {
-				out[name] = fmt.Sprintf("%v", vt)
+				out[name] = stripBadUTF8(fmt.Sprintf("%v", vt))
 			}
 		default:
-			out[name] = fmt.Sprintf("%v", vt)
+			out[name] = stripBadUTF8(fmt.Sprintf("%v", vt))
 		}
 	}
 	return out
+}
+
+func stripBadUTF8(input string) string {
+	if utf8.ValidString(input) {
+		return input
+	}
+
+	out := make([]rune, 0, len(input))
+	for _, r := range input {
+		if r == utf8.RuneError {
+			continue
+		}
+		out = append(out, r)
+	}
+	return string(out)
 }
 
 func toReq(mapping *config.Params_LogInfo_HttpRequestMapping, variables map[string]interface{}) *logging.HTTPRequest {

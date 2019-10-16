@@ -1,4 +1,4 @@
-## Overview
+# Overview
 
 This MCP stress test suite provides a set of regression tests and
 preconfigured benchmarks for analyzing cpu and memory usage. Most of
@@ -60,9 +60,9 @@ Generating common dataset ...
 Finished generating common dataset
 goos: linux
 goarch: amd64
-BenchmarkFullState-12    	     500	   2318910 ns/op
+BenchmarkFullState-12            500     2318910 ns/op
 PASS
-ok  	command-line-arguments	7.488s
+ok    command-line-arguments     7.488s
 ```
 
 This creates two pprof profile files.
@@ -77,9 +77,6 @@ Use `go tool pprof` to view the cpu and memory profiles.
 
 ```bash
 go tool pprof -http=":8081" cpu.out
-```
-
-```bash
 go tool pprof -http=":8081" mem.out
 ```
 
@@ -115,10 +112,11 @@ inconsistent changes detected by client    0
 GoRoutines                                 7076
 --- PASS: TestFullState (0.82s)
 PASS
-ok  	command-line-arguments	5.469s
+ok       command-line-arguments  5.469s
 ```
 
 These can also be used to run benchmark experiments.
+
 ```bash
 $ go test ./pkg/mcp/tests/stress/stress_test.go \
     -run ^Bench \
@@ -131,9 +129,9 @@ Generating common dataset ...
 Finished generating common dataset
 goos: linux
 goarch: amd64
-BenchmarkFullState-12    	     500	   2212815 ns/op
+BenchmarkFullState-12            500      2212815 ns/op
 PASS
-ok  	command-line-arguments	7.682s
+ok      command-line-arguments   7.682s
 ```
 
 ```bash
@@ -142,35 +140,34 @@ go tool pprof -http=":8081" cpu.out
 go tool pprof -http=":8081" mem.out
 ```
 
-
 The current set of flags can be discovered by passed the `-args -h` to the test.
 
 ```bash
 $ go test ./pkg/mcp/tests/stress/stress_test.go -args -h
   -client_inc_rate float
-    	percentate of clients that request incremental updates [0,1]
+        percentate of clients that request incremental updates [0,1]
   -iterations int
-    	number of update iterations (default 1000)
+        number of update iterations (default 1000)
   -max_apply_delay duration
-    	maximum extra delay inserted during per-client apply.
+        maximum extra delay inserted during per-client apply.
   -max_changes int
-    	maximum number of changes per commonDataset (default 10)
+        maximum number of changes per commonDataset (default 10)
   -max_update_delay duration
-    	maximum extra delay inserted between snapshot updates
+        maximum extra delay inserted between snapshot updates
   -min_apply_delay duration
-    	minimum extra delay inserted during per-client apply.
+        minimum extra delay inserted during per-client apply.
   -min_update_delay duration
-    	minimum extra delay inserted between snapshot updates
+        minimum extra delay inserted between snapshot updates
   -nack_rate float
-    	rate at which clients nack updates. Should be in the range [0,1] (default 0.01)
+        rate at which clients nack updates. Should be in the range [0,1] (default 0.01)
   -num_clients int
-    	number of load numClients (default 20)
+        number of load numClients (default 20)
   -num_collections int
-    	number of collections (default 50)
+        number of collections (default 50)
   -num_datasets int
-    	number of datasets to pre-generate for the test (default 1000)
+        number of datasets to pre-generate for the test (default 1000)
   -rand_seed int
-    	initial random seed for generating datasets
+        initial random seed for generating datasets
   -step_rate duration
-    	step rate for publishing new snapshot updates (default 1ms)
+        step rate for publishing new snapshot updates (default 1ms)
 ```

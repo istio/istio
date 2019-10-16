@@ -15,8 +15,6 @@
 package consul
 
 import (
-	"reflect"
-	"sort"
 	"time"
 
 	"github.com/hashicorp/consul/api"
@@ -24,9 +22,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/pkg/log"
 )
-
-type consulServices map[string][]string
-type consulServiceInstances []*api.CatalogService
 
 // Monitor handles service and instance changes
 type Monitor interface {
@@ -42,111 +37,111 @@ type InstanceHandler func(instance *api.CatalogService, event model.Event) error
 type ServiceHandler func(instances []*api.CatalogService, event model.Event) error
 
 type consulMonitor struct {
-	discovery            *api.Client
-	instanceCachedRecord consulServiceInstances
-	serviceCachedRecord  consulServices
-	instanceHandlers     []InstanceHandler
-	serviceHandlers      []ServiceHandler
-	period               time.Duration
+	discovery        *api.Client
+	instanceHandlers []InstanceHandler
+	serviceHandlers  []ServiceHandler
 }
 
-// NewConsulMonitor polls for changes in Consul Services and CatalogServices
-func NewConsulMonitor(client *api.Client, period time.Duration) Monitor {
+const (
+	refreshIdleTime    time.Duration = 5 * time.Second
+	periodicCheckTime  time.Duration = 2 * time.Second
+	blockQueryWaitTime time.Duration = 10 * time.Minute
+)
+
+// NewConsulMonitor watches for changes in Consul services and CatalogServices
+func NewConsulMonitor(client *api.Client) Monitor {
 	return &consulMonitor{
-		discovery:            client,
-		period:               period,
-		instanceCachedRecord: make(consulServiceInstances, 0),
-		serviceCachedRecord:  make(consulServices),
-		instanceHandlers:     make([]InstanceHandler, 0),
-		serviceHandlers:      make([]ServiceHandler, 0),
+		discovery:        client,
+		instanceHandlers: make([]InstanceHandler, 0),
+		serviceHandlers:  make([]ServiceHandler, 0),
 	}
 }
 
 func (m *consulMonitor) Start(stop <-chan struct{}) {
-	m.run(stop)
+	change := make(chan struct{})
+	go m.watchConsul(change, stop)
+	go m.updateRecord(change, stop)
 }
 
-func (m *consulMonitor) run(stop <-chan struct{}) {
-	ticker := time.NewTicker(m.period)
+func (m *consulMonitor) watchConsul(change chan struct{}, stop <-chan struct{}) {
+	var consulWaitIndex uint64
+
 	for {
 		select {
 		case <-stop:
+			return
+		default:
+			queryOptions := api.QueryOptions{
+				WaitIndex: consulWaitIndex,
+				WaitTime:  blockQueryWaitTime,
+			}
+			// This Consul REST API will block until service changes or timeout
+			_, queryMeta, err := m.discovery.Catalog().Services(&queryOptions)
+			if err != nil {
+				log.Warnf("Could not fetch services: %v", err)
+			} else if consulWaitIndex != queryMeta.LastIndex {
+				consulWaitIndex = queryMeta.LastIndex
+				change <- struct{}{}
+			}
+			time.Sleep(periodicCheckTime)
+		}
+	}
+}
+
+func (m *consulMonitor) updateRecord(change <-chan struct{}, stop <-chan struct{}) {
+	lastChange := int64(0)
+	ticker := time.NewTicker(periodicCheckTime)
+
+	for {
+		select {
+		case <-change:
+			lastChange = time.Now().Unix()
+		case <-ticker.C:
+			currentTime := time.Now().Unix()
+			if lastChange > 0 && currentTime-lastChange > int64(refreshIdleTime.Seconds()) {
+				log.Infof("Consul service changed")
+				m.updateServiceRecord()
+				m.updateInstanceRecord()
+				lastChange = int64(0)
+			}
+		case <-stop:
 			ticker.Stop()
 			return
-		case <-ticker.C:
-			m.updateServiceRecord()
-			m.updateInstanceRecord()
 		}
 	}
 }
 
 func (m *consulMonitor) updateServiceRecord() {
-	svcs, _, err := m.discovery.Catalog().Services(nil)
-	if err != nil {
-		log.Warnf("Could not fetch services: %v", err)
-		return
-	}
-
-	// The order of service tags may change even there is no service change
-	// Sort the service tags to avoid unnecessary pushes to envoy
-	for _, tags := range svcs {
-		sort.Strings(tags)
-	}
-	newRecord := consulServices(svcs)
-	if !reflect.DeepEqual(newRecord, m.serviceCachedRecord) {
-		// This is only a work-around solution currently
-		// Since Handler functions generally act as a refresher
-		// regardless of the input, thus passing in meaningless
-		// input should make functionalities work
-		//TODO
-		var obj []*api.CatalogService
-		var event model.Event
-		for _, f := range m.serviceHandlers {
-			go func(handler ServiceHandler) {
-				if err := handler(obj, event); err != nil {
-					log.Warnf("Error executing service handler function: %v", err)
-				}
-			}(f)
-		}
-		m.serviceCachedRecord = newRecord
+	// This is only a work-around solution currently
+	// Since Handler functions generally act as a refresher
+	// regardless of the input, thus passing in meaningless
+	// input should make functionalities work
+	//TODO
+	var obj []*api.CatalogService
+	var event model.Event
+	for _, f := range m.serviceHandlers {
+		go func(handler ServiceHandler) {
+			if err := handler(obj, event); err != nil {
+				log.Warnf("Error executing service handler function: %v", err)
+			}
+		}(f)
 	}
 }
 
 func (m *consulMonitor) updateInstanceRecord() {
-	svcs, _, err := m.discovery.Catalog().Services(nil)
-	if err != nil {
-		log.Warnf("Could not fetch instances: %v", err)
-		return
-	}
-
-	instances := make([]*api.CatalogService, 0)
-	for name := range svcs {
-		endpoints, _, err := m.discovery.Catalog().Service(name, "", nil)
-		if err != nil {
-			log.Warnf("Could not retrieve service catalogue from consul: %v", err)
-			continue
-		}
-		instances = append(instances, endpoints...)
-	}
-
-	newRecord := consulServiceInstances(instances)
-	sort.Sort(newRecord)
-	if !reflect.DeepEqual(newRecord, m.instanceCachedRecord) {
-		// This is only a work-around solution currently
-		// Since Handler functions generally act as a refresher
-		// regardless of the input, thus passing in meaningless
-		// input should make functionalities work
-		// TODO
-		obj := &api.CatalogService{}
-		var event model.Event
-		for _, f := range m.instanceHandlers {
-			go func(handler InstanceHandler) {
-				if err := handler(obj, event); err != nil {
-					log.Warnf("Error executing instance handler function: %v", err)
-				}
-			}(f)
-		}
-		m.instanceCachedRecord = newRecord
+	// This is only a work-around solution currently
+	// Since Handler functions generally act as a refresher
+	// regardless of the input, thus passing in meaningless
+	// input should make functionalities work
+	// TODO
+	obj := &api.CatalogService{}
+	var event model.Event
+	for _, f := range m.instanceHandlers {
+		go func(handler InstanceHandler) {
+			if err := handler(obj, event); err != nil {
+				log.Warnf("Error executing instance handler function: %v", err)
+			}
+		}(f)
 	}
 }
 
@@ -156,21 +151,4 @@ func (m *consulMonitor) AppendServiceHandler(h ServiceHandler) {
 
 func (m *consulMonitor) AppendInstanceHandler(h InstanceHandler) {
 	m.instanceHandlers = append(m.instanceHandlers, h)
-}
-
-// Len of the array
-func (a consulServiceInstances) Len() int {
-	return len(a)
-}
-
-// Swap i and j
-func (a consulServiceInstances) Swap(i, j int) {
-	a[i], a[j] = a[j], a[i]
-}
-
-// Less i and j
-func (a consulServiceInstances) Less(i, j int) bool {
-	// ID is the node ID
-	// ServiceID is a unique service instance identifier
-	return a[i].ID+a[i].ServiceID < a[j].ID+a[j].ServiceID
 }

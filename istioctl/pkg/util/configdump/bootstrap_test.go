@@ -17,7 +17,7 @@ package configdump
 import (
 	"testing"
 
-	proto "github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes/any"
 )
 
 func TestWrapper_GetBootstrapConfigDump(t *testing.T) {
@@ -48,7 +48,7 @@ func TestWrapper_GetBootstrapConfigDump(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			w := setupWrapper(t)
 			if tt.noBootstrap {
-				w.Configs = []*proto.Any{}
+				w.Configs = []*any.Any{}
 			}
 			if tt.noConfigs {
 				w.Configs = nil

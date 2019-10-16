@@ -38,7 +38,7 @@ var (
 
 func TestSecretCreation(t *testing.T) {
 	// Test the existence of istio.default secret.
-	s, err := integration.WaitForSecretExist(testEnv.ClientSet, testEnv.NameSpace, "istio.default", secretWaitTime)
+	s, err := integration.WaitForSecretExist(testEnv.ClientSet, testEnv.Namespace, "istio.default", secretWaitTime)
 	if err != nil {
 		t.Error(err)
 	}
@@ -49,14 +49,14 @@ func TestSecretCreation(t *testing.T) {
 	}
 
 	// Delete the istio.default secret immediately
-	if err := integration.DeleteSecret(testEnv.ClientSet, testEnv.NameSpace, "istio.default"); err != nil {
+	if err := integration.DeleteSecret(testEnv.ClientSet, testEnv.Namespace, "istio.default"); err != nil {
 		t.Error(err)
 	}
 
 	t.Log(`secret "istio.default" has been deleted`)
 
 	// Test that the deleted secret is re-created properly.
-	if _, err := integration.WaitForSecretExist(testEnv.ClientSet, testEnv.NameSpace, "istio.default",
+	if _, err := integration.WaitForSecretExist(testEnv.ClientSet, testEnv.Namespace, "istio.default",
 		secretWaitTime); err != nil {
 		t.Error(err)
 	}

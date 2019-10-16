@@ -154,7 +154,7 @@ func (h *Handler) connect() (err error) {
 	if err != nil {
 		return err
 	}
-	opts = append(opts, grpc.WithBalancerName(roundrobin.Name)) // nolint:staticheck
+	opts = append(opts, grpc.WithBalancerName(roundrobin.Name)) // nolint:staticcheck
 	if h.conn, err = grpc.Dial(h.connConfig.GetAddress(), opts...); err != nil {
 		handlerLog.Errorf("Unable to connect to:%s %v", h.connConfig.GetAddress(), err)
 		return errors.WithStack(err)
@@ -320,7 +320,7 @@ func (eb staticBag) Get(name string) (interface{}, bool) {
 }
 
 func (eb staticBag) Names() []string {
-	ret := make([]string, len(eb.v))
+	ret := make([]string, 0, len(eb.v))
 	for k := range eb.v {
 		ret = append(ret, k)
 	}

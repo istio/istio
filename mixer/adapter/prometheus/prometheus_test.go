@@ -519,7 +519,7 @@ func TestComputeSha(t *testing.T) {
 }
 
 func TestMetricExpiration(t *testing.T) {
-
+	t.Skip("https://github.com/istio/istio/issues/17182")
 	testPolicy := expPolicy(50*time.Millisecond, 10*time.Millisecond)
 	altPolicy := expPolicy(50*time.Millisecond, 0)
 
@@ -532,11 +532,11 @@ func TestMetricExpiration(t *testing.T) {
 		checkWaitTime    time.Duration
 	}{
 		{"No expiration", metricInfos{counter}, metricInsts{counterVal}, metricInsts{}, nil, 0},
-		{"Single metric expiration (counter)", metricInfos{counter}, metricInsts{counterVal}, metricInsts{}, testPolicy, 100 * time.Millisecond},
-		{"Single metric expiration (counter, alt policy)", metricInfos{counter}, metricInsts{counterVal}, metricInsts{}, altPolicy, 100 * time.Millisecond},
-		{"Single metric expiration (gauge)", metricInfos{gaugeWithLabels}, metricInsts{gaugeWithLabelsVal}, metricInsts{}, testPolicy, 100 * time.Millisecond},
-		{"Single metric expiration (histogram)", metricInfos{histogram}, metricInsts{histogramVal}, metricInsts{}, testPolicy, 100 * time.Millisecond},
-		{"Preserve non-stale metrics", metricInfos{counter}, metricInsts{counterVal}, metricInsts{counterVal2}, testPolicy, 100 * time.Millisecond},
+		{"Single metric expiration (counter)", metricInfos{counter}, metricInsts{counterVal}, metricInsts{}, testPolicy, 200 * time.Millisecond},
+		{"Single metric expiration (counter, alt policy)", metricInfos{counter}, metricInsts{counterVal}, metricInsts{}, altPolicy, 200 * time.Millisecond},
+		{"Single metric expiration (gauge)", metricInfos{gaugeWithLabels}, metricInsts{gaugeWithLabelsVal}, metricInsts{}, testPolicy, 200 * time.Millisecond},
+		{"Single metric expiration (histogram)", metricInfos{histogram}, metricInsts{histogramVal}, metricInsts{}, testPolicy, 200 * time.Millisecond},
+		{"Preserve non-stale metrics", metricInfos{counter}, metricInsts{counterVal}, metricInsts{counterVal2}, testPolicy, 200 * time.Millisecond},
 	}
 
 	f := newBuilder(&testServer{})

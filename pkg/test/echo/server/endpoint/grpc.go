@@ -122,18 +122,24 @@ type grpcHandler struct {
 }
 
 func (h *grpcHandler) Echo(ctx context.Context, req *proto.EchoRequest) (*proto.EchoResponse, error) {
+	host := "-"
 	body := bytes.Buffer{}
-	if md, ok := metadata.FromIncomingContext(ctx); ok {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if ok {
 		for key, values := range md {
 			field := response.Field(key)
 			if key == ":authority" {
 				field = response.HostField
+				host = values[0]
 			}
 			for _, value := range values {
 				writeField(&body, field, value)
 			}
 		}
 	}
+
+	log.Infof("GRPC Request:\n  Host: %s\n  Message: %s\n  Headers: %v\n", host, req.GetMessage(), md)
+
 	portNumber := 0
 	if h.Port != nil {
 		portNumber = h.Port.Port

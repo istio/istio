@@ -91,7 +91,7 @@ var _ = time.Kitchen
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 // Describes what kind of metric this is.
 type Params_MetricConfig_Type int32
@@ -192,8 +192,8 @@ var xxx_messageInfo_Params proto.InternalMessageInfo
 // Describes what metrics should be sent to SignalFx and in what form.
 type Params_MetricConfig struct {
 	// Required.  The name of the metric as it is sent to the adapter.  In
-	// Kubernetes this is of the form "<name>.metric.<namespace>" where
-	// "<name>" is the name field of the metric resource, and "<namespace>"
+	// Kubernetes this is of the form `<name>.metric.<namespace>` where
+	// `<name>` is the name field of the metric resource, and `<namespace>`
 	// is the namespace of the metric resource.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// The metric type of the metric

@@ -32,7 +32,7 @@ type (
 		name      string
 		comps     []framework.Component
 		ClientSet *kubernetes.Clientset
-		NameSpace string
+		Namespace string
 		Hub       string
 		Tag       string
 	}
@@ -62,7 +62,7 @@ func NewNodeAgentTestEnv(name, kubeConfig, hub, tag string) *NodeAgentTestEnv {
 	return &NodeAgentTestEnv{
 		ClientSet: clientset,
 		name:      name,
-		NameSpace: namespace,
+		Namespace: namespace,
 		Hub:       hub,
 		Tag:       tag,
 	}
@@ -81,7 +81,7 @@ func (env *NodeAgentTestEnv) GetComponents() []framework.Component {
 		env.comps = []framework.Component{
 			NewKubernetesPod(
 				env.ClientSet,
-				env.NameSpace,
+				env.Namespace,
 				citadelWithGivenCertificate,
 				fmt.Sprintf("%v/citadel-test:%v", env.Hub, env.Tag),
 				[]string{},
@@ -89,7 +89,7 @@ func (env *NodeAgentTestEnv) GetComponents() []framework.Component {
 			),
 			NewKubernetesService(
 				env.ClientSet,
-				env.NameSpace,
+				env.Namespace,
 				"istio-citadel",
 				coreV1.ServiceTypeClusterIP,
 				8060,
@@ -102,7 +102,7 @@ func (env *NodeAgentTestEnv) GetComponents() []framework.Component {
 			),
 			NewKubernetesPod(
 				env.ClientSet,
-				env.NameSpace,
+				env.Namespace,
 				nodeAgent,
 				fmt.Sprintf("%v/node-agent-test:%v", env.Hub, env.Tag),
 				[]string{},
@@ -110,7 +110,7 @@ func (env *NodeAgentTestEnv) GetComponents() []framework.Component {
 			),
 			NewKubernetesService(
 				env.ClientSet,
-				env.NameSpace,
+				env.Namespace,
 				nodeAgentService,
 				coreV1.ServiceTypeLoadBalancer,
 				8080,
@@ -134,9 +134,9 @@ func (env *NodeAgentTestEnv) Bringup() error {
 // Cleanup() is being called in framework.TearDown()
 func (env *NodeAgentTestEnv) Cleanup() error {
 	log.Infof("cleaning up environment...")
-	err := deleteTestNamespace(env.ClientSet, env.NameSpace)
+	err := deleteTestNamespace(env.ClientSet, env.Namespace)
 	if err != nil {
-		retErr := fmt.Errorf("failed to delete namespace: %v error: %v", env.NameSpace, err)
+		retErr := fmt.Errorf("failed to delete namespace: %v error: %v", env.Namespace, err)
 		log.Errorf("%v", retErr)
 		return retErr
 	}
@@ -145,5 +145,5 @@ func (env *NodeAgentTestEnv) Cleanup() error {
 
 // GetNodeAgentIPAddress returns the external LoadBalancer IP address of the service
 func (env *NodeAgentTestEnv) GetNodeAgentIPAddress() (string, error) {
-	return getServiceExternalIPAddress(env.ClientSet, env.NameSpace, "node-agent-service")
+	return getServiceExternalIPAddress(env.ClientSet, env.Namespace, "node-agent-service")
 }

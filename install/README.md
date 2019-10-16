@@ -2,7 +2,7 @@
 
 This directory contains the default Istio installation configuration in several
 different flavors. Also contained is the script for updating it.
- 
+
 ## updateVersion.sh
 
 The [updateVersion.sh](updateVersion.sh) script is used to update image versions in
@@ -27,6 +27,6 @@ Default values for the `-p`, `-x`, `-c`, `-o`, `-g` and `-a` options are as spec
 
 Update the pilot and istioctl:
 
-```
+```bash
 ./updateVersion.sh -p "docker.io/istio,2017-05-09-06.14.22"
 ```

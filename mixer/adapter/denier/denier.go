@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // nolint: lll
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -a mixer/adapter/denier/config/config.proto -x "-n denier -t checknothing -t listentry -t quota"
+//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/adapter/denier/config/config.proto -x "-n denier -t checknothing -t listentry -t quota"
 
 // Package denier provides an adapter that will return a status code (typically
 // FAILED_PRECONDITION) for all calls. It implements the checkNothing, quota and

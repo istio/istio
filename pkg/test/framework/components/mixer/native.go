@@ -125,24 +125,6 @@ func newNative(ctx resource.Context, config Config) (Instance, error) {
 		policyService:    client,
 	}
 
-	//// Update the mesh with the mixer address
-	//port := n.client.server.Addr().(*net.TCPAddr).Port
-	//mixerAddr := fmt.Sprintf("%s.%s:%d", localServiceName, service.FullyQualifiedDomainName, port)
-	//env.Mesh.MixerCheckServer = mixerAddr
-	//env.Mesh.MixerReportServer = mixerAddr
-	//
-	//// Add a service entry for Mixer.
-	//_, err = env.ServiceManager.Create(localServiceName, "", model.PortList{
-	//	&model.Port{
-	//		Name:     grpcPortName,
-	//		Protocol: protocol.GRPC,
-	//		Port:     port,
-	//	},
-	//})
-	if err != nil {
-		return nil, err
-	}
-
 	return n, nil
 }
 

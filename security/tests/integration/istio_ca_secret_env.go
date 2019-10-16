@@ -34,7 +34,7 @@ type (
 		name      string
 		comps     []framework.Component
 		ClientSet *kubernetes.Clientset
-		NameSpace string
+		Namespace string
 		Hub       string
 		Tag       string
 	}
@@ -57,7 +57,7 @@ func NewSecretTestEnv(name, kubeConfig, hub, tag string) *SecretTestEnv {
 	return &SecretTestEnv{
 		ClientSet: clientset,
 		name:      name,
-		NameSpace: namespace,
+		Namespace: namespace,
 		Hub:       hub,
 		Tag:       tag,
 	}
@@ -76,7 +76,7 @@ func (env *SecretTestEnv) GetComponents() []framework.Component {
 		env.comps = []framework.Component{
 			NewKubernetesPod(
 				env.ClientSet,
-				env.NameSpace,
+				env.Namespace,
 				citadelSelfSigned,
 				fmt.Sprintf("%v/citadel:%v", env.Hub, env.Tag),
 				[]string{
@@ -101,9 +101,9 @@ func (env *SecretTestEnv) Bringup() error {
 // Cleanup() is being called in framework.TearDown()
 func (env *SecretTestEnv) Cleanup() error {
 	log.Infof("cleaning up environment...")
-	err := deleteTestNamespace(env.ClientSet, env.NameSpace)
+	err := deleteTestNamespace(env.ClientSet, env.Namespace)
 	if err != nil {
-		retErr := fmt.Errorf("failed to delete namespace: %v error: %v", env.NameSpace, err)
+		retErr := fmt.Errorf("failed to delete namespace: %v error: %v", env.Namespace, err)
 		log.Errorf("%v", retErr)
 		return retErr
 	}

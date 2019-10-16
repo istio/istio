@@ -12,8 +12,10 @@ rollingMaxUnavailable: 25%
 image: pilot
 sidecar: true
 traceSampling: 1.0
-# if protocol sniffing is enabled. Default to true.
-enableProtocolSniffing: true
+# if protocol sniffing is enabled for outbound
+enableProtocolSniffingForOutbound: true
+# if protocol sniffing is enabled for inbound
+enableProtocolSniffingForInbound: false
 # Resources for a small pilot install
 resources:
   requests:
@@ -52,3 +54,10 @@ podAntiAffinityTermLabelSelector: []
 # to a pilot. It balances out load across pilot instances at the cost of
 # increasing system churn.
 keepaliveMaxServerConnectionAge: 30m
+
+# This is used to set the source of configuration for
+# the associated address in configSource, if nothing is specificed
+# the default MCP is assumed. The alternative option is SERVICE_REGISTRY
+# which describes the source is only forwarding synthetic service entries
+configSource:
+  subscribedResources:

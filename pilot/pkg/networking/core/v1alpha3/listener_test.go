@@ -18,16 +18,18 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
-	"github.com/envoyproxy/go-control-plane/pkg/util"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
-	"github.com/gogo/protobuf/proto"
+	"github.com/envoyproxy/go-control-plane/pkg/conversion"
+	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -55,9 +57,9 @@ var (
 		IPAddresses: []string{"1.1.1.1"},
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
-		Metadata: map[string]string{
-			model.NodeMetadataConfigNamespace: "not-default",
-			"ISTIO_VERSION":                   "1.1",
+		Metadata: &model.NodeMetadata{
+			ConfigNamespace: "not-default",
+			IstioVersion:    "1.1",
 		},
 		IstioVersion:    &model.IstioVersion{Major: 1, Minor: 3},
 		ConfigNamespace: "not-default",
@@ -67,10 +69,10 @@ var (
 		IPAddresses: []string{"1.1.1.1"},
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
-		Metadata: map[string]string{
-			model.NodeMetadataConfigNamespace: "not-default",
-			"ISTIO_VERSION":                   "1.1",
-			model.NodeMetadataHTTP10:          "1",
+		Metadata: &model.NodeMetadata{
+			ConfigNamespace: "not-default",
+			IstioVersion:    "1.1",
+			HTTP10:          "1",
 		},
 		ConfigNamespace: "not-default",
 	}
@@ -79,9 +81,9 @@ var (
 		IPAddresses: []string{"1.1.1.1"},
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
-		Metadata: map[string]string{
-			model.NodeMetadataConfigNamespace: "not-default",
-			"ISTIO_VERSION":                   "1.3",
+		Metadata: &model.NodeMetadata{
+			ConfigNamespace: "not-default",
+			IstioVersion:    "1.3",
 		},
 		ConfigNamespace: "not-default",
 	}
@@ -90,10 +92,10 @@ var (
 		IPAddresses: []string{"1.1.1.1"},
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
-		Metadata: map[string]string{
-			model.NodeMetadataConfigNamespace: "not-default",
-			"ISTIO_VERSION":                   "1.3",
-			model.NodeMetadataHTTP10:          "1",
+		Metadata: &model.NodeMetadata{
+			ConfigNamespace: "not-default",
+			IstioVersion:    "1.3",
+			HTTP10:          "1",
 		},
 		IstioVersion:    &model.IstioVersion{Major: 1, Minor: 3},
 		ConfigNamespace: "not-default",
@@ -103,9 +105,9 @@ var (
 		IPAddresses: []string{"1.1.1.1"},
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
-		Metadata: map[string]string{
-			model.NodeMetadataConfigNamespace: "not-default",
-			"ISTIO_VERSION":                   "1.3",
+		Metadata: &model.NodeMetadata{
+			ConfigNamespace: "not-default",
+			IstioVersion:    "1.3",
 		},
 		ConfigNamespace: "not-default",
 		WorkloadLabels:  labels.Collection{{"istio": "ingressgateway"}},
@@ -139,9 +141,7 @@ var (
 						Destination: &networking.Destination{
 							Host: "test.org",
 							Port: &networking.PortSelector{
-								Port: &networking.PortSelector_Number{
-									Number: 80,
-								},
+								Number: 80,
 							},
 						},
 						Weight: 100,
@@ -153,8 +153,8 @@ var (
 )
 
 func TestInboundListenerConfigProxyV13(t *testing.T) {
-	_ = os.Setenv(features.EnableProtocolSniffing.Name, "true")
-	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffing.Name) }()
+	_ = os.Setenv(features.EnableProtocolSniffingForInbound.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffingForInbound.Name) }()
 
 	for _, p := range []*model.Proxy{&proxy13, &proxy13HTTP10} {
 		testInboundListenerConfigV13(t, p,
@@ -169,8 +169,8 @@ func TestInboundListenerConfigProxyV13(t *testing.T) {
 }
 
 func TestOutboundListenerConflict_HTTPWithCurrentUnknownV13(t *testing.T) {
-	_ = os.Setenv(features.EnableProtocolSniffing.Name, "true")
-	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffing.Name) }()
+	_ = os.Setenv(features.EnableProtocolSniffingForOutbound.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffingForOutbound.Name) }()
 
 	// The oldest service port is unknown.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
@@ -181,8 +181,8 @@ func TestOutboundListenerConflict_HTTPWithCurrentUnknownV13(t *testing.T) {
 }
 
 func TestOutboundListenerConflict_WellKnowPortsV13(t *testing.T) {
-	_ = os.Setenv(features.EnableProtocolSniffing.Name, "true")
-	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffing.Name) }()
+	_ = os.Setenv(features.EnableProtocolSniffingForOutbound.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffingForOutbound.Name) }()
 
 	// The oldest service port is unknown.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
@@ -195,8 +195,8 @@ func TestOutboundListenerConflict_WellKnowPortsV13(t *testing.T) {
 }
 
 func TestOutboundListenerConflict_TCPWithCurrentUnknownV13(t *testing.T) {
-	_ = os.Setenv(features.EnableProtocolSniffing.Name, "true")
-	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffing.Name) }()
+	_ = os.Setenv(features.EnableProtocolSniffingForOutbound.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffingForOutbound.Name) }()
 
 	// The oldest service port is unknown.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
@@ -207,8 +207,8 @@ func TestOutboundListenerConflict_TCPWithCurrentUnknownV13(t *testing.T) {
 }
 
 func TestOutboundListenerConflict_UnknownWithCurrentTCPV13(t *testing.T) {
-	_ = os.Setenv(features.EnableProtocolSniffing.Name, "true")
-	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffing.Name) }()
+	_ = os.Setenv(features.EnableProtocolSniffingForOutbound.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffingForOutbound.Name) }()
 
 	// The oldest service port is TCP.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
@@ -219,8 +219,8 @@ func TestOutboundListenerConflict_UnknownWithCurrentTCPV13(t *testing.T) {
 }
 
 func TestOutboundListenerConflict_UnknownWithCurrentHTTPV13(t *testing.T) {
-	_ = os.Setenv(features.EnableProtocolSniffing.Name, "true")
-	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffing.Name) }()
+	_ = os.Setenv(features.EnableProtocolSniffingForOutbound.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffingForOutbound.Name) }()
 
 	// The oldest service port is TCP.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
@@ -231,8 +231,8 @@ func TestOutboundListenerConflict_UnknownWithCurrentHTTPV13(t *testing.T) {
 }
 
 func TestOutboundListenerRouteV13(t *testing.T) {
-	_ = os.Setenv(features.EnableProtocolSniffing.Name, "true")
-	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffing.Name) }()
+	_ = os.Setenv(features.EnableProtocolSniffingForOutbound.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffingForOutbound.Name) }()
 
 	testOutboundListenerRouteV13(t,
 		buildService("test1.com", "1.2.3.4", "unknown", tnow.Add(1*time.Second)),
@@ -241,8 +241,8 @@ func TestOutboundListenerRouteV13(t *testing.T) {
 }
 
 func TestOutboundListenerConfig_WithSidecarV13(t *testing.T) {
-	_ = os.Setenv(features.EnableProtocolSniffing.Name, "true")
-	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffing.Name) }()
+	_ = os.Setenv(features.EnableProtocolSniffingForOutbound.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffingForOutbound.Name) }()
 
 	// Add a service and verify it's config
 	services := []*model.Service{
@@ -276,6 +276,48 @@ func TestOutboundListenerConflict_Unordered(t *testing.T) {
 		buildService("test1.com", wildcardIP, protocol.HTTP, tzero),
 		buildService("test2.com", wildcardIP, protocol.TCP, tzero),
 		buildService("test3.com", wildcardIP, protocol.TCP, tzero))
+}
+
+func TestOutboundListenerConflict_HTTPoverHTTPS(t *testing.T) {
+	cases := []struct {
+		name             string
+		service          *model.Service
+		expectedListener []string
+	}{
+		{
+			"http on 443",
+			buildServiceWithPort("test1.com", CanonicalHTTPSPort, protocol.HTTP, tnow.Add(1*time.Second)),
+			[]string{},
+		},
+		{
+			"http on 80",
+			buildServiceWithPort("test1.com", CanonicalHTTPSPort, protocol.HTTP, tnow.Add(1*time.Second)),
+			[]string{},
+		},
+		{
+			"https on 443",
+			buildServiceWithPort("test1.com", CanonicalHTTPSPort, protocol.HTTPS, tnow.Add(1*time.Second)),
+			[]string{"0.0.0.0_443"},
+		},
+		{
+			"tcp on 443",
+			buildServiceWithPort("test1.com", CanonicalHTTPSPort, protocol.TCP, tnow.Add(1*time.Second)),
+			[]string{"0.0.0.0_443"},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &fakePlugin{}
+			listeners := buildOutboundListeners(p, &proxy, nil, nil, tt.service)
+			got := []string{}
+			for _, l := range listeners {
+				got = append(got, l.Name)
+			}
+			if !reflect.DeepEqual(got, tt.expectedListener) {
+				t.Fatalf("expected listener %v got %v", tt.expectedListener, got)
+			}
+		})
+	}
 }
 
 func TestOutboundListenerConflict_TCPWithCurrentTCP(t *testing.T) {
@@ -403,11 +445,10 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 			serviceDiscovery.ServicesReturns(services, nil)
 			serviceDiscovery.InstancesByPortReturns(tt.instances, nil)
 			env.ServiceDiscovery = serviceDiscovery
-			if err := env.PushContext.InitContext(&env); err != nil {
+			if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 				t.Errorf("Failed to initialize push context: %v", err)
 			}
 
-			proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata["ISTIO_VERSION"])
 			proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 			proxy.ServiceInstances = proxyInstances
 
@@ -526,7 +567,7 @@ func testOutboundListenerRouteV13(t *testing.T, services ...*model.Service) {
 	}
 
 	f := l.FilterChains[1].Filters[0]
-	cfg, _ := xdsutil.MessageToStruct(f.GetTypedConfig())
+	cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
 	rds := cfg.Fields["rds"].GetStructValue().Fields["route_config_name"].GetStringValue()
 	if rds != "8080" {
 		t.Fatalf("expect routes %s, found %s", "8080", rds)
@@ -537,7 +578,7 @@ func testOutboundListenerRouteV13(t *testing.T, services ...*model.Service) {
 		t.Fatalf("expect listener %s", "1.2.3.4_8080")
 	}
 	f = l.FilterChains[1].Filters[0]
-	cfg, _ = xdsutil.MessageToStruct(f.GetTypedConfig())
+	cfg, _ = conversion.MessageToStruct(f.GetTypedConfig())
 	rds = cfg.Fields["rds"].GetStructValue().Fields["route_config_name"].GetStringValue()
 	if rds != "test1.com:8080" {
 		t.Fatalf("expect routes %s, found %s", "test1.com:8080", rds)
@@ -548,7 +589,7 @@ func testOutboundListenerRouteV13(t *testing.T, services ...*model.Service) {
 		t.Fatalf("expect listener %s", "3.4.5.6_8080")
 	}
 	f = l.FilterChains[1].Filters[0]
-	cfg, _ = xdsutil.MessageToStruct(f.GetTypedConfig())
+	cfg, _ = conversion.MessageToStruct(f.GetTypedConfig())
 	rds = cfg.Fields["rds"].GetStructValue().Fields["route_config_name"].GetStringValue()
 	if rds != "test3.com:8080" {
 		t.Fatalf("expect routes %s, found %s", "test3.com:8080", rds)
@@ -584,7 +625,7 @@ func testOutboundListenerConflictV13(t *testing.T, services ...*model.Service) {
 			}
 		}
 
-		verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[2])
+		verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[2], model.TrafficDirectionOutbound)
 		if len(listeners[0].ListenerFilters) != 2 ||
 			listeners[0].ListenerFilters[0].Name != "envoy.listener.tls_inspector" ||
 			listeners[0].ListenerFilters[1].Name != "envoy.listener.http_inspector" {
@@ -592,7 +633,7 @@ func testOutboundListenerConflictV13(t *testing.T, services ...*model.Service) {
 		}
 
 		f := listeners[0].FilterChains[2].Filters[0]
-		cfg, _ := xdsutil.MessageToStruct(f.GetTypedConfig())
+		cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
 		rds := cfg.Fields["rds"].GetStructValue().Fields["route_config_name"].GetStringValue()
 		expect := fmt.Sprintf("%d", oldestService.Ports[0].Port)
 		if rds != expect {
@@ -611,7 +652,7 @@ func testOutboundListenerConflictV13(t *testing.T, services ...*model.Service) {
 			t.Fatalf("expected http filter chain, found %s", listeners[0].FilterChains[1].Filters[0].Name)
 		}
 
-		verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[2])
+		verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[2], model.TrafficDirectionOutbound)
 		if len(listeners[0].ListenerFilters) != 2 ||
 			listeners[0].ListenerFilters[0].Name != "envoy.listener.tls_inspector" ||
 			listeners[0].ListenerFilters[1].Name != "envoy.listener.http_inspector" {
@@ -636,8 +677,8 @@ func testInboundListenerConfigV13(t *testing.T, proxy *model.Proxy, services ...
 		t.Fatalf("expectd %d filter chains, %d http filter chains and %d tcp filter chain", 4, 2, 2)
 	}
 
-	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[0])
-	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[1])
+	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[0], model.TrafficDirectionInbound)
+	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[1], model.TrafficDirectionInbound)
 }
 
 func testInboundListenerConfigWithSidecarV13(t *testing.T, proxy *model.Proxy, services ...*model.Service) {
@@ -675,8 +716,8 @@ func testInboundListenerConfigWithSidecarV13(t *testing.T, proxy *model.Proxy, s
 		t.Fatalf("expectd %d filter chains, %d http filter chains and %d tcp filter chain", 4, 2, 2)
 	}
 
-	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[0])
-	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[1])
+	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[0], model.TrafficDirectionInbound)
+	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[1], model.TrafficDirectionInbound)
 }
 
 func testInboundListenerConfigWithSidecarWithoutServicesV13(t *testing.T, proxy *model.Proxy) {
@@ -714,8 +755,8 @@ func testInboundListenerConfigWithSidecarWithoutServicesV13(t *testing.T, proxy 
 		t.Fatalf("expectd %d filter chains, %d http filter chains and %d tcp filter chain", 4, 2, 2)
 	}
 
-	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[0])
-	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[1])
+	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[0], model.TrafficDirectionInbound)
+	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[1], model.TrafficDirectionInbound)
 }
 
 func testInboundListenerConfigWithoutServiceV13(t *testing.T, proxy *model.Proxy) {
@@ -727,12 +768,21 @@ func testInboundListenerConfigWithoutServiceV13(t *testing.T, proxy *model.Proxy
 	}
 }
 
-func verifyHTTPFilterChainMatch(t *testing.T, fc *listener.FilterChain) {
+func verifyHTTPFilterChainMatch(t *testing.T, fc *listener.FilterChain, direction model.TrafficDirection) {
 	t.Helper()
-	if len(fc.FilterChainMatch.ApplicationProtocols) != 2 ||
-		fc.FilterChainMatch.ApplicationProtocols[0] != "http/1.1" ||
-		fc.FilterChainMatch.ApplicationProtocols[1] != "http/1.0" {
-		t.Fatalf("expected %d application protocols, [http/1.1, http/1.0]", 3)
+	if direction == model.TrafficDirectionInbound &&
+		(len(fc.FilterChainMatch.ApplicationProtocols) != 2 ||
+			fc.FilterChainMatch.ApplicationProtocols[0] != "http/1.0" ||
+			fc.FilterChainMatch.ApplicationProtocols[1] != "http/1.1") {
+		t.Fatalf("expected %d application protocols, [http/1.0, http/1.1]", 2)
+	}
+
+	if direction == model.TrafficDirectionOutbound &&
+		(len(fc.FilterChainMatch.ApplicationProtocols) != 3 ||
+			fc.FilterChainMatch.ApplicationProtocols[0] != "http/1.0" ||
+			fc.FilterChainMatch.ApplicationProtocols[1] != "http/1.1" ||
+			fc.FilterChainMatch.ApplicationProtocols[2] != "h2") {
+		t.Fatalf("expected %d application protocols, [http/1.0, http/1.1, h2]", 3)
 	}
 }
 
@@ -810,7 +860,7 @@ func testOutboundListenerConfigWithSidecarV13(t *testing.T, services ...*model.S
 			t.Fatalf("expected tcp filter chain, found %s", l.FilterChains[1].Filters[0].Name)
 		}
 
-		verifyHTTPFilterChainMatch(t, l.FilterChains[3])
+		verifyHTTPFilterChainMatch(t, l.FilterChains[3], model.TrafficDirectionOutbound)
 
 		if len(l.ListenerFilters) != 2 ||
 			l.ListenerFilters[0].Name != "envoy.listener.tls_inspector" ||
@@ -840,7 +890,7 @@ func testOutboundListenerConfigWithSidecarV13(t *testing.T, services ...*model.S
 		}
 	}
 
-	verifyHTTPFilterChainMatch(t, l.FilterChains[1])
+	verifyHTTPFilterChainMatch(t, l.FilterChains[1], model.TrafficDirectionOutbound)
 	if len(l.ListenerFilters) != 2 ||
 		l.ListenerFilters[0].Name != "envoy.listener.tls_inspector" ||
 		l.ListenerFilters[1].Name != "envoy.listener.http_inspector" {
@@ -863,6 +913,7 @@ func testInboundListenerConfig(t *testing.T, proxy *model.Proxy, services ...*mo
 		t.Fatal("expected HTTP listener, found TCP")
 	}
 	verifyInboundHTTPListenerServerName(t, listeners[0])
+	verifyInboundHTTPListenerStatPrefix(t, listeners[0])
 	if isHTTPListener(listeners[0]) {
 		verifyInboundHTTPListenerCertDetails(t, listeners[0])
 		verifyInboundHTTPListenerNormalizePath(t, listeners[0])
@@ -1009,7 +1060,10 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 		t.Fatalf("expected HTTP listener on port 9000, found TCP\n%v", l)
 	} else {
 		f := l.FilterChains[0].Filters[0]
-		cfg, _ := xdsutil.MessageToStruct(f.GetTypedConfig())
+		cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
+		if !strings.HasPrefix(cfg.Fields["stat_prefix"].GetStringValue(), "outbound_") {
+			t.Fatalf("expected stat prefix to have outbound, %s", cfg.Fields["stat_prefix"].GetStringValue())
+		}
 		if useRemoteAddress, exists := cfg.Fields["use_remote_address"]; exists {
 			if exists && useRemoteAddress.GetBoolValue() {
 				t.Fatalf("expected useRemoteAddress false, found true %v", l)
@@ -1052,7 +1106,7 @@ func testOutboundListenerConfigWithSidecarWithUseRemoteAddress(t *testing.T, ser
 		t.Fatalf("expected HTTP listener on port 9000, found TCP\n%v", l)
 	} else {
 		f := l.FilterChains[0].Filters[0]
-		cfg, _ := xdsutil.MessageToStruct(f.GetTypedConfig())
+		cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
 		if useRemoteAddress, exists := cfg.Fields["use_remote_address"]; exists {
 			if !exists || !useRemoteAddress.GetBoolValue() {
 				t.Fatalf("expected useRemoteAddress true, found false %v", l)
@@ -1161,7 +1215,7 @@ func verifyOutboundTCPListenerHostname(t *testing.T, l *xdsapi.Listener, hostnam
 	}
 	f := fc.Filters[0]
 	expectedStatPrefix := fmt.Sprintf("outbound|8080||%s", hostname)
-	cfg, _ := xdsutil.MessageToStruct(f.GetTypedConfig())
+	cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
 	statPrefix := cfg.Fields["stat_prefix"].GetStringValue()
 	if statPrefix != expectedStatPrefix {
 		t.Fatalf("expected listener to contain stat_prefix %s, found %s", expectedStatPrefix, statPrefix)
@@ -1179,11 +1233,28 @@ func verifyInboundHTTPListenerServerName(t *testing.T, l *xdsapi.Listener) {
 	}
 	f := fc.Filters[0]
 	expectedServerName := "istio-envoy"
-	cfg, _ := xdsutil.MessageToStruct(f.GetTypedConfig())
+	cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
 	serverName := cfg.Fields["server_name"].GetStringValue()
 	if serverName != expectedServerName {
 		t.Fatalf("expected listener to contain server_name %s, found %s", expectedServerName, serverName)
 	}
+}
+
+func verifyInboundHTTPListenerStatPrefix(t *testing.T, l *xdsapi.Listener) {
+	t.Helper()
+	if len(l.FilterChains) != 2 {
+		t.Fatalf("expected %d filter chains, found %d", 2, len(l.FilterChains))
+	}
+	fc := l.FilterChains[0]
+	if len(fc.Filters) != 1 {
+		t.Fatalf("expected %d filters, found %d", 1, len(fc.Filters))
+	}
+	f := fc.Filters[0]
+	cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
+	if !strings.HasPrefix(cfg.Fields["stat_prefix"].GetStringValue(), "inbound_") {
+		t.Fatalf("expected stat prefix to have %s , found %s", "inbound", cfg.Fields["stat_prefix"].GetStringValue())
+	}
+
 }
 
 func verifyInboundEnvoyListenerNumber(t *testing.T, l *xdsapi.Listener) {
@@ -1198,7 +1269,7 @@ func verifyInboundEnvoyListenerNumber(t *testing.T, l *xdsapi.Listener) {
 		}
 
 		f := fc.Filters[0]
-		cfg, _ := xdsutil.MessageToStruct(f.GetTypedConfig())
+		cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
 		hf := cfg.Fields["http_filters"].GetListValue()
 		if len(hf.Values) != 4 {
 			t.Fatalf("expected %d http filters, found %d", 4, len(hf.Values))
@@ -1221,7 +1292,7 @@ func verifyInboundHTTPListenerCertDetails(t *testing.T, l *xdsapi.Listener) {
 		t.Fatalf("expected %d filters, found %d", 1, len(fc.Filters))
 	}
 	f := fc.Filters[0]
-	cfg, _ := xdsutil.MessageToStruct(f.GetTypedConfig())
+	cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
 	forwardDetails, expected := cfg.Fields["forward_client_cert_details"].GetStringValue(), "APPEND_FORWARD"
 	if forwardDetails != expected {
 		t.Fatalf("expected listener to contain forward_client_cert_details %s, found %s", expected, forwardDetails)
@@ -1246,7 +1317,7 @@ func verifyInboundHTTPListenerNormalizePath(t *testing.T, l *xdsapi.Listener) {
 		t.Fatalf("expected 1 filter, found %d", len(fc.Filters))
 	}
 	f := fc.Filters[0]
-	cfg, _ := xdsutil.MessageToStruct(f.GetTypedConfig())
+	cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
 	actual := cfg.Fields["normalize_path"].GetBoolValue()
 	if actual != true {
 		t.Errorf("expected HTTP listener with normalize_path set to true, found false")
@@ -1258,7 +1329,7 @@ func verifyInboundHTTP10(t *testing.T, http10Expected bool, l *xdsapi.Listener) 
 	for _, fc := range l.FilterChains {
 		for _, f := range fc.Filters {
 			if f.Name == "envoy.http_connection_manager" {
-				cfg, _ := xdsutil.MessageToStruct(f.GetTypedConfig())
+				cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
 				httpProtocolOptionsField := cfg.Fields["http_protocol_options"]
 				if http10Expected && httpProtocolOptionsField == nil {
 					t.Error("expected http_protocol_options for http_connection_manager, found nil")
@@ -1296,7 +1367,7 @@ func buildAllListeners(p plugin.Plugin, sidecarConfig *model.Config, services ..
 
 	env := buildListenerEnv(services)
 
-	if err := env.PushContext.InitContext(&env); err != nil {
+	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		return nil
 	}
 
@@ -1313,11 +1384,11 @@ func buildAllListeners(p plugin.Plugin, sidecarConfig *model.Config, services ..
 func getFilterConfig(filter *listener.Filter, out proto.Message) error {
 	switch c := filter.ConfigType.(type) {
 	case *listener.Filter_Config:
-		if err := util.StructToMessage(c.Config, out); err != nil {
+		if err := conversion.StructToMessage(c.Config, out); err != nil {
 			return err
 		}
 	case *listener.Filter_TypedConfig:
-		if err := types.UnmarshalAny(c.TypedConfig, out); err != nil {
+		if err := ptypes.UnmarshalAny(c.TypedConfig, out); err != nil {
 			return err
 		}
 	}
@@ -1335,11 +1406,11 @@ func buildOutboundListeners(p plugin.Plugin, proxy *model.Proxy, sidecarConfig *
 		env = buildListenerEnv(services)
 	}
 
-	if err := env.PushContext.InitContext(&env); err != nil {
+	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		return nil
 	}
 
-	proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata["ISTIO_VERSION"])
+	proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata.IstioVersion)
 	if sidecarConfig == nil {
 		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 	} else {
@@ -1353,7 +1424,7 @@ func buildOutboundListeners(p plugin.Plugin, proxy *model.Proxy, sidecarConfig *
 func buildInboundListeners(p plugin.Plugin, proxy *model.Proxy, sidecarConfig *model.Config, services ...*model.Service) []*xdsapi.Listener {
 	configgen := NewConfigGenerator([]plugin.Plugin{p})
 	env := buildListenerEnv(services)
-	if err := env.PushContext.InitContext(&env); err != nil {
+	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		return nil
 	}
 	instances := make([]*model.ServiceInstance, len(services))
@@ -1364,7 +1435,7 @@ func buildInboundListeners(p plugin.Plugin, proxy *model.Proxy, sidecarConfig *m
 		}
 	}
 
-	proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata["ISTIO_VERSION"])
+	proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata.IstioVersion)
 	proxy.ServiceInstances = instances
 	if sidecarConfig == nil {
 		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
@@ -1430,7 +1501,7 @@ func isMysqlListener(listener *xdsapi.Listener) bool {
 }
 
 func isNodeHTTP10(proxy *model.Proxy) bool {
-	return proxy.Metadata[model.NodeMetadataHTTP10] == "1"
+	return proxy.Metadata.HTTP10 == "1"
 }
 
 func findListenerByPort(listeners []*xdsapi.Listener, port uint32) *xdsapi.Listener {

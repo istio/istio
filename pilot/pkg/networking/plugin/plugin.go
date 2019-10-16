@@ -16,8 +16,9 @@ package plugin
 
 import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -51,10 +52,22 @@ const (
 )
 
 // ModelProtocolToListenerProtocol converts from a config.Protocol to its corresponding plugin.ListenerProtocol
-func ModelProtocolToListenerProtocol(node *model.Proxy, p protocol.Instance) ListenerProtocol {
+func ModelProtocolToListenerProtocol(node *model.Proxy, p protocol.Instance,
+	trafficDirection core.TrafficDirection) ListenerProtocol {
 	// If protocol sniffing is not enabled, the default value is TCP
-	if !util.IsProtocolSniffingEnabledForNode(node) && p == protocol.Unsupported {
-		p = protocol.TCP
+	if p == protocol.Unsupported {
+		switch trafficDirection {
+		case core.TrafficDirection_INBOUND:
+			if !util.IsProtocolSniffingEnabledForInbound(node) {
+				p = protocol.TCP
+			}
+		case core.TrafficDirection_OUTBOUND:
+			if !util.IsProtocolSniffingEnabledForOutbound(node) {
+				p = protocol.TCP
+			}
+		default:
+			// should not reach here
+		}
 	}
 
 	switch p {
@@ -66,11 +79,7 @@ func ModelProtocolToListenerProtocol(node *model.Proxy, p protocol.Instance) Lis
 	case protocol.UDP:
 		return ListenerProtocolUnknown
 	default:
-		if util.IsProtocolSniffingEnabledForNode(node) {
-			return ListenerProtocolAuto
-		}
-
-		return ListenerProtocolUnknown
+		return ListenerProtocolAuto
 	}
 }
 

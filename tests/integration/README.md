@@ -107,10 +107,11 @@ func TestMain(m *testing.M) {
         Run()
 }
 
-func mySetup(ctx framework.SuiteContext) error {
+func mySetup(ctx resource.Context) error {
     // Your own setup code
+    return nil
 }
- ```
+```
 
 ### Sub-Tests
 
@@ -140,7 +141,7 @@ func TestMyLogic(t *testing.T) {
                         // Do more stuff here.
                     })
             }
-        }
+        })
 }
 ```
 
@@ -202,7 +203,7 @@ func TestMyLogic(t *testing.T) {
                 })
         })
 }
-````
+```
 
 In the example above, non-parallel parents T1 and T2 contain parallel children T1a, T1b, T2a, T2b.
 
@@ -278,7 +279,7 @@ type Instance interface {
 ```
 
 | NOTE: A common pattern is to provide two versions of many methods: one that returns an error as well as an `OrFail` version that fails the test upon encountering an error. This provides options to the calling test and helps to simplify the calling logic. |
-| --- |  
+| --- |
 
 Next you need to implement your component for one or more environments. If possible, create both a native and Kubernetes version.
 
@@ -305,7 +306,7 @@ func newNative(ctx resource.Context) (Instance, error) {
 func (c *nativeComponent) ID() resource.ID {
     return c.id
 }
-````
+```
 
 Each implementation of the component must implement `resource.Resource`, which just exposes a unique identifier for your
 component instances used for resource tracking by the framework. To get the ID, the component must call `ctx.TrackResource`
@@ -358,7 +359,7 @@ the standard `go test` command-line.  For example, to run the tests under the `/
 using the default (native) environment, you can simply type:
 
 ```console
-go test ./tests/integration/mycomponent/...
+$ go test ./tests/integration/mycomponent/...
 ```
 
 Note that samples below invoking variations of ```go test ./...``` are intended to be run from the ```tests/integration``` directory.
@@ -375,18 +376,18 @@ When running in the [Kubernetes environment](#kubernetes-environment) this can b
 Istio. The Istio deployment, as it stands is a singleton per cluster. If multiple suites attempt to deploy/configure
 Istio, they can corrupt each other and/or simply fail.  To avoid this issue, you have a couple of options:
 
-  1. Run one suite per command (e.g. `go test ./tests/integration/mysuite/...`)
-  1. Disable parallelism with `-p 1` (e.g. `go test -p 1 ./...`). A major disadvantage to doing this is that it will also disable
+1. Run one suite per command (e.g. `go test ./tests/integration/mysuite/...`)
+1. Disable parallelism with `-p 1` (e.g. `go test -p 1 ./...`). A major disadvantage to doing this is that it will also disable
 parallelism within the suite, even when explicitly specified via [RunParallel](#parallel-tests).
 
 ### Test Selection
 
 When no flags are specified, the test framework will run all applicable tests. It is possible to filter in/out specific
 tests using 2 mechanisms:
-  
-  1. The standard ```-run <regexp>``` flag, as exposed by Go's own test framework.
-  2. ```--istio.test.select <filter-expr>``` flag to select/skip framework-aware tests that use labels.
-  
+
+1. The standard ```-run <regexp>``` flag, as exposed by Go's own test framework.
+1. ```--istio.test.select <filter-expr>``` flag to select/skip framework-aware tests that use labels.
+
 For example, if a test, or test suite uses labels in this fashion:
 
 ```go
@@ -438,10 +439,10 @@ To simplify the process of running tests from Prow, each suite is given its own 
 
 Embedded in the name of the script is the following:
 
-  1. Type of test (unit, end-to-end, integration)
-  1. Component/feature being tested
-  1. The environment used (i.e. native/local or k8s)
-  1. Job execution (i.e. presubmit, postsubmit)
+1. Type of test (unit, end-to-end, integration)
+1. Component/feature being tested
+1. The environment used (i.e. native/local or k8s)
+1. Job execution (i.e. presubmit, postsubmit)
 
 For example, the file `integ-security-k8s-presubmit-tests.sh` runs integration tests for various Istio security
 features on Kubernetes during PR pre-submit.
@@ -455,7 +456,7 @@ Istio's Prow jobs are configured in the [istio/test-infra](https://github.com/is
 The [prow/cluster/jobs/istio/istio](https://github.com/istio/test-infra/tree/master/prow/cluster/jobs/istio/istio) folder
 contains configuration files for running Prow jobs against various Istio branches.
 
-For example, [istio.istio.master.yaml](https://github.com/istio/test-infra/blob/master/prow/cluster/jobs/istio/istio/istio.istio.master.yaml)
+For example, [istio.istio.master.yaml](https://github.com/istio/test-infra/blob/master/prow/cluster/jobs/istio/istio/istio.istio.master.gen.yaml)
 configures Prow jobs that run against Istio's master branch.
 
 Each configuration file contains sections for both **presubmit** and **postsubmit**. To add a new job, add a new config
@@ -473,11 +474,8 @@ When this is done, however, a GitHub issue should be raised to address the flake
 #### Step 3: Update TestGrid
 
 TestGrid is owned by the Kubernetes team and its configuration is located in the
-[kubernetes/test-infra](https://github.com/kubernetes/test-infra) repository in the
-[testgrid/config.yaml](https://github.com/kubernetes/test-infra/blob/master/testgrid/config.yaml) file.
-
-This is a monolithic file to which we've added sections marked with comments of the form `# Istio Prow <qualifier>`.
-Each section takes a list that indicate the name of the Prow job as well as the location of its log files on GCS.
+[kubernetes/test-infra](https://github.com/kubernetes/test-infra) repository.
+Configuring testgrid is explained [here](https://github.com/kubernetes/test-infra/blob/master/testgrid/config.md)
 
 ## Environments
 
@@ -527,7 +525,7 @@ Note that the HUB and TAG environment variables **must** be set when running tes
 
 The test framework will generate additional diagnostic output in its work directory. Typically, this is
 created under the host operating system's temporary folder (which can be overridden using
-```--istio.test.work_dir``` flag). The name of the work dir will be based on the test id that is supplied in
+the `--istio.test.work_dir` flag). The name of the work dir will be based on the test id that is supplied in
 a tests TestMain method. These files typically contain some of the logging & diagnostic output that components
 spew out as part of test execution
 
@@ -537,7 +535,7 @@ $ go test galley/... --istio.test.work_dir /foo
 
 $ ls /foo
   galley-test-4ef25d910d2746f9b38/
-  
+
 $ ls /foo/galley-test-4ef25d910d2746f9b38/
   istio-system-1537332205890088657.yaml
   ...
@@ -587,7 +585,7 @@ for Kubernetes environments. See [mtls_healthcheck_test.go](security/healthcheck
 
 The test framework supports the following command-line flags:
 
-```
+```plain
   -istio.test.env string
         Specify the environment to run the tests against. Allowed values are: [native kube] (default "native")
 
@@ -648,7 +646,7 @@ The test framework supports the following command-line flags:
 
 * Currently some _native_ tests fail when being run on a Mac with an error like:
 
-```
+```plain
 unable to locate an Envoy binary
 ```
 
@@ -657,6 +655,6 @@ these tests will hopefully succeed.
 
 * If one uses Docker for Mac for the kubernetes environment be sure to specify the `-istio.test.kube.minikube` parameter. The solves an error like:
 
-```
+```plain
 service ingress is not available yet
 ```

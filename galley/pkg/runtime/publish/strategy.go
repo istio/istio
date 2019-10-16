@@ -19,8 +19,8 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/galley/pkg/config/monitoring"
 	"istio.io/istio/galley/pkg/runtime/log"
-	"istio.io/istio/galley/pkg/runtime/monitoring"
 	"istio.io/istio/galley/pkg/util"
 )
 

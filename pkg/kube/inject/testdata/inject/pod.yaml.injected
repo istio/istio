@@ -8,6 +8,8 @@ metadata:
     traffic.sidecar.istio.io/includeInboundPorts: "80"
     traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
   creationTimestamp: null
+  labels:
+    security.istio.io/mtlsReady: "true"
   name: hellopod
 spec:
   containers:
@@ -121,7 +123,8 @@ spec:
       name: istio-certs
       readOnly: true
   initContainers:
-  - args:
+  - command:
+    - istio-iptables
     - -p
     - "15001"
     - -z

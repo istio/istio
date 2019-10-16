@@ -69,13 +69,13 @@ if [ "${ISTIO_CUSTOM_IP_TABLES}" != "true" ] ; then
     if [[ ${1-} == "init" || ${1-} == "-p" ]] ; then
       # Update iptables, based on current config. This is for backward compatibility with the init image mode.
       # The sidecar image can replace the k8s init image, to avoid downloading 2 different images.
-      "${ISTIO_BIN_BASE}/istio-iptables.sh" "${@}"
+      "${ISTIO_BIN_BASE}/istio-iptables" "${@}"
       exit 0
     fi
 
     if [[ ${1-} != "run" ]] ; then
       # Update iptables, based on config file
-      "${ISTIO_BIN_BASE}/istio-iptables.sh"
+      "${ISTIO_BIN_BASE}/istio-iptables"
     fi
 fi
 
@@ -104,7 +104,7 @@ if [ ${EXEC_USER} == "${USER:-}" ] ; then
     "${CONTROL_PLANE_AUTH_POLICY[@]}"
 else
 
-# Will run: ${ISTIO_BIN_BASE}/envoy -c $ENVOY_CFG --restart-epoch 0 --drain-time-s 2 --parent-shutdown-time-s 3 --service-cluster $SVC --service-node 'sidecar~${ISTIO_SVC_IP}~${POD_NAME}.${NS}.svc.cluster.local~${NS}.svc.cluster.local' --allow-unknown-fields $ISTIO_DEBUG >${ISTIO_LOG_DIR}/istio.log" istio-proxy
+# Will run: ${ISTIO_BIN_BASE}/envoy -c $ENVOY_CFG --restart-epoch 0 --drain-time-s 2 --parent-shutdown-time-s 3 --service-cluster $SVC --service-node 'sidecar~${ISTIO_SVC_IP}~${POD_NAME}.${NS}.svc.cluster.local~${NS}.svc.cluster.local' $ISTIO_DEBUG >${ISTIO_LOG_DIR}/istio.log" istio-proxy
 exec su -s /bin/bash -c "INSTANCE_IP=${ISTIO_SVC_IP} POD_NAME=${POD_NAME} POD_NAMESPACE=${NS} exec ${ISTIO_BIN_BASE}/pilot-agent proxy ${ISTIO_AGENT_FLAGS_ARRAY[*]} \
     --serviceCluster $SVC \
     --discoveryAddress ${PILOT_ADDRESS} \

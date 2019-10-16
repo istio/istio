@@ -21,17 +21,26 @@ import (
 	"strings"
 	"time"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	xdsfault "github.com/envoyproxy/go-control-plane/envoy/config/filter/fault/v2"
 	xdshttpfault "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/fault/v2"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
-	"github.com/gogo/protobuf/types"
+	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
+	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/any"
+	"github.com/golang/protobuf/ptypes/duration"
+	structpb "github.com/golang/protobuf/ptypes/struct"
+	"github.com/golang/protobuf/ptypes/wrappers"
+
+	"istio.io/istio/pkg/proto"
+	"istio.io/istio/pkg/util/gogo"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route/retry"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -214,15 +223,8 @@ func buildSidecarVirtualHostsForVirtualService(
 // can be found. Called by translateRule to determine if
 func GetDestinationCluster(destination *networking.Destination, service *model.Service, listenerPort int) string {
 	port := listenerPort
-	if destination.Port != nil {
-		switch selector := destination.Port.Port.(type) {
-		// TODO: remove port name from route.Destination in the API
-		case *networking.PortSelector_Name:
-			log.Debuga("name based destination ports are not allowed => blackhole cluster")
-			return util.BlackHoleCluster
-		case *networking.PortSelector_Number:
-			port = int(selector.Number)
-		}
+	if destination.GetPort() != nil {
+		port = int(destination.GetPort().GetNumber())
 	} else if service != nil && len(service.Ports) == 1 {
 		// if service only has one port defined, use that as the port, otherwise use default listenerPort
 		port = service.Ports[0].Port
@@ -340,9 +342,9 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		// add a name to the route
 	}
 	if util.IsXDSMarshalingToAnyEnabled(node) {
-		out.TypedPerFilterConfig = make(map[string]*types.Any)
+		out.TypedPerFilterConfig = make(map[string]*any.Any)
 	} else {
-		out.PerFilterConfig = make(map[string]*types.Struct)
+		out.PerFilterConfig = make(map[string]*structpb.Struct)
 	}
 
 	if redirect := in.Redirect; redirect != nil {
@@ -378,16 +380,16 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		}
 
 		if in.Timeout != nil {
-			d := util.GogoDurationToDuration(in.Timeout)
+			d := gogo.DurationToProtoDuration(in.Timeout)
 			// timeout
 			action.Timeout = d
 			action.MaxGrpcTimeout = d
 		} else {
 			// if no timeout is specified, disable timeouts. This is easier
 			// to reason about than assuming some defaults.
-			d := 0 * time.Second
-			action.Timeout = &d
-			action.MaxGrpcTimeout = &d
+			d := ptypes.DurationProto(0 * time.Second)
+			action.Timeout = d
+			action.MaxGrpcTimeout = d
 		}
 
 		out.Action = &route.Route_Route{Route: action}
@@ -418,14 +420,29 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		out.ResponseHeadersToRemove = responseHeadersToRemove
 
 		if in.Mirror != nil {
-			n := GetDestinationCluster(in.Mirror, serviceRegistry[host.Name(in.Mirror.Host)], port)
-			action.RequestMirrorPolicy = &route.RouteAction_RequestMirrorPolicy{Cluster: n}
+			var percent uint32 = 100
+			if in.MirrorPercent != nil {
+				percent = in.MirrorPercent.GetValue()
+			}
+
+			if percent > 0 {
+				n := GetDestinationCluster(in.Mirror, serviceRegistry[host.Name(in.Mirror.Host)], port)
+				action.RequestMirrorPolicy = &route.RouteAction_RequestMirrorPolicy{
+					Cluster: n,
+					RuntimeFraction: &core.RuntimeFractionalPercent{
+						DefaultValue: &xdstype.FractionalPercent{
+							Numerator:   percent,
+							Denominator: xdstype.FractionalPercent_HUNDRED,
+						},
+					},
+				}
+			}
 		}
 
 		// TODO: eliminate this logic and use the total_weight option in envoy route
 		weighted := make([]*route.WeightedCluster_ClusterWeight, 0)
 		for _, dst := range in.Route {
-			weight := &types.UInt32Value{Value: uint32(dst.Weight)}
+			weight := &wrappers.UInt32Value{Value: uint32(dst.Weight)}
 			if dst.Weight == 0 {
 				// Ignore 0 weighted clusters if there are other clusters in the route.
 				// But if this is the only cluster in the route, then add it as a cluster with weight 100
@@ -529,14 +546,13 @@ func (b SortHeaderValueOption) Swap(i, j int) {
 // translateAppendHeaders translates headers
 func translateAppendHeaders(headers map[string]string, appendFlag bool) []*core.HeaderValueOption {
 	headerValueOptionList := make([]*core.HeaderValueOption, 0, len(headers))
-	appendValue := &types.BoolValue{Value: appendFlag}
 	for key, value := range headers {
 		headerValueOptionList = append(headerValueOptionList, &core.HeaderValueOption{
 			Header: &core.HeaderValue{
 				Key:   key,
 				Value: value,
 			},
-			Append: appendValue,
+			Append: &wrappers.BoolValue{Value: appendFlag},
 		})
 	}
 	sort.Stable(SortHeaderValueOption(headerValueOptionList))
@@ -567,11 +583,20 @@ func translateRouteMatch(in *networking.HTTPMatchRequest) *route.RouteMatch {
 		case *networking.StringMatch_Prefix:
 			out.PathSpecifier = &route.RouteMatch_Prefix{Prefix: m.Prefix}
 		case *networking.StringMatch_Regex:
-			out.PathSpecifier = &route.RouteMatch_Regex{Regex: m.Regex}
+			if features.EnableUnsafeRegex.Get() {
+				out.PathSpecifier = &route.RouteMatch_Regex{Regex: m.Regex}
+			} else {
+				out.PathSpecifier = &route.RouteMatch_SafeRegex{
+					SafeRegex: &matcher.RegexMatcher{
+						EngineType: &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{}},
+						Regex:      m.Regex,
+					},
+				}
+			}
 		}
 	}
 
-	out.CaseSensitive = &types.BoolValue{Value: !in.IgnoreUriCase}
+	out.CaseSensitive = &wrappers.BoolValue{Value: !in.IgnoreUriCase}
 
 	if in.Method != nil {
 		matcher := translateHeaderMatch(HeaderMethod, in.Method)
@@ -607,7 +632,7 @@ func translateQueryParamMatch(name string, in *networking.StringMatch) route.Que
 		out.Value = m.Exact
 	case *networking.StringMatch_Regex:
 		out.Value = m.Regex
-		out.Regex = &types.BoolValue{Value: true}
+		out.Regex = proto.BoolTrue
 	}
 
 	return out
@@ -627,7 +652,16 @@ func translateHeaderMatch(name string, in *networking.StringMatch) route.HeaderM
 		// Golang has a slightly different regex grammar
 		out.HeaderMatchSpecifier = &route.HeaderMatcher_PrefixMatch{PrefixMatch: m.Prefix}
 	case *networking.StringMatch_Regex:
-		out.HeaderMatchSpecifier = &route.HeaderMatcher_RegexMatch{RegexMatch: m.Regex}
+		if features.EnableUnsafeRegex.Get() {
+			out.HeaderMatchSpecifier = &route.HeaderMatcher_RegexMatch{RegexMatch: m.Regex}
+		} else {
+			out.HeaderMatchSpecifier = &route.HeaderMatcher_SafeRegexMatch{
+				SafeRegexMatch: &matcher.RegexMatcher{
+					EngineType: &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{}},
+					Regex:      m.Regex,
+				},
+			}
+		}
 	}
 
 	return out
@@ -653,7 +687,7 @@ func translateCORSPolicy(in *networking.CorsPolicy, _ *model.Proxy) *route.CorsP
 		},
 	}
 
-	out.AllowCredentials = in.AllowCredentials
+	out.AllowCredentials = gogo.BoolToProtoBool(in.AllowCredentials)
 	out.AllowHeaders = strings.Join(in.AllowHeaders, ",")
 	out.AllowMethods = strings.Join(in.AllowMethods, ",")
 	out.ExposeHeaders = strings.Join(in.ExposeHeaders, ",")
@@ -675,7 +709,10 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 		case *route.RouteMatch_Path:
 			path = m.GetPath()
 		case *route.RouteMatch_Regex:
+			//nolint: staticcheck
 			path = m.GetRegex()
+		case *route.RouteMatch_SafeRegex:
+			path = m.GetSafeRegex().GetRegex()
 		}
 	}
 
@@ -692,7 +729,7 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 
 // BuildDefaultHTTPInboundRoute builds a default inbound route.
 func BuildDefaultHTTPInboundRoute(node *model.Proxy, clusterName string, operation string) *route.Route {
-	notimeout := 0 * time.Second
+	notimeout := ptypes.DurationProto(0 * time.Second)
 
 	val := &route.Route{
 		Match: translateRouteMatch(nil),
@@ -702,8 +739,8 @@ func BuildDefaultHTTPInboundRoute(node *model.Proxy, clusterName string, operati
 		Action: &route.Route_Route{
 			Route: &route.RouteAction{
 				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
-				Timeout:          &notimeout,
-				MaxGrpcTimeout:   &notimeout,
+				Timeout:          notimeout,
+				MaxGrpcTimeout:   notimeout,
 			},
 		},
 	}
@@ -758,9 +795,8 @@ func translateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 		}
 		switch d := in.Delay.HttpDelayType.(type) {
 		case *networking.HTTPFaultInjection_Delay_FixedDelay:
-			delayDuration := util.GogoDurationToDuration(d.FixedDelay)
 			out.Delay.FaultDelaySecifier = &xdsfault.FaultDelay_FixedDelay{
-				FixedDelay: delayDuration,
+				FixedDelay: gogo.DurationToProtoDuration(d.FixedDelay),
 			}
 		default:
 			log.Warnf("Exponential faults are not yet supported")
@@ -796,16 +832,11 @@ func translateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 func portLevelSettingsConsistentHash(dst *networking.Destination,
 	pls []*networking.TrafficPolicy_PortTrafficPolicy) *networking.LoadBalancerSettings_ConsistentHashLB {
 	if dst.Port != nil {
-		switch dst.Port.Port.(type) {
-		case *networking.PortSelector_Name:
-			log.Warnf("using deprecated name on port selector - ignoring")
-		case *networking.PortSelector_Number:
-			portNumber := dst.GetPort().GetNumber()
-			for _, setting := range pls {
-				number := setting.GetPort().GetNumber()
-				if number == portNumber {
-					return setting.GetLoadBalancer().GetConsistentHash()
-				}
+		portNumber := dst.GetPort().GetNumber()
+		for _, setting := range pls {
+			number := setting.GetPort().GetNumber()
+			if number == portNumber {
+				return setting.GetLoadBalancer().GetConsistentHash()
 			}
 		}
 	}
@@ -825,12 +856,15 @@ func consistentHashToHashPolicy(consistentHash *networking.LoadBalancerSettings_
 		}
 	case *networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie:
 		cookie := consistentHash.GetHttpCookie()
-
+		var ttl *duration.Duration
+		if cookie.GetTtl() != nil {
+			ttl = ptypes.DurationProto(*cookie.GetTtl())
+		}
 		return &route.RouteAction_HashPolicy{
 			PolicySpecifier: &route.RouteAction_HashPolicy_Cookie_{
 				Cookie: &route.RouteAction_HashPolicy_Cookie{
 					Name: cookie.GetName(),
-					Ttl:  cookie.GetTtl(),
+					Ttl:  ttl,
 					Path: cookie.GetPath(),
 				},
 			},
@@ -933,6 +967,9 @@ func getEnvoyRouteTypeAndVal(r *route.Route) (envoyRouteType, string) {
 		iType = envoyPrefix
 	case *route.RouteMatch_Regex:
 		iVal = iR.Regex
+		iType = envoyRegex
+	case *route.RouteMatch_SafeRegex:
+		iVal = iR.SafeRegex.Regex
 		iType = envoyRegex
 	}
 

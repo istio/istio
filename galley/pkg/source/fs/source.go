@@ -273,7 +273,7 @@ func (s *source) parseFile(path string, data []byte) []*fileResource {
 		}
 		r, err := s.parseChunk(chunk)
 		if err != nil {
-			log.Scope.Errorf("Error processing %s[%d]: %v", path, i, err)
+			log.Scope.Warnf("Error processing %s[%d]: %v", path, i, err)
 			continue
 		}
 		if r == nil {
@@ -288,7 +288,7 @@ func (s *source) parseChunk(yamlChunk []byte) (*fileResource, error) {
 	// Convert to JSON
 	jsonChunk, err := yaml.YAMLToJSON(yamlChunk)
 	if err != nil {
-		return nil, fmt.Errorf("failed converting YAML to JSON")
+		return nil, fmt.Errorf("failed converting YAML to JSON: %v", err)
 	}
 
 	// Peek at the beginning of the JSON to

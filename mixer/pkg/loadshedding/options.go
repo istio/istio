@@ -43,6 +43,13 @@ type Options struct {
 	// SampleHalfLife controls the decay rate of observations of response latencies.
 	SampleHalfLife time.Duration
 
+	// LatencyEnforcementThreshold is the threshold for enforcement of response
+	// latency. Above the threshold, requests will be throttled based on average
+	// response latency. Below the threshold, no load-shedding will take place.
+	// This provides an option for ignoring load-shedding at low request volumes
+	// while preserving the protection at volume.
+	LatencyEnforcementThreshold rate.Limit
+
 	// Options for the rate limit evaluator
 
 	// MaxRequestsPerSecond controls the rate of requests over which the
@@ -62,12 +69,13 @@ type Options struct {
 // DefaultOptions returns a new set of options, initialized to the defaults
 func DefaultOptions() Options {
 	return Options{
-		AverageLatencyThreshold: 0,
-		SamplesPerSecond:        DefaultSampleFrequency,
-		SampleHalfLife:          DefaultHalfLife,
-		MaxRequestsPerSecond:    0,
-		BurstSize:               0,
-		Mode:                    Disabled,
+		AverageLatencyThreshold:     0,
+		SamplesPerSecond:            DefaultSampleFrequency,
+		SampleHalfLife:              DefaultHalfLife,
+		MaxRequestsPerSecond:        0,
+		BurstSize:                   0,
+		Mode:                        Disabled,
+		LatencyEnforcementThreshold: DefaultEnforcementThreshold,
 	}
 }
 
@@ -94,6 +102,9 @@ func (o *Options) AttachCobraFlags(cmd *cobra.Command) {
 
 	cmd.PersistentFlags().IntVarP(&o.BurstSize, "burstSize", "", 0,
 		"Number of requests that are permitted beyond the configured maximum for a period of time. Only valid when used with 'maxRequestsPerSecond'.")
+
+	cmd.PersistentFlags().VarP(newLimitValue(DefaultEnforcementThreshold, &o.LatencyEnforcementThreshold), "latencyEnforcementThreshold", "",
+		"Controls the threshold, in requests per second, above which the average latency threshold will be enforced for load-shedding")
 }
 
 type modeValue ThrottlerMode

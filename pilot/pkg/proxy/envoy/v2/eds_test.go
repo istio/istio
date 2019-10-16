@@ -29,10 +29,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 
 	"istio.io/api/mesh/v1alpha1"
-
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
@@ -414,6 +413,16 @@ func edsUpdateInc(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.T) {
 		t.Error("Expecting EDS only update, got", upd)
 	}
 	testTCPEndpoints("127.0.0.5", adsc, t)
+
+	// Wipe out all endpoints - expect full
+	server.EnvoyXdsServer.MemRegistry.SetEndpoints(edsIncSvc, "", []*model.IstioEndpoint{})
+
+	edsFullUpdateCheck(adsc, t)
+
+	lbe := adsc.GetEndpoints()["outbound|8080||eds.test.svc.cluster.local"]
+	if len(lbe.Endpoints) != 0 {
+		t.Fatalf("There should be no endpoints for outbound|8080||eds.test.svc.cluster.local. Endpoints:\n%v", adsc.EndpointsJSON())
+	}
 }
 
 // Make a direct EDS grpc request to pilot, verify the result is as expected.

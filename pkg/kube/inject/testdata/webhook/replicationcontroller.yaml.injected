@@ -14,6 +14,7 @@ spec:
       creationTimestamp: null
       labels:
         app: nginx
+        security.istio.io/mtlsReady: "true"
       name: nginx
     spec:
       containers:
@@ -128,7 +129,8 @@ spec:
           name: istio-certs
           readOnly: true
       initContainers:
-      - args:
+      - command:
+        - istio-iptables
         - -p
         - "15001"
         - -z

@@ -69,7 +69,7 @@ message Params {
   repeated string policy = 1;
 
   // Query method to check.
-  // Format: data.<package name>.<method name>
+  // Format: `data.<package name>.<method name>`
   string check_method = 2;
 
   // Close the client request when adapter has a issue.

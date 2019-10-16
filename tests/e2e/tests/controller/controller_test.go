@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/user"
 	"testing"
 	"time"
 
@@ -46,7 +45,7 @@ const (
 )
 
 func makeClient(desc schema.Set) (*crd.Client, error) {
-	cl, err := crd.NewClient("", "", desc, "")
+	cl, err := crd.NewClient("", "", desc, "", &model.DisabledLedger{})
 	if err != nil {
 		return nil, err
 	}
@@ -70,13 +69,11 @@ func resolveConfig(kubeconfig string) (string, error) {
 		kubeconfig = os.Getenv("KUBECONFIG")
 	}
 	if kubeconfig == "" {
-		usr, err := user.Current()
-		if err == nil {
-			defaultCfg := usr.HomeDir + "/.kube/config"
-			_, err := os.Stat(kubeconfig)
-			if err != nil {
-				kubeconfig = defaultCfg
-			}
+		home := os.Getenv("HOME")
+		defaultCfg := home + "/.kube/config"
+		_, err := os.Stat(kubeconfig)
+		if err != nil {
+			kubeconfig = defaultCfg
 		}
 	}
 	if kubeconfig != "" {

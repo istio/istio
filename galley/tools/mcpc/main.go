@@ -33,8 +33,8 @@ import (
 	"k8s.io/client-go/util/jsonpath"
 
 	mcp "istio.io/api/mcp/v1alpha1"
-	"istio.io/istio/galley/pkg/metadata"
-	_ "istio.io/istio/galley/pkg/metadata" // Import the resource package to pull in all proto types.
+
+	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/pkg/mcp/sink"
 	"istio.io/istio/pkg/mcp/testing/monitoring"
 )
@@ -92,7 +92,7 @@ func (u *updater) printShortChange(ch *sink.Change) {
 
 	now := time.Now()
 
-	fmt.Fprintln(outputFormatWriter, shortHeader)
+	_, _ = fmt.Fprintln(outputFormatWriter, shortHeader)
 	for i, o := range ch.Objects {
 		age := ""
 		if then, err := types.TimestampFromProto(o.Metadata.CreateTime); err == nil {
@@ -109,9 +109,9 @@ func (u *updater) printShortChange(ch *sink.Change) {
 			age,
 		}
 
-		fmt.Fprintln(outputFormatWriter, strings.Join(parts, "\t"))
+		_, _ = fmt.Fprintln(outputFormatWriter, strings.Join(parts, "\t"))
 	}
-	outputFormatWriter.Flush()
+	_ = outputFormatWriter.Flush()
 }
 
 // Update interface method implementation.
@@ -126,7 +126,7 @@ func (u *updater) printLongChange(ch *sink.Change) {
 
 		b, err := json.MarshalIndent(o, "  ", "  ")
 		if err != nil {
-			fmt.Printf("  Marshalling error: %v", err)
+			fmt.Printf("  Marshaling error: %v", err)
 		} else {
 			fmt.Printf("%s\n", string(b))
 		}
@@ -151,21 +151,21 @@ func (u *updater) printJsonpathChange(ch *sink.Change) {
 
 	now := time.Now()
 
-	fmt.Fprintln(outputFormatWriter, jsonpathHeader)
+	_, _ = fmt.Fprintln(outputFormatWriter, jsonpathHeader)
 	for i, o := range ch.Objects {
 		age := ageFromProto(now, o.Metadata.CreateTime)
 
 		namespace, name := asNamespaceAndName(o.Metadata.Name)
 
-		output := ""
+		out := ""
 		m := jsonpb.Marshaler{}
 		resourceStr, err := m.MarshalToString(o.Body)
 		if err == nil {
 			queryObj := map[string]interface{}{}
-			if err := json.Unmarshal([]byte(resourceStr), &queryObj); err == nil {
+			if err = json.Unmarshal([]byte(resourceStr), &queryObj); err == nil {
 				var b bytes.Buffer
-				if err := u.jp.Execute(&b, queryObj); err == nil {
-					output = b.String()
+				if err = u.jp.Execute(&b, queryObj); err == nil {
+					out = b.String()
 				}
 			}
 		}
@@ -177,12 +177,12 @@ func (u *updater) printJsonpathChange(ch *sink.Change) {
 			namespace, name,
 			o.Metadata.Version,
 			age,
-			output,
+			out,
 		}
 
-		fmt.Fprintln(outputFormatWriter, strings.Join(parts, "\t"))
+		_, _ = fmt.Fprintln(outputFormatWriter, strings.Join(parts, "\t"))
 	}
-	outputFormatWriter.Flush()
+	_ = outputFormatWriter.Flush()
 }
 
 func (u *updater) printStats(ch *sink.Change) {
@@ -205,7 +205,7 @@ func (u *updater) printStats(ch *sink.Change) {
 
 	// update add/update stats
 	for name, metadata := range added {
-		if prev, ok := stats.resources[name]; !ok {
+		if prev, found := stats.resources[name]; !found {
 			stats.add++
 			stats.resources[name] = metadata
 		} else if metadata.Version == prev.Version {
@@ -219,7 +219,7 @@ func (u *updater) printStats(ch *sink.Change) {
 
 	// update delete stats
 	for name := range stats.resources {
-		if _, ok := added[name]; !ok {
+		if _, ok = added[name]; !ok {
 			stats.delete++
 			delete(stats.resources, name)
 		}
@@ -232,46 +232,46 @@ func (u *updater) printStats(ch *sink.Change) {
 
 	fmt.Println("Current resource versions")
 	parts := []string{"COLLECTION", "NAME", "VERSION", "AGE"}
-	fmt.Fprintln(outputFormatWriter, strings.Join(parts, "\t"))
+	_, _ = fmt.Fprintln(outputFormatWriter, strings.Join(parts, "\t"))
 
 	for _, collection := range u.sortedCollections {
-		stats := u.stats[collection]
+		st := u.stats[collection]
 
 		// sort the list of resources for consistent output
-		resources := make([]string, 0, len(stats.resources))
-		for name := range stats.resources {
+		resources := make([]string, 0, len(st.resources))
+		for name := range st.resources {
 			resources = append(resources, name)
 		}
 		sort.Strings(resources)
 
 		for _, name := range resources {
-			metadata := stats.resources[name]
-			parts := []string{collection, name, metadata.Version, ageFromProto(now, metadata.CreateTime)}
-			fmt.Fprintln(outputFormatWriter, strings.Join(parts, "\t"))
+			metadata := st.resources[name]
+			p := []string{collection, name, metadata.Version, ageFromProto(now, metadata.CreateTime)}
+			_, _ = fmt.Fprintln(outputFormatWriter, strings.Join(p, "\t"))
 		}
 	}
-	outputFormatWriter.Flush()
+	_ = outputFormatWriter.Flush()
 
 	fmt.Printf("\n\n")
 
 	fmt.Println("Change stats")
-	fmt.Fprintln(outputFormatWriter, statsHeader)
+	_, _ = fmt.Fprintln(outputFormatWriter, statsHeader)
 	for _, collection := range u.sortedCollections {
-		stats := u.stats[collection]
-		parts := []string{
+		s := u.stats[collection]
+		p := []string{
 			collection,
-			strconv.FormatInt(stats.apply, 10),
-			strconv.FormatInt(stats.add, 10),
-			strconv.FormatInt(stats.readd, 10),
-			strconv.FormatInt(stats.update, 10),
-			strconv.FormatInt(stats.delete, 10),
+			strconv.FormatInt(s.apply, 10),
+			strconv.FormatInt(s.add, 10),
+			strconv.FormatInt(s.readd, 10),
+			strconv.FormatInt(s.update, 10),
+			strconv.FormatInt(s.delete, 10),
 		}
-		fmt.Fprintln(outputFormatWriter, strings.Join(parts, "\t"))
+		_, _ = fmt.Fprintln(outputFormatWriter, strings.Join(p, "\t"))
 	}
-	outputFormatWriter.Flush()
+	_ = outputFormatWriter.Flush()
 }
 
-// Update interface method implementation.
+// Apply implements Update
 func (u *updater) Apply(ch *sink.Change) error {
 	switch *output {
 	case "long":
@@ -333,8 +333,7 @@ func main() {
 		}
 	}
 
-	for _, info := range metadata.Types.All() {
-		collection := info.Collection.String()
+	for _, collection := range metadata.MustGet().AllCollectionsInSnapshots() {
 
 		switch {
 		// pilot sortedCollections

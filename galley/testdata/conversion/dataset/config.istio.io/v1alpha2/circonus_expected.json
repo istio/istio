@@ -2,7 +2,7 @@
   "istio/config/v1alpha2/legacy/circonuses": [
     {
       "Metadata": {
-        "name": "valid-circonus"
+        "name": "{{.Namespace}}/valid-circonus"
       },
       "Body": {
         "fields": {

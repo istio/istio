@@ -52,6 +52,57 @@ type execAndK8sConfigTestCase struct {
 }
 
 var (
+	cannedIngressGatewayService = coreV1.Service{
+		ObjectMeta: metaV1.ObjectMeta{
+			Name:      "istio-ingressgateway",
+			Namespace: "istio-system",
+			Labels: map[string]string{
+				"istio": "ingressgateway",
+			},
+		},
+		Spec: coreV1.ServiceSpec{
+			Ports: []coreV1.ServicePort{
+				{
+					Port:     80,
+					NodePort: 31380,
+					Name:     "http2",
+					Protocol: "TCP",
+				},
+			},
+			Selector: map[string]string{"istio": "ingressgateway"},
+		},
+		Status: coreV1.ServiceStatus{
+			LoadBalancer: coreV1.LoadBalancerStatus{
+				Ingress: []coreV1.LoadBalancerIngress{
+					{
+						IP: "10.1.2.3",
+					},
+				},
+			},
+		},
+	}
+
+	cannedIngressGatewayPod = coreV1.Pod{
+		ObjectMeta: metaV1.ObjectMeta{
+			Name:      "istio-ingressgateway-5bf6c9887-vvvmj",
+			Namespace: "istio-system",
+			Labels: map[string]string{
+				"istio": "ingressgateway",
+			},
+		},
+		Spec: coreV1.PodSpec{
+			NodeName: "foo_node",
+			Containers: []coreV1.Container{
+				{
+					Name: "istio-proxy",
+				},
+			},
+		},
+		Status: coreV1.PodStatus{
+			Phase: coreV1.PodRunning,
+		},
+	}
+
 	cannedIstioConfig = []model.Config{
 		{
 			ConfigMeta: model.ConfigMeta{
@@ -74,6 +125,55 @@ var (
 				TrafficPolicy: &networking.TrafficPolicy{
 					Tls: &networking.TLSSettings{
 						Mode: networking.TLSSettings_ISTIO_MUTUAL,
+					},
+				},
+			},
+		},
+		{
+			ConfigMeta: model.ConfigMeta{
+				Name:      "bookinfo",
+				Namespace: "default",
+				Type:      schemas.VirtualService.Type,
+				Group:     schemas.VirtualService.Group,
+				Version:   schemas.VirtualService.Version,
+			},
+			Spec: &networking.VirtualService{
+				Hosts:    []string{"*"},
+				Gateways: []string{"bookinfo-gateway"},
+				Http: []*networking.HTTPRoute{
+					{
+						Match: []*networking.HTTPMatchRequest{
+							{
+								Uri: &networking.StringMatch{
+									MatchType: &networking.StringMatch_Exact{Exact: "/productpage"},
+								},
+							},
+							{
+								Uri: &networking.StringMatch{
+									MatchType: &networking.StringMatch_Exact{Exact: "/login"},
+								},
+							},
+							{
+								Uri: &networking.StringMatch{
+									MatchType: &networking.StringMatch_Exact{Exact: "/logout"},
+								},
+							},
+							{
+								Uri: &networking.StringMatch{
+									MatchType: &networking.StringMatch_Prefix{Prefix: "/api/v1/products"},
+								},
+							},
+						},
+						Route: []*networking.HTTPRouteDestination{
+							{
+								Destination: &networking.Destination{
+									Host: "productpage",
+									Port: &networking.PortSelector{
+										Number: 80,
+									},
+								},
+							},
+						},
 					},
 				},
 			},
@@ -146,6 +246,39 @@ var (
 					Phase: coreV1.PodRunning,
 				},
 			},
+			{
+				ObjectMeta: metaV1.ObjectMeta{
+					Name:      "productpage-v1-7bbd79f8fd-k6j79",
+					Namespace: "default",
+					Labels: map[string]string{
+						"app":     "productpage",
+						"version": "v1",
+					},
+				},
+				Spec: coreV1.PodSpec{
+					NodeName: "foo_node",
+					Containers: []coreV1.Container{
+						{
+							Name: "productpage",
+							// No container port, but the Envoy data will show 1.3 Istio
+						},
+						{
+							Name: "istio-proxy",
+							Ports: []coreV1.ContainerPort{
+								{
+									Name:          "http-envoy-prom",
+									ContainerPort: 15090,
+									Protocol:      "TCP",
+								},
+							},
+						},
+					},
+				},
+				Status: coreV1.PodStatus{
+					Phase: coreV1.PodRunning,
+				},
+			},
+			cannedIngressGatewayPod,
 		}},
 		&coreV1.ServiceList{Items: []coreV1.Service{
 			{
@@ -183,14 +316,94 @@ var (
 					Selector: map[string]string{"app": "ratings"},
 				},
 			},
+			{
+				ObjectMeta: metaV1.ObjectMeta{
+					Name:      "productpage",
+					Namespace: "default",
+				},
+				Spec: coreV1.ServiceSpec{
+					Ports: []coreV1.ServicePort{
+						{
+							Port: 9080,
+							TargetPort: intstr.IntOrString{
+								Type:   intstr.Int,
+								IntVal: 9080,
+							},
+							Protocol: "TCP",
+						},
+					},
+					Selector: map[string]string{"app": "productpage"},
+				},
+			},
+			cannedIngressGatewayService,
+		}},
+	}
+
+	cannedNoPortNameK8sEnv = []runtime.Object{
+		&coreV1.PodList{Items: []coreV1.Pod{
+			{
+				ObjectMeta: metaV1.ObjectMeta{
+					Name:      "ratings-v1-f745cf57b-vfwcv",
+					Namespace: "bookinfo",
+					Labels: map[string]string{
+						"app":     "ratings",
+						"version": "v1",
+					},
+				},
+				Spec: coreV1.PodSpec{
+					NodeName: "foo_node",
+					Containers: []coreV1.Container{
+						{
+							Name: "ratings",
+						},
+						{
+							Name: "istio-proxy",
+							Ports: []coreV1.ContainerPort{
+								{
+									Name:          "http-envoy-prom",
+									ContainerPort: 15090,
+									Protocol:      "TCP",
+								},
+							},
+						},
+					},
+				},
+				Status: coreV1.PodStatus{
+					Phase: coreV1.PodRunning,
+				},
+			},
+			cannedIngressGatewayPod,
+		}},
+		&coreV1.ServiceList{Items: []coreV1.Service{
+			{
+				ObjectMeta: metaV1.ObjectMeta{
+					Name:      "ratings",
+					Namespace: "bookinfo",
+				},
+				Spec: coreV1.ServiceSpec{
+					Ports: []coreV1.ServicePort{
+						{
+							Port: 9080,
+							TargetPort: intstr.IntOrString{
+								Type:   intstr.Int,
+								IntVal: 9080,
+							},
+							Protocol: "TCP",
+						},
+					},
+					Selector: map[string]string{"app": "ratings"},
+				},
+			},
+			cannedIngressGatewayService,
 		}},
 	}
 )
 
 func TestDescribe(t *testing.T) {
 	cannedConfig := map[string][]byte{
-		"details-v1-5b7f94f9bc-wp5tb": util.ReadFile("../pkg/writer/compare/testdata/envoyconfigdump.json", t),
-		"ratings-v1-f745cf57b-vfwcv":  util.ReadFile("testdata/describe/ratings-v1-f745cf57b-vfwcv.json", t),
+		"details-v1-5b7f94f9bc-wp5tb":     util.ReadFile("../pkg/writer/compare/testdata/envoyconfigdump.json", t),
+		"ratings-v1-f745cf57b-vfwcv":      util.ReadFile("testdata/describe/ratings-v1-f745cf57b-vfwcv.json", t),
+		"productpage-v1-7bbd79f8fd-k6j79": util.ReadFile("testdata/describe/productpage-v1-7bbd79f8fd-k6j79.json", t),
 		"istio-pilot-7f9796fc98-99bp7": []byte(`[
 {
     "host": "details.default.svc.cluster.local",
@@ -211,6 +424,7 @@ func TestDescribe(t *testing.T) {
     "TLS_conflict_status": "OK"
 }
 ]`),
+		"istio-ingressgateway-5bf6c9887-vvvmj": util.ReadFile("testdata/describe/istio-ingressgateway-5bf6c9887-vvvmj.json", t),
 	}
 	cases := []execAndK8sConfigTestCase{
 		{ // case 0
@@ -258,6 +472,42 @@ Service: ratings
 DestinationRule: ratings for "ratings"
    Matching subsets: v1
    Traffic Policy TLS Mode: ISTIO_MUTUAL
+Pilot reports that pod is PERMISSIVE (enforces HTTP/mTLS) and clients speak mTLS
+RBAC policies: ratings-reader
+`,
+		},
+		{ // case 6 has 1.3 data, and a service with unnamed port
+			execClientConfig: cannedConfig,
+			configs:          cannedIstioConfig,
+			k8sConfigs:       cannedK8sEnv,
+			args:             strings.Split("-n default experimental describe pod productpage-v1-7bbd79f8fd-k6j79", " "),
+			expectedOutput: `Pod: productpage-v1-7bbd79f8fd-k6j79
+   Pod Ports: 15090 (istio-proxy)
+--------------------
+Service: productpage
+   Port:  9080/UnsupportedProtocol
+   9080 is unnamed which does not follow Istio conventions
+Authn: None
+
+
+Exposed on Ingress Gateway http://10.1.2.3:0
+
+VirtualService: bookinfo
+   /productpage, /login, /logout, /api/v1/products*
+`,
+		},
+		{ // case 7 has 1.2 data, and a service with unnamed port, and no containerPort
+			execClientConfig: cannedConfig,
+			configs:          []model.Config{},
+			k8sConfigs:       cannedNoPortNameK8sEnv,
+			args:             strings.Split("-n bookinfo experimental describe pod ratings-v1-f745cf57b-vfwcv", " "),
+			expectedOutput: `Pod: ratings-v1-f745cf57b-vfwcv
+   Pod Ports: 15090 (istio-proxy)
+--------------------
+Service: ratings
+   Port:  9080/UnsupportedProtocol
+   Warning: Pod ratings-v1-f745cf57b-vfwcv port 9080 not exposed by Container
+   9080 is unnamed which does not follow Istio conventions
 Pilot reports that pod is PERMISSIVE (enforces HTTP/mTLS) and clients speak mTLS
 RBAC policies: ratings-reader
 `,

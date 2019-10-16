@@ -24,7 +24,6 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
-	authn "istio.io/api/authentication/v1alpha1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -92,7 +91,7 @@ type ConfigMeta struct {
 type Config struct {
 	ConfigMeta
 
-	// Spec holds the configuration object as a protobuf message
+	// Spec holds the configuration object as a gogo protobuf message
 	Spec proto.Message
 }
 
@@ -150,6 +149,10 @@ type ConfigStore interface {
 
 	// Delete removes an object from the store by key
 	Delete(typ, name, namespace string) error
+
+	Version() string
+
+	GetResourceAtVersion(version string, key string) (resourceVersion string, err error)
 }
 
 // Key function for the configuration objects
@@ -175,6 +178,7 @@ func (meta *ConfigMeta) Key() string {
 // Handlers execute on the single worker queue in the order they are appended.
 // Handlers receive the notification event and the associated object.  Note
 // that all handlers must be registered before starting the cache controller.
+//go:generate counterfeiter -o ../config/aggregate/fakes/config_store_cache.gen.go --fake-name ConfigStoreCache . ConfigStoreCache
 type ConfigStoreCache interface {
 	ConfigStore
 
@@ -192,7 +196,7 @@ type ConfigStoreCache interface {
 // IstioConfigStore is a specialized interface to access config store using
 // Istio configuration types
 // nolint
-//go:generate $GOPATH/src/istio.io/istio/bin/counterfeiter.sh -o $GOPATH/src/istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes/fake_istio_config_store.go --fake-name IstioConfigStore . IstioConfigStore
+//go:generate counterfeiter -o ../networking/core/v1alpha3/fakes/fake_istio_config_store.gen.go --fake-name IstioConfigStore . IstioConfigStore
 type IstioConfigStore interface {
 	ConfigStore
 
@@ -208,14 +212,6 @@ type IstioConfigStore interface {
 	// QuotaSpecByDestination selects Mixerclient quota specifications
 	// associated with destination service instances.
 	QuotaSpecByDestination(instance *ServiceInstance) []Config
-
-	// AuthenticationPolicyForWorkload selects authentication policy associated
-	// with a workload (or labels if specified) + port.
-	// If there are more than one policies at different scopes (global, namespace, service)
-	// the one with the most specific scope will be selected. If there are more than
-	// one with the same scope, the first one seen will be used (later, we should
-	// have validation at submitting time to prevent this scenario from happening)
-	AuthenticationPolicyForWorkload(service *Service, labels labels.Instance, port *Port) *Config
 
 	// ServiceRoles selects ServiceRoles in the specified namespace.
 	ServiceRoles(namespace string) []Config
@@ -353,11 +349,20 @@ func MakeIstioStore(store ConfigStore) IstioConfigStore {
 }
 
 func (store *istioConfigStore) ServiceEntries() []Config {
-	configs, err := store.List(schemas.ServiceEntry.Type, NamespaceAll)
+	serviceEntries, err := store.List(schemas.ServiceEntry.Type, NamespaceAll)
 	if err != nil {
 		return nil
 	}
-	return configs
+	supportedTypes := store.ConfigDescriptor()
+	if _, ok := supportedTypes.GetByType(schemas.SyntheticServiceEntry.Type); ok {
+		syntheticServiceEntries, err := store.List(schemas.SyntheticServiceEntry.Type, NamespaceAll)
+		if err != nil {
+			return nil
+		}
+		return append(serviceEntries, syntheticServiceEntries...)
+
+	}
+	return serviceEntries
 }
 
 // sortConfigByCreationTime sorts the list of config objects in ascending order by their creation time (if available).
@@ -544,86 +549,6 @@ func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance)
 		log.Warnf("Some matched QuotaSpecs were not found: %v", refs)
 	}
 	return out
-}
-
-func (store *istioConfigStore) AuthenticationPolicyForWorkload(service *Service, l labels.Instance, port *Port) *Config {
-	if len(service.Attributes.Namespace) == 0 {
-		return nil
-	}
-	namespace := service.Attributes.Namespace
-	specs, err := store.List(schemas.AuthenticationPolicy.Type, namespace)
-	if err != nil {
-		return nil
-	}
-	var out Config
-	currentMatchLevel := 0
-	for _, spec := range specs {
-		policy := spec.Spec.(*authn.Policy)
-		// Indicate if a policy matched to target destination:
-		// 0 - not match.
-		// 1 - global / cluster scope.
-		// 2 - namespace scope.
-		// 3 - workload (service).
-		matchLevel := 0
-		if len(policy.Targets) > 0 {
-			for _, dest := range policy.Targets {
-				// When labels is specified, use labels to match the policy. Otherwise, fallback to use host name.
-				if len(dest.Labels) != 0 {
-					log.Debugf("found label selector on auth policy (%s/%s): %s", dest.Labels, spec.Namespace, spec.Name)
-					destLabels := labels.Instance(dest.Labels)
-					if !destLabels.SubsetOf(l) {
-						continue
-					}
-					log.Debugf("matched auth policy (%s/%s) with workload: %s", spec.Namespace, spec.Name, l)
-				} else if service.Hostname != ResolveShortnameToFQDN(dest.Name, spec.ConfigMeta) {
-					continue
-				}
-				// If destination port is defined, it must match.
-				if len(dest.Ports) > 0 {
-					portMatched := false
-					for _, portSelector := range dest.Ports {
-						if port.Match(portSelector) {
-							portMatched = true
-							break
-						}
-					}
-					if !portMatched {
-						// Port does not match with any of port selector, skip to next target selector.
-						continue
-					}
-				}
-
-				matchLevel = 3
-				break
-			}
-		} else {
-			// Match on namespace level.
-			matchLevel = 2
-		}
-		// Swap output policy that is match in more specific scope.
-		if matchLevel > currentMatchLevel {
-			currentMatchLevel = matchLevel
-			out = spec
-		}
-	}
-	// Non-zero currentMatchLevel implies authentication policy was found for the given host.
-	if currentMatchLevel != 0 {
-		return &out
-	}
-
-	// Reach here if no authentication policy found in service or namespace level; check for
-	// cluster-scoped (global) policy.
-	// Note: to avoid multiple global policy, we restrict that only the one with name equals to
-	// `DefaultAuthenticationPolicyName` ("default") will be used. Also, targets spec should be empty.
-	if specs, err := store.List(schemas.AuthenticationMeshPolicy.Type, ""); err == nil {
-		for _, spec := range specs {
-			if spec.Name == constants.DefaultAuthenticationPolicyName {
-				return &spec
-			}
-		}
-	}
-
-	return nil
 }
 
 func (store *istioConfigStore) ServiceRoles(namespace string) []Config {

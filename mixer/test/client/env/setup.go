@@ -25,6 +25,8 @@ import (
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 
 	mixerpb "istio.io/api/mixer/v1"
+
+	"istio.io/istio/pkg/envoy"
 	"istio.io/istio/pkg/test"
 )
 
@@ -35,7 +37,7 @@ type TestSetup struct {
 	mfConf *MixerFilterConf
 	ports  *Ports
 
-	envoy             *Envoy
+	envoy             envoy.Instance
 	mixer             *MixerServer
 	backend           *HTTPServer
 	testName          uint16
@@ -184,13 +186,13 @@ func (s *TestSetup) SetMixerSourceUID(uid string) {
 // SetUp setups Envoy, Mixer, and Backend server for test.
 func (s *TestSetup) SetUp() error {
 	var err error
-	s.envoy, err = s.NewEnvoy()
+	s.envoy, err = s.newEnvoy()
 	if err != nil {
 		log.Printf("unable to create Envoy %v", err)
 		return err
 	}
 
-	err = s.envoy.Start()
+	err = startEnvoy(s.envoy)
 	if err != nil {
 		return err
 	}
@@ -226,10 +228,10 @@ func (s *TestSetup) SetUp() error {
 
 // TearDown shutdown the servers.
 func (s *TestSetup) TearDown() {
-	if err := s.envoy.Stop(); err != nil {
+	if err := stopEnvoy(s.envoy); err != nil {
 		s.t.Errorf("error quitting envoy: %v", err)
 	}
-	s.envoy.TearDown()
+	removeEnvoySharedMemory(s.envoy)
 
 	if s.mixer != nil {
 		s.mixer.Stop()
@@ -256,20 +258,20 @@ func (s *TestSetup) ReStartEnvoy() {
 	log.Printf("new allocated ports are %v:", s.ports)
 	var err error
 	s.epoch++
-	s.envoy, err = s.NewEnvoy()
+	s.envoy, err = s.newEnvoy()
 	if err != nil {
 		s.t.Errorf("unable to re-start envoy %v", err)
 		return
 	}
 
-	err = s.envoy.Start()
+	err = startEnvoy(s.envoy)
 	if err != nil {
 		s.t.Fatalf("unable to re-start envoy %v", err)
 	}
 
 	s.WaitEnvoyReady()
 
-	_ = oldEnvoy.Stop()
+	_ = stopEnvoy(oldEnvoy)
 }
 
 // VerifyCheckCount verifies the number of Check calls.

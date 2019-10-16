@@ -8,24 +8,27 @@ metadata:
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 rules:
+  # For reading Istio resources
+- apiGroups: [
+  "authentication.istio.io",
+  "config.istio.io",
+  "networking.istio.io",
+  "rbac.istio.io",
+  "security.istio.io"]
+  resources: ["*"]
+  verbs: ["get", "list", "watch"]
+  # For updating Istio resource statuses
+- apiGroups: [
+  "authentication.istio.io",
+  "config.istio.io",
+  "networking.istio.io",
+  "rbac.istio.io",
+  "security.istio.io"]
+  resources: ["*/status"]
+  verbs: ["update"]
 - apiGroups: ["admissionregistration.k8s.io"]
   resources: ["validatingwebhookconfigurations"]
   verbs: ["*"]
-- apiGroups: ["config.istio.io"] # istio mixer CRD watcher
-  resources: ["*"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["networking.istio.io"]
-  resources: ["*"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["authentication.istio.io"]
-  resources: ["*"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["rbac.istio.io"]
-  resources: ["*"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["security.istio.io"]
-  resources: ["*"]
-  verbs: ["get", "list", "watch"]
 - apiGroups: ["extensions","apps"]
   resources: ["deployments"]
   resourceNames: ["istio-galley"]

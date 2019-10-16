@@ -17,6 +17,7 @@ package configmap
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,16 +35,30 @@ func TestInsertCATLSRootCert(t *testing.T) {
 		namespace         string
 		existingConfigMap *v1.ConfigMap
 		certToAdd         string
-		expectedActions   []ktesting.Action
+		expectedActionsA  []ktesting.Action
+		expectedActionsB  []ktesting.Action
 		expectedErr       string
 	}{
 		"Non-existing ConfigMap": {
 			existingConfigMap: nil,
 			certToAdd:         "ABCD",
-			expectedActions: []ktesting.Action{
+			expectedActionsA: []ktesting.Action{
 				ktesting.NewGetAction(gvr, "test-ns", istioSecurityConfigMapName),
 				ktesting.NewCreateAction(gvr, "test-ns", createConfigMap("test-ns", map[string]string{
 					"key1": "data1", caTLSRootCertName: "ABCD"})),
+			},
+			expectedActionsB: []ktesting.Action{
+				ktesting.NewGetAction(gvr, "test-ns", istioSecurityConfigMapName),
+				ktesting.NewCreateAction(gvr, "test-ns", createConfigMap("test-ns", map[string]string{
+					"key1": "data1", caTLSRootCertName: "ABCD"})),
+				ktesting.NewGetAction(gvr, "test-ns", istioSecurityConfigMapName),
+				ktesting.NewUpdateAction(gvr, "test-ns", &v1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      istioSecurityConfigMapName,
+						Namespace: "test-ns",
+					},
+					Data: map[string]string{},
+				}),
 			},
 			expectedErr: "",
 		},
@@ -51,7 +66,15 @@ func TestInsertCATLSRootCert(t *testing.T) {
 			namespace:         "test-ns",
 			existingConfigMap: createConfigMap("test-ns", map[string]string{"key1": "data1"}),
 			certToAdd:         "ABCD",
-			expectedActions: []ktesting.Action{
+			expectedActionsA: []ktesting.Action{
+				ktesting.NewGetAction(gvr, "test-ns", istioSecurityConfigMapName),
+				ktesting.NewUpdateAction(gvr, "test-ns", createConfigMap("test-ns", map[string]string{
+					"key1": "data1", caTLSRootCertName: "ABCD"})),
+			},
+			expectedActionsB: []ktesting.Action{
+				ktesting.NewGetAction(gvr, "test-ns", istioSecurityConfigMapName),
+				ktesting.NewUpdateAction(gvr, "test-ns", createConfigMap("test-ns", map[string]string{
+					"key1": "data1", caTLSRootCertName: "ABCD"})),
 				ktesting.NewGetAction(gvr, "test-ns", istioSecurityConfigMapName),
 				ktesting.NewUpdateAction(gvr, "test-ns", createConfigMap("test-ns", map[string]string{
 					"key1": "data1", caTLSRootCertName: "ABCD"})),
@@ -62,7 +85,15 @@ func TestInsertCATLSRootCert(t *testing.T) {
 			namespace:         "",
 			existingConfigMap: createConfigMap("", map[string]string{"key1": "data1"}),
 			certToAdd:         "ABCD",
-			expectedActions: []ktesting.Action{
+			expectedActionsA: []ktesting.Action{
+				ktesting.NewGetAction(gvr, "test-ns", istioSecurityConfigMapName),
+				ktesting.NewUpdateAction(gvr, "test-ns", createConfigMap("", map[string]string{
+					"key1": "data1", caTLSRootCertName: "ABCD"})),
+			},
+			expectedActionsB: []ktesting.Action{
+				ktesting.NewGetAction(gvr, "test-ns", istioSecurityConfigMapName),
+				ktesting.NewUpdateAction(gvr, "test-ns", createConfigMap("", map[string]string{
+					"key1": "data1", caTLSRootCertName: "ABCD"})),
 				ktesting.NewGetAction(gvr, "test-ns", istioSecurityConfigMapName),
 				ktesting.NewUpdateAction(gvr, "test-ns", createConfigMap("", map[string]string{
 					"key1": "data1", caTLSRootCertName: "ABCD"})),
@@ -91,7 +122,20 @@ func TestInsertCATLSRootCert(t *testing.T) {
 		if err == nil {
 			if tc.expectedErr != "" {
 				t.Errorf("Test case [%s]: Expecting error %s but got no error", id, tc.expectedErr)
-			} else if err := checkActions(client.Actions(), tc.expectedActions); err != nil {
+			} else if err := checkActions(client.Actions(), tc.expectedActionsA); err != nil {
+				t.Errorf("Test case [%s]: %v", id, err)
+			}
+		}
+
+		err = controller.InsertCATLSRootCertWithRetry(tc.certToAdd, 1*time.Second, 2*time.Second)
+		if err != nil && err.Error() != tc.expectedErr {
+			t.Errorf("Test case [%s]: Get error (%s) different from expected error (%s).",
+				id, err.Error(), tc.expectedErr)
+		}
+		if err == nil {
+			if tc.expectedErr != "" {
+				t.Errorf("Test case [%s]: Expecting error %s but got no error", id, tc.expectedErr)
+			} else if err := checkActions(client.Actions(), tc.expectedActionsB); err != nil {
 				t.Errorf("Test case [%s]: %v", id, err)
 			}
 		}

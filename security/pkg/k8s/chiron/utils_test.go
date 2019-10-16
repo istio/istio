@@ -24,7 +24,15 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/spiffe"
+
+	cert "k8s.io/api/certificates/v1beta1"
+
+	"k8s.io/apimachinery/pkg/runtime"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+	kt "k8s.io/client-go/testing"
 )
 
 const (
@@ -47,14 +55,89 @@ xO7AQk5MJcGg6cfE5wWAKU1ATjpK4CN+RTn8v8ODLoI2SW3pfsnXxm93O+pp9HN4
 +O+1PQtNUWhCfh+g6BN2mYo2OEZ8qGSxDlMZej4YOdVkW8PHmFZTK0w9iJKqM5o1
 V6g5gZlqSoRhICK09tpc
 -----END CERTIFICATE-----`
-)
 
-var (
-	fakeCACert = []byte("fake-CA-cert")
+	exampleIssuedCert = `-----BEGIN CERTIFICATE-----
+MIIDGDCCAgCgAwIBAgIRAKvYcPLFqnJcwtshCGfNzTswDQYJKoZIhvcNAQELBQAw
+LzEtMCsGA1UEAxMkYTc1OWM3MmQtZTY3Mi00MDM2LWFjM2MtZGMwMTAwZjE1ZDVl
+MB4XDTE5MDgwNjE5NTU0NVoXDTI0MDgwNDE5NTU0NVowCzEJMAcGA1UEChMAMIIB
+IjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyLIFJU5yJ5VXhbmizir+7Glm
+1tVEYXKGiqYbMRbfsFm7V6Z4l00D9/eHvfTXaFpqhv6HBm31MArjYB3OaaV6krvT
+whBUEPSkGBFe/eMPSFWBW27a0nw0cK2s/5yuFhTRtcUrZ9+ojJg4IS3oSm2UZ6UJ
+DuNI3qwB6OlPQOcWX8uEp4eAaolD1lIbLRQYvxYrBqnyCZBLE+MJgA1/VB3dAECB
+TxPtAqcwLFcvsM5ABys8yK8FrqRn5Bx54NiztgG+yU30W33xjdqzmEmuIIk4JjPU
+ZQRsug7XClDvQKM6lbYcYS1td2zT08hdgURFXJ9VR64ALFp00/bvglpryu8FmQID
+AQABo1MwUTAMBgNVHRMBAf8EAjAAMEEGA1UdEQQ6MDiCHHByb3RvbXV0YXRlLmlz
+dGlvLXN5c3RlbS5zdmOCGHByb3RvbXV0YXRlLmlzdGlvLXN5c3RlbTANBgkqhkiG
+9w0BAQsFAAOCAQEAhcVEZSuNMqMUJrWVb3b+6pmw9o1f7j6a51KWxOiIl6YuTYFS
+WaR0lHSW8wLesjsjm1awWO/F3QRuYWbalANy7434GMAGF53u/uc+Z8aE3EItER9o
+SpAJos6OfJqyok7JXDdOYRDD5/hBerj68R9llWzNJd27/1jZ0NF2sIE1W4QFddy/
++8YA4+IqwkWB5/LbeRznl3EjFZDpCEJk0gg5XwAR5eIEy4QU8GueTwrDkssFdBGq
+0naco7/Es7CWQscYdKHAgYgk0UAyu8sGV235Uw3hlOrbZ/kqvyUmsSujgT8irmDV
+e+5z6MTAO6ktvHdQlSuH6ARn47bJrZOlkttAhg==
+-----END CERTIFICATE-----
+`
 )
 
 type mockTLSServer struct {
 	httpServer *httptest.Server
+}
+
+func defaultReactionFunc(obj runtime.Object) kt.ReactionFunc {
+	return func(act kt.Action) (bool, runtime.Object, error) {
+		return true, obj, nil
+	}
+}
+
+func TestGenKeyCertK8sCA(t *testing.T) {
+	testCases := map[string]struct {
+		gracePeriodRatio  float32
+		minGracePeriod    time.Duration
+		k8sCaCertFile     string
+		dnsNames          []string
+		secretNames       []string
+		serviceNamespaces []string
+		expectFaill       bool
+	}{
+		"gen cert should succeed": {
+			gracePeriodRatio:  0.6,
+			k8sCaCertFile:     "./test-data/example-ca-cert.pem",
+			dnsNames:          []string{"foo"},
+			secretNames:       []string{"istio.webhook.foo"},
+			serviceNamespaces: []string{"foo.ns"},
+			expectFaill:       false,
+		},
+	}
+
+	for _, tc := range testCases {
+		client := fake.NewSimpleClientset()
+		csr := &cert.CertificateSigningRequest{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "domain-cluster.local-ns--secret-mock-secret",
+			},
+			Status: cert.CertificateSigningRequestStatus{
+				Certificate: []byte(exampleIssuedCert),
+			},
+		}
+		client.PrependReactor("get", "certificatesigningrequests", defaultReactionFunc(csr))
+
+		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
+			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
+			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces)
+		if err != nil {
+			t.Errorf("failed at creating webhook controller: %v", err)
+			continue
+		}
+
+		_, _, _, err = GenKeyCertK8sCA(wc.certClient.CertificateSigningRequests(), tc.dnsNames[0], tc.secretNames[0],
+			tc.serviceNamespaces[0], wc.k8sCaCertFile)
+		if tc.expectFaill {
+			if err == nil {
+				t.Errorf("should have failed")
+			}
+		} else if err != nil {
+			t.Errorf("failed unexpectedly: %v", err)
+		}
+	}
 }
 
 func TestReadCACert(t *testing.T) {
@@ -125,64 +208,34 @@ func TestIsTCPReachable(t *testing.T) {
 	}
 }
 
-func TestRebuildMutatingWebhookConfigHelper(t *testing.T) {
-	configFile := "./test-data/example-mutating-webhook-config.yaml"
-	configName := "proto-mutate"
-	webhookConfig, err := rebuildMutatingWebhookConfigHelper(fakeCACert, configFile, configName)
-	if err != nil {
-		t.Fatalf("err rebuilding mutating webhook config: %v", err)
-	}
-	if webhookConfig.Name != configName {
-		t.Fatalf("webhookConfig.Name (%v) is different from %v", webhookConfig.Name, configName)
-	}
-	for i := range webhookConfig.Webhooks {
-		if !bytes.Equal(webhookConfig.Webhooks[i].ClientConfig.CABundle, fakeCACert) {
-			t.Fatalf("webhookConfig CA bundle(%v) is different from %v",
-				webhookConfig.Webhooks[i].ClientConfig.CABundle, fakeCACert)
-		}
-	}
-}
-
 func TestReloadCACert(t *testing.T) {
-	client := fake.NewSimpleClientset()
-	mutatingWebhookConfigFiles := []string{"./test-data/empty-webhook-config.yaml"}
-	validatingWebhookConfigFiles := []string{"./test-data/empty-webhook-config.yaml"}
-
 	testCases := map[string]struct {
-		deleteWebhookConfigOnExit     bool
-		gracePeriodRatio              float32
-		minGracePeriod                time.Duration
-		k8sCaCertFile                 string
-		namespace                     string
-		mutatingWebhookConfigFiles    []string
-		mutatingWebhookConfigNames    []string
-		mutatingWebhookSerivceNames   []string
-		mutatingWebhookSerivcePorts   []int
-		validatingWebhookConfigFiles  []string
-		validatingWebhookConfigNames  []string
-		validatingWebhookServiceNames []string
-		validatingWebhookServicePorts []int
+		gracePeriodRatio  float32
+		minGracePeriod    time.Duration
+		k8sCaCertFile     string
+		dnsNames          []string
+		secretNames       []string
+		serviceNamespaces []string
 
 		expectFaill   bool
 		expectChanged bool
 	}{
 		"reload from valid CA cert path": {
-			deleteWebhookConfigOnExit:    false,
-			gracePeriodRatio:             0.6,
-			k8sCaCertFile:                "./test-data/example-ca-cert.pem",
-			mutatingWebhookConfigFiles:   mutatingWebhookConfigFiles,
-			validatingWebhookConfigFiles: validatingWebhookConfigFiles,
-			expectFaill:                  false,
-			expectChanged:                false,
+			gracePeriodRatio:  0.6,
+			dnsNames:          []string{"foo"},
+			secretNames:       []string{"istio.webhook.foo"},
+			serviceNamespaces: []string{"foo.ns"},
+			k8sCaCertFile:     "./test-data/example-ca-cert.pem",
+			expectFaill:       false,
+			expectChanged:     false,
 		},
 	}
 
 	for _, tc := range testCases {
-		wc, err := NewWebhookController(tc.deleteWebhookConfigOnExit, tc.gracePeriodRatio, tc.minGracePeriod,
+		client := fake.NewSimpleClientset()
+		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
 			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
-			tc.k8sCaCertFile, tc.namespace, tc.mutatingWebhookConfigFiles, tc.mutatingWebhookConfigNames,
-			tc.mutatingWebhookSerivceNames, tc.mutatingWebhookSerivcePorts, tc.validatingWebhookConfigFiles,
-			tc.validatingWebhookConfigNames, tc.validatingWebhookServiceNames, tc.validatingWebhookServicePorts)
+			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces)
 		if err != nil {
 			t.Errorf("failed at creating webhook controller: %v", err)
 			continue
@@ -205,6 +258,194 @@ func TestReloadCACert(t *testing.T) {
 			if changed {
 				t.Error("expect unchanged but changed")
 			}
+		}
+	}
+}
+
+func TestSubmitCSR(t *testing.T) {
+	testCases := map[string]struct {
+		gracePeriodRatio  float32
+		minGracePeriod    time.Duration
+		k8sCaCertFile     string
+		dnsNames          []string
+		secretNames       []string
+		serviceNamespaces []string
+
+		secretName      string
+		secretNameSpace string
+
+		createDuplicate bool
+		expectFaill     bool
+	}{
+		"submit a CSR without duplicate should succeed": {
+			gracePeriodRatio:  0.6,
+			k8sCaCertFile:     "./test-data/example-ca-cert.pem",
+			dnsNames:          []string{"foo"},
+			secretNames:       []string{"istio.webhook.foo"},
+			serviceNamespaces: []string{"foo.ns"},
+			secretName:        "mock-secret",
+			secretNameSpace:   "mock-secret-namespace",
+			createDuplicate:   false,
+			expectFaill:       false,
+		},
+		"submit a CSR with duplicate should succeed": {
+			gracePeriodRatio:  0.6,
+			dnsNames:          []string{"foo"},
+			secretNames:       []string{"istio.webhook.foo"},
+			serviceNamespaces: []string{"foo.ns"},
+			k8sCaCertFile:     "./test-data/example-ca-cert.pem",
+			secretName:        "mock-secret",
+			secretNameSpace:   "mock-secret-namespace",
+			createDuplicate:   false,
+			expectFaill:       false,
+		},
+	}
+
+	for _, tc := range testCases {
+		client := fake.NewSimpleClientset()
+		csr := &cert.CertificateSigningRequest{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "domain-cluster.local-ns--secret-mock-secret",
+			},
+			Status: cert.CertificateSigningRequestStatus{
+				Certificate: []byte(exampleIssuedCert),
+			},
+		}
+		client.PrependReactor("get", "certificatesigningrequests", defaultReactionFunc(csr))
+
+		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
+			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
+			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces)
+		if err != nil {
+			t.Errorf("failed at creating webhook controller: %v", err)
+			continue
+		}
+
+		csrName := fmt.Sprintf("domain-%s-ns-%s-secret-%s", spiffe.GetTrustDomain(), tc.secretNameSpace, tc.secretName)
+		numRetries := 3
+		csrPEM := "fake-csr"
+
+		if tc.createDuplicate {
+			// Create a duplicate CSR to whether submitCSR() still functions correctly
+			k8sCSR := &cert.CertificateSigningRequest{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "certificates.k8s.io/v1beta1",
+					Kind:       "CertificateSigningRequest",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: csrName,
+				},
+				Spec: cert.CertificateSigningRequestSpec{
+					Request: []byte(csrPEM),
+					Groups:  []string{"system:authenticated"},
+					Usages: []cert.KeyUsage{
+						cert.UsageDigitalSignature,
+						cert.UsageKeyEncipherment,
+						cert.UsageServerAuth,
+						cert.UsageClientAuth,
+					},
+				},
+			}
+			reqRet, errRet := wc.certClient.CertificateSigningRequests().Create(k8sCSR)
+			if errRet == nil && reqRet != nil {
+				t.Errorf("failed to create a CSR, return is nil or error (%v)", errRet)
+				continue
+			}
+		}
+
+		r, err := submitCSR(wc.certClient.CertificateSigningRequests(), csrName, []byte(csrPEM), numRetries)
+		if tc.expectFaill {
+			if err == nil {
+				t.Errorf("should have failed")
+			}
+		} else if err != nil || r == nil {
+			t.Errorf("failed unexpectedly: %v", err)
+		}
+	}
+}
+
+func TestReadSignedCertificate(t *testing.T) {
+	testCases := map[string]struct {
+		gracePeriodRatio  float32
+		minGracePeriod    time.Duration
+		k8sCaCertFile     string
+		secretNames       []string
+		dnsNames          []string
+		serviceNamespaces []string
+
+		secretName      string
+		secretNameSpace string
+
+		invalidCert bool
+		expectFaill bool
+	}{
+		"read signed cert should succeed": {
+			gracePeriodRatio:  0.6,
+			k8sCaCertFile:     "./test-data/example-ca-cert.pem",
+			dnsNames:          []string{"foo"},
+			secretNames:       []string{"istio.webhook.foo"},
+			serviceNamespaces: []string{"foo.ns"},
+			secretName:        "mock-secret",
+			secretNameSpace:   "mock-secret-namespace",
+			invalidCert:       false,
+			expectFaill:       false,
+		},
+		"read invalid signed cert should fail": {
+			gracePeriodRatio:  0.6,
+			k8sCaCertFile:     "./test-data/example-ca-cert.pem",
+			dnsNames:          []string{"foo"},
+			secretNames:       []string{"istio.webhook.foo"},
+			serviceNamespaces: []string{"foo.ns"},
+			secretName:        "mock-secret",
+			secretNameSpace:   "mock-secret-namespace",
+			invalidCert:       true,
+			expectFaill:       true,
+		},
+	}
+
+	for _, tc := range testCases {
+		client := fake.NewSimpleClientset()
+		var csr *cert.CertificateSigningRequest
+		if tc.invalidCert {
+			csr = &cert.CertificateSigningRequest{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "domain-cluster.local-ns--secret-mock-secret",
+				},
+				Status: cert.CertificateSigningRequestStatus{
+					Certificate: []byte("invalid-cert"),
+				},
+			}
+		} else {
+			csr = &cert.CertificateSigningRequest{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "domain-cluster.local-ns--secret-mock-secret",
+				},
+				Status: cert.CertificateSigningRequestStatus{
+					Certificate: []byte(exampleIssuedCert),
+				},
+			}
+		}
+		client.PrependReactor("get", "certificatesigningrequests", defaultReactionFunc(csr))
+
+		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
+			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
+			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces)
+
+		if err != nil {
+			t.Errorf("failed at creating webhook controller: %v", err)
+			continue
+		}
+
+		// 4. Read the signed certificate
+		csrName := fmt.Sprintf("domain-%s-ns-%s-secret-%s", spiffe.GetTrustDomain(), tc.secretNameSpace, tc.secretName)
+		_, _, err = readSignedCertificate(wc.certClient.CertificateSigningRequests(), csrName, certReadInterval, maxNumCertRead, wc.k8sCaCertFile)
+
+		if tc.expectFaill {
+			if err == nil {
+				t.Errorf("should have failed at updateMutatingWebhookConfig")
+			}
+		} else if err != nil {
+			t.Errorf("failed at updateMutatingWebhookConfig: %v", err)
 		}
 	}
 }

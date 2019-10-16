@@ -16,25 +16,32 @@ package processor
 
 import (
 	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/galley/pkg/config/meta/schema"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter/strategy"
-	"istio.io/istio/galley/pkg/config/processor/transforms/authpolicy"
-	"istio.io/istio/galley/pkg/config/processor/transforms/direct"
-	"istio.io/istio/galley/pkg/config/processor/transforms/ingress"
-	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry"
-	"istio.io/istio/galley/pkg/config/schema"
+	"istio.io/istio/galley/pkg/config/processing/transformer"
 )
 
-// Initialize a processing runtime for Galley.
-func Initialize(
-	m *schema.Metadata,
-	domainSuffix string,
-	source event.Source,
-	distributor snapshotter.Distributor) (*processing.Runtime, error) {
+// Settings is the settings that are needed for creating a config processing pipeline that can read
+// from a file system, or API Server, and can publish snapshots via MCP.
+type Settings struct {
+	Metadata           *schema.Metadata
+	DomainSuffix       string
+	Source             event.Source
+	TransformProviders transformer.Providers
+	Distributor        snapshotter.Distributor
+	EnabledSnapshots   []string
+}
 
+// Initialize a processing runtime for Galley.
+func Initialize(settings Settings) (*processing.Runtime, error) {
 	var options []snapshotter.SnapshotOptions
-	for _, s := range m.Snapshots() {
+	for _, s := range settings.Metadata.AllSnapshots() {
+		if !isEnabled(s.Name, settings.EnabledSnapshots) {
+			continue
+		}
+
 		str, err := strategy.Create(s.Strategy)
 		if err != nil {
 			return nil, err
@@ -42,7 +49,7 @@ func Initialize(
 
 		opt := snapshotter.SnapshotOptions{
 			Group:       s.Name,
-			Distributor: distributor,
+			Distributor: settings.Distributor,
 			Collections: s.Collections,
 			Strategy:    str,
 		}
@@ -51,8 +58,10 @@ func Initialize(
 
 	// TODO: Add a precondition test here to ensure the panic below will not fire during runtime.
 
-	provider := func(o processing.ProcessorOptions) event.Processor {
-		xforms := createTransforms(o, m)
+	// This is passed as a provider so it can be evaluated once ProcessorOptions become available
+	procProvider := func(o processing.ProcessorOptions) event.Processor {
+		xforms := settings.TransformProviders.Create(o)
+
 		s, err := snapshotter.NewSnapshotter(xforms, options)
 		if err != nil {
 			panic(err)
@@ -61,28 +70,20 @@ func Initialize(
 	}
 
 	rtOpt := processing.RuntimeOptions{
-		ProcessorProvider: provider,
-		DomainSuffix:      domainSuffix,
-		Source:            source,
+		ProcessorProvider: procProvider,
+		DomainSuffix:      settings.DomainSuffix,
+		Source:            settings.Source,
 	}
 
 	return processing.NewRuntime(rtOpt), nil
 }
 
-func createTransforms(o processing.ProcessorOptions, m *schema.Metadata) []event.Transformer {
-	var xforms []event.Transformer
+func isEnabled(snapshotName string, enabledSnapshots []string) bool {
+	for _, es := range enabledSnapshots {
+		if snapshotName == es {
+			return true
+		}
+	}
 
-	xf := direct.Create(m.DirectTransform().Mapping())
-	xforms = append(xforms, xf...)
-
-	xf = ingress.Create(o)
-	xforms = append(xforms, xf...)
-
-	xf = authpolicy.Create()
-	xforms = append(xforms, xf...)
-
-	xf = serviceentry.Create(o)
-	xforms = append(xforms, xf...)
-
-	return xforms
+	return false
 }

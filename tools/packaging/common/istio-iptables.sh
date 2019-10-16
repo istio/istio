@@ -52,6 +52,7 @@ function usage() {
   echo '  -k: Comma separated list of virtual interfaces whose inbound traffic (from VM)'
   echo '      will be treated as outbound (optional)'
   echo '  -t: Unit testing, only functions are loaded and no other instructions are executed.'
+  echo '  -h: Displays usage information and exits.'
   # shellcheck disable=SC2016
   echo ''
 }
@@ -71,7 +72,7 @@ function isValidIP() {
    fi
 }
 #
-# Function return true if agrument is a valid ipv4 address
+# Function return true if argument is a valid ipv4 address
 #
 function isIPv4() {
    local ipv4regexp="^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$"
@@ -82,7 +83,7 @@ function isIPv4() {
   fi
 }
 #
-# Function return true if agrument is a valid ipv6 address
+# Function return true if argument is a valid ipv6 address
 #
 function isIPv6() {
   local ipv6section="^[0-9a-fA-F]{1,4}$"
@@ -137,7 +138,7 @@ OUTBOUND_IP_RANGES_EXCLUDE=${ISTIO_SERVICE_EXCLUDE_CIDR-}
 OUTBOUND_PORTS_EXCLUDE=${ISTIO_LOCAL_OUTBOUND_PORTS_EXCLUDE-}
 KUBEVIRT_INTERFACES=
 
-while getopts ":p:z:u:g:m:b:d:o:i:x:k:h:t" opt; do
+while getopts ":p:z:u:g:m:b:d:o:i:x:k:ht" opt; do
   case ${opt} in
     p)
       PROXY_PORT=${OPTARG}

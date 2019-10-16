@@ -177,6 +177,13 @@ func SimpleAuthzPolicy(name string, namespace string) *model.Config {
 							},
 						},
 					},
+					To: []*authpb.Rule_To{
+						{
+							Operation: &authpb.Operation{
+								Methods: []string{"GET"},
+							},
+						},
+					},
 				},
 			},
 		},

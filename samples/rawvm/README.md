@@ -1,9 +1,9 @@
-
 # RawVM in Istio 0.2 demo notes
 
-## MySQL Installation:
+## MySQL Installation
 
 ### Official oracle version
+
 ```shell
 wget https://dev.mysql.com/get/mysql-apt-config_0.8.7-1_all.deb
 sudo dpkg -i mysql-apt-config_0.8.7-1_all.deb
@@ -42,25 +42,26 @@ mysql -u root -h instance-1 --password=password
   SET global general_log_file='/tmp/mysqlquery.log';
   SET global general_log = 1;
 # then
-tail -f /tmp/mysqlquery.log  
+tail -f /tmp/mysqlquery.log
 ```
 
 ### Or
+
 sudo apt-get mariadb-server
 
 TODO: figure out equivalent of above for mariadb
 
-https://stackoverflow.com/questions/28068155/access-denied-for-user-rootlocalhost-using-password-yes-after-new-instal
-
+<https://stackoverflow.com/questions/28068155/access-denied-for-user-rootlocalhost-using-password-yes-after-new-instal>
 
 ## Sidecar
-See
-https://github.com/istio/proxy/tree/master/tools/deb
 
-## Bookinfo with MySql in k8s:
+See <https://github.com/istio/proxy/tree/master/tools/deb>
+
+## Bookinfo with MySql in k8s
 
 You need 5 nodes in your cluster to add mysql (until we tune the requests)
-```
+
+```bash
 # source istio.VERSION
 wget https://storage.googleapis.com/istio-artifacts/pilot/$PILOT_TAG/artifacts/istioctl/istioctl-osx
 chmod 755 istioctl-osx
@@ -83,58 +84,65 @@ mysql -u root -h 127.0.0.1 --password=password test
 # for metrics:
 fortio load -t 1m http://$INGRESS_IP/productpage
 ```
+
 ## Move MySQL to VM
+
 1. remove the k8s based service
-  ```
-  kubectl delete svc mysqldb
-  ```
-2. observe `product ratings not available` when re-loading the page
-3. register the VM instead:
-  ```
-  $ ./istioctl-osx register mysqldb 10.138.0.13 3306
-I0904 11:12:56.785430   34562 register.go:44] Registering for service 'mysqldb' ip '10.138.0.13', ports list [{3306 mysql}]
-I0904 11:12:56.785536   34562 register.go:49] 0 labels ([]) and 1 annotations ([alpha.istio.io/kubernetes-serviceaccounts=default])
-W0904 11:12:56.887017   34562 register.go:123] Got 'services "mysqldb" not found' looking up svc 'mysqldb' in namespace 'default', attempting to create it
-W0904 11:12:56.938721   34562 register.go:139] Got 'endpoints "mysqldb" not found' looking up endpoints for 'mysqldb' in namespace 'default', attempting to create them
-I0904 11:12:57.055643   34562 register.go:180] No pre existing exact matching ports list found, created new subset {[{10.138.0.13  <nil> nil}] [] [{mysql 3306 }]}
-I0904 11:12:57.090739   34562 register.go:191] Successfully updated mysqldb, now with 1 endpoints
-  ```
-4. check the registration:
-  ```
-  $ kubectl get svc mysqldb -o yaml
-apiVersion: v1
-kind: Service
-metadata:
-  annotations:
-    alpha.istio.io/kubernetes-serviceaccounts: default
-  creationTimestamp: 2017-09-04T18:12:56Z
-  name: mysqldb
-  namespace: default
-  resourceVersion: "464459"
-  selfLink: /api/v1/namespaces/default/services/mysqldb
-  uid: ad746e4c-919c-11e7-9a62-42010a8a004e
-spec:
-  clusterIP: 10.31.253.143
-  ports:
-  - name: mysql
-    port: 3306
-    protocol: TCP
-    targetPort: 3306
-  sessionAffinity: None
-  type: ClusterIP
-status:
-  loadBalancer: {}
-  ```
+
+    ```bash
+    kubectl delete svc mysqldb
+    ```
+
+1. observe `product ratings not available` when re-loading the page
+
+1. register the VM instead:
+
+    ```bash
+    ./istioctl-osx register mysqldb 10.138.0.13 3306
+    I0904 11:12:56.785430   34562 register.go:44] Registering for service 'mysqldb' ip '10.138.0.13', ports list [{3306 mysql}]
+    I0904 11:12:56.785536   34562 register.go:49] 0 labels ([]) and 1 annotations ([alpha.istio.io/kubernetes-serviceaccounts=default])
+    W0904 11:12:56.887017   34562 register.go:123] Got 'services "mysqldb" not found' looking up svc 'mysqldb' in namespace 'default', attempting to create it
+    W0904 11:12:56.938721   34562 register.go:139] Got 'endpoints "mysqldb" not found' looking up endpoints for 'mysqldb' in namespace 'default', attempting to create them
+    I0904 11:12:57.055643   34562 register.go:180] No pre existing exact matching ports list found, created new subset {[{10.138.0.13  <nil> nil}] [] [{mysql 3306 }]}
+    I0904 11:12:57.090739   34562 register.go:191] Successfully updated mysqldb, now with 1 endpoints
+    ```
+
+1. check the registration:
+
+    ```
+    kubectl get svc mysqldb -o yaml
+    apiVersion: v1
+    kind: Service
+    metadata:
+      annotations:
+        alpha.istio.io/kubernetes-serviceaccounts: default
+      creationTimestamp: 2017-09-04T18:12:56Z
+      name: mysqldb
+      namespace: default
+      resourceVersion: "464459"
+      selfLink: /api/v1/namespaces/default/services/mysqldb
+      uid: ad746e4c-919c-11e7-9a62-42010a8a004e
+    spec:
+      clusterIP: 10.31.253.143
+      ports:
+      - name: mysql
+        port: 3306
+        protocol: TCP
+        targetPort: 3306
+      sessionAffinity: None
+      type: ClusterIP
+    status:
+      loadBalancer: {}
+    ```
 
 ## Build debian packages
 
 Prereq:
 
-Linux ubuntu xenial, docker, go 1.8, bazel, ... (the packages listed at https://github.com/istio/istio/blob/master/devel/README.md#collection-of-scripts-and-notes-for-developing-for-istio )
-
 ps: for docker - remember to "docker ps" and it should work/not error out and not require sudo, if it doesn't work add your username to /etc/group docker
 
-For gcloud (  https://cloud.google.com/sdk/docs/quickstart-debian-ubuntu ):
+For gcloud (<https://cloud.google.com/sdk/docs/quickstart-debian-ubuntu>):
+
 ```shell
 export CLOUD_SDK_REPO="cloud-sdk-$(lsb_release -c -s)"
 echo "deb http://packages.cloud.google.com/apt $CLOUD_SDK_REPO main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
@@ -146,13 +154,14 @@ gcloud container clusters get-credentials demo-1 --zone us-west1-b --project ist
 ```
 
 Note to install rbac yaml you need:
-```
+
+```bash
 kubectl create clusterrolebinding my-admin-access --clusterrole cluster-admin --user USERNAME
 ```
 
 Then:
 
-```
+```bash
 git clone https://github.com/istio/proxy.git -b rawvm-demo-0-2-2
 tools/deb/test/build_all.sh
 ```

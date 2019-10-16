@@ -7,7 +7,7 @@ enabled: false
 replicaCount: 1
 hub: quay.io/jetstack
 image: cert-manager-controller
-tag: v0.6.2
+tag: v0.8.1
 resources: {}
 nodeSelector: {}
 tolerations: []

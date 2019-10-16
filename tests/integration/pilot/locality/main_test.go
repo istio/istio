@@ -240,15 +240,10 @@ func sendTraffic(from echo.Instance, host string) error {
 	if len(resp) != sendCount {
 		return fmt.Errorf("%s->%s expected %d responses, received %d", from.Config().Service, host, sendCount, len(resp))
 	}
-	numFailed := 0
 	for i, r := range resp {
 		if match := bHostnameMatcher.FindString(r.Hostname); len(match) == 0 {
-			numFailed++
 			return fmt.Errorf("%s->%s request[%d] made to unexpected service: %s", from.Config().Service, host, i, r.Hostname)
 		}
-	}
-	if numFailed > 0 {
-		return fmt.Errorf("%s->%s total requests to unexpected service=%d/%d", from.Config().Service, host, numFailed, len(resp))
 	}
 	return nil
 }

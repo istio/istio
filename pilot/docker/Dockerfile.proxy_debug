@@ -7,6 +7,8 @@ FROM docker.io/istio/base:${BASE_VERSION} as default
 ARG proxy_version
 ARG istio_version
 
+COPY istio-iptables.sh /usr/local/bin/istio-iptables
+
 # Install Envoy.
 COPY envoy /usr/local/bin/envoy
 
@@ -36,14 +38,7 @@ COPY envoy_bootstrap_v2.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
 COPY envoy_bootstrap_drain.json /var/lib/istio/envoy/envoy_bootstrap_drain.json
 COPY gcp_envoy_bootstrap.json /var/lib/istio/envoy/gcp_envoy_bootstrap_tmpl.json
 
-# Add CA certificates for SSL connections.
-# obtained from debian ca-certs deb using fetch_cacerts.sh
-ADD ca-certificates.tgz /
-
-# Sudoers used to allow tcpdump and other debug utilities.
-RUN useradd -m --uid 1337 istio-proxy && \
-    echo "istio-proxy ALL=NOPASSWD: ALL" >> /etc/sudoers && \
-    chown -R istio-proxy /var/lib/istio
+RUN chown -R istio-proxy /var/lib/istio
 
 # The pilot-agent will bootstrap Envoy.
 ENTRYPOINT ["/usr/local/bin/pilot-agent"]

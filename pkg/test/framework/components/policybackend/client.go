@@ -90,7 +90,7 @@ func (c *client) ExpectReportJSON(t test.Failer, expected ...string) {
 		for _, r := range reports {
 			as, err := m.MarshalToString(r)
 			if err != nil {
-				t.Fatalf("Failed marshalling to string: %v", err)
+				t.Fatalf("Failed marshaling to string: %v", err)
 			}
 			actual = append(actual, as)
 		}

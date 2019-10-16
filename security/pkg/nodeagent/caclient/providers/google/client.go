@@ -42,7 +42,7 @@ var (
 type googleCAClient struct {
 	caEndpoint string
 	enableTLS  bool
-	client     gcapb.IstioCertificateServiceClient
+	client     gcapb.MeshCertificateServiceClient
 }
 
 // NewGoogleCAClient create a CA client for Google CA.
@@ -71,14 +71,14 @@ func NewGoogleCAClient(endpoint string, tls bool) (caClientInterface.Client, err
 		return nil, fmt.Errorf("failed to connect to endpoint %s", endpoint)
 	}
 
-	c.client = gcapb.NewIstioCertificateServiceClient(conn)
+	c.client = gcapb.NewMeshCertificateServiceClient(conn)
 	return c, nil
 }
 
 // CSR Sign calls Google CA to sign a CSR.
 func (cl *googleCAClient) CSRSign(ctx context.Context, csrPEM []byte, token string,
 	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
-	req := &gcapb.IstioCertificateRequest{
+	req := &gcapb.MeshCertificateRequest{
 		Csr:              string(csrPEM),
 		ValidityDuration: certValidTTLInSec,
 	}
@@ -95,7 +95,7 @@ func (cl *googleCAClient) CSRSign(ctx context.Context, csrPEM []byte, token stri
 
 	zone := parseZone(gkeClusterURL)
 	if zone != "" {
-		out["x-goog-request-params"] = []string{fmt.Sprintf("location=%s", zone)}
+		out["x-goog-request-params"] = []string{fmt.Sprintf("location=locations/%s", zone)}
 	}
 
 	ctx = metadata.NewOutgoingContext(ctx, out)

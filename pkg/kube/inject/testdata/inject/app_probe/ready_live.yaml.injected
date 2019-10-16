@@ -14,10 +14,14 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/interceptionMode: REDIRECT
+        sidecar.istio.io/status: '{"version":"c42a97ce43602dca6a2d3e26520fbc36ee25f621e95186edb4b65f0231b11301","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        traffic.sidecar.istio.io/excludeInboundPorts: "15020"
+        traffic.sidecar.istio.io/includeInboundPorts: 80,90
       creationTimestamp: null
       labels:
         app: hello
+        security.istio.io/mtlsReady: "true"
         tier: backend
         track: stable
     spec:
@@ -61,13 +65,15 @@ spec:
         - --binaryPath
         - /usr/local/bin/envoy
         - --serviceCluster
-        - hello.default
+        - hello.$(POD_NAMESPACE)
         - --drainDuration
         - 45s
         - --parentShutdownDuration
         - 1m0s
         - --discoveryAddress
         - istio-pilot:15010
+        - --dnsRefreshRate
+        - 300s
         - --connectTimeout
         - 1s
         - --proxyAdminPort
@@ -79,14 +85,20 @@ spec:
         - --applicationPorts
         - 80,90
         - --concurrency
-        - "1"
-        - --kubeAppProberConfig
-        - '{"/app-health/hello/livez":{"port":80},"/app-health/hello/readyz":{"port":3333},"/app-health/world/livez":{"port":90}}'
+        - "2"
         env:
         - name: POD_NAME
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
+        - name: ISTIO_META_POD_PORTS
+          value: |-
+            [
+                {"name":"http","containerPort":80}
+                ,{"name":"http","containerPort":90}
+            ]
+        - name: ISTIO_META_CLUSTER_ID
+          value: Kubernetes
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
@@ -95,6 +107,10 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
+        - name: SERVICE_ACCOUNT
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.serviceAccountName
         - name: ISTIO_META_POD_NAME
           valueFrom:
             fieldRef:
@@ -103,13 +119,21 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+        - name: SDS_ENABLED
+          value: "false"
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
-        - name: ISTIO_KUBE_APP_PROBERS
-          value: '{"/app-health/hello/livez":{"port":80},"/app-health/hello/readyz":{"port":3333},"/app-health/world/livez":{"port":90}}'
+        - name: ISTIO_META_INCLUDE_INBOUND_PORTS
+          value: 80,90
         - name: ISTIO_METAJSON_LABELS
           value: |
             {"app":"hello","tier":"backend","track":"stable"}
+        - name: ISTIO_META_WORKLOAD_NAME
+          value: hello
+        - name: ISTIO_META_OWNER
+          value: kubernetes://api/apps/v1/namespaces/default/deployments/hello
+        - name: ISTIO_KUBE_APP_PROBERS
+          value: '{"/app-health/hello/livez":{"port":80},"/app-health/hello/readyz":{"port":3333},"/app-health/world/livez":{"port":90}}'
         image: docker.io/istio/proxyv2:unittest
         imagePullPolicy: IfNotPresent
         name: istio-proxy
@@ -122,12 +146,15 @@ spec:
           httpGet:
             path: /healthz/ready
             port: 15020
-          initialDelaySeconds: 1
-          periodSeconds: 2
+          initialDelaySeconds: 2
+          periodSeconds: 30
         resources:
+          limits:
+            cpu: "2"
+            memory: 1Gi
           requests:
-            cpu: 10m
-            memory: 30Mi
+            cpu: 100m
+            memory: 128Mi
         securityContext:
           readOnlyRootFilesystem: true
           runAsUser: 1337
@@ -138,19 +165,22 @@ spec:
           name: istio-certs
           readOnly: true
       initContainers:
-      - args:
+      - command:
+        - istio-iptables
         - -p
         - "15001"
+        - -z
+        - "15006"
         - -u
         - "1337"
         - -m
         - REDIRECT
         - -i
-        - '*'
+        - ""
         - -x
         - ""
         - -b
-        - 80,90
+        - '*'
         - -d
         - "15020"
         image: docker.io/istio/proxy_init:unittest
@@ -158,8 +188,8 @@ spec:
         name: istio-init
         resources:
           limits:
-            cpu: 10m
-            memory: 10Mi
+            cpu: 100m
+            memory: 50Mi
           requests:
             cpu: 10m
             memory: 10Mi
@@ -167,6 +197,8 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
+          runAsNonRoot: false
+          runAsUser: 0
       volumes:
       - emptyDir:
           medium: Memory

@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -33,6 +34,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/pkg/log"
 
 	"k8s.io/api/admission/v1beta1"
@@ -432,8 +434,42 @@ func escapeJSONPointerValue(in string) string {
 	return strings.Replace(step, "/", "~1", -1)
 }
 
-func updateAnnotation(target map[string]string, added map[string]string) (patch []rfc6902PatchOperation) {
+// adds labels to the target spec, will not overwrite label's value if it already exists
+func addLabels(target map[string]string, added map[string]string) []rfc6902PatchOperation {
+	patches := []rfc6902PatchOperation{}
 	for key, value := range added {
+		patch := rfc6902PatchOperation{
+			Op:    "add",
+			Path:  "/metadata/labels/" + escapeJSONPointerValue(key),
+			Value: value,
+		}
+
+		if target == nil {
+			target = map[string]string{}
+			patch.Path = "/metadata/labels"
+			patch.Value = map[string]string{
+				key: value,
+			}
+		}
+
+		if target[key] == "" {
+			patches = append(patches, patch)
+		}
+	}
+
+	return patches
+}
+
+func updateAnnotation(target map[string]string, added map[string]string) (patch []rfc6902PatchOperation) {
+	// To ensure deterministic patches, we sort the keys
+	var keys []string
+	for k := range added {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		value := added[key]
 		if target == nil {
 			target = map[string]string{}
 			patch = append(patch, rfc6902PatchOperation{
@@ -499,6 +535,8 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotation
 	}
 
 	patch = append(patch, updateAnnotation(pod.Annotations, annotations)...)
+
+	patch = append(patch, addLabels(pod.Labels, map[string]string{model.MTLSReadyLabelName: "true"})...)
 
 	if rewrite {
 		patch = append(patch, createProbeRewritePatch(pod.Annotations, &pod.Spec, sic)...)
@@ -636,6 +674,11 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 	}
 
 	annotations := map[string]string{annotation.SidecarStatus.Name: iStatus}
+
+	// Add all additional injected annotations
+	for k, v := range wh.sidecarConfig.InjectedAnnotations {
+		annotations[k] = v
+	}
 
 	patchBytes, err := createPatch(&pod, injectionStatus(&pod), annotations, spec)
 	if err != nil {

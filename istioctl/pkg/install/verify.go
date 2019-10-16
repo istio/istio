@@ -27,10 +27,10 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
-	"k8s.io/cli-runtime/pkg/genericclioptions/resource"
-	scheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/cli-runtime/pkg/resource"
+	"k8s.io/client-go/kubernetes/scheme"
 
-	kube_meta "istio.io/istio/galley/pkg/metadata/kube"
+	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 )
 
@@ -39,11 +39,11 @@ var (
 )
 
 func verifyInstall(enableVerbose bool, istioNamespaceFlag string,
-	restClientGetter resource.RESTClientGetter, options resource.FilenameOptions,
+	restClientGetter genericclioptions.RESTClientGetter, options resource.FilenameOptions,
 	writer io.Writer, args []string) error {
 	if len(options.Filenames) == 0 {
 		if len(args) != 0 {
-			fmt.Fprint(writer, verifyInstallCmd.UsageString())
+			_, _ = fmt.Fprint(writer, verifyInstallCmd.UsageString())
 			return fmt.Errorf("verify-install takes no arguments to perform installation pre-check")
 		}
 		return installPreCheck(istioNamespaceFlag, restClientGetter, writer)
@@ -149,16 +149,16 @@ func verifyPostInstall(enableVerbose bool, istioNamespaceFlag string,
 			}
 		}
 		if enableVerbose {
-			fmt.Fprintf(writer, "%s: %s.%s checked successfully\n", kind, name, namespace)
+			_, _ = fmt.Fprintf(writer, "%s: %s.%s checked successfully\n", kind, name, namespace)
 		}
 		return nil
 	})
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(writer, "Checked %v crds\n", crdCount)
-	fmt.Fprintf(writer, "Checked %v Istio Deployments\n", istioDeploymentCount)
-	fmt.Fprintf(writer, "Istio is installed successfully\n")
+	_, _ = fmt.Fprintf(writer, "Checked %v crds\n", crdCount)
+	_, _ = fmt.Fprintf(writer, "Checked %v Istio Deployments\n", istioDeploymentCount)
+	_, _ = fmt.Fprintf(writer, "Istio is installed successfully\n")
 	return nil
 }
 
@@ -265,9 +265,9 @@ func getDeploymentCondition(status appsv1.DeploymentStatus, condType appsv1.Depl
 }
 
 func findResourceInSpec(kind string) string {
-	for _, spec := range kube_meta.Types.All() {
-		if spec.Kind == kind {
-			return spec.Plural
+	for _, r := range metadata.MustGet().KubeSource().Resources() {
+		if r.Kind == kind {
+			return r.Plural
 		}
 	}
 	return ""

@@ -22,15 +22,15 @@ import (
 	"io/ioutil"
 	"os"
 	"regexp"
-	"strings"
 	"text/template"
 
 	"github.com/ghodss/yaml"
 )
 
 const codeRegex = `^IST\d\d\d\d$`
+const nameRegex = `^[[:upper:]]\w*$`
 
-// Utility for generating staticinit.gen.go. Called from gen.go
+// Utility for generating messages.gen.go. Called from gen.go
 func main() {
 	if len(os.Args) != 3 {
 		fmt.Println("Invalid args:", os.Args)
@@ -79,7 +79,11 @@ func read(path string) (*messages, error) {
 	return m, nil
 }
 
+// Enforce that names and codes follow expected regex and are unique
 func validate(ms *messages) error {
+	codes := make(map[string]bool)
+	names := make(map[string]bool)
+
 	for _, m := range ms.Messages {
 		matched, err := regexp.MatchString(codeRegex, m.Code)
 		if err != nil {
@@ -88,6 +92,24 @@ func validate(ms *messages) error {
 		if !matched {
 			return fmt.Errorf("Error code for message %q must follow the regex %s", m.Name, codeRegex)
 		}
+
+		if codes[m.Code] {
+			return fmt.Errorf("Error codes must be unique, %q defined more than once", m.Code)
+		}
+		codes[m.Code] = true
+
+		matched, err = regexp.MatchString(nameRegex, m.Name)
+		if err != nil {
+			return err
+		}
+		if !matched {
+			return fmt.Errorf("Name for message %q must follow the regex %s", m.Name, nameRegex)
+		}
+
+		if names[m.Name] {
+			return fmt.Errorf("Message names must be unique, %q defined more than once", m.Name)
+		}
+		names[m.Name] = true
 	}
 	return nil
 }
@@ -103,18 +125,24 @@ import (
 	"istio.io/istio/galley/pkg/config/resource"
 )
 
+var (
+	{{- range .Messages}}
+	// {{.Name}} defines a diag.MessageType for message "{{.Name}}".
+	// Description: {{.Description}}
+	{{.Name}} = diag.NewMessageType(diag.{{.Level}}, "{{.Code}}", "{{.Template}}")
+	{{end}}
+)
+
 {{range .Messages}}
-// {{.FuncName}} returns a new diag.Message for message "{{.Name}}".
-//
-// {{.Description}}
-func {{.FuncName}}(entry *resource.Entry{{range .Args}}, {{.Name}} {{.Type}}{{end}}) diag.Message {
+// New{{.Name}} returns a new diag.Message based on {{.Name}}.
+func New{{.Name}}(entry *resource.Entry{{range .Args}}, {{.Name}} {{.Type}}{{end}}) diag.Message {
 	return diag.NewMessage(
-		diag.{{.Level}},
-		"{{.Code}}",
-		originOrNil(entry),
-		"{{.Template}}",{{range .Args}}
 		{{.Name}},
-{{end}}	)
+		originOrNil(entry),
+		{{- range .Args}}
+			{{.Name}},
+		{{- end}}
+	)
 }
 {{end}}
 
@@ -148,11 +176,6 @@ type message struct {
 	Description string `json:"description"`
 	Template    string `json:"template"`
 	Args        []arg  `json:"args"`
-}
-
-// FuncName creates a function name from the message name
-func (m *message) FuncName() string {
-	return strings.Replace(m.Name, " ", "", -1)
 }
 
 type arg struct {

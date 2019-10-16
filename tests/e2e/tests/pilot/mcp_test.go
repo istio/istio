@@ -37,7 +37,7 @@ import (
 	"istio.io/istio/tests/util"
 
 	// Import the resource package to pull in all proto types.
-	_ "istio.io/istio/galley/pkg/metadata"
+	_ "istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/pkg/mcp/snapshot"
 	mcptesting "istio.io/istio/pkg/mcp/testing"
 	"istio.io/istio/pkg/test/env"

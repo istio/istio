@@ -26,11 +26,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/genproto/googleapis/rpc/status"
+
 	api "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	authapi "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
-	"github.com/gogo/protobuf/types"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -665,7 +667,7 @@ func testSDSStreamUpdateFailures(stream sds.SecretDiscoveryService_StreamSecrets
 
 	// Send third request and simulate the scenario that the second push causes secret update failure.
 	// The version info and response nonce in the third request should match the second request.
-	req.ErrorDetail = &rpc.Status{
+	req.ErrorDetail = &status.Status{
 		Code:    int32(rpc.INTERNAL),
 		Message: "fake error",
 	}
@@ -759,7 +761,7 @@ func TestStreamSecretsUpdateFailures(t *testing.T) {
 
 func verifySDSSResponse(resp *api.DiscoveryResponse, expectedPrivateKey []byte, expectedCertChain []byte) error {
 	var pb authapi.Secret
-	if err := types.UnmarshalAny(resp.Resources[0], &pb); err != nil {
+	if err := ptypes.UnmarshalAny(resp.Resources[0], &pb); err != nil {
 		return fmt.Errorf("unmarshalAny SDS response failed: %v", err)
 	}
 
@@ -789,7 +791,7 @@ func verifySDSSResponse(resp *api.DiscoveryResponse, expectedPrivateKey []byte, 
 
 func verifySDSSResponseForRootCert(t *testing.T, resp *api.DiscoveryResponse, expectedRootCert []byte) {
 	var pb authapi.Secret
-	if err := types.UnmarshalAny(resp.Resources[0], &pb); err != nil {
+	if err := ptypes.UnmarshalAny(resp.Resources[0], &pb); err != nil {
 		t.Fatalf("UnmarshalAny SDS response failed: %v", err)
 	}
 

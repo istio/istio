@@ -20,6 +20,7 @@ spec:
       creationTimestamp: null
       labels:
         app: hello
+        security.istio.io/mtlsReady: "true"
         tier: backend
         track: stable
     spec:
@@ -129,7 +130,8 @@ spec:
           name: istio-certs
           readOnly: true
       initContainers:
-      - args:
+      - command:
+        - istio-iptables
         - -p
         - "15001"
         - -z

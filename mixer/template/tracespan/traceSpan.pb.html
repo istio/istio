@@ -36,7 +36,7 @@ spec:
       source.version: source.labels[&quot;version&quot;] | &quot;&quot;
 </code></pre>
 
-<p>See also: <a href="https://istio.io/docs/tasks/telemetry/distributed-tracing/">Distributed Tracing</a>
+<p>See also: <a href="https://istio.io/docs/tasks/observability/distributed-tracing/">Distributed Tracing</a>
 for information on tracing within Istio.</p>
 
 <h2 id="Template">Template</h2>
@@ -53,6 +53,7 @@ then the expression&rsquo;s <a href="https://istio.io/docs/reference//config/pol
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -66,6 +67,9 @@ trace share the same Trace ID.</p>
 <p>Required.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Template-span_id">
 <td><code>spanId</code></td>
@@ -77,6 +81,9 @@ when the span is created.</p>
 <p>Optional.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Template-parent_span_id">
 <td><code>parentSpanId</code></td>
@@ -87,6 +94,9 @@ instance. If this is a root span, then this field MUST be empty.</p>
 
 <p>Optional.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Template-span_name">
@@ -103,6 +113,9 @@ This makes it easier to correlate spans in different traces.</p>
 <p>Required.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Template-start_time">
 <td><code>startTime</code></td>
@@ -113,6 +126,9 @@ This makes it easier to correlate spans in different traces.</p>
 <p>Required.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Template-end_time">
 <td><code>endTime</code></td>
@@ -122,6 +138,9 @@ This makes it easier to correlate spans in different traces.</p>
 
 <p>Required.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Template-span_tags">
@@ -134,6 +153,9 @@ entire span. The values can be specified in the form of expressions.</p>
 <p>Optional.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Template-httpStatusCode">
 <td><code>httpStatusCode</code></td>
@@ -142,6 +164,9 @@ entire span. The values can be specified in the form of expressions.</p>
 <p>HTTP status code used to set the span status. If unset or set to 0, the
 span status will be assumed to be successful.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Template-client_span">
@@ -155,6 +180,9 @@ type.</p>
 
 <p>Optional</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Template-rewrite_client_span_id">
@@ -170,6 +198,9 @@ parent span id of server span to the same newly generated id.</p>
 <p>Optional</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Template-source_name">
 <td><code>sourceName</code></td>
@@ -181,6 +212,9 @@ Should usually be set to <code>source.workload.name</code>.</p>
 <p>Optional.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Template-source_ip">
 <td><code>sourceIp</code></td>
@@ -190,6 +224,9 @@ Should usually be set to <code>source.workload.name</code>.</p>
 
 <p>Optional.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Template-destination_name">
@@ -202,6 +239,9 @@ Should usually be set to <code>destination.workload.name</code>.</p>
 <p>Optional.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Template-destination_ip">
 <td><code>destinationIp</code></td>
@@ -212,6 +252,9 @@ Should usually be set to <code>destination.workload.name</code>.</p>
 <p>Optional.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Template-request_size">
 <td><code>requestSize</code></td>
@@ -221,6 +264,9 @@ Should usually be set to <code>destination.workload.name</code>.</p>
 
 <p>Optional.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Template-request_total_size">
@@ -233,6 +279,9 @@ Should usually be set to <code>request.total_size</code>.</p>
 <p>Optional.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Template-response_size">
 <td><code>responseSize</code></td>
@@ -242,6 +291,9 @@ Should usually be set to <code>request.total_size</code>.</p>
 
 <p>Optional.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Template-response_total_size">
@@ -254,6 +306,9 @@ Should usually be set to <code>response.total_size</code>.</p>
 <p>Optional.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Template-api_protocol">
 <td><code>apiProtocol</code></td>
@@ -264,6 +319,9 @@ the <code>api.protocol</code> attribute. Should usually be set to <code>api.prot
 
 <p>Optional.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
