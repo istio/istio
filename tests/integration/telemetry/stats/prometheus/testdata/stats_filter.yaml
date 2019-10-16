@@ -26,6 +26,7 @@ spec:
                   "stat_prefix": "istio",
                 }
               vm_config:
+                vm_id: stats_outbound
                 runtime: envoy.wasm.runtime.null
                 code:
                   inline_string: envoy.wasm.stats
@@ -51,9 +52,18 @@ spec:
                   "stat_prefix": "istio",
                 }
               vm_config:
+                vm_id: stats_inbound
                 runtime: envoy.wasm.runtime.null
                 code:
                   inline_string: envoy.wasm.stats
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: stats-filter
+  namespace: istio-system
+spec:
+  configPatches:
     - applyTo: HTTP_FILTER
       match:
         context: GATEWAY
@@ -76,6 +86,7 @@ spec:
                   "stat_prefix": "istio",
                 }
               vm_config:
+                vm_id: stats_outbound
                 runtime: envoy.wasm.runtime.null
                 code:
                   inline_string: envoy.wasm.stats
