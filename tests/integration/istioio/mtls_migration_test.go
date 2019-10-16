@@ -102,6 +102,7 @@ func validateInitialDestinationRules(output string, _ error) error {
 //https://istio.io/docs/tasks/security/mtls-migration/
 //https://github.com/istio/istio.io/blob/release-1.2/content/docs/tasks/security/mtls-migration/index.md
 func TestMTLSMigration(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/17909")
 	framework.
 		NewTest(t).
 		Run(istioio.NewBuilder().
