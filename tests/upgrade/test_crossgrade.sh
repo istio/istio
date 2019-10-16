@@ -67,6 +67,8 @@ MAX_CONNECTION_ERR_FOR_PASS="30"
 SERVICE_UNAVAILABLE_CODE="503"
 CONNECTION_ERROR_CODE="-1"
 
+# TODO: later on, we add one more flag about supporting user specify the profile yaml file for upgrade
+# Currently, we are supporting the default profiles
 while (( "$#" )); do
     PARAM=$(echo "${1}" | awk -F= '{print $1}')
     eval VALUE="$(echo "${1}" | awk -F= '{print $2}')"
