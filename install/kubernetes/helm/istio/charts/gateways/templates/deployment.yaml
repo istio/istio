@@ -261,6 +261,30 @@ spec:
           - name: ISTIO_META_MESH_ID
             value: "{{ $.Values.global.trustDomain }}"
           {{- end }}
+          {{- if eq .Values.global.proxy.tracer "datadog" }}
+          - name: HOST_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.hostIP
+          {{- if isset .ObjectMeta.Annotations "apm.datadoghq.com/env" }}
+          {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations "apm.datadoghq.com/env") }}
+          - name: {{ $key }}
+            value: "{{ $value }}"
+          {{- end }}
+          {{- end }}
+          {{- end }}
+          {{- if eq $.Values.global.proxy.tracer "stackdriver" }}
+          - name: STACKDRIVER_TRACING_ENABLED
+            value: "true"
+          - name: STACKDRIVER_TRACING_DEBUG
+            value: "{{ $.Values.global.tracer.stackdriver.debug }}"
+          - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ANNOTATIONS
+            value: "{{ $.Values.global.tracer.stackdriver.maxNumberOfAnnotations }}"
+          - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ATTRIBUTES
+            value: "{{ $.Values.global.tracer.stackdriver.maxNumberOfAttributes }}"
+          - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS
+            value: "{{ $.Values.global.tracer.stackdriver.maxNumberOfMessageEvents }}"
+          {{- end }}
           {{- if $spec.sds }}
           {{- if $spec.sds.enabled }}
           - name: ISTIO_META_USER_SDS
@@ -302,6 +326,11 @@ spec:
             mountPath: {{ .mountPath | quote }}
             readOnly: true
           {{- end }}
+          {{- if and (eq $.Values.global.proxy.tracer "lightstep") $.Values.global.tracer.lightstep.cacertPath }}
+          - mountPath: {{ directory $.Values.global.tracer.lightstep.cacertPath }}
+            name: lightstep-certs
+            readOnly: true
+          {{- end }}
 {{- if $spec.additionalContainers }}
 {{ toYaml $spec.additionalContainers | indent 8 }}
 {{- end }}
@@ -339,6 +368,12 @@ spec:
         configMap:
           name: {{ .configMapName | quote }}
           optional: true
+      {{- end }}
+      {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
+      - name: lightstep-certs
+        secret:
+          optional: true
+          secretName: lightstep.cacert
       {{- end }}
       affinity:
       {{- include "gatewaynodeaffinity" (dict "root" $ "nodeSelector" $spec.nodeSelector) | indent 6 }}
