@@ -38,7 +38,6 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("istioctl_integration_test", m).
-		RequireEnvironment(environment.Kube).
 
 		// Deploy Istio
 		SetupOnEnv(environment.Kube, istio.Setup(&i, nil)).
@@ -53,6 +52,7 @@ func TestMain(m *testing.M) {
 func TestVersion(t *testing.T) {
 	framework.
 		NewTest(t).
+		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			g := galley.NewOrFail(t, ctx, galley.Config{})
 			_ = pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})

@@ -24,11 +24,8 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
-	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/label"
 )
 
 const (
@@ -36,17 +33,10 @@ const (
 	serviceRoleFile        = "testdata/servicerole.yaml"
 )
 
-func TestMain(m *testing.M) {
-	framework.
-		NewSuite("istioctl_analyze_test", m).
-		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(nil, nil)).
-		Run()
-}
-
 func TestEmptyCluster(t *testing.T) {
 	framework.
 		NewTest(t).
+		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			g := NewGomegaWithT(t)
 
@@ -93,17 +83,16 @@ func TestFileOnly(t *testing.T) {
 func TestKubeOnly(t *testing.T) {
 	framework.
 		NewTest(t).
+		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			g := NewGomegaWithT(t)
-
-			env := ctx.Environment().(*kube.Environment)
 
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "istioctl-analyze",
 				Inject: true,
 			})
 
-			applyFileToCluster(t, env, ns.Name(), serviceRoleBindingFile)
+			applyFileToCluster(t, ns.Name(), serviceRoleBindingFile)
 
 			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
 
@@ -114,7 +103,7 @@ func TestKubeOnly(t *testing.T) {
 			g.Expect(output[0]).To(ContainSubstring(msg.ReferencedResourceNotFound.Code()))
 
 			// Error goes away if we include both the binding and its role
-			applyFileToCluster(t, env, ns.Name(), serviceRoleFile)
+			applyFileToCluster(t, ns.Name(), serviceRoleFile)
 			output = runIstioctl(t, istioCtl,
 				[]string{"experimental", "analyze", "--namespace", ns.Name(), "--use-kube"})
 			g.Expect(output).To(BeEmpty())
@@ -124,17 +113,16 @@ func TestKubeOnly(t *testing.T) {
 func TestFileAndKubeCombined(t *testing.T) {
 	framework.
 		NewTest(t).
+		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			g := NewGomegaWithT(t)
-
-			env := ctx.Environment().(*kube.Environment)
 
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "istioctl-analyze",
 				Inject: true,
 			})
 
-			applyFileToCluster(t, env, ns.Name(), serviceRoleBindingFile)
+			applyFileToCluster(t, ns.Name(), serviceRoleBindingFile)
 
 			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
 
@@ -165,7 +153,7 @@ func readFileOrFail(t *testing.T, file string) string {
 	return string(b)
 }
 
-func applyFileToCluster(t *testing.T, env *kube.Environment, ns, fileName string) {
+func applyFileToCluster(t *testing.T, ns, fileName string) {
 	yaml := readFileOrFail(t, fileName)
 	err := env.ApplyContents(ns, yaml)
 	if err != nil {
