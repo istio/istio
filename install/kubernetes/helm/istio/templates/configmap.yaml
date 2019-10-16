@@ -171,6 +171,10 @@ data:
     {{- if $.Values.global.useMCP }}
     configSources:
     - address: istio-galley.{{ $.Release.Namespace }}.svc:9901
+      {{- if .Values.pilot.configSource.subscribedResources }}
+      subscribedResources:
+        - {{ .Values.pilot.configSource.subscribedResources }}
+      {{- end}}
     {{- if $.Values.global.controlPlaneSecurityEnabled}}
       tlsSettings:
         mode: ISTIO_MUTUAL

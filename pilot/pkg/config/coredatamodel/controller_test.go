@@ -111,27 +111,77 @@ var (
 		},
 	}
 
-	testControllerOptions = coredatamodel.Options{
-		DomainSuffix:              "cluster.local",
-		ClearDiscoveryServerCache: func(configType string) {},
-		ConfigLedger:              &model.DisabledLedger{},
+	syntheticServiceEntry0 = &networking.ServiceEntry{
+		Hosts: []string{"svc.example2.com"},
+		Ports: []*networking.Port{
+			{Number: 80, Name: "http-port", Protocol: "http"},
+			{Number: 8080, Name: "http-alt-port", Protocol: "http"},
+		},
+		Location:   networking.ServiceEntry_MESH_EXTERNAL,
+		Resolution: networking.ServiceEntry_DNS,
+		Endpoints: []*networking.ServiceEntry_Endpoint{
+			{
+				Address: "2.2.2.2",
+				Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
+			},
+			{
+				Address: "3.3.3.3",
+				Ports:   map[string]uint32{"http-port": 1080},
+			},
+			{
+				Address: "4.4.4.4",
+				Ports:   map[string]uint32{"http-port": 1080},
+				Labels:  map[string]string{"foo": "bar"},
+			},
+		},
+	}
+
+	syntheticServiceEntry1 = &networking.ServiceEntry{
+		Hosts: []string{"example2.com"},
+		Ports: []*networking.Port{
+			{Number: 80, Name: "http-port", Protocol: "http"},
+			{Number: 8080, Name: "http-alt-port", Protocol: "http"},
+		},
+		Location:   networking.ServiceEntry_MESH_EXTERNAL,
+		Resolution: networking.ServiceEntry_DNS,
+		Endpoints: []*networking.ServiceEntry_Endpoint{
+			{
+				Address: "2.2.2.2",
+				Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
+			},
+			{
+				Address: "3.3.3.3",
+				Ports:   map[string]uint32{"http-port": 1080},
+			},
+			{
+				Address: "5.5.5.5",
+				Ports:   map[string]uint32{"http-port": 1081},
+				Labels:  map[string]string{"foo1": "bar1"},
+			},
+		},
+	}
+
+	testControllerOptions = &coredatamodel.Options{
+		DomainSuffix: "cluster.local",
+		ConfigLedger: &model.DisabledLedger{},
 	}
 )
 
 func TestOptions(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	var cacheCleared bool
-	testControllerOptions.ClearDiscoveryServerCache = func(configType string) {
-		cacheCleared = true
-	}
+
 	controller := coredatamodel.NewController(testControllerOptions)
 
-	message := convertToResource(g, schemas.ServiceEntry.MessageName, []proto.Message{serviceEntry})
-	change := convert(
-		[]proto.Message{message[0]},
+	message := convertToResource(g,
+		schemas.ServiceEntry.MessageName,
+		serviceEntry)
+
+	change := convertToChange(
+		[]proto.Message{message},
 		[]string{"service-bar"},
-		schemas.ServiceEntry.Collection,
-		schemas.ServiceEntry.MessageName)
+		setVersion("1"),
+		setCollection(schemas.ServiceEntry.Collection),
+		setTypeURL(schemas.ServiceEntry.MessageName))
 
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
@@ -140,23 +190,6 @@ func TestOptions(t *testing.T) {
 	g.Expect(c).ToNot(gomega.BeNil())
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(c[0].Domain).To(gomega.Equal(testControllerOptions.DomainSuffix))
-	g.Expect(cacheCleared).To(gomega.Equal(false))
-
-	message = convertToResource(g, schemas.Gateway.MessageName, []proto.Message{gateway})
-	change = convert(
-		[]proto.Message{message[0]},
-		[]string{"gateway-foo"},
-		schemas.Gateway.Collection,
-		schemas.Gateway.MessageName)
-
-	err = controller.Apply(change)
-	g.Expect(err).ToNot(gomega.HaveOccurred())
-
-	c, err = controller.List(schemas.Gateway.Type, "")
-	g.Expect(c).ToNot(gomega.BeNil())
-	g.Expect(err).ToNot(gomega.HaveOccurred())
-	g.Expect(c[0].Domain).To(gomega.Equal(testControllerOptions.DomainSuffix))
-	g.Expect(cacheCleared).To(gomega.Equal(true))
 }
 
 func TestHasSynced(t *testing.T) {
@@ -169,9 +202,10 @@ func TestHasSynced(t *testing.T) {
 func TestConfigDescriptor(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	controller := coredatamodel.NewController(testControllerOptions)
-
 	descriptors := controller.ConfigDescriptor()
-	g.Expect(descriptors).To(gomega.Equal(schemas.Istio))
+	for _, descriptor := range descriptors {
+		g.Expect(descriptor.Collection).ToNot(gomega.Equal(schemas.SyntheticServiceEntry.Collection))
+	}
 }
 
 func TestListInvalidType(t *testing.T) {
@@ -195,14 +229,22 @@ func TestListCorrectTypeNoData(t *testing.T) {
 
 func TestListAllNameSpace(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
+
+	fx := NewFakeXDS()
+	testControllerOptions.XDSUpdater = fx
 	controller := coredatamodel.NewController(testControllerOptions)
 
-	messages := convertToResource(g, schemas.Gateway.MessageName, []proto.Message{gateway, gateway2, gateway3})
+	messages := convertToResources(g,
+		schemas.Gateway.MessageName,
+		[]proto.Message{gateway, gateway2, gateway3})
+
 	message, message2, message3 := messages[0], messages[1], messages[2]
-	change := convert(
+	change := convertToChange(
 		[]proto.Message{message, message2, message3},
 		[]string{"namespace1/some-gateway1", "default/some-other-gateway", "some-other-gateway3"},
-		schemas.Gateway.Collection, schemas.Gateway.MessageName)
+		setVersion("1"),
+		setCollection(schemas.Gateway.Collection),
+		setTypeURL(schemas.Gateway.MessageName))
 
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
@@ -231,13 +273,18 @@ func TestListSpecificNameSpace(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	controller := coredatamodel.NewController(testControllerOptions)
 
-	messages := convertToResource(g, schemas.Gateway.MessageName, []proto.Message{gateway, gateway2, gateway3})
+	messages := convertToResources(g,
+		schemas.Gateway.MessageName,
+		[]proto.Message{gateway, gateway2, gateway3})
+
 	message, message2, message3 := messages[0], messages[1], messages[2]
 
-	change := convert(
+	change := convertToChange(
 		[]proto.Message{message, message2, message3},
 		[]string{"namespace1/some-gateway1", "default/some-other-gateway", "namespace1/some-other-gateway3"},
-		schemas.Gateway.Collection, schemas.Gateway.MessageName)
+		setVersion("1"),
+		setCollection(schemas.Gateway.Collection),
+		setTypeURL(schemas.Gateway.MessageName))
 
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
@@ -262,15 +309,22 @@ func TestApplyInvalidType(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	controller := coredatamodel.NewController(testControllerOptions)
 
-	message := convertToResource(g, schemas.Gateway.MessageName, []proto.Message{gateway})
-	change := convert([]proto.Message{message[0]}, []string{"some-gateway"},
-		"bad-collection", "bad-type")
+	message := convertToResource(g,
+		schemas.Gateway.MessageName,
+		gateway)
+
+	change := convertToChange(
+		[]proto.Message{message},
+		[]string{"some-gateway"},
+		setVersion("1"),
+		setCollection("bad-collection"),
+		setTypeURL("bad-type"))
 
 	err := controller.Apply(change)
 	g.Expect(err).To(gomega.HaveOccurred())
 }
 
-func TestApplyValidTypeWithNoBaseURL(t *testing.T) {
+func TestApplyValidTypeWithNoNamespace(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	controller := coredatamodel.NewController(testControllerOptions)
 
@@ -293,8 +347,12 @@ func TestApplyValidTypeWithNoBaseURL(t *testing.T) {
 		message, err := makeMessage(marshaledGateway, schemas.Gateway.MessageName)
 		g.Expect(err).ToNot(gomega.HaveOccurred())
 
-		change := convert([]proto.Message{message}, []string{"some-gateway"},
-			schemas.Gateway.Collection, schemas.Gateway.MessageName)
+		change := convertToChange([]proto.Message{message},
+			[]string{"some-gateway"},
+			setVersion("1"),
+			setCollection(schemas.Gateway.Collection),
+			setTypeURL(schemas.Gateway.MessageName))
+
 		err = controller.Apply(change)
 		g.Expect(err).ToNot(gomega.HaveOccurred())
 
@@ -314,10 +372,16 @@ func TestApplyMetadataNameIncludesNamespace(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	controller := coredatamodel.NewController(testControllerOptions)
 
-	message := convertToResource(g, schemas.Gateway.MessageName, []proto.Message{gateway})
+	message := convertToResource(g,
+		schemas.Gateway.MessageName,
+		gateway)
 
-	change := convert([]proto.Message{message[0]}, []string{"istio-namespace/some-gateway"},
-		schemas.Gateway.Collection, schemas.Gateway.MessageName)
+	change := convertToChange([]proto.Message{message},
+		[]string{"istio-namespace/some-gateway"},
+		setVersion("1"),
+		setCollection(schemas.Gateway.Collection),
+		setTypeURL(schemas.Gateway.MessageName))
+
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
@@ -326,16 +390,23 @@ func TestApplyMetadataNameIncludesNamespace(t *testing.T) {
 	g.Expect(len(c)).To(gomega.Equal(1))
 	g.Expect(c[0].Name).To(gomega.Equal("some-gateway"))
 	g.Expect(c[0].Type).To(gomega.Equal(schemas.Gateway.Type))
-	g.Expect(c[0].Spec).To(gomega.Equal(message[0]))
+	g.Expect(c[0].Spec).To(gomega.Equal(message))
 }
 
 func TestApplyMetadataNameWithoutNamespace(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	controller := coredatamodel.NewController(testControllerOptions)
 
-	message := convertToResource(g, schemas.Gateway.MessageName, []proto.Message{gateway})
+	message := convertToResource(g,
+		schemas.Gateway.MessageName,
+		gateway)
 
-	change := convert([]proto.Message{message[0]}, []string{"some-gateway"}, schemas.Gateway.Collection, schemas.Gateway.MessageName)
+	change := convertToChange([]proto.Message{message},
+		[]string{"some-gateway"},
+		setVersion("1"),
+		setCollection(schemas.Gateway.Collection),
+		setTypeURL(schemas.Gateway.MessageName))
+
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
@@ -344,15 +415,24 @@ func TestApplyMetadataNameWithoutNamespace(t *testing.T) {
 	g.Expect(len(c)).To(gomega.Equal(1))
 	g.Expect(c[0].Name).To(gomega.Equal("some-gateway"))
 	g.Expect(c[0].Type).To(gomega.Equal(schemas.Gateway.Type))
-	g.Expect(c[0].Spec).To(gomega.Equal(message[0]))
+	g.Expect(c[0].Spec).To(gomega.Equal(message))
 }
 
 func TestApplyChangeNoObjects(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
+
+	fx := NewFakeXDS()
+	testControllerOptions.XDSUpdater = fx
 	controller := coredatamodel.NewController(testControllerOptions)
 
-	message := convertToResource(g, schemas.Gateway.MessageName, []proto.Message{gateway})
-	change := convert([]proto.Message{message[0]}, []string{"some-gateway"}, schemas.Gateway.Collection, schemas.Gateway.MessageName)
+	message := convertToResource(g,
+		schemas.Gateway.MessageName,
+		gateway)
+
+	change := convertToChange([]proto.Message{message},
+		[]string{"some-gateway"},
+		setCollection(schemas.Gateway.Collection),
+		setTypeURL(schemas.Gateway.MessageName))
 
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
@@ -361,9 +441,12 @@ func TestApplyChangeNoObjects(t *testing.T) {
 	g.Expect(len(c)).To(gomega.Equal(1))
 	g.Expect(c[0].Name).To(gomega.Equal("some-gateway"))
 	g.Expect(c[0].Type).To(gomega.Equal(schemas.Gateway.Type))
-	g.Expect(c[0].Spec).To(gomega.Equal(message[0]))
+	g.Expect(c[0].Spec).To(gomega.Equal(message))
 
-	change = convert([]proto.Message{}, []string{"some-gateway"}, schemas.Gateway.Collection, schemas.Gateway.MessageName)
+	change = convertToChange([]proto.Message{},
+		[]string{"some-gateway"},
+		setCollection(schemas.Gateway.Collection),
+		setTypeURL(schemas.Gateway.MessageName))
 
 	err = controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
@@ -372,24 +455,58 @@ func TestApplyChangeNoObjects(t *testing.T) {
 	g.Expect(len(c)).To(gomega.Equal(0))
 }
 
+func TestApplyConfigUpdate(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	fx := NewFakeXDS()
+	testControllerOptions.XDSUpdater = fx
+	controller := coredatamodel.NewController(testControllerOptions)
+
+	message := convertToResource(g,
+		schemas.Gateway.MessageName,
+		gateway)
+
+	change := convertToChange([]proto.Message{message},
+		[]string{"some-gateway"},
+		setCollection(schemas.Gateway.Collection),
+		setTypeURL(schemas.Gateway.MessageName))
+
+	err := controller.Apply(change)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	event := <-fx.Events
+	g.Expect(event).To(gomega.Equal("ConfigUpdate"))
+}
+
 func TestApplyClusterScopedAuthPolicy(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	controller := coredatamodel.NewController(testControllerOptions)
 
-	message0 := convertToResource(g, schemas.AuthenticationPolicy.MessageName, []proto.Message{authnPolicy0})
-	message1 := convertToResource(g, schemas.AuthenticationMeshPolicy.MessageName, []proto.Message{authnPolicy1})
+	message0 := convertToResource(g,
+		schemas.AuthenticationPolicy.MessageName,
+		authnPolicy0)
 
-	change := convert(
-		[]proto.Message{message0[0]},
+	message1 := convertToResource(g,
+		schemas.AuthenticationMeshPolicy.MessageName,
+		authnPolicy1)
+
+	change := convertToChange(
+		[]proto.Message{message0},
 		[]string{"bar-namespace/foo"},
-		schemas.AuthenticationPolicy.Collection, schemas.AuthenticationPolicy.MessageName)
+		setVersion("1"),
+		setCollection(schemas.AuthenticationPolicy.Collection),
+		setTypeURL(schemas.AuthenticationPolicy.MessageName))
+
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	change = convert(
-		[]proto.Message{message1[0]},
+	change = convertToChange(
+		[]proto.Message{message1},
 		[]string{"default"},
-		schemas.AuthenticationMeshPolicy.Collection, schemas.AuthenticationMeshPolicy.MessageName)
+		setVersion("1"),
+		setCollection(schemas.AuthenticationMeshPolicy.Collection),
+		setTypeURL(schemas.AuthenticationMeshPolicy.MessageName))
+
 	err = controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
@@ -399,7 +516,7 @@ func TestApplyClusterScopedAuthPolicy(t *testing.T) {
 	g.Expect(c[0].Name).To(gomega.Equal("foo"))
 	g.Expect(c[0].Namespace).To(gomega.Equal("bar-namespace"))
 	g.Expect(c[0].Type).To(gomega.Equal(schemas.AuthenticationPolicy.Type))
-	g.Expect(c[0].Spec).To(gomega.Equal(message0[0]))
+	g.Expect(c[0].Spec).To(gomega.Equal(message0))
 
 	c, err = controller.List(schemas.AuthenticationMeshPolicy.Type, "")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
@@ -407,13 +524,16 @@ func TestApplyClusterScopedAuthPolicy(t *testing.T) {
 	g.Expect(c[0].Name).To(gomega.Equal("default"))
 	g.Expect(c[0].Namespace).To(gomega.Equal(""))
 	g.Expect(c[0].Type).To(gomega.Equal(schemas.AuthenticationMeshPolicy.Type))
-	g.Expect(c[0].Spec).To(gomega.Equal(message1[0]))
+	g.Expect(c[0].Spec).To(gomega.Equal(message1))
 
 	// verify the namespace scoped resource can be deleted
-	change = convert(
-		[]proto.Message{},
-		[]string{},
-		schemas.AuthenticationPolicy.Collection, schemas.AuthenticationPolicy.MessageName)
+	change = convertToChange(
+		[]proto.Message{message1},
+		[]string{"default"},
+		setVersion("1"),
+		setCollection(schemas.AuthenticationPolicy.Collection),
+		setTypeURL(schemas.AuthenticationPolicy.MessageName))
+
 	err = controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
@@ -423,13 +543,26 @@ func TestApplyClusterScopedAuthPolicy(t *testing.T) {
 	g.Expect(c[0].Name).To(gomega.Equal("default"))
 	g.Expect(c[0].Namespace).To(gomega.Equal(""))
 	g.Expect(c[0].Type).To(gomega.Equal(schemas.AuthenticationMeshPolicy.Type))
-	g.Expect(c[0].Spec).To(gomega.Equal(message1[0]))
+	g.Expect(c[0].Spec).To(gomega.Equal(message1))
 
 	// verify the namespace scoped resource can be added and mesh-scoped resource removed
-	change = convert(
-		[]proto.Message{message0[0]},
+	change = convertToChange(
+		[]proto.Message{message0},
 		[]string{"bar-namespace/foo"},
-		schemas.AuthenticationPolicy.Collection, schemas.AuthenticationPolicy.MessageName)
+		setVersion("1"),
+		setCollection(schemas.AuthenticationPolicy.Collection),
+		setTypeURL(schemas.AuthenticationPolicy.MessageName))
+
+	err = controller.Apply(change)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	change = convertToChange(
+		[]proto.Message{},
+		[]string{"default"},
+		setVersion("1"),
+		setCollection(schemas.AuthenticationMeshPolicy.Collection),
+		setTypeURL(schemas.AuthenticationMeshPolicy.MessageName))
+
 	err = controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
@@ -439,7 +572,54 @@ func TestApplyClusterScopedAuthPolicy(t *testing.T) {
 	g.Expect(c[0].Name).To(gomega.Equal("foo"))
 	g.Expect(c[0].Namespace).To(gomega.Equal("bar-namespace"))
 	g.Expect(c[0].Type).To(gomega.Equal(schemas.AuthenticationPolicy.Type))
-	g.Expect(c[0].Spec).To(gomega.Equal(message0[0]))
+	g.Expect(c[0].Spec).To(gomega.Equal(message0))
+}
+
+func TestInvalidResource(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	controller := coredatamodel.NewController(testControllerOptions)
+
+	gw := proto.Clone(gateway).(*networking.Gateway)
+	gw.Servers[0].Hosts = nil
+
+	message := convertToResource(g, schemas.Gateway.MessageName, gw)
+
+	change := convertToChange(
+		[]proto.Message{message},
+		[]string{"bar-namespace/foo"},
+		setCollection(schemas.Gateway.Collection),
+		setTypeURL(schemas.Gateway.MessageName))
+
+	err := controller.Apply(change)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	entries, err := controller.List(schemas.Gateway.Type, "")
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(entries).To(gomega.HaveLen(0))
+}
+
+func TestInvalidResource_BadTimestamp(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	controller := coredatamodel.NewController(testControllerOptions)
+
+	message := convertToResource(g, schemas.Gateway.MessageName, gateway)
+	change := convertToChange(
+		[]proto.Message{message},
+		[]string{"bar-namespace/foo"},
+		setCollection(schemas.Gateway.Collection),
+		setTypeURL(schemas.Gateway.MessageName))
+
+	change.Objects[0].Metadata.CreateTime = &types.Timestamp{
+		Seconds: -1,
+		Nanos:   -1,
+	}
+
+	err := controller.Apply(change)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	entries, err := controller.List(schemas.Gateway.Type, "")
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(entries).To(gomega.HaveLen(0))
 }
 
 func TestEventHandler(t *testing.T) {
@@ -632,37 +812,85 @@ func TestEventHandler(t *testing.T) {
 	}
 }
 
-func convert(resources []proto.Message, names []string, collection, responseMessageName string) *sink.Change {
+func convertToChange(resources []proto.Message, names []string, options ...func(*sink.Change)) *sink.Change {
 	out := new(sink.Change)
-	out.Collection = collection
 	for i, res := range resources {
-		out.Objects = append(out.Objects,
-			&sink.Object{
-				TypeURL: responseMessageName,
-				Metadata: &mcpapi.Metadata{
-					Name: names[i],
-				},
-				Body: res,
+		obj := &sink.Object{
+			Metadata: &mcpapi.Metadata{
+				Name: names[i],
 			},
-		)
+			Body: res,
+		}
+		out.Objects = append(out.Objects, obj)
+	}
+	// apply options
+	for _, option := range options {
+		option(out)
 	}
 	return out
 }
 
-func convertToResource(g *gomega.GomegaWithT, messageName string, resources []proto.Message) (messages []proto.Message) {
+func setIncremental() func(*sink.Change) {
+	return func(c *sink.Change) {
+		c.Incremental = true
+	}
+}
+
+func setRemoved(removed []string) func(*sink.Change) {
+	return func(c *sink.Change) {
+		c.Removed = removed
+	}
+}
+
+func setCollection(collection string) func(*sink.Change) {
+	return func(c *sink.Change) {
+		c.Collection = collection
+	}
+}
+
+func setAnnotations(a map[string]string) func(*sink.Change) {
+	return func(c *sink.Change) {
+		for _, obj := range c.Objects {
+			obj.Metadata.Annotations = a
+		}
+	}
+}
+
+func setVersion(v string) func(*sink.Change) {
+	return func(c *sink.Change) {
+		for _, obj := range c.Objects {
+			obj.Metadata.Version = v
+		}
+	}
+}
+
+func setTypeURL(url string) func(*sink.Change) {
+	return func(c *sink.Change) {
+		for _, obj := range c.Objects {
+			obj.TypeURL = url
+		}
+	}
+}
+
+func convertToResource(g *gomega.GomegaWithT, typeURL string, resource proto.Message) (messages proto.Message) {
+	marshaled, err := proto.Marshal(resource)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	message, err := makeMessage(marshaled, typeURL)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	return message
+}
+
+func convertToResources(g *gomega.GomegaWithT, typeURL string, resources []proto.Message) (messages []proto.Message) {
 	for _, resource := range resources {
-		marshaled, err := proto.Marshal(resource)
-		g.Expect(err).ToNot(gomega.HaveOccurred())
-		message, err := makeMessage(marshaled, messageName)
-		g.Expect(err).ToNot(gomega.HaveOccurred())
+		message := convertToResource(g, typeURL, resource)
 		messages = append(messages, message)
 	}
 	return messages
 }
 
-func makeMessage(value []byte, responseMessageName string) (proto.Message, error) {
+func makeMessage(value []byte, typeURL string) (proto.Message, error) {
 	resource := &types.Any{
-		TypeUrl: fmt.Sprintf("type.googleapis.com/%s", responseMessageName),
+		TypeUrl: fmt.Sprintf("type.googleapis.com/%s", typeURL),
 		Value:   value,
 	}
 
@@ -673,47 +901,4 @@ func makeMessage(value []byte, responseMessageName string) (proto.Message, error
 	}
 
 	return nil, err
-}
-
-func TestInvalidResource(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	controller := coredatamodel.NewController(testControllerOptions)
-
-	gw := proto.Clone(gateway).(*networking.Gateway)
-	gw.Servers[0].Hosts = nil
-
-	message0 := convertToResource(g, schemas.Gateway.MessageName, []proto.Message{gw})
-
-	change := convert(
-		[]proto.Message{message0[0]},
-		[]string{"bar-namespace/foo"},
-		schemas.Gateway.Collection, schemas.Gateway.MessageName)
-	err := controller.Apply(change)
-	g.Expect(err).ToNot(gomega.HaveOccurred())
-
-	entries, err := controller.List(schemas.Gateway.Type, "")
-	g.Expect(err).ToNot(gomega.HaveOccurred())
-	g.Expect(entries).To(gomega.HaveLen(0))
-}
-
-func TestInvalidResource_BadTimestamp(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	controller := coredatamodel.NewController(testControllerOptions)
-
-	message0 := convertToResource(g, schemas.Gateway.MessageName, []proto.Message{gateway})
-	change := convert(
-		[]proto.Message{message0[0]},
-		[]string{"bar-namespace/foo"},
-		schemas.Gateway.Collection, schemas.Gateway.MessageName)
-	change.Objects[0].Metadata.CreateTime = &types.Timestamp{
-		Seconds: -1,
-		Nanos:   -1,
-	}
-
-	err := controller.Apply(change)
-	g.Expect(err).ToNot(gomega.HaveOccurred())
-
-	entries, err := controller.List(schemas.Gateway.Type, "")
-	g.Expect(err).ToNot(gomega.HaveOccurred())
-	g.Expect(entries).To(gomega.HaveLen(0))
 }
