@@ -479,7 +479,7 @@ func TestAddOrder(t *testing.T) {
 				} else {
 					expectNotifications(ctx.t, ctx.acc, 1)
 					expectedVersion++
-					expectedMetadata := newMetadataBuilder(service.Clone(), endpoints).
+					expectedMetadata := newMetadataBuilder(service, endpoints).
 						CreateTime(createTime).
 						Version(expectedVersion).
 						Labels(serviceLabels).

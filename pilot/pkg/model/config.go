@@ -149,6 +149,10 @@ type ConfigStore interface {
 
 	// Delete removes an object from the store by key
 	Delete(typ, name, namespace string) error
+
+	Version() string
+
+	GetResourceAtVersion(version string, key string) (resourceVersion string, err error)
 }
 
 // Key function for the configuration objects
@@ -174,6 +178,7 @@ func (meta *ConfigMeta) Key() string {
 // Handlers execute on the single worker queue in the order they are appended.
 // Handlers receive the notification event and the associated object.  Note
 // that all handlers must be registered before starting the cache controller.
+//go:generate counterfeiter -o ../config/aggregate/fakes/config_store_cache.gen.go --fake-name ConfigStoreCache . ConfigStoreCache
 type ConfigStoreCache interface {
 	ConfigStore
 
@@ -344,11 +349,20 @@ func MakeIstioStore(store ConfigStore) IstioConfigStore {
 }
 
 func (store *istioConfigStore) ServiceEntries() []Config {
-	configs, err := store.List(schemas.ServiceEntry.Type, NamespaceAll)
+	serviceEntries, err := store.List(schemas.ServiceEntry.Type, NamespaceAll)
 	if err != nil {
 		return nil
 	}
-	return configs
+	supportedTypes := store.ConfigDescriptor()
+	if _, ok := supportedTypes.GetByType(schemas.SyntheticServiceEntry.Type); ok {
+		syntheticServiceEntries, err := store.List(schemas.SyntheticServiceEntry.Type, NamespaceAll)
+		if err != nil {
+			return nil
+		}
+		return append(serviceEntries, syntheticServiceEntries...)
+
+	}
+	return serviceEntries
 }
 
 // sortConfigByCreationTime sorts the list of config objects in ascending order by their creation time (if available).

@@ -99,13 +99,23 @@ var (
 
 	wg sync.WaitGroup
 
-	instanceIPVar        = env.RegisterStringVar("INSTANCE_IP", "", "")
-	podNameVar           = env.RegisterStringVar("POD_NAME", "", "")
-	podNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "")
-	istioNamespaceVar    = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
-	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
-	sdsEnabledVar        = env.RegisterBoolVar("SDS_ENABLED", false, "")
-	sdsUdsPathVar        = env.RegisterStringVar("SDS_UDS_PATH", "unix:/var/run/sds/uds_path", "SDS address")
+	instanceIPVar             = env.RegisterStringVar("INSTANCE_IP", "", "")
+	podNameVar                = env.RegisterStringVar("POD_NAME", "", "")
+	podNamespaceVar           = env.RegisterStringVar("POD_NAMESPACE", "", "")
+	istioNamespaceVar         = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
+	kubeAppProberNameVar      = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
+	sdsEnabledVar             = env.RegisterBoolVar("SDS_ENABLED", false, "")
+	sdsUdsPathVar             = env.RegisterStringVar("SDS_UDS_PATH", "unix:/var/run/sds/uds_path", "SDS address")
+	stackdriverTracingEnabled = env.RegisterBoolVar("STACKDRIVER_TRACING_ENABLED", false, "If enabled, stackdriver will"+
+		" get configured as the tracer.")
+	stackdriverTracingDebug = env.RegisterBoolVar("STACKDRIVER_TRACING_DEBUG", false, "If set to true, "+
+		"enables trace output to stdout")
+	stackdriverTracingMaxNumberOfAnnotations = env.RegisterIntVar("STACKDRIVER_TRACING_MAX_NUMBER_OF_ANNOTATIONS", 200, "Sets the max"+
+		" number of annotations for stackdriver")
+	stackdriverTracingMaxNumberOfAttributes = env.RegisterIntVar("STACKDRIVER_TRACING_MAX_NUMBER_OF_ATTRIBUTES", 200, "Sets the max "+
+		"number of attributes for stackdriver")
+	stackdriverTracingMaxNumberOfMessageEvents = env.RegisterIntVar("STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS", 200, "Sets the "+
+		"max number of message events for stackdriver")
 
 	sdsUdsWaitTimeout = time.Minute
 
@@ -297,6 +307,23 @@ var (
 					Tracer: &meshconfig.Tracing_Datadog_{
 						Datadog: &meshconfig.Tracing_Datadog{
 							Address: datadogAgentAddress,
+						},
+					},
+				}
+			} else if stackdriverTracingEnabled.Get() {
+				proxyConfig.Tracing = &meshconfig.Tracing{
+					Tracer: &meshconfig.Tracing_Stackdriver_{
+						Stackdriver: &meshconfig.Tracing_Stackdriver{
+							Debug: stackdriverTracingDebug.Get(),
+							MaxNumberOfAnnotations: &types.Int64Value{
+								Value: int64(stackdriverTracingMaxNumberOfAnnotations.Get()),
+							},
+							MaxNumberOfAttributes: &types.Int64Value{
+								Value: int64(stackdriverTracingMaxNumberOfAttributes.Get()),
+							},
+							MaxNumberOfMessageEvents: &types.Int64Value{
+								Value: int64(stackdriverTracingMaxNumberOfMessageEvents.Get()),
+							},
 						},
 					},
 				}

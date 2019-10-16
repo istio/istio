@@ -539,6 +539,10 @@ func (l *fakeStore) List(typ, namespace string) ([]model.Config, error) {
 	return ret, l.err
 }
 
+func (l *fakeStore) ConfigDescriptor() schema.Set {
+	return schemas.Istio
+}
+
 func TestIstioConfigStore_QuotaSpecByDestination(t *testing.T) {
 	ns := "ns1"
 	l := &fakeStore{

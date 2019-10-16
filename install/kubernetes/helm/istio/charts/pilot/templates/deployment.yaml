@@ -53,7 +53,6 @@ spec:
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           args:
           - "discovery"
-          - --registries={{ .Values.registries | join "," }}
           - --monitoringAddr=:{{ .Values.global.monitoringPort }}
 {{- if $.Values.global.logging.level }}
           - --log_output_level={{ $.Values.global.logging.level }}

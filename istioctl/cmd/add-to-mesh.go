@@ -24,7 +24,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/kubernetes/pkg/apis/core"
 
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -349,7 +348,7 @@ func addServiceOnVMToMesh(dynamicClient dynamic.Interface, client kubernetes.Int
 			},
 		},
 	}
-	annotations[core.ServiceAccountNameKey] = opts.ServiceAccount
+	annotations[corev1.ServiceAccountNameKey] = opts.ServiceAccount
 	s := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        opts.Name,

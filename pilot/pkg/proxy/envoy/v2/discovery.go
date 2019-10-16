@@ -186,6 +186,7 @@ func NewDiscoveryServer(
 	// Flush cached discovery responses when detecting jwt public key change.
 	model.JwtKeyResolver.PushFunc = out.ClearCache
 
+	// TODO(Nino-k): remove this case once incrementalUpdate is default
 	if configCache != nil {
 		// TODO: changes should not trigger a full recompute of LDS/RDS/CDS/EDS
 		// (especially mixerclient HTTP and quota)
@@ -292,8 +293,8 @@ func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	go s.AdsPushAll(versionLocal, req)
 }
 
-func nonce() string {
-	return uuid.New().String()
+func nonce(noncePrefix string) string {
+	return noncePrefix + uuid.New().String()
 }
 
 func versionInfo() string {
@@ -438,6 +439,7 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 					start:              info.Start,
 					namespacesUpdated:  info.NamespacesUpdated,
 					configTypesUpdated: info.ConfigTypesUpdated,
+					noncePrefix:        info.Push.Version,
 				}:
 					return
 				case <-client.stream.Context().Done(): // grpc stream was closed

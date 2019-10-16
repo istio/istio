@@ -20,7 +20,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 
 	meshapi "istio.io/api/mesh/v1alpha1"
 
@@ -113,10 +113,14 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 	if bootstrapArgs.MeshConfig == nil {
 		bootstrapArgs.MeshConfig = &meshapi.MeshConfig{}
 	}
+
+	galleyHostPort := cfg.Galley.Address()[6:]
 	// Set as MCP address, note needs to strip 'tcp://' from the address prefix
-	bootstrapArgs.MeshConfig.ConfigSources = []*meshapi.ConfigSource{
-		{Address: cfg.Galley.Address()[6:]},
-	}
+	// Also appending incase if there are existing config sources
+	bootstrapArgs.MeshConfig.ConfigSources = append(bootstrapArgs.MeshConfig.ConfigSources, &meshapi.ConfigSource{
+		Address: galleyHostPort,
+	})
+
 	bootstrapArgs.MCPMaxMessageSize = bootstrap.DefaultMCPMaxMsgSize
 
 	var err error

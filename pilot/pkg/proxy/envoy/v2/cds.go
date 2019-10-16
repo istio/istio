@@ -24,7 +24,7 @@ import (
 )
 
 // clusters aggregate a DiscoveryResponse for pushing.
-func (conn *XdsConnection) clusters(response []*xdsapi.Cluster) *xdsapi.DiscoveryResponse {
+func (conn *XdsConnection) clusters(response []*xdsapi.Cluster, noncePrefix string) *xdsapi.DiscoveryResponse {
 	out := &xdsapi.DiscoveryResponse{
 		// All resources for CDS ought to be of the type ClusterLoadAssignment
 		TypeUrl: ClusterType,
@@ -34,7 +34,7 @@ func (conn *XdsConnection) clusters(response []*xdsapi.Cluster) *xdsapi.Discover
 		// responses. Pilot believes in eventual consistency and that at some point, Envoy
 		// will begin seeing results it deems to be good.
 		VersionInfo: versionInfo(),
-		Nonce:       nonce(),
+		Nonce:       nonce(noncePrefix),
 	}
 
 	for _, c := range response {
@@ -53,7 +53,7 @@ func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext, v
 	if s.DebugConfigs {
 		con.CDSClusters = rawClusters
 	}
-	response := con.clusters(rawClusters)
+	response := con.clusters(rawClusters, push.Version)
 	err := con.send(response)
 	cdsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {
