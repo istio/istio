@@ -147,6 +147,7 @@ require (
 	go.uber.org/zap v1.10.0
 	golang.org/x/net v0.0.0-20191014212845-da9a3fd4c582
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
+	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	golang.org/x/sys v0.0.0-20191010194322-b09406accb47 // indirect
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
 	golang.org/x/tools v0.0.0-20190624180213-70d37148ca0c
@@ -162,7 +163,7 @@ require (
 	gopkg.in/yaml.v2 v2.2.4
 	istio.io/api v0.0.0-20191015210738-bfa91e88abf1
 	istio.io/gogo-genproto v0.0.0-20190930162913-45029607206a
-	istio.io/operator v0.0.0-20191011173921-550812748053
+	istio.io/operator v0.0.0-20191016154438-acc189bf3318
 	istio.io/pkg v0.0.0-20191015053120-592d80277a1b
 	k8s.io/api v0.0.0
 	k8s.io/apiextensions-apiserver v0.0.0

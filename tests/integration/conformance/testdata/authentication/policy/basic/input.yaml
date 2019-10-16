@@ -10,4 +10,4 @@ spec:
         - number: 7070
         - number: 9090
   peers:
-    - mtls:
+    - mtls: {}
