@@ -26,7 +26,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/clientcmd/api"
 
@@ -101,12 +100,6 @@ func (w *fakeOutputWriter) Write(p []byte) (n int, err error) {
 func (w *fakeOutputWriter) String() string { return w.b.String() }
 
 func TestCreateRemoteSecrets(t *testing.T) {
-	prevStartingConfig := newStartingConfig
-	defer func() { newStartingConfig = prevStartingConfig }()
-
-	prevKubernetesInteface := newKubernetesInterface
-	defer func() { newKubernetesInterface = prevKubernetesInteface }()
-
 	prevOutputWriterStub := makeOutputWriterTestHook
 	defer func() { makeOutputWriterTestHook = prevOutputWriterStub }()
 
@@ -233,32 +226,6 @@ stringData:
 	for i := range cases {
 		c := &cases[i]
 		t.Run(fmt.Sprintf("[%v] %v", i, c.testName), func(tt *testing.T) {
-			newStartingConfig = func(kubeconfig, context string) (*api.Config, error) {
-				if kubeconfig != testKubeconfig {
-					t.Fatalf("newStartingConfig invoked with wrong Kubeconfig: got %v want %v",
-						kubeconfig, testKubeconfig)
-				}
-				if context != testContext {
-					t.Fatalf("newStartingConfig invoked with wrong Context: got %v want %v",
-						context, testContext)
-				}
-				if c.badStartingConfig {
-					return nil, errors.New(badStartingConfigErrStr)
-				}
-				return c.config, nil
-			}
-
-			newKubernetesInterface = func(kubeconfig, context string) (kubernetes.Interface, error) {
-				if kubeconfig != testKubeconfig {
-					t.Fatalf("newKubernetesInterface invoked with wrong Kubeconfig: got %v want %v",
-						kubeconfig, testKubeconfig)
-				}
-				if context != testContext {
-					t.Fatalf("newKubernetesInterface invoked invoked with wrong Context: got %v want %v",
-						context, testContext)
-				}
-				return fake.NewSimpleClientset(c.objs...), nil
-			}
 			makeOutputWriterTestHook = func() writer {
 				return &fakeOutputWriter{injectError: c.outputWriterError}
 			}
@@ -363,9 +330,6 @@ func TestGetServiceAccountSecretToken(t *testing.T) {
 }
 
 func TestGetClusterServerFromKubeconfig(t *testing.T) {
-	prev := newStartingConfig
-	defer func() { newStartingConfig = prev }()
-
 	wantServer := "server0"
 	wantContext := "context0"
 	context := "context0"

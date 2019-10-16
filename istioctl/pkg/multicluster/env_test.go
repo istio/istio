@@ -87,10 +87,11 @@ func createFakeKubeconfigFileOrDie(t *testing.T, kubeconfig string) (string, *ap
 type fakeEnvironment struct {
 	KubeEnvironment
 
-	client     *fake.Clientset
-	kubeconfig string
-	wOut       bytes.Buffer
-	wErr       bytes.Buffer
+	client                  *fake.Clientset
+	injectClientCreateError error
+	kubeconfig              string
+	wOut                    bytes.Buffer
+	wErr                    bytes.Buffer
 }
 
 func newFakeEnvironmentOrDie(t *testing.T, config *api.Config, objs ...runtime.Object) *fakeEnvironment {
@@ -115,6 +116,9 @@ func newFakeEnvironmentOrDie(t *testing.T, config *api.Config, objs ...runtime.O
 }
 
 func (f *fakeEnvironment) CreateClientSet(context string) (kubernetes.Interface, error) {
+	if f.injectClientCreateError != nil {
+		return nil, f.injectClientCreateError
+	}
 	return f.client, nil
 }
 

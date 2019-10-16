@@ -34,7 +34,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/tools/clientcmd/api/latest"
 
-	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/secretcontroller"
 )
 
@@ -107,17 +106,6 @@ istioctl --Kubeconfig=c0.yaml x create-remote-secret --auth-type=plugin --auth-p
 	opts.addFlags(c.PersistentFlags())
 	return c
 }
-
-// hooks for testing
-var (
-	newStartingConfig = func(kubeconfig, context string) (*api.Config, error) {
-		return kube.BuildClientCmd(kubeconfig, context).ConfigAccess().GetStartingConfig()
-	}
-
-	newKubernetesInterface = func(kubeconfig, context string) (kubernetes.Interface, error) {
-		return kube.CreateClientset(kubeconfig, context)
-	}
-)
 
 func createRemoteServiceAccountSecret(kubeconfig *api.Config, uid types.UID, context string) (*v1.Secret, error) { // nolint:interfacer
 	var data bytes.Buffer
