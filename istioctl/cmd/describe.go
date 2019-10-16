@@ -1142,7 +1142,8 @@ func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podLabels
 		return multierror.Prefix(err, "Could not find ingress gateway pods")
 	}
 	if len(pods.Items) == 0 {
-		return fmt.Errorf("no ingress gateway pods")
+		fmt.Fprintf(writer, "Skipping Gateway information (no ingress gateway pods)\n")
+		return nil
 	}
 	pod := pods.Items[0]
 

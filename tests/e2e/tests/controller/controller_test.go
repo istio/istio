@@ -45,7 +45,7 @@ const (
 )
 
 func makeClient(desc schema.Set) (*crd.Client, error) {
-	cl, err := crd.NewClient("", "", desc, "")
+	cl, err := crd.NewClient("", "", desc, "", &model.DisabledLedger{})
 	if err != nil {
 		return nil, err
 	}

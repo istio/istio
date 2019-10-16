@@ -167,6 +167,10 @@ type SecretController struct {
 	// If true, generate a PKCS#8 private key.
 	pkcs8Key bool
 
+	// The most recent time when root cert in keycertbundle is synced with root
+	// cert in istio-ca-secret.
+	lastKCBSyncTime time.Time
+
 	// Extra trust anchors related state
 	extraTrustAnchorsController cache.Controller
 
@@ -217,6 +221,7 @@ func NewSecretController(ca certificateAuthority, enableNamespacesByDefault bool
 		namespaces:                make(map[string]struct{}),
 		dnsNames:                  dnsNames,
 		monitoring:                newMonitoringMetrics(),
+		lastKCBSyncTime:           time.Time{},
 	}
 
 	for _, ns := range namespaces {
@@ -563,44 +568,20 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 
 	rootsWithExtraTrustAnchors := sc.getTrustAnchorsBundle()
 
-	// Check if root certificates in key cert bundle are not up-to-date. With multiple
-	// Citadel deployed in Istio, the root certificated in istio-ca-secret could be
-	// rotated by any Citadel and become newer than the one in local key cert bundle.
+	caCert, _, _, _ := sc.ca.GetCAKeyCertBundle().GetAllPem()
 	if !bytes.Equal(rootsWithExtraTrustAnchors, scrt.Data[RootCertID]) {
-		caSecret, scrtErr := sc.caSecretController.LoadCASecretWithRetry(CASecret,
-			sc.istioCaStorageNamespace, 100*time.Millisecond, 5*time.Second)
-		if scrtErr != nil {
-			k8sControllerLog.Errorf("Fail to load CA secret %s:%s (error: %s), skip updating secret %s",
-				sc.istioCaStorageNamespace, CASecret, scrtErr.Error(), name)
+		var err error
+		_, err = sc.tryToSyncKeyCertBundle(rootsWithExtraTrustAnchors, caCert)
+		if err != nil {
+			k8sControllerLog.Errorf("failed on syncing root cert in KeyCertBundle (%s), skip updating secret %s:%s",
+				err.Error(), namespace, name)
 			return
 		}
 
-		// The CA cert from istio-ca-secret is the source of truth. If CA cert
-		// in local keycertbundle does not match the CA cert in istio-ca-secret,
-		// reload root cert into keycertbundle.
-		caCert, _, _, _ := sc.ca.GetCAKeyCertBundle().GetAllPem()
-		if !bytes.Equal(caCert, caSecret.Data[caCertID]) {
-			k8sControllerLog.Warn("CA cert in KeyCertBundle does not match CA cert in " +
-				"istio-ca-secret. Start to reload root cert into KeyCertBundle")
-			var err error
-			rootCertificate, err := util.AppendRootCerts(caSecret.Data[caCertID], sc.rootCertFile)
-			if err != nil {
-				k8sControllerLog.Errorf("failed to append root certificates: %s", err.Error())
-				return
-			}
-			if err := sc.ca.GetCAKeyCertBundle().VerifyAndSetAll(caSecret.Data[caCertID],
-				caSecret.Data[caPrivateKeyID], nil, rootCertificate); err != nil {
-				k8sControllerLog.Errorf("failed to reload root cert into KeyCertBundle (%v)", err)
-				return
-			}
-
-			// refresh the list of roots and trust anchors if Citadel's own root changed.
-			sc.extraTrustAnchorMu.Lock()
-			rootsWithExtraTrustAnchors = sc.refreshTrustAnchorsBundle()
-			sc.extraTrustAnchorMu.Unlock()
-
-			k8sControllerLog.Info("Successfully reloaded root cert into KeyCertBundle.")
-		}
+		// refresh the list of roots and trust anchors if Citadel's own root changed.
+		sc.extraTrustAnchorMu.Lock()
+		rootsWithExtraTrustAnchors = sc.refreshTrustAnchorsBundle()
+		sc.extraTrustAnchorMu.Unlock()
 	}
 
 	// Refresh the secret if 1) the certificate contained in the secret is about
@@ -631,6 +612,50 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 			k8sControllerLog.Infof("Secret %s/%s refreshed successfully.", namespace, GetSecretName(name))
 		}
 	}
+}
+
+// tryToSyncKeyCertBundle tries to sync root cert in keycertbundle with root
+// cert from istio-ca-secret. Returns error if any step fails.
+func (sc *SecretController) tryToSyncKeyCertBundle(rootCertInMem, caCertInMem []byte) ([]byte, error) {
+	// Check if root certificate in key cert bundle is not up-to-date. With multiple
+	// Citadel deployed in Istio, the root certificate in istio-ca-secret could be
+	// rotated by any Citadel and become newer than the one in local key cert bundle.
+	// Add a 30 seconds interval for key cert bundle sync to prevent I/O burst.
+	if !sc.lastKCBSyncTime.IsZero() && time.Since(sc.lastKCBSyncTime) < 30*time.Second {
+		return rootCertInMem, nil
+	}
+
+	caSecret, scrtErr := sc.caSecretController.LoadCASecretWithRetry(CASecret,
+		sc.istioCaStorageNamespace, 100*time.Millisecond, 5*time.Second)
+	if scrtErr != nil {
+		return rootCertInMem, fmt.Errorf("fail to load CA secret %s:%s (error: %s)",
+			sc.istioCaStorageNamespace, CASecret, scrtErr.Error())
+	}
+
+	// The CA cert from istio-ca-secret is the source of truth. If CA cert
+	// in local keycertbundle does not match the CA cert in istio-ca-secret,
+	// reload root cert into keycertbundle.
+	if !bytes.Equal(caCertInMem, caSecret.Data[caCertID]) {
+		k8sControllerLog.Warn("CA cert in KeyCertBundle does not match CA cert in " +
+			"istio-ca-secret. Start to reload root cert into KeyCertBundle")
+		var err error
+		rootCertInMem, err = util.AppendRootCerts(caSecret.Data[caCertID], sc.rootCertFile)
+		if err != nil {
+			return rootCertInMem, fmt.Errorf("failed to append root certificates: %s", err.Error())
+		}
+		if err := sc.ca.GetCAKeyCertBundle().VerifyAndSetAll(caSecret.Data[caCertID],
+			caSecret.Data[caPrivateKeyID], nil, rootCertInMem); err != nil {
+			return rootCertInMem, fmt.Errorf("failed to reload root cert into KeyCertBundle (%v)", err)
+		}
+
+		k8sControllerLog.Info("Successfully reloaded root cert into KeyCertBundle.")
+		sc.lastKCBSyncTime = time.Now()
+	} else {
+		k8sControllerLog.Info("CA cert in KeyCertBundle matches CA cert in " +
+			"istio-ca-secret. Skip reloading root cert into KeyCertBundle")
+	}
+
+	return rootCertInMem, nil
 }
 
 // refreshSecret is an inner func to refresh cert secrets when necessary

@@ -127,7 +127,7 @@ func (c *kubeComponent) WaitForQuiesce(format string, args ...interface{}) (mode
 
 		scopes.Framework.Debugf("WaitForQuiesce running: %q", query)
 
-		v, err := c.api.Query(context.Background(), query, time.Now())
+		v, _, err := c.api.Query(context.Background(), query, time.Now())
 		if err != nil {
 			return nil, false, fmt.Errorf("error querying Prometheus: %v", err)
 		}
@@ -174,7 +174,7 @@ func (c *kubeComponent) WaitForOneOrMore(format string, args ...interface{}) err
 
 		scopes.Framework.Debugf("WaitForOneOrMore running: %q", query)
 
-		v, err := c.api.Query(context.Background(), query, time.Now())
+		v, _, err := c.api.Query(context.Background(), query, time.Now())
 		if err != nil {
 			return nil, false, fmt.Errorf("error querying Prometheus: %v", err)
 		}
