@@ -185,6 +185,10 @@ collections:
     proto: "k8s.io.api.core.v1.Pod"
     protoPackage: "k8s.io/api/core/v1"
 
+  - name: "k8s/apps/v1/deployments"
+    proto: "k8s.io.api.apps.v1.Deployment"
+    protoPackage: "k8s.io/api/apps/v1"
+
   - name: "k8s/core/v1/services"
     proto: "k8s.io.api.core.v1.ServiceSpec"
     protoPackage: "k8s.io/api/core/v1"
@@ -623,6 +627,7 @@ snapshots:
       - "k8s/core/v1/namespaces"
       - "k8s/core/v1/services"
       - "k8s/core/v1/pods"
+      - "k8s/apps/v1/deployments"
 
 # Configuration for input sources
 sources:
@@ -655,6 +660,12 @@ sources:
     - collection: "k8s/core/v1/pods"
       kind: "Pod"
       plural: "pods"
+      version: "v1"
+
+    - collection: "k8s/apps/v1/deployments"
+      kind: "Deployment"
+      plural: "Deployments"
+      group: "apps"
       version: "v1"
 
     - collection: "k8s/core/v1/endpoints"
@@ -1023,6 +1034,7 @@ transforms:
       "k8s/core/v1/namespaces": "k8s/core/v1/namespaces"
       "k8s/core/v1/services": "k8s/core/v1/services"
       "k8s/core/v1/pods": "k8s/core/v1/pods"
+      "k8s/apps/v1/deployments": "k8s/apps/v1/deployments"
       "istio/mesh/v1alpha1/MeshConfig": "istio/mesh/v1alpha1/MeshConfig"
 
       # Legacy Mixer CRD mappings

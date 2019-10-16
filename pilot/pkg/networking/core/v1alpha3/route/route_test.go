@@ -15,6 +15,7 @@
 package route_test
 
 import (
+	"os"
 	"reflect"
 	"testing"
 	"time"
@@ -25,6 +26,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pkg/config/host"
@@ -65,6 +67,48 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServicePlain, serviceRegistry, 8080, gatewayNames)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
+	})
+
+	t.Run("for virtual service with regex matching on URI", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithRegexMatchingOnURI, serviceRegistry, 8080, gatewayNames)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+		g.Expect(routes[0].GetMatch().GetSafeRegex().GetRegex()).To(gomega.Equal("\\/(.?)\\/status"))
+	})
+
+	t.Run("for virtual service with unsafe regex matching on URI", func(t *testing.T) {
+		os.Setenv(features.EnableUnsafeRegex.Name, "true")
+		defer os.Unsetenv(features.EnableUnsafeRegex.Name)
+		g := gomega.NewGomegaWithT(t)
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithRegexMatchingOnURI, serviceRegistry, 8080, gatewayNames)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+		//nolint: staticcheck
+		g.Expect(routes[0].GetMatch().GetRegex()).To(gomega.Equal("\\/(.?)\\/status"))
+	})
+
+	t.Run("for virtual service with regex matching on header", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithRegexMatchingOnHeader, serviceRegistry, 8080, gatewayNames)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetSafeRegexMatch().GetRegex()).To(gomega.Equal("Bearer .+?\\..+?\\..+?"))
+	})
+
+	t.Run("for virtual service with unsafe regex matching on header", func(t *testing.T) {
+		os.Setenv(features.EnableUnsafeRegex.Name, "true")
+		defer os.Unsetenv(features.EnableUnsafeRegex.Name)
+		g := gomega.NewGomegaWithT(t)
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithRegexMatchingOnHeader, serviceRegistry, 8080, gatewayNames)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+		//nolint: staticcheck
+		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetRegexMatch()).To(gomega.Equal("Bearer .+?\\..+?\\..+?"))
 	})
 
 	t.Run("for virtual service with ring hash", func(t *testing.T) {
@@ -448,6 +492,70 @@ var virtualServiceWithRedirect = model.Config{
 		Gateways: []string{"some-gateway"},
 		Http: []*networking.HTTPRoute{
 			{
+				Redirect: &networking.HTTPRedirect{
+					Uri:          "example.org",
+					Authority:    "some-authority.default.svc.cluster.local",
+					RedirectCode: 308,
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithRegexMatchingOnURI = model.Config{
+	ConfigMeta: model.ConfigMeta{
+		Type:    schemas.VirtualService.Type,
+		Version: schemas.VirtualService.Version,
+		Name:    "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "status",
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Regex{
+								Regex: "\\/(.?)\\/status",
+							},
+						},
+					},
+				},
+				Redirect: &networking.HTTPRedirect{
+					Uri:          "example.org",
+					Authority:    "some-authority.default.svc.cluster.local",
+					RedirectCode: 308,
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithRegexMatchingOnHeader = model.Config{
+	ConfigMeta: model.ConfigMeta{
+		Type:    schemas.VirtualService.Type,
+		Version: schemas.VirtualService.Version,
+		Name:    "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "auth",
+						Headers: map[string]*networking.StringMatch{
+							"Authentication": {
+								MatchType: &networking.StringMatch_Regex{
+									Regex: "Bearer .+?\\..+?\\..+?",
+								},
+							},
+						},
+					},
+				},
 				Redirect: &networking.HTTPRedirect{
 					Uri:          "example.org",
 					Authority:    "some-authority.default.svc.cluster.local",

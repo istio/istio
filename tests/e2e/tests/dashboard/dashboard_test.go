@@ -164,7 +164,7 @@ func TestDashboards(t *testing.T) {
 				if testCase.customReplacer != nil {
 					modified = testCase.customReplacer.Replace(modified)
 				}
-				value, err := tc.promAPI.Query(context.Background(), modified, time.Now())
+				value, _, err := tc.promAPI.Query(context.Background(), modified, time.Now())
 				if err != nil {
 					t.Errorf("Failure executing query (%s): %v", modified, err)
 				}
@@ -704,7 +704,7 @@ func metricHasValue(query string) bool {
 }
 
 func metricValue(query string) (float64, error) {
-	value, err := tc.promAPI.Query(context.Background(), query, time.Now())
+	value, _, err := tc.promAPI.Query(context.Background(), query, time.Now())
 	if err != nil || value == nil {
 		return 0, fmt.Errorf("could not retrieve a value for metric '%s': %v", query, err)
 	}

@@ -38,7 +38,7 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext,
 		}
 	}
 
-	response := routeDiscoveryResponse(rawRoutes, version)
+	response := routeDiscoveryResponse(rawRoutes, version, push.Version)
 	err := con.send(response)
 	rdsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {
@@ -66,11 +66,11 @@ func (s *DiscoveryServer) generateRawRoutes(con *XdsConnection, push *model.Push
 	return rawRoutes
 }
 
-func routeDiscoveryResponse(rs []*xdsapi.RouteConfiguration, version string) *xdsapi.DiscoveryResponse {
+func routeDiscoveryResponse(rs []*xdsapi.RouteConfiguration, version string, noncePrefix string) *xdsapi.DiscoveryResponse {
 	resp := &xdsapi.DiscoveryResponse{
 		TypeUrl:     RouteType,
 		VersionInfo: version,
-		Nonce:       nonce(),
+		Nonce:       nonce(noncePrefix),
 	}
 	for _, rc := range rs {
 		rr := util.MessageToAny(rc)

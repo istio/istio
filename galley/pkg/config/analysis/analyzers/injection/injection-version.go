@@ -79,6 +79,12 @@ func (a *VersionAnalyzer) Analyze(c analysis.Context) {
 			return true
 		}
 
+		// If the pod has been annotated with a custom sidecar, then ignore as
+		// it always overrides the injector logic.
+		if r.Metadata.Annotations["sidecar.istio.io/proxyImage"] != "" {
+			return true
+		}
+
 		for _, container := range pod.Spec.Containers {
 			if container.Name != istioProxyName {
 				continue

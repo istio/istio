@@ -61,6 +61,7 @@ func defaultLogOptions() *log.Options {
 	o := log.DefaultOptions()
 
 	// These scopes are, by default, too chatty for command line use
+	o.SetOutputLevel("validation", log.ErrorLevel)
 	o.SetOutputLevel("processing", log.ErrorLevel)
 	o.SetOutputLevel("source", log.ErrorLevel)
 

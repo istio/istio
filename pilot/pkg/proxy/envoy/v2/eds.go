@@ -689,7 +689,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 		loadAssignments = append(loadAssignments, l)
 	}
 
-	response := endpointDiscoveryResponse(loadAssignments, version)
+	response := endpointDiscoveryResponse(loadAssignments, version, push.Version)
 	err := con.send(response)
 	edsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {
@@ -805,7 +805,7 @@ func (s *DiscoveryServer) removeEdsCon(clusterName string, node string) {
 	}
 }
 
-func endpointDiscoveryResponse(loadAssignments []*xdsapi.ClusterLoadAssignment, version string) *xdsapi.DiscoveryResponse {
+func endpointDiscoveryResponse(loadAssignments []*xdsapi.ClusterLoadAssignment, version string, noncePrefix string) *xdsapi.DiscoveryResponse {
 	out := &xdsapi.DiscoveryResponse{
 		TypeUrl: EndpointType,
 		// Pilot does not really care for versioning. It always supplies what's currently
@@ -813,7 +813,7 @@ func endpointDiscoveryResponse(loadAssignments []*xdsapi.ClusterLoadAssignment, 
 		// responses. Pilot believes in eventual consistency and that at some point, Envoy
 		// will begin seeing results it deems to be good.
 		VersionInfo: version,
-		Nonce:       nonce(),
+		Nonce:       nonce(noncePrefix),
 	}
 	for _, loadAssignment := range loadAssignments {
 		resource := util.MessageToAny(loadAssignment)

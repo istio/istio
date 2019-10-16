@@ -56,11 +56,11 @@ func BuildXDSObjectFromStruct(applyTo networking.EnvoyFilter_ApplyTo, value *typ
 	case networking.EnvoyFilter_HTTP_ROUTE:
 		obj = &route.Route{}
 	default:
-		return nil, fmt.Errorf("envoy filter: unknown object type for applyTo %s", applyTo.String())
+		return nil, fmt.Errorf("Envoy filter: unknown object type for applyTo %s", applyTo.String()) // nolint: golint,stylecheck
 	}
 
 	if err := GogoStructToMessage(value, obj); err != nil {
-		return nil, fmt.Errorf("envoy filter: %v", err)
+		return nil, fmt.Errorf("Envoy filter: %v", err) // nolint: golint,stylecheck
 	}
 	return obj, nil
 }
