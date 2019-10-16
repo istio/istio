@@ -417,7 +417,9 @@ func edsUpdateInc(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.T) {
 	// Wipe out all endpoints - expect full
 	server.EnvoyXdsServer.MemRegistry.SetEndpoints(edsIncSvc, "", []*model.IstioEndpoint{})
 
-	edsFullUpdateCheck(adsc, t)
+	if upd, err := adsc.Wait(15*time.Second, "eds"); err != nil {
+		t.Fatal("Expecting EDS update as part of a partial push", err, upd)
+	}
 
 	lbe := adsc.GetEndpoints()["outbound|8080||eds.test.svc.cluster.local"]
 	if len(lbe.Endpoints) != 0 {
