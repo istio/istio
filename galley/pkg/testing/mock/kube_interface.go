@@ -60,6 +60,7 @@ var _ kubernetes.Interface = &kubeInterface{}
 type kubeInterface struct {
 	core       corev1.CoreV1Interface
 	extensions extensionsv1beta1.ExtensionsV1beta1Interface
+	appsv1     appsv1.AppsV1Interface
 }
 
 // newKubeInterface returns a lightweight fake that implements kubernetes.Interface. Only implements a portion of the
@@ -78,6 +79,10 @@ func newKubeInterface() kubernetes.Interface {
 
 		extensions: &extensionsv1Impl{
 			ingresses: newIngressInterface(),
+		},
+
+		appsv1: &appsv1Impl{
+			apps: newAppsInterface(),
 		},
 	}
 }
@@ -131,7 +136,7 @@ func (c *kubeInterface) AppsV1beta2() appsv1beta2.AppsV1beta2Interface {
 }
 
 func (c *kubeInterface) AppsV1() appsv1.AppsV1Interface {
-	panic("not implemented")
+	return c.appsv1
 }
 
 func (c *kubeInterface) Apps() appsv1.AppsV1Interface {
