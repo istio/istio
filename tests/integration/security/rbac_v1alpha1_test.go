@@ -29,7 +29,7 @@ import (
 	"istio.io/istio/tests/common/jwt"
 	"istio.io/istio/tests/integration/security/util"
 	"istio.io/istio/tests/integration/security/util/connection"
-	"istio.io/istio/tests/integration/security/util/rbac_util"
+	rbacUtil "istio.io/istio/tests/integration/security/util/rbac_util"
 )
 
 const (
@@ -52,7 +52,7 @@ func TestV1_OptionalJWT(t *testing.T) {
 				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
 				BuildOrFail(t)
 
-			cases := []rbac_util.TestCase{
+			cases := []rbacUtil.TestCase{
 				{
 					Request: connection.Checker{
 						From: a,
@@ -90,7 +90,7 @@ func TestV1_OptionalJWT(t *testing.T) {
 			g.ApplyConfigOrFail(t, ns, policies...)
 			defer g.DeleteConfigOrFail(t, ns, policies...)
 
-			rbac_util.RunRBACTest(t, cases)
+			rbacUtil.RunRBACTest(t, cases)
 		})
 }
 
@@ -114,7 +114,7 @@ func TestV1_Group(t *testing.T) {
 				With(&c, util.EchoConfig("c", ns, false, nil, g, p)).
 				BuildOrFail(t)
 
-			cases := []rbac_util.TestCase{
+			cases := []rbacUtil.TestCase{
 				{
 					Request: connection.Checker{
 						From: a,
@@ -179,7 +179,7 @@ func TestV1_Group(t *testing.T) {
 			g.ApplyConfigOrFail(t, ns, policies...)
 			defer g.DeleteConfigOrFail(t, ns, policies...)
 
-			rbac_util.RunRBACTest(t, cases)
+			rbacUtil.RunRBACTest(t, cases)
 		})
 }
 
@@ -199,7 +199,7 @@ func TestV1_GRPC(t *testing.T) {
 				With(&d, util.EchoConfig("d", ns, false, nil, g, p)).
 				BuildOrFail(t)
 
-			cases := []rbac_util.TestCase{
+			cases := []rbacUtil.TestCase{
 				{
 					Request: connection.Checker{
 						From: b,
@@ -245,7 +245,7 @@ func TestV1_GRPC(t *testing.T) {
 			g.ApplyConfigOrFail(t, ns, policies...)
 			defer g.DeleteConfigOrFail(t, ns, policies...)
 
-			rbac_util.RunRBACTest(t, cases)
+			rbacUtil.RunRBACTest(t, cases)
 		})
 }
 
@@ -285,8 +285,8 @@ func TestV1_Path(t *testing.T) {
 				}).
 				BuildOrFail(t)
 
-			newTestCase := func(path string, expectAllowed bool) rbac_util.TestCase {
-				return rbac_util.TestCase{
+			newTestCase := func(path string, expectAllowed bool) rbacUtil.TestCase {
+				return rbacUtil.TestCase{
 					Request: connection.Checker{
 						From: b,
 						Options: echo.CallOptions{
@@ -299,7 +299,7 @@ func TestV1_Path(t *testing.T) {
 					ExpectAllowed: expectAllowed,
 				}
 			}
-			cases := []rbac_util.TestCase{
+			cases := []rbacUtil.TestCase{
 				newTestCase("/public", true),
 				newTestCase("/private", false),
 				newTestCase("/public/../private", false),
@@ -322,6 +322,6 @@ func TestV1_Path(t *testing.T) {
 			g.ApplyConfigOrFail(t, ns, policies...)
 			defer g.DeleteConfigOrFail(t, ns, policies...)
 
-			rbac_util.RunRBACTest(t, cases)
+			rbacUtil.RunRBACTest(t, cases)
 		})
 }
