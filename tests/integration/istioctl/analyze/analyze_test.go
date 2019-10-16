@@ -31,6 +31,11 @@ import (
 	"istio.io/istio/pkg/test/framework/label"
 )
 
+const (
+	serviceRoleBindingFile = "testdata/servicerolebinding.yaml"
+	serviceRoleFile        = "testdata/servicerole.yaml"
+)
+
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("istioctl_analyze_test", m).
@@ -52,7 +57,7 @@ func TestEmptyCluster(t *testing.T) {
 
 			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
 
-			// For a clean istio install, expect no validation errors
+			// For a clean istio install with injection enabled, expect no validation errors
 			output := runIstioctl(t, istioCtl,
 				[]string{"experimental", "analyze", "--namespace", ns.Name(), "--use-kube"})
 			g.Expect(output).To(BeEmpty())
@@ -72,12 +77,16 @@ func TestFileOnly(t *testing.T) {
 
 			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
 
+			// Validation error if we have a service role binding without a service role
 			output := runIstioctl(t, istioCtl,
-				[]string{"experimental", "analyze", "--namespace", ns.Name(), "testdata/servicerolebinding.yaml"})
+				[]string{"experimental", "analyze", "--namespace", ns.Name(), serviceRoleBindingFile})
 			g.Expect(output).To(HaveLen(1))
 			g.Expect(output[0]).To(ContainSubstring(msg.ReferencedResourceNotFound.Code()))
 
-			//TODO: Also test fixed with both files
+			// Error goes away if we include both the binding and its role
+			output = runIstioctl(t, istioCtl,
+				[]string{"experimental", "analyze", "--namespace", ns.Name(), serviceRoleBindingFile, serviceRoleFile})
+			g.Expect(output).To(BeEmpty())
 		})
 }
 
@@ -94,20 +103,21 @@ func TestKubeOnly(t *testing.T) {
 				Inject: true,
 			})
 
-			serviceRoleBindingYaml := readFileOrFail(t, "testdata/servicerolebinding.yaml")
-			err := env.ApplyContents(ns.Name(), serviceRoleBindingYaml)
-			if err != nil {
-				t.Fatalf("Error applying serviceRoleBindingYaml for test scenario: %v", err)
-			}
+			applyFileToCluster(t, env, ns.Name(), serviceRoleBindingFile)
 
 			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
 
+			// Validation error if we have a service role binding without a service role
 			output := runIstioctl(t, istioCtl,
 				[]string{"experimental", "analyze", "--namespace", ns.Name(), "--use-kube"})
 			g.Expect(output).To(HaveLen(1))
 			g.Expect(output[0]).To(ContainSubstring(msg.ReferencedResourceNotFound.Code()))
 
-			// TODO: Also test fixed with both files
+			// Error goes away if we include both the binding and its role
+			applyFileToCluster(t, env, ns.Name(), serviceRoleFile)
+			output = runIstioctl(t, istioCtl,
+				[]string{"experimental", "analyze", "--namespace", ns.Name(), "--use-kube"})
+			g.Expect(output).To(BeEmpty())
 		})
 }
 
@@ -124,21 +134,17 @@ func TestFileAndKubeCombined(t *testing.T) {
 				Inject: true,
 			})
 
-			serviceRoleBindingYaml := readFileOrFail(t, "testdata/servicerolebinding.yaml")
-			err := env.ApplyContents(ns.Name(), serviceRoleBindingYaml)
-			if err != nil {
-				t.Fatalf("Error applying serviceRoleBindingYaml for test scenario: %v", err)
-			}
+			applyFileToCluster(t, env, ns.Name(), serviceRoleBindingFile)
 
 			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
 
+			// Simulating applying the service role to a cluster that already has the binding, we should
+			// fix the error and thus see no message
 			output := runIstioctl(t, istioCtl,
-				[]string{"experimental", "analyze", "--namespace", ns.Name(), "--use-kube", "testdata/servicerole.yaml"})
+				[]string{"experimental", "analyze", "--namespace", ns.Name(), "--use-kube", serviceRoleFile})
 			g.Expect(output).To(BeEmpty())
 		})
 }
-
-// TODO: Test service discovery aspects
 
 func runIstioctl(t *testing.T, i istioctl.Instance, args []string) []string {
 	output, err := i.Invoke(args)
@@ -157,4 +163,13 @@ func readFileOrFail(t *testing.T, file string) string {
 		t.Fatalf("Error reading file %q: %v", file, err)
 	}
 	return string(b)
+}
+
+func applyFileToCluster(t *testing.T, env *kube.Environment, ns, fileName string) {
+	yaml := readFileOrFail(t, fileName)
+	err := env.ApplyContents(ns, yaml)
+	if err != nil {
+		t.Fatalf("Error applying file %q to cluster: %v", fileName, err)
+	}
+
 }
