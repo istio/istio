@@ -67,12 +67,14 @@ $(info Building with the build container: $(IMG).)
 # the path of the file.
 TIMEZONE=`readlink $(READLINK_FLAGS) /etc/localtime | sed -e 's/^.*zoneinfo\///'`
 
-RUN = $(CONTAINER_CLI) run --net=host -t -i --sig-proxy=true -u $(UID):docker --rm \
+RUN = $(CONTAINER_CLI) run -t -i --sig-proxy=true -u $(UID):docker --rm \
 	-e IN_BUILD_CONTAINER="$(BUILD_WITH_CONTAINER)" \
 	-e TZ="$(TIMEZONE)" \
 	-e TARGET_ARCH="$(TARGET_ARCH)" \
 	-e TARGET_OS="$(TARGET_OS)" \
 	-e TARGET_OUT="$(TARGET_OUT)" \
+	-e HUB="$(HUB)" \
+	-e TAG="$(TAG)" \
 	-v /etc/passwd:/etc/passwd:ro \
 	$(DOCKER_SOCKET_MOUNT) \
 	$(CONTAINER_OPTIONS) \

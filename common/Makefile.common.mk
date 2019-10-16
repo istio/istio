@@ -81,14 +81,14 @@ dump-licenses-csv:
 	@license-lint --config common/config/license-lint.yml --csv
 
 update-common:
-	@git clone -q --depth 1 --single-branch --branch master https://github.com/istio/common-files
+	@git clone -q --depth 1 --single-branch --branch release-1.4 https://github.com/istio/common-files
 	@cd common-files ; git rev-parse HEAD >files/common/.commonfiles.sha
 	@rm -fr common
 	@cp -rT common-files/files .
 	@rm -fr common-files
 
 update-common-protos:
-	@git clone -q --depth 1 --single-branch --branch master https://github.com/istio/common-files
+	@git clone -q --depth 1 --single-branch --branch release-1.4 https://github.com/istio/common-files
 	@cd common-files ; git rev-parse HEAD > common-protos/.commonfiles.sha
 	@rm -fr common-protos
 	@cp -ar common-files/common-protos common-protos
