@@ -43,13 +43,6 @@ import (
 	"istio.io/istio/security/pkg/registry/kube"
 	caserver "istio.io/istio/security/pkg/server/ca"
 	"istio.io/istio/security/pkg/server/monitoring"
-	"istio.io/pkg/env"
-)
-
-const (
-	selfSignedRootCertCheckInterval         = "CITADEL_SELF_SIGNED_ROOT_CERT_CHECK_INTERVAL"
-	selfSignedRootCertGracePeriodPercentile = "CITADEL_SELF_SIGNED_ROOT_CERT_GRACE_PERIOD_PERCENTILE"
-	enableJitterForRootCertRotator          = "CITADEL_ENABLE_JITTER_FOR_ROOT_CERT_ROTATOR"
 )
 
 type cliOptions struct { // nolint: maligned
@@ -124,20 +117,6 @@ var (
 		loggingOptions:       log.DefaultOptions(),
 		ctrlzOptions:         ctrlz.DefaultOptions(),
 		LivenessProbeOptions: &probe.Options{},
-		selfSignedRootCertCheckInterval: env.RegisterDurationVar(selfSignedRootCertCheckInterval,
-			cmd.DefaultSelfSignedRootCertCheckInterval,
-			"The interval that self-signed CA checks its root certificate "+
-				"expiration time and rotates root certificate. Setting this interval "+
-				"to zero or a negative value disables automated root cert check and "+
-				"rotation. This interval is suggested to be larger than 10 minutes.").Get(),
-		selfSignedRootCertGracePeriodPercentile: env.RegisterIntVar(selfSignedRootCertGracePeriodPercentile,
-			cmd.DefaultRootCertGracePeriodPercentile,
-			"Grace period percentile for self-signed root cert.").Get(),
-		enableJitterForRootCertRotator: env.RegisterBoolVar(enableJitterForRootCertRotator,
-			true,
-			"If true, set up a jitter to start root cert rotator. "+
-				"Jitter selects a backoff time in seconds to start root cert rotator, "+
-				"and the back off time is below root cert check interval.").Get(),
 	}
 
 	rootCmd = &cobra.Command{
@@ -210,6 +189,16 @@ func init() {
 	flags.StringVar(&opts.cAClientConfig.Org, "org", "", "Organization for the cert")
 	flags.DurationVar(&opts.cAClientConfig.RequestedCertTTL, "requested-ca-cert-ttl", cmd.DefaultRequestedCACertTTL,
 		"The requested TTL for the workload")
+	flags.DurationVar(&opts.selfSignedRootCertCheckInterval, "citadel-self-signed-root-cert-check-interval",
+		cmd.DefaultSelfSignedRootCertCheckInterval,
+		"The interval that self-signed CA checks its root certificate expiration time and rotates root certificate. Setting "+
+			"this interval to zero or a negative value disables automated root cert check and rotation. This interval is suggested to be "+
+			"larger than 10 minutes.")
+	flags.IntVar(&opts.selfSignedRootCertGracePeriodPercentile, "citadel-self-signed-root-cert-grace-period-percentile",
+		cmd.DefaultRootCertGracePeriodPercentile, "Grace period percentile for self-signed root cert.")
+	flags.BoolVar(&opts.enableJitterForRootCertRotator, "citadel-enable-jitter-for-root-cert-rotator", true,
+		"If true, set up a jitter to start root cert rotator. Jitter selects a backoff time in seconds to start root cert "+
+			"rotator, and the back off time is below root cert check interval.")
 	flags.IntVar(&opts.cAClientConfig.RSAKeySize, "key-size", 2048, "Size of generated private key")
 
 	// Certificate signing configuration.
