@@ -5,7 +5,7 @@ global:
   hub: gcr.io/istio-testing
 
   # Default tag for Istio images.
-  tag: latest
+  tag: 1.4-dev
 
   # imagePullPolicy is applied to istio control plane components.
   # local tests require IfNotPresent, to avoid uploading to dockerhub.
