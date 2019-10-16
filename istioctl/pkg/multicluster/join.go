@@ -82,28 +82,23 @@ func joinServiceRegistries(mesh *Mesh, env Environment) error {
 		if !cluster.installed {
 			continue
 		}
-		context := cluster.context
 
-		// TODO add auth provider option (e.g. gcp)
-		tokenSecret, err := getServiceAccountSecretToken(cluster.client, cluster.ServiceAccountReader, cluster.Namespace)
-		if err != nil {
-			return fmt.Errorf("%v: %v", context, err)
+		opt := RemoteSecretOptions{
+			KubeOptions: KubeOptions{
+				Context: cluster.context,
+			},
+			ServiceAccountName: cluster.ServiceAccountReader,
+			// TODO add auth provider option (e.g. gcp)
 		}
-
-		_, server, err := getCurrentContextAndClusterServerFromKubeconfig(cluster.context, env.GetConfig())
+		secret, err := createRemoteSecret(opt, env)
 		if err != nil {
-			return fmt.Errorf("%v: %v", context, err)
-		}
-
-		secret, err := createRemoteSecretFromTokenAndServer(tokenSecret, cluster.uid, context, server)
-		if err != nil {
-			return fmt.Errorf("%v: %v", context, err)
+			return fmt.Errorf("%v: %v", cluster.context, err)
 		}
 
 		preparedSecrets[cluster.uid] = secret
 
 		// build the list of preparedSecrets to potentially pruneCandidates from this first
-		pruneCandidates[context] = cluster.readRemoteSecrets(env)
+		pruneCandidates[cluster.context] = cluster.readRemoteSecrets(env)
 	}
 
 	for _, first := range mesh.sortedClusters {

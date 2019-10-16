@@ -28,7 +28,7 @@ import (
 
 type Environment interface {
 	GetConfig() *api.Config
-	CreateClientSet(kubeconfig, context string) (kubernetes.Interface, error)
+	CreateClientSet(context string) (kubernetes.Interface, error)
 	Stdout() io.Writer
 	Stderr() io.Writer
 	ReadFile(filename string) ([]byte, error)
@@ -37,13 +37,14 @@ type Environment interface {
 }
 
 type kubeEnvironment struct {
-	config *api.Config
-	stdout io.Writer
-	stderr io.Writer
+	config     *api.Config
+	stdout     io.Writer
+	stderr     io.Writer
+	kubeconfig string
 }
 
-func (e *kubeEnvironment) CreateClientSet(kubeconfig, context string) (kubernetes.Interface, error) {
-	return kube.CreateClientset(kubeconfig, context)
+func (e *kubeEnvironment) CreateClientSet(context string) (kubernetes.Interface, error) {
+	return kube.CreateClientset(e.kubeconfig, context)
 }
 
 func (e *kubeEnvironment) Printf(format string, a ...interface{}) {
@@ -65,9 +66,10 @@ func NewEnvironment(kubeconfig, context string, stdout, stderr io.Writer) (Envir
 	}
 
 	return &kubeEnvironment{
-		config: config,
-		stdout: stdout,
-		stderr: stderr,
+		config:     config,
+		stdout:     stdout,
+		stderr:     stderr,
+		kubeconfig: kubeconfig,
 	}, nil
 }
 

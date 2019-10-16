@@ -333,7 +333,7 @@ func (o *RemoteSecretOptions) addFlags(flagset *pflag.FlagSet) {
 }
 
 func createRemoteSecret(opt RemoteSecretOptions, env Environment) (*v1.Secret, error) {
-	client, err := env.CreateClientSet(opt.Kubeconfig, opt.Context)
+	client, err := env.CreateClientSet(opt.Context)
 	if err != nil {
 		return nil, err
 	}

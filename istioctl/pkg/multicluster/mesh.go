@@ -73,7 +73,7 @@ func LoadMeshDesc(filename string, env Environment) (*MeshDesc, error) {
 func NewMesh(kubeconfig string, md *MeshDesc, env Environment) (*Mesh, error) {
 	clusters := make(map[string]*Cluster)
 	for context, clusterDesc := range md.Clusters {
-		cluster, err := NewCluster(kubeconfig, context, clusterDesc, env)
+		cluster, err := NewCluster(context, clusterDesc, env)
 		if err != nil {
 			return nil, fmt.Errorf("error discovering %v: %v", context, err)
 		}

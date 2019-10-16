@@ -41,7 +41,7 @@ type Cluster struct {
 	client    kubernetes.Interface
 }
 
-func NewCluster(kubeconfig, context string, desc ClusterDesc, env Environment) (*Cluster, error) {
+func NewCluster(context string, desc ClusterDesc, env Environment) (*Cluster, error) {
 	if desc.Namespace == "" {
 		desc.Namespace = defaultIstioNamespace
 	}
@@ -49,7 +49,7 @@ func NewCluster(kubeconfig, context string, desc ClusterDesc, env Environment) (
 		desc.ServiceAccountReader = defaultServiceAccountReader
 	}
 
-	client, err := env.CreateClientSet(kubeconfig, context)
+	client, err := env.CreateClientSet(context)
 	if err != nil {
 		return nil, err
 	}
