@@ -26,11 +26,11 @@ func (l Level) String() string {
 
 var (
 	// Info level is for informational messages
-	Info Level = Level{2, "Info"}
+	Info = Level{2, "Info"}
 
 	// Warning level is for warning messages
-	Warning Level = Level{1, "Warn"}
+	Warning = Level{1, "Warn"}
 
 	// Error level is for error messages
-	Error Level = Level{0, "Error"}
+	Error = Level{0, "Error"}
 )

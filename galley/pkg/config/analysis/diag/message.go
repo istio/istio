@@ -57,7 +57,7 @@ func (m *Message) Unstructured(includeOrigin bool) map[string]interface{} {
 	result := make(map[string]interface{})
 
 	result["code"] = m.Type.Code()
-	result["level"] = fmt.Sprintf("%s", m.Type.Level())
+	result["level"] = m.Type.Level().String()
 	if includeOrigin && m.Origin != nil {
 		result["origin"] = m.Origin.FriendlyName()
 	}
