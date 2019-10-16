@@ -363,7 +363,7 @@ spec:
           name: {{ .configMapName | quote }}
           optional: true
       {{- end }}
-      {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
+      {{- if and (eq $.Values.global.proxy.tracer "lightstep") $.Values.global.tracer.lightstep.cacertPath }}
       - name: lightstep-certs
         secret:
           optional: true
