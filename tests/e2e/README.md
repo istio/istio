@@ -51,7 +51,7 @@ To see its usage run:
 kubectl exec -it <test pod> -n <test namespace> -c app -- client -h
 ```
 
-or check [the source code](https://github.com/istio/istio/blob/master/pkg/test/echo/cmd/client/main.go).
+or check [the source code](https://github.com/istio/istio/blob/release-1.4/pkg/test/echo/cmd/client/main.go).
 
 ## Adding New E2E Tests
 
