@@ -80,11 +80,9 @@ func TestClusterUID(t *testing.T) {
 
 var (
 	goodClusterDesc = ClusterDesc{
-		Network:                 testNetwork,
-		Namespace:               testNamespace,
-		ServiceAccountReader:    testServiceAccountName,
-		DisableTrust:            false,
-		DisableServiceDiscovery: false,
+		Network:              testNetwork,
+		Namespace:            testNamespace,
+		ServiceAccountReader: testServiceAccountName,
 	}
 
 	clusterDescFieldsNotSet = ClusterDesc{

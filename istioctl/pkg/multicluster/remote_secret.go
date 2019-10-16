@@ -64,14 +64,6 @@ const (
 	remoteSecretPrefix = "istio-remote-secret-"
 )
 
-func remoteSecretName(client kubernetes.Interface) (string, error) {
-	uid, err := clusterUID(client)
-	if err != nil {
-		return "", err
-	}
-	return remoteSecretNameFromUID(uid), nil
-}
-
 func remoteSecretNameFromUID(uid types.UID) string {
 	return remoteSecretPrefix + string(uid)
 }

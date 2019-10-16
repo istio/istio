@@ -99,7 +99,7 @@ func TestRootCertRotatorForReadOnlyCitadel(t *testing.T) {
 	}
 
 	// Create root cert rotator with the same k8s client.
-	readOnlyCaOptions := getDefaultSelfSignedIstioCAOptions(client)
+ma	readOnlyCaOptions := getDefaultSelfSignedIstioCAOptions(client)
 	readOnlyCaOptions.RotatorConfig.readSigningCertOnly = true
 	rotator := getRootCertRotator(readOnlyCaOptions)
 
