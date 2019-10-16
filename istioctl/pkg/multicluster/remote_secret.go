@@ -94,7 +94,7 @@ istioctl --Kubeconfig=c0.yaml x create-remote-secret --auth-type=plugin --auth-p
 			}
 			out, err := CreateRemoteSecret(opts, env)
 			if err != nil {
-				fmt.Fprintf(c.OutOrStderr(), "%v", err)
+				fmt.Fprintf(c.OutOrStderr(), "error: %v\n", err)
 				os.Exit(1)
 			}
 			fmt.Fprint(c.OutOrStdout(), out)
@@ -205,7 +205,7 @@ func createRemoteSecretFromTokenAndServer(tokenSecret *v1.Secret, uid types.UID,
 func getServiceAccountSecretToken(kube kubernetes.Interface, saName, saNamespace string) (*v1.Secret, error) {
 	serviceAccount, err := kube.CoreV1().ServiceAccounts(saNamespace).Get(saName, metav1.GetOptions{})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not find %v in namespace %v: %v", saName, saNamespace, err)
 	}
 	if len(serviceAccount.Secrets) != 1 {
 		return nil, fmt.Errorf("wrong number of secrets (%v) in serviceaccount %s/%s",

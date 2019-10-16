@@ -18,6 +18,8 @@ import (
 	"errors"
 
 	"github.com/spf13/pflag"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 // TODO(ayj) - add to istio.io/api/annotations
@@ -34,14 +36,26 @@ type KubeOptions struct {
 // but it allows us to directly get the final values for each of these flags without needing
 // to pass pointers-to-flags through all of the (sub)commands.
 func (o *KubeOptions) prepare(flags *pflag.FlagSet) {
-	if f := flags.Lookup("Kubeconfig"); f != nil {
+	if f := flags.Lookup("kubeconfig"); f != nil {
 		o.Kubeconfig = f.Value.String()
 	}
-	if f := flags.Lookup("Context"); f != nil {
+	if f := flags.Lookup("context"); f != nil {
 		o.Context = f.Value.String()
 	}
-	if f := flags.Lookup("Namespace"); f != nil {
+	if f := flags.Lookup("namespace"); f != nil {
 		o.Namespace = f.Value.String()
+	}
+
+	if o.Namespace == "" {
+		o.Namespace = v1.NamespaceDefault
+
+		configAccess := clientcmd.NewDefaultPathOptions()
+		configAccess.GlobalFile = o.Kubeconfig
+		if config, err := configAccess.GetStartingConfig(); err == nil {
+			if context, ok := config.Contexts[config.CurrentContext]; ok && context.Namespace != "" {
+				o.Namespace = context.Namespace
+			}
+		}
 	}
 }
 
