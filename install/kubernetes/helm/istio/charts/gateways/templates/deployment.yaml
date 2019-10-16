@@ -261,7 +261,7 @@ spec:
           - name: ISTIO_META_MESH_ID
             value: "{{ $.Values.global.trustDomain }}"
           {{- end }}
-          {{- if eq .Values.global.proxy.tracer "datadog" }}
+          {{- if eq $.Values.global.proxy.tracer "datadog" }}
           - name: HOST_IP
             valueFrom:
               fieldRef:
