@@ -100,6 +100,7 @@ var (
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRole"},
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRoleBinding"},
 		{Group: "authentication.istio.io", Version: "v1alpha1", Kind: "MeshPolicy"},
+		{Group: "apiextensions.k8s.io", Version: "v1beta1", Kind: "CustomResourceDefinition"},
 	}
 )
 
