@@ -59,7 +59,21 @@ func init() {
 const (
 	// default service account to use for remote cluster access.
 	DefaultServiceAccountName = "istio-multi"
+
+	remoteSecretPrefix = "remote-secret"
 )
+
+func remoteSecretName(client kubernetes.Interface) (string, error) {
+	uid, err := clusterUID(client)
+	if err != nil {
+		return "", err
+	}
+	return remoteSecretNameFromUID(uid), nil
+}
+
+func remoteSecretNameFromUID(uid types.UID) string {
+	return remoteSecretPrefix + "-" + string(uid)
+}
 
 // NewCreateRemoteSecretCommand creates a new command for joining two contexts
 // together in a multi-cluster mesh.
@@ -112,7 +126,7 @@ func createRemoteServiceAccountSecret(kubeconfig *api.Config, uid types.UID, con
 	}
 	out := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: string(uid),
+			Name: remoteSecretNameFromUID(uid),
 			Annotations: map[string]string{
 				clusterContextAnnotationKey: context,
 			},

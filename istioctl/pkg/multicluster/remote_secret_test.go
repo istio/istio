@@ -106,7 +106,7 @@ metadata:
   creationTimestamp: null
   labels:
     istio/multiCluster: "true"
-  name: 54643f96-eca0-11e9-bb97-42010a80000a
+  name: remote-secret-54643f96-eca0-11e9-bb97-42010a80000a
 stringData:
   54643f96-eca0-11e9-bb97-42010a80000a: |
     apiVersion: v1
@@ -463,7 +463,7 @@ users:
 			uid:     fakeUID,
 			want: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: string(fakeUID),
+					Name: remoteSecretNameFromUID(fakeUID),
 					Annotations: map[string]string{
 						"istio.io/clusterContext": "c0",
 					},

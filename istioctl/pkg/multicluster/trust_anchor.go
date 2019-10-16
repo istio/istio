@@ -92,12 +92,8 @@ const (
 	extraTrustAnchorPrefix = "extra-trust-anchor"
 )
 
-func trustAnchorName(client kubernetes.Interface) (string, error) {
-	uid, err := clusterUID(client)
-	if err != nil {
-		return "", err
-	}
-	return extraTrustAnchorPrefix + "-" + string(uid), nil
+func trustAnchorNameFromUID(uid types.UID) string {
+	return extraTrustAnchorPrefix + "-" + string(uid)
 }
 
 // CreateTrustAnchor creates a configmap with the public root CA of the current cluster's Istio control plane.
@@ -129,7 +125,7 @@ func createTrustAnchor(client kubernetes.Interface, config *api.Config, opts Tru
 		opts.Context = config.CurrentContext
 	}
 
-	name, err := trustAnchorName(client)
+	uid, err := clusterUID(client)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +141,7 @@ func createTrustAnchor(client kubernetes.Interface, config *api.Config, opts Tru
 
 	return &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
+			Name: trustAnchorNameFromUID(uid),
 			Annotations: map[string]string{
 				"istio.io/clusterContext": opts.Context,
 			},
@@ -154,7 +150,7 @@ func createTrustAnchor(client kubernetes.Interface, config *api.Config, opts Tru
 			},
 		},
 		Data: map[string]string{
-			name: caRootCert,
+			string(uid): caRootCert,
 		},
 	}, nil
 }

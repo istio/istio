@@ -116,7 +116,7 @@ func TestCreateTrustAnchorInternal(t *testing.T) {
 			},
 			want: &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: extraTrustAnchorPrefix + "-" + string(kubeSystemNamespace.UID),
+					Name: trustAnchorNameFromUID(kubeSystemNamespace.UID),
 					Annotations: map[string]string{
 						"istio.io/clusterContext": testContext,
 					},
@@ -125,7 +125,7 @@ func TestCreateTrustAnchorInternal(t *testing.T) {
 					},
 				},
 				Data: map[string]string{
-					extraTrustAnchorPrefix + "-" + string(kubeSystemNamespace.UID): fakeRootCA,
+					string(kubeSystemNamespace.UID): fakeRootCA,
 				},
 			},
 		},
@@ -152,7 +152,7 @@ func TestCreateTrustAnchorInternal(t *testing.T) {
 			},
 			want: &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: extraTrustAnchorPrefix + "-" + string(kubeSystemNamespace.UID),
+					Name: trustAnchorNameFromUID(kubeSystemNamespace.UID),
 					Annotations: map[string]string{
 						"istio.io/clusterContext": testOverrideContext,
 					},
@@ -161,7 +161,7 @@ func TestCreateTrustAnchorInternal(t *testing.T) {
 					},
 				},
 				Data: map[string]string{
-					extraTrustAnchorPrefix + "-" + string(kubeSystemNamespace.UID): fakeRootCA,
+					string(kubeSystemNamespace.UID): fakeRootCA,
 				},
 			},
 		},
