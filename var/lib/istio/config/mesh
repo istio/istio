@@ -49,7 +49,7 @@ tcpKeepalive:
 proxyListenPort:                   15001
 
 # This is the k8s ingress service name, update if you used a different name
-ingressService:                    "ingressgateway"
+ingressService:                    "istio-ingressgateway"
 ingressControllerMode: DEFAULT
 ingressClass: "istio"
 

@@ -16,11 +16,17 @@ package istiod
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"google.golang.org/grpc/credentials"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"net"
 	"net/http"
+	"path"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -81,6 +87,8 @@ const (
 )
 
 var (
+	// Location of generated DNS certificates
+	DnsCertDir = "./var/run/secrets/istio-dns"
 
 	// FilepathWalkInterval dictates how often the file system is walked for config
 	FilepathWalkInterval = 100 * time.Millisecond
@@ -165,52 +173,6 @@ type PilotArgs struct {
 	KeepaliveOptions         *istiokeepalive.Options
 	// ForceStop is set as true when used for testing to make the server stop quickly
 	ForceStop bool
-}
-
-// Server contains the runtime configuration for the Pilot discovery service.
-type Server struct {
-	HTTPListeningAddr       net.Addr
-	GRPCListeningAddr       net.Addr
-	SecureGRPCListeningAddr net.Addr
-	MonitorListeningAddr    net.Addr
-
-	EnvoyXdsServer    *envoyv2.DiscoveryServer
-	ServiceController *aggregate.Controller
-
-	Mesh         *meshconfig.MeshConfig
-	MeshNetworks *meshconfig.MeshNetworks
-
-	ConfigStores []model.ConfigStoreCache
-
-	// Underlying config stores. To simplify, this is a configaggregate instance, created just before
-	// start from the configStores
-	ConfigController model.ConfigStoreCache
-
-	// Interface abstracting all config operations, including the high-level objects
-	// and the low-level untyped model.ConfigStore
-	IstioConfigStore model.IstioConfigStore
-
-	startFuncs       []startFunc
-	httpServer       *http.Server
-	grpcServer       *grpc.Server
-	secureHTTPServer *http.Server
-	secureGRPCServer *grpc.Server
-
-	mux         *http.ServeMux
-	fileWatcher filewatcher.FileWatcher
-	Args        *PilotArgs
-
-	CertKey      []byte
-	CertChain    []byte
-	RootCA       []byte
-	Galley       *GalleyServer
-	grpcListener net.Listener
-	httpListener net.Listener
-	Environment  *model.Environment
-
-	// basePort defaults to 15000, used to allow multiple control plane instances on same machine
-	// for testing.
-	basePort     int32
 }
 
 var podNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", "istio-system", "Istio namespace")
@@ -351,22 +313,27 @@ func (s *Server) Start(stop <-chan struct{}, onXDSStart func(model.XDSUpdater)) 
 
 	log.Infof("starting discovery service at http=%s grpc=%s", s.httpListener.Addr(), s.grpcListener.Addr())
 
-	go func() {
-		<-stop
-//		authn_model.JwtKeyResolver.Close()
+	return nil
+}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		err := s.httpServer.Shutdown(ctx)
-		if err != nil {
-			log.Warna(err)
-		}
-		if s.Args.ForceStop {
-			s.grpcServer.Stop()
-		} else {
-			s.grpcServer.GracefulStop()
-		}
-	}()
+func (s *Server) WaitStop(stop <-chan struct{}) {
+	<-stop
+	//		authn_model.JwtKeyResolver.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	err := s.httpServer.Shutdown(ctx)
+	if err != nil {
+		log.Warna(err)
+	}
+	if s.Args.ForceStop {
+		s.GrpcServer.Stop()
+	} else {
+		s.GrpcServer.GracefulStop()
+	}
+}
+
+func (s *Server) Serve(stop <-chan struct{}) error {
 
 	go func() {
 		if err := s.httpServer.Serve(s.httpListener); err != nil {
@@ -374,7 +341,12 @@ func (s *Server) Start(stop <-chan struct{}, onXDSStart func(model.XDSUpdater)) 
 		}
 	}()
 	go func() {
-		if err := s.grpcServer.Serve(s.grpcListener); err != nil {
+		if err := s.GrpcServer.Serve(s.grpcListener); err != nil {
+			log.Warna(err)
+		}
+	}()
+	go func() {
+		if err := s.SecureGRPCServer.Serve(s.secureGrpcListener); err != nil {
 			log.Warna(err)
 		}
 	}()
@@ -644,6 +616,8 @@ func (s *Server) initDiscoveryService(args *PilotArgs, onXDSStart func(model.XDS
 
 	// create grpc/http server
 	s.initGrpcServer(args.KeepaliveOptions)
+	s.initSecureGrpcServer(args.KeepaliveOptions)
+
 	s.httpServer = &http.Server{
 		Addr:    args.DiscoveryOptions.HTTPAddr,
 		Handler: s.mux,
@@ -662,16 +636,72 @@ func (s *Server) initDiscoveryService(args *PilotArgs, onXDSStart func(model.XDS
 	if err != nil {
 		return err
 	}
+	// create secure grpc listener
+	secureGrpcListener, err := net.Listen("tcp", args.DiscoveryOptions.SecureGrpcAddr)
+	if err != nil {
+		return err
+	}
+	s.SecureGRPCListeningAddr = secureGrpcListener.Addr()
+
 	s.grpcListener = grpcListener
+	s.secureGrpcListener = secureGrpcListener
 	s.GRPCListeningAddr = grpcListener.Addr()
+
+	return nil
+}
+
+// initialize secureGRPCServer - using K8S DNS certs
+func (s *Server) initSecureGrpcServer(options *istiokeepalive.Options) error {
+	certDir := DnsCertDir
+
+	key := path.Join(certDir, constants.KeyFilename)
+	cert := path.Join(certDir, constants.CertChainFilename)
+
+	tlsCreds, err := credentials.NewServerTLSFromFile(cert, key)
+	// certs not ready yet.
+	if err != nil {
+		return err
+	}
+
+	// TODO: parse the file to determine expiration date. Restart listener before expiration
+	certificate, err := tls.LoadX509KeyPair(cert, key)
+	if err != nil {
+		return err
+	}
+
+	opts := s.grpcServerOptions(options)
+	opts = append(opts, grpc.Creds(tlsCreds))
+	s.SecureGRPCServer = grpc.NewServer(opts...)
+	s.EnvoyXdsServer.Register(s.SecureGRPCServer)
+
+	s.SecureHTTPServer = &http.Server{
+		TLSConfig: &tls.Config{
+			Certificates: []tls.Certificate{certificate},
+			VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+				// For now accept any certs - pilot is not authenticating the caller, TLS used for
+				// privacy
+				return nil
+			},
+			NextProtos: []string{"h2", "http/1.1"},
+			ClientAuth: tls.RequestClientCert, // auth will be based on JWT token signed by K8S
+		},
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.ProtoMajor == 2 && strings.HasPrefix(
+				r.Header.Get("Content-Type"), "application/grpc") {
+				s.SecureGRPCServer.ServeHTTP(w, r)
+			} else {
+				s.mux.ServeHTTP(w, r)
+			}
+		}),
+	}
 
 	return nil
 }
 
 func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 	grpcOptions := s.grpcServerOptions(options)
-	s.grpcServer = grpc.NewServer(grpcOptions...)
-	s.EnvoyXdsServer.Register(s.grpcServer)
+	s.GrpcServer = grpc.NewServer(grpcOptions...)
+	s.EnvoyXdsServer.Register(s.GrpcServer)
 }
 
 func (s *Server) grpcServerOptions(options *istiokeepalive.Options) []grpc.ServerOption {

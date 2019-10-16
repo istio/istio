@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
@@ -25,19 +26,71 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
+	"google.golang.org/grpc"
+
 	"istio.io/istio/galley/pkg/server/settings"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
+	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/filewatcher"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	meshv1 "istio.io/api/mesh/v1alpha1"
-
+	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	agent "istio.io/istio/pkg/bootstrap"
 )
 
 var (
 	fileWatcher filewatcher.FileWatcher
 )
+
+// Server contains the runtime configuration for Istiod.
+type Server struct {
+	HTTPListeningAddr       net.Addr
+	GRPCListeningAddr       net.Addr
+	SecureGRPCListeningAddr net.Addr
+	MonitorListeningAddr    net.Addr
+
+	EnvoyXdsServer    *envoyv2.DiscoveryServer
+	ServiceController *aggregate.Controller
+
+	Mesh         *meshconfig.MeshConfig
+	MeshNetworks *meshconfig.MeshNetworks
+
+	ConfigStores []model.ConfigStoreCache
+
+	// Underlying config stores. To simplify, this is a configaggregate instance, created just before
+	// start from the configStores
+	ConfigController model.ConfigStoreCache
+
+	// Interface abstracting all config operations, including the high-level objects
+	// and the low-level untyped model.ConfigStore
+	IstioConfigStore model.IstioConfigStore
+
+	startFuncs       []startFunc
+	httpServer       *http.Server
+	GrpcServer       *grpc.Server
+	SecureHTTPServer *http.Server
+	SecureGRPCServer *grpc.Server
+
+	mux         *http.ServeMux
+	fileWatcher filewatcher.FileWatcher
+	Args        *PilotArgs
+
+	CertKey      []byte
+	CertChain    []byte
+	RootCA       []byte
+	Galley       *GalleyServer
+	grpcListener net.Listener
+	httpListener net.Listener
+	Environment  *model.Environment
+
+	// basePort defaults to 15000, used to allow multiple control plane instances on same machine
+	// for testing.
+	basePort           int32
+	secureGrpcListener net.Listener
+}
 
 func (s *Server) InitCommon(args *PilotArgs) {
 
@@ -109,13 +162,15 @@ func InitConfig(confDir string) (*Server, error) {
 	args.DiscoveryOptions =  envoy.DiscoveryServiceOptions{
 		HTTPAddr:        fmt.Sprintf(":%d", basePort+7),
 		GrpcAddr:        fmt.Sprintf(":%d", basePort+10),
-		SecureGrpcAddr:  "",
+		// Using 12 for K8S-DNS based cert.
+		// TODO: We'll also need 11 for Citadel-based cert
+		SecureGrpcAddr:        fmt.Sprintf(":%d", basePort+12),
 		EnableCaching:   true,
 		EnableProfiling: true,
 	}
 	args.CtrlZOptions = &ctrlz.Options{
 		Address: "localhost",
-		Port:    uint16(basePort + 12),
+		Port:    uint16(basePort + 13),
 	}
 
 		err = server.InitConfig()
