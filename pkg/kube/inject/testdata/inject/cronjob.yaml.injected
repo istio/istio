@@ -94,6 +94,8 @@ spec:
               value: kubernetes://apis/batch/v2alpha1/namespaces/default/cronjobs/hellocron
             - name: ISTIO_META_MESH_ID
               value: cluster.local
+            - name: ISTIO_KUBE_APP_PROBERS
+              value: '{}'
             image: gcr.io/istio-testing/proxyv2:latest
             imagePullPolicy: Always
             name: istio-proxy

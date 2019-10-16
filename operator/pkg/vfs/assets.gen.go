@@ -46548,7 +46548,7 @@ spec:
 
     sidecarInjectorWebhook:
       enableNamespacesByDefault: false
-      rewriteAppHTTPProbe: false
+      rewriteAppHTTPProbe: true
       injectLabel: istio-injection
       objectSelector:
         enabled: false

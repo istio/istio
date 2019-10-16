@@ -597,7 +597,7 @@ spec:
       enabled: true
       injectLabel: istio-injection
       neverInjectSelector: []
-      rewriteAppHTTPProbe: false
+      rewriteAppHTTPProbe: true
       selfSigned: false
     tracing:
       enabled: false
