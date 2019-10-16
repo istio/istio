@@ -27,25 +27,23 @@ func (ms *Messages) Add(m Message) {
 // Sort the message lexicographically by level, code, origin, then string.
 func (ms Messages) Sort() {
 	sort.Slice(ms, func(i, j int) bool {
+		a, b := ms[i], ms[j]
 		switch {
-		case ms[i].Type.Level() != ms[j].Type.Level():
-			return ms[i].Type.Level() < ms[j].Type.Level()
-		case ms[i].Type.Code() != ms[j].Type.Code():
-			return ms[i].Type.Code() < ms[j].Type.Code()
-		case ms[i].Origin.FriendlyName() != ms[j].Origin.FriendlyName():
-			return ms[i].Origin.FriendlyName() < ms[j].Origin.FriendlyName()
+		case a.Type.Level() != b.Type.Level():
+			return a.Type.Level().severity < b.Type.Level().severity
+		case a.Type.Code() != b.Type.Code():
+			return a.Type.Code() < b.Type.Code()
+		case a.Origin.FriendlyName() != b.Origin.FriendlyName():
+			return a.Origin.FriendlyName() < b.Origin.FriendlyName()
 		default:
-			return ms[i].String() < ms[j].String()
+			return a.String() < b.String()
 		}
 	})
 }
 
 // Return a different sorted Messages struct
 func (ms Messages) Sorted() Messages {
-	var newMs Messages
-	for _, val := range ms {
-		newMs.Add(val)
-	}
+	newMs := append(ms[:0:0], ms...)
 	newMs.Sort()
 	return newMs
 }

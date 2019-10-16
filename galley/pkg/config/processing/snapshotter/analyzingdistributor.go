@@ -156,10 +156,9 @@ func (d *AnalyzingDistributor) analyzeAndDistribute(cancelCh chan struct{}, name
 			msgs = append(msgs, m)
 		}
 	}
-	msgs = msgs.Sorted()
 
 	if !ctx.Canceled() {
-		d.s.StatusUpdater.Update(msgs)
+		d.s.StatusUpdater.Update(msgs.Sorted())
 	}
 
 	// Execution only reaches this point for trigger snapshot group
