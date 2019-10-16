@@ -87,9 +87,7 @@ istioctl --Kubeconfig=c0.yaml x create-remote-secret --auth-type=plugin --auth-p
 `,
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, args []string) error {
-			if err := opts.prepare(c.Flags()); err != nil {
-				return err
-			}
+			opts.prepare(c.Flags())
 			env, err := NewEnvironmentFromCobra(opts.Kubeconfig, opts.Context, c)
 			if err != nil {
 				return err
@@ -164,7 +162,12 @@ func createPluginKubeconfig(caData []byte, context, server string, authProviderC
 	return c
 }
 
-func createRemoteSecretFromPlugin(tokenSecret *v1.Secret, context string, uid types.UID, server string, authProviderConfig *api.AuthProviderConfig) (*v1.Secret, error) {
+func createRemoteSecretFromPlugin(
+	tokenSecret *v1.Secret,
+	context, server string,
+	uid types.UID,
+	authProviderConfig *api.AuthProviderConfig,
+) (*v1.Secret, error) {
 	caData, ok := tokenSecret.Data[v1.ServiceAccountRootCAKey]
 	if !ok {
 		return nil, errMissingRootCAKey
@@ -343,7 +346,7 @@ func createRemoteSecret(opt RemoteSecretOptions, env Environment) (*v1.Secret, e
 			Name:   opt.AuthPluginName,
 			Config: opt.AuthPluginConfig,
 		}
-		remoteSecret, err = createRemoteSecretFromPlugin(tokenSecret, currentContext, uid, server, authProviderConfig)
+		remoteSecret, err = createRemoteSecretFromPlugin(tokenSecret, currentContext, server, uid, authProviderConfig)
 	default:
 		err = fmt.Errorf("unsupported authentication type: %v", opt.AuthType)
 	}

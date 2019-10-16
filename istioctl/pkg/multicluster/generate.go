@@ -29,7 +29,7 @@ import (
 )
 
 // TODO replace with common strongly typed values.yaml when available
-type valueType struct {
+type valueType struct { // lint:maligned
 	Global struct {
 		MeshNetworks                map[string]interface{} `json:"meshNetworks,omitempty"`
 		MeshID                      string                 `json:"meshID,omitempty"`
@@ -50,7 +50,7 @@ type valueType struct {
 	} `json:"gateways,omitempty"`
 }
 
-func generateValuesYAML(mesh *Mesh, current *Cluster, meshNetworks *v1alpha1.MeshNetworks) (string, error) {
+func generateValuesYAML(mesh *Mesh, current *Cluster, meshNetworks *v1alpha1.MeshNetworks) (string, error) { // lint:interfacer
 	meshNetworksJSON, err := protomarshal.ToJSONMap(meshNetworks)
 	if err != nil {
 		return "", err

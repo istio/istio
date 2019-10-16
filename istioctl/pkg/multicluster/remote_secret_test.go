@@ -35,24 +35,14 @@ import (
 const (
 	testNamespace          = "istio-system-test"
 	testServiceAccountName = "test-service-account"
-	testUID                = "54643f96-eca0-11e9-bb97-42010a80000a"
 	testKubeconfig         = "test-Kubeconfig"
 	testContext            = "test-context"
 )
 
-var (
-	fakeKubeSystem = &v1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "kube-system",
-			UID:  types.UID(testUID),
-		},
-	}
-)
-
-func makeServiceAccount(name string, secrets ...string) *v1.ServiceAccount {
+func makeServiceAccount(secrets ...string) *v1.ServiceAccount {
 	sa := &v1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
+			Name:      testServiceAccountName,
 			Namespace: testNamespace,
 		},
 	}
@@ -103,7 +93,7 @@ func TestCreateRemoteSecrets(t *testing.T) {
 	prevOutputWriterStub := makeOutputWriterTestHook
 	defer func() { makeOutputWriterTestHook = prevOutputWriterStub }()
 
-	sa := makeServiceAccount(testServiceAccountName, "saSecret")
+	sa := makeServiceAccount("saSecret")
 	saSecret := makeSecret("saSecret", "caData", "token")
 	saSecretMissingToken := makeSecret("saSecret", "caData", "")
 
@@ -158,19 +148,19 @@ stringData:
 	}{
 		{
 			testName:   "fail to get service account secret token",
-			objs:       []runtime.Object{fakeKubeSystem, sa},
+			objs:       []runtime.Object{kubeSystemNamespace, sa},
 			wantErrStr: fmt.Sprintf("secrets %q not found", saSecret.Name),
 		},
 		{
 			testName:          "fail to create starting config",
-			objs:              []runtime.Object{fakeKubeSystem, sa, saSecret},
+			objs:              []runtime.Object{kubeSystemNamespace, sa, saSecret},
 			config:            api.NewConfig(),
 			badStartingConfig: true,
 			wantErrStr:        badStartingConfigErrStr,
 		},
 		{
 			testName: "fail to find cluster in local Kubeconfig",
-			objs:     []runtime.Object{fakeKubeSystem, sa, saSecret},
+			objs:     []runtime.Object{kubeSystemNamespace, sa, saSecret},
 			config: &api.Config{
 				CurrentContext: testContext,
 				Clusters:       map[string]*api.Cluster{ /* missing cluster */ },
@@ -179,7 +169,7 @@ stringData:
 		},
 		{
 			testName: "fail to create remote secret token",
-			objs:     []runtime.Object{fakeKubeSystem, sa, saSecretMissingToken},
+			objs:     []runtime.Object{kubeSystemNamespace, sa, saSecretMissingToken},
 			config: &api.Config{
 				CurrentContext: testContext,
 				Contexts: map[string]*api.Context{
@@ -193,7 +183,7 @@ stringData:
 		},
 		{
 			testName: "fail to encode secret",
-			objs:     []runtime.Object{fakeKubeSystem, sa, saSecret},
+			objs:     []runtime.Object{kubeSystemNamespace, sa, saSecret},
 			config: &api.Config{
 				CurrentContext: testContext,
 				Contexts: map[string]*api.Context{
@@ -208,7 +198,7 @@ stringData:
 		},
 		{
 			testName: "success",
-			objs:     []runtime.Object{fakeKubeSystem, sa, saSecret},
+			objs:     []runtime.Object{kubeSystemNamespace, sa, saSecret},
 			config: &api.Config{
 				CurrentContext: testContext,
 				Contexts: map[string]*api.Context{
@@ -282,7 +272,7 @@ func TestGetServiceAccountSecretToken(t *testing.T) {
 			saName:      testServiceAccountName,
 			saNamespace: testNamespace,
 			objs: []runtime.Object{
-				makeServiceAccount(testServiceAccountName, "secret", "extra-secret"),
+				makeServiceAccount("secret", "extra-secret"),
 			},
 			wantErrStr: "wrong number of secrets",
 		},
@@ -291,7 +281,7 @@ func TestGetServiceAccountSecretToken(t *testing.T) {
 			saName:      testServiceAccountName,
 			saNamespace: testNamespace,
 			objs: []runtime.Object{
-				makeServiceAccount(testServiceAccountName, "wrong-secret"),
+				makeServiceAccount("wrong-secret"),
 				secret,
 			},
 			wantErrStr: `secrets "wrong-secret" not found`,
@@ -301,7 +291,7 @@ func TestGetServiceAccountSecretToken(t *testing.T) {
 			saName:      testServiceAccountName,
 			saNamespace: testNamespace,
 			objs: []runtime.Object{
-				makeServiceAccount(testServiceAccountName, "secret"),
+				makeServiceAccount("secret"),
 				secret,
 			},
 			want: secret,
@@ -344,8 +334,8 @@ func TestGetClusterServerFromKubeconfig(t *testing.T) {
 		{
 			name:       "bad starting config",
 			context:    context,
-			config:     nil,
-			wantErrStr: "bad starting config",
+			config:     api.NewConfig(),
+			wantErrStr: "could not find cluster for Context",
 		},
 		{
 			name:    "missing cluster",
@@ -423,17 +413,17 @@ func TestGetClusterServerFromKubeconfig(t *testing.T) {
 
 func TestCreateRemoteKubeconfig(t *testing.T) {
 	kubeconfig := `apiVersion: v1
-clustersByContext:
+clusters:
 - cluster:
     certificate-authority-data: Y2FEYXRh
     server: ""
   name: c0
 contexts:
-- Context:
+- context:
     cluster: c0
     user: c0
   name: c0
-current-Context: c0
+current-context: c0
 kind: Config
 preferences: {}
 users:
@@ -442,6 +432,7 @@ users:
     token: token
 `
 
+	fakeUID := types.UID("fake-uid-0")
 	cases := []struct {
 		name       string
 		uid        types.UID
@@ -455,24 +446,24 @@ users:
 			name:       "missing caData",
 			in:         makeSecret("", "", "token"),
 			context:    "c0",
-			uid:        types.UID("fake-uid-0"),
+			uid:        fakeUID,
 			wantErrStr: errMissingRootCAKey.Error(),
 		},
 		{
 			name:       "missing token",
 			in:         makeSecret("", "caData", ""),
 			context:    "c0",
-			uid:        types.UID("fake-uid-0"),
+			uid:        fakeUID,
 			wantErrStr: errMissingTokenKey.Error(),
 		},
 		{
 			name:    "success",
 			in:      makeSecret("", "caData", "token"),
 			context: "c0",
-			uid:     types.UID("fake-uid-0"),
+			uid:     fakeUID,
 			want: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "c0",
+					Name: string(fakeUID),
 					Annotations: map[string]string{
 						"istio.io/clusterContext": "c0",
 					},
@@ -481,7 +472,7 @@ users:
 					},
 				},
 				StringData: map[string]string{
-					"c0": kubeconfig,
+					string(fakeUID): kubeconfig,
 				},
 			},
 		},
@@ -549,17 +540,17 @@ metadata:
 
 func TestCreateRemoteSecretFromPlugin(t *testing.T) {
 	kubeconfig := `apiVersion: v1
-clustersByContext:
+clusters:
 - cluster:
     certificate-authority-data: Y2FEYXRh
     server: ""
   name: c0
 contexts:
-- Context:
+- context:
     cluster: c0
     user: c0
   name: c0
-current-Context: c0
+current-context: c0
 kind: Config
 preferences: {}
 users:
@@ -570,6 +561,8 @@ users:
         k1: v1
       name: foobar
 `
+	fakeUID := types.UID("fake-uid-0")
+
 	cases := []struct {
 		name               string
 		in                 *v1.Secret
@@ -584,14 +577,14 @@ users:
 			name:       "error on missing caData",
 			in:         makeSecret("", "", "token"),
 			context:    "c0",
-			uid:        types.UID("fake-uid-0"),
+			uid:        fakeUID,
 			wantErrStr: errMissingRootCAKey.Error(),
 		},
 		{
 			name:    "success on missing token",
 			in:      makeSecret("", "caData", ""),
 			context: "c0",
-			uid:     types.UID("fake-uid-0"),
+			uid:     fakeUID,
 			authProviderConfig: &api.AuthProviderConfig{
 				Name: "foobar",
 				Config: map[string]string{
@@ -600,7 +593,7 @@ users:
 			},
 			want: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "c0",
+					Name: string(fakeUID),
 					Annotations: map[string]string{
 						"istio.io/clusterContext": "c0",
 					},
@@ -609,7 +602,7 @@ users:
 					},
 				},
 				StringData: map[string]string{
-					"c0": kubeconfig,
+					string(fakeUID): kubeconfig,
 				},
 			},
 		},
@@ -626,7 +619,7 @@ users:
 			},
 			want: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "c0",
+					Name: string(fakeUID),
 					Annotations: map[string]string{
 						"istio.io/clusterContext": "c0",
 					},
@@ -635,7 +628,7 @@ users:
 					},
 				},
 				StringData: map[string]string{
-					"c0": kubeconfig,
+					string(fakeUID): kubeconfig,
 				},
 			},
 		},
@@ -644,7 +637,7 @@ users:
 	for i := range cases {
 		c := &cases[i]
 		t.Run(fmt.Sprintf("[%v] %v", i, c.name), func(tt *testing.T) {
-			got, err := createRemoteSecretFromPlugin(c.in, c.context, c.uid, c.server, c.authProviderConfig)
+			got, err := createRemoteSecretFromPlugin(c.in, c.context, c.server, c.uid, c.authProviderConfig)
 			if c.wantErrStr != "" {
 				if err == nil {
 					tt.Fatalf("wanted error including %q but none", c.wantErrStr)

@@ -38,7 +38,7 @@ const (
 )
 
 var (
-	kubeSystemNamespaceUID = types.UID("test-uid")
+	kubeSystemNamespaceUID = types.UID("54643f96-eca0-11e9-bb97-42010a80000a")
 	kubeSystemNamespace    = &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "kube-system",

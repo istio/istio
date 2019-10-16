@@ -35,12 +35,12 @@ type remoteSecretStatus string
 
 const (
 	rsStatusNotFound           remoteSecretStatus = "notFound"
-	rsStatusConfigMissing                         = "configMissing"
-	rsStatusConfigDecodeError                     = "configDecodeError"
-	rsStatusConfigInvalid                         = "configInvalid"
-	rsStatusServerNotFound                        = "serverNotFound"
-	seStatusServerAddrMismatch                    = "serverAddrMismatch"
-	rsStatusOk                                    = "ok"
+	rsStatusConfigMissing      remoteSecretStatus = "configMissing"
+	rsStatusConfigDecodeError  remoteSecretStatus = "configDecodeError"
+	rsStatusConfigInvalid      remoteSecretStatus = "configInvalid"
+	rsStatusServerNotFound     remoteSecretStatus = "serverNotFound"
+	seStatusServerAddrMismatch remoteSecretStatus = "serverAddrMismatch"
+	rsStatusOk                 remoteSecretStatus = "ok"
 )
 
 func secretStateAndServer(env Environment, srs remoteSecrets, c *Cluster) (remoteSecretStatus, string) {
@@ -127,7 +127,7 @@ func describeRemoteSecrets(env Environment, mesh *Mesh, c *Cluster, indent strin
 	tw.Flush()
 }
 
-func describeIngressGateways(env Environment, mesh *Mesh, c *Cluster, indent string) {
+func describeIngressGateways(env Environment, c *Cluster, indent string) {
 	gatewayAddresses := c.readIngressGatewayAddresses(env)
 
 	env.Printf("gateways: ")
@@ -144,7 +144,7 @@ func describeIngressGateways(env Environment, mesh *Mesh, c *Cluster, indent str
 	env.Printf("\n")
 }
 
-func describeCluster(mesh *Mesh, c *Cluster, env Environment) error {
+func describeCluster(env Environment, mesh *Mesh, c *Cluster) error {
 	env.Printf("%v context=%v uid=%v network=%v istio=%v %v\n",
 		strings.Repeat("-", 10),
 		c.context,
@@ -162,7 +162,7 @@ func describeCluster(mesh *Mesh, c *Cluster, env Environment) error {
 	describeRemoteSecrets(env, mesh, c, indent)
 
 	env.Printf("\n")
-	describeIngressGateways(env, mesh, c, indent)
+	describeIngressGateways(env, c, indent)
 
 	// TODO verify all clustersByContext have common trust
 
@@ -177,7 +177,7 @@ func Describe(opt describeOptions, env Environment) error {
 
 	if opt.all {
 		for _, cluster := range mesh.sortedClusters {
-			if err := describeCluster(mesh, cluster, env); err != nil {
+			if err := describeCluster(env, mesh, cluster); err != nil {
 				env.Errorf("could not describe cluster %v: %v\n", cluster, err)
 			}
 			env.Printf("%v\n", clusterDisplaySeparator)
@@ -191,7 +191,7 @@ func Describe(opt describeOptions, env Environment) error {
 		if !ok {
 			return fmt.Errorf("cluster %v not found", context)
 		}
-		return describeCluster(mesh, cluster, env)
+		return describeCluster(env, mesh, cluster)
 	}
 
 	return nil

@@ -64,21 +64,6 @@ func TestCreateTrustAnchorInternal(t *testing.T) {
 		wantErrStr string
 	}{
 		{
-			name: "bad anchor name",
-			opts: TrustAnchorOptions{KubeOptions{Namespace: testNamespace}},
-			config: &api.Config{
-				CurrentContext: testContext,
-				Contexts: map[string]*api.Context{
-					testContext: {Cluster: "cluster"},
-				},
-				Clusters: map[string]*api.Cluster{
-					"cluster": {Server: "server"},
-				},
-			},
-			objs:       []runtime.Object{fakeCAConfigMapGood},
-			wantErrStr: "failed to auto-generate name",
-		},
-		{
 			name: "missing CA configmap",
 			opts: TrustAnchorOptions{KubeOptions{Namespace: testNamespace}},
 			config: &api.Config{
@@ -90,7 +75,9 @@ func TestCreateTrustAnchorInternal(t *testing.T) {
 					"cluster": {Server: "server"},
 				},
 			},
-			objs:       []runtime.Object{fakeKubeSystem},
+			objs: []runtime.Object{
+				kubeSystemNamespace,
+			},
 			wantErrStr: `configmaps "istio-security" not found`,
 		},
 		{
@@ -105,7 +92,10 @@ func TestCreateTrustAnchorInternal(t *testing.T) {
 					"cluster": {Server: "server"},
 				},
 			},
-			objs:       []runtime.Object{fakeKubeSystem, fakeCAConfigMapMissingRoot},
+			objs: []runtime.Object{
+				kubeSystemNamespace,
+				fakeCAConfigMapMissingRoot,
+			},
 			wantErrStr: `"caTLSRootCert" not found in configmap istio-security`,
 		},
 		{
@@ -120,10 +110,13 @@ func TestCreateTrustAnchorInternal(t *testing.T) {
 					"cluster": {Server: "server"},
 				},
 			},
-			objs: []runtime.Object{fakeKubeSystem, fakeCAConfigMapGood},
+			objs: []runtime.Object{
+				kubeSystemNamespace,
+				fakeCAConfigMapGood,
+			},
 			want: &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: extraTrustAnchorPrefix + "-" + string(fakeKubeSystem.UID),
+					Name: extraTrustAnchorPrefix + "-" + string(kubeSystemNamespace.UID),
 					Annotations: map[string]string{
 						"istio.io/clusterContext": testContext,
 					},
@@ -132,7 +125,7 @@ func TestCreateTrustAnchorInternal(t *testing.T) {
 					},
 				},
 				Data: map[string]string{
-					extraTrustAnchorPrefix + "-" + string(fakeKubeSystem.UID): fakeRootCA,
+					extraTrustAnchorPrefix + "-" + string(kubeSystemNamespace.UID): fakeRootCA,
 				},
 			},
 		},
@@ -153,10 +146,13 @@ func TestCreateTrustAnchorInternal(t *testing.T) {
 					"cluster": {Server: "server"},
 				},
 			},
-			objs: []runtime.Object{fakeKubeSystem, fakeCAConfigMapGood},
+			objs: []runtime.Object{
+				kubeSystemNamespace,
+				fakeCAConfigMapGood,
+			},
 			want: &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: extraTrustAnchorPrefix + "-" + string(fakeKubeSystem.UID),
+					Name: extraTrustAnchorPrefix + "-" + string(kubeSystemNamespace.UID),
 					Annotations: map[string]string{
 						"istio.io/clusterContext": testOverrideContext,
 					},
@@ -165,7 +161,7 @@ func TestCreateTrustAnchorInternal(t *testing.T) {
 					},
 				},
 				Data: map[string]string{
-					extraTrustAnchorPrefix + "-" + string(fakeKubeSystem.UID): fakeRootCA,
+					extraTrustAnchorPrefix + "-" + string(kubeSystemNamespace.UID): fakeRootCA,
 				},
 			},
 		},
@@ -189,8 +185,4 @@ func TestCreateTrustAnchorInternal(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestCreateTrustAnchor(t *testing.T) {
-
 }

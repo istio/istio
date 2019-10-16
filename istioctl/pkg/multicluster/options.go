@@ -33,7 +33,7 @@ type KubeOptions struct {
 // Inherit the common kubernetes flags defined in the root package. This is a bit of a hack,
 // but it allows us to directly get the final values for each of these flags without needing
 // to pass pointers-to-flags through all of the (sub)commands.
-func (o *KubeOptions) prepare(flags *pflag.FlagSet) error {
+func (o *KubeOptions) prepare(flags *pflag.FlagSet) {
 	if f := flags.Lookup("Kubeconfig"); f != nil {
 		o.Kubeconfig = f.Value.String()
 	}
@@ -43,7 +43,6 @@ func (o *KubeOptions) prepare(flags *pflag.FlagSet) error {
 	if f := flags.Lookup("Namespace"); f != nil {
 		o.Namespace = f.Value.String()
 	}
-	return nil
 }
 
 type filenameOption struct {

@@ -59,9 +59,7 @@ istioctl --Kubeconfig=c0.yaml x create-trust-anchor c1 \
 `,
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, args []string) error {
-			if err := opts.prepare(c.Flags()); err != nil {
-				return err
-			}
+			opts.prepare(c.Flags())
 			out, err := CreateTrustAnchor(opts)
 			if err != nil {
 				fmt.Fprintf(c.OutOrStderr(), "%v", err)

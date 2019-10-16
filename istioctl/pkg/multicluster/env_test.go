@@ -45,9 +45,9 @@ users:
 - name: prod0
   user:
     auth-provider:
-      name: gcp`
+      name: gcp` // lll
 
-func createFakeKubeconfigFileOrDie(t *testing.T, kubeconfig string) (string, *api.Config) {
+func createFakeKubeconfigFileOrDie(t *testing.T) (string, *api.Config) {
 	t.Helper()
 
 	f, err := ioutil.TempFile("", "fakeKubeconfigForEnvironment")
@@ -124,7 +124,7 @@ func (f *fakeEnvironment) CreateClientSet(context string) (kubernetes.Interface,
 
 func TestNewEnvironment(t *testing.T) {
 	context := "" // empty, use current-context
-	kubeconfig, wantConfig := createFakeKubeconfigFileOrDie(t, fakeKubeconfigData)
+	kubeconfig, wantConfig := createFakeKubeconfigFileOrDie(t)
 
 	var wOut, wErr bytes.Buffer
 

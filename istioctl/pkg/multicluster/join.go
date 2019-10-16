@@ -41,10 +41,8 @@ func Join(opt joinOptions, env Environment) error {
 					env.Errorf("error: could not join cluster %v to mesh: %v\n", cluster, err)
 				}
 			}
-		} else {
-			if err := joinServiceRegistries(mesh, env); err != nil {
-				return err
-			}
+		} else if err := joinServiceRegistries(mesh, env); err != nil {
+			return err
 		}
 	}
 
@@ -65,10 +63,8 @@ func applySecret(cluster *Cluster, curr *v1.Secret) error {
 			if _, err := cluster.client.CoreV1().Secrets(cluster.Namespace).Update(prev); err != nil {
 				return false, err
 			}
-		} else {
-			if _, err := cluster.client.CoreV1().Secrets(cluster.Namespace).Create(curr); err != nil {
-				return false, err
-			}
+		} else if _, err := cluster.client.CoreV1().Secrets(cluster.Namespace).Create(curr); err != nil {
+			return false, err
 		}
 		return true, nil
 	})
@@ -153,7 +149,6 @@ type joinOptions struct {
 	KubeOptions
 	filenameOption
 
-	trust            bool
 	serviceDiscovery bool
 	all              bool
 }
@@ -193,12 +188,3 @@ func NewJoinCommand() *cobra.Command {
 	opt.addFlags(c.PersistentFlags())
 	return c
 }
-
-/*
-TODO
-* unit tests
-* automatic analyze-style check; consider writing an analyzer for this later.
-* create passthrough gateway
-* add egress gateway option for non-auth multi-network case.
-* foreach helper
-*/

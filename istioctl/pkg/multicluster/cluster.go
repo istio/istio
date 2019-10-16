@@ -47,7 +47,7 @@ const (
 	defaultServiceAccountReader = "istio-multi"
 )
 
-// Use UUID of kube-system Namespace as unique identifer for cluster.
+// Use UUID of kube-system Namespace as unique identifier for cluster.
 // (see https://docs.google.com/document/d/1F__vEKeI41P7PPUCMM9PVPYY34pyrvQI5rbTJVnS5c4)
 func clusterUID(client kubernetes.Interface) (types.UID, error) {
 	kubeSystem, err := client.CoreV1().Namespaces().Get("kube-system", metav1.GetOptions{})
