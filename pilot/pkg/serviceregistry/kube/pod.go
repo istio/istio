@@ -17,6 +17,7 @@ package kube
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -86,14 +87,28 @@ func (pc *PodCache) event(obj interface{}, ev model.Event) error {
 			}
 		case model.EventUpdate:
 			if pod.DeletionTimestamp != nil {
-				// delete only if this pod was in the cache
-				if pc.keys[ip] == key {
-					delete(pc.keys, ip)
-					if pc.c != nil && pc.c.XDSUpdater != nil {
-						pc.c.XDSUpdater.WorkloadUpdate(ip, nil, nil)
-					}
+				// we need to wait at least until the grace period before we start removing labels and, by proxy,
+				// listeners from the pod.
+				var gracePeriodSecs int64
+				switch {
+				case pod.DeletionGracePeriodSeconds != nil:
+					gracePeriodSecs = *pod.DeletionGracePeriodSeconds
+				case pod.Spec.TerminationGracePeriodSeconds != nil:
+					gracePeriodSecs = *pod.Spec.TerminationGracePeriodSeconds
+				default:
+					gracePeriodSecs = 30
 				}
-				return nil
+				expiry := pod.DeletionTimestamp.Add(time.Duration(gracePeriodSecs) * time.Second)
+				if time.Now().After(expiry) {
+					// delete only if this pod was in the cache
+					if pc.keys[ip] == key {
+						delete(pc.keys, ip)
+						if pc.c != nil && pc.c.XDSUpdater != nil {
+							pc.c.XDSUpdater.WorkloadUpdate(ip, nil, nil)
+						}
+					}
+					return nil
+				}
 			}
 			switch pod.Status.Phase {
 			case v1.PodPending, v1.PodRunning:
