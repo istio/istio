@@ -14,10 +14,38 @@
 
 package diag
 
+import "sort"
+
 // Messages is a slice of Message items.
 type Messages []Message
 
 // Add a new message to the messages
 func (ms *Messages) Add(m Message) {
 	*ms = append(*ms, m)
+}
+
+// Sort the message lexicographically by level, code, origin, then string.
+func (ms Messages) Sort() {
+	sort.Slice(ms, func(i, j int) bool {
+		switch {
+		case ms[i].Type.Level() != ms[j].Type.Level():
+			return ms[i].Type.Level() < ms[j].Type.Level()
+		case ms[i].Type.Code() != ms[j].Type.Code():
+			return ms[i].Type.Code() < ms[j].Type.Code()
+		case ms[i].Origin.FriendlyName() != ms[j].Origin.FriendlyName():
+			return ms[i].Origin.FriendlyName() < ms[j].Origin.FriendlyName()
+		default:
+			return ms[i].String() < ms[j].String()
+		}
+	})
+}
+
+// Return a different sorted Messages struct
+func (ms Messages) Sorted() Messages {
+	var newMs Messages
+	for _, val := range ms {
+		newMs.Add(val)
+	}
+	newMs.Sort()
+	return newMs
 }
