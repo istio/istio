@@ -33,7 +33,6 @@ import (
 // - Wait for config propagation.
 // - Send HTTP/gRPC requests between apps.
 func TestReachability(t *testing.T) {
-	t.Skip()
 	framework.NewTest(t).
 		Run(func(ctx framework.TestContext) {
 
