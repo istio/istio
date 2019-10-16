@@ -33,9 +33,9 @@ ISTIO_DOCKER_HUB ?= docker.io/istio
 export ISTIO_DOCKER_HUB
 ISTIO_GCS ?= istio-release/releases/$(VERSION)
 ISTIO_URL ?= https://storage.googleapis.com/$(ISTIO_GCS)
-ISTIO_CNI_HUB ?= gcr.io/istio-release
+ISTIO_CNI_HUB ?= gcr.io/istio-testing
 export ISTIO_CNI_HUB
-ISTIO_CNI_TAG ?= master-latest-daily
+ISTIO_CNI_TAG ?= latest
 export ISTIO_CNI_TAG
 
 # cumulatively track the directories/files to delete after a clean
@@ -489,7 +489,7 @@ localTestEnv: build
 
 localTestEnvCleanup: build
 	bin/testEnvLocalK8S.sh stop
-
+		
 .PHONY: pilot-test
 pilot-test:
 	go test ${T} ./pilot/...
@@ -615,20 +615,12 @@ clean.go: ; $(info $(H) cleaning...)
 #-----------------------------------------------------------------------------
 # Target: docker
 #-----------------------------------------------------------------------------
-.PHONY: push gcs.push gcs.push.istioctl-all gcs.push.deb artifacts installgen
+.PHONY: push artifacts installgen
 
 # for now docker is limited to Linux compiles - why ?
 include tools/istio-docker.mk
 
 push: docker.push installgen
-
-gcs.push: push gcs.push.istioctl-all gcs.push.deb
-
-gcs.push.istioctl-all: istioctl-all
-	gsutil -m cp -r "${ISTIO_OUT}"/istioctl-* "gs://${GS_BUCKET}/pilot/${TAG}/artifacts/istioctl"
-
-gcs.push.deb: deb
-	gsutil -m cp -r "${ISTIO_OUT}"/*.deb "gs://${GS_BUCKET}/pilot/${TAG}/artifacts/debs/"
 
 # generate_yaml in tests/istio.mk can build without specifying a hub & tag
 installgen:

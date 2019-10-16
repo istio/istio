@@ -61,6 +61,7 @@ func defaultLogOptions() *log.Options {
 	o := log.DefaultOptions()
 
 	// These scopes are, by default, too chatty for command line use
+	o.SetOutputLevel("validation", log.ErrorLevel)
 	o.SetOutputLevel("processing", log.ErrorLevel)
 	o.SetOutputLevel("source", log.ErrorLevel)
 
@@ -111,6 +112,11 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(deregisterCmd)
 	rootCmd.AddCommand(injectCommand())
 
+	postInstallCmd := &cobra.Command{
+		Use:   "post-install",
+		Short: "Commands related to post-install",
+	}
+
 	experimentalCmd := &cobra.Command{
 		Use:     "experimental",
 		Aliases: []string{"x", "exp"},
@@ -135,6 +141,9 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(addToMeshCmd())
 	experimentalCmd.AddCommand(removeFromMeshCmd())
 	experimentalCmd.AddCommand(Analyze())
+
+	postInstallCmd.AddCommand(Webhook())
+	experimentalCmd.AddCommand(postInstallCmd)
 
 	manifestCmd := mesh.ManifestCmd()
 	hideInheritedFlags(manifestCmd, "namespace", "istioNamespace")

@@ -100,12 +100,11 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 
 	outboundClusters := configgen.buildOutboundClusters(env, proxy, push)
 
-	// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
-	// DO NOT CALL PLUGINS for these two clusters.
-	outboundClusters = append(outboundClusters, buildBlackHoleCluster(env), buildDefaultPassthroughCluster(env, proxy))
-
 	switch proxy.Type {
 	case model.SidecarProxy:
+		// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
+		// DO NOT CALL PLUGINS for these two clusters.
+		outboundClusters = append(outboundClusters, buildBlackHoleCluster(env), buildDefaultPassthroughCluster(env, proxy))
 		// apply load balancer setting for cluster endpoints
 		applyLocalityLBSetting(proxy.Locality, outboundClusters, env.Mesh.LocalityLbSetting)
 		outboundClusters = envoyfilter.ApplyClusterPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, proxy, push, outboundClusters)
@@ -123,6 +122,8 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 		clusters = append(clusters, inboundClusters...)
 
 	default: // Gateways
+		// Gateways do not require the default passthrough cluster as they do not have original dst listeners.
+		outboundClusters = append(outboundClusters, buildBlackHoleCluster(env))
 		if proxy.Type == model.Router && proxy.GetRouterMode() == model.SniDnatRouter {
 			outboundClusters = append(outboundClusters, configgen.buildOutboundSniDnatClusters(env, proxy, push)...)
 		}
@@ -186,7 +187,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			lbEndpoints := buildLocalityLbEndpoints(env, networkView, service, port.Port, nil)
 
 			// create default cluster
-			discoveryType := convertResolution(service.Resolution)
+			discoveryType := convertResolution(proxy, service.Resolution)
 			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 			serviceAccounts := push.ServiceAccounts[service.Hostname][port.Port]
 			defaultCluster := buildDefaultCluster(env, clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, port)
@@ -197,10 +198,11 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 
 			setUpstreamProtocol(proxy, defaultCluster, port, model.TrafficDirectionOutbound)
 
-			serviceMTLSMode := authn_v1alpha1_applier.MTLSUnknown
+			serviceMTLSMode := authn_model.MTLSUnknown
 			if !service.MeshExternal {
 				// Only need the authentication MTLS mode when service is not external.
-				serviceMTLSMode = authn_v1alpha1_applier.GetMutualTLSMode(push.AuthenticationPolicyForWorkload(service, port))
+				policy, _ := push.AuthenticationPolicyForWorkload(service, port)
+				serviceMTLSMode = authn_v1alpha1_applier.GetMutualTLSMode(policy)
 			}
 			clusters = append(clusters, defaultCluster)
 			destinationRule := castDestinationRuleOrDefault(destRule)
@@ -306,7 +308,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 			lbEndpoints := buildLocalityLbEndpoints(env, networkView, service, port.Port, nil)
 
 			// create default cluster
-			discoveryType := convertResolution(service.Resolution)
+			discoveryType := convertResolution(proxy, service.Resolution)
 
 			clusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 			defaultCluster := buildDefaultCluster(env, clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, nil)
@@ -323,7 +325,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 					clusterMode:     SniDnatClusterMode,
 					direction:       model.TrafficDirectionOutbound,
 					proxy:           proxy,
-					serviceMTLSMode: authn_v1alpha1_applier.MTLSUnknown,
+					serviceMTLSMode: authn_model.MTLSUnknown,
 				}
 				applyTrafficPolicy(opts, proxy)
 				defaultCluster.Metadata = util.BuildConfigInfoMetadata(destRule.ConfigMeta)
@@ -345,7 +347,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 						clusterMode:     SniDnatClusterMode,
 						direction:       model.TrafficDirectionOutbound,
 						proxy:           proxy,
-						serviceMTLSMode: authn_v1alpha1_applier.MTLSUnknown,
+						serviceMTLSMode: authn_model.MTLSUnknown,
 					}
 					applyTrafficPolicy(opts, proxy)
 
@@ -357,7 +359,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 						clusterMode:     SniDnatClusterMode,
 						direction:       model.TrafficDirectionOutbound,
 						proxy:           proxy,
-						serviceMTLSMode: authn_v1alpha1_applier.MTLSUnknown,
+						serviceMTLSMode: authn_model.MTLSUnknown,
 					}
 					applyTrafficPolicy(opts, proxy)
 
@@ -687,14 +689,18 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginPara
 	return localCluster
 }
 
-func convertResolution(resolution model.Resolution) apiv2.Cluster_DiscoveryType {
+func convertResolution(proxy *model.Proxy, resolution model.Resolution) apiv2.Cluster_DiscoveryType {
 	switch resolution {
 	case model.ClientSideLB:
 		return apiv2.Cluster_EDS
 	case model.DNSLB:
 		return apiv2.Cluster_STRICT_DNS
 	case model.Passthrough:
-		return apiv2.Cluster_ORIGINAL_DST
+		// Gateways cannot use passthrough clusters. So fallback to EDS
+		if proxy.Type == model.SidecarProxy {
+			return apiv2.Cluster_ORIGINAL_DST
+		}
+		return apiv2.Cluster_EDS
 	default:
 		return apiv2.Cluster_EDS
 	}
@@ -708,10 +714,10 @@ func conditionallyConvertToIstioMtls(
 	serviceAccounts []string,
 	sni string,
 	proxy *model.Proxy,
-	serviceMTLSMode authn_v1alpha1_applier.MutualTLSMode,
+	serviceMTLSMode authn_model.MutualTLSMode,
 ) *networking.TLSSettings {
 	if tls == nil {
-		if serviceMTLSMode != authn_v1alpha1_applier.MTLSStrict {
+		if serviceMTLSMode != authn_model.MTLSStrict {
 			// Destination service is not in strict-mTLS mode, do nothing.
 			return nil
 		}
@@ -800,7 +806,7 @@ type buildClusterOpts struct {
 	clusterMode     ClusterMode
 	direction       model.TrafficDirection
 	proxy           *model.Proxy
-	serviceMTLSMode authn_v1alpha1_applier.MutualTLSMode
+	serviceMTLSMode authn_model.MutualTLSMode
 }
 
 func applyTrafficPolicy(opts buildClusterOpts, proxy *model.Proxy) {
@@ -1229,7 +1235,7 @@ func buildDefaultCluster(env *model.Environment, name string, discoveryType apiv
 		clusterMode:     DefaultClusterMode,
 		direction:       direction,
 		proxy:           proxy,
-		serviceMTLSMode: authn_v1alpha1_applier.MTLSUnknown,
+		serviceMTLSMode: authn_model.MTLSUnknown,
 	}
 	applyTrafficPolicy(opts, proxy)
 	return cluster

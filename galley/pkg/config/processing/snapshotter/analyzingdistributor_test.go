@@ -21,31 +21,42 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
+	"istio.io/istio/galley/pkg/config/analysis/msg"
 	coll "istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/source/kube/rt"
 	"istio.io/istio/galley/pkg/config/testing/data"
 	"istio.io/istio/pkg/mcp/snapshot"
 )
 
-type updaterMock struct{}
+type updaterMock struct {
+	messages diag.Messages
+}
 
 // Update implements StatusUpdater
-func (u *updaterMock) Update(messages diag.Messages) {}
+func (u *updaterMock) Update(messages diag.Messages) {
+	u.messages = messages
+}
 
 type analyzerMock struct {
 	analyzeCalls       []*Snapshot
 	collectionToAccess collection.Name
+	entriesToReport    []*resource.Entry
 }
 
 // Analyze implements Analyzer
 func (a *analyzerMock) Analyze(c analysis.Context) {
 	ctx := *c.(*context)
 
-	a.analyzeCalls = append(a.analyzeCalls, ctx.sn)
+	c.Exists(a.collectionToAccess, resource.NewName("", ""))
 
-	ctx.Exists(a.collectionToAccess, resource.NewName("", ""))
+	for _, r := range a.entriesToReport {
+		c.Report(a.collectionToAccess, msg.NewInternalError(r, ""))
+	}
+
+	a.analyzeCalls = append(a.analyzeCalls, ctx.sn)
 }
 
 // Name implements Analyzer
@@ -62,6 +73,20 @@ func TestAnalyzeAndDistributeSnapshots(t *testing.T) {
 	u := &updaterMock{}
 	a := &analyzerMock{
 		collectionToAccess: data.Collection1,
+		entriesToReport: []*resource.Entry{
+			{
+				Origin: &rt.Origin{
+					Collection: data.Collection1,
+					Name:       resource.NewName("includedNamespace", "r1"),
+				},
+			},
+			{
+				Origin: &rt.Origin{
+					Collection: data.Collection1,
+					Name:       resource.NewName("excludedNamespace", "r2"),
+				},
+			},
+		},
 	}
 	d := NewInMemoryDistributor()
 
@@ -77,6 +102,7 @@ func TestAnalyzeAndDistributeSnapshots(t *testing.T) {
 		AnalysisSnapshots:  []string{metadata.Default, metadata.SyntheticServiceEntry},
 		TriggerSnapshot:    metadata.Default,
 		CollectionReporter: cr,
+		AnalysisNamespaces: []string{"includedNamespace"},
 	}
 	ad := NewAnalyzingDistributor(settings)
 
@@ -99,6 +125,42 @@ func TestAnalyzeAndDistributeSnapshots(t *testing.T) {
 
 	// Verify the collection reporter hook was called
 	g.Expect(collectionAccessed).To(Equal(a.collectionToAccess))
+
+	// Verify we only reported messages in the AnalysisNamespaces
+	g.Expect(u.messages).To(HaveLen(1))
+	for _, m := range u.messages {
+		g.Expect(m.Origin.Namespace()).To(Equal("includedNamespace"))
+	}
+}
+
+func TestAnalyzeNamespaceMessageHasNoOrigin(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	u := &updaterMock{}
+	a := &analyzerMock{
+		collectionToAccess: data.Collection1,
+		entriesToReport: []*resource.Entry{
+			{},
+		},
+	}
+	d := NewInMemoryDistributor()
+
+	settings := AnalyzingDistributorSettings{
+		StatusUpdater:      u,
+		Analyzer:           analysis.Combine("testCombined", a),
+		Distributor:        d,
+		AnalysisSnapshots:  []string{metadata.Default},
+		TriggerSnapshot:    metadata.Default,
+		CollectionReporter: nil,
+		AnalysisNamespaces: []string{"includedNamespace"},
+	}
+	ad := NewAnalyzingDistributor(settings)
+
+	sDefault := getTestSnapshot()
+
+	ad.Distribute(metadata.Default, sDefault)
+	g.Eventually(func() []*Snapshot { return a.analyzeCalls }).Should(Not(BeEmpty()))
+	g.Expect(u.messages).To(HaveLen(1))
 }
 
 func getTestSnapshot(names ...string) *Snapshot {

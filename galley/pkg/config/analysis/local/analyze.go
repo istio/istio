@@ -50,6 +50,7 @@ type SourceAnalyzer struct {
 	sources              []event.Source
 	analyzer             *analysis.CombinedAnalyzer
 	transformerProviders transformer.Providers
+	namespace            string
 
 	// Which kube resources are used by this analyzer
 	// Derived from metadata and the specified analyzer and transformer providers
@@ -61,7 +62,9 @@ type SourceAnalyzer struct {
 
 // NewSourceAnalyzer creates a new SourceAnalyzer with no sources. Use the Add*Source methods to add sources in ascending precedence order,
 // then execute Analyze to perform the analysis
-func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, cr snapshotter.CollectionReporterFn, serviceDiscovery bool) *SourceAnalyzer {
+func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, namespace string,
+	cr snapshotter.CollectionReporterFn, serviceDiscovery bool) *SourceAnalyzer {
+
 	// collectionReporter hook function defaults to no-op
 	if cr == nil {
 		cr = func(collection.Name) {}
@@ -77,6 +80,7 @@ func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, 
 		sources:              make([]event.Source, 0),
 		analyzer:             analyzer,
 		transformerProviders: transformerProviders,
+		namespace:            namespace,
 		kubeResources:        disableUnusedKubeResources(m, inputCollections, serviceDiscovery),
 		collectionReporter:   cr,
 	}
@@ -92,6 +96,11 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (diag.Messages, error) {
 	}
 	src := newPrecedenceSource(sa.sources)
 
+	var namespaces []string
+	if sa.namespace != "" {
+		namespaces = []string{sa.namespace}
+	}
+
 	updater := &snapshotter.InMemoryStatusUpdater{}
 	distributorSettings := snapshotter.AnalyzingDistributorSettings{
 		StatusUpdater:      updater,
@@ -100,6 +109,7 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (diag.Messages, error) {
 		AnalysisSnapshots:  []string{metadata.LocalAnalysis, metadata.SyntheticServiceEntry},
 		TriggerSnapshot:    metadata.LocalAnalysis,
 		CollectionReporter: sa.collectionReporter,
+		AnalysisNamespaces: namespaces,
 	}
 	distributor := snapshotter.NewAnalyzingDistributor(distributorSettings)
 
@@ -118,6 +128,7 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (diag.Messages, error) {
 	rt.Start()
 	defer rt.Stop()
 
+	scope.Analysis.Debugf("Waiting for analysis messages to be available...")
 	if updater.WaitForReport(cancel) {
 		return updater.Get(), nil
 	}
@@ -126,9 +137,9 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (diag.Messages, error) {
 }
 
 // AddFileKubeSource adds a source based on the specified k8s yaml files to the current SourceAnalyzer
-func (sa *SourceAnalyzer) AddFileKubeSource(files []string, defaultNs string) error {
+func (sa *SourceAnalyzer) AddFileKubeSource(files []string) error {
 	src := inmemory.NewKubeSource(sa.kubeResources)
-	src.SetDefaultNamespace(defaultNs)
+	src.SetDefaultNamespace(sa.namespace)
 
 	for _, file := range files {
 		by, err := ioutil.ReadFile(file)

@@ -52,8 +52,8 @@ var _ event.Processor = &Snapshotter{}
 type HandlerFn func(*coll.Set)
 
 type accumulator struct {
-	reqSyncCount   int
-	syncCount      int
+	reqSyncCount   int32
+	syncCount      int32
 	collection     *coll.Instance
 	snapshotGroups []*snapshotGroup
 }
@@ -63,9 +63,9 @@ type accumulator struct {
 // Members of a snapshot group are defined via the per-collection accumulators that point to a group.
 type snapshotGroup struct {
 	// How many collections in the current group still need to receive a FullSync before we start publishing.
-	remaining int
+	remaining int32
 	// Set of collections that have already received a FullSync. If we get a duplicate, it will be ignored.
-	synced map[*coll.Instance]bool
+	synced atomic.Value
 	// Strategy to execute on handled events only after all collections in the group have been synced.
 	strategy strategy.Instance
 }
@@ -87,21 +87,22 @@ func (a *accumulator) Handle(e event.Event) {
 		monitorEntry(e.Source, e.Entry.Metadata.Name, false)
 
 	case event.FullSync:
-		a.syncCount++
+		atomic.AddInt32(&a.syncCount, 1)
+
 	default:
 		panic(fmt.Errorf("accumulator.Handle: unhandled event type: %v", e.Kind))
 	}
 
 	// Update the group sync counter if we received all required FullSync events for a collection
 	for _, sg := range a.snapshotGroups {
-		if a.syncCount >= a.reqSyncCount {
+		if atomic.LoadInt32(&a.syncCount) >= a.reqSyncCount {
 			sg.onSync(a.collection)
 		}
 	}
 }
 
 func (a *accumulator) reset() {
-	a.syncCount = 0
+	atomic.StoreInt32(&a.syncCount, 0)
 	a.collection.Clear()
 }
 
@@ -167,20 +168,23 @@ func newSnapshotGroup(size int, strategy strategy.Instance) *snapshotGroup {
 }
 
 func (sg *snapshotGroup) onSync(c *coll.Instance) {
-	if !sg.synced[c] {
-		sg.remaining--
-		sg.synced[c] = true
+	synced := sg.synced.Load().(map[*coll.Instance]bool)
+	if !synced[c] {
+		atomic.AddInt32(&sg.remaining, -1)
+		synced[c] = true
+		scope.Processing.Debugf("sg.onSync: %v fully synced, %d remaining", c.Name(), sg.remaining)
 	}
 
 	// proceed with triggering the strategy OnChange only after we've full synced every collection in a group.
-	if sg.remaining == 0 {
+	if atomic.LoadInt32(&sg.remaining) <= 0 {
+		scope.Processing.Debugf("sg.onSync: all collections synced, proceeding with strategy.OnChange()")
 		sg.strategy.OnChange()
 	}
 }
 
 func (sg *snapshotGroup) reset(size int) {
-	sg.remaining = size
-	sg.synced = make(map[*coll.Instance]bool)
+	atomic.StoreInt32(&sg.remaining, int32(size))
+	sg.synced.Store(make(map[*coll.Instance]bool))
 }
 
 // Start implements Processor

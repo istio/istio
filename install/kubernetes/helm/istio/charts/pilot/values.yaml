@@ -54,3 +54,10 @@ podAntiAffinityTermLabelSelector: []
 # to a pilot. It balances out load across pilot instances at the cost of
 # increasing system churn.
 keepaliveMaxServerConnectionAge: 30m
+
+# This is used to set the source of configuration for
+# the associated address in configSource, if nothing is specificed
+# the default MCP is assumed. The alternative option is SERVICE_REGISTRY
+# which describes the source is only forwarding synthetic service entries
+configSource:
+  subscribedResources:

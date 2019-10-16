@@ -71,6 +71,11 @@ spec:
 {{- if not $.Values.global.configValidation }}
           - --enable-validation=false
 {{- end }}
+{{- if .Values.global.operatorManageWebhooks }}
+          - --enable-reconcileWebhookConfiguration=false
+{{- else }}
+          - --enable-reconcileWebhookConfiguration=true
+{{- end }}
           - --validation-webhook-config-file
           - /etc/config/validatingwebhookconfiguration.yaml
           - --monitoringPort={{ .Values.global.monitoringPort }}
@@ -80,10 +85,20 @@ spec:
 {{- if .Values.enableAnalysis }}
           - --enableAnalysis=true
 {{- end }}
+{{- if .Values.global.certificates }}
+          - --validation.tls.clientCertificate=/etc/dnscerts/cert-chain.pem
+          - --validation.tls.privateKey=/etc/dnscerts/key.pem
+          - --validation.tls.caCertificates=/etc/dnscerts/root-cert.pem
+{{- end }}
           volumeMounts:
           - name: certs
             mountPath: /etc/certs
             readOnly: true
+{{- if .Values.global.certificates }}
+          - name: dnscerts
+            mountPath: /etc/dnscerts
+            readOnly: true
+{{- end }}
           - name: config
             mountPath: /etc/config
             readOnly: true
@@ -118,6 +133,11 @@ spec:
       - name: certs
         secret:
           secretName: istio.istio-galley-service-account
+{{- if .Values.global.certificates }}
+      - name: dnscerts
+        secret:
+          secretName: dns.istio-galley-service-account
+{{- end }}
       - name: config
         configMap:
           name: istio-galley-configuration

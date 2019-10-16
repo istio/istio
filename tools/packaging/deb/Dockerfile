@@ -9,6 +9,9 @@ FROM docker.io/istio/base:${BASE_VERSION}
 # hadolint ignore=DL3006
 FROM istionightly/base_debug
 
+# Directory to store DNS certificate and key
+RUN mkdir -p /etc/dnscerts
+
 # Micro pilot+mock mixer+echo, local kube
 COPY hyperistio kube-apiserver etcd kubectl /usr/local/bin/
 COPY *.yaml /var/lib/istio/config/

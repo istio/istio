@@ -348,11 +348,10 @@ func runCA() {
 	if !opts.serverOnly {
 		log.Infof("Creating Kubernetes controller to write issued keys and certs into secret ...")
 		// For workloads in K8s, we apply the configured workload cert TTL.
-		sc, err := controller.NewSecretController(ca,
-			opts.enableNamespacesByDefault,
-			opts.workloadCertTTL,
-			opts.workloadCertGracePeriodRatio, opts.workloadCertMinGracePeriod, opts.dualUse,
-			cs.CoreV1(), opts.signCACerts, opts.pkcs8Keys, listenedNamespaces, webhooks, opts.istioCaStorageNamespace)
+		sc, err := controller.NewSecretController(ca, opts.enableNamespacesByDefault,
+			opts.workloadCertTTL, opts.workloadCertGracePeriodRatio, opts.workloadCertMinGracePeriod,
+			opts.dualUse, cs.CoreV1(), opts.signCACerts, opts.pkcs8Keys, listenedNamespaces, webhooks,
+			opts.istioCaStorageNamespace, opts.rootCertFile)
 		if err != nil {
 			fatalf("Failed to create secret controller: %v", err)
 		}
@@ -461,7 +460,7 @@ func createCA(client corev1.CoreV1Interface) *ca.IstioCA {
 		defer cancel()
 		var checkInterval time.Duration
 		if opts.readSigningCertOnly {
-			checkInterval = cmd.ReadSigningCertCheckInterval
+			checkInterval = cmd.ReadSigningCertRetryInterval
 		} else {
 			checkInterval = -1
 		}

@@ -15,6 +15,7 @@
 package model
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -104,6 +105,18 @@ func TestMergeUpdateRequest(t *testing.T) {
 			&PushRequest{Full: false, NamespacesUpdated: map[string]struct{}{"ns2": {}}, EdsUpdates: map[string]struct{}{"svc-2": {}}},
 			PushRequest{Full: false, NamespacesUpdated: map[string]struct{}{"ns1": {}, "ns2": {}}, EdsUpdates: map[string]struct{}{"svc-1": {}, "svc-2": {}}},
 		},
+		{
+			"skip namespace merge: one empty",
+			&PushRequest{Full: true, NamespacesUpdated: nil},
+			&PushRequest{Full: true, NamespacesUpdated: map[string]struct{}{"ns2": {}}},
+			PushRequest{Full: true, NamespacesUpdated: nil},
+		},
+		{
+			"skip config type merge: one empty",
+			&PushRequest{Full: true, ConfigTypesUpdated: nil},
+			&PushRequest{Full: true, ConfigTypesUpdated: map[string]struct{}{"cfg2": {}}},
+			PushRequest{Full: true, ConfigTypesUpdated: nil},
+		},
 	}
 
 	for _, tt := range cases {
@@ -117,6 +130,7 @@ func TestMergeUpdateRequest(t *testing.T) {
 }
 
 func TestAuthNPolicies(t *testing.T) {
+	const testNamespace string = "test-namespace"
 	ps := NewPushContext()
 	env := &Environment{Mesh: &meshconfig.MeshConfig{RootNamespace: "istio-system"}}
 	ps.Env = env
@@ -178,24 +192,42 @@ func TestAuthNPolicies(t *testing.T) {
 	for key, value := range authNPolicies {
 		cfg := Config{
 			ConfigMeta: ConfigMeta{
+				Type:      schemas.AuthenticationPolicy.Type,
 				Name:      key,
 				Group:     "authentication",
 				Version:   "v1alpha2",
 				Domain:    "cluster.local",
-				Namespace: "default",
+				Namespace: testNamespace,
 			},
 			Spec: value,
-		}
-		if key == constants.DefaultAuthenticationPolicyName {
-			// Cluster-scoped policy
-			cfg.ConfigMeta.Type = schemas.AuthenticationMeshPolicy.Type
-			cfg.ConfigMeta.Namespace = NamespaceAll
-		} else {
-			cfg.ConfigMeta.Type = schemas.AuthenticationPolicy.Type
 		}
 		if _, err := configStore.Create(cfg); err != nil {
 			t.Error(err)
 		}
+	}
+
+	// Add cluster-scoped policy
+	globalPolicy := &authn.Policy{
+		Peers: []*authn.PeerAuthenticationMethod{{
+			Params: &authn.PeerAuthenticationMethod_Mtls{
+				Mtls: &authn.MutualTls{
+					Mode: authn.MutualTls_PERMISSIVE,
+				},
+			},
+		}},
+	}
+	globalCfg := Config{
+		ConfigMeta: ConfigMeta{
+			Type:    schemas.AuthenticationMeshPolicy.Type,
+			Name:    constants.DefaultAuthenticationPolicyName,
+			Group:   "authentication",
+			Version: "v1alpha2",
+			Domain:  "cluster.local",
+		},
+		Spec: globalPolicy,
+	}
+	if _, err := configStore.Create(globalCfg); err != nil {
+		t.Error(err)
 	}
 
 	store := istioConfigStore{ConfigStore: configStore}
@@ -205,52 +237,68 @@ func TestAuthNPolicies(t *testing.T) {
 	}
 
 	cases := []struct {
-		hostname  host.Name
-		namespace string
-		port      Port
-		expected  string
+		hostname                host.Name
+		namespace               string
+		port                    Port
+		expectedPolicy          *authn.Policy
+		expectedPolicyName      string
+		expectedPolicyNamespace string
 	}{
 		{
-			hostname:  "mtls-strict-svc-port.default.svc.cluster.local",
-			namespace: "default",
-			port:      Port{Port: 80},
-			expected:  "mtls-strict-svc-port",
+			hostname:                "mtls-strict-svc-port.test-namespace.svc.cluster.local",
+			namespace:               testNamespace,
+			port:                    Port{Port: 80},
+			expectedPolicy:          authNPolicies["mtls-strict-svc-port"],
+			expectedPolicyName:      "mtls-strict-svc-port",
+			expectedPolicyNamespace: testNamespace,
 		},
 		{
-			hostname:  "mtls-permissive-svc-port.default.svc.cluster.local",
-			namespace: "default",
-			port:      Port{Port: 80},
-			expected:  "mtls-permissive-svc-port",
+			hostname:                "mtls-permissive-svc-port.test-namespace.svc.cluster.local",
+			namespace:               testNamespace,
+			port:                    Port{Port: 80},
+			expectedPolicy:          authNPolicies["mtls-permissive-svc-port"],
+			expectedPolicyName:      "mtls-permissive-svc-port",
+			expectedPolicyNamespace: testNamespace,
 		},
 		{
-			hostname:  "mtls-permissive-svc-port.default.svc.cluster.local",
-			namespace: "default",
-			port:      Port{Port: 90},
-			expected:  constants.DefaultAuthenticationPolicyName,
+			hostname:                "mtls-permissive-svc-port.test-namespace.svc.cluster.local",
+			namespace:               testNamespace,
+			port:                    Port{Port: 90},
+			expectedPolicy:          authNPolicies[constants.DefaultAuthenticationPolicyName],
+			expectedPolicyName:      constants.DefaultAuthenticationPolicyName,
+			expectedPolicyNamespace: testNamespace,
 		},
 		{
-			hostname:  "mtls-disable-svc.default.svc.cluster.local",
-			namespace: "default",
-			port:      Port{Port: 80},
-			expected:  "mtls-disable-svc",
+			hostname:                "mtls-disable-svc.test-namespace.svc.cluster.local",
+			namespace:               testNamespace,
+			port:                    Port{Port: 80},
+			expectedPolicy:          authNPolicies["mtls-disable-svc"],
+			expectedPolicyName:      "mtls-disable-svc",
+			expectedPolicyNamespace: testNamespace,
 		},
 		{
-			hostname:  "mtls-strict-svc-port.another-namespace.svc.cluster.local",
-			namespace: "another-namespace",
-			port:      Port{Port: 80},
-			expected:  constants.DefaultAuthenticationPolicyName,
+			hostname:                "mtls-strict-svc-port.another-namespace.svc.cluster.local",
+			namespace:               "another-namespace",
+			port:                    Port{Port: 80},
+			expectedPolicy:          globalPolicy,
+			expectedPolicyName:      constants.DefaultAuthenticationPolicyName,
+			expectedPolicyNamespace: NamespaceAll,
 		},
 		{
-			hostname:  "mtls-default-svc-port.default.svc.cluster.local",
-			namespace: "default",
-			port:      Port{Port: 80},
-			expected:  constants.DefaultAuthenticationPolicyName,
+			hostname:                "mtls-default-svc-port.test-namespace.svc.cluster.local",
+			namespace:               testNamespace,
+			port:                    Port{Port: 80},
+			expectedPolicy:          authNPolicies[constants.DefaultAuthenticationPolicyName],
+			expectedPolicyName:      constants.DefaultAuthenticationPolicyName,
+			expectedPolicyNamespace: testNamespace,
 		},
 		{
-			hostname:  "mtls-strict-svc-named-port.default.svc.cluster.local",
-			namespace: "default",
-			port:      Port{Name: "http"},
-			expected:  "mtls-strict-svc-named-port",
+			hostname:                "mtls-strict-svc-named-port.test-namespace.svc.cluster.local",
+			namespace:               testNamespace,
+			port:                    Port{Name: "http"},
+			expectedPolicy:          authNPolicies["mtls-strict-svc-named-port"],
+			expectedPolicyName:      "mtls-strict-svc-named-port",
+			expectedPolicyNamespace: testNamespace,
 		},
 	}
 
@@ -263,12 +311,19 @@ func TestAuthNPolicies(t *testing.T) {
 			Hostname:   c.hostname,
 			Attributes: ServiceAttributes{Namespace: c.namespace},
 		}
+		testName := fmt.Sprintf("%d. %s.%s:%v", i, c.hostname, c.namespace, c.port)
+		t.Run(testName, func(t *testing.T) {
+			gotPolicy, gotMeta := ps.AuthenticationPolicyForWorkload(service, &c.port)
+			if gotMeta.Name != c.expectedPolicyName || gotMeta.Namespace != c.expectedPolicyNamespace {
+				t.Errorf("Config meta: got \"%s@%s\" != want(\"%s@%s\")\n",
+					gotMeta.Name, gotMeta.Namespace, c.expectedPolicyName, c.expectedPolicyNamespace)
+			}
 
-		if got := ps.AuthenticationPolicyForWorkload(service, &c.port); !reflect.DeepEqual(got, authNPolicies[c.expected]) {
-			t.Errorf("%d. AuthenticationPolicyForWorkload for %s.%s:%v: got(%v) != want(%v)\n", i, c.hostname, c.namespace, c.port, got, authNPolicies[c.expected])
-		}
+			if !reflect.DeepEqual(gotPolicy, c.expectedPolicy) {
+				t.Errorf("Policy: got(%v) != want(%v)\n", gotPolicy, c.expectedPolicy)
+			}
+		})
 	}
-
 }
 
 func TestJwtAuthNPolicy(t *testing.T) {
@@ -367,7 +422,7 @@ func TestJwtAuthNPolicy(t *testing.T) {
 			Attributes: ServiceAttributes{Namespace: c.namespace},
 		}
 
-		if got := ps.AuthenticationPolicyForWorkload(service, &c.port); got.GetOrigins()[0].GetJwt().GetJwksUri() != c.expectedJwksURI {
+		if got, _ := ps.AuthenticationPolicyForWorkload(service, &c.port); got.GetOrigins()[0].GetJwt().GetJwksUri() != c.expectedJwksURI {
 			t.Errorf("%d. AuthenticationPolicyForWorkload for %s.%s:%v: got(%v) != want(%v)\n", i, c.hostname, c.namespace, c.port, got, c.expectedJwksURI)
 		}
 	}
@@ -576,3 +631,10 @@ func (s *fakeStore) Create(config Config) (revision string, err error) {
 func (*fakeStore) Update(config Config) (newRevision string, err error) { return "", nil }
 
 func (*fakeStore) Delete(typ, name, namespace string) error { return nil }
+
+func (*fakeStore) Version() string {
+	return "not implemented"
+}
+func (*fakeStore) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
+	return "not implemented", nil
+}

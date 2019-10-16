@@ -106,11 +106,11 @@ istiocoredns:
 global:
   # Default hub for Istio images.
   # Releases are published to docker hub under 'istio' project.
-  # Daily builds from prow are on gcr.io
-  hub: gcr.io/istio-release
+  # Dev builds from prow are on gcr.io
+  hub: gcr.io/istio-testing
 
   # Default tag for Istio images.
-  tag: master-latest-daily
+  tag: latest
 
   # Comma-separated minimum per-scope logging level of messages to output, in the form of <scope>:<level>,<scope>:<level>
   # The control plane has different scopes depending on component, but can configure default log level across all components
@@ -290,7 +290,7 @@ global:
         caCertificates:    # example: /etc/istio/ms/root-cert.pem
         sni:               # example: ms.somedomain
         subjectAltNames: []
-        # - ms.somedomain 
+        # - ms.somedomain
       tcpKeepalive:
         probes: 3
         time: 10s
@@ -301,8 +301,8 @@ global:
     tracer: "zipkin"
 
   proxy_init:
-    # Base name for the proxy_init container, used to configure iptables.
-    image: proxy_init
+    # Base name for the istio-init container, used to configure iptables.
+    image: proxyv2
 
   # imagePullPolicy is applied to istio control plane components.
   # local tests require IfNotPresent, to avoid uploading to dockerhub.
@@ -348,6 +348,15 @@ global:
     datadog:
       # Host:Port for submitting traces to the Datadog agent.
       address: "$(HOST_IP):8126"
+    stackdriver:
+      # enables trace output to stdout.
+      debug: false
+      # The global default max number of attributes per span.
+      maxNumberOfAttributes: 200
+      # The global default max number of annotation events per span.
+      maxNumberOfAnnotations: 200
+      # The global default max number of message events per span.
+      maxNumberOfMessageEvents: 200
 
   # Default mtls policy. If true, mtls between services will be enabled by default.
   mtls:
@@ -551,6 +560,10 @@ global:
   #
   meshNetworks: {}
 
+  # Network defines the network this cluster belong to. This name
+  # corresponds to the networks in the map of mesh networks.
+  network: ""
+
   # Specifies the global locality load balancing settings.
   # Locality-weighted load balancing allows administrators to control the distribution of traffic to
   # endpoints based on the localities of where the traffic originates and where it will terminate.
@@ -579,3 +592,21 @@ global:
   # This field is set to false by default, so 'helm template ...'
   # will ignore the helm test yaml files when generating the template
   enableHelmTest: false
+
+  # Configures DNS certificates provisioned through Chiron linked into Pilot.
+  # The DNS names in this file are all hard-coded; please ensure the namespaces
+  # in dnsNames are consistent with those of your services.
+  # Example:
+  # certificates:
+  #   - secretName: dns.istio-galley-service-account
+  #     dnsNames: [istio-galley.istio-system.svc, istio-galley.istio-system]
+  #   - secretName: dns.istio-sidecar-injector-service-account
+  #     dnsNames: [istio-sidecar-injector.istio-system.svc, istio-sidecar-injector.istio-system]
+  certificates: []
+
+  # Configure whether Operator manages webhook configurations. The current behavior
+  # of Galley and Sidecar Injector is that they manage their own webhook configurations.
+  # When this option is set as true, Istio Operator, instead of webhooks, manages the
+  # webhook configurations. When this option is set as false, webhooks manage their
+  # own webhook configurations.
+  operatorManageWebhooks: false

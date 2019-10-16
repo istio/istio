@@ -138,7 +138,8 @@ spec:
         - mountPath: /mnt/volume-2
           name: user-volume-2
       initContainers:
-      - args:
+      - command:
+        - istio-iptables
         - -p
         - "15001"
         - -z

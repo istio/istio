@@ -44,7 +44,7 @@ func New(a *settings.Args) *Server {
 	readiness := components.NewProbe(&a.Readiness)
 	s.host.Add(readiness)
 
-	if a.ValidationArgs != nil && a.ValidationArgs.EnableValidation {
+	if a.ValidationArgs != nil && (a.ValidationArgs.EnableValidation || a.ValidationArgs.EnableReconcileWebhookConfiguration) {
 		validation := components.NewValidation(a.KubeConfig, a.ValidationArgs, liveness.Controller(), readiness.Controller())
 		s.host.Add(validation)
 	}

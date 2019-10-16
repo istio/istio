@@ -49,8 +49,8 @@ const (
 
 /* #nosec: disable gas linter */
 const (
-	// The Istio webhook secret annotation type
-	IstioWebhookSecretType = "istio.io/webhook-key-and-cert"
+	// The Istio DNS secret annotation type
+	IstioDNSSecretType = "istio.io/dns-key-and-cert"
 
 	// For debugging, set the resync period to be a shorter period.
 	secretResyncPeriod = 10 * time.Second
@@ -145,7 +145,7 @@ func NewWebhookController(gracePeriodRatio float32, minGracePeriod time.Duration
 	if len(dnsNames) == 0 {
 		log.Warn("the input services are empty, no services to manage certificates for")
 	} else {
-		istioSecretSelector := fields.SelectorFromSet(map[string]string{"type": IstioWebhookSecretType}).String()
+		istioSecretSelector := fields.SelectorFromSet(map[string]string{"type": IstioDNSSecretType}).String()
 		scrtLW := listwatch.MultiNamespaceListerWatcher(serviceNamespaces, func(namespace string) cache.ListerWatcher {
 			return &cache.ListWatch{
 				ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
@@ -197,7 +197,7 @@ func (wc *WebhookController) upsertSecret(secretName, dnsName, secretNamespace s
 			Name:        secretName,
 			Namespace:   secretNamespace,
 		},
-		Type: IstioWebhookSecretType,
+		Type: IstioDNSSecretType,
 	}
 
 	existingSecret, err := wc.core.Secrets(secretNamespace).Get(secretName, metav1.GetOptions{})

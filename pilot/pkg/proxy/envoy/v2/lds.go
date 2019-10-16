@@ -31,7 +31,7 @@ func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, v
 	if s.DebugConfigs {
 		con.LDSListeners = rawListeners
 	}
-	response := ldsDiscoveryResponse(rawListeners, version)
+	response := ldsDiscoveryResponse(rawListeners, version, push.Version)
 	err := con.send(response)
 	ldsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {
@@ -41,16 +41,16 @@ func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, v
 	}
 	ldsPushes.Increment()
 
-	adsLog.Infof("LDS: PUSH for node:%s listeners:%d", con.modelNode.ID, len(rawListeners))
+	adsLog.Infof("LDS: PUSH for node:%s listeners:%d", con.node.ID, len(rawListeners))
 	return nil
 }
 
 func (s *DiscoveryServer) generateRawListeners(con *XdsConnection, push *model.PushContext) []*xdsapi.Listener {
-	rawListeners := s.ConfigGenerator.BuildListeners(s.Env, con.modelNode, push)
+	rawListeners := s.ConfigGenerator.BuildListeners(s.Env, con.node, push)
 
 	for _, l := range rawListeners {
 		if err := l.Validate(); err != nil {
-			adsLog.Errorf("LDS: Generated invalid listener for node:%s: %v, %v", con.modelNode.ID, err, l)
+			adsLog.Errorf("LDS: Generated invalid listener for node:%s: %v, %v", con.node.ID, err, l)
 			ldsBuildErrPushes.Increment()
 			// Generating invalid listeners is a bug.
 			// Instead of panic, which will break down the whole cluster. Just ignore it here, let envoy process it.
@@ -60,11 +60,11 @@ func (s *DiscoveryServer) generateRawListeners(con *XdsConnection, push *model.P
 }
 
 // LdsDiscoveryResponse returns a list of listeners for the given environment and source node.
-func ldsDiscoveryResponse(ls []*xdsapi.Listener, version string) *xdsapi.DiscoveryResponse {
+func ldsDiscoveryResponse(ls []*xdsapi.Listener, version string, noncePrefix string) *xdsapi.DiscoveryResponse {
 	resp := &xdsapi.DiscoveryResponse{
 		TypeUrl:     ListenerType,
 		VersionInfo: version,
-		Nonce:       nonce(),
+		Nonce:       nonce(noncePrefix),
 	}
 	for _, ll := range ls {
 		if ll == nil {

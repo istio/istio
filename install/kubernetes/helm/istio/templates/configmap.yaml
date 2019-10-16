@@ -149,6 +149,10 @@ data:
     rootNamespace: {{ .Release.Namespace }}
 {{- end }}
 
+    # Configures DNS certificates provisioned through Chiron linked into Pilot.
+    certificates:
+{{ toYaml .Values.global.certificates | trim | indent 6 }}
+
     {{- if .Values.global.defaultConfigVisibilitySettings }}
     defaultServiceExportTo:
       {{- range .Values.global.defaultConfigVisibilitySettings }}
@@ -167,6 +171,10 @@ data:
     {{- if $.Values.global.useMCP }}
     configSources:
     - address: istio-galley.{{ $.Release.Namespace }}.svc:9901
+      {{- if .Values.pilot.configSource.subscribedResources }}
+      subscribedResources:
+        - {{ .Values.pilot.configSource.subscribedResources }}
+      {{- end}}
     {{- if $.Values.global.controlPlaneSecurityEnabled}}
       tlsSettings:
         mode: ISTIO_MUTUAL
@@ -313,7 +321,7 @@ data:
   meshNetworks: |-
   {{- if .Values.global.meshNetworks }}
     networks:
-{{ toYaml .Values.global.meshNetworks | indent 6 }}
+{{ toYaml .Values.global.meshNetworks | trim | indent 6 }}
   {{- else }}
     networks: {}
   {{- end }}

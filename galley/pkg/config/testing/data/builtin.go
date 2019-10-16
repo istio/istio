@@ -46,3 +46,8 @@ func GetNamespace() string {
 func GetIngress() string {
 	return string(MustAsset("builtin/ingress.yaml"))
 }
+
+// GetDeployment returns Deployment test data
+func GetDeployment() string {
+	return string(MustAsset("builtin/deployment.yaml"))
+}

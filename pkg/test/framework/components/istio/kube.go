@@ -113,6 +113,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	// Deploy Istio.
 	i.deployment = deployment.NewYamlDeployment(cfg.SystemNamespace, istioInstallFile)
 	if err = i.deployment.Deploy(env.Accessor, true, retry.Timeout(cfg.DeployTimeout)); err != nil {
+		i.Dump()
 		return nil, err
 	}
 
@@ -122,18 +123,21 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		if _, _, err = env.WaitUntilServiceEndpointsAreReady(cfg.SystemNamespace, "istio-galley"); err != nil {
 			err = fmt.Errorf("error waiting %s/istio-galley service endpoints: %v", cfg.SystemNamespace, err)
 			scopes.CI.Info(err.Error())
+			i.Dump()
 			return nil, err
 		}
 
 		// Wait for webhook to come online. The only reliable way to do that is to see if we can submit invalid config.
 		err = waitForValidationWebhook(env.Accessor)
 		if err != nil {
+			i.Dump()
 			return nil, err
 		}
 	}
 
 	// Then, apply Istio configuration.
 	if err = env.Accessor.Apply("", istioConfigFile); err != nil {
+		i.Dump()
 		return nil, err
 	}
 

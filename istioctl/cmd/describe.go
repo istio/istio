@@ -27,16 +27,20 @@ import (
 	rbac_http_filter "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/any"
 	structpb "github.com/golang/protobuf/ptypes/struct"
+	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s_labels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/kubernetes"
 
+	mixerclient "istio.io/api/mixer/v1/config/client"
 	"istio.io/api/networking/v1alpha3"
 
-	"istio.io/istio/istioctl/pkg/kubernetes"
+	istioctl_kubernetes "istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	istio_envoy_configdump "istio.io/istio/istioctl/pkg/writer/envoy/configdump"
@@ -213,7 +217,8 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 
 			// TODO find sidecar configs that select this workload and render them
 
-			return nil
+			// Now look for ingress gateways
+			return printIngressInfo(writer, matchingServices, podLabels, client, configClient, kubeClient)
 		},
 	}
 
@@ -640,7 +645,7 @@ func contains(slice []string, s string) bool {
 	return false
 }
 
-func getAuthenticationz(kubeClient kubernetes.ExecClient, podName, ns string) (*[]envoy_v2.AuthenticationDebug, error) {
+func getAuthenticationz(kubeClient istioctl_kubernetes.ExecClient, podName, ns string) (*[]envoy_v2.AuthenticationDebug, error) {
 	results, err := kubeClient.AllPilotsDiscoveryDo(istioNamespace, "GET",
 		fmt.Sprintf("/debug/authenticationz?proxyID=%s.%s", podName, ns), nil)
 	if err != nil {
@@ -807,7 +812,7 @@ func getIstioVirtualServiceNameForSvc(cd *configdump.Wrapper, svc v1.Service, po
 	re := regexp.MustCompile("/apis/networking/v1alpha3/namespaces/(?P<namespace>[^/]+)/virtual-service/(?P<name>[^/]+)")
 	ss := re.FindStringSubmatch(path)
 	if ss == nil {
-		return "", "", fmt.Errorf("not a DR path: %s", path)
+		return "", "", fmt.Errorf("not a VS path: %s", path)
 	}
 	return ss[2], ss[1], nil
 }
@@ -822,13 +827,13 @@ func getIstioVirtualServicePathForSvcFromRoute(cd *configdump.Wrapper, svc v1.Se
 		return "", err
 	}
 	for _, rcd := range rcd.DynamicRouteConfigs {
-		if rcd.RouteConfig.Name != sPort {
+		if rcd.RouteConfig.Name != sPort && !strings.HasPrefix(rcd.RouteConfig.Name, "http.") {
 			continue
 		}
 
 		for _, vh := range rcd.RouteConfig.VirtualHosts {
 			for _, route := range vh.Routes {
-				if routeDestinationMatchesSvc(route, svc, vh) {
+				if routeDestinationMatchesSvc(route, svc, vh, port) {
 					return getIstioConfig(route.Metadata)
 				}
 			}
@@ -837,29 +842,43 @@ func getIstioVirtualServicePathForSvcFromRoute(cd *configdump.Wrapper, svc v1.Se
 	return "", nil
 }
 
+func mixerConfigMatches(ns string, name string, mixer *structpb.Struct, tmixer *any.Any) bool {
+	if mixer != nil {
+		svcName, svcNamespace, err := getMixerDestinationSvc(mixer)
+		if err == nil && svcNamespace == ns && svcName == name {
+			return true
+		}
+	}
+
+	if tmixer != nil {
+		svcName, svcNamespace, err := getTypedMixerDestinationSvc(tmixer)
+		if err == nil && svcNamespace == ns && svcName == name {
+			return true
+		}
+	}
+
+	return false
+}
+
 // routeDestinationMatchesSvc determines if there ismixer configuration to use this service as a destination
-func routeDestinationMatchesSvc(route *envoy_api_route.Route, svc v1.Service, vh *envoy_api_route.VirtualHost) bool {
+func routeDestinationMatchesSvc(route *envoy_api_route.Route, svc v1.Service, vh *envoy_api_route.VirtualHost, port int32) bool {
 	if route == nil {
 		return false
 	}
 
-	mixer, ok := route.PerFilterConfig["mixer"]
-	if ok {
-		svcName, svcNamespace, err := getMixerDestinationSvc(mixer)
-		if err == nil && svcNamespace == svc.ObjectMeta.Namespace && svcName == svc.ObjectMeta.Name {
-			return true
-		}
+	// If Istio was deployed with telemetry or policy we'll have the K8s Service
+	// nicely connected to the Envoy Route.
+	if mixerConfigMatches(svc.ObjectMeta.Namespace, svc.ObjectMeta.Name,
+		route.GetPerFilterConfig()["mixer"], route.GetTypedPerFilterConfig()["mixer"]) {
+		return true
 	}
 
 	if rte := route.GetRoute(); rte != nil {
 		if weightedClusters := rte.GetWeightedClusters(); weightedClusters != nil {
 			for _, weightedCluster := range weightedClusters.Clusters {
-				mixer, ok := weightedCluster.PerFilterConfig["mixer"]
-				if ok {
-					svcName, svcNamespace, err := getMixerDestinationSvc(mixer)
-					if err == nil && svcNamespace == svc.ObjectMeta.Namespace && svcName == svc.ObjectMeta.Name {
-						return true
-					}
+				if mixerConfigMatches(svc.ObjectMeta.Namespace, svc.ObjectMeta.Name,
+					weightedCluster.GetPerFilterConfig()["mixer"], weightedCluster.GetTypedPerFilterConfig()["mixer"]) {
+					return true
 				}
 			}
 		}
@@ -873,6 +892,17 @@ func routeDestinationMatchesSvc(route *envoy_api_route.Route, svc v1.Service, vh
 			if ss[1] == svc.ObjectMeta.Name && ss[2] == svc.ObjectMeta.Namespace {
 				return true
 			}
+		}
+	}
+
+	// If this is an ingress gateway, the Domains will be something like *:80, so check routes
+	// which will look like "outbound|9080||productpage.default.svc.cluster.local"
+	res := fmt.Sprintf(`outbound\|%d\|[^\|]*\|(?P<service>[^\.]+)\.(?P<namespace>[^\.]+)\.svc\.cluster\.local$`, port)
+	re = regexp.MustCompile(res)
+	ss := re.FindStringSubmatch(route.GetRoute().GetCluster())
+	if ss != nil {
+		if ss[1] == svc.ObjectMeta.Name && ss[2] == svc.ObjectMeta.Namespace {
+			return true
 		}
 	}
 
@@ -890,6 +920,19 @@ func getMixerDestinationSvc(mixer *structpb.Struct) (string, string, error) {
 		svcNamespace := attributes.keyAsStruct("destination.service.namespace").
 			keyAsString("string_value")
 		return svcName, svcNamespace, nil
+	}
+	return "", "", fmt.Errorf("no mixer config")
+}
+
+func getTypedMixerDestinationSvc(tmixer *any.Any) (string, string, error) {
+	serviceCfg := &mixerclient.ServiceConfig{}
+	if err := ptypes.UnmarshalAny(tmixer, serviceCfg); err != nil {
+		return "", "", err
+	}
+	svcNameValue, ok1 := serviceCfg.MixerAttributes.Attributes["destination.service.name"]
+	svcNamespaceValue, ok2 := serviceCfg.MixerAttributes.Attributes["destination.service.namespace"]
+	if ok1 && ok2 {
+		return svcNameValue.GetStringValue(), svcNamespaceValue.GetStringValue(), nil
 	}
 	return "", "", fmt.Errorf("no mixer config")
 }
@@ -1087,4 +1130,125 @@ func getIstioVirtualServicePathForSvcFromListener(cd *configdump.Wrapper, svc v1
 	}
 
 	return "", fmt.Errorf("listener has no VirtualService")
+}
+
+func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podLabels k8s_labels.Set, kubeClient kubernetes.Interface, configClient model.ConfigStore, execClient istioctl_kubernetes.ExecClient) error { // nolint: lll
+
+	pods, err := kubeClient.CoreV1().Pods(istioNamespace).List(metav1.ListOptions{
+		LabelSelector: "istio=ingressgateway",
+		FieldSelector: "status.phase=Running",
+	})
+	if err != nil {
+		return multierror.Prefix(err, "Could not find ingress gateway pods")
+	}
+	if len(pods.Items) == 0 {
+		fmt.Fprintf(writer, "Skipping Gateway information (no ingress gateway pods)\n")
+		return nil
+	}
+	pod := pods.Items[0]
+
+	// Currently no support for non-standard gateways selecting non ingressgateway pods
+	ingressSvcs, err := kubeClient.CoreV1().Services(istioNamespace).List(metav1.ListOptions{
+		LabelSelector: "istio=ingressgateway",
+	})
+	if err != nil {
+		return multierror.Prefix(err, "Could not find ingress gateway service")
+	}
+	if len(ingressSvcs.Items) == 0 {
+		return fmt.Errorf("no ingress gateway service")
+	}
+	byConfigDump, err := execClient.EnvoyDo(pod.Name, pod.Namespace, "GET", "config_dump", nil)
+	if err != nil {
+		return fmt.Errorf("failed to execute command on ingress gateway sidecar: %v", err)
+	}
+
+	cd := configdump.Wrapper{}
+	err = cd.UnmarshalJSON(byConfigDump)
+	if err != nil {
+		return fmt.Errorf("can't parse ingress gateway sidecar config_dump: %v", err)
+	}
+
+	ipIngress := getIngressIP(ingressSvcs.Items[0], pod)
+
+	for row, svc := range matchingServices {
+		for _, port := range svc.Spec.Ports {
+			matchingSubsets := []string{}
+			nonmatchingSubsets := []string{}
+			drName, drNamespace, err := getIstioDestinationRuleNameForSvc(&cd, svc, port.Port)
+			var dr *model.Config
+			if err == nil && drName != "" && drNamespace != "" {
+				dr = configClient.Get(schemas.DestinationRule.Type, drName, drNamespace)
+				if dr != nil {
+					matchingSubsets, nonmatchingSubsets = getDestRuleSubsets(*dr, podLabels)
+				}
+			}
+
+			vsName, vsNamespace, err := getIstioVirtualServiceNameForSvc(&cd, svc, port.Port)
+			if err == nil && vsName != "" && vsNamespace != "" {
+				vs := configClient.Get(schemas.VirtualService.Type, vsName, vsNamespace)
+				if vs != nil {
+					if row == 0 {
+						fmt.Fprintf(writer, "\n")
+					} else {
+						fmt.Fprintf(writer, "--------------------\n")
+					}
+
+					printIngressService(writer, &ingressSvcs.Items[0], &pod, ipIngress)
+					printVirtualService(writer, *vs, svc, matchingSubsets, nonmatchingSubsets, dr)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func printIngressService(writer io.Writer, ingressSvc *v1.Service, ingressPod *v1.Pod, ip string) {
+	// The ingressgateway service offers a lot of ports but the pod doesn't listen to all
+	// of them.  For example, it doesn't listen on 443 without additional setup.  This prints
+	// the most basic output.
+	portsToShow := map[string]bool{
+		"http2": true,
+	}
+	protocolToScheme := map[string]string{
+		"HTTP2": "http",
+	}
+	schemePortDefault := map[string]int{
+		"http": 80,
+	}
+
+	for _, port := range ingressSvc.Spec.Ports {
+		if port.Protocol != "TCP" || !portsToShow[port.Name] {
+			continue
+		}
+
+		// Get port number
+		nport, err := pilotcontroller.FindPort(ingressPod, &port)
+		if err == nil {
+			protocol := string(servicePortProtocol(port.Name))
+
+			scheme := protocolToScheme[protocol]
+			portSuffix := ""
+			if schemePortDefault[scheme] != nport {
+				portSuffix = fmt.Sprintf(":%d\n", nport)
+			}
+			fmt.Fprintf(writer, "\nExposed on Ingress Gateway %s://%s%s\n", scheme, ip, portSuffix)
+		}
+	}
+}
+
+func getIngressIP(service v1.Service, pod v1.Pod) string {
+	if len(service.Status.LoadBalancer.Ingress) > 0 {
+		return service.Status.LoadBalancer.Ingress[0].IP
+	}
+
+	if pod.Status.HostIP != "" {
+		return pod.Status.HostIP
+	}
+
+	// The scope of this function is to get the IP from Kubernetes, we do not
+	// ask Docker or Minikube for an IP.
+	// See https://istio.io/docs/tasks/traffic-management/ingress/ingress-control/#determining-the-ingress-ip-and-ports
+
+	return "unknown"
 }

@@ -45,6 +45,7 @@ quotas:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -55,6 +56,9 @@ quotas:
 <p>The set of known quotas. At least one quota configuration is required</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-redis_server_url">
 <td><code>redisServerUrl</code></td>
@@ -64,6 +68,9 @@ quotas:
 ex) localhost:6379</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-connection_pool_size">
 <td><code>connectionPoolSize</code></td>
@@ -72,6 +79,9 @@ ex) localhost:6379</p>
 <p>Maximum number of idle connections to redis
 Default is 10 connections per every CPU as reported by runtime.NumCPU.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -85,6 +95,7 @@ Default is 10 connections per every CPU as reported by runtime.NumCPU.</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -97,6 +108,9 @@ String representation of instance dimensions is used to check against configured
 <code>dimensions</code> should not be empty</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-Override-max_amount">
 <td><code>maxAmount</code></td>
@@ -105,6 +119,9 @@ String representation of instance dimensions is used to check against configured
 <p>The upper limit for this quota override.
 This value should be bigger than 0</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -118,6 +135,7 @@ This value should be bigger than 0</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -128,6 +146,9 @@ This value should be bigger than 0</p>
 <p>The name of the quota</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-Quota-max_amount">
 <td><code>maxAmount</code></td>
@@ -135,6 +156,9 @@ This value should be bigger than 0</p>
 <td>
 <p>The upper limit for this quota. max_amount should be bigger than 0</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Params-Quota-valid_duration">
@@ -146,6 +170,9 @@ automatically released. This is only meaningful for rate limit quotas.
 value should be <code>0 &lt; validDuration</code></p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-Quota-bucket_duration">
 <td><code>bucketDuration</code></td>
@@ -155,6 +182,9 @@ value should be <code>0 &lt; validDuration</code></p>
 value should be <code>0 &lt; bucketDuration &lt; validDuration</code></p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-Quota-rate_limit_algorithm">
 <td><code>rateLimitAlgorithm</code></td>
@@ -162,6 +192,9 @@ value should be <code>0 &lt; bucketDuration &lt; validDuration</code></p>
 <td>
 <p>Quota management algorithm. The default value is <code>FIXED_WINDOW</code></p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Params-Quota-overrides">
@@ -171,6 +204,9 @@ value should be <code>0 &lt; bucketDuration &lt; validDuration</code></p>
 <p>Overrides associated with this quota.
 The first matching override is applied.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>

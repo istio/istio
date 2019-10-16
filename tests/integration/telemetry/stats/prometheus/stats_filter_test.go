@@ -115,6 +115,8 @@ func TestStatsFilter(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
+			// TODO(bianpengyuan) https://github.com/istio/istio/issues/17811
+			ctx.Skip()
 			ingress := getIngressInstance()
 			addr := ingress.HTTPAddress()
 			url := fmt.Sprintf("http://%s/productpage", addr.String())
@@ -123,9 +125,11 @@ func TestStatsFilter(t *testing.T) {
 				util.SendTraffic(ingress, t, "Sending traffic", url, "", 200)
 				// Query client side metrics
 				if err := queryPrometheus(t, sourceQuery); err != nil {
+					t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(promInst, "istio_requests_total"))
 					return err
 				}
 				if err := queryPrometheus(t, destinationQuery); err != nil {
+					t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(promInst, "istio_requests_total"))
 					return err
 				}
 				return nil
