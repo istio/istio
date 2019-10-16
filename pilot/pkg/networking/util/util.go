@@ -100,6 +100,12 @@ var ALPNInMesh = []string{"istio"}
 // ALPNHttp advertises that Proxy is going to talking either http2 or http 1.1.
 var ALPNHttp = []string{"h2", "http/1.1"}
 
+var EndpointMetadataMtlsReady = &pstruct.Struct{
+	Fields: map[string]*pstruct.Value{
+		model.MTLSReadyLabelShortname: {Kind: &pstruct.Value_StringValue{StringValue: "true"}},
+	},
+}
+
 func getMaxCidrPrefix(addr string) uint32 {
 	ip := net.ParseIP(addr)
 	if ip.To4() == nil {
@@ -605,11 +611,7 @@ func BuildLbEndpointMetadata(uid string, network string, mtlsReady bool) *core.M
 	}
 
 	if mtlsReady {
-		metadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = &pstruct.Struct{
-			Fields: map[string]*pstruct.Value{
-				model.MTLSReadyLabelShortname: {Kind: &pstruct.Value_StringValue{StringValue: "true"}},
-			},
-		}
+		metadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = EndpointMetadataMtlsReady
 	}
 
 	return metadata

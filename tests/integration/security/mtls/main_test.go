@@ -27,11 +27,9 @@ import (
 )
 
 var (
-	inst          istio.Instance
-	g             galley.Instance
-	p             pilot.Instance
-	isAutoMtlsEnabled bool
-	rootNamespace string
+	inst istio.Instance
+	g    galley.Instance
+	p    pilot.Instance
 )
 
 func TestMain(m *testing.M) {
