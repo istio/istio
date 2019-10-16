@@ -38,20 +38,22 @@ usage() {
     echo "Usage:"
     echo "  ./test_crossgrade.sh [OPTIONS]"
     echo
-    echo "  from_hub      hub of release to upgrade from (required)."
-    echo "  from_tag      tag of release to upgrade from (required)."
-    echo "  from_path     path to release dir to upgrade from (required)."
-    echo "  to_hub        hub of release to upgrade to (required)."
-    echo "  to_tag        tag of release to upgrade to (required)."
-    echo "  to_path       path to release to upgrade to (required)."
-    echo "  auth_enable   enable mtls."
-    echo "  skip_cleanup  leave install intact after test completes."
-    echo "  namespace     namespace to install istio control plane in (default istio-system)."
-    echo "  cloud         cloud provider name (required)"
+    echo "  from_hub          hub of release to upgrade from (required)."
+    echo "  from_tag          tag of release to upgrade from (required)."
+    echo "  from_path         path to release dir to upgrade from (required)."
+    echo "  to_hub            hub of release to upgrade to (required)."
+    echo "  to_tag            tag of release to upgrade to (required)."
+    echo "  to_path           path to release to upgrade to (required)."
+    echo "  install_options   install istio using either helm or istioctl (required)."
+    echo "  auth_enable       enable mtls."
+    echo "  skip_cleanup      leave install intact after test completes."
+    echo "  namespace         namespace to install istio control plane in (default istio-system)."
+    echo "  cloud             cloud provider name (required)"
     echo
     echo "  e.g. ./test_crossgrade.sh \"
     echo "        --from_hub=gcr.io/istio-testing --from_tag=d639408fd --from_path=/tmp/release-d639408fd \"
     echo "        --to_hub=gcr.io/istio-release --to_tag=1.0.2 --to_path=/tmp/istio-1.0.2 --cloud=GKE"
+    echo "        --install_options=helm"
     echo
     exit 1
 }
@@ -100,6 +102,9 @@ while (( "$#" )); do
         --to_path)
             TO_PATH=${VALUE}
             ;;
+        --install_options)
+            INSTALL_OPTIONS=${VALUE}
+            ;;
         --cloud)
             CLOUD=${VALUE}
             ;;
@@ -112,8 +117,8 @@ while (( "$#" )); do
     shift
 done
 
-if [[ -z "${FROM_HUB}" || -z "${FROM_TAG}" || -z "${FROM_PATH}" || -z "${TO_HUB}" || -z "${TO_TAG}" || -z "${TO_PATH}" ]]; then
-    echo "Error: from_hub, from_tag, from_path, to_hub, to_tag, to_path must all be set."
+if [[ -z "${FROM_HUB}" || -z "${FROM_TAG}" || -z "${FROM_PATH}" || -z "${TO_HUB}" || -z "${TO_TAG}" || -z "${TO_PATH}" || -z "${INSTALL_OPTIONS}" ]]; then
+    echo "Error: from_hub, from_tag, from_path, to_hub, to_tag, to_path, install_options must all be set."
     exit 1
 fi
 
@@ -201,7 +206,7 @@ deleteWithWait() {
     withRetries 60 10 checkIfDeleted "${1}" "${2}" "${3}"
 }
 
-installIstioSystemAtVersionHelmTemplate() {
+installIstioAtVersionUsingHelm() {
     writeMsg "helm templating then applying new yaml using version ${2} from ${3}."
     if [ -n "${AUTH_ENABLE}" ]; then
         echo "Auth is enabled, generating manifest with auth."
@@ -227,9 +232,38 @@ installIstioSystemAtVersionHelmTemplate() {
     --set-string global.tag="${2}" \
     --set global.defaultPodDisruptionBudget.enabled=true > "${ISTIO_ROOT}/istio.yaml" || die "helm template failed"
 
-
-
     withRetries 3 60 kubectl apply -f "${ISTIO_ROOT}"/istio.yaml
+}
+
+installIstioAtVersionUsingIstioctl(){
+  writeMsg "istioctl install istio using version ${2} from ${3}."
+  istioctl_path="${3}"/bin
+  withRetries 3 60 "${istioctl_path}"/istioctl experimental manifest apply --yes
+}
+
+# istioctl x upgrade supports upgrade istio release version
+# from 1.3.x to 1.3.y
+# from 1.3.x to 1.4.0
+upgradeIstioAtVersionUsingIstioctl(){
+  writeMsg "istioctl upgrade istio using version ${2} from ${3}."
+  istioctl_path="${3}"/bin
+  withRetries 3 60 "${istioctl_path}"/istioctl experimental manifest upgrade
+}
+
+istioInstallOptions() {
+  if [[ "${INSTALL_OPTIONS}" == "helm" ]];then
+    installIstioAtVersionUsingHelm "${FROM_HUB}" "${FROM_TAG}" "${FROM_PATH}"
+  else
+    installIstioAtVersionUsingIstioctl "${FROM_HUB}" "${FROM_TAG}" "${FROM_PATH}"
+  fi
+}
+
+istioUpgradeOptions(){
+  if [[ "${INSTALL_OPTIONS}" == "helm" ]];then
+    installIstioAtVersionUsingHelm "${TO_HUB}" "${TO_TAG}" "${TO_PATH}"
+  else
+    upgradeIstioAtVersionUsingIstioctl "${TO_HUB}" "${TO_TAG}" "${TO_PATH}"
+  fi
 }
 
 installTest() {
@@ -417,7 +451,7 @@ echo_and_run pushd "${ISTIO_ROOT}"
 
 resetCluster
 
-installIstioSystemAtVersionHelmTemplate "${FROM_HUB}" "${FROM_TAG}" "${FROM_PATH}"
+istioInstallOptions
 waitForIngress
 waitForPodsReady "${ISTIO_NAMESPACE}"
 
@@ -435,7 +469,7 @@ sendExternalRequestTraffic "${INGRESS_ADDR}"
 echo "Waiting for traffic to settle..."
 sleep 20
 
-installIstioSystemAtVersionHelmTemplate "${TO_HUB}" "${TO_TAG}" "${TO_PATH}"
+istioUpgradeOptions
 waitForPodsReady "${ISTIO_NAMESPACE}"
 # In principle it should be possible to restart data plane immediately, but being conservative here.
 sleep 60
@@ -452,7 +486,7 @@ restartDataPlane echosrv-deployment-v1
 sleep 140
 
 
-installIstioSystemAtVersionHelmTemplate "${FROM_HUB}" "${FROM_TAG}" "${FROM_PATH}"
+istioInstallOptions
 waitForPodsReady "${ISTIO_NAMESPACE}"
 
 echo "Test ran for ${SECONDS} seconds."
