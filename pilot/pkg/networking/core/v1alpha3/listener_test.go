@@ -390,6 +390,8 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 		{
 			name: "gen a listener per instance",
 			instances: []*model.ServiceInstance{
+				// This instance is the proxy itself, will not gen a outbound listener for it.
+				buildServiceInstance(services[0], "1.1.1.1"),
 				buildServiceInstance(services[0], "10.10.10.10"),
 				buildServiceInstance(services[0], "11.11.11.11"),
 				buildServiceInstance(services[0], "12.11.11.11"),
