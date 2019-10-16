@@ -114,6 +114,15 @@ global:
 `,
 			wantErrs: makeErrors([]string{`global.proxy.includeInboundPorts : strconv.ParseInt: parsing "222x": invalid syntax`}),
 		},
+		{
+			desc: "unknown field",
+			yamlStr: `
+global:
+  proxy:
+    foo: "bar"
+`,
+			wantErrs: makeErrors([]string{`unknown field "foo" in v1alpha1.ProxyConfig`}),
+		},
 	}
 
 	for _, tt := range tests {
@@ -132,7 +141,7 @@ global:
 }
 
 func TestValidateValuesFromProfile(t *testing.T) {
-	t.Skip("Skipping due to https://github.com/istio/istio/issues/17217")
+	//t.Skip("Skipping due to https://github.com/istio/istio/issues/17217")
 	tests := []struct {
 		desc     string
 		profile  string

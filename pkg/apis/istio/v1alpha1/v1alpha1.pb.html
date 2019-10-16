@@ -2,7 +2,7 @@
 title: v1alpha1
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 81
+number_of_entries: 82
 ---
 <h2 id="AddonIngressConfig">AddonIngressConfig</h2>
 <section>
@@ -290,6 +290,15 @@ No
 No
 </td>
 </tr>
+<tr id="CoreDNSConfig-coreDNSTag">
+<td><code>coreDNSTag</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
 <tr id="CoreDNSConfig-coreDNSPluginImage">
 <td><code>coreDNSPluginImage</code></td>
 <td><code>string</code></td>
@@ -317,6 +326,32 @@ No
 <td><code>uint32</code></td>
 <td>
 <p>Number of replicas for Core DNS.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="CoreDNSConfig-podAnnotations">
+<td><code>podAnnotations</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>K8s annotations for pods.</p>
+
+<p>See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="CoreDNSConfig-resources">
+<td><code>resources</code></td>
+<td><code><a href="#Resources">Resources</a></code></td>
+<td>
+<p>K8s resources settings.</p>
+
+<p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
 
 </td>
 <td>
@@ -726,6 +761,24 @@ No
 No
 </td>
 </tr>
+<tr id="EnvoyMetricsConfig-tlsSettings">
+<td><code>tlsSettings</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="EnvoyMetricsConfig-tcpKeepalive">
+<td><code>tcpKeepalive</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -820,6 +873,17 @@ No
 <p>K8s resources settings.</p>
 
 <p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="GalleyConfig-enableAnalysis">
+<td><code>enableAnalysis</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td>
+<p>Enable analysis and status update in Galley</p>
 
 </td>
 <td>
@@ -1378,6 +1442,42 @@ No
 No
 </td>
 </tr>
+<tr id="GlobalConfig-omitSidecarInjectorConfigMap">
+<td><code>omitSidecarInjectorConfigMap</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="GlobalConfig-network">
+<td><code>network</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="GlobalConfig-certificates">
+<td><code>certificates</code></td>
+<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="GlobalConfig-operatorManageWebhooks">
+<td><code>operatorManageWebhooks</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -1808,6 +1908,19 @@ No
 <td>
 <p>SDS server that watches kubernetes secrets and provisions credentials to ingress gateway.
 This server runs in the same pod as ingress gateway.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="IngressGatewaySdsConfig-resources">
+<td><code>resources</code></td>
+<td><code><a href="#Resources">Resources</a></code></td>
+<td>
+<p>K8s resources settings.</p>
+
+<p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
 
 </td>
 <td>
@@ -2338,6 +2451,15 @@ No
 No
 </td>
 </tr>
+<tr id="MTLSConfig-auto">
+<td><code>auto</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -2371,77 +2493,6 @@ No
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
 <td>
 <p>Exposes Pilot and Citadel mTLS and the plain text Pilot ports on an internal gateway.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="MixerAdaptersConfig">MixerAdaptersConfig</h2>
-<section>
-<p>Configuration for Mixer adapters.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="MixerAdaptersConfig-kubernetesenv">
-<td><code>kubernetesenv</code></td>
-<td><code><a href="#KubernetesEnvMixerAdapterConfig">KubernetesEnvMixerAdapterConfig</a></code></td>
-<td>
-<p>Configuration for Kubernetes environment adapter in mixer.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="MixerAdaptersConfig-prometheus">
-<td><code>prometheus</code></td>
-<td><code><a href="#PrometheusMixerAdapterConfig">PrometheusMixerAdapterConfig</a></code></td>
-<td>
-<p>Configuration for Prometheus adapter in mixer.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="MixerAdaptersConfig-stdio">
-<td><code>stdio</code></td>
-<td><code><a href="#StdioMixerAdapterConfig">StdioMixerAdapterConfig</a></code></td>
-<td>
-<p>Configuration for stdio adapter in mixer, recommended for debug usage only.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="MixerAdaptersConfig-stackdriver">
-<td><code>stackdriver</code></td>
-<td><code><a href="#StackdriverMixerAdapterConfig">StackdriverMixerAdapterConfig</a></code></td>
-<td>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="MixerAdaptersConfig-useAdapterCRDs">
-<td><code>useAdapterCRDs</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
-<td>
-<p>Sets the &ndash;useAdapterCRDs mixer startup argument.</p>
 
 </td>
 <td>
@@ -2489,9 +2540,80 @@ No
 </tr>
 <tr id="MixerConfig-adapters">
 <td><code>adapters</code></td>
-<td><code><a href="#MixerAdaptersConfig">MixerAdaptersConfig</a></code></td>
+<td><code><a href="#MixerTelemetryAdaptersConfig">MixerTelemetryAdaptersConfig</a></code></td>
 <td>
 <p>Configuration for different mixer adapters.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="MixerPolicyAdaptersConfig">MixerPolicyAdaptersConfig</h2>
+<section>
+<p>Configuration for Mixer Policy adapters.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="MixerPolicyAdaptersConfig-kubernetesenv">
+<td><code>kubernetesenv</code></td>
+<td><code><a href="#KubernetesEnvMixerAdapterConfig">KubernetesEnvMixerAdapterConfig</a></code></td>
+<td>
+<p>Configuration for Kubernetes environment adapter in mixer.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="MixerPolicyAdaptersConfig-prometheus">
+<td><code>prometheus</code></td>
+<td><code><a href="#PrometheusMixerAdapterConfig">PrometheusMixerAdapterConfig</a></code></td>
+<td>
+<p>Configuration for Prometheus adapter in mixer.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="MixerPolicyAdaptersConfig-stdio">
+<td><code>stdio</code></td>
+<td><code><a href="#StdioMixerAdapterConfig">StdioMixerAdapterConfig</a></code></td>
+<td>
+<p>Configuration for stdio adapter in mixer, recommended for debug usage only.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="MixerPolicyAdaptersConfig-stackdriver">
+<td><code>stackdriver</code></td>
+<td><code><a href="#StackdriverMixerAdapterConfig">StackdriverMixerAdapterConfig</a></code></td>
+<td>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="MixerPolicyAdaptersConfig-useAdapterCRDs">
+<td><code>useAdapterCRDs</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td>
+<p>Sets the &ndash;useAdapterCRDs mixer startup argument.</p>
 
 </td>
 <td>
@@ -2613,9 +2735,104 @@ No
 </tr>
 <tr id="MixerPolicyConfig-adapters">
 <td><code>adapters</code></td>
-<td><code><a href="#MixerAdaptersConfig">MixerAdaptersConfig</a></code></td>
+<td><code><a href="#MixerPolicyAdaptersConfig">MixerPolicyAdaptersConfig</a></code></td>
 <td>
 <p>Configuration for different mixer adapters.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="MixerPolicyConfig-sessionAffinityEnabled">
+<td><code>sessionAffinityEnabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td>
+<p>Controls whether to enable the sticky session setting when choosing backend pods.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="MixerPolicyConfig-resources">
+<td><code>resources</code></td>
+<td><code><a href="#Resources">Resources</a></code></td>
+<td>
+<p>K8s resources settings.</p>
+
+<p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="MixerTelemetryAdaptersConfig">MixerTelemetryAdaptersConfig</h2>
+<section>
+<p>Configuration for Mixer Telemetry adapters.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="MixerTelemetryAdaptersConfig-kubernetesenv">
+<td><code>kubernetesenv</code></td>
+<td><code><a href="#KubernetesEnvMixerAdapterConfig">KubernetesEnvMixerAdapterConfig</a></code></td>
+<td>
+<p>Configuration for Kubernetes environment adapter in mixer.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="MixerTelemetryAdaptersConfig-prometheus">
+<td><code>prometheus</code></td>
+<td><code><a href="#PrometheusMixerAdapterConfig">PrometheusMixerAdapterConfig</a></code></td>
+<td>
+<p>Configuration for Prometheus adapter in mixer.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="MixerTelemetryAdaptersConfig-stdio">
+<td><code>stdio</code></td>
+<td><code><a href="#StdioMixerAdapterConfig">StdioMixerAdapterConfig</a></code></td>
+<td>
+<p>Configuration for stdio adapter in mixer, recommended for debug usage only.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="MixerTelemetryAdaptersConfig-stackdriver">
+<td><code>stackdriver</code></td>
+<td><code><a href="#StackdriverMixerAdapterConfig">StackdriverMixerAdapterConfig</a></code></td>
+<td>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="MixerTelemetryAdaptersConfig-useAdapterCRDs">
+<td><code>useAdapterCRDs</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td>
+<p>Sets the &ndash;useAdapterCRDs mixer startup argument.</p>
 
 </td>
 <td>
@@ -2901,6 +3118,15 @@ No
 <p>Enables the connection between two kubernetes clusters via their respective ingressgateway services.
 Use if the pods in each cluster cannot directly talk to one another.</p>
 
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="MultiClusterConfig-clusterName">
+<td><code>clusterName</code></td>
+<td><code>string</code></td>
+<td>
 </td>
 <td>
 No
@@ -3367,6 +3593,41 @@ No
 <td><code>appNamespaces</code></td>
 <td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
 <td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="PilotConfig-enableProtocolSniffingForOutbound">
+<td><code>enableProtocolSniffingForOutbound</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td>
+<p>if protocol sniffing is enabled for outbound</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="PilotConfig-enableProtocolSniffingForInbound">
+<td><code>enableProtocolSniffingForInbound</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td>
+<p>if protocol sniffing is enabled for inbound</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="PilotConfig-podAnnotations">
+<td><code>podAnnotations</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>K8s annotations for pods.</p>
+
+<p>See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/</p>
+
 </td>
 <td>
 No
@@ -4392,6 +4653,15 @@ No
 No
 </td>
 </tr>
+<tr id="SDSConfig-token">
+<td><code>token</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -4566,6 +4836,28 @@ No
 <p>K8s node selector.</p>
 
 <p>See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="SecurityConfig-env">
+<td><code>env</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="SecurityConfig-podAnnotations">
+<td><code>podAnnotations</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>K8s annotations for pods.</p>
+
+<p>See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/</p>
 
 </td>
 <td>
@@ -4779,6 +5071,42 @@ No
 <td><code>injectLabel</code></td>
 <td><code>string</code></td>
 <td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="SidecarInjectorConfig-injectedAnnotations">
+<td><code>injectedAnnotations</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>injectedAnnotations are additional annotations that will be added to the pod spec after injection
+This is primarily to support PSP annotations.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="SidecarInjectorConfig-resources">
+<td><code>resources</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>K8s resources settings.</p>
+
+<p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="SidecarInjectorConfig-objectSelector">
+<td><code>objectSelector</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>Enable objectSelector to filter out pods with no need for sidecar before calling istio-sidecar-injector.</p>
+
 </td>
 <td>
 No
@@ -5243,6 +5571,15 @@ No
 <tr id="TracingConfig-opencensus">
 <td><code>opencensus</code></td>
 <td><code><a href="#TracingOpencensusConfig">TracingOpencensusConfig</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TracingConfig-contextPath">
+<td><code>contextPath</code></td>
+<td><code>string</code></td>
 <td>
 </td>
 <td>

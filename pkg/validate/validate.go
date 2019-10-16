@@ -41,8 +41,7 @@ var (
 // CheckIstioControlPlaneSpec validates the values in the given Installer spec, using the field map defaultValidations to
 // call the appropriate validation function.
 func CheckIstioControlPlaneSpec(is *v1alpha2.IstioControlPlaneSpec, checkRequired bool) (errs util.Errors) {
-	// TODO: restore this when --force flag is merged.
-	//errs = util.AppendErrs(errs, CheckValues(is.Values))
+	errs = util.AppendErrs(errs, CheckValues(is.Values))
 	return util.AppendErrs(errs, validate(defaultValidations, is, nil, checkRequired))
 }
 

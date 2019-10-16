@@ -345,7 +345,7 @@ spec:
       serviceAccountName: prometheus
       containers:
         - name: prometheus
-          image: "docker.io/prom/prometheus:v2.8.0"
+          image: "docker.io/prom/prometheus:v2.12.0"
           imagePullPolicy: Always
           args:
             - '--storage.tsdb.retention=6h'
@@ -494,6 +494,8 @@ spec:
     - istio-io
     - networking-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha3
       served: true
@@ -539,6 +541,8 @@ spec:
     - istio-io
     - networking-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha3
       served: true
@@ -580,6 +584,8 @@ spec:
     - istio-io
     - networking-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha3
       served: true
@@ -628,6 +634,8 @@ spec:
     - istio-io
     - networking-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha3
       served: true
@@ -654,6 +662,8 @@ spec:
     - istio-io
     - networking-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha3
       served: true
@@ -680,6 +690,8 @@ spec:
     - istio-io
     - rbac-istio-io
   scope: Cluster
+  subresources:
+    status: {}
   versions:
     - name: v1alpha1
       served: true
@@ -706,6 +718,8 @@ spec:
     - istio-io
     - authentication-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha1
       served: true
@@ -733,6 +747,8 @@ spec:
     - istio-io
     - authentication-istio-io
   scope: Cluster
+  subresources:
+    status: {}
   versions:
     - name: v1alpha1
       served: true
@@ -759,6 +775,8 @@ spec:
     - istio-io
     - apim-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha2
       served: true
@@ -785,6 +803,8 @@ spec:
     - istio-io
     - apim-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha2
       served: true
@@ -811,6 +831,8 @@ spec:
     - istio-io
     - apim-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha2
       served: true
@@ -837,6 +859,8 @@ spec:
     - istio-io
     - apim-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha2
       served: true
@@ -865,6 +889,8 @@ spec:
     - istio-io
     - policy-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha2
       served: true
@@ -893,6 +919,8 @@ spec:
     - istio-io
     - policy-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha2
       served: true
@@ -921,6 +949,8 @@ spec:
     - istio-io
     - rbac-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha1
       served: true
@@ -949,6 +979,8 @@ spec:
     - istio-io
     - rbac-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha1
       served: true
@@ -977,6 +1009,8 @@ spec:
     - istio-io
     - rbac-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha1
       served: true
@@ -1017,6 +1051,8 @@ spec:
     - istio-io
     - policy-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha2
       served: true
@@ -1045,6 +1081,8 @@ spec:
     - istio-io
     - policy-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha2
       served: true
@@ -1073,6 +1111,8 @@ spec:
     - istio-io
     - policy-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha2
       served: true
@@ -1101,6 +1141,8 @@ spec:
     - istio-io
     - policy-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha2
       served: true
@@ -1127,34 +1169,10 @@ spec:
     - istio-io
     - networking-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha3
-      served: true
-      storage: true
----
-
-
-kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1beta1
-metadata:
-  name: authorizationpolicies.rbac.istio.io
-  labels:
-    app: istio-pilot
-    istio: rbac
-    heritage: Tiller
-    release: istio
-spec:
-  group: rbac.istio.io
-  names:
-    kind: AuthorizationPolicy
-    plural: authorizationpolicies
-    singular: authorizationpolicy
-    categories:
-      - istio-io
-      - rbac-istio-io
-  scope: Namespaced
-  versions:
-    - name: v1alpha1
       served: true
       storage: true
 ---
@@ -1179,6 +1197,8 @@ spec:
       - istio-io
       - security-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1beta1
       served: true

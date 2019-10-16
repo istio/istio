@@ -141,9 +141,6 @@ values:
 	}
 
 	for _, tt := range tests {
-		if tt.desc != "EmptyValuesIP" {
-			continue
-		}
 		t.Run(tt.desc, func(t *testing.T) {
 			ispec := &v1alpha2.IstioControlPlaneSpec{}
 			err := util.UnmarshalWithJSONPB(tt.yamlStr, ispec)

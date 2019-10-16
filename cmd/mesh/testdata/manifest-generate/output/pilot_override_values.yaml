@@ -59,6 +59,15 @@ rules:
 - apiGroups: [""]
   resources: ["endpoints", "pods", "services", "namespaces", "nodes", "secrets"]
   verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["create", "get", "watch", "list", "update", "delete"]
+- apiGroups: ["certificates.k8s.io"]
+  resources:
+    - "certificatesigningrequests"
+    - "certificatesigningrequests/approval"
+    - "certificatesigningrequests/status"
+  verbs: ["update", "create", "get", "delete"]
 ---
 
 
@@ -262,7 +271,6 @@ data:
   meshNetworks: |-
     # Network config
     networks: {}
-    
 
   values.yaml: |-
     appNamespaces: []
@@ -273,9 +281,10 @@ data:
     configNamespace: istio-config
     cpu:
       targetAverageUtilization: 80
+    enableProtocolSniffingForInbound: false
+    enableProtocolSniffingForOutbound: true
     enabled: true
-    env:
-      GODEBUG: gctrace=1
+    env: {}
     image: pilot
     ingress:
       ingressClass: istio
@@ -286,6 +295,8 @@ data:
       networks: {}
     namespace: istio-control
     nodeSelector: {}
+    plugins: []
+    podAnnotations: {}
     podAntiAffinityLabelSelector: []
     podAntiAffinityTermLabelSelector: []
     policy:
@@ -302,7 +313,6 @@ data:
     tolerations: []
     traceSampling: 1
     useMCP: true
-    
 
   mesh: |-
     # Set enableTracing to false to disable request tracing.
@@ -342,6 +352,11 @@ data:
     # this flag is ignored if enableSdsTokenMount is set.
     # This isn't supported for non-k8s case.
     sdsUseK8sSaJwt: false
+
+    # If true, automatically configure client side mTLS settings to match the corresponding service's
+    # server side mTLS authentication policy, when destination rule for that service does not specify
+    # TLS settings.
+    enableAutoMtls: false
     config_sources:
     - address: localhost:15019
 
@@ -349,7 +364,19 @@ data:
       mode: ALLOW_ANY
     localityLbSetting:
       enabled: true
-      
+
+    # Configures DNS certificates provisioned through Chiron linked into Pilot.
+    # The DNS certificate provisioning is enabled by default now so it get tested.
+    # TODO (lei-tang): we'll decide whether enable it by default or not before Istio 1.4 Release.
+    certificates:
+      - dnsNames:
+        - istio-galley.istio-system.svc
+        - istio-galley.istio-system
+        secretName: dns.istio-galley-service-account
+      - dnsNames:
+        - istio-sidecar-injector.istio-system.svc
+        - istio-sidecar-injector.istio-system
+        secretName: dns.istio-sidecar-injector-service-account
 
     defaultConfig:
       #
@@ -394,9 +421,6 @@ data:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  annotations:
-    checksum/config-volume: 494f1d1b831595d0dac449d835dc32354e1419ec68b1279ccaf5d79988cfae9f
-    checksum/config-volume-envoy: b1f0f532d4964140a9de7fee29031cae5b877ee6bb76c15c3286ddb142479164
   labels:
     app: pilot
     istio: pilot
@@ -414,8 +438,6 @@ spec:
   template:
     metadata:
       annotations:
-        checksum/config-volume: ed521864d32d701035ce91edefc645cb606e7fa0c7bf971ed2af09ca45aba460
-        checksum/config-volume-envoy: c5ca26039d50542de673a4a578803a5d69f4c85fcd033f9c4a672ffb7cd4052f
         sidecar.istio.io/inject: "false"
       labels:
         app: pilot
@@ -476,12 +498,14 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
-        - name: GODEBUG
-          value: gctrace=1
         - name: PILOT_TRACE_SAMPLING
           value: "1"
         - name: CONFIG_NAMESPACE
           value: istio-config
+        - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
+          value: "true"
+        - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
+          value: "false"
         image: docker.io/istio/pilot:1.1.4
         imagePullPolicy: Always
         name: discovery
@@ -528,6 +552,8 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: status.podIP
+        - name: SDS_ENABLED
+          value: "false"
         image: docker.io/istio/proxyv2:1.1.4
         imagePullPolicy: Always
         name: istio-proxy
@@ -992,7 +1018,7 @@ spec:
       serviceAccountName: prometheus
       containers:
         - name: prometheus
-          image: "docker.io/prom/prometheus:v2.8.0"
+          image: "docker.io/prom/prometheus:v2.12.0"
           imagePullPolicy: Always
           args:
             - '--storage.tsdb.retention=6h'
@@ -1141,6 +1167,8 @@ spec:
     - istio-io
     - networking-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha3
       served: true
@@ -1186,6 +1214,8 @@ spec:
     - istio-io
     - networking-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha3
       served: true
@@ -1227,6 +1257,8 @@ spec:
     - istio-io
     - networking-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha3
       served: true
@@ -1275,6 +1307,8 @@ spec:
     - istio-io
     - networking-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha3
       served: true
@@ -1301,6 +1335,8 @@ spec:
     - istio-io
     - networking-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha3
       served: true
@@ -1327,6 +1363,8 @@ spec:
     - istio-io
     - rbac-istio-io
   scope: Cluster
+  subresources:
+    status: {}
   versions:
     - name: v1alpha1
       served: true
@@ -1353,6 +1391,8 @@ spec:
     - istio-io
     - authentication-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha1
       served: true
@@ -1380,6 +1420,8 @@ spec:
     - istio-io
     - authentication-istio-io
   scope: Cluster
+  subresources:
+    status: {}
   versions:
     - name: v1alpha1
       served: true
@@ -1406,6 +1448,8 @@ spec:
     - istio-io
     - apim-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha2
       served: true
@@ -1432,6 +1476,8 @@ spec:
     - istio-io
     - apim-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha2
       served: true
@@ -1458,6 +1504,8 @@ spec:
     - istio-io
     - apim-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha2
       served: true
@@ -1484,6 +1532,8 @@ spec:
     - istio-io
     - apim-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha2
       served: true
@@ -1512,6 +1562,8 @@ spec:
     - istio-io
     - policy-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha2
       served: true
@@ -1540,6 +1592,8 @@ spec:
     - istio-io
     - policy-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha2
       served: true
@@ -1568,6 +1622,8 @@ spec:
     - istio-io
     - rbac-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha1
       served: true
@@ -1596,6 +1652,8 @@ spec:
     - istio-io
     - rbac-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha1
       served: true
@@ -1624,6 +1682,8 @@ spec:
     - istio-io
     - rbac-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha1
       served: true
@@ -1664,6 +1724,8 @@ spec:
     - istio-io
     - policy-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha2
       served: true
@@ -1692,6 +1754,8 @@ spec:
     - istio-io
     - policy-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha2
       served: true
@@ -1720,6 +1784,8 @@ spec:
     - istio-io
     - policy-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha2
       served: true
@@ -1748,6 +1814,8 @@ spec:
     - istio-io
     - policy-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha2
       served: true
@@ -1774,34 +1842,10 @@ spec:
     - istio-io
     - networking-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1alpha3
-      served: true
-      storage: true
----
-
-
-kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1beta1
-metadata:
-  name: authorizationpolicies.rbac.istio.io
-  labels:
-    app: istio-pilot
-    istio: rbac
-    heritage: Tiller
-    release: istio
-spec:
-  group: rbac.istio.io
-  names:
-    kind: AuthorizationPolicy
-    plural: authorizationpolicies
-    singular: authorizationpolicy
-    categories:
-      - istio-io
-      - rbac-istio-io
-  scope: Namespaced
-  versions:
-    - name: v1alpha1
       served: true
       storage: true
 ---
@@ -1826,6 +1870,8 @@ spec:
       - istio-io
       - security-istio-io
   scope: Namespaced
+  subresources:
+    status: {}
   versions:
     - name: v1beta1
       served: true
