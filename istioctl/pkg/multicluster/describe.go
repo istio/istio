@@ -1,0 +1,235 @@
+// Copyright 2019 Istio Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package multicluster
+
+import (
+	"crypto/x509"
+	"fmt"
+	"strings"
+	"text/tabwriter"
+	"time"
+
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+	"k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/client-go/tools/clientcmd/api/latest"
+)
+
+var (
+	clusterDisplaySeparator = strings.Repeat("-", 60)
+)
+
+type remoteSecretStatus string
+
+const (
+	rsStatusNotFound           remoteSecretStatus = "notFound"
+	rsStatusConfigMissing                         = "configMissing"
+	rsStatusConfigDecodeError                     = "configDecodeError"
+	rsStatusConfigInvalid                         = "configInvalid"
+	rsStatusServerNotFound                        = "serverNotFound"
+	seStatusServerAddrMismatch                    = "serverAddrMismatch"
+	rsStatusOk                                    = "ok"
+)
+
+func secretStateAndServer(env Environment, srs remoteSecretsByClusterUID, c *Cluster) (remoteSecretStatus, string) {
+	remoteSecret, ok := srs[c.uid]
+	if !ok {
+		return rsStatusNotFound, ""
+	}
+	kubeconfig, ok := remoteSecret.Data[c.uid]
+	if !ok {
+		return rsStatusConfigMissing, ""
+	}
+	out, _, err := latest.Codec.Decode(kubeconfig, nil, nil)
+	if err != nil {
+		return rsStatusConfigDecodeError, ""
+	}
+	config, ok := out.(*api.Config)
+	if !ok {
+		return rsStatusConfigInvalid, ""
+	}
+	cluster, ok := config.Clusters[config.CurrentContext]
+	if !ok {
+		return rsStatusServerNotFound, ""
+	}
+
+	server := cluster.Server
+	if configCluster, ok := env.GetConfig().Clusters[c.context]; ok {
+		if server != configCluster.Server {
+			return seStatusServerAddrMismatch, fmt.Sprintf("%v (%v from local kubeconfig)", server, configCluster.Server)
+		}
+	}
+
+	return rsStatusOk, cluster.Server
+}
+
+func describeCACerts(env Environment, c *Cluster, indent string) {
+	secrets := c.readCACerts(env)
+
+	tw := tabwriter.NewWriter(env.Stdout(), 0, 8, 2, '\t', 0)
+	fmt.Fprintf(tw, "%vNAME\tISSUER\tSUBJECT\tNOTAFTER\n", indent)
+
+	for _, info := range []struct {
+		cert *x509.Certificate
+		name string
+	}{
+		{secrets.externalRootCert, "ExternalRootCert"},
+		{secrets.externalCACert, "ExternalCACert"},
+		{secrets.selfSignedRootCert, "SelfSignedRootCert"},
+		{secrets.selfSignedCACert, "SelfSignedCACert"},
+	} {
+		if c := info.cert; c != nil {
+			fmt.Fprintf(tw, "%v%v\t%q\t%q\t%v\n",
+				indent,
+				info.name,
+				c.Issuer,
+				c.Subject,
+				c.NotAfter.Format(time.RFC3339))
+		}
+	}
+
+	tw.Flush()
+}
+
+func describeRemoteSecrets(env Environment, mesh *Mesh, c *Cluster, indent string) {
+	serviceRegistrySecrets := c.readRemoteSecrets(env)
+
+	tw := tabwriter.NewWriter(env.Stdout(), 0, 8, 2, '\t', 0)
+	fmt.Fprintf(tw, "%vCONTEXT\tUID\tREGISTERED\tMASTER\t\n", indent)
+	for _, other := range mesh.sortedClusters {
+		if other.uid == c.uid {
+			continue
+		}
+
+		secretState, server := secretStateAndServer(env, serviceRegistrySecrets, other)
+
+		fmt.Fprintf(tw, "%v%v\t%v\t%v\t%v\n",
+			indent,
+			other.context,
+			other.uid,
+			secretState,
+			server,
+		)
+	}
+	tw.Flush()
+}
+
+func describeIngressGateways(env Environment, mesh *Mesh, c *Cluster, indent string) {
+	gatewayAddresses := c.readIngressGatewayAddresses(env)
+
+	env.Printf("gateways: ")
+	if len(gatewayAddresses) == 0 {
+		env.Printf("<none>")
+	} else {
+		for i, addr := range gatewayAddresses {
+			env.Printf("%v", addr)
+			if i < len(gatewayAddresses)-1 {
+				env.Printf(", ")
+			}
+		}
+	}
+	env.Printf("\n")
+}
+
+func describeCluster(mesh *Mesh, c *Cluster, env Environment) error {
+	env.Printf("%v context=%v uid=%v network=%v istio=%v %v\n",
+		strings.Repeat("-", 10),
+		c.context,
+		c.uid,
+		c.Network,
+		c.installed,
+		strings.Repeat("-", 10))
+
+	indent := strings.Repeat(" ", 4)
+
+	env.Printf("\n")
+	describeCACerts(env, c, indent)
+
+	env.Printf("\n")
+	describeRemoteSecrets(env, mesh, c, indent)
+
+	env.Printf("\n")
+	describeIngressGateways(env, mesh, c, indent)
+
+	// TODO verify all clustersByContext have common trust
+
+	return nil
+}
+
+func Describe(opt describeOptions, env Environment) error {
+	mesh, err := meshFromFileDesc(opt.filename, opt.Kubeconfig, env)
+	if err != nil {
+		return err
+	}
+
+	if opt.all {
+		for _, cluster := range mesh.sortedClusters {
+			if err := describeCluster(mesh, cluster, env); err != nil {
+				env.Errorf("could not describe cluster %v: %v\n", cluster, err)
+			}
+			env.Printf("%v\n", clusterDisplaySeparator)
+		}
+	} else {
+		context := opt.Context
+		if context == "" {
+			context = env.GetConfig().CurrentContext
+		}
+		cluster, ok := mesh.clustersByContext[context]
+		if !ok {
+			return fmt.Errorf("cluster %v not found", context)
+		}
+		return describeCluster(mesh, cluster, env)
+	}
+
+	return nil
+}
+
+type describeOptions struct {
+	KubeOptions
+	filenameOption
+	all bool
+}
+
+func (o *describeOptions) prepare(flags *pflag.FlagSet) error {
+	o.KubeOptions.prepare(flags)
+	return o.filenameOption.prepare()
+}
+
+func (o *describeOptions) addFlags(flags *pflag.FlagSet) {
+	o.filenameOption.addFlags(flags)
+
+	flags.BoolVar(&o.all, "all", o.all,
+		"describe the status of all clustersByContext in the mesh")
+}
+
+func NewDescribeCommand() *cobra.Command {
+	opt := describeOptions{}
+	c := &cobra.Command{
+		Use:   "describe",
+		Short: `Describe status of the multi-cluster mesh's control plane' `,
+		RunE: func(c *cobra.Command, args []string) error {
+			if err := opt.prepare(c.Flags()); err != nil {
+				return err
+			}
+			env, err := NewEnvironmentFromCobra(opt.Kubeconfig, opt.Context, c)
+			if err != nil {
+				return err
+			}
+			return Describe(opt, env)
+		},
+	}
+	opt.addFlags(c.PersistentFlags())
+	return c
+}

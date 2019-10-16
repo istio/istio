@@ -34,15 +34,15 @@ type TrustAnchorOptions struct {
 	KubeOptions
 }
 
-// NewCreateTrustAnchorCommand creates a new command for establishing trust between two clusters in a multi-cluster mesh.
+// NewCreateTrustAnchorCommand creates a new command for establishing trust between two clustersByContext in a multi-cluster mesh.
 func NewCreateTrustAnchorCommand() *cobra.Command {
 	opts := TrustAnchorOptions{}
 	c := &cobra.Command{
 		Use:   "create-trust-anchor [<cluster-name>]",
 		Short: "Create a configmap with an additional trusted root CA cert",
-		Long: `Establish trust between two or more clusters by appending each 
+		Long: `Establish trust between two or more clustersByContext by appending each 
 cluster's public root CA cert to other cluster's list of trusted roots. This is 
-useful when form a multi-cluster mesh from existing clusters with their own unique 
+useful when form a multi-cluster mesh from existing clustersByContext with their own unique 
 CAs.
 
 
@@ -113,7 +113,7 @@ func trustAnchorName(client kubernetes.Interface) (string, error) {
 }
 
 // CreateTrustAnchor creates a configmap with the public root CA of the current cluster's Istio control plane.
-// This can be used to establish trust between two or more clusters.
+// This can be used to establish trust between two or more clustersByContext.
 func CreateTrustAnchor(opt TrustAnchorOptions) (string, error) {
 	client, err := kube.CreateClientset(opt.Kubeconfig, opt.Context)
 	if err != nil {

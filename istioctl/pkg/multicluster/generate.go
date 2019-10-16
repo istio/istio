@@ -21,10 +21,9 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"k8s.io/client-go/tools/clientcmd/api"
 
 	"istio.io/api/mesh/v1alpha1"
-
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
@@ -54,7 +53,7 @@ type valueType struct {
 	}
 }
 
-func generateValuesYAML(mesh *Mesh, current *KubeCluster, meshNetworks *v1alpha1.MeshNetworks) (string, error) {
+func generateValuesYAML(mesh *Mesh, current *Cluster, meshNetworks *v1alpha1.MeshNetworks) (string, error) {
 	meshNetworksJSON, err := protomarshal.ToJSONMap(meshNetworks)
 	if err != nil {
 		return "", err
@@ -65,45 +64,17 @@ func generateValuesYAML(mesh *Mesh, current *KubeCluster, meshNetworks *v1alpha1
 	values.Global.MeshID = mesh.meshID
 	values.Global.Network = current.Network
 	values.Global.ControlPlaneSecurityEnabled = true
-	values.Global.MTLS.Enabled = true
-	values.Global.MultiCluster.ClusterName = current.UniqueName()
-	values.Security.SelfSigned = mesh.hints.SelfSigned
-	values.Gateways.IstioIngressGateway.Env["ISTIO_MESH_NETWORK"] = current.Network // Istio <= 1.3
-
-	//values := map[string]interface{}{
-	//	"global": map[string]interface{}{
-	//		"meshNetworks":                meshNetworksJSON["networks"],
-	//		"meshID":                      mesh.meshID,
-	//		"network":                     current.Network,
-	//		"controlPlaneSecurityEnabled": true,
-	//		"multiCluster": map[string]interface{}{
-	//			"clusterName": current.UniqueName(),
-	//		},
-	//		"mtls": map[string]interface{}{
-	//			"enabled": true,
-	//		},
-	//	},
-	//
-	//	// TODO required for Istio <= 1.3.x
-	//	"gateways": map[string]interface{}{
-	//		"istio-ingressgateway": map[string]interface{}{
-	//			"env": map[string]interface{}{
-	//				"ISTIO_META_NETWORK": current.Network,
-	//			},
-	//		},
-	//	},
-	//
-	//	"security": map[string]interface{}{
-	//		"selfSigned": mesh.hints.SelfSigned,
-	//	},
-	//}
+	values.Global.MTLS.Enabled = true // required?
+	values.Global.MultiCluster.ClusterName = current.uid
+	// rRquired for istio <= 1.3 . Newer chart versions use `global.network` to assign the gateway's network.
+	values.Gateways.IstioIngressGateway.Env["ISTIO_MESH_NETWORK"] = current.Network
 
 	valuesStr, err := yaml.Marshal(values)
 	if err != nil {
 		return "", err
 	}
 
-	header := fmt.Sprintf("# auto-generated values.yaml for cluster %q\n", current.context)
+	header := fmt.Sprintf("# auto-generated values.yaml for cluster %q\n", current)
 	var buf bytes.Buffer
 	if _, err := buf.WriteString(header); err != nil {
 		return "", err
@@ -125,12 +96,12 @@ func generateValues(opt generateOptions, env Environment) error {
 		context = env.GetConfig().CurrentContext
 	}
 
-	cluster, ok := mesh.clusters[context]
+	cluster, ok := mesh.clustersByContext[context]
 	if !ok {
 		return fmt.Errorf("Context %v not found", context)
 	}
 
-	meshNetwork, err := meshNetworkForCluster(env.GetConfig(), mesh, cluster)
+	meshNetwork, err := meshNetworkForCluster(env, mesh, cluster)
 	if err != nil {
 		return err
 	}
@@ -140,19 +111,19 @@ func generateValues(opt generateOptions, env Environment) error {
 		return err
 	}
 
-	fmt.Fprintf(env.Stdout(), out)
+	env.Printf("%v\n", out)
 
 	return nil
 }
 
-func meshNetworkForCluster(apiConfig *api.Config, mesh *Mesh, current *KubeCluster) (*v1alpha1.MeshNetworks, error) {
+func meshNetworkForCluster(env Environment, mesh *Mesh, c *Cluster) (*v1alpha1.MeshNetworks, error) {
 	mn := &v1alpha1.MeshNetworks{
 		Networks: map[string]*v1alpha1.Network{},
 	}
 
-	for context, cluster := range mesh.clusters {
-		if _, ok := apiConfig.Contexts[context]; !ok {
-			return nil, fmt.Errorf("Context %v not found", context)
+	for context, cluster := range mesh.clustersByContext {
+		if _, ok := env.GetConfig().Contexts[context]; !ok {
+			return nil, fmt.Errorf("context %v not found", context)
 		}
 
 		// Don't include this cluster in the mesh's network yet.
@@ -165,8 +136,8 @@ func meshNetworkForCluster(apiConfig *api.Config, mesh *Mesh, current *KubeClust
 			mn.Networks[network] = &v1alpha1.Network{}
 		}
 
-		// TODO debug why RegistryServiceName doesn't work
-		for _, address := range current.state.gatewayAddresses {
+		for _, address := range cluster.readIngressGatewayAddresses(env) {
+			// TODO debug why RegistryServiceName doesn't work
 			mn.Networks[network].Gateways = append(mn.Networks[network].Gateways,
 				&v1alpha1.Network_IstioNetworkGateway{
 					Gw: &v1alpha1.Network_IstioNetworkGateway_Address{
@@ -177,11 +148,11 @@ func meshNetworkForCluster(apiConfig *api.Config, mesh *Mesh, current *KubeClust
 			)
 		}
 
-		// Use the unique cluster name for the registry so we have consistency across the mesh. Pilot
+		// Use the cluster uid for the registry name so we have consistency across the mesh. Pilot
 		// uses a special name for the local cluster against which it is running.
-		registry := current.UniqueName()
-		if context == current.context {
-			registry = selfRegistryName
+		registry := c.uid
+		if context == c.context {
+			registry = string(serviceregistry.KubernetesRegistry)
 		}
 
 		mn.Networks[network].Endpoints = append(mn.Networks[network].Endpoints,
@@ -216,9 +187,10 @@ func NewGenerateCommand() *cobra.Command {
 		Short: `generate configuration for setting up a multi-cluster mesh`,
 	}
 
-	// TODO(ayj) NewGenerateTrustAnchor(), NewGenerateRemoteSecret()
 	c.AddCommand(
 		NewGenerateValuesCommand(),
+		// NewGenerateTrustAnchorCommand(),
+		// NewGenerateRemoteSecrete()
 	)
 	return c
 }
@@ -231,7 +203,7 @@ func NewGenerateValuesCommand() *cobra.Command {
 			if err := opt.prepare(c.Flags()); err != nil {
 				return err
 			}
-			env, err := newKubeEnvFromCobra(opt.Kubeconfig, opt.Context, c)
+			env, err := NewEnvironmentFromCobra(opt.Kubeconfig, opt.Context, c)
 			if err != nil {
 				return err
 			}

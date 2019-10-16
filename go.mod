@@ -80,7 +80,6 @@ require (
 	github.com/gophercloud/gophercloud v0.0.0-20190424031112-b9b92a825806 // indirect
 	github.com/gorilla/mux v1.7.2
 	github.com/gorilla/websocket v1.4.0
-	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/grpc-ecosystem/grpc-opentracing v0.0.0-20171214222146-0e7658f8ee99
@@ -97,7 +96,6 @@ require (
 	github.com/hashicorp/vault v0.10.0
 	github.com/howeyc/fsnotify v0.9.0
 	github.com/jefferai/jsonx v1.0.0 // indirect
-	github.com/json-iterator/go v1.1.7 // indirect
 	github.com/juju/errors v0.0.0-20190207033735-e65537c515d7
 	github.com/juju/loggo v0.0.0-20190212223446-d976af380377 // indirect
 	github.com/juju/testing v0.0.0-20190429233213-dfc56b8c09fc // indirect
@@ -146,12 +144,12 @@ require (
 	go.opencensus.io v0.21.0
 	go.uber.org/atomic v1.4.0
 	go.uber.org/zap v1.10.0
-	golang.org/x/net v0.0.0-20190827160401-ba9fcec4b297
+	golang.org/x/net v0.0.0-20190923162816-aa69164e4478
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
-	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
+	golang.org/x/time v0.0.0-20190921001708-c4c64cad1fd0
 	golang.org/x/tools v0.0.0-20190624180213-70d37148ca0c
 	google.golang.org/api v0.8.0
-	google.golang.org/genproto v0.0.0-20190819201941-24fa4b261c55
+	google.golang.org/genproto v0.0.0-20190916214212-f660b8655731
 	google.golang.org/grpc v1.24.0
 	gopkg.in/d4l3k/messagediff.v1 v1.2.1
 	gopkg.in/logfmt.v0 v0.3.0 // indirect
@@ -160,7 +158,8 @@ require (
 	gopkg.in/square/go-jose.v2 v2.3.1
 	gopkg.in/stack.v1 v1.7.0 // indirect
 	gopkg.in/yaml.v2 v2.2.2
-	istio.io/api v0.0.0-20191009011736-593785242b9d
+	istio.io/api v0.0.0-20191015210738-bfa91e88abf1
+	istio.io/client-go v0.0.0-20191016000438-f2795159f404 // indirect
 	istio.io/gogo-genproto v0.0.0-20190930162913-45029607206a
 	istio.io/operator v0.0.0-20191008215643-ac62f7e15efe
 	istio.io/pkg v0.0.0-20191008025934-66d669f9a3fd
@@ -170,7 +169,6 @@ require (
 	k8s.io/cli-runtime v0.0.0
 	k8s.io/client-go v11.0.1-0.20190409021438-1a26190bd76a+incompatible
 	k8s.io/helm v2.14.3+incompatible
-	k8s.io/klog v0.4.0 // indirect
 	k8s.io/kubernetes v1.13.1
 	sigs.k8s.io/yaml v1.1.0
 )

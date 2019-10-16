@@ -38,17 +38,17 @@ import (
 )
 
 var (
-	Codec  runtime.Codec
-	Scheme *runtime.Scheme
+	codec  runtime.Codec
+	scheme *runtime.Scheme
 )
 
 func init() {
-	Scheme = runtime.NewScheme()
-	utilruntime.Must(v1.AddToScheme(Scheme))
+	scheme = runtime.NewScheme()
+	utilruntime.Must(v1.AddToScheme(scheme))
 	opt := json.SerializerOptions{true, false, false}
-	yamlSerializer := json.NewSerializerWithOptions(json.DefaultMetaFactory, Scheme, Scheme, opt)
-	Codec = versioning.NewDefaultingCodecForScheme(
-		Scheme,
+	yamlSerializer := json.NewSerializerWithOptions(json.DefaultMetaFactory, scheme, scheme, opt)
+	codec = versioning.NewDefaultingCodecForScheme(
+		scheme,
 		yamlSerializer,
 		yamlSerializer,
 		v1.SchemeGroupVersion,
@@ -56,12 +56,13 @@ func init() {
 	)
 }
 
-var (
-	remoteSecretPrefix        = "istio-remote-secret"
+const (
+	// default service account to use for remote cluster access.
 	DefaultServiceAccountName = "istio-multi"
 )
 
-// NewCreateRemoteSecretCommand creates a new command for joining two clusters togeather in a multi-cluster mesh.
+// NewCreateRemoteSecretCommand creates a new command for joining two contexts
+// together in a multi-cluster mesh.
 func NewCreateRemoteSecretCommand() *cobra.Command {
 	opts := RemoteSecretOptions{
 		ServiceAccountName: DefaultServiceAccountName,
@@ -89,7 +90,7 @@ istioctl --Kubeconfig=c0.yaml x create-remote-secret --auth-type=plugin --auth-p
 			if err := opts.prepare(c.Flags()); err != nil {
 				return err
 			}
-			env, err := newKubeEnvFromCobra(opts.Kubeconfig, opts.Context, c)
+			env, err := NewEnvironmentFromCobra(opts.Kubeconfig, opts.Context, c)
 			if err != nil {
 				return err
 			}
@@ -251,7 +252,7 @@ func writeEncodedObject(out io.Writer, in runtime.Object) error {
 	if _, err := fmt.Fprint(out, outputHeader); err != nil {
 		return err
 	}
-	if err := Codec.Encode(in, out); err != nil {
+	if err := codec.Encode(in, out); err != nil {
 		return err
 	}
 	if _, err := fmt.Fprint(out, outputTrailer); err != nil {
@@ -296,7 +297,7 @@ func remoteSecretName(client kubernetes.Interface) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return remoteSecretPrefix + "-" + string(uid), nil
+	return string(uid), nil
 }
 
 // RemoteSecretOptions contains the options for creating a remote secret.

@@ -23,18 +23,21 @@ import (
 const (
 	defaultIstioNamespace       = "istio-system"
 	defaultServiceAccountReader = "istio-multi"
-	selfRegistryName            = "Kubernetes"
-
-	managedSecretLabel          = "istio.io/managed-secret"
-	clusterContextAnnotationKey = "istio.io/clusterContext"
 )
 
+// TODO(ayj) - add to istio.io/api/annotations
+const clusterContextAnnotationKey = "istio.io/clusterContext"
+
+// KubeOptions contains kubernetes options common to all commands.
 type KubeOptions struct {
 	Kubeconfig string
 	Context    string
 	Namespace  string
 }
 
+// Inherit the common kubernetes flags defined in the root package. This is a bit of a hack,
+// but it allows us to directly get the final values for each of these flags without needing
+// to pass pointers-to-flags through all of the (sub)commands.
 func (o *KubeOptions) prepare(flags *pflag.FlagSet) error {
 	if f := flags.Lookup("Kubeconfig"); f != nil {
 		o.Kubeconfig = f.Value.String()

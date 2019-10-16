@@ -15,13 +15,15 @@
 package multicluster
 
 import (
+	"fmt"
 	"io"
 	"io/ioutil"
 
 	"github.com/spf13/cobra"
-	"istio.io/istio/pkg/kube"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd/api"
+
+	"istio.io/istio/pkg/kube"
 )
 
 type Environment interface {
@@ -30,6 +32,8 @@ type Environment interface {
 	Stdout() io.Writer
 	Stderr() io.Writer
 	ReadFile(filename string) ([]byte, error)
+	Printf(format string, a ...interface{})
+	Errorf(format string, a ...interface{})
 }
 
 type kubeEnvironment struct {
@@ -42,12 +46,19 @@ func (e *kubeEnvironment) CreateClientSet(kubeconfig, context string) (kubernete
 	return kube.CreateClientset(kubeconfig, context)
 }
 
+func (e *kubeEnvironment) Printf(format string, a ...interface{}) {
+	_, _ = fmt.Fprintf(e.stdout, format, a...)
+}
+func (e *kubeEnvironment) Errorf(format string, a ...interface{}) {
+	_, _ = fmt.Fprintf(e.stderr, format, a...)
+}
+
 func (e *kubeEnvironment) GetConfig() *api.Config                   { return e.config }
 func (e *kubeEnvironment) Stdout() io.Writer                        { return e.stdout }
 func (e *kubeEnvironment) Stderr() io.Writer                        { return e.stderr }
 func (e *kubeEnvironment) ReadFile(filename string) ([]byte, error) { return ioutil.ReadFile(filename) }
 
-func newKubeEnvFromCobra(kubeconfig, context string, cmd *cobra.Command) (Environment, error) {
+func NewEnvironment(kubeconfig, context string, stdout, stderr io.Writer) (Environment, error) {
 	config, err := kube.BuildClientCmd(kubeconfig, context).ConfigAccess().GetStartingConfig()
 	if err != nil {
 		return nil, err
@@ -55,7 +66,11 @@ func newKubeEnvFromCobra(kubeconfig, context string, cmd *cobra.Command) (Enviro
 
 	return &kubeEnvironment{
 		config: config,
-		stdout: cmd.OutOrStdout(),
-		stderr: cmd.OutOrStderr(),
+		stdout: stdout,
+		stderr: stderr,
 	}, nil
+}
+
+func NewEnvironmentFromCobra(kubeconfig, context string, cmd *cobra.Command) (Environment, error) {
+	return NewEnvironment(kubeconfig, context, cmd.OutOrStdout(), cmd.OutOrStderr())
 }

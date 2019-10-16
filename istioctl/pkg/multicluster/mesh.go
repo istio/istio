@@ -14,18 +14,18 @@ type MeshDescConfigHints struct {
 	SelfSigned bool `json:selfSigned,omitempty`
 }
 
-// MeshDesc describes the topology of a multi-cluster mesh. The clusters in the mesh reference the active
+// MeshDesc describes the topology of a multi-cluster mesh. The clustersByContext in the mesh reference the active
 // Kubeconfig file as described by https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig.
 type MeshDesc struct {
 	// Mesh Identifier.
 	MeshID string `json:"mesh_id,omitempty"`
 
-	// Collection of clusters in the multi-cluster mesh. Clusters are indexed by Context name and
-	// reference clusters defined in the Kubeconfig following kubectl precedence rules.
-	Clusters map[string]*ClusterDesc `json:"clusters,omitempty"`
+	// Collection of clustersByContext in the multi-cluster mesh. Clusters are indexed by Context name and
+	// reference clustersByContext defined in the Kubeconfig following kubectl precedence rules.
+	Clusters map[string]ClusterDesc `json:"clustersByContext,omitempty"`
 
 	// Hints for how multi-cluster configuration should be generated.
-	ConfigHints *MeshDescConfigHints `json:configHints,omitempty`
+	ConfigHints *MeshDescConfigHints `json:"configHints,omitempty"`
 }
 
 // ClusterDesc describes attributes of a cluster and the desired state of joining the mesh.
@@ -42,27 +42,14 @@ type ClusterDesc struct {
 	// When true, disables enforcement of common trust with this cluster and the rest of the mesh.
 	DisableTrust bool `json:"joinTrust,omitempty"`
 
-	// When true, disables linking the service registry of this cluster with other clusters in the mesh.
+	// When true, disables linking the service registry of this cluster with other clustersByContext in the mesh.
 	DisableServiceDiscovery bool `json:"joinServiceDiscovery,omitempty"`
 }
 
 type Mesh struct {
-	meshID   string
-	clusters map[string]*KubeCluster // by context
-	sorted   []*KubeCluster
-	hints    *MeshDescConfigHints
-}
-
-func (m *Mesh) forEachCluster(env Environment, fn func(c *KubeCluster) (cont bool, err error)) error {
-	for _, c := range m.sorted {
-		if cont, err := fn(c); err != nil {
-			fmt.Fprintf(env.Stdout(), "error: cluster %v: %v\n", c.context, err)
-			if !cont {
-				return err
-			}
-		}
-	}
-	return nil
+	meshID            string
+	clustersByContext map[string]*Cluster // by context
+	sortedClusters    []*Cluster
 }
 
 func LoadMeshDesc(filename string, env Environment) (*MeshDesc, error) {
@@ -78,17 +65,16 @@ func LoadMeshDesc(filename string, env Environment) (*MeshDesc, error) {
 }
 
 func NewMesh(kubeconfig string, md *MeshDesc, env Environment) (*Mesh, error) {
-
-	clusters := make(map[string]*KubeCluster)
+	clusters := make(map[string]*Cluster)
 	for context, clusterDesc := range md.Clusters {
-		cluster, err := NewCluster(kubeconfig, context, *clusterDesc, env)
+		cluster, err := NewCluster(kubeconfig, context, clusterDesc, env)
 		if err != nil {
 			return nil, fmt.Errorf("error discovering %v: %v", context, err)
 		}
 		clusters[context] = cluster
 	}
 
-	sortedClusters := make([]*KubeCluster, 0, len(clusters))
+	sortedClusters := make([]*Cluster, 0, len(clusters))
 	for _, other := range clusters {
 		sortedClusters = append(sortedClusters, other)
 	}
@@ -97,10 +83,9 @@ func NewMesh(kubeconfig string, md *MeshDesc, env Environment) (*Mesh, error) {
 	})
 
 	return &Mesh{
-		meshID:   md.MeshID,
-		clusters: make(map[string]*KubeCluster),
-		sorted:   sortedClusters,
-		hints:    md.ConfigHints,
+		meshID:            md.MeshID,
+		clustersByContext: make(map[string]*Cluster),
+		sortedClusters:    sortedClusters,
 	}, nil
 }
 
@@ -126,7 +111,7 @@ func NewMulticlusterCommand() *cobra.Command {
 	c.AddCommand(
 		NewGenerateCommand(),
 		NewJoinCommand(),
-		NewCheckCommand(),
+		NewDescribeCommand(),
 	)
 
 	return c

@@ -127,7 +127,7 @@ metadata:
 stringData:
   istio-remote-secret-54643f96-eca0-11e9-bb97-42010a80000a: |
     apiVersion: v1
-    clusters:
+    clustersByContext:
     - cluster:
         certificate-authority-data: Y2FEYXRh
         server: server
@@ -467,7 +467,7 @@ func TestGetClusterServerFromKubeconfig(t *testing.T) {
 
 func TestCreateRemoteKubeconfig(t *testing.T) {
 	kubeconfig := `apiVersion: v1
-clusters:
+clustersByContext:
 - cluster:
     certificate-authority-data: Y2FEYXRh
     server: ""
@@ -589,7 +589,7 @@ metadata:
 
 func TestCreateRemoteSecretFromPlugin(t *testing.T) {
 	kubeconfig := `apiVersion: v1
-clusters:
+clustersByContext:
 - cluster:
     certificate-authority-data: Y2FEYXRh
     server: ""

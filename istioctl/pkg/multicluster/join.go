@@ -22,7 +22,6 @@ import (
 	"github.com/spf13/pflag"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"istio.io/istio/pkg/kube/secretcontroller"
@@ -35,9 +34,9 @@ func Join(opt joinOptions, env Environment) error {
 	}
 
 	if opt.all {
-		for _, cluster := range mesh.sorted {
+		for _, cluster := range mesh.sortedClusters {
 			if err := joinServiceRegistries(mesh, env); err != nil {
-				fmt.Fprintf(env.Stderr(), "could not join cluster %v to mesh: %v", cluster.context, err)
+				env.Errorf("error: could not join cluster %v to mesh: %v\n", cluster, err)
 			}
 		}
 	} else {
@@ -49,18 +48,17 @@ func Join(opt joinOptions, env Environment) error {
 	return nil
 }
 
-func deleteSecret(cluster *KubeCluster, s *v1.Secret) error {
+func deleteSecret(cluster *Cluster, s *v1.Secret) error {
 	return cluster.client.CoreV1().Secrets(cluster.Namespace).Delete(s.Name, &metav1.DeleteOptions{})
 }
 
-func applySecret(cluster *KubeCluster, curr *v1.Secret) error {
+func applySecret(cluster *Cluster, curr *v1.Secret) error {
 	err := wait.Poll(500*time.Millisecond, 5*time.Second, func() (bool, error) {
 		prev, err := cluster.client.CoreV1().Secrets(cluster.Namespace).Get(curr.Name, metav1.GetOptions{})
 		if err == nil {
 			prev.StringData = curr.StringData
 			prev.Annotations[clusterContextAnnotationKey] = cluster.context
 			prev.Labels[secretcontroller.MultiClusterSecretLabel] = "true"
-			prev.Labels[managedSecretLabel] = "true"
 			if _, err := cluster.client.CoreV1().Secrets(cluster.Namespace).Update(prev); err != nil {
 				return false, err
 			}
@@ -75,14 +73,13 @@ func applySecret(cluster *KubeCluster, curr *v1.Secret) error {
 }
 
 func joinServiceRegistries(mesh *Mesh, env Environment) error {
-	secrets := make(map[string]*v1.Secret)
-	prune := make(map[string]map[string]*v1.Secret)
+	preparedSecrets := make(map[string]*v1.Secret)
+	pruneCandidates := make(map[string]map[string]*v1.Secret)
 
-	// generate secrets
-	for _, cluster := range mesh.sorted {
-		fmt.Printf("creating secret for first %v\n", cluster.context)
-		// skip clusters without Istio installed
-		if !cluster.state.installed {
+	for _, cluster := range mesh.sortedClusters {
+		fmt.Printf("creating secret for first %v\n", cluster)
+		// skip clustersByContext without Istio installed
+		if !cluster.installed {
 			continue
 		}
 		context := cluster.context
@@ -102,61 +99,50 @@ func joinServiceRegistries(mesh *Mesh, env Environment) error {
 		if err != nil {
 			return fmt.Errorf("%v: %v", context, err)
 		}
-		secret.Labels[managedSecretLabel] = "true"
-		secrets[cluster.uid] = secret
 
-		// build the list of secrets to potentially prune from this first
-		existing, err := cluster.client.CoreV1().Secrets(cluster.Namespace).List(metav1.ListOptions{
-			FieldSelector: fields.SelectorFromSet(fields.Set{managedSecretLabel: "true"}).String(),
-		})
-		if err == nil {
-			for _, secret := range existing.Items {
-				if _, ok := prune[context]; !ok {
-					prune[context] = make(map[string]*v1.Secret)
-				}
-				prune[context][secret.Name] = &secret
-			}
-		}
+		preparedSecrets[cluster.uid] = secret
+
+		// build the list of preparedSecrets to potentially pruneCandidates from this first
+		pruneCandidates[context] = cluster.readRemoteSecrets(env)
 	}
 
-	for _, first := range mesh.sorted {
-		for _, second := range mesh.sorted {
+	for _, first := range mesh.sortedClusters {
+		for _, second := range mesh.sortedClusters {
 			if first.uid == second.uid {
 				continue
 			}
 
-			fmt.Fprintf(env.Stdout(), "Joining %v (%v) and %v (%v)\n",
-				first.uid, first.context, second.uid, second.context)
+			env.Printf("Joining %v and %v\n", first, second)
 
 			// pairwise Join
 			for _, s := range []struct {
-				local  *KubeCluster
-				remote *KubeCluster
+				local  *Cluster
+				remote *Cluster
 			}{
 				{first, second},
 				{second, first},
 			} {
-				remoteSecret, ok := secrets[s.local.uid]
+				remoteSecret, ok := preparedSecrets[s.local.uid]
 				if !ok {
 					continue
 				}
 
 				if err := applySecret(s.local, remoteSecret); err != nil {
-					fmt.Fprintf(env.Stderr(), "%v failed: %v", s.local.context, err)
+					env.Errorf("%v failed: %v\n", s.local, err)
 				} else {
-					fmt.Fprintf(env.Stdout(), "%v registered with %v", s.remote.context, s.local.context)
+					env.Printf("%v registered with %v\n", s.remote, s.local)
 				}
 
-				delete(prune[s.remote.context], remoteSecret.Name)
+				delete(pruneCandidates[s.remote.context], remoteSecret.Name)
 			}
 		}
 	}
 
-	// prune any leftover secrets
-	for context, secrets := range prune {
+	// pruneCandidates any leftover preparedSecrets
+	for context, secrets := range pruneCandidates {
 		for _, secret := range secrets {
 			fmt.Printf("pruning secret  %v from first %v\n", secret.Name, context)
-			if err := deleteSecret(mesh.clusters[context], secret); err != nil {
+			if err := deleteSecret(mesh.clustersByContext[context], secret); err != nil {
 				return err
 			}
 		}
@@ -183,23 +169,23 @@ func (o *joinOptions) addFlags(flags *pflag.FlagSet) {
 	o.filenameOption.addFlags(flags)
 
 	flags.BoolVar(&o.trust, "trust", true,
-		"establish trust between clusters in the mesh")
+		"establish trust between clustersByContext in the mesh")
 	flags.BoolVar(&o.serviceDiscovery, "discovery", true,
-		"link Istio service discovery with the clusters service registriesS")
+		"link Istio service discovery with the clustersByContext service registriesS")
 	flags.BoolVar(&o.all, "all", o.all,
-		"join all clusters together in the mesh")
+		"join all clustersByContext together in the mesh")
 }
 
 func NewJoinCommand() *cobra.Command {
 	opt := joinOptions{}
 	c := &cobra.Command{
 		Use:   "join",
-		Short: `Join multiple clusters into a single multi-cluster mesh`,
+		Short: `Join multiple clustersByContext into a single multi-cluster mesh`,
 		RunE: func(c *cobra.Command, args []string) error {
 			if err := opt.prepare(c.Flags()); err != nil {
 				return err
 			}
-			env, err := newKubeEnvFromCobra(opt.Kubeconfig, opt.Context, c)
+			env, err := NewEnvironmentFromCobra(opt.Kubeconfig, opt.Context, c)
 			if err != nil {
 				return err
 			}

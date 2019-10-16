@@ -13,23 +13,64 @@ import (
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 )
 
-// KubeCluster represents the current state  of a cluster in the mesh.
-type KubeCluster struct {
+// Cluster represents the current state  of a cluster in the mesh.
+type Cluster struct {
 	ClusterDesc
 
-	// current Context referenced by the MeshDesc.
+	// Current context referenced by the MeshDesc. This context corresponds to the `context` in
+	// the current kubeconfig file. It is essentially the human friendly display
+	// name. It can be changed by the user with`kubectl config rename-context`.
 	context string
-
 	// uuid of kube-system Namespace. Fixed for the lifetime of cluster.
-	uid string
-
-	client kubernetes.Interface
-
-	state *clusterState
+	uid       string
+	installed bool
+	client    kubernetes.Interface
 }
 
-func (c *KubeCluster) UniqueName() string {
-	return fmt.Sprintf("%v-%v", c.uid, c.context)
+func NewCluster(kubeconfig, context string, desc ClusterDesc, env Environment) (*Cluster, error) {
+	if desc.Namespace == "" {
+		desc.Namespace = defaultIstioNamespace
+	}
+	if desc.ServiceAccountReader == "" {
+		desc.ServiceAccountReader = defaultServiceAccountReader
+	}
+
+	client, err := env.CreateClientSet(kubeconfig, context)
+	if err != nil {
+		return nil, err
+	}
+
+	kubeSystem, err := client.CoreV1().Namespaces().Get("kube-system", metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	uid := string(kubeSystem.UID)
+
+	// use the existence of pilot as assurance the control plane is present in the specified namespace.
+	var installed bool
+	if _, err := client.AppsV1().Deployments(desc.Namespace).Get("istio-pilot", metav1.GetOptions{}); err == nil {
+		installed = true
+	}
+
+	return &Cluster{
+		ClusterDesc: desc,
+		context:     context,
+		uid:         uid,
+		client:      client,
+		installed:   installed,
+	}, nil
+}
+
+func (c *Cluster) String() string {
+	return fmt.Sprintf("%v (%v)", c.uid, c.context)
+}
+
+type CACerts struct {
+	// TODO select precedence if both secrets are present
+	externalCACert     *x509.Certificate
+	externalRootCert   *x509.Certificate
+	selfSignedCACert   *x509.Certificate
+	selfSignedRootCert *x509.Certificate
 }
 
 func extractCert(filename string, secret *v1.Secret) (*x509.Certificate, error) {
@@ -44,108 +85,64 @@ func extractCert(filename string, secret *v1.Secret) (*x509.Certificate, error) 
 	return cert, nil
 }
 
-type clusterState struct {
-	uid string
+type remoteSecretsByClusterUID map[string]*v1.Secret
 
-	// cached state from cluster
-	installed        bool
-	gatewayAddresses []string
-
-	// TODO select precedence if both secrets are present
-	externalCACert     *x509.Certificate
-	externalRootCert   *x509.Certificate
-	selfSignedCACert   *x509.Certificate
-	selfSignedRootCert *x509.Certificate
-
-	remoteSecrets map[string]*v1.Secret
-}
-
-func refreshClusterState(client kubernetes.Interface, desc *ClusterDesc, env Environment) (*clusterState, error) {
-	var state clusterState
-
-	kubeSystem, err := client.CoreV1().Namespaces().Get("kube-system", metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-	state.uid = string(kubeSystem.UID)
-
-	if _, err := client.AppsV1().Deployments(desc.Namespace).Get("istio-pilot", metav1.GetOptions{}); err == nil {
-		state.installed = true
-	}
-
-	// informational
-	secrets, err := client.CoreV1().Secrets(desc.Namespace).List(metav1.ListOptions{
+func (c *Cluster) readRemoteSecrets(env Environment) remoteSecretsByClusterUID {
+	secretMap := make(remoteSecretsByClusterUID)
+	listOptions := metav1.ListOptions{
 		LabelSelector: fields.SelectorFromSet(fields.Set{secretcontroller.MultiClusterSecretLabel: "true"}).String(),
-	})
-	state.remoteSecrets = make(map[string]*v1.Secret)
-	if err == nil {
-		for i := range secrets.Items {
-			secret := &secrets.Items[i]
-			state.remoteSecrets[secret.Name] = secret
-		}
 	}
-
-	externalCASecret, err := client.CoreV1().Secrets(desc.Namespace).Get("cacerts", metav1.GetOptions{})
-	if err == nil {
-		state.externalCACert, err = extractCert("ca-cert.pem", externalCASecret)
-		if err != nil {
-			fmt.Fprint(env.Stderr(), err)
-		}
-		state.externalRootCert, err = extractCert("root-cert.pem", externalCASecret)
-		if err != nil {
-			fmt.Fprint(env.Stderr(), err)
-		}
+	secrets, err := c.client.CoreV1().Secrets(c.Namespace).List(listOptions)
+	if err != nil {
+		env.Errorf("error: could not list secrets in cluster %v: %v\n", c, err)
+		return secretMap
 	}
-	selfSignedCASecret, err := client.CoreV1().Secrets(desc.Namespace).Get("istio-ca-secrets", metav1.GetOptions{})
-	if err == nil {
-		state.selfSignedCACert, err = extractCert("ca-cert.pem", selfSignedCASecret)
-		if err != nil {
-			fmt.Fprint(env.Stderr(), err)
-		}
-		state.selfSignedRootCert, err = extractCert("root-cert.pem", selfSignedCASecret)
-		if err != nil {
-			fmt.Fprint(env.Stderr(), err)
-		}
+	for i := range secrets.Items {
+		secret := &secrets.Items[i]
+		secretMap[secret.Name] = secret
 	}
-
-	var gatewayAddresses []string
-	if ingress, err := client.CoreV1().Services(desc.Namespace).Get("istio-ingressgateway", metav1.GetOptions{}); err == nil {
-		for _, ip := range ingress.Status.LoadBalancer.Ingress {
-			if ip.IP != "" {
-				gatewayAddresses = append(gatewayAddresses, ip.IP)
-			}
-			if ip.Hostname != "" {
-				gatewayAddresses = append(gatewayAddresses, ip.Hostname)
-			}
-		}
-	}
-
-	return &state, nil
+	return secretMap
 }
 
-func NewCluster(kubeconfig, context string, desc ClusterDesc, env Environment) (*KubeCluster, error) {
-	if desc.Namespace == "" {
-		desc.Namespace = defaultIstioNamespace
+func (c *Cluster) readCACerts(env Environment) *CACerts {
+	cs := &CACerts{}
+	externalCASecret, err := c.client.CoreV1().Secrets(c.Namespace).Get("cacerts", metav1.GetOptions{})
+	if err == nil {
+		if cs.externalCACert, err = extractCert("ca-cert.pem", externalCASecret); err != nil {
+			env.Errorf("error: %v\n", err)
+		}
+		if cs.externalRootCert, err = extractCert("root-cert.pem", externalCASecret); err != nil {
+			env.Errorf("error: %v\n", err)
+		}
 	}
-	if desc.ServiceAccountReader == "" {
-		desc.ServiceAccountReader = defaultServiceAccountReader
+	selfSignedCASecret, err := c.client.CoreV1().Secrets(c.Namespace).Get("istio-ca-secrets", metav1.GetOptions{})
+	if err == nil {
+		if cs.selfSignedCACert, err = extractCert("ca-cert.pem", selfSignedCASecret); err != nil {
+			env.Errorf("error: %v\n", err)
+		}
+		if cs.selfSignedRootCert, err = extractCert("root-cert.pem", selfSignedCASecret); err != nil {
+			env.Errorf("error: %v\n", err)
+		}
 	}
+	return cs
+}
 
-	client, err := env.CreateClientSet(kubeconfig, context)
+func (c *Cluster) readIngressGatewayAddresses(env Environment) []string {
+	var addresses []string
+
+	ingress, err := c.client.CoreV1().Services(c.Namespace).Get("istio-ingressgateway", metav1.GetOptions{})
 	if err != nil {
-		return nil, err
+		env.Errorf("error: istio-ingressgateway not found: %v\n", err)
+		return addresses
 	}
 
-	state, err := refreshClusterState(client, &desc, env)
-	if err != nil {
-		return nil, err
+	for _, ip := range ingress.Status.LoadBalancer.Ingress {
+		if ip.IP != "" {
+			addresses = append(addresses, ip.IP)
+		}
+		if ip.Hostname != "" {
+			addresses = append(addresses, ip.Hostname)
+		}
 	}
-
-	return &KubeCluster{
-		ClusterDesc: desc,
-		context:     context,
-		uid:         state.uid,
-		client:      client,
-		state:       state,
-	}, nil
+	return addresses
 }
