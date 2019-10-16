@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package rbac
+package security
 
 import (
 	"testing"
@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/tests/integration/security/util"
 	"istio.io/istio/tests/integration/security/util/connection"
+	rbacUtil "istio.io/istio/tests/integration/security/util/rbac_util"
 )
 
 // TestV1beta1_OverrideV1alpha1 tests v1beta1 authorization overrides the v1alpha1 RBAC policy for
@@ -47,8 +48,8 @@ func TestV1beta1_OverrideV1alpha1(t *testing.T) {
 				With(&c, util.EchoConfig("c", ns, false, nil, g, p)).
 				BuildOrFail(t)
 
-			newTestCase := func(target echo.Instance, path string, expectAllowed bool) TestCase {
-				return TestCase{
+			newTestCase := func(target echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
+				return rbacUtil.TestCase{
 					Request: connection.Checker{
 						From: a,
 						Options: echo.CallOptions{
@@ -61,7 +62,7 @@ func TestV1beta1_OverrideV1alpha1(t *testing.T) {
 					ExpectAllowed: expectAllowed,
 				}
 			}
-			cases := []TestCase{
+			cases := []rbacUtil.TestCase{
 				newTestCase(b, "/path-v1alpha1", false),
 				newTestCase(b, "/path-v1beta1", true),
 				newTestCase(c, "/path-v1alpha1", true),
@@ -72,11 +73,11 @@ func TestV1beta1_OverrideV1alpha1(t *testing.T) {
 				"Namespace": ns.Name(),
 			}
 			policies := tmpl.EvaluateAllOrFail(t, args,
-				file.AsStringOrFail(t, "testdata/v1beta1-override-v1alpha1.yaml.tmpl"))
+				file.AsStringOrFail(t, "testdata/rbac/v1beta1-override-v1alpha1.yaml.tmpl"))
 			g.ApplyConfigOrFail(t, ns, policies...)
 			defer g.DeleteConfigOrFail(t, ns, policies...)
 
-			RunRBACTest(t, cases)
+			rbacUtil.RunRBACTest(t, cases)
 		})
 }
 
@@ -108,8 +109,8 @@ func TestV1beta1_WorkloadSelector(t *testing.T) {
 				With(&cInNS2, util.EchoConfig("c", ns2, false, nil, g, p)).
 				BuildOrFail(t)
 
-			newTestCase := func(namePrefix string, target echo.Instance, path string, expectAllowed bool) TestCase {
-				return TestCase{
+			newTestCase := func(namePrefix string, target echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
+				return rbacUtil.TestCase{
 					NamePrefix: namePrefix,
 					Request: connection.Checker{
 						From: a,
@@ -123,7 +124,7 @@ func TestV1beta1_WorkloadSelector(t *testing.T) {
 					ExpectAllowed: expectAllowed,
 				}
 			}
-			cases := []TestCase{
+			cases := []rbacUtil.TestCase{
 				newTestCase("[bInNS1]", bInNS1, "/policy-ns1-b", true),
 				newTestCase("[bInNS1]", bInNS1, "/policy-ns1-c", false),
 				newTestCase("[bInNS1]", bInNS1, "/policy-ns1-x", false),
@@ -161,13 +162,13 @@ func TestV1beta1_WorkloadSelector(t *testing.T) {
 				return policy
 			}
 
-			policyNS1 := applyPolicy("testdata/v1beta1-workload-ns1.yaml.tmpl", ns1)
+			policyNS1 := applyPolicy("testdata/rbac/v1beta1-workload-ns1.yaml.tmpl", ns1)
 			defer g.DeleteConfigOrFail(t, ns1, policyNS1...)
-			policyNS2 := applyPolicy("testdata/v1beta1-workload-ns2.yaml.tmpl", ns2)
+			policyNS2 := applyPolicy("testdata/rbac/v1beta1-workload-ns2.yaml.tmpl", ns2)
 			defer g.DeleteConfigOrFail(t, ns2, policyNS2...)
-			policyNSRoot := applyPolicy("testdata/v1beta1-workload-ns-root.yaml.tmpl", rootNS{})
+			policyNSRoot := applyPolicy("testdata/rbac/v1beta1-workload-ns-root.yaml.tmpl", rootNS{})
 			defer g.DeleteConfigOrFail(t, rootNS{}, policyNSRoot...)
 
-			RunRBACTest(t, cases)
+			rbacUtil.RunRBACTest(t, cases)
 		})
 }
