@@ -1,8 +1,8 @@
 apiVersion: install.istio.io/v1alpha2
 kind: IstioControlPlane
 spec:
-  hub: gcr.io/istio-release
-  tag: master-latest-daily
+  hub: gcr.io/istio-testing
+  tag: latest
   defaultNamespace: istio-system
 
   # Traffic management feature
@@ -23,8 +23,6 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: metadata.namespace
-            - name: GODEBUG
-              value: gctrace=1
             - name: PILOT_TRACE_SAMPLING
               value: "1"
             - name: CONFIG_NAMESPACE
@@ -64,7 +62,6 @@ spec:
       policy:
         enabled: true
         k8s:
-          replicaCount: 1
           hpaSpec:
             maxReplicas: 5
             minReplicas: 1
@@ -83,8 +80,6 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: metadata.namespace
-            - name: GODEBUG
-              value: "gctrace=1"
           strategy:
             rollingUpdate:
               maxSurge: "100%"
@@ -98,15 +93,13 @@ spec:
         enabled: true
         k8s:
           env:
-          - name: POD_NAMESPACE
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.namespace
-          - name: GODEBUG
-            value: "gctrace=1"
-          - name: GOMAXPROCS
-            value: "6"
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: GOMAXPROCS
+              value: "6"
           hpaSpec:
             maxReplicas: 5
             minReplicas: 1
@@ -192,10 +185,10 @@ spec:
               kind: Deployment
               name: istio-ingressgateway
             metrics:
-            - type: Resource
-              resource:
-                name: cpu
-                targetAverageUtilization: 80
+              - type: Resource
+                resource:
+                  name: cpu
+                  targetAverageUtilization: 80
           resources:
             requests:
               cpu: 100m
@@ -229,7 +222,7 @@ spec:
               memory: 128Mi
             limits:
               cpu: 2000m
-              memory: 256Mi
+              memory: 1024Mi
           strategy:
             rollingUpdate:
               maxSurge: "100%"
@@ -241,7 +234,7 @@ spec:
       cni:
         enabled: false
 
-# Global values passed through to helm global.yaml.
+  # Global values passed through to helm global.yaml.
   values:
     global:
       logging:
@@ -272,7 +265,7 @@ spec:
         logLevel: warning
         componentLogLevel: "misc:error"
         dnsRefreshRate: 300s
-        protocolDetectionTimeout: 1s
+        protocolDetectionTimeout: 100ms
         privileged: false
         enableCoreDump: false
         statusPort: 15020
@@ -294,9 +287,20 @@ spec:
           enabled: false
           host: # example: metrics-service.istio-system
           port: # example: 15000
+          tlsSettings:
+            mode: DISABLE # DISABLE, SIMPLE, MUTUAL, ISTIO_MUTUAL
+            clientCertificate: # example: /etc/istio/ms/cert-chain.pem
+            privateKey:        # example: /etc/istio/ms/key.pem
+            caCertificates:    # example: /etc/istio/ms/root-cert.pem
+            sni:               # example: ms.somedomain
+            subjectAltNames: []
+          tcpKeepalive:
+            probes: 3
+            time: 10s
+            interval: 10s
         tracer: "zipkin"
       proxy_init:
-        image: proxy_init
+        image: proxyv2
         resources:
           limits:
             cpu: 100m
@@ -305,6 +309,12 @@ spec:
             cpu: 10m
             memory: 10Mi
       imagePullPolicy: Always
+      certificates:
+        - secretName: dns.istio-galley-service-account
+          dnsNames: [istio-galley.istio-system.svc, istio-galley.istio-system]
+        - secretName: dns.istio-sidecar-injector-service-account
+          dnsNames: [istio-sidecar-injector.istio-system.svc, istio-sidecar-injector.istio-system]
+      operatorManageWebhooks: false
       controlPlaneSecurityEnabled: true
       disablePolicyChecks: true
       policyCheckFailOpen: false
@@ -321,6 +331,7 @@ spec:
           address: "$(HOST_IP):8126"
       mtls:
         enabled: false
+        auto: false
       imagePullSecrets: []
       arch:
         amd64: 2
@@ -334,6 +345,9 @@ spec:
         useILB: false
       multiCluster:
         enabled: false
+        clusterName: ""
+      omitSidecarInjectorConfigMap: false
+      network: ""
       defaultResources:
         requests:
           cpu: 10m
@@ -360,8 +374,7 @@ spec:
       traceSampling: 1.0
       configNamespace: istio-config
       appNamespaces: []
-      env:
-        GODEBUG: gctrace=1
+      env: {}
       cpu:
         targetAverageUtilization: 80
       nodeSelector: {}
@@ -369,6 +382,8 @@ spec:
       podAntiAffinityLabelSelector: []
       podAntiAffinityTermLabelSelector: []
       keepaliveMaxServerConnectionAge: 30m
+      enableProtocolSniffingForOutbound: true
+      enableProtocolSniffingForInbound: false
       deploymentLabels:
       meshNetworks:
         networks: {}
@@ -421,12 +436,17 @@ spec:
         podAntiAffinityTermLabelSelector: []
 
       policy:
+        autoscaleEnabled: true
         image: mixer
+        sessionAffinityEnabled: false
         adapters:
           kubernetesenv:
             enabled: true
+          useAdapterCRDs: false
 
     galley:
+      image: galley
+      enableAnalysis: false
 
     security:
       image: citadel
@@ -450,6 +470,7 @@ spec:
         zvpn:
           suffix: global
           enabled: true
+        type: ClusterIP
         env:
           ISTIO_META_ROUTER_MODE: "sni-dnat"
         ports:
@@ -473,9 +494,20 @@ spec:
         applicationPorts: ""
         debug: info
         domain: ""
+        type: LoadBalancer
         zvpn:
           enabled: true
           suffix: global
+        sds:
+          enabled: false
+          image: node-agent-k8s
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 2000m
+              memory: 1024Mi
         env:
           ISTIO_META_ROUTER_MODE: "sni-dnat"
         ports:
@@ -526,12 +558,15 @@ spec:
       rewriteAppHTTPProbe: false
       selfSigned: false
       injectLabel: istio-injection
+      objectSelector:
+        enabled: false
+        autoInject: true
 
     prometheus:
       enabled: true
       replicaCount: 1
       hub: docker.io/prom
-      tag: v2.8.0
+      tag: v2.12.0
       retention: 6h
       scrapeInterval: 15s
       contextPath: /prometheus
@@ -553,7 +588,7 @@ spec:
       replicaCount: 1
       image:
         repository: grafana/grafana
-        tag: 6.1.6
+        tag: 6.3.6
       persist: false
       storageClassName: ""
       accessMode: ReadWriteMany
@@ -597,7 +632,7 @@ spec:
       podAntiAffinityTermLabelSelector: []
       env: {}
       envSecrets: {}
-#
+
     tracing:
       enabled: false
       provider: jaeger
@@ -606,7 +641,7 @@ spec:
       podAntiAffinityTermLabelSelector: []
       jaeger:
         hub: docker.io/jaegertracing
-        tag: "1.12"
+        tag: "1.14"
         memory:
           max_traces: 50000
         spanStorageType: badger
@@ -644,7 +679,7 @@ spec:
             enable_tracing: true
       service:
         annotations: {}
-        name: http
+        name: http-query
         type: ClusterIP
         externalPort: 9411
       ingress:
@@ -652,12 +687,17 @@ spec:
         hosts:
         annotations:
         tls:
+    istiocoredns:
+      enabled: false
+      coreDNSImage: coredns/coredns
+      coreDNSTag: 1.6.2
+      coreDNSPluginImage: istio/coredns-plugin:0.2-istio-1.1
 
     kiali:
       enabled: false
       replicaCount: 1
       hub: docker.io/kiali
-      tag: v1.1.0
+      tag: v1.4.2
       contextPath: /kiali
       nodeSelector: {}
       podAntiAffinityLabelSelector: []
@@ -678,7 +718,7 @@ spec:
       prometheusNamespace:
       createDemoSecret: true
       security:
-        enabled: true
+        enabled: false
         cert_file: /kiali-cert/cert-chain.pem
         private_key_file: /kiali-cert/key.pem
 
