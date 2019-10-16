@@ -1752,8 +1752,9 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, env *model.Env
 	}
 
 	// append ALPN HTTP filter in HTTP connection manager for outbound listener only.
-	if pluginParams.ListenerCategory == networking.EnvoyFilter_SIDECAR_OUTBOUND ||
-		pluginParams.DeprecatedListenerCategory == networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND {
+	if util.IsIstioVersionGE14(pluginParams.Node) &&
+		(pluginParams.ListenerCategory == networking.EnvoyFilter_SIDECAR_OUTBOUND ||
+			pluginParams.DeprecatedListenerCategory == networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_OUTBOUND) {
 		filters = append(filters, &http_conn.HttpFilter{
 			Name: AlpnFilterName,
 			ConfigType: &http_conn.HttpFilter_TypedConfig{
