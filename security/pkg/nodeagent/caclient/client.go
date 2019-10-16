@@ -57,7 +57,10 @@ func NewCAClient(endpoint, caProviderName string, tlsFlag bool, tlsRootCert []by
 		if err != nil {
 			return nil, fmt.Errorf("could not create k8s clientset: %v", err)
 		}
-		controller := configmap.NewController(namespace, cs.CoreV1())
+		controller, err := configmap.NewController(namespace, cs.CoreV1(), false, nil)
+		if err != nil {
+			return nil, err
+		}
 		rootCert, err := getCATLSRootCertFromConfigMap(controller, retryInterval, maxRetries)
 		if err != nil {
 			return nil, err

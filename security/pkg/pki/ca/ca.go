@@ -325,8 +325,11 @@ func (ca *IstioCA) GetCAKeyCertBundle() util.KeyCertBundle {
 	return ca.keyCertBundle
 }
 
-func updateCertInConfigmap(namespace string, client corev1.CoreV1Interface, cert []byte) error {
+func updateCertInConfigmap(namespace string, client corev1.CoreV1Interface, cert []byte, ca configmap.CertificateAuthority) error {
 	certEncoded := base64.StdEncoding.EncodeToString(cert)
-	cmc := configmap.NewController(namespace, client)
+	cmc, err := configmap.NewController(namespace, client, true, ca)
+	if err != nil {
+		return err
+	}
 	return cmc.InsertCATLSRootCert(certEncoded)
 }

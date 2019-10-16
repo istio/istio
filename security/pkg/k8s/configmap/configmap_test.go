@@ -15,15 +15,23 @@
 package configmap
 
 import (
+	"bytes"
 	"fmt"
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
+
+	"istio.io/istio/pkg/test/util/retry"
+	mockca "istio.io/istio/security/pkg/pki/ca/mock"
+	mockutil "istio.io/istio/security/pkg/pki/util/mock"
 )
 
 func TestInsertCATLSRootCert(t *testing.T) {
@@ -113,10 +121,12 @@ func TestInsertCATLSRootCert(t *testing.T) {
 		}
 
 		client.ClearActions()
-		controller := NewController(tc.namespace, client.CoreV1())
+		controller, err := NewController(tc.namespace, client.CoreV1(), false, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-		err := controller.InsertCATLSRootCert(tc.certToAdd)
-
+		err = controller.InsertCATLSRootCert(tc.certToAdd)
 		if err != nil && err.Error() != tc.expectedErr {
 			t.Errorf("Test case [%s]: Get error (%s) different from expected error (%s).",
 				id, err.Error(), tc.expectedErr)
@@ -201,7 +211,10 @@ func TestGetCATLSRootCert(t *testing.T) {
 		}
 
 		client.ClearActions()
-		controller := NewController(tc.namespace, client.CoreV1())
+		controller, err := NewController(tc.namespace, client.CoreV1(), false, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		cert, err := controller.GetCATLSRootCert()
 
@@ -249,4 +262,138 @@ func checkActions(actual, expected []ktesting.Action) error {
 	}
 
 	return nil
+}
+
+var (
+	caCert     = []byte("fake CA cert")
+	caKey      = []byte("fake private key")
+	certChain  = []byte("fake cert chain")
+	rootCert   = []byte("fake root cert")
+	signedCert = []byte("fake signed cert")
+)
+
+func createFakeCA() *mockca.FakeCA {
+	return &mockca.FakeCA{
+		SignedCert: signedCert,
+		SignErr:    nil,
+		KeyCertBundle: &mockutil.FakeKeyCertBundle{
+			CertBytes:      caCert,
+			PrivKeyBytes:   caKey,
+			CertChainBytes: certChain,
+			RootCertBytes:  rootCert,
+		},
+	}
+}
+
+func bytesLess(a, b []byte) bool {
+	return bytes.Compare(a, b) < 0
+}
+
+func TestExtraTrustAnchors(t *testing.T) {
+	var (
+		extra0 = []byte("extra-root-0")
+		extra1 = []byte("extra-root-1")
+		extra2 = []byte("extra-root-2")
+
+		extra0ConfigMap = &v1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   "extra0",
+				Labels: map[string]string{ExtraTrustAnchorsLabel: "true"},
+			},
+			Data: map[string]string{"extra0": string(extra0)},
+		}
+		extra1ConfigMap = &v1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   "extra1",
+				Labels: map[string]string{ExtraTrustAnchorsLabel: "true"},
+			},
+			Data: map[string]string{"extra1": string(extra1)},
+		}
+		extra2ConfigMap = &v1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   "extra2",
+				Labels: map[string]string{ExtraTrustAnchorsLabel: "true"},
+			},
+			Data: map[string]string{"extra2": string(extra2)},
+		}
+	)
+
+	cases := []struct {
+		name   string
+		add    []*v1.ConfigMap
+		remove []*v1.ConfigMap
+		want   [][]byte // in addition to root cert
+	}{
+		{
+			name: "one extra ",
+			add:  []*v1.ConfigMap{extra0ConfigMap},
+			want: [][]byte{extra0},
+		},
+		{
+			name: "two extra",
+			add:  []*v1.ConfigMap{extra1ConfigMap},
+			want: [][]byte{extra0, extra1},
+		},
+		{
+			name: "three extra",
+			add:  []*v1.ConfigMap{extra2ConfigMap},
+			want: [][]byte{extra0, extra1, extra2},
+		},
+		{
+			name: "three extra with dup",
+			add:  []*v1.ConfigMap{extra1ConfigMap},
+			want: [][]byte{extra0, extra1, extra2},
+		},
+		{
+			name:   "two remaining after one removed",
+			remove: []*v1.ConfigMap{extra1ConfigMap},
+			want:   [][]byte{extra0, extra2},
+		},
+		{
+			name:   "zero remaining after all three removed",
+			remove: []*v1.ConfigMap{extra0ConfigMap, extra2ConfigMap},
+			want:   [][]byte{},
+		},
+	}
+
+	client := fake.NewSimpleClientset()
+	ca := createFakeCA()
+	controller, err := NewController("test-ns", client.CoreV1(), true, ca)
+	if err != nil {
+		t.Errorf("failed to create secret controller: %v", err)
+	}
+
+	fakewatch := watch.NewFakeWithChanSize(10, false)
+	defer fakewatch.Stop()
+	client.PrependWatchReactor("configmaps", ktesting.DefaultWatchReactor(fakewatch, nil))
+
+	stop := make(chan struct{})
+	go controller.Run(stop)
+	controller.WaitForSync(stop)
+
+	for i, c := range cases {
+		t.Run(fmt.Sprintf("[%v] %s", i, c.name), func(tt *testing.T) {
+			for _, add := range c.add {
+				fakewatch.Add(add)
+			}
+			for _, remove := range c.remove {
+				fakewatch.Delete(remove)
+			}
+
+			want := append([][]byte{rootCert}, c.want...)
+			_, err = retry.Do(func() (result interface{}, completed bool, err error) {
+				gotBytes := controller.GetTrustAnchorsBundle()
+
+				got := bytes.Split(gotBytes, []byte("\n"))
+				if diff := cmp.Diff(got, want, cmpopts.SortSlices(bytesLess)); diff != "" {
+					return nil, false, fmt.Errorf("\n got %v\nwant %v\ndiff %v", got, want, diff)
+				}
+				return nil, true, nil
+			}, retry.Timeout(time.Second))
+			if err != nil {
+				tt.Fatalf("%s: %v", c.name, err)
+			}
+		})
+	}
+	stop <- struct{}{}
 }

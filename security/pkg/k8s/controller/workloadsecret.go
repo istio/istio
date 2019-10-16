@@ -17,22 +17,20 @@ package controller
 import (
 	"bytes"
 	"fmt"
-	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/security/pkg/k8s/configmap"
 	k8ssecret "istio.io/istio/security/pkg/k8s/secret"
 	"istio.io/istio/security/pkg/listwatch"
 	caerror "istio.io/istio/security/pkg/pki/error"
@@ -64,9 +62,6 @@ const (
 	// The key to specify corresponding service account in the annotation of K8s secrets.
 	ServiceAccountNameAnnotationKey = "istio.io/service-account.name"
 	// ConfigMap label key that indicates that the ConfigMap contains additional trusted CA roots.
-	ExtraTrustAnchorsLabel = "security.istio.io/extra-trust-anchors"
-	// periodically refresh the primaryTrustAnchor from the CA.
-	primaryTrustAnchorRefreshTimeout = time.Second
 
 	secretNamePrefix      = "istio."
 	secretResyncPeriod    = time.Minute
@@ -171,30 +166,15 @@ type SecretController struct {
 	// cert in istio-ca-secret.
 	lastKCBSyncTime time.Time
 
-	// Extra trust anchors related state
-	extraTrustAnchorsController cache.Controller
-
-	extraTrustAnchorMu sync.Mutex
-	// extra trust anchors organized by source configmap name and key within that configmap.
-	// The value is a PEM encoded root certificate. Extra anchors are combined with the
-	// primary root to form the list of trusted roots distributed to proxies.
-	extraTrustAnchors map[string]map[string]string // configmap name -> configmap key -> PEM encoded cert
-	// Keep a copy of the primary trust anchor so we know when to rebuild
-	// the combined list of trust anchors.
-	primaryTrustAnchor []byte
-	// periodically refresh the primaryTrustAnchor from the CA.
-	lastPrimaryTrustAnchorCheck time.Time
-	// Combined list of the primary root CA plus any additional trust
-	// anchors that were added by the user. This is recomputed whenever the
-	// primary root changes or when additional trust anchors are added/removed.
-	combinedTrustAnchorsBundle []byte
+	configmapController *configmap.Controller
 }
 
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
 func NewSecretController(ca certificateAuthority, enableNamespacesByDefault bool,
 	certTTL time.Duration, gracePeriodRatio float32, minGracePeriod time.Duration,
 	dualUse bool, core corev1.CoreV1Interface, forCA bool, pkcs8Key bool, namespaces []string,
-	dnsNames map[string]*DNSNameEntry, istioCaStorageNamespace, rootCertFile string) (*SecretController, error) {
+	dnsNames map[string]*DNSNameEntry, istioCaStorageNamespace, rootCertFile string,
+	configmapController *configmap.Controller) (*SecretController, error) {
 
 	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {
 		return nil, fmt.Errorf("grace period ratio %f should be within [0, 1]", gracePeriodRatio)
@@ -222,6 +202,7 @@ func NewSecretController(ca certificateAuthority, enableNamespacesByDefault bool
 		dnsNames:                  dnsNames,
 		monitoring:                newMonitoringMetrics(),
 		lastKCBSyncTime:           time.Time{},
+		configmapController:       configmapController,
 	}
 
 	for _, ns := range namespaces {
@@ -278,59 +259,13 @@ func NewSecretController(ca certificateAuthority, enableNamespacesByDefault bool
 			UpdateFunc: c.namespaceUpdated,
 		})
 
-	// Extra trust anchors related routines. Holding the lock isn't strictly necessary since
-	// the controller hasn't started yet. It's added for completeness.
-	c.extraTrustAnchorMu.Lock()
-	c.lastPrimaryTrustAnchorCheck = time.Now()
-	c.extraTrustAnchors = map[string]map[string]string{}
-	c.refreshTrustAnchorsBundle()
-	c.extraTrustAnchorMu.Unlock()
-
-	extraTrustAnchorsSelector := labels.SelectorFromSet(map[string]string{ExtraTrustAnchorsLabel: "true"}).String()
-	extraTrustAnchorsLW := &cache.ListWatch{
-		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-			options.LabelSelector = extraTrustAnchorsSelector
-			return core.ConfigMaps(istioCaStorageNamespace).List(options)
-		},
-		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-			options.LabelSelector = extraTrustAnchorsSelector
-			return core.ConfigMaps(istioCaStorageNamespace).Watch(options)
-		},
-	}
-	_, c.extraTrustAnchorsController = cache.NewInformer(extraTrustAnchorsLW, &v1.ConfigMap{}, time.Minute, cache.ResourceEventHandlerFuncs{
-		AddFunc: func(newObj interface{}) {
-			newConfigMap := newObj.(*v1.ConfigMap)
-
-			log.Infof("Notified about a new ConfigMap (%v) containing extra trust anchors",
-				newConfigMap.GetName())
-			c.updateExtraTrustAnchor(newConfigMap.GetName(), newConfigMap.Data)
-		},
-		DeleteFunc: func(oldObj interface{}) {
-			oldConfigMap := oldObj.(*v1.ConfigMap)
-
-			log.Infof("Notified about a deletion of an existing ConfigMap (%v) containing extra trust anchors",
-				oldConfigMap.GetName())
-			c.removeExtraTrustAnchor(oldConfigMap.GetName())
-		},
-		UpdateFunc: func(oldObj, newObj interface{}) {
-			oldConfigMap := oldObj.(*v1.ConfigMap)
-			newConfigMap := newObj.(*v1.ConfigMap)
-
-			if oldConfigMap.ResourceVersion != newConfigMap.ResourceVersion {
-				log.Infof("Notified about an update to an existing ConfigMap (%v) containing extra trust anchors",
-					oldConfigMap.GetName())
-				c.updateExtraTrustAnchor(newConfigMap.GetName(), newConfigMap.Data)
-			}
-		},
-	})
-
 	return c, nil
 }
 
 // Run starts the SecretController until a value is sent to stopCh.
 func (sc *SecretController) Run(stopCh chan struct{}) {
-	go sc.extraTrustAnchorsController.Run(stopCh)
-	cache.WaitForCacheSync(stopCh, sc.extraTrustAnchorsController.HasSynced)
+	go sc.configmapController.Run(stopCh)
+	sc.configmapController.WaitForSync(stopCh)
 
 	go sc.scrtController.Run(stopCh)
 
@@ -406,7 +341,7 @@ func (sc *SecretController) upsertSecret(saName, saNamespace string) {
 	secret.Data = map[string][]byte{
 		CertChainID:  chain,
 		PrivateKeyID: key,
-		RootCertID:   sc.getTrustAnchorsBundle(),
+		RootCertID:   sc.configmapController.GetTrustAnchorsBundle(),
 	}
 
 	// We retry several times when create secret to mitigate transient network failures.
@@ -566,7 +501,7 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 
 	_, waitErr := sc.certUtil.GetWaitTime(scrt.Data[CertChainID], time.Now(), sc.minGracePeriod)
 
-	rootsWithExtraTrustAnchors := sc.getTrustAnchorsBundle()
+	rootsWithExtraTrustAnchors := sc.configmapController.GetTrustAnchorsBundle()
 
 	caCert, _, _, _ := sc.ca.GetCAKeyCertBundle().GetAllPem()
 	if !bytes.Equal(rootsWithExtraTrustAnchors, scrt.Data[RootCertID]) {
@@ -579,9 +514,7 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 		}
 
 		// refresh the list of roots and trust anchors if Citadel's own root changed.
-		sc.extraTrustAnchorMu.Lock()
-		rootsWithExtraTrustAnchors = sc.refreshTrustAnchorsBundle()
-		sc.extraTrustAnchorMu.Unlock()
+		rootsWithExtraTrustAnchors = sc.configmapController.RefreshTrustAnchorsBundle()
 	}
 
 	// Refresh the secret if 1) the certificate contained in the secret is about
@@ -670,68 +603,8 @@ func (sc *SecretController) refreshSecret(scrt *v1.Secret) error {
 
 	scrt.Data[CertChainID] = chain
 	scrt.Data[PrivateKeyID] = key
-	scrt.Data[RootCertID] = sc.getTrustAnchorsBundle()
+	scrt.Data[RootCertID] = sc.configmapController.GetTrustAnchorsBundle()
 
 	_, err = sc.core.Secrets(namespace).Update(scrt)
 	return err
-}
-
-// The caller is responsible for holding the sc.extraTrustAnchorMu lock while calling this method.
-func (sc *SecretController) refreshTrustAnchorsBundle() []byte {
-	trustAnchorsSet := map[string]struct{}{}
-
-	sc.primaryTrustAnchor = sc.ca.GetCAKeyCertBundle().GetRootCertPem()
-	primary := strings.TrimSpace(string(sc.primaryTrustAnchor))
-	trustAnchorsSet[primary] = struct{}{}
-
-	for _, configMap := range sc.extraTrustAnchors {
-		for _, value := range configMap {
-			cert := strings.TrimSpace(value)
-			trustAnchorsSet[cert] = struct{}{}
-		}
-	}
-
-	trustAnchors := make([]string, 0, len(trustAnchorsSet))
-	for trustAnchor := range trustAnchorsSet {
-		trustAnchors = append(trustAnchors, trustAnchor)
-	}
-	sort.Strings(trustAnchors)
-
-	sc.combinedTrustAnchorsBundle = []byte(strings.Join(trustAnchors, "\n"))
-
-	return sc.combinedTrustAnchorsBundle
-}
-
-var timeNowTestStub = time.Now
-
-func (sc *SecretController) getTrustAnchorsBundle() []byte {
-	sc.extraTrustAnchorMu.Lock()
-	defer sc.extraTrustAnchorMu.Unlock()
-
-	now := timeNowTestStub()
-	if true || now.After(sc.lastPrimaryTrustAnchorCheck.Add(primaryTrustAnchorRefreshTimeout)) {
-		sc.lastPrimaryTrustAnchorCheck = now
-		sc.refreshTrustAnchorsBundle()
-	}
-	return sc.combinedTrustAnchorsBundle
-}
-
-func (sc *SecretController) updateExtraTrustAnchor(name string, data map[string]string) {
-	sc.extraTrustAnchorMu.Lock()
-	defer sc.extraTrustAnchorMu.Unlock()
-
-	sc.extraTrustAnchors[name] = data
-	sc.refreshTrustAnchorsBundle()
-
-	sc.monitoring.extraTrustAnchors.Record(float64(len(sc.extraTrustAnchors)))
-}
-
-func (sc *SecretController) removeExtraTrustAnchor(name string) {
-	sc.extraTrustAnchorMu.Lock()
-	defer sc.extraTrustAnchorMu.Unlock()
-
-	delete(sc.extraTrustAnchors, name)
-	sc.refreshTrustAnchorsBundle()
-
-	sc.monitoring.extraTrustAnchors.Record(float64(len(sc.extraTrustAnchors)))
 }
