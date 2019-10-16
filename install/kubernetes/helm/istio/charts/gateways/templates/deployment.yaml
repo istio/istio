@@ -321,7 +321,7 @@ spec:
             readOnly: true
           {{- end }}
           {{- if and (eq $.Values.global.proxy.tracer "lightstep") $.Values.global.tracer.lightstep.cacertPath }}
-          - mountPath: {{ directory $.Values.global.tracer.lightstep.cacertPath }}
+          - mountPath: {{ dir $.Values.global.tracer.lightstep.cacertPath }}
             name: lightstep-certs
             readOnly: true
           {{- end }}
