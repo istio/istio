@@ -890,6 +890,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 						service.Attributes.ServiceRegistry == string(serviceregistry.KubernetesRegistry) && servicePort.Protocol.IsTCP() {
 						if instances, err := env.InstancesByPort(service, servicePort.Port, nil); err == nil {
 							for _, instance := range instances {
+								// Skip build outbound listener to the node itself,
+								// as when app access itself by pod ip will not flow through this listener.
+								// Simultaneously, it will be duplicate with inbound listener.
+								if instance.Endpoint.Address == node.IPAddresses[0] {
+									continue
+								}
 								listenerOpts.bind = instance.Endpoint.Address
 								configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap,
 									virtualServices, actualWildcard)
