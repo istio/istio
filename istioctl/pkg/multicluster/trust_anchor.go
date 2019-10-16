@@ -89,11 +89,11 @@ func NewClusterID(uid types.UID, context string) *ClusterID {
 }
 
 const (
-	extraTrustAnchorPrefix = "extra-trust-anchor"
+	extraTrustAnchorPrefix = "istio-extra-trust-anchor-"
 )
 
 func trustAnchorNameFromUID(uid types.UID) string {
-	return extraTrustAnchorPrefix + "-" + string(uid)
+	return extraTrustAnchorPrefix + string(uid)
 }
 
 // CreateTrustAnchor creates a configmap with the public root CA of the current cluster's Istio control plane.

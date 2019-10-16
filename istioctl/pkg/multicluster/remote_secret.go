@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -60,7 +61,7 @@ const (
 	// default service account to use for remote cluster access.
 	DefaultServiceAccountName = "istio-multi"
 
-	remoteSecretPrefix = "remote-secret"
+	remoteSecretPrefix = "istio-remote-secret-"
 )
 
 func remoteSecretName(client kubernetes.Interface) (string, error) {
@@ -72,7 +73,11 @@ func remoteSecretName(client kubernetes.Interface) (string, error) {
 }
 
 func remoteSecretNameFromUID(uid types.UID) string {
-	return remoteSecretPrefix + "-" + string(uid)
+	return remoteSecretPrefix + string(uid)
+}
+
+func uidFromRemoteSecretName(name string) types.UID {
+	return types.UID(strings.TrimPrefix(name, remoteSecretPrefix))
 }
 
 // NewCreateRemoteSecretCommand creates a new command for joining two contexts

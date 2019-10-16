@@ -216,7 +216,9 @@ func (o *describeOptions) addFlags(flags *pflag.FlagSet) {
 }
 
 func NewDescribeCommand() *cobra.Command {
-	opt := describeOptions{}
+	opt := describeOptions{
+		all: false,
+	}
 	c := &cobra.Command{
 		Use:   "describe -f <mesh.yaml> [--all]",
 		Short: `Describe status of the multi-cluster mesh's control plane' `,

@@ -128,8 +128,7 @@ func (c *Cluster) readRemoteSecrets(env Environment) remoteSecrets {
 	}
 	for i := range secrets.Items {
 		secret := &secrets.Items[i]
-		uid := types.UID(secret.Name)
-		secretMap[uid] = secret
+		secretMap[uidFromRemoteSecretName(secret.Name)] = secret
 	}
 	return secretMap
 }

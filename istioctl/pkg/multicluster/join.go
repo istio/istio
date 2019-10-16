@@ -16,6 +16,7 @@ package multicluster
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -35,13 +36,7 @@ func Join(opt joinOptions, env Environment) error {
 	}
 
 	if opt.serviceDiscovery {
-		if opt.all {
-			for _, cluster := range mesh.sortedClusters {
-				if err := joinServiceRegistries(mesh, env); err != nil {
-					env.Errorf("error: could not join cluster %v to mesh: %v\n", cluster, err)
-				}
-			}
-		} else if err := joinServiceRegistries(mesh, env); err != nil {
+		if err := joinServiceRegistries(mesh, env); err != nil {
 			return err
 		}
 	}
@@ -57,6 +52,7 @@ func applySecret(cluster *Cluster, curr *v1.Secret) error {
 	err := wait.Poll(500*time.Millisecond, 5*time.Second, func() (bool, error) {
 		prev, err := cluster.client.CoreV1().Secrets(cluster.Namespace).Get(curr.Name, metav1.GetOptions{})
 		if err == nil {
+
 			prev.StringData = curr.StringData
 			prev.Annotations[clusterContextAnnotationKey] = cluster.context
 			prev.Labels[secretcontroller.MultiClusterSecretLabel] = "true"
@@ -73,7 +69,7 @@ func applySecret(cluster *Cluster, curr *v1.Secret) error {
 
 func joinServiceRegistries(mesh *Mesh, env Environment) error {
 	preparedSecrets := make(map[types.UID]*v1.Secret)
-	pruneCandidates := make(map[string]map[types.UID]*v1.Secret)
+	existingSecretsByCluster := make(map[string]map[types.UID]*v1.Secret)
 
 	for _, cluster := range mesh.sortedClusters {
 		fmt.Printf("creating secret for first %v\n", cluster)
@@ -84,9 +80,11 @@ func joinServiceRegistries(mesh *Mesh, env Environment) error {
 
 		opt := RemoteSecretOptions{
 			KubeOptions: KubeOptions{
-				Context: cluster.context,
+				Context:   cluster.context,
+				Namespace: cluster.Namespace,
 			},
 			ServiceAccountName: cluster.ServiceAccountReader,
+			AuthType:           RemoteSecretAuthTypeBearerToken,
 			// TODO add auth provider option (e.g. gcp)
 		}
 		secret, err := createRemoteSecret(opt, env)
@@ -96,9 +94,11 @@ func joinServiceRegistries(mesh *Mesh, env Environment) error {
 
 		preparedSecrets[cluster.uid] = secret
 
-		// build the list of preparedSecrets to potentially pruneCandidates from this first
-		pruneCandidates[cluster.context] = cluster.readRemoteSecrets(env)
+		// build the list of preparedSecrets to potentially prune
+		existingSecretsByCluster[cluster.context] = cluster.readRemoteSecrets(env)
 	}
+
+	joined := make(map[string]bool)
 
 	for _, first := range mesh.sortedClusters {
 		for _, second := range mesh.sortedClusters {
@@ -106,7 +106,17 @@ func joinServiceRegistries(mesh *Mesh, env Environment) error {
 				continue
 			}
 
-			env.Printf("Joining %v and %v\n", first, second)
+			id0, id1 := string(first.uid), string(second.uid)
+			if strings.Compare(id0, id1) > 0 {
+				id1, id0 = id0, id1
+			}
+			hash := id0 + "/" + id1
+			if _, ok := joined[hash]; ok {
+				continue
+			}
+			joined[hash] = true
+
+			env.Printf("(re)joining %v and %v\n", first, second)
 
 			// pairwise Join
 			for _, s := range []struct {
@@ -116,27 +126,25 @@ func joinServiceRegistries(mesh *Mesh, env Environment) error {
 				{first, second},
 				{second, first},
 			} {
-				remoteSecret, ok := preparedSecrets[s.local.uid]
+				remoteSecret, ok := preparedSecrets[s.remote.uid]
 				if !ok {
 					continue
 				}
 
 				if err := applySecret(s.local, remoteSecret); err != nil {
 					env.Errorf("%v failed: %v\n", s.local, err)
-				} else {
-					env.Printf("%v registered with %v\n", s.remote, s.local)
 				}
-
-				delete(pruneCandidates[s.remote.context], types.UID(remoteSecret.Name))
+				delete(existingSecretsByCluster[s.local.context], uidFromRemoteSecretName(remoteSecret.Name))
 			}
 		}
 	}
 
-	// pruneCandidates any leftover preparedSecrets
-	for context, secrets := range pruneCandidates {
+	// existingSecretsByCluster any leftover preparedSecrets
+	for context, secrets := range existingSecretsByCluster {
 		for _, secret := range secrets {
-			fmt.Printf("pruning secret  %v from first %v\n", secret.Name, context)
-			if err := deleteSecret(mesh.clustersByContext[context], secret); err != nil {
+			cluster := mesh.clustersByContext[context]
+			fmt.Printf("pruning %v from %v\n", secret.Name, cluster)
+			if err := deleteSecret(cluster, secret); err != nil {
 				return err
 			}
 		}

@@ -45,9 +45,6 @@ type ClusterDesc struct {
 	// Optional service account to use for cross-cluster authentication. `istio-multi` if not set.
 	ServiceAccountReader string `json:"serviceAccountReader"`
 
-	// When true, disables enforcement of common trust with this cluster and the rest of the mesh.
-	DisableTrust bool `json:"joinTrust,omitempty"`
-
 	// When true, disables linking the service registry of this cluster with other clustersByContext in the mesh.
 	DisableServiceDiscovery bool `json:"joinServiceDiscovery,omitempty"`
 }
