@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package security
+package mtls
 
 import (
 	"testing"
@@ -24,15 +24,13 @@ import (
 	"istio.io/istio/tests/integration/security/util/reachability"
 )
 
-// This test verifies reachability under different authN scenario:
+// This test verifies reachability under different authN scenario when automtls enabled
 // - app A to app B using mTLS.
-// - app A to app B using mTLS-permissive.
-// - app A to app B without using mTLS.
 // In each test, the steps are:
 // - Configure authn policy.
 // - Wait for config propagation.
 // - Send HTTP/gRPC requests between apps.
-func TestReachability(t *testing.T) {
+func TestMtlsStrict(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(ctx framework.TestContext) {
 
@@ -41,7 +39,7 @@ func TestReachability(t *testing.T) {
 
 			testCases := []reachability.TestCase{
 				{
-					ConfigFile:          "global-mtls-on.yaml",
+					ConfigFile:          "global-mtls-on-no-dr.yaml",
 					Namespace:           systemNM,
 					RequiredEnvironment: environment.Kube,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
@@ -49,50 +47,19 @@ func TestReachability(t *testing.T) {
 						if opts.Target == rctx.Headless && opts.PortName == "tcp" {
 							return false
 						}
+
 						return true
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						if src == rctx.Naked && opts.Target == rctx.Naked {
-							// naked->naked should always succeed.
+						// When mTLS is in STRICT mode, DR's TLS settings are default to mTLS so the result would
+						// be the same as having global DR rule.
+						if opts.Target == rctx.Naked {
+							// calls to naked should always succeed.
 							return true
 						}
 
-						// If one of the two endpoints is naked, expect failure.
-						return src != rctx.Naked && opts.Target != rctx.Naked
-					},
-				},
-				{
-					ConfigFile:          "global-mtls-permissive.yaml",
-					Namespace:           systemNM,
-					RequiredEnvironment: environment.Kube,
-					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						// Exclude calls to the naked app.
-						return opts.Target != rctx.Naked
-					},
-					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						return true
-					},
-				},
-				{
-					ConfigFile: "global-mtls-off.yaml",
-					Namespace:  systemNM,
-					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						return true
-					},
-					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						return true
-					},
-				},
-				{
-					ConfigFile:          "single-port-mtls-on.yaml",
-					Namespace:           rctx.Namespace,
-					RequiredEnvironment: environment.Kube,
-					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						// Include all tests that target app B, which has the single-port config.
-						return opts.Target == rctx.B
-					},
-					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						return opts.PortName != "http"
+						// If source is naked, and destination is not, expect failure.
+						return !(src == rctx.Naked && opts.Target != rctx.Naked)
 					},
 				},
 			}
