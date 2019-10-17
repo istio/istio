@@ -57,7 +57,7 @@ func TestMessages_Sort(t *testing.T) {
 	g.Expect(msgs).To(Equal(expectedMsgs))
 }
 
-func TestMessages_Sorted(t *testing.T) {
+func TestMessages_SortedCopy(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	firstMsg := NewMessage(
@@ -75,7 +75,7 @@ func TestMessages_Sorted(t *testing.T) {
 	sameMsgs := Messages{secondMsg, firstMsg}
 	expectedMsgs := Messages{firstMsg, secondMsg}
 
-	newMsgs := msgs.Sorted()
+	newMsgs := msgs.SortedCopy()
 
 	g.Expect(msgs).To(Equal(sameMsgs))
 	g.Expect(newMsgs).To(Equal(expectedMsgs))
