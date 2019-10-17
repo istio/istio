@@ -47,8 +47,7 @@ func TestEmptyCluster(t *testing.T) {
 			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
 
 			// For a clean istio install with injection enabled, expect no validation errors
-			output := istioctlOrFail(t, istioCtl,
-				[]string{"experimental", "analyze", "--namespace", ns.Name(), "--use-kube"})
+			output := istioctlOrFail(t, istioCtl, ns.Name(), "--use-kube")
 			g.Expect(output).To(BeEmpty())
 		})
 }
@@ -67,14 +66,12 @@ func TestFileOnly(t *testing.T) {
 			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
 
 			// Validation error if we have a service role binding without a service role
-			output := istioctlOrFail(t, istioCtl,
-				[]string{"experimental", "analyze", "--namespace", ns.Name(), serviceRoleBindingFile})
+			output := istioctlOrFail(t, istioCtl, ns.Name(), serviceRoleBindingFile)
 			g.Expect(output).To(HaveLen(1))
 			g.Expect(output[0]).To(ContainSubstring(msg.ReferencedResourceNotFound.Code()))
 
 			// Error goes away if we include both the binding and its role
-			output = istioctlOrFail(t, istioCtl,
-				[]string{"experimental", "analyze", "--namespace", ns.Name(), serviceRoleBindingFile, serviceRoleFile})
+			output = istioctlOrFail(t, istioCtl, ns.Name(), serviceRoleBindingFile, serviceRoleFile)
 			g.Expect(output).To(BeEmpty())
 		})
 }
@@ -96,15 +93,13 @@ func TestKubeOnly(t *testing.T) {
 			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
 
 			// Validation error if we have a service role binding without a service role
-			output := istioctlOrFail(t, istioCtl,
-				[]string{"experimental", "analyze", "--namespace", ns.Name(), "--use-kube"})
+			output := istioctlOrFail(t, istioCtl, ns.Name(), "--use-kube")
 			g.Expect(output).To(HaveLen(1))
 			g.Expect(output[0]).To(ContainSubstring(msg.ReferencedResourceNotFound.Code()))
 
 			// Error goes away if we include both the binding and its role
 			applyFileOrFail(t, ns.Name(), serviceRoleFile)
-			output = istioctlOrFail(t, istioCtl,
-				[]string{"experimental", "analyze", "--namespace", ns.Name(), "--use-kube"})
+			output = istioctlOrFail(t, istioCtl, ns.Name(), "--use-kube")
 			g.Expect(output).To(BeEmpty())
 		})
 }
@@ -127,15 +122,15 @@ func TestFileAndKubeCombined(t *testing.T) {
 
 			// Simulating applying the service role to a cluster that already has the binding, we should
 			// fix the error and thus see no message
-			output := istioctlOrFail(t, istioCtl,
-				[]string{"experimental", "analyze", "--namespace", ns.Name(), "--use-kube", serviceRoleFile})
+			output := istioctlOrFail(t, istioCtl, ns.Name(), "--use-kube", serviceRoleFile)
 			g.Expect(output).To(BeEmpty())
 		})
 }
 
-func istioctlOrFail(t *testing.T, i istioctl.Instance, args []string) []string {
+func istioctlOrFail(t *testing.T, i istioctl.Instance, ns string, extraArgs ...string) []string {
 	t.Helper()
-	output := i.InvokeOrFail(t, args)
+	args := []string{"experimental", "analyze", "--namespace", ns}
+	output := i.InvokeOrFail(t, append(args, extraArgs...))
 	if output == "" {
 		return []string{}
 	}
