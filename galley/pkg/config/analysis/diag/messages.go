@@ -30,7 +30,7 @@ func (ms *Messages) Sort() {
 		a, b := (*ms)[i], (*ms)[j]
 		switch {
 		case a.Type.Level() != b.Type.Level():
-			return a.Type.Level().severity < b.Type.Level().severity
+			return a.Type.Level().sortOrder < b.Type.Level().sortOrder
 		case a.Type.Code() != b.Type.Code():
 			return a.Type.Code() < b.Type.Code()
 		case a.Origin.FriendlyName() != b.Origin.FriendlyName():

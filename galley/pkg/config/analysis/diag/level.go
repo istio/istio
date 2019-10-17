@@ -16,8 +16,8 @@ package diag
 
 // Level is the severity level of a message.
 type Level struct {
-	severity int
-	name     string
+	sortOrder int
+	name      string
 }
 
 func (l Level) String() string {
