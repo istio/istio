@@ -33,7 +33,11 @@ func (ms *Messages) Sort() {
 			return a.Type.Level().sortOrder < b.Type.Level().sortOrder
 		case a.Type.Code() != b.Type.Code():
 			return a.Type.Code() < b.Type.Code()
-		case a.Origin.FriendlyName() != b.Origin.FriendlyName():
+		case a.Origin == nil && b.Origin != nil:
+			return true
+		case a.Origin != nil && b.Origin == nil:
+			return false
+		case a.Origin != nil && b.Origin != nil && a.Origin.FriendlyName() != b.Origin.FriendlyName():
 			return a.Origin.FriendlyName() < b.Origin.FriendlyName()
 		default:
 			return a.String() < b.String()
