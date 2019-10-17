@@ -937,7 +937,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 	tcpListeners = append(tcpListeners, httpListeners...)
 	httpProxy := configgen.buildHTTPProxy(env, node, push, node.ServiceInstances)
 	if httpProxy != nil {
-		httpProxy.TrafficDirection = core.TrafficDirection_OUTBOUND
 		tcpListeners = append(tcpListeners, httpProxy)
 	}
 
@@ -988,6 +987,7 @@ func (configgen *ConfigGeneratorImpl) buildHTTPProxy(env *model.Environment, nod
 		skipUserFilters: true,
 	}
 	l := buildListener(opts)
+	l.TrafficDirection = core.TrafficDirection_OUTBOUND
 
 	// TODO: plugins for HTTP_PROXY mode, envoyfilter needs another listener match for SIDECAR_HTTP_PROXY
 	// there is no mixer for http_proxy
