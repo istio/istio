@@ -15,7 +15,6 @@
 package istioctl
 
 import (
-	"io/ioutil"
 	"strings"
 	"testing"
 
@@ -141,15 +140,6 @@ func istioctlOrFail(t *testing.T, i istioctl.Instance, args []string) []string {
 		return []string{}
 	}
 	return strings.Split(strings.TrimSpace(output), "\n")
-}
-
-func readFileOrFail(t *testing.T, file string) string {
-	t.Helper()
-	b, err := ioutil.ReadFile(file)
-	if err != nil {
-		t.Fatalf("Error reading file %q: %v", file, err)
-	}
-	return string(b)
 }
 
 func applyFileOrFail(t *testing.T, ns, filename string) {
