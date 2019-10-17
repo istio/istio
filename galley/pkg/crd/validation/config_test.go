@@ -25,6 +25,7 @@ import (
 	"testing"
 
 	"github.com/ghodss/yaml"
+	"github.com/onsi/gomega"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,6 +40,9 @@ import (
 var (
 	failurePolicyFailVal = admissionregistrationv1beta1.Fail
 	failurePolicyFail    = &failurePolicyFailVal
+
+	failurePolicyIgnoreVal = admissionregistrationv1beta1.Ignore
+	failurePolicyIgnore    = &failurePolicyIgnoreVal
 )
 
 func createTestWebhookConfigController(
@@ -404,6 +408,48 @@ func TestDeleteValidatingWebhookConfig(t *testing.T) {
 			t.Errorf("Delete ValidatingWebhookConfigure failed in the first time")
 		}
 	})
+}
+
+func TestReloadConfig(t *testing.T) {
+	whc, cleanup := createTestWebhookConfigController(t,
+		fake.NewSimpleClientset(),
+		createFakeWebhookSource(),
+		dummyConfig)
+	defer cleanup()
+	stop := make(chan struct{})
+	defer func() { close(stop) }()
+	go whc.reconcile(stop)
+
+	g := gomega.NewGomegaWithT(t)
+
+	g.Eventually(func() bool {
+		if whc.webhookConfiguration == nil {
+			return false
+		}
+		return *whc.webhookConfiguration.Webhooks[0].FailurePolicy == failurePolicyFailVal
+	}, "10s", "100ms").Should(gomega.BeTrue())
+
+	updatedConfig := dummyConfig.DeepCopy()
+	updatedConfig.Webhooks[0].FailurePolicy = failurePolicyIgnore
+	updatedConfigBytes, err := yaml.Marshal(&updatedConfig)
+	if err != nil {
+		t.Fatalf("failed to create updated webhook config: %v", err)
+	}
+
+	// Update cert/key files.
+	if err := ioutil.WriteFile(whc.webhookParameters.CACertFile, testcerts.RotatedCert, 0644); err != nil { // nolint: vetshadow
+		cleanup()
+		t.Fatalf("WriteFile(%v) failed: %v", whc.webhookParameters.CertFile, err)
+	}
+	if err := ioutil.WriteFile(whc.webhookParameters.WebhookConfigFile, updatedConfigBytes, 0644); err != nil { // nolint: vetshadow
+		cleanup()
+		t.Fatalf("WriteFile(%v) failed: %v", whc.webhookParameters.KeyFile, err)
+	}
+
+	// wait for config to update
+	g.Eventually(func() bool {
+		return *whc.webhookConfiguration.Webhooks[0].FailurePolicy == failurePolicyIgnoreVal
+	}, "10s", "100ms").Should(gomega.BeTrue())
 }
 
 func TestLoadCaCertPem(t *testing.T) {

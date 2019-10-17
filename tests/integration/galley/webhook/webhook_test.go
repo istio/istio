@@ -212,12 +212,12 @@ func startGalleyPortForwarderOrDie(t *testing.T, env *kube.Environment, ns strin
 		t.Fatalf("failed creating port forwarding to galley: %v", err)
 	}
 	if err := forwarder.Start(); err != nil {
-		t.Fatal("failed to start port forwarding: %v", err)
+		t.Fatalf("failed to start port forwarding: %v", err)
 	}
 
 	done = func() {
 		if err := forwarder.Close(); err != nil {
-			t.Errorf("an error occured when the port forwarder was closed: %v", err)
+			t.Errorf("An error occurred when the port forwarder was closed: %v", err)
 		}
 	}
 	return forwarder.Address(), done
