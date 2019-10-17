@@ -156,11 +156,11 @@ PAsalRNQlxxWYCEYsf60TIUSqtyt1P5G7S40Rn3CP9SnoX6Q3E0POxEGFe3SStAY
 oCvHkuhGyVKRT4Ddff4gfbvMPlls
 -----END CERTIFICATE-----`)
 	k8sTestCaCertExpireTimeB, _ = nodeagentutil.ParseCertAndGetExpiryTimestamp(k8sTestCaCertB)
-	k8sKeyA               = []byte("fake private k8sKeyA")
-	k8sCertChainA         = k8sTestCertChainA
-	k8sCaCertA            = k8sTestCaCertA
-	k8sSecretNameA        = "test-scrtA"
-	k8sTestGenericSecretA = &v1.Secret{
+	k8sKeyA                     = []byte("fake private k8sKeyA")
+	k8sCertChainA               = k8sTestCertChainA
+	k8sCaCertA                  = k8sTestCaCertA
+	k8sSecretNameA              = "test-scrtA"
+	k8sTestGenericSecretA       = &v1.Secret{
 		Data: map[string][]byte{
 			genericScrtCert:   k8sCertChainA,
 			genericScrtKey:    k8sKeyA,
