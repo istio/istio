@@ -466,22 +466,24 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 }
 
 func isSecretChanged(oldScrt, oldCaScrt, newScrt, newCaScrt *model.SecretItem) bool {
-	secretChanged := false
 	if (oldScrt != nil && newScrt == nil) || (oldScrt == nil && newScrt != nil) {
-		secretChanged = true
+		return true
 	}
-	if !secretChanged && newScrt != nil && oldScrt != nil {
-		secretChanged = true
-	}
-	if !secretChanged && (oldCaScrt != nil && newCaScrt == nil) || (oldCaScrt == nil && newCaScrt != nil) {
-		secretChanged = true
-	}
-	if !secretChanged && oldCaScrt != nil && newCaScrt != nil {
-		if !bytes.Equal(oldCaScrt.RootCert, newCaScrt.RootCert) {
-			secretChanged = true
+	if newScrt != nil && oldScrt != nil {
+		if !bytes.Equal(oldScrt.CertificateChain, newScrt.CertificateChain) ||
+			!bytes.Equal(oldScrt.PrivateKey, newScrt.PrivateKey) {
+			return true
 		}
 	}
-	return secretChanged
+	if (oldCaScrt != nil && newCaScrt == nil) || (oldCaScrt == nil && newCaScrt != nil) {
+		return true
+	}
+	if oldCaScrt != nil && newCaScrt != nil {
+		if !bytes.Equal(oldCaScrt.RootCert, newCaScrt.RootCert) {
+			return true
+		}
+	}
+	return false
 }
 
 // FindIngressGatewaySecret returns the secret whose name matches the key, or empty secret if no
