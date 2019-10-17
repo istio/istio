@@ -55,7 +55,7 @@ rules:
   - customresourcedefinitions.apiextensions.k8s.io
   - customresourcedefinitions
   verbs:
-  - '*'  
+  - '*'
 - apiGroups:
   - apps
   - extensions
@@ -86,7 +86,7 @@ rules:
   resources:
   - poddisruptionbudgets
   verbs:
-  - '*'    
+  - '*'
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:
