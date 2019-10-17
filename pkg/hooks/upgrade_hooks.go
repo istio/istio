@@ -20,24 +20,18 @@ import (
 	"runtime"
 	"strings"
 
-	v1 "k8s.io/api/core/v1"
-
 	"github.com/hashicorp/go-version"
+
+	"istio.io/operator/pkg/manifest"
 
 	"istio.io/operator/pkg/apis/istio/v1alpha2"
 	"istio.io/operator/pkg/util"
 	"istio.io/pkg/log"
 )
 
-// ExecClient is an interface for remote execution
-// TODO: replace with correct type.
-type ExecClient interface {
-	PodsForSelector(namespace, labelSelector string) (*v1.PodList, error)
-}
-
 // hook is a callout function that may be called during an upgrade to check state or modify the cluster.
 // hooks should only be used for version-specific actions.
-type hook func(kubeClient ExecClient, sourceValues, targetValues *v1alpha2.IstioControlPlaneSpec) util.Errors
+type hook func(kubeClient manifest.ExecClient, sourceValues, targetValues *v1alpha2.IstioControlPlaneSpec) util.Errors
 type hooks []hook
 
 // hookVersionMapping is a mapping between a hashicorp/go-version formatted constraints for the source and target
@@ -48,12 +42,12 @@ type hookVersionMapping struct {
 	hooks                   hooks
 }
 
-// hookCommonParams is a set of common params passed to all hooks.
-type hookCommonParams struct {
-	sourceVer    string
-	targetVer    string
-	sourceValues *v1alpha2.IstioControlPlaneSpec
-	targetValues *v1alpha2.IstioControlPlaneSpec
+// HookCommonParams is a set of common params passed to all hooks.
+type HookCommonParams struct {
+	SourceVer    string
+	TargetVer    string
+	SourceValues *v1alpha2.IstioControlPlaneSpec
+	TargetValues *v1alpha2.IstioControlPlaneSpec
 }
 
 var (
@@ -71,23 +65,23 @@ var (
 	postUpgradeHooks []hookVersionMapping
 )
 
-func runPreUpgradeHooks(kubeClient ExecClient, hc *hookCommonParams, dryRun bool) util.Errors {
+func RunPreUpgradeHooks(kubeClient manifest.ExecClient, hc *HookCommonParams, dryRun bool) util.Errors {
 	return runUpgradeHooks(preUpgradeHooks, kubeClient, hc, dryRun)
 }
 
-func runPostUpgradeHooks(kubeClient ExecClient, hc *hookCommonParams, dryRun bool) util.Errors {
+func RunPostUpgradeHooks(kubeClient manifest.ExecClient, hc *HookCommonParams, dryRun bool) util.Errors {
 	return runUpgradeHooks(postUpgradeHooks, kubeClient, hc, dryRun)
 }
 
 // runUpgradeHooks checks a list of hook version map entries and runs the hooks in each entry whose constraints match
 // the source/target versions in hc.
-func runUpgradeHooks(hml []hookVersionMapping, kubeClient ExecClient, hc *hookCommonParams, dryRun bool) util.Errors {
+func runUpgradeHooks(hml []hookVersionMapping, kubeClient manifest.ExecClient, hc *HookCommonParams, dryRun bool) util.Errors {
 	var errs util.Errors
-	_, err := version.NewVersion(hc.sourceVer)
+	_, err := version.NewVersion(hc.SourceVer)
 	if err != nil {
 		return util.NewErrs(err)
 	}
-	_, err = version.NewVersion(hc.targetVer)
+	_, err = version.NewVersion(hc.TargetVer)
 	if err != nil {
 		return util.NewErrs(err)
 	}
@@ -101,14 +95,14 @@ func runUpgradeHooks(hml []hookVersionMapping, kubeClient ExecClient, hc *hookCo
 		if !matches {
 			continue
 		}
-		log.Infof("Running the following hooks which match source->target versions %s->%s: %s", hc.sourceVer, hc.targetVer, h.hooks)
+		log.Infof("Running the following hooks which match source->target versions %s->%s: %s", hc.SourceVer, hc.TargetVer, h.hooks)
 		if dryRun {
 			log.Info("(Skipping running hooks due to dry-run being set.)")
 			continue
 		}
 		for _, hf := range h.hooks {
 			log.Infof("Running hook %s", hf)
-			errs = util.AppendErrs(errs, hf(kubeClient, hc.sourceValues, hc.targetValues))
+			errs = util.AppendErrs(errs, hf(kubeClient, hc.SourceValues, hc.TargetValues))
 		}
 	}
 	return errs
@@ -116,22 +110,22 @@ func runUpgradeHooks(hml []hookVersionMapping, kubeClient ExecClient, hc *hookCo
 
 // checkHookListEntry checks a hookVersionMapping against the source/target versions in hc and returns true if it
 // matches.
-func checkHookListEntry(h hookVersionMapping, hc *hookCommonParams) (bool, error) {
-	ch, err := checkConstraint(hc.sourceVer, h.sourceVersionConstraint)
+func checkHookListEntry(h hookVersionMapping, hc *HookCommonParams) (bool, error) {
+	ch, err := checkConstraint(hc.SourceVer, h.sourceVersionConstraint)
 	if err != nil {
 		return false, err
 	}
 	if !ch {
-		log.Infof("Source version %s does not satisfy source constraint %s, skip hooks", hc.sourceVer, h.sourceVersionConstraint)
+		log.Infof("Source version %s does not satisfy source constraint %s, skip hooks", hc.SourceVer, h.sourceVersionConstraint)
 		return false, nil
 	}
 
-	ch, err = checkConstraint(hc.targetVer, h.targetVersionConstraint)
+	ch, err = checkConstraint(hc.TargetVer, h.targetVersionConstraint)
 	if err != nil {
 		return false, err
 	}
 	if !ch {
-		log.Infof("Target version %s does not satisfy target constraint %s, skip hooks", hc.targetVer, h.targetVersionConstraint)
+		log.Infof("Target version %s does not satisfy target constraint %s, skip hooks", hc.TargetVer, h.targetVersionConstraint)
 		return false, nil
 	}
 	return true, nil
@@ -151,7 +145,7 @@ func checkConstraint(verStr, constraintStr string) (bool, error) {
 	return constraint.Check(ver), nil
 }
 
-func checkInitCrdJobs(kubeClient ExecClient, currentValues, _ *v1alpha2.IstioControlPlaneSpec) util.Errors {
+func checkInitCrdJobs(kubeClient manifest.ExecClient, currentValues, _ *v1alpha2.IstioControlPlaneSpec) util.Errors {
 	pl, err := kubeClient.PodsForSelector(currentValues.DefaultNamespace, "")
 	if err != nil {
 		return util.NewErrs(fmt.Errorf("failed to list pods: %v", err))
