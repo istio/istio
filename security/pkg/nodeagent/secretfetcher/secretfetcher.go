@@ -426,7 +426,7 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 	}
 	secretChanged := isSecretChanged(oldScrt, oldCaScrt, newScrt, newCaScrt)
 	if !secretChanged {
-		secretFetcherLog.Debugf("secret %s does not change, skip update", newScrtName)
+		secretFetcherLog.Infof("secret %s does not change, skip update", newScrtName)
 		return
 	}
 
@@ -437,7 +437,7 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 		if sf.UpdateCache != nil {
 			sf.UpdateCache(newCaScrt.ResourceName, *newCaScrt)
 		}
-		secretFetcherLog.Debugf("secret %s is updated as a client CA cert", newCaScrt.ResourceName)
+		secretFetcherLog.Infof("secret %s is updated as a client CA cert", newCaScrt.ResourceName)
 		return
 	}
 
@@ -446,7 +446,7 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 	if sf.UpdateCache != nil {
 		sf.UpdateCache(newScrt.ResourceName, *newScrt)
 	}
-	secretFetcherLog.Debugf("secret %s is updated as a server certificate", newScrt.ResourceName)
+	secretFetcherLog.Infof("secret %s is updated as a server certificate", newScrt.ResourceName)
 
 	if oldCaScrt != nil {
 		sf.secrets.Delete(oldCaScrt.ResourceName)
@@ -457,7 +457,7 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 			return
 		}
 		sf.secrets.Store(newCaScrt.ResourceName, *newCaScrt)
-		secretFetcherLog.Debugf("secret %s is updated as a client root CA (from a compound Secret)",
+		secretFetcherLog.Infof("secret %s is updated as a client root CA (from a compound Secret)",
 			newCaScrt.ResourceName)
 		if sf.UpdateCache != nil {
 			sf.UpdateCache(newCaScrt.ResourceName, *newCaScrt)
