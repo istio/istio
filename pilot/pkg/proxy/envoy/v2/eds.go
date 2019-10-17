@@ -324,7 +324,7 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 		svc := legacyServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
 		var instances []*model.ServiceInstance
 		if svc == nil {
-			adsLog.Warnf("service lookup for hostname %v failed", hostname)
+			adsLog.Debugf("service lookup for hostname %v failed", hostname)
 		} else {
 			var err error
 			instances, err = s.Env.ServiceDiscovery.InstancesByPort(svc, port, subsetLabels)
