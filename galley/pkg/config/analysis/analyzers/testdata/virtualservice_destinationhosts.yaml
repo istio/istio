@@ -14,6 +14,15 @@ spec:
   - external-reviews.org
 ---
 apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-entry-bookinfo
+  namespace: default
+spec:
+  hosts:
+  - "*.eu.bookinfo.com"
+---
+apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: reviews
@@ -60,3 +69,25 @@ spec:
     - destination:
         host: external-reviews.org  # Referring to a ServiceEntry host is valid and should not generate an error
                                     # Since this is an "external" service, subset is omitted
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: reviews-bookinfo-eu
+  namespace: default
+spec:
+  http:
+  - route:
+    - destination:
+        host: reviews.eu.bookinfo.com # Should match *.eu.bookinfo.com
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: reviews-bookinfo-eu-wildcard
+  namespace: default
+spec:
+  http:
+  - route:
+    - destination:
+        host: "*.eu.bookinfo.com" # Should match *.eu.bookinfo.com
