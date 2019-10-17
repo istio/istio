@@ -476,6 +476,7 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 					uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
 				}
 			}
+			mtlsReady := kube.PodMTLSReady(pod)
 
 			// identify the port by name. K8S EndpointPort uses the service port name
 			for _, port := range ss.Ports {
@@ -493,6 +494,7 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 						Service:        svc,
 						Labels:         podLabels,
 						ServiceAccount: sa,
+						MTLSReady:      mtlsReady,
 					})
 				}
 			}
@@ -769,6 +771,7 @@ func (c *Controller) getEndpoints(podIP, address string, endpointPort int32, svc
 		Service:        svc,
 		Labels:         podLabels,
 		ServiceAccount: sa,
+		MTLSReady:      kube.PodMTLSReady(pod),
 	}
 }
 
@@ -927,6 +930,8 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 					labels = map[string]string(configKube.ConvertLabels(pod.ObjectMeta))
 				}
 
+				mtlsReady := kube.PodMTLSReady(pod)
+
 				// EDS and ServiceEntry use name for service port - ADS will need to
 				// map to numbers.
 				for _, port := range ss.Ports {
@@ -940,6 +945,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 						Network:         c.endpointNetwork(ea.IP),
 						Locality:        locality,
 						Attributes:      model.ServiceAttributes{Name: ep.Name, Namespace: ep.Namespace},
+						MTLSReady:       mtlsReady,
 					})
 				}
 			}

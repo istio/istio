@@ -40,7 +40,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -67,6 +66,9 @@ var (
 		ConnectTimeout: &types.Duration{
 			Seconds: 10,
 			Nanos:   1,
+		},
+		EnableAutoMtls: &types.BoolValue{
+			Value: false,
 		},
 	}
 )
@@ -310,6 +312,7 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 				Locality:    "region1/zone1/subzone1",
 				LbWeight:    40,
 			},
+			MTLSReady: true,
 		},
 		{
 			Service: service,
@@ -320,6 +323,7 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 				Locality:    "region1/zone1/subzone2",
 				LbWeight:    20,
 			},
+			MTLSReady: true,
 		},
 		{
 			Service: service,
@@ -330,6 +334,7 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 				Locality:    "region2/zone1/subzone1",
 				LbWeight:    40,
 			},
+			MTLSReady: true,
 		},
 		{
 			Service: service,
@@ -340,6 +345,7 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 				Locality:    "region1/zone1/subzone1",
 				LbWeight:    0,
 			},
+			MTLSReady: true,
 		},
 	}
 
@@ -799,8 +805,10 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 		sans            []string
 		sni             string
 		proxy           *model.Proxy
-		serviceMTLSMode authn_model.MutualTLSMode
+		autoMTLSEnabled bool
+		meshExternal    bool
 		want            *networking.TLSSettings
+		wantCtxType     mtlsContextType
 	}{
 		{
 			"Destination rule TLS sni and SAN override",
@@ -808,8 +816,9 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			authn_model.MTLSUnknown,
+			false, false,
 			tlsSettings,
+			userSupplied,
 		},
 		{
 			"Destination rule TLS sni and SAN override absent",
@@ -824,7 +833,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			authn_model.MTLSUnknown,
+			false, false,
 			&networking.TLSSettings{
 				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
 				CaCertificates:    constants.DefaultRootCert,
@@ -833,6 +842,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 				SubjectAltNames:   []string{"spiffe://foo/serviceaccount/1"},
 				Sni:               "foo.com",
 			},
+			userSupplied,
 		},
 		{
 			"Cert path override",
@@ -844,7 +854,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 				TLSClientKey:       "/custom/key.pem",
 				TLSClientRootCert:  "/custom/root.pem",
 			}},
-			authn_model.MTLSUnknown,
+			false, false,
 			&networking.TLSSettings{
 				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
 				CaCertificates:    "/custom/root.pem",
@@ -853,41 +863,15 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 				SubjectAltNames:   []string{"custom.foo.com"},
 				Sni:               "custom.foo.com",
 			},
+			userSupplied,
 		},
 		{
-			"Ignore nil settings when mTLS Unknown",
+			"Auto fill nil settings when mTLS nil for internal service",
 			nil,
 			[]string{"spiffee://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			authn_model.MTLSUnknown,
-			nil,
-		},
-		{
-			"Ignore nil settings when mTLS Disable",
-			nil,
-			[]string{"spiffee://foo/serviceaccount/1"},
-			"foo.com",
-			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			authn_model.MTLSDisable,
-			nil,
-		},
-		{
-			"Ignore nil settings when mTLS Permissive",
-			nil,
-			[]string{"spiffee://foo/serviceaccount/1"},
-			"foo.com",
-			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			authn_model.MTLSPermissive,
-			nil,
-		},
-		{
-			"Auto fill nil settings when mTLS Strict",
-			nil,
-			[]string{"spiffee://foo/serviceaccount/1"},
-			"foo.com",
-			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			authn_model.MTLSStrict,
+			true, false,
 			&networking.TLSSettings{
 				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
 				CaCertificates:    constants.DefaultRootCert,
@@ -896,14 +880,28 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 				SubjectAltNames:   []string{"spiffee://foo/serviceaccount/1"},
 				Sni:               "foo.com",
 			},
+			autoDetected,
+		},
+		{
+			"Do not auto fill nil settings for external",
+			nil,
+			[]string{"spiffee://foo/serviceaccount/1"},
+			"foo.com",
+			&model.Proxy{Metadata: &model.NodeMetadata{}},
+			true, true,
+			nil,
+			userSupplied,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := conditionallyConvertToIstioMtls(tt.tls, tt.sans, tt.sni, tt.proxy, tt.serviceMTLSMode)
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Expected locality empty result %#v, but got %#v", tt.want, got)
+			gotTLS, gotCtxType := conditionallyConvertToIstioMtls(tt.tls, tt.sans, tt.sni, tt.proxy, tt.autoMTLSEnabled, tt.meshExternal)
+			if !reflect.DeepEqual(gotTLS, tt.want) {
+				t.Errorf("cluster TLS does not match exppected result want %#v, got %#v", tt.want, gotTLS)
+			}
+			if gotCtxType != tt.wantCtxType {
+				t.Errorf("cluster TLS context type does not match expected result want %#v, got %#v", tt.wantCtxType, gotTLS)
 			}
 		})
 	}
@@ -943,6 +941,9 @@ func TestStatNamePattern(t *testing.T) {
 		ConnectTimeout: &types.Duration{
 			Seconds: 10,
 			Nanos:   1,
+		},
+		EnableAutoMtls: &types.BoolValue{
+			Value: false,
 		},
 		InboundClusterStatName:  "LocalService_%SERVICE%",
 		OutboundClusterStatName: "%SERVICE%_%SERVICE_PORT_NAME%_%SERVICE_PORT%",
@@ -1729,11 +1730,14 @@ func TestAutoMTLSClusterStrictMode(t *testing.T) {
 		},
 	}
 
+	testMesh.EnableAutoMtls.Value = true
+
 	clusters, err := buildTestClustersWithAuthnPolicy(TestServiceNHostname, 0, false, model.SidecarProxy, nil, testMesh, destRule, authnPolicy)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	// For port 8080, (m)TLS settings is automatically added, thus its cluster should have TLS context.
-	g.Expect(clusters[0].TlsContext).NotTo(BeNil())
+	g.Expect(clusters[0].TlsContext).To(BeNil())
+	g.Expect(clusters[0].TransportSocketMatches).To(HaveLen(2))
 
 	// For 9090, use the TLS settings are explicitly specified in DR (which disable TLS)
 	g.Expect(clusters[1].TlsContext).To(BeNil())
@@ -1828,11 +1832,14 @@ func TestAutoMTLSClusterPerPortStrictMode(t *testing.T) {
 		},
 	}
 
+	testMesh.EnableAutoMtls.Value = true
+
 	clusters, err := buildTestClustersWithAuthnPolicy(TestServiceNHostname, 0, false, model.SidecarProxy, nil, testMesh, destRule, authnPolicy)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	// For port 8080, (m)TLS settings is automatically added, thus its cluster should have TLS context.
-	g.Expect(clusters[0].TlsContext).NotTo(BeNil())
+	g.Expect(clusters[0].TlsContext).To(BeNil())
+	g.Expect(clusters[0].TransportSocketMatches).To(HaveLen(2))
 
 	// For 9090, authn policy disable mTLS, so it should not have TLS context.
 	g.Expect(clusters[1].TlsContext).To(BeNil())
