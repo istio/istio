@@ -136,7 +136,6 @@ func (p *Probe) pingVirtualListeners() error {
 		return err
 	}
 	for _, vport := range vports {
-		fmt.Printf("ping Virtual Listeners ... %s:%d", p.ProxyIP, vport)
 		con, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", p.ProxyIP, vport), time.Second*1)
 		if con != nil {
 			con.Close()
