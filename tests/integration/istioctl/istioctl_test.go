@@ -31,7 +31,7 @@ import (
 
 var (
 	i   istio.Instance
-	env *kube.Environment // TODO: Remove, if this isn't used?
+	env *kube.Environment
 )
 
 // This test requires `--istio.test.env=kube` because it tests istioctl doing PodExec
@@ -61,11 +61,7 @@ func TestVersion(t *testing.T) {
 
 			args := []string{"version", "--remote=true"}
 
-			output, fErr := istioCtl.Invoke(args)
-
-			if fErr != nil {
-				t.Fatalf("Unwanted exception for 'istioctl %s': %v", strings.Join(args, " "), fErr)
-			}
+			output := istioCtl.InvokeOrFail(t, args)
 
 			// istioctl will return a single "control plane version" if all control plane versions match
 			controlPlaneRegex := regexp.MustCompile(`control plane version: [a-z0-9\-]*`)

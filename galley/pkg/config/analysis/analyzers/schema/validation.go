@@ -37,7 +37,7 @@ func AllValidationAnalyzers() []analysis.Analyzer {
 	result := make([]analysis.Analyzer, 0)
 	for _, s := range schemas.Istio {
 		// Skip synthetic service entries
-		// See https://github.com/istio/istio/issues/17949
+		// TODO(https://github.com/istio/istio/issues/17949)
 		if s.VariableName == schemas.SyntheticServiceEntry.VariableName {
 			continue
 		}
