@@ -18,23 +18,24 @@ import (
 	"crypto/sha1"
 	"crypto/x509"
 	"encoding/base64"
-	"encoding/pem"
 	"fmt"
-	"io/ioutil"
-	"k8s.io/apimachinery/pkg/fields"
 	"time"
 
-	"istio.io/istio/security/pkg/pki/util"
-	"istio.io/pkg/log"
+	"k8s.io/apimachinery/pkg/fields"
+
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/security/pkg/pki/util"
+	"istio.io/pkg/log"
+
 	cert "k8s.io/api/certificates/v1beta1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	certclient "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
+
+	kubelib "istio.io/istio/pkg/kube"
 )
 
 // TODO:
@@ -54,7 +55,8 @@ const (
 	// The number of tries for reading a certificate
 	maxNumCertRead = 20
 
-	defaultCA = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+	// DefaultCA is the hardcoded location of K8S CA. If present, it should be able to check the K8S signed certs.
+	DefaultCA = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 )
 
 // CreateClientset is a helper function that builds a kubernetes Clienset from a kubeconfig
@@ -97,7 +99,10 @@ func GenKeyCertK8sCA(certClient certclient.CertificatesV1beta1Interface, ns, hos
 
 	// 2. Submit the CSR
 	h := sha1.New()
-	h.Write([]byte(hosts))
+	_, err = h.Write([]byte(hosts))
+	if err != nil {
+		return nil, nil, err
+	}
 	csrName := base64.URLEncoding.EncodeToString(h.Sum(nil))
 	numRetries := 3
 	r, err := submitCSR(certClient, csrName, csrPEM, numRetries)
@@ -145,31 +150,6 @@ func GenKeyCertK8sCA(certClient certclient.CertificatesV1beta1Interface, ns, hos
 	}
 	// If there is a failure of cleaning up CSR, the error is returned.
 	return certChain, keyPEM, err
-}
-
-// Read CA certificate and check whether it is a valid certificate.
-func readCACert(caCertPath string) ([]byte, error) {
-	if caCertPath == "" {
-		caCertPath = defaultCA
-	}
-	caCert, err := ioutil.ReadFile(caCertPath)
-	if err != nil {
-		log.Errorf("failed to read CA cert, cert. path: %v, error: %v", caCertPath, err)
-		return nil, fmt.Errorf("failed to read CA cert, cert. path: %v, error: %v", caCertPath, err)
-	}
-
-	b, _ := pem.Decode(caCert)
-	if b == nil {
-		return nil, fmt.Errorf("could not decode pem")
-	}
-	if b.Type != "CERTIFICATE" {
-		return nil, fmt.Errorf("ca certificate contains wrong type: %v", b.Type)
-	}
-	if _, err := x509.ParseCertificate(b.Bytes); err != nil {
-		return nil, fmt.Errorf("ca certificate parsing returns an error: %v", err)
-	}
-
-	return caCert, nil
 }
 
 func submitCSR(certClient certclient.CertificatesV1beta1Interface, csrName string, csrPEM []byte, numRetries int) (*cert.CertificateSigningRequest, error) {
@@ -235,7 +215,7 @@ func cleanUpCertGen(certClient certclient.CertificatesV1beta1Interface, csrName 
 	return nil
 }
 
-func waitCert(certClient certclient.CertificatesV1beta1Interface, csrName, ns string) *cert.CertificateSigningRequest {
+func waitCert(certClient certclient.CertificatesV1beta1Interface, csrName string) *cert.CertificateSigningRequest {
 	watch, err := certClient.CertificateSigningRequests().Watch(meta.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector("metadata.name", csrName).String(),
 	})
@@ -265,7 +245,7 @@ func waitCert(certClient certclient.CertificatesV1beta1Interface, csrName, ns st
 func readSignedCertificate(certClient certclient.CertificatesV1beta1Interface, csrName, ns string,
 	readInterval time.Duration, maxNumRead int) ([]byte, error) {
 
-	reqSigned := waitCert(certClient, csrName, ns)
+	reqSigned := waitCert(certClient, csrName)
 	if reqSigned == nil {
 		for i := 0; i < maxNumRead; i++ {
 			// It takes some time for certificate to be ready, so wait first.
@@ -314,7 +294,6 @@ func readSignedCertificate(certClient certclient.CertificatesV1beta1Interface, c
 	certPEM := reqSigned.Status.Certificate
 	certChain := []byte{}
 	certChain = append(certChain, certPEM...)
-	//certChain = append(certChain, caCert...)
 
 	return certChain, nil
 }

@@ -20,6 +20,13 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	meshv1 "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/galley/pkg/config/event"
@@ -39,12 +46,6 @@ import (
 	"istio.io/istio/security/pkg/nodeagent/sds"
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
 	"istio.io/pkg/log"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/cache"
 
 	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 )
@@ -53,7 +54,7 @@ import (
 // To reduce binary size/deps, the standalone hyperistio for VMs will try to not depend on k8s, keeping all
 // init deps in this package.
 
-type K8SServer struct {
+type Controllers struct {
 	IstioServer       *istiod.Server
 	ControllerOptions controller2.Options
 
@@ -64,8 +65,8 @@ type K8SServer struct {
 	args         *istiod.PilotArgs
 }
 
-func InitK8S(is *istiod.Server, clientset *kubernetes.Clientset, config *rest.Config, args *istiod.PilotArgs) (*K8SServer, error) {
-	s := &K8SServer{
+func InitK8S(is *istiod.Server, clientset *kubernetes.Clientset, config *rest.Config, args *istiod.PilotArgs) (*Controllers, error) {
+	s := &Controllers{
 		IstioServer: is,
 		kubeCfg:     config,
 		kubeClient:  clientset,
@@ -80,12 +81,12 @@ func InitK8S(is *istiod.Server, clientset *kubernetes.Clientset, config *rest.Co
 	return s, nil
 }
 
-func (s *K8SServer) OnXDSStart(xds model.XDSUpdater) {
+func (s *Controllers) OnXDSStart(xds model.XDSUpdater) {
 	s.kubeRegistry.XDSUpdater = xds
 }
 
-func (s *K8SServer) InitK8SDiscovery(is *istiod.Server, clientset *kubernetes.Clientset, config *rest.Config, args *istiod.PilotArgs) (*K8SServer, error) {
-	if err := s.createK8sServiceControllers(s.IstioServer.ServiceController, args); err != nil {
+func (s *Controllers) InitK8SDiscovery(is *istiod.Server, clientset *kubernetes.Clientset, config *rest.Config, args *istiod.PilotArgs) (*Controllers, error) {
+	if err := s.createK8sServiceControllers(s.IstioServer.ServiceController); err != nil {
 		return nil, fmt.Errorf("cluster registries: %v", err)
 	}
 
@@ -98,24 +99,15 @@ func (s *K8SServer) InitK8SDiscovery(is *istiod.Server, clientset *kubernetes.Cl
 	s.kubeRegistry.Env = s.IstioServer.Environment
 	s.kubeRegistry.InitNetworkLookup(s.IstioServer.MeshNetworks)
 	// EnvoyXDSServer is not initialized yet - since initialization adds all 'service' handlers, which depends
-	// on this beeing done. Instead we use the callback.
+	// on this being done. Instead we use the callback.
 	//s.kubeRegistry.XDSUpdater = s.IstioServer.EnvoyXdsServer
 
 	return s, nil
 }
 
-func (s *K8SServer) WaitForCacheSync(stop <-chan struct{}) bool {
-	// TODO: remove dependency on k8s lib
+func (s *Controllers) WaitForCacheSync(stop <-chan struct{}) bool {
 	if !cache.WaitForCacheSync(stop, func() bool {
-		//if s.s.kubeRegistry != nil {
-		//	if !s.s.kubeRegistry.HasSynced() {
-		//		return false
-		//	}
-		//}
-		if !s.IstioServer.ConfigController.HasSynced() {
-			return false
-		}
-		return true
+		return !s.IstioServer.ConfigController.HasSynced()
 	}) {
 		log.Errorf("Failed waiting for cache sync")
 		return false
@@ -126,7 +118,7 @@ func (s *K8SServer) WaitForCacheSync(stop <-chan struct{}) bool {
 
 // initClusterRegistries starts the secret controller to watch for remote
 // clusters and initialize the multicluster structures.s.
-func (s *K8SServer) initClusterRegistries(args *istiod.PilotArgs) (err error) {
+func (s *Controllers) initClusterRegistries(args *istiod.PilotArgs) (err error) {
 
 	mc, err := clusterregistry.NewMulticluster(s.kubeClient,
 		args.Config.ClusterRegistriesNamespace,
@@ -147,7 +139,7 @@ func (s *K8SServer) initClusterRegistries(args *istiod.PilotArgs) (err error) {
 }
 
 // initConfigController creates the config controller in the pilotConfig.
-func (s *K8SServer) initConfigController(args *istiod.PilotArgs) error {
+func (s *Controllers) initConfigController(args *istiod.PilotArgs) error {
 	cfgController, err := s.makeKubeConfigController(args)
 	if err != nil {
 		return err
@@ -180,7 +172,7 @@ func (s *K8SServer) initConfigController(args *istiod.PilotArgs) error {
 }
 
 // createK8sServiceControllers creates all the k8s service controllers under this pilot
-func (s *K8SServer) createK8sServiceControllers(serviceControllers *aggregate.Controller, args *istiod.PilotArgs) (err error) {
+func (s *Controllers) createK8sServiceControllers(serviceControllers *aggregate.Controller) (err error) {
 	clusterID := string(serviceregistry.KubernetesRegistry)
 	log.Infof("Primary Cluster name: %s", clusterID)
 	s.ControllerOptions.ClusterID = clusterID
@@ -197,7 +189,7 @@ func (s *K8SServer) createK8sServiceControllers(serviceControllers *aggregate.Co
 	return
 }
 
-func (s *K8SServer) makeKubeConfigController(args *istiod.PilotArgs) (model.ConfigStoreCache, error) {
+func (s *Controllers) makeKubeConfigController(args *istiod.PilotArgs) (model.ConfigStoreCache, error) {
 	kubeCfgFile := args.Config.KubeConfig
 	configClient, err := controller.NewClient(kubeCfgFile, "", schemas.Istio, s.ControllerOptions.DomainSuffix, &model.DisabledLedger{})
 	if err != nil {
@@ -253,16 +245,10 @@ type testHandler struct {
 }
 
 func (t testHandler) Handle(e event.Event) {
-	log.Debugf("Event %e", e)
+	log.Debugf("Event %v", e)
 }
 
-func (s *K8SServer) NewGalleyK8SSource(resources schema.KubeResources) (src event.Source, err error) {
-
-	//if !p.args.DisableResourceReadyCheck {
-	//	if err = checkResourceTypesPresence(k, resources); err != nil {
-	//		return
-	//	}
-	//}
+func (s *Controllers) NewGalleyK8SSource(resources schema.KubeResources) (src event.Source, err error) {
 
 	o := apiserver.Options{
 		Client:       kube.NewInterfaces(s.kubeCfg),
@@ -272,8 +258,6 @@ func (s *K8SServer) NewGalleyK8SSource(resources schema.KubeResources) (src even
 	src = apiserver.New(o)
 
 	src.Dispatch(testHandler{})
-	//src.Start()
-	//src.Stop()
 
 	return
 }
@@ -284,7 +268,7 @@ func (s *K8SServer) NewGalleyK8SSource(resources schema.KubeResources) (src even
 //
 // TODO: modify NewSecretFetcher, add method taking a kube client ( for consistency )
 // TODO: modify NewServer, add method taking a grpcServer
-func (s *K8SServer) StartSDSK8S(config *meshv1.MeshConfig) error {
+func (s *Controllers) StartSDSK8S(config *meshv1.MeshConfig) error {
 
 	// This won't work on VM - only on K8S.
 	var sdsCacheOptions agent_cache.Options

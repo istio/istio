@@ -15,10 +15,11 @@
 package istiod
 
 import (
-	"istio.io/istio/pilot/pkg/features"
 	"log"
 	"os"
 	"time"
+
+	"istio.io/istio/pilot/pkg/features"
 
 	meshv1 "istio.io/api/mesh/v1alpha1"
 	agent "istio.io/istio/pkg/bootstrap"

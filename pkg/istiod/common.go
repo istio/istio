@@ -16,7 +16,6 @@ package istiod
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -36,13 +35,7 @@ import (
 	"istio.io/pkg/filewatcher"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	meshv1 "istio.io/api/mesh/v1alpha1"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
-	agent "istio.io/istio/pkg/bootstrap"
-)
-
-var (
-	fileWatcher filewatcher.FileWatcher
 )
 
 // Server contains the runtime configuration for Istiod.
@@ -99,13 +92,6 @@ func (s *Server) InitCommon(args *PilotArgs) {
 		return
 	}
 	s.MonitorListeningAddr = addr
-
-	//go func() {
-	//	<-s.stop
-	//	err := monitor.Close()
-	//	log.Debugf("Monitoring server terminated: %v", err)
-	//}()
-
 }
 
 // Start all components of istio, using local config files or defaults.
@@ -123,14 +109,14 @@ func InitConfig(confDir string) (*Server, error) {
 	// TODO: 15006 can't be configured currently
 	// TODO: 15090 (prometheus) can't be configured. It's in the bootstrap file, so easy to replace
 
-	meshCfgFile :=  baseDir + confDir + "/mesh"
+	meshCfgFile := baseDir + confDir + "/mesh"
 
 	// Create a test pilot discovery service configured to watch the tempDir.
-	args := &PilotArgs {
+	args := &PilotArgs{
 		DomainSuffix: "cluster.local",
 
 		Mesh: MeshArgs{
-			ConfigFile: meshCfgFile,
+			ConfigFile:      meshCfgFile,
 			RdsRefreshDelay: types.DurationProto(10 * time.Millisecond),
 		},
 		Config: ConfigArgs{},
@@ -154,17 +140,16 @@ func InitConfig(confDir string) (*Server, error) {
 	pilotAddress := server.Mesh.DefaultConfig.DiscoveryAddress
 	_, port, _ := net.SplitHostPort(pilotAddress)
 	basePortI, _ := strconv.Atoi(port)
-	basePortI = basePortI - basePortI % 100
+	basePortI = basePortI - basePortI%100
 	basePort := int32(basePortI)
 	server.basePort = basePort
 
-
-	args.DiscoveryOptions =  envoy.DiscoveryServiceOptions{
-		HTTPAddr:        fmt.Sprintf(":%d", basePort+7),
-		GrpcAddr:        fmt.Sprintf(":%d", basePort+10),
+	args.DiscoveryOptions = envoy.DiscoveryServiceOptions{
+		HTTPAddr: fmt.Sprintf(":%d", basePort+7),
+		GrpcAddr: fmt.Sprintf(":%d", basePort+10),
 		// Using 12 for K8S-DNS based cert.
 		// TODO: We'll also need 11 for Citadel-based cert
-		SecureGrpcAddr:        fmt.Sprintf(":%d", basePort+12),
+		SecureGrpcAddr:  fmt.Sprintf(":%d", basePort+12),
 		EnableCaching:   true,
 		EnableProfiling: true,
 	}
@@ -173,7 +158,7 @@ func InitConfig(confDir string) (*Server, error) {
 		Port:    uint16(basePort + 13),
 	}
 
-		err = server.InitConfig()
+	err = server.InitConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -228,97 +213,3 @@ func (s *Server) WaitDrain(baseDir string) {
 
 }
 
-
-var trustDomain = "cluster.local"
-
-// TODO: use pilot-agent code, and refactor it to extract the core functionality.
-
-// TODO: better implementation for 'drainFile' config - used by agent.terminate()
-
-// startEnvoy starts the envoy sidecar for Istio control plane, for TLS and load balancing.
-// Should be called after cert generation
-func (s *Server) StartEnvoy(baseDir string, mcfg *meshv1.MeshConfig) error {
-	os.Mkdir(baseDir+"/etc/istio/proxy", 0700)
-
-	cfg := &meshv1.ProxyConfig{}
-	// Copy defaults
-	pcval, _ := mcfg.DefaultConfig.Marshal()
-	cfg.Unmarshal(pcval)
-
-	// This is the local envoy serving the control plane - gets configs from localhost, no TLS
-	cfg.DiscoveryAddress = fmt.Sprintf("localhost:%d", s.basePort+10)
-
-	cfg.ProxyAdminPort =  s.basePort
-
-	// Override shutdown, it's too slow
-	cfg.ParentShutdownDuration = types.DurationProto(5 * time.Second)
-
-	cfg.ConfigPath = baseDir + "/etc/istio/proxy"
-
-	// Let's try to use the same bootstrap that sidecars are using - without a special config for istiod.
-	// Will use localhost and get configs from pilot.
-	cfg.CustomConfigFile =       baseDir + "/var/lib/istio/envoy/envoy_bootstrap_tmpl.json"
-
-	nodeId := "sidecar~127.0.0.1~istio-pilot.istio-system~istio-system.svc.cluster.local"
-	env := os.Environ()
-	env = append(env, "ISTIO_META_ISTIO_VERSION=1.4")
-
-	//cfgF, err := agent.WriteBootstrap(cfg, nodeId, 1, []string{
-	//	"istio-pilot.istio-system",
-	//	fmt.Sprintf("spiffe://%s/ns/%s/sa/%s", trustDomain, "istio-system", "istio-pilot-service-account"),
-	//},
-	//	map[string]interface{}{},
-	//	env,
-	//	[]string{"127.0.0.1"}, // node IPs
-	//	"60s")
-
-	cfgF, err := agent.New(agent.Config{
-		Node:                "sidecar~127.0.0.1~istio-pilot.istio-system~istio-system.svc.cluster.local",
-		DNSRefreshRate:      "300s",
-		Proxy:               cfg,
-		PilotSubjectAltName: nil,
-		MixerSubjectAltName: nil,
-		LocalEnv:            os.Environ(),
-		NodeIPs:             []string{"127.0.0.1"},
-		PodName:             "istiod",
-		PodNamespace:        "istio-system",
-		PodIP:               net.IP([]byte{127,0,0,1}),
-		SDSUDSPath:          "",
-		SDSTokenPath:        "",
-		ControlPlaneAuth:    false,
-		DisableReportCalls:  true,
-	}).CreateFileForEpoch(0)
-	if err != nil {
-		return err
-	}
-	log.Println("Created ", cfgF)
-
-	// Start Envoy, using the pre-generated config. No restarts: if it crashes, we exit.
-	stop := make(chan error)
-	//features.EnvoyBaseId.DefaultValue = "1"
-	process, err := agent.RunProxy(cfg, nodeId, 1, cfgF, stop,
-		os.Stdout, os.Stderr, []string{
-			"--disable-hot-restart",
-			// "-l", "trace",
-		})
-	if err != nil {
-		log.Fatal("Failed to start envoy sidecar for istio", err)
-	}
-	go func() {
-		// Should not happen.
-		process.Wait()
-		log.Fatal("Envoy terminated, restart.")
-	}()
-	return err
-}
-
-// Start the galley component, with its args.
-
-// Galley by default initializes some probes - we'll use Pilot probes instead, since it also checks for galley
-// TODO: have  the probes check all other components
-
-// Validation is not included in hyperistio - standalone Galley or external address should be used, it's not
-// part of the minimal set.
-
-// Monitoring, profiling are common across all components, skipping as part of Galley startup
-// Ctrlz is custom for galley - setting it up here.

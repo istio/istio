@@ -46,17 +46,18 @@ func TestCerts(t *testing.T) {
 }
 
 func BenchmarkCerts(t *testing.B) {
+	for n := 0; n < t.N; n++ {
+		client, kcfg, err := CreateClientset("", "")
+		if err != nil {
+			t.Skip("Missing K8S", err)
+		}
 
-	client, kcfg, err := CreateClientset("", "")
-	if err != nil {
-		t.Skip("Missing K8S", err)
+		certChain, _, err := GenKeyCertK8sCA(client.CertificatesV1beta1(), "istio-system", "istio-pilot.istio-system")
+		if err != nil {
+			t.Fatal("Fail to generate cert", err)
+		}
+
+		caCert := kcfg.TLSClientConfig.CAData
+		_ = append(certChain, caCert...)
 	}
-
-	certChain, _, err := GenKeyCertK8sCA(client.CertificatesV1beta1(), "istio-system", "istio-pilot.istio-system")
-	if err != nil {
-		t.Fatal("Fail to generate cert", err)
-	}
-
-	caCert := kcfg.TLSClientConfig.CAData
-	certChain = append(certChain, caCert...)
 }

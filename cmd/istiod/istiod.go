@@ -16,12 +16,14 @@ package main
 
 import (
 	"io/ioutil"
-	"istio.io/istio/pkg/istiod"
-	"istio.io/istio/pkg/istiod/k8s"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"log"
 	"os"
+
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+
+	"istio.io/istio/pkg/istiod"
+	"istio.io/istio/pkg/istiod/k8s"
 )
 
 // Istio control plane with K8S support.
@@ -73,19 +75,12 @@ func main() {
 
 	k8sServer.InitK8SDiscovery(istiods, client, kcfg, istiods.Args)
 
-
 	err = istiods.Start(stop, k8sServer.OnXDSStart)
 	if err != nil {
 		log.Fatal("Failure on start XDS server", err)
 	}
 
 	k8sServer.StartSDSK8S(istiods.Mesh)
-
-	// Feedback: don't run envoy sidecar in istiod
-	//err = s.StartEnvoy(baseDir, kc.IstioServer.Mesh)
-	//if err != nil {
-	//	log.Fatal("Failure on start istio-control sidecar", err)
-	//}
 
 	// Injector should run along, even if not used - but only if the injection template is mounted.
 	if _, err := os.Stat("./var/lib/istio/inject/injection-template.yaml"); err == nil {
@@ -111,14 +106,13 @@ func initCerts(server *istiod.Server, client *kubernetes.Clientset, cfg *rest.Co
 	server.CertKey = keyPEM
 
 	// Save the certificates to /var/run/secrets/istio-dns
-	os.MkdirAll(istiod.DnsCertDir, 0700)
-	err = ioutil.WriteFile(istiod.DnsCertDir + "/key.pem", keyPEM, 0700)
+	os.MkdirAll(istiod.DNSCertDir, 0700)
+	err = ioutil.WriteFile(istiod.DNSCertDir+"/key.pem", keyPEM, 0700)
 	if err != nil {
 		log.Fatal("Failed to write certs", err)
 	}
-	err = ioutil.WriteFile(istiod.DnsCertDir + "/cert-chain.pem", certChain, 0700)
+	err = ioutil.WriteFile(istiod.DNSCertDir+"/cert-chain.pem", certChain, 0700)
 	if err != nil {
 		log.Fatal("Failed to write certs")
 	}
 }
-

@@ -19,9 +19,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"google.golang.org/grpc/credentials"
-	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/config/mesh"
 	"net"
 	"net/http"
 	"path"
@@ -29,6 +26,11 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"google.golang.org/grpc/credentials"
+
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/mesh"
 
 	"istio.io/pkg/ctrlz/fw"
 
@@ -67,28 +69,14 @@ import (
 )
 
 const (
-	// ConfigMapKey should match the expected MeshConfig file name
-	ConfigMapKey = "mesh"
-
-	requiredMCPCertCheckFreq = 500 * time.Millisecond
-
 	// DefaultMCPMaxMsgSize is the default maximum message size
 	DefaultMCPMaxMsgSize = 1024 * 1024 * 4
-
-	// DefaultMCPInitialWindowSize is the default InitialWindowSize value for the gRPC connection.
-	DefaultMCPInitialWindowSize = 1024 * 1024
-
-	// DefaultMCPInitialConnWindowSize is the default Initial ConnWindowSize value for the gRPC connection.
-	DefaultMCPInitialConnWindowSize = 1024 * 1024
-
-	// URL types supported by the config store
-	// example fs:///tmp/configroot
-	fsScheme = "fs"
 )
 
 var (
-	// Location of generated DNS certificates
-	DnsCertDir = "./var/run/secrets/istio-dns"
+	// DnsCertDir is the location to save generated DNS certificates.
+	// TODO: we can probably avoid saving, but will require deeper changes.
+	DNSCertDir = "./var/run/secrets/istio-dns"
 
 	// FilepathWalkInterval dictates how often the file system is walked for config
 	FilepathWalkInterval = 100 * time.Millisecond
@@ -221,8 +209,6 @@ func (s *Server) InitConfig() error {
 // InitDiscovery is called after InitConfig, will initialize the discovery services and
 // discovery server.
 func (s *Server) InitDiscovery() error {
-	args := s.Args
-
 	// Wrap the config controller with a cache.
 	configController, err := configaggregate.MakeCache(s.ConfigStores)
 	if err != nil {
@@ -251,7 +237,7 @@ func (s *Server) InitDiscovery() error {
 
 	// ServiceEntry from config and aggregate discovery in s.ServiceController
 	// This will use the istioConfigStore and ConfigController.
-	if err := s.addConfig2ServiceEntry(args); err != nil {
+	if err := s.addConfig2ServiceEntry(); err != nil {
 		return fmt.Errorf("service controllers: %v", err)
 	}
 
@@ -304,9 +290,7 @@ func (s *Server) Start(stop <-chan struct{}, onXDSStart func(model.XDSUpdater)) 
 		}
 	}
 
-	if !s.waitForCacheSync(stop) {
-		return nil
-	}
+	s.waitForCacheSync()
 
 	// Start the XDS server (non blocking)
 	s.EnvoyXdsServer.Start(stop)
@@ -318,7 +302,7 @@ func (s *Server) Start(stop <-chan struct{}, onXDSStart func(model.XDSUpdater)) 
 
 func (s *Server) WaitStop(stop <-chan struct{}) {
 	<-stop
-	//		authn_model.JwtKeyResolver.Close()
+	// TODO: add back	if needed:	authn_model.JwtKeyResolver.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -352,7 +336,9 @@ func (s *Server) Serve(stop <-chan struct{}) error {
 	}()
 
 	if s.Args.CtrlZOptions != nil {
-		ctrlz.Run(s.Args.CtrlZOptions, []fw.Topic{s.Galley.ConfigZTopic()})
+		if _, err := ctrlz.Run(s.Args.CtrlZOptions, []fw.Topic{s.Galley.ConfigZTopic()}); err != nil {
+			log.Warna(err)
+		}
 	}
 	return nil
 }
@@ -576,7 +562,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 
 // addConfig2ServiceEntry creates and initializes the ServiceController used for translating
 // ServiceEntries from config store to discovery.
-func (s *Server) addConfig2ServiceEntry(args *PilotArgs) error {
+func (s *Server) addConfig2ServiceEntry() error {
 	serviceEntryStore := external.NewServiceDiscovery(s.ConfigController, s.IstioConfigStore)
 
 	// add service entry registry to aggregator by default
@@ -616,7 +602,11 @@ func (s *Server) initDiscoveryService(args *PilotArgs, onXDSStart func(model.XDS
 
 	// create grpc/http server
 	s.initGrpcServer(args.KeepaliveOptions)
-	s.initSecureGrpcServer(args.KeepaliveOptions)
+
+	// TODO: if certs are completely disabled, skip this.
+	if err = s.initSecureGrpcServer(args.KeepaliveOptions); err != nil {
+		return err
+	}
 
 	s.httpServer = &http.Server{
 		Addr:    args.DiscoveryOptions.HTTPAddr,
@@ -652,7 +642,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs, onXDSStart func(model.XDS
 
 // initialize secureGRPCServer - using K8S DNS certs
 func (s *Server) initSecureGrpcServer(options *istiokeepalive.Options) error {
-	certDir := DnsCertDir
+	certDir := DNSCertDir
 
 	key := path.Join(certDir, constants.KeyFilename)
 	cert := path.Join(certDir, constants.CertChainFilename)
@@ -755,14 +745,13 @@ func (s *Server) addFileWatcher(file string, callback func()) {
 	}()
 }
 
-func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
-	// TODO: remove dependency on k8s lib
+func (s *Server) waitForCacheSync() {
+	// TODO: set a limit, panic otherwise ( to not hide the error )
 	for {
 		if !s.ConfigController.HasSynced() {
 			time.Sleep(200 * time.Millisecond)
+		} else {
+			return
 		}
-		return true
 	}
-	log.Debug("Sync done")
-	return true
 }

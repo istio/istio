@@ -16,6 +16,7 @@ package k8s
 
 import (
 	"github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/pkg/kube/inject"
 )
 
