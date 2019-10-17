@@ -113,13 +113,13 @@ func RunValidation(ready chan<- struct{}, stopCh chan struct{}, vc *WebhookParam
 			for {
 				if err := webhookHTTPSHandlerReady(client, vc); err != nil {
 					validationReadinessProbe.SetAvailable(errors.New("not ready"))
-					scope.Infof("https handler for validation webhook is not ready: %v", err)
+					scope.Infof("https handler for validation webhook is not ready: %v\n", err)
 					ready = false
 				} else {
 					validationReadinessProbe.SetAvailable(nil)
 
 					if !ready {
-						scope.Info("https handler for validation webhook is ready")
+						scope.Info("https handler for validation webhook is ready\n")
 						ready = true
 					}
 				}
@@ -135,7 +135,6 @@ func RunValidation(ready chan<- struct{}, stopCh chan struct{}, vc *WebhookParam
 	}
 
 	go wh.Run(ready, stopCh)
-	defer wh.Stop()
 }
 
 // isDNS1123Label tests for a string that conforms to the definition of a label in

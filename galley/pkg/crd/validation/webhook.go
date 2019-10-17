@@ -278,6 +278,9 @@ func (wh *Webhook) Run(ready chan<- struct{}, stopCh <-chan struct{}) {
 			scope.Fatalf("admission webhook ListenAndServeTLS failed: %v", err)
 		}
 	}()
+	defer func() {
+		wh.Stop()
+	}()
 
 	// During initial Istio installation its possible for custom
 	// resources to be created concurrently with galley startup. This

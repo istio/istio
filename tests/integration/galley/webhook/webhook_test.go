@@ -15,14 +15,24 @@
 package galley
 
 import (
+	"crypto/tls"
+	"errors"
+	"fmt"
+	"net"
+	"net/http"
+	"sort"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -125,6 +135,28 @@ func TestWebhook(t *testing.T) {
 					}
 				})
 
+			// Verify that the webhook's key and cert are reloaded, e.g. on rotation
+			ctx.NewSubTest("key/cert reload").
+				Run(func(ctx framework.TestContext) {
+					addr, done := startGalleyPortForwarderOrDie(t, env, istioNs)
+					defer done()
+
+					startingSN := fetchWebhookCertSerialNumbersOrDie(t, addr)
+
+					log.Infof("Initial cert serial numbers: %v", startingSN)
+
+					env.DeleteSecret(istioNs, "istio.istio-galley-service-account")
+
+					retry.UntilSuccessOrFail(t, func() error {
+						updated := fetchWebhookCertSerialNumbersOrDie(t, addr)
+						if diff := cmp.Diff(startingSN, updated); diff != "" {
+							log.Infof("Updated cert serial numbers: %v", updated)
+							return nil
+						}
+						return errors.New("no change to cert serial numbers")
+					}, retry.Timeout(5*time.Minute))
+				})
+
 			// NOTE: Keep this as the last test! It deletes the istio-system namespaces. All subsequent kube tests will fail.
 			// Verify that removing galley's namespace results in the webhook configuration being removed
 			ctx.NewSubTest("webhookUninstall").
@@ -162,6 +194,71 @@ func getVwcResourceVersion(vwcName string, t *testing.T, env *kube.Environment) 
 		t.Fatalf("Could not get validating webhook webhook config %s: %v", vwcName, err)
 	}
 	return vwc.GetResourceVersion()
+}
+
+func startGalleyPortForwarderOrDie(t *testing.T, env *kube.Environment, ns string) (addr string, done func()) {
+	t.Helper()
+
+	fetchFunc := env.Accessor.NewSinglePodFetch(ns, "app=galley")
+	pods, err := env.Accessor.WaitUntilPodsAreReady(fetchFunc)
+	if err != nil {
+		t.Fatalf("error fetching galley pods: %v", err)
+	}
+	if len(pods) == 0 {
+		t.Fatal("no galley pods found")
+	}
+	forwarder, err := env.Accessor.NewPortForwarder(pods[0], 0, 443)
+	if err != nil {
+		t.Fatalf("failed creating port forwarding to galley: %v", err)
+	}
+	if err := forwarder.Start(); err != nil {
+		t.Fatal("failed to start port forwarding: %v", err)
+	}
+
+	done = func() {
+		if err := forwarder.Close(); err != nil {
+			t.Errorf("an error occured when the port forwarder was closed: %v", err)
+		}
+	}
+	return forwarder.Address(), done
+}
+
+func fetchWebhookCertSerialNumbersOrDie(t *testing.T, addr string) []string {
+	t.Helper()
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+			},
+			DialContext: (&net.Dialer{
+				Timeout: 30 * time.Second,
+			}).DialContext,
+		},
+	}
+
+	url := fmt.Sprintf("%v/admitpilot", addr)
+	req, err := http.NewRequest("POST", url, nil)
+	if err != nil {
+		t.Fatalf("iunvalid request: %v", err)
+	}
+
+	req.Host = "istio-galley.istio-system.svc"
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("webhook request failed: %v", err)
+	}
+
+	s := resp.TLS
+	if s == nil {
+		t.Fatal("server to not provide any certificates")
+	}
+
+	var sn []string
+	for _, cert := range s.PeerCertificates {
+		sn = append(sn, cert.SerialNumber.Text(16))
+	}
+	sort.Strings(sn)
+	return sn
 }
 
 func TestMain(m *testing.M) {
