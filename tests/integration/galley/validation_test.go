@@ -83,7 +83,8 @@ func TestValidation(t *testing.T) {
 				// k8s typed errors.
 				return strings.Contains(err.Error(), "denied the request") ||
 					strings.Contains(err.Error(), "error validating data") ||
-					strings.Contains(err.Error(), "Invalid value")
+					strings.Contains(err.Error(), "Invalid value") ||
+					strings.Contains(err.Error(), "is invalid")
 			}
 
 			for _, d := range dataset {
