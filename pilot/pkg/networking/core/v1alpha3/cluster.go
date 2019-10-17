@@ -1156,7 +1156,7 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 	}
 
 	// convert to transport socket matcher if the mode was auto detected
-	if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL && mtlsCtxType == autoDetected {
+	if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL && mtlsCtxType == autoDetected && util.IsIstioVersionGE14(proxy) {
 		tlsContext, err := ptypes.MarshalAny(cluster.TlsContext)
 		cluster.TlsContext = nil
 		if err != nil {
