@@ -143,7 +143,7 @@ func InitConfig(confDir string) (*Server, error) {
 	// TODO: this was added to allow some config of the base port for VMs to allow multiple instances of istiod,
 	// mainly for testing. Probably can be removed - little reason to override the defaults.
 	basePortI, _ := strconv.Atoi(port)
-	basePortI -= basePortI%100
+	basePortI -= basePortI % 100
 	basePort := int32(basePortI)
 	server.basePort = basePort
 
@@ -212,4 +212,3 @@ func (s *Server) WaitDrain(baseDir string) {
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	<-sigs
 }
-

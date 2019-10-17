@@ -152,7 +152,7 @@ func GenKeyCertK8sCA(certClient certclient.CertificatesV1beta1Interface, ns, hos
 	return certChain, keyPEM, err
 }
 
-func submitCSR(certClient certclient.CertificatesV1beta1Interface, csrName string, csrPEM []byte, numRetries int) (*cert.CertificateSigningRequest, error) {
+func submitCSR(certClient certclient.CertificateSigningRequestsGetter, csrName string, csrPEM []byte, numRetries int) (*cert.CertificateSigningRequest, error) {
 	k8sCSR := &cert.CertificateSigningRequest{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "certificates.k8s.io/v1beta1",
