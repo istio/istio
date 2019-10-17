@@ -57,13 +57,13 @@ import (
 const trustworthyJWTPath = "/var/run/secrets/tokens/istio-token"
 
 var (
-	role             = &model.Proxy{}
-	proxyIP          string
-	registry         serviceregistry.ServiceRegistry
-	trustDomain      string
-	pilotIdentity    string
-	mixerIdentity    string
-	statusPort       uint16
+	role          = &model.Proxy{}
+	proxyIP       string
+	registry      serviceregistry.ServiceRegistry
+	trustDomain   string
+	pilotIdentity string
+	mixerIdentity string
+	statusPort    uint16
 
 	// proxy config flags (named identically)
 	configPath               string
