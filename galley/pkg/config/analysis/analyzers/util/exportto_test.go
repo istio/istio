@@ -14,9 +14,27 @@
 
 package util
 
-const (
-	DefaultKubernetesDomain = "svc.cluster.local"
-	MeshGateway             = "mesh"
-	ExportToNamespaceLocal  = "."
-	ExportToAllNamespaces   = "*"
+import (
+	"testing"
+
+	. "github.com/onsi/gomega"
 )
+
+func TestIsExportToAllNamespaces(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	// Empty array
+	g.Expect(IsExportToAllNamespaces(nil)).To(Equal(true))
+
+	// Array with "*"
+	g.Expect(IsExportToAllNamespaces([]string{"*"})).To(Equal(true))
+
+	// Array with "."
+	g.Expect(IsExportToAllNamespaces([]string{"."})).To(Equal(false))
+
+	// Array with "." & "*"
+	g.Expect(IsExportToAllNamespaces([]string{".", "*"})).To(Equal(true))
+
+	// Array with "bogus"
+	g.Expect(IsExportToAllNamespaces([]string{"bogus"})).To(Equal(true))
+}

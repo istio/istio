@@ -49,15 +49,18 @@ func getNamespaceAndNameFromFQDN(fqdn string) (string, string) {
 	return result[0][2], result[0][1]
 }
 
-func ConvertHostToFQDN(host, namespace string) string {
-	if (host == "") || (namespace == "") {
-		return ""
-	} else if strings.HasPrefix(host, "*") {
-		return host
-	} else if strings.Contains(host, ".") {
-		return host
-	} else {
-		// need to return Fully Qualified Domain Name
-		return host + "." + namespace + "." + DefaultKubernetesDomain
+// GetScopedFqdnHostname converts the passed host to FQDN if needed and applies the passed scope.
+func GetScopedFqdnHostname(scope, namespace, host string) string {
+	name := convertHostToFQDN(namespace, host)
+	return scope + "/" + name
+}
+
+func convertHostToFQDN(namespace, host string) string {
+	fqdn := host
+	// Convert to FQDN only if host is not a wildcard or a FQDN
+	if !strings.HasPrefix(host, "*") &&
+		!strings.Contains(host, ".") {
+		fqdn = host + "." + namespace + "." + DefaultKubernetesDomain
 	}
+	return fqdn
 }
