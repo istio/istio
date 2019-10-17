@@ -777,7 +777,7 @@ func restConfig() (config *rest.Config, err error) {
 			return nil
 		})
 	err = schemeBuilder.AddToScheme(types)
-	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: serializer.NewCodecFactory(types)}
+	config.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: serializer.NewCodecFactory(types)}
 	return
 }
 

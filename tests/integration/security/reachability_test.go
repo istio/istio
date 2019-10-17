@@ -62,30 +62,6 @@ func TestReachability(t *testing.T) {
 					},
 				},
 				{
-					ConfigFile:          "global-mtls-on-no-dr.yaml",
-					Namespace:           systemNM,
-					RequiredEnvironment: environment.Kube,
-					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						// Exclude calls to the headless TCP port.
-						if opts.Target == rctx.Headless && opts.PortName == "tcp" {
-							return false
-						}
-
-						return true
-					},
-					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						// When mTLS is in STRICT mode, DR's TLS settings are default to mTLS so the result would
-						// be the same as having global DR rule as in previous test case.
-						if src == rctx.Naked && opts.Target == rctx.Naked {
-							// naked->naked should always succeed.
-							return true
-						}
-
-						// If one of the two endpoints is naked, expect failure.
-						return src != rctx.Naked && opts.Target != rctx.Naked
-					},
-				},
-				{
 					ConfigFile:          "global-mtls-permissive.yaml",
 					Namespace:           systemNM,
 					RequiredEnvironment: environment.Kube,

@@ -112,7 +112,7 @@ func RunRBACTest(t *testing.T, cases []TestCase) {
 			want)
 		t.Run(testName, func(t *testing.T) {
 			retry.UntilSuccessOrFail(t, tc.CheckRBACRequest,
-				retry.Delay(500*time.Millisecond), retry.Timeout(15*time.Second))
+				retry.Delay(250*time.Millisecond), retry.Timeout(30*time.Second))
 		})
 	}
 }

@@ -100,3 +100,24 @@ messages:
     args:
       - name: combinedErr
         type: error
+
+  - name: "MisplacedAnnotation"
+    code: IST0107
+    level: Warning
+    description: "An Istio annotation is applied to the wrong kind of resource."
+    template: "Misplaced annotation: %s can only be applied to %s"
+    args:
+       - name: annotation
+         type: string
+       - name: kind
+         type: string
+
+  - name: "UnknownAnnotation"
+    code: IST0108
+    level: Warning
+    description: "An Istio annotation is not recognized for any kind of resource"
+    template: "Unknown annotation: %s"
+    args:
+       - name: annotation
+         type: string
+

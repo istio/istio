@@ -172,7 +172,9 @@ var (
 			Name: "hello",
 		}},
 		Peers: []*authn.PeerAuthenticationMethod{{
-			Params: &authn.PeerAuthenticationMethod_Mtls{},
+			Params: &authn.PeerAuthenticationMethod_Mtls{
+				Mtls: &authn.MutualTls{},
+			},
 		}},
 	}
 

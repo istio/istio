@@ -202,7 +202,7 @@ func metrics(promAPI promv1.API, workload string) (workloadMetrics, error) {
 
 func vectorValue(promAPI promv1.API, query string) (float64, error) {
 	log.Debugf("executing query: %s", query)
-	val, err := promAPI.Query(context.Background(), query, time.Now())
+	val, _, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
 		return 0, fmt.Errorf("query() failure for '%s': %v", query, err)
 	}

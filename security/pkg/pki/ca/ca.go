@@ -122,7 +122,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, readSigningCertOnly bool,
 		RotatorConfig: &SelfSignedCARootCertRotatorConfig{
 			CheckInterval:       rootCertCheckInverval,
 			caCertTTL:           caCertTTL,
-			retryInterval:       cmd.ReadSigningCertCheckInterval,
+			retryInterval:       cmd.ReadSigningCertRetryInterval,
 			certInspector:       certutil.NewCertUtil(rootCertGracePeriodPercentile),
 			caStorageNamespace:  namespace,
 			dualUse:             dualUse,

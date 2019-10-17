@@ -17,6 +17,7 @@ package common
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -91,6 +92,11 @@ func FillInDefaults(ctx resource.Context, defaultDomain string, c *echo.Config) 
 		if p.InstancePort <= 0 {
 			c.Ports[i].InstancePort = portGen.Instance.Next(p.Protocol)
 		}
+	}
+
+	// If readiness probe is specified by a test, we wait almost forever.
+	if c.ReadinessTimeout == 0 {
+		c.ReadinessTimeout = time.Second * 36000
 	}
 
 	return nil
