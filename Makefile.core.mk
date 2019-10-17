@@ -19,7 +19,7 @@ ISTIO_GO := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 export ISTIO_GO
 SHELL := /bin/bash -o pipefail
 
-VERSION ?= 1.4-dev
+VERSION ?= 1.5-dev
 
 # Base version of Istio image to use
 BASE_VERSION ?= 1.4-dev.2
@@ -349,7 +349,8 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./mixer/test/policybackend \
   ./cmd/istiod \
   ./tools/hyperistio \
-  ./tools/istio-iptables
+  ./tools/istio-iptables \
+  ./tools/istio-clean-iptables
 
 # List of binaries included in releases
 RELEASE_BINARIES:=pilot-discovery pilot-agent sidecar-injector mixc mixs mixgen node_agent node_agent_k8s istio_ca istiod istioctl galley sdsclient

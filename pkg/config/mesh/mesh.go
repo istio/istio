@@ -69,12 +69,14 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		SdsUdsPath:                        "",
 		EnableSdsTokenMount:               false,
 		TrustDomain:                       "",
+		TrustDomainAliases:                []string{},
 		DefaultServiceExportTo:            []string{"*"},
 		DefaultVirtualServiceExportTo:     []string{"*"},
 		DefaultDestinationRuleExportTo:    []string{"*"},
 		OutboundTrafficPolicy:             &meshconfig.MeshConfig_OutboundTrafficPolicy{Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY},
 		DnsRefreshRate:                    types.DurationProto(5 * time.Second), // 5 seconds is the default refresh rate used in Envoy
 		ProtocolDetectionTimeout:          types.DurationProto(100 * time.Millisecond),
+		EnableAutoMtls:                    &types.BoolValue{Value: false},
 	}
 }
 

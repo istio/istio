@@ -831,6 +831,7 @@ var _datasetMeshIstioIoV1alpha1Meshconfig_expectedJson = []byte(`{
                 "dns_refresh_rate": {
                   "seconds": 5
                 },
+                "enable_auto_mtls": {},
                 "enable_tracing": true,
                 "ingress_class": "istio",
                 "ingress_controller_mode": 2,

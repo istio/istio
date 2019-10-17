@@ -70,5 +70,5 @@ func setupConfig(cfg *istio.Config) {
 		return
 	}
 	cfg.Values["galley.enableServiceDiscovery"] = "true"
-	cfg.Values["pilot.configSource.subscribedResources"] = "SERVICE_REGISTRY"
+	cfg.Values["pilot.configSource.subscribedResources[0]"] = "SERVICE_REGISTRY"
 }
