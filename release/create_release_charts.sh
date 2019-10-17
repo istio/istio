@@ -76,7 +76,6 @@ function copy_profiles() {
 }
 
 function copy_versions_files() {
-    cp "${OPERATOR_BASE_DIR}/version/version.yaml" "${OUTPUT_DIR}"
     cp "${OPERATOR_BASE_DIR}/version/versions.yaml" "${OUTPUT_DIR}"
 }
 

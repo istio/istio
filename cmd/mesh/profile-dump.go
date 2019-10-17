@@ -86,13 +86,13 @@ func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l *
 	l.print(y + "\n")
 }
 
-func genProfile(helmValues bool, inFilename, profile, setOverlayYAML, configPath string, force bool, l *logger) (string, error) {
+func genICPS(inFilename, profile, setOverlayYAML string, force bool, l *logger) (string, *v1alpha2.IstioControlPlaneSpec, error) {
 	overlayYAML := ""
 	var overlayICPS *v1alpha2.IstioControlPlaneSpec
 	set := make(map[string]interface{})
 	err := yaml.Unmarshal([]byte(setOverlayYAML), &set)
 	if err != nil {
-		return "", fmt.Errorf("could not Unmarshal overlay Set%s: %s", setOverlayYAML, err)
+		return "", nil, fmt.Errorf("could not Unmarshal overlay Set%s: %s", setOverlayYAML, err)
 	}
 	if setProfile, ok := set["profile"]; ok {
 		profile = setProfile.(string)
@@ -100,11 +100,11 @@ func genProfile(helmValues bool, inFilename, profile, setOverlayYAML, configPath
 	if inFilename != "" {
 		b, err := ioutil.ReadFile(inFilename)
 		if err != nil {
-			return "", fmt.Errorf("could not read values file %s: %s", inFilename, err)
+			return "", nil, fmt.Errorf("could not read values from file %s: %s", inFilename, err)
 		}
 		overlayICPS, overlayYAML, err = unmarshalAndValidateICP(string(b))
 		if err != nil {
-			return "", err
+			return "", nil, err
 		}
 		profile = overlayICPS.Profile
 	}
@@ -112,46 +112,54 @@ func genProfile(helmValues bool, inFilename, profile, setOverlayYAML, configPath
 	// This contains the IstioControlPlane CR.
 	baseCRYAML, err := helm.ReadProfileYAML(profile)
 	if err != nil {
-		return "", fmt.Errorf("could not read the profile values for %s: %s", profile, err)
+		return "", nil, fmt.Errorf("could not read the profile values for %s: %s", profile, err)
 	}
 
 	if !helm.IsDefaultProfile(profile) {
 		// Profile definitions are relative to the default profile, so read that first.
 		dfn, err := helm.DefaultFilenameForProfile(profile)
 		if err != nil {
-			return "", err
+			return "", nil, err
 		}
 		defaultYAML, err := helm.ReadProfileYAML(dfn)
 		if err != nil {
-			return "", fmt.Errorf("could not read the default profile values for %s: %s", dfn, err)
+			return "", nil, fmt.Errorf("could not read the default profile values for %s: %s", dfn, err)
 		}
 		baseCRYAML, err = helm.OverlayYAML(defaultYAML, baseCRYAML)
 		if err != nil {
-			return "", fmt.Errorf("could not overlay the profile over the default %s: %s", profile, err)
+			return "", nil, fmt.Errorf("could not overlay the profile over the default %s: %s", profile, err)
 		}
 	}
 
 	_, baseYAML, err := unmarshalAndValidateICP(baseCRYAML)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	// Merge base and overlay.
 	mergedYAML, err := helm.OverlayYAML(baseYAML, overlayYAML)
 	if err != nil {
-		return "", fmt.Errorf("could not overlay user config over base: %s", err)
+		return "", nil, fmt.Errorf("could not overlay user config over base: %s", err)
 	}
 	if _, err := unmarshalAndValidateICPS(mergedYAML, force, l); err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	// Merge the tree build from --set option on top of that.
 	finalYAML, err := helm.OverlayYAML(mergedYAML, setOverlayYAML)
 	if err != nil {
-		return "", fmt.Errorf("could not overlay --set values over merged: %s", err)
+		return "", nil, fmt.Errorf("could not overlay --set values over merged: %s", err)
 	}
 
 	finalICPS, err := unmarshalAndValidateICPS(finalYAML, force, l)
+	if err != nil {
+		return "", nil, err
+	}
+	return finalYAML, finalICPS, nil
+}
+
+func genProfile(helmValues bool, inFilename, profile, setOverlayYAML, configPath string, force bool, l *logger) (string, error) {
+	finalYAML, finalICPS, err := genICPS(inFilename, profile, setOverlayYAML, force, l)
 	if err != nil {
 		return "", err
 	}

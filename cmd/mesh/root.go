@@ -59,12 +59,10 @@ func GetRootCmd(args []string) *cobra.Command {
 	rootCmd.SetArgs(args)
 	rootCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
 
-	mc := ManifestCmd()
-	pc := ProfileCmd()
-
-	rootCmd.AddCommand(mc)
-	rootCmd.AddCommand(pc)
+	rootCmd.AddCommand(ManifestCmd())
+	rootCmd.AddCommand(ProfileCmd())
 	rootCmd.AddCommand(version.CobraCommand())
+	rootCmd.AddCommand(UpgradeCmd())
 
 	version.Info.Version = binversion.OperatorVersionString
 

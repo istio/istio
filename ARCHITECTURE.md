@@ -8,11 +8,11 @@ See the
 for a more complete design description. The operator code is divided roughly into five areas:
 
 1. [IstioControlPlaneSpec API](#istiocontrolplanespec-api) and related infrastructure, which is expressed as a
-[proto](https://github.com/istio/operator/blob/master/pkg/apis/istio/v1alpha2/istiocontrolplane_types.proto) and
+[proto](pkg/apis/istio/v1alpha2/istiocontrolplane_types.proto) and
 compiled to [Go
-structs](https://github.com/istio/operator/blob/master/pkg/apis/istio/v1alpha2/istiocontrolplane_types.pb.go).
+structs](pkg/apis/istio/v1alpha2/istiocontrolplane_types.pb.go).
 `IstioControlPlaneSpec` has pass-through fields to the Helm values.yaml API, but these are additionally validated through
-a [schema](https://github.com/istio/operator/blob/master/pkg/apis/istio/v1alpha2/values/values_types.proto). 
+a [schema](pkg/apis/istio/v1alpha2/values/values_types.proto).
 1. [Controller](#k8s-controller) code. The code comprises the K8s listener, webhook and logic for reconciling the cluster
 to an `IstioControlPlaneSpec` CR. 
 1. [Manifest creation](#manifest-creation) code. User settings are overlaid on top of the
@@ -34,11 +34,11 @@ are intended to support production ready deployments of Istio that follow best p
 Throughout the document, the following terms are used:
 
 - `IstioControlPlaneSpec`: The API directly defined in the
-[IstioControlPlaneSpec proto](https://github.com/istio/operator/blob/master/pkg/apis/istio/v1alpha2/istiocontrolplane_types.proto),
+[IstioControlPlaneSpec proto](pkg/apis/istio/v1alpha2/istiocontrolplane_types.proto),
 including feature and component groupings, namespaces and enablement, and per-component K8s settings. 
 - Helm values.yaml API, implicitly defined through the various values.yaml files in the
 [Helm charts](https://github.com/istio/installer) and schematized in the operator through
-[values_types.proto](https://github.com/istio/operator/blob/master/pkg/apis/istio/v1alpha2/values/values_types.proto).
+[values_types.proto](pkg/apis/istio/v1alpha2/values/values_types.proto).
 
 ## IstioControlPlaneSpec API
 
@@ -172,7 +172,7 @@ trafficManagement:
 
 API translations are version specific and are expressed as a
 [table of Translators](https://github.com/istio/operator/blob/e9097258cb4fbe59648e7da663cdad6f16927b8f/pkg/translate/translate.go#L110)
-indexed by minor [version](https://github.com/istio/operator/blob/master/pkg/version/version.go). This is because
+indexed by minor [version](pkg/version/version.go). This is because
 mapping rules are only allowed to change between minor (not patch) versions.
 
 The `IstioControlPlaneSpec` API fields are translated to the output manifest in two ways:
@@ -194,10 +194,10 @@ struct.
 
 Both the `IstioControlPlaneSpec` and Helm APIs are validated. The `IstioControlPlaneSpec` API is validated through a 
 table of validation rules in
-[pkg/validate/validate.go](https://github.com/istio/operator/blob/master/pkg/validate/validate.go). These rules
+[pkg/validate/validate.go](pkg/validate/validate.go). These rules
 refer to the Go struct path schema and hence have names with a capitalized first letter.
 The Helm values.yaml API is validated in
-[validate_values.go](https://github.com/istio/operator/blob/master/pkg/validate/validate_values.go)
+[validate_values.go](pkg/validate/validate_values.go)
 and refer to the values.yaml data paths. Hence, these rules have names with a lower case first letter.
 Apart from validating the correctness of individual fields, the operator ensure that relationships between values in
 different parts of the configuration tree are correct. For example, it's an error to enable a component while its
@@ -219,7 +219,7 @@ The source may be selected independently for the charts and profiles. The differ
 as follows:
 
 1. The user CR (my_custom.yaml) selects a configuration profile. If no profile is selected, the 
-[default profile](https://github.com/istio/operator/blob/master/data/profiles/default.yaml) is used. Each profile is defined as a
+[default profile](data/profiles/default.yaml) is used. Each profile is defined as a
 set of defaults for `IstioControlPlaneSpec`, for both the restructured fields (K8s settings, namespaces and enablement)
 and the Helm values (Istio behavior configuration).
 
@@ -235,19 +235,19 @@ CRs at this layer, so no merge is performed in this step.
 
 ## CLI
 
-The CLI `mesh` command is implemented in the [cmd/mesh](https://github.com/istio/operator/blob/master/cmd/mesh/)
+The CLI `mesh` command is implemented in the [cmd/mesh](cmd/mesh/)
 subdirectory as a Cobra command with the following subcommands:
 
-- [manifest](https://github.com/istio/operator/blob/master/cmd/mesh/manifest.go): the manifest subcommand is used to generate, apply, diff or migrate Istio manifests, it has the following subcommands:
-    - [apply](https://github.com/istio/operator/blob/master/cmd/mesh/manifest-apply.go): the apply subcommand is used to generate an Istio install manifest and apply it to a cluster.
-    - [diff](https://github.com/istio/operator/blob/master/cmd/mesh/manifest-diff.go): the diff subcommand is used to compare manifest from two files or directories.
-    - [generate](https://github.com/istio/operator/blob/master/cmd/mesh/manifest-generate.go): the generate subcommand is used to generate an Istio install manifest.
-    - [migrate](https://github.com/istio/operator/blob/master/cmd/mesh/manifest-migrate.go): the migrate subcommand is used to migrate a configuration in Helm values format to IstioControlPlane format.
-    - [versions](https://github.com/istio/operator/blob/master/cmd/mesh/manifest-versions.go): the versions subcommand is used to list the version of Istio recommended for and supported by this version of the operator binary.
-- [profile](https://github.com/istio/operator/blob/master/cmd/mesh/profile.go): dumps the default values for a selected profile, it has the following subcommands:
-    - [diff](https://github.com/istio/operator/blob/master/cmd/mesh/profile-diff.go): the diff subcommand is used to display the difference between two Istio configuration profiles.
-    - [dump](https://github.com/istio/operator/blob/master/cmd/mesh/profile-dump.go): the dump subcommand is used to dump the values in an Istio configuration profile.
-    - [list](https://github.com/istio/operator/blob/master/cmd/mesh/profile-list.go): the list subcommand is used to list available Istio configuration profiles.
+- [manifest](cmd/mesh/manifest.go): the manifest subcommand is used to generate, apply, diff or migrate Istio manifests, it has the following subcommands:
+    - [apply](cmd/mesh/manifest-apply.go): the apply subcommand is used to generate an Istio install manifest and apply it to a cluster.
+    - [diff](cmd/mesh/manifest-diff.go): the diff subcommand is used to compare manifest from two files or directories.
+    - [generate](cmd/mesh/manifest-generate.go): the generate subcommand is used to generate an Istio install manifest.
+    - [migrate](cmd/mesh/manifest-migrate.go): the migrate subcommand is used to migrate a configuration in Helm values format to IstioControlPlane format.
+    - [versions](cmd/mesh/manifest-versions.go): the versions subcommand is used to list the version of Istio recommended for and supported by this version of the operator binary.
+- [profile](cmd/mesh/profile.go): dumps the default values for a selected profile, it has the following subcommands:
+    - [diff](cmd/mesh/profile-diff.go): the diff subcommand is used to display the difference between two Istio configuration profiles.
+    - [dump](cmd/mesh/profile-dump.go): the dump subcommand is used to dump the values in an Istio configuration profile.
+    - [list](cmd/mesh/profile-list.go): the list subcommand is used to list available Istio configuration profiles.
 
 ## Migration tools
 

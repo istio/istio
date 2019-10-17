@@ -22,9 +22,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-
-	"istio.io/operator/pkg/manifest"
-	opversion "istio.io/operator/version"
 )
 
 type manifestApplyArgs struct {
@@ -79,51 +76,13 @@ func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs) *cobra.Comm
 }
 
 func manifestApply(args *rootArgs, maArgs *manifestApplyArgs, l *logger) {
-	if err := configLogs(args); err != nil {
+	if err := configLogs(args.logToStdErr); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Could not configure logs: %s", err)
 		os.Exit(1)
 	}
-
-	overlayFromSet, err := makeTreeFromSetList(maArgs.set)
-	if err != nil {
-		l.logAndFatal(err.Error())
-	}
-	manifests, err := genManifests(maArgs.inFilename, overlayFromSet, maArgs.force, l)
-	if err != nil {
-		l.logAndFatal("Could not generate manifest: ", err)
-	}
-
-	opts := &manifest.InstallOptions{
-		DryRun:      args.dryRun,
-		Verbose:     args.verbose,
-		WaitTimeout: maArgs.readinessTimeout,
-		Kubeconfig:  maArgs.kubeConfigPath,
-		Context:     maArgs.context,
-	}
-	out, err := manifest.ApplyAll(manifests, opversion.OperatorBinaryVersion, opts)
-	if err != nil {
-		l.logAndFatal("Failed to apply manifest with kubectl client: ", err)
-	}
-
-	for cn := range manifests {
-		if out[cn].Err != nil {
-			cs := fmt.Sprintf("Component %s failed install:", cn)
-			l.logAndPrint(fmt.Sprintf("\n%s\n%s\n", cs, strings.Repeat("=", len(cs))))
-			l.logAndPrint("Error: ", out[cn].Err, "\n")
-		} else {
-			cs := fmt.Sprintf("Component %s installed successfully:", cn)
-			l.logAndPrint(fmt.Sprintf("\n%s\n%s\n", cs, strings.Repeat("=", len(cs))))
-		}
-
-		if strings.TrimSpace(out[cn].Stderr) != "" {
-			l.logAndPrint("Error detail:\n", out[cn].Stderr, "\n")
-		}
-		if strings.TrimSpace(out[cn].Stdout) != "" {
-			l.logAndPrint("Stdout:\n", out[cn].Stdout, "\n")
-		}
-		if args.verbose {
-			l.logAndPrint("Manifest:\n\n", out[cn].Manifest, "\n")
-		}
+	if err := genApplyManifests(maArgs.set, maArgs.inFilename, args.dryRun, args.verbose,
+		maArgs.kubeConfigPath, maArgs.context, maArgs.readinessTimeout, l); err != nil {
+		l.logAndFatalf("Failed to generate and apply manifests, error: %v", err)
 	}
 }
 

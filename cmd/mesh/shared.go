@@ -32,15 +32,15 @@ func initLogsOrExit(args *rootArgs) {
 	// Only the logs for the last command are of interest.
 	// Remove any previous log to avoid indefinite accumulation.
 	_ = os.Remove(logFilePath)
-	if err := configLogs(args); err != nil {
+	if err := configLogs(args.logToStdErr); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Could not configure logs: %s", err)
 		os.Exit(1)
 	}
 }
 
-func configLogs(args *rootArgs) error {
+func configLogs(logToStdErr bool) error {
 	opt := log.DefaultOptions()
-	if !args.logToStdErr {
+	if !logToStdErr {
 		opt.ErrorOutputPaths = []string{logFilePath}
 		opt.OutputPaths = []string{logFilePath}
 	}
@@ -76,6 +76,20 @@ func (l *logger) logAndPrint(v ...interface{}) {
 
 func (l *logger) logAndFatal(v ...interface{}) {
 	l.logAndPrint(v...)
+	os.Exit(-1)
+}
+
+func (l *logger) logAndPrintf(format string, a ...interface{}) {
+	s := fmt.Sprintf(format, a...)
+	if !l.logToStdErr {
+		l.print(s)
+		l.print("\n")
+	}
+	log.Infof(s)
+}
+
+func (l *logger) logAndFatalf(format string, a ...interface{}) {
+	l.logAndPrintf(format, a...)
 	os.Exit(-1)
 }
 
