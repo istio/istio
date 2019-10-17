@@ -15,6 +15,7 @@
 package v2
 
 import (
+	"strconv"
 	"testing"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -52,5 +53,27 @@ func TestProxyNeedsPush(t *testing.T) {
 				t.Fatalf("Got needs push = %v, expected %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func BenchmarkListEquals(b *testing.B) {
+	size := 100
+	var l []string
+	for i := 0; i < size; i++ {
+		l = append(l, strconv.Itoa(i))
+	}
+	var equal []string
+	for i := 0; i < size; i++ {
+		equal = append(equal, strconv.Itoa(i))
+	}
+	var notEqual []string
+	for i := 0; i < size; i++ {
+		notEqual = append(notEqual, strconv.Itoa(i))
+	}
+	notEqual[size-1] = "z"
+
+	for n := 0; n < b.N; n++ {
+		listEqualUnordered(l, equal)
+		listEqualUnordered(l, notEqual)
 	}
 }
