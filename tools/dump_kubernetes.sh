@@ -438,7 +438,7 @@ main() {
     dump_time
     dump_cluster
     exit_code=$?
-  elif [ ! -z "${proxy_label}" ] ; then
+  elif [ -n "${proxy_label}" ] ; then
     dump_time
     dump_proxy
     exit_code=$?
