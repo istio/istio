@@ -26,15 +26,6 @@ const (
 )
 
 var (
-	// SupportedVersions is a list of chart versions supported by this version of the operator.
-	// It must be synced with the versions.yaml file.
-	SupportedVersions = []string{
-		"1.3.0",
-		"1.3.1",
-		"1.3.2",
-		"1.3.3",
-	}
-
 	// OperatorBinaryVersion is the Istio operator version.
 	OperatorBinaryVersion pkgversion.Version
 	// OperatorBinaryGoVersion is the Istio operator version in go-version format.

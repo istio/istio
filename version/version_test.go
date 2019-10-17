@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	operatorVersionsMapFilePath = "./versions.yaml"
+	operatorVersionsMapFilePath = "../data/versions.yaml"
 )
 
 func TestVersions(t *testing.T) {
