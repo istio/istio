@@ -255,16 +255,22 @@ upgradeIstioAtVersionUsingIstioctl(){
 istioInstallOptions() {
   if [[ "${INSTALL_OPTIONS}" == "helm" ]];then
     installIstioAtVersionUsingHelm "${FROM_HUB}" "${FROM_TAG}" "${FROM_PATH}"
-  else
+  elif [[ "${INSTALL_OPTIONS}" == "istioctl" ]];then
     installIstioAtVersionUsingIstioctl "${FROM_HUB}" "${FROM_TAG}" "${FROM_PATH}"
+  else
+    echo "--install_options flag only support helm and istioctl options"
+    exit 1
   fi
 }
 
 istioUpgradeOptions(){
   if [[ "${INSTALL_OPTIONS}" == "helm" ]];then
     installIstioAtVersionUsingHelm "${TO_HUB}" "${TO_TAG}" "${TO_PATH}"
-  else
+  elif [[ "${INSTALL_OPTIONS}" == "istioctl" ]];then
     upgradeIstioAtVersionUsingIstioctl "${TO_HUB}" "${TO_TAG}" "${TO_PATH}"
+  else
+    echo "--install_options flag only support helm and istioctl options"
+    exit 1
   fi
 }
 
