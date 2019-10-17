@@ -9,6 +9,8 @@ spec:
     listKind: IstioControlPlaneList
     plural: istiocontrolplanes
     singular: istiocontrolplane
+    shortNames:
+    - icp
   scope: Namespaced
   subresources:
     status: {}
