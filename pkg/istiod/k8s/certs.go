@@ -81,7 +81,7 @@ func CreateClientset(kubeconfig, context string) (*kubernetes.Clientset, *rest.C
 // 3. Approve a CSR
 // 4. Read the signed certificate
 // 5. Clean up the artifacts (e.g., delete CSR)
-func GenKeyCertK8sCA(certClient certclient.CertificatesV1beta1Interface, ns, hosts string) (certChain []byte, keyPEM []byte, err error) {
+func GenKeyCertK8sCA(certClient certclient.CertificateSigningRequestsGetter, ns, hosts string) (certChain []byte, keyPEM []byte, err error) {
 	// 1. Generate a CSR
 	// Construct the dns id from service name and name space.
 	// Example: istio-pilot.istio-system.svc, istio-pilot.istio-system
