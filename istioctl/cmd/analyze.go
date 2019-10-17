@@ -133,7 +133,7 @@ istioctl experimental analyze -k -d false
 			}
 
 			for _, m := range messages {
-				fmt.Printf("%s%v%s\n", colorPrefix(m), m.String(), colorSuffix())
+				cmd.Println(renderMessage(m))
 			}
 
 			return nil
@@ -195,4 +195,13 @@ func colorSuffix() string {
 	}
 
 	return "\033[0m"
+}
+
+func renderMessage(m diag.Message) string {
+	origin := ""
+	if m.Origin != nil {
+		origin = " (" + m.Origin.FriendlyName() + ")"
+	}
+	return fmt.Sprintf(
+		"%s%v%s [%v]%s %s", colorPrefix(m), m.Type.Level(), colorSuffix(), m.Type.Code(), origin, fmt.Sprintf(m.Type.Template(), m.Parameters...))
 }
