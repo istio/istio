@@ -21,10 +21,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"path/filepath"
 	"sync"
 	"time"
 
 	"github.com/ghodss/yaml"
+	"github.com/howeyc/fsnotify"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	"k8s.io/api/admissionregistration/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -174,6 +176,8 @@ func DefaultArgs() *WebhookParameters {
 
 // Webhook implements the validating admission webhook for validating Istio configuration.
 type Webhook struct {
+	keyCertWatcher *fsnotify.Watcher
+
 	mu   sync.RWMutex
 	cert *tls.Certificate
 
@@ -190,9 +194,27 @@ type Webhook struct {
 	deploymentName                string
 	serviceName                   string
 	webhookName                   string
+	keyFile                       string
+	certFile                      string
 
 	// test hook for informers
 	createInformerEndpointSource createInformerEndpointSource
+}
+
+// Reload the server's cert/key for TLS from file.
+func (wh *Webhook) reloadKeyCert() {
+	pair, err := tls.LoadX509KeyPair(wh.certFile, wh.keyFile)
+	if err != nil {
+		reportValidationCertKeyUpdateError(err)
+		scope.Errorf("Cert/Key reload error: %v", err)
+		return
+	}
+	wh.mu.Lock()
+	wh.cert = &pair
+	wh.mu.Unlock()
+
+	reportValidationCertKeyUpdate()
+	scope.Info("Cert and Key reloaded")
 }
 
 // NewWebhook creates a new instance of the admission webhook controller.
@@ -202,10 +224,26 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		return nil, err
 	}
 
+	// Configuration must be updated whenever the caBundle changes. Watch the parent directory of
+	// the target files so we can catch symlink updates of k8s secrets.
+	keyCertWatcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return nil, err
+	}
+	for _, file := range []string{p.CertFile, p.KeyFile} {
+		watchDir, _ := filepath.Split(file)
+		if err := keyCertWatcher.Watch(watchDir); err != nil {
+			return nil, fmt.Errorf("could not watch %v: %v", file, err)
+		}
+	}
+
 	wh := &Webhook{
 		server: &http.Server{
 			Addr: fmt.Sprintf(":%v", p.Port),
 		},
+		keyFile:                       p.KeyFile,
+		certFile:                      p.CertFile,
+		keyCertWatcher:                keyCertWatcher,
 		cert:                          &pair,
 		descriptor:                    p.PilotDescriptor,
 		validator:                     p.MixerValidator,
@@ -234,7 +272,7 @@ func (wh *Webhook) Stop() {
 }
 
 // Run implements the webhook server
-func (wh *Webhook) Run(ready chan struct{}, stopCh <-chan struct{}) {
+func (wh *Webhook) Run(ready chan<- struct{}, stopCh <-chan struct{}) {
 	go func() {
 		if err := wh.server.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
 			scope.Fatalf("admission webhook ListenAndServeTLS failed: %v", err)
@@ -255,6 +293,24 @@ func (wh *Webhook) Run(ready chan struct{}, stopCh <-chan struct{}) {
 
 	ready <- struct{}{}
 
+	// use a timer to debounce key/cert updates
+	var keyCertTimerC <-chan time.Time
+
+	for {
+		select {
+		case <-keyCertTimerC:
+			keyCertTimerC = nil
+			wh.reloadKeyCert()
+		case event, more := <-wh.keyCertWatcher.Event:
+			if more && (event.IsModify() || event.IsCreate()) && keyCertTimerC == nil {
+				keyCertTimerC = time.After(watchDebounceDelay)
+			}
+		case err := <-wh.keyCertWatcher.Error:
+			scope.Errorf("configWatcher error: %v", err)
+		case <-stopCh:
+			return
+		}
+	}
 }
 
 func (wh *Webhook) getCert(*tls.ClientHelloInfo) (*tls.Certificate, error) {
