@@ -108,8 +108,8 @@ func getLocalIPPrefixes() []string {
 	return prefixes
 }
 
-// GetVirtualListenerAddrs returns addresses of Istio's traffic capture listeners.
-func GetVirtualListenerAddrs(localHostAddr string, adminPort uint16) ([]string, error) {
+// GetVirtualListenerPorts returns ports of Istio's traffic capture listeners.
+func GetVirtualListenerPorts(localHostAddr string, adminPort uint16) ([]uint16, error) {
 	buf, err := doHTTPGet(fmt.Sprintf("http://%s:%d/listeners?format=json", localHostAddr, adminPort))
 	if err != nil {
 		return nil, multierror.Prefix(err, "failed retrieving Envoy listeners:")
@@ -119,14 +119,14 @@ func GetVirtualListenerAddrs(localHostAddr string, adminPort uint16) ([]string, 
 	if err := jsonpb.Unmarshal(buf, listeners); err != nil {
 		return nil, fmt.Errorf("failed parsing Envoy listeners %s: %s", buf, err)
 	}
-	addrs := make([]string, 0)
+	ports := make([]uint16, 0)
 	for _, l := range listeners.ListenerStatuses {
 		if l.Name == networking.VirtualOutboundListenerName || l.Name == networking.VirtualInboundListenerName {
 			if l.LocalAddress != nil && l.LocalAddress.GetSocketAddress() != nil {
-				addrs = append(addrs, fmt.Sprintf("%s:%d", l.LocalAddress.GetSocketAddress().GetAddress(), l.LocalAddress.GetSocketAddress().GetPortValue()))
+				ports = append(ports, uint16(l.LocalAddress.GetSocketAddress().GetPortValue()))
 			}
 		}
 
 	}
-	return addrs, nil
+	return ports, nil
 }

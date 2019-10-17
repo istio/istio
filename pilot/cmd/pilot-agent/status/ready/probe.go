@@ -30,6 +30,7 @@ import (
 type Probe struct {
 	ApplicationPorts    []uint16
 	LocalHostAddr       string
+	ProxyIP             string
 	NodeType            model.NodeType
 	AdminPort           uint16
 	receivedFirstUpdate bool
@@ -130,17 +131,17 @@ func (p *Probe) pingVirtualListeners() error {
 	}
 
 	// Check if traffic capture ports are actually listening.
-	vaddrs, err := util.GetVirtualListenerAddrs(p.LocalHostAddr, p.AdminPort)
+	vports, err := util.GetVirtualListenerPorts(p.LocalHostAddr, p.AdminPort)
 	if err != nil {
 		return err
 	}
-	for _, vaddr := range vaddrs {
-		con, err := net.DialTimeout("tcp", vaddr, time.Millisecond*5)
+	for _, vport := range vports {
+		con, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", p.ProxyIP, vport), time.Millisecond*5)
 		if con != nil {
 			con.Close()
 		}
 		if err != nil {
-			return fmt.Errorf("listener on address %s is still not listening: %v", vaddr, err)
+			return fmt.Errorf("listener on address %d is still not listening: %v", vport, err)
 		}
 		p.listenersBound = true
 	}

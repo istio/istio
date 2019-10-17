@@ -200,7 +200,7 @@ func TestEnvoyInitializingWithVirtualInboundListener(t *testing.T) {
 
 	server := createHTTPServer(funcMap)
 	defer server.Close()
-	probe := Probe{AdminPort: 1234, receivedFirstUpdate: true, NodeType: model.SidecarProxy}
+	probe := Probe{AdminPort: 1234, ProxyIP: "127.0.0.1", receivedFirstUpdate: true, NodeType: model.SidecarProxy}
 
 	err := probe.Check()
 

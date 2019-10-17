@@ -425,6 +425,7 @@ var (
 				prober := kubeAppProberNameVar.Get()
 				statusServer, err := status.NewServer(status.Config{
 					LocalHostAddr:      localHostAddr,
+					ProxyIP:            proxyIP,
 					AdminPort:          proxyAdminPort,
 					StatusPort:         statusPort,
 					ApplicationPorts:   parsedPorts,

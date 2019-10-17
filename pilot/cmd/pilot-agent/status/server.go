@@ -65,6 +65,7 @@ type KubeAppProbers map[string]*corev1.HTTPGetAction
 type Config struct {
 	ApplicationPorts []uint16
 	LocalHostAddr    string
+	ProxyIP          string
 	// KubeAppHTTPProbers is a json with Kubernetes application HTTP prober config encoded.
 	KubeAppHTTPProbers string
 	NodeType           model.NodeType
