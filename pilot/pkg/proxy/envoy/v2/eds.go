@@ -499,6 +499,10 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 				delete(s.EndpointShardsByService, serviceName)
 			}
 		}
+
+		adsLog.Infof("Incremental push, service %s has no endpoints", serviceName)
+		s.edsUpdates[serviceName] = struct{}{}
+		s.ConfigUpdate(false)
 		return
 	}
 
