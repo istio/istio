@@ -53,7 +53,6 @@ func constructConfig() *config.Config {
 		KubevirtInterfaces:      viper.GetString(constants.KubeVirtInterfaces),
 		DryRun:                  viper.GetBool(constants.DryRun),
 		EnableInboundIPv6s:      nil,
-		Clean:                   viper.GetBool(constants.Clean),
 	}
 }
 
@@ -168,12 +167,6 @@ func init() {
 		handleError(err)
 	}
 	viper.SetDefault(constants.DryRun, false)
-
-	rootCmd.Flags().Bool(constants.Clean, false, "only clean iptables rules")
-	if err := viper.BindPFlag(constants.Clean, rootCmd.Flags().Lookup(constants.Clean)); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.Clean, false)
 }
 
 func Execute() {
