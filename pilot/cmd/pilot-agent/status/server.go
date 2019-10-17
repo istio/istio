@@ -63,7 +63,6 @@ type KubeAppProbers map[string]*corev1.HTTPGetAction
 
 // Config for the status server.
 type Config struct {
-	ApplicationPorts []uint16
 	LocalHostAddr    string
 	// KubeAppHTTPProbers is a json with Kubernetes application HTTP prober config encoded.
 	KubeAppHTTPProbers string
@@ -88,7 +87,6 @@ func NewServer(config Config) (*Server, error) {
 		ready: &ready.Probe{
 			LocalHostAddr:    config.LocalHostAddr,
 			AdminPort:        config.AdminPort,
-			ApplicationPorts: config.ApplicationPorts,
 			NodeType:         config.NodeType,
 		},
 	}
