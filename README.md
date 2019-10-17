@@ -4,9 +4,9 @@
 # Istio Operator
 
 The Istio operator CLI is now suitable for developers to evaluate and experiment with. You can
-[contribute](https://github.com/istio/operator/blob/master/CONTRIBUTING.md) by picking an
+[contribute](CONTRIBUTING.md) by picking an
 [unassigned open issue](https://github.com/istio/istio/issues?q=is%3Aissue+is%3Aopen+label%3Aarea%2Fenvironments%2Foperator+no%3Aassignee),
-creating a [bug or feature request](https://github.com/istio/operator/blob/master/BUGS-AND-FEATURE-REQUESTS.md),
+creating a [bug or feature request](BUGS-AND-FEATURE-REQUESTS.md),
 or just coming to the weekly [Environments Working Group](https://github.com/istio/community/blob/master/WORKING-GROUPS.md)
 meeting to share your ideas.
 
@@ -17,7 +17,7 @@ architecture and a code overview, see [ARCHITECTURE.md](./ARCHITECTURE.md)
 
 This repo reorganizes the current [Helm installation parameters](https://istio.io/docs/reference/config/installation-options/) into two groups:
 
-- The new [platform level installation API](https://github.com/istio/operator/blob/master/pkg/apis/istio/v1alpha2/istiocontrolplane_types.proto), for managing
+- The new [platform level installation API](pkg/apis/istio/v1alpha2/istiocontrolplane_types.proto), for managing
 K8s settings like resources, auto scaling, pod disruption budgets and others defined in the
 [KubernetesResourceSpec](https://github.com/istio/operator/blob/905dd84e868a0b88c08d95b7ccf14d085d9a6f6b/pkg/apis/istio/v1alpha2/istiocontrolplane_types.proto#L411)
 - The configuration API that currently uses the
@@ -56,7 +56,7 @@ See [Select a specific configuration_profile](#select-a-specific-configuration-p
 
 If you don't specify a configuration profile, Istio is installed using the `default` configuration profile. All
 profiles listed in istio.io are available by default, or `profile:` can point to a local file path to reference a custom
-profile base to use as a starting point for customization. See the [API reference](https://github.com/istio/operator/blob/master/pkg/apis/istio/v1alpha2/istiocontrolplane_types.proto)
+profile base to use as a starting point for customization. See the [API reference](pkg/apis/istio/v1alpha2/istiocontrolplane_types.proto)
 for details.
 
 ## Developer quick start
@@ -224,7 +224,7 @@ mesh manifest diff ./out/helm-template/manifest.yaml ./out/mesh-manifest/manifes
 
 ### New API customization
 
-The [new platform level installation API](https://github.com/istio/operator/blob/master/pkg/apis/istio/v1alpha2/istiocontrolplane_types.proto)
+The [new platform level installation API](pkg/apis/istio/v1alpha2/istiocontrolplane_types.proto)
 defines install time parameters like feature and component enablement and namespace, and K8s settings like resources, HPA spec etc. in a structured way.
 The simplest customization is to turn features and components on and off. For example, to turn off all policy ([samples/sds-policy-off.yaml](samples/sds-policy-off.yaml)):
 
@@ -280,7 +280,7 @@ spec:
 ```
 
 The K8s settings are defined in detail in the
-[operator API](https://github.com/istio/operator/blob/master/pkg/apis/istio/v1alpha2/istiocontrolplane_types.proto).
+[operator API](pkg/apis/istio/v1alpha2/istiocontrolplane_types.proto).
 The settings are the same for all components, so a user can configure pilot K8s settings in exactly the same, consistent
 way as galley settings. Supported K8s settings currently include:
 
@@ -306,7 +306,7 @@ be used for reference. All K8s overlay values are also validated in the operator
 The new platform install API above deals with K8s level settings. The remaining values.yaml parameters deal with Istio
 control plane operation rather than installation. For the time being, the operator just passes these through to the Helm
 charts unmodified (but validated through a
-[schema](https://github.com/istio/operator/blob/master/pkg/apis/istio/v1alpha2/values_types.go)). Values.yaml settings
+[schema](pkg/apis/istio/v1alpha2/values_types.go)). Values.yaml settings
 are overridden the same way as the new API, though a customized CR overlaid over default values for the selected
 profile. Here's an example of overriding some global level default values ([samples/values-global.yaml](samples/values-global.yaml)):
 
