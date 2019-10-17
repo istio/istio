@@ -36,4 +36,7 @@
 /tests/istio.io/                                                 @istio/wg-docs-maintainers
 /tools/                                                          @istio/wg-test-and-release-maintainers
 /tools/istio-iptables/                                           @istio/wg-networking-maintainers
+/tools/istio-clean-iptables/                                     @istio/wg-networking-maintainers
 /tools/packaging/common/istio-iptables.sh                        @istio/wg-networking-maintainers
+/tools/packaging/common/istio-clean-iptables.sh                  @istio/wg-networking-maintainers
+
