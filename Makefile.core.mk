@@ -348,8 +348,7 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./pkg/test/echo/cmd/server \
   ./mixer/test/policybackend \
   ./tools/hyperistio \
-  ./tools/istio-iptables \
-  ./tools/istio-clean-iptables
+  ./tools/istio-iptables
 
 # List of binaries included in releases
 RELEASE_BINARIES:=pilot-discovery pilot-agent sidecar-injector mixc mixs mixgen node_agent node_agent_k8s istio_ca istioctl galley sdsclient

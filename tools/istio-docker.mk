@@ -49,7 +49,7 @@ $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key: ${GEN_CERT} $(IST
 # 	cp $(ISTIO_OUT_LINUX)/$FILE $(ISTIO_DOCKER)/($FILE)
 DOCKER_FILES_FROM_ISTIO_OUT_LINUX:=client server \
                              pilot-discovery pilot-agent sidecar-injector mixs mixgen \
-                             istio_ca node_agent node_agent_k8s galley istio-iptables istio-clean-iptables
+                             istio_ca node_agent node_agent_k8s galley istio-iptables
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT_LINUX), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT_LINUX)/$(FILE) | $(ISTIO_DOCKER); cp $(ISTIO_OUT_LINUX)/$(FILE) $(ISTIO_DOCKER)/$(FILE)))
 
@@ -60,7 +60,7 @@ $(ISTIO_DOCKER)/certs:
 
 # tell make which files are copied from the source tree and generate rules to copy them to the proper location:
 # TODO(sdake)                      $(NODE_AGENT_TEST_FILES) $(GRAFANA_FILES)
-DOCKER_FILES_FROM_SOURCE:=tools/packaging/common/istio-iptables.sh tools/packaging/common/istio-clean-iptables.sh \
+DOCKER_FILES_FROM_SOURCE:=tools/packaging/common/istio-iptables.sh \
                           tests/testdata/certs/cert.crt tests/testdata/certs/cert.key tests/testdata/certs/cacert.pem
 # generates rules like the following:
 # $(ISTIO_DOCKER)/tools/packaging/common/istio-iptables.sh: $(ISTIO_OUT)/tools/packaging/common/istio-iptables.sh | $(ISTIO_DOCKER)
@@ -146,7 +146,6 @@ docker.app: $(ISTIO_DOCKER)/certs
 docker.app_sidecar: tools/packaging/common/envoy_bootstrap_v2.json
 docker.app_sidecar: tools/packaging/common/envoy_bootstrap_drain.json
 docker.app_sidecar: tools/packaging/common/istio-iptables.sh
-docker.app_sidecar: tools/packaging/common/istio-clean-iptables.sh
 docker.app_sidecar: tools/packaging/common/istio-start.sh
 docker.app_sidecar: tools/packaging/common/istio-node-agent-start.sh
 docker.app_sidecar: tools/packaging/deb/postinst.sh
