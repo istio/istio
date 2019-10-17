@@ -402,7 +402,7 @@ func TestEvaluateTLSState(t *testing.T) {
 			client:                      nil,
 			server:                      authn_model.MTLSDisable,
 			expected:                    "OK",
-			expectedWithAutoMTLSEnabled: "AUTO",
+			expectedWithAutoMTLSEnabled: "CONFLICT",
 		},
 		{
 			name:                        "Auto with mTLS permissive",
@@ -558,7 +558,7 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 					DestinationRuleName:      "-",
 					ServerProtocol:           "DISABLE",
 					ClientProtocol:           "-",
-					TLSConflictStatus:        "AUTO",
+					TLSConflictStatus:        "CONFLICT",
 				},
 			},
 		},
