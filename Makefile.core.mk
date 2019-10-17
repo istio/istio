@@ -87,6 +87,9 @@ docker.all: docker docker.push
 update-goldens:
 	GOARCH=$(TARGET_ARCH) GOOS=$(TARGET_OS) REFRESH_GOLDEN=true go test ./cmd/mesh/...
 
+e2e:
+	@tests/e2e/e2e.sh
+
 ########################
 
 TMPDIR := $(shell mktemp -d)
