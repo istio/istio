@@ -46,6 +46,10 @@ usage() {
   error '  -m, --max-bytes          max total bytes, 0=no limit, default='${DEFAULT_MAX_LOG_BYTES}
   error '  -l, --label              if set, dump logs only for pods with given labels e.g. "-l app=pilot -l istio=galley"'
   error '  -n, --namespace          if set, dump logs only for pods in the given namespaces e.g. "-n default -n istio-system"'
+  error '  -p, --pod                if set, dump logs only for pod matching these values e.g. "-n istio-system -p istio-policy-7857db5f54-wj59d -p istio-pilot-5cb9d848b5-xx25q"'
+  error '  -c, --control-plane      if set, dump debugging information from control plane'
+  error '  -u, --cluster            if set, dump logs from cluster'
+  error '  -x, --proxy              if set, dump logs from proxis e.g "-x istio=ingressgateway"'
   error '  --error-if-nasty-logs    if present, exit with 255 if any logs'
   error '                               contain errors'
   exit 1
@@ -90,6 +94,22 @@ parse_args() {
         namespaces+="${2} "
         shift 2
         ;;
+      -p|--pod)
+        pods+="${2} "
+        shift 2
+        ;;
+      -c|--control-plane)
+        local control_plane=true
+        shift # Shift past flag.
+        ;;
+      -u|--cluster)
+        local cluster=true
+        shift # Shift past flag.
+        ;;
+      -x|--proxy)
+        proxy_label="${2}"
+        shift 2
+        ;;
       *)
         usage
         ;;
@@ -104,6 +124,8 @@ parse_args() {
   readonly RESOURCES_FILE="${OUT_DIR}/resources.yaml"
   readonly ISTIO_RESOURCES_FILE="${OUT_DIR}/istio-resources.yaml"
   readonly MAX_LOG_BYTES="${max_bytes}"
+  readonly CONTROL_PLANE="${control_plane:-false}"
+  readonly ONLY_CLUSTER="${cluster:-false}"
 }
 
 check_prerequisites() {
@@ -215,28 +237,37 @@ tap_containers() {
     namespaces=$(kubectl get \
         namespaces -o=jsonpath="{.items[*].metadata.name}")
   fi
+  local pod_match=0
   for namespace in ${namespaces}; do
-    local pods=""
-    if [ -n "${pod_labels}" ]; then
-      for label in $pod_labels; do
-        pods+=$(kubectl get --namespace="${namespace}" -l"${label}" \
-            pods -o=jsonpath='{.items[*].metadata.name}')" "
-      done
+    local lpods=""
+    if [ -z "${pods}" ]; then
+      if [ -n "${pod_labels}" ]; then
+        for label in $pod_labels; do
+          lpods+=$(kubectl get --namespace="${namespace}" -l"${label}" \
+              pods -o=jsonpath='{.items[*].metadata.name}')" "
+        done
+      else
+          lpods=$(kubectl get --namespace="${namespace}" \
+              pods -o=jsonpath='{.items[*].metadata.name}')
+      fi
     else
-        pods=$(kubectl get --namespace="${namespace}" \
-            pods -o=jsonpath='{.items[*].metadata.name}')
+      lpods=${pods}
     fi
-    for pod in ${pods}; do
+    for pod in ${lpods}; do
       local containers
       containers=$(kubectl get --namespace="${namespace}" \
           pod "${pod}" -o=jsonpath='{.spec.containers[*].name}')
       for container in ${containers}; do
+        pod_match=1
         for f in "${functions[@]}"; do
           "${f}" "${namespace}" "${pod}" "${container}" || return $?
         done
       done
     done
   done
+  if [ -n "${pods}" ] && [ $pod_match == 0 ]; then
+    log "Not pod matched the provided -p option"
+  fi
 
   return 0
 }
@@ -246,9 +277,18 @@ dump_kubernetes_resources() {
 
   mkdir -p "${OUT_DIR}"
   # Only works in Kubernetes 1.8.0 and above.
-  kubectl get --all-namespaces --export \
-      all,jobs,ingresses,endpoints,customresourcedefinitions,configmaps,secrets,events \
-      -o yaml > "${RESOURCES_FILE}"
+  if [ -z "${namespaces}" ]; then
+    kubectl get --all-namespaces --export \
+        all,jobs,ingresses,endpoints,customresourcedefinitions,configmaps,secrets,events \
+        -o yaml > "${RESOURCES_FILE}"
+  else
+    for namespace in ${namespaces}; do
+      NAMESPACE_RESOURCES_FILE="${RESOURCES_FILE//resources.yaml/$namespace}-namespace-resources.yaml"
+      kubectl get -n "${namespace}" --export \
+          all,jobs,ingresses,endpoints,customresourcedefinitions,configmaps,secrets,events \
+          -o yaml > "${NAMESPACE_RESOURCES_FILE}"
+    done
+  fi
 }
 
 dump_istio_custom_resource_definitions() {
@@ -275,20 +315,59 @@ dump_resources() {
   mkdir -p "${OUT_DIR}"
   kubectl cluster-info dump > "${OUT_DIR}/cluster-info.dump.txt"
   kubectl describe pods -n istio-system > "${OUT_DIR}/istio-system-pods.txt"
-  kubectl get events --all-namespaces -o wide > "${OUT_DIR}/events.txt"
+  if [ -z "${namespaces}" ]; then
+    kubectl get events --all-namespaces -o wide > "${OUT_DIR}/events.txt"
+  else
+    for namespace in ${namespaces}; do
+      NAMESPACE_EVENT_FILE="${OUT_DIR}/${namespace}-events.txt"
+      kubectl get events -n "${namespace}" -o wide > "${NAMESPACE_EVENT_FILE}"
+    done
+  fi
 }
 
-dump_pilot_url(){
-  local pilot_pod=$1
+dump_istio_status() {
+  istioctl version > "${OUT_DIR}/istioctl-version.txt"
+  istioctl proxy-status > "${OUT_DIR}/istioctl-proxy-status.txt"
+  kubectl get configmap -n istio-system > "${OUT_DIR}/istio-system-configmap.txt"
+  kubectl get configmap -n istio-system > "${OUT_DIR}/istio-system-configmap.txt"
+  kubectl get configmap istio -n istio-system && kubectl get configmap istio-sidecar-injector -n istio-system > "${OUT_DIR}/istio-system-configmaps.txt"
+}
+
+dump_control_plane() {
+  # dump_control_plane Should be called for only one namespace (and that would
+  # be "istio-system").
+  # This ns variable is kept to use for other namespaces if needed later
+  local ns="${namespaces}"
+  local describe_dir="${OUT_DIR}/describe"
+  mkdir -p "${describe_dir}"
+  kubectl -n "${ns}" get pods -o yaml > "${OUT_DIR}/${ns}-pods.yaml"
+  api_resources=$(kubectl api-resources -n "${ns}" -o name)
+  for api_resource in ${api_resources}; do
+    kubectl describe "${api_resource}" -n "${ns}" > "${describe_dir}/${ns}-${api_resource}.txt"
+    if [ ! -s "${describe_dir}/${ns}-${api_resource}.txt" ]; then
+      rm -f "${describe_dir}/${ns}-${api_resource}.txt"
+  fi
+  done
+}
+
+dump_cluster() {
+  kubectl get nodes --all-namespaces -o yaml > "${OUT_DIR}/all-namespaces-nodes.yaml"
+  kubectl get services --all-namespaces -o yaml > "${OUT_DIR}/all-namespaces-services.yaml"
+  kubectl get pods --all-namespaces -o yaml > "${OUT_DIR}/all-namespaces-pods.yaml"
+}
+
+dump_url(){
+  local pod=$1
   local url=$2
-  local dname=$3
+  local path=$3
+  local dname=$4
   local outfile
 
-  outfile="${dname}/$(basename "${url}")"
+  outfile="${dname}/$(basename "${path}")"
 
-  log "Fetching ${url} from pilot"
-  kubectl -n istio-system exec -i -t "${pilot_pod}" -c istio-proxy -- \
-      curl "http://localhost:8080/${url}" > "${outfile}"
+  log "Fetching ${url}${path} from $pod"
+  kubectl -n istio-system exec -i -t "${pod}" -c istio-proxy -- \
+      curl "${url}${path}" > "${outfile}"
 }
 
 dump_pilot() {
@@ -300,12 +379,29 @@ dump_pilot() {
     local pilot_dir="${OUT_DIR}/pilot"
     mkdir -p "${pilot_dir}"
 
-    dump_pilot_url "${pilot_pod}" debug/configz "${pilot_dir}"
-    dump_pilot_url "${pilot_pod}" debug/endpointz "${pilot_dir}"
-    dump_pilot_url "${pilot_pod}" debug/adsz "${pilot_dir}"
-    dump_pilot_url "${pilot_pod}" debug/authenticationz "${pilot_dir}"
-    dump_pilot_url "${pilot_pod}" metrics "${pilot_dir}"
+    local lurl="http://localhost:8080/"
+    dump_url "${pilot_pod}" "${lurl}" "debug/configz" "${pilot_dir}"
+    dump_url "${pilot_pod}" "${lurl}" "debug/endpointz" "${pilot_dir}"
+    dump_url "${pilot_pod}" "${lurl}" "debug/adsz" "${pilot_dir}"
+    dump_url "${pilot_pod}" "${lurl}" "debug/authenticationz" "${pilot_dir}"
+    dump_url "${pilot_pod}" "${lurl}" "metrics" "${pilot_dir}"
   fi
+}
+
+dump_proxy() {
+  proxy_pod=$(kubectl get po -n istio-system -l "${proxy_label}" \
+	  -o=jsonpath="{.items[*].metadata.name}")
+
+  local proxy_dir="${OUT_DIR}/proxy/${proxy_label}"
+  mkdir -p "${proxy_dir}"
+  local lurl="http://localhost:15000/"
+  dump_url "${proxy_pod}" "${lurl}" "config_dump" "${proxy_dir}"
+  dump_url "${proxy_pod}" "${lurl}" "clusters" "${proxy_dir}"
+  dump_url "${proxy_pod}" "${lurl}" "stats" "${proxy_dir}"
+  dump_url "${proxy_pod}" "${lurl}" "certs" "${proxy_dir}"
+  dump_url "${proxy_pod}" "${lurl}" "memory" "${proxy_dir}"
+
+  kubectl logs "${proxy_pod}" -n istio-system -c istio-proxy > "${proxy_dir}/proxy_logs.txt"
 }
 
 archive() {
@@ -330,11 +426,29 @@ main() {
   local exit_code=0
   parse_args "$@"
   check_prerequisites kubectl
-  dump_time
-  dump_pilot
-  dump_resources
-  tap_containers "dump_logs_for_container" "copy_core_dumps_if_istio_proxy"
-  exit_code=$?
+  if [ "${CONTROL_PLANE}" = true ] ; then
+    namespaces="istio-system"
+    check_prerequisites istioctl
+    dump_time
+    dump_control_plane
+    tap_containers "dump_logs_for_container"
+    dump_istio_status
+    exit_code=$?
+  elif [ "${ONLY_CLUSTER}" = true ] ; then
+    dump_time
+    dump_cluster
+    exit_code=$?
+  elif [ ! -z "${proxy_label}" ] ; then
+    dump_time
+    dump_proxy
+    exit_code=$?
+  else # old dump behavior
+    dump_time
+    dump_pilot
+    dump_resources
+    tap_containers "dump_logs_for_container" "copy_core_dumps_if_istio_proxy"
+    exit_code=$?
+  fi
 
   if [ "${SHOULD_CHECK_LOGS_FOR_ERRORS}" = true ]; then
     if ! check_logs_for_errors; then
