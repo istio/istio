@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package secureingresssds
+package ingress
 
 import (
 	"testing"
@@ -30,7 +30,8 @@ var (
 func TestMain(m *testing.M) {
 	// Integration test for the ingress SDS Gateway flow.
 	framework.
-		NewSuite("secure-ingress-sds", m).
+		NewSuite("trafficmanagement_ingress", m).
+		Skip("TODO: this test needs work").
 		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
 		RequireEnvironment(environment.Kube).
