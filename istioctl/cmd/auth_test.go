@@ -126,6 +126,7 @@ func TestAuthUpgrade(t *testing.T) {
 			name: "RBAC policy with (unsupported) group field",
 			rbacV1alpha1Files: []string{"testdata/auth/upgrade/one-rule-one-service.yaml",
 				"testdata/auth/upgrade/group-in-subject.yaml", "testdata/auth/upgrade/rbac-global-on.yaml"},
+			configMapFile:     "testdata/auth/upgrade/istio-configmap.yaml",
 			expectedError: "Error: failed to convert policies: cannot convert binding to sources: serviceRoleBinding with group is not supported\n",
 		},
 		{
@@ -138,6 +139,7 @@ func TestAuthUpgrade(t *testing.T) {
 			rbacV1alpha1Files: []string{"testdata/auth/upgrade/one-rule-one-service.yaml",
 				"testdata/auth/upgrade/one-subject.yaml", "testdata/auth/upgrade/rbac-global-on.yaml"},
 			servicesFiles: []string{"testdata/auth/upgrade/svc-bookinfo.yaml"},
+			configMapFile:     "testdata/auth/upgrade/istio-configmap.yaml",
 			golden:        "testdata/auth/upgrade/one-rule-one-service.golden.yaml",
 		},
 		{
@@ -145,6 +147,7 @@ func TestAuthUpgrade(t *testing.T) {
 			rbacV1alpha1Files: []string{"testdata/auth/upgrade/one-rule-all-services.yaml",
 				"testdata/auth/upgrade/two-subjects.yaml", "testdata/auth/upgrade/rbac-global-on.yaml"},
 			servicesFiles: []string{"testdata/auth/upgrade/svc-bookinfo.yaml"},
+			configMapFile:     "testdata/auth/upgrade/istio-configmap.yaml",
 			golden:        "testdata/auth/upgrade/one-rule-all-services.golden.yaml",
 		},
 		{
@@ -152,6 +155,7 @@ func TestAuthUpgrade(t *testing.T) {
 			rbacV1alpha1Files: []string{"testdata/auth/upgrade/one-rule-multiple-services.yaml",
 				"testdata/auth/upgrade/two-subjects.yaml", "testdata/auth/upgrade/rbac-global-on.yaml"},
 			servicesFiles: []string{"testdata/auth/upgrade/svc-bookinfo.yaml"},
+			configMapFile:     "testdata/auth/upgrade/istio-configmap.yaml",
 			golden:        "testdata/auth/upgrade/one-rule-multiple-services.golden.yaml",
 		},
 		{
