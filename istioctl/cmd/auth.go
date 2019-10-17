@@ -37,6 +37,7 @@ var (
 	configDumpFile string
 	policyFiles    []string
 	serviceFiles   []string
+	meshConfig     string
 )
 
 var (
@@ -222,7 +223,7 @@ func newUpgrader(v1PolicyFiles, serviceFiles []string) (*auth.Upgrader, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to Kubernetes: %v", err)
 	}
-	upgrader := auth.NewUpgrader(k8sClient, v1PolicyFiles, serviceFiles)
+	upgrader := auth.NewUpgrader(k8sClient, v1PolicyFiles, serviceFiles, meshConfig)
 	return upgrader, nil
 }
 
@@ -268,6 +269,8 @@ func init() {
 		"Authorization policy files")
 	upgradeCmd.PersistentFlags().StringSliceVarP(&serviceFiles, "service", "s", []string{},
 		"Kubernetes Service resource that provides the mapping relationship between service name and pod labels")
+	upgradeCmd.PersistentFlags().StringVarP(&meshConfig, "mesh-config", "m", "",
+		"Istio MeshConfig file")
 }
 
 // cleanupForTest clean the values of policyFiles and serviceFiles. Otherwise, the variables will be

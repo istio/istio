@@ -118,6 +118,7 @@ func TestAuthUpgrade(t *testing.T) {
 		name              string
 		rbacV1alpha1Files []string
 		servicesFiles     []string
+		configMapFile     string
 		expectedError     string
 		golden            string
 	}{
@@ -130,7 +131,7 @@ func TestAuthUpgrade(t *testing.T) {
 		{
 			name:              "Missing ClusterRbacConfig",
 			rbacV1alpha1Files: []string{"testdata/auth/upgrade/one-rule-one-service.yaml"},
-			expectedError:     "Error: failed to convert policies: failed to convert ClusterRbacConfig: no ClusterRbacConfig found\n",
+			golden:            "testdata/auth/upgrade/empty.yaml",
 		},
 		{
 			name: "One access rule with one service",
@@ -156,12 +157,13 @@ func TestAuthUpgrade(t *testing.T) {
 		{
 			name:              "ClusterRbacConfig only",
 			rbacV1alpha1Files: []string{"testdata/auth/upgrade/rbac-global-on.yaml"},
+			configMapFile:     "testdata/auth/upgrade/istio-configmap.yaml",
 			golden:            "testdata/auth/upgrade/rbac-global-on.golden.yaml",
 		},
 	}
 	for _, c := range testCases {
-		command := fmt.Sprintf("experimental auth upgrade -f %s -s %s",
-			strings.Join(c.rbacV1alpha1Files, ","), strings.Join(c.servicesFiles, ","))
+		command := fmt.Sprintf("experimental auth upgrade -f %s -s %s -m %s",
+			strings.Join(c.rbacV1alpha1Files, ","), strings.Join(c.servicesFiles, ","), c.configMapFile)
 		if c.expectedError != "" {
 			runCommandAndCheckExpectedCmdError(c.name, command, c.expectedError, t)
 		} else {
