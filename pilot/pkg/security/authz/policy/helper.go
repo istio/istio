@@ -132,7 +132,7 @@ func CustomPrincipal(trustDomain, namespace, saName string) string {
 	return fmt.Sprintf("%s/ns/%s/sa/%s", trustDomain, namespace, saName)
 }
 
-func SimpleBinding(name string, namespace string, role string) *model.Config {
+func SimpleBinding(name, namespace, role, user string) *model.Config {
 	return &model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:      schemas.ServiceRoleBinding.Type,
@@ -142,7 +142,7 @@ func SimpleBinding(name string, namespace string, role string) *model.Config {
 		Spec: &istio_rbac.ServiceRoleBinding{
 			Subjects: []*istio_rbac.Subject{
 				{
-					User: SimplePrincipal(name),
+					User: user,
 				},
 			},
 			RoleRef: &istio_rbac.RoleRef{
@@ -154,7 +154,7 @@ func SimpleBinding(name string, namespace string, role string) *model.Config {
 }
 
 func SimplePermissiveBinding(name string, namespace string, role string) *model.Config {
-	cfg := SimpleBinding(name, namespace, role)
+	cfg := SimpleBinding(name, namespace, role, SimplePrincipal(name))
 	binding := cfg.Spec.(*istio_rbac.ServiceRoleBinding)
 	binding.Mode = istio_rbac.EnforcementMode_PERMISSIVE
 	return cfg

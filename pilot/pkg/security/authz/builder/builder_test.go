@@ -88,7 +88,7 @@ func TestBuilder_BuildHTTPFilter(t *testing.T) {
 			policies: []*model.Config{
 				policy.SimpleClusterRbacConfig(),
 				policy.SimpleRole("role-1", "a", "bar"),
-				policy.SimpleBinding("binding-1", "a", "role-1"),
+				policy.SimpleBinding("binding-1", "a", "role-1", policy.SimplePrincipal("binding-1")),
 			},
 			wantPolicies: []string{"role-1"},
 		},
@@ -96,7 +96,7 @@ func TestBuilder_BuildHTTPFilter(t *testing.T) {
 			name: "v1alpha1 without ClusterRbacConfig",
 			policies: []*model.Config{
 				policy.SimpleRole("role-1", "a", "bar"),
-				policy.SimpleBinding("binding-1", "a", "role-1"),
+				policy.SimpleBinding("binding-1", "a", "role-1", policy.SimplePrincipal("binding-1")),
 			},
 		},
 		{
@@ -112,7 +112,7 @@ func TestBuilder_BuildHTTPFilter(t *testing.T) {
 			policies: []*model.Config{
 				policy.SimpleClusterRbacConfig(),
 				policy.SimpleRole("role-1", "a", "bar"),
-				policy.SimpleBinding("binding-1", "a", "role-1"),
+				policy.SimpleBinding("binding-1", "a", "role-1", policy.SimplePrincipal("binding-1")),
 				policy.SimpleAuthzPolicy("authz-bar", "a"),
 			},
 			wantPolicies: []string{"ns[a]-policy[authz-bar]-rule[0]"},
@@ -188,7 +188,7 @@ func TestBuilder_BuildTCPFilter(t *testing.T) {
 			policies: []*model.Config{
 				policy.SimpleClusterRbacConfig(),
 				policy.SimpleRole("role-1", "a", "foo"),
-				policy.SimpleBinding("binding-1", "a", "role-1"),
+				policy.SimpleBinding("binding-1", "a", "role-1", policy.SimplePrincipal("binding-1")),
 			},
 			wantRules:            true,
 			wantRuleWithPolicies: false,

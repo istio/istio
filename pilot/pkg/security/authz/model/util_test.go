@@ -46,6 +46,14 @@ func TestStringMatch(t *testing.T) {
 			Name: "not matched", S: "product page", List: []string{"review page", "xyz product page"},
 			Expect: false,
 		},
+		{
+			Name: "* in string", S: "*local", List: []string{"cluster.local"},
+			Expect: true,
+		},
+		{
+			Name: "* in list", S: "cluster.local", List: []string{"*local"},
+			Expect: true,
+		},
 	}
 
 	for _, tc := range testCases {
