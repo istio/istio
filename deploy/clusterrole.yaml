@@ -103,7 +103,6 @@ rules:
   - endpoints
   - events
   - namespaces
-  - jobs
   - pods
   - persistentvolumeclaims
   - secrets
