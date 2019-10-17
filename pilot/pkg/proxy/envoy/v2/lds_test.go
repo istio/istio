@@ -76,10 +76,10 @@ func TestLDSIsolated(t *testing.T) {
 		// 7071 (inbound), 2001 (service - also as http proxy), 15002 (http-proxy)
 		// We dont get mixer on 9091 or 15004 because there are no services defined in istio-system namespace
 		// in the none.yaml setup
-		if len(ldsr.HTTPListeners) != 3 {
+		if len(ldsr.GetHTTPListeners()) != 3 {
 			// TODO: we are still debating if for HTTP services we have any use case to create a 127.0.0.1:port outbound
 			// for the service (the http proxy is already covering this)
-			t.Error("HTTP listeners, expecting 5 got ", len(ldsr.HTTPListeners), ldsr.HTTPListeners)
+			t.Error("HTTP listeners, expecting 5 got ", len(ldsr.GetHTTPListeners()), ldsr.GetHTTPListeners())
 		}
 
 		// s1tcp:2000 outbound, bind=true (to reach other instances of the service)
@@ -87,7 +87,7 @@ func TestLDSIsolated(t *testing.T) {
 		// :443 - https external, bind=false
 		// 10.11.0.1_7070, bind=true -> inbound|2000|s1 - on port 7070, fwd to 37070
 		// virtual
-		if len(ldsr.TCPListeners) == 0 {
+		if len(ldsr.GetTCPListeners()) == 0 {
 			t.Fatal("No response")
 		}
 
@@ -240,21 +240,21 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 
 	// Expect 6 listeners : 1 orig_dst, 1 http inbound + 4 outbound (http, tcp1, istio-policy and istio-telemetry)
 	// plus 2 extra due to the mem registry
-	if (len(adsResponse.HTTPListeners) + len(adsResponse.TCPListeners)) != 6 {
-		t.Fatalf("Expected 8 listeners, got %d\n", len(adsResponse.HTTPListeners)+len(adsResponse.TCPListeners))
+	if (len(adsResponse.GetHTTPListeners()) + len(adsResponse.GetTCPListeners())) != 6 {
+		t.Fatalf("Expected 8 listeners, got %d\n", len(adsResponse.GetHTTPListeners())+len(adsResponse.GetTCPListeners()))
 	}
 
 	// Expect 10 CDS clusters: 1 inbound + 7 outbound (2 http services, 1 tcp service, 2 istio-system services,
 	// and 2 subsets of http1), 1 blackhole, 1 passthrough
 	// plus 2 extra due to the mem registry
-	if (len(adsResponse.Clusters) + len(adsResponse.EDSClusters)) != 10 {
-		t.Fatalf("Expected 12 Clusters in CDS output. Got %d", len(adsResponse.Clusters)+len(adsResponse.EDSClusters))
+	if (len(adsResponse.GetClusters()) + len(adsResponse.GetEdsClusters())) != 10 {
+		t.Fatalf("Expected 12 Clusters in CDS output. Got %d", len(adsResponse.GetClusters())+len(adsResponse.GetEdsClusters()))
 	}
 
 	// Expect two vhost blocks in RDS output for 8080 (one for http1, another for http2)
 	// plus one extra due to mem registry
-	if len(adsResponse.Routes["8080"].VirtualHosts) != 3 {
-		t.Fatalf("Expected two VirtualHosts in RDS output. Got %d", len(adsResponse.Routes["8080"].VirtualHosts))
+	if len(adsResponse.GetRoutes()["8080"].VirtualHosts) != 3 {
+		t.Fatalf("Expected two VirtualHosts in RDS output. Got %d", len(adsResponse.GetRoutes()["8080"].VirtualHosts))
 	}
 }
 
@@ -304,13 +304,13 @@ func TestLDSWithIngressGateway(t *testing.T) {
 
 	// Expect 2 listeners : 1 for 80, 1 for 443
 	// where 443 listener has 3 filter chains
-	if (len(adsResponse.HTTPListeners) + len(adsResponse.TCPListeners)) != 2 {
-		t.Fatalf("Expected 2 listeners, got %d\n", len(adsResponse.HTTPListeners)+len(adsResponse.TCPListeners))
+	if (len(adsResponse.GetHTTPListeners()) + len(adsResponse.GetTCPListeners())) != 2 {
+		t.Fatalf("Expected 2 listeners, got %d\n", len(adsResponse.GetHTTPListeners())+len(adsResponse.GetTCPListeners()))
 	}
 
 	// TODO: This is flimsy. The ADSC code treats any listener with http connection manager as a HTTP listener
 	// instead of looking at it as a listener with multiple filter chains
-	l := adsResponse.HTTPListeners["0.0.0.0_443"]
+	l := adsResponse.GetHTTPListeners()["0.0.0.0_443"]
 
 	if l != nil {
 		if len(l.FilterChains) != 3 {
@@ -429,13 +429,13 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 	}
 
 	// Expect 1 HTTP listeners for 8081
-	if len(adsResponse.HTTPListeners) != 1 {
-		t.Fatalf("Expected 1 http listeners, got %d", len(adsResponse.HTTPListeners))
+	if len(adsResponse.GetHTTPListeners()) != 1 {
+		t.Fatalf("Expected 1 http listeners, got %d", len(adsResponse.GetHTTPListeners()))
 	}
 
 	// TODO: This is flimsy. The ADSC code treats any listener with http connection manager as a HTTP listener
 	// instead of looking at it as a listener with multiple filter chains
-	if l := adsResponse.HTTPListeners["0.0.0.0_8081"]; l != nil {
+	if l := adsResponse.GetHTTPListeners()["0.0.0.0_8081"]; l != nil {
 		expected := 1
 		if pilot.RestrictPodIPTrafficLoops.Get() {
 			expected = 2
@@ -448,10 +448,10 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 	}
 
 	// Expect only one EDS cluster for http1.ns1.svc.cluster.local
-	if len(adsResponse.EDSClusters) != 1 {
-		t.Fatalf("Expected 1 eds cluster, got %d", len(adsResponse.EDSClusters))
+	if len(adsResponse.GetEdsClusters()) != 1 {
+		t.Fatalf("Expected 1 eds cluster, got %d", len(adsResponse.GetEdsClusters()))
 	}
-	if cluster, ok := adsResponse.EDSClusters["outbound|8081||http1.ns1.svc.cluster.local"]; !ok {
+	if cluster, ok := adsResponse.GetEdsClusters()["outbound|8081||http1.ns1.svc.cluster.local"]; !ok {
 		t.Fatalf("Expected EDS cluster outbound|8081||http1.ns1.svc.cluster.local, got %v", cluster.Name)
 	}
 }
@@ -530,12 +530,12 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 			}
 
 			// Expect 1 HTTP listeners for 8081
-			if len(adsResponse.HTTPListeners) != 1 {
-				t.Fatalf("Expected 1 http listeners, got %d", len(adsResponse.HTTPListeners))
+			if len(adsResponse.GetHTTPListeners()) != 1 {
+				t.Fatalf("Expected 1 http listeners, got %d", len(adsResponse.GetHTTPListeners()))
 			}
 			// TODO: This is flimsy. The ADSC code treats any listener with http connection manager as a HTTP listener
 			// instead of looking at it as a listener with multiple filter chains
-			l := adsResponse.HTTPListeners["0.0.0.0_8081"]
+			l := adsResponse.GetHTTPListeners()["0.0.0.0_8081"]
 
 			expectLuaFilter(t, l, test.expectLuaFilter)
 		})

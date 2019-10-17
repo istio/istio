@@ -101,10 +101,10 @@ func TestEds(t *testing.T) {
 	})
 	t.Run("CDSSave", func(t *testing.T) {
 		// Moved from cds_test, using new client
-		if len(adsc.Clusters) == 0 {
+		if len(adsc.GetClusters()) == 0 {
 			t.Error("No clusters in ADS response")
 		}
-		strResponse, _ := json.MarshalIndent(adsc.Clusters, " ", " ")
+		strResponse, _ := json.MarshalIndent(adsc.GetClusters(), " ", " ")
 		_ = ioutil.WriteFile(env.IstioOut+"/cdsv2_sidecar.json", strResponse, 0644)
 
 	})
@@ -136,7 +136,7 @@ func adsConnectAndWait(t *testing.T, ip int) *adsc.ADSC {
 		t.Fatal("Error getting initial config ", err)
 	}
 
-	if len(adsc.EDS) == 0 {
+	if len(adsc.GetEndpoints()) == 0 {
 		t.Fatal("No endpoints")
 	}
 	return adsc
@@ -189,7 +189,7 @@ func testTCPEndpoints(expected string, adsc *adsc.ADSC, t *testing.T) {
 // Verify server sends the endpoint. This check for a single endpoint with the given
 // address.
 func testEndpoints(expected string, cluster string, adsc *adsc.ADSC, t *testing.T) {
-	lbe, f := adsc.EDS[cluster]
+	lbe, f := adsc.GetEndpoints()[cluster]
 	if !f || len(lbe.Endpoints) == 0 {
 		t.Fatalf("No lb endpoints for %v, %v", cluster, adsc.EndpointsJSON())
 	}
@@ -210,12 +210,12 @@ func testEndpoints(expected string, cluster string, adsc *adsc.ADSC, t *testing.
 }
 
 func testLocalityPrioritizedEndpoints(adsc *adsc.ADSC, adsc2 *adsc.ADSC, t *testing.T) {
-	verifyLocalityPriorities(asdcLocality, adsc.EDS["outbound|80||locality.cluster.local"].GetEndpoints(), t)
-	verifyLocalityPriorities(asdc2Locality, adsc2.EDS["outbound|80||locality.cluster.local"].GetEndpoints(), t)
+	verifyLocalityPriorities(asdcLocality, adsc.GetEndpoints()["outbound|80||locality.cluster.local"].GetEndpoints(), t)
+	verifyLocalityPriorities(asdc2Locality, adsc2.GetEndpoints()["outbound|80||locality.cluster.local"].GetEndpoints(), t)
 
 	// No outlier detection specified for this cluster, so we shouldn't apply priority.
-	verifyNoLocalityPriorities(adsc.EDS["outbound|80||locality-no-outlier-detection.cluster.local"].GetEndpoints(), t)
-	verifyNoLocalityPriorities(adsc2.EDS["outbound|80||locality-no-outlier-detection.cluster.local"].GetEndpoints(), t)
+	verifyNoLocalityPriorities(adsc.GetEndpoints()["outbound|80||locality-no-outlier-detection.cluster.local"].GetEndpoints(), t)
+	verifyNoLocalityPriorities(adsc2.GetEndpoints()["outbound|80||locality-no-outlier-detection.cluster.local"].GetEndpoints(), t)
 }
 
 // Tests that Services with multiple ports sharing the same port number are properly sent endpoints.
@@ -270,9 +270,9 @@ func verifyLocalityPriorities(proxyLocality string, eps []endpoint.LocalityLbEnd
 // Verify server sends UDS endpoints
 func testUdsEndpoints(_ *bootstrap.Server, adsc *adsc.ADSC, t *testing.T) {
 	// Check the UDS endpoint ( used to be separate test - but using old unused GRPC method)
-	// The new test also verifies CDS is pusing the UDS cluster, since adsc.EDS is
+	// The new test also verifies CDS is pusing the UDS cluster, since adsc.GetEndpoints() is
 	// populated using CDS response
-	lbe, f := adsc.EDS["outbound|0||localuds.cluster.local"]
+	lbe, f := adsc.GetEndpoints()["outbound|0||localuds.cluster.local"]
 	if !f || len(lbe.Endpoints) == 0 {
 		t.Error("No UDS lb endpoints")
 	} else {
@@ -414,7 +414,7 @@ func edsUpdateInc(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.T) {
 		t.Fatal("Expecting EDS update as part of a partial push", err, upd)
 	}
 
-	lbe := adsc.EDS["outbound|8080||eds.test.svc.cluster.local"]
+	lbe := adsc.GetEndpoints()["outbound|8080||eds.test.svc.cluster.local"]
 	if len(lbe.Endpoints) != 0 {
 		t.Fatalf("There should be no endpoints for outbound|8080||eds.test.svc.cluster.local. Endpoints:\n%v", adsc.EndpointsJSON())
 	}
@@ -469,7 +469,7 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 				return
 			}
 
-			if len(adsc.EDS) == 0 {
+			if len(adsc.GetEndpoints()) == 0 {
 				errChan <- errors.New("no endpoints")
 				wgConnect.Done()
 				return
