@@ -247,12 +247,14 @@ func (c *SyntheticServiceEntryController) configStoreUpdate(resources []*sink.Ob
 			}
 		}
 
-		// this is done before updating internal cache
-		oldEpVersion := c.endpointVersion(conf.Namespace, conf.Name)
-		newEpVersion := version(conf.Annotations, endpointKey)
-		if newEpVersion != "" && oldEpVersion != newEpVersion {
-			if err := c.edsUpdate(conf); err != nil {
-				log.Warnf("edsUpdate: %v", err)
+		if !svcChanged {
+			// this is done before updating internal cache
+			oldEpVersion := c.endpointVersion(conf.Namespace, conf.Name)
+			newEpVersion := version(conf.Annotations, endpointKey)
+			if newEpVersion != "" && oldEpVersion != newEpVersion {
+				if err := c.edsUpdate(conf); err != nil {
+					log.Warnf("edsUpdate: %v", err)
+				}
 			}
 		}
 	}
