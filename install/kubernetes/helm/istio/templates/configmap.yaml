@@ -184,7 +184,9 @@ data:
     - address: istio-galley.{{ $.Release.Namespace }}.svc:9901
       {{- if .Values.pilot.configSource.subscribedResources }}
       subscribedResources:
-        - {{ .Values.pilot.configSource.subscribedResources }}
+        {{- range .Values.pilot.configSource.subscribedResources }}
+        - {{ . }}
+        {{- end }}
       {{- end}}
     {{- if $.Values.global.controlPlaneSecurityEnabled}}
       tlsSettings:
