@@ -734,7 +734,7 @@ func printYamlOutput(writer io.Writer, configClient model.ConfigStore, configLis
 }
 
 func newClient() (model.ConfigStore, error) {
-	return controller.NewClient(kubeconfig, configContext, schemas.Istio, "")
+	return controller.NewClient(kubeconfig, configContext, schemas.Istio, "", &model.DisabledLedger{})
 }
 
 func supportedTypes(configClient model.ConfigStore) []string {
@@ -777,7 +777,7 @@ func restConfig() (config *rest.Config, err error) {
 			return nil
 		})
 	err = schemeBuilder.AddToScheme(types)
-	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: serializer.NewCodecFactory(types)}
+	config.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: serializer.NewCodecFactory(types)}
 	return
 }
 

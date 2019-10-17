@@ -70,12 +70,14 @@ const (
 	// means it's called when the periodically refresh job is triggered. We can retry more aggressively
 	// as it's running separately from the main flow.
 	networkFetchRetryCountOnRefreshFlow = 3
+
+	// jwksPublicRootCABundlePath is the path of public root CA bundle in pilot container.
+	jwksPublicRootCABundlePath = "/cacert.pem"
+	// jwksExtraRootCABundlePath is the path to any additional CA certificates pilot should accept when resolving JWKS URIs
+	jwksExtraRootCABundlePath = "/cacerts/extra.pem"
 )
 
 var (
-	// PublicRootCABundlePath is the path of public root CA bundle in pilot container.
-	publicRootCABundlePath = "/cacert.pem"
-
 	// Close channel
 	closeChan = make(chan bool)
 
@@ -87,6 +89,9 @@ var (
 		"pilot_jwks_resolver_network_fetch_fail_total",
 		"Total number of failed network fetch by pilot jwks resolver",
 	)
+
+	// JwtKeyResolver resolves JWT public key and JwksURI.
+	JwtKeyResolver = NewJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
 )
 
 // jwtPubKeyEntry is a single cached entry for jwt public key.
@@ -135,15 +140,20 @@ func init() {
 
 // NewJwksResolver creates new instance of JwksResolver.
 func NewJwksResolver(evictionDuration, refreshInterval time.Duration) *JwksResolver {
+	return newJwksResolverWithCABundlePaths(
+		evictionDuration,
+		refreshInterval,
+		[]string{jwksPublicRootCABundlePath, jwksExtraRootCABundlePath},
+	)
+}
+
+func newJwksResolverWithCABundlePaths(evictionDuration, refreshInterval time.Duration, caBundlePaths []string) *JwksResolver {
 	ret := &JwksResolver{
 		JwksURICache:     cache.NewTTL(jwksURICacheExpiration, jwksURICacheEviction),
 		evictionDuration: evictionDuration,
 		refreshInterval:  refreshInterval,
 		httpClient: &http.Client{
 			Timeout: jwksHTTPTimeOutInSec * time.Second,
-
-			// TODO: pilot needs to include a collection of root CAs to make external
-			// https web request(https://github.com/istio/istio/issues/1419).
 			Transport: &http.Transport{
 				DisableKeepAlives: true,
 				TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
@@ -151,10 +161,15 @@ func NewJwksResolver(evictionDuration, refreshInterval time.Duration) *JwksResol
 		},
 	}
 
-	caCert, err := ioutil.ReadFile(publicRootCABundlePath)
-	if err == nil {
-		caCertPool := x509.NewCertPool()
-		caCertPool.AppendCertsFromPEM(caCert)
+	caCertPool := x509.NewCertPool()
+	caCertsFound := false
+	for _, pemFile := range caBundlePaths {
+		caCert, err := ioutil.ReadFile(pemFile)
+		if err == nil {
+			caCertsFound = caCertPool.AppendCertsFromPEM(caCert) || caCertsFound
+		}
+	}
+	if caCertsFound {
 		ret.secureHTTPClient = &http.Client{
 			Timeout: jwksHTTPTimeOutInSec * time.Second,
 			Transport: &http.Transport{

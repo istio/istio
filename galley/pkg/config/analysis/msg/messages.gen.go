@@ -40,6 +40,22 @@ var (
 	// GatewayPortNotOnWorkload defines a diag.MessageType for message "GatewayPortNotOnWorkload".
 	// Description: Unhandled gateway port
 	GatewayPortNotOnWorkload = diag.NewMessageType(diag.Warning, "IST0104", "The gateway refers to a port that is not exposed on the workload (pod selector %s; port %d)")
+
+	// IstioProxyVersionMismatch defines a diag.MessageType for message "IstioProxyVersionMismatch".
+	// Description: The version of the Istio proxy running on the pod does not match the version used by the istio injector.
+	IstioProxyVersionMismatch = diag.NewMessageType(diag.Warning, "IST0105", "The version of the Istio proxy running on the pod does not match the version used by the istio injector (pod version: %s; injector version: %s). This often happens after upgrading the Istio control-plane and can be fixed by redeploying the pod.")
+
+	// SchemaValidationError defines a diag.MessageType for message "SchemaValidationError".
+	// Description: The resource has one or more schema validation errors.
+	SchemaValidationError = diag.NewMessageType(diag.Error, "IST0106", "The resource has one or more schema validation errors: %v")
+
+	// MisplacedAnnotation defines a diag.MessageType for message "MisplacedAnnotation".
+	// Description: An Istio annotation is applied to the wrong kind of resource.
+	MisplacedAnnotation = diag.NewMessageType(diag.Warning, "IST0107", "Misplaced annotation: %s can only be applied to %s")
+
+	// UnknownAnnotation defines a diag.MessageType for message "UnknownAnnotation".
+	// Description: An Istio annotation is not recognized for any kind of resource
+	UnknownAnnotation = diag.NewMessageType(diag.Warning, "IST0108", "Unknown annotation: %s")
 )
 
 // NewInternalError returns a new diag.Message based on InternalError.
@@ -115,6 +131,44 @@ func NewGatewayPortNotOnWorkload(entry *resource.Entry, selector string, port in
 		originOrNil(entry),
 		selector,
 		port,
+	)
+}
+
+// NewIstioProxyVersionMismatch returns a new diag.Message based on IstioProxyVersionMismatch.
+func NewIstioProxyVersionMismatch(entry *resource.Entry, proxyVersion string, injectionVersion string) diag.Message {
+	return diag.NewMessage(
+		IstioProxyVersionMismatch,
+		originOrNil(entry),
+		proxyVersion,
+		injectionVersion,
+	)
+}
+
+// NewSchemaValidationError returns a new diag.Message based on SchemaValidationError.
+func NewSchemaValidationError(entry *resource.Entry, combinedErr error) diag.Message {
+	return diag.NewMessage(
+		SchemaValidationError,
+		originOrNil(entry),
+		combinedErr,
+	)
+}
+
+// NewMisplacedAnnotation returns a new diag.Message based on MisplacedAnnotation.
+func NewMisplacedAnnotation(entry *resource.Entry, annotation string, kind string) diag.Message {
+	return diag.NewMessage(
+		MisplacedAnnotation,
+		originOrNil(entry),
+		annotation,
+		kind,
+	)
+}
+
+// NewUnknownAnnotation returns a new diag.Message based on UnknownAnnotation.
+func NewUnknownAnnotation(entry *resource.Entry, annotation string) diag.Message {
+	return diag.NewMessage(
+		UnknownAnnotation,
+		originOrNil(entry),
+		annotation,
 	)
 }
 

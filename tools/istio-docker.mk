@@ -22,8 +22,8 @@
 docker: build-linux docker.all
 
 # Add new docker targets to the end of the DOCKER_TARGETS list.
-DOCKER_TARGETS:=docker.pilot docker.proxy_debug docker.proxytproxy docker.proxyv2 docker.app docker.app_sidecar docker.test_policybackend \
-	docker.proxy_init docker.mixer docker.mixer_codegen docker.citadel docker.galley docker.sidecar_injector docker.kubectl docker.node-agent-k8s
+DOCKER_TARGETS:=docker.pilot docker.proxytproxy docker.proxyv2 docker.app docker.app_sidecar docker.test_policybackend \
+	docker.mixer docker.mixer_codegen docker.citadel docker.galley docker.sidecar_injector docker.kubectl docker.node-agent-k8s
 
 $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 	mkdir -p $@
@@ -79,14 +79,7 @@ $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_BIN), \
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_BIN), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_BIN)/$(FILE) | $(ISTIO_DOCKER); cp $(ISTIO_BIN)/$(FILE) $(ISTIO_DOCKER)/$(FILE)))
 
-# pilot docker images
-
-docker.proxy_init: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
-docker.proxy_init: pilot/docker/Dockerfile.proxy_init
-docker.proxy_init: $(ISTIO_DOCKER)/istio-iptables.sh
-docker.proxy_init: $(ISTIO_DOCKER)/istio-iptables
-	$(DOCKER_RULE)
-
+docker.sidecar_injector: BUILD_PRE=chmod 755 sidecar-injector &&
 docker.sidecar_injector: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.sidecar_injector: sidecar-injector/docker/Dockerfile.sidecar_injector
 docker.sidecar_injector:$(ISTIO_DOCKER)/sidecar-injector
@@ -95,24 +88,14 @@ docker.sidecar_injector:$(ISTIO_DOCKER)/sidecar-injector
 # BUILD_PRE tells $(DOCKER_RULE) to run the command specified before executing a docker build
 # BUILD_ARGS tells  $(DOCKER_RULE) to execute a docker build with the specified commands
 
-docker.proxy_debug: BUILD_PRE=$(if $(filter 1,${USE_LOCAL_PROXY}),,mv envoy-debug-${PROXY_REPO_SHA} envoy &&) chmod 755 envoy pilot-agent &&
-docker.proxy_debug: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg BASE_VERSION=${BASE_VERSION}
-docker.proxy_debug: pilot/docker/Dockerfile.proxy_debug
-docker.proxy_debug: tools/packaging/common/envoy_bootstrap_v2.json
-docker.proxy_debug: tools/packaging/common/envoy_bootstrap_drain.json
-docker.proxy_debug: install/gcp/bootstrap/gcp_envoy_bootstrap.json
-docker.proxy_debug: ${ISTIO_ENVOY_LINUX_DEBUG_PATH}
-docker.proxy_debug: $(ISTIO_OUT_LINUX)/pilot-agent
-docker.proxy_debug: pilot/docker/Dockerfile.proxyv2
-docker.proxy_debug: pilot/docker/envoy_pilot.yaml.tmpl
-docker.proxy_debug: pilot/docker/envoy_policy.yaml.tmpl
-docker.proxy_debug: pilot/docker/envoy_telemetry.yaml.tmpl
-	$(DOCKER_RULE)
-
 # The file must be named 'envoy', depends on the release.
 ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/envoy: ${ISTIO_ENVOY_LINUX_RELEASE_PATH}
 	mkdir -p $(DOCKER_BUILD_TOP)/proxyv2
+ifdef DEBUG_IMAGE
+	cp ${ISTIO_ENVOY_LINUX_DEBUG_PATH} ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/envoy
+else
 	cp ${ISTIO_ENVOY_LINUX_RELEASE_PATH} ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/envoy
+endif
 
 # Default proxy image.
 docker.proxyv2: BUILD_PRE=chmod 755 envoy pilot-agent &&
@@ -127,6 +110,7 @@ docker.proxyv2: pilot/docker/envoy_pilot.yaml.tmpl
 docker.proxyv2: pilot/docker/envoy_policy.yaml.tmpl
 docker.proxyv2: tools/packaging/common/istio-iptables.sh
 docker.proxyv2: pilot/docker/envoy_telemetry.yaml.tmpl
+docker.proxyv2: $(ISTIO_DOCKER)/istio-iptables
 	$(DOCKER_RULE)
 
 # Proxy using TPROXY interception - but no core dumps
@@ -143,6 +127,7 @@ docker.proxytproxy: tools/packaging/common/istio-iptables.sh
 docker.proxytproxy: pilot/docker/envoy_telemetry.yaml.tmpl
 	$(DOCKER_RULE)
 
+docker.pilot: BUILD_PRE=chmod 755 pilot-discovery cacert.pem &&
 docker.pilot: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.pilot: $(ISTIO_OUT_LINUX)/pilot-discovery
 docker.pilot: tests/testdata/certs/cacert.pem
@@ -156,14 +141,7 @@ docker.app: $(ISTIO_OUT_LINUX)/server
 docker.app: $(ISTIO_DOCKER)/certs
 	mkdir -p $(ISTIO_DOCKER)/testapp
 	cp -r $^ $(ISTIO_DOCKER)/testapp
-ifeq ($(DEBUG_IMAGE),1)
-	# It is extremely helpful to debug from the test app. The savings in size are not worth the
-	# developer pain
-	cp $(ISTIO_DOCKER)/testapp/Dockerfile.app $(ISTIO_DOCKER)/testapp/Dockerfile.appdbg
-	sed -e "s,FROM \${BASE_DISTRIBUTION},FROM $(HUB)/proxy_debug:$(TAG)," $(ISTIO_DOCKER)/testapp/Dockerfile.appdbg > $(ISTIO_DOCKER)/testapp/Dockerfile.appd
-endif
-	time (cd $(ISTIO_DOCKER)/testapp && \
-		docker build -t $(HUB)/app:$(TAG) -f Dockerfile.app .)
+	time (cd $(ISTIO_DOCKER)/testapp && docker build -t $(HUB)/app:$(TAG) -f Dockerfile.app .)
 
 
 # Test application bundled with the sidecar (for non-k8s).
@@ -198,6 +176,7 @@ docker.kubectl: docker/Dockerfile$$(suffix $$@)
 
 # mixer docker images
 
+docker.mixer: BUILD_PRE=chmod 755 mixs &&
 docker.mixer: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.mixer: mixer/docker/Dockerfile.mixer
 docker.mixer: $(ISTIO_DOCKER)/mixs
@@ -211,6 +190,7 @@ docker.mixer_codegen: $(ISTIO_DOCKER)/mixgen
 
 # galley docker images
 
+docker.galley: BUILD_PRE=chmod 755 galley &&
 docker.galley: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.galley: galley/docker/Dockerfile.galley
 docker.galley: $(ISTIO_DOCKER)/galley
@@ -218,6 +198,7 @@ docker.galley: $(ISTIO_DOCKER)/galley
 
 # security docker images
 
+docker.citadel: BUILD_PRE=chmod 755 istio_ca &&
 docker.citadel: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.citadel: security/docker/Dockerfile.citadel
 docker.citadel: $(ISTIO_DOCKER)/istio_ca

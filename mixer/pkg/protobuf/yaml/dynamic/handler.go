@@ -320,7 +320,7 @@ func (eb staticBag) Get(name string) (interface{}, bool) {
 }
 
 func (eb staticBag) Names() []string {
-	ret := make([]string, len(eb.v))
+	ret := make([]string, 0, len(eb.v))
 	for k := range eb.v {
 		ret = append(ret, k)
 	}

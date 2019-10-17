@@ -17,7 +17,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -28,6 +27,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
@@ -99,13 +99,23 @@ var (
 
 	wg sync.WaitGroup
 
-	instanceIPVar        = env.RegisterStringVar("INSTANCE_IP", "", "")
-	podNameVar           = env.RegisterStringVar("POD_NAME", "", "")
-	podNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "")
-	istioNamespaceVar    = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
-	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
-	sdsEnabledVar        = env.RegisterBoolVar("SDS_ENABLED", false, "")
-	sdsUdsPathVar        = env.RegisterStringVar("SDS_UDS_PATH", "unix:/var/run/sds/uds_path", "SDS address")
+	instanceIPVar             = env.RegisterStringVar("INSTANCE_IP", "", "")
+	podNameVar                = env.RegisterStringVar("POD_NAME", "", "")
+	podNamespaceVar           = env.RegisterStringVar("POD_NAMESPACE", "", "")
+	istioNamespaceVar         = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
+	kubeAppProberNameVar      = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
+	sdsEnabledVar             = env.RegisterBoolVar("SDS_ENABLED", false, "")
+	sdsUdsPathVar             = env.RegisterStringVar("SDS_UDS_PATH", "unix:/var/run/sds/uds_path", "SDS address")
+	stackdriverTracingEnabled = env.RegisterBoolVar("STACKDRIVER_TRACING_ENABLED", false, "If enabled, stackdriver will"+
+		" get configured as the tracer.")
+	stackdriverTracingDebug = env.RegisterBoolVar("STACKDRIVER_TRACING_DEBUG", false, "If set to true, "+
+		"enables trace output to stdout")
+	stackdriverTracingMaxNumberOfAnnotations = env.RegisterIntVar("STACKDRIVER_TRACING_MAX_NUMBER_OF_ANNOTATIONS", 200, "Sets the max"+
+		" number of annotations for stackdriver")
+	stackdriverTracingMaxNumberOfAttributes = env.RegisterIntVar("STACKDRIVER_TRACING_MAX_NUMBER_OF_ATTRIBUTES", 200, "Sets the max "+
+		"number of attributes for stackdriver")
+	stackdriverTracingMaxNumberOfMessageEvents = env.RegisterIntVar("STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS", 200, "Sets the "+
+		"max number of message events for stackdriver")
 
 	sdsUdsWaitTimeout = time.Minute
 
@@ -300,6 +310,23 @@ var (
 						},
 					},
 				}
+			} else if stackdriverTracingEnabled.Get() {
+				proxyConfig.Tracing = &meshconfig.Tracing{
+					Tracer: &meshconfig.Tracing_Stackdriver_{
+						Stackdriver: &meshconfig.Tracing_Stackdriver{
+							Debug: stackdriverTracingDebug.Get(),
+							MaxNumberOfAnnotations: &types.Int64Value{
+								Value: int64(stackdriverTracingMaxNumberOfAnnotations.Get()),
+							},
+							MaxNumberOfAttributes: &types.Int64Value{
+								Value: int64(stackdriverTracingMaxNumberOfAttributes.Get()),
+							},
+							MaxNumberOfMessageEvents: &types.Int64Value{
+								Value: int64(stackdriverTracingMaxNumberOfMessageEvents.Get()),
+							},
+						},
+					},
+				}
 			}
 
 			if err := validation.ValidateProxyConfig(&proxyConfig); err != nil {
@@ -383,17 +410,12 @@ var (
 			} else if templateFile != "" && proxyConfig.CustomConfigFile == "" {
 				proxyConfig.ProxyBootstrapTemplatePath = templateFile
 			}
-
 			ctx, cancel := context.WithCancel(context.Background())
-			defer func() {
-				log.Info("pilot-agent is terminating")
-				cancel()
-				wg.Wait()
-			}()
 			// If a status port was provided, start handling status probes.
 			if statusPort > 0 {
 				parsedPorts, err := parseApplicationPorts()
 				if err != nil {
+					cancel()
 					return err
 				}
 				localHostAddr := "127.0.0.1"
@@ -410,6 +432,7 @@ var (
 					NodeType:           role.Type,
 				})
 				if err != nil {
+					cancel()
 					return err
 				}
 				go waitForCompletion(ctx, statusServer.Run)
@@ -434,14 +457,17 @@ var (
 				ControlPlaneAuth:    controlPlaneAuthEnabled,
 				DisableReportCalls:  disableInternalTelemetry,
 			})
-			agent := envoy.NewAgent(envoyProxy, envoy.DefaultRetry, features.TerminationDrainDuration())
-			watcher := envoy.NewWatcher(tlsCertsToWatch, agent.ConfigCh())
 
-			go waitForCompletion(ctx, agent.Run)
-			go waitForCompletion(ctx, watcher.Run)
+			agent := envoy.NewAgent(envoyProxy, features.TerminationDrainDuration())
 
-			cmd.WaitSignal(make(chan struct{}))
-			return nil
+			watcher := envoy.NewWatcher(tlsCertsToWatch, agent.Restart)
+
+			go watcher.Run(ctx)
+
+			// On SIGINT or SIGTERM, cancel the context, triggering a graceful shutdown
+			go cmd.WaitSignalFunc(cancel)
+
+			return agent.Run(ctx)
 		},
 	}
 )
@@ -585,13 +611,12 @@ func timeDuration(dur *types.Duration) time.Duration {
 
 func fromJSON(j string) *meshconfig.RemoteService {
 	var m meshconfig.RemoteService
-	err := json.Unmarshal([]byte(j), &m)
+	err := jsonpb.UnmarshalString(j, &m)
 	if err != nil {
-		log.Warnf("Unable to unmarshal %s", j)
+		log.Warnf("Unable to unmarshal %s: %v", j, err)
 		return nil
 	}
 
-	log.Infof("%v", m)
 	return &m
 }
 

@@ -22,7 +22,7 @@ import (
 	"gopkg.in/square/go-jose.v2/json"
 	"sigs.k8s.io/yaml"
 
-	"istio.io/istio/galley/pkg/config/processor/metadata"
+	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/galley/testdata/validation"
 	"istio.io/istio/pkg/test/util/yml"
 
@@ -82,7 +82,8 @@ func TestValidation(t *testing.T) {
 				// from the webhook and the k8s api server as the returned errors are not
 				// k8s typed errors.
 				return strings.Contains(err.Error(), "denied the request") ||
-					strings.Contains(err.Error(), "error validating data")
+					strings.Contains(err.Error(), "error validating data") ||
+					strings.Contains(err.Error(), "Invalid value")
 			}
 
 			for _, d := range dataset {
@@ -134,6 +135,8 @@ var ignoredCRDs = []string{
 	"/v1/Endpoints",
 	"/v1/Service",
 	"extensions/v1beta1/Ingress",
+	"apps/v1/Deployment",
+	"networking.istio.io/v1alpha3/SyntheticServiceEntry",
 
 	// Legacy Mixer CRDs are ignored
 	"config.istio.io/v1alpha2/cloudwatch",

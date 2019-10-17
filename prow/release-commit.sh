@@ -35,11 +35,11 @@ DOCKER_HUB=${DOCKER_HUB:-gcr.io/istio-testing}
 GCS_BUCKET=${GCS_BUCKET:-istio-build/dev}
 
 # Use a pinned version in case breaking changes are needed
-BUILDER_SHA=14055a08b4438fbb3a2439a057a1a303a0fd5116
+BUILDER_SHA=46c35ab820213298a8d859d494b23922aa3158e2
 
 # Reference to the next minor version of Istio
 # This will create a version like 1.4-alpha.sha
-NEXT_VERSION=1.4
+NEXT_VERSION=1.5
 TAG=$(git rev-parse HEAD)
 VERSION="${NEXT_VERSION}-alpha.${TAG}"
 
@@ -50,7 +50,7 @@ mkdir -p "${WORK_DIR}"
 
 MANIFEST=$(cat <<EOF
 version: ${VERSION}
-docker: docker.io/istio
+docker: ${DOCKER_HUB}
 directory: ${WORK_DIR}
 dependencies:
   istio:
@@ -58,6 +58,9 @@ dependencies:
   cni:
     git: https://github.com/istio/cni
     auto: deps
+  operator:
+    git: https://github.com/istio/operator
+    auto: modules
 EOF
 )
 
@@ -70,5 +73,7 @@ export PATH=${GOPATH}/bin:${PATH}
 release-builder build --manifest <(echo "${MANIFEST}")
 
 if [[ -z "${DRY_RUN:-}" ]]; then
-  release-builder publish --release "${WORK_DIR}/out" --gcsbucket "${GCS_BUCKET}" --dockerhub "${DOCKER_HUB}" --dockertags "${TAG},${NEXT_VERSION}-dev,latest"
+  release-builder publish --release "${WORK_DIR}/out" \
+    --gcsbucket "${GCS_BUCKET}" --gcsaliases "${NEXT_VERSION}-dev,latest" \
+    --dockerhub "${DOCKER_HUB}" --dockertags "${VERSION},${NEXT_VERSION}-dev,latest"
 fi

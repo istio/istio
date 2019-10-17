@@ -140,9 +140,11 @@ func serverCmd() *cobra.Command {
 	svr.PersistentFlags().StringVar(&serverArgs.DomainSuffix, "domain", serverArgs.DomainSuffix,
 		"DNS domain suffix")
 	svr.PersistentFlags().BoolVar(&serverArgs.DisableResourceReadyCheck, "disableResourceReadyCheck", serverArgs.DisableResourceReadyCheck,
-		"(DEPRECATED) Disable resource readiness checks. This allows Galley to start if not all resource types are supported")
+		"Disable resource readiness checks. This allows Galley to start if not all resource types are supported")
+	_ = svr.PersistentFlags().MarkDeprecated("disableResourceReadyCheck", "")
 	svr.PersistentFlags().StringSliceVar(&serverArgs.ExcludedResourceKinds, "excludedResourceKinds",
-		serverArgs.ExcludedResourceKinds, "(DEPRECATED) Comma-separated list of resource kinds that should not generate source events")
+		serverArgs.ExcludedResourceKinds, "Comma-separated list of resource kinds that should not generate source events")
+	_ = svr.PersistentFlags().MarkDeprecated("excludedResourceKinds", "")
 	svr.PersistentFlags().StringVar(&serverArgs.SinkAddress, "sinkAddress",
 		serverArgs.SinkAddress, "Address of MCP Resource Sink server for Galley to connect to. Ex: 'foo.com:1234'")
 	svr.PersistentFlags().StringVar(&serverArgs.SinkAuthMode, "sinkAuthMode",
@@ -160,8 +162,8 @@ func serverCmd() *cobra.Command {
 	svr.PersistentFlags().StringVar(&serverArgs.ValidationArgs.WebhookConfigFile,
 		"validation-webhook-config-file", "",
 		"File that contains k8s validatingwebhookconfiguration yaml. Required if enable-validation is true.")
-	svr.PersistentFlags().UintVar(&serverArgs.ValidationArgs.Port, "validation-port", 443,
-		"HTTPS port of the validation service. Must be 443 if service has more than one port ")
+	svr.PersistentFlags().UintVar(&serverArgs.ValidationArgs.Port, "validation-port",
+		serverArgs.ValidationArgs.Port, "HTTPS port of the validation service.")
 	svr.PersistentFlags().BoolVar(&serverArgs.ValidationArgs.EnableValidation, "enable-validation", serverArgs.ValidationArgs.EnableValidation,
 		"Run galley validation mode")
 	svr.PersistentFlags().BoolVar(&serverArgs.ValidationArgs.EnableReconcileWebhookConfiguration,
@@ -179,13 +181,10 @@ func serverCmd() *cobra.Command {
 	// Hidden, file only flags for validation specific TLS
 	svr.PersistentFlags().StringVar(&serverArgs.ValidationArgs.CertFile, "validation.tls.clientCertificate", "",
 		"File containing the x509 Certificate for HTTPS validation.")
-	_ = svr.PersistentFlags().MarkHidden("validation.tls.clientCertificate")
 	svr.PersistentFlags().StringVar(&serverArgs.ValidationArgs.KeyFile, "validation.tls.privateKey", "",
 		"File containing the x509 private key matching --validation.tls.clientCertificate.")
-	_ = svr.PersistentFlags().MarkHidden("validation.tls.privateKey")
 	svr.PersistentFlags().StringVar(&serverArgs.ValidationArgs.CACertFile, "validation.tls.caCertificates", "",
 		"File containing the caBundle that signed the cert/key specified by --validation.tls.clientCertificate and --validation.tls.privateKey.")
-	_ = svr.PersistentFlags().MarkHidden("validation.tls.caCertificates")
 
 	serverArgs.IntrospectionOptions.AttachCobraFlags(svr)
 	loggingOptions.AttachCobraFlags(svr)

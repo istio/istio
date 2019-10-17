@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/duration"
 
 	"istio.io/pkg/env"
 )
@@ -96,7 +97,13 @@ var (
 			"a response to the config requested by Envoy, the Envoy will move on with the init phase. "+
 			"This prevents envoy from getting stuck waiting on config during startup.",
 	)
-	InitialFetchTimeout = ptypes.DurationProto(initialFetchTimeoutVar.Get())
+	InitialFetchTimeout = func() *duration.Duration {
+		timeout, f := initialFetchTimeoutVar.Lookup()
+		if !f {
+			return nil
+		}
+		return ptypes.DurationProto(timeout)
+	}()
 
 	terminationDrainDurationVar = env.RegisterIntVar(
 		"TERMINATION_DRAIN_DURATION_SECONDS",
@@ -225,6 +232,27 @@ var (
 		"If enabled, any HTTP services will be blocked on HTTPS port (443). If this is disabled, any "+
 			"HTTP service on port 443 could block all external traffic",
 	).Get()
+
+	EnableDistributionTracking = env.RegisterBoolVar(
+		"PILOT_ENABLE_CONFIG_DISTRIBUTION_TRACKING",
+		true,
+		"If enabled, Pilot will assign meaningful nonces to each Envoy configuration message, and allow "+
+			"users to interrogate which envoy has which config from the debug interface.",
+	).Get()
+
+	DistributionHistoryRetention = env.RegisterDurationVar(
+		"PILOT_DISTRIBUTION_HISTORY_RETENTION",
+		time.Minute*1,
+		"If enabled, Pilot will keep track of old versions of distributed config for this duration.",
+	).Get()
+
+	EnableUnsafeRegex = env.RegisterBoolVar(
+		"PILOT_ENABLE_UNSAFE_REGEX",
+		false,
+		"If enabled, pilot will generate Envoy configuration that does not use safe_regex "+
+			"but the older, deprecated regex field. This should only be enabled to support "+
+			"legacy deployments that have not yet been migrated to the new safe regular expressions.",
+	)
 )
 
 var (

@@ -20,8 +20,8 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	coll "istio.io/istio/galley/pkg/config/collection"
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
-	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/scope"
 )
 
@@ -63,6 +63,9 @@ type AnalyzingDistributorSettings struct {
 
 	// An optional hook that will be called whenever a collection is accessed. Useful for testing.
 	CollectionReporter CollectionReporterFn
+
+	// Namespaces that should be analyzed
+	AnalysisNamespaces []string
 }
 
 // NewAnalyzingDistributor returns a new instance of AnalyzingDistributor.
@@ -104,10 +107,15 @@ func (d *AnalyzingDistributor) Distribute(name string, s *Snapshot) {
 		d.cancelAnalysis = nil
 	}
 
+	namespaces := make(map[string]struct{})
+	for _, ns := range d.s.AnalysisNamespaces {
+		namespaces[ns] = struct{}{}
+	}
+
 	// start a new analysis session
 	cancelAnalysis := make(chan struct{})
 	d.cancelAnalysis = cancelAnalysis
-	go d.analyzeAndDistribute(cancelAnalysis, name, s)
+	go d.analyzeAndDistribute(cancelAnalysis, name, s, namespaces)
 }
 
 func (d *AnalyzingDistributor) isAnalysisSnapshot(s string) bool {
@@ -120,7 +128,7 @@ func (d *AnalyzingDistributor) isAnalysisSnapshot(s string) bool {
 	return false
 }
 
-func (d *AnalyzingDistributor) analyzeAndDistribute(cancelCh chan struct{}, name string, s *Snapshot) {
+func (d *AnalyzingDistributor) analyzeAndDistribute(cancelCh chan struct{}, name string, s *Snapshot, namespaces map[string]struct{}) {
 	// For analysis, we use a combined snapshot
 	ctx := &context{
 		sn:                 d.getCombinedSnapshot(),
@@ -132,8 +140,25 @@ func (d *AnalyzingDistributor) analyzeAndDistribute(cancelCh chan struct{}, name
 	d.s.Analyzer.Analyze(ctx)
 	scope.Analysis.Debugf("Finished analyzing the current snapshot, found messages: %v", ctx.messages)
 
+	// Only keep messages for resources in namespaces we want to analyze
+	// If the message doesn't have an origin (meaning we can't determine the namespace) fail open and keep it
+	// If no such limit is specified, keep them all.
+	var msgs diag.Messages
+	if len(namespaces) == 0 {
+		msgs = ctx.messages
+	} else {
+		for _, m := range ctx.messages {
+			if m.Origin != nil {
+				if _, ok := namespaces[m.Origin.Namespace()]; !ok {
+					continue
+				}
+			}
+			msgs = append(msgs, m)
+		}
+	}
+
 	if !ctx.Canceled() {
-		d.s.StatusUpdater.Update(ctx.messages)
+		d.s.StatusUpdater.Update(msgs)
 	}
 
 	// Execution only reaches this point for trigger snapshot group

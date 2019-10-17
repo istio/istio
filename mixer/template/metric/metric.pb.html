@@ -44,6 +44,7 @@ then the expression&rsquo;s <a href="https://istio.io/docs/reference//config/pol
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -54,6 +55,9 @@ then the expression&rsquo;s <a href="https://istio.io/docs/reference//config/pol
 <p>The value being reported.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Template-dimensions">
 <td><code>dimensions</code></td>
@@ -61,6 +65,9 @@ then the expression&rsquo;s <a href="https://istio.io/docs/reference//config/pol
 <td>
 <p>The unique identity of the particular metric to report.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Template-monitored_resource_type">
@@ -72,6 +79,9 @@ If the metric backend supports monitored resources, these fields are used to pop
 these fields will be ignored by the adapter.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Template-monitored_resource_dimensions">
 <td><code>monitoredResourceDimensions</code></td>
@@ -81,6 +91,9 @@ these fields will be ignored by the adapter.</p>
 If the metric backend supports monitored resources, these fields are used to populate that resource. Otherwise
 these fields will be ignored by the adapter.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>

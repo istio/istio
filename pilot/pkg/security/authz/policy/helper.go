@@ -124,8 +124,12 @@ func SimpleRole(name string, namespace string, service string) *model.Config {
 	}
 }
 
-func BindingTag(name string) string {
-	return fmt.Sprintf("UserFromBinding[%s]", name)
+func SimplePrincipal(name string) string {
+	return fmt.Sprintf("cluster.local/ns/%s/sa/%s", name, name)
+}
+
+func CustomPrincipal(trustDomain, namespace, saName string) string {
+	return fmt.Sprintf("%s/ns/%s/sa/%s", trustDomain, namespace, saName)
 }
 
 func SimpleBinding(name string, namespace string, role string) *model.Config {
@@ -138,7 +142,7 @@ func SimpleBinding(name string, namespace string, role string) *model.Config {
 		Spec: &istio_rbac.ServiceRoleBinding{
 			Subjects: []*istio_rbac.Subject{
 				{
-					User: BindingTag(name),
+					User: SimplePrincipal(name),
 				},
 			},
 			RoleRef: &istio_rbac.RoleRef{
@@ -212,6 +216,8 @@ func Verify(got *envoy_rbac.RBAC, want map[string][]string) error {
 			if !ok {
 				err = multierror.Append(err, fmt.Errorf("not found rule %q", key))
 			} else {
+				// FIXME(pitlv2109/yangmingzhu): This doesn't always work because |actualStr| might contain
+				// more stuff than |values| from |want|. Need to check both ways.
 				for _, value := range values {
 					if !strings.Contains(actualStr, value) {
 						err = multierror.Append(err, fmt.Errorf("not found %q in rule %q", value, key))

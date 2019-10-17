@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"testing"
 
 	"istio.io/istio/pkg/test"
@@ -149,12 +150,13 @@ func (c *testContext) Environment() resource.Environment {
 }
 
 func (c *testContext) CreateDirectory(name string) (string, error) {
-	dir, err := ioutil.TempDir(c.workDir, name)
+	dir := filepath.Join(c.workDir, name)
+	err := os.Mkdir(dir, os.ModePerm)
 	if err != nil {
-		scopes.Framework.Errorf("Error creating temp dir: runID='%v', prefix='%s', workDir='%v', err='%v'",
+		scopes.Framework.Errorf("Error creating dir: runID='%v', prefix='%s', workDir='%v', err='%v'",
 			c.suite.settings.RunID, name, c.workDir, err)
 	} else {
-		scopes.Framework.Debugf("Created a temp dir: runID='%v', name='%s'", c.suite.settings.RunID, dir)
+		scopes.Framework.Debugf("Created a dir: runID='%v', name='%s'", c.suite.settings.RunID, dir)
 	}
 	return dir, err
 }

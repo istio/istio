@@ -23,15 +23,16 @@ import (
 
 	. "github.com/onsi/gomega"
 
+	"istio.io/pkg/appsignals"
+
 	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/galley/pkg/config/meta/schema"
 	"istio.io/istio/galley/pkg/config/resource"
-	"istio.io/istio/galley/pkg/config/schema"
 	"istio.io/istio/galley/pkg/config/source/kube/fs"
 	"istio.io/istio/galley/pkg/config/testing/basicmeta"
 	"istio.io/istio/galley/pkg/config/testing/data"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
 	"istio.io/istio/galley/pkg/config/testing/k8smeta"
-	"istio.io/pkg/appsignals"
 )
 
 func TestNew(t *testing.T) {
@@ -184,6 +185,7 @@ func TestAddUpdateDelete_K8sResources(t *testing.T) {
 		event.FullSyncFor(k8smeta.K8SCoreV1Namespaces),
 		event.FullSyncFor(k8smeta.K8SCoreV1Nodes),
 		event.FullSyncFor(k8smeta.K8SCoreV1Pods),
+		event.FullSyncFor(k8smeta.K8SAppsV1Deployments),
 		event.FullSyncFor(k8smeta.K8SCoreV1Services)))
 
 	acc.Clear()

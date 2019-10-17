@@ -17,8 +17,9 @@ package rt
 import (
 	"fmt"
 
+	"istio.io/istio/galley/pkg/config/meta/metadata"
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
-	"istio.io/istio/galley/pkg/config/schema/collection"
 )
 
 // Origin is a K8s specific implementation of resource.Origin
@@ -34,4 +35,15 @@ var _ resource.Origin = &Origin{}
 // FriendlyName implements resource.Origin
 func (o *Origin) FriendlyName() string {
 	return fmt.Sprintf("%s/%s", o.Kind, o.Name.String())
+}
+
+// Namespace implements resource.Origin
+func (o *Origin) Namespace() string {
+	// Special case: the namespace of a namespace resource is its own name
+	if o.Collection == metadata.K8SCoreV1Namespaces {
+		return o.Name.String()
+	}
+
+	ns, _ := o.Name.InterpretAsNamespaceAndName()
+	return ns
 }

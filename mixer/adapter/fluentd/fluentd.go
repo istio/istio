@@ -215,7 +215,7 @@ func (h *handler) HandleLogEntry(ctx context.Context, insts []*logentry.Instance
 	for _, i := range insts {
 		h.env.Logger().Debugf("Got a new log for fluentd, name %v", i.Name)
 
-		// Durations are not supported by msgp
+		// Durations are not supported by msgp, also converts IP address to string
 		for k, v := range i.Variables {
 			if h.types[i.Name].Variables[k] == descriptor.DURATION {
 				if h.intDur {
@@ -225,6 +225,10 @@ func (h *handler) HandleLogEntry(ctx context.Context, insts []*logentry.Instance
 					d := v.(time.Duration)
 					i.Variables[k] = d.String()
 				}
+			}
+			if h.types[i.Name].Variables[k] == descriptor.IP_ADDRESS {
+				ip := v.(net.IP)
+				i.Variables[k] = ip.String()
 			}
 		}
 

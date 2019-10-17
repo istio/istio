@@ -150,6 +150,12 @@ const (
 var (
 	applicationProtocols = []string{"http/1.0", "http/1.1"}
 
+	// Headers added by the metadata exchange filter
+	// We need to propagate these as part of access log service stream
+	// Logging them by default on the console may be an issue as the base64 encoded string is bound to be a big one.
+	// But end users can certainly configure it on their own via the meshConfig
+	envoyWasmHeadersToLog = []string{"x-envoy-peer-metadata", "x-envoy-peer-metadata-id"}
+
 	// EnvoyJSONLogFormat12 map of values for envoy json based access logs for Istio 1.2
 	EnvoyJSONLogFormat12 = &structpb.Struct{
 		Fields: map[string]*structpb.Value{
@@ -884,6 +890,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 						service.Attributes.ServiceRegistry == string(serviceregistry.KubernetesRegistry) && servicePort.Protocol.IsTCP() {
 						if instances, err := env.InstancesByPort(service, servicePort.Port, nil); err == nil {
 							for _, instance := range instances {
+								// Skip build outbound listener to the node itself,
+								// as when app access itself by pod ip will not flow through this listener.
+								// Simultaneously, it will be duplicate with inbound listener.
+								if instance.Endpoint.Address == node.IPAddresses[0] {
+									continue
+								}
 								listenerOpts.bind = instance.Endpoint.Address
 								configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap,
 									virtualServices, actualWildcard)
@@ -1740,6 +1752,8 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 					},
 				},
 			},
+			AdditionalRequestHeadersToLog:  envoyWasmHeadersToLog,
+			AdditionalResponseHeadersToLog: envoyWasmHeadersToLog,
 		}
 
 		acc := &accesslog.AccessLog{

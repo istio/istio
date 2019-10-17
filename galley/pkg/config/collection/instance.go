@@ -17,8 +17,8 @@ package collection
 import (
 	"sync"
 
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
-	"istio.io/istio/galley/pkg/config/schema/collection"
 )
 
 // ChangeNotifierFn is called when a collection instance changes.
@@ -39,6 +39,11 @@ func New(collection collection.Name) *Instance {
 		collection: collection,
 		entries:    make(map[resource.Name]*resource.Entry),
 	}
+}
+
+// Name of the collection
+func (c *Instance) Name() collection.Name {
+	return c.collection
 }
 
 // Get the instance with the given name

@@ -88,11 +88,6 @@ func NewGoldenSnapshotValidator(ns string, goldens []map[string]interface{}) Sna
 		// Convert actuals to a map of JSON objects indexed by name
 		actualMap := make(map[string]interface{})
 		for _, a := range actuals {
-			// Exclude ephemeral fields from comparison
-			a := proto.Clone(a).(*SnapshotObject)
-			a.Metadata.CreateTime = nil
-			a.Metadata.Version = ""
-
 			b, err := json.Marshal(a)
 			if err != nil {
 				return err
@@ -101,7 +96,10 @@ func NewGoldenSnapshotValidator(ns string, goldens []map[string]interface{}) Sna
 			if err = json.Unmarshal(b, &o); err != nil {
 				return err
 			}
-
+			meta := o["Metadata"].(map[string]interface{})
+			// Exclude ephemeral fields from comparison
+			delete(meta, "create_time")
+			delete(meta, "version")
 			name := a.Metadata.Name
 			actualMap[name] = o
 		}

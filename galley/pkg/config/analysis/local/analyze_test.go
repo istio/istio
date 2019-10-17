@@ -23,9 +23,9 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
-	"istio.io/istio/galley/pkg/config/processor/metadata"
+	"istio.io/istio/galley/pkg/config/meta/metadata"
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
-	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
 	"istio.io/istio/galley/pkg/config/testing/data"
 	"istio.io/istio/galley/pkg/config/testing/k8smeta"
@@ -62,7 +62,7 @@ func TestAbortWithNoSources(t *testing.T) {
 
 	cancel := make(chan struct{})
 
-	sa := NewSourceAnalyzer(k8smeta.MustGet(), blankCombinedAnalyzer, nil, false)
+	sa := NewSourceAnalyzer(k8smeta.MustGet(), blankCombinedAnalyzer, "", nil, false)
 	_, err := sa.Analyze(cancel)
 	g.Expect(err).To(Not(BeNil()))
 }
@@ -72,7 +72,7 @@ func TestAnalyzersRun(t *testing.T) {
 
 	cancel := make(chan struct{})
 
-	r := createTestResource("resource", "v1")
+	r := createTestResource("ns", "resource", "v1")
 	msg := msg.NewInternalError(r, "msg")
 	a := &testAnalyzer{
 		fn: func(ctx analysis.Context) {
@@ -86,8 +86,8 @@ func TestAnalyzersRun(t *testing.T) {
 		collectionAccessed = col
 	}
 
-	sa := NewSourceAnalyzer(metadata.MustGet(), analysis.Combine("a", a), cr, false)
-	err := sa.AddFileKubeSource([]string{}, "")
+	sa := NewSourceAnalyzer(metadata.MustGet(), analysis.Combine("a", a), "", cr, false)
+	err := sa.AddFileKubeSource([]string{})
 	g.Expect(err).To(BeNil())
 
 	msgs, err := sa.Analyze(cancel)
@@ -96,12 +96,37 @@ func TestAnalyzersRun(t *testing.T) {
 	g.Expect(collectionAccessed).To(Equal(data.Collection1))
 }
 
+func TestFilterOutputByNamespace(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	cancel := make(chan struct{})
+
+	r1 := createTestResource("ns1", "resource", "v1")
+	r2 := createTestResource("ns2", "resource", "v1")
+	msg1 := msg.NewInternalError(r1, "msg")
+	msg2 := msg.NewInternalError(r2, "msg")
+	a := &testAnalyzer{
+		fn: func(ctx analysis.Context) {
+			ctx.Report(data.Collection1, msg1)
+			ctx.Report(data.Collection1, msg2)
+		},
+	}
+
+	sa := NewSourceAnalyzer(metadata.MustGet(), analysis.Combine("a", a), "ns1", nil, false)
+	err := sa.AddFileKubeSource([]string{})
+	g.Expect(err).To(BeNil())
+
+	msgs, err := sa.Analyze(cancel)
+	g.Expect(err).To(BeNil())
+	g.Expect(msgs).To(ConsistOf(msg1))
+}
+
 func TestAddRunningKubeSource(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	mk := mock.NewKube()
 
-	sa := NewSourceAnalyzer(k8smeta.MustGet(), blankCombinedAnalyzer, nil, false)
+	sa := NewSourceAnalyzer(k8smeta.MustGet(), blankCombinedAnalyzer, "", nil, false)
 
 	sa.AddRunningKubeSource(mk)
 	g.Expect(sa.sources).To(HaveLen(1))
@@ -110,7 +135,7 @@ func TestAddRunningKubeSource(t *testing.T) {
 func TestAddFileKubeSource(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	sa := NewSourceAnalyzer(k8smeta.MustGet(), blankCombinedAnalyzer, nil, false)
+	sa := NewSourceAnalyzer(k8smeta.MustGet(), blankCombinedAnalyzer, "", nil, false)
 
 	tmpfile, err := ioutil.TempFile("", "")
 	if err != nil {
@@ -125,7 +150,7 @@ func TestAddFileKubeSource(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = sa.AddFileKubeSource([]string{tmpfile.Name()}, "")
+	err = sa.AddFileKubeSource([]string{tmpfile.Name()})
 	g.Expect(err).To(BeNil())
 	g.Expect(sa.sources).To(HaveLen(1))
 }
@@ -149,7 +174,7 @@ func TestResourceFiltering(t *testing.T) {
 	}
 	mk := mock.NewKube()
 
-	sa := NewSourceAnalyzer(metadata.MustGet(), analysis.Combine("a", a), nil, true)
+	sa := NewSourceAnalyzer(metadata.MustGet(), analysis.Combine("a", a), "", nil, true)
 	sa.AddRunningKubeSource(mk)
 
 	// All but the used collection should be disabled

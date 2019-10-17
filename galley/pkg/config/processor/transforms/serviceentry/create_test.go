@@ -32,14 +32,14 @@ import (
 
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/meshcfg"
+	"istio.io/istio/galley/pkg/config/meta/metadata"
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter/strategy"
-	"istio.io/istio/galley/pkg/config/processor/metadata"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/pod"
 	"istio.io/istio/galley/pkg/config/resource"
-	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/mcp/snapshot"
@@ -479,7 +479,7 @@ func TestAddOrder(t *testing.T) {
 				} else {
 					expectNotifications(ctx.t, ctx.acc, 1)
 					expectedVersion++
-					expectedMetadata := newMetadataBuilder(service.Clone(), endpoints).
+					expectedMetadata := newMetadataBuilder(service, endpoints).
 						CreateTime(createTime).
 						Version(expectedVersion).
 						Labels(serviceLabels).

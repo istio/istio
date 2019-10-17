@@ -73,6 +73,13 @@ const (
 
 	// The number of retries when requesting to create secret.
 	secretCreationRetry = 3
+
+	// CASecret stores the key/cert of self-signed CA for persistency purpose.
+	CASecret = "istio-ca-secret"
+	// caCertID is the CA certificate chain file.
+	caCertID = "ca-cert.pem"
+	// caPrivateKeyID is the private key file of CA.
+	caPrivateKeyID = "ca-key.pem"
 )
 
 var k8sControllerLog = log.RegisterScope("k8sController", "Citadel kubernetes controller log", 0)
@@ -118,6 +125,9 @@ type SecretController struct {
 	scrtController cache.Controller
 	scrtStore      cache.Store
 
+	caSecretController *CaSecretController
+	rootCertFile       string
+
 	// Controller and store for namespace objects
 	namespaceController cache.Controller
 	namespaceStore      cache.Store
@@ -149,13 +159,17 @@ type SecretController struct {
 
 	// If true, generate a PKCS#8 private key.
 	pkcs8Key bool
+
+	// The most recent time when root cert in keycertbundle is synced with root
+	// cert in istio-ca-secret.
+	lastKCBSyncTime time.Time
 }
 
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
-func NewSecretController(ca certificateAuthority, enableNamespacesByDefault bool, certTTL time.Duration,
-	gracePeriodRatio float32, minGracePeriod time.Duration, dualUse bool,
-	core corev1.CoreV1Interface, forCA bool, pkcs8Key bool, namespaces []string,
-	dnsNames map[string]*DNSNameEntry, istioCaStorageNamespace string) (*SecretController, error) {
+func NewSecretController(ca certificateAuthority, enableNamespacesByDefault bool,
+	certTTL time.Duration, gracePeriodRatio float32, minGracePeriod time.Duration,
+	dualUse bool, core corev1.CoreV1Interface, forCA bool, pkcs8Key bool, namespaces []string,
+	dnsNames map[string]*DNSNameEntry, istioCaStorageNamespace, rootCertFile string) (*SecretController, error) {
 
 	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {
 		return nil, fmt.Errorf("grace period ratio %f should be within [0, 1]", gracePeriodRatio)
@@ -171,6 +185,8 @@ func NewSecretController(ca certificateAuthority, enableNamespacesByDefault bool
 		istioCaStorageNamespace:   istioCaStorageNamespace,
 		gracePeriodRatio:          gracePeriodRatio,
 		certUtil:                  certutil.NewCertUtil(int(gracePeriodRatio * 100)),
+		caSecretController:        NewCaSecretController(core),
+		rootCertFile:              rootCertFile,
 		enableNamespacesByDefault: enableNamespacesByDefault,
 		minGracePeriod:            minGracePeriod,
 		dualUse:                   dualUse,
@@ -180,6 +196,7 @@ func NewSecretController(ca certificateAuthority, enableNamespacesByDefault bool
 		namespaces:                make(map[string]struct{}),
 		dnsNames:                  dnsNames,
 		monitoring:                newMonitoringMetrics(),
+		lastKCBSyncTime:           time.Time{},
 	}
 
 	for _, ns := range namespaces {
@@ -476,7 +493,16 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 
 	_, waitErr := sc.certUtil.GetWaitTime(scrt.Data[CertChainID], time.Now(), sc.minGracePeriod)
 
-	rootCertificate := sc.ca.GetCAKeyCertBundle().GetRootCertPem()
+	caCert, _, _, rootCertificate := sc.ca.GetCAKeyCertBundle().GetAllPem()
+	if !bytes.Equal(rootCertificate, scrt.Data[RootCertID]) {
+		var err error
+		rootCertificate, err = sc.tryToSyncKeyCertBundle(rootCertificate, caCert)
+		if err != nil {
+			k8sControllerLog.Errorf("failed on syncing root cert in KeyCertBundle (%s), skip updating secret %s:%s",
+				err.Error(), namespace, name)
+			return
+		}
+	}
 
 	// Refresh the secret if 1) the certificate contained in the secret is about
 	// to expire, or 2) the root certificate in the secret is different than the
@@ -506,6 +532,49 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 			k8sControllerLog.Infof("Secret %s/%s refreshed successfully.", namespace, GetSecretName(name))
 		}
 	}
+}
+
+// tryToSyncKeyCertBundle tries to sync root cert in keycertbundle with root
+// cert from istio-ca-secret. Returns error if any step fails.
+func (sc *SecretController) tryToSyncKeyCertBundle(rootCertInMem, caCertInMem []byte) ([]byte, error) {
+	// Check if root certificate in key cert bundle is not up-to-date. With multiple
+	// Citadel deployed in Istio, the root certificate in istio-ca-secret could be
+	// rotated by any Citadel and become newer than the one in local key cert bundle.
+	// Add a 30 seconds interval for key cert bundle sync to prevent I/O burst.
+	if !sc.lastKCBSyncTime.IsZero() && time.Since(sc.lastKCBSyncTime) < 30*time.Second {
+		return rootCertInMem, nil
+	}
+
+	caSecret, scrtErr := sc.caSecretController.LoadCASecretWithRetry(CASecret,
+		sc.istioCaStorageNamespace, 100*time.Millisecond, 5*time.Second)
+	if scrtErr != nil {
+		return rootCertInMem, fmt.Errorf("fail to load CA secret %s:%s (error: %s)",
+			sc.istioCaStorageNamespace, CASecret, scrtErr.Error())
+	}
+
+	// The CA cert from istio-ca-secret is the source of truth. If CA cert
+	// in local keycertbundle does not match the CA cert in istio-ca-secret,
+	// reload root cert into keycertbundle.
+	if !bytes.Equal(caCertInMem, caSecret.Data[caCertID]) {
+		k8sControllerLog.Warn("CA cert in KeyCertBundle does not match CA cert in " +
+			"istio-ca-secret. Start to reload root cert into KeyCertBundle")
+		var err error
+		rootCertInMem, err = util.AppendRootCerts(caSecret.Data[caCertID], sc.rootCertFile)
+		if err != nil {
+			return rootCertInMem, fmt.Errorf("failed to append root certificates: %s", err.Error())
+		}
+		if err := sc.ca.GetCAKeyCertBundle().VerifyAndSetAll(caSecret.Data[caCertID],
+			caSecret.Data[caPrivateKeyID], nil, rootCertInMem); err != nil {
+			return rootCertInMem, fmt.Errorf("failed to reload root cert into KeyCertBundle (%v)", err)
+		}
+		k8sControllerLog.Info("Successfully reloaded root cert into KeyCertBundle.")
+		sc.lastKCBSyncTime = time.Now()
+	} else {
+		k8sControllerLog.Info("CA cert in KeyCertBundle matches CA cert in " +
+			"istio-ca-secret. Skip reloading root cert into KeyCertBundle")
+	}
+
+	return rootCertInMem, nil
 }
 
 // refreshSecret is an inner func to refresh cert secrets when necessary

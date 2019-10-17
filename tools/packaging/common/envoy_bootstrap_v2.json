@@ -129,6 +129,14 @@
       {
           "regex": "(cache\\.(.+?)\\.)",
           "tag_name": "cache"
+      },
+      {
+          "regex": "(component\\.(.+?)\\.)",
+          "tag_name": "component"
+      },
+      {
+          "regex": "(tag\\.(.+?)\\.)",
+          "tag_name": "tag"
       }
     ],
     "stats_matcher": {
@@ -136,6 +144,9 @@
         "patterns": [
           {
           "prefix": "reporter="
+          },
+          {
+          "prefix": "component"
           },
           {{- range $a, $s := .inclusionPrefix }}
           {
