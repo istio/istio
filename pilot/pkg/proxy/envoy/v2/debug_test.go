@@ -800,7 +800,8 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 			port := model.Port{
 				Port: 8080,
 			}
-			if got := v2.AnalyzeMTLSSettings(tc.autoMTLSEnabled, host.Name("foo.default"), &port, tc.authnPolicy, tc.authnMeta, tc.destConfig); !reflect.DeepEqual(got, tc.expected) {
+			if got := v2.AnalyzeMTLSSettings(
+				tc.autoMTLSEnabled, host.Name("foo.default"), &port, tc.authnPolicy, tc.authnMeta, tc.destConfig); !reflect.DeepEqual(got, tc.expected) {
 				t.Errorf("EvaluateTLSState expected to be %+v, got %+v", tc.expected, got)
 			}
 		})
