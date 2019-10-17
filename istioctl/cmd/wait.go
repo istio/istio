@@ -52,7 +52,7 @@ func waitCmd() *cobra.Command {
 		Short: "Wait for an Istio resource",
 		Long: `Waits for the specified condition to be true of an Istio resource.  For example:
 
-istioctl experimental wait --for-distribution virtual-service/default/bookinfo
+istioctl experimental wait --for=distribution virtual-service bookinfo.default
 
 will block until the bookinfo virtual service has been distributed to all proxies in the mesh.
 `,
@@ -115,9 +115,9 @@ will block until the bookinfo virtual service has been distributed to all proxie
 	cmd.PersistentFlags().StringVar(&forFlag, "for", "distribution",
 		"wait condition, must be 'distribution' or 'delete'")
 	cmd.PersistentFlags().DurationVar(&timeout, "timeout", time.Second*30,
-		"the duration to wait before failing (default 30s)")
+		"the duration to wait before failing")
 	cmd.PersistentFlags().Float32Var(&threshold, "threshold", 1,
-		"the ratio of distribution required for success (default 1.0)")
+		"the ratio of distribution required for success")
 	cmd.PersistentFlags().StringVar(&resourceVersion, "resource-version", "",
 		"wait for a specific version of config to become current, rather than using whatever is latest in "+
 			"kubernetes")
