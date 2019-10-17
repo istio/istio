@@ -68,7 +68,7 @@ rules:
   - statefulsets
   verbs:
   - '*'
- - apiGroups:
+- apiGroups:
   - autoscaling
   resources:
   - horizontalpodautoscalers
