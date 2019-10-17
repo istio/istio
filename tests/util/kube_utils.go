@@ -924,6 +924,11 @@ func CreateMultiClusterSecret(namespace string, remoteKubeConfig string, localKu
 
 	currentContext = strings.Trim(currentContext, "\n")
 
+	env, err := multicluster.NewEnvironment(remoteKubeConfig, currentContext, os.Stdout, os.Stderr)
+	if err != nil {
+		return err
+	}
+
 	opts := multicluster.RemoteSecretOptions{
 		ServiceAccountName: multicluster.DefaultServiceAccountName,
 		AuthType:           multicluster.RemoteSecretAuthTypeBearerToken,
@@ -932,10 +937,6 @@ func CreateMultiClusterSecret(namespace string, remoteKubeConfig string, localKu
 			Context:    currentContext,
 			Kubeconfig: remoteKubeConfig,
 		},
-	}
-	env, err := multicluster.NewEnvironment(localKubeConfig, currentContext, os.Stdout, os.Stderr)
-	if err != nil {
-		return err
 	}
 	config, err := multicluster.CreateRemoteSecret(opts, env)
 	if err != nil {
