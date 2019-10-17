@@ -448,9 +448,9 @@ func AnalyzeMTLSSettings(autoMTLSEnabled bool, hostname host.Name, port *model.P
 
 // EvaluateTLSState returns the conflict state (string) for the input client+server settings.
 // The output string could be:
+// - "AUTO": auto mTLS feature is enabled, client TLS (destination rule) is not set. Pilot will auto detect client (m)TLS settings.
 // - "OK": both client and server TLS settings are set correctly.
 // - "CONFLICT": both client and server TLS settings are set, but could be incompatible.
-// - "AUTO": client TLS is not set, but autoMTLS is enable and Istio can apply the proper settings.
 func EvaluateTLSState(autoMTLSEnabled bool, clientMode *networking.TLSSettings, serverMode authn_model.MutualTLSMode) string {
 	const okState string = "OK"
 	const conflictState string = "CONFLICT"
