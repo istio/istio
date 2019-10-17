@@ -127,6 +127,13 @@ func convertServices(cfg model.Config) []*model.Service {
 	return out
 }
 
+func endpointMTLSReady(labels map[string]string) bool {
+	if labels != nil && labels[model.MTLSReadyLabelName] == "true" {
+		return true
+	}
+	return false
+}
+
 func convertEndpoint(service *model.Service, servicePort *networking.Port,
 	endpoint *networking.ServiceEntry_Endpoint) *model.ServiceInstance {
 	var instancePort uint32
@@ -144,6 +151,8 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 		family = model.AddressFamilyTCP
 	}
 
+	mtlsReady := endpointMTLSReady(endpoint.Labels)
+
 	return &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
 			Address:     addr,
@@ -155,8 +164,9 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 			LbWeight:    endpoint.Weight,
 		},
 		// TODO ServiceAccount
-		Service: service,
-		Labels:  endpoint.Labels,
+		Service:   service,
+		Labels:    endpoint.Labels,
+		MTLSReady: mtlsReady,
 	}
 }
 
