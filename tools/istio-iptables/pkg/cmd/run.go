@@ -64,29 +64,6 @@ func separateV4V6(cidrList string) (NetworkRange, NetworkRange, error) {
 	return ipv4Ranges, ipv6Ranges, nil
 }
 
-func removeOldChains(ext dep.Dependencies) {
-	// Remove the old chains, to generate new configs.
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", constants.NAT, "-D", constants.PREROUTING, "-p", constants.TCP, "-j", constants.ISTIOINBOUND)
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", constants.MANGLE, "-D", constants.PREROUTING, "-p", constants.TCP, "-j", constants.ISTIOINBOUND)
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", constants.NAT, "-D", constants.OUTPUT, "-p", constants.TCP, "-j", constants.ISTIOOUTPUT)
-	// Flush and delete the istio chains.
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", constants.NAT, "-F", constants.ISTIOOUTPUT)
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", constants.NAT, "-X", constants.ISTIOOUTPUT)
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", constants.NAT, "-F", constants.ISTIOINBOUND)
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", constants.NAT, "-X", constants.ISTIOINBOUND)
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", constants.MANGLE, "-F", constants.ISTIOINBOUND)
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", constants.MANGLE, "-X", constants.ISTIOINBOUND)
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", constants.MANGLE, "-F", constants.ISTIODIVERT)
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", constants.MANGLE, "-X", constants.ISTIODIVERT)
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", constants.MANGLE, "-F", constants.ISTIOTPROXY)
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", constants.MANGLE, "-X", constants.ISTIOTPROXY)
-	// Must be last, the others refer to it
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", constants.NAT, "-F", constants.ISTIOREDIRECT)
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", constants.NAT, "-X", constants.ISTIOREDIRECT)
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", constants.NAT, "-F", constants.ISTIOINREDIRECT)
-	ext.RunQuietlyAndIgnore(dep.IPTABLES, "-t", constants.NAT, "-X", constants.ISTIOINREDIRECT)
-}
-
 func logConfig(c *config.Config) {
 	// Dump out our environment for debugging purposes.
 	fmt.Println("Environment:")
@@ -190,26 +167,6 @@ func handleInboundIpv6Rules(ext dep.Dependencies, config *config.Config, ipv6Ran
 	// If ENABLE_INBOUND_IPV6 is unset (default unset), restrict IPv6 traffic.
 	if config.EnableInboundIPv6s != nil {
 		var table string
-		// Remove the old chains, to generate new configs.
-		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-t", constants.NAT, "-D", constants.PREROUTING, "-p", constants.TCP, "-j", constants.ISTIOINBOUND)
-		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-t", constants.MANGLE, "-D", constants.PREROUTING, "-p", constants.TCP, "-j", constants.ISTIOINBOUND)
-		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-t", constants.NAT, "-D", constants.OUTPUT, "-p", constants.TCP, "-j", constants.ISTIOOUTPUT)
-		// Flush and delete the istio chains.
-		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-t", constants.NAT, "-F", constants.ISTIOOUTPUT)
-		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-t", constants.NAT, "-X", constants.ISTIOOUTPUT)
-		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-t", constants.NAT, "-F", constants.ISTIOINBOUND)
-		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-t", constants.NAT, "-X", constants.ISTIOINBOUND)
-		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-t", constants.MANGLE, "-F", constants.ISTIOINBOUND)
-		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-t", constants.MANGLE, "-X", constants.ISTIOINBOUND)
-		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-t", constants.MANGLE, "-F", constants.ISTIODIVERT)
-		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-t", constants.MANGLE, "-X", constants.ISTIODIVERT)
-		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-t", constants.MANGLE, "-F", constants.ISTIOTPROXY)
-		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-t", constants.MANGLE, "-X", constants.ISTIOTPROXY)
-
-		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-t", constants.NAT, "-F", constants.ISTIOREDIRECT)
-		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-t", constants.NAT, "-X", constants.ISTIOREDIRECT)
-		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-t", constants.NAT, "-F", constants.ISTIOINREDIRECT)
-		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-t", constants.NAT, "-X", constants.ISTIOINREDIRECT)
 		// Create a new chain for redirecting outbound traffic to the common Envoy port.
 		// In both chains, '-j RETURN' bypasses Envoy and '-j ISTIOREDIRECT'
 		// redirects to Envoy.
@@ -394,12 +351,6 @@ func run(config *config.Config) {
 	ipv4RangesInclude, ipv6RangesInclude, err := separateV4V6(config.OutboundIPRangesInclude)
 	if err != nil {
 		panic(err)
-	}
-
-	removeOldChains(ext)
-	if config.Clean {
-		fmt.Println("Only cleaning, no new rules added")
-		return
 	}
 
 	logConfig(config)

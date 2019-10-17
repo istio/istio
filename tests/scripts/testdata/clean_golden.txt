@@ -15,6 +15,22 @@ iptables -t nat -F ISTIO_REDIRECT
 iptables -t nat -X ISTIO_REDIRECT
 iptables -t nat -F ISTIO_IN_REDIRECT
 iptables -t nat -X ISTIO_IN_REDIRECT
-Only cleaning, no new rules added
+ip6tables -t nat -D PREROUTING -p tcp -j ISTIO_INBOUND
+ip6tables -t mangle -D PREROUTING -p tcp -j ISTIO_INBOUND
+ip6tables -t nat -D OUTPUT -p tcp -j ISTIO_OUTPUT
+ip6tables -t nat -F ISTIO_OUTPUT
+ip6tables -t nat -X ISTIO_OUTPUT
+ip6tables -t nat -F ISTIO_INBOUND
+ip6tables -t nat -X ISTIO_INBOUND
+ip6tables -t mangle -F ISTIO_INBOUND
+ip6tables -t mangle -X ISTIO_INBOUND
+ip6tables -t mangle -F ISTIO_DIVERT
+ip6tables -t mangle -X ISTIO_DIVERT
+ip6tables -t mangle -F ISTIO_TPROXY
+ip6tables -t mangle -X ISTIO_TPROXY
+ip6tables -t nat -F ISTIO_REDIRECT
+ip6tables -t nat -X ISTIO_REDIRECT
+ip6tables -t nat -F ISTIO_IN_REDIRECT
+ip6tables -t nat -X ISTIO_IN_REDIRECT
 iptables-save 
 ip6tables-save 
