@@ -183,7 +183,7 @@ func adsConnectAndWait(n int, pilotAddr string, t *testing.T) (adscs []*adsc.ADS
 			t.Fatal(err)
 		}
 
-		if len(c.GetEndpoints()) == 0 {
+		if len(c.EDS) == 0 {
 			t.Fatalf("No endpoints")
 		}
 		adscs = append(adscs, c)
