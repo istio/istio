@@ -213,7 +213,7 @@ func VisitProductPage(ing ingress.Instance, host string, callType ingress.CallTy
 // RotateSecrets deletes kubernetes secrets by name in credNames and creates same secrets using key/cert
 // from ingressCred.
 func RotateSecrets(t *testing.T, ctx framework.TestContext, credNames []string,
-		ingressType ingress.CallType, ingressCred IngressCredential) {
+	ingressType ingress.CallType, ingressCred IngressCredential) {
 	istioCfg := istio.DefaultConfigOrFail(t, ctx)
 	systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
 	kubeAccessor := ctx.Environment().(*kube.Environment).Accessor
