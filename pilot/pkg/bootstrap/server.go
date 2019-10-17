@@ -118,7 +118,7 @@ const (
 	// DefaultMinCertGracePeriod is the default minimum grace period for workload cert rotation.
 	DefaultMinCertGracePeriod = 10 * time.Minute
 
-	// Default directory to store Pilot key and certificate under $HOME directory
+	// Default directory to store Pilot key and certificate
 	DefaultDirectoryForKeyCert = "/pilot/key-cert"
 
 	// Default CA certificate path
@@ -1368,11 +1368,7 @@ func (s *Server) initCertController(args *PilotArgs) error {
 			// Only one service (currently Pilot) will save the key and certificate in a directory.
 			// Create directory at s.mesh.K8SCertificateSetting.PilotCertificatePath if it doesn't exist.
 			svcName := "istio.pilot"
-			userHomeDir, err := os.UserHomeDir()
-			if err != nil {
-				return fmt.Errorf("could not find local user folder: %v", err)
-			}
-			dir := userHomeDir + DefaultDirectoryForKeyCert
+			dir := DefaultDirectoryForKeyCert
 			if _, err := os.Stat(dir); os.IsNotExist(err) {
 				err := os.MkdirAll(dir, os.ModePerm)
 				if err != nil {

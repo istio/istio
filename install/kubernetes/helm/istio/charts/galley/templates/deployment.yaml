@@ -45,7 +45,7 @@ spec:
 {{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
-          - containerPort: 9443
+          - containerPort: 443
           - containerPort: {{ .Values.global.monitoringPort }}
           - containerPort: 9901
           command:
@@ -53,8 +53,8 @@ spec:
           - server
           - --meshConfigFile=/etc/mesh-config/mesh
           - --livenessProbeInterval=1s
-          - --livenessProbePath=/tmp/healthliveness
-          - --readinessProbePath=/tmp/healthready
+          - --livenessProbePath=/healthliveness
+          - --readinessProbePath=/healthready
           - --readinessProbeInterval=1s
           - --deployment-namespace={{ .Release.Namespace }}
 {{- if $.Values.global.controlPlaneSecurityEnabled}}
@@ -110,7 +110,7 @@ spec:
               command:
                 - /usr/local/bin/galley
                 - probe
-                - --probe-path=/tmp/healthliveness
+                - --probe-path=/healthliveness
                 - --interval=10s
             initialDelaySeconds: 5
             periodSeconds: 5
@@ -119,7 +119,7 @@ spec:
               command:
                 - /usr/local/bin/galley
                 - probe
-                - --probe-path=/tmp/healthready
+                - --probe-path=/healthready
                 - --interval=10s
             initialDelaySeconds: 5
             periodSeconds: 5

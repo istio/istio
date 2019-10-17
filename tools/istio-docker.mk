@@ -79,7 +79,6 @@ $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_BIN), \
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_BIN), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_BIN)/$(FILE) | $(ISTIO_DOCKER); cp $(ISTIO_BIN)/$(FILE) $(ISTIO_DOCKER)/$(FILE)))
 
-docker.sidecar_injector: BUILD_PRE=chmod 755 sidecar-injector &&
 docker.sidecar_injector: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.sidecar_injector: sidecar-injector/docker/Dockerfile.sidecar_injector
 docker.sidecar_injector:$(ISTIO_DOCKER)/sidecar-injector
@@ -127,7 +126,6 @@ docker.proxytproxy: tools/packaging/common/istio-iptables.sh
 docker.proxytproxy: pilot/docker/envoy_telemetry.yaml.tmpl
 	$(DOCKER_RULE)
 
-docker.pilot: BUILD_PRE=chmod 755 pilot-discovery cacert.pem &&
 docker.pilot: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.pilot: $(ISTIO_OUT_LINUX)/pilot-discovery
 docker.pilot: tests/testdata/certs/cacert.pem
@@ -177,7 +175,6 @@ docker.kubectl: docker/Dockerfile$$(suffix $$@)
 
 # mixer docker images
 
-docker.mixer: BUILD_PRE=chmod 755 mixs &&
 docker.mixer: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.mixer: mixer/docker/Dockerfile.mixer
 docker.mixer: $(ISTIO_DOCKER)/mixs
@@ -191,7 +188,6 @@ docker.mixer_codegen: $(ISTIO_DOCKER)/mixgen
 
 # galley docker images
 
-docker.galley: BUILD_PRE=chmod 755 galley &&
 docker.galley: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.galley: galley/docker/Dockerfile.galley
 docker.galley: $(ISTIO_DOCKER)/galley
@@ -199,7 +195,6 @@ docker.galley: $(ISTIO_DOCKER)/galley
 
 # security docker images
 
-docker.citadel: BUILD_PRE=chmod 755 istio_ca &&
 docker.citadel: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.citadel: security/docker/Dockerfile.citadel
 docker.citadel: $(ISTIO_DOCKER)/istio_ca

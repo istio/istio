@@ -7,16 +7,16 @@ ARG BASE_VERSION=latest
 # The following section is used as base image if BASE_DISTRIBUTION=default
 FROM docker.io/istio/base:${BASE_VERSION} as default
 
-USER 1337:1337
-
 # The following section is used as base image if BASE_DISTRIBUTION=distroless
 # hadolint ignore=DL3007
-FROM gcr.io/distroless/static:nonroot as distroless
+FROM gcr.io/distroless/static:latest as distroless
 
 # This will build the final image based on either default or distroless from above
 # hadolint ignore=DL3006
 FROM ${BASE_DISTRIBUTION}
 
+# All containers need a /tmp directory
+WORKDIR /tmp/
 COPY istio_ca /usr/local/bin/istio_ca
 
 ENTRYPOINT [ "/usr/local/bin/istio_ca", "--self-signed-ca" ]
