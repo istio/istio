@@ -58,8 +58,8 @@ func TestMtlsStrict(t *testing.T) {
 							return true
 						}
 
-						// If one of the two endpoints is naked, expect failure.
-						return src != rctx.Naked && opts.Target != rctx.Naked
+						// If source is naked, and destination is not, expect failure.
+						return !(src == rctx.Naked && opts.Target != rctx.Naked)
 					},
 				},
 			}
