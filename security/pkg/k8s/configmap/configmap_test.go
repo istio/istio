@@ -37,7 +37,9 @@ func TestInsertCATLSRootCert(t *testing.T) {
 		certToAdd         string
 		expectedActionsA  []ktesting.Action
 		expectedActionsB  []ktesting.Action
-		expectedErr       string
+		expectedErrA      string
+		expectedErrB      string
+		retryTimeout      time.Duration
 	}{
 		"Non-existing ConfigMap": {
 			existingConfigMap: nil,
@@ -60,7 +62,9 @@ func TestInsertCATLSRootCert(t *testing.T) {
 					Data: map[string]string{},
 				}),
 			},
-			expectedErr: "",
+			expectedErrA: "",
+			expectedErrB: "",
+			retryTimeout: 2*time.Second,
 		},
 		"Existing ConfigMap": {
 			namespace:         "test-ns",
@@ -79,7 +83,9 @@ func TestInsertCATLSRootCert(t *testing.T) {
 				ktesting.NewUpdateAction(gvr, "test-ns", createConfigMap("test-ns", map[string]string{
 					"key1": "data1", caTLSRootCertName: "ABCD"})),
 			},
-			expectedErr: "",
+			expectedErrA: "",
+			expectedErrB: "",
+			retryTimeout: 2*time.Second,
 		},
 		"Namespace not specified": {
 			namespace:         "",
@@ -98,7 +104,30 @@ func TestInsertCATLSRootCert(t *testing.T) {
 				ktesting.NewUpdateAction(gvr, "test-ns", createConfigMap("", map[string]string{
 					"key1": "data1", caTLSRootCertName: "ABCD"})),
 			},
-			expectedErr: "",
+			expectedErrA: "",
+			expectedErrB: "",
+			retryTimeout: 2*time.Second,
+		},
+		"Existing ConfigMap retry timeout": {
+			namespace:         "test-ns",
+			existingConfigMap: createConfigMap("test-ns", map[string]string{"key1": "data1"}),
+			certToAdd:         "ABCD",
+			expectedActionsA: []ktesting.Action{
+				ktesting.NewGetAction(gvr, "test-ns", istioSecurityConfigMapName),
+				ktesting.NewUpdateAction(gvr, "test-ns", createConfigMap("test-ns", map[string]string{
+					"key1": "data1", caTLSRootCertName: "ABCD"})),
+			},
+			expectedActionsB: []ktesting.Action{
+				ktesting.NewGetAction(gvr, "test-ns", istioSecurityConfigMapName),
+				ktesting.NewUpdateAction(gvr, "test-ns", createConfigMap("test-ns", map[string]string{
+					"key1": "data1", caTLSRootCertName: "ABCD"})),
+				ktesting.NewGetAction(gvr, "test-ns", istioSecurityConfigMapName),
+				ktesting.NewUpdateAction(gvr, "test-ns", createConfigMap("test-ns", map[string]string{
+					"key1": "data1", caTLSRootCertName: "ABCD"})),
+			},
+			expectedErrA: "",
+			expectedErrB: "",
+			retryTimeout: 500*time.Millisecond,
 		},
 	}
 
@@ -115,26 +144,26 @@ func TestInsertCATLSRootCert(t *testing.T) {
 
 		err := controller.InsertCATLSRootCert(tc.certToAdd)
 
-		if err != nil && err.Error() != tc.expectedErr {
+		if err != nil && err.Error() != tc.expectedErrA {
 			t.Errorf("Test case [%s]: Get error (%s) different from expected error (%s).",
-				id, err.Error(), tc.expectedErr)
+				id, err.Error(), tc.expectedErrA)
 		}
 		if err == nil {
-			if tc.expectedErr != "" {
-				t.Errorf("Test case [%s]: Expecting error %s but got no error", id, tc.expectedErr)
+			if tc.expectedErrA != "" {
+				t.Errorf("Test case [%s]: Expecting error %s but got no error", id, tc.expectedErrA)
 			} else if err := checkActions(client.Actions(), tc.expectedActionsA); err != nil {
 				t.Errorf("Test case [%s]: %v", id, err)
 			}
 		}
 
-		err = controller.InsertCATLSRootCertWithRetry(tc.certToAdd, 1*time.Second, 2*time.Second)
-		if err != nil && err.Error() != tc.expectedErr {
+		err = controller.InsertCATLSRootCertWithRetry(tc.certToAdd, 1*time.Second, tc.retryTimeout)
+		if err != nil && err.Error() != tc.expectedErrB {
 			t.Errorf("Test case [%s]: Get error (%s) different from expected error (%s).",
-				id, err.Error(), tc.expectedErr)
+				id, err.Error(), tc.expectedErrB)
 		}
 		if err == nil {
-			if tc.expectedErr != "" {
-				t.Errorf("Test case [%s]: Expecting error %s but got no error", id, tc.expectedErr)
+			if tc.expectedErrB != "" {
+				t.Errorf("Test case [%s]: Expecting error %s but got no error", id, tc.expectedErrB)
 			} else if err := checkActions(client.Actions(), tc.expectedActionsB); err != nil {
 				t.Errorf("Test case [%s]: %v", id, err)
 			}
