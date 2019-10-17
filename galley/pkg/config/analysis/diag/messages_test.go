@@ -57,6 +57,33 @@ func TestMessages_Sort(t *testing.T) {
 	g.Expect(msgs).To(Equal(expectedMsgs))
 }
 
+func TestMessages_SortWithNilOrigin(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	firstMsg := NewMessage(
+		NewMessageType(Error, "B1", "Template: %q"),
+		nil,
+		"B",
+	)
+	secondMsg := NewMessage(
+		NewMessageType(Error, "B1", "Template: %q"),
+		nil,
+		"C",
+	)
+	thirdMsg := NewMessage(
+		NewMessageType(Error, "B1", "Template: %q"),
+		testOrigin("B"),
+		"B",
+	)
+
+	msgs := Messages{thirdMsg, secondMsg, firstMsg}
+	expectedMsgs := Messages{firstMsg, secondMsg, thirdMsg}
+
+	msgs.Sort()
+
+	g.Expect(msgs).To(Equal(expectedMsgs))
+}
+
 func TestMessages_SortedCopy(t *testing.T) {
 	g := NewGomegaWithT(t)
 
