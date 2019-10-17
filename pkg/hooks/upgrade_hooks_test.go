@@ -21,6 +21,7 @@ import (
 	"github.com/pkg/errors"
 
 	"istio.io/operator/pkg/apis/istio/v1alpha2"
+	"istio.io/operator/pkg/manifest"
 	"istio.io/operator/pkg/util"
 )
 
@@ -30,20 +31,13 @@ var (
 	err3 = fmt.Errorf("err3")
 )
 
-func init() {
-	// TODO: remove when integrated, this is just to silence lint.
-	hc := hookCommonParams{}
-	_ = runPreUpgradeHooks(nil, &hc, true)
-	_ = runPostUpgradeHooks(nil, &hc, true)
-}
-
-func h1(_ ExecClient, _, _ *v1alpha2.IstioControlPlaneSpec) util.Errors {
+func h1(_ manifest.ExecClient, _, _ *v1alpha2.IstioControlPlaneSpec) util.Errors {
 	return util.NewErrs(err1)
 }
-func h2(_ ExecClient, _, _ *v1alpha2.IstioControlPlaneSpec) util.Errors {
+func h2(_ manifest.ExecClient, _, _ *v1alpha2.IstioControlPlaneSpec) util.Errors {
 	return util.NewErrs(err2)
 }
-func h3(_ ExecClient, _, _ *v1alpha2.IstioControlPlaneSpec) util.Errors {
+func h3(_ manifest.ExecClient, _, _ *v1alpha2.IstioControlPlaneSpec) util.Errors {
 	return util.NewErrs(err3)
 }
 
@@ -114,9 +108,9 @@ func TestRunUpgradeHooks(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			hc := hookCommonParams{
-				sourceVer: tt.sourceVer,
-				targetVer: tt.targetVer,
+			hc := HookCommonParams{
+				SourceVer: tt.sourceVer,
+				TargetVer: tt.targetVer,
 			}
 			gotErrs := runUpgradeHooks(testUpgradeHooks, nil, &hc, tt.dryRun)
 			if !util.EqualErrors(gotErrs, tt.wantErrs) {
