@@ -47,10 +47,10 @@ func (c *ConflictingMeshGatewayHostsAnalyzer) Metadata() analysis.Metadata {
 // Analyze implements Analyzer
 func (c *ConflictingMeshGatewayHostsAnalyzer) Analyze(ctx analysis.Context) {
 	hs := initSidecarHostsVirtualServices(ctx)
-	for h, vsNames := range hs {
+	for scopedFqdn, vsNames := range hs {
 		if len(vsNames) > 1 {
 			ctx.Report(metadata.IstioNetworkingV1Alpha3Virtualservices,
-				msg.NewConflictingMeshGatewayVirtualServiceHosts(nil, strings.Join(vsNames, ","), h))
+				msg.NewConflictingMeshGatewayVirtualServiceHosts(nil, strings.Join(vsNames, ","), scopedFqdn))
 		}
 	}
 }
@@ -59,7 +59,7 @@ func initSidecarHostsVirtualServices(ctx analysis.Context) map[string][]string {
 	hostsVirtualServices := map[string][]string{}
 	ctx.ForEach(metadata.IstioNetworkingV1Alpha3Virtualservices, func(r *resource.Entry) bool {
 		vs := r.Item.(*v1alpha3.VirtualService)
-		vsNs, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
+		vsNamespace, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
 		vsAttachedToMeshGateway := false
 		// No entry in gateways imply "mesh" by default
 		if len(vs.Gateways) == 0 {
@@ -72,15 +72,21 @@ func initSidecarHostsVirtualServices(ctx analysis.Context) map[string][]string {
 			}
 		}
 		if vsAttachedToMeshGateway {
+			// determine the scope of hosts i.e. local to VirtualService namespace or
+			// all namespaces
+			hostsNamespaceScope := vsNamespace
+			exportToAllNamespaces := util.IsExportToAllNamespaces(vs.ExportTo)
+			if exportToAllNamespaces == true {
+				hostsNamespaceScope = util.ExportToAllNamespaces
+			}
+
 			for _, h := range vs.Hosts {
-				fqdn := util.ConvertHostToFQDN(h, vsNs)
-				if fqdn != "" {
-					vsNames := hostsVirtualServices[fqdn]
-					if len(vsNames) == 0 {
-						hostsVirtualServices[fqdn] = []string{r.Metadata.Name.String()}
-					} else {
-						hostsVirtualServices[fqdn] = append(hostsVirtualServices[fqdn], r.Metadata.Name.String())
-					}
+				scopedFqdn := util.GetScopedFqdnHostname(hostsNamespaceScope, vsNamespace, h)
+				vsNames := hostsVirtualServices[scopedFqdn]
+				if len(vsNames) == 0 {
+					hostsVirtualServices[scopedFqdn] = []string{r.Metadata.Name.String()}
+				} else {
+					hostsVirtualServices[scopedFqdn] = append(hostsVirtualServices[scopedFqdn], r.Metadata.Name.String())
 				}
 			}
 		}

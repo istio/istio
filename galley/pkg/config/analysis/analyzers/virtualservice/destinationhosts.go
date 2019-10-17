@@ -59,7 +59,7 @@ func (d *DestinationHostAnalyzer) Analyze(ctx analysis.Context) {
 }
 
 func (d *DestinationHostAnalyzer) analyzeVirtualService(r *resource.Entry, ctx analysis.Context,
-	serviceEntryHosts map[resource.Name]bool) {
+	serviceEntryHosts map[string]bool) {
 
 	vs := r.Item.(*v1alpha3.VirtualService)
 	ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
@@ -75,14 +75,24 @@ func (d *DestinationHostAnalyzer) analyzeVirtualService(r *resource.Entry, ctx a
 }
 
 func (d *DestinationHostAnalyzer) checkDestinationHost(vsNamespace string, destination *v1alpha3.Destination,
-	ctx analysis.Context, serviceEntryHosts map[resource.Name]bool) bool {
-
-	name := util.GetResourceNameFromHost(vsNamespace, destination.GetHost())
+	ctx analysis.Context, serviceEntryHosts map[string]bool) bool {
+	host := destination.GetHost()
 
 	// Check explicitly defined ServiceEntries as well as services discovered from the platform
-	if _, ok := serviceEntryHosts[name]; ok {
+
+	// ServiceEntries can be either namespace scoped or exposed to all namespaces
+	nsScopedFqdn := util.GetScopedFqdnHostname(vsNamespace, vsNamespace, host)
+	if _, ok := serviceEntryHosts[nsScopedFqdn]; ok {
 		return true
 	}
+
+	// Check ServiceEntries which are exposed to all namespaces
+	allNsScopedFqdn := util.GetScopedFqdnHostname(util.ExportToAllNamespaces, vsNamespace, host)
+	if _, ok := serviceEntryHosts[allNsScopedFqdn]; ok {
+		return true
+	}
+
+	name := util.GetResourceNameFromHost(vsNamespace, host)
 	if ctx.Exists(metadata.IstioNetworkingV1Alpha3SyntheticServiceentries, name) {
 		return true
 	}
@@ -90,13 +100,17 @@ func (d *DestinationHostAnalyzer) checkDestinationHost(vsNamespace string, desti
 	return false
 }
 
-func initServiceEntryHostNames(ctx analysis.Context) map[resource.Name]bool {
-	hosts := make(map[resource.Name]bool)
+func initServiceEntryHostNames(ctx analysis.Context) map[string]bool {
+	hosts := make(map[string]bool)
 	ctx.ForEach(metadata.IstioNetworkingV1Alpha3Serviceentries, func(r *resource.Entry) bool {
 		s := r.Item.(*v1alpha3.ServiceEntry)
 		ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
+		hostsNamespaceScope := ns
+		if util.IsExportToAllNamespaces(s.ExportTo) {
+			hostsNamespaceScope = util.ExportToAllNamespaces
+		}
 		for _, h := range s.GetHosts() {
-			hosts[util.GetResourceNameFromHost(ns, h)] = true
+			hosts[util.GetScopedFqdnHostname(hostsNamespaceScope, ns, h)] = true
 		}
 		return true
 	})
