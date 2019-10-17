@@ -16,7 +16,6 @@ package validation
 
 import (
 	"bytes"
-	"crypto/tls"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -26,7 +25,6 @@ import (
 	"testing"
 
 	"github.com/ghodss/yaml"
-	"github.com/onsi/gomega"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -375,16 +373,6 @@ func initValidatingWebhookConfiguration() *admissionregistrationv1beta1.Validati
 	}
 }
 
-func checkCert(t *testing.T, whc *WebhookConfigController, cert, key []byte) bool {
-	t.Helper()
-	actual := whc.cert
-	expected, err := tls.X509KeyPair(cert, key)
-	if err != nil {
-		t.Fatalf("fail to load test certs.")
-	}
-	return bytes.Equal(actual.Certificate[0], expected.Certificate[0])
-}
-
 func TestDeleteValidatingWebhookConfig(t *testing.T) {
 
 	initConfig := initValidatingWebhookConfiguration()
@@ -416,31 +404,6 @@ func TestDeleteValidatingWebhookConfig(t *testing.T) {
 			t.Errorf("Delete ValidatingWebhookConfigure failed in the first time")
 		}
 	})
-}
-
-func TestReloadCert(t *testing.T) {
-	whc, cleanup := createTestWebhookConfigController(t,
-		fake.NewSimpleClientset(),
-		createFakeWebhookSource(),
-		dummyConfig)
-	defer cleanup()
-	stop := make(chan struct{})
-	defer func() { close(stop) }()
-	go whc.reconcile(stop)
-	checkCert(t, whc, testcerts.ServerCert, testcerts.ServerKey)
-	// Update cert/key files.
-	if err := ioutil.WriteFile(whc.webhookParameters.CertFile, testcerts.RotatedCert, 0644); err != nil { // nolint: vetshadow
-		cleanup()
-		t.Fatalf("WriteFile(%v) failed: %v", whc.webhookParameters.CertFile, err)
-	}
-	if err := ioutil.WriteFile(whc.webhookParameters.KeyFile, testcerts.RotatedKey, 0644); err != nil { // nolint: vetshadow
-		cleanup()
-		t.Fatalf("WriteFile(%v) failed: %v", whc.webhookParameters.KeyFile, err)
-	}
-	g := gomega.NewGomegaWithT(t)
-	g.Eventually(func() bool {
-		return checkCert(t, whc, testcerts.RotatedCert, testcerts.RotatedKey)
-	}, "10s", "100ms").Should(gomega.BeTrue())
 }
 
 func TestLoadCaCertPem(t *testing.T) {
