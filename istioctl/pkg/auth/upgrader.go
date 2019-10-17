@@ -32,8 +32,13 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/api/mesh/v1alpha1"
+	"istio.io/pkg/log"
+
+	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/config/memory"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schemas"
 
 	rbac_v1alpha1 "istio.io/api/rbac/v1alpha1"
@@ -57,6 +62,7 @@ type Upgrader struct {
 	K8sClient                          *kubernetes.Clientset
 	V1PolicyFiles                      []string
 	ServiceFiles                       []string
+	MeshConfigFile                     string
 	NamespaceToServiceToWorkloadLabels map[string]ServiceToWorkloadLabels
 	AuthorizationPolicies              []model.Config
 	ConvertedPolicies                  strings.Builder
@@ -90,11 +96,18 @@ spec:
 `
 )
 
-func NewUpgrader(k8sClient *kubernetes.Clientset, v1PolicyFiles, serviceFiles []string) *Upgrader {
+const (
+	istioNamespace     = "istio-system"
+	istioConfigMapName = "istio"
+	istioConfigMapKey  = "mesh"
+)
+
+func NewUpgrader(k8sClient *kubernetes.Clientset, v1PolicyFiles, serviceFiles []string, meshConfigFile string) *Upgrader {
 	upgrader := Upgrader{
 		K8sClient:                          k8sClient,
 		V1PolicyFiles:                      v1PolicyFiles,
 		ServiceFiles:                       serviceFiles,
+		MeshConfigFile:                     meshConfigFile,
 		NamespaceToServiceToWorkloadLabels: make(map[string]ServiceToWorkloadLabels),
 		AuthorizationPolicies:              []model.Config{},
 	}
@@ -164,9 +177,16 @@ func (ug *Upgrader) convert(authzPolicies *model.AuthorizationPolicies) error {
 	// Convert ClusterRbacConfig to AuthorizationPolicy
 	err := ug.convertClusterRbacConfig(authzPolicies)
 	if err != nil {
-		return fmt.Errorf("failed to convert ClusterRbacConfig: %s", err)
+		// Users might not have access to the cluster-wide RBAC config, so instead of returning an error,
+		// output a warning instead.
+		log.Warnf("failed to convert ClusterRbacConfig: %s", err)
 	}
 	namespaces := authzPolicies.ListNamespacesOfToV1alpha1Policies()
+	if len(namespaces) == 0 {
+		// Similarly, a user might want to convert ClusterRbacConfig only.
+		log.Warn("no namespace found for ServiceRole and ServiceRoleBinding")
+		return nil
+	}
 	// Build a model for each ServiceRole and associated list of ServiceRoleBinding
 	for _, ns := range namespaces {
 		bindingsKeyList := authzPolicies.ListServiceRoleBindings(ns)
@@ -191,16 +211,17 @@ func (ug *Upgrader) convertClusterRbacConfig(authzPolicies *model.AuthorizationP
 	if clusterRbacConfig == nil {
 		return fmt.Errorf("no ClusterRbacConfig found")
 	}
-
+	rootNamespace, err := ug.getIstioRootNamespace()
+	if err != nil {
+		return fmt.Errorf("failed to get Istio root namespace: %s", err)
+	}
 	type RbacTmplData struct {
 		RootNamespace string
 	}
 	rootNs := RbacTmplData{
-		// https://github.com/istio/istio/issues/17125
-		RootNamespace: "istio-system",
+		RootNamespace: rootNamespace,
 	}
 	var policy string
-	var err error
 	switch clusterRbacConfig.Mode {
 	case rbac_v1alpha1.RbacConfig_OFF:
 		policy, err = fillTemplate(rbacGlobalAllowAll, rootNs)
@@ -433,4 +454,32 @@ func (ug *Upgrader) parseConfigToString(config model.Config) error {
 		}
 	}
 	return nil
+}
+
+// getIstioRootNamespace returns the root namespace of an Istio mesh. The root namespace is located
+// at the MeshConfig, and can be provided from the users via a file or directly from kubectl.
+func (ug *Upgrader) getIstioRootNamespace() (string, error) {
+	var meshConfig *v1alpha1.MeshConfig
+	var err error
+	if ug.MeshConfigFile != "" {
+		if meshConfig, err = cmd.ReadMeshConfig(ug.MeshConfigFile); err != nil {
+			return "", fmt.Errorf("failed to read the provided ConfigMap %s: %s", ug.MeshConfigFile, err)
+		}
+	} else {
+		istioConfigMap, err := ug.K8sClient.CoreV1().ConfigMaps(istioNamespace).Get(istioConfigMapName, metav1.GetOptions{})
+		if err != nil {
+			return "", fmt.Errorf("failed to get ConfigMap named %s in namespace %s. "+
+				"Run `kubectl -n %s get configmap %s` to see if it exists", istioConfigMapName, istioNamespace,
+				istioNamespace, istioConfigMapName)
+		}
+		istioMeshConfig, exists := istioConfigMap.Data[istioConfigMapKey]
+		if !exists {
+			return "", fmt.Errorf("missing ConfigMap key %q", istioConfigMapKey)
+		}
+		meshConfig, err = mesh.ApplyMeshConfigDefaults(istioMeshConfig)
+		if err != nil {
+			return "", fmt.Errorf("failed to parse Istio MeshConfig: %s", err)
+		}
+	}
+	return meshConfig.RootNamespace, nil
 }
