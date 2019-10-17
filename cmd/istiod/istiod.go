@@ -73,7 +73,7 @@ func main() {
 		log.Fatal("Failed to init XDS server ", err)
 	}
 
-	k8sServer.InitK8SDiscovery(istiods, client, kcfg, istiods.Args)
+	k8sServer.InitK8SDiscovery(istiods, kcfg, istiods.Args)
 
 	err = istiods.Start(stop, k8sServer.OnXDSStart)
 	if err != nil {

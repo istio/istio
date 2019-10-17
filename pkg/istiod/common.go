@@ -139,8 +139,11 @@ func InitConfig(confDir string) (*Server, error) {
 
 	pilotAddress := server.Mesh.DefaultConfig.DiscoveryAddress
 	_, port, _ := net.SplitHostPort(pilotAddress)
+
+	// TODO: this was added to allow some config of the base port for VMs to allow multiple instances of istiod,
+	// mainly for testing. Probably can be removed - little reason to override the defaults.
 	basePortI, _ := strconv.Atoi(port)
-	basePortI = basePortI - basePortI%100
+	basePortI -= basePortI%100
 	basePort := int32(basePortI)
 	server.basePort = basePort
 
@@ -208,8 +211,5 @@ func (s *Server) WaitDrain(baseDir string) {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	<-sigs
-	// Will gradually terminate connections to Pilot
-	DrainEnvoy(baseDir, s.Args.MeshConfig.DefaultConfig)
-
 }
 

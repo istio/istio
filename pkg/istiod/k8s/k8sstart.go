@@ -65,7 +65,7 @@ type Controllers struct {
 	args         *istiod.PilotArgs
 }
 
-func InitK8S(is *istiod.Server, clientset *kubernetes.Clientset, config *rest.Config, args *istiod.PilotArgs) (*Controllers, error) {
+func InitK8S(is *istiod.Server, clientset kubernetes.Interface, config *rest.Config, args *istiod.PilotArgs) (*Controllers, error) {
 	s := &Controllers{
 		IstioServer: is,
 		kubeCfg:     config,
@@ -85,10 +85,8 @@ func (s *Controllers) OnXDSStart(xds model.XDSUpdater) {
 	s.kubeRegistry.XDSUpdater = xds
 }
 
-func (s *Controllers) InitK8SDiscovery(is *istiod.Server, clientset *kubernetes.Clientset, config *rest.Config, args *istiod.PilotArgs) (*Controllers, error) {
-	if err := s.createK8sServiceControllers(s.IstioServer.ServiceController); err != nil {
-		return nil, fmt.Errorf("cluster registries: %v", err)
-	}
+func (s *Controllers) InitK8SDiscovery(is *istiod.Server, config *rest.Config, args *istiod.PilotArgs) (*Controllers, error) {
+	s.createK8sServiceControllers(s.IstioServer.ServiceController)
 
 	if err := s.initClusterRegistries(args); err != nil {
 		return nil, fmt.Errorf("cluster registries: %v", err)
@@ -172,7 +170,7 @@ func (s *Controllers) initConfigController(args *istiod.PilotArgs) error {
 }
 
 // createK8sServiceControllers creates all the k8s service controllers under this pilot
-func (s *Controllers) createK8sServiceControllers(serviceControllers *aggregate.Controller) (err error) {
+func (s *Controllers) createK8sServiceControllers(serviceControllers *aggregate.Controller) {
 	clusterID := string(serviceregistry.KubernetesRegistry)
 	log.Infof("Primary Cluster name: %s", clusterID)
 	s.ControllerOptions.ClusterID = clusterID
@@ -185,8 +183,6 @@ func (s *Controllers) createK8sServiceControllers(serviceControllers *aggregate.
 			ServiceDiscovery: kubectl,
 			Controller:       kubectl,
 		})
-
-	return
 }
 
 func (s *Controllers) makeKubeConfigController(args *istiod.PilotArgs) (model.ConfigStoreCache, error) {

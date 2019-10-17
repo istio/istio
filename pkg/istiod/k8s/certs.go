@@ -133,7 +133,7 @@ func GenKeyCertK8sCA(certClient certclient.CertificatesV1beta1Interface, ns, hos
 	log.Debugf("CSR (%v) is approved: %v", csrName, reqApproval)
 
 	// 4. Read the signed certificate
-	certChain, err = readSignedCertificate(certClient, csrName, ns, certReadInterval, maxNumCertRead)
+	certChain, err = readSignedCertificate(certClient, csrName, certReadInterval, maxNumCertRead)
 	if err != nil {
 		log.Debugf("failed to read signed cert. (%v): %v", csrName, err)
 		errCsr := cleanUpCertGen(certClient, csrName)
@@ -202,7 +202,7 @@ func submitCSR(certClient certclient.CertificatesV1beta1Interface, csrName strin
 }
 
 // Clean up the CSR
-func cleanUpCertGen(certClient certclient.CertificatesV1beta1Interface, csrName string) error {
+func cleanUpCertGen(certClient certclient.CertificateSigningRequestsGetter, csrName string) error {
 	// Delete CSR
 	if true {
 		return nil
@@ -215,7 +215,7 @@ func cleanUpCertGen(certClient certclient.CertificatesV1beta1Interface, csrName 
 	return nil
 }
 
-func waitCert(certClient certclient.CertificatesV1beta1Interface, csrName string) *cert.CertificateSigningRequest {
+func waitCert(certClient certclient.CertificateSigningRequestsGetter, csrName string) *cert.CertificateSigningRequest {
 	watch, err := certClient.CertificateSigningRequests().Watch(meta.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector("metadata.name", csrName).String(),
 	})
@@ -242,7 +242,7 @@ func waitCert(certClient certclient.CertificatesV1beta1Interface, csrName string
 // This does not include the K8S CA cert - needs to be added after.
 // TODO: use a Watcher to avoid busy read ( since it happens only at startup it's not a problem, but if we
 // use it for workload certs it is needed)
-func readSignedCertificate(certClient certclient.CertificatesV1beta1Interface, csrName, ns string,
+func readSignedCertificate(certClient certclient.CertificateSigningRequestsGetter, csrName string,
 	readInterval time.Duration, maxNumRead int) ([]byte, error) {
 
 	reqSigned := waitCert(certClient, csrName)

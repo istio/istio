@@ -74,7 +74,7 @@ const (
 )
 
 var (
-	// DnsCertDir is the location to save generated DNS certificates.
+	// DNSCertDir is the location to save generated DNS certificates.
 	// TODO: we can probably avoid saving, but will require deeper changes.
 	DNSCertDir = "./var/run/secrets/istio-dns"
 
@@ -237,9 +237,7 @@ func (s *Server) InitDiscovery() error {
 
 	// ServiceEntry from config and aggregate discovery in s.ServiceController
 	// This will use the istioConfigStore and ConfigController.
-	if err := s.addConfig2ServiceEntry(); err != nil {
-		return fmt.Errorf("service controllers: %v", err)
-	}
+	s.addConfig2ServiceEntry()
 
 	return nil
 }
@@ -562,7 +560,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 
 // addConfig2ServiceEntry creates and initializes the ServiceController used for translating
 // ServiceEntries from config store to discovery.
-func (s *Server) addConfig2ServiceEntry() error {
+func (s *Server) addConfig2ServiceEntry() {
 	serviceEntryStore := external.NewServiceDiscovery(s.ConfigController, s.IstioConfigStore)
 
 	// add service entry registry to aggregator by default
@@ -572,8 +570,6 @@ func (s *Server) addConfig2ServiceEntry() error {
 		ServiceDiscovery: serviceEntryStore,
 	}
 	s.ServiceController.AddRegistry(serviceEntryRegistry)
-
-	return nil
 }
 
 func (s *Server) initDiscoveryService(args *PilotArgs, onXDSStart func(model.XDSUpdater)) error {

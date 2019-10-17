@@ -24,7 +24,7 @@ func TestCerts(t *testing.T) {
 
 	t0 := time.Now()
 	client, kcfg, err := CreateClientset("", "")
-	if err != nil {
+	if err != nil || kcfg.TLSClientConfig.Insecure {
 		t.Skip("Missing K8S", err)
 	}
 
@@ -34,7 +34,6 @@ func TestCerts(t *testing.T) {
 	}
 
 	caCert := kcfg.TLSClientConfig.CAData
-	//certChain = append(certChain, caCert...)
 
 	t.Log("Cert Chain:", time.Since(t0), "\n", string(certChain))
 	t.Log("Key\n", string(keyPEM))
@@ -46,12 +45,11 @@ func TestCerts(t *testing.T) {
 }
 
 func BenchmarkCerts(t *testing.B) {
+	client, kcfg, err := CreateClientset("", "")
+	if err != nil || kcfg.TLSClientConfig.Insecure {
+		t.Skip("Missing K8S", err)
+	}
 	for n := 0; n < t.N; n++ {
-		client, kcfg, err := CreateClientset("", "")
-		if err != nil {
-			t.Skip("Missing K8S", err)
-		}
-
 		certChain, _, err := GenKeyCertK8sCA(client.CertificatesV1beta1(), "istio-system", "istio-pilot.istio-system")
 		if err != nil {
 			t.Fatal("Fail to generate cert", err)
