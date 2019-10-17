@@ -30,7 +30,7 @@ import (
 )
 
 type Principal struct {
-	User              string // For backward-compatible only.
+	Users             []string // For backward-compatible only.
 	Names             []string
 	NotNames          []string
 	Group             string // For backward-compatible only.
@@ -89,8 +89,8 @@ func (principal *Principal) Generate(forTCPFilter bool) (*envoy_rbac.Principal, 
 		return pg.andPrincipals(), nil
 	}
 
-	if principal.User != "" {
-		principal := principalForKeyValue(attrSrcPrincipal, principal.User, forTCPFilter)
+	if len(principal.Users) != 0 {
+		principal := principalForKeyValues(attrSrcPrincipal, principal.Users, forTCPFilter)
 		pg.append(principal)
 	}
 

@@ -29,8 +29,11 @@ func TestV1alpha1Generator_Generate(t *testing.T) {
 	serviceBar := "bar"
 	namespaceB := "b"
 	serviceFooInNamespaceA := policy.NewServiceMetadata("foo.a.svc.cluster.local", nil, t)
+	// TODO(pitlv2109): Also include trust domain and trust domain aliases to existing tests.
 	testCases := []struct {
 		name                      string
+		trustDomain               string
+		trustDomainAliases        []string
 		policies                  []*model.Config
 		isGlobalPermissiveEnabled bool
 		forTCPFilter              bool
@@ -79,7 +82,7 @@ func TestV1alpha1Generator_Generate(t *testing.T) {
 				policy.SimpleBinding("binding", namespaceA, "role"),
 			},
 			wantRules: map[string][]string{
-				"role": {policy.RoleTag("role"), policy.BindingTag("binding")},
+				"role": {policy.RoleTag("role"), policy.SimplePrincipal("binding")},
 			},
 		},
 		{
@@ -101,13 +104,13 @@ func TestV1alpha1Generator_Generate(t *testing.T) {
 			wantRules: map[string][]string{
 				"role-1": {
 					policy.RoleTag("role-1"),
-					policy.BindingTag("binding-1"),
+					policy.SimplePrincipal("binding-1"),
 				},
 			},
 			wantShadowRules: map[string][]string{
 				"role-2": {
 					policy.RoleTag("role-2"),
-					policy.BindingTag("binding-2"),
+					policy.SimplePrincipal("binding-2"),
 				},
 			},
 		},
@@ -121,8 +124,8 @@ func TestV1alpha1Generator_Generate(t *testing.T) {
 			wantRules: map[string][]string{
 				"role": {
 					policy.RoleTag("role"),
-					policy.BindingTag("binding-1"),
-					policy.BindingTag("binding-2"),
+					policy.SimplePrincipal("binding-1"),
+					policy.SimplePrincipal("binding-2"),
 				},
 			},
 		},
@@ -137,11 +140,11 @@ func TestV1alpha1Generator_Generate(t *testing.T) {
 			wantRules: map[string][]string{
 				"role-1": {
 					policy.RoleTag("role-1"),
-					policy.BindingTag("binding-1"),
+					policy.SimplePrincipal("binding-1"),
 				},
 				"role-2": {
 					policy.RoleTag("role-2"),
-					policy.BindingTag("binding-2"),
+					policy.SimplePrincipal("binding-2"),
 				},
 			},
 		},
@@ -156,14 +159,55 @@ func TestV1alpha1Generator_Generate(t *testing.T) {
 			wantShadowRules: map[string][]string{
 				"role-1": {
 					policy.RoleTag("role-1"),
-					policy.BindingTag("binding-1"),
+					policy.SimplePrincipal("binding-1"),
 				},
 				"role-2": {
 					policy.RoleTag("role-2"),
-					policy.BindingTag("binding-2"),
+					policy.SimplePrincipal("binding-2"),
 				},
 			},
 			isGlobalPermissiveEnabled: true,
+		},
+		{
+			name: "one role and one binding with no trust domain aliases",
+			policies: []*model.Config{
+				policy.SimpleRole("role", namespaceA, serviceFoo),
+				policy.SimpleBinding("binding", namespaceA, "role"),
+			},
+			trustDomain: "cluster.local",
+			wantRules: map[string][]string{
+				"role": {policy.RoleTag("role"),
+					policy.CustomPrincipal("cluster.local", "binding", "binding")},
+			},
+		},
+		{
+			name: "one role and one binding with trust domain aliases",
+			policies: []*model.Config{
+				policy.SimpleRole("role", namespaceA, serviceFoo),
+				policy.SimpleBinding("binding", namespaceA, "role"),
+			},
+			trustDomain:        "td1",
+			trustDomainAliases: []string{"cluster.local"},
+			wantRules: map[string][]string{
+				"role": {policy.RoleTag("role"),
+					policy.CustomPrincipal("td1", "binding", "binding"),
+					policy.CustomPrincipal("cluster.local", "binding", "binding")},
+			},
+		},
+		{
+			name: "one role and one binding with trust domain aliases",
+			policies: []*model.Config{
+				policy.SimpleRole("role", namespaceA, serviceFoo),
+				policy.SimpleBinding("binding", namespaceA, "role"),
+			},
+			trustDomain:        "td1",
+			trustDomainAliases: []string{"cluster.local", "td2"},
+			wantRules: map[string][]string{
+				"role": {policy.RoleTag("role"),
+					policy.CustomPrincipal("td1", "binding", "binding"),
+					policy.CustomPrincipal("cluster.local", "binding", "binding"),
+					policy.CustomPrincipal("td2", "binding", "binding")},
+			},
 		},
 	}
 
@@ -173,7 +217,7 @@ func TestV1alpha1Generator_Generate(t *testing.T) {
 			if authzPolicies == nil {
 				t.Fatal("failed to create authz policies")
 			}
-			g := NewGenerator(serviceFooInNamespaceA, authzPolicies, tc.isGlobalPermissiveEnabled)
+			g := NewGenerator(tc.trustDomain, tc.trustDomainAliases, serviceFooInNamespaceA, authzPolicies, tc.isGlobalPermissiveEnabled)
 			if g == nil {
 				t.Fatal("failed to create generator")
 			}

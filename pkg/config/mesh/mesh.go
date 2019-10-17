@@ -69,6 +69,7 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		SdsUdsPath:                        "",
 		EnableSdsTokenMount:               false,
 		TrustDomain:                       "",
+		TrustDomainAliases:                []string{},
 		DefaultServiceExportTo:            []string{"*"},
 		DefaultVirtualServiceExportTo:     []string{"*"},
 		DefaultDestinationRuleExportTo:    []string{"*"},
