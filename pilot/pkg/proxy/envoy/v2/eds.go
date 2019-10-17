@@ -526,10 +526,11 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string, namespace string,
 			if svcShards == 0 {
 				delete(s.EndpointShardsByService[serviceName], namespace)
 			}
-			adsLog.Infof("Full push, service %s has no endpoints", serviceName)
+			adsLog.Infof("Incremental push, service %s has no endpoints", serviceName)
 			s.ConfigUpdate(&model.PushRequest{
-				Full:              true,
-				NamespacesUpdated: map[string]struct{}{namespace: {}},
+				Full:              false,
+				TargetNamespaces: map[string]struct{}{namespace: {}},
+				EdsUpdates:        map[string]struct{}{serviceName: {}},
 			})
 		}
 		return
