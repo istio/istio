@@ -21,7 +21,7 @@ import (
 
 func TestReplaceTrustDomainAliases(t *testing.T) {
 	type inStruct struct {
-		trustDomainBundle TrustDomainBundle
+		trustDomainBundle Bundle
 		users             []string
 	}
 	testCases := []struct {

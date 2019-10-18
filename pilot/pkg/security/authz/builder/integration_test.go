@@ -32,7 +32,7 @@ import (
 func TestBuildHTTPFilter(t *testing.T) {
 	testCases := []struct {
 		name              string
-		trustDomainBundle trustdomain.TrustDomainBundle
+		trustDomainBundle trustdomain.Bundle
 		policies          *model.AuthorizationPolicies
 		want              *http_config.RBAC
 	}{

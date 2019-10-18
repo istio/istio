@@ -32,14 +32,14 @@ var (
 )
 
 type v1alpha1Generator struct {
-	trustDomainBundle         trustdomain.TrustDomainBundle
+	trustDomainBundle         trustdomain.Bundle
 	serviceMetadata           *authz_model.ServiceMetadata
 	authzPolicies             *model.AuthorizationPolicies
 	isGlobalPermissiveEnabled bool
 }
 
 func NewGenerator(
-	trustDomainBundle trustdomain.TrustDomainBundle,
+	trustDomainBundle trustdomain.Bundle,
 	serviceMetadata *authz_model.ServiceMetadata,
 	authzPolicies *model.AuthorizationPolicies,
 	isGlobalPermissiveEnabled bool) policy.Generator {
@@ -108,7 +108,7 @@ func (g *v1alpha1Generator) Generate(forTCPFilter bool) *http_config.RBAC {
 	return ret
 }
 
-func (g *v1alpha1Generator) generatePolicy(trustDomainBundle trustdomain.TrustDomainBundle, role *istio_rbac.ServiceRole,
+func (g *v1alpha1Generator) generatePolicy(trustDomainBundle trustdomain.Bundle, role *istio_rbac.ServiceRole,
 	bindings []*istio_rbac.ServiceRoleBinding, forTCPFilter bool) *envoy_rbac.Policy {
 	if role == nil || len(bindings) == 0 {
 		return nil

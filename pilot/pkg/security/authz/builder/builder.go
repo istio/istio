@@ -42,7 +42,7 @@ type Builder struct {
 }
 
 // NewBuilder creates a builder instance that can be used to build corresponding RBAC filter config.
-func NewBuilder(trustDomainBundle trustdomain.TrustDomainBundle, serviceInstance *model.ServiceInstance,
+func NewBuilder(trustDomainBundle trustdomain.Bundle, serviceInstance *model.ServiceInstance,
 	workloadLabels labels.Collection, configNamespace string,
 	policies *model.AuthorizationPolicies, isXDSMarshalingToAnyEnabled bool) *Builder {
 	var generator policy.Generator

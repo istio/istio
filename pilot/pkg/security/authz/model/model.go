@@ -113,7 +113,7 @@ type KeyValues map[string][]string
 
 // NewModelV1alpha1 constructs a Model from a single ServiceRole and a list of ServiceRoleBinding. The ServiceRole
 // is converted to the permission and the ServiceRoleBinding is converted to the principal.
-func NewModelV1alpha1(trustDomainBundle trustdomain.TrustDomainBundle, role *istio_rbac.ServiceRole, bindings []*istio_rbac.ServiceRoleBinding) *Model {
+func NewModelV1alpha1(trustDomainBundle trustdomain.Bundle, role *istio_rbac.ServiceRole, bindings []*istio_rbac.ServiceRoleBinding) *Model {
 	m := &Model{}
 	for _, accessRule := range role.Rules {
 		var permission Permission
@@ -169,7 +169,7 @@ func NewModelV1alpha1(trustDomainBundle trustdomain.TrustDomainBundle, role *ist
 }
 
 // NewModelV1beta1 constructs a Model from v1beta1 Rule.
-func NewModelV1beta1(trustDomainBundle trustdomain.TrustDomainBundle, rule *security.Rule) *Model {
+func NewModelV1beta1(trustDomainBundle trustdomain.Bundle, rule *security.Rule) *Model {
 	m := &Model{}
 
 	conditionsForPrincipal := make([]KeyValues, 0)
