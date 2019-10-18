@@ -47,7 +47,7 @@ func TestAdsReconnectWithNonce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err := adsReceive(edsstr, 5*time.Second)
+	res, err := adsReceive(edsstr, 15*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +69,7 @@ func TestAdsReconnectWithNonce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, _ = adsReceive(edsstr, 5*time.Second)
+	res, _ = adsReceive(edsstr, 15*time.Second)
 
 	t.Log("Received ", res)
 }
@@ -88,7 +88,7 @@ func TestAdsReconnect(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, _ = adsReceive(edsstr, 5*time.Second)
+	_, _ = adsReceive(edsstr, 15*time.Second)
 
 	// envoy restarts and reconnects
 	edsstr2, cancel2, err := connectADS(util.MockPilotGrpcAddr)
@@ -100,7 +100,7 @@ func TestAdsReconnect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, _ = adsReceive(edsstr2, 5*time.Second)
+	_, _ = adsReceive(edsstr2, 15*time.Second)
 
 	// closes old process
 	cancel()
@@ -152,7 +152,7 @@ func TestAdsClusterUpdate(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		res, err := adsReceive(edsstr, 5*time.Second)
+		res, err := adsReceive(edsstr, 15*time.Second)
 		if err != nil {
 			t.Fatal("Recv failed", err)
 		}
@@ -207,7 +207,7 @@ func TestAdsUpdate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	res1, err := adsReceive(edsstr, 5*time.Second)
+	res1, err := adsReceive(edsstr, 15*time.Second)
 	if err != nil {
 		t.Fatal("Recv failed", err)
 	}
@@ -245,7 +245,7 @@ func TestAdsUpdate(t *testing.T) {
 	// This reproduced the 'push on closed connection' bug.
 	v2.AdsPushAll(server.EnvoyXdsServer)
 
-	res1, err = adsReceive(edsstr, 5*time.Second)
+	res1, err = adsReceive(edsstr, 15*time.Second)
 	if err != nil {
 		t.Fatal("Recv2 failed", err)
 	}
@@ -270,7 +270,7 @@ func TestEnvoyRDSProtocolError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err := adsReceive(edsstr, 5*time.Second)
+	res, err := adsReceive(edsstr, 15*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -280,7 +280,7 @@ func TestEnvoyRDSProtocolError(t *testing.T) {
 
 	v2.AdsPushAll(server.EnvoyXdsServer)
 
-	res, err = adsReceive(edsstr, 5*time.Second)
+	res, err = adsReceive(edsstr, 15*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -299,7 +299,7 @@ func TestEnvoyRDSProtocolError(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	res, err = adsReceive(edsstr, 5*time.Second)
+	res, err = adsReceive(edsstr, 15*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -326,7 +326,7 @@ func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err := adsReceive(edsstr, 5*time.Second)
+	res, err := adsReceive(edsstr, 15*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -343,7 +343,7 @@ func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 
 	v2.AdsPushAll(server.EnvoyXdsServer)
 
-	res, err = adsReceive(edsstr, 5*time.Second)
+	res, err = adsReceive(edsstr, 15*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -363,7 +363,7 @@ func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err = adsReceive(edsstr, 5*time.Second)
+	res, err = adsReceive(edsstr, 15*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -381,7 +381,7 @@ func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	res, err = adsReceive(edsstr, 5*time.Second)
+	res, err = adsReceive(edsstr, 15*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -412,7 +412,7 @@ func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err = adsReceive(edsstr, 5*time.Second)
+	res, err = adsReceive(edsstr, 15*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
