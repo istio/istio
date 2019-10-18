@@ -420,52 +420,53 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 	t := time.Now()
 	oldScrt, oldCaScrt, _ := extractK8sSecretIntoSecretItem(oscrt, t)
 	newScrt, newCaScrt, isCaOnlyNew := extractK8sSecretIntoSecretItem(nscrt, t)
-	if newScrt == nil && newCaScrt == nil {
-		secretFetcherLog.Warnf("Secret object: %v has empty field, skip update", newScrtName)
-		return
-	}
-	secretChanged := isSecretChanged(oldScrt, oldCaScrt, newScrt, newCaScrt)
-	if !secretChanged {
+	updateSecret := shouldUpdateSecret(oldScrt, oldCaScrt, newScrt, newCaScrt)
+	if !updateSecret {
 		secretFetcherLog.Infof("secret %s does not change, skip update", newScrtName)
 		return
 	}
 
-	if isCaOnlyNew && newCaScrt != nil {
-		// this is a client CA only Secret
-		sf.secrets.Delete(newCaScrt.ResourceName)
-		sf.secrets.Store(newCaScrt.ResourceName, *newCaScrt)
-		if sf.UpdateCache != nil {
-			sf.UpdateCache(newCaScrt.ResourceName, *newCaScrt)
-		}
-		secretFetcherLog.Debugf("secret %s is updated as a client CA cert", newCaScrt.ResourceName)
-		return
+	if oldScrt != nil || newScrt != nil {
+		sf.updateSecretHelper(oldScrt, newScrt)
+		secretFetcherLog.Debugf("secret %s is updated as a server certificate", newScrt.ResourceName)
 	}
-
-	sf.secrets.Delete(newScrt.ResourceName)
-	sf.secrets.Store(newScrt.ResourceName, *newScrt)
-	if sf.UpdateCache != nil {
-		sf.UpdateCache(newScrt.ResourceName, *newScrt)
-	}
-	secretFetcherLog.Debugf("secret %s is updated as a server certificate", newScrt.ResourceName)
-
-	if oldCaScrt != nil {
-		sf.secrets.Delete(oldCaScrt.ResourceName)
-		if newCaScrt == nil {
-			if sf.DeleteCache != nil {
-				sf.DeleteCache(oldCaScrt.ResourceName)
-			}
-			return
-		}
-		sf.secrets.Store(newCaScrt.ResourceName, *newCaScrt)
-		secretFetcherLog.Debugf("secret %s is updated as a client root CA (from a compound Secret)",
-			newCaScrt.ResourceName)
-		if sf.UpdateCache != nil {
-			sf.UpdateCache(newCaScrt.ResourceName, *newCaScrt)
+	if oldCaScrt != nil || newCaScrt != nil {
+		sf.updateSecretHelper(oldCaScrt, newCaScrt)
+		if isCaOnlyNew {
+			secretFetcherLog.Debugf("secret %s is updated as a client CA cert (from a CA only secret)",
+				newCaScrt.ResourceName)
+		} else {
+			secretFetcherLog.Debugf("secret %s is updated as a client CA cert (from a compound Secret)",
+				newCaScrt.ResourceName)
 		}
 	}
 }
 
-func isSecretChanged(oldScrt, oldCaScrt, newScrt, newCaScrt *model.SecretItem) bool {
+// updateSecretHelper updates secret in cache, and pushes to client when new certs
+// are reloaded from secret.
+func (sf *SecretFetcher) updateSecretHelper(oldScrt, newScrt *model.SecretItem) {
+	if oldScrt != nil {
+		sf.secrets.Delete(oldScrt.ResourceName)
+	}
+	if newScrt != nil {
+		sf.secrets.Store(newScrt.ResourceName, *newScrt)
+		if sf.UpdateCache != nil {
+			sf.UpdateCache(newScrt.ResourceName, *newScrt)
+		}
+	} else if oldScrt != nil {
+		if sf.DeleteCache != nil {
+			sf.DeleteCache(oldScrt.ResourceName)
+		}
+	}
+}
+
+// shouldUpdateSecret indicates whether secret update is required to reload new secret.
+func shouldUpdateSecret(oldScrt, oldCaScrt, newScrt, newCaScrt *model.SecretItem) bool {
+	if newScrt == nil && newCaScrt == nil {
+		secretFetcherLog.Warnf("Secret object: %v has empty field, skip update", oldScrt.ResourceName)
+		return false
+	}
+
 	if (oldScrt != nil && newScrt == nil) || (oldScrt == nil && newScrt != nil) {
 		return true
 	}
@@ -475,6 +476,7 @@ func isSecretChanged(oldScrt, oldCaScrt, newScrt, newCaScrt *model.SecretItem) b
 			return true
 		}
 	}
+
 	if (oldCaScrt != nil && newCaScrt == nil) || (oldCaScrt == nil && newCaScrt != nil) {
 		return true
 	}
