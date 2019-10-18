@@ -52,7 +52,7 @@ func (p *Probe) Check() error {
 		}
 	}
 
-	return p.checkServerInfo()
+	return p.isEnvoyReady()
 }
 
 // checkApplicationPorts verifies that Envoy has received configuration for all ports exposed by the application container.
