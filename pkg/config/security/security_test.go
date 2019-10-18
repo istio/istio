@@ -156,7 +156,7 @@ func TestValidateCondition(t *testing.T) {
 			wantError: true,
 		},
 		{
-			key:       "destination.labels",
+			key:       "destination.labels[app]",
 			wantError: true,
 		},
 		{
