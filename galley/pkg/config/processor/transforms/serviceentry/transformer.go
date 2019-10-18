@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/pod"
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/scope"
+	"istio.io/istio/galley/pkg/config/source/kube/rt"
 )
 
 type serviceEntryTransformer struct {
@@ -328,6 +329,11 @@ func (t *serviceEntryTransformer) toMcpResource(service *resource.Entry, endpoin
 	entry := &resource.Entry{
 		Metadata: meta,
 		Item:     &se,
+		Origin: &rt.Origin{
+			Name:       service.Metadata.Name,
+			Kind:       "Service",
+			Collection: metadata.K8SCoreV1Services,
+		},
 	}
 	return entry, true
 }
