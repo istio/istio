@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
+	tkube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/pkg/log"
 )
@@ -182,7 +183,7 @@ func startGalleyPortForwarderOrFail(t *testing.T, env *kube.Environment, ns stri
 	fetchFunc := env.Accessor.NewSinglePodFetch(ns, "app=galley")
 	var galleyPod *v1.Pod
 	retry.UntilSuccessOrFail(t, func() error {
-		pods, err := env.Accessor.WaitUntilPodsAreReady(fetchFunc)
+		pods, err := fetchFunc()
 		if err != nil {
 			return err
 		}
@@ -190,7 +191,7 @@ func startGalleyPortForwarderOrFail(t *testing.T, env *kube.Environment, ns stri
 			return fmt.Errorf("%v pods found, waiting for only one", len(pods))
 		}
 		galleyPod = &pods[0]
-		return nil
+		return tkube.CheckPodReady(galleyPod)
 	}, retry.Timeout(5*time.Minute))
 
 	forwarder, err := env.Accessor.NewPortForwarder(*galleyPod, 0, 9443)
