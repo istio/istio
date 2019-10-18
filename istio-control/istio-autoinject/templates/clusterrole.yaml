@@ -11,7 +11,9 @@ rules:
   resources: ["configmaps"]
   resourceNames: ["istio-sidecar-injector"]
   verbs: ["get", "list", "watch"]
+{{- if not .Values.global.operatorManageWebhooks }}
 - apiGroups: ["admissionregistration.k8s.io"]
   resources: ["mutatingwebhookconfigurations"]
   resourceNames: ["istio-sidecar-injector", "istio-sidecar-injector-{{.Release.Namespace}}"]
   verbs: ["get", "list", "watch", "patch"]
+{{- end }}
