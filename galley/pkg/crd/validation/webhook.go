@@ -201,47 +201,53 @@ type Webhook struct {
 	createInformerEndpointSource createInformerEndpointSource
 }
 
-// Reload the server's cert/key for TLS from file.
+// Reload the server's cert/key for TLS from file and save it for later use by the https server.
 func (wh *Webhook) reloadKeyCert() {
-	pair, err := tls.LoadX509KeyPair(wh.certFile, wh.keyFile)
+	pair, err := reloadKeyCert(wh.certFile, wh.keyFile)
 	if err != nil {
-		reportValidationCertKeyUpdateError(err)
-		scope.Errorf("Cert/Key reload error: %v", err)
 		return
 	}
+
 	wh.mu.Lock()
-	wh.cert = &pair
+	wh.cert = pair
 	wh.mu.Unlock()
+}
+
+// Reload the server's cert/key for TLS from file.
+func reloadKeyCert(certFile, keyFile string) (*tls.Certificate, error) {
+	pair, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		reportValidationCertKeyUpdateError(err)
+		scope.Warnf("Cert/Key reload error: %v", err)
+		return nil, err
+	}
 
 	reportValidationCertKeyUpdate()
-
 	scope.Info("Cert and Key reloaded")
-	var i int
+
+	var row int
 	for _, cert := range pair.Certificate {
 		if x509Cert, err := x509.ParseCertificates(cert); err != nil {
-			scope.Infof("x509 cert [%] - ParseCertificates() error: %v\n", i, err)
-			i++
+			scope.Infof("x509 cert [%v] - ParseCertificates() error: %v\n", row, err)
+			row++
 		} else {
 			for _, c := range x509Cert {
-				scope.Infof("x509 cert [%] - SN: %q, NotBefore: %q, NotAfter: %q\n",
-					c.SerialNumber, c.NotBefore, c.NotAfter)
-				i++
+				scope.Infof("x509 cert [%v] - Issuer: %q, Subject: %q, SN: %x, NotBefore: %q, NotAfter: %q\n",
+					row, c.Issuer, c.Subject, c.SerialNumber,
+					c.NotBefore.Format(time.RFC3339), c.NotAfter.Format(time.RFC3339))
+				row++
 			}
 		}
 	}
+	return &pair, nil
 }
 
 // NewWebhook creates a new instance of the admission webhook controller.
 func NewWebhook(p WebhookParameters) (*Webhook, error) {
-	pair, err := tls.LoadX509KeyPair(p.CertFile, p.KeyFile)
+	pair, err := reloadKeyCert(p.CertFile, p.KeyFile)
 	if err != nil {
 		return nil, err
 	}
-
-	// This is not strictly necessary, but is a workaround for having the dashboard pass. The migration
-	// to OpenCensus metrics means that zero value metrics are not exported, and the dashboard tests
-	// expect data for metrics.
-	reportValidationCertKeyUpdate()
 
 	// Configuration must be updated whenever the caBundle changes. Watch the parent directory of
 	// the target files so we can catch symlink updates of k8s secrets.
@@ -263,7 +269,7 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		keyFile:                       p.KeyFile,
 		certFile:                      p.CertFile,
 		keyCertWatcher:                keyCertWatcher,
-		cert:                          &pair,
+		cert:                          pair,
 		descriptor:                    p.PilotDescriptor,
 		validator:                     p.MixerValidator,
 		clientset:                     p.Clientset,

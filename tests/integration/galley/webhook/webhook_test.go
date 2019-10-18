@@ -105,17 +105,29 @@ func TestWebhook(t *testing.T) {
 			// Verify that the webhook's key and cert are reloaded, e.g. on rotation
 			ctx.NewSubTest("key/cert reload").
 				Run(func(ctx framework.TestContext) {
-					addr, done := startGalleyPortForwarderOrDie(t, env, istioNs)
+					addr, done := startGalleyPortForwarderOrFail(t, env, istioNs)
 					defer done()
 
-					startingSN := fetchWebhookCertSerialNumbersOrDie(t, addr)
+					client := &http.Client{
+						Transport: &http.Transport{
+							TLSClientConfig: &tls.Config{
+								InsecureSkipVerify: true,
+							},
+							DialContext: (&net.Dialer{
+								Timeout: 30 * time.Second,
+							}).DialContext,
+						},
+					}
+					defer client.CloseIdleConnections()
+
+					startingSN := fetchWebhookCertSerialNumbersOrFail(t, client, addr)
 
 					log.Infof("Initial cert serial numbers: %v", startingSN)
 
 					env.DeleteSecret(istioNs, "istio.istio-galley-service-account")
 
 					retry.UntilSuccessOrFail(t, func() error {
-						updated := fetchWebhookCertSerialNumbersOrDie(t, addr)
+						updated := fetchWebhookCertSerialNumbersOrFail(t, client, addr)
 						if diff := cmp.Diff(startingSN, updated); diff != "" {
 							log.Infof("Updated cert serial numbers: %v", updated)
 							return nil
@@ -163,7 +175,7 @@ func getVwcResourceVersion(vwcName string, t *testing.T, env *kube.Environment) 
 	return vwc.GetResourceVersion()
 }
 
-func startGalleyPortForwarderOrDie(t *testing.T, env *kube.Environment, ns string) (addr string, done func()) {
+func startGalleyPortForwarderOrFail(t *testing.T, env *kube.Environment, ns string) (addr string, done func()) {
 	t.Helper()
 
 	fetchFunc := env.Accessor.NewSinglePodFetch(ns, "app=galley")
@@ -190,19 +202,8 @@ func startGalleyPortForwarderOrDie(t *testing.T, env *kube.Environment, ns strin
 	return forwarder.Address(), done
 }
 
-func fetchWebhookCertSerialNumbersOrDie(t *testing.T, addr string) []string {
+func fetchWebhookCertSerialNumbersOrFail(t *testing.T, client *http.Client, addr string) []string {
 	t.Helper()
-
-	client := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
-			DialContext: (&net.Dialer{
-				Timeout: 30 * time.Second,
-			}).DialContext,
-		},
-	}
 
 	url := fmt.Sprintf("https://%v/admitpilot", addr)
 	req, err := http.NewRequest("POST", url, nil)
@@ -216,13 +217,12 @@ func fetchWebhookCertSerialNumbersOrDie(t *testing.T, addr string) []string {
 		t.Fatalf("webhook request failed: %v", err)
 	}
 
-	s := resp.TLS
-	if s == nil {
-		t.Fatal("server to not provide any certificates")
+	if resp.TLS == nil {
+		t.Fatal("server did not provide certificates")
 	}
 
 	var sn []string
-	for _, cert := range s.PeerCertificates {
+	for _, cert := range resp.TLS.PeerCertificates {
 		sn = append(sn, cert.SerialNumber.Text(16))
 	}
 	sort.Strings(sn)
