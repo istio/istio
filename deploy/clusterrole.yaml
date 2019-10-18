@@ -99,7 +99,7 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - configmaps  
+  - configmaps
   - endpoints
   - events
   - namespaces
@@ -107,6 +107,6 @@ rules:
   - persistentvolumeclaims
   - secrets
   - services
-  - serviceaccounts  
+  - serviceaccounts
   verbs:
   - '*'
