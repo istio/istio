@@ -423,6 +423,7 @@ var (
 					localHostAddr = "[::1]"
 				}
 				prober := kubeAppProberNameVar.Get()
+				log.Infof("Pod IP: %s, Proxy IP: %s", podIP.String(), proxyIP)
 				statusServer, err := status.NewServer(status.Config{
 					LocalHostAddr:      localHostAddr,
 					ProxyIP:            podIP.String(),
