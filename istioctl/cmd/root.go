@@ -152,7 +152,7 @@ debug and diagnose their Istio mesh.
 
 	profileCmd := mesh.ProfileCmd()
 	hideInheritedFlags(profileCmd, "namespace", "istioNamespace")
-	experimentalCmd.AddCommand(profileCmd)
+	rootCmd.AddCommand(profileCmd)
 
 	experimentalCmd.AddCommand(mesh.UpgradeCmd())
 
