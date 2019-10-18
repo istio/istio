@@ -191,6 +191,8 @@ func testSwitchProfile(t *testing.T, c testCase) {
 	name := "example-istiocontrolplane"
 	namespace := "istio-system"
 	icp := &v1alpha2.IstioControlPlane{
+		Kind:       "IstioControlPlane",
+		ApiVersion: "install.istio.io/v1alpha2",
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
