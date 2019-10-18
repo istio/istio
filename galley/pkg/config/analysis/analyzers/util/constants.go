@@ -14,9 +14,17 @@
 
 package util
 
+import (
+	"regexp"
+)
+
 const (
 	DefaultKubernetesDomain = "svc.cluster.local"
 	MeshGateway             = "mesh"
 	ExportToNamespaceLocal  = "."
 	ExportToAllNamespaces   = "*"
+)
+
+var (
+	fqdnPattern = regexp.MustCompile(`^(.+)\.(.+)\.svc\.cluster\.local$`)
 )

@@ -46,13 +46,13 @@ func (c *ConflictingMeshGatewayHostsAnalyzer) Metadata() analysis.Metadata {
 
 // Analyze implements Analyzer
 func (c *ConflictingMeshGatewayHostsAnalyzer) Analyze(ctx analysis.Context) {
-	hs := initSidecarHostsVirtualServices(ctx)
+	hs := initMeshGatewayHosts(ctx)
 	for scopedFqdn, vsList := range hs {
 		if len(vsList) > 1 {
 			vsNames := combineResourceEntryNames(vsList)
 			for i := range vsList {
 				ctx.Report(metadata.IstioNetworkingV1Alpha3Virtualservices,
-					msg.NewConflictingMeshGatewayVirtualServiceHosts(vsList[i], vsNames, scopedFqdn))
+					msg.NewConflictingMeshGatewayVirtualServiceHosts(vsList[i], vsNames, string(scopedFqdn)))
 			}
 		}
 	}
@@ -66,8 +66,8 @@ func combineResourceEntryNames(rList []*resource.Entry) string {
 	return strings.Join(names, ",")
 }
 
-func initSidecarHostsVirtualServices(ctx analysis.Context) map[string][]*resource.Entry {
-	hostsVirtualServices := map[string][]*resource.Entry{}
+func initMeshGatewayHosts(ctx analysis.Context) map[util.ScopedFqdn][]*resource.Entry {
+	hostsVirtualServices := map[util.ScopedFqdn][]*resource.Entry{}
 	ctx.ForEach(metadata.IstioNetworkingV1Alpha3Virtualservices, func(r *resource.Entry) bool {
 		vs := r.Item.(*v1alpha3.VirtualService)
 		vsNamespace, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
