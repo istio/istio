@@ -529,7 +529,7 @@ RBAC policies: ratings-reader
 			k8sConfigs:       cannedK8sEnv,
 			args:             strings.Split("x describe svc ratings.bookinfo", " "),
 			expectedOutput: `Service: ratings.bookinfo
-   Port: http 9080/HTTP
+   Port: http 9080/HTTP targets pod port 9080
 DestinationRule: ratings.bookinfo for "ratings"
    Matching subsets: v1
    Traffic Policy TLS Mode: ISTIO_MUTUAL
