@@ -15,15 +15,22 @@
 package diag
 
 // Level is the severity level of a message.
-type Level string
+type Level struct {
+	sortOrder int
+	name      string
+}
 
-const (
+func (l Level) String() string {
+	return l.name
+}
+
+var (
 	// Info level is for informational messages
-	Info Level = "Info"
+	Info = Level{2, "Info"}
 
 	// Warning level is for warning messages
-	Warning Level = "Warn"
+	Warning = Level{1, "Warn"}
 
 	// Error level is for error messages
-	Error Level = "Error"
+	Error = Level{0, "Error"}
 )

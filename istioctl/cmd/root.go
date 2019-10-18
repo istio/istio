@@ -141,6 +141,7 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(addToMeshCmd())
 	experimentalCmd.AddCommand(removeFromMeshCmd())
 	experimentalCmd.AddCommand(Analyze())
+	experimentalCmd.AddCommand(waitCmd())
 
 	postInstallCmd.AddCommand(Webhook())
 	experimentalCmd.AddCommand(postInstallCmd)
@@ -153,7 +154,9 @@ debug and diagnose their Istio mesh.
 	hideInheritedFlags(profileCmd, "namespace", "istioNamespace")
 	experimentalCmd.AddCommand(profileCmd)
 
-	experimentalCmd.AddCommand(multicluster.NewCreateRemoteSecretCommand(&kubeconfig, &configContext, &istioNamespace))
+	experimentalCmd.AddCommand(multicluster.NewCreateRemoteSecretCommand())
+	experimentalCmd.AddCommand(multicluster.NewCreateTrustAnchorCommand())
+	experimentalCmd.AddCommand(multicluster.NewMulticlusterCommand())
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
 		Title:   "Istio Control",

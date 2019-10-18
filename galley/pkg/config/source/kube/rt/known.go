@@ -268,7 +268,12 @@ func (p *Provider) initKnownAdapters() {
 				return nil, fmt.Errorf("unable to convert to v1.Deployment: %T", o)
 			},
 			newInformer: func() (cache.SharedIndexInformer, error) {
-				return nil, fmt.Errorf("not implemented")
+				informer, err := p.sharedInformerFactory()
+				if err != nil {
+					return nil, err
+				}
+
+				return informer.Apps().V1().Deployments().Informer(), nil
 			},
 			parseJSON: func(input []byte) (interface{}, error) {
 				out := &appsv1.Deployment{}

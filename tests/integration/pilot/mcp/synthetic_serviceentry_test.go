@@ -129,6 +129,7 @@ func (t *testParam) getEndpoints(env resource.Environment, tt *testing.T) (addre
 }
 
 func TestSyntheticServiceEntry(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/17953")
 	ctx := framework.NewContext(t)
 	defer ctx.Done()
 

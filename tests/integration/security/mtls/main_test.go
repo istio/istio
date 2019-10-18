@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package rbac
+package mtls
 
 import (
 	"testing"
@@ -27,20 +27,14 @@ import (
 )
 
 var (
-	inst          istio.Instance
-	g             galley.Instance
-	p             pilot.Instance
-	isMtlsEnabled bool
-	rootNamespace string
-)
-
-const (
-	rbacClusterConfigTmpl = "testdata/clusterrbacconfig.yaml"
+	inst istio.Instance
+	g    galley.Instance
+	p    pilot.Instance
 )
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("rbac", m).
+		NewSuite("mtls", m).
 		RequireEnvironment(environment.Kube).
 		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
@@ -62,7 +56,7 @@ func setupConfig(cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	isMtlsEnabled = cfg.IsMtlsEnabled()
-	cfg.Values["sidecarInjectorWebhook.rewriteAppHTTPProbe"] = "true"
-	rootNamespace = cfg.SystemNamespace
+	cfg.Values["global.mtls.enabled"] = "true"
+	cfg.Values["global.mtls.auto"] = "true"
+	cfg.Values["global.controlPlaneSecurityEnabled"] = "true"
 }

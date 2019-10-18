@@ -121,7 +121,7 @@ istioctl experimental analyze -k -d false
 			}
 
 			for _, m := range messages {
-				fmt.Printf("%v\n", m.String())
+				fmt.Fprintf(cmd.OutOrStdout(), "%v\n", m.String())
 			}
 
 			return nil
