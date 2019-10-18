@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/galley/pkg/config/meta/schema"
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"istio.io/istio/galley/pkg/config/processor"
@@ -103,13 +104,19 @@ func (p *Processing2) Start() (err error) {
 
 	m := metadata.MustGet()
 
-	kubeResources := kuberesource.DisableExcludedKubeResources(m.KubeSource().Resources(), p.args.ExcludedResourceKinds, p.args.EnableServiceDiscovery)
+	transformProviders := transforms.Providers(m)
+
+	// Disable any unnecessary resources, including resources not in configured snapshots
+	var colsInSnapshots collection.Names
+	for _, c := range m.AllCollectionsInSnapshots(p.args.Snapshots) {
+		colsInSnapshots = append(colsInSnapshots, collection.NewName(c))
+	}
+	kubeResources := kuberesource.DisableExcludedKubeResources(m.KubeSource().Resources(), transformProviders,
+		colsInSnapshots, p.args.ExcludedResourceKinds, p.args.EnableServiceDiscovery)
 
 	if src, updater, err = p.createSourceAndStatusUpdater(kubeResources); err != nil {
 		return
 	}
-
-	transformProviders := transforms.Providers(m)
 
 	var distributor snapshotter.Distributor = snapshotter.NewMCPDistributor(p.mcpCache)
 	if p.args.EnableConfigAnalysis {
@@ -117,8 +124,8 @@ func (p *Processing2) Start() (err error) {
 			StatusUpdater:     updater,
 			Analyzer:          analyzers.AllCombined().WithDisabled(kubeResources.DisabledCollections(), transformProviders),
 			Distributor:       distributor,
-			AnalysisSnapshots: []string{metadata.Default, metadata.SyntheticServiceEntry},
-			TriggerSnapshot:   metadata.Default,
+			AnalysisSnapshots: p.args.Snapshots,
+			TriggerSnapshot:   p.args.TriggerSnapshot,
 		}
 		distributor = snapshotter.NewAnalyzingDistributor(settings)
 	}
@@ -129,7 +136,7 @@ func (p *Processing2) Start() (err error) {
 		Source:             event.CombineSources(mesh, src),
 		TransformProviders: transformProviders,
 		Distributor:        distributor,
-		EnabledSnapshots:   []string{metadata.Default, metadata.SyntheticServiceEntry},
+		EnabledSnapshots:   p.args.Snapshots,
 	}
 	if p.runtime, err = processorInitialize(processorSettings); err != nil {
 		return
@@ -160,7 +167,7 @@ func (p *Processing2) Start() (err error) {
 	options := &source.Options{
 		Watcher:            p.mcpCache,
 		Reporter:           p.reporter,
-		CollectionsOptions: source.CollectionOptionsFromSlice(m.AllCollectionsInSnapshots()),
+		CollectionsOptions: source.CollectionOptionsFromSlice(m.AllCollectionsInSnapshots(metadata.SnapshotNames())),
 		ConnRateLimiter:    mcprate.NewRateLimiter(time.Second, 100), // TODO(Nino-K): https://github.com/istio/istio/issues/12074
 	}
 
