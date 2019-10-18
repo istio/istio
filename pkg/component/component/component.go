@@ -22,6 +22,8 @@ package component
 import (
 	"fmt"
 
+	"istio.io/operator/pkg/util"
+
 	"github.com/ghodss/yaml"
 
 	"istio.io/operator/pkg/apis/istio/v1alpha2"
@@ -29,7 +31,6 @@ import (
 	"istio.io/operator/pkg/name"
 	"istio.io/operator/pkg/patch"
 	"istio.io/operator/pkg/translate"
-	"istio.io/operator/pkg/util"
 	"istio.io/pkg/log"
 )
 
@@ -37,6 +38,9 @@ const (
 	// String to emit for any component which is disabled.
 	componentDisabledStr = " component is disabled."
 	yamlCommentStr       = "# "
+
+	// devDbg generates lots of output
+	devDbg = false
 )
 
 // Options defines options for a component.
@@ -696,7 +700,10 @@ func TranslateHelmValues(icp *v1alpha2.IstioControlPlaneSpec, translator *transl
 	if err != nil {
 		return "", err
 	}
-	log.Infof("Values translated from IstioControlPlane API:\n%s", apiValsStr)
+
+	if devDbg {
+		log.Infof("Values translated from IstioControlPlane API:\n%s", apiValsStr)
+	}
 
 	// Add global overlay from IstioControlPlaneSpec.Values.
 	_, err = name.SetFromPath(icp, "Values", &globalVals)
@@ -707,9 +714,10 @@ func TranslateHelmValues(icp *v1alpha2.IstioControlPlaneSpec, translator *transl
 	if err != nil {
 		return "", err
 	}
-	log.Infof("Values from IstioControlPlaneSpec.Values:\n%s", util.ToYAML(globalVals))
-	log.Infof("Values from IstioControlPlaneSpec.UnvalidatedValues:\n%s", util.ToYAML(globalUnvalidatedVals))
-
+	if devDbg {
+		log.Infof("Values from IstioControlPlaneSpec.Values:\n%s", util.ToYAML(globalVals))
+		log.Infof("Values from IstioControlPlaneSpec.UnvalidatedValues:\n%s", util.ToYAML(globalUnvalidatedVals))
+	}
 	mergedVals, err := overlayTrees(globalVals, apiVals)
 	if err != nil {
 		return "", err
@@ -749,8 +757,9 @@ func renderManifest(c *CommonComponentFields) (string, error) {
 		return "", err
 	}
 	my += helm.YAMLSeparator + "\n"
-	log.Infof("Initial manifest with merged values:\n%s\n", my)
-
+	if devDbg {
+		log.Infof("Initial manifest with merged values:\n%s\n", my)
+	}
 	// Add the k8s resources from IstioControlPlaneSpec.
 	my, err = c.Translator.OverlayK8sSettings(my, c.InstallSpec, c.name)
 	if err != nil {
@@ -758,8 +767,9 @@ func renderManifest(c *CommonComponentFields) (string, error) {
 		return "", err
 	}
 	my = "# Resources for " + string(c.name) + " component\n\n" + my
-	log.Infof("Manifest after k8s API settings:\n%s\n", my)
-
+	if devDbg {
+		log.Infof("Manifest after k8s API settings:\n%s\n", my)
+	}
 	// Add the k8s resource overlays from IstioControlPlaneSpec.
 	pathToK8sOverlay := fmt.Sprintf("%s.Components.%s.K8S.Overlays", c.FeatureName, c.name)
 	var overlays []*v1alpha2.K8SObjectOverlay
@@ -768,6 +778,7 @@ func renderManifest(c *CommonComponentFields) (string, error) {
 		return "", err
 	}
 	if !found {
+		log.Infof("Manifest after resources: \n%s\n", my)
 		return my, nil
 	}
 	kyo, err := yaml.Marshal(overlays)
@@ -784,7 +795,7 @@ func renderManifest(c *CommonComponentFields) (string, error) {
 		return "", err
 	}
 
-	log.Infof("After overlay: \n%s\n", ret)
+	log.Infof("Manifest after resources and overlay: \n%s\n", ret)
 	return ret, nil
 }
 
