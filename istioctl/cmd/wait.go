@@ -241,9 +241,9 @@ func getAndWatchResource(ictx context.Context) *watcher {
 		if err != nil {
 			return err
 		}
-		resourceVersion = obj.GetResourceVersion()
-		result <- resourceVersion
-		watch, err := r.Watch(metav1.ListOptions{ResourceVersion: resourceVersion})
+		localResourceVersion := obj.GetResourceVersion()
+		result <- localResourceVersion
+		watch, err := r.Watch(metav1.ListOptions{ResourceVersion: localResourceVersion})
 		if err != nil {
 			return err
 		}
