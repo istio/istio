@@ -33,7 +33,7 @@ func TestV1alpha1Generator_Generate(t *testing.T) {
 	// TODO(pitlv2109): Also include trust domain and trust domain aliases to existing tests.
 	testCases := []struct {
 		name                      string
-		trustDomainBundle         trustdomain.TrustDomainBundle
+		trustDomainBundle         trustdomain.Bundle
 		policies                  []*model.Config
 		isGlobalPermissiveEnabled bool
 		forTCPFilter              bool

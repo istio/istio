@@ -21,7 +21,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-type TrustDomainBundle struct {
+type Bundle struct {
 	// The trust domain corresponds to the trust root of a system.
 	// Refer to [SPIFFE-ID](https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain)
 	TrustDomain string
@@ -36,8 +36,8 @@ type TrustDomainBundle struct {
 	TrustDomainAliases []string
 }
 
-func NewTrustDomainBundle(trustDomain string, trustDomainAliases []string) TrustDomainBundle {
-	return TrustDomainBundle{
+func NewTrustDomainBundle(trustDomain string, trustDomainAliases []string) Bundle {
+	return Bundle{
 		TrustDomain:        trustDomain,
 		TrustDomainAliases: trustDomainAliases,
 	}
@@ -48,7 +48,7 @@ func NewTrustDomainBundle(trustDomain string, trustDomainAliases []string) Trust
 // For example, for a user "bar" in namespace "foo".
 // If the local trust domain is "td2" and its alias is "td1" (migrating from td1 to td2),
 // replaceTrustDomainAliases returns ["td2/ns/foo/sa/bar", "td1/ns/foo/sa/bar]].
-func (t TrustDomainBundle) ReplaceTrustDomainAliases(principals []string) []string {
+func (t Bundle) ReplaceTrustDomainAliases(principals []string) []string {
 	// If trust domain aliases are empty, return the existing principals.
 	if len(t.TrustDomainAliases) == 0 {
 		return principals
@@ -71,7 +71,7 @@ func (t TrustDomainBundle) ReplaceTrustDomainAliases(principals []string) []stri
 	return principalsIncludingAliases
 }
 
-func (t TrustDomainBundle) replaceTrustDomains(principal string) []string {
+func (t Bundle) replaceTrustDomains(principal string) []string {
 	principalsForAliases := []string{}
 	principalsForAliases = append(principalsForAliases, replaceTrustDomainInPrincipal(t.TrustDomain, principal))
 	for _, tdAlias := range t.TrustDomainAliases {

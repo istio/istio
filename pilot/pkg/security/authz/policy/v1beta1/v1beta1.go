@@ -34,11 +34,11 @@ var (
 )
 
 type v1beta1Generator struct {
-	trustDomainBundle trustdomain.TrustDomainBundle
+	trustDomainBundle trustdomain.Bundle
 	policies          []model.Config
 }
 
-func NewGenerator(trustDomainBundle trustdomain.TrustDomainBundle, policies []model.Config) policy.Generator {
+func NewGenerator(trustDomainBundle trustdomain.Bundle, policies []model.Config) policy.Generator {
 	return &v1beta1Generator{
 		trustDomainBundle: trustDomainBundle,
 		policies:          policies,
@@ -66,7 +66,7 @@ func (g *v1beta1Generator) Generate(forTCPFilter bool) *http_config.RBAC {
 	return &http_config.RBAC{Rules: rbac}
 }
 
-func (g *v1beta1Generator) generatePolicy(trustDomainBundle trustdomain.TrustDomainBundle, rule *istio_rbac.Rule, forTCPFilter bool) *envoy_rbac.Policy {
+func (g *v1beta1Generator) generatePolicy(trustDomainBundle trustdomain.Bundle, rule *istio_rbac.Rule, forTCPFilter bool) *envoy_rbac.Policy {
 	if rule == nil {
 		return nil
 	}
