@@ -62,6 +62,23 @@ func TestMtlsStrict(t *testing.T) {
 						return !(src == rctx.Naked && opts.Target != rctx.Naked)
 					},
 				},
+				{
+					ConfigFile:          "global-plaintext.yaml",
+					Namespace:           systemNM,
+					RequiredEnvironment: environment.Kube,
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						// Exclude calls to the headless TCP port.
+						if opts.Target == rctx.Headless && opts.PortName == "tcp" {
+							return false
+						}
+
+						return true
+					},
+					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						// When mTLS is disabled, all traffic should work.
+						return true
+					},
+				},
 			}
 			rctx.Run(testCases)
 		})
