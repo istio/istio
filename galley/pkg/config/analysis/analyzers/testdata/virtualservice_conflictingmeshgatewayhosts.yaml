@@ -84,3 +84,72 @@ spec:
     - destination:
         host: ratings
 ---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: ratings
+  namespace: team1
+spec:
+  hosts:
+  - ratings # shouldn't generate an error as this doesn't conflict with VirtualService ratings.team2 due to exportTo setting
+  gateways:
+  - mesh
+  exportTo:
+  - "."
+  http:
+  - route:
+    - destination:
+        host: ratings
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: ratings
+  namespace: team2
+spec:
+  hosts:
+  - ratings.team1.svc.cluster.local # shouldn't generate an error as this VirtualService doesn't conflict with VirtualService ratings.team1 due to exportTo setting
+  - google.com
+  exportTo:
+  - "."
+  gateways:
+  - istio-ingressgateway
+  - mesh
+  http:
+  - route:
+    - destination:
+        host: ratings
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: ratings
+  namespace: team3
+spec:
+  hosts:
+  - ratings # should generate an error as this conflicts with VirtualService ratings.team4
+  gateways:
+  - mesh
+  exportTo:
+  - "*"
+  http:
+  - route:
+    - destination:
+        host: ratings
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: ratings
+  namespace: team4
+spec:
+  hosts:
+  - ratings.team3.svc.cluster.local # should generate an error as this conflicts with VirtualService ratings.team3
+  gateways:
+  - istio-ingressgateway
+  - mesh
+  http:
+  - route:
+    - destination:
+        host: ratings
+---
