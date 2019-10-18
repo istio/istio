@@ -59,7 +59,7 @@ func (d *DestinationHostAnalyzer) Analyze(ctx analysis.Context) {
 }
 
 func (d *DestinationHostAnalyzer) analyzeVirtualService(r *resource.Entry, ctx analysis.Context,
-	serviceEntryHosts map[string]bool) {
+	serviceEntryHosts map[util.ScopedFqdn]bool) {
 
 	vs := r.Item.(*v1alpha3.VirtualService)
 	ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
@@ -75,7 +75,7 @@ func (d *DestinationHostAnalyzer) analyzeVirtualService(r *resource.Entry, ctx a
 }
 
 func (d *DestinationHostAnalyzer) checkDestinationHost(vsNamespace string, destination *v1alpha3.Destination,
-	ctx analysis.Context, serviceEntryHosts map[string]bool) bool {
+	ctx analysis.Context, serviceEntryHosts map[util.ScopedFqdn]bool) bool {
 	host := destination.GetHost()
 
 	// Check explicitly defined ServiceEntries as well as services discovered from the platform
@@ -96,8 +96,8 @@ func (d *DestinationHostAnalyzer) checkDestinationHost(vsNamespace string, desti
 	return ctx.Exists(metadata.IstioNetworkingV1Alpha3SyntheticServiceentries, name)
 }
 
-func initServiceEntryHostNames(ctx analysis.Context) map[string]bool {
-	hosts := make(map[string]bool)
+func initServiceEntryHostNames(ctx analysis.Context) map[util.ScopedFqdn]bool {
+	hosts := make(map[util.ScopedFqdn]bool)
 	ctx.ForEach(metadata.IstioNetworkingV1Alpha3Serviceentries, func(r *resource.Entry) bool {
 		s := r.Item.(*v1alpha3.ServiceEntry)
 		ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()

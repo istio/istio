@@ -15,15 +15,12 @@
 package util
 
 import (
-	"regexp"
 	"strings"
 
 	"istio.io/istio/galley/pkg/config/resource"
 )
 
-var (
-	fqdnPattern = regexp.MustCompile(`^(.+)\.(.+)\.svc\.cluster\.local$`)
-)
+type ScopedFqdn string
 
 // GetResourceNameFromHost figures out the resource.Name to look up from the provided host string
 // We need to handle two possible formats: short name and FQDN
@@ -50,9 +47,9 @@ func getNamespaceAndNameFromFQDN(fqdn string) (string, string) {
 }
 
 // GetScopedFqdnHostname converts the passed host to FQDN if needed and applies the passed scope.
-func GetScopedFqdnHostname(scope, namespace, host string) string {
+func GetScopedFqdnHostname(scope, namespace, host string) ScopedFqdn {
 	name := convertHostToFQDN(namespace, host)
-	return scope + "/" + name
+	return ScopedFqdn(scope + "/" + name)
 }
 
 func convertHostToFQDN(namespace, host string) string {
