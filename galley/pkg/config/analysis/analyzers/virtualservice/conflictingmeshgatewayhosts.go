@@ -47,16 +47,27 @@ func (c *ConflictingMeshGatewayHostsAnalyzer) Metadata() analysis.Metadata {
 // Analyze implements Analyzer
 func (c *ConflictingMeshGatewayHostsAnalyzer) Analyze(ctx analysis.Context) {
 	hs := initSidecarHostsVirtualServices(ctx)
-	for scopedFqdn, vsNames := range hs {
-		if len(vsNames) > 1 {
-			ctx.Report(metadata.IstioNetworkingV1Alpha3Virtualservices,
-				msg.NewConflictingMeshGatewayVirtualServiceHosts(nil, strings.Join(vsNames, ","), scopedFqdn))
+	for scopedFqdn, vsList := range hs {
+		if len(vsList) > 1 {
+			vsNames := combineResourceEntryNames(vsList)
+			for i := range vsList {
+				ctx.Report(metadata.IstioNetworkingV1Alpha3Virtualservices,
+					msg.NewConflictingMeshGatewayVirtualServiceHosts(vsList[i], vsNames, scopedFqdn))
+			}
 		}
 	}
 }
 
-func initSidecarHostsVirtualServices(ctx analysis.Context) map[string][]string {
-	hostsVirtualServices := map[string][]string{}
+func combineResourceEntryNames(rList []*resource.Entry) string {
+	names := []string{}
+	for _, r := range rList {
+		names = append(names, r.Metadata.Name.String())
+	}
+	return strings.Join(names, ",")
+}
+
+func initSidecarHostsVirtualServices(ctx analysis.Context) map[string][]*resource.Entry {
+	hostsVirtualServices := map[string][]*resource.Entry{}
 	ctx.ForEach(metadata.IstioNetworkingV1Alpha3Virtualservices, func(r *resource.Entry) bool {
 		vs := r.Item.(*v1alpha3.VirtualService)
 		vsNamespace, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
@@ -84,9 +95,9 @@ func initSidecarHostsVirtualServices(ctx analysis.Context) map[string][]string {
 				scopedFqdn := util.GetScopedFqdnHostname(hostsNamespaceScope, vsNamespace, h)
 				vsNames := hostsVirtualServices[scopedFqdn]
 				if len(vsNames) == 0 {
-					hostsVirtualServices[scopedFqdn] = []string{r.Metadata.Name.String()}
+					hostsVirtualServices[scopedFqdn] = []*resource.Entry{r}
 				} else {
-					hostsVirtualServices[scopedFqdn] = append(hostsVirtualServices[scopedFqdn], r.Metadata.Name.String())
+					hostsVirtualServices[scopedFqdn] = append(hostsVirtualServices[scopedFqdn], r)
 				}
 			}
 		}
