@@ -567,8 +567,8 @@ if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
   fi
 else
   # Drop all inbound traffic except established connections.
-  ip6tables -F INPUT || true
-  ip6tables -A INPUT -m state --state ESTABLISHED -j ACCEPT || true
-  ip6tables -A INPUT -i lo -d ::1 -j ACCEPT || true
-  ip6tables -A INPUT -j REJECT || true
+  ip6tables -t filter -F INPUT || true
+  ip6tables -t filter -A INPUT -m state --state ESTABLISHED -j ACCEPT || true
+  ip6tables -t filter -A INPUT -i lo -d ::1 -j ACCEPT || true
+  ip6tables -t filter -A INPUT -j REJECT || true
 fi

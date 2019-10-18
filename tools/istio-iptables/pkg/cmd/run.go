@@ -263,10 +263,10 @@ func handleInboundIpv6Rules(ext dep.Dependencies, config *config.Config, ipv6Ran
 		}
 	} else {
 		// Drop all inbound traffic except established connections.
-		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-F", constants.INPUT)
-		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-A", constants.INPUT, "-m", "state", "--state", "ESTABLISHED", "-j", constants.ACCEPT)
-		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-A", constants.INPUT, "-i", "lo", "-d", "::1", "-j", constants.ACCEPT)
-		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-A", constants.INPUT, "-j", constants.REJECT)
+		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-t", constants.FILTER, "-F", constants.INPUT)
+		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-t", constants.FILTER, "-A", constants.INPUT, "-m", "state", "--state", "ESTABLISHED", "-j", constants.ACCEPT)
+		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-t", constants.FILTER, "-A", constants.INPUT, "-i", "lo", "-d", "::1", "-j", constants.ACCEPT)
+		ext.RunQuietlyAndIgnore(dep.IP6TABLES, "-t", constants.FILTER, "-A", constants.INPUT, "-j", constants.REJECT)
 	}
 }
 
