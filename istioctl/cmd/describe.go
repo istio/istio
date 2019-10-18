@@ -564,7 +564,7 @@ func printService(writer io.Writer, svc v1.Service, pod *v1.Pod, istioVersion *m
 				protocol = string(servicePortProtocol(port.Name))
 			}
 
-			fmt.Fprintf(writer, "   Port: %s %d/%s\n", port.Name, nport, protocol)
+			fmt.Fprintf(writer, "   Port: %s %d/%s targets pod port %d\n", port.Name, port.Port, protocol, nport)
 		}
 		msgs := validatePort(port, pod, istioVersion)
 		for _, msg := range msgs {
