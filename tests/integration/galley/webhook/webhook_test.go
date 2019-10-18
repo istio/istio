@@ -175,7 +175,7 @@ func startGalleyPortForwarderOrFail(t *testing.T, env *kube.Environment, ns stri
 	return forwarder.Address(), done
 }
 
-func fetchWebhookCertSerialNumbersOrFail(t *testing.T, client *http.Client, addr string) []string {
+func fetchWebhookCertSerialNumbersOrFail(t *testing.T, client *http.Client, addr string) []string { // nolint: interfacer
 	t.Helper()
 
 	url := fmt.Sprintf("https://%v/admitpilot", addr)
