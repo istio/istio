@@ -100,6 +100,7 @@ require (
 	github.com/keybase/go-crypto v0.0.0-20190416182011-b785b22cc757 // indirect
 	github.com/lestrrat-go/jwx v0.9.0
 	github.com/lib/pq v1.2.0 // indirect
+	github.com/mattn/go-isatty v0.0.10
 	github.com/mitchellh/copystructure v1.0.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/go-testing-interface v1.0.0 // indirect

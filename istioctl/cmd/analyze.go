@@ -19,6 +19,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 
 	"istio.io/pkg/env"
@@ -36,7 +37,7 @@ var (
 	useDiscovery string
 	colorize     bool
 
-	colorEnvVar = env.RegisterBoolVar("COLORIZE_ISTIOCTL", true, "Color output (some commands)")
+	termEnvVar = env.RegisterStringVar("TERM", "", "Specifies terminal type.  Use 'dumb' to suppress color output")
 
 	colorPrefixes = map[diag.Level]string{
 		diag.Info:    "",           // no special color for info messages
@@ -133,7 +134,7 @@ istioctl experimental analyze -k -d false
 			}
 
 			for _, m := range messages {
-				cmd.Println(renderMessage(m))
+				fmt.Fprintln(cmd.OutOrStdout(), renderMessage(m))
 			}
 
 			return nil
@@ -146,8 +147,8 @@ istioctl experimental analyze -k -d false
 		"'true' to enable service discovery, 'false' to disable it. "+
 			"Defaults to true if --use-kube is set, false otherwise. "+
 			"Analyzers requiring resources made available by enabling service discovery will be skipped.")
-	analysisCmd.PersistentFlags().BoolVar(&colorize, "color", colorEnvVar.Get(),
-		"Default true.  Disable with '=false' or set $COLORIZE_ISTIOCTL to false")
+	analysisCmd.PersistentFlags().BoolVar(&colorize, "color", istioctlColorDefault(analysisCmd),
+		"Default true.  Disable with '=false' or set $TERM to dumb")
 
 	return analysisCmd
 }
@@ -204,4 +205,19 @@ func renderMessage(m diag.Message) string {
 	}
 	return fmt.Sprintf(
 		"%s%v%s [%v]%s %s", colorPrefix(m), m.Type.Level(), colorSuffix(), m.Type.Code(), origin, fmt.Sprintf(m.Type.Template(), m.Parameters...))
+}
+
+func istioctlColorDefault(cmd *cobra.Command) bool {
+	if strings.EqualFold(termEnvVar.Get(), "dumb") {
+		return false
+	}
+
+	file, ok := cmd.OutOrStdout().(*os.File)
+	if ok {
+		if !isatty.IsTerminal(file.Fd()) {
+			return false
+		}
+	}
+
+	return true
 }
