@@ -423,10 +423,17 @@ var (
 					localHostAddr = "[::1]"
 				}
 				prober := kubeAppProberNameVar.Get()
-				log.Infof("Pod IP: %s, Proxy IP: %s", podIP.String(), proxyIP)
+				var proxyAddr string
+				if len(proxyIP) != 0 {
+					proxyAddr = proxyIP
+				} else if podIP != nil {
+					proxyAddr = podIP.String()
+				} else {
+					proxyAddr = localHostAddr
+				}
 				statusServer, err := status.NewServer(status.Config{
 					LocalHostAddr:      localHostAddr,
-					ProxyIP:            podIP.String(),
+					ProxyIP:            proxyAddr,
 					AdminPort:          proxyAdminPort,
 					StatusPort:         statusPort,
 					ApplicationPorts:   parsedPorts,
