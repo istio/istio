@@ -101,7 +101,14 @@ func (r *ReconcileIstioControlPlane) Reconcile(request reconcile.Request) (recon
 	u := &unstructured.Unstructured{}
 	u.SetGroupVersionKind(util.IstioOperatorGVK)
 	if err := r.client.Get(context.TODO(), request.NamespacedName, u); err != nil {
-		log.Errorf("error getting the unstructured of IstioControlPlane icp: %s", err)
+		if errors.IsNotFound(err) {
+			// Request object not found, could have been deleted after reconcile request.
+			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
+			// Return and don't requeue
+			return reconcile.Result{}, nil
+		}
+		// Error reading the object - requeue the request.
+		return reconcile.Result{}, err
 	}
 	deleted := u.GetDeletionTimestamp() != nil
 	finalizers := u.GetFinalizers()
