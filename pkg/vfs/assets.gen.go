@@ -219,6 +219,7 @@
 // ../../data/profiles/sds.yaml
 // ../../data/translateConfig/translateConfig-1.3.yaml
 // ../../data/translateConfig/translateConfig-1.4.yaml
+// ../../data/versions.yaml
 // DO NOT EDIT!
 
 package vfs
@@ -33450,6 +33451,38 @@ func translateconfigTranslateconfig14Yaml() (*asset, error) {
 	return a, nil
 }
 
+var _versionsYaml = []byte(`- operatorVersion: 1.3.0
+  supportedIstioVersions: 1.3.0
+  recommendedIstioVersions: 1.3.0
+- operatorVersion: 1.3.1
+  supportedIstioVersions: ">=1.3.0,<=1.3.1"
+  recommendedIstioVersions: 1.3.1
+- operatorVersion: 1.3.2
+  supportedIstioVersions: ">=1.3.0,<=1.3.2"
+  recommendedIstioVersions: 1.3.2
+- operatorVersion: 1.3.3
+  supportedIstioVersions: ">=1.3.0,<=1.3.3"
+  recommendedIstioVersions: 1.3.3
+- operatorVersion: 1.4.0
+  supportedIstioVersions: ">=1.3.3, <1.6"
+  recommendedIstioVersions: 1.4.0
+`)
+
+func versionsYamlBytes() ([]byte, error) {
+	return _versionsYaml, nil
+}
+
+func versionsYaml() (*asset, error) {
+	bytes, err := versionsYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "versions.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 // Asset loads and returns the asset for the given name.
 // It returns an error if the asset could not be found or
 // could not be loaded.
@@ -33721,6 +33754,7 @@ var _bindata = map[string]func() (*asset, error){
 	"profiles/sds.yaml": profilesSdsYaml,
 	"translateConfig/translateConfig-1.3.yaml": translateconfigTranslateconfig13Yaml,
 	"translateConfig/translateConfig-1.4.yaml": translateconfigTranslateconfig14Yaml,
+	"versions.yaml": versionsYaml,
 }
 
 // AssetDir returns the file names below a certain
@@ -34078,6 +34112,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"translateConfig-1.3.yaml": &bintree{translateconfigTranslateconfig13Yaml, map[string]*bintree{}},
 		"translateConfig-1.4.yaml": &bintree{translateconfigTranslateconfig14Yaml, map[string]*bintree{}},
 	}},
+	"versions.yaml": &bintree{versionsYaml, map[string]*bintree{}},
 }}
 
 // RestoreAsset restores an asset under the given directory

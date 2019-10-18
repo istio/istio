@@ -18,27 +18,25 @@ import (
 	"context"
 	"fmt"
 
-	"istio.io/operator/pkg/apis/istio/v1alpha2"
-	"istio.io/operator/pkg/helm"
-	istiomanifest "istio.io/operator/pkg/manifest"
-	"istio.io/operator/pkg/util"
-	"istio.io/operator/pkg/validate"
-	"istio.io/pkg/log"
-
-	"istio.io/operator/pkg/component/controlplane"
-	"istio.io/operator/pkg/name"
-	"istio.io/operator/pkg/translate"
-	binversion "istio.io/operator/version"
-
-	"k8s.io/helm/pkg/releaseutil"
-	kubectl "k8s.io/kubectl/pkg/util"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	"github.com/ghodss/yaml"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/helm/pkg/manifest"
+	"k8s.io/helm/pkg/releaseutil"
+	kubectl "k8s.io/kubectl/pkg/util"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"istio.io/operator/pkg/apis/istio/v1alpha2"
+	"istio.io/operator/pkg/component/controlplane"
+	"istio.io/operator/pkg/helm"
+	istiomanifest "istio.io/operator/pkg/manifest"
+	"istio.io/operator/pkg/name"
+	"istio.io/operator/pkg/translate"
+	"istio.io/operator/pkg/util"
+	"istio.io/operator/pkg/validate"
+	binversion "istio.io/operator/version"
+	"istio.io/pkg/log"
 )
 
 func (h *HelmReconciler) renderCharts(in RenderingInput) (ChartManifestsMap, error) {
@@ -246,7 +244,6 @@ func (h *HelmReconciler) ProcessObject(obj *unstructured.Unstructured) error {
 			}
 		}
 	}
-	log.Info("resource reconciliation complete")
 	if err != nil {
 		log.Errorf("error occurred reconciling resource: %s", err)
 	}
@@ -257,6 +254,7 @@ func toChartManifestsMap(m name.ManifestMap) ChartManifestsMap {
 	out := make(ChartManifestsMap)
 	for k, v := range m {
 		out[string(k)] = []manifest.Manifest{{
+			Name:    string(k),
 			Content: v,
 		}}
 	}
