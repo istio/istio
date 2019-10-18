@@ -189,7 +189,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	return s, nil
 }
 
-// InitConfig will initialize the ConfigStores.
+// NewIstiod will initialize the ConfigStores.
 func (s *Server) InitConfig() error {
 	prometheus.EnableHandlingTimeHistogram()
 	args := s.Args
@@ -206,7 +206,7 @@ func (s *Server) InitConfig() error {
 	return nil
 }
 
-// InitDiscovery is called after InitConfig, will initialize the discovery services and
+// InitDiscovery is called after NewIstiod, will initialize the discovery services and
 // discovery server.
 func (s *Server) InitDiscovery() error {
 	// Wrap the config controller with a cache.

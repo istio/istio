@@ -18,10 +18,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"os"
-	"os/signal"
 	"strconv"
-	"syscall"
 	"time"
 
 	"github.com/gogo/protobuf/types"
@@ -85,6 +82,8 @@ type Server struct {
 	secureGrpcListener net.Listener
 }
 
+// InitCommon starts the common services - metrics. Ctrlz is currently started by Galley, will need
+// to be refactored and moved here.
 func (s *Server) InitCommon(args *PilotArgs) {
 
 	_, addr, err := startMonitor(args.DiscoveryOptions.MonitoringAddr, s.mux)
@@ -94,7 +93,7 @@ func (s *Server) InitCommon(args *PilotArgs) {
 	s.MonitorListeningAddr = addr
 }
 
-// Start all components of istio, using local config files or defaults.
+// NewIstiod creates the common server and loads the default config.
 //
 // A minimal set of Istio Env variables are also used.
 // This is expected to run in a Docker or K8S environment, with a volume with user configs mounted.
@@ -103,7 +102,7 @@ func (s *Server) InitCommon(args *PilotArgs) {
 // - http port 15007
 // - grpc on 15010
 //- config from $ISTIO_CONFIG or ./conf
-func InitConfig(confDir string) (*Server, error) {
+func NewIstiod(confDir string) (*Server, error) {
 	baseDir := "." // TODO: env ISTIO_HOME or HOME ?
 
 	// TODO: 15006 can't be configured currently
@@ -205,10 +204,4 @@ func InitConfig(confDir string) (*Server, error) {
 	//	return err
 	//}
 	return server, nil
-}
-
-func (s *Server) WaitDrain(baseDir string) {
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-	<-sigs
 }

@@ -16,6 +16,7 @@ package main
 
 import (
 	"io/ioutil"
+	"istio.io/pkg/env"
 	"log"
 	"os"
 
@@ -24,6 +25,12 @@ import (
 
 	"istio.io/istio/pkg/istiod"
 	"istio.io/istio/pkg/istiod/k8s"
+)
+
+var (
+	// TODO: should it default to $HOME ? Or /var/lib/istio ?
+	istioHome = env.RegisterStringVar("ISTIO_HOME", "",
+		"Base directory for istio configs. If not set, defaults to current working directory.")
 )
 
 // Istio control plane with K8S support.
@@ -38,19 +45,20 @@ import (
 func main() {
 	stop := make(chan struct{})
 
+	// Load the mesh config. Note that the path is slightly changed - attempting to move all istio
+	// related under /var/lib/istio, which is also the home dir of the istio user.
+	istiods, err := istiod.NewIstiod("/var/lib/istio/config")
+	if err != nil {
+		log.Fatal("Failed to start istiod ", err)
+	}
+
 	// First create the k8s clientset - and return the config source.
 	// The config includes the address of apiserver and the public key - which will be used
 	// after cert generation, to check that Apiserver-generated certs have same key.
 	client, kcfg, err := k8s.CreateClientset(os.Getenv("KUBECONFIG"), "")
 	if err != nil {
+		// TODO: 'local' mode where k8s is not used - using the config.
 		log.Fatal("Failed to connect to k8s", err)
-	}
-
-	// Load the mesh config. Note that the path is slightly changed - attempting to move all istio
-	// related under /var/lib/istio, which is also the home dir of the istio user.
-	istiods, err := istiod.InitConfig("/var/lib/istio/config")
-	if err != nil {
-		log.Fatal("Failed to start istiod ", err)
 	}
 
 	// Create k8s-signed certificates. This allows injector, validation to work without Citadel, and

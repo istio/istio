@@ -94,6 +94,11 @@ func TestFlags(t *testing.T) {
 	for _, b := range binariesToTest {
 		cmd := path.Join(*releasedir, b)
 		t.Run(b, func(t *testing.T) {
+			if b == "istiod" {
+				// Currently istiod is not using CLI flags - version/etc will be included in a
+				// detached file.
+				return
+			}
 			out, err := exec.Command(cmd, "--help").Output()
 			if err != nil {
 				t.Fatalf("--help failed with error: %v. Output: %v", err, string(out))
