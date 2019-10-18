@@ -26,6 +26,9 @@ type Instance interface {
 	// Cobra commands don't make it easy to separate stdout and stderr and the string parameter
 	// will receive both.
 	Invoke(args []string) (string, error)
+
+	// InvokeOrFail calls Invoke and fails tests if it returns en err
+	InvokeOrFail(t *testing.T, args []string) string
 }
 
 // Structured config for the istioctl component

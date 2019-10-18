@@ -16,6 +16,8 @@ package istioctl
 
 import (
 	"bytes"
+	"strings"
+	"testing"
 
 	"istio.io/istio/istioctl/cmd"
 
@@ -44,11 +46,20 @@ func (c *nativeComponent) ID() resource.ID {
 	return c.id
 }
 
-// Invoke gets the discovery address for pilot.
+// Invoke implements Instance
 func (c *nativeComponent) Invoke(args []string) (string, error) {
 	var out bytes.Buffer
 	rootCmd := cmd.GetRootCmd(args)
 	rootCmd.SetOutput(&out)
 	fErr := rootCmd.Execute()
 	return out.String(), fErr
+}
+
+// InvokeOrFail implements Instance
+func (c *nativeComponent) InvokeOrFail(t *testing.T, args []string) string {
+	output, err := c.Invoke(args)
+	if err != nil {
+		t.Fatalf("Unwanted exception for 'istioctl %s': %v", strings.Join(args, " "), err)
+	}
+	return output
 }
