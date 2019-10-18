@@ -15,7 +15,6 @@
 package main
 
 import (
-	"bufio"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -153,6 +152,7 @@ func main() {
 	if strings.Contains(filePath, "values_types") {
 		out = patchValues(out)
 	}
+
 	fmt.Printf("Writing to output file %s\n", filePath)
 	if err := ioutil.WriteFile(filePath, []byte(strings.Join(out, "\n")), 0644); err != nil {
 		fmt.Println(err)
@@ -206,22 +206,10 @@ func patchValues(lines []string) (output []string) {
 
 // getFileLines reads the text file at filePath and returns it as a slice of strings.
 func getFileLines(filePath string) ([]string, error) {
-	file, err := os.Open(filePath)
+	b, err := ioutil.ReadFile(filePath)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	defer file.Close()
-
-	var out []string
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		out = append(out, scanner.Text())
-	}
-
-	if err := scanner.Err(); err != nil {
 		return nil, err
 	}
 
-	return out, nil
+	return strings.Split(string(b), "\n"), nil
 }
