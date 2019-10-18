@@ -87,7 +87,7 @@ func initSidecarHostsVirtualServices(ctx analysis.Context) map[string][]*resourc
 			// all namespaces
 			hostsNamespaceScope := vsNamespace
 			exportToAllNamespaces := util.IsExportToAllNamespaces(vs.ExportTo)
-			if exportToAllNamespaces == true {
+			if exportToAllNamespaces {
 				hostsNamespaceScope = util.ExportToAllNamespaces
 			}
 

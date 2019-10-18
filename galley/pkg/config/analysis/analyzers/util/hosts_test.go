@@ -35,7 +35,7 @@ func TestGetResourceNameFromHost(t *testing.T) {
 	g.Expect(GetResourceNameFromHost("default", "foo.svc.cluster.local")).To(Equal(resource.NewName("default", "foo.svc.cluster.local")))
 }
 
-func TestaGetScopedFqdnHostname(t *testing.T) {
+func TestGetScopedFqdnHostname(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	// FQDN, same namespace, local scope
