@@ -17,6 +17,7 @@ package validation
 import (
 	"bytes"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -213,7 +214,21 @@ func (wh *Webhook) reloadKeyCert() {
 	wh.mu.Unlock()
 
 	reportValidationCertKeyUpdate()
+
 	scope.Info("Cert and Key reloaded")
+	var i int
+	for _, cert := range pair.Certificate {
+		if x509Cert, err := x509.ParseCertificates(cert); err != nil {
+			scope.Infof("x509 cert [%] - ParseCertificates() error: %v\n", i, err)
+			i++
+		} else {
+			for _, c := range x509Cert {
+				scope.Infof("x509 cert [%] - SN: %q, NotBefore: %q, NotAfter: %q\n",
+					c.SerialNumber, c.NotBefore, c.NotAfter)
+				i++
+			}
+		}
+	}
 }
 
 // NewWebhook creates a new instance of the admission webhook controller.
