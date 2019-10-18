@@ -29,7 +29,6 @@ import (
 	"istio.io/pkg/probe"
 
 	mixervalidate "istio.io/istio/mixer/pkg/validate"
-	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/kube"
 )
@@ -73,7 +72,7 @@ func webhookHTTPSHandlerReady(client httpClient, vc *WebhookParameters) error {
 }
 
 //RunValidation start running Galley validation mode
-func RunValidation(ready, stopCh chan struct{}, vc *WebhookParameters, kubeConfig string,
+func RunValidation(ready chan<- struct{}, stopCh chan struct{}, vc *WebhookParameters, kubeConfig string,
 	livenessProbeController, readinessProbeController probe.Controller) {
 	log.Infof("Galley validation started with\n%s", vc)
 	mixerValidator := mixervalidate.NewDefaultValidator(false)
@@ -114,13 +113,13 @@ func RunValidation(ready, stopCh chan struct{}, vc *WebhookParameters, kubeConfi
 			for {
 				if err := webhookHTTPSHandlerReady(client, vc); err != nil {
 					validationReadinessProbe.SetAvailable(errors.New("not ready"))
-					scope.Infof("https handler for validation webhook is not ready: %v", err)
+					scope.Infof("https handler for validation webhook is not ready: %v\n", err)
 					ready = false
 				} else {
 					validationReadinessProbe.SetAvailable(nil)
 
 					if !ready {
-						scope.Info("https handler for validation webhook is ready")
+						scope.Info("https handler for validation webhook is ready\n")
 						ready = true
 					}
 				}
@@ -136,9 +135,6 @@ func RunValidation(ready, stopCh chan struct{}, vc *WebhookParameters, kubeConfi
 	}
 
 	go wh.Run(ready, stopCh)
-	defer wh.Stop()
-
-	cmd.WaitSignal(stopCh)
 }
 
 // isDNS1123Label tests for a string that conforms to the definition of a label in
