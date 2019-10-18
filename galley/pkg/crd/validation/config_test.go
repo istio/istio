@@ -16,7 +16,6 @@ package validation
 
 import (
 	"bytes"
-	"crypto/tls"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -41,6 +40,9 @@ import (
 var (
 	failurePolicyFailVal = admissionregistrationv1beta1.Fail
 	failurePolicyFail    = &failurePolicyFailVal
+
+	failurePolicyIgnoreVal = admissionregistrationv1beta1.Ignore
+	failurePolicyIgnore    = &failurePolicyIgnoreVal
 )
 
 func createTestWebhookConfigController(
@@ -375,16 +377,6 @@ func initValidatingWebhookConfiguration() *admissionregistrationv1beta1.Validati
 	}
 }
 
-func checkCert(t *testing.T, whc *WebhookConfigController, cert, key []byte) bool {
-	t.Helper()
-	actual := whc.cert
-	expected, err := tls.X509KeyPair(cert, key)
-	if err != nil {
-		t.Fatalf("fail to load test certs.")
-	}
-	return bytes.Equal(actual.Certificate[0], expected.Certificate[0])
-}
-
 func TestDeleteValidatingWebhookConfig(t *testing.T) {
 
 	initConfig := initValidatingWebhookConfiguration()
@@ -418,7 +410,7 @@ func TestDeleteValidatingWebhookConfig(t *testing.T) {
 	})
 }
 
-func TestReloadCert(t *testing.T) {
+func TestReloadConfig(t *testing.T) {
 	whc, cleanup := createTestWebhookConfigController(t,
 		fake.NewSimpleClientset(),
 		createFakeWebhookSource(),
@@ -427,19 +419,36 @@ func TestReloadCert(t *testing.T) {
 	stop := make(chan struct{})
 	defer func() { close(stop) }()
 	go whc.reconcile(stop)
-	checkCert(t, whc, testcerts.ServerCert, testcerts.ServerKey)
+
+	g := gomega.NewGomegaWithT(t)
+
+	g.Eventually(func() bool {
+		if whc.webhookConfiguration == nil {
+			return false
+		}
+		return *whc.webhookConfiguration.Webhooks[0].FailurePolicy == failurePolicyFailVal
+	}, "10s", "100ms").Should(gomega.BeTrue())
+
+	updatedConfig := dummyConfig.DeepCopy()
+	updatedConfig.Webhooks[0].FailurePolicy = failurePolicyIgnore
+	updatedConfigBytes, err := yaml.Marshal(&updatedConfig)
+	if err != nil {
+		t.Fatalf("failed to create updated webhook config: %v", err)
+	}
+
 	// Update cert/key files.
-	if err := ioutil.WriteFile(whc.webhookParameters.CertFile, testcerts.RotatedCert, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(whc.webhookParameters.CACertFile, testcerts.RotatedCert, 0644); err != nil { // nolint: vetshadow
 		cleanup()
 		t.Fatalf("WriteFile(%v) failed: %v", whc.webhookParameters.CertFile, err)
 	}
-	if err := ioutil.WriteFile(whc.webhookParameters.KeyFile, testcerts.RotatedKey, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(whc.webhookParameters.WebhookConfigFile, updatedConfigBytes, 0644); err != nil { // nolint: vetshadow
 		cleanup()
 		t.Fatalf("WriteFile(%v) failed: %v", whc.webhookParameters.KeyFile, err)
 	}
-	g := gomega.NewGomegaWithT(t)
+
+	// wait for config to update
 	g.Eventually(func() bool {
-		return checkCert(t, whc, testcerts.RotatedCert, testcerts.RotatedKey)
+		return *whc.webhookConfiguration.Webhooks[0].FailurePolicy == failurePolicyIgnoreVal
 	}, "10s", "100ms").Should(gomega.BeTrue())
 }
 
