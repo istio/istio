@@ -16,19 +16,26 @@ package kuberesource
 
 import (
 	"istio.io/istio/galley/pkg/config/meta/schema"
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
+	"istio.io/istio/galley/pkg/config/processing/transformer"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
 	"istio.io/istio/galley/pkg/source/kube/builtin"
 )
 
 // DisableExcludedKubeResources is a helper that filters a KubeResources list to disable some resources
-// Behaves in the same way as existing logic:
+// The first filter behaves in the same way as existing logic:
 // - Builtin types are excluded by default.
 // - If ServiceDiscovery is enabled, any built-in type should be readded.
-func DisableExcludedKubeResources(input schema.KubeResources, excludedResourceKinds []string, enableServiceDiscovery bool) schema.KubeResources {
+// In addition, any resources not needed as inputs by the specified collections are disabled
+func DisableExcludedKubeResources(krs schema.KubeResources, xformProviders transformer.Providers,
+	requiredCols collection.Names, excludedResourceKinds []string, enableServiceDiscovery bool) schema.KubeResources {
+
+	// Get upstream collections in terms of transformer configuration
+	// Required collections are specified in terms of transformer outputs, but we care here about the corresponding inputs
+	upstreamCols := getUpstreamCollections(requiredCols, xformProviders)
 
 	var result schema.KubeResources
-	for _, r := range input {
-
+	for _, r := range krs {
 		if isKindExcluded(excludedResourceKinds, r.Kind) {
 			// Found a matching exclude directive for this KubeResource. Disable the resource.
 			r.Disabled = true
@@ -44,10 +51,24 @@ func DisableExcludedKubeResources(input schema.KubeResources, excludedResourceKi
 			}
 		}
 
+		// Additionally, filter out any resources not upstream of required collections
+		if _, ok := upstreamCols[r.Collection.Name]; !ok {
+			r.Disabled = true
+		}
+
 		result = append(result, r)
 	}
 
 	return result
+}
+
+// DefaultExcludedResourceKinds returns the default list of resource kinds to exclude, which is the builtin types.
+func DefaultExcludedResourceKinds() []string {
+	resources := make([]string, 0)
+	for _, spec := range builtin.GetSchema().All() {
+		resources = append(resources, spec.Kind)
+	}
+	return resources
 }
 
 func isKindExcluded(excludedResourceKinds []string, kind string) bool {
@@ -60,11 +81,27 @@ func isKindExcluded(excludedResourceKinds []string, kind string) bool {
 	return false
 }
 
-// DefaultExcludedResourceKinds returns the default list of resource kinds to exclude, which is the builtin types.
-func DefaultExcludedResourceKinds() []string {
-	resources := make([]string, 0)
-	for _, spec := range builtin.GetSchema().All() {
-		resources = append(resources, spec.Kind)
+func getUpstreamCollections(inputs collection.Names, xformProviders transformer.Providers) map[collection.Name]struct{} {
+	// For each transform, map output to inputs
+	outToIn := make(map[collection.Name]map[collection.Name]struct{})
+	for _, xfp := range xformProviders {
+		for _, out := range xfp.Outputs() {
+			if _, ok := outToIn[out]; !ok {
+				outToIn[out] = make(map[collection.Name]struct{})
+			}
+			for _, in := range xfp.Inputs() {
+				outToIn[out][in] = struct{}{}
+			}
+		}
 	}
-	return resources
+
+	// 2. For each input collection, get its inputs using the above mapping and include them in the output set
+	upstreamCollections := make(map[collection.Name]struct{})
+	for _, c := range inputs {
+		for in := range outToIn[c] {
+			upstreamCollections[in] = struct{}{}
+		}
+	}
+
+	return upstreamCollections
 }
