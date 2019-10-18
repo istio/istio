@@ -144,12 +144,12 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/virtualservice_conflictingmeshgatewayhosts.yaml"},
 		analyzer:   &virtualservice.ConflictingMeshGatewayHostsAnalyzer{},
 		expected: []message{
-			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService/team3/ratings"},
-			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService/team4/ratings"},
-			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService/foo/ratings"},
-			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService/bar/ratings"},
-			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService/foo/productpage"},
-			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService/foo/bogus-productpage"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService ratings.team3"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService ratings.team4"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService ratings.foo"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService ratings.bar"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService productpage.foo"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService bogus-productpage.foo"},
 		},
 	},
 	{
