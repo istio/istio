@@ -71,15 +71,13 @@ will block until the bookinfo virtual service has been distributed to all proxie
 			} else if forFlag != "distribution" {
 				return fmt.Errorf("--for must be 'delete' or 'distribution', got: %s", forFlag)
 			}
-			//var versionChan chan string
-			//g := &errgroup.Group{}
 			var w *watcher
 			ctx, cancel := context.WithTimeout(context.Background(), timeout)
 			defer cancel()
 			if resourceVersion == "" {
 				w = getAndWatchResource(ctx) // setup version getter from kubernetes
 			} else {
-				w = WithContext(ctx)
+				w = withContext(ctx)
 				w.Go(func(result chan string) error {
 					result <- resourceVersion
 					return nil
@@ -142,7 +140,7 @@ will block until the bookinfo virtual service has been distributed to all proxie
 		"wait for a specific version of config to become current, rather than using whatever is latest in "+
 			"kubernetes")
 	cmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enables verbose output")
-	cmd.PersistentFlags().MarkHidden("verbose")
+	_ = cmd.PersistentFlags().MarkHidden("verbose")
 	return cmd
 }
 
@@ -225,7 +223,7 @@ func init() {
 // the current resourceVersion of the targetResource, adding new versions
 // as they are created.
 func getAndWatchResource(ictx context.Context) *watcher {
-	g := WithContext(ictx)
+	g := withContext(ictx)
 	g.Go(func(result chan string) error {
 		// retrieve resource version from Kubernetes
 		dclient, err := clientGetter(kubeconfig, configContext)
@@ -279,7 +277,7 @@ type watcher struct {
 	ctx         context.Context
 }
 
-func WithContext(ctx context.Context) *watcher {
+func withContext(ctx context.Context) *watcher {
 	return &watcher{
 		resultsChan: make(chan string, 1),
 		errorChan:   make(chan error, 1),
@@ -288,8 +286,6 @@ func WithContext(ctx context.Context) *watcher {
 }
 
 func (w *watcher) Go(f func(chan string) error) {
-	//w.resultsChan = make(chan string, 1)
-	//w.errorChan = make(chan error, 1)
 	go func() {
 		if err := f(w.resultsChan); err != nil {
 			w.errorChan <- err
