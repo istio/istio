@@ -235,35 +235,29 @@ func validatePercentageOrDefault(percentage *networking.Percent, defaultPercent 
 	return ValidatePercent(defaultPercent)
 }
 
-// ValidateIPv4Subnet checks that a string is in "CIDR notation" or "Dot-decimal notation"
-func ValidateIPv4Subnet(subnet string) error {
+// ValidateIPSubnet checks that a string is in "CIDR notation" or "Dot-decimal notation"
+func ValidateIPSubnet(subnet string) error {
 	// We expect a string in "CIDR notation" or "Dot-decimal notation"
-	// E.g., a.b.c.d/xx form or just a.b.c.d
+	// E.g., a.b.c.d/xx form or just a.b.c.d or 2001:1::1/64
 	if strings.Count(subnet, "/") == 1 {
-		// We expect a string in "CIDR notation", i.e. a.b.c.d/xx form
+		// We expect a string in "CIDR notation", i.e. a.b.c.d/xx or 2001:1::1/64 form
 		ip, _, err := net.ParseCIDR(subnet)
 		if err != nil {
 			return fmt.Errorf("%v is not a valid CIDR block", subnet)
 		}
-		// The current implementation only supports IP v4 addresses
-		if ip.To4() == nil {
-			return fmt.Errorf("%v is not a valid IPv4 address", subnet)
+		if ip.To4() == nil && ip.To16() == nil {
+			return fmt.Errorf("%v is not a valid IPv4 or IPv6 address", subnet)
 		}
 		return nil
 	}
-	return ValidateIPv4Address(subnet)
+	return ValidateIPAddress(subnet)
 }
 
-// ValidateIPv4Address validates that a string in "CIDR notation" or "Dot-decimal notation"
-func ValidateIPv4Address(addr string) error {
+// ValidateIPAddress validates that a string in "CIDR notation" or "Dot-decimal notation"
+func ValidateIPAddress(addr string) error {
 	ip := net.ParseIP(addr)
 	if ip == nil {
 		return fmt.Errorf("%v is not a valid IP", addr)
-	}
-
-	// The current implementation only supports IP v4 addresses
-	if ip.To4() == nil {
-		return fmt.Errorf("%v is not a valid IPv4 address", addr)
 	}
 
 	return nil
@@ -773,7 +767,7 @@ func validateSidecarEgressPortBindAndCaptureMode(port *networking.Port, bind str
 			ValidatePort(int(port.Number)))
 
 		if len(bind) != 0 {
-			errs = appendErrors(errs, ValidateIPv4Address(bind))
+			errs = appendErrors(errs, ValidateIPAddress(bind))
 		}
 	}
 
@@ -792,7 +786,7 @@ func validateSidecarIngressPortAndBind(port *networking.Port, bind string) (errs
 		ValidatePort(int(port.Number)))
 
 	if len(bind) != 0 {
-		errs = appendErrors(errs, ValidateIPv4Address(bind))
+		errs = appendErrors(errs, ValidateIPAddress(bind))
 	}
 
 	return
@@ -1860,7 +1854,7 @@ func validateTLSMatch(match *networking.TLSMatchAttributes, context *networking.
 	}
 
 	for _, destinationSubnet := range match.DestinationSubnets {
-		errs = appendErrors(errs, ValidateIPv4Subnet(destinationSubnet))
+		errs = appendErrors(errs, ValidateIPSubnet(destinationSubnet))
 	}
 
 	if match.Port != 0 {
@@ -1904,10 +1898,10 @@ func validateTCPRoute(tcp *networking.TCPRoute) (errs error) {
 
 func validateTCPMatch(match *networking.L4MatchAttributes) (errs error) {
 	for _, destinationSubnet := range match.DestinationSubnets {
-		errs = appendErrors(errs, ValidateIPv4Subnet(destinationSubnet))
+		errs = appendErrors(errs, ValidateIPSubnet(destinationSubnet))
 	}
 	if len(match.SourceSubnet) > 0 {
-		errs = appendErrors(errs, ValidateIPv4Subnet(match.SourceSubnet))
+		errs = appendErrors(errs, ValidateIPSubnet(match.SourceSubnet))
 	}
 	if match.Port != 0 {
 		errs = appendErrors(errs, ValidatePort(int(match.Port)))
@@ -2362,7 +2356,7 @@ func ValidateServiceEntry(_, _ string, config proto.Message) (errs error) {
 	cidrFound := false
 	for _, address := range serviceEntry.Addresses {
 		cidrFound = cidrFound || strings.Contains(address, "/")
-		errs = appendErrors(errs, ValidateIPv4Subnet(address))
+		errs = appendErrors(errs, ValidateIPSubnet(address))
 	}
 
 	if cidrFound {
@@ -2405,7 +2399,7 @@ func ValidateServiceEntry(_, _ string, config proto.Message) (errs error) {
 					errs = appendErrors(errs, fmt.Errorf("unix endpoint %s must not include ports", addr))
 				}
 			} else {
-				errs = appendErrors(errs, ValidateIPv4Address(addr))
+				errs = appendErrors(errs, ValidateIPAddress(addr))
 
 				for name, port := range endpoint.Ports {
 					if !servicePorts[name] {
