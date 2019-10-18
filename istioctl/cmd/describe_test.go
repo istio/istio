@@ -244,6 +244,12 @@ var (
 				},
 				Status: coreV1.PodStatus{
 					Phase: coreV1.PodRunning,
+					ContainerStatuses: []coreV1.ContainerStatus{
+						{
+							Name:  "istio-proxy",
+							Ready: true,
+						},
+					},
 				},
 			},
 			{
@@ -508,6 +514,25 @@ Service: ratings
    Port:  9080/UnsupportedProtocol targets pod port 9080
    Warning: Pod ratings-v1-f745cf57b-vfwcv port 9080 not exposed by Container
    9080 is unnamed which does not follow Istio conventions
+Pilot reports that pod is PERMISSIVE (enforces HTTP/mTLS) and clients speak mTLS
+RBAC policies: ratings-reader
+`,
+		},
+		{ // case 8 unknown service
+			args:           strings.Split("experimental describe service not-a-service", " "),
+			expectedString: "services \"not-a-service\" not found",
+			wantException:  true, // "istioctl experimental describe service not-a-service" should fail
+		},
+		{ // case 9 for a service
+			execClientConfig: cannedConfig,
+			configs:          cannedIstioConfig,
+			k8sConfigs:       cannedK8sEnv,
+			args:             strings.Split("x describe svc ratings.bookinfo", " "),
+			expectedOutput: `Service: ratings.bookinfo
+   Port: http 9080/HTTP
+DestinationRule: ratings.bookinfo for "ratings"
+   Matching subsets: v1
+   Traffic Policy TLS Mode: ISTIO_MUTUAL
 Pilot reports that pod is PERMISSIVE (enforces HTTP/mTLS) and clients speak mTLS
 RBAC policies: ratings-reader
 `,

@@ -17,8 +17,6 @@ package v2
 import (
 	"errors"
 	"io"
-	"reflect"
-	"sort"
 	"sync"
 	"time"
 
@@ -232,8 +230,8 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				if con.CDSWatch {
 					// Already received a cluster watch request, this is an ACK
 					if discReq.ErrorDetail != nil {
-						adsLog.Warnf("ADS:CDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.node.ID, discReq.String())
 						errCode := codes.Code(discReq.ErrorDetail.Code)
+						adsLog.Warnf("ADS:CDS: ACK ERROR %v %s (%s) %s:%s", peerAddr, con.ConID, con.node.ID, errCode.String(), discReq.ErrorDetail.GetMessage())
 						incrementXDSRejects(cdsReject, con.node.ID, errCode.String())
 					} else if discReq.ResponseNonce != "" {
 						con.ClusterNonceAcked = discReq.ResponseNonce
@@ -255,8 +253,8 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				if con.LDSWatch {
 					// Already received a cluster watch request, this is an ACK
 					if discReq.ErrorDetail != nil {
-						adsLog.Warnf("ADS:LDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.node.ID, discReq.String())
 						errCode := codes.Code(discReq.ErrorDetail.Code)
+						adsLog.Warnf("ADS:LDS: ACK ERROR %v %s (%s) %s:%s", peerAddr, con.ConID, con.node.ID, errCode.String(), discReq.ErrorDetail.GetMessage())
 						incrementXDSRejects(ldsReject, con.node.ID, errCode.String())
 					} else if discReq.ResponseNonce != "" {
 						con.ListenerNonceAcked = discReq.ResponseNonce
@@ -274,13 +272,12 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 			case RouteType:
 				if discReq.ErrorDetail != nil {
-					adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.node.ID, discReq.String())
 					errCode := codes.Code(discReq.ErrorDetail.Code)
+					adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%s) %s:%s", peerAddr, con.ConID, con.node.ID, errCode.String(), discReq.ErrorDetail.GetMessage())
 					incrementXDSRejects(rdsReject, con.node.ID, errCode.String())
 					continue
 				}
 				routes := discReq.GetResourceNames()
-				var sortedRoutes []string
 				if discReq.ResponseNonce != "" {
 					con.mu.RLock()
 					routeNonceSent := con.RouteNonceSent
@@ -293,9 +290,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 						continue
 					}
 					if discReq.VersionInfo == routeVersionInfoSent {
-						sort.Strings(routes)
-						sortedRoutes = routes
-						if reflect.DeepEqual(con.Routes, sortedRoutes) {
+						if listEqualUnordered(con.Routes, routes) {
 							adsLog.Debugf("ADS:RDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.node.ID, discReq.VersionInfo, discReq.ResponseNonce)
 							con.mu.Lock()
 							con.RouteNonceAcked = discReq.ResponseNonce
@@ -305,8 +300,8 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					} else if discReq.ErrorDetail != nil {
 						// If versions mismatch then we should either have an error detail or no routes if a protocol error has occurred
 						if discReq.ErrorDetail != nil {
-							adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.node.ID, discReq.String())
 							errCode := codes.Code(discReq.ErrorDetail.Code)
+							adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%s) %s:%s", peerAddr, con.ConID, con.node.ID, errCode.String(), discReq.ErrorDetail.GetMessage())
 							incrementXDSRejects(rdsReject, con.node.ID, errCode.String())
 						}
 						continue
@@ -318,11 +313,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					}
 				}
 
-				if sortedRoutes == nil {
-					sort.Strings(routes)
-					sortedRoutes = routes
-				}
-				con.Routes = sortedRoutes
+				con.Routes = routes
 				adsLog.Debugf("ADS:RDS: REQ %s %s routes:%d", peerAddr, con.ConID, len(con.Routes))
 				err := s.pushRoute(con, s.globalPushContext(), versionInfo())
 				if err != nil {
@@ -331,8 +322,8 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 			case EndpointType:
 				if discReq.ErrorDetail != nil {
-					adsLog.Warnf("ADS:EDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.node.ID, discReq.String())
 					errCode := codes.Code(discReq.ErrorDetail.Code)
+					adsLog.Warnf("ADS:EDS: ACK ERROR %v %s (%s) %s:%s", peerAddr, con.ConID, con.node.ID, errCode.String(), discReq.ErrorDetail.GetMessage())
 					incrementXDSRejects(edsReject, con.node.ID, errCode.String())
 					continue
 				}
@@ -348,25 +339,21 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				if len(clusters) == 0 && len(con.Clusters) == 0 {
 					continue
 				}
-				if len(clusters) == len(con.Clusters) {
-					sort.Strings(clusters)
-					sort.Strings(con.Clusters)
 
-					// Already got a list of endpoints to watch and it is the same as the request, this is an ack
-					if reflect.DeepEqual(con.Clusters, clusters) {
-						adsLog.Debugf("ADS:EDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.node.ID, discReq.VersionInfo, discReq.ResponseNonce)
-						if discReq.ResponseNonce != "" {
-							con.mu.Lock()
-							edsClusterMutex.RLock()
-							con.EndpointNonceAcked = discReq.ResponseNonce
-							if len(edsClusters) != 0 {
-								con.EndpointPercent = int((float64(len(clusters)) / float64(len(edsClusters))) * float64(100))
-							}
-							edsClusterMutex.RUnlock()
-							con.mu.Unlock()
+				// Already got a list of endpoints to watch and it is the same as the request, this is an ack
+				if listEqualUnordered(con.Clusters, clusters) {
+					adsLog.Debugf("ADS:EDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.node.ID, discReq.VersionInfo, discReq.ResponseNonce)
+					if discReq.ResponseNonce != "" {
+						con.mu.Lock()
+						edsClusterMutex.RLock()
+						con.EndpointNonceAcked = discReq.ResponseNonce
+						if len(edsClusters) != 0 {
+							con.EndpointPercent = int((float64(len(clusters)) / float64(len(edsClusters))) * float64(100))
 						}
-						continue
+						edsClusterMutex.RUnlock()
+						con.mu.Unlock()
 					}
+					continue
 				}
 
 				for _, cn := range con.Clusters {
@@ -415,6 +402,24 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 			}
 		}
 	}
+}
+
+// listEqualUnordered checks that two lists contain all the same elements
+func listEqualUnordered(a []string, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	clusterSet := make(map[string]struct{}, len(a))
+	for _, c := range a {
+		clusterSet[c] = struct{}{}
+	}
+	for _, c := range b {
+		_, f := clusterSet[c]
+		if !f {
+			return false
+		}
+	}
+	return true
 }
 
 // update the node associated with the connection, after receiving a a packet from envoy.

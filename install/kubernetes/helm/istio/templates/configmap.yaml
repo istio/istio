@@ -124,6 +124,17 @@ data:
     # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
     trustDomain: {{ .Values.global.trustDomain | quote }}
 
+    #  The trust domain aliases represent the aliases of trust_domain.
+    #  For example, if we have
+    #  trustDomain: td1
+    #  trustDomainAliases: [“td2”, "td3"]
+    #  Any service with the identity "td1/ns/foo/sa/a-service-account", "td2/ns/foo/sa/a-service-account",
+    #  or "td3/ns/foo/sa/a-service-account" will be treated the same in the Istio mesh.
+    trustDomainAliases:
+      {{- range .Values.global.trustDomainAliases }}
+      - {{ . | quote }}
+      {{- end }}
+
     # If true, automatically configure client side mTLS settings to match the corresponding service's
     # server side mTLS authentication policy, when destination rule for that service does not specify
     # TLS settings.
@@ -171,6 +182,12 @@ data:
     {{- if $.Values.global.useMCP }}
     configSources:
     - address: istio-galley.{{ $.Release.Namespace }}.svc:9901
+      {{- if .Values.pilot.configSource.subscribedResources }}
+      subscribedResources:
+        {{- range .Values.pilot.configSource.subscribedResources }}
+        - {{ . }}
+        {{- end }}
+      {{- end}}
     {{- if $.Values.global.controlPlaneSecurityEnabled}}
       tlsSettings:
         mode: ISTIO_MUTUAL

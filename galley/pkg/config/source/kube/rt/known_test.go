@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/api/extensions/v1beta1"
 
+	appsV1 "k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -114,6 +115,21 @@ func TestParse(t *testing.T) {
 		}
 		g.Expect(objMeta.GetName()).To(Equal("kube-dns"))
 	})
+
+	t.Run("Deployment", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		input := data.GetDeployment()
+
+		objMeta, objResource := parse(t, []byte(input), "apps", "Deployment")
+
+		// Just validate a couple of things...
+		_, ok := objResource.(*appsV1.Deployment)
+		if !ok {
+			t.Fatal("failed casting item to Deployment")
+		}
+		g.Expect(objMeta.GetName()).To(Equal("httpbin"))
+	})
+
 }
 
 func TestExtractObject(t *testing.T) {
@@ -186,6 +202,8 @@ func empty(kind string) metaV1.Object {
 		return &coreV1.Namespace{}
 	case "Ingress":
 		return &v1beta1.Ingress{}
+	case "Deployment":
+		return &appsV1.Deployment{}
 	default:
 		panic(fmt.Sprintf("unsupported kind: %v", kind))
 	}

@@ -30,8 +30,8 @@ import (
 var configMapLog = log.RegisterScope("configMapController", "ConfigMap controller log", 0)
 
 const (
-	istioSecurityConfigMapName = "istio-security"
-	caTLSRootCertName          = "caTLSRootCert"
+	IstioSecurityConfigMapName = "istio-security"
+	CATLSRootCertName          = "caTLSRootCert"
 )
 
 // Controller manages the CA TLS root cert in ConfigMap.
@@ -50,14 +50,14 @@ func NewController(namespace string, core corev1.CoreV1Interface) *Controller {
 
 // InsertCATLSRootCert updates the CA TLS root certificate in the configmap.
 func (c *Controller) InsertCATLSRootCert(value string) error {
-	configmap, err := c.core.ConfigMaps(c.namespace).Get(istioSecurityConfigMapName, metav1.GetOptions{})
+	configmap, err := c.core.ConfigMaps(c.namespace).Get(IstioSecurityConfigMapName, metav1.GetOptions{})
 	exists := true
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Create a new ConfigMap.
 			configmap = &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      istioSecurityConfigMapName,
+					Name:      IstioSecurityConfigMapName,
 					Namespace: c.namespace,
 				},
 				Data: map[string]string{},
@@ -67,7 +67,7 @@ func (c *Controller) InsertCATLSRootCert(value string) error {
 			return fmt.Errorf("failed to insert CA TLS root cert: %v", err)
 		}
 	}
-	configmap.Data[caTLSRootCertName] = value
+	configmap.Data[CATLSRootCertName] = value
 	if exists {
 		if _, err = c.core.ConfigMaps(c.namespace).Update(configmap); err != nil {
 			return fmt.Errorf("failed to insert CA TLS root cert: %v", err)
@@ -107,14 +107,14 @@ func (c *Controller) InsertCATLSRootCertWithRetry(value string, retryInterval,
 
 // GetCATLSRootCert gets the CA TLS root certificate from the configmap.
 func (c *Controller) GetCATLSRootCert() (string, error) {
-	configmap, err := c.core.ConfigMaps(c.namespace).Get(istioSecurityConfigMapName, metav1.GetOptions{})
+	configmap, err := c.core.ConfigMaps(c.namespace).Get(IstioSecurityConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return "", fmt.Errorf("failed to get CA TLS root cert: %v", err)
 	}
-	rootCert := configmap.Data[caTLSRootCertName]
+	rootCert := configmap.Data[CATLSRootCertName]
 	if rootCert == "" {
 		return "", fmt.Errorf("failed to get CA TLS root cert from configmap %s:%s",
-			istioSecurityConfigMapName, caTLSRootCertName)
+			IstioSecurityConfigMapName, CATLSRootCertName)
 	}
 
 	return rootCert, nil

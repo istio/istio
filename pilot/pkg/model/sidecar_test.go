@@ -88,6 +88,25 @@ var (
 		},
 	}
 
+	configs4 = &Config{
+		ConfigMeta: ConfigMeta{
+			Name:      "foo",
+			Namespace: "not-default",
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Number:   8000,
+						Protocol: "HTTP",
+						Name:     "uds",
+					},
+					Hosts: []string{"foo/*"},
+				},
+			},
+		},
+	}
+
 	services1 = []*Service{
 		{Hostname: "bar"},
 	}
@@ -111,6 +130,24 @@ var (
 	services4 = []*Service{
 		{Hostname: "bar"},
 		{Hostname: "barprime"},
+	}
+
+	services5 = []*Service{
+		{
+			Hostname: "bar",
+			Ports:    port8000,
+			Attributes: ServiceAttributes{
+				Name:      "bar",
+				Namespace: "foo",
+			},
+		},
+		{
+			Hostname: "barprime",
+			Attributes: ServiceAttributes{
+				Name:      "barprime",
+				Namespace: "foo",
+			},
+		},
 	}
 )
 
@@ -188,6 +225,12 @@ func TestCreateSidecarScope(t *testing.T) {
 			configs3,
 			services4,
 			[]string{"bar", "barprime"},
+		},
+		{
+			"sidecar-with-egress-port-match-with-services-with-and-without-port",
+			configs4,
+			services5,
+			[]string{"bar"},
 		},
 	}
 
@@ -427,7 +470,7 @@ func TestContainsEgressNamespace(t *testing.T) {
 
 			got := sidecarScope.DependsOnNamespace(tt.namespace)
 			if got != tt.contains {
-				t.Fatalf("Expected contains %v, got %v", got, tt.contains)
+				t.Fatalf("Expected contains %v, got %v", tt.contains, got)
 			}
 		})
 	}

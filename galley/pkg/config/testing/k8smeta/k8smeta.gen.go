@@ -85,6 +85,10 @@ collections:
     proto: "k8s.io.api.extensions.v1beta1.IngressSpec"
     protoPackage: "k8s.io/api/extensions/v1beta1"
 
+  - name: "k8s/apps/v1/deployments"
+    proto: "k8s.io.api.apps.v1.Deployment"
+    protoPackage: "k8s.io/api/apps/v1"
+
 # Configuration for input sources
 sources:
   # Kubernetes specific configuration.
@@ -120,6 +124,12 @@ sources:
         kind: "Endpoints"
         plural: "endpoints"
         version: "v1"
+
+      - collection: "k8s/apps/v1/deployments"
+        kind: "Deployment"
+        plural: "deployments"
+        group: "apps"
+        version: "apps/v1"
 
 
 # Transform specific configurations

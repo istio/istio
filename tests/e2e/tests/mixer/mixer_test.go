@@ -482,7 +482,7 @@ func checkMetricReport(t *testing.T, name, label, labelValue string) {
 	t.Log("establishing metrics baseline for test...")
 	query := fmt.Sprintf("%s{%s=\"%s\"}", name, label, labelValue)
 	t.Logf("prometheus query: %s", query)
-	value, err := promAPI.Query(context.Background(), query, time.Now())
+	value, _, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
 		t.Fatalf("Could not get metrics from prometheus: %v", err)
 	}
@@ -506,7 +506,7 @@ func checkMetricReport(t *testing.T, name, label, labelValue string) {
 
 	query = fmt.Sprintf("%s{%s=\"%s\",%s=\"200\"}", name, label, labelValue, responseCodeLabel)
 	t.Logf("prometheus query: %s", query)
-	value, err = promAPI.Query(context.Background(), query, time.Now())
+	value, _, err = promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
 		fatalf(t, "Could not get metrics from prometheus: %v", err)
 	}
@@ -578,7 +578,7 @@ func validateMetric(t *testing.T, promAPI v1.API, query, metricName string, want
 	retryFn := func(_ context.Context, i int) error {
 		t.Helper()
 		t.Logf("Trying to find metrics via promql (attempt %d)...", i)
-		value, err := promAPI.Query(context.Background(), query, time.Now())
+		value, _, err := promAPI.Query(context.Background(), query, time.Now())
 		if err != nil {
 			errorf(t, "Could not get metrics from prometheus: %v", err)
 			return err
@@ -688,7 +688,7 @@ func TestKubeenvMetrics(t *testing.T) {
 	// instead of trying to find an exact match, we'll loop through all successful requests to ensure no values are "unknown"
 	query := fmt.Sprintf("istio_kube_request_count{%s=\"200\"}", responseCodeLabel)
 	t.Logf("prometheus query: %s", query)
-	value, err := promAPI.Query(context.Background(), query, time.Now())
+	value, _, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
 		fatalf(t, "Could not get metrics from prometheus: %v", err)
 	}
@@ -979,7 +979,7 @@ func TestFaultInjectionTelemetry(t *testing.T) {
 		t.Logf("Trying to find metrics via promql (attempt %d)...", i)
 		fiReqsQuery := `sum(istio_requests_total{response_code="555", response_flags="FI"}) by (destination_workload, destination_app)`
 		t.Logf("prometheus query: %s", fiReqsQuery)
-		result, err := promAPI.Query(context.Background(), fiReqsQuery, time.Now())
+		result, _, err := promAPI.Query(context.Background(), fiReqsQuery, time.Now())
 		if err != nil {
 			return fmt.Errorf("could not get results for query: %s: %v", fiReqsQuery, err)
 		}
@@ -1180,7 +1180,7 @@ func mixerRequests(promAPI v1.API, svcName, app string) (float64, error) {
 }
 
 func queryValue(promAPI v1.API, query string) (float64, error) {
-	value, err := promAPI.Query(context.Background(), query, time.Now())
+	value, _, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
 		return 0, fmt.Errorf("could not get results for query: %s: %v", query, err)
 	}
@@ -1209,7 +1209,7 @@ func TestMixerReportingToMixer(t *testing.T) {
 	t.Logf("Validating metrics with 'istio-policy' have been generated... ")
 	query := fmt.Sprintf("sum(istio_requests_total{%s=\"%s\"}) by (%s)", destLabel, fqdn("istio-policy"), srcLabel)
 	t.Logf("Prometheus query: %s", query)
-	value, err := promAPI.Query(context.Background(), query, time.Now())
+	value, _, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
 		t.Fatalf("Could not get metrics from prometheus: %v", err)
 	}
@@ -1226,7 +1226,7 @@ func TestMixerReportingToMixer(t *testing.T) {
 	t.Logf("Validating metrics with 'istio-telemetry' have been generated... ")
 	query = fmt.Sprintf("sum(istio_requests_total{%s=\"%s\"}) by (%s)", destLabel, fqdn("istio-telemetry"), srcLabel)
 	t.Logf("Prometheus query: %s", query)
-	value, err = promAPI.Query(context.Background(), query, time.Now())
+	value, _, err = promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
 		t.Fatalf("Could not get metrics from prometheus: %v", err)
 	}
@@ -1262,7 +1262,7 @@ func promAPI() (v1.API, error) {
 // promDump gets all of the recorded values for a metric by name and generates a report of the values.
 // used for debugging of failures to provide a comprehensive view of traffic experienced.
 func promDump(client v1.API, metric string) string {
-	if value, err := client.Query(context.Background(), fmt.Sprintf("%s{}", metric), time.Now()); err == nil {
+	if value, _, err := client.Query(context.Background(), fmt.Sprintf("%s{}", metric), time.Now()); err == nil {
 		return value.String()
 	}
 	return ""
@@ -1412,7 +1412,7 @@ func getCheckCacheHits(promAPI v1.API, app string) (float64, error) {
 	log.Info("Get number of cached check calls")
 	query := fmt.Sprintf("sum(envoy_http_mixer_filter_total_check_calls{app=\"%s\"})", app)
 	log.Infof("prometheus query: %s", query)
-	value, err := promAPI.Query(context.Background(), query, time.Now())
+	value, _, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
 		log.Infof("Could not get remote check calls metric from prometheus: %v", err)
 		return 0, nil
@@ -1425,7 +1425,7 @@ func getCheckCacheHits(promAPI v1.API, app string) (float64, error) {
 
 	query = fmt.Sprintf("sum(envoy_http_mixer_filter_total_remote_check_calls{app=\"%s\"})", app)
 	log.Infof("prometheus query: %s", query)
-	value, err = promAPI.Query(context.Background(), query, time.Now())
+	value, _, err = promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
 		log.Infof("Could not get remote check calls metric from prometheus: %v", err)
 		return 0, nil

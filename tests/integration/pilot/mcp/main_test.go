@@ -12,11 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package rbac
+package mcp
 
 import (
 	"testing"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/galley"
@@ -27,29 +29,34 @@ import (
 )
 
 var (
-	inst          istio.Instance
-	g             galley.Instance
-	p             pilot.Instance
-	isMtlsEnabled bool
-	rootNamespace string
+	i istio.Instance
+	g galley.Instance
+	p pilot.Instance
 )
 
-const (
-	rbacClusterConfigTmpl = "testdata/clusterrbacconfig.yaml"
-)
-
+// TestMain defines the entrypoint for pilot tests using a standard Istio installation.
+// If a test requires a custom install it should go into its own package, otherwise it should go
+// here to reuse a single install across tests.
 func TestMain(m *testing.M) {
+	meshCfg := mesh.DefaultMeshConfig()
 	framework.
-		NewSuite("rbac", m).
-		RequireEnvironment(environment.Kube).
+		NewSuite("mcp_test", m).
 		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
+		SetupOnEnv(environment.Kube, istio.Setup(&i, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {
 			if g, err = galley.New(ctx, galley.Config{}); err != nil {
 				return err
 			}
+			galleyHostPort := g.Address()[6:]
+			meshCfg.ConfigSources = []*meshconfig.ConfigSource{
+				{
+					Address:             galleyHostPort,
+					SubscribedResources: []meshconfig.Resource{meshconfig.Resource_SERVICE_REGISTRY},
+				},
+			}
 			if p, err = pilot.New(ctx, pilot.Config{
-				Galley: g,
+				Galley:     g,
+				MeshConfig: &meshCfg,
 			}); err != nil {
 				return err
 			}
@@ -62,7 +69,6 @@ func setupConfig(cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	isMtlsEnabled = cfg.IsMtlsEnabled()
-	cfg.Values["sidecarInjectorWebhook.rewriteAppHTTPProbe"] = "true"
-	rootNamespace = cfg.SystemNamespace
+	cfg.Values["galley.enableServiceDiscovery"] = "true"
+	cfg.Values["pilot.configSource.subscribedResources[0]"] = "SERVICE_REGISTRY"
 }

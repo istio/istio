@@ -26,15 +26,17 @@ import (
 )
 
 var (
-	ist istio.Instance
-	g   galley.Instance
-	p   pilot.Instance
+	ist           istio.Instance
+	g             galley.Instance
+	p             pilot.Instance
+	isMtlsEnabled bool
+	rootNamespace string
 )
 
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("security", m).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
+		SetupOnEnv(environment.Kube, istio.Setup(&ist, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {
 			if g, err = galley.New(ctx, galley.Config{}); err != nil {
 				return err
@@ -47,4 +49,12 @@ func TestMain(m *testing.M) {
 			return nil
 		}).
 		Run()
+}
+
+func setupConfig(cfg *istio.Config) {
+	if cfg == nil {
+		return
+	}
+	isMtlsEnabled = cfg.IsMtlsEnabled()
+	rootNamespace = cfg.SystemNamespace
 }

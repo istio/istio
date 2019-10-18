@@ -17,4 +17,6 @@ package resource
 // Origin of a resource. This is source-implementation dependent.
 type Origin interface {
 	FriendlyName() string
+
+	Namespace() string
 }

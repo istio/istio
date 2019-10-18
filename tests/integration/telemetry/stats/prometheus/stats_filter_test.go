@@ -89,8 +89,8 @@ func buildQuery() (sourceQuery, destinationQuery string) {
 		"response_code":                  "200",
 		"destination_app":                "reviews",
 		"destination_version":            "v1",
-		"destination_service":            "reviews:9080",
-		"destination_service_name":       "reviews-v1",
+		"destination_service":            "reviews." + bookinfoNsInst.Name() + ".svc.cluster.local",
+		"destination_service_name":       "reviews",
 		"destination_workload_namespace": bookinfoNsInst.Name(),
 		"destination_service_namespace":  bookinfoNsInst.Name(),
 		"source_app":                     "productpage",
@@ -115,8 +115,6 @@ func TestStatsFilter(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			// TODO(bianpengyuan) https://github.com/istio/istio/issues/17811
-			ctx.Skip()
 			ingress := getIngressInstance()
 			addr := ingress.HTTPAddress()
 			url := fmt.Sprintf("http://%s/productpage", addr.String())

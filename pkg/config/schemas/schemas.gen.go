@@ -48,6 +48,19 @@ var (
 		VariableName:  "ServiceEntry",
 	}
 
+	// SyntheticServiceEntry describes synthetic service entries
+	SyntheticServiceEntry = schema.Instance{
+		Type:          "synthetic-service-entry",
+		Plural:        "synthetic-service-entries",
+		Group:         "networking",
+		Version:       "v1alpha3",
+		MessageName:   "istio.networking.v1alpha3.ServiceEntry",
+		Validate:      validation.ValidateSyntheticServiceEntry,
+		Collection:    "istio/networking/v1alpha3/synthetic/serviceentries",
+		ClusterScoped: true,
+		VariableName:  "SyntheticServiceEntry",
+	}
+
 	// DestinationRule describes destination rules
 	DestinationRule = schema.Instance{
 		Type:          "destination-rule",
@@ -238,6 +251,7 @@ var (
 		VirtualService,
 		Gateway,
 		ServiceEntry,
+		SyntheticServiceEntry,
 		DestinationRule,
 		EnvoyFilter,
 		Sidecar,
