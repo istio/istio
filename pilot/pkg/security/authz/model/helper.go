@@ -38,7 +38,7 @@ func principalTag(tag string) string {
 
 func simplePrincipal(tag string) Principal {
 	return Principal{
-		User: principalTag(tag),
+		Users: []string{principalTag(tag)},
 	}
 }
 
@@ -63,7 +63,7 @@ func fullPermission(tag string) Permission {
 
 func fullPrincipal(tag string) Principal {
 	return Principal{
-		User:          "user-" + tag,
+		Users:         []string{"users-" + tag},
 		Names:         []string{"names-" + tag},
 		NotNames:      []string{"not-names-" + tag},
 		Group:         "group-" + tag,
@@ -103,7 +103,7 @@ func fullRule(tag string) *istio_rbac.AccessRule {
 
 func fullSubject(tag string) *istio_rbac.Subject {
 	return &istio_rbac.Subject{
-		User:          "user-" + tag,
+		User:          "users-" + tag,
 		Names:         []string{"names-" + tag},
 		NotNames:      []string{"not-names-" + tag},
 		Group:         "group-" + tag,

@@ -5,11 +5,12 @@ enabled: false
 image: node-agent-k8s
 env:
   # name of authentication provider.
-  CA_PROVIDER: ""
+  CA_PROVIDER: "Citadel"
   # CA endpoint.
-  CA_ADDR: ""  
+  CA_ADDR: "istio-citadel:8060"
   # names of authentication provider's plugins.
   PLUGINS: ""
+  VALID_TOKEN: true
 nodeSelector: {}
 tolerations: []
 

@@ -1206,6 +1206,31 @@ func TestOutboundListenerAccessLogs(t *testing.T) {
 	}
 }
 
+func TestHttpProxyListener(t *testing.T) {
+	p := &fakePlugin{}
+	configgen := NewConfigGenerator([]plugin.Plugin{p})
+
+	env := buildListenerEnv(nil)
+	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
+		t.Fatalf("error in initializing push context: %s", err)
+	}
+
+	proxy.ServiceInstances = nil
+	env.Mesh.ProxyHttpPort = 15007
+	proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
+	httpProxy := configgen.buildHTTPProxy(&env, &proxy, env.PushContext, nil)
+	f := httpProxy.FilterChains[0].Filters[0]
+	cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
+
+	if httpProxy.Address.GetSocketAddress().GetPortValue() != 15007 {
+		t.Fatalf("expected http proxy is not listening on %d, but on port %d", env.Mesh.ProxyHttpPort,
+			httpProxy.Address.GetSocketAddress().GetPortValue())
+	}
+	if !strings.HasPrefix(cfg.Fields["stat_prefix"].GetStringValue(), "outbound_") {
+		t.Fatalf("expected http proxy stat prefix to have outbound, %s", cfg.Fields["stat_prefix"].GetStringValue())
+	}
+}
+
 func verifyOutboundTCPListenerHostname(t *testing.T, l *xdsapi.Listener, hostname host.Name) {
 	t.Helper()
 	if len(l.FilterChains) != 1 {

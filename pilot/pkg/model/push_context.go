@@ -778,7 +778,7 @@ func (ps *PushContext) updateContext(
 
 	for k := range pushReq.ConfigTypesUpdated {
 		switch k {
-		case schemas.ServiceEntry.Type:
+		case schemas.ServiceEntry.Type, schemas.SyntheticServiceEntry.Type:
 			servicesChanged = true
 		case schemas.DestinationRule.Type:
 			destinationRulesChanged = true

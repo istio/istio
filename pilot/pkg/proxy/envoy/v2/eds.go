@@ -23,7 +23,6 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
-	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	networkingapi "istio.io/api/networking/v1alpha3"
@@ -97,7 +96,9 @@ func loadAssignment(c *EdsCluster) *xdsapi.ClusterLoadAssignment {
 }
 
 // buildEnvoyLbEndpoint packs the endpoint based on istio info.
-func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string, port uint32, network string, weight uint32) *endpoint.LbEndpoint {
+func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string, port uint32,
+	network string, weight uint32, mtlsReady bool) *endpoint.LbEndpoint {
+
 	var addr core.Address
 	switch family {
 	case model.AddressFamilyTCP:
@@ -131,13 +132,14 @@ func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string
 	}
 
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
-	// Do not remove: mixerfilter depends on this logic.
-	ep.Metadata = endpointMetadata(uid, network)
+	// Istio endpoint level tls transport socket configuation depends on this logic
+	// Do not remove
+	ep.Metadata = util.BuildLbEndpointMetadata(uid, network, mtlsReady)
 
 	return ep
 }
 
-func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpoint, error) {
+func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint, mtlsReady bool) (*endpoint.LbEndpoint, error) {
 	err := model.ValidateNetworkEndpointAddress(e)
 	if err != nil {
 		return nil, err
@@ -161,35 +163,11 @@ func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpo
 	}
 
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
-	// Do not remove: mixerfilter depends on this logic.
-	ep.Metadata = endpointMetadata(e.UID, e.Network)
+	// Istio endpoint level tls transport socket configuation depends on this logic
+	// Do not remove
+	ep.Metadata = util.BuildLbEndpointMetadata(e.UID, e.Network, mtlsReady)
 
 	return ep, nil
-}
-
-// Create an Istio filter metadata object with the UID and Network fields (if exist).
-func endpointMetadata(uid string, network string) *core.Metadata {
-	if uid == "" && network == "" {
-		return nil
-	}
-
-	metadata := &core.Metadata{
-		FilterMetadata: map[string]*structpb.Struct{
-			util.IstioMetadataKey: {
-				Fields: map[string]*structpb.Value{},
-			},
-		},
-	}
-
-	if uid != "" {
-		metadata.FilterMetadata[util.IstioMetadataKey].Fields["uid"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: uid}}
-	}
-
-	if network != "" {
-		metadata.FilterMetadata[util.IstioMetadataKey].Fields["network"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: network}}
-	}
-
-	return metadata
 }
 
 // Determine Service associated with a hostname when there is no Sidecar scope. Which namespace the service comes from
@@ -321,6 +299,7 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 						Locality:        ep.GetLocality(),
 						LbWeight:        ep.Endpoint.LbWeight,
 						Attributes:      ep.Service.Attributes,
+						MTLSReady:       ep.MTLSReady,
 					})
 				}
 			}
@@ -465,11 +444,11 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 			if svcShards == 0 {
 				delete(s.EndpointShardsByService[serviceName], namespace)
 			}
-			adsLog.Infof("Full push, service %s has no endpoints", serviceName)
+			adsLog.Infof("Incremental push, service %s has no endpoints", serviceName)
 			s.ConfigUpdate(&model.PushRequest{
-				Full:               true,
-				NamespacesUpdated:  map[string]struct{}{namespace: {}},
-				ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
+				Full:              false,
+				NamespacesUpdated: map[string]struct{}{namespace: {}},
+				EdsUpdates:        map[string]struct{}{serviceName: {}},
 			})
 		}
 		return
@@ -516,6 +495,7 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 			}
 		}
 	}
+
 	ep.mutex.Lock()
 	ep.Shards[clusterID] = istioEndpoints
 	ep.mutex.Unlock()
@@ -544,7 +524,7 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []*endpoint.LocalityLbEndpoints {
 	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
 	for _, instance := range instances {
-		lbEp, err := networkEndpointToEnvoyEndpoint(&instance.Endpoint)
+		lbEp, err := networkEndpointToEnvoyEndpoint(&instance.Endpoint, instance.MTLSReady)
 		if err != nil {
 			adsLog.Errorf("EDS: Unexpected pilot model endpoint v1 to v2 conversion: %v", err)
 			totalXDSInternalErrors.Increment()
@@ -868,12 +848,13 @@ func buildLocalityLbEndpointsFromShards(
 			locLbEps, found := localityEpMap[ep.Locality]
 			if !found {
 				locLbEps = &endpoint.LocalityLbEndpoints{
-					Locality: util.ConvertLocality(ep.Locality),
+					Locality:    util.ConvertLocality(ep.Locality),
+					LbEndpoints: make([]*endpoint.LbEndpoint, 0, len(endpoints)),
 				}
 				localityEpMap[ep.Locality] = locLbEps
 			}
 			if ep.EnvoyEndpoint == nil {
-				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep.UID, ep.Family, ep.Address, ep.EndpointPort, ep.Network, ep.LbWeight)
+				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep.UID, ep.Family, ep.Address, ep.EndpointPort, ep.Network, ep.LbWeight, ep.MTLSReady)
 			}
 			locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, ep.EnvoyEndpoint)
 
