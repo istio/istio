@@ -48,7 +48,6 @@ var (
 	verbose              bool
 	targetSchemaInstance configschema.Instance
 	clientGetter         func(string, string) (dynamic.Interface, error)
-
 )
 
 const pollInterval = time.Second

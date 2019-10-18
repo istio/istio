@@ -17,12 +17,13 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
+	"testing"
+
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/fake"
-	"strings"
-	"testing"
 
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 )
@@ -100,8 +101,8 @@ func newUnstructured(apiVersion, kind, namespace, name, resourceVersion string) 
 			"apiVersion": apiVersion,
 			"kind":       kind,
 			"metadata": map[string]interface{}{
-				"namespace": namespace,
-				"name":      name,
+				"namespace":       namespace,
+				"name":            name,
 				"resourceVersion": resourceVersion,
 			},
 		},
