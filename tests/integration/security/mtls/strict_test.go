@@ -39,7 +39,7 @@ func TestMtlsStrict(t *testing.T) {
 
 			testCases := []reachability.TestCase{
 				{
-					ConfigFile:          "global-plaintext.yaml",
+					ConfigFile:          "global-mtls-on-no-dr.yaml",
 					Namespace:           systemNM,
 					RequiredEnvironment: environment.Kube,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
@@ -51,8 +51,15 @@ func TestMtlsStrict(t *testing.T) {
 						return true
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						// When mTLS is disabled, all traffic should work
-						return true
+						// When mTLS is in STRICT mode, DR's TLS settings are default to mTLS so the result would
+						// be the same as having global DR rule.
+						if opts.Target == rctx.Naked {
+							// calls to naked should always succeed.
+							return true
+						}
+
+						// If source is naked, and destination is not, expect failure.
+						return !(src == rctx.Naked && opts.Target != rctx.Naked)
 					},
 				},
 			}
