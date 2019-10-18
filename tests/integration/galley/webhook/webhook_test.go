@@ -102,39 +102,6 @@ func TestWebhook(t *testing.T) {
 					}
 				})
 
-			// Verify that scaling up/down doesn't modify webhook configuration
-			ctx.NewSubTest("scaling").
-				Run(func(ctx framework.TestContext) {
-					startGen := getVwcGeneration(vwcName, t, env)
-
-					// Scale up
-					scaleDeployment(istioNs, deployName, 2, t, env)
-					// Wait a bit to give the ValidatingWebhookConfiguration reconcile loop an opportunity to act
-					time.Sleep(sleepDelay)
-					gen := getVwcGeneration(vwcName, t, env)
-					if gen != startGen {
-						t.Fatalf("ValidatingWebhookConfiguration was updated unexpectedly on scale up to 2")
-					}
-
-					// Scale down to zero
-					scaleDeployment(istioNs, deployName, 0, t, env)
-					// Wait a bit to give the ValidatingWebhookConfiguration reconcile loop an opportunity to act
-					time.Sleep(sleepDelay)
-					gen = getVwcGeneration(vwcName, t, env)
-					if gen != startGen {
-						t.Fatalf("ValidatingWebhookConfiguration was updated unexpectedly on scale down to zero")
-					}
-
-					// Scale back to 1
-					scaleDeployment(istioNs, deployName, 1, t, env)
-					// Wait a bit to give the ValidatingWebhookConfiguration reconcile loop an opportunity to act
-					time.Sleep(sleepDelay)
-					gen = getVwcGeneration(vwcName, t, env)
-					if gen != startGen {
-						t.Fatalf("ValidatingWebhookConfiguration was updated unexpectedly on scale up back to 1")
-					}
-				})
-
 			// Verify that the webhook's key and cert are reloaded, e.g. on rotation
 			ctx.NewSubTest("key/cert reload").
 				Run(func(ctx framework.TestContext) {
@@ -207,7 +174,7 @@ func startGalleyPortForwarderOrDie(t *testing.T, env *kube.Environment, ns strin
 	if len(pods) == 0 {
 		t.Fatal("no galley pods found")
 	}
-	forwarder, err := env.Accessor.NewPortForwarder(pods[0], 0, 443)
+	forwarder, err := env.Accessor.NewPortForwarder(pods[0], 0, 9443)
 	if err != nil {
 		t.Fatalf("failed creating port forwarding to galley: %v", err)
 	}
@@ -225,6 +192,7 @@ func startGalleyPortForwarderOrDie(t *testing.T, env *kube.Environment, ns strin
 
 func fetchWebhookCertSerialNumbersOrDie(t *testing.T, addr string) []string {
 	t.Helper()
+
 	client := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
@@ -236,7 +204,7 @@ func fetchWebhookCertSerialNumbersOrDie(t *testing.T, addr string) []string {
 		},
 	}
 
-	url := fmt.Sprintf("%v/admitpilot", addr)
+	url := fmt.Sprintf("https://%v/admitpilot", addr)
 	req, err := http.NewRequest("POST", url, nil)
 	if err != nil {
 		t.Fatalf("iunvalid request: %v", err)
