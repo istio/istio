@@ -26,10 +26,12 @@ import (
 // TODO(pitlv2109): Add unit tests with trust domain aliases.
 func TestV1beta1Generator_Generate(t *testing.T) {
 	testCases := []struct {
-		name         string
-		policies     []model.Config
-		wantRules    map[string][]string
-		forTCPFilter bool
+		name               string
+		policies           []model.Config
+		trustDomain        string
+		trustDomainAliases []string
+		wantRules          map[string][]string
+		forTCPFilter       bool
 	}{
 		{
 			name: "no policy",
@@ -37,26 +39,38 @@ func TestV1beta1Generator_Generate(t *testing.T) {
 		{
 			name: "one policy",
 			policies: []model.Config{
-				*policy.SimpleAuthzPolicy("default", "foo"),
+				*policy.SimpleAuthzPolicy("default", "foo",
+					[]string{policy.CustomPrincipal("cluster.local", "foo", "bar")}),
 			},
+			trustDomain:        "td",
+			trustDomainAliases: []string{"cluster.local"},
 			wantRules: map[string][]string{
 				"ns[foo]-policy[default]-rule[0]": {
-					policy.AuthzPolicyTag("default"),
+					policy.CustomPrincipal("td", "foo", "bar"),
+					policy.CustomPrincipal("cluster.local", "foo", "bar"),
 				},
 			},
 		},
 		{
 			name: "two policies",
 			policies: []model.Config{
-				*policy.SimpleAuthzPolicy("default", "foo"),
-				*policy.SimpleAuthzPolicy("default", "istio-system"),
+				*policy.SimpleAuthzPolicy("default", "foo",
+					[]string{policy.CustomPrincipal("cluster.local", "foo", "bar")}),
+				*policy.SimpleAuthzPolicy("default", "istio-system",
+					[]string{policy.CustomPrincipal("td1", "foo", "boo")}),
 			},
+			trustDomain:        "td2",
+			trustDomainAliases: []string{"cluster.local", "td1"},
 			wantRules: map[string][]string{
 				"ns[foo]-policy[default]-rule[0]": {
-					policy.AuthzPolicyTag("default"),
+					policy.CustomPrincipal("td2", "foo", "bar"),
+					policy.CustomPrincipal("cluster.local", "foo", "bar"),
+					policy.CustomPrincipal("td1", "foo", "bar"),
 				},
 				"ns[istio-system]-policy[default]-rule[0]": {
-					policy.AuthzPolicyTag("default"),
+					policy.CustomPrincipal("td2", "foo", "boo"),
+					policy.CustomPrincipal("cluster.local", "foo", "boo"),
+					policy.CustomPrincipal("td1", "foo", "boo"),
 				},
 			},
 		},
@@ -64,7 +78,7 @@ func TestV1beta1Generator_Generate(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			g := NewGenerator("", nil, tc.policies)
+			g := NewGenerator(tc.trustDomain, tc.trustDomainAliases, tc.policies)
 			if g == nil {
 				t.Fatal("failed to create generator")
 			}
