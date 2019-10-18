@@ -15,14 +15,25 @@
 package galley
 
 import (
+	"crypto/tls"
+	"errors"
+	"fmt"
+	"net"
+	"net/http"
+	"sort"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
+	v1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -92,37 +103,38 @@ func TestWebhook(t *testing.T) {
 					}
 				})
 
-			// Verify that scaling up/down doesn't modify webhook configuration
-			ctx.NewSubTest("scaling").
+			// Verify that the webhook's key and cert are reloaded, e.g. on rotation
+			ctx.NewSubTest("key/cert reload").
 				Run(func(ctx framework.TestContext) {
-					startGen := getVwcGeneration(vwcName, t, env)
+					addr, done := startGalleyPortForwarderOrFail(t, env, istioNs)
+					defer done()
 
-					// Scale up
-					scaleDeployment(istioNs, deployName, 2, t, env)
-					// Wait a bit to give the ValidatingWebhookConfiguration reconcile loop an opportunity to act
-					time.Sleep(sleepDelay)
-					gen := getVwcGeneration(vwcName, t, env)
-					if gen != startGen {
-						t.Fatalf("ValidatingWebhookConfiguration was updated unexpectedly on scale up to 2")
+					client := &http.Client{
+						Transport: &http.Transport{
+							TLSClientConfig: &tls.Config{
+								InsecureSkipVerify: true,
+							},
+							DialContext: (&net.Dialer{
+								Timeout: 30 * time.Second,
+							}).DialContext,
+						},
 					}
+					defer client.CloseIdleConnections()
 
-					// Scale down to zero
-					scaleDeployment(istioNs, deployName, 0, t, env)
-					// Wait a bit to give the ValidatingWebhookConfiguration reconcile loop an opportunity to act
-					time.Sleep(sleepDelay)
-					gen = getVwcGeneration(vwcName, t, env)
-					if gen != startGen {
-						t.Fatalf("ValidatingWebhookConfiguration was updated unexpectedly on scale down to zero")
-					}
+					startingSN := fetchWebhookCertSerialNumbersOrFail(t, client, addr)
 
-					// Scale back to 1
-					scaleDeployment(istioNs, deployName, 1, t, env)
-					// Wait a bit to give the ValidatingWebhookConfiguration reconcile loop an opportunity to act
-					time.Sleep(sleepDelay)
-					gen = getVwcGeneration(vwcName, t, env)
-					if gen != startGen {
-						t.Fatalf("ValidatingWebhookConfiguration was updated unexpectedly on scale up back to 1")
-					}
+					log.Infof("Initial cert serial numbers: %v", startingSN)
+
+					env.DeleteSecret(istioNs, "istio.istio-galley-service-account")
+
+					retry.UntilSuccessOrFail(t, func() error {
+						updated := fetchWebhookCertSerialNumbersOrFail(t, client, addr)
+						if diff := cmp.Diff(startingSN, updated); diff != "" {
+							log.Infof("Updated cert serial numbers: %v", updated)
+							return nil
+						}
+						return errors.New("no change to cert serial numbers")
+					}, retry.Timeout(5*time.Minute))
 				})
 
 			// NOTE: Keep this as the last test! It deletes the istio-system namespaces. All subsequent kube tests will fail.
@@ -162,6 +174,66 @@ func getVwcResourceVersion(vwcName string, t *testing.T, env *kube.Environment) 
 		t.Fatalf("Could not get validating webhook webhook config %s: %v", vwcName, err)
 	}
 	return vwc.GetResourceVersion()
+}
+
+func startGalleyPortForwarderOrFail(t *testing.T, env *kube.Environment, ns string) (addr string, done func()) {
+	t.Helper()
+
+	fetchFunc := env.Accessor.NewSinglePodFetch(ns, "app=galley")
+	var galleyPod *v1.Pod
+	retry.UntilSuccessOrFail(t, func() error {
+		pods, err := env.Accessor.WaitUntilPodsAreReady(fetchFunc)
+		if err != nil {
+			return err
+		}
+		if len(pods) != 1 {
+			return fmt.Errorf("%v pods found, waiting for only one", len(pods))
+		}
+		galleyPod = &pods[0]
+		return nil
+	}, retry.Timeout(5*time.Minute))
+
+	forwarder, err := env.Accessor.NewPortForwarder(*galleyPod, 0, 9443)
+	if err != nil {
+		t.Fatalf("failed creating port forwarding to galley: %v", err)
+	}
+	if err := forwarder.Start(); err != nil {
+		t.Fatalf("failed to start port forwarding: %v", err)
+	}
+
+	done = func() {
+		if err := forwarder.Close(); err != nil {
+			t.Errorf("An error occurred when the port forwarder was closed: %v", err)
+		}
+	}
+	return forwarder.Address(), done
+}
+
+func fetchWebhookCertSerialNumbersOrFail(t *testing.T, client *http.Client, addr string) []string {
+	t.Helper()
+
+	url := fmt.Sprintf("https://%v/admitpilot", addr)
+	req, err := http.NewRequest("POST", url, nil)
+	if err != nil {
+		t.Fatalf("iunvalid request: %v", err)
+	}
+
+	req.Host = "istio-galley.istio-system.svc"
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("webhook request failed: %v", err)
+	}
+
+	if resp.TLS == nil {
+		t.Fatal("server did not provide certificates")
+	}
+
+	var sn []string
+	for _, cert := range resp.TLS.PeerCertificates {
+		sn = append(sn, cert.SerialNumber.Text(16))
+	}
+	sort.Strings(sn)
+	return sn
 }
 
 func TestMain(m *testing.M) {

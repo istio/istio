@@ -12,6 +12,8 @@ rules:
 - apiGroups: [""]
   resources: ["configmaps"]
   verbs: ["get", "list", "watch"]
+{{- if not .Values.global.operatorManageWebhooks }}
 - apiGroups: ["admissionregistration.k8s.io"]
   resources: ["mutatingwebhookconfigurations"]
   verbs: ["get", "list", "watch", "patch"]
+{{- end }}
