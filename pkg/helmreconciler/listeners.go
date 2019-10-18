@@ -248,7 +248,6 @@ func (l *LoggingRenderingListener) BeginChart(chart string, manifests []manifest
 
 // BeginResource logs the event and updates the logger to log with values resource=name, kind=kind, apiVersion=api-version
 func (l *LoggingRenderingListener) BeginResource(obj runtime.Object) (runtime.Object, error) {
-	log.Infof("begin resource update: %s", obj.GetObjectKind().GroupVersionKind())
 	return obj, nil
 }
 
@@ -278,7 +277,6 @@ func (l *LoggingRenderingListener) ResourceError(obj runtime.Object, err error) 
 
 // EndResource logs the event and resets the logger to its previous state (i.e. removes the resource specific labels).
 func (l *LoggingRenderingListener) EndResource(obj runtime.Object) error {
-	log.Info("end resource update")
 	lastIndex := len(l.loggerStack) - 1
 	if lastIndex >= 0 {
 		l.loggerStack = l.loggerStack[:lastIndex]

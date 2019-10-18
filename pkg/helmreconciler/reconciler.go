@@ -138,7 +138,7 @@ func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) *v1alpha2
 				out.Status[c] = &v1alpha2.InstallStatus_VersionStatus{}
 			}
 			mu.Unlock()
-			status := v1alpha2.InstallStatus_NONE
+			status := v1alpha2.InstallStatus_RECONCILING
 			errString := ""
 			if len(m) != 0 {
 				status = v1alpha2.InstallStatus_HEALTHY
