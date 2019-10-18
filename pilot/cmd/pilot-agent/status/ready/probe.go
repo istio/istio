@@ -52,7 +52,7 @@ func (p *Probe) Check() error {
 		}
 	}
 
-	return p.isEnvoyReady()
+	return p.checkServerInfo()
 }
 
 // checkApplicationPorts verifies that Envoy has received configuration for all ports exposed by the application container.
@@ -136,7 +136,7 @@ func (p *Probe) pingVirtualListeners() error {
 		return err
 	}
 	for _, vport := range vports {
-		con, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", p.LocalHostAddr, vport), time.Second*1)
+		con, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", p.ProxyIP, vport), time.Second*1)
 		if con != nil {
 			con.Close()
 		}
