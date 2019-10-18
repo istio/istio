@@ -23,7 +23,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 
 	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
+	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
@@ -48,9 +48,9 @@ func getDefaultProxy() model.Proxy {
 		IPAddresses: []string{"1.1.1.1"},
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
-		Metadata: map[string]string{
-			model.NodeMetadataConfigNamespace: "not-default",
-			"ISTIO_VERSION":                   "1.3",
+		Metadata: &model.NodeMetadata{
+			IstioVersion:    "1.3",
+			ConfigNamespace: "not-default",
 		},
 		IstioVersion:    model.ParseIstioVersion("1.3"),
 		ConfigNamespace: "not-default",
@@ -70,7 +70,7 @@ func TestListenerBuilder(t *testing.T) {
 
 	env := buildListenerEnv(services)
 
-	if err := env.PushContext.InitContext(&env); err != nil {
+	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		t.Fatalf("init push context error: %s", err.Error())
 	}
 	instances := make([]*model.ServiceInstance, len(services))
@@ -114,7 +114,7 @@ func TestVirtualListenerBuilder(t *testing.T) {
 	services := []*model.Service{service}
 
 	env := buildListenerEnv(services)
-	if err := env.PushContext.InitContext(&env); err != nil {
+	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		t.Fatalf("init push context error: %s", err.Error())
 	}
 	instances := make([]*model.ServiceInstance, len(services))
@@ -150,8 +150,8 @@ func TestVirtualListenerBuilder(t *testing.T) {
 }
 
 func setInboundCaptureAllOnThisNode(proxy *model.Proxy) {
-	proxy.Metadata[model.NodeMetadataInterceptionMode] = "REDIRECT"
-	proxy.Metadata[model.IstioIncludeInboundPorts] = model.AllPortsLiteral
+	proxy.Metadata.InterceptionMode = "REDIRECT"
+	proxy.Metadata.IncludeInboundPorts = model.AllPortsLiteral
 }
 
 func prepareListeners(t *testing.T) []*v2.Listener {
@@ -161,7 +161,7 @@ func prepareListeners(t *testing.T) []*v2.Listener {
 	services := []*model.Service{service}
 
 	env := buildListenerEnv(services)
-	if err := env.PushContext.InitContext(&env); err != nil {
+	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		t.Fatalf("init push context error: %s", err.Error())
 	}
 	instances := make([]*model.ServiceInstance, len(services))

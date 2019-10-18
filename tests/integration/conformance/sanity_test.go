@@ -17,7 +17,7 @@ package conformance
 import (
 	"testing"
 
-	"istio.io/istio/galley/pkg/metadata"
+	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/pkg/test/framework"
 )
 
@@ -69,7 +69,10 @@ func TestMissingMCPTests(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			types := metadata.Types
+			collections := make(map[string]struct{})
+			for _, col := range metadata.MustGet().AllCollectionsInSnapshots() {
+				collections[col] = struct{}{}
+			}
 
 			cases, err := loadCases()
 			if err != nil {
@@ -99,18 +102,18 @@ func TestMissingMCPTests(t *testing.T) {
 					ctx.Errorf("Ignored collection is tested. Please remove it from 'ignoredCollections': %s", i)
 				}
 
-				if _, ok := types.Lookup(i); !ok {
+				if _, ok := collections[i]; !ok {
 					ctx.Errorf("Unknown collection is ignored. If this type is not served, please remove from ignore list: %s", i)
 				}
 			}
 
-			for _, info := range types.All() {
-				if _, found := ignored[info.Collection.String()]; found {
+			for collection := range collections {
+				if _, found := ignored[collection]; found {
 					continue
 				}
 
-				if _, found := tested[info.Collection.String()]; !found {
-					ctx.Errorf("MCP collection not tested: %q", info.Collection.String())
+				if _, found := tested[collection]; !found {
+					ctx.Errorf("MCP collection not tested: %q", collection)
 				}
 			}
 		})

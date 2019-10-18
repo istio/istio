@@ -52,6 +52,7 @@ function usage() {
   echo '  -k: Comma separated list of virtual interfaces whose inbound traffic (from VM)'
   echo '      will be treated as outbound (optional)'
   echo '  -t: Unit testing, only functions are loaded and no other instructions are executed.'
+  echo '  -h: Displays usage information and exits.'
   # shellcheck disable=SC2016
   echo ''
 }
@@ -71,7 +72,7 @@ function isValidIP() {
    fi
 }
 #
-# Function return true if agrument is a valid ipv4 address
+# Function return true if argument is a valid ipv4 address
 #
 function isIPv4() {
    local ipv4regexp="^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$"
@@ -82,7 +83,7 @@ function isIPv4() {
   fi
 }
 #
-# Function return true if agrument is a valid ipv6 address
+# Function return true if argument is a valid ipv6 address
 #
 function isIPv6() {
   local ipv6section="^[0-9a-fA-F]{1,4}$"
@@ -137,7 +138,7 @@ OUTBOUND_IP_RANGES_EXCLUDE=${ISTIO_SERVICE_EXCLUDE_CIDR-}
 OUTBOUND_PORTS_EXCLUDE=${ISTIO_LOCAL_OUTBOUND_PORTS_EXCLUDE-}
 KUBEVIRT_INTERFACES=
 
-while getopts ":p:z:u:g:m:b:d:o:i:x:k:h:t" opt; do
+while getopts ":p:z:u:g:m:b:d:o:i:x:k:ht" opt; do
   case ${opt} in
     p)
       PROXY_PORT=${OPTARG}
@@ -252,34 +253,6 @@ else
             fi
         fi
     done
-fi
-
-# Remove the old chains, to generate new configs.
-iptables -t nat -D PREROUTING -p tcp -j ISTIO_INBOUND 2>/dev/null
-iptables -t mangle -D PREROUTING -p tcp -j ISTIO_INBOUND 2>/dev/null
-iptables -t nat -D OUTPUT -p tcp -j ISTIO_OUTPUT 2>/dev/null
-
-# Flush and delete the istio chains.
-iptables -t nat -F ISTIO_OUTPUT 2>/dev/null
-iptables -t nat -X ISTIO_OUTPUT 2>/dev/null
-iptables -t nat -F ISTIO_INBOUND 2>/dev/null
-iptables -t nat -X ISTIO_INBOUND 2>/dev/null
-iptables -t mangle -F ISTIO_INBOUND 2>/dev/null
-iptables -t mangle -X ISTIO_INBOUND 2>/dev/null
-iptables -t mangle -F ISTIO_DIVERT 2>/dev/null
-iptables -t mangle -X ISTIO_DIVERT 2>/dev/null
-iptables -t mangle -F ISTIO_TPROXY 2>/dev/null
-iptables -t mangle -X ISTIO_TPROXY 2>/dev/null
-
-# Must be last, the others refer to it
-iptables -t nat -F ISTIO_REDIRECT 2>/dev/null
-iptables -t nat -X ISTIO_REDIRECT 2>/dev/null
-iptables -t nat -F ISTIO_IN_REDIRECT 2>/dev/null
-iptables -t nat -X ISTIO_IN_REDIRECT 2>/dev/null
-
-if [ "${1:-}" = "clean" ]; then
-  echo "Only cleaning, no new rules added"
-  exit 0
 fi
 
 # Dump out our environment for debugging purposes.
@@ -488,29 +461,6 @@ fi
 # If ENABLE_INBOUND_IPV6 is unset (default unset), restrict IPv6 traffic.
 set +o nounset
 if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
-  # Remove the old chains, to generate new configs.
-  ip6tables -t nat -D PREROUTING -p tcp -j ISTIO_INBOUND 2>/dev/null || true
-  ip6tables -t mangle -D PREROUTING -p tcp -j ISTIO_INBOUND 2>/dev/null || true
-  ip6tables -t nat -D OUTPUT -p tcp -j ISTIO_OUTPUT 2>/dev/null || true
-
-  # Flush and delete the istio chains.
-  ip6tables -t nat -F ISTIO_OUTPUT 2>/dev/null || true
-  ip6tables -t nat -X ISTIO_OUTPUT 2>/dev/null || true
-  ip6tables -t nat -F ISTIO_INBOUND 2>/dev/null || true
-  ip6tables -t nat -X ISTIO_INBOUND 2>/dev/null || true
-  ip6tables -t mangle -F ISTIO_INBOUND 2>/dev/null || true
-  ip6tables -t mangle -X ISTIO_INBOUND 2>/dev/null || true
-  ip6tables -t mangle -F ISTIO_DIVERT 2>/dev/null || true
-  ip6tables -t mangle -X ISTIO_DIVERT 2>/dev/null || true
-  ip6tables -t mangle -F ISTIO_TPROXY 2>/dev/null || true
-  ip6tables -t mangle -X ISTIO_TPROXY 2>/dev/null || true
-
-  # Must be last, the others refer to it
-  ip6tables -t nat -F ISTIO_REDIRECT 2>/dev/null || true
-  ip6tables -t nat -X ISTIO_REDIRECT 2>/dev/null|| true
-  ip6tables -t nat -F ISTIO_IN_REDIRECT 2>/dev/null || true
-  ip6tables -t nat -X ISTIO_IN_REDIRECT 2>/dev/null || true
-
   # Create a new chain for redirecting outbound traffic to the common Envoy port.
   # In both chains, '-j RETURN' bypasses Envoy and '-j ISTIO_REDIRECT'
   # redirects to Envoy.

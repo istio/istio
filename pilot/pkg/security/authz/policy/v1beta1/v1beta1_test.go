@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pilot/pkg/security/authz/policy"
 )
 
+// TODO(pitlv2109): Add unit tests with trust domain aliases.
 func TestV1beta1Generator_Generate(t *testing.T) {
 	testCases := []struct {
 		name         string
@@ -33,23 +34,47 @@ func TestV1beta1Generator_Generate(t *testing.T) {
 		{
 			name: "no policy",
 		},
+		{
+			name: "one policy",
+			policies: []model.Config{
+				*policy.SimpleAuthzPolicy("default", "foo"),
+			},
+			wantRules: map[string][]string{
+				"ns[foo]-policy[default]-rule[0]": {
+					policy.AuthzPolicyTag("default"),
+				},
+			},
+		},
+		{
+			name: "two policies",
+			policies: []model.Config{
+				*policy.SimpleAuthzPolicy("default", "foo"),
+				*policy.SimpleAuthzPolicy("default", "istio-system"),
+			},
+			wantRules: map[string][]string{
+				"ns[foo]-policy[default]-rule[0]": {
+					policy.AuthzPolicyTag("default"),
+				},
+				"ns[istio-system]-policy[default]-rule[0]": {
+					policy.AuthzPolicyTag("default"),
+				},
+			},
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			g := NewGenerator(tc.policies)
+			g := NewGenerator("", nil, tc.policies)
 			if g == nil {
 				t.Fatal("failed to create generator")
 			}
 
 			got := g.Generate(tc.forTCPFilter)
-			gotStr := spew.Sdump(got)
-
 			if got.GetRules() == nil {
 				t.Fatal("rule must not be nil")
 			}
 			if err := policy.Verify(got.GetRules(), tc.wantRules); err != nil {
-				t.Fatalf("%s\n%s", err, gotStr)
+				t.Fatalf("%s\n%s", err, spew.Sdump(got))
 			}
 		})
 	}

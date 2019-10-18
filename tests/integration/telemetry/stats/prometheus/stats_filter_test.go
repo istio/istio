@@ -89,8 +89,8 @@ func buildQuery() (sourceQuery, destinationQuery string) {
 		"response_code":                  "200",
 		"destination_app":                "reviews",
 		"destination_version":            "v1",
-		"destination_service":            "reviews:9080",
-		"destination_service_name":       "reviews-v1",
+		"destination_service":            "reviews." + bookinfoNsInst.Name() + ".svc.cluster.local",
+		"destination_service_name":       "reviews",
 		"destination_workload_namespace": bookinfoNsInst.Name(),
 		"destination_service_namespace":  bookinfoNsInst.Name(),
 		"source_app":                     "productpage",
@@ -123,9 +123,11 @@ func TestStatsFilter(t *testing.T) {
 				util.SendTraffic(ingress, t, "Sending traffic", url, "", 200)
 				// Query client side metrics
 				if err := queryPrometheus(t, sourceQuery); err != nil {
+					t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(promInst, "istio_requests_total"))
 					return err
 				}
 				if err := queryPrometheus(t, destinationQuery); err != nil {
+					t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(promInst, "istio_requests_total"))
 					return err
 				}
 				return nil

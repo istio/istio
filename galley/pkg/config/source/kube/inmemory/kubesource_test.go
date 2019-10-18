@@ -286,7 +286,7 @@ func TestSameNameDifferentKind(t *testing.T) {
 		event.FullSyncFor(basicmeta.Collection1),
 		event.FullSyncFor(basicmeta.Collection2),
 		event.AddFor(basicmeta.Collection1, data.EntryN1I1V1),
-		event.AddFor(basicmeta.Collection2, withVersion(data.EntryN1I1V1, "v2"))))
+		event.AddFor(basicmeta.Collection2, withVersion(data.EntryN1I1V1ClusterScoped, "v2"))))
 }
 
 func TestKubeSource_DefaultNamespace(t *testing.T) {

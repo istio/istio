@@ -24,8 +24,8 @@ import (
 
 	"istio.io/istio/pkg/config/schemas"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-	"go.uber.org/multierr"
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/istioctl/pkg/util/handlers"
@@ -113,8 +113,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			}
 			writer := cmd.OutOrStdout()
 			ns := handlers.HandleNamespace(namespace, defaultNamespace)
-			_, err = client.CoreV1().Services(ns).Get(args[0], metav1.GetOptions{
-				IncludeUninitialized: true})
+			_, err = client.CoreV1().Services(ns).Get(args[0], metav1.GetOptions{})
 			if err == nil {
 				return removeServiceOnVMFromMesh(seClient, client, ns, args[0], writer)
 			}
@@ -153,13 +152,13 @@ func unInjectSideCarFromDeployment(client kubernetes.Interface, deps []appsv1.De
 		removeDNSConfig(podSpec.DNSConfig)
 		res, b := newDep.(*appsv1.Deployment)
 		if !b {
-			errs = multierr.Append(fmt.Errorf("failed to update deployment %q for service %q", depName, name), errs)
+			errs = multierror.Append(errs, fmt.Errorf("failed to update deployment %q for service %q", depName, name))
 			continue
 		}
 		res.Spec.Template.Spec = *podSpec
 		if _, err :=
 			client.AppsV1().Deployments(svcNamespace).Update(res); err != nil {
-			errs = multierr.Append(fmt.Errorf("failed to update deployment %q for service %q", depName, name), errs)
+			errs = multierror.Append(errs, fmt.Errorf("failed to update deployment %q for service %q", depName, name))
 			continue
 
 		}
@@ -171,7 +170,7 @@ func unInjectSideCarFromDeployment(client kubernetes.Interface, deps []appsv1.De
 			},
 		}
 		if _, err := client.AppsV1().Deployments(svcNamespace).UpdateStatus(d); err != nil {
-			errs = multierr.Append(fmt.Errorf("failed to update deployment %q for service %q", depName, name), errs)
+			errs = multierror.Append(errs, fmt.Errorf("failed to update deployment %q for service %q", depName, name))
 			continue
 		}
 		fmt.Fprintf(writer, "deployment %q updated successfully with Istio sidecar un-injected.\n", depName)
@@ -183,9 +182,7 @@ func unInjectSideCarFromDeployment(client kubernetes.Interface, deps []appsv1.De
 func removeServiceOnVMFromMesh(dynamicClient dynamic.Interface, client kubernetes.Interface, ns string,
 	svcName string, writer io.Writer) error {
 	// Pre-check Kubernetes service and service entry does not exist.
-	_, err := client.CoreV1().Services(ns).Get(svcName, metav1.GetOptions{
-		IncludeUninitialized: true,
-	})
+	_, err := client.CoreV1().Services(ns).Get(svcName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("service %q does not exist, skip", svcName)
 	}

@@ -23,11 +23,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-# TODO(nmittler): Remove these variables and require that this script be run from the Makefile
-
-# Set GOPATH to match the expected layout
-GO_TOP=$(cd "$(dirname "$0")"/../../../..; pwd)
-
+export GO_TOP=${GO_TOP:-$(echo "${GOPATH}" | cut -d ':' -f1)}
 export OUT_DIR=${OUT_DIR:-${GO_TOP}/out}
 
 export GOPATH=${GOPATH:-$GO_TOP}
@@ -56,7 +52,7 @@ esac
 export ISTIO_OUT=${ISTIO_OUT:-${ISTIO_BIN}}
 
 # Download Envoy debug and release binaries for Linux x86_64. They will be included in the
-# docker images created by Dockerfile.proxy and Dockerfile.proxy_debug.
+# docker images created by Dockerfile.proxyv2 and Dockerfile.proxytproxy.
 
 # Gets the download command supported by the system (currently either curl or wget)
 DOWNLOAD_COMMAND=""

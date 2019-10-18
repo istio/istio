@@ -3,9 +3,9 @@
     "id": "sidecar~1.2.3.4~foo~bar",
     "cluster": "istio-proxy",
     "locality": {},
-    "metadata": {"INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6", "istio":"sidecar",
-      "ISTIO_META_SDS": "1",
-      "ISTIO_META_TRUSTJWT": "1",
+    "metadata": {"INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6",
+      "SDS": "1",
+      "TRUSTJWT": "1",
       "EXCHANGE_KEYS":"NAME,NAMESPACE,INSTANCE_IPS,LABELS,OWNER,PLATFORM_METADATA,WORKLOAD_NAME,CANONICAL_TELEMETRY_SERVICE,MESH_ID,SERVICE_ACCOUNT"}
   },
   "stats_config": {
@@ -120,8 +120,24 @@
         "tag_name": "connection_security_policy"
       },
       {
+        "regex": "(permissive_response_code=\\.=(.+?);\\.;)",
+        "tag_name": "permissive_response_code"
+      },
+      {
+        "regex": "(permissive_response_policyid=\\.=(.+?);\\.;)",
+        "tag_name": "permissive_response_policyid"
+      },
+      {
         "regex": "(cache\\.(.+?)\\.)",
         "tag_name": "cache"
+      },
+      {
+        "regex": "(component\\.(.+?)\\.)",
+        "tag_name": "component"
+      },
+      {
+        "regex": "(tag\\.(.+?)\\.)",
+        "tag_name": "tag"
       }
     ],
     "stats_matcher": {

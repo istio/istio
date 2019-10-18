@@ -17,7 +17,7 @@ package mock
 import (
 	"time"
 
-	"istio.io/istio/security/pkg/pki/ca"
+	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/pki/util/mock"
 )
@@ -25,7 +25,7 @@ import (
 // FakeCA is a mock of CertificateAuthority.
 type FakeCA struct {
 	SignedCert    []byte
-	SignErr       *ca.Error
+	SignErr       *caerror.Error
 	KeyCertBundle util.KeyCertBundle
 	ReceivedIDs   []string
 }

@@ -50,18 +50,29 @@ var (
 	statusPattern = regexp.MustCompile("sidecar.istio.io/status: '{\"version\":\"([0-9a-f]+)\",")
 )
 
+// InitImageName returns the fully qualified image name for the istio
+// init image given a docker hub and tag and debug flag
+// This is used for testing only
+func InitImageName(hub string, tag string) string {
+	return hub + "/proxy_init:" + tag
+}
+
+// ProxyImageName returns the fully qualified image name for the istio
+// proxy image given a docker hub and tag and whether to use debug or not.
+// This is used for testing
+func ProxyImageName(hub string, tag string) string {
+	// Allow overriding the proxy image.
+	return hub + "/proxyv2:" + tag
+}
+
 func TestImageName(t *testing.T) {
 	want := "docker.io/istio/proxy_init:latest"
-	if got := InitImageName("docker.io/istio", "latest", true); got != want {
+	if got := InitImageName("docker.io/istio", "latest"); got != want {
 		t.Errorf("InitImageName() failed: got %q want %q", got, want)
 	}
-	want = "docker.io/istio/proxy_debug:latest"
-	if got := ProxyImageName("docker.io/istio", "latest", true); got != want {
-		t.Errorf("ProxyImageName() failed: got %q want %q", got, want)
-	}
 	want = "docker.io/istio/proxyv2:latest"
-	if got := ProxyImageName("docker.io/istio", "latest", false); got != want {
-		t.Errorf("ProxyImageName(debug:false) failed: got %q want %q", got, want)
+	if got := ProxyImageName("docker.io/istio", "latest"); got != want {
+		t.Errorf("ProxyImageName() failed: got %q want %q", got, want)
 	}
 }
 
@@ -82,7 +93,6 @@ func TestIntoResourceFile(t *testing.T) {
 		readinessFailureThreshold    uint32
 		enableAuth                   bool
 		enableCoreDump               bool
-		debugMode                    bool
 		privileged                   bool
 		tproxy                       bool
 		podDNSSearchNamespaces       []string
@@ -538,8 +548,8 @@ func TestIntoResourceFile(t *testing.T) {
 			}
 
 			params := &Params{
-				InitImage:                    InitImageName(unitTestHub, unitTestTag, c.debugMode),
-				ProxyImage:                   ProxyImageName(unitTestHub, unitTestTag, c.debugMode),
+				InitImage:                    InitImageName(unitTestHub, unitTestTag),
+				ProxyImage:                   ProxyImageName(unitTestHub, unitTestTag),
 				ImagePullPolicy:              "IfNotPresent",
 				SDSEnabled:                   false,
 				Verbosity:                    DefaultVerbosity,
@@ -548,7 +558,6 @@ func TestIntoResourceFile(t *testing.T) {
 				EnableCoreDump:               c.enableCoreDump,
 				Privileged:                   c.privileged,
 				Mesh:                         &m,
-				DebugMode:                    c.debugMode,
 				IncludeIPRanges:              c.includeIPRanges,
 				ExcludeIPRanges:              c.excludeIPRanges,
 				IncludeInboundPorts:          c.includeInboundPorts,
@@ -660,8 +669,8 @@ func TestRewriteAppProbe(t *testing.T) {
 		t.Run(testName, func(t *testing.T) {
 			m := mesh.DefaultMeshConfig()
 			params := &Params{
-				InitImage:                    InitImageName(unitTestHub, unitTestTag, false),
-				ProxyImage:                   ProxyImageName(unitTestHub, unitTestTag, false),
+				InitImage:                    InitImageName(unitTestHub, unitTestTag),
+				ProxyImage:                   ProxyImageName(unitTestHub, unitTestTag),
 				ImagePullPolicy:              "IfNotPresent",
 				SidecarProxyUID:              DefaultSidecarProxyUID,
 				Version:                      "12345678",
@@ -877,8 +886,8 @@ func TestSkipUDPPorts(t *testing.T) {
 func newTestParams() *Params {
 	m := mesh.DefaultMeshConfig()
 	return &Params{
-		InitImage:           InitImageName(unitTestHub, unitTestTag, false),
-		ProxyImage:          ProxyImageName(unitTestHub, unitTestTag, false),
+		InitImage:           InitImageName(unitTestHub, unitTestTag),
+		ProxyImage:          ProxyImageName(unitTestHub, unitTestTag),
 		ImagePullPolicy:     "IfNotPresent",
 		SDSEnabled:          false,
 		Verbosity:           DefaultVerbosity,

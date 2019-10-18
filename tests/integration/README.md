@@ -107,10 +107,11 @@ func TestMain(m *testing.M) {
         Run()
 }
 
-func mySetup(ctx framework.SuiteContext) error {
+func mySetup(ctx resource.Context) error {
     // Your own setup code
+    return nil
 }
- ```
+```
 
 ### Sub-Tests
 
@@ -140,7 +141,7 @@ func TestMyLogic(t *testing.T) {
                         // Do more stuff here.
                     })
             }
-        }
+        })
 }
 ```
 
@@ -202,7 +203,7 @@ func TestMyLogic(t *testing.T) {
                 })
         })
 }
-````
+```
 
 In the example above, non-parallel parents T1 and T2 contain parallel children T1a, T1b, T2a, T2b.
 
@@ -305,7 +306,7 @@ func newNative(ctx resource.Context) (Instance, error) {
 func (c *nativeComponent) ID() resource.ID {
     return c.id
 }
-````
+```
 
 Each implementation of the component must implement `resource.Resource`, which just exposes a unique identifier for your
 component instances used for resource tracking by the framework. To get the ID, the component must call `ctx.TrackResource`
@@ -358,7 +359,7 @@ the standard `go test` command-line.  For example, to run the tests under the `/
 using the default (native) environment, you can simply type:
 
 ```console
-go test ./tests/integration/mycomponent/...
+$ go test ./tests/integration/mycomponent/...
 ```
 
 Note that samples below invoking variations of ```go test ./...``` are intended to be run from the ```tests/integration``` directory.

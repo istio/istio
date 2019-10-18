@@ -20,12 +20,13 @@ import (
 	"testing"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	fault "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/fault/v2"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
+	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/golang/protobuf/ptypes"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
@@ -84,7 +85,7 @@ func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, mesh meshconfig
 	}
 
 	env.PushContext = model.NewPushContext()
-	_ = env.PushContext.InitContext(env)
+	_ = env.PushContext.InitContext(env, nil, nil)
 
 	return env
 }
@@ -423,11 +424,11 @@ func TestApplyListenerPatches(t *testing.T) {
 	faultFilterIn := &fault.HTTPFault{
 		UpstreamCluster: "foobar",
 	}
-	faultFilterInAny, _ := types.MarshalAny(faultFilterIn)
+	faultFilterInAny, _ := ptypes.MarshalAny(faultFilterIn)
 	faultFilterOut := &fault.HTTPFault{
 		UpstreamCluster: "scooby",
 	}
-	faultFilterOutAny, _ := types.MarshalAny(faultFilterOut)
+	faultFilterOutAny, _ := ptypes.MarshalAny(faultFilterOut)
 	sidecarInboundIn := []*xdsapi.Listener{
 		{
 			Name: "12345",
@@ -629,13 +630,22 @@ func TestApplyListenerPatches(t *testing.T) {
 		},
 	}
 
-	sidecarProxy := &model.Proxy{Type: model.SidecarProxy, ConfigNamespace: "not-default",
-		Metadata: map[string]string{"foo": "sidecar", "bar": "proxy", "ISTIO_VERSION": "1.2.2"}}
+	sidecarProxy := &model.Proxy{
+		Type:            model.SidecarProxy,
+		ConfigNamespace: "not-default",
+		Metadata: &model.NodeMetadata{
+			IstioVersion: "1.2.2",
+			Raw: map[string]interface{}{
+				"foo": "sidecar",
+				"bar": "proxy",
+			},
+		},
+	}
 	gatewayProxy := &model.Proxy{Type: model.Router, ConfigNamespace: "not-default"}
 	serviceDiscovery := &fakes.ServiceDiscovery{}
 	env := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
 	push := model.NewPushContext()
-	push.InitContext(env)
+	push.InitContext(env, nil, nil)
 
 	type args struct {
 		patchContext networking.EnvoyFilter_PatchContext

@@ -146,6 +146,15 @@ func (s *InMemory) Version(collection string) string {
 	return s.versions[collection]
 }
 
+// Collections is an implementation of Snapshot.Collections
+func (s *InMemory) Collections() []string {
+	result := make([]string, 0, len(s.resources))
+	for col := range s.resources {
+		result = append(result, col)
+	}
+	return result
+}
+
 // Clone this snapshot.
 func (s *InMemory) Clone() *InMemory {
 	c := &InMemory{

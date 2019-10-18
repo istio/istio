@@ -32,11 +32,11 @@ import (
 
 	mcp "istio.io/api/mcp/v1alpha1"
 
+	"istio.io/istio/galley/pkg/config/processor/groups"
 	"istio.io/istio/galley/pkg/meshconfig"
 	"istio.io/istio/galley/pkg/metadata"
 	kubeMeta "istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/runtime"
-	"istio.io/istio/galley/pkg/runtime/groups"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/server/process"
 	"istio.io/istio/galley/pkg/server/settings"
@@ -52,8 +52,6 @@ import (
 	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/mcp/source"
 )
-
-const versionMetadataKey = "config.source.version"
 
 // Processing component.
 type Processing struct {
@@ -381,15 +379,4 @@ func (p *Processing) Address() net.Addr {
 		return nil
 	}
 	return l.Addr()
-}
-
-func parseSinkMeta(pairs []string, md grpcMetadata.MD) error {
-	for _, p := range pairs {
-		kv := strings.Split(p, "=")
-		if len(kv) != 2 || kv[0] == "" || kv[1] == "" {
-			return fmt.Errorf("sinkMeta not in key=value format: %v", p)
-		}
-		md[kv[0]] = append(md[kv[0]], kv[1])
-	}
-	return nil
 }

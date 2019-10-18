@@ -21,14 +21,14 @@ import (
 	"testing"
 
 	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/cache"
 	xds "github.com/envoyproxy/go-control-plane/pkg/server"
-	"github.com/envoyproxy/go-control-plane/pkg/util"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 
 	"google.golang.org/grpc"
 
@@ -222,7 +222,7 @@ func TestGateway(t *testing.T) {
 	if _, _, err := env.HTTPGetWithHeaders(fmt.Sprintf("http://localhost:%d/echo", s.Ports().ClientProxyPort), headers); err != nil {
 		t.Errorf("Failed in request: %v", err)
 	}
-	sourceUID = "in-mesh-app"
+	// verify that sourceUID is not overridden by forwarded attributes.
 	s.VerifyCheck("http-outbound", fmt.Sprintf(checkAttributesOkOutbound, sourceUID))
 	s.VerifyReport("http", fmt.Sprintf(reportAttributesOkOutbound, sourceUID))
 }
@@ -278,8 +278,9 @@ var (
 		ListenerProtocol: plugin.ListenerProtocolHTTP,
 		Env:              mesh,
 		Node: &model.Proxy{
-			ID:   "pod.ns",
-			Type: model.Router,
+			ID:       "pod.ns",
+			Type:     model.Router,
+			Metadata: &model.NodeMetadata{},
 		},
 		Service: &svc,
 		Push:    &pushContext,
@@ -309,14 +310,14 @@ func makeListener(port uint16, route string) (*v2.Listener, *hcm.HttpConnectionM
 				Address:       "127.0.0.1",
 				PortSpecifier: &core.SocketAddress_PortValue{PortValue: uint32(port)}}}},
 		}, &hcm.HttpConnectionManager{
-			CodecType:  hcm.AUTO,
+			CodecType:  hcm.HttpConnectionManager_AUTO,
 			StatPrefix: route,
 			RouteSpecifier: &hcm.HttpConnectionManager_Rds{
 				Rds: &hcm.Rds{RouteConfigName: route, ConfigSource: &core.ConfigSource{
 					ConfigSourceSpecifier: &core.ConfigSource_Ads{Ads: &core.AggregatedConfigSource{}},
 				}},
 			},
-			HttpFilters: []*hcm.HttpFilter{{Name: util.Router}},
+			HttpFilters: []*hcm.HttpFilter{{Name: wellknown.Router}},
 		}
 }
 
@@ -332,7 +333,7 @@ func makeSnapshot(s *env.TestSetup, t *testing.T) cache.Snapshot {
 	}
 	clientManager.HttpFilters = append(clientMutable.FilterChains[0].HTTP, clientManager.HttpFilters...)
 	clientListener.FilterChains = []*listener.FilterChain{{Filters: []*listener.Filter{{
-		Name:       util.HTTPConnectionManager,
+		Name:       wellknown.HTTPConnectionManager,
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: pilotutil.MessageToAny(clientManager)},
 	}}}}
 

@@ -21,7 +21,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 
 	meshapi "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -268,9 +268,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 							//Subset: "some-subset",
 							Host: "example.org",
 							Port: &networking.PortSelector{
-								Port: &networking.PortSelector_Number{
-									Number: 61,
-								},
+								Number: 61,
 							},
 						},
 						Weight: 100,
@@ -289,9 +287,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 						Destination: &networking.Destination{
 							Host: "test.org",
 							Port: &networking.PortSelector{
-								Port: &networking.PortSelector_Number{
-									Number: 62,
-								},
+								Number: 62,
 							},
 						},
 						Weight: 100,
@@ -310,9 +306,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 						Destination: &networking.Destination{
 							Host: "test.org",
 							Port: &networking.PortSelector{
-								Port: &networking.PortSelector_Number{
-									Number: 63,
-								},
+								Number: 63,
 							},
 						},
 						Weight: 100,
@@ -331,9 +325,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 						Destination: &networking.Destination{
 							Host: "test.org",
 							Port: &networking.PortSelector{
-								Port: &networking.PortSelector_Number{
-									Number: 64,
-								},
+								Number: 64,
 							},
 						},
 						Weight: 100,
@@ -381,8 +373,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 	// With the config above, RDS should return a valid route for the following route names
 	// port 9000 - [bookinfo.com:9999, *.bookinfo.com:9990], [bookinfo.com:70, *.bookinfo.com:70] but no bookinfo.com
 	// unix://foo/bar/baz - [bookinfo.com:9999, *.bookinfo.com:9999], [bookinfo.com:70, *.bookinfo.com:70] but no bookinfo.com
-	// port 8080 - [bookinfo.com:9999, *.bookinfo.com:9999], [bookinfo.com:70, *.bookinfo.com:70],
-	//             [test.com:8080, 8.8.8.8:8080], but no bookinfo.com or test.com
+	// port 8080 - [test.com:8080, 8.8.8.8:8080], but no bookinfo.com or test.com
 	// port 9999 - [bookinfo.com, bookinfo.com:9999, *.bookinfo.com, *.bookinfo.com:9999]
 	// port 80 - [test-private.com, test-private.com:80, 9.9.9.9:80, 9.9.9.9]
 	// port 70 - [test-private.com, test-private.com:70, 9.9.9.9, 9.9.9.9:70], [bookinfo.com, bookinfo.com:70]
@@ -428,9 +419,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			sidecarConfig:         sidecarConfig,
 			virtualServiceConfigs: nil,
 			expectedHosts: map[string]map[string]bool{
-				"bookinfo.com:9999": {"bookinfo.com:9999": true, "*.bookinfo.com:9999": true},
-				"bookinfo.com:70":   {"bookinfo.com:70": true, "*.bookinfo.com:70": true},
-				"test.com:8080":     {"test.com:8080": true, "8.8.8.8:8080": true},
+				"test.com:8080": {"test.com:8080": true, "8.8.8.8:8080": true},
 			},
 		},
 		{
@@ -673,7 +662,7 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 
 	env := buildListenerEnvWithVirtualServices(services, virtualServices)
 
-	if err := env.PushContext.InitContext(&env); err != nil {
+	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		t.Fatalf("failed to initialize push context")
 	}
 	if registryOnly {

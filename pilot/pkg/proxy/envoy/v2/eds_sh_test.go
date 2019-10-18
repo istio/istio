@@ -19,10 +19,10 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
-	proto "github.com/gogo/protobuf/types"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 
@@ -154,9 +154,9 @@ func verifySplitHorizonResponse(t *testing.T, network string, sidecarID string, 
 	}
 	defer cancel()
 
-	metadata := &proto.Struct{Fields: map[string]*proto.Value{
-		"ISTIO_VERSION": {Kind: &proto.Value_StringValue{StringValue: "1.3"}},
-		"NETWORK":       {Kind: &proto.Value_StringValue{StringValue: network}},
+	metadata := &structpb.Struct{Fields: map[string]*structpb.Value{
+		"ISTIO_VERSION": {Kind: &structpb.Value_StringValue{StringValue: "1.3"}},
+		"NETWORK":       {Kind: &structpb.Value_StringValue{StringValue: network}},
 	}}
 
 	err = sendCDSReqWithMetadata(sidecarID, metadata, edsstr)
@@ -290,7 +290,7 @@ func initRegistry(server *bootstrap.Server, clusterNum int, gatewaysIP []string,
 	}
 }
 
-func sendCDSReqWithMetadata(node string, metadata *proto.Struct, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
+func sendCDSReqWithMetadata(node string, metadata *structpb.Struct, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
 	err := edsstr.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
 		Node: &core.Node{
@@ -305,7 +305,7 @@ func sendCDSReqWithMetadata(node string, metadata *proto.Struct, edsstr ads.Aggr
 	return nil
 }
 
-func sendEDSReqWithMetadata(clusters []string, node string, metadata *proto.Struct,
+func sendEDSReqWithMetadata(clusters []string, node string, metadata *structpb.Struct,
 	edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
 	err := edsstr.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),

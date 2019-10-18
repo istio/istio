@@ -20,6 +20,8 @@ import (
 	"testing"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 
 	mesh "istio.io/api/mesh/v1alpha1"
 	rbacproto "istio.io/api/rbac/v1alpha1"
@@ -103,6 +105,63 @@ func TestGetAuthorizationPolicies(t *testing.T) {
 			got := authzPolicies.namespaceToV1alpha1Policies[testNS]
 			if !reflect.DeepEqual(c.want, got) {
 				t.Errorf("want:\n%s\n, got:\n%s\n", c.want, got)
+			}
+		})
+	}
+}
+
+func TestAuthorizationPolicies_ListNamespacesOfServiceRoles(t *testing.T) {
+	role := &rbacproto.ServiceRole{}
+	binding := &rbacproto.ServiceRoleBinding{
+		Subjects: []*rbacproto.Subject{
+			{
+				User: "user-1",
+			},
+		},
+		RoleRef: &rbacproto.RoleRef{
+			Kind: "ServiceRole",
+			Name: "role-1",
+		},
+	}
+
+	cases := []struct {
+		name    string
+		ns      string
+		configs []Config
+		want    []string
+	}{
+		{
+			name: "no roles",
+			ns:   "foo",
+			want: []string{},
+		},
+		{
+			name: "role and binding same namespace",
+			ns:   "bar",
+			configs: []Config{
+				newConfig("role", "bar", role),
+				newConfig("binding", "bar", binding),
+			},
+			want: []string{"bar"},
+		},
+		{
+			name: "two roles different namespaces",
+			ns:   "bar",
+			configs: []Config{
+				newConfig("role-1", "foo", role),
+				newConfig("role-2", "bar", role),
+			},
+			want: []string{"foo", "bar"},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			authzPolicies := createFakeAuthorizationPolicies(tc.configs, t)
+
+			got := authzPolicies.ListNamespacesOfToV1alpha1Policies()
+			if diff := cmp.Diff(tc.want, got, cmpopts.SortSlices(func(a, b string) bool { return a < b })); diff != "" {
+				t.Errorf("want:%v\n got: %v diff %v\n", tc.want, got, diff)
 			}
 		})
 	}
@@ -697,5 +756,12 @@ func (fs *authzFakeStore) Create(config Config) (string, error) {
 }
 
 func (fs *authzFakeStore) Update(config Config) (string, error) {
+	return "not implemented", nil
+}
+
+func (fs *authzFakeStore) Version() string {
+	return "not implemented"
+}
+func (fs *authzFakeStore) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
 	return "not implemented", nil
 }

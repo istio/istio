@@ -14,6 +14,8 @@
 
 package reserveport
 
+import "testing"
+
 const (
 	poolSize = 50
 )
@@ -24,18 +26,32 @@ type ReservedPort interface {
 	GetPort() uint16
 	// Close unbinds this port.
 	Close() error
+	CloseSilently()
 }
 
 // PortManager is responsible for reserving ports for an application.
 type PortManager interface {
 	// ReservePort reserves a new port. The lifecycle of the returned port is transferred to the caller.
 	ReservePort() (ReservedPort, error)
+	ReservePortOrFail(t *testing.T) ReservedPort
 	ReservePortNumber() (uint16, error)
+	ReservePortNumberOrFail(t *testing.T) uint16
 	// Close shuts down this manager and frees any associated resources.
 	Close() error
+	CloseSilently()
 }
 
 // NewPortManager allocates a new PortManager
 func NewPortManager() (mgr PortManager, err error) {
 	return &managerImpl{}, nil
+}
+
+// NewPortManagerOrFail calls NewPortManager and fails the test if unsuccessful.
+func NewPortManagerOrFail(t *testing.T) PortManager {
+	t.Helper()
+	mgr, err := NewPortManager()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return mgr
 }

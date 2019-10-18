@@ -19,10 +19,12 @@ import (
 	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	xdslistener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
+	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+
+	"istio.io/istio/pkg/util/gogo"
 
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -212,7 +214,7 @@ func deprecatedInsertHTTPFilter(listenerName string, filterChain *xdslistener.Fi
 	envoyFilter *networking.EnvoyFilter_Filter, isXDSMarshalingToAnyEnabled bool) {
 	filter := &http_conn.HttpFilter{
 		Name:       envoyFilter.FilterName,
-		ConfigType: &http_conn.HttpFilter_Config{Config: envoyFilter.FilterConfig},
+		ConfigType: &http_conn.HttpFilter_Config{Config: gogo.StructToProtoStruct(envoyFilter.FilterConfig)},
 	}
 
 	position := networking.EnvoyFilter_InsertPosition_FIRST
@@ -267,7 +269,7 @@ func deprecatedInsertNetworkFilter(listenerName string, filterChain *xdslistener
 	envoyFilter *networking.EnvoyFilter_Filter) {
 	filter := &xdslistener.Filter{
 		Name:       envoyFilter.FilterName,
-		ConfigType: &xdslistener.Filter_Config{Config: envoyFilter.FilterConfig},
+		ConfigType: &xdslistener.Filter_Config{Config: gogo.StructToProtoStruct(envoyFilter.FilterConfig)},
 	}
 
 	position := networking.EnvoyFilter_InsertPosition_FIRST

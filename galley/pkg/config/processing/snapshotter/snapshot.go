@@ -20,8 +20,10 @@ import (
 	"strings"
 
 	mcp "istio.io/api/mcp/v1alpha1"
+
 	"istio.io/istio/galley/pkg/config/analysis"
-	"istio.io/istio/galley/pkg/config/collection"
+	coll "istio.io/istio/galley/pkg/config/collection"
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/pkg/mcp/snapshot"
@@ -30,7 +32,7 @@ import (
 // Snapshot is an implementation of MCP's snapshot.Snapshot interface. It also exposes additional query methods
 // for analysis purposes.
 type Snapshot struct {
-	set *collection.Set
+	set *coll.Set
 }
 
 var _ snapshot.Snapshot = &Snapshot{}
@@ -67,6 +69,18 @@ func (s *Snapshot) Version(col string) string {
 	}
 	g := coll.Generation()
 	return col + "/" + strconv.FormatInt(g, 10)
+}
+
+// Collections implements snapshotImpl.Snapshot
+func (s *Snapshot) Collections() []string {
+	names := s.set.Names()
+	result := make([]string, 0, len(names))
+
+	for _, name := range names {
+		result = append(result, name.String())
+	}
+
+	return result
 }
 
 // Find the resource with the given name and collection.

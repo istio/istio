@@ -38,7 +38,6 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite("istioctl_integration_test", m).
-		RequireEnvironment(environment.Kube).
 
 		// Deploy Istio
 		SetupOnEnv(environment.Kube, istio.Setup(&i, nil)).
@@ -53,6 +52,7 @@ func TestMain(m *testing.M) {
 func TestVersion(t *testing.T) {
 	framework.
 		NewTest(t).
+		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			g := galley.NewOrFail(t, ctx, galley.Config{})
 			_ = pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
@@ -61,11 +61,7 @@ func TestVersion(t *testing.T) {
 
 			args := []string{"version", "--remote=true"}
 
-			output, fErr := istioCtl.Invoke(args)
-
-			if fErr != nil {
-				t.Fatalf("Unwanted exception for 'istioctl %s': %v", strings.Join(args, " "), fErr)
-			}
+			output := istioCtl.InvokeOrFail(t, args)
 
 			// istioctl will return a single "control plane version" if all control plane versions match
 			controlPlaneRegex := regexp.MustCompile(`control plane version: [a-z0-9\-]*`)

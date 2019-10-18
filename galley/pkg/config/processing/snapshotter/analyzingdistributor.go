@@ -19,16 +19,19 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
-	"istio.io/istio/galley/pkg/config/collection"
+	coll "istio.io/istio/galley/pkg/config/collection"
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/scope"
 )
+
+// CollectionReporterFn is a hook function called whenever a collection is accessed through the AnalyzingDistributor's context
+type CollectionReporterFn func(collection.Name)
 
 // AnalyzingDistributor is an snapshotter. Distributor implementation that will perform analysis on a snapshot before
 // publishing. It will update the CRD status with the analysis results.
 type AnalyzingDistributor struct {
-	updater     StatusUpdater
-	analyzer    analysis.Analyzer
-	distributor Distributor
+	s AnalyzingDistributorSettings
 
 	analysisMu     sync.Mutex
 	cancelAnalysis chan struct{}
@@ -39,15 +42,41 @@ type AnalyzingDistributor struct {
 
 var _ Distributor = &AnalyzingDistributor{}
 
-const defaultSnapshotGroup = "default"
-const syntheticSnapshotGroup = "syntheticServiceEntry"
+// AnalyzingDistributorSettings are settings for an AnalyzingDistributor
+type AnalyzingDistributorSettings struct {
+	// The status updater to route diagnostic messages to
+	StatusUpdater StatusUpdater
+
+	// The top-level combined analyzer that will perform the analysis
+	Analyzer *analysis.CombinedAnalyzer
+
+	// The downstream distributor to call, after the analysis is done.
+	Distributor Distributor
+
+	// The snapshots that will get analyzed.
+	AnalysisSnapshots []string
+
+	// The snapshot that will trigger the analysis.
+	// TODO(https://github.com/istio/istio/issues/17543): This should be eventually replaced by the AnalysisSnapshots
+	//  and a matching debounce mechanism.
+	TriggerSnapshot string
+
+	// An optional hook that will be called whenever a collection is accessed. Useful for testing.
+	CollectionReporter CollectionReporterFn
+
+	// Namespaces that should be analyzed
+	AnalysisNamespaces []string
+}
 
 // NewAnalyzingDistributor returns a new instance of AnalyzingDistributor.
-func NewAnalyzingDistributor(u StatusUpdater, a analysis.Analyzer, d Distributor) *AnalyzingDistributor {
+func NewAnalyzingDistributor(s AnalyzingDistributorSettings) *AnalyzingDistributor {
+	// collectionReport hook function defaults to no-op
+	if s.CollectionReporter == nil {
+		s.CollectionReporter = func(collection.Name) {}
+	}
+
 	return &AnalyzingDistributor{
-		updater:       u,
-		analyzer:      a,
-		distributor:   d,
+		s:             s,
 		lastSnapshots: make(map[string]*Snapshot),
 	}
 }
@@ -56,17 +85,16 @@ func NewAnalyzingDistributor(u StatusUpdater, a analysis.Analyzer, d Distributor
 func (d *AnalyzingDistributor) Distribute(name string, s *Snapshot) {
 	// Keep the most recent snapshot for each snapshot group we care about for analysis so we can combine them
 	// For analysis, we want default and synthetic, and we can safely combine them since they are disjoint.
-	if name == defaultSnapshotGroup || name == syntheticSnapshotGroup {
+	if d.isAnalysisSnapshot(name) {
 		d.snapshotsMu.Lock()
 		d.lastSnapshots[name] = s
 		d.snapshotsMu.Unlock()
 	}
 
-	// Make use of the fact that "default" is the main snapshot group, currently. Once/if this changes, we will need to
-	// redesign this approach.
-	// We use "default" to trigger analysis, since it has a debounce strategy that means it won't trigger constantly.
-	if name != defaultSnapshotGroup {
-		d.distributor.Distribute(name, s)
+	// If the trigger snapshot is not set, simply bypass.
+	// TODO(https://github.com/istio/istio/issues/17543): This should be replaced by a debounce logic
+	if name != d.s.TriggerSnapshot {
+		d.s.Distributor.Distribute(name, s)
 		return
 	}
 
@@ -79,34 +107,68 @@ func (d *AnalyzingDistributor) Distribute(name string, s *Snapshot) {
 		d.cancelAnalysis = nil
 	}
 
+	namespaces := make(map[string]struct{})
+	for _, ns := range d.s.AnalysisNamespaces {
+		namespaces[ns] = struct{}{}
+	}
+
 	// start a new analysis session
 	cancelAnalysis := make(chan struct{})
 	d.cancelAnalysis = cancelAnalysis
-	go d.analyzeAndDistribute(cancelAnalysis, s)
-
+	go d.analyzeAndDistribute(cancelAnalysis, name, s, namespaces)
 }
 
-func (d *AnalyzingDistributor) analyzeAndDistribute(cancelCh chan struct{}, s *Snapshot) {
+func (d *AnalyzingDistributor) isAnalysisSnapshot(s string) bool {
+	for _, sn := range d.s.AnalysisSnapshots {
+		if sn == s {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (d *AnalyzingDistributor) analyzeAndDistribute(cancelCh chan struct{}, name string, s *Snapshot, namespaces map[string]struct{}) {
 	// For analysis, we use a combined snapshot
 	ctx := &context{
-		sn:       d.getCombinedSnapshot(),
-		cancelCh: cancelCh,
+		sn:                 d.getCombinedSnapshot(),
+		cancelCh:           cancelCh,
+		collectionReporter: d.s.CollectionReporter,
 	}
 
-	d.analyzer.Analyze(ctx)
+	scope.Analysis.Debugf("Beginning analyzing the current snapshot")
+	d.s.Analyzer.Analyze(ctx)
+	scope.Analysis.Debugf("Finished analyzing the current snapshot, found messages: %v", ctx.messages)
+
+	// Only keep messages for resources in namespaces we want to analyze
+	// If the message doesn't have an origin (meaning we can't determine the namespace) fail open and keep it
+	// If no such limit is specified, keep them all.
+	var msgs diag.Messages
+	if len(namespaces) == 0 {
+		msgs = ctx.messages
+	} else {
+		for _, m := range ctx.messages {
+			if m.Origin != nil {
+				if _, ok := namespaces[m.Origin.Namespace()]; !ok {
+					continue
+				}
+			}
+			msgs = append(msgs, m)
+		}
+	}
 
 	if !ctx.Canceled() {
-		d.updater.Update(ctx.messages)
+		d.s.StatusUpdater.Update(msgs.SortedCopy())
 	}
 
-	// Execution only reaches this point for default snapshot group
-	d.distributor.Distribute(defaultSnapshotGroup, s)
+	// Execution only reaches this point for trigger snapshot group
+	d.s.Distributor.Distribute(name, s)
 }
 
 // getCombinedSnapshot creates a new snapshot from the last snapshots of each snapshot group
 // Important assumption: the collections in each snapshot don't overlap.
 func (d *AnalyzingDistributor) getCombinedSnapshot() *Snapshot {
-	var collections []*collection.Instance
+	var collections []*coll.Instance
 
 	d.snapshotsMu.RLock()
 	defer d.snapshotsMu.RUnlock()
@@ -119,34 +181,38 @@ func (d *AnalyzingDistributor) getCombinedSnapshot() *Snapshot {
 		}
 	}
 
-	return &Snapshot{set: collection.NewSetFromCollections(collections)}
+	return &Snapshot{set: coll.NewSetFromCollections(collections)}
 }
 
 type context struct {
-	sn       *Snapshot
-	cancelCh chan struct{}
-	messages diag.Messages
+	sn                 *Snapshot
+	cancelCh           chan struct{}
+	messages           diag.Messages
+	collectionReporter CollectionReporterFn
 }
 
 var _ analysis.Context = &context{}
 
 // Report implements analysis.Context
-func (c *context) Report(coll collection.Name, m diag.Message) {
+func (c *context) Report(col collection.Name, m diag.Message) {
 	c.messages.Add(m)
 }
 
 // Find implements analysis.Context
-func (c *context) Find(cpl collection.Name, name resource.Name) *resource.Entry {
-	return c.sn.Find(cpl, name)
+func (c *context) Find(col collection.Name, name resource.Name) *resource.Entry {
+	c.collectionReporter(col)
+	return c.sn.Find(col, name)
 }
 
 // Exists implements analysis.Context
-func (c *context) Exists(cpl collection.Name, name resource.Name) bool {
-	return c.Find(cpl, name) != nil
+func (c *context) Exists(col collection.Name, name resource.Name) bool {
+	c.collectionReporter(col)
+	return c.Find(col, name) != nil
 }
 
 // ForEach implements analysis.Context
 func (c *context) ForEach(col collection.Name, fn analysis.IteratorFn) {
+	c.collectionReporter(col)
 	c.sn.ForEach(col, fn)
 }
 

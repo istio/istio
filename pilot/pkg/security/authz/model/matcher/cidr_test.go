@@ -19,8 +19,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/gogo/protobuf/types"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/golang/protobuf/ptypes/wrappers"
 )
 
 func TestCidrRange(t *testing.T) {
@@ -50,7 +50,7 @@ func TestCidrRange(t *testing.T) {
 			V:    "192.168.0.0/16",
 			Expect: &core.CidrRange{
 				AddressPrefix: "192.168.0.0",
-				PrefixLen:     &types.UInt32Value{Value: 16},
+				PrefixLen:     &wrappers.UInt32Value{Value: 16},
 			},
 		},
 		{
@@ -63,7 +63,7 @@ func TestCidrRange(t *testing.T) {
 			V:    "192.168.0.0",
 			Expect: &core.CidrRange{
 				AddressPrefix: "192.168.0.0",
-				PrefixLen:     &types.UInt32Value{Value: 32},
+				PrefixLen:     &wrappers.UInt32Value{Value: 32},
 			},
 		},
 		{
@@ -71,7 +71,7 @@ func TestCidrRange(t *testing.T) {
 			V:    "2001:abcd:85a3::8a2e:370:1234",
 			Expect: &core.CidrRange{
 				AddressPrefix: "2001:abcd:85a3::8a2e:370:1234",
-				PrefixLen:     &types.UInt32Value{Value: 128},
+				PrefixLen:     &wrappers.UInt32Value{Value: 128},
 			},
 		},
 	}

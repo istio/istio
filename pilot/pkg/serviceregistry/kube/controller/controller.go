@@ -15,7 +15,6 @@
 package controller
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -45,13 +44,18 @@ import (
 	"istio.io/istio/pkg/config/host"
 	configKube "istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 const (
-	// NodeRegionLabel is the well-known label for kubernetes node region
+	// NodeRegionLabel is the well-known label for kubernetes node region in beta
 	NodeRegionLabel = "failure-domain.beta.kubernetes.io/region"
-	// NodeZoneLabel is the well-known label for kubernetes node zone
+	// NodeZoneLabel is the well-known label for kubernetes node zone in beta
 	NodeZoneLabel = "failure-domain.beta.kubernetes.io/zone"
+	// NodeRegionLabelGA is the well-known label for kubernetes node region in ga
+	NodeRegionLabelGA = "failure-domain.kubernetes.io/region"
+	// NodeZoneLabelGA is the well-known label for kubernetes node zone in ga
+	NodeZoneLabelGA = "failure-domain.kubernetes.io/zone"
 	// IstioNamespace used by default for Istio cluster-wide installation
 	IstioNamespace = "istio-system"
 	// IstioConfigMap is used by default
@@ -101,8 +105,6 @@ type Options struct {
 
 	// TrustDomain used in SPIFFE identity
 	TrustDomain string
-
-	stop chan struct{}
 }
 
 // Controller is a collection of synchronized resource watchers
@@ -320,6 +322,11 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 
 // GetPodLocality retrieves the locality for a pod.
 func (c *Controller) GetPodLocality(pod *v1.Pod) string {
+	// if pod has `istio-locality` label, skip below ops
+	if len(pod.Labels[model.LocalityLabel]) > 0 {
+		return model.GetLocalityOrDefault(pod.Labels[model.LocalityLabel], "")
+	}
+
 	// NodeName is set by the scheduler after the pod is created
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#late-initialization
 	node, exists, err := c.nodes.informer.GetStore().GetByKey(pod.Spec.NodeName)
@@ -328,13 +335,14 @@ func (c *Controller) GetPodLocality(pod *v1.Pod) string {
 		return ""
 	}
 
-	region := node.(*v1.Node).Labels[NodeRegionLabel]
-	zone := node.(*v1.Node).Labels[NodeZoneLabel]
+	region := getLabelValue(node.(*v1.Node), NodeRegionLabel, NodeRegionLabelGA)
+	zone := getLabelValue(node.(*v1.Node), NodeZoneLabel, NodeZoneLabelGA)
+
 	if region == "" && zone == "" {
 		return ""
 	}
-	locality := fmt.Sprintf("%v/%v", region, zone)
-	return model.GetLocalityOrDefault(pod.Labels[model.LocalityLabel], locality)
+
+	return fmt.Sprintf("%v/%v", region, zone)
 }
 
 // ManagementPorts implements a service catalog operation
@@ -468,6 +476,7 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 					uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
 				}
 			}
+			mtlsReady := kube.PodMTLSReady(pod)
 
 			// identify the port by name. K8S EndpointPort uses the service port name
 			for _, port := range ss.Ports {
@@ -485,6 +494,7 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 						Service:        svc,
 						Labels:         podLabels,
 						ServiceAccount: sa,
+						MTLSReady:      mtlsReady,
 					})
 				}
 			}
@@ -497,19 +507,8 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 // GetProxyServiceInstances returns service instances co-located with a given proxy
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
 	out := make([]*model.ServiceInstance, 0)
-
 	proxyNamespace := ""
 	if len(proxy.IPAddresses) > 0 {
-		// Fetching the pod from Kubernetes is slow, and a pod may not even be present when this is called
-		// due to eventual consistency issues. However, we have a lot of information about the pod from the proxy
-		// metadata already. Because of this, we can still get most of the information we need.
-		// If we cannot accurately construct ServiceInstances from just the metadata, this will return an error and we can
-		// attempt to read the real pod.
-		instances, err := c.getProxyServiceInstancesFromMetadata(proxy)
-		if err == nil {
-			return instances, nil
-		}
-
 		// only need to fetch the corresponding pod through the first IP, although there are multiple IP scenarios,
 		// because multiple ips belong to the same pod
 		proxyIP := proxy.IPAddresses[0]
@@ -519,13 +518,13 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 			// which can happen when multi clusters using same pod cidr.
 			// As we have proxy Network meta, compare it with the network which endpoint belongs to,
 			// if they are not same, ignore the pod, because the pod is in another cluster.
-			if proxy.Metadata[model.NodeMetadataNetwork] != c.endpointNetwork(proxyIP) {
+			if proxy.Metadata.Network != c.endpointNetwork(proxyIP) {
 				return out, nil
 			}
 
 			proxyNamespace = pod.Namespace
 			// 1. find proxy service by label selector, if not any, there may exist headless service
-			// failover to 2
+			// failover to 3
 			svcLister := listerv1.NewServiceLister(c.services.informer.GetIndexer())
 			if services, err := svcLister.GetPodServices(pod); err == nil && len(services) > 0 {
 				for _, svc := range services {
@@ -533,27 +532,38 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 				}
 				return out, nil
 			}
-		}
-	}
 
-	// 2. Headless service
-	endpointsForPodInSameNS := make([]*model.ServiceInstance, 0)
-	endpointsForPodInDifferentNS := make([]*model.ServiceInstance, 0)
-	for _, item := range c.endpoints.informer.GetStore().List() {
-		ep := *item.(*v1.Endpoints)
-		endpoints := &endpointsForPodInSameNS
-		if ep.Namespace != proxyNamespace {
-			endpoints = &endpointsForPodInDifferentNS
 		}
 
-		*endpoints = append(*endpoints, c.getProxyServiceInstancesByEndpoint(ep, proxy)...)
-	}
+		// 2. The pod is not present when this is called
+		// due to eventual consistency issues. However, we have a lot of information about the pod from the proxy
+		// metadata already. Because of this, we can still get most of the information we need.
+		// If we cannot accurately construct ServiceInstances from just the metadata, this will return an error and we can
+		// attempt to read the real pod.
+		instances, err := c.getProxyServiceInstancesFromMetadata(proxy)
+		if err == nil {
+			return instances, nil
+		}
 
-	// Put the endpointsForPodInSameNS in front of endpointsForPodInDifferentNS so that Pilot will
-	// first use endpoints from endpointsForPodInSameNS. This makes sure if there are two endpoints
-	// referring to the same IP/port, the one in endpointsForPodInSameNS will be used. (The other one
-	// in endpointsForPodInDifferentNS will thus be rejected by Pilot).
-	out = append(endpointsForPodInSameNS, endpointsForPodInDifferentNS...)
+		// 3. Headless service
+		endpointsForPodInSameNS := make([]*model.ServiceInstance, 0)
+		endpointsForPodInDifferentNS := make([]*model.ServiceInstance, 0)
+		for _, item := range c.endpoints.informer.GetStore().List() {
+			ep := *item.(*v1.Endpoints)
+			endpoints := &endpointsForPodInSameNS
+			if ep.Namespace != proxyNamespace {
+				endpoints = &endpointsForPodInDifferentNS
+			}
+
+			*endpoints = append(*endpoints, c.getProxyServiceInstancesByEndpoint(ep, proxy)...)
+		}
+
+		// Put the endpointsForPodInSameNS in front of endpointsForPodInDifferentNS so that Pilot will
+		// first use endpoints from endpointsForPodInSameNS. This makes sure if there are two endpoints
+		// referring to the same IP/port, the one in endpointsForPodInSameNS will be used. (The other one
+		// in endpointsForPodInDifferentNS will thus be rejected by Pilot).
+		out = append(endpointsForPodInSameNS, endpointsForPodInDifferentNS...)
+	}
 
 	if len(out) == 0 {
 		if c.Env != nil {
@@ -577,8 +587,8 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 		return nil, fmt.Errorf("no workload labels found")
 	}
 
-	if proxy.Metadata[model.NodeMetadataClusterID] != c.ClusterID {
-		return nil, fmt.Errorf("proxy is in cluster %v, but controller is for cluster %v", proxy.Metadata[model.NodeMetadataClusterID], c.ClusterID)
+	if proxy.Metadata.ClusterID != c.ClusterID {
+		return nil, fmt.Errorf("proxy is in cluster %v, but controller is for cluster %v", proxy.Metadata.ClusterID, c.ClusterID)
 	}
 
 	// Create a pod with just the information needed to find the associated Services
@@ -600,20 +610,9 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 		return nil, fmt.Errorf("no instances found: %v ", err)
 	}
 
-	// This is a reference to a port by name. We need to do a lookup from the ports map
-	// podPorts must first be unmarshalled, then we can do a lookup.
-	var podPorts []*v1.ContainerPort
-	// We only need the ports if they do a port reference by name, so we don't need to fail yet if
-	// port metadata is not provided
-	if _, f := proxy.Metadata[model.NodeMetadataPodPorts]; f {
-		if err := json.Unmarshal([]byte(proxy.Metadata[model.NodeMetadataPodPorts]), &podPorts); err != nil {
-			return nil, err
-		}
-	}
-
 	out := make([]*model.ServiceInstance, 0)
 	for _, svc := range services {
-		svcAccount := proxy.Metadata[model.NodeMetadataServiceAccount]
+		svcAccount := proxy.Metadata.ServiceAccount
 		hostname := kube.ServiceHostname(svc.Name, svc.Namespace, c.domainSuffix)
 		c.RLock()
 		modelService, f := c.servicesMap[hostname]
@@ -626,7 +625,7 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 			if !f {
 				return nil, fmt.Errorf("failed to get svc port for %v", port.Name)
 			}
-			targetPort, err := findPortFromMetadata(port, podPorts)
+			targetPort, err := findPortFromMetadata(port, proxy.Metadata.PodPorts)
 			if err != nil {
 				return nil, fmt.Errorf("failed to find target port for %v: %v", proxy.ID, err)
 			}
@@ -650,15 +649,15 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 }
 
 // findPortFromMetadata resolves the TargetPort of a Service Port, by reading the Pod spec.
-func findPortFromMetadata(svcPort v1.ServicePort, podPorts []*v1.ContainerPort) (int, error) {
+func findPortFromMetadata(svcPort v1.ServicePort, podPorts []model.PodPort) (int, error) {
 	target := svcPort.TargetPort
 
 	switch target.Type {
 	case intstr.String:
 		name := target.StrVal
 		for _, port := range podPorts {
-			if port.Name == name && port.Protocol == svcPort.Protocol {
-				return int(port.ContainerPort), nil
+			if port.Name == name {
+				return port.ContainerPort, nil
 			}
 		}
 	case intstr.Int:
@@ -772,6 +771,7 @@ func (c *Controller) getEndpoints(podIP, address string, endpointPort int32, svc
 		Service:        svc,
 		Labels:         podLabels,
 		ServiceAccount: sa,
+		MTLSReady:      kube.PodMTLSReady(pod),
 	}
 }
 
@@ -830,7 +830,7 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 			}
 		}
 
-		log.Infof("Handle service %s in namespace %s", svc.Name, svc.Namespace)
+		log.Debugf("Handle service %s in namespace %s", svc.Name, svc.Namespace)
 
 		hostname := svc.Name + "." + svc.Namespace
 		ports := map[string]uint32{}
@@ -884,7 +884,7 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 			}
 			ep, ok = tombstone.Obj.(*v1.Endpoints)
 			if !ok {
-				log.Errorf("Tombstone contained object that is not a service %#v", obj)
+				log.Errorf("Tombstone contained an object that is not an endpoint %#v", obj)
 				return nil
 			}
 		}
@@ -930,6 +930,8 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 					labels = map[string]string(configKube.ConvertLabels(pod.ObjectMeta))
 				}
 
+				mtlsReady := kube.PodMTLSReady(pod)
+
 				// EDS and ServiceEntry use name for service port - ADS will need to
 				// map to numbers.
 				for _, port := range ss.Ports {
@@ -943,6 +945,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 						Network:         c.endpointNetwork(ea.IP),
 						Locality:        locality,
 						Attributes:      model.ServiceAttributes{Name: ep.Name, Namespace: ep.Namespace},
+						MTLSReady:       mtlsReady,
 					})
 				}
 			}
@@ -964,7 +967,12 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 			svc := obj.(*v1.Service)
 			// if the service is headless service, trigger a full push.
 			if svc.Spec.ClusterIP == v1.ClusterIPNone {
-				c.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, TargetNamespaces: map[string]struct{}{ep.Namespace: {}}})
+				c.XDSUpdater.ConfigUpdate(&model.PushRequest{
+					Full:              true,
+					NamespacesUpdated: map[string]struct{}{ep.Namespace: {}},
+					// TODO: extend and set service instance type, so no need to re-init push context
+					ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
+				})
 				return
 			}
 		}

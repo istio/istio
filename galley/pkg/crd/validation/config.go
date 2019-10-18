@@ -33,6 +33,7 @@ import (
 	"k8s.io/api/admissionregistration/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	clientset "k8s.io/client-go/kubernetes"
@@ -99,24 +100,28 @@ func (whc *WebhookConfigController) monitorWebhookChanges(stopC <-chan struct{})
 	return webhookChangedCh
 }
 
-func (whc *WebhookConfigController) createOrUpdateWebhookConfig() {
+func (whc *WebhookConfigController) createOrUpdateWebhookConfig() (retry bool) {
 	if whc.webhookConfiguration == nil {
 		scope.Error("validatingwebhookconfiguration update failed: no configuration loaded")
 		reportValidationConfigUpdateError(errors.New("no configuration loaded"))
-		return
+		return false
 	}
 
 	client := whc.webhookParameters.Clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
 	updated, err := createOrUpdateWebhookConfigHelper(client, whc.webhookConfiguration)
 	if err != nil {
 		scope.Errorf("%v validatingwebhookconfiguration update failed: %v", whc.webhookConfiguration.Name, err)
-		reportValidationConfigUpdateError(err)
-	} else if updated {
+		reportValidationConfigUpdateError(fmt.Errorf("createOrUpdate failed: %v", kerrors.ReasonForError(err)))
+		return true
+	}
+
+	if updated {
 		scope.Infof("%v validatingwebhookconfiguration updated", whc.webhookConfiguration.Name)
 		reportValidationConfigUpdate()
 	} else {
 		scope.Infof("%v validatingwebhookconfiguration unchanged, no update needed", whc.webhookConfiguration.Name)
 	}
+	return false
 }
 
 // Create the specified validatingwebhookconfiguration resource or, if the resource
@@ -150,15 +155,17 @@ func createOrUpdateWebhookConfigHelper(
 }
 
 // Delete validatingwebhookconfiguration if the validation is disabled
-func (whc *WebhookConfigController) deleteWebhookConfig() {
+func (whc *WebhookConfigController) deleteWebhookConfig() (retry bool) {
 	client := whc.webhookParameters.Clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
 
 	deleted, err := deleteWebhookConfigHelper(client, whc.webhookParameters.WebhookName)
 	if err != nil {
 		scope.Errorf("%v validatingwebhookconfiguration delete failed: %v", whc.webhookParameters.WebhookName, err)
-		reportValidationConfigDeleteError(err)
+		reportValidationConfigDeleteError(fmt.Errorf("delete failed: %v", kerrors.ReasonForError(err)))
+		return true
 	}
 	scope.Infof("Delete %v validatingwebhookconfiguration is %v", whc.webhookParameters.WebhookName, deleted)
+	return false
 }
 
 // Delete validatingwebhookconfiguration if exists. otherwise, do nothing
@@ -370,8 +377,9 @@ func (whc *WebhookConfigController) reconcile(stopCh <-chan struct{}) {
 	// already exist). Setup a persistent monitor to reconcile the
 	// configuration if the observed configuration doesn't match
 	// the desired configuration.
+	var retryAfterSetup bool
 	if err := whc.rebuildWebhookConfig(); err == nil {
-		whc.createOrUpdateWebhookConfig()
+		retryAfterSetup = whc.createOrUpdateWebhookConfig()
 	}
 	webhookChangedCh := whc.monitorWebhookChanges(stopCh)
 
@@ -379,6 +387,11 @@ func (whc *WebhookConfigController) reconcile(stopCh <-chan struct{}) {
 	var keyCertTimerC <-chan time.Time
 	var configTimerC <-chan time.Time
 
+	if retryAfterSetup {
+		configTimerC = time.After(retryUpdateAfterFailureTimeout)
+	}
+
+	var retrying bool
 	for {
 		select {
 		case <-keyCertTimerC:
@@ -390,14 +403,32 @@ func (whc *WebhookConfigController) reconcile(stopCh <-chan struct{}) {
 			// rebuild the desired configuration and reconcile with the
 			// existing configuration.
 			if err := whc.rebuildWebhookConfig(); err == nil {
-				whc.createOrUpdateWebhookConfig()
+				if retry := whc.createOrUpdateWebhookConfig(); retry {
+					configTimerC = time.After(retryUpdateAfterFailureTimeout)
+					if !retrying {
+						retrying = true
+						log.Infof("webhook create/update failed - retrying every %v until success", retryUpdateAfterFailureTimeout)
+					}
+				} else if retrying {
+					log.Infof("Retried create/update succeeded")
+					retrying = false
+				}
 			}
 		case <-webhookChangedCh:
+			var retry bool
 			if whc.webhookParameters.EnableValidation {
 				// reconcile the desired configuration
-				whc.createOrUpdateWebhookConfig()
+				if retry = whc.createOrUpdateWebhookConfig(); retry && !retrying {
+					log.Infof("webhook create/update failed - retrying every %v until success", retryUpdateAfterFailureTimeout)
+				}
 			} else {
-				whc.deleteWebhookConfig()
+				if retry = whc.deleteWebhookConfig(); retry && !retrying {
+					log.Infof("webhook delete failed - retrying every %v until success", retryUpdateAfterFailureTimeout)
+				}
+			}
+			retrying = retry
+			if retry {
+				time.AfterFunc(retryUpdateAfterFailureTimeout, func() { webhookChangedCh <- struct{}{} })
 			}
 		case event, more := <-whc.keyCertWatcher.Event:
 			if more && (event.IsModify() || event.IsCreate()) && keyCertTimerC == nil {

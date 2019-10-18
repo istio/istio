@@ -28,12 +28,11 @@ import (
 
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/meshcfg"
+	"istio.io/istio/galley/pkg/config/meta/schema"
 	"istio.io/istio/galley/pkg/config/processing"
-	"istio.io/istio/galley/pkg/config/processing/snapshotter"
-	"istio.io/istio/galley/pkg/config/schema"
+	"istio.io/istio/galley/pkg/config/processor"
 	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/server/settings"
-	"istio.io/istio/galley/pkg/source/kube/client"
 	"istio.io/istio/galley/pkg/testing/mock"
 	"istio.io/istio/pkg/mcp/monitoring"
 	mcptestmon "istio.io/istio/pkg/mcp/testing/monitoring"
@@ -46,8 +45,7 @@ loop:
 	for i := 0; ; i++ {
 		resetPatchTable()
 		mk := mock.NewKube()
-		newKubeFromConfigFile = func(string) (client.Interfaces, error) { return mk, nil }
-		checkResourceTypesPresence = func(_ kube.Interfaces, _ schema.KubeResources) error { return nil }
+		newInterfaces = func(string) (kube.Interfaces, error) { return mk, nil }
 
 		e := fmt.Errorf("err%d", i)
 
@@ -69,11 +67,11 @@ loop:
 
 		switch i {
 		case 0:
-			newKubeFromConfigFile = func(string) (client.Interfaces, error) { return nil, e }
+			newInterfaces = func(string) (kube.Interfaces, error) { return nil, e }
 		case 1:
 			meshcfgNewFS = func(path string) (event.Source, error) { return nil, e }
 		case 2:
-			processorInitialize = func(_ *schema.Metadata, _ string, _ event.Source, _ snapshotter.Distributor) (*processing.Runtime, error) {
+			processorInitialize = func(processor.Settings) (*processing.Runtime, error) {
 				return nil, e
 			}
 		case 3:
@@ -88,9 +86,6 @@ loop:
 		case 6:
 			netListen = func(network, address string) (net.Listener, error) { return nil, e }
 		case 7:
-			args.DisableResourceReadyCheck = false
-			checkResourceTypesPresence = func(_ kube.Interfaces, _ schema.KubeResources) error { return e }
-		case 8:
 			args.ConfigPath = "aaa"
 			fsNew2 = func(_ string, _ schema.KubeResources) (event.Source, error) { return nil, e }
 		default:
@@ -115,11 +110,10 @@ func TestProcessing2_Basic(t *testing.T) {
 	cl := fake.NewSimpleDynamicClient(k8sRuntime.NewScheme())
 
 	mk.AddResponse(cl, nil)
-	newKubeFromConfigFile = func(string) (client.Interfaces, error) { return mk, nil }
+	newInterfaces = func(string) (kube.Interfaces, error) { return mk, nil }
 	mcpMetricReporter = func(s string) monitoring.Reporter {
 		return mcptestmon.NewInMemoryStatsContext()
 	}
-	checkResourceTypesPresence = func(_ kube.Interfaces, _ schema.KubeResources) error { return nil }
 	meshcfgNewFS = func(path string) (event.Source, error) { return meshcfg.NewInmemory(), nil }
 
 	args := settings.DefaultArgs()

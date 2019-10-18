@@ -251,7 +251,7 @@ type Object struct {
 	Body     proto.Message
 }
 
-// changes is a collection of configuration objects of the same protobuf type.
+// Change is a collection of configuration objects of the same protobuf type.
 type Change struct {
 	Collection string
 
@@ -265,7 +265,7 @@ type Change struct {
 	Objects []*Object
 
 	// List of deleted resources by name. The resource name corresponds to the
-	// resource's metadata name.
+	// resource's metadata name (namespace/name).
 	//
 	// Ignore when Incremental=false.
 	Removed []string

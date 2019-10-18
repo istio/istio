@@ -88,6 +88,23 @@ func TestPermission_Match(t *testing.T) {
 			want: false,
 		},
 		{
+			name: "destination.user not matched",
+			service: &ServiceMetadata{
+				Name:       "product.default",
+				Labels:     map[string]string{"token": "t3"},
+				Attributes: map[string]string{"destination.user": "user1"},
+			},
+			perm: &Permission{
+				Services: []string{"product.default"},
+				Constraints: []KeyValues{
+					{
+						"destination.user": []string{"user2"},
+					},
+				},
+			},
+			want: false,
+		},
+		{
 			name: "all matched",
 			service: &ServiceMetadata{
 				Name: "product.default",

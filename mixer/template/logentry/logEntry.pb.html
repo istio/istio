@@ -50,6 +50,7 @@ then the expression&rsquo;s <a href="https://istio.io/docs/reference//config/pol
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -60,6 +61,9 @@ then the expression&rsquo;s <a href="https://istio.io/docs/reference//config/pol
 <p>Variables that are delivered for each log entry.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Template-timestamp">
 <td><code>timestamp</code></td>
@@ -68,6 +72,9 @@ then the expression&rsquo;s <a href="https://istio.io/docs/reference//config/pol
 <p>Timestamp is the time value for the log entry</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Template-severity">
 <td><code>severity</code></td>
@@ -75,6 +82,9 @@ then the expression&rsquo;s <a href="https://istio.io/docs/reference//config/pol
 <td>
 <p>Severity indicates the importance of the log entry.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Template-monitored_resource_type">
@@ -86,6 +96,9 @@ If the logging backend supports monitored resources, these fields are used to po
 Otherwise these fields will be ignored by the adapter.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Template-monitored_resource_dimensions">
 <td><code>monitoredResourceDimensions</code></td>
@@ -95,6 +108,9 @@ Otherwise these fields will be ignored by the adapter.</p>
 recorded on. If the logging backend supports monitored resources, these fields are used to populate that resource.
 Otherwise these fields will be ignored by the adapter.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>

@@ -35,7 +35,7 @@ func TestBasicSingleSource(t *testing.T) {
 	ps.Start()
 	defer ps.Stop()
 
-	e1 := createTestEvent(event.Added, createTestResource("resource1", "v1"))
+	e1 := createTestEvent(event.Added, createTestResource("ns", "resource1", "v1"))
 	e2 := createTestEvent(event.FullSync, nil)
 
 	s1.Handle(e1)
@@ -81,8 +81,8 @@ func TestPrecedence(t *testing.T) {
 	ps.Start()
 	defer ps.Stop()
 
-	e1 := createTestEvent(event.Added, createTestResource("resource1", "v1"))
-	e2 := createTestEvent(event.Added, createTestResource("resource1", "v2"))
+	e1 := createTestEvent(event.Added, createTestResource("ns", "resource1", "v1"))
+	e2 := createTestEvent(event.Added, createTestResource("ns", "resource1", "v2"))
 
 	s2.Handle(e1)
 	g.Expect(h.Events()).To(Equal([]event.Event{e1}))

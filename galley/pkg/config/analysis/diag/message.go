@@ -32,13 +32,13 @@ type MessageType struct {
 	template string
 }
 
-//Level returns the level of the MessageType
+// Level returns the level of the MessageType
 func (m *MessageType) Level() Level { return m.level }
 
-//Code returns the code of the MessageType
+// Code returns the code of the MessageType
 func (m *MessageType) Code() string { return m.code }
 
-//Template returns the message template used by the MessageType
+// Template returns the message template used by the MessageType
 func (m *MessageType) Template() string { return m.template }
 
 // Message is a specific diagnostic message
@@ -52,23 +52,28 @@ type Message struct {
 	Origin resource.Origin
 }
 
+// Unstructured returns this message as a JSON-style unstructured map
+func (m *Message) Unstructured(includeOrigin bool) map[string]interface{} {
+	result := make(map[string]interface{})
+
+	result["code"] = m.Type.Code()
+	result["level"] = m.Type.Level().String()
+	if includeOrigin && m.Origin != nil {
+		result["origin"] = m.Origin.FriendlyName()
+	}
+	result["message"] = fmt.Sprintf(m.Type.Template(), m.Parameters...)
+
+	return result
+}
+
 // String implements io.Stringer
 func (m *Message) String() string {
-	return m.toString(true)
-}
-
-// StatusString creates a short-form string version of this message, suitable for putting in status fields of
-// individual objects.
-func (m *Message) StatusString() string {
-	return m.toString(false)
-}
-
-func (m *Message) toString(includeOrigin bool) string {
 	origin := ""
-	if includeOrigin && m.Origin != nil {
+	if m.Origin != nil {
 		origin = "(" + m.Origin.FriendlyName() + ")"
 	}
-	return fmt.Sprintf("%v [%v]%s %s", m.Type.Level(), m.Type.Code(), origin, fmt.Sprintf(m.Type.Template(), m.Parameters...))
+	return fmt.Sprintf(
+		"%v [%v]%s %s", m.Type.Level(), m.Type.Code(), origin, fmt.Sprintf(m.Type.Template(), m.Parameters...))
 }
 
 // NewMessageType returns a new MessageType instance.

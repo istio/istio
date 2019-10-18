@@ -20,9 +20,9 @@ import (
 	"strings"
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -59,7 +59,7 @@ func newSidecar(pod kubeCore.Pod, accessor *kube.Accessor) (*sidecar, error) {
 		for _, c := range cfg.Configs {
 			if c.TypeUrl == "type.googleapis.com/envoy.admin.v2alpha.BootstrapConfigDump" {
 				cd := envoyAdmin.BootstrapConfigDump{}
-				if err := types.UnmarshalAny(c, &cd); err != nil {
+				if err := ptypes.UnmarshalAny(c, &cd); err != nil {
 					return false, err
 				}
 
@@ -171,8 +171,22 @@ func (s *sidecar) adminRequest(path string, out proto.Message) error {
 			s.podNamespace, s.podName, err, command, response)
 	}
 
-	if err := jsonpb.Unmarshal(strings.NewReader(response), out); err != nil {
+	jspb := jsonpb.Unmarshaler{AllowUnknownFields: true}
+	if err := jspb.Unmarshal(strings.NewReader(response), out); err != nil {
 		return fmt.Errorf("failed parsing Envoy admin response from '/%s': %v\nResponse JSON: %s", path, err, response)
 	}
 	return nil
+}
+
+func (s *sidecar) Logs() (string, error) {
+	return s.accessor.Logs(s.podNamespace, s.podName, proxyContainerName, false)
+}
+
+func (s *sidecar) LogsOrFail(t test.Failer) string {
+	t.Helper()
+	logs, err := s.Logs()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return logs
 }

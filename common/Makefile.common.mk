@@ -57,7 +57,11 @@ lint-typescript:
 lint-protos:
 	@if test -d common-protos; then $(FINDFILES) -name '*.proto' -print0 | $(XARGS) -L 1 prototool lint --protoc-bin-path=/usr/bin/protoc --protoc-wkt-path=common-protos; fi
 
-lint-all: lint-dockerfiles lint-scripts lint-yaml lint-helm lint-copyright-banner lint-go lint-python lint-markdown lint-sass lint-typescript lint-protos
+lint-licenses:
+	@-go mod download
+	@license-lint --config common/config/license-lint.yml
+
+lint-all: lint-dockerfiles lint-scripts lint-yaml lint-helm lint-copyright-banner lint-go lint-python lint-markdown lint-sass lint-typescript lint-protos lint-licenses
 
 format-go:
 	@${FINDFILES} -name '*.go' \( ! \( -name '*.gen.go' -o -name '*.pb.go' \) \) -print0 | ${XARGS} goimports -w -local "istio.io"
@@ -67,6 +71,14 @@ format-python:
 
 format-protos:
 	@$(FINDFILES) -name '*.proto' -print0 | $(XARGS) -L 1 prototool format -w
+
+dump-licenses:
+	@go mod download
+	@license-lint --config common/config/license-lint.yml --report
+
+dump-licenses-csv:
+	@go mod download
+	@license-lint --config common/config/license-lint.yml --csv
 
 update-common:
 	@git clone -q --depth 1 --single-branch --branch master https://github.com/istio/common-files
@@ -82,4 +94,7 @@ update-common-protos:
 	@cp -ar common-files/common-protos common-protos
 	@rm -fr common-files
 
-.PHONY: lint-dockerfiles lint-scripts lint-yaml lint-copyright-banner lint-go lint-pyhton lint-helm lint-markdown lint-sass lint-typescript lint-protos lint-all format-go format-python format-protos update-common update-common-protos
+check-clean-repo:
+	@common/scripts/check_clean_repo.sh
+
+.PHONY: lint-dockerfiles lint-scripts lint-yaml lint-copyright-banner lint-go lint-python lint-helm lint-markdown lint-sass lint-typescript lint-protos lint-all format-go format-python format-protos update-common update-common-protos lint-licenses dump-licenses dump-licenses-csv check-clean-repo

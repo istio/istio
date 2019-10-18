@@ -20,18 +20,17 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/jwt_authn/v2alpha"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	protobuf "github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes/empty"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	authn "istio.io/api/authentication/v1alpha1"
-	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
-	istio_jwt "istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -39,7 +38,10 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	pilotutil "istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
-	"istio.io/istio/pkg/proto"
+	protovalue "istio.io/istio/pkg/proto"
+	authn_filter_policy "istio.io/istio/security/proto/authentication/v1alpha1"
+	authn_filter "istio.io/istio/security/proto/envoy/config/filter/http/authn/v2alpha1"
+	istio_jwt "istio.io/istio/security/proto/envoy/config/filter/http/jwt_auth/v2alpha1"
 )
 
 func TestRequireTls(t *testing.T) {
@@ -215,7 +217,7 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 		in          *authn.Policy
 		useIstioJWT bool
 		wantName    string
-		wantConfig  protobuf.Message
+		wantConfig  proto.Message
 	}{
 		{
 			in: &authn.Policy{
@@ -308,7 +310,7 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 						},
 						Requires: &envoy_jwt.JwtRequirement{
 							RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
-								AllowMissingOrFailed: &types.Empty{},
+								AllowMissingOrFailed: &empty.Empty{},
 							},
 						},
 					},
@@ -372,7 +374,7 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 						},
 						Requires: &envoy_jwt.JwtRequirement{
 							RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
-								AllowMissingOrFailed: &types.Empty{},
+								AllowMissingOrFailed: &empty.Empty{},
 							},
 						},
 					},
@@ -497,14 +499,14 @@ func TestConvertPolicyToAuthNFilterConfig(t *testing.T) {
 			name: "no jwt policy",
 			in: &authn.Policy{
 				Peers: []*authn.PeerAuthenticationMethod{{
-					Params: &authn.PeerAuthenticationMethod_Mtls{},
+					Params: &authn.PeerAuthenticationMethod_Mtls{&authn.MutualTls{}},
 				}},
 			},
 			expected: &authn_filter.FilterConfig{
-				Policy: &authn.Policy{
-					Peers: []*authn.PeerAuthenticationMethod{{
-						Params: &authn.PeerAuthenticationMethod_Mtls{
-							&authn.MutualTls{},
+				Policy: &authn_filter_policy.Policy{
+					Peers: []*authn_filter_policy.PeerAuthenticationMethod{{
+						Params: &authn_filter_policy.PeerAuthenticationMethod_Mtls{
+							&authn_filter_policy.MutualTls{},
 						},
 					}},
 				},
@@ -524,11 +526,11 @@ func TestConvertPolicyToAuthNFilterConfig(t *testing.T) {
 				},
 			},
 			expected: &authn_filter.FilterConfig{
-				Policy: &authn.Policy{
-					Peers: []*authn.PeerAuthenticationMethod{
+				Policy: &authn_filter_policy.Policy{
+					Peers: []*authn_filter_policy.PeerAuthenticationMethod{
 						{
-							Params: &authn.PeerAuthenticationMethod_Jwt{
-								Jwt: &authn.Jwt{
+							Params: &authn_filter_policy.PeerAuthenticationMethod_Jwt{
+								Jwt: &authn_filter_policy.Jwt{
 									Issuer: "foo",
 								},
 							},
@@ -557,7 +559,7 @@ func TestConvertPolicyToAuthNFilterConfig(t *testing.T) {
 						},
 					},
 					{
-						Params: &authn.PeerAuthenticationMethod_Mtls{},
+						Params: &authn.PeerAuthenticationMethod_Mtls{&authn.MutualTls{}},
 					},
 				},
 				Origins: []*authn.OriginAuthenticationMethod{
@@ -569,24 +571,24 @@ func TestConvertPolicyToAuthNFilterConfig(t *testing.T) {
 				},
 			},
 			expected: &authn_filter.FilterConfig{
-				Policy: &authn.Policy{
-					Peers: []*authn.PeerAuthenticationMethod{
+				Policy: &authn_filter_policy.Policy{
+					Peers: []*authn_filter_policy.PeerAuthenticationMethod{
 						{
-							Params: &authn.PeerAuthenticationMethod_Jwt{
-								Jwt: &authn.Jwt{
+							Params: &authn_filter_policy.PeerAuthenticationMethod_Jwt{
+								Jwt: &authn_filter_policy.Jwt{
 									Issuer: "foo",
 								},
 							},
 						},
 						{
-							Params: &authn.PeerAuthenticationMethod_Mtls{
-								&authn.MutualTls{},
+							Params: &authn_filter_policy.PeerAuthenticationMethod_Mtls{
+								&authn_filter_policy.MutualTls{},
 							},
 						},
 					},
-					Origins: []*authn.OriginAuthenticationMethod{
+					Origins: []*authn_filter_policy.OriginAuthenticationMethod{
 						{
-							Jwt: &authn.Jwt{
+							Jwt: &authn_filter_policy.Jwt{
 								Issuer: "bar",
 							},
 						},
@@ -641,11 +643,11 @@ func TestBuildAuthNFilter(t *testing.T) {
 				},
 			},
 			expectedFilterConfig: &authn_filter.FilterConfig{
-				Policy: &authn.Policy{
-					Peers: []*authn.PeerAuthenticationMethod{
+				Policy: &authn_filter_policy.Policy{
+					Peers: []*authn_filter_policy.PeerAuthenticationMethod{
 						{
-							Params: &authn.PeerAuthenticationMethod_Jwt{
-								Jwt: &authn.Jwt{
+							Params: &authn_filter_policy.PeerAuthenticationMethod_Jwt{
+								Jwt: &authn_filter_policy.Jwt{
 									JwksUri: "http://abc.com",
 								},
 							},
@@ -668,11 +670,11 @@ func TestBuildAuthNFilter(t *testing.T) {
 				},
 			},
 			expectedFilterConfig: &authn_filter.FilterConfig{
-				Policy: &authn.Policy{
-					Peers: []*authn.PeerAuthenticationMethod{
+				Policy: &authn_filter_policy.Policy{
+					Peers: []*authn_filter_policy.PeerAuthenticationMethod{
 						{
-							Params: &authn.PeerAuthenticationMethod_Mtls{
-								Mtls: &authn.MutualTls{},
+							Params: &authn_filter_policy.PeerAuthenticationMethod_Mtls{
+								Mtls: &authn_filter_policy.MutualTls{},
 							},
 						},
 					},
@@ -691,11 +693,11 @@ func TestBuildAuthNFilter(t *testing.T) {
 			},
 			skipTrustDomainValidate: true,
 			expectedFilterConfig: &authn_filter.FilterConfig{
-				Policy: &authn.Policy{
-					Peers: []*authn.PeerAuthenticationMethod{
+				Policy: &authn_filter_policy.Policy{
+					Peers: []*authn_filter_policy.PeerAuthenticationMethod{
 						{
-							Params: &authn.PeerAuthenticationMethod_Mtls{
-								Mtls: &authn.MutualTls{},
+							Params: &authn_filter_policy.PeerAuthenticationMethod_Mtls{
+								Mtls: &authn_filter_policy.MutualTls{},
 							},
 						},
 					},
@@ -721,13 +723,13 @@ func TestBuildAuthNFilter(t *testing.T) {
 			if c.expectedFilterConfig == nil {
 				t.Errorf("buildAuthNFilter(%#v), got: \n%#v\n, wanted none", c.in, got)
 			} else {
-				if got.GetName() != AuthnFilterName {
-					t.Errorf("buildAuthNFilter(%#v), filter name is %s, wanted %s", c.in, got.GetName(), AuthnFilterName)
+				if got.GetName() != authn_model.AuthnFilterName {
+					t.Errorf("buildAuthNFilter(%#v), filter name is %s, wanted %s", c.in, got.GetName(), authn_model.AuthnFilterName)
 				}
-				filterConfig := &authn_filter.FilterConfig{}
-				if err := filterConfig.Unmarshal(got.GetTypedConfig().GetValue()); err != nil {
+				filterConfig := authn_filter.FilterConfig{}
+				if err := proto.Unmarshal(got.GetTypedConfig().GetValue(), &filterConfig); err != nil {
 					t.Errorf("buildAuthNFilter(%#v), bad filter config: %v", c.in, err)
-				} else if !reflect.DeepEqual(c.expectedFilterConfig, filterConfig) {
+				} else if !reflect.DeepEqual(c.expectedFilterConfig, &filterConfig) {
 					t.Errorf("buildAuthNFilter(%#v), got filter config:\n%s\nwanted:\n%s\n", c.in, filterConfig.String(), c.expectedFilterConfig.String())
 				}
 			}
@@ -763,18 +765,19 @@ func TestOnInboundFilterChains(t *testing.T) {
 			},
 			AlpnProtocols: []string{"h2", "http/1.1"},
 		},
-		RequireClientCertificate: proto.BoolTrue,
+		RequireClientCertificate: protovalue.BoolTrue,
 	}
 	cases := []struct {
 		name       string
 		in         *authn.Policy
 		sdsUdsPath string
 		expected   []plugin.FilterChain
-		meta       map[string]string
+		meta       *model.NodeMetadata
 	}{
 		{
 			name: "NoAuthnPolicy",
 			in:   nil,
+			meta: &model.NodeMetadata{},
 			// No need to set up filter chain, default one is okay.
 			expected: nil,
 		},
@@ -791,6 +794,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 					},
 				},
 			},
+			meta:     &model.NodeMetadata{},
 			expected: nil,
 		},
 		{
@@ -802,6 +806,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 					},
 				},
 			},
+			meta: &model.NodeMetadata{},
 			expected: []plugin.FilterChain{
 				{
 					TLSContext: tlsContext,
@@ -821,6 +826,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 					},
 				},
 			},
+			meta: &model.NodeMetadata{},
 			// Only one filter chain with mTLS settings should be generated.
 			expected: []plugin.FilterChain{
 				{
@@ -841,6 +847,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 					},
 				},
 			},
+			meta: &model.NodeMetadata{},
 			// Two filter chains, one for mtls traffic within the mesh, one for plain text traffic.
 			expected: []plugin.FilterChain{
 				{
@@ -851,7 +858,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 					ListenerFilters: []*listener.ListenerFilter{
 						{
 							Name:       "envoy.listener.tls_inspector",
-							ConfigType: &listener.ListenerFilter_Config{&types.Struct{}},
+							ConfigType: &listener.ListenerFilter_Config{&structpb.Struct{}},
 						},
 					},
 				},
@@ -870,6 +877,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 				},
 			},
 			sdsUdsPath: "/tmp/sdsuds.sock",
+			meta:       &model.NodeMetadata{},
 			expected: []plugin.FilterChain{
 				{
 					TLSContext: &auth.DownstreamTlsContext{
@@ -885,7 +893,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 							},
 							AlpnProtocols: []string{"h2", "http/1.1"},
 						},
-						RequireClientCertificate: proto.BoolTrue,
+						RequireClientCertificate: protovalue.BoolTrue,
 					},
 				},
 			},
@@ -903,10 +911,10 @@ func TestOnInboundFilterChains(t *testing.T) {
 					},
 				},
 			},
-			meta: map[string]string{
-				model.NodeMetadataTLSServerCertChain: "/custom/path/to/cert-chain.pem",
-				model.NodeMetadataTLSServerKey:       "/custom-key.pem",
-				model.NodeMetadataTLSServerRootCert:  "/custom/path/to/root.pem",
+			meta: &model.NodeMetadata{
+				TLSServerCertChain: "/custom/path/to/cert-chain.pem",
+				TLSServerKey:       "/custom-key.pem",
+				TLSServerRootCert:  "/custom/path/to/root.pem",
 			},
 			// Only one filter chain with mTLS settings should be generated.
 			expected: []plugin.FilterChain{
@@ -938,7 +946,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 							},
 							AlpnProtocols: []string{"h2", "http/1.1"},
 						},
-						RequireClientCertificate: proto.BoolTrue,
+						RequireClientCertificate: protovalue.BoolTrue,
 					},
 				},
 			},

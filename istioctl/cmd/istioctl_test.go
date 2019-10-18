@@ -116,7 +116,7 @@ var (
 								Destination: &networking.Destination{
 									Host: "productpage",
 									Port: &networking.PortSelector{
-										Port: &networking.PortSelector_Number{Number: 80},
+										Number: 80,
 									},
 								},
 							},
@@ -319,6 +319,13 @@ func (cs sortedConfigStore) Delete(typ, name, namespace string) error {
 
 func (cs sortedConfigStore) ConfigDescriptor() schema.Set {
 	return cs.store.ConfigDescriptor()
+}
+
+func (cs sortedConfigStore) Version() string {
+	return cs.store.Version()
+}
+func (cs sortedConfigStore) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
+	return cs.store.GetResourceAtVersion(version, key)
 }
 
 // List() is a facade that always returns cs.store items sorted by name/namespace

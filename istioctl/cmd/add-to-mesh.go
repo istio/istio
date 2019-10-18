@@ -18,12 +18,12 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"strconv"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/kubernetes/pkg/apis/core"
 
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -31,8 +31,8 @@ import (
 	"istio.io/istio/pkg/kube"
 
 	"github.com/ghodss/yaml"
+	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-	"go.uber.org/multierr"
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/istioctl/pkg/util/handlers"
@@ -162,8 +162,7 @@ http:9080 tcp:8888 -l app=test,version=v1 -a env=stage -s stageAdmin`,
 			}
 			writer := cmd.OutOrStdout()
 			ns := handlers.HandleNamespace(namespace, defaultNamespace)
-			_, err = client.CoreV1().Services(ns).Get(args[0], metav1.GetOptions{
-				IncludeUninitialized: true})
+			_, err = client.CoreV1().Services(ns).Get(args[0], metav1.GetOptions{})
 			if err != nil {
 				return addServiceOnVMToMesh(seClient, client, ns, args, labels, annotations, svcAcctAnn, writer)
 			}
@@ -187,7 +186,7 @@ func setupParameters(sidecarTemplate, valuesConfig *string) (*meshconfig.MeshCon
 			return nil, err
 		}
 	} else {
-		if meshConfig, err = getMeshConfigFromConfigMap(kubeconfig); err != nil {
+		if meshConfig, err = getMeshConfigFromConfigMap(kubeconfig, "add-to-mesh"); err != nil {
 			return nil, err
 		}
 	}
@@ -198,7 +197,7 @@ func setupParameters(sidecarTemplate, valuesConfig *string) (*meshconfig.MeshCon
 		}
 		var injectConfig inject.Config
 		if err := yaml.Unmarshal(injectionConfig, &injectConfig); err != nil {
-			return nil, multierr.Append(fmt.Errorf("loading --injectConfigFile"), err)
+			return nil, multierror.Append(err, fmt.Errorf("loading --injectConfigFile"))
 		}
 		*sidecarTemplate = injectConfig.Template
 	} else if *sidecarTemplate, err = getInjectConfigFromConfigMap(kubeconfig); err != nil {
@@ -224,20 +223,20 @@ func injectSideCarIntoDeployment(client kubernetes.Interface, deps []appsv1.Depl
 			dep.Name, dep.Namespace)
 		newDep, err := inject.IntoObject(sidecarTemplate, valuesConfig, meshConfig, &dep)
 		if err != nil {
-			errs = multierr.Append(fmt.Errorf("failed to update deployment %s.%s for service %s.%s due to %v",
-				dep.Name, dep.Namespace, svcName, svcNamespace, err), errs)
+			errs = multierror.Append(errs, fmt.Errorf("failed to update deployment %s.%s for service %s.%s due to %v",
+				dep.Name, dep.Namespace, svcName, svcNamespace, err))
 			continue
 		}
 		res, b := newDep.(*appsv1.Deployment)
 		if !b {
-			errs = multierr.Append(fmt.Errorf("failed to update deployment %s.%s for service %s.%s",
-				dep.Name, dep.Namespace, svcName, svcNamespace), errs)
+			errs = multierror.Append(errs, fmt.Errorf("failed to update deployment %s.%s for service %s.%s",
+				dep.Name, dep.Namespace, svcName, svcNamespace))
 			continue
 		}
 		if _, err :=
 			client.AppsV1().Deployments(svcNamespace).Update(res); err != nil {
-			errs = multierr.Append(fmt.Errorf("failed to update deployment %s.%s for service %s.%s due to %v",
-				dep.Name, dep.Namespace, svcName, svcNamespace, err), errs)
+			errs = multierror.Append(errs, fmt.Errorf("failed to update deployment %s.%s for service %s.%s due to %v",
+				dep.Name, dep.Namespace, svcName, svcNamespace, err))
 			continue
 
 		}
@@ -249,8 +248,8 @@ func injectSideCarIntoDeployment(client kubernetes.Interface, deps []appsv1.Depl
 			},
 		}
 		if _, err = client.AppsV1().Deployments(svcNamespace).UpdateStatus(d); err != nil {
-			errs = multierr.Append(fmt.Errorf("failed to update deployment %s.%s for service %s.%s due to %v",
-				dep.Name, dep.Namespace, svcName, svcNamespace, err), errs)
+			errs = multierror.Append(errs, fmt.Errorf("failed to update deployment %s.%s for service %s.%s due to %v",
+				dep.Name, dep.Namespace, svcName, svcNamespace, err))
 			continue
 		}
 		fmt.Fprintf(writer, "deployment %s.%s updated successfully with Istio sidecar injected.\n"+
@@ -311,7 +310,7 @@ func convertPortList(ports []string) (model.PortList, error) {
 		portList = append(portList, &model.Port{
 			Port:     int(np.Port),
 			Protocol: protocol,
-			Name:     np.Name,
+			Name:     np.Name + "-" + strconv.Itoa(int(np.Port)),
 		})
 	}
 	return portList, nil
@@ -349,7 +348,7 @@ func addServiceOnVMToMesh(dynamicClient dynamic.Interface, client kubernetes.Int
 			},
 		},
 	}
-	annotations[core.ServiceAccountNameKey] = opts.ServiceAccount
+	annotations[corev1.ServiceAccountNameKey] = opts.ServiceAccount
 	s := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        opts.Name,
@@ -360,9 +359,7 @@ func addServiceOnVMToMesh(dynamicClient dynamic.Interface, client kubernetes.Int
 	}
 
 	// Pre-check Kubernetes service and service entry does not exist.
-	_, err = client.CoreV1().Services(ns).Get(opts.Name, metav1.GetOptions{
-		IncludeUninitialized: true,
-	})
+	_, err = client.CoreV1().Services(ns).Get(opts.Name, metav1.GetOptions{})
 	if err == nil {
 		return fmt.Errorf("service %q already exists, skip", opts.Name)
 	}

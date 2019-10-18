@@ -17,34 +17,28 @@ package stsclient
 import (
 	"context"
 	"testing"
-
-	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient/test"
 )
 
 func TestGetFederatedToken(t *testing.T) {
-	tlsFlag = false
-	defer func() {
-		tlsFlag = true
-	}()
-
 	r := NewPlugin()
 
-	ms, err := test.StartNewServer()
+	ms, err := StartNewServer(t)
+	if err != nil {
+		t.Fatalf("failed to start a mock server: %v", err)
+	}
 	secureTokenEndpoint = ms.URL + "/v1/identitybindingtoken"
 	defer func() {
-		ms.Stop()
+		if err := ms.Stop(); err != nil {
+			t.Logf("failed to stop mock server: %v", err)
+		}
 		secureTokenEndpoint = "https://securetoken.googleapis.com/v1/identitybindingtoken"
 	}()
 
-	if err != nil {
-		t.Fatalf("failed to start a mock server %v", err)
-	}
-
-	token, _, _, err := r.ExchangeToken(context.Background(), "", "")
+	token, _, _, err := r.ExchangeToken(context.Background(), fakeTrustDomain, fakeSubjectToken)
 	if err != nil {
 		t.Fatalf("failed to call exchange token %v", err)
 	}
-	if got, want := token, "footoken"; got != want {
-		t.Errorf("Access token got %q, expected %q", "footoken", token)
+	if token != fakeAccessToken {
+		t.Errorf("Access token got %q, expected %q", token, fakeAccessToken)
 	}
 }

@@ -31,6 +31,8 @@ import (
 	"text/template"
 
 	"github.com/ghodss/yaml"
+	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
 
@@ -165,22 +167,6 @@ type SidecarTemplateData struct {
 	Values         map[string]interface{}
 }
 
-// InitImageName returns the fully qualified image name for the istio
-// init image given a docker hub and tag and debug flag
-func InitImageName(hub string, tag string, _ bool) string {
-	return hub + "/proxy_init:" + tag
-}
-
-// ProxyImageName returns the fully qualified image name for the istio
-// proxy image given a docker hub and tag and whether to use debug or not.
-func ProxyImageName(hub string, tag string, debug bool) string {
-	// Allow overriding the proxy image.
-	if debug {
-		return hub + "/proxy_debug:" + tag
-	}
-	return hub + "/proxyv2:" + tag
-}
-
 // Params describes configurable parameters for injecting istio proxy
 // into a kubernetes resource.
 type Params struct {
@@ -289,6 +275,10 @@ type Config struct {
 	// It's an array of label selectors, that will be OR'ed, meaning we will iterate
 	// over it and stop at the first match
 	AlwaysInjectSelector []metav1.LabelSelector `json:"alwaysInjectSelector"`
+
+	// InjectedAnnotations are additional annotations that will be added to the pod spec after injection
+	// This is primarily to support PSP annotations.
+	InjectedAnnotations map[string]string `json:"injectedAnnotations"`
 }
 
 func validateCIDRList(cidrs string) error {
@@ -543,8 +533,9 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *
 
 	// If DNSPolicy is not ClusterFirst, the Envoy sidecar may not able to connect to Istio Pilot.
 	if spec.DNSPolicy != "" && spec.DNSPolicy != corev1.DNSClusterFirst {
+		podName := potentialPodName(metadata)
 		log.Warnf("%q's DNSPolicy is not %q. The Envoy sidecar may not able to connect to Istio Pilot",
-			metadata.Namespace+"/"+metadata.Name, corev1.DNSClusterFirst)
+			metadata.Namespace+"/"+podName, corev1.DNSClusterFirst)
 	}
 
 	if err := validateAnnotations(metadata.GetAnnotations()); err != nil {
@@ -581,6 +572,7 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *
 		"toJson":              toJSON, // Used by, e.g. Istio 1.0.5 template sidecar-injector-configmap.yaml
 		"fromJSON":            fromJSON,
 		"structToJSON":        structToJSON,
+		"protoToJSON":         protoToJSON,
 		"toYaml":              toYaml,
 		"indent":              indent,
 		"directory":           directory,
@@ -916,6 +908,21 @@ func structToJSON(v interface{}) string {
 	}
 
 	return string(ba)
+}
+
+func protoToJSON(v proto.Message) string {
+	if v == nil {
+		return "{}"
+	}
+
+	m := jsonpb.Marshaler{}
+	ba, err := m.MarshalToString(v)
+	if err != nil {
+		log.Warnf("Unable to marshal %v: %v", v, err)
+		return "{}"
+	}
+
+	return ba
 }
 
 func toJSON(m map[string]string) string {

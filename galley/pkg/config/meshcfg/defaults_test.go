@@ -19,6 +19,8 @@ import (
 
 	. "github.com/onsi/gomega"
 
+	"istio.io/api/mesh/v1alpha1"
+
 	"istio.io/istio/pkg/config/mesh"
 )
 
@@ -26,6 +28,8 @@ func TestDefaults(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	m := Default()
-
-	g.Expect(*m).To(Equal(mesh.DefaultMeshConfig()))
+	expect := mesh.DefaultMeshConfig()
+	expect.IngressClass = "istio"
+	expect.IngressControllerMode = v1alpha1.MeshConfig_STRICT
+	g.Expect(*m).To(Equal(expect))
 }

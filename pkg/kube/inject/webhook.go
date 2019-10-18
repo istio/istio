@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -460,7 +461,15 @@ func addLabels(target map[string]string, added map[string]string) []rfc6902Patch
 }
 
 func updateAnnotation(target map[string]string, added map[string]string) (patch []rfc6902PatchOperation) {
-	for key, value := range added {
+	// To ensure deterministic patches, we sort the keys
+	var keys []string
+	for k := range added {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		value := added[key]
 		if target == nil {
 			target = map[string]string{}
 			patch = append(patch, rfc6902PatchOperation{
@@ -665,6 +674,11 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 	}
 
 	annotations := map[string]string{annotation.SidecarStatus.Name: iStatus}
+
+	// Add all additional injected annotations
+	for k, v := range wh.sidecarConfig.InjectedAnnotations {
+		annotations[k] = v
+	}
 
 	patchBytes, err := createPatch(&pod, injectionStatus(&pod), annotations, spec)
 	if err != nil {

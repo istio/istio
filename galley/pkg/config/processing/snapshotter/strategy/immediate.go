@@ -17,7 +17,7 @@ package strategy
 import (
 	"sync/atomic"
 
-	"istio.io/istio/galley/pkg/runtime/monitoring"
+	"istio.io/istio/galley/pkg/config/monitoring"
 )
 
 // Immediate is a snapshotting strategy for creating snapshots immediately, as events arrive.

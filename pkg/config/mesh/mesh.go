@@ -24,7 +24,7 @@ import (
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/validation"
-	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 
 // DefaultProxyConfig for individual proxies
@@ -69,46 +69,53 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		SdsUdsPath:                        "",
 		EnableSdsTokenMount:               false,
 		TrustDomain:                       "",
+		TrustDomainAliases:                []string{},
 		DefaultServiceExportTo:            []string{"*"},
 		DefaultVirtualServiceExportTo:     []string{"*"},
 		DefaultDestinationRuleExportTo:    []string{"*"},
 		OutboundTrafficPolicy:             &meshconfig.MeshConfig_OutboundTrafficPolicy{Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY},
 		DnsRefreshRate:                    types.DurationProto(5 * time.Second), // 5 seconds is the default refresh rate used in Envoy
 		ProtocolDetectionTimeout:          types.DurationProto(100 * time.Millisecond),
+		EnableAutoMtls:                    &types.BoolValue{Value: false},
 	}
 }
 
-// ApplyMeshConfigDefaults returns a new MeshConfig decoded from the
-// input YAML with defaults applied to omitted configuration values.
-func ApplyMeshConfigDefaults(yaml string) (*meshconfig.MeshConfig, error) {
-	out := DefaultMeshConfig()
-	if err := protomarshal.ApplyYAML(yaml, &out); err != nil {
+// ApplyMeshConfig returns a new MeshConfig decoded from the
+// input YAML with the provided defaults applied to omitted configuration values.
+func ApplyMeshConfig(yaml string, defaultConfig meshconfig.MeshConfig) (*meshconfig.MeshConfig, error) {
+	if err := gogoprotomarshal.ApplyYAML(yaml, &defaultConfig); err != nil {
 		return nil, multierror.Prefix(err, "failed to convert to proto.")
 	}
 
 	// Reset the default ProxyConfig as jsonpb.UnmarshalString doesn't
 	// handled nested decode properly for our use case.
-	prevDefaultConfig := out.DefaultConfig
+	prevDefaultConfig := defaultConfig.DefaultConfig
 	defaultProxyConfig := DefaultProxyConfig()
-	out.DefaultConfig = &defaultProxyConfig
+	defaultConfig.DefaultConfig = &defaultProxyConfig
 
 	// Re-apply defaults to ProxyConfig if they were defined in the
 	// original input MeshConfig.ProxyConfig.
 	if prevDefaultConfig != nil {
-		origProxyConfigYAML, err := protomarshal.ToYAML(prevDefaultConfig)
+		origProxyConfigYAML, err := gogoprotomarshal.ToYAML(prevDefaultConfig)
 		if err != nil {
 			return nil, multierror.Prefix(err, "failed to re-encode default proxy config")
 		}
-		if err := protomarshal.ApplyYAML(origProxyConfigYAML, out.DefaultConfig); err != nil {
+		if err := gogoprotomarshal.ApplyYAML(origProxyConfigYAML, defaultConfig.DefaultConfig); err != nil {
 			return nil, multierror.Prefix(err, "failed to convert to proto.")
 		}
 	}
 
-	if err := validation.ValidateMeshConfig(&out); err != nil {
+	if err := validation.ValidateMeshConfig(&defaultConfig); err != nil {
 		return nil, err
 	}
 
-	return &out, nil
+	return &defaultConfig, nil
+}
+
+// ApplyMeshConfigDefaults returns a new MeshConfig decoded from the
+// input YAML with defaults applied to omitted configuration values.
+func ApplyMeshConfigDefaults(yaml string) (*meshconfig.MeshConfig, error) {
+	return ApplyMeshConfig(yaml, DefaultMeshConfig())
 }
 
 // EmptyMeshNetworks configuration with no networks
@@ -122,7 +129,7 @@ func EmptyMeshNetworks() meshconfig.MeshNetworks {
 // input YAML.
 func LoadMeshNetworksConfig(yaml string) (*meshconfig.MeshNetworks, error) {
 	out := EmptyMeshNetworks()
-	if err := protomarshal.ApplyYAML(yaml, &out); err != nil {
+	if err := gogoprotomarshal.ApplyYAML(yaml, &out); err != nil {
 		return nil, multierror.Prefix(err, "failed to convert to proto.")
 	}
 

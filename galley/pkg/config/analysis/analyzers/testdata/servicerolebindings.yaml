@@ -26,3 +26,13 @@ spec:
     name: bogus-service-role  # Expected: validation error since this role does not exist
   subjects:
   - user: cluster.local/ns/default/sa/bookinfo-productpage
+---
+apiVersion: rbac.istio.io/v1alpha1
+kind: ServiceRoleBinding
+metadata:
+  name: test-binding
+spec:
+  mode: PERMISSIVE
+  # Expected: no validation error, skip if roleRef is missing
+  subjects:
+  - user: cluster.local/ns/default/sa/bookinfo-productpage

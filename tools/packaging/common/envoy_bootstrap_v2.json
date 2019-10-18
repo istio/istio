@@ -127,8 +127,24 @@
           "tag_name": "connection_security_policy"
       },
       {
+          "regex": "(permissive_response_code=\\.=(.+?);\\.;)",
+          "tag_name": "permissive_response_code"
+      },
+      {
+          "regex": "(permissive_response_policyid=\\.=(.+?);\\.;)",
+          "tag_name": "permissive_response_policyid"
+      },
+      {
           "regex": "(cache\\.(.+?)\\.)",
           "tag_name": "cache"
+      },
+      {
+          "regex": "(component\\.(.+?)\\.)",
+          "tag_name": "component"
+      },
+      {
+          "regex": "(tag\\.(.+?)\\.)",
+          "tag_name": "tag"
       }
     ],
     "stats_matcher": {
@@ -136,6 +152,9 @@
         "patterns": [
           {
           "prefix": "reporter="
+          },
+          {
+          "prefix": "component"
           },
           {{- range $a, $s := .inclusionPrefix }}
           {
@@ -414,11 +433,17 @@
         ]
       }
       {{ end }}
-      {{ if .envoy_metrics_service }}
+      {{ if .envoy_metrics_service_address }}
       ,
       {
         "name": "envoy_metrics_service",
         "type": "STRICT_DNS",
+      {{ if .envoy_metrics_service_tls }}
+        "tls_context": {{ .envoy_metrics_service_tls }},
+      {{ end }}
+      {{ if .envoy_metrics_service_tcp_keepalive }}
+        "upstream_connection_options": {{ .envoy_metrics_service_tcp_keepalive }},
+      {{ end }}
         "dns_refresh_rate": "{{ .dns_refresh_rate }}",
         "dns_lookup_family": "{{ .dns_lookup_family }}",
         "connect_timeout": "1s",
@@ -426,7 +451,7 @@
         "http2_protocol_options": {},
         "hosts": [
           {
-            "socket_address": {{ .envoy_metrics_service }}
+            "socket_address": {{ .envoy_metrics_service_address }}
           }
         ]
       }
@@ -561,10 +586,10 @@
      }
   }}
   {{ end }}
-  {{ if or .envoy_metrics_service .statsd }}
+  {{ if or .envoy_metrics_service_address .statsd }}
   ,
   "stats_sinks": [
-    {{ if .envoy_metrics_service }}
+    {{ if .envoy_metrics_service_address }}
     {
       "name": "envoy.metrics_service",
       "config": {

@@ -53,6 +53,7 @@ failClose: true
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -63,14 +64,20 @@ failClose: true
 <p>List of OPA policies</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-check_method">
 <td><code>checkMethod</code></td>
 <td><code>string</code></td>
 <td>
 <p>Query method to check.
-Format: data.&lt;package name&gt;.&lt;method name&gt;</p>
+Format: <code>data.&lt;package name&gt;.&lt;method name&gt;</code></p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Params-fail_close">
@@ -81,6 +88,9 @@ Format: data.&lt;package name&gt;.&lt;method name&gt;</p>
 If failClose is set to true and there is a runtime error,
 instead of disabling the adapter, close the client request</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>

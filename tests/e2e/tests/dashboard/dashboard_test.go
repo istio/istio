@@ -112,6 +112,10 @@ func performanceQueryFilterFn(queries []string) []string {
 			continue
 		}
 
+		// cAdvisor does not expose this metrics, and we don't have kubelet in kind
+		if strings.Contains(qry, "container_fs_usage_bytes") {
+			continue
+		}
 		ret = append(ret, qry)
 	}
 
@@ -160,7 +164,7 @@ func TestDashboards(t *testing.T) {
 				if testCase.customReplacer != nil {
 					modified = testCase.customReplacer.Replace(modified)
 				}
-				value, err := tc.promAPI.Query(context.Background(), modified, time.Now())
+				value, _, err := tc.promAPI.Query(context.Background(), modified, time.Now())
 				if err != nil {
 					t.Errorf("Failure executing query (%s): %v", modified, err)
 				}
@@ -270,6 +274,10 @@ func mixerQueryFilterFn(queries []string) []string {
 		if strings.Contains(query, "grpc_code!=") {
 			continue
 		}
+		// cAdvisor does not expose this metrics, and we don't have kubelet in kind
+		if strings.Contains(query, "container_fs_usage_bytes") {
+			continue
+		}
 		filtered = append(filtered, query)
 	}
 	return filtered
@@ -325,6 +333,10 @@ func pilotQueryFilterFn(queries []string) []string {
 		if strings.Contains(query, "_virt_services") {
 			continue
 		}
+		// cAdvisor does not expose this metrics, and we don't have kubelet in kind
+		if strings.Contains(query, "container_fs_usage_bytes") {
+			continue
+		}
 		filtered = append(filtered, query)
 	}
 	return filtered
@@ -364,6 +376,16 @@ func galleyQueryFilterFn(queries []string) []string {
 		if strings.Contains(query, "runtime_strategy_timer_quiesce_reached_total") {
 			continue
 		}
+
+		// Remove this one, as firing of this event requires a hard-to-reproduce set of events.
+		if strings.Contains(query, "runtime_strategy_timer_max_time_reached_total") {
+			continue
+		}
+
+		// cAdvisor does not expose this metrics, and we don't have kubelet in kind
+		if strings.Contains(query, "container_fs_usage_bytes") {
+			continue
+		}
 		filtered = append(filtered, query)
 	}
 	return filtered
@@ -395,6 +417,10 @@ func citadelQueryFilterFn(queries []string) []string {
 			continue
 		}
 		if strings.Contains(query, "authentication_failure_count") {
+			continue
+		}
+		// cAdvisor does not expose this metrics, and we don't have kubelet in kind
+		if strings.Contains(query, "container_fs_usage_bytes") {
 			continue
 		}
 		filtered = append(filtered, query)
@@ -678,7 +704,7 @@ func metricHasValue(query string) bool {
 }
 
 func metricValue(query string) (float64, error) {
-	value, err := tc.promAPI.Query(context.Background(), query, time.Now())
+	value, _, err := tc.promAPI.Query(context.Background(), query, time.Now())
 	if err != nil || value == nil {
 		return 0, fmt.Errorf("could not retrieve a value for metric '%s': %v", query, err)
 	}

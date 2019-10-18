@@ -15,15 +15,18 @@
 package route_test
 
 import (
+	"os"
 	"reflect"
 	"testing"
 	"time"
 
 	envoyroute "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/onsi/gomega"
 
 	networking "istio.io/api/networking/v1alpha3"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pkg/config/host"
@@ -53,7 +56,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		IPAddresses:  []string{"1.1.1.1"},
 		ID:           "someID",
 		DNSDomain:    "foo.com",
-		Metadata:     map[string]string{"ISTIO_VERSION": "1.3"},
+		Metadata:     &model.NodeMetadata{IstioVersion: "1.3.0"},
 		IstioVersion: &model.IstioVersion{Major: 1, Minor: 3},
 	}
 	gatewayNames := map[string]bool{"some-gateway": true}
@@ -64,6 +67,48 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServicePlain, serviceRegistry, 8080, gatewayNames)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
+	})
+
+	t.Run("for virtual service with regex matching on URI", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithRegexMatchingOnURI, serviceRegistry, 8080, gatewayNames)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+		g.Expect(routes[0].GetMatch().GetSafeRegex().GetRegex()).To(gomega.Equal("\\/(.?)\\/status"))
+	})
+
+	t.Run("for virtual service with unsafe regex matching on URI", func(t *testing.T) {
+		os.Setenv(features.EnableUnsafeRegex.Name, "true")
+		defer os.Unsetenv(features.EnableUnsafeRegex.Name)
+		g := gomega.NewGomegaWithT(t)
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithRegexMatchingOnURI, serviceRegistry, 8080, gatewayNames)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+		//nolint: staticcheck
+		g.Expect(routes[0].GetMatch().GetRegex()).To(gomega.Equal("\\/(.?)\\/status"))
+	})
+
+	t.Run("for virtual service with regex matching on header", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithRegexMatchingOnHeader, serviceRegistry, 8080, gatewayNames)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetSafeRegexMatch().GetRegex()).To(gomega.Equal("Bearer .+?\\..+?\\..+?"))
+	})
+
+	t.Run("for virtual service with unsafe regex matching on header", func(t *testing.T) {
+		os.Setenv(features.EnableUnsafeRegex.Name, "true")
+		defer os.Unsetenv(features.EnableUnsafeRegex.Name)
+		g := gomega.NewGomegaWithT(t)
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithRegexMatchingOnHeader, serviceRegistry, 8080, gatewayNames)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+		//nolint: staticcheck
+		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetRegexMatch()).To(gomega.Equal("Bearer .+?\\..+?\\..+?"))
 	})
 
 	t.Run("for virtual service with ring hash", func(t *testing.T) {
@@ -111,7 +156,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			PolicySpecifier: &envoyroute.RouteAction_HashPolicy_Cookie_{
 				Cookie: &envoyroute.RouteAction_HashPolicy_Cookie{
 					Name: "hash-cookie",
-					Ttl:  &ttl,
+					Ttl:  ptypes.DurationProto(ttl),
 				},
 			},
 		}
@@ -378,9 +423,7 @@ var virtualServiceWithSubset = &networking.VirtualService{
 						Subset: "some-subset",
 						Host:   "*.example.org",
 						Port: &networking.PortSelector{
-							Port: &networking.PortSelector_Number{
-								Number: 65000,
-							},
+							Number: 65000,
 						},
 					},
 					Weight: 100,
@@ -401,9 +444,7 @@ var virtualServiceWithSubsetWithPortLevelSettings = &networking.VirtualService{
 						Subset: "port-level-settings-subset",
 						Host:   "*.example.org",
 						Port: &networking.PortSelector{
-							Port: &networking.PortSelector_Number{
-								Number: 8484,
-							},
+							Number: 8484,
 						},
 					},
 					Weight: 100,
@@ -429,9 +470,7 @@ var virtualServicePlain = model.Config{
 						Destination: &networking.Destination{
 							Host: "*.example.org",
 							Port: &networking.PortSelector{
-								Port: &networking.PortSelector_Number{
-									Number: 8484,
-								},
+								Number: 8484,
 							},
 						},
 						Weight: 100,
@@ -463,6 +502,70 @@ var virtualServiceWithRedirect = model.Config{
 	},
 }
 
+var virtualServiceWithRegexMatchingOnURI = model.Config{
+	ConfigMeta: model.ConfigMeta{
+		Type:    schemas.VirtualService.Type,
+		Version: schemas.VirtualService.Version,
+		Name:    "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "status",
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Regex{
+								Regex: "\\/(.?)\\/status",
+							},
+						},
+					},
+				},
+				Redirect: &networking.HTTPRedirect{
+					Uri:          "example.org",
+					Authority:    "some-authority.default.svc.cluster.local",
+					RedirectCode: 308,
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithRegexMatchingOnHeader = model.Config{
+	ConfigMeta: model.ConfigMeta{
+		Type:    schemas.VirtualService.Type,
+		Version: schemas.VirtualService.Version,
+		Name:    "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "auth",
+						Headers: map[string]*networking.StringMatch{
+							"Authentication": {
+								MatchType: &networking.StringMatch_Regex{
+									Regex: "Bearer .+?\\..+?\\..+?",
+								},
+							},
+						},
+					},
+				},
+				Redirect: &networking.HTTPRedirect{
+					Uri:          "example.org",
+					Authority:    "some-authority.default.svc.cluster.local",
+					RedirectCode: 308,
+				},
+			},
+		},
+	},
+}
+
 var portLevelDestinationRule = &networking.DestinationRule{
 	Host:    "*.example.org",
 	Subsets: []*networking.Subset{},
@@ -473,9 +576,7 @@ var portLevelDestinationRule = &networking.DestinationRule{
 					LbPolicy: loadBalancerPolicy("hash-cookie"),
 				},
 				Port: &networking.PortSelector{
-					Port: &networking.PortSelector_Number{
-						Number: 8484,
-					},
+					Number: 8484,
 				},
 			},
 		},
@@ -492,9 +593,7 @@ var portLevelDestinationRuleWithSubsetPolicy = &networking.DestinationRule{
 					LbPolicy: loadBalancerPolicy("hash-cookie"),
 				},
 				Port: &networking.PortSelector{
-					Port: &networking.PortSelector_Number{
-						Number: 8484,
-					},
+					Number: 8484,
 				},
 			},
 		},
@@ -522,7 +621,7 @@ var networkingDestinationRuleWithPortLevelTrafficPolicy = &networking.Destinatio
 					LbPolicy: loadBalancerPolicy("hash-cookie-1"),
 				},
 				Port: &networking.PortSelector{
-					Port: &networking.PortSelector_Number{Number: 8080},
+					Number: 8080,
 				},
 			},
 		},
@@ -556,9 +655,7 @@ var networkingSubsetWithPortLevelSettings = &networking.Subset{
 					LbPolicy: loadBalancerPolicy("port-level-settings-cookie"),
 				},
 				Port: &networking.PortSelector{
-					Port: &networking.PortSelector_Number{
-						Number: 8484,
-					},
+					Number: 8484,
 				},
 			},
 		},

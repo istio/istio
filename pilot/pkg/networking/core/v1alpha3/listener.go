@@ -24,16 +24,19 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	accesslogconfig "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2"
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
-	google_protobuf "github.com/gogo/protobuf/types"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/golang/protobuf/ptypes"
+	structpb "github.com/golang/protobuf/ptypes/struct"
+
+	"istio.io/istio/pkg/util/gogo"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -138,65 +141,75 @@ const (
 
 	// TODO(yxue): separate h2c vs h2
 	H2Protocol = "h2"
+
+	// CanonicalHTTPSPort defines the standard port for HTTPS traffic. To avoid conflicts, http services
+	// are not allowed on this port.
+	CanonicalHTTPSPort = 443
 )
 
 var (
 	applicationProtocols = []string{"http/1.0", "http/1.1"}
 
+	// Headers added by the metadata exchange filter
+	// We need to propagate these as part of access log service stream
+	// Logging them by default on the console may be an issue as the base64 encoded string is bound to be a big one.
+	// But end users can certainly configure it on their own via the meshConfig
+	envoyWasmHeadersToLog = []string{"x-envoy-peer-metadata", "x-envoy-peer-metadata-id"}
+
 	// EnvoyJSONLogFormat12 map of values for envoy json based access logs for Istio 1.2
-	EnvoyJSONLogFormat12 = &google_protobuf.Struct{
-		Fields: map[string]*google_protobuf.Value{
-			"start_time":                        {Kind: &google_protobuf.Value_StringValue{StringValue: "%START_TIME%"}},
-			"method":                            {Kind: &google_protobuf.Value_StringValue{StringValue: "%REQ(:METHOD)%"}},
-			"path":                              {Kind: &google_protobuf.Value_StringValue{StringValue: "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%"}},
-			"protocol":                          {Kind: &google_protobuf.Value_StringValue{StringValue: "%PROTOCOL%"}},
-			"response_code":                     {Kind: &google_protobuf.Value_StringValue{StringValue: "%RESPONSE_CODE%"}},
-			"response_flags":                    {Kind: &google_protobuf.Value_StringValue{StringValue: "%RESPONSE_FLAGS%"}},
-			"bytes_received":                    {Kind: &google_protobuf.Value_StringValue{StringValue: "%BYTES_RECEIVED%"}},
-			"bytes_sent":                        {Kind: &google_protobuf.Value_StringValue{StringValue: "%BYTES_SENT%"}},
-			"duration":                          {Kind: &google_protobuf.Value_StringValue{StringValue: "%DURATION%"}},
-			"upstream_service_time":             {Kind: &google_protobuf.Value_StringValue{StringValue: "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%"}},
-			"x_forwarded_for":                   {Kind: &google_protobuf.Value_StringValue{StringValue: "%REQ(X-FORWARDED-FOR)%"}},
-			"user_agent":                        {Kind: &google_protobuf.Value_StringValue{StringValue: "%REQ(USER-AGENT)%"}},
-			"request_id":                        {Kind: &google_protobuf.Value_StringValue{StringValue: "%REQ(X-REQUEST-ID)%"}},
-			"authority":                         {Kind: &google_protobuf.Value_StringValue{StringValue: "%REQ(:AUTHORITY)%"}},
-			"upstream_host":                     {Kind: &google_protobuf.Value_StringValue{StringValue: "%UPSTREAM_HOST%"}},
-			"upstream_cluster":                  {Kind: &google_protobuf.Value_StringValue{StringValue: "%UPSTREAM_CLUSTER%"}},
-			"upstream_local_address":            {Kind: &google_protobuf.Value_StringValue{StringValue: "%UPSTREAM_LOCAL_ADDRESS%"}},
-			"downstream_local_address":          {Kind: &google_protobuf.Value_StringValue{StringValue: "%DOWNSTREAM_LOCAL_ADDRESS%"}},
-			"downstream_remote_address":         {Kind: &google_protobuf.Value_StringValue{StringValue: "%DOWNSTREAM_REMOTE_ADDRESS%"}},
-			"requested_server_name":             {Kind: &google_protobuf.Value_StringValue{StringValue: "%REQUESTED_SERVER_NAME%"}},
-			"istio_policy_status":               {Kind: &google_protobuf.Value_StringValue{StringValue: "%DYNAMIC_METADATA(istio.mixer:status)%"}},
-			"upstream_transport_failure_reason": {Kind: &google_protobuf.Value_StringValue{StringValue: "%UPSTREAM_TRANSPORT_FAILURE_REASON%"}},
+	EnvoyJSONLogFormat12 = &structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			"start_time":                        {Kind: &structpb.Value_StringValue{StringValue: "%START_TIME%"}},
+			"method":                            {Kind: &structpb.Value_StringValue{StringValue: "%REQ(:METHOD)%"}},
+			"path":                              {Kind: &structpb.Value_StringValue{StringValue: "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%"}},
+			"protocol":                          {Kind: &structpb.Value_StringValue{StringValue: "%PROTOCOL%"}},
+			"response_code":                     {Kind: &structpb.Value_StringValue{StringValue: "%RESPONSE_CODE%"}},
+			"response_flags":                    {Kind: &structpb.Value_StringValue{StringValue: "%RESPONSE_FLAGS%"}},
+			"bytes_received":                    {Kind: &structpb.Value_StringValue{StringValue: "%BYTES_RECEIVED%"}},
+			"bytes_sent":                        {Kind: &structpb.Value_StringValue{StringValue: "%BYTES_SENT%"}},
+			"duration":                          {Kind: &structpb.Value_StringValue{StringValue: "%DURATION%"}},
+			"upstream_service_time":             {Kind: &structpb.Value_StringValue{StringValue: "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%"}},
+			"x_forwarded_for":                   {Kind: &structpb.Value_StringValue{StringValue: "%REQ(X-FORWARDED-FOR)%"}},
+			"user_agent":                        {Kind: &structpb.Value_StringValue{StringValue: "%REQ(USER-AGENT)%"}},
+			"request_id":                        {Kind: &structpb.Value_StringValue{StringValue: "%REQ(X-REQUEST-ID)%"}},
+			"authority":                         {Kind: &structpb.Value_StringValue{StringValue: "%REQ(:AUTHORITY)%"}},
+			"upstream_host":                     {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_HOST%"}},
+			"upstream_cluster":                  {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_CLUSTER%"}},
+			"upstream_local_address":            {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_LOCAL_ADDRESS%"}},
+			"downstream_local_address":          {Kind: &structpb.Value_StringValue{StringValue: "%DOWNSTREAM_LOCAL_ADDRESS%"}},
+			"downstream_remote_address":         {Kind: &structpb.Value_StringValue{StringValue: "%DOWNSTREAM_REMOTE_ADDRESS%"}},
+			"requested_server_name":             {Kind: &structpb.Value_StringValue{StringValue: "%REQUESTED_SERVER_NAME%"}},
+			"istio_policy_status":               {Kind: &structpb.Value_StringValue{StringValue: "%DYNAMIC_METADATA(istio.mixer:status)%"}},
+			"upstream_transport_failure_reason": {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_TRANSPORT_FAILURE_REASON%"}},
 		},
 	}
 
 	// EnvoyJSONLogFormat13 map of values for envoy json based access logs for Istio 1.3 onwards
-	EnvoyJSONLogFormat13 = &google_protobuf.Struct{
-		Fields: map[string]*google_protobuf.Value{
-			"start_time":                        {Kind: &google_protobuf.Value_StringValue{StringValue: "%START_TIME%"}},
-			"route_name":                        {Kind: &google_protobuf.Value_StringValue{StringValue: "%ROUTE_NAME%"}},
-			"method":                            {Kind: &google_protobuf.Value_StringValue{StringValue: "%REQ(:METHOD)%"}},
-			"path":                              {Kind: &google_protobuf.Value_StringValue{StringValue: "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%"}},
-			"protocol":                          {Kind: &google_protobuf.Value_StringValue{StringValue: "%PROTOCOL%"}},
-			"response_code":                     {Kind: &google_protobuf.Value_StringValue{StringValue: "%RESPONSE_CODE%"}},
-			"response_flags":                    {Kind: &google_protobuf.Value_StringValue{StringValue: "%RESPONSE_FLAGS%"}},
-			"bytes_received":                    {Kind: &google_protobuf.Value_StringValue{StringValue: "%BYTES_RECEIVED%"}},
-			"bytes_sent":                        {Kind: &google_protobuf.Value_StringValue{StringValue: "%BYTES_SENT%"}},
-			"duration":                          {Kind: &google_protobuf.Value_StringValue{StringValue: "%DURATION%"}},
-			"upstream_service_time":             {Kind: &google_protobuf.Value_StringValue{StringValue: "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%"}},
-			"x_forwarded_for":                   {Kind: &google_protobuf.Value_StringValue{StringValue: "%REQ(X-FORWARDED-FOR)%"}},
-			"user_agent":                        {Kind: &google_protobuf.Value_StringValue{StringValue: "%REQ(USER-AGENT)%"}},
-			"request_id":                        {Kind: &google_protobuf.Value_StringValue{StringValue: "%REQ(X-REQUEST-ID)%"}},
-			"authority":                         {Kind: &google_protobuf.Value_StringValue{StringValue: "%REQ(:AUTHORITY)%"}},
-			"upstream_host":                     {Kind: &google_protobuf.Value_StringValue{StringValue: "%UPSTREAM_HOST%"}},
-			"upstream_cluster":                  {Kind: &google_protobuf.Value_StringValue{StringValue: "%UPSTREAM_CLUSTER%"}},
-			"upstream_local_address":            {Kind: &google_protobuf.Value_StringValue{StringValue: "%UPSTREAM_LOCAL_ADDRESS%"}},
-			"downstream_local_address":          {Kind: &google_protobuf.Value_StringValue{StringValue: "%DOWNSTREAM_LOCAL_ADDRESS%"}},
-			"downstream_remote_address":         {Kind: &google_protobuf.Value_StringValue{StringValue: "%DOWNSTREAM_REMOTE_ADDRESS%"}},
-			"requested_server_name":             {Kind: &google_protobuf.Value_StringValue{StringValue: "%REQUESTED_SERVER_NAME%"}},
-			"istio_policy_status":               {Kind: &google_protobuf.Value_StringValue{StringValue: "%DYNAMIC_METADATA(istio.mixer:status)%"}},
-			"upstream_transport_failure_reason": {Kind: &google_protobuf.Value_StringValue{StringValue: "%UPSTREAM_TRANSPORT_FAILURE_REASON%"}},
+	EnvoyJSONLogFormat13 = &structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			"start_time":                        {Kind: &structpb.Value_StringValue{StringValue: "%START_TIME%"}},
+			"route_name":                        {Kind: &structpb.Value_StringValue{StringValue: "%ROUTE_NAME%"}},
+			"method":                            {Kind: &structpb.Value_StringValue{StringValue: "%REQ(:METHOD)%"}},
+			"path":                              {Kind: &structpb.Value_StringValue{StringValue: "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%"}},
+			"protocol":                          {Kind: &structpb.Value_StringValue{StringValue: "%PROTOCOL%"}},
+			"response_code":                     {Kind: &structpb.Value_StringValue{StringValue: "%RESPONSE_CODE%"}},
+			"response_flags":                    {Kind: &structpb.Value_StringValue{StringValue: "%RESPONSE_FLAGS%"}},
+			"bytes_received":                    {Kind: &structpb.Value_StringValue{StringValue: "%BYTES_RECEIVED%"}},
+			"bytes_sent":                        {Kind: &structpb.Value_StringValue{StringValue: "%BYTES_SENT%"}},
+			"duration":                          {Kind: &structpb.Value_StringValue{StringValue: "%DURATION%"}},
+			"upstream_service_time":             {Kind: &structpb.Value_StringValue{StringValue: "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%"}},
+			"x_forwarded_for":                   {Kind: &structpb.Value_StringValue{StringValue: "%REQ(X-FORWARDED-FOR)%"}},
+			"user_agent":                        {Kind: &structpb.Value_StringValue{StringValue: "%REQ(USER-AGENT)%"}},
+			"request_id":                        {Kind: &structpb.Value_StringValue{StringValue: "%REQ(X-REQUEST-ID)%"}},
+			"authority":                         {Kind: &structpb.Value_StringValue{StringValue: "%REQ(:AUTHORITY)%"}},
+			"upstream_host":                     {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_HOST%"}},
+			"upstream_cluster":                  {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_CLUSTER%"}},
+			"upstream_local_address":            {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_LOCAL_ADDRESS%"}},
+			"downstream_local_address":          {Kind: &structpb.Value_StringValue{StringValue: "%DOWNSTREAM_LOCAL_ADDRESS%"}},
+			"downstream_remote_address":         {Kind: &structpb.Value_StringValue{StringValue: "%DOWNSTREAM_REMOTE_ADDRESS%"}},
+			"requested_server_name":             {Kind: &structpb.Value_StringValue{StringValue: "%REQUESTED_SERVER_NAME%"}},
+			"istio_policy_status":               {Kind: &structpb.Value_StringValue{StringValue: "%DYNAMIC_METADATA(istio.mixer:status)%"}},
+			"upstream_transport_failure_reason": {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_TRANSPORT_FAILURE_REASON%"}},
 		},
 	}
 )
@@ -216,7 +229,7 @@ func buildAccessLog(node *model.Proxy, fl *accesslogconfig.FileAccessLog, env *m
 			Format: formatString,
 		}
 	case meshconfig.MeshConfig_JSON:
-		var jsonLog *google_protobuf.Struct
+		var jsonLog *structpb.Struct
 		// TODO potential optimization to avoid recomputing the user provided format for every listener
 		// mesh AccessLogFormat field could change so need a way to have a cached value that can be cleared
 		// on changes
@@ -224,15 +237,13 @@ func buildAccessLog(node *model.Proxy, fl *accesslogconfig.FileAccessLog, env *m
 			jsonFields := map[string]string{}
 			err := json.Unmarshal([]byte(env.Mesh.AccessLogFormat), &jsonFields)
 			if err == nil {
-				jsonLog = &google_protobuf.Struct{
-					Fields: make(map[string]*google_protobuf.Value, len(jsonFields)),
+				jsonLog = &structpb.Struct{
+					Fields: make(map[string]*structpb.Value, len(jsonFields)),
 				}
-				fmt.Println(jsonFields)
 				for key, value := range jsonFields {
-					jsonLog.Fields[key] = &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: value}}
+					jsonLog.Fields[key] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: value}}
 				}
 			} else {
-				fmt.Println(env.Mesh.AccessLogFormat)
 				log.Errorf("error parsing provided json log format, default log format will be used: %v", err)
 			}
 		}
@@ -321,7 +332,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 		// We should not create inbound listeners in NONE mode based on the service instances
 		// Doing so will prevent the workloads from starting as they would be listening on the same port
 		// Users are required to provide the sidecar config to define the inbound listeners
-		if node.GetInterceptionMode() == model.InterceptionNone {
+		if noneMode {
 			return nil
 		}
 
@@ -488,12 +499,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPort
 			pluginParams.Push, pluginParams.ServiceInstance, clusterName),
 		rds:              "", // no RDS for inbound traffic
 		useRemoteAddress: false,
-		direction:        http_conn.INGRESS,
+		direction:        http_conn.HttpConnectionManager_Tracing_INGRESS,
 		connectionManager: &http_conn.HttpConnectionManager{
 			// Append and forward client cert to backend.
-			ForwardClientCertDetails: http_conn.APPEND_FORWARD,
+			ForwardClientCertDetails: http_conn.HttpConnectionManager_APPEND_FORWARD,
 			SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
-				Subject: &google_protobuf.BoolValue{Value: true},
+				Subject: proto.BoolTrue,
 				Uri:     true,
 				Dns:     true,
 			},
@@ -508,7 +519,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPort
 		}
 	}
 
-	if features.HTTP10 || node.Metadata[model.NodeMetadataHTTP10] == "1" {
+	if features.HTTP10 || node.Metadata.HTTP10 == "1" {
 		httpOpts.connectionManager.HttpProtocolOptions = &core.Http1ProtocolOptions{
 			AcceptHttp_10: true,
 		}
@@ -879,6 +890,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 						service.Attributes.ServiceRegistry == string(serviceregistry.KubernetesRegistry) && servicePort.Protocol.IsTCP() {
 						if instances, err := env.InstancesByPort(service, servicePort.Port, nil); err == nil {
 							for _, instance := range instances {
+								// Skip build outbound listener to the node itself,
+								// as when app access itself by pod ip will not flow through this listener.
+								// Simultaneously, it will be duplicate with inbound listener.
+								if instance.Endpoint.Address == node.IPAddresses[0] {
+									continue
+								}
 								listenerOpts.bind = instance.Endpoint.Address
 								configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap,
 									virtualServices, actualWildcard)
@@ -920,7 +937,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 	tcpListeners = append(tcpListeners, httpListeners...)
 	httpProxy := configgen.buildHTTPProxy(env, node, push, node.ServiceInstances)
 	if httpProxy != nil {
-		httpProxy.TrafficDirection = core.TrafficDirection_OUTBOUND
 		tcpListeners = append(tcpListeners, httpProxy)
 	}
 
@@ -941,13 +957,13 @@ func (configgen *ConfigGeneratorImpl) buildHTTPProxy(env *model.Environment, nod
 		return nil
 	}
 
-	traceOperation := http_conn.EGRESS
+	traceOperation := http_conn.HttpConnectionManager_Tracing_EGRESS
 	listenAddress := actualLocalHostAddress
 
 	httpOpts := &core.Http1ProtocolOptions{
 		AllowAbsoluteUrl: proto.BoolTrue,
 	}
-	if features.HTTP10 || node.Metadata[model.NodeMetadataHTTP10] == "1" {
+	if features.HTTP10 || node.Metadata.HTTP10 == "1" {
 		httpOpts.AcceptHttp_10 = true
 	}
 
@@ -971,6 +987,7 @@ func (configgen *ConfigGeneratorImpl) buildHTTPProxy(env *model.Environment, nod
 		skipUserFilters: true,
 	}
 	l := buildListener(opts)
+	l.TrafficDirection = core.TrafficDirection_OUTBOUND
 
 	// TODO: plugins for HTTP_PROXY mode, envoyfilter needs another listener match for SIDECAR_HTTP_PROXY
 	// there is no mixer for http_proxy
@@ -1069,11 +1086,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 		// which is an internal address, so that trusted headers are not sanitized. This helps to retain the timeout headers
 		// such as "x-envoy-upstream-rq-timeout-ms" set by the calling application.
 		useRemoteAddress: features.UseRemoteAddress.Get(),
-		direction:        http_conn.EGRESS,
+		direction:        http_conn.HttpConnectionManager_Tracing_EGRESS,
 		rds:              rdsName,
 	}
 
-	if features.HTTP10 || pluginParams.Node.Metadata[model.NodeMetadataHTTP10] == "1" {
+	if features.HTTP10 || pluginParams.Node.Metadata.HTTP10 == "1" {
 		httpOpts.connectionManager = &http_conn.HttpConnectionManager{
 			HttpProtocolOptions: &core.Http1ProtocolOptions{
 				AcceptHttp_10: true,
@@ -1202,7 +1219,14 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPort
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(node *model.Proxy, listenerOpts buildListenerOpts,
 	pluginParams *plugin.InputParams, listenerMap map[string]*outboundListenerEntry,
 	virtualServices []model.Config, actualWildcard string) {
-
+	if features.BlockHTTPonHTTPSPort {
+		if listenerOpts.port == CanonicalHTTPSPort && pluginParams.Port.Protocol == protocol.HTTP {
+			msg := fmt.Sprintf("listener conflict detected: service %v specifies an HTTP service on HTTPS only port %d.",
+				pluginParams.Service.Hostname, CanonicalHTTPSPort)
+			pluginParams.Push.Add(model.ProxyStatusConflictOutboundListenerHTTPoverHTTPS, string(pluginParams.Service.Hostname), node, msg)
+			return
+		}
+	}
 	var destinationCIDR string
 	var listenerMapKey string
 	var currentListenerEntry *outboundListenerEntry
@@ -1324,7 +1348,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 		}
 		listenerOpts.filterChainOpts = append([]*filterChainOpts{{
 			destinationCIDRs: pluginParams.Node.IPAddresses,
-			networkFilters:   []*listener.Filter{&blackhole},
+			networkFilters:   []*listener.Filter{blackhole},
 		}}, listenerOpts.filterChainOpts...)
 	}
 
@@ -1656,13 +1680,13 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 	copy(filters, httpFilters)
 
 	if httpOpts.addGRPCWebFilter {
-		filters = append(filters, &http_conn.HttpFilter{Name: xdsutil.GRPCWeb})
+		filters = append(filters, &http_conn.HttpFilter{Name: wellknown.GRPCWeb})
 	}
 
 	filters = append(filters,
-		&http_conn.HttpFilter{Name: xdsutil.CORS},
-		&http_conn.HttpFilter{Name: xdsutil.Fault},
-		&http_conn.HttpFilter{Name: xdsutil.Router},
+		&http_conn.HttpFilter{Name: wellknown.CORS},
+		&http_conn.HttpFilter{Name: wellknown.Fault},
+		&http_conn.HttpFilter{Name: wellknown.Router},
 	)
 
 	if httpOpts.connectionManager == nil {
@@ -1670,7 +1694,7 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 	}
 
 	connectionManager := httpOpts.connectionManager
-	connectionManager.CodecType = http_conn.AUTO
+	connectionManager.CodecType = http_conn.HttpConnectionManager_AUTO
 	connectionManager.AccessLog = []*accesslog.AccessLog{}
 	connectionManager.HttpFilters = filters
 	connectionManager.StatPrefix = httpOpts.statPrefix
@@ -1685,13 +1709,13 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 	websocketUpgrade := &http_conn.HttpConnectionManager_UpgradeConfig{UpgradeType: "websocket"}
 	connectionManager.UpgradeConfigs = []*http_conn.HttpConnectionManager_UpgradeConfig{websocketUpgrade}
 
-	idleTimeout, err := time.ParseDuration(node.Metadata[model.NodeMetadataIdleTimeout])
+	idleTimeout, err := time.ParseDuration(node.Metadata.IdleTimeout)
 	if idleTimeout > 0 && err == nil {
-		connectionManager.IdleTimeout = &idleTimeout
+		connectionManager.IdleTimeout = ptypes.DurationProto(idleTimeout)
 	}
 
-	notimeout := 0 * time.Second
-	connectionManager.StreamIdleTimeout = &notimeout
+	notimeout := ptypes.DurationProto(0 * time.Second)
+	connectionManager.StreamIdleTimeout = notimeout
 
 	if httpOpts.rds != "" {
 		rds := &http_conn.HttpConnectionManager_Rds{
@@ -1716,7 +1740,7 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 		}
 
 		acc := &accesslog.AccessLog{
-			Name: xdsutil.FileAccessLog,
+			Name: wellknown.FileAccessLog,
 		}
 
 		buildAccessLog(node, fl, env)
@@ -1742,10 +1766,12 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 					},
 				},
 			},
+			AdditionalRequestHeadersToLog:  envoyWasmHeadersToLog,
+			AdditionalResponseHeadersToLog: envoyWasmHeadersToLog,
 		}
 
 		acc := &accesslog.AccessLog{
-			Name: xdsutil.HTTPGRPCAccessLog,
+			Name: wellknown.HTTPGRPCAccessLog,
 		}
 
 		if util.IsXDSMarshalingToAnyEnabled(node) {
@@ -1793,8 +1819,8 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 		}
 	}
 	if needTLSInspector || opts.needHTTPInspector {
-		listenerFiltersMap[xdsutil.TlsInspector] = true
-		listenerFilters = append(listenerFilters, &listener.ListenerFilter{Name: xdsutil.TlsInspector})
+		listenerFiltersMap[wellknown.TlsInspector] = true
+		listenerFilters = append(listenerFilters, &listener.ListenerFilter{Name: wellknown.TlsInspector})
 	}
 
 	if opts.needHTTPInspector {
@@ -1870,7 +1896,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	}
 
 	if util.IsIstioVersionGE13(opts.proxy) {
-		listener.ListenerFiltersTimeout = util.GogoDurationToDuration(opts.env.Mesh.ProtocolDetectionTimeout)
+		listener.ListenerFiltersTimeout = gogo.DurationToProtoDuration(opts.env.Mesh.ProtocolDetectionTimeout)
 		if listener.ListenerFiltersTimeout != nil {
 			listener.ContinueOnListenerFiltersTimeout = true
 		}
@@ -1906,7 +1932,7 @@ func appendListenerFallthroughRoute(l *xdsapi.Listener, opts *buildListenerOpts,
 		}
 
 		tcpFilter := &listener.Filter{
-			Name: xdsutil.TCPProxy,
+			Name: wellknown.TCPProxy,
 		}
 		tcpProxy := &tcp_proxy.TcpProxy{
 			StatPrefix:       util.PassthroughCluster,
@@ -1966,10 +1992,10 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *plugin.
 			// Add the TCP filters first.. and then the HTTP connection manager
 			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, chain.TCP...)
 
-			opt.httpOpts.statPrefix = mutable.Listener.Name
+			opt.httpOpts.statPrefix = strings.ToLower(mutable.Listener.TrafficDirection.String()) + "_" + mutable.Listener.Name
 			httpConnectionManagers[i] = buildHTTPConnectionManager(pluginParams.Node, opts.env, opt.httpOpts, chain.HTTP)
 			filter := &listener.Filter{
-				Name: xdsutil.HTTPConnectionManager,
+				Name: wellknown.HTTPConnectionManager,
 			}
 			if util.IsXDSMarshalingToAnyEnabled(pluginParams.Node) {
 				filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(httpConnectionManagers[i])}
@@ -2185,13 +2211,13 @@ func appendListenerFilters(filters []*listener.ListenerFilter) []*listener.Liste
 	hasHTTPInspector := false
 
 	for _, f := range filters {
-		hasTLSInspector = hasTLSInspector || f.Name == xdsutil.TlsInspector
+		hasTLSInspector = hasTLSInspector || f.Name == wellknown.TlsInspector
 		hasHTTPInspector = hasHTTPInspector || f.Name == envoyListenerHTTPInspector
 	}
 
 	if !hasTLSInspector {
 		filters =
-			append(filters, &listener.ListenerFilter{Name: xdsutil.TlsInspector})
+			append(filters, &listener.ListenerFilter{Name: wellknown.TlsInspector})
 	}
 
 	if !hasHTTPInspector {

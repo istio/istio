@@ -19,15 +19,16 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v2alpha"
+	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	envoy_config_grpc_credential_v2alpha "github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v2alpha"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/model"
 )
 
 func TestConstructSdsSecretConfig(t *testing.T) {
-	trustworthyMetaConfig := &v2alpha.FileBasedMetadataConfig{
+	trustworthyMetaConfig := &envoy_config_grpc_credential_v2alpha.FileBasedMetadataConfig{
 		SecretData: &core.DataSource{
 			Specifier: &core.DataSource_Filename{
 				Filename: K8sSATrustworthyJwtFileName,
@@ -53,7 +54,6 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 		serviceAccount string
 		sdsUdsPath     string
 		expected       *auth.SdsSecretConfig
-		metadata       map[string]string
 	}{
 		{
 			serviceAccount: "spiffe://cluster.local/ns/bar/sa/foo",
@@ -99,7 +99,7 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if got := ConstructSdsSecretConfig(c.serviceAccount, c.sdsUdsPath, c.metadata); !reflect.DeepEqual(got, c.expected) {
+		if got := ConstructSdsSecretConfig(c.serviceAccount, c.sdsUdsPath, &model.NodeMetadata{}); !reflect.DeepEqual(got, c.expected) {
 			t.Errorf("ConstructSdsSecretConfig: got(%#v) != want(%#v)\n", got, c.expected)
 			fmt.Println(got)
 			fmt.Println(c.expected)
@@ -166,7 +166,7 @@ func constructLocalChannelCredConfig() *core.GrpcService_GoogleGrpc_ChannelCrede
 	}
 }
 
-func constructsdsconfighelper(tokenFileName, headerKey string, metaConfig *v2alpha.FileBasedMetadataConfig) *core.ConfigSource {
+func constructsdsconfighelper(tokenFileName, headerKey string, metaConfig *envoy_config_grpc_credential_v2alpha.FileBasedMetadataConfig) *core.ConfigSource {
 	any := findOrMarshalFileBasedMetadataConfig(tokenFileName, headerKey, metaConfig)
 	return &core.ConfigSource{
 		InitialFetchTimeout: features.InitialFetchTimeout,

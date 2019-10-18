@@ -19,18 +19,18 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	envoy_rbac "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
 	envoy_matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 
-	authn_v1alpha1 "istio.io/istio/pilot/pkg/security/authn/v1alpha1"
 	"istio.io/istio/pilot/pkg/security/authz/model/matcher"
+	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/spiffe"
 )
 
 type Principal struct {
-	User              string // For backward-compatible only.
+	Users             []string // For backward-compatible only.
 	Names             []string
 	NotNames          []string
 	Group             string // For backward-compatible only.
@@ -89,8 +89,8 @@ func (principal *Principal) Generate(forTCPFilter bool) (*envoy_rbac.Principal, 
 		return pg.andPrincipals(), nil
 	}
 
-	if principal.User != "" {
-		principal := principalForKeyValue(attrSrcPrincipal, principal.User, forTCPFilter)
+	if len(principal.Users) != 0 {
+		principal := principalForKeyValues(attrSrcPrincipal, principal.Users, forTCPFilter)
 		pg.append(principal)
 	}
 
@@ -221,7 +221,7 @@ func principalForKeyValue(key, value string, forTCPFilter bool) *envoy_rbac.Prin
 		// with format: cluster.local/ns/{NAMESPACE}/sa/{SERVICE-ACCOUNT}.
 		value = strings.Replace(value, "*", ".*", -1)
 		m := matcher.StringMatcherRegex(fmt.Sprintf(".*/ns/%s/.*", value))
-		metadata := matcher.MetadataStringMatcher(authn_v1alpha1.AuthnFilterName, attrSrcPrincipal, m)
+		metadata := matcher.MetadataStringMatcher(authn_model.AuthnFilterName, attrSrcPrincipal, m)
 		return principalMetadata(metadata)
 	case attrSrcPrincipal == key:
 		if value == allUsers || value == "*" {
@@ -238,10 +238,10 @@ func principalForKeyValue(key, value string, forTCPFilter bool) *envoy_rbac.Prin
 			m := matcher.StringMatcherWithPrefix(value, spiffe.URIPrefix)
 			return principalAuthenticated(m)
 		}
-		metadata := matcher.MetadataStringMatcher(authn_v1alpha1.AuthnFilterName, key, matcher.StringMatcher(value))
+		metadata := matcher.MetadataStringMatcher(authn_model.AuthnFilterName, key, matcher.StringMatcher(value))
 		return principalMetadata(metadata)
 	case found(key, []string{attrRequestPrincipal, attrRequestAudiences, attrRequestPresenter, attrSrcUser}):
-		m := matcher.MetadataStringMatcher(authn_v1alpha1.AuthnFilterName, key, matcher.StringMatcher(value))
+		m := matcher.MetadataStringMatcher(authn_model.AuthnFilterName, key, matcher.StringMatcher(value))
 		return principalMetadata(m)
 	case strings.HasPrefix(key, attrRequestHeader):
 		header, err := extractNameInBrackets(strings.TrimPrefix(key, attrRequestHeader))
@@ -258,7 +258,7 @@ func principalForKeyValue(key, value string, forTCPFilter bool) *envoy_rbac.Prin
 		}
 		// Generate a metadata list matcher for the given path keys and value.
 		// On proxy side, the value should be of list type.
-		m := matcher.MetadataListMatcher(authn_v1alpha1.AuthnFilterName, []string{attrRequestClaims, claim}, value)
+		m := matcher.MetadataListMatcher(authn_model.AuthnFilterName, []string{attrRequestClaims, claim}, value)
 		return principalMetadata(m)
 	default:
 		rbacLog.Debugf("generated dynamic metadata matcher for custom property: %s", key)

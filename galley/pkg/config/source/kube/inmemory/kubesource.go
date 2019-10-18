@@ -23,10 +23,10 @@ import (
 	"github.com/ghodss/yaml"
 	kubeJson "k8s.io/apimachinery/pkg/runtime/serializer/json"
 
-	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/galley/pkg/config/meta/schema"
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
-	"istio.io/istio/galley/pkg/config/schema"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/inmemory"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
@@ -194,7 +194,7 @@ func (s *KubeSource) parseContent(r schema.KubeResources, name, yamlText string)
 
 		r, err := s.parseChunk(r, chunk)
 		if err != nil {
-			scope.Source.Errorf("Error processing %s[%d]: %v", name, i, err)
+			scope.Source.Warnf("Error processing %s[%d]: %v", name, i, err)
 			scope.Source.Debugf("Offending Yaml chunk: %v", string(chunk))
 			continue
 		}
@@ -237,6 +237,9 @@ func (s *KubeSource) parseChunk(r schema.KubeResources, yamlChunk []byte) (kubeR
 			scope.Source.Debugf("KubeSource.parseChunk: namespace not specified for %q, using %q", objMeta.GetName(), s.defaultNs)
 			objMeta.SetNamespace(s.defaultNs)
 		}
+	} else {
+		// Clear the namespace if there is any specified.
+		objMeta.SetNamespace("")
 	}
 
 	item, err := t.ExtractResource(obj)

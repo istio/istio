@@ -20,8 +20,8 @@ import (
 
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/meshcfg"
+	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/galley/pkg/config/processing"
-	"istio.io/istio/galley/pkg/config/processor/metadata"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/pod"
 	"istio.io/istio/galley/pkg/config/resource"
@@ -307,5 +307,5 @@ func newBenchHandler() event.Transformer {
 		DomainSuffix: domain,
 		MeshConfig:   meshcfg.Default(),
 	}
-	return serviceentry.Create(o)[0]
+	return serviceentry.GetProviders().Create(o)[0]
 }

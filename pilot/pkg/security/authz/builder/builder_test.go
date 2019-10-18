@@ -20,7 +20,7 @@ import (
 
 	http_config "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
 	tcp_config "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2"
-	"github.com/envoyproxy/go-control-plane/pkg/util"
+	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 
 	istio_rbac "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -104,7 +104,7 @@ func TestBuilder_BuildHTTPFilter(t *testing.T) {
 				policy.SimpleAuthzPolicy("authz-bar", "a"),
 				policy.SimpleAuthzPolicy("authz-foo", "a"),
 			},
-			wantPolicies: []string{"authz-bar[0]", "authz-foo[0]"},
+			wantPolicies: []string{"ns[a]-policy[authz-bar]-rule[0]", "ns[a]-policy[authz-foo]-rule[0]"},
 		},
 		{
 			name: "v1alpha1 and v1beta1",
@@ -114,13 +114,13 @@ func TestBuilder_BuildHTTPFilter(t *testing.T) {
 				policy.SimpleBinding("binding-1", "a", "role-1"),
 				policy.SimpleAuthzPolicy("authz-bar", "a"),
 			},
-			wantPolicies: []string{"authz-bar[0]"},
+			wantPolicies: []string{"ns[a]-policy[authz-bar]-rule[0]"},
 		},
 	}
 
 	for _, tc := range testCases {
 		p := policy.NewAuthzPolicies(tc.policies, t)
-		b := NewBuilder(service, nil, "a", p, tc.isXDSMarshalingToAnyEnabled)
+		b := NewBuilder("cluster.local", nil, service, nil, "a", p, tc.isXDSMarshalingToAnyEnabled)
 
 		got := b.BuildHTTPFilter()
 		t.Run(tc.name, func(t *testing.T) {
@@ -140,7 +140,7 @@ func TestBuilder_BuildHTTPFilter(t *testing.T) {
 					rbacConfig := &http_config.RBAC{}
 					if got.GetConfig() == nil {
 						t.Errorf("want struct config when isXDSMarshalingToAnyEnabled is false")
-					} else if err := util.StructToMessage(got.GetConfig(), rbacConfig); err != nil {
+					} else if err := conversion.StructToMessage(got.GetConfig(), rbacConfig); err != nil {
 						t.Errorf("failed to convert struct to message: %s", err)
 					} else {
 						if len(tc.wantPolicies) == 0 {
@@ -210,7 +210,7 @@ func TestBuilder_BuildTCPFilter(t *testing.T) {
 
 	for _, tc := range testCases {
 		p := policy.NewAuthzPolicies(tc.policies, t)
-		b := NewBuilder(service, nil, "a", p, tc.isXDSMarshalingToAnyEnabled)
+		b := NewBuilder("", nil, service, nil, "a", p, tc.isXDSMarshalingToAnyEnabled)
 
 		t.Run(tc.name, func(t *testing.T) {
 			got := b.BuildTCPFilter()
@@ -226,7 +226,7 @@ func TestBuilder_BuildTCPFilter(t *testing.T) {
 				rbacConfig := &tcp_config.RBAC{}
 				if got.GetConfig() == nil {
 					t.Errorf("want struct config when isXDSMarshalingToAnyEnabled is false")
-				} else if err := util.StructToMessage(got.GetConfig(), rbacConfig); err != nil {
+				} else if err := conversion.StructToMessage(got.GetConfig(), rbacConfig); err != nil {
 					t.Errorf("failed to convert struct to message: %s", err)
 				} else {
 					if rbacConfig.StatPrefix != authz_model.RBACTCPFilterStatPrefix {

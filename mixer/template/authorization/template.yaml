@@ -1,5 +1,5 @@
 # this config is created through command
-# mixgen template -d $GOPATH/src/istio.io/istio/mixer/template/authorization/template_handler_service.descriptor_set -o $GOPATH/src/istio.io/istio/mixer/template/authorization/template.yaml -n authorization
+# mixgen template -d $REPO_ROOT/mixer/template/authorization/template_handler_service.descriptor_set -o $REPO_ROOT/mixer/template/authorization/template.yaml -n authorization
 apiVersion: "config.istio.io/v1alpha2"
 kind: template
 metadata:

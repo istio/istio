@@ -55,6 +55,7 @@ const (
 	mcAuthInstallFileNamespace     = "istio-auth-multicluster.yaml"
 	mcRemoteInstallFile            = "istio-remote.yaml"
 	mcSplitHorizonInstallFile      = "istio-multicluster-split-horizon.yaml"
+	authOperatorInstallFile        = "istio-operator.yaml"
 	istioSystem                    = "istio-system"
 	istioIngressServiceName        = "istio-ingress"
 	istioIngressLabel              = "ingress"
@@ -64,7 +65,7 @@ const (
 	defaultSidecarInjectorFile     = "istio-sidecar-injector.yaml"
 	ingressCertsName               = "istio-ingress-certs"
 	maxDeploymentRolloutTime       = 960 * time.Second
-	maxValidationReadyCheckTime    = 30 * time.Second
+	maxValidationReadyCheckTime    = 120 * time.Second
 	maxCNIDeployTime               = 10 * time.Second
 	helmServiceAccountFile         = "helm-service-account.yaml"
 	istioHelmInstallDir            = istioInstallDir + "/helm/istio"
@@ -128,6 +129,7 @@ var (
 	useGalleyConfigValidator = flag.Bool("use_galley_config_validator", true, "Use galley configuration validation webhook")
 	installer                = flag.String("installer", "kubectl", "Istio installer, default to kubectl, or helm")
 	useMCP                   = flag.Bool("use_mcp", true, "use MCP for configuring Istio components")
+	useOperator              = flag.Bool("use_operator", false, "use Operator to deploy Istio components")
 	outboundTrafficPolicy    = flag.String("outbound_trafficpolicy", "ALLOW_ANY", "Istio outbound traffic policy, default to ALLOW_ANY")
 	enableEgressGateway      = flag.Bool("enable_egressgateway", false, "enable egress gateway, default to false")
 	useCNI                   = flag.Bool("use_cni", false,
@@ -212,6 +214,8 @@ func getClusterWideInstallFile() string {
 		if *useMCP {
 			if *authSdsEnable {
 				istioYaml = authSdsInstallFile
+			} else if *useOperator {
+				istioYaml = authOperatorInstallFile
 			} else {
 				istioYaml = authInstallFile
 			}
@@ -551,8 +555,8 @@ func (k *KubeInfo) Teardown() error {
 			}
 		}
 
+		var istioYaml string
 		if *clusterWide {
-			var istioYaml string
 			if *multiClusterDir != "" {
 				if *authEnable {
 					istioYaml = mcAuthInstallFileNamespace
@@ -562,13 +566,29 @@ func (k *KubeInfo) Teardown() error {
 			} else {
 				istioYaml = getClusterWideInstallFile()
 			}
-
+		}
+		if *useOperator {
+			// Need an operator unique delete procedure
+			if _, err := util.Shell("kubectl -n istio-operator delete IstioControlPlane example-istiocontrolplane"); err != nil {
+				log.Errorf("Failed to delete the Istio CR.")
+				return err
+			}
+			if _, err := util.Shell("kubectl delete ns istio-operator --kubeconfig=%s",
+				k.KubeConfig); err != nil {
+				log.Errorf("Failed to delete istio-operator namespace.")
+				return err
+			}
+			if _, err := util.Shell("kubectl delete ns %s --kubeconfig=%s",
+				k.Namespace, k.KubeConfig); err != nil {
+				log.Errorf("Failed to delete %s namespace.", k.Namespace)
+				return err
+			}
+		} else {
 			testIstioYaml := filepath.Join(k.TmpDir, "yaml", istioYaml)
-
 			if err := util.KubeDelete(k.Namespace, testIstioYaml, k.KubeConfig); err != nil {
 				log.Infof("Safe to ignore resource not found errors in kubectl delete -f %s", testIstioYaml)
 			}
-		} else {
+
 			if err := util.DeleteNamespace(k.Namespace, k.KubeConfig); err != nil {
 				log.Errorf("Failed to delete namespace %s", k.Namespace)
 				return err
@@ -605,7 +625,16 @@ func (k *KubeInfo) Teardown() error {
 	validatingWebhookConfigurationExists := false
 	log.Infof("Deleting namespace %v", k.Namespace)
 	for attempts := 1; attempts <= maxAttempts; attempts++ {
-		namespaceDeleted, _ = util.NamespaceDeleted(k.Namespace, k.KubeConfig)
+		if *useOperator {
+			if _, err := util.Shell("kubectl delete ns istio-operator --kubeconfig=%s)",
+				k.KubeConfig); err != nil {
+				log.Errorf("Failed to delete istio-operator namespace.")
+				return err
+			}
+			namespaceDeleted = true
+		} else {
+			namespaceDeleted, _ = util.NamespaceDeleted(k.Namespace, k.KubeConfig)
+		}
 		// As validatingWebhookConfiguration "istio-galley" will
 		// be delete by kubernetes GC controller asynchronously,
 		// we need to ensure it's deleted before return.
@@ -754,12 +783,6 @@ func (k *KubeInfo) deployIstio() error {
 		}
 	}
 
-	// Create istio-system namespace
-	if err := util.CreateNamespace(k.Namespace, k.KubeConfig); err != nil {
-		log.Errorf("Unable to create namespace %s: %s", k.Namespace, err.Error())
-		return err
-	}
-
 	// Deploy the CNI if enabled
 	if *useCNI {
 		err := k.deployCNI()
@@ -790,41 +813,62 @@ func (k *KubeInfo) deployIstio() error {
 
 	}
 
-	// Apply istio-init
-	yamlDir := filepath.Join(istioInstallDir, initInstallFile)
-	baseIstioYaml := filepath.Join(k.ReleaseDir, yamlDir)
-	testIstioYaml := filepath.Join(k.TmpDir, "yaml", istioYaml)
-	if err := k.generateIstio(baseIstioYaml, testIstioYaml); err != nil {
-		log.Errorf("Generating istio-init.yaml")
-		return err
-	}
-
-	if err := util.KubeApply(k.Namespace, testIstioYaml, k.KubeConfig); err != nil {
-		log.Errorf("istio-init.yaml  %s deployment failed", testIstioYaml)
-		return err
-	}
-
-	// TODO(sdake): need a better synchronization
-	time.Sleep(20 * time.Second)
-
-	// Apply main manifest
-	yamlDir = filepath.Join(istioInstallDir, istioYaml)
-	baseIstioYaml = filepath.Join(k.ReleaseDir, yamlDir)
-	testIstioYaml = filepath.Join(k.TmpDir, "yaml", istioYaml)
-
-	if err := k.generateIstio(baseIstioYaml, testIstioYaml); err != nil {
-		log.Errorf("Generating yaml %s failed", testIstioYaml)
-		return err
-	}
-
-	if *multiClusterDir != "" {
-		if err := k.createCacerts(false); err != nil {
-			log.Infof("Failed to create Cacerts with namespace %s in primary cluster", k.Namespace)
+	var testIstioYaml string
+	// Use the operator manifest when operator mode enabled
+	if *useOperator {
+		istioYaml = authOperatorInstallFile
+		yamlDir := filepath.Join(istioInstallDir, istioYaml)
+		baseIstioYaml := filepath.Join(k.ReleaseDir, yamlDir)
+		testIstioYaml = filepath.Join(k.TmpDir, "yaml", istioYaml)
+		util.CopyFile(baseIstioYaml, testIstioYaml)
+		if err := util.KubeApply("istio-operator", testIstioYaml, k.KubeConfig); err != nil {
+			log.Errorf("Istio operator %s deployment failed", testIstioYaml)
+			return err
 		}
-	}
-	if err := util.KubeApply(k.Namespace, testIstioYaml, k.KubeConfig); err != nil {
-		log.Errorf("Istio core %s deployment failed", testIstioYaml)
-		return err
+	} else {
+		// Create istio-system namespace
+		if err := util.CreateNamespace(k.Namespace, k.KubeConfig); err != nil {
+			log.Errorf("Unable to create namespace %s: %s", k.Namespace, err.Error())
+			return err
+		}
+
+		// Apply istio-init and generate an Istio manifest for later
+		yamlDir := filepath.Join(istioInstallDir, initInstallFile)
+		baseIstioYaml := filepath.Join(k.ReleaseDir, yamlDir)
+		testIstioYaml = filepath.Join(k.TmpDir, "yaml", istioYaml)
+		if err := k.generateIstio(baseIstioYaml, testIstioYaml); err != nil {
+			log.Errorf("Generating istio-init.yaml")
+			return err
+		}
+
+		if err := util.KubeApply(k.Namespace, testIstioYaml, k.KubeConfig); err != nil {
+			log.Errorf("istio-init.yaml  %s deployment failed", testIstioYaml)
+			return err
+		}
+
+		// TODO(sdake): need a better synchronization
+		time.Sleep(20 * time.Second)
+
+		// Generate main manifest for application in the rest of this function
+		// depending on E2E flags
+		yamlDir = filepath.Join(istioInstallDir, istioYaml)
+		baseIstioYaml = filepath.Join(k.ReleaseDir, yamlDir)
+		testIstioYaml = filepath.Join(k.TmpDir, "yaml", istioYaml)
+
+		if err := k.generateIstio(baseIstioYaml, testIstioYaml); err != nil {
+			log.Errorf("Generating yaml %s failed", testIstioYaml)
+			return err
+		}
+
+		if *multiClusterDir != "" {
+			if err := k.createCacerts(false); err != nil {
+				log.Infof("Failed to create Cacerts with namespace %s in primary cluster", k.Namespace)
+			}
+		}
+		if err := util.KubeApply(k.Namespace, testIstioYaml, k.KubeConfig); err != nil {
+			log.Errorf("Istio core %s deployment failed", testIstioYaml)
+			return err
+		}
 	}
 
 	if *multiClusterDir != "" {
@@ -1145,7 +1189,6 @@ func (k *KubeInfo) generateSidecarInjector(src, dst string) error {
 	if *pilotHub != "" && *pilotTag != "" {
 		content = updateImage("sidecar_injector", *pilotHub, *pilotTag, content)
 		content = updateInjectVersion(*pilotTag, content)
-		content = updateInjectImage("initImage", "proxy_init", *proxyHub, *proxyTag, content)
 		content = updateInjectImage("proxyImage", "proxy", *proxyHub, *proxyTag, content)
 	}
 
@@ -1163,6 +1206,10 @@ func replacePattern(content []byte, src, dest string) []byte {
 	return content
 }
 
+// This code is in need of a reimplementation and some rethinking. An in-place
+// modification on the raw manifest is the wrong approach. This model is also
+// not portable to our future around IstioControlPlane where we don't necessarily
+// have a manifest to in place modify...
 func (k *KubeInfo) generateIstio(src, dst string) error {
 	content, err := ioutil.ReadFile(src)
 	if err != nil {
@@ -1196,10 +1243,6 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 		}
 		if *pilotHub != "" && *pilotTag != "" {
 			content = updateImage("pilot", *pilotHub, *pilotTag, content)
-		}
-		if *proxyHub != "" && *proxyTag != "" {
-			//Need to be updated when the string "proxy" is changed as the default image name
-			content = updateImage("proxy_init", *proxyHub, *proxyTag, content)
 		}
 		if *proxyHub != "" && *proxyTag != "" {
 			//Need to be updated when the string "proxy" is changed as the default image name

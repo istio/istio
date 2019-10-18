@@ -19,7 +19,8 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
-	"istio.io/istio/galley/pkg/config/processor/metadata"
+	"istio.io/istio/galley/pkg/config/meta/metadata"
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
 )
 
@@ -28,9 +29,17 @@ type GatewayAnalyzer struct{}
 
 var _ analysis.Analyzer = &GatewayAnalyzer{}
 
-// Name implements Analyzer
-func (s *GatewayAnalyzer) Name() string {
-	return "virtualservice.GatewayAnalyzer"
+const meshGateway = "mesh"
+
+// Metadata implements Analyzer
+func (s *GatewayAnalyzer) Metadata() analysis.Metadata {
+	return analysis.Metadata{
+		Name: "virtualservice.GatewayAnalyzer",
+		Inputs: collection.Names{
+			metadata.IstioNetworkingV1Alpha3Gateways,
+			metadata.IstioNetworkingV1Alpha3Virtualservices,
+		},
+	}
 }
 
 // Analyze implements Analyzer
@@ -46,6 +55,11 @@ func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Entry, c analysis.Co
 
 	ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
 	for _, gwName := range vs.Gateways {
+		// This is a special-case accepted value
+		if gwName == meshGateway {
+			continue
+		}
+
 		if !c.Exists(metadata.IstioNetworkingV1Alpha3Gateways, resource.NewName(ns, gwName)) {
 			c.Report(metadata.IstioNetworkingV1Alpha3Virtualservices, msg.NewReferencedResourceNotFound(r, "gateway", gwName))
 		}

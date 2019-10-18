@@ -37,7 +37,7 @@ var _ = time.Kitchen
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 // Configuration format for the `stackdriver` adapter.
 type Params struct {
@@ -147,88 +147,13 @@ func (m *Params) GetServiceAccountPath() string {
 	return ""
 }
 
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*Params) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _Params_OneofMarshaler, _Params_OneofUnmarshaler, _Params_OneofSizer, []interface{}{
+// XXX_OneofWrappers is for the internal use of the proto package.
+func (*Params) XXX_OneofWrappers() []interface{} {
+	return []interface{}{
 		(*Params_AppCredentials)(nil),
 		(*Params_ApiKey)(nil),
 		(*Params_ServiceAccountPath)(nil),
 	}
-}
-
-func _Params_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*Params)
-	// creds
-	switch x := m.Creds.(type) {
-	case *Params_AppCredentials:
-		t := uint64(0)
-		if x.AppCredentials {
-			t = 1
-		}
-		_ = b.EncodeVarint(4<<3 | proto.WireVarint)
-		_ = b.EncodeVarint(t)
-	case *Params_ApiKey:
-		_ = b.EncodeVarint(5<<3 | proto.WireBytes)
-		_ = b.EncodeStringBytes(x.ApiKey)
-	case *Params_ServiceAccountPath:
-		_ = b.EncodeVarint(6<<3 | proto.WireBytes)
-		_ = b.EncodeStringBytes(x.ServiceAccountPath)
-	case nil:
-	default:
-		return fmt.Errorf("Params.Creds has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _Params_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*Params)
-	switch tag {
-	case 4: // creds.app_credentials
-		if wire != proto.WireVarint {
-			return true, proto.ErrInternalBadWireType
-		}
-		x, err := b.DecodeVarint()
-		m.Creds = &Params_AppCredentials{x != 0}
-		return true, err
-	case 5: // creds.api_key
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		x, err := b.DecodeStringBytes()
-		m.Creds = &Params_ApiKey{x}
-		return true, err
-	case 6: // creds.service_account_path
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		x, err := b.DecodeStringBytes()
-		m.Creds = &Params_ServiceAccountPath{x}
-		return true, err
-	default:
-		return false, nil
-	}
-}
-
-func _Params_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*Params)
-	// creds
-	switch x := m.Creds.(type) {
-	case *Params_AppCredentials:
-		n += 1 // tag and wire
-		n += 1
-	case *Params_ApiKey:
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(len(x.ApiKey)))
-		n += len(x.ApiKey)
-	case *Params_ServiceAccountPath:
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(len(x.ServiceAccountPath)))
-		n += len(x.ServiceAccountPath)
-	case nil:
-	default:
-		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
-	}
-	return n
 }
 
 // Describes how to represent an Istio metric in Stackdriver.
@@ -378,97 +303,13 @@ func (m *Params_MetricInfo_BucketsDefinition) GetExplicitBuckets() *Params_Metri
 	return nil
 }
 
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*Params_MetricInfo_BucketsDefinition) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _Params_MetricInfo_BucketsDefinition_OneofMarshaler, _Params_MetricInfo_BucketsDefinition_OneofUnmarshaler, _Params_MetricInfo_BucketsDefinition_OneofSizer, []interface{}{
+// XXX_OneofWrappers is for the internal use of the proto package.
+func (*Params_MetricInfo_BucketsDefinition) XXX_OneofWrappers() []interface{} {
+	return []interface{}{
 		(*Params_MetricInfo_BucketsDefinition_LinearBuckets)(nil),
 		(*Params_MetricInfo_BucketsDefinition_ExponentialBuckets)(nil),
 		(*Params_MetricInfo_BucketsDefinition_ExplicitBuckets)(nil),
 	}
-}
-
-func _Params_MetricInfo_BucketsDefinition_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*Params_MetricInfo_BucketsDefinition)
-	// definition
-	switch x := m.Definition.(type) {
-	case *Params_MetricInfo_BucketsDefinition_LinearBuckets:
-		_ = b.EncodeVarint(1<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.LinearBuckets); err != nil {
-			return err
-		}
-	case *Params_MetricInfo_BucketsDefinition_ExponentialBuckets:
-		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.ExponentialBuckets); err != nil {
-			return err
-		}
-	case *Params_MetricInfo_BucketsDefinition_ExplicitBuckets:
-		_ = b.EncodeVarint(3<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.ExplicitBuckets); err != nil {
-			return err
-		}
-	case nil:
-	default:
-		return fmt.Errorf("Params_MetricInfo_BucketsDefinition.Definition has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _Params_MetricInfo_BucketsDefinition_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*Params_MetricInfo_BucketsDefinition)
-	switch tag {
-	case 1: // definition.linear_buckets
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(Params_MetricInfo_BucketsDefinition_Linear)
-		err := b.DecodeMessage(msg)
-		m.Definition = &Params_MetricInfo_BucketsDefinition_LinearBuckets{msg}
-		return true, err
-	case 2: // definition.exponential_buckets
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(Params_MetricInfo_BucketsDefinition_Exponential)
-		err := b.DecodeMessage(msg)
-		m.Definition = &Params_MetricInfo_BucketsDefinition_ExponentialBuckets{msg}
-		return true, err
-	case 3: // definition.explicit_buckets
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(Params_MetricInfo_BucketsDefinition_Explicit)
-		err := b.DecodeMessage(msg)
-		m.Definition = &Params_MetricInfo_BucketsDefinition_ExplicitBuckets{msg}
-		return true, err
-	default:
-		return false, nil
-	}
-}
-
-func _Params_MetricInfo_BucketsDefinition_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*Params_MetricInfo_BucketsDefinition)
-	// definition
-	switch x := m.Definition.(type) {
-	case *Params_MetricInfo_BucketsDefinition_LinearBuckets:
-		s := proto.Size(x.LinearBuckets)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *Params_MetricInfo_BucketsDefinition_ExponentialBuckets:
-		s := proto.Size(x.ExponentialBuckets)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *Params_MetricInfo_BucketsDefinition_ExplicitBuckets:
-		s := proto.Size(x.ExplicitBuckets)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case nil:
-	default:
-		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
-	}
-	return n
 }
 
 // Specifies a linear sequence of buckets that all have the same width
@@ -738,9 +579,12 @@ var xxx_messageInfo_Params_LogInfo_HttpRequestMapping proto.InternalMessageInfo
 // Ex: If you want to export it to a GCS bucket, id would be a unique idetifier you want for the sink,
 // destination would be the storage be name of GCS Storage bucket and filter would be user defined condition for
 // filtering logs. See below for a sample config:
-//      id: 'info-errors-to-gcs'
-//      destination: 'storage.googleapis.com/<bucket_name>'
-//      filter: 'severity >= Default'
+//
+// ```yaml
+// id: 'info-errors-to-gcs'
+// destination: 'storage.googleapis.com/<bucket_name>'
+// filter: 'severity >= Default'
+// ```
 type Params_LogInfo_SinkInfo struct {
 	// Client assigned sink identifier.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`

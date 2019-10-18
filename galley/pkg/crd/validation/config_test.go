@@ -160,7 +160,7 @@ func TestValidatingWebhookConfig(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "config1",
 						},
-						Webhooks: []admissionregistrationv1beta1.Webhook{
+						Webhooks: []admissionregistrationv1beta1.ValidatingWebhook{
 							{
 								Name:         "webhook1",
 								ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{},
@@ -180,7 +180,7 @@ func TestValidatingWebhookConfig(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "config1",
 						},
-						Webhooks: []admissionregistrationv1beta1.Webhook{
+						Webhooks: []admissionregistrationv1beta1.ValidatingWebhook{
 							{
 								Name:         "webhook1",
 								ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{},
@@ -200,7 +200,7 @@ func TestValidatingWebhookConfig(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "config1",
 						},
-						Webhooks: []admissionregistrationv1beta1.Webhook{
+						Webhooks: []admissionregistrationv1beta1.ValidatingWebhook{
 							{
 								Name:         "webhook1",
 								ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{},
@@ -298,7 +298,7 @@ func initValidatingWebhookConfiguration() *admissionregistrationv1beta1.Validati
 				),
 			},
 		},
-		Webhooks: []admissionregistrationv1beta1.Webhook{
+		Webhooks: []admissionregistrationv1beta1.ValidatingWebhook{
 			{
 				Name: "hook-foo",
 				ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{

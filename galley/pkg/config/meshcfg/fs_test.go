@@ -287,6 +287,7 @@ func TestFsSource_FileRemoved_NoChange(t *testing.T) {
 }
 
 func TestFsSource_BogusFile_NoChange(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/15987")
 	g := NewGomegaWithT(t)
 
 	mcfg := Default()
@@ -326,7 +327,7 @@ func TestFsSource_BogusFile_NoChange(t *testing.T) {
 	g.Expect(err).To(BeNil())
 
 	time.Sleep(time.Millisecond * 100)
-	g.Consistently(acc.Events()).Should(HaveLen(0))
+	g.Consistently(acc.Events).Should(HaveLen(0))
 }
 
 func setupDir(t *testing.T, m *v1alpha1.MeshConfig) string {

@@ -19,7 +19,7 @@ import (
 	"time"
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
-	proto "github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes"
 )
 
 // GetLastUpdatedDynamicRouteTime retrieves the LastUpdated timestamp of the
@@ -34,7 +34,7 @@ func (w *Wrapper) GetLastUpdatedDynamicRouteTime() (*time.Time, error) {
 	lastUpdated := time.Unix(0, 0) // get the oldest possible timestamp
 	for i := range drc {
 		if drc[i].LastUpdated != nil {
-			if drLastUpdated, err := proto.TimestampFromProto(drc[i].LastUpdated); err != nil {
+			if drLastUpdated, err := ptypes.Timestamp(drc[i].LastUpdated); err != nil {
 				return nil, err
 			} else if drLastUpdated.After(lastUpdated) {
 				lastUpdated = drLastUpdated
@@ -73,7 +73,7 @@ func (w *Wrapper) GetRouteConfigDump() (*adminapi.RoutesConfigDump, error) {
 		return nil, err
 	}
 	routeDump := &adminapi.RoutesConfigDump{}
-	err = proto.UnmarshalAny(&routeDumpAny, routeDump)
+	err = ptypes.UnmarshalAny(&routeDumpAny, routeDump)
 	if err != nil {
 		return nil, err
 	}

@@ -37,6 +37,11 @@ func TestSdsVaultCaFlow(t *testing.T) {
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
+			// Istio 1.3 uses Trustworthy JWT, which, unlike normal k8s JWT, is not
+			// recognized on Vault.
+			// https://github.com/istio/istio/issues/17561,
+			// https://github.com/istio/istio/issues/17572.
+			t.Skip("skipped for Istio versions using Trustworthy JWT, https://github.com/istio/istio/issues/17572")
 
 			istioCfg := istio.DefaultConfigOrFail(t, ctx)
 

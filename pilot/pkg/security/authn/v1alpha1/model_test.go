@@ -18,28 +18,24 @@ import (
 	"testing"
 
 	authn "istio.io/api/authentication/v1alpha1"
-	"istio.io/istio/pilot/pkg/config/memory"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/schemas"
+	authn_model "istio.io/istio/pilot/pkg/security/model"
 )
 
 func TestGetMutualTLSMode(t *testing.T) {
 	cases := []struct {
 		name     string
 		in       *authn.Policy
-		expected MutualTLSMode
+		expected authn_model.MutualTLSMode
 	}{
 		{
 			name:     "Null policy",
 			in:       nil,
-			expected: MTLSDisable,
+			expected: authn_model.MTLSDisable,
 		},
 		{
 			name:     "Empty policy",
 			in:       &authn.Policy{},
-			expected: MTLSDisable,
+			expected: authn_model.MTLSDisable,
 		},
 		{
 			name: "Policy with default mTLS mode",
@@ -48,7 +44,7 @@ func TestGetMutualTLSMode(t *testing.T) {
 					Params: &authn.PeerAuthenticationMethod_Mtls{},
 				}},
 			},
-			expected: MTLSStrict,
+			expected: authn_model.MTLSStrict,
 		},
 		{
 			name: "Policy with strict mTLS mode",
@@ -61,7 +57,7 @@ func TestGetMutualTLSMode(t *testing.T) {
 					},
 				}},
 			},
-			expected: MTLSStrict,
+			expected: authn_model.MTLSStrict,
 		},
 		{
 			name: "Policy with permissive mTLS mode",
@@ -74,7 +70,7 @@ func TestGetMutualTLSMode(t *testing.T) {
 					},
 				}},
 			},
-			expected: MTLSPermissive,
+			expected: authn_model.MTLSPermissive,
 		},
 		{
 			name: "Policy with multi peer methods",
@@ -90,7 +86,7 @@ func TestGetMutualTLSMode(t *testing.T) {
 					},
 				},
 			},
-			expected: MTLSStrict,
+			expected: authn_model.MTLSStrict,
 		},
 		{
 			name: "Policy with non-mtls peer method",
@@ -101,116 +97,12 @@ func TestGetMutualTLSMode(t *testing.T) {
 					},
 				},
 			},
-			expected: MTLSDisable,
+			expected: authn_model.MTLSDisable,
 		},
 	}
 	for _, c := range cases {
-		if got := getMutualTLSMode(c.in); got != c.expected {
+		if got := GetMutualTLSMode(c.in); got != c.expected {
 			t.Errorf("%s: isStrictMutualTLS(%v): got(%v) != want(%v)\n", c.name, c.in, got, c.expected)
-		}
-	}
-}
-
-func TestGetServiceMutualTLSMode(t *testing.T) {
-	store := model.MakeIstioStore(memory.Make(schemas.Istio))
-	authNPolicies := map[string]*authn.Policy{
-		constants.DefaultAuthenticationPolicyName: {},
-		"mtls-strict": {
-			Targets: []*authn.TargetSelector{{
-				Name: "strict-svc",
-			}},
-			Peers: []*authn.PeerAuthenticationMethod{{
-				Params: &authn.PeerAuthenticationMethod_Mtls{},
-			}},
-		},
-		"mtls-permissive": {
-			Targets: []*authn.TargetSelector{{
-				Name: "permissive-svc",
-				Ports: []*authn.PortSelector{
-					{
-						Port: &authn.PortSelector_Number{
-							Number: 80,
-						},
-					},
-				},
-			}},
-			Peers: []*authn.PeerAuthenticationMethod{{
-				Params: &authn.PeerAuthenticationMethod_Mtls{
-					Mtls: &authn.MutualTls{
-						Mode: authn.MutualTls_PERMISSIVE,
-					},
-				},
-			}},
-		},
-		"mtls-disable": {
-			Targets: []*authn.TargetSelector{{
-				Name: "disable-svc",
-			}},
-		},
-	}
-	for key, value := range authNPolicies {
-		cfg := model.Config{
-			ConfigMeta: model.ConfigMeta{
-				Type:      schemas.AuthenticationPolicy.Type,
-				Name:      key,
-				Group:     "authentication",
-				Version:   "v1alpha1",
-				Namespace: "default",
-				Domain:    "cluster.local",
-			},
-			Spec: value,
-		}
-		if _, err := store.Create(cfg); err != nil {
-			t.Error(err)
-		}
-	}
-
-	cases := []struct {
-		hostname  host.Name
-		namespace string
-		port      int
-		expected  MutualTLSMode
-	}{
-		{
-			hostname:  "strict-svc.default.svc.cluster.local",
-			namespace: "default",
-			port:      80,
-			expected:  MTLSStrict,
-		},
-		{
-			hostname:  "permissive-svc.default.svc.cluster.local",
-			namespace: "default",
-			port:      80,
-			expected:  MTLSPermissive,
-		},
-		{
-			hostname:  "permissive-svc.default.svc.cluster.local",
-			namespace: "default",
-			port:      90,
-			expected:  MTLSDisable,
-		},
-		{
-			hostname:  "disable-svc.default.svc.cluster.local",
-			namespace: "default",
-			port:      80,
-			expected:  MTLSDisable,
-		},
-		{
-			hostname:  "strict-svc.another-namespace.svc.cluster.local",
-			namespace: "another-namespace",
-			port:      80,
-			expected:  MTLSDisable,
-		},
-	}
-
-	for i, c := range cases {
-		port := &model.Port{Port: c.port}
-		service := &model.Service{
-			Hostname:   c.hostname,
-			Attributes: model.ServiceAttributes{Namespace: c.namespace},
-		}
-		if got := GetServiceMutualTLSMode(store, service, port); got != c.expected {
-			t.Errorf("%d. GetServiceMutualTLSMode for %s.%s:%d: got(%v) != want(%v)\n", i, c.hostname, c.namespace, c.port, got, c.expected)
 		}
 	}
 }

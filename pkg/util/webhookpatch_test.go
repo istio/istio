@@ -67,7 +67,7 @@ func TestMutatingWebhookPatch(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "config1",
 						},
-						Webhooks: []admissionregistrationv1beta1.Webhook{
+						Webhooks: []admissionregistrationv1beta1.MutatingWebhook{
 							{
 								Name:         "webhook1",
 								ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{},

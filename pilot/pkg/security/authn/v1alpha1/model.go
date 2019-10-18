@@ -16,63 +16,16 @@ package v1alpha1
 
 import (
 	authn "istio.io/api/authentication/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 )
 
-// GetConsolidateAuthenticationPolicy returns the v1alpha1 authentication policy for workload specified by
-// hostname (or label selector if specified) and port, if defined.
-// It also tries to resolve JWKS URI if necessary.
-func GetConsolidateAuthenticationPolicy(store model.IstioConfigStore, serviceInstance *model.ServiceInstance) *authn.Policy {
-	service := serviceInstance.Service
-	port := serviceInstance.Endpoint.ServicePort
-	labels := serviceInstance.Labels
-
-	config := store.AuthenticationPolicyForWorkload(service, labels, port)
-	if config != nil {
-		policy := config.Spec.(*authn.Policy)
-		if err := authn_model.JwtKeyResolver.SetAuthenticationPolicyJwksURIs(policy); err == nil {
-			return policy
-		}
-	}
-
-	return nil
-}
-
-// MutualTLSMode is the mutule TLS mode specified by authentication policy.
-type MutualTLSMode int
-
-const (
-	// MTLSUnknown is used to indicate the variable hasn't been initialized correctly (with the authentication policy).
-	MTLSUnknown MutualTLSMode = iota
-
-	// MTLSDisable if authentication policy disable mTLS.
-	MTLSDisable
-
-	// MTLSPermissive if authentication policy enable mTLS in permissive mode.
-	MTLSPermissive
-
-	// MTLSStrict if authentication policy enable mTLS in strict mode.
-	MTLSStrict
-)
-
-// GetServiceMutualTLSMode returns the mTLS mode for given service-port.
-func GetServiceMutualTLSMode(store model.IstioConfigStore, service *model.Service, port *model.Port) MutualTLSMode {
-	// TODO(diemtvu) when authentication poicy changes to workload-selector model, this should be changed to
-	// iterate over all service instances to examine the mTLS mode. May also cache this to avoid
-	// querying config store and process policy everytime.
-	if config := store.AuthenticationPolicyForWorkload(service, nil, port); config != nil {
-		return getMutualTLSMode(config.Spec.(*authn.Policy))
-	}
-	return MTLSDisable
-}
-
-func getMutualTLSMode(policy *authn.Policy) MutualTLSMode {
+// GetMutualTLSMode returns the mTLS mode for given. If the policy is nil, or doesn't define mTLS, it returns MTLSDisable.
+func GetMutualTLSMode(policy *authn.Policy) authn_model.MutualTLSMode {
 	if mTLSSetting := GetMutualTLS(policy); mTLSSetting != nil {
 		if mTLSSetting.GetMode() == authn.MutualTls_STRICT {
-			return MTLSStrict
+			return authn_model.MTLSStrict
 		}
-		return MTLSPermissive
+		return authn_model.MTLSPermissive
 	}
-	return MTLSDisable
+	return authn_model.MTLSDisable
 }

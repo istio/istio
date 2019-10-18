@@ -32,12 +32,16 @@ var (
 )
 
 type v1beta1Generator struct {
-	policies []model.Config
+	trustDomain        string
+	trustDomainAliases []string
+	policies           []model.Config
 }
 
-func NewGenerator(policies []model.Config) policy.Generator {
+func NewGenerator(trustDomain string, trustDomainAliases []string, policies []model.Config) policy.Generator {
 	return &v1beta1Generator{
-		policies: policies,
+		trustDomain:        trustDomain,
+		trustDomainAliases: trustDomainAliases,
+		policies:           policies,
 	}
 }
 
@@ -52,21 +56,22 @@ func (g *v1beta1Generator) Generate(forTCPFilter bool) *http_config.RBAC {
 	for _, config := range g.policies {
 		spec := config.Spec.(*istio_rbac.AuthorizationPolicy)
 		for i, rule := range spec.Rules {
-			if p := g.generatePolicy(rule, forTCPFilter); p != nil {
-				name := fmt.Sprintf("%s[%d]", config.Name, i)
+			if p := g.generatePolicy(g.trustDomain, g.trustDomainAliases, rule, forTCPFilter); p != nil {
+				name := fmt.Sprintf("ns[%s]-policy[%s]-rule[%d]", config.Namespace, config.Name, i)
 				rbac.Policies[name] = p
-				rbacLog.Debugf("generated policy %s for rule", name)
+				rbacLog.Debugf("generated policy %s: %+v", name, p)
 			}
 		}
 	}
 	return &http_config.RBAC{Rules: rbac}
 }
 
-func (g *v1beta1Generator) generatePolicy(rule *istio_rbac.Rule, forTCPFilter bool) *envoy_rbac.Policy {
+func (g *v1beta1Generator) generatePolicy(trustDomain string, trustDomainAliases []string, rule *istio_rbac.Rule, forTCPFilter bool) *envoy_rbac.Policy {
 	if rule == nil {
 		return nil
 	}
 
-	m := authz_model.NewModelFromV1beta1(rule)
+	m := authz_model.NewModelV1beta1(trustDomain, trustDomainAliases, rule)
+	rbacLog.Debugf("constructed internal model: %+v", m)
 	return m.Generate(nil, forTCPFilter)
 }

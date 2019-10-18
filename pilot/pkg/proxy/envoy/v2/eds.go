@@ -21,9 +21,9 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
-	"github.com/gogo/protobuf/types"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	"github.com/golang/protobuf/ptypes/wrappers"
 
 	networkingapi "istio.io/api/networking/v1alpha3"
 
@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 // EDS returns the list of endpoints (IP:port and in future labels) associated with a real
@@ -95,7 +96,9 @@ func loadAssignment(c *EdsCluster) *xdsapi.ClusterLoadAssignment {
 }
 
 // buildEnvoyLbEndpoint packs the endpoint based on istio info.
-func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string, port uint32, network string, weight uint32) *endpoint.LbEndpoint {
+func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string, port uint32,
+	network string, weight uint32, mtlsReady bool) *endpoint.LbEndpoint {
+
 	var addr core.Address
 	switch family {
 	case model.AddressFamilyTCP:
@@ -118,7 +121,7 @@ func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string
 		epWeight = 1
 	}
 	ep := &endpoint.LbEndpoint{
-		LoadBalancingWeight: &types.UInt32Value{
+		LoadBalancingWeight: &wrappers.UInt32Value{
 			Value: epWeight,
 		},
 		HostIdentifier: &endpoint.LbEndpoint_Endpoint{
@@ -129,13 +132,14 @@ func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string
 	}
 
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
-	// Do not remove: mixerfilter depends on this logic.
-	ep.Metadata = endpointMetadata(uid, network)
+	// Istio endpoint level tls transport socket configuation depends on this logic
+	// Do not remove
+	ep.Metadata = util.BuildLbEndpointMetadata(uid, network, mtlsReady)
 
 	return ep
 }
 
-func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpoint, error) {
+func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint, mtlsReady bool) (*endpoint.LbEndpoint, error) {
 	err := model.ValidateNetworkEndpointAddress(e)
 	if err != nil {
 		return nil, err
@@ -148,7 +152,7 @@ func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpo
 		epWeight = 1
 	}
 	ep := &endpoint.LbEndpoint{
-		LoadBalancingWeight: &types.UInt32Value{
+		LoadBalancingWeight: &wrappers.UInt32Value{
 			Value: epWeight,
 		},
 		HostIdentifier: &endpoint.LbEndpoint_Endpoint{
@@ -159,35 +163,11 @@ func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpo
 	}
 
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
-	// Do not remove: mixerfilter depends on this logic.
-	ep.Metadata = endpointMetadata(e.UID, e.Network)
+	// Istio endpoint level tls transport socket configuation depends on this logic
+	// Do not remove
+	ep.Metadata = util.BuildLbEndpointMetadata(e.UID, e.Network, mtlsReady)
 
 	return ep, nil
-}
-
-// Create an Istio filter metadata object with the UID and Network fields (if exist).
-func endpointMetadata(uid string, network string) *core.Metadata {
-	if uid == "" && network == "" {
-		return nil
-	}
-
-	metadata := &core.Metadata{
-		FilterMetadata: map[string]*types.Struct{
-			util.IstioMetadataKey: {
-				Fields: map[string]*types.Value{},
-			},
-		},
-	}
-
-	if uid != "" {
-		metadata.FilterMetadata[util.IstioMetadataKey].Fields["uid"] = &types.Value{Kind: &types.Value_StringValue{StringValue: uid}}
-	}
-
-	if network != "" {
-		metadata.FilterMetadata[util.IstioMetadataKey].Fields["network"] = &types.Value{Kind: &types.Value_StringValue{StringValue: network}}
-	}
-
-	return metadata
 }
 
 // Determine Service associated with a hostname when there is no Sidecar scope. Which namespace the service comes from
@@ -319,6 +299,7 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 						Locality:        ep.GetLocality(),
 						LbWeight:        ep.Endpoint.LbWeight,
 						Attributes:      ep.Service.Attributes,
+						MTLSReady:       ep.MTLSReady,
 					})
 				}
 			}
@@ -367,7 +348,7 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 		for _, ep := range locEps[i].LbEndpoints {
 			weight += ep.LoadBalancingWeight.GetValue()
 		}
-		locEps[i].LoadBalancingWeight = &types.UInt32Value{
+		locEps[i].LoadBalancingWeight = &wrappers.UInt32Value{
 			Value: weight,
 		}
 	}
@@ -433,7 +414,8 @@ func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext
 // It replaces InstancesByPort in model - instead of iterating over all endpoints it uses
 // the hostname-keyed map. And it avoids the conversion from Endpoint to ServiceEntry to envoy
 // on each step: instead the conversion happens once, when an endpoint is first discovered.
-func (s *DiscoveryServer) EDSUpdate(clusterID, serviceName string, namespace string, istioEndpoints []*model.IstioEndpoint) error {
+func (s *DiscoveryServer) EDSUpdate(clusterID, serviceName string, namespace string,
+	istioEndpoints []*model.IstioEndpoint) error {
 	inboundEDSUpdates.Increment()
 	s.edsUpdate(clusterID, serviceName, namespace, istioEndpoints, false)
 	return nil
@@ -462,6 +444,12 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 			if svcShards == 0 {
 				delete(s.EndpointShardsByService[serviceName], namespace)
 			}
+			adsLog.Infof("Incremental push, service %s has no endpoints", serviceName)
+			s.ConfigUpdate(&model.PushRequest{
+				Full:              false,
+				NamespacesUpdated: map[string]struct{}{namespace: {}},
+				EdsUpdates:        map[string]struct{}{serviceName: {}},
+			})
 		}
 		return
 	}
@@ -507,6 +495,7 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 			}
 		}
 	}
+
 	ep.mutex.Lock()
 	ep.Shards[clusterID] = istioEndpoints
 	ep.mutex.Unlock()
@@ -520,9 +509,10 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 			edsUpdates = map[string]struct{}{serviceName: {}}
 		}
 		s.ConfigUpdate(&model.PushRequest{
-			Full:             requireFull,
-			TargetNamespaces: map[string]struct{}{namespace: {}},
-			EdsUpdates:       edsUpdates,
+			Full:               requireFull,
+			NamespacesUpdated:  map[string]struct{}{namespace: {}},
+			ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
+			EdsUpdates:         edsUpdates,
 		})
 	}
 }
@@ -534,7 +524,7 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []*endpoint.LocalityLbEndpoints {
 	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
 	for _, instance := range instances {
-		lbEp, err := networkEndpointToEnvoyEndpoint(&instance.Endpoint)
+		lbEp, err := networkEndpointToEnvoyEndpoint(&instance.Endpoint, instance.MTLSReady)
 		if err != nil {
 			adsLog.Errorf("EDS: Unexpected pilot model endpoint v1 to v2 conversion: %v", err)
 			totalXDSInternalErrors.Increment()
@@ -658,7 +648,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 			}
 		}
 
-		l := s.loadAssignmentsForClusterIsolated(con.modelNode, push, clusterName)
+		l := s.loadAssignmentsForClusterIsolated(con.node, push, clusterName)
 
 		if l == nil {
 			continue
@@ -685,18 +675,21 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 
 			// Failover should only be enabled when there is an outlier detection, otherwise Envoy
 			// will never detect the hosts are unhealthy and redirect traffic.
-			enableFailover := hasOutlierDetection(push, con.modelNode, clusterName)
-			loadbalancer.ApplyLocalityLBSetting(con.modelNode.Locality, l, s.Env.Mesh.LocalityLbSetting, enableFailover)
+			enableFailover := hasOutlierDetection(push, con.node, clusterName)
+			loadbalancer.ApplyLocalityLBSetting(con.node.Locality, l, s.Env.Mesh.LocalityLbSetting, enableFailover)
 		}
 
-		endpoints += len(l.Endpoints)
+		for _, e := range l.Endpoints {
+			endpoints += len(e.LbEndpoints)
+		}
+
 		if len(l.Endpoints) == 0 {
 			empty = append(empty, clusterName)
 		}
 		loadAssignments = append(loadAssignments, l)
 	}
 
-	response := endpointDiscoveryResponse(loadAssignments, version)
+	response := endpointDiscoveryResponse(loadAssignments, version, push.Version)
 	err := con.send(response)
 	edsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {
@@ -708,10 +701,10 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 
 	if edsUpdatedServices == nil {
 		adsLog.Infof("EDS: PUSH for node:%s clusters:%d endpoints:%d empty:%v",
-			con.modelNode.ID, len(con.Clusters), endpoints, empty)
+			con.node.ID, len(con.Clusters), endpoints, empty)
 	} else {
 		adsLog.Infof("EDS: PUSH INC for node:%s clusters:%d endpoints:%d empty:%v",
-			con.modelNode.ID, len(con.Clusters), endpoints, empty)
+			con.node.ID, len(con.Clusters), endpoints, empty)
 	}
 	return nil
 }
@@ -812,7 +805,7 @@ func (s *DiscoveryServer) removeEdsCon(clusterName string, node string) {
 	}
 }
 
-func endpointDiscoveryResponse(loadAssignments []*xdsapi.ClusterLoadAssignment, version string) *xdsapi.DiscoveryResponse {
+func endpointDiscoveryResponse(loadAssignments []*xdsapi.ClusterLoadAssignment, version string, noncePrefix string) *xdsapi.DiscoveryResponse {
 	out := &xdsapi.DiscoveryResponse{
 		TypeUrl: EndpointType,
 		// Pilot does not really care for versioning. It always supplies what's currently
@@ -820,10 +813,10 @@ func endpointDiscoveryResponse(loadAssignments []*xdsapi.ClusterLoadAssignment, 
 		// responses. Pilot believes in eventual consistency and that at some point, Envoy
 		// will begin seeing results it deems to be good.
 		VersionInfo: version,
-		Nonce:       nonce(),
+		Nonce:       nonce(noncePrefix),
 	}
 	for _, loadAssignment := range loadAssignments {
-		resource, _ := types.MarshalAny(loadAssignment)
+		resource := util.MessageToAny(loadAssignment)
 		out.Resources = append(out.Resources, resource)
 	}
 
@@ -855,12 +848,13 @@ func buildLocalityLbEndpointsFromShards(
 			locLbEps, found := localityEpMap[ep.Locality]
 			if !found {
 				locLbEps = &endpoint.LocalityLbEndpoints{
-					Locality: util.ConvertLocality(ep.Locality),
+					Locality:    util.ConvertLocality(ep.Locality),
+					LbEndpoints: make([]*endpoint.LbEndpoint, 0, len(endpoints)),
 				}
 				localityEpMap[ep.Locality] = locLbEps
 			}
 			if ep.EnvoyEndpoint == nil {
-				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep.UID, ep.Family, ep.Address, ep.EndpointPort, ep.Network, ep.LbWeight)
+				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep.UID, ep.Family, ep.Address, ep.EndpointPort, ep.Network, ep.LbWeight, ep.MTLSReady)
 			}
 			locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, ep.EnvoyEndpoint)
 
@@ -874,7 +868,7 @@ func buildLocalityLbEndpointsFromShards(
 		for _, ep := range locLbEps.LbEndpoints {
 			weight += ep.LoadBalancingWeight.GetValue()
 		}
-		locLbEps.LoadBalancingWeight = &types.UInt32Value{
+		locLbEps.LoadBalancingWeight = &wrappers.UInt32Value{
 			Value: weight,
 		}
 		locEps = append(locEps, locLbEps)

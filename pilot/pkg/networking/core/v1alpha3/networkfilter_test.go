@@ -17,10 +17,10 @@ package v1alpha3
 import (
 	"testing"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	redis_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/redis_proxy/v2"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
-	"github.com/gogo/protobuf/types"
+	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/golang/protobuf/ptypes"
 )
 
 func TestBuildRedisFilter(t *testing.T) {
@@ -30,7 +30,7 @@ func TestBuildRedisFilter(t *testing.T) {
 	}
 	if config, ok := redisFilter.ConfigType.(*listener.Filter_TypedConfig); ok {
 		redisProxy := redis_proxy.RedisProxy{}
-		if err := types.UnmarshalAny(config.TypedConfig, &redisProxy); err != nil {
+		if err := ptypes.UnmarshalAny(config.TypedConfig, &redisProxy); err != nil {
 			t.Errorf("unmarshal failed: %v", err)
 		}
 		if redisProxy.StatPrefix != "redis" {

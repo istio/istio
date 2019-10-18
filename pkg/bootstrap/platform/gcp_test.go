@@ -28,6 +28,7 @@ func TestMetadata(t *testing.T) {
 		projectIDFn   metadataFn
 		locationFn    metadataFn
 		clusterNameFn metadataFn
+		instanceIDFn  metadataFn
 		want          map[string]string
 	}{
 		{
@@ -36,6 +37,7 @@ func TestMetadata(t *testing.T) {
 			func() (string, error) { return "pid", nil },
 			func() (string, error) { return "location", nil },
 			func() (string, error) { return "cluster", nil },
+			func() (string, error) { return "instance", nil },
 			map[string]string{},
 		},
 		{
@@ -44,7 +46,8 @@ func TestMetadata(t *testing.T) {
 			func() (string, error) { return "pid", nil },
 			func() (string, error) { return "location", nil },
 			func() (string, error) { return "cluster", nil },
-			map[string]string{GCPProject: "pid", GCPLocation: "location", GCPCluster: "cluster"},
+			func() (string, error) { return "instance", nil },
+			map[string]string{GCPProject: "pid", GCPLocation: "location", GCPCluster: "cluster", GCEInstanceID: "instance"},
 		},
 		{
 			"project id error",
@@ -52,7 +55,8 @@ func TestMetadata(t *testing.T) {
 			func() (string, error) { return "", errors.New("error") },
 			func() (string, error) { return "location", nil },
 			func() (string, error) { return "cluster", nil },
-			map[string]string{GCPLocation: "location", GCPCluster: "cluster"},
+			func() (string, error) { return "instance", nil },
+			map[string]string{GCPLocation: "location", GCPCluster: "cluster", GCEInstanceID: "instance"},
 		},
 		{
 			"location error",
@@ -60,7 +64,8 @@ func TestMetadata(t *testing.T) {
 			func() (string, error) { return "pid", nil },
 			func() (string, error) { return "location", errors.New("error") },
 			func() (string, error) { return "cluster", nil },
-			map[string]string{GCPProject: "pid", GCPCluster: "cluster"},
+			func() (string, error) { return "instance", nil },
+			map[string]string{GCPProject: "pid", GCPCluster: "cluster", GCEInstanceID: "instance"},
 		},
 		{
 			"cluster name error",
@@ -68,13 +73,24 @@ func TestMetadata(t *testing.T) {
 			func() (string, error) { return "pid", nil },
 			func() (string, error) { return "location", nil },
 			func() (string, error) { return "cluster", errors.New("error") },
-			map[string]string{GCPProject: "pid", GCPLocation: "location"},
+			func() (string, error) { return "instance", nil },
+			map[string]string{GCPProject: "pid", GCPLocation: "location", GCEInstanceID: "instance"},
+			//map[string]string{GCPProject: "pid", GCPLocation: "location"},
+		},
+		{
+			"instance id error",
+			func() bool { return true },
+			func() (string, error) { return "pid", nil },
+			func() (string, error) { return "location", nil },
+			func() (string, error) { return "cluster", nil },
+			func() (string, error) { return "", errors.New("error") },
+			map[string]string{GCPProject: "pid", GCPLocation: "location", GCPCluster: "cluster"},
 		},
 	}
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			mg := gcpEnv{tt.shouldFill, tt.projectIDFn, tt.locationFn, tt.clusterNameFn}
+			mg := gcpEnv{tt.shouldFill, tt.projectIDFn, tt.locationFn, tt.clusterNameFn, tt.instanceIDFn}
 			got := mg.Metadata()
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Unexpected generated metadata: want %v got %v", tt.want, got)

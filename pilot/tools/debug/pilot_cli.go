@@ -63,7 +63,7 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"google.golang.org/grpc"
 	v1 "k8s.io/api/core/v1"
@@ -73,7 +73,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
-	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
 
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
@@ -175,7 +175,7 @@ func configTypeToTypeURL(configType string) string {
 
 func (p PodInfo) makeRequest(configType string) *xdsapi.DiscoveryRequest {
 	return &xdsapi.DiscoveryRequest{
-		Node: &envoy_api_v2_core1.Node{
+		Node: &core1.Node{
 			Id: p.makeNodeID(),
 		},
 		TypeUrl: configTypeToTypeURL(configType)}
@@ -308,7 +308,7 @@ func main() {
 		log.Errorf("Failed to get Xds response for %v. Error: %v", *resources, err)
 		return
 	}
-	strResponse, _ := protomarshal.ToJSONWithIndent(resp, " ")
+	strResponse, _ := gogoprotomarshal.ToJSONWithIndent(resp, " ")
 	if outputFile == nil || *outputFile == "" {
 		fmt.Printf("%v\n", strResponse)
 	} else if err := ioutil.WriteFile(*outputFile, []byte(strResponse), 0644); err != nil {

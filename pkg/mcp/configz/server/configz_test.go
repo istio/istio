@@ -24,12 +24,13 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
+	"istio.io/pkg/ctrlz"
+	"istio.io/pkg/ctrlz/fw"
+
 	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/mcp/source"
 	mcptest "istio.io/istio/pkg/mcp/testing"
 	"istio.io/istio/pkg/mcp/testing/groups"
-	"istio.io/pkg/ctrlz"
-	"istio.io/pkg/ctrlz/fw"
 )
 
 const testK8sCollection = "k8s/core/v1/nodes"

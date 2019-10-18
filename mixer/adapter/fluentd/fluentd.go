@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // nolint: lll
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -a mixer/adapter/fluentd/config/config.proto -x "-n fluentd -t logentry"
+//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/adapter/fluentd/config/config.proto -x "-n fluentd -t logentry"
 
 // Package fluentd adapter for Mixer. Conforms to interfaces in
 // mixer/pkg/adapter. Accepts logentries and forwards to a listening
@@ -215,7 +215,7 @@ func (h *handler) HandleLogEntry(ctx context.Context, insts []*logentry.Instance
 	for _, i := range insts {
 		h.env.Logger().Debugf("Got a new log for fluentd, name %v", i.Name)
 
-		// Durations are not supported by msgp
+		// Durations are not supported by msgp, also converts IP address to string
 		for k, v := range i.Variables {
 			if h.types[i.Name].Variables[k] == descriptor.DURATION {
 				if h.intDur {
@@ -225,6 +225,10 @@ func (h *handler) HandleLogEntry(ctx context.Context, insts []*logentry.Instance
 					d := v.(time.Duration)
 					i.Variables[k] = d.String()
 				}
+			}
+			if h.types[i.Name].Variables[k] == descriptor.IP_ADDRESS {
+				ip := v.(net.IP)
+				i.Variables[k] = ip.String()
 			}
 		}
 

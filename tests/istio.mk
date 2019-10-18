@@ -70,22 +70,22 @@ DEFAULT_EXTRA_E2E_ARGS += --app_hub=${HUB}
 
 EXTRA_E2E_ARGS ?= ${DEFAULT_EXTRA_E2E_ARGS}
 
-e2e_simple: istioctl generate_e2e_yaml e2e_simple_run
-e2e_kiali: istioctl generate_e2e_yaml e2e_kiali_run
+e2e_simple: build generate_e2e_yaml e2e_simple_run
+e2e_kiali: build generate_e2e_yaml e2e_kiali_run
 
-e2e_simple_noauth: istioctl generate_e2e_yaml e2e_simple_noauth_run
+e2e_simple_noauth: build generate_e2e_yaml e2e_simple_noauth_run
 
-e2e_mixer: istioctl generate_e2e_yaml e2e_mixer_run
+e2e_mixer: build generate_e2e_yaml e2e_mixer_run
 
-e2e_galley: istioctl generate_e2e_yaml e2e_galley_run
+e2e_galley: build generate_e2e_yaml e2e_galley_run
 
-e2e_dashboard: istioctl generate_e2e_yaml e2e_dashboard_run
+e2e_dashboard: build generate_e2e_yaml e2e_dashboard_run
 
-e2e_bookinfo: istioctl generate_e2e_yaml e2e_bookinfo_run
+e2e_bookinfo: build generate_e2e_yaml e2e_bookinfo_run
 
-e2e_stackdriver: istioctl generate_e2e_yaml e2e_stackdriver_run
+e2e_stackdriver: build generate_e2e_yaml e2e_stackdriver_run
 
-e2e_all: istioctl generate_e2e_yaml e2e_all_run
+e2e_all: build generate_e2e_yaml e2e_all_run
 
 # *_run targets do not rebuild the artifacts and test with whatever is given
 
@@ -139,18 +139,18 @@ e2e_all_run_junit_report:
 	$(MAKE) with_junit_report TARGET=e2e_all_run
 
 # The pilot tests cannot currently be part of e2e_all, since they requires some additional flags.
-e2e_pilot: out_dir istioctl generate_e2e_yaml
+e2e_pilot: out_dir build generate_e2e_yaml
 	go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/pilot ${E2E_ARGS} ${EXTRA_E2E_ARGS}
 
-e2e_pilotv2_v1alpha3: | istioctl test/local/noauth/e2e_pilotv2
+e2e_pilotv2_v1alpha3: | build test/local/noauth/e2e_pilotv2
 
-e2e_bookinfo_envoyv2_v1alpha3: | istioctl test/local/auth/e2e_bookinfo_envoyv2
+e2e_bookinfo_envoyv2_v1alpha3: | build test/local/auth/e2e_bookinfo_envoyv2
 
-e2e_bookinfo_trustdomain: | istioctl test/local/auth/e2e_bookinfo_trustdomain
+e2e_bookinfo_trustdomain: | build test/local/auth/e2e_bookinfo_trustdomain
 
-e2e_pilotv2_auth_sds: | istioctl test/local/auth/e2e_sds_pilotv2
+e2e_pilotv2_auth_sds: | build test/local/auth/e2e_sds_pilotv2
 
-e2e_multicluster_split_horizon: | istioctl test/local/auth/e2e_split_horizon
+e2e_multicluster_split_horizon: | build test/local/auth/e2e_split_horizon
 
 # This is used to keep a record of the test results.
 CAPTURE_LOG=| tee -a ${OUT_DIR}/tests/build-log.txt
@@ -179,7 +179,7 @@ test/local/e2e_mixer: out_dir generate_e2e_yaml
 	--auth_enable=false --egress=false --ingress=false --rbac_enable=false \
 	--cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
-test/local/e2e_galley: out_dir istioctl generate_e2e_yaml
+test/local/e2e_galley: out_dir build generate_e2e_yaml
 	go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/galley -args \
 	-use_local_cluster -cluster_wide --use_galley_config_validator -test.v ${E2E_ARGS} ${EXTRA_E2E_ARGS} \
 	${CAPTURE_LOG}
