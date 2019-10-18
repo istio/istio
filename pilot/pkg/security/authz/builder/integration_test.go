@@ -24,17 +24,17 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/security/authz/policy"
+	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
 func TestBuildHTTPFilter(t *testing.T) {
 	testCases := []struct {
-		name               string
-		trustDomain        string
-		trustDomainAliases []string
-		policies           *model.AuthorizationPolicies
-		want               *http_config.RBAC
+		name              string
+		trustDomainBundle trustdomain.TrustDomainBundle
+		policies          *model.AuthorizationPolicies
+		want              *http_config.RBAC
 	}{
 		{
 			name:     "v1beta1 all fields",
@@ -72,25 +72,22 @@ func TestBuildHTTPFilter(t *testing.T) {
 			want:     getProto("testdata/v1beta1-single-policy-out.yaml", t),
 		},
 		{
-			name:               "v1beta1 one trust domain alias",
-			trustDomain:        "td1",
-			trustDomainAliases: []string{"cluster.local"},
-			policies:           getPolicies("testdata/v1beta1-simple-policy-td-aliases-in.yaml", t),
-			want:               getProto("testdata/v1beta1-simple-policy-td-aliases-out.yaml", t),
+			name:              "v1beta1 one trust domain alias",
+			trustDomainBundle: trustdomain.NewTrustDomainBundle("td1", []string{"cluster.local"}),
+			policies:          getPolicies("testdata/v1beta1-simple-policy-td-aliases-in.yaml", t),
+			want:              getProto("testdata/v1beta1-simple-policy-td-aliases-out.yaml", t),
 		},
 		{
-			name:               "v1beta1 multiple trust domain aliases",
-			trustDomain:        "td1",
-			trustDomainAliases: []string{"cluster.local", "some-td"},
-			policies:           getPolicies("testdata/v1beta1-simple-policy-multiple-td-aliases-in.yaml", t),
-			want:               getProto("testdata/v1beta1-simple-policy-multiple-td-aliases-out.yaml", t),
+			name:              "v1beta1 multiple trust domain aliases",
+			trustDomainBundle: trustdomain.NewTrustDomainBundle("td1", []string{"cluster.local", "some-td"}),
+			policies:          getPolicies("testdata/v1beta1-simple-policy-multiple-td-aliases-in.yaml", t),
+			want:              getProto("testdata/v1beta1-simple-policy-multiple-td-aliases-out.yaml", t),
 		},
 		{
-			name:               "v1alpha1 one trust domain alias",
-			trustDomain:        "td1",
-			trustDomainAliases: []string{"cluster.local"},
-			policies:           getPolicies("testdata/v1alpha1-simple-policy-td-aliases-in.yaml", t),
-			want:               getProto("testdata/v1alpha1-simple-policy-td-aliases-out.yaml", t),
+			name:              "v1alpha1 one trust domain alias",
+			trustDomainBundle: trustdomain.NewTrustDomainBundle("td1", []string{"cluster.local"}),
+			policies:          getPolicies("testdata/v1alpha1-simple-policy-td-aliases-in.yaml", t),
+			want:              getProto("testdata/v1alpha1-simple-policy-td-aliases-out.yaml", t),
 		},
 		{
 			name:     "v1alpha1 all fields",
@@ -106,7 +103,7 @@ func TestBuildHTTPFilter(t *testing.T) {
 	service := newService("httpbin.foo.svc.cluster.local", httpbinLabels, t)
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			b := NewBuilder(tc.trustDomain, tc.trustDomainAliases, service, labels.Collection{httpbinLabels}, "foo", tc.policies, false)
+			b := NewBuilder(tc.trustDomainBundle, service, labels.Collection{httpbinLabels}, "foo", tc.policies, false)
 			if b == nil {
 				t.Fatalf("failed to create builder")
 			}

@@ -36,11 +36,48 @@ type TrustDomainBundle struct {
 	TrustDomainAliases []string
 }
 
-func NewTrustDomainBundle(trustDomain string, trustDomainAliases []string) *TrustDomainBundle {
-	return &TrustDomainBundle{
-		TrustDomain: trustDomain,
+func NewTrustDomainBundle(trustDomain string, trustDomainAliases []string) TrustDomainBundle {
+	return TrustDomainBundle{
+		TrustDomain:        trustDomain,
 		TrustDomainAliases: trustDomainAliases,
 	}
+}
+
+// ReplaceTrustDomainAliases checks the existing principals and returns a list of new principals
+// with the current trust domain and its aliases.
+// For example, for a user "bar" in namespace "foo".
+// If the local trust domain is "td2" and its alias is "td1" (migrating from td1 to td2),
+// replaceTrustDomainAliases returns ["td2/ns/foo/sa/bar", "td1/ns/foo/sa/bar]].
+func (t TrustDomainBundle) ReplaceTrustDomainAliases(principals []string) []string {
+	// If trust domain aliases are empty, return the existing principals.
+	if len(t.TrustDomainAliases) == 0 {
+		return principals
+	}
+	principalsIncludingAliases := []string{}
+	for _, principal := range principals {
+		trustDomainFromPrincipal := getTrustDomain(principal)
+		//TODO(pitlv2109): Handle * and prefix/suffix.
+		if trustDomainFromPrincipal == "" {
+			return principals
+		}
+		// Only generate configuration if the extracted trust domain from the policy is part of the trust domain aliases,
+		// or if the extracted/existing trust domain is "cluster.local", which is a pointer to the local trust domain
+		// and its aliases.
+		if isStringInList(trustDomainFromPrincipal, t.TrustDomainAliases) || trustDomainFromPrincipal == "cluster.local" {
+			// Generate configuration for trust domain and trust domain aliases.
+			principalsIncludingAliases = append(principalsIncludingAliases, t.replaceTrustDomains(principal)...)
+		}
+	}
+	return principalsIncludingAliases
+}
+
+func (t TrustDomainBundle) replaceTrustDomains(principal string) []string {
+	principalsForAliases := []string{}
+	principalsForAliases = append(principalsForAliases, replaceTrustDomainInPrincipal(t.TrustDomain, principal))
+	for _, tdAlias := range t.TrustDomainAliases {
+		principalsForAliases = append(principalsForAliases, replaceTrustDomainInPrincipal(tdAlias, principal))
+	}
+	return principalsForAliases
 }
 
 // replaceTrustDomainInPrincipal returns a new SPIFFE identity with the new trust domain.
@@ -49,15 +86,15 @@ func NewTrustDomainBundle(trustDomain string, trustDomainAliases []string) *Trus
 // [SPIFFE-ID](https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain)
 // In Istio authorization, an identity is presented in the format:
 // <trust-domain>/ns/<some-namespace>/sa/<some-service-account>
-func (t *TrustDomainBundle) replaceTrustDomainInPrincipal(principal string) string {
+func replaceTrustDomainInPrincipal(trustDomain string, principal string) string {
 	identityParts := strings.Split(principal, "/")
 	// A valid SPIFFE identity in authorization has no SPIFFE:// prefix.
 	// It is presented as <trust-domain>/ns/<some-namespace>/sa/<some-service-account>
 	if len(identityParts) != 5 {
-		log.Errorf("Wrong SPIFFE format found: %s", principal)
+		log.Errorf("Wrong SPIFFE format isStringInList: %s", principal)
 		return ""
 	}
-	return fmt.Sprintf("%s/%s", t.TrustDomain, strings.Join(identityParts[1:], "/"))
+	return fmt.Sprintf("%s/%s", trustDomain, strings.Join(identityParts[1:], "/"))
 }
 
 // getTrustDomain returns the trust domain from an Istio authorization principal.
@@ -69,8 +106,17 @@ func getTrustDomain(principal string) string {
 	// A valid SPIFFE identity in authorization has no SPIFFE:// prefix.
 	// It is presented as <trust-domain>/ns/<some-namespace>/sa/<some-service-account>
 	if len(identityParts) != 5 {
-		log.Errorf("Wrong SPIFFE format found: %s", principal)
+		log.Errorf("Wrong SPIFFE format isStringInList: %s", principal)
 		return ""
 	}
 	return identityParts[0]
+}
+
+func isStringInList(key string, list []string) bool {
+	for _, l := range list {
+		if key == l {
+			return true
+		}
+	}
+	return false
 }
