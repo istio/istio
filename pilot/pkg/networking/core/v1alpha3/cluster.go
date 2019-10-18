@@ -741,7 +741,7 @@ func conditionallyConvertToIstioMtls(
 ) (*networking.TLSSettings, mtlsContextType) {
 	mtlsCtx := userSupplied
 	if tls == nil {
-		if meshExternal || !autoMTLSEnabled || serviceMTLSMode == authn_model.MTLSDisable {
+		if meshExternal || !autoMTLSEnabled || serviceMTLSMode == authn_model.MTLSUnknown || serviceMTLSMode == authn_model.MTLSDisable {
 			return nil, mtlsCtx
 		}
 
