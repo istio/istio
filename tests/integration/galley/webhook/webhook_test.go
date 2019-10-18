@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	v1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
@@ -179,14 +180,20 @@ func startGalleyPortForwarderOrFail(t *testing.T, env *kube.Environment, ns stri
 	t.Helper()
 
 	fetchFunc := env.Accessor.NewSinglePodFetch(ns, "app=galley")
-	pods, err := env.Accessor.WaitUntilPodsAreReady(fetchFunc)
-	if err != nil {
-		t.Fatalf("error fetching galley pods: %v", err)
-	}
-	if len(pods) == 0 {
-		t.Fatal("no galley pods found")
-	}
-	forwarder, err := env.Accessor.NewPortForwarder(pods[0], 0, 9443)
+	var galleyPod *v1.Pod
+	retry.UntilSuccessOrFail(t, func() error {
+		pods, err := env.Accessor.WaitUntilPodsAreReady(fetchFunc)
+		if err != nil {
+			return err
+		}
+		if len(pods) != 1 {
+			return fmt.Errorf("%v pods found, waiting for only one", len(pods))
+		}
+		galleyPod = &pods[0]
+		return nil
+	}, retry.Timeout(5*time.Minute))
+
+	forwarder, err := env.Accessor.NewPortForwarder(*galleyPod, 0, 9443)
 	if err != nil {
 		t.Fatalf("failed creating port forwarding to galley: %v", err)
 	}
