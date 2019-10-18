@@ -93,11 +93,7 @@ func (d *DestinationHostAnalyzer) checkDestinationHost(vsNamespace string, desti
 	}
 
 	name := util.GetResourceNameFromHost(vsNamespace, host)
-	if ctx.Exists(metadata.IstioNetworkingV1Alpha3SyntheticServiceentries, name) {
-		return true
-	}
-
-	return false
+	return ctx.Exists(metadata.IstioNetworkingV1Alpha3SyntheticServiceentries, name)
 }
 
 func initServiceEntryHostNames(ctx analysis.Context) map[string]bool {
