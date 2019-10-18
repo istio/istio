@@ -28,7 +28,7 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/onsi/gomega"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
-	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
@@ -101,9 +101,9 @@ func createTestWebhookConfigController(
 		CACertFile:                    caFile,
 		Clientset:                     cl,
 		WebhookName:                   config.Name,
-		DeploymentName:                dummyDeployment.Name,
-		ServiceName:                   dummyDeployment.Name,
-		DeploymentAndServiceNamespace: dummyDeployment.Namespace,
+		DeploymentName:                dummyNamespace.Name,
+		ServiceName:                   dummyNamespace.Name,
+		DeploymentAndServiceNamespace: dummyNamespace.Namespace,
 	}
 	whc, err := NewWebhookConfigController(options)
 	if err != nil {
@@ -237,7 +237,7 @@ func TestValidatingWebhookConfig(t *testing.T) {
 	for _, tc := range ts {
 		t.Run(tc.name, func(t *testing.T) {
 			whc, cancel := createTestWebhookConfigController(t,
-				fake.NewSimpleClientset(dummyDeployment, tc.configs.DeepCopyObject()),
+				fake.NewSimpleClientset(dummyNamespace, tc.configs.DeepCopyObject()),
 				createFakeWebhookSource(), want)
 			defer cancel()
 
@@ -293,8 +293,8 @@ func initValidatingWebhookConfiguration() *admissionregistrationv1beta1.Validati
 			Name: "config1",
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(
-					dummyDeployment,
-					appsv1.SchemeGroupVersion.WithKind("Deployment"),
+					dummyNamespace,
+					corev1.SchemeGroupVersion.WithKind("Namespace"),
 				),
 			},
 		},
@@ -316,7 +316,7 @@ func initValidatingWebhookConfiguration() *admissionregistrationv1beta1.Validati
 						},
 						Rule: admissionregistrationv1beta1.Rule{
 							APIGroups:   []string{"g1"},
-							APIVersions: []string{"v1"},
+							APIVersions: []string{"corev1"},
 							Resources:   []string{"r1"},
 						},
 					},
