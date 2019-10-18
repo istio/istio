@@ -25,13 +25,17 @@ import (
 )
 
 const (
+	// logToFile controls whether to log to logFilePath
+	logToFile   = false
 	logFilePath = "./.mesh-cli.log"
 )
 
 func initLogsOrExit(args *rootArgs) {
-	// Only the logs for the last command are of interest.
-	// Remove any previous log to avoid indefinite accumulation.
-	_ = os.Remove(logFilePath)
+	if logToFile {
+		// Only the logs for the last command are of interest.
+		// Remove any previous log to avoid indefinite accumulation.
+		_ = os.Remove(logFilePath)
+	}
 	if err := configLogs(args.logToStdErr); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Could not configure logs: %s", err)
 		os.Exit(1)
@@ -40,7 +44,7 @@ func initLogsOrExit(args *rootArgs) {
 
 func configLogs(logToStdErr bool) error {
 	opt := log.DefaultOptions()
-	if !logToStdErr {
+	if !logToStdErr && logToFile {
 		opt.ErrorOutputPaths = []string{logFilePath}
 		opt.OutputPaths = []string{logFilePath}
 	}

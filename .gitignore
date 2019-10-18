@@ -21,7 +21,6 @@ cluster.env
 kubedns
 # codegen stuff
 *.orig
-.mesh-cli.log
 #mandiff output
 out/
 build/out/
