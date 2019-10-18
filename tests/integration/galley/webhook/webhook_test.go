@@ -107,8 +107,8 @@ func TestWebhook(t *testing.T) {
 			// Verify that the webhook's key and cert are reloaded, e.g. on rotation
 			ctx.NewSubTest("key/cert reload").
 				Run(func(ctx framework.TestContext) {
-					addr, done := startGalleyPortForwarderOrFail(t, env, istioNs)
-					defer done()
+					scaleDeployment(istioNs, deployName, 0, t, env)
+					scaleDeployment(istioNs, deployName, 1, t, env)
 
 					client := &http.Client{
 						Transport: &http.Transport{
@@ -121,6 +121,9 @@ func TestWebhook(t *testing.T) {
 						},
 					}
 					defer client.CloseIdleConnections()
+
+					addr, done := startGalleyPortForwarderOrFail(t, env, istioNs)
+					defer done()
 
 					startingSN := fetchWebhookCertSerialNumbersOrFail(t, client, addr)
 
