@@ -24,6 +24,7 @@ import (
 	istiolog "istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/security/trustdomain"
 )
 
 const (
@@ -112,7 +113,7 @@ type KeyValues map[string][]string
 
 // NewModelV1alpha1 constructs a Model from a single ServiceRole and a list of ServiceRoleBinding. The ServiceRole
 // is converted to the permission and the ServiceRoleBinding is converted to the principal.
-func NewModelV1alpha1(trustDomain string, trustDomainAliases []string, role *istio_rbac.ServiceRole, bindings []*istio_rbac.ServiceRoleBinding) *Model {
+func NewModelV1alpha1(trustDomainBundle trustdomain.TrustDomainBundle, role *istio_rbac.ServiceRole, bindings []*istio_rbac.ServiceRoleBinding) *Model {
 	m := &Model{}
 	for _, accessRule := range role.Rules {
 		var permission Permission
@@ -139,7 +140,7 @@ func NewModelV1alpha1(trustDomain string, trustDomainAliases []string, role *ist
 		for _, subject := range binding.Subjects {
 			users := []string{}
 			if subject.User != "" {
-				users = replaceTrustDomainAliases(trustDomain, trustDomainAliases, []string{subject.User})
+				users = trustDomainBundle.ReplaceTrustDomainAliases([]string{subject.User})
 			}
 			principal := Principal{
 				Users:         users,
@@ -168,7 +169,7 @@ func NewModelV1alpha1(trustDomain string, trustDomainAliases []string, role *ist
 }
 
 // NewModelV1beta1 constructs a Model from v1beta1 Rule.
-func NewModelV1beta1(trustDomain string, trustDomainAliases []string, rule *security.Rule) *Model {
+func NewModelV1beta1(trustDomainBundle trustdomain.TrustDomainBundle, rule *security.Rule) *Model {
 	m := &Model{}
 
 	conditionsForPrincipal := make([]KeyValues, 0)
@@ -185,7 +186,7 @@ func NewModelV1beta1(trustDomain string, trustDomainAliases []string, rule *secu
 
 	for _, from := range rule.From {
 		if source := from.Source; source != nil {
-			names := replaceTrustDomainAliases(trustDomain, trustDomainAliases, source.Principals)
+			names := trustDomainBundle.ReplaceTrustDomainAliases(source.Principals)
 			principal := Principal{
 				IPs:               source.IpBlocks,
 				Names:             names,
@@ -271,44 +272,4 @@ func (m *Model) Generate(service *ServiceMetadata, forTCPFilter bool) *envoy_rba
 		return nil
 	}
 	return policy
-}
-
-// replaceTrustDomainAliases checks the existing principals and returns a list of new principals
-// with the current trust domain and its aliases.
-// For example, for a user "bar" in namespace "foo".
-// If the local trust domain is "td2" and its alias is "td1" (migrating from td1 to td2),
-// replaceTrustDomainAliases returns ["td2/ns/foo/sa/bar", "td1/ns/foo/sa/bar]].
-// TODO(pitv2109): Put |trustDomain| and |trustDomainAliases| together. Do this and for other functions.
-func replaceTrustDomainAliases(trustDomain string, trustDomainAliases []string, principals []string) []string {
-	// If trust domain aliases are empty, return the existing principals.
-	if len(trustDomainAliases) == 0 {
-		return principals
-	}
-	principalsIncludingAliases := []string{}
-	for _, principal := range principals {
-		trustDomainFromPrincipal := getTrustDomain(principal)
-		//TODO(pitlv2109): Handle * and prefix/suffix.
-		if trustDomainFromPrincipal == "" {
-			return principals
-		}
-		// Only generate configuration if the extracted trust domain from the policy is part of the trust domain aliases,
-		// or if the extracted/existing trust domain is "cluster.local", which is a pointer to the local trust domain
-		// and its aliases.
-		if found(trustDomainFromPrincipal, trustDomainAliases) || trustDomainFromPrincipal == "cluster.local" {
-			// Generate configuration for trust domain and trust domain aliases.
-			principalsIncludingAliases = append(principalsIncludingAliases, replaceTrustDomainInPrincipal(trustDomain, principal))
-			principalsIncludingAliases = append(principalsIncludingAliases, getPrincipalsForAliases(trustDomainAliases, principal)...)
-		}
-	}
-	return principalsIncludingAliases
-}
-
-// getPrincipalsForAliases takes a principal and returns a list of new principals with new trust domain
-// from trust domain aliases.
-func getPrincipalsForAliases(trustDomainAliases []string, principal string) []string {
-	principalsForAliases := []string{}
-	for _, tdAlias := range trustDomainAliases {
-		principalsForAliases = append(principalsForAliases, replaceTrustDomainInPrincipal(tdAlias, principal))
-	}
-	return principalsForAliases
 }

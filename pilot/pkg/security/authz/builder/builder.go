@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/security/authz/policy"
 	"istio.io/istio/pilot/pkg/security/authz/policy/v1alpha1"
 	"istio.io/istio/pilot/pkg/security/authz/policy/v1beta1"
+	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pkg/config/labels"
 )
 
@@ -41,13 +42,13 @@ type Builder struct {
 }
 
 // NewBuilder creates a builder instance that can be used to build corresponding RBAC filter config.
-func NewBuilder(trustDomain string, trustDomainAliases []string, serviceInstance *model.ServiceInstance,
+func NewBuilder(trustDomainBundle trustdomain.TrustDomainBundle, serviceInstance *model.ServiceInstance,
 	workloadLabels labels.Collection, configNamespace string,
 	policies *model.AuthorizationPolicies, isXDSMarshalingToAnyEnabled bool) *Builder {
 	var generator policy.Generator
 
 	if p := policies.ListAuthorizationPolicies(configNamespace, workloadLabels); len(p) > 0 {
-		generator = v1beta1.NewGenerator(trustDomain, trustDomainAliases, p)
+		generator = v1beta1.NewGenerator(trustDomainBundle, p)
 		rbacLog.Debugf("v1beta1 authorization enabled for workload %v in %s", workloadLabels, configNamespace)
 	} else {
 		if serviceInstance.Service == nil {
@@ -64,7 +65,7 @@ func NewBuilder(trustDomain string, trustDomainAliases []string, serviceInstance
 
 		serviceHostname := string(serviceInstance.Service.Hostname)
 		if policies.IsRBACEnabled(serviceHostname, serviceNamespace) {
-			generator = v1alpha1.NewGenerator(trustDomain, trustDomainAliases, serviceMetadata, policies, policies.IsGlobalPermissiveEnabled())
+			generator = v1alpha1.NewGenerator(trustDomainBundle, serviceMetadata, policies, policies.IsGlobalPermissiveEnabled())
 			rbacLog.Debugf("v1alpha1 RBAC enabled for service %s", serviceHostname)
 		}
 	}

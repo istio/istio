@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/config/memory"
+	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schemas"
 
@@ -196,7 +197,7 @@ func (ug *Upgrader) convert(authzPolicies *model.AuthorizationPolicies) error {
 			roleName := roleConfig.Name
 			if bindings, found := bindingsKeyList[roleName]; found {
 				role := roleConfig.Spec.(*rbac_v1alpha1.ServiceRole)
-				m := authz_model.NewModelV1alpha1("", nil, role, bindings)
+				m := authz_model.NewModelV1alpha1(trustdomain.NewTrustDomainBundle("", nil), role, bindings)
 				err := ug.v1alpha1ModelTov1beta1Policy(m, ns)
 				if err != nil {
 					return err
