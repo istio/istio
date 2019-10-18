@@ -19,8 +19,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/helm/pkg/manifest"
 
-	"istio.io/pkg/log"
-
 	"istio.io/operator/pkg/util"
 )
 
@@ -154,9 +152,6 @@ func (l *DefaultChartCustomizerListener) BeginChart(chartName string, manifests 
 // BeginResource delegates to the active ChartCustomizer's BeginResource
 func (l *DefaultChartCustomizerListener) BeginResource(obj runtime.Object) (runtime.Object, error) {
 	if l.customizer == nil {
-		// XXX: what went wrong
-		// this should actually be a warning
-		log.Info("no active chart customizer")
 		return obj, nil
 	}
 	return l.customizer.BeginResource(obj)
@@ -165,9 +160,6 @@ func (l *DefaultChartCustomizerListener) BeginResource(obj runtime.Object) (runt
 // ResourceCreated delegates to the active ChartCustomizer's ResourceCreated
 func (l *DefaultChartCustomizerListener) ResourceCreated(created runtime.Object) error {
 	if l.customizer == nil {
-		// XXX: what went wrong
-		// this should actually be a warning
-		log.Info("no active chart customizer")
 		return nil
 	}
 	return l.customizer.ResourceCreated(created)
@@ -176,9 +168,6 @@ func (l *DefaultChartCustomizerListener) ResourceCreated(created runtime.Object)
 // ResourceUpdated delegates to the active ChartCustomizer's ResourceUpdated
 func (l *DefaultChartCustomizerListener) ResourceUpdated(updated runtime.Object, old runtime.Object) error {
 	if l.customizer == nil {
-		// XXX: what went wrong
-		// this should actually be a warning
-		log.Info("no active chart customizer")
 		return nil
 	}
 	return l.customizer.ResourceUpdated(updated, old)
@@ -187,9 +176,6 @@ func (l *DefaultChartCustomizerListener) ResourceUpdated(updated runtime.Object,
 // ResourceError delegates to the active ChartCustomizer's ResourceError
 func (l *DefaultChartCustomizerListener) ResourceError(obj runtime.Object, err error) error {
 	if l.customizer == nil {
-		// XXX: what went wrong
-		// this should actually be a warning
-		log.Info("no active chart customizer")
 		return nil
 	}
 	return l.customizer.ResourceError(obj, err)
@@ -198,9 +184,6 @@ func (l *DefaultChartCustomizerListener) ResourceError(obj runtime.Object, err e
 // EndResource delegates to the active ChartCustomizer's EndResource
 func (l *DefaultChartCustomizerListener) EndResource(obj runtime.Object) error {
 	if l.customizer == nil {
-		// XXX: what went wrong
-		// this should actually be a warning
-		log.Info("no active chart customizer")
 		return nil
 	}
 	return l.customizer.EndResource(obj)

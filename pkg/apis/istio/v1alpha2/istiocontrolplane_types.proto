@@ -524,6 +524,7 @@ message InstallStatus {
         UPDATING = 1;
         HEALTHY = 2;
         ERROR = 3;
+        RECONCILING = 4;
     }
     message VersionStatus {
         string version = 1;
