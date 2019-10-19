@@ -35,7 +35,6 @@ func TestHandleTraceSpan(t *testing.T) {
 		vals                   []*tracespan.Instance
 		wantSpans              []*trace.SpanData
 		sampler                trace.Sampler
-		wantFlushes            int
 		wantName, wantEndpoint string
 	}{
 		{
@@ -89,7 +88,6 @@ func TestHandleTraceSpan(t *testing.T) {
 				},
 			},
 			sampler:     trace.ProbabilitySampler(1.0),
-			wantFlushes: 1,
 		},
 		{
 			name: "error",
@@ -143,7 +141,6 @@ func TestHandleTraceSpan(t *testing.T) {
 				},
 			},
 			sampler:     trace.ProbabilitySampler(1.0),
-			wantFlushes: 1,
 		},
 		{
 			name: "no tracing",
@@ -165,7 +162,6 @@ func TestHandleTraceSpan(t *testing.T) {
 			},
 			wantSpans:   []*trace.SpanData(nil),
 			sampler:     trace.ProbabilitySampler(1.0),
-			wantFlushes: 0,
 		},
 		{
 			name: "tracing disabled",
@@ -187,7 +183,6 @@ func TestHandleTraceSpan(t *testing.T) {
 			},
 			wantSpans:   nil,
 			sampler:     nil,
-			wantFlushes: 0,
 		},
 		{
 			name: "no parent - server span",
@@ -254,7 +249,6 @@ func TestHandleTraceSpan(t *testing.T) {
 				},
 			},
 			sampler:     trace.AlwaysSample(),
-			wantFlushes: 1,
 		},
 		{
 			name: "client span",
@@ -321,7 +315,6 @@ func TestHandleTraceSpan(t *testing.T) {
 				},
 			},
 			sampler:     trace.AlwaysSample(),
-			wantFlushes: 1,
 		},
 		{
 			name: "error span",
@@ -387,7 +380,6 @@ func TestHandleTraceSpan(t *testing.T) {
 				},
 			},
 			sampler:     trace.AlwaysSample(),
-			wantFlushes: 1,
 		},
 		{
 			name: "client span rewrite id",
@@ -436,7 +428,6 @@ func TestHandleTraceSpan(t *testing.T) {
 				},
 			},
 			sampler:     trace.ProbabilitySampler(1.0),
-			wantFlushes: 1,
 		},
 		{
 			name: "server span rewrite id",
@@ -485,7 +476,6 @@ func TestHandleTraceSpan(t *testing.T) {
 				},
 			},
 			sampler:     trace.ProbabilitySampler(1.0),
-			wantFlushes: 1,
 		},
 	}
 
@@ -510,9 +500,6 @@ func TestHandleTraceSpan(t *testing.T) {
 			}
 			if diff := cmp.Diff(exporter.exported, tt.wantSpans); diff != "" {
 				t.Errorf("Exported spans differ, -got +want: %s\n", diff)
-			}
-			if got, want := exporter.flushes, tt.wantFlushes; got != want {
-				t.Errorf("exporter.flushes = %d; want %d", got, want)
 			}
 		})
 	}

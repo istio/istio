@@ -71,7 +71,6 @@ func (h *Handler) HandleTraceSpan(_ context.Context, values []*tracespan.Instanc
 		return nil
 	}
 
-	numExported := 0
 	for _, val := range values {
 		parentContext, ok := ExtractParentContext(val.TraceId, val.ParentSpanId)
 		if !ok {
@@ -97,11 +96,6 @@ func (h *Handler) HandleTraceSpan(_ context.Context, values []*tracespan.Instanc
 
 		span := buildSpanData(val, parentContext, spanContext)
 		h.exporter(val).ExportSpan(span)
-		numExported++
-	}
-
-	if numExported > 0 {
-		h.tryFlush()
 	}
 
 	return
@@ -237,17 +231,4 @@ func (h *Handler) Close() error {
 		return h.CloseFunc()
 	}
 	return nil
-}
-
-func (h *Handler) tryFlush() {
-	h.exporters.Range(func(_, value interface{}) bool {
-		if flusher, ok := value.(flusher); ok {
-			flusher.Flush()
-		}
-		return true
-	})
-}
-
-type flusher interface {
-	Flush()
 }
