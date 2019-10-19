@@ -139,7 +139,7 @@ func (c *Config) IsMtlsEnabled() bool {
 
 	data, err := file.AsString(filepath.Join(c.ChartDir, c.ValuesFile))
 	if err != nil {
-		return false
+		return true
 	}
 	m := make(map[interface{}]interface{})
 	err = yaml2.Unmarshal([]byte(data), &m)
@@ -151,12 +151,14 @@ func (c *Config) IsMtlsEnabled() bool {
 		case map[interface{}]interface{}:
 			switch mtlsVal := globalVal["mtls"].(type) {
 			case map[interface{}]interface{}:
-				return mtlsVal["enabled"].(bool) || mtlsVal["auto"].(bool)
+				if !mtlsVal["enabled"].(bool) && !mtlsVal["auto"].(bool) {
+					return false
+				}
 			}
 		}
 	}
 
-	return false
+	return true
 }
 
 // DefaultConfig creates a new Config from defaults, environments variables, and command-line parameters.
