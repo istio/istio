@@ -88,6 +88,7 @@ func NewServer(config Config) (*Server, error) {
 		statusPort: config.StatusPort,
 		ready: &ready.Probe{
 			LocalHostAddr:    config.LocalHostAddr,
+			ProxyIP:          config.ProxyIP,
 			AdminPort:        config.AdminPort,
 			ApplicationPorts: config.ApplicationPorts,
 			NodeType:         config.NodeType,
