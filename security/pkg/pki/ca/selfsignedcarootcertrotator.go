@@ -34,15 +34,15 @@ import (
 var rootCertRotatorLog = log.RegisterScope("rootCertRotator", "Self-signed CA root cert rotator log", 0)
 
 type SelfSignedCARootCertRotatorConfig struct {
-	certInspector       certutil.CertUtil
-	caStorageNamespace  string
-	org                 string
-	client              corev1.CoreV1Interface
-	CheckInterval       time.Duration
-	caCertTTL           time.Duration
-	retryInterval       time.Duration
-	dualUse             bool
-	enableJitter        bool
+	certInspector      certutil.CertUtil
+	caStorageNamespace string
+	org                string
+	client             corev1.CoreV1Interface
+	CheckInterval      time.Duration
+	caCertTTL          time.Duration
+	retryInterval      time.Duration
+	dualUse            bool
+	enableJitter       bool
 }
 
 // SelfSignedCARootCertRotator automatically checks self-signed signing root

@@ -64,7 +64,7 @@ func TestInsertCATLSRootCert(t *testing.T) {
 			},
 			expectedErrA: "",
 			expectedErrB: "",
-			retryTimeout: 2*time.Second,
+			retryTimeout: 2 * time.Second,
 		},
 		"Existing ConfigMap": {
 			namespace:         "test-ns",
@@ -85,7 +85,7 @@ func TestInsertCATLSRootCert(t *testing.T) {
 			},
 			expectedErrA: "",
 			expectedErrB: "",
-			retryTimeout: 2*time.Second,
+			retryTimeout: 2 * time.Second,
 		},
 		"Namespace not specified": {
 			namespace:         "",
@@ -106,7 +106,7 @@ func TestInsertCATLSRootCert(t *testing.T) {
 			},
 			expectedErrA: "",
 			expectedErrB: "",
-			retryTimeout: 2*time.Second,
+			retryTimeout: 2 * time.Second,
 		},
 		"Existing ConfigMap retry timeout": {
 			namespace:         "test-ns",
@@ -127,7 +127,7 @@ func TestInsertCATLSRootCert(t *testing.T) {
 			},
 			expectedErrA: "",
 			expectedErrB: "",
-			retryTimeout: 500*time.Millisecond,
+			retryTimeout: 500 * time.Millisecond,
 		},
 	}
 
