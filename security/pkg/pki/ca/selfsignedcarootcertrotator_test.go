@@ -20,13 +20,11 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/security/pkg/cmd"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
-	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-
-	"istio.io/istio/security/pkg/cmd"
 
 	"istio.io/istio/security/pkg/pki/util"
 	certutil "istio.io/istio/security/pkg/util"
@@ -36,7 +34,7 @@ const caNamespace = "default"
 
 // TestJitterConfiguration tests the setup of jitter
 func TestJitterConfiguration(t *testing.T) {
-	enableJitterOpts := getDefaultSelfSignedIstioCAOptions(nil)
+	enableJitterOpts := getDefaultSelfSignedIstioCAOptions()
 	enableJitterOpts.RotatorConfig.enableJitter = true
 	rotator0 := getRootCertRotator(enableJitterOpts)
 	if rotator0.backOffTime < time.Duration(0) {
@@ -47,7 +45,7 @@ func TestJitterConfiguration(t *testing.T) {
 			rotator0.backOffTime)
 	}
 
-	disableJitterOpts := getDefaultSelfSignedIstioCAOptions(nil)
+	disableJitterOpts := getDefaultSelfSignedIstioCAOptions()
 	disableJitterOpts.RotatorConfig.enableJitter = false
 	rotator1 := getRootCertRotator(disableJitterOpts)
 	if rotator1.backOffTime > time.Duration(0) {
@@ -59,7 +57,7 @@ func TestJitterConfiguration(t *testing.T) {
 // does not exist, the rotator does not add new root cert.
 func TestRootCertRotatorWithoutRootCertSecret(t *testing.T) {
 	// Verifies that root cert rotator does not create CA secret.
-	rotator0 := getRootCertRotator(getDefaultSelfSignedIstioCAOptions(nil))
+	rotator0 := getRootCertRotator(getDefaultSelfSignedIstioCAOptions())
 	client0 := rotator0.config.client
 	client0.Secrets(rotator0.config.caStorageNamespace).Delete(CASecret, &metav1.DeleteOptions{})
 
@@ -110,7 +108,7 @@ func loadCert(rotator *SelfSignedCARootCertRotator) rootCertItem {
 // TestRootCertRotatorForSigningCitadel verifies that rotator rotates root cert,
 // updates key cert bundle and config map.
 func TestRootCertRotatorForSigningCitadel(t *testing.T) {
-	rotator := getRootCertRotator(getDefaultSelfSignedIstioCAOptions(nil))
+	rotator := getRootCertRotator(getDefaultSelfSignedIstioCAOptions())
 
 	// Make a copy of CA secret, a copy of root cert form key cert bundle, and
 	// a copy of root cert from config map for verification.
@@ -135,7 +133,7 @@ func TestRootCertRotatorForSigningCitadel(t *testing.T) {
 // rotator reloads root cert into KeyCertBundle if the root cert in key cert bundle is
 // different from istio-ca-secret.
 func TestKeyCertBundleReloadInRootCertRotatorForSigningCitadel(t *testing.T) {
-	rotator := getRootCertRotator(getDefaultSelfSignedIstioCAOptions(nil))
+	rotator := getRootCertRotator(getDefaultSelfSignedIstioCAOptions())
 
 	// Mutate the root cert and private key as if they are rotated by other Citadel.
 	certItem0 := loadCert(rotator)
@@ -181,7 +179,7 @@ func TestKeyCertBundleReloadInRootCertRotatorForSigningCitadel(t *testing.T) {
 // TestRootCertRotatorGoroutineForSigningCitadel verifies that rotator
 // periodically rotates root cert, updates key cert bundle and config map.
 func TestRootCertRotatorGoroutineForSigningCitadel(t *testing.T) {
-	rotator := getRootCertRotator(getDefaultSelfSignedIstioCAOptions(nil))
+	rotator := getRootCertRotator(getDefaultSelfSignedIstioCAOptions())
 
 	// Make a copy of CA secret, a copy of root cert form key cert bundle, and
 	// a copy of root cert from config map for verification.
@@ -205,14 +203,13 @@ func TestRootCertRotatorGoroutineForSigningCitadel(t *testing.T) {
 	verifyRootCertAndPrivateKey(t, false, certItem1, certItem2)
 }
 
-func getDefaultSelfSignedIstioCAOptions(client corev1.CoreV1Interface) *IstioCAOptions {
+func getDefaultSelfSignedIstioCAOptions() *IstioCAOptions {
 	caCertTTL := time.Hour
 	defaultCertTTL := 30 * time.Minute
 	maxCertTTL := time.Hour
 	org := "test.ca.Org"
-	if client == nil {
-		client = fake.NewSimpleClientset().CoreV1()
-	}
+	client := fake.NewSimpleClientset().CoreV1()
+
 	rootCertCheckInverval := time.Hour
 
 	caopts, _ := NewSelfSignedIstioCAOptions(context.Background(),
