@@ -267,7 +267,7 @@ func (p *GalleyServer) getServerGrpcOptions() []grpc.ServerOption {
 type GalleyCfgSourceFn func(resources schema.KubeResources) (src event.Source, err error)
 
 func (p *GalleyServer) createSource(resources schema.KubeResources) (src event.Source, err error) {
-	if src, err = fs2.New(p.args.ConfigPath, resources); err != nil {
+	if src, err = fs2.New(p.args.ConfigPath, resources, p.args.WatchConfigFiles); err != nil {
 		return
 	}
 	return

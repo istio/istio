@@ -49,7 +49,7 @@ loop:
 			return runtime.NewInMemorySource(), nil
 		}
 		newMeshConfigCache = func(path string) (meshconfig.Cache, error) { return meshconfig.NewInMemory(), nil }
-		fsNew = func(string, *schema.Instance, *converter.Config) (runtime.Source, error) {
+		fsNew = func(string, *schema.Instance, *converter.Config, bool) (runtime.Source, error) {
 			return runtime.NewInMemorySource(), nil
 		}
 		mcpMetricReporter = func(string) monitoring.Reporter {
@@ -78,7 +78,7 @@ loop:
 			newMeshConfigCache = func(path string) (meshconfig.Cache, error) { return nil, e }
 		case 4:
 			args.ConfigPath = "aaa"
-			fsNew = func(string, *schema.Instance, *converter.Config) (runtime.Source, error) { return nil, e }
+			fsNew = func(string, *schema.Instance, *converter.Config, bool) (runtime.Source, error) { return nil, e }
 		case 5:
 			args.DisableResourceReadyCheck = true
 			findSupportedResources = func(k client.Interfaces, specs []sourceSchema.ResourceSpec) ([]sourceSchema.ResourceSpec, error) {
