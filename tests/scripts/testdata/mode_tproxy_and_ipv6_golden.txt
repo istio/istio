@@ -63,6 +63,7 @@ ip6tables -t nat -A PREROUTING -p tcp -j ISTIO_INBOUND
 ip6tables -t nat -A ISTIO_INBOUND -p tcp --dport 22 -j RETURN
 ip6tables -t nat -A ISTIO_INBOUND -p tcp --dport 7777 -j RETURN
 ip6tables -t nat -A ISTIO_INBOUND -p tcp --dport 8888 -j RETURN
+ip6tables -t nat -A ISTIO_INBOUND -p tcp -j ISTIO_IN_REDIRECT
 ip6tables -t nat -N ISTIO_OUTPUT
 ip6tables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT
 ip6tables -t nat -A ISTIO_OUTPUT -o lo -s ::6/128 -j RETURN

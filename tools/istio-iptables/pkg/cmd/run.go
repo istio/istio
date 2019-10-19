@@ -198,6 +198,8 @@ func handleInboundIpv6Rules(ext dep.Dependencies, config *config.Config, ipv6Ran
 						ext.RunOrFail(dep.IP6TABLES, "-t", table, "-A", constants.ISTIOINBOUND, "-p", constants.TCP, "--dport", port, "-j", constants.RETURN)
 					}
 				}
+				// Redirect left inbound traffic
+				ext.RunOrFail(dep.IP6TABLES, "-t", table, "-A", constants.ISTIOINBOUND, "-p", constants.TCP, "-j", constants.ISTIOINREDIRECT)
 			} else {
 				// User has specified a non-empty list of ports to be redirected to Envoy.
 				for _, port := range split(config.InboundPortsInclude) {

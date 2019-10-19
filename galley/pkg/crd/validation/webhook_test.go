@@ -16,6 +16,7 @@ package validation
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -29,6 +30,7 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
+	"github.com/onsi/gomega"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	v1 "k8s.io/api/core/v1"
@@ -554,9 +556,9 @@ func TestServe(t *testing.T) {
 	ready := make(chan struct{})
 	defer func() {
 		close(stop)
-		close(ready)
 	}()
 	go wh.Run(ready, stop)
+	<-ready
 
 	validReview := makeTestReview(t, true)
 	invalidReview := makeTestReview(t, false)
@@ -641,4 +643,44 @@ func TestServe(t *testing.T) {
 			}
 		})
 	}
+}
+
+func checkCert(t *testing.T, whc *Webhook, cert, key []byte) bool {
+	t.Helper()
+	actual := whc.cert
+	expected, err := tls.X509KeyPair(cert, key)
+	if err != nil {
+		t.Fatalf("fail to load test certs.")
+	}
+	return bytes.Equal(actual.Certificate[0], expected.Certificate[0])
+}
+
+func TestReloadCert(t *testing.T) {
+	wh, cleanup := createTestWebhook(t,
+		fake.NewSimpleClientset(),
+		createFakeEndpointsSource(),
+		dummyConfig)
+	defer cleanup()
+	stop := make(chan struct{})
+	ready := make(chan struct{})
+	defer func() {
+		close(stop)
+	}()
+	go wh.Run(ready, stop)
+	<-ready
+
+	checkCert(t, wh, testcerts.ServerCert, testcerts.ServerKey)
+	// Update cert/key files.
+	if err := ioutil.WriteFile(wh.certFile, testcerts.RotatedCert, 0644); err != nil { // nolint: vetshadow
+		cleanup()
+		t.Fatalf("WriteFile(%v) failed: %v", wh.certFile, err)
+	}
+	if err := ioutil.WriteFile(wh.keyFile, testcerts.RotatedKey, 0644); err != nil { // nolint: vetshadow
+		cleanup()
+		t.Fatalf("WriteFile(%v) failed: %v", wh.keyFile, err)
+	}
+	g := gomega.NewGomegaWithT(t)
+	g.Eventually(func() bool {
+		return checkCert(t, wh, testcerts.RotatedCert, testcerts.RotatedKey)
+	}, "10s", "100ms").Should(gomega.BeTrue())
 }

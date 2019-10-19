@@ -127,9 +127,9 @@ e.g. for the GatewayAnalyzer used as an example above, you would add something l
         },
         // A single specific analyzer to run
         analyzer: &virtualservice.GatewayAnalyzer{},
-        // List of expected validation messages, as (messageType, <kind>/<name>) tuples
+        // List of expected validation messages, as (messageType, <kind> <name>[.<namespace>]) tuples
         expected: []message{
-            {msg.ReferencedResourceNotFound, "VirtualService/httpbin-bogus"},
+            {msg.ReferencedResourceNotFound, "VirtualService httpbin-bogus"},
         },
     },
 ```
@@ -186,7 +186,7 @@ make istioctl && $GOPATH/out/linux_amd64/release/istioctl experimental analyze
 ### 6. Write a user-facing documentation page
 
 Each analysis message needs to be documented for customers. This is done by introducing a markdown file for
-each message in the istio.io repo in the content/en/docs/reference/config/analysis directory. You create
+each message in the [istio.io](https://github.com/istio/istio.io) repo in the [content/en/docs/reference/config/analysis](https://github.com/istio/istio.io/tree/master/content/en/docs/reference/config/analysis) directory. You create
 a subdirectory with the code of the error message, and add a `index.md` file that contains the
 full description of the problem with potential remediation steps, examples, etc. See the existing
 files in that directory for examples of how this is done.
