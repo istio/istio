@@ -14,27 +14,11 @@
 
 package istioio
 
-import (
-	"istio.io/istio/pkg/test/scopes"
-)
+var _ Step = Func(nil)
 
-type testFn func(Context) error
+// Func is a Step that runs the provided function.
+type Func func(Context)
 
-var _ step = &functionStep{}
-
-type functionStep struct {
-	fn testFn
-}
-
-func newFunctionStep(fn testFn) step {
-	return &functionStep{
-		fn: fn,
-	}
-}
-
-func (s *functionStep) Run(ctx Context) {
-	scopes.CI.Infof("Executing function")
-	if err := s.fn(ctx); err != nil {
-		ctx.Fatalf("function step failed: %v", err)
-	}
+func (f Func) run(ctx Context) {
+	f(ctx)
 }

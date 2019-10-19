@@ -15,6 +15,8 @@
 package istioio
 
 import (
+	"io"
+
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 )
@@ -22,6 +24,6 @@ import (
 // Context for the currently executing test.
 type Context struct {
 	framework.TestContext
-	Env       *kube.Environment
-	OutputDir string
+	Env          *kube.Environment
+	SnippetsFile io.Writer
 }
