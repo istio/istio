@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package istioio
+package security
 
 import (
 	"testing"
@@ -28,7 +28,7 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	framework.NewSuite("istio_io", m).
+	framework.NewSuite("security", m).
 		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(&ist, setupConfig)).
 		RequireEnvironment(environment.Kube).
