@@ -33,11 +33,12 @@ import (
 )
 
 var (
-	printAll       bool
-	configDumpFile string
-	policyFiles    []string
-	serviceFiles   []string
-	meshConfig     string
+	printAll               bool
+	configDumpFile         string
+	policyFiles            []string
+	serviceFiles           []string
+	meshConfig             string
+	istioMeshConfigMapName string
 )
 
 var (
@@ -115,7 +116,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 		Example: `  # Upgrade the Istio authorization policy with service definition from the current Kubernetes cluster:
   istioctl experimental auth upgrade -f rbac-v1-policy.yaml,rbac-v1-policy-2.yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			upgrader, err := newUpgrader(policyFiles, serviceFiles)
+			upgrader, err := newUpgrader(policyFiles, serviceFiles, istioNamespace, istioMeshConfigMapName)
 			if err != nil {
 				cleanupForTest()
 				return err
@@ -213,7 +214,7 @@ func getConfigDumpFromPod(podName, podNamespace string) (*configdump.Wrapper, er
 	return envoyConfig, nil
 }
 
-func newUpgrader(v1PolicyFiles, serviceFiles []string) (*auth.Upgrader, error) {
+func newUpgrader(v1PolicyFiles, serviceFiles []string, istioNamespace, istioMeshConfigMapName string) (*auth.Upgrader, error) {
 	if len(v1PolicyFiles) == 0 {
 		return nil, fmt.Errorf("no input file provided")
 	}
@@ -223,7 +224,7 @@ func newUpgrader(v1PolicyFiles, serviceFiles []string) (*auth.Upgrader, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to Kubernetes: %v", err)
 	}
-	upgrader := auth.NewUpgrader(k8sClient, v1PolicyFiles, serviceFiles, meshConfig)
+	upgrader := auth.NewUpgrader(k8sClient, v1PolicyFiles, serviceFiles, meshConfig, istioNamespace, istioMeshConfigMapName)
 	return upgrader, nil
 }
 
@@ -269,8 +270,10 @@ func init() {
 		"Authorization policy files")
 	upgradeCmd.PersistentFlags().StringSliceVarP(&serviceFiles, "service", "s", []string{},
 		"Kubernetes Service resource that provides the mapping relationship between service name and pod labels")
-	upgradeCmd.PersistentFlags().StringVarP(&meshConfig, "mesh-config", "m", "",
+	upgradeCmd.PersistentFlags().StringVarP(&meshConfig, "meshConfigFile", "m", "",
 		"Istio MeshConfig file")
+	upgradeCmd.PersistentFlags().StringVar(&istioMeshConfigMapName, "meshConfigMapName", "istio",
+		"ConfigMap name for Istio mesh configuration")
 }
 
 // cleanupForTest clean the values of policyFiles and serviceFiles. Otherwise, the variables will be

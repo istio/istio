@@ -63,6 +63,8 @@ type Upgrader struct {
 	V1PolicyFiles                      []string
 	ServiceFiles                       []string
 	MeshConfigFile                     string
+	IstioNamespace                     string
+	MeshConfigMapName                  string
 	NamespaceToServiceToWorkloadLabels map[string]ServiceToWorkloadLabels
 	AuthorizationPolicies              []model.Config
 	ConvertedPolicies                  strings.Builder
@@ -97,17 +99,17 @@ spec:
 )
 
 const (
-	istioNamespace     = "istio-system"
-	istioConfigMapName = "istio"
-	istioConfigMapKey  = "mesh"
+	istioConfigMapKey = "mesh"
 )
 
-func NewUpgrader(k8sClient *kubernetes.Clientset, v1PolicyFiles, serviceFiles []string, meshConfigFile string) *Upgrader {
+func NewUpgrader(k8sClient *kubernetes.Clientset, v1PolicyFiles, serviceFiles []string, meshConfigFile, istioNamespace, meshConfigMapName string) *Upgrader {
 	upgrader := Upgrader{
 		K8sClient:                          k8sClient,
 		V1PolicyFiles:                      v1PolicyFiles,
 		ServiceFiles:                       serviceFiles,
 		MeshConfigFile:                     meshConfigFile,
+		IstioNamespace:                     istioNamespace,
+		MeshConfigMapName:                  meshConfigMapName,
 		NamespaceToServiceToWorkloadLabels: make(map[string]ServiceToWorkloadLabels),
 		AuthorizationPolicies:              []model.Config{},
 	}
@@ -466,11 +468,11 @@ func (ug *Upgrader) getIstioRootNamespace() (string, error) {
 			return "", fmt.Errorf("failed to read the provided ConfigMap %s: %s", ug.MeshConfigFile, err)
 		}
 	} else {
-		istioConfigMap, err := ug.K8sClient.CoreV1().ConfigMaps(istioNamespace).Get(istioConfigMapName, metav1.GetOptions{})
+		istioConfigMap, err := ug.K8sClient.CoreV1().ConfigMaps(ug.IstioNamespace).Get(ug.MeshConfigMapName, metav1.GetOptions{})
 		if err != nil {
 			return "", fmt.Errorf("failed to get ConfigMap named %s in namespace %s. "+
-				"Run `kubectl -n %s get configmap %s` to see if it exists", istioConfigMapName, istioNamespace,
-				istioNamespace, istioConfigMapName)
+				"Run `kubectl -n %s get configmap %s` to see if it exists", ug.MeshConfigMapName, ug.IstioNamespace,
+				ug.IstioNamespace, ug.MeshConfigMapName)
 		}
 		istioMeshConfig, exists := istioConfigMap.Data[istioConfigMapKey]
 		if !exists {
