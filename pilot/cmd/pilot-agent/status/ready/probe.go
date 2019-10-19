@@ -31,6 +31,7 @@ type Probe struct {
 	NodeType            model.NodeType
 	AdminPort           uint16
 	receivedFirstUpdate bool
+	serverLive          bool
 }
 
 // Check executes the probe and returns an error if the probe fails.
@@ -97,6 +98,10 @@ func (p *Probe) checkUpdated() error {
 
 // checkServerInfo checks to ensure that Envoy is in the READY state
 func (p *Probe) checkServerInfo() error {
+	// If Envoy is already Live, just return immediately.
+	if p.serverLive {
+		return nil
+	}
 	info, err := util.GetServerInfo(p.LocalHostAddr, p.AdminPort)
 	if err != nil {
 		return fmt.Errorf("failed to get server info: %v", err)
@@ -106,5 +111,6 @@ func (p *Probe) checkServerInfo() error {
 		return fmt.Errorf("server is not live, current state is: %v", info.GetState().String())
 	}
 
+	p.serverLive = true
 	return nil
 }
