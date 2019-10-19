@@ -132,7 +132,8 @@ type Config struct {
 
 // Is mtls enabled. Check in Values flag and Values file.
 func (c *Config) IsMtlsEnabled() bool {
-	if c.Values["global.mtls.enabled"] == "true" {
+	if c.Values["global.mtls.enabled"] == "true" ||
+		c.Values["global.mtls.auto"] == "true" {
 		return true
 	}
 
