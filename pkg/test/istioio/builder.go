@@ -17,11 +17,16 @@ package istioio
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/scopes"
 
 	"istio.io/istio/pkg/test/framework"
+)
+
+const (
+	snippetsFileExtension = ".snippets.txt"
 )
 
 // Step builds a step of the test pipeline.
@@ -32,13 +37,26 @@ type Step interface {
 
 // Builder builds a test of a documented workflow from http://istio.io.
 type Builder struct {
-	steps        []Step
-	cleanupSteps []Step
+	snippetsFileName string
+	steps            []Step
+	cleanupSteps     []Step
 }
 
-// NewBuilder returns an instance of an example test
-func NewBuilder() *Builder {
-	return &Builder{}
+// NewBuilder returns an instance of an example test. The name of the snippets file must be provided.
+// If the snippets file name does not end with ".snippets.txt", the extension will be appended automatically.
+func NewBuilder(snippetsFileName string) *Builder {
+	if snippetsFileName == "" {
+		panic("must provide the snippets file name")
+	}
+
+	// Add the appropriate suffix if it's missing.
+	if !strings.HasSuffix(snippetsFileName, snippetsFileExtension) {
+		snippetsFileName += snippetsFileExtension
+	}
+
+	return &Builder{
+		snippetsFileName: snippetsFileName,
+	}
 }
 
 // Add a step to be run.
@@ -63,7 +81,7 @@ func (b *Builder) Build() func(ctx framework.TestContext) {
 			ctx.Fatalf("test framework unable to get Kubernetes environment")
 		}
 
-		snippetsFile, err := os.Create(filepath.Join(ctx.WorkDir(), "snippets.txt"))
+		snippetsFile, err := os.Create(filepath.Join(ctx.WorkDir(), b.snippetsFileName))
 		if err != nil {
 			ctx.Fatalf("failed creating snippets file: %v", err)
 		}

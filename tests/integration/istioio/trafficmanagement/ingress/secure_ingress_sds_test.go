@@ -25,7 +25,7 @@ import (
 func TestSecureIngressSDS(t *testing.T) {
 	framework.
 		NewTest(t).
-		Run(istioio.NewBuilder().
+		Run(istioio.NewBuilder("traffic_management__ingress__secure_gateways_sds").
 			// Configure a TLS ingress gateway for a single host.
 			// https://preliminary.istio.io/docs/tasks/traffic-management/ingress/secure-ingress-sds/#configure-a-tls-ingress-gateway-for-a-single-host
 			Add(istioio.Command{
