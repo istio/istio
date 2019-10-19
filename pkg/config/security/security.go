@@ -107,7 +107,7 @@ func ValidateAttribute(key string, values []string) error {
 		return validateIPs(values)
 	case isEqual(key, attrDestPort):
 		return validatePorts(values)
-	case isEqual(key, attrDestLabel, attrDestName, attrDestNamespace, attrDestUser):
+	case hasPrefix(key, attrDestLabel) || isEqual(key, attrDestName, attrDestNamespace, attrDestUser):
 		return fmt.Errorf("deprecated attribute (%s): only supported in v1alpha1", key)
 	case isEqual(key, attrConnSNI):
 	case hasPrefix(key, attrExperimental):
