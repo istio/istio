@@ -15,7 +15,6 @@
 package validation
 
 import (
-	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
@@ -25,7 +24,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"sync"
 	"time"
 
 	"github.com/ghodss/yaml"
@@ -60,9 +58,6 @@ var (
 
 // WebhookConfigController implements the validating admission webhook for validating Istio configuration.
 type WebhookConfigController struct {
-	mu                   sync.RWMutex
-	cert                 *tls.Certificate
-	keyCertWatcher       *fsnotify.Watcher
 	configWatcher        *fsnotify.Watcher
 	webhookParameters    *WebhookParameters
 	ownerRefs            []metav1.OwnerReference
@@ -288,65 +283,25 @@ func rebuildWebhookConfigHelper(
 	return &webhookConfig, nil
 }
 
-// Reload the server's cert/key for TLS from file.
-func (whc *WebhookConfigController) reloadKeyCert() {
-	pair, err := tls.LoadX509KeyPair(whc.webhookParameters.CertFile, whc.webhookParameters.KeyFile)
-	if err != nil {
-		reportValidationCertKeyUpdateError(err)
-		scope.Errorf("Cert/Key reload error: %v", err)
-		return
-	}
-	whc.mu.Lock()
-	whc.cert = &pair
-	whc.mu.Unlock()
-
-	reportValidationCertKeyUpdate()
-	scope.Info("Cert and Key reloaded")
-}
-
 // NewWebhookConfigController manages validating webhook configuration.
 func NewWebhookConfigController(p WebhookParameters) (*WebhookConfigController, error) {
-	pair, err := tls.LoadX509KeyPair(p.CertFile, p.KeyFile)
-	if err != nil {
-		return nil, err
-	}
-	// This is not strictly necessary, but is a workaround for having the dashboard pass. The migration
-	// to OpenCensus metrics means that zero value metrics are not exported, and the dashboard tests
-	// expect data for metrics.
-	reportValidationCertKeyUpdate()
-	certKeyWatcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return nil, err
-	}
-	// watch the parent directory of the target files so we can catch
-	// symlink updates of k8s secrets
-	for _, file := range []string{p.CertFile, p.KeyFile, p.CACertFile, p.WebhookConfigFile} {
-		watchDir, _ := filepath.Split(file)
-		if err := certKeyWatcher.Watch(watchDir); err != nil {
-			return nil, fmt.Errorf("could not watch %v: %v", file, err)
-		}
-	}
 
-	// configuration must be updated whenever the caBundle changes.
-	// NOTE: Use a separate watcher to differentiate config/ca from cert/key updates. This is
-	// useful to avoid unnecessary updates and, more importantly, makes its easier to more
-	// accurately capture logs/metrics when files change.
-	configWatcher, err := fsnotify.NewWatcher()
+	// Configuration must be updated whenever the caBundle changes. watch the parent directory of
+	// the target files so we can catch symlink updates of k8s secrets.
+	fileWatcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
 	}
 	for _, file := range []string{p.CACertFile, p.WebhookConfigFile} {
 		watchDir, _ := filepath.Split(file)
-		if err := configWatcher.Watch(watchDir); err != nil {
+		if err := fileWatcher.Watch(watchDir); err != nil {
 			return nil, fmt.Errorf("could not watch %v: %v", file, err)
 		}
 	}
 
 	whc := &WebhookConfigController{
-		keyCertWatcher:              certKeyWatcher,
-		configWatcher:               configWatcher,
+		configWatcher:               fileWatcher,
 		webhookParameters:           &p,
-		cert:                        &pair,
 		createInformerWebhookSource: defaultCreateInformerWebhookSource,
 	}
 
@@ -370,8 +325,7 @@ func NewWebhookConfigController(p WebhookParameters) (*WebhookConfigController, 
 
 //reconcile monitors the keycert and webhook configuration changes, rebuild and reconcile the configuration
 func (whc *WebhookConfigController) reconcile(stopCh <-chan struct{}) {
-	defer whc.keyCertWatcher.Close() // nolint: errcheck
-	defer whc.configWatcher.Close()  // nolint: errcheck
+	defer whc.configWatcher.Close() // nolint: errcheck
 
 	// Try to create the initial webhook configuration (if it doesn't
 	// already exist). Setup a persistent monitor to reconcile the
@@ -384,7 +338,6 @@ func (whc *WebhookConfigController) reconcile(stopCh <-chan struct{}) {
 	webhookChangedCh := whc.monitorWebhookChanges(stopCh)
 
 	// use a timer to debounce file updates
-	var keyCertTimerC <-chan time.Time
 	var configTimerC <-chan time.Time
 
 	if retryAfterSetup {
@@ -394,9 +347,6 @@ func (whc *WebhookConfigController) reconcile(stopCh <-chan struct{}) {
 	var retrying bool
 	for {
 		select {
-		case <-keyCertTimerC:
-			keyCertTimerC = nil
-			whc.reloadKeyCert()
 		case <-configTimerC:
 			configTimerC = nil
 
@@ -430,16 +380,10 @@ func (whc *WebhookConfigController) reconcile(stopCh <-chan struct{}) {
 			if retry {
 				time.AfterFunc(retryUpdateAfterFailureTimeout, func() { webhookChangedCh <- struct{}{} })
 			}
-		case event, more := <-whc.keyCertWatcher.Event:
-			if more && (event.IsModify() || event.IsCreate()) && keyCertTimerC == nil {
-				keyCertTimerC = time.After(watchDebounceDelay)
-			}
 		case event, more := <-whc.configWatcher.Event:
 			if more && (event.IsModify() || event.IsCreate()) && configTimerC == nil {
 				configTimerC = time.After(watchDebounceDelay)
 			}
-		case err := <-whc.keyCertWatcher.Error:
-			scope.Errorf("keyCertWatcher error: %v", err)
 		case err := <-whc.configWatcher.Error:
 			scope.Errorf("configWatcher error: %v", err)
 		case <-stopCh:
