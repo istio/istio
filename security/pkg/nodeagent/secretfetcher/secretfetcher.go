@@ -420,26 +420,72 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 	t := time.Now()
 	oldScrt, oldCaScrt, _ := extractK8sSecretIntoSecretItem(oscrt, t)
 	newScrt, newCaScrt, isCaOnlyNew := extractK8sSecretIntoSecretItem(nscrt, t)
-	if isCaOnlyNew {
-		if oldCaScrt != nil && newCaScrt != nil && !bytes.Equal(oldCaScrt.RootCert, newCaScrt.RootCert) {
-			secretFetcherLog.Warnf("unexpected client CA cert change in secret %s", newScrtName)
-			return
-		} else if (oldCaScrt != nil && newCaScrt == nil) || (oldCaScrt == nil && newCaScrt != nil) {
-			secretFetcherLog.Warnf("unexpected client CA cert change in secret %s", newScrtName)
-			return
-		}
+	updateSecret := shouldUpdateSecret(oldScrt, oldCaScrt, newScrt, newCaScrt)
+	if !updateSecret {
+		secretFetcherLog.Infof("secret %s does not change, skip update", newScrtName)
 		return
+	}
+
+	if oldScrt != nil || newScrt != nil {
+		sf.updateSecretInCache(oldScrt, newScrt)
+		secretFetcherLog.Debugf("secret %s is updated as a server certificate", newScrt.ResourceName)
+	}
+	if oldCaScrt != nil || newCaScrt != nil {
+		sf.updateSecretInCache(oldCaScrt, newCaScrt)
+		if isCaOnlyNew {
+			secretFetcherLog.Debugf("secret %s is updated as a client CA cert (from a CA only secret)",
+				newCaScrt.ResourceName)
+		} else {
+			secretFetcherLog.Debugf("secret %s is updated as a client CA cert (from a compound Secret)",
+				newCaScrt.ResourceName)
+		}
+	}
+}
+
+// updateSecretInCache updates secret in cache, and pushes to client when new certs
+// are reloaded from secret.
+func (sf *SecretFetcher) updateSecretInCache(oldScrt, newScrt *model.SecretItem) {
+	if oldScrt != nil {
+		sf.secrets.Delete(oldScrt.ResourceName)
+	}
+	if newScrt != nil {
+		sf.secrets.Store(newScrt.ResourceName, *newScrt)
+		if sf.UpdateCache != nil {
+			sf.UpdateCache(newScrt.ResourceName, *newScrt)
+		}
+	} else if oldScrt != nil {
+		if sf.DeleteCache != nil {
+			sf.DeleteCache(oldScrt.ResourceName)
+		}
+	}
+}
+
+// shouldUpdateSecret indicates whether secret update is required to reload new secret.
+func shouldUpdateSecret(oldScrt, oldCaScrt, newScrt, newCaScrt *model.SecretItem) bool {
+	if newScrt == nil && newCaScrt == nil {
+		secretFetcherLog.Warnf("Secret object: %v has empty field, skip update", oldScrt.ResourceName)
+		return false
+	}
+
+	if (oldScrt != nil && newScrt == nil) || (oldScrt == nil && newScrt != nil) {
+		return true
 	}
 	if newScrt != nil && oldScrt != nil {
 		if !bytes.Equal(oldScrt.CertificateChain, newScrt.CertificateChain) ||
 			!bytes.Equal(oldScrt.PrivateKey, newScrt.PrivateKey) {
-			secretFetcherLog.Warnf("unexpected server key/cert change in secret %s", newScrtName)
-			return
+			return true
 		}
-	} else if (newScrt != nil && oldScrt == nil) || (newScrt == nil && oldScrt != nil) {
-		secretFetcherLog.Warnf("unexpected server key/cert change in secret %s", newScrtName)
-		return
 	}
+
+	if (oldCaScrt != nil && newCaScrt == nil) || (oldCaScrt == nil && newCaScrt != nil) {
+		return true
+	}
+	if oldCaScrt != nil && newCaScrt != nil {
+		if !bytes.Equal(oldCaScrt.RootCert, newCaScrt.RootCert) {
+			return true
+		}
+	}
+	return false
 }
 
 // FindIngressGatewaySecret returns the secret whose name matches the key, or empty secret if no

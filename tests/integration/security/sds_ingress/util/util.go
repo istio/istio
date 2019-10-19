@@ -212,10 +212,52 @@ func VisitProductPage(ing ingress.Instance, host string, callType ingress.CallTy
 
 // RotateSecrets deletes kubernetes secrets by name in credNames and creates same secrets using key/cert
 // from ingressCred.
-func RotateSecrets(t *testing.T, ctx framework.TestContext, credNames []string,
+func RotateSecrets(t *testing.T, ctx framework.TestContext, credNames []string, // nolint:interfacer
 	ingressType ingress.CallType, ingressCred IngressCredential) {
-	DeleteSecrets(t, ctx, credNames)
-	CreateIngressKubeSecret(t, ctx, credNames, ingressType, ingressCred)
+	istioCfg := istio.DefaultConfigOrFail(t, ctx)
+	systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
+	kubeAccessor := ctx.Environment().(*kube.Environment).Accessor
+	for _, cn := range credNames {
+		scrt, err := kubeAccessor.GetSecret(systemNS.Name()).Get(cn, metav1.GetOptions{})
+		if err != nil {
+			t.Errorf("Failed to get secret %s:%s (error: %s)", scrt.Namespace, scrt.Name, err)
+			continue
+		}
+		scrt = updateSecret(ingressType, scrt, ingressCred)
+		if _, err = kubeAccessor.GetSecret(systemNS.Name()).Update(scrt); err != nil {
+			t.Errorf("Failed to update secret %s:%s (error: %s)", scrt.Namespace, scrt.Name, err)
+		}
+	}
+	// Check if Kubernetes secret is ready
+	maxRetryNumber := 5
+	checkRetryInterval := time.Second * 1
+	for _, cn := range credNames {
+		t.Logf("Check ingress Kubernetes secret %s:%s...", systemNS.Name(), cn)
+		for i := 0; i < maxRetryNumber; i++ {
+			_, err := kubeAccessor.GetSecret(systemNS.Name()).Get(cn, metav1.GetOptions{})
+			if err != nil {
+				time.Sleep(checkRetryInterval)
+			} else {
+				t.Logf("Secret %s:%s is ready.", systemNS.Name(), cn)
+				break
+			}
+		}
+	}
+}
+
+// createSecret creates a kubernetes secret which stores private key, server certificate for TLS ingress gateway.
+// For mTLS ingress gateway, createSecret adds ca certificate into the secret object.
+func updateSecret(ingressType ingress.CallType, scrt *v1.Secret, ic IngressCredential) *v1.Secret {
+	if ingressType == ingress.Mtls {
+		scrt.Data[genericScrtCert] = []byte(ic.ServerCert)
+		scrt.Data[genericScrtKey] = []byte(ic.PrivateKey)
+		scrt.Data[genericScrtCaCert] = []byte(ic.CaCert)
+
+	} else {
+		scrt.Data[tlsScrtCert] = []byte(ic.ServerCert)
+		scrt.Data[tlsScrtKey] = []byte(ic.PrivateKey)
+	}
+	return scrt
 }
 
 // DeleteSecrets deletes kubernetes secrets by name in credNames.
