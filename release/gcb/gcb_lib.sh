@@ -44,23 +44,37 @@ function create_manifest_check_consistency() {
   local PROXY_REPO_SHA
   local CNI_REPO_SHA
   local API_REPO_SHA
+  local OPERATOR_REPO_SHA
+  local INSTALLER_REPO_SHA
+
   ISTIO_REPO_SHA=$(git rev-parse HEAD)
   CNI_REPO_SHA=$(grep CNI_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
   PROXY_REPO_SHA=$(grep PROXY_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
   API_REPO_SHA=$(grep "istio\.io/api" go.mod | cut -f 3 -d '-')
-  if [ -z "${ISTIO_REPO_SHA}" ] || [ -z "${API_REPO_SHA}" ] || [ -z "${PROXY_REPO_SHA}" ] || [ -z "${CNI_REPO_SHA}" ] ; then
-    echo "ISTIO_REPO_SHA:$ISTIO_REPO_SHA API_REPO_SHA:$API_REPO_SHA PROXY_REPO_SHA:$PROXY_REPO_SHA CNI_REPO_SHA:$CNI_REPO_SHA some shas not found"
+  OPERATOR_REPO_SHA=$(grep "istio\.io/operator" go.mod | cut -f 3 -d '-')
+
+  pushd ../api || exit
+    API_REPO_SHA=$(git rev-parse "${API_REPO_SHA}")
+  popd || exit
+
+  pushd ../operator || exit
+    OPERATOR_REPO_SHA=$(git rev-parse "${API_REPO_SHA}")
+    INSTALLER_REPO_SHA=$(tr -d '[:space:]' < 'installer.sha')
+  popd || exit
+
+  if [ -z "${ISTIO_REPO_SHA}" ] || [ -z "${API_REPO_SHA}" ] || [ -z "${OPERATOR_REPO_SHA}" ] || [ -z "${INSTALLER_REPO_SHA}" ] || [ -z "${PROXY_REPO_SHA}" ] || [ -z "${CNI_REPO_SHA}" ] ; then
+    echo "ISTIO_REPO_SHA:$ISTIO_REPO_SHA API_REPO_SHA:$API_REPO_SHA OPERATOR_REPO_SHA:$OPERATOR_REPO_SHA INSTALLER_REPO_SHA:$INSTALLER_REPO_SHA PROXY_REPO_SHA:$PROXY_REPO_SHA CNI_REPO_SHA:$CNI_REPO_SHA some shas not found"
     exit 8
   fi
-  pushd ../api || exit
-    API_SHA=$(git rev-parse "${API_REPO_SHA}")
-  popd || exit
+
 cat << EOF > "${MANIFEST_FILE}"
 istio ${ISTIO_REPO_SHA}
 proxy ${PROXY_REPO_SHA}
-api ${API_SHA}
+api ${API_REPO_SHA}
 cni ${CNI_REPO_SHA}
 tools ${TOOLS_HEAD_SHA}
+operator ${OPERATOR_REPO_SHA}
+installer ${INSTALLER_REPO_SHA}
 EOF
 
 
