@@ -94,10 +94,9 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 	org := "test.ca.Org"
 	const caNamespace = "default"
 	client := fake.NewSimpleClientset()
-	readSigningCertOnly := false
 	rootCertCheckInverval := time.Hour
 
-	caopts, err := NewSelfSignedIstioCAOptions(context.Background(), readSigningCertOnly,
+	caopts, err := NewSelfSignedIstioCAOptions(context.Background(),
 		0, caCertTTL, rootCertCheckInverval, defaultCertTTL,
 		maxCertTTL, org, false, caNamespace, -1, client.CoreV1(),
 		false)
@@ -186,10 +185,9 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 	org := "test.ca.Org"
 	caNamespace := "default"
 
-	readSigningCertOnly := false
 	rootCertCheckInverval := time.Hour
 
-	caopts, err := NewSelfSignedIstioCAOptions(context.Background(), readSigningCertOnly,
+	caopts, err := NewSelfSignedIstioCAOptions(context.Background(),
 		0, caCertTTL, rootCertCheckInverval, certTTL, maxCertTTL,
 		org, false, caNamespace, -1, client.CoreV1(),
 		false)
@@ -251,7 +249,6 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 	maxCertTTL := time.Hour
 	org := "test.ca.Org"
 	caNamespace := "default"
-	readSigningCertOnly := true
 	rootCertCheckInverval := time.Hour
 
 	client := fake.NewSimpleClientset()
@@ -261,7 +258,7 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 	ctx0, cancel0 := context.WithTimeout(context.Background(), time.Millisecond*50)
 	defer cancel0()
 
-	_, err := NewSelfSignedIstioCAOptions(ctx0, readSigningCertOnly, 0,
+	_, err := NewSelfSignedIstioCAOptions(ctx0, 0,
 		caCertTTL, certTTL, rootCertCheckInverval, maxCertTTL, org, false,
 		caNamespace, time.Millisecond*10, client.CoreV1(), false)
 	if err == nil {
@@ -282,7 +279,7 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 	ctx1, cancel1 := context.WithCancel(context.Background())
 	defer cancel1()
 
-	caopts, err := NewSelfSignedIstioCAOptions(ctx1, readSigningCertOnly, 0,
+	caopts, err := NewSelfSignedIstioCAOptions(ctx1, 0,
 		caCertTTL, certTTL, rootCertCheckInverval, maxCertTTL, org, false,
 		caNamespace, time.Millisecond*10, client.CoreV1(), false)
 	if err != nil {

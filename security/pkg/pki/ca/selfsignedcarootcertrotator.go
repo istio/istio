@@ -42,7 +42,6 @@ type SelfSignedCARootCertRotatorConfig struct {
 	caCertTTL           time.Duration
 	retryInterval       time.Duration
 	dualUse             bool
-	readSigningCertOnly bool
 	enableJitter        bool
 }
 
@@ -113,44 +112,9 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCert() {
 	if scrtErr != nil {
 		rootCertRotatorLog.Errorf("Fail to load CA secret %s:%s (error: %s), skip cert rotation job",
 			rotator.config.caStorageNamespace, CASecret, scrtErr.Error())
-	} else if rotator.config.readSigningCertOnly {
-		rotator.checkAndRotateRootCertForReadOnlyCitadel(caSecret)
 	} else {
 		rotator.checkAndRotateRootCertForSigningCertCitadel(caSecret)
 	}
-}
-
-// checkAndRotateRootCertForReadOnlyCitadel checks root cert secret for read-only
-// Citadel, and updates local key cert bundle if the root cert in k8s secret is
-// different than the root cert in local key cert bundle.
-func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForReadOnlyCitadel(
-	caSecret *v1.Secret) {
-	if caSecret == nil {
-		rootCertRotatorLog.Info("Root cert does not exist, skip root cert rotation for " +
-			"self-signed root cert read-only Citadel.")
-		return
-	}
-
-	rootCertificate := rotator.ca.GetCAKeyCertBundle().GetRootCertPem()
-	if !bytes.Equal(rootCertificate, caSecret.Data[caCertID]) {
-		// If the CA secret holds a different root cert than the root cert stored in
-		// KeyCertBundle, this indicates that the local stored root cert is not
-		// up-to-date. Update root cert and key in KeyCertBundle and config map.
-		rootCertRotatorLog.Infof("Load signing key and cert from existing secret %s:%s", caSecret.Namespace, caSecret.Name)
-		if err := rotator.ca.GetCAKeyCertBundle().VerifyAndSetAll(caSecret.Data[caCertID],
-			caSecret.Data[caPrivateKeyID], nil, caSecret.Data[caCertID]); err != nil {
-			rootCertRotatorLog.Errorf("Failed to create CA KeyCertBundle (%v)", err)
-			return
-		}
-		rootCertRotatorLog.Infof("Updated CA KeyCertBundle using existing public key: %v",
-			string(caSecret.Data[caCertID]))
-		return
-		// For read-only self-signed CA instance, don't update root cert in config
-		// map. The self-signed CA instance that updates root cert is responsible for
-		// updating root cert in config map.
-	}
-	rootCertRotatorLog.Info("Root cert in local key cert bundle is the same " +
-		"as the root cert in kubernetes secret. Skipping root cert rotation for read-only Citadel.")
 }
 
 // checkAndRotateRootCertForSigningCertCitadel checks root cert secret and rotates
@@ -179,9 +143,6 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 				rootCertRotatorLog.Errorf("failed to reload root cert into KeyCertBundle (%v)", err)
 			}
 			rootCertRotatorLog.Info("Successfully reloaded root cert into KeyCertBundle.")
-		} else {
-			rootCertRotatorLog.Info("CA cert in KeyCertBundle matches CA cert in " +
-				"istio-ca-secret. Skip reloading root cert into KeyCertBundle")
 		}
 		return
 	}

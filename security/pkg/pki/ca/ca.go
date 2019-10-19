@@ -85,7 +85,7 @@ type IstioCAOptions struct {
 }
 
 // NewSelfSignedIstioCAOptions returns a new IstioCAOptions instance using self-signed certificate.
-func NewSelfSignedIstioCAOptions(ctx context.Context, readSigningCertOnly bool,
+func NewSelfSignedIstioCAOptions(ctx context.Context,
 	rootCertGracePeriodPercentile int, caCertTTL, rootCertCheckInverval, certTTL,
 	maxCertTTL time.Duration, org string, dualUse bool, namespace string,
 	readCertRetryInterval time.Duration, client corev1.CoreV1Interface,
@@ -122,7 +122,6 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, readSigningCertOnly bool,
 			certInspector:       certutil.NewCertUtil(rootCertGracePeriodPercentile),
 			caStorageNamespace:  namespace,
 			dualUse:             dualUse,
-			readSigningCertOnly: readSigningCertOnly,
 			org:                 org,
 			enableJitter:        enableJitter,
 			client:              client,
