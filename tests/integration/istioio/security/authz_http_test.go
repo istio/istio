@@ -31,7 +31,7 @@ func TestAuthorizationForHTTPServices(t *testing.T) {
 
 	framework.
 		NewTest(t).
-		Run(istioio.NewBuilder().
+		Run(istioio.NewBuilder("tasks__security__authorization_for_http_services").
 			// Setup the initial environment.
 			Add(istioio.Command{
 				Input: istioio.Inline{

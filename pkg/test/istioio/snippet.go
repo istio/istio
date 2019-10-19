@@ -20,12 +20,10 @@ import (
 )
 
 const (
-	startSnippetLineFormat   = "# $snippet %s\n"
-	endSnippetLine           = "# $endsnippet\n"
-	startTextBlockLineFormat = "{{< text %s >}}\n"
-	endTextBlockLine         = "{{< /text >}}\n"
-	syntaxFormat             = "syntax=\"%s\""
-	outputisFormat           = "outputis=\"%s\""
+	startSnippetLineFormat = "$snippet %s%s\n"
+	endSnippetLine         = "$endsnippet\n"
+	syntaxFormat           = " syntax=\"%s\""
+	outputisFormat         = " outputis=\"%s\""
 )
 
 var _ Step = Snippet{}
@@ -62,24 +60,20 @@ func (s Snippet) run(ctx Context) {
 		ctx.Fatalf("failed writing snippet %s: %v", snippetName, err)
 	}
 
-	// Start the snippet with the named snippet annotation.
-	snippetContent := fmt.Sprintf(startSnippetLineFormat, snippetName)
-
-	// Start the text block.
-	textAttrs := ""
+	// Create the text metadata for the snippet, if provided.
+	snippetMetadata := ""
 	if s.Syntax != "" {
-		textAttrs += fmt.Sprintf(syntaxFormat, s.Syntax)
+		snippetMetadata += fmt.Sprintf(syntaxFormat, s.Syntax)
 	}
 	if s.OutputIs != "" {
-		textAttrs += " " + fmt.Sprintf(outputisFormat, s.OutputIs)
+		snippetMetadata += fmt.Sprintf(outputisFormat, s.OutputIs)
 	}
-	snippetContent += fmt.Sprintf(startTextBlockLineFormat, textAttrs)
+
+	// Start the snippet with the named snippet annotation.
+	snippetContent := fmt.Sprintf(startSnippetLineFormat, snippetName, snippetMetadata)
 
 	// Add the content
 	snippetContent += content + "\n"
-
-	// End the text block
-	snippetContent += endTextBlockLine
 
 	// End the snippet
 	snippetContent += endSnippetLine + "\n"
