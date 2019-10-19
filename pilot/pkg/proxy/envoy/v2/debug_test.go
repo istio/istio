@@ -372,18 +372,33 @@ func getAuthenticationZ(t *testing.T, s *v2.DiscoveryServer, proxyID string, wan
 	if err != nil {
 		t.Fatal(err)
 	}
-	rr := httptest.NewRecorder()
-	authenticationz := http.HandlerFunc(s.Authenticationz)
-	authenticationz.ServeHTTP(rr, req)
-	if rr.Code != wantCode {
-		t.Errorf("wanted response code %v, got %v", wantCode, rr.Code)
-	}
 
 	got := []v2.AuthenticationDebug{}
-	if rr.Code != 200 {
+	var returnCode int
+
+	// Retry 20 times, with 500 ms interval, so up to 10s.
+	for numTries := 0; numTries < 20; numTries++ {
+		rr := httptest.NewRecorder()
+		authenticationz := http.HandlerFunc(s.Authenticationz)
+		authenticationz.ServeHTTP(rr, req)
+		returnCode = rr.Code
+		if rr.Code == wantCode {
+			if rr.Code == 200 {
+				if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
+					t.Fatal(err)
+				}
+			}
+			break
+		}
+
+		// It could be delay in ADS propagation, hence cause different return code for the
+		// authenticationz. Wait 0.5s then retry.
 		t.Logf("/authenticationz returns with error code %v:\n%v", rr.Code, rr.Body)
-	} else if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
-		t.Fatal(err)
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	if returnCode != wantCode {
+		t.Errorf("wanted response code %v, got %v", wantCode, returnCode)
 	}
 
 	return got
@@ -402,7 +417,7 @@ func TestEvaluateTLSState(t *testing.T) {
 			client:                      nil,
 			server:                      authn_model.MTLSDisable,
 			expected:                    "OK",
-			expectedWithAutoMTLSEnabled: "CONFLICT",
+			expectedWithAutoMTLSEnabled: "AUTO",
 		},
 		{
 			name:                        "Auto with mTLS permissive",
@@ -558,7 +573,7 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 					DestinationRuleName:      "-",
 					ServerProtocol:           "DISABLE",
 					ClientProtocol:           "-",
-					TLSConflictStatus:        "CONFLICT",
+					TLSConflictStatus:        "AUTO",
 				},
 			},
 		},
