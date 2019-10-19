@@ -27,10 +27,7 @@ type Bundle struct {
 	TrustDomain string
 	// The trust domain aliases represent the aliases of `trust_domain`.
 	// For example, if we have
-	// ```yaml
-	// trustDomain: td1
-	// trustDomainAliases: ["td2", "td3"]
-	// ```
+	// trustDomain: td1, trustDomainAliases: ["td2", "td3"]
 	// Any service with the identity `td1/ns/foo/sa/a-service-account`, `td2/ns/foo/sa/a-service-account`,
 	// or `td3/ns/foo/sa/a-service-account` will be treated the same in the Istio mesh.
 	TrustDomainAliases []string
@@ -63,7 +60,7 @@ func (t Bundle) ReplaceTrustDomainAliases(principals []string) []string {
 		// Only generate configuration if the extracted trust domain from the policy is part of the trust domain aliases,
 		// or if the extracted/existing trust domain is "cluster.local", which is a pointer to the local trust domain
 		// and its aliases.
-		if isStringInList(trustDomainFromPrincipal, t.TrustDomainAliases) || trustDomainFromPrincipal == "cluster.local" {
+		if found(trustDomainFromPrincipal, t.TrustDomainAliases) || trustDomainFromPrincipal == "cluster.local" {
 			// Generate configuration for trust domain and trust domain aliases.
 			principalsIncludingAliases = append(principalsIncludingAliases, t.replaceTrustDomains(principal)...)
 		}
@@ -86,12 +83,14 @@ func (t Bundle) replaceTrustDomains(principal string) []string {
 // [SPIFFE-ID](https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain)
 // In Istio authorization, an identity is presented in the format:
 // <trust-domain>/ns/<some-namespace>/sa/<some-service-account>
+// TODO(pitlv2109): See if we can return an error here instead of empty string.
+// Resolve it in https://github.com/istio/istio/pull/18011
 func replaceTrustDomainInPrincipal(trustDomain string, principal string) string {
 	identityParts := strings.Split(principal, "/")
 	// A valid SPIFFE identity in authorization has no SPIFFE:// prefix.
 	// It is presented as <trust-domain>/ns/<some-namespace>/sa/<some-service-account>
 	if len(identityParts) != 5 {
-		log.Errorf("Wrong SPIFFE format isStringInList: %s", principal)
+		log.Errorf("Wrong SPIFFE format: %s", principal)
 		return ""
 	}
 	return fmt.Sprintf("%s/%s", trustDomain, strings.Join(identityParts[1:], "/"))
@@ -106,13 +105,13 @@ func getTrustDomain(principal string) string {
 	// A valid SPIFFE identity in authorization has no SPIFFE:// prefix.
 	// It is presented as <trust-domain>/ns/<some-namespace>/sa/<some-service-account>
 	if len(identityParts) != 5 {
-		log.Errorf("Wrong SPIFFE format isStringInList: %s", principal)
+		log.Errorf("Wrong SPIFFE format: %s", principal)
 		return ""
 	}
 	return identityParts[0]
 }
 
-func isStringInList(key string, list []string) bool {
+func found(key string, list []string) bool {
 	for _, l := range list {
 		if key == l {
 			return true

@@ -20,44 +20,53 @@ import (
 )
 
 func TestReplaceTrustDomainAliases(t *testing.T) {
-	type inStruct struct {
-		trustDomainBundle Bundle
-		users             []string
-	}
 	testCases := []struct {
-		name   string
-		in     inStruct
-		expect []string
+		name              string
+		trustDomainBundle Bundle
+		principals        []string
+		expect            []string
 	}{
 		{
-			name: "No trust domain aliases (no change in trust domain)",
-			in: inStruct{NewTrustDomainBundle("cluster.local", nil),
-				[]string{"cluster.local/ns/foo/sa/bar"}},
-			expect: []string{"cluster.local/ns/foo/sa/bar"},
+			name:              "No trust domain aliases (no change in trust domain)",
+			trustDomainBundle: NewTrustDomainBundle("cluster.local", nil),
+			principals:        []string{"cluster.local/ns/foo/sa/bar"},
+			expect:            []string{"cluster.local/ns/foo/sa/bar"},
 		},
 		{
-			name: "One trust domain alias, one principal",
-			in: inStruct{NewTrustDomainBundle("td2", []string{"td1"}),
-				[]string{"td1/ns/foo/sa/bar"}},
-			expect: []string{"td2/ns/foo/sa/bar", "td1/ns/foo/sa/bar"},
+			name:              "One trust domain alias, one principal",
+			trustDomainBundle: NewTrustDomainBundle("td2", []string{"td1"}),
+			principals:        []string{"td1/ns/foo/sa/bar"},
+			expect:            []string{"td2/ns/foo/sa/bar", "td1/ns/foo/sa/bar"},
 		},
 		{
-			name: "One trust domain alias, two principals",
-			in: inStruct{NewTrustDomainBundle("td1", []string{"cluster.local"}),
-				[]string{"cluster.local/ns/foo/sa/bar", "cluster.local/ns/yyy/sa/zzz"}},
-			expect: []string{"td1/ns/foo/sa/bar", "cluster.local/ns/foo/sa/bar", "td1/ns/yyy/sa/zzz", "cluster.local/ns/yyy/sa/zzz"},
+			name:              "One trust domain alias, two principals",
+			trustDomainBundle: NewTrustDomainBundle("td1", []string{"cluster.local"}),
+			principals:        []string{"cluster.local/ns/foo/sa/bar", "cluster.local/ns/yyy/sa/zzz"},
+			expect:            []string{"td1/ns/foo/sa/bar", "cluster.local/ns/foo/sa/bar", "td1/ns/yyy/sa/zzz", "cluster.local/ns/yyy/sa/zzz"},
 		},
 		{
-			name: "Two trust domain aliases, two principals",
-			in: inStruct{NewTrustDomainBundle("td2", []string{"td1", "cluster.local"}),
-				[]string{"cluster.local/ns/foo/sa/bar", "td1/ns/yyy/sa/zzz"}},
+			name:              "Two trust domain aliases, two principals",
+			trustDomainBundle: NewTrustDomainBundle("td2", []string{"td1", "cluster.local"}),
+			principals:        []string{"cluster.local/ns/foo/sa/bar", "td1/ns/yyy/sa/zzz"},
 			expect: []string{"td2/ns/foo/sa/bar", "td1/ns/foo/sa/bar", "cluster.local/ns/foo/sa/bar",
 				"td2/ns/yyy/sa/zzz", "td1/ns/yyy/sa/zzz", "cluster.local/ns/yyy/sa/zzz"},
+		},
+		{
+			name:              "Principals not match alias",
+			trustDomainBundle: NewTrustDomainBundle("td1", []string{"td2"}),
+			principals:        []string{"some-td/ns/foo/sa/bar"},
+			expect:            []string{},
+		},
+		{
+			name:              "Principals match one alias",
+			trustDomainBundle: NewTrustDomainBundle("td1", []string{"td2", "some-td"}),
+			principals:        []string{"some-td/ns/foo/sa/bar"},
+			expect:            []string{"td1/ns/foo/sa/bar", "td2/ns/foo/sa/bar", "some-td/ns/foo/sa/bar"},
 		},
 	}
 
 	for _, tc := range testCases {
-		got := tc.in.trustDomainBundle.ReplaceTrustDomainAliases(tc.in.users)
+		got := tc.trustDomainBundle.ReplaceTrustDomainAliases(tc.principals)
 		if !reflect.DeepEqual(got, tc.expect) {
 			t.Errorf("%s failed. Expect: %s. Got: %s", tc.name, tc.expect, got)
 		}
