@@ -478,9 +478,10 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 			for _, importedHost := range importedHosts {
 				// Check if the hostnames match per usual hostname matching rules
 				if importedHost.Matches(s.Hostname) {
-					portMatched := false
 					// If a listener is defined with port, we should match services with port.
-					if ilw.IstioListener != nil && ilw.IstioListener.Port != nil {
+					needsPortMatch := ilw.IstioListener != nil && ilw.IstioListener.Port != nil
+					portMatched := false
+					if needsPortMatch {
 						for _, port := range s.Ports {
 							if port.Port == int(ilw.IstioListener.Port.GetNumber()) {
 								portMatched = true
@@ -488,9 +489,12 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 							}
 						}
 					} else {
-						portMatched = true
+						importedServices = append(importedServices, s)
+						hostFound = true
+						break
 					}
-					if portMatched && ilw.IstioListener != nil && ilw.IstioListener.Port != nil {
+					// If there is a port match, we should trim the service ports to the port specified by listener.
+					if portMatched {
 						sclone := s
 						for _, port := range s.Ports {
 							if port.Port == int(ilw.IstioListener.Port.GetNumber()) {
