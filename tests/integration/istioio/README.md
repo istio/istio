@@ -10,28 +10,33 @@ around the [Istio test framework](https://github.com/istio/istio/wiki/Istio-Test
 
 ## Output
 
-When you run an istioio test, it generates a file called `snippets.txt` in the working
-directory of the test.
-
-This file contains all the snippets for a particular `istio.io`
-page. Snippets are generated in the [istio.io syntax](https://istio.io/about/contribute/creating-and-editing-pages)
-and are ready for import to `istio.io`.
-
-For example, a test might generate following `snippets.txt`:
+When you run an `istio.io` test, it outputs snippets according to the
+[istio.io syntax](https://istio.io/about/contribute/creating-and-editing-pages) and are ready for
+import to `istio.io`. For example:
 
 ```text
-# $snippet enabling_istio_authorization.sh
-{{< text syntax="bash" >}}
+$snippet enabling_istio_authorization.sh syntax="bash"
 $ kubectl apply -f @samples/bookinfo/platform/kube/rbac/rbac-config-ON.yaml@
-{{< /text >}}
-# $endsnippet
+$endsnippet
 
-# $snippet enforcing_namespace_level_access_control_apply.sh
-{{< text syntax="bash" >}}
+$snippet enforcing_namespace_level_access_control_apply.sh syntax="bash"
 $ kubectl apply -f @samples/bookinfo/platform/kube/rbac/namespace-policy.yaml@
-{{< /text >}}
-# $endsnippet
+$endsnippet
 ```
+
+Snippets are written to a file in the working directory of the test with the extension
+`.snippets.txt`. The name of the file (minus the extension) is specified when creating
+the `Builder`.
+
+For example, `istioio.NewBuilder("path__to__my_istioio_content")` would
+generate the file `path__to__my_istioio_content.snippets.txt`.
+
+By convention, the file name should generally indicate the path to the content on `istio.io`.
+This helps to simplify collection and processing of these files later on.
+
+For example, the snippets for the page
+`Tasks->Secuity->Mutual TLS Migration` might be stored in
+`tasks__security__mutual_tls_migration.snippets.txt`.
 
 ## Test Authoring Overview
 
@@ -67,7 +72,7 @@ be run as part of the resulting test function:
 func TestCombinedMethods(t *testing.T) {
     framework.
         NewTest(t).
-        Run(istioio.NewBuilder().
+        Run(istioio.NewBuilder("tasks__security__my_task").
             // Run a script and create a snippet.
             Add(istioio.Command{
                 Input:         istioio.Path("myscript.sh"),

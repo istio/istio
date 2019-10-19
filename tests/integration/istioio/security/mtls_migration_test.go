@@ -29,7 +29,7 @@ func TestMutualTLSMigration(t *testing.T) {
 
 	framework.
 		NewTest(t).
-		Run(istioio.NewBuilder().
+		Run(istioio.NewBuilder("tasks__security__mututal_tls_migration").
 			Add(istioio.Command{
 				Input: istioio.Inline{
 					FileName: "create_ns_foo_bar_legacy.sh",
