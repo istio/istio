@@ -87,7 +87,7 @@ func TestHandleTraceSpan(t *testing.T) {
 					HasRemoteParent: true,
 				},
 			},
-			sampler:     trace.ProbabilitySampler(1.0),
+			sampler: trace.ProbabilitySampler(1.0),
 		},
 		{
 			name: "error",
@@ -140,7 +140,7 @@ func TestHandleTraceSpan(t *testing.T) {
 					HasRemoteParent: true,
 				},
 			},
-			sampler:     trace.ProbabilitySampler(1.0),
+			sampler: trace.ProbabilitySampler(1.0),
 		},
 		{
 			name: "no tracing",
@@ -160,8 +160,8 @@ func TestHandleTraceSpan(t *testing.T) {
 					HttpStatusCode: 200,
 				},
 			},
-			wantSpans:   []*trace.SpanData(nil),
-			sampler:     trace.ProbabilitySampler(1.0),
+			wantSpans: []*trace.SpanData(nil),
+			sampler:   trace.ProbabilitySampler(1.0),
 		},
 		{
 			name: "tracing disabled",
@@ -181,8 +181,8 @@ func TestHandleTraceSpan(t *testing.T) {
 					HttpStatusCode: 200,
 				},
 			},
-			wantSpans:   nil,
-			sampler:     nil,
+			wantSpans: nil,
+			sampler:   nil,
 		},
 		{
 			name: "no parent - server span",
@@ -248,7 +248,7 @@ func TestHandleTraceSpan(t *testing.T) {
 					HasRemoteParent: true,
 				},
 			},
-			sampler:     trace.AlwaysSample(),
+			sampler: trace.AlwaysSample(),
 		},
 		{
 			name: "client span",
@@ -314,7 +314,7 @@ func TestHandleTraceSpan(t *testing.T) {
 					HasRemoteParent: false,
 				},
 			},
-			sampler:     trace.AlwaysSample(),
+			sampler: trace.AlwaysSample(),
 		},
 		{
 			name: "error span",
@@ -379,7 +379,7 @@ func TestHandleTraceSpan(t *testing.T) {
 					HasRemoteParent: false,
 				},
 			},
-			sampler:     trace.AlwaysSample(),
+			sampler: trace.AlwaysSample(),
 		},
 		{
 			name: "client span rewrite id",
@@ -427,7 +427,7 @@ func TestHandleTraceSpan(t *testing.T) {
 					HasRemoteParent: false,
 				},
 			},
-			sampler:     trace.ProbabilitySampler(1.0),
+			sampler: trace.ProbabilitySampler(1.0),
 		},
 		{
 			name: "server span rewrite id",
@@ -475,7 +475,7 @@ func TestHandleTraceSpan(t *testing.T) {
 					HasRemoteParent: true,
 				},
 			},
-			sampler:     trace.ProbabilitySampler(1.0),
+			sampler: trace.ProbabilitySampler(1.0),
 		},
 	}
 
