@@ -149,8 +149,8 @@ func (p *Probe) pingVirtualListeners() error {
 		if err != nil {
 			return fmt.Errorf("listener on address %d is still not listening: %v", vport, err)
 		}
-		p.listenersBound = true
 	}
 
+	p.listenersBound = true
 	return nil
 }
