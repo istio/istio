@@ -427,11 +427,11 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 	}
 
 	if oldScrt != nil || newScrt != nil {
-		sf.updateSecretHelper(oldScrt, newScrt)
+		sf.updateSecretInCache(oldScrt, newScrt)
 		secretFetcherLog.Debugf("secret %s is updated as a server certificate", newScrt.ResourceName)
 	}
 	if oldCaScrt != nil || newCaScrt != nil {
-		sf.updateSecretHelper(oldCaScrt, newCaScrt)
+		sf.updateSecretInCache(oldCaScrt, newCaScrt)
 		if isCaOnlyNew {
 			secretFetcherLog.Debugf("secret %s is updated as a client CA cert (from a CA only secret)",
 				newCaScrt.ResourceName)
@@ -442,9 +442,9 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 	}
 }
 
-// updateSecretHelper updates secret in cache, and pushes to client when new certs
+// updateSecretInCache updates secret in cache, and pushes to client when new certs
 // are reloaded from secret.
-func (sf *SecretFetcher) updateSecretHelper(oldScrt, newScrt *model.SecretItem) {
+func (sf *SecretFetcher) updateSecretInCache(oldScrt, newScrt *model.SecretItem) {
 	if oldScrt != nil {
 		sf.secrets.Delete(oldScrt.ResourceName)
 	}
