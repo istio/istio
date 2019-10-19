@@ -94,6 +94,9 @@ type Options struct {
 
 	// Debug server port from which node_agent serves SDS configuration dumps
 	DebugPort int
+
+	// GrpcServer is an already configured (shared) grpc server. If set, the agent will just register on the server.
+	GrpcServer *grpc.Server
 }
 
 // Server is the gPRC server that exposes SDS through UDS.
@@ -213,6 +216,11 @@ func (s *sdsservice) debugHTTPHandler(w http.ResponseWriter, req *http.Request) 
 }
 
 func (s *Server) initWorkloadSdsService(options *Options) error { //nolint: unparam
+	if options.GrpcServer != nil {
+		s.grpcWorkloadServer = options.GrpcServer
+		s.workloadSds.register(s.grpcWorkloadServer)
+		return nil
+	}
 	s.grpcWorkloadServer = grpc.NewServer(s.grpcServerOptions(options)...)
 	s.workloadSds.register(s.grpcWorkloadServer)
 
