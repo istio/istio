@@ -35,6 +35,7 @@ func All() []analysis.Analyzer {
 		&gateway.IngressGatewayPortAnalyzer{},
 		&injection.Analyzer{},
 		&injection.VersionAnalyzer{},
+		&virtualservice.ConflictingMeshGatewayHostsAnalyzer{},
 		&virtualservice.DestinationHostAnalyzer{},
 		&virtualservice.DestinationRuleAnalyzer{},
 		&virtualservice.GatewayAnalyzer{},
