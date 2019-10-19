@@ -136,7 +136,7 @@ type Config struct {
 	CustomSidecarInjectorNamespace string
 }
 
-// Is mtls enabled. Check in Values flag and Values file.
+// IsMtlsEnabled checks in Values flag and Values file.
 func (c *Config) IsMtlsEnabled() bool {
 	if c.Values["global.mtls.enabled"] == "true" ||
 		c.Values["global.mtls.auto"] == "true" {
@@ -157,7 +157,7 @@ func (c *Config) IsMtlsEnabled() bool {
 		case map[interface{}]interface{}:
 			switch mtlsVal := globalVal["mtls"].(type) {
 			case map[interface{}]interface{}:
-				return mtlsVal["enabled"].(bool)
+				return mtlsVal["enabled"].(bool) || mtlsVal["auto"].(bool)
 			}
 		}
 	}
