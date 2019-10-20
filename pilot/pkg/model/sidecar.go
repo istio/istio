@@ -67,9 +67,6 @@ type SidecarScope struct {
 	HasCustomIngressListeners bool
 
 	// Union of services imported across all egress listeners for use by CDS code.
-	// Right now, we include all the ports in these services.
-	// TODO: Trim the ports in the services to only those referred to by the
-	// egress listeners.
 	services []*Service
 
 	// Destination rules imported across all egress listeners. This
@@ -212,7 +209,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 	// Now collect all the imported services across all egress listeners in
 	// this sidecar crd. This is needed to generate CDS output
 	out.services = make([]*Service, 0)
-	servicesAdded := make(map[string]struct{})
+	servicesAdded := make(map[string]bool)
 	dummyNode := Proxy{
 		ConfigNamespace: configNamespace,
 	}
@@ -221,11 +218,20 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 	out.namespaceDependencies = make(map[string]struct{})
 	for _, listener := range out.EgressListeners {
 		for _, s := range listener.services {
-			// TODO: port merging when each listener generates a partial service
 			if _, found := servicesAdded[string(s.Hostname)]; !found {
-				servicesAdded[string(s.Hostname)] = struct{}{}
+				servicesAdded[string(s.Hostname)] = true
 				out.services = append(out.services, s)
 				out.namespaceDependencies[s.Attributes.Namespace] = struct{}{}
+			} else {
+				// merge the ports to service when each listener generates partial service
+				if s.Ports != nil && len(s.Ports) > 0 {
+					for _, os := range out.services {
+						if os.Hostname == s.Hostname {
+							os.Ports = append(os.Ports, s.Ports...)
+							break
+						}
+					}
+				}
 			}
 		}
 	}
@@ -495,10 +501,10 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 					}
 					// If there is a port match, we should trim the service ports to the port specified by listener.
 					if portMatched {
-						sclone := s
+						sc := s.DeepCopy()
 						for _, port := range s.Ports {
 							if port.Port == int(ilw.IstioListener.Port.GetNumber()) {
-								sclone.Ports = []*Port{
+								sc.Ports = []*Port{
 									{
 										ilw.IstioListener.Port.GetName(),
 										int(ilw.IstioListener.Port.GetNumber()),
@@ -507,7 +513,7 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 								}
 							}
 						}
-						importedServices = append(importedServices, sclone)
+						importedServices = append(importedServices, &sc)
 						hostFound = true
 						break
 					}

@@ -46,12 +46,13 @@ var (
 
 	twoPorts = []*Port{
 		{
-			Name: "port1",
-			Port: 7000,
+			Name:     "uds",
+			Port:     8000,
+			Protocol: "HTTP",
 		},
 		{
 			Name:     "uds",
-			Port:     8000,
+			Port:     7000,
 			Protocol: "HTTP",
 		},
 	}
@@ -130,6 +131,33 @@ var (
 				{
 					Port: &networking.Port{
 						Number:   8000,
+						Protocol: "HTTP",
+						Name:     "uds",
+					},
+					Hosts: []string{"foo/*"},
+				},
+			},
+		},
+	}
+
+	configs6 = &Config{
+		ConfigMeta: ConfigMeta{
+			Name:      "foo",
+			Namespace: "not-default",
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Number:   8000,
+						Protocol: "HTTP",
+						Name:     "uds",
+					},
+					Hosts: []string{"foo/*"},
+				},
+				{
+					Port: &networking.Port{
+						Number:   7000,
 						Protocol: "HTTP",
 						Name:     "uds",
 					},
@@ -323,6 +351,17 @@ func TestCreateSidecarScope(t *testing.T) {
 				{
 					Hostname: "bar",
 					Ports:    port8000,
+				},
+			},
+		},
+		{
+			"sidecar-with-egress-port-merges-service-ports",
+			configs6,
+			services6,
+			[]*Service{
+				{
+					Hostname: "bar",
+					Ports:    twoPorts,
 				},
 			},
 		},
