@@ -135,8 +135,8 @@ func newWorkload(e *native.Environment, cfg echo.Config, dumpDir string) (out *w
 			fmt.Sprintf("%s:%s", pilotHost, ip.String()),
 		}
 
-		agentArgs := fmt.Sprintf("--proxyLogLevel debug --statusPort %d --domain %s --trust-domain %s --applicationPorts %s",
-			agentStatusPort, e.Domain, e.Domain, applicationPorts)
+		agentArgs := fmt.Sprintf("--proxyLogLevel debug --ip %s --statusPort %d --domain %s --trust-domain %s --applicationPorts %s",
+			localhost, agentStatusPort, e.Domain, e.Domain, applicationPorts)
 
 		metaJSONLabels := fmt.Sprintf("{\"app\":\"%s\"}", cfg.Service)
 		interceptionMode := "REDIRECT"

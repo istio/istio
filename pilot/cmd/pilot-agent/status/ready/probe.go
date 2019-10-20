@@ -131,7 +131,7 @@ func (p *Probe) isEnvoyReady() error {
 
 // pingVirtualListeners checks to ensure that Envoy is actually listenening on the port.
 func (p *Probe) pingVirtualListeners() error {
-	if !p.listenersBound {
+	if p.listenersBound {
 		return nil
 	}
 
