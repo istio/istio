@@ -25,7 +25,6 @@ package model
 import (
 	"bytes"
 	"fmt"
-	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -87,7 +86,7 @@ type Service struct {
 	Resolution Resolution
 
 	// Protect concurrent ClusterVIPs read/write
-	mutex sync.RWMutex
+	Mutex sync.RWMutex
 
 	// MeshExternal (if true) indicates that the service is external to the mesh.
 	// These services are defined using Istio's ServiceEntry spec.
@@ -648,8 +647,8 @@ func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, ho
 
 // GetServiceAddressForProxy returns a Service's IP address specific to the cluster where the node resides
 func (s *Service) GetServiceAddressForProxy(node *Proxy) string {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+	s.Mutex.RLock()
+	defer s.Mutex.RUnlock()
 	if node.ClusterID != "" && s.ClusterVIPs[node.ClusterID] != "" {
 		return s.ClusterVIPs[node.ClusterID]
 	}
@@ -657,9 +656,7 @@ func (s *Service) GetServiceAddressForProxy(node *Proxy) string {
 }
 
 func (s Service) DeepCopy() Service {
-	copiers := make(map[reflect.Type]copystructure.CopierFunc)
-	copiers[reflect.TypeOf(sync.RWMutex{})] = noopCopier
-	copied, err := copystructure.Config{Copiers: copiers}.Copy(s)
+	copied, err := copystructure.Copy(s)
 	if err != nil {
 		// There are 2 locations where errors are generated in copystructure.Copy:
 		//  * The reflection walk over the structure fails, which should never happen
@@ -668,9 +665,4 @@ func (s Service) DeepCopy() Service {
 		panic(err)
 	}
 	return copied.(Service)
-}
-
-func noopCopier(v interface{}) (interface{}, error) {
-	// Ignore - do not copy.
-	return nil, nil
 }

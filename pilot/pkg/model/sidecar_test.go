@@ -57,6 +57,23 @@ var (
 		},
 	}
 
+	allPorts = []*Port{
+		{
+			Name:     "uds",
+			Port:     8000,
+			Protocol: "HTTP",
+		},
+		{
+			Name:     "uds",
+			Port:     7000,
+			Protocol: "HTTP",
+		},
+		{
+			Name: "port1",
+			Port: 9000,
+		},
+	}
+
 	configs1 = &Config{
 		ConfigMeta: ConfigMeta{
 			Name:      "foo",
@@ -220,6 +237,33 @@ var (
 			},
 		},
 	}
+
+	services7 = []*Service{
+		{
+			Hostname: "bar",
+			Ports:    twoPorts,
+			Attributes: ServiceAttributes{
+				Name:      "bar",
+				Namespace: "foo",
+			},
+		},
+		{
+			Hostname: "barprime",
+			Ports:    port8000,
+			Attributes: ServiceAttributes{
+				Name:      "barprime",
+				Namespace: "foo",
+			},
+		},
+		{
+			Hostname: "foo",
+			Ports:    allPorts,
+			Attributes: ServiceAttributes{
+				Name:      "foo",
+				Namespace: "foo",
+			},
+		},
+	}
 )
 
 func TestCreateSidecarScope(t *testing.T) {
@@ -361,6 +405,25 @@ func TestCreateSidecarScope(t *testing.T) {
 			[]*Service{
 				{
 					Hostname: "bar",
+					Ports:    twoPorts,
+				},
+			},
+		},
+		{
+			"sidecar-with-egress-port-trims-and-merges-service-ports",
+			configs6,
+			services7,
+			[]*Service{
+				{
+					Hostname: "bar",
+					Ports:    twoPorts,
+				},
+				{
+					Hostname: "barprime",
+					Ports:    port8000,
+				},
+				{
+					Hostname: "foo",
 					Ports:    twoPorts,
 				},
 			},
