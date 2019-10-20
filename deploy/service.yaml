@@ -12,3 +12,4 @@ spec:
     targetPort: 8383
   selector:
     name: istio-operator
+---
