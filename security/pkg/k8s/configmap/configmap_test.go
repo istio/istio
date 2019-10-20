@@ -175,7 +175,7 @@ func TestInsertCATLSRootCertWithRetry(t *testing.T) {
 			},
 			expectedErr: "",
 		},
-		"ConfigMap creation failure": {
+		"ConfigMap creation failure until timeout": {
 			existingConfigMap: nil,
 			certToAdd:         "ABCD",
 			expectedActions: []ktesting.Action{

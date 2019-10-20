@@ -24,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/k8s/configmap"
@@ -31,7 +32,6 @@ import (
 	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
 	certutil "istio.io/istio/security/pkg/util"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -85,7 +85,7 @@ type IstioCAOptions struct {
 }
 
 // NewSelfSignedIstioCAOptions returns a new IstioCAOptions instance using self-signed certificate.
-func NewSelfSignedIstioCAOptions(ctx context.Context, readSigningCertOnly bool,
+func NewSelfSignedIstioCAOptions(ctx context.Context,
 	rootCertGracePeriodPercentile int, caCertTTL, rootCertCheckInverval, certTTL,
 	maxCertTTL time.Duration, org string, dualUse bool, namespace string,
 	readCertRetryInterval time.Duration, client corev1.CoreV1Interface,
@@ -116,16 +116,15 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, readSigningCertOnly bool,
 		CertTTL:    certTTL,
 		MaxCertTTL: maxCertTTL,
 		RotatorConfig: &SelfSignedCARootCertRotatorConfig{
-			CheckInterval:       rootCertCheckInverval,
-			caCertTTL:           caCertTTL,
-			retryInterval:       cmd.ReadSigningCertRetryInterval,
-			certInspector:       certutil.NewCertUtil(rootCertGracePeriodPercentile),
-			caStorageNamespace:  namespace,
-			dualUse:             dualUse,
-			readSigningCertOnly: readSigningCertOnly,
-			org:                 org,
-			enableJitter:        enableJitter,
-			client:              client,
+			CheckInterval:      rootCertCheckInverval,
+			caCertTTL:          caCertTTL,
+			retryInterval:      cmd.ReadSigningCertRetryInterval,
+			certInspector:      certutil.NewCertUtil(rootCertGracePeriodPercentile),
+			caStorageNamespace: namespace,
+			dualUse:            dualUse,
+			org:                org,
+			enableJitter:       enableJitter,
+			client:             client,
 		},
 	}
 	if scrtErr != nil {
