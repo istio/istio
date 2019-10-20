@@ -264,7 +264,7 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 const VersionLen = 12
 
 func (s *DiscoveryServer) getResourceVersion(configVersion, key string, cache map[string]string) string {
-	result, ok := cache[key]
+	result, ok := cache[configVersion]
 	if !ok {
 		result, err := s.Env.IstioConfigStore.GetResourceAtVersion(configVersion[:VersionLen], key)
 		if err != nil {
@@ -273,7 +273,7 @@ func (s *DiscoveryServer) getResourceVersion(configVersion, key string, cache ma
 		}
 		// update the cache even on an error, because errors will not resolve themselves, and we don't want to
 		// repeat the same error for many adsClients.
-		cache[key] = result
+		cache[configVersion] = result
 	}
 	return result
 }
