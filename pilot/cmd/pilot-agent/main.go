@@ -424,12 +424,16 @@ var (
 				}
 				prober := kubeAppProberNameVar.Get()
 				var proxyAddr string
-				if len(proxyIP) != 0 {
-					proxyAddr = proxyIP
-				} else if podIP != nil {
-					proxyAddr = podIP.String()
-				} else {
+				if registry == serviceregistry.MockRegistry || registry == serviceregistry.MCPRegistry {
 					proxyAddr = localHostAddr
+				} else {
+					if len(proxyIP) != 0 {
+						proxyAddr = proxyIP
+					} else if podIP != nil {
+						proxyAddr = podIP.String()
+					} else {
+						proxyAddr = localHostAddr
+					}
 				}
 				statusServer, err := status.NewServer(status.Config{
 					LocalHostAddr:      localHostAddr,
