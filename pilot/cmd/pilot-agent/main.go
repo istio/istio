@@ -430,8 +430,6 @@ var (
 					proxyAddr = proxyIP
 				} else if podIP != nil {
 					proxyAddr = podIP.String()
-				} else {
-					proxyAddr = localHostAddr
 				}
 
 				statusServer, err := status.NewServer(status.Config{
