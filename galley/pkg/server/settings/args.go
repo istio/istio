@@ -118,6 +118,10 @@ type Args struct { // nolint:maligned
 	// DEPRECATED
 	DisableResourceReadyCheck bool
 
+	// WatchConfigFiles if set to true, enables Fsnotify watcher for watching and signaling config file changes.
+	// Default is false
+	WatchConfigFiles bool
+
 	// keep-alive options for the MCP gRPC Server.
 	KeepAlive *keepalive.Options
 
@@ -159,6 +163,7 @@ func DefaultArgs() *Args {
 		EnableProfiling:             false,
 		PprofPort:                   9094,
 		UseOldProcessor:             false,
+		WatchConfigFiles:            false,
 		EnableConfigAnalysis:        false,
 		Liveness: probe.Options{
 			Path:           defaultLivenessProbeFilePath,

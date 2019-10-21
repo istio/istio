@@ -19,28 +19,35 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
+
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pkg/config/schemas"
 
 	"istio.io/istio/pilot/pkg/model"
 
-	"golang.org/x/sync/errgroup"
-
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/istioctl/pkg/kubernetes"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	configschema "istio.io/istio/pkg/config/schema"
 )
 
 var (
-	forFlag         string
-	typ, nameflag   string
-	threshold       float32
-	timeout         time.Duration
-	resourceVersion string
+	forFlag              string
+	nameflag             string
+	threshold            float32
+	timeout              time.Duration
+	resourceVersion      string
+	verbose              bool
+	targetSchemaInstance configschema.Instance
+	clientGetter         func(string, string) (dynamic.Interface, error)
 )
 
 const pollInterval = time.Second
@@ -52,34 +59,44 @@ func waitCmd() *cobra.Command {
 		Short: "Wait for an Istio resource",
 		Long: `Waits for the specified condition to be true of an Istio resource.  For example:
 
-istioctl experimental wait --for-distribution virtual-service/default/bookinfo
+istioctl experimental wait --for=distribution virtual-service bookinfo.default
 
 will block until the bookinfo virtual service has been distributed to all proxies in the mesh.
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			printVerbosef(cmd, "kubeconfig %s", kubeconfig)
+			printVerbosef(cmd, "ctx %s", configContext)
 			if forFlag == "delete" {
 				return errors.New("wait for delete is not yet implemented")
 			} else if forFlag != "distribution" {
 				return fmt.Errorf("--for must be 'delete' or 'distribution', got: %s", forFlag)
 			}
-			var versionChan chan string
-			g := &errgroup.Group{}
+			var w *watcher
 			ctx, cancel := context.WithTimeout(context.Background(), timeout)
 			defer cancel()
-			targetResource := model.Key(typ, nameflag, namespace)
 			if resourceVersion == "" {
-				versionChan, g = getAndWatchResource(ctx, targetResource) // setup version getter from kubernetes
+				w = getAndWatchResource(ctx) // setup version getter from kubernetes
 			} else {
-				versionChan = make(chan string, 1)
-				versionChan <- resourceVersion
+				w = withContext(ctx)
+				w.Go(func(result chan string) error {
+					result <- resourceVersion
+					return nil
+				})
 			}
 			// wait for all deployed versions to be contained in resourceVersions
 			t := time.NewTicker(pollInterval)
-			resourceVersions := []string{<-versionChan}
+			printVerbosef(cmd, "getting first version from chan")
+			firstVersion, err := w.BlockingRead()
+			if err != nil {
+				return fmt.Errorf("unable to retrieve kubernetes resource %s: %v", "", err)
+			}
+			resourceVersions := []string{firstVersion}
+			targetResource := model.Key(targetSchemaInstance.Type, nameflag, namespace)
 			for {
 				//run the check here as soon as we start
 				// because tickers wont' run immediately
 				present, notpresent, err := poll(resourceVersions, targetResource)
+				printVerbosef(cmd, "Received poll result: %d/%d", present, present+notpresent)
 				if err != nil {
 					return err
 				} else if float32(present)/float32(present+notpresent) >= threshold {
@@ -88,16 +105,18 @@ will block until the bookinfo virtual service has been distributed to all proxie
 					return nil
 				}
 				select {
-				case newVersion := <-versionChan:
+				case newVersion := <-w.resultsChan:
+					printVerbosef(cmd, "received new target version: %s", newVersion)
 					resourceVersions = append(resourceVersions, newVersion)
 				case <-t.C:
+					printVerbosef(cmd, "tick")
 					continue
+				case err = <-w.errorChan:
+					return fmt.Errorf("unable to retrieve kubernetes resource %s: %v", "", err)
 				case <-ctx.Done():
+					printVerbosef(cmd, "timeout")
 					// I think this means the timeout has happened:
 					t.Stop()
-					if err := g.Wait(); err != nil {
-						return err
-					}
 					return fmt.Errorf("timeout expired before resource %s became effective on all sidecars",
 						targetResource)
 				}
@@ -107,33 +126,38 @@ will block until the bookinfo virtual service has been distributed to all proxie
 			if err := cobra.ExactArgs(2)(cmd, args); err != nil {
 				return err
 			}
-			typ = args[0]
 			nameflag, namespace = handlers.InferPodInfo(args[1], handlers.HandleNamespace(namespace, defaultNamespace))
-			return validateType(&typ)
+			return validateType(args[0])
 		},
 	}
 	cmd.PersistentFlags().StringVar(&forFlag, "for", "distribution",
 		"wait condition, must be 'distribution' or 'delete'")
 	cmd.PersistentFlags().DurationVar(&timeout, "timeout", time.Second*30,
-		"the duration to wait before failing (default 30s)")
+		"the duration to wait before failing")
 	cmd.PersistentFlags().Float32Var(&threshold, "threshold", 1,
-		"the ratio of distribution required for success (default 1.0)")
+		"the ratio of distribution required for success")
 	cmd.PersistentFlags().StringVar(&resourceVersion, "resource-version", "",
 		"wait for a specific version of config to become current, rather than using whatever is latest in "+
 			"kubernetes")
+	cmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enables verbose output")
+	_ = cmd.PersistentFlags().MarkHidden("verbose")
 	return cmd
 }
 
-func validateType(typ *string) error {
+func printVerbosef(cmd *cobra.Command, template string, args ...interface{}) {
+	if verbose {
+		fmt.Fprintf(cmd.OutOrStdout(), template+"\n", args...)
+	}
+}
+
+func validateType(typ string) error {
 	for _, instance := range schemas.Istio {
-		if *typ == instance.VariableName {
-			*typ = instance.Type
-		}
-		if *typ == instance.Type {
+		if typ == instance.VariableName || typ == instance.Type {
+			targetSchemaInstance = instance
 			return nil
 		}
 	}
-	return fmt.Errorf("type %s is not recognized", *typ)
+	return fmt.Errorf("type %s is not recognized", typ)
 }
 
 func countVersions(versionCount map[string]int, configVersion string) {
@@ -179,46 +203,64 @@ func poll(acceptedVersions []string, targetResource string) (present, notpresent
 	return present, notpresent, nil
 }
 
+func init() {
+	clientGetter = func(kubeconfig, context string) (dynamic.Interface, error) {
+		baseClient, err := kubernetes.NewClient(kubeconfig, context)
+		if err != nil {
+			return nil, err
+		}
+		cfg := dynamic.ConfigFor(baseClient.Config)
+		dclient, err := dynamic.NewForConfig(cfg)
+		if err != nil {
+			return nil, err
+		}
+		return dclient, nil
+	}
+
+}
+
 // getAndWatchResource ensures that ResourceVersions always contains
 // the current resourceVersion of the targetResource, adding new versions
 // as they are created.
-func getAndWatchResource(ictx context.Context, targetResource string) (chan string, *errgroup.Group) {
-	result := make(chan string, 1)
-	g, ctx := errgroup.WithContext(ictx)
-	g.Go(func() error {
+func getAndWatchResource(ictx context.Context) *watcher {
+	g := withContext(ictx)
+	g.Go(func(result chan string) error {
 		// retrieve resource version from Kubernetes
-		client, err := kubernetes.NewClient(kubeconfig, configContext)
+		dclient, err := clientGetter(kubeconfig, configContext)
 		if err != nil {
 			return err
 		}
-		req := client.Get().AbsPath(targetResource)
-		res := req.Do()
-		if res.Error() != nil {
-			return res.Error()
+		collectionParts := strings.Split(targetSchemaInstance.Collection, "/")
+		group := targetSchemaInstance.Group + ".istio.io"
+		version := targetSchemaInstance.Version
+		resource := collectionParts[3]
+		r := dclient.Resource(schema.GroupVersionResource{Group: group, Version: version, Resource: resource}).Namespace(namespace)
+		obj, err := r.Get(nameflag, metav1.GetOptions{})
+		if err != nil {
+			return err
 		}
-		obj, err := res.Get()
+		localResourceVersion := obj.GetResourceVersion()
+		result <- localResourceVersion
+		watch, err := r.Watch(metav1.ListOptions{ResourceVersion: localResourceVersion})
 		if err != nil {
 			return err
 		}
 		metaAccessor := meta.NewAccessor()
-		resourceVersion, err = metaAccessor.ResourceVersion(obj)
-		if err != nil {
-			return err
-		}
-		result <- resourceVersion
-		watch, err := req.Watch()
-		if err != nil {
-			return err
-		}
 		for w := range watch.ResultChan() {
-			newVersion, err := metaAccessor.ResourceVersion(w.Object)
+			watchname, err := metaAccessor.Name(w.Object)
 			if err != nil {
 				return err
 			}
-			result <- newVersion
+			if watchname == nameflag {
+				newVersion, err := metaAccessor.ResourceVersion(w.Object)
+				if err != nil {
+					return err
+				}
+				result <- newVersion
+			}
 			select {
-			case <-ctx.Done():
-				return ctx.Err()
+			case <-ictx.Done():
+				return ictx.Err()
 			default:
 				continue
 			}
@@ -226,5 +268,38 @@ func getAndWatchResource(ictx context.Context, targetResource string) (chan stri
 
 		return nil
 	})
-	return result, g
+	return g
+}
+
+type watcher struct {
+	resultsChan chan string
+	errorChan   chan error
+	ctx         context.Context
+}
+
+func withContext(ctx context.Context) *watcher {
+	return &watcher{
+		resultsChan: make(chan string, 1),
+		errorChan:   make(chan error, 1),
+		ctx:         ctx,
+	}
+}
+
+func (w *watcher) Go(f func(chan string) error) {
+	go func() {
+		if err := f(w.resultsChan); err != nil {
+			w.errorChan <- err
+		}
+	}()
+}
+
+func (w *watcher) BlockingRead() (string, error) {
+	select {
+	case err := <-w.errorChan:
+		return "", err
+	case res := <-w.resultsChan:
+		return res, nil
+	case <-w.ctx.Done():
+		return "", w.ctx.Err()
+	}
 }

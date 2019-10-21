@@ -14,16 +14,11 @@
 
 package istioio
 
-import (
-	"io"
+var _ Step = Func(nil)
 
-	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
-)
+// Func is a Step that runs the provided function.
+type Func func(Context)
 
-// Context for the currently executing test.
-type Context struct {
-	framework.TestContext
-	Env          *kube.Environment
-	SnippetsFile io.Writer
+func (f Func) run(ctx Context) {
+	f(ctx)
 }

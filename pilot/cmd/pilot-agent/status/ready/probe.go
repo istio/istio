@@ -16,12 +16,18 @@ package ready
 
 import (
 	"fmt"
+	"os"
 
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status/util"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/constants"
+)
+
+var (
+	keyCertPath = constants.DefaultKey
 )
 
 // Probe for readiness.
@@ -31,6 +37,9 @@ type Probe struct {
 	NodeType            model.NodeType
 	AdminPort           uint16
 	receivedFirstUpdate bool
+	// CheckKeyCertExistence indicates whether the prober assumes the Kubernetes secret mount style
+	// key cert delivery in order to mark sidecar ready.
+	CheckKeyCertExistence bool
 }
 
 // Check executes the probe and returns an error if the probe fails.
@@ -48,7 +57,20 @@ func (p *Probe) Check() error {
 		}
 	}
 
+	// Check key cert on file system as `/etc/cert/key.pem`
+	if p.CheckKeyCertExistence {
+		if err := p.checkKeyCertExists(); err != nil {
+			return err
+		}
+	}
 	return p.checkServerInfo()
+}
+
+func (p *Probe) checkKeyCertExists() error {
+	if _, err := os.Stat(keyCertPath); err != nil {
+		return fmt.Errorf("Istio Kubernetes secret based key/cert does not exist %v", err)
+	}
+	return nil
 }
 
 // checkApplicationPorts verifies that Envoy has received configuration for all ports exposed by the application container.

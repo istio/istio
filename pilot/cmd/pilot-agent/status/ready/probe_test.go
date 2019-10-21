@@ -15,9 +15,11 @@
 package ready
 
 import (
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
@@ -61,6 +63,38 @@ func TestEnvoyStatsCompleteAndSuccessful(t *testing.T) {
 	probe := Probe{AdminPort: 1234}
 
 	err := probe.Check()
+
+	g.Expect(err).NotTo(HaveOccurred())
+}
+
+func TestProbeFailsWhenNoKeyFileExists(t *testing.T) {
+	g := NewGomegaWithT(t)
+	stats := goodStats
+
+	server := createAndStartServer(stats, liveServerInfo)
+	defer server.Close()
+	probe := Probe{AdminPort: 1234, CheckKeyCertExistence: true}
+
+	err := probe.Check()
+
+	g.Expect(err).To(HaveOccurred())
+	g.Expect(err.Error()).To(HavePrefix("Istio Kubernetes secret"))
+}
+
+func TestProbeSucceedWhenKeyFileExists(t *testing.T) {
+	g := NewGomegaWithT(t)
+	stats := goodStats
+
+	server := createAndStartServer(stats, liveServerInfo)
+	defer server.Close()
+	probe := Probe{AdminPort: 1234, CheckKeyCertExistence: true}
+	kf, err := ioutil.TempFile("", "key-for-test")
+	if err != nil {
+		t.Errorf("failed to create temp file for testing %v", err)
+	}
+	defer os.Remove(kf.Name())
+	keyCertPath = kf.Name()
+	err = probe.Check()
 
 	g.Expect(err).NotTo(HaveOccurred())
 }
