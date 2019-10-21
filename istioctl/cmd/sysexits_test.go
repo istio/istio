@@ -23,8 +23,8 @@ var KnownSubstrings = []string{"unknown command"}
 
 func TestKnownExitStrings(t *testing.T) {
 	for _, s := range KnownSubstrings {
-		if GetExitCode(errors.New(s)) == 1 {
-			t.Errorf("Expected %q to have a non-1 exit code.", s)
+		if GetExitCode(errors.New(s)) == ExitUnknownError {
+			t.Errorf("Expected %q to have a known exit code.", s)
 		}
 	}
 }

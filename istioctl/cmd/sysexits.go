@@ -20,8 +20,8 @@ import "strings"
 // See e.g. https://man.openbsd.org/sysexits.3
 // or `less /usr/includes/sysexits.h` if you're on Linux
 const (
-	EXIT_UNKNOWN_ERROR   = 1 // for compatibility with existing exit code
-	EXIT_INCORRECT_USAGE = 64
+	ExitUnknownError   = 1 // for compatibility with existing exit code
+	ExitIncorrectUsage = 64
 )
 
 func GetExitCode(e error) int {
@@ -31,8 +31,8 @@ func GetExitCode(e error) int {
 
 	switch e.(type) {
 	case CommandParseError:
-		return EXIT_INCORRECT_USAGE
+		return ExitIncorrectUsage
 	default:
-		return EXIT_UNKNOWN_ERROR
+		return ExitUnknownError
 	}
 }
