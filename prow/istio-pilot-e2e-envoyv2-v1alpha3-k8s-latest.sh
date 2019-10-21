@@ -27,8 +27,6 @@ set -u
 # Print commands
 set -x
 
-export RESOURCE_TYPE="gke-e2e-test-latest"
-
 # Run tests with auth disabled
 #echo 'Running pilot e2e tests (v1alpha3, noauth)'
 ./prow/e2e-suite.sh --single_test e2e_pilotv2_v1alpha3
