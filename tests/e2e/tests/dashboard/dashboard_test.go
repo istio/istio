@@ -504,14 +504,8 @@ func (t *testConfig) Setup() (err error) {
 	if errGw != nil {
 		return errGw
 	}
-	// TODO(incfly): figure out why route delivery is now slower.
-	// Without this, fortio app always get 503 NR failure from ingress gateway when accesssing
-	// apps within the mesh.
-	for i := 0; i < 3; i++ {
-		if _, err := sendTrafficToCluster(gateway); err != nil {
-			return fmt.Errorf("generating HTTP traffic failed: %v", err)
-		}
-		time.Sleep(5 * time.Second)
+	if _, err := sendTrafficToCluster(gateway); err != nil {
+		return fmt.Errorf("generating HTTP traffic failed: %v", err)
 	}
 
 	if err := generateTCPInCluster(); err != nil {
