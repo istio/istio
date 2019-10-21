@@ -33,7 +33,7 @@
 /tests/integration/pilot/                                        @istio/wg-networking-maintainers
 /tests/integration/qualification/                                @istio/wg-test-and-release-maintainers
 /tests/integration/security/                                     @istio/wg-security-maintainers
-/tests/istio.io/                                                 @istio/wg-docs-maintainers
+/tests/integration/istioio/                                      @istio/wg-docs-maintainers
 /tools/                                                          @istio/wg-test-and-release-maintainers
 /tools/istio-iptables/                                           @istio/wg-networking-maintainers
 /tools/istio-clean-iptables/                                     @istio/wg-networking-maintainers
