@@ -328,9 +328,8 @@ dump_resources() {
 dump_istio_status() {
   istioctl version > "${OUT_DIR}/istioctl-version.txt"
   istioctl proxy-status > "${OUT_DIR}/istioctl-proxy-status.txt"
-  kubectl get configmap -n istio-system > "${OUT_DIR}/istio-system-configmap.txt"
-  kubectl get configmap -n istio-system > "${OUT_DIR}/istio-system-configmap.txt"
-  kubectl get configmap istio -n istio-system && kubectl get configmap istio-sidecar-injector -n istio-system > "${OUT_DIR}/istio-system-configmaps.txt"
+  kubectl get configmap -n istio-system -oyaml > "${OUT_DIR}/mesh-config.txt"
+  kubectl get configmap istio-sidecar-injector -n istio-system -oyaml > "${OUT_DIR}/sidecar-injection-template.txt"
 }
 
 dump_control_plane() {
