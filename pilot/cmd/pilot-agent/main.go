@@ -99,12 +99,13 @@ var (
 
 	wg sync.WaitGroup
 
-	instanceIPVar             = env.RegisterStringVar("INSTANCE_IP", "", "")
-	podNameVar                = env.RegisterStringVar("POD_NAME", "", "")
-	podNamespaceVar           = env.RegisterStringVar("POD_NAMESPACE", "", "")
-	istioNamespaceVar         = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
-	kubeAppProberNameVar      = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
-	sdsEnabledVar             = env.RegisterBoolVar("SDS_ENABLED", false, "")
+	instanceIPVar        = env.RegisterStringVar("INSTANCE_IP", "", "")
+	podNameVar           = env.RegisterStringVar("POD_NAME", "", "")
+	podNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "")
+	istioNamespaceVar    = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
+	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
+	sdsEnabledVar        = env.RegisterBoolVar("SDS_ENABLED", false, "")
+	// Indicates whether virtual listeners should be pinged during readiness check. Defaults to true. In docker tests, will be set to false.
 	pingVirtualListenersVar   = env.RegisterBoolVar("PING_VIRTUAL_LISTENERS", true, "")
 	sdsUdsPathVar             = env.RegisterStringVar("SDS_UDS_PATH", "unix:/var/run/sds/uds_path", "SDS address")
 	stackdriverTracingEnabled = env.RegisterBoolVar("STACKDRIVER_TRACING_ENABLED", false, "If enabled, stackdriver will"+
