@@ -14,6 +14,14 @@ data:
       pilot: {{ .Values.global.configNamespace }}
       prometheus: {{ .Values.global.prometheusNamespace }}
     istio_namespace: {{ .Values.global.istioNamespace }}
+    auth:
+      strategy: {{ .Values.kiali.dashboard.auth.strategy }}
+{{- if eq .Values.kiali.dashboard.auth.strategy "ldap" }}
+      ldap:
+{{- with .Values.kiali.dashboard.auth.strategy.ldap }}
+{{ toYaml . | indent 8 }}
+{{- end }}
+{{- end }}
     server:
       port: 20001
 {{- if .Values.kiali.contextPath }}
