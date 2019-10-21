@@ -425,18 +425,14 @@ var (
 					localHostAddr = "[::1]"
 				}
 				prober := kubeAppProberNameVar.Get()
-				cfg := status.Config{
+				statusServer, err := status.NewServer(status.Config{
 					LocalHostAddr:      localHostAddr,
 					AdminPort:          proxyAdminPort,
 					StatusPort:         statusPort,
 					ApplicationPorts:   parsedPorts,
 					KubeAppHTTPProbers: prober,
 					NodeType:           role.Type,
-				}
-				if sdsUDSPath != "" {
-					cfg.CheckKeyCertFile = false
-				}
-				statusServer, err := status.NewServer(cfg)
+				})
 				if err != nil {
 					cancel()
 					return err
