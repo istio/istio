@@ -87,11 +87,10 @@ func NewServer(config Config) (*Server, error) {
 	s := &Server{
 		statusPort: config.StatusPort,
 		ready: &ready.Probe{
-			LocalHostAddr:           config.LocalHostAddr,
-			AdminPort:               config.AdminPort,
-			ApplicationPorts:        config.ApplicationPorts,
-			NodeType:                config.NodeType,
-			CheckSecretMountKeyFile: config.CheckKeyCertFile,
+			LocalHostAddr:    config.LocalHostAddr,
+			AdminPort:        config.AdminPort,
+			ApplicationPorts: config.ApplicationPorts,
+			NodeType:         config.NodeType,
 		},
 	}
 	if config.KubeAppHTTPProbers == "" {

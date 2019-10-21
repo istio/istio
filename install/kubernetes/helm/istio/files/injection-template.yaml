@@ -184,10 +184,8 @@ containers:
     valueFrom:
       fieldRef:
         fieldPath: spec.serviceAccountName
-{{- if (not .Values.security.enabled) }}
-  - name: SIDECAR_PROBE_CHECK_SECRET_MOUNT_KEY
-    value: "false"
-{{- end }}
+  - name: ISTIO_AUTO_MTLS_ENABLED
+    value: "{{ .Values.global.mtls.auto }}"
 {{- if eq .Values.global.proxy.tracer "datadog" }}
   - name: HOST_IP
     valueFrom:

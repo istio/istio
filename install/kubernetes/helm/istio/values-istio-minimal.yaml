@@ -42,8 +42,3 @@ global:
       port: # example: 9125
   
   useMCP: false
-
-  security:
-    enabled: false
-
-
