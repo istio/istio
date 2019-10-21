@@ -47,6 +47,7 @@ func (p *Probe) Check() error {
 			return err
 		}
 	}
+
 	return p.checkServerInfo()
 }
 
