@@ -222,14 +222,12 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 				servicesAdded[string(s.Hostname)] = true
 				out.services = append(out.services, s)
 				out.namespaceDependencies[s.Attributes.Namespace] = struct{}{}
-			} else {
+			} else if s.Ports != nil && len(s.Ports) > 0 {
 				// merge the ports to service when each listener generates partial service
-				if s.Ports != nil && len(s.Ports) > 0 {
-					for _, os := range out.services {
-						if os.Hostname == s.Hostname {
-							os.Ports = append(os.Ports, s.Ports...)
-							break
-						}
+				for _, os := range out.services {
+					if os.Hostname == s.Hostname {
+						os.Ports = append(os.Ports, s.Ports...)
+						break
 					}
 				}
 			}
