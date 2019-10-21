@@ -233,9 +233,11 @@ spec:
           - name: SERVICE_ACCOUNT
             valueFrom:
               fieldRef:
-                fieldPath: spec.serviceAccountName                
+                fieldPath: spec.serviceAccountName  
+          {{- if $.Values.global.mtls.auto }}
           - name: ISTIO_AUTO_MTLS_ENABLED
-            value: "{{ $.Values.global.mtls.auto }}"
+            value: true
+          {{- end }}
           - name: ISTIO_META_POD_NAME
             valueFrom:
               fieldRef:
