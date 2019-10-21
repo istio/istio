@@ -1759,7 +1759,7 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, env *model.Env
 			Name: AlpnFilterName,
 			ConfigType: &http_conn.HttpFilter_TypedConfig{
 				TypedConfig: util.MessageToAny(&alpn_filter.FilterConfig{
-					AlpnOverride: mtlsHTTPALPNs,
+					AlpnOverride: append(mtlsHTTPALPNs, mtlsTCPALPNs...),
 				}),
 			},
 		})
