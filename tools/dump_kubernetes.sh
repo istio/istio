@@ -125,7 +125,7 @@ parse_args() {
   readonly ISTIO_RESOURCES_FILE="${OUT_DIR}/istio-resources.yaml"
   readonly MAX_LOG_BYTES="${max_bytes}"
   readonly CONTROL_PLANE="${control_plane:-false}"
-  readonly ONLY_CLUSTER="${cluster:-false}"
+  readonly CLUSTER="${cluster:-false}"
 }
 
 check_prerequisites() {
@@ -278,13 +278,13 @@ dump_kubernetes_resources() {
   mkdir -p "${OUT_DIR}"
   # Only works in Kubernetes 1.8.0 and above.
   if [ -z "${namespaces}" ]; then
-    kubectl get --all-namespaces --export \
+    kubectl get --all-namespaces \
         all,jobs,ingresses,endpoints,customresourcedefinitions,configmaps,secrets,events \
         -o yaml > "${RESOURCES_FILE}"
   else
     for namespace in ${namespaces}; do
       NAMESPACE_RESOURCES_FILE="${RESOURCES_FILE//resources.yaml/$namespace}-namespace-resources.yaml"
-      kubectl get -n "${namespace}" --export \
+      kubectl get -n "${namespace}" \
           all,jobs,ingresses,endpoints,customresourcedefinitions,configmaps,secrets,events \
           -o yaml > "${NAMESPACE_RESOURCES_FILE}"
     done
@@ -340,7 +340,8 @@ dump_control_plane() {
   local describe_dir="${OUT_DIR}/describe"
   mkdir -p "${describe_dir}"
   kubectl -n "${ns}" get pods -o yaml > "${OUT_DIR}/${ns}-pods.yaml"
-  api_resources=$(kubectl api-resources -n "${ns}" -o name)
+  # api_resources=$(kubectl api-resources -n "${ns}" -o name)
+  api_resources="deployment services configmaps"
   for api_resource in ${api_resources}; do
     kubectl describe "${api_resource}" -n "${ns}" > "${describe_dir}/${ns}-${api_resource}.txt"
     if [ ! -s "${describe_dir}/${ns}-${api_resource}.txt" ]; then
@@ -388,7 +389,10 @@ dump_pilot() {
 }
 
 dump_proxy() {
-  proxy_pod=$(kubectl get po -n istio-system -l "${proxy_label}" \
+  if [ -z "${namespaces}" ]; then
+    namespaces="istio-system"
+  fi
+  proxy_pod=$(kubectl get po -n ${namespaces} -l "${proxy_label}" \
 	  -o=jsonpath="{.items[*].metadata.name}")
 
   local proxy_dir="${OUT_DIR}/proxy/${proxy_label}"
@@ -400,7 +404,7 @@ dump_proxy() {
   dump_url "${proxy_pod}" "${lurl}" "certs" "${proxy_dir}"
   dump_url "${proxy_pod}" "${lurl}" "memory" "${proxy_dir}"
 
-  kubectl logs "${proxy_pod}" -n istio-system -c istio-proxy > "${proxy_dir}/proxy_logs.txt"
+  kubectl logs "${proxy_pod}" -n ${namespaces} -c istio-proxy > "${proxy_dir}/proxy_logs.txt"
 }
 
 archive() {
@@ -425,29 +429,24 @@ main() {
   local exit_code=0
   parse_args "$@"
   check_prerequisites kubectl
+  dump_time
+  dump_pilot
+  dump_resources
+  tap_containers "dump_logs_for_container" "copy_core_dumps_if_istio_proxy"
   if [ "${CONTROL_PLANE}" = true ] ; then
     namespaces="istio-system"
     check_prerequisites istioctl
-    dump_time
     dump_control_plane
     tap_containers "dump_logs_for_container"
     dump_istio_status
-    exit_code=$?
-  elif [ "${ONLY_CLUSTER}" = true ] ; then
-    dump_time
-    dump_cluster
-    exit_code=$?
-  elif [ -n "${proxy_label}" ] ; then
-    dump_time
-    dump_proxy
-    exit_code=$?
-  else # old dump behavior
-    dump_time
-    dump_pilot
-    dump_resources
-    tap_containers "dump_logs_for_container" "copy_core_dumps_if_istio_proxy"
-    exit_code=$?
   fi
+  if [ "${CLUSTER}" = true ] ; then
+    dump_cluster
+  fi
+  if [ -n "${proxy_label}" ] ; then
+    dump_proxy
+  fi
+  exit_code=$?
 
   if [ "${SHOULD_CHECK_LOGS_FOR_ERRORS}" = true ]; then
     if ! check_logs_for_errors; then
