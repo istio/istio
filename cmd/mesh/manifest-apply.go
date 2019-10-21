@@ -35,8 +35,9 @@ type manifestApplyArgs struct {
 	readinessTimeout time.Duration
 	// wait is flag that indicates whether to wait resources ready before exiting.
 	wait bool
-	// yes means don't ask for confirmation (asking for confirmation not implemented)
-	yes bool
+	// skipConfirmation determines whether the user is prompted for confirmation.
+	// If set to true, the user is not prompted and a Yes response is assumed in all cases.
+	skipConfirmation bool
 	// force proceeds even if there are validation errors
 	force bool
 	// set is a string with element format "path=value" where path is an IstioControlPlane path and the value is a
@@ -48,7 +49,7 @@ func addManifestApplyFlags(cmd *cobra.Command, args *manifestApplyArgs) {
 	cmd.PersistentFlags().StringVarP(&args.inFilename, "filename", "f", "", filenameFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig", "c", "", "Path to kube config")
 	cmd.PersistentFlags().StringVar(&args.context, "context", "", "The name of the kubeconfig context to use")
-	cmd.PersistentFlags().BoolVarP(&args.yes, "yes", "y", false, "Do not ask for confirmation")
+	cmd.PersistentFlags().BoolVar(&args.skipConfirmation, "skip-confirmation", false, skipConfirmationFlagHelpStr)
 	cmd.PersistentFlags().BoolVar(&args.force, "force", false, "Proceed even with validation errors")
 	cmd.PersistentFlags().DurationVar(&args.readinessTimeout, "readiness-timeout", 300*time.Second, "Maximum seconds to wait for all Istio resources to be ready."+
 		" The --wait flag must be set for this flag to apply")
@@ -65,8 +66,8 @@ func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs) *cobra.Comm
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
 			l := newLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.OutOrStderr())
-			if !maArgs.yes && maArgs.kubeConfigPath == "" && maArgs.context == "" {
-				if !confirm("Are you sure?", cmd.OutOrStdout()) {
+			if !maArgs.skipConfirmation && maArgs.kubeConfigPath == "" && maArgs.context == "" {
+				if !confirm("Do you want to proceed? (y/N)", cmd.OutOrStdout()) {
 					cmd.Print("Cancelled.\n")
 					os.Exit(1)
 				}

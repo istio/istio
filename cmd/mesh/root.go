@@ -27,6 +27,8 @@ const (
 	setFlagHelpStr = `Set a value in IstioControlPlane CustomResource. e.g. --set policy.enabled=true.
 Overrides the corresponding path value in the selected profile or passed through IstioControlPlane CR
 customization file`
+	skipConfirmationFlagHelpStr = `skipConfirmation determines whether the user is prompted for confirmation. 
+If set to true, the user is not prompted and a Yes response is assumed in all cases.`
 	filenameFlagHelpStr = `Path to file containing IstioControlPlane CustomResource`
 )
 
