@@ -73,7 +73,7 @@ func TestProbeFailsWhenNoKeyFileExists(t *testing.T) {
 
 	server := createAndStartServer(stats, liveServerInfo)
 	defer server.Close()
-	probe := Probe{AdminPort: 1234, CheckKeyCertExistence: true}
+	probe := Probe{AdminPort: 1234, CheckSecretMountKeyFile: true}
 
 	err := probe.Check()
 
@@ -87,7 +87,7 @@ func TestProbeSucceedWhenKeyFileExists(t *testing.T) {
 
 	server := createAndStartServer(stats, liveServerInfo)
 	defer server.Close()
-	probe := Probe{AdminPort: 1234, CheckKeyCertExistence: true}
+	probe := Probe{AdminPort: 1234, CheckSecretMountKeyFile: true}
 	kf, err := ioutil.TempFile("", "key-for-test")
 	if err != nil {
 		t.Errorf("failed to create temp file for testing %v", err)
