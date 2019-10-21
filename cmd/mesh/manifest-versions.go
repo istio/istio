@@ -17,15 +17,15 @@ package mesh
 import (
 	"fmt"
 	"io/ioutil"
-	"strings"
 
+	goversion "github.com/hashicorp/go-version"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
-	goversion "github.com/hashicorp/go-version"
-
 	"istio.io/operator/pkg/httprequest"
+	"istio.io/operator/pkg/util"
 	"istio.io/operator/pkg/version"
+	"istio.io/operator/pkg/vfs"
 	binversion "istio.io/operator/version"
 )
 
@@ -64,7 +64,10 @@ func manifestVersionsCmd(rootArgs *rootArgs, versionsArgs *manifestVersionsArgs)
 func manifestVersions(args *rootArgs, mvArgs *manifestVersionsArgs, l *logger) {
 	initLogsOrExit(args)
 
-	myVersionMap := getVersionCompatibleMap(mvArgs.versionsURI, binversion.OperatorBinaryGoVersion, l)
+	myVersionMap, err := getVersionCompatibleMap(mvArgs.versionsURI, binversion.OperatorBinaryGoVersion, l)
+	if err != nil {
+		l.logAndFatalf("Failed to retrieve version map, error: %v", err)
+	}
 
 	fmt.Print("\nOperator version is ", binversion.OperatorBinaryGoVersion.String(), ".\n\n")
 	fmt.Println("The following installation package versions are recommended for use with this version of the operator:")
@@ -79,23 +82,18 @@ func manifestVersions(args *rootArgs, mvArgs *manifestVersionsArgs, l *logger) {
 }
 
 func getVersionCompatibleMap(versionsURI string, binVersion *goversion.Version,
-	l *logger) *version.CompatibilityMapping {
+	l *logger) (*version.CompatibilityMapping, error) {
 	var b []byte
 	var err error
-	if strings.HasPrefix(versionsURI, "http") {
-		b, err = httprequest.Get(versionsURI)
-		if err != nil {
-			l.logAndFatal(err.Error())
-		}
-	} else {
-		b, err = ioutil.ReadFile(versionsURI)
-		if err != nil {
-			l.logAndFatal(err.Error())
-		}
+
+	b, err = loadCompatibleMapFile(versionsURI, l)
+	if err != nil {
+		return nil, err
 	}
+
 	var versions []*version.CompatibilityMapping
 	if err = yaml.Unmarshal(b, &versions); err != nil {
-		l.logAndFatal(err.Error())
+		return nil, err
 	}
 	var myVersionMap *version.CompatibilityMapping
 	for _, v := range versions {
@@ -105,8 +103,24 @@ func getVersionCompatibleMap(versionsURI string, binVersion *goversion.Version,
 		}
 	}
 	if myVersionMap == nil {
-		l.logAndFatal("This operator version ", binVersion.String(),
-			" was not found in the global manifestVersions map.")
+		return nil, fmt.Errorf("this operator version %s was not found in the version map", binVersion.String())
 	}
-	return myVersionMap
+	return myVersionMap, nil
+}
+
+func loadCompatibleMapFile(versionsURI string, l *logger) ([]byte, error) {
+	var err error
+	if util.IsHTTPURL(versionsURI) {
+		if b, err := httprequest.Get(versionsURI); err == nil {
+			return b, nil
+		}
+	} else {
+		if b, err := ioutil.ReadFile(versionsURI); err == nil {
+			return b, nil
+		}
+	}
+
+	l.logAndPrintf("Warning: failed to retrieve the version map from (%s): %s. "+
+		"Falling back to the internal version map.", versionsURI, err)
+	return vfs.ReadFile("versions.yaml")
 }

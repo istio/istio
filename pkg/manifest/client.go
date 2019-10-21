@@ -34,6 +34,12 @@ type Client struct {
 type ComponentVersion struct {
 	Component string
 	Version   string
+	Pod       v1.Pod
+}
+
+func (cv ComponentVersion) String() string {
+	return fmt.Sprintf("%s pod - %s - version: %s",
+		cv.Component, cv.Pod.GetName(), cv.Version)
 }
 
 // ExecClient is an interface for remote execution
@@ -82,7 +88,11 @@ func (client *Client) GetIstioVersions(namespace string) ([]ComponentVersion, er
 			component = pod.Labels["istio-mixer-type"]
 		}
 
-		server := ComponentVersion{Component: component}
+		server := ComponentVersion{
+			Component: component,
+			Pod:       pod,
+		}
+
 		pv := ""
 		for _, c := range pod.Spec.Containers {
 			cv, err := parseTag(c.Image)
