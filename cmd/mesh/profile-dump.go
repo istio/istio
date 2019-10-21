@@ -15,8 +15,10 @@
 package mesh
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
+	"text/template"
 
 	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
@@ -136,6 +138,19 @@ func genICPS(inFilename, profile, setOverlayYAML string, force bool, l *logger) 
 		return "", nil, err
 	}
 
+	// Due to the fact that base profile is compiled in before a tag can be created, we must allow an additional
+	// override from variables that are set during release build time.
+	if HubValueFromBuild != "" && TagValueFromBuild != "" {
+		buildHubTagOverlayYAML, err := generateHubTagOverlay(HubValueFromBuild, TagValueFromBuild)
+		if err != nil {
+			return "", nil, err
+		}
+		baseYAML, err = helm.OverlayYAML(baseYAML, buildHubTagOverlayYAML)
+		if err != nil {
+			return "", nil, err
+		}
+	}
+
 	// Merge base and overlay.
 	mergedYAML, err := helm.OverlayYAML(baseYAML, overlayYAML)
 	if err != nil {
@@ -232,4 +247,34 @@ func getConfigSubtree(manifest, path string) (string, error) {
 		return "", err
 	}
 	return string(out), nil
+}
+
+// generateHubTagOverlay creates an IstioControlPlaneSpec overlay YAML for hub and tag.
+func generateHubTagOverlay(hub, tag string) (string, error) {
+	hubTagYAMLTemplate := `
+hub: {{.Hub}}
+tag: {{.Tag}}
+`
+	ts := struct {
+		Hub string
+		Tag string
+	}{
+		Hub: hub,
+		Tag: tag,
+	}
+	return renderTemplate(hubTagYAMLTemplate, ts)
+}
+
+// helper method to render template
+func renderTemplate(tmpl string, ts interface{}) (string, error) {
+	t, err := template.New("").Parse(tmpl)
+	if err != nil {
+		return "", err
+	}
+	buf := new(bytes.Buffer)
+	err = t.Execute(buf, ts)
+	if err != nil {
+		return "", err
+	}
+	return buf.String(), nil
 }
