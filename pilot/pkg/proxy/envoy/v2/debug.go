@@ -263,17 +263,19 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 // len = ceil(bitlength/(2^6))+1
 const VersionLen = 12
 
-func (s *DiscoveryServer) getResourceVersion(configVersion, key string, cache map[string]string) string {
+func (s *DiscoveryServer) getResourceVersion(nonce, key string, cache map[string]string) string {
+	configVersion := nonce[:VersionLen]
 	result, ok := cache[configVersion]
 	if !ok {
-		result, err := s.Env.IstioConfigStore.GetResourceAtVersion(configVersion[:VersionLen], key)
+		lookupResult, err := s.Env.IstioConfigStore.GetResourceAtVersion(configVersion, key)
 		if err != nil {
 			adsLog.Errorf("Unable to retrieve resource %s at version %s: %v", key, configVersion, err)
-			result = ""
+			lookupResult = ""
 		}
 		// update the cache even on an error, because errors will not resolve themselves, and we don't want to
 		// repeat the same error for many adsClients.
-		cache[configVersion] = result
+		cache[configVersion] = lookupResult
+		return lookupResult
 	}
 	return result
 }
