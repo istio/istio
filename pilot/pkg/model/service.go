@@ -660,10 +660,10 @@ func (s *Service) GetServiceAddressForProxy(node *Proxy) string {
 // Service has sync.RWMutex that can not be copied. One alternative is to convert that to a pointer but that needs
 // lot of changes.
 func (s *Service) DeepCopy() *Service {
-	attrs := copy(s.Attributes)
-	ports := copy(s.Ports)
-	accounts := copy(s.ServiceAccounts)
-	clusterVIPs := copy(s.ClusterVIPs)
+	attrs := copyInternal(s.Attributes)
+	ports := copyInternal(s.Ports)
+	accounts := copyInternal(s.ServiceAccounts)
+	clusterVIPs := copyInternal(s.ClusterVIPs)
 
 	return &Service{
 		Attributes:      attrs.(ServiceAttributes),
@@ -678,7 +678,7 @@ func (s *Service) DeepCopy() *Service {
 	}
 }
 
-func copy(v interface{}) interface{} {
+func copyInternal(v interface{}) interface{} {
 	copied, err := copystructure.Copy(v)
 	if err != nil {
 		// There are 2 locations where errors are generated in copystructure.Copy:
