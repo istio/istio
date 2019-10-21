@@ -27,15 +27,15 @@ import (
 // - Builtin types are excluded by default.
 // - If ServiceDiscovery is enabled, any built-in type should be readded.
 // In addition, any resources not needed as inputs by the specified collections are disabled
-func DisableExcludedKubeResources(krs schema.KubeResources, xformProviders transformer.Providers,
+func DisableExcludedKubeResources(resources schema.KubeResources, providers transformer.Providers,
 	requiredCols collection.Names, excludedResourceKinds []string, enableServiceDiscovery bool) schema.KubeResources {
 
 	// Get upstream collections in terms of transformer configuration
 	// Required collections are specified in terms of transformer outputs, but we care here about the corresponding inputs
-	upstreamCols := xformProviders.RequiredInputsFor(requiredCols)
+	upstreamCols := providers.RequiredInputsFor(requiredCols)
 
 	var result schema.KubeResources
-	for _, r := range krs {
+	for _, r := range resources {
 		if isKindExcluded(excludedResourceKinds, r.Kind) {
 			// Found a matching exclude directive for this KubeResource. Disable the resource.
 			r.Disabled = true
