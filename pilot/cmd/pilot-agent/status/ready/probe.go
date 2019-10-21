@@ -27,7 +27,7 @@ import (
 )
 
 var (
-	keyCertPath = constants.DefaultKey
+	mtlsKeyPath = constants.DefaultKey
 )
 
 // Probe for readiness.
@@ -37,9 +37,11 @@ type Probe struct {
 	NodeType            model.NodeType
 	AdminPort           uint16
 	receivedFirstUpdate bool
-	// CheckKeyCertExistence indicates whether the prober assumes the Kubernetes secret mount style
+	// CheckSecretMountKeyFile indicates whether the prober assumes the Kubernetes secret mount style
 	// key cert delivery in order to mark sidecar ready.
-	CheckKeyCertExistence bool
+	// We need to check the availability of the key/cert since that's the basis of many Istio security
+	// feature, e.g. mTLS auto pilot.
+	CheckSecretMountKeyFile bool
 }
 
 // Check executes the probe and returns an error if the probe fails.
@@ -58,17 +60,17 @@ func (p *Probe) Check() error {
 	}
 
 	// Check key cert on file system as `/etc/cert/key.pem`
-	if p.CheckKeyCertExistence {
-		if err := p.checkKeyCertExists(); err != nil {
+	if p.CheckSecretMountKeyFile {
+		if err := p.checkKeyFileExists(); err != nil {
 			return err
 		}
 	}
 	return p.checkServerInfo()
 }
 
-func (p *Probe) checkKeyCertExists() error {
-	if _, err := os.Stat(keyCertPath); err != nil {
-		return fmt.Errorf("Istio Kubernetes secret based key/cert does not exist %v", err)
+func (p *Probe) checkKeyFileExists() error {
+	if _, err := os.Stat(mtlsKeyPath); err != nil {
+		return fmt.Errorf("istio Kubernetes secret based key/cert does not exist %v", err)
 	}
 	return nil
 }

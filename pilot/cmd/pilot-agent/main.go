@@ -99,12 +99,14 @@ var (
 
 	wg sync.WaitGroup
 
-	instanceIPVar             = env.RegisterStringVar("INSTANCE_IP", "", "")
-	podNameVar                = env.RegisterStringVar("POD_NAME", "", "")
-	podNamespaceVar           = env.RegisterStringVar("POD_NAMESPACE", "", "")
-	istioNamespaceVar         = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
-	kubeAppProberNameVar      = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
-	sdsEnabledVar             = env.RegisterBoolVar("SDS_ENABLED", false, "")
+	instanceIPVar          = env.RegisterStringVar("INSTANCE_IP", "", "")
+	podNameVar             = env.RegisterStringVar("POD_NAME", "", "")
+	podNamespaceVar        = env.RegisterStringVar("POD_NAMESPACE", "", "")
+	istioNamespaceVar      = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
+	kubeAppProberNameVar   = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
+	sdsEnabledVar          = env.RegisterBoolVar("SDS_ENABLED", false, "")
+	readyProbeCheckKeyFile = env.RegisterBoolVar("SIDECAR_PROBE_CHECK_SECRET_MOUNT_KEY", true, "If enabled, sidecar container readiness probe"+
+		" ensures the Citadel secret mount based key file. This will be ignored if SDS is enabled")
 	sdsUdsPathVar             = env.RegisterStringVar("SDS_UDS_PATH", "unix:/var/run/sds/uds_path", "SDS address")
 	stackdriverTracingEnabled = env.RegisterBoolVar("STACKDRIVER_TRACING_ENABLED", false, "If enabled, stackdriver will"+
 		" get configured as the tracer.")
@@ -423,15 +425,19 @@ var (
 					localHostAddr = "[::1]"
 				}
 				prober := kubeAppProberNameVar.Get()
-				statusServer, err := status.NewServer(status.Config{
+				cfg := status.Config{
 					LocalHostAddr:      localHostAddr,
 					AdminPort:          proxyAdminPort,
 					StatusPort:         statusPort,
 					ApplicationPorts:   parsedPorts,
 					KubeAppHTTPProbers: prober,
 					NodeType:           role.Type,
-					CheckKeyCertFile:   sdsUDSPath == "",
-				})
+					CheckKeyCertFile:   readyProbeCheckKeyFile.Get(),
+				}
+				if sdsUDSPath != "" {
+					cfg.CheckKeyCertFile = false
+				}
+				statusServer, err := status.NewServer(cfg)
 				if err != nil {
 					cancel()
 					return err
