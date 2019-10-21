@@ -93,7 +93,7 @@ func TestProbeSucceedWhenKeyFileExists(t *testing.T) {
 		t.Errorf("failed to create temp file for testing %v", err)
 	}
 	defer os.Remove(kf.Name())
-	keyCertPath = kf.Name()
+	mtlsKeyPath = kf.Name()
 	err = probe.Check()
 
 	g.Expect(err).NotTo(HaveOccurred())
