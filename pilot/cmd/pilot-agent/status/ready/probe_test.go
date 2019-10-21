@@ -78,7 +78,7 @@ func TestProbeFailsWhenNoKeyFileExists(t *testing.T) {
 	err := probe.Check()
 
 	g.Expect(err).To(HaveOccurred())
-	g.Expect(err.Error()).To(HavePrefix("Istio Kubernetes secret"))
+	g.Expect(err.Error()).To(HavePrefix("istio Kubernetes secret"))
 }
 
 func TestProbeSucceedWhenKeyFileExists(t *testing.T) {
