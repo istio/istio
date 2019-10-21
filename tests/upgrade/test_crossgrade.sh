@@ -240,7 +240,7 @@ installIstioAtVersionUsingHelm() {
 installIstioAtVersionUsingIstioctl(){
   writeMsg "istioctl install istio using version ${2} from ${3}."
   istioctl_path="${3}"/bin
-  withRetries 3 60 "${istioctl_path}"/istioctl experimental manifest apply --yes
+  withRetries 3 60 "${istioctl_path}"/istioctl experimental manifest apply --skip-confirmation
 }
 
 # istioctl x upgrade supports upgrade istio release version
@@ -249,7 +249,7 @@ installIstioAtVersionUsingIstioctl(){
 upgradeIstioAtVersionUsingIstioctl(){
   writeMsg "istioctl upgrade istio using version ${2} from ${3}."
   istioctl_path="${3}"/bin
-  withRetries 3 60 "${istioctl_path}"/istioctl experimental manifest upgrade --yes
+  withRetries 3 60 "${istioctl_path}"/istioctl experimental manifest upgrade --skip-confirmation
 }
 
 istioInstallOptions() {
