@@ -513,7 +513,7 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 								}
 							}
 						}
-						importedServices = append(importedServices, &sc)
+						importedServices = append(importedServices, sc)
 						hostFound = true
 						break
 					}

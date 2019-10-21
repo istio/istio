@@ -655,8 +655,31 @@ func (s *Service) GetServiceAddressForProxy(node *Proxy) string {
 	return s.Address
 }
 
-func (s Service) DeepCopy() Service {
-	copied, err := copystructure.Copy(s)
+// DeepCopy creates a clone of Service.
+// TODO : See if there is any efficient alternative to this function - copystructure can not used as is because
+// Service has sync.RWMutex that can not be copied. One alternative is to convert that to a pointer but that needs
+// lot of changes.
+func (s *Service) DeepCopy() *Service {
+	attrs := copy(s.Attributes)
+	ports := copy(s.Ports)
+	accounts := copy(s.ServiceAccounts)
+	clusterVIPs := copy(s.ClusterVIPs)
+
+	return &Service{
+		Attributes:      attrs.(ServiceAttributes),
+		Ports:           ports.(PortList),
+		ServiceAccounts: accounts.([]string),
+		CreationTime:    s.CreationTime,
+		Hostname:        s.Hostname,
+		Address:         s.Address,
+		ClusterVIPs:     clusterVIPs.(map[string]string),
+		Resolution:      s.Resolution,
+		MeshExternal:    s.MeshExternal,
+	}
+}
+
+func copy(v interface{}) interface{} {
+	copied, err := copystructure.Copy(v)
 	if err != nil {
 		// There are 2 locations where errors are generated in copystructure.Copy:
 		//  * The reflection walk over the structure fails, which should never happen
@@ -664,5 +687,5 @@ func (s Service) DeepCopy() Service {
 		// Therefore, this should never happen
 		panic(err)
 	}
-	return copied.(Service)
+	return copied
 }
