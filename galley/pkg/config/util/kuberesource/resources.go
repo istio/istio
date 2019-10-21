@@ -32,7 +32,7 @@ func DisableExcludedKubeResources(krs schema.KubeResources, xformProviders trans
 
 	// Get upstream collections in terms of transformer configuration
 	// Required collections are specified in terms of transformer outputs, but we care here about the corresponding inputs
-	upstreamCols := getUpstreamCollections(requiredCols, xformProviders)
+	upstreamCols := xformProviders.RequiredInputsFor(requiredCols)
 
 	var result schema.KubeResources
 	for _, r := range krs {
@@ -79,29 +79,4 @@ func isKindExcluded(excludedResourceKinds []string, kind string) bool {
 	}
 
 	return false
-}
-
-func getUpstreamCollections(inputs collection.Names, xformProviders transformer.Providers) map[collection.Name]struct{} {
-	// For each transform, map output to inputs
-	outToIn := make(map[collection.Name]map[collection.Name]struct{})
-	for _, xfp := range xformProviders {
-		for _, out := range xfp.Outputs() {
-			if _, ok := outToIn[out]; !ok {
-				outToIn[out] = make(map[collection.Name]struct{})
-			}
-			for _, in := range xfp.Inputs() {
-				outToIn[out][in] = struct{}{}
-			}
-		}
-	}
-
-	// 2. For each input collection, get its inputs using the above mapping and include them in the output set
-	upstreamCollections := make(map[collection.Name]struct{})
-	for _, c := range inputs {
-		for in := range outToIn[c] {
-			upstreamCollections[in] = struct{}{}
-		}
-	}
-
-	return upstreamCollections
 }

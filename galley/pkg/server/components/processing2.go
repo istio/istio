@@ -59,11 +59,6 @@ import (
 
 const versionMetadataKey = "config.source.version"
 
-var (
-	snapshots       = []string{metadata.Default, metadata.SyntheticServiceEntry}
-	triggerSnapshot = metadata.Default
-)
-
 // Processing2 component is the main config processing component that will listen to a config source and publish
 // resources through an MCP server, or a dialout connection.
 type Processing2 struct {
@@ -113,7 +108,7 @@ func (p *Processing2) Start() (err error) {
 
 	// Disable any unnecessary resources, including resources not in configured snapshots
 	var colsInSnapshots collection.Names
-	for _, c := range m.AllCollectionsInSnapshots(snapshots) {
+	for _, c := range m.AllCollectionsInSnapshots(p.args.Snapshots) {
 		colsInSnapshots = append(colsInSnapshots, collection.NewName(c))
 	}
 	kubeResources := kuberesource.DisableExcludedKubeResources(m.KubeSource().Resources(), transformProviders,
@@ -129,8 +124,8 @@ func (p *Processing2) Start() (err error) {
 			StatusUpdater:     updater,
 			Analyzer:          analyzers.AllCombined().WithDisabled(kubeResources.DisabledCollections(), transformProviders),
 			Distributor:       distributor,
-			AnalysisSnapshots: snapshots,
-			TriggerSnapshot:   triggerSnapshot,
+			AnalysisSnapshots: p.args.Snapshots,
+			TriggerSnapshot:   p.args.TriggerSnapshot,
 		}
 		distributor = snapshotter.NewAnalyzingDistributor(settings)
 	}
@@ -141,7 +136,7 @@ func (p *Processing2) Start() (err error) {
 		Source:             event.CombineSources(mesh, src),
 		TransformProviders: transformProviders,
 		Distributor:        distributor,
-		EnabledSnapshots:   snapshots,
+		EnabledSnapshots:   p.args.Snapshots,
 	}
 	if p.runtime, err = processorInitialize(processorSettings); err != nil {
 		return
