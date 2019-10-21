@@ -183,12 +183,23 @@ debug and diagnose their Istio mesh.
 
 	rootCmd.AddCommand(validate.NewValidateCommand(&istioNamespace))
 
-	rootCmd.SetFlagErrorFunc(func(_ *cobra.Command, e error) error {
-		return CommandParseError{e}
-	})
+	// BFS apply the flag error function to all subcommands
+	seenCommands := make(map[*cobra.Command]bool)
+	var commandStack []*cobra.Command
 
-	for _, cmd := range rootCmd.Commands() {
-		cmd.SetFlagErrorFunc(func(_ *cobra.Command, e error) error {
+	commandStack = append(commandStack, rootCmd)
+
+	for len(commandStack) > 0 {
+		n := len(commandStack) - 1
+		curCmd := commandStack[n]
+		commandStack = commandStack[:n]
+		seenCommands[curCmd] = true
+		for _, command := range curCmd.Commands() {
+			if !seenCommands[command] {
+				commandStack = append(commandStack, command)
+			}
+		}
+		curCmd.SetFlagErrorFunc(func(_ *cobra.Command, e error) error {
 			return CommandParseError{e}
 		})
 	}

@@ -300,6 +300,17 @@ func TestBadParse(t *testing.T) {
 	default:
 		t.Errorf("Expected a CommandParseError, but got %q.", fErr)
 	}
+
+	// all of the subcommands
+	rootCmd = GetRootCmd([]string{"authn", "tls-check", "--unknown-flag"})
+	fErr = rootCmd.Execute()
+
+	switch fErr.(type) {
+	case CommandParseError:
+		// do nothing
+	default:
+		t.Errorf("Expected a CommandParseError, but got %q.", fErr)
+	}
 }
 
 // mockClientFactoryGenerator creates a factory for model.ConfigStore preloaded with data
