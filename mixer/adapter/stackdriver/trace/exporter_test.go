@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	projectId          = "example-project"
+	projectID          = "example-project"
 	serviceAccountPath = "testdata/serviceaccount.json"
 	sampleProbability  = 1
 )
@@ -80,7 +80,7 @@ func TestGetOptions_flushInterval(t *testing.T) {
 // that can be used for testing.
 func newTestParams() *config.Params {
 	return &config.Params{
-		ProjectId: projectId,
+		ProjectId: projectID,
 		Creds: &config.Params_ServiceAccountPath{
 			ServiceAccountPath: serviceAccountPath,
 		},
