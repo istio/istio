@@ -84,11 +84,11 @@ func (l *CompositeRenderingListener) BeginChart(chart string, manifests []manife
 }
 
 // BeginResource delegates BeginResource to the Listeners in first to last order.
-func (l *CompositeRenderingListener) BeginResource(obj runtime.Object) (runtime.Object, error) {
+func (l *CompositeRenderingListener) BeginResource(chart string, obj runtime.Object) (runtime.Object, error) {
 	var allErrors []error
 	var err error
 	for _, listener := range l.Listeners {
-		if obj, err = listener.BeginResource(obj); err != nil {
+		if obj, err = listener.BeginResource(chart, obj); err != nil {
 			allErrors = append(allErrors, err)
 		}
 	}
@@ -247,7 +247,7 @@ func (l *LoggingRenderingListener) BeginChart(chart string, manifests []manifest
 }
 
 // BeginResource logs the event and updates the logger to log with values resource=name, kind=kind, apiVersion=api-version
-func (l *LoggingRenderingListener) BeginResource(obj runtime.Object) (runtime.Object, error) {
+func (l *LoggingRenderingListener) BeginResource(_ string, obj runtime.Object) (runtime.Object, error) {
 	return obj, nil
 }
 
@@ -347,7 +347,7 @@ func (l *DefaultRenderingListener) BeginChart(chart string, manifests []manifest
 }
 
 // BeginResource default implementation
-func (l *DefaultRenderingListener) BeginResource(obj runtime.Object) (runtime.Object, error) {
+func (l *DefaultRenderingListener) BeginResource(_ string, obj runtime.Object) (runtime.Object, error) {
 	return obj, nil
 }
 
@@ -414,7 +414,7 @@ type pruningMarkingsDecorator struct {
 }
 
 // BeginResource applies owner labels and annotations to the object
-func (d *pruningMarkingsDecorator) BeginResource(obj runtime.Object) (runtime.Object, error) {
+func (d *pruningMarkingsDecorator) BeginResource(_ string, obj runtime.Object) (runtime.Object, error) {
 	for key, value := range d.pruningDetails.GetOwnerLabels() {
 		err := util.SetLabel(obj, key, value)
 		if err != nil {
@@ -453,7 +453,7 @@ type ownerReferenceDecorator struct {
 
 // BeginResource adds an OwnerReference, where applicable (i.e. resource is namespaced and in same namespace
 // as custom resource, or custom resource is non-namespaced), to the resource.
-func (d *ownerReferenceDecorator) BeginResource(obj runtime.Object) (runtime.Object, error) {
+func (d *ownerReferenceDecorator) BeginResource(_ string, obj runtime.Object) (runtime.Object, error) {
 	objAccessor, err := meta.Accessor(obj)
 	if err != nil {
 		return obj, err
