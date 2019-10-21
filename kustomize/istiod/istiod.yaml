@@ -1,0 +1,143 @@
+---
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: istiod
+  namespace: istio-system
+  labels:
+    release: istiod
+spec:
+  maxReplicas: 10
+  minReplicas: 1
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: istiod
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        targetAverageUtilization: 80
+---
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: istiod
+  namespace: istio-system
+  labels:
+    release: istiod
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: istiod
+      release: istiod
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: istiod
+  namespace: istio-system
+  labels:
+    release: istiod
+spec:
+  ports:
+    - port: 15010
+      name: grpc-xds # direct
+    - port: 15011
+      name: https-xds # mTLS
+    - port: 8080
+      name: http-legacy-discovery # direct
+    - port: 15014
+      name: http-monitoring
+  selector:
+    app: istiod
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istiod
+  namespace: istio-system
+  labels:
+    app: istiod
+    release: istiod
+spec:
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: istiod
+  template:
+    metadata:
+      labels:
+        app: istiod
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: istiod
+      #      priorityClassName: "{{ .Values.global.priorityClassName }}"
+      containers:
+        - name: istiod
+          image: gcr.io/costin-istio/istiod:latest
+          imagePullPolicy: Always
+          #command: ["sleep", "50000" ]
+          ports:
+            - containerPort: 8080
+            - containerPort: 15010
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 30
+            timeoutSeconds: 5
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: CONFIG_NAMESPACE
+              value: istio-system
+          resources:
+            requests:
+              cpu: 800m
+              memory: 2048Mi
+          volumeMounts:
+            - name: istio-certs
+              mountPath: /var/run/secrets/istio
+              readOnly: true
+            - name: istio-token
+              mountPath: /var/run/secrets/sds-token
+              readOnly: true
+            - name: istiod
+              mountPath: /var/lib/istio/local
+              readOnly: true
+            - name: local-certs
+              mountPath: /var/run/secrets/istio-dns
+      volumes:
+        - emptyDir:
+            medium: Memory
+          name: local-certs
+        - name: istio-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  audience: istiod
+                  expirationSeconds: 43200
+                  path: istio-token
+        - name: istio-certs
+          secret:
+            secretName: istio.istio-pilot-service-account
+            optional: true
+        - name: istiod
+          configMap:
+            name: istiod
+            optional: true

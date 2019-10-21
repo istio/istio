@@ -13,6 +13,7 @@ resources:
   - clusterrolebinding-12.yaml
   - gen-crds-namespace.yaml
   - serviceaccounts-12.yaml
+  - istiod.yaml
 
 commonLabels:
   istio: cluster
