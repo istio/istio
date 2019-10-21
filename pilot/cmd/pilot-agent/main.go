@@ -105,6 +105,7 @@ var (
 	istioNamespaceVar         = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
 	kubeAppProberNameVar      = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
 	sdsEnabledVar             = env.RegisterBoolVar("SDS_ENABLED", false, "")
+	pingVirtualListenersVar   = env.RegisterBoolVar("PING_VIRTUAL_LISTENERS", true, "")
 	sdsUdsPathVar             = env.RegisterStringVar("SDS_UDS_PATH", "unix:/var/run/sds/uds_path", "SDS address")
 	stackdriverTracingEnabled = env.RegisterBoolVar("STACKDRIVER_TRACING_ENABLED", false, "If enabled, stackdriver will"+
 		" get configured as the tracer.")
@@ -426,10 +427,12 @@ var (
 
 				var proxyAddr string
 
-				if len(proxyIP) != 0 {
-					proxyAddr = proxyIP
-				} else if podIP != nil {
-					proxyAddr = podIP.String()
+				if pingVirtualListenersVar.Get() {
+					if len(proxyIP) != 0 {
+						proxyAddr = proxyIP
+					} else if podIP != nil {
+						proxyAddr = podIP.String()
+					}
 				}
 
 				statusServer, err := status.NewServer(status.Config{

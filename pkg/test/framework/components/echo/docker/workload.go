@@ -149,6 +149,7 @@ func newWorkload(e *native.Environment, cfg echo.Config, dumpDir string) (out *w
 			"POD_NAME="+hostName,
 			"POD_NAMESPACE="+cfg.Namespace.Name(),
 			"PILOT_ADDRESS="+pilotAddress,
+			"PING_VIRTUAL_LISTENERS=false",
 			"CITADEL_ADDRESS=istio-citadel:8060", // TODO: need local citadel
 			"ENVOY_PORT=15001",
 			"ENVOY_USER=istio-proxy",
