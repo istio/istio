@@ -125,7 +125,7 @@ func (p *Probe) isEnvoyReady() error {
 
 // pingVirtualListeners checks to ensure that Envoy is actually listenening on the port.
 func (p *Probe) pingVirtualListeners() error {
-	if len(p.ProxyIP) == 0 || !p.listenersBound {
+	if len(p.ProxyIP) == 0 || p.ProxyIP == p.LocalHostAddr || p.listenersBound {
 		return nil
 	}
 
