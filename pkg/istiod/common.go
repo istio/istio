@@ -16,13 +16,10 @@ package istiod
 
 import (
 	"fmt"
+	"google.golang.org/grpc"
 	"net"
 	"net/http"
 	"strconv"
-	"time"
-
-	"github.com/gogo/protobuf/types"
-	"google.golang.org/grpc"
 
 	"istio.io/istio/galley/pkg/server/settings"
 	"istio.io/istio/pilot/pkg/model"
@@ -46,7 +43,9 @@ type Server struct {
 	EnvoyXdsServer    *envoyv2.DiscoveryServer
 	ServiceController *aggregate.Controller
 
+	// Mesh config - loaded and watched. Updated by watcher.
 	Mesh         *meshconfig.MeshConfig
+
 	MeshNetworks *meshconfig.MeshNetworks
 
 	ConfigStores []model.ConfigStoreCache
@@ -114,11 +113,6 @@ func NewIstiod(confDir string) (*Server, error) {
 	// Create a test pilot discovery service configured to watch the tempDir.
 	args := &PilotArgs{
 		DomainSuffix: "cluster.local",
-
-		Mesh: MeshArgs{
-			ConfigFile:      meshCfgFile,
-			RdsRefreshDelay: types.DurationProto(10 * time.Millisecond),
-		},
 		Config: ConfigArgs{},
 
 		Plugins: DefaultPlugins, // TODO: Should it be in MeshConfig ? Env override until it's done.

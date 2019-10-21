@@ -35,7 +35,6 @@ import (
 	"istio.io/pkg/ctrlz/fw"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/gogo/protobuf/types"
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	prom "github.com/prometheus/client_golang/prometheus"
@@ -105,25 +104,16 @@ func init() {
 	pilotVersion.With(prom.Labels{"version": version.Info.String()}).Set(1)
 }
 
-// MeshArgs provide configuration options for the mesh. If ConfigFile is provided, an attempt will be made to
-// load the mesh from the file. Otherwise, a default mesh will be used with optional overrides.
-type MeshArgs struct {
-	ConfigFile      string
-	MixerAddress    string
-	RdsRefreshDelay *types.Duration
-}
-
 // ConfigArgs provide configuration options for the configuration controller. If FileDir is set, that directory will
 // be monitored for CRD yaml files and will update the controller as those files change (This is used for testing
 // purposes). Otherwise, a CRD client is created based on the configuration.
 type ConfigArgs struct {
 	ClusterRegistriesNamespace string
 	KubeConfig                 string
-	FileDir                    string
-	DisableInstallCRDs         bool
 
-	// Controller if specified, this controller overrides the other config settings.
-	Controller model.ConfigStoreCache
+	// DisableInstallCRDs control Istiod ability to auto-create CRDs. Currently only Pilot CRDs are created.
+	// TODO: either remove this (off by default, remove the option) or add all other CRDs.
+	DisableInstallCRDs         bool
 }
 
 // ConsulArgs provides configuration for the Consul service registry.
@@ -143,7 +133,6 @@ type ServiceArgs struct {
 type PilotArgs struct {
 	DiscoveryOptions         envoy.DiscoveryServiceOptions
 	Namespace                string
-	Mesh                     MeshArgs
 	Config                   ConfigArgs
 	Service                  ServiceArgs
 	DomainSuffix             string
@@ -316,9 +305,22 @@ func (s *Server) Serve(stop <-chan struct{}) error {
 // startFunc defines a function that will be used to start one or more components of the Pilot discovery service.
 type startFunc func(stop <-chan struct{}) error
 
+func defaultMeshConfig() *meshconfig.MeshConfig {
+	meshConfigObj := mesh.DefaultMeshConfig()
+	meshConfig := &meshConfigObj
+
+	meshConfig.SdsUdsPath = "./var/run/sds/sds_path"
+	meshConfig.EnableSdsTokenMount = true
+
+	// TODO: Agent should use /var/lib/istio/proxy - this is under $HOME for istio, not in etc. Not running as root.
+
+	return meshConfig
+}
+
 // WatchMeshConfig creates the mesh in the pilotConfig from the input arguments.
 // Will set s.Mesh, and keep it updated.
 // On change, ConfigUpdate will be called.
+// TODO: merge with user-specified mesh config.
 func (s *Server) WatchMeshConfig(args string) error {
 	var meshConfig *meshconfig.MeshConfig
 	var err error
@@ -327,8 +329,7 @@ func (s *Server) WatchMeshConfig(args string) error {
 	meshConfig, err = cmd.ReadMeshConfig(args)
 	if err != nil {
 		log.Infof("No local mesh config found, using defaults")
-		meshConfigObj := mesh.DefaultMeshConfig()
-		meshConfig = &meshConfigObj
+		meshConfig = defaultMeshConfig()
 	}
 
 	// Watch the config file for changes and reload if it got modified

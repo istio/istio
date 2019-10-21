@@ -131,6 +131,8 @@ func (s *Controllers) initClusterRegistries(args *istiod.PilotArgs) (err error) 
 }
 
 // initConfigController creates the config controller in the pilotConfig.
+// TODO: remove this, use Galley's config controller (wrapped in a ConfigStoreCache interface).
+// IngressSyncer is also initialised - make sure Galley has an equivalent or use the one here.
 func (s *Controllers) initConfigController(args *istiod.PilotArgs) error {
 	cfgController, err := s.makeKubeConfigController(args)
 	if err != nil {
