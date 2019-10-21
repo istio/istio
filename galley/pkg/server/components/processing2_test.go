@@ -87,7 +87,7 @@ loop:
 			netListen = func(network, address string) (net.Listener, error) { return nil, e }
 		case 7:
 			args.ConfigPath = "aaa"
-			fsNew2 = func(_ string, _ schema.KubeResources) (event.Source, error) { return nil, e }
+			fsNew2 = func(_ string, _ schema.KubeResources, _ bool) (event.Source, error) { return nil, e }
 		default:
 			break loop
 

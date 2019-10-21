@@ -4890,3 +4890,84 @@ func TestValidateLocalities(t *testing.T) {
 		})
 	}
 }
+
+func TestValidationIPAddress(t *testing.T) {
+	tests := []struct {
+		name string
+		addr string
+		ok   bool
+	}{
+		{
+			name: "valid ipv4 address",
+			addr: "1.1.1.1",
+			ok:   true,
+		},
+		{
+			name: "invalid ipv4 address",
+			addr: "1.1.A.1",
+			ok:   false,
+		},
+		{
+			name: "valid ipv6 subnet",
+			addr: "2001:1::1",
+			ok:   true,
+		},
+		{
+			name: "invalid ipv6 address",
+			addr: "2001:1:G::1",
+			ok:   false,
+		},
+	}
+	for _, tt := range tests {
+		if err := ValidateIPAddress(tt.addr); err != nil {
+			if tt.ok {
+				t.Errorf("test: \"%s\" expected to succeed but failed with error: %+v", tt.name, err)
+			}
+		} else {
+			if !tt.ok {
+				t.Errorf("test: \"%s\" expected to fail but succeeded", tt.name)
+			}
+		}
+	}
+}
+
+func TestValidationIPSubnet(t *testing.T) {
+	tests := []struct {
+		name   string
+		subnet string
+		ok     bool
+	}{
+		{
+			name:   "valid ipv4 subnet",
+			subnet: "1.1.1.1/24",
+			ok:     true,
+		},
+		{
+			name:   "invalid ipv4 subnet",
+			subnet: "1.1.1.1/48",
+			ok:     false,
+		},
+		{
+			name:   "valid ipv6 subnet",
+			subnet: "2001:1::1/64",
+			ok:     true,
+		},
+		{
+			name:   "invalid ipv6 subnet",
+			subnet: "2001:1::1/132",
+			ok:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		if err := ValidateIPSubnet(tt.subnet); err != nil {
+			if tt.ok {
+				t.Errorf("test: \"%s\" expected to succeed but failed with error: %+v", tt.name, err)
+			}
+		} else {
+			if !tt.ok {
+				t.Errorf("test: \"%s\" expected to fail but succeeded", tt.name)
+			}
+		}
+	}
+}

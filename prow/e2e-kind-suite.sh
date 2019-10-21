@@ -40,15 +40,23 @@ source "${ROOT}/prow/lib.sh"
 setup_and_export_git_sha
 
 function load_kind_images() {
-	# Archived local images and load it into KinD's docker daemon
-	# Kubernetes in KinD can only access local images from its docker daemon.
-	docker images "${HUB}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 kind --loglevel debug --name istio-testing load docker-image
+  for i in {1..3}; do
+    # Archived local images and load it into KinD's docker daemon
+    # Kubernetes in KinD can only access local images from its docker daemon.
+    docker images "${HUB}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 kind --loglevel debug --name istio-testing load docker-image && break
+    echo "Attempt ${i} to load images failed, retrying in 5s..."
+    sleep 5
+	done
 
-	# If a variant is specified, load those images as well.
-	# We should load non-variant images as well for things like `app` which do not use variants
-	if [[ "${VARIANT:-}" != "" ]]; then
-	  docker images "${HUB}/*:${TAG}-${VARIANT}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 kind --loglevel debug --name istio-testing load docker-image
-  fi
+    # If a variant is specified, load those images as well.
+    # We should load non-variant images as well for things like `app` which do not use variants
+    if [[ "${VARIANT:-}" != "" ]]; then
+      for i in {1..3}; do
+        docker images "${HUB}/*:${TAG}-${VARIANT}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 kind --loglevel debug --name istio-testing load docker-image
+        echo "Attempt ${i} to load images failed, retrying in 5s..."
+        sleep 5
+	    done
+    fi
 }
 
 function build_kind_images() {

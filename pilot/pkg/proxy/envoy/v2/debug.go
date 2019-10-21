@@ -264,7 +264,7 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 const VersionLen = 12
 
 func (s *DiscoveryServer) getResourceVersion(configVersion, key string, cache map[string]string) string {
-	result, ok := cache[key]
+	result, ok := cache[configVersion]
 	if !ok {
 		result, err := s.Env.IstioConfigStore.GetResourceAtVersion(configVersion[:VersionLen], key)
 		if err != nil {
@@ -273,7 +273,7 @@ func (s *DiscoveryServer) getResourceVersion(configVersion, key string, cache ma
 		}
 		// update the cache even on an error, because errors will not resolve themselves, and we don't want to
 		// repeat the same error for many adsClients.
-		cache[key] = result
+		cache[configVersion] = result
 	}
 	return result
 }
@@ -374,6 +374,7 @@ func (s *DiscoveryServer) Authenticationz(w http.ResponseWriter, req *http.Reque
 		}
 		mostRecentProxy = connections[mostRecent].node
 		svc, _ := s.Env.ServiceDiscovery.Services()
+		autoMTLSEnabled := s.Env.Mesh.GetEnableAutoMtls() != nil && s.Env.Mesh.GetEnableAutoMtls().Value
 		info := []*AuthenticationDebug{}
 		for _, ss := range svc {
 			if ss.MeshExternal {
@@ -383,7 +384,7 @@ func (s *DiscoveryServer) Authenticationz(w http.ResponseWriter, req *http.Reque
 			for _, p := range ss.Ports {
 				authnPolicy, authnMeta := s.globalPushContext().AuthenticationPolicyForWorkload(ss, p)
 				destConfig := s.globalPushContext().DestinationRule(mostRecentProxy, ss)
-				info = append(info, AnalyzeMTLSSettings(ss.Hostname, p, authnPolicy, authnMeta, destConfig)...)
+				info = append(info, AnalyzeMTLSSettings(autoMTLSEnabled, ss.Hostname, p, authnPolicy, authnMeta, destConfig)...)
 			}
 		}
 		if b, err := json.MarshalIndent(info, "  ", "  "); err == nil {
@@ -397,7 +398,7 @@ func (s *DiscoveryServer) Authenticationz(w http.ResponseWriter, req *http.Reque
 }
 
 // AnalyzeMTLSSettings returns mTLS compatibility status between client and server policies.
-func AnalyzeMTLSSettings(hostname host.Name, port *model.Port, authnPolicy *authn.Policy, authnMeta *model.ConfigMeta,
+func AnalyzeMTLSSettings(autoMTLSEnabled bool, hostname host.Name, port *model.Port, authnPolicy *authn.Policy, authnMeta *model.ConfigMeta,
 	destConfig *model.Config) []*AuthenticationDebug {
 	authnPolicyName := configName(authnMeta)
 	serverMTLSMode := authn_alpha1.GetMutualTLSMode(authnPolicy)
@@ -438,7 +439,7 @@ func AnalyzeMTLSSettings(hostname host.Name, port *model.Port, authnPolicy *auth
 		} else {
 			info.Host = fmt.Sprintf("%s|%s", hostname, ss)
 		}
-		info.TLSConflictStatus = EvaluateTLSState(c, serverMTLSMode)
+		info.TLSConflictStatus = EvaluateTLSState(autoMTLSEnabled, c, serverMTLSMode)
 
 		output = append(output, &info)
 	}
@@ -447,13 +448,18 @@ func AnalyzeMTLSSettings(hostname host.Name, port *model.Port, authnPolicy *auth
 
 // EvaluateTLSState returns the conflict state (string) for the input client+server settings.
 // The output string could be:
+// - "AUTO": auto mTLS feature is enabled, client TLS (destination rule) is not set and pilot can auto detect client (m)TLS settings.
 // - "OK": both client and server TLS settings are set correctly.
 // - "CONFLICT": both client and server TLS settings are set, but could be incompatible.
-func EvaluateTLSState(clientMode *networking.TLSSettings, serverMode authn_model.MutualTLSMode) string {
+func EvaluateTLSState(autoMTLSEnabled bool, clientMode *networking.TLSSettings, serverMode authn_model.MutualTLSMode) string {
 	const okState string = "OK"
 	const conflictState string = "CONFLICT"
+	const autoState string = "AUTO"
 
 	if clientMode == nil {
+		if autoMTLSEnabled {
+			return autoState
+		}
 		// TLS settings was not set explicitly, pilot will try a setting that work well with the
 		// destination authN policy. We could use the separate state value (e.g AUTO) in the future.
 		return okState

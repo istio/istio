@@ -19,6 +19,7 @@ import (
 
 	"istio.io/istio/galley/pkg/crd/validation"
 	"istio.io/istio/galley/pkg/server/process"
+	"istio.io/istio/pkg/cmd"
 )
 
 // NewValidation returns a new validation component.
@@ -34,6 +35,9 @@ func NewValidation(kubeConfig string, params *validation.WebhookParameters, live
 			}
 			if params.EnableReconcileWebhookConfiguration {
 				go validation.ReconcileWebhookConfiguration(webhookServerReady, stopCh, params, kubeConfig)
+			}
+			if params.EnableValidation || params.EnableReconcileWebhookConfiguration {
+				go cmd.WaitSignal(stopCh)
 			}
 			return nil
 		},

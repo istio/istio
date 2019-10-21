@@ -54,16 +54,12 @@ const (
 
 	// DefaultCIUndeployTimeout for Istio.
 	DefaultCIUndeployTimeout = time.Second * 900
-
-	// DefaultIstioChartRepo for Istio.
-	DefaultIstioChartRepo = "https://gcsweb.istio.io/gcs/istio-prerelease/daily-build/release-1.1-latest-daily/charts/"
 )
 
 var (
 	helmValues string
 
 	settingsFromCommandline = &Config{
-		ChartRepo:                      DefaultIstioChartRepo,
 		SystemNamespace:                DefaultSystemNamespace,
 		IstioNamespace:                 DefaultSystemNamespace,
 		ConfigNamespace:                DefaultSystemNamespace,
@@ -109,8 +105,6 @@ type Config struct {
 
 	// UndeployTimeout the timeout for undeploying Istio.
 	UndeployTimeout time.Duration
-
-	ChartRepo string
 
 	// The top-level Helm chart dir.
 	ChartDir string
@@ -286,7 +280,6 @@ func (c *Config) String() string {
 	result += fmt.Sprintf("DeployTimeout:                  %s\n", c.DeployTimeout.String())
 	result += fmt.Sprintf("UndeployTimeout:                %s\n", c.UndeployTimeout.String())
 	result += fmt.Sprintf("Values:                         %v\n", c.Values)
-	result += fmt.Sprintf("ChartRepo:                      %s\n", c.ChartRepo)
 	result += fmt.Sprintf("ChartDir:                       %s\n", c.ChartDir)
 	result += fmt.Sprintf("CrdsFilesDir:                   %s\n", c.CrdsFilesDir)
 	result += fmt.Sprintf("ValuesFile:                     %s\n", c.ValuesFile)

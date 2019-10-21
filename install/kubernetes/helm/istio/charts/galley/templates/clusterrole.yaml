@@ -26,9 +26,11 @@ rules:
   "security.istio.io"]
   resources: ["*/status"]
   verbs: ["update"]
+{{- if not .Values.global.operatorManageWebhooks }}
 - apiGroups: ["admissionregistration.k8s.io"]
   resources: ["validatingwebhookconfigurations"]
   verbs: ["*"]
+{{- end }}
 - apiGroups: ["extensions","apps"]
   resources: ["deployments"]
   resourceNames: ["istio-galley"]

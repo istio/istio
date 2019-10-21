@@ -1,0 +1,6 @@
+# mTLS is disabled without destination rule.
+apiVersion: authentication.istio.io/v1alpha1
+kind: MeshPolicy
+metadata:
+  name: "default"
+spec: {}
