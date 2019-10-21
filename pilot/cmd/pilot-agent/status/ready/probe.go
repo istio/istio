@@ -35,7 +35,6 @@ type Probe struct {
 	AdminPort           uint16
 	receivedFirstUpdate bool
 	listenersBound      bool
-	serverLive          bool
 }
 
 // Check executes the probe and returns an error if the probe fails.
@@ -102,10 +101,6 @@ func (p *Probe) checkUpdated() error {
 
 // checkServerInfo checks to ensure that Envoy is in the READY state
 func (p *Probe) checkServerInfo() error {
-	// If Envoy is already Live, just return immediately.
-	if p.serverLive {
-		return nil
-	}
 	info, err := util.GetServerInfo(p.LocalHostAddr, p.AdminPort)
 	if err != nil {
 		return fmt.Errorf("failed to get server info: %v", err)
@@ -115,7 +110,6 @@ func (p *Probe) checkServerInfo() error {
 		return fmt.Errorf("server is not live, current state is: %v", info.GetState().String())
 	}
 
-	p.serverLive = true
 	return nil
 }
 
@@ -131,7 +125,7 @@ func (p *Probe) isEnvoyReady() error {
 
 // pingVirtualListeners checks to ensure that Envoy is actually listenening on the port.
 func (p *Probe) pingVirtualListeners() error {
-	if len(p.ProxyIP) == 0 || p.listenersBound {
+	if len(p.ProxyIP) == 0 || !p.listenersBound {
 		return nil
 	}
 

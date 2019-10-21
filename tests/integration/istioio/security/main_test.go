@@ -12,18 +12,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package istioio
+package security
 
 import (
-	"io"
+	"testing"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/label"
 )
 
-// Context for the currently executing test.
-type Context struct {
-	framework.TestContext
-	Env          *kube.Environment
-	SnippetsFile io.Writer
+var (
+	ist istio.Instance
+)
+
+func TestMain(m *testing.M) {
+	framework.NewSuite("security", m).
+		Label(label.CustomSetup).
+		SetupOnEnv(environment.Kube, istio.Setup(&ist, setupConfig)).
+		RequireEnvironment(environment.Kube).
+		Run()
+}
+
+//grafana is disabled in the default test framework config. Enable it.
+func setupConfig(cfg *istio.Config) {
+	if cfg == nil {
+		return
+	}
+
+	cfg.Values["grafana.enabled"] = "true"
 }

@@ -12,18 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package istioio
+package util
 
-import (
-	"io"
-
-	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
-)
-
-// Context for the currently executing test.
-type Context struct {
-	framework.TestContext
-	Env          *kube.Environment
-	SnippetsFile io.Writer
+// IsExportToAllNamespaces returns true if export to applies to all namespaces
+// and false if it is set to namespace local.
+func IsExportToAllNamespaces(exportTos []string) bool {
+	exportedToAll := true
+	for _, e := range exportTos {
+		if e == ExportToNamespaceLocal {
+			exportedToAll = false
+		} else if e == ExportToAllNamespaces {
+			// give preference to "*" and stop iterating
+			exportedToAll = true
+			break
+		}
+	}
+	return exportedToAll
 }

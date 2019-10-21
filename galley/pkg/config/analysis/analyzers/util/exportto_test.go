@@ -12,18 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package istioio
+package util
 
 import (
-	"io"
+	"testing"
 
-	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	. "github.com/onsi/gomega"
 )
 
-// Context for the currently executing test.
-type Context struct {
-	framework.TestContext
-	Env          *kube.Environment
-	SnippetsFile io.Writer
+func TestIsExportToAllNamespaces(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	// Empty array
+	g.Expect(IsExportToAllNamespaces(nil)).To(Equal(true))
+
+	// Array with "*"
+	g.Expect(IsExportToAllNamespaces([]string{"*"})).To(Equal(true))
+
+	// Array with "."
+	g.Expect(IsExportToAllNamespaces([]string{"."})).To(Equal(false))
+
+	// Array with "." & "*"
+	g.Expect(IsExportToAllNamespaces([]string{".", "*"})).To(Equal(true))
+
+	// Array with "bogus"
+	g.Expect(IsExportToAllNamespaces([]string{"bogus"})).To(Equal(true))
 }

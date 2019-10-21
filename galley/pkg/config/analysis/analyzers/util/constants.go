@@ -12,18 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package istioio
+package util
 
 import (
-	"io"
-
-	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"regexp"
 )
 
-// Context for the currently executing test.
-type Context struct {
-	framework.TestContext
-	Env          *kube.Environment
-	SnippetsFile io.Writer
-}
+const (
+	DefaultKubernetesDomain = "svc.cluster.local"
+	MeshGateway             = "mesh"
+	ExportToNamespaceLocal  = "."
+	ExportToAllNamespaces   = "*"
+)
+
+var (
+	fqdnPattern = regexp.MustCompile(`^(.+)\.(.+)\.svc\.cluster\.local$`)
+)
