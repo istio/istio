@@ -1,17 +1,3 @@
-
-# Installs Istio 1.2 using default install yaml, install canary, verify canary starts.
-test-canary-12: run-build-canary
-	# Install Istio 1.2
-	kubectl apply -k kustomize/istio-1.2/default --prune -l release=istio
-
-	# Install Pilot canary
-	kubectl apply -k kustomize/istio-canary --prune -l release=istio-canary
-
-	# Wait for it to startup
-	kubectl wait deployments istio-pilotcanary -n ${ISTIO_SYSTEM_NS} --for=condition=available --timeout=${WAIT_TIMEOUT}
-
-	$(MAKE) test-canary-tests
-
 # Test canary, assume istio-system is already installed.
 test-canary: run-build-canary
 	# Install Pilot canary
