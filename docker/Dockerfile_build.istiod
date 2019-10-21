@@ -48,9 +48,14 @@ RUN mkdir -p /etc/certs && \
     mkdir -p /var/lib/istio/envoy && \
     mkdir -p /var/lib/istio/config && \
     mkdir -p /var/lib/istio/proxy && \
+    mkdir -p /var/lib/istio/inject && \
     chown -R 1337 /etc/certs /etc/istio /var/lib/istio
 
 # Defaults
-COPY ./var/lib/istio /var/lib/istio/
+#COPY ./var/lib/istio /var/lib/istio/
+
+COPY ./install/kubernetes/helm/istio/files/injection-template.yaml /var/lib/istio/inject
+COPY ./tools/packaging/common/envoy_bootstrap_v2.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
+
 USER 1337:1337
 ENTRYPOINT /usr/local/bin/istiod
