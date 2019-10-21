@@ -233,7 +233,13 @@ spec:
           - name: SERVICE_ACCOUNT
             valueFrom:
               fieldRef:
-                fieldPath: spec.serviceAccountName
+                fieldPath: spec.serviceAccountName                
+          {{- if $.Values.global.security }}
+          {{- if eq $.Values.global.security.enabled false }}
+          - name: SIDECAR_PROBE_CHECK_SECRET_MOUNT_KEY
+            value: "false"
+          {{- end }}
+          {{- end }}
           - name: ISTIO_META_POD_NAME
             valueFrom:
               fieldRef:

@@ -43,4 +43,7 @@ global:
   
   useMCP: false
 
+  security:
+    enabled: false
+
 
