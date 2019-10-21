@@ -430,7 +430,7 @@ var (
 					ApplicationPorts:   parsedPorts,
 					KubeAppHTTPProbers: prober,
 					NodeType:           role.Type,
-					CheckKeyCertFile:   sdsUDSPath != "",
+					CheckKeyCertFile:   sdsUDSPath == "",
 				})
 				if err != nil {
 					cancel()
