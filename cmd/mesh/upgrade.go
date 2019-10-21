@@ -23,6 +23,8 @@ import (
 	goversion "github.com/hashicorp/go-version"
 	"github.com/spf13/cobra"
 
+	"istio.io/pkg/log"
+
 	"istio.io/operator/pkg/compare"
 	"istio.io/operator/pkg/hooks"
 	"istio.io/operator/pkg/manifest"
@@ -95,7 +97,7 @@ func UpgradeCmd() *cobra.Command {
 			initLogsOrExit(rootArgs)
 			err := upgrade(rootArgs, macArgs, l)
 			if err != nil {
-				l.logAndPrintf("Error: %v\n", err)
+				log.Infof("Error: %v\n", err)
 			}
 			return err
 		},
@@ -274,11 +276,14 @@ func checkSupportedVersions(cur, tar, versionsURI string, l *logger) error {
 		return fmt.Errorf("failed to parse the target version: %v", tar)
 	}
 
-	compatibleMap := getVersionCompatibleMap(versionsURI, tarGoVersion, l)
+	compatibleMap, err := getVersionCompatibleMap(versionsURI, tarGoVersion, l)
+	if err != nil {
+		return err
+	}
 
 	curGoVersion, err := goversion.NewVersion(cur)
 	if err != nil {
-		return fmt.Errorf("failed to parse the current version: %v", cur)
+		return fmt.Errorf("failed to parse the current version: %v, error: %v", cur, err)
 	}
 
 	if !compatibleMap.SupportedIstioVersions.Check(curGoVersion) {
@@ -300,7 +305,7 @@ func retrieveControlPlaneVersion(kubeClient manifest.ExecClient, istioNamespace 
 	}
 
 	for _, remote := range cv {
-		l.logAndPrintf("Control Plane - %s pod - version: %s", remote.Component, remote.Version)
+		l.logAndPrintf("Control Plane - %v", remote)
 	}
 	l.logAndPrint("")
 
@@ -332,8 +337,8 @@ func waitUpgradeComplete(kubeClient manifest.ExecClient, istioNamespace string, 
 		}
 		for _, remote := range cv {
 			if targetVer != remote.Version {
-				l.logAndPrintf("Control Plane - %s pod - version %s does not match the target version %s",
-					remote.Component, remote.Version, targetVer)
+				l.logAndPrintf("Control Plane - %v does not match the target version %s",
+					remote, targetVer)
 			}
 		}
 	}
