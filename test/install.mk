@@ -69,17 +69,6 @@ run-build-default: dep
 	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-telemetry/prometheus  -t > kustomize/default/gen-istio-prometheus.yaml
 	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-telemetry/grafana -t > kustomize/default/gen-istio-grafana.yaml
 
-REL ?= istio-1.3.0-rc.0
-# TODO: download the release from github - current target is for manual generation, assumes dev downloads manually
-# under $TOP/rel
-
-run-build-rel:
-	helm template ${TOP}/rel/${REL}/install/kubernetes/helm/istio --name istio --namespace istio-system > kustomize/istio-1.3/default/gen-istio.yaml
-	cp ${TOP}/rel/${REL}/install/kubernetes/helm/istio/values.yaml  kustomize/istio-1.3/default
-	helm template ${TOP}/rel/${REL}/install/kubernetes/helm/istio --name istio --namespace istio-system \
-		-f ${TOP}/rel/${REL}/install/kubernetes/helm/istio/values-istio-minimal.yaml > kustomize/istio-1.3/minimal/gen-istio.yaml
-	cp ${TOP}/rel/${REL}/install/kubernetes/helm/istio/values-istio-minimal.yaml kustomize/istio-1.3/minimal
-
 DEMO_OPTS="-f test/demo/values.yaml"
 
 # Demo updates the demo profile. After testing it can be checked in - allowing reviewers to see any changes.
