@@ -35,6 +35,14 @@ import (
 	"istio.io/pkg/log"
 )
 
+type CommandParseError struct {
+	e error
+}
+
+func (c CommandParseError) Error() string {
+	return c.e.Error()
+}
+
 var (
 	kubeconfig       string
 	configContext    string
@@ -174,6 +182,16 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(contextCmd)
 
 	rootCmd.AddCommand(validate.NewValidateCommand(&istioNamespace))
+
+	rootCmd.SetFlagErrorFunc(func(_ *cobra.Command, e error) error {
+		return CommandParseError{e}
+	})
+
+	for _, cmd := range rootCmd.Commands() {
+		cmd.SetFlagErrorFunc(func(_ *cobra.Command, e error) error {
+			return CommandParseError{e}
+		})
+	}
 
 	return rootCmd
 }

@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,22 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package cmd
 
 import (
-	"os"
-
-	// import all known client auth plugins
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
-
-	"istio.io/istio/istioctl/cmd"
+	"errors"
+	"testing"
 )
 
-func main() {
-	rootCmd := cmd.GetRootCmd(os.Args[1:])
+var KnownSubstrings = []string{"unknown command"}
 
-	if err := rootCmd.Execute(); err != nil {
-		exitCode := cmd.GetExitCode(err)
-		os.Exit(exitCode)
+func TestKnownExitStrings(t *testing.T) {
+	for _, s := range KnownSubstrings {
+		if GetExitCode(errors.New(s)) == 1 {
+			t.Errorf("Expected %q to have a non-1 exit code.", s)
+		}
 	}
 }
