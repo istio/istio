@@ -99,14 +99,14 @@ var (
 
 	wg sync.WaitGroup
 
-	instanceIPVar          = env.RegisterStringVar("INSTANCE_IP", "", "")
-	podNameVar             = env.RegisterStringVar("POD_NAME", "", "")
-	podNamespaceVar        = env.RegisterStringVar("POD_NAMESPACE", "", "")
-	istioNamespaceVar      = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
-	kubeAppProberNameVar   = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
-	sdsEnabledVar          = env.RegisterBoolVar("SDS_ENABLED", false, "")
-	readyProbeCheckKeyFile = env.RegisterBoolVar("SIDECAR_PROBE_CHECK_SECRET_MOUNT_KEY", true, "If enabled, sidecar container readiness probe"+
-		" ensures the Citadel secret mount based key file. This will be ignored if SDS is enabled")
+	instanceIPVar        = env.RegisterStringVar("INSTANCE_IP", "", "")
+	podNameVar           = env.RegisterStringVar("POD_NAME", "", "")
+	podNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "")
+	istioNamespaceVar    = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
+	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
+	sdsEnabledVar        = env.RegisterBoolVar("SDS_ENABLED", false, "")
+	autoMTLSEnabled      = env.RegisterBoolVar("ISTIO_AUTO_MTLS_ENABLED", false, "If true, auto mTLS is enabled, "+
+		"sidecar checks key/cert if SDS is not enabled.")
 	sdsUdsPathVar             = env.RegisterStringVar("SDS_UDS_PATH", "unix:/var/run/sds/uds_path", "SDS address")
 	stackdriverTracingEnabled = env.RegisterBoolVar("STACKDRIVER_TRACING_ENABLED", false, "If enabled, stackdriver will"+
 		" get configured as the tracer.")
@@ -349,7 +349,7 @@ var (
 			// Since Envoy needs the file-mounted certs for mTLS, we wait for them to become available
 			// before starting it. Skip waiting cert if sds is enabled, otherwise it takes long time for
 			// pod to start.
-			if (controlPlaneAuthEnabled || rsTLSEnabled) && !sdsEnabled {
+			if (controlPlaneAuthEnabled || rsTLSEnabled || autoMTLSEnabled.Get()) && !sdsEnabled {
 				log.Infof("Monitored certs: %#v", tlsCertsToWatch)
 				for _, cert := range tlsCertsToWatch {
 					waitForFile(cert, 2*time.Minute)
@@ -432,7 +432,6 @@ var (
 					ApplicationPorts:   parsedPorts,
 					KubeAppHTTPProbers: prober,
 					NodeType:           role.Type,
-					CheckKeyCertFile:   readyProbeCheckKeyFile.Get(),
 				}
 				if sdsUDSPath != "" {
 					cfg.CheckKeyCertFile = false

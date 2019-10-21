@@ -234,12 +234,8 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: spec.serviceAccountName                
-          {{- if $.Values.global.security }}
-          {{- if eq $.Values.global.security.enabled false }}
-          - name: SIDECAR_PROBE_CHECK_SECRET_MOUNT_KEY
-            value: "false"
-          {{- end }}
-          {{- end }}
+          - name: ISTIO_AUTO_MTLS_ENABLED
+            value: "{{ $.Values.global.mtls.auto }}"
           - name: ISTIO_META_POD_NAME
             valueFrom:
               fieldRef:
