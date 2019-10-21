@@ -46,7 +46,6 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/env"
-	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 
@@ -77,9 +76,6 @@ var (
 	// DNSCertDir is the location to save generated DNS certificates.
 	// TODO: we can probably avoid saving, but will require deeper changes.
 	DNSCertDir = "./var/run/secrets/istio-dns"
-
-	// FilepathWalkInterval dictates how often the file system is walked for config
-	FilepathWalkInterval = 100 * time.Millisecond
 
 	// PilotCertDir is the default location for mTLS certificates used by pilot
 	// Visible for tests - at runtime can be set by PILOT_CERT_DIR environment variable.
@@ -164,30 +160,6 @@ type PilotArgs struct {
 }
 
 var podNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", "istio-system", "Istio namespace")
-
-// NewServer creates a new Server instance, using defaults for combined Istio and loading optional mesh config
-// file.
-//
-//
-func NewServer(args *PilotArgs) (*Server, error) {
-
-	// If the namespace isn't set, try looking it up from the environment.
-	if args.Namespace == "" {
-		args.Namespace = podNamespaceVar.Get()
-	}
-	if args.KeepaliveOptions == nil {
-		args.KeepaliveOptions = istiokeepalive.DefaultOption()
-	}
-	if args.Config.ClusterRegistriesNamespace == "" {
-		args.Config.ClusterRegistriesNamespace = args.Namespace
-	}
-
-	s := &Server{
-		Args: args,
-	}
-	s.fileWatcher = filewatcher.NewWatcher()
-	return s, nil
-}
 
 // NewIstiod will initialize the ConfigStores.
 func (s *Server) InitConfig() error {

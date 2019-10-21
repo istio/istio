@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	istiokeepalive "istio.io/istio/pkg/keepalive"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/filewatcher"
 
@@ -120,17 +121,30 @@ func NewIstiod(confDir string) (*Server, error) {
 		},
 		Config: ConfigArgs{},
 
+		Plugins: DefaultPlugins, // TODO: Should it be in MeshConfig ? Env override until it's done.
+
 		// MCP is messing up with the grpc settings...
 		MCPMaxMessageSize:        1024 * 1024 * 64,
 		MCPInitialWindowSize:     1024 * 1024 * 64,
 		MCPInitialConnWindowSize: 1024 * 1024 * 64,
 	}
 
-	// Main server - pilot, registries
-	server, err := NewServer(args)
-	if err != nil {
-		return nil, err
+	// If the namespace isn't set, try looking it up from the environment.
+	if args.Namespace == "" {
+		args.Namespace = podNamespaceVar.Get()
 	}
+	if args.KeepaliveOptions == nil {
+		args.KeepaliveOptions = istiokeepalive.DefaultOption()
+	}
+	if args.Config.ClusterRegistriesNamespace == "" {
+		args.Config.ClusterRegistriesNamespace = args.Namespace
+	}
+
+	server := &Server{
+		Args: args,
+	}
+
+	server.fileWatcher = filewatcher.NewWatcher()
 
 	if err := server.WatchMeshConfig(meshCfgFile); err != nil {
 		return nil, fmt.Errorf("mesh: %v", err)
@@ -147,7 +161,7 @@ func NewIstiod(confDir string) (*Server, error) {
 	server.basePort = basePort
 
 	args.DiscoveryOptions = envoy.DiscoveryServiceOptions{
-		HTTPAddr: fmt.Sprintf(":%d", basePort+7),
+		HTTPAddr: ":8080", // lots of tools use this
 		GrpcAddr: fmt.Sprintf(":%d", basePort+10),
 		// Using 12 for K8S-DNS based cert.
 		// TODO: We'll also need 11 for Citadel-based cert
@@ -160,7 +174,7 @@ func NewIstiod(confDir string) (*Server, error) {
 		Port:    uint16(basePort + 13),
 	}
 
-	err = server.InitConfig()
+	err := server.InitConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -173,7 +187,7 @@ func NewIstiod(confDir string) (*Server, error) {
 	gargs.ConfigPath = baseDir + "/var/lib/istio/local"
 	// TODO: load a json file to override defaults (for all components)
 
-	gargs.ValidationArgs.EnableValidation = false
+	gargs.ValidationArgs.EnableValidation = true
 	gargs.ValidationArgs.EnableReconcileWebhookConfiguration = false
 	gargs.APIAddress = fmt.Sprintf("tcp://0.0.0.0:%d", basePort+901)
 	gargs.Insecure = true

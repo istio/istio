@@ -88,8 +88,6 @@ func main() {
 		log.Fatal("Failure on start XDS server", err)
 	}
 
-	k8sServer.StartSDSK8S(istiods.Mesh)
-
 	// Injector should run along, even if not used - but only if the injection template is mounted.
 	if _, err := os.Stat("./var/lib/istio/inject/injection-template.yaml"); err == nil {
 		err = k8s.StartInjector(stop)
