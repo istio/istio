@@ -170,7 +170,7 @@ func (h *HelmReconciler) ProcessManifest(manifest manifest.Manifest) error {
 			errs = append(errs, err)
 			continue
 		}
-		err = h.ProcessObject(obj)
+		err = h.ProcessObject(manifest.Name, obj)
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -179,7 +179,7 @@ func (h *HelmReconciler) ProcessManifest(manifest manifest.Manifest) error {
 	return utilerrors.NewAggregate(errs)
 }
 
-func (h *HelmReconciler) ProcessObject(obj *unstructured.Unstructured) error {
+func (h *HelmReconciler) ProcessObject(chartName string, obj *unstructured.Unstructured) error {
 	if obj.GetKind() == "List" {
 		allErrors := []error{}
 		list, err := obj.ToList()
@@ -188,7 +188,7 @@ func (h *HelmReconciler) ProcessObject(obj *unstructured.Unstructured) error {
 			return err
 		}
 		for _, item := range list.Items {
-			err = h.ProcessObject(&item)
+			err = h.ProcessObject(chartName, &item)
 			if err != nil {
 				allErrors = append(allErrors, err)
 			}
@@ -196,7 +196,7 @@ func (h *HelmReconciler) ProcessObject(obj *unstructured.Unstructured) error {
 		return utilerrors.NewAggregate(allErrors)
 	}
 
-	mutatedObj, err := h.customizer.Listener().BeginResource(obj)
+	mutatedObj, err := h.customizer.Listener().BeginResource(chartName, obj)
 	if err != nil {
 		log.Errorf("error preprocessing object: %s", err)
 		return err

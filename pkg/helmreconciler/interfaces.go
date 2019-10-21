@@ -105,8 +105,9 @@ type RenderingListener interface {
 	// applying settings that are specific to the environment, e.g. URLs from Ingress/Service resources created from
 	// other charts; etc.
 	// obj represents a resource created from a manifest.
+	// chart represents the helm chart obj belongs to.
 	// The returned runtime.Object is the object that will be reconciled (created/updated).
-	BeginResource(obj runtime.Object) (runtime.Object, error)
+	BeginResource(chart string, obj runtime.Object) (runtime.Object, error)
 	// ResourceCreated occurs after a resource has been created (i.e. client.Create(obj)).  This method allows users
 	// to programmatically apply other details which are necessary as part of the object creation, e.g. updating
 	// SecurityContextConstraints for a new ServiceAccount.
@@ -153,7 +154,7 @@ type ChartCustomizer interface {
 	// BeginChart is the same as RenderingListener.BeginChart
 	BeginChart(chart string, manifests []manifest.Manifest) ([]manifest.Manifest, error)
 	// BeginResource is the same as RenderingListener.BeginResource
-	BeginResource(obj runtime.Object) (runtime.Object, error)
+	BeginResource(chart string, obj runtime.Object) (runtime.Object, error)
 	// ResourceCreated is the same as RenderingListener.ResourceCreated
 	ResourceCreated(created runtime.Object) error
 	// ResourceUpdated is the same as RenderingListener.ResourceUpdated
