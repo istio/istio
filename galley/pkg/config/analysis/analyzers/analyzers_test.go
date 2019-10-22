@@ -62,6 +62,19 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "serviceRoleServices",
+		inputFiles: []string{"testdata/serviceroleservices.yaml"},
+		analyzer:   &auth.ServiceRoleServicesAnalyzer{},
+		expected: []message{
+			{msg.ReferencedResourceNotFound, "ServiceRole service-role-services-bogus.default"},
+			{msg.ReferencedResourceNotFound, "ServiceRole service-role-services-bogus-fqdn.default"},
+			{msg.ReferencedResourceNotFound, "ServiceRole service-role-services.anothernamespace"},
+			{msg.ReferencedResourceNotFound, "ServiceRole service-role-services-fqdn.anothernamespace"},
+			{msg.ReferencedResourceNotFound, "ServiceRole service-role-services-ns.anothernamespace"},
+			{msg.ReferencedResourceNotFound, "ServiceRole service-role-services-all.anothernamespace"},
+		},
+	},
+	{
 		name:       "deprecation",
 		inputFiles: []string{"testdata/deprecation.yaml"},
 		analyzer:   &deprecation.FieldAnalyzer{},

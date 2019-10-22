@@ -1,0 +1,111 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: details
+  namespace: default
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: reviews
+  namespace: default
+---
+apiVersion: rbac.istio.io/v1alpha1
+kind: ServiceRole
+metadata:
+  name: service-role-services-bogus-fqdn
+  namespace: default
+spec:
+  rules:
+    - services: ["bogus.default.svc.cluster.local"]
+      methods: ["GET", "HEAD"]
+---
+apiVersion: rbac.istio.io/v1alpha1
+kind: ServiceRole
+metadata:
+  name: service-role-services
+  namespace: default
+spec:
+  rules:
+    - services: ["reviews.default.svc.cluster.local"]
+      methods: ["GET", "HEAD"]
+---
+apiVersion: rbac.istio.io/v1alpha1
+kind: ServiceRole
+metadata:
+  name: service-role-services-bogus
+  namespace: default
+spec:
+  rules:
+    - services: ["bogus"]
+      methods: ["GET", "HEAD"]
+---
+apiVersion: rbac.istio.io/v1alpha1
+kind: ServiceRole
+metadata:
+  name: service-role-services-fdqn
+  namespace: default
+spec:
+  rules:
+    - services: ["reviews"]
+      methods: ["GET", "HEAD"]
+---
+apiVersion: rbac.istio.io/v1alpha1
+kind: ServiceRole
+metadata:
+  name: service-role-services-ns
+  namespace: default
+spec:
+  rules:
+    - services: ["*.default.svc.cluster.local"]
+      methods: ["GET", "HEAD"]
+---
+apiVersion: rbac.istio.io/v1alpha1
+kind: ServiceRole
+metadata:
+  name: service-role-services-all
+  namespace: default
+spec:
+  rules:
+    - services: ["*"]
+      methods: ["GET", "HEAD"]
+---
+apiVersion: rbac.istio.io/v1alpha1
+kind: ServiceRole
+metadata:
+  name: service-role-services-fqdn
+  namespace: anothernamespace
+spec:
+  rules:
+    - services: ["reviews.anothernamespace.svc.cluster.local"]
+      methods: ["GET", "HEAD"]
+---
+apiVersion: rbac.istio.io/v1alpha1
+kind: ServiceRole
+metadata:
+  name: service-role-services
+  namespace: anothernamespace
+spec:
+  rules:
+    - services: ["reviews"]
+      methods: ["GET", "HEAD"]
+---
+apiVersion: rbac.istio.io/v1alpha1
+kind: ServiceRole
+metadata:
+  name: service-role-services-ns
+  namespace: anothernamespace
+spec:
+  rules:
+    - services: ["*.anothernamespace.svc.cluster.local"]
+      methods: ["GET", "HEAD"]
+---
+apiVersion: rbac.istio.io/v1alpha1
+kind: ServiceRole
+metadata:
+  name: service-role-services-all
+  namespace: anothernamespace
+spec:
+  rules:
+    - services: ["*"]
+      methods: ["GET", "HEAD"]
