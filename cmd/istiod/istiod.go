@@ -45,13 +45,6 @@ var (
 func main() {
 	stop := make(chan struct{})
 
-	// Load the mesh config. Note that the path is slightly changed - attempting to move all istio
-	// related under /var/lib/istio, which is also the home dir of the istio user.
-	istiods, err := istiod.NewIstiod("/var/lib/istio/config")
-	if err != nil {
-		log.Fatal("Failed to start istiod ", err)
-	}
-
 	// First create the k8s clientset - and return the config source.
 	// The config includes the address of apiserver and the public key - which will be used
 	// after cert generation, to check that Apiserver-generated certs have same key.
@@ -59,6 +52,13 @@ func main() {
 	if err != nil {
 		// TODO: 'local' mode where k8s is not used - using the config.
 		log.Fatal("Failed to connect to k8s", err)
+	}
+
+	// Load the mesh config. Note that the path is slightly changed - attempting to move all istio
+	// related under /var/lib/istio, which is also the home dir of the istio user.
+	istiods, err := istiod.NewIstiod(kcfg, client,"/var/lib/istio/config")
+	if err != nil {
+		log.Fatal("Failed to start istiod ", err)
 	}
 
 	// Create k8s-signed certificates. This allows injector, validation to work without Citadel, and
@@ -71,10 +71,6 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to start k8s controllers ", err)
 	}
-
-	// Initialize Galley config source for K8S.
-	galleyK8S, err := k8sServer.NewGalleyK8SSource(istiods.Galley.Resources)
-	istiods.Galley.Sources = append(istiods.Galley.Sources, galleyK8S)
 
 	err = istiods.InitDiscovery()
 	if err != nil {

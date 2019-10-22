@@ -17,6 +17,9 @@ package istiod
 import (
 	"fmt"
 	"google.golang.org/grpc"
+	"istio.io/istio/galley/pkg/server"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"net"
 	"net/http"
 	"strconv"
@@ -71,7 +74,7 @@ type Server struct {
 	CertKey      []byte
 	CertChain    []byte
 	RootCA       []byte
-	Galley       *GalleyServer
+	Galley       *server.Server
 	grpcListener net.Listener
 	httpListener net.Listener
 	Environment  *model.Environment
@@ -102,7 +105,7 @@ func (s *Server) InitCommon(args *PilotArgs) {
 // - http port 15007
 // - grpc on 15010
 //- config from $ISTIO_CONFIG or ./conf
-func NewIstiod(confDir string) (*Server, error) {
+func NewIstiod(kconfig *rest.Config, kclient *kubernetes.Clientset, confDir string) (*Server, error) {
 	baseDir := "." // TODO: env ISTIO_HOME or HOME ?
 
 	// TODO: 15006 can't be configured currently
@@ -177,18 +180,31 @@ func NewIstiod(confDir string) (*Server, error) {
 	gargs := settings.DefaultArgs()
 
 	// Default dir.
-	// If not set, will attempt to use K8S.
-	gargs.ConfigPath = baseDir + "/var/lib/istio/local"
+	// If not set, will use K8S.
+	//  gargs.ConfigPath = baseDir + "/var/lib/istio/local"
 	// TODO: load a json file to override defaults (for all components)
 
+	gargs.EnableServer = true
+
 	gargs.ValidationArgs.EnableValidation = true
+	gargs.ValidationArgs.CACertFile = DNSCertDir + "/root-cert.pem"
+	gargs.ValidationArgs.CertFile = DNSCertDir + "/cert-chain.pem"
+	gargs.ValidationArgs.KeyFile = DNSCertDir + "/key.pem"
+
+	gargs.Readiness.Path = "/tmp/healthReadiness"
+
 	gargs.ValidationArgs.EnableReconcileWebhookConfiguration = false
 	gargs.APIAddress = fmt.Sprintf("tcp://0.0.0.0:%d", basePort+901)
+	// TODO: For secure, we'll expose the GRPC register method and use the common GRPC+TLS port.
 	gargs.Insecure = true
-	gargs.EnableServer = true
 	gargs.DisableResourceReadyCheck = true
 	// Use Galley Ctrlz for all services.
 	gargs.IntrospectionOptions.Port = uint16(basePort + 876)
+
+	gargs.KubeRestConfig = kconfig
+	gargs.KubeInterface = kclient
+
+
 
 	// The file is loaded and watched by Galley using galley/pkg/meshconfig watcher/reader
 	// Current code in galley doesn't expose it - we'll use 2 Caches instead.

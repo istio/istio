@@ -32,8 +32,6 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 
-	"istio.io/pkg/ctrlz/fw"
-
 	"github.com/davecgh/go-spew/spew"
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
@@ -237,7 +235,7 @@ func (s *Server) Start(stop <-chan struct{}, onXDSStart func(model.XDSUpdater)) 
 		return err
 	}
 
-	err := s.Galley.Start()
+	err := s.StartGalley()
 	if err != nil {
 		return err
 	}
@@ -294,11 +292,6 @@ func (s *Server) Serve(stop <-chan struct{}) error {
 		}
 	}()
 
-	if s.Args.CtrlZOptions != nil {
-		if _, err := ctrlz.Run(s.Args.CtrlZOptions, []fw.Topic{s.Galley.ConfigZTopic()}); err != nil {
-			log.Warna(err)
-		}
-	}
 	return nil
 }
 

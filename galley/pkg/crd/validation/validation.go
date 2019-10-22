@@ -18,6 +18,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"k8s.io/client-go/kubernetes"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -72,17 +73,20 @@ func webhookHTTPSHandlerReady(client httpClient, vc *WebhookParameters) error {
 }
 
 //RunValidation start running Galley validation mode
-func RunValidation(ready chan<- struct{}, stopCh chan struct{}, vc *WebhookParameters, kubeConfig string,
-	livenessProbeController, readinessProbeController probe.Controller) {
+func RunValidation(ready chan<- struct{}, stopCh chan struct{}, vc *WebhookParameters, kubeInterface *kubernetes.Clientset, kubeConfig string, livenessProbeController, readinessProbeController probe.Controller) {
 	log.Infof("Galley validation started with\n%s", vc)
 	mixerValidator := mixervalidate.NewDefaultValidator(false)
-	clientset, err := kube.CreateClientset(kubeConfig, "")
-	if err != nil {
-		log.Fatalf("could not create k8s clientset: %v", err)
+
+	if kubeInterface == nil {
+		clientset, err := kube.CreateClientset(kubeConfig, "")
+		if err != nil {
+			log.Fatalf("could not create k8s clientset: %v", err)
+		}
+		kubeInterface = clientset
 	}
 	vc.MixerValidator = mixerValidator
 	vc.PilotDescriptor = schemas.Istio
-	vc.Clientset = clientset
+	vc.Clientset = kubeInterface
 	wh, err := NewWebhook(*vc)
 	if err != nil {
 		log.Fatalf("cannot create validation webhook service: %v", err)

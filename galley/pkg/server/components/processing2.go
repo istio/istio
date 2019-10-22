@@ -275,6 +275,9 @@ func (p *Processing2) getServerGrpcOptions() []grpc.ServerOption {
 }
 
 func (p *Processing2) getKubeInterfaces() (k kube.Interfaces, err error) {
+	if p.args.KubeRestConfig != nil {
+		return kube.NewInterfaces(p.args.KubeRestConfig), nil
+	}
 	if p.k == nil {
 		p.k, err = newInterfaces(p.args.KubeConfig)
 	}
