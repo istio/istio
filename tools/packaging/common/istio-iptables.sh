@@ -493,6 +493,8 @@ if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
             ip6tables -t ${table} -A ISTIO_INBOUND -p tcp --dport "${port}" -j RETURN
         done
         fi
+        # Redirect other inbound traffic
+        ip6tables -t ${table} -A ISTIO_INBOUND -p tcp -j ISTIO_IN_REDIRECT
     else
         # User has specified a non-empty list of ports to be redirected to Envoy.
         for port in ${INBOUND_PORTS_INCLUDE}; do
@@ -567,8 +569,8 @@ if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
   fi
 else
   # Drop all inbound traffic except established connections.
-  ip6tables -F INPUT || true
-  ip6tables -A INPUT -m state --state ESTABLISHED -j ACCEPT || true
-  ip6tables -A INPUT -i lo -d ::1 -j ACCEPT || true
-  ip6tables -A INPUT -j REJECT || true
+  ip6tables -t filter -F INPUT || true
+  ip6tables -t filter -A INPUT -m state --state ESTABLISHED -j ACCEPT || true
+  ip6tables -t filter -A INPUT -i lo -d ::1 -j ACCEPT || true
+  ip6tables -t filter -A INPUT -j REJECT || true
 fi

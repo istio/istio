@@ -1,162 +1,46 @@
-# Istio.io Content Test Framework and Examples
+# Testing istio.io Content
 
-This folder contains the tests for the content on [istio.io](http://istio.io).
+This folder contains tests for the content on [istio.io](http://istio.io).
 
-## Test functions
+The content on `istio.io` will be generated from the output of these tests.
+This means that we verify that the content actually works before we publish it.
 
-The `istio.io` test framework supports the following test functions:
+These tests use the framework defined in the `istioio` package, which is a thin wrapper
+around the [Istio test framework](https://github.com/istio/istio/wiki/Istio-Test-Framework).
 
-- You can use `RunScript` to execute scripts.
-- You can use `Apply` to apply YAML files to a namespace and `Delete` to remove them.
-- You can use `RunScript` to execute scripts.
-- You can `WaitForPods` to wait for pods to deploy.
-- You can use `Exec` to execute custom go functions to.
+## Output
 
-### File Selectors
+When you run an `istio.io` test, it outputs snippets according to the
+[istio.io syntax](https://istio.io/about/contribute/creating-and-editing-pages) and are ready for
+import to `istio.io`. For example:
 
-Many of the methods take an argument of type `istioio.FileSelector`:
+```text
+$snippet enabling_istio_authorization.sh syntax="bash"
+$ kubectl apply -f @samples/bookinfo/platform/kube/rbac/rbac-config-ON.yaml@
+$endsnippet
 
-```golang
-type FileSelector interface {
-    SelectFile(ctx Context) string
-}
+$snippet enforcing_namespace_level_access_control_apply.sh syntax="bash"
+$ kubectl apply -f @samples/bookinfo/platform/kube/rbac/namespace-policy.yaml@
+$endsnippet
 ```
 
-This interface is executed at runtime and provides the test `istioio.Context`,
-which provides the ability to dynamically choose which file to use. For example,
-we could choose a different file if we are running on Minikube:
+Snippets are written to a file in the working directory of the test with the extension
+`.snippets.txt`. The name of the file (minus the extension) is specified when creating
+the `Builder`.
 
-```golang
-istioio.FileFunc(func(ctx istioio.Context) string {
-    if ctx.Env.Settings().Minikube {
-        return "scripts/curl-httpbin-tls-gateway-minikube.sh"
-    }
-    return "scripts/curl-httpbin-tls-gateway-gke.sh"
-}
-```
+For example, `istioio.NewBuilder("path__to__my_istioio_content")` would
+generate the file `path__to__my_istioio_content.snippets.txt`.
 
-This is a more advanced example, however. Typically, the file used will be constant.
-To help with these cases, the framework provides the following utilities:
+By convention, the file name should generally indicate the path to the content on `istio.io`.
+This helps to simplify collection and processing of these files later on.
 
-- `istioio.File`: is a string constant `FileSelector` implementation. Files can be
-absolute or relative to the working directory.
-- `istioio.IstioSrc`: is like `istioio.File` except that the value is assumed to be
-relative to the Istio source directory (`$GOPATH/src/istio.io/istio`).
+For example, the snippets for the page
+`Tasks->Secuity->Mutual TLS Migration` might be stored in
+`tasks__security__mutual_tls_migration.snippets.txt`.
 
-### Execute scripts
+## Test Authoring Overview
 
-You can execute scripts using the following function:
-
-```golang
-RunScript(script istioio.FileSelector, verifier istioio.Verifier)
-```
-
-This function takes the following parameters:
-
-- A file selector for the script.
-- An optional verification function
-
-If you don't provide a verification function, then the error codes that the
-script returns are evaluated as test failures.
-
-This example performs the following actions:
-
-- Execute the `curl-foo-bar-legacy.sh` script
-- Store the output in the `curl-foo-bar-legacy.sh_output.txt` file
-- Verify that there are three responses, each with a `200` return code in
-  `curl-foo-bar-legacy.sh_output.txt`
-
-```golang
-func TestScript(t *testing.T) {
-    framework.
-        NewTest(t).
-        Run(istioio.NewBuilder().
-            RunScript(istioio.File("curl-foo-bar-legacy.sh"), istioio.CurlVerifier("200", "200", "200")).
-            Build())
-}
-```
-
-The `curl-foo-bar-legacy.sh_output.txt` contains the following output:
-
-```bash
-sleep.foo to httpbin.foo: 200
-sleep.bar to httpbin.foo: 200
-sleep.legacy to httpbin.foo: 200
-```
-
-### Apply or delete YAML files
-
-You can use the `Apply(namespace string, path istioio.FileSelector)` function to run the
-`kubectl apply -f` command on a namespace using the specified YAML file. You can
-also use the `Delete(namespace string, path istioio.FileSelector)` function to run the
-`kubectl delete -f` command and remove the configuration specified in the YAML
-file from the namespace. In both cases, the paths are relative to the root of
-the Istio source tree.
-
-This example applies the
-`samples/bookinfo/platform/kube/rbac/productpage-policy.yaml` YAML file on the
-`bookinfo` namespace:
-
-```golang
-func TestApply(t *testing.T) {
-    framework.
-        NewTest(t).
-        Run(istioio.NewBuilder().
-            Apply("default", istioio.IstioSrc("samples/bookinfo/platform/kube/rbac/productpage-policy.yaml")).
-            Build())
-}
-```
-
-### Execute Go functions
-
-You can use the `Exec(testFunction testFunc)` function to run custom tests
-written in Go. The function you pass as a parameter must have the
-`func(t *testing.T) error` form.
-
-As an example, the following example test fails if you use Minikube.
-
-```golang
-framework.
-    NewTest(t).
-    Run(istioio.NewBuilder().
-        Exec(func(ctx istioio.Context) error {
-            if ctx.Env.Settings().Minikube {
-                t.Fatal("This test doesn't work on Minikube.")
-            }
-            return nil
-        })
-        Build())
-```
-
-### Waiting for Pods to Deploy
-
-You can use the `WaitForPods(fetchFunc KubePodFetchFunc)` function to wait for
-pods to deploy. The `KubePodFetchFunc` fetch function you pass as a parameter
-must have the `func(ctx istioio.Context) kubePkg.PodFetchFunc` form.
-
-The `WaitForPods` function allows the test to wait for the set of pods you
-specify in the fetch function to start, or for 30 seconds, whichever comes
-first. The next example performs the following actions:
-
-1. Runs the `create-ns-foo-bar-legacy.sh` script to create several pods in the
-   `foo`, `bar`, and `legacy` namespaces.
-1. Calls the `WaitForPods` function with the built-in
-   `istioio.NewMultiPodFetch` to select all pods from the `foo` namespace.
-
-```golang
-func TestPodFetch(t *testing.T) {
-    framework.
-        NewTest(t).
-        Run(istioio.NewBuilder().
-            RunScript(istioio.File("create-ns-foo-bar-legacy.sh"), nil).
-            WaitForPods(istioio.NewMultiPodFetch("foo")).
-            Build())
-}
-```
-
-## Writing a test
-
-To write a test for content in istio.io follow these steps:
+To write an `istio.io` follow these steps:
 
 1. Add the following imports to your GoLang file:
 
@@ -181,88 +65,150 @@ framework.NewSuite("my-istioio-test", m).
 }
 ```
 
-1. To create the function for your test, you can combine the test functions
-   above, for example:
+1. To create a test, you use `istioio.Builder` to build a series of steps that will
+be run as part of the resulting test function:
 
 ```golang
 func TestCombinedMethods(t *testing.T) {
     framework.
         NewTest(t).
-        Run(istioio.NewBuilder().
-            RunScript(istioio.File("create-ns-foo-bar-legacy.sh"), nil).
-            WaitForPods(istioio.NewMultiPodFetch("foo")).
-            RunScript(istioio.File("curl-foo-bar-legacy.sh"), istioio.GetCurlVerifier("200", "200", "200")).
-            Build())
+        Run(istioio.NewBuilder("tasks__security__my_task").
+            // Run a script and create a snippet.
+            Add(istioio.Command{
+                Input:         istioio.Path("myscript.sh"),
+                WorkDir:       env.IstioSrc,
+                CreateSnippet: true,
+            },
+            // Wait for all pods in namespace foo to start.
+            istioio.MultiPodWait("foo"),
+            // Run another script and verify the results.
+            istioio.Command{
+                Input:         istioio.Path("myotherscript.sh"),
+                WorkDir:       env.IstioSrc,
+                CreateSnippet: true,
+                Verify:        istioio.TokenVerifier(istioio.Path("myotherscript_verify.txt`),
+            }).Build())
 }
 ```
 
-This example performs the following actions:
+## Builder
 
-- Executes the `create-ns-foo-bar-legacy.sh` script, which creates pods in the
-  `foo`, `bar`, and `legacy` namespaces.
-- `WaitForPods` uses the `NewMultiPodFetch` function to wait for all pods in the
-  `foo` namespace to start.
-- Calls the `curl-foo-bar-legacy.sh` script, which uses the `GetCurlVerifier`
-  function to verify the responses from the curl script.
-- Finally, `Run` is called to execute the test.
+The `istioio.NewBuilder` returns a `istioio.Builder` that is used to build an Istio
+test run function and has the following methods:
 
-### Built in Verifiers
+- `Add`: adds a step to the test.
+- `Defer`: provides a step to be run after the test completes.
+- `Build`: builds an Istio test run function.
 
-The framework includes some predefined verifiers for scripts. For example, the
-`istio.CurlVerifier` function. You can use this function to
-create a verifier that parses the output of a curl script and compares each
-response. If curl returns `000`, the verifier compares the next line against the
-provided output. The validator expects responses in the form of
-`sleep.foo to httpbin.foo: 200` except for `000` responses. For `000` responses,
-the validator expects the next line of output to be an error statement.
+## Selecting Input
 
-For example, to verify this output:
-
-```bash
-sleep.foo to httpbin.foo: 200
-sleep.bar to httpbin.foo: 200
-sleep.legacy to httpbin.foo: 000
-command terminated with exit code 56
-```
-
-You can use the following function:
+Many test steps require an `Input` which they obtain from an
+`istioio.InputSelector`:
 
 ```golang
-istioio.CurlVerifier("200", "200", "000", "command
-terminated with exit code 56"))
+type Input interface {
+    InputSelector
+    Name() string
+    ReadAll() (string, error)
+}
+
+type InputSelector interface {
+    SelectInput(Context) Input
+}
 ```
 
-### Output
+Some common `InputSelector` implementations include:
 
-When the test framework runs, it creates the `output` directory in the working directory
-of the test. This directory contains a copy of all YAML files, scripts, and output files
-with the output of each script.
+- `istioio.Inline`: allows you to inline the content for the `Input` directly in the code.
+- `istioio.Path`: reads in a file from the specified path.
+- `istioio.BookInfo`: is like `istioio.Path` except that the value is assumed to be
+relative to the BookInfo source directory (`$GOPATH/src/istio.io/istio/samples/bookinfo/platform/kube/`).
 
-## Execute tests with `make test`
+An `InputSelector` provides an `istioio.Context` at runtime, which it can use to
+dynamically choose an `Input`. For example, we could choose a different file depending on
+whether or not the test is running on Minikube:
+
+```golang
+istioio.InputSelectorFunc(func(ctx istioio.Context) Input {
+    if ctx.Env.Settings().Minikube {
+        return istioio.Path("scripts/curl-httpbin-tls-gateway-minikube.sh")
+    }
+    return istioio.Path("scripts/curl-httpbin-tls-gateway-gke.sh")
+})
+```
+
+The library also provides a utility that helps simplify this particular use case:
+
+```golang
+istioio.IfMinikube{
+    Then: istioio.Path("scripts/curl-httpbin-tls-gateway-minikube.sh")
+    Else: istioio.Path("scripts/curl-httpbin-tls-gateway-gke.sh")
+}
+```
+
+## Run Shell Commands
+
+You can create a test step that will run a shell command with `istioio.Command`:
+
+```golang
+istioio.Command{
+    Input:         istioio.Path("myscript.sh"),
+    WorkDir:       env.IstioSrc,
+    CreateSnippet: true,
+    Verify:        istioio.TokenVerifier(istioio.Path("myscript_verify.txt`),
+}
+```
+
+This will read the given `Input`, verify that the output matches the given file, and
+generate a snippet for the command.
+
+See the `istioio.Command` API for additional configuration options.
+
+## YAML Snippets
+
+While a YAML file is applied via `istioio.Command`, you may want to create
+a snippet that contains a single resource of an applied YAML:
+
+```golang
+istioio.YamlResource("my-resource-name", istioio.BookInfo("multi-resource-doc.yaml")),
+```
+
+The `istioio.YamlResource` function creates an `InputSelector` that parses the  given
+`Input` and returns only the content for the given named resource.
+
+## Waiting for Pods to Start
+
+You can create a test step that waits for one or more pods to start before continuing.
+For example, to wait for all pods in the "foo"  namespace, you can do the following:
+
+```golang
+istioio.MultiPodWait("foo"),
+```
+
+## Running the Tests: Make
 
 You can execute all istio.io tests using make.
-
-- Create a Minikube environment as [advised on istio.io](https://istio.io/docs/setup/platform-setup/minikube/)
-- Run the tests using the following commands:
 
 ```bash
 export KUBECONFIG=~/.kube/config
 make test.integration.istioio.kube.presubmit
 ```
 
-## Execute individual tests
+## Running Tests: go test
 
 You can execute individual tests using Go test as shown below.
 
-- Create a Minikube environment as [advised on istio.io](https://istio.io/docs/setup/platform-setup/minikube/)
-- Run the test using the following command:
-
 ```bash
- go test ./... -p 1 --istio.test.env kube -v
+go test ./tests/integration/istioio/... -p 1  --istio.test.env kube \
+    --istio.test.ci --istio.test.work_dir <my_dir>
 ```
 
-In this command, `istio.test.env kube` specifies that the test should execute
-in a Kubernetes environment, `-p` disables parallelization, and `-v` prints the
-output even for passing tests.
+The value of `my_dir` will be the parent directory for your test output. Within
+`my_dir`, each test `Main` will create a directory containing a subdirectory for
+each test method. Each test method directory will contain a `snippet.txt` that
+was generated for that particular test.
+
+Make sure to have the `HUB` and `TAG` environment variables set to the location of
+your Istio Docker images.
 
 You can find the complete list of arguments on [the test framework wiki page](https://github.com/istio/istio/wiki/Istio-Test-Framework).

@@ -263,17 +263,19 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 // len = ceil(bitlength/(2^6))+1
 const VersionLen = 12
 
-func (s *DiscoveryServer) getResourceVersion(configVersion, key string, cache map[string]string) string {
-	result, ok := cache[key]
+func (s *DiscoveryServer) getResourceVersion(nonce, key string, cache map[string]string) string {
+	configVersion := nonce[:VersionLen]
+	result, ok := cache[configVersion]
 	if !ok {
-		result, err := s.Env.IstioConfigStore.GetResourceAtVersion(configVersion[:VersionLen], key)
+		lookupResult, err := s.Env.IstioConfigStore.GetResourceAtVersion(configVersion, key)
 		if err != nil {
 			adsLog.Errorf("Unable to retrieve resource %s at version %s: %v", key, configVersion, err)
-			result = ""
+			lookupResult = ""
 		}
 		// update the cache even on an error, because errors will not resolve themselves, and we don't want to
 		// repeat the same error for many adsClients.
-		cache[key] = result
+		cache[configVersion] = lookupResult
+		return lookupResult
 	}
 	return result
 }
@@ -358,10 +360,8 @@ func (s *DiscoveryServer) Authenticationz(w http.ResponseWriter, req *http.Reque
 		connections, ok := adsSidecarIDConnectionsMap[proxyID]
 		if !ok {
 			w.WriteHeader(http.StatusNotFound)
-			_, _ = fmt.Fprintf(w, "ADS for %q does not exist. Only have:\n", proxyID)
-			for key := range adsSidecarIDConnectionsMap {
-				_, _ = fmt.Fprintf(w, "  %q,\n", key)
-			}
+			// Need to dump an empty JSON array so istioctl can peacefully ignore.
+			_, _ = fmt.Fprintf(w, "\n[\n]")
 			return
 		}
 
@@ -450,7 +450,7 @@ func AnalyzeMTLSSettings(autoMTLSEnabled bool, hostname host.Name, port *model.P
 // The output string could be:
 // - "AUTO": auto mTLS feature is enabled, client TLS (destination rule) is not set and pilot can auto detect client (m)TLS settings.
 // - "OK": both client and server TLS settings are set correctly.
-// - "CONFLICT": both client and server TLS settings are set, but could be incompatible, or auto mTLS is enabled but server mTLS is disabled.
+// - "CONFLICT": both client and server TLS settings are set, but could be incompatible.
 func EvaluateTLSState(autoMTLSEnabled bool, clientMode *networking.TLSSettings, serverMode authn_model.MutualTLSMode) string {
 	const okState string = "OK"
 	const conflictState string = "CONFLICT"
@@ -458,9 +458,6 @@ func EvaluateTLSState(autoMTLSEnabled bool, clientMode *networking.TLSSettings, 
 
 	if clientMode == nil {
 		if autoMTLSEnabled {
-			if serverMode == authn_model.MTLSDisable {
-				return conflictState
-			}
 			return autoState
 		}
 		// TLS settings was not set explicitly, pilot will try a setting that work well with the

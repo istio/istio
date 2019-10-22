@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	authn_v1alpha1_applier "istio.io/istio/pilot/pkg/security/authn/v1alpha1"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
@@ -206,6 +207,12 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			}
 
 			setUpstreamProtocol(proxy, defaultCluster, port, model.TrafficDirectionOutbound)
+			serviceMTLSMode := authn_model.MTLSUnknown
+			if !service.MeshExternal {
+				// Only need the authentication MTLS mode when service is not external.
+				policy, _ := push.AuthenticationPolicyForWorkload(service, port)
+				serviceMTLSMode = authn_v1alpha1_applier.GetMutualTLSMode(policy)
+			}
 			clusters = append(clusters, defaultCluster)
 			destinationRule := castDestinationRuleOrDefault(destRule)
 
@@ -226,6 +233,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 				direction:       model.TrafficDirectionOutbound,
 				proxy:           proxy,
 				meshExternal:    service.MeshExternal,
+				serviceMTLSMode: serviceMTLSMode,
 			}
 
 			applyTrafficPolicy(opts, proxy)
@@ -256,6 +264,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 					direction:       model.TrafficDirectionOutbound,
 					proxy:           proxy,
 					meshExternal:    service.MeshExternal,
+					serviceMTLSMode: serviceMTLSMode,
 				}
 				applyTrafficPolicy(opts, proxy)
 
@@ -270,6 +279,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 					direction:       model.TrafficDirectionOutbound,
 					proxy:           proxy,
 					meshExternal:    service.MeshExternal,
+					serviceMTLSMode: serviceMTLSMode,
 				}
 				applyTrafficPolicy(opts, proxy)
 
@@ -727,10 +737,11 @@ func conditionallyConvertToIstioMtls(
 	proxy *model.Proxy,
 	autoMTLSEnabled bool,
 	meshExternal bool,
+	serviceMTLSMode authn_model.MutualTLSMode,
 ) (*networking.TLSSettings, mtlsContextType) {
 	mtlsCtx := userSupplied
 	if tls == nil {
-		if meshExternal || !autoMTLSEnabled {
+		if meshExternal || !autoMTLSEnabled || serviceMTLSMode == authn_model.MTLSUnknown || serviceMTLSMode == authn_model.MTLSDisable {
 			return nil, mtlsCtx
 		}
 
@@ -820,6 +831,7 @@ type buildClusterOpts struct {
 	direction       model.TrafficDirection
 	proxy           *model.Proxy
 	meshExternal    bool
+	serviceMTLSMode authn_model.MutualTLSMode
 }
 
 func applyTrafficPolicy(opts buildClusterOpts, proxy *model.Proxy) {
@@ -828,10 +840,11 @@ func applyTrafficPolicy(opts buildClusterOpts, proxy *model.Proxy) {
 	applyConnectionPool(opts.env, opts.cluster, connectionPool, opts.direction)
 	applyOutlierDetection(opts.cluster, outlierDetection)
 	applyLoadBalancer(opts.cluster, loadBalancer, opts.port, proxy)
-	if opts.clusterMode != SniDnatClusterMode {
+	if opts.clusterMode != SniDnatClusterMode && opts.direction != model.TrafficDirectionInbound {
 		autoMTLSEnabled := opts.env.Mesh.GetEnableAutoMtls().Value
 		var mtlsCtxType mtlsContextType
-		tls, mtlsCtxType = conditionallyConvertToIstioMtls(tls, opts.serviceAccounts, opts.sni, opts.proxy, autoMTLSEnabled, opts.meshExternal)
+		tls, mtlsCtxType = conditionallyConvertToIstioMtls(tls, opts.serviceAccounts, opts.sni, opts.proxy,
+			autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode)
 		applyUpstreamTLSSettings(opts.env, opts.cluster, tls, mtlsCtxType, opts.proxy)
 	}
 }
@@ -1156,7 +1169,7 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 	}
 
 	// convert to transport socket matcher if the mode was auto detected
-	if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL && mtlsCtxType == autoDetected {
+	if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL && mtlsCtxType == autoDetected && util.IsIstioVersionGE14(proxy) {
 		tlsContext, err := ptypes.MarshalAny(cluster.TlsContext)
 		cluster.TlsContext = nil
 		if err != nil {
