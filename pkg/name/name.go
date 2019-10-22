@@ -18,8 +18,6 @@ import (
 	"fmt"
 	"reflect"
 
-	protobuf "github.com/gogo/protobuf/types"
-
 	"istio.io/operator/pkg/apis/istio/v1alpha2"
 	"istio.io/operator/pkg/util"
 	"istio.io/pkg/log"
@@ -118,9 +116,9 @@ func IsFeatureEnabledInSpec(featureName FeatureName, controlPlaneSpec *v1alpha2.
 	if !found || featureNodeI == nil {
 		return false, nil
 	}
-	featureNode, ok := featureNodeI.(*protobuf.BoolValue)
+	featureNode, ok := featureNodeI.(*v1alpha2.BoolValueForPB)
 	if !ok {
-		return false, fmt.Errorf("feature %s enabled has bad type %T, expect *protobuf.BoolValue", featureName, featureNodeI)
+		return false, fmt.Errorf("feature %s enabled has bad type %T, expect *v1alpha2.BoolValueForPB", featureName, featureNodeI)
 	}
 	if featureNode == nil || !featureNode.Value {
 		return false, nil
@@ -151,9 +149,9 @@ func IsComponentEnabledInSpec(featureName FeatureName, componentName ComponentNa
 	if !found || featureNodeI == nil {
 		return false, nil
 	}
-	featureNode, ok := featureNodeI.(*protobuf.BoolValue)
+	featureNode, ok := featureNodeI.(*v1alpha2.BoolValueForPB)
 	if !ok {
-		return false, fmt.Errorf("feature %s enabled has bad type %T, expect *protobuf.BoolValue", featureName, featureNodeI)
+		return false, fmt.Errorf("feature %s enabled has bad type %T, expect *v1alpha2.BoolValueForPB", featureName, featureNodeI)
 	}
 	if featureNode == nil || !featureNode.Value {
 		return false, nil
@@ -167,9 +165,9 @@ func IsComponentEnabledInSpec(featureName FeatureName, componentName ComponentNa
 	if !found || componentNodeI == nil {
 		return featureNode.Value, nil
 	}
-	componentNode, ok := componentNodeI.(*protobuf.BoolValue)
+	componentNode, ok := componentNodeI.(*v1alpha2.BoolValueForPB)
 	if !ok {
-		return false, fmt.Errorf("component %s enabled has bad type %T, expect *protobuf.BoolValue", componentName, componentNodeI)
+		return false, fmt.Errorf("component %s enabled has bad type %T, expect *v1alpha2.BoolValueForPB", componentName, componentNodeI)
 	}
 	if componentNode == nil {
 		return featureNode.Value, nil

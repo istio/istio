@@ -17,7 +17,10 @@ package v1alpha2
 // TODO: create remaining enum types.
 
 import (
+	"encoding/json"
+
 	"github.com/gogo/protobuf/jsonpb"
+	protobuf "github.com/gogo/protobuf/types"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -53,4 +56,29 @@ type IstioControlPlaneList struct {
 	v1.TypeMeta `json:",inline"`
 	v1.ListMeta `json:"metadata,omitempty"`
 	Items       []IstioControlPlane `json:"items"`
+}
+
+// define new type from protobuf.BoolValue to marshal/unmarshal jsonpb
+type BoolValueForPB struct {
+	protobuf.BoolValue
+}
+
+// MarshalJSON implements the json.JSONMarshaler interface.
+func (boolvaluepb *BoolValueForPB) MarshalJSON() ([]byte, error) {
+	return json.Marshal(boolvaluepb.GetValue())
+}
+
+// UnmarshalJSON implements the json.JSONUnmarshaler interface.
+func (boolvaluepb *BoolValueForPB) UnmarshalJSON(value []byte) error {
+	return json.Unmarshal(value, &(boolvaluepb.Value))
+}
+
+// MarshalJSONPB implements the jsonpb.JSONPBMarshaler interface.
+func (boolvaluepb *BoolValueForPB) MarshalJSONPB(_ *jsonpb.Marshaler) ([]byte, error) {
+	return boolvaluepb.MarshalJSON()
+}
+
+// UnmarshalJSONPB implements the jsonpb.JSONPBUnmarshaler interface.
+func (boolvaluepb *BoolValueForPB) UnmarshalJSONPB(_ *jsonpb.Unmarshaler, value []byte) error {
+	return boolvaluepb.UnmarshalJSON(value)
 }
