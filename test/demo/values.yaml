@@ -6,6 +6,9 @@ global:
   defaultPodDisruptionBudget:
     enabled:
       false
+  
+  mtls:
+    auto: true
 
   proxy:
     accessLogFile: "/dev/stdout"
