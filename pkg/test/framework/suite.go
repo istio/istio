@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/environment/native"
 	"istio.io/istio/pkg/test/framework/core"
+	ferrors "istio.io/istio/pkg/test/framework/errors"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
@@ -209,6 +210,11 @@ func (s *Suite) run() (errLevel int) {
 
 		if err := rt.Close(); err != nil {
 			scopes.Framework.Errorf("Error during close: %v", err)
+			if rt.context.settings.FailOnDeprecation {
+				if ferrors.IsOrContainsDeprecatedError(err) {
+					errLevel = 1
+				}
+			}
 		}
 		rt = nil
 	}()

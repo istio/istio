@@ -81,11 +81,15 @@ func (m *Metadata) DirectTransformSettings() *DirectTransformSettings {
 	panic("Metadata.DirectTransformSettings: DirectTransformSettings not found")
 }
 
-// AllCollectionsInSnapshots returns an aggregate list of names of collections that will appear in snapshots.
-func (m *Metadata) AllCollectionsInSnapshots() []string {
+// AllCollectionsInSnapshots returns an aggregate list of names of collections that will appear in the specified snapshots.
+func (m *Metadata) AllCollectionsInSnapshots(snapshotNames []string) []string {
 	names := make(map[collection.Name]struct{})
 
-	for _, s := range m.snapshots {
+	for _, n := range snapshotNames {
+		s, ok := m.snapshots[n]
+		if !ok {
+			panic(fmt.Sprintf("Invalid snapshot name provided: %q", n))
+		}
 		for _, c := range s.Collections {
 			names[c] = struct{}{}
 		}

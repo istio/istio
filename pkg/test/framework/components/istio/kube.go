@@ -21,10 +21,13 @@ import (
 	"os"
 	"path"
 
+	"github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/pkg/test/util/retry"
 
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/errors"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 )
@@ -157,14 +160,42 @@ func (i *kubeComponent) Close() (err error) {
 	if i.settings.DeployIstio {
 		// TODO: There is a problem with  orderly cleanup. Re-enable this once it is fixed. Delete the system namespace
 		// instead
-		//return i.deployment.Delete(i.environment.Accessor, true, retry.Timeout(s.DeployTimeout))
-		err = i.environment.Accessor.DeleteNamespace(i.settings.SystemNamespace)
-		if err == nil {
-			err = i.environment.Accessor.WaitForNamespaceDeletion(i.settings.SystemNamespace)
+		// return i.deployment.Delete(i.environment.Accessor, true, retry.Timeout(s.DeployTimeout))
+		if i.ctx.Settings().FailOnDeprecation {
+			err = multierror.Append(err, i.checkDeprecation())
+		}
+		err2 := i.environment.Accessor.DeleteNamespace(i.settings.SystemNamespace)
+		err = multierror.Append(err, err2)
+		if err2 == nil {
+			err = multierror.Append(err, i.environment.Accessor.WaitForNamespaceDeletion(i.settings.SystemNamespace))
 		}
 	}
 
 	return
+}
+
+func (i *kubeComponent) checkDeprecation() error {
+	pods, err := i.environment.GetPods(i.settings.SystemNamespace)
+	if err != nil {
+		return fmt.Errorf("could not get pods to inspect for deprecation messages: %v", err)
+	}
+
+	var result error
+	for _, pod := range pods {
+		for _, c := range pod.Spec.Containers {
+			if c.Name == "istio-proxy" {
+				info := fmt.Sprintf("pod: %s/%s", i.settings.SystemNamespace, pod.Name)
+				logs, err := i.environment.Logs(i.settings.SystemNamespace, pod.Name, "istio-proxy", false)
+				if err != nil {
+					result = multierror.Append(result, fmt.Errorf("could not get proxy logs (%s) to inspect for deprecation messages: %v", info, err))
+				} else {
+					result = multierror.Append(result, errors.FindDeprecatedMessagesInEnvoyLog(logs, info))
+				}
+			}
+		}
+	}
+
+	return result
 }
 
 func (i *kubeComponent) Dump() {
