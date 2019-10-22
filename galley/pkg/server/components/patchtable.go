@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/galley/pkg/config/processor"
 	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/config/source/kube/fs"
+	meshconfig "istio.io/istio/galley/pkg/meshconfig"
 	"istio.io/istio/pkg/mcp/monitoring"
 	"istio.io/pkg/filewatcher"
 )
@@ -35,6 +36,7 @@ var (
 	newFileWatcher    = filewatcher.NewWatcher
 	readFile          = ioutil.ReadFile
 
+	newMeshConfigCache  = func(path string) (meshconfig.Cache, error) { return meshconfig.NewCacheFromFile(path) }
 	meshcfgNewFS        = func(path string) (event.Source, error) { return meshcfg.NewFS(path) }
 	processorInitialize = processor.Initialize
 	fsNew               = fs.New

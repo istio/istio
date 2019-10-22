@@ -18,10 +18,17 @@ import (
 	"net"
 
 	"istio.io/pkg/ctrlz/fw"
+	"istio.io/pkg/log"
 
+	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/server/components"
 	"istio.io/istio/galley/pkg/server/process"
 	"istio.io/istio/galley/pkg/server/settings"
+)
+
+var (
+	scope         = log.RegisterScope("server", "", 0)
+	newInterfaces = kube.NewInterfacesFromConfigFile
 )
 
 // Server is the main entry point into the Galley code.
@@ -54,11 +61,28 @@ func New(a *settings.Args) *Server {
 		s.host.Add(controller)
 	}
 
+	i, err := newInterfaces(a.KubeConfig)
+	if err != nil {
+		scope.Errorf("could not get kube interfaces: %s", err)
+		return nil
+	}
+
+	kubeClient, err := i.KubeClient()
+	if err != nil {
+		scope.Errorf("could not get kube client")
+		return nil
+	}
+
 	if a.EnableServer {
 		s.p = components.NewProcessing(a)
 		s.host.Add(s.p)
 		t := s.p.ConfigZTopic()
 		topics = append(topics, t)
+	}
+
+	status := components.NewIngressStatusSyncer(kubeClient, a)
+	if status != nil {
+		s.host.Add(status)
 	}
 
 	mon := components.NewMonitoring(a.MonitoringPort)
@@ -78,7 +102,6 @@ func New(a *settings.Args) *Server {
 // Address returns the address of the config processing server.
 func (s *Server) Address() net.Addr {
 	return s.p.Address()
-
 }
 
 // Start the process.

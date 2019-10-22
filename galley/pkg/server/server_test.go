@@ -21,8 +21,9 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
-
+	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/server/settings"
+	"istio.io/istio/galley/pkg/testing/mock"
 )
 
 func TestServer(t *testing.T) {
@@ -59,6 +60,8 @@ func TestServer(t *testing.T) {
 	a.EnableValidationController = false
 	a.EnableValidationServer = false
 	a.EnableProfiling = true
+	mk := mock.NewKube()
+	newInterfaces = func(string) (kube.Interfaces, error) { return mk, nil }
 
 	s := New(a)
 
@@ -68,6 +71,7 @@ func TestServer(t *testing.T) {
 	g.Expect(err).To(BeNil())
 
 	g.Expect(s.Address()).NotTo(BeNil())
+
 	s.Stop()
 	g.Expect(s.Address()).To(BeNil())
 

@@ -21,6 +21,7 @@ import (
 
 	"google.golang.org/grpc"
 
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -29,6 +30,7 @@ import (
 
 	"istio.io/istio/galley/pkg/config/schema/snapshots"
 	"istio.io/istio/galley/pkg/config/util/kuberesource"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/webhooks/validation/controller"
@@ -162,6 +164,11 @@ type Args struct { // nolint:maligned
 
 	Snapshots       []string
 	TriggerSnapshot string
+
+	// Namespace the ingress status controller watches.
+	// If set to meta_v1.NamespaceAll (""), controller watches all namespaces
+	WatchedNamespace      string
+	IstioIngressNamespace string
 }
 
 // DefaultArgs allocates an Args struct initialized with Galley's default configuration.
@@ -203,8 +210,10 @@ func DefaultArgs() *Args {
 			Path:           defaultReadinessProbeFilePath,
 			UpdateInterval: defaultProbeCheckInterval,
 		},
-		Snapshots:       []string{snapshots.Default, snapshots.SyntheticServiceEntry},
-		TriggerSnapshot: snapshots.Default,
+		Snapshots:             []string{snapshots.Default, snapshots.SyntheticServiceEntry},
+		TriggerSnapshot:       snapshots.Default,
+		WatchedNamespace:      meta_v1.NamespaceAll,
+		IstioIngressNamespace: constants.IstioIngressNamespace,
 	}
 }
 

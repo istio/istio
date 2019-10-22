@@ -80,7 +80,7 @@ func newKubeInterface() kubernetes.Interface {
 			services:   newServiceInterface(),
 			endpoints:  newEndpointsInterface(),
 			namespaces: newNamespaceInterface(),
-			configmaps: newConfigMapInterface(),
+			configMaps: newConfigMapInterface(),
 		},
 
 		extensions: &extensionsv1Impl{
