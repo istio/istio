@@ -70,10 +70,6 @@ function compareWithGolden() {
    ;;
   esac
 
-  if [[ ${TEST_NAME} == "clean" && ${TEST_MODE} == "golang" ]]; then
-    PARAMS="--clean"
-  fi
-
   # shellcheck disable=SC2086
   ACTUAL_OUTPUT="$(${FILE_UNDER_TEST} ${PARAMS} 2>/dev/null)"
 
