@@ -302,11 +302,6 @@ func run(config *config.Config) {
 		ext = &dep.RealDependencies{}
 	}
 
-	defer func() {
-		ext.RunOrFail(dep.IPTABLESSAVE)
-		ext.RunOrFail(dep.IP6TABLESSAVE)
-	}()
-
 	// TODO: more flexibility - maybe a whitelist of users to be captured for output instead of a blacklist.
 	if config.ProxyUID == "" {
 		usr, err := ext.LookupUser()
@@ -356,6 +351,21 @@ func run(config *config.Config) {
 	}
 
 	logConfig(config)
+
+	// check if ISTIO_REDIRECT already exists
+	// if it exists, exit, since the chains are already set
+	// the pattern to check if a chain exists, is described at https://stackoverflow.com/a/10784612/553720
+
+	err = ext.Run(dep.IPTABLES, "-t", constants.NAT, "--list", constants.ISTIOREDIRECT)
+	if err == nil {
+		fmt.Println(constants.ISTIOREDIRECT + " detected, exiting")
+		return
+	}
+
+	defer func() {
+		ext.RunOrFail(dep.IPTABLESSAVE)
+		ext.RunOrFail(dep.IP6TABLESSAVE)
+	}()
 
 	if config.EnableInboundIPv6s != nil {
 		ext.RunOrFail(dep.IP, "-6", "addr", "add", "::6/128", "dev", "lo")

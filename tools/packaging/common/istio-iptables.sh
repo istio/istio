@@ -299,6 +299,15 @@ set -o nounset
 set -o pipefail
 set -x # echo on
 
+# check if ISTIO_REDIRECT already exists
+# if it exists, exit, since the chains are already set
+# the pattern to check if a chain exists, is described at https://stackoverflow.com/a/10784612/553720
+if iptables -t nat --list ISTIO_REDIRECT; then
+  echo "ISTIO_REDIRECT detected, exiting"
+  trap - EXIT # clear trap, do not dump iptables
+  exit 0
+fi
+
 # Create a new chain for redirecting outbound traffic to the common Envoy port.
 # In both chains, '-j RETURN' bypasses Envoy and '-j ISTIO_REDIRECT'
 # redirects to Envoy.
