@@ -70,7 +70,6 @@ type Config struct {
 	NodeType           model.NodeType
 	StatusPort         uint16
 	AdminPort          uint16
-	CheckKeyCertFile   bool
 }
 
 // Server provides an endpoint for handling status probes.
@@ -87,11 +86,10 @@ func NewServer(config Config) (*Server, error) {
 	s := &Server{
 		statusPort: config.StatusPort,
 		ready: &ready.Probe{
-			LocalHostAddr:         config.LocalHostAddr,
-			AdminPort:             config.AdminPort,
-			ApplicationPorts:      config.ApplicationPorts,
-			NodeType:              config.NodeType,
-			CheckKeyCertExistence: config.CheckKeyCertFile,
+			LocalHostAddr:    config.LocalHostAddr,
+			AdminPort:        config.AdminPort,
+			ApplicationPorts: config.ApplicationPorts,
+			NodeType:         config.NodeType,
 		},
 	}
 	if config.KubeAppHTTPProbers == "" {
