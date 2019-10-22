@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"time"
 
+	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/galley/pkg/config/util/kuberesource"
 	"istio.io/istio/galley/pkg/crd/validation"
 	"istio.io/istio/pkg/keepalive"
@@ -130,6 +131,9 @@ type Args struct { // nolint:maligned
 	PprofPort       uint
 
 	UseOldProcessor bool
+
+	Snapshots       []string
+	TriggerSnapshot string
 }
 
 // DefaultArgs allocates an Args struct initialized with Galley's default configuration.
@@ -168,6 +172,8 @@ func DefaultArgs() *Args {
 			Path:           defaultReadinessProbeFilePath,
 			UpdateInterval: defaultProbeCheckInterval,
 		},
+		Snapshots:       []string{metadata.Default, metadata.SyntheticServiceEntry},
+		TriggerSnapshot: metadata.Default,
 	}
 }
 
