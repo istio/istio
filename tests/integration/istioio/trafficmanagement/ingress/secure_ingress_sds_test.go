@@ -52,6 +52,10 @@ metadata:
   name: httpbin
 spec:
   replicas: 1
+	selector:
+		matchLabels:
+			app: httpbin
+			version: v1
   template:
     metadata:
       labels:
@@ -299,10 +303,15 @@ metadata:
   name: helloworld-v1
 spec:
   replicas: 1
+	selector:
+		matchLabels:
+			app: helloworld-v1
+			version: v1
   template:
     metadata:
       labels:
         app: helloworld-v1
+				version: v1
     spec:
       containers:
       - name: helloworld
