@@ -189,8 +189,6 @@ while getopts ":p:z:u:g:m:b:d:o:i:x:k:ht" opt; do
   esac
 done
 
-trap dump EXIT
-
 # TODO: more flexibility - maybe a whitelist of users to be captured for output instead of a blacklist.
 if [ -z "${PROXY_UID}" ]; then
   # Default to the UID of ENVOY_USER and root
@@ -304,9 +302,10 @@ set -x # echo on
 # the pattern to check if a chain exists, is described at https://stackoverflow.com/a/10784612/553720
 if iptables -t nat --list ISTIO_REDIRECT; then
   echo "ISTIO_REDIRECT detected, exiting"
-  trap - EXIT # clear trap, do not dump iptables
   exit 0
 fi
+
+trap dump EXIT
 
 # Create a new chain for redirecting outbound traffic to the common Envoy port.
 # In both chains, '-j RETURN' bypasses Envoy and '-j ISTIO_REDIRECT'
