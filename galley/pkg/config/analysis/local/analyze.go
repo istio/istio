@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"github.com/hashicorp/go-multierror"
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/event"
@@ -146,18 +147,23 @@ func (sa *SourceAnalyzer) AddFileKubeSource(files []string) error {
 	src := inmemory.NewKubeSource(sa.kubeResources)
 	src.SetDefaultNamespace(sa.namespace)
 
+	var errs error
+
+	// If we encounter any errors reading or applying files, track them but attempt to continue
 	for _, file := range files {
 		by, err := ioutil.ReadFile(file)
 		if err != nil {
-			return err
+			errs = multierror.Append(errs, err)
+			continue
 		}
 		if err = src.ApplyContent(file, string(by)); err != nil {
-			return err
+			errs = multierror.Append(errs, err)
 		}
 	}
 
 	sa.sources = append(sa.sources, src)
-	return nil
+
+	return errs
 }
 
 // AddRunningKubeSource adds a source based on a running k8s cluster to the current SourceAnalyzer
