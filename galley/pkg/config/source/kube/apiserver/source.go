@@ -101,9 +101,9 @@ func (s *Source) Dispatch(h event.Handler) {
 // Start implements processor.Source
 func (s *Source) Start() {
 	s.mu.Lock()
-
 	if s.started {
 		scope.Source.Warn("Source.Start: already started")
+		s.mu.Unlock()
 		return
 	}
 	s.started = true
