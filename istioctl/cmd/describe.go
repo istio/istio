@@ -53,7 +53,6 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/kube/inject"
-
 	"istio.io/pkg/log"
 )
 
@@ -625,6 +624,12 @@ func printAuthn(writer io.Writer, pod *v1.Pod, debug envoy_v2.AuthenticationDebu
 		return
 	}
 
+	if debug.TLSConflictStatus == "AUTO" {
+		fmt.Fprintf(writer, "Pod is %s, clients configured automatically\n",
+			debug.ServerProtocol)
+		return
+	}
+
 	mTLSType13 := map[string]string{
 		"HTTP":        "HTTP",
 		"mTLS":        "STRICT",
@@ -634,17 +639,8 @@ func printAuthn(writer io.Writer, pod *v1.Pod, debug envoy_v2.AuthenticationDebu
 		"UNKNOWN":     "Unknown",
 	}
 	tlsType, ok := mTLSType13[debug.ServerProtocol]
-	if !ok {
-		tlsType = debug.ServerProtocol
-	}
-
-	if debug.TLSConflictStatus == "AUTO" {
-		fmt.Fprintf(writer, "Pod is %s, clients configured automatically\n",
-			debug.ServerProtocol)
-		return
-	}
-
 	if ok {
+		// If we survive the lookup, we are on a pre-1.4 Pilot.
 		fmt.Fprintf(writer, "Pod is %s (enforces %s) and clients speak %s\n",
 			tlsType, debug.ServerProtocol, debug.ClientProtocol)
 		return
