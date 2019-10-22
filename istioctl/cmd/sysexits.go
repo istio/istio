@@ -16,12 +16,14 @@ package cmd
 
 import "strings"
 
-// Values should use sendmail-style values as in <sysexits.h>
+// Values should try to use sendmail-style values as in <sysexits.h>
 // See e.g. https://man.openbsd.org/sysexits.3
 // or `less /usr/includes/sysexits.h` if you're on Linux
 const (
 	ExitUnknownError   = 1 // for compatibility with existing exit code
 	ExitIncorrectUsage = 64
+	// below here are non-zero exit codes that don't indicate an error with istioctl itself
+	ExitAnalyzeFoundIssues = 79 // istioctl analyze found issues, for CI/CD
 )
 
 func GetExitCode(e error) int {
@@ -32,6 +34,8 @@ func GetExitCode(e error) int {
 	switch e.(type) {
 	case CommandParseError:
 		return ExitIncorrectUsage
+	case FoundAnalyzeIssuesError:
+		return ExitAnalyzeFoundIssues
 	default:
 		return ExitUnknownError
 	}

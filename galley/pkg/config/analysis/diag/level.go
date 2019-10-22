@@ -24,6 +24,10 @@ func (l Level) String() string {
 	return l.name
 }
 
+func (l Level) IsWorseThan(target Level) bool {
+	return l.sortOrder < target.sortOrder
+}
+
 var (
 	// Info level is for informational messages
 	Info = Level{2, "Info"}

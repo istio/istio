@@ -16,21 +16,32 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/galley/pkg/config/analysis/analyzers"
+	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/local"
 	"istio.io/istio/galley/pkg/config/meta/metadata"
 	cfgKube "istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/pkg/kube"
 )
 
+type FoundAnalyzeIssuesError struct {
+	int
+}
+
+func (f FoundAnalyzeIssuesError) Error() string {
+	return fmt.Sprintf("Found %v issues.", f.int)
+}
+
 var (
-	useKube      bool
-	useDiscovery string
+	useKube               bool
+	useDiscovery          string
+	messageLevelThreshold = diag.Info // messages strictly worse than this will generate an error exit code
 )
 
 // Analyze command
@@ -182,4 +193,20 @@ func serviceDiscovery() (bool, error) {
 	default:
 		return false, fmt.Errorf("invalid argument value for discovery")
 	}
+}
+
+func handleAnalyzeMessages(f io.Writer, messages []diag.Message) error {
+	foundIssues := 0
+	for _, m := range messages {
+		if m.Type.Level().IsWorseThan(messageLevelThreshold) {
+			foundIssues += 1
+		}
+		fmt.Fprintf(f, "%v\n", m.String())
+	}
+
+	if foundIssues > 0 {
+		return FoundAnalyzeIssuesError{foundIssues}
+	}
+
+	return nil
 }
