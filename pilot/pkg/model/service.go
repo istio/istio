@@ -656,9 +656,8 @@ func (s *Service) GetServiceAddressForProxy(node *Proxy) string {
 }
 
 // DeepCopy creates a clone of Service.
-// TODO : See if there is any efficient alternative to this function - copystructure can not used as is because
-// Service has sync.RWMutex that can not be copied. One alternative is to convert that to a pointer but that needs
-// lot of changes.
+// TODO : See if there is any efficient alternative to this function - copystructure can not be used as is because
+// Service has sync.RWMutex that can not be copied.
 func (s *Service) DeepCopy() *Service {
 	attrs := copyInternal(s.Attributes)
 	ports := copyInternal(s.Ports)

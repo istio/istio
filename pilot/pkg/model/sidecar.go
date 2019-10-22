@@ -209,7 +209,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 	// Now collect all the imported services across all egress listeners in
 	// this sidecar crd. This is needed to generate CDS output
 	out.services = make([]*Service, 0)
-	servicesAdded := make(map[string]bool)
+	servicesAdded := make(map[string]*Service)
 	dummyNode := Proxy{
 		ConfigNamespace: configNamespace,
 	}
@@ -219,17 +219,13 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 	for _, listener := range out.EgressListeners {
 		for _, s := range listener.services {
 			if _, found := servicesAdded[string(s.Hostname)]; !found {
-				servicesAdded[string(s.Hostname)] = true
+				servicesAdded[string(s.Hostname)] = s
 				out.services = append(out.services, s)
 				out.namespaceDependencies[s.Attributes.Namespace] = struct{}{}
 			} else if s.Ports != nil && len(s.Ports) > 0 {
 				// merge the ports to service when each listener generates partial service
-				for _, os := range out.services {
-					if os.Hostname == s.Hostname {
-						os.Ports = append(os.Ports, s.Ports...)
-						break
-					}
-				}
+				os := servicesAdded[string(s.Hostname)]
+				os.Ports = append(os.Ports, s.Ports...)
 			}
 		}
 	}
@@ -499,9 +495,9 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 					}
 					// If there is a port match, we should trim the service ports to the port specified by listener.
 					if portMatched {
-						sc := s.DeepCopy()
 						for _, port := range s.Ports {
 							if port.Port == int(ilw.IstioListener.Port.GetNumber()) {
+								sc := s.DeepCopy()
 								sc.Ports = []*Port{
 									{
 										ilw.IstioListener.Port.GetName(),
@@ -509,11 +505,11 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 										protocol.Instance(ilw.IstioListener.Port.GetProtocol()),
 									},
 								}
+								importedServices = append(importedServices, sc)
+								hostFound = true
+								break
 							}
 						}
-						importedServices = append(importedServices, sc)
-						hostFound = true
-						break
 					}
 				}
 			}
