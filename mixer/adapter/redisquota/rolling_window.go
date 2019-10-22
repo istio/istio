@@ -103,7 +103,7 @@ end
 -- update the expiration time for automatic cleanup
 --------------------------------------------------------------------------------
 redis.call("PEXPIRE", key_meta, windowLength / 1000000)
-redis.call("PEXPIRE", key_meta, windowLength / 1000000)
+redis.call("PEXPIRE", key_data, windowLength / 1000000)
 
 -- calculate available token
 --------------------------------------------------------------------------------
