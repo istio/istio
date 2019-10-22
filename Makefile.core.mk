@@ -13,7 +13,7 @@
 # limitations under the License.
 
 HUB ?= gcr.io/istio-testing
-TAG ?= master-latest-daily
+TAG ?= 1.5-dev
 
 pwd := $(shell pwd)
 
