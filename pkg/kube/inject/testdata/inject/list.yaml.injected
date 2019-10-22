@@ -92,6 +92,8 @@ items:
             valueFrom:
               fieldRef:
                 fieldPath: spec.serviceAccountName
+          - name: ISTIO_AUTO_MTLS_ENABLED
+            value: "true"
           - name: ISTIO_META_POD_NAME
             valueFrom:
               fieldRef:
@@ -279,6 +281,8 @@ items:
             valueFrom:
               fieldRef:
                 fieldPath: spec.serviceAccountName
+          - name: ISTIO_AUTO_MTLS_ENABLED
+            value: "true"
           - name: ISTIO_META_POD_NAME
             valueFrom:
               fieldRef:
