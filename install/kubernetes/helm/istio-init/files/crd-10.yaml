@@ -4508,6 +4508,11 @@ spec:
                         format: string
                         type: string
                     type: object
+                  mirror_percent:
+                    description: Percentage of the traffic to be mirrored by the `mirror`
+                      field.
+                    nullable: true
+                    type: integer
                   mirrorPercent:
                     description: Percentage of the traffic to be mirrored by the `mirror`
                       field.
