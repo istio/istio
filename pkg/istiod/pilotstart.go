@@ -111,7 +111,7 @@ type ConfigArgs struct {
 
 	// DisableInstallCRDs control Istiod ability to auto-create CRDs. Currently only Pilot CRDs are created.
 	// TODO: either remove this (off by default, remove the option) or add all other CRDs.
-	DisableInstallCRDs         bool
+	DisableInstallCRDs bool
 }
 
 // ConsulArgs provides configuration for the Consul service registry.

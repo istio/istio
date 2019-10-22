@@ -16,13 +16,15 @@ package istiod
 
 import (
 	"fmt"
-	"google.golang.org/grpc"
-	"istio.io/istio/galley/pkg/server"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"net"
 	"net/http"
 	"strconv"
+
+	"google.golang.org/grpc"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+
+	"istio.io/istio/galley/pkg/server"
 
 	"istio.io/istio/galley/pkg/server/settings"
 	"istio.io/istio/pilot/pkg/model"
@@ -47,7 +49,7 @@ type Server struct {
 	ServiceController *aggregate.Controller
 
 	// Mesh config - loaded and watched. Updated by watcher.
-	Mesh         *meshconfig.MeshConfig
+	Mesh *meshconfig.MeshConfig
 
 	MeshNetworks *meshconfig.MeshNetworks
 
@@ -116,7 +118,7 @@ func NewIstiod(kconfig *rest.Config, kclient *kubernetes.Clientset, confDir stri
 	// Create a test pilot discovery service configured to watch the tempDir.
 	args := &PilotArgs{
 		DomainSuffix: "cluster.local",
-		Config: ConfigArgs{},
+		Config:       ConfigArgs{},
 
 		Plugins: DefaultPlugins, // TODO: Should it be in MeshConfig ? Env override until it's done.
 
@@ -203,8 +205,6 @@ func NewIstiod(kconfig *rest.Config, kclient *kubernetes.Clientset, confDir stri
 
 	gargs.KubeRestConfig = kconfig
 	gargs.KubeInterface = kclient
-
-
 
 	// The file is loaded and watched by Galley using galley/pkg/meshconfig watcher/reader
 	// Current code in galley doesn't expose it - we'll use 2 Caches instead.

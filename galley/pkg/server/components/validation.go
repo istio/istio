@@ -15,15 +15,17 @@
 package components
 
 import (
+	"k8s.io/client-go/kubernetes"
+
 	"istio.io/istio/galley/pkg/crd/validation"
 	"istio.io/istio/galley/pkg/server/process"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/pkg/probe"
-	"k8s.io/client-go/kubernetes"
 )
 
 // NewValidation returns a new validation component.
-func NewValidation(kubeInterface *kubernetes.Clientset, kubeConfig string, params *validation.WebhookParameters, liveness, readiness probe.Controller) process.Component {
+func NewValidation(kubeInterface *kubernetes.Clientset, kubeConfig string,
+	params *validation.WebhookParameters, liveness, readiness probe.Controller) process.Component {
 
 	return process.ComponentFromFns(
 		// start

@@ -17,9 +17,10 @@ package settings
 import (
 	"bytes"
 	"fmt"
+	"time"
+
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"time"
 
 	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/galley/pkg/config/util/kuberesource"

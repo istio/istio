@@ -41,7 +41,6 @@ func NewGalleyServer(a *settings.Args) *server.Server {
 	return s
 }
 
-
 // Start implements process.Component
 func (s *Server) StartGalley() (err error) {
 	if err := s.Galley.Start(); err != nil {
@@ -49,4 +48,3 @@ func (s *Server) StartGalley() (err error) {
 	}
 	return nil
 }
-
