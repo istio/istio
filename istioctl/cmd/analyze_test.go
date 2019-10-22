@@ -37,10 +37,10 @@ func TestErrorOnIssuesFound(t *testing.T) {
 
 	err := handleAnalyzeMessages(ioutil.Discard, msgs)
 
-	switch err.(type) {
+	switch err := err.(type) {
 	case FoundAnalyzeIssuesError:
-		if len(msgs) != err.(FoundAnalyzeIssuesError).int {
-			t.Errorf("Expected %v errors, but got %v.", len(msgs), err.(FoundAnalyzeIssuesError).int)
+		if len(msgs) != err.int {
+			t.Errorf("Expected %v errors, but got %v.", len(msgs), err.int)
 		}
 	default:
 		t.Errorf("Expected a CommandParseError, but got %q.", err)

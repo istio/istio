@@ -199,7 +199,7 @@ func handleAnalyzeMessages(f io.Writer, messages []diag.Message) error {
 	foundIssues := 0
 	for _, m := range messages {
 		if m.Type.Level().IsWorseThan(messageLevelThreshold) {
-			foundIssues += 1
+			foundIssues++
 		}
 		fmt.Fprintf(f, "%v\n", m.String())
 	}
