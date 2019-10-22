@@ -1,0 +1,11 @@
+# Also an example of defining subsets for same host in different files
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: global-dr-no-mtls
+  namespace: "{{ .IstioNamespace }}"
+spec:
+  host: "*.local"
+  trafficPolicy:
+    tls:
+      mode: DISABLE
