@@ -15,7 +15,7 @@
           operator: In
           values:
         {{- range $key, $val := .Values.global.arch }}
-          {{- if gt ($val | int) 0 }}
+          {{- if gt ($val | toString | int) 0 }}
           - {{ $key | quote }}
           {{- end }}
         {{- end }}
@@ -30,8 +30,8 @@
 
 {{- define "nodeAffinityPreferredDuringScheduling" }}
   {{- range $key, $val := .Values.global.arch }}
-    {{- if gt ($val | int) 0 }}
-    - weight: {{ $val | int }}
+    {{- if gt ($val | toString | int) 0 }}
+    - weight: {{ $val | toString | int }}
       preference:
         matchExpressions:
         - key: beta.kubernetes.io/arch
