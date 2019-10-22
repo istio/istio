@@ -25,13 +25,13 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
-
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/security/authz/builder"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
 	"istio.io/pkg/log"
@@ -311,7 +311,7 @@ func (builder *ListenerBuilder) buildVirtualInboundListener(
 
 	actualWildcard, _ := getActualWildcardAndLocalHost(node)
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
-	filterChains := newInboundPassthroughFilterChains(env, node)
+	filterChains := newInboundPassthroughFilterChains(env, node, push)
 	if util.IsProtocolSniffingEnabledForInbound(node) {
 		filterChains = append(filterChains, newHTTPPassThroughFilterChain(configgen, env, node, push)...)
 	}
@@ -407,7 +407,7 @@ func newBlackholeFilter(enableAny bool) *listener.Filter {
 }
 
 // Create pass through filter chains matching ipv4 address and ipv6 address independently.
-func newInboundPassthroughFilterChains(env *model.Environment, node *model.Proxy) []*listener.FilterChain {
+func newInboundPassthroughFilterChains(env *model.Environment, node *model.Proxy, push *model.PushContext) []*listener.FilterChain {
 	ipv4, ipv6 := ipv4AndIpv6Support(node)
 	// ipv4 and ipv6 feature detect
 	ipVersions := make([]string, 0, 2)
@@ -439,21 +439,33 @@ func newInboundPassthroughFilterChains(env *model.Environment, node *model.Proxy
 			},
 		}
 		setAccessLog(env, node, tcpProxy)
-		filter := &listener.Filter{
+		tcpProxyFilter := &listener.Filter{
 			Name: xdsutil.TCPProxy,
 		}
 
-		if util.IsXDSMarshalingToAnyEnabled(node) {
-			filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)}
+		isXDSMarshalingToAnyEnabled := util.IsXDSMarshalingToAnyEnabled(node)
+		if isXDSMarshalingToAnyEnabled {
+			tcpProxyFilter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)}
 		} else {
-			filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(tcpProxy)}
+			tcpProxyFilter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(tcpProxy)}
 		}
 		filterChain := &listener.FilterChain{
 			FilterChainMatch: &filterChainMatch,
 			Filters: []*listener.Filter{
-				filter,
+				tcpProxyFilter,
 			},
 		}
+		// Insert the RBAC filter to the passthrough filter chain.
+		if b := builder.NewBuilder(env.Mesh.TrustDomain, env.Mesh.TrustDomainAliases, nil,
+			node.WorkloadLabels, node.ConfigNamespace, push.AuthzPolicies, isXDSMarshalingToAnyEnabled); b != nil {
+			if authzFilter := b.BuildTCPFilter(); authzFilter != nil {
+				filterChain.Filters = []*listener.Filter{
+					authzFilter,
+					tcpProxyFilter,
+				}
+			}
+		}
+
 		insertOriginalListenerName(filterChain, VirtualInboundListenerName)
 		filterChains = append(filterChains, filterChain)
 	}
@@ -500,9 +512,18 @@ func newHTTPPassThroughFilterChain(configgen *ConfigGeneratorImpl, env *model.En
 			InboundClusterName:         clusterName,
 		}
 
+		// Insert the RBAC filter to the passthrough filter chain.
+		httpFilters := make([]*http_conn.HttpFilter, 0)
+		if b := builder.NewBuilder(env.Mesh.TrustDomain, env.Mesh.TrustDomainAliases, nil,
+			node.WorkloadLabels, node.ConfigNamespace, push.AuthzPolicies, util.IsXDSMarshalingToAnyEnabled(node)); b != nil {
+			if authzFilter := b.BuildHTTPFilter(); authzFilter != nil {
+				httpFilters = append(httpFilters, authzFilter)
+			}
+		}
+
 		httpOpts := configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, plugin)
 		httpOpts.statPrefix = clusterName
-		connectionManager := buildHTTPConnectionManager(node, env, httpOpts, []*http_conn.HttpFilter{})
+		connectionManager := buildHTTPConnectionManager(node, env, httpOpts, httpFilters)
 
 		filter := &listener.Filter{
 			Name: xdsutil.HTTPConnectionManager,

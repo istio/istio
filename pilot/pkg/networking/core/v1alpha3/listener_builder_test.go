@@ -21,6 +21,8 @@ import (
 	"testing"
 
 	"istio.io/istio/pilot/pkg/features"
+	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
+	"istio.io/istio/pilot/pkg/security/authz/policy"
 
 	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
@@ -164,6 +166,10 @@ func prepareListeners(t *testing.T) []*v2.Listener {
 	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		t.Fatalf("init push context error: %s", err.Error())
 	}
+	env.PushContext.AuthzPolicies = policy.NewAuthzPolicies([]*model.Config{
+		policy.SimpleAuthzPolicy("authz", "not-default"),
+	}, t)
+
 	instances := make([]*model.ServiceInstance, len(services))
 	for i, s := range services {
 		instances[i] = &model.ServiceInstance{
@@ -247,11 +253,15 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 			"plus the 2 fallthrough filter chains, found %d", len(listeners[0].FilterChains)+2, len(l.FilterChains))
 	}
 
+	sawRBACTCPFilter := false
 	sawIpv4PassthroughCluster := false
 	sawIpv6PassthroughCluster := false
 	for _, fc := range l.FilterChains {
-		if len(fc.Filters) == 1 && fc.Filters[0].Name == xdsutil.TCPProxy &&
+		if len(fc.Filters) == 2 && fc.Filters[1].Name == xdsutil.TCPProxy &&
 			fc.Metadata.FilterMetadata[PilotMetaKey].Fields["original_listener_name"].GetStringValue() == VirtualInboundListenerName {
+			if fc.Filters[0].Name == authz_model.RBACTCPFilterName {
+				sawRBACTCPFilter = true
+			}
 			if ipLen := len(fc.FilterChainMatch.PrefixRanges); ipLen != 1 {
 				t.Fatalf("expect passthrough filter chain has 1 ip address, found %d", ipLen)
 			}
@@ -275,11 +285,18 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 			if !reflect.DeepEqual(fc.FilterChainMatch.ApplicationProtocols, applicationProtocols) {
 				t.Fatalf("expect %v application protocols, found %v", applicationProtocols, fc.FilterChainMatch.ApplicationProtocols)
 			}
+			if !strings.Contains(fc.Filters[0].GetTypedConfig().String(), authz_model.RBACHTTPFilterName) {
+				t.Errorf("failed to find the RBAC HTTP filter: %v", fc.Filters[0].GetTypedConfig().String())
+			}
 		}
 	}
 
 	if !sawIpv4PassthroughCluster {
 		t.Fatalf("fail to find the ipv4 passthrough filter chain in listener %v", l)
+	}
+
+	if !sawRBACTCPFilter {
+		t.Fatalf("fail to find the RBAC TCP filter in listener %v", l)
 	}
 
 	if len(l.ListenerFilters) != 2 {
