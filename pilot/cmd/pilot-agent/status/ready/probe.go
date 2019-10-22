@@ -26,11 +26,10 @@ import (
 
 // Probe for readiness.
 type Probe struct {
-	ApplicationPorts    []uint16
-	LocalHostAddr       string
-	NodeType            model.NodeType
-	AdminPort           uint16
-	receivedFirstUpdate bool
+	ApplicationPorts []uint16
+	LocalHostAddr    string
+	NodeType         model.NodeType
+	AdminPort        uint16
 }
 
 // Check executes the probe and returns an error if the probe fails.
@@ -76,34 +75,27 @@ func (p *Probe) checkInboundConfigured() error {
 
 // checkUpdated checks to make sure updates have been received from Pilot
 func (p *Probe) checkUpdated() error {
-	if p.receivedFirstUpdate {
-		return nil
-	}
-
-	s, err := util.GetStats(p.LocalHostAddr, p.AdminPort)
+	s, err := util.GetVersionStats(p.LocalHostAddr, p.AdminPort)
 	if err != nil {
 		return err
 	}
 
-	CDSUpdated := s.CDSUpdatesSuccess > 0 || s.CDSUpdatesRejection > 0
-	LDSUpdated := s.LDSUpdatesSuccess > 0 || s.LDSUpdatesRejection > 0
-	if CDSUpdated && LDSUpdated {
-		p.receivedFirstUpdate = true
+	if s.CDSVersion > 0 && s.LDSVersion > 0 {
 		return nil
 	}
 
-	return fmt.Errorf("config not received from Pilot (is Pilot running?): %s", s.String())
+	return fmt.Errorf("config not received from Pilot (is Pilot running?) %s", s.String())
 }
 
 // checkServerInfo checks to ensure that Envoy is in the READY state
 func (p *Probe) checkServerInfo() error {
-	info, err := util.GetServerInfo(p.LocalHostAddr, p.AdminPort)
+	state, err := util.GetServerState(p.LocalHostAddr, p.AdminPort)
 	if err != nil {
 		return fmt.Errorf("failed to get server info: %v", err)
 	}
 
-	if info.GetState() != admin.ServerInfo_LIVE {
-		return fmt.Errorf("server is not live, current state is: %v", info.GetState().String())
+	if admin.ServerInfo_State(*state) != admin.ServerInfo_LIVE {
+		return fmt.Errorf("server is not live, current state is: %s", admin.ServerInfo_State(*state).String())
 	}
 
 	return nil
