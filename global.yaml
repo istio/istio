@@ -260,6 +260,7 @@ global:
       address: "$(HOST_IP):8126"
 
   # Default mtls policy. If true, mtls between services will be enabled by default.
+  # Any of fields in this section requires security component to be enabled.
   mtls:
     # Default setting for service-to-service mtls. Can be set explicitly using
     # destination rules or service annotations.
@@ -268,7 +269,7 @@ global:
     # or its DestinationRule does not have TLSSettings specified, Istio configures client side
     # TLS configuration automatically, based on the server side mTLS authentication policy and the
     # availibity of sidecars.
-    auto: false
+    auto: true
 
   # ImagePullSecrets for all ServiceAccount, list of secrets in the same namespace
   # to use for pulling any images in pods that reference this ServiceAccount.
