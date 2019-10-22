@@ -342,7 +342,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 				// Already got a list of endpoints to watch and it is the same as the request, this is an ack
 				if listEqualUnordered(con.Clusters, clusters) {
-					adsLog.Debugf("ADS:EDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, discReq.VersionInfo, discReq.ResponseNonce)
+					adsLog.Debugf("ADS:EDS: ACK %s %s %s %s", peerAddr, con.ConID, discReq.VersionInfo, discReq.ResponseNonce)
 					if discReq.ResponseNonce != "" {
 						con.mu.Lock()
 						edsClusterMutex.RLock()
