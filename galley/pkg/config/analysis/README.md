@@ -127,9 +127,9 @@ e.g. for the GatewayAnalyzer used as an example above, you would add something l
         },
         // A single specific analyzer to run
         analyzer: &virtualservice.GatewayAnalyzer{},
-        // List of expected validation messages, as (messageType, <kind>/<name>) tuples
+        // List of expected validation messages, as (messageType, <kind> <name>[.<namespace>]) tuples
         expected: []message{
-            {msg.ReferencedResourceNotFound, "VirtualService/httpbin-bogus"},
+            {msg.ReferencedResourceNotFound, "VirtualService httpbin-bogus"},
         },
     },
 ```
