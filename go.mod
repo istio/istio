@@ -180,7 +180,7 @@ replace k8s.io/cloud-provider => k8s.io/cloud-provider v0.0.0-20191003003426-b4b
 
 // Pinned to Kubernetes 1.15 for now, due to some issues with 1.16
 // TODO(https://github.com/istio/istio/issues/17831) upgrade to 1.16
-replace k8s.io/client-go => k8s.io/client-go v0.0.0-20190918200256-06eb1244587a
+replace k8s.io/client-go => k8s.io/client-go v0.0.0-20191003000419-f68efa97b39e
 
 replace k8s.io/apiserver => k8s.io/apiserver v0.0.0-20191003001037-3c8b233e046c
 
@@ -213,3 +213,9 @@ replace k8s.io/metrics => k8s.io/metrics v0.0.0-20191003002233-837aead57baf
 replace k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.0.0-20191003001538-80f33ca02582
 
 replace k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.0.0-20191003001317-a019a9d85a86
+
+replace github.com/Azure/go-autorest/autorest => github.com/Azure/go-autorest/autorest v0.9.0
+
+replace github.com/Azure/go-autorest/autorest/adal => github.com/Azure/go-autorest/autorest/adal v0.5.0
+
+replace github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.2.0+incompatible
