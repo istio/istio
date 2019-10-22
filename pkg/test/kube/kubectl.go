@@ -56,13 +56,13 @@ func (c *kubectl) getWorkDir() (string, error) {
 }
 
 // applyContents applies the given config contents using kubectl.
-func (c *kubectl) applyContents(namespace string, contents string) ([]string, error) {
+func (c *kubectl) applyContents(namespace string, contents string, dryRun bool) ([]string, error) {
 	files, err := c.contentsToFileList(contents, "accessor_applyc")
 	if err != nil {
 		return nil, err
 	}
 
-	if err := c.applyInternal(namespace, files); err != nil {
+	if err := c.applyInternal(namespace, files, dryRun); err != nil {
 		return nil, err
 	}
 
@@ -70,20 +70,26 @@ func (c *kubectl) applyContents(namespace string, contents string) ([]string, er
 }
 
 // apply the config in the given filename using kubectl.
-func (c *kubectl) apply(namespace string, filename string) error {
+func (c *kubectl) apply(namespace string, filename string, dryRun bool) error {
 	files, err := c.fileToFileList(filename)
 	if err != nil {
 		return err
 	}
 
-	return c.applyInternal(namespace, files)
+	return c.applyInternal(namespace, files, dryRun)
 }
 
-func (c *kubectl) applyInternal(namespace string, files []string) error {
+func (c *kubectl) applyInternal(namespace string, files []string, dryRun bool) error {
 	for _, f := range files {
 		if !isEmpty(f) {
-			command := fmt.Sprintf("kubectl apply %s %s -f %s", c.configArg(), namespaceArg(namespace), f)
-			scopes.CI.Infof("Applying YAML: %s", command)
+			var command string
+			if dryRun {
+				command = fmt.Sprintf("kubectl apply %s %s -f %s %s", c.configArg(), namespaceArg(namespace), f, "--server-dry-run")
+				scopes.CI.Infof("Applying YAML in DryRun mode: %s", command)
+			} else {
+				command = fmt.Sprintf("kubectl apply %s %s -f %s", c.configArg(), namespaceArg(namespace), f)
+				scopes.CI.Infof("Applying YAML: %s", command)
+			}
 			s, err := shell.Execute(true, command)
 			if err != nil {
 				scopes.CI.Infof("(FAILED) Executing kubectl: %s (err: %v): %s", command, err, s)

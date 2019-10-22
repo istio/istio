@@ -106,8 +106,8 @@ func TestValidation(t *testing.T) {
 					ns := namespace.NewOrFail(t, fctx, namespace.Config{
 						Prefix: "validation",
 					})
-					err = env.ApplyContents(ns.Name(), ym)
-					defer func() { _ = env.DeleteContents(ns.Name(), ym) }()
+
+					err = env.ApplyContentsDryRun(ns.Name(), ym)
 
 					switch {
 					case err != nil && d.isValid():
@@ -122,6 +122,13 @@ func TestValidation(t *testing.T) {
 						if !denied(err) {
 							t.Fatalf("config request denied for wrong reason: %v", err)
 						}
+					}
+
+					wetRunErr := env.ApplyContents(ns.Name(), ym)
+					defer func() { _ = env.DeleteContents(ns.Name(), ym) }()
+
+					if err != wetRunErr {
+						t.Fatalf("got different errors between dry run and wet run. dry run got: %v, wet run got: %v", err, wetRunErr)
 					}
 				})
 			}
