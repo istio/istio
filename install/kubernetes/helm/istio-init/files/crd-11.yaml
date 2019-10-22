@@ -19,6 +19,7 @@ spec:
     kind: Sidecar
     plural: sidecars
     singular: sidecar
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -27,7 +28,7 @@ spec:
       properties:
         spec:
           description: 'Configuration affecting network reachability of a sidecar.
-            See more details at: https://istio.io/docs/reference/config/networking/v1alpha3/sidecar.html'
+            See more details at: https://istio.io/docs/reference/config/networking/sidecar.html'
           properties:
             egress:
               items:
