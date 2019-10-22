@@ -21,6 +21,13 @@ spec:
           - istio-operator
           - server
           imagePullPolicy: Always
+          resources:
+            limits:
+              cpu: 200m
+              memory: 256Mi
+            requests:
+              cpu: 50m
+              memory: 128Mi
           env:
             - name: WATCH_NAMESPACE
               value: "istio-operator"
