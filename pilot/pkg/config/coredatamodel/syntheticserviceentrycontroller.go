@@ -297,10 +297,12 @@ func (c *SyntheticServiceEntryController) incrementalUpdate(resources []*sink.Ob
 		}
 		c.configStoreMu.Unlock()
 
-		newEpVersion := version(conf.Annotations, endpointKey)
-		if newEpVersion != "" && oldEpVersion != newEpVersion {
-			if err := c.edsUpdate(conf); err != nil {
-				log.Warnf("edsUpdate: %v", err)
+		if !svcChanged {
+			newEpVersion := version(conf.Annotations, endpointKey)
+			if newEpVersion != "" && oldEpVersion != newEpVersion {
+				if err := c.edsUpdate(conf); err != nil {
+					log.Warnf("edsUpdate: %v", err)
+				}
 			}
 		}
 	}
