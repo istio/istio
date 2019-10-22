@@ -358,10 +358,8 @@ func (s *DiscoveryServer) Authenticationz(w http.ResponseWriter, req *http.Reque
 		connections, ok := adsSidecarIDConnectionsMap[proxyID]
 		if !ok {
 			w.WriteHeader(http.StatusNotFound)
-			_, _ = fmt.Fprintf(w, "ADS for %q does not exist. Only have:\n", proxyID)
-			for key := range adsSidecarIDConnectionsMap {
-				_, _ = fmt.Fprintf(w, "  %q,\n", key)
-			}
+			// Need to dump an empty JSON array so istioctl can peacefully ignore.
+			_, _ = fmt.Fprintf(w, "\n[\n]")
 			return
 		}
 
