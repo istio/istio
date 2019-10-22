@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 
 	"github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/event"
