@@ -30,12 +30,10 @@ import (
 	"istio.io/istio/pkg/kube"
 )
 
-type FoundAnalyzeIssuesError struct {
-	int
-}
+type FoundAnalyzeIssuesError struct{}
 
 func (f FoundAnalyzeIssuesError) Error() string {
-	return fmt.Sprintf("Found %v issues.", f.int)
+	return "Found analyzer issues."
 }
 
 var (
@@ -195,17 +193,17 @@ func serviceDiscovery() (bool, error) {
 	}
 }
 
-func handleAnalyzeMessages(f io.Writer, messages []diag.Message) error {
-	foundIssues := 0
+func outputAndSetError(f io.Writer, messages []diag.Message) error {
+	foundIssues := false
 	for _, m := range messages {
 		if m.Type.Level().IsWorseThan(messageLevelThreshold) {
-			foundIssues++
+			foundIssues = true
 		}
 		fmt.Fprintf(f, "%v\n", m.String())
 	}
 
-	if foundIssues > 0 {
-		return FoundAnalyzeIssuesError{foundIssues}
+	if foundIssues {
+		return FoundAnalyzeIssuesError{}
 	}
 
 	return nil

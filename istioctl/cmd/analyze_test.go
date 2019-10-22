@@ -19,9 +19,13 @@ import (
 	"testing"
 
 	"istio.io/istio/galley/pkg/config/analysis/diag"
+
+	. "github.com/onsi/gomega"
 )
 
 func TestErrorOnIssuesFound(t *testing.T) {
+	g := NewGomegaWithT(t)
+
 	msgs := []diag.Message{
 		diag.NewMessage(
 			diag.NewMessageType(diag.Error, "B1", "Template: %q"),
@@ -35,20 +39,14 @@ func TestErrorOnIssuesFound(t *testing.T) {
 		),
 	}
 
-	err := handleAnalyzeMessages(ioutil.Discard, msgs)
+	err := outputAndSetError(ioutil.Discard, msgs)
 
-	switch err := err.(type) {
-	case FoundAnalyzeIssuesError:
-		if len(msgs) != err.int {
-			t.Errorf("Expected %v errors, but got %v.", len(msgs), err.int)
-		}
-	default:
-		t.Errorf("Expected a CommandParseError, but got %q.", err)
-		return
-	}
+	g.Expect(err).To(BeIdenticalTo(FoundAnalyzeIssuesError{}))
 }
 
 func TestNoErrorOnNoIssuesFound(t *testing.T) {
+	g := NewGomegaWithT(t)
+
 	msgs := []diag.Message{
 		diag.NewMessage(
 			diag.NewMessageType(diag.Info, "B1", "Template: %q"),
@@ -62,9 +60,7 @@ func TestNoErrorOnNoIssuesFound(t *testing.T) {
 		),
 	}
 
-	err := handleAnalyzeMessages(ioutil.Discard, msgs)
+	err := outputAndSetError(ioutil.Discard, msgs)
 
-	if err != nil {
-		t.Errorf("Expected nil, but got %q.", err)
-	}
+	g.Expect(err).To(BeNil())
 }
