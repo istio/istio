@@ -217,11 +217,8 @@ func (ug *Upgrader) convertClusterRbacConfig(authzPolicies *model.AuthorizationP
 	if err != nil {
 		return fmt.Errorf("failed to get Istio root namespace: %s", err)
 	}
-	type RbacTmplData struct {
-		RootNamespace string
-	}
-	rootNs := RbacTmplData{
-		RootNamespace: rootNamespace,
+	rootNs := map[string]string{
+		"RootNamespace": rootNamespace,
 	}
 	var policy string
 	switch clusterRbacConfig.Mode {
