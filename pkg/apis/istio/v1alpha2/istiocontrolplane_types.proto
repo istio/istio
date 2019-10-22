@@ -218,7 +218,7 @@ message IstioControlPlaneSpec {
 message TrafficManagementFeatureSpec {
     // Selects whether traffic management is installed.
     // Must be enabled to enable any sub-component.
-    google.protobuf.BoolValue enabled = 1;
+    TypeBoolValueForPB enabled = 1;
 
     // Component specific config.
     message Components {
@@ -236,7 +236,7 @@ message TrafficManagementFeatureSpec {
 message PolicyFeatureSpec {
     // Selects whether policy is installed.
     // Must be enabled to enable any sub-component.
-    google.protobuf.BoolValue enabled = 1;
+    TypeBoolValueForPB enabled = 1;
 
     // Component specific config.
     message Components {
@@ -253,7 +253,7 @@ message PolicyFeatureSpec {
 message TelemetryFeatureSpec {
     // Selects whether telemetry is installed.
     // Must be enabled to enable any sub-component.
-    google.protobuf.BoolValue enabled = 1;
+    TypeBoolValueForPB enabled = 1;
 
     // Component specific config.
     message Components {
@@ -269,7 +269,7 @@ message TelemetryFeatureSpec {
 // Configuration options for security feature.
 message SecurityFeatureSpec {
     // Selects whether security feature is installed. Must be set for any sub-component to be installed.
-    google.protobuf.BoolValue enabled = 1;
+    TypeBoolValueForPB enabled = 1;
 
     message Components {
         // Namespace that security components are installed into.
@@ -286,7 +286,7 @@ message SecurityFeatureSpec {
 // Configuration options for configuration management feature.
 message ConfigManagementFeatureSpec {
     // Selects whether config management feature is installed. Must be set for any sub-component to be installed.
-    google.protobuf.BoolValue enabled = 1;
+    TypeBoolValueForPB enabled = 1;
 
     message Components {
         // Namespace that security components are installed into.
@@ -301,7 +301,7 @@ message ConfigManagementFeatureSpec {
 // Configuration options for auto injection feature.
 message AutoInjectionFeatureSpec {
     // Selects whether auto injection feature is installed. Must be set for any sub-component to be installed.
-    google.protobuf.BoolValue enabled = 1;
+    TypeBoolValueForPB enabled = 1;
 
     message Components {
         // Namespace that auto injections components are installed into.
@@ -316,7 +316,7 @@ message AutoInjectionFeatureSpec {
 // Configuration options for gateway feature.
 message GatewayFeatureSpec {
     // Selects whether gateway feature is installed. Must be set for any sub-component to be installed.
-    google.protobuf.BoolValue enabled = 1;
+    TypeBoolValueForPB enabled = 1;
 
     message Components {
         // Namespace that auto injections components are installed into.
@@ -333,7 +333,7 @@ message GatewayFeatureSpec {
 // Configuration options for cni feature.
 message CNIFeatureSpec {
     // Selects whether gateway feature is installed. Must be set for any sub-component to be installed.
-    google.protobuf.BoolValue enabled = 1;
+    TypeBoolValueForPB enabled = 1;
 
     message Components {
         // Namespace that cni components are installed into.
@@ -348,7 +348,7 @@ message CNIFeatureSpec {
 // Configuration common to all components.
 
 // Selects whether this component is installed.
-// google.protobuf.BoolValue enabled = 1;
+// TypeBoolValueForPB enabled = 1;
 
 // Namespace that all resources for this component are installed into. Overrides the parent feature namespace and
 // IstioControlPlaneSpec.DefaultNamespace.
@@ -359,84 +359,84 @@ message CNIFeatureSpec {
 
 // Configuration options for the pilot component.
 message PilotComponentSpec {
-    google.protobuf.BoolValue enabled = 1;
+    TypeBoolValueForPB enabled = 1;
     string namespace = 2;
     KubernetesResourcesSpec k8s = 80;
 }
 
 // Configuration options for the proxy.
 message ProxyComponentSpec {
-    google.protobuf.BoolValue enabled = 1;
+    TypeBoolValueForPB enabled = 1;
     string namespace = 2;
     KubernetesResourcesSpec k8s = 80;
 }
 
 // Configuration options for the sidecar injector component.
 message SidecarInjectorComponentSpec {
-    google.protobuf.BoolValue enabled = 1;
+    TypeBoolValueForPB enabled = 1;
     string namespace = 2;
     KubernetesResourcesSpec k8s = 80;
 }
 
 // Configuration options for the policy enforcement component.
 message PolicyComponentSpec {
-    google.protobuf.BoolValue enabled = 1;
+    TypeBoolValueForPB enabled = 1;
     string namespace = 2;
     KubernetesResourcesSpec k8s = 80;
 }
 
 // Configuration options for the telemetry component.
 message TelemetryComponentSpec {
-    google.protobuf.BoolValue enabled = 1;
+    TypeBoolValueForPB enabled = 1;
     string namespace = 2;
     KubernetesResourcesSpec k8s = 80;
 }
 
 // Configuration options for Citadel component.
 message CitadelComponentSpec {
-    google.protobuf.BoolValue enabled = 1;
+    TypeBoolValueForPB enabled = 1;
     string namespace = 2;
     KubernetesResourcesSpec k8s = 80;
 }
 
 // Configuration options for certificate manager component.
 message CertManagerComponentSpec {
-    google.protobuf.BoolValue enabled = 1;
+    TypeBoolValueForPB enabled = 1;
     string namespace = 2;
     KubernetesResourcesSpec k8s = 80;
 }
 
 // Configuration options for node agent component.
 message NodeAgentComponentSpec {
-    google.protobuf.BoolValue enabled = 1;
+    TypeBoolValueForPB enabled = 1;
     string namespace = 2;
     KubernetesResourcesSpec k8s = 80;
 }
 
 // Configuration options for galley component.
 message GalleyComponentSpec {
-    google.protobuf.BoolValue enabled = 1;
+    TypeBoolValueForPB enabled = 1;
     string namespace = 2;
     KubernetesResourcesSpec k8s = 80;
 }
 
 // Configuration options for ingress gateways.
 message IngressGatewayComponentSpec {
-    google.protobuf.BoolValue enabled = 1;
+    TypeBoolValueForPB enabled = 1;
     string namespace = 2;
     KubernetesResourcesSpec k8s = 80;
 }
 
 // Configuration options for egress gateways.
 message EgressGatewayComponentSpec {
-    google.protobuf.BoolValue enabled = 1;
+    TypeBoolValueForPB enabled = 1;
     string namespace = 2;
     KubernetesResourcesSpec k8s = 80;
 }
 
 // Configuration options for cni component.
 message CNIComponentSpec {
-    google.protobuf.BoolValue enabled = 1;
+    TypeBoolValueForPB enabled = 1;
     string namespace = 2;
     KubernetesResourcesSpec k8s = 80;
 }
@@ -612,4 +612,8 @@ message TypeInterface {}
 
 // GOTYPE: *IntOrStringForPB
 message TypeIntOrStringForPB {}
+
+// GOTYPE: *BoolValueForPB
+message TypeBoolValueForPB {}
+
 

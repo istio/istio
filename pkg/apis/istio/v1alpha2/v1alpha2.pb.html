@@ -4,7 +4,7 @@ description: Configuration for Istio control plane installation through the Oper
 location: https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 55
+number_of_entries: 56
 ---
 <p>IstioControlPlane is a schema for both defining and customizing Istio control plane installations.
 Running the operator with an empty user defined InstallSpec results in an control plane with default values, using the
@@ -152,7 +152,7 @@ components:
 <tbody>
 <tr id="AutoInjectionFeatureSpec-enabled">
 <td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td><code><a href="#TypeBoolValueForPB">TypeBoolValueForPB</a></code></td>
 <td>
 <p>Selects whether auto injection feature is installed. Must be set for any sub-component to be installed.</p>
 
@@ -224,7 +224,7 @@ No
 <tbody>
 <tr id="CNIComponentSpec-enabled">
 <td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td><code><a href="#TypeBoolValueForPB">TypeBoolValueForPB</a></code></td>
 <td>
 </td>
 <td>
@@ -268,7 +268,7 @@ No
 <tbody>
 <tr id="CNIFeatureSpec-enabled">
 <td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td><code><a href="#TypeBoolValueForPB">TypeBoolValueForPB</a></code></td>
 <td>
 <p>Selects whether gateway feature is installed. Must be set for any sub-component to be installed.</p>
 
@@ -340,7 +340,7 @@ No
 <tbody>
 <tr id="CertManagerComponentSpec-enabled">
 <td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td><code><a href="#TypeBoolValueForPB">TypeBoolValueForPB</a></code></td>
 <td>
 </td>
 <td>
@@ -384,7 +384,7 @@ No
 <tbody>
 <tr id="CitadelComponentSpec-enabled">
 <td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td><code><a href="#TypeBoolValueForPB">TypeBoolValueForPB</a></code></td>
 <td>
 </td>
 <td>
@@ -428,7 +428,7 @@ No
 <tbody>
 <tr id="ConfigManagementFeatureSpec-enabled">
 <td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td><code><a href="#TypeBoolValueForPB">TypeBoolValueForPB</a></code></td>
 <td>
 <p>Selects whether config management feature is installed. Must be set for any sub-component to be installed.</p>
 
@@ -535,7 +535,7 @@ No
 <tbody>
 <tr id="EgressGatewayComponentSpec-enabled">
 <td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td><code><a href="#TypeBoolValueForPB">TypeBoolValueForPB</a></code></td>
 <td>
 </td>
 <td>
@@ -605,7 +605,7 @@ No
 <tbody>
 <tr id="GalleyComponentSpec-enabled">
 <td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td><code><a href="#TypeBoolValueForPB">TypeBoolValueForPB</a></code></td>
 <td>
 </td>
 <td>
@@ -649,7 +649,7 @@ No
 <tbody>
 <tr id="GatewayFeatureSpec-enabled">
 <td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td><code><a href="#TypeBoolValueForPB">TypeBoolValueForPB</a></code></td>
 <td>
 <p>Selects whether gateway feature is installed. Must be set for any sub-component to be installed.</p>
 
@@ -829,7 +829,7 @@ No
 <tbody>
 <tr id="IngressGatewayComponentSpec-enabled">
 <td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td><code><a href="#TypeBoolValueForPB">TypeBoolValueForPB</a></code></td>
 <td>
 </td>
 <td>
@@ -1423,7 +1423,7 @@ No
 <tbody>
 <tr id="NodeAgentComponentSpec-enabled">
 <td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td><code><a href="#TypeBoolValueForPB">TypeBoolValueForPB</a></code></td>
 <td>
 </td>
 <td>
@@ -1502,7 +1502,7 @@ No
 <tbody>
 <tr id="PilotComponentSpec-enabled">
 <td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td><code><a href="#TypeBoolValueForPB">TypeBoolValueForPB</a></code></td>
 <td>
 </td>
 <td>
@@ -1590,7 +1590,7 @@ No
 <tbody>
 <tr id="PolicyComponentSpec-enabled">
 <td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td><code><a href="#TypeBoolValueForPB">TypeBoolValueForPB</a></code></td>
 <td>
 </td>
 <td>
@@ -1634,7 +1634,7 @@ No
 <tbody>
 <tr id="PolicyFeatureSpec-enabled">
 <td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td><code><a href="#TypeBoolValueForPB">TypeBoolValueForPB</a></code></td>
 <td>
 <p>Selects whether policy is installed.
 Must be enabled to enable any sub-component.</p>
@@ -1709,7 +1709,7 @@ No
 <tbody>
 <tr id="ProxyComponentSpec-enabled">
 <td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td><code><a href="#TypeBoolValueForPB">TypeBoolValueForPB</a></code></td>
 <td>
 </td>
 <td>
@@ -1912,7 +1912,7 @@ No
 <tbody>
 <tr id="SecurityFeatureSpec-enabled">
 <td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td><code><a href="#TypeBoolValueForPB">TypeBoolValueForPB</a></code></td>
 <td>
 <p>Selects whether security feature is installed. Must be set for any sub-component to be installed.</p>
 
@@ -2002,7 +2002,7 @@ No
 <tbody>
 <tr id="SidecarInjectorComponentSpec-enabled">
 <td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td><code><a href="#TypeBoolValueForPB">TypeBoolValueForPB</a></code></td>
 <td>
 </td>
 <td>
@@ -2081,7 +2081,7 @@ No
 <tbody>
 <tr id="TelemetryComponentSpec-enabled">
 <td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td><code><a href="#TypeBoolValueForPB">TypeBoolValueForPB</a></code></td>
 <td>
 </td>
 <td>
@@ -2125,7 +2125,7 @@ No
 <tbody>
 <tr id="TelemetryFeatureSpec-enabled">
 <td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td><code><a href="#TypeBoolValueForPB">TypeBoolValueForPB</a></code></td>
 <td>
 <p>Selects whether telemetry is installed.
 Must be enabled to enable any sub-component.</p>
@@ -2200,7 +2200,7 @@ No
 <tbody>
 <tr id="TrafficManagementFeatureSpec-enabled">
 <td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
+<td><code><a href="#TypeBoolValueForPB">TypeBoolValueForPB</a></code></td>
 <td>
 <p>Selects whether traffic management is installed.
 Must be enabled to enable any sub-component.</p>
@@ -2267,6 +2267,11 @@ No
 </tr>
 </tbody>
 </table>
+</section>
+<h2 id="TypeBoolValueForPB">TypeBoolValueForPB</h2>
+<section>
+<p>GOTYPE: *BoolValueForPB</p>
+
 </section>
 <h2 id="TypeIntOrStringForPB">TypeIntOrStringForPB</h2>
 <section>
