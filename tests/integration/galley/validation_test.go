@@ -127,8 +127,11 @@ func TestValidation(t *testing.T) {
 					wetRunErr := env.ApplyContents(ns.Name(), ym)
 					defer func() { _ = env.DeleteContents(ns.Name(), ym) }()
 
-					if err != wetRunErr {
-						t.Fatalf("got different errors between dry run and wet run. dry run got: %v, wet run got: %v", err, wetRunErr)
+					if err != nil && wetRunErr == nil {
+						t.Fatalf("dry run returned no errors, but wet run returned: %v", wetRunErr)
+					}
+					if err == nil && wetRunErr != nil {
+						t.Fatalf("wet run returned no errors, but dry run returned: %v", err)
 					}
 				})
 			}
