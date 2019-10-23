@@ -76,11 +76,6 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 }
 
 func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) {
-	if in.ServiceInstance == nil {
-		rbacLog.Errorf("nil service instance")
-		return
-	}
-
 	// TODO: Get trust domain from MeshConfig instead.
 	// https://github.com/istio/istio/issues/17873
 	builder := authz_builder.NewBuilder(spiffe.GetTrustDomain(), in.Env.Mesh.TrustDomainAliases, in.ServiceInstance,
