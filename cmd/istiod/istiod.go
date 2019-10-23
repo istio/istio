@@ -17,7 +17,7 @@ package main
 import (
 	"io/ioutil"
 	"istio.io/pkg/env"
-	"log"
+	"istio.io/pkg/log"
 	"os"
 
 	"k8s.io/client-go/kubernetes"
@@ -49,7 +49,7 @@ func main() {
 	// related under /var/lib/istio, which is also the home dir of the istio user.
 	istiods, err := istiod.NewIstiod("/var/lib/istio/config")
 	if err != nil {
-		log.Fatal("Failed to start istiod ", err)
+		log.Fatalf("Failed to start istiod: %v", err)
 	}
 
 	// First create the k8s clientset - and return the config source.
@@ -58,7 +58,7 @@ func main() {
 	client, kcfg, err := k8s.CreateClientset(os.Getenv("KUBECONFIG"), "")
 	if err != nil {
 		// TODO: 'local' mode where k8s is not used - using the config.
-		log.Fatal("Failed to connect to k8s", err)
+		log.Fatalf("Failed to connect to k8s: %v", err)
 	}
 
 	// Create k8s-signed certificates. This allows injector, validation to work without Citadel, and
@@ -69,7 +69,7 @@ func main() {
 	// Pilot discovery. Code kept in separate package.
 	k8sServer, err := k8s.InitK8S(istiods, client, kcfg, istiods.Args)
 	if err != nil {
-		log.Fatal("Failed to start k8s controllers ", err)
+		log.Fatalf("Failed to start k8s controllers: %v", err)
 	}
 
 	// Initialize Galley config source for K8S.
@@ -78,23 +78,27 @@ func main() {
 
 	err = istiods.InitDiscovery()
 	if err != nil {
-		log.Fatal("Failed to init XDS server ", err)
+		log.Fatalf("Failed to init XDS server: %v", err)
 	}
 
-	k8sServer.InitK8SDiscovery(istiods, kcfg, istiods.Args)
+	if _, err := k8sServer.InitK8SDiscovery(istiods, kcfg, istiods.Args); err != nil {
+		log.Fatalf("Failed to init Kubernetes discovery: %v", err)
+	}
 
 	err = istiods.Start(stop, k8sServer.OnXDSStart)
 	if err != nil {
-		log.Fatal("Failure on start XDS server", err)
+		log.Fatalf("Failed on start XDS server: %v", err)
 	}
 
-	k8sServer.StartSDSK8S(istiods.Mesh)
+	if err := k8sServer.StartSDSK8S(istiods.Mesh); err != nil {
+		log.Fatalf("Failed to start SDS: %v", err)
+	}
 
 	// Injector should run along, even if not used - but only if the injection template is mounted.
 	if _, err := os.Stat("./var/lib/istio/inject/injection-template.yaml"); err == nil {
 		err = k8s.StartInjector(stop)
 		if err != nil {
-			log.Fatalf("Failure to start injector ", err)
+			log.Fatalf("Failure to start injector: %v", err)
 		}
 	}
 
@@ -114,10 +118,12 @@ func initCerts(server *istiod.Server, client *kubernetes.Clientset, cfg *rest.Co
 	server.CertKey = keyPEM
 
 	// Save the certificates to /var/run/secrets/istio-dns
-	os.MkdirAll(istiod.DNSCertDir, 0700)
+	if err := os.MkdirAll(istiod.DNSCertDir, 0700); err != nil {
+		log.Fatalf("Failed to create certs dir: %v", err)
+	}
 	err = ioutil.WriteFile(istiod.DNSCertDir+"/key.pem", keyPEM, 0700)
 	if err != nil {
-		log.Fatal("Failed to write certs", err)
+		log.Fatalf("Failed to write certs: %v", err)
 	}
 	err = ioutil.WriteFile(istiod.DNSCertDir+"/cert-chain.pem", certChain, 0700)
 	if err != nil {
