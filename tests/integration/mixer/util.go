@@ -25,6 +25,8 @@ import (
 	"fortio.org/fortio/fhttp"
 	"fortio.org/fortio/periodic"
 
+	"istio.io/istio/pkg/test/util/retry"
+
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
@@ -78,10 +80,13 @@ func VisitProductPage(ing ingress.Instance, timeout time.Duration, wantStatus in
 }
 
 func ValidateMetric(t *testing.T, prometheus prometheus.Instance, query, metricName string, want float64) {
-	got, err := getMetric(t, prometheus, query, metricName)
-	if err != nil {
-		t.Fatalf("%v", err)
-	}
+	var got float64
+	retry.UntilSuccessOrFail(t, func() error {
+		var err error
+		got, err = getMetric(t, prometheus, query, metricName)
+		return err
+	})
+
 	t.Logf("%s: %f", metricName, got)
 	if got < want {
 		t.Logf("prometheus values for %s:\n%s", metricName, PromDump(prometheus, metricName))

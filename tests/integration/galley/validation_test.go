@@ -82,7 +82,9 @@ func TestValidation(t *testing.T) {
 				// from the webhook and the k8s api server as the returned errors are not
 				// k8s typed errors.
 				return strings.Contains(err.Error(), "denied the request") ||
-					strings.Contains(err.Error(), "error validating data")
+					strings.Contains(err.Error(), "error validating data") ||
+					strings.Contains(err.Error(), "Invalid value") ||
+					strings.Contains(err.Error(), "is invalid")
 			}
 
 			for _, d := range dataset {
@@ -104,8 +106,8 @@ func TestValidation(t *testing.T) {
 					ns := namespace.NewOrFail(t, fctx, namespace.Config{
 						Prefix: "validation",
 					})
-					err = env.ApplyContents(ns.Name(), ym)
-					defer func() { _ = env.DeleteContents(ns.Name(), ym) }()
+
+					err = env.ApplyContentsDryRun(ns.Name(), ym)
 
 					switch {
 					case err != nil && d.isValid():
@@ -121,6 +123,16 @@ func TestValidation(t *testing.T) {
 							t.Fatalf("config request denied for wrong reason: %v", err)
 						}
 					}
+
+					wetRunErr := env.ApplyContents(ns.Name(), ym)
+					defer func() { _ = env.DeleteContents(ns.Name(), ym) }()
+
+					if err != nil && wetRunErr == nil {
+						t.Fatalf("dry run returned no errors, but wet run returned: %v", wetRunErr)
+					}
+					if err == nil && wetRunErr != nil {
+						t.Fatalf("wet run returned no errors, but dry run returned: %v", err)
+					}
 				})
 			}
 		})
@@ -134,6 +146,8 @@ var ignoredCRDs = []string{
 	"/v1/Endpoints",
 	"/v1/Service",
 	"extensions/v1beta1/Ingress",
+	"apps/v1/Deployment",
+	"networking.istio.io/v1alpha3/SyntheticServiceEntry",
 
 	// Legacy Mixer CRDs are ignored
 	"config.istio.io/v1alpha2/cloudwatch",

@@ -54,16 +54,12 @@ const (
 
 	// DefaultCIUndeployTimeout for Istio.
 	DefaultCIUndeployTimeout = time.Second * 900
-
-	// DefaultIstioChartRepo for Istio.
-	DefaultIstioChartRepo = "https://gcsweb.istio.io/gcs/istio-prerelease/daily-build/release-1.1-latest-daily/charts/"
 )
 
 var (
 	helmValues string
 
 	settingsFromCommandline = &Config{
-		ChartRepo:                      DefaultIstioChartRepo,
 		SystemNamespace:                DefaultSystemNamespace,
 		IstioNamespace:                 DefaultSystemNamespace,
 		ConfigNamespace:                DefaultSystemNamespace,
@@ -110,8 +106,6 @@ type Config struct {
 	// UndeployTimeout the timeout for undeploying Istio.
 	UndeployTimeout time.Duration
 
-	ChartRepo string
-
 	// The top-level Helm chart dir.
 	ChartDir string
 
@@ -136,15 +130,16 @@ type Config struct {
 	CustomSidecarInjectorNamespace string
 }
 
-// Is mtls enabled. Check in Values flag and Values file.
+// IsMtlsEnabled checks in Values flag and Values file.
 func (c *Config) IsMtlsEnabled() bool {
-	if c.Values["global.mtls.enabled"] == "true" {
+	if c.Values["global.mtls.enabled"] == "true" ||
+		c.Values["global.mtls.auto"] == "true" {
 		return true
 	}
 
 	data, err := file.AsString(filepath.Join(c.ChartDir, c.ValuesFile))
 	if err != nil {
-		return false
+		return true
 	}
 	m := make(map[interface{}]interface{})
 	err = yaml2.Unmarshal([]byte(data), &m)
@@ -156,12 +151,14 @@ func (c *Config) IsMtlsEnabled() bool {
 		case map[interface{}]interface{}:
 			switch mtlsVal := globalVal["mtls"].(type) {
 			case map[interface{}]interface{}:
-				return mtlsVal["enabled"].(bool)
+				if !mtlsVal["enabled"].(bool) && !mtlsVal["auto"].(bool) {
+					return false
+				}
 			}
 		}
 	}
 
-	return false
+	return true
 }
 
 // DefaultConfig creates a new Config from defaults, environments variables, and command-line parameters.
@@ -186,7 +183,7 @@ func DefaultConfig(ctx resource.Context) (Config, error) {
 		return Config{}, err
 	}
 
-	if s.Values, err = newHelmValues(deps); err != nil {
+	if s.Values, err = newHelmValues(ctx, deps); err != nil {
 		return Config{}, err
 	}
 
@@ -228,7 +225,7 @@ func checkFileExists(path string) error {
 	return nil
 }
 
-func newHelmValues(s *image.Settings) (map[string]string, error) {
+func newHelmValues(ctx resource.Context, s *image.Settings) (map[string]string, error) {
 	userValues, err := parseHelmValues()
 	if err != nil {
 		return nil, err
@@ -251,6 +248,13 @@ func newHelmValues(s *image.Settings) (map[string]string, error) {
 	if values[image.TagValuesKey] == image.LatestTag {
 		values[image.ImagePullPolicyValuesKey] = string(kubeCore.PullAlways)
 	}
+
+	// We need more information on Envoy logs to detect usage of any deprecated feature
+	if ctx.Settings().FailOnDeprecation {
+		values["global.proxy.logLevel"] = "debug"
+		values["global.proxy.componentLogLevel"] = "misc:debug"
+	}
+
 	return values, nil
 }
 
@@ -286,7 +290,6 @@ func (c *Config) String() string {
 	result += fmt.Sprintf("DeployTimeout:                  %s\n", c.DeployTimeout.String())
 	result += fmt.Sprintf("UndeployTimeout:                %s\n", c.UndeployTimeout.String())
 	result += fmt.Sprintf("Values:                         %v\n", c.Values)
-	result += fmt.Sprintf("ChartRepo:                      %s\n", c.ChartRepo)
 	result += fmt.Sprintf("ChartDir:                       %s\n", c.ChartDir)
 	result += fmt.Sprintf("CrdsFilesDir:                   %s\n", c.CrdsFilesDir)
 	result += fmt.Sprintf("ValuesFile:                     %s\n", c.ValuesFile)

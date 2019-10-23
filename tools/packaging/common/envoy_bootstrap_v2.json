@@ -127,8 +127,24 @@
           "tag_name": "connection_security_policy"
       },
       {
+          "regex": "(permissive_response_code=\\.=(.+?);\\.;)",
+          "tag_name": "permissive_response_code"
+      },
+      {
+          "regex": "(permissive_response_policyid=\\.=(.+?);\\.;)",
+          "tag_name": "permissive_response_policyid"
+      },
+      {
           "regex": "(cache\\.(.+?)\\.)",
           "tag_name": "cache"
+      },
+      {
+          "regex": "(component\\.(.+?)\\.)",
+          "tag_name": "component"
+      },
+      {
+          "regex": "(tag\\.(.+?)\\.)",
+          "tag_name": "tag"
       }
     ],
     "stats_matcher": {
@@ -136,6 +152,9 @@
         "patterns": [
           {
           "prefix": "reporter="
+          },
+          {
+          "prefix": "component"
           },
           {{- range $a, $s := .inclusionPrefix }}
           {

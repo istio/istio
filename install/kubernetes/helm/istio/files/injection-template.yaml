@@ -184,6 +184,10 @@ containers:
     valueFrom:
       fieldRef:
         fieldPath: spec.serviceAccountName
+  {{- if .Values.global.mtls.auto }}
+  - name: ISTIO_AUTO_MTLS_ENABLED
+    value: "true"
+  {{- end }}
 {{- if eq .Values.global.proxy.tracer "datadog" }}
   - name: HOST_IP
     valueFrom:
@@ -246,6 +250,18 @@ containers:
   {{- else if .Values.global.trustDomain }}
   - name: ISTIO_META_MESH_ID
     value: "{{ .Values.global.trustDomain }}"
+  {{- end }}
+  {{- if eq .Values.global.proxy.tracer "stackdriver" }}
+  - name: STACKDRIVER_TRACING_ENABLED
+    value: "true"
+  - name: STACKDRIVER_TRACING_DEBUG
+    value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetDebug }}"
+  - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ANNOTATIONS
+    value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAnnotations }}"
+  - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ATTRIBUTES
+    value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAttributes }}"
+  - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS
+    value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfMessageEvents }}"
   {{- end }}
   imagePullPolicy: {{ .Values.global.imagePullPolicy }}
   {{ if ne (annotation .ObjectMeta `status.sidecar.istio.io/port` (valueOrDefault .Values.global.proxy.statusPort 0 )) `0` }}

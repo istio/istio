@@ -35,6 +35,14 @@ import (
 	"istio.io/pkg/log"
 )
 
+type CommandParseError struct {
+	e error
+}
+
+func (c CommandParseError) Error() string {
+	return c.e.Error()
+}
+
 var (
 	kubeconfig       string
 	configContext    string
@@ -61,6 +69,7 @@ func defaultLogOptions() *log.Options {
 	o := log.DefaultOptions()
 
 	// These scopes are, by default, too chatty for command line use
+	o.SetOutputLevel("validation", log.ErrorLevel)
 	o.SetOutputLevel("processing", log.ErrorLevel)
 	o.SetOutputLevel("source", log.ErrorLevel)
 
@@ -140,19 +149,24 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(addToMeshCmd())
 	experimentalCmd.AddCommand(removeFromMeshCmd())
 	experimentalCmd.AddCommand(Analyze())
+	experimentalCmd.AddCommand(waitCmd())
 
 	postInstallCmd.AddCommand(Webhook())
 	experimentalCmd.AddCommand(postInstallCmd)
 
 	manifestCmd := mesh.ManifestCmd()
 	hideInheritedFlags(manifestCmd, "namespace", "istioNamespace")
-	experimentalCmd.AddCommand(manifestCmd)
+	rootCmd.AddCommand(manifestCmd)
 
 	profileCmd := mesh.ProfileCmd()
 	hideInheritedFlags(profileCmd, "namespace", "istioNamespace")
-	experimentalCmd.AddCommand(profileCmd)
+	rootCmd.AddCommand(profileCmd)
 
-	experimentalCmd.AddCommand(multicluster.NewCreateRemoteSecretCommand(&kubeconfig, &configContext, &istioNamespace))
+	experimentalCmd.AddCommand(mesh.UpgradeCmd())
+
+	experimentalCmd.AddCommand(multicluster.NewCreateRemoteSecretCommand())
+	experimentalCmd.AddCommand(multicluster.NewCreateTrustAnchorCommand())
+	experimentalCmd.AddCommand(multicluster.NewMulticlusterCommand())
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
 		Title:   "Istio Control",
@@ -168,6 +182,27 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(contextCmd)
 
 	rootCmd.AddCommand(validate.NewValidateCommand(&istioNamespace))
+
+	// BFS apply the flag error function to all subcommands
+	seenCommands := make(map[*cobra.Command]bool)
+	var commandStack []*cobra.Command
+
+	commandStack = append(commandStack, rootCmd)
+
+	for len(commandStack) > 0 {
+		n := len(commandStack) - 1
+		curCmd := commandStack[n]
+		commandStack = commandStack[:n]
+		seenCommands[curCmd] = true
+		for _, command := range curCmd.Commands() {
+			if !seenCommands[command] {
+				commandStack = append(commandStack, command)
+			}
+		}
+		curCmd.SetFlagErrorFunc(func(_ *cobra.Command, e error) error {
+			return CommandParseError{e}
+		})
+	}
 
 	return rootCmd
 }

@@ -988,6 +988,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 						service.Attributes.ServiceRegistry == string(serviceregistry.KubernetesRegistry) && servicePort.Protocol.IsTCP() {
 						if instances, err := env.InstancesByPort(service, servicePort.Port, nil); err == nil {
 							for _, instance := range instances {
+								// Skip build outbound listener to the node itself,
+								// as when app access itself by pod ip will not flow through this listener.
+								// Simultaneously, it will be duplicate with inbound listener.
+								if instance.Endpoint.Address == node.IPAddresses[0] {
+									continue
+								}
 								listenerOpts.bind = instance.Endpoint.Address
 								configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap,
 									virtualServices, actualWildcard)
@@ -1029,7 +1035,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 	tcpListeners = append(tcpListeners, httpListeners...)
 	httpProxy := configgen.buildHTTPProxy(env, node, push, node.ServiceInstances)
 	if httpProxy != nil {
-		httpProxy.TrafficDirection = core.TrafficDirection_OUTBOUND
 		tcpListeners = append(tcpListeners, httpProxy)
 	}
 
@@ -1080,6 +1085,7 @@ func (configgen *ConfigGeneratorImpl) buildHTTPProxy(env *model.Environment, nod
 		skipUserFilters: true,
 	}
 	l := buildListener(opts)
+	l.TrafficDirection = core.TrafficDirection_OUTBOUND
 
 	// TODO: plugins for HTTP_PROXY mode, envoyfilter needs another listener match for SIDECAR_HTTP_PROXY
 	// there is no mixer for http_proxy

@@ -255,34 +255,6 @@ else
     done
 fi
 
-# Remove the old chains, to generate new configs.
-iptables -t nat -D PREROUTING -p tcp -j ISTIO_INBOUND 2>/dev/null
-iptables -t mangle -D PREROUTING -p tcp -j ISTIO_INBOUND 2>/dev/null
-iptables -t nat -D OUTPUT -p tcp -j ISTIO_OUTPUT 2>/dev/null
-
-# Flush and delete the istio chains.
-iptables -t nat -F ISTIO_OUTPUT 2>/dev/null
-iptables -t nat -X ISTIO_OUTPUT 2>/dev/null
-iptables -t nat -F ISTIO_INBOUND 2>/dev/null
-iptables -t nat -X ISTIO_INBOUND 2>/dev/null
-iptables -t mangle -F ISTIO_INBOUND 2>/dev/null
-iptables -t mangle -X ISTIO_INBOUND 2>/dev/null
-iptables -t mangle -F ISTIO_DIVERT 2>/dev/null
-iptables -t mangle -X ISTIO_DIVERT 2>/dev/null
-iptables -t mangle -F ISTIO_TPROXY 2>/dev/null
-iptables -t mangle -X ISTIO_TPROXY 2>/dev/null
-
-# Must be last, the others refer to it
-iptables -t nat -F ISTIO_REDIRECT 2>/dev/null
-iptables -t nat -X ISTIO_REDIRECT 2>/dev/null
-iptables -t nat -F ISTIO_IN_REDIRECT 2>/dev/null
-iptables -t nat -X ISTIO_IN_REDIRECT 2>/dev/null
-
-if [ "${1:-}" = "clean" ]; then
-  echo "Only cleaning, no new rules added"
-  exit 0
-fi
-
 # Dump out our environment for debugging purposes.
 echo "Environment:"
 echo "------------"
@@ -489,29 +461,6 @@ fi
 # If ENABLE_INBOUND_IPV6 is unset (default unset), restrict IPv6 traffic.
 set +o nounset
 if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
-  # Remove the old chains, to generate new configs.
-  ip6tables -t nat -D PREROUTING -p tcp -j ISTIO_INBOUND 2>/dev/null || true
-  ip6tables -t mangle -D PREROUTING -p tcp -j ISTIO_INBOUND 2>/dev/null || true
-  ip6tables -t nat -D OUTPUT -p tcp -j ISTIO_OUTPUT 2>/dev/null || true
-
-  # Flush and delete the istio chains.
-  ip6tables -t nat -F ISTIO_OUTPUT 2>/dev/null || true
-  ip6tables -t nat -X ISTIO_OUTPUT 2>/dev/null || true
-  ip6tables -t nat -F ISTIO_INBOUND 2>/dev/null || true
-  ip6tables -t nat -X ISTIO_INBOUND 2>/dev/null || true
-  ip6tables -t mangle -F ISTIO_INBOUND 2>/dev/null || true
-  ip6tables -t mangle -X ISTIO_INBOUND 2>/dev/null || true
-  ip6tables -t mangle -F ISTIO_DIVERT 2>/dev/null || true
-  ip6tables -t mangle -X ISTIO_DIVERT 2>/dev/null || true
-  ip6tables -t mangle -F ISTIO_TPROXY 2>/dev/null || true
-  ip6tables -t mangle -X ISTIO_TPROXY 2>/dev/null || true
-
-  # Must be last, the others refer to it
-  ip6tables -t nat -F ISTIO_REDIRECT 2>/dev/null || true
-  ip6tables -t nat -X ISTIO_REDIRECT 2>/dev/null|| true
-  ip6tables -t nat -F ISTIO_IN_REDIRECT 2>/dev/null || true
-  ip6tables -t nat -X ISTIO_IN_REDIRECT 2>/dev/null || true
-
   # Create a new chain for redirecting outbound traffic to the common Envoy port.
   # In both chains, '-j RETURN' bypasses Envoy and '-j ISTIO_REDIRECT'
   # redirects to Envoy.
@@ -544,6 +493,8 @@ if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
             ip6tables -t ${table} -A ISTIO_INBOUND -p tcp --dport "${port}" -j RETURN
         done
         fi
+        # Redirect other inbound traffic
+        ip6tables -t ${table} -A ISTIO_INBOUND -p tcp -j ISTIO_IN_REDIRECT
     else
         # User has specified a non-empty list of ports to be redirected to Envoy.
         for port in ${INBOUND_PORTS_INCLUDE}; do
@@ -618,8 +569,8 @@ if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
   fi
 else
   # Drop all inbound traffic except established connections.
-  ip6tables -F INPUT || true
-  ip6tables -A INPUT -m state --state ESTABLISHED -j ACCEPT || true
-  ip6tables -A INPUT -i lo -d ::1 -j ACCEPT || true
-  ip6tables -A INPUT -j REJECT || true
+  ip6tables -t filter -F INPUT || true
+  ip6tables -t filter -A INPUT -m state --state ESTABLISHED -j ACCEPT || true
+  ip6tables -t filter -A INPUT -i lo -d ::1 -j ACCEPT || true
+  ip6tables -t filter -A INPUT -j REJECT || true
 fi

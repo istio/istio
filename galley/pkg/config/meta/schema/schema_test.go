@@ -249,6 +249,8 @@ func TestSchemaBasic(t *testing.T) {
 		"istio.io/api/networking/v1alpha3",
 		"istio.networking.v1alpha3.VirtualService"))
 	g.Expect(s.AllCollections()).To(Equal(b.Build()))
+	g.Expect(s.AllCollectionsInSnapshots([]string{"default"})).To(ConsistOf("istio/networking.istio.io/v1alpha3/virtualservices"))
+	g.Expect(func() { s.AllCollectionsInSnapshots([]string{"bogus"}) }).To(Panic())
 
 	g.Expect(s.TransformSettings()).To(HaveLen(1))
 	g.Expect(s.TransformSettings()[0]).To(Equal(

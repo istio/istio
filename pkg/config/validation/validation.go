@@ -28,7 +28,7 @@ import (
 	xdsUtil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -94,6 +94,8 @@ var supportedMethods = map[string]bool{
 	http.MethodOptions: true,
 	http.MethodTrace:   true,
 }
+
+var scope = log.RegisterScope("validation", "CRD validation debugging", 0)
 
 // ValidateFunc defines a validation func for an API proto.
 type ValidateFunc func(name, namespace string, config proto.Message) error
@@ -233,35 +235,29 @@ func validatePercentageOrDefault(percentage *networking.Percent, defaultPercent 
 	return ValidatePercent(defaultPercent)
 }
 
-// ValidateIPv4Subnet checks that a string is in "CIDR notation" or "Dot-decimal notation"
-func ValidateIPv4Subnet(subnet string) error {
+// ValidateIPSubnet checks that a string is in "CIDR notation" or "Dot-decimal notation"
+func ValidateIPSubnet(subnet string) error {
 	// We expect a string in "CIDR notation" or "Dot-decimal notation"
-	// E.g., a.b.c.d/xx form or just a.b.c.d
+	// E.g., a.b.c.d/xx form or just a.b.c.d or 2001:1::1/64
 	if strings.Count(subnet, "/") == 1 {
-		// We expect a string in "CIDR notation", i.e. a.b.c.d/xx form
+		// We expect a string in "CIDR notation", i.e. a.b.c.d/xx or 2001:1::1/64 form
 		ip, _, err := net.ParseCIDR(subnet)
 		if err != nil {
 			return fmt.Errorf("%v is not a valid CIDR block", subnet)
 		}
-		// The current implementation only supports IP v4 addresses
-		if ip.To4() == nil {
-			return fmt.Errorf("%v is not a valid IPv4 address", subnet)
+		if ip.To4() == nil && ip.To16() == nil {
+			return fmt.Errorf("%v is not a valid IPv4 or IPv6 address", subnet)
 		}
 		return nil
 	}
-	return ValidateIPv4Address(subnet)
+	return ValidateIPAddress(subnet)
 }
 
-// ValidateIPv4Address validates that a string in "CIDR notation" or "Dot-decimal notation"
-func ValidateIPv4Address(addr string) error {
+// ValidateIPAddress validates that a string in "CIDR notation" or "Dot-decimal notation"
+func ValidateIPAddress(addr string) error {
 	ip := net.ParseIP(addr)
 	if ip == nil {
 		return fmt.Errorf("%v is not a valid IP", addr)
-	}
-
-	// The current implementation only supports IP v4 addresses
-	if ip.To4() == nil {
-		return fmt.Errorf("%v is not a valid IPv4 address", addr)
 	}
 
 	return nil
@@ -455,20 +451,20 @@ func validateExportTo(exportTo []string) (errs error) {
 func ValidateEnvoyFilter(_, _ string, msg proto.Message) (errs error) {
 	rule, ok := msg.(*networking.EnvoyFilter)
 	if !ok {
-		return fmt.Errorf("cannot cast to envoy filter")
+		return fmt.Errorf("cannot cast to Envoy filter")
 	}
 
 	if len(rule.Filters) > 0 {
-		log.Warn("envoy filter: Filters is deprecated. use configPatches instead")
+		scope.Warn("Envoy filter: Filters is deprecated. use configPatches instead") // nolint: golint,stylecheck
 	}
 
 	if rule.WorkloadLabels != nil {
-		log.Warn("envoy filter: workloadLabels is deprecated. use workloadSelector instead")
+		scope.Warn("Envoy filter: workloadLabels is deprecated. use workloadSelector instead") // nolint: golint,stylecheck
 	}
 
 	if rule.WorkloadSelector != nil {
 		if rule.WorkloadSelector.GetLabels() == nil {
-			errs = appendErrors(errs, fmt.Errorf("envoy filter: workloadSelector cannot have empty labels"))
+			errs = appendErrors(errs, fmt.Errorf("Envoy filter: workloadSelector cannot have empty labels")) // nolint: golint,stylecheck
 		}
 	}
 
@@ -477,44 +473,44 @@ func ValidateEnvoyFilter(_, _ string, msg proto.Message) (errs error) {
 			if f.InsertPosition.Index == networking.EnvoyFilter_InsertPosition_BEFORE ||
 				f.InsertPosition.Index == networking.EnvoyFilter_InsertPosition_AFTER {
 				if f.InsertPosition.RelativeTo == "" {
-					errs = appendErrors(errs, fmt.Errorf("envoy filter: missing relativeTo filter with BEFORE/AFTER index"))
+					errs = appendErrors(errs, fmt.Errorf("Envoy filter: missing relativeTo filter with BEFORE/AFTER index")) // nolint: golint,stylecheck
 				}
 			}
 		}
 		if f.FilterType == networking.EnvoyFilter_Filter_INVALID {
-			errs = appendErrors(errs, fmt.Errorf("envoy filter: missing filter type"))
+			errs = appendErrors(errs, fmt.Errorf("Envoy filter: missing filter type")) // nolint: golint,stylecheck
 		}
 		if len(f.FilterName) == 0 {
-			errs = appendErrors(errs, fmt.Errorf("envoy filter: missing filter name"))
+			errs = appendErrors(errs, fmt.Errorf("Envoy filter: missing filter name")) // nolint: golint,stylecheck
 		}
 
 		if f.FilterConfig == nil {
-			errs = appendErrors(errs, fmt.Errorf("envoy filter: missing filter config"))
+			errs = appendErrors(errs, fmt.Errorf("Envoy filter: missing filter config")) // nolint: golint,stylecheck
 		}
 	}
 
 	for _, cp := range rule.ConfigPatches {
 		if cp.ApplyTo == networking.EnvoyFilter_INVALID {
-			errs = appendErrors(errs, fmt.Errorf("envoy filter: missing applyTo"))
+			errs = appendErrors(errs, fmt.Errorf("Envoy filter: missing applyTo")) // nolint: golint,stylecheck
 			continue
 		}
 		if cp.Patch == nil {
-			errs = appendErrors(errs, fmt.Errorf("envoy filter: missing patch"))
+			errs = appendErrors(errs, fmt.Errorf("Envoy filter: missing patch")) // nolint: golint,stylecheck
 			continue
 		}
 		if cp.Patch.Operation == networking.EnvoyFilter_Patch_INVALID {
-			errs = appendErrors(errs, fmt.Errorf("envoy filter: missing patch operation"))
+			errs = appendErrors(errs, fmt.Errorf("Envoy filter: missing patch operation")) // nolint: golint,stylecheck
 			continue
 		}
 		if cp.Patch.Operation != networking.EnvoyFilter_Patch_REMOVE && cp.Patch.Value == nil {
-			errs = appendErrors(errs, fmt.Errorf("envoy filter: missing patch value for non-remove operation"))
+			errs = appendErrors(errs, fmt.Errorf("Envoy filter: missing patch value for non-remove operation")) // nolint: golint,stylecheck
 			continue
 		}
 
 		// ensure that the supplied regex for proxy version compiles
 		if cp.Match != nil && cp.Match.Proxy != nil && cp.Match.Proxy.ProxyVersion != "" {
 			if _, err := regexp.Compile(cp.Match.Proxy.ProxyVersion); err != nil {
-				errs = appendErrors(errs, fmt.Errorf("envoy filter: invalid regex for proxy version, [%v]", err))
+				errs = appendErrors(errs, fmt.Errorf("Envoy filter: invalid regex for proxy version, [%v]", err)) // nolint: golint,stylecheck
 				continue
 			}
 		}
@@ -526,7 +522,7 @@ func ValidateEnvoyFilter(_, _ string, msg proto.Message) (errs error) {
 			networking.EnvoyFilter_HTTP_FILTER:
 			if cp.Match != nil && cp.Match.ObjectTypes != nil {
 				if cp.Match.GetListener() == nil {
-					errs = appendErrors(errs, fmt.Errorf("envoy filter: applyTo for listener class objects cannot have non listener match"))
+					errs = appendErrors(errs, fmt.Errorf("Envoy filter: applyTo for listener class objects cannot have non listener match")) // nolint: golint,stylecheck
 					continue
 				}
 				listenerMatch := cp.Match.GetListener()
@@ -534,22 +530,22 @@ func ValidateEnvoyFilter(_, _ string, msg proto.Message) (errs error) {
 					if listenerMatch.FilterChain.Filter != nil {
 						// filter names are required if network filter matches are being made
 						if listenerMatch.FilterChain.Filter.Name == "" {
-							errs = appendErrors(errs, fmt.Errorf("envoy filter: filter match has no name to match on"))
+							errs = appendErrors(errs, fmt.Errorf("Envoy filter: filter match has no name to match on")) // nolint: golint,stylecheck
 							continue
 						} else if listenerMatch.FilterChain.Filter.SubFilter != nil {
 							// sub filter match is supported only for applyTo HTTP_FILTER
 							if cp.ApplyTo != networking.EnvoyFilter_HTTP_FILTER {
-								errs = appendErrors(errs, fmt.Errorf("envoy filter: subfilter match can be used with applyTo HTTP_FILTER only"))
+								errs = appendErrors(errs, fmt.Errorf("Envoy filter: subfilter match can be used with applyTo HTTP_FILTER only")) // nolint: golint,stylecheck
 								continue
 							}
 							// sub filter match requires the network filter to match to envoy http connection manager
 							if listenerMatch.FilterChain.Filter.Name != xdsUtil.HTTPConnectionManager {
-								errs = appendErrors(errs, fmt.Errorf("envoy filter: subfilter match requires filter match with %s",
+								errs = appendErrors(errs, fmt.Errorf("Envoy filter: subfilter match requires filter match with %s", // nolint: golint,stylecheck
 									xdsUtil.HTTPConnectionManager))
 								continue
 							}
 							if listenerMatch.FilterChain.Filter.SubFilter.Name == "" {
-								errs = appendErrors(errs, fmt.Errorf("envoy filter: subfilter match has no name to match on"))
+								errs = appendErrors(errs, fmt.Errorf("Envoy filter: subfilter match has no name to match on")) // nolint: golint,stylecheck
 								continue
 							}
 						}
@@ -559,14 +555,15 @@ func ValidateEnvoyFilter(_, _ string, msg proto.Message) (errs error) {
 		case networking.EnvoyFilter_ROUTE_CONFIGURATION, networking.EnvoyFilter_VIRTUAL_HOST, networking.EnvoyFilter_HTTP_ROUTE:
 			if cp.Match != nil && cp.Match.ObjectTypes != nil {
 				if cp.Match.GetRouteConfiguration() == nil {
-					errs = appendErrors(errs, fmt.Errorf("envoy filter: applyTo for http route class objects cannot have non route configuration match"))
+					errs = appendErrors(errs,
+						fmt.Errorf("Envoy filter: applyTo for http route class objects cannot have non route configuration match")) // nolint: golint,stylecheck
 				}
 			}
 
 		case networking.EnvoyFilter_CLUSTER:
 			if cp.Match != nil && cp.Match.ObjectTypes != nil {
 				if cp.Match.GetCluster() == nil {
-					errs = appendErrors(errs, fmt.Errorf("envoy filter: applyTo for cluster class objects cannot have non cluster match"))
+					errs = appendErrors(errs, fmt.Errorf("Envoy filter: applyTo for cluster class objects cannot have non cluster match")) // nolint: golint,stylecheck
 				}
 			}
 		}
@@ -770,7 +767,7 @@ func validateSidecarEgressPortBindAndCaptureMode(port *networking.Port, bind str
 			ValidatePort(int(port.Number)))
 
 		if len(bind) != 0 {
-			errs = appendErrors(errs, ValidateIPv4Address(bind))
+			errs = appendErrors(errs, ValidateIPAddress(bind))
 		}
 	}
 
@@ -789,7 +786,7 @@ func validateSidecarIngressPortAndBind(port *networking.Port, bind string) (errs
 		ValidatePort(int(port.Number)))
 
 	if len(bind) != 0 {
-		errs = appendErrors(errs, ValidateIPv4Address(bind))
+		errs = appendErrors(errs, ValidateIPAddress(bind))
 	}
 
 	return
@@ -1177,7 +1174,7 @@ func ValidateProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
 		if err := ValidateProxyAddress(config.EnvoyMetricsServiceAddress); err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid envoy metrics service address %q:", config.EnvoyMetricsServiceAddress)))
 		} else {
-			log.Warnf("EnvoyMetricsServiceAddress is deprecated, use EnvoyMetricsService instead.")
+			scope.Warnf("EnvoyMetricsServiceAddress is deprecated, use EnvoyMetricsService instead.") // nolint: golint,stylecheck
 		}
 	}
 
@@ -1703,7 +1700,7 @@ func ValidateClusterRbacConfig(name, _ string, msg proto.Message) error {
 
 // ValidateRbacConfig checks that RbacConfig is well-formed.
 func ValidateRbacConfig(name, _ string, msg proto.Message) error {
-	log.Warnf("RbacConfig is deprecated, use ClusterRbacConfig instead.")
+	scope.Warnf("RbacConfig is deprecated, use ClusterRbacConfig instead.")
 	return checkRbacConfig(name, "RbacConfig", msg)
 }
 
@@ -1857,7 +1854,7 @@ func validateTLSMatch(match *networking.TLSMatchAttributes, context *networking.
 	}
 
 	for _, destinationSubnet := range match.DestinationSubnets {
-		errs = appendErrors(errs, ValidateIPv4Subnet(destinationSubnet))
+		errs = appendErrors(errs, ValidateIPSubnet(destinationSubnet))
 	}
 
 	if match.Port != 0 {
@@ -1901,10 +1898,10 @@ func validateTCPRoute(tcp *networking.TCPRoute) (errs error) {
 
 func validateTCPMatch(match *networking.L4MatchAttributes) (errs error) {
 	for _, destinationSubnet := range match.DestinationSubnets {
-		errs = appendErrors(errs, ValidateIPv4Subnet(destinationSubnet))
+		errs = appendErrors(errs, ValidateIPSubnet(destinationSubnet))
 	}
 	if len(match.SourceSubnet) > 0 {
-		errs = appendErrors(errs, ValidateIPv4Subnet(match.SourceSubnet))
+		errs = appendErrors(errs, ValidateIPSubnet(match.SourceSubnet))
 	}
 	if match.Port != 0 {
 		errs = appendErrors(errs, ValidatePort(int(match.Port)))
@@ -2332,6 +2329,11 @@ func validateHTTPRewrite(rewrite *networking.HTTPRewrite) error {
 	return nil
 }
 
+// ValidateSyntheticServiceEntry validates a synthetic service entry.
+func ValidateSyntheticServiceEntry(_, _ string, config proto.Message) (errs error) {
+	return ValidateServiceEntry("", "", config)
+}
+
 // ValidateServiceEntry validates a service entry.
 func ValidateServiceEntry(_, _ string, config proto.Message) (errs error) {
 	serviceEntry, ok := config.(*networking.ServiceEntry)
@@ -2354,7 +2356,7 @@ func ValidateServiceEntry(_, _ string, config proto.Message) (errs error) {
 	cidrFound := false
 	for _, address := range serviceEntry.Addresses {
 		cidrFound = cidrFound || strings.Contains(address, "/")
-		errs = appendErrors(errs, ValidateIPv4Subnet(address))
+		errs = appendErrors(errs, ValidateIPSubnet(address))
 	}
 
 	if cidrFound {
@@ -2397,7 +2399,7 @@ func ValidateServiceEntry(_, _ string, config proto.Message) (errs error) {
 					errs = appendErrors(errs, fmt.Errorf("unix endpoint %s must not include ports", addr))
 				}
 			} else {
-				errs = appendErrors(errs, ValidateIPv4Address(addr))
+				errs = appendErrors(errs, ValidateIPAddress(addr))
 
 				for name, port := range endpoint.Ports {
 					if !servicePorts[name] {

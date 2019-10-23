@@ -16,7 +16,9 @@ package rt
 
 import (
 	"fmt"
+	"strings"
 
+	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
 )
@@ -33,5 +35,22 @@ var _ resource.Origin = &Origin{}
 
 // FriendlyName implements resource.Origin
 func (o *Origin) FriendlyName() string {
-	return fmt.Sprintf("%s/%s", o.Kind, o.Name.String())
+	parts := strings.Split(o.Name.String(), "/")
+	if len(parts) == 2 {
+		// The istioctl convention is <type> <name>[.<namespace>].
+		// This code has no notion of a default and always shows the namespace.
+		return fmt.Sprintf("%s %s.%s", o.Kind, parts[1], parts[0])
+	}
+	return fmt.Sprintf("%s %s", o.Kind, o.Name.String())
+}
+
+// Namespace implements resource.Origin
+func (o *Origin) Namespace() string {
+	// Special case: the namespace of a namespace resource is its own name
+	if o.Collection == metadata.K8SCoreV1Namespaces {
+		return o.Name.String()
+	}
+
+	ns, _ := o.Name.InterpretAsNamespaceAndName()
+	return ns
 }

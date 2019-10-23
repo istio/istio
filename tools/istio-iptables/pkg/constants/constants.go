@@ -14,22 +14,30 @@
 
 package constants
 
-// Constants used in iptables commands
+// iptables tables
 const (
 	MANGLE = "mangle"
 	NAT    = "nat"
+	FILTER = "filter"
+)
 
+// Constants used for generating iptables commands
+const (
 	TCP = "tcp"
 
-	TPROXY          = "TPROXY"
-	PREROUTING      = "PREROUTING"
-	RETURN          = "RETURN"
-	ACCEPT          = "ACCEPT"
-	REJECT          = "REJECT"
-	INPUT           = "INPUT"
-	OUTPUT          = "OUTPUT"
-	REDIRECT        = "REDIRECT"
-	MARK            = "MARK"
+	TPROXY     = "TPROXY"
+	PREROUTING = "PREROUTING"
+	RETURN     = "RETURN"
+	ACCEPT     = "ACCEPT"
+	REJECT     = "REJECT"
+	INPUT      = "INPUT"
+	OUTPUT     = "OUTPUT"
+	REDIRECT   = "REDIRECT"
+	MARK       = "MARK"
+)
+
+// iptables chains
+const (
 	ISTIOOUTPUT     = "ISTIO_OUTPUT"
 	ISTIOINBOUND    = "ISTIO_INBOUND"
 	ISTIODIVERT     = "ISTIO_DIVERT"

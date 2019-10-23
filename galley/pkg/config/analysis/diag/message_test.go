@@ -20,12 +20,6 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-type testOrigin string
-
-func (o testOrigin) FriendlyName() string {
-	return string(o)
-}
-
 func TestMessage_String(t *testing.T) {
 	g := NewGomegaWithT(t)
 	mt := NewMessageType(Error, "IST-0042", "Cheese type not found: %q")

@@ -155,6 +155,8 @@ func serverCmd() *cobra.Command {
 		"Enable service discovery processing in Galley")
 	svr.PersistentFlags().BoolVar(&serverArgs.UseOldProcessor, "useOldProcessor", serverArgs.UseOldProcessor,
 		"Use the old processing pipeline for config processing")
+	svr.PersistentFlags().BoolVar(&serverArgs.WatchConfigFiles, "watchConfigFiles", serverArgs.WatchConfigFiles,
+		"Enable the Fsnotify for watching config source files on the disk and implicit signaling on a config change. Explicit signaling will still be enabled")
 	svr.PersistentFlags().BoolVar(&serverArgs.EnableConfigAnalysis, "enableAnalysis", serverArgs.EnableConfigAnalysis,
 		"Enable config analysis service")
 
@@ -162,8 +164,8 @@ func serverCmd() *cobra.Command {
 	svr.PersistentFlags().StringVar(&serverArgs.ValidationArgs.WebhookConfigFile,
 		"validation-webhook-config-file", "",
 		"File that contains k8s validatingwebhookconfiguration yaml. Required if enable-validation is true.")
-	svr.PersistentFlags().UintVar(&serverArgs.ValidationArgs.Port, "validation-port", 443,
-		"HTTPS port of the validation service. Must be 443 if service has more than one port ")
+	svr.PersistentFlags().UintVar(&serverArgs.ValidationArgs.Port, "validation-port",
+		serverArgs.ValidationArgs.Port, "HTTPS port of the validation service.")
 	svr.PersistentFlags().BoolVar(&serverArgs.ValidationArgs.EnableValidation, "enable-validation", serverArgs.ValidationArgs.EnableValidation,
 		"Run galley validation mode")
 	svr.PersistentFlags().BoolVar(&serverArgs.ValidationArgs.EnableReconcileWebhookConfiguration,

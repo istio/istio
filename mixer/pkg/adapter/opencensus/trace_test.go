@@ -35,7 +35,6 @@ func TestHandleTraceSpan(t *testing.T) {
 		vals                   []*tracespan.Instance
 		wantSpans              []*trace.SpanData
 		sampler                trace.Sampler
-		wantFlushes            int
 		wantName, wantEndpoint string
 	}{
 		{
@@ -88,8 +87,7 @@ func TestHandleTraceSpan(t *testing.T) {
 					HasRemoteParent: true,
 				},
 			},
-			sampler:     trace.ProbabilitySampler(1.0),
-			wantFlushes: 1,
+			sampler: trace.ProbabilitySampler(1.0),
 		},
 		{
 			name: "error",
@@ -142,8 +140,7 @@ func TestHandleTraceSpan(t *testing.T) {
 					HasRemoteParent: true,
 				},
 			},
-			sampler:     trace.ProbabilitySampler(1.0),
-			wantFlushes: 1,
+			sampler: trace.ProbabilitySampler(1.0),
 		},
 		{
 			name: "no tracing",
@@ -163,9 +160,8 @@ func TestHandleTraceSpan(t *testing.T) {
 					HttpStatusCode: 200,
 				},
 			},
-			wantSpans:   []*trace.SpanData(nil),
-			sampler:     trace.ProbabilitySampler(1.0),
-			wantFlushes: 0,
+			wantSpans: []*trace.SpanData(nil),
+			sampler:   trace.ProbabilitySampler(1.0),
 		},
 		{
 			name: "tracing disabled",
@@ -185,9 +181,8 @@ func TestHandleTraceSpan(t *testing.T) {
 					HttpStatusCode: 200,
 				},
 			},
-			wantSpans:   nil,
-			sampler:     nil,
-			wantFlushes: 0,
+			wantSpans: nil,
+			sampler:   nil,
 		},
 		{
 			name: "no parent - server span",
@@ -253,8 +248,7 @@ func TestHandleTraceSpan(t *testing.T) {
 					HasRemoteParent: true,
 				},
 			},
-			sampler:     trace.AlwaysSample(),
-			wantFlushes: 1,
+			sampler: trace.AlwaysSample(),
 		},
 		{
 			name: "client span",
@@ -320,8 +314,7 @@ func TestHandleTraceSpan(t *testing.T) {
 					HasRemoteParent: false,
 				},
 			},
-			sampler:     trace.AlwaysSample(),
-			wantFlushes: 1,
+			sampler: trace.AlwaysSample(),
 		},
 		{
 			name: "error span",
@@ -386,8 +379,7 @@ func TestHandleTraceSpan(t *testing.T) {
 					HasRemoteParent: false,
 				},
 			},
-			sampler:     trace.AlwaysSample(),
-			wantFlushes: 1,
+			sampler: trace.AlwaysSample(),
 		},
 		{
 			name: "client span rewrite id",
@@ -435,8 +427,7 @@ func TestHandleTraceSpan(t *testing.T) {
 					HasRemoteParent: false,
 				},
 			},
-			sampler:     trace.ProbabilitySampler(1.0),
-			wantFlushes: 1,
+			sampler: trace.ProbabilitySampler(1.0),
 		},
 		{
 			name: "server span rewrite id",
@@ -484,8 +475,7 @@ func TestHandleTraceSpan(t *testing.T) {
 					HasRemoteParent: true,
 				},
 			},
-			sampler:     trace.ProbabilitySampler(1.0),
-			wantFlushes: 1,
+			sampler: trace.ProbabilitySampler(1.0),
 		},
 	}
 
@@ -510,9 +500,6 @@ func TestHandleTraceSpan(t *testing.T) {
 			}
 			if diff := cmp.Diff(exporter.exported, tt.wantSpans); diff != "" {
 				t.Errorf("Exported spans differ, -got +want: %s\n", diff)
-			}
-			if got, want := exporter.flushes, tt.wantFlushes; got != want {
-				t.Errorf("exporter.flushes = %d; want %d", got, want)
 			}
 		})
 	}

@@ -16,8 +16,14 @@
 
 function setup_and_export_git_sha() {
   if [[ -n "${CI:-}" ]]; then
+
     if [ -z "${PULL_PULL_SHA:-}" ]; then
-      export GIT_SHA="${PULL_BASE_SHA}"
+      if [ -z "${PULL_BASE_SHA:-}" ]; then
+        GIT_SHA="$(git rev-parse --verify HEAD)"
+        export GIT_SHA
+      else
+        export GIT_SHA="${PULL_BASE_SHA}"
+      fi
     else
       export GIT_SHA="${PULL_PULL_SHA}"
     fi
@@ -95,14 +101,6 @@ function clone_cni() {
   fi
 }
 
-function check_kind() {
-  echo "Checking KinD is installed..."
-  if ! command -v curl > /dev/null; then
-    echo "Looks like KinD is not installed."
-    exit 1
-  fi
-}
-
 function cleanup_kind_cluster() {
   echo "Test exited with exit code $?."
   kind export logs --name istio-testing "${ARTIFACTS}/kind"
@@ -114,9 +112,6 @@ function cleanup_kind_cluster() {
 
 function setup_kind_cluster() {
   IMAGE="${1}"
-  # Installing KinD
-  check_kind
-
   # Delete any previous e2e KinD cluster
   echo "Deleting previous KinD cluster with name=istio-testing"
   if ! (kind delete cluster --name=istio-testing) > /dev/null; then

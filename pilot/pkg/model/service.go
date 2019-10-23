@@ -32,6 +32,7 @@ import (
 	"time"
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	"github.com/mitchellh/copystructure"
 
 	authn "istio.io/api/authentication/v1alpha1"
 
@@ -52,17 +53,10 @@ import (
 // foo.default.svc.cluster.local hostname, has a virtual IP of 10.0.1.1 and
 // listens on ports 80, 8080
 type Service struct {
-	// Name of the service, e.g. "catalog.mystore.com"
-	Hostname host.Name `json:"hostname"`
+	// Attributes contains additional attributes associated with the service
+	// used mostly by mixer and RBAC for policy enforcement purposes.
+	Attributes ServiceAttributes
 
-	// Address specifies the service IPv4 address of the load balancer
-	Address string `json:"address,omitempty"`
-
-	// Protect concurrent ClusterVIPs read/write
-	Mutex sync.RWMutex
-	// ClusterVIPs specifies the service address of the load balancer
-	// in each of the clusters where the service resides
-	ClusterVIPs map[string]string `json:"cluster-vips,omitempty"`
 	// Ports is the set of network ports where the service is listening for
 	// connections
 	Ports PortList `json:"ports,omitempty"`
@@ -70,9 +64,18 @@ type Service struct {
 	// ServiceAccounts specifies the service accounts that run the service.
 	ServiceAccounts []string `json:"serviceAccounts,omitempty"`
 
-	// MeshExternal (if true) indicates that the service is external to the mesh.
-	// These services are defined using Istio's ServiceEntry spec.
-	MeshExternal bool
+	// CreationTime records the time this service was created, if available.
+	CreationTime time.Time `json:"creationTime,omitempty"`
+
+	// Name of the service, e.g. "catalog.mystore.com"
+	Hostname host.Name `json:"hostname"`
+
+	// Address specifies the service IPv4 address of the load balancer
+	Address string `json:"address,omitempty"`
+
+	// ClusterVIPs specifies the service address of the load balancer
+	// in each of the clusters where the service resides
+	ClusterVIPs map[string]string `json:"cluster-vips,omitempty"`
 
 	// Resolution indicates how the service instances need to be resolved before routing
 	// traffic. Most services in the service registry will use static load balancing wherein
@@ -82,12 +85,12 @@ type Service struct {
 	// by the caller)
 	Resolution Resolution
 
-	// CreationTime records the time this service was created, if available.
-	CreationTime time.Time `json:"creationTime,omitempty"`
+	// Protect concurrent ClusterVIPs read/write
+	Mutex sync.RWMutex
 
-	// Attributes contains additional attributes associated with the service
-	// used mostly by mixer and RBAC for policy enforcement purposes.
-	Attributes ServiceAttributes
+	// MeshExternal (if true) indicates that the service is external to the mesh.
+	// These services are defined using Istio's ServiceEntry spec.
+	MeshExternal bool
 }
 
 // Resolution indicates how the service instances need to be resolved before routing
@@ -117,8 +120,11 @@ const (
 )
 
 const (
+	// MTLSReadyLabelShortname name used for determining endpoint level tls transport socket configuration
+	MTLSReadyLabelShortname = "mtlsReady"
+
 	// MTLSReadyLabelName name for the mtlsReady label given to service instances to toggle mTLS autopilot
-	MTLSReadyLabelName = "security.istio.io/mtlsReady"
+	MTLSReadyLabelName = "security.istio.io/" + MTLSReadyLabelShortname
 )
 
 // Port represents a network port where a service is listening for
@@ -261,6 +267,7 @@ type ServiceInstance struct {
 	Service        *Service        `json:"service,omitempty"`
 	Labels         labels.Instance `json:"labels,omitempty"`
 	ServiceAccount string          `json:"serviceaccount,omitempty"`
+	MTLSReady      bool            `json:"mtlsReady,omitempty"`
 }
 
 // GetLocality returns the availability zone from an instance. If service instance label for locality
@@ -345,6 +352,9 @@ type IstioEndpoint struct {
 	// Attributes contains additional attributes associated with the service
 	// used mostly by mixer and RBAC for policy enforcement purposes.
 	Attributes ServiceAttributes
+
+	// MTLSReady endpoint is injected with istio sidecar and ready to configure Istio mTLS
+	MTLSReady bool
 }
 
 // ServiceAttributes represents a group of custom attributes of the service.
@@ -643,4 +653,38 @@ func (s *Service) GetServiceAddressForProxy(node *Proxy) string {
 		return s.ClusterVIPs[node.ClusterID]
 	}
 	return s.Address
+}
+
+// DeepCopy creates a clone of Service.
+// TODO : See if there is any efficient alternative to this function - copystructure can not be used as is because
+// Service has sync.RWMutex that can not be copied.
+func (s *Service) DeepCopy() *Service {
+	attrs := copyInternal(s.Attributes)
+	ports := copyInternal(s.Ports)
+	accounts := copyInternal(s.ServiceAccounts)
+	clusterVIPs := copyInternal(s.ClusterVIPs)
+
+	return &Service{
+		Attributes:      attrs.(ServiceAttributes),
+		Ports:           ports.(PortList),
+		ServiceAccounts: accounts.([]string),
+		CreationTime:    s.CreationTime,
+		Hostname:        s.Hostname,
+		Address:         s.Address,
+		ClusterVIPs:     clusterVIPs.(map[string]string),
+		Resolution:      s.Resolution,
+		MeshExternal:    s.MeshExternal,
+	}
+}
+
+func copyInternal(v interface{}) interface{} {
+	copied, err := copystructure.Copy(v)
+	if err != nil {
+		// There are 2 locations where errors are generated in copystructure.Copy:
+		//  * The reflection walk over the structure fails, which should never happen
+		//  * A configurable copy function returns an error. This is only used for copying times, which never returns an error.
+		// Therefore, this should never happen
+		panic(err)
+	}
+	return copied
 }

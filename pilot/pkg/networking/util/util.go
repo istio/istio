@@ -71,6 +71,18 @@ const (
 	IstioMetadataKey = "istio"
 	// The range of LoadBalancingWeight is [1, 128]
 	maxLoadBalancingWeight = 128
+
+	// EnvoyTransportSocketMetadataKey is the key under which metadata is added to an endpoint
+	// which determines the endpoint level transport socket configuration.
+	EnvoyTransportSocketMetadataKey = "envoy.transport_socket_match"
+
+	// EnvoyRawBufferSocketName matched with hardcoded built-in Envoy transport name which determines
+	// endpoint level plantext transport socket configuration
+	EnvoyRawBufferSocketName = "raw_buffer"
+
+	// EnvoyTLSSocketName matched with hardcoded built-in Envoy transport name which determines endpoint
+	// level tls transport socket configuration
+	EnvoyTLSSocketName = "tls"
 )
 
 // ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
@@ -87,6 +99,12 @@ var ALPNInMesh = []string{"istio"}
 
 // ALPNHttp advertises that Proxy is going to talking either http2 or http 1.1.
 var ALPNHttp = []string{"h2", "http/1.1"}
+
+var EndpointMetadataMtlsReady = &pstruct.Struct{
+	Fields: map[string]*pstruct.Value{
+		model.MTLSReadyLabelShortname: {Kind: &pstruct.Value_StringValue{StringValue: "true"}},
+	},
+}
 
 func getMaxCidrPrefix(addr string) uint32 {
 	ip := net.ParseIP(addr)
@@ -572,4 +590,35 @@ func HandleCrash(handlers ...func()) {
 			handler()
 		}
 	}
+}
+
+// BuildLbEndpointMetadata adds metadata values to a lb endpoint
+func BuildLbEndpointMetadata(uid string, network string, mtlsReady bool) *core.Metadata {
+	if uid == "" && network == "" && !mtlsReady {
+		return nil
+	}
+
+	metadata := &core.Metadata{
+		FilterMetadata: map[string]*pstruct.Struct{},
+	}
+
+	if uid != "" || network != "" {
+		metadata.FilterMetadata[IstioMetadataKey] = &pstruct.Struct{
+			Fields: map[string]*pstruct.Value{},
+		}
+
+		if uid != "" {
+			metadata.FilterMetadata[IstioMetadataKey].Fields["uid"] = &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: uid}}
+		}
+
+		if network != "" {
+			metadata.FilterMetadata[IstioMetadataKey].Fields["network"] = &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: network}}
+		}
+	}
+
+	if mtlsReady {
+		metadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = EndpointMetadataMtlsReady
+	}
+
+	return metadata
 }

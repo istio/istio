@@ -348,6 +348,15 @@ global:
     datadog:
       # Host:Port for submitting traces to the Datadog agent.
       address: "$(HOST_IP):8126"
+    stackdriver:
+      # enables trace output to stdout.
+      debug: false
+      # The global default max number of attributes per span.
+      maxNumberOfAttributes: 200
+      # The global default max number of annotation events per span.
+      maxNumberOfAnnotations: 200
+      # The global default max number of message events per span.
+      maxNumberOfMessageEvents: 200
 
   # Default mtls policy. If true, mtls between services will be enabled by default.
   mtls:
@@ -358,7 +367,7 @@ global:
     # or its DestinationRule does not have TLSSettings specified, Istio configures client side
     # TLS configuration automatically, based on the server side mTLS authentication policy and the
     # availibity of sidecars.
-    auto: false
+    auto: true
 
   # Lists the secrets you need to use to pull Istio images from a private registry.
   imagePullSecrets: []
@@ -463,6 +472,14 @@ global:
   #   kubernetes: cluster.local
   #   else:  default dns domain
   trustDomain: ""
+
+  #  The trust domain aliases represent the aliases of trust_domain.
+  #  For example, if we have
+  #  trustDomain: td1
+  #  trustDomainAliases: [“td2”, "td3"]
+  #  Any service with the identity "td1/ns/foo/sa/a-service-account", "td2/ns/foo/sa/a-service-account",
+  #  or "td3/ns/foo/sa/a-service-account" will be treated the same in the Istio mesh.
+  trustDomainAliases: []
 
   # Mesh ID means Mesh Identifier. It should be unique within the scope where
   # meshes will interact with each other, but it is not required to be

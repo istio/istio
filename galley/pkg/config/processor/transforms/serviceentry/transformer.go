@@ -328,6 +328,7 @@ func (t *serviceEntryTransformer) toMcpResource(service *resource.Entry, endpoin
 	entry := &resource.Entry{
 		Metadata: meta,
 		Item:     &se,
+		Origin:   service.Origin,
 	}
 	return entry, true
 }

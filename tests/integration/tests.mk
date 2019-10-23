@@ -90,9 +90,9 @@ test.integration.%.local: | $(JUNIT_REPORT)
 TEST_PACKAGES = $(shell go list ./tests/integration/... | grep -v /qualification | grep -v /examples)
 
 # Generate presubmit integration test targets for each component in kubernetes environment
-test.integration.%.kube.presubmit: | $(JUNIT_REPORT)
+test.integration.%.kube.presubmit: istioctl | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
-	$(GO) test -p 1 ${T} ./tests/integration/$(subst .,/,$*)/... ${_INTEGRATION_TEST_WORKDIR_FLAG} ${_INTEGRATION_TEST_CIMODE_FLAG} -timeout 30m \
+	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 ${T} ./tests/integration/$(subst .,/,$*)/... ${_INTEGRATION_TEST_WORKDIR_FLAG} ${_INTEGRATION_TEST_CIMODE_FLAG} -timeout 30m \
     --istio.test.select -postsubmit,-flaky \
 	--istio.test.env kube \
 	--istio.test.kube.config ${INTEGRATION_TEST_KUBECONFIG} \
@@ -101,6 +101,9 @@ test.integration.%.kube.presubmit: | $(JUNIT_REPORT)
 	--istio.test.pullpolicy=${_INTEGRATION_TEST_PULL_POLICY} \
 	${_INTEGRATION_TEST_INGRESS_FLAG} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
+
+test.integration.istioio.kube.postsubmit: test.integration.istioio.kube.presubmit
+	SNIPPETS_GCS_PATH="istio-snippets/$(shell git rev-parse HEAD)" prow/upload-istioio-snippets.sh
 
 # Generate presubmit integration test targets for each component in local environment.
 test.integration.%.local.presubmit: | $(JUNIT_REPORT)

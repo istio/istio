@@ -429,6 +429,8 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 		{
 			name: "gen a listener per instance",
 			instances: []*model.ServiceInstance{
+				// This instance is the proxy itself, will not gen a outbound listener for it.
+				buildServiceInstance(services[0], "1.1.1.1"),
 				buildServiceInstance(services[0], "10.10.10.10"),
 				buildServiceInstance(services[0], "11.11.11.11"),
 				buildServiceInstance(services[0], "12.11.11.11"),
@@ -1205,6 +1207,31 @@ func TestOutboundListenerAccessLogs(t *testing.T) {
 				t.Fatal("expected access log configuration")
 			}
 		}
+	}
+}
+
+func TestHttpProxyListener(t *testing.T) {
+	p := &fakePlugin{}
+	configgen := NewConfigGenerator([]plugin.Plugin{p})
+
+	env := buildListenerEnv(nil)
+	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
+		t.Fatalf("error in initializing push context: %s", err)
+	}
+
+	proxy.ServiceInstances = nil
+	env.Mesh.ProxyHttpPort = 15007
+	proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
+	httpProxy := configgen.buildHTTPProxy(&env, &proxy, env.PushContext, nil)
+	f := httpProxy.FilterChains[0].Filters[0]
+	cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
+
+	if httpProxy.Address.GetSocketAddress().GetPortValue() != 15007 {
+		t.Fatalf("expected http proxy is not listening on %d, but on port %d", env.Mesh.ProxyHttpPort,
+			httpProxy.Address.GetSocketAddress().GetPortValue())
+	}
+	if !strings.HasPrefix(cfg.Fields["stat_prefix"].GetStringValue(), "outbound_") {
+		t.Fatalf("expected http proxy stat prefix to have outbound, %s", cfg.Fields["stat_prefix"].GetStringValue())
 	}
 }
 

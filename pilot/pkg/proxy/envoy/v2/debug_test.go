@@ -372,18 +372,33 @@ func getAuthenticationZ(t *testing.T, s *v2.DiscoveryServer, proxyID string, wan
 	if err != nil {
 		t.Fatal(err)
 	}
-	rr := httptest.NewRecorder()
-	authenticationz := http.HandlerFunc(s.Authenticationz)
-	authenticationz.ServeHTTP(rr, req)
-	if rr.Code != wantCode {
-		t.Errorf("wanted response code %v, got %v", wantCode, rr.Code)
-	}
 
 	got := []v2.AuthenticationDebug{}
-	if rr.Code != 200 {
+	var returnCode int
+
+	// Retry 20 times, with 500 ms interval, so up to 10s.
+	for numTries := 0; numTries < 20; numTries++ {
+		rr := httptest.NewRecorder()
+		authenticationz := http.HandlerFunc(s.Authenticationz)
+		authenticationz.ServeHTTP(rr, req)
+		returnCode = rr.Code
+		if rr.Code == wantCode {
+			if rr.Code == 200 {
+				if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
+					t.Fatal(err)
+				}
+			}
+			break
+		}
+
+		// It could be delay in ADS propagation, hence cause different return code for the
+		// authenticationz. Wait 0.5s then retry.
 		t.Logf("/authenticationz returns with error code %v:\n%v", rr.Code, rr.Body)
-	} else if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
-		t.Fatal(err)
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	if returnCode != wantCode {
+		t.Errorf("wanted response code %v, got %v", wantCode, returnCode)
 	}
 
 	return got
@@ -391,107 +406,123 @@ func getAuthenticationZ(t *testing.T, s *v2.DiscoveryServer, proxyID string, wan
 
 func TestEvaluateTLSState(t *testing.T) {
 	testCases := []struct {
-		name     string
-		client   *networking.TLSSettings
-		server   authn_model.MutualTLSMode
-		expected string
+		name                        string
+		client                      *networking.TLSSettings
+		server                      authn_model.MutualTLSMode
+		expected                    string
+		expectedWithAutoMTLSEnabled string
 	}{
 		{
-			name:     "Auto with mTLS disable",
-			client:   nil,
-			server:   authn_model.MTLSDisable,
-			expected: "OK",
+			name:                        "Auto with mTLS disable",
+			client:                      nil,
+			server:                      authn_model.MTLSDisable,
+			expected:                    "OK",
+			expectedWithAutoMTLSEnabled: "AUTO",
 		},
 		{
-			name:     "Auto with mTLS permissive",
-			client:   nil,
-			server:   authn_model.MTLSPermissive,
-			expected: "OK",
+			name:                        "Auto with mTLS permissive",
+			client:                      nil,
+			server:                      authn_model.MTLSPermissive,
+			expected:                    "OK",
+			expectedWithAutoMTLSEnabled: "AUTO",
 		},
 		{
-			name:     "Auto with mTLS STRICT",
-			client:   nil,
-			server:   authn_model.MTLSStrict,
-			expected: "OK",
+			name:                        "Auto with mTLS STRICT",
+			client:                      nil,
+			server:                      authn_model.MTLSStrict,
+			expected:                    "OK",
+			expectedWithAutoMTLSEnabled: "AUTO",
 		},
 		{
 			name: "OK with mTLS STRICT",
 			client: &networking.TLSSettings{
 				Mode: networking.TLSSettings_ISTIO_MUTUAL,
 			},
-			server:   authn_model.MTLSStrict,
-			expected: "OK",
+			server:                      authn_model.MTLSStrict,
+			expected:                    "OK",
+			expectedWithAutoMTLSEnabled: "OK",
 		},
 		{
 			name: "OK with mTLS DISABLE",
 			client: &networking.TLSSettings{
 				Mode: networking.TLSSettings_DISABLE,
 			},
-			server:   authn_model.MTLSDisable,
-			expected: "OK",
+			server:                      authn_model.MTLSDisable,
+			expected:                    "OK",
+			expectedWithAutoMTLSEnabled: "OK",
 		},
 		{
 			name: "OK: plaintext with mTLS PERMISSIVE",
 			client: &networking.TLSSettings{
 				Mode: networking.TLSSettings_DISABLE,
 			},
-			server:   authn_model.MTLSPermissive,
-			expected: "OK",
+			server:                      authn_model.MTLSPermissive,
+			expected:                    "OK",
+			expectedWithAutoMTLSEnabled: "OK",
 		},
 		{
 			name: "OK: ISTIO_MUTUAL with mTLS PERMISSIVE",
 			client: &networking.TLSSettings{
 				Mode: networking.TLSSettings_ISTIO_MUTUAL,
 			},
-			server:   authn_model.MTLSPermissive,
-			expected: "OK",
+			server:                      authn_model.MTLSPermissive,
+			expected:                    "OK",
+			expectedWithAutoMTLSEnabled: "OK",
 		},
 		{
 			name: "Conflict: plaintext with mTLS STRICT",
 			client: &networking.TLSSettings{
 				Mode: networking.TLSSettings_DISABLE,
 			},
-			server:   authn_model.MTLSStrict,
-			expected: "CONFLICT",
+			server:                      authn_model.MTLSStrict,
+			expected:                    "CONFLICT",
+			expectedWithAutoMTLSEnabled: "CONFLICT",
 		},
 		{
 			name: "Conflict: (custom) mTLS with mTLS STRICT",
 			client: &networking.TLSSettings{
 				Mode: networking.TLSSettings_MUTUAL,
 			},
-			server:   authn_model.MTLSStrict,
-			expected: "CONFLICT",
+			server:                      authn_model.MTLSStrict,
+			expected:                    "CONFLICT",
+			expectedWithAutoMTLSEnabled: "CONFLICT",
 		},
 		{
 			name: "Conflict: TLS simple with mTLS STRICT",
 			client: &networking.TLSSettings{
 				Mode: networking.TLSSettings_SIMPLE,
 			},
-			server:   authn_model.MTLSStrict,
-			expected: "CONFLICT",
+			server:                      authn_model.MTLSStrict,
+			expected:                    "CONFLICT",
+			expectedWithAutoMTLSEnabled: "CONFLICT",
 		},
 		{
 			name: "Conflict: TLS simple with mTLS PERMISSIVE",
 			client: &networking.TLSSettings{
 				Mode: networking.TLSSettings_SIMPLE,
 			},
-			server:   authn_model.MTLSPermissive,
-			expected: "CONFLICT",
+			server:                      authn_model.MTLSPermissive,
+			expected:                    "CONFLICT",
+			expectedWithAutoMTLSEnabled: "CONFLICT",
 		},
 		{
 			name: "Conflict: (custom) mTLS with mTLS PERMISSIVE",
 			client: &networking.TLSSettings{
 				Mode: networking.TLSSettings_SIMPLE,
 			},
-			server:   authn_model.MTLSPermissive,
-			expected: "CONFLICT",
+			server:                      authn_model.MTLSPermissive,
+			expected:                    "CONFLICT",
+			expectedWithAutoMTLSEnabled: "CONFLICT",
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := v2.EvaluateTLSState(tc.client, tc.server); got != tc.expected {
+			if got := v2.EvaluateTLSState(false, tc.client, tc.server); got != tc.expected {
 				t.Errorf("EvaluateTLSState expected to be %q, got %q", tc.expected, got)
+			}
+			if got := v2.EvaluateTLSState(true, tc.client, tc.server); got != tc.expectedWithAutoMTLSEnabled {
+				t.Errorf("EvaluateTLSState with autoMTLSEnable expected to be %q, got %q", tc.expectedWithAutoMTLSEnabled, got)
 			}
 		})
 	}
@@ -503,17 +534,19 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 		Namespace: "bar",
 	}
 	testCases := []struct {
-		name        string
-		authnPolicy *authn.Policy
-		authnMeta   *model.ConfigMeta
-		destConfig  *model.Config
-		expected    []*v2.AuthenticationDebug
+		name            string
+		autoMTLSEnabled bool
+		authnPolicy     *authn.Policy
+		authnMeta       *model.ConfigMeta
+		destConfig      *model.Config
+		expected        []*v2.AuthenticationDebug
 	}{
 		{
-			name:        "No policy",
-			authnPolicy: nil,
-			authnMeta:   nil,
-			destConfig:  nil,
+			name:            "No policy",
+			autoMTLSEnabled: false,
+			authnPolicy:     nil,
+			authnMeta:       nil,
+			destConfig:      nil,
 			expected: []*v2.AuthenticationDebug{
 				{
 					Host:                     "foo.default",
@@ -527,7 +560,26 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 			},
 		},
 		{
-			name: "No DR",
+			name:            "No policy with autoMtl",
+			autoMTLSEnabled: true,
+			authnPolicy:     nil,
+			authnMeta:       nil,
+			destConfig:      nil,
+			expected: []*v2.AuthenticationDebug{
+				{
+					Host:                     "foo.default",
+					Port:                     8080,
+					AuthenticationPolicyName: "-",
+					DestinationRuleName:      "-",
+					ServerProtocol:           "DISABLE",
+					ClientProtocol:           "-",
+					TLSConflictStatus:        "AUTO",
+				},
+			},
+		},
+		{
+			name:            "No DR",
+			autoMTLSEnabled: false,
 			authnPolicy: &authn.Policy{
 				Peers: []*authn.PeerAuthenticationMethod{
 					{
@@ -554,7 +606,8 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 			},
 		},
 		{
-			name: "DR without TLS Settings",
+			name:            "DR without TLS Settings",
+			autoMTLSEnabled: false,
 			authnPolicy: &authn.Policy{
 				Peers: []*authn.PeerAuthenticationMethod{
 					{
@@ -589,7 +642,8 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 			},
 		},
 		{
-			name: "DR with TLS Settings",
+			name:            "DR with TLS Settings",
+			autoMTLSEnabled: false,
 			authnPolicy: &authn.Policy{
 				Peers: []*authn.PeerAuthenticationMethod{
 					{
@@ -628,7 +682,8 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 			},
 		},
 		{
-			name: "DR with port-specific TLS Settings",
+			name:            "DR with port-specific TLS Settings",
+			autoMTLSEnabled: false,
 			authnPolicy: &authn.Policy{
 				Peers: []*authn.PeerAuthenticationMethod{
 					{
@@ -677,7 +732,8 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 			},
 		},
 		{
-			name: "DR with subset",
+			name:            "DR with subset",
+			autoMTLSEnabled: false,
 			authnPolicy: &authn.Policy{
 				Peers: []*authn.PeerAuthenticationMethod{
 					{
@@ -759,7 +815,8 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 			port := model.Port{
 				Port: 8080,
 			}
-			if got := v2.AnalyzeMTLSSettings(host.Name("foo.default"), &port, tc.authnPolicy, tc.authnMeta, tc.destConfig); !reflect.DeepEqual(got, tc.expected) {
+			if got := v2.AnalyzeMTLSSettings(
+				tc.autoMTLSEnabled, host.Name("foo.default"), &port, tc.authnPolicy, tc.authnMeta, tc.destConfig); !reflect.DeepEqual(got, tc.expected) {
 				t.Errorf("EvaluateTLSState expected to be %+v, got %+v", tc.expected, got)
 			}
 		})

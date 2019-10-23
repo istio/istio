@@ -278,6 +278,41 @@ func TestDelete(t *testing.T) {
 	}
 }
 
+func TestBadParse(t *testing.T) {
+	// unknown flags should be a command parse
+	rootCmd := GetRootCmd([]string{"--unknown-flag"})
+	fErr := rootCmd.Execute()
+
+	switch fErr.(type) {
+	case CommandParseError:
+		// do nothing
+	default:
+		t.Errorf("Expected a CommandParseError, but got %q.", fErr)
+	}
+
+	// we should propagate to subcommands
+	rootCmd = GetRootCmd([]string{"x", "analyze", "--unknown-flag"})
+	fErr = rootCmd.Execute()
+
+	switch fErr.(type) {
+	case CommandParseError:
+		// do nothing
+	default:
+		t.Errorf("Expected a CommandParseError, but got %q.", fErr)
+	}
+
+	// all of the subcommands
+	rootCmd = GetRootCmd([]string{"authn", "tls-check", "--unknown-flag"})
+	fErr = rootCmd.Execute()
+
+	switch fErr.(type) {
+	case CommandParseError:
+		// do nothing
+	default:
+		t.Errorf("Expected a CommandParseError, but got %q.", fErr)
+	}
+}
+
 // mockClientFactoryGenerator creates a factory for model.ConfigStore preloaded with data
 func mockClientFactoryGenerator(configs []model.Config) func() (model.ConfigStore, error) {
 	outFactory := func() (model.ConfigStore, error) {
@@ -319,6 +354,13 @@ func (cs sortedConfigStore) Delete(typ, name, namespace string) error {
 
 func (cs sortedConfigStore) ConfigDescriptor() schema.Set {
 	return cs.store.ConfigDescriptor()
+}
+
+func (cs sortedConfigStore) Version() string {
+	return cs.store.Version()
+}
+func (cs sortedConfigStore) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
+	return cs.store.GetResourceAtVersion(version, key)
 }
 
 // List() is a facade that always returns cs.store items sorted by name/namespace

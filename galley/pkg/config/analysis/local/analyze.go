@@ -50,6 +50,7 @@ type SourceAnalyzer struct {
 	sources              []event.Source
 	analyzer             *analysis.CombinedAnalyzer
 	transformerProviders transformer.Providers
+	namespace            string
 
 	// Which kube resources are used by this analyzer
 	// Derived from metadata and the specified analyzer and transformer providers
@@ -61,7 +62,9 @@ type SourceAnalyzer struct {
 
 // NewSourceAnalyzer creates a new SourceAnalyzer with no sources. Use the Add*Source methods to add sources in ascending precedence order,
 // then execute Analyze to perform the analysis
-func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, cr snapshotter.CollectionReporterFn, serviceDiscovery bool) *SourceAnalyzer {
+func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, namespace string,
+	cr snapshotter.CollectionReporterFn, serviceDiscovery bool) *SourceAnalyzer {
+
 	// collectionReporter hook function defaults to no-op
 	if cr == nil {
 		cr = func(collection.Name) {}
@@ -70,14 +73,20 @@ func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, 
 	transformerProviders := transforms.Providers(m)
 
 	// Get the closure of all input collections for our analyzer, paying attention to transforms
-	inputCollections := getUpstreamCollections(analyzer, transformerProviders)
+	kubeResources := kuberesource.DisableExcludedKubeResources(
+		m.KubeSource().Resources(),
+		transformerProviders,
+		analyzer.Metadata().Inputs,
+		kuberesource.DefaultExcludedResourceKinds(),
+		serviceDiscovery)
 
 	return &SourceAnalyzer{
 		m:                    m,
 		sources:              make([]event.Source, 0),
 		analyzer:             analyzer,
 		transformerProviders: transformerProviders,
-		kubeResources:        disableUnusedKubeResources(m, inputCollections, serviceDiscovery),
+		namespace:            namespace,
+		kubeResources:        kubeResources,
 		collectionReporter:   cr,
 	}
 }
@@ -92,6 +101,11 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (diag.Messages, error) {
 	}
 	src := newPrecedenceSource(sa.sources)
 
+	var namespaces []string
+	if sa.namespace != "" {
+		namespaces = []string{sa.namespace}
+	}
+
 	updater := &snapshotter.InMemoryStatusUpdater{}
 	distributorSettings := snapshotter.AnalyzingDistributorSettings{
 		StatusUpdater:      updater,
@@ -100,6 +114,7 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (diag.Messages, error) {
 		AnalysisSnapshots:  []string{metadata.LocalAnalysis, metadata.SyntheticServiceEntry},
 		TriggerSnapshot:    metadata.LocalAnalysis,
 		CollectionReporter: sa.collectionReporter,
+		AnalysisNamespaces: namespaces,
 	}
 	distributor := snapshotter.NewAnalyzingDistributor(distributorSettings)
 
@@ -127,9 +142,9 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (diag.Messages, error) {
 }
 
 // AddFileKubeSource adds a source based on the specified k8s yaml files to the current SourceAnalyzer
-func (sa *SourceAnalyzer) AddFileKubeSource(files []string, defaultNs string) error {
+func (sa *SourceAnalyzer) AddFileKubeSource(files []string) error {
 	src := inmemory.NewKubeSource(sa.kubeResources)
-	src.SetDefaultNamespace(defaultNs)
+	src.SetDefaultNamespace(sa.namespace)
 
 	for _, file := range files {
 		by, err := ioutil.ReadFile(file)
@@ -154,47 +169,4 @@ func (sa *SourceAnalyzer) AddRunningKubeSource(k kube.Interfaces) {
 	src := apiserverNew(o)
 
 	sa.sources = append(sa.sources, src)
-}
-
-func disableUnusedKubeResources(m *schema.Metadata, inputCollections map[collection.Name]struct{}, serviceDiscovery bool) schema.KubeResources {
-	// As an optimization, disable excluded resource kinds, respecting whether service discovery is enabled
-	withExcludedResources := kuberesource.DisableExcludedKubeResources(m.KubeSource().Resources(), kuberesource.DefaultExcludedResourceKinds(), serviceDiscovery)
-
-	// Additionally, filter out the resources we won't need for the current analysis.
-	// This matters because getting a snapshot from k8s is relatively time-expensive,
-	// so removing unnecessary resources makes a useful difference.
-	filteredResources := make([]schema.KubeResource, 0)
-	for _, r := range withExcludedResources {
-		if _, ok := inputCollections[r.Collection.Name]; !ok {
-			scope.Analysis.Debugf("Disabling resource %q since it isn't necessary for the current analysis", r.Collection.Name)
-			r.Disabled = true
-		}
-		filteredResources = append(filteredResources, r)
-	}
-	return filteredResources
-}
-
-func getUpstreamCollections(analyzer analysis.Analyzer, xformProviders transformer.Providers) map[collection.Name]struct{} {
-	// For each transform, map output to inputs
-	outToIn := make(map[collection.Name]map[collection.Name]struct{})
-	for _, xfp := range xformProviders {
-		for _, out := range xfp.Outputs() {
-			if _, ok := outToIn[out]; !ok {
-				outToIn[out] = make(map[collection.Name]struct{})
-			}
-			for _, in := range xfp.Inputs() {
-				outToIn[out][in] = struct{}{}
-			}
-		}
-	}
-
-	// 2. For each collection used by the analyzer, get its inputs using the above mapping and include them in the output set
-	upstreamCollections := make(map[collection.Name]struct{})
-	for _, c := range analyzer.Metadata().Inputs {
-		for in := range outToIn[c] {
-			upstreamCollections[in] = struct{}{}
-		}
-	}
-
-	return upstreamCollections
 }

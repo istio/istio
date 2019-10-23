@@ -21,6 +21,8 @@ import (
 	"net/http"
 	"sort"
 
+	"istio.io/istio/pilot/pkg/features"
+
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/ptypes/any"
@@ -65,6 +67,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	mux.HandleFunc("/debug/adsz", s.adsz)
 	mux.HandleFunc("/debug/cdsz", cdsz)
 	mux.HandleFunc("/debug/syncz", Syncz)
+	mux.HandleFunc("/debug/config_distribution", s.distributedVersions)
 
 	mux.HandleFunc("/debug/registryz", s.registryz)
 	mux.HandleFunc("/debug/endpointz", s.endpointz)
@@ -206,6 +209,77 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 	_, _ = fmt.Fprint(w, "\n{}]\n")
 }
 
+// SyncedVersions shows what resourceVersion of a given resource has been acked by Envoy.
+type SyncedVersions struct {
+	ProxyID         string `json:"proxy,omitempty"`
+	ClusterVersion  string `json:"cluster_acked,omitempty"`
+	ListenerVersion string `json:"listener_acked,omitempty"`
+	RouteVersion    string `json:"route_acked,omitempty"`
+}
+
+func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.Request) {
+	if !features.EnableDistributionTracking {
+		w.WriteHeader(http.StatusConflict)
+		_, _ = fmt.Fprint(w, "Pilot Version tracking is disabled.  Please set the "+
+			"PILOT_ENABLE_CONFIG_DISTRIBUTION_TRACKING environment variable to true to enable.")
+		return
+	}
+	if resourceID := req.URL.Query().Get("resource"); resourceID != "" {
+		proxyNamespace := req.URL.Query().Get("proxy_namespace")
+		knownVersions := make(map[string]string)
+		var results []SyncedVersions
+		adsClientsMutex.RLock()
+		for _, con := range adsClients {
+			con.mu.RLock()
+			if con.node != nil && (proxyNamespace == "" || proxyNamespace == con.node.ConfigNamespace) {
+				// TODO: handle skipped nodes
+				results = append(results, SyncedVersions{
+					ProxyID:         con.node.ID,
+					ClusterVersion:  s.getResourceVersion(con.ClusterNonceAcked, resourceID, knownVersions),
+					ListenerVersion: s.getResourceVersion(con.ListenerNonceAcked, resourceID, knownVersions),
+					RouteVersion:    s.getResourceVersion(con.RouteNonceAcked, resourceID, knownVersions),
+				})
+			}
+			con.mu.RUnlock()
+		}
+		adsClientsMutex.RUnlock()
+
+		out, err := json.MarshalIndent(&results, "", "    ")
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = fmt.Fprintf(w, "unable to marshal syncedVersion information: %v", err)
+			return
+		}
+		w.Header().Add("Content-Type", "application/json")
+		_, _ = w.Write(out)
+	} else {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		_, _ = fmt.Fprintf(w, "querystring parameter 'resource' is required")
+	}
+}
+
+// The Config Version is only used as the nonce prefix, but we can reconstruct it because is is a
+// b64 encoding of a 64 bit array, which will always be 12 chars in length.
+// len = ceil(bitlength/(2^6))+1
+const VersionLen = 12
+
+func (s *DiscoveryServer) getResourceVersion(nonce, key string, cache map[string]string) string {
+	configVersion := nonce[:VersionLen]
+	result, ok := cache[configVersion]
+	if !ok {
+		lookupResult, err := s.Env.IstioConfigStore.GetResourceAtVersion(configVersion, key)
+		if err != nil {
+			adsLog.Errorf("Unable to retrieve resource %s at version %s: %v", key, configVersion, err)
+			lookupResult = ""
+		}
+		// update the cache even on an error, because errors will not resolve themselves, and we don't want to
+		// repeat the same error for many adsClients.
+		cache[configVersion] = lookupResult
+		return lookupResult
+	}
+	return result
+}
+
 // Config debugging.
 func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
@@ -286,10 +360,8 @@ func (s *DiscoveryServer) Authenticationz(w http.ResponseWriter, req *http.Reque
 		connections, ok := adsSidecarIDConnectionsMap[proxyID]
 		if !ok {
 			w.WriteHeader(http.StatusNotFound)
-			_, _ = fmt.Fprintf(w, "ADS for %q does not exist. Only have:\n", proxyID)
-			for key := range adsSidecarIDConnectionsMap {
-				_, _ = fmt.Fprintf(w, "  %q,\n", key)
-			}
+			// Need to dump an empty JSON array so istioctl can peacefully ignore.
+			_, _ = fmt.Fprintf(w, "\n[\n]")
 			return
 		}
 
@@ -302,6 +374,7 @@ func (s *DiscoveryServer) Authenticationz(w http.ResponseWriter, req *http.Reque
 		}
 		mostRecentProxy = connections[mostRecent].node
 		svc, _ := s.Env.ServiceDiscovery.Services()
+		autoMTLSEnabled := s.Env.Mesh.GetEnableAutoMtls() != nil && s.Env.Mesh.GetEnableAutoMtls().Value
 		info := []*AuthenticationDebug{}
 		for _, ss := range svc {
 			if ss.MeshExternal {
@@ -311,7 +384,7 @@ func (s *DiscoveryServer) Authenticationz(w http.ResponseWriter, req *http.Reque
 			for _, p := range ss.Ports {
 				authnPolicy, authnMeta := s.globalPushContext().AuthenticationPolicyForWorkload(ss, p)
 				destConfig := s.globalPushContext().DestinationRule(mostRecentProxy, ss)
-				info = append(info, AnalyzeMTLSSettings(ss.Hostname, p, authnPolicy, authnMeta, destConfig)...)
+				info = append(info, AnalyzeMTLSSettings(autoMTLSEnabled, ss.Hostname, p, authnPolicy, authnMeta, destConfig)...)
 			}
 		}
 		if b, err := json.MarshalIndent(info, "  ", "  "); err == nil {
@@ -325,7 +398,7 @@ func (s *DiscoveryServer) Authenticationz(w http.ResponseWriter, req *http.Reque
 }
 
 // AnalyzeMTLSSettings returns mTLS compatibility status between client and server policies.
-func AnalyzeMTLSSettings(hostname host.Name, port *model.Port, authnPolicy *authn.Policy, authnMeta *model.ConfigMeta,
+func AnalyzeMTLSSettings(autoMTLSEnabled bool, hostname host.Name, port *model.Port, authnPolicy *authn.Policy, authnMeta *model.ConfigMeta,
 	destConfig *model.Config) []*AuthenticationDebug {
 	authnPolicyName := configName(authnMeta)
 	serverMTLSMode := authn_alpha1.GetMutualTLSMode(authnPolicy)
@@ -366,7 +439,7 @@ func AnalyzeMTLSSettings(hostname host.Name, port *model.Port, authnPolicy *auth
 		} else {
 			info.Host = fmt.Sprintf("%s|%s", hostname, ss)
 		}
-		info.TLSConflictStatus = EvaluateTLSState(c, serverMTLSMode)
+		info.TLSConflictStatus = EvaluateTLSState(autoMTLSEnabled, c, serverMTLSMode)
 
 		output = append(output, &info)
 	}
@@ -375,13 +448,18 @@ func AnalyzeMTLSSettings(hostname host.Name, port *model.Port, authnPolicy *auth
 
 // EvaluateTLSState returns the conflict state (string) for the input client+server settings.
 // The output string could be:
+// - "AUTO": auto mTLS feature is enabled, client TLS (destination rule) is not set and pilot can auto detect client (m)TLS settings.
 // - "OK": both client and server TLS settings are set correctly.
 // - "CONFLICT": both client and server TLS settings are set, but could be incompatible.
-func EvaluateTLSState(clientMode *networking.TLSSettings, serverMode authn_model.MutualTLSMode) string {
+func EvaluateTLSState(autoMTLSEnabled bool, clientMode *networking.TLSSettings, serverMode authn_model.MutualTLSMode) string {
 	const okState string = "OK"
 	const conflictState string = "CONFLICT"
+	const autoState string = "AUTO"
 
 	if clientMode == nil {
+		if autoMTLSEnabled {
+			return autoState
+		}
 		// TLS settings was not set explicitly, pilot will try a setting that work well with the
 		// destination authN policy. We could use the separate state value (e.g AUTO) in the future.
 		return okState

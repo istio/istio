@@ -105,7 +105,19 @@ var (
 	istioNamespaceVar    = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
 	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
 	sdsEnabledVar        = env.RegisterBoolVar("SDS_ENABLED", false, "")
-	sdsUdsPathVar        = env.RegisterStringVar("SDS_UDS_PATH", "unix:/var/run/sds/uds_path", "SDS address")
+	autoMTLSEnabled      = env.RegisterBoolVar("ISTIO_AUTO_MTLS_ENABLED", false, "If true, auto mTLS is enabled, "+
+		"sidecar checks key/cert if SDS is not enabled.")
+	sdsUdsPathVar             = env.RegisterStringVar("SDS_UDS_PATH", "unix:/var/run/sds/uds_path", "SDS address")
+	stackdriverTracingEnabled = env.RegisterBoolVar("STACKDRIVER_TRACING_ENABLED", false, "If enabled, stackdriver will"+
+		" get configured as the tracer.")
+	stackdriverTracingDebug = env.RegisterBoolVar("STACKDRIVER_TRACING_DEBUG", false, "If set to true, "+
+		"enables trace output to stdout")
+	stackdriverTracingMaxNumberOfAnnotations = env.RegisterIntVar("STACKDRIVER_TRACING_MAX_NUMBER_OF_ANNOTATIONS", 200, "Sets the max"+
+		" number of annotations for stackdriver")
+	stackdriverTracingMaxNumberOfAttributes = env.RegisterIntVar("STACKDRIVER_TRACING_MAX_NUMBER_OF_ATTRIBUTES", 200, "Sets the max "+
+		"number of attributes for stackdriver")
+	stackdriverTracingMaxNumberOfMessageEvents = env.RegisterIntVar("STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS", 200, "Sets the "+
+		"max number of message events for stackdriver")
 
 	sdsUdsWaitTimeout = time.Minute
 
@@ -300,6 +312,23 @@ var (
 						},
 					},
 				}
+			} else if stackdriverTracingEnabled.Get() {
+				proxyConfig.Tracing = &meshconfig.Tracing{
+					Tracer: &meshconfig.Tracing_Stackdriver_{
+						Stackdriver: &meshconfig.Tracing_Stackdriver{
+							Debug: stackdriverTracingDebug.Get(),
+							MaxNumberOfAnnotations: &types.Int64Value{
+								Value: int64(stackdriverTracingMaxNumberOfAnnotations.Get()),
+							},
+							MaxNumberOfAttributes: &types.Int64Value{
+								Value: int64(stackdriverTracingMaxNumberOfAttributes.Get()),
+							},
+							MaxNumberOfMessageEvents: &types.Int64Value{
+								Value: int64(stackdriverTracingMaxNumberOfMessageEvents.Get()),
+							},
+						},
+					},
+				}
 			}
 
 			if err := validation.ValidateProxyConfig(&proxyConfig); err != nil {
@@ -320,7 +349,7 @@ var (
 			// Since Envoy needs the file-mounted certs for mTLS, we wait for them to become available
 			// before starting it. Skip waiting cert if sds is enabled, otherwise it takes long time for
 			// pod to start.
-			if (controlPlaneAuthEnabled || rsTLSEnabled) && !sdsEnabled {
+			if (controlPlaneAuthEnabled || rsTLSEnabled || autoMTLSEnabled.Get()) && !sdsEnabled {
 				log.Infof("Monitored certs: %#v", tlsCertsToWatch)
 				for _, cert := range tlsCertsToWatch {
 					waitForFile(cert, 2*time.Minute)
@@ -608,8 +637,8 @@ func appendTLSCerts(rs *meshconfig.RemoteService) {
 func init() {
 	proxyCmd.PersistentFlags().StringVar((*string)(&registry), "serviceregistry",
 		string(serviceregistry.KubernetesRegistry),
-		fmt.Sprintf("Select the platform for service registry, options are {%s, %s, %s}",
-			serviceregistry.KubernetesRegistry, serviceregistry.ConsulRegistry, serviceregistry.MockRegistry))
+		fmt.Sprintf("Select the platform for service registry, options are {%s, %s, %s, %s}",
+			serviceregistry.KubernetesRegistry, serviceregistry.ConsulRegistry, serviceregistry.MCPRegistry, serviceregistry.MockRegistry))
 	proxyCmd.PersistentFlags().StringVar(&proxyIP, "ip", "",
 		"Proxy IP address. If not provided uses ${INSTANCE_IP} environment variable.")
 	proxyCmd.PersistentFlags().StringVar(&role.ID, "id", "",
