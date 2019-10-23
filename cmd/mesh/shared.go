@@ -53,7 +53,11 @@ func initLogsOrExit(args *rootArgs) {
 
 func configLogs(logToStdErr bool) error {
 	opt := log.DefaultOptions()
-	if !logToStdErr && logToFile {
+	if !logToStdErr {
+		opt.ErrorOutputPaths = []string{"/dev/null"}
+		opt.OutputPaths = []string{"/dev/null"}
+	}
+	if logToFile {
 		opt.ErrorOutputPaths = []string{logFilePath}
 		opt.OutputPaths = []string{logFilePath}
 	}
@@ -66,6 +70,8 @@ type logger struct {
 	stdErr      io.Writer
 }
 
+// newLogger creates a new logger and returns a pointer to it.
+// stdOut and stdErr can be used to capture output for testing.
 func newLogger(logToStdErr bool, stdOut, stdErr io.Writer) *logger {
 	return &logger{
 		logToStdErr: logToStdErr,
@@ -83,8 +89,9 @@ func (l *logger) logAndPrint(v ...interface{}) {
 	if !l.logToStdErr {
 		l.print(s)
 		l.print("\n")
+	} else {
+		log.Infof(s)
 	}
-	log.Infof(s)
 }
 
 func (l *logger) logAndFatal(v ...interface{}) {
@@ -97,8 +104,9 @@ func (l *logger) logAndPrintf(format string, a ...interface{}) {
 	if !l.logToStdErr {
 		l.print(s)
 		l.print("\n")
+	} else {
+		log.Infof(s)
 	}
-	log.Infof(s)
 }
 
 func (l *logger) logAndFatalf(format string, a ...interface{}) {
