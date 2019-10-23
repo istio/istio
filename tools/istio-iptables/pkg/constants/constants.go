@@ -18,6 +18,7 @@ package constants
 const (
 	MANGLE = "mangle"
 	NAT    = "nat"
+	FILTER = "filter"
 )
 
 // Constants used for generating iptables commands

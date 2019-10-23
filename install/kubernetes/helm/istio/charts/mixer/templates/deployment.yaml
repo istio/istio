@@ -427,7 +427,6 @@ spec:
         chart: {{ template "mixer.chart" $ }}
         heritage: {{ $.Release.Service }}
         release: {{ $.Release.Name }}
-        security.istio.io/mtlsReady: "true"
         istio: mixer
         istio-mixer-type: {{ $key }}
       annotations:

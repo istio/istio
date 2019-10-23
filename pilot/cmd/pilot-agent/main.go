@@ -106,7 +106,9 @@ var (
 	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
 	sdsEnabledVar        = env.RegisterBoolVar("SDS_ENABLED", false, "")
 	// Indicates whether virtual listeners should be pinged during readiness check. Defaults to true. In docker tests, will be set to false.
-	pingVirtualListenersVar   = env.RegisterBoolVar("PING_VIRTUAL_LISTENERS", true, "")
+	pingVirtualListenersVar = env.RegisterBoolVar("PING_VIRTUAL_LISTENERS", true, "")
+	autoMTLSEnabled         = env.RegisterBoolVar("ISTIO_AUTO_MTLS_ENABLED", false, "If true, auto mTLS is enabled, "+
+		"sidecar checks key/cert if SDS is not enabled.")
 	sdsUdsPathVar             = env.RegisterStringVar("SDS_UDS_PATH", "unix:/var/run/sds/uds_path", "SDS address")
 	stackdriverTracingEnabled = env.RegisterBoolVar("STACKDRIVER_TRACING_ENABLED", false, "If enabled, stackdriver will"+
 		" get configured as the tracer.")
@@ -349,7 +351,7 @@ var (
 			// Since Envoy needs the file-mounted certs for mTLS, we wait for them to become available
 			// before starting it. Skip waiting cert if sds is enabled, otherwise it takes long time for
 			// pod to start.
-			if (controlPlaneAuthEnabled || rsTLSEnabled) && !sdsEnabled {
+			if (controlPlaneAuthEnabled || rsTLSEnabled || autoMTLSEnabled.Get()) && !sdsEnabled {
 				log.Infof("Monitored certs: %#v", tlsCertsToWatch)
 				for _, cert := range tlsCertsToWatch {
 					waitForFile(cert, 2*time.Minute)
