@@ -83,13 +83,13 @@ func (d *DestinationHostAnalyzer) checkDestinationHost(vsNamespace string, desti
 	// Check explicitly defined ServiceEntries as well as services discovered from the platform
 
 	// ServiceEntries can be either namespace scoped or exposed to all namespaces
-	nsScopedFqdn := util.GetScopedFqdnHostname(vsNamespace, vsNamespace, host)
+	nsScopedFqdn := util.NewScopedFqdn(vsNamespace, vsNamespace, host)
 	if _, ok := serviceEntryHosts[nsScopedFqdn]; ok {
 		return true
 	}
 
 	// Check ServiceEntries which are exposed to all namespaces
-	allNsScopedFqdn := util.GetScopedFqdnHostname(util.ExportToAllNamespaces, vsNamespace, host)
+	allNsScopedFqdn := util.NewScopedFqdn(util.ExportToAllNamespaces, vsNamespace, host)
 	if _, ok := serviceEntryHosts[allNsScopedFqdn]; ok {
 		return true
 	}
@@ -129,7 +129,7 @@ func initServiceEntryHostNames(ctx analysis.Context) (map[util.ScopedFqdn]bool, 
 			hostsNamespaceScope = util.ExportToAllNamespaces
 		}
 		for _, h := range s.GetHosts() {
-			scopedHost := util.GetScopedFqdnHostname(hostsNamespaceScope, ns, h)
+			scopedHost := util.NewScopedFqdn(hostsNamespaceScope, ns, h)
 			if strings.HasPrefix(h, "*") {
 				wildcardHosts = append(wildcardHosts, scopedHost)
 			}

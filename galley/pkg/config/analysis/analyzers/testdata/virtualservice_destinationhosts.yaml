@@ -23,6 +23,17 @@ spec:
   - "*.eu.bookinfo.com"
 ---
 apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-entry-bookinfo
+  namespace: default-ignore
+spec:
+  exportTo:
+    - "."
+  hosts:
+  - "*" # This ServiceEntry should not match any instance as it isn't exported to other namespaces
+---
+apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: reviews
