@@ -127,7 +127,7 @@ func deployOperator(ctx resource.Context, env *kube.Environment, cfg Config) (In
 		"--set", "values.global.imagePullPolicy=" + s.PullPolicy,
 	}
 	for k, v := range cfg.Values {
-		cmd = append(cmd, "--set", fmt.Sprintf("values.%s=%s", k, v))
+		cmd = append(cmd, "--set", fmt.Sprintf("unvalidatedValues.%s=%s", k, v))
 	}
 	scopes.CI.Infof("Running istioctl %v", cmd)
 	if _, err := istioCtl.Invoke(cmd); err != nil {
