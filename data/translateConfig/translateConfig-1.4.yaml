@@ -19,7 +19,7 @@ apiMapping:
     outPath: "global.securityNamespace"
 kubernetesMapping:
   "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.Affinity":
-    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].affinity"
+    outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.affinity"
   "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.Env":
     outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].env"
   "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.HpaSpec":

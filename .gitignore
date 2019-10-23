@@ -25,3 +25,6 @@ kubedns
 out/
 build/out/
 data/charts/
+#cli logs
+.mesh-cli.log
+cmd/mesh/,mesh-cli.log
