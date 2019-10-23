@@ -135,6 +135,13 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			cleanupForTest()
 			return nil
 		},
+		PersistentPreRunE: func(c *cobra.Command, args []string) error {
+			// The istioctl x auth upgrade command is typically redirected to a .yaml file;
+			// Redirect log messages to stderr, not stdout
+			_ = c.Root().PersistentFlags().Set("log_target", "stderr")
+
+			return c.Root().PersistentPreRunE(c, args)
+		},
 	}
 
 	validatorCmd = &cobra.Command{
