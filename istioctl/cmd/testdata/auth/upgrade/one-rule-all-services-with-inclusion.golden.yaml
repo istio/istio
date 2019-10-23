@@ -1,14 +1,21 @@
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: global-deny-all
-  namespace: my-root-namespace
+  name: default-deny-all
+  namespace: default
 spec:
 ---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: default-productpage
+  name: ns2-deny-all
+  namespace: ns2
+spec:
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: default-all
   namespace: default
 spec:
   rules:
@@ -25,31 +32,4 @@ spec:
     - operation:
         methods:
         - GET
-  selector:
-    matchLabels:
-      app: productpage
----
-apiVersion: security.istio.io/v1beta1
-kind: AuthorizationPolicy
-metadata:
-  name: default-reviews
-  namespace: default
-spec:
-  rules:
-  - from:
-    - source:
-        namespaces:
-        - istio-system
-    - source:
-        namespaces:
-        - default
-        principals:
-        - Coldplay
-    to:
-    - operation:
-        methods:
-        - GET
-  selector:
-    matchLabels:
-      app: reviews
 ---
