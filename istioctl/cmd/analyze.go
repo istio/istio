@@ -32,8 +32,13 @@ import (
 
 type AnalyzerFoundIssuesError struct{}
 
+const (
+	FoundIssueString = "Analyzer found issues."
+	NoIssuesString   = "No analyzer issues found."
+)
+
 func (f AnalyzerFoundIssuesError) Error() string {
-	return "Analyzer found issues."
+	return FoundIssueString
 }
 
 var (
@@ -212,6 +217,10 @@ func errorIfMessagesExceedThreshold(messages []diag.Message) error {
 }
 
 func outputMessages(f io.Writer, messages []diag.Message) {
+	if len(messages) == 0 {
+		fmt.Fprint(f, NoIssuesString)
+		return
+	}
 	for _, m := range messages {
 		fmt.Fprintf(f, "%v\n", m.String())
 	}

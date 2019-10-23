@@ -52,6 +52,7 @@ func TestEmptyCluster(t *testing.T) {
 			// For a clean istio install with injection enabled, expect no validation errors
 			output := istioctlOrFail(t, istioCtl, ns.Name(), "--use-kube")
 			expectNoMessages(t, g, output)
+			g.Expect(output[0]).To(ContainSubstring(cmd.NoIssuesString))
 		})
 }
 
