@@ -24,8 +24,8 @@ func (l Level) String() string {
 	return l.name
 }
 
-func (l Level) IsWorseThan(target Level) bool {
-	return l.sortOrder < target.sortOrder
+func (l Level) IsWorseThanOrEqualTo(target Level) bool {
+	return l.sortOrder <= target.sortOrder
 }
 
 var (

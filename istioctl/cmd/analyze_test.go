@@ -15,7 +15,6 @@
 package cmd
 
 import (
-	"io/ioutil"
 	"testing"
 
 	"istio.io/istio/galley/pkg/config/analysis/diag"
@@ -39,12 +38,12 @@ func TestErrorOnIssuesFound(t *testing.T) {
 		),
 	}
 
-	err := outputAndSetError(ioutil.Discard, msgs)
+	err := errorIfMessagesExceedThreshold(msgs)
 
-	g.Expect(err).To(BeIdenticalTo(FoundAnalyzeIssuesError{}))
+	g.Expect(err).To(BeIdenticalTo(AnalyzerFoundIssuesError{}))
 }
 
-func TestNoErrorOnNoIssuesFound(t *testing.T) {
+func TestNoErrorIfMessageLevelsBelowThreshold(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	msgs := []diag.Message{
@@ -60,7 +59,7 @@ func TestNoErrorOnNoIssuesFound(t *testing.T) {
 		),
 	}
 
-	err := outputAndSetError(ioutil.Discard, msgs)
+	err := errorIfMessagesExceedThreshold(msgs)
 
 	g.Expect(err).To(BeNil())
 }

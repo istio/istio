@@ -33,7 +33,7 @@ const (
 	serviceRoleFile        = "testdata/servicerole.yaml"
 )
 
-var foundAnalyzeError = cmd.FoundAnalyzeIssuesError{}
+var analyzerFoundIssuesError = cmd.AnalyzerFoundIssuesError{}
 
 func TestEmptyCluster(t *testing.T) {
 	framework.
@@ -72,8 +72,8 @@ func TestFileOnly(t *testing.T) {
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), serviceRoleBindingFile)
 			g.Expect(output).To(HaveLen(2))
 			g.Expect(output[0]).To(ContainSubstring(msg.ReferencedResourceNotFound.Code()))
-			g.Expect(output[1]).To(ContainSubstring(foundAnalyzeError.Error()))
-			g.Expect(err).To(BeIdenticalTo(foundAnalyzeError))
+			g.Expect(output[1]).To(ContainSubstring(analyzerFoundIssuesError.Error()))
+			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
 
 			// Error goes away if we include both the binding and its role
 			output = istioctlOrFail(t, istioCtl, ns.Name(), serviceRoleBindingFile, serviceRoleFile)
@@ -101,8 +101,8 @@ func TestKubeOnly(t *testing.T) {
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), "--use-kube")
 			g.Expect(output).To(HaveLen(2))
 			g.Expect(output[0]).To(ContainSubstring(msg.ReferencedResourceNotFound.Code()))
-			g.Expect(output[1]).To(ContainSubstring(foundAnalyzeError.Error()))
-			g.Expect(err).To(BeIdenticalTo(foundAnalyzeError))
+			g.Expect(output[1]).To(ContainSubstring(analyzerFoundIssuesError.Error()))
+			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
 
 			// Error goes away if we include both the binding and its role
 			applyFileOrFail(t, ns.Name(), serviceRoleFile)

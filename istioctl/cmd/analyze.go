@@ -30,16 +30,16 @@ import (
 	"istio.io/istio/pkg/kube"
 )
 
-type FoundAnalyzeIssuesError struct{}
+type AnalyzerFoundIssuesError struct{}
 
-func (f FoundAnalyzeIssuesError) Error() string {
-	return "Found analyzer issues."
+func (f AnalyzerFoundIssuesError) Error() string {
+	return "Analyzer found issues."
 }
 
 var (
 	useKube               bool
 	useDiscovery          string
-	messageLevelThreshold = diag.Info // messages strictly worse than this will generate an error exit code
+	messageLevelThreshold = diag.Warning // messages at least this level will generate an error exit code
 )
 
 // Analyze command
@@ -156,6 +156,9 @@ istioctl experimental analyze -k -d false
 				}
 			}
 			return nil
+			outputMessages(cmd.OutOrStdout(), messages)
+
+			return errorIfMessagesExceedThreshold(messages)
 		},
 	}
 
@@ -193,18 +196,23 @@ func serviceDiscovery() (bool, error) {
 	}
 }
 
-func outputAndSetError(f io.Writer, messages []diag.Message) error {
+func errorIfMessagesExceedThreshold(messages []diag.Message) error {
 	foundIssues := false
 	for _, m := range messages {
-		if m.Type.Level().IsWorseThan(messageLevelThreshold) {
+		if m.Type.Level().IsWorseThanOrEqualTo(messageLevelThreshold) {
 			foundIssues = true
 		}
-		fmt.Fprintf(f, "%v\n", m.String())
 	}
 
 	if foundIssues {
-		return FoundAnalyzeIssuesError{}
+		return AnalyzerFoundIssuesError{}
 	}
 
 	return nil
+}
+
+func outputMessages(f io.Writer, messages []diag.Message) {
+	for _, m := range messages {
+		fmt.Fprintf(f, "%v\n", m.String())
+	}
 }

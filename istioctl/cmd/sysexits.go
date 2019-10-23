@@ -24,7 +24,7 @@ import "strings"
 // https://www.tldp.org/LDP/abs/html/exitcodes.html#EXITCODESREF) and then some
 // used by convention (see sysexits).
 //
-// My intention here is to use 64-78 in a way that matches the attempt in
+// The intention here is to use 64-78 in a way that matches the attempt in
 // sysexits to signify some error running istioctl, and use 79-125 as custom
 // error codes for other info that we'd like to use to pass info on.
 const (
@@ -32,7 +32,7 @@ const (
 	ExitIncorrectUsage = 64
 
 	// below here are non-zero exit codes that don't indicate an error with istioctl itself
-	ExitAnalyzeFoundIssues = 79 // istioctl analyze found issues, for CI/CD
+	ExitAnalyzerFoundIssues = 79 // istioctl analyze found issues, for CI/CD
 )
 
 func GetExitCode(e error) int {
@@ -43,8 +43,8 @@ func GetExitCode(e error) int {
 	switch e.(type) {
 	case CommandParseError:
 		return ExitIncorrectUsage
-	case FoundAnalyzeIssuesError:
-		return ExitAnalyzeFoundIssues
+	case AnalyzerFoundIssuesError:
+		return ExitAnalyzerFoundIssues
 	default:
 		return ExitUnknownError
 	}
