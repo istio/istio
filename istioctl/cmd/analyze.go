@@ -138,7 +138,7 @@ istioctl experimental analyze -k -d false
 			}
 
 			if len(result.Messages) == 0 {
-				fmt.Fprintln(cmd.OutOrStdout(), "No validation issues found.")
+				fmt.Fprintln(cmd.OutOrStdout(), "\u2714 No validation issues found.")
 			} else {
 				for _, m := range result.Messages {
 					fmt.Fprintln(cmd.OutOrStdout(), m.String())
