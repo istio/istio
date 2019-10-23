@@ -855,10 +855,10 @@ func TestSidecarScope(t *testing.T) {
 			reachable: true,
 		},
 		{
-			testName:  "ns1: bookinfo.com:9999 is not reachable via egress TCP listener 7.7.7.7:23145",
+			testName:  "ns1: bookinfo.com:9999 reachable via egress TCP listener 7.7.7.7:23145",
 			reqURL:    "http://7.7.7.7:23145/a",
 			host:      "bookinfo.com:9999",
-			reachable: false,
+			reachable: true,
 		},
 	}
 
