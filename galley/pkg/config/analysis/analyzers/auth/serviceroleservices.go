@@ -42,38 +42,35 @@ func (s *ServiceRoleServicesAnalyzer) Metadata() analysis.Metadata {
 
 // Analyze implements Analyzer
 func (s *ServiceRoleServicesAnalyzer) Analyze(ctx analysis.Context) {
+	nsm := s.buildNamespaceServiceMap(ctx)
 	ctx.ForEach(metadata.IstioRbacV1Alpha1Serviceroles, func(r *resource.Entry) bool {
-		s.analyzeServiceRoleServices(r, ctx)
+		s.analyzeServiceRoleServices(r, ctx, nsm)
 		return true
 	})
 }
 
 // analyzeRoleBinding apply analysis for the service field of the given ServiceRole
-func (s *ServiceRoleServicesAnalyzer) analyzeServiceRoleServices(r *resource.Entry, ctx analysis.Context) {
+func (s *ServiceRoleServicesAnalyzer) analyzeServiceRoleServices(r *resource.Entry, ctx analysis.Context, nsm map[string]bool) {
 	sr := r.Item.(*v1alpha1.ServiceRole)
 	ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
 
 	for _, rs := range sr.Rules {
 		for _, svc := range rs.Services {
-			report := false
 			rn := util.GetResourceNameFromHost(ns, svc)
 			_, ds := rn.InterpretAsNamespaceAndName()
 
 			// If service is either * or *.ns.cluster
 			// then the service role rule applies to all services on the namespace
 			if ds == "*" {
-				if !s.namespaceServicesPresent(ns, ctx) {
+				if !nsm[ns] {
 					// Report when there are no services on the ServiceRole namespace
-					report = true
+					ctx.Report(metadata.IstioRbacV1Alpha1Serviceroles,
+						msg.NewNoResourcesNotFoundForNamespace(r, "service", ns))
 				}
 			// If Service is a short name or FQDN
 			// then applies to a specific service
 			} else if !ctx.Exists(metadata.K8SCoreV1Services, rn) {
 				// Report when the specific service doesn't exist
-				report = true
-			}
-
-			if report {
 				ctx.Report(metadata.IstioRbacV1Alpha1Serviceroles,
 					msg.NewReferencedResourceNotFound(r, "service", svc))
 			}
@@ -81,15 +78,15 @@ func (s *ServiceRoleServicesAnalyzer) analyzeServiceRoleServices(r *resource.Ent
 	}
 }
 
-// namespaceServicesPresent return true when there are services for the given namespace
-func (s *ServiceRoleServicesAnalyzer) namespaceServicesPresent(namespace string, ctx analysis.Context) bool {
-	hs := false
+// buildNamespaceServiceMap returns a map where the index is a namespace and the boolean
+func (s *ServiceRoleServicesAnalyzer) buildNamespaceServiceMap(ctx analysis.Context) map[string]bool {
+	nsm := map[string]bool{}
 
 	ctx.ForEach(metadata.K8SCoreV1Services, func(r *resource.Entry) bool {
 		ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
-		hs = hs || ns == namespace
-		return !hs
+		nsm[ns] = true
+		return true
 	})
 
-	return hs
+	return nsm
 }
