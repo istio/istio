@@ -165,6 +165,13 @@ var (
 
 	mtlsTCPALPNs = []string{"istio"}
 
+	// These ALPNs are injected in the client side by the ALPN filter.
+	// "istio" is added for each upstream protocol in order to make it
+	// backward compatible. e.g., 1.4 proxy -> 1.3 proxy.
+	mtlsHTTP10ALPN = []string{"istio-http/1.0", "istio"}
+	mtlsHTTP11ALPN = []string{"istio-http/1.1", "istio"}
+	mtlsHTTP2ALPN  = []string{"istio-h2", "istio"}
+
 	// Double the number of filter chains. Half of filter chains are used as http filter chain and half of them are used as tcp proxy
 	// id in [0, len(allChains)/2) are configured as http filter chain, [(len(allChains)/2, len(allChains)) are configured as tcp proxy
 	// If mTLS permissive is enabled, there are five filter chains. The filter chain match should be
@@ -1759,7 +1766,20 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, env *model.Env
 			Name: AlpnFilterName,
 			ConfigType: &http_conn.HttpFilter_TypedConfig{
 				TypedConfig: util.MessageToAny(&alpn_filter.FilterConfig{
-					AlpnOverride: append(mtlsHTTPALPNs, mtlsTCPALPNs...),
+					AlpnOverride: []*alpn_filter.FilterConfig_AlpnOverride{
+						{
+							UpstreamProtocol: alpn_filter.FilterConfig_HTTP10,
+							AlpnOverride:     mtlsHTTP10ALPN,
+						},
+						{
+							UpstreamProtocol: alpn_filter.FilterConfig_HTTP11,
+							AlpnOverride:     mtlsHTTP11ALPN,
+						},
+						{
+							UpstreamProtocol: alpn_filter.FilterConfig_HTTP2,
+							AlpnOverride:     mtlsHTTP2ALPN,
+						},
+					},
 				}),
 			},
 		})
