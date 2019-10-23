@@ -118,12 +118,19 @@ func deployOperator(ctx resource.Context, env *kube.Environment, cfg Config) (In
 	if err != nil {
 		return nil, err
 	}
-	if _, err := istioCtl.Invoke([]string{"manifest", "apply", "--skip-confirmation",
+	cmd := []string{
+		"manifest", "apply",
+		"--skip-confirmation",
+		"--logtostderr",
 		"--set", "hub=" + s.Hub,
 		"--set", "tag=" + s.Tag,
 		"--set", "values.global.imagePullPolicy=" + s.PullPolicy,
-		"--logtostderr",
-	}); err != nil {
+	}
+	for k, v := range cfg.Values {
+		cmd = append(cmd, "--set", fmt.Sprintf("values.%s=%s", k, v))
+	}
+	scopes.CI.Infof("Running istioctl %v", cmd)
+	if _, err := istioCtl.Invoke(cmd); err != nil {
 		return nil, fmt.Errorf("manifest apply failed: %v", err)
 	}
 

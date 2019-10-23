@@ -66,7 +66,7 @@ TEST_PACKAGES = $(shell go list ./tests/integration/... | grep -v /qualification
 test.integration.new.installer: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
 	$(GO) test -p 1 ${T} ${TEST_PACKAGES} ${_INTEGRATION_TEST_WORKDIR_FLAG} ${_INTEGRATION_TEST_CIMODE_FLAG} -timeout 30m \
-	--istio.test.select -postsubmit,-flaky,-customsetup \
+	--istio.test.select -postsubmit,-flaky \
 	--istio.test.kube.operator \
 	--istio.test.env kube \
 	--istio.test.kube.config ${INTEGRATION_TEST_KUBECONFIG} \
@@ -88,6 +88,7 @@ test.integration.%.kube.presubmit: istioctl | $(JUNIT_REPORT)
 	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 ${T} ./tests/integration/$(subst .,/,$*)/... ${_INTEGRATION_TEST_WORKDIR_FLAG} ${_INTEGRATION_TEST_CIMODE_FLAG} -timeout 30m \
     --istio.test.select -postsubmit,-flaky \
 	--istio.test.env kube \
+	--istio.test.kube.operator \
 	--istio.test.kube.config ${INTEGRATION_TEST_KUBECONFIG} \
 	--istio.test.hub=${HUB} \
 	--istio.test.tag=${TAG} \
