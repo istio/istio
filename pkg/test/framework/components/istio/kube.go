@@ -156,7 +156,9 @@ func (i *kubeComponent) Settings() Config {
 	return i.settings
 }
 
-func (i *kubeComponent) Close() (err error) {
+func (i *kubeComponent) Close() error {
+	var err *multierror.Error
+
 	if i.settings.DeployIstio {
 		// TODO: There is a problem with  orderly cleanup. Re-enable this once it is fixed. Delete the system namespace
 		// instead
@@ -171,7 +173,7 @@ func (i *kubeComponent) Close() (err error) {
 		}
 	}
 
-	return
+	return err.ErrorOrNil()
 }
 
 func (i *kubeComponent) checkDeprecation() error {
