@@ -75,7 +75,7 @@ func webhookHTTPSHandlerReady(client httpClient, vc *WebhookParameters) error {
 
 //RunValidation start running Galley validation mode
 func RunValidation(ready chan<- struct{}, stopCh chan struct{}, vc *WebhookParameters,
-	kubeInterface *kubernetes.Clientset, kubeConfig string, livenessProbeController, readinessProbeController probe.Controller) {
+	kubeInterface kubernetes.Interface, kubeConfig string, livenessProbeController, readinessProbeController probe.Controller) {
 	log.Infof("Galley validation started with\n%s", vc)
 	mixerValidator := mixervalidate.NewDefaultValidator(false)
 
