@@ -65,6 +65,7 @@ func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs) *cobra.Comm
 		Long:  "The apply subcommand generates an Istio install manifest and applies it to a cluster.",
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
+			// Passing cmd.OutOrStdXXX() allows capturing command output for e2e tests.
 			l := newLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.OutOrStderr())
 			if !maArgs.skipConfirmation && maArgs.kubeConfigPath == "" && maArgs.context == "" {
 				if !confirm("Do you want to proceed? (y/N)", cmd.OutOrStdout()) {
