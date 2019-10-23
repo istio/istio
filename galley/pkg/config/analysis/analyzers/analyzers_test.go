@@ -66,12 +66,12 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/serviceroleservices.yaml"},
 		analyzer:   &auth.ServiceRoleServicesAnalyzer{},
 		expected: []message{
-			{msg.ReferencedResourceNotFound, "ServiceRole service-role-services-bogus.default"},
-			{msg.ReferencedResourceNotFound, "ServiceRole service-role-services-bogus-fqdn.default"},
-			{msg.ReferencedResourceNotFound, "ServiceRole service-role-services.anothernamespace"},
-			{msg.ReferencedResourceNotFound, "ServiceRole service-role-services-fqdn.anothernamespace"},
-			{msg.ReferencedResourceNotFound, "ServiceRole service-role-services-ns.anothernamespace"},
-			{msg.ReferencedResourceNotFound, "ServiceRole service-role-services-all.anothernamespace"},
+			{msg.ReferencedResourceNotFound, "ServiceRole bogus-short-name.default"},
+			{msg.ReferencedResourceNotFound, "ServiceRole bogus-fqdn.default"},
+			{msg.ReferencedResourceNotFound, "ServiceRole short-name.anothernamespace"},
+			{msg.ReferencedResourceNotFound, "ServiceRole fqdn.anothernamespace"},
+			{msg.NoResourcesNotFoundForNamespace, "ServiceRole namespace-wide.anothernamespace"},
+			{msg.NoResourcesNotFoundForNamespace, "ServiceRole wildcard.anothernamespace"},
 		},
 	},
 	{

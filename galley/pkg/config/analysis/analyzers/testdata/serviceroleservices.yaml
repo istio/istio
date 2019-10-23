@@ -1,111 +1,128 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: details
-  namespace: default
----
-apiVersion: v1
-kind: Service
-metadata:
   name: reviews
   namespace: default
 ---
 apiVersion: rbac.istio.io/v1alpha1
 kind: ServiceRole
 metadata:
-  name: service-role-services-bogus-fqdn
+  name: short-name
   namespace: default
 spec:
   rules:
-    - services: ["bogus.default.svc.cluster.local"]
+    # This Service Roles has no validation errors. Reviews service does exist.
+    - services: ["reviews"]
       methods: ["GET", "HEAD"]
 ---
 apiVersion: rbac.istio.io/v1alpha1
 kind: ServiceRole
 metadata:
-  name: service-role-services
+  name: fqdn
   namespace: default
 spec:
   rules:
+    # Service represented as FQDN does exist. It has no validation errors.
     - services: ["reviews.default.svc.cluster.local"]
       methods: ["GET", "HEAD"]
 ---
 apiVersion: rbac.istio.io/v1alpha1
 kind: ServiceRole
 metadata:
-  name: service-role-services-bogus
+  name: bogus-short-name
   namespace: default
 spec:
   rules:
+    # This service does not exist, should result in a validation error
     - services: ["bogus"]
       methods: ["GET", "HEAD"]
 ---
 apiVersion: rbac.istio.io/v1alpha1
 kind: ServiceRole
 metadata:
-  name: service-role-services-fdqn
+  name: bogus-fqdn
   namespace: default
 spec:
   rules:
-    - services: ["reviews"]
+    # This service (FQDN) does not exist, should result in a validation error
+    - services: ["bogus.default.svc.cluster.local"]
       methods: ["GET", "HEAD"]
 ---
 apiVersion: rbac.istio.io/v1alpha1
 kind: ServiceRole
 metadata:
-  name: service-role-services-ns
+  name: namespace-wide
   namespace: default
 spec:
   rules:
+    # There is one service in default namespace, should not generate an error.
     - services: ["*.default.svc.cluster.local"]
       methods: ["GET", "HEAD"]
 ---
 apiVersion: rbac.istio.io/v1alpha1
 kind: ServiceRole
 metadata:
-  name: service-role-services-all
+  name: wildcard
   namespace: default
 spec:
   rules:
+    # There is one service in default namespace, should not result in a validation error
+    # If set to [“*”], it refers to all services in the namespace
     - services: ["*"]
       methods: ["GET", "HEAD"]
 ---
 apiVersion: rbac.istio.io/v1alpha1
 kind: ServiceRole
 metadata:
-  name: service-role-services-fqdn
+  name: fqdn
   namespace: anothernamespace
 spec:
   rules:
+    # This service does not exist in anothernamespace, should result in a validation error
     - services: ["reviews.anothernamespace.svc.cluster.local"]
       methods: ["GET", "HEAD"]
 ---
 apiVersion: rbac.istio.io/v1alpha1
 kind: ServiceRole
 metadata:
-  name: service-role-services
+  name: fqdn-cross-ns
   namespace: anothernamespace
 spec:
   rules:
+    # This service exists in default, should not generate an error
+    - services: ["reviews.default.svc.cluster.local"]
+      methods: ["GET", "HEAD"]
+---
+apiVersion: rbac.istio.io/v1alpha1
+kind: ServiceRole
+metadata:
+  name: short-name
+  namespace: anothernamespace
+spec:
+  rules:
+    # This service does not exist in anothernamespace, should result in a validation error
     - services: ["reviews"]
       methods: ["GET", "HEAD"]
 ---
 apiVersion: rbac.istio.io/v1alpha1
 kind: ServiceRole
 metadata:
-  name: service-role-services-ns
+  name: namespace-wide
   namespace: anothernamespace
 spec:
   rules:
+    # There aren't services in anothernamespace namespace, should generate an error.
     - services: ["*.anothernamespace.svc.cluster.local"]
       methods: ["GET", "HEAD"]
 ---
 apiVersion: rbac.istio.io/v1alpha1
 kind: ServiceRole
 metadata:
-  name: service-role-services-all
+  name: wildcard
   namespace: anothernamespace
 spec:
   rules:
+    # There aren't services in anothernamespace namespace, should generate an error.
+    # If set to [“*”], it refers to all services in the namespace
     - services: ["*"]
       methods: ["GET", "HEAD"]

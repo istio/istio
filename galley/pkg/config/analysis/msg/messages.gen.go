@@ -52,6 +52,11 @@ var (
 	// ConflictingMeshGatewayVirtualServiceHosts defines a diag.MessageType for message "ConflictingMeshGatewayVirtualServiceHosts".
 	// Description: Conflicting hosts on VirtualServices associated with mesh gateway
 	ConflictingMeshGatewayVirtualServiceHosts = diag.NewMessageType(diag.Error, "IST0109", "The VirtualServices %s associated with mesh gateway define the same host %s which can lead to undefined behavior. This can be fixed by merging the conflicting VirtualServices into a single resource.")
+	
+	// NoResourcesNotFoundForNamespace defines a diag.MessageType for message "NoResourcesNotFoundForNamespace".
+	// Description: There are no resources in the namespace
+	NoResourcesNotFoundForNamespace = diag.NewMessageType(diag.Error, "IST0110", "No %s found in %s namespace")
+	
 )
 
 // NewInternalError returns a new diag.Message based on InternalError.
@@ -157,6 +162,16 @@ func NewConflictingMeshGatewayVirtualServiceHosts(entry *resource.Entry, virtual
 		originOrNil(entry),
 		virtualServices,
 		host,
+	)
+}
+
+// NewNoResourcesNotFoundForNamespace returns a new diag.Message based on NoResourcesNotFoundForNamespace.
+func NewNoResourcesNotFoundForNamespace(entry *resource.Entry, reftype string, namespace string) diag.Message {
+	return diag.NewMessage(
+		NoResourcesNotFoundForNamespace,
+		originOrNil(entry),
+		reftype,
+		namespace,
 	)
 }
 
