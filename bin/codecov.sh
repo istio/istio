@@ -118,7 +118,7 @@ parse_skipped_tests
 go get github.com/jstemmer/go-junit-report
 
 echo "Code coverage test (concurrency ${MAXPROCS})"
-for P in $(go list "${DIR}" | grep -v vendor); do
+for P in $(go list "${DIR}" | grep -v vendor | grep -v integration | grep -v e2e); do
   if echo "${P}" | grep -q "${SKIPPED_TESTS_GREP_ARGS}"; then
     echo "Skipped ${P}"
     continue
