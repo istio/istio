@@ -77,12 +77,10 @@ spec:
         sidecar.istio.io/inject: "false"
     spec:
       serviceAccountName: istiod
-      #      priorityClassName: "{{ .Values.global.priorityClassName }}"
       containers:
         - name: istiod
-          image: gcr.io/costin-istio/istiod:latest
+          image: gcr.io/istio-testing/istiod:latest
           imagePullPolicy: Always
-          #command: ["sleep", "50000" ]
           ports:
             - containerPort: 8080
             - containerPort: 15010
