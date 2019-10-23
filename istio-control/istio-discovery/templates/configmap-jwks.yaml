@@ -1,0 +1,11 @@
+{{- if .Values.pilot.jwksResolverExtraRootCA }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pilot-jwks-extra-cacerts{{ .Values.version }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: {{ .Release.Name }}
+data:
+  extra.pem: {{ .Values.pilot.jwksResolverExtraRootCA | quote }}
+{{- end }}
