@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,22 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package cmd
 
-import (
-	"os"
+import "strings"
 
-	// import all known client auth plugins
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
-
-	"istio.io/istio/istioctl/cmd"
+// Values should use sendmail-style values as in <sysexits.h>
+// See e.g. https://man.openbsd.org/sysexits.3
+// or `less /usr/includes/sysexits.h` if you're on Linux
+const (
+	ExitUnknownError   = 1 // for compatibility with existing exit code
+	ExitIncorrectUsage = 64
 )
 
-func main() {
-	rootCmd := cmd.GetRootCmd(os.Args[1:])
+func GetExitCode(e error) int {
+	if strings.Contains(e.Error(), "unknown command") {
+		e = CommandParseError{e}
+	}
 
-	if err := rootCmd.Execute(); err != nil {
-		exitCode := cmd.GetExitCode(err)
-		os.Exit(exitCode)
+	switch e.(type) {
+	case CommandParseError:
+		return ExitIncorrectUsage
+	default:
+		return ExitUnknownError
 	}
 }
