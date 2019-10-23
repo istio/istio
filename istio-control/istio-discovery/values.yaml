@@ -39,6 +39,11 @@ pilot:
   tolerations: []
   podAnnotations: {}
 
+  # You can use jwksResolverExtraRootCA to provide a root certificate
+  # in PEM format. This will then be trusted by pilot when resolving
+  # JWKS URIs.
+  jwksResolverExtraRootCA:
+
   plugins: []
 
   # Specify the pod anti-affinity that allows you to constrain which nodes
