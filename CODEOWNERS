@@ -18,6 +18,7 @@
 /pilot/pkg/proxy                                                 @istio/wg-networking-maintainers-pilot
 /pkg/bootstrap/                                                  @istio/wg-environments-maintainers
 /pkg/mcp/                                                        @istio/wg-config-maintainers
+/pkg/test/                                                       @istio/wg-test-and-release-maintainers
 /prow/                                                           @istio/wg-test-and-release-maintainers
 /release/                                                        @istio/wg-test-and-release-maintainers
 /samples/                                                        @istio/wg-docs-maintainers
