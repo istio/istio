@@ -158,7 +158,8 @@ func (g *gatewayXform) convertIngressToGateway(e *resource.Entry) *resource.Entr
 			Annotations: ann,
 			Labels:      e.Metadata.Labels,
 		},
-		Item: gateway,
+		Item:   gateway,
+		Origin: e.Origin,
 	}
 
 	return gw
