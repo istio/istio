@@ -248,6 +248,7 @@ subdirectory as a Cobra command with the following subcommands:
     - [diff](cmd/mesh/profile-diff.go): the diff subcommand is used to display the difference between two Istio configuration profiles.
     - [dump](cmd/mesh/profile-dump.go): the dump subcommand is used to dump the values in an Istio configuration profile.
     - [list](cmd/mesh/profile-list.go): the list subcommand is used to list available Istio configuration profiles.
+- [upgrade](cmd/mesh/upgrade.go): performs an in-place upgrade of the Istio control plane with eligibility checks.
 
 ## Migration tools
 
