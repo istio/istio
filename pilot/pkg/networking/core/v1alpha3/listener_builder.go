@@ -30,8 +30,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/networking/plugin/authz"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/security/authz/builder"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
 	"istio.io/pkg/log"
@@ -406,6 +406,30 @@ func newBlackholeFilter(enableAny bool) *listener.Filter {
 	return filter
 }
 
+func createRBACfilter(protocol plugin.ListenerProtocol, env *model.Environment, node *model.Proxy, push *model.PushContext) interface{} {
+	in := &plugin.InputParams{
+		Env:              env,
+		Node:             node,
+		Push:             push,
+		ListenerProtocol: protocol,
+	}
+	mutable := &plugin.MutableObjects{
+		FilterChains: []plugin.FilterChain{
+			{
+				ListenerProtocol: protocol,
+			},
+		},
+	}
+	if err := authz.NewPlugin().OnInboundListener(in, mutable); err == nil {
+		if protocol == plugin.ListenerProtocolTCP && len(mutable.FilterChains[0].TCP) == 1 {
+			return mutable.FilterChains[0].TCP[0]
+		} else if protocol == plugin.ListenerProtocolHTTP && len(mutable.FilterChains[0].HTTP) == 1 {
+			return mutable.FilterChains[0].HTTP[0]
+		}
+	}
+	return nil
+}
+
 // Create pass through filter chains matching ipv4 address and ipv6 address independently.
 func newInboundPassthroughFilterChains(env *model.Environment, node *model.Proxy, push *model.PushContext) []*listener.FilterChain {
 	ipv4, ipv6 := ipv4AndIpv6Support(node)
@@ -455,10 +479,10 @@ func newInboundPassthroughFilterChains(env *model.Environment, node *model.Proxy
 				tcpProxyFilter,
 			},
 		}
+
 		// Insert the RBAC filter to the passthrough filter chain.
-		if b := builder.NewBuilder(env.Mesh.TrustDomain, env.Mesh.TrustDomainAliases, nil,
-			node.WorkloadLabels, node.ConfigNamespace, push.AuthzPolicies, isXDSMarshalingToAnyEnabled); b != nil {
-			if authzFilter := b.BuildTCPFilter(); authzFilter != nil {
+		if filter := createRBACfilter(plugin.ListenerProtocolTCP, env, node, push); filter != nil {
+			if authzFilter, ok := filter.(*listener.Filter); ok {
 				filterChain.Filters = []*listener.Filter{
 					authzFilter,
 					tcpProxyFilter,
@@ -500,7 +524,7 @@ func newHTTPPassThroughFilterChain(configgen *ConfigGeneratorImpl, env *model.En
 			Protocol: protocol.HTTP,
 		}
 
-		plugin := &plugin.InputParams{
+		p := &plugin.InputParams{
 			ListenerProtocol:           plugin.ListenerProtocolHTTP,
 			DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_INBOUND,
 			Env:                        env,
@@ -514,14 +538,13 @@ func newHTTPPassThroughFilterChain(configgen *ConfigGeneratorImpl, env *model.En
 
 		// Insert the RBAC filter to the passthrough filter chain.
 		httpFilters := make([]*http_conn.HttpFilter, 0)
-		if b := builder.NewBuilder(env.Mesh.TrustDomain, env.Mesh.TrustDomainAliases, nil,
-			node.WorkloadLabels, node.ConfigNamespace, push.AuthzPolicies, util.IsXDSMarshalingToAnyEnabled(node)); b != nil {
-			if authzFilter := b.BuildHTTPFilter(); authzFilter != nil {
+		if filter := createRBACfilter(plugin.ListenerProtocolHTTP, env, node, push); filter != nil {
+			if authzFilter, ok := filter.(*http_conn.HttpFilter); ok {
 				httpFilters = append(httpFilters, authzFilter)
 			}
 		}
 
-		httpOpts := configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, plugin)
+		httpOpts := configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, p)
 		httpOpts.statPrefix = clusterName
 		connectionManager := buildHTTPConnectionManager(node, env, httpOpts, httpFilters)
 
