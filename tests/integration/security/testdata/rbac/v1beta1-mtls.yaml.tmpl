@@ -1,5 +1,7 @@
 # Enforce access control based on mTLS identities.
 
+# The following policy enables mTLS for service b.
+
 apiVersion: authentication.istio.io/v1alpha1
 kind: Policy
 metadata:
@@ -22,6 +24,11 @@ spec:
     tls:
       mode: ISTIO_MUTUAL
 ---
+
+# The following policy enables authorization on workload b:
+# - Allow workloads of service account a in the same namespace to access path /principal-a
+# - Allow workloads in namespace-2 to access path /namespace-2
+
 apiVersion: "security.istio.io/v1beta1"
 kind: AuthorizationPolicy
 metadata:
