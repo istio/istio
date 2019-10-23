@@ -18,7 +18,11 @@ import (
 	"fmt"
 	"strings"
 
-	"istio.io/pkg/log"
+	istiolog "istio.io/pkg/log"
+)
+
+var (
+	rbacLog = istiolog.RegisterScope("rbac", "rbac debugging", 0)
 )
 
 type Bundle struct {
@@ -63,6 +67,12 @@ func (t Bundle) ReplaceTrustDomainAliases(principals []string) []string {
 		if found(trustDomainFromPrincipal, t.TrustDomainAliases) || trustDomainFromPrincipal == "cluster.local" {
 			// Generate configuration for trust domain and trust domain aliases.
 			principalsIncludingAliases = append(principalsIncludingAliases, t.replaceTrustDomains(principal)...)
+		} else {
+			rbacLog.Errorf("Trust domain %s from principal %s does not match the current trust "+
+				"domain or its aliases", trustDomainFromPrincipal, principal)
+			// If the trust domain from the existing doesn't match with the new trust domain aliases or "cluster.local",
+			// keep the policy as it is.
+			principalsIncludingAliases = append(principalsIncludingAliases, principal)
 		}
 	}
 	return principalsIncludingAliases
@@ -90,7 +100,7 @@ func replaceTrustDomainInPrincipal(trustDomain string, principal string) string 
 	// A valid SPIFFE identity in authorization has no SPIFFE:// prefix.
 	// It is presented as <trust-domain>/ns/<some-namespace>/sa/<some-service-account>
 	if len(identityParts) != 5 {
-		log.Errorf("Wrong SPIFFE format: %s", principal)
+		rbacLog.Errorf("Wrong SPIFFE format: %s", principal)
 		return ""
 	}
 	return fmt.Sprintf("%s/%s", trustDomain, strings.Join(identityParts[1:], "/"))
@@ -105,7 +115,7 @@ func getTrustDomain(principal string) string {
 	// A valid SPIFFE identity in authorization has no SPIFFE:// prefix.
 	// It is presented as <trust-domain>/ns/<some-namespace>/sa/<some-service-account>
 	if len(identityParts) != 5 {
-		log.Errorf("Wrong SPIFFE format: %s", principal)
+		rbacLog.Errorf("Wrong SPIFFE format: %s", principal)
 		return ""
 	}
 	return identityParts[0]

@@ -55,13 +55,20 @@ func TestReplaceTrustDomainAliases(t *testing.T) {
 			name:              "Principals not match alias",
 			trustDomainBundle: NewTrustDomainBundle("td1", []string{"td2"}),
 			principals:        []string{"some-td/ns/foo/sa/bar"},
-			expect:            []string{},
+			expect:            []string{"some-td/ns/foo/sa/bar"},
 		},
 		{
 			name:              "Principals match one alias",
 			trustDomainBundle: NewTrustDomainBundle("td1", []string{"td2", "some-td"}),
 			principals:        []string{"some-td/ns/foo/sa/bar"},
 			expect:            []string{"td1/ns/foo/sa/bar", "td2/ns/foo/sa/bar", "some-td/ns/foo/sa/bar"},
+		},
+		{
+			name:              "One principal match one alias",
+			trustDomainBundle: NewTrustDomainBundle("new-td", []string{"td2", "td3"}),
+			principals:        []string{"td1/ns/some-ns/sa/some-sa", "td2/ns/foo/sa/bar"},
+			expect: []string{"td1/ns/some-ns/sa/some-sa", "new-td/ns/foo/sa/bar",
+				"td2/ns/foo/sa/bar", "td3/ns/foo/sa/bar"},
 		},
 	}
 
