@@ -90,10 +90,11 @@ func TestAnalyzersRun(t *testing.T) {
 	err := sa.AddFileKubeSource([]string{})
 	g.Expect(err).To(BeNil())
 
-	msgs, err := sa.Analyze(cancel)
+	result, err := sa.Analyze(cancel)
 	g.Expect(err).To(BeNil())
-	g.Expect(msgs).To(ConsistOf(msg))
+	g.Expect(result.Messages).To(ConsistOf(msg))
 	g.Expect(collectionAccessed).To(Equal(data.Collection1))
+	g.Expect(result.ExecutedAnalyzers).To(ConsistOf(a.Metadata().Name))
 }
 
 func TestFilterOutputByNamespace(t *testing.T) {
@@ -116,9 +117,9 @@ func TestFilterOutputByNamespace(t *testing.T) {
 	err := sa.AddFileKubeSource([]string{})
 	g.Expect(err).To(BeNil())
 
-	msgs, err := sa.Analyze(cancel)
+	result, err := sa.Analyze(cancel)
 	g.Expect(err).To(BeNil())
-	g.Expect(msgs).To(ConsistOf(msg1))
+	g.Expect(result.Messages).To(ConsistOf(msg1))
 }
 
 func TestAddRunningKubeSource(t *testing.T) {
