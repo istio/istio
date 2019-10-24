@@ -65,6 +65,10 @@ func InitK8S(is *istiod.Server, clientset kubernetes.Interface, config *rest.Con
 		kubeCfg:     config,
 		kubeClient:  clientset,
 		args:        args,
+		ControllerOptions: controller2.Options{
+			DomainSuffix: args.DomainSuffix,
+			TrustDomain: args.MeshConfig.TrustDomain,
+		},
 	}
 
 	// Istio's own K8S config controller - shouldn't be needed if MCP is used.

@@ -340,6 +340,7 @@ func (s *Server) WatchMeshConfig(args string) error {
 				//TODO Need to re-create or reload initConfigController()
 			}
 			s.Mesh = meshConfig
+			s.Args.MeshConfig = meshConfig
 			if s.EnvoyXdsServer != nil {
 				s.EnvoyXdsServer.Env.Mesh = meshConfig
 				s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
@@ -351,6 +352,7 @@ func (s *Server) WatchMeshConfig(args string) error {
 	log.Infof("version %s", version.Info.String())
 
 	s.Mesh = meshConfig
+	s.Args.MeshConfig = meshConfig
 	return nil
 }
 
