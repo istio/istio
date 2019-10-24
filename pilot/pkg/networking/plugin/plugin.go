@@ -192,7 +192,7 @@ type Plugin interface {
 	// configuration, like FilterChainMatch and TLSContext.
 	OnInboundFilterChains(in *InputParams) []FilterChain
 
-	// OnInboundPasssthrough is called whenever a new passthrough filter chain is added to the LDS output.
+	// OnInboundPassthrough is called whenever a new passthrough filter chain is added to the LDS output.
 	// Can be used to add additional filters.
-	OnInboundPasssthrough(in *InputParams, mutable *MutableObjects) error
+	OnInboundPassthrough(in *InputParams, mutable *MutableObjects) error
 }

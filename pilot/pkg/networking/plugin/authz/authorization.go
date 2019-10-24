@@ -166,8 +166,8 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, route *xdsapi.
 func (Plugin) OnOutboundCluster(in *plugin.InputParams, cluster *xdsapi.Cluster) {
 }
 
-// OnInboundPasssthrough is called whenever a new passthrough filter chain is added to the LDS output.
-func (Plugin) OnInboundPasssthrough(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+// OnInboundPassthrough is called whenever a new passthrough filter chain is added to the LDS output.
+func (Plugin) OnInboundPassthrough(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 	if in.Node.Type != model.SidecarProxy {
 		// Only care about sidecar.
 		return nil
