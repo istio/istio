@@ -159,6 +159,13 @@ containers:
     valueFrom:
       fieldRef:
         fieldPath: metadata.name
+{{- if .Values.global.proxy.overloadManager.enabled }}
+  - name: PROXY_MEMORY_LIMIT
+    valueFrom:
+      resourceFieldRef:
+        containerName: istio-proxy
+        resource: limits.memory
+{{- end }}
   - name: ISTIO_META_POD_PORTS
     value: |-
       [

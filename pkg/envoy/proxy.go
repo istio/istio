@@ -62,6 +62,7 @@ type ProxyConfig struct {
 	SDSTokenPath        string
 	ControlPlaneAuth    bool
 	DisableReportCalls  bool
+	MemoryLimit         uint64
 }
 
 // NewProxy creates an instance of the proxy control commands
@@ -161,6 +162,7 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 			SDSTokenPath:        e.SDSTokenPath,
 			ControlPlaneAuth:    e.ControlPlaneAuth,
 			DisableReportCalls:  e.DisableReportCalls,
+			MemoryLimit:         e.MemoryLimit,
 		}).CreateFileForEpoch(epoch)
 		if err != nil {
 			log.Errora("Failed to generate bootstrap config: ", err)

@@ -297,6 +297,12 @@ global:
         time: 10s
         interval: 10s
 
+    # If enabled, will turn on Envoy's overload manager. This helps manage Envoy in situations where
+    # it is about to run out of memory.
+    # See https://www.envoyproxy.io/docs/envoy/latest/configuration/operations/overload_manager/overload_manager
+    overloadManager:
+      enabled: false
+
     # Specify which tracer to use. One of: zipkin, lightstep, datadog, stackdriver.
     # If using stackdriver tracer outside GCP, set env GOOGLE_APPLICATION_CREDENTIALS to the GCP credential file.
     tracer: "zipkin"

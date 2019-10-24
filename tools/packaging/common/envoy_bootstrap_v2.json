@@ -156,6 +156,11 @@
           {
           "prefix": "component"
           },
+          {{- if gt .memory_limit 0 }}
+          {
+          "prefix": "overload"
+          },
+          {{- end }}
           {{- range $a, $s := .inclusionPrefix }}
           {
           "prefix": "{{$s}}"
@@ -175,6 +180,32 @@
       }
     }
   },
+  {{ if gt .memory_limit 0 }}
+  "overload_manager": {
+    "refresh_interval": "1s",
+    "actions": [
+      {
+        "name": "envoy.overload_actions.shrink_heap",
+        "triggers": [
+        {
+          "threshold": {
+            "value": 0.95
+          },
+          "name": "envoy.resource_monitors.fixed_heap"
+        }
+        ]
+      }
+    ],
+    "resource_monitors": [
+      {
+        "config": {
+          "max_heap_size_bytes": {{.memory_limit}}
+        },
+        "name": "envoy.resource_monitors.fixed_heap"
+      }
+    ]
+  },
+  {{- end }}
   "admin": {
     "access_log_path": "/dev/null",
     "address": {

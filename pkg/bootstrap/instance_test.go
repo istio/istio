@@ -82,6 +82,7 @@ func TestGolden(t *testing.T) {
 		annotations                map[string]string
 		sdsUDSPath                 string
 		sdsTokenPath               string
+		proxyMemoryLimit           uint64
 		expectLightstepAccessToken bool
 		stats                      stats
 		checkLocality              bool
@@ -112,6 +113,8 @@ func TestGolden(t *testing.T) {
 				"INSTANCE_IP":                  "10.10.10.1",
 				"ISTIO_METAJSON_LABELS":        `{"version": "v1alpha1", "app": "test", "istio-locality":"regionA.zoneB.sub_zoneC"}`,
 			},
+			proxyMemoryLimit: 1000,
+			stats:            stats{prefixes: "overload"},
 			annotations: map[string]string{
 				"istio.io/insecurepath": "{\"paths\":[\"/metrics\",\"/live\"]}",
 			},
@@ -268,6 +271,7 @@ func TestGolden(t *testing.T) {
 				NodeIPs:      []string{"10.3.3.3", "10.4.4.4", "10.5.5.5", "10.6.6.6", "10.4.4.4"},
 				SDSUDSPath:   c.sdsUDSPath,
 				SDSTokenPath: c.sdsTokenPath,
+				MemoryLimit:  c.proxyMemoryLimit,
 			}).CreateFileForEpoch(0)
 			if err != nil {
 				t.Fatal(err)

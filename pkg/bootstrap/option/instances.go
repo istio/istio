@@ -130,6 +130,10 @@ func DisableReportCalls(value bool) Instance {
 	return newOptionOrSkipIfZero("DisableReportCalls", strVal)
 }
 
+func MemoryLimit(value uint64) Instance {
+	return newOption("memory_limit", value)
+}
+
 func LightstepAddress(value string) Instance {
 	return newOptionOrSkipIfZero("lightstep", value).withConvert(addressConverter(value))
 }

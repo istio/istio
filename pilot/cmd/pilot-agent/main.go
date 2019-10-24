@@ -116,6 +116,7 @@ var (
 		"number of attributes for stackdriver")
 	stackdriverTracingMaxNumberOfMessageEvents = env.RegisterIntVar("STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS", 200, "Sets the "+
 		"max number of message events for stackdriver")
+	proxyMemoryLimitVar = env.RegisterIntVar("PROXY_MEMORY_LIMIT", 0, "Sets the memory limit for the proxy.")
 
 	sdsUdsWaitTimeout = time.Minute
 
@@ -450,6 +451,7 @@ var (
 				SDSTokenPath:        sdsTokenPath,
 				ControlPlaneAuth:    controlPlaneAuthEnabled,
 				DisableReportCalls:  disableInternalTelemetry,
+				MemoryLimit:         uint64(proxyMemoryLimitVar.Get()),
 			})
 
 			agent := envoy.NewAgent(envoyProxy, features.TerminationDrainDuration())
