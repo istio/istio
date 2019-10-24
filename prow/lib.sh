@@ -134,7 +134,7 @@ function setup_kind_cluster() {
   fi
 
   # Create KinD cluster
-  if ! (kind create cluster --name=istio-testing --config "${CONFIG}" --loglevel debug --retain --image "${IMAGE}"); then
+  if ! (kind create cluster --name=istio-testing --config "${CONFIG}" --loglevel debug --retain --image "${IMAGE}" --wait=60s); then
     echo "Could not setup KinD environment. Something wrong with KinD setup. Exporting logs."
     exit 1
   fi
