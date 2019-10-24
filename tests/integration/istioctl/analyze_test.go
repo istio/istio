@@ -48,7 +48,7 @@ func TestEmptyCluster(t *testing.T) {
 
 			// For a clean istio install with injection enabled, expect no validation errors
 			output := istioctlOrFail(t, istioCtl, ns.Name(), "--use-kube")
-			g.Expect(output).To(BeEmpty())
+			expectNoMessages(t, g, output)
 		})
 }
 
@@ -72,7 +72,7 @@ func TestFileOnly(t *testing.T) {
 
 			// Error goes away if we include both the binding and its role
 			output = istioctlOrFail(t, istioCtl, ns.Name(), serviceRoleBindingFile, serviceRoleFile)
-			g.Expect(output).To(BeEmpty())
+			expectNoMessages(t, g, output)
 		})
 }
 
@@ -100,7 +100,7 @@ func TestKubeOnly(t *testing.T) {
 			// Error goes away if we include both the binding and its role
 			applyFileOrFail(t, ns.Name(), serviceRoleFile)
 			output = istioctlOrFail(t, istioCtl, ns.Name(), "--use-kube")
-			g.Expect(output).To(BeEmpty())
+			expectNoMessages(t, g, output)
 		})
 }
 
@@ -123,8 +123,13 @@ func TestFileAndKubeCombined(t *testing.T) {
 			// Simulating applying the service role to a cluster that already has the binding, we should
 			// fix the error and thus see no message
 			output := istioctlOrFail(t, istioCtl, ns.Name(), "--use-kube", serviceRoleFile)
-			g.Expect(output).To(BeEmpty())
+			expectNoMessages(t, g, output)
 		})
+}
+
+func expectNoMessages(t *testing.T, g *GomegaWithT, output []string) {
+	g.Expect(output).To(HaveLen(1))
+	g.Expect(output[0]).To(ContainSubstring("No validation issues found"))
 }
 
 func istioctlOrFail(t *testing.T, i istioctl.Instance, ns string, extraArgs ...string) []string {
