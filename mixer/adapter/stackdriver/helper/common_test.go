@@ -92,6 +92,7 @@ func TestMetadata(t *testing.T) {
 		projectIDFn   metadataFn
 		locationFn    metadataFn
 		clusterNameFn metadataFn
+		meshIDFn      metadataFn
 		want          Metadata
 	}{
 		{
@@ -100,6 +101,7 @@ func TestMetadata(t *testing.T) {
 			func() (string, error) { return "pid", nil },
 			func() (string, error) { return "location", nil },
 			func() (string, error) { return "cluster", nil },
+			func() (string, error) { return "mesh-id", nil },
 			Metadata{ProjectID: "", Location: "", ClusterName: ""},
 		},
 		{
@@ -108,7 +110,8 @@ func TestMetadata(t *testing.T) {
 			func() (string, error) { return "pid", nil },
 			func() (string, error) { return "location", nil },
 			func() (string, error) { return "cluster", nil },
-			Metadata{ProjectID: "pid", Location: "location", ClusterName: "cluster"},
+			func() (string, error) { return "mesh-id", nil },
+			Metadata{ProjectID: "pid", Location: "location", ClusterName: "cluster", MeshID: "mesh-id"},
 		},
 		{
 			"project id error",
@@ -116,7 +119,8 @@ func TestMetadata(t *testing.T) {
 			func() (string, error) { return "", errors.New("error") },
 			func() (string, error) { return "location", nil },
 			func() (string, error) { return "cluster", nil },
-			Metadata{ProjectID: "", Location: "location", ClusterName: "cluster"},
+			func() (string, error) { return "mesh-id", nil },
+			Metadata{ProjectID: "", Location: "location", ClusterName: "cluster", MeshID: "mesh-id"},
 		},
 		{
 			"location error",
@@ -124,7 +128,8 @@ func TestMetadata(t *testing.T) {
 			func() (string, error) { return "pid", nil },
 			func() (string, error) { return "location", errors.New("error") },
 			func() (string, error) { return "cluster", nil },
-			Metadata{ProjectID: "pid", Location: "", ClusterName: "cluster"},
+			func() (string, error) { return "mesh-id", nil },
+			Metadata{ProjectID: "pid", Location: "", ClusterName: "cluster", MeshID: "mesh-id"},
 		},
 		{
 			"cluster name error",
@@ -132,13 +137,23 @@ func TestMetadata(t *testing.T) {
 			func() (string, error) { return "pid", nil },
 			func() (string, error) { return "location", nil },
 			func() (string, error) { return "cluster", errors.New("error") },
-			Metadata{ProjectID: "pid", Location: "location", ClusterName: ""},
+			func() (string, error) { return "mesh-id", nil },
+			Metadata{ProjectID: "pid", Location: "location", ClusterName: "", MeshID: "mesh-id"},
+		},
+		{
+			"mesh id error",
+			func() bool { return true },
+			func() (string, error) { return "pid", nil },
+			func() (string, error) { return "location", nil },
+			func() (string, error) { return "cluster", nil },
+			func() (string, error) { return "mesh-id", errors.New("error") },
+			Metadata{ProjectID: "pid", Location: "location", ClusterName: "cluster"},
 		},
 	}
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			mg := NewMetadataGenerator(tt.shouldFill, tt.projectIDFn, tt.locationFn, tt.clusterNameFn)
+			mg := NewMetadataGenerator(tt.shouldFill, tt.projectIDFn, tt.locationFn, tt.clusterNameFn, tt.meshIDFn)
 			got := mg.GenerateMetadata()
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Unexpected generated metadata: want %v got %v", tt.want, got)
