@@ -16,7 +16,9 @@
 
 set -eux
 
-set -eux
+WD=$(dirname "$0")
+WD=$(cd "$WD"; pwd)
+ROOT=$(dirname "$WD")
 
 # shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"
