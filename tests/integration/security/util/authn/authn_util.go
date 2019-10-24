@@ -26,10 +26,6 @@ type TestCase struct {
 	ExpectAuthenticated bool
 }
 
-func getErrorMessage(tc *TestCase, expect, actual string) error {
-	return fmt.Errorf("%s: expected %s, got %s", tc.String(), expect, actual)
-}
-
 func (c *TestCase) String() string {
 	want := "deny"
 	if c.ExpectAuthenticated {
@@ -51,12 +47,11 @@ func (c *TestCase) CheckAuthn() error {
 			err = results.CheckOK()
 		}
 		if err != nil {
-			return getErrorMessage(c, "authenticated (code 200)", err.Error())
+			return fmt.Errorf("%s: want 200 authenticated, got %s", c, err.Error())
 		}
 	} else {
-		// Expect 401
 		if err != nil {
-			return getErrorMessage(c, "unauthenticated (code 401)", err.Error())
+			return fmt.Errorf("%s: want 401 unauthenticated, got %s", c, err.Error())
 		}
 		errMsg := ""
 		if len(results) == 0 {
@@ -66,7 +61,7 @@ func (c *TestCase) CheckAuthn() error {
 			errMsg = fmt.Sprintf("code %s", results[0].Code)
 		}
 		if errMsg != "" {
-			return getErrorMessage(c, "unauthenticated (code 401)", errMsg)
+			return fmt.Errorf("%s: want 401 unauthenticated, got %s", c, errMsg)
 		}
 	}
 	return nil
