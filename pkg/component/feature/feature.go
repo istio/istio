@@ -350,10 +350,7 @@ func buildCommonFeatureFields(opts *Options, ftname name.FeatureName) *CommonFea
 	}
 	ftMap := opts.Translator.FeatureMaps[ftname]
 	for _, cn := range ftMap.Components {
-		enabled, err := opts.Translator.IsComponentEnabled(cn, opts.InstallSpec)
-		if err == nil && enabled {
-			cff.components = append(cff.components, component.NewComponent(cn, newComponentOptions(cff, ftname)))
-		}
+		cff.components = append(cff.components, component.NewComponent(cn, newComponentOptions(cff, ftname)))
 	}
 	return cff
 }

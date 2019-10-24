@@ -112,7 +112,8 @@ func migrateFromClusterConfig(rootArgs *rootArgs, mmArgs *manifestMigrateArgs, l
 	l.logAndPrint("translating in cluster specs\n")
 
 	c := kubectlcmd.New()
-	output, stderr, err := c.GetConfig("istio-sidecar-injector", mmArgs.namespace, "jsonpath='{.data.values}'")
+	output, stderr, err := c.GetConfig("", "", "istio-sidecar-injector",
+		mmArgs.namespace, "jsonpath='{.data.values}'")
 	if err != nil {
 		l.logAndFatal(err.Error())
 	}

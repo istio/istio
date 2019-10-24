@@ -267,8 +267,30 @@ func applyManifest(componentName name.ComponentName, manifestStr string, version
 			Err: err,
 		}
 	}
+
+	componentLabel := fmt.Sprintf("%s=%s", istioComponentLabelStr, componentName)
+
+	// TODO: remove this when `kubectl --prune` supports empty objects
+	//  (https://github.com/kubernetes/kubernetes/issues/40635)
+	// Delete all resources for a disabled component
 	if len(objects) == 0 {
-		return &ComponentApplyOutput{}
+		extraArgsGet := []string{"--all-namespaces", "--selector", componentLabel}
+		stdoutGet, stderrGet, err := kubectl.GetAll(opts.Kubeconfig, opts.Context, "", "yaml", extraArgsGet...)
+		if err != nil || strings.TrimSpace(stdoutGet) == "" {
+			return &ComponentApplyOutput{
+				Stdout: stdoutGet,
+				Stderr: stderrGet,
+				Err:    err,
+			}
+		}
+
+		extraArgsDel := []string{"--selector", componentLabel}
+		stdoutDel, stderrDel, err := kubectl.Delete(opts.DryRun, opts.Verbose, opts.Kubeconfig, opts.Context, "", stdoutGet, extraArgsDel...)
+		return &ComponentApplyOutput{
+			Stdout: stdoutDel,
+			Stderr: stderrDel,
+			Err:    err,
+		}
 	}
 
 	namespace, stdoutCRD, stderrCRD := "", "", ""
@@ -286,10 +308,9 @@ func applyManifest(componentName name.ComponentName, manifestStr string, version
 	appliedObjects = append(appliedObjects, objects...)
 
 	extraArgs := []string{"--force"}
-	// Base components include namespaces and CRDs, pruning them will removes
-	// user configs, which makes it hard to roll back.
+	// Base components include namespaces and CRDs, pruning them will remove user configs, which makes it hard to roll back.
 	if componentName != name.IstioBaseComponentName {
-		extraArgs = append(extraArgs, "--prune", "--selector", fmt.Sprintf("%s=%s", istioComponentLabelStr, componentName))
+		extraArgs = append(extraArgs, "--prune", "--selector", componentLabel)
 	}
 
 	logAndPrint("kubectl applying manifest for component %s", componentName)

@@ -18,12 +18,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ghodss/yaml"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/helm/pkg/manifest"
-	"k8s.io/helm/pkg/releaseutil"
 	kubectl "k8s.io/kubectl/pkg/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -32,6 +30,7 @@ import (
 	"istio.io/operator/pkg/helm"
 	istiomanifest "istio.io/operator/pkg/manifest"
 	"istio.io/operator/pkg/name"
+	"istio.io/operator/pkg/object"
 	"istio.io/operator/pkg/translate"
 	"istio.io/operator/pkg/util"
 	"istio.io/operator/pkg/validate"
@@ -152,31 +151,21 @@ func unmarshalAndValidateICPSpec(icpsYAML string) (*v1alpha2.IstioControlPlaneSp
 	return icps, nil
 }
 
-func (h *HelmReconciler) ProcessManifest(manifest manifest.Manifest) error {
+// ProcessManifest apply the manifest to create or update resources, returns the number of objects processed
+func (h *HelmReconciler) ProcessManifest(manifest manifest.Manifest) (int, error) {
 	var errs []error
-	log.Info("Processing resources from manifest")
-	// split the manifest into individual objects
-	objects := releaseutil.SplitManifests(manifest.Content)
-	for _, raw := range objects {
-		rawJSON, err := yaml.YAMLToJSON([]byte(raw))
-		if err != nil {
-			log.Errorf("unable to convert raw data to JSON: %s", err)
-			errs = append(errs, err)
-			continue
-		}
-		obj := &unstructured.Unstructured{}
-		_, _, err = unstructured.UnstructuredJSONScheme.Decode(rawJSON, nil, obj)
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-		err = h.ProcessObject(manifest.Name, obj)
+	log.Infof("Processing resources from manifest: %s", manifest.Name)
+	objects, err := object.ParseK8sObjectsFromYAMLManifest(manifest.Content)
+	if err != nil {
+		return 0, err
+	}
+	for _, obj := range objects {
+		err = h.ProcessObject(manifest.Name, obj.UnstructuredObject())
 		if err != nil {
 			errs = append(errs, err)
 		}
 	}
-
-	return utilerrors.NewAggregate(errs)
+	return len(objects), utilerrors.NewAggregate(errs)
 }
 
 func (h *HelmReconciler) ProcessObject(chartName string, obj *unstructured.Unstructured) error {

@@ -50,8 +50,8 @@ type upgradeArgs struct {
 	context string
 	// wait is flag that indicates whether to wait resources ready before exiting.
 	wait bool
-	// yes means skipping the prompting confirmation for value changes in this upgrade.
-	yes bool
+	// skipConfirmation means skipping the prompting confirmation for value changes in this upgrade.
+	skipConfirmation bool
 	// force means directly applying the upgrade without eligibility checks.
 	force bool
 	// versionsURI is a URI pointing to a YAML formatted versions mapping.
@@ -66,8 +66,8 @@ func addUpgradeFlags(cmd *cobra.Command, args *upgradeArgs) {
 		"c", "", "Path to kube config")
 	cmd.PersistentFlags().StringVar(&args.context, "context", "",
 		"The name of the kubeconfig context to use")
-	cmd.PersistentFlags().BoolVarP(&args.yes, "yes", "y", false,
-		"If yes, skips the prompting confirmation for value changes in this upgrade")
+	cmd.PersistentFlags().BoolVarP(&args.skipConfirmation, "skipConfirmation", "y", false,
+		"If skipConfirmation is set, skips the prompting confirmation for value changes in this upgrade")
 	cmd.PersistentFlags().BoolVarP(&args.wait, "wait", "w", false,
 		"Wait, if set will wait until all Pods, Services, and minimum number of Pods "+
 			"of a Deployment are in a ready state before the command exits. "+
@@ -169,7 +169,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *logger) (err error) {
 	l.logAndPrintf("Upgrade version check passed: %v -> %v.\n", currentVersion, targetVersion)
 
 	checkUpgradeValues(currentValues, targetValues, l)
-	waitForConfirmation(args.yes, l)
+	waitForConfirmation(args.skipConfirmation, l)
 
 	// Run pre-upgrade hooks
 	hparams := &hooks.HookCommonParams{
@@ -229,9 +229,9 @@ func checkUpgradeValues(curValues string, tarValues string, l *logger) {
 	}
 }
 
-// waitForConfirmation waits for user's confirmation if yes is not set
-func waitForConfirmation(yes bool, l *logger) {
-	if yes {
+// waitForConfirmation waits for user's confirmation if skipConfirmation is not set
+func waitForConfirmation(skipConfirmation bool, l *logger) {
+	if skipConfirmation {
 		return
 	}
 	if !confirm("Confirm to proceed [y/N]?", os.Stdout) {

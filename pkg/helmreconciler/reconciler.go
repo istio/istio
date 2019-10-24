@@ -18,16 +18,13 @@ import (
 	"sync"
 
 	"istio.io/operator/pkg/apis/istio/v1alpha2"
-
+	"istio.io/operator/pkg/name"
 	"istio.io/operator/pkg/util"
-
 	"istio.io/pkg/log"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"istio.io/operator/pkg/name"
 )
 
 // HelmReconciler reconciles resources rendered by a set of helm charts for a specific instances of a custom resource,
@@ -128,8 +125,11 @@ func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) *v1alpha2
 	deps, dch := h.customizer.Input().GetProcessingOrder(manifests)
 	out := &v1alpha2.InstallStatus{Status: make(map[string]*v1alpha2.InstallStatus_VersionStatus)}
 
-	var wg sync.WaitGroup
+	// mu protects the shared InstallStatus out across goroutines
 	var mu sync.Mutex
+	// wg waits for all manifest processing goroutines to finish
+	var wg sync.WaitGroup
+
 	for c, m := range manifests {
 		c, m := c, m
 		wg.Add(1)
@@ -141,24 +141,39 @@ func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) *v1alpha2
 				<-s
 				log.Infof("Dependency for %s has completed, proceeding.", c)
 			}
+
+			// Set status when reconciling starts
+			status := v1alpha2.InstallStatus_RECONCILING
 			mu.Lock()
 			if _, ok := out.Status[c]; !ok {
 				out.Status[c] = &v1alpha2.InstallStatus_VersionStatus{}
+				out.Status[c].Status = status
 			}
 			mu.Unlock()
-			status := v1alpha2.InstallStatus_RECONCILING
+
+			// Process manifests and get the status result
 			errString := ""
-			if len(m) != 0 {
+			if len(m) == 0 {
+				status = v1alpha2.InstallStatus_NONE
+			} else {
 				status = v1alpha2.InstallStatus_HEALTHY
-				if err := h.ProcessManifest(m[0]); err != nil {
+				if cnt, err := h.ProcessManifest(m[0]); err != nil {
 					errString = err.Error()
 					status = v1alpha2.InstallStatus_ERROR
+				} else if cnt == 0 {
+					status = v1alpha2.InstallStatus_NONE
 				}
 			}
+
+			// Update status based on the result
 			mu.Lock()
-			out.Status[c].Status = status
-			if errString != "" {
-				out.Status[c].Error = errString
+			if status == v1alpha2.InstallStatus_NONE {
+				delete(out.Status, c)
+			} else {
+				out.Status[c].Status = status
+				if errString != "" {
+					out.Status[c].Error = errString
+				}
 			}
 			mu.Unlock()
 

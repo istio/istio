@@ -47,92 +47,189 @@ func (console) Run(c *exec.Cmd) error {
 	return c.Run()
 }
 
-// Apply runs the kubectl apply with the provided manifest argument
-func (c *Client) Apply(dryRun, verbose bool, kubeconfig, context, namespace string, manifest string, extraArgs ...string) (string, string, error) {
-	if strings.TrimSpace(manifest) == "" {
-		log.Infof("Empty manifest, not applying.")
-		return "", "", nil
-	}
-
-	args := []string{"apply"}
-	if kubeconfig != "" {
-		args = append(args, "--kubeconfig", kubeconfig)
-	}
-	if context != "" {
-		args = append(args, "--context", context)
-	}
-	if namespace != "" {
-		args = append(args, "-n", namespace)
-	}
-	args = append(args, extraArgs...)
-	args = append(args, "-f", "-")
-
-	cmd := exec.Command("kubectl", args...)
-	cmd.Stdin = strings.NewReader(manifest)
-
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	cmdStr := strings.Join(cmd.Args, " ")
-	if verbose {
-
-		cmdStr += "\n" + manifest
-	} else {
-		cmdStr += " <use --verbose to see manifest string> \n"
-	}
-	if dryRun {
-		logAndPrint("Apply is in dry run mode, would be applying the following in namespace %s:\n%s\n", namespace, cmdStr)
-		return "", "", nil
-	}
-
-	log.Infof("applying to namespace %s:\n%s\n", namespace, cmdStr)
-
-	err := c.cmdSite.Run(cmd)
-	csError := util.ConsolidateLog(stderr.String())
-
-	if err != nil {
-		logAndPrint("error running kubectl apply: %s", err)
-		return stdout.String(), csError, fmt.Errorf("error running kubectl apply: %s", err)
-	}
-
-	logAndPrint("kubectl apply success")
-
-	return stdout.String(), csError, nil
+// kubectlParams is a set of params passed to kubectl.
+type kubectlParams struct {
+	// dryRun - display the command but don't run it
+	dryRun bool
+	// verbose - dump the full manifest
+	verbose bool
+	// kubeconfig - the path to the kube config
+	kubeconfig string
+	// context - used to identify the cluster
+	context string
+	// namespace - k8s namespace for kubectl command
+	namespace string
+	// stdin - cmd stdin input as string
+	stdin string
+	// output - output mode for kubectl, i.e., -o, --output
+	output string
+	// extraArgs - more args to be added to the kubectl command
+	extraArgs []string
 }
 
-// GetConfig runs the kubectl get cm command with the provided argument
-func (c *Client) GetConfig(name, namespace, output string, extraArgs ...string) (string, string, error) {
-	args := []string{"get", "cm", name}
-	if namespace != "" {
-		args = append(args, "-n", namespace)
+// Apply runs the `kubectl apply` command with parameters:
+// dryRun - display the command but don't run it
+// verbose - dump the full manifest
+// kubeconfig, context - used to identify the cluster
+// namespace - k8s namespace for kubectl command
+// manifest - manifests to be applied to the cluster
+// extraArgs - more args to be added to the kubectl command
+//
+// It returns stdout, stderr from the `kubectl` command as strings, and error for errors external to kubectl.
+func (c *Client) Apply(dryRun, verbose bool, kubeconfig, context, namespace string,
+	manifest string, extraArgs ...string) (string, string, error) {
+	if strings.TrimSpace(manifest) == "" {
+		log.Infof("Empty manifest, not running kubectl apply.")
+		return "", "", nil
 	}
-	if output != "" {
-		args = append(args, "-o", output)
+	subcmds := []string{"apply"}
+	params := &kubectlParams{
+		dryRun:     dryRun,
+		verbose:    verbose,
+		kubeconfig: kubeconfig,
+		context:    context,
+		namespace:  namespace,
+		stdin:      manifest,
+		output:     "",
+		extraArgs:  extraArgs,
 	}
-	args = append(args, extraArgs...)
+	return c.kubectl(subcmds, params)
+}
 
-	cmd := exec.Command("kubectl", args...)
-
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	err := c.cmdSite.Run(cmd)
-	if err != nil {
-		logAndPrint("error running kubectl get cm: %s", err)
-		return stdout.String(), stderr.String(), fmt.Errorf("error running kubectl %s: %s", strings.Join(args, " "), err)
+// Delete runs the `kubectl delete` command with the following parameters:
+// dryRun - display the command but don't run it
+// verbose - dump the full manifest
+// kubeconfig, context - used to identify the cluster
+// namespace - k8s namespace for kubectl command
+// manifest - manifests of resources to be deleted in the cluster
+// extraArgs - more args to be added to the kubectl command
+//
+// It returns stdout, stderr from the `kubectl` command as strings, and error for errors external to kubectl.
+func (c *Client) Delete(dryRun, verbose bool, kubeconfig, context, namespace string,
+	manifest string, extraArgs ...string) (string, string, error) {
+	if strings.TrimSpace(manifest) == "" {
+		log.Infof("Empty manifest, not running kubectl delete.")
+		return "", "", nil
 	}
+	subcmds := []string{"delete"}
+	params := &kubectlParams{
+		dryRun:     dryRun,
+		verbose:    verbose,
+		kubeconfig: kubeconfig,
+		context:    context,
+		namespace:  namespace,
+		stdin:      manifest,
+		output:     "",
+		extraArgs:  extraArgs,
+	}
+	return c.kubectl(subcmds, params)
+}
 
-	logAndPrint("kubectl get cm success")
+// GetAll runs the `kubectl get all` with with parameters:
+// kubeconfig, context - used to identify the cluster
+// namespace - k8s namespace for kubectl command
+// output - output mode for kubectl
+// extraArgs - more args to be added to the kubectl command
+//
+// It returns stdout, stderr from the `kubectl` command as strings, and error for errors external to kubectl.
+func (c *Client) GetAll(kubeconfig, context, namespace, output string,
+	extraArgs ...string) (string, string, error) {
+	subcmds := []string{"get", "all"}
+	params := &kubectlParams{
+		dryRun:     false,
+		verbose:    false,
+		kubeconfig: kubeconfig,
+		context:    context,
+		namespace:  namespace,
+		stdin:      "",
+		output:     output,
+		extraArgs:  extraArgs,
+	}
+	return c.kubectl(subcmds, params)
+}
 
-	return stdout.String(), stderr.String(), nil
+// GetConfig runs the `kubectl get cm` command with parameters:
+// kubeconfig, context - used to identify the cluster
+// name - name of the config map to get
+// namespace - k8s namespace for kubectl command
+// output - output mode for kubectl
+// extraArgs - more args to be added to the kubectl command
+//
+// It returns stdout, stderr from the `kubectl` command as strings, and error for errors external to kubectl.
+func (c *Client) GetConfig(kubeconfig, context, name, namespace, output string,
+	extraArgs ...string) (string, string, error) {
+	subcmds := []string{"get", "cm", name}
+	params := &kubectlParams{
+		dryRun:     false,
+		verbose:    false,
+		kubeconfig: kubeconfig,
+		context:    context,
+		namespace:  namespace,
+		stdin:      "",
+		output:     output,
+		extraArgs:  extraArgs,
+	}
+	return c.kubectl(subcmds, params)
 }
 
 func logAndPrint(v ...interface{}) {
 	s := fmt.Sprintf(v[0].(string), v[1:]...)
 	log.Infof(s)
 	fmt.Println(s)
+}
+
+// kubectl runs the `kubectl` command by specifying subcommands in subcmds with kubectlParams
+func (c *Client) kubectl(subcmds []string, params *kubectlParams) (string, string, error) {
+	hasStdin := strings.TrimSpace(params.stdin) != ""
+	args := subcmds
+	if params.kubeconfig != "" {
+		args = append(args, "--kubeconfig", params.kubeconfig)
+	}
+	if params.context != "" {
+		args = append(args, "--context", params.context)
+	}
+	if params.namespace != "" {
+		args = append(args, "-n", params.namespace)
+	}
+	if params.output != "" {
+		args = append(args, "-o", params.output)
+	}
+	args = append(args, params.extraArgs...)
+
+	if hasStdin {
+		args = append(args, "-f", "-")
+	}
+
+	cmd := exec.Command("kubectl", args...)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	cmdStr := strings.Join(args, " ")
+	if hasStdin {
+		cmd.Stdin = strings.NewReader(params.stdin)
+		if params.verbose {
+			cmdStr += "\n" + params.stdin
+		} else {
+			cmdStr += " <use --verbose to see stdin string> \n"
+		}
+	}
+
+	if params.dryRun {
+		logAndPrint("dry run mode: would be running this cmd:\n%s\n", cmdStr)
+		return "", "", nil
+	}
+
+	log.Infof("running command:\n%s\n", cmdStr)
+	err := c.cmdSite.Run(cmd)
+	csError := util.ConsolidateLog(stderr.String())
+
+	if err != nil {
+		log.Errorf("error running kubectl: %s", err)
+		return stdout.String(), csError, fmt.Errorf("error running kubectl: %s", err)
+	}
+
+	log.Infof("command succeeded: %s", cmdStr)
+
+	return stdout.String(), csError, nil
 }
