@@ -207,6 +207,7 @@ type Params struct {
 	Privileged                   bool                   `json:"privileged"`
 	SDSEnabled                   bool                   `json:"sdsEnabled"`
 	PodDNSSearchNamespaces       []string               `json:"podDNSSearchNamespaces"`
+	ProxyEnvironmentVariables    map[string]string      `json:proxyEnvironmentVariables`
 }
 
 // Validate validates the parameters and returns an error if there is configuration issue.
@@ -243,6 +244,11 @@ func (p *Params) intoHelmValues() map[string]string {
 		"global.proxy.excludeInboundPorts":           p.ExcludeInboundPorts,
 		"sidecarInjectorWebhook.rewriteAppHTTPProbe": strconv.FormatBool(p.RewriteAppHTTPProbe),
 		"global.podDNSSearchNamespaces":              getHelmValue(p.PodDNSSearchNamespaces),
+	}
+	if len(p.ProxyEnvironmentVariables) > 0 {
+		for key, val := range p.ProxyEnvironmentVariables {
+			vals[fmt.Sprintf("global.proxy.env.%s", key)] = val
+		}
 	}
 	return vals
 }

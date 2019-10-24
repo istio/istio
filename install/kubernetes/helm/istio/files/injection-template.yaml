@@ -259,6 +259,10 @@ containers:
   - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS
     value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfMessageEvents }}"
   {{- end }}
+  {{- range $key, $value := .Values.global.proxy.env }}
+  - name: "{{ $key }}"
+    value: "{{ $value }}"
+  {{- end }}
   imagePullPolicy: {{ .Values.global.imagePullPolicy }}
   {{ if ne (annotation .ObjectMeta `status.sidecar.istio.io/port` (valueOrDefault .Values.global.proxy.statusPort 0 )) `0` }}
   readinessProbe:
