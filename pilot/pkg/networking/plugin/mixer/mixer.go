@@ -328,6 +328,11 @@ func (mixerplugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.Filter
 	return nil
 }
 
+// OnInboundPasssthrough is called whenever a new passthrough filter chain is added to the LDS output.
+func (mixerplugin) OnInboundPasssthrough(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+	return nil
+}
+
 func buildUpstreamName(address string) string {
 	// effectively disable the upstream
 	if address == "" {

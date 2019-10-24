@@ -155,3 +155,8 @@ func (Plugin) OnOutboundCluster(in *plugin.InputParams, cluster *xdsapi.Cluster)
 func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
 	return nil
 }
+
+// OnInboundPasssthrough is called whenever a new passthrough filter chain is added to the LDS output.
+func (Plugin) OnInboundPasssthrough(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+	return nil
+}

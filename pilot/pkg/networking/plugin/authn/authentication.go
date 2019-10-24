@@ -102,3 +102,8 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, route *xdsapi.
 // OnOutboundCluster implements the Plugin interface method.
 func (Plugin) OnOutboundCluster(in *plugin.InputParams, cluster *xdsapi.Cluster) {
 }
+
+// OnInboundPasssthrough is called whenever a new passthrough filter chain is added to the LDS output.
+func (Plugin) OnInboundPasssthrough(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+	return nil
+}
