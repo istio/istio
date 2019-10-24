@@ -17,6 +17,7 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/meta/schema/collection"
