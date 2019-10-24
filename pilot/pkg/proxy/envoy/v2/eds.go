@@ -359,9 +359,6 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 	edsCluster.mutex.Lock()
 	defer edsCluster.mutex.Unlock()
 
-	// Normalize LoadBalancingWeight in range [1, 128]
-	locEps = LoadBalancingWeightNormalize(locEps)
-
 	edsCluster.LoadAssignment = &xdsapi.ClusterLoadAssignment{
 		ClusterName: clusterName,
 		Endpoints:   locEps,
@@ -658,7 +655,6 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 		// EDS filter on the endpoints
 		if s.Env.MeshNetworks != nil && len(s.Env.MeshNetworks.Networks) > 0 {
 			endpoints := EndpointsByNetworkFilter(l.Endpoints, con, s.Env)
-			endpoints = LoadBalancingWeightNormalize(endpoints)
 			filteredCLA := &xdsapi.ClusterLoadAssignment{
 				ClusterName: l.ClusterName,
 				Endpoints:   endpoints,
@@ -872,8 +868,6 @@ func buildLocalityLbEndpointsFromShards(
 		}
 		locEps = append(locEps, locLbEps)
 	}
-	// Normalize LoadBalancingWeight in range [1, 128]
-	locEps = LoadBalancingWeightNormalize(locEps)
 
 	if len(locEps) == 0 {
 		push.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
