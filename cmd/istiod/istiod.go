@@ -16,17 +16,16 @@ package main
 
 import (
 	"io/ioutil"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
 	"os"
 
-	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	"istio.io/istio/pkg/istiod"
 	"istio.io/istio/pkg/istiod/k8s"
+	"istio.io/pkg/env"
 )
 
 var (
@@ -58,7 +57,7 @@ func main() {
 
 	// Load the mesh config. Note that the path is slightly changed - attempting to move all istio
 	// related under /var/lib/istio, which is also the home dir of the istio user.
-	istiods, err := istiod.NewIstiod(kcfg, client,"/var/lib/istio/config")
+	istiods, err := istiod.NewIstiod(kcfg, client, "/var/lib/istio/config")
 	if err != nil {
 		log.Fatalf("Failed to start istiod: %v", err)
 	}

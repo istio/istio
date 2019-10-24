@@ -67,7 +67,7 @@ func InitK8S(is *istiod.Server, clientset kubernetes.Interface, config *rest.Con
 		args:        args,
 		ControllerOptions: controller2.Options{
 			DomainSuffix: args.DomainSuffix,
-			TrustDomain: args.MeshConfig.TrustDomain,
+			TrustDomain:  args.MeshConfig.TrustDomain,
 		},
 	}
 
