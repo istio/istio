@@ -154,7 +154,7 @@ istioctl experimental analyze -k -d false
 		"'true' to enable service discovery, 'false' to disable it. "+
 			"Defaults to true if --use-kube is set, false otherwise. "+
 			"Analyzers requiring resources made available by enabling service discovery will be skipped.")
-	analysisCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enables verbose output")
+	analysisCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
 	return analysisCmd
 }
 
