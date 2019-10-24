@@ -16,7 +16,6 @@ package cmd
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"strings"
 
@@ -34,7 +33,6 @@ type AnalyzerFoundIssuesError struct{}
 
 const (
 	FoundIssueString = "Analyzer found issues."
-	NoIssuesString   = "No analyzer issues found."
 )
 
 func (f AnalyzerFoundIssuesError) Error() string {
@@ -160,10 +158,8 @@ istioctl experimental analyze -k -d false
 					fmt.Fprintln(cmd.OutOrStdout(), m.String())
 				}
 			}
-			return nil
-			outputMessages(cmd.OutOrStdout(), messages)
 
-			return errorIfMessagesExceedThreshold(messages)
+			return errorIfMessagesExceedThreshold(result.Messages)
 		},
 	}
 
@@ -214,14 +210,4 @@ func errorIfMessagesExceedThreshold(messages []diag.Message) error {
 	}
 
 	return nil
-}
-
-func outputMessages(f io.Writer, messages []diag.Message) {
-	if len(messages) == 0 {
-		fmt.Fprint(f, NoIssuesString)
-		return
-	}
-	for _, m := range messages {
-		fmt.Fprintf(f, "%v\n", m.String())
-	}
 }
