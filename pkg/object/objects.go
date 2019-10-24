@@ -485,9 +485,7 @@ func filterResourceWithSelectAndIgnore(aom map[string]*K8sObject, sm, im map[str
 				return nil, fmt.Errorf("error building the resource regexp: %v", err)
 			}
 			if re.MatchString(ak) {
-				if _, ok := aosm[ak]; ok {
-					delete(aosm, ak)
-				}
+				delete(aosm, ak)
 			}
 		}
 	}

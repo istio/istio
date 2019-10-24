@@ -41,10 +41,10 @@ func CheckValues(root map[string]interface{}) util.Errors {
 	if err := util.UnmarshalValuesWithJSONPB(string(vs), val); err != nil {
 		return util.Errors{err}
 	}
-	return validateValues(defaultValuesValidations, root, nil)
+	return validateValues(root, nil)
 }
 
-func validateValues(validations map[string]ValidatorFunc, node interface{}, path util.Path) (errs util.Errors) {
+func validateValues(node interface{}, path util.Path) (errs util.Errors) {
 	pstr := path.String()
 	scope.Debugf("validateValues %s", pstr)
 	vf := defaultValuesValidations[pstr]
@@ -58,7 +58,7 @@ func validateValues(validations map[string]ValidatorFunc, node interface{}, path
 		return errs
 	}
 	for k, v := range nn {
-		errs = util.AppendErrs(errs, validateValues(validations, v, append(path, k)))
+		errs = util.AppendErrs(errs, validateValues(v, append(path, k)))
 	}
 
 	return errs

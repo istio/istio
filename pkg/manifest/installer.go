@@ -160,13 +160,13 @@ func ParseK8SYAMLToIstioControlPlaneSpec(yml string) (*v1alpha2.IstioControlPlan
 }
 
 // RenderToDir writes manifests to a local filesystem directory tree.
-func RenderToDir(manifests name.ManifestMap, outputDir string, dryRun, verbose bool) error {
+func RenderToDir(manifests name.ManifestMap, outputDir string, dryRun bool) error {
 	logAndPrint("Component dependencies tree: \n%s", installTreeString())
 	logAndPrint("Rendering manifests to output dir %s", outputDir)
-	return renderRecursive(manifests, installTree, outputDir, dryRun, verbose)
+	return renderRecursive(manifests, installTree, outputDir, dryRun)
 }
 
-func renderRecursive(manifests name.ManifestMap, installTree componentTree, outputDir string, dryRun, verbose bool) error {
+func renderRecursive(manifests name.ManifestMap, installTree componentTree, outputDir string, dryRun bool) error {
 	for k, v := range installTree {
 		componentName := string(k)
 		ym := manifests[k]
@@ -194,7 +194,7 @@ func renderRecursive(manifests name.ManifestMap, installTree componentTree, outp
 			// Leaf
 			return nil
 		}
-		if err := renderRecursive(manifests, kt, dirName, dryRun, verbose); err != nil {
+		if err := renderRecursive(manifests, kt, dirName, dryRun); err != nil {
 			return err
 		}
 	}
