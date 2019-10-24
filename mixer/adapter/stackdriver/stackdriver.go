@@ -84,7 +84,10 @@ func GetInfo() adapter.Info {
 		}
 		return md.Zone()
 	}
-	mg := helper.NewMetadataGenerator(md.OnGCE, md.ProjectID, clusterLocationFn, clusterNameFn)
+	meshIDFn := func() (string, error) {
+		return md.InstanceAttributeValue("mesh-id")
+	}
+	mg := helper.NewMetadataGenerator(md.OnGCE, md.ProjectID, clusterLocationFn, clusterNameFn, meshIDFn)
 	info := metadata.GetInfo("stackdriver")
 	info.NewBuilder = func() adapter.HandlerBuilder {
 		return &builder{

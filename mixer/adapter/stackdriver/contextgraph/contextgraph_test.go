@@ -140,6 +140,30 @@ func TestBuild(t *testing.T) {
 	}
 }
 
+func TestBuildWithMeshID(t *testing.T) {
+	m := &mockNC{}
+	b := &builder{
+		newClient: m.NewClient,
+		projectID: "myid",
+		zone:      "myzone",
+		cluster:   "mycluster",
+		meshID:    "mesh-id",
+		cfg:       &config.Params{ProjectId: "myid"},
+	}
+
+	mEnv := env.NewEnv(t)
+
+	han, err := b.Build(context.TODO(), mEnv)
+	h := han.(*handler)
+	if err != nil {
+		t.Errorf("Build returned unexpected err: %v", err)
+	}
+
+	if h.meshUID != "mesh-id" {
+		t.Errorf("handler.meshUID: got %q, want %q", h.meshUID, "mesh-id")
+	}
+}
+
 func TestHandleEdge(t *testing.T) {
 	h := &handler{
 		traffics:  make(chan trafficAssertion, 1),

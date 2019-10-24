@@ -193,6 +193,7 @@ func (c *controller) createInformer(
 			AddFunc: func(obj interface{}) {
 				if err := vf(obj); err != nil {
 					log.Errorf("failed to add CRD. New value: %v, error: %v", obj, err)
+					incrementEvent(otype, "addfailure")
 					return
 				}
 				incrementEvent(otype, "add")
@@ -200,6 +201,7 @@ func (c *controller) createInformer(
 			},
 			UpdateFunc: func(old, cur interface{}) {
 				if err := vf(cur); err != nil {
+					incrementEvent(otype, "updatefailure")
 					log.Errorf("failed to update CRD. New value: %v, error: %v", cur, err)
 					return
 				}

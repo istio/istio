@@ -48,7 +48,21 @@ ingress:
 
 dashboard:
   auth:
-    strategy: login # Can be anonymous, login, or openshift
+    strategy: login # Can be anonymous, login, openshift, or ldap
+    # ldap: # This is required to use the ldap strategy
+    #   ldap_base: "DC=example,DC=com"
+    #   ldap_bind_dn: "CN={USERID},OU=xyz,OU=Users,OU=Accounts,DC=example,DC=com"
+    #   ldap_group_filter: "(cn=%s)"
+    #   ldap_host: "ldap-service.ldap-namespace"
+    #   ldap_insecure_skip_verify: true
+    #   ldap_mail_id_key: "mail"
+    #   ldap_member_of_key: "memberOf"
+    #   ldap_port: 123
+    #   ldap_role_filter: ".*xyz.*"
+    #   ldap_search_filter: "(&(name={USERID}))"
+    #   ldap_use_ssl: false
+    #   ldap_user_filter: "(cn=%s)"
+    #   ldap_user_id_key: "cn"
   secretName: kiali # You must create a secret with this name - one is not provided out-of-box.
   viewOnlyMode: false # Bind the service account to a role with only read access
   grafanaURL:  # If you have Grafana installed and it is accessible to client browsers, then set this to its external URL. Kiali will redirect users to this URL when Grafana metrics are to be shown.
