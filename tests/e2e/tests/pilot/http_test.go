@@ -96,7 +96,7 @@ func TestHttp(t *testing.T) {
 									// Expected no match for t->t
 									return nil
 								}
-								return fmt.Errorf("got no response ID: %v", resp)
+								return errAgain
 							})
 						}
 					}
