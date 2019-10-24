@@ -128,6 +128,7 @@ func TestFileAndKubeCombined(t *testing.T) {
 }
 
 func expectNoMessages(t *testing.T, g *GomegaWithT, output []string) {
+	t.Helper()
 	g.Expect(output).To(HaveLen(1))
 	g.Expect(output[0]).To(ContainSubstring("No validation issues found"))
 }
