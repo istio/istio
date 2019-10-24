@@ -31,8 +31,7 @@ func (c *TestCase) String() string {
 	if c.ExpectAuthenticated {
 		want = "allow"
 	}
-	return fmt.Sprintf("[%s][%s->%s%s][%s]",
-		c.Name,
+	return fmt.Sprintf("%s to %s%s expected %s",
 		c.Request.From.Config().Service,
 		c.Request.Options.Target.Config().Service,
 		c.Request.Options.Path,
