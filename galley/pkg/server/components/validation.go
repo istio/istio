@@ -24,7 +24,7 @@ import (
 )
 
 // NewValidation returns a new validation component.
-func NewValidation(kubeInterface *kubernetes.Clientset, kubeConfig string,
+func NewValidation(kubeInterface kubernetes.Interface, kubeConfig string,
 	params *validation.WebhookParameters, liveness, readiness probe.Controller) process.Component {
 
 	return process.ComponentFromFns(
