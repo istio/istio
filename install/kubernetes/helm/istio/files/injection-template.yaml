@@ -263,6 +263,12 @@ containers:
   - name: "{{ $key }}"
     value: "{{ $value }}"
   {{- end }}
+  {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/environmentOverride`) }}
+  {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `sidecar.istio.io/environmentOverride`) }}
+  - name: "{{ $key }}"
+    value: "{{ $value }}"
+  {{- end }}
+  {{- end }}
   imagePullPolicy: {{ .Values.global.imagePullPolicy }}
   {{ if ne (annotation .ObjectMeta `status.sidecar.istio.io/port` (valueOrDefault .Values.global.proxy.statusPort 0 )) `0` }}
   readinessProbe:
