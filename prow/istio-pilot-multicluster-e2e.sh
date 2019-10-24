@@ -44,14 +44,18 @@ EOF
 setup_kind_cluster "" local "${ARTIFACTS}/config-local.yaml"
 setup_kind_cluster "" remote "${ARTIFACTS}/config-remote.yaml"
 
+# Trap replaces any previous trap's, so we need to explicitly cleanup both clusters here
+# shellcheck disable=SC2064
+trap "cleanup_kind_cluster local; cleanup_kind_cluster remote" EXIT
+
 export HUB=istio-testing
 export TAG=istio-testing
 
 time build_images
 
 # Set up routing rules for inter-cluster direct pod to pod communication
-DOCKER_IP_LOCAL=$(docker inspect -f "{{ .NetworkSettings.IPAddress }}" a-control-plane)
-DOCKER_IP_REMOTE=$(docker inspect -f "{{ .NetworkSettings.IPAddress }}" b-control-plane)
+DOCKER_IP_LOCAL=$(docker inspect -f "{{ .NetworkSettings.IPAddress }}" local-control-plane)
+DOCKER_IP_REMOTE=$(docker inspect -f "{{ .NetworkSettings.IPAddress }}" remote-control-plane)
 POD_CIDR_LOCAL=$(KUBECONFIG="$(kind get kubeconfig-path --name local)" kubectl get node -ojsonpath='{.items[0].spec.podCIDR}')
 POD_CIDR_REMOTE=$(KUBECONFIG="$(kind get kubeconfig-path --name remote)" kubectl get node -ojsonpath='{.items[0].spec.podCIDR}')
 docker exec local-control-plane ip route add "${POD_CIDR_REMOTE}" via "${DOCKER_IP_REMOTE}"
