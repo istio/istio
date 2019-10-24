@@ -44,6 +44,12 @@ var (
 		monitoring.WithLabels(clusterTag),
 	)
 
+	edsEndpoints = monitoring.NewGauge(
+		"pilot_xds_eds_endpoints",
+		"Network endpoints for each cluster, as of last push. Zero endpoints is an error.",
+		monitoring.WithLabels(clusterTag),
+	)
+
 	ldsReject = monitoring.NewGauge(
 		"pilot_xds_lds_reject",
 		"Pilot rejected LDS.",
