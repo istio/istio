@@ -24,8 +24,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"text/scanner"
-	"unicode"
 
 	"istio.io/istio/pkg/test/scopes"
 )
@@ -33,16 +31,7 @@ import (
 var (
 	// Matcher for links to the Istio github repository.
 	githubLinkMatch = regexp.MustCompile("@.*@")
-
-	defaultVerifier = func(ctx Context, name, output string, err error) {
-		if err != nil {
-			ctx.Fatalf("command %s failed: %v. Output: %v", name, err, output)
-		}
-	}
 )
-
-// Verifier is a function used to verify output and any errors returned.
-type Verifier func(ctx Context, name, output string, err error)
 
 var _ Step = Command{}
 
@@ -232,71 +221,12 @@ func (s Command) getVerifier() Verifier {
 	return defaultVerifier
 }
 
-// TokenVerifier tokenizes the output and compares against the tokens from the given file.
-func TokenVerifier(selector InputSelector) Verifier {
-	return func(ctx Context, name, output string, _ error) {
-		input := selector.SelectInput(ctx)
-
-		// Read the input.
-		expected, err := input.ReadAll()
-		if err != nil {
-			ctx.Fatalf("verification failed for command %s: %v", name, err)
-		}
-
-		// Tokenize the content and the file.
-		expectedTokenLines := tokenize(expected)
-		actualTokenLines := tokenize(output)
-
-		if len(expectedTokenLines) != len(actualTokenLines) {
-			ctx.Fatalf("verification failed for command %s: line count: (expected %d, found %d). Expected:\n%s\nto match:\n%s",
-				name, len(expectedTokenLines), len(actualTokenLines), output, expected)
-		}
-
-		for lineIndex := 0; lineIndex < len(expectedTokenLines); lineIndex++ {
-			expectedTokens := expectedTokenLines[lineIndex]
-			actualTokens := actualTokenLines[lineIndex]
-
-			if len(expectedTokens) != len(actualTokens) {
-				ctx.Fatalf("verification failed for command %s [line %d]: token count (expected %d, found %d). Expected:\n%s\nto match:\n%s",
-					name, lineIndex, len(expectedTokens), len(actualTokens), output, expected)
-			}
-
-			for tokenIndex := 0; tokenIndex < len(expectedTokens); tokenIndex++ {
-				expectedToken := expectedTokens[tokenIndex]
-				if expectedToken == "?" {
-					// The value was a wildcard, matches anything.
-					continue
-				}
-
-				actualToken := actualTokens[tokenIndex]
-				if expectedToken != actualToken {
-					ctx.Fatalf("verification failed for command %s [line %d]: token %d (expected %s, found %s). Expected:\n%s\nto match:\n%s",
-						name, lineIndex, tokenIndex, expectedToken, actualToken, output, expected)
-				}
-			}
-		}
+// SleepCommand returns a command that runs `sleep <delay>`
+func SleepCommand(delay int) Command {
+	return Command{
+		Input: Inline{
+			Value:    fmt.Sprintf("sleep %d", delay),
+			FileName: "sleep",
+		},
 	}
-}
-
-func tokenize(content string) [][]string {
-	inputLines := strings.Split(strings.TrimSpace(content), "\n")
-	tokenLines := make([][]string, 0)
-
-	for _, inputLine := range inputLines {
-		tokens := make([]string, 0)
-
-		var s scanner.Scanner
-
-		// Configure the token characters.
-		s.IsIdentRune = func(ch rune, i int) bool {
-			return ch == '_' || ch == '-' || ch == '.' || unicode.IsLetter(ch) || unicode.IsDigit(ch)
-		}
-
-		s.Init(strings.NewReader(inputLine))
-		for tok := s.Scan(); tok != scanner.EOF; tok = s.Scan() {
-			tokens = append(tokens, s.TokenText())
-		}
-		tokenLines = append(tokenLines, tokens)
-	}
-	return tokenLines
 }
