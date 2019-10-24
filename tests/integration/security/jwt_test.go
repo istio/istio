@@ -113,7 +113,7 @@ func TestAuthnJwt(t *testing.T) {
 					ExpectAuthenticated: false,
 				},
 				{
-					Name: "jwt-excluded-paths-no-token",
+					Name: "jwt-excluded-paths-no-token[/health_check]",
 					Request: connection.Checker{
 						From: a,
 						Options: echo.CallOptions{
@@ -126,7 +126,7 @@ func TestAuthnJwt(t *testing.T) {
 					ExpectAuthenticated: true,
 				},
 				{
-					Name: "jwt-excluded-paths-no-token",
+					Name: "jwt-excluded-paths-no-token[/guest-us]",
 					Request: connection.Checker{
 						From: a,
 						Options: echo.CallOptions{
@@ -139,7 +139,7 @@ func TestAuthnJwt(t *testing.T) {
 					ExpectAuthenticated: true,
 				},
 				{
-					Name: "jwt-excluded-paths-no-token",
+					Name: "jwt-excluded-paths-no-token[/index.html]",
 					Request: connection.Checker{
 						From: a,
 						Options: echo.CallOptions{
@@ -168,7 +168,7 @@ func TestAuthnJwt(t *testing.T) {
 					ExpectAuthenticated: true,
 				},
 				{
-					Name: "jwt-included-paths-no-token",
+					Name: "jwt-included-paths-no-token[/index.html]",
 					Request: connection.Checker{
 						From: a,
 						Options: echo.CallOptions{
@@ -181,7 +181,7 @@ func TestAuthnJwt(t *testing.T) {
 					ExpectAuthenticated: true,
 				},
 				{
-					Name: "jwt-included-paths-no-token",
+					Name: "jwt-included-paths-no-token[/something-confidential]",
 					Request: connection.Checker{
 						From: a,
 						Options: echo.CallOptions{
@@ -268,7 +268,7 @@ func TestAuthnJwt(t *testing.T) {
 					ExpectAuthenticated: false,
 				},
 				{
-					Name: "jwt-two-issuers-token1",
+					Name: "jwt-two-issuers-token1[/testing-istio-jwt]",
 					Request: connection.Checker{
 						From: a,
 						Options: echo.CallOptions{
@@ -284,7 +284,7 @@ func TestAuthnJwt(t *testing.T) {
 					ExpectAuthenticated: true,
 				},
 				{
-					Name: "jwt-two-issuers-token2",
+					Name: "jwt-two-issuers-token2[/testing-istio-jwt]",
 					Request: connection.Checker{
 						From: a,
 						Options: echo.CallOptions{
@@ -318,7 +318,7 @@ func TestAuthnJwt(t *testing.T) {
 			}
 
 			for _, c := range testCases {
-				t.Run(c.String(), func(t *testing.T) {
+				t.Run(c.Name, func(t *testing.T) {
 					retry.UntilSuccessOrFail(t, c.CheckAuthn,
 						retry.Delay(250*time.Millisecond), retry.Timeout(30*time.Second))
 				})

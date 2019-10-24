@@ -47,11 +47,11 @@ func (c *TestCase) CheckAuthn() error {
 			err = results.CheckOK()
 		}
 		if err != nil {
-			return fmt.Errorf("%s: want 200 authenticated, got %s", c, err.Error())
+			return fmt.Errorf("%s: got %s", c, err.Error())
 		}
 	} else {
 		if err != nil {
-			return fmt.Errorf("%s: want 401 unauthenticated, got %s", c, err.Error())
+			return fmt.Errorf("%s: got %s", c, err.Error())
 		}
 		errMsg := ""
 		if len(results) == 0 {
@@ -61,7 +61,7 @@ func (c *TestCase) CheckAuthn() error {
 			errMsg = fmt.Sprintf("code %s", results[0].Code)
 		}
 		if errMsg != "" {
-			return fmt.Errorf("%s: want 401 unauthenticated, got %s", c, errMsg)
+			return fmt.Errorf("%s: got %s", c, errMsg)
 		}
 	}
 	return nil
