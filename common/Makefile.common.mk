@@ -80,19 +80,28 @@ dump-licenses-csv:
 	@go mod download
 	@license-lint --config common/config/license-lint.yml --csv
 
+mirror-licenses:
+	@go mod download
+	@license-lint --mirror
+
+TMP := $(shell mktemp -d -u)
+UPDATE_BRANCH ?= "master"
+
 update-common:
-	@git clone -q --depth 1 --single-branch --branch master https://github.com/istio/common-files
-	@cd common-files ; git rev-parse HEAD >files/common/.commonfiles.sha
+	@mkdir -p $(TMP)
+	@git clone -q --depth 1 --single-branch --branch $(UPDATE_BRANCH) https://github.com/istio/common-files $(TMP)/common-files
+	@cd $(TMP)/common-files ; git rev-parse HEAD >files/common/.commonfiles.sha
 	@rm -fr common
-	@cp -rT common-files/files .
-	@rm -fr common-files
+	@cp -rT $(TMP)/common-files/files $(shell pwd)
+	@rm -fr $(TMP)/common-files
 
 update-common-protos:
-	@git clone -q --depth 1 --single-branch --branch master https://github.com/istio/common-files
-	@cd common-files ; git rev-parse HEAD > common-protos/.commonfiles.sha
+	@mkdir -p $(TMP)
+	@git clone -q --depth 1 --single-branch --branch $(UPDATE_BRANCH) https://github.com/istio/common-files $(TMP)/common-files
+	@cd $(TMP)/common-files ; git rev-parse HEAD > common-protos/.commonfiles.sha
 	@rm -fr common-protos
-	@cp -ar common-files/common-protos common-protos
-	@rm -fr common-files
+	@cp -ar $(TMP)/common-files/common-protos $(shell pwd)/common-protos
+	@rm -fr $(TMP)/common-files
 
 check-clean-repo:
 	@common/scripts/check_clean_repo.sh
