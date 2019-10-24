@@ -39,6 +39,7 @@ type (
 		projectID string
 		zone      string
 		cluster   string
+		meshID    string
 		mg        helper.MetadataGenerator
 		newClient newClientFn
 		cfg       *config.Params
@@ -73,13 +74,15 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 	env.Logger().Debugf("Proj, zone, cluster, opts: %s,%s,%s,%s",
 		b.projectID, b.zone, b.cluster, opts)
 
-	// TODO: meshUID should come from an attribute when
-	// multi-cluster Istio is supported. Currently we assume each
-	// cluster is its own mesh.
+	meshUID := fmt.Sprintf("%s/%s/%s", b.projectID, b.zone, b.cluster)
+	if len(b.meshID) > 0 {
+		meshUID = b.meshID
+	}
+
 	h := &handler{
 		env:            env,
 		projectID:      b.projectID,
-		meshUID:        fmt.Sprintf("%s/%s/%s", b.projectID, b.zone, b.cluster),
+		meshUID:        meshUID,
 		zone:           b.zone,
 		cluster:        b.cluster,
 		entityCache:    newEntityCache(env.Logger()),
@@ -113,6 +116,7 @@ func (b *builder) SetAdapterConfig(cfg adapter.Config) {
 	}
 	b.zone = md.Location
 	b.cluster = md.ClusterName
+	b.meshID = md.MeshID
 }
 
 // adapter.HandlerBuilder#Validate
