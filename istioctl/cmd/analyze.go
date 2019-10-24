@@ -123,22 +123,22 @@ istioctl experimental analyze -k -d false
 			// Maybe output details about which analyzers ran
 			if verbose {
 				if len(result.SkippedAnalyzers) > 0 {
-					fmt.Fprintln(cmd.OutOrStdout(), "Skipped analyzers:")
+					fmt.Fprintln(cmd.ErrOrStderr(), "Skipped analyzers:")
 					for _, a := range result.SkippedAnalyzers {
-						fmt.Fprintln(cmd.OutOrStdout(), "\t", a)
+						fmt.Fprintln(cmd.ErrOrStderr(), "\t", a)
 					}
 				}
 				if len(result.ExecutedAnalyzers) > 0 {
-					fmt.Fprintln(cmd.OutOrStdout(), "Executed analyzers:")
+					fmt.Fprintln(cmd.ErrOrStderr(), "Executed analyzers:")
 					for _, a := range result.ExecutedAnalyzers {
-						fmt.Fprintln(cmd.OutOrStdout(), "\t", a)
+						fmt.Fprintln(cmd.ErrOrStderr(), "\t", a)
 					}
 				}
-				fmt.Fprintln(cmd.OutOrStdout())
+				fmt.Fprintln(cmd.ErrOrStderr())
 			}
 
 			if len(result.Messages) == 0 {
-				fmt.Fprintln(cmd.OutOrStdout(), "\u2714 No validation issues found.")
+				fmt.Fprintln(cmd.ErrOrStderr(), "\u2714 No validation issues found.")
 			} else {
 				for _, m := range result.Messages {
 					fmt.Fprintln(cmd.OutOrStdout(), m.String())
