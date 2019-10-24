@@ -186,6 +186,7 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 		rootCertRotatorLog.Errorf("Failed to create CA KeyCertBundle (%s)", err.Error())
 		return
 	}
+	rootCertRotatorLog.Infof("Updated CA KeyCertBundle using existing public key: %v", string(pemCert))
 
 	certEncoded := base64.StdEncoding.EncodeToString(rotator.ca.GetCAKeyCertBundle().GetRootCertPem())
 	if err = rotator.configMapController.InsertCATLSRootCertWithRetry(
@@ -203,6 +204,7 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 			return
 		}
 		rootCertRotatorLog.Info("Root cert rollback is completed successfully.")
+		return
 	}
-	rootCertRotatorLog.Infof("Updated CA KeyCertBundle using existing public key: %v", string(pemCert))
+	rootCertRotatorLog.Info("Updated root cert in configmap")
 }
