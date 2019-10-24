@@ -28,10 +28,6 @@ import (
 // - acl removed - envoy and Istio RBAC should handle it
 // - listener removed - common grpc server for all components, using Pilot's listener
 
-var scope = log.RegisterScope("server", "", 0)
-
-const versionMetadataKey = "config.source.version"
-
 // NewGalleyServer is the equivalent of the Galley CLI. No attempt  to optimize or reuse -
 // for Pilot we plan to use a 'direct path', bypassing the gRPC layer. This provides max compat
 // and less risks with existing galley.
