@@ -18,7 +18,6 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	gogoproto "github.com/gogo/protobuf/proto"
@@ -31,7 +30,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	"istio.io/istio/pilot/pkg/networking/plugin/authz"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
@@ -312,7 +310,7 @@ func (builder *ListenerBuilder) buildVirtualInboundListener(
 
 	actualWildcard, _ := getActualWildcardAndLocalHost(node)
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
-	filterChains := newInboundPassthroughFilterChains(env, node, push)
+	filterChains := newInboundPassthroughFilterChains(configgen, env, node, push)
 	if util.IsProtocolSniffingEnabledForInbound(node) {
 		filterChains = append(filterChains, newHTTPPassThroughFilterChain(configgen, env, node, push)...)
 	}
@@ -407,32 +405,9 @@ func newBlackholeFilter(enableAny bool) *listener.Filter {
 	return filter
 }
 
-func createRBACfilter(protocol plugin.ListenerProtocol, env *model.Environment, node *model.Proxy, push *model.PushContext) interface{} {
-	in := &plugin.InputParams{
-		Env:              env,
-		Node:             node,
-		Push:             push,
-		ListenerProtocol: protocol,
-	}
-	mutable := &plugin.MutableObjects{
-		FilterChains: []plugin.FilterChain{
-			{
-				ListenerProtocol: protocol,
-			},
-		},
-	}
-	if err := authz.NewPlugin().OnInboundListener(in, mutable); err == nil {
-		if protocol == plugin.ListenerProtocolTCP && len(mutable.FilterChains[0].TCP) == 1 {
-			return mutable.FilterChains[0].TCP[0]
-		} else if protocol == plugin.ListenerProtocolHTTP && len(mutable.FilterChains[0].HTTP) == 1 {
-			return mutable.FilterChains[0].HTTP[0]
-		}
-	}
-	return nil
-}
-
 // Create pass through filter chains matching ipv4 address and ipv6 address independently.
-func newInboundPassthroughFilterChains(env *model.Environment, node *model.Proxy, push *model.PushContext) []*listener.FilterChain {
+func newInboundPassthroughFilterChains(configgen *ConfigGeneratorImpl,
+	env *model.Environment, node *model.Proxy, push *model.PushContext) []*listener.FilterChain {
 	ipv4, ipv6 := ipv4AndIpv6Support(node)
 	// ipv4 and ipv6 feature detect
 	ipVersions := make([]string, 0, 2)
@@ -468,29 +443,35 @@ func newInboundPassthroughFilterChains(env *model.Environment, node *model.Proxy
 			Name: xdsutil.TCPProxy,
 		}
 
-		isXDSMarshalingToAnyEnabled := util.IsXDSMarshalingToAnyEnabled(node)
-		if isXDSMarshalingToAnyEnabled {
+		if util.IsXDSMarshalingToAnyEnabled(node) {
 			tcpProxyFilter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)}
 		} else {
 			tcpProxyFilter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(tcpProxy)}
 		}
-		filterChain := &listener.FilterChain{
-			FilterChainMatch: &filterChainMatch,
-			Filters: []*listener.Filter{
-				tcpProxyFilter,
+
+		in := &plugin.InputParams{
+			Env:              env,
+			Node:             node,
+			Push:             push,
+			ListenerProtocol: plugin.ListenerProtocolTCP,
+		}
+		mutable := &plugin.MutableObjects{
+			FilterChains: []plugin.FilterChain{
+				{
+					ListenerProtocol: plugin.ListenerProtocolTCP,
+				},
 			},
 		}
-
-		// Insert the RBAC filter to the passthrough filter chain.
-		if filter := createRBACfilter(plugin.ListenerProtocolTCP, env, node, push); filter != nil {
-			if authzFilter, ok := filter.(*listener.Filter); ok {
-				filterChain.Filters = []*listener.Filter{
-					authzFilter,
-					tcpProxyFilter,
-				}
+		for _, p := range configgen.Plugins {
+			if err := p.OnInboundPasssthrough(in, mutable); err != nil {
+				log.Errorf("Build inbound passthrough filter chains error: %v", err)
 			}
 		}
 
+		filterChain := &listener.FilterChain{
+			FilterChainMatch: &filterChainMatch,
+			Filters:          append(mutable.FilterChains[0].TCP, tcpProxyFilter),
+		}
 		insertOriginalListenerName(filterChain, VirtualInboundListenerName)
 		filterChains = append(filterChains, filterChain)
 	}
@@ -525,7 +506,7 @@ func newHTTPPassThroughFilterChain(configgen *ConfigGeneratorImpl, env *model.En
 			Protocol: protocol.HTTP,
 		}
 
-		p := &plugin.InputParams{
+		in := &plugin.InputParams{
 			ListenerProtocol:           plugin.ListenerProtocolHTTP,
 			DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_INBOUND,
 			Env:                        env,
@@ -536,18 +517,21 @@ func newHTTPPassThroughFilterChain(configgen *ConfigGeneratorImpl, env *model.En
 			Bind:                       matchingIP,
 			InboundClusterName:         clusterName,
 		}
-
-		// Insert the RBAC filter to the passthrough filter chain.
-		httpFilters := make([]*http_conn.HttpFilter, 0)
-		if filter := createRBACfilter(plugin.ListenerProtocolHTTP, env, node, push); filter != nil {
-			if authzFilter, ok := filter.(*http_conn.HttpFilter); ok {
-				httpFilters = append(httpFilters, authzFilter)
+		mutable := &plugin.MutableObjects{
+			FilterChains: []plugin.FilterChain{
+				{
+					ListenerProtocol: plugin.ListenerProtocolHTTP,
+				},
+			},
+		}
+		for _, p := range configgen.Plugins {
+			if err := p.OnInboundPasssthrough(in, mutable); err != nil {
+				log.Errorf("Build inbound passthrough filter chains error: %v", err)
 			}
 		}
-
-		httpOpts := configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, p)
+		httpOpts := configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, in)
 		httpOpts.statPrefix = clusterName
-		connectionManager := buildHTTPConnectionManager(node, env, httpOpts, httpFilters)
+		connectionManager := buildHTTPConnectionManager(node, env, httpOpts, mutable.FilterChains[0].HTTP)
 
 		filter := &listener.Filter{
 			Name: xdsutil.HTTPConnectionManager,
