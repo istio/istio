@@ -16,6 +16,7 @@ package schema
 import (
 	"fmt"
 
+	"github.com/hashicorp/go-multierror"
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/meta/schema/collection"
@@ -63,7 +64,13 @@ func (a *ValidationAnalyzer) Analyze(ctx analysis.Context) {
 
 		err := a.s.Validate(name, ns, r.Item)
 		if err != nil {
-			ctx.Report(c, msg.NewSchemaValidationError(r, err))
+			if multiErr, ok := err.(*multierror.Error); ok {
+				for _, err := range multiErr.WrappedErrors() {
+					ctx.Report(c, msg.NewSchemaValidationError(r, err))
+				}
+			} else {
+				ctx.Report(c, msg.NewSchemaValidationError(r, err))
+			}
 		}
 
 		return true
