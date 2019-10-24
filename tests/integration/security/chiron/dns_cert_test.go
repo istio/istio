@@ -38,6 +38,9 @@ const (
 	sidecarInjectorSecretName = "dns.istio-sidecar-injector-service-account"
 	sidecarInjectorDNSName    = "istio-sidecar-injector.istio-system.svc"
 
+	// This example certificate can be generated through
+	// the following command:
+	// kubectl exec -it POD-NAME -n NAMESPACE -- cat /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
 	caCertUpdated = `-----BEGIN CERTIFICATE-----
 MIIDCzCCAfOgAwIBAgIQbfOzhcKTldFipQ1X2WXpHDANBgkqhkiG9w0BAQsFADAv
 MS0wKwYDVQQDEyRhNzU5YzcyZC1lNjcyLTQwMzYtYWMzYy1kYzAxMDBmMTVkNWUw
@@ -57,6 +60,10 @@ xO7AQk5MJcGg6cfE5wWAKU1ATjpK4CN+RTn8v8ODLoI2SW3pfsnXxm93O+pp9HN4
 +O+1PQtNUWhCfh+g6BN2mYo2OEZ8qGSxDlMZej4YOdVkW8PHmFZTK0w9iJKqM5o1
 V6g5gZlqSoRhICK09tpc
 -----END CERTIFICATE-----`
+	// This example certificate can be generated through
+	// the following command:
+	// go run security/tools/generate_cert/main.go -host="istio-galley.istio-system.svc" \
+	// --mode=signer -signer-priv=root.key -signer-cert=root.pem --duration="1s"
 	certExpired = `-----BEGIN CERTIFICATE-----
 MIIDoDCCAoigAwIBAgIQSSLgQiNvMz7M42865LvUADANBgkqhkiG9w0BAQsFADCB
 lDELMAkGA1UEBhMCVVMxCzAJBgNVBAgMAkNBMREwDwYDVQQHDAhTYW4gSm9zZTEQ
@@ -100,9 +107,9 @@ func TestDNSCertificate(t *testing.T) {
 			istioNs := inst.Settings().IstioNamespace
 			env.DeleteSecret(istioNs, galleySecretName)
 			env.DeleteSecret(istioNs, sidecarInjectorSecretName)
-			// Sleep 10 seconds for the certificate regeneration to take place.
-			t.Log(`sleep 10 seconds for the certificate regeneration to take place ...`)
-			time.Sleep(10 * time.Second)
+			// Sleep 5 seconds for the certificate regeneration to take place.
+			t.Log(`sleep 5 seconds for the certificate regeneration to take place ...`)
+			time.Sleep(5 * time.Second)
 			galleySecret = c.WaitForSecretToExistOrFail(t, galleySecretName, secretWaitTime)
 			sidecarInjectorSecret = c.WaitForSecretToExistOrFail(t, sidecarInjectorSecretName, secretWaitTime)
 			t.Log(`checking regenerated Galley DNS certificate is valid`)
@@ -115,9 +122,9 @@ func TestDNSCertificate(t *testing.T) {
 			if _, err := env.GetSecret(istioNs).Update(galleySecret); err != nil {
 				t.Fatalf("failed to update secret (%s:%s), error: %s", istioNs, galleySecret.Name, err)
 			}
-			// Sleep 10 seconds for the certificate rotation to take place.
-			t.Log(`sleep 10 seconds for certificate rotation to take place ...`)
-			time.Sleep(10 * time.Second)
+			// Sleep 5 seconds for the certificate rotation to take place.
+			t.Log(`sleep 5 seconds for certificate rotation to take place ...`)
+			time.Sleep(5 * time.Second)
 			galleySecret2 := c.WaitForSecretToExistOrFail(t, galleySecretName, secretWaitTime)
 			t.Log(`checking rotated Galley DNS certificate is valid`)
 			secret.ExamineDNSSecretOrFail(t, galleySecret2, galleyDNSName)
@@ -131,9 +138,9 @@ func TestDNSCertificate(t *testing.T) {
 			if _, err := env.GetSecret(istioNs).Update(sidecarInjectorSecret); err != nil {
 				t.Fatalf("failed to update secret (%s:%s), error: %s", istioNs, sidecarInjectorSecret.Name, err)
 			}
-			// Sleep 10 seconds for the certificate rotation to take place.
-			t.Log(`sleep 10 seconds for expired certificate rotation to take place ...`)
-			time.Sleep(10 * time.Second)
+			// Sleep 5 seconds for the certificate rotation to take place.
+			t.Log(`sleep 5 seconds for expired certificate rotation to take place ...`)
+			time.Sleep(5 * time.Second)
 			sidecarInjectorSecret2 := c.WaitForSecretToExistOrFail(t, sidecarInjectorSecretName, secretWaitTime)
 			t.Log(`checking rotated Sidecar Injector DNS certificate is valid`)
 			secret.ExamineDNSSecretOrFail(t, sidecarInjectorSecret2, sidecarInjectorDNSName)
