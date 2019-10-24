@@ -15,9 +15,11 @@
 package auth
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"strings"
+	"text/template"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
@@ -97,4 +99,17 @@ func getValidate(ctx *envoy_auth.CommonTlsContext) string {
 		return "none"
 	}
 	return ret
+}
+
+func fillTemplate(config string, data interface{}) (string, error) {
+	tmpl, err := template.New("").Parse(config)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse template: %v", err)
+	}
+	var outString bytes.Buffer
+	err = tmpl.Execute(&outString, data)
+	if err != nil {
+		return "", fmt.Errorf("failed to write template: %v", err)
+	}
+	return outString.String(), nil
 }
