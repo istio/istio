@@ -11,7 +11,7 @@ kind: Kustomization
 resources:
   - clusterrole-12.yaml
   - clusterrolebinding-12.yaml
-  - gen-crds-namespace.yaml
+  - crds-namespace.gen.yaml
   - serviceaccounts-12.yaml
   - istiod.yaml
 

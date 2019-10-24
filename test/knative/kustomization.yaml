@@ -5,7 +5,7 @@ kind: Kustomization
 
 resources:
   - namespace.yaml
-  - gen-istio-ingress.yaml
+  - istio-ingress.gen.yaml
 
 bases:
   - ../../kustomize/minimal

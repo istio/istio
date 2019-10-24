@@ -2,18 +2,18 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-  - gen-citadel.yaml
-  - gen-galley.yaml
-  - gen-pilot.yaml
-  - gen-inject-allns.yaml
-  - gen-ingress.yaml
-  - gen-telemetry.yaml
-  - gen-egress.yaml
-  - gen-prometheus.yaml
-  - gen-grafana.yaml
-  - gen-policy.yaml
-  - gen-tracing.yaml
-  - gen-kiali.yaml
+  - citadel.gen.yaml
+  - galley.gen.yaml
+  - pilot.gen.yaml
+  - inject-allns.gen.yaml
+  - ingress.gen.yaml
+  - telemetry.gen.yaml
+  - egress.gen.yaml
+  - prometheus.gen.yaml
+  - grafana.gen.yaml
+  - policy.gen.yaml
+  - tracing.gen.yaml
+  - kiali.gen.yaml
 
 patchesStrategicMerge:
   - allocation.yaml
