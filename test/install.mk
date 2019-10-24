@@ -16,7 +16,7 @@ run-build:  dep run-build-cluster run-build-demo run-build-micro run-build-minim
 # Kustomization for cluster-wide resources. Must be used as first step ( if old installer was used - this might not be
 # required).
 run-build-cluster:
-	bin/iop istio-system cluster ${BASE}/crds -t > kustomize/cluster/gen-crds-namespace.yaml
+	bin/iop istio-system cluster ${BASE}/crds -t > kustomize/cluster/crds-namespace.gen.yaml
 
 # Micro profile - just pilot and ingress, in a separate namespace.
 # This can be used side-by-side with istio-system. For example knative uses a similar config as ingress while allowing
@@ -30,7 +30,7 @@ run-build-minimal:
 	  --set global.controlPlaneSecurityEnabled=false \
 	  --set pilot.useMCP=false \
 	  --set pilot.ingress.ingressControllerMode=STRICT \
-	  --set pilot.plugins="health" > kustomize/minimal/gen-discovery.yaml
+	  --set pilot.plugins="health" > kustomize/minimal/discovery.gen.yaml
 
 # Generate config for ingress matching minimal profie. Runs in istio-system.
 run-build-ingress:
@@ -38,14 +38,14 @@ run-build-ingress:
 	  --set global.istioNamespace=istio-system \
 	  --set global.k8sIngress.enabled=true \
 	  --set global.controlPlaneSecurityEnabled=false \
-      > kustomize/istio-ingress/gen-istio-ingress.yaml
+      > kustomize/istio-ingress/istio-ingress.gen.yaml
 
 	# Required since we can't yet kustomize the CLI ( need to switch to viper and env first )
 	bin/iop istio-micro istio-ingress ${BASE}/gateways/istio-ingress  -t \
 	  --set global.istioNamespace=istio-micro \
 	  --set global.k8sIngress.enabled=true \
       --set global.controlPlaneSecurityEnabled=false \
-      > test/knative/gen-istio-ingress.yaml
+      > test/knative/istio-ingress.gen.yaml
 
 run-build-citadel:
 	bin/iop ${ISTIO_SYSTEM_NS} istio-system-security ${BASE}/security/citadel -t --set kustomize=true > kustomize/citadel/citadel.yaml
@@ -57,38 +57,38 @@ run-build-canary: run-build-cluster
 	bin/iop ${ISTIO_SYSTEM_NS} pilot-canary istio-control/istio-discovery -t \
     		--set pilot.useMCP=false \
     	  	--set clusterResources=false \
-    		--set version=canary > kustomize/istio-canary/gen-discovery.yaml
+    		--set version=canary > kustomize/istio-canary/discovery.gen.yaml
 
 run-build-default: dep
-	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/security/citadel -t > kustomize/default/gen-istio-citadel.yaml
-	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-control/istio-config  -t > kustomize/default/gen-istio-config.yaml
-	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-control/istio-discovery -t > kustomize/default/gen-istio-discovery.yaml
-	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-control/istio-autoinject  -t > kustomize/default/gen-istio-autoinject.yaml
-	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/gateways/istio-ingress -t > kustomize/default/gen-istio-ingress.yaml
-	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-telemetry/mixer-telemetry -t > kustomize/default/gen-istio-telemetry.yaml
-	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-telemetry/prometheus  -t > kustomize/default/gen-istio-prometheus.yaml
-	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-telemetry/grafana -t > kustomize/default/gen-istio-grafana.yaml
+	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/security/citadel -t > kustomize/default/istio-citadel.gen.yaml
+	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-control/istio-config  -t > kustomize/default/istio-config.gen.yaml
+	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-control/istio-discovery -t > kustomize/default/istio-discovery.gen.yaml
+	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-control/istio-autoinject  -t > kustomize/default/istio-autoinject.gen.yaml
+	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/gateways/istio-ingress -t > kustomize/default/istio-ingress.gen.yaml
+	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-telemetry/mixer-telemetry -t > kustomize/default/istio-telemetry.gen.yaml
+	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-telemetry/prometheus  -t > kustomize/default/istio-prometheus.gen.yaml
+	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-telemetry/grafana -t > kustomize/default/istio-grafana.gen.yaml
 
 DEMO_OPTS="-f test/demo/values.yaml"
 
 # Demo updates the demo profile. After testing it can be checked in - allowing reviewers to see any changes.
 # For backward compat, demo profile uses istio-system.
 run-build-demo: dep
-	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/security/citadel -t ${DEMO_OPTS} > test/demo/gen-citadel.yaml
-	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-control/istio-config -t ${DEMO_OPTS} > test/demo/gen-galley.yaml
-	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-control/istio-discovery -t ${DEMO_OPTS} > test/demo/gen-pilot.yaml
+	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/security/citadel -t ${DEMO_OPTS} > test/demo/citadel.gen.yaml
+	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-control/istio-config -t ${DEMO_OPTS} > test/demo/galley.gen.yaml
+	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-control/istio-discovery -t ${DEMO_OPTS} > test/demo/pilot.gen.yaml
 	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-control/istio-autoinject -t ${DEMO_OPTS} \
-	  --set sidecarInjectorWebhook.enableNamespacesByDefault=${ENABLE_NAMESPACES_BY_DEFAULT} > test/demo/gen-inject-allns.yaml
-	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/gateways/istio-ingress -t ${DEMO_OPTS} > test/demo/gen-ingress.yaml
-	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-telemetry/mixer-telemetry -t ${DEMO_OPTS} > test/demo/gen-telemetry.yaml
+	  --set sidecarInjectorWebhook.enableNamespacesByDefault=${ENABLE_NAMESPACES_BY_DEFAULT} > test/demo/inject-allns.gen.yaml
+	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/gateways/istio-ingress -t ${DEMO_OPTS} > test/demo/ingress.gen.yaml
+	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-telemetry/mixer-telemetry -t ${DEMO_OPTS} > test/demo/telemetry.gen.yaml
 
 	# Extras present only in demo profile
-	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/gateways/istio-egress -t ${DEMO_OPTS} > test/demo/gen-egress.yaml
-	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-telemetry/prometheus -t ${DEMO_OPTS} > test/demo/gen-prometheus.yaml
-	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-telemetry/grafana -t ${DEMO_OPTS} > test/demo/gen-grafana.yaml
-	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-policy -t ${DEMO_OPTS} > test/demo/gen-policy.yaml
-	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-telemetry/kiali -t ${DEMO_OPTS} > test/demo/gen-kiali.yaml
-	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-telemetry/tracing -t ${DEMO_OPTS} > test/demo/gen-tracing.yaml
+	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/gateways/istio-egress -t ${DEMO_OPTS} > test/demo/egress.gen.yaml
+	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-telemetry/prometheus -t ${DEMO_OPTS} > test/demo/prometheus.gen.yaml
+	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-telemetry/grafana -t ${DEMO_OPTS} > test/demo/grafana.gen.yaml
+	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-policy -t ${DEMO_OPTS} > test/demo/policy.gen.yaml
+	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-telemetry/kiali -t ${DEMO_OPTS} > test/demo/kiali.gen.yaml
+	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-telemetry/tracing -t ${DEMO_OPTS} > test/demo/tracing.gen.yaml
 
 install-full: ${TMPDIR} install-crds install-base install-ingress install-telemetry install-policy
 
