@@ -163,6 +163,7 @@ func (s *syntheticVirtualService) generateEntry(domainSuffix string) *resource.E
 	return &resource.Entry{
 		Metadata: meta,
 		Item:     virtualService,
+		Origin:   first.Origin,
 	}
 }
 

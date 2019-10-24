@@ -274,7 +274,7 @@ func (s *Server) WaitStop(stop <-chan struct{}) {
 	}
 }
 
-func (s *Server) Serve(stop <-chan struct{}) error {
+func (s *Server) Serve(stop <-chan struct{}) {
 
 	go func() {
 		if err := s.httpServer.Serve(s.httpListener); err != nil {
@@ -291,8 +291,6 @@ func (s *Server) Serve(stop <-chan struct{}) error {
 			log.Warna(err)
 		}
 	}()
-
-	return nil
 }
 
 // startFunc defines a function that will be used to start one or more components of the Pilot discovery service.

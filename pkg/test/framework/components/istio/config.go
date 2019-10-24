@@ -130,16 +130,15 @@ type Config struct {
 	CustomSidecarInjectorNamespace string
 }
 
-// IsMtlsEnabled checks in Values flag and Values file.
+// Is mtls enabled. Check in Values flag and Values file.
 func (c *Config) IsMtlsEnabled() bool {
-	if c.Values["global.mtls.enabled"] == "true" ||
-		c.Values["global.mtls.auto"] == "true" {
+	if c.Values["global.mtls.enabled"] == "true" {
 		return true
 	}
 
 	data, err := file.AsString(filepath.Join(c.ChartDir, c.ValuesFile))
 	if err != nil {
-		return true
+		return false
 	}
 	m := make(map[interface{}]interface{})
 	err = yaml2.Unmarshal([]byte(data), &m)
@@ -151,14 +150,12 @@ func (c *Config) IsMtlsEnabled() bool {
 		case map[interface{}]interface{}:
 			switch mtlsVal := globalVal["mtls"].(type) {
 			case map[interface{}]interface{}:
-				if !mtlsVal["enabled"].(bool) && !mtlsVal["auto"].(bool) {
-					return false
-				}
+				return mtlsVal["enabled"].(bool)
 			}
 		}
 	}
 
-	return true
+	return false
 }
 
 // DefaultConfig creates a new Config from defaults, environments variables, and command-line parameters.
