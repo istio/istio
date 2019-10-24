@@ -12,7 +12,7 @@ spec:
         sidecar.istio.io/status: '{"version":"unit-test-fake-version","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
-        security.istio.io/mtlsReady: "true"
+        security.istio.io/tlsMode: "istio"
       name: pi
     spec:
       containers:

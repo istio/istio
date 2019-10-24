@@ -100,9 +100,15 @@ var ALPNInMesh = []string{"istio"}
 // ALPNHttp advertises that Proxy is going to talking either http2 or http 1.1.
 var ALPNHttp = []string{"h2", "http/1.1"}
 
-var EndpointMetadataMtlsReady = &pstruct.Struct{
+var EndpointMetadataTlsModeIstio = &pstruct.Struct{
 	Fields: map[string]*pstruct.Value{
-		model.MTLSReadyLabelShortname: {Kind: &pstruct.Value_StringValue{StringValue: "true"}},
+		model.TLSModeLabelShortname: {Kind: &pstruct.Value_StringValue{StringValue: string(model.IstioMutualTLSModeLabel)}},
+	},
+}
+
+var EndpointMetadataTlsModeSimpleNoVerify = &pstruct.Struct{
+	Fields: map[string]*pstruct.Value{
+		model.TLSModeLabelShortname: {Kind: &pstruct.Value_StringValue{StringValue: string(model.SimpleNoVerifyTLSModeLabel)}},
 	},
 }
 
@@ -593,8 +599,8 @@ func HandleCrash(handlers ...func()) {
 }
 
 // BuildLbEndpointMetadata adds metadata values to a lb endpoint
-func BuildLbEndpointMetadata(uid string, network string, mtlsReady bool) *core.Metadata {
-	if uid == "" && network == "" && !mtlsReady {
+func BuildLbEndpointMetadata(uid string, network string, tlsMode model.TLSModeLabelValue) *core.Metadata {
+	if uid == "" && network == "" && tlsMode == model.DisabledTLSModeLabel {
 		return nil
 	}
 
@@ -616,8 +622,11 @@ func BuildLbEndpointMetadata(uid string, network string, mtlsReady bool) *core.M
 		}
 	}
 
-	if mtlsReady {
-		metadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = EndpointMetadataMtlsReady
+	switch tlsMode {
+	case model.SimpleNoVerifyTLSModeLabel:
+		metadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = EndpointMetadataTlsModeSimpleNoVerify
+	case model.IstioMutualTLSModeLabel:
+		metadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = EndpointMetadataTlsModeIstio
 	}
 
 	return metadata

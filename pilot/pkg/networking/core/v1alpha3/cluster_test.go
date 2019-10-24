@@ -313,7 +313,7 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 				Locality:    "region1/zone1/subzone1",
 				LbWeight:    40,
 			},
-			MTLSReady: true,
+			TLSMode: model.IstioMutualTLSModeLabel,
 		},
 		{
 			Service: service,
@@ -324,7 +324,7 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 				Locality:    "region1/zone1/subzone2",
 				LbWeight:    20,
 			},
-			MTLSReady: true,
+			TLSMode: model.IstioMutualTLSModeLabel,
 		},
 		{
 			Service: service,
@@ -335,7 +335,7 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 				Locality:    "region2/zone1/subzone1",
 				LbWeight:    40,
 			},
-			MTLSReady: true,
+			TLSMode: model.IstioMutualTLSModeLabel,
 		},
 		{
 			Service: service,
@@ -346,7 +346,7 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 				Locality:    "region1/zone1/subzone1",
 				LbWeight:    0,
 			},
-			MTLSReady: true,
+			TLSMode: model.IstioMutualTLSModeLabel,
 		},
 	}
 
@@ -1786,7 +1786,7 @@ func TestAutoMTLSClusterStrictMode(t *testing.T) {
 
 	// For port 8080, (m)TLS settings is automatically added, thus its cluster should have TLS context.
 	g.Expect(clusters[0].TlsContext).To(BeNil())
-	g.Expect(clusters[0].TransportSocketMatches).To(HaveLen(2))
+	g.Expect(clusters[0].TransportSocketMatches).To(HaveLen(3))
 
 	// For 9090, use the TLS settings are explicitly specified in DR (which disable TLS)
 	g.Expect(clusters[1].TlsContext).To(BeNil())
@@ -1888,7 +1888,7 @@ func TestAutoMTLSClusterPerPortStrictMode(t *testing.T) {
 
 	// For port 8080, (m)TLS settings is automatically added, thus its cluster should have TLS context.
 	g.Expect(clusters[0].TlsContext).To(BeNil())
-	g.Expect(clusters[0].TransportSocketMatches).To(HaveLen(2))
+	g.Expect(clusters[0].TransportSocketMatches).To(HaveLen(3))
 
 	// For 9090, authn policy disable mTLS, so it should not have TLS context.
 	g.Expect(clusters[1].TlsContext).To(BeNil())

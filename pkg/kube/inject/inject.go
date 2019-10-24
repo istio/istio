@@ -848,11 +848,11 @@ func IntoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 	}
 
 	metadata.Annotations[annotation.SidecarStatus.Name] = status
-	if status != "" && metadata.Labels[model.MTLSReadyLabelName] == "" {
+	if status != "" && metadata.Labels[model.TLSModeLabelName] == "" {
 		if metadata.Labels == nil {
 			metadata.Labels = make(map[string]string)
 		}
-		metadata.Labels[model.MTLSReadyLabelName] = "true"
+		metadata.Labels[model.TLSModeLabelName] = "true"
 	}
 
 	return out, nil

@@ -175,12 +175,12 @@ func SecureNamingSAN(pod *coreV1.Pod) string {
 	return spiffe.MustGenSpiffeURI(pod.Namespace, pod.Spec.ServiceAccountName)
 }
 
-// PodMTLSReady returns true if pod has been injected with sidecar and ready to configure Istio mTLS
-func PodMTLSReady(pod *coreV1.Pod) bool {
+// PodTLSMode returns the tls mode associated with the pod if pod has been injected with sidecar
+func PodTLSMode(pod *coreV1.Pod) model.TLSModeLabelValue {
 	if pod == nil {
-		return false
+		return model.DisabledTLSModeLabel
 	}
-	return pod.Labels[model.MTLSReadyLabelName] == "true"
+	return model.GetTLSModeFromEndpointLabels(pod.Labels)
 }
 
 // KeyFunc is the internal API key function that returns "namespace"/"name" or
