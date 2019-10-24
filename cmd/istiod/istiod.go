@@ -25,13 +25,6 @@ import (
 
 	"istio.io/istio/pkg/istiod"
 	"istio.io/istio/pkg/istiod/k8s"
-	"istio.io/pkg/env"
-)
-
-var (
-	// TODO: should it default to $HOME ? Or /var/lib/istio ?
-	istioHome = env.RegisterStringVar("ISTIO_HOME", "",
-		"Base directory for istio configs. If not set, defaults to current working directory.")
 )
 
 // Istio control plane with K8S support.

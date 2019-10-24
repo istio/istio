@@ -155,7 +155,7 @@ func New(cfg Config) (Instance, error) {
 
 	// Extract the admin port from the configuration.
 	adminPort := cfg.AdminPort
-	if adminPort <= 0 {
+	if adminPort == 0 {
 		var err error
 		adminPort, err = ctx.getAdminPort()
 		if err != nil {
