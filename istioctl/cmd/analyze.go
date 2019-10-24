@@ -117,15 +117,35 @@ istioctl experimental analyze -k -d false
 				}
 			}
 
-			messages, err := sa.Analyze(cancel)
+			result, err := sa.Analyze(cancel)
 			if err != nil {
 				return err
 			}
 
-			for _, m := range messages {
-				fmt.Fprintf(cmd.OutOrStdout(), "%v\n", m.String())
+			// Maybe output details about which analyzers ran
+			if verbose {
+				if len(result.SkippedAnalyzers) > 0 {
+					fmt.Fprintln(cmd.ErrOrStderr(), "Skipped analyzers:")
+					for _, a := range result.SkippedAnalyzers {
+						fmt.Fprintln(cmd.ErrOrStderr(), "\t", a)
+					}
+				}
+				if len(result.ExecutedAnalyzers) > 0 {
+					fmt.Fprintln(cmd.ErrOrStderr(), "Executed analyzers:")
+					for _, a := range result.ExecutedAnalyzers {
+						fmt.Fprintln(cmd.ErrOrStderr(), "\t", a)
+					}
+				}
+				fmt.Fprintln(cmd.ErrOrStderr())
 			}
 
+			if len(result.Messages) == 0 {
+				fmt.Fprintln(cmd.ErrOrStderr(), "\u2714 No validation issues found.")
+			} else {
+				for _, m := range result.Messages {
+					fmt.Fprintln(cmd.OutOrStdout(), m.String())
+				}
+			}
 			return nil
 		},
 	}
@@ -136,7 +156,7 @@ istioctl experimental analyze -k -d false
 		"'true' to enable service discovery, 'false' to disable it. "+
 			"Defaults to true if --use-kube is set, false otherwise. "+
 			"Analyzers requiring resources made available by enabling service discovery will be skipped.")
-
+	analysisCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
 	return analysisCmd
 }
 
