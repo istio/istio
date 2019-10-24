@@ -25,10 +25,121 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/tmpl"
+	"istio.io/istio/tests/common/jwt"
 	"istio.io/istio/tests/integration/security/util"
 	"istio.io/istio/tests/integration/security/util/connection"
 	rbacUtil "istio.io/istio/tests/integration/security/util/rbac_util"
 )
+
+// TestV1beta1_mTLS tests v1beta1 authorization with mTLS.
+func TestV1beta1_mTLS(t *testing.T) {
+	framework.NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		Run(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "v1beta1-mtls-ns1",
+				Inject: true,
+			})
+			ns2 := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "v1beta1-mtls-ns2",
+				Inject: true,
+			})
+
+			var a, b, c echo.Instance
+			echoboot.NewBuilderOrFail(t, ctx).
+				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
+				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
+				With(&c, util.EchoConfig("c", ns2, false, nil, g, p)).
+				BuildOrFail(t)
+
+			newTestCase := func(from echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
+				return rbacUtil.TestCase{
+					Request: connection.Checker{
+						From: from,
+						Options: echo.CallOptions{
+							Target:   b,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     path,
+						},
+					},
+					ExpectAllowed: expectAllowed,
+				}
+			}
+			cases := []rbacUtil.TestCase{
+				newTestCase(a, "/principal-a", true),
+				newTestCase(a, "/namespace-2", false),
+				newTestCase(c, "/principal-a", false),
+				newTestCase(c, "/namespace-2", true),
+			}
+
+			args := map[string]string{
+				"Namespace":  ns.Name(),
+				"Namespace2": ns2.Name(),
+			}
+			policies := tmpl.EvaluateAllOrFail(t, args,
+				file.AsStringOrFail(t, "testdata/rbac/v1beta1-mtls.yaml.tmpl"))
+
+			g.ApplyConfigOrFail(t, ns, policies...)
+			defer g.DeleteConfigOrFail(t, ns, policies...)
+
+			rbacUtil.RunRBACTest(t, cases)
+		})
+}
+
+// TestV1beta1_JWT tests v1beta1 authorization with JWT token claims.
+func TestV1beta1_JWT(t *testing.T) {
+	framework.NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		Run(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "v1beta1-jwt",
+				Inject: true,
+			})
+
+			var a, b echo.Instance
+			echoboot.NewBuilderOrFail(t, ctx).
+				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
+				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
+				BuildOrFail(t)
+
+			newTestCase := func(namePrefix string, jwt string, path string, expectAllowed bool) rbacUtil.TestCase {
+				return rbacUtil.TestCase{
+					NamePrefix: namePrefix,
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   b,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     path,
+						},
+					},
+					Jwt:           jwt,
+					ExpectAllowed: expectAllowed,
+				}
+			}
+			cases := []rbacUtil.TestCase{
+				newTestCase("[NoJWT]", "", "/token1", false),
+				newTestCase("[NoJWT]", "", "/token2", false),
+				newTestCase("[Token1]", jwt.TokenIssuer1, "/token1", true),
+				newTestCase("[Token1]", jwt.TokenIssuer1, "/token2", false),
+				newTestCase("[Token2]", jwt.TokenIssuer2, "/token1", false),
+				newTestCase("[Token2]", jwt.TokenIssuer2, "/token2", true),
+			}
+
+			args := map[string]string{
+				"Namespace": ns.Name(),
+			}
+			policies := tmpl.EvaluateAllOrFail(t, args,
+				file.AsStringOrFail(t, "testdata/rbac/v1beta1-jwt.yaml.tmpl"))
+
+			g.ApplyConfigOrFail(t, ns, policies...)
+			defer g.DeleteConfigOrFail(t, ns, policies...)
+
+			rbacUtil.RunRBACTest(t, cases)
+		})
+}
 
 // TestV1beta1_OverrideV1alpha1 tests v1beta1 authorization overrides the v1alpha1 RBAC policy for
 // a given workload.
