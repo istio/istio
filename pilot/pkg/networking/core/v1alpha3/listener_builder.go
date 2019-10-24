@@ -463,7 +463,7 @@ func newInboundPassthroughFilterChains(configgen *ConfigGeneratorImpl,
 			},
 		}
 		for _, p := range configgen.Plugins {
-			if err := p.OnInboundPasssthrough(in, mutable); err != nil {
+			if err := p.OnInboundPassthrough(in, mutable); err != nil {
 				log.Errorf("Build inbound passthrough filter chains error: %v", err)
 			}
 		}
@@ -525,7 +525,7 @@ func newHTTPPassThroughFilterChain(configgen *ConfigGeneratorImpl, env *model.En
 			},
 		}
 		for _, p := range configgen.Plugins {
-			if err := p.OnInboundPasssthrough(in, mutable); err != nil {
+			if err := p.OnInboundPassthrough(in, mutable); err != nil {
 				log.Errorf("Build inbound passthrough filter chains error: %v", err)
 			}
 		}

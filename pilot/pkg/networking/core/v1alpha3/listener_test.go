@@ -1485,7 +1485,7 @@ func (p *fakePlugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.Filt
 	return []plugin.FilterChain{{}, {}}
 }
 
-func (p *fakePlugin) OnInboundPasssthrough(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+func (p *fakePlugin) OnInboundPassthrough(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 	switch in.ListenerProtocol {
 	case plugin.ListenerProtocolTCP:
 		for cnum := range mutable.FilterChains {
