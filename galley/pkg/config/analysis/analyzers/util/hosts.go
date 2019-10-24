@@ -48,11 +48,12 @@ func getNamespaceAndNameFromFQDN(fqdn string) (string, string) {
 
 // GetScopedFqdnHostname converts the passed host to FQDN if needed and applies the passed scope.
 func GetScopedFqdnHostname(scope, namespace, host string) ScopedFqdn {
-	name := convertHostToFQDN(namespace, host)
+	name := ConvertHostToFQDN(namespace, host)
 	return ScopedFqdn(scope + "/" + name)
 }
 
-func convertHostToFQDN(namespace, host string) string {
+// ConvertHostToFQDN returns the given host as a FQDN, if it isn't already.
+func ConvertHostToFQDN(namespace, host string) string {
 	fqdn := host
 	// Convert to FQDN only if host is not a wildcard or a FQDN
 	if !strings.HasPrefix(host, "*") &&
