@@ -55,7 +55,7 @@ func buildInboundNetworkFilters(env *model.Environment, node *model.Proxy, insta
 }
 
 // setAccessLog sets the AccessLog configuration in the given TcpProxy instance.
-func setAccessLog(env *model.Environment, node *model.Proxy, config *tcp_proxy.TcpProxy){
+func setAccessLog(env *model.Environment, node *model.Proxy, config *tcp_proxy.TcpProxy) {
 	if env.Mesh.AccessLogFile != "" {
 		fl := &accesslogconfig.FileAccessLog{
 			Path: env.Mesh.AccessLogFile,

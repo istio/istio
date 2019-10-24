@@ -16,6 +16,6 @@
 
 if [[ -n $(git status --porcelain) ]]; then
     git status
-  	echo "ERROR: Some files need to be updated, please run make and include any changed files in your PR"
+  	echo "ERROR: Some files need to be updated, please run 'make gen' and include any changed files in your PR"
   	exit 1
 fi

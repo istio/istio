@@ -32,23 +32,23 @@ run:
 linters:
   enable-all: true
   disable:
+    - bodyclose
     - depguard
+    - dogsled
     - dupl
+    - funlen
     - gochecknoglobals
     - gochecknoinits
+    - gocognit
     - goconst
     - gocyclo
+    - godox
     - gosec
     - nakedret
     - prealloc
     - scopelint
-    - funlen
-    - bodyclose
-    - godox
-    - gocognit
     - whitespace
     - wsl
-    - dogsled
   fast: false
 
 linters-settings:
