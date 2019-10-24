@@ -85,7 +85,7 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, l *logger) {
 		if err := os.MkdirAll(mgArgs.outFilename, os.ModePerm); err != nil {
 			l.logAndFatal(err.Error())
 		}
-		if err := manifest.RenderToDir(manifests, mgArgs.outFilename, args.dryRun, args.verbose); err != nil {
+		if err := manifest.RenderToDir(manifests, mgArgs.outFilename, args.dryRun); err != nil {
 			l.logAndFatal(err.Error())
 		}
 	}

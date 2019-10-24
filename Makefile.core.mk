@@ -37,16 +37,13 @@ test_with_coverage:
 mandiff: update-charts
 	@scripts/run_mandiff.sh
 
-fmt: format-go tidy
+fmt: format-go tidy-go
 
-gen: generate-values generate-types generate-vfs
+gen: generate-values generate-types generate-vfs tidy-go mirror-licenses
 
-gen-check: clean gen check-clean-repo tidy
+gen-check: clean gen check-clean-repo
 
 clean: clean-values clean-types clean-vfs clean-charts
-
-tidy:
-	@go mod tidy
 
 update-charts: installer.sha
 	@scripts/run_update_charts.sh `cat installer.sha`
