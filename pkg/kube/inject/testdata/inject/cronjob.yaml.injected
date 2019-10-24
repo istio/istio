@@ -13,7 +13,7 @@ spec:
         traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
       creationTimestamp: null
       labels:
-        security.istio.io/mtlsReady: "true"
+        security.istio.io/tlsMode: "istio"
     spec:
       template:
         metadata:
