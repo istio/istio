@@ -7,6 +7,7 @@ import (
 	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
 	gca "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
+	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
 	"os"
 	"strings"
 	"time"
@@ -39,7 +40,7 @@ import (
 var (
 	caProviderEnv = env.RegisterStringVar(caProvider, "Citadel", "").Get()
 	// TODO: default to same as discovery address
-	caEndpointEnv = env.RegisterStringVar(caEndpoint, "localhost:15010", "").Get()
+	caEndpointEnv = env.RegisterStringVar(caEndpoint, "", "").Get()
 
 	pluginNamesEnv             = env.RegisterStringVar(pluginNames, "", "").Get()
 	enableIngressGatewaySDSEnv = env.RegisterBoolVar(enableIngressGatewaySDS, false, "").Get()
@@ -147,7 +148,7 @@ func DetectSDS(discAddr string, tlsRequired bool) *AgentConf {
 	if _, err := os.Stat(HostSDSUDS); err == nil {
 		ac.SDSAddress = HostSDSUDS
 	}
-	if _, err := os.Stat("/etc/certsx/key.pem"); err == nil {
+	if _, err := os.Stat("/etc/certs/key.pem"); err == nil {
 		ac.CertsPath = "/etc/certs"
 	}
 	if tlsRequired {
@@ -157,7 +158,8 @@ func DetectSDS(discAddr string, tlsRequired bool) *AgentConf {
 	return ac
 }
 
-// Simplified SDS setup.
+// Simplified SDS setup. This is called if and only if user has explicitly mounted a K8S JWT token, and is not
+// using a hostPath mounted or external SDS server.
 //
 // 1. External CA: requires authenticating the trusted JWT AND validating the SAN against the JWT.
 //    For example Google CA
@@ -183,45 +185,50 @@ func StartSDS(conf *AgentConf, isSidecar bool) (*sds.Server, error) {
 		serverOptions.EnableIngressGatewaySDS = true
 		// TODO: what is the setting for ingress ?
 		serverOptions.IngressGatewayUDSPath = serverOptions.WorkloadUDSPath + "_ROUTER"
-		gatewaySecretCache, _ = newSecretCache(serverOptions)
+		gatewaySecretCache = newIngressSecretCache(serverOptions)
 	}
 
 	// For sidecar and ingress we need to first get the certificates for the workload.
 	// We'll also save them in files, for backward compat with servers generating files
 	// TODO: use caClient.CSRSign() directly
-	if conf.CertsPath == "" {
-		tok, err := ioutil.ReadFile(conf.JWTPath)
-		if err != nil && conf.RequireCerts {
-			log.Fatala("Failed to read token", err)
-		} else {
-			si, err := workloadSecretCache.GenerateSecret(context.Background(), "bootstrap", "default",
-				string(tok))
-			if err != nil {
-				if conf.RequireCerts {
-					log.Fatala("Failed to get certificates", err)
-				} else {
-					log.Warna("Failed to get certificate from CA", err)
-				}
+
+	// fail hard if we need certs ( control plane security enabled ) and we don't have mounted certs and
+	// we fail to load SDS
+	fail := conf.RequireCerts && conf.CertsPath == ""
+
+	tok, err := ioutil.ReadFile(conf.JWTPath)
+	if err != nil && fail {
+		log.Fatala("Failed to read token", err)
+	} else {
+		si, err := workloadSecretCache.GenerateSecret(context.Background(), "bootstrap", "default",
+			string(tok))
+		if err != nil {
+			if fail {
+				log.Fatala("Failed to get certificates", err)
+			} else {
+				log.Warna("Failed to get certificate from CA", err)
 			}
-			if si != nil {
-				// For debugging and backward compat - we may not need it long term
-				ioutil.WriteFile("/etc/istio/proxy/key.pem", si.PrivateKey, 0700)
-				ioutil.WriteFile("/etc/istio/proxy/cert-chain.pem", si.CertificateChain, 0700)
-				//ioutil.WriteFile("/etc/istio/proxy/root-cert.pem", si.RootCert, 0700)
+		}
+		if si != nil {
+			// For debugging and backward compat - we may not need it long term
+			ioutil.WriteFile("/etc/istio/proxy/key.pem", si.PrivateKey, 0700)
+			ioutil.WriteFile("/etc/istio/proxy/cert-chain.pem", si.CertificateChain, 0700)
+			//ioutil.WriteFile("/etc/istio/proxy/root-cert.pem", si.RootCert, 0700)
+		}
+		sir, err := workloadSecretCache.GenerateSecret(context.Background(), "bootstrap", "ROOTCA",
+			string(tok))
+		if err != nil {
+			if fail {
+				log.Fatala("Failed to get certificates", err)
+			} else {
+				log.Warna("Failed to get certificate from CA", err)
 			}
-			sir, err := workloadSecretCache.GenerateSecret(context.Background(), "bootstrap", "ROOTCA",
-				string(tok))
-			if err != nil {
-				if conf.RequireCerts {
-					log.Fatala("Failed to get certificates", err)
-				} else {
-					log.Warna("Failed to get certificate from CA", err)
-				}
-			}
-			if sir != nil {
-				// For debugging and backward compat - we may not need it long term
-				ioutil.WriteFile("/etc/istio/proxy/root-cert.pem", sir.RootCert, 0700)
-			}
+		}
+		if sir != nil {
+			// For debugging and backward compat - we may not need it long term
+			// TODO: we should concatenate this file with the existing root-cert and possibly pilot-generated roots, for
+			// smooth transition across CAs.
+			ioutil.WriteFile("/etc/istio/proxy/root-cert.pem", sir.RootCert, 0700)
 		}
 	}
 
@@ -244,11 +251,70 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 
 	var err error
 
-	if "GoogleCA" == serverOptions.CAProviderName || strings.Contains(serverOptions.CAEndpoint, "googleapis.com") {
+	// TODO: this should all be packaged in a plugin, possibly with optional compilation.
+
+	if ("GoogleCA" == serverOptions.CAProviderName || strings.Contains(serverOptions.CAEndpoint, "googleapis.com")) &&
+		stsclient.GKEClusterURL != "" {
+		// Use a plugin to an external CA - this has direct support for the K8S JWT token
+		// This is only used if the proper env variables are injected - otherwise the existing Citadel or Istiod will be
+		// used.
 		caClient, err = gca.NewGoogleCAClient(serverOptions.CAEndpoint, true)
 		serverOptions.PluginNames = []string{"GoogleTokenExchange"}
 	} else {
-		caClient, err = citadel.NewCitadelClient(serverOptions.CAEndpoint, false, nil) // true, rootCert)
+		// Determine the default CA.
+		// If /etc/certs exists - it means Citadel is used (possibly in a mode to only provision the root-cert, not keys)
+		// Otherwise: default to istiod
+		//
+		// If an explicit CA is configured, assume it is mounting /etc/certs
+		var rootCert []byte
+		rootCertFile := ""
+		citadelRoot := "/etc/certs/root-cert.pem"
+		explicitSecret := false
+		if _, err := os.Stat(citadelRoot); err == nil {
+			rootCert, err = ioutil.ReadFile(rootCertFile)
+			if err != nil {
+				log.Warna("Failed to load existing citadel root", err)
+			} else {
+				rootCertFile = citadelRoot
+				explicitSecret = true
+			}
+		}
+
+		tls := true
+
+		if serverOptions.CAEndpoint == "" {
+			// Determine the default address, based on the presence of Citadel secrets
+			if explicitSecret {
+				log.Info("Using citadel CA for SDS")
+				serverOptions.CAEndpoint = "istio-citadel.istio-system:8060"
+			} else {
+				rootCertFile = "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+				rootCert, err = ioutil.ReadFile(rootCertFile)
+				if err != nil {
+					log.Warna("Failed to load K8S cert, assume IP secure network ", err)
+					serverOptions.CAEndpoint = "istiod.istio-system:15010"
+				} else {
+					log.Info("Using default istiod CA, with K8S certificates for SDS")
+					serverOptions.CAEndpoint = "istiod.istio-system:15012"
+				}
+			}
+		} else {
+			// Explicitly configured CA
+			log.Infoa("Using user-configured CA", serverOptions.CAEndpoint)
+			if strings.HasSuffix(serverOptions.CAEndpoint, ":15010") {
+				log.Warna("Debug mode or IP-secure network")
+				tls = false
+			}
+			if strings.HasSuffix(serverOptions.CAEndpoint, ":15012") {
+				rootCertFile = "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+				rootCert, err = ioutil.ReadFile(rootCertFile)
+			}
+		}
+
+		// Will use TLS unless the reserved 15010 port is used ( istiod on an ipsec/secure VPC)
+		// rootCert may be nil - in which case the system roots are used, and the CA is expected to have public key
+		// Otherwise assume the injection has mounted /etc/certs/root-cert.pem
+		caClient, err = citadel.NewCitadelClient(serverOptions.CAEndpoint, tls, rootCert)
 	}
 
 	if err != nil {

@@ -17,6 +17,7 @@ package main
 import (
 	"io/ioutil"
 	"os"
+	"time"
 
 	"istio.io/pkg/log"
 
@@ -98,7 +99,7 @@ func main() {
 	// Options based on the current 'defaults' in istio.
 	// If adjustments are needed - env or mesh.config ( if of general interest ).
 
-	istiod.RunCA(istiods.GrpcServer, client, &istiod.CAOptions{
+	istiod.RunCA(istiods.SecureGRPCServer, client, &istiod.CAOptions{
 		TrustDomain: istiods.Mesh.TrustDomain,
 		DualUse: true,
 		SelfSignedCA: true, // for existing CA - mount a secret in the expected location

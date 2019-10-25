@@ -34,7 +34,7 @@ import (
 
 var (
 	secureTokenEndpoint = "https://securetoken.googleapis.com/v1/identitybindingtoken"
-	gkeClusterURL       = env.RegisterStringVar("GKE_CLUSTER_URL", "", "The url of GKE cluster").Get()
+	GKEClusterURL       = env.RegisterStringVar("GKE_CLUSTER_URL", "", "The url of GKE cluster").Get()
 	stsClientLog        = log.RegisterScope("stsClientLog", "STS client debugging", 0)
 )
 
@@ -108,11 +108,11 @@ func (p Plugin) ExchangeToken(ctx context.Context, trustDomain, k8sSAjwt string)
 }
 
 func constructAudience(trustDomain string) string {
-	if gkeClusterURL == "" {
+	if GKEClusterURL == "" {
 		return trustDomain
 	}
 
-	return fmt.Sprintf("identitynamespace:%s:%s", trustDomain, gkeClusterURL)
+	return fmt.Sprintf("identitynamespace:%s:%s", trustDomain, GKEClusterURL)
 }
 
 func constructFederatedTokenRequest(aud, jwt string) []byte {
