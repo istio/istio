@@ -52,8 +52,6 @@ spec:
         - NONE
         - --statusPort
         - "15020"
-        - --applicationPorts
-        - ""
         - --concurrency
         - "2"
         env:
@@ -91,7 +89,6 @@ spec:
           value: "false"
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
-        - name: ISTIO_META_INCLUDE_INBOUND_PORTS
         - name: ISTIO_META_WORKLOAD_NAME
           value: pi
         - name: ISTIO_META_OWNER

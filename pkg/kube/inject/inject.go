@@ -79,7 +79,6 @@ var (
 		annotation.SidecarStatusReadinessInitialDelaySeconds.Name: validateUInt32,
 		annotation.SidecarStatusReadinessPeriodSeconds.Name:       validateUInt32,
 		annotation.SidecarStatusReadinessFailureThreshold.Name:    validateUInt32,
-		annotation.SidecarStatusReadinessApplicationPorts.Name:    validateReadinessApplicationPorts,
 		annotation.SidecarTrafficIncludeOutboundIPRanges.Name:     ValidateIncludeIPRanges,
 		annotation.SidecarTrafficExcludeOutboundIPRanges.Name:     ValidateExcludeIPRanges,
 		annotation.SidecarTrafficIncludeInboundPorts.Name:         ValidateIncludeInboundPorts,
@@ -356,13 +355,6 @@ func ValidateExcludeIPRanges(ipRanges string) error {
 	return nil
 }
 
-func validateReadinessApplicationPorts(ports string) error {
-	if ports != "*" {
-		return validatePortList("readinessApplicationPorts", ports)
-	}
-	return nil
-}
-
 // ValidateIncludeInboundPorts validates the includeInboundPorts parameter
 func ValidateIncludeInboundPorts(ports string) error {
 	if ports != "*" {
@@ -565,7 +557,6 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *
 		"excludeInboundPort":  excludeInboundPort,
 		"includeInboundPorts": includeInboundPorts,
 		"kubevirtInterfaces":  kubevirtInterfaces,
-		"applicationPorts":    applicationPorts,
 		"annotation":          getAnnotation,
 		"valueOrDefault":      valueOrDefault,
 		"toJSON":              toJSON,
@@ -879,12 +870,6 @@ func getContainerPorts(containers []corev1.Container, shouldIncludePorts func(co
 	}
 
 	return strings.Join(parts, ",")
-}
-
-func applicationPorts(containers []corev1.Container) string {
-	return getContainerPorts(containers, func(c corev1.Container) bool {
-		return c.Name != ProxyContainerName
-	})
 }
 
 func includeInboundPorts(containers []corev1.Container) string {

@@ -1,4 +1,4 @@
- [
+[
   {
     "op": "add",
     "path": "/spec/initContainers/-",
