@@ -50,14 +50,15 @@ else
     $(error This system's OS $(LOCAL_OS) isn't supported)
 endif
 
-export TARGET_OUT ?= $(shell pwd)/out/$(TARGET_ARCH)_$(TARGET_OS)
+export TARGET_OUT ?= $(shell pwd)/out/$(TARGET_OS)_$(TARGET_ARCH)
 
 ifeq ($(BUILD_WITH_CONTAINER),1)
-export TARGET_OUT = /work/out/$(TARGET_ARCH)_$(TARGET_OS)
+export TARGET_OUT = /work/out/$(TARGET_OS)_$(TARGET_ARCH)
 CONTAINER_CLI ?= docker
 DOCKER_SOCKET_MOUNT ?= -v /var/run/docker.sock:/var/run/docker.sock
-IMG ?= gcr.io/istio-testing/build-tools:2019-10-09T18-20-54
+IMG ?= gcr.io/istio-testing/build-tools:2019-10-24T14-05-17
 UID = $(shell id -u)
+GID = `grep docker /etc/group | cut -f3 -d:`
 PWD = $(shell pwd)
 
 $(info Building with the build container: $(IMG).)
@@ -67,24 +68,35 @@ $(info Building with the build container: $(IMG).)
 # the path of the file.
 TIMEZONE=`readlink $(READLINK_FLAGS) /etc/localtime | sed -e 's/^.*zoneinfo\///'`
 
-RUN = $(CONTAINER_CLI) run --net=host -t -i --sig-proxy=true -u $(UID):docker --rm \
+# Determine the docker.push credential bind mounts.
+# Docker and GCR are supported credentials. At this time docker.push may
+# not work well on Docker-For-Mac. This will be handled in a follow-up PR.
+DOCKER_CREDS_MOUNT:=
+ifneq (,$(wildcard $(HOME)/.docker))
+$(info Using docker credential directory $(HOME)/.docker.)
+DOCKER_CREDS_MOUNT+=--mount type=bind,source="$(HOME)/.docker",destination="/config/.docker",readonly
+endif
+ifneq (,$(wildcard $(HOME)/.config/gcloud))
+$(info Using gcr credential directory $(HOME)/.config/gcloud.)
+DOCKER_CREDS_MOUNT+=--mount type=bind,source="$(HOME)/.config/gcloud",destination="/config/.config/gcloud",readonly
+endif
+
+RUN = $(CONTAINER_CLI) run -t -i --sig-proxy=true -u $(UID):$(GID) --rm \
 	-e IN_BUILD_CONTAINER="$(BUILD_WITH_CONTAINER)" \
 	-e TZ="$(TIMEZONE)" \
 	-e TARGET_ARCH="$(TARGET_ARCH)" \
 	-e TARGET_OS="$(TARGET_OS)" \
 	-e TARGET_OUT="$(TARGET_OUT)" \
+	-e HUB="$(HUB)" \
+	-e TAG="$(TAG)" \
 	-v /etc/passwd:/etc/passwd:ro \
 	$(DOCKER_SOCKET_MOUNT) \
 	$(CONTAINER_OPTIONS) \
 	--mount type=bind,source="$(PWD)",destination="/work" \
 	--mount type=volume,source=go,destination="/go" \
 	--mount type=volume,source=gocache,destination="/gocache" \
+	$(DOCKER_CREDS_MOUNT) \
 	-w /work $(IMG)
-else
-$(info Building with your local toolchain.)
-RUN =
-GOBIN ?= $(GOPATH)/bin
-endif
 
 MAKE = $(RUN) make --no-print-directory -e -f Makefile.core.mk
 
@@ -95,3 +107,11 @@ default:
 	@$(MAKE)
 
 .PHONY: default
+
+else
+
+$(info Building with your local toolchain.)
+GOBIN ?= $(GOPATH)/bin
+include Makefile.core.mk
+
+endif
