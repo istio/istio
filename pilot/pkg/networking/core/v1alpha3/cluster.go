@@ -79,9 +79,20 @@ var (
 
 	defaultDestinationRule = networking.DestinationRule{}
 
-	plaintextTransportSocketMatch = &apiv2.Cluster_TransportSocketMatch{
-		Name:  "plaintext",
+	plaintextTransportSocketMatchNoLabel = &apiv2.Cluster_TransportSocketMatch{
+		Name:  "plaintext-nolabel",
 		Match: &structpb.Struct{},
+		TransportSocket: &core.TransportSocket{
+			Name: util.EnvoyRawBufferSocketName,
+		},
+	}
+	plaintextTransportSocketMatchDisabledLabel = &apiv2.Cluster_TransportSocketMatch{
+		Name: "plaintext-disabled-label",
+		Match: &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				model.TLSModeLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: string(model.DisabledTLSModeLabel)}},
+			},
+		},
 		TransportSocket: &core.TransportSocket{
 			Name: util.EnvoyRawBufferSocketName,
 		},
@@ -1238,7 +1249,8 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.TLSSetting
 					},
 				},
 			},
-			plaintextTransportSocketMatch,
+			plaintextTransportSocketMatchDisabledLabel,
+			plaintextTransportSocketMatchNoLabel,
 		}
 	}
 }
