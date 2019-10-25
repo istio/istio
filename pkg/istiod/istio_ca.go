@@ -117,7 +117,7 @@ func RunCA(grpc *grpc.Server, cs kubernetes.Interface, opts *CAOptions) {
 
 		// The CA API uses cert with the max workload cert TTL.
 		hostnames := append(strings.Split(opts.grpcHosts, ","), fqdn(opts))
-		caServer, startErr := caserver.NewIstiod(grpc, ca, opts.MaxWorkloadCertTTL,
+		caServer, startErr := caserver.NewWithGRPC(grpc, ca, opts.MaxWorkloadCertTTL,
 			opts.signCACerts, hostnames, 0, spiffe.GetTrustDomain(),
 			true)
 		if startErr != nil {

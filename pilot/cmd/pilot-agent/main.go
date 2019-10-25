@@ -38,7 +38,6 @@ import (
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 
-	istio_agent "github.com/costinm/istiod/pkg/istio-agent"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -51,15 +50,12 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/envoy"
+	istio_agent "istio.io/istio/pkg/istio-agent"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 
 // TODO: Move most of this to pkg.
-
-// Istio-agent requires recent K8S with JWT support. This is used to authenticate with control plane
-// and get certificates.
-const trustworthyJWTPath = "/var/run/secrets/tokens/istio-token"
 
 var (
 	role          = &model.Proxy{}
@@ -344,22 +340,18 @@ var (
 				log.Infof("Effective config: %s", out)
 			}
 
-			sdsUDSPath := sdsUdsPathVar.Get()
-			sdsEnabled := true
-			sdsTokenPath := ""
-			sdsEnabled, sdsTokenPath = detectSds(controlPlaneBootstrap, sdsUDSPath, trustworthyJWTPath)
+			sa := istio_agent.DetectSDS(discoveryAddress, controlPlaneAuthEnabled)
+			// If user injected a JWT token for SDS - use SDS.
+			sdsEnabled := sa.JWTPath != ""
+			sdsTokenPath := sa.JWTPath
 
-			if !sdsEnabled {
-				// Not using the hostpath mounted - use in-process SDS.
-				// If trusted JWT not mounted - will watch the certs. If certs not present either - assume not TLS,
-				// and either fail (if controlPlaneAuth enabled) or continue without certs.
-				sdsTokenPath = "./var/lib/istio/proxy/SDS"
-				_, err := istio_agent.StartSDS()
+			sa.RequireCerts = controlPlaneAuthEnabled
+
+			if sdsEnabled && sa.SDSAddress == "" {
+				_, err := istio_agent.StartSDS(sa, role.Type == model.SidecarProxy)
 				if err != nil {
 					log.Fatala("Failed to start in-process SDS", err)
 				}
-				sdsEnabled = true
-			} else {
 			}
 
 			// dedupe cert paths so we don't set up 2 watchers for the same file:
@@ -462,7 +454,7 @@ var (
 				PodName:             podName,
 				PodNamespace:        podNamespace,
 				PodIP:               podIP,
-				SDSUDSPath:          sdsUDSPath,
+				SDSUDSPath:          sa.SDSAddress,
 				SDSTokenPath:        sdsTokenPath,
 				ControlPlaneAuth:    controlPlaneAuthEnabled,
 				DisableReportCalls:  disableInternalTelemetry,

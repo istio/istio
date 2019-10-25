@@ -1,6 +1,8 @@
 package istio_agent
 
 import (
+	"context"
+	"io/ioutil"
 	"istio.io/istio/pkg/kube"
 	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
@@ -15,7 +17,6 @@ import (
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
-
 
 // To debug:
 // curl -X POST localhost:15000/logging?config=trace - to see SendingDiscoveryRequest
@@ -36,12 +37,12 @@ import (
 // Or disable the jwt validation while debugging SDS problems.
 
 var (
-	caProviderEnv                      = env.RegisterStringVar(caProvider, "Citadel", "").Get()
+	caProviderEnv = env.RegisterStringVar(caProvider, "Citadel", "").Get()
 	// TODO: default to same as discovery address
-	caEndpointEnv                      = env.RegisterStringVar(caEndpoint, "localhost:15010", "").Get()
+	caEndpointEnv = env.RegisterStringVar(caEndpoint, "localhost:15010", "").Get()
 
-	pluginNamesEnv                     = env.RegisterStringVar(pluginNames, "", "").Get()
-	enableIngressGatewaySDSEnv         = env.RegisterBoolVar(enableIngressGatewaySDS, false, "").Get()
+	pluginNamesEnv             = env.RegisterStringVar(pluginNames, "", "").Get()
+	enableIngressGatewaySDSEnv = env.RegisterBoolVar(enableIngressGatewaySDS, false, "").Get()
 
 	trustDomainEnv                     = env.RegisterStringVar(trustDomain, "", "").Get()
 	secretTTLEnv                       = env.RegisterDurationVar(secretTTL, 24*time.Hour, "").Get()
@@ -53,7 +54,7 @@ var (
 
 const (
 	// name of authentication provider.
-	caProvider     = "CA_PROVIDER"
+	caProvider = "CA_PROVIDER"
 
 	// CA endpoint.
 	caEndpoint = "CA_ADDR"
@@ -68,7 +69,6 @@ const (
 	// The ingress gateway SDS mode allows node agent to provision credentials to ingress gateway
 	// proxy by watching kubernetes secrets.
 	enableIngressGatewaySDS = "ENABLE_INGRESS_GATEWAY_SDS"
-
 
 	// The environmental variable name for secret TTL, node agent decides whether a secret
 	// is expired if time.now - secret.createtime >= secretTTL.
@@ -91,15 +91,71 @@ const (
 	// The environmental variable name for the initial backoff in milliseconds.
 	// example value format like "10"
 	InitialBackoff = "INITIAL_BACKOFF_MSEC"
-
 )
 
 var (
+	// JWTPath is the default location of a JWT token to be used to authenticate with XDS and CA servers.
+	// If the file is missing, the agent will fallback to using mounted certificates if XDS address is secure.
+	JWTPath = "/var/run/secrets/tokens/istio-token"
+
+	// HostSDSUDS is the location where host-path mounted UDS is located in current installers
+	HostSDSUDS = "/var/run/sds/uds_path"
+
+	// LocalSDS is the location of the in-process SDS server - must be in a writeable dir.
+	LocalSDS = "/etc/istio/proxy/SDS"
+
 	workloadSdsCacheOptions cache.Options
 	gatewaySdsCacheOptions  cache.Options
 	serverOptions           sds.Options
 	gatewaySecretChan       chan struct{}
 )
+
+// AgentConf contains the configuration of the agent, based on the injected
+// environment:
+// - SDS hostPath if node-agent was used
+// - /etc/certs/key if Citadel or other mounted Secrets are used
+// - root cert to use for connecting to XDS server
+// - CA address, with proper defaults and detection
+type AgentConf struct {
+	// Location of JWTPath to connect to CA. If empty, SDS is not possible.
+	// If set SDS will be used - either local or via hostPath.
+	JWTPath string
+
+	// SDSAddress is the address of the SDS server. Starts with unix: for hostpath mount or built-in
+	// May also be a https address.
+	SDSAddress string
+
+	// CertPath is set with the location of the certs, or empty if mounted certs are not present.
+	CertsPath string
+
+	// RequireCerts is set if the agent requires certificates:
+	// - if controlPlaneAuthEnabled is set
+	// - port of discovery server is not 15010 (the plain text default).
+	RequireCerts bool
+}
+
+// DetectSDS will attempt to find nodeagent SDS and token. If not found will attempt to find
+// a location to start SDS.
+//
+// If node agent and JWT are mounted: it indicates user injected a config using hostPath, and will be used.
+//
+func DetectSDS(discAddr string, tlsRequired bool) *AgentConf {
+	ac := &AgentConf{}
+	if _, err := os.Stat(JWTPath); err == nil {
+		ac.JWTPath = JWTPath
+	}
+	if _, err := os.Stat(HostSDSUDS); err == nil {
+		ac.SDSAddress = HostSDSUDS
+	}
+	if _, err := os.Stat("/etc/certsx/key.pem"); err == nil {
+		ac.CertsPath = "/etc/certs"
+	}
+	if tlsRequired {
+		ac.RequireCerts = true
+	}
+
+	return ac
+}
 
 // Simplified SDS setup.
 //
@@ -111,18 +167,62 @@ var (
 // 3. Monitor mode - watching secret in same namespace ( Ingress)
 //
 // 4. TODO: File watching, for backward compat/migration from mounted secrets.
-func StartSDS() (*sds.Server, error) {
+func StartSDS(conf *AgentConf, isSidecar bool) (*sds.Server, error) {
 	applyEnvVars()
+
 	gatewaySdsCacheOptions = workloadSdsCacheOptions
 
 	// Next to the envoy config, writeable dir (mounted as mem)
-	serverOptions.WorkloadUDSPath = "./var/lib/istio/proxy/SDS"
+	serverOptions.WorkloadUDSPath = LocalSDS
+
 	// TODO: remove the caching, workload has a single cert
-	workloadSecretCache := newSecretCache(serverOptions)
+	workloadSecretCache, _ := newSecretCache(serverOptions)
 
 	var gatewaySecretCache *cache.SecretCache
-	if serverOptions.EnableIngressGatewaySDS {
-		 gatewaySecretCache = newSecretCache(serverOptions)
+	if !isSidecar {
+		serverOptions.EnableIngressGatewaySDS = true
+		// TODO: what is the setting for ingress ?
+		serverOptions.IngressGatewayUDSPath = serverOptions.WorkloadUDSPath + "_ROUTER"
+		gatewaySecretCache, _ = newSecretCache(serverOptions)
+	}
+
+	// For sidecar and ingress we need to first get the certificates for the workload.
+	// We'll also save them in files, for backward compat with servers generating files
+	// TODO: use caClient.CSRSign() directly
+	if conf.CertsPath == "" {
+		tok, err := ioutil.ReadFile(conf.JWTPath)
+		if err != nil && conf.RequireCerts {
+			log.Fatala("Failed to read token", err)
+		} else {
+			si, err := workloadSecretCache.GenerateSecret(context.Background(), "bootstrap", "default",
+				string(tok))
+			if err != nil {
+				if conf.RequireCerts {
+					log.Fatala("Failed to get certificates", err)
+				} else {
+					log.Warna("Failed to get certificate from CA", err)
+				}
+			}
+			if si != nil {
+				// For debugging and backward compat - we may not need it long term
+				ioutil.WriteFile("/etc/istio/proxy/key.pem", si.PrivateKey, 0700)
+				ioutil.WriteFile("/etc/istio/proxy/cert-chain.pem", si.CertificateChain, 0700)
+				//ioutil.WriteFile("/etc/istio/proxy/root-cert.pem", si.RootCert, 0700)
+			}
+			sir, err := workloadSecretCache.GenerateSecret(context.Background(), "bootstrap", "ROOTCA",
+				string(tok))
+			if err != nil {
+				if conf.RequireCerts {
+					log.Fatala("Failed to get certificates", err)
+				} else {
+					log.Warna("Failed to get certificate from CA", err)
+				}
+			}
+			if sir != nil {
+				// For debugging and backward compat - we may not need it long term
+				ioutil.WriteFile("/etc/istio/proxy/root-cert.pem", sir.RootCert, 0700)
+			}
+		}
 	}
 
 	server, err := sds.NewServer(serverOptions, workloadSecretCache, gatewaySecretCache)
@@ -134,7 +234,7 @@ func StartSDS() (*sds.Server, error) {
 }
 
 // newSecretCache creates the cache for workload secrets and/or gateway secrets.
-func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.SecretCache) {
+func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.SecretCache, caClient caClientInterface.Client) {
 	ret := &secretfetcher.SecretFetcher{}
 
 	// TODO: get the MC public keys from pilot.
@@ -143,9 +243,10 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 	// Single caTLSRootCert inside.
 
 	var err error
-	var caClient caClientInterface.Client
-	if "GoogleCA" == serverOptions.CAProviderName {
+
+	if "GoogleCA" == serverOptions.CAProviderName || strings.Contains(serverOptions.CAEndpoint, "googleapis.com") {
 		caClient, err = gca.NewGoogleCAClient(serverOptions.CAEndpoint, true)
+		serverOptions.PluginNames = []string{"GoogleTokenExchange"}
 	} else {
 		caClient, err = citadel.NewCitadelClient(serverOptions.CAEndpoint, false, nil) // true, rootCert)
 	}
@@ -157,11 +258,10 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 	ret.UseCaClient = true
 	ret.CaClient = caClient
 
-		workloadSdsCacheOptions.TrustDomain = serverOptions.TrustDomain
-		workloadSdsCacheOptions.Plugins = sds.NewPlugins(serverOptions.PluginNames)
-		workloadSecretCache = cache.NewSecretCache(ret, sds.NotifyProxy, workloadSdsCacheOptions)
-
-		return workloadSecretCache
+	workloadSdsCacheOptions.TrustDomain = serverOptions.TrustDomain
+	workloadSdsCacheOptions.Plugins = sds.NewPlugins(serverOptions.PluginNames)
+	workloadSecretCache = cache.NewSecretCache(ret, sds.NotifyProxy, workloadSdsCacheOptions)
+	return
 }
 
 // TODO: use existing 'sidecar/router' config to enable loading Secrets
@@ -171,17 +271,16 @@ func newIngressSecretCache(serverOptions sds.Options) (gatewaySecretCache *cache
 	gSecretFetcher.UseCaClient = false
 	cs, err := kube.CreateClientset("", "")
 
-
 	if err != nil {
-			log.Errorf("failed to create secretFetcher for gateway proxy: %v", err)
-			os.Exit(1)
-		}
+		log.Errorf("failed to create secretFetcher for gateway proxy: %v", err)
+		os.Exit(1)
+	}
 	gSecretFetcher.FallbackSecretName = "gateway-fallback"
 	gSecretFetcher.InitWithKubeClient(cs.CoreV1())
 
 	gatewaySecretChan = make(chan struct{})
-		gSecretFetcher.Run(gatewaySecretChan)
-		gatewaySecretCache = cache.NewSecretCache(gSecretFetcher, sds.NotifyProxy, gatewaySdsCacheOptions)
+	gSecretFetcher.Run(gatewaySecretChan)
+	gatewaySecretCache = cache.NewSecretCache(gSecretFetcher, sds.NotifyProxy, gatewaySdsCacheOptions)
 	return gatewaySecretCache
 }
 
