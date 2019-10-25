@@ -35,6 +35,8 @@ func TestProxyNeedsPush(t *testing.T) {
 		{"no namespace or configs", sidecar, nil, nil, true},
 		{"gateway config for sidecar", sidecar, nil, []string{schemas.Gateway.Type}, false},
 		{"gateway config for gateway", gateway, nil, []string{schemas.Gateway.Type}, true},
+		{"quotaspec config for sidecar", sidecar, nil, []string{schemas.QuotaSpec.Type}, true},
+		{"quotaspec config for gateway", gateway, nil, []string{schemas.QuotaSpec.Type}, false},
 	}
 
 	for _, tt := range cases {

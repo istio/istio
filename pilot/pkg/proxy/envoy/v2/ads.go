@@ -681,12 +681,20 @@ func ProxyNeedsPush(proxy *model.Proxy, pushEv *XdsEvent) bool {
 	if len(configs) == 0 {
 		appliesToProxy = true
 	}
+Loop:
 	for config := range configs {
-		if config == schemas.Gateway.Type && proxy.Type == model.SidecarProxy {
-			// Gateways do not impact sidecars, so no need to push
-		} else {
-			// This config may impact the proxy, so we do need to push
+		switch config {
+		case schemas.Gateway.Type:
+			if proxy.Type == model.Router {
+				return true
+			}
+		case schemas.QuotaSpec.Type, schemas.QuotaSpecBinding.Type:
+			if proxy.Type == model.SidecarProxy {
+				return true
+			}
+		default:
 			appliesToProxy = true
+			break Loop
 		}
 	}
 
