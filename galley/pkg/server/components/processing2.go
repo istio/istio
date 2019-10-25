@@ -119,14 +119,19 @@ func (p *Processing2) Start() (err error) {
 	}
 
 	var distributor snapshotter.Distributor = snapshotter.NewMCPDistributor(p.mcpCache)
+
 	if p.args.EnableConfigAnalysis {
+		combinedAnalyzer := analyzers.AllCombined()
+		combinedAnalyzer.RemoveDisabled(kubeResources.DisabledCollections(), transformProviders)
+
 		settings := snapshotter.AnalyzingDistributorSettings{
 			StatusUpdater:     updater,
-			Analyzer:          analyzers.AllCombined().WithDisabled(kubeResources.DisabledCollections(), transformProviders),
+			Analyzer:          combinedAnalyzer,
 			Distributor:       distributor,
 			AnalysisSnapshots: p.args.Snapshots,
 			TriggerSnapshot:   p.args.TriggerSnapshot,
 		}
+
 		distributor = snapshotter.NewAnalyzingDistributor(settings)
 	}
 

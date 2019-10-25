@@ -226,12 +226,12 @@ func TestAnalyzers(t *testing.T) {
 			}
 			cancel := make(chan struct{})
 
-			msgs, err := sa.Analyze(cancel)
+			result, err := sa.Analyze(cancel)
 			if err != nil {
 				t.Fatalf("Error running analysis on testcase %s: %v", testCase.name, err)
 			}
 
-			actualMsgs := extractFields(msgs)
+			actualMsgs := extractFields(result.Messages)
 			g.Expect(actualMsgs).To(ConsistOf(testCase.expected))
 		})
 	}
