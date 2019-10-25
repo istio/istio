@@ -216,6 +216,9 @@ func (ug *Upgrader) convertClusterRbacConfig(authzPolicies *model.AuthorizationP
 	// RbacConfig_ON_WITH_INCLUSION doesn't require the config root namespace.
 	if clusterRbacConfig.Mode == rbac_v1alpha1.RbacConfig_ON_WITH_INCLUSION {
 		// Support namespace-level only.
+		if len(clusterRbacConfig.Inclusion.Services) > 0 {
+			return fmt.Errorf("service-level ClusterRbacConfig (found in ON_WITH_INCLUSION rule) is not supported")
+		}
 		// For each namespace in RbacConfig_ON_WITH_INCLUSION, we simply generate a deny-all rule for that namespace.
 		return ug.generateClusterRbacConfig(rbacNamespaceDeny, clusterRbacConfig.Inclusion.Namespaces, false)
 	}
@@ -230,6 +233,9 @@ func (ug *Upgrader) convertClusterRbacConfig(authzPolicies *model.AuthorizationP
 		return ug.generateClusterRbacConfig(rbacNamespaceDeny, []string{rootNamespace}, true)
 	case rbac_v1alpha1.RbacConfig_ON_WITH_EXCLUSION:
 		// Support namespace-level only.
+		if len(clusterRbacConfig.Exclusion.Services) > 0 {
+			return fmt.Errorf("service-level ClusterRbacConfig (found in ON_WITH_EXCLUSION rule) is not supported")
+		}
 		// First generate a cluster-wide deny rule.
 		err = ug.generateClusterRbacConfig(rbacNamespaceDeny, []string{rootNamespace}, true)
 		if err != nil {
