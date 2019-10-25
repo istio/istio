@@ -20,19 +20,22 @@ import (
 	envoy_matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 )
 
-func StringMatcher(v string) *envoy_matcher.StringMatcher {
-	return StringMatcherWithPrefix(v, "")
+func StringMatcher(v string, v1beta1 bool) *envoy_matcher.StringMatcher {
+	return StringMatcherWithPrefix(v, "", v1beta1)
 }
 
 func StringMatcherRegex(regex string) *envoy_matcher.StringMatcher {
 	return &envoy_matcher.StringMatcher{MatchPattern: &envoy_matcher.StringMatcher_Regex{Regex: regex}}
 }
 
-func StringMatcherWithPrefix(v, prefix string) *envoy_matcher.StringMatcher {
+func StringMatcherWithPrefix(v, prefix string, v1beta1 bool) *envoy_matcher.StringMatcher {
 	switch {
 	// Check if v is "*" first to make sure we won't generate an empty prefix/suffix StringMatcher,
 	// the Envoy StringMatcher doesn't allow empty prefix/suffix.
 	case v == "*":
+		if v1beta1 {
+			return StringMatcherRegex(".+")
+		}
 		return StringMatcherRegex(".*")
 	case strings.HasPrefix(v, "*"):
 		return &envoy_matcher.StringMatcher{
