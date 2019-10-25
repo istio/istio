@@ -100,13 +100,13 @@ var ALPNInMesh = []string{"istio"}
 // ALPNHttp advertises that Proxy is going to talking either http2 or http 1.1.
 var ALPNHttp = []string{"h2", "http/1.1"}
 
-var EndpointMetadataTlsModeIstio = &pstruct.Struct{
+var EndpointMetadataTLSModeIstio = &pstruct.Struct{
 	Fields: map[string]*pstruct.Value{
 		model.TLSModeLabelShortname: {Kind: &pstruct.Value_StringValue{StringValue: string(model.IstioMutualTLSModeLabel)}},
 	},
 }
 
-var EndpointMetadataTlsModeSimpleNoVerify = &pstruct.Struct{
+var EndpointMetadataTLSModeSimpleNoVerify = &pstruct.Struct{
 	Fields: map[string]*pstruct.Value{
 		model.TLSModeLabelShortname: {Kind: &pstruct.Value_StringValue{StringValue: string(model.SimpleNoVerifyTLSModeLabel)}},
 	},
@@ -624,9 +624,9 @@ func BuildLbEndpointMetadata(uid string, network string, tlsMode model.TLSModeLa
 
 	switch tlsMode {
 	case model.SimpleNoVerifyTLSModeLabel:
-		metadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = EndpointMetadataTlsModeSimpleNoVerify
+		metadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = EndpointMetadataTLSModeSimpleNoVerify
 	case model.IstioMutualTLSModeLabel:
-		metadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = EndpointMetadataTlsModeIstio
+		metadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = EndpointMetadataTLSModeIstio
 	}
 
 	return metadata
