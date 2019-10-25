@@ -1386,15 +1386,15 @@ func verifyInboundHTTP10(t *testing.T, http10Expected bool, l *xdsapi.Listener) 
 func verifyFilterChainMatch(t *testing.T, listener *xdsapi.Listener) {
 	if len(listener.FilterChains) != 5 ||
 		!isHTTPFilterChain(listener.FilterChains[0]) ||
-		!isHTTPFilterChain(listener.FilterChains[2]) ||
-		!isTCPFilterChain(listener.FilterChains[1]) ||
+		!isHTTPFilterChain(listener.FilterChains[1]) ||
+		!isTCPFilterChain(listener.FilterChains[2]) ||
 		!isTCPFilterChain(listener.FilterChains[3]) ||
 		!isTCPFilterChain(listener.FilterChains[4]) {
 		t.Fatalf("expectd %d filter chains, %d http filter chains and %d tcp filter chain", 5, 2, 3)
 	}
 
 	verifyHTTPFilterChainMatch(t, listener.FilterChains[0], model.TrafficDirectionInbound, true)
-	verifyHTTPFilterChainMatch(t, listener.FilterChains[2], model.TrafficDirectionInbound, false)
+	verifyHTTPFilterChainMatch(t, listener.FilterChains[1], model.TrafficDirectionInbound, false)
 }
 
 func getOldestService(services ...*model.Service) *model.Service {
