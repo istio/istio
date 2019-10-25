@@ -6,7 +6,7 @@ metadata:
   creationTimestamp: null
   labels:
     app: hello
-    security.istio.io/tlsMode: "istio"
+    security.istio.io/tlsMode: istio
   name: hello
   namespace: test
 spec:

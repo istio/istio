@@ -122,7 +122,8 @@ const (
 	// TLSModeLabelShortname name used for determining endpoint level tls transport socket configuration
 	TLSModeLabelShortname = "tlsMode"
 
-	// TLSModeLabelName name for the mtlsReady label given to service instances to toggle mTLS autopilot
+	// TLSModeLabelName is the name of label given to service instances to determine whether to use mTLS or
+	// fallback to plaintext/tls
 	TLSModeLabelName = "security.istio.io/" + TLSModeLabelShortname
 )
 
