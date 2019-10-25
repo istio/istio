@@ -21,6 +21,7 @@ import (
 	"sync"
 
 	"github.com/ghodss/yaml"
+	"github.com/hashicorp/go-multierror"
 	kubeJson "k8s.io/apimachinery/pkg/runtime/serializer/json"
 
 	"istio.io/istio/galley/pkg/config/event"
@@ -136,11 +137,13 @@ func (s *KubeSource) ContentNames() map[string]struct{} {
 // ApplyContent applies the given yamltext to this source. The content is tracked with the given name. If ApplyContent
 // gets called multiple times with the same name, the contents applied by the previous incarnation will be overwritten
 // or removed, depending on the new content.
+// Returns an error if any were encountered, but that still may represent a partial success
 func (s *KubeSource) ApplyContent(name, yamlText string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	resources := s.parseContent(s.resources, name, yamlText)
+	// We hold off on dealing with parseErr until the end, since partial success is possible
+	resources, parseErrs := s.parseContent(s.resources, name, yamlText)
 
 	oldKeys := s.byFile[name]
 	newKeys := make(map[kubeResourceKey]collection.Name)
@@ -168,6 +171,9 @@ func (s *KubeSource) ApplyContent(name, yamlText string) error {
 	}
 	s.byFile[name] = newKeys
 
+	if parseErrs != nil {
+		return fmt.Errorf("errors parsing content %q: %v", name, parseErrs)
+	}
 	return nil
 }
 
@@ -187,21 +193,22 @@ func (s *KubeSource) RemoveContent(name string) {
 	}
 }
 
-func (s *KubeSource) parseContent(r schema.KubeResources, name, yamlText string) []kubeResource {
+func (s *KubeSource) parseContent(r schema.KubeResources, name, yamlText string) ([]kubeResource, error) {
 	var resources []kubeResource
+	var errs error
 	for i, chunk := range kubeyaml.Split([]byte(yamlText)) {
 		chunk = bytes.TrimSpace(chunk)
-
 		r, err := s.parseChunk(r, chunk)
 		if err != nil {
-			scope.Source.Warnf("Error processing %s[%d]: %v", name, i, err)
-			scope.Source.Debugf("Offending Yaml chunk: %v", string(chunk))
+			e := fmt.Errorf("error processing %s[%d]: %v", name, i, err)
+			scope.Source.Warnf("%v - skipping", e)
+			scope.Source.Debugf("Failed to parse yaml chunk: %v", string(chunk))
+			errs = multierror.Append(errs, e)
 			continue
 		}
-
 		resources = append(resources, r)
 	}
-	return resources
+	return resources, errs
 }
 
 func (s *KubeSource) parseChunk(r schema.KubeResources, yamlChunk []byte) (kubeResource, error) {

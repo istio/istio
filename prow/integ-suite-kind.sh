@@ -33,25 +33,6 @@ set -x
 source "${ROOT}/prow/lib.sh"
 setup_and_export_git_sha
 
-function load_kind_images() {
-  for i in {1..3}; do
-    # Archived local images and load it into KinD's docker daemon
-    # Kubernetes in KinD can only access local images from its docker daemon.
-    docker images "${HUB}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 kind --loglevel debug --name istio-testing load docker-image && break
-    echo "Attempt ${i} to load images failed, retrying in 5s..."
-    sleep 5
-	done
-}
-
-function build_kind_images() {
-  # Build just the images needed for the tests
-  for image in pilot proxyv2 app test_policybackend mixer citadel galley sidecar_injector kubectl node-agent-k8s; do
-     make docker.${image}
-  done
-
-  time load_kind_images
-}
-
 while (( "$#" )); do
   case "$1" in
     # Node images can be found at https://github.com/kubernetes-sigs/kind/releases
@@ -105,7 +86,8 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
 fi
 
 if [[ -z "${SKIP_BUILD:-}" ]]; then
-  time build_kind_images
+  time build_images
+  time kind_load_images ""
 fi
 
 make "${PARAMS[*]}"

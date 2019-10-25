@@ -16,15 +16,16 @@ package main
 
 import (
 	"io/ioutil"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
 	"os"
+
+	"istio.io/pkg/log"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	"istio.io/istio/pkg/istiod"
 	"istio.io/istio/pkg/istiod/k8s"
+	"istio.io/pkg/env"
 )
 
 var (
@@ -45,13 +46,6 @@ var (
 func main() {
 	stop := make(chan struct{})
 
-	// Load the mesh config. Note that the path is slightly changed - attempting to move all istio
-	// related under /var/lib/istio, which is also the home dir of the istio user.
-	istiods, err := istiod.NewIstiod("/var/lib/istio/config")
-	if err != nil {
-		log.Fatalf("Failed to start istiod: %v", err)
-	}
-
 	// First create the k8s clientset - and return the config source.
 	// The config includes the address of apiserver and the public key - which will be used
 	// after cert generation, to check that Apiserver-generated certs have same key.
@@ -59,6 +53,13 @@ func main() {
 	if err != nil {
 		// TODO: 'local' mode where k8s is not used - using the config.
 		log.Fatalf("Failed to connect to k8s: %v", err)
+	}
+
+	// Load the mesh config. Note that the path is slightly changed - attempting to move all istio
+	// related under /var/lib/istio, which is also the home dir of the istio user.
+	istiods, err := istiod.NewIstiod(kcfg, client, "/var/lib/istio/config")
+	if err != nil {
+		log.Fatalf("Failed to start istiod: %v", err)
 	}
 
 	// Create k8s-signed certificates. This allows injector, validation to work without Citadel, and
@@ -72,10 +73,6 @@ func main() {
 		log.Fatalf("Failed to start k8s controllers: %v", err)
 	}
 
-	// Initialize Galley config source for K8S.
-	galleyK8S, err := k8sServer.NewGalleyK8SSource(istiods.Galley.Resources)
-	istiods.Galley.Sources = append(istiods.Galley.Sources, galleyK8S)
-
 	err = istiods.InitDiscovery()
 	if err != nil {
 		log.Fatalf("Failed to init XDS server: %v", err)
@@ -88,10 +85,6 @@ func main() {
 	err = istiods.Start(stop, k8sServer.OnXDSStart)
 	if err != nil {
 		log.Fatalf("Failed on start XDS server: %v", err)
-	}
-
-	if err := k8sServer.StartSDSK8S(istiods.Mesh); err != nil {
-		log.Fatalf("Failed to start SDS: %v", err)
 	}
 
 	// Injector should run along, even if not used - but only if the injection template is mounted.

@@ -19,6 +19,9 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+
 	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/galley/pkg/config/util/kuberesource"
 	"istio.io/istio/galley/pkg/crd/validation"
@@ -44,6 +47,12 @@ const (
 type Args struct { // nolint:maligned
 	// The path to kube configuration file.
 	KubeConfig string
+
+	// KubeInterface has an already created K8S interface, will be reused instead of creating a new one
+	KubeInterface *kubernetes.Clientset
+
+	// KubeRestConfig has a rest config, common with other components
+	KubeRestConfig *rest.Config
 
 	// resync period to be passed to the K8s machinery.
 	ResyncPeriod time.Duration

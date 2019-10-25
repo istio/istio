@@ -15,9 +15,6 @@
 package security
 
 import (
-	"fmt"
-	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -52,292 +49,278 @@ func TestAuthnJwt(t *testing.T) {
 				Inject: true,
 			})
 
-			var a, b, c echo.Instance
+			// Apply the policy.
+			namespaceTmpl := map[string]string{
+				"Namespace": ns.Name(),
+			}
+			jwtPolicies := tmpl.EvaluateAllOrFail(t, namespaceTmpl,
+				file.AsStringOrFail(t, "testdata/jwt/simple-jwt-policy.yaml.tmpl"),
+				file.AsStringOrFail(t, "testdata/jwt/jwt-with-paths.yaml.tmpl"),
+				file.AsStringOrFail(t, "testdata/jwt/two-issuers.yaml.tmpl"))
+			g.ApplyConfigOrFail(t, ns, jwtPolicies...)
+			defer g.DeleteConfigOrFail(t, ns, jwtPolicies...)
+
+			var a, b, c, d, e echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).
 				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
 				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
 				With(&c, util.EchoConfig("c", ns, false, nil, g, p)).
+				With(&d, util.EchoConfig("d", ns, false, nil, g, p)).
+				With(&e, util.EchoConfig("e", ns, false, nil, g, p)).
 				BuildOrFail(t)
 
-			testCases := []struct {
-				configFile string
-				subTests   []authn.TestCase
-			}{
+			testCases := []authn.TestCase{
 				{
-					configFile: "simple-jwt-policy.yaml.tmpl",
-					subTests: []authn.TestCase{
-						{
-							Request: connection.Checker{
-								From: a,
-								Options: echo.CallOptions{
-									Target:   b,
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-									Headers: map[string][]string{
-										authHeaderKey: {"Bearer " + testIssuer1Token},
-									},
-								},
+					Name: "jwt-simple-valid-token",
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   b,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								authHeaderKey: {"Bearer " + testIssuer1Token},
 							},
-							ExpectAuthenticated: true,
-						},
-						{
-							Request: connection.Checker{
-								From: a,
-								Options: echo.CallOptions{
-									Target:   b,
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-									Headers: map[string][]string{
-										authHeaderKey: {"Bearer " + jwt.TokenExpired},
-									},
-								},
-							},
-							ExpectAuthenticated: false,
-						},
-						{
-							Request: connection.Checker{
-								From: a,
-								Options: echo.CallOptions{
-									Target:   b,
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-								},
-							},
-							ExpectAuthenticated: false,
 						},
 					},
+					ExpectAuthenticated: true,
 				},
 				{
-					configFile: "wrong-issuer.yaml.tmpl",
-					subTests: []authn.TestCase{
-						{
-							Request: connection.Checker{
-								From: a,
-								Options: echo.CallOptions{
-									Target:   b,
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-									Headers: map[string][]string{
-										authHeaderKey: {"Bearer " + testIssuer1Token},
-									},
-								},
+					Name: "jwt-simple-expired-token",
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   b,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								authHeaderKey: {"Bearer " + jwt.TokenExpired},
 							},
-							ExpectAuthenticated: false,
 						},
 					},
+					ExpectAuthenticated: false,
 				},
 				{
-					// Test jwt with paths with trigger rules with one issuer.
-					configFile: "jwt-with-paths.yaml.tmpl",
-					subTests: []authn.TestCase{
-						{
-							Request: connection.Checker{
-								From: a,
-								Options: echo.CallOptions{
-									Target:   b,
-									Path:     "/health_check",
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-								},
-							},
-							ExpectAuthenticated: true,
-						},
-						{
-							Request: connection.Checker{
-								From: a,
-								Options: echo.CallOptions{
-									Target:   b,
-									Path:     "/guest-us",
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-								},
-							},
-							ExpectAuthenticated: true,
-						},
-						{
-							Request: connection.Checker{
-								From: a,
-								Options: echo.CallOptions{
-									Target:   b,
-									Path:     "/index.html",
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-								},
-							},
-							ExpectAuthenticated: false,
-						},
-						{
-							Request: connection.Checker{
-								From: a,
-								Options: echo.CallOptions{
-									Target:   b,
-									Path:     "/index.html",
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-									Headers: map[string][]string{
-										authHeaderKey: {"Bearer " + testIssuer1Token},
-									},
-								},
-							},
-							ExpectAuthenticated: true,
-						},
-						{
-							Request: connection.Checker{
-								From: a,
-								Options: echo.CallOptions{
-									Target:   c,
-									Path:     "/index.html",
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-								},
-							},
-							ExpectAuthenticated: true,
-						},
-						{
-							Request: connection.Checker{
-								From: a,
-								Options: echo.CallOptions{
-									Target:   c,
-									Path:     "/something-confidential",
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-								},
-							},
-							ExpectAuthenticated: false,
-						},
-						{
-							Request: connection.Checker{
-								From: a,
-								Options: echo.CallOptions{
-									Target:   c,
-									Path:     "/something-confidential",
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-									Headers: map[string][]string{
-										authHeaderKey: {"Bearer " + testIssuer1Token},
-									},
-								},
-							},
-							ExpectAuthenticated: true,
+					Name: "jwt-simple-no-token",
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   b,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
 						},
 					},
+					ExpectAuthenticated: false,
 				},
 				{
-					// Test jwt with paths with trigger rules with two issuers.
-					configFile: "two-issuers.yaml.tmpl",
-					subTests: []authn.TestCase{
-						{
-							Request: connection.Checker{
-								From: a,
-								Options: echo.CallOptions{
-									Target:   b,
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-								},
-							},
-							ExpectAuthenticated: false,
-						},
-						{
-							Request: connection.Checker{
-								From: a,
-								Options: echo.CallOptions{
-									Target:   b,
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-									Headers: map[string][]string{
-										authHeaderKey: {"Bearer " + testIssuer2Token},
-									},
-								},
-							},
-							ExpectAuthenticated: true,
-						},
-						{
-							Request: connection.Checker{
-								From: a,
-								Options: echo.CallOptions{
-									Target:   b,
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-									Headers: map[string][]string{
-										authHeaderKey: {"Bearer " + testIssuer1Token},
-									},
-								},
-							},
-							ExpectAuthenticated: false,
-						},
-						{
-							Request: connection.Checker{
-								From: a,
-								Options: echo.CallOptions{
-									Target:   b,
-									PortName: "http",
-									Path:     "/testing-istio-jwt",
-									Scheme:   scheme.HTTP,
-									Headers: map[string][]string{
-										authHeaderKey: {"Bearer " + jwt.TokenInvalid},
-									},
-								},
-							},
-							ExpectAuthenticated: false,
-						},
-						{
-							Request: connection.Checker{
-								From: a,
-								Options: echo.CallOptions{
-									Target:   b,
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-									Path:     "/testing-istio-jwt",
-									Headers: map[string][]string{
-										authHeaderKey: {"Bearer " + testIssuer1Token},
-									},
-								},
-							},
-							ExpectAuthenticated: true,
-						},
-						{
-							Request: connection.Checker{
-								From: a,
-								Options: echo.CallOptions{
-									Target:   b,
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-									Path:     "/testing-istio-jwt",
-									Headers: map[string][]string{
-										authHeaderKey: {"Bearer " + testIssuer2Token},
-									},
-								},
-							},
-							ExpectAuthenticated: false,
+					Name: "jwt-excluded-paths-no-token[/health_check]",
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   c,
+							Path:     "/health_check",
+							PortName: "http",
+							Scheme:   scheme.HTTP,
 						},
 					},
+					ExpectAuthenticated: true,
+				},
+				{
+					Name: "jwt-excluded-paths-no-token[/guest-us]",
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   c,
+							Path:     "/guest-us",
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+						},
+					},
+					ExpectAuthenticated: true,
+				},
+				{
+					Name: "jwt-excluded-paths-no-token[/index.html]",
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   c,
+							Path:     "/index.html",
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+						},
+					},
+					ExpectAuthenticated: false,
+				},
+				{
+					Name: "jwt-excluded-paths-valid-token",
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   c,
+							Path:     "/index.html",
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								authHeaderKey: {"Bearer " + testIssuer1Token},
+							},
+						},
+					},
+					ExpectAuthenticated: true,
+				},
+				{
+					Name: "jwt-included-paths-no-token[/index.html]",
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   d,
+							Path:     "/index.html",
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+						},
+					},
+					ExpectAuthenticated: true,
+				},
+				{
+					Name: "jwt-included-paths-no-token[/something-confidential]",
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   d,
+							Path:     "/something-confidential",
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+						},
+					},
+					ExpectAuthenticated: false,
+				},
+				{
+					Name: "jwt-included-paths-valid-token",
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   d,
+							Path:     "/something-confidential",
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								authHeaderKey: {"Bearer " + testIssuer1Token},
+							},
+						},
+					},
+					ExpectAuthenticated: true,
+				},
+				{
+					Name: "jwt-two-issuers-no-token",
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   e,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+						},
+					},
+					ExpectAuthenticated: false,
+				},
+				{
+					Name: "jwt-two-issuers-token2",
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   e,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								authHeaderKey: {"Bearer " + testIssuer2Token},
+							},
+						},
+					},
+					ExpectAuthenticated: true,
+				},
+				{
+					Name: "jwt-two-issuers-token1",
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   e,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								authHeaderKey: {"Bearer " + testIssuer1Token},
+							},
+						},
+					},
+					ExpectAuthenticated: false,
+				},
+				{
+					Name: "jwt-two-issuers-invalid-token",
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   e,
+							PortName: "http",
+							Path:     "/testing-istio-jwt",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								authHeaderKey: {"Bearer " + jwt.TokenInvalid},
+							},
+						},
+					},
+					ExpectAuthenticated: false,
+				},
+				{
+					Name: "jwt-two-issuers-token1[/testing-istio-jwt]",
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   e,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "/testing-istio-jwt",
+							Headers: map[string][]string{
+								authHeaderKey: {"Bearer " + testIssuer1Token},
+							},
+						},
+					},
+					ExpectAuthenticated: true,
+				},
+				{
+					Name: "jwt-two-issuers-token2[/testing-istio-jwt]",
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   e,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "/testing-istio-jwt",
+							Headers: map[string][]string{
+								authHeaderKey: {"Bearer " + testIssuer2Token},
+							},
+						},
+					},
+					ExpectAuthenticated: false,
+				},
+				{
+					Name: "jwt-wrong-issuers",
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   e,
+							Path:     "/wrong_issuer",
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								authHeaderKey: {"Bearer " + testIssuer1Token},
+							},
+						},
+					},
+					ExpectAuthenticated: false,
 				},
 			}
 
 			for _, c := range testCases {
-				testName := strings.TrimSuffix(c.configFile, filepath.Ext(c.configFile))
-				t.Run(testName, func(t *testing.T) {
-
-					// Apply the policy.
-					namespaceTmpl := map[string]string{
-						"Namespace": ns.Name(),
-					}
-					deploymentYAML := tmpl.EvaluateAllOrFail(t, namespaceTmpl,
-						file.AsStringOrFail(t, filepath.Join("testdata", c.configFile)))
-					g.ApplyConfigOrFail(t, ns, deploymentYAML...)
-					defer g.DeleteConfigOrFail(t, ns, deploymentYAML...)
-
-					// Give some time for the policy propagate.
-					time.Sleep(60 * time.Second)
-					for _, subTest := range c.subTests {
-						subTestName := fmt.Sprintf("%s->%s:%s",
-							subTest.Request.From.Config().Service,
-							subTest.Request.Options.Target.Config().Service,
-							subTest.Request.Options.PortName)
-						t.Run(subTestName, func(t *testing.T) {
-							retry.UntilSuccessOrFail(t, subTest.CheckAuthn, retry.Delay(time.Second), retry.Timeout(10*time.Second))
-						})
-					}
+				t.Run(c.Name, func(t *testing.T) {
+					retry.UntilSuccessOrFail(t, c.CheckAuthn,
+						retry.Delay(250*time.Millisecond), retry.Timeout(30*time.Second))
 				})
 			}
 		})
