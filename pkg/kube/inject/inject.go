@@ -532,6 +532,16 @@ func flippedContains(needle, haystack string) bool {
 	return strings.Contains(haystack, needle)
 }
 
+func merge(base map[string]interface{}, override map[string]interface{}) map[string]interface{} {
+	if base == nil {
+		base = map[string]interface{}{}
+	}
+	for k, v := range override {
+		base[k] = v
+	}
+	return base
+}
+
 // InjectionData renders sidecarTemplate with valuesConfig.
 func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *metav1.TypeMeta, deploymentMetadata *metav1.ObjectMeta, spec *corev1.PodSpec,
 	metadata *metav1.ObjectMeta, proxyConfig *meshconfig.ProxyConfig, meshConfig *meshconfig.MeshConfig) (
@@ -584,6 +594,7 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *
 		"directory":           directory,
 		"contains":            flippedContains,
 		"toLower":             strings.ToLower,
+		"merge":               merge,
 	}
 
 	// Need to use FuncMap and SidecarTemplateData context
