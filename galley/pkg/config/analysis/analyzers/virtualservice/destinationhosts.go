@@ -54,7 +54,7 @@ func (a *DestinationHostAnalyzer) Metadata() analysis.Metadata {
 // Analyze implements Analyzer
 func (a *DestinationHostAnalyzer) Analyze(ctx analysis.Context) {
 	// Precompute the set of service entry hosts that exist (there can be more than one defined per ServiceEntry CRD)
-	serviceEntryHosts := initServiceEntryHostMap(ctx)
+	serviceEntryHosts := util.ServiceEntriesToFqdnMap(ctx)
 
 	ctx.ForEach(metadata.IstioNetworkingV1Alpha3Virtualservices, func(r *resource.Entry) bool {
 		a.analyzeVirtualService(r, ctx, serviceEntryHosts)
@@ -119,28 +119,6 @@ func getDestinationHost(sourceNs, host string, serviceEntryHosts map[util.Scoped
 	}
 
 	return nil
-}
-
-func initServiceEntryHostMap(ctx analysis.Context) map[util.ScopedFqdn]*v1alpha3.ServiceEntry {
-	result := make(map[util.ScopedFqdn]*v1alpha3.ServiceEntry)
-
-	extractFn := func(r *resource.Entry) bool {
-		s := r.Item.(*v1alpha3.ServiceEntry)
-		ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
-		hostsNamespaceScope := ns
-		if util.IsExportToAllNamespaces(s.ExportTo) {
-			hostsNamespaceScope = util.ExportToAllNamespaces
-		}
-		for _, h := range s.GetHosts() {
-			result[util.NewScopedFqdn(hostsNamespaceScope, ns, h)] = s
-		}
-		return true
-	}
-
-	ctx.ForEach(metadata.IstioNetworkingV1Alpha3Serviceentries, extractFn)
-	ctx.ForEach(metadata.IstioNetworkingV1Alpha3SyntheticServiceentries, extractFn)
-
-	return result
 }
 
 func checkServiceEntryPorts(ctx analysis.Context, r *resource.Entry, d *v1alpha3.Destination, s *v1alpha3.ServiceEntry) {

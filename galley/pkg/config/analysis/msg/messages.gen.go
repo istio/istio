@@ -84,6 +84,10 @@ var (
 	// DeploymentRequiresServiceAssociated defines a diag.MessageType for message "DeploymentRequiresServiceAssociated".
 	// Description: The resulting pods of a service mesh deployment must be associated with at least one service.
 	DeploymentRequiresServiceAssociated = diag.NewMessageType(diag.Warning, "IST0117", "No service associated with this deployment. Service mesh deployments must be associated with a service.")
+
+	// ConflictingDestinationRulesHost defines a diag.MessageType for message "ConflictingDestinationRulesHost".
+	// Description: Conflicting hosts on DestinationRules
+	ConflictingDestinationRulesHost = diag.NewMessageType(diag.Error, "IST0118", "The DestinationRules %s define the same host %s and subset %s combination, which can lead to undefined behavior. This can be fixed by merging the conflicting DestinationRules into a single resource.")
 )
 
 // NewInternalError returns a new diag.Message based on InternalError.
@@ -273,6 +277,17 @@ func NewDeploymentRequiresServiceAssociated(entry *resource.Entry, deployment st
 		DeploymentRequiresServiceAssociated,
 		originOrNil(entry),
 		deployment,
+	)
+}
+
+// NewConflictingDestinationRulesHost returns a new diag.Message based on ConflictingDestinationRulesHost.
+func NewConflictingDestinationRulesHost(entry *resource.Entry, destinationRules []string, host string, subset string) diag.Message {
+	return diag.NewMessage(
+		ConflictingDestinationRulesHost,
+		originOrNil(entry),
+		destinationRules,
+		host,
+		subset,
 	)
 }
 

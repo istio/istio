@@ -20,6 +20,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/auth"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/deployment"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/deprecation"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/destinationrule"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/schema"
@@ -37,6 +38,7 @@ func All() []analysis.Analyzer {
 		&auth.ServiceRoleServicesAnalyzer{},
 		&deployment.ServiceAssociationAnalyzer{},
 		&deprecation.FieldAnalyzer{},
+		&destinationrule.TargetAnalyzer{},
 		&gateway.IngressGatewayPortAnalyzer{},
 		&injection.Analyzer{},
 		&injection.VersionAnalyzer{},

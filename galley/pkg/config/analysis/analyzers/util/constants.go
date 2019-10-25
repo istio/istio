@@ -24,6 +24,7 @@ const (
 	ExportToNamespaceLocal  = "."
 	ExportToAllNamespaces   = "*"
 	Wildcard                = "*"
+	AllSubsets              = "~"
 )
 
 var (

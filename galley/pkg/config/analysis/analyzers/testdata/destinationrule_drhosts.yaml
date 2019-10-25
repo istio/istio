@@ -1,0 +1,128 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: reviews
+  namespace: default
+  labels:
+    app: reviews
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: reviews-buggy
+  namespace: default
+  labels:
+    app: reviews
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: reviews-wildcard
+  namespace: default
+  labels:
+    app: reviews
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: external-reviews
+  namespace: default
+spec:
+  hosts:
+  - external-reviews.org
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: reviews-app-v1
+  labels:
+    app: reviews
+    version: v1
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: reviews-app-v2
+  labels:
+    app: reviews
+    version: v2
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: reviews
+  namespace: default
+spec:
+  host: reviews
+  subsets:
+  - labels:
+      version: v1
+    name: v1
+  - labels:
+      version: v2
+    name: v2
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: reviews-buggy
+  namespace: default
+spec:
+  host: reviews-buggy 
+  subsets:
+  - labels:
+      version: v1 # Duplicate hostname+subset, should generate an error
+    name: v1
+  - labels:
+      version: v3 # Incorrect version label, no matching version v3 found from any pod
+    name: v3
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: reviews-unlucky
+  namespace: default
+spec:
+  host: reviews-buggy 
+  subsets:
+  - labels:
+      version: v1 # Duplicate hostname+subset, should generate an error
+    name: v1
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: reviews-external
+  namespace: default
+spec:
+  host: external-reviews.org # This is matched by the ServiceEntry
+  subsets:
+    - name: en # Subset without labels should not cause a validation error
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: reviews-wildcard-victim
+  namespace: default
+spec:
+  host: reviews-wildcard
+  subsets:
+  - labels:
+      version: v1 # Should generate validation error, matches reviews-wildcard
+    name: v1
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: reviews-wildcard
+  namespace: default
+spec:
+  host: reviews-wildcard # Should generate validation error, matches reviews-wildcard-victim since this is matching all subsets
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: reviews-forgot
+  namespace: default
+spec:
+  host: reviews-forgot # Should generate validation error, no such service found

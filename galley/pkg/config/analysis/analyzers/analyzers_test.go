@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/auth"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/deployment"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/deprecation"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/destinationrule"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/sidecar"
@@ -183,6 +184,19 @@ var testGrid = []testCase{
 			{msg.Deprecated, "EnvoyFilter istio-multicluster-egressgateway.istio-system"},
 			{msg.Deprecated, "EnvoyFilter istio-multicluster-egressgateway.istio-system"}, // Duplicate, because resource has two problems
 			{msg.Deprecated, "ServiceRoleBinding bind-mongodb-viewer.default"},
+		},
+	},
+	{
+		name:       "destinationRulesLabels",
+		inputFiles: []string{"testdata/destinationrule_drhosts.yaml"},
+		analyzer:   &destinationrule.TargetAnalyzer{},
+		expected: []message{
+			{msg.ConflictingDestinationRulesHost, "DestinationRule reviews-buggy.default"},
+			{msg.ConflictingDestinationRulesHost, "DestinationRule reviews-unlucky.default"},
+			{msg.ConflictingDestinationRulesHost, "DestinationRule reviews-wildcard.default"},
+			{msg.ConflictingDestinationRulesHost, "DestinationRule reviews-wildcard-victim.default"},
+			{msg.ReferencedResourceNotFound, "DestinationRule reviews-buggy.default"},
+			{msg.ReferencedResourceNotFound, "DestinationRule reviews-forgot.default"},
 		},
 	},
 	{

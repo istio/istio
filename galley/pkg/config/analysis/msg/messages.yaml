@@ -209,3 +209,16 @@ messages:
     args:
       - name: deployment
         type: string
+
+  - name: "ConflictingDestinationRulesHost"
+    code: IST0118
+    level: Error
+    description: "Conflicting hosts on DestinationRules"
+    template: "The DestinationRules %s define the same host %s and subset %s combination, which can lead to undefined behavior. This can be fixed by merging the conflicting DestinationRules into a single resource."
+    args:
+      - name: destinationRules
+        type: "[]string"
+      - name: host
+        type: string
+      - name: subset
+        type: string
