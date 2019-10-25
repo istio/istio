@@ -151,7 +151,6 @@ func TestVirtualListenerBuilder(t *testing.T) {
 
 func setInboundCaptureAllOnThisNode(proxy *model.Proxy) {
 	proxy.Metadata.InterceptionMode = "REDIRECT"
-	proxy.Metadata.IncludeInboundPorts = model.AllPortsLiteral
 }
 
 func prepareListeners(t *testing.T) []*v2.Listener {
