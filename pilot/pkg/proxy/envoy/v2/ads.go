@@ -528,27 +528,28 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 
 	// check version, suppress if changed.
 	currentVersion := versionInfo()
+	pushTypes := PushTypeFor(con.node, pushEv)
 
-	if con.CDSWatch {
+	if con.CDSWatch && pushTypes[CDS] {
 		err := s.pushCds(con, pushEv.push, currentVersion)
 		if err != nil {
 			return err
 		}
 	}
 
-	if len(con.Clusters) > 0 {
+	if len(con.Clusters) > 0 && pushTypes[EDS] {
 		err := s.pushEds(pushEv.push, con, currentVersion, nil)
 		if err != nil {
 			return err
 		}
 	}
-	if con.LDSWatch {
+	if con.LDSWatch && pushTypes[LDS] {
 		err := s.pushLds(con, pushEv.push, currentVersion)
 		if err != nil {
 			return err
 		}
 	}
-	if len(con.Routes) > 0 {
+	if len(con.Routes) > 0 && pushTypes[RDS] {
 		err := s.pushRoute(con, pushEv.push, currentVersion)
 		if err != nil {
 			return err
@@ -714,6 +715,111 @@ Loop:
 		}
 	}
 	return false
+}
+
+type XdsType int
+
+const (
+	CDS XdsType = iota
+	EDS
+	LDS
+	RDS
+)
+
+// TODO: move to a separate file, merge with ProxyNeedsPush
+func PushTypeFor(proxy *model.Proxy, pushEv *XdsEvent) map[XdsType]bool {
+	out := map[XdsType]bool{}
+	if proxy.Type == model.SidecarProxy {
+		for config := range pushEv.configTypesUpdated {
+			switch config {
+			case schemas.VirtualService.Type:
+				out[LDS] = true
+				out[RDS] = true
+			case schemas.Gateway.Type:
+				// Do not push
+			case schemas.ServiceEntry.Type, schemas.SyntheticServiceEntry.Type:
+				out[CDS] = true
+				out[EDS] = true
+				out[LDS] = true
+				out[RDS] = true
+				return out
+			case schemas.DestinationRule.Type:
+				out[CDS] = true
+				out[EDS] = true
+			case schemas.EnvoyFilter.Type:
+				out[CDS] = true
+				out[LDS] = true
+				out[RDS] = true
+			case schemas.Sidecar.Type:
+				out[CDS] = true
+				out[LDS] = true
+				out[RDS] = true
+			case schemas.QuotaSpec.Type, schemas.QuotaSpecBinding.Type:
+				out[RDS] = true
+			case schemas.AuthenticationPolicy.Type, schemas.AuthenticationMeshPolicy.Type:
+				out[CDS] = true
+				out[LDS] = true
+			case schemas.ServiceRole.Type, schemas.ServiceRoleBinding.Type, schemas.RbacConfig.Type,
+				schemas.ClusterRbacConfig.Type, schemas.AuthorizationPolicy.Type:
+				out[CDS] = true
+				out[LDS] = true
+			default:
+				out[CDS] = true
+				out[EDS] = true
+				out[LDS] = true
+				out[RDS] = true
+				return out
+			}
+			// To return asap
+			if len(out) == 4 {
+				return out
+			}
+		}
+	} else {
+		for config := range pushEv.configTypesUpdated {
+			switch config {
+			case schemas.VirtualService.Type:
+				out[LDS] = true
+				out[RDS] = true
+			case schemas.Gateway.Type:
+				out[LDS] = true
+				out[RDS] = true
+			case schemas.ServiceEntry.Type, schemas.SyntheticServiceEntry.Type:
+				out[CDS] = true
+				out[EDS] = true
+				out[LDS] = true
+				out[RDS] = true
+				return out
+			case schemas.DestinationRule.Type:
+				out[CDS] = true
+				out[EDS] = true
+			case schemas.EnvoyFilter.Type:
+				out[CDS] = true
+				out[LDS] = true
+				out[RDS] = true
+			case schemas.Sidecar.Type, schemas.QuotaSpec.Type, schemas.QuotaSpecBinding.Type:
+				// do not push for gateway
+			case schemas.AuthenticationPolicy.Type, schemas.AuthenticationMeshPolicy.Type:
+				out[CDS] = true
+				out[LDS] = true
+			case schemas.ServiceRole.Type, schemas.ServiceRoleBinding.Type, schemas.RbacConfig.Type,
+				schemas.ClusterRbacConfig.Type, schemas.AuthorizationPolicy.Type:
+				out[CDS] = true
+				out[LDS] = true
+			default:
+				out[CDS] = true
+				out[EDS] = true
+				out[LDS] = true
+				out[RDS] = true
+				return out
+			}
+			// To return asap
+			if len(out) == 4 {
+				return out
+			}
+		}
+	}
+	return out
 }
 
 func (s *DiscoveryServer) addCon(conID string, con *XdsConnection) {
