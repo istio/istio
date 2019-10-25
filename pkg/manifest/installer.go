@@ -223,7 +223,7 @@ func ApplyAll(manifests name.ManifestMap, version version.Version, opts *Install
 	for c := range manifests {
 		logAndPrint("- %s", c)
 	}
-	logAndPrint("Component dependencies tree: \n%s", installTreeString())
+	log.Infof("Component dependencies tree: \n%s", installTreeString())
 	if err := initK8SRestClient(opts.Kubeconfig, opts.Context); err != nil {
 		return nil, err
 	}
@@ -239,15 +239,15 @@ func applyRecursive(manifests name.ManifestMap, version version.Version, opts *I
 		wg.Add(1)
 		go func() {
 			if s := dependencyWaitCh[c]; s != nil {
-				logAndPrint("%s is waiting on parent dependency...", c)
+				logAndPrint("%s is waiting on a prerequisite...", c)
 				<-s
-				logAndPrint("Parent dependency for %s has unblocked, proceeding.", c)
+				logAndPrint("Prerequisite for %s has completed, proceeding with install.", c)
 			}
 			out[c] = applyManifest(c, m, version, opts)
 
 			// Signal all the components that depend on us.
 			for _, ch := range componentDependencies[c] {
-				logAndPrint("unblocking child dependency %s.", ch)
+				log.Infof("unblocking child %s.", ch)
 				dependencyWaitCh[ch] <- struct{}{}
 			}
 			wg.Done()
@@ -313,7 +313,7 @@ func applyManifest(componentName name.ComponentName, manifestStr string, version
 		extraArgs = append(extraArgs, "--prune", "--selector", componentLabel)
 	}
 
-	logAndPrint("kubectl applying manifest for component %s", componentName)
+	logAndPrint("Applying manifest for component %s", componentName)
 
 	crdObjects := cRDKindObjects(objects)
 	if len(crdObjects) > 0 {
@@ -348,7 +348,7 @@ func applyManifest(componentName name.ComponentName, manifestStr string, version
 		}
 	}
 	stdout, stderr, err = kubectl.Apply(opts.DryRun, opts.Verbose, opts.Kubeconfig, opts.Context, namespace, m, extraArgs...)
-	logAndPrint("finished applying manifest for component %s", componentName)
+	logAndPrint("Finished applying manifest for component %s", componentName)
 	ym, _ := objects.YAMLManifest()
 	return &ComponentApplyOutput{
 		Stdout:   stdoutCRD + "\n" + stdout,
