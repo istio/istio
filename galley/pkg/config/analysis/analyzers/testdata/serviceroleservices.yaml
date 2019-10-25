@@ -56,7 +56,7 @@ metadata:
 spec:
   rules:
     # There is one service in default namespace, should not generate an error.
-    - services: ["*.default.svc.cluster.local"]
+    - services: [".default.svc.cluster.local"]
       methods: ["GET", "HEAD"]
 ---
 apiVersion: rbac.istio.io/v1alpha1
@@ -85,17 +85,6 @@ spec:
 apiVersion: rbac.istio.io/v1alpha1
 kind: ServiceRole
 metadata:
-  name: fqdn-cross-ns
-  namespace: anothernamespace
-spec:
-  rules:
-    # This service exists in default, should not generate an error
-    - services: ["reviews.default.svc.cluster.local"]
-      methods: ["GET", "HEAD"]
----
-apiVersion: rbac.istio.io/v1alpha1
-kind: ServiceRole
-metadata:
   name: short-name
   namespace: anothernamespace
 spec:
@@ -107,12 +96,23 @@ spec:
 apiVersion: rbac.istio.io/v1alpha1
 kind: ServiceRole
 metadata:
+  name: fqdn-cross-ns
+  namespace: anothernamespace
+spec:
+  rules:
+    # This service exists but in another namespace, should generate an error
+    - services: ["reviews.default.svc.cluster.local"]
+      methods: ["GET", "HEAD"]
+---
+apiVersion: rbac.istio.io/v1alpha1
+kind: ServiceRole
+metadata:
   name: namespace-wide
   namespace: anothernamespace
 spec:
   rules:
     # There aren't services in anothernamespace namespace, should generate an error.
-    - services: ["*.anothernamespace.svc.cluster.local"]
+    - services: [".anothernamespace.svc.cluster.local"]
       methods: ["GET", "HEAD"]
 ---
 apiVersion: rbac.istio.io/v1alpha1
