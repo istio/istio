@@ -45,7 +45,7 @@ func New(a *settings.Args) *Server {
 	s.host.Add(readiness)
 
 	if a.ValidationArgs != nil && (a.ValidationArgs.EnableValidation || a.ValidationArgs.EnableReconcileWebhookConfiguration) {
-		validation := components.NewValidation(a.KubeConfig, a.ValidationArgs, liveness.Controller(), readiness.Controller())
+		validation := components.NewValidation(a.KubeInterface, a.KubeConfig, a.ValidationArgs, liveness.Controller(), readiness.Controller())
 		s.host.Add(validation)
 	}
 

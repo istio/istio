@@ -162,10 +162,13 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 	}
 }
 
-func convertInstances(cfg model.Config) []*model.ServiceInstance {
+func convertInstances(cfg model.Config, services []*model.Service) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
-	for _, service := range convertServices(cfg) {
+	if services == nil {
+		services = convertServices(cfg)
+	}
+	for _, service := range services {
 		for _, serviceEntryPort := range serviceEntry.Ports {
 			if len(serviceEntry.Endpoints) == 0 &&
 				serviceEntry.Resolution == networking.ServiceEntry_DNS {
