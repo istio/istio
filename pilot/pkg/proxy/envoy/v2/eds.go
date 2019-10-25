@@ -675,8 +675,12 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 
 			// Failover should only be enabled when there is an outlier detection, otherwise Envoy
 			// will never detect the hosts are unhealthy and redirect traffic.
-			enableFailover := hasOutlierDetection(push, con.node, clusterName)
-			loadbalancer.ApplyLocalityLBSetting(con.node.Locality, l, s.Env.Mesh.LocalityLbSetting, enableFailover)
+			enableFailover, loadBalancerSettings := getOutlierDetectionAndLoadBalancerSettings(push, con.node, clusterName)
+			var localityLbSettings = s.Env.Mesh.LocalityLbSetting
+			if loadBalancerSettings != nil && loadBalancerSettings.LocalityLbSetting != nil {
+				localityLbSettings = loadBalancerSettings.LocalityLbSetting
+			}
+			loadbalancer.ApplyLocalityLBSetting(con.node.Locality, l, localityLbSettings, enableFailover)
 		}
 
 		for _, e := range l.Endpoints {
@@ -728,28 +732,31 @@ func getDestinationRule(push *model.PushContext, proxy *model.Proxy, hostname ho
 	return nil, nil
 }
 
-func hasOutlierDetection(push *model.PushContext, proxy *model.Proxy, clusterName string) bool {
+func getOutlierDetectionAndLoadBalancerSettings(push *model.PushContext, proxy *model.Proxy, clusterName string) (bool, *networkingapi.LoadBalancerSettings) {
 	_, subsetName, hostname, portNumber := model.ParseSubsetKey(clusterName)
 
+	var lbSettings *networkingapi.LoadBalancerSettings
 	destinationRule, port := getDestinationRule(push, proxy, hostname, portNumber)
 	if destinationRule == nil || port == nil {
-		return false
+		return false, nil
 	}
 
-	_, outlierDetection, _, _ := networking.SelectTrafficPolicyComponents(destinationRule.TrafficPolicy, port)
+	_, outlierDetection, loadBalancerSettings, _ := networking.SelectTrafficPolicyComponents(destinationRule.TrafficPolicy, port)
+	lbSettings = loadBalancerSettings
 	if outlierDetection != nil {
-		return true
+		return true, loadBalancerSettings
 	}
 
 	for _, subset := range destinationRule.Subsets {
 		if subset.Name == subsetName {
-			_, outlierDetection, _, _ := networking.SelectTrafficPolicyComponents(subset.TrafficPolicy, port)
+			_, outlierDetection, loadBalancerSettings, _ := networking.SelectTrafficPolicyComponents(subset.TrafficPolicy, port)
+			lbSettings = loadBalancerSettings
 			if outlierDetection != nil {
-				return true
+				return true, loadBalancerSettings
 			}
 		}
 	}
-	return false
+	return false, lbSettings
 }
 
 // getEdsCluster returns a cluster.

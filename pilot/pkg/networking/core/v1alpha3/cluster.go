@@ -32,7 +32,6 @@ import (
 
 	"istio.io/istio/pkg/util/gogo"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 
@@ -116,7 +115,6 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 		// DO NOT CALL PLUGINS for these two clusters.
 		outboundClusters = append(outboundClusters, buildBlackHoleCluster(env), buildDefaultPassthroughCluster(env, proxy))
 		// apply load balancer setting for cluster endpoints
-		applyLocalityLBSetting(proxy.Locality, outboundClusters, env.Mesh.LocalityLbSetting)
 		outboundClusters = envoyfilter.ApplyClusterPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, proxy, push, outboundClusters)
 		// Let ServiceDiscovery decide which IP and Port are used for management if
 		// there are multiple IPs
@@ -138,7 +136,6 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 			outboundClusters = append(outboundClusters, configgen.buildOutboundSniDnatClusters(env, proxy, push)...)
 		}
 		// apply load balancer setting for cluster endpoints
-		applyLocalityLBSetting(proxy.Locality, outboundClusters, env.Mesh.LocalityLbSetting)
 		outboundClusters = envoyfilter.ApplyClusterPatches(networking.EnvoyFilter_GATEWAY, proxy, push, outboundClusters)
 		clusters = outboundClusters
 	}
@@ -840,6 +837,12 @@ func applyTrafficPolicy(opts buildClusterOpts, proxy *model.Proxy) {
 	applyConnectionPool(opts.env, opts.cluster, connectionPool, opts.direction)
 	applyOutlierDetection(opts.cluster, outlierDetection)
 	applyLoadBalancer(opts.cluster, loadBalancer, opts.port, proxy)
+	// Use locality lb settings from traffic policy if present, else use mesh wide locality lb settings
+	var localityLbSettings = opts.env.Mesh.LocalityLbSetting
+	if loadBalancer != nil && loadBalancer.LocalityLbSetting != nil {
+		localityLbSettings = loadBalancer.LocalityLbSetting
+	}
+	applyLocalityLBSetting(proxy.Locality, opts.cluster, localityLbSettings)
 	if opts.clusterMode != SniDnatClusterMode && opts.direction != model.TrafficDirectionInbound {
 		autoMTLSEnabled := opts.env.Mesh.GetEnableAutoMtls().Value
 		var mtlsCtxType mtlsContextType
@@ -847,6 +850,7 @@ func applyTrafficPolicy(opts buildClusterOpts, proxy *model.Proxy) {
 			autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode)
 		applyUpstreamTLSSettings(opts.env, opts.cluster, tls, mtlsCtxType, opts.proxy)
 	}
+
 }
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
@@ -1054,18 +1058,17 @@ func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettin
 
 func applyLocalityLBSetting(
 	locality *core.Locality,
-	clusters []*apiv2.Cluster,
-	localityLB *meshconfig.LocalityLoadBalancerSetting,
+	cluster *apiv2.Cluster,
+	localityLB *networking.LocalityLoadBalancerSetting,
 ) {
 	if locality == nil || localityLB == nil {
 		return
 	}
-	for _, cluster := range clusters {
-		// Failover should only be applied with outlier detection, or traffic will never failover.
-		enabledFailover := cluster.OutlierDetection != nil
-		if cluster.LoadAssignment != nil {
-			loadbalancer.ApplyLocalityLBSetting(locality, cluster.LoadAssignment, localityLB, enabledFailover)
-		}
+
+	// Failover should only be applied with outlier detection, or traffic will never failover.
+	enabledFailover := cluster.OutlierDetection != nil
+	if cluster.LoadAssignment != nil {
+		loadbalancer.ApplyLocalityLBSetting(locality, cluster.LoadAssignment, localityLB, enabledFailover)
 	}
 }
 
