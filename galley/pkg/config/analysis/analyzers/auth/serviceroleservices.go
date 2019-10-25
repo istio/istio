@@ -82,7 +82,7 @@ func (s *ServiceRoleServicesAnalyzer) buildNamespaceServiceMap(ctx analysis.Cont
 
 	ctx.ForEach(metadata.K8SCoreV1Services, func(r *resource.Entry) bool {
 		rns, rs := r.Metadata.Name.InterpretAsNamespaceAndName()
-		nsm[rns] = append(nsm[rns], fmt.Sprintf("%s.%s.%s", rs, rns, util.DefaultKubernetesDomain ))
+		nsm[rns] = append(nsm[rns], fmt.Sprintf("%s.%s.%s", rs, rns, util.DefaultKubernetesDomain))
 		return true
 	})
 
