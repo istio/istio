@@ -192,17 +192,17 @@ var (
 			Protocol:          plugin.ListenerProtocolHTTP,
 		},
 		{
+			// client side traffic was detected as HTTP by the outbound listener, sent out as plain text
+			ApplicationProtocols: plaintextHTTPALPNs,
+			// No transport protocol match as this filter chain (+match) will be used for plain text connections
+			Protocol: plugin.ListenerProtocolHTTP,
+		},
+		{
 			// client side traffic could not be identified by the outbound listener, but sent over mTLS
 			ApplicationProtocols: mtlsTCPALPNs,
 			// If client sends mTLS traffic, transport protocol will be set by the TLS inspector
 			TransportProtocol: "tls",
 			Protocol:          plugin.ListenerProtocolTCP,
-		},
-		{
-			// client side traffic was detected as HTTP by the outbound listener, sent out as plain text
-			ApplicationProtocols: plaintextHTTPALPNs,
-			// No transport protocol match as this filter chain (+match) will be used for plain text connections
-			Protocol: plugin.ListenerProtocolHTTP,
 		},
 		{
 			// client side traffic could not be identified by the outbound listener, sent over plaintext
