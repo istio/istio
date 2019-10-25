@@ -33,6 +33,18 @@ func TestReplaceTrustDomainAliases(t *testing.T) {
 			expect:            []string{"cluster.local/ns/foo/sa/bar"},
 		},
 		{
+			name:              "Principal with *",
+			trustDomainBundle: NewTrustDomainBundle("cluster.local", nil),
+			principals:        []string{"*"},
+			expect:            []string{"*"},
+		},
+		{
+			name:              "Principal with * prefix and right format",
+			trustDomainBundle: NewTrustDomainBundle("cluster.local", nil),
+			principals:        []string{"*/ns/foo/sa/bar"},
+			expect:            []string{"*/ns/foo/sa/bar"},
+		},
+		{
 			name:              "One trust domain alias, one principal",
 			trustDomainBundle: NewTrustDomainBundle("td2", []string{"td1"}),
 			principals:        []string{"td1/ns/foo/sa/bar"},
@@ -45,11 +57,23 @@ func TestReplaceTrustDomainAliases(t *testing.T) {
 			expect:            []string{"td1/ns/foo/sa/bar", "cluster.local/ns/foo/sa/bar", "td1/ns/yyy/sa/zzz", "cluster.local/ns/yyy/sa/zzz"},
 		},
 		{
+			name:              "One trust domain alias, principals with * as-is",
+			trustDomainBundle: NewTrustDomainBundle("td1", []string{"cluster.local"}),
+			principals:        []string{"*/ns/foo/sa/bar", "*sa/zzz", "*"},
+			expect:            []string{"*/ns/foo/sa/bar", "*sa/zzz", "*"},
+		},
+		{
 			name:              "Two trust domain aliases, two principals",
 			trustDomainBundle: NewTrustDomainBundle("td2", []string{"td1", "cluster.local"}),
 			principals:        []string{"cluster.local/ns/foo/sa/bar", "td1/ns/yyy/sa/zzz"},
 			expect: []string{"td2/ns/foo/sa/bar", "td1/ns/foo/sa/bar", "cluster.local/ns/foo/sa/bar",
 				"td2/ns/yyy/sa/zzz", "td1/ns/yyy/sa/zzz", "cluster.local/ns/yyy/sa/zzz"},
+		},
+		{
+			name:              "Two trust domain aliases with * prefix in trust domain",
+			trustDomainBundle: NewTrustDomainBundle("td2", []string{"foo-td1", "cluster.local"}),
+			principals:        []string{"*-td1/ns/foo/sa/bar"},
+			expect:            []string{"td2/ns/foo/sa/bar", "*-td1/ns/foo/sa/bar", "cluster.local/ns/foo/sa/bar"},
 		},
 		{
 			name:              "Principals not match alias",
