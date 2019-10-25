@@ -23,6 +23,8 @@ import (
 	"regexp"
 	"time"
 
+	"k8s.io/client-go/kubernetes"
+
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/pkg/log"
@@ -72,19 +74,28 @@ func webhookHTTPSHandlerReady(client httpClient, vc *WebhookParameters) error {
 }
 
 //RunValidation start running Galley validation mode
-func RunValidation(ready chan<- struct{}, stopCh chan struct{}, vc *WebhookParameters, kubeConfig string,
-	livenessProbeController, readinessProbeController probe.Controller) {
-	log.Infof("Galley validation started with\n%s", vc)
+func RunValidation(ready chan<- struct{}, stopCh chan struct{}, vc *WebhookParameters,
+	kubeInterface kubernetes.Interface, kubeConfig string, livenessProbeController, readinessProbeController probe.Controller) {
+	log.Infof("Galley validation started with \n%s", vc)
 	mixerValidator := mixervalidate.NewDefaultValidator(false)
-	clientset, err := kube.CreateClientset(kubeConfig, "")
-	if err != nil {
-		log.Fatalf("could not create k8s clientset: %v", err)
+
+	var clientset kubernetes.Interface
+	var err error
+	// The linter insists on passing kube.Interface - but checking kubeInterface == nil will
+	// fail - the value is nil, not the interface. Magic of go.
+	if kubeInterface.(*kubernetes.Clientset) == nil {
+		clientset, err = kube.CreateClientset(kubeConfig, "")
+		if err != nil {
+			log.Fatalf("could not create k8s clientset: %v", err)
+		}
+	} else {
+		clientset = kubeInterface
 	}
 	vc.MixerValidator = mixerValidator
 	vc.PilotDescriptor = schemas.Istio
 	vc.Clientset = clientset
 	wh, err := NewWebhook(*vc)
-	if err != nil {
+	if err != nil || vc.Clientset == nil {
 		log.Fatalf("cannot create validation webhook service: %v", err)
 	}
 	if livenessProbeController != nil {
