@@ -891,5 +891,5 @@ func updateEdsStats(locEps []*endpoint.LocalityLbEndpoints, cluster string) {
 	for _, locLbEps := range locEps {
 		epc += len(locLbEps.GetLbEndpoints())
 	}
-	edsEndpoints.With(clusterTag.Value(cluster)).Record(float64(epc))
+	edsAllLocalityEndpoints.With(clusterTag.Value(cluster)).Record(float64(epc))
 }

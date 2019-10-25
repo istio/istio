@@ -44,8 +44,8 @@ var (
 		monitoring.WithLabels(clusterTag),
 	)
 
-	edsEndpoints = monitoring.NewGauge(
-		"pilot_xds_eds_endpoints",
+	edsAllLocalityEndpoints = monitoring.NewGauge(
+		"pilot_xds_eds_all_locality_endpoints",
 		"Network endpoints for each cluster(across all localities), as of last push. Zero endpoints is an error.",
 		monitoring.WithLabels(clusterTag),
 	)
