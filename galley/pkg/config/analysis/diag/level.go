@@ -19,7 +19,7 @@ import (
 	"strings"
 )
 
-// Valid values for Level input via CLI
+// ValidStringLevels represents values for Level input via CLI
 var ValidStringLevels = []string{
 	"INFO",
 	"WARN",
