@@ -73,7 +73,7 @@ func NewServiceDiscovery(callbacks model.ConfigStoreCache, store model.IstioConf
 				}
 			}
 
-			instances := convertInstances(config)
+			instances := convertInstances(config, services)
 			for _, handler := range c.instanceHandlers {
 				for _, instance := range instances {
 					go handler(instance, event)
@@ -183,7 +183,7 @@ func (d *ServiceEntryStore) update() {
 	dip := map[string][]*model.ServiceInstance{}
 
 	for _, cfg := range d.store.ServiceEntries() {
-		for _, instance := range convertInstances(cfg) {
+		for _, instance := range convertInstances(cfg, nil) {
 
 			out, found := di[instance.Service.Hostname][instance.Service.Attributes.Namespace]
 			if !found {
