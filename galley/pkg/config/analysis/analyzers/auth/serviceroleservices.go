@@ -15,7 +15,11 @@
 package auth
 
 import (
+	"fmt"
+	"strings"
+
 	"istio.io/api/rbac/v1alpha1"
+
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
@@ -50,26 +54,20 @@ func (s *ServiceRoleServicesAnalyzer) Analyze(ctx analysis.Context) {
 }
 
 // analyzeRoleBinding apply analysis for the service field of the given ServiceRole
-func (s *ServiceRoleServicesAnalyzer) analyzeServiceRoleServices(r *resource.Entry, ctx analysis.Context, nsm map[string]bool) {
+func (s *ServiceRoleServicesAnalyzer) analyzeServiceRoleServices(r *resource.Entry, ctx analysis.Context, nsm map[string][]string) {
 	sr := r.Item.(*v1alpha1.ServiceRole)
 	ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
 
 	for _, rs := range sr.Rules {
 		for _, svc := range rs.Services {
-			rn := util.GetResourceNameFromHost(ns, svc)
-			_, ds := rn.InterpretAsNamespaceAndName()
-
-			// If service is either * or *.ns.cluster
-			// then the service role rule applies to all services on the namespace
-			if ds == "*" {
-				if !nsm[ns] {
+			// If service is * then the service role rule applies to all services on the namespace
+			if svc == "*" {
+				if len(nsm[ns]) < 1 {
 					// Report when there are no services on the ServiceRole namespace
 					ctx.Report(metadata.IstioRbacV1Alpha1Serviceroles,
 						msg.NewNoResourcesNotFoundForNamespace(r, "service", ns))
 				}
-			// If Service is a short name or FQDN
-			// then applies to a specific service
-			} else if !ctx.Exists(metadata.K8SCoreV1Services, rn) {
+			} else if !s.existMatchingService(svc, nsm[ns]) {
 				// Report when the specific service doesn't exist
 				ctx.Report(metadata.IstioRbacV1Alpha1Serviceroles,
 					msg.NewReferencedResourceNotFound(r, "service", svc))
@@ -79,14 +77,30 @@ func (s *ServiceRoleServicesAnalyzer) analyzeServiceRoleServices(r *resource.Ent
 }
 
 // buildNamespaceServiceMap returns a map where the index is a namespace and the boolean
-func (s *ServiceRoleServicesAnalyzer) buildNamespaceServiceMap(ctx analysis.Context) map[string]bool {
-	nsm := map[string]bool{}
+func (s *ServiceRoleServicesAnalyzer) buildNamespaceServiceMap(ctx analysis.Context) map[string][]string {
+	nsm := map[string][]string{}
 
 	ctx.ForEach(metadata.K8SCoreV1Services, func(r *resource.Entry) bool {
-		ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
-		nsm[ns] = true
+		rns, rs := r.Metadata.Name.InterpretAsNamespaceAndName()
+		nsm[rns] = append(nsm[rns], fmt.Sprintf("%s.%s.%s", rs, rns, util.DefaultKubernetesDomain ))
 		return true
 	})
 
 	return nsm
+}
+
+func (s *ServiceRoleServicesAnalyzer) existMatchingService(exp string, nsa []string) bool {
+	m := false
+
+	for _, svc := range nsa {
+		if m = serviceMatch(exp, svc); m {
+			break
+		}
+	}
+
+	return m
+}
+
+func serviceMatch(expr, fqdn string) bool {
+	return expr == fqdn || strings.HasPrefix(fqdn, expr) || strings.HasSuffix(fqdn, expr)
 }
