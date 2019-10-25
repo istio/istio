@@ -119,14 +119,19 @@ func (p *Processing2) Start() (err error) {
 	}
 
 	var distributor snapshotter.Distributor = snapshotter.NewMCPDistributor(p.mcpCache)
+
 	if p.args.EnableConfigAnalysis {
+		combinedAnalyzer := analyzers.AllCombined()
+		combinedAnalyzer.RemoveDisabled(kubeResources.DisabledCollections(), transformProviders)
+
 		settings := snapshotter.AnalyzingDistributorSettings{
 			StatusUpdater:     updater,
-			Analyzer:          analyzers.AllCombined().WithDisabled(kubeResources.DisabledCollections(), transformProviders),
+			Analyzer:          combinedAnalyzer,
 			Distributor:       distributor,
 			AnalysisSnapshots: p.args.Snapshots,
 			TriggerSnapshot:   p.args.TriggerSnapshot,
 		}
+
 		distributor = snapshotter.NewAnalyzingDistributor(settings)
 	}
 
@@ -275,6 +280,9 @@ func (p *Processing2) getServerGrpcOptions() []grpc.ServerOption {
 }
 
 func (p *Processing2) getKubeInterfaces() (k kube.Interfaces, err error) {
+	if p.args.KubeRestConfig != nil {
+		return kube.NewInterfaces(p.args.KubeRestConfig), nil
+	}
 	if p.k == nil {
 		p.k, err = newInterfaces(p.args.KubeConfig)
 	}

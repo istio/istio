@@ -12,29 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package diag
+package trafficmanagement
 
-// Level is the severity level of a message.
-type Level struct {
-	sortOrder int
-	name      string
-}
+import (
+	"testing"
 
-func (l Level) String() string {
-	return l.name
-}
-
-func (l Level) IsWorseThanOrEqualTo(target Level) bool {
-	return l.sortOrder <= target.sortOrder
-}
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/components/istio"
+)
 
 var (
-	// Info level is for informational messages
-	Info = Level{2, "Info"}
-
-	// Warning level is for warning messages
-	Warning = Level{1, "Warn"}
-
-	// Error level is for error messages
-	Error = Level{0, "Error"}
+	inst istio.Instance
 )
+
+func TestMain(m *testing.M) {
+	framework.
+		NewSuite("trafficmanagement", m).
+		SetupOnEnv(environment.Kube, istio.Setup(&inst, nil)).
+		RequireEnvironment(environment.Kube).
+		Run()
+
+}

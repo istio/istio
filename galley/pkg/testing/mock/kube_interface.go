@@ -17,6 +17,7 @@ package mock
 import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
+	admissionregistrationv1 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1"
 	admissionregistrationv1beta1 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
 	appsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
 	appsv1beta1 "k8s.io/client-go/kubernetes/typed/apps/v1beta1"
@@ -36,6 +37,7 @@ import (
 	coordinationv1 "k8s.io/client-go/kubernetes/typed/coordination/v1"
 	coordinationv1beta1 "k8s.io/client-go/kubernetes/typed/coordination/v1beta1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	discoveryv1alpha1 "k8s.io/client-go/kubernetes/typed/discovery/v1alpha1"
 	eventsv1beta1 "k8s.io/client-go/kubernetes/typed/events/v1beta1"
 	extensionsv1beta1 "k8s.io/client-go/kubernetes/typed/extensions/v1beta1"
 	networkingv1 "k8s.io/client-go/kubernetes/typed/networking/v1"
@@ -111,10 +113,6 @@ func (c *kubeInterface) CoordinationV1beta1() coordinationv1beta1.CoordinationV1
 	panic("not implemented")
 }
 
-func (c *kubeInterface) Coordination() coordinationv1beta1.CoordinationV1beta1Interface {
-	panic("not implemented")
-}
-
 func (c *kubeInterface) CoordinationV1() coordinationv1.CoordinationV1Interface {
 	panic("not implemented")
 }
@@ -123,7 +121,7 @@ func (c *kubeInterface) AdmissionregistrationV1beta1() admissionregistrationv1be
 	panic("not implemented")
 }
 
-func (c *kubeInterface) Admissionregistration() admissionregistrationv1beta1.AdmissionregistrationV1beta1Interface {
+func (c *kubeInterface) AdmissionregistrationV1() admissionregistrationv1.AdmissionregistrationV1Interface {
 	panic("not implemented")
 }
 
@@ -139,15 +137,7 @@ func (c *kubeInterface) AppsV1() appsv1.AppsV1Interface {
 	return c.appsv1
 }
 
-func (c *kubeInterface) Apps() appsv1.AppsV1Interface {
-	panic("not implemented")
-}
-
 func (c *kubeInterface) AuthenticationV1() authenticationv1.AuthenticationV1Interface {
-	panic("not implemented")
-}
-
-func (c *kubeInterface) Authentication() authenticationv1.AuthenticationV1Interface {
 	panic("not implemented")
 }
 
@@ -159,10 +149,6 @@ func (c *kubeInterface) AuthorizationV1() authorizationv1.AuthorizationV1Interfa
 	panic("not implemented")
 }
 
-func (c *kubeInterface) Authorization() authorizationv1.AuthorizationV1Interface {
-	panic("not implemented")
-}
-
 func (c *kubeInterface) AuthorizationV1beta1() authorizationv1beta1.AuthorizationV1beta1Interface {
 	panic("not implemented")
 }
@@ -171,19 +157,11 @@ func (c *kubeInterface) AutoscalingV1() autoscalingv1.AutoscalingV1Interface {
 	panic("not implemented")
 }
 
-func (c *kubeInterface) Autoscaling() autoscalingv1.AutoscalingV1Interface {
-	panic("not implemented")
-}
-
 func (c *kubeInterface) AutoscalingV2beta1() autoscalingv2beta1.AutoscalingV2beta1Interface {
 	panic("not implemented")
 }
 
 func (c *kubeInterface) BatchV1() batchv1.BatchV1Interface {
-	panic("not implemented")
-}
-
-func (c *kubeInterface) Batch() batchv1.BatchV1Interface {
 	panic("not implemented")
 }
 
@@ -199,11 +177,7 @@ func (c *kubeInterface) CertificatesV1beta1() certificatesv1beta1.CertificatesV1
 	panic("not implemented")
 }
 
-func (c *kubeInterface) Certificates() certificatesv1beta1.CertificatesV1beta1Interface {
-	panic("not implemented")
-}
-
-func (c *kubeInterface) Core() corev1.CoreV1Interface {
+func (c *kubeInterface) DiscoveryV1alpha1() discoveryv1alpha1.DiscoveryV1alpha1Interface {
 	panic("not implemented")
 }
 
@@ -211,23 +185,11 @@ func (c *kubeInterface) EventsV1beta1() eventsv1beta1.EventsV1beta1Interface {
 	panic("not implemented")
 }
 
-func (c *kubeInterface) Events() eventsv1beta1.EventsV1beta1Interface {
-	panic("not implemented")
-}
-
 func (c *kubeInterface) ExtensionsV1beta1() extensionsv1beta1.ExtensionsV1beta1Interface {
 	return c.extensions
 }
 
-func (c *kubeInterface) Extensions() extensionsv1beta1.ExtensionsV1beta1Interface {
-	panic("not implemented")
-}
-
 func (c *kubeInterface) NetworkingV1() networkingv1.NetworkingV1Interface {
-	panic("not implemented")
-}
-
-func (c *kubeInterface) Networking() networkingv1.NetworkingV1Interface {
 	panic("not implemented")
 }
 
@@ -251,15 +213,7 @@ func (c *kubeInterface) PolicyV1beta1() policyv1beta1.PolicyV1beta1Interface {
 	panic("not implemented")
 }
 
-func (c *kubeInterface) Policy() policyv1beta1.PolicyV1beta1Interface {
-	panic("not implemented")
-}
-
 func (c *kubeInterface) RbacV1() rbacv1.RbacV1Interface {
-	panic("not implemented")
-}
-
-func (c *kubeInterface) Rbac() rbacv1.RbacV1Interface {
 	panic("not implemented")
 }
 
@@ -279,15 +233,7 @@ func (c *kubeInterface) SchedulingV1beta1() schedulingv1beta1.SchedulingV1beta1I
 	panic("not implemented")
 }
 
-func (c *kubeInterface) Scheduling() schedulingv1beta1.SchedulingV1beta1Interface {
-	panic("not implemented")
-}
-
 func (c *kubeInterface) SettingsV1alpha1() settingsv1alpha1.SettingsV1alpha1Interface {
-	panic("not implemented")
-}
-
-func (c *kubeInterface) Settings() settingsv1alpha1.SettingsV1alpha1Interface {
 	panic("not implemented")
 }
 
@@ -296,10 +242,6 @@ func (c *kubeInterface) StorageV1beta1() storagev1beta1.StorageV1beta1Interface 
 }
 
 func (c *kubeInterface) StorageV1() storagev1.StorageV1Interface {
-	panic("not implemented")
-}
-
-func (c *kubeInterface) Storage() storagev1.StorageV1Interface {
 	panic("not implemented")
 }
 

@@ -257,7 +257,10 @@ func getInfo() adapter.Info {
 		}
 		return cn, nil
 	}
-	mg := helper.NewMetadataGenerator(md.OnGCE, md.ProjectID, md.Zone, clusterNameFn)
+	meshIDFn := func() (string, error) {
+		return md.InstanceAttributeValue("mesh-id")
+	}
+	mg := helper.NewMetadataGenerator(md.OnGCE, md.ProjectID, md.Zone, clusterNameFn, meshIDFn)
 	return adapter.Info{
 		Name:        "stackdriver",
 		Impl:        "istio.io/istio/mixer/adapte/stackdriver",
