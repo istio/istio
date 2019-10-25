@@ -136,7 +136,9 @@ func NewServer(options Options, workloadSecretCache, gatewaySecretCache cache.Se
 	}
 	version.Info.RecordComponentBuildTag("citadel_agent")
 
-	s.initDebugServer(options.DebugPort)
+	if options.DebugPort > 0 {
+		s.initDebugServer(options.DebugPort)
+	}
 	return s, nil
 }
 
