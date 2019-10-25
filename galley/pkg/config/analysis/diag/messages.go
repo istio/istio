@@ -29,7 +29,7 @@ func (ms *Messages) Sort() {
 	sort.Slice(*ms, func(i, j int) bool {
 		a, b := (*ms)[i], (*ms)[j]
 		switch {
-		case a.Type.Level() != b.Type.Level():
+		case *a.Type.Level() != *b.Type.Level():
 			return a.Type.Level().sortOrder < b.Type.Level().sortOrder
 		case a.Type.Code() != b.Type.Code():
 			return a.Type.Code() < b.Type.Code()

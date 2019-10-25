@@ -14,17 +14,56 @@
 
 package diag
 
+import (
+	"fmt"
+	"strings"
+)
+
+// Valid values for Level input via CLI
+var ValidStringLevels = []string{
+	"INFO",
+	"WARN",
+	"WARNING",
+	"ERR",
+	"ERROR",
+}
+
 // Level is the severity level of a message.
 type Level struct {
 	sortOrder int
 	name      string
 }
 
-func (l Level) String() string {
+// String satisfies interface pflag.Value
+func (l *Level) String() string {
 	return l.name
 }
 
-func (l Level) IsWorseThanOrEqualTo(target Level) bool {
+// Type satisfies interface pflag.Value
+func (l *Level) Type() string {
+	return "Level"
+}
+
+// Set satisfies interface pflag.Value
+func (l *Level) Set(s string) error {
+	switch strings.ToUpper(s) {
+	case "INFO":
+		l.sortOrder = Info.sortOrder
+		l.name = Info.name
+	case "WARN", "WARNING":
+		l.sortOrder = Warning.sortOrder
+		l.name = Warning.name
+	case "ERR", "ERROR":
+		l.sortOrder = Error.sortOrder
+		l.name = Error.name
+	default:
+		return fmt.Errorf("%q not a valid option, please choose from: %v", s, ValidStringLevels)
+	}
+
+	return nil
+}
+
+func (l *Level) IsWorseThanOrEqualTo(target Level) bool {
 	return l.sortOrder <= target.sortOrder
 }
 
