@@ -22,15 +22,27 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/galley/pkg/config/analysis/analyzers"
+	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/local"
 	"istio.io/istio/galley/pkg/config/meta/metadata"
 	cfgKube "istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/pkg/kube"
 )
 
+type AnalyzerFoundIssuesError struct{}
+
+const (
+	FoundIssueString = "Analyzer found issues."
+)
+
+func (f AnalyzerFoundIssuesError) Error() string {
+	return FoundIssueString
+}
+
 var (
-	useKube      bool
-	useDiscovery string
+	useKube               bool
+	useDiscovery          string
+	messageLevelThreshold = diag.Warning // messages at least this level will generate an error exit code
 )
 
 // Analyze command
@@ -146,7 +158,8 @@ istioctl experimental analyze -k -d false
 					fmt.Fprintln(cmd.OutOrStdout(), m.String())
 				}
 			}
-			return nil
+
+			return errorIfMessagesExceedThreshold(result.Messages)
 		},
 	}
 
@@ -182,4 +195,19 @@ func serviceDiscovery() (bool, error) {
 	default:
 		return false, fmt.Errorf("invalid argument value for discovery")
 	}
+}
+
+func errorIfMessagesExceedThreshold(messages []diag.Message) error {
+	foundIssues := false
+	for _, m := range messages {
+		if m.Type.Level().IsWorseThanOrEqualTo(messageLevelThreshold) {
+			foundIssues = true
+		}
+	}
+
+	if foundIssues {
+		return AnalyzerFoundIssuesError{}
+	}
+
+	return nil
 }
