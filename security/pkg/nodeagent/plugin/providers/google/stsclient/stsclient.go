@@ -95,7 +95,13 @@ func (p Plugin) ExchangeToken(ctx context.Context, trustDomain, k8sSAjwt string)
 	resp, err := p.hTTPClient.Do(req)
 	if err != nil {
 		stsClientLog.Errorf("Failed to call getfederatedtoken: %v", err)
-		return "", time.Now(), resp.StatusCode, errors.New("failed to exchange token")
+		statusCode := http.StatusServiceUnavailable
+		// If resp is not null, return the actually status code returned from the token service.
+		// If resp is null, return a service unavailable status and try again.
+		if resp != nil {
+			statusCode = resp.StatusCode
+		}
+		return "", time.Now(), statusCode, errors.New("failed to exchange token")
 	}
 	defer resp.Body.Close()
 
