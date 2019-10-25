@@ -137,18 +137,18 @@ func genApplyManifests(setOverlay []string, inFilename string, dryRun bool, verb
 	for cn := range manifests {
 		if out[cn].Err != nil {
 			cs := fmt.Sprintf("Component %s failed install:", cn)
-			l.logAndPrintf("\n%s\n%s\n", cs, strings.Repeat("=", len(cs)))
+			l.logAndPrintf("\n%s\n%s", cs, strings.Repeat("=", len(cs)))
 			l.logAndPrint("Error: ", out[cn].Err, "\n")
 		} else {
 			cs := fmt.Sprintf("Component %s installed successfully:", cn)
-			l.logAndPrintf("\n%s\n%s\n", cs, strings.Repeat("=", len(cs)))
+			l.logAndPrintf("\n%s\n%s", cs, strings.Repeat("=", len(cs)))
 		}
 
 		if strings.TrimSpace(out[cn].Stderr) != "" {
 			l.logAndPrint("Error detail:\n", out[cn].Stderr, "\n")
 		}
 		if strings.TrimSpace(out[cn].Stdout) != "" {
-			l.logAndPrint("Stdout:\n", out[cn].Stdout, "\n")
+			l.logAndPrint(out[cn].Stdout, "\n")
 		}
 	}
 	return nil
