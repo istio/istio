@@ -111,7 +111,9 @@ istioctl experimental analyze -k -d false
 			// If files are provided, treat them (collectively) as a source.
 			if len(files) > 0 {
 				if err = sa.AddFileKubeSource(files); err != nil {
-					return err
+					// Partial success is possible, so don't return early, but do print.
+					// TODO(https://github.com/istio/istio/issues/17862): If we had any such errors, we should return a nonzero exit code
+					fmt.Fprintf(cmd.ErrOrStderr(), "Error(s) reading files: %v", err)
 				}
 			}
 
