@@ -1443,6 +1443,22 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 	} else {
 		connectionManager.UseRemoteAddress = proto.BoolFalse
 	}
+	if s := pilot.InitialStreamWindowSize; s > 0 {
+		if connectionManager.Http2ProtocolOptions == nil {
+			connectionManager.Http2ProtocolOptions = &core.Http2ProtocolOptions{}
+		}
+		connectionManager.Http2ProtocolOptions.InitialStreamWindowSize = &google_protobuf.UInt32Value{
+			Value: uint32(s),
+		}
+	}
+	if s := pilot.InitialConnectionWindowSize; s > 0 {
+		if connectionManager.Http2ProtocolOptions == nil {
+			connectionManager.Http2ProtocolOptions = &core.Http2ProtocolOptions{}
+		}
+		connectionManager.Http2ProtocolOptions.InitialConnectionWindowSize = &google_protobuf.UInt32Value{
+			Value: uint32(s),
+		}
+	}
 
 	// Allow websocket upgrades
 	websocketUpgrade := &http_conn.HttpConnectionManager_UpgradeConfig{UpgradeType: "websocket"}
