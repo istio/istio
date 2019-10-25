@@ -86,10 +86,13 @@ func (h *HelmReconciler) CreatePatch(current, updated runtime.Object) (Patch, er
 			if mergepatch.IsPreconditionFailed(err) {
 				return nil, errors.Wrap(err, fmt.Sprintf("cannot change apiVersion, kind, name, or namespace fields"))
 			}
+			if mergepatch.IsConflict(err) {
+				return nil, errors.Wrap(err, fmt.Sprintf("get conflict while creating the patch: %s", err))
+			}
 			return nil, errors.Wrap(err,
 				fmt.Sprintf(
-					"could not create patch for object, original:\n%v\ncurrent:\n%v\nupdated:\n%v",
-					originalBytes, patch.currentBytes, updatedBytes))
+					"failed to create patch for object with error: %s, original:\n%s\ncurrent:\n%s\nupdated:\n%s",
+					err, originalBytes, patch.currentBytes, updatedBytes))
 		}
 		retVal = &jsonMergePatch{basicPatch: patch}
 	} else {
