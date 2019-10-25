@@ -557,6 +557,22 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
 		},
+		{
+			// Verifies that environment variables passed via "sidecar.istio.io/environmentOverride" annotation override
+			// variables passed under global.proxy.env
+			in:                           "hello-proxy-env-var-annotation.yaml",
+			want:                         "hello-proxy-env-var-annotation-order.injected",
+			includeIPRanges:              DefaultIncludeIPRanges,
+			includeInboundPorts:          DefaultIncludeInboundPorts,
+			statusPort:                   DefaultStatusPort,
+			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
+			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
+			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+			proxyEnvironmentVariables: map[string]string{
+				"VAR1": "NOT-PICKEDUP-VALUE",
+				"VAR3": "VAL3",
+			},
+		},
 	}
 
 	for i, c := range cases {
