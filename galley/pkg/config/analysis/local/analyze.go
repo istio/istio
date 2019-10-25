@@ -73,7 +73,12 @@ func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, 
 	transformerProviders := transforms.Providers(m)
 
 	// Get the closure of all input collections for our analyzer, paying attention to transforms
-	inputCollections := getUpstreamCollections(analyzer, transformerProviders)
+	kubeResources := kuberesource.DisableExcludedKubeResources(
+		m.KubeSource().Resources(),
+		transformerProviders,
+		analyzer.Metadata().Inputs,
+		kuberesource.DefaultExcludedResourceKinds(),
+		serviceDiscovery)
 
 	return &SourceAnalyzer{
 		m:                    m,
@@ -81,7 +86,7 @@ func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, 
 		analyzer:             analyzer,
 		transformerProviders: transformerProviders,
 		namespace:            namespace,
-		kubeResources:        disableUnusedKubeResources(m, inputCollections, serviceDiscovery),
+		kubeResources:        kubeResources,
 		collectionReporter:   cr,
 	}
 }
@@ -164,47 +169,4 @@ func (sa *SourceAnalyzer) AddRunningKubeSource(k kube.Interfaces) {
 	src := apiserverNew(o)
 
 	sa.sources = append(sa.sources, src)
-}
-
-func disableUnusedKubeResources(m *schema.Metadata, inputCollections map[collection.Name]struct{}, serviceDiscovery bool) schema.KubeResources {
-	// As an optimization, disable excluded resource kinds, respecting whether service discovery is enabled
-	withExcludedResources := kuberesource.DisableExcludedKubeResources(m.KubeSource().Resources(), kuberesource.DefaultExcludedResourceKinds(), serviceDiscovery)
-
-	// Additionally, filter out the resources we won't need for the current analysis.
-	// This matters because getting a snapshot from k8s is relatively time-expensive,
-	// so removing unnecessary resources makes a useful difference.
-	filteredResources := make([]schema.KubeResource, 0)
-	for _, r := range withExcludedResources {
-		if _, ok := inputCollections[r.Collection.Name]; !ok {
-			scope.Analysis.Debugf("Disabling resource %q since it isn't necessary for the current analysis", r.Collection.Name)
-			r.Disabled = true
-		}
-		filteredResources = append(filteredResources, r)
-	}
-	return filteredResources
-}
-
-func getUpstreamCollections(analyzer analysis.Analyzer, xformProviders transformer.Providers) map[collection.Name]struct{} {
-	// For each transform, map output to inputs
-	outToIn := make(map[collection.Name]map[collection.Name]struct{})
-	for _, xfp := range xformProviders {
-		for _, out := range xfp.Outputs() {
-			if _, ok := outToIn[out]; !ok {
-				outToIn[out] = make(map[collection.Name]struct{})
-			}
-			for _, in := range xfp.Inputs() {
-				outToIn[out][in] = struct{}{}
-			}
-		}
-	}
-
-	// 2. For each collection used by the analyzer, get its inputs using the above mapping and include them in the output set
-	upstreamCollections := make(map[collection.Name]struct{})
-	for _, c := range analyzer.Metadata().Inputs {
-		for in := range outToIn[c] {
-			upstreamCollections[in] = struct{}{}
-		}
-	}
-
-	return upstreamCollections
 }

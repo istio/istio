@@ -364,7 +364,7 @@ $ go test ./tests/integration/mycomponent/...
 
 Note that samples below invoking variations of ```go test ./...``` are intended to be run from the ```tests/integration``` directory.
 
-| WARNING: Many tests, including integration tests, assume that a [helm](https://github.com/helm/helm/blob/master/docs/install.md) client is installed and on the path.|
+| WARNING: Many tests, including integration tests, assume that a [Helm](https://helm.sh/docs/using_helm/#installing-helm) client is installed and on the path.|
 | --- |
 
 ### Test Parellelism and Kubernetes

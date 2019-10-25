@@ -39,9 +39,9 @@ iptables -t nat -A ISTIO_OUTPUT -m owner --uid-owner 0 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 0 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 0 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN
-ip6tables -F INPUT
-ip6tables -A INPUT -m state --state ESTABLISHED -j ACCEPT
-ip6tables -A INPUT -i lo -d ::1 -j ACCEPT
-ip6tables -A INPUT -j REJECT
+ip6tables -t filter -F INPUT
+ip6tables -t filter -A INPUT -m state --state ESTABLISHED -j ACCEPT
+ip6tables -t filter -A INPUT -i lo -d ::1 -j ACCEPT
+ip6tables -t filter -A INPUT -j REJECT
 iptables-save 
 ip6tables-save 

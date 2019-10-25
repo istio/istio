@@ -143,7 +143,7 @@ func (p *GalleyServer) Start() (err error) {
 	options := &source.Options{
 		Watcher:            p.mcpCache,
 		Reporter:           p.reporter,
-		CollectionsOptions: source.CollectionOptionsFromSlice(p.meta.AllCollectionsInSnapshots()),
+		CollectionsOptions: source.CollectionOptionsFromSlice(p.meta.AllCollectionsInSnapshots(metadata.SnapshotNames())),
 		ConnRateLimiter:    mcprate.NewRateLimiter(time.Second, 100), // TODO(Nino-K): https://github.com/istio/istio/issues/12074
 	}
 

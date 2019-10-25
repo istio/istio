@@ -79,6 +79,8 @@ spec:
         chart: {{ template "security.chart" . }}
         heritage: {{ .Release.Service }}
         release: {{ .Release.Name }}
+      annotations:
+        sidecar.istio.io/inject: "false"
     spec:
       serviceAccountName: istio-security-post-install-account
       containers:

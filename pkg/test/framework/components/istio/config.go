@@ -180,7 +180,7 @@ func DefaultConfig(ctx resource.Context) (Config, error) {
 		return Config{}, err
 	}
 
-	if s.Values, err = newHelmValues(deps); err != nil {
+	if s.Values, err = newHelmValues(ctx, deps); err != nil {
 		return Config{}, err
 	}
 
@@ -222,7 +222,7 @@ func checkFileExists(path string) error {
 	return nil
 }
 
-func newHelmValues(s *image.Settings) (map[string]string, error) {
+func newHelmValues(ctx resource.Context, s *image.Settings) (map[string]string, error) {
 	userValues, err := parseHelmValues()
 	if err != nil {
 		return nil, err
@@ -245,6 +245,13 @@ func newHelmValues(s *image.Settings) (map[string]string, error) {
 	if values[image.TagValuesKey] == image.LatestTag {
 		values[image.ImagePullPolicyValuesKey] = string(kubeCore.PullAlways)
 	}
+
+	// We need more information on Envoy logs to detect usage of any deprecated feature
+	if ctx.Settings().FailOnDeprecation {
+		values["global.proxy.logLevel"] = "debug"
+		values["global.proxy.componentLogLevel"] = "misc:debug"
+	}
+
 	return values, nil
 }
 
