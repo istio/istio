@@ -27,14 +27,14 @@ import (
 // 4. Suffix match. For example, "*/review" matches "/bookstore/review", "/products/review", etc.
 func stringMatch(a string, list []string) bool {
 	for _, s := range list {
-		if a == s || s == "*" || prefixMatch(a, s) || prefixMatch(s, a) || suffixMatch(a, s) || suffixMatch(s, a) {
+		if a == s || s == "*" || prefixMatch(a, s) || suffixMatch(a, s) {
 			return true
 		}
 	}
 	return false
 }
 
-// prefixMatch checks if string "a" suffix matches "pattern".
+// prefixMatch checks if pattern is a prefix match and if string a has the given prefix.
 func prefixMatch(a string, pattern string) bool {
 	if !strings.HasSuffix(pattern, "*") {
 		return false
@@ -43,7 +43,7 @@ func prefixMatch(a string, pattern string) bool {
 	return strings.HasPrefix(a, pattern)
 }
 
-// suffixMatch checks if string "a" prefix matches "pattern".
+// suffixMatch checks if pattern is a suffix match and if string a has the given suffix.
 func suffixMatch(a string, pattern string) bool {
 	if !strings.HasPrefix(pattern, "*") {
 		return false

@@ -13,4 +13,4 @@ spec:
         - source:
             principals: ["*"]
         - source:
-            principals: ["*/ns/foo/sa/rule[0]/sa/rule[0]-from[1]-principal[0]", "*bar/ns/foo/sa/rule[0]-from[1]-principal[1]"]
+            principals: ["*/ns/foo/sa/rule[0]-from[1]-principal[0]", "*bar/ns/foo/sa/rule[0]-from[1]-principal[1]"]

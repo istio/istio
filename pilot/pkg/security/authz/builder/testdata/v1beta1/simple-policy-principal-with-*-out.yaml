@@ -21,7 +21,14 @@ rules:
                           - key: source.principal
                         value:
                           stringMatch:
-                            suffix: /ns/foo/sa/rule[0]/sa/rule[0]-from[1]-principal[0]
+                            suffix: /ns/foo/sa/rule[0]-from[1]-principal[0]
+                    - metadata:
+                        filter: istio_authn
+                        path:
+                          - key: source.principal
+                        value:
+                          stringMatch:
+                            exact: td1/ns/foo/sa/rule[0]-from[1]-principal[1]
                     - metadata:
                         filter: istio_authn
                         path:
