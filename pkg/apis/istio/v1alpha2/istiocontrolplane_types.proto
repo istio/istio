@@ -529,7 +529,8 @@ message InstallStatus {
     message VersionStatus {
         string version = 1;
         Status status = 2;
-        string error = 3;
+        string statusString = 3;
+        string error = 4;
     }
 
     map<string, VersionStatus> status = 1;

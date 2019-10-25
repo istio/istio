@@ -17,14 +17,14 @@ package helmreconciler
 import (
 	"sync"
 
+	"k8s.io/apimachinery/pkg/runtime"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"istio.io/operator/pkg/apis/istio/v1alpha2"
 	"istio.io/operator/pkg/name"
 	"istio.io/operator/pkg/util"
 	"istio.io/pkg/log"
-
-	"k8s.io/apimachinery/pkg/runtime"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // HelmReconciler reconciles resources rendered by a set of helm charts for a specific instances of a custom resource,
@@ -171,6 +171,7 @@ func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) *v1alpha2
 				delete(out.Status, c)
 			} else {
 				out.Status[c].Status = status
+				out.Status[c].StatusString = v1alpha2.InstallStatus_Status_name[int32(status)]
 				if errString != "" {
 					out.Status[c].Error = errString
 				}
