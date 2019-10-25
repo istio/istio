@@ -156,7 +156,6 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 			Locality:    endpoint.Locality,
 			LbWeight:    endpoint.Weight,
 		},
-		// TODO ServiceAccount
 		Service: service,
 		Labels:  endpoint.Labels,
 		TLSMode: tlsMode,
@@ -180,9 +179,9 @@ func convertInstances(cfg model.Config) []*model.ServiceInstance {
 						Port:        int(serviceEntryPort.Number),
 						ServicePort: convertPort(serviceEntryPort),
 					},
-					// TODO ServiceAccount
 					Service: service,
 					Labels:  nil,
+					TLSMode: model.DisabledTLSModeLabel,
 				})
 			} else {
 				for _, endpoint := range serviceEntry.Endpoints {
