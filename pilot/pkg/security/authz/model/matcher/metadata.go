@@ -37,12 +37,12 @@ func MetadataStringMatcher(filter, key string, m *envoy_matcher.StringMatcher) *
 }
 
 // MetadataListMatcher generates a metadata list matcher for the given path keys and value.
-func MetadataListMatcher(filter string, keys []string, value string) *envoy_matcher.MetadataMatcher {
+func MetadataListMatcher(filter string, keys []string, value string, v1beta1 bool) *envoy_matcher.MetadataMatcher {
 	listMatcher := &envoy_matcher.ListMatcher{
 		MatchPattern: &envoy_matcher.ListMatcher_OneOf{
 			OneOf: &envoy_matcher.ValueMatcher{
 				MatchPattern: &envoy_matcher.ValueMatcher_StringMatch{
-					StringMatch: StringMatcher(value),
+					StringMatch: StringMatcher(value, v1beta1),
 				},
 			},
 		},
