@@ -694,6 +694,20 @@ show.%: ; $(info $* $(H) $($*))
 	$(Q) true
 
 #-----------------------------------------------------------------------------
+# Target: custom resource definitions
+#-----------------------------------------------------------------------------
+
+API_TMP := $(shell mktemp -d -u)/api
+API_UPDATE_BRANCH ?= "master"
+
+update-crds:
+	@mkdir -p $(API_TMP)
+	@git clone -q --depth 1 --single-branch --branch $(API_UPDATE_BRANCH) https://github.com/istio/api $(API_TMP)
+	@rm -f crd-all.gen.yaml
+	@cp $(API_TMP)/kubernetes/customresourcedefinitions.gen.yaml $(shell pwd)/install/kubernetes/helm/istio-init/files/crd-all.gen.yaml
+	@rm -rf $(API_TMP)
+
+#-----------------------------------------------------------------------------
 # Target: artifacts and distribution
 #-----------------------------------------------------------------------------
 # deb, rpm, etc packages
