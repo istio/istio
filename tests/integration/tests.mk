@@ -59,7 +59,7 @@ test.integration.%.kube: | $(JUNIT_REPORT)
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 # Test targets to run with the new installer. Some targets are filtered now as they are not yet working
-NEW_INSTALLER_TARGETS = $(shell GOPATH=${GOPATH} go list ../istio/tests/integration/... | grep -v "/mixer\|telemetry/tracing\|/istioctl")
+NEW_INSTALLER_TARGETS = $(shell GOPATH=${GOPATH} go list ../istio/tests/integration/... | grep -v "/mixer\|telemetry/tracing\|/istioctl\|/istioio")
 
 # Runs tests using the new installer. Istio is deployed before the test and setup and cleanup are disabled.
 # For this to work, the -customsetup selector is used.
