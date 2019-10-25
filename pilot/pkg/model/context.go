@@ -257,8 +257,6 @@ type NodeMetadata struct {
 	// LocalityLabel defines the locality specified for the pod
 	LocalityLabel string `json:"istio-locality,omitempty"`
 
-	IncludeInboundPorts string `json:"INCLUDE_INBOUND_PORTS,omitempty"`
-
 	PolicyCheck                  string `json:"policy.istio.io/check,omitempty"`
 	PolicyCheckRetries           string `json:"policy.istio.io/checkRetries,omitempty"`
 	PolicyCheckBaseRetryWaitTime string `json:"policy.istio.io/checkBaseRetryWaitTime,omitempty"`
