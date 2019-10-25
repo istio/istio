@@ -21,6 +21,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"istio.io/istio/galley/pkg/config/analysis/msg"
+	"istio.io/istio/istioctl/cmd"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
@@ -31,6 +32,8 @@ const (
 	serviceRoleBindingFile = "testdata/servicerolebinding.yaml"
 	serviceRoleFile        = "testdata/servicerole.yaml"
 )
+
+var analyzerFoundIssuesError = cmd.AnalyzerFoundIssuesError{}
 
 func TestEmptyCluster(t *testing.T) {
 	framework.
@@ -66,9 +69,11 @@ func TestFileOnly(t *testing.T) {
 			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
 
 			// Validation error if we have a service role binding without a service role
-			output := istioctlOrFail(t, istioCtl, ns.Name(), serviceRoleBindingFile)
-			g.Expect(output).To(HaveLen(1))
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), serviceRoleBindingFile)
+			g.Expect(output).To(HaveLen(2))
 			g.Expect(output[0]).To(ContainSubstring(msg.ReferencedResourceNotFound.Code()))
+			g.Expect(output[1]).To(ContainSubstring(analyzerFoundIssuesError.Error()))
+			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
 
 			// Error goes away if we include both the binding and its role
 			output = istioctlOrFail(t, istioCtl, ns.Name(), serviceRoleBindingFile, serviceRoleFile)
@@ -93,9 +98,11 @@ func TestKubeOnly(t *testing.T) {
 			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
 
 			// Validation error if we have a service role binding without a service role
-			output := istioctlOrFail(t, istioCtl, ns.Name(), "--use-kube")
-			g.Expect(output).To(HaveLen(1))
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), "--use-kube")
+			g.Expect(output).To(HaveLen(2))
 			g.Expect(output[0]).To(ContainSubstring(msg.ReferencedResourceNotFound.Code()))
+			g.Expect(output[1]).To(ContainSubstring(analyzerFoundIssuesError.Error()))
+			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
 
 			// Error goes away if we include both the binding and its role
 			applyFileOrFail(t, ns.Name(), serviceRoleFile)
@@ -131,6 +138,16 @@ func expectNoMessages(t *testing.T, g *GomegaWithT, output []string) {
 	t.Helper()
 	g.Expect(output).To(HaveLen(1))
 	g.Expect(output[0]).To(ContainSubstring("No validation issues found"))
+}
+
+func istioctlSafe(t *testing.T, i istioctl.Instance, ns string, extraArgs ...string) ([]string, error) {
+	t.Helper()
+	args := []string{"experimental", "analyze", "--namespace", ns}
+	output, err := i.Invoke(append(args, extraArgs...))
+	if output == "" {
+		return []string{}, err
+	}
+	return strings.Split(strings.TrimSpace(output), "\n"), err
 }
 
 func istioctlOrFail(t *testing.T, i istioctl.Instance, ns string, extraArgs ...string) []string {
