@@ -32,5 +32,4 @@ func TestMain(m *testing.M) {
 		SetupOnEnv(environment.Kube, istio.Setup(&inst, nil)).
 		RequireEnvironment(environment.Kube).
 		Run()
-
 }
