@@ -73,20 +73,14 @@ func TestCombinedMethods(t *testing.T) {
     framework.
         NewTest(t).
         Run(istioio.NewBuilder("tasks__security__my_task").
-            // Run a script and create a snippet.
-            Add(istioio.Command{
+            Add(istioio.Script{
                 Input:         istioio.Path("myscript.sh"),
                 WorkDir:       env.IstioSrc,
-                CreateSnippet: true,
             },
-            // Wait for all pods in namespace foo to start.
             istioio.MultiPodWait("foo"),
-            // Run another script and verify the results.
-            istioio.Command{
+            istioio.Script{
                 Input:         istioio.Path("myotherscript.sh"),
                 WorkDir:       env.IstioSrc,
-                CreateSnippet: true,
-                Verify:        istioio.TokenVerifier(istioio.Path("myotherscript_verify.txt`),
             }).Build())
 }
 ```
@@ -146,35 +140,114 @@ istioio.IfMinikube{
 }
 ```
 
-## Run Shell Commands
+## Running Shell Commands
 
-You can create a test step that will run a shell command with `istioio.Command`:
+You can create a test step that will run a shell script and automatically generate
+snippets with `istioio.Script`:
 
 ```golang
-istioio.Command{
-    Input:         istioio.Path("myscript.sh"),
-    WorkDir:       env.IstioSrc,
-    CreateSnippet: true,
-    Verify:        istioio.TokenVerifier(istioio.Path("myscript_verify.txt`),
+istioio.Script{
+    Input:   istioio.Path("myscript.sh"),
+    WorkDir: env.IstioSrc,
 }
 ```
 
-This will read the given `Input`, verify that the output matches the given file, and
-generate a snippet for the command.
+You can embed snippets directly in the input. Snippets must be surrounded by the
+tokens `# $snippet` and `# $endsnippet`, each of which must be placed on their own
+line and must be at the start of that line. For example:
 
-See the `istioio.Command` API for additional configuration options.
+```bash
+# $snippet dostuff.sh syntax="bash"
+$ kubectl apply -f @samples/bookinfo/platform/kube/rbac/namespace-policy.yaml@
+# $endsnippet
+```
+
+This will run the command
+`kubectl apply -f samples/bookinfo/platform/kube/rbac/namespace-policy.yaml` and
+also generate the snippet.
+
+Snippets that reference files in the
+[Istio Github repository](`https://github.com/istio/istio`), as shown above, should
+surround those links with `@`. The reference will be converted into an actual link
+when rendering the page on `istio.io`.
+
+The `$snippet` line supports a number of fields separated by whitespace. The first
+field is the name of the snippet and is required. After the name, a number of
+arguments in the form of `<key>="<value>"` may be provided. The following arguments
+are supported:
+
+- **syntax**: Sets the syntax for the command text. This is used to properly
+highlight the output on istio.io.
+- **outputis**: Sets the syntax for the output of the last command in the snippet.
+If set, and the snippet contains expected output, verification will automatically
+be performed against this expected output. By default, the commands and
+output will be merged into a single snippet. This can be overridden with
+`outputsnippet`.
+- **outputsnippet**: A boolean value, which if "true" indicates that the output for
+the last command of the snippet should appear in a separate snippet. The name of
+the generated snippet will append "_output.txt" to the name of the current snippet.
+
+You can indicate that a snippet should display output via `outputis`. Additionally,
+you can verify the output of the last command in the snippet against expected
+results with the `# $snippetoutput` annotation.
+
+Example with verified output:
+
+```bash
+# $snippet mysnippet syntax="bash" outputis="text" outputsnippet="true"
+$ kubectl apply -f @samples/bookinfo/platform/kube/rbac/namespace-policy.yaml@
+# $snippetoutput verifier="token"
+servicerole.rbac.istio.io/service-viewer created
+servicerolebinding.rbac.istio.io/bind-service-viewer created
+# $endsnippet
+```
+
+This will run the command
+`kubectl apply -f samples/bookinfo/platform/kube/rbac/namespace-policy.yaml` and
+will use the token-based verifier to verify that the output matches:
+
+```text
+servicerole.rbac.istio.io/service-viewer created
+servicerolebinding.rbac.istio.io/bind-service-viewer created
+```
+
+Since `outputsnippet="true"`, it will then create a separate snippet for the actual output of
+the last command:
+
+```bash
+# $snippet enforcing_namespace_level_access_control_apply.sh_output.txt syntax="text"
+servicerole.rbac.istio.io/service-viewer created
+servicerolebinding.rbac.istio.io/bind-service-viewer created
+# $endsnippet
+```
+
+The following verifiers are supported:
+
+- **token**: the default verifier, if not specified. Performs a token-based comparison of expected
+and actual output. The syntax supports the wildcard `?` character to skip comparison
+for a given token.
+- **contains**: verifies that the output contains the given string.
+- **notContains**: verifies that the output does not contain the given string.
+
+See the `istioio.Script` API for additional configuration options.
 
 ## YAML Snippets
 
-While a YAML file is applied via `istioio.Command`, you may want to create
-a snippet that contains a single resource of an applied YAML:
+You can generate snippets for individual resources within a given YAML file:
 
 ```golang
-istioio.YamlResource("my-resource-name", istioio.BookInfo("multi-resource-doc.yaml")),
+istioio.YamlResources{
+    BaseName:      "mysnippet",
+    Input:         istioio.BookInfo("rbac/namespace-policy.yaml"),
+    ResourceNames: []string{"service-viewer", "bind-service-viewer"},
+}
 ```
 
-The `istioio.YamlResource` function creates an `InputSelector` that parses the  given
-`Input` and returns only the content for the given named resource.
+The step `istioio.YamlResources` parses the  given `Input` and generates a
+snippet for each named resource. You can configure the prefix of the generated
+snippet names with the `BaseName` parameter. The snippet for the `service-viewer`
+resource, for example, would be named `mysnippet_service-viewer.txt`. If not
+specified, `BaseName` will be derived from the `Input` name.
 
 ## Waiting for Pods to Start
 
