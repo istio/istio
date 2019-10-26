@@ -145,10 +145,6 @@ spec:
           - --envoyAccessLogServiceAddress
           - {{ .Values.global.proxy.envoyAccessLogService.host }}:{{ .Values.global.proxy.envoyAccessLogService.port }}
         {{- end }}
-        {{- if $gateway.applicationPorts }}
-          - --applicationPorts
-          - "{{ $gateway.applicationPorts }}"
-        {{- end }}
           - --proxyAdminPort
           - "15000"
           - --statusPort
