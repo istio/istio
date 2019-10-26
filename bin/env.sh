@@ -249,7 +249,6 @@ function localSidecar() {
         --concurrency 2 \
         --controlPlaneAuthPolicy NONE \
         --statusPort 15020 \
-        --applicationPorts 8080,8079,8088 \
         --controlPlaneBootstrap=false
 
 }
