@@ -20,58 +20,48 @@ import (
 	"unicode"
 )
 
-// Verifier is a function used to verify output and any errors returned.
-type Verifier func(ctx Context, name, output string, err error)
+// verifier for output of a shell command.
+type verifier func(ctx Context, name, expectedOutput, actualOutput string)
 
-var (
-	defaultVerifier = func(ctx Context, name, output string, err error) {
-		if err != nil {
-			ctx.Fatalf("command %s failed: %v. Output: %v", name, err, output)
-		}
+// verifiers supported by in the command scripts.
+var verifiers = map[string]verifier{
+	"":            verifyTokens, // Default
+	"token":       verifyTokens,
+	"contains":    verifyContains,
+	"notContains": verifyNotContains,
+}
+
+// verifyTokens tokenizes the output and compares against the tokens from the given file.
+func verifyTokens(ctx Context, name, expectedOutput, actualOutput string) {
+	// Tokenize the content and the file.
+	expectedTokenLines := tokenize(expectedOutput)
+	actualTokenLines := tokenize(actualOutput)
+
+	if len(expectedTokenLines) != len(actualTokenLines) {
+		ctx.Fatalf("verification failed for command %s: line count: (expected %d, found %d). Expected:\n%s\nto match:\n%s",
+			name, len(expectedTokenLines), len(actualTokenLines), actualOutput, expectedOutput)
 	}
-)
 
-// TokenVerifier tokenizes the output and compares against the tokens from the given file.
-func TokenVerifier(selector InputSelector) Verifier {
-	return func(ctx Context, name, output string, _ error) {
-		input := selector.SelectInput(ctx)
+	for lineIndex := 0; lineIndex < len(expectedTokenLines); lineIndex++ {
+		expectedTokens := expectedTokenLines[lineIndex]
+		actualTokens := actualTokenLines[lineIndex]
 
-		// Read the input.
-		expected, err := input.ReadAll()
-		if err != nil {
-			ctx.Fatalf("verification failed for command %s: %v", name, err)
+		if len(expectedTokens) != len(actualTokens) {
+			ctx.Fatalf("verification failed for command %s [line %d]: token count (expected %d, found %d). Expected:\n%s\nto match:\n%s",
+				name, lineIndex, len(expectedTokens), len(actualTokens), actualOutput, expectedOutput)
 		}
 
-		// Tokenize the content and the file.
-		expectedTokenLines := tokenize(expected)
-		actualTokenLines := tokenize(output)
-
-		if len(expectedTokenLines) != len(actualTokenLines) {
-			ctx.Fatalf("verification failed for command %s: line count: (expected %d, found %d). Expected:\n%s\nto match:\n%s",
-				name, len(expectedTokenLines), len(actualTokenLines), output, expected)
-		}
-
-		for lineIndex := 0; lineIndex < len(expectedTokenLines); lineIndex++ {
-			expectedTokens := expectedTokenLines[lineIndex]
-			actualTokens := actualTokenLines[lineIndex]
-
-			if len(expectedTokens) != len(actualTokens) {
-				ctx.Fatalf("verification failed for command %s [line %d]: token count (expected %d, found %d). Expected:\n%s\nto match:\n%s",
-					name, lineIndex, len(expectedTokens), len(actualTokens), output, expected)
+		for tokenIndex := 0; tokenIndex < len(expectedTokens); tokenIndex++ {
+			expectedToken := expectedTokens[tokenIndex]
+			if expectedToken == "?" {
+				// The value was a wildcard, matches anything.
+				continue
 			}
 
-			for tokenIndex := 0; tokenIndex < len(expectedTokens); tokenIndex++ {
-				expectedToken := expectedTokens[tokenIndex]
-				if expectedToken == "?" {
-					// The value was a wildcard, matches anything.
-					continue
-				}
-
-				actualToken := actualTokens[tokenIndex]
-				if expectedToken != actualToken {
-					ctx.Fatalf("verification failed for command %s [line %d]: token %d (expected %s, found %s). Expected:\n%s\nto match:\n%s",
-						name, lineIndex, tokenIndex, expectedToken, actualToken, output, expected)
-				}
+			actualToken := actualTokens[tokenIndex]
+			if expectedToken != actualToken {
+				ctx.Fatalf("verification failed for command %s [line %d]: token %d (expected %s, found %s). Expected:\n%s\nto match:\n%s",
+					name, lineIndex, tokenIndex, expectedToken, actualToken, actualOutput, expectedOutput)
 			}
 		}
 	}
@@ -100,38 +90,18 @@ func tokenize(content string) [][]string {
 	return tokenLines
 }
 
-// ContainsVerifier checks if the output contains an expected value
-func ContainsVerifier(selector InputSelector) Verifier {
-	return internalContainsOrNot(selector, true)
+func verifyContains(ctx Context, name, expectedOutput, actualOutput string) {
+	if !strings.Contains(actualOutput, expectedOutput) {
+		ctx.Fatalf("verification failed for command %s: output does not contain expected text.\nExpected:\n%s\nOutput:\n%s",
+			name, expectedOutput, actualOutput)
+		return
+	}
 }
 
-// NotContainsVerifier checks if the output does not contain a value
-func NotContainsVerifier(selector InputSelector) Verifier {
-	return internalContainsOrNot(selector, false)
-}
-
-func internalContainsOrNot(selector InputSelector, mustContain bool) Verifier {
-	return func(ctx Context, name, output string, _ error) {
-		input := selector.SelectInput(ctx)
-
-		// Read the input.
-		expected, err := input.ReadAll()
-		if err != nil {
-			ctx.Fatalf("verification failed for command %s: %v", name, err)
-		}
-
-		expected = strings.TrimSpace(expected)
-
-		contains := strings.Contains(output, expected)
-		if !contains && mustContain {
-			ctx.Fatalf("verification failed for command %s: output does not contain expected text.\nExpected:\n%s\nOutput:\n%s",
-				name, expected, output)
-			return
-		}
-		if contains && !mustContain {
-			ctx.Fatalf("verification failed for command %s: output contains not expected text.\nNot Expected:\n%s\nOutput:\n%s",
-				name, expected, output)
-			return
-		}
+func verifyNotContains(ctx Context, name, expectedOutput, actualOutput string) {
+	if strings.Contains(actualOutput, expectedOutput) {
+		ctx.Fatalf("verification failed for command %s: output contains not expected text.\nNot Expected:\n%s\nOutput:\n%s",
+			name, expectedOutput, actualOutput)
+		return
 	}
 }

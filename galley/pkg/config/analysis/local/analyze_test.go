@@ -27,8 +27,10 @@ import (
 	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
+	"istio.io/istio/galley/pkg/config/testing/basicmeta"
 	"istio.io/istio/galley/pkg/config/testing/data"
 	"istio.io/istio/galley/pkg/config/testing/k8smeta"
+	"istio.io/istio/galley/pkg/config/util/kubeyaml"
 	"istio.io/istio/galley/pkg/testing/mock"
 )
 
@@ -90,10 +92,11 @@ func TestAnalyzersRun(t *testing.T) {
 	err := sa.AddFileKubeSource([]string{})
 	g.Expect(err).To(BeNil())
 
-	msgs, err := sa.Analyze(cancel)
+	result, err := sa.Analyze(cancel)
 	g.Expect(err).To(BeNil())
-	g.Expect(msgs).To(ConsistOf(msg))
+	g.Expect(result.Messages).To(ConsistOf(msg))
 	g.Expect(collectionAccessed).To(Equal(data.Collection1))
+	g.Expect(result.ExecutedAnalyzers).To(ConsistOf(a.Metadata().Name))
 }
 
 func TestFilterOutputByNamespace(t *testing.T) {
@@ -116,9 +119,9 @@ func TestFilterOutputByNamespace(t *testing.T) {
 	err := sa.AddFileKubeSource([]string{})
 	g.Expect(err).To(BeNil())
 
-	msgs, err := sa.Analyze(cancel)
+	result, err := sa.Analyze(cancel)
 	g.Expect(err).To(BeNil())
-	g.Expect(msgs).To(ConsistOf(msg1))
+	g.Expect(result.Messages).To(ConsistOf(msg1))
 }
 
 func TestAddRunningKubeSource(t *testing.T) {
@@ -135,23 +138,39 @@ func TestAddRunningKubeSource(t *testing.T) {
 func TestAddFileKubeSource(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	sa := NewSourceAnalyzer(k8smeta.MustGet(), blankCombinedAnalyzer, "", nil, false)
+	sa := NewSourceAnalyzer(basicmeta.MustGet(), blankCombinedAnalyzer, "", nil, false)
 
-	tmpfile, err := ioutil.TempFile("", "")
-	if err != nil {
-		t.Fatal(err)
-	}
+	tmpfile := tempFileFromString(t, data.YamlN1I1V1)
 	defer func() { _ = os.Remove(tmpfile.Name()) }()
-	_, err = tmpfile.WriteString(data.YamlN1I1V1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = tmpfile.Close(); err != nil {
-		t.Fatal(err)
-	}
 
-	err = sa.AddFileKubeSource([]string{tmpfile.Name()})
+	err := sa.AddFileKubeSource([]string{tmpfile.Name()})
 	g.Expect(err).To(BeNil())
+	g.Expect(sa.sources).To(HaveLen(1))
+}
+
+func TestAddFileKubeSourceSkipsBadEntries(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	sa := NewSourceAnalyzer(basicmeta.MustGet(), blankCombinedAnalyzer, "", nil, false)
+
+	tmpfile := tempFileFromString(t, kubeyaml.JoinString(data.YamlN1I1V1, "bogus resource entry\n"))
+	defer func() { _ = os.Remove(tmpfile.Name()) }()
+
+	err := sa.AddFileKubeSource([]string{tmpfile.Name()})
+	g.Expect(err).To(Not(BeNil()))
+	g.Expect(sa.sources).To(HaveLen(1))
+}
+
+func TestAddFileKubeSourceSkipsBadFiles(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	sa := NewSourceAnalyzer(basicmeta.MustGet(), blankCombinedAnalyzer, "", nil, false)
+
+	tmpfile := tempFileFromString(t, data.YamlN1I1V1)
+	defer func() { _ = os.Remove(tmpfile.Name()) }()
+
+	err := sa.AddFileKubeSource([]string{tmpfile.Name(), "nonexistent-file.yaml"})
+	g.Expect(err).To(Not(BeNil()))
 	g.Expect(sa.sources).To(HaveLen(1))
 }
 
@@ -185,4 +204,20 @@ func TestResourceFiltering(t *testing.T) {
 			g.Expect(r.Disabled).To(BeTrue(), fmt.Sprintf("%s should be disabled", r.Collection.Name))
 		}
 	}
+}
+
+func tempFileFromString(t *testing.T, content string) *os.File {
+	t.Helper()
+	tmpfile, err := ioutil.TempFile("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = tmpfile.WriteString(content)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = tmpfile.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return tmpfile
 }

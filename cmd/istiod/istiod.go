@@ -16,21 +16,14 @@ package main
 
 import (
 	"io/ioutil"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
 	"os"
 
+	"istio.io/pkg/log"
+
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 
 	"istio.io/istio/pkg/istiod"
 	"istio.io/istio/pkg/istiod/k8s"
-)
-
-var (
-	// TODO: should it default to $HOME ? Or /var/lib/istio ?
-	istioHome = env.RegisterStringVar("ISTIO_HOME", "",
-		"Base directory for istio configs. If not set, defaults to current working directory.")
 )
 
 // Istio control plane with K8S support.
@@ -45,13 +38,6 @@ var (
 func main() {
 	stop := make(chan struct{})
 
-	// Load the mesh config. Note that the path is slightly changed - attempting to move all istio
-	// related under /var/lib/istio, which is also the home dir of the istio user.
-	istiods, err := istiod.NewIstiod("/var/lib/istio/config")
-	if err != nil {
-		log.Fatalf("Failed to start istiod: %v", err)
-	}
-
 	// First create the k8s clientset - and return the config source.
 	// The config includes the address of apiserver and the public key - which will be used
 	// after cert generation, to check that Apiserver-generated certs have same key.
@@ -61,9 +47,16 @@ func main() {
 		log.Fatalf("Failed to connect to k8s: %v", err)
 	}
 
+	// Load the mesh config. Note that the path is slightly changed - attempting to move all istio
+	// related under /var/lib/istio, which is also the home dir of the istio user.
+	istiods, err := istiod.NewIstiod(kcfg, client, "/var/lib/istio/config")
+	if err != nil {
+		log.Fatalf("Failed to start istiod: %v", err)
+	}
+
 	// Create k8s-signed certificates. This allows injector, validation to work without Citadel, and
 	// allows secure SDS connections to Istiod.
-	initCerts(istiods, client, kcfg)
+	initCerts(istiods, client)
 
 	// Init k8s related components, including Galley K8S controllers and
 	// Pilot discovery. Code kept in separate package.
@@ -71,10 +64,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to start k8s controllers: %v", err)
 	}
-
-	// Initialize Galley config source for K8S.
-	galleyK8S, err := k8sServer.NewGalleyK8SSource(istiods.Galley.Resources)
-	istiods.Galley.Sources = append(istiods.Galley.Sources, galleyK8S)
 
 	err = istiods.InitDiscovery()
 	if err != nil {
@@ -90,10 +79,6 @@ func main() {
 		log.Fatalf("Failed on start XDS server: %v", err)
 	}
 
-	if err := k8sServer.StartSDSK8S(istiods.Mesh); err != nil {
-		log.Fatalf("Failed to start SDS: %v", err)
-	}
-
 	// Injector should run along, even if not used - but only if the injection template is mounted.
 	if _, err := os.Stat("./var/lib/istio/inject/injection-template.yaml"); err == nil {
 		err = k8s.StartInjector(stop)
@@ -106,7 +91,7 @@ func main() {
 	istiods.WaitStop(stop)
 }
 
-func initCerts(server *istiod.Server, client *kubernetes.Clientset, cfg *rest.Config) {
+func initCerts(server *istiod.Server, client *kubernetes.Clientset) {
 	// TODO: fallback to citadel (or custom CA)
 
 	certChain, keyPEM, err := k8s.GenKeyCertK8sCA(client.CertificatesV1beta1(), "istio-system",

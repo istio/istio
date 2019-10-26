@@ -21,13 +21,21 @@ import (
 )
 
 type TestCase struct {
+	Name                string
 	Request             connection.Checker
 	ExpectAuthenticated bool
 }
 
-func getErrorMessage(req connection.Checker, expect, actual string) error {
-	return fmt.Errorf("%s to %s:%s using %s: expected %s, got %s",
-		req.From.Config().Service, req.Options.Target.Config().Service, req.Options.PortName, req.Options.Scheme, expect, actual)
+func (c *TestCase) String() string {
+	want := "deny"
+	if c.ExpectAuthenticated {
+		want = "allow"
+	}
+	return fmt.Sprintf("%s to %s%s expected %s",
+		c.Request.From.Config().Service,
+		c.Request.Options.Target.Config().Service,
+		c.Request.Options.Path,
+		want)
 }
 
 // CheckAuthn checks a request based on ExpectAuthenticated (true: resp code 200; false: resp code 401 ).
@@ -38,12 +46,11 @@ func (c *TestCase) CheckAuthn() error {
 			err = results.CheckOK()
 		}
 		if err != nil {
-			return getErrorMessage(c.Request, "authenticated (code 200)", err.Error())
+			return fmt.Errorf("%s: got %s", c, err.Error())
 		}
 	} else {
-		// Expect 401
 		if err != nil {
-			return getErrorMessage(c.Request, "unauthenticated (code 401)", err.Error())
+			return fmt.Errorf("%s: got %s", c, err.Error())
 		}
 		errMsg := ""
 		if len(results) == 0 {
@@ -53,7 +60,7 @@ func (c *TestCase) CheckAuthn() error {
 			errMsg = fmt.Sprintf("code %s", results[0].Code)
 		}
 		if errMsg != "" {
-			return getErrorMessage(c.Request, "unauthenticated (code 401)", errMsg)
+			return fmt.Errorf("%s: got %s", c, errMsg)
 		}
 	}
 	return nil
