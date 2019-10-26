@@ -45,95 +45,94 @@ customization at the lowest level and eliminates the need to create ad-hoc templ
 <ol>
 <li><p>Default Istio install</p>
 
-<pre><code class="language-yaml">spec:
-</code></pre>
-<ol>
+<pre><code>spec:
+</code></pre></li>
+
 <li><p>Default minimal profile install</p>
 
 <pre><code>spec:
-profile: minimal
+  profile: minimal
 </code></pre></li>
 
 <li><p>Default install with telemetry disabled</p>
 
 <pre><code>spec:
-telemetry:
-enabled: false
+  telemetry:
+    enabled: false
 </code></pre></li>
 
 <li><p>Default install with each feature installed to different namespace and security components in separate namespaces</p>
 
 <pre><code>spec:
-traffic_management:
-components:
-  namespace: istio-traffic-management
-policy:
-components:
-  namespace: istio-policy
-telemetry:
-components:
-  namespace: istio-telemetry
-config_management:
-components:
-  namespace: istio-config-management
-security:
-components:
-  citadel:
-    namespace: istio-citadel
-  cert_manager:
-    namespace: istio-cert-manager
-  node_agent:
-    namespace: istio-node-agent
+  traffic_management:
+    components:
+      namespace: istio-traffic-management
+  policy:
+    components:
+      namespace: istio-policy
+  telemetry:
+    components:
+      namespace: istio-telemetry
+  config_management:
+    components:
+      namespace: istio-config-management
+  security:
+    components:
+      citadel:
+        namespace: istio-citadel
+      cert_manager:
+        namespace: istio-cert-manager
+      node_agent:
+        namespace: istio-node-agent
 </code></pre></li>
 
 <li><p>Default install with specialized k8s settings for pilot</p>
 
 <pre><code>spec:
-traffic_management:
-components:
-  pilot:
-    k8s:
-      resources:
-        limits:
-          cpu: 444m
-          memory: 333Mi
-        requests:
-          cpu: 222m
-          memory: 111Mi
-      readinessProbe:
-        failureThreshold: 44
-        initialDelaySeconds: 11
-        periodSeconds: 22
-        successThreshold: 33
+  traffic_management:
+    components:
+      pilot:
+        k8s:
+          resources:
+            limits:
+              cpu: 444m
+              memory: 333Mi
+            requests:
+              cpu: 222m
+              memory: 111Mi
+          readinessProbe:
+            failureThreshold: 44
+            initialDelaySeconds: 11
+            periodSeconds: 22
+            successThreshold: 33
 </code></pre></li>
 
 <li><p>Default install with values.yaml customizations for proxy</p>
 
 <pre><code>spec:
-traffic_management:
-components:
-  proxy:
-    values:
-    - global.proxy.enableCoreDump: true
-    - global.proxy.dnsRefreshRate: 10s
+  traffic_management:
+    components:
+      proxy:
+        values:
+        - global.proxy.enableCoreDump: true
+        - global.proxy.dnsRefreshRate: 10s
 </code></pre></li>
 
 <li><p>Default install with modification to container flag in galley</p>
 
 <pre><code>spec:
-configuration_management:
-components:
-  galley:
-    k8s:
-      overlays:
-      - apiVersion: extensions/v1beta1
-        kind: Deployment
-        name: istio-galley
-        patches:
-        - path: spec.template.spec.containers.[name:galley].command.[--livenessProbeInterval]
-          value: --livenessProbeInterval=123s
+  configuration_management:
+    components:
+      galley:
+        k8s:
+          overlays:
+          - apiVersion: extensions/v1beta1
+            kind: Deployment
+            name: istio-galley
+            patches:
+            - path: spec.template.spec.containers.[name:galley].command.[--livenessProbeInterval]
+              value: --livenessProbeInterval=123s
 </code></pre></li>
-</ol></li>
 </ol>
 
 <h2 id="AutoInjectionFeatureSpec">AutoInjectionFeatureSpec</h2>

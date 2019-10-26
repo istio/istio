@@ -37,7 +37,7 @@
 //
 // 1. Default Istio install
 //
-//     ```yaml
+//     ```
 //     spec:
 //     ```
 //
