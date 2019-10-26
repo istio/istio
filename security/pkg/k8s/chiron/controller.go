@@ -300,7 +300,7 @@ func (wc *WebhookController) scrtUpdated(oldObj, newObj interface{}) {
 	certLifeTimeLeft := time.Until(cert.NotAfter)
 	certLifeTime := cert.NotAfter.Sub(cert.NotBefore)
 	// Because time.Duration only takes int type, multiply gracePeriodRatio by 1000 and then divide it.
-	gracePeriod := time.Duration(wc.gracePeriodRatio*1000) * certLifeTime / 1000
+	gracePeriod := certLifeTime / 1000 * time.Duration(wc.gracePeriodRatio*1000)
 	if gracePeriod < wc.minGracePeriod {
 		log.Warnf("gracePeriod (%v * %f) = %v is less than minGracePeriod %v. Apply minGracePeriod.",
 			certLifeTime, wc.gracePeriodRatio, gracePeriod, wc.minGracePeriod)
