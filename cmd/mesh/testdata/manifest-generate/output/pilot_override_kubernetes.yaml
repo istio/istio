@@ -1,3 +1,23 @@
+# CertManager component is disabled.
+
+# Citadel component is disabled.
+
+# Cni component is disabled.
+
+# EgressGateway component is disabled.
+
+# Galley component is disabled.
+
+# Grafana component is disabled.
+
+# IngressGateway component is disabled.
+
+# Injector component is disabled.
+
+# Kiali component is disabled.
+
+# NodeAgent component is disabled.
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -189,113 +209,6 @@ spec:
     istio: pilot
 
 ---
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: istio-pilot-istio-control
-  labels:
-    app: pilot
-    release: istio
-rules:
-- apiGroups: ["config.istio.io"]
-  resources: ["*"]
-  verbs: ["*"]
-- apiGroups: ["rbac.istio.io"]
-  resources: ["*"]
-  verbs: ["get", "watch", "list"]
-- apiGroups: ["security.istio.io"]
-  resources: ["*"]
-  verbs: ["get", "watch", "list"]
-- apiGroups: ["networking.istio.io"]
-  resources: ["*"]
-  verbs: ["*"]
-- apiGroups: ["authentication.istio.io"]
-  resources: ["*"]
-  verbs: ["*"]
-- apiGroups: ["apiextensions.k8s.io"]
-  resources: ["customresourcedefinitions"]
-  verbs: ["*"]
-- apiGroups: ["extensions"]
-  resources: ["ingresses", "ingresses/status"]
-  verbs: ["*"]
-- apiGroups: [""]
-  resources: ["configmaps"]
-  verbs: ["create", "get", "list", "watch", "update"]
-- apiGroups: [""]
-  resources: ["endpoints", "pods", "services", "namespaces", "nodes", "secrets"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: [""]
-  resources: ["secrets"]
-  verbs: ["create", "get", "watch", "list", "update", "delete"]
-- apiGroups: ["certificates.k8s.io"]
-  resources:
-    - "certificatesigningrequests"
-    - "certificatesigningrequests/approval"
-    - "certificatesigningrequests/status"
-  verbs: ["update", "create", "get", "delete"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: istio-pilot-istio-control
-  labels:
-    app: pilot
-    release: istio
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: istio-pilot-istio-control
-subjects:
-  - kind: ServiceAccount
-    name: istio-pilot-service-account
-    namespace: istio-control
----
-apiVersion: "authentication.istio.io/v1alpha1"
-kind: "MeshPolicy"
-metadata:
-  name: "default"
-  namespace: istio-control
-  labels:
-    release: istio
-spec:
-  peers:
-  - mtls:
-      mode: PERMISSIVE
----
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: "default"
-  namespace: istio-control
-  labels:
-    release: istio
-spec:
-  host: "*.local"
-  trafficPolicy:
-    tls:
-      mode: DISABLE
----
-apiVersion: autoscaling/v2beta1
-kind: HorizontalPodAutoscaler
-metadata:
-  labels:
-    app: pilot
-    release: istio
-  name: istio-pilot
-  namespace: istio-control
-spec:
-  maxReplicas: 5
-  metrics:
-  - resource:
-      name: cpu
-      targetAverageUtilization: 80
-    type: Resource
-  minReplicas: 1
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: istio-pilot
----
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -465,6 +378,78 @@ data:
       # Address where istio Pilot service is running
       discoveryAddress: istio-pilot.istio-control:15011
 ---
+apiVersion: "authentication.istio.io/v1alpha1"
+kind: "MeshPolicy"
+metadata:
+  name: "default"
+  labels:
+    release: istio
+spec:
+  peers:
+  - mtls:
+      mode: PERMISSIVE
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: istio-pilot-istio-control
+  labels:
+    app: pilot
+    release: istio
+rules:
+- apiGroups: ["config.istio.io"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["rbac.istio.io"]
+  resources: ["*"]
+  verbs: ["get", "watch", "list"]
+- apiGroups: ["security.istio.io"]
+  resources: ["*"]
+  verbs: ["get", "watch", "list"]
+- apiGroups: ["networking.istio.io"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["authentication.istio.io"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["apiextensions.k8s.io"]
+  resources: ["customresourcedefinitions"]
+  verbs: ["*"]
+- apiGroups: ["extensions"]
+  resources: ["ingresses", "ingresses/status"]
+  verbs: ["*"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["create", "get", "list", "watch", "update"]
+- apiGroups: [""]
+  resources: ["endpoints", "pods", "services", "namespaces", "nodes", "secrets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["create", "get", "watch", "list", "update", "delete"]
+- apiGroups: ["certificates.k8s.io"]
+  resources:
+    - "certificatesigningrequests"
+    - "certificatesigningrequests/approval"
+    - "certificatesigningrequests/status"
+  verbs: ["update", "create", "get", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: istio-pilot-istio-control
+  labels:
+    app: pilot
+    release: istio
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: istio-pilot-istio-control
+subjects:
+  - kind: ServiceAccount
+    name: istio-pilot-service-account
+    namespace: istio-control
+---
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
@@ -474,6 +459,19 @@ metadata:
     release: istio
 spec:
   host: "kubernetes.default.svc.cluster.local"
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: "default"
+  namespace: istio-control
+  labels:
+    release: istio
+spec:
+  host: "*.local"
   trafficPolicy:
     tls:
       mode: DISABLE
@@ -503,6 +501,27 @@ metadata:
   labels:
     app: pilot
     release: istio
+---
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  labels:
+    app: pilot
+    release: istio
+  name: istio-pilot
+  namespace: istio-control
+spec:
+  maxReplicas: 5
+  metrics:
+  - resource:
+      name: cpu
+      targetAverageUtilization: 80
+    type: Resource
+  minReplicas: 1
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: istio-pilot
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -672,6 +691,8 @@ data:
                               cluster: out.galley.15019
                               timeout: 0.000s
 ---
+
+# Policy component is disabled.
 
 # Resources for Prometheus component
 
@@ -1144,6 +1165,12 @@ metadata:
     app: prometheus
     release: istio
 ---
+
+# PrometheusOperator component is disabled.
+
+# Telemetry component is disabled.
+
+# Tracing component is disabled.
 
 # Resources for crds component
 

@@ -12176,7 +12176,6 @@ apiVersion: "authentication.istio.io/v1alpha1"
 kind: "MeshPolicy"
 metadata:
   name: "default"
-  namespace: {{ .Release.Namespace }}
   labels:
     release: {{ .Release.Name }}
 spec:
@@ -12204,7 +12203,6 @@ apiVersion: "authentication.istio.io/v1alpha1"
 kind: "MeshPolicy"
 metadata:
   name: "default"
-  namespace: {{ .Release.Namespace }}
   labels:
     release: {{ .Release.Name }}
 spec:
