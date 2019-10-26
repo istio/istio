@@ -64,7 +64,7 @@ import "github.com/gogo/protobuf/protobuf/google/protobuf/wrappers.proto";
 //
 // 1. Default Istio install
 //
-//     ```yaml
+//     ```
 //     spec:
 //     ```
 //
