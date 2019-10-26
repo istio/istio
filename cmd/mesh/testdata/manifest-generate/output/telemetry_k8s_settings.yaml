@@ -1,3 +1,27 @@
+# CertManager component is disabled.
+
+# Citadel component is disabled.
+
+# Cni component is disabled.
+
+# EgressGateway component is disabled.
+
+# Galley component is disabled.
+
+# Grafana component is disabled.
+
+# IngressGateway component is disabled.
+
+# Injector component is disabled.
+
+# Kiali component is disabled.
+
+# NodeAgent component is disabled.
+
+# Pilot component is disabled.
+
+# Policy component is disabled.
+
 # Resources for Prometheus component
 
 apiVersion: rbac.authorization.k8s.io/v1
@@ -469,6 +493,8 @@ metadata:
     app: prometheus
     release: istio
 ---
+
+# PrometheusOperator component is disabled.
 
 # Resources for Telemetry component
 
@@ -1972,6 +1998,8 @@ metadata:
     app: istio-telemetry
     release: istio
 ---
+
+# Tracing component is disabled.
 
 # Resources for crds component
 

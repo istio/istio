@@ -1,3 +1,5 @@
+# CertManager component is disabled.
+
 # Resources for Citadel component
 
 apiVersion: rbac.authorization.k8s.io/v1
@@ -178,6 +180,10 @@ metadata:
   labels:
     release: istio
 ---
+
+# Cni component is disabled.
+
+# EgressGateway component is disabled.
 
 # Resources for Galley component
 
@@ -730,6 +736,8 @@ metadata:
     app: galley
     release: istio
 ---
+
+# Grafana component is disabled.
 
 # Resources for IngressGateway component
 
@@ -1795,6 +1803,10 @@ data:
     injectedAnnotations:
 ---
 
+# Kiali component is disabled.
+
+# NodeAgent component is disabled.
+
 # Resources for Pilot component
 
 apiVersion: autoscaling/v2beta1
@@ -2419,7 +2431,6 @@ apiVersion: "authentication.istio.io/v1alpha1"
 kind: "MeshPolicy"
 metadata:
   name: "default"
-  namespace: istio-system
   labels:
     release: istio
 spec:
@@ -3283,6 +3294,8 @@ metadata:
     app: prometheus
     release: istio
 ---
+
+# PrometheusOperator component is disabled.
 
 # Resources for Telemetry component
 
@@ -4775,6 +4788,8 @@ metadata:
     app: istio-telemetry
     release: istio
 ---
+
+# Tracing component is disabled.
 
 # Resources for crds component
 
