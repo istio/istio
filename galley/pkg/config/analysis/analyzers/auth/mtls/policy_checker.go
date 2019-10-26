@@ -22,7 +22,7 @@ import (
 )
 
 // Workload is a simple struct type for representing a service workload
-// targetted by an Authentication policy.
+// targeted by an Authentication policy.
 type Workload struct {
 	// FQDN is the fully-qualified domain name for the workload (e.g.
 	// foobar.my-namespace.svc.cluster.local).
@@ -72,7 +72,7 @@ type PolicyChecker struct {
 type strictMTLSMode int
 
 const (
-	strictMTLSNotSet strictMTLSMode = iota
+	strictMTLSNotSet strictMTLSMode = iota // nolint: varcheck
 	strictMTLSExplicitlyEnabled
 	strictMTLSExplicitlyDisabled
 )
