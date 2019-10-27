@@ -155,7 +155,7 @@ func TestEDSOverlapping(t *testing.T) {
 	testOverlappingPorts(server, adscConn, t)
 }
 
-// Validates the behaviour when Service resolution type is updated after initial EDS push.
+// Validates the behavior when Service resolution type is updated after initial EDS push.
 // See https://github.com/istio/istio/issues/18355 for more details.
 func TestEDSServiceResolutionUpdate(t *testing.T) {
 
