@@ -196,25 +196,25 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 // to roll backward.
 // updateRootCertificate returns error when any step is failed, and a flag indicating whether a rollback is required.
 // Only when rollForward is true and failure happens, the returned rollback flag is true.
-func (rotator *SelfSignedCARootCertRotator) updateRootCertificate(caSecret *v1.Secret, rollForward bool, cert, key []byte) (error, bool) {
+func (rotator *SelfSignedCARootCertRotator) updateRootCertificate(caSecret *v1.Secret, rollForward bool, cert, key []byte) (bool, error) {
 	var err error
 	if caSecret == nil {
 		caSecret, err = rotator.caSecretController.LoadCASecretWithRetry(CASecret,
 			rotator.config.caStorageNamespace, rotator.config.retryInterval, 30*time.Second)
 		if err != nil {
-			return fmt.Errorf("failed to load CA secret %s:%s (error: %s)", rotator.config.caStorageNamespace, CASecret,
-				err.Error()), false
+			return false, fmt.Errorf("failed to load CA secret %s:%s (error: %s)", rotator.config.caStorageNamespace, CASecret,
+				err.Error())
 		}
 	}
 	caSecret.Data[caCertID] = cert
 	caSecret.Data[caPrivateKeyID] = key
 	if err = rotator.caSecretController.UpdateCASecretWithRetry(caSecret, rotator.config.retryInterval, 30*time.Second); err != nil {
 		// CA keycertbundle is unlikely to fail, no need to roll back.
-		return fmt.Errorf("failed to update CA secret (error: %s)", err.Error()), false
+		return false, fmt.Errorf("failed to update CA secret (error: %s)", err.Error())
 	}
 	rootCertRotatorLog.Infof("Root certificate is written into CA secret: %v", string(cert))
 	if err := rotator.ca.GetCAKeyCertBundle().VerifyAndSetAll(cert, key, nil, cert); err != nil {
-		return fmt.Errorf("failed to update CA KeyCertBundle (error: %s)", err.Error()), false
+		return false, fmt.Errorf("failed to update CA KeyCertBundle (error: %s)", err.Error())
 	}
 	rootCertRotatorLog.Infof("Root certificate is updated in CA KeyCertBundle: %v", string(cert))
 	certEncoded := base64.StdEncoding.EncodeToString(rotator.ca.GetCAKeyCertBundle().GetRootCertPem())
@@ -223,10 +223,10 @@ func (rotator *SelfSignedCARootCertRotator) updateRootCertificate(caSecret *v1.S
 		// If rolling forward root certificate fails at configmap update, caller needs to roll back this round of
 		// root certificate rotation.
 		if rollForward {
-			return fmt.Errorf("failed to write root certificate into configmap (%s)", err.Error()), true
+			return true, fmt.Errorf("failed to write root certificate into configmap (%s)", err.Error())
 		}
-		return fmt.Errorf("failed to write root certificate into configmap (%s)", err.Error()), false
+		return false, fmt.Errorf("failed to write root certificate into configmap (%s)", err.Error())
 	}
 	rootCertRotatorLog.Info("Root certificate is updated into configmap.")
-	return nil, false
+	return false, nil
 }

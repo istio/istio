@@ -58,7 +58,6 @@ func (csc *CaSecretController) LoadCASecretWithRetry(secretName, namespace strin
 		}
 		time.Sleep(retryInterval)
 	}
-	return caSecret, scrtErr
 }
 
 // UpdateCASecretWithRetry updates CA secret with retries until timeout.
@@ -77,5 +76,4 @@ func (csc *CaSecretController) UpdateCASecretWithRetry(caSecret *v1.Secret,
 		}
 		time.Sleep(retryInterval)
 	}
-	return nil
 }

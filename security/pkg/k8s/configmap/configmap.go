@@ -95,7 +95,6 @@ func (c *Controller) InsertCATLSRootCertWithRetry(value string, retryInterval,
 		}
 		time.Sleep(retryInterval)
 	}
-	return nil
 }
 
 // GetCATLSRootCert gets the CA TLS root certificate from the configmap.
