@@ -155,6 +155,34 @@ func TestEDSOverlapping(t *testing.T) {
 	testOverlappingPorts(server, adscConn, t)
 }
 
+// Validates the behaviour when Service resolution type is updated after initial EDS push.
+// See https://github.com/istio/istio/issues/18355 for more details.
+func TestEDSServiceResolutionUpdate(t *testing.T) {
+
+	server, tearDown := initLocalPilotTestEnv(t)
+	defer tearDown()
+
+	// add a eds type of cluster with static end points.
+	addEdsClusterWithStaticEndpoints(server)
+
+	adscConn := adsConnectAndWait(t, 0x0a0a0a0a)
+	defer adscConn.Close()
+
+	// Validate that endpoints are pushed correctly.
+	testEndpoints("10.0.0.53", "outbound|8080||edsdns.svc.cluster.local", adscConn, t)
+
+	// Now update the service resolution to DNSLB with a DNS endpoint.
+	updateServiceResolution(server)
+
+	_, _ = adscConn.Wait(5*time.Second, "eds")
+
+	// Validate that endpoints are skipped.
+	lbe := adscConn.GetEndpoints()["outbound|8080||edsdns.svc.cluster.local"]
+	if lbe != nil && len(lbe.Endpoints) > 0 {
+		t.Fatalf("endpoints not expected for  %s,  but got %v", "edsdns.svc.cluster.local", adscConn.EndpointsJSON())
+	}
+}
+
 func adsConnectAndWait(t *testing.T, ip int) *adsc.ADSC {
 	adscConn, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
 		IP: testIP(uint32(ip)),
@@ -624,6 +652,59 @@ func addLocalityEndpoints(server *bootstrap.Server, hostname host.Name) {
 			},
 		})
 	}
+	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
+}
+
+func addEdsClusterWithStaticEndpoints(server *bootstrap.Server) {
+	server.EnvoyXdsServer.MemRegistry.AddService("edsdns.svc.cluster.local", &model.Service{
+		Hostname: "edsdns.svc.cluster.local",
+		Ports: model.PortList{
+			{
+				Name:     "http",
+				Port:     8080,
+				Protocol: protocol.HTTP,
+			},
+		},
+	})
+
+	server.EnvoyXdsServer.MemRegistry.AddInstance("edsdns.svc.cluster.local", &model.ServiceInstance{
+		Endpoint: model.NetworkEndpoint{
+			Address: "10.0.0.53",
+			Port:    8080,
+			ServicePort: &model.Port{
+				Name:     "http",
+				Port:     8080,
+				Protocol: protocol.HTTP,
+			},
+		},
+	})
+	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
+}
+
+func updateServiceResolution(server *bootstrap.Server) {
+	server.EnvoyXdsServer.MemRegistry.AddService("edsdns.svc.cluster.local", &model.Service{
+		Hostname: "edsdns.svc.cluster.local",
+		Ports: model.PortList{
+			{
+				Name:     "http",
+				Port:     8080,
+				Protocol: protocol.HTTP,
+			},
+		},
+		Resolution: model.DNSLB,
+	})
+
+	server.EnvoyXdsServer.MemRegistry.AddInstance("edsdns.svc.cluster.local", &model.ServiceInstance{
+		Endpoint: model.NetworkEndpoint{
+			Address: "somevip.com",
+			Port:    8080,
+			ServicePort: &model.Port{
+				Name:     "http",
+				Port:     8080,
+				Protocol: protocol.HTTP,
+			},
+		},
+	})
 	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
 }
 
