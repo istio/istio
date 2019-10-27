@@ -97,6 +97,7 @@ type WebhookController struct {
 	certMutex      sync.RWMutex
 	// Length of the grace period for the certificate rotation.
 	gracePeriodRatio float32
+	certUtil         certutil.CertUtil
 }
 
 // NewWebhookController returns a pointer to a newly constructed WebhookController instance.
@@ -111,6 +112,7 @@ func NewWebhookController(gracePeriodRatio float32, minGracePeriod time.Duration
 		log.Warnf("grace period ratio %f is out of the recommended window [%.2f, %.2f]",
 			gracePeriodRatio, recommendedMinGracePeriodRatio, recommendedMaxGracePeriodRatio)
 	}
+
 	if len(secretNames) != len(serviceNamespaces) {
 		return nil, fmt.Errorf("the size of secret names must be the same as the size of service namespaces")
 	}
@@ -136,6 +138,7 @@ func NewWebhookController(gracePeriodRatio float32, minGracePeriod time.Duration
 		secretNames:       secretNames,
 		dnsNames:          dnsNames,
 		serviceNamespaces: serviceNamespaces,
+		certUtil:          certutil.NewCertUtil(int(gracePeriodRatio * 100)),
 	}
 
 	// read CA cert at the beginning of launching the controller.
@@ -298,8 +301,7 @@ func (wc *WebhookController) scrtUpdated(oldObj, newObj interface{}) {
 		return
 	}
 
-	certUtil := certutil.NewCertUtil(int(wc.gracePeriodRatio * 100))
-	_, waitErr := certUtil.GetWaitTime(certBytes, time.Now(), wc.minGracePeriod)
+	_, waitErr := wc.certUtil.GetWaitTime(certBytes, time.Now(), wc.minGracePeriod)
 
 	// Refresh the secret if 1) the certificate contained in the secret is about
 	// to expire, or 2) the root certificate in the secret is different than the
