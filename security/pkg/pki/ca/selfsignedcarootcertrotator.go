@@ -175,14 +175,14 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 
 	oldCaCert := caSecret.Data[caCertID]
 	oldCaPrivateKey := caSecret.Data[caPrivateKeyID]
-	if err, rollback := rotator.updateRootCertificate(caSecret, true, pemCert, pemKey); err != nil {
+	if rollback, err := rotator.updateRootCertificate(caSecret, true, pemCert, pemKey); err != nil {
 		if !rollback {
 			rootCertRotatorLog.Errorf("Failed to roll forward root certificate (error: %s). "+
 				"Abort new root certificate", err.Error())
 			return
 		}
 		// caSecret is out-of-date. Need to load the latest istio-ca-secret to roll back root certificate.
-		err, _ = rotator.updateRootCertificate(nil, false, oldCaCert, oldCaPrivateKey)
+		_, err = rotator.updateRootCertificate(nil, false, oldCaCert, oldCaPrivateKey)
 		if err != nil {
 			rootCertRotatorLog.Errorf("Failed to roll backward root certificate (error: %s).", err.Error())
 		}
