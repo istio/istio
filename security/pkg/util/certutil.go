@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"time"
 
+	"istio.io/pkg/log"
+
 	"istio.io/istio/security/pkg/pki/util"
 )
 
@@ -51,8 +53,10 @@ func (cu CertUtilImpl) GetWaitTime(certBytes []byte, now time.Time, minGracePeri
 		return time.Duration(0), fmt.Errorf("certificate already expired at %s, but now is %s",
 			cert.NotAfter, now)
 	}
-	gracePeriod := cert.NotAfter.Sub(cert.NotBefore) * time.Duration(cu.gracePeriodPercentage) / time.Duration(100)
+	gracePeriod := time.Duration(float64(cert.NotAfter.Sub(cert.NotBefore)) * (float64(cu.gracePeriodPercentage) / 100))
 	if gracePeriod < minGracePeriod {
+		log.Warnf("gracePeriod (%v * %f) = %v is less than minGracePeriod %v. Apply minGracePeriod.",
+			cert.NotAfter.Sub(cert.NotBefore), float64(cu.gracePeriodPercentage/100), gracePeriod, minGracePeriod)
 		gracePeriod = minGracePeriod
 	}
 
