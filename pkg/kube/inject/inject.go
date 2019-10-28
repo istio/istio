@@ -557,6 +557,7 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *
 		"excludeInboundPort":  excludeInboundPort,
 		"includeInboundPorts": includeInboundPorts,
 		"kubevirtInterfaces":  kubevirtInterfaces,
+		"applicationPorts":    applicationPorts,
 		"annotation":          getAnnotation,
 		"valueOrDefault":      valueOrDefault,
 		"toJSON":              toJSON,
@@ -870,6 +871,13 @@ func getContainerPorts(containers []corev1.Container, shouldIncludePorts func(co
 	}
 
 	return strings.Join(parts, ",")
+}
+
+// this function is no longer used by the template but kept around for backwards compatibility
+func applicationPorts(containers []corev1.Container) string {
+	return getContainerPorts(containers, func(c corev1.Container) bool {
+		return c.Name != ProxyContainerName
+	})
 }
 
 func includeInboundPorts(containers []corev1.Container) string {
