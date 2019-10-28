@@ -769,7 +769,7 @@ func verifyHTTPFilterChainMatch(t *testing.T, fc *listener.FilterChain, directio
 		t.Fatalf("expected %d application protocols, %v", len(plaintextHTTPALPNs), plaintextHTTPALPNs)
 	}
 
-	hcm := &http_conn.HttpConnectionManager{}
+	hcm := &http_filter.HttpConnectionManager{}
 	if err := getFilterConfig(fc.Filters[0], hcm); err != nil {
 		t.Fatalf("failed to get HCM, config %v", hcm)
 	}
@@ -785,7 +785,7 @@ func verifyHTTPFilterChainMatch(t *testing.T, fc *listener.FilterChain, directio
 	}
 }
 
-func hasAlpnFilter(filters []*http_conn.HttpFilter) bool {
+func hasAlpnFilter(filters []*http_filter.HttpFilter) bool {
 	for _, f := range filters {
 		if f.Name == AlpnFilterName {
 			return true

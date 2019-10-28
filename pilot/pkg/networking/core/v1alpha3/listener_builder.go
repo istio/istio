@@ -531,7 +531,7 @@ func newHTTPPassThroughFilterChain(configgen *ConfigGeneratorImpl, env *model.En
 		}
 		httpOpts := configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, in)
 		httpOpts.statPrefix = clusterName
-		connectionManager := buildHTTPConnectionManager(plugin, env, httpOpts, mutable.FilterChains[0].HTTP)
+		connectionManager := buildHTTPConnectionManager(in, env, httpOpts, mutable.FilterChains[0].HTTP)
 
 		filter := &listener.Filter{
 			Name: xdsutil.HTTPConnectionManager,
