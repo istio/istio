@@ -85,6 +85,7 @@ dump-licenses-csv:
 
 mirror-licenses:
 	@go mod download
+	@rm -fr licenses
 	@license-lint --mirror
 
 TMP := $(shell mktemp -d -u)
@@ -95,7 +96,7 @@ update-common:
 	@git clone -q --depth 1 --single-branch --branch $(UPDATE_BRANCH) https://github.com/istio/common-files $(TMP)/common-files
 	@cd $(TMP)/common-files ; git rev-parse HEAD >files/common/.commonfiles.sha
 	@rm -fr common
-	@cp -rT $(TMP)/common-files/files $(shell pwd)
+	@cp -ar $(TMP)/common-files/files/* $(shell pwd)
 	@rm -fr $(TMP)/common-files
 
 update-common-protos:
@@ -103,7 +104,7 @@ update-common-protos:
 	@git clone -q --depth 1 --single-branch --branch $(UPDATE_BRANCH) https://github.com/istio/common-files $(TMP)/common-files
 	@cd $(TMP)/common-files ; git rev-parse HEAD > common-protos/.commonfiles.sha
 	@rm -fr common-protos
-	@cp -ar $(TMP)/common-files/common-protos $(shell pwd)/common-protos
+	@cp -ar $(TMP)/common-files/common-protos/* $(shell pwd)/common-protos
 	@rm -fr $(TMP)/common-files
 
 check-clean-repo:
