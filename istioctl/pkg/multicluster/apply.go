@@ -39,7 +39,7 @@ func updateRemoteSecret(prev, curr *v1.Secret) (changed bool) {
 	prev.StringData = curr.StringData
 	for k, v := range curr.StringData {
 		newVal := []byte(v)
-		if bytes.Compare(prev.Data[k], newVal) != 0 {
+		if !bytes.Equal(prev.Data[k], newVal) {
 			prev.Data[k] = newVal
 			changed = true
 		}

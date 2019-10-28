@@ -83,7 +83,7 @@ func NewCluster(context string, desc ClusterDesc, env Environment) (*Cluster, er
 	case kerrors.IsNotFound(err):
 		installed = false
 	case err != nil:
-		env.Errorf("an error occured trying to locate Istio in cluster %v: %v", context, err)
+		env.Errorf("an error occurred trying to locate Istio in cluster %v: %v", context, err)
 	default:
 		installed = true
 	}

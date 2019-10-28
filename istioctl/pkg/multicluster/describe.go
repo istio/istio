@@ -80,7 +80,7 @@ func describeCACerts(env Environment, c *Cluster, indent string) {
 	secrets := c.readCACerts(env)
 
 	tw := tabwriter.NewWriter(env.Stdout(), 0, 8, 2, '\t', 0)
-	fmt.Fprintf(tw, "%vNAME\tISSUER\tSUBJECT\tNOTAFTER\n", indent)
+	_, _ = fmt.Fprintf(tw, "%vNAME\tISSUER\tSUBJECT\tNOTAFTER\n", indent)
 
 	for _, info := range []struct {
 		cert *x509.Certificate
@@ -91,7 +91,7 @@ func describeCACerts(env Environment, c *Cluster, indent string) {
 		{secrets.selfSignedCACert, "SelfSignedRootCert"},
 	} {
 		if c := info.cert; c != nil {
-			fmt.Fprintf(tw, "%v%v\t%q\t%q\t%v\n",
+			_, _ = fmt.Fprintf(tw, "%v%v\t%q\t%q\t%v\n",
 				indent,
 				info.name,
 				c.Issuer,
@@ -100,7 +100,7 @@ func describeCACerts(env Environment, c *Cluster, indent string) {
 		}
 	}
 
-	tw.Flush()
+	_ = tw.Flush()
 }
 
 func describeRemoteSecrets(env Environment, mesh *Mesh, c *Cluster, indent string) {
@@ -126,7 +126,7 @@ func describeRemoteSecrets(env Environment, mesh *Mesh, c *Cluster, indent strin
 	_ = tw.Flush()
 }
 
-func describeIngressGateways(env Environment, c *Cluster, indent string) {
+func describeIngressGateways(env Environment, c *Cluster, indent string) { // nolint: interfacer
 	gateways := c.readIngressGateways()
 
 	env.Printf("%vgateways: ", indent)

@@ -191,7 +191,7 @@ func init() {
 		pilotTokenSecrets[i] = makeTokenSecret(tokens[i], caDatas[i])
 
 		apiConfig.Contexts[clusters[i].Context] = &api.Context{
-			Cluster: string(clusters[i].Context),
+			Cluster: clusters[i].Context,
 		}
 		apiConfig.Clusters[clusters[i].Context] = &api.Cluster{
 			Server: makeServerName(clusters[i]),
@@ -253,7 +253,7 @@ func runApplyTest(t *testing.T, testCase *applyTestCase) {
 	g := NewWithT(t)
 
 	env := newFakeEnvironmentOrDie(t, testCase.config)
-	mesh := NewMesh(&MeshDesc{MeshID: "MyMeshID"}, env, testCase.clusters...)
+	mesh := NewMesh(&MeshDesc{MeshID: "MyMeshID"}, testCase.clusters...)
 
 	fakeClients := make(map[types.UID]*fake.Clientset, len(testCase.clusters))
 	for _, cluster := range testCase.clusters {
