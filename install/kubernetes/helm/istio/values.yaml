@@ -144,7 +144,7 @@ global:
         requests:
           cpu: 10m
           memory: 10Mi
-    # use fully qualified iamge names for alternate path to proxy.
+    # use fully qualified image names for alternate path to proxy.
     image: proxyv2
 
     # cluster domain. Default value is "cluster.local".
