@@ -184,7 +184,7 @@ istioctl experimental analyze -k -d false
 	analysisCmd.PersistentFlags().BoolVar(&colorize, "color", istioctlColorDefault(analysisCmd),
 		"Default true.  Disable with '=false' or set $TERM to dumb")
 	analysisCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
-	analysisCmd.PersistentFlags().Var(&messageLevelThreshold, "threshold",
+	analysisCmd.PersistentFlags().Var(&messageLevelThreshold, "failure-threshold",
 		"The severity level of analysis at which to set a non-zero exit code. "+
 			"Defaults to WARN, with INFO and ERROR being the other values.")
 	return analysisCmd
