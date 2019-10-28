@@ -32,6 +32,7 @@ import (
 	"time"
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	"github.com/mitchellh/copystructure"
 
 	authn "istio.io/api/authentication/v1alpha1"
 
@@ -290,8 +291,8 @@ type ServiceInstance struct {
 // 	 - consul: defaults to 'instance.Datacenter'
 //
 // This is used by CDS/EDS to group the endpoints by locality.
-func (si *ServiceInstance) GetLocality() string {
-	return GetLocalityOrDefault(si.Labels[LocalityLabel], si.Endpoint.Locality)
+func (instance *ServiceInstance) GetLocality() string {
+	return GetLocalityOrDefault(instance.Labels[LocalityLabel], instance.Endpoint.Locality)
 }
 
 // GetLocalityOrDefault returns the locality from the supplied label, or falls back to
@@ -685,4 +686,38 @@ func GetTLSModeFromEndpointLabels(labels map[string]string) TLSModeLabelValue {
 		}
 	}
 	return DisabledTLSModeLabel
+}
+
+// DeepCopy creates a clone of Service.
+// TODO : See if there is any efficient alternative to this function - copystructure can not be used as is because
+// Service has sync.RWMutex that can not be copied.
+func (s *Service) DeepCopy() *Service {
+	attrs := copyInternal(s.Attributes)
+	ports := copyInternal(s.Ports)
+	accounts := copyInternal(s.ServiceAccounts)
+	clusterVIPs := copyInternal(s.ClusterVIPs)
+
+	return &Service{
+		Attributes:      attrs.(ServiceAttributes),
+		Ports:           ports.(PortList),
+		ServiceAccounts: accounts.([]string),
+		CreationTime:    s.CreationTime,
+		Hostname:        s.Hostname,
+		Address:         s.Address,
+		ClusterVIPs:     clusterVIPs.(map[string]string),
+		Resolution:      s.Resolution,
+		MeshExternal:    s.MeshExternal,
+	}
+}
+
+func copyInternal(v interface{}) interface{} {
+	copied, err := copystructure.Copy(v)
+	if err != nil {
+		// There are 2 locations where errors are generated in copystructure.Copy:
+		//  * The reflection walk over the structure fails, which should never happen
+		//  * A configurable copy function returns an error. This is only used for copying times, which never returns an error.
+		// Therefore, this should never happen
+		panic(err)
+	}
+	return copied
 }

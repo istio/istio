@@ -366,7 +366,7 @@ func (store *istioConfigStore) ServiceEntries() []Config {
 }
 
 // sortConfigByCreationTime sorts the list of config objects in ascending order by their creation time (if available).
-func sortConfigByCreationTime(configs []Config) []Config {
+func sortConfigByCreationTime(configs []Config) {
 	sort.SliceStable(configs, func(i, j int) bool {
 		// If creation time is the same, then behavior is nondeterministic. In this case, we can
 		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
@@ -378,7 +378,6 @@ func sortConfigByCreationTime(configs []Config) []Config {
 		}
 		return configs[i].CreationTimestamp.Before(configs[j].CreationTimestamp)
 	})
-	return configs
 }
 
 func (store *istioConfigStore) Gateways(workloadLabels labels.Collection) []Config {
