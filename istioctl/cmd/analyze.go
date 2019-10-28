@@ -19,7 +19,10 @@ import (
 	"os"
 	"strings"
 
+	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
+
+	"istio.io/pkg/env"
 
 	"istio.io/istio/galley/pkg/config/analysis/analyzers"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
@@ -43,6 +46,15 @@ var (
 	useKube               bool
 	useDiscovery          string
 	messageLevelThreshold = diag.Warning // messages at least this level will generate an error exit code
+	colorize              bool
+
+	termEnvVar = env.RegisterStringVar("TERM", "", "Specifies terminal type.  Use 'dumb' to suppress color output")
+
+	colorPrefixes = map[diag.Level]string{
+		diag.Info:    "",           // no special color for info messages
+		diag.Warning: "\033[33m",   // yellow
+		diag.Error:   "\033[1;31m", // bold red
+	}
 )
 
 // Analyze command
@@ -155,7 +167,7 @@ istioctl experimental analyze -k -d false
 				fmt.Fprintln(cmd.ErrOrStderr(), "\u2714 No validation issues found.")
 			} else {
 				for _, m := range result.Messages {
-					fmt.Fprintln(cmd.OutOrStdout(), m.String())
+					fmt.Fprintln(cmd.OutOrStdout(), renderMessage(m))
 				}
 			}
 
@@ -169,7 +181,10 @@ istioctl experimental analyze -k -d false
 		"'true' to enable service discovery, 'false' to disable it. "+
 			"Defaults to true if --use-kube is set, false otherwise. "+
 			"Analyzers requiring resources made available by enabling service discovery will be skipped.")
+	analysisCmd.PersistentFlags().BoolVar(&colorize, "color", istioctlColorDefault(analysisCmd),
+		"Default true.  Disable with '=false' or set $TERM to dumb")
 	analysisCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
+
 	return analysisCmd
 }
 
@@ -195,6 +210,51 @@ func serviceDiscovery() (bool, error) {
 	default:
 		return false, fmt.Errorf("invalid argument value for discovery")
 	}
+}
+
+func colorPrefix(m diag.Message) string {
+	if !colorize {
+		return ""
+	}
+
+	prefix, ok := colorPrefixes[m.Type.Level()]
+	if !ok {
+		return ""
+	}
+
+	return prefix
+}
+
+func colorSuffix() string {
+	if !colorize {
+		return ""
+	}
+
+	return "\033[0m"
+}
+
+func renderMessage(m diag.Message) string {
+	origin := ""
+	if m.Origin != nil {
+		origin = " (" + m.Origin.FriendlyName() + ")"
+	}
+	return fmt.Sprintf(
+		"%s%v%s [%v]%s %s", colorPrefix(m), m.Type.Level(), colorSuffix(), m.Type.Code(), origin, fmt.Sprintf(m.Type.Template(), m.Parameters...))
+}
+
+func istioctlColorDefault(cmd *cobra.Command) bool {
+	if strings.EqualFold(termEnvVar.Get(), "dumb") {
+		return false
+	}
+
+	file, ok := cmd.OutOrStdout().(*os.File)
+	if ok {
+		if !isatty.IsTerminal(file.Fd()) {
+			return false
+		}
+	}
+
+	return true
 }
 
 func errorIfMessagesExceedThreshold(messages []diag.Message) error {
