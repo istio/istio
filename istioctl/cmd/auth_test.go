@@ -151,6 +151,21 @@ func TestAuthUpgrade(t *testing.T) {
 			golden:        "testdata/auth/upgrade/one-rule-all-services.golden.yaml",
 		},
 		{
+			name: "One access rule with all services with inclusion",
+			rbacV1alpha1Files: []string{"testdata/auth/upgrade/one-rule-all-services.yaml",
+				"testdata/auth/upgrade/two-subjects.yaml", "testdata/auth/upgrade/cluster-rbac-config-on-with-inclusion.yaml"},
+			servicesFiles: []string{"testdata/auth/upgrade/svc-bookinfo.yaml"},
+			golden:        "testdata/auth/upgrade/one-rule-all-services-with-inclusion.golden.yaml",
+		},
+		{
+			name: "One access rule with all services with exclusion",
+			rbacV1alpha1Files: []string{"testdata/auth/upgrade/one-rule-all-services.yaml",
+				"testdata/auth/upgrade/two-subjects.yaml", "testdata/auth/upgrade/cluster-rbac-config-on-with-exclusion.yaml"},
+			servicesFiles: []string{"testdata/auth/upgrade/svc-bookinfo.yaml"},
+			configMapFile: "testdata/auth/upgrade/istio-configmap.yaml",
+			golden:        "testdata/auth/upgrade/one-rule-all-services-with-exclusion.golden.yaml",
+		},
+		{
 			name: "One access rule with multiple services",
 			rbacV1alpha1Files: []string{"testdata/auth/upgrade/one-rule-multiple-services.yaml",
 				"testdata/auth/upgrade/two-subjects.yaml", "testdata/auth/upgrade/rbac-global-on.yaml"},
@@ -163,6 +178,17 @@ func TestAuthUpgrade(t *testing.T) {
 			rbacV1alpha1Files: []string{"testdata/auth/upgrade/rbac-global-on.yaml"},
 			configMapFile:     "testdata/auth/upgrade/istio-configmap.yaml",
 			golden:            "testdata/auth/upgrade/rbac-global-on.golden.yaml",
+		},
+		{
+			name:              "RbacConfig_ON_WITH_INCLUSION only",
+			rbacV1alpha1Files: []string{"testdata/auth/upgrade/cluster-rbac-config-on-with-inclusion.yaml"},
+			golden:            "testdata/auth/upgrade/cluster-rbac-config-on-with-inclusion.golden.yaml",
+		},
+		{
+			name:              "RbacConfig_ON_WITH_EXCLUSION only",
+			rbacV1alpha1Files: []string{"testdata/auth/upgrade/cluster-rbac-config-on-with-exclusion.yaml"},
+			configMapFile:     "testdata/auth/upgrade/istio-configmap.yaml",
+			golden:            "testdata/auth/upgrade/cluster-rbac-config-on-with-exclusion.golden.yaml",
 		},
 	}
 	for _, c := range testCases {
