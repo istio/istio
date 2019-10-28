@@ -1786,7 +1786,7 @@ func TestAutoMTLSClusterStrictMode(t *testing.T) {
 
 	// For port 8080, (m)TLS settings is automatically added, thus its cluster should have TLS context.
 	g.Expect(clusters[0].TlsContext).To(BeNil())
-	g.Expect(clusters[0].TransportSocketMatches).To(HaveLen(4))
+	g.Expect(clusters[0].TransportSocketMatches).To(HaveLen(2))
 
 	// For 9090, use the TLS settings are explicitly specified in DR (which disable TLS)
 	g.Expect(clusters[1].TlsContext).To(BeNil())
@@ -1888,7 +1888,7 @@ func TestAutoMTLSClusterPerPortStrictMode(t *testing.T) {
 
 	// For port 8080, (m)TLS settings is automatically added, thus its cluster should have TLS context.
 	g.Expect(clusters[0].TlsContext).To(BeNil())
-	g.Expect(clusters[0].TransportSocketMatches).To(HaveLen(4))
+	g.Expect(clusters[0].TransportSocketMatches).To(HaveLen(2))
 
 	// For 9090, authn policy disable mTLS, so it should not have TLS context.
 	g.Expect(clusters[1].TlsContext).To(BeNil())

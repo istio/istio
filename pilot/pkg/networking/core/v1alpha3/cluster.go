@@ -79,20 +79,11 @@ var (
 
 	defaultDestinationRule = networking.DestinationRule{}
 
-	plaintextTransportSocketMatchNoLabel = &apiv2.Cluster_TransportSocketMatch{
-		Name:  "plaintext-nolabel",
+	// defaultTransportSocketMatch applies to endpoints that have no security.istio.io/tlsMode label
+	// or those whose label value does not match "istio"
+	defaultTransportSocketMatch = &apiv2.Cluster_TransportSocketMatch{
+		Name:  "tlsMode-disabled",
 		Match: &structpb.Struct{},
-		TransportSocket: &core.TransportSocket{
-			Name: util.EnvoyRawBufferSocketName,
-		},
-	}
-	plaintextTransportSocketMatchDisabledLabel = &apiv2.Cluster_TransportSocketMatch{
-		Name: "plaintext-disabled-label",
-		Match: &structpb.Struct{
-			Fields: map[string]*structpb.Value{
-				model.TLSModeLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: model.DisabledTLSModeLabel}},
-			},
-		},
 		TransportSocket: &core.TransportSocket{
 			Name: util.EnvoyRawBufferSocketName,
 		},
@@ -1205,7 +1196,7 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.TLSSetting
 
 		cluster.TransportSocketMatches = []*apiv2.Cluster_TransportSocketMatch{
 			{
-				Name: model.IstioMutualTLSModeLabel,
+				Name: "tlsMode-" + model.IstioMutualTLSModeLabel,
 				Match: &structpb.Struct{
 					Fields: map[string]*structpb.Value{
 						model.TLSModeLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: model.IstioMutualTLSModeLabel}},
@@ -1218,8 +1209,7 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.TLSSetting
 					},
 				},
 			},
-			plaintextTransportSocketMatchDisabledLabel,
-			plaintextTransportSocketMatchNoLabel,
+			defaultTransportSocketMatch,
 		}
 	}
 }
