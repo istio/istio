@@ -29,6 +29,14 @@ import (
 )
 
 var (
+	port9999 = []*Port{
+		{
+			Name:     "uds",
+			Port:     9999,
+			Protocol: "HTTP",
+		},
+	}
+
 	port8000 = []*Port{
 		{
 			Name:     "uds",
@@ -184,6 +192,32 @@ var (
 		},
 	}
 
+	configs7 = &Config{
+		ConfigMeta: ConfigMeta{
+			Name: "sidecar-scope-ns1-ns2",
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Number:   23145,
+						Protocol: "TCP",
+						Name:     "outbound-tcp",
+					},
+					Bind: "7.7.7.7",
+					Hosts: []string{"*/bookinginfo.com",
+						"*/private.com",
+					},
+				},
+				{
+					Hosts: []string{"ns1/*",
+						"*/*.tcp.com",
+					},
+				},
+			},
+		},
+	}
+
 	services1 = []*Service{
 		{Hostname: "bar"},
 	}
@@ -261,6 +295,24 @@ var (
 			Attributes: ServiceAttributes{
 				Name:      "foo",
 				Namespace: "foo",
+			},
+		},
+	}
+
+	services8 = []*Service{
+		{
+			Hostname: "bookinginfo.com",
+			Ports:    port9999,
+			Attributes: ServiceAttributes{
+				Name:      "bookinginfo.com",
+				Namespace: "ns1",
+			},
+		},
+		{
+			Hostname: "private.com",
+			Attributes: ServiceAttributes{
+				Name:      "private.com",
+				Namespace: "ns1",
 			},
 		},
 	}
@@ -425,6 +477,20 @@ func TestCreateSidecarScope(t *testing.T) {
 				{
 					Hostname: "foo",
 					Ports:    twoPorts,
+				},
+			},
+		},
+		{
+			"two-egresslisteners-one-with-port-and-without-port",
+			configs7,
+			services8,
+			[]*Service{
+				{
+					Hostname: "bookinginfo.com",
+					Ports:    port9999,
+				},
+				{
+					Hostname: "private.com",
 				},
 			},
 		},

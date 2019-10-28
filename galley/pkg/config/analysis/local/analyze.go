@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/event"
@@ -60,6 +62,13 @@ type SourceAnalyzer struct {
 	collectionReporter snapshotter.CollectionReporterFn
 }
 
+// AnalysisResult represents the returnable results of an analysis execution
+type AnalysisResult struct {
+	Messages          diag.Messages
+	SkippedAnalyzers  []string
+	ExecutedAnalyzers []string
+}
+
 // NewSourceAnalyzer creates a new SourceAnalyzer with no sources. Use the Add*Source methods to add sources in ascending precedence order,
 // then execute Analyze to perform the analysis
 func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, namespace string,
@@ -92,12 +101,14 @@ func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, 
 }
 
 // Analyze loads the sources and executes the analysis
-func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (diag.Messages, error) {
+func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) {
+	var result AnalysisResult
+
 	meshsrc := meshcfg.NewInmemory()
 	meshsrc.Set(meshcfg.Default())
 
 	if len(sa.sources) == 0 {
-		return nil, fmt.Errorf("at least one file and/or kubernetes source must be provided")
+		return result, fmt.Errorf("at least one file and/or Kubernetes source must be provided")
 	}
 	src := newPrecedenceSource(sa.sources)
 
@@ -106,10 +117,13 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (diag.Messages, error) {
 		namespaces = []string{sa.namespace}
 	}
 
+	result.SkippedAnalyzers = sa.analyzer.RemoveDisabled(sa.kubeResources.DisabledCollections(), sa.transformerProviders)
+	result.ExecutedAnalyzers = sa.analyzer.AnalyzerNames()
+
 	updater := &snapshotter.InMemoryStatusUpdater{}
 	distributorSettings := snapshotter.AnalyzingDistributorSettings{
 		StatusUpdater:      updater,
-		Analyzer:           sa.analyzer.WithDisabled(sa.kubeResources.DisabledCollections(), sa.transformerProviders),
+		Analyzer:           sa.analyzer,
 		Distributor:        snapshotter.NewInMemoryDistributor(),
 		AnalysisSnapshots:  []string{metadata.LocalAnalysis, metadata.SyntheticServiceEntry},
 		TriggerSnapshot:    metadata.LocalAnalysis,
@@ -128,17 +142,18 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (diag.Messages, error) {
 	}
 	rt, err := processor.Initialize(processorSettings)
 	if err != nil {
-		return nil, err
+		return result, err
 	}
 	rt.Start()
 	defer rt.Stop()
 
 	scope.Analysis.Debugf("Waiting for analysis messages to be available...")
 	if updater.WaitForReport(cancel) {
-		return updater.Get(), nil
+		result.Messages = updater.Get()
+		return result, nil
 	}
 
-	return nil, errors.New("cancelled")
+	return result, errors.New("cancelled")
 }
 
 // AddFileKubeSource adds a source based on the specified k8s yaml files to the current SourceAnalyzer
@@ -146,18 +161,23 @@ func (sa *SourceAnalyzer) AddFileKubeSource(files []string) error {
 	src := inmemory.NewKubeSource(sa.kubeResources)
 	src.SetDefaultNamespace(sa.namespace)
 
+	var errs error
+
+	// If we encounter any errors reading or applying files, track them but attempt to continue
 	for _, file := range files {
 		by, err := ioutil.ReadFile(file)
 		if err != nil {
-			return err
+			errs = multierror.Append(errs, err)
+			continue
 		}
 		if err = src.ApplyContent(file, string(by)); err != nil {
-			return err
+			errs = multierror.Append(errs, err)
 		}
 	}
 
 	sa.sources = append(sa.sources, src)
-	return nil
+
+	return errs
 }
 
 // AddRunningKubeSource adds a source based on a running k8s cluster to the current SourceAnalyzer

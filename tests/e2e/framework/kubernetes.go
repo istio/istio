@@ -79,9 +79,8 @@ const (
 	// CRD files that should be installed during testing
 	// NB: these files come from the directory install/kubernetes/helm/istio-init/files/*crd*
 	//     and contain all CRDs used by Istio during runtime
-	zeroCRDInstallFile        = "crd-10.yaml"
-	oneCRDInstallFile         = "crd-11.yaml"
-	fourCRDInstallFile        = "crd-14.yaml"
+	allCRDInstallFile         = "crd-all.gen.yaml"
+	mixerCRDInstallFile       = "crd-mixer.yaml"
 	certManagerCRDInstallFile = "crd-certmanager-10.yaml"
 	// PrimaryCluster identifies the primary cluster
 	PrimaryCluster = "primary"
@@ -626,7 +625,7 @@ func (k *KubeInfo) Teardown() error {
 	log.Infof("Deleting namespace %v", k.Namespace)
 	for attempts := 1; attempts <= maxAttempts; attempts++ {
 		if *useOperator {
-			if _, err := util.Shell("kubectl delete ns istio-operator --kubeconfig=%s)",
+			if _, err := util.Shell("kubectl delete ns istio-operator --kubeconfig=%s",
 				k.KubeConfig); err != nil {
 				log.Errorf("Failed to delete istio-operator namespace.")
 				return err
@@ -1045,7 +1044,7 @@ func (k *KubeInfo) deployCRDs(kubernetesCRD string) error {
 func (k *KubeInfo) deployIstioWithHelm() error {
 	// Note: When adding a CRD to the install, a new CRDFile* constant is needed
 	// This slice contains the list of CRD files installed during testing
-	istioCRDFileNames := []string{zeroCRDInstallFile, oneCRDInstallFile, fourCRDInstallFile, certManagerCRDInstallFile}
+	istioCRDFileNames := []string{allCRDInstallFile, mixerCRDInstallFile, certManagerCRDInstallFile}
 	// deploy all CRDs in Istio first
 	for _, yamlFileName := range istioCRDFileNames {
 		if err := k.deployCRDs(yamlFileName); err != nil {

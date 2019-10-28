@@ -62,8 +62,6 @@ spec:
         - NONE
         - --statusPort
         - "15020"
-        - --applicationPorts
-        - "80"
         - --concurrency
         - "2"
         env:
@@ -90,8 +88,6 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.serviceAccountName
-        - name: ISTIO_AUTO_MTLS_ENABLED
-          value: "true"
         - name: ISTIO_META_POD_NAME
           valueFrom:
             fieldRef:
@@ -104,8 +100,6 @@ spec:
           value: "false"
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
-        - name: ISTIO_META_INCLUDE_INBOUND_PORTS
-          value: "80"
         - name: ISTIO_METAJSON_LABELS
           value: |
             {"app":"hello","tier":"backend","track":"stable","version":"v1"}
@@ -252,8 +246,6 @@ spec:
         - NONE
         - --statusPort
         - "15020"
-        - --applicationPorts
-        - "81"
         - --concurrency
         - "2"
         env:
@@ -280,8 +272,6 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.serviceAccountName
-        - name: ISTIO_AUTO_MTLS_ENABLED
-          value: "true"
         - name: ISTIO_META_POD_NAME
           valueFrom:
             fieldRef:
@@ -294,8 +284,6 @@ spec:
           value: "false"
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
-        - name: ISTIO_META_INCLUDE_INBOUND_PORTS
-          value: "81"
         - name: ISTIO_METAJSON_LABELS
           value: |
             {"app":"hello","tier":"backend","track":"stable","version":"v2"}

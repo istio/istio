@@ -175,6 +175,8 @@ func TestStateMetrics(t *testing.T) {
 func TestTcpMetric(t *testing.T) {
 	framework.
 		NewTest(t).
+		// TODO(https://github.com/istio/istio/issues/18105)
+		Label(label.Flaky).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			_ = bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookinfoRatingsv2})

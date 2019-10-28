@@ -32,10 +32,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 
-	"istio.io/pkg/ctrlz/fw"
-
 	"github.com/davecgh/go-spew/spew"
-	"github.com/gogo/protobuf/types"
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	prom "github.com/prometheus/client_golang/prometheus"
@@ -46,7 +43,6 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/env"
-	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 
@@ -78,9 +74,6 @@ var (
 	// TODO: we can probably avoid saving, but will require deeper changes.
 	DNSCertDir = "./var/run/secrets/istio-dns"
 
-	// FilepathWalkInterval dictates how often the file system is walked for config
-	FilepathWalkInterval = 100 * time.Millisecond
-
 	// PilotCertDir is the default location for mTLS certificates used by pilot
 	// Visible for tests - at runtime can be set by PILOT_CERT_DIR environment variable.
 	PilotCertDir = "/etc/certs/"
@@ -109,25 +102,16 @@ func init() {
 	pilotVersion.With(prom.Labels{"version": version.Info.String()}).Set(1)
 }
 
-// MeshArgs provide configuration options for the mesh. If ConfigFile is provided, an attempt will be made to
-// load the mesh from the file. Otherwise, a default mesh will be used with optional overrides.
-type MeshArgs struct {
-	ConfigFile      string
-	MixerAddress    string
-	RdsRefreshDelay *types.Duration
-}
-
 // ConfigArgs provide configuration options for the configuration controller. If FileDir is set, that directory will
 // be monitored for CRD yaml files and will update the controller as those files change (This is used for testing
 // purposes). Otherwise, a CRD client is created based on the configuration.
 type ConfigArgs struct {
 	ClusterRegistriesNamespace string
 	KubeConfig                 string
-	FileDir                    string
-	DisableInstallCRDs         bool
 
-	// Controller if specified, this controller overrides the other config settings.
-	Controller model.ConfigStoreCache
+	// DisableInstallCRDs control Istiod ability to auto-create CRDs. Currently only Pilot CRDs are created.
+	// TODO: either remove this (off by default, remove the option) or add all other CRDs.
+	DisableInstallCRDs bool
 }
 
 // ConsulArgs provides configuration for the Consul service registry.
@@ -147,7 +131,6 @@ type ServiceArgs struct {
 type PilotArgs struct {
 	DiscoveryOptions         envoy.DiscoveryServiceOptions
 	Namespace                string
-	Mesh                     MeshArgs
 	Config                   ConfigArgs
 	Service                  ServiceArgs
 	DomainSuffix             string
@@ -164,30 +147,6 @@ type PilotArgs struct {
 }
 
 var podNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", "istio-system", "Istio namespace")
-
-// NewServer creates a new Server instance, using defaults for combined Istio and loading optional mesh config
-// file.
-//
-//
-func NewServer(args *PilotArgs) (*Server, error) {
-
-	// If the namespace isn't set, try looking it up from the environment.
-	if args.Namespace == "" {
-		args.Namespace = podNamespaceVar.Get()
-	}
-	if args.KeepaliveOptions == nil {
-		args.KeepaliveOptions = istiokeepalive.DefaultOption()
-	}
-	if args.Config.ClusterRegistriesNamespace == "" {
-		args.Config.ClusterRegistriesNamespace = args.Namespace
-	}
-
-	s := &Server{
-		Args: args,
-	}
-	s.fileWatcher = filewatcher.NewWatcher()
-	return s, nil
-}
 
 // NewIstiod will initialize the ConfigStores.
 func (s *Server) InitConfig() error {
@@ -276,7 +235,7 @@ func (s *Server) Start(stop <-chan struct{}, onXDSStart func(model.XDSUpdater)) 
 		return err
 	}
 
-	err := s.Galley.Start()
+	err := s.StartGalley()
 	if err != nil {
 		return err
 	}
@@ -332,20 +291,27 @@ func (s *Server) Serve(stop <-chan struct{}) {
 			log.Warna(err)
 		}
 	}()
-
-	if s.Args.CtrlZOptions != nil {
-		if _, err := ctrlz.Run(s.Args.CtrlZOptions, []fw.Topic{s.Galley.ConfigZTopic()}); err != nil {
-			log.Warna(err)
-		}
-	}
 }
 
 // startFunc defines a function that will be used to start one or more components of the Pilot discovery service.
 type startFunc func(stop <-chan struct{}) error
 
+func defaultMeshConfig() *meshconfig.MeshConfig {
+	meshConfigObj := mesh.DefaultMeshConfig()
+	meshConfig := &meshConfigObj
+
+	meshConfig.SdsUdsPath = "./var/run/sds/sds_path"
+	meshConfig.EnableSdsTokenMount = true
+
+	// TODO: Agent should use /var/lib/istio/proxy - this is under $HOME for istio, not in etc. Not running as root.
+
+	return meshConfig
+}
+
 // WatchMeshConfig creates the mesh in the pilotConfig from the input arguments.
 // Will set s.Mesh, and keep it updated.
 // On change, ConfigUpdate will be called.
+// TODO: merge with user-specified mesh config.
 func (s *Server) WatchMeshConfig(args string) error {
 	var meshConfig *meshconfig.MeshConfig
 	var err error
@@ -354,8 +320,7 @@ func (s *Server) WatchMeshConfig(args string) error {
 	meshConfig, err = cmd.ReadMeshConfig(args)
 	if err != nil {
 		log.Infof("No local mesh config found, using defaults")
-		meshConfigObj := mesh.DefaultMeshConfig()
-		meshConfig = &meshConfigObj
+		meshConfig = defaultMeshConfig()
 	}
 
 	// Watch the config file for changes and reload if it got modified
@@ -373,6 +338,7 @@ func (s *Server) WatchMeshConfig(args string) error {
 				//TODO Need to re-create or reload initConfigController()
 			}
 			s.Mesh = meshConfig
+			s.Args.MeshConfig = meshConfig
 			if s.EnvoyXdsServer != nil {
 				s.EnvoyXdsServer.Env.Mesh = meshConfig
 				s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
@@ -384,6 +350,7 @@ func (s *Server) WatchMeshConfig(args string) error {
 	log.Infof("version %s", version.Info.String())
 
 	s.Mesh = meshConfig
+	s.Args.MeshConfig = meshConfig
 	return nil
 }
 

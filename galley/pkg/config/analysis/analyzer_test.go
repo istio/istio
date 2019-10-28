@@ -63,8 +63,10 @@ func TestCombinedAnalyzer(t *testing.T) {
 
 	xform := transformer.NewSimpleTransformerProvider(data.Collection3, data.Collection3, func(_ event.Event, _ event.Handler) {})
 
-	a := Combine("combined", a1, a2, a3).WithDisabled(collection.Names{data.Collection3}, transformer.Providers{xform})
+	a := Combine("combined", a1, a2, a3)
+	removed := a.RemoveDisabled(collection.Names{data.Collection3}, transformer.Providers{xform})
 
+	g.Expect(removed).To(ConsistOf(a3.Metadata().Name))
 	g.Expect(a.Metadata().Inputs).To(ConsistOf(data.Collection1, data.Collection2, data.Collection3))
 
 	a.Analyze(&context{})

@@ -53,8 +53,6 @@ spec:
         - NONE
         - --statusPort
         - "15020"
-        - --applicationPorts
-        - ""
         - --concurrency
         - "2"
         env:
@@ -80,8 +78,6 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.serviceAccountName
-        - name: ISTIO_AUTO_MTLS_ENABLED
-          value: "true"
         - name: ISTIO_META_POD_NAME
           valueFrom:
             fieldRef:
@@ -94,7 +90,6 @@ spec:
           value: "false"
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
-        - name: ISTIO_META_INCLUDE_INBOUND_PORTS
         - name: ISTIO_META_WORKLOAD_NAME
           value: pi
         - name: ISTIO_META_OWNER
