@@ -27,13 +27,14 @@ import (
 	ktypes "k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pkg/util/protomarshal"
 	operatorV1alpha1 "istio.io/operator/pkg/apis/istio/v1alpha1"
 	operatorV1alpha2 "istio.io/operator/pkg/apis/istio/v1alpha2"
 	"istio.io/operator/pkg/helm"
 	"istio.io/operator/pkg/util"
 	"istio.io/operator/pkg/validate"
+
+	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 // defaults the user can override
