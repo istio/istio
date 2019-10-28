@@ -519,9 +519,6 @@
                   },
                   "http_filters": {
                     "name": "envoy.router",
-                    "config": {
-                      "start_child_span": "true",
-                    }
                   }
                 }
               }
@@ -576,7 +573,7 @@
       "stackdriver_project_id": "{{ .stackdriverProjectID }}",
       "stdout_exporter_enabled": {{ .stackdriverDebug }},
       "incoming_trace_context": ["CLOUD_TRACE_CONTEXT", "TRACE_CONTEXT", "GRPC_TRACE_BIN", "B3"],
-      "outgoing_trace_context": ["CLOUD_TRACE_CONTEXT", "TRACE_CONTEXT", "GRPC_TRACE_BIN",  "B3"],
+      "outgoing_trace_context": ["CLOUD_TRACE_CONTEXT", "TRACE_CONTEXT", "GRPC_TRACE_BIN", "B3"],
       "trace_config":{
         "constant_sampler":{
           "decision": "ALWAYS_PARENT"
