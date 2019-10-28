@@ -90,7 +90,7 @@ var (
 		Name: "plaintext-disabled-label",
 		Match: &structpb.Struct{
 			Fields: map[string]*structpb.Value{
-				model.TLSModeLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: string(model.DisabledTLSModeLabel)}},
+				model.TLSModeLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: model.DisabledTLSModeLabel}},
 			},
 		},
 		TransportSocket: &core.TransportSocket{
@@ -844,12 +844,11 @@ type buildClusterOpts struct {
 	// the ingress gateway in a remote cluster will use this value to route
 	// traffic to the appropriate service
 	istioMtlsSni string
-	// This is used when the sidecar is sending traffic to endpoints marked
-	// with security.istio.io/tlsMode: simple-no-verify. This is different
-	// from the previous SNI because usually in this case the traffic is
-	// going to a legacy workload that can only understand the service's hostname
-	// in the SNI [or probably does not understand any SNI, but it is safer to send
-	// something in the SNI than nothing, in case there is an envoy on the other side].
+	// This is used when the sidecar is sending simple TLS traffic
+	// to endpoints. This is different from the previous SNI
+	// because usually in this case the traffic is going to a
+	// non-sidecar workload that can only understand the service's
+	// hostname in the SNI.
 	simpleTLSSni    string
 	clusterMode     ClusterMode
 	direction       model.TrafficDirection
@@ -1202,50 +1201,20 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.TLSSetting
 				cluster.Name, err)
 			return // no tls context for the cluster
 		}
-
-		simpleTLSContext, err := ptypes.MarshalAny(&auth.UpstreamTlsContext{
-			CommonTlsContext: &auth.CommonTlsContext{
-				ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-					// This is empty. If the user wanted CA verification, then a destination rule would have been
-					// specified, in which case we would not be in this if block at all.
-					ValidationContext: &auth.CertificateValidationContext{},
-				},
-			},
-			Sni: opts.simpleTLSSni,
-		})
-		if err != nil {
-			log.Errorf("error marshaling simple-no-verify tls context to transport_socket config for cluster %s, err=%v",
-				cluster.Name, err)
-			return // no tls context for the cluster
-		}
 		cluster.TlsContext = nil
 
 		cluster.TransportSocketMatches = []*apiv2.Cluster_TransportSocketMatch{
 			{
-				Name: string(model.IstioMutualTLSModeLabel),
+				Name: model.IstioMutualTLSModeLabel,
 				Match: &structpb.Struct{
 					Fields: map[string]*structpb.Value{
-						model.TLSModeLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: string(model.IstioMutualTLSModeLabel)}},
+						model.TLSModeLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: model.IstioMutualTLSModeLabel}},
 					},
 				},
 				TransportSocket: &core.TransportSocket{
 					Name: util.EnvoyTLSSocketName,
 					ConfigType: &core.TransportSocket_TypedConfig{
 						TypedConfig: istioTLSContext,
-					},
-				},
-			},
-			{
-				Name: string(model.SimpleNoVerifyTLSModeLabel),
-				Match: &structpb.Struct{
-					Fields: map[string]*structpb.Value{
-						model.TLSModeLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: string(model.SimpleNoVerifyTLSModeLabel)}},
-					},
-				},
-				TransportSocket: &core.TransportSocket{
-					Name: util.EnvoyTLSSocketName,
-					ConfigType: &core.TransportSocket_TypedConfig{
-						TypedConfig: simpleTLSContext,
 					},
 				},
 			},

@@ -176,7 +176,7 @@ func SecureNamingSAN(pod *coreV1.Pod) string {
 }
 
 // PodTLSMode returns the tls mode associated with the pod if pod has been injected with sidecar
-func PodTLSMode(pod *coreV1.Pod) model.TLSModeLabelValue {
+func PodTLSMode(pod *coreV1.Pod) string {
 	if pod == nil {
 		return model.DisabledTLSModeLabel
 	}

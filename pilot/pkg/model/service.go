@@ -125,20 +125,12 @@ const (
 	// TLSModeLabelName is the name of label given to service instances to determine whether to use mTLS or
 	// fallback to plaintext/tls
 	TLSModeLabelName = "security.istio.io/" + TLSModeLabelShortname
-)
 
-// TLSModeLabelValue indicates the TLS mode associated with the endpoint based on which the
-// transport socket will bet setup in the cluster
-type TLSModeLabelValue string
-
-const (
 	// DisabledTLSModeLabel implies that this endpoint should receive traffic as is (mostly plaintext)
-	DisabledTLSModeLabel TLSModeLabelValue = "disabled"
-	// SimpleNoVerifyTLSModeLabel implies that this endpoint should receive one-way TLS connection with
-	// root cert verification
-	SimpleNoVerifyTLSModeLabel TLSModeLabelValue = "simple-no-verify"
+	DisabledTLSModeLabel = "disabled"
+
 	// IstioMutualTLSModeLabel implies that the endpoint is ready to receive Istio mTLS connections.
-	IstioMutualTLSModeLabel TLSModeLabelValue = "istio"
+	IstioMutualTLSModeLabel = "istio"
 )
 
 // Port represents a network port where a service is listening for
@@ -277,11 +269,11 @@ type ProbeList []*Probe
 //      --> NetworkEndpoint(172.16.0.3:8888), Service(catalog.myservice.com), Labels(kitty=cat)
 //      --> NetworkEndpoint(172.16.0.4:8888), Service(catalog.myservice.com), Labels(kitty=cat)
 type ServiceInstance struct {
-	Endpoint       NetworkEndpoint   `json:"endpoint,omitempty"`
-	Service        *Service          `json:"service,omitempty"`
-	Labels         labels.Instance   `json:"labels,omitempty"`
-	ServiceAccount string            `json:"serviceaccount,omitempty"`
-	TLSMode        TLSModeLabelValue `json:"tlsMode,omitempty"`
+	Endpoint       NetworkEndpoint `json:"endpoint,omitempty"`
+	Service        *Service        `json:"service,omitempty"`
+	Labels         labels.Instance `json:"labels,omitempty"`
+	ServiceAccount string          `json:"serviceaccount,omitempty"`
+	TLSMode        string          `json:"tlsMode,omitempty"`
 }
 
 // GetLocality returns the availability zone from an instance. If service instance label for locality
@@ -368,7 +360,7 @@ type IstioEndpoint struct {
 	Attributes ServiceAttributes
 
 	// TLSMode endpoint is injected with istio sidecar and ready to configure Istio mTLS
-	TLSMode TLSModeLabelValue
+	TLSMode string
 }
 
 // ServiceAttributes represents a group of custom attributes of the service.
@@ -671,17 +663,13 @@ func (s *Service) GetServiceAddressForProxy(node *Proxy) string {
 
 // GetTLSModeFromEndpointLabels checks if the labels contain one of the TLS mode labels
 // and if so, returns the appropriate constant
-func GetTLSModeFromEndpointLabels(labels map[string]string) TLSModeLabelValue {
+func GetTLSModeFromEndpointLabels(labels map[string]string) string {
 	if labels != nil {
 		if val, exists := labels[TLSModeLabelName]; exists {
-			switch val {
-			case string(IstioMutualTLSModeLabel):
-				return IstioMutualTLSModeLabel
-			case string(SimpleNoVerifyTLSModeLabel):
-				return SimpleNoVerifyTLSModeLabel
-			default:
-				return DisabledTLSModeLabel
-			}
+			// Note: we should not check the label values here. The
+			// string acts as a matching criterion in the transport socket matcher
+			// leaving the door open for forward compatibility in older proxies.
+			return val
 		}
 	}
 	return DisabledTLSModeLabel

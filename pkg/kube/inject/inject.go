@@ -852,7 +852,7 @@ func IntoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 		if metadata.Labels == nil {
 			metadata.Labels = make(map[string]string)
 		}
-		metadata.Labels[model.TLSModeLabelName] = string(model.IstioMutualTLSModeLabel)
+		metadata.Labels[model.TLSModeLabelName] = model.IstioMutualTLSModeLabel
 	}
 
 	return out, nil
