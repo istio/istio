@@ -319,7 +319,7 @@ waitForExternalRequestTraffic() {
 # Sends external traffic from machine test is running on to Fortio echosrv through external IP and ingress gateway LB.
 sendExternalRequestTraffic() {
     writeMsg "Sending external traffic"
-    runFortioLoadCommand "${1}" &
+    runFortioLoadCommand "${1}"
 }
 
 restartDataPlane() {
@@ -472,7 +472,7 @@ checkEchosrv
 
 # Run internal traffic in the background since we may have to relaunch it if the job fails.
 sendInternalRequestTraffic &
-sendExternalRequestTraffic "${INGRESS_ADDR}"
+sendExternalRequestTraffic "${INGRESS_ADDR}" &   # TODO: if we wait this to finish, all the following steps will suceed.
 # Let traffic clients establish all connections. There's some small startup delay, this covers it.
 echo "Waiting for traffic to settle..."
 sleep 20
@@ -488,7 +488,7 @@ restartDataPlane echosrv-deployment-v1
 sleep 140
 
 # Now do a rollback. In a rollback, we update the data plane first.
-writeMsg "Starting rollback - first, rolling back data plane to ${TO_PATH}"
+writeMsg "Starting rollback - first, rolling back data plane to ${FROM_PATH}"
 resetConfigMap istio-sidecar-injector "${TMP_DIR}"/sidecar-injector-configmap.yaml
 restartDataPlane echosrv-deployment-v1
 sleep 140
