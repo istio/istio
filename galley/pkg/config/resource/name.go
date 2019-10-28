@@ -23,6 +23,11 @@ import (
 // Name of the resource. It is unique within a given set of resource of the same collection.
 type Name struct{ string }
 
+var (
+	// InvalidName represents a name that can never be matched
+	InvalidName = Name{string: "~~INVALID~~"}
+)
+
 // NewName returns a Name from namespace and name.
 func NewName(namespace, local string) Name {
 	if namespace == "" {
@@ -50,6 +55,18 @@ func NewFullName(name string) (Name, error) {
 		return Name{string: ""}, fmt.Errorf("invalid name %s: name must not be empty", name)
 	}
 	return Name{string: name}, nil
+}
+
+// NewFullOrLocalName returns a given name as a resource Name.  If name was a local name, the supplied namespace is used
+func NewFullOrLocalName(namespace, name string) Name {
+	if strings.ContainsRune(name, '/') {
+		if retval, err := NewFullName(name); err == nil {
+			return retval
+		}
+		return InvalidName
+	}
+
+	return NewName(namespace, name)
 }
 
 // String interface implementation.

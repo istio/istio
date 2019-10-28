@@ -177,6 +177,12 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "virtualServiceCrossNamespaceGateways",
+		inputFiles: []string{"testdata/virtualservice_crossnamespace_gateways.yaml"},
+		analyzer:   &virtualservice.GatewayAnalyzer{},
+		expected:   []message{},
+	},
+	{
 		name: "misannoted",
 		inputFiles: []string{
 			"testdata/misannotated.yaml",

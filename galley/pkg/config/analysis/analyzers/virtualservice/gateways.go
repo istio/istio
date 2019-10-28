@@ -59,7 +59,7 @@ func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Entry, c analysis.Co
 			continue
 		}
 
-		if !c.Exists(metadata.IstioNetworkingV1Alpha3Gateways, resource.NewName(ns, gwName)) {
+		if !c.Exists(metadata.IstioNetworkingV1Alpha3Gateways, resource.NewFullOrLocalName(ns, gwName)) {
 			c.Report(metadata.IstioNetworkingV1Alpha3Virtualservices, msg.NewReferencedResourceNotFound(r, "gateway", gwName))
 		}
 	}
