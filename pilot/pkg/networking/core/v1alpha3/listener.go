@@ -29,7 +29,6 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	accesslogconfig "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2"
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
-	router "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/router/v2"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
@@ -1670,19 +1669,10 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 		filters = append(filters, &http_conn.HttpFilter{Name: wellknown.GRPCWeb})
 	}
 
-	routerFilter := &http_conn.HttpFilter{Name: wellknown.Router}
-	cfg := &router.Router{
-		StartChildSpan: true,
-	}
-	if util.IsXDSMarshalingToAnyEnabled(node) {
-		routerFilter.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(cfg)}
-	} else {
-		routerFilter.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(cfg)}
-	}
 	filters = append(filters,
 		&http_conn.HttpFilter{Name: wellknown.CORS},
 		&http_conn.HttpFilter{Name: wellknown.Fault},
-		routerFilter,
+		&http_conn.HttpFilter{Name: wellknown.Router},
 	)
 
 	if httpOpts.connectionManager == nil {
