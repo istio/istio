@@ -22,6 +22,12 @@ import (
 
 type ScopedFqdn string
 
+// GetScopedNamespaceAndName splits ScopedFqdn back to scope namespace and host
+func (s ScopedFqdn) GetScopedNamespaceAndName() (string, string) {
+	parts := strings.Split(string(s), "/")
+	return parts[0], parts[1]
+}
+
 // GetResourceNameFromHost figures out the resource.Name to look up from the provided host string
 // We need to handle two possible formats: short name and FQDN
 // https://istio.io/docs/reference/config/networking/v1alpha3/virtual-service/#Destination
