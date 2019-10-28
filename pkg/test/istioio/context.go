@@ -24,6 +24,14 @@ import (
 // Context for the currently executing test.
 type Context struct {
 	framework.TestContext
-	Env          *kube.Environment
 	SnippetsFile io.Writer
+}
+
+// KubeEnv casts the test environment as a *kube.Environment. If the cast fails, fails the test.
+func (ctx Context) KubeEnv() *kube.Environment {
+	e, ok := ctx.Environment().(*kube.Environment)
+	if !ok {
+		ctx.Fatalf("test framework unable to get Kubernetes environment")
+	}
+	return e
 }

@@ -132,10 +132,10 @@ function clone_cni() {
 function cleanup_kind_cluster() {
   NAME="${1}"
   echo "Test exited with exit code $?."
-  kind export logs --name "${NAME}" "${ARTIFACTS}/kind"
+  kind export logs --name "${NAME}" "${ARTIFACTS}/kind" --loglevel debug || true
   if [[ -z "${SKIP_CLEANUP:-}" ]]; then
     echo "Cleaning up kind cluster"
-    kind delete cluster --name "${NAME}"
+    kind delete cluster --name "${NAME}" --loglevel debug || true
   fi
 }
 

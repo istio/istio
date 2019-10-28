@@ -276,8 +276,8 @@ type ServiceInstance struct {
 // 	 - consul: defaults to 'instance.Datacenter'
 //
 // This is used by CDS/EDS to group the endpoints by locality.
-func (si *ServiceInstance) GetLocality() string {
-	return GetLocalityOrDefault(si.Labels[LocalityLabel], si.Endpoint.Locality)
+func (instance *ServiceInstance) GetLocality() string {
+	return GetLocalityOrDefault(instance.Labels[LocalityLabel], instance.Endpoint.Locality)
 }
 
 // GetLocalityOrDefault returns the locality from the supplied label, or falls back to

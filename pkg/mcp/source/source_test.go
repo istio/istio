@@ -236,6 +236,7 @@ func verifySentResources(t *testing.T, h *sourceTestHarness, want *mcp.Resources
 	}
 }
 
+// nolint: unparam
 func verifySentResourcesMultipleTypes(t *testing.T, h *sourceTestHarness, wantResources map[string]*mcp.Resources) map[string]*mcp.Resources {
 	t.Helper()
 

@@ -72,6 +72,7 @@ func (r *status) setObserved(v resource.Version, status interface{}) bool {
 	return r.needsChange()
 }
 
+// nolint: unparam
 func (r *status) setDesired(v resource.Version, status interface{}) bool {
 	r.desiredStatus = status
 	r.desiredStatusVersion = v
