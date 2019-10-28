@@ -97,7 +97,7 @@ func loadAssignment(c *EdsCluster) *xdsapi.ClusterLoadAssignment {
 
 // buildEnvoyLbEndpoint packs the endpoint based on istio info.
 func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string, port uint32,
-	network string, weight uint32, tlsMode model.TLSModeLabelValue) *endpoint.LbEndpoint {
+	network string, weight uint32, tlsMode string) *endpoint.LbEndpoint {
 
 	var addr core.Address
 	switch family {
@@ -139,7 +139,7 @@ func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string
 	return ep
 }
 
-func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint, tlsMode model.TLSModeLabelValue) (*endpoint.LbEndpoint, error) {
+func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint, tlsMode string) (*endpoint.LbEndpoint, error) {
 	err := model.ValidateNetworkEndpointAddress(e)
 	if err != nil {
 		return nil, err

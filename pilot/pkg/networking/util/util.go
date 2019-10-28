@@ -100,18 +100,6 @@ var ALPNInMesh = []string{"istio"}
 // ALPNHttp advertises that Proxy is going to talking either http2 or http 1.1.
 var ALPNHttp = []string{"h2", "http/1.1"}
 
-var EndpointMetadataTLSModeIstio = &pstruct.Struct{
-	Fields: map[string]*pstruct.Value{
-		model.TLSModeLabelShortname: {Kind: &pstruct.Value_StringValue{StringValue: string(model.IstioMutualTLSModeLabel)}},
-	},
-}
-
-var EndpointMetadataTLSModeSimpleNoVerify = &pstruct.Struct{
-	Fields: map[string]*pstruct.Value{
-		model.TLSModeLabelShortname: {Kind: &pstruct.Value_StringValue{StringValue: string(model.SimpleNoVerifyTLSModeLabel)}},
-	},
-}
-
 func getMaxCidrPrefix(addr string) uint32 {
 	ip := net.ParseIP(addr)
 	if ip.To4() == nil {
@@ -599,7 +587,7 @@ func HandleCrash(handlers ...func()) {
 }
 
 // BuildLbEndpointMetadata adds metadata values to a lb endpoint
-func BuildLbEndpointMetadata(uid string, network string, tlsMode model.TLSModeLabelValue) *core.Metadata {
+func BuildLbEndpointMetadata(uid string, network string, tlsMode string) *core.Metadata {
 	if uid == "" && network == "" && tlsMode == model.DisabledTLSModeLabel {
 		return nil
 	}
@@ -622,11 +610,12 @@ func BuildLbEndpointMetadata(uid string, network string, tlsMode model.TLSModeLa
 		}
 	}
 
-	switch tlsMode {
-	case model.SimpleNoVerifyTLSModeLabel:
-		metadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = EndpointMetadataTLSModeSimpleNoVerify
-	case model.IstioMutualTLSModeLabel:
-		metadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = EndpointMetadataTLSModeIstio
+	if tlsMode != "" {
+		metadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = &pstruct.Struct{
+			Fields: map[string]*pstruct.Value{
+				model.TLSModeLabelShortname: {Kind: &pstruct.Value_StringValue{StringValue: tlsMode}},
+			},
+		}
 	}
 
 	return metadata

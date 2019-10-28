@@ -536,7 +536,7 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotation
 
 	patch = append(patch, updateAnnotation(pod.Annotations, annotations)...)
 
-	patch = append(patch, addLabels(pod.Labels, map[string]string{model.TLSModeLabelName: string(model.IstioMutualTLSModeLabel)})...)
+	patch = append(patch, addLabels(pod.Labels, map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel})...)
 
 	if rewrite {
 		patch = append(patch, createProbeRewritePatch(pod.Annotations, &pod.Spec, sic)...)
