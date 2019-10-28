@@ -72,7 +72,7 @@ type PolicyChecker struct {
 type strictMTLSMode int
 
 const (
-	strictMTLSNotSet strictMTLSMode = iota // nolint: varcheck
+	_ strictMTLSMode = iota 
 	strictMTLSExplicitlyEnabled
 	strictMTLSExplicitlyDisabled
 )
