@@ -219,7 +219,7 @@ func colorPrefix(m diag.Message) string {
 		return ""
 	}
 
-	prefix, ok := colorPrefixes[m.Type.Level()]
+	prefix, ok := colorPrefixes[*m.Type.Level()]
 	if !ok {
 		return ""
 	}
