@@ -160,7 +160,7 @@ func (c *Container) Exec(ctx context.Context, cmd ...string) (ExecResult, error)
 	execID := cresp.ID
 
 	// run it, with stdout/stderr attached
-	aresp, err := c.dockerClient.ContainerExecAttach(ctx, execID, types.ExecConfig{})
+	aresp, err := c.dockerClient.ContainerExecAttach(ctx, execID, types.ExecStartCheck{})
 	if err != nil {
 		return ExecResult{}, err
 	}
