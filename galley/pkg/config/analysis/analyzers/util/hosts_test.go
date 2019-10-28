@@ -66,3 +66,19 @@ func TestGetScopedFqdnHostname(t *testing.T) {
 	// external host, all namespaces scope
 	g.Expect(GetScopedFqdnHostname("*", "foo", "xyz.abc")).To(Equal(ScopedFqdn("*/xyz.abc")))
 }
+
+func TestScopedFqdn_GetScopedNamespaceAndName(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	ns, fqdn := ScopedFqdn("default/reviews.default.svc.cluster.local").GetScopedNamespaceAndName()
+	g.Expect(ns).To(Equal("default"))
+	g.Expect(fqdn).To(Equal("reviews.default.svc.cluster.local"))
+
+	ns, fqdn = ScopedFqdn("*/reviews.default.svc.cluster.local").GetScopedNamespaceAndName()
+	g.Expect(ns).To(Equal("*"))
+	g.Expect(fqdn).To(Equal("reviews.default.svc.cluster.local"))
+
+	ns, fqdn = ScopedFqdn("foo/*.xyz.abc").GetScopedNamespaceAndName()
+	g.Expect(ns).To(Equal("foo"))
+	g.Expect(fqdn).To(Equal("*.xyz.abc"))
+}

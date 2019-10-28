@@ -15,7 +15,6 @@
 package auth
 
 import (
-	"fmt"
 	"strings"
 
 	"istio.io/api/rbac/v1alpha1"
@@ -54,7 +53,7 @@ func (s *ServiceRoleServicesAnalyzer) Analyze(ctx analysis.Context) {
 }
 
 // analyzeRoleBinding apply analysis for the service field of the given ServiceRole
-func (s *ServiceRoleServicesAnalyzer) analyzeServiceRoleServices(r *resource.Entry, ctx analysis.Context, nsm map[string][]string) {
+func (s *ServiceRoleServicesAnalyzer) analyzeServiceRoleServices(r *resource.Entry, ctx analysis.Context, nsm map[string][]util.ScopedFqdn) {
 	sr := r.Item.(*v1alpha1.ServiceRole)
 	ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
 
@@ -77,30 +76,28 @@ func (s *ServiceRoleServicesAnalyzer) analyzeServiceRoleServices(r *resource.Ent
 }
 
 // buildNamespaceServiceMap returns a map where the index is a namespace and the boolean
-func (s *ServiceRoleServicesAnalyzer) buildNamespaceServiceMap(ctx analysis.Context) map[string][]string {
-	nsm := map[string][]string{}
+func (s *ServiceRoleServicesAnalyzer) buildNamespaceServiceMap(ctx analysis.Context) map[string][]util.ScopedFqdn {
+	nsm := map[string][]util.ScopedFqdn{}
 
 	ctx.ForEach(metadata.K8SCoreV1Services, func(r *resource.Entry) bool {
 		rns, rs := r.Metadata.Name.InterpretAsNamespaceAndName()
-		nsm[rns] = append(nsm[rns], fmt.Sprintf("%s.%s.%s", rs, rns, util.DefaultKubernetesDomain))
+		nsm[rns] = append(nsm[rns], util.GetScopedFqdnHostname(rns, rns, rs))
 		return true
 	})
 
 	return nsm
 }
 
-func (s *ServiceRoleServicesAnalyzer) existMatchingService(exp string, nsa []string) bool {
-	m := false
-
+func (s *ServiceRoleServicesAnalyzer) existMatchingService(exp string, nsa []util.ScopedFqdn) bool {
 	for _, svc := range nsa {
-		if m = serviceMatch(exp, svc); m {
-			break
+		if serviceMatch(exp, svc) {
+			return true
 		}
 	}
-
-	return m
+	return false
 }
 
-func serviceMatch(expr, fqdn string) bool {
+func serviceMatch(expr string, sfqdn util.ScopedFqdn) bool {
+	_, fqdn := sfqdn.GetScopedNamespaceAndName()
 	return expr == fqdn || strings.HasPrefix(fqdn, expr) || strings.HasSuffix(fqdn, expr)
 }
