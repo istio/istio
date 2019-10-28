@@ -205,7 +205,7 @@ var (
 						Name:     "outbound-tcp",
 					},
 					Bind: "7.7.7.7",
-					Hosts: []string{"*/bookinfo.com",
+					Hosts: []string{"*/bookinginfo.com",
 						"*/private.com",
 					},
 				},
@@ -481,7 +481,7 @@ func TestCreateSidecarScope(t *testing.T) {
 			},
 		},
 		{
-			"two-egresslisteners-one-with-port-and-withoug",
+			"two-egresslisteners-one-with-port-and-without-port",
 			configs7,
 			services8,
 			[]*Service{
