@@ -24,34 +24,48 @@ import (
 // Workload is a simple struct type for representing a service workload
 // targeted by an Authentication policy.
 type Workload struct {
-	// FQDN is the fully-qualified domain name for the workload (e.g.
-	// foobar.my-namespace.svc.cluster.local).
-	FQDN string
+	fQDN string
 
-	// PortNumber is the port used by the workload. If set (non-zero), then
-	// PortName must be the default value ("").
-	PortNumber uint32
-	// PortName is the name of the port used by the workload. If set (not ""),
-	// then PortNumber must be the default value (0).
-	PortName string
+	// Either portNumber/portName will be set, or neither. The constructors
+	// prevent both from ever being set.
+	portNumber uint32
+	portName string
 }
 
 // NewWorkloadWithPortNumber creates a new Workload using the specified fqdn and
 // portNumber.
 func NewWorkloadWithPortNumber(fqdn string, portNumber uint32) Workload {
-	return Workload{FQDN: fqdn, PortNumber: portNumber}
+	return Workload{fQDN: fqdn, portNumber: portNumber}
 }
 
 // NewWorkloadWithPortName creates a new Workload using the specified fqdn and
 // portName.
 func NewWorkloadWithPortName(fqdn, portName string) Workload {
-	return Workload{FQDN: fqdn, PortName: portName}
+	return Workload{fQDN: fqdn, portName: portName}
 }
 
 // NewWorkload creates a new Workload using the specified fqdn. Because no port
 // is specified, this implicitly represents the workload running on all ports.
 func NewWorkload(fqdn string) Workload {
-	return Workload{FQDN: fqdn}
+	return Workload{fQDN: fqdn}
+}
+
+// FQDN is the fully-qualified domain name for the workload (e.g.
+// foobar.my-namespace.svc.cluster.local).
+func (w Workload) FQDN() string {
+	return w.fQDN
+}
+
+// PortNumber is the port used by the workload. If set (non-zero), then
+// PortName must be the default value ("").
+func (w Workload) PortNumber() uint32 {
+	return w.portNumber
+}
+
+// PortName is the name of the port used by the workload. If set (not ""),
+// then PortNumber must be the default value (0).
+func (w Workload) PortName() string {
+	return w.portName
 }
 
 // PolicyChecker allows callers to add a set of v1alpha1.Policy objects in
@@ -72,7 +86,7 @@ type PolicyChecker struct {
 type strictMTLSMode int
 
 const (
-	_ strictMTLSMode = iota 
+	strictMTLSUnset strictMTLSMode = iota 
 	strictMTLSExplicitlyEnabled
 	strictMTLSExplicitlyDisabled
 )
@@ -142,28 +156,41 @@ func (pc *PolicyChecker) IsServiceMTLSEnforced(w Workload) (bool, error) {
 		return true, nil
 	case strictMTLSExplicitlyDisabled:
 		return false, nil
+	case strictMTLSUnset:
+		// Fall through switch case
+	default:
+		return false, fmt.Errorf("unknown strictMTLSMode: %v", pc.workloadToMTLSMode[w])
 	}
 
 	// Try checking if its enforced on any ports
-	workloadNoPort := NewWorkload(w.FQDN)
+	workloadNoPort := NewWorkload(w.FQDN())
 	switch pc.workloadToMTLSMode[workloadNoPort] {
 	case strictMTLSExplicitlyEnabled:
 		return true, nil
 	case strictMTLSExplicitlyDisabled:
 		return false, nil
+	case strictMTLSUnset:
+		// Fall through switch case
+	default:
+		return false, fmt.Errorf("unknown strictMTLSMode: %v", pc.workloadToMTLSMode[workloadNoPort])
 	}
 
 	// Check if enforced on namespace
-	namespace, _ := util.GetResourceNameFromHost("", w.FQDN).InterpretAsNamespaceAndName()
+	namespace, _ := util.GetResourceNameFromHost("", w.FQDN()).InterpretAsNamespaceAndName()
 	if namespace == "" {
-		return false, fmt.Errorf("unable to extract namespace from fqdn: %s", w.FQDN)
+		return false, fmt.Errorf("unable to extract namespace from fqdn: %s", w.FQDN())
 	}
 	switch pc.namespaceToMTLSMode[namespace] {
 	case strictMTLSExplicitlyEnabled:
 		return true, nil
 	case strictMTLSExplicitlyDisabled:
 		return false, nil
+	case strictMTLSUnset:
+		// Fall through switch case
+	default:
+		return false, fmt.Errorf("unknown strictMTLSMode: %v", pc.namespaceToMTLSMode[namespace])
 	}
+
 	// Finally, defer to mesh level policy
 	return pc.meshHasStrictMTLSPolicy, nil
 }
