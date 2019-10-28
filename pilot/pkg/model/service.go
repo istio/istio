@@ -662,14 +662,13 @@ func (s *Service) GetServiceAddressForProxy(node *Proxy) string {
 	return s.Address
 }
 
-// GetTLSModeFromEndpointLabels checks if the labels contain one of the TLS mode labels
-// and if so, returns the appropriate constant
+// GetTLSModeFromEndpointLabels returns the value of the label
+// security.istio.io/tlsMode if set. Do not return Enums or constants
+// from this function as users could provide values other than istio/disabled
+// and apply custom transport socket matchers here.
 func GetTLSModeFromEndpointLabels(labels map[string]string) string {
 	if labels != nil {
 		if val, exists := labels[TLSModeLabelName]; exists {
-			// Note: we should not check the label values here. The
-			// string acts as a matching criterion in the transport socket matcher
-			// leaving the door open for forward compatibility in older proxies.
 			return val
 		}
 	}
