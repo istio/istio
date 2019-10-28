@@ -15,7 +15,6 @@
 package diag
 
 import (
-	"fmt"
 	"strings"
 )
 
@@ -25,27 +24,8 @@ type Level struct {
 	name      string
 }
 
-// String satisfies interface pflag.Value
 func (l *Level) String() string {
 	return l.name
-}
-
-// Type satisfies interface pflag.Value
-func (l *Level) Type() string {
-	return "Level"
-}
-
-// Set satisfies interface pflag.Value
-func (l *Level) Set(s string) error {
-
-	val, ok := GetUppercaseStringToLevelMap()[strings.ToUpper(s)]
-	if !ok {
-		return fmt.Errorf("%q not a valid option, please choose from: %v", s, GetAllLevelStrings())
-	}
-
-	l.sortOrder = val.sortOrder
-	l.name = val.name
-	return nil
 }
 
 func (l *Level) IsWorseThanOrEqualTo(target Level) bool {
