@@ -20,13 +20,10 @@ ROOT=$(dirname "$WD")
 
 set -eux
 
-if [[ $(command -v gcloud) ]]; then
-  gcloud auth configure-docker -q
-elif [[ $(command -v docker-credential-gcr) ]]; then
-  docker-credential-gcr configure-docker
-else
-  echo "No credential helpers found, push to docker may not function properly"
-fi
+# shellcheck source=prow/lib.sh
+source "${ROOT}/prow/lib.sh"
+
+setup_gcloud_credentials
 
 # Old prow image does not set this, so needed explicitly here as this is not called through make
 export GO111MODULE=on
