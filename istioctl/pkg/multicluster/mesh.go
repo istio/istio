@@ -21,6 +21,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // MeshDesc describes the topology of a multi-cluster mesh. The clustersByContext in the mesh reference the active
@@ -40,19 +41,50 @@ type ClusterDesc struct {
 	Network string `json:"network,omitempty"`
 
 	// Optional Namespace override of the Istio control plane. `istio-system` if not set.
-	Namespace string `json:"Namespace,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
 
 	// Optional service account to use for cross-cluster authentication. `istio-multi` if not set.
 	ServiceAccountReader string `json:"serviceAccountReader"`
 
 	// When true, disables linking the service registry of this cluster with other clustersByContext in the mesh.
-	DisableServiceDiscovery bool `json:"joinServiceDiscovery,omitempty"`
+	DisableRegistryJoin bool `json:"disableRegistryJoin,omitempty"`
+}
+
+func (m *Mesh) addCluster(c *Cluster) {
+	m.clustersByContext[c.Context] = c
+	m.clustersByUID[c.uid] = c
+}
+
+func (m *Mesh) removeCluster(c *Cluster) {
+	delete(m.clustersByContext, c.Context)
+	delete(m.clustersByUID, c.uid)
+}
+
+func (m *Mesh) ClusterByUID(uid types.UID) (*Cluster, bool) {
+	c, ok := m.clustersByUID[uid]
+	return c, ok
+}
+
+func (m *Mesh) ClusterByContext(context string) (*Cluster, bool) {
+	c, ok := m.clustersByContext[context]
+	return c, ok
+}
+
+func (m *Mesh) SortedClusters() []*Cluster {
+	sortedClusters := make([]*Cluster, 0, len(m.clustersByContext))
+	for _, other := range m.clustersByContext {
+		sortedClusters = append(sortedClusters, other)
+	}
+	sort.Slice(sortedClusters, func(i, j int) bool {
+		return strings.Compare(string(sortedClusters[i].uid), string(sortedClusters[j].uid)) < 0
+	})
+	return sortedClusters
 }
 
 type Mesh struct {
 	meshID            string
-	clustersByContext map[string]*Cluster // by context
-	sortedClusters    []*Cluster
+	clustersByContext map[string]*Cluster // by Context
+	clustersByUID     map[types.UID]*Cluster
 }
 
 func LoadMeshDesc(filename string, env Environment) (*MeshDesc, error) {
@@ -67,41 +99,34 @@ func LoadMeshDesc(filename string, env Environment) (*MeshDesc, error) {
 	return md, nil
 }
 
-func NewMesh(kubeconfig string, md *MeshDesc, env Environment) (*Mesh, error) {
-	clusters := make(map[string]*Cluster)
+func NewMesh(md *MeshDesc, env Environment, clusters ...*Cluster) *Mesh {
+	mesh := &Mesh{
+		meshID:            md.MeshID,
+		clustersByContext: make(map[string]*Cluster),
+		clustersByUID:     make(map[types.UID]*Cluster),
+	}
+	for _, cluster := range clusters {
+		mesh.addCluster(cluster)
+	}
+	return mesh
+}
+
+func meshFromFileDesc(filename string, env Environment) (*Mesh, error) {
+	md, err := LoadMeshDesc(filename, env)
+	if err != nil {
+		return nil, err
+	}
+
+	clusters := make([]*Cluster, 0, len(md.Clusters))
 	for context, clusterDesc := range md.Clusters {
 		cluster, err := NewCluster(context, clusterDesc, env)
 		if err != nil {
 			return nil, fmt.Errorf("error discovering %v: %v", context, err)
 		}
-		clusters[context] = cluster
+		clusters = append(clusters, cluster)
 	}
 
-	sortedClusters := make([]*Cluster, 0, len(clusters))
-	for _, other := range clusters {
-		sortedClusters = append(sortedClusters, other)
-	}
-	sort.Slice(sortedClusters, func(i, j int) bool {
-		return strings.Compare(string(sortedClusters[i].uid), string(sortedClusters[j].uid)) < 0
-	})
-
-	return &Mesh{
-		meshID:            md.MeshID,
-		clustersByContext: clusters,
-		sortedClusters:    sortedClusters,
-	}, nil
-}
-
-func meshFromFileDesc(filename, kubeconfig string, env Environment) (*Mesh, error) {
-	md, err := LoadMeshDesc(filename, env)
-	if err != nil {
-		return nil, err
-	}
-	mesh, err := NewMesh(kubeconfig, md, env)
-	if err != nil {
-		return nil, err
-	}
-	return mesh, err
+	return NewMesh(md, env, clusters...), nil
 }
 
 func NewMulticlusterCommand() *cobra.Command {
@@ -113,7 +138,7 @@ func NewMulticlusterCommand() *cobra.Command {
 
 	c.AddCommand(
 		NewGenerateCommand(),
-		NewJoinCommand(),
+		NewApplyCommand(),
 		NewDescribeCommand(),
 	)
 

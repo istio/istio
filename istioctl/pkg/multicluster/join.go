@@ -15,51 +15,62 @@
 package multicluster
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 
 	"istio.io/istio/pkg/kube/secretcontroller"
 )
-
-func Join(opt joinOptions, env Environment) error {
-	mesh, err := meshFromFileDesc(opt.filename, opt.Kubeconfig, env)
-	if err != nil {
-		return err
-	}
-
-	if opt.serviceDiscovery {
-		if err := joinServiceRegistries(mesh, env); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
 
 func deleteSecret(cluster *Cluster, s *v1.Secret) error {
 	return cluster.client.CoreV1().Secrets(cluster.Namespace).Delete(s.Name, &metav1.DeleteOptions{})
 }
 
-func applySecret(cluster *Cluster, curr *v1.Secret) error {
-	err := wait.Poll(500*time.Millisecond, 5*time.Second, func() (bool, error) {
+// update current state to match desired state.
+func updateRemoteSecret(prev, curr *v1.Secret) (changed bool) {
+	prev.StringData = curr.StringData
+	for k, v := range curr.StringData {
+		newVal := []byte(v)
+		if bytes.Compare(prev.Data[k], newVal) != 0 {
+			prev.Data[k] = newVal
+			changed = true
+		}
+	}
+
+	if prev.Annotations[clusterContextAnnotationKey] != curr.Annotations[clusterContextAnnotationKey] {
+		prev.Annotations[clusterContextAnnotationKey] = curr.Annotations[clusterContextAnnotationKey]
+		changed = true
+	}
+
+	if prev.Labels[secretcontroller.MultiClusterSecretLabel] != "true" {
+		prev.Labels[secretcontroller.MultiClusterSecretLabel] = "true"
+		changed = true
+	}
+
+	return changed
+}
+
+func applySecret(env Environment, cluster *Cluster, curr *v1.Secret) error {
+	err := env.Poll(500*time.Millisecond, 5*time.Second, func() (bool, error) {
 		prev, err := cluster.client.CoreV1().Secrets(cluster.Namespace).Get(curr.Name, metav1.GetOptions{})
 		if err == nil {
-
-			prev.StringData = curr.StringData
-			prev.Annotations[clusterContextAnnotationKey] = cluster.context
-			prev.Labels[secretcontroller.MultiClusterSecretLabel] = "true"
-			if _, err := cluster.client.CoreV1().Secrets(cluster.Namespace).Update(prev); err != nil {
-				return false, err
+			if changed := updateRemoteSecret(prev, curr); changed {
+				if _, err := cluster.client.CoreV1().Secrets(cluster.Namespace).Update(prev); err != nil {
+					return false, err
+				}
 			}
-		} else if _, err := cluster.client.CoreV1().Secrets(cluster.Namespace).Create(curr); err != nil {
+			return true, nil
+		}
+
+		if _, err := cluster.client.CoreV1().Secrets(cluster.Namespace).Create(curr); err != nil {
 			return false, err
 		}
 		return true, nil
@@ -67,45 +78,65 @@ func applySecret(cluster *Cluster, curr *v1.Secret) error {
 	return err
 }
 
-func joinServiceRegistries(mesh *Mesh, env Environment) error {
-	preparedSecrets := make(map[types.UID]*v1.Secret)
-	existingSecretsByCluster := make(map[string]map[types.UID]*v1.Secret)
+func apply(mesh *Mesh, env Environment) error {
+	var errs *multierror.Error
 
-	for _, cluster := range mesh.sortedClusters {
-		fmt.Printf("creating secret for first %v\n", cluster)
-		// skip clustersByContext without Istio installed
+	currentSecretsByUID := make(map[types.UID]*v1.Secret)
+	existingSecretsByUID := make(map[types.UID]map[types.UID]*v1.Secret)
+
+	sortedClusters := mesh.SortedClusters()
+	for _, cluster := range sortedClusters {
+		// skip clusters without Istio installed
 		if !cluster.installed {
+			env.Printf("not joining cluster %v, Istio control plane not found\n", cluster)
+			continue
+		}
+
+		if cluster.DisableRegistryJoin {
+			env.Printf("not joining cluster %v, service registry not joined yet\n", cluster)
 			continue
 		}
 
 		opt := RemoteSecretOptions{
 			KubeOptions: KubeOptions{
-				Context:   cluster.context,
+				Context:   cluster.Context,
 				Namespace: cluster.Namespace,
 			},
 			ServiceAccountName: cluster.ServiceAccountReader,
 			AuthType:           RemoteSecretAuthTypeBearerToken,
 			// TODO add auth provider option (e.g. gcp)
 		}
-		secret, err := createRemoteSecret(opt, env)
+		secret, err := createRemoteSecret(opt, cluster.client, env)
 		if err != nil {
-			return fmt.Errorf("%v: %v", cluster.context, err)
+			err := fmt.Errorf("not joining cluster %v, could not creating remote secret: %v", cluster.Context, err)
+			env.Errorf(err.Error())
+			errs = multierror.Append(errs, err)
+			continue
 		}
 
-		preparedSecrets[cluster.uid] = secret
+		currentSecretsByUID[cluster.uid] = secret
 
-		// build the list of preparedSecrets to potentially prune
-		existingSecretsByCluster[cluster.context] = cluster.readRemoteSecrets(env)
+		// build the list of currentSecretsByUID to potentially prune
+		existingSecretsByUID[cluster.uid] = cluster.readRemoteSecrets(env)
 	}
 
 	joined := make(map[string]bool)
 
-	for _, first := range mesh.sortedClusters {
-		for _, second := range mesh.sortedClusters {
+	for _, first := range sortedClusters {
+		if first.DisableRegistryJoin || !first.installed {
+			continue
+		}
+
+		for _, second := range sortedClusters {
 			if first.uid == second.uid {
 				continue
 			}
 
+			if second.DisableRegistryJoin || !second.installed {
+				continue
+			}
+
+			// skip pairs we've already joined
 			id0, id1 := string(first.uid), string(second.uid)
 			if strings.Compare(id0, id1) > 0 {
 				id1, id0 = id0, id1
@@ -118,7 +149,7 @@ func joinServiceRegistries(mesh *Mesh, env Environment) error {
 
 			env.Printf("(re)joining %v and %v\n", first, second)
 
-			// pairwise Join
+			// pairwise join
 			for _, s := range []struct {
 				local  *Cluster
 				remote *Cluster
@@ -126,60 +157,56 @@ func joinServiceRegistries(mesh *Mesh, env Environment) error {
 				{first, second},
 				{second, first},
 			} {
-				remoteSecret, ok := preparedSecrets[s.remote.uid]
+				remoteSecret, ok := currentSecretsByUID[s.remote.uid]
 				if !ok {
 					continue
 				}
 
-				if err := applySecret(s.local, remoteSecret); err != nil {
+				if err := applySecret(env, s.local, remoteSecret); err != nil {
 					env.Errorf("%v failed: %v\n", s.local, err)
 				}
-				delete(existingSecretsByCluster[s.local.context], uidFromRemoteSecretName(remoteSecret.Name))
+				delete(existingSecretsByUID[s.local.uid], s.remote.uid)
 			}
 		}
 	}
 
-	// existingSecretsByCluster any leftover preparedSecrets
-	for context, secrets := range existingSecretsByCluster {
+	// existingSecretsByUID any leftover currentSecretsByUID
+	for uid, secrets := range existingSecretsByUID {
 		for _, secret := range secrets {
-			cluster := mesh.clustersByContext[context]
-			fmt.Printf("pruning %v from %v\n", secret.Name, cluster)
+			cluster := mesh.clustersByUID[uid]
+			fmt.Printf("Pruning %v from %v\n", secret.Name, cluster)
 			if err := deleteSecret(cluster, secret); err != nil {
-				return err
+				err := fmt.Errorf("failed to prune secret %v from cluster %v: %v", secret.Name, cluster, err)
+				env.Errorf(err.Error())
+				errs = multierror.Append(errs, err)
+				continue
 			}
 		}
 	}
 
-	return nil
+	return errs.ErrorOrNil()
 }
 
-type joinOptions struct {
+type applyOptions struct {
 	KubeOptions
 	filenameOption
-
-	serviceDiscovery bool
-	all              bool
 }
 
-func (o *joinOptions) prepare(flags *pflag.FlagSet) error {
+func (o *applyOptions) prepare(flags *pflag.FlagSet) error {
 	o.KubeOptions.prepare(flags)
 	return o.filenameOption.prepare()
 }
 
-func (o *joinOptions) addFlags(flags *pflag.FlagSet) {
+func (o *applyOptions) addFlags(flags *pflag.FlagSet) {
 	o.filenameOption.addFlags(flags)
-
-	flags.BoolVar(&o.serviceDiscovery, "discovery", true,
-		"link Istio service discovery with the clustersByContext service registriesS")
-	flags.BoolVar(&o.all, "all", o.all,
-		"join all clustersByContext together in the mesh")
 }
 
-func NewJoinCommand() *cobra.Command {
-	opt := joinOptions{}
+// NewApplyCommand creates a new command for applying multicluster configuration to the mesh.
+func NewApplyCommand() *cobra.Command {
+	opt := applyOptions{}
 	c := &cobra.Command{
-		Use:   "join  -f <mesh.yaml> [--discovery]",
-		Short: `Join multiple clustersByContext into a single multi-cluster mesh`,
+		Use:   "apply  -f <mesh.yaml>",
+		Short: `Update clusters in a multi-cluster mesh based on mesh topology`,
 		RunE: func(c *cobra.Command, args []string) error {
 			if err := opt.prepare(c.Flags()); err != nil {
 				return err
@@ -188,7 +215,11 @@ func NewJoinCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return Join(opt, env)
+			mesh, err := meshFromFileDesc(opt.filename, env)
+			if err != nil {
+				return err
+			}
+			return apply(mesh, env)
 		},
 	}
 	opt.addFlags(c.PersistentFlags())
