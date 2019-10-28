@@ -31,6 +31,8 @@ import (
 const (
 	serviceRoleBindingFile = "testdata/servicerolebinding.yaml"
 	serviceRoleFile        = "testdata/servicerole.yaml"
+	reviewsVsAndDrFile     = "testdata/reviews-vs-and-dr.yaml"
+	reviewsSvcFile         = "testdata/reviews-svc.yaml"
 )
 
 var analyzerFoundIssuesError = cmd.AnalyzerFoundIssuesError{}
@@ -136,6 +138,36 @@ func TestFileAndKubeCombined(t *testing.T) {
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), "--use-kube", serviceRoleFile)
 			expectNoMessages(t, g, output)
 			g.Expect(err).To(BeNil())
+		})
+}
+
+func TestServiceDiscovery(t *testing.T) {
+	framework.
+		NewTest(t).
+		Run(func(ctx framework.TestContext) {
+			g := NewGomegaWithT(t)
+
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "istioctl-analyze",
+				Inject: true,
+			})
+
+			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+
+			// Given a valid virtualservice and destinationrule, but without the accompanying service:
+			// With service discovery off, expect no errors
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), "--discovery=false", reviewsVsAndDrFile)
+			expectNoMessages(t, g, output)
+
+			// With service discovery on, do expect an error
+			output, err = istioctlSafe(t, istioCtl, ns.Name(), "--discovery=true", reviewsVsAndDrFile)
+			g.Expect(output[0]).To(ContainSubstring(msg.ReferencedResourceNotFound.Code()))
+			g.Expect(output[1]).To(ContainSubstring(analyzerFoundIssuesError.Error()))
+			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
+
+			// Error goes away if we include the service definition in the resources being analyzed
+			output = istioctlOrFail(t, istioCtl, ns.Name(), "--discovery=true", reviewsVsAndDrFile, reviewsSvcFile)
+			expectNoMessages(t, g, output)
 		})
 }
 
