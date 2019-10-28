@@ -31,6 +31,7 @@ type Metadata struct {
 	ProjectID   string
 	Location    string
 	ClusterName string
+	MeshID      string
 }
 
 // MetadataGenerator creates metadata based on the given metadata functions.
@@ -43,15 +44,17 @@ type metadataGeneratorImpl struct {
 	projectIDFn   metadataFn
 	locationFn    metadataFn
 	clusterNameFn metadataFn
+	meshIDFn      metadataFn
 }
 
 // NewMetadataGenerator creates a MetadataGenerator with the given functions.
-func NewMetadataGenerator(shouldFill shouldFillFn, projectIDFn, locationFn, clusterNameFn metadataFn) MetadataGenerator {
+func NewMetadataGenerator(shouldFill shouldFillFn, projectIDFn, locationFn, clusterNameFn, meshIDFn metadataFn) MetadataGenerator {
 	return &metadataGeneratorImpl{
 		shouldFill:    shouldFill,
 		projectIDFn:   projectIDFn,
 		locationFn:    locationFn,
 		clusterNameFn: clusterNameFn,
+		meshIDFn:      meshIDFn,
 	}
 }
 
@@ -70,6 +73,9 @@ func (mg *metadataGeneratorImpl) GenerateMetadata() Metadata {
 	if cn, err := mg.clusterNameFn(); err == nil {
 		md.ClusterName = cn
 	}
+	if mid, err := mg.meshIDFn(); err == nil {
+		md.MeshID = mid
+	}
 	return md
 }
 
@@ -87,6 +93,9 @@ func (md *Metadata) FillProjectMetadata(in map[string]string) {
 		}
 		if key == "cluster_name" {
 			in[key] = md.ClusterName
+		}
+		if key == "mesh_uid" {
+			in[key] = md.MeshID
 		}
 	}
 }

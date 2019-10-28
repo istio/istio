@@ -422,16 +422,15 @@ func TestUpdateMessage_NoStatusController_Panic(t *testing.T) {
 		g.Expect(r).NotTo(BeNil())
 	}()
 
-	k := &mock.Kube{}
-	for i := 0; i < 100; i++ {
-		_ = fakeClient(k)
-	}
+	w, wcrd, cl := createMocks()
+	defer wcrd.Stop()
+	defer w.Stop()
 
 	r := basicmeta.MustGet().KubeSource().Resources()
 
-	s := newOrFail(t, k, r, nil)
+	s := newOrFail(t, cl, r, nil)
 
-	s.Start()
+	start(s)
 	defer s.Stop()
 	s.Update(diag.Messages{})
 }

@@ -21,6 +21,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/security/authz/policy"
+	"istio.io/istio/pilot/pkg/security/trustdomain"
 )
 
 // TODO(pitlv2109): Add unit tests with trust domain aliases.
@@ -64,7 +65,7 @@ func TestV1beta1Generator_Generate(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			g := NewGenerator("", nil, tc.policies)
+			g := NewGenerator(trustdomain.NewTrustDomainBundle("", nil), tc.policies)
 			if g == nil {
 				t.Fatal("failed to create generator")
 			}

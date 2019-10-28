@@ -225,7 +225,18 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 			} else if s.Ports != nil && len(s.Ports) > 0 {
 				// merge the ports to service when each listener generates partial service
 				os := servicesAdded[string(s.Hostname)]
-				os.Ports = append(os.Ports, s.Ports...)
+				for _, p := range s.Ports {
+					found := false
+					for _, osp := range os.Ports {
+						if p.Port == osp.Port {
+							found = true
+							break
+						}
+					}
+					if !found {
+						os.Ports = append(os.Ports, p)
+					}
+				}
 			}
 		}
 	}

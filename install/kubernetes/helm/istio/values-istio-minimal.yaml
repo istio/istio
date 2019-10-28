@@ -43,7 +43,4 @@ global:
   
   useMCP: false
 
-  mtls:
-    auto: false
-
 

@@ -46,8 +46,8 @@ var (
 	IstioProxyVersionMismatch = diag.NewMessageType(diag.Warning, "IST0105", "The version of the Istio proxy running on the pod does not match the version used by the istio injector (pod version: %s; injector version: %s). This often happens after upgrading the Istio control-plane and can be fixed by redeploying the pod.")
 
 	// SchemaValidationError defines a diag.MessageType for message "SchemaValidationError".
-	// Description: The resource has one or more schema validation errors.
-	SchemaValidationError = diag.NewMessageType(diag.Error, "IST0106", "The resource has one or more schema validation errors: %v")
+	// Description: The resource has a schema validation error.
+	SchemaValidationError = diag.NewMessageType(diag.Error, "IST0106", "Schema validation error: %v")
 
 	// MisplacedAnnotation defines a diag.MessageType for message "MisplacedAnnotation".
 	// Description: An Istio annotation is applied to the wrong kind of resource.
@@ -149,11 +149,11 @@ func NewIstioProxyVersionMismatch(entry *resource.Entry, proxyVersion string, in
 }
 
 // NewSchemaValidationError returns a new diag.Message based on SchemaValidationError.
-func NewSchemaValidationError(entry *resource.Entry, combinedErr error) diag.Message {
+func NewSchemaValidationError(entry *resource.Entry, err error) diag.Message {
 	return diag.NewMessage(
 		SchemaValidationError,
 		originOrNil(entry),
-		combinedErr,
+		err,
 	)
 }
 
