@@ -61,6 +61,14 @@ Loop:
 		return true
 	}
 
+	// If the proxy's service updated, need push for it.
+	if len(proxy.ServiceInstances) > 0 {
+		ns := proxy.ServiceInstances[0].Service.Attributes.Namespace
+		if _, ok := targetNamespaces[ns]; ok {
+			return true
+		}
+	}
+
 	// Otherwise, only apply if the egress listener will import the config present in the update
 	for ns := range targetNamespaces {
 		if proxy.SidecarScope.DependsOnNamespace(ns) {
