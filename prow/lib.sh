@@ -166,7 +166,7 @@ function setup_kind_cluster() {
 
   # explicitly disable shellcheck since we actually want $NAME to expand now
   # shellcheck disable=SC2064
-  trap "cleanup_kind_cluster ${NAME}" EXIT
+#  trap "cleanup_kind_cluster ${NAME}" EXIT
 
   # If config not explicitly set, then use defaults
   if [[ -z "${CONFIG}" ]]; then
