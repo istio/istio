@@ -40,7 +40,13 @@ var (
 
 	edsInstances = monitoring.NewGauge(
 		"pilot_xds_eds_instances",
-		"Instances for each cluster, as of last push. Zero instances is an error.",
+		"Instances for each cluster(grouped by locality), as of last push. Zero instances is an error.",
+		monitoring.WithLabels(clusterTag),
+	)
+
+	edsAllLocalityEndpoints = monitoring.NewGauge(
+		"pilot_xds_eds_all_locality_endpoints",
+		"Network endpoints for each cluster(across all localities), as of last push. Zero endpoints is an error.",
 		monitoring.WithLabels(clusterTag),
 	)
 

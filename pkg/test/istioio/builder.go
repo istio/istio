@@ -20,7 +20,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/scopes"
 
 	"istio.io/istio/pkg/test/framework"
@@ -75,15 +74,15 @@ func (b *Builder) Defer(steps ...Step) *Builder {
 	return b
 }
 
+// BuildAndRun is a utility method for building and running the test function in one step.
+func (b *Builder) BuildAndRun(ctx framework.TestContext) {
+	b.Build()(ctx)
+}
+
 // Build a run function for the test
 func (b *Builder) Build() func(ctx framework.TestContext) {
 	return func(ctx framework.TestContext) {
 		scopes.CI.Infof("Executing test %s (%d steps)", ctx.Name(), len(b.steps))
-
-		kubeEnv, ok := ctx.Environment().(*kube.Environment)
-		if !ok {
-			ctx.Fatalf("test framework unable to get Kubernetes environment")
-		}
 
 		snippetsFile, err := os.Create(filepath.Join(ctx.WorkDir(), b.snippetsFileName))
 		if err != nil {
@@ -98,7 +97,6 @@ func (b *Builder) Build() func(ctx framework.TestContext) {
 
 		eCtx := Context{
 			TestContext:  ctx,
-			Env:          kubeEnv,
 			SnippetsFile: snippetsFile,
 		}
 

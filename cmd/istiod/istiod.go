@@ -22,17 +22,9 @@ import (
 	"istio.io/pkg/log"
 
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 
 	"istio.io/istio/pkg/istiod"
 	"istio.io/istio/pkg/istiod/k8s"
-	"istio.io/pkg/env"
-)
-
-var (
-	// TODO: should it default to $HOME ? Or /var/lib/istio ?
-	istioHome = env.RegisterStringVar("ISTIO_HOME", "",
-		"Base directory for istio configs. If not set, defaults to current working directory.")
 )
 
 // Istio control plane with K8S support.
@@ -65,7 +57,7 @@ func main() {
 
 	// Create k8s-signed certificates. This allows injector, validation to work without Citadel, and
 	// allows secure SDS connections to Istiod.
-	initCerts(istiods, client, kcfg)
+	initCerts(istiods, client)
 
 	// Init k8s related components, including Galley K8S controllers and
 	// Pilot discovery. Code kept in separate package.
@@ -112,7 +104,7 @@ func main() {
 	istiods.WaitStop(stop)
 }
 
-func initCerts(server *istiod.Server, client *kubernetes.Clientset, cfg *rest.Config) {
+func initCerts(server *istiod.Server, client *kubernetes.Clientset) {
 	// TODO: fallback to citadel (or custom CA)
 
 	certChain, keyPEM, err := k8s.GenKeyCertK8sCA(client.CertificatesV1beta1(), "istio-system",
