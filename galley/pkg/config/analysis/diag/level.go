@@ -19,15 +19,6 @@ import (
 	"strings"
 )
 
-// ValidStringLevels represents values for Level input via CLI
-var ValidStringLevels = []string{
-	"INFO",
-	"WARN",
-	"WARNING",
-	"ERR",
-	"ERROR",
-}
-
 // Level is the severity level of a message.
 type Level struct {
 	sortOrder int
@@ -46,20 +37,14 @@ func (l *Level) Type() string {
 
 // Set satisfies interface pflag.Value
 func (l *Level) Set(s string) error {
-	switch strings.ToUpper(s) {
-	case "INFO":
-		l.sortOrder = Info.sortOrder
-		l.name = Info.name
-	case "WARN", "WARNING":
-		l.sortOrder = Warning.sortOrder
-		l.name = Warning.name
-	case "ERR", "ERROR":
-		l.sortOrder = Error.sortOrder
-		l.name = Error.name
-	default:
-		return fmt.Errorf("%q not a valid option, please choose from: %v", s, ValidStringLevels)
+
+	val, ok := GetUppercaseStringToLevelMap()[strings.ToUpper(s)]
+	if !ok {
+		return fmt.Errorf("%q not a valid option, please choose from: %v", s, GetAllLevelStrings())
 	}
 
+	l.sortOrder = val.sortOrder
+	l.name = val.name
 	return nil
 }
 
@@ -77,3 +62,24 @@ var (
 	// Error level is for error messages
 	Error = Level{0, "Error"}
 )
+
+func GetAllLevels() []Level {
+	return []Level{Info, Warning, Error}
+}
+
+func GetAllLevelStrings() []string {
+	levels := GetAllLevels()
+	var s []string
+	for _, l := range levels {
+		s = append(s, l.name)
+	}
+	return s
+}
+
+func GetUppercaseStringToLevelMap() map[string]Level {
+	m := make(map[string]Level)
+	for _, l := range GetAllLevels() {
+		m[strings.ToUpper(l.name)] = l
+	}
+	return m
+}
