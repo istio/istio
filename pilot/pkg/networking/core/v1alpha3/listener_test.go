@@ -24,6 +24,7 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	http_filter "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
@@ -46,7 +47,9 @@ import (
 )
 
 const (
-	wildcardIP = "0.0.0.0"
+	wildcardIP           = "0.0.0.0"
+	fakePluginHTTPFilter = "fake-plugin-http-filter"
+	fakePluginTCPFilter  = "fake-plugin-tcp-filter"
 )
 
 var (
@@ -1505,6 +1508,26 @@ func (p *fakePlugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeCo
 
 func (p *fakePlugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
 	return []plugin.FilterChain{{}, {}}
+}
+
+func (p *fakePlugin) OnInboundPassthrough(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+	switch in.ListenerProtocol {
+	case plugin.ListenerProtocolTCP:
+		for cnum := range mutable.FilterChains {
+			filter := &listener.Filter{
+				Name: fakePluginTCPFilter,
+			}
+			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, filter)
+		}
+	case plugin.ListenerProtocolHTTP:
+		for cnum := range mutable.FilterChains {
+			filter := &http_filter.HttpFilter{
+				Name: fakePluginHTTPFilter,
+			}
+			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, filter)
+		}
+	}
+	return nil
 }
 
 func isHTTPListener(listener *xdsapi.Listener) bool {
