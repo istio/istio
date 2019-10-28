@@ -260,6 +260,7 @@ var (
 					}
 				}
 			}
+
 			role.DNSDomain = getDNSDomain(podNamespace, role.DNSDomain)
 			setSpiffeTrustDomain(podNamespace, role.DNSDomain)
 
@@ -344,12 +345,23 @@ var (
 			sdsEnabled := sa.JWTPath != ""
 			sdsTokenPath := sa.JWTPath
 
-			sa.RequireCerts = controlPlaneAuthEnabled
+			// Override if SDS detected
+			if sa.RequireCerts {
+				controlPlaneAuthEnabled = true
+			}
 
-			if sdsEnabled && sa.SDSAddress == "" {
+			if sa.JWTPath != "" {
+				// citadel node-agent not found, but we have a K8S JWT available. Start an in-process SDS.
 				_, err := istio_agent.StartSDS(sa, role.Type == model.SidecarProxy)
 				if err != nil {
 					log.Fatala("Failed to start in-process SDS", err)
+				}
+
+				if sa.RequireCerts {
+					proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
+				}
+				if sa.SAN != "" {
+					pilotSAN = append(pilotSAN, sa.SAN)
 				}
 			}
 

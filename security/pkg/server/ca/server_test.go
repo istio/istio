@@ -217,7 +217,7 @@ func TestCreateCertificate(t *testing.T) {
 			hostnames:      []string{"hostname"},
 			port:           8080,
 			authorizer:     c.authorizer,
-			authenticators: c.authenticators,
+			Authenticators: c.authenticators,
 			monitoring:     newMonitoringMetrics(),
 		}
 		request := &pb.IstioCertificateRequest{Csr: "dumb CSR"}
@@ -326,7 +326,7 @@ func TestHandleCSR(t *testing.T) {
 			hostnames:      []string{"hostname"},
 			port:           8080,
 			authorizer:     c.authorizer,
-			authenticators: c.authenticators,
+			Authenticators: c.authenticators,
 			monitoring:     newMonitoringMetrics(),
 		}
 		request := &pb.CsrRequest{CsrPem: []byte(c.csr)}
@@ -472,9 +472,9 @@ func TestRun(t *testing.T) {
 			t.Fatalf("%s: Unexpected Error: %v", id, err)
 		}
 
-		if len(server.authenticators) != tc.expectedAuthenticatorsLen {
+		if len(server.Authenticators) != tc.expectedAuthenticatorsLen {
 			t.Fatalf("%s: Unexpected Authenticators Length. Expected: %v Actual: %v",
-				id, tc.expectedAuthenticatorsLen, len(server.authenticators))
+				id, tc.expectedAuthenticatorsLen, len(server.Authenticators))
 		}
 
 		if len(tc.hostname) != len(server.hostnames) {

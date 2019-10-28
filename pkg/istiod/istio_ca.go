@@ -16,8 +16,15 @@ package istiod
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"google.golang.org/grpc/metadata"
+	"io/ioutil"
+	"istio.io/istio/security/pkg/server/ca/authenticate"
 	"os"
 	"path"
+	"strings"
 	"time"
 
 	"istio.io/pkg/env"
@@ -25,13 +32,12 @@ import (
 	"google.golang.org/grpc"
 	"k8s.io/client-go/kubernetes"
 
+	oidc "github.com/coreos/go-oidc"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca"
-	probecontroller "istio.io/istio/security/pkg/probe"
-	"istio.io/istio/security/pkg/registry"
 	caserver "istio.io/istio/security/pkg/server/ca"
 	"istio.io/pkg/log"
 )
@@ -51,7 +57,11 @@ import (
 // with additional roots and optional {ca-key, ca-cert, cert-chain}.pem user-provided root CA.
 // - if user-provided root CA is not found, the Secret "istio-ca-secret" is used, with ca-cert.pem and ca-key.pem files.
 // - if neither is found, istio-ca-secret will be created.
-// - a config map "istio-security" with a "caTLSRootCert" file will be used for root cert, created if needed.
+//
+// - a config map "istio-security" with a "caTLSRootCert" file will be used for root cert, and created if needed.
+//   The config map was used by node agent - no longer possible to use in sds-agent, but we still save it for
+//   backward compat. Will be removed with the node-agent. sds-agent is calling NewCitadelClient directly, using
+//   K8S root.
 
 var (
 	// This replaces the "cert-chain", "signing-cert" and "signing-key" flags in citadel - Istio installer is
@@ -91,6 +101,31 @@ var (
 		"If true, set up a jitter to start root cert rotator. "+
 			"Jitter selects a backoff time in seconds to start root cert rotator, "+
 			"and the back off time is below root cert check interval.")
+
+	k8sInCluster = env.RegisterStringVar("KUBERNETES_SERVICE_HOST", "",
+		"Kuberenetes service host, set automatically when running in-cluster")
+
+	// Well-known location of the K8S CA Path
+	k8sCAPath = "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+
+	// Well-knwon location of the projected K8S JWT. This is mounted on all workloads, as well as istiod.
+	// In a cluster that doesn't support projected JWTs we can't run the CA functionality of istiod - instead
+	// old-style Citadel must be run, with Secret created for each workload.
+	JWTPath = "./var/run/secrets/tokens/istio-token"
+
+	// This value can also be extracted from the mounted token
+	trustedIssuer = env.RegisterStringVar("TOKEN_ISSUER", "",
+		"OIDC token issuer. If set, will be used to check the tokens.")
+
+	audience = env.RegisterStringVar("AUDIENCE", "istio-ca",
+		"Expected audience in the tokens. For backward compat, default is istio-ca.")
+
+)
+
+const (
+	bearerTokenPrefix = "Bearer "
+	httpAuthHeader    = "authorization"
+	identityTemplate         = "spiffe://%s/ns/%s/sa/%s"
 )
 
 type CAOptions struct {
@@ -99,19 +134,33 @@ type CAOptions struct {
 }
 
 func RunCA(grpc *grpc.Server, cs kubernetes.Interface, opts *CAOptions) {
-
 	ca := createCA(cs.CoreV1(), opts)
 
-	// start registry if gRPC server is to be started
-	reg := registry.GetIdentityRegistry()
-
-	// add certificate identity to the identity registry for the liveness probe check
-	if registryErr := reg.AddMapping(probecontroller.LivenessProbeClientIdentity,
-		probecontroller.LivenessProbeClientIdentity); registryErr != nil {
-		log.Errorf("Failed to add indentity mapping: %v", registryErr)
-	}
+	iss := trustedIssuer.Get()
+	aud := audience.Get()
 
 	ch := make(chan struct{})
+	if token, err := ioutil.ReadFile(JWTPath); err != nil {
+		// for debug we may want to override this by setting trustedIssuer explicitly
+		if iss == "" {
+			log.Warna("Istiod running in an environmnet without access to K8S tokens. Disable the CA functionality",
+				JWTPath)
+			return
+		}
+	} else {
+
+		tok, err := detectAuthEnv(string(token))
+		if err != nil {
+			log.Fatala("Starting with invalid JWT token", string(token))
+		}
+
+		if iss == "" {
+			iss = tok.Iss
+		}
+		if len(tok.Aud) > 0 {
+			aud = tok.Aud[0]
+		}
+	}
 
 	// The CA API uses cert with the max workload cert TTL.
 	// 'hostlist' must be non-empty - but is not used since a grpc server is passed.
@@ -121,6 +170,20 @@ func RunCA(grpc *grpc.Server, cs kubernetes.Interface, opts *CAOptions) {
 	if startErr != nil {
 		log.Fatalf("Failed to create istio ca server: %v", startErr)
 	}
+
+	// TODO: if not set, parse Istiod's own token (if present) and get the issuer. The same issuer is used
+	// for all tokens - no need to configure twice. The token may also include cluster info to auto-configure
+	// networking properties.
+
+	if iss != "" && // issuer set explicitly or extracted from our own JWT
+		(k8sInCluster.Get() != "" || trustedIssuer.Get() != "") { // either set explicitly, or not running in cluster.
+		// Add a custom authenticator using standard JWT validation, if not running in K8S
+		// When running inside K8S - we can use the built-in validator, which also check pod removal (invalidation).
+		caServer.Authenticators = append(caServer.Authenticators, NewJwtAuthenticator(iss, opts.TrustDomain, aud))
+		log.Infoa("Using out-of-cluster JWT authentication")
+	}
+
+
 	if serverErr := caServer.Run(); serverErr != nil {
 		// stop the registry-related controllers
 		ch <- struct{}{}
@@ -130,11 +193,129 @@ func RunCA(grpc *grpc.Server, cs kubernetes.Interface, opts *CAOptions) {
 	log.Info("Istiod CA has started")
 }
 
+type jwtAuthenticator struct {
+	provider *oidc.Provider
+	verifier *oidc.IDTokenVerifier
+	trustDomain string
+}
+
+// NewJwtAuthenticator is used when running istiod outside of a cluster, to validate the tokens using OIDC
+// K8S is created with --service-account-issuer, service-account-signing-key-file and service-account-api-audiences
+// which enable OIDC.
+func NewJwtAuthenticator(iss string, trustDomain, audience string) *jwtAuthenticator {
+	provider, err := oidc.NewProvider(context.Background(), iss)
+	if err != nil {
+		log.Fatala("Running in cluster with K8S tokens, but failed to initialize ", iss, err)
+	}
+
+	return &jwtAuthenticator{
+		trustDomain: trustDomain,
+		provider: provider,
+		verifier: provider.Verifier(&oidc.Config{ClientID: audience}),
+	}
+}
+
+// Authenticate - based on the old OIDC authenticator for mesh expansion.
+func (j *jwtAuthenticator) Authenticate(ctx context.Context) (*authenticate.Caller, error) {
+	bearerToken, err := extractBearerToken(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("ID token extraction error: %v", err)
+	}
+
+	idToken, err := j.verifier.Verify(context.Background(), bearerToken)
+	if err != nil {
+		return nil, fmt.Errorf("failed to verify the ID token (error %v)", err)
+	}
+
+	// for GCP-issued JWT, the service account is in the "email" field
+	sa := &jwtPayload{}
+
+	if err := idToken.Claims(&sa); err != nil {
+		return nil, fmt.Errorf("failed to extract email field from ID token: %v", err)
+	}
+	if !strings.HasPrefix(sa.Sub, "system:serviceaccount") {
+		return nil, fmt.Errorf("Invalid sub %v", sa.Sub)
+	}
+	parts := strings.Split(sa.Sub, ":")
+	ns := parts[2]
+	ksa := parts[3]
+
+	return &authenticate.Caller{
+		AuthSource: authenticate.AuthSourceIDToken,
+		Identities: []string{fmt.Sprintf(identityTemplate, j.trustDomain, ns, ksa)},
+	}, nil
+
+}
+
+func extractBearerToken(ctx context.Context) (string, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return "", fmt.Errorf("no metadata is attached")
+	}
+
+	authHeader, exists := md[httpAuthHeader]
+	if !exists {
+		return "", fmt.Errorf("no HTTP authorization header exists")
+	}
+
+	for _, value := range authHeader {
+		if strings.HasPrefix(value, bearerTokenPrefix) {
+			return strings.TrimPrefix(value, bearerTokenPrefix), nil
+		}
+	}
+
+	return "", fmt.Errorf("no bearer token exists in HTTP authorization header")
+}
+
+type jwtPayload struct {
+	// Aud is the expected audience, defaults to istio-ca - but is based on istiod.yaml configuration.
+	// If set to a different value - use the value defined by istiod.yaml. Env variable can
+	// still override
+	Aud []string `json:"aud"`
+
+	// Exp is not currently used - we don't use the token for authn, just to determine k8s settings
+	Exp int      `json:"exp"`
+
+	// Issuer - configured by K8S admin for projected tokens. Will be used to verify all tokens.
+	Iss string `json:"iss"`
+
+	Sub string `json:"sub"`
+}
+
+// Based on 'detectAuthEnv'
+func detectAuthEnv(jwt string) (*jwtPayload, error) {
+	jwtSplit := strings.Split(jwt, ".")
+	if len(jwtSplit) != 3 {
+		return nil, fmt.Errorf("invalid JWT parts: %s", jwt)
+	}
+	payload := jwtSplit[1]
+
+	payloadBytes, err := base64.RawStdEncoding.DecodeString(payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode jwt: %v", err.Error())
+	}
+
+	structuredPayload := &jwtPayload{}
+	err = json.Unmarshal(payloadBytes, &structuredPayload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal jwt: %v", err.Error())
+	}
+
+	return structuredPayload, nil
+}
+
+
+func (j jwtAuthenticator) AuthenticatorType() string {
+	return authenticate.IDTokenAuthenticatorType
+}
+
 func createCA(client corev1.CoreV1Interface, opts *CAOptions) *ca.IstioCA {
 	var caOpts *ca.IstioCAOptions
 	var err error
 
 	signingKeyFile := path.Join(localCertDir.Get(), "ca-key.pem")
+
+	// If not found, will default to ca-cert.pem. May contain multiple roots.
 	rootCertFile := path.Join(localCertDir.Get(), "root-cert.pem")
 	if _, err := os.Stat(rootCertFile); err != nil {
 		// In Citadel, normal self-signed doesn't use a root-cert.pem file for additional roots.
@@ -146,7 +327,7 @@ func createCA(client corev1.CoreV1Interface, opts *CAOptions) *ca.IstioCA {
 		// The user-provided certs are missing - create a self-signed cert.
 
 		log.Info("Use self-signed certificate as the CA certificate")
-		spiffe.SetTrustDomain(spiffe.DetermineTrustDomain(opts.TrustDomain, true))
+		spiffe.SetTrustDomain(opts.TrustDomain)
 		// Abort after 20 minutes.
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute*20)
 		defer cancel()
@@ -157,7 +338,7 @@ func createCA(client corev1.CoreV1Interface, opts *CAOptions) *ca.IstioCA {
 		caOpts, err = ca.NewSelfSignedIstioCAOptions(ctx, false,
 			selfSignedRootCertGracePeriodPercentile.Get(), selfSignedCACertTTL.Get(),
 			selfSignedRootCertCheckInterval.Get(), workloadCertTTL.Get(),
-			maxWorkloadCertTtl.Get(), spiffe.GetTrustDomain(), true,
+			maxWorkloadCertTtl.Get(), opts.TrustDomain, true,
 			IstiodNamespace.Get(), -1, client, rootCertFile,
 			enableJitterForRootCertRotator.Get())
 		if err != nil {

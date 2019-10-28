@@ -17,6 +17,7 @@ package istioagent
 import (
 	"context"
 	"io/ioutil"
+	"net"
 	"os"
 	"strings"
 	"time"
@@ -155,6 +156,9 @@ type AgentConf struct {
 	// - if controlPlaneAuthEnabled is set
 	// - port of discovery server is not 15010 (the plain text default).
 	RequireCerts bool
+
+	// Expected SAN
+	SAN string
 }
 
 // DetectSDS will attempt to find nodeagent SDS and token. If not found will attempt to find
@@ -183,6 +187,24 @@ func DetectSDS(discAddr string, tlsRequired bool) *AgentConf {
 	if tlsRequired {
 		ac.RequireCerts = true
 	}
+
+	istiodHost, discPort, err := net.SplitHostPort(discAddr)
+	if err != nil {
+		log.Fatala("Invalid discovery address", discAddr, err)
+	}
+
+	// Istiod uses a fixed, defined port for K8S-signed certificates.
+	if discPort == "15012" {
+		ac.RequireCerts = true
+		ac.SDSAddress = "unix:" + LocalSDS
+		// For local debugging - the discoveryAddress is set to localhost, but the cert issued for normal SA.
+		if istiodHost == "localhost" {
+			istiodHost = "istiod.istio-system"
+		}
+		ac.SAN = istiodHost
+	}
+
+
 
 	return ac
 }
@@ -240,11 +262,13 @@ func StartSDS(conf *AgentConf, isSidecar bool) (*sds.Server, error) {
 		}
 		if si != nil {
 			// For debugging and backward compat - we may not need it long term
-			err = ioutil.WriteFile("/etc/istio/proxy/key.pem", si.PrivateKey, 0700)
+			// The files can be used if an Pilot configured with SDS disabled is used, will generate
+			// file based XDS config instead of SDS.
+			err = ioutil.WriteFile("./etc/istio/proxy/key.pem", si.PrivateKey, 0700)
 			if err != nil {
 				log.Fatalf("Failed to write certs: %v", err)
 			}
-			err = ioutil.WriteFile("/etc/istio/proxy/cert-chain.pem", si.CertificateChain, 0700)
+			err = ioutil.WriteFile("./etc/istio/proxy/cert-chain.pem", si.CertificateChain, 0700)
 			if err != nil {
 				log.Fatalf("Failed to write certs: %v", err)
 			}

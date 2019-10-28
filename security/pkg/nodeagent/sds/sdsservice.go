@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -264,9 +265,13 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 				ctx = stream.Context()
 				t, err := getCredentialToken(ctx)
 				if err != nil {
-					sdsServiceLog.Errorf("%s Close connection. Failed to get credential token from "+
-						"incoming request: %v", conIDresourceNamePrefix, err)
-					return err
+					tok, err := ioutil.ReadFile("./var/run/secrets/tokens/istio-token")
+					if err != nil {
+						sdsServiceLog.Errorf("%s Close connection. Failed to get credential token from "+
+								"incoming request: %v", conIDresourceNamePrefix, err)
+						return err
+					}
+					t = string(tok)
 				}
 				token = t
 			}
@@ -363,8 +368,13 @@ func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.Discovery
 	if !s.skipToken {
 		t, err := getCredentialToken(ctx)
 		if err != nil {
-			sdsServiceLog.Errorf("Failed to get credential token: %v", err)
-			return nil, err
+			// Running in-process, no need to pass the token from envoy to agent as in-context - use the file
+			tok, err := ioutil.ReadFile("./var/run/secrets/tokens/istio-token")
+			if err != nil {
+				sdsServiceLog.Errorf("Failed to get credential token: %v", err)
+				return nil, err
+			}
+			t = string(tok)
 		}
 		token = t
 	}
