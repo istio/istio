@@ -53,12 +53,6 @@ var (
 		},
 	}
 
-	istioSystemNamespace = &v1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: defaultIstioNamespace,
-		},
-	}
-
 	pilotDeployment = &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "istio-pilot",
