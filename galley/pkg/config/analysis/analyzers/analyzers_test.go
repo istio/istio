@@ -72,7 +72,6 @@ var testGrid = []testCase{
 			{msg.ReferencedResourceNotFound, "ServiceRole short-name.anothernamespace"},
 			{msg.ReferencedResourceNotFound, "ServiceRole fqdn-cross-ns.anothernamespace"},
 			{msg.ReferencedResourceNotFound, "ServiceRole namespace-wide.anothernamespace"},
-			{msg.NoResourcesNotFoundForNamespace, "ServiceRole wildcard.anothernamespace"},
 		},
 	},
 	{
