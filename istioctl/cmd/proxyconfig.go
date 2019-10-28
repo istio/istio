@@ -287,7 +287,7 @@ func proxyConfig() *cobra.Command {
   istioctl proxy-config clusters <pod-name[.namespace]> --fqdn details.default.svc.cluster.local --direction inbound -o json
 
   # Retrieve cluster summary without using Kubernetes API
-  curl <host>:15000/config_dump > envoy-config.json
+  ssh <user@hostname> 'curl localhost:15000/config_dump' > envoy-config.json
   istioctl proxy-config clusters --file envoy-config.json
 `,
 		Aliases: []string{"clusters", "c"},
@@ -348,7 +348,7 @@ func proxyConfig() *cobra.Command {
   istioctl proxy-config listeners <pod-name[.namespace]> --type HTTP --address 0.0.0.0 -o json
 
   # Retrieve listener summary without using Kubernetes API
-  curl <host>:15000/config_dump > envoy-config.json
+  ssh <user@hostname> 'curl localhost:15000/config_dump' > envoy-config.json
   istioctl proxy-config listeners --file envoy-config.json
 `,
 		Aliases: []string{"listeners", "l"},
@@ -510,7 +510,7 @@ func proxyConfig() *cobra.Command {
   istioctl proxy-config route <pod-name[.namespace]> --name 9080 -o json
 
   # Retrieve route summary without using Kubernetes API
-  curl <host>:15000/config_dump > envoy-config.json
+  ssh <user@hostname> 'curl localhost:15000/config_dump' > envoy-config.json
   istioctl proxy-config routes --file envoy-config.json
 `,
 		Aliases: []string{"routes", "r"},
@@ -570,7 +570,7 @@ func proxyConfig() *cobra.Command {
   istioctl proxy-config endpoint <pod-name[.namespace]> --status healthy -ojson
 
   # Retrieve endpoint summary without using Kubernetes API
-  curl <host>:15000/clusters?format=json > envoy-clusters.json
+  ssh <user@hostname> 'curl localhost:15000/clusters?format=json' > envoy-clusters.json
   istioctl proxy-config endpoints --file envoy-clusters.json
 `,
 		Aliases: []string{"endpoints", "ep"},
@@ -625,6 +625,10 @@ func proxyConfig() *cobra.Command {
 		Long:  `Retrieve information about bootstrap configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve full bootstrap configuration for a given pod from Envoy.
   istioctl proxy-config bootstrap <pod-name[.namespace]>
+
+  # Retrieve full bootstrap without using Kubernetes API
+  ssh <user@hostname> 'curl localhost:15000/config_dump' > envoy-config.json
+  istioctl proxy-config bootstrap --file envoy-config.json
 `,
 		Aliases: []string{"b"},
 		Args: func(cmd *cobra.Command, args []string) error {
@@ -659,6 +663,10 @@ func proxyConfig() *cobra.Command {
 		Long:  `(experimental) Retrieve information about secret configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve full secret configuration for a given pod from Envoy.
   istioctl proxy-config secret <pod-name[.namespace]>
+
+  # Retrieve full bootstrap without using Kubernetes API
+  ssh <user@hostname> 'curl localhost:15000/config_dump' > envoy-config.json
+  istioctl proxy-config secret --file envoy-config.json
 
 THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 `,
