@@ -23,18 +23,17 @@ import (
 	"github.com/golang/sync/errgroup"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ktypes "k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pkg/util/protomarshal"
 	operatorV1alpha1 "istio.io/operator/pkg/apis/istio/v1alpha1"
 	operatorV1alpha2 "istio.io/operator/pkg/apis/istio/v1alpha2"
 	"istio.io/operator/pkg/helm"
 	"istio.io/operator/pkg/util"
 	"istio.io/operator/pkg/validate"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pkg/util/protomarshal"
 )
 
 // defaults the user can override
@@ -64,7 +63,7 @@ func defaultControlPlane() (*operatorV1alpha2.IstioControlPlane, error) {
 }
 
 // overlay configuration which will override user config.
-func overlayIstioControlPlane(mesh *Mesh, current *Cluster, meshNetworks *v1alpha1.MeshNetworks) (
+func overlayIstioControlPlane(mesh *Mesh, current *Cluster, meshNetworks *v1alpha1.MeshNetworks) ( // nolint: interfacer
 	*operatorV1alpha2.IstioControlPlane, error) {
 	meshNetworksJSON, err := protomarshal.ToJSONMap(meshNetworks)
 	if err != nil {
@@ -208,7 +207,7 @@ func generateOutput(opt generateOptions, env Environment) error {
 	}
 	cluster, ok := mesh.clustersByContext[context]
 	if !ok {
-		return fmt.Errorf("Context %v not found", context)
+		return fmt.Errorf("context %v not found", context)
 	}
 
 	meshNetwork, err := meshNetworkForCluster(env, mesh, cluster)

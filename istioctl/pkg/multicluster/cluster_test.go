@@ -24,7 +24,6 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
-	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -50,20 +49,6 @@ var (
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "kube-system",
 			UID:  kubeSystemNamespaceUID,
-		},
-	}
-
-	pilotDeployment = &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "istio-pilot",
-			Namespace: testNamespace,
-		},
-	}
-
-	pilotDeploymentDefaultIstioSystem = &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "istio-pilot",
-			Namespace: defaultIstioNamespace,
 		},
 	}
 )
@@ -195,7 +180,7 @@ func TestNewCluster(t *testing.T) {
 			} else {
 				c.want.client = env.client
 				if !reflect.DeepEqual(got, c.want) {
-					tt.Fatalf("\n got %#v\nwant %#v", *got, *c.want)
+					tt.Fatalf("\n got %#v\nwant %#v", got, c.want)
 				}
 			}
 		})

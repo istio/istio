@@ -55,11 +55,6 @@ func (m *Mesh) addCluster(c *Cluster) {
 	m.clustersByUID[c.uid] = c
 }
 
-func (m *Mesh) removeCluster(c *Cluster) {
-	delete(m.clustersByContext, c.Context)
-	delete(m.clustersByUID, c.uid)
-}
-
 func (m *Mesh) ClusterByUID(uid types.UID) (*Cluster, bool) {
 	c, ok := m.clustersByUID[uid]
 	return c, ok
@@ -99,7 +94,7 @@ func LoadMeshDesc(filename string, env Environment) (*MeshDesc, error) {
 	return md, nil
 }
 
-func NewMesh(md *MeshDesc, env Environment, clusters ...*Cluster) *Mesh {
+func NewMesh(md *MeshDesc, clusters ...*Cluster) *Mesh {
 	mesh := &Mesh{
 		meshID:            md.MeshID,
 		clustersByContext: make(map[string]*Cluster),
@@ -126,7 +121,7 @@ func meshFromFileDesc(filename string, env Environment) (*Mesh, error) {
 		clusters = append(clusters, cluster)
 	}
 
-	return NewMesh(md, env, clusters...), nil
+	return NewMesh(md, clusters...), nil
 }
 
 func NewMulticlusterCommand() *cobra.Command {
