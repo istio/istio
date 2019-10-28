@@ -58,9 +58,9 @@ iptables -t nat -I PREROUTING 1 -i eth1 -d 1.1.0.0/16 -j ISTIO_REDIRECT
 iptables -t nat -I PREROUTING 1 -i eth2 -d 1.1.0.0/16 -j ISTIO_REDIRECT
 iptables -t nat -A ISTIO_OUTPUT -d 1.1.0.0/16 -j ISTIO_REDIRECT
 iptables -t nat -A ISTIO_OUTPUT -j RETURN
-ip6tables -F INPUT
-ip6tables -A INPUT -m state --state ESTABLISHED -j ACCEPT
-ip6tables -A INPUT -i lo -d ::1 -j ACCEPT
-ip6tables -A INPUT -j REJECT
+ip6tables -t filter -F INPUT
+ip6tables -t filter -A INPUT -m state --state ESTABLISHED -j ACCEPT
+ip6tables -t filter -A INPUT -i lo -d ::1 -j ACCEPT
+ip6tables -t filter -A INPUT -j REJECT
 iptables-save 
 ip6tables-save 

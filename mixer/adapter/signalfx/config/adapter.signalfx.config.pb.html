@@ -84,7 +84,7 @@ spec:
 <tbody>
 <tr id="Params-metrics">
 <td><code>metrics</code></td>
-<td><code><a href="#Params-MetricConfig">Params.MetricConfig[]</a></code></td>
+<td><code><a href="#Params-MetricConfig">MetricConfig[]</a></code></td>
 <td>
 <p>Required. The set of metrics to send to SignalFx. If an Istio metric is
 configured to be sent to this adapter, it must have a corresponding
@@ -121,7 +121,7 @@ No
 </tr>
 <tr id="Params-datapoint_interval">
 <td><code>datapointInterval</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">Duration</a></code></td>
 <td>
 <p>Optional. Specifies how frequently to send metrics to SignalFx.  Metrics
 reported to this adapter are collected and reported as a timeseries.
@@ -217,7 +217,7 @@ No
 </tr>
 <tr id="Params-MetricConfig-type">
 <td><code>type</code></td>
-<td><code><a href="#Params-MetricConfig-Type">Params.MetricConfig.Type</a></code></td>
+<td><code><a href="#Params-MetricConfig-Type">Type</a></code></td>
 <td>
 <p>The metric type of the metric</p>
 

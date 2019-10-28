@@ -30,7 +30,6 @@ type Analyzer interface {
 type CombinedAnalyzer struct {
 	metadata  Metadata
 	analyzers []Analyzer
-	disabled  map[collection.Name]struct{}
 }
 
 // Combine multiple analyzers into a single one.
@@ -52,16 +51,7 @@ func (c *CombinedAnalyzer) Metadata() Metadata {
 
 // Analyze implements Analyzer
 func (c *CombinedAnalyzer) Analyze(ctx Context) {
-mainloop:
 	for _, a := range c.analyzers {
-		// Skip over any analyzers that require disabled input
-		for _, in := range a.Metadata().Inputs {
-			if _, ok := c.disabled[in]; ok {
-				scope.Analysis.Debugf("Skipping analyzer %q because collection %s is disabled.", a.Metadata().Name, in)
-				continue mainloop
-			}
-		}
-
 		scope.Analysis.Debugf("Started analyzer %q...", a.Metadata().Name)
 		if ctx.Canceled() {
 			scope.Analysis.Debugf("Analyzer %q has been cancelled...", c.Metadata().Name)
@@ -81,15 +71,38 @@ func combineInputs(analyzers []Analyzer) collection.Names {
 	return result
 }
 
-// WithDisabled returns a new CombinedAnalyzer that marks the specified input collections as disabled.
+// RemoveDisabled removes analyzers that require disabled input collections. The names of removed analyzers are returned.
 // Transformer information is used to determine, based on the disabled input collections, which output collections
-// should be disabled. Any analyzers that require those output collections will be skipped.
-func (c *CombinedAnalyzer) WithDisabled(disabledInputs collection.Names, xformProviders transformer.Providers) *CombinedAnalyzer {
-	return &CombinedAnalyzer{
-		metadata:  c.metadata,
-		analyzers: c.analyzers,
-		disabled:  getDisabledOutputs(disabledInputs, xformProviders),
+// should be disabled. Any analyzers that require those output collections will be removed.
+func (c *CombinedAnalyzer) RemoveDisabled(disabledInputs collection.Names, xformProviders transformer.Providers) []string {
+	disabledOutputs := getDisabledOutputs(disabledInputs, xformProviders)
+	var enabled []Analyzer
+	var removedNames []string
+
+mainloop:
+	for _, a := range c.analyzers {
+		// Skip over any analyzers that require disabled input
+		for _, in := range a.Metadata().Inputs {
+			if _, ok := disabledOutputs[in]; ok {
+				scope.Analysis.Infof("Skipping analyzer %q because collection %s is disabled.", a.Metadata().Name, in)
+				removedNames = append(removedNames, a.Metadata().Name)
+				continue mainloop
+			}
+		}
+		enabled = append(enabled, a)
 	}
+
+	c.analyzers = enabled
+	return removedNames
+}
+
+// AnalyzerNames returns the names of analyzers in this combined analyzer
+func (c *CombinedAnalyzer) AnalyzerNames() []string {
+	var result []string
+	for _, a := range c.analyzers {
+		result = append(result, a.Metadata().Name)
+	}
+	return result
 }
 
 func getDisabledOutputs(disabledInputs collection.Names, xformProviders transformer.Providers) map[collection.Name]struct{} {

@@ -35,6 +35,14 @@ import (
 	"istio.io/pkg/log"
 )
 
+type CommandParseError struct {
+	e error
+}
+
+func (c CommandParseError) Error() string {
+	return c.e.Error()
+}
+
 var (
 	kubeconfig       string
 	configContext    string
@@ -60,10 +68,11 @@ var (
 func defaultLogOptions() *log.Options {
 	o := log.DefaultOptions()
 
-	// These scopes are, by default, too chatty for command line use
+	// These scopes are, at the default "INFO" level, too chatty for command line use
 	o.SetOutputLevel("validation", log.ErrorLevel)
 	o.SetOutputLevel("processing", log.ErrorLevel)
 	o.SetOutputLevel("source", log.ErrorLevel)
+	o.SetOutputLevel("analysis", log.WarnLevel)
 
 	return o
 }
@@ -148,11 +157,13 @@ debug and diagnose their Istio mesh.
 
 	manifestCmd := mesh.ManifestCmd()
 	hideInheritedFlags(manifestCmd, "namespace", "istioNamespace")
-	experimentalCmd.AddCommand(manifestCmd)
+	rootCmd.AddCommand(manifestCmd)
 
 	profileCmd := mesh.ProfileCmd()
 	hideInheritedFlags(profileCmd, "namespace", "istioNamespace")
-	experimentalCmd.AddCommand(profileCmd)
+	rootCmd.AddCommand(profileCmd)
+
+	experimentalCmd.AddCommand(mesh.UpgradeCmd())
 
 	experimentalCmd.AddCommand(multicluster.NewCreateRemoteSecretCommand())
 	experimentalCmd.AddCommand(multicluster.NewCreateTrustAnchorCommand())
@@ -172,6 +183,27 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(contextCmd)
 
 	rootCmd.AddCommand(validate.NewValidateCommand(&istioNamespace))
+
+	// BFS apply the flag error function to all subcommands
+	seenCommands := make(map[*cobra.Command]bool)
+	var commandStack []*cobra.Command
+
+	commandStack = append(commandStack, rootCmd)
+
+	for len(commandStack) > 0 {
+		n := len(commandStack) - 1
+		curCmd := commandStack[n]
+		commandStack = commandStack[:n]
+		seenCommands[curCmd] = true
+		for _, command := range curCmd.Commands() {
+			if !seenCommands[command] {
+				commandStack = append(commandStack, command)
+			}
+		}
+		curCmd.SetFlagErrorFunc(func(_ *cobra.Command, e error) error {
+			return CommandParseError{e}
+		})
+	}
 
 	return rootCmd
 }

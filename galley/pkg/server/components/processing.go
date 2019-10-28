@@ -253,7 +253,7 @@ func (p *Processing) createSource(mesh meshconfig.Cache) (src runtime.Source, er
 	sourceSchema := p.getSourceSchema()
 
 	if p.args.ConfigPath != "" {
-		if src, err = fsNew(p.args.ConfigPath, sourceSchema, converterCfg); err != nil {
+		if src, err = fsNew(p.args.ConfigPath, sourceSchema, converterCfg, p.args.WatchConfigFiles); err != nil {
 			return
 		}
 	} else {

@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/hashicorp/go-multierror"
 	. "github.com/onsi/gomega"
 
 	"github.com/gogo/protobuf/proto"
@@ -60,12 +61,11 @@ func (ctx *testContext) ForEach(c collection.Name, fn analysis.IteratorFn) {
 func (ctx *testContext) Canceled() bool { return false }
 
 func TestSchemaValidationWrapper(t *testing.T) {
-	g := NewGomegaWithT(t)
-
 	testCol := metadata.IstioNetworkingV1Alpha3Virtualservices
 
 	m1 := &v1alpha3.VirtualService{}
 	m2 := &v1alpha3.VirtualService{}
+	m3 := &v1alpha3.VirtualService{}
 
 	testSchema := schema.Instance{
 		Collection: testCol.String(),
@@ -76,31 +76,60 @@ func TestSchemaValidationWrapper(t *testing.T) {
 			if msg == m2 {
 				return fmt.Errorf("")
 			}
+			if msg == m3 {
+				return multierror.Append(fmt.Errorf(""), fmt.Errorf(""))
+			}
 			return nil
 		},
 	}
 
 	a := ValidationAnalyzer{s: testSchema}
-	g.Expect(a.Metadata().Inputs).To(ConsistOf(testCol))
 
-	ctx := &testContext{
-		entries: []*resource.Entry{
-			{
-				Item: m1,
-			},
-		},
-	}
-	a.Analyze(ctx)
-	g.Expect(ctx.reports).To(BeEmpty())
+	t.Run("CheckMetadataInputs", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		g.Expect(a.Metadata().Inputs).To(ConsistOf(testCol))
+	})
 
-	ctx = &testContext{
-		entries: []*resource.Entry{
-			{
-				Item: m2,
+	t.Run("NoErrors", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		ctx := &testContext{
+			entries: []*resource.Entry{
+				{
+					Item: m1,
+				},
 			},
-		},
-	}
-	a.Analyze(ctx)
-	g.Expect(ctx.reports).To(HaveLen(1))
-	g.Expect(ctx.reports[0].Type).To(Equal(msg.SchemaValidationError))
+		}
+		a.Analyze(ctx)
+		g.Expect(ctx.reports).To(BeEmpty())
+	})
+
+	t.Run("SingleError", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+
+		ctx := &testContext{
+			entries: []*resource.Entry{
+				{
+					Item: m2,
+				},
+			},
+		}
+		a.Analyze(ctx)
+		g.Expect(ctx.reports).To(HaveLen(1))
+		g.Expect(ctx.reports[0].Type).To(Equal(msg.SchemaValidationError))
+	})
+
+	t.Run("MultiError", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		ctx := &testContext{
+			entries: []*resource.Entry{
+				{
+					Item: m3,
+				},
+			},
+		}
+		a.Analyze(ctx)
+		g.Expect(ctx.reports).To(HaveLen(2))
+		g.Expect(ctx.reports[0].Type).To(Equal(msg.SchemaValidationError))
+		g.Expect(ctx.reports[1].Type).To(Equal(msg.SchemaValidationError))
+	})
 }

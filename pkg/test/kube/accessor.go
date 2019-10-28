@@ -353,7 +353,7 @@ func (a *Accessor) ValidatingWebhookConfigurationExists(name string) bool {
 	return err == nil
 }
 
-// GetValidatingWebhookConfigurationreturns the specified ValidatingWebhookConfiguration.
+// GetValidatingWebhookConfiguration returns the specified ValidatingWebhookConfiguration.
 func (a *Accessor) GetValidatingWebhookConfiguration(name string) (*kubeApiAdmissions.ValidatingWebhookConfiguration, error) {
 	whc, err := a.set.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(name, kubeApiMeta.GetOptions{})
 	if err != nil {
@@ -511,12 +511,22 @@ func (a *Accessor) GetUnstructured(gvr schema.GroupVersionResource, namespace, n
 
 // ApplyContents applies the given config contents using kubectl.
 func (a *Accessor) ApplyContents(namespace string, contents string) ([]string, error) {
-	return a.ctl.applyContents(namespace, contents)
+	return a.ctl.applyContents(namespace, contents, false)
 }
 
-// Apply the config in the given filename using kubectl.
+// ApplyContentsDryRun applies the given config contents using kubectl with DryRun mode.
+func (a *Accessor) ApplyContentsDryRun(namespace string, contents string) ([]string, error) {
+	return a.ctl.applyContents(namespace, contents, true)
+}
+
+// Apply applies the config in the given filename using kubectl.
 func (a *Accessor) Apply(namespace string, filename string) error {
-	return a.ctl.apply(namespace, filename)
+	return a.ctl.apply(namespace, filename, false)
+}
+
+// ApplyDryRun applies the config in the given filename using kubectl with DryRun mode.
+func (a *Accessor) ApplyDryRun(namespace string, filename string) error {
+	return a.ctl.apply(namespace, filename, true)
 }
 
 // DeleteContents deletes the given config contents using kubectl.

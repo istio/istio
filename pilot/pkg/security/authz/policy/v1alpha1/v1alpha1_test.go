@@ -21,6 +21,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/security/authz/policy"
+	"istio.io/istio/pilot/pkg/security/trustdomain"
 )
 
 func TestV1alpha1Generator_Generate(t *testing.T) {
@@ -32,8 +33,7 @@ func TestV1alpha1Generator_Generate(t *testing.T) {
 	// TODO(pitlv2109): Also include trust domain and trust domain aliases to existing tests.
 	testCases := []struct {
 		name                      string
-		trustDomain               string
-		trustDomainAliases        []string
+		trustDomainBundle         trustdomain.Bundle
 		policies                  []*model.Config
 		isGlobalPermissiveEnabled bool
 		forTCPFilter              bool
@@ -174,7 +174,7 @@ func TestV1alpha1Generator_Generate(t *testing.T) {
 				policy.SimpleRole("role", namespaceA, serviceFoo),
 				policy.SimpleBinding("binding", namespaceA, "role"),
 			},
-			trustDomain: "cluster.local",
+			trustDomainBundle: trustdomain.NewTrustDomainBundle("cluster.local", nil),
 			wantRules: map[string][]string{
 				"role": {policy.RoleTag("role"),
 					policy.CustomPrincipal("cluster.local", "binding", "binding")},
@@ -186,8 +186,7 @@ func TestV1alpha1Generator_Generate(t *testing.T) {
 				policy.SimpleRole("role", namespaceA, serviceFoo),
 				policy.SimpleBinding("binding", namespaceA, "role"),
 			},
-			trustDomain:        "td1",
-			trustDomainAliases: []string{"cluster.local"},
+			trustDomainBundle: trustdomain.NewTrustDomainBundle("td1", []string{"cluster.local"}),
 			wantRules: map[string][]string{
 				"role": {policy.RoleTag("role"),
 					policy.CustomPrincipal("td1", "binding", "binding"),
@@ -200,8 +199,7 @@ func TestV1alpha1Generator_Generate(t *testing.T) {
 				policy.SimpleRole("role", namespaceA, serviceFoo),
 				policy.SimpleBinding("binding", namespaceA, "role"),
 			},
-			trustDomain:        "td1",
-			trustDomainAliases: []string{"cluster.local", "td2"},
+			trustDomainBundle: trustdomain.NewTrustDomainBundle("td1", []string{"cluster.local", "td2"}),
 			wantRules: map[string][]string{
 				"role": {policy.RoleTag("role"),
 					policy.CustomPrincipal("td1", "binding", "binding"),
@@ -217,7 +215,7 @@ func TestV1alpha1Generator_Generate(t *testing.T) {
 			if authzPolicies == nil {
 				t.Fatal("failed to create authz policies")
 			}
-			g := NewGenerator(tc.trustDomain, tc.trustDomainAliases, serviceFooInNamespaceA, authzPolicies, tc.isGlobalPermissiveEnabled)
+			g := NewGenerator(tc.trustDomainBundle, serviceFooInNamespaceA, authzPolicies, tc.isGlobalPermissiveEnabled)
 			if g == nil {
 				t.Fatal("failed to create generator")
 			}

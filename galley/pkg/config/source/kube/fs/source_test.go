@@ -77,6 +77,31 @@ func TestInitialFile(t *testing.T) {
 		event.DeleteForResource(data.Collection1, data.EntryN1I1V1)))
 }
 
+func TestInitialFileWatcherEnabled(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	dir := createTempDir(t)
+	defer deleteTempDir(t, dir)
+
+	copyFile(t, dir, "foo.yaml", data.YamlN1I1V1)
+
+	// Start the source.
+	s := newWithWatcherEnabledOrFail(t, dir)
+	acc := startOrFail(t, s)
+	defer s.Stop()
+
+	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
+		event.FullSyncFor(basicmeta.Collection1),
+		event.AddFor(data.Collection1, data.EntryN1I1V1)))
+
+	acc.Clear()
+
+	deleteFiles(t, dir, "foo.yaml")
+
+	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
+		event.DeleteForResource(data.Collection1, data.EntryN1I1V1)))
+}
+
 func TestAddDeleteMultipleTimes(t *testing.T) {
 	g := NewGomegaWithT(t)
 
@@ -164,6 +189,35 @@ func TestAddUpdateDelete(t *testing.T) {
 	acc.Clear()
 	copyFile(t, dir, "foo.yaml", "")
 	appsignals.Notify("test", syscall.SIGUSR1)
+
+	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
+		event.DeleteForResource(data.Collection1, withVersion(data.EntryN1I1V2, "v2"))))
+}
+
+func TestAddUpdateDeleteWithWatcherEnabled(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	dir := createTempDir(t)
+	defer deleteTempDir(t, dir)
+
+	s := newWithWatcherEnabledOrFail(t, dir)
+	acc := startOrFail(t, s)
+	defer s.Stop()
+
+	copyFile(t, dir, "foo.yaml", data.YamlN1I1V1)
+
+	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
+		event.FullSyncFor(basicmeta.Collection1),
+		event.AddFor(data.Collection1, data.EntryN1I1V1)))
+
+	acc.Clear()
+	copyFile(t, dir, "foo.yaml", data.YamlN1I1V2)
+
+	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
+		event.UpdateFor(data.Collection1, withVersion(data.EntryN1I1V2, "v2"))))
+
+	acc.Clear()
+	copyFile(t, dir, "foo.yaml", "")
 
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
 		event.DeleteForResource(data.Collection1, withVersion(data.EntryN1I1V2, "v2"))))
@@ -294,7 +348,20 @@ func newOrFail(t *testing.T, dir string) event.Source {
 
 func newWithMetadataOrFail(t *testing.T, dir string, m *schema.Metadata) event.Source {
 	t.Helper()
-	s, err := fs.New(dir, m.KubeSource().Resources())
+	s, err := fs.New(dir, m.KubeSource().Resources(), false)
+	if err != nil {
+		t.Fatalf("Unexpected error found: %v", err)
+	}
+
+	if s == nil {
+		t.Fatal("expected non-nil source")
+	}
+	return s
+}
+
+func newWithWatcherEnabledOrFail(t *testing.T, dir string) event.Source {
+	t.Helper()
+	s, err := fs.New(dir, basicmeta.MustGet().KubeSource().Resources(), true)
 	if err != nil {
 		t.Fatalf("Unexpected error found: %v", err)
 	}

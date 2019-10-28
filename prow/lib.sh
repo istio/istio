@@ -52,6 +52,34 @@ function download_untar_istio_release() {
   export ISTIOCTL_BIN="${GOPATH}/src/istio.io/istio/istio-${TAG}/bin/istioctl"
 }
 
+function build_images() {
+  # Build just the images needed for tests
+  for image in pilot proxyv2 app test_policybackend mixer citadel galley sidecar_injector kubectl node-agent-k8s; do
+     DOCKER_BUILD_VARIANTS="${VARIANT:-default}" make docker.${image}
+  done
+}
+
+function kind_load_images() {
+  NAME="${1:-istio-testing}"
+  for i in {1..3}; do
+    # Archived local images and load it into KinD's docker daemon
+    # Kubernetes in KinD can only access local images from its docker daemon.
+    docker images "${HUB}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 kind --loglevel debug --name "${NAME}" load docker-image && break
+    echo "Attempt ${i} to load images failed, retrying in 5s..."
+    sleep 5
+	done
+
+  # If a variant is specified, load those images as well.
+  # We should still load non-variant images as well for things like `app` which do not use variants
+  if [[ "${VARIANT:-}" != "" ]]; then
+    for i in {1..3}; do
+      docker images "${HUB}/*:${TAG}-${VARIANT}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 kind --loglevel debug --name "${NAME}" load docker-image && break
+      echo "Attempt ${i} to load images failed, retrying in 5s..."
+      sleep 5
+    done
+  fi
+}
+
 # Cleanup e2e resources.
 function cleanup() {
   if [[ "${CLEAN_CLUSTERS}" == "True" ]]; then
@@ -102,44 +130,52 @@ function clone_cni() {
 }
 
 function cleanup_kind_cluster() {
+  NAME="${1}"
   echo "Test exited with exit code $?."
-  kind export logs --name istio-testing "${ARTIFACTS}/kind"
+  kind export logs --name "${NAME}" "${ARTIFACTS}/kind" --loglevel debug || true
   if [[ -z "${SKIP_CLEANUP:-}" ]]; then
     echo "Cleaning up kind cluster"
-    kind delete cluster --name=istio-testing
+    kind delete cluster --name "${NAME}" --loglevel debug || true
   fi
 }
 
 function setup_kind_cluster() {
-  IMAGE="${1}"
+  IMAGE="${1:-}"
+  NAME="${2:-istio-testing}"
+  CONFIG="${3:-}"
   # Delete any previous e2e KinD cluster
-  echo "Deleting previous KinD cluster with name=istio-testing"
-  if ! (kind delete cluster --name=istio-testing) > /dev/null; then
-    echo "No existing kind cluster with name istio-testing. Continue..."
+  echo "Deleting previous KinD cluster with name=${NAME}"
+  if ! (kind delete cluster --name="${NAME}") > /dev/null; then
+    echo "No existing kind cluster with name ${NAME}. Continue..."
   fi
 
-  trap cleanup_kind_cluster EXIT
+  # explicitly disable shellcheck since we actually want $NAME to expand now
+  # shellcheck disable=SC2064
+  trap "cleanup_kind_cluster ${NAME}" EXIT
 
-  # Different Kubernetes versions need different patches
-  K8S_VERSION=$(cut -d ":" -f 2 <<< "${IMAGE}")
-  if [[ -n "${IMAGE}" && "${K8S_VERSION}" < "v1.13" ]]; then
-    # Kubernetes 1.12
-    CONFIG=./prow/config/trustworthy-jwt-12.yaml
-  elif [[ -n "${IMAGE}" && "${K8S_VERSION}" < "v1.15" ]]; then
-    # Kubernetes 1.13, 1.14
-    CONFIG=./prow/config/trustworthy-jwt-13-14.yaml
-  else
-    # Kubernetes 1.15
-    CONFIG=./prow/config/trustworthy-jwt.yaml
+  # If config not explicitly set, then use defaults
+  if [[ -z "${CONFIG}" ]]; then
+    # Different Kubernetes versions need different patches
+    K8S_VERSION=$(cut -d ":" -f 2 <<< "${IMAGE}")
+    if [[ -n "${IMAGE}" && "${K8S_VERSION}" < "v1.13" ]]; then
+      # Kubernetes 1.12
+      CONFIG=./prow/config/trustworthy-jwt-12.yaml
+    elif [[ -n "${IMAGE}" && "${K8S_VERSION}" < "v1.15" ]]; then
+      # Kubernetes 1.13, 1.14
+      CONFIG=./prow/config/trustworthy-jwt-13-14.yaml
+    else
+      # Kubernetes 1.15
+      CONFIG=./prow/config/trustworthy-jwt.yaml
+    fi
   fi
 
   # Create KinD cluster
-  if ! (kind create cluster --name=istio-testing --config "${CONFIG}" --loglevel debug --retain --image "${IMAGE}"); then
+  if ! (kind create cluster --name="${NAME}" --config "${CONFIG}" --loglevel debug --retain --image "${IMAGE}" --wait=60s); then
     echo "Could not setup KinD environment. Something wrong with KinD setup. Exporting logs."
     exit 1
   fi
 
-  KUBECONFIG="$(kind get kubeconfig-path --name="istio-testing")"
+  KUBECONFIG="$(kind get kubeconfig-path --name="${NAME}")"
   export KUBECONFIG
 
   kubectl apply -f ./prow/config/metrics
@@ -160,4 +196,54 @@ function cni_run_daemon_kind() {
     --set-string hub="${ISTIO_CNI_HUB}" --set-string tag="${ISTIO_CNI_TAG}" --set-string pullPolicy=IfNotPresent --set logLevel="${CNI_LOGLVL:-debug}"  "${chartdir}"/istio-cni >  "${chartdir}"/istio-cni_install.yaml
 
   kubectl apply -f  "${chartdir}"/istio-cni_install.yaml
+}
+
+# setup_cluster_reg is used to set up a cluster registry for multicluster testing
+function setup_cluster_reg () {
+    MAIN_CONFIG=""
+    for context in "${CLUSTERREG_DIR}"/*; do
+        if [[ -z "${MAIN_CONFIG}" ]]; then
+            MAIN_CONFIG="${context}"
+        fi
+        export KUBECONFIG="${context}"
+        kubectl delete ns istio-system-multi --ignore-not-found
+        kubectl delete clusterrolebinding istio-multi-test --ignore-not-found
+        kubectl create ns istio-system-multi
+        kubectl create sa istio-multi-test -n istio-system-multi
+        kubectl create clusterrolebinding istio-multi-test --clusterrole=cluster-admin --serviceaccount=istio-system-multi:istio-multi-test
+        CLUSTER_NAME=$(kubectl config view --minify=true -o "jsonpath={.clusters[].name}")
+        gen_kubeconf_from_sa istio-multi-test "${context}"
+    done
+    export KUBECONFIG="${MAIN_CONFIG}"
+}
+
+function gen_kubeconf_from_sa () {
+    local service_account=$1
+    local filename=$2
+
+    SERVER=$(kubectl config view --minify=true -o "jsonpath={.clusters[].cluster.server}")
+    SECRET_NAME=$(kubectl get sa "${service_account}" -n istio-system-multi -o jsonpath='{.secrets[].name}')
+    CA_DATA=$(kubectl get secret "${SECRET_NAME}" -n istio-system-multi -o "jsonpath={.data['ca\\.crt']}")
+    TOKEN=$(kubectl get secret "${SECRET_NAME}" -n istio-system-multi -o "jsonpath={.data['token']}" | base64 --decode)
+
+    cat <<EOF > "${filename}"
+      apiVersion: v1
+      clusters:
+         - cluster:
+             certificate-authority-data: ${CA_DATA}
+             server: ${SERVER}
+           name: ${CLUSTER_NAME}
+      contexts:
+         - context:
+             cluster: ${CLUSTER_NAME}
+             user: ${CLUSTER_NAME}
+           name: ${CLUSTER_NAME}
+      current-context: ${CLUSTER_NAME}
+      kind: Config
+      preferences: {}
+      users:
+         - name: ${CLUSTER_NAME}
+           user:
+             token: ${TOKEN}
+EOF
 }

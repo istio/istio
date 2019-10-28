@@ -32,10 +32,21 @@ import (
 	"istio.io/istio/pkg/kube"
 )
 
+type AnalyzerFoundIssuesError struct{}
+
+const (
+	FoundIssueString = "Analyzer found issues."
+)
+
+func (f AnalyzerFoundIssuesError) Error() string {
+	return FoundIssueString
+}
+
 var (
-	useKube      bool
-	useDiscovery string
-	colorize     bool
+	useKube               bool
+	useDiscovery          string
+	messageLevelThreshold = diag.Warning // messages at least this level will generate an error exit code
+	colorize              bool
 
 	termEnvVar = env.RegisterStringVar("TERM", "", "Specifies terminal type.  Use 'dumb' to suppress color output")
 
@@ -124,20 +135,43 @@ istioctl experimental analyze -k -d false
 			// If files are provided, treat them (collectively) as a source.
 			if len(files) > 0 {
 				if err = sa.AddFileKubeSource(files); err != nil {
-					return err
+					// Partial success is possible, so don't return early, but do print.
+					// TODO(https://github.com/istio/istio/issues/17862): If we had any such errors, we should return a nonzero exit code
+					fmt.Fprintf(cmd.ErrOrStderr(), "Error(s) reading files: %v", err)
 				}
 			}
 
-			messages, err := sa.Analyze(cancel)
+			result, err := sa.Analyze(cancel)
 			if err != nil {
 				return err
 			}
 
-			for _, m := range messages {
-				fmt.Fprintln(cmd.OutOrStdout(), renderMessage(m))
+			// Maybe output details about which analyzers ran
+			if verbose {
+				if len(result.SkippedAnalyzers) > 0 {
+					fmt.Fprintln(cmd.ErrOrStderr(), "Skipped analyzers:")
+					for _, a := range result.SkippedAnalyzers {
+						fmt.Fprintln(cmd.ErrOrStderr(), "\t", a)
+					}
+				}
+				if len(result.ExecutedAnalyzers) > 0 {
+					fmt.Fprintln(cmd.ErrOrStderr(), "Executed analyzers:")
+					for _, a := range result.ExecutedAnalyzers {
+						fmt.Fprintln(cmd.ErrOrStderr(), "\t", a)
+					}
+				}
+				fmt.Fprintln(cmd.ErrOrStderr())
 			}
 
-			return nil
+			if len(result.Messages) == 0 {
+				fmt.Fprintln(cmd.ErrOrStderr(), "\u2714 No validation issues found.")
+			} else {
+				for _, m := range result.Messages {
+					fmt.Fprintln(cmd.OutOrStdout(), renderMessage(m))
+				}
+			}
+
+			return errorIfMessagesExceedThreshold(result.Messages)
 		},
 	}
 
@@ -149,6 +183,7 @@ istioctl experimental analyze -k -d false
 			"Analyzers requiring resources made available by enabling service discovery will be skipped.")
 	analysisCmd.PersistentFlags().BoolVar(&colorize, "color", istioctlColorDefault(analysisCmd),
 		"Default true.  Disable with '=false' or set $TERM to dumb")
+	analysisCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
 
 	return analysisCmd
 }
@@ -220,4 +255,19 @@ func istioctlColorDefault(cmd *cobra.Command) bool {
 	}
 
 	return true
+}
+
+func errorIfMessagesExceedThreshold(messages []diag.Message) error {
+	foundIssues := false
+	for _, m := range messages {
+		if m.Type.Level().IsWorseThanOrEqualTo(messageLevelThreshold) {
+			foundIssues = true
+		}
+	}
+
+	if foundIssues {
+		return AnalyzerFoundIssuesError{}
+	}
+
+	return nil
 }
