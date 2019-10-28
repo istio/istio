@@ -29,7 +29,7 @@ type Workload struct {
 	// Either portNumber/portName will be set, or neither. The constructors
 	// prevent both from ever being set.
 	portNumber uint32
-	portName string
+	portName   string
 }
 
 // NewWorkloadWithPortNumber creates a new Workload using the specified fqdn and
@@ -86,7 +86,7 @@ type PolicyChecker struct {
 type strictMTLSMode int
 
 const (
-	strictMTLSUnset strictMTLSMode = iota 
+	strictMTLSUnset strictMTLSMode = iota
 	strictMTLSExplicitlyEnabled
 	strictMTLSExplicitlyDisabled
 )
