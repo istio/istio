@@ -234,13 +234,13 @@ installIstioAtVersionUsingHelm() {
     --set-string global.tag="${2}" \
     --set global.defaultPodDisruptionBudget.enabled=true > "${ISTIO_ROOT}/istio.yaml" || die "helm template failed"
 
-    withRetries 3 60 kubectl apply -f "${ISTIO_ROOT}"/istio.yaml
+    kubectl apply -f "${ISTIO_ROOT}"/istio.yaml
 }
 
 installIstioAtVersionUsingIstioctl(){
   writeMsg "istioctl install istio using version ${2} from ${3}."
   istioctl_path="${3}"/bin
-  withRetries 3 60 "${istioctl_path}"/istioctl experimental manifest apply --skip-confirmation
+  "${istioctl_path}"/istioctl experimental manifest apply --skip-confirmation
 }
 
 # istioctl x upgrade supports upgrade istio release version
@@ -249,7 +249,7 @@ installIstioAtVersionUsingIstioctl(){
 upgradeIstioAtVersionUsingIstioctl(){
   writeMsg "istioctl upgrade istio using version ${2} from ${3}."
   istioctl_path="${3}"/bin
-  withRetries 3 60 "${istioctl_path}"/istioctl experimental manifest upgrade --skip-confirmation
+  "${istioctl_path}"/istioctl experimental manifest upgrade --skip-confirmation
 }
 
 istioInstallOptions() {
