@@ -367,7 +367,7 @@ var (
 				}
 			}
 
-			// If the token and path are present - use SDS.			
+			// If the token and path are present - use SDS.
 
 			// TODO: change Mixer and Pilot to use standard template and deprecate this custom bootstrap parser
 			if controlPlaneBootstrap {
@@ -746,7 +746,6 @@ func waitForFile(fname string, maxWait time.Duration) bool {
 		time.Sleep(100 * time.Millisecond)
 	}
 }
-
 
 // TODO: get the config and bootstrap from istiod, by passing the env
 

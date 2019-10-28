@@ -17,11 +17,12 @@ package istiod
 import (
 	"context"
 	"fmt"
-	"google.golang.org/grpc"
-	"k8s.io/client-go/kubernetes"
 	"os"
 	"strings"
 	"time"
+
+	"google.golang.org/grpc"
+	"k8s.io/client-go/kubernetes"
 
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
@@ -70,7 +71,7 @@ type CAOptions struct { // nolint: maligned
 	workloadCertMinGracePeriod time.Duration
 
 	// Comma separated string containing all possible host name that clients may use to connect to.
-	grpcHosts  string
+	grpcHosts string
 
 	// Whether the CA signs certificates for other CAs.
 	signCACerts bool
@@ -104,31 +105,31 @@ func RunCA(grpc *grpc.Server, cs kubernetes.Interface, opts *CAOptions) {
 
 	ca := createCA(cs.CoreV1(), opts)
 
-		// start registry if gRPC server is to be started
-		reg := registry.GetIdentityRegistry()
+	// start registry if gRPC server is to be started
+	reg := registry.GetIdentityRegistry()
 
-		// add certificate identity to the identity registry for the liveness probe check
-		if registryErr := reg.AddMapping(probecontroller.LivenessProbeClientIdentity,
-			probecontroller.LivenessProbeClientIdentity); registryErr != nil {
-			log.Errorf("Failed to add indentity mapping: %v", registryErr)
-		}
+	// add certificate identity to the identity registry for the liveness probe check
+	if registryErr := reg.AddMapping(probecontroller.LivenessProbeClientIdentity,
+		probecontroller.LivenessProbeClientIdentity); registryErr != nil {
+		log.Errorf("Failed to add indentity mapping: %v", registryErr)
+	}
 
-		ch := make(chan struct{})
+	ch := make(chan struct{})
 
-		// The CA API uses cert with the max workload cert TTL.
-		hostnames := append(strings.Split(opts.grpcHosts, ","), fqdn(opts))
-		caServer, startErr := caserver.NewWithGRPC(grpc, ca, opts.MaxWorkloadCertTTL,
-			opts.signCACerts, hostnames, 0, spiffe.GetTrustDomain(),
-			true)
-		if startErr != nil {
-			fatalf("Failed to create istio ca server: %v", startErr)
-		}
-		if serverErr := caServer.Run(); serverErr != nil {
-			// stop the registry-related controllers
-			ch <- struct{}{}
+	// The CA API uses cert with the max workload cert TTL.
+	hostnames := append(strings.Split(opts.grpcHosts, ","), fqdn(opts))
+	caServer, startErr := caserver.NewWithGRPC(grpc, ca, opts.MaxWorkloadCertTTL,
+		opts.signCACerts, hostnames, 0, spiffe.GetTrustDomain(),
+		true)
+	if startErr != nil {
+		fatalf("Failed to create istio ca server: %v", startErr)
+	}
+	if serverErr := caServer.Run(); serverErr != nil {
+		// stop the registry-related controllers
+		ch <- struct{}{}
 
-			log.Warnf("Failed to start GRPC server with error: %v", serverErr)
-		}
+		log.Warnf("Failed to start GRPC server with error: %v", serverErr)
+	}
 	log.Info("Istiod CA has started")
 }
 
@@ -179,4 +180,3 @@ func createCA(client corev1.CoreV1Interface, opts *CAOptions) *ca.IstioCA {
 
 	return istioCA
 }
-

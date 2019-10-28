@@ -218,10 +218,11 @@ func (s *Server) Run() error {
 
 	return nil
 }
+
 // New creates a new instance of `IstioCAServiceServer`.
 func New(ca CertificateAuthority, ttl time.Duration, forCA bool,
-		hostlist []string, port int, trustDomain string, sdsEnabled bool) (*Server, error) {
-			return NewWithGRPC(nil, ca, ttl, forCA, hostlist, port, trustDomain, sdsEnabled)
+	hostlist []string, port int, trustDomain string, sdsEnabled bool) (*Server, error) {
+	return NewWithGRPC(nil, ca, ttl, forCA, hostlist, port, trustDomain, sdsEnabled)
 }
 
 // New creates a new instance of `IstioCAServiceServer`, running inside an existing gRPC server.

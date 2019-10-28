@@ -92,12 +92,12 @@ func main() {
 	// If adjustments are needed - env or mesh.config ( if of general interest ).
 
 	istiod.RunCA(istiods.SecureGRPCServer, client, &istiod.CAOptions{
-		TrustDomain: istiods.Mesh.TrustDomain,
-		DualUse: true,
-		SelfSignedCA: true, // for existing CA - mount a secret in the expected location
-		IstioNamespace: "istio-system",
+		TrustDomain:        istiods.Mesh.TrustDomain,
+		DualUse:            true,
+		SelfSignedCA:       true, // for existing CA - mount a secret in the expected location
+		IstioNamespace:     "istio-system",
 		MaxWorkloadCertTTL: 90 * 24 * time.Hour,
-		WorkloadCertTTL: 90 * 24 * time.Hour,
+		WorkloadCertTTL:    90 * 24 * time.Hour,
 	})
 
 	istiods.Serve(stop)
