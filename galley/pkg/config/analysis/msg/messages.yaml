@@ -131,14 +131,3 @@ messages:
         type: string
       - name: host
         type: string
-
-  - name: "NoResourcesNotFoundForNamespace"
-    code: IST0110
-    level: Error
-    description: "There are no resources in the namespace"
-    template: "No %s found in %s namespace"
-    args:
-      - name: reftype
-        type: string
-      - name: namespace
-        type: string

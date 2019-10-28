@@ -122,7 +122,6 @@ metadata:
   namespace: anothernamespace
 spec:
   rules:
-    # There aren't services in anothernamespace namespace, should generate an error.
-    # If set to [“*”], it refers to all services in the namespace
+    # There aren't services in anothernamespace namespace, it shouldn't generate an error though.
     - services: ["*"]
       methods: ["GET", "HEAD"]

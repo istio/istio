@@ -59,14 +59,7 @@ func (s *ServiceRoleServicesAnalyzer) analyzeServiceRoleServices(r *resource.Ent
 
 	for _, rs := range sr.Rules {
 		for _, svc := range rs.Services {
-			// If service is * then the service role rule applies to all services on the namespace
-			if svc == "*" {
-				if len(nsm[ns]) < 1 {
-					// Report when there are no services on the ServiceRole namespace
-					ctx.Report(metadata.IstioRbacV1Alpha1Serviceroles,
-						msg.NewNoResourcesNotFoundForNamespace(r, "service", ns))
-				}
-			} else if !s.existMatchingService(svc, nsm[ns]) {
+			if svc != "*" && !s.existMatchingService(svc, nsm[ns]) {
 				// Report when the specific service doesn't exist
 				ctx.Report(metadata.IstioRbacV1Alpha1Serviceroles,
 					msg.NewReferencedResourceNotFound(r, "service", svc))
