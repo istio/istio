@@ -24,11 +24,11 @@ type Level struct {
 	name      string
 }
 
-func (l *Level) String() string {
+func (l Level) String() string {
 	return l.name
 }
 
-func (l *Level) IsWorseThanOrEqualTo(target Level) bool {
+func (l Level) IsWorseThanOrEqualTo(target Level) bool {
 	return l.sortOrder <= target.sortOrder
 }
 
@@ -43,10 +43,13 @@ var (
 	Error = Level{0, "Error"}
 )
 
+// GetAllLevels returns an arbitrarily ordered slice of all Levels defined.
 func GetAllLevels() []Level {
 	return []Level{Info, Warning, Error}
 }
 
+// GetAllLevelStrings returns a list of strings representing the names of all Levels defined. The order is arbitrary but
+// should be the same as GetAllLevels.
 func GetAllLevelStrings() []string {
 	levels := GetAllLevels()
 	var s []string
@@ -56,6 +59,8 @@ func GetAllLevelStrings() []string {
 	return s
 }
 
+// GetUppercaseStringToLevelMap returns a mapping of uppercase strings to Level structs. This function is intended to be
+// used to convert user input to structs.
 func GetUppercaseStringToLevelMap() map[string]Level {
 	m := make(map[string]Level)
 	for _, l := range GetAllLevels() {

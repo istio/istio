@@ -23,7 +23,7 @@ import (
 // MessageType is a type of diagnostic message
 type MessageType struct {
 	// The level of the message.
-	level *Level
+	level Level
 
 	// The error code of the message
 	code string
@@ -33,7 +33,7 @@ type MessageType struct {
 }
 
 // Level returns the level of the MessageType
-func (m *MessageType) Level() *Level { return m.level }
+func (m *MessageType) Level() Level { return m.level }
 
 // Code returns the code of the MessageType
 func (m *MessageType) Code() string { return m.code }
@@ -79,7 +79,7 @@ func (m *Message) String() string {
 // NewMessageType returns a new MessageType instance.
 func NewMessageType(level Level, code, template string) *MessageType {
 	return &MessageType{
-		level:    &level,
+		level:    level,
 		code:     code,
 		template: template,
 	}
