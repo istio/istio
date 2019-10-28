@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package istio_agent
+package istioagent
 
 import (
 	"context"
@@ -66,6 +66,16 @@ var (
 	secretRotationIntervalEnv          = env.RegisterDurationVar(SecretRotationInterval, 10*time.Minute, "").Get()
 	staledConnectionRecycleIntervalEnv = env.RegisterDurationVar(staledConnectionRecycleInterval, 5*time.Minute, "").Get()
 	initialBackoffEnv                  = env.RegisterIntVar(InitialBackoff, 10, "").Get()
+
+	// sdsUdsPathVar is the location where host-path mounted UDS is located in current installers, and used by injector.
+	// For backward compat - this will go away.
+	sdsUdsPathVar = env.RegisterStringVar("SDS_UDS_PATH", "unix:/var/run/sds/uds_path", "SDS address")
+
+	// Location of a custom-mounted root (for example using Secret)
+	mountedRoot = "./etc/certs/root-cert.pem"
+
+	// Location of K8S CA root.
+	k8sCAPath = "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 )
 
 const (
@@ -114,9 +124,6 @@ var (
 	// If the file is missing, the agent will fallback to using mounted certificates if XDS address is secure.
 	JWTPath = "/var/run/secrets/tokens/istio-token"
 
-	// HostSDSUDS is the location where host-path mounted UDS is located in current installers
-	HostSDSUDS = "/var/run/sds/uds_path"
-
 	// LocalSDS is the location of the in-process SDS server - must be in a writeable dir.
 	LocalSDS = "/etc/istio/proxy/SDS"
 
@@ -160,9 +167,16 @@ func DetectSDS(discAddr string, tlsRequired bool) *AgentConf {
 	if _, err := os.Stat(JWTPath); err == nil {
 		ac.JWTPath = JWTPath
 	}
-	if _, err := os.Stat(HostSDSUDS); err == nil {
-		ac.SDSAddress = HostSDSUDS
+
+	hostSDSUDS := sdsUdsPathVar.Get()
+	if strings.HasPrefix(hostSDSUDS, "unix:") {
+		// Skip the prefix
+		hostSDSUDS = sdsUdsPathVar.Get()[5:]
+		if _, err := os.Stat(hostSDSUDS); err == nil {
+			ac.SDSAddress = hostSDSUDS
+		}
 	}
+
 	if _, err := os.Stat("/etc/certs/key.pem"); err == nil {
 		ac.CertsPath = "/etc/certs"
 	}
@@ -226,9 +240,14 @@ func StartSDS(conf *AgentConf, isSidecar bool) (*sds.Server, error) {
 		}
 		if si != nil {
 			// For debugging and backward compat - we may not need it long term
-			ioutil.WriteFile("/etc/istio/proxy/key.pem", si.PrivateKey, 0700)
-			ioutil.WriteFile("/etc/istio/proxy/cert-chain.pem", si.CertificateChain, 0700)
-			//ioutil.WriteFile("/etc/istio/proxy/root-cert.pem", si.RootCert, 0700)
+			err = ioutil.WriteFile("/etc/istio/proxy/key.pem", si.PrivateKey, 0700)
+			if err != nil {
+				log.Fatalf("Failed to write certs: %v", err)
+			}
+			err = ioutil.WriteFile("/etc/istio/proxy/cert-chain.pem", si.CertificateChain, 0700)
+			if err != nil {
+				log.Fatalf("Failed to write certs: %v", err)
+			}
 		}
 		sir, err := workloadSecretCache.GenerateSecret(context.Background(), "bootstrap", "ROOTCA",
 			string(tok))
@@ -243,7 +262,10 @@ func StartSDS(conf *AgentConf, isSidecar bool) (*sds.Server, error) {
 			// For debugging and backward compat - we may not need it long term
 			// TODO: we should concatenate this file with the existing root-cert and possibly pilot-generated roots, for
 			// smooth transition across CAs.
-			ioutil.WriteFile("/etc/istio/proxy/root-cert.pem", sir.RootCert, 0700)
+			err = ioutil.WriteFile("/etc/istio/proxy/root-cert.pem", sir.RootCert, 0700)
+			if err != nil {
+				log.Fatalf("Failed to write certs: %v", err)
+			}
 		}
 	}
 
@@ -282,15 +304,16 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 		//
 		// If an explicit CA is configured, assume it is mounting /etc/certs
 		var rootCert []byte
-		rootCertFile := ""
-		citadelRoot := "/etc/certs/root-cert.pem"
+
+		// explicitSecret is true if a /etc/certs/root-cert file has been mounted. Will be used
+		// to authenticate the certificate of the SDS server (istiod or custom).
 		explicitSecret := false
-		if _, err := os.Stat(citadelRoot); err == nil {
-			rootCert, err = ioutil.ReadFile(rootCertFile)
+
+		if _, err := os.Stat(mountedRoot); err == nil {
+			rootCert, err = ioutil.ReadFile(mountedRoot)
 			if err != nil {
 				log.Warna("Failed to load existing citadel root", err)
 			} else {
-				rootCertFile = citadelRoot
 				explicitSecret = true
 			}
 		}
@@ -303,8 +326,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 				log.Info("Using citadel CA for SDS")
 				serverOptions.CAEndpoint = "istio-citadel.istio-system:8060"
 			} else {
-				rootCertFile = "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-				rootCert, err = ioutil.ReadFile(rootCertFile)
+				rootCert, err = ioutil.ReadFile(k8sCAPath)
 				if err != nil {
 					log.Warna("Failed to load K8S cert, assume IP secure network ", err)
 					serverOptions.CAEndpoint = "istiod.istio-system:15010"
@@ -321,8 +343,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 				tls = false
 			}
 			if strings.HasSuffix(serverOptions.CAEndpoint, ":15012") {
-				rootCertFile = "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-				rootCert, err = ioutil.ReadFile(rootCertFile)
+				rootCert, err = ioutil.ReadFile(k8sCAPath)
 			}
 		}
 
