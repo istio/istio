@@ -142,8 +142,9 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 			if err := rotator.ca.GetCAKeyCertBundle().VerifyAndSetAll(caSecret.Data[caCertID],
 				caSecret.Data[caPrivateKeyID], nil, caSecret.Data[caCertID]); err != nil {
 				rootCertRotatorLog.Errorf("failed to reload root cert into KeyCertBundle (%v)", err)
+			} else {
+				rootCertRotatorLog.Info("Successfully reloaded root cert into KeyCertBundle.")
 			}
-			rootCertRotatorLog.Info("Successfully reloaded root cert into KeyCertBundle.")
 			certEncoded := base64.StdEncoding.EncodeToString(rotator.ca.GetCAKeyCertBundle().GetRootCertPem())
 			// Keep root certificate in configmap in sync with the root certificate in istio-ca-secret.
 			if err = rotator.configMapController.InsertCATLSRootCertWithRetry(
