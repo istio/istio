@@ -151,6 +151,20 @@ func TestAuthUpgrade(t *testing.T) {
 			golden:        "testdata/auth/upgrade/one-rule-all-services.golden.yaml",
 		},
 		{
+			name: "Multiple access rules with one subject",
+			rbacV1alpha1Files: []string{"testdata/auth/upgrade/multiple-access-rules.yaml",
+				"testdata/auth/upgrade/one-subject.yaml"},
+			servicesFiles: []string{"testdata/auth/upgrade/svc-bookinfo.yaml"},
+			golden:        "testdata/auth/upgrade/multiple-access-rules-one-subject.golden.yaml",
+		},
+		{
+			name: "Multiple access rules with two subjects",
+			rbacV1alpha1Files: []string{"testdata/auth/upgrade/multiple-access-rules.yaml",
+				"testdata/auth/upgrade/two-subjects.yaml"},
+			servicesFiles: []string{"testdata/auth/upgrade/svc-bookinfo.yaml"},
+			golden:        "testdata/auth/upgrade/multiple-access-rules-two-subjects.golden.yaml",
+		},
+		{
 			name: "One access rule with all services with inclusion",
 			rbacV1alpha1Files: []string{"testdata/auth/upgrade/one-rule-all-services.yaml",
 				"testdata/auth/upgrade/two-subjects.yaml", "testdata/auth/upgrade/cluster-rbac-config-on-with-inclusion.yaml"},

@@ -275,51 +275,41 @@ func (ug *Upgrader) v1alpha1ModelTov1beta1Policy(v1alpha1Model *authz_model.Mode
 		return fmt.Errorf("internal error: No v1alpha1 model")
 	}
 	if v1alpha1Model.Permissions == nil || len(v1alpha1Model.Permissions) == 0 {
-		return fmt.Errorf("invalid input: ServiceRole has no permissions")
+		return fmt.Errorf("invalid input: no access rule found from ServiceRole")
 	}
 	if v1alpha1Model.Principals == nil || len(v1alpha1Model.Principals) == 0 {
-		return fmt.Errorf("principals are empty")
-	}
-	// TODO(pitlv2109): Support more complex cases
-	if len(v1alpha1Model.Permissions) > 1 {
-		return fmt.Errorf("more than one access rule is not supported")
-	}
-	accessRule := v1alpha1Model.Permissions[0]
-	operations, err := convertAccessRuleToOperation(&accessRule)
-	if err != nil {
-		return fmt.Errorf("cannot convert access rule to operation: %v", err)
+		return fmt.Errorf("invalid input: no subject found from ServiceRoleBinding")
 	}
 	sources, err := convertBindingToSources(v1alpha1Model.Principals)
 	if err != nil {
 		return fmt.Errorf("cannot convert binding to sources: %v", err)
 	}
-	// If there is no services field or it's defined as "*", it's equivalent to an AuthorizationPolicy
-	// with no workload selector
-	authzPolicyConfig := model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:      schemas.AuthorizationPolicy.Type,
-			Namespace: namespace,
-		},
-		Spec: &rbac_v1beta1.AuthorizationPolicy{
-			Selector: &v1beta1.WorkloadSelector{},
-			Rules: []*rbac_v1beta1.Rule{
-				{
-					From: sources,
-					To: []*rbac_v1beta1.Rule_To{
-						{
-							Operation: operations,
-						},
-					},
-				},
-			},
-		},
+	for _, accessRule := range v1alpha1Model.Permissions {
+		operation, err := convertAccessRuleToOperation(&accessRule)
+		if err != nil {
+			return fmt.Errorf("cannot convert access rule to operation: %v", err)
+		}
+		authzPolicyConfig := constructAuthzPolicy(namespace, sources, operation)
+		err = ug.authzPolicyPerAccessRule(authzPolicyConfig, accessRule, namespace)
+		if err != nil {
+			return fmt.Errorf("failed to convert: %v", err)
+		}
 	}
+	return nil
+}
+
+// authzPolicyPerService takes in an Access Rule from v1 and an AuthorizationPolicy
+// and generates AuthorizationPolicy per service from that Access Rule.
+func (ug *Upgrader) authzPolicyPerAccessRule(authzPolicyConfig model.Config, accessRule authz_model.Permission, namespace string) error {
+	// If there is no service or if the services field is set to *, no need to find workload selectors
+	// for the services.
 	if len(accessRule.Services) == 0 || accessRule.Services[0] == "*" {
 		authzPolicyConfig.Name = fmt.Sprintf("%s-all", namespace)
 		authzPolicyConfig.Spec.(*rbac_v1beta1.AuthorizationPolicy).Selector = nil
 		ug.AuthorizationPolicies = append(ug.AuthorizationPolicies, authzPolicyConfig)
 		return nil
 	}
+	// Configure the workload selector for each service.
 	for _, service := range accessRule.Services {
 		serviceName := strings.Split(service, ".")[0]
 		authzPolicyConfig.Name = fmt.Sprintf("%s-%s", namespace, serviceName)
@@ -515,4 +505,30 @@ func (ug *Upgrader) getIstioRootNamespace() (string, error) {
 		}
 	}
 	return meshConfig.RootNamespace, nil
+}
+
+// constructAuthzPolicy constructs an AuthorizationPolicy given namespace, sources, and operation.
+func constructAuthzPolicy(namespace string, sources []*rbac_v1beta1.Rule_From, operation *rbac_v1beta1.Operation) model.Config {
+	// If there is no services field or it's defined as "*", it's equivalent to an AuthorizationPolicy
+	// with no workload selector
+	authzPolicyConfig := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:      schemas.AuthorizationPolicy.Type,
+			Namespace: namespace,
+		},
+		Spec: &rbac_v1beta1.AuthorizationPolicy{
+			Selector: &v1beta1.WorkloadSelector{},
+			Rules: []*rbac_v1beta1.Rule{
+				{
+					From: sources,
+					To: []*rbac_v1beta1.Rule_To{
+						{
+							Operation: operation,
+						},
+					},
+				},
+			},
+		},
+	}
+	return authzPolicyConfig
 }
