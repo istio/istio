@@ -148,11 +148,20 @@ func TestV1beta1_PassThroughFilterChain(t *testing.T) {
 						return fmt.Errorf("want status %s but got %s", response.StatusCodeOK, responses[0].Code)
 					}
 				} else {
+					// HTTP filter chain
 					if err == nil {
-						return fmt.Errorf("want error but got nil")
-					}
-					if !strings.Contains(err.Error(), "EOF") {
-						return fmt.Errorf("want error EOF but got: %v", err)
+						if len(responses) < 1 {
+							return fmt.Errorf("received no responses from request to %s", host)
+						}
+
+						if responses[0].Code != response.StatusCodeForbidden {
+							return fmt.Errorf("want status %s but got %s",
+								response.StatusCodeForbidden, responses[0].Code)
+						}
+					} else {
+						if !strings.Contains(err.Error(), "EOF") {
+							return fmt.Errorf("want error EOF but got: %v", err)
+						}
 					}
 				}
 				return nil
