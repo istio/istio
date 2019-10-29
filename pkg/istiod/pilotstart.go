@@ -204,7 +204,7 @@ func (s *Server) InitDiscovery() error {
 // initMonitor initializes the configuration for the pilot monitoring server.
 func (s *Server) initMonitor(args *PilotArgs) error { //nolint: unparam
 	s.AddStartFunc(func(stop <-chan struct{}) error {
-		monitor, addr, err := startMonitor(args.DiscoveryOptions.MonitoringAddr, s.mux)
+		monitor, addr, err := StartMonitor(args.DiscoveryOptions.MonitoringAddr, s.mux)
 		if err != nil {
 			return err
 		}

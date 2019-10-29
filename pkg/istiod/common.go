@@ -91,7 +91,7 @@ type Server struct {
 // to be refactored and moved here.
 func (s *Server) InitCommon(args *PilotArgs) {
 
-	_, addr, err := startMonitor(args.DiscoveryOptions.MonitoringAddr, s.mux)
+	_, addr, err := StartMonitor(args.DiscoveryOptions.MonitoringAddr, s.mux)
 	if err != nil {
 		return
 	}

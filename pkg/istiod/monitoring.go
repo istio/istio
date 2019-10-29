@@ -56,7 +56,7 @@ func addMonitor(mux *http.ServeMux) error {
 
 // Deprecated: we shouldn't have 2 http ports. Will be removed after code using
 // this port is removed.
-func startMonitor(addr string, mux *http.ServeMux) (*monitor, net.Addr, error) {
+func StartMonitor(addr string, mux *http.ServeMux) (*monitor, net.Addr, error) {
 	m := &monitor{
 		shutdown: make(chan struct{}),
 	}
