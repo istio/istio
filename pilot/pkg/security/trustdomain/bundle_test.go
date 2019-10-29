@@ -39,7 +39,7 @@ func TestReplaceTrustDomainAliases(t *testing.T) {
 			expect:            []string{"*"},
 		},
 		{
-			name:              "Principal with * prefix and right format",
+			name:              "Principal with * prefix",
 			trustDomainBundle: NewTrustDomainBundle("cluster.local", nil),
 			principals:        []string{"*/ns/foo/sa/bar"},
 			expect:            []string{"*/ns/foo/sa/bar"},
@@ -76,7 +76,7 @@ func TestReplaceTrustDomainAliases(t *testing.T) {
 			expect:            []string{"td2/ns/foo/sa/bar", "*-td1/ns/foo/sa/bar", "cluster.local/ns/foo/sa/bar"},
 		},
 		{
-			name:              "Principals not match alias",
+			name:              "Principals not match any trust domains",
 			trustDomainBundle: NewTrustDomainBundle("td1", []string{"td2"}),
 			principals:        []string{"some-td/ns/foo/sa/bar"},
 			expect:            []string{"some-td/ns/foo/sa/bar"},

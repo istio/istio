@@ -133,11 +133,28 @@ func BindingTag(name string) string {
 	return fmt.Sprintf("UserFromBinding[%s]", name)
 }
 
-func SimpleBinding(name, namespace, role, user string) *model.Config {
-	// Use binding tag if the exact principals are not relevant (e.g. trust domain aliasing).
-	if user == "" {
-		user = BindingTag(name)
+func SimpleBinding(name, namespace, role string) *model.Config {
+	return &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:      schemas.ServiceRoleBinding.Type,
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: &istio_rbac.ServiceRoleBinding{
+			Subjects: []*istio_rbac.Subject{
+				{
+					User: BindingTag(name),
+				},
+			},
+			RoleRef: &istio_rbac.RoleRef{
+				Name: role,
+				Kind: "ServiceRole",
+			},
+		},
 	}
+}
+
+func SimpleBindingWithUser(name, namespace, role, user string) *model.Config {
 	return &model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:      schemas.ServiceRoleBinding.Type,
@@ -159,7 +176,7 @@ func SimpleBinding(name, namespace, role, user string) *model.Config {
 }
 
 func SimplePermissiveBinding(name string, namespace string, role string) *model.Config {
-	cfg := SimpleBinding(name, namespace, role, "")
+	cfg := SimpleBinding(name, namespace, role)
 	binding := cfg.Spec.(*istio_rbac.ServiceRoleBinding)
 	binding.Mode = istio_rbac.EnforcementMode_PERMISSIVE
 	return cfg
