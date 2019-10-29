@@ -1,3 +1,4 @@
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -41,4 +42,4 @@ spec:
                   fieldPath: metadata.name
             - name: OPERATOR_NAME
               value: "istio-operator"
----
+...
