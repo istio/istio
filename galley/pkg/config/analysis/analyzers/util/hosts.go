@@ -28,6 +28,12 @@ func (s ScopedFqdn) GetScopedNamespaceAndName() (string, string) {
 	return parts[0], parts[1]
 }
 
+// NewScopedFqdn converts the passed host to FQDN if needed and applies the passed scope.
+func NewScopedFqdn(scope, namespace, host string) ScopedFqdn {
+	name := convertHostToFQDN(namespace, host)
+	return ScopedFqdn(scope + "/" + name)
+}
+
 // GetResourceNameFromHost figures out the resource.Name to look up from the provided host string
 // We need to handle two possible formats: short name and FQDN
 // https://istio.io/docs/reference/config/networking/v1alpha3/virtual-service/#Destination
@@ -50,12 +56,6 @@ func getNamespaceAndNameFromFQDN(fqdn string) (string, string) {
 		return "", ""
 	}
 	return result[0][2], result[0][1]
-}
-
-// GetScopedFqdnHostname converts the passed host to FQDN if needed and applies the passed scope.
-func GetScopedFqdnHostname(scope, namespace, host string) ScopedFqdn {
-	name := convertHostToFQDN(namespace, host)
-	return ScopedFqdn(scope + "/" + name)
 }
 
 func convertHostToFQDN(namespace, host string) string {
