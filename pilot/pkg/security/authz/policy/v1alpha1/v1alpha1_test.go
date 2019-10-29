@@ -47,21 +47,21 @@ func TestV1alpha1Generator_Generate(t *testing.T) {
 			name: "no role in namespace a",
 			policies: []*model.Config{
 				policy.SimpleRole("role", namespaceB, serviceFoo),
-				policy.SimpleBinding("binding", namespaceB, "role", ""),
+				policy.SimpleBinding("binding", namespaceB, "role"),
 			},
 		},
 		{
 			name: "no role matched for service foo",
 			policies: []*model.Config{
 				policy.SimpleRole("role", namespaceA, serviceBar),
-				policy.SimpleBinding("binding", namespaceA, "role", ""),
+				policy.SimpleBinding("binding", namespaceA, "role"),
 			},
 		},
 		{
 			name: "no role matched for service foo: global permissive",
 			policies: []*model.Config{
 				policy.SimpleRole("role", namespaceA, serviceBar),
-				policy.SimpleBinding("binding", namespaceA, "role", ""),
+				policy.SimpleBinding("binding", namespaceA, "role"),
 			},
 			isGlobalPermissiveEnabled: true,
 		},
@@ -70,16 +70,16 @@ func TestV1alpha1Generator_Generate(t *testing.T) {
 			policies: []*model.Config{
 				policy.SimpleRole("role-1", namespaceA, serviceFoo),
 				policy.SimpleRole("role-2", namespaceA, serviceBar),
-				policy.SimpleBinding("binding-2", namespaceA, "role-2", ""),
+				policy.SimpleBinding("binding-2", namespaceA, "role-2"),
 				policy.SimpleRole("role-3", namespaceB, serviceFoo),
-				policy.SimpleBinding("binding-3", namespaceB, "role-3", ""),
+				policy.SimpleBinding("binding-3", namespaceB, "role-3"),
 			},
 		},
 		{
 			name: "one role and one binding",
 			policies: []*model.Config{
 				policy.SimpleRole("role", namespaceA, serviceFoo),
-				policy.SimpleBinding("binding", namespaceA, "role", ""),
+				policy.SimpleBinding("binding", namespaceA, "role"),
 			},
 			wantRules: map[string][]string{
 				"role": {policy.RoleTag("role"), policy.BindingTag("binding")},
@@ -89,7 +89,7 @@ func TestV1alpha1Generator_Generate(t *testing.T) {
 			name: "one role and one binding: forTCPFilter",
 			policies: []*model.Config{
 				policy.SimpleRole("role", namespaceA, serviceFoo),
-				policy.SimpleBinding("binding", namespaceA, "role", ""),
+				policy.SimpleBinding("binding", namespaceA, "role"),
 			},
 			forTCPFilter: true,
 		},
@@ -97,7 +97,7 @@ func TestV1alpha1Generator_Generate(t *testing.T) {
 			name: "one role and one binding: permissive",
 			policies: []*model.Config{
 				policy.SimpleRole("role-1", namespaceA, serviceFoo),
-				policy.SimpleBinding("binding-1", namespaceA, "role-1", ""),
+				policy.SimpleBinding("binding-1", namespaceA, "role-1"),
 				policy.SimpleRole("role-2", namespaceA, serviceFoo),
 				policy.SimplePermissiveBinding("binding-2", namespaceA, "role-2"),
 			},
@@ -118,8 +118,8 @@ func TestV1alpha1Generator_Generate(t *testing.T) {
 			name: "one role and two bindings",
 			policies: []*model.Config{
 				policy.SimpleRole("role", namespaceA, serviceFoo),
-				policy.SimpleBinding("binding-1", namespaceA, "role", ""),
-				policy.SimpleBinding("binding-2", namespaceA, "role", ""),
+				policy.SimpleBinding("binding-1", namespaceA, "role"),
+				policy.SimpleBinding("binding-2", namespaceA, "role"),
 			},
 			wantRules: map[string][]string{
 				"role": {
@@ -133,9 +133,9 @@ func TestV1alpha1Generator_Generate(t *testing.T) {
 			name: "two roles and two bindings",
 			policies: []*model.Config{
 				policy.SimpleRole("role-1", namespaceA, serviceFoo),
-				policy.SimpleBinding("binding-1", namespaceA, "role-1", ""),
+				policy.SimpleBinding("binding-1", namespaceA, "role-1"),
 				policy.SimpleRole("role-2", namespaceA, serviceFoo),
-				policy.SimpleBinding("binding-2", namespaceA, "role-2", ""),
+				policy.SimpleBinding("binding-2", namespaceA, "role-2"),
 			},
 			wantRules: map[string][]string{
 				"role-1": {
@@ -152,9 +152,9 @@ func TestV1alpha1Generator_Generate(t *testing.T) {
 			name: "two roles and two bindings: global permissive",
 			policies: []*model.Config{
 				policy.SimpleRole("role-1", namespaceA, serviceFoo),
-				policy.SimpleBinding("binding-1", namespaceA, "role-1", ""),
+				policy.SimpleBinding("binding-1", namespaceA, "role-1"),
 				policy.SimpleRole("role-2", namespaceA, serviceFoo),
-				policy.SimpleBinding("binding-2", namespaceA, "role-2", ""),
+				policy.SimpleBinding("binding-2", namespaceA, "role-2"),
 			},
 			wantShadowRules: map[string][]string{
 				"role-1": {
@@ -172,7 +172,7 @@ func TestV1alpha1Generator_Generate(t *testing.T) {
 			name: "one role and one binding with no trust domain aliases",
 			policies: []*model.Config{
 				policy.SimpleRole("role", namespaceA, serviceFoo),
-				policy.SimpleBinding("binding", namespaceA, "role",
+				policy.SimpleBindingWithUser("binding", namespaceA, "role",
 					policy.CustomPrincipal("td", "foo", "bar")),
 			},
 			trustDomainBundle: trustdomain.NewTrustDomainBundle("td", nil),
@@ -185,7 +185,7 @@ func TestV1alpha1Generator_Generate(t *testing.T) {
 			name: "one role and one binding with trust domain aliases",
 			policies: []*model.Config{
 				policy.SimpleRole("role", namespaceA, serviceFoo),
-				policy.SimpleBinding("binding", namespaceA, "role",
+				policy.SimpleBindingWithUser("binding", namespaceA, "role",
 					policy.CustomPrincipal("td1", "foo", "bar")),
 			},
 			trustDomainBundle: trustdomain.NewTrustDomainBundle("td2", []string{"td1"}),
@@ -199,7 +199,7 @@ func TestV1alpha1Generator_Generate(t *testing.T) {
 			name: "one role and one binding with trust domain aliases",
 			policies: []*model.Config{
 				policy.SimpleRole("role", namespaceA, serviceFoo),
-				policy.SimpleBinding("binding", namespaceA, "role",
+				policy.SimpleBindingWithUser("binding", namespaceA, "role",
 					policy.CustomPrincipal("td1", "foo", "bar")),
 			},
 			trustDomainBundle: trustdomain.NewTrustDomainBundle("td1", []string{"td2", "td3"}),
@@ -214,9 +214,9 @@ func TestV1alpha1Generator_Generate(t *testing.T) {
 			name: "multiple principals and multiple trust domain aliases",
 			policies: []*model.Config{
 				policy.SimpleRole("role", namespaceA, serviceFoo),
-				policy.SimpleBinding("binding-1", namespaceA, "role",
+				policy.SimpleBindingWithUser("binding-1", namespaceA, "role",
 					policy.CustomPrincipal("td1", "foo", "bar")),
-				policy.SimpleBinding("binding-2", namespaceA, "role",
+				policy.SimpleBindingWithUser("binding-2", namespaceA, "role",
 					policy.CustomPrincipal("td1", "avengers", "thanos")),
 			},
 			trustDomainBundle: trustdomain.NewTrustDomainBundle("td1", []string{"td2", "td3"}),
@@ -234,7 +234,7 @@ func TestV1alpha1Generator_Generate(t *testing.T) {
 			name: "trust domain *",
 			policies: []*model.Config{
 				policy.SimpleRole("role", namespaceA, serviceFoo),
-				policy.SimpleBinding("binding", namespaceA, "role",
+				policy.SimpleBindingWithUser("binding", namespaceA, "role",
 					policy.CustomPrincipal("*", "foo", "bar")),
 			},
 			trustDomainBundle: trustdomain.NewTrustDomainBundle("td1", []string{"cluster.local", "td2"}),
@@ -249,7 +249,7 @@ func TestV1alpha1Generator_Generate(t *testing.T) {
 			name: "trust domain with prefix *",
 			policies: []*model.Config{
 				policy.SimpleRole("role", namespaceA, serviceFoo),
-				policy.SimpleBinding("binding", namespaceA, "role",
+				policy.SimpleBindingWithUser("binding", namespaceA, "role",
 					policy.CustomPrincipal("*-td", "foo", "bar")),
 			},
 			trustDomainBundle: trustdomain.NewTrustDomainBundle("foo-td", []string{"td1", "td2"}),
