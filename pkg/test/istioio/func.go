@@ -14,24 +14,11 @@
 
 package istioio
 
-import (
-	"io"
+var _ Step = Func(nil)
 
-	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
-)
+// Func is a Step that runs the provided function.
+type Func func(Context)
 
-// Context for the currently executing test.
-type Context struct {
-	framework.TestContext
-	SnippetsFile io.Writer
-}
-
-// KubeEnv casts the test environment as a *kube.Environment. If the cast fails, fails the test.
-func (ctx Context) KubeEnv() *kube.Environment {
-	e, ok := ctx.Environment().(*kube.Environment)
-	if !ok {
-		ctx.Fatalf("test framework unable to get Kubernetes environment")
-	}
-	return e
+func (f Func) run(ctx Context) {
+	f(ctx)
 }

@@ -12,26 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package istioio
+package trafficmanagement
 
 import (
-	"io"
+	"testing"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/components/istio"
 )
 
-// Context for the currently executing test.
-type Context struct {
-	framework.TestContext
-	SnippetsFile io.Writer
-}
+var (
+	inst istio.Instance
+)
 
-// KubeEnv casts the test environment as a *kube.Environment. If the cast fails, fails the test.
-func (ctx Context) KubeEnv() *kube.Environment {
-	e, ok := ctx.Environment().(*kube.Environment)
-	if !ok {
-		ctx.Fatalf("test framework unable to get Kubernetes environment")
-	}
-	return e
+func TestMain(m *testing.M) {
+	framework.
+		NewSuite("trafficmanagement", m).
+		SetupOnEnv(environment.Kube, istio.Setup(&inst, nil)).
+		RequireEnvironment(environment.Kube).
+		Run()
 }
