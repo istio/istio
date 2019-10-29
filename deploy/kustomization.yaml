@@ -1,3 +1,4 @@
+---
 namespace: istio-operator
 resources:
 - crds/istio_v1alpha2_istiocontrolplane_crd.yaml
@@ -7,4 +8,4 @@ resources:
 - service_account.yaml
 - operator.yaml
 - service.yaml
----
+...

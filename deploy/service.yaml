@@ -1,3 +1,4 @@
+---
 apiVersion: v1
 kind: Service
 metadata:
@@ -12,4 +13,4 @@ spec:
     targetPort: 8383
   selector:
     name: istio-operator
----
+...
