@@ -179,8 +179,13 @@ func RunCA(grpc *grpc.Server, cs kubernetes.Interface, opts *CAOptions) {
 		(k8sInCluster.Get() != "" || trustedIssuer.Get() != "") { // either set explicitly, or not running in cluster.
 		// Add a custom authenticator using standard JWT validation, if not running in K8S
 		// When running inside K8S - we can use the built-in validator, which also check pod removal (invalidation).
-		caServer.Authenticators = append(caServer.Authenticators, NewJwtAuthenticator(iss, opts.TrustDomain, aud))
-		log.Infoa("Using out-of-cluster JWT authentication")
+		oidcAuth, err := NewJwtAuthenticator(iss, opts.TrustDomain, aud)
+		if err == nil {
+			caServer.Authenticators = append(caServer.Authenticators, oidcAuth)
+			log.Infoa("Using out-of-cluster JWT authentication")
+		} else {
+			log.Infoa("K8S token doesn't support OIDC, using only in-cluster auth")
+		}
 	}
 
 
@@ -202,17 +207,17 @@ type jwtAuthenticator struct {
 // NewJwtAuthenticator is used when running istiod outside of a cluster, to validate the tokens using OIDC
 // K8S is created with --service-account-issuer, service-account-signing-key-file and service-account-api-audiences
 // which enable OIDC.
-func NewJwtAuthenticator(iss string, trustDomain, audience string) *jwtAuthenticator {
+func NewJwtAuthenticator(iss string, trustDomain, audience string) (*jwtAuthenticator, error) {
 	provider, err := oidc.NewProvider(context.Background(), iss)
 	if err != nil {
-		log.Fatala("Running in cluster with K8S tokens, but failed to initialize ", iss, err)
+		return nil, fmt.Errorf("Running in cluster with K8S tokens, but failed to initialize %s %s", iss, err)
 	}
 
 	return &jwtAuthenticator{
 		trustDomain: trustDomain,
 		provider: provider,
 		verifier: provider.Verifier(&oidc.Config{ClientID: audience}),
-	}
+	}, nil
 }
 
 // Authenticate - based on the old OIDC authenticator for mesh expansion.

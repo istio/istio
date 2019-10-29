@@ -350,9 +350,12 @@ var (
 				controlPlaneAuthEnabled = true
 			}
 
-			if sa.JWTPath != "" {
+			if sa.JWTPath != "" && !sa.HasCitadelAgent && role.Type == model.SidecarProxy {
+				// For normal Istio - start in process SDS.
+				// Ingress: WIP, permissions needed.
+
 				// citadel node-agent not found, but we have a K8S JWT available. Start an in-process SDS.
-				_, err := istio_agent.StartSDS(sa, role.Type == model.SidecarProxy)
+				_, err := istio_agent.StartSDS(sa, role.Type == model.SidecarProxy, podNamespaceVar.Get())
 				if err != nil {
 					log.Fatala("Failed to start in-process SDS", err)
 				}

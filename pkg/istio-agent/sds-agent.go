@@ -158,7 +158,8 @@ type AgentConf struct {
 	RequireCerts bool
 
 	// Expected SAN
-	SAN string
+	SAN             string
+	HasCitadelAgent bool
 }
 
 // DetectSDS will attempt to find nodeagent SDS and token. If not found will attempt to find
@@ -175,10 +176,14 @@ func DetectSDS(discAddr string, tlsRequired bool) *AgentConf {
 	hostSDSUDS := sdsUdsPathVar.Get()
 	if strings.HasPrefix(hostSDSUDS, "unix:") {
 		// Skip the prefix
-		hostSDSUDS = sdsUdsPathVar.Get()[5:]
-		if _, err := os.Stat(hostSDSUDS); err == nil {
+		if _, err := os.Stat(hostSDSUDS[5:]); err == nil {
 			ac.SDSAddress = hostSDSUDS
+			ac.HasCitadelAgent = true
 		}
+	}
+	if ac.SDSAddress == "" {
+		ac.SDSAddress = "unix:" + LocalSDS
+		ac.HasCitadelAgent = false
 	}
 
 	if _, err := os.Stat("/etc/certs/key.pem"); err == nil {
@@ -196,7 +201,6 @@ func DetectSDS(discAddr string, tlsRequired bool) *AgentConf {
 	// Istiod uses a fixed, defined port for K8S-signed certificates.
 	if discPort == "15012" {
 		ac.RequireCerts = true
-		ac.SDSAddress = "unix:" + LocalSDS
 		// For local debugging - the discoveryAddress is set to localhost, but the cert issued for normal SA.
 		if istiodHost == "localhost" {
 			istiodHost = "istiod.istio-system"
@@ -220,7 +224,7 @@ func DetectSDS(discAddr string, tlsRequired bool) *AgentConf {
 // 3. Monitor mode - watching secret in same namespace ( Ingress)
 //
 // 4. TODO: File watching, for backward compat/migration from mounted secrets.
-func StartSDS(conf *AgentConf, isSidecar bool) (*sds.Server, error) {
+func StartSDS(conf *AgentConf, isSidecar bool, podNamespace string) (*sds.Server, error) {
 	applyEnvVars()
 
 	gatewaySdsCacheOptions = workloadSdsCacheOptions
@@ -236,7 +240,7 @@ func StartSDS(conf *AgentConf, isSidecar bool) (*sds.Server, error) {
 		serverOptions.EnableIngressGatewaySDS = true
 		// TODO: what is the setting for ingress ?
 		serverOptions.IngressGatewayUDSPath = serverOptions.WorkloadUDSPath + "_ROUTER"
-		gatewaySecretCache = newIngressSecretCache(serverOptions)
+		gatewaySecretCache = newIngressSecretCache(serverOptions, podNamespace)
 	}
 
 	// For sidecar and ingress we need to first get the certificates for the workload.
@@ -391,10 +395,11 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 }
 
 // TODO: use existing 'sidecar/router' config to enable loading Secrets
-func newIngressSecretCache(serverOptions sds.Options) (gatewaySecretCache *cache.SecretCache) {
-	gSecretFetcher := &secretfetcher.SecretFetcher{}
+func newIngressSecretCache(serverOptions sds.Options, namespace string) (gatewaySecretCache *cache.SecretCache) {
+	gSecretFetcher := &secretfetcher.SecretFetcher{
+		UseCaClient: false,
+	}
 
-	gSecretFetcher.UseCaClient = false
 	cs, err := kube.CreateClientset("", "")
 
 	if err != nil {
@@ -402,7 +407,8 @@ func newIngressSecretCache(serverOptions sds.Options) (gatewaySecretCache *cache
 		os.Exit(1)
 	}
 	gSecretFetcher.FallbackSecretName = "gateway-fallback"
-	gSecretFetcher.InitWithKubeClient(cs.CoreV1())
+
+	gSecretFetcher.InitWithKubeClientAndNs(cs.CoreV1(), namespace)
 
 	gatewaySecretChan = make(chan struct{})
 	gSecretFetcher.Run(gatewaySecretChan)

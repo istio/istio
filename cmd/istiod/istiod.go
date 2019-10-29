@@ -102,7 +102,7 @@ func initCerts(server *istiod.Server, client *kubernetes.Clientset) {
 	// TODO: fallback to citadel (or custom CA)
 
 	certChain, keyPEM, err := k8s.GenKeyCertK8sCA(client.CertificatesV1beta1(), istiod.IstiodNamespace.Get(),
-		"istio-pilot."+istiod.IstiodNamespace.Get()+",istiod."+istiod.IstiodNamespace.Get())
+		"istio-pilot."+istiod.IstiodNamespace.Get()+",istiod."+istiod.IstiodNamespace.Get()+",istiod."+istiod.IstiodNamespace.Get()+".svc")
 	if err != nil {
 		log.Fatal("Failed to initialize certs")
 	}

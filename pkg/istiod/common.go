@@ -15,9 +15,12 @@
 package istiod
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 
 	"google.golang.org/grpc"
@@ -213,6 +216,22 @@ func NewIstiod(kconfig *rest.Config, kclient *kubernetes.Clientset, confDir stri
 
 	// Actual files are loaded by galley/pkg/src/fs, which recursively loads .yaml and .yml files
 	// The files are suing YAMLToJSON, but interpret Kind, APIVersion
+
+	// This is the 'mesh' file served by Galley - not clear who is using it, ideally we should drop it.
+	// It is based on default configs, will include overrides from user, merged CRD, etc.
+	// TODO: when the mesh.yaml is reloaded, replace the file watched by Galley as well.
+	if _, err := os.Stat(meshCfgFile); err != nil {
+		// Galley requires this file to exist. Create it in a writeable directory, override.
+		meshBytes, err := json.Marshal(server.Mesh)
+		if err != nil {
+			return nil, fmt.Errorf("Faileed to serialize mesh %v", err)
+		}
+		err = ioutil.WriteFile("/tmp/mesh", meshBytes, 0700)
+		if err != nil {
+			return nil, fmt.Errorf("Faileed to serialize mesh %v", err)
+		}
+		meshCfgFile = "/tmp/mesh"
+	}
 
 	gargs.MeshConfigFile = meshCfgFile
 	gargs.MonitoringPort = uint(basePort + 15)

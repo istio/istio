@@ -103,6 +103,11 @@ func (p Plugin) ExchangeToken(ctx context.Context, trustDomain, k8sSAjwt string)
 			resp.StatusCode, err)
 		return "", time.Now(), resp.StatusCode, errors.New("failed to exchange token")
 	}
+	if respData.AccessToken == "" {
+		stsClientLog.Errora("Failed to exchange token", string(body))
+		stsClientLog.Infoa("Request", string(jsonStr))
+		return "", time.Now(), resp.StatusCode, errors.New("failed to exchange token " + string(body))
+	}
 
 	return respData.AccessToken, time.Now().Add(time.Second * time.Duration(respData.ExpiresIn)), resp.StatusCode, nil
 }
