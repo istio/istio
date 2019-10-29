@@ -32,6 +32,8 @@ data:
       pilot: istio-system
       prometheus: istio-system
     istio_namespace: istio-system
+    auth:
+      strategy: login
     server:
       port: 20001
       web_root: /kiali
@@ -42,9 +44,6 @@ data:
         url: 
       grafana:
         url: 
-    identity:
-      cert_file: /kiali-cert/cert-chain.pem
-      private_key_file: /kiali-cert/key.pem
 
 ---
 # Source: kiali/templates/serviceaccount.yaml
@@ -253,7 +252,7 @@ spec:
     spec:
       serviceAccountName: kiali-service-account
       containers:
-      - image: "docker.io/kiali/kiali:v1.4.0"
+      - image: "docker.io/kiali/kiali:v1.4.2"
         imagePullPolicy: Always
         name: kiali
         command:
@@ -266,14 +265,14 @@ spec:
           httpGet:
             path: /kiali/healthz
             port: 20001
-            scheme:   'HTTPS' 
+            scheme:   'HTTP' 
           initialDelaySeconds: 5
           periodSeconds: 30
         livenessProbe:
           httpGet:
             path: /kiali/healthz
             port: 20001
-            scheme:   'HTTPS' 
+            scheme:   'HTTP' 
           initialDelaySeconds: 5
           periodSeconds: 30
         env:
@@ -303,7 +302,8 @@ spec:
           name: kiali
       - name: kiali-cert
         secret:
-          secretName: istio.kiali-service-account      
+          secretName: istio.kiali-service-account
+          optional: true      
       - name: kiali-secret
         secret:
           secretName: kiali

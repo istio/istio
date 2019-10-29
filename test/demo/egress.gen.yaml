@@ -75,6 +75,7 @@ metadata:
   labels:
     app: istio-egressgateway
     istio: egressgateway
+    
     release: istio-system-istio
 spec:
   selector:
@@ -90,6 +91,7 @@ spec:
       labels:
         app: istio-egressgateway
         istio: egressgateway
+        
         heritage: Tiller
         release: istio
         chart: gateways
@@ -146,7 +148,7 @@ spec:
           resources:
             limits:
               cpu: 2000m
-              memory: 256Mi
+              memory: 1024Mi
             requests:
               cpu: 10m
               memory: 40Mi
@@ -197,6 +199,13 @@ spec:
           - name: ISTIO_META_ROUTER_MODE
             value: sni-dnat
           
+          - name: ISTIO_METAJSON_LABELS
+            value: |
+              {"app":"istio-egressgateway","istio":"egressgateway"}
+          - name: ISTIO_META_CLUSTER_ID
+            value: "Kubernetes"
+          - name: SDS_ENABLED
+            value: "false"
           volumeMounts:
           
           - name: istio-certs

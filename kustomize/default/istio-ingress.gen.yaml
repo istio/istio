@@ -1,24 +1,4 @@
 ---
-# Source: istio-ingress/templates/poddisruptionbudget.yaml
-
-apiVersion: policy/v1beta1
-kind: PodDisruptionBudget
-metadata:
-  name: ingressgateway
-  namespace: istio-system
-  labels:
-    app: istio-ingressgateway
-    release: istio-system-istio
-    istio: ingressgateway
-spec:
-  minAvailable: 1
-  selector:
-    matchLabels:
-      app: istio-ingressgateway
-      release: istio-system-istio
-      istio: ingressgateway
-
----
 # Source: istio-ingress/templates/serviceaccount.yaml
 apiVersion: v1
 kind: ServiceAccount
@@ -92,6 +72,7 @@ metadata:
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
+    
     release: istio-system-istio
 spec:
   selector:
@@ -107,6 +88,7 @@ spec:
       labels:
         app: istio-ingressgateway
         istio: ingressgateway
+        
         heritage: Tiller
         release: istio
         chart: gateways
@@ -222,6 +204,14 @@ spec:
                 fieldPath: metadata.namespace
           - name: ISTIO_META_ROUTER_MODE
             value: sni-dnat
+          
+          - name: ISTIO_METAJSON_LABELS
+            value: |
+              {"app":"istio-ingressgateway","istio":"ingressgateway"}
+          - name: ISTIO_META_CLUSTER_ID
+            value: "Kubernetes"
+          - name: SDS_ENABLED
+            value: "false"
           volumeMounts:
           
           - name: istio-certs
@@ -328,6 +318,26 @@ spec:
         name: cpu
         targetAverageUtilization: 80
 ---
+
+---
+# Source: istio-ingress/templates/poddisruptionbudget.yaml
+
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: ingressgateway
+  namespace: istio-system
+  labels:
+    app: istio-ingressgateway
+    release: istio-system-istio
+    istio: ingressgateway
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: istio-ingressgateway
+      release: istio-system-istio
+      istio: ingressgateway
 
 ---
 # Source: istio-ingress/templates/sidecar.yaml

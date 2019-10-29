@@ -186,7 +186,6 @@ data:
   meshNetworks: |-
     # Network config
     networks: {}
-    
 
   values.yaml: |-
     appNamespaces: []
@@ -198,13 +197,15 @@ data:
     cpu:
       targetAverageUtilization: 80
     deploymentLabels: null
-    env:
-      GODEBUG: gctrace=1
+    enableProtocolSniffingForInbound: false
+    enableProtocolSniffingForOutbound: true
+    env: {}
     image: pilot
     ingress:
       ingressClass: istio
       ingressControllerMode: "OFF"
       ingressService: istio-ingressgateway
+    jwksResolverExtraRootCA: null
     keepaliveMaxServerConnectionAge: 30m
     meshNetworks:
       networks: {}
@@ -227,7 +228,6 @@ data:
     tolerations: []
     traceSampling: 100
     useMCP: true
-    
 
   mesh: |-
     # Set enableTracing to false to disable request tracing.
@@ -251,6 +251,18 @@ data:
     ingressService: "istio-ingressgateway"
     ingressControllerMode: "OFF"
     ingressClass: "istio"
+
+    # The trust domain corresponds to the trust root of a system.
+    # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
+    trustDomain: ""
+
+    #  The trust domain aliases represent the aliases of trust_domain.
+    #  For example, if we have
+    #  trustDomain: td1
+    #  trustDomainAliases: [“td2”, "td3"]
+    #  Any service with the identity "td1/ns/foo/sa/a-service-account", "td2/ns/foo/sa/a-service-account",
+    #  or "td3/ns/foo/sa/a-service-account" will be treated the same in the Istio mesh.
+    trustDomainAliases:
     # Set expected values when SDS is disabled
     # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
     # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty.
@@ -279,7 +291,19 @@ data:
       mode: ALLOW_ANY
     localityLbSetting:
       enabled: true
-      
+
+    # Configures DNS certificates provisioned through Chiron linked into Pilot.
+    # The DNS certificate provisioning is enabled by default now so it get tested.
+    # TODO (lei-tang): we'll decide whether enable it by default or not before Istio 1.4 Release.
+    certificates:
+      - dnsNames:
+        - istio-galley.istio-system.svc
+        - istio-galley.istio-system
+        secretName: dns.istio-galley-service-account
+      - dnsNames:
+        - istio-sidecar-injector.istio-system.svc
+        - istio-sidecar-injector.istio-system
+        secretName: dns.istio-sidecar-injector-service-account
 
     defaultConfig:
       #
@@ -319,19 +343,6 @@ data:
       # Address where istio Pilot service is running
       discoveryAddress: istio-pilot.istio-system:15011
 
-      # Configures DNS certificates provisioned through Chiron linked into Pilot.
-      # The DNS certificate provisioning is enabled by default now so it get tested.
-      # TODO (lei-tang): we'll decide whether enable it by default or not before Istio 1.4 Release.
-      certificates:
-      - dnsNames:
-        - istio-galley.istio-system.svc
-        - istio-galley.istio-system
-        secretName: dns.istio-galley-service-account
-      - dnsNames:
-        - istio-sidecar-injector.istio-system.svc
-        - istio-sidecar-injector.istio-system
-        secretName: dns.istio-sidecar-injector-service-account
-      
 ---
 
 ---
@@ -514,17 +525,18 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: metadata.namespace
-          - name: GODEBUG
-            value: "gctrace=1"
           - name: PILOT_TRACE_SAMPLING
             value: "100"
           - name: CONFIG_NAMESPACE
             value: istio-config
+          - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
+            value: "true"
+          - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
+            value: "false"
           resources:
             requests:
               cpu: 10m
               memory: 100Mi
-            
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
@@ -559,6 +571,8 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: status.podIP
+          - name: SDS_ENABLED
+            value: "false"
           resources:
             limits:
               cpu: 2000m
@@ -566,7 +580,6 @@ spec:
             requests:
               cpu: 10m
               memory: 40Mi
-            
           volumeMounts:
           - name: istio-certs
             mountPath: /etc/certs
@@ -638,7 +651,19 @@ spec:
       mode: DISABLE
 
 ---
-
+# Authentication policy to enable permissive mode for all services (that have sidecar) in the mesh.
+apiVersion: "authentication.istio.io/v1alpha1"
+kind: "MeshPolicy"
+metadata:
+  name: "default"
+  namespace: istio-system
+  labels:
+    release: istio-system-istio
+spec:
+  peers:
+  - mtls:
+      mode: PERMISSIVE
+---
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
@@ -658,6 +683,10 @@ spec:
 
 ---
 # Source: istio-discovery/templates/autoscale.yaml
+
+
+---
+# Source: istio-discovery/templates/configmap-jwks.yaml
 
 
 ---

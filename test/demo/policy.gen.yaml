@@ -177,8 +177,6 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
-        - name: GODEBUG
-          value: "gctrace=1"
         resources:
           requests:
             cpu: 10m
@@ -233,6 +231,8 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: status.podIP
+        - name: SDS_ENABLED
+          value: "false"
         resources:
           limits:
             cpu: 2000m

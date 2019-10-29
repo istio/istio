@@ -1,23 +1,4 @@
 ---
-# Source: citadel/templates/poddisruptionbudget.yaml
-
-apiVersion: policy/v1beta1
-kind: PodDisruptionBudget
-metadata:
-  name: istio-citadel
-  namespace: istio-system
-  labels:
-    app: citadel
-    istio: citadel
-    release: istio-system-istio-system-security
-spec:
-  minAvailable: 1
-  selector:
-    matchLabels:
-      app: citadel
-      istio: citadel
-
----
 # Source: citadel/templates/serviceaccount.yaml
 apiVersion: v1
 kind: ServiceAccount
@@ -186,4 +167,23 @@ spec:
                 operator: In
                 values:
                 - s390x      
+
+---
+# Source: citadel/templates/poddisruptionbudget.yaml
+
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: istio-citadel
+  namespace: istio-system
+  labels:
+    app: citadel
+    istio: citadel
+    release: istio-system-istio-system-security
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: citadel
+      istio: citadel
 
