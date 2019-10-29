@@ -262,8 +262,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					adsLog.Debugf("ADS:LDS: ACK %s %s %s %s", peerAddr, con.ConID, discReq.VersionInfo, discReq.ResponseNonce)
 					continue
 				}
-				// too verbose - sent immediately after EDS response is received
-				adsLog.Debugf("ADS:LDS: REQ %s %v", con.ConID, peerAddr)
+				adsLog.Infof("ADS:LDS: REQ %s %v", con.ConID, peerAddr)
 				con.LDSWatch = true
 				err := s.pushLds(con, s.globalPushContext(), versionInfo())
 				if err != nil {
@@ -314,7 +313,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 
 				con.Routes = routes
-				adsLog.Debugf("ADS:RDS: REQ %s %s routes:%d", peerAddr, con.ConID, len(con.Routes))
+				adsLog.Infof("ADS:RDS: REQ %s %s routes:%d", peerAddr, con.ConID, len(con.Routes))
 				err := s.pushRoute(con, s.globalPushContext(), versionInfo())
 				if err != nil {
 					return err
@@ -328,44 +327,37 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					continue
 				}
 				clusters := discReq.GetResourceNames()
-				if clusters == nil && discReq.ResponseNonce != "" {
-					// There is no requirement that ACK includes clusters. The test doesn't.
+				if discReq.ResponseNonce != "" {
+					adsLog.Debugf("ADS:EDS: ACK %s %s %s %s", peerAddr, con.ConID, discReq.VersionInfo, discReq.ResponseNonce)
 					con.mu.Lock()
 					con.EndpointNonceAcked = discReq.ResponseNonce
+					edsClusterMutex.RLock()
+					if len(edsClusters) != 0 {
+						con.EndpointPercent = int((float64(len(clusters)) / float64(len(edsClusters))) * float64(100))
+					}
+					edsClusterMutex.RUnlock()
 					con.mu.Unlock()
 					continue
 				}
-				// clusters and con.Clusters are all empty, this is not an ack and will do nothing.
-				if len(clusters) == 0 && len(con.Clusters) == 0 {
-					continue
-				}
 
-				// Already got a list of endpoints to watch and it is the same as the request, this is an ack
+				// Already got a list of endpoints to watch and it is the same as the previous request, skip this one
 				if listEqualUnordered(con.Clusters, clusters) {
-					adsLog.Debugf("ADS:EDS: ACK %s %s %s %s", peerAddr, con.ConID, discReq.VersionInfo, discReq.ResponseNonce)
-					if discReq.ResponseNonce != "" {
-						con.mu.Lock()
-						edsClusterMutex.RLock()
-						con.EndpointNonceAcked = discReq.ResponseNonce
-						if len(edsClusters) != 0 {
-							con.EndpointPercent = int((float64(len(clusters)) / float64(len(edsClusters))) * float64(100))
-						}
-						edsClusterMutex.RUnlock()
-						con.mu.Unlock()
-					}
+					adsLog.Debugf("ADS:EDS: REQ %s %s %s %s duplicated", peerAddr, con.ConID, discReq.VersionInfo)
 					continue
 				}
 
+				// removed clusters
 				for _, cn := range con.Clusters {
 					s.removeEdsCon(cn, con.ConID)
 				}
 
+				// added clusters
 				for _, cn := range clusters {
-					s.getOrAddEdsCluster(cn, con.ConID, con)
+					s.getOrAddEdsCluster(cn, con)
 				}
 
 				con.Clusters = clusters
-				adsLog.Debugf("ADS:EDS: REQ %s %s clusters:%d", peerAddr, con.ConID, len(con.Clusters))
+				adsLog.Infof("ADS:EDS: REQ %s %s clusters:%d", peerAddr, con.ConID, len(con.Clusters))
 				err := s.pushEds(s.globalPushContext(), con, versionInfo(), nil)
 				if err != nil {
 					return err
