@@ -22,7 +22,7 @@ SHELL := /bin/bash -o pipefail
 VERSION ?= 1.5-dev
 
 # Base version of Istio image to use
-BASE_VERSION ?= 1.4-dev.2
+BASE_VERSION ?= 1.5-dev.0
 
 export GO111MODULE ?= on
 export GOPROXY ?= https://proxy.golang.org
@@ -347,12 +347,13 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./pkg/test/echo/cmd/client \
   ./pkg/test/echo/cmd/server \
   ./mixer/test/policybackend \
+  ./cmd/istiod \
   ./tools/hyperistio \
   ./tools/istio-iptables \
   ./tools/istio-clean-iptables
 
 # List of binaries included in releases
-RELEASE_BINARIES:=pilot-discovery pilot-agent sidecar-injector mixc mixs mixgen node_agent node_agent_k8s istio_ca istioctl galley sdsclient
+RELEASE_BINARIES:=pilot-discovery pilot-agent sidecar-injector mixc mixs mixgen node_agent node_agent_k8s istio_ca istiod istioctl galley sdsclient
 
 .PHONY: build
 build: depend
@@ -371,28 +372,20 @@ $(foreach bin,$(BINARIES),$(shell basename $(bin))): build
 
 MARKDOWN_LINT_WHITELIST=localhost:8080,storage.googleapis.com/istio-artifacts/pilot/,http://ratings.default.svc.cluster.local:9080/ratings
 
-lint: lint-python lint-copyright-banner lint-scripts lint-dockerfiles lint-markdown lint-yaml lint-licenses
+lint: lint-go lint-python lint-copyright-banner lint-scripts lint-dockerfiles lint-markdown lint-yaml lint-licenses
 	@bin/check_helm.sh
 	@bin/check_samples.sh
 	@bin/check_dashboards.sh
 	@go run mixer/tools/adapterlinter/main.go ./mixer/adapter/...
-	@golangci-lint run -c ./common/config/.golangci.yml ./galley/...
-	@golangci-lint run -c ./common/config/.golangci.yml ./istioctl/...
-	@golangci-lint run -c ./common/config/.golangci.yml ./mixer/...
-	@golangci-lint run -c ./common/config/.golangci.yml ./pilot/...
-	@golangci-lint run -c ./common/config/.golangci.yml ./pkg/...
-	@golangci-lint run -c ./common/config/.golangci.yml ./samples/...
-	@golangci-lint run -c ./common/config/.golangci.yml ./security/...
-	@golangci-lint run -c ./common/config/.golangci.yml ./sidecar-injector/...
-	@golangci-lint run -c ./common/config/.golangci.yml ./tests/...
-	@golangci-lint run -c ./common/config/.golangci.yml ./tools/...
 	@testlinter
 	@envvarlinter galley istioctl mixer pilot security sidecar-injector
 
-gen:
+go-gen:
 	@mkdir -p /tmp/bin
 	@go build -o /tmp/bin/mixgen "${REPO_ROOT}/mixer/tools/mixgen/main.go"
 	@PATH=${PATH}:/tmp/bin go generate ./...
+
+gen: go-gen tidy-go mirror-licenses
 
 gen-check: gen check-clean-repo
 
@@ -434,24 +427,6 @@ istioctl-all: ${ISTIO_OUT}/istioctl-linux ${ISTIO_OUT}/istioctl-osx ${ISTIO_OUT}
 .PHONY: istioctl.completion
 istioctl.completion: ${ISTIO_OUT}/istioctl.bash ${ISTIO_OUT}/_istioctl
 
-.PHONY: istio-archive
-istio-archive: ${ISTIO_OUT}/archive
-
-# TBD: how to capture VERSION, ISTIO_DOCKER_HUB, ISTIO_URL as dependencies
-${ISTIO_OUT}/archive: istioctl-all istioctl.completion LICENSE README.md install/updateVersion.sh release/create_release_archives.sh
-	rm -rf ${ISTIO_OUT}/archive
-	mkdir -p ${ISTIO_OUT}/archive/istioctl
-	cp ${ISTIO_OUT}/istioctl-* ${ISTIO_OUT}/archive/istioctl/
-	cp LICENSE ${ISTIO_OUT}/archive
-	cp README.md ${ISTIO_OUT}/archive
-	cp -r tools ${ISTIO_OUT}/archive
-	cp ${ISTIO_OUT}/istioctl.bash ${ISTIO_OUT}/archive/tools/
-	cp ${ISTIO_OUT}/_istioctl ${ISTIO_OUT}/archive/tools/
-	ISTIO_RELEASE=1 install/updateVersion.sh -a "$(ISTIO_DOCKER_HUB),$(VERSION)" \
-		-P "$(ISTIO_URL)/deb" \
-		-d "${ISTIO_OUT}/archive"
-	release/create_release_archives.sh -v "$(VERSION)" -o "${ISTIO_OUT}/archive"
-
 # istioctl-install builds then installs istioctl into $GOPATH/BIN
 # Used for debugging istioctl during dev work
 .PHONY: istioctl-install
@@ -490,7 +465,7 @@ localTestEnv: build
 
 localTestEnvCleanup: build
 	bin/testEnvLocalK8S.sh stop
-		
+
 .PHONY: pilot-test
 pilot-test:
 	go test ${T} ./pilot/...
@@ -616,17 +591,12 @@ clean.go: ; $(info $(H) cleaning...)
 #-----------------------------------------------------------------------------
 # Target: docker
 #-----------------------------------------------------------------------------
-.PHONY: push artifacts installgen
+.PHONY: push artifacts
 
 # for now docker is limited to Linux compiles - why ?
 include tools/istio-docker.mk
 
-push: docker.push installgen
-
-# generate_yaml in tests/istio.mk can build without specifying a hub & tag
-installgen:
-	install/updateVersion.sh -a ${HUB},${TAG}
-	$(MAKE) -f Makefile.core.mk istio.yaml
+push: docker.push
 
 $(HELM): $(ISTIO_OUT)
 	bin/init_helm.sh
@@ -674,6 +644,16 @@ e2e_files = istio-auth-non-mcp.yaml \
 			istio-multicluster.yaml \
 			istio-multicluster-split-horizon.yaml \
 
+FILES_TO_CLEAN+=install/consul/istio.yaml \
+                install/kubernetes/istio-auth.yaml \
+                install/kubernetes/istio-citadel-plugin-certs.yaml \
+                install/kubernetes/istio-citadel-with-health-check.yaml \
+                install/kubernetes/istio-one-namespace-auth.yaml \
+                install/kubernetes/istio-one-namespace-trust-domain.yaml \
+                install/kubernetes/istio-one-namespace.yaml \
+                install/kubernetes/istio.yaml \
+                samples/bookinfo/platform/consul/bookinfo.sidecars.yaml \
+
 .PHONY: generate_e2e_yaml generate_e2e_yaml_coredump
 generate_e2e_yaml: $(e2e_files)
 
@@ -698,17 +678,6 @@ $(e2e_files): $(HELM) $(HOME)/.helm istio-init.yaml
 		--values install/kubernetes/helm/istio/test-values/values-$@ \
 		install/kubernetes/helm/istio >> install/kubernetes/$@
 
-# files generated by the default invocation of updateVersion.sh
-FILES_TO_CLEAN+=install/consul/istio.yaml \
-                install/kubernetes/istio-auth.yaml \
-                install/kubernetes/istio-citadel-plugin-certs.yaml \
-                install/kubernetes/istio-citadel-with-health-check.yaml \
-                install/kubernetes/istio-one-namespace-auth.yaml \
-                install/kubernetes/istio-one-namespace-trust-domain.yaml \
-                install/kubernetes/istio-one-namespace.yaml \
-                install/kubernetes/istio.yaml \
-                samples/bookinfo/platform/consul/bookinfo.sidecars.yaml \
-
 #-----------------------------------------------------------------------------
 # Target: environment and tools
 #-----------------------------------------------------------------------------
@@ -725,6 +694,20 @@ show.goenv: ; $(info $(H) go environment...)
 # show makefile variables. Usage: make show.<variable-name>
 show.%: ; $(info $* $(H) $($*))
 	$(Q) true
+
+#-----------------------------------------------------------------------------
+# Target: custom resource definitions
+#-----------------------------------------------------------------------------
+
+API_UPDATE_BRANCH ?= "master"
+
+update-crds: 
+	$(eval API_TMP := $(shell mktemp -d -u))
+	@mkdir -p $(API_TMP)
+	@git clone -q --depth 1 --single-branch --branch $(API_UPDATE_BRANCH) https://github.com/istio/api $(API_TMP)
+	@rm -f $(REPO_ROOT)/install/kubernetes/helm/istio-init/files/crd-all.gen.yaml
+	@cp $(API_TMP)/kubernetes/customresourcedefinitions.gen.yaml $(REPO_ROOT)/install/kubernetes/helm/istio-init/files/crd-all.gen.yaml
+	@rm -rf $(API_TMP)
 
 #-----------------------------------------------------------------------------
 # Target: artifacts and distribution

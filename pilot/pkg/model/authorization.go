@@ -93,6 +93,11 @@ func GetAuthorizationPolicies(env *Environment) (*AuthorizationPolicies, error) 
 	return policy, nil
 }
 
+// GetClusterRbacConfig returns the global RBAC config.
+func (policy *AuthorizationPolicies) GetClusterRbacConfig() *rbacproto.RbacConfig {
+	return policy.rbacConfig
+}
+
 // IsRBACEnabled returns true if RBAC is enabled for the service in the given namespace.
 func (policy *AuthorizationPolicies) IsRBACEnabled(service string, namespace string) bool {
 	if policy == nil || policy.rbacConfig == nil {

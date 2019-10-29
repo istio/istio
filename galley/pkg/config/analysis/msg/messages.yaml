@@ -95,10 +95,10 @@ messages:
   - name: "SchemaValidationError"
     code: IST0106
     level: Error
-    description: "The resource has one or more schema validation errors."
-    template: "The resource has one or more schema validation errors: %v"
+    description: "The resource has a schema validation error."
+    template: "Schema validation error: %v"
     args:
-      - name: combinedErr
+      - name: err
         type: error
 
   - name: "MisplacedAnnotation"
@@ -121,3 +121,13 @@ messages:
        - name: annotation
          type: string
 
+  - name: "ConflictingMeshGatewayVirtualServiceHosts"
+    code: IST0109
+    level: Error
+    description: "Conflicting hosts on VirtualServices associated with mesh gateway"
+    template: "The VirtualServices %s associated with mesh gateway define the same host %s which can lead to undefined behavior. This can be fixed by merging the conflicting VirtualServices into a single resource."
+    args:
+      - name: virtualServices
+        type: string
+      - name: host
+        type: string

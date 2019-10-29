@@ -29,14 +29,53 @@ import (
 )
 
 var (
+	port9999 = []*Port{
+		{
+			Name:     "uds",
+			Port:     9999,
+			Protocol: "HTTP",
+		},
+	}
+
 	port8000 = []*Port{
 		{
-			Name: "port1",
-			Port: 8000,
+			Name:     "uds",
+			Port:     8000,
+			Protocol: "HTTP",
 		},
 	}
 
 	port9000 = []*Port{
+		{
+			Name: "port1",
+			Port: 9000,
+		},
+	}
+
+	twoPorts = []*Port{
+		{
+			Name:     "uds",
+			Port:     8000,
+			Protocol: "HTTP",
+		},
+		{
+			Name:     "uds",
+			Port:     7000,
+			Protocol: "HTTP",
+		},
+	}
+
+	allPorts = []*Port{
+		{
+			Name:     "uds",
+			Port:     8000,
+			Protocol: "HTTP",
+		},
+		{
+			Name:     "uds",
+			Port:     7000,
+			Protocol: "HTTP",
+		},
 		{
 			Name: "port1",
 			Port: 9000,
@@ -107,6 +146,78 @@ var (
 		},
 	}
 
+	configs5 = &Config{
+		ConfigMeta: ConfigMeta{
+			Name:      "foo",
+			Namespace: "not-default",
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Number:   8000,
+						Protocol: "HTTP",
+						Name:     "uds",
+					},
+					Hosts: []string{"foo/*"},
+				},
+			},
+		},
+	}
+
+	configs6 = &Config{
+		ConfigMeta: ConfigMeta{
+			Name:      "foo",
+			Namespace: "not-default",
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Number:   8000,
+						Protocol: "HTTP",
+						Name:     "uds",
+					},
+					Hosts: []string{"foo/*"},
+				},
+				{
+					Port: &networking.Port{
+						Number:   7000,
+						Protocol: "HTTP",
+						Name:     "uds",
+					},
+					Hosts: []string{"foo/*"},
+				},
+			},
+		},
+	}
+
+	configs7 = &Config{
+		ConfigMeta: ConfigMeta{
+			Name: "sidecar-scope-ns1-ns2",
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Number:   23145,
+						Protocol: "TCP",
+						Name:     "outbound-tcp",
+					},
+					Bind: "7.7.7.7",
+					Hosts: []string{"*/bookinginfo.com",
+						"*/private.com",
+					},
+				},
+				{
+					Hosts: []string{"ns1/*",
+						"*/*.tcp.com",
+					},
+				},
+			},
+		},
+	}
+
 	services1 = []*Service{
 		{Hostname: "bar"},
 	}
@@ -149,6 +260,62 @@ var (
 			},
 		},
 	}
+
+	services6 = []*Service{
+		{
+			Hostname: "bar",
+			Ports:    twoPorts,
+			Attributes: ServiceAttributes{
+				Name:      "bar",
+				Namespace: "foo",
+			},
+		},
+	}
+
+	services7 = []*Service{
+		{
+			Hostname: "bar",
+			Ports:    twoPorts,
+			Attributes: ServiceAttributes{
+				Name:      "bar",
+				Namespace: "foo",
+			},
+		},
+		{
+			Hostname: "barprime",
+			Ports:    port8000,
+			Attributes: ServiceAttributes{
+				Name:      "barprime",
+				Namespace: "foo",
+			},
+		},
+		{
+			Hostname: "foo",
+			Ports:    allPorts,
+			Attributes: ServiceAttributes{
+				Name:      "foo",
+				Namespace: "foo",
+			},
+		},
+	}
+
+	services8 = []*Service{
+		{
+			Hostname: "bookinginfo.com",
+			Ports:    port9999,
+			Attributes: ServiceAttributes{
+				Name:      "bookinginfo.com",
+				Namespace: "ns1",
+			},
+		},
+		{
+			Hostname: "private.com",
+			Attributes: ServiceAttributes{
+				Name:      "private.com",
+				Namespace: "ns1",
+			},
+		},
+	}
 )
 
 func TestCreateSidecarScope(t *testing.T) {
@@ -158,7 +325,7 @@ func TestCreateSidecarScope(t *testing.T) {
 		// list of available service for a given proxy
 		services []*Service
 		// list of services expected to be in the listener
-		excpectedServices []string
+		excpectedServices []*Service
 	}{
 		{
 			"no-sidecar-config",
@@ -170,7 +337,11 @@ func TestCreateSidecarScope(t *testing.T) {
 			"no-sidecar-config-with-service",
 			nil,
 			services1,
-			[]string{"bar"},
+			[]*Service{
+				{
+					Hostname: "bar",
+				},
+			},
 		},
 		{
 			"sidecar-with-multiple-egress",
@@ -182,19 +353,37 @@ func TestCreateSidecarScope(t *testing.T) {
 			"sidecar-with-multiple-egress-with-service",
 			configs1,
 			services1,
-			[]string{"bar"},
+			[]*Service{
+				{
+					Hostname: "bar",
+				},
+			},
 		},
 		{
 			"sidecar-with-multiple-egress-with-service-on-same-port",
 			configs1,
 			services3,
-			[]string{"bar", "barprime"},
+			[]*Service{
+				{
+					Hostname: "bar",
+				},
+				{
+					Hostname: "barprime",
+				},
+			},
 		},
 		{
 			"sidecar-with-multiple-egress-with-multiple-service",
 			configs1,
 			services4,
-			[]string{"bar", "barprime"},
+			[]*Service{
+				{
+					Hostname: "bar",
+				},
+				{
+					Hostname: "barprime",
+				},
+			},
 		},
 		{
 			"sidecar-with-zero-egress",
@@ -218,19 +407,92 @@ func TestCreateSidecarScope(t *testing.T) {
 			"sidecar-with-multiple-egress-noport-with-specific-service",
 			configs3,
 			services2,
-			[]string{"bar", "barprime"},
+			[]*Service{
+				{
+					Hostname: "bar",
+				},
+				{
+					Hostname: "barprime",
+				},
+			},
 		},
 		{
 			"sidecar-with-multiple-egress-noport-with-services",
 			configs3,
 			services4,
-			[]string{"bar", "barprime"},
+			[]*Service{
+				{
+					Hostname: "bar",
+				},
+				{
+					Hostname: "barprime",
+				},
+			},
 		},
 		{
 			"sidecar-with-egress-port-match-with-services-with-and-without-port",
 			configs4,
 			services5,
-			[]string{"bar"},
+			[]*Service{
+				{
+					Hostname: "bar",
+				},
+			},
+		},
+		{
+			"sidecar-with-egress-port-trims-service-non-matching-ports",
+			configs5,
+			services6,
+			[]*Service{
+				{
+					Hostname: "bar",
+					Ports:    port8000,
+				},
+			},
+		},
+		{
+			"sidecar-with-egress-port-merges-service-ports",
+			configs6,
+			services6,
+			[]*Service{
+				{
+					Hostname: "bar",
+					Ports:    twoPorts,
+				},
+			},
+		},
+		{
+			"sidecar-with-egress-port-trims-and-merges-service-ports",
+			configs6,
+			services7,
+			[]*Service{
+				{
+					Hostname: "bar",
+					Ports:    twoPorts,
+				},
+				{
+					Hostname: "barprime",
+					Ports:    port8000,
+				},
+				{
+					Hostname: "foo",
+					Ports:    twoPorts,
+				},
+			},
+		},
+		{
+			"two-egresslisteners-one-with-port-and-without-port",
+			configs7,
+			services8,
+			[]*Service{
+				{
+					Hostname: "bookinginfo.com",
+					Ports:    port9999,
+				},
+				{
+					Hostname: "private.com",
+				},
+			},
 		},
 	}
 
@@ -289,9 +551,16 @@ func TestCreateSidecarScope(t *testing.T) {
 			for _, s1 := range sidecarScope.services {
 				found = false
 				for _, s2 := range tt.excpectedServices {
-					if string(s1.Hostname) == s2 {
-						found = true
-						break
+					if s1.Hostname == s2.Hostname {
+						if len(s2.Ports) > 0 {
+							if reflect.DeepEqual(s2.Ports, s1.Ports) {
+								found = true
+								break
+							}
+						} else {
+							found = true
+							break
+						}
 					}
 				}
 				if !found {
@@ -302,7 +571,7 @@ func TestCreateSidecarScope(t *testing.T) {
 			for _, s1 := range tt.excpectedServices {
 				found = false
 				for _, s2 := range sidecarScope.services {
-					if s1 == string(s2.Hostname) {
+					if s1.Hostname == s2.Hostname {
 						found = true
 						break
 					}

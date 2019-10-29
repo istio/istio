@@ -24,6 +24,7 @@ import (
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/config/meshcfg"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/source/kube/rt"
 )
 
 func ingress1() *resource.Entry {
@@ -96,6 +97,7 @@ func gw1() *resource.Entry {
         ]
       },
 `),
+		Origin: (*rt.Origin)(nil),
 	}
 }
 
@@ -125,6 +127,7 @@ func gw1v2() *resource.Entry {
         ]
       },
 `),
+		Origin: (*rt.Origin)(nil),
 	}
 }
 
@@ -166,6 +169,8 @@ func vs1() *resource.Entry {
 				},
 			},
 		},
+		// Rationale: Gomega will insist on typed nil, but output only 'nil' on failure.
+		Origin: (*rt.Origin)(nil),
 	}
 }
 
@@ -207,6 +212,7 @@ func vs1v2() *resource.Entry {
 				},
 			},
 		},
+		Origin: (*rt.Origin)(nil),
 	}
 }
 

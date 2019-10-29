@@ -20,6 +20,11 @@ import (
 	"strings"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic/fake"
+
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 )
 
@@ -38,29 +43,68 @@ func TestWaitCmd(t *testing.T) {
 	cases := []execTestCase{
 		{
 			execClientConfig: cannedResponseMap,
-			args:             strings.Split("experimental wait --resource-version=2 --timeout=2s virtual-service foo.bar", " "),
+			args:             strings.Split("x wait --resource-version=2 --timeout=2s virtual-service foo.default", " "),
 			wantException:    true,
 		},
 		{
 			execClientConfig: cannedResponseMap,
-			args:             strings.Split("experimental wait --resource-version=1 virtual-service foo.bar", " "),
+			args:             strings.Split("x wait --resource-version=1 virtual-service foo.default", " "),
 			wantException:    false,
 		},
 		{
 			execClientConfig: cannedResponseMap,
-			args:             strings.Split("experimental wait --resource-version=1 VirtualService foo.bar", " "),
+			args:             strings.Split("x wait --resource-version=1 VirtualService foo.default", " "),
 			wantException:    false,
 		},
 		{
 			execClientConfig: cannedResponseMap,
-			args:             strings.Split("experimental wait --resource-version=1 not-service foo.bar", " "),
+			args:             strings.Split("x wait --resource-version=1 not-service foo.default", " "),
 			wantException:    true,
+		},
+		{
+			execClientConfig: cannedResponseMap,
+			args:             strings.Split("x wait --timeout 2s virtual-service bar.default", " "),
+			wantException:    true,
+			expectedOutput:   "Error: timeout expired before resource virtual-service/default/bar became effective on all sidecars\n",
+		},
+		{
+			execClientConfig: cannedResponseMap,
+			args:             strings.Split("x wait --timeout 2s virtual-service foo.default", " "),
+			wantException:    false,
 		},
 	}
+
+	_ = setupK8Sfake()
 
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
 			verifyExecTestOutput(t, c)
 		})
+	}
+}
+
+func setupK8Sfake() *fake.FakeDynamicClient {
+	objs := []runtime.Object{
+		newUnstructured("networking.istio.io/v1alpha3", "virtualservice", "default", "foo", "1"),
+		newUnstructured("networking.istio.io/v1alpha3", "virtualservice", "default", "bar", "3"),
+	}
+	client := fake.NewSimpleDynamicClient(runtime.NewScheme(), objs...)
+	clientGetter = func(_, _ string) (dynamic.Interface, error) {
+		return client, nil
+	}
+	return client
+}
+
+func newUnstructured(apiVersion, kind, namespace, name, resourceVersion string) *unstructured.Unstructured {
+	return &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": apiVersion,
+			"kind":       kind,
+			"metadata": map[string]interface{}{
+				"namespace":       namespace,
+				"name":            name,
+				"resourceVersion": resourceVersion,
+			},
+		},
 	}
 }

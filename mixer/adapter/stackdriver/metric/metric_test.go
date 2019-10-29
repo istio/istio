@@ -55,7 +55,7 @@ var clientFunc = func(err error) createClientFunc {
 
 var dummyShouldFill = func() bool { return true }
 var dummyMetadataFn = func() (string, error) { return "", nil }
-var dummyMetadataGenerator = helper.NewMetadataGenerator(dummyShouldFill, dummyMetadataFn, dummyMetadataFn, dummyMetadataFn)
+var dummyMetadataGenerator = helper.NewMetadataGenerator(dummyShouldFill, dummyMetadataFn, dummyMetadataFn, dummyMetadataFn, dummyMetadataFn)
 
 func TestFactory_NewMetricsAspect(t *testing.T) {
 	tests := []struct {
@@ -190,7 +190,7 @@ func TestRecord(t *testing.T) {
 	}
 	m := &metricpb.Metric{
 		Type:   "type",
-		Labels: map[string]string{"str": "str", "int": "34"},
+		Labels: map[string]string{"str": "str", "int": "34", "mesh_uid": "mesh-id"},
 	}
 	info := map[string]info{
 		"gauge": {
@@ -391,7 +391,13 @@ func TestRecord(t *testing.T) {
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
 			buf := &fakebuf{}
-			s := &handler{metricInfo: info, md: helper.Metadata{ProjectID: projectID}, client: buf, l: test.NewEnv(t).Logger(), now: func() time.Time { return now }}
+			s := &handler{
+				metricInfo: info,
+				md:         helper.Metadata{ProjectID: projectID, MeshID: "mesh-id"},
+				client:     buf,
+				l:          test.NewEnv(t).Logger(),
+				now:        func() time.Time { return now },
+			}
 			_ = s.HandleMetric(context.Background(), tt.vals)
 
 			if len(buf.buf) != len(tt.expected) {
@@ -445,7 +451,7 @@ func TestProjectID(t *testing.T) {
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			mg := helper.NewMetadataGenerator(dummyShouldFill, tt.pid, dummyMetadataFn, dummyMetadataFn)
+			mg := helper.NewMetadataGenerator(dummyShouldFill, tt.pid, dummyMetadataFn, dummyMetadataFn, dummyMetadataFn)
 			b := &builder{createClient: createClientFn(tt.want), mg: mg}
 			b.SetAdapterConfig(tt.cfg)
 			_, err := b.Build(context.Background(), test.NewEnv(t))
@@ -524,7 +530,7 @@ func TestProjectMetadata(t *testing.T) {
 			buf := &fakebuf{}
 			s := &handler{
 				metricInfo: info,
-				md:         helper.Metadata{ProjectID: "pid", Location: "location", ClusterName: "cluster"},
+				md:         helper.Metadata{ProjectID: "pid", Location: "location", ClusterName: "cluster", MeshID: "mesh-id"},
 				client:     buf,
 				l:          test.NewEnv(t).Logger(),
 				now:        func() time.Time { return now },

@@ -70,7 +70,7 @@ func TestMissingMCPTests(t *testing.T) {
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
 			collections := make(map[string]struct{})
-			for _, col := range metadata.MustGet().AllCollectionsInSnapshots() {
+			for _, col := range metadata.MustGet().AllCollectionsInSnapshots(metadata.SnapshotNames()) {
 				collections[col] = struct{}{}
 			}
 

@@ -53,6 +53,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/pkg/log"
 )
 
 type myProtoValue struct {
@@ -196,8 +197,7 @@ func containerPortOptional(istioVersion *model.IstioVersion) bool {
 }
 
 func supportsProtocolDetection(istioVersion *model.IstioVersion) bool {
-	// No version of Istio currently detects inbound protocol
-	return false
+	return util.IsIstioVersionGE14(&model.Proxy{IstioVersion: istioVersion})
 }
 
 func validatePort(port v1.ServicePort, pod *v1.Pod, istioVersion *model.IstioVersion) []string {
@@ -564,7 +564,7 @@ func printService(writer io.Writer, svc v1.Service, pod *v1.Pod, istioVersion *m
 				protocol = string(servicePortProtocol(port.Name))
 			}
 
-			fmt.Fprintf(writer, "   Port: %s %d/%s\n", port.Name, nport, protocol)
+			fmt.Fprintf(writer, "   Port: %s %d/%s targets pod port %d\n", port.Name, port.Port, protocol, nport)
 		}
 		msgs := validatePort(port, pod, istioVersion)
 		for _, msg := range msgs {
@@ -611,8 +611,9 @@ func authnMatchSvc(debug envoy_v2.AuthenticationDebug, svc v1.Service, port v1.S
 }
 
 func printAuthn(writer io.Writer, pod *v1.Pod, debug envoy_v2.AuthenticationDebug) {
-	if debug.TLSConflictStatus != "OK" {
-		fmt.Fprintf(writer, "WARNING Pilot predicts TLS Conflict on %s port %d (pod enforces %s, clients speak %s)\n",
+	log.Debugf("AuthenticationDebug is %#v\n", debug)
+	if debug.TLSConflictStatus != "OK" && debug.TLSConflictStatus != "AUTO" {
+		fmt.Fprintf(writer, "WARNING TLS Conflict on %s port %d (pod enforces %s, clients speak %s)\n",
 			kname(pod.ObjectMeta),
 			debug.Port, debug.ServerProtocol, debug.ClientProtocol)
 		if debug.DestinationRuleName != "-" {
@@ -623,7 +624,13 @@ func printAuthn(writer io.Writer, pod *v1.Pod, debug envoy_v2.AuthenticationDebu
 		return
 	}
 
-	mTLSType := map[string]string{
+	if debug.TLSConflictStatus == "AUTO" {
+		fmt.Fprintf(writer, "Pod is %s, clients configured automatically\n",
+			debug.ServerProtocol)
+		return
+	}
+
+	mTLSType13 := map[string]string{
 		"HTTP":        "HTTP",
 		"mTLS":        "STRICT",
 		"HTTP/mTLS":   "PERMISSIVE",
@@ -631,13 +638,23 @@ func printAuthn(writer io.Writer, pod *v1.Pod, debug envoy_v2.AuthenticationDebu
 		"custom mTLS": "custom mTLS",
 		"UNKNOWN":     "Unknown",
 	}
-	tlsType, ok := mTLSType[debug.ServerProtocol]
-	if !ok {
-		tlsType = debug.ServerProtocol
+	tlsType, ok := mTLSType13[debug.ServerProtocol]
+	if ok {
+		// If we survive the lookup, we are on a pre-1.4 Pilot.
+		fmt.Fprintf(writer, "Pod is %s (enforces %s) and clients speak %s\n",
+			tlsType, debug.ServerProtocol, debug.ClientProtocol)
+		return
 	}
 
-	fmt.Fprintf(writer, "Pilot reports that pod is %s (enforces %s) and clients speak %s\n",
-		tlsType, debug.ServerProtocol, debug.ClientProtocol)
+	// If we couldn't find the type in the 1.3 known types, we must be on Istio 1.4+
+	if debug.ClientProtocol != "-" {
+		fmt.Fprintf(writer, "Pod is %s and clients are %s\n",
+			debug.ServerProtocol, debug.ClientProtocol)
+		return
+	}
+
+	fmt.Fprintf(writer, "Pod is %s, client protocol unspecified\n",
+		debug.ServerProtocol)
 }
 
 func isMeshed(pod *v1.Pod) bool {

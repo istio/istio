@@ -156,6 +156,8 @@ func doHTTPRouteOperation(proxy *model.Proxy, patchContext networking.EnvoyFilte
 			virtualHostMatch(virtualHost, cp) &&
 			routeMatch(virtualHost.Routes[routeIndex], cp) {
 
+			// different virtualHosts may share same routes pointer
+			virtualHost.Routes = cloneVhostRoutes(virtualHost.Routes)
 			if cp.Operation == networking.EnvoyFilter_Patch_REMOVE {
 				virtualHost.Routes[routeIndex] = nil
 				*routesRemoved = true
@@ -276,4 +278,13 @@ func routeMatch(httpRoute *route.Route, cp *model.EnvoyFilterConfigPatchWrapper)
 		}
 	}
 	return true
+}
+
+func cloneVhostRoutes(routes []*route.Route) []*route.Route {
+	out := make([]*route.Route, len(routes))
+	for i := 0; i < len(routes); i++ {
+		clone := proto.Clone(routes[i]).(*route.Route)
+		out[i] = clone
+	}
+	return out
 }

@@ -58,7 +58,20 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/servicerolebindings.yaml"},
 		analyzer:   &auth.ServiceRoleBindingAnalyzer{},
 		expected: []message{
-			{msg.ReferencedResourceNotFound, "ServiceRoleBinding/test-bogus-binding"},
+			{msg.ReferencedResourceNotFound, "ServiceRoleBinding test-bogus-binding"},
+		},
+	},
+	{
+		name:       "serviceRoleServices",
+		inputFiles: []string{"testdata/serviceroleservices.yaml"},
+		analyzer:   &auth.ServiceRoleServicesAnalyzer{},
+		expected: []message{
+			{msg.ReferencedResourceNotFound, "ServiceRole bogus-short-name.default"},
+			{msg.ReferencedResourceNotFound, "ServiceRole bogus-fqdn.default"},
+			{msg.ReferencedResourceNotFound, "ServiceRole fqdn.anothernamespace"},
+			{msg.ReferencedResourceNotFound, "ServiceRole short-name.anothernamespace"},
+			{msg.ReferencedResourceNotFound, "ServiceRole fqdn-cross-ns.anothernamespace"},
+			{msg.ReferencedResourceNotFound, "ServiceRole namespace-wide.anothernamespace"},
 		},
 	},
 	{
@@ -66,11 +79,11 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/deprecation.yaml"},
 		analyzer:   &deprecation.FieldAnalyzer{},
 		expected: []message{
-			{msg.Deprecated, "VirtualService/route-egressgateway"},
-			{msg.Deprecated, "VirtualService/tornado"},
-			{msg.Deprecated, "EnvoyFilter/istio-system/istio-multicluster-egressgateway"},
-			{msg.Deprecated, "EnvoyFilter/istio-system/istio-multicluster-egressgateway"}, // Duplicate, because resource has two problems
-			{msg.Deprecated, "ServiceRoleBinding/default/bind-mongodb-viewer"},
+			{msg.Deprecated, "VirtualService route-egressgateway"},
+			{msg.Deprecated, "VirtualService tornado"},
+			{msg.Deprecated, "EnvoyFilter istio-multicluster-egressgateway.istio-system"},
+			{msg.Deprecated, "EnvoyFilter istio-multicluster-egressgateway.istio-system"}, // Duplicate, because resource has two problems
+			{msg.Deprecated, "ServiceRoleBinding bind-mongodb-viewer.default"},
 		},
 	},
 	{
@@ -78,7 +91,7 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/gateway-no-workload.yaml"},
 		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
 		expected: []message{
-			{msg.ReferencedResourceNotFound, "Gateway/httpbin-gateway"},
+			{msg.ReferencedResourceNotFound, "Gateway httpbin-gateway"},
 		},
 	},
 	{
@@ -86,7 +99,7 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/gateway-no-port.yaml"},
 		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
 		expected: []message{
-			{msg.GatewayPortNotOnWorkload, "Gateway/httpbin-gateway"},
+			{msg.GatewayPortNotOnWorkload, "Gateway httpbin-gateway"},
 		},
 	},
 	{
@@ -110,7 +123,7 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/gateway-custom-ingressgateway-badport.yaml"},
 		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
 		expected: []message{
-			{msg.GatewayPortNotOnWorkload, "Gateway/httpbin-gateway"},
+			{msg.GatewayPortNotOnWorkload, "Gateway httpbin-gateway"},
 		},
 	},
 	{
@@ -118,7 +131,7 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/gateway-custom-ingressgateway-svcselector.yaml"},
 		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
 		expected: []message{
-			{msg.GatewayPortNotOnWorkload, "Gateway/httpbin8002-gateway"},
+			{msg.GatewayPortNotOnWorkload, "Gateway httpbin8002-gateway"},
 		},
 	},
 
@@ -127,8 +140,8 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/injection.yaml"},
 		analyzer:   &injection.Analyzer{},
 		expected: []message{
-			{msg.NamespaceNotInjected, "Namespace/bar"},
-			{msg.PodMissingProxy, "Pod/default/noninjectedpod"},
+			{msg.NamespaceNotInjected, "Namespace bar"},
+			{msg.PodMissingProxy, "Pod noninjectedpod.default"},
 		},
 	},
 	{
@@ -136,7 +149,20 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/injection-with-mismatched-sidecar.yaml"},
 		analyzer:   &injection.VersionAnalyzer{},
 		expected: []message{
-			{msg.IstioProxyVersionMismatch, "Pod/enabled-namespace/details-v1-pod-old"},
+			{msg.IstioProxyVersionMismatch, "Pod details-v1-pod-old.enabled-namespace"},
+		},
+	},
+	{
+		name:       "virtualServiceConflictingMeshGatewayHosts",
+		inputFiles: []string{"testdata/virtualservice_conflictingmeshgatewayhosts.yaml"},
+		analyzer:   &virtualservice.ConflictingMeshGatewayHostsAnalyzer{},
+		expected: []message{
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService ratings.team3"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService ratings.team4"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService ratings.foo"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService ratings.bar"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService productpage.foo"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService bogus-productpage.foo"},
 		},
 	},
 	{
@@ -144,7 +170,8 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/virtualservice_destinationhosts.yaml"},
 		analyzer:   &virtualservice.DestinationHostAnalyzer{},
 		expected: []message{
-			{msg.ReferencedResourceNotFound, "VirtualService/default/reviews-bogushost"},
+			{msg.ReferencedResourceNotFound, "VirtualService reviews-bogushost.default"},
+			{msg.ReferencedResourceNotFound, "VirtualService reviews-bookinfo-other.default"},
 		},
 	},
 	{
@@ -152,7 +179,7 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/virtualservice_destinationrules.yaml"},
 		analyzer:   &virtualservice.DestinationRuleAnalyzer{},
 		expected: []message{
-			{msg.ReferencedResourceNotFound, "VirtualService/default/reviews-bogussubset"},
+			{msg.ReferencedResourceNotFound, "VirtualService reviews-bogussubset.default"},
 		},
 	},
 	{
@@ -160,7 +187,7 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/virtualservice_gateways.yaml"},
 		analyzer:   &virtualservice.GatewayAnalyzer{},
 		expected: []message{
-			{msg.ReferencedResourceNotFound, "VirtualService/httpbin-bogus"},
+			{msg.ReferencedResourceNotFound, "VirtualService httpbin-bogus"},
 		},
 	},
 	{
@@ -170,10 +197,10 @@ var testGrid = []testCase{
 		},
 		analyzer: &annotations.K8sAnalyzer{},
 		expected: []message{
-			{msg.UnknownAnnotation, "Service/httpbin"},
-			{msg.MisplacedAnnotation, "Service/details"},
-			{msg.MisplacedAnnotation, "Pod/grafana-test"},
-			{msg.MisplacedAnnotation, "Deployment/fortio-deploy"},
+			{msg.UnknownAnnotation, "Service httpbin"},
+			{msg.MisplacedAnnotation, "Service details"},
+			{msg.MisplacedAnnotation, "Pod grafana-test"},
+			{msg.MisplacedAnnotation, "Deployment fortio-deploy"},
 		},
 	},
 }
@@ -213,12 +240,12 @@ func TestAnalyzers(t *testing.T) {
 			}
 			cancel := make(chan struct{})
 
-			msgs, err := sa.Analyze(cancel)
+			result, err := sa.Analyze(cancel)
 			if err != nil {
 				t.Fatalf("Error running analysis on testcase %s: %v", testCase.name, err)
 			}
 
-			actualMsgs := extractFields(msgs)
+			actualMsgs := extractFields(result.Messages)
 			g.Expect(actualMsgs).To(ConsistOf(testCase.expected))
 		})
 	}
@@ -272,10 +299,13 @@ func TestAnalyzersHaveUniqueNames(t *testing.T) {
 func extractFields(msgs []diag.Message) []message {
 	result := make([]message, 0)
 	for _, m := range msgs {
-		result = append(result, message{
+		expMsg := message{
 			messageType: m.Type,
-			origin:      m.Origin.FriendlyName(),
-		})
+		}
+		if m.Origin != nil {
+			expMsg.origin = m.Origin.FriendlyName()
+		}
+		result = append(result, expMsg)
 	}
 	return result
 }
