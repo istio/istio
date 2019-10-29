@@ -317,7 +317,7 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 		filter := l.FilterChains[len(l.FilterChains)-1].Filters[0]
 
 		// The second to last filter is the actual destination for outbound listener
-		if len(l.FilterChains) >= 2 && l.FilterChains[len(l.FilterChains)-2].Filters[0].Name == "envoy.http_connection_manager"{
+		if len(l.FilterChains) >= 2 && l.FilterChains[len(l.FilterChains)-2].Filters[0].Name == "envoy.http_connection_manager" {
 			filter = l.FilterChains[len(l.FilterChains)-2].Filters[0]
 		}
 
