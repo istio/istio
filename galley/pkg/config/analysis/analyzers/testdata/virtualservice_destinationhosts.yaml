@@ -16,7 +16,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
-  name: service-entry-bookinfo
+  name: eu-wildcard
   namespace: default
 spec:
   hosts:
@@ -101,7 +101,7 @@ spec:
   http:
   - route:
     - destination:
-        host: reviews.eu.bookinfo.com # Should match *.eu.bookinfo.com
+        host: reviews.eu.bookinfo.com # This should match the eu-wildcard service entry and not generate an error
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
