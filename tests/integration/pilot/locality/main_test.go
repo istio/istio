@@ -97,6 +97,7 @@ spec:
   host: {{.Host}}
   trafficPolicy:
     loadBalancer:
+      simple: ROUND_ROBIN
       localityLbSetting:
         failover:
         - from: region
