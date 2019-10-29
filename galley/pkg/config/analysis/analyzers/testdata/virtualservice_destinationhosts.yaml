@@ -25,13 +25,24 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
-  name: service-entry-bookinfo
+  name: service-entry-ignore
   namespace: default-ignore
 spec:
   exportTo:
     - "."
   hosts:
   - "*" # This ServiceEntry should not match any instance as it isn't exported to other namespaces
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-entry-other
+  namespace: other
+spec:
+  exportTo:
+    - "."
+  hosts:
+  - "other.bookinfo.com" # This ServiceEntry should not match any instance as it isn't exported to other namespaces
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -102,3 +113,14 @@ spec:
   - route:
     - destination:
         host: "*.eu.bookinfo.com" # Should match *.eu.bookinfo.com
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: reviews-bookinfo-other
+  namespace: default
+spec:
+  http:
+  - route:
+    - destination:
+        host: other.bookinfo.com # Should generate validation error, the SE is in another namespace
