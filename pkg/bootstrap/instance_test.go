@@ -185,11 +185,13 @@ func TestGolden(t *testing.T) {
 					IncomingTraceContext: []tracev2.OpenCensusConfig_TraceContext{
 						tracev2.OpenCensusConfig_CLOUD_TRACE_CONTEXT,
 						tracev2.OpenCensusConfig_TRACE_CONTEXT,
-						tracev2.OpenCensusConfig_GRPC_TRACE_BIN},
+						tracev2.OpenCensusConfig_GRPC_TRACE_BIN,
+						tracev2.OpenCensusConfig_B3},
 					OutgoingTraceContext: []tracev2.OpenCensusConfig_TraceContext{
 						tracev2.OpenCensusConfig_CLOUD_TRACE_CONTEXT,
 						tracev2.OpenCensusConfig_TRACE_CONTEXT,
-						tracev2.OpenCensusConfig_GRPC_TRACE_BIN},
+						tracev2.OpenCensusConfig_GRPC_TRACE_BIN,
+						tracev2.OpenCensusConfig_B3},
 				}
 
 				p, equal := diff.PrettyDiff(sdMsg, want)
