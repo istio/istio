@@ -99,8 +99,8 @@ spec:
     loadBalancer:
       localityLbSetting:
         failover:
-          - from: region
-            to: closeregion
+        - from: region
+          to: closeregion
     outlierDetection:
       consecutiveErrors: 100
       interval: 1s
