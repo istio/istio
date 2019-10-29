@@ -339,8 +339,8 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 			push.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
 			adsLog.Debugf("EDS: Cluster %q (host:%s ports:%v labels:%v) has no instances", clusterName, hostname, port, subsetLabels)
 		}
-		edsInstances.With(clusterTag.Value(clusterName)).Record(float64(len(instances)))
 		locEps = localityLbEndpointsFromInstances(instances)
+		updateEdsStats(locEps, clusterName)
 	}
 
 	for i := 0; i < len(locEps); i++ {
@@ -602,6 +602,17 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 	if svc == nil {
 		// Shouldn't happen here - but just in case fallback
 		return s.loadAssignmentsForClusterLegacy(push, clusterName)
+	}
+
+	// Service resolution type might have changed and Cluster may be still in the EDS cluster list of "XdsConnection.Clusters".
+	// This can happen if a ServiceEntry's resolution is changed from STATIC to DNS which changes the Envoy cluster type from
+	// EDS to STRICT_DNS. When pushEds is called before Envoy sends the updated cluster list via Endpoint request which in turn
+	// will update "XdsConnection.Clusters", we might accidentally send EDS updates for STRICT_DNS cluster. This check gaurds
+	// against such behavior and returns nil. When the updated cluster warms up in Envoy, it would update with new endpoints
+	// automatically.
+	if svc.Resolution != model.ClientSideLB {
+		adsLog.Infof("XdsConnection has %s in its eds clusters but its resolution now is updated to %d, skipping it.", clusterName, svc.Resolution)
+		return nil
 	}
 
 	svcPort, f := svc.Ports.GetByPort(port)
@@ -879,7 +890,17 @@ func buildLocalityLbEndpointsFromShards(
 	if len(locEps) == 0 {
 		push.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
 	}
-	edsInstances.With(clusterTag.Value(clusterName)).Record(float64(len(locEps)))
+
+	updateEdsStats(locEps, clusterName)
 
 	return locEps
+}
+
+func updateEdsStats(locEps []*endpoint.LocalityLbEndpoints, cluster string) {
+	edsInstances.With(clusterTag.Value(cluster)).Record(float64(len(locEps)))
+	epc := 0
+	for _, locLbEps := range locEps {
+		epc += len(locLbEps.GetLbEndpoints())
+	}
+	edsAllLocalityEndpoints.With(clusterTag.Value(cluster)).Record(float64(epc))
 }
