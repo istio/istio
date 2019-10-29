@@ -1,25 +1,4 @@
 ---
-# Source: istio-discovery/templates/poddisruptionbudget.yaml
-
-apiVersion: policy/v1beta1
-kind: PodDisruptionBudget
-metadata:
-  name: istio-pilot
-  namespace: istio-system
-  labels:
-    app: pilot
-    release: istio-system-istio-discovery
-    istio: pilot
-spec:
-  minAvailable: 1
-  selector:
-    matchLabels:
-      app: pilot
-      release: istio-system-istio-discovery
-      istio: pilot
----
-
----
 # Source: istio-discovery/templates/configmap-envoy.yaml
 apiVersion: v1
 kind: ConfigMap
@@ -207,7 +186,6 @@ data:
   meshNetworks: |-
     # Network config
     networks: {}
-    
 
   values.yaml: |-
     appNamespaces: []
@@ -219,13 +197,15 @@ data:
     cpu:
       targetAverageUtilization: 80
     deploymentLabels: null
-    env:
-      GODEBUG: gctrace=1
+    enableProtocolSniffingForInbound: false
+    enableProtocolSniffingForOutbound: true
+    env: {}
     image: pilot
     ingress:
       ingressClass: istio
       ingressControllerMode: STRICT
       ingressService: istio-ingressgateway
+    jwksResolverExtraRootCA: null
     keepaliveMaxServerConnectionAge: 30m
     meshNetworks:
       networks: {}
@@ -248,7 +228,6 @@ data:
     tolerations: []
     traceSampling: 1
     useMCP: false
-    
 
   mesh: |-
     # Set enableTracing to false to disable request tracing.
@@ -272,6 +251,18 @@ data:
     ingressService: "istio-ingressgateway"
     ingressControllerMode: "STRICT"
     ingressClass: "istio"
+
+    # The trust domain corresponds to the trust root of a system.
+    # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
+    trustDomain: ""
+
+    #  The trust domain aliases represent the aliases of trust_domain.
+    #  For example, if we have
+    #  trustDomain: td1
+    #  trustDomainAliases: [“td2”, "td3"]
+    #  Any service with the identity "td1/ns/foo/sa/a-service-account", "td2/ns/foo/sa/a-service-account",
+    #  or "td3/ns/foo/sa/a-service-account" will be treated the same in the Istio mesh.
+    trustDomainAliases:
     # Set expected values when SDS is disabled
     # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
     # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty.
@@ -300,26 +291,17 @@ data:
       enabled: true
 
     # Configures DNS certificates provisioned through Chiron linked into Pilot.
-    # The DNS names in this file are all hard-coded; please ensure the namespaces
-    # in dnsNames are consistent with those of your services.
-    # Example:
-    # certificates:
-    #   - secretName: dns.istio-galley-service-account
-    #     dnsNames: [istio-galley.istio-system.svc, istio-galley.istio-system]
-    #   - secretName: dns.istio-sidecar-injector-service-account
-    #     dnsNames: [istio-sidecar-injector.istio-system.svc, istio-sidecar-injector.istio-system]
+    # The DNS certificate provisioning is enabled by default now so it get tested.
+    # TODO (lei-tang): we'll decide whether enable it by default or not before Istio 1.4 Release.
     certificates:
-      - secretName: dns.istio-galley-service-account
-        dnsNames: [istio-galley.istio-system.svc, istio-galley.istio-system]
-      - secretName: dns.istio-sidecar-injector-service-account
-        dnsNames: [istio-sidecar-injector.istio-system.svc, istio-sidecar-injector.istio-system]
-
-    # Configure whether Operator manages webhook configurations. The current behavior
-    # of Galley and Sidecar Injector is that they manage their own webhook configurations.
-    # When this option is set as true, Istio Operator, instead of webhooks, manages the
-    # webhook configurations. When this option is set as false, webhooks manage their
-    # own webhook configurations.
-    operatorManageWebhooks: false
+      - dnsNames:
+        - istio-galley.istio-system.svc
+        - istio-galley.istio-system
+        secretName: dns.istio-galley-service-account
+      - dnsNames:
+        - istio-sidecar-injector.istio-system.svc
+        - istio-sidecar-injector.istio-system
+        secretName: dns.istio-sidecar-injector-service-account
 
     defaultConfig:
       #
@@ -358,6 +340,7 @@ data:
       #
       # Address where istio Pilot service is running
       discoveryAddress: istio-pilot.istio-system:15010
+
 ---
 
 ---
@@ -540,17 +523,18 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: metadata.namespace
-          - name: GODEBUG
-            value: "gctrace=1"
           - name: PILOT_TRACE_SAMPLING
             value: "1"
           - name: CONFIG_NAMESPACE
             value: istio-config
+          - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
+            value: "true"
+          - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
+            value: "false"
           resources:
             requests:
               cpu: 500m
               memory: 2048Mi
-            
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
@@ -615,7 +599,19 @@ spec:
       mode: DISABLE
 
 ---
-
+# Authentication policy to enable permissive mode for all services (that have sidecar) in the mesh.
+apiVersion: "authentication.istio.io/v1alpha1"
+kind: "MeshPolicy"
+metadata:
+  name: "default"
+  namespace: istio-system
+  labels:
+    release: istio-system-istio-discovery
+spec:
+  peers:
+  - mtls:
+      mode: PERMISSIVE
+---
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
@@ -657,4 +653,29 @@ spec:
       name: cpu
       targetAverageUtilization: 80
 ---
+
+---
+# Source: istio-discovery/templates/poddisruptionbudget.yaml
+
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: istio-pilot
+  namespace: istio-system
+  labels:
+    app: pilot
+    release: istio-system-istio-discovery
+    istio: pilot
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: pilot
+      release: istio-system-istio-discovery
+      istio: pilot
+---
+
+---
+# Source: istio-discovery/templates/configmap-jwks.yaml
+
 

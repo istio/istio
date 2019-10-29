@@ -239,6 +239,9 @@ info:
 	env
 	id
 
+gen: run-build
+
+gen-check: gen check-clean-repo
 
 # Copy source code from the current machine to the docker.
 sync:
