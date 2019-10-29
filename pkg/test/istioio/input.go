@@ -21,7 +21,6 @@ import (
 
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/tmpl"
-	"istio.io/istio/pkg/test/util/yml"
 )
 
 type Input interface {
@@ -49,7 +48,8 @@ func (p Path) ReadAll() (string, error) {
 	return string(content), err
 }
 
-func (p Path) SelectInput(Context) Input {
+func (p Path) SelectInput(ctx Context) Input {
+	ctx.Helper()
 	return p
 }
 
@@ -69,7 +69,8 @@ func (t Inline) ReadAll() (string, error) {
 	return t.Value, nil
 }
 
-func (t Inline) SelectInput(Context) Input {
+func (t Inline) SelectInput(ctx Context) Input {
+	ctx.Helper()
 	return t
 }
 
@@ -86,6 +87,7 @@ type inputSelector struct {
 }
 
 func (s *inputSelector) SelectInput(ctx Context) Input {
+	ctx.Helper()
 	return s.fn(ctx)
 }
 
@@ -100,7 +102,8 @@ type IfMinikube struct {
 }
 
 func (s IfMinikube) SelectInput(ctx Context) Input {
-	if ctx.Env.Settings().Minikube {
+	ctx.Helper()
+	if ctx.KubeEnv().Settings().Minikube {
 		return s.Then.SelectInput(ctx)
 	}
 	return s.Else.SelectInput(ctx)
@@ -129,51 +132,13 @@ func Evaluate(selector InputSelector, data map[string]interface{}) InputSelector
 		if err != nil {
 			ctx.Fatalf("failed creating template output for %s: %v", input.Name(), err)
 		}
-		_ = f.Close()
-
-		fullPath := filepath.Join(ctx.WorkDir(), f.Name())
+		defer func() { _ = f.Close() }()
 
 		// Write the content to the file.
-		if err := ioutil.WriteFile(fullPath, []byte(output), 0644); err != nil {
+		if _, err := f.Write([]byte(output)); err != nil {
 			ctx.Fatalf("failed writing template output for %s: %v", input.Name(), err)
 		}
 
-		return Path(fullPath)
-	})
-}
-
-func YamlResource(resourceName string, selector InputSelector) InputSelector {
-	return InputSelectorFunc(func(ctx Context) Input {
-		ctx.Helper()
-
-		input := selector.SelectInput(ctx)
-
-		content, err := input.ReadAll()
-		if err != nil {
-			ctx.Fatalf("failed reading YAML input %s: %v", input.Name(), err)
-		}
-
-		parts, err := yml.Parse(content)
-		if err != nil {
-			ctx.Fatalf("failed parsing YAML input %s: %v", input.Name(), err)
-		}
-
-		found := false
-		for _, part := range parts {
-			if part.Descriptor.Metadata.Name == resourceName {
-				found = true
-				content = part.Contents
-				break
-			}
-		}
-
-		if !found {
-			ctx.Fatalf("failed to find YAML resource %s from input %s", resourceName, input.Name)
-		}
-
-		return Inline{
-			FileName: fmt.Sprintf("%s_%s.yaml", input.Name(), resourceName),
-			Value:    content,
-		}
+		return Path(f.Name())
 	})
 }

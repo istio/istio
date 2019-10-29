@@ -333,7 +333,7 @@ func main() {
 		}
 	}
 
-	for _, collection := range metadata.MustGet().AllCollectionsInSnapshots() {
+	for _, collection := range metadata.MustGet().AllCollectionsInSnapshots(metadata.SnapshotNames()) {
 
 		switch {
 		// pilot sortedCollections

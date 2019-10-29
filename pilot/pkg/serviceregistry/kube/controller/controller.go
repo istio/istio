@@ -226,6 +226,23 @@ func (c *Controller) createCacheHandler(informer cache.SharedIndexInformer, otyp
 	return cacheHandler{informer: informer, handler: handler}
 }
 
+// compareEndpoints returns true if the two endpoints are the same in aspects Pilot cares about
+// This currently means only looking at "Ready" endpoints
+func compareEndpoints(a, b *v1.Endpoints) bool {
+	if len(a.Subsets) != len(b.Subsets) {
+		return false
+	}
+	for i := range a.Subsets {
+		if !reflect.DeepEqual(a.Subsets[i].Ports, b.Subsets[i].Ports) {
+			return false
+		}
+		if !reflect.DeepEqual(a.Subsets[i].Addresses, b.Subsets[i].Addresses) {
+			return false
+		}
+	}
+	return true
+}
+
 func (c *Controller) createEDSCacheHandler(informer cache.SharedIndexInformer, otype string) cacheHandler {
 	handler := &kube.ChainHandler{Funcs: []kube.Handler{c.notify}}
 
@@ -241,7 +258,7 @@ func (c *Controller) createEDSCacheHandler(informer cache.SharedIndexInformer, o
 				oldE := old.(*v1.Endpoints)
 				curE := cur.(*v1.Endpoints)
 
-				if !reflect.DeepEqual(oldE.Subsets, curE.Subsets) {
+				if !compareEndpoints(oldE, curE) {
 					incrementEvent(otype, "update")
 					c.queue.Push(kube.Task{Handler: handler.Apply, Obj: cur, Event: model.EventUpdate})
 				} else {

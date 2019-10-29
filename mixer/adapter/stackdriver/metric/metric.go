@@ -242,6 +242,11 @@ func (h *handler) HandleMetric(_ context.Context, vals []*metric.Instance) error
 			},
 		}
 
+		// Populate the "mesh_uid" label from a canonical source if we know it
+		if len(h.md.MeshID) > 0 {
+			ts.Metric.Labels["mesh_uid"] = h.md.MeshID
+		}
+
 		// The logging SDK has logic built in that does this for us: if a resource is not provided it fills in the global
 		// resource as a default. Since we don't have equivalent behavior for monitoring, we do it ourselves.
 		if val.MonitoredResourceType != "" {

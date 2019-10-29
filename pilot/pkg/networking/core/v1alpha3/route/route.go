@@ -954,6 +954,7 @@ const (
 	envoyCatchAll
 )
 
+// nolint: unparam
 func getEnvoyRouteTypeAndVal(r *route.Route) (envoyRouteType, string) {
 	var iType envoyRouteType
 	var iVal string

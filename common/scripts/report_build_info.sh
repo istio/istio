@@ -43,9 +43,11 @@ if [[ -n ${ISTIO_VERSION} ]]; then
 fi
 
 GIT_DESCRIBE_TAG=$(git describe --tags)
+HUB=${HUB:-""}
 
 # used by common/scripts/gobuild.sh
 echo "istio.io/pkg/version.buildVersion=${VERSION}"
 echo "istio.io/pkg/version.buildGitRevision=${BUILD_GIT_REVISION}"
 echo "istio.io/pkg/version.buildStatus=${tree_status}"
 echo "istio.io/pkg/version.buildTag=${GIT_DESCRIBE_TAG}"
+echo "istio.io/pkg/version.buildHub=${HUB}"

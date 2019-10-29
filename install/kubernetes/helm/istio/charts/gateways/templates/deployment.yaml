@@ -180,10 +180,6 @@ spec:
           {{- else }}
           - istio-pilot:15010
           {{- end }}
-          {{- if $spec.applicationPorts }}
-          - --applicationPorts
-          - "{{ $spec.applicationPorts }}"
-          {{- end }}
         {{- end }}
         {{- if $.Values.global.trustDomain }}
           - --trust-domain={{ $.Values.global.trustDomain }}
@@ -233,7 +229,11 @@ spec:
           - name: SERVICE_ACCOUNT
             valueFrom:
               fieldRef:
-                fieldPath: spec.serviceAccountName
+                fieldPath: spec.serviceAccountName  
+          {{- if $.Values.global.mtls.auto }}
+          - name: ISTIO_AUTO_MTLS_ENABLED
+            value: "true"
+          {{- end }}
           - name: ISTIO_META_POD_NAME
             valueFrom:
               fieldRef:
