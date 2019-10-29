@@ -158,6 +158,7 @@ func TestServiceDiscovery(t *testing.T) {
 			// With service discovery off, expect no errors
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), "--discovery=false", reviewsVsAndDrFile)
 			expectNoMessages(t, g, output)
+			g.Expect(err).To(BeNil())
 
 			// With service discovery on, do expect an error
 			output, err = istioctlSafe(t, istioCtl, ns.Name(), "--discovery=true", reviewsVsAndDrFile)
@@ -166,8 +167,9 @@ func TestServiceDiscovery(t *testing.T) {
 			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
 
 			// Error goes away if we include the service definition in the resources being analyzed
-			output = istioctlOrFail(t, istioCtl, ns.Name(), "--discovery=true", reviewsVsAndDrFile, reviewsSvcFile)
+			output, err = istioctlSafe(t, istioCtl, ns.Name(), "--discovery=true", reviewsVsAndDrFile, reviewsSvcFile)
 			expectNoMessages(t, g, output)
+			g.Expect(err).To(BeNil())
 		})
 }
 
