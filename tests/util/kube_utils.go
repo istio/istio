@@ -930,7 +930,7 @@ func CreateMultiClusterSecret(namespace string, remoteKubeConfig string, localKu
 	}
 
 	opts := multicluster.RemoteSecretOptions{
-		ServiceAccountName: multicluster.DefaultServiceAccountName,
+		ServiceAccountName: "istio-multi",
 		AuthType:           multicluster.RemoteSecretAuthTypeBearerToken,
 		KubeOptions: multicluster.KubeOptions{
 			Namespace:  namespace,

@@ -59,7 +59,7 @@ func init() {
 
 const (
 	// default service account to use for remote cluster access.
-	DefaultServiceAccountName = "istio-multi"
+	DefaultServiceAccountName = "istio-pilot"
 
 	remoteSecretPrefix = "istio-remote-secret-"
 )
@@ -131,8 +131,8 @@ func createRemoteServiceAccountSecret(kubeconfig *api.Config, uid types.UID, con
 				secretcontroller.MultiClusterSecretLabel: "true",
 			},
 		},
-		StringData: map[string]string{
-			string(uid): data.String(),
+		Data: map[string][]byte{
+			string(uid): data.Bytes(),
 		},
 	}
 	return out, nil
@@ -237,11 +237,11 @@ func getCurrentContextAndClusterServerFromKubeconfig(context string, config *api
 
 	configContext, ok := config.Contexts[context]
 	if !ok {
-		return "", "", fmt.Errorf("could not find cluster for Context %q", context)
+		return "", "", fmt.Errorf("could not find cluster for context %q", context)
 	}
 	cluster, ok := config.Clusters[configContext.Cluster]
 	if !ok {
-		return "", "", fmt.Errorf("could not find server for Context %q", context)
+		return "", "", fmt.Errorf("could not find server for context %q", context)
 	}
 	return context, cluster.Server, nil
 }
@@ -327,12 +327,7 @@ func (o *RemoteSecretOptions) addFlags(flagset *pflag.FlagSet) {
 			RemoteSecretAuthTypePlugin))
 }
 
-func createRemoteSecret(opt RemoteSecretOptions, env Environment) (*v1.Secret, error) {
-	client, err := env.CreateClientSet(opt.Context)
-	if err != nil {
-		return nil, err
-	}
-
+func createRemoteSecret(opt RemoteSecretOptions, client kubernetes.Interface, env Environment) (*v1.Secret, error) {
 	uid, err := clusterUID(client)
 	if err != nil {
 		return nil, err
@@ -370,10 +365,23 @@ func createRemoteSecret(opt RemoteSecretOptions, env Environment) (*v1.Secret, e
 // CreateRemoteSecret creates a remote secret with credentials of the specified service account.
 // This is useful for providing a cluster access to a remote apiserver.
 func CreateRemoteSecret(opt RemoteSecretOptions, env Environment) (string, error) {
-	remoteSecret, err := createRemoteSecret(opt, env)
+	client, err := env.CreateClientSet(opt.Context)
 	if err != nil {
 		return "", err
 	}
+
+	remoteSecret, err := createRemoteSecret(opt, client, env)
+	if err != nil {
+		return "", err
+	}
+
+	// convert any binary data to the string equivalent for easier review. The
+	// kube-apiserver will convert this to binary before it persists it to storage.
+	remoteSecret.StringData = make(map[string]string, len(remoteSecret.Data))
+	for k, v := range remoteSecret.Data {
+		remoteSecret.StringData[k] = string(v)
+	}
+	remoteSecret.Data = nil
 
 	w := makeOutputWriterTestHook()
 	if err := writeEncodedObject(w, remoteSecret); err != nil {
