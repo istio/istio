@@ -91,6 +91,6 @@ func (s *ServiceRoleServicesAnalyzer) existMatchingService(exp string, nsa []uti
 }
 
 func serviceMatch(expr string, sfqdn util.ScopedFqdn) bool {
-	_, fqdn := sfqdn.GetScopedNamespaceAndName()
+	_, fqdn := sfqdn.GetScopeAndFqdn()
 	return expr == fqdn || strings.HasPrefix(fqdn, expr) || strings.HasSuffix(fqdn, expr)
 }
