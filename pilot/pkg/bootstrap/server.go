@@ -347,7 +347,7 @@ type startFunc func(stop <-chan struct{}) error
 // initMonitor initializes the configuration for the pilot monitoring server.
 func (s *Server) initMonitor(args *PilotArgs) error { //nolint: unparam
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		monitor, addr, err := istiod.startMonitor(args.DiscoveryOptions.MonitoringAddr, s.mux)
+		monitor, addr, err := istiod.StartMonitor(args.DiscoveryOptions.MonitoringAddr, s.mux)
 		if err != nil {
 			return err
 		}
