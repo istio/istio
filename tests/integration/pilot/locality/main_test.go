@@ -96,11 +96,11 @@ metadata:
 spec:
   host: {{.Host}}
   trafficPolicy:
-	loadBalancer:
-     localityLbSetting:
-       failover:
-         - from: region
-           to: closeregion
+    loadBalancer:
+      localityLbSetting:
+        failover:
+          - from: region
+            to: closeregion
     outlierDetection:
       consecutiveErrors: 100
       interval: 1s
