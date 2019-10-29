@@ -334,7 +334,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 				// Already got a list of endpoints to watch and it is the same as the previous request, skip this one
 				if listEqualUnordered(con.Clusters, clusters) {
-					adsLog.Debugf("ADS:EDS: REQ %s %s %s %s duplicated", peerAddr, con.ConID, discReq.VersionInfo)
+					adsLog.Debugf("ADS:EDS: REQ %s %s %s duplicated", peerAddr, con.ConID, discReq.VersionInfo)
 					continue
 				}
 
