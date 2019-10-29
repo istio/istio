@@ -67,18 +67,18 @@ func TestGetScopedFqdnHostname(t *testing.T) {
 	g.Expect(NewScopedFqdn("*", "foo", "xyz.abc")).To(Equal(ScopedFqdn("*/xyz.abc")))
 }
 
-func TestScopedFqdn_GetScopedNamespaceAndName(t *testing.T) {
+func TestScopedFqdn_GetScopeAndFqdn(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	ns, fqdn := ScopedFqdn("default/reviews.default.svc.cluster.local").GetScopedNamespaceAndName()
+	ns, fqdn := ScopedFqdn("default/reviews.default.svc.cluster.local").GetScopeAndFqdn()
 	g.Expect(ns).To(Equal("default"))
 	g.Expect(fqdn).To(Equal("reviews.default.svc.cluster.local"))
 
-	ns, fqdn = ScopedFqdn("*/reviews.default.svc.cluster.local").GetScopedNamespaceAndName()
+	ns, fqdn = ScopedFqdn("*/reviews.default.svc.cluster.local").GetScopeAndFqdn()
 	g.Expect(ns).To(Equal("*"))
 	g.Expect(fqdn).To(Equal("reviews.default.svc.cluster.local"))
 
-	ns, fqdn = ScopedFqdn("foo/*.xyz.abc").GetScopedNamespaceAndName()
+	ns, fqdn = ScopedFqdn("foo/*.xyz.abc").GetScopeAndFqdn()
 	g.Expect(ns).To(Equal("foo"))
 	g.Expect(fqdn).To(Equal("*.xyz.abc"))
 }
