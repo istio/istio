@@ -19,15 +19,18 @@ import (
 	"net"
 	"net/http"
 	"strconv"
-	"time"
 
-	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+
+	"istio.io/istio/galley/pkg/server"
 
 	"istio.io/istio/galley/pkg/server/settings"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	istiokeepalive "istio.io/istio/pkg/keepalive"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/filewatcher"
 
@@ -45,7 +48,9 @@ type Server struct {
 	EnvoyXdsServer    *envoyv2.DiscoveryServer
 	ServiceController *aggregate.Controller
 
-	Mesh         *meshconfig.MeshConfig
+	// Mesh config - loaded and watched. Updated by watcher.
+	Mesh *meshconfig.MeshConfig
+
 	MeshNetworks *meshconfig.MeshNetworks
 
 	ConfigStores []model.ConfigStoreCache
@@ -71,7 +76,7 @@ type Server struct {
 	CertKey      []byte
 	CertChain    []byte
 	RootCA       []byte
-	Galley       *GalleyServer
+	Galley       *server.Server
 	grpcListener net.Listener
 	httpListener net.Listener
 	Environment  *model.Environment
@@ -102,7 +107,7 @@ func (s *Server) InitCommon(args *PilotArgs) {
 // - http port 15007
 // - grpc on 15010
 //- config from $ISTIO_CONFIG or ./conf
-func NewIstiod(confDir string) (*Server, error) {
+func NewIstiod(kconfig *rest.Config, kclient *kubernetes.Clientset, confDir string) (*Server, error) {
 	baseDir := "." // TODO: env ISTIO_HOME or HOME ?
 
 	// TODO: 15006 can't be configured currently
@@ -113,12 +118,9 @@ func NewIstiod(confDir string) (*Server, error) {
 	// Create a test pilot discovery service configured to watch the tempDir.
 	args := &PilotArgs{
 		DomainSuffix: "cluster.local",
+		Config:       ConfigArgs{},
 
-		Mesh: MeshArgs{
-			ConfigFile:      meshCfgFile,
-			RdsRefreshDelay: types.DurationProto(10 * time.Millisecond),
-		},
-		Config: ConfigArgs{},
+		Plugins: DefaultPlugins, // TODO: Should it be in MeshConfig ? Env override until it's done.
 
 		// MCP is messing up with the grpc settings...
 		MCPMaxMessageSize:        1024 * 1024 * 64,
@@ -126,11 +128,22 @@ func NewIstiod(confDir string) (*Server, error) {
 		MCPInitialConnWindowSize: 1024 * 1024 * 64,
 	}
 
-	// Main server - pilot, registries
-	server, err := NewServer(args)
-	if err != nil {
-		return nil, err
+	// If the namespace isn't set, try looking it up from the environment.
+	if args.Namespace == "" {
+		args.Namespace = podNamespaceVar.Get()
 	}
+	if args.KeepaliveOptions == nil {
+		args.KeepaliveOptions = istiokeepalive.DefaultOption()
+	}
+	if args.Config.ClusterRegistriesNamespace == "" {
+		args.Config.ClusterRegistriesNamespace = args.Namespace
+	}
+
+	server := &Server{
+		Args: args,
+	}
+
+	server.fileWatcher = filewatcher.NewWatcher()
 
 	if err := server.WatchMeshConfig(meshCfgFile); err != nil {
 		return nil, fmt.Errorf("mesh: %v", err)
@@ -147,7 +160,7 @@ func NewIstiod(confDir string) (*Server, error) {
 	server.basePort = basePort
 
 	args.DiscoveryOptions = envoy.DiscoveryServiceOptions{
-		HTTPAddr: fmt.Sprintf(":%d", basePort+7),
+		HTTPAddr: ":8080", // lots of tools use this
 		GrpcAddr: fmt.Sprintf(":%d", basePort+10),
 		// Using 12 for K8S-DNS based cert.
 		// TODO: We'll also need 11 for Citadel-based cert
@@ -160,7 +173,7 @@ func NewIstiod(confDir string) (*Server, error) {
 		Port:    uint16(basePort + 13),
 	}
 
-	err = server.InitConfig()
+	err := server.InitConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -169,18 +182,29 @@ func NewIstiod(confDir string) (*Server, error) {
 	gargs := settings.DefaultArgs()
 
 	// Default dir.
-	// If not set, will attempt to use K8S.
-	gargs.ConfigPath = baseDir + "/var/lib/istio/local"
+	// If not set, will use K8S.
+	//  gargs.ConfigPath = baseDir + "/var/lib/istio/local"
 	// TODO: load a json file to override defaults (for all components)
 
-	gargs.ValidationArgs.EnableValidation = false
+	gargs.EnableServer = true
+
+	gargs.ValidationArgs.EnableValidation = true
+	gargs.ValidationArgs.CACertFile = DNSCertDir + "/root-cert.pem"
+	gargs.ValidationArgs.CertFile = DNSCertDir + "/cert-chain.pem"
+	gargs.ValidationArgs.KeyFile = DNSCertDir + "/key.pem"
+
+	gargs.Readiness.Path = "/tmp/healthReadiness"
+
 	gargs.ValidationArgs.EnableReconcileWebhookConfiguration = false
 	gargs.APIAddress = fmt.Sprintf("tcp://0.0.0.0:%d", basePort+901)
+	// TODO: For secure, we'll expose the GRPC register method and use the common GRPC+TLS port.
 	gargs.Insecure = true
-	gargs.EnableServer = true
 	gargs.DisableResourceReadyCheck = true
 	// Use Galley Ctrlz for all services.
 	gargs.IntrospectionOptions.Port = uint16(basePort + 876)
+
+	gargs.KubeRestConfig = kconfig
+	gargs.KubeInterface = kclient
 
 	// The file is loaded and watched by Galley using galley/pkg/meshconfig watcher/reader
 	// Current code in galley doesn't expose it - we'll use 2 Caches instead.

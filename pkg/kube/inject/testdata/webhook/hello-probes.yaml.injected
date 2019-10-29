@@ -78,8 +78,6 @@ spec:
         - NONE
         - --statusPort
         - "15020"
-        - --applicationPorts
-        - 80,90
         - --concurrency
         - "2"
         env:
@@ -121,8 +119,6 @@ spec:
           value: "false"
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
-        - name: ISTIO_META_INCLUDE_INBOUND_PORTS
-          value: 80,90
         image: gcr.io/istio-release/proxyv2:master-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-proxy

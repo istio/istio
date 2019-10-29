@@ -96,8 +96,6 @@ spec:
           value: "false"
         - name: ISTIO_META_INTERCEPTION_MODE
           value: TPROXY
-        - name: ISTIO_META_INCLUDE_INBOUND_PORTS
-          value: "80"
         - name: ISTIO_METAJSON_LABELS
           value: |
             {"app":"hello","tier":"backend","track":"stable"}

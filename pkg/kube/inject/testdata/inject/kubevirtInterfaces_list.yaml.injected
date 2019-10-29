@@ -61,8 +61,6 @@ spec:
         - NONE
         - --statusPort
         - "15020"
-        - --applicationPorts
-        - "80"
         - --concurrency
         - "2"
         env:
@@ -103,8 +101,6 @@ spec:
           value: "false"
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
-        - name: ISTIO_META_INCLUDE_INBOUND_PORTS
-          value: "80"
         - name: ISTIO_METAJSON_ANNOTATIONS
           value: |
             {"traffic.sidecar.istio.io/kubevirtInterfaces":"net1,net2"}

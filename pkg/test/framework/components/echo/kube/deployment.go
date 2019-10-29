@@ -106,6 +106,8 @@ spec:
 {{- end }}
           - "{{ $p.Port }}"
 {{- end }}
+          - --port
+          - "8081"
           - --version
           - "{{ .Version }}"
         ports:

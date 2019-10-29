@@ -17,7 +17,6 @@ package docker
 import (
 	"errors"
 	"strconv"
-	"strings"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/docker"
@@ -83,15 +82,6 @@ func (m *portMap) toEchoArgs() []string {
 		}
 	}
 	return echoArgs
-}
-
-func (m *portMap) applicationPorts() string {
-	// Gather the list of ports exposed by the Echo application.
-	applicationPortsArray := make([]string, 0)
-	for _, port := range m.ports {
-		applicationPortsArray = append(applicationPortsArray, strconv.Itoa(port.containerPort.ServicePort))
-	}
-	return strings.Join(applicationPortsArray, ",")
 }
 
 func (m *portMap) toDocker() docker.PortMap {
