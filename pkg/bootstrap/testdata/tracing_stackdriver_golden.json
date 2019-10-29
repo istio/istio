@@ -298,8 +298,8 @@
         "stackdriver_exporter_enabled": true,
         "stackdriver_project_id": "my-sd-project",
         "stdout_exporter_enabled": true,
-        "incoming_trace_context": ["CLOUD_TRACE_CONTEXT", "TRACE_CONTEXT", "GRPC_TRACE_BIN"],
-        "outgoing_trace_context": ["CLOUD_TRACE_CONTEXT", "TRACE_CONTEXT", "GRPC_TRACE_BIN"],
+        "incoming_trace_context": ["CLOUD_TRACE_CONTEXT", "TRACE_CONTEXT", "GRPC_TRACE_BIN", "B3"],
+        "outgoing_trace_context": ["CLOUD_TRACE_CONTEXT", "TRACE_CONTEXT", "GRPC_TRACE_BIN", "B3"],
         "trace_config":{
           "constant_sampler":{
             "decision": "ALWAYS_PARENT"

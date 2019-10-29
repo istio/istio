@@ -107,7 +107,7 @@ func (e *Environment) DockerClient() (*client.Client, error) {
 
 	if e.dockerClient == nil {
 		// Create a shared network for Docker containers.
-		c, err := client.NewEnvClient()
+		c, err := client.NewClientWithOpts(client.FromEnv)
 		if err != nil {
 			return nil, err
 		}

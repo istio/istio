@@ -604,6 +604,17 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 		return s.loadAssignmentsForClusterLegacy(push, clusterName)
 	}
 
+	// Service resolution type might have changed and Cluster may be still in the EDS cluster list of "XdsConnection.Clusters".
+	// This can happen if a ServiceEntry's resolution is changed from STATIC to DNS which changes the Envoy cluster type from
+	// EDS to STRICT_DNS. When pushEds is called before Envoy sends the updated cluster list via Endpoint request which in turn
+	// will update "XdsConnection.Clusters", we might accidentally send EDS updates for STRICT_DNS cluster. This check gaurds
+	// against such behavior and returns nil. When the updated cluster warms up in Envoy, it would update with new endpoints
+	// automatically.
+	if svc.Resolution != model.ClientSideLB {
+		adsLog.Infof("XdsConnection has %s in its eds clusters but its resolution now is updated to %d, skipping it.", clusterName, svc.Resolution)
+		return nil
+	}
+
 	svcPort, f := svc.Ports.GetByPort(port)
 	if !f {
 		// Shouldn't happen here - but just in case fallback

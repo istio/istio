@@ -8,6 +8,8 @@ replace k8s.io/klog => github.com/istio/klog v0.0.0-20190424230111-fb7481ea8bcf
 
 replace github.com/spf13/viper => github.com/istio/viper v1.3.3-0.20190515210538-2789fed3109c
 
+replace github.com/docker/docker => github.com/docker/engine v1.4.2-0.20191011211953-adfac697dc5b
+
 require (
 	cloud.google.com/go v0.38.0
 	contrib.go.opencensus.io/exporter/prometheus v0.1.0
@@ -31,6 +33,7 @@ require (
 	github.com/census-instrumentation/opencensus-proto v0.2.1
 	github.com/circonus-labs/circonus-gometrics v2.3.1+incompatible
 	github.com/codahale/hdrhistogram v0.0.0-20161010025455-3a0bb77429bd // indirect
+	github.com/containerd/containerd v1.3.0 // indirect
 	github.com/containerd/continuity v0.0.0-20190426062206-aaeac12a7ffc // indirect
 	github.com/coreos/go-oidc v2.1.0+incompatible
 	github.com/d4l3k/messagediff v1.2.1 // indirect
@@ -91,7 +94,7 @@ require (
 	github.com/hashicorp/vault v0.10.0
 	github.com/howeyc/fsnotify v0.9.0
 	github.com/jefferai/jsonx v1.0.0 // indirect
-	github.com/juju/errors v0.0.0-20190207033735-e65537c515d7
+	github.com/juju/errors v0.0.0-20190207033735-e65537c515d7 // indirect
 	github.com/juju/loggo v0.0.0-20190212223446-d976af380377 // indirect
 	github.com/juju/testing v0.0.0-20190429233213-dfc56b8c09fc // indirect
 	github.com/keybase/go-crypto v0.0.0-20190416182011-b785b22cc757 // indirect
@@ -102,6 +105,7 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/go-testing-interface v1.0.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.1 // indirect
+	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/onsi/gomega v1.5.0
 	github.com/open-policy-agent/opa v0.8.2

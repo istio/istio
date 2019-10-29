@@ -43,10 +43,11 @@ func (f AnalyzerFoundIssuesError) Error() string {
 }
 
 var (
-	useKube               bool
-	useDiscovery          string
-	messageLevelThreshold = diag.Warning // messages at least this level will generate an error exit code
-	colorize              bool
+	useKube      bool
+	useDiscovery string
+	failureLevel = messageThreshold{diag.Warning} // messages at least this level will generate an error exit code
+	outputLevel  = messageThreshold{diag.Info}    // messages at least this level will be included in the output
+	colorize     bool
 
 	termEnvVar = env.RegisterStringVar("TERM", "", "Specifies terminal type.  Use 'dumb' to suppress color output")
 
@@ -163,14 +164,25 @@ istioctl experimental analyze -k -d false
 				fmt.Fprintln(cmd.ErrOrStderr())
 			}
 
-			if len(result.Messages) == 0 {
+			// Filter outputMessages by specified level
+			var outputMessages diag.Messages
+			for _, m := range result.Messages {
+				if m.Type.Level().IsWorseThanOrEqualTo(outputLevel.Level) {
+					outputMessages = append(outputMessages, m)
+				}
+			}
+
+			// Print validation message output, or a line indicating that none were found
+			if len(outputMessages) == 0 {
 				fmt.Fprintln(cmd.ErrOrStderr(), "\u2714 No validation issues found.")
 			} else {
-				for _, m := range result.Messages {
+				for _, m := range outputMessages {
 					fmt.Fprintln(cmd.OutOrStdout(), renderMessage(m))
 				}
 			}
 
+			// Return code is based on the unfiltered validation message list
+			// We're intentionally keeping failure threshold and output threshold decoupled for now
 			return errorIfMessagesExceedThreshold(result.Messages)
 		},
 	}
@@ -184,7 +196,10 @@ istioctl experimental analyze -k -d false
 	analysisCmd.PersistentFlags().BoolVar(&colorize, "color", istioctlColorDefault(analysisCmd),
 		"Default true.  Disable with '=false' or set $TERM to dumb")
 	analysisCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
-
+	analysisCmd.PersistentFlags().Var(&failureLevel, "failure-threshold",
+		fmt.Sprintf("The severity level of analysis at which to set a non-zero exit code. Valid values: %v", diag.GetAllLevelStrings()))
+	analysisCmd.PersistentFlags().Var(&outputLevel, "output-threshold",
+		fmt.Sprintf("The severity level of analysis at which to display messages. Valid values: %v", diag.GetAllLevelStrings()))
 	return analysisCmd
 }
 
@@ -260,7 +275,7 @@ func istioctlColorDefault(cmd *cobra.Command) bool {
 func errorIfMessagesExceedThreshold(messages []diag.Message) error {
 	foundIssues := false
 	for _, m := range messages {
-		if m.Type.Level().IsWorseThanOrEqualTo(messageLevelThreshold) {
+		if m.Type.Level().IsWorseThanOrEqualTo(failureLevel.Level) {
 			foundIssues = true
 		}
 	}
@@ -270,4 +285,37 @@ func errorIfMessagesExceedThreshold(messages []diag.Message) error {
 	}
 
 	return nil
+}
+
+type messageThreshold struct {
+	diag.Level
+}
+
+// String satisfies interface pflag.Value
+func (m *messageThreshold) String() string {
+	return m.Level.String()
+}
+
+// Type satisfies interface pflag.Value
+func (m *messageThreshold) Type() string {
+	return "Level"
+}
+
+// Set satisfies interface pflag.Value
+func (m *messageThreshold) Set(s string) error {
+	l, err := LevelFromString(s)
+	if err != nil {
+		return err
+	}
+	m.Level = l
+	return nil
+}
+
+func LevelFromString(s string) (diag.Level, error) {
+	val, ok := diag.GetUppercaseStringToLevelMap()[strings.ToUpper(s)]
+	if !ok {
+		return diag.Level{}, fmt.Errorf("%q not a valid option, please choose from: %v", s, diag.GetAllLevelStrings())
+	}
+
+	return val, nil
 }
