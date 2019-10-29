@@ -40,13 +40,6 @@ export INSTALL_OPTIONS=${ISTALL_OPTIONS:-"helm"}
 export FROM_PATH=${FROM_PATH:-"$(mktemp -d from_dir.XXXXXX)"}
 export TO_PATH=${TO_PATH:-"$(mktemp -d to_dir.XXXXXX)"}
 
-# Update Environment Variables for upgrade from 1.3 to 1.4-latest
-if "${TEST_TARGET}"=1.4; then
-  BRANCH="${TEST_TARGET}-dev"
-  TARGET_TAG=$(curl "https://storage.googleapis.com/istio-build/dev/${BRANCH}")
-  TARGET_RELEASE_PATH="https://gcsweb.istio.io/gcs/istio-build/dev/${TARGET_TAG}"
-fi
-
 # Set to any non-empty value to use kubectl configured cluster instead of mason provisioned cluster.
 UPGRADE_TEST_LOCAL="${UPGRADE_TEST_LOCAL:-"true"}"
 
