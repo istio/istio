@@ -164,24 +164,26 @@ istioctl experimental analyze -k -d false
 				fmt.Fprintln(cmd.ErrOrStderr())
 			}
 
-			// Filter output by specified level
-			var messages diag.Messages
+			// Filter outputMessages by specified level
+			var outputMessages diag.Messages
 			for _, m := range result.Messages {
 				if m.Type.Level().IsWorseThanOrEqualTo(outputLevel.Level) {
-					messages = append(messages, m)
+					outputMessages = append(outputMessages, m)
 				}
 			}
 
-			// Print validation messages, or a line indicating that none were found
-			if len(messages) == 0 {
+			// Print validation message output, or a line indicating that none were found
+			if len(outputMessages) == 0 {
 				fmt.Fprintln(cmd.ErrOrStderr(), "\u2714 No validation issues found.")
 			} else {
-				for _, m := range messages {
+				for _, m := range outputMessages {
 					fmt.Fprintln(cmd.OutOrStdout(), renderMessage(m))
 				}
 			}
 
-			return errorIfMessagesExceedThreshold(messages)
+			// Return code is based on the unfiltered validation message list
+			// We're intentionally keeping failure threshold and output threshold decoupled for now
+			return errorIfMessagesExceedThreshold(result.Messages)
 		},
 	}
 
