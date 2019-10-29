@@ -17,7 +17,6 @@ package ca
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
