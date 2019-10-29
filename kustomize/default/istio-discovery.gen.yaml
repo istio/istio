@@ -655,7 +655,6 @@ apiVersion: "authentication.istio.io/v1alpha1"
 kind: "MeshPolicy"
 metadata:
   name: "default"
-  namespace: istio-system
   labels:
     release: istio-system-istio
 spec:
