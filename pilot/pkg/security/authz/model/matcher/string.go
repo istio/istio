@@ -20,20 +20,25 @@ import (
 	envoy_matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 )
 
-func StringMatcher(v string, v1beta1 bool) *envoy_matcher.StringMatcher {
-	return StringMatcherWithPrefix(v, "", v1beta1)
+// StringMatcher creates a string matcher for v.
+func StringMatcher(v string, treatWildcardAsRequired bool) *envoy_matcher.StringMatcher {
+	return StringMatcherWithPrefix(v, "", treatWildcardAsRequired)
 }
 
+// StringMatcherRegex creates a regex string matcher for regex.
 func StringMatcherRegex(regex string) *envoy_matcher.StringMatcher {
 	return &envoy_matcher.StringMatcher{MatchPattern: &envoy_matcher.StringMatcher_Regex{Regex: regex}}
 }
 
-func StringMatcherWithPrefix(v, prefix string, v1beta1 bool) *envoy_matcher.StringMatcher {
+// StringMatcherWithPrefix creates a string matcher for v with the extra prefix inserted to the
+// created string matcher, note the prefix is ignored if v is wildcard ("*").
+// If treatWildcardAsRequired is true, the wildcard "*" will be generated as ".+" instead of ".*".
+func StringMatcherWithPrefix(v, prefix string, treatWildcardAsRequired bool) *envoy_matcher.StringMatcher {
 	switch {
 	// Check if v is "*" first to make sure we won't generate an empty prefix/suffix StringMatcher,
 	// the Envoy StringMatcher doesn't allow empty prefix/suffix.
 	case v == "*":
-		if v1beta1 {
+		if treatWildcardAsRequired {
 			return StringMatcherRegex(".+")
 		}
 		return StringMatcherRegex(".*")
