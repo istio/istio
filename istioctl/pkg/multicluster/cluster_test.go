@@ -450,12 +450,11 @@ func init() {
 
 func TestReadCACerts(t *testing.T) {
 	applyTestCases := []struct {
-		name         string
-		objs         []runtime.Object
-		listFailure  error
-		getFailure   error
-		parseFailure error
-		want         *CACerts
+		name        string
+		objs        []runtime.Object
+		listFailure error
+		getFailure  error
+		want        *CACerts
 	}{
 		//{
 		//	name:        "list failure",
@@ -463,12 +462,12 @@ func TestReadCACerts(t *testing.T) {
 		//	listFailure: errors.New("list failure"),
 		//	want:        &CACerts{},
 		//},
-		//{
-		//	name:       "get failure",
-		//	objs:       []runtime.Object{externalCASecret, selfSignedCASecret, kubeSystemNamespace},
-		//	getFailure: errors.New("get failure"),
-		//	want:       &CACerts{},
-		//},
+		{
+			name:       "get failure",
+			objs:       []runtime.Object{externalCASecret, selfSignedCASecret, kubeSystemNamespace},
+			getFailure: errors.New("get failure"),
+			want:       &CACerts{},
+		},
 		{
 			name: "cert parse failure",
 			objs: []runtime.Object{externalCASecret, badSelfSignedSecret, kubeSystemNamespace},
