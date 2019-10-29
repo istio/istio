@@ -319,22 +319,32 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					continue
 				}
 				clusters := discReq.GetResourceNames()
-				if discReq.ResponseNonce != "" {
-					adsLog.Debugf("ADS:EDS: ACK %s %s %s %s", peerAddr, con.ConID, discReq.VersionInfo, discReq.ResponseNonce)
+				if clusters == nil && discReq.ResponseNonce != "" {
+					// There is no requirement that ACK includes clusters. The test doesn't.
 					con.mu.Lock()
 					con.EndpointNonceAcked = discReq.ResponseNonce
-					edsClusterMutex.RLock()
-					if len(edsClusters) != 0 {
-						con.EndpointPercent = int((float64(len(clusters)) / float64(len(edsClusters))) * float64(100))
-					}
-					edsClusterMutex.RUnlock()
 					con.mu.Unlock()
 					continue
 				}
 
-				// Already got a list of endpoints to watch and it is the same as the previous request, skip this one
+				// clusters and con.Clusters are all empty, this is not an ack and will do nothing.
+				if len(clusters) == 0 && len(con.Clusters) == 0 {
+					continue
+				}
+
+				// Already got a list of endpoints to watch and it is the same as the request, this is an ack
 				if listEqualUnordered(con.Clusters, clusters) {
-					adsLog.Debugf("ADS:EDS: REQ %s %s %s duplicated", peerAddr, con.ConID, discReq.VersionInfo)
+					adsLog.Debugf("ADS:EDS: ACK %s %s %s %s", peerAddr, con.ConID, discReq.VersionInfo, discReq.ResponseNonce)
+					if discReq.ResponseNonce != "" {
+						con.mu.Lock()
+						edsClusterMutex.RLock()
+						con.EndpointNonceAcked = discReq.ResponseNonce
+						if len(edsClusters) != 0 {
+							con.EndpointPercent = int((float64(len(clusters)) / float64(len(edsClusters))) * float64(100))
+						}
+						edsClusterMutex.RUnlock()
+						con.mu.Unlock()
+					}
 					continue
 				}
 
