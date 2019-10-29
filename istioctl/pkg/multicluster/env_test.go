@@ -19,6 +19,7 @@ import (
 	"io/ioutil"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -122,8 +123,14 @@ func (f *fakeEnvironment) CreateClientSet(context string) (kubernetes.Interface,
 	return f.client, nil
 }
 
+func (f *fakeEnvironment) Poll(interval, timeout time.Duration, condition ConditionFunc) error {
+	// TODO - add hooks to inject fake timeouts
+	condition()
+	return nil
+}
+
 func TestNewEnvironment(t *testing.T) {
-	context := "" // empty, use current-context
+	context := "" // empty, use current-Context
 	kubeconfig, wantConfig := createFakeKubeconfigFileOrDie(t)
 
 	var wOut, wErr bytes.Buffer
