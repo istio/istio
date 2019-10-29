@@ -297,14 +297,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 							con.mu.Unlock()
 							continue
 						}
-					} else if discReq.ErrorDetail != nil {
-						// If versions mismatch then we should either have an error detail or no routes if a protocol error has occurred
-						if discReq.ErrorDetail != nil {
-							errCode := codes.Code(discReq.ErrorDetail.Code)
-							adsLog.Warnf("ADS:RDS: ACK ERROR %v %s %s:%s", peerAddr, con.ConID, errCode.String(), discReq.ErrorDetail.GetMessage())
-							incrementXDSRejects(rdsReject, con.node.ID, errCode.String())
-						}
-						continue
 					} else if len(routes) == 0 {
 						// XDS protocol indicates an empty request means to send all route information
 						// In practice we can just skip this request, as this seems to happen when
@@ -312,7 +304,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 						continue
 					}
 				}
-
 				con.Routes = routes
 				adsLog.Infof("ADS:RDS: REQ %s %s routes:%d", peerAddr, con.ConID, len(con.Routes))
 				err := s.pushRoute(con, s.globalPushContext(), versionInfo())
