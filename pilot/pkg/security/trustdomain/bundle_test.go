@@ -94,6 +94,12 @@ func TestReplaceTrustDomainAliases(t *testing.T) {
 			expect: []string{"td1/ns/some-ns/sa/some-sa", "new-td/ns/foo/sa/bar",
 				"td2/ns/foo/sa/bar", "td3/ns/foo/sa/bar"},
 		},
+		{
+			name:              "Trust domain is empty string",
+			trustDomainBundle: NewTrustDomainBundle("new-td", []string{"td2", "td3"}),
+			principals:        []string{"/ns/some-ns/sa/some-sa"},
+			expect:            []string{"/ns/some-ns/sa/some-sa"},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -124,7 +130,7 @@ func TestReplaceTrustDomainInPrincipal(t *testing.T) {
 	}
 }
 
-func TestGetTrustDomain(t *testing.T) {
+func TestGetTrustDomainFromSpiffeIdentity(t *testing.T) {
 	cases := []struct {
 		principal string
 		out       string
@@ -136,9 +142,30 @@ func TestGetTrustDomain(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		got := getTrustDomain(c.principal)
+		got, _ := getTrustDomainFromSpiffeIdentity(c.principal)
 		if got != c.out {
 			t.Errorf("expect %s, but got %s", c.out, got)
+		}
+	}
+}
+
+func TestIsTrustDomainBeingEnforced(t *testing.T) {
+	cases := []struct {
+		principal string
+		want      bool
+	}{
+		{principal: "cluster.local/ns/foo/sa/bar", want: true},
+		{principal: "*/ns/foo/sa/bar", want: false},
+		{principal: "*-td/ns/foo/sa/bar", want: true},
+		{principal: "*/sa/bar", want: false},
+		{principal: "*", want: false},
+		{principal: "/ns/foo/sa/bar", want: true},
+	}
+
+	for _, c := range cases {
+		got := isTrustDomainBeingEnforced(c.principal)
+		if got != c.want {
+			t.Errorf("expect %v, but got %v", c.want, got)
 		}
 	}
 }
