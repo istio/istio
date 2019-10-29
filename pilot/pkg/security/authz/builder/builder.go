@@ -51,6 +51,9 @@ func NewBuilder(trustDomainBundle trustdomain.Bundle, serviceInstance *model.Ser
 		generator = v1beta1.NewGenerator(trustDomainBundle, p)
 		rbacLog.Debugf("v1beta1 authorization enabled for workload %v in %s", workloadLabels, configNamespace)
 	} else {
+		if serviceInstance == nil {
+			return nil
+		}
 		if serviceInstance.Service == nil {
 			rbacLog.Errorf("no service for serviceInstance: %v", serviceInstance)
 			return nil

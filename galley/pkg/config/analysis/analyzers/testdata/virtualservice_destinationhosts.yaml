@@ -14,6 +14,37 @@ spec:
   - external-reviews.org
 ---
 apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: eu-wildcard
+  namespace: default
+spec:
+  hosts:
+  - "*.eu.bookinfo.com"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-entry-ignore
+  namespace: default-ignore
+spec:
+  exportTo:
+    - "."
+  hosts:
+  - "*" # This ServiceEntry should not match any instance as it isn't exported to other namespaces
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-entry-other
+  namespace: other
+spec:
+  exportTo:
+    - "."
+  hosts:
+  - "other.bookinfo.com" # This ServiceEntry should not match any instance as it isn't exported to other namespaces
+---
+apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: reviews
@@ -60,3 +91,36 @@ spec:
     - destination:
         host: external-reviews.org  # Referring to a ServiceEntry host is valid and should not generate an error
                                     # Since this is an "external" service, subset is omitted
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: reviews-bookinfo-eu
+  namespace: default
+spec:
+  http:
+  - route:
+    - destination:
+        host: reviews.eu.bookinfo.com # This should match the eu-wildcard service entry and not generate an error
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: reviews-bookinfo-eu-wildcard
+  namespace: default
+spec:
+  http:
+  - route:
+    - destination:
+        host: "*.eu.bookinfo.com" # Should match *.eu.bookinfo.com
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: reviews-bookinfo-other
+  namespace: default
+spec:
+  http:
+  - route:
+    - destination:
+        host: other.bookinfo.com # Should generate validation error, the SE is in another namespace

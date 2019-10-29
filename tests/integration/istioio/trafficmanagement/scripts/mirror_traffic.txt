@@ -20,7 +20,7 @@ set -o pipefail
 
 # $snippet generate_traffic_1.sh syntax="bash"
 $ export SLEEP_POD=$(kubectl -n istio-io-mirror get pod -l app=sleep -o jsonpath={.items..metadata.name})
-$ kubectl -n istio-io-mirror exec ${SLEEP_POD} -c sleep -- curl -o /dev/null -s -w "%%{http_code}\n" http://httpbin:8000/ISTIO_IO_MIRROR_TEST_1
+$ kubectl -n istio-io-mirror exec ${SLEEP_POD} -c sleep -- curl -o /dev/null -s -w "%{http_code}\n" http://httpbin:8000/ISTIO_IO_MIRROR_TEST_1
 # $endsnippet
 
 # $snippet check_logs_v1_1.sh syntax="bash" outputis="text"
@@ -64,7 +64,7 @@ sleep 10
 
 # $snippet generate_traffic_2.sh syntax="bash"
 $ export SLEEP_POD=$(kubectl -n istio-io-mirror get pod -l app=sleep -o jsonpath={.items..metadata.name})
-$ kubectl -n istio-io-mirror exec ${SLEEP_POD} -c sleep -- curl -o /dev/null -s -w "%%{http_code}\n" http://httpbin:8000/ISTIO_IO_MIRROR_TEST_2
+$ kubectl -n istio-io-mirror exec ${SLEEP_POD} -c sleep -- curl --retry 3 -o /dev/null -s -w "%{http_code}\n" http://httpbin:8000/ISTIO_IO_MIRROR_TEST_2
 # $endsnippet
 
 # $snippet check_logs_v1_2.sh syntax="bash" outputis="text"

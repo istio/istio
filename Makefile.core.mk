@@ -380,10 +380,12 @@ lint: lint-go lint-python lint-copyright-banner lint-scripts lint-dockerfiles li
 	@testlinter
 	@envvarlinter galley istioctl mixer pilot security sidecar-injector
 
-gen:
+go-gen:
 	@mkdir -p /tmp/bin
 	@go build -o /tmp/bin/mixgen "${REPO_ROOT}/mixer/tools/mixgen/main.go"
 	@PATH=${PATH}:/tmp/bin go generate ./...
+
+gen: go-gen tidy-go mirror-licenses
 
 gen-check: gen check-clean-repo
 
@@ -463,7 +465,7 @@ localTestEnv: build
 
 localTestEnvCleanup: build
 	bin/testEnvLocalK8S.sh stop
-		
+
 .PHONY: pilot-test
 pilot-test:
 	go test ${T} ./pilot/...
