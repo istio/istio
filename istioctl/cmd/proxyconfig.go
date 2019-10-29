@@ -76,13 +76,13 @@ const (
 // existing sorted active loggers
 var activeLoggers = []string{
 	"admin",
-	"all",
 	"aws",
 	"assert",
 	"backtrace",
 	"client",
 	"config",
 	"connection",
+	"conn_handler", // Added through https://github.com/envoyproxy/envoy/pull/8263
 	"dubbo",
 	"file",
 	"filter",
@@ -333,10 +333,13 @@ func proxyConfig() *cobra.Command {
 		Example: `  # Retrieve information about logging levels for a given pod from Envoy.
   istioctl proxy-config log <pod-name[.namespace]>
 
-  # Update levels of the specified loggers and retrieve all the information about logging levels.
-  istioctl proxy-config log <pod-name[.namespace]> --level all:warning,http:debug,redis:debug
+  # Update levels of the all loggers
+  istioctl proxy-config log <pod-name[.namespace]> --level none
 
-  # Reset levels of all the loggers to default value (warning) and retrieve all the information about logging levels.
+  # Update levels of the specified loggers.
+  istioctl proxy-config log <pod-name[.namespace]> --level http:debug,redis:debug
+
+  # Reset levels of all the loggers to default value (warning).
   istioctl proxy-config log <pod-name[.namespace]> -r
 `,
 		Aliases: []string{"o"},
@@ -344,6 +347,10 @@ func proxyConfig() *cobra.Command {
 			if len(args) < 1 {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("log requires pod name")
+			}
+			if reset && loggerLevelString != "" {
+				cmd.Println(cmd.UsageString())
+				return fmt.Errorf("--level cannot be combined with --reset")
 			}
 			return nil
 		},
@@ -422,10 +429,10 @@ func proxyConfig() *cobra.Command {
 		levelToString[CriticalLevel],
 		levelToString[OffLevel])
 	s := strings.Join(activeLoggers, ", ")
-	logCmd.PersistentFlags().BoolVarP(&reset, "reset", "r", reset, "Specify if the reset log level to default value (warning).")
+	logCmd.PersistentFlags().BoolVarP(&reset, "reset", "r", reset, "Reset levels to default value (warning).")
 	logCmd.PersistentFlags().StringVar(&loggerLevelString, "level", loggerLevelString,
 		fmt.Sprintf("Comma-separated minimum per-logger level of messages to output, in the form of"+
-			" <logger>:<level>,<logger>:<level>,... where logger can be one of %s and level can be one of %s",
+			" [<logger>:]<level>,[<logger>:]<level>,... where logger can be one of %s and level can be one of %s",
 			s, levelListString))
 
 	routeConfigCmd := &cobra.Command{
