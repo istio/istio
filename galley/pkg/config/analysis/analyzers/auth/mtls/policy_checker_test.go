@@ -34,15 +34,15 @@ func TestMTLSPolicyChecker_singleResource(t *testing.T) {
 	tests := map[string]struct {
 		meshPolicy string
 		policy     PolicyResource
-		workload   Workload
+		service    TargetService
 		want       bool
 	}{
 		"no policies means no strict mtls": {
 			// Note no policies specified
-			workload: NewWorkloadWithPortNumber("foobar.my-namespace.svc.cluster.local", 8080),
-			want:     false,
+			service: NewTargetServiceWithPortNumber("foobar.my-namespace.svc.cluster.local", 8080),
+			want:    false,
 		},
-		"workload specific policy": {
+		"service specific policy": {
 			policy: PolicyResource{
 				namespace: "my-namespace",
 				policy: `
@@ -54,10 +54,10 @@ peers:
 - mtls:
 `,
 			},
-			workload: NewWorkloadWithPortNumber("foobar.my-namespace.svc.cluster.local", 8080),
-			want:     true,
+			service: NewTargetServiceWithPortNumber("foobar.my-namespace.svc.cluster.local", 8080),
+			want:    true,
 		},
-		"workload specific policy using port name": {
+		"service specific policy using port name": {
 			policy: PolicyResource{
 
 				namespace: "my-namespace",
@@ -70,10 +70,10 @@ peers:
 - mtls:
 `,
 			},
-			workload: NewWorkloadWithPortName("foobar.my-namespace.svc.cluster.local", "https"),
-			want:     true,
+			service: NewTargetServiceWithPortName("foobar.my-namespace.svc.cluster.local", "https"),
+			want:    true,
 		},
-		"non-matching host workload specific policy": {
+		"non-matching host service specific policy": {
 			policy: PolicyResource{
 
 				namespace: "my-namespace",
@@ -86,10 +86,10 @@ peers:
 - mtls:
 `,
 			},
-			workload: NewWorkloadWithPortNumber("foobar.my-namespace.svc.cluster.local", 8080),
-			want:     false,
+			service: NewTargetServiceWithPortNumber("foobar.my-namespace.svc.cluster.local", 8080),
+			want:    false,
 		},
-		"non-matching namespace workload specific policy": {
+		"non-matching namespace service specific policy": {
 			policy: PolicyResource{
 				namespace: "my-other-namespace",
 				policy: `
@@ -101,10 +101,10 @@ peers:
 - mtls:
 `,
 			},
-			workload: NewWorkloadWithPortNumber("foobar.my-namespace.svc.cluster.local", 8080),
-			want:     false,
+			service: NewTargetServiceWithPortNumber("foobar.my-namespace.svc.cluster.local", 8080),
+			want:    false,
 		},
-		"policy matches workload but is not strict": {
+		"policy matches service but is not strict": {
 			policy: PolicyResource{
 
 				namespace: "my-namespace",
@@ -118,10 +118,10 @@ peers:
     mode: PERMISSIVE
 `,
 			},
-			workload: NewWorkloadWithPortNumber("foobar.my-namespace.svc.cluster.local", 8080),
-			want:     false,
+			service: NewTargetServiceWithPortNumber("foobar.my-namespace.svc.cluster.local", 8080),
+			want:    false,
 		},
-		"policy matches workload but uses deprecated field": {
+		"policy matches service but uses deprecated field": {
 			policy: PolicyResource{
 
 				namespace: "my-namespace",
@@ -136,10 +136,10 @@ peers:
     mode: STRICT
 `,
 			},
-			workload: NewWorkloadWithPortNumber("foobar.my-namespace.svc.cluster.local", 8080),
-			want:     false,
+			service: NewTargetServiceWithPortNumber("foobar.my-namespace.svc.cluster.local", 8080),
+			want:    false,
 		},
-		"policy matches workload but peer is optional": {
+		"policy matches service but peer is optional": {
 			policy: PolicyResource{
 
 				namespace: "my-namespace",
@@ -154,10 +154,10 @@ peers:
 peerIsOptional: true
 `,
 			},
-			workload: NewWorkloadWithPortNumber("foobar.my-namespace.svc.cluster.local", 8080),
-			want:     false,
+			service: NewTargetServiceWithPortNumber("foobar.my-namespace.svc.cluster.local", 8080),
+			want:    false,
 		},
-		"policy matches workload but does not use mtls": {
+		"policy matches service but does not use mtls": {
 			policy: PolicyResource{
 
 				namespace: "my-namespace",
@@ -170,8 +170,8 @@ peers:
 - jwt: # undocumented setting?
 `,
 			},
-			workload: NewWorkloadWithPortNumber("foobar.my-namespace.svc.cluster.local", 8080),
-			want:     false,
+			service: NewTargetServiceWithPortNumber("foobar.my-namespace.svc.cluster.local", 8080),
+			want:    false,
 		},
 		"policy matches every port on service": {
 			policy: PolicyResource{
@@ -184,8 +184,8 @@ peers:
 - mtls:
 `,
 			},
-			workload: NewWorkloadWithPortNumber("foobar.my-namespace.svc.cluster.local", 8080),
-			want:     true,
+			service: NewTargetServiceWithPortNumber("foobar.my-namespace.svc.cluster.local", 8080),
+			want:    true,
 		},
 		"policy matches every service in namespace": {
 			policy: PolicyResource{
@@ -195,16 +195,16 @@ peers:
 - mtls:
 `,
 			},
-			workload: NewWorkloadWithPortNumber("foobar.my-namespace.svc.cluster.local", 8080),
-			want:     true,
+			service: NewTargetServiceWithPortNumber("foobar.my-namespace.svc.cluster.local", 8080),
+			want:    true,
 		},
 		"policy matches entire mesh": {
 			meshPolicy: `
 peers:
 - mtls:
 `,
-			workload: NewWorkloadWithPortNumber("foobar.my-namespace.svc.cluster.local", 8080),
-			want:     true,
+			service: NewTargetServiceWithPortNumber("foobar.my-namespace.svc.cluster.local", 8080),
+			want:    true,
 		},
 	}
 
@@ -228,7 +228,7 @@ peers:
 				pc.AddPolicy(tc.policy.namespace, pb)
 			}
 
-			got, err := pc.IsServiceMTLSEnforced(tc.workload)
+			got, err := pc.IsServiceMTLSEnforced(tc.service)
 			if err != nil {
 				t.Fatalf("expected: %v, got error: %v", tc.want, err)
 			}
@@ -248,7 +248,7 @@ func TestMTLSPolicyChecker_multipleResources(t *testing.T) {
 	tests := map[string]struct {
 		meshPolicy string
 		policies   []PolicyResource
-		workload   Workload
+		service    TargetService
 		want       bool
 	}{
 		"namespace policy overrides mesh policy": {
@@ -270,10 +270,10 @@ peers:
 `,
 				},
 			},
-			workload: NewWorkloadWithPortNumber("foobar.my-namespace.svc.cluster.local", 8080),
-			want:     false,
+			service: NewTargetServiceWithPortNumber("foobar.my-namespace.svc.cluster.local", 8080),
+			want:    false,
 		},
-		"workload policy overrides namespace policy": {
+		"service policy overrides namespace policy": {
 			policies: []PolicyResource{
 				{
 					namespace: "my-namespace",
@@ -296,8 +296,8 @@ peers:
 `,
 				},
 			},
-			workload: NewWorkloadWithPortNumber("foobar.my-namespace.svc.cluster.local", 8080),
-			want:     false,
+			service: NewTargetServiceWithPortNumber("foobar.my-namespace.svc.cluster.local", 8080),
+			want:    false,
 		},
 		"port-specific policy overrides service-level policy": {
 			policies: []PolicyResource{
@@ -324,8 +324,8 @@ peers:
 `,
 				},
 			},
-			workload: NewWorkloadWithPortNumber("foobar.my-namespace.svc.cluster.local", 8080),
-			want:     false,
+			service: NewTargetServiceWithPortNumber("foobar.my-namespace.svc.cluster.local", 8080),
+			want:    false,
 		},
 	}
 
@@ -348,7 +348,7 @@ peers:
 				pc.AddPolicy(p.namespace, pb)
 			}
 
-			got, err := pc.IsServiceMTLSEnforced(tc.workload)
+			got, err := pc.IsServiceMTLSEnforced(tc.service)
 			if err != nil {
 				t.Fatalf("expected: %v, got error: %v", tc.want, err)
 			}

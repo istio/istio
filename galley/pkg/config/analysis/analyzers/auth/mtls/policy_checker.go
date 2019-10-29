@@ -21,9 +21,9 @@ import (
 	"istio.io/istio/security/proto/authentication/v1alpha1"
 )
 
-// Workload is a simple struct type for representing a service workload
+// TargetService is a simple struct type for representing a service
 // targeted by an Authentication policy.
-type Workload struct {
+type TargetService struct {
 	fQDN string
 
 	// Either portNumber/portName will be set, or neither. The constructors
@@ -32,52 +32,52 @@ type Workload struct {
 	portName   string
 }
 
-// NewWorkloadWithPortNumber creates a new Workload using the specified fqdn and
-// portNumber.
-func NewWorkloadWithPortNumber(fqdn string, portNumber uint32) Workload {
-	return Workload{fQDN: fqdn, portNumber: portNumber}
+// NewTargetServiceWithPortNumber creates a new TargetService using the specified
+// fqdn and portNumber.
+func NewTargetServiceWithPortNumber(fqdn string, portNumber uint32) TargetService {
+	return TargetService{fQDN: fqdn, portNumber: portNumber}
 }
 
-// NewWorkloadWithPortName creates a new Workload using the specified fqdn and
-// portName.
-func NewWorkloadWithPortName(fqdn, portName string) Workload {
-	return Workload{fQDN: fqdn, portName: portName}
+// NewTargetServiceWithPortName creates a new TargetService using the specified fqdn
+// and portName.
+func NewTargetServiceWithPortName(fqdn, portName string) TargetService {
+	return TargetService{fQDN: fqdn, portName: portName}
 }
 
-// NewWorkload creates a new Workload using the specified fqdn. Because no port
-// is specified, this implicitly represents the workload running on all ports.
-func NewWorkload(fqdn string) Workload {
-	return Workload{fQDN: fqdn}
+// NewTargetService creates a new TargetService using the specified fqdn. Because no
+// port is specified, this implicitly represents the service bound to any port.
+func NewTargetService(fqdn string) TargetService {
+	return TargetService{fQDN: fqdn}
 }
 
-// FQDN is the fully-qualified domain name for the workload (e.g.
+// FQDN is the fully-qualified domain name for the service (e.g.
 // foobar.my-namespace.svc.cluster.local).
-func (w Workload) FQDN() string {
+func (w TargetService) FQDN() string {
 	return w.fQDN
 }
 
-// PortNumber is the port used by the workload. If set (non-zero), then
+// PortNumber is the port used by the service. If set (non-zero), then
 // PortName must be the default value ("").
-func (w Workload) PortNumber() uint32 {
+func (w TargetService) PortNumber() uint32 {
 	return w.portNumber
 }
 
-// PortName is the name of the port used by the workload. If set (not ""),
+// PortName is the name of the port used by the service. If set (not ""),
 // then PortNumber must be the default value (0).
-func (w Workload) PortName() string {
+func (w TargetService) PortName() string {
 	return w.portName
 }
 
-// PolicyChecker allows callers to add a set of v1alpha1.Policy objects in
-// the mesh. Once these are loaded, you can query whether or not a specific
-// Workload will require MTLS when an incoming connection occurs using the
+// PolicyChecker allows callers to add a set of v1alpha1.Policy objects in the
+// mesh. Once these are loaded, you can query whether or not a specific
+// TargetService will require MTLS when an incoming connection occurs using the
 // IsServiceMTLSEnforced() call.
 type PolicyChecker struct {
 	// meshHasStrictMTLSPolicy tracks whether or not mTLS is strictly enforced on the mesh.
 	meshHasStrictMTLSPolicy bool
 
 	namespaceToMTLSMode map[string]strictMTLSMode
-	workloadToMTLSMode  map[Workload]strictMTLSMode
+	serviceToMTLSMode   map[TargetService]strictMTLSMode
 }
 
 // strictMTLSMode is a helper type used to represent whether or not MTLS was
@@ -95,7 +95,7 @@ const (
 func NewPolicyChecker() *PolicyChecker {
 	return &PolicyChecker{
 		namespaceToMTLSMode: make(map[string]strictMTLSMode),
-		workloadToMTLSMode:  make(map[Workload]strictMTLSMode),
+		serviceToMTLSMode:   make(map[TargetService]strictMTLSMode),
 	}
 }
 
@@ -121,20 +121,20 @@ func (pc *PolicyChecker) AddPolicy(namespace string, p *v1alpha1.Policy) error {
 		pc.namespaceToMTLSMode[namespace] = policyMode
 		return nil
 	}
-	// Discover the targeted workload and take note. Should normalize.
+	// Discover the targeted service and take note. Should normalize.
 	for _, target := range p.Targets {
 		fqdn := util.ConvertHostToFQDN(namespace, target.Name)
 
 		if len(target.Ports) == 0 {
-			// Policy targets all ports on workload
-			pc.workloadToMTLSMode[NewWorkload(fqdn)] = policyMode
+			// Policy targets all ports on service
+			pc.serviceToMTLSMode[NewTargetService(fqdn)] = policyMode
 		}
 
 		for _, port := range target.Ports {
 			if port.GetName() != "" {
-				pc.workloadToMTLSMode[NewWorkloadWithPortName(fqdn, port.GetName())] = policyMode
+				pc.serviceToMTLSMode[NewTargetServiceWithPortName(fqdn, port.GetName())] = policyMode
 			} else if port.GetNumber() != 0 {
-				pc.workloadToMTLSMode[NewWorkloadWithPortNumber(fqdn, port.GetNumber())] = policyMode
+				pc.serviceToMTLSMode[NewTargetServiceWithPortNumber(fqdn, port.GetNumber())] = policyMode
 			} else {
 				// Unhandled case!
 				return fmt.Errorf("policy has a port with no name/number for target %s", target.Name)
@@ -145,13 +145,13 @@ func (pc *PolicyChecker) AddPolicy(namespace string, p *v1alpha1.Policy) error {
 	return nil
 }
 
-// IsServiceMTLSEnforced returns true if a workload requires incoming
+// IsServiceMTLSEnforced returns true if a service requires incoming
 // connections to use MTLS, or false if MTLS is not a hard-requirement (e.g.
 // mode is permissive, peerIsOptional is true, etc). Only call this after adding
 // all policy resources in effect via AddPolicy or AddMeshPolicy.
-func (pc *PolicyChecker) IsServiceMTLSEnforced(w Workload) (bool, error) {
+func (pc *PolicyChecker) IsServiceMTLSEnforced(w TargetService) (bool, error) {
 	// TODO support understanding port name -> port number mappings
-	switch pc.workloadToMTLSMode[w] {
+	switch pc.serviceToMTLSMode[w] {
 	case strictMTLSExplicitlyEnabled:
 		return true, nil
 	case strictMTLSExplicitlyDisabled:
@@ -159,12 +159,12 @@ func (pc *PolicyChecker) IsServiceMTLSEnforced(w Workload) (bool, error) {
 	case strictMTLSUnset:
 		// Fall through switch case
 	default:
-		return false, fmt.Errorf("unknown strictMTLSMode: %v", pc.workloadToMTLSMode[w])
+		return false, fmt.Errorf("unknown strictMTLSMode: %v", pc.serviceToMTLSMode[w])
 	}
 
 	// Try checking if its enforced on any ports
-	workloadNoPort := NewWorkload(w.FQDN())
-	switch pc.workloadToMTLSMode[workloadNoPort] {
+	serviceNoPort := NewTargetService(w.FQDN())
+	switch pc.serviceToMTLSMode[serviceNoPort] {
 	case strictMTLSExplicitlyEnabled:
 		return true, nil
 	case strictMTLSExplicitlyDisabled:
@@ -172,7 +172,7 @@ func (pc *PolicyChecker) IsServiceMTLSEnforced(w Workload) (bool, error) {
 	case strictMTLSUnset:
 		// Fall through switch case
 	default:
-		return false, fmt.Errorf("unknown strictMTLSMode: %v", pc.workloadToMTLSMode[workloadNoPort])
+		return false, fmt.Errorf("unknown strictMTLSMode: %v", pc.serviceToMTLSMode[serviceNoPort])
 	}
 
 	// Check if enforced on namespace
