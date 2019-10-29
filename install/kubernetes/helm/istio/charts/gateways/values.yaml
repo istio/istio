@@ -119,7 +119,7 @@ istio-ingressgateway:
     mountPath: /etc/istio/ingressgateway-ca-certs
   ### Advanced options ############
 
-  env:
+  #env:
     # A gateway with this mode ensures that pilot generates an additional
     # set of clusters for internal services but without Istio mTLS, to
     # enable cross cluster routing. Enable when using multi-cluster routing.
@@ -189,7 +189,7 @@ istio-egressgateway:
     secretName: istio-egressgateway-ca-certs
     mountPath: /etc/istio/egressgateway-ca-certs
   #### Advanced options ########
-  env:
+  #env:
     # Set this to "external" if and only if you want the egress gateway to
     # act as a transparent SNI gateway that routes mTLS/TLS traffic to
     # external services defined using service entries, where the service
