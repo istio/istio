@@ -88,6 +88,8 @@ func (c *Controller) InsertCATLSRootCertWithRetry(value string, retryInterval,
 		err := c.InsertCATLSRootCert(value)
 		if err == nil {
 			return nil
+		} else {
+			configMapLog.Errorf("Failed on updating root cert in config map: %s", err.Error())
 		}
 		if time.Since(start) > timeout {
 			configMapLog.Errorf("Timeout on updating root cert in config map.")

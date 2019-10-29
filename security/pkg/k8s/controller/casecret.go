@@ -50,6 +50,9 @@ func (csc *CaSecretController) LoadCASecretWithRetry(secretName, namespace strin
 		caSecret, scrtErr = csc.client.Secrets(namespace).Get(secretName, metav1.GetOptions{})
 		if scrtErr == nil {
 			return caSecret, scrtErr
+		} else {
+			caSecretControllerLog.Errorf("Failed on loading CA secret %s:%s.",
+				namespace, secretName)
 		}
 		if time.Since(start) > timeout {
 			caSecretControllerLog.Errorf("Timeout on loading CA secret %s:%s.",
@@ -68,6 +71,9 @@ func (csc *CaSecretController) UpdateCASecretWithRetry(caSecret *v1.Secret,
 		_, scrtErr := csc.client.Secrets(caSecret.Namespace).Update(caSecret)
 		if scrtErr == nil {
 			return nil
+		} else {
+			caSecretControllerLog.Errorf("Failed on updating CA secret %s:%s.",
+				caSecret.Namespace, caSecret.Name)
 		}
 		if time.Since(start) > timeout {
 			caSecretControllerLog.Errorf("Timeout on updating CA secret %s:%s.",
