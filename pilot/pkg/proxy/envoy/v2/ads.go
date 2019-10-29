@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/sets"
 )
 
 var (
@@ -346,13 +347,16 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					continue
 				}
 
+				previous := sets.NewSet(con.Clusters...)
+				current := sets.NewSet(clusters...)
+
 				// removed clusters
-				for _, cn := range con.Clusters {
+				for cn := range previous.Difference(current) {
 					s.removeEdsCon(cn, con.ConID)
 				}
 
-				// added clusters
-				for _, cn := range clusters {
+				// new added clusters
+				for cn := range current.Difference(previous) {
 					s.getOrAddEdsCluster(cn, con)
 				}
 
