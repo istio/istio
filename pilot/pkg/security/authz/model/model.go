@@ -157,7 +157,11 @@ func NewModelV1alpha1(trustDomainBundle trustdomain.Bundle, role *istio_rbac.Ser
 
 			property := KeyValues{}
 			for k, v := range subject.Properties {
-				property[k] = []string{v}
+				values := []string{v}
+				if k == attrSrcPrincipal {
+					values = trustDomainBundle.ReplaceTrustDomainAliases([]string{v})
+				}
+				property[k] = values
 			}
 			principal.Properties = []KeyValues{property}
 
@@ -176,7 +180,11 @@ func NewModelV1beta1(trustDomainBundle trustdomain.Bundle, rule *security.Rule) 
 	conditionsForPermission := make([]KeyValues, 0)
 	for _, when := range rule.When {
 		if isSupportedPrincipal(when.Key) {
-			conditionsForPrincipal = append(conditionsForPrincipal, KeyValues{when.Key: when.Values})
+			values := when.Values
+			if when.Key == attrSrcPrincipal {
+				values = trustDomainBundle.ReplaceTrustDomainAliases(when.Values)
+			}
+			conditionsForPrincipal = append(conditionsForPrincipal, KeyValues{when.Key: values})
 		} else if isSupportedPermission(when.Key) {
 			conditionsForPermission = append(conditionsForPermission, KeyValues{when.Key: when.Values})
 		} else {

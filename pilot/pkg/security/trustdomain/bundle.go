@@ -90,10 +90,17 @@ func (t Bundle) replaceTrustDomains(principal, trustDomainFromPrincipal string) 
 		// If the trust domain has a prefix * (e.g. *local from *local/ns/foo/ns/bar), keep the principal
 		// as-is for the matched trust domain. For others, replace the trust domain with the new trust domain
 		// or alias.
+		var newPrincipal string
 		if suffixMatch(td, trustDomainFromPrincipal) {
-			principalsForAliases = append(principalsForAliases, principal)
+			newPrincipal = principal
 		} else {
-			principalsForAliases = append(principalsForAliases, replaceTrustDomainInPrincipal(td, principal))
+			newPrincipal = replaceTrustDomainInPrincipal(td, principal)
+		}
+		// Check to make sure we don't generate duplicated principals. This happens when trust domain
+		// has a * prefix. For example, "*-td" can match with "old-td" and "new-td", but we only want
+		// to keep the principal as-is in the generated config, .i.e. *-td.
+		if !isKeyInList(newPrincipal, principalsForAliases) {
+			principalsForAliases = append(principalsForAliases, newPrincipal)
 		}
 	}
 	return principalsForAliases
