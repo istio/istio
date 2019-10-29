@@ -97,10 +97,10 @@ spec:
   host: {{.Host}}
   trafficPolicy:
 	loadBalancer:
-      localityLbSetting:
-        failover:
-        - from: region
-          to: closeregion
+     localityLbSetting:
+       failover:
+         - from: region
+           to: closeregion
     outlierDetection:
       consecutiveErrors: 100
       interval: 1s
@@ -130,7 +130,7 @@ func init() {
 func TestMain(m *testing.M) {
 	framework.NewSuite("locality_prioritized_failover_loadbalancing", m).
 		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, setupConfig)).
+		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
 		Setup(func(ctx resource.Context) (err error) {
 			if g, err = galley.New(ctx, galley.Config{}); err != nil {
 				return err
