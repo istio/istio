@@ -142,7 +142,10 @@ func (s *Strategy) startTimer() {
 			case <-s.resetChan:
 				// Reset should be invoked only on stopped or expired timers with drained channels.
 				if !s.timer.Stop() {
-					<-s.timer.C
+					select {
+					case <-s.timer.C:
+					default:
+					}
 				}
 				s.timer.Reset(s.timerFrequency)
 			case <-ctx.Done():

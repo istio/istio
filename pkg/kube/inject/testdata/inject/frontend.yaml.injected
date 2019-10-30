@@ -35,7 +35,7 @@ spec:
       creationTimestamp: null
       labels:
         app: hello
-        security.istio.io/mtlsReady: "true"
+        security.istio.io/tlsMode: istio
         tier: frontend
         track: stable
     spec:

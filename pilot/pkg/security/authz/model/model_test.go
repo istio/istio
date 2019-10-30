@@ -146,11 +146,13 @@ func TestNewModelV1beta1(t *testing.T) {
 					{
 						Names:      []string{"principal"},
 						Properties: []KeyValues{},
+						v1beta1:    true,
 					},
 				},
 				Permissions: []Permission{
 					{
 						AllowAll: true,
+						v1beta1:  true,
 					},
 				},
 			},
@@ -170,12 +172,14 @@ func TestNewModelV1beta1(t *testing.T) {
 				Principals: []Principal{
 					{
 						AllowAll: true,
+						v1beta1:  true,
 					},
 				},
 				Permissions: []Permission{
 					{
 						Hosts:       []string{"host"},
 						Constraints: []KeyValues{},
+						v1beta1:     true,
 					},
 				},
 			},
@@ -193,11 +197,13 @@ func TestNewModelV1beta1(t *testing.T) {
 						Constraints: []KeyValues{
 							{"destination.ip": []string{"value-destination.ip-1", "value-destination.ip-2"}},
 						},
+						v1beta1: true,
 					},
 				},
 				Principals: []Principal{
 					{
 						AllowAll: true,
+						v1beta1:  true,
 					},
 				},
 			},
@@ -213,6 +219,7 @@ func TestNewModelV1beta1(t *testing.T) {
 				Permissions: []Permission{
 					{
 						AllowAll: true,
+						v1beta1:  true,
 					},
 				},
 				Principals: []Principal{
@@ -220,6 +227,7 @@ func TestNewModelV1beta1(t *testing.T) {
 						Properties: []KeyValues{
 							{"request.headers": []string{"value-request.headers-1", "value-request.headers-2"}},
 						},
+						v1beta1: true,
 					},
 				},
 			},
@@ -289,6 +297,7 @@ func TestNewModelV1beta1(t *testing.T) {
 							{"destination.port": []string{"value-destination.port-1", "value-destination.port-2"}},
 							{"connection.sni": []string{"value-connection.sni-1", "value-connection.sni-2"}},
 						},
+						v1beta1: true,
 					},
 					{
 						Hosts: []string{"h3"},
@@ -297,6 +306,7 @@ func TestNewModelV1beta1(t *testing.T) {
 							{"destination.port": []string{"value-destination.port-1", "value-destination.port-2"}},
 							{"connection.sni": []string{"value-connection.sni-1", "value-connection.sni-2"}},
 						},
+						v1beta1: true,
 					},
 				},
 				Principals: []Principal{
@@ -317,6 +327,7 @@ func TestNewModelV1beta1(t *testing.T) {
 							{"request.auth.claims": []string{"value-request.auth.claims-1", "value-request.auth.claims-2"}},
 							{"request.auth.claims[groups]": []string{"value-request.auth.claims[groups]-1", "value-request.auth.claims[groups]-2"}},
 						},
+						v1beta1: true,
 					},
 					{
 						Names: []string{"p3"},
@@ -332,6 +343,7 @@ func TestNewModelV1beta1(t *testing.T) {
 							{"request.auth.claims": []string{"value-request.auth.claims-1", "value-request.auth.claims-2"}},
 							{"request.auth.claims[groups]": []string{"value-request.auth.claims[groups]-1", "value-request.auth.claims[groups]-2"}},
 						},
+						v1beta1: true,
 					},
 				},
 			},

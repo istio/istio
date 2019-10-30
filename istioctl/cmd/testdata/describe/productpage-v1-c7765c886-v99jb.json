@@ -656,7 +656,7 @@
        {
         "name": "mtls",
         "match": {
-         "mtlsReady": "true"
+         "tlsMode": "istio"
         },
         "transport_socket": {
          "name": "tls",
@@ -730,7 +730,7 @@
        {
         "name": "mtls",
         "match": {
-         "mtlsReady": "true"
+         "tlsMode": "istio"
         },
         "transport_socket": {
          "name": "tls",
@@ -804,7 +804,7 @@
        {
         "name": "mtls",
         "match": {
-         "mtlsReady": "true"
+         "tlsMode": "istio"
         },
         "transport_socket": {
          "name": "tls",
@@ -878,7 +878,7 @@
        {
         "name": "mtls",
         "match": {
-         "mtlsReady": "true"
+         "tlsMode": "istio"
         },
         "transport_socket": {
          "name": "tls",
@@ -952,7 +952,7 @@
        {
         "name": "mtls",
         "match": {
-         "mtlsReady": "true"
+         "tlsMode": "istio"
         },
         "transport_socket": {
          "name": "tls",
@@ -1026,7 +1026,7 @@
        {
         "name": "mtls",
         "match": {
-         "mtlsReady": "true"
+         "tlsMode": "istio"
         },
         "transport_socket": {
          "name": "tls",
@@ -1155,7 +1155,7 @@
        {
         "name": "mtls",
         "match": {
-         "mtlsReady": "true"
+         "tlsMode": "istio"
         },
         "transport_socket": {
          "name": "tls",

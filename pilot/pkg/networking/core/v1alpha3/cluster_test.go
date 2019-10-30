@@ -313,7 +313,7 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 				Locality:    "region1/zone1/subzone1",
 				LbWeight:    40,
 			},
-			MTLSReady: true,
+			TLSMode: model.IstioMutualTLSModeLabel,
 		},
 		{
 			Service: service,
@@ -324,7 +324,7 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 				Locality:    "region1/zone1/subzone2",
 				LbWeight:    20,
 			},
-			MTLSReady: true,
+			TLSMode: model.IstioMutualTLSModeLabel,
 		},
 		{
 			Service: service,
@@ -335,7 +335,7 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 				Locality:    "region2/zone1/subzone1",
 				LbWeight:    40,
 			},
-			MTLSReady: true,
+			TLSMode: model.IstioMutualTLSModeLabel,
 		},
 		{
 			Service: service,
@@ -346,7 +346,7 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 				Locality:    "region1/zone1/subzone1",
 				LbWeight:    0,
 			},
-			MTLSReady: true,
+			TLSMode: model.IstioMutualTLSModeLabel,
 		},
 	}
 
