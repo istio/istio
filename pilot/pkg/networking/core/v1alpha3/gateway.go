@@ -102,8 +102,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 			opts.filterChainOpts = filterChainOpts
 		}
 
-		l := buildListener(opts)
-		l.TrafficDirection = core.TrafficDirection_OUTBOUND
+		l := buildListener(opts, core.TrafficDirection_OUTBOUND, true)
 
 		mutable := &plugin.MutableObjects{
 			Listener: l,
