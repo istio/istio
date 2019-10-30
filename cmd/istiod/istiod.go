@@ -18,12 +18,11 @@ import (
 	"io/ioutil"
 	"os"
 
-	"istio.io/pkg/log"
-
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/pkg/istiod"
 	"istio.io/istio/pkg/istiod/k8s"
+	"istio.io/pkg/log"
 )
 
 // Istio control plane with K8S support.
@@ -89,7 +88,6 @@ func main() {
 
 	// Options based on the current 'defaults' in istio.
 	// If adjustments are needed - env or mesh.config ( if of general interest ).
-
 	istiod.RunCA(istiods.SecureGRPCServer, client, &istiod.CAOptions{
 		TrustDomain: istiods.Mesh.TrustDomain,
 	})
@@ -98,8 +96,10 @@ func main() {
 	istiods.WaitStop(stop)
 }
 
+// initCerts will create the certificates to be used by Istiod GRPC server and webhooks, signed by K8S server.
 func initCerts(server *istiod.Server, client *kubernetes.Clientset) {
-	// TODO: fallback to citadel (or custom CA)
+
+	// TODO: fallback to citadel (or custom CA) if K8S signing is broken
 
 	certChain, keyPEM, err := k8s.GenKeyCertK8sCA(client.CertificatesV1beta1(), istiod.IstiodNamespace.Get(),
 		"istio-pilot."+istiod.IstiodNamespace.Get()+",istiod."+istiod.IstiodNamespace.Get()+",istiod."+istiod.IstiodNamespace.Get()+".svc")
@@ -109,7 +109,8 @@ func initCerts(server *istiod.Server, client *kubernetes.Clientset) {
 	server.CertChain = certChain
 	server.CertKey = keyPEM
 
-	// Save the certificates to /var/run/secrets/istio-dns
+	// Save the certificates to /var/run/secrets/istio-dns - this is needed since most of the code we currently
+	// use to start grpc and webhooks is based on files. This is a memory-mounted dir.
 	if err := os.MkdirAll(istiod.DNSCertDir, 0700); err != nil {
 		log.Fatalf("Failed to create certs dir: %v", err)
 	}

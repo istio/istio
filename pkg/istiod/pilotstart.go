@@ -27,25 +27,16 @@ import (
 	"sync"
 	"time"
 
-	"google.golang.org/grpc/credentials"
-
-	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/config/mesh"
-
 	"github.com/davecgh/go-spew/spew"
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	prom "github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 
 	mcpapi "istio.io/api/mcp/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/pkg/ctrlz"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
-	"istio.io/pkg/version"
-
 	"istio.io/istio/pilot/cmd"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/coredatamodel"
@@ -58,10 +49,16 @@ import (
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/external"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schemas"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/mcp/monitoring"
 	"istio.io/istio/pkg/mcp/sink"
+	"istio.io/pkg/ctrlz"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
+	"istio.io/pkg/version"
 )
 
 const (

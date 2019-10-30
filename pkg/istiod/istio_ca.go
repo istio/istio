@@ -19,26 +19,24 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"google.golang.org/grpc/metadata"
 	"io/ioutil"
-	"istio.io/istio/security/pkg/server/ca/authenticate"
 	"os"
 	"path"
 	"strings"
 	"time"
 
-	"istio.io/pkg/env"
-
-	"google.golang.org/grpc"
-	"k8s.io/client-go/kubernetes"
-
 	oidc "github.com/coreos/go-oidc"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
+	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca"
 	caserver "istio.io/istio/security/pkg/server/ca"
+	"istio.io/istio/security/pkg/server/ca/authenticate"
+	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
 
@@ -119,13 +117,12 @@ var (
 
 	audience = env.RegisterStringVar("AUDIENCE", "istio-ca",
 		"Expected audience in the tokens. For backward compat, default is istio-ca.")
-
 )
 
 const (
 	bearerTokenPrefix = "Bearer "
 	httpAuthHeader    = "authorization"
-	identityTemplate         = "spiffe://%s/ns/%s/sa/%s"
+	identityTemplate  = "spiffe://%s/ns/%s/sa/%s"
 )
 
 type CAOptions struct {
@@ -133,6 +130,7 @@ type CAOptions struct {
 	TrustDomain string
 }
 
+// RunCA will start the cert signing GRPC service on an existing server.
 func RunCA(grpc *grpc.Server, cs kubernetes.Interface, opts *CAOptions) {
 	ca := createCA(cs.CoreV1(), opts)
 
@@ -151,14 +149,14 @@ func RunCA(grpc *grpc.Server, cs kubernetes.Interface, opts *CAOptions) {
 
 		tok, err := detectAuthEnv(string(token))
 		if err != nil {
-			log.Fatala("Starting with invalid JWT token", string(token))
-		}
-
-		if iss == "" {
-			iss = tok.Iss
-		}
-		if len(tok.Aud) > 0 {
-			aud = tok.Aud[0]
+			log.Warna("Starting with invalid K8S JWT token", err, string(token))
+		} else {
+			if iss == "" {
+				iss = tok.Iss
+			}
+			if len(tok.Aud) > 0 {
+				aud = tok.Aud[0]
+			}
 		}
 	}
 
@@ -174,7 +172,6 @@ func RunCA(grpc *grpc.Server, cs kubernetes.Interface, opts *CAOptions) {
 	// TODO: if not set, parse Istiod's own token (if present) and get the issuer. The same issuer is used
 	// for all tokens - no need to configure twice. The token may also include cluster info to auto-configure
 	// networking properties.
-
 	if iss != "" && // issuer set explicitly or extracted from our own JWT
 		(k8sInCluster.Get() != "" || trustedIssuer.Get() != "") { // either set explicitly, or not running in cluster.
 		// Add a custom authenticator using standard JWT validation, if not running in K8S
@@ -188,7 +185,6 @@ func RunCA(grpc *grpc.Server, cs kubernetes.Interface, opts *CAOptions) {
 		}
 	}
 
-
 	if serverErr := caServer.Run(); serverErr != nil {
 		// stop the registry-related controllers
 		ch <- struct{}{}
@@ -199,8 +195,8 @@ func RunCA(grpc *grpc.Server, cs kubernetes.Interface, opts *CAOptions) {
 }
 
 type jwtAuthenticator struct {
-	provider *oidc.Provider
-	verifier *oidc.IDTokenVerifier
+	provider    *oidc.Provider
+	verifier    *oidc.IDTokenVerifier
 	trustDomain string
 }
 
@@ -215,8 +211,8 @@ func NewJwtAuthenticator(iss string, trustDomain, audience string) (*jwtAuthenti
 
 	return &jwtAuthenticator{
 		trustDomain: trustDomain,
-		provider: provider,
-		verifier: provider.Verifier(&oidc.Config{ClientID: audience}),
+		provider:    provider,
+		verifier:    provider.Verifier(&oidc.Config{ClientID: audience}),
 	}, nil
 }
 
@@ -279,7 +275,7 @@ type jwtPayload struct {
 	Aud []string `json:"aud"`
 
 	// Exp is not currently used - we don't use the token for authn, just to determine k8s settings
-	Exp int      `json:"exp"`
+	Exp int `json:"exp"`
 
 	// Issuer - configured by K8S admin for projected tokens. Will be used to verify all tokens.
 	Iss string `json:"iss"`
@@ -308,7 +304,6 @@ func detectAuthEnv(jwt string) (*jwtPayload, error) {
 
 	return structuredPayload, nil
 }
-
 
 func (j jwtAuthenticator) AuthenticatorType() string {
 	return authenticate.IDTokenAuthenticatorType

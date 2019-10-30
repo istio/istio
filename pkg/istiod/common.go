@@ -27,18 +27,16 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/galley/pkg/server"
-
 	"istio.io/istio/galley/pkg/server/settings"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
+	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/filewatcher"
-
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 )
 
 // Server contains the runtime configuration for Istiod.
