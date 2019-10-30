@@ -86,7 +86,7 @@ update-goldens:
 	GOARCH=$(TARGET_ARCH) GOOS=$(TARGET_OS) REFRESH_GOLDEN=true go test ./cmd/mesh/...
 
 e2e:
-	@tests/e2e/e2e.sh
+	@HUB=$(HUB) TAG=$(TAG) bash -c tests/e2e/e2e.sh
 
 ########################
 
