@@ -585,6 +585,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 		},
 		Labels:         labels.Instance{"app": "prod-app"},
 		ServiceAccount: "spiffe://cluster.local/ns/nsa/sa/svcaccount",
+		TLSMode:        model.DisabledTLSModeLabel,
 	}
 	if len(podServices) != 1 {
 		t.Fatalf("expected 1 instance, got %v", len(podServices))
@@ -633,6 +634,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 		},
 		Labels:         labels.Instance{"app": "prod-app", "istio-locality": "region.zone"},
 		ServiceAccount: "spiffe://cluster.local/ns/nsa/sa/svcaccount",
+		TLSMode:        model.DisabledTLSModeLabel,
 	}
 	if len(podServices) != 1 {
 		t.Fatalf("expected 1 instance, got %v", len(podServices))
