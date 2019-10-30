@@ -37,9 +37,8 @@ if [ -z "${SHA}" ]; then
 fi
 
 mkdir -p "${API_TMP}"
-git clone -q --single-branch --branch master https://github.com/istio/api "${API_TMP}"
 cd "${API_TMP}"
-git reset -q --hard "${SHA}"
+git init -q && git fetch "https://github.com/istio/api" -q && git merge "${SHA}" -q
 if [ ! -f "${API_TMP}/kubernetes/customresourcedefinitions.gen.yaml" ]; then
   echo "Generated Custom Resource Definitions file does not exist in the commit SHA. Not updating the CRD file."
   exit
