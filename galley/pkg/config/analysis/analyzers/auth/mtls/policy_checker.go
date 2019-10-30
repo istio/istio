@@ -202,7 +202,6 @@ func doesPolicyEnforceMTLS(p *v1alpha1.Policy) bool {
 		// Connection can still occur.
 		return false
 	}
-	hasStrictMTLSPolicy := false
 	for _, peer := range p.Peers {
 		mtlsParams, ok := peer.Params.(*v1alpha1.PeerAuthenticationMethod_Mtls)
 		if !ok {
@@ -212,13 +211,10 @@ func doesPolicyEnforceMTLS(p *v1alpha1.Policy) bool {
 
 		// The default value if no Mtls is specified on mtlsParams is strict.
 		// If we do have parameters, though, ensure they do not imply permissive mode.
-		if mtlsParams.Mtls != nil && (mtlsParams.Mtls.AllowTls || mtlsParams.Mtls.Mode == v1alpha1.MutualTls_PERMISSIVE) {
-			continue
-		}
-
-		hasStrictMTLSPolicy = true
-		break
+		return mtlsParams.Mtls == nil ||
+			(!mtlsParams.Mtls.AllowTls && mtlsParams.Mtls.Mode != v1alpha1.MutualTls_PERMISSIVE)
 	}
 
-	return hasStrictMTLSPolicy
+	// No MTLS configuration found
+	return false
 }

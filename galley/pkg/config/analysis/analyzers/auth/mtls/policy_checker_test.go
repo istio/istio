@@ -57,6 +57,24 @@ peers:
 			service: NewTargetServiceWithPortNumber("foobar.my-namespace.svc.cluster.local", 8080),
 			want:    true,
 		},
+		"service specific policy uses only the first mtls configuration found": {
+			policy: PolicyResource{
+				namespace: "my-namespace",
+				policy: `
+targets:
+- name: foobar
+  ports:
+  - number: 8080
+peers:
+# Oops, we specified mtls twice!
+- mtls:
+    mode: PERMISSIVE
+- mtls:
+`,
+			},
+			service: NewTargetServiceWithPortNumber("foobar.my-namespace.svc.cluster.local", 8080),
+			want:    false,
+		},
 		"service specific policy using port name": {
 			policy: PolicyResource{
 
