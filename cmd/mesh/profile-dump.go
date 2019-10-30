@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+
 	"text/template"
 
 	"github.com/ghodss/yaml"
@@ -32,6 +33,7 @@ import (
 	"istio.io/operator/pkg/util"
 	"istio.io/operator/pkg/validate"
 	binversion "istio.io/operator/version"
+	"istio.io/pkg/version"
 )
 
 type profileDumpArgs struct {
@@ -140,8 +142,10 @@ func genICPS(inFilename, profile, setOverlayYAML string, force bool, l *logger) 
 
 	// Due to the fact that base profile is compiled in before a tag can be created, we must allow an additional
 	// override from variables that are set during release build time.
-	if HubValueFromBuild != "" && TagValueFromBuild != "" {
-		buildHubTagOverlayYAML, err := generateHubTagOverlay(HubValueFromBuild, TagValueFromBuild)
+	hub := version.DockerInfo.Hub
+	tag := version.DockerInfo.Tag
+	if hub != "unknown" && tag != "unknown" {
+		buildHubTagOverlayYAML, err := generateHubTagOverlay(hub, tag)
 		if err != nil {
 			return "", nil, err
 		}

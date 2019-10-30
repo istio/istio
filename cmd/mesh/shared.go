@@ -30,15 +30,6 @@ const (
 	logFilePath = "./.mesh-cli.log"
 )
 
-var (
-	// HubValueFromBuild can be set to override the hub value in the base profile. It's applied after reading base
-	// profile from compiled in or file-based profiles, but before the user overlay or --set flag.
-	HubValueFromBuild = ""
-	// TagValueFromBuild can be set to override the tag value in the base profile. It's applied after reading base
-	// profile from compiled in or file-based profiles, but before the user overlay or --set flag.
-	TagValueFromBuild = ""
-)
-
 func initLogsOrExit(args *rootArgs) {
 	if logToFile {
 		// Only the logs for the last command are of interest.

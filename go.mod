@@ -6,6 +6,8 @@ replace k8s.io/klog => github.com/istio/klog v0.0.0-20190424230111-fb7481ea8bcf
 
 replace github.com/golang/glog => github.com/istio/glog v0.0.0-20190424172949-d7cfb6fa2ccd
 
+replace github.com/spf13/viper => github.com/istio/viper v1.3.3-0.20190515210538-2789fed3109c
+
 require (
 	contrib.go.opencensus.io/exporter/ocagent v0.4.12 // indirect
 	github.com/Azure/go-autorest v12.0.0+incompatible // indirect
@@ -14,7 +16,6 @@ require (
 	github.com/aokoli/goutils v1.0.1 // indirect
 	github.com/census-instrumentation/opencensus-proto v0.2.1 // indirect
 	github.com/cyphar/filepath-securejoin v0.2.2 // indirect
-	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/dsnet/compress v0.0.1 // indirect
 	github.com/evanphx/json-patch v4.5.0+incompatible
@@ -26,14 +27,10 @@ require (
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gogo/protobuf v1.3.0
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
-	github.com/golang/groupcache v0.0.0-20190129154638-5b532d6fd5ef // indirect
 	github.com/golang/protobuf v1.3.2
 	github.com/golang/snappy v0.0.1 // indirect
-	github.com/google/go-cmp v0.3.0
-	github.com/google/uuid v1.1.1 // indirect
+	github.com/google/go-cmp v0.3.1
 	github.com/gophercloud/gophercloud v0.0.0-20190424031112-b9b92a825806 // indirect
-	github.com/gorilla/mux v1.7.2 // indirect
-	github.com/grpc-ecosystem/grpc-gateway v1.9.0 // indirect
 	github.com/hashicorp/go-version v1.2.0
 	github.com/huandu/xstrings v1.2.0 // indirect
 	github.com/imdario/mergo v0.3.7 // indirect
@@ -54,12 +51,11 @@ require (
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
 	golang.org/x/crypto v0.0.0-20190621222207-cc06ce4a13d4 // indirect
 	golang.org/x/net v0.0.0-20190827160401-ba9fcec4b297 // indirect
-	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
 	google.golang.org/api v0.8.0 // indirect
 	google.golang.org/genproto v0.0.0-20190819201941-24fa4b261c55 // indirect
 	google.golang.org/grpc v1.24.0 // indirect
-	gopkg.in/yaml.v2 v2.2.2
-	istio.io/pkg v0.0.0-20190515193414-9332430ad747
+	gopkg.in/yaml.v2 v2.2.4
+	istio.io/pkg v0.0.0-20191029184635-5c2f5ef63692
 	k8s.io/api v0.0.0
 	k8s.io/apiextensions-apiserver v0.0.0
 	k8s.io/apimachinery v0.0.0
