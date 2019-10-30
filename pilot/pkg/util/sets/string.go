@@ -33,13 +33,13 @@ func (s Set) Insert(items ...string) Set {
 
 // Difference returns a set of objects that are not in s2
 // For example:
-// s1 = {a1, a2, a3}
+// s = {a1, a2, a3}
 // s2 = {a1, a2, a4, a5}
-// s1.Difference(s2) = {a3}
-// s2.Difference(s1) = {a4, a5}
-func (s1 Set) Difference(s2 Set) Set {
+// s.Difference(s2) = {a3}
+// s2.Difference(s) = {a4, a5}
+func (s Set) Difference(s2 Set) Set {
 	result := NewSet()
-	for key := range s1 {
+	for key := range s {
 		if _, exist := s2[key]; !exist {
 			result.Insert(key)
 		}
