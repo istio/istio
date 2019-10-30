@@ -10,7 +10,13 @@ rules:
             ids:
               - orIds:
                   ids:
-                    - any: true
+                    - metadata:
+                        filter: istio_authn
+                        path:
+                          - key: source.principal
+                        value:
+                          stringMatch:
+                            regex: .+
         - andIds:
             ids:
               - orIds:
