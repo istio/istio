@@ -152,8 +152,6 @@ func init() {
 		"HTTP address to use for pilot's self-monitoring information")
 	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.DiscoveryOptions.EnableProfiling, "profile", true,
 		"Enable profiling via web interface host:port/debug/pprof")
-	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.DiscoveryOptions.EnableCaching, "discoveryCache", true,
-		"Enable caching discovery service responses")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)

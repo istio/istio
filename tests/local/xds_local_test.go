@@ -164,7 +164,6 @@ func initLocalPilot(istioSrc string) (*bootstrap.Server, error) {
 		DiscoveryOptions: envoy.DiscoveryServiceOptions{
 			HTTPAddr:        ":18080", // An unused port will be chosen
 			GrpcAddr:        ":0",
-			EnableCaching:   true,
 			EnableProfiling: true,
 		},
 		//TODO: start mixer first, get its address
