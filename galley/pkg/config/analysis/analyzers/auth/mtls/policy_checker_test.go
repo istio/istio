@@ -243,7 +243,10 @@ peers:
 				if err != nil {
 					t.Fatalf("expected: %v, got error when parsing yaml: %v", tc.want, err)
 				}
-				pc.AddPolicy(tc.policy.namespace, pb)
+				err = pc.AddPolicy(tc.policy.namespace, pb)
+				if err != nil {
+					t.Fatalf("expected: %v, got error when adding policy: %v", tc.want, err)
+				}
 			}
 
 			got, err := pc.IsServiceMTLSEnforced(tc.service)
@@ -363,7 +366,10 @@ peers:
 				if err != nil {
 					t.Fatalf("expected: %v, got error when parsing yaml: %v", tc.want, err)
 				}
-				pc.AddPolicy(p.namespace, pb)
+				err = pc.AddPolicy(p.namespace, pb)
+				if err != nil {
+					t.Fatalf("expected: %v, got error when adding policy: %v", tc.want, err)
+				}
 			}
 
 			got, err := pc.IsServiceMTLSEnforced(tc.service)
