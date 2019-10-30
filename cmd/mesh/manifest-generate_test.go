@@ -21,6 +21,8 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/pkg/version"
+
 	"istio.io/operator/pkg/object"
 	"istio.io/operator/pkg/util"
 )
@@ -148,6 +150,26 @@ func TestManifestGenerateOrdered(t *testing.T) {
 			t.Errorf("stable_manifest: Manifest generation is not producing stable text output.")
 		}
 	})
+}
+
+// TestLDFlags checks whether building mesh command with
+// -ldflags "-X istio.io/pkg/version.buildHub=myhub -X istio.io/pkg/version.buildVersion=mytag"
+// results in these values showing up in a generated manifest.
+func TestLDFlags(t *testing.T) {
+	tmpHub, tmpTag := version.DockerInfo.Hub, version.DockerInfo.Tag
+	defer func() {
+		version.DockerInfo.Hub, version.DockerInfo.Tag = tmpHub, tmpTag
+	}()
+	version.DockerInfo.Hub = "testHub"
+	version.DockerInfo.Tag = "testTag"
+	l := newLogger(true, os.Stdout, os.Stderr)
+	_, icps, err := genICPS("", "default", "", true, l)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if icps.Hub != version.DockerInfo.Hub || icps.Tag != version.DockerInfo.Tag {
+		t.Fatalf("DockerInfoHub, DockerInfoTag got: %s,%s, want: %s, %s", icps.Hub, icps.Tag, version.DockerInfo.Hub, version.DockerInfo.Tag)
+	}
 }
 
 func runTestGroup(t *testing.T, tests testGroup) {
