@@ -14,6 +14,8 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+# This is currently triggered by https://github.com/istio/test-infra for release qualification.
+
 # Exit immediately for non zero status
 set -e
 # Check unset variables
@@ -25,42 +27,32 @@ WD=$(dirname "$0")
 WD=$(cd "$WD"; pwd)
 ROOT=$(dirname "$WD")
 
-# Local run example:
-# UPGRADE_TEST_LOCAL="true" HUB=gcr.io/istio-release \
-#   ISTIO_REL_URL=https://storage.googleapis.com/istio-release-pipeline-data/daily-build/master-20190107-09-15 \
-#   TAG=master-20190107-09-15 \
-#   prow/upgrade-tests.sh
-
-# Set up inputs needed by test_upgrade.sh
-export SOURCE_HUB=${SOURCE_HUB:-istio}
-export SOURCE_VERSION=1.2.5
-export SOURCE_RELEASE_PATH="https://github.com/istio/istio/releases/download/${SOURCE_VERSION}"
-export TARGET_HUB=${TARGET_HUB:-$HUB}
-export TARGET_VERSION=${TAG}
-export TARGET_RELEASE_PATH=${ISTIO_REL_URL}
+# Set up inputs needed by /istio/istio/tests/upgrade/test_crossgrade.sh, the default settings is to test upgrade from
+# 1.3.1 to 1.3.2 using helm chart
+# These environment variables are passed by /istio/test-infra/prow/cluster/jobs istio periodic upgrade jobs
+export SOURCE_HUB=${SOURCE_HUB:-"docker.io/istio"}
+export SOURCE_TAG=${SOURCE_TAG:-"1.3.1"}
+export SOURCE_RELEASE_PATH=${SOURCE_RELEASE_PATH:-"https://github.com/istio/istio/releases/download/${SOURCE_TAG}"}
+export TARGET_HUB=${TARGET_HUB:-"docker.io/istio"}
+export TARGET_TAG=${TARGET_TAG:-"1.3.2"}
+export TARGET_RELEASE_PATH=${TAGET_RELEASE_PATH:-"https://github.com/istio/istio/releases/download/${TARGET_TAG}"}
+export INSTALL_OPTIONS=${ISTALL_OPTIONS:-"helm"}
+export FROM_PATH=${FROM_PATH:-"$(mktemp -d from_dir.XXXXXX)"}
+export TO_PATH=${TO_PATH:-"$(mktemp -d to_dir.XXXXXX)"}
 
 # Set to any non-empty value to use kubectl configured cluster instead of mason provisioned cluster.
-UPGRADE_TEST_LOCAL="${UPGRADE_TEST_LOCAL:-}"
+UPGRADE_TEST_LOCAL="${UPGRADE_TEST_LOCAL:-"true"}"
 
-# This is a script to download release artifacts from monthly or daily release
-# location and kick off upgrade/downgrade tests.
-#
-# This is currently triggered by https://github.com/istio-releases/daily-release
-# for release qualification.
-#
-# Expects HUB, SOURCE_VERSION, TARGET_VERSION, SOURCE_RELEASE_PATH, and TARGET_RELEASE_PATH as inputs.
-
-echo "Testing upgrade and downgrade between ${SOURCE_HUB}/${SOURCE_VERSION} and ${TARGET_HUB}/${TARGET_VERSION}"
+echo "Testing upgrade and downgrade between ${SOURCE_HUB}/${SOURCE_TAG} and ${TARGET_HUB}/${TARGET_TAG}"
 
 # shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"
 
 # Download release artifacts.
-download_untar_istio_release "${SOURCE_RELEASE_PATH}" "${SOURCE_VERSION}"
-download_untar_istio_release "${TARGET_RELEASE_PATH}" "${TARGET_VERSION}"
+download_untar_istio_release "${SOURCE_RELEASE_PATH}" "${SOURCE_TAG}" "${FROM_PATH}"
+download_untar_istio_release "${TARGET_RELEASE_PATH}" "${TARGET_TAG}" "${TO_PATH}"
 
-
-# Check https://github.com/istio/test-infra/blob/master/boskos/configs.yaml
+# Check https://github.com/istio/test-infra/blob/master/boskos/resources.yaml
 # for existing resources types
 if [ "${UPGRADE_TEST_LOCAL}" = "" ]; then
     export RESOURCE_TYPE="${RESOURCE_TYPE:-gke-e2e-test}"
@@ -73,12 +65,12 @@ else
     echo "Running against cluster that kubectl is configured for."
 fi
 
-
 # Install fortio which is needed by the upgrade test.
 go get fortio.org/fortio
 
 # Kick off tests
 "${ROOT}/tests/upgrade/test_crossgrade.sh" \
-  --from_hub="${SOURCE_HUB}" --from_tag="${SOURCE_VERSION}" --from_path="istio-${SOURCE_VERSION}" \
-  --to_hub="${TARGET_HUB}" --to_tag="${TARGET_VERSION}" --to_path="istio-${TARGET_VERSION}" \
-  --cloud="GKE"
+  --from_hub="${SOURCE_HUB}" --from_tag="${SOURCE_TAG}" --from_path="${FROM_PATH}/istio-${SOURCE_TAG}" \
+  --to_hub="${TARGET_HUB}" --to_tag="${TARGET_TAG}" --to_path="${TO_PATH}/istio-${TARGET_TAG}" \
+  --install_options="${INSTALL_OPTIONS}" --cloud="GKE"
+

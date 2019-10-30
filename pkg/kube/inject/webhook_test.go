@@ -1397,7 +1397,7 @@ func TestRunAndServe(t *testing.T) {
       "op": "add",
       "path": "/metadata/labels",
       "value": {
-         "security.istio.io/mtlsReady": "true"
+         "security.istio.io/tlsMode": "istio"
       }
     }
 ]`)

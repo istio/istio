@@ -62,6 +62,19 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "serviceRoleServices",
+		inputFiles: []string{"testdata/serviceroleservices.yaml"},
+		analyzer:   &auth.ServiceRoleServicesAnalyzer{},
+		expected: []message{
+			{msg.ReferencedResourceNotFound, "ServiceRole bogus-short-name.default"},
+			{msg.ReferencedResourceNotFound, "ServiceRole bogus-fqdn.default"},
+			{msg.ReferencedResourceNotFound, "ServiceRole fqdn.anothernamespace"},
+			{msg.ReferencedResourceNotFound, "ServiceRole short-name.anothernamespace"},
+			{msg.ReferencedResourceNotFound, "ServiceRole fqdn-cross-ns.anothernamespace"},
+			{msg.ReferencedResourceNotFound, "ServiceRole namespace-wide.anothernamespace"},
+		},
+	},
+	{
 		name:       "deprecation",
 		inputFiles: []string{"testdata/deprecation.yaml"},
 		analyzer:   &deprecation.FieldAnalyzer{},
@@ -158,6 +171,7 @@ var testGrid = []testCase{
 		analyzer:   &virtualservice.DestinationHostAnalyzer{},
 		expected: []message{
 			{msg.ReferencedResourceNotFound, "VirtualService reviews-bogushost.default"},
+			{msg.ReferencedResourceNotFound, "VirtualService reviews-bookinfo-other.default"},
 		},
 	},
 	{

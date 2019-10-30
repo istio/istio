@@ -229,6 +229,7 @@ installIstioAtVersionUsingHelm() {
     --set pilot.autoscaleMin=2 \
     --set mixer.telemetry.autoscaleMin=2 \
     --set mixer.policy.autoscaleMin=2 \
+    --set global.proxy.accessLogFile="/dev/stdout" \
     --set prometheus.enabled=false \
     --set-string global.hub="${1}" \
     --set-string global.tag="${2}" \
