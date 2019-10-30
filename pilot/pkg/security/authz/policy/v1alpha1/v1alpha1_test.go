@@ -283,14 +283,14 @@ func TestV1alpha1Generator_Generate(t *testing.T) {
 			} else if got.GetRules() == nil {
 				t.Fatal("rule must not be nil when global permissive is false")
 			}
-			arePrincipalsImportant := false
+			needToCheckPrincipals := false
 			if len(tc.trustDomainBundle.TrustDomains) > 0 {
-				arePrincipalsImportant = true
+				needToCheckPrincipals = true
 			}
-			if err := policy.Verify(got.GetRules(), tc.wantRules, arePrincipalsImportant); err != nil {
+			if err := policy.Verify(got.GetRules(), tc.wantRules, needToCheckPrincipals); err != nil {
 				t.Fatalf("%s\n%s", err, gotStr)
 			}
-			if err := policy.Verify(got.GetShadowRules(), tc.wantShadowRules, arePrincipalsImportant); err != nil {
+			if err := policy.Verify(got.GetShadowRules(), tc.wantShadowRules, needToCheckPrincipals); err != nil {
 				t.Fatalf("%s\n%s", err, gotStr)
 			}
 		})
