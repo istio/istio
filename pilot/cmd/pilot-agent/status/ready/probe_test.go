@@ -74,7 +74,7 @@ func TestEnvoyStatsIncompleteCDS(t *testing.T) {
 	err := probe.Check()
 
 	g.Expect(err).To(HaveOccurred())
-	g.Expect(err.Error()).To(ContainSubstring("cds version: 0"))
+	g.Expect(err.Error()).To(ContainSubstring("cds update: Not Received"))
 }
 
 func TestEnvoyStatsIncompleteLDS(t *testing.T) {
@@ -88,7 +88,7 @@ func TestEnvoyStatsIncompleteLDS(t *testing.T) {
 	err := probe.Check()
 
 	g.Expect(err).To(HaveOccurred())
-	g.Expect(err.Error()).To(ContainSubstring("lds version: 0"))
+	g.Expect(err.Error()).To(ContainSubstring("lds update: Not Received"))
 }
 
 func TestEnvoyCheckFailsIfStatsUnparsableNoSeparator(t *testing.T) {

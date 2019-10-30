@@ -25,10 +25,9 @@ import (
 
 // Probe for readiness.
 type Probe struct {
-	ApplicationPorts []uint16
-	LocalHostAddr    string
-	NodeType         model.NodeType
-	AdminPort        uint16
+	LocalHostAddr string
+	NodeType      model.NodeType
+	AdminPort     uint16
 }
 
 // Check executes the probe and returns an error if the probe fails.
@@ -38,7 +37,7 @@ func (p *Probe) Check() error {
 		return err
 	}
 
-	return p.checkServerInfo()
+	return p.checkServerState()
 }
 
 // checkUpdated checks to make sure updates have been received from Pilot
@@ -55,11 +54,11 @@ func (p *Probe) checkUpdated() error {
 	return fmt.Errorf("config not received from Pilot (is Pilot running?) %s", s.String())
 }
 
-// checkServerInfo checks to ensure that Envoy is in the READY state
-func (p *Probe) checkServerInfo() error {
+// checkServerState checks to ensure that Envoy is in the READY state
+func (p *Probe) checkServerState() error {
 	state, err := util.GetServerState(p.LocalHostAddr, p.AdminPort)
 	if err != nil {
-		return fmt.Errorf("failed to get server info: %v", err)
+		return fmt.Errorf("failed to get server state: %v", err)
 	}
 
 	if admin.ServerInfo_State(*state) != admin.ServerInfo_LIVE {
