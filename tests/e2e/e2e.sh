@@ -17,52 +17,50 @@
 set -eux
 
 export ARTIFACTS="${ARTIFACTS:-$(mktemp -d)}"
-HUB="gcr.io/istio-testing"
-TAG="latest"
-ROOT=$(cd ../../../; pwd)
-
-
-function setup_docker() {
-  HUB=istio-testing TAG=1.5-dev make controller docker
-  kind --loglevel debug --name istio-testing load docker-image istio-testing/operator:1.5-dev
-}
-
-
-
 mkdir -p "${ARTIFACTS}/out"
 
-ISTIO_DIR="${ROOT}/src/istio.io/istio"
+HUB="${HUB}" TAG="${TAG}" make -f Makefile.core.mk controller docker
+
+ISTIO_DIR="${GOPATH}/src/istio.io/istio"
 
 # Create a clone of the Istio repository
 if [[ ! -d "${ISTIO_DIR}" ]]
 then
-  git clone https://github.com/istio/istio.git "${ISTIO_DIR}"
+	git clone https://github.com/istio/istio.git "${ISTIO_DIR}"
 fi
 
+# Write out our personal HUB and TAG to the operator iamge to be consumed
+cp deploy/operator.yaml "${ARTIFACTS}/out"
+yq w "${ARTIFACTS}"/out/operator.yaml spec.template.spec.containers[*].image "${HUB}"/operator:"${TAG}" -i
+
+# yq doesn't preserve yaml start and end of documents - so we must create those for a proper deployment
+echo "---" > "${ARTIFACTS}"/out/deployment.yaml
+cat "${ARTIFACTS}"/out/operator.yaml >> "${ARTIFACTS}"/out/deployment.yaml
+echo "..." >> "${ARTIFACTS}"/out/deployment.yaml
+
 # Create an operator manifest from the default control plane configuration
-cd "${ROOT}/src/istio.io/operator"
-operator_manifest_files=( "deploy/namespace.yaml" "deploy/crds/istio_v1alpha2_istiocontrolplane_crd.yaml" "deploy/service_account.yaml" "deploy/clusterrole.yaml" "deploy/clusterrole_binding.yaml" "deploy/service.yaml" "tests/e2e/testdata/operator.yaml" "deploy/crds/istio_v1alpha2_istiocontrolplane_cr.yaml" )
+operator_manifest_files=( "deploy/namespace.yaml" "deploy/crds/istio_v1alpha2_istiocontrolplane_crd.yaml" "deploy/service_account.yaml" "deploy/clusterrole.yaml" "deploy/clusterrole_binding.yaml" "deploy/service.yaml" "${ARTIFACTS}/out/deployment.yaml" "deploy/crds/istio_v1alpha2_istiocontrolplane_cr.yaml" )
 
 # Generate the main manifest
 rm -f "${ISTIO_DIR}"/install/kubernetes/istio-operator.yaml
-for manifest_file in "${operator_manifest_files[@]}"
-do
-	cat "${manifest_file}" >> "${ISTIO_DIR}"/install/kubernetes/istio-operator.yaml
-done
+cat "${operator_manifest_files[@]}" >> "${ISTIO_DIR}"/install/kubernetes/istio-operator.yaml
 
-
-#kind cluster setup
+# Setup kind cluster
 pushd "${ISTIO_DIR}"
 # shellcheck disable=SC1091
 source "./prow/lib.sh"
 setup_kind_cluster ""
-popd
+
+# Load the operator image into kind
+kind --loglevel debug --name istio-testing load docker-image "${HUB}"/operator:"${TAG}"
 
 KUBECONFIG=$(kind get kubeconfig-path --name="istio-testing")
 export KUBECONFIG
-setup_docker
 
-pushd "${ISTIO_DIR}" || exit
-  make istioctl
-  HUB="${HUB}" TAG="${TAG}" E2E_ARGS="--use_operator --use_local_cluster=true --test_logs_path=${ARTIFACTS}" make e2e_simple_noauth_run
+make istioctl
+# TODO: HUB and TAG here are not accurate. Instead `make docker.all` should be run to buld the
+# docker images, rather than pull them. Pulling the images could result in image set A and
+# image set B being tested in the same operator PR e2e check. This would emerge as flakey e2e
+# test code.
+HUB="gcr.io/istio-testing" TAG="latest" E2E_ARGS="--use_operator --use_local_cluster=true --test_logs_path=${ARTIFACTS}" make e2e_simple_noauth_run
 popd
