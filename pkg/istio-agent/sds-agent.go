@@ -154,11 +154,13 @@ type AgentConf struct {
 	RequireCerts bool
 
 	// Expected SAN
-	SAN             string
+	SAN string
 }
 
-// DetectSDS will attempt to find nodeagent SDS and token. If not found will attempt to find
-// a location to start SDS.
+// DetectSDS will check if the JWT token required for local SDS is present, and set additional
+// config options for the in-process SDS agent.
+//
+// The JWT token is currently using a pre-defined
 //
 // If node agent and JWT are mounted: it indicates user injected a config using hostPath, and will be used.
 //

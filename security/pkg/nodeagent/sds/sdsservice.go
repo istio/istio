@@ -286,18 +286,18 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			// nodeagent stops sending response to envoy in this case.
 			if discReq.VersionInfo != "" && s.st.SecretExist(conID, resourceName, token, discReq.VersionInfo) {
 				sdsServiceLog.Debugf("%s received SDS ACK from proxy %q, version info %q, "+
-					"error details %s\n", conIDresourceNamePrefix, discReq.Node.Id, discReq.VersionInfo,
+						"error details %s\n", conIDresourceNamePrefix, discReq.Node.Id, discReq.VersionInfo,
 					discReq.ErrorDetail)
 				continue
 			}
 
 			if firstRequestFlag {
 				sdsServiceLog.Debugf("%s received first SDS request from proxy %q, version info "+
-					"%q, error details %s\n", conIDresourceNamePrefix, discReq.Node.Id, discReq.VersionInfo,
+						"%q, error details %s\n", conIDresourceNamePrefix, discReq.Node.Id, discReq.VersionInfo,
 					discReq.ErrorDetail)
 			} else {
 				sdsServiceLog.Debugf("%s received SDS request from proxy %q, version info %q, "+
-					"error details %s\n", conIDresourceNamePrefix, discReq.Node.Id, discReq.VersionInfo,
+						"error details %s\n", conIDresourceNamePrefix, discReq.Node.Id, discReq.VersionInfo,
 					discReq.ErrorDetail)
 			}
 
@@ -312,7 +312,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			secret, err := s.st.GenerateSecret(ctx, conID, resourceName, token)
 			if err != nil {
 				sdsServiceLog.Errorf("%s Close connection. Failed to get secret for proxy %q from "+
-					"secret cache: %v", conIDresourceNamePrefix, discReq.Node.Id, err)
+						"secret cache: %v", conIDresourceNamePrefix, discReq.Node.Id, err)
 				return err
 			}
 
@@ -536,7 +536,7 @@ func pushSDS(con *sdsConnection) error {
 	conIDresourceNamePrefix := sdsLogPrefix(conID, resourceName)
 	if !sdsPushTime.IsZero() {
 		sdsServiceLog.Errorf("%s skip multiple push, last push finishes at %s and is "+
-			"waiting for next SDS request", conIDresourceNamePrefix, sdsPushTime.String())
+				"waiting for next SDS request", conIDresourceNamePrefix, sdsPushTime.String())
 		return nil
 	}
 

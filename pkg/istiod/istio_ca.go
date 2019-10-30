@@ -134,7 +134,7 @@ func RunCA(grpc *grpc.Server, cs kubernetes.Interface, opts *CAOptions) {
 	if token, err := ioutil.ReadFile(JWTPath); err != nil {
 		// for debug we may want to override this by setting trustedIssuer explicitly
 		if iss == "" {
-			log.Warna("Istiod running in an environmet without access to K8S tokens. Disable the CA functionality",
+			log.Warna("istiod running without access to K8S tokens. Disable the CA functionality",
 				JWTPath)
 			return
 		}
@@ -159,7 +159,7 @@ func RunCA(grpc *grpc.Server, cs kubernetes.Interface, opts *CAOptions) {
 		false, []string{"istiod.istio-system"}, 0, spiffe.GetTrustDomain(),
 		true)
 	if startErr != nil {
-		log.Fatalf("Failed to create istio ca server: %v", startErr)
+		log.Fatalf("failed to create istio ca server: %v", startErr)
 	}
 
 	// TODO: if not set, parse Istiod's own token (if present) and get the issuer. The same issuer is used
@@ -169,7 +169,7 @@ func RunCA(grpc *grpc.Server, cs kubernetes.Interface, opts *CAOptions) {
 		(k8sInCluster.Get() != "" || trustedIssuer.Get() != "") { // either set explicitly, or not running in cluster.
 		// Add a custom authenticator using standard JWT validation, if not running in K8S
 		// When running inside K8S - we can use the built-in validator, which also check pod removal (invalidation).
-		oidcAuth, err := NewJwtAuthenticator(iss, opts.TrustDomain, aud)
+		oidcAuth, err := newJwtAuthenticator(iss, opts.TrustDomain, aud)
 		if err == nil {
 			caServer.Authenticators = append(caServer.Authenticators, oidcAuth)
 			log.Infoa("Using out-of-cluster JWT authentication")
@@ -193,10 +193,10 @@ type jwtAuthenticator struct {
 	trustDomain string
 }
 
-// NewJwtAuthenticator is used when running istiod outside of a cluster, to validate the tokens using OIDC
+// newJwtAuthenticator is used when running istiod outside of a cluster, to validate the tokens using OIDC
 // K8S is created with --service-account-issuer, service-account-signing-key-file and service-account-api-audiences
 // which enable OIDC.
-func NewJwtAuthenticator(iss string, trustDomain, audience string) (*jwtAuthenticator, error) {
+func newJwtAuthenticator(iss string, trustDomain, audience string) (*jwtAuthenticator, error) {
 	provider, err := oidc.NewProvider(context.Background(), iss)
 	if err != nil {
 		return nil, fmt.Errorf("running in cluster with K8S tokens, but failed to initialize %s %s", iss, err)
