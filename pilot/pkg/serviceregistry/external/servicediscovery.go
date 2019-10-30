@@ -66,17 +66,14 @@ func NewServiceDiscovery(callbacks model.ConfigStoreCache, store model.IstioConf
 			c.updateNeeded = true
 			c.changeMutex.Unlock()
 
+			// TODO : Currently any update to ServiceEntry triggers a full push. We need to identify what has actually
+			// changed and call appropriate handlers - for example call only service handler for the changed services
+			// and call instance handlers only when instance update happens. This requires us to rework the handlers to
+			// have both old and new objects so that they can compare and be smart.
 			services := convertServices(config)
 			for _, handler := range c.serviceHandlers {
 				for _, service := range services {
 					go handler(service, event)
-				}
-			}
-
-			instances := convertInstances(config, services)
-			for _, handler := range c.instanceHandlers {
-				for _, instance := range instances {
-					go handler(instance, event)
 				}
 			}
 		})
