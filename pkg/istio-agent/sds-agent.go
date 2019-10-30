@@ -68,10 +68,6 @@ var (
 	staledConnectionRecycleIntervalEnv = env.RegisterDurationVar(staledConnectionRecycleInterval, 5*time.Minute, "").Get()
 	initialBackoffEnv                  = env.RegisterIntVar(InitialBackoff, 10, "").Get()
 
-	// sdsUdsPathVar is the location where host-path mounted UDS is located in current installers, and used by injector.
-	// For backward compat - this will go away.
-	sdsUdsPathVar = env.RegisterStringVar("SDS_UDS_PATH", "unix:/var/run/sds/uds_path", "SDS address")
-
 	// Location of a custom-mounted root (for example using Secret)
 	mountedRoot = "./etc/certs/root-cert.pem"
 
@@ -159,7 +155,6 @@ type AgentConf struct {
 
 	// Expected SAN
 	SAN             string
-	HasCitadelAgent bool
 }
 
 // DetectSDS will attempt to find nodeagent SDS and token. If not found will attempt to find
@@ -169,22 +164,15 @@ type AgentConf struct {
 //
 func DetectSDS(discAddr string, tlsRequired bool) *AgentConf {
 	ac := &AgentConf{}
+
 	if _, err := os.Stat(JWTPath); err == nil {
 		ac.JWTPath = JWTPath
+	} else {
+		// Can't use in-process SDS.
+		return ac
 	}
 
-	hostSDSUDS := sdsUdsPathVar.Get()
-	if strings.HasPrefix(hostSDSUDS, "unix:") {
-		// Skip the prefix
-		if _, err := os.Stat(hostSDSUDS[5:]); err == nil {
-			ac.SDSAddress = hostSDSUDS
-			ac.HasCitadelAgent = true
-		}
-	}
-	if ac.SDSAddress == "" {
-		ac.SDSAddress = "unix:" + LocalSDS
-		ac.HasCitadelAgent = false
-	}
+	ac.SDSAddress = "unix:" + LocalSDS
 
 	if _, err := os.Stat("/etc/certs/key.pem"); err == nil {
 		ac.CertsPath = "/etc/certs"

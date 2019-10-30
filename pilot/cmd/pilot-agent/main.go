@@ -55,6 +55,7 @@ import (
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 
+const trustworthyJWTPath = "/var/run/secrets/tokens/istio-token"
 // TODO: Move most of this to pkg.
 
 var (
@@ -106,6 +107,7 @@ var (
 	sdsEnabledVar        = env.RegisterBoolVar("SDS_ENABLED", false, "")
 	autoMTLSEnabled      = env.RegisterBoolVar("ISTIO_AUTO_MTLS_ENABLED", false, "If true, auto mTLS is enabled, "+
 		"sidecar checks key/cert if SDS is not enabled.")
+	sdsUdsPathVar             = env.RegisterStringVar("SDS_UDS_PATH", "unix:/var/run/sds/uds_path", "SDS address")
 	stackdriverTracingEnabled = env.RegisterBoolVar("STACKDRIVER_TRACING_ENABLED", false, "If enabled, stackdriver will"+
 		" get configured as the tracer.")
 	stackdriverTracingDebug = env.RegisterBoolVar("STACKDRIVER_TRACING_DEBUG", false, "If set to true, "+
@@ -340,31 +342,41 @@ var (
 				log.Infof("Effective config: %s", out)
 			}
 
-			sa := istio_agent.DetectSDS(discoveryAddress, controlPlaneAuthEnabled)
-			// If user injected a JWT token for SDS - use SDS.
-			sdsEnabled := sa.JWTPath != ""
-			sdsTokenPath := sa.JWTPath
+			// Legacy - so pilot-agent can be used with citadel node agent.
+			// Main will be replaced by istio-agent when we clean up - this code can stay here and be removed with the rest.
+			sdsUDSPath := sdsUdsPathVar.Get()
+			sdsEnabled, sdsTokenPath := detectSds(controlPlaneBootstrap, sdsUDSPath, trustworthyJWTPath)
 
-			// Override if SDS detected
-			if sa.RequireCerts {
-				controlPlaneAuthEnabled = true
-			}
+			if !sdsEnabled { // Not using citadel agent - this is either Pilot or Istiod.
 
-			if sa.JWTPath != "" && !sa.HasCitadelAgent && role.Type == model.SidecarProxy {
-				// For normal Istio - start in process SDS.
-				// Ingress: WIP, permissions needed.
+				// Istiod and new SDS-only mode doesn't use sdsUdsPathVar - sdsEnabled will be false.
+				sa := istio_agent.DetectSDS(discoveryAddress, controlPlaneAuthEnabled)
 
-				// citadel node-agent not found, but we have a K8S JWT available. Start an in-process SDS.
-				_, err := istio_agent.StartSDS(sa, role.Type == model.SidecarProxy, podNamespaceVar.Get())
-				if err != nil {
-					log.Fatala("Failed to start in-process SDS", err)
-				}
+				if sa.JWTPath != "" && role.Type == model.SidecarProxy {
+					// If user injected a JWT token for SDS - use SDS.
+					sdsEnabled = true
+					sdsTokenPath = sa.JWTPath
+					sdsUDSPath = sa.SDSAddress
 
-				if sa.RequireCerts {
-					proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
-				}
-				if sa.SAN != "" {
-					pilotSAN = append(pilotSAN, sa.SAN)
+					if sa.RequireCerts {
+						controlPlaneAuthEnabled = true
+					}
+
+					// For normal Istio - start in process SDS.
+					// Ingress: WIP, permissions needed.
+
+					// citadel node-agent not found, but we have a K8S JWT available. Start an in-process SDS.
+					_, err := istio_agent.StartSDS(sa, role.Type == model.SidecarProxy, podNamespaceVar.Get())
+					if err != nil {
+						log.Fatala("Failed to start in-process SDS", err)
+					}
+
+					if sa.RequireCerts {
+						proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
+					}
+					if sa.SAN != "" {
+						pilotSAN = append(pilotSAN, sa.SAN)
+					}
 				}
 			}
 
@@ -468,7 +480,7 @@ var (
 				PodName:             podName,
 				PodNamespace:        podNamespace,
 				PodIP:               podIP,
-				SDSUDSPath:          sa.SDSAddress,
+				SDSUDSPath:          sdsUDSPath,
 				SDSTokenPath:        sdsTokenPath,
 				ControlPlaneAuth:    controlPlaneAuthEnabled,
 				DisableReportCalls:  disableInternalTelemetry,
