@@ -168,8 +168,7 @@ func startPilot() error {
 		},
 
 		Mesh: bootstrap.MeshArgs{
-			MixerAddress:    "localhost:9091",
-			RdsRefreshDelay: types.DurationProto(10 * time.Millisecond),
+			MixerAddress: "localhost:9091",
 		},
 		Config: bootstrap.ConfigArgs{
 			KubeConfig: env.IstioSrc + "/tests/util/kubeconfig",
