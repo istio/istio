@@ -222,11 +222,11 @@ func NewIstiod(kconfig *rest.Config, kclient *kubernetes.Clientset, confDir stri
 		// Galley requires this file to exist. Create it in a writeable directory, override.
 		meshBytes, err := json.Marshal(server.Mesh)
 		if err != nil {
-			return nil, fmt.Errorf("Faileed to serialize mesh %v", err)
+			return nil, fmt.Errorf("Failed to serialize mesh %v", err)
 		}
 		err = ioutil.WriteFile("/tmp/mesh", meshBytes, 0700)
 		if err != nil {
-			return nil, fmt.Errorf("Faileed to serialize mesh %v", err)
+			return nil, fmt.Errorf("Failed to serialize mesh %v", err)
 		}
 		meshCfgFile = "/tmp/mesh"
 	}

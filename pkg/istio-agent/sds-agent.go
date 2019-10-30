@@ -208,8 +208,6 @@ func DetectSDS(discAddr string, tlsRequired bool) *AgentConf {
 		ac.SAN = istiodHost
 	}
 
-
-
 	return ac
 }
 
@@ -240,7 +238,7 @@ func StartSDS(conf *AgentConf, isSidecar bool, podNamespace string) (*sds.Server
 		serverOptions.EnableIngressGatewaySDS = true
 		// TODO: what is the setting for ingress ?
 		serverOptions.IngressGatewayUDSPath = serverOptions.WorkloadUDSPath + "_ROUTER"
-		gatewaySecretCache = newIngressSecretCache(serverOptions, podNamespace)
+		gatewaySecretCache = newIngressSecretCache(podNamespace)
 	}
 
 	// For sidecar and ingress we need to first get the certificates for the workload.
@@ -318,8 +316,8 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 
 	// TODO: this should all be packaged in a plugin, possibly with optional compilation.
 
-	if ("GoogleCA" == serverOptions.CAProviderName || strings.Contains(serverOptions.CAEndpoint, "googleapis.com")) &&
-		stsclient.GKEClusterURL != "" {
+	if (serverOptions.CAProviderName == "GoogleCA" || strings.Contains(serverOptions.CAEndpoint, "googleapis.com")) &&
+			stsclient.GKEClusterURL != "" {
 		// Use a plugin to an external CA - this has direct support for the K8S JWT token
 		// This is only used if the proper env variables are injected - otherwise the existing Citadel or Istiod will be
 		// used.
@@ -372,6 +370,9 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 			}
 			if strings.HasSuffix(serverOptions.CAEndpoint, ":15012") {
 				rootCert, err = ioutil.ReadFile(k8sCAPath)
+				if err != nil {
+					log.Fatala("Invalid config - port 15012 expects a K8S-signed certificate but certs missing", err)
+				}
 			}
 		}
 
@@ -395,7 +396,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 }
 
 // TODO: use existing 'sidecar/router' config to enable loading Secrets
-func newIngressSecretCache(serverOptions sds.Options, namespace string) (gatewaySecretCache *cache.SecretCache) {
+func newIngressSecretCache(namespace string) (gatewaySecretCache *cache.SecretCache) {
 	gSecretFetcher := &secretfetcher.SecretFetcher{
 		UseCaClient: false,
 	}

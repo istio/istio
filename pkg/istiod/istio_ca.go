@@ -71,7 +71,7 @@ var (
 		cmd.DefaultWorkloadCertTTL,
 		"The TTL of issued workload certificates.")
 
-	maxWorkloadCertTtl = env.RegisterDurationVar("MAX_WORKLOAD_CERT_TTL",
+	maxWorkloadCertTTL = env.RegisterDurationVar("MAX_WORKLOAD_CERT_TTL",
 		cmd.DefaultMaxWorkloadCertTTL,
 		"The max TTL of issued workload certificates.")
 
@@ -90,10 +90,6 @@ var (
 		cmd.DefaultRootCertGracePeriodPercentile,
 		"Grace period percentile for self-signed root cert.")
 
-	workloadCertMinGracePeriod = env.RegisterDurationVar("CITADEL_WORKLOAD_CERT_MIN_GRACE_PERIOD",
-		cmd.DefaultWorkloadMinCertGracePeriod,
-		"The minimum workload certificate rotation grace period.")
-
 	enableJitterForRootCertRotator = env.RegisterBoolVar("CITADEL_ENABLE_JITTER_FOR_ROOT_CERT_ROTATOR",
 		true,
 		"If true, set up a jitter to start root cert rotator. "+
@@ -103,10 +99,7 @@ var (
 	k8sInCluster = env.RegisterStringVar("KUBERNETES_SERVICE_HOST", "",
 		"Kuberenetes service host, set automatically when running in-cluster")
 
-	// Well-known location of the K8S CA Path
-	k8sCAPath = "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-
-	// Well-knwon location of the projected K8S JWT. This is mounted on all workloads, as well as istiod.
+	// JWTPath is the well-knwon location of the projected K8S JWT. This is mounted on all workloads, as well as istiod.
 	// In a cluster that doesn't support projected JWTs we can't run the CA functionality of istiod - instead
 	// old-style Citadel must be run, with Secret created for each workload.
 	JWTPath = "./var/run/secrets/tokens/istio-token"
@@ -141,7 +134,7 @@ func RunCA(grpc *grpc.Server, cs kubernetes.Interface, opts *CAOptions) {
 	if token, err := ioutil.ReadFile(JWTPath); err != nil {
 		// for debug we may want to override this by setting trustedIssuer explicitly
 		if iss == "" {
-			log.Warna("Istiod running in an environmnet without access to K8S tokens. Disable the CA functionality",
+			log.Warna("Istiod running in an environmet without access to K8S tokens. Disable the CA functionality",
 				JWTPath)
 			return
 		}
@@ -162,7 +155,7 @@ func RunCA(grpc *grpc.Server, cs kubernetes.Interface, opts *CAOptions) {
 
 	// The CA API uses cert with the max workload cert TTL.
 	// 'hostlist' must be non-empty - but is not used since a grpc server is passed.
-	caServer, startErr := caserver.NewWithGRPC(grpc, ca, maxWorkloadCertTtl.Get(),
+	caServer, startErr := caserver.NewWithGRPC(grpc, ca, maxWorkloadCertTTL.Get(),
 		false, []string{"istiod.istio-system"}, 0, spiffe.GetTrustDomain(),
 		true)
 	if startErr != nil {
@@ -206,7 +199,7 @@ type jwtAuthenticator struct {
 func NewJwtAuthenticator(iss string, trustDomain, audience string) (*jwtAuthenticator, error) {
 	provider, err := oidc.NewProvider(context.Background(), iss)
 	if err != nil {
-		return nil, fmt.Errorf("Running in cluster with K8S tokens, but failed to initialize %s %s", iss, err)
+		return nil, fmt.Errorf("running in cluster with K8S tokens, but failed to initialize %s %s", iss, err)
 	}
 
 	return &jwtAuthenticator{
@@ -235,7 +228,7 @@ func (j *jwtAuthenticator) Authenticate(ctx context.Context) (*authenticate.Call
 		return nil, fmt.Errorf("failed to extract email field from ID token: %v", err)
 	}
 	if !strings.HasPrefix(sa.Sub, "system:serviceaccount") {
-		return nil, fmt.Errorf("Invalid sub %v", sa.Sub)
+		return nil, fmt.Errorf("invalid sub %v", sa.Sub)
 	}
 	parts := strings.Split(sa.Sub, ":")
 	ns := parts[2]
@@ -338,7 +331,7 @@ func createCA(client corev1.CoreV1Interface, opts *CAOptions) *ca.IstioCA {
 		caOpts, err = ca.NewSelfSignedIstioCAOptions(ctx, false,
 			selfSignedRootCertGracePeriodPercentile.Get(), selfSignedCACertTTL.Get(),
 			selfSignedRootCertCheckInterval.Get(), workloadCertTTL.Get(),
-			maxWorkloadCertTtl.Get(), opts.TrustDomain, true,
+			maxWorkloadCertTTL.Get(), opts.TrustDomain, true,
 			IstiodNamespace.Get(), -1, client, rootCertFile,
 			enableJitterForRootCertRotator.Get())
 		if err != nil {
@@ -354,7 +347,7 @@ func createCA(client corev1.CoreV1Interface, opts *CAOptions) *ca.IstioCA {
 		certChainFile := path.Join(localCertDir.Get(), "cert-chain.pem")
 
 		caOpts, err = ca.NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile,
-			rootCertFile, workloadCertTTL.Get(), maxWorkloadCertTtl.Get(), IstiodNamespace.Get(), client)
+			rootCertFile, workloadCertTTL.Get(), maxWorkloadCertTTL.Get(), IstiodNamespace.Get(), client)
 		if err != nil {
 			log.Fatalf("Failed to create an Citadel (error: %v)", err)
 		}
