@@ -506,11 +506,7 @@ global:
   #     dnsNames: [istio-galley.istio-system.svc, istio-galley.istio-system]
   #   - secretName: dns.istio-sidecar-injector-service-account
   #     dnsNames: [istio-sidecar-injector.istio-system.svc, istio-sidecar-injector.istio-system]
-  certificates:
-    - secretName: dns.istio-galley-service-account
-      dnsNames: [istio-galley.istio-system.svc, istio-galley.istio-system]
-    - secretName: dns.istio-sidecar-injector-service-account
-      dnsNames: [istio-sidecar-injector.istio-system.svc, istio-sidecar-injector.istio-system]
+  certificates: []
 
   # Configure whether Operator manages webhook configurations. The current behavior
   # of Galley and Sidecar Injector is that they manage their own webhook configurations.

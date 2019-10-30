@@ -406,15 +406,9 @@ spec:
           - --monitoringPort=15014
           - --validation-port=9443
           - --log_output_level=default:info
-          - --validation.tls.clientCertificate=/etc/dnscerts/cert-chain.pem
-          - --validation.tls.privateKey=/etc/dnscerts/key.pem
-          - --validation.tls.caCertificates=/etc/dnscerts/root-cert.pem
           volumeMounts:
           - name: istio-certs
             mountPath: /etc/certs
-            readOnly: true
-          - name: dnscerts
-            mountPath: /etc/dnscerts
             readOnly: true
           - name: config
             mountPath: /etc/config
@@ -494,9 +488,6 @@ spec:
       - name: istio-certs
         secret:
           secretName: istio.istio-galley-service-account
-      - name: dnscerts
-        secret:
-          secretName: dns.istio-galley-service-account
       - name: envoy-config
         configMap:
           name: galley-envoy-config
