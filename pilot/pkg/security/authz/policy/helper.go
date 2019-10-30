@@ -216,7 +216,7 @@ func SimpleAuthzPolicy(name string, namespace string) *model.Config {
 	}
 }
 
-func Verify(got *envoy_rbac.RBAC, want map[string][]string, arePrincipalsImportant bool) error {
+func Verify(got *envoy_rbac.RBAC, want map[string][]string, needToCheckPrincipals bool) error {
 	var err error
 	if len(want) == 0 {
 		if len(got.GetPolicies()) != 0 {
@@ -240,7 +240,7 @@ func Verify(got *envoy_rbac.RBAC, want map[string][]string, arePrincipalsImporta
 			} else {
 				// Enable principal count check if principals are important for the current test (e.g. generating RBAC config based
 				// on trust domain aliases).
-				if arePrincipalsImportant {
+				if needToCheckPrincipals {
 					err = checkPrincipalCounts(key, actualStr, values)
 				}
 				for _, value := range values {
