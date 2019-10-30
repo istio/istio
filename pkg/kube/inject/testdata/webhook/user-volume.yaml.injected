@@ -20,7 +20,7 @@ spec:
       creationTimestamp: null
       labels:
         app: user-volume
-        security.istio.io/tlsMode: "istio"
+        security.istio.io/tlsMode: istio
         tier: backend
         track: stable
     spec:
