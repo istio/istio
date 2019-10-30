@@ -106,68 +106,6 @@ func TestProcessor_Stop(t *testing.T) {
 	p.Stop()
 }
 
-func TestProcessor_EventAccumulation(t *testing.T) {
-	// Set the log level to debug for codecov.
-	prevLevel := setDebugLogLevel()
-	defer restoreLogLevel(prevLevel)
-
-	src := NewInMemorySource()
-	distributor := NewInMemoryDistributor()
-	// Do not quiesce/timeout for an hour
-	stateStrategy := publish.NewStrategy(time.Hour, time.Hour, time.Millisecond)
-
-	p := newTestProcessor(src, stateStrategy, distributor, nil)
-	err := p.Start()
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	defer p.Stop()
-
-	awaitFullSync(t, p)
-
-	k1 := resource.Key{Collection: resources.EmptyInfo.Collection, FullName: resource.FullNameFromNamespaceAndName("", "r1")}
-	src.Set(k1, resource.Metadata{}, &types.Empty{})
-
-	// Wait "long enough"
-	time.Sleep(time.Second * 1)
-
-	if distributor.NumSnapshots() != 0 {
-		t.Fatalf("snapshot shouldn't have been distributed: %+v", distributor)
-	}
-}
-
-func TestProcessor_EventAccumulation_WithFullSync(t *testing.T) {
-	// Set the log level to debug for codecov.
-	prevLevel := setDebugLogLevel()
-	defer restoreLogLevel(prevLevel)
-
-	info, _ := resources.TestSchema.Lookup("empty")
-
-	src := NewInMemorySource()
-	distributor := NewInMemoryDistributor()
-	// Do not quiesce/timeout for an hour
-	stateStrategy := publish.NewStrategy(time.Hour, time.Hour, time.Millisecond)
-
-	p := newTestProcessor(src, stateStrategy, distributor, nil)
-	err := p.Start()
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	defer p.Stop()
-
-	awaitFullSync(t, p)
-
-	k1 := resource.Key{Collection: info.Collection, FullName: resource.FullNameFromNamespaceAndName("", "r1")}
-	src.Set(k1, resource.Metadata{}, &types.Empty{})
-
-	// Wait "long enough"
-	time.Sleep(time.Second * 1)
-
-	if distributor.NumSnapshots() != 0 {
-		t.Fatalf("snapshot shouldn't have been distributed: %+v", distributor)
-	}
-}
-
 func TestProcessor_Publishing(t *testing.T) {
 	// Set the log level to debug for codecov.
 	prevLevel := setDebugLogLevel()
@@ -183,7 +121,7 @@ func TestProcessor_Publishing(t *testing.T) {
 	hookFn := func() {
 		processCallCount.Done()
 	}
-	processCallCount.Add(3) // 1 for add, 1 for sync, 1 for publish trigger
+	processCallCount.Add(2) // 1 for sync, 1 for publish trigger
 
 	p := newTestProcessor(src, stateStrategy, distributor, hookFn)
 	err := p.Start()
@@ -193,6 +131,13 @@ func TestProcessor_Publishing(t *testing.T) {
 	defer p.Stop()
 
 	awaitFullSync(t, p)
+
+	// Wait for up to 5 seconds.
+	if err := timedfn.WithTimeout(processCallCount.Wait, timeout); err != nil {
+		t.Fatal(err)
+	}
+
+	processCallCount.Add(2) // 1 for add, 1 for publish trigger
 
 	k1 := resource.Key{Collection: info.Collection, FullName: resource.FullNameFromNamespaceAndName("", "r1")}
 	src.Set(k1, resource.Metadata{}, &types.Empty{})
