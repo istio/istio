@@ -89,6 +89,11 @@ func TestBuildHTTPFilter(t *testing.T) {
 			policies:          getPolicies("testdata/v1alpha1-simple-policy-td-aliases-in.yaml", t),
 			want:              getProto("testdata/v1alpha1-simple-policy-td-aliases-out.yaml", t),
 		},
+		{
+			name:     "v1alpha1 all fields",
+			policies: getPolicies("testdata/v1alpha1-all-fields-in.yaml", t),
+			want:     getProto("testdata/v1alpha1-all-fields-out.yaml", t),
+		},
 	}
 
 	httpbinLabels := map[string]string{

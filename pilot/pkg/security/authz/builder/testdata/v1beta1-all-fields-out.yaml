@@ -71,7 +71,7 @@ rules:
                     - requestedServerName:
                         prefix: prefix.
                     - requestedServerName:
-                        regex: .*
+                        regex: .+
               - orRules:
                   rules:
                     - metadata:
@@ -101,7 +101,7 @@ rules:
                           - key: c
                         value:
                           stringMatch:
-                            regex: .*
+                            regex: .+
       principals:
         - andIds:
             ids:
@@ -128,7 +128,13 @@ rules:
                         value:
                           stringMatch:
                             suffix: -suffix-principal
-                    - any: true
+                    - metadata:
+                        filter: istio_authn
+                        path:
+                          - key: source.principal
+                        value:
+                          stringMatch:
+                            regex: .+
               - orIds:
                   ids:
                     - metadata:
@@ -158,7 +164,7 @@ rules:
                           - key: request.auth.principal
                         value:
                           stringMatch:
-                            regex: .*
+                            regex: .+
               - orIds:
                   ids:
                     - metadata:
@@ -272,7 +278,13 @@ rules:
                         value:
                           stringMatch:
                             suffix: -suffix-principal
-                    - any: true
+                    - metadata:
+                        filter: istio_authn
+                        path:
+                          - key: source.principal
+                        value:
+                          stringMatch:
+                            regex: .+
               - orIds:
                   ids:
                     - metadata:
@@ -302,7 +314,7 @@ rules:
                           - key: request.auth.principal
                         value:
                           stringMatch:
-                            regex: .*
+                            regex: .+
               - orIds:
                   ids:
                     - metadata:
@@ -332,7 +344,7 @@ rules:
                           - key: request.auth.audiences
                         value:
                           stringMatch:
-                            regex: .*
+                            regex: .+
               - orIds:
                   ids:
                     - metadata:
@@ -362,7 +374,7 @@ rules:
                           - key: request.auth.presenter
                         value:
                           stringMatch:
-                            regex: .*
+                            regex: .+
               - orIds:
                   ids:
                     - metadata:
@@ -404,4 +416,4 @@ rules:
                           listMatch:
                             oneOf:
                               stringMatch:
-                                regex: .*
+                                regex: .+
