@@ -70,6 +70,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 			bind:       actualWildcard,
 			port:       int(portNumber),
 			bindToPort: true,
+			isGateway:  true,
 		}
 
 		p := protocol.Parse(servers[0].Port.Protocol)
@@ -102,7 +103,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 			opts.filterChainOpts = filterChainOpts
 		}
 
-		l := buildListener(opts, core.TrafficDirection_OUTBOUND, true)
+		l := buildListener(opts, core.TrafficDirection_OUTBOUND)
 
 		mutable := &plugin.MutableObjects{
 			Listener: l,

@@ -635,7 +635,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 	}
 
 	// call plugins
-	l := buildListener(listenerOpts, core.TrafficDirection_INBOUND, false)
+	l := buildListener(listenerOpts, core.TrafficDirection_INBOUND)
 
 	mutable := &plugin.MutableObjects{
 		Listener:     l,
@@ -985,7 +985,7 @@ func (configgen *ConfigGeneratorImpl) buildHTTPProxy(env *model.Environment, nod
 		bindToPort:      true,
 		skipUserFilters: true,
 	}
-	l := buildListener(opts, core.TrafficDirection_OUTBOUND, false)
+	l := buildListener(opts, core.TrafficDirection_OUTBOUND)
 
 	// TODO: plugins for HTTP_PROXY mode, envoyfilter needs another listener match for SIDECAR_HTTP_PROXY
 	// there is no mixer for http_proxy
@@ -1338,7 +1338,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 
 	// Lets build the new listener with the filter chains. In the end, we will
 	// merge the filter chains with any existing listener on the same port/bind point
-	l := buildListener(listenerOpts, core.TrafficDirection_OUTBOUND, false)
+	l := buildListener(listenerOpts, core.TrafficDirection_OUTBOUND)
 	appendListenerFallthroughRoute(l, &listenerOpts, pluginParams.Node, currentListenerEntry)
 
 	mutable := &plugin.MutableObjects{
@@ -1583,7 +1583,7 @@ func buildSidecarInboundMgmtListeners(node *model.Proxy, env *model.Environment,
 				proxy:           node,
 				env:             env,
 			}
-			l := buildListener(listenerOpts, core.TrafficDirection_INBOUND, false)
+			l := buildListener(listenerOpts, core.TrafficDirection_INBOUND)
 			mutable := &plugin.MutableObjects{
 				Listener:     l,
 				FilterChains: []plugin.FilterChain{{}},
@@ -1653,6 +1653,7 @@ type buildListenerOpts struct {
 	bindToPort        bool
 	skipUserFilters   bool
 	needHTTPInspector bool
+	isGateway         bool
 }
 
 func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpOpts *httpListenerOpts,
@@ -1786,7 +1787,7 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 }
 
 // buildListener builds and initializes a Listener proto based on the provided opts. It does not set any filters.
-func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirection, isGateway bool) *xdsapi.Listener {
+func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirection) *xdsapi.Listener {
 	filterChains := make([]*listener.FilterChain, 0, len(opts.filterChainOpts))
 	listenerFiltersMap := make(map[string]bool)
 	var listenerFilters []*listener.ListenerFilter
@@ -1878,7 +1879,7 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 		TrafficDirection: trafficDirection,
 	}
 
-	if util.IsIstioVersionGE13(opts.proxy) && !isGateway {
+	if util.IsIstioVersionGE13(opts.proxy) && !opts.isGateway {
 		if trafficDirection == core.TrafficDirection_OUTBOUND {
 			listener.ListenerFiltersTimeout = gogo.DurationToProtoDuration(opts.env.Mesh.ProtocolDetectionTimeout)
 		} else {
