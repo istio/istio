@@ -1878,19 +1878,15 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 		TrafficDirection: trafficDirection,
 	}
 
-	if util.IsIstioVersionGE13(opts.proxy) {
-		if isGateway {
-			listener.ContinueOnListenerFiltersTimeout = false
+	if util.IsIstioVersionGE13(opts.proxy) && !isGateway {
+		if trafficDirection == core.TrafficDirection_OUTBOUND {
+			listener.ListenerFiltersTimeout = gogo.DurationToProtoDuration(opts.env.Mesh.ProtocolDetectionTimeout)
 		} else {
-			if trafficDirection == core.TrafficDirection_OUTBOUND {
-				listener.ListenerFiltersTimeout = gogo.DurationToProtoDuration(opts.env.Mesh.ProtocolDetectionTimeout)
-			} else {
-				listener.ListenerFiltersTimeout = ptypes.DurationProto(features.InboundProtocolDetectionTimeout)
-			}
+			listener.ListenerFiltersTimeout = ptypes.DurationProto(features.InboundProtocolDetectionTimeout)
+		}
 
-			if listener.ListenerFiltersTimeout != nil {
-				listener.ContinueOnListenerFiltersTimeout = true
-			}
+		if listener.ListenerFiltersTimeout != nil {
+			listener.ContinueOnListenerFiltersTimeout = true
 		}
 	}
 
