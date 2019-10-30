@@ -16,12 +16,17 @@ package configmap
 
 import (
 	"fmt"
+	"time"
+
+	"istio.io/pkg/log"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
+
+var configMapLog = log.RegisterScope("configMapController", "ConfigMap controller log", 0)
 
 const (
 	istioSecurityConfigMapName = "istio-security"
@@ -72,6 +77,24 @@ func (c *Controller) InsertCATLSRootCert(value string) error {
 		}
 	}
 	return nil
+}
+
+// InsertCATLSRootCertWithRetry updates the CA TLS root certificate in the configmap with
+// retries until timeout.
+func (c *Controller) InsertCATLSRootCertWithRetry(value string, retryInterval,
+	timeout time.Duration) error {
+	start := time.Now()
+	for {
+		err := c.InsertCATLSRootCert(value)
+		if err == nil {
+			return nil
+		}
+		if time.Since(start) > timeout {
+			configMapLog.Errorf("Timeout on updating root cert in config map.")
+			return err
+		}
+		time.Sleep(retryInterval)
+	}
 }
 
 // GetCATLSRootCert gets the CA TLS root certificate from the configmap.
