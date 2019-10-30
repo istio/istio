@@ -27,6 +27,7 @@ import (
 	"github.com/spf13/cobra/doc"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
+	pkgcmd "istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/ctrlz"
 	kubelib "istio.io/istio/pkg/kube"
@@ -56,8 +57,11 @@ type cliOptions struct { // nolint: maligned
 	signingKeyFile  string
 	rootCertFile    string
 
-	selfSignedCA        bool
-	selfSignedCACertTTL time.Duration
+	selfSignedCA                            bool
+	selfSignedCACertTTL                     time.Duration
+	selfSignedRootCertCheckInterval         time.Duration
+	selfSignedRootCertGracePeriodPercentile int
+	enableJitterForRootCertRotator          bool
 
 	workloadCertTTL    time.Duration
 	maxWorkloadCertTTL time.Duration
@@ -133,6 +137,8 @@ var (
 		"istio-sidecar-injector",
 		"istio-galley",
 	}
+
+	rootCertRotatorChan chan struct{}
 )
 
 func fatalf(template string, args ...interface{}) {
@@ -159,7 +165,7 @@ func init() {
 	flags.StringVar(&opts.kubeConfigFile, "kube-config", "",
 		"Specifies path to kubeconfig file. This must be specified when not running inside a Kubernetes pod.")
 	flags.BoolVar(&opts.readSigningCertOnly, "read-signing-cert-only", false, "When set, Citadel only reads the self-signed signing "+
-		"key and cert from Kubernetes secret without generating one (if not exist). This flag avoids racing condition between "+
+		"cert and key from Kubernetes secret without generating one (if not exist). This flag avoids racing condition between "+
 		"multiple Citadels generating self-signed key and cert. Please make sure one and only one Citadel instance has this flag set "+
 		"to false.")
 
@@ -183,6 +189,16 @@ func init() {
 	flags.StringVar(&opts.cAClientConfig.Org, "org", "", "Organization for the cert")
 	flags.DurationVar(&opts.cAClientConfig.RequestedCertTTL, "requested-ca-cert-ttl", cmd.DefaultRequestedCACertTTL,
 		"The requested TTL for the workload")
+	flags.DurationVar(&opts.selfSignedRootCertCheckInterval, "citadel-self-signed-root-cert-check-interval",
+		cmd.DefaultSelfSignedRootCertCheckInterval,
+		"The interval that self-signed CA checks its root certificate expiration time and rotates root certificate. Setting "+
+			"this interval to zero or a negative value disables automated root cert check and rotation. This interval is suggested to be "+
+			"larger than 10 minutes.")
+	flags.IntVar(&opts.selfSignedRootCertGracePeriodPercentile, "citadel-self-signed-root-cert-grace-period-percentile",
+		cmd.DefaultRootCertGracePeriodPercentile, "Grace period percentile for self-signed root cert.")
+	flags.BoolVar(&opts.enableJitterForRootCertRotator, "citadel-enable-jitter-for-root-cert-rotator", true,
+		"If true, set up a jitter to start root cert rotator. Jitter selects a backoff time in seconds to start root cert "+
+			"rotator, and the back off time is below root cert check interval.")
 	flags.IntVar(&opts.cAClientConfig.RSAKeySize, "key-size", 2048, "Size of generated private key")
 
 	// Certificate signing configuration.
@@ -300,7 +316,8 @@ func runCA() {
 		sc, err := controller.NewSecretController(ca,
 			opts.workloadCertTTL,
 			opts.workloadCertGracePeriodRatio, opts.workloadCertMinGracePeriod, opts.dualUse,
-			cs.CoreV1(), opts.signCACerts, listenedNamespaces, webhooks)
+			cs.CoreV1(), opts.signCACerts, listenedNamespaces, webhooks,
+			opts.istioCaStorageNamespace)
 		if err != nil {
 			fatalf("Failed to create secret controller: %v", err)
 		}
@@ -408,13 +425,16 @@ func createCA(client corev1.CoreV1Interface) *ca.IstioCA {
 		defer cancel()
 		var checkInterval time.Duration
 		if opts.readSigningCertOnly {
-			checkInterval = ca.ReadSigningCertCheckInterval
+			checkInterval = cmd.ReadSigningCertRetryInterval
 		} else {
 			checkInterval = -1
 		}
-		caOpts, err = ca.NewSelfSignedIstioCAOptions(ctx, opts.selfSignedCACertTTL, opts.workloadCertTTL,
+		caOpts, err = ca.NewSelfSignedIstioCAOptions(ctx,
+			opts.selfSignedRootCertGracePeriodPercentile, opts.selfSignedCACertTTL,
+			opts.selfSignedRootCertCheckInterval, opts.workloadCertTTL,
 			opts.maxWorkloadCertTTL, spiffe.GetTrustDomain(), opts.dualUse,
-			opts.istioCaStorageNamespace, checkInterval, client)
+			opts.istioCaStorageNamespace, checkInterval, client,
+			opts.enableJitterForRootCertRotator)
 		if err != nil {
 			fatalf("Failed to create a self-signed Citadel (error: %v)", err)
 		}
@@ -445,6 +465,12 @@ func createCA(client corev1.CoreV1Interface) *ca.IstioCA {
 			livenessProbeChecker.Run()
 		}
 	}
+	// rootCertRotatorChan channel accepts signals to stop root cert rotator for
+	// self-signed CA.
+	rootCertRotatorChan = make(chan struct{})
+	// Start root cert rotator in a separate goroutine.
+	istioCA.Run(rootCertRotatorChan)
+	go pkgcmd.WaitSignal(rootCertRotatorChan)
 
 	return istioCA
 }

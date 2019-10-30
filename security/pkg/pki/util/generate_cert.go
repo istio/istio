@@ -20,6 +20,7 @@ package util
 
 import (
 	"crypto"
+	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -47,11 +48,14 @@ type CertOptions struct {
 	// TTL of the certificate. NotAfter - NotBefore.
 	TTL time.Duration
 
-	// Signer certificate (PEM encoded).
+	// Signer certificate.
 	SignerCert *x509.Certificate
 
-	// Signer private key (PEM encoded).
+	// Signer private key.
 	SignerPriv crypto.PrivateKey
+
+	// Signer private key (PEM encoded).
+	SignerPrivPem []byte
 
 	// Organization for this certificate.
 	Org string
@@ -102,6 +106,44 @@ func GenCertKeyFromOptions(options CertOptions) (pemCert []byte, pemKey []byte, 
 	pemCert, pemKey = encodePem(false, certBytes, priv)
 	err = nil
 	return
+}
+
+func publicKey(priv interface{}) interface{} {
+	switch k := priv.(type) {
+	case *rsa.PrivateKey:
+		return &k.PublicKey
+	case *ecdsa.PrivateKey:
+		return &k.PublicKey
+	default:
+		return nil
+	}
+}
+
+// GenRootCertFromExistingKey generates a X.509 certificate using existing
+// CA private key. Only called by a self-signed Citadel.
+func GenRootCertFromExistingKey(options CertOptions) (pemCert []byte, pemKey []byte, err error) {
+	if !options.IsSelfSigned || len(options.SignerPrivPem) == 0 {
+		return nil, nil, fmt.Errorf("skip cert " +
+			"generation. Citadel is not in self-signed mode or CA private key is not " +
+			"available")
+	}
+
+	template, err := genCertTemplateFromOptions(options)
+	if err != nil {
+		return nil, nil, fmt.Errorf("cert generation fails at cert template creation (%v)", err)
+	}
+	caPrivateKey, err := ParsePemEncodedKey(options.SignerPrivPem)
+	if err != nil {
+		return nil, nil, fmt.Errorf("unrecogniazed CA "+
+			"private key, skip root cert rotation: %s", err.Error())
+	}
+	certBytes, err := x509.CreateCertificate(rand.Reader, template, template, publicKey(caPrivateKey), caPrivateKey)
+	if err != nil {
+		return nil, nil, fmt.Errorf("cert generation fails at X509 cert creation (%v)", err)
+	}
+
+	pemCert = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certBytes})
+	return pemCert, options.SignerPrivPem, nil
 }
 
 // GenCertFromCSR generates a X.509 certificate with the given CSR.

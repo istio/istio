@@ -32,9 +32,11 @@ import (
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/spiffe"
+	k8ssecret "istio.io/istio/security/pkg/k8s/secret"
 	"istio.io/istio/security/pkg/listwatch"
-	"istio.io/istio/security/pkg/pki/ca"
+	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
+	certutil "istio.io/istio/security/pkg/util"
 )
 
 /* #nosec: disable gas linter */
@@ -62,6 +64,13 @@ const (
 
 	// The number of retries when requesting to create secret.
 	secretCreationRetry = 3
+
+	// CASecret stores the key/cert of self-signed CA for persistency purpose.
+	CASecret = "istio-ca-secret"
+	// caCertID is the CA certificate chain file.
+	caCertID = "ca-cert.pem"
+	// caPrivateKeyID is the private key file of CA.
+	caPrivateKeyID = "ca-key.pem"
 )
 
 // DNSNameEntry stores the service name and namespace to construct the DNS id.
@@ -79,23 +88,21 @@ type DNSNameEntry struct {
 	CustomDomains []string
 }
 
+// certificateAuthority contains methods to be supported by a CA.
+type certificateAuthority interface {
+	// Sign generates a certificate for a workload or CA, from the given CSR and TTL.
+	// TODO(myidpt): simplify this interface and pass a struct with cert field values instead.
+	Sign(csrPEM []byte, subjectIDs []string, ttl time.Duration, forCA bool) ([]byte, error)
+	// GetCAKeyCertBundle returns the KeyCertBundle used by CA.
+	GetCAKeyCertBundle() util.KeyCertBundle
+}
+
 // SecretController manages the service accounts' secrets that contains Istio keys and certificates.
 type SecretController struct {
-	ca             ca.CertificateAuthority
-	certTTL        time.Duration
-	core           corev1.CoreV1Interface
-	minGracePeriod time.Duration
-	// Length of the grace period for the certificate rotation.
-	gracePeriodRatio float32
-
-	// Whether the certificates are for dual-use clients (SAN+CN).
-	dualUse bool
-
-	// Whether the certificates are for CAs.
-	forCA bool
-
-	// DNS-enabled serviceAccount.namespace to service pair
-	dnsNames map[string]*DNSNameEntry
+	monitoring monitoringMetrics
+	ca         certificateAuthority
+	core       corev1.CoreV1Interface
+	certUtil   certutil.CertUtil
 
 	// Controller and store for service account objects.
 	saController cache.Controller
@@ -105,15 +112,39 @@ type SecretController struct {
 	scrtController cache.Controller
 	scrtStore      cache.Store
 
-	monitoring monitoringMetrics
+	caSecretController *CaSecretController
+
+	// Used to coordinate with label and check if this instance of Citadel should create secret
+	istioCaStorageNamespace string
+
+	certTTL time.Duration
+
+	minGracePeriod time.Duration
+
+	// The set of namespaces explicitly set for monitoring via commandline (an entry could be metav1.NamespaceAll)
+	namespaces map[string]struct{}
+
+	// DNS-enabled serviceAccount.namespace to service pair
+	dnsNames map[string]*DNSNameEntry
+
+	// Length of the grace period for the certificate rotation.
+	gracePeriodRatio float32
+
+	// Whether the certificates are for dual-use clients (SAN+CN).
+	dualUse bool
+
+	// Whether the certificates are for CAs.
+	forCA bool
+
+	// The most recent time when root cert in keycertbundle is synced with root
+	// cert in istio-ca-secret.
+	lastKCBSyncTime time.Time
 }
 
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
-func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration,
-	gracePeriodRatio float32, minGracePeriod time.Duration, dualUse bool,
-	core corev1.CoreV1Interface, forCA bool, namespaces []string,
-	dnsNames map[string]*DNSNameEntry) (*SecretController, error) {
-
+func NewSecretController(ca certificateAuthority, certTTL time.Duration, gracePeriodRatio float32,
+	minGracePeriod time.Duration, dualUse bool, core corev1.CoreV1Interface, forCA bool, namespaces []string,
+	dnsNames map[string]*DNSNameEntry, istioCaStorageNamespace string) (*SecretController, error) {
 	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {
 		return nil, fmt.Errorf("grace period ratio %f should be within [0, 1]", gracePeriodRatio)
 	}
@@ -123,15 +154,24 @@ func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration,
 	}
 
 	c := &SecretController{
-		ca:               ca,
-		certTTL:          certTTL,
-		gracePeriodRatio: gracePeriodRatio,
-		minGracePeriod:   minGracePeriod,
-		dualUse:          dualUse,
-		core:             core,
-		forCA:            forCA,
-		dnsNames:         dnsNames,
-		monitoring:       newMonitoringMetrics(),
+		ca:                      ca,
+		certTTL:                 certTTL,
+		istioCaStorageNamespace: istioCaStorageNamespace,
+		gracePeriodRatio:        gracePeriodRatio,
+		certUtil:                certutil.NewCertUtil(int(gracePeriodRatio * 100)),
+		caSecretController:      NewCaSecretController(core),
+		minGracePeriod:          minGracePeriod,
+		dualUse:                 dualUse,
+		core:                    core,
+		forCA:                   forCA,
+		namespaces:              make(map[string]struct{}),
+		dnsNames:                dnsNames,
+		monitoring:              newMonitoringMetrics(),
+		lastKCBSyncTime:         time.Time{},
+	}
+
+	for _, ns := range namespaces {
+		c.namespaces[ns] = struct{}{}
 	}
 
 	saLW := listwatch.MultiNamespaceListerWatcher(namespaces, func(namespace string) cache.ListerWatcher {
@@ -229,7 +269,8 @@ func (sc *SecretController) saUpdated(oldObj, curObj interface{}) {
 }
 
 func (sc *SecretController) upsertSecret(saName, saNamespace string) {
-	secret := ca.BuildSecret(saName, GetSecretName(saName), saNamespace, nil, nil, nil, nil, nil, IstioSecretType)
+	secret := k8ssecret.BuildSecret(saName, GetSecretName(saName), saNamespace, nil,
+		nil, nil, nil, nil, IstioSecretType)
 
 	_, exists, err := sc.scrtStore.Get(secret)
 	if err != nil {
@@ -342,8 +383,8 @@ func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string
 	certPEM, signErr := sc.ca.Sign(csrPEM, strings.Split(id, ","), sc.certTTL, sc.forCA)
 	if signErr != nil {
 		log.Errorf("CSR signing error (%v)", signErr.Error())
-		sc.monitoring.GetCertSignError(signErr.(*ca.Error).ErrorType()).Inc()
-		return nil, nil, fmt.Errorf("CSR signing error (%v)", signErr.(*ca.Error))
+		sc.monitoring.GetCertSignError(signErr.(*caerror.Error).ErrorType()).Inc()
+		return nil, nil, fmt.Errorf("CSR signing error (%v)", signErr.(*caerror.Error))
 	}
 	certPEM = append(certPEM, certChainPEM...)
 
@@ -359,42 +400,75 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 	namespace := scrt.GetNamespace()
 	name := scrt.GetName()
 
-	certBytes := scrt.Data[CertChainID]
-	cert, err := util.ParsePemEncodedCertificate(certBytes)
-	if err != nil {
-		log.Warnf("Failed to parse certificates in secret %s/%s (error: %v), refreshing the secret.",
-			namespace, name, err)
-		if err = sc.refreshSecret(scrt); err != nil {
-			log.Errora(err)
+	_, waitErr := sc.certUtil.GetWaitTime(scrt.Data[CertChainID], time.Now(), sc.minGracePeriod)
+
+	caCert, _, _, rootCertificate := sc.ca.GetCAKeyCertBundle().GetAllPem()
+	if !bytes.Equal(rootCertificate, scrt.Data[RootCertID]) {
+		var err error
+		rootCertificate, err = sc.tryToSyncKeyCertBundle(rootCertificate, caCert)
+		if err != nil {
+			log.Errorf("failed on syncing root cert in KeyCertBundle (%s), skip updating secret %s:%s",
+				err.Error(), namespace, name)
+			return
 		}
-
-		return
 	}
-
-	certLifeTimeLeft := time.Until(cert.NotAfter)
-	certLifeTime := cert.NotAfter.Sub(cert.NotBefore)
-	// TODO(myidpt): we may introduce a minimum gracePeriod, without making the config too complex.
-	// Because time.Duration only takes int type, multiply gracePeriodRatio by 1000 and then divide it.
-	gracePeriod := time.Duration(sc.gracePeriodRatio*1000) * certLifeTime / 1000
-	if gracePeriod < sc.minGracePeriod {
-		log.Warnf("gracePeriod (%v * %f) = %v is less than minGracePeriod %v. Apply minGracePeriod.",
-			certLifeTime, sc.gracePeriodRatio, gracePeriod, sc.minGracePeriod)
-		gracePeriod = sc.minGracePeriod
-	}
-	rootCertificate := sc.ca.GetCAKeyCertBundle().GetRootCertPem()
 
 	// Refresh the secret if 1) the certificate contained in the secret is about
 	// to expire, or 2) the root certificate in the secret is different than the
 	// one held by the ca (this may happen when the CA is restarted and
 	// a new self-signed CA cert is generated).
-	if certLifeTimeLeft < gracePeriod || !bytes.Equal(rootCertificate, scrt.Data[RootCertID]) {
-		log.Infof("Refreshing secret %s/%s, either the leaf certificate is about to expire "+
-			"or the root certificate is outdated", namespace, name)
+	if waitErr != nil || !bytes.Equal(rootCertificate, scrt.Data[RootCertID]) {
+		if waitErr != nil {
+			log.Infof("Refreshing about to expire secret %s/%s: %s", namespace, GetSecretName(name), waitErr.Error())
+		} else {
+			log.Infof("Refreshing secret %s/%s (outdated root cert)", namespace, GetSecretName(name))
+		}
 
-		if err = sc.refreshSecret(scrt); err != nil {
+		if err := sc.refreshSecret(scrt); err != nil {
 			log.Errorf("Failed to update secret %s/%s (error: %s)", namespace, name, err)
 		}
 	}
+}
+
+// tryToSyncKeyCertBundle tries to sync root cert in keycertbundle with root
+// cert from istio-ca-secret. Returns error if any step fails.
+func (sc *SecretController) tryToSyncKeyCertBundle(rootCertInMem, caCertInMem []byte) ([]byte, error) {
+	// Check if root certificate in key cert bundle is not up-to-date. With multiple
+	// Citadel deployed in Istio, and Citadels are in self signed mode, the root
+	// certificate in istio-ca-secret could be rotated by any Citadel and become newer
+	// than the one in local key cert bundle.
+	// When Citadel is in plugged cert mode, the root cert in keycertbundle and root
+	// cert in istio-ca-secret are always identical.
+	if !sc.lastKCBSyncTime.IsZero() && time.Since(sc.lastKCBSyncTime) < 30*time.Second {
+		return rootCertInMem, nil
+	}
+
+	caSecret, scrtErr := sc.caSecretController.LoadCASecretWithRetry(CASecret,
+		sc.istioCaStorageNamespace, 100*time.Millisecond, 5*time.Second)
+	if scrtErr != nil {
+		return rootCertInMem, fmt.Errorf("fail to load CA secret %s:%s (error: %s)",
+			sc.istioCaStorageNamespace, CASecret, scrtErr.Error())
+	}
+	// The CA cert from istio-ca-secret is the source of truth. If CA cert
+	// in local keycertbundle does not match the CA cert in istio-ca-secret,
+	// reload root cert into keycertbundle.
+	if !bytes.Equal(caCertInMem, caSecret.Data[caCertID]) {
+		log.Warn("CA cert in KeyCertBundle does not match CA cert in " +
+			"istio-ca-secret. Start to reload root cert into KeyCertBundle")
+		// In self signed cert mode, no root cert file is appended, the root cert and ca cert
+		// are the same.
+		rootCertInMem = caSecret.Data[caCertID]
+		if err := sc.ca.GetCAKeyCertBundle().VerifyAndSetAll(caSecret.Data[caCertID],
+			caSecret.Data[caPrivateKeyID], nil, rootCertInMem); err != nil {
+			return rootCertInMem, fmt.Errorf("failed to reload root cert into KeyCertBundle (%v)", err)
+		}
+		log.Info("Successfully reloaded root cert into KeyCertBundle.")
+	} else {
+		log.Info("CA cert in KeyCertBundle matches CA cert in " +
+			"istio-ca-secret. Skip reloading root cert into KeyCertBundle")
+	}
+	sc.lastKCBSyncTime = time.Now()
+	return rootCertInMem, nil
 }
 
 // refreshSecret is an inner func to refresh cert secrets when necessary
