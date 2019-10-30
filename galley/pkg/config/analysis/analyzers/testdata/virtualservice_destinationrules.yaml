@@ -49,6 +49,21 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
+  name: reviews-mirror
+  namespace: default
+spec:
+  http:
+  - route:
+    - destination:
+        host: reviews
+        subset: v1
+    mirror: # Includes mirroring, but should not generate any errors
+      host: reviews
+      subset: v1
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
   name: reviews-mirror-bogussubset
   namespace: default
 spec:
