@@ -193,6 +193,7 @@ func NewModelV1beta1(trustDomainBundle trustdomain.Bundle, rule *security.Rule) 
 				Namespaces:        source.Namespaces,
 				RequestPrincipals: source.RequestPrincipals,
 				Properties:        conditionsForPrincipal,
+				v1beta1:           true,
 			}
 			m.Principals = append(m.Principals, principal)
 		}
@@ -201,10 +202,12 @@ func NewModelV1beta1(trustDomainBundle trustdomain.Bundle, rule *security.Rule) 
 		if len(conditionsForPrincipal) != 0 {
 			m.Principals = []Principal{{
 				Properties: conditionsForPrincipal,
+				v1beta1:    true,
 			}}
 		} else {
 			m.Principals = []Principal{{
 				AllowAll: true,
+				v1beta1:  true,
 			}}
 		}
 	}
@@ -217,6 +220,7 @@ func NewModelV1beta1(trustDomainBundle trustdomain.Bundle, rule *security.Rule) 
 				Ports:       operation.Ports,
 				Paths:       operation.Paths,
 				Constraints: conditionsForPermission,
+				v1beta1:     true,
 			}
 			m.Permissions = append(m.Permissions, permission)
 		}
@@ -225,10 +229,12 @@ func NewModelV1beta1(trustDomainBundle trustdomain.Bundle, rule *security.Rule) 
 		if len(conditionsForPermission) != 0 {
 			m.Permissions = []Permission{{
 				Constraints: conditionsForPermission,
+				v1beta1:     true,
 			}}
 		} else {
 			m.Permissions = []Permission{{
 				AllowAll: true,
+				v1beta1:  true,
 			}}
 		}
 	}

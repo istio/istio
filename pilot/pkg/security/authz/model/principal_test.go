@@ -384,7 +384,7 @@ func TestPrincipal_Generate(t *testing.T) {
                     regex: .*/ns/ns-2/.*`,
 		},
 		{
-			name: "principal with property attrSrcPrincipal",
+			name: "principal with property attrSrcPrincipal v1alpha1",
 			principal: &Principal{
 				Properties: []KeyValues{
 					{
@@ -415,7 +415,51 @@ func TestPrincipal_Generate(t *testing.T) {
               - any: true`,
 		},
 		{
-			name: "principal with property attrSrcPrincipal for TCP filter",
+			name: "principal with property attrSrcPrincipal v1beta1",
+			principal: &Principal{
+				Properties: []KeyValues{
+					{
+						attrSrcPrincipal: []string{"id-1", "*", allAuthenticatedUsers, allUsers},
+					},
+				},
+				v1beta1: true,
+			},
+			wantYAML: `
+            andIds:
+              ids:
+              - orIds:
+                  ids:
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          exact: id-1
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          regex: .+
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          exact: allAuthenticatedUsers
+                  - metadata:
+                      filter: istio_authn
+                      path:
+                      - key: source.principal
+                      value:
+                        stringMatch:
+                          exact: allUsers`,
+		},
+		{
+			name: "principal with property attrSrcPrincipal for TCP filter v1alpha1",
 			principal: &Principal{
 				Properties: []KeyValues{
 					{
@@ -437,6 +481,35 @@ func TestPrincipal_Generate(t *testing.T) {
                   principalName:
                     regex: .*
               - any: true`,
+		},
+		{
+			name: "principal with property attrSrcPrincipal for TCP filter v1beta1",
+			principal: &Principal{
+				Properties: []KeyValues{
+					{
+						attrSrcPrincipal: []string{"id-1", "*", allAuthenticatedUsers, allUsers},
+					},
+				},
+				v1beta1: true,
+			},
+			forTCPFilter: true,
+			wantYAML: `
+            andIds:
+              ids:
+              - orIds:
+                  ids:
+                  - authenticated:
+                      principalName:
+                        exact: spiffe://id-1
+                  - authenticated:
+                      principalName:
+                        regex: .+
+                  - authenticated:
+                      principalName:
+                        exact: spiffe://allAuthenticatedUsers
+                  - authenticated:
+                      principalName:
+                        exact: spiffe://allUsers`,
 		},
 		{
 			name: "principal with property attrRequestPrincipal",
@@ -799,34 +872,36 @@ func TestPrincipal_Generate(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		got, err := tc.principal.Generate(tc.forTCPFilter)
-		if tc.wantError != "" {
-			if err == nil || !strings.Contains(err.Error(), tc.wantError) {
-				t.Errorf("%s: got error %q but want error %q", tc.name, err, tc.wantError)
-			}
-		} else if err != nil {
-			t.Errorf("%s: failed to generate principal: %s", tc.name, err)
-		} else {
-			var gotYaml string
-			if got != nil {
-				if gotYaml, err = protomarshal.ToYAML(got); err != nil {
-					t.Fatalf("%s: failed to parse yaml: %s", tc.name, err)
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := tc.principal.Generate(tc.forTCPFilter)
+			if tc.wantError != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.wantError) {
+					t.Errorf("%s: got error %q but want error %q", tc.name, err, tc.wantError)
 				}
-			}
-			if tc.wantYAML == "" {
-				if got != nil {
-					t.Errorf("%s: got:\n%s but want nil", tc.name, gotYaml)
-				}
+			} else if err != nil {
+				t.Errorf("%s: failed to generate principal: %s", tc.name, err)
 			} else {
-				want := &envoy_rbac.Principal{}
-				if err := protomarshal.ApplyYAML(tc.wantYAML, want); err != nil {
-					t.Fatalf("%s: failed to parse yaml: %s", tc.name, err)
+				var gotYaml string
+				if got != nil {
+					if gotYaml, err = protomarshal.ToYAML(got); err != nil {
+						t.Fatalf("%s: failed to parse yaml: %s", tc.name, err)
+					}
 				}
+				if tc.wantYAML == "" {
+					if got != nil {
+						t.Errorf("%s: got:\n%s but want nil", tc.name, gotYaml)
+					}
+				} else {
+					want := &envoy_rbac.Principal{}
+					if err := protomarshal.ApplyYAML(tc.wantYAML, want); err != nil {
+						t.Fatalf("%s: failed to parse yaml: %s", tc.name, err)
+					}
 
-				if !reflect.DeepEqual(got, want) {
-					t.Errorf("%s:\ngot:\n%s\nwant:\n%s", tc.name, gotYaml, tc.wantYAML)
+					if !reflect.DeepEqual(got, want) {
+						t.Errorf("%s:\ngot:\n%s\nwant:\n%s", tc.name, gotYaml, tc.wantYAML)
+					}
 				}
 			}
-		}
+		})
 	}
 }
