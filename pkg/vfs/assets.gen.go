@@ -7331,10 +7331,6 @@ spec:
           - --envoyAccessLogServiceAddress
           - {{ .Values.global.proxy.envoyAccessLogService.host }}:{{ .Values.global.proxy.envoyAccessLogService.port }}
         {{- end }}
-        {{- if $gateway.applicationPorts }}
-          - --applicationPorts
-          - "{{ $gateway.applicationPorts }}"
-        {{- end }}
           - --proxyAdminPort
           - "15000"
           - --statusPort
@@ -8252,14 +8248,6 @@ gateways:
     certificates: false
     tls: false
 
-    # Ports to explicitly check for readiness. If configured, the readiness check will expect a
-    # listener on these ports. A comma separated list is expected, such as "80,443".
-    #
-    # Warning: If you do not have a gateway configured for the ports provided, this check will always
-    # fail. This is intended for use cases where you always expect to have a listener on the port,
-    # such as 80 or 443 in typical setups.
-    applicationPorts: ""
-
     # Telemetry addon gateways example config
     telemetry_addon_gateways:
       tracing_gateway:
@@ -8934,8 +8922,6 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
   {{- if (ne (annotation .ObjectMeta "status.sidecar.istio.io/port" .Values.global.proxy.statusPort) "0") }}
     - --statusPort
     - "{{ annotation .ObjectMeta `+"`"+`status.sidecar.istio.io/port`+"`"+` .Values.global.proxy.statusPort }}"
-    - --applicationPorts
-    - "{{ annotation .ObjectMeta `+"`"+`readiness.status.sidecar.istio.io/applicationPorts`+"`"+` (applicationPorts .Spec.Containers) }}"
   {{- end }}
   {{- if .Values.global.trustDomain }}
     - --trust-domain={{ .Values.global.trustDomain }}
@@ -8999,8 +8985,6 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
       value: "{{ .Values.global.sds.enabled }}"
     - name: ISTIO_META_INTERCEPTION_MODE
       value: "{{ or (index .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/interceptionMode`+"`"+`) .ProxyConfig.InterceptionMode.String }}"
-    - name: ISTIO_META_INCLUDE_INBOUND_PORTS
-      value: "{{ annotation .ObjectMeta `+"`"+`traffic.sidecar.istio.io/includeInboundPorts`+"`"+` (applicationPorts .Spec.Containers) }}"
     {{- if .Values.global.network }}
     - name: ISTIO_META_NETWORK
       value: "{{ .Values.global.network }}"
@@ -36719,7 +36703,7 @@ spec:
           address: "$(HOST_IP):8126"
       mtls:
         enabled: false
-        auto: false
+        auto: true
       imagePullSecrets: []
       arch:
         amd64: 2

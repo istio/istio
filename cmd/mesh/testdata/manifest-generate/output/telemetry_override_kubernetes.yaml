@@ -891,6 +891,132 @@ spec:
 
 ---
 apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: promtcpconnectionopen
+  namespace: istio-telemetry
+  labels:
+    app: istio-telemetry
+    release: istio
+spec:
+  match: context.protocol == "tcp" && ((connection.event | "na") == "open")
+  actions:
+  - handler: prometheus
+    instances:
+    - tcpconnectionsopened
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: handler
+metadata:
+  name: kubernetesenv
+  namespace: istio-telemetry
+  labels:
+    app: istio-telemetry
+    release: istio
+spec:
+  compiledAdapter: kubernetesenv
+  params:
+    # when running from mixer root, use the following config after adding a
+    # symbolic link to a kubernetes config file via:
+    #
+    # $ ln -s ~/.kube/config mixer/adapter/kubernetes/kubeconfig
+    #
+    # kubeconfig_path: "mixer/adapter/kubernetes/kubeconfig"
+---
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: istio-telemetry
+  namespace: istio-telemetry
+  labels:
+    app: istio-telemetry
+    release: istio
+    istio: mixer
+    istio-mixer-type: telemetry
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: istio-telemetry
+      release: istio
+      istio: mixer
+      istio-mixer-type: telemetry
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: instance
+metadata:
+  name: tcpbytereceived
+  namespace: istio-telemetry
+  labels:
+    app: istio-telemetry
+    release: istio
+spec:
+  compiledTemplate: metric
+  params:
+    value: connection.received.bytes | 0
+    dimensions:
+      reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
+      source_workload: source.workload.name | "unknown"
+      source_workload_namespace: source.workload.namespace | "unknown"
+      source_principal: source.principal | "unknown"
+      source_app: source.labels["app"] | "unknown"
+      source_version: source.labels["version"] | "unknown"
+      destination_workload: destination.workload.name | "unknown"
+      destination_workload_namespace: destination.workload.namespace | "unknown"
+      destination_principal: destination.principal | "unknown"
+      destination_app: destination.labels["app"] | "unknown"
+      destination_version: destination.labels["version"] | "unknown"
+      destination_service: destination.service.host | request.host | "unknown"
+      destination_service_name: destination.service.name | "unknown"
+      destination_service_namespace: destination.service.namespace | "unknown"
+      connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
+      response_flags: context.proxy_error_code | "-"
+    monitored_resource_type: '"UNSPECIFIED"'
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: promhttp
+  namespace: istio-telemetry
+  labels:
+    app: istio-telemetry
+    release: istio
+spec:
+  match: (context.protocol == "http" || context.protocol == "grpc") && (match((request.useragent | "-"), "kube-probe*") == false) && (match((request.useragent | "-"), "Prometheus*") == false)
+  actions:
+  - handler: prometheus
+    instances:
+    - requestcount
+    - requestduration
+    - requestsize
+    - responsesize
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-mixer-service-account
+  namespace: istio-telemetry
+  labels:
+    app: istio-telemetry
+    release: istio
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: istio-mixer-admin-role-binding-istio-telemetry
+  labels:
+    app: istio-telemetry
+    release: istio
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: istio-mixer-istio-telemetry
+subjects:
+  - kind: ServiceAccount
+    name: istio-mixer-service-account
+    namespace: istio-telemetry
+---
+apiVersion: "config.istio.io/v1alpha2"
 kind: instance
 metadata:
   name: requestduration
@@ -928,7 +1054,7 @@ spec:
 apiVersion: "config.istio.io/v1alpha2"
 kind: instance
 metadata:
-  name: responsesize
+  name: tcpbytesent
   namespace: istio-telemetry
   labels:
     app: istio-telemetry
@@ -936,7 +1062,7 @@ metadata:
 spec:
   compiledTemplate: metric
   params:
-    value: response.size | 0
+    value: connection.sent.bytes | 0
     dimensions:
       reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
       source_workload: source.workload.name | "unknown"
@@ -952,36 +1078,30 @@ spec:
       destination_service: destination.service.host | request.host | "unknown"
       destination_service_name: destination.service.name | "unknown"
       destination_service_namespace: destination.service.namespace | "unknown"
-      request_protocol: api.protocol | context.protocol | "unknown"
-      response_code: response.code | 200
-      response_flags: context.proxy_error_code | "-"
-      permissive_response_code: rbac.permissive.response_code | "none"
-      permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
       connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
+      response_flags: context.proxy_error_code | "-"
     monitored_resource_type: '"UNSPECIFIED"'
 ---
-apiVersion: v1
-kind: Service
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
 metadata:
-  name: istio-telemetry
-  namespace: istio-telemetry
   labels:
     app: istio-telemetry
-    istio: mixer
     release: istio
+  name: istio-telemetry
+  namespace: istio-telemetry
 spec:
-  ports:
-  - name: grpc-mixer
-    port: 9091
-  - name: grpc-mixer-mtls
-    port: 15004
-  - name: http-monitoring
-    port: 15014
-  - name: prometheus
-    port: 42422
-  selector:
-    istio: mixer
-    istio-mixer-type: telemetry
+  maxReplicas: 5
+  metrics:
+  - resource:
+      name: cpu
+      targetAverageUtilization: 80
+    type: Resource
+  minReplicas: 1
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: istio-telemetry
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: attributemanifest
@@ -1046,6 +1166,64 @@ spec:
     destination.workload.namespace:
       valueType: STRING
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-telemetry
+  namespace: istio-telemetry
+  labels:
+    app: istio-telemetry
+    istio: mixer
+    release: istio
+spec:
+  ports:
+  - name: grpc-mixer
+    port: 9091
+  - name: grpc-mixer-mtls
+    port: 15004
+  - name: http-monitoring
+    port: 15014
+  - name: prometheus
+    port: 42422
+  selector:
+    istio: mixer
+    istio-mixer-type: telemetry
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: instance
+metadata:
+  name: requestcount
+  namespace: istio-telemetry
+  labels:
+    app: istio-telemetry
+    release: istio
+spec:
+  compiledTemplate: metric
+  params:
+    value: "1"
+    dimensions:
+      reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
+      source_workload: source.workload.name | "unknown"
+      source_workload_namespace: source.workload.namespace | "unknown"
+      source_principal: source.principal | "unknown"
+      source_app: source.labels["app"] | "unknown"
+      source_version: source.labels["version"] | "unknown"
+      destination_workload: destination.workload.name | "unknown"
+      destination_workload_namespace: destination.workload.namespace | "unknown"
+      destination_principal: destination.principal | "unknown"
+      destination_app: destination.labels["app"] | "unknown"
+      destination_version: destination.labels["version"] | "unknown"
+      destination_service: destination.service.host | request.host | "unknown"
+      destination_service_name: destination.service.name | "unknown"
+      destination_service_namespace: destination.service.namespace | "unknown"
+      request_protocol: api.protocol | context.protocol | "unknown"
+      response_code: response.code | 200
+      response_flags: context.proxy_error_code | "-"
+      permissive_response_code: rbac.permissive.response_code | "none"
+      permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
+      connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
+    monitored_resource_type: '"UNSPECIFIED"'
+---
 apiVersion: "config.istio.io/v1alpha2"
 kind: instance
 metadata:
@@ -1080,20 +1258,33 @@ spec:
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
-  name: promhttp
+  name: promtcp
   namespace: istio-telemetry
   labels:
     app: istio-telemetry
     release: istio
 spec:
-  match: (context.protocol == "http" || context.protocol == "grpc") && (match((request.useragent | "-"), "kube-probe*") == false) && (match((request.useragent | "-"), "Prometheus*") == false)
+  match: context.protocol == "tcp"
   actions:
   - handler: prometheus
     instances:
-    - requestcount
-    - requestduration
-    - requestsize
-    - responsesize
+    - tcpbytesent
+    - tcpbytereceived
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: promtcpconnectionclosed
+  namespace: istio-telemetry
+  labels:
+    app: istio-telemetry
+    release: istio
+spec:
+  match: context.protocol == "tcp" && ((connection.event | "na") == "close")
+  actions:
+  - handler: prometheus
+    instances:
+    - tcpconnectionsclosed
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
@@ -1108,6 +1299,310 @@ spec:
   - handler: kubernetesenv
     instances:
     - attributes
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: instance
+metadata:
+  name: requestsize
+  namespace: istio-telemetry
+  labels:
+    app: istio-telemetry
+    release: istio
+spec:
+  compiledTemplate: metric
+  params:
+    value: request.size | 0
+    dimensions:
+      reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
+      source_workload: source.workload.name | "unknown"
+      source_workload_namespace: source.workload.namespace | "unknown"
+      source_principal: source.principal | "unknown"
+      source_app: source.labels["app"] | "unknown"
+      source_version: source.labels["version"] | "unknown"
+      destination_workload: destination.workload.name | "unknown"
+      destination_workload_namespace: destination.workload.namespace | "unknown"
+      destination_principal: destination.principal | "unknown"
+      destination_app: destination.labels["app"] | "unknown"
+      destination_version: destination.labels["version"] | "unknown"
+      destination_service: destination.service.host | request.host | "unknown"
+      destination_service_name: destination.service.name | "unknown"
+      destination_service_namespace: destination.service.namespace | "unknown"
+      request_protocol: api.protocol | context.protocol | "unknown"
+      response_code: response.code | 200
+      response_flags: context.proxy_error_code | "-"
+      permissive_response_code: rbac.permissive.response_code | "none"
+      permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
+      connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
+    monitored_resource_type: '"UNSPECIFIED"'
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: tcpkubeattrgenrulerule
+  namespace: istio-telemetry
+  labels:
+    app: istio-telemetry
+    release: istio
+spec:
+  match: context.protocol == "tcp"
+  actions:
+  - handler: kubernetesenv
+    instances:
+    - attributes
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: istio-telemetry
+  namespace: istio-telemetry
+  labels:
+    app: istio-telemetry
+    release: istio
+spec:
+  host: istio-telemetry.istio-telemetry.svc.cluster.local
+  trafficPolicy:
+    portLevelSettings:
+    - port:
+        number: 15004 # grpc-mixer-mtls
+      tls:
+        mode: ISTIO_MUTUAL
+    - port:
+        number: 9091 # grpc-mixer
+      tls:
+        mode: DISABLE
+    connectionPool:
+      http:
+        http2MaxRequests: 10000
+        maxRequestsPerConnection: 10000
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: istio-mixer-istio-telemetry
+  labels:
+    app: istio-telemetry
+    release: istio
+rules:
+- apiGroups: ["config.istio.io"] # istio CRD watcher
+  resources: ["*"]
+  verbs: ["create", "get", "list", "watch", "patch"]
+- apiGroups: ["apiextensions.k8s.io"]
+  resources: ["customresourcedefinitions"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["configmaps", "endpoints", "pods", "services", "namespaces", "secrets", "replicationcontrollers"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["extensions", "apps"]
+  resources: ["replicasets"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: attributemanifest
+metadata:
+  name: istioproxy
+  namespace: istio-telemetry
+  labels:
+    app: istio-telemetry
+    release: istio
+spec:
+  attributes:
+    origin.ip:
+      valueType: IP_ADDRESS
+    origin.uid:
+      valueType: STRING
+    origin.user:
+      valueType: STRING
+    request.headers:
+      valueType: STRING_MAP
+    request.id:
+      valueType: STRING
+    request.host:
+      valueType: STRING
+    request.method:
+      valueType: STRING
+    request.path:
+      valueType: STRING
+    request.url_path:
+      valueType: STRING
+    request.query_params:
+      valueType: STRING_MAP
+    request.reason:
+      valueType: STRING
+    request.referer:
+      valueType: STRING
+    request.scheme:
+      valueType: STRING
+    request.total_size:
+      valueType: INT64
+    request.size:
+      valueType: INT64
+    request.time:
+      valueType: TIMESTAMP
+    request.useragent:
+      valueType: STRING
+    response.code:
+      valueType: INT64
+    response.duration:
+      valueType: DURATION
+    response.headers:
+      valueType: STRING_MAP
+    response.total_size:
+      valueType: INT64
+    response.size:
+      valueType: INT64
+    response.time:
+      valueType: TIMESTAMP
+    response.grpc_status:
+      valueType: STRING
+    response.grpc_message:
+      valueType: STRING
+    source.uid:
+      valueType: STRING
+    source.user: # DEPRECATED
+      valueType: STRING
+    source.principal:
+      valueType: STRING
+    destination.uid:
+      valueType: STRING
+    destination.principal:
+      valueType: STRING
+    destination.port:
+      valueType: INT64
+    connection.event:
+      valueType: STRING
+    connection.id:
+      valueType: STRING
+    connection.received.bytes:
+      valueType: INT64
+    connection.received.bytes_total:
+      valueType: INT64
+    connection.sent.bytes:
+      valueType: INT64
+    connection.sent.bytes_total:
+      valueType: INT64
+    connection.duration:
+      valueType: DURATION
+    connection.mtls:
+      valueType: BOOL
+    connection.requested_server_name:
+      valueType: STRING
+    context.protocol:
+      valueType: STRING
+    context.proxy_error_code:
+      valueType: STRING
+    context.timestamp:
+      valueType: TIMESTAMP
+    context.time:
+      valueType: TIMESTAMP
+    # Deprecated, kept for compatibility
+    context.reporter.local:
+      valueType: BOOL
+    context.reporter.kind:
+      valueType: STRING
+    context.reporter.uid:
+      valueType: STRING
+    context.proxy_version:
+      valueType: STRING
+    api.service:
+      valueType: STRING
+    api.version:
+      valueType: STRING
+    api.operation:
+      valueType: STRING
+    api.protocol:
+      valueType: STRING
+    request.auth.principal:
+      valueType: STRING
+    request.auth.audiences:
+      valueType: STRING
+    request.auth.presenter:
+      valueType: STRING
+    request.auth.claims:
+      valueType: STRING_MAP
+    request.auth.raw_claims:
+      valueType: STRING
+    request.api_key:
+      valueType: STRING
+    rbac.permissive.response_code:
+      valueType: STRING
+    rbac.permissive.effective_policy_id:
+      valueType: STRING
+    check.error_code:
+      valueType: INT64
+    check.error_message:
+      valueType: STRING
+    check.cache_hit:
+      valueType: BOOL
+    quota.cache_hit:
+      valueType: BOOL
+    context.proxy_version:
+      valueType: STRING
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: instance
+metadata:
+  name: responsesize
+  namespace: istio-telemetry
+  labels:
+    app: istio-telemetry
+    release: istio
+spec:
+  compiledTemplate: metric
+  params:
+    value: response.size | 0
+    dimensions:
+      reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
+      source_workload: source.workload.name | "unknown"
+      source_workload_namespace: source.workload.namespace | "unknown"
+      source_principal: source.principal | "unknown"
+      source_app: source.labels["app"] | "unknown"
+      source_version: source.labels["version"] | "unknown"
+      destination_workload: destination.workload.name | "unknown"
+      destination_workload_namespace: destination.workload.namespace | "unknown"
+      destination_principal: destination.principal | "unknown"
+      destination_app: destination.labels["app"] | "unknown"
+      destination_version: destination.labels["version"] | "unknown"
+      destination_service: destination.service.host | request.host | "unknown"
+      destination_service_name: destination.service.name | "unknown"
+      destination_service_namespace: destination.service.namespace | "unknown"
+      request_protocol: api.protocol | context.protocol | "unknown"
+      response_code: response.code | 200
+      response_flags: context.proxy_error_code | "-"
+      permissive_response_code: rbac.permissive.response_code | "none"
+      permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
+      connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
+    monitored_resource_type: '"UNSPECIFIED"'
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: instance
+metadata:
+  name: tcpconnectionsopened
+  namespace: istio-telemetry
+  labels:
+    app: istio-telemetry
+    release: istio
+spec:
+  compiledTemplate: metric
+  params:
+    value: "1"
+    dimensions:
+      reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
+      source_workload: source.workload.name | "unknown"
+      source_workload_namespace: source.workload.namespace | "unknown"
+      source_principal: source.principal | "unknown"
+      source_app: source.labels["app"] | "unknown"
+      source_version: source.labels["version"] | "unknown"
+      destination_workload: destination.workload.name | "unknown"
+      destination_workload_namespace: destination.workload.namespace | "unknown"
+      destination_principal: destination.principal | "unknown"
+      destination_app: destination.labels["app"] | "unknown"
+      destination_version: destination.labels["version"] | "unknown"
+      destination_service: destination.service.host | "unknown"
+      destination_service_name: destination.service.name | "unknown"
+      destination_service_namespace: destination.service.namespace | "unknown"
+      connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
+      response_flags: context.proxy_error_code | "-"
+    monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: instance
@@ -1149,96 +1644,6 @@ spec:
     destination.workload.uid: $out.destination_workload_uid | "unknown"
     destination.workload.name: $out.destination_workload_name | "unknown"
     destination.workload.namespace: $out.destination_workload_namespace | "unknown"
----
-apiVersion: policy/v1beta1
-kind: PodDisruptionBudget
-metadata:
-  name: istio-telemetry
-  namespace: istio-telemetry
-  labels:
-    app: istio-telemetry
-    release: istio
-    istio: mixer
-    istio-mixer-type: telemetry
-spec:
-  minAvailable: 1
-  selector:
-    matchLabels:
-      app: istio-telemetry
-      release: istio
-      istio: mixer
-      istio-mixer-type: telemetry
----
-apiVersion: "config.istio.io/v1alpha2"
-kind: instance
-metadata:
-  name: requestcount
-  namespace: istio-telemetry
-  labels:
-    app: istio-telemetry
-    release: istio
-spec:
-  compiledTemplate: metric
-  params:
-    value: "1"
-    dimensions:
-      reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
-      source_workload: source.workload.name | "unknown"
-      source_workload_namespace: source.workload.namespace | "unknown"
-      source_principal: source.principal | "unknown"
-      source_app: source.labels["app"] | "unknown"
-      source_version: source.labels["version"] | "unknown"
-      destination_workload: destination.workload.name | "unknown"
-      destination_workload_namespace: destination.workload.namespace | "unknown"
-      destination_principal: destination.principal | "unknown"
-      destination_app: destination.labels["app"] | "unknown"
-      destination_version: destination.labels["version"] | "unknown"
-      destination_service: destination.service.host | request.host | "unknown"
-      destination_service_name: destination.service.name | "unknown"
-      destination_service_namespace: destination.service.namespace | "unknown"
-      request_protocol: api.protocol | context.protocol | "unknown"
-      response_code: response.code | 200
-      response_flags: context.proxy_error_code | "-"
-      permissive_response_code: rbac.permissive.response_code | "none"
-      permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
-      connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
-    monitored_resource_type: '"UNSPECIFIED"'
----
-apiVersion: autoscaling/v2beta1
-kind: HorizontalPodAutoscaler
-metadata:
-  labels:
-    app: istio-telemetry
-    release: istio
-  name: istio-telemetry
-  namespace: istio-telemetry
-spec:
-  maxReplicas: 5
-  metrics:
-  - resource:
-      name: cpu
-      targetAverageUtilization: 80
-    type: Resource
-  minReplicas: 1
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: istio-telemetry
----
-apiVersion: "config.istio.io/v1alpha2"
-kind: rule
-metadata:
-  name: promtcpconnectionclosed
-  namespace: istio-telemetry
-  labels:
-    app: istio-telemetry
-    release: istio
-spec:
-  match: context.protocol == "tcp" && ((connection.event | "na") == "close")
-  actions:
-  - handler: prometheus
-    instances:
-    - tcpconnectionsclosed
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -1536,411 +1941,6 @@ data:
                             route:
                               cluster: out.galley.15019
                               timeout: 0.000s
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: istio-mixer-istio-telemetry
-  labels:
-    app: istio-telemetry
-    release: istio
-rules:
-- apiGroups: ["config.istio.io"] # istio CRD watcher
-  resources: ["*"]
-  verbs: ["create", "get", "list", "watch", "patch"]
-- apiGroups: ["apiextensions.k8s.io"]
-  resources: ["customresourcedefinitions"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: [""]
-  resources: ["configmaps", "endpoints", "pods", "services", "namespaces", "secrets", "replicationcontrollers"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["extensions", "apps"]
-  resources: ["replicasets"]
-  verbs: ["get", "list", "watch"]
----
-apiVersion: "config.istio.io/v1alpha2"
-kind: instance
-metadata:
-  name: tcpconnectionsopened
-  namespace: istio-telemetry
-  labels:
-    app: istio-telemetry
-    release: istio
-spec:
-  compiledTemplate: metric
-  params:
-    value: "1"
-    dimensions:
-      reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
-      source_workload: source.workload.name | "unknown"
-      source_workload_namespace: source.workload.namespace | "unknown"
-      source_principal: source.principal | "unknown"
-      source_app: source.labels["app"] | "unknown"
-      source_version: source.labels["version"] | "unknown"
-      destination_workload: destination.workload.name | "unknown"
-      destination_workload_namespace: destination.workload.namespace | "unknown"
-      destination_principal: destination.principal | "unknown"
-      destination_app: destination.labels["app"] | "unknown"
-      destination_version: destination.labels["version"] | "unknown"
-      destination_service: destination.service.host | "unknown"
-      destination_service_name: destination.service.name | "unknown"
-      destination_service_namespace: destination.service.namespace | "unknown"
-      connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
-      response_flags: context.proxy_error_code | "-"
-    monitored_resource_type: '"UNSPECIFIED"'
----
-apiVersion: "config.istio.io/v1alpha2"
-kind: rule
-metadata:
-  name: promtcpconnectionopen
-  namespace: istio-telemetry
-  labels:
-    app: istio-telemetry
-    release: istio
-spec:
-  match: context.protocol == "tcp" && ((connection.event | "na") == "open")
-  actions:
-  - handler: prometheus
-    instances:
-    - tcpconnectionsopened
----
-apiVersion: "config.istio.io/v1alpha2"
-kind: attributemanifest
-metadata:
-  name: istioproxy
-  namespace: istio-telemetry
-  labels:
-    app: istio-telemetry
-    release: istio
-spec:
-  attributes:
-    origin.ip:
-      valueType: IP_ADDRESS
-    origin.uid:
-      valueType: STRING
-    origin.user:
-      valueType: STRING
-    request.headers:
-      valueType: STRING_MAP
-    request.id:
-      valueType: STRING
-    request.host:
-      valueType: STRING
-    request.method:
-      valueType: STRING
-    request.path:
-      valueType: STRING
-    request.url_path:
-      valueType: STRING
-    request.query_params:
-      valueType: STRING_MAP
-    request.reason:
-      valueType: STRING
-    request.referer:
-      valueType: STRING
-    request.scheme:
-      valueType: STRING
-    request.total_size:
-      valueType: INT64
-    request.size:
-      valueType: INT64
-    request.time:
-      valueType: TIMESTAMP
-    request.useragent:
-      valueType: STRING
-    response.code:
-      valueType: INT64
-    response.duration:
-      valueType: DURATION
-    response.headers:
-      valueType: STRING_MAP
-    response.total_size:
-      valueType: INT64
-    response.size:
-      valueType: INT64
-    response.time:
-      valueType: TIMESTAMP
-    response.grpc_status:
-      valueType: STRING
-    response.grpc_message:
-      valueType: STRING
-    source.uid:
-      valueType: STRING
-    source.user: # DEPRECATED
-      valueType: STRING
-    source.principal:
-      valueType: STRING
-    destination.uid:
-      valueType: STRING
-    destination.principal:
-      valueType: STRING
-    destination.port:
-      valueType: INT64
-    connection.event:
-      valueType: STRING
-    connection.id:
-      valueType: STRING
-    connection.received.bytes:
-      valueType: INT64
-    connection.received.bytes_total:
-      valueType: INT64
-    connection.sent.bytes:
-      valueType: INT64
-    connection.sent.bytes_total:
-      valueType: INT64
-    connection.duration:
-      valueType: DURATION
-    connection.mtls:
-      valueType: BOOL
-    connection.requested_server_name:
-      valueType: STRING
-    context.protocol:
-      valueType: STRING
-    context.proxy_error_code:
-      valueType: STRING
-    context.timestamp:
-      valueType: TIMESTAMP
-    context.time:
-      valueType: TIMESTAMP
-    # Deprecated, kept for compatibility
-    context.reporter.local:
-      valueType: BOOL
-    context.reporter.kind:
-      valueType: STRING
-    context.reporter.uid:
-      valueType: STRING
-    context.proxy_version:
-      valueType: STRING
-    api.service:
-      valueType: STRING
-    api.version:
-      valueType: STRING
-    api.operation:
-      valueType: STRING
-    api.protocol:
-      valueType: STRING
-    request.auth.principal:
-      valueType: STRING
-    request.auth.audiences:
-      valueType: STRING
-    request.auth.presenter:
-      valueType: STRING
-    request.auth.claims:
-      valueType: STRING_MAP
-    request.auth.raw_claims:
-      valueType: STRING
-    request.api_key:
-      valueType: STRING
-    rbac.permissive.response_code:
-      valueType: STRING
-    rbac.permissive.effective_policy_id:
-      valueType: STRING
-    check.error_code:
-      valueType: INT64
-    check.error_message:
-      valueType: STRING
-    check.cache_hit:
-      valueType: BOOL
-    quota.cache_hit:
-      valueType: BOOL
-    context.proxy_version:
-      valueType: STRING
----
-apiVersion: "config.istio.io/v1alpha2"
-kind: instance
-metadata:
-  name: requestsize
-  namespace: istio-telemetry
-  labels:
-    app: istio-telemetry
-    release: istio
-spec:
-  compiledTemplate: metric
-  params:
-    value: request.size | 0
-    dimensions:
-      reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
-      source_workload: source.workload.name | "unknown"
-      source_workload_namespace: source.workload.namespace | "unknown"
-      source_principal: source.principal | "unknown"
-      source_app: source.labels["app"] | "unknown"
-      source_version: source.labels["version"] | "unknown"
-      destination_workload: destination.workload.name | "unknown"
-      destination_workload_namespace: destination.workload.namespace | "unknown"
-      destination_principal: destination.principal | "unknown"
-      destination_app: destination.labels["app"] | "unknown"
-      destination_version: destination.labels["version"] | "unknown"
-      destination_service: destination.service.host | request.host | "unknown"
-      destination_service_name: destination.service.name | "unknown"
-      destination_service_namespace: destination.service.namespace | "unknown"
-      request_protocol: api.protocol | context.protocol | "unknown"
-      response_code: response.code | 200
-      response_flags: context.proxy_error_code | "-"
-      permissive_response_code: rbac.permissive.response_code | "none"
-      permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
-      connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
-    monitored_resource_type: '"UNSPECIFIED"'
----
-apiVersion: "config.istio.io/v1alpha2"
-kind: instance
-metadata:
-  name: tcpbytereceived
-  namespace: istio-telemetry
-  labels:
-    app: istio-telemetry
-    release: istio
-spec:
-  compiledTemplate: metric
-  params:
-    value: connection.received.bytes | 0
-    dimensions:
-      reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
-      source_workload: source.workload.name | "unknown"
-      source_workload_namespace: source.workload.namespace | "unknown"
-      source_principal: source.principal | "unknown"
-      source_app: source.labels["app"] | "unknown"
-      source_version: source.labels["version"] | "unknown"
-      destination_workload: destination.workload.name | "unknown"
-      destination_workload_namespace: destination.workload.namespace | "unknown"
-      destination_principal: destination.principal | "unknown"
-      destination_app: destination.labels["app"] | "unknown"
-      destination_version: destination.labels["version"] | "unknown"
-      destination_service: destination.service.host | request.host | "unknown"
-      destination_service_name: destination.service.name | "unknown"
-      destination_service_namespace: destination.service.namespace | "unknown"
-      connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
-      response_flags: context.proxy_error_code | "-"
-    monitored_resource_type: '"UNSPECIFIED"'
----
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: istio-telemetry
-  namespace: istio-telemetry
-  labels:
-    app: istio-telemetry
-    release: istio
-spec:
-  host: istio-telemetry.istio-telemetry.svc.cluster.local
-  trafficPolicy:
-    portLevelSettings:
-    - port:
-        number: 15004 # grpc-mixer-mtls
-      tls:
-        mode: ISTIO_MUTUAL
-    - port:
-        number: 9091 # grpc-mixer
-      tls:
-        mode: DISABLE
-    connectionPool:
-      http:
-        http2MaxRequests: 10000
-        maxRequestsPerConnection: 10000
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-mixer-service-account
-  namespace: istio-telemetry
-  labels:
-    app: istio-telemetry
-    release: istio
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: istio-mixer-admin-role-binding-istio-telemetry
-  labels:
-    app: istio-telemetry
-    release: istio
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: istio-mixer-istio-telemetry
-subjects:
-  - kind: ServiceAccount
-    name: istio-mixer-service-account
-    namespace: istio-telemetry
----
-apiVersion: "config.istio.io/v1alpha2"
-kind: instance
-metadata:
-  name: tcpbytesent
-  namespace: istio-telemetry
-  labels:
-    app: istio-telemetry
-    release: istio
-spec:
-  compiledTemplate: metric
-  params:
-    value: connection.sent.bytes | 0
-    dimensions:
-      reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
-      source_workload: source.workload.name | "unknown"
-      source_workload_namespace: source.workload.namespace | "unknown"
-      source_principal: source.principal | "unknown"
-      source_app: source.labels["app"] | "unknown"
-      source_version: source.labels["version"] | "unknown"
-      destination_workload: destination.workload.name | "unknown"
-      destination_workload_namespace: destination.workload.namespace | "unknown"
-      destination_principal: destination.principal | "unknown"
-      destination_app: destination.labels["app"] | "unknown"
-      destination_version: destination.labels["version"] | "unknown"
-      destination_service: destination.service.host | request.host | "unknown"
-      destination_service_name: destination.service.name | "unknown"
-      destination_service_namespace: destination.service.namespace | "unknown"
-      connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
-      response_flags: context.proxy_error_code | "-"
-    monitored_resource_type: '"UNSPECIFIED"'
----
-apiVersion: "config.istio.io/v1alpha2"
-kind: rule
-metadata:
-  name: promtcp
-  namespace: istio-telemetry
-  labels:
-    app: istio-telemetry
-    release: istio
-spec:
-  match: context.protocol == "tcp"
-  actions:
-  - handler: prometheus
-    instances:
-    - tcpbytesent
-    - tcpbytereceived
----
-apiVersion: "config.istio.io/v1alpha2"
-kind: handler
-metadata:
-  name: kubernetesenv
-  namespace: istio-telemetry
-  labels:
-    app: istio-telemetry
-    release: istio
-spec:
-  compiledAdapter: kubernetesenv
-  params:
-    # when running from mixer root, use the following config after adding a
-    # symbolic link to a kubernetes config file via:
-    #
-    # $ ln -s ~/.kube/config mixer/adapter/kubernetes/kubeconfig
-    #
-    # kubeconfig_path: "mixer/adapter/kubernetes/kubeconfig"
----
-apiVersion: "config.istio.io/v1alpha2"
-kind: rule
-metadata:
-  name: tcpkubeattrgenrulerule
-  namespace: istio-telemetry
-  labels:
-    app: istio-telemetry
-    release: istio
-spec:
-  match: context.protocol == "tcp"
-  actions:
-  - handler: kubernetesenv
-    instances:
-    - attributes
 ---
 
 # Tracing component is disabled.
