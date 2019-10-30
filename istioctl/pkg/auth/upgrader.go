@@ -78,21 +78,21 @@ const (
 )
 
 const (
-	rbacGlobalAllowAll = `apiVersion: security.istio.io/v1beta1
+	rbacNamespaceAllow = `apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: allow-all
-  namespace: {{ .RootNamespace }}
+  name: {{ .ScopeName }}-allow-all
+  namespace: {{ .Namespace }}
 spec:
   rules:
     - {}
 ---
 `
-	rbacGlobalDenyAll = `apiVersion: security.istio.io/v1beta1
+	rbacNamespaceDeny = `apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: deny-all
-  namespace: {{ .RootNamespace }}
+  name: {{ .ScopeName }}-deny-all
+  namespace: {{ .Namespace }}
 spec:
 ---
 `
@@ -213,24 +213,57 @@ func (ug *Upgrader) convertClusterRbacConfig(authzPolicies *model.AuthorizationP
 	if clusterRbacConfig == nil {
 		return fmt.Errorf("no ClusterRbacConfig found")
 	}
+	// RbacConfig_ON_WITH_INCLUSION doesn't require the config root namespace.
+	if clusterRbacConfig.Mode == rbac_v1alpha1.RbacConfig_ON_WITH_INCLUSION {
+		// Support namespace-level only.
+		if len(clusterRbacConfig.Inclusion.Services) > 0 {
+			return fmt.Errorf("service-level ClusterRbacConfig (found in ON_WITH_INCLUSION rule) is not supported")
+		}
+		// For each namespace in RbacConfig_ON_WITH_INCLUSION, we simply generate a deny-all rule for that namespace.
+		return ug.generateClusterRbacConfig(rbacNamespaceDeny, clusterRbacConfig.Inclusion.Namespaces, false)
+	}
 	rootNamespace, err := ug.getIstioRootNamespace()
 	if err != nil {
 		return fmt.Errorf("failed to get Istio root namespace: %s", err)
 	}
-	rootNs := map[string]string{
-		"RootNamespace": rootNamespace,
-	}
-	var policy string
 	switch clusterRbacConfig.Mode {
 	case rbac_v1alpha1.RbacConfig_OFF:
-		policy, err = fillTemplate(rbacGlobalAllowAll, rootNs)
+		return ug.generateClusterRbacConfig(rbacNamespaceAllow, []string{rootNamespace}, true)
 	case rbac_v1alpha1.RbacConfig_ON:
-		policy, err = fillTemplate(rbacGlobalDenyAll, rootNs)
+		return ug.generateClusterRbacConfig(rbacNamespaceDeny, []string{rootNamespace}, true)
+	case rbac_v1alpha1.RbacConfig_ON_WITH_EXCLUSION:
+		// Support namespace-level only.
+		if len(clusterRbacConfig.Exclusion.Services) > 0 {
+			return fmt.Errorf("service-level ClusterRbacConfig (found in ON_WITH_EXCLUSION rule) is not supported")
+		}
+		// First generate a cluster-wide deny rule.
+		err = ug.generateClusterRbacConfig(rbacNamespaceDeny, []string{rootNamespace}, true)
+		if err != nil {
+			return fmt.Errorf("failed to convert ClusterRbacConfig: %v", err)
+		}
+		// For each namespace in RbacConfig_ON_WITH_EXCLUSION, we simply generate an allow-rule rule for that namespace.
+		return ug.generateClusterRbacConfig(rbacNamespaceAllow, clusterRbacConfig.Exclusion.Namespaces, false)
 	}
-	if err != nil {
-		return fmt.Errorf("failed to convert ClusterRbacConfig: %v", err)
+	return nil
+}
+
+func (ug *Upgrader) generateClusterRbacConfig(template string, namespaces []string, isRootNamespace bool) error {
+	clusterRbacConfigData := map[string]string{
+		"ScopeName": "",
+		"Namespace": "",
 	}
-	ug.ConvertedPolicies.WriteString(policy)
+	for _, ns := range namespaces {
+		clusterRbacConfigData["Namespace"] = ns
+		clusterRbacConfigData["ScopeName"] = ns
+		if isRootNamespace {
+			clusterRbacConfigData["ScopeName"] = "global"
+		}
+		policy, err := fillTemplate(template, clusterRbacConfigData)
+		if err != nil {
+			return fmt.Errorf("failed to convert ClusterRbacConfig: %v", err)
+		}
+		ug.ConvertedPolicies.WriteString(policy)
+	}
 	return nil
 }
 
