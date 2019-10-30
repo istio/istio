@@ -18,83 +18,6 @@ set -e
 set -u
 set -o pipefail
 
-REPEAT=${REPEAT:-100}
-THRESHOLD=${THRESHOLD:-20}
-
-function verify_services {
-  unmatchedText=""
-  wantTextPattern=("$@")
-  goodResponse=0
-
-  for ((i=1; i<="$REPEAT"; i++)); do
-    tmpfile=$(mktemp /tmp/verify-services.XXXXXX)
-    set +e
-    $(kubectl get services > "${tmpfile}")
-    set -e
-    body=$(cat ${tmpfile})
-
-    matchedText=0
-    for want in "${wantTextPattern[@]}"; do
-       if [ "`grep "${want}" "${tmpfile}"`" != "" ]; then
-        matchedText=$((matchedText + 1))
-      else
-        unmatchedText="${want}"
-      fi
-    done
-
-    if [[ "$matchedText" == "$#" ]]; then
-      goodResponse=$((goodResponse + 1))
-    else
-      goodResponse=0
-    fi
-
-    if (( "$goodResponse">="$THRESHOLD" )); then
-      return 0
-    fi
-  done
-  rm "$tmpfile"
-
-  echo -e "did not match text: ${unmatchedText} in ${body}\n"
-  return 1
-}
-
-function verify_pods {
-  unmatchedText=""
-  wantTextPattern=("$@")
-  goodResponse=0
-
-  for ((i=1; i<="$REPEAT"; i++)); do
-    tmpfile=$(mktemp /tmp/verify-pods.XXXXXX)
-    set +e
-    $(kubectl get pods > "${tmpfile}")
-    set -e
-    body=$(cat ${tmpfile})
-
-    matchedText=0
-    for want in "${wantTextPattern[@]}"; do
-       if [ "`grep "${want}" "${tmpfile}"`" != "" ]; then
-        matchedText=$((matchedText + 1))
-      else
-        unmatchedText="${want}"
-      fi
-    done
-
-    if [[ "$matchedText" == "$#" ]]; then
-      goodResponse=$((goodResponse + 1))
-    else
-      goodResponse=0
-    fi
-
-    if (( "$goodResponse">="$THRESHOLD" )); then
-      return 0
-    fi
-  done
-  rm "$tmpfile"
-
-  echo -e "did not match text: ${unmatchedText} in ${body}\n"
-  return 1
-}
-
 # Remove the injection label to prevent following command to fail
 kubectl label namespace default istio-injection-
 
@@ -108,21 +31,36 @@ $ kubectl apply -f @samples/bookinfo/platform/kube/bookinfo.yaml@
 
 # $snippet verify_service.sh syntax="bash" outputis="text" outputsnippet="true"
 $ kubectl get services
+# $snippetoutput verifier="regexMatches"
+NAME *TYPE *CLUSTER-IP *EXTERNAL-IP *PORT\(S\) *AGE
+# $snippetoutput verifier="regexMatches"
+details *ClusterIP *[0-9.]* *.none. *9080/TCP
+# $snippetoutput verifier="regexMatches"
+kubernetes *ClusterIP *[0-9.]* *.none. *443/TCP
+# $snippetoutput verifier="regexMatches"
+productpage *ClusterIP *[0-9.]* *.none. *9080/TCP
+# $snippetoutput verifier="regexMatches"
+ratings *ClusterIP *[0-9.]* *.none. *9080/TCP
+# $snippetoutput verifier="regexMatches"
+reviews *ClusterIP *[0-9.]* *.none. *9080/TCP
 # $endsnippet
 
-verify_services "NAME *TYPE *CLUSTER-IP *EXTERNAL-IP *PORT(S) *AGE" "details *ClusterIP *[0-9.]* *.none. *9080/TCP" "kubernetes *ClusterIP *[0-9.]* *.none. *443/TCP" "productpage *ClusterIP *[0-9.]* *.none. *9080/TCP" "ratings *ClusterIP *[0-9.]* *.none. *9080/TCP" "reviews *ClusterIP *[0-9.]* *.none. *9080/TCP"
-
-# Wait for the pods to start
-while true; do
-  if [ "`kubectl get pods | grep -E "(Init|Pending|PodInitializing)"`" != "" ]; then
-    sleep 30
-  else
-    break
-  fi
-done
-
-verify_pods "NAME *READY *STATUS *RESTARTS *AGE" "details-v1-[0-9a-z]*-[0-9a-z]* *2/2 *Running *0" "productpage-v1-[0-9a-z]*-[0-9a-z]* *2/2 *Running *0" "ratings-v1-[0-9a-z]*-[0-9a-z]* *2/2 *Running *0" "reviews-v1-[0-9a-z]*-[0-9a-z]* *2/2 *Running *0" "reviews-v2-[0-9a-z]*-[0-9a-z]* *2/2 *Running *0" "reviews-v3-[0-9a-z]*-[0-9a-z]* *2/2 *Running *0"
+kubectl wait --for=condition=Ready pod --all --timeout=60s
 
 # $snippet verify_pods.sh syntax="bash" outputis="text" outputsnippet="true"
 $ kubectl get pods
+# $snippetoutput verifier="regexMatches"
+NAME *READY *STATUS *RESTARTS *AGE
+# $snippetoutput verifier="regexMatches"
+details-v1-[0-9a-z]*-[0-9a-z]* *2/2 *Running *0
+# $snippetoutput verifier="regexMatches"
+productpage-v1-[0-9a-z]*-[0-9a-z]* *2/2 *Running *0
+# $snippetoutput verifier="regexMatches"
+ratings-v1-[0-9a-z]*-[0-9a-z]* *2/2 *Running *0
+# $snippetoutput verifier="regexMatches"
+reviews-v1-[0-9a-z]*-[0-9a-z]* *2/2 *Running *0
+# $snippetoutput verifier="regexMatches"
+reviews-v2-[0-9a-z]*-[0-9a-z]* *2/2 *Running *0
+# $snippetoutput verifier="regexMatches"
+reviews-v3-[0-9a-z]*-[0-9a-z]* *2/2 *Running *0
 # $endsnippet

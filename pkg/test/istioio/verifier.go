@@ -15,6 +15,7 @@
 package istioio
 
 import (
+	"regexp"
 	"strings"
 	"text/scanner"
 	"unicode"
@@ -25,10 +26,11 @@ type verifier func(ctx Context, name, expectedOutput, actualOutput string)
 
 // verifiers supported by in the command scripts.
 var verifiers = map[string]verifier{
-	"":            verifyTokens, // Default
-	"token":       verifyTokens,
-	"contains":    verifyContains,
-	"notContains": verifyNotContains,
+	"":             verifyTokens, // Default
+	"token":        verifyTokens,
+	"contains":     verifyContains,
+	"notContains":  verifyNotContains,
+	"regexMatches": verifyRegexMatch,
 }
 
 // verifyTokens tokenizes the output and compares against the tokens from the given file.
@@ -101,6 +103,14 @@ func verifyContains(ctx Context, name, expectedOutput, actualOutput string) {
 func verifyNotContains(ctx Context, name, expectedOutput, actualOutput string) {
 	if strings.Contains(actualOutput, expectedOutput) {
 		ctx.Fatalf("verification failed for command %s: output contains not expected text.\nNot Expected:\n%s\nOutput:\n%s",
+			name, expectedOutput, actualOutput)
+		return
+	}
+}
+
+func verifyRegexMatch(ctx Context, name, expectedOutput, actualOutput string) {
+	if match, _ := regexp.MatchString(expectedOutput, actualOutput); !match {
+		ctx.Fatalf("verification failed for command %s: output does not match expected regex.\nExpected:\n%s\nOutput:\n%s",
 			name, expectedOutput, actualOutput)
 		return
 	}

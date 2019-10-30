@@ -259,12 +259,11 @@ func (s Script) createSnippets(ctx Context) {
 			// Use the actual output as the output for the snippet.
 			snippetOutput = string(actualOutput)
 
-			// If the snippet provided expected output, validate that the actual output
-			// from the command matches.
-			expectedOutput := strings.TrimSpace(sinfo.getExpectedOutput())
-			if expectedOutput != "" {
+			if sinfo.expectedOutput != nil {
 				scopes.CI.Infof("Verifying results for snippet %s", sinfo.name)
-				sinfo.verifyOutput(ctx, sinfo.name, expectedOutput, snippetOutput)
+				for idx, verifier := range sinfo.verifyOutput {
+					verifier(ctx, sinfo.name, sinfo.expectedOutput[idx], snippetOutput)
+				}
 			}
 		}
 
@@ -351,8 +350,7 @@ func parseSnippet(ctx Context, lineIndex *int, lines []string) snippetInfo {
 
 	// Parse the start line.
 	info := snippetInfo{
-		// Set the default verifier.
-		verifyOutput: verifyTokens,
+		verifyOutput: nil,
 	}
 	for _, fields := range strings.Fields(trimmedLine) {
 		arg := strings.TrimSpace(fields)
@@ -423,11 +421,11 @@ func parseSnippet(ctx Context, lineIndex *int, lines []string) snippetInfo {
 
 					switch key {
 					case verifierKey:
-						info.verifyOutput = verifiers[value]
-						if info.verifyOutput == nil {
+						if verifiers[value] == nil {
 							ctx.Fatalf("snippet %s: contains invalid snippet output verifier: %s. Must be in %v",
 								value, verifiers)
 						}
+						info.verifyOutput = append(info.verifyOutput, verifiers[value])
 					default:
 						ctx.Fatalf("unsupported snippet output attribute: %s", key)
 					}
@@ -458,7 +456,7 @@ type snippetInfo struct {
 	outputSnippet  bool
 	commandLines   []string
 	expectedOutput []string
-	verifyOutput   verifier
+	verifyOutput   []verifier
 }
 
 func (i snippetInfo) getOutputFile(ctx Context) string {
