@@ -357,7 +357,7 @@ values:
       useILB: false
     meshNetworks: {}
     mtls:
-      auto: false
+      auto: true
       enabled: true
     multiCluster:
       clusterName: ""
