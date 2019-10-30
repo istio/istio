@@ -3,7 +3,7 @@
 
 # Istio Operator
 
-The Istio operator CLI is now suitable for developers to evaluate and experiment with. You can
+The Istio operator CLI is beta and the controller is alpha for 1.4. You can
 [contribute](CONTRIBUTING.md) by picking an
 [unassigned open issue](https://github.com/istio/istio/issues?q=is%3Aissue+is%3Aopen+label%3Aarea%2Fenvironments%2Foperator+no%3Aassignee),
 creating a [bug or feature request](BUGS-AND-FEATURE-REQUESTS.md),
@@ -11,7 +11,12 @@ or just coming to the weekly [Environments Working Group](https://github.com/ist
 meeting to share your ideas.
 
 This document is an overview of how the operator works from a user perspective. For more details about the design and
-architecture and a code overview, see [ARCHITECTURE.md](./ARCHITECTURE.md)
+architecture and a code overview, see [ARCHITECTURE.md](./ARCHITECTURE.md).
+
+The operator CLI is distributed to users as part of istioctl. The `mesh` command
+in this repo is simply a wrapper to speed up development - the subcommands are the same code that is incorporated into
+istioctl. Making changes to any `mesh` subcommand will be reflected in istioctl after one of the regular syncs to
+istio/operator.
 
 ## Introduction
 
@@ -61,7 +66,7 @@ for details.
 
 ## Developer quick start
 
-The quick start describes how to install and use the operator `mesh` CLI command.
+The quick start describes how to install and use the operator `mesh` CLI command and/or controller.
 
 ### Building
 
@@ -72,25 +77,86 @@ to execute the following step one time.
 GO111MODULE=on go get github.com/jteeuwen/go-bindata/go-bindata@v3.0.8-0.20180305030458-6025e8de665b
 ```
 
-To build the operator, simply:
+#### Clone the repo
 
 ```bash
 git clone https://github.com/istio/operator.git
 cd operator
+```
+
+#### CLI
+
+To build the operator CLI, simply:
+
+```bash
 make mesh
 ```
 
 This will create a binary called `mesh` in ${GOPATH}/bin. Ensure this is in your PATH to run the examples below.
 
-### Flags
+#### Controller (in cluster)
+
+Building a custom controller requires a Dockerhub (or similar) account. To build using the container based build:
+
+```bash
+HUB=docker.io/<your-account> TAG=latest make docker.all
+```
+
+This builds the controller binary and docker file, and pushes the image to the specified hub with the `latest` tag.
+Once the images are pushed, configure kubectl to point to your cluster and install the controller. You should edit
+the file deploy/operator.yaml to point to your docker hub:
+
+```yaml
+          image: docker.io/<your-account>/operator
+```
+
+Install the controller manifest and example IstioControlResource CR:
+
+```bash
+kubectl apply -k deploy/
+kubectl apply -f deploy/crds/istio_v1alpha2_istiocontrolplane_cr.yaml 
+```
+
+This installs the controller into the cluster in the istio-operator namespace. The controller in turns installs
+the Istio control plane into the istio-system namespace by default.
+
+#### Controller (running locally)
+
+1. Set env $WATCH_NAMESPACE and $LEADER_ELECTION_NAMESPACE (default value is "istio-operator")
+
+1. From the operator repo root directory, run `go run ./cmd/manager/*.go server `
+
+To use Remote debugging with IntelliJ, replace above step 2 with following:
+
+1. From ./cmd/manager path run
+`
+dlv debug --headless --listen=:2345 --api-version=2 -- server
+`.
+
+1. In IntelliJ, create a new Go Remote debug configuration with default settings.
+
+1. Start debugging process and verify it is working. For example, try adding a breakpoint at Reconcile logic and apply a new CR.
+
+### Relationship between the CLI and controller
+
+The CLI and controller share the same API and codebase for generating manifests from the API. You can think of the
+controller as the CLI command `mesh manifest apply` running in a loop in a pod in the cluster and using the config
+from the in-cluster IstioControlPlane CustomResource (CR). 
+There are two major differences:
+1. The controller does not accept any dynamic user config through flags. All user interaction is through the
+IstioControlPlane CR.
+1. The controller has additional logic that mirrors istioctl commands like upgrade, but is driven from the declarative
+API rather than command line.
+
+### Quick tour of CLI commands
+
+#### Flags
 
 The `mesh` command supports the following flags:
 
 - `logtostderr`: log to console (by default logs go to ./mesh-cli.log).
 - `dry-run`: console output only, nothing applied to cluster or written to files.
 - `verbose`: display entire manifest contents and other debug info (default is false).
-
-### Quick tour of CLI commands
 
 #### Basic default manifest
 
@@ -372,6 +438,12 @@ The user-defined overlay uses a path spec that includes the ability to select li
 the container with the key-value "name: discovery" is selected from the list of containers, and the command line
 parameter with value "30m" is selected to be modified. The advanced overlay capability is described in more detail in
 the spec.
+
+## Interaction with controller
+
+The controller shares the same API as the operator CLI, so it's possible to install any of the above examples as a CR
+in the cluster in the istio-operator namespace and the controller will react to it with the same outcome as running
+`mesh manifest apply -f <path-to-custom-resource-file>`.
 
 ## Architecture
 
