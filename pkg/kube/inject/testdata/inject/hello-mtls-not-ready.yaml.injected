@@ -22,7 +22,7 @@ spec:
       creationTimestamp: null
       labels:
         app: hello
-        security.istio.io/mtlsReady: "false"
+        security.istio.io/tlsMode: disabled
         tier: backend
         track: stable
     spec:
@@ -104,7 +104,7 @@ spec:
           value: "80"
         - name: ISTIO_METAJSON_LABELS
           value: |
-            {"app":"hello","security.istio.io/mtlsReady":"false","tier":"backend","track":"stable"}
+            {"app":"hello","security.istio.io/tlsMode":"disabled","tier":"backend","track":"stable"}
         - name: ISTIO_META_WORKLOAD_NAME
           value: hello
         - name: ISTIO_META_OWNER

@@ -16,7 +16,7 @@ spec:
       creationTimestamp: null
       labels:
         app: hello
-        security.istio.io/mtlsReady: "true"
+        security.istio.io/tlsMode: "istio"
     spec:
       containers:
       - image: fake.docker.io/google-samples/hello-go-gke:1.0
