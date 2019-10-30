@@ -259,11 +259,12 @@ func (s Script) createSnippets(ctx Context) {
 			// Use the actual output as the output for the snippet.
 			snippetOutput = string(actualOutput)
 
-			if sinfo.expectedOutput != nil {
+			// If the snippet provided expected output, validate that the actual output
+			// from the command matches.
+			expectedOutput := strings.TrimSpace(sinfo.getExpectedOutput())
+			if expectedOutput != "" {
 				scopes.CI.Infof("Verifying results for snippet %s", sinfo.name)
-				for idx, verifier := range sinfo.verifyOutput {
-					verifier(ctx, sinfo.name, sinfo.expectedOutput[idx], snippetOutput)
-				}
+				sinfo.verifyOutput(ctx, sinfo.name, expectedOutput, snippetOutput)
 			}
 		}
 
@@ -350,7 +351,8 @@ func parseSnippet(ctx Context, lineIndex *int, lines []string) snippetInfo {
 
 	// Parse the start line.
 	info := snippetInfo{
-		verifyOutput: nil,
+		// Set the default verifier.
+		verifyOutput: verifyTokens,
 	}
 	for _, fields := range strings.Fields(trimmedLine) {
 		arg := strings.TrimSpace(fields)
@@ -421,11 +423,11 @@ func parseSnippet(ctx Context, lineIndex *int, lines []string) snippetInfo {
 
 					switch key {
 					case verifierKey:
-						if verifiers[value] == nil {
+						info.verifyOutput = verifiers[value]
+						if info.verifyOutput == nil {
 							ctx.Fatalf("snippet %s: contains invalid snippet output verifier: %s. Must be in %v",
 								value, verifiers)
 						}
-						info.verifyOutput = append(info.verifyOutput, verifiers[value])
 					default:
 						ctx.Fatalf("unsupported snippet output attribute: %s", key)
 					}
@@ -456,7 +458,7 @@ type snippetInfo struct {
 	outputSnippet  bool
 	commandLines   []string
 	expectedOutput []string
-	verifyOutput   []verifier
+	verifyOutput   verifier
 }
 
 func (i snippetInfo) getOutputFile(ctx Context) string {
@@ -465,6 +467,10 @@ func (i snippetInfo) getOutputFile(ctx Context) string {
 
 func (i snippetInfo) getCommands() []string {
 	return append([]string{}, i.commandLines...)
+}
+
+func (i snippetInfo) getExpectedOutput() string {
+	return strings.Join(i.expectedOutput, "\n")
 }
 
 func filterCommentLines(lines []string) []string {

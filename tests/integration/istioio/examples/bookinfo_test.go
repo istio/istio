@@ -36,36 +36,7 @@ func TestBookinfo(t *testing.T) {
 				Input: istioio.Inline{
 					FileName: "cleanup.sh",
 					Value: `
-protos=( destinationrules virtualservices gateways )
-for proto in "${protos[@]}"; do
-  for resource in $(kubectl get -n default "$proto" -o name); do
-    kubectl delete -n default "$resource";
-  done
-done
-
-OUTPUT=$(mktemp)
-export OUTPUT
-echo "Application cleanup may take up to one minute"
-kubectl delete -n default -f samples/bookinfo/platform/kube/bookinfo.yaml > "${OUTPUT}" 2>&1
-ret=$?
-function cleanup() {
-  rm -f "${OUTPUT}"
-}
-
-trap cleanup EXIT
-
-if [[ ${ret} -eq 0 ]];then
-  cat "${OUTPUT}"
-else
-  # ignore NotFound errors
-  OUT2=$(grep -v NotFound "${OUTPUT}")
-  if [[ -n ${OUT2} ]];then
-    cat "${OUTPUT}"
-    exit ${ret}
-  fi
-fi
-
-echo "Application cleanup successful"`,
+kubectl delete -n default -f samples/bookinfo/platform/kube/bookinfo.yaml || true`,
 				},
 				WorkDir: env.IstioSrc,
 			}).

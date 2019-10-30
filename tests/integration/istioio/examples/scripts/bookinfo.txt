@@ -31,36 +31,25 @@ $ kubectl apply -f @samples/bookinfo/platform/kube/bookinfo.yaml@
 
 # $snippet verify_service.sh syntax="bash" outputis="text" outputsnippet="true"
 $ kubectl get services
-# $snippetoutput verifier="regexMatches"
+# $snippetoutput verifier="lineRegex"
 NAME *TYPE *CLUSTER-IP *EXTERNAL-IP *PORT\(S\) *AGE
-# $snippetoutput verifier="regexMatches"
 details *ClusterIP *[0-9.]* *.none. *9080/TCP
-# $snippetoutput verifier="regexMatches"
 kubernetes *ClusterIP *[0-9.]* *.none. *443/TCP
-# $snippetoutput verifier="regexMatches"
 productpage *ClusterIP *[0-9.]* *.none. *9080/TCP
-# $snippetoutput verifier="regexMatches"
 ratings *ClusterIP *[0-9.]* *.none. *9080/TCP
-# $snippetoutput verifier="regexMatches"
 reviews *ClusterIP *[0-9.]* *.none. *9080/TCP
 # $endsnippet
 
-kubectl wait --for=condition=Ready pod --all --timeout=60s
+kubectl wait --for=condition=Ready pod --all --timeout=300s
 
 # $snippet verify_pods.sh syntax="bash" outputis="text" outputsnippet="true"
 $ kubectl get pods
-# $snippetoutput verifier="regexMatches"
+# $snippetoutput verifier="lineRegex"
 NAME *READY *STATUS *RESTARTS *AGE
-# $snippetoutput verifier="regexMatches"
 details-v1-[0-9a-z]*-[0-9a-z]* *2/2 *Running *0
-# $snippetoutput verifier="regexMatches"
 productpage-v1-[0-9a-z]*-[0-9a-z]* *2/2 *Running *0
-# $snippetoutput verifier="regexMatches"
 ratings-v1-[0-9a-z]*-[0-9a-z]* *2/2 *Running *0
-# $snippetoutput verifier="regexMatches"
 reviews-v1-[0-9a-z]*-[0-9a-z]* *2/2 *Running *0
-# $snippetoutput verifier="regexMatches"
 reviews-v2-[0-9a-z]*-[0-9a-z]* *2/2 *Running *0
-# $snippetoutput verifier="regexMatches"
 reviews-v3-[0-9a-z]*-[0-9a-z]* *2/2 *Running *0
 # $endsnippet
