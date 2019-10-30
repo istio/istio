@@ -1,0 +1,36 @@
+apiVersion: install.istio.io/v1alpha2
+kind: IstioControlPlane
+spec:
+  trafficManagement:
+    enabled: false
+
+  policy:
+    enabled: false
+
+  telemetry:
+    enabled: false
+
+  configManagement:
+    enabled: false
+
+  autoInjection:
+    enabled: false
+
+  gateways:
+    enabled: false
+
+  values:
+    pilot:
+      configSource:
+        subscribedResources:
+
+    security:
+      createMeshPolicy: false
+
+    prometheus:
+      enabled: false
+
+    global:
+      istioRemote: true
+      enableTracing: false
+      network: ""

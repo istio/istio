@@ -215,6 +215,7 @@
 // ../../data/profiles/demo-auth.yaml
 // ../../data/profiles/demo.yaml
 // ../../data/profiles/minimal.yaml
+// ../../data/profiles/remote.yaml
 // ../../data/profiles/sds.yaml
 // ../../data/translateConfig/translateConfig-1.3.yaml
 // ../../data/translateConfig/translateConfig-1.4.yaml
@@ -37424,6 +37425,59 @@ func profilesMinimalYaml() (*asset, error) {
 	return a, nil
 }
 
+var _profilesRemoteYaml = []byte(`apiVersion: install.istio.io/v1alpha2
+kind: IstioControlPlane
+spec:
+  trafficManagement:
+    enabled: false
+
+  policy:
+    enabled: false
+
+  telemetry:
+    enabled: false
+
+  configManagement:
+    enabled: false
+
+  autoInjection:
+    enabled: false
+
+  gateways:
+    enabled: false
+
+  values:
+    pilot:
+      configSource:
+        subscribedResources:
+
+    security:
+      createMeshPolicy: false
+
+    prometheus:
+      enabled: false
+
+    global:
+      istioRemote: true
+      enableTracing: false
+      network: ""
+`)
+
+func profilesRemoteYamlBytes() ([]byte, error) {
+	return _profilesRemoteYaml, nil
+}
+
+func profilesRemoteYaml() (*asset, error) {
+	bytes, err := profilesRemoteYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "profiles/remote.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _profilesSdsYaml = []byte(`apiVersion: install.istio.io/v1alpha2
 kind: IstioControlPlane
 spec:
@@ -38222,6 +38276,7 @@ var _bindata = map[string]func() (*asset, error){
 	"profiles/demo-auth.yaml": profilesDemoAuthYaml,
 	"profiles/demo.yaml": profilesDemoYaml,
 	"profiles/minimal.yaml": profilesMinimalYaml,
+	"profiles/remote.yaml": profilesRemoteYaml,
 	"profiles/sds.yaml": profilesSdsYaml,
 	"translateConfig/translateConfig-1.3.yaml": translateconfigTranslateconfig13Yaml,
 	"translateConfig/translateConfig-1.4.yaml": translateconfigTranslateconfig14Yaml,
@@ -38576,6 +38631,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"demo-auth.yaml": &bintree{profilesDemoAuthYaml, map[string]*bintree{}},
 		"demo.yaml": &bintree{profilesDemoYaml, map[string]*bintree{}},
 		"minimal.yaml": &bintree{profilesMinimalYaml, map[string]*bintree{}},
+		"remote.yaml": &bintree{profilesRemoteYaml, map[string]*bintree{}},
 		"sds.yaml": &bintree{profilesSdsYaml, map[string]*bintree{}},
 	}},
 	"translateConfig": &bintree{nil, map[string]*bintree{
