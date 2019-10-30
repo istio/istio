@@ -192,6 +192,7 @@ func NewModelV1beta1(trustDomain string, trustDomainAliases []string, rule *secu
 				Namespaces:        source.Namespaces,
 				RequestPrincipals: source.RequestPrincipals,
 				Properties:        conditionsForPrincipal,
+				v1beta1:           true,
 			}
 			m.Principals = append(m.Principals, principal)
 		}
@@ -200,10 +201,12 @@ func NewModelV1beta1(trustDomain string, trustDomainAliases []string, rule *secu
 		if len(conditionsForPrincipal) != 0 {
 			m.Principals = []Principal{{
 				Properties: conditionsForPrincipal,
+				v1beta1:    true,
 			}}
 		} else {
 			m.Principals = []Principal{{
 				AllowAll: true,
+				v1beta1:  true,
 			}}
 		}
 	}
@@ -216,6 +219,7 @@ func NewModelV1beta1(trustDomain string, trustDomainAliases []string, rule *secu
 				Ports:       operation.Ports,
 				Paths:       operation.Paths,
 				Constraints: conditionsForPermission,
+				v1beta1:     true,
 			}
 			m.Permissions = append(m.Permissions, permission)
 		}
@@ -224,10 +228,12 @@ func NewModelV1beta1(trustDomain string, trustDomainAliases []string, rule *secu
 		if len(conditionsForPermission) != 0 {
 			m.Permissions = []Permission{{
 				Constraints: conditionsForPermission,
+				v1beta1:     true,
 			}}
 		} else {
 			m.Permissions = []Permission{{
 				AllowAll: true,
+				v1beta1:  true,
 			}}
 		}
 	}

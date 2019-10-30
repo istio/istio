@@ -39,6 +39,7 @@ type Permission struct {
 	NotPorts    []string
 	Constraints []KeyValues
 	AllowAll    bool
+	v1beta1     bool
 }
 
 // Match returns True if the calling service's attributes and/or labels match to the ServiceRole constraints.
@@ -135,42 +136,42 @@ func (permission *Permission) Generate(forTCPFilter bool) (*envoy_rbac.Permissio
 	}
 
 	if len(permission.Hosts) > 0 {
-		permission := permissionForKeyValues(hostHeader, permission.Hosts)
+		permission := permission.forKeyValues(hostHeader, permission.Hosts)
 		pg.append(permission)
 	}
 
 	if len(permission.NotHosts) > 0 {
-		permission := permissionForKeyValues(hostHeader, permission.NotHosts)
+		permission := permission.forKeyValues(hostHeader, permission.NotHosts)
 		pg.append(permissionNot(permission))
 	}
 
 	if len(permission.Methods) > 0 {
-		permission := permissionForKeyValues(methodHeader, permission.Methods)
+		permission := permission.forKeyValues(methodHeader, permission.Methods)
 		pg.append(permission)
 	}
 
 	if len(permission.NotMethods) > 0 {
-		permission := permissionForKeyValues(methodHeader, permission.NotMethods)
+		permission := permission.forKeyValues(methodHeader, permission.NotMethods)
 		pg.append(permissionNot(permission))
 	}
 
 	if len(permission.Paths) > 0 {
-		permission := permissionForKeyValues(pathHeader, permission.Paths)
+		permission := permission.forKeyValues(pathHeader, permission.Paths)
 		pg.append(permission)
 	}
 
 	if len(permission.NotPaths) > 0 {
-		permission := permissionForKeyValues(pathHeader, permission.NotPaths)
+		permission := permission.forKeyValues(pathHeader, permission.NotPaths)
 		pg.append(permissionNot(permission))
 	}
 
 	if len(permission.Ports) > 0 {
-		permission := permissionForKeyValues(attrDestPort, permission.Ports)
+		permission := permission.forKeyValues(attrDestPort, permission.Ports)
 		pg.append(permission)
 	}
 
 	if len(permission.NotPorts) > 0 {
-		permission := permissionForKeyValues(attrDestPort, permission.NotPorts)
+		permission := permission.forKeyValues(attrDestPort, permission.NotPorts)
 		pg.append(permissionNot(permission))
 	}
 
@@ -185,7 +186,7 @@ func (permission *Permission) Generate(forTCPFilter bool) (*envoy_rbac.Permissio
 			sort.Strings(keys)
 
 			for _, k := range keys {
-				permission := permissionForKeyValues(k, constraint[k])
+				permission := permission.forKeyValues(k, constraint[k])
 				pg.append(permission)
 			}
 		}
@@ -214,10 +215,10 @@ func isSupportedPermission(key string) bool {
 	return true
 }
 
-// permissionForKeyValues converts a key-values pair to an envoy RBAC permission. The key specify the
+// forKeyValues converts a key-values pair to an envoy RBAC permission. The key specify the
 // type of the permission (e.g. destination IP, header, SNI, etc.), the values specify the allowed
 // value of the key, multiple values are ORed together.
-func permissionForKeyValues(key string, values []string) *envoy_rbac.Permission {
+func (permission *Permission) forKeyValues(key string, values []string) *envoy_rbac.Permission {
 	var converter func(string) (*envoy_rbac.Permission, error)
 	switch {
 	case key == attrDestIP:
@@ -253,7 +254,7 @@ func permissionForKeyValues(key string, values []string) *envoy_rbac.Permission 
 		}
 	case key == attrConnSNI:
 		converter = func(v string) (*envoy_rbac.Permission, error) {
-			m := matcher.StringMatcher(v)
+			m := matcher.StringMatcher(v, permission.v1beta1)
 			return permissionRequestedServerName(m), nil
 		}
 	case strings.HasPrefix(key, "experimental.envoy.filters.") && isKeyBinary(key):
@@ -264,9 +265,9 @@ func permissionForKeyValues(key string, values []string) *envoy_rbac.Permission 
 			// Else, if value is of format v, create a string matcher.
 			var m *envoy_matcher.MetadataMatcher
 			if strings.HasPrefix(v, "[") && strings.HasSuffix(v, "]") {
-				m = matcher.MetadataListMatcher(parts[0], parts[1:], strings.Trim(v, "[]"))
+				m = matcher.MetadataListMatcher(parts[0], parts[1:], strings.Trim(v, "[]"), permission.v1beta1)
 			} else {
-				m = matcher.MetadataStringMatcher(parts[0], parts[1], matcher.StringMatcher(v))
+				m = matcher.MetadataStringMatcher(parts[0], parts[1], matcher.StringMatcher(v, permission.v1beta1))
 			}
 			return permissionMetadata(m), nil
 		}
