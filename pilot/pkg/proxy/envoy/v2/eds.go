@@ -745,7 +745,7 @@ func getDestinationRule(push *model.PushContext, proxy *model.Proxy, hostname ho
 
 func getOutlierDetectionAndLoadBalancerSettings(push *model.PushContext, proxy *model.Proxy, clusterName string) (bool, *networkingapi.LoadBalancerSettings) {
 	_, subsetName, hostname, portNumber := model.ParseSubsetKey(clusterName)
-
+	var outlierDetectionEnabled = false
 	var lbSettings *networkingapi.LoadBalancerSettings
 	destinationRule, port := getDestinationRule(push, proxy, hostname, portNumber)
 	if destinationRule == nil || port == nil {
@@ -755,7 +755,7 @@ func getOutlierDetectionAndLoadBalancerSettings(push *model.PushContext, proxy *
 	_, outlierDetection, loadBalancerSettings, _ := networking.SelectTrafficPolicyComponents(destinationRule.TrafficPolicy, port)
 	lbSettings = loadBalancerSettings
 	if outlierDetection != nil {
-		return true, loadBalancerSettings
+		outlierDetectionEnabled = true
 	}
 
 	for _, subset := range destinationRule.Subsets {
@@ -763,11 +763,11 @@ func getOutlierDetectionAndLoadBalancerSettings(push *model.PushContext, proxy *
 			_, outlierDetection, loadBalancerSettings, _ := networking.SelectTrafficPolicyComponents(subset.TrafficPolicy, port)
 			lbSettings = loadBalancerSettings
 			if outlierDetection != nil {
-				return true, loadBalancerSettings
+				outlierDetectionEnabled = true
 			}
 		}
 	}
-	return false, lbSettings
+	return outlierDetectionEnabled, lbSettings
 }
 
 // getEdsCluster returns a cluster.

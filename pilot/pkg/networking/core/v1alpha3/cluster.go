@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"fmt"
+	"istio.io/api/mesh/v1alpha1"
 	"strconv"
 	"strings"
 
@@ -836,13 +837,8 @@ func applyTrafficPolicy(opts buildClusterOpts, proxy *model.Proxy) {
 
 	applyConnectionPool(opts.env, opts.cluster, connectionPool, opts.direction)
 	applyOutlierDetection(opts.cluster, outlierDetection)
-	applyLoadBalancer(opts.cluster, loadBalancer, opts.port, proxy)
-	// Use locality lb settings from traffic policy if present, else use mesh wide locality lb settings
-	var localityLbSettings = opts.env.Mesh.LocalityLbSetting
-	if loadBalancer != nil && loadBalancer.LocalityLbSetting != nil {
-		localityLbSettings = loadBalancer.LocalityLbSetting
-	}
-	applyLocalityLBSetting(proxy.Locality, opts.cluster, localityLbSettings)
+	applyLoadBalancer(opts.cluster, loadBalancer, opts.port, proxy, opts.env.Mesh)
+
 	if opts.clusterMode != SniDnatClusterMode && opts.direction != model.TrafficDirectionInbound {
 		autoMTLSEnabled := opts.env.Mesh.GetEnableAutoMtls().Value
 		var mtlsCtxType mtlsContextType
@@ -850,7 +846,6 @@ func applyTrafficPolicy(opts buildClusterOpts, proxy *model.Proxy) {
 			autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode)
 		applyUpstreamTLSSettings(opts.env, opts.cluster, tls, mtlsCtxType, opts.proxy)
 	}
-
 }
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
@@ -991,16 +986,7 @@ func applyOutlierDetection(cluster *apiv2.Cluster, outlier *networking.OutlierDe
 	}
 }
 
-func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettings, port *model.Port, proxy *model.Proxy) {
-	if cluster.OutlierDetection != nil {
-		if cluster.CommonLbConfig == nil {
-			cluster.CommonLbConfig = &apiv2.Cluster_CommonLbConfig{}
-		}
-		// Locality weighted load balancing
-		cluster.CommonLbConfig.LocalityConfigSpecifier = &apiv2.Cluster_CommonLbConfig_LocalityWeightedLbConfig_{
-			LocalityWeightedLbConfig: &apiv2.Cluster_CommonLbConfig_LocalityWeightedLbConfig{},
-		}
-	}
+func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettings, port *model.Port, proxy *model.Proxy, meshConfig *v1alpha1.MeshConfig) {
 
 	if lb == nil {
 		return
@@ -1052,6 +1038,23 @@ func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettin
 			RingHashLbConfig: &apiv2.Cluster_RingHashLbConfig{
 				MinimumRingSize: minRingSize,
 			},
+		}
+	}
+
+	// Use locality lb settings from traffic policy if present, else use mesh wide locality lb settings
+	var localityLbSettings = meshConfig.LocalityLbSetting
+	if lb != nil && lb.LocalityLbSetting != nil {
+		localityLbSettings = lb.LocalityLbSetting
+	}
+	applyLocalityLBSetting(proxy.Locality, cluster, localityLbSettings)
+
+	if cluster.OutlierDetection != nil {
+		if cluster.CommonLbConfig == nil {
+			cluster.CommonLbConfig = &apiv2.Cluster_CommonLbConfig{}
+		}
+		// Locality weighted load balancing
+		cluster.CommonLbConfig.LocalityConfigSpecifier = &apiv2.Cluster_CommonLbConfig_LocalityWeightedLbConfig_{
+			LocalityWeightedLbConfig: &apiv2.Cluster_CommonLbConfig_LocalityWeightedLbConfig{},
 		}
 	}
 }

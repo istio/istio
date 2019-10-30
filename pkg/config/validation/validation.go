@@ -883,6 +883,9 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings) (errs error
 			}
 		}
 	}
+	if err := validateLocalityLbSetting(settings.LocalityLbSetting); err != nil {
+		errs = multierror.Append(errs, err)
+	}
 	return
 }
 
