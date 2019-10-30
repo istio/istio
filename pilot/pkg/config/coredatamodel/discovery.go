@@ -158,7 +158,7 @@ func (d *MCPDiscovery) InstancesByPort(svc *model.Service, servicePort int, lbls
 		for _, conf := range sseConf {
 			se, ok := conf.Spec.(*networking.ServiceEntry)
 			if !ok {
-				return nil, errors.New("serviceInstancesFromConfig: wrong type")
+				return nil, errors.New("instancesByPort: wrong type")
 			}
 			for _, h := range se.Hosts {
 				for _, svcPort := range se.Ports {
