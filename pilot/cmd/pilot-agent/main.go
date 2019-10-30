@@ -56,6 +56,7 @@ import (
 )
 
 const trustworthyJWTPath = "/var/run/secrets/tokens/istio-token"
+
 // TODO: Move most of this to pkg.
 
 var (
@@ -106,18 +107,18 @@ var (
 	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
 	sdsEnabledVar        = env.RegisterBoolVar("SDS_ENABLED", false, "")
 	autoMTLSEnabled      = env.RegisterBoolVar("ISTIO_AUTO_MTLS_ENABLED", false, "If true, auto mTLS is enabled, "+
-		"sidecar checks key/cert if SDS is not enabled.")
+			"sidecar checks key/cert if SDS is not enabled.")
 	sdsUdsPathVar             = env.RegisterStringVar("SDS_UDS_PATH", "unix:/var/run/sds/uds_path", "SDS address")
 	stackdriverTracingEnabled = env.RegisterBoolVar("STACKDRIVER_TRACING_ENABLED", false, "If enabled, stackdriver will"+
-		" get configured as the tracer.")
+			" get configured as the tracer.")
 	stackdriverTracingDebug = env.RegisterBoolVar("STACKDRIVER_TRACING_DEBUG", false, "If set to true, "+
-		"enables trace output to stdout")
+			"enables trace output to stdout")
 	stackdriverTracingMaxNumberOfAnnotations = env.RegisterIntVar("STACKDRIVER_TRACING_MAX_NUMBER_OF_ANNOTATIONS", 200, "Sets the max"+
-		" number of annotations for stackdriver")
+			" number of annotations for stackdriver")
 	stackdriverTracingMaxNumberOfAttributes = env.RegisterIntVar("STACKDRIVER_TRACING_MAX_NUMBER_OF_ATTRIBUTES", 200, "Sets the max "+
-		"number of attributes for stackdriver")
+			"number of attributes for stackdriver")
 	stackdriverTracingMaxNumberOfMessageEvents = env.RegisterIntVar("STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS", 200, "Sets the "+
-		"max number of message events for stackdriver")
+			"max number of message events for stackdriver")
 
 	sdsUdsWaitTimeout = time.Minute
 
@@ -393,6 +394,13 @@ var (
 				}
 			}
 
+			// If control plane auth is not mTLS or global SDS flag is turned off, unset UDS path and token path
+			// for control plane SDS.
+			if !controlPlaneAuthEnabled || !sdsEnabled {
+				sdsUDSPath = ""
+				sdsTokenPath = ""
+			}
+
 			// If the token and path are present - use SDS.
 
 			// TODO: change Mixer and Pilot to use standard template and deprecate this custom bootstrap parser
@@ -528,10 +536,10 @@ func setSpiffeTrustDomain(podNamespace string, domain string) {
 		pilotTrustDomain := trustDomain
 		if len(pilotTrustDomain) == 0 {
 			if registry == serviceregistry.KubernetesRegistry &&
-				(domain == podNamespace+".svc.cluster.local" || domain == "") {
+					(domain == podNamespace+".svc.cluster.local" || domain == "") {
 				pilotTrustDomain = "cluster.local"
 			} else if registry == serviceregistry.ConsulRegistry &&
-				(domain == "service.consul" || domain == "") {
+					(domain == "service.consul" || domain == "") {
 				pilotTrustDomain = ""
 			} else {
 				pilotTrustDomain = domain
