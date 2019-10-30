@@ -187,7 +187,7 @@ var (
 
 	EnableProtocolSniffingForInbound = env.RegisterBoolVar(
 		"PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND",
-		true,
+		false,
 		"If enabled, protocol sniffing will be used for inbound listeners whose port protocol is not specified or unsupported",
 	)
 
