@@ -285,3 +285,13 @@ Make sure to have the `HUB` and `TAG` environment variables set to the location 
 your Istio Docker images.
 
 You can find the complete list of arguments on [the test framework wiki page](https://github.com/istio/istio/wiki/Istio-Test-Framework).
+
+## The pipeline
+
+Tests produce outputs during a test run. As part of a postsubmit job, all snippets output by tests are copied to a
+well-knwon GCS bucket by the CI system, in a folder named with the SHA of the specific change.
+
+In istio.io, `make update_examples` looks at commits in the right branch of the istio/istio repo. The process looks for the latest
+SHA it can find in the GCS bucket. Once it's found the right folder, it copies the content into the istio.io expo, in the examples
+folder. Markdown content in istio.io can then reference the individual snippets from the individual files within the
+examples folder. To learn how to do this, check out <https://preliminary.istio.io/about/contribute/creating-and-editing-pages/#snippets>
