@@ -467,10 +467,6 @@ func (i snippetInfo) getCommands() []string {
 	return append([]string{}, i.commandLines...)
 }
 
-func (i snippetInfo) getExpectedOutput() string {
-	return strings.Join(i.expectedOutput, "\n")
-}
-
 func filterCommentLines(lines []string) []string {
 	out := make([]string, 0, len(lines))
 	for _, line := range lines {
