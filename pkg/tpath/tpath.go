@@ -134,7 +134,8 @@ func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissi
 		if m, ok := ncNode.(map[interface{}]interface{}); ok {
 			nn, ok = m[pe]
 			if !ok {
-				if createMissing {
+				// remainPath == 1 means the patch is creation of a new leaf.
+				if createMissing || len(remainPath) == 1 {
 					m[pe] = make(map[interface{}]interface{})
 					nn = m[pe]
 				} else {
@@ -145,7 +146,8 @@ func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissi
 		if m, ok := ncNode.(map[string]interface{}); ok {
 			nn, ok = m[pe]
 			if !ok {
-				if createMissing {
+				// remainPath == 1 means the patch is creation of a new leaf.
+				if createMissing || len(remainPath) == 1 {
 					m[pe] = make(map[string]interface{})
 					nn = m[pe]
 				} else {
