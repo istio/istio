@@ -76,14 +76,14 @@ func getProxyInfo() (*[]istioVersion.ProxyInfo, error) {
 		return nil, err
 	}
 
-	pi := []istioVersion.ProxyInfo{}
+	var pi []istioVersion.ProxyInfo
 	for _, syncz := range allSyncz {
 		var sss []*sidecarSyncStatus
 		err = json.Unmarshal(syncz, &sss)
 		if err != nil {
 			return nil, err
 		}
-
+		pi = make([]istioVersion.ProxyInfo, 0, len(sss))
 		for _, ss := range sss {
 			pi = append(pi, istioVersion.ProxyInfo{
 				ID:           ss.ProxyID,
