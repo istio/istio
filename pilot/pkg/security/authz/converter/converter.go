@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package auth
+package converter
 
 import (
 	"bytes"
@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"sort"
 	"strings"
+	"text/template"
 
 	"github.com/ghodss/yaml"
 
@@ -329,6 +330,19 @@ func (ug *Converter) generateClusterRbacConfig(template string, namespaces []str
 		ug.ConvertedPolicies.WriteString(policy)
 	}
 	return nil
+}
+
+func fillTemplate(config string, data interface{}) (string, error) {
+	tmpl, err := template.New("").Parse(config)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse template: %v", err)
+	}
+	var outString bytes.Buffer
+	err = tmpl.Execute(&outString, data)
+	if err != nil {
+		return "", fmt.Errorf("failed to write template: %v", err)
+	}
+	return outString.String(), nil
 }
 
 // v1alpha1ModelTov1beta1Policy converts the policy of one ServiceRole and a list of associated

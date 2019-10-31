@@ -20,16 +20,17 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	kubernetes2 "k8s.io/client-go/kubernetes"
 
-	"istio.io/pkg/log"
+	kubernetes2 "k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/istioctl/pkg/auth"
 	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/security/authz/converter"
 	"istio.io/istio/pkg/kube"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -227,7 +228,7 @@ func getConfigDumpFromPod(podName, podNamespace string) (*configdump.Wrapper, er
 	return envoyConfig, nil
 }
 
-func newConverter(v1PolicyFiles, serviceFiles []string, istioNamespace, istioMeshConfigMapName string) (*auth.Converter, error) {
+func newConverter(v1PolicyFiles, serviceFiles []string, istioNamespace, istioMeshConfigMapName string) (*converter.Converter, error) {
 	if len(v1PolicyFiles) == 0 {
 		return nil, fmt.Errorf("no input file provided")
 	}
@@ -237,11 +238,11 @@ func newConverter(v1PolicyFiles, serviceFiles []string, istioNamespace, istioMes
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to Kubernetes: %v", err)
 	}
-	converter, err := auth.NewConverter(k8sClient, v1PolicyFiles, serviceFiles, meshConfig, istioNamespace, istioMeshConfigMapName)
+	c, err := converter.NewConverter(k8sClient, v1PolicyFiles, serviceFiles, meshConfig, istioNamespace, istioMeshConfigMapName)
 	if err != nil {
 		return nil, err
 	}
-	return converter, nil
+	return c, nil
 }
 
 func newValidator(policyFiles []string) (*auth.Validator, error) {
