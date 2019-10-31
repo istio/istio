@@ -32,7 +32,7 @@ import (
 
 	"istio.io/istio/pkg/util/gogo"
 
-	"istio.io/api/mesh/v1alpha1"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 
@@ -984,7 +984,7 @@ func applyOutlierDetection(cluster *apiv2.Cluster, outlier *networking.OutlierDe
 	}
 }
 
-func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettings, port *model.Port, proxy *model.Proxy, meshConfig *v1alpha1.MeshConfig) {
+func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettings, port *model.Port, proxy *model.Proxy, meshConfig *meshconfig.MeshConfig) {
 
 	// Use locality lb settings from load balancer settings if present, else use mesh wide locality lb settings
 	var localityLbSettings = meshConfig.LocalityLbSetting
