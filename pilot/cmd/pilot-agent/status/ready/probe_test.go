@@ -259,7 +259,7 @@ func createDefaultFuncMap(statsToReturn string) map[string]func(rw http.Response
 func createTimeoutFuncMap(_ string) map[string]func(_ http.ResponseWriter, _ *http.Request) {
 	return map[string]func(_ http.ResponseWriter, _ *http.Request){
 
-		"/stats": func(rw http.ResponseWriter, _ *http.Request) {
+		"/stats": func(_ http.ResponseWriter, _ *http.Request) {
 			// Do not respond here
 			time.Sleep(time.Second * 1)
 		},
