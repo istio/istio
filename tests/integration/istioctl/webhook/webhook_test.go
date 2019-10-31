@@ -77,58 +77,52 @@ func TestWebhookManagement(t *testing.T) {
 			_ = pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
 
 			// Test that webhook configurations are enabled through istioctl successfully.
-			ctx.NewSubTest("enableWebhookConfigurations").
-				Run(func(ctx framework.TestContext) {
-					t.Log("check that webhook configurations are enabled through istioctl successfully ...")
-					args := []string{"experimental", "post-install", "webhook", "enable", "--validation", "--webhook-secret",
-						"dns.istio-galley-service-account", "--namespace", "istio-system", "--validation-path", "./config/galley-webhook.yaml",
-						"--injection-path", "./config/sidecar-injector-webhook.yaml"}
-					istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
-					output, fErr := istioCtl.Invoke(args)
-					if fErr != nil {
-						t.Fatalf("error returned for 'istioctl %s': %v", strings.Join(args, " "), fErr)
-					}
+			t.Log("check that webhook configurations are enabled through istioctl successfully ...")
+			args := []string{"experimental", "post-install", "webhook", "enable", "--validation", "--webhook-secret",
+				"dns.istio-galley-service-account", "--namespace", "istio-system", "--validation-path", "./config/galley-webhook.yaml",
+				"--injection-path", "./config/sidecar-injector-webhook.yaml"}
+			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+			output, fErr := istioCtl.Invoke(args)
+			if fErr != nil {
+				t.Fatalf("error returned for 'istioctl %s': %v", strings.Join(args, " "), fErr)
+			}
 
-					// Check that the webhook configurations are successful
-					expectedRegexps := []*regexp.Regexp{
-						regexp.MustCompile(`finished reading cert`),
-						regexp.MustCompile(`create webhook configuration istio-galley`),
-						regexp.MustCompile(`create webhook configuration istio-sidecar-injector`),
-						regexp.MustCompile(`webhook configurations have been enabled`),
-					}
-					for _, regexp := range expectedRegexps {
-						if !regexp.MatchString(output) {
-							t.Fatalf("output didn't match for 'istioctl %s'\n got %v\nwant: %v",
-								strings.Join(args, " "), output, regexp)
-						}
-					}
-				})
+			// Check that the webhook configurations are successful
+			expectedRegexps := []*regexp.Regexp{
+				regexp.MustCompile(`finished reading cert`),
+				regexp.MustCompile(`create webhook configuration istio-galley`),
+				regexp.MustCompile(`create webhook configuration istio-sidecar-injector`),
+				regexp.MustCompile(`webhook configurations have been enabled`),
+			}
+			for _, regexp := range expectedRegexps {
+				if !regexp.MatchString(output) {
+					t.Fatalf("output didn't match for 'istioctl %s'\n got %v\nwant: %v",
+						strings.Join(args, " "), output, regexp)
+				}
+			}
 
 			// Test that webhook statuses returned by running istioctl are as expected.
-			ctx.NewSubTest("getWebhookStatus").
-				Run(func(ctx framework.TestContext) {
-					t.Log("check that webhook statuses returned by running istioctl are as expected ...")
-					args := []string{"experimental", "post-install", "webhook", "status"}
-					istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
-					output, fErr := istioCtl.Invoke(args)
-					if fErr != nil {
-						t.Fatalf("error returned for 'istioctl %s': %v", strings.Join(args, " "), fErr)
-					}
+			t.Log("check that webhook statuses returned by running istioctl are as expected ...")
+			args = []string{"experimental", "post-install", "webhook", "status"}
+			istioCtl = istioctl.NewOrFail(t, ctx, istioctl.Config{})
+			output, fErr = istioCtl.Invoke(args)
+			if fErr != nil {
+				t.Fatalf("error returned for 'istioctl %s': %v", strings.Join(args, " "), fErr)
+			}
 
-					fmt.Printf("output is %v\n", output)
+			fmt.Printf("output is %v\n", output)
 
-					// Check that the webhook statuses are as expected
-					expectedRegexps := []*regexp.Regexp{
-						regexp.MustCompile(`ValidatingWebhookConfiguration istio-galley is`),
-						regexp.MustCompile(`MutatingWebhookConfiguration istio-sidecar-injector is`),
-					}
-					for _, regexp := range expectedRegexps {
-						if !regexp.MatchString(output) {
-							t.Fatalf("output didn't match for 'istioctl %s'\n got %v\nwant: %v",
-								strings.Join(args, " "), output, regexp)
-						}
-					}
-				})
+			// Check that the webhook statuses are as expected
+			expectedRegexps = []*regexp.Regexp{
+				regexp.MustCompile(`ValidatingWebhookConfiguration istio-galley is`),
+				regexp.MustCompile(`MutatingWebhookConfiguration istio-sidecar-injector is`),
+			}
+			for _, regexp := range expectedRegexps {
+				if !regexp.MatchString(output) {
+					t.Fatalf("output didn't match for 'istioctl %s'\n got %v\nwant: %v",
+						strings.Join(args, " "), output, regexp)
+				}
+			}
 
 			// Currently, unable to test disabling webhooks because the disable command requires
 			// user interaction: "Are you sure to delete webhook configuration(s)?", the deletion
