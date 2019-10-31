@@ -172,6 +172,7 @@ var testGrid = []testCase{
 		expected: []message{
 			{msg.ReferencedResourceNotFound, "VirtualService reviews-bogushost.default"},
 			{msg.ReferencedResourceNotFound, "VirtualService reviews-bookinfo-other.default"},
+			{msg.ReferencedResourceNotFound, "VirtualService reviews-mirror-bogushost.default"},
 		},
 	},
 	{
@@ -180,6 +181,7 @@ var testGrid = []testCase{
 		analyzer:   &virtualservice.DestinationRuleAnalyzer{},
 		expected: []message{
 			{msg.ReferencedResourceNotFound, "VirtualService reviews-bogussubset.default"},
+			{msg.ReferencedResourceNotFound, "VirtualService reviews-mirror-bogussubset.default"},
 		},
 	},
 	{
