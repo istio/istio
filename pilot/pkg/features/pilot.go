@@ -164,6 +164,23 @@ var (
 		false,
 		"Use the Istio JWT filter for JWT token verification.")
 
+	// EnableThriftFilter enables injection of `envoy.filters.network.thrift_proxy` in the filter chain.
+	// Pilot injects this outbound filter if the service port name is `thrift`.
+	EnableThriftFilter = env.RegisterBoolVar(
+		"PILOT_ENABLE_THRIFT_FILTER",
+		false,
+		"EnableThriftFilter enables injection of `envoy.filters.network.thrift_proxy` in the filter chain.",
+	)
+
+	// ThriftRatelimitService configures thrift filter chains to use the provided ratelimit service the filter chain.
+	// This value should be a FQDN or IP address and port
+	// See: https://www.envoyproxy.io/docs/envoy/latest/api-v2/service/ratelimit/v2/rls.proto
+	ThriftRatelimitService = env.RegisterStringVar(
+		"THRIFT_RATELIMIT_SERVICE",
+		"",
+		"EnableThriftFilter enables injection of `envoy.filters.network.thrift_proxy` in the filter chain.",
+	)
+
 	// SkipValidateTrustDomain tells the server proxy to not to check the peer's trust domain when
 	// mTLS is enabled in authentication policy.
 	SkipValidateTrustDomain = env.RegisterBoolVar(

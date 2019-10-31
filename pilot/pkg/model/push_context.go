@@ -380,6 +380,13 @@ var (
 		"Number of conflicting tcp listeners with current tcp listener.",
 	)
 
+	// ProxyStatusConflictOutboundListenerTCPOverThrift metric tracks number of
+	// TCP listeners that conflicted with existing Thrift listeners on same port
+	ProxyStatusConflictOutboundListenerTCPOverThrift = monitoring.NewGauge(
+		"pilot_conflict_outbound_listener_tcp_over_current_thrift",
+		"Number of conflicting tcp listeners with current thrift listener.",
+	)
+
 	// ProxyStatusConflictOutboundListenerHTTPOverTCP metric tracks number of
 	// wildcard HTTP listeners that conflicted with existing wildcard TCP listener on same port
 	ProxyStatusConflictOutboundListenerHTTPOverTCP = monitoring.NewGauge(

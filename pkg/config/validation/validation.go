@@ -2112,6 +2112,12 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 	return
 }
 
+func validateThriftRoute(thrift *networking.ThriftRoute) (errs error) {
+	// Nothing to validate, for now
+
+	return
+}
+
 func validateGatewayNames(gatewayNames []string) (errs error) {
 	for _, gatewayName := range gatewayNames {
 		parts := strings.SplitN(gatewayName, "/", 2)
