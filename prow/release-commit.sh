@@ -35,7 +35,7 @@ DOCKER_HUB=${DOCKER_HUB:-gcr.io/istio-testing}
 GCS_BUCKET=${GCS_BUCKET:-istio-build/dev}
 
 # Use a pinned version in case breaking changes are needed
-BUILDER_SHA=46c35ab820213298a8d859d494b23922aa3158e2
+BUILDER_SHA=b6ce79ae8b17bd46287401166aa0add43b3b2c53
 
 # Reference to the next minor version of Istio
 # This will create a version like 1.4-alpha.sha
@@ -61,6 +61,28 @@ dependencies:
   operator:
     git: https://github.com/istio/operator
     auto: modules
+
+  api:
+    git: https://github.com/istio/api
+    auto: modules
+  proxy:
+    git: https://github.com/istio/proxy
+    auto: deps
+  pkg:
+    git: https://github.com/istio/pkg
+    auto: modules
+  client-go:
+    git: https://github.com/istio/client-go
+    branch: release-1.4
+  gogo-genproto:
+    git: https://github.com/istio/gogo-genproto
+    branch: release-1.4
+  test-infra:
+    git: https://github.com/istio/test-infra
+    branch: master
+  tools:
+    git: https://github.com/istio/tools
+    branch: release-1.4
 EOF
 )
 
@@ -71,6 +93,8 @@ export PATH=${GOPATH}/bin:${PATH}
 (cd /tmp; go get "istio.io/release-builder@${BUILDER_SHA}")
 
 release-builder build --manifest <(echo "${MANIFEST}")
+
+release-builder validate --release "${WORK_DIR}/out"
 
 if [[ -z "${DRY_RUN:-}" ]]; then
   release-builder publish --release "${WORK_DIR}/out" \
