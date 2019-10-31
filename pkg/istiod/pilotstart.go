@@ -543,8 +543,11 @@ func (s *Server) initDiscoveryService(args *PilotArgs, onXDSStart func(model.XDS
 
 	// This is  the XDSUpdater
 	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(s.Environment,
-		istio_networking.NewConfigGenerator(args.Plugins),
-		s.ServiceController, nil, s.ConfigController)
+		istio_networking.NewConfigGenerator(args.Plugins))
+
+	if err := s.initEventHandlers(); err != nil {
+		return err
+	}
 
 	if onXDSStart != nil {
 		onXDSStart(s.EnvoyXdsServer)
@@ -646,6 +649,57 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 	s.GrpcServer = grpc.NewServer(grpcOptions...)
 	s.EnvoyXdsServer.Register(s.GrpcServer)
 }
+
+
+// initEventHandlers sets up event handlers for config and service updates
+func (s *Server) initEventHandlers() error {
+	// Flush cached discovery responses whenever services configuration change.
+	serviceHandler := func(svc *model.Service, _ model.Event) {
+		pushReq := &model.PushRequest{
+			Full:               true,
+			NamespacesUpdated:  map[string]struct{}{svc.Attributes.Namespace: {}},
+			ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
+		}
+		s.EnvoyXdsServer.ConfigUpdate(pushReq)
+	}
+	if err := s.ServiceController.AppendServiceHandler(serviceHandler); err != nil {
+		return fmt.Errorf("append service handler failed: %v", err)
+	}
+
+	instanceHandler := func(si *model.ServiceInstance, _ model.Event) {
+		// TODO: This is an incomplete code. This code path is called for service entries, consul, etc.
+		// In all cases, this is simply an instance update and not a config update. So, we need to update
+		// EDS in all proxies, and do a full config push for the instance that just changed (add/update only).
+		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{
+			Full:              true,
+			NamespacesUpdated: map[string]struct{}{si.Service.Attributes.Namespace: {}},
+			// TODO: extend and set service instance type, so no need re-init push context
+			ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
+		})
+	}
+	if err := s.ServiceController.AppendInstanceHandler(instanceHandler); err != nil {
+		return fmt.Errorf("append instance handler failed: %v", err)
+	}
+
+	// TODO(Nino-k): remove this case once incrementalUpdate is default
+	if s.ConfigController != nil {
+		// TODO: changes should not trigger a full recompute of LDS/RDS/CDS/EDS
+		// (especially mixerclient HTTP and quota)
+		configHandler := func(c model.Config, _ model.Event) {
+			pushReq := &model.PushRequest{
+				Full:               true,
+				ConfigTypesUpdated: map[string]struct{}{c.Type: {}},
+			}
+			s.EnvoyXdsServer.ConfigUpdate(pushReq)
+		}
+		for _, descriptor := range schemas.Istio {
+			s.ConfigController.RegisterEventHandler(descriptor.Type, configHandler)
+		}
+	}
+
+	return nil
+}
+
 
 func (s *Server) grpcServerOptions(options *istiokeepalive.Options) []grpc.ServerOption {
 	interceptors := []grpc.UnaryServerInterceptor{
