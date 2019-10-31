@@ -23,6 +23,7 @@ import (
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status/util"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/pkg/log"
 )
 
 // Probe for readiness.
@@ -43,7 +44,7 @@ func (p *Probe) Check() error {
 	// Initialize the ServerState to 2 (PRE_INITIALIZING) because 0 indicates LIVE.
 	if p.lastKnownState == nil {
 		p.lastKnownState = &probeState{
-			serverState: 2,
+			serverState: uint64(admin.ServerInfo_PRE_INITIALIZING),
 		}
 	}
 	// First, check that Envoy has received a configuration update from Pilot.
@@ -62,9 +63,12 @@ func (p *Probe) checkConfigStatus() error {
 	if err != nil && !isTimeout(err) {
 		return multierror.Prefix(err, "failed retrieving Envoy stats:")
 	}
+
 	if err == nil {
 		p.lastKnownState.versionStats.CDSVersion = s.CDSVersion
 		p.lastKnownState.versionStats.LDSVersion = s.LDSVersion
+	} else {
+		log.Warn("config status timed out. using last known status")
 	}
 
 	if p.lastKnownState.versionStats.CDSVersion > 0 && p.lastKnownState.versionStats.LDSVersion > 0 {
@@ -85,6 +89,8 @@ func (p *Probe) checkServerState() error {
 
 	if err == nil {
 		p.lastKnownState.serverState = *state
+	} else {
+		log.Warn("config server state timed out. using last known status")
 	}
 
 	if admin.ServerInfo_State(p.lastKnownState.serverState) != admin.ServerInfo_LIVE {
