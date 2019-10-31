@@ -112,19 +112,24 @@ RBAC policies, the Istio config-map for root namespace configuration and the k8s
 service name to workload selector.
 
 The tool could also be used in offline mode without talking to the Kubernetes API server. In this mode,
-all needed information are provided though command line.
+all needed information are provided through command line.
 
-The conversion result is printed to the stdout, you can take a final review of the converted policies
-before applying it.
+Note: The converter tool makes best effort to keep the syntax unchanged when
+converting v1alph1 RBAC policy to v1beta1 policy. However, in some cases, strict
+mapping with equivalent syntax is not possible (e.g., constraints no longer valid
+in the new workload oriented model, converting a service name containing a wildcard
+to workload selector).
+
+We highly recommend you to review the converted policies before applying them.
 
 THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 `,
-		Example: `  # Convert the v1alpha1 RBAC policy applied in the current cluster:
-  istioctl experimental auth convert
+		Example: `  # Convert the v1alpha1 RBAC policy currently applied in the cluster:
+  istioctl experimental auth convert > v1beta1-authz.yaml
 
   # Convert the v1alpha1 RBAC policy provided through command line: 
   istioctl experimental auth convert -f v1alpha1-policy-1.yaml,v1alpha1-policy-2.yaml
-  --service services.yaml --meshConfigFile meshConfig.yaml
+  --service services.yaml --meshConfigFile meshConfig.yaml > v1beta1-authz.yaml
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			converter, err := newConverter(policyFiles, serviceFiles, istioNamespace, istioMeshConfigMapName)
@@ -270,8 +275,8 @@ func Auth() *cobra.Command {
 		Example: `  # Check the TLS/JWT/RBAC settings for pod httpbin-88ddbcfdd-nt5jb:
   istioctl experimental auth check httpbin-88ddbcfdd-nt5jb
 
-  # Convert the v1alpha1 RBAC policies to v1beta1 authorization policies in the cluster:
-  istioctl experimental auth convert
+  # Convert the v1alpha1 RBAC policies currently applied in the cluster to v1beta1 authorization policies:
+  istioctl experimental auth convert > v1beta1-authz.yaml
 `,
 	}
 
