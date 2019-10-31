@@ -70,7 +70,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 			bind:       actualWildcard,
 			port:       int(portNumber),
 			bindToPort: true,
-			isGateway:  true,
 		}
 
 		p := protocol.Parse(servers[0].Port.Protocol)

@@ -1656,7 +1656,6 @@ type buildListenerOpts struct {
 	bindToPort        bool
 	skipUserFilters   bool
 	needHTTPInspector bool
-	isGateway         bool
 }
 
 func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpOpts *httpListenerOpts,
@@ -1881,7 +1880,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 		DeprecatedV1:    deprecatedV1,
 	}
 
-	if util.IsIstioVersionGE13(opts.proxy) && !opts.isGateway {
+	if util.IsIstioVersionGE13(opts.proxy) && opts.proxy.Type != model.Router {
 		listener.ListenerFiltersTimeout = gogo.DurationToProtoDuration(opts.env.Mesh.ProtocolDetectionTimeout)
 
 		if listener.ListenerFiltersTimeout != nil {
