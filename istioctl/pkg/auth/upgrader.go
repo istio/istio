@@ -23,32 +23,25 @@ import (
 	"strings"
 
 	"github.com/ghodss/yaml"
-	"istio.io/api/type/v1beta1"
 
 	v1 "k8s.io/api/core/v1"
-
-	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/client-go/kubernetes"
 
 	"istio.io/api/mesh/v1alpha1"
-	"istio.io/pkg/log"
-
+	rbac_v1alpha1 "istio.io/api/rbac/v1alpha1"
+	rbac_v1beta1 "istio.io/api/security/v1beta1"
+	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/config/memory"
+	"istio.io/istio/pilot/pkg/model"
+	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schemas"
-
-	rbac_v1alpha1 "istio.io/api/rbac/v1alpha1"
-	rbac_v1beta1 "istio.io/api/security/v1beta1"
-
-	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
-
-	"k8s.io/client-go/kubernetes"
-
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/pkg/log"
 )
 
 // WorkloadLabels is the workload labels, for example, app: productpage.
