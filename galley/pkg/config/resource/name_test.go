@@ -76,11 +76,11 @@ func TestNewFullName_Segments(t *testing.T) {
 			valid:       false,
 		},
 		{
-			description: "multiple segments",
+			description: "multiple segments", // Only the first segment is treated specially
 			name:        "testName//someotherStuff",
-			want:        "",
-			err:         "invalid name testName//someotherStuff: namespace must not be empty",
-			valid:       false,
+			want:        "testName//someotherStuff",
+			err:         "",
+			valid:       true,
 		},
 		{
 			description: "valid name with namespace",
@@ -131,5 +131,21 @@ func TestInterpretAsNamespaceAndName_NoNamespace(t *testing.T) {
 	ns, l := n.InterpretAsNamespaceAndName()
 	if ns != "" || l != "l1" {
 		t.Fatalf("unexpected %q, %q", ns, l)
+	}
+}
+
+func TestNewShortOrFullName_HasNamespace(t *testing.T) {
+	actual := NewShortOrFullName("ns1", "ns2/l1")
+	expected := NewName("ns2", "l1")
+	if actual != expected {
+		t.Fatalf("Expected %v, got %v", expected, actual)
+	}
+}
+
+func TestNewShortOrFullName_NoNamespace(t *testing.T) {
+	actual := NewShortOrFullName("ns1", "l1")
+	expected := NewName("ns1", "l1")
+	if actual != expected {
+		t.Fatalf("Expected %v, got %v", expected, actual)
 	}
 }
