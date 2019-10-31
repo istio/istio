@@ -222,14 +222,22 @@ var (
 		},
 	}
 
-	inboundStrictOrNoneFilterChainMatchOptions = []FilterChainMatchOptions{
+	inboundStrictFilterChainMatchOptions = []FilterChainMatchOptions{
 		{
 			// client side traffic was detected as HTTP by the outbound listener.
-			// If we are in strict mode, we will get mTLS HTTP ALPNS only. If we are in plaintext mode,
-			// we would get plaintext HTTP ALPNS only. These two are mutually exclusive. So it is
-			// okay to put both of them into one match condition because we have to generate the same
-			// HTTP connection manager.
-			ApplicationProtocols: append(plaintextHTTPALPNs, mtlsHTTPALPNs...),
+			// If we are in strict mode, we will get mTLS HTTP ALPNS only.
+			ApplicationProtocols: mtlsHTTPALPNs,
+			Protocol:             plugin.ListenerProtocolHTTP,
+		},
+		{
+			// Could not detect traffic on the client side. Server side has no mTLS.
+			Protocol: plugin.ListenerProtocolTCP,
+		},
+	}
+
+	inboundPlainTextFilterChainMatchOptions = []FilterChainMatchOptions{
+		{
+			ApplicationProtocols: plaintextHTTPALPNs,
 			Protocol:             plugin.ListenerProtocolHTTP,
 		},
 		{
@@ -651,6 +659,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 	}
 
 	tlsInspectorEnabled := false
+	hasTLSContext := false
 allChainsLabel:
 	for _, c := range allChains {
 		for _, lf := range c.ListenerFilters {
@@ -659,6 +668,8 @@ allChainsLabel:
 				break allChainsLabel
 			}
 		}
+
+		hasTLSContext = hasTLSContext || c.TLSContext != nil
 	}
 
 	var filterChainMatchOption []FilterChainMatchOptions
@@ -669,7 +680,11 @@ allChainsLabel:
 			allChains = append(allChains, plugin.FilterChain{})
 			filterChainMatchOption = inboundPermissiveFilterChainMatchOptions
 		} else {
-			filterChainMatchOption = inboundStrictOrNoneFilterChainMatchOptions
+			if hasTLSContext {
+				filterChainMatchOption = inboundStrictFilterChainMatchOptions
+			} else {
+				filterChainMatchOption = inboundPlainTextFilterChainMatchOptions
+			}
 		}
 		listenerOpts.needHTTPInspector = true
 	}
