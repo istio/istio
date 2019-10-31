@@ -788,14 +788,14 @@ func (s *Server) sseMCPController(args *PilotArgs,
 	clients *[]*sink.Client,
 	configStores *[]model.ConfigStoreCache) {
 	clientNodeID := "SSEMCP"
-	s.discoveryOptions = &coredatamodel.DiscoveryOptions{
-		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
-	}
-	s.mcpDiscovery = coredatamodel.NewMCPDiscovery(s.discoveryOptions)
 	s.incrementalMcpOptions = &coredatamodel.Options{
 		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
 	}
-	controller := coredatamodel.NewSyntheticServiceEntryController(s.incrementalMcpOptions, s.mcpDiscovery)
+	controller := coredatamodel.NewSyntheticServiceEntryController(s.incrementalMcpOptions)
+	s.discoveryOptions = &coredatamodel.DiscoveryOptions{
+		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
+	}
+	s.mcpDiscovery = coredatamodel.NewMCPDiscovery(controller, s.discoveryOptions)
 	incrementalSinkOptions := &sink.Options{
 		CollectionOptions: []sink.CollectionOptions{
 			{
@@ -1057,7 +1057,6 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		clusterID := args.Config.ControllerOptions.ClusterID
 		s.incrementalMcpOptions.XDSUpdater = s.EnvoyXdsServer
 		s.incrementalMcpOptions.ClusterID = clusterID
-		s.discoveryOptions.XDSUpdater = s.EnvoyXdsServer
 		s.discoveryOptions.Env = environment
 		s.discoveryOptions.ClusterID = clusterID
 	}
