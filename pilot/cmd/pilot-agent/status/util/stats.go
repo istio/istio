@@ -63,7 +63,7 @@ func (s *Stats) String() string {
 func GetServerState(localHostAddr string, adminPort uint16) (*uint64, error) {
 	stats, err := doHTTPGet(fmt.Sprintf("http://%s:%d/stats?usedonly&filter=%s", localHostAddr, adminPort, statServerState))
 	if err != nil {
-		return nil, multierror.Prefix(err, "failed retrieving Envoy server state stat:")
+		return nil, err
 	}
 
 	s := &Stats{}
@@ -81,7 +81,7 @@ func GetServerState(localHostAddr string, adminPort uint16) (*uint64, error) {
 func GetVersionStats(localHostAddr string, adminPort uint16) (*Stats, error) {
 	stats, err := doHTTPGet(fmt.Sprintf("http://%s:%d/stats?usedonly&filter=%s", localHostAddr, adminPort, versionStatsRegex))
 	if err != nil {
-		return nil, multierror.Prefix(err, "failed retrieving Envoy stats:")
+		return nil, err
 	}
 
 	s := &Stats{}

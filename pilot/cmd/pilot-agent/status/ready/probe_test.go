@@ -19,12 +19,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	envoyapicore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/jsonpb"
 	. "github.com/onsi/gomega"
 
+	"istio.io/istio/pilot/cmd/pilot-agent/status/util"
 	"istio.io/istio/pilot/pkg/model"
 	networking "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 )
@@ -189,6 +191,61 @@ func TestEnvoyInitializingWithVirtualInboundListener(t *testing.T) {
 	g.Expect(err).ToNot(HaveOccurred())
 }
 
+func TestEnvoyTimesoutAfterSuccessfulProbe(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	funcMap := createTimeoutFuncMap(liveServerStats)
+
+	server := createHTTPServer(funcMap)
+	defer server.Close()
+	probe := Probe{AdminPort: 1234, NodeType: model.SidecarProxy, lastKnownState: &probeState{
+		serverState: 0,
+		versionStats: util.Stats{
+			CDSVersion: 12,
+			LDSVersion: 12,
+		},
+	}}
+
+	err := probe.Check()
+
+	g.Expect(err).ToNot(HaveOccurred())
+}
+
+func TestEnvoyTimesoutAfterUnSuccessfulProbe(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	funcMap := createTimeoutFuncMap(liveServerStats)
+
+	server := createHTTPServer(funcMap)
+	defer server.Close()
+	probe := Probe{AdminPort: 1234, NodeType: model.SidecarProxy, lastKnownState: &probeState{
+		serverState: 2,
+		versionStats: util.Stats{
+			CDSVersion: 12,
+			LDSVersion: 0,
+		},
+	}}
+
+	err := probe.Check()
+
+	g.Expect(err).To(HaveOccurred())
+}
+
+func TestEnvoyTimesoutOnInitialProbe(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	funcMap := createTimeoutFuncMap(liveServerStats)
+
+	server := createHTTPServer(funcMap)
+	defer server.Close()
+
+	probe := Probe{AdminPort: 1234, NodeType: model.SidecarProxy}
+
+	err := probe.Check()
+
+	g.Expect(err).To(HaveOccurred())
+}
+
 func createDefaultFuncMap(statsToReturn string) map[string]func(rw http.ResponseWriter, _ *http.Request) {
 	return map[string]func(rw http.ResponseWriter, _ *http.Request){
 
@@ -198,6 +255,17 @@ func createDefaultFuncMap(statsToReturn string) map[string]func(rw http.Response
 		},
 	}
 }
+
+func createTimeoutFuncMap(statsToReturn string) map[string]func(rw http.ResponseWriter, _ *http.Request) {
+	return map[string]func(rw http.ResponseWriter, _ *http.Request){
+
+		"/stats": func(rw http.ResponseWriter, _ *http.Request) {
+			// Do not respond here
+			time.Sleep(time.Second * 1)
+		},
+	}
+}
+
 func createAndStartServer(statsToReturn string) *httptest.Server {
 	return createHTTPServer(createDefaultFuncMap(statsToReturn))
 }
