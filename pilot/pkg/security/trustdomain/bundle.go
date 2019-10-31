@@ -26,21 +26,22 @@ var (
 )
 
 type Bundle struct {
+	// Contain the local trust domain and its aliases.
 	// The trust domain corresponds to the trust root of a system.
 	// Refer to [SPIFFE-ID](https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain)
-	TrustDomain string
 	// The trust domain aliases represent the aliases of `trust_domain`.
 	// For example, if we have
 	// trustDomain: td1, trustDomainAliases: ["td2", "td3"]
 	// Any service with the identity `td1/ns/foo/sa/a-service-account`, `td2/ns/foo/sa/a-service-account`,
 	// or `td3/ns/foo/sa/a-service-account` will be treated the same in the Istio mesh.
-	TrustDomainAliases []string
+	TrustDomains []string
 }
 
 func NewTrustDomainBundle(trustDomain string, trustDomainAliases []string) Bundle {
+
 	return Bundle{
-		TrustDomain:        trustDomain,
-		TrustDomainAliases: trustDomainAliases,
+		// Put the new trust domain to the beginning of the list to avoid changing existing tests.
+		TrustDomains: append([]string{trustDomain}, trustDomainAliases...),
 	}
 }
 
@@ -50,25 +51,28 @@ func NewTrustDomainBundle(trustDomain string, trustDomainAliases []string) Bundl
 // If the local trust domain is "td2" and its alias is "td1" (migrating from td1 to td2),
 // replaceTrustDomainAliases returns ["td2/ns/foo/sa/bar", "td1/ns/foo/sa/bar]].
 func (t Bundle) ReplaceTrustDomainAliases(principals []string) []string {
-	// If trust domain aliases are empty, return the existing principals.
-	if len(t.TrustDomainAliases) == 0 {
-		return principals
-	}
 	principalsIncludingAliases := []string{}
 	for _, principal := range principals {
-		trustDomainFromPrincipal := getTrustDomain(principal)
-		//TODO(pitlv2109): Handle * and prefix/suffix.
-		if trustDomainFromPrincipal == "" {
-			return principals
+		isTrustDomainBeingEnforced := isTrustDomainBeingEnforced(principal)
+		// Return the existing principals if the policy doesn't care about the trust domain.
+		if !isTrustDomainBeingEnforced {
+			principalsIncludingAliases = append(principalsIncludingAliases, principal)
+			continue
 		}
-		// Only generate configuration if the extracted trust domain from the policy is part of the trust domain aliases,
+		trustDomainFromPrincipal, err := getTrustDomainFromSpiffeIdentity(principal)
+		if err != nil {
+			rbacLog.Errorf("unexpected incorrect Spiffe format: %s", principal)
+			principalsIncludingAliases = append(principalsIncludingAliases, principal)
+			continue
+		}
+		// Only generate configuration if the extracted trust domain from the policy is part of the trust domain list,
 		// or if the extracted/existing trust domain is "cluster.local", which is a pointer to the local trust domain
 		// and its aliases.
-		if found(trustDomainFromPrincipal, t.TrustDomainAliases) || trustDomainFromPrincipal == "cluster.local" {
+		if stringMatch(trustDomainFromPrincipal, t.TrustDomains) || trustDomainFromPrincipal == "cluster.local" {
 			// Generate configuration for trust domain and trust domain aliases.
-			principalsIncludingAliases = append(principalsIncludingAliases, t.replaceTrustDomains(principal)...)
+			principalsIncludingAliases = append(principalsIncludingAliases, t.replaceTrustDomains(principal, trustDomainFromPrincipal)...)
 		} else {
-			rbacLog.Errorf("Trust domain %s from principal %s does not match the current trust "+
+			rbacLog.Warnf("Trust domain %s from principal %s does not match the current trust "+
 				"domain or its aliases", trustDomainFromPrincipal, principal)
 			// If the trust domain from the existing doesn't match with the new trust domain aliases or "cluster.local",
 			// keep the policy as it is.
@@ -78,11 +82,19 @@ func (t Bundle) ReplaceTrustDomainAliases(principals []string) []string {
 	return principalsIncludingAliases
 }
 
-func (t Bundle) replaceTrustDomains(principal string) []string {
+// replaceTrustDomains replace the given principal's trust domain with the trust domains from the
+// trustDomains list and return the new principals.
+func (t Bundle) replaceTrustDomains(principal, trustDomainFromPrincipal string) []string {
 	principalsForAliases := []string{}
-	principalsForAliases = append(principalsForAliases, replaceTrustDomainInPrincipal(t.TrustDomain, principal))
-	for _, tdAlias := range t.TrustDomainAliases {
-		principalsForAliases = append(principalsForAliases, replaceTrustDomainInPrincipal(tdAlias, principal))
+	for _, td := range t.TrustDomains {
+		// If the trust domain has a prefix * (e.g. *local from *local/ns/foo/ns/bar), keep the principal
+		// as-is for the matched trust domain. For others, replace the trust domain with the new trust domain
+		// or alias.
+		if suffixMatch(td, trustDomainFromPrincipal) {
+			principalsForAliases = append(principalsForAliases, principal)
+		} else {
+			principalsForAliases = append(principalsForAliases, replaceTrustDomainInPrincipal(td, principal))
+		}
 	}
 	return principalsForAliases
 }
@@ -106,26 +118,29 @@ func replaceTrustDomainInPrincipal(trustDomain string, principal string) string 
 	return fmt.Sprintf("%s/%s", trustDomain, strings.Join(identityParts[1:], "/"))
 }
 
-// getTrustDomain returns the trust domain from an Istio authorization principal.
-// In Istio authorization, an identity is presented in the format:
-// <trust-domain>/ns/<some-namespace>/sa/<some-service-account>
-// "cluster.local/ns/default/sa/bookinfo-ratings-v2" will return "cluster.local"
-func getTrustDomain(principal string) string {
+// isTrustDomainBeingEnforced checks whether the trust domain is being checked in the filter or not.
+// For example, in the principal "*/ns/foo/sa/bar", the trust domain is * and it matches to any trust domain,
+// so it won't be checked in the filter.
+func isTrustDomainBeingEnforced(principal string) bool {
+	identityParts := strings.Split(principal, "/")
+	if len(identityParts) != 5 {
+		// If a principal is mis-configured and doesn't follow Spiffe format, e.g. "sa/bar",
+		// there is really no trust domain from the principal, so the trust domain is also considered not being enforced.
+		return false
+	}
+	// Check if the first part of the spiffe string is "*" (as opposed to *-something or "").
+	return identityParts[0] != "*"
+}
+
+// getTrustDomainFromSpiffeIdentity gets the trust domain from the given principal and expects
+// principal to have the right SPIFFE format.
+func getTrustDomainFromSpiffeIdentity(principal string) (string, error) {
 	identityParts := strings.Split(principal, "/")
 	// A valid SPIFFE identity in authorization has no SPIFFE:// prefix.
 	// It is presented as <trust-domain>/ns/<some-namespace>/sa/<some-service-account>
 	if len(identityParts) != 5 {
-		rbacLog.Errorf("Wrong SPIFFE format: %s", principal)
-		return ""
+		return "", fmt.Errorf("wrong SPIFFE format: %s", principal)
 	}
-	return identityParts[0]
-}
-
-func found(key string, list []string) bool {
-	for _, l := range list {
-		if key == l {
-			return true
-		}
-	}
-	return false
+	trustDomain := identityParts[0]
+	return trustDomain, nil
 }
