@@ -26,6 +26,24 @@ func TestYAMLCmp(t *testing.T) {
 		want interface{}
 	}{
 		{
+			desc: "empty string into nil",
+			a:    `metadata: ""`,
+			b:    `metadata: `,
+			want: ``,
+		},
+		{
+			desc: "empty array into nil",
+			a:    `metadata: []`,
+			b:    `metadata: `,
+			want: ``,
+		},
+		{
+			desc: "empty map into nil",
+			a:    `metadata: {}`,
+			b:    `metadata: `,
+			want: ``,
+		},
+		{
 			desc: "two additional",
 			a: `apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
@@ -536,7 +554,7 @@ metadata:
 			i: []string{"metadata.annotations.checksum/config-volume"},
 			want: `metadata:
   annotations: map[checksum/config-volume:43d72e930ed33e3e01731f8bcbf31dbf02cb1c1fc53bcc09199ab45c0d031b60]
-    -> <nil>
+    ->
 `,
 		},
 		{
