@@ -94,23 +94,20 @@ const (
 	istioConfigMapKey = "mesh"
 )
 
-func NewUpgrader(k8sClient *kubernetes.Clientset, v1PolicyFiles, serviceFiles []string, meshConfigFile, istioNamespace, meshConfigMapName string) *Upgrader {
+func NewUpgrader(k8sClient *kubernetes.Clientset, v1PolicyFiles, serviceFiles []string, meshConfigFile, istioNamespace, meshConfigMapName string) (*Upgrader, error) {
 	rootNamespace, err := getRootNamespace(k8sClient, meshConfigFile, meshConfigMapName, istioNamespace)
 	if err != nil {
-		log.Errorf("failed to get root namespace: %v", err)
-		return nil
+		return nil, fmt.Errorf("failed to get root namespace: %v", err)
 	}
 
 	v1alpha1Policies, err := getV1alpha1Policies(v1PolicyFiles)
 	if err != nil {
-		log.Errorf("failed to read policies: %v", err)
-		return nil
+		return nil, fmt.Errorf("failed to read policies: %v", err)
 	}
 
 	namespaceToServiceToSelector, err := getNamespaceToServiceToSelector(k8sClient, serviceFiles, v1alpha1Policies.ListNamespacesOfToV1alpha1Policies())
 	if err != nil {
-		log.Errorf("failed to get services: %v", err)
-		return nil
+		return nil, fmt.Errorf("failed to get services: %v", err)
 	}
 
 	upgrader := Upgrader{
@@ -120,7 +117,7 @@ func NewUpgrader(k8sClient *kubernetes.Clientset, v1PolicyFiles, serviceFiles []
 		NamespaceToServiceToSelector: namespaceToServiceToSelector,
 		AuthorizationPolicies:        []model.Config{},
 	}
-	return &upgrader
+	return &upgrader, nil
 }
 
 func getV1alpha1Policies(v1PolicyFiles []string) (*model.AuthorizationPolicies, error) {

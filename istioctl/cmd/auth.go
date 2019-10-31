@@ -237,7 +237,10 @@ func newUpgrader(v1PolicyFiles, serviceFiles []string, istioNamespace, istioMesh
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to Kubernetes: %v", err)
 	}
-	upgrader := auth.NewUpgrader(k8sClient, v1PolicyFiles, serviceFiles, meshConfig, istioNamespace, istioMeshConfigMapName)
+	upgrader, err := auth.NewUpgrader(k8sClient, v1PolicyFiles, serviceFiles, meshConfig, istioNamespace, istioMeshConfigMapName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to start the conversion: %v", err)
+	}
 	return upgrader, nil
 }
 
