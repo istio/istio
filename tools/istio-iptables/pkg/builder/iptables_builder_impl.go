@@ -16,7 +16,8 @@ package builder
 
 import (
 	"fmt"
-	"strings"
+
+	"istio.io/istio/tools/istio-iptables/pkg/constants"
 
 	"istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
@@ -85,23 +86,48 @@ func (rb *IptablesBuilderImpl) AppendRuleV6(chain string, table string, params .
 	return rb
 }
 
-func (rb *IptablesBuilderImpl) BuildV4() []string {
-	rules := []string{}
+func (rb *IptablesBuilderImpl) BuildV4() [][]string {
+	rules := [][]string{}
+	chainTableLookupMap := make(map[string]struct{})
 	for _, r := range rb.rules.rulesv4 {
-		cmd := fmt.Sprint(strings.Join([]string{dependencies.IPTABLES, "-t", r.table}, " "), " ",
-			strings.Join(r.params, " "))
+		chainTable := fmt.Sprintf("%s:%s", r.chain, r.table)
+		// Create new chain if key: `chainTable` isn't present in map
+		if _, present := chainTableLookupMap[chainTable]; !present {
+			// Ignore chain creation for built-in chains for iptables
+			if _, present := constants.BuiltInChainsMap[r.chain]; !present {
+				cmd := []string{dependencies.IPTABLES, "-t", r.table, "-N", r.chain}
+				rules = append(rules, cmd)
+				chainTableLookupMap[chainTable] = struct{}{}
+			}
+		}
+	}
+	for _, r := range rb.rules.rulesv4 {
+		cmd := append([]string{dependencies.IPTABLES, "-t", r.table}, r.params...)
 		rules = append(rules, cmd)
 	}
 	return rules
 }
 
-func (rb *IptablesBuilderImpl) BuildV6() []string {
-	rules := []string{}
+func (rb *IptablesBuilderImpl) BuildV6() [][]string {
+	rules := [][]string{}
+	chainTableLookupMap := make(map[string]struct{})
 	for _, r := range rb.rules.rulesv6 {
-		cmd := fmt.Sprint(strings.Join([]string{dependencies.IP6TABLES, "-t", r.table}, " "), " ",
-			strings.Join(r.params, " "))
+		chainTable := fmt.Sprintf("%s:%s", r.chain, r.table)
+		// Create new chain if key: `chainTable` isn't present in map
+		if _, present := chainTableLookupMap[chainTable]; !present {
+			// Ignore chain creation for built-in chains for iptables
+			if _, present := constants.BuiltInChainsMap[r.chain]; !present {
+				cmd := []string{dependencies.IP6TABLES, "-t", r.table, "-N", r.chain}
+				rules = append(rules, cmd)
+				chainTableLookupMap[chainTable] = struct{}{}
+			}
+		}
+	}
+	for _, r := range rb.rules.rulesv6 {
+		cmd := append([]string{dependencies.IP6TABLES, "-t", r.table}, r.params...)
 		rules = append(rules, cmd)
 	}
+
 	return rules
 }
 
