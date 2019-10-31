@@ -79,7 +79,7 @@ dependencies:
     branch: release-1.4
   test-infra:
     git: https://github.com/istio/test-infra
-    branch: release-1.4
+    branch: master
   tools:
     git: https://github.com/istio/tools
     branch: release-1.4
