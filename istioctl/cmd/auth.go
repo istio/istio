@@ -102,41 +102,47 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 		},
 	}
 
-	upgradeCmd = &cobra.Command{
-		Hidden: true,
-		Use:    "upgrade",
-		Short:  "Upgrade Istio Authorization Policy from version v1alpha1 to v1beta1",
-		Long: `Upgrade converts Istio authorization policy from version v1alpha1 to v1beta1. It requires access to Kubernetes
-service definition in order to translate the service name specified in the ServiceRole to the corresponding
-workload labels in the AuthorizationPolicy. The service definition could be provided either from the current
-Kubernetes cluster or from a YAML file specified from command line.
+	convertCmd = &cobra.Command{
+		Use:   "convert",
+		Short: "Convert v1alpha1 RBAC policy to v1beta1 authorization policy",
+		Long: `Convert converts Istio v1alpha1 RBAC policy to v1beta1 authorization policy. The command talks to Kubernetes
+API server to get all the information needed to complete the conversion, including the currently applied v1alpha1
+RBAC policies, the Istio config-map for root namespace configuration and the k8s Service translating the
+service name to workload selector.
+
+The tool could also be used in offline mode without talking to the Kubernetes API server. In this mode,
+all needed information are provided though command line.
+
+The conversion result is printed to the stdout, you can take a final review of the converted policies
+before applying it.
 
 THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 `,
-		Example: `  # Upgrade the Istio authorization policy with service definition from the current Kubernetes cluster:
-  istioctl experimental auth upgrade -f rbac-v1-policy.yaml,rbac-v1-policy-2.yaml`,
+		Example: `  # Convert the v1alpha1 RBAC policy applied in the current cluster:
+  istioctl experimental auth convert
+
+  # Convert the v1alpha1 RBAC policy provided through command line: 
+  istioctl experimental auth convert -f v1alpha1-policy-1.yaml,v1alpha1-policy-2.yaml
+  --service services.yaml --meshConfigFile meshConfig.yaml
+`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			upgrader, err := newUpgrader(policyFiles, serviceFiles, istioNamespace, istioMeshConfigMapName)
 			if err != nil {
-				cleanupForTest()
 				return err
 			}
 			err = upgrader.ConvertV1alpha1ToV1beta1()
 			if err != nil {
-				cleanupForTest()
 				return err
 			}
 			writer := cmd.OutOrStdout()
 			_, err = writer.Write([]byte(upgrader.ConvertedPolicies.String()))
 			if err != nil {
-				cleanupForTest()
 				return fmt.Errorf("failed writing config: %v", err)
 			}
-			cleanupForTest()
 			return nil
 		},
 		PersistentPreRunE: func(c *cobra.Command, args []string) error {
-			// The istioctl x auth upgrade command is typically redirected to a .yaml file;
+			// The istioctl x auth convert command is typically redirected to a .yaml file;
 			// Redirect log messages to stderr, not stdout
 			_ = c.Root().PersistentFlags().Set("log_target", "stderr")
 
@@ -254,15 +260,20 @@ func Auth() *cobra.Command {
 		Short: "Inspect and interact with authentication and authorization policies in the mesh",
 		Long: `Commands to inspect and interact with the authentication (TLS, JWT) and authorization (RBAC) policies in the mesh
   check - check the TLS/JWT/RBAC settings based on the Envoy config
+  convert - convert v1alpha1 RBAC policies to v1beta1 authorization policies
 	validate - check for potential incorrect usage in authorization policy files.
 `,
 		Example: `  # Check the TLS/JWT/RBAC settings for pod httpbin-88ddbcfdd-nt5jb:
-  istioctl experimental auth check httpbin-88ddbcfdd-nt5jb`,
+  istioctl experimental auth check httpbin-88ddbcfdd-nt5jb
+
+  # Upgrade the v1alpha1 RBAC policies to v1beta1 authorization policies in the cluster:
+  istioctl experimental auth convert
+`,
 	}
 
 	cmd.AddCommand(checkCmd)
 	cmd.AddCommand(validatorCmd)
-	cmd.AddCommand(upgradeCmd)
+	cmd.AddCommand(convertCmd)
 	return cmd
 }
 
@@ -273,19 +284,12 @@ func init() {
 		"Check the TLS/JWT/RBAC setting from the config dump file")
 	validatorCmd.PersistentFlags().StringSliceVarP(&policyFiles, "file", "f", []string{},
 		"Authorization policy file")
-	upgradeCmd.PersistentFlags().StringSliceVarP(&policyFiles, "file", "f", []string{},
-		"Authorization policy files")
-	upgradeCmd.PersistentFlags().StringSliceVarP(&serviceFiles, "service", "s", []string{},
-		"Kubernetes Service resource that provides the mapping relationship between service name and pod labels")
-	upgradeCmd.PersistentFlags().StringVarP(&meshConfig, "meshConfigFile", "m", "",
-		"Istio MeshConfig file")
-	upgradeCmd.PersistentFlags().StringVar(&istioMeshConfigMapName, "meshConfigMapName", "istio",
+	convertCmd.PersistentFlags().StringSliceVarP(&policyFiles, "file", "f", []string{},
+		"v1alpha1 RBAC policy that needs to be converted to v1beta1 authorization policy")
+	convertCmd.PersistentFlags().StringSliceVarP(&serviceFiles, "service", "s", []string{},
+		"Kubernetes Service resource that provides the mapping between service and workload")
+	convertCmd.PersistentFlags().StringVarP(&meshConfig, "meshConfigFile", "m", "",
+		"Istio MeshConfig file that provides the root namespace value")
+	convertCmd.PersistentFlags().StringVar(&istioMeshConfigMapName, "meshConfigMapName", "istio",
 		"ConfigMap name for Istio mesh configuration")
-}
-
-// cleanupForTest clean the values of policyFiles and serviceFiles. Otherwise, the variables will be
-// appended with new values
-func cleanupForTest() {
-	policyFiles = nil
-	serviceFiles = nil
 }

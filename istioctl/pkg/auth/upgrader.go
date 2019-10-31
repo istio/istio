@@ -22,8 +22,6 @@ import (
 	"strings"
 
 	"github.com/ghodss/yaml"
-	"github.com/mitchellh/copystructure"
-
 	"istio.io/api/type/v1beta1"
 
 	v1 "k8s.io/api/core/v1"
@@ -60,15 +58,13 @@ type WorkloadLabels map[string]string
 type ServiceToWorkloadLabels map[string]WorkloadLabels
 
 type Upgrader struct {
-	K8sClient                          *kubernetes.Clientset
-	V1PolicyFiles                      []string
-	ServiceFiles                       []string
-	MeshConfigFile                     string
-	IstioNamespace                     string
-	MeshConfigMapName                  string
-	NamespaceToServiceToWorkloadLabels map[string]ServiceToWorkloadLabels
-	AuthorizationPolicies              []model.Config
-	ConvertedPolicies                  strings.Builder
+	K8sClient *kubernetes.Clientset
+
+	v1alpha1Policies             *model.AuthorizationPolicies
+	RootNamespace                string
+	NamespaceToServiceToSelector map[string]ServiceToWorkloadLabels
+	AuthorizationPolicies        []model.Config
+	ConvertedPolicies            strings.Builder
 }
 
 const (
@@ -95,6 +91,7 @@ metadata:
   name: {{ .ScopeName }}-deny-all
   namespace: {{ .Namespace }}
 spec:
+  {}
 ---
 `
 )
@@ -104,31 +101,146 @@ const (
 )
 
 func NewUpgrader(k8sClient *kubernetes.Clientset, v1PolicyFiles, serviceFiles []string, meshConfigFile, istioNamespace, meshConfigMapName string) *Upgrader {
+	rootNamespace, err := getRootNamespace(k8sClient, meshConfigFile, meshConfigMapName, istioNamespace)
+	if err != nil {
+		log.Errorf("failed to get root namespace: %v", err)
+		return nil
+	}
+
+	v1alpha1Policies, err := getV1alpha1Policies(k8sClient, v1PolicyFiles)
+	if err != nil {
+		log.Errorf("failed to read policies: %v", err)
+		return nil
+	}
+
+	namespaceToServiceToSelector, err := getNamespaceToServiceToSelector(k8sClient, serviceFiles, v1alpha1Policies.ListNamespacesOfToV1alpha1Policies())
+	if err != nil {
+		log.Errorf("failed to get services: %v", err)
+		return nil
+	}
+
 	upgrader := Upgrader{
-		K8sClient:                          k8sClient,
-		V1PolicyFiles:                      v1PolicyFiles,
-		ServiceFiles:                       serviceFiles,
-		MeshConfigFile:                     meshConfigFile,
-		IstioNamespace:                     istioNamespace,
-		MeshConfigMapName:                  meshConfigMapName,
-		NamespaceToServiceToWorkloadLabels: make(map[string]ServiceToWorkloadLabels),
-		AuthorizationPolicies:              []model.Config{},
+		K8sClient:                    k8sClient,
+		v1alpha1Policies:             v1alpha1Policies,
+		RootNamespace:                rootNamespace,
+		NamespaceToServiceToSelector: namespaceToServiceToSelector,
+		AuthorizationPolicies:        []model.Config{},
 	}
 	return &upgrader
 }
 
+func getV1alpha1Policies(k8sClient *kubernetes.Clientset, v1PolicyFiles []string) (*model.AuthorizationPolicies, error) {
+	var configs []model.Config
+	if len(v1PolicyFiles) != 0 {
+		for _, fileName := range v1PolicyFiles {
+			rbacFileBuf, err := ioutil.ReadFile(fileName)
+			if err != nil {
+				return nil, fmt.Errorf("failed to read file %s", fileName)
+			}
+			configFromFile, _, err := crd.ParseInputs(string(rbacFileBuf))
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse file: %v", err)
+			}
+			configs = append(configs, configFromFile...)
+		}
+	} else {
+		// TODO: get from K8s API server.
+	}
+
+	store := model.MakeIstioStore(memory.Make(schemas.Istio))
+	for _, config := range configs {
+		if _, err := store.Create(config); err != nil {
+			return nil, fmt.Errorf("failed to add config: %s", err)
+		}
+	}
+	env := &model.Environment{
+		IstioConfigStore: store,
+	}
+	authzPolicies, err := model.GetAuthorizationPolicies(env)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create authz policies: %s", err)
+	}
+	return authzPolicies, nil
+}
+
+// getRootNamespace returns the root namespace configured in the MeshConfig.
+func getRootNamespace(k8sClient *kubernetes.Clientset, meshConfigFile, meshConfigMapName, istioNamespace string) (string, error) {
+	var meshConfig *v1alpha1.MeshConfig
+	var err error
+	if meshConfigFile != "" {
+		if meshConfig, err = cmd.ReadMeshConfig(meshConfigFile); err != nil {
+			return "", fmt.Errorf("failed to read the provided ConfigMap %s: %s", meshConfigFile, err)
+		}
+	} else {
+		istioConfigMap, err := k8sClient.CoreV1().ConfigMaps(istioNamespace).Get(meshConfigMapName, metav1.GetOptions{})
+		if err != nil {
+			return "", fmt.Errorf("failed to get ConfigMap named %s in namespace %s. "+
+				"Run `kubectl -n %s get configmap %s` to see if it exists", meshConfigMapName, istioNamespace,
+				istioNamespace, meshConfigMapName)
+		}
+		istioMeshConfig, exists := istioConfigMap.Data[istioConfigMapKey]
+		if !exists {
+			return "", fmt.Errorf("missing ConfigMap key %q", istioConfigMapKey)
+		}
+		meshConfig, err = mesh.ApplyMeshConfigDefaults(istioMeshConfig)
+		if err != nil {
+			return "", fmt.Errorf("failed to parse Istio MeshConfig: %s", err)
+		}
+	}
+	return meshConfig.RootNamespace, nil
+}
+
+// getNamespaceToServiceToSelector returns the mapping between service and selector.
+func getNamespaceToServiceToSelector(k8sClient *kubernetes.Clientset, serviceFiles, namespaces []string) (map[string]ServiceToWorkloadLabels, error) {
+	var services []v1.Service
+	if len(serviceFiles) != 0 {
+		for _, filename := range serviceFiles {
+			fileBuf, err := ioutil.ReadFile(filename)
+			if err != nil {
+				return nil, err
+			}
+			reader := bytes.NewReader(fileBuf)
+			yamlDecoder := kubeyaml.NewYAMLOrJSONDecoder(reader, 512*1024)
+			for {
+				svc := v1.Service{}
+				err = yamlDecoder.Decode(&svc)
+				if err == io.EOF {
+					break
+				}
+				if err != nil {
+					return nil, fmt.Errorf("failed to parse k8s Service file: %s", err)
+				}
+				services = append(services, svc)
+			}
+		}
+	} else {
+		for _, ns := range namespaces {
+			rets, err := k8sClient.CoreV1().Services(ns).List(metav1.ListOptions{})
+			if err != nil {
+				return nil, err
+			}
+			services = append(services, rets.Items...)
+		}
+	}
+
+	namespaceToServiceToSelector := make(map[string]ServiceToWorkloadLabels)
+	for _, svc := range services {
+		if len(svc.Spec.Selector) == 0 {
+			log.Warnf("ignored service with empty selector: %n.%s", svc.Name, svc.Namespace)
+			continue
+		}
+		if _, found := namespaceToServiceToSelector[svc.Namespace]; !found {
+			namespaceToServiceToSelector[svc.Namespace] = make(ServiceToWorkloadLabels)
+		}
+		namespaceToServiceToSelector[svc.Namespace][svc.Name] = svc.Spec.Selector
+	}
+
+	return namespaceToServiceToSelector, nil
+}
+
 // ConvertV1alpha1ToV1beta1 converts RBAC v1alphal1 to v1beta1 for local policy files.
 func (ug *Upgrader) ConvertV1alpha1ToV1beta1() error {
-	configsFromFile, err := getRbacConfigsFromFiles(ug.V1PolicyFiles)
-	if err != nil {
-		return fmt.Errorf("failed to get RBAC config from files: %v", err)
-	}
-	authzPolicies, err := getAuthorizationPolicies(configsFromFile)
-	if err != nil {
-		return fmt.Errorf("failed to get AuthorizationPolices store: %v", err)
-	}
-	err = ug.convert(authzPolicies)
-	if err != nil {
+	if err := ug.convert(ug.v1alpha1Policies); err != nil {
 		return fmt.Errorf("failed to convert policies: %v", err)
 	}
 	for _, authzPolicy := range ug.AuthorizationPolicies {
@@ -138,41 +250,6 @@ func (ug *Upgrader) ConvertV1alpha1ToV1beta1() error {
 		}
 	}
 	return nil
-}
-
-// getRbacConfigsFromFiles parses RBAC policy files and store them in an internal data type.
-func getRbacConfigsFromFiles(fileNames []string) ([]model.Config, error) {
-	configsFromFile := []model.Config{}
-	for _, fileName := range fileNames {
-		rbacFileBuf, err := ioutil.ReadFile(fileName)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read file %s", fileName)
-		}
-		configFromFile, _, err := crd.ParseInputs(string(rbacFileBuf))
-		if err != nil {
-			return nil, err
-		}
-		configsFromFile = append(configsFromFile, configFromFile...)
-	}
-	return configsFromFile, nil
-}
-
-// getAuthorizationPolicies creates an Istio store for the provided policies and returns all RBAC policy
-// in form of AuthorizationPolicies struct.
-func getAuthorizationPolicies(policies []model.Config) (*model.AuthorizationPolicies, error) {
-	store := model.MakeIstioStore(memory.Make(schemas.Istio))
-	for _, p := range policies {
-		if _, err := store.Create(p); err != nil {
-			return nil, fmt.Errorf("failed to initialize authz policies: %s", err)
-		}
-	}
-	authzPolicies, err := model.GetAuthorizationPolicies(&model.Environment{
-		IstioConfigStore: store,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create authz policies: %s", err)
-	}
-	return authzPolicies, nil
 }
 
 // convert is the main function that converts RBAC v1alphal1 to v1beta1 for local policy files
@@ -223,22 +300,18 @@ func (ug *Upgrader) convertClusterRbacConfig(authzPolicies *model.AuthorizationP
 		// For each namespace in RbacConfig_ON_WITH_INCLUSION, we simply generate a deny-all rule for that namespace.
 		return ug.generateClusterRbacConfig(rbacNamespaceDeny, clusterRbacConfig.Inclusion.Namespaces, false)
 	}
-	rootNamespace, err := ug.getIstioRootNamespace()
-	if err != nil {
-		return fmt.Errorf("failed to get Istio root namespace: %s", err)
-	}
 	switch clusterRbacConfig.Mode {
 	case rbac_v1alpha1.RbacConfig_OFF:
-		return ug.generateClusterRbacConfig(rbacNamespaceAllow, []string{rootNamespace}, true)
+		return ug.generateClusterRbacConfig(rbacNamespaceAllow, []string{ug.RootNamespace}, true)
 	case rbac_v1alpha1.RbacConfig_ON:
-		return ug.generateClusterRbacConfig(rbacNamespaceDeny, []string{rootNamespace}, true)
+		return ug.generateClusterRbacConfig(rbacNamespaceDeny, []string{ug.RootNamespace}, true)
 	case rbac_v1alpha1.RbacConfig_ON_WITH_EXCLUSION:
 		// Support namespace-level only.
 		if len(clusterRbacConfig.Exclusion.Services) > 0 {
 			return fmt.Errorf("service-level ClusterRbacConfig (found in ON_WITH_EXCLUSION rule) is not supported")
 		}
 		// First generate a cluster-wide deny rule.
-		err = ug.generateClusterRbacConfig(rbacNamespaceDeny, []string{rootNamespace}, true)
+		err := ug.generateClusterRbacConfig(rbacNamespaceDeny, []string{ug.RootNamespace}, true)
 		if err != nil {
 			return fmt.Errorf("failed to convert ClusterRbacConfig: %v", err)
 		}
@@ -274,10 +347,10 @@ func (ug *Upgrader) v1alpha1ModelTov1beta1Policy(v1alpha1Model *authz_model.Mode
 	if v1alpha1Model == nil {
 		return fmt.Errorf("internal error: No v1alpha1 model")
 	}
-	if v1alpha1Model.Permissions == nil || len(v1alpha1Model.Permissions) == 0 {
+	if len(v1alpha1Model.Permissions) == 0 {
 		return fmt.Errorf("invalid input: ServiceRole has no permissions")
 	}
-	if v1alpha1Model.Principals == nil || len(v1alpha1Model.Principals) == 0 {
+	if len(v1alpha1Model.Principals) == 0 {
 		return fmt.Errorf("principals are empty")
 	}
 	// TODO(pitlv2109): Support more complex cases
@@ -293,48 +366,84 @@ func (ug *Upgrader) v1alpha1ModelTov1beta1Policy(v1alpha1Model *authz_model.Mode
 	if err != nil {
 		return fmt.Errorf("cannot convert binding to sources: %v", err)
 	}
-	// If there is no services field or it's defined as "*", it's equivalent to an AuthorizationPolicy
-	// with no workload selector
-	authzPolicyConfig := model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:      schemas.AuthorizationPolicy.Type,
-			Namespace: namespace,
-		},
-		Spec: &rbac_v1beta1.AuthorizationPolicy{
-			Selector: &v1beta1.WorkloadSelector{},
-			Rules: []*rbac_v1beta1.Rule{
-				{
-					From: sources,
-					To: []*rbac_v1beta1.Rule_To{
-						{
-							Operation: operations,
+
+	createAuthzConfig := func(name string, selector *v1beta1.WorkloadSelector) model.Config {
+		return model.Config{
+			ConfigMeta: model.ConfigMeta{
+				Type:      schemas.AuthorizationPolicy.Type,
+				Name:      name,
+				Namespace: namespace,
+			},
+			Spec: &rbac_v1beta1.AuthorizationPolicy{
+				Selector: selector,
+				Rules: []*rbac_v1beta1.Rule{
+					{
+						From: sources,
+						To: []*rbac_v1beta1.Rule_To{
+							{
+								Operation: operations,
+							},
 						},
 					},
 				},
 			},
-		},
+		}
 	}
+
+	// If there is no services field or it's defined as "*", it's equivalent to an AuthorizationPolicy
+	// with no workload selector.
 	if len(accessRule.Services) == 0 || accessRule.Services[0] == "*" {
-		authzPolicyConfig.Name = fmt.Sprintf("%s-all", namespace)
-		authzPolicyConfig.Spec.(*rbac_v1beta1.AuthorizationPolicy).Selector = nil
+		name := fmt.Sprintf("%s-all", namespace)
+		authzPolicyConfig := createAuthzConfig(name, nil)
 		ug.AuthorizationPolicies = append(ug.AuthorizationPolicies, authzPolicyConfig)
 		return nil
 	}
 	for _, service := range accessRule.Services {
-		serviceName := strings.Split(service, ".")[0]
-		authzPolicyConfig.Name = fmt.Sprintf("%s-%s", namespace, serviceName)
-		workloadSelector, err := ug.getAndAddServiceToWorkloadLabelMapping(service, namespace)
-		if err != nil {
-			return err
+		name := fmt.Sprintf("%s-%s", namespace, strings.Split(service, ".")[0])
+		selector := &v1beta1.WorkloadSelector{
+			MatchLabels: ug.getSelector(service, namespace),
 		}
-		authzPolicyCopy, err := copystructure.Copy(&authzPolicyConfig)
-		if err != nil {
-			return err
-		}
-		authzPolicyCopy.(*model.Config).Spec.(*rbac_v1beta1.AuthorizationPolicy).Selector.MatchLabels = workloadSelector
-		authzPolicyConfigCopy := authzPolicyCopy.(*model.Config)
-		ug.AuthorizationPolicies = append(ug.AuthorizationPolicies, *authzPolicyConfigCopy)
+		authzPolicyConfig := createAuthzConfig(name, selector)
+		ug.AuthorizationPolicies = append(ug.AuthorizationPolicies, authzPolicyConfig)
 	}
+	return nil
+}
+
+// getSelector gets the workload label for the service in the given namespace.
+func (ug *Upgrader) getSelector(serviceFullName, namespace string) WorkloadLabels {
+	if serviceFullName == "*" {
+		return nil
+	}
+
+	var serviceName string
+	var prefixMatch, suffixMatch bool
+	if strings.HasPrefix(serviceFullName, "*") {
+		suffixMatch = true
+		serviceName = strings.TrimPrefix(serviceFullName, "*")
+	} else if strings.HasSuffix(serviceFullName, "*") {
+		prefixMatch = true
+		serviceName = strings.TrimSuffix(serviceFullName, "*")
+	} else {
+		serviceName = strings.Split(serviceFullName, ".")[0]
+	}
+
+	selectors := ug.NamespaceToServiceToSelector[namespace]
+	for targetServiceName, selector := range selectors {
+		if prefixMatch {
+			if strings.HasPrefix(targetServiceName, serviceName) {
+				return selector
+			}
+		} else if suffixMatch {
+			if strings.HasSuffix(targetServiceName, serviceName) {
+				return selector
+			}
+		} else {
+			if targetServiceName == serviceName {
+				return selector
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -388,85 +497,6 @@ func convertBindingToSources(principals []authz_model.Principal) ([]*rbac_v1beta
 	return ruleFrom, nil
 }
 
-// getAndAddServiceToWorkloadLabelMapping get the workload labels given the fullServiceName and namespace. It may
-// update the NamespaceToServiceToWorkloadLabels map along the way if the data is not yet there.
-// fullServiceName is in the form of serviceName.ns.svc.cluster.local
-func (ug *Upgrader) getAndAddServiceToWorkloadLabelMapping(fullServiceName, namespace string) (WorkloadLabels, error) {
-	if fullServiceName == "*" {
-		return nil, nil
-	}
-	// TODO(pitlv2109): Handle suffix and prefix for services.
-	if strings.Contains(fullServiceName, "*") {
-		return nil, fmt.Errorf("wildcard * as prefix or suffix yet supported in full service name")
-	}
-	serviceName := strings.Split(fullServiceName, ".")[0]
-
-	if _, found := ug.NamespaceToServiceToWorkloadLabels[namespace][serviceName]; !found {
-		// If NamespaceToServiceToWorkloadLabels does not have serviceName key yet, try fetching from Kubernetes apiserver.
-		err := ug.addServiceToWorkloadLabelMapping(namespace, serviceName)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return ug.NamespaceToServiceToWorkloadLabels[namespace][serviceName], nil
-}
-
-// addServiceToWorkloadLabelMapping maps the namespace and service name to workload labels that its rules originally
-// applies to.
-func (ug *Upgrader) addServiceToWorkloadLabelMapping(namespace, serviceName string) error {
-	if _, found := ug.NamespaceToServiceToWorkloadLabels[namespace][serviceName]; found {
-		return nil
-	}
-
-	var service *v1.Service
-	if len(ug.ServiceFiles) != 0 {
-		svc := v1.Service{}
-		for _, filename := range ug.ServiceFiles {
-			fileBuf, err := ioutil.ReadFile(filename)
-			if err != nil {
-				return err
-			}
-			reader := bytes.NewReader(fileBuf)
-			yamlDecoder := kubeyaml.NewYAMLOrJSONDecoder(reader, 512*1024)
-			for {
-				err = yamlDecoder.Decode(&svc)
-				if err == io.EOF {
-					break
-				}
-				if err != nil {
-					return fmt.Errorf("failed to parse k8s Service file: %s", err)
-				}
-				if svc.Name == serviceName && svc.Namespace == namespace {
-					service = &svc
-					break
-				}
-			}
-		}
-	} else {
-		var err error
-		service, err = ug.K8sClient.CoreV1().Services(namespace).Get(serviceName, metav1.GetOptions{})
-		if err != nil {
-			return err
-		}
-	}
-
-	if service == nil {
-		return fmt.Errorf("no service found in namespace %s", namespace)
-	}
-	if service.Spec.Selector == nil {
-		return fmt.Errorf("failed because service %q does not have selector", serviceName)
-	}
-	// Maps need to be initialized (from lowest level outwards) before we can write to them.
-	if _, found := ug.NamespaceToServiceToWorkloadLabels[namespace][serviceName]; !found {
-		if _, found := ug.NamespaceToServiceToWorkloadLabels[namespace]; !found {
-			ug.NamespaceToServiceToWorkloadLabels[namespace] = make(ServiceToWorkloadLabels)
-		}
-		ug.NamespaceToServiceToWorkloadLabels[namespace][serviceName] = make(WorkloadLabels)
-	}
-	ug.NamespaceToServiceToWorkloadLabels[namespace][serviceName] = service.Spec.Selector
-	return nil
-}
-
 // parseConfigToString parses data from `config` to string.
 func (ug *Upgrader) parseConfigToString(config model.Config) error {
 	schema := schemas.AuthorizationPolicy
@@ -487,32 +517,4 @@ func (ug *Upgrader) parseConfigToString(config model.Config) error {
 		}
 	}
 	return nil
-}
-
-// getIstioRootNamespace returns the root namespace of an Istio mesh. The root namespace is located
-// at the MeshConfig, and can be provided from the users via a file or directly from kubectl.
-func (ug *Upgrader) getIstioRootNamespace() (string, error) {
-	var meshConfig *v1alpha1.MeshConfig
-	var err error
-	if ug.MeshConfigFile != "" {
-		if meshConfig, err = cmd.ReadMeshConfig(ug.MeshConfigFile); err != nil {
-			return "", fmt.Errorf("failed to read the provided ConfigMap %s: %s", ug.MeshConfigFile, err)
-		}
-	} else {
-		istioConfigMap, err := ug.K8sClient.CoreV1().ConfigMaps(ug.IstioNamespace).Get(ug.MeshConfigMapName, metav1.GetOptions{})
-		if err != nil {
-			return "", fmt.Errorf("failed to get ConfigMap named %s in namespace %s. "+
-				"Run `kubectl -n %s get configmap %s` to see if it exists", ug.MeshConfigMapName, ug.IstioNamespace,
-				ug.IstioNamespace, ug.MeshConfigMapName)
-		}
-		istioMeshConfig, exists := istioConfigMap.Data[istioConfigMapKey]
-		if !exists {
-			return "", fmt.Errorf("missing ConfigMap key %q", istioConfigMapKey)
-		}
-		meshConfig, err = mesh.ApplyMeshConfigDefaults(istioMeshConfig)
-		if err != nil {
-			return "", fmt.Errorf("failed to parse Istio MeshConfig: %s", err)
-		}
-	}
-	return meshConfig.RootNamespace, nil
 }
