@@ -126,16 +126,16 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
   --service services.yaml --meshConfigFile meshConfig.yaml
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			upgrader, err := newUpgrader(policyFiles, serviceFiles, istioNamespace, istioMeshConfigMapName)
+			converter, err := newConverter(policyFiles, serviceFiles, istioNamespace, istioMeshConfigMapName)
 			if err != nil {
 				return err
 			}
-			err = upgrader.ConvertV1alpha1ToV1beta1()
+			err = converter.ConvertV1alpha1ToV1beta1()
 			if err != nil {
 				return err
 			}
 			writer := cmd.OutOrStdout()
-			_, err = writer.Write([]byte(upgrader.ConvertedPolicies.String()))
+			_, err = writer.Write([]byte(converter.ConvertedPolicies.String()))
 			if err != nil {
 				return fmt.Errorf("failed writing config: %v", err)
 			}
@@ -227,7 +227,7 @@ func getConfigDumpFromPod(podName, podNamespace string) (*configdump.Wrapper, er
 	return envoyConfig, nil
 }
 
-func newUpgrader(v1PolicyFiles, serviceFiles []string, istioNamespace, istioMeshConfigMapName string) (*auth.Upgrader, error) {
+func newConverter(v1PolicyFiles, serviceFiles []string, istioNamespace, istioMeshConfigMapName string) (*auth.Converter, error) {
 	if len(v1PolicyFiles) == 0 {
 		return nil, fmt.Errorf("no input file provided")
 	}
@@ -237,11 +237,11 @@ func newUpgrader(v1PolicyFiles, serviceFiles []string, istioNamespace, istioMesh
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to Kubernetes: %v", err)
 	}
-	upgrader, err := auth.NewUpgrader(k8sClient, v1PolicyFiles, serviceFiles, meshConfig, istioNamespace, istioMeshConfigMapName)
+	converter, err := auth.NewConverter(k8sClient, v1PolicyFiles, serviceFiles, meshConfig, istioNamespace, istioMeshConfigMapName)
 	if err != nil {
 		return nil, err
 	}
-	return upgrader, nil
+	return converter, nil
 }
 
 func newValidator(policyFiles []string) (*auth.Validator, error) {
@@ -269,14 +269,14 @@ func Auth() *cobra.Command {
 		Example: `  # Check the TLS/JWT/RBAC settings for pod httpbin-88ddbcfdd-nt5jb:
   istioctl experimental auth check httpbin-88ddbcfdd-nt5jb
 
-  # Upgrade the v1alpha1 RBAC policies to v1beta1 authorization policies in the cluster:
+  # Convert the v1alpha1 RBAC policies to v1beta1 authorization policies in the cluster:
   istioctl experimental auth convert
 `,
 	}
 
 	cmd.AddCommand(checkCmd)
-	cmd.AddCommand(validatorCmd)
 	cmd.AddCommand(convertCmd)
+	cmd.AddCommand(validatorCmd)
 	return cmd
 }
 

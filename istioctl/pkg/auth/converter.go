@@ -51,7 +51,7 @@ type WorkloadLabels map[string]string
 // This service is defined in same namespace as the ServiceRole that's using it.
 type ServiceToWorkloadLabels map[string]WorkloadLabels
 
-type Upgrader struct {
+type Converter struct {
 	K8sClient *kubernetes.Clientset
 
 	v1alpha1Policies             *model.AuthorizationPolicies
@@ -94,7 +94,7 @@ const (
 	istioConfigMapKey = "mesh"
 )
 
-func NewUpgrader(k8sClient *kubernetes.Clientset, v1PolicyFiles, serviceFiles []string, meshConfigFile, istioNamespace, meshConfigMapName string) (*Upgrader, error) {
+func NewConverter(k8sClient *kubernetes.Clientset, v1PolicyFiles, serviceFiles []string, meshConfigFile, istioNamespace, meshConfigMapName string) (*Converter, error) {
 	v1alpha1Policies, err := getV1alpha1Policies(v1PolicyFiles)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read policies: %v", err)
@@ -110,14 +110,14 @@ func NewUpgrader(k8sClient *kubernetes.Clientset, v1PolicyFiles, serviceFiles []
 		log.Warnf("failed to get services: %v", err)
 	}
 
-	upgrader := Upgrader{
+	converter := Converter{
 		K8sClient:                    k8sClient,
 		v1alpha1Policies:             v1alpha1Policies,
 		RootNamespace:                rootNamespace,
 		NamespaceToServiceToSelector: namespaceToServiceToSelector,
 		AuthorizationPolicies:        []model.Config{},
 	}
-	return &upgrader, nil
+	return &converter, nil
 }
 
 func getV1alpha1Policies(v1PolicyFiles []string) (*model.AuthorizationPolicies, error) {
@@ -229,7 +229,7 @@ func getNamespaceToServiceToSelector(k8sClient *kubernetes.Clientset, serviceFil
 }
 
 // ConvertV1alpha1ToV1beta1 converts RBAC v1alphal1 to v1beta1 for local policy files.
-func (ug *Upgrader) ConvertV1alpha1ToV1beta1() error {
+func (ug *Converter) ConvertV1alpha1ToV1beta1() error {
 	if err := ug.convert(ug.v1alpha1Policies); err != nil {
 		return fmt.Errorf("failed to convert policies: %v", err)
 	}
@@ -243,7 +243,7 @@ func (ug *Upgrader) ConvertV1alpha1ToV1beta1() error {
 }
 
 // convert is the main function that converts RBAC v1alphal1 to v1beta1 for local policy files
-func (ug *Upgrader) convert(authzPolicies *model.AuthorizationPolicies) error {
+func (ug *Converter) convert(authzPolicies *model.AuthorizationPolicies) error {
 	// Convert ClusterRbacConfig to AuthorizationPolicy
 	err := ug.convertClusterRbacConfig(authzPolicies)
 	if err != nil {
@@ -276,7 +276,7 @@ func (ug *Upgrader) convert(authzPolicies *model.AuthorizationPolicies) error {
 }
 
 // convertClusterRbacConfig converts ClusterRbacConfig to AuthorizationPolicy.
-func (ug *Upgrader) convertClusterRbacConfig(authzPolicies *model.AuthorizationPolicies) error {
+func (ug *Converter) convertClusterRbacConfig(authzPolicies *model.AuthorizationPolicies) error {
 	clusterRbacConfig := authzPolicies.GetClusterRbacConfig()
 	if clusterRbacConfig == nil {
 		return fmt.Errorf("no ClusterRbacConfig found")
@@ -311,7 +311,7 @@ func (ug *Upgrader) convertClusterRbacConfig(authzPolicies *model.AuthorizationP
 	return nil
 }
 
-func (ug *Upgrader) generateClusterRbacConfig(template string, namespaces []string, isRootNamespace bool) error {
+func (ug *Converter) generateClusterRbacConfig(template string, namespaces []string, isRootNamespace bool) error {
 	clusterRbacConfigData := map[string]string{
 		"ScopeName": "",
 		"Namespace": "",
@@ -333,7 +333,7 @@ func (ug *Upgrader) generateClusterRbacConfig(template string, namespaces []stri
 
 // v1alpha1ModelTov1beta1Policy converts the policy of one ServiceRole and a list of associated
 // ServiceRoleBinding to the equivalent AuthorizationPolicy.
-func (ug *Upgrader) v1alpha1ModelTov1beta1Policy(v1alpha1Model *authz_model.Model, namespace string) error {
+func (ug *Converter) v1alpha1ModelTov1beta1Policy(v1alpha1Model *authz_model.Model, namespace string) error {
 	if v1alpha1Model == nil {
 		return fmt.Errorf("internal error: No v1alpha1 model")
 	}
@@ -397,7 +397,7 @@ func (ug *Upgrader) v1alpha1ModelTov1beta1Policy(v1alpha1Model *authz_model.Mode
 }
 
 // getSelector gets the workload label for the service in the given namespace.
-func (ug *Upgrader) getSelectors(serviceFullName, namespace string) []WorkloadLabels {
+func (ug *Converter) getSelectors(serviceFullName, namespace string) []WorkloadLabels {
 	if serviceFullName == "*" {
 		return []WorkloadLabels{
 			// An empty workload selects all workloads in the namespace.
@@ -495,7 +495,7 @@ func convertBindingToSources(principals []authz_model.Principal) ([]*rbac_v1beta
 }
 
 // parseConfigToString parses data from `config` to string.
-func (ug *Upgrader) parseConfigToString(config model.Config) error {
+func (ug *Converter) parseConfigToString(config model.Config) error {
 	schema := schemas.AuthorizationPolicy
 	obj, err := crd.ConvertConfig(schema, config)
 	if err != nil {
