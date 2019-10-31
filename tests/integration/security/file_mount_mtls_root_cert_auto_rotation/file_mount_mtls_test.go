@@ -41,10 +41,7 @@ func TestMtlsWithRootCertUpgrade(t *testing.T) {
 			istioCfg := istio.DefaultConfigOrFail(t, ctx)
 
 			namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
-			ns := namespace.NewOrFail(t, ctx, namespace.Config{
-				Prefix: "citadel-root-cert-rotation",
-				Inject: true,
-			})
+			ns := namespace.NewOrFail(t, ctx, "citadel-root-cert-rotation", true)
 
 			var a, b echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).

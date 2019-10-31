@@ -72,8 +72,6 @@ spec:
             - --probe-check-interval=15s    # interval for health status check
           {{- end }}
           env:
-            - name: CITADEL_ENABLE_NAMESPACES_BY_DEFAULT
-              value: "{{ .Values.enableNamespacesByDefault }}"
             {{- if .Values.env }}
             {{- range $key, $val := .Values.env }}
             - name: {{ $key }}

@@ -62,4 +62,8 @@ func setupConfig(cfg *istio.Config) {
 	cfg.Values["security.env.CITADEL_WORKLOAD_CERT_MIN_GRACE_PERIOD"] = "2m"
 	cfg.Values["security.env.CITADEL_SELF_SIGNED_ROOT_CERT_GRACE_PERIOD_PERCENTILE"] = "100"
 	cfg.Values["security.env.CITADEL_SELF_SIGNED_ROOT_CERT_CHECK_INTERVAL"] = "20s"
+	cfg.Values["security.env.CITADEL_ENABLE_JITTER_FOR_ROOT_CERT_ROTATOR"] = "false"
+
+	// TODO(https://github.com/istio/istio/issues/14084) remove this
+	cfg.Values["pilot.env.PILOT_ENABLE_FALLTHROUGH_ROUTE"] = "0"
 }
