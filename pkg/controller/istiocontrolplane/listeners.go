@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -286,31 +287,39 @@ func (c *CitadelChartCustomizer) cleanCitadelResources(obj runtime.Object) error
 		return fmt.Errorf("get error to get namespace of %s: %s", obj.GetObjectKind().GroupVersionKind(), err)
 	}
 
-	client := c.Reconciler.GetClient()
+	rClient := c.Reconciler.GetClient()
 	cmNamespace := objAccessor.GetNamespace()
 	cmName := "istio-security"
-	prunedSecretType := "istio.io/key-and-cert"
-
+	prunedSecretTypeMap := map[string]bool{
+		"istio.io/key-and-cert":     true,
+		"istio.io/ca-root":          true,
+		"istio.io/dns-key-and-cert": true,
+	}
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cmName,
 			Namespace: cmNamespace,
 		},
 	}
-
-	secretList := &corev1.SecretList{}
-	if err := client.List(context.TODO(), secretList); err != nil {
+	gvk := schema.GroupVersionKind{
+		Group:   "",
+		Version: "v1",
+		Kind:    "Secret",
+	}
+	secrets := &unstructured.UnstructuredList{}
+	secrets.SetGroupVersionKind(gvk)
+	if err := rClient.List(context.TODO(), secrets, client.InNamespace(cmNamespace)); err != nil {
 		return fmt.Errorf("error getting secret list: %s", err)
 	}
-
 	for retryCount := 1; retryCount <= cleanCitadelResourcesMaxRetries; retryCount++ {
-		if err := client.Delete(context.TODO(), cm); err != nil && retryCount == cleanCitadelResourcesMaxRetries {
+		if err := rClient.Delete(context.TODO(), cm); err != nil && retryCount == cleanCitadelResourcesMaxRetries {
 			return fmt.Errorf("error deleting ConfigMap %s/%s: %s", cmNamespace, cmName, err)
 		}
 
-		for _, secret := range secretList.Items {
-			if string(secret.Type) == prunedSecretType {
-				if err := client.Delete(context.TODO(), &secret); err != nil && retryCount == cleanCitadelResourcesMaxRetries {
+		for _, secret := range secrets.Items {
+			t := secret.Object["type"].(string)
+			if prunedSecretTypeMap[t] {
+				if err := rClient.Delete(context.TODO(), &secret); err != nil && retryCount == cleanCitadelResourcesMaxRetries {
 					return fmt.Errorf("error deleting secret %s/%s: %s", secret.GetNamespace(), secret.GetName(), err)
 				}
 			}
