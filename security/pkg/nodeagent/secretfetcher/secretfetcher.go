@@ -53,7 +53,7 @@ const (
 	tlsScrtKey = "tls.key"
 
 	// IngressSecretNamespace the namespace of kubernetes secrets to watch.
-	ingressSecretNamespace = "INGRESS_GATEWAY_NAMESPACE"
+	ingressSecretNamespace = "INGRESS_GATEWAY_SECRETS_NAMESPACE"
 
 	// IngressGatewaySdsCaSuffix is the suffix of the sds resource name for root CA. All resource
 	// names for ingress gateway root certs end with "-cacert".
