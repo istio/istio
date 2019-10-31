@@ -111,16 +111,16 @@ API server to get all the information needed to complete the conversion, includi
 RBAC policies, the Istio config-map for root namespace configuration and the k8s Service translating the
 service name to workload selector.
 
-The tool could also be used in offline mode without talking to the Kubernetes API server. In this mode,
-all needed information are provided through command line.
+The tool can also be used in offline mode without talking to the Kubernetes API server. In this mode,
+all needed information is provided through the command line.
 
-Note: The converter tool makes best effort to keep the syntax unchanged when
+Note: The converter tool makes a best effort attempt to keep the syntax unchanged when
 converting v1alph1 RBAC policy to v1beta1 policy. However, in some cases, strict
 mapping with equivalent syntax is not possible (e.g., constraints no longer valid
 in the new workload oriented model, converting a service name containing a wildcard
 to workload selector).
 
-We highly recommend you to review the converted policies before applying them.
+Please always review the converted policies before applying them.
 
 THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 `,
@@ -243,11 +243,7 @@ func newConverter(v1PolicyFiles, serviceFiles []string, istioNamespace, istioMes
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to Kubernetes: %v", err)
 	}
-	c, err := converter.NewConverter(k8sClient, v1PolicyFiles, serviceFiles, meshConfig, istioNamespace, istioMeshConfigMapName)
-	if err != nil {
-		return nil, err
-	}
-	return c, nil
+	return converter.New(k8sClient, v1PolicyFiles, serviceFiles, meshConfig, istioNamespace, istioMeshConfigMapName)
 }
 
 func newValidator(policyFiles []string) (*auth.Validator, error) {

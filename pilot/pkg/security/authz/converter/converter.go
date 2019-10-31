@@ -95,7 +95,7 @@ const (
 	istioConfigMapKey = "mesh"
 )
 
-func NewConverter(k8sClient *kubernetes.Clientset, v1PolicyFiles, serviceFiles []string,
+func New(k8sClient *kubernetes.Clientset, v1PolicyFiles, serviceFiles []string,
 	meshConfigFile, istioNamespace, meshConfigMapName string) (*Converter, error) {
 	v1alpha1Policies, err := getV1alpha1Policies(v1PolicyFiles)
 	if err != nil {
