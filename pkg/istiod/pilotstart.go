@@ -300,7 +300,7 @@ func defaultMeshConfig() *meshconfig.MeshConfig {
 	meshConfigObj := mesh.DefaultMeshConfig()
 	meshConfig := &meshConfigObj
 
-	meshConfig.SdsUdsPath = "./var/run/sds/sds_path"
+	meshConfig.SdsUdsPath = "unix:/etc/istio/proxy/SDS"
 	meshConfig.EnableSdsTokenMount = true
 
 	// TODO: Agent should use /var/lib/istio/proxy - this is under $HOME for istio, not in etc. Not running as root.

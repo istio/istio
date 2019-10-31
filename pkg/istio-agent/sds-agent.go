@@ -119,7 +119,7 @@ const (
 var (
 	// JWTPath is the default location of a JWT token to be used to authenticate with XDS and CA servers.
 	// If the file is missing, the agent will fallback to using mounted certificates if XDS address is secure.
-	JWTPath = "/var/run/secrets/tokens/istio-token"
+	JWTPath = "./var/run/secrets/tokens/istio-token"
 
 	// LocalSDS is the location of the in-process SDS server - must be in a writeable dir.
 	LocalSDS = "/etc/istio/proxy/SDS"
@@ -167,10 +167,20 @@ type AgentConf struct {
 func DetectSDS(discAddr string, tlsRequired bool) *AgentConf {
 	ac := &AgentConf{}
 
+	istiodHost, discPort, err := net.SplitHostPort(discAddr)
+	if err != nil {
+		log.Fatala("Invalid discovery address", discAddr, err)
+	}
+
 	if _, err := os.Stat(JWTPath); err == nil {
 		ac.JWTPath = JWTPath
 	} else {
 		// Can't use in-process SDS.
+		log.Warna("Missing JWT token, can't use in process SDS ", JWTPath, err)
+
+		if discPort == "15012" {
+			log.Fatala("Missing JWT, can't authenticate with control plane. Try using plain text (15010)")
+		}
 		return ac
 	}
 
@@ -181,11 +191,6 @@ func DetectSDS(discAddr string, tlsRequired bool) *AgentConf {
 	}
 	if tlsRequired {
 		ac.RequireCerts = true
-	}
-
-	istiodHost, discPort, err := net.SplitHostPort(discAddr)
-	if err != nil {
-		log.Fatala("Invalid discovery address", discAddr, err)
 	}
 
 	// Istiod uses a fixed, defined port for K8S-signed certificates.
@@ -307,7 +312,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 	// TODO: this should all be packaged in a plugin, possibly with optional compilation.
 
 	if (serverOptions.CAProviderName == "GoogleCA" || strings.Contains(serverOptions.CAEndpoint, "googleapis.com")) &&
-			stsclient.GKEClusterURL != "" {
+		stsclient.GKEClusterURL != "" {
 		// Use a plugin to an external CA - this has direct support for the K8S JWT token
 		// This is only used if the proper env variables are injected - otherwise the existing Citadel or Istiod will be
 		// used.

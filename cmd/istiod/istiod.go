@@ -101,6 +101,9 @@ func initCerts(server *istiod.Server, client *kubernetes.Clientset) {
 
 	// TODO: fallback to citadel (or custom CA) if K8S signing is broken
 
+	// TODO: determine the service name based on pod labels: the install template should define an 'svc: istiodname'
+	// label to allow override of 'istiod.istio-system'.
+
 	certChain, keyPEM, err := k8s.GenKeyCertK8sCA(client.CertificatesV1beta1(), istiod.IstiodNamespace.Get(),
 		"istio-pilot."+istiod.IstiodNamespace.Get()+",istiod."+istiod.IstiodNamespace.Get()+",istiod."+istiod.IstiodNamespace.Get()+".svc")
 	if err != nil {
