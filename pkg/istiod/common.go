@@ -23,6 +23,8 @@ import (
 	"os"
 	"strconv"
 
+	"istio.io/pkg/log"
+
 	"google.golang.org/grpc"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -87,6 +89,15 @@ type Server struct {
 	basePort           int32
 	secureGrpcListener net.Listener
 }
+
+var (
+
+	// GalleyOverride is an optional json file, in the format defined by the galley.Args struct, to patch
+	// galley settings. It can be mounted as a config map for users who need advanced features - until a proper
+	// high-level API ( MeshConfig or Istio API ) is defined if the use case is common enough.
+	// Break-glass only, version-specific.
+	GalleyOverride = "./var/lib/istio/galley/galley.json"
+)
 
 // InitCommon starts the common services - metrics. Ctrlz is currently started by Galley, will need
 // to be refactored and moved here.
@@ -206,6 +217,16 @@ func NewIstiod(kconfig *rest.Config, kclient *kubernetes.Clientset, confDir stri
 
 	gargs.KubeRestConfig = kconfig
 	gargs.KubeInterface = kclient
+
+	// TODO: add to mesh.yaml - possibly using same model as tracers/etc
+
+	if _, err := os.Stat(GalleyOverride); err == nil {
+		overrideGalley, err := ioutil.ReadFile(GalleyOverride)
+		if err != nil {
+			log.Fatalf("Failed to read overrides ", err)
+		}
+		json.Unmarshal(overrideGalley, gargs)
+	}
 
 	// The file is loaded and watched by Galley using galley/pkg/meshconfig watcher/reader
 	// Current code in galley doesn't expose it - we'll use 2 Caches instead.

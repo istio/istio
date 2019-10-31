@@ -496,11 +496,14 @@ var (
 
 			agent := envoy.NewAgent(envoyProxy, features.TerminationDrainDuration())
 
-			if !sdsEnabled {
-				watcher := envoy.NewWatcher(tlsCertsToWatch, agent.Restart)
-
-				go watcher.Run(ctx)
+			if sdsEnabled {
+				tlsCertsToWatch = []string{}
 			}
+
+			// Watcher is also kicking envoy start.
+			watcher := envoy.NewWatcher(tlsCertsToWatch, agent.Restart)
+			go watcher.Run(ctx)
+
 			// On SIGINT or SIGTERM, cancel the context, triggering a graceful shutdown
 			go cmd.WaitSignalFunc(cancel)
 
