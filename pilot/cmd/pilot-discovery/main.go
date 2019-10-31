@@ -138,8 +138,6 @@ func init() {
 		"The domain serves to identify the system with spiffe")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Service.Consul.ServerURL, "consulserverURL", "",
 		"URL for the Consul server")
-	discoveryCmd.PersistentFlags().DurationVar(&serverArgs.Service.Consul.Interval, "consulserverInterval", 2*time.Second,
-		"Interval (in seconds) for polling the Consul service registry")
 
 	// using address, so it can be configured as localhost:.. (possibly UDS in future)
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.HTTPAddr, "httpAddr", ":8080",
