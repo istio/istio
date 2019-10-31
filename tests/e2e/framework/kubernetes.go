@@ -625,11 +625,6 @@ func (k *KubeInfo) Teardown() error {
 	log.Infof("Deleting namespace %v", k.Namespace)
 	for attempts := 1; attempts <= maxAttempts; attempts++ {
 		if *useOperator {
-			if _, err := util.Shell("kubectl delete ns istio-operator --kubeconfig=%s",
-				k.KubeConfig); err != nil {
-				log.Errorf("Failed to delete istio-operator namespace.")
-				return err
-			}
 			namespaceDeleted = true
 		} else {
 			namespaceDeleted, _ = util.NamespaceDeleted(k.Namespace, k.KubeConfig)
