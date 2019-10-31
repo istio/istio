@@ -256,8 +256,8 @@ func createDefaultFuncMap(statsToReturn string) map[string]func(rw http.Response
 	}
 }
 
-func createTimeoutFuncMap(statsToReturn string) map[string]func(rw http.ResponseWriter, _ *http.Request) {
-	return map[string]func(rw http.ResponseWriter, _ *http.Request){
+func createTimeoutFuncMap(_ string) map[string]func(_ http.ResponseWriter, _ *http.Request) {
+	return map[string]func(_ http.ResponseWriter, _ *http.Request){
 
 		"/stats": func(rw http.ResponseWriter, _ *http.Request) {
 			// Do not respond here
