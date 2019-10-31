@@ -17,9 +17,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
-	"time"
 
-	"github.com/gogo/protobuf/types"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -169,8 +167,7 @@ func initLocalPilot(istioSrc string) (*bootstrap.Server, error) {
 		},
 		//TODO: start mixer first, get its address
 		Mesh: bootstrap.MeshArgs{
-			MixerAddress:    "istio-mixer.istio-system:9091",
-			RdsRefreshDelay: types.DurationProto(10 * time.Millisecond),
+			MixerAddress: "istio-mixer.istio-system:9091",
 		},
 		Config: bootstrap.ConfigArgs{
 			KubeConfig: istioSrc + "/tests/util/kubeconfig",
