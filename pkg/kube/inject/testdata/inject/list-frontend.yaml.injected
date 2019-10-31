@@ -121,7 +121,7 @@ items:
           - name: ISTIO_META_WORKLOAD_NAME
             value: frontend
           - name: ISTIO_META_OWNER
-            value: kubernetes://api/apps/v1/namespaces/default/deployments/frontend
+            value: kubernetes://apis/apps/v1/namespaces/default/deployments/frontend
           image: docker.io/istio/proxyv2:unittest
           imagePullPolicy: IfNotPresent
           name: istio-proxy
