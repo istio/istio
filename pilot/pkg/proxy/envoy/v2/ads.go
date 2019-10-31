@@ -263,7 +263,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					adsLog.Debugf("ADS:LDS: ACK %s %s %s %s", peerAddr, con.ConID, discReq.VersionInfo, discReq.ResponseNonce)
 					continue
 				}
-				adsLog.Infof("ADS:LDS: REQ %s %v", con.ConID, peerAddr)
+				adsLog.Debugf("ADS:LDS: REQ %s %v", con.ConID, peerAddr)
 				con.LDSWatch = true
 				err := s.pushLds(con, s.globalPushContext(), versionInfo())
 				if err != nil {
@@ -305,7 +305,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					}
 				}
 				con.Routes = routes
-				adsLog.Infof("ADS:RDS: REQ %s %s routes:%d", peerAddr, con.ConID, len(con.Routes))
+				adsLog.Debugf("ADS:RDS: REQ %s %s routes:%d", peerAddr, con.ConID, len(con.Routes))
 				err := s.pushRoute(con, s.globalPushContext(), versionInfo())
 				if err != nil {
 					return err
@@ -362,7 +362,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 
 				con.Clusters = clusters
-				adsLog.Infof("ADS:EDS: REQ %s %s clusters:%d", peerAddr, con.ConID, len(con.Clusters))
+				adsLog.Debugf("ADS:EDS: REQ %s %s clusters:%d", peerAddr, con.ConID, len(con.Clusters))
 				err := s.pushEds(s.globalPushContext(), con, versionInfo(), nil)
 				if err != nil {
 					return err
