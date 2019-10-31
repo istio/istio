@@ -40,6 +40,7 @@ ratings *ClusterIP *[0-9.]* *.none. *9080/TCP
 reviews *ClusterIP *[0-9.]* *.none. *9080/TCP
 # $endsnippet
 
+kubectl wait --for=condition=available deployment --all --timeout=300s
 kubectl wait --for=condition=Ready pod --all --timeout=300s
 
 # $snippet verify_pods.sh syntax="bash" outputis="text" outputsnippet="true"
