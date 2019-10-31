@@ -40,6 +40,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dchest/siphash v1.1.0 // indirect
 	github.com/denisenkom/go-mssqldb v0.0.0-20190423183735-731ef375ac02 // indirect
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
 	github.com/docker/docker v1.13.1
 	github.com/docker/go-connections v0.4.0
 	github.com/docker/go-units v0.4.0 // indirect
@@ -64,6 +65,7 @@ require (
 	github.com/gocql/gocql v0.0.0-20190423091413-b99afaf3b163 // indirect
 	github.com/gogo/protobuf v1.3.0
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
+	github.com/golang/groupcache v0.0.0-20190129154638-5b532d6fd5ef // indirect
 	github.com/golang/protobuf v1.3.2
 	github.com/golang/sync v0.0.0-20180314180146-1d60e4601c6f
 	github.com/google/btree v1.0.0 // indirect
@@ -80,6 +82,7 @@ require (
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
+	github.com/grpc-ecosystem/grpc-gateway v1.9.0 // indirect
 	github.com/grpc-ecosystem/grpc-opentracing v0.0.0-20171214222146-0e7658f8ee99
 	github.com/hashicorp/consul v1.3.0
 	github.com/hashicorp/go-hclog v0.9.0 // indirect
@@ -164,8 +167,8 @@ require (
 	gopkg.in/yaml.v2 v2.2.4
 	istio.io/api v0.0.0-20191015210738-bfa91e88abf1
 	istio.io/gogo-genproto v0.0.0-20190930162913-45029607206a
-	istio.io/operator v0.0.0-20191025225657-7ac5eff0b03e
-	istio.io/pkg v0.0.0-20191029185435-b06c95b8c357
+	istio.io/operator v0.0.0-20191031143837-04d907950632
+	istio.io/pkg v0.0.0-20191030005435-10d06b6b315e
 	k8s.io/api v0.0.0
 	k8s.io/apiextensions-apiserver v0.0.0
 	k8s.io/apimachinery v0.0.0
