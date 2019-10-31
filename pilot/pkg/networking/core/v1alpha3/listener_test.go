@@ -153,8 +153,6 @@ var (
 			},
 		},
 	}
-
-	outboundProtocolDetectionTimeout = 100 * time.Millisecond
 )
 
 func TestInboundListenerConfigProxyV13(t *testing.T) {
@@ -674,14 +672,6 @@ func testInboundListenerConfigV13(t *testing.T, proxy *model.Proxy, services ...
 	listeners := buildInboundListeners(p, proxy, nil, services...)
 	if len(listeners) != 1 {
 		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
-	}
-
-	if !listeners[0].ContinueOnListenerFiltersTimeout ||
-		listeners[0].ListenerFiltersTimeout.Seconds !=
-			ptypes.DurationProto(features.InboundProtocolDetectionTimeout).Seconds ||
-		listeners[0].ListenerFiltersTimeout.Nanos !=
-			ptypes.DurationProto(features.InboundProtocolDetectionTimeout).Nanos {
-		t.Fatalf("expect continue on listener filter timeout after %v", features.InboundProtocolDetectionTimeout)
 	}
 
 	if len(listeners[0].FilterChains) != 4 ||
@@ -1446,7 +1436,6 @@ func buildOutboundListeners(p plugin.Plugin, proxy *model.Proxy, sidecarConfig *
 		env = buildListenerEnv(services)
 	}
 
-	env.Mesh.ProtocolDetectionTimeout = types.DurationProto(outboundProtocolDetectionTimeout)
 	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		return nil
 	}
