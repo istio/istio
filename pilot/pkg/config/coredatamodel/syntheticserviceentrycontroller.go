@@ -17,7 +17,6 @@ package coredatamodel
 import (
 	"errors"
 	"fmt"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -45,20 +44,16 @@ var (
 type SyntheticServiceEntryController struct {
 	configStoreMu sync.RWMutex
 	// keys [namespace][name]
-	configStore         map[string]map[string]*model.Config
-	synced              uint32
-	notReadyEndpointsMu sync.RWMutex
-	// [ip:port]config
-	notReadyEndpoints map[string]*model.Config
+	configStore map[string]map[string]*model.Config
+	synced      uint32
 	*Options
 }
 
 // NewSyntheticServiceEntryController provides a new incremental CoreDataModel controller
 func NewSyntheticServiceEntryController(options *Options) CoreDataModel {
 	return &SyntheticServiceEntryController{
-		configStore:       make(map[string]map[string]*model.Config),
-		notReadyEndpoints: make(map[string]*model.Config),
-		Options:           options,
+		configStore: make(map[string]map[string]*model.Config),
+		Options:     options,
 	}
 }
 
@@ -227,24 +222,8 @@ func (c *SyntheticServiceEntryController) convertToConfig(obj *sink.Object) (con
 		log.Warnf("Discarding incoming MCP resource: validation failed (%s/%s): %v", conf.Namespace, conf.Name, err)
 		return nil, err
 	}
-
-	c.registerNotReadyEndpoints(conf)
 	return conf, nil
 
-}
-
-// registerNotReadyEndpoints registers newly received NotReadyEndpoints
-// via MCP annotations
-func (c *SyntheticServiceEntryController) registerNotReadyEndpoints(conf *model.Config) {
-	c.notReadyEndpointsMu.Lock()
-	defer c.notReadyEndpointsMu.Unlock()
-
-	if nrEps, ok := conf.Annotations[notReadyEndpointkey]; ok {
-		addrs := strings.Split(nrEps, ",")
-		for _, addr := range addrs {
-			c.notReadyEndpoints[addr] = conf
-		}
-	}
 }
 
 func (c *SyntheticServiceEntryController) configStoreUpdate(resources []*sink.Object) {
@@ -256,6 +235,9 @@ func (c *SyntheticServiceEntryController) configStoreUpdate(resources []*sink.Ob
 			continue
 		}
 
+		// TODO: we shouldn't probably do this check
+		// since this is the differentiating factor
+		// between incremental MCP and non-incremental
 		namedConf, ok := configs[conf.Namespace]
 		if ok {
 			namedConf[conf.Name] = conf
@@ -299,6 +281,7 @@ func (c *SyntheticServiceEntryController) incrementalUpdate(resources []*sink.Ob
 			continue
 		}
 
+		// should we check resource version??
 		svcChanged := c.isFullUpdateRequired(conf)
 		var oldEpVersion string
 		c.configStoreMu.Lock()

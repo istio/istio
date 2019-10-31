@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"strings"
 
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -86,69 +87,32 @@ func (d *MCPDiscovery) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Se
 	// There is only one IP for kube registry
 	proxyIP := proxy.IPAddresses[0]
 
-	// add not ready endpoint
-	d.notReadyEndpointsMu.Lock()
-	defer d.notReadyEndpointsMu.Unlock()
-	for addr, conf := range d.notReadyEndpoints {
-		notReadyIP, port, err := net.SplitHostPort(addr)
-		if err != nil {
-			continue
-		}
-		notReadyPort, err := strconv.Atoi(port)
-		if proxyIP != notReadyIP || err != nil {
-			continue
-		}
+	// add any other endpoint
+	sseConf, err := d.List(schemas.SyntheticServiceEntry.Type, proxy.ConfigNamespace)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, conf := range sseConf {
 		se, ok := conf.Spec.(*networking.ServiceEntry)
 		if !ok {
 			return nil, errors.New("getProxyServiceInstances: wrong type")
 		}
 		for _, h := range se.Hosts {
 			for _, svcPort := range se.Ports {
-				out = append(out, d.notReadyServiceInstance(se, svcPort, conf, h, notReadyIP, notReadyPort))
+				// add other endpoints
+				out = append(out, d.serviceInstancesByProxyIP(proxyIP, se, svcPort, conf, h)...)
+				// add notReady endpoints
+				out = append(out, d.serviceInstancesFromNotReadyEps(proxyIP, se, svcPort, conf, h)...)
 			}
 		}
 	}
-
-	// add any other endpoint
-	svcInstances, err := d.serviceInstancesFromConfig(proxy.ConfigNamespace, proxy.IPAddresses[0])
-	if err != nil {
-		return nil, err
-	}
-	out = append(out, svcInstances...)
 	return out, nil
 }
 
 // InstancesByPort implements a service catalog operation
 func (d *MCPDiscovery) InstancesByPort(svc *model.Service, servicePort int, lbls labels.Collection) ([]*model.ServiceInstance, error) {
 	out := make([]*model.ServiceInstance, 0)
-
-	d.notReadyEndpointsMu.Lock()
-	defer d.notReadyEndpointsMu.Unlock()
-
-	for addr, conf := range d.notReadyEndpoints {
-		notReadyIP, port, err := net.SplitHostPort(addr)
-		if err != nil {
-			continue
-		}
-		notReadyPort, err := strconv.Atoi(port)
-		if err != nil {
-			continue
-		}
-		se, ok := conf.Spec.(*networking.ServiceEntry)
-		if !ok {
-			return nil, errors.New("instancesByPort: wrong type")
-		}
-
-		for _, svcPort := range se.Ports {
-			for _, h := range se.Hosts {
-				if host.Name(h) == svc.Hostname && servicePort == int(svcPort.Number) {
-					// add not ready endpoint
-					out = append(out, d.notReadyServiceInstance(se, svcPort, conf, h, notReadyIP, notReadyPort))
-				}
-			}
-		}
-	}
-	// add other endpoints
 	if svc != nil {
 		sseConf, err := d.List(schemas.SyntheticServiceEntry.Type, svc.Attributes.Namespace)
 		if err != nil {
@@ -160,50 +124,8 @@ func (d *MCPDiscovery) InstancesByPort(svc *model.Service, servicePort int, lbls
 			if !ok {
 				return nil, errors.New("instancesByPort: wrong type")
 			}
-			for _, h := range se.Hosts {
-				for _, svcPort := range se.Ports {
-					if host.Name(h) == svc.Hostname && int(svcPort.Number) == servicePort {
-						var uid string
-						if d.mixerEnabled() {
-							uid = fmt.Sprintf("kubernetes://%s.%s", conf.Name, conf.Namespace)
-						}
-						for _, ep := range se.Endpoints {
-							for _, epPort := range ep.Ports {
-								si := &model.ServiceInstance{
-									Endpoint: model.NetworkEndpoint{
-										UID:      uid,
-										Address:  ep.Address,
-										Port:     int(epPort),
-										Locality: ep.Locality,
-										LbWeight: ep.Weight,
-										Network:  ep.Network,
-										ServicePort: &model.Port{
-											Name:     svcPort.Name,
-											Port:     int(svcPort.Number),
-											Protocol: protocol.Instance(svcPort.Protocol),
-										},
-									},
-									// ServiceAccount is retrieved in Kube/Controller
-									// using IdentityPodAnnotation
-									//ServiceAccount, Address: ???, //TODO: nino-k
-									Service: &model.Service{
-										Hostname:   host.Name(h),
-										Ports:      convertServicePorts(se.Ports),
-										Resolution: model.Resolution(int(se.Resolution)),
-										Attributes: model.ServiceAttributes{
-											Name:      conf.Name,
-											Namespace: conf.Namespace,
-											UID:       uid,
-										},
-									},
-									Labels: labels.Instance(conf.Labels),
-								}
-								out = append(out, si)
-							}
-						}
-					}
-				}
-			}
+			// add both ready and not ready endpoints
+			out = append(out, d.serviceInstancesBySvcPort(svc, servicePort, se, conf)...)
 		}
 	}
 	return out, nil
@@ -308,67 +230,123 @@ func convertServices(cfg model.Config) []*model.Service {
 	return out
 }
 
-func (d *MCPDiscovery) serviceInstancesFromConfig(namespace, proxyIP string) ([]*model.ServiceInstance, error) {
-	out := make([]*model.ServiceInstance, 0)
-	sseConf, err := d.List(schemas.SyntheticServiceEntry.Type, namespace)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, conf := range sseConf {
-		se, ok := conf.Spec.(*networking.ServiceEntry)
-		if !ok {
-			return nil, errors.New("serviceInstancesFromConfig: wrong type")
-		}
-		for _, h := range se.Hosts {
-			for _, svcPort := range se.Ports {
-				// add other endpoints
-				out = append(out, d.serviceInstancesByProxyIP(proxyIP, se, svcPort, conf, h)...)
+func notReadyEndpoints(conf model.Config) map[string]int {
+	notReadyEndpoints := make(map[string]int)
+	if nrEps, ok := conf.Annotations[notReadyEndpointkey]; ok {
+		addrs := strings.Split(nrEps, ",")
+		for _, addr := range addrs {
+			notReadyIP, port, err := net.SplitHostPort(addr)
+			if err != nil {
+				log.Errorf("notReadyEndpoints: %v", err)
 			}
+			notReadyPort, err := strconv.Atoi(port)
+			if err != nil {
+				log.Errorf("notReadyEndpoints: %v", err)
+			}
+			notReadyEndpoints[notReadyIP] = notReadyPort
 		}
 	}
-	return out, nil
-
+	return notReadyEndpoints
 }
 
-func (d *MCPDiscovery) notReadyServiceInstance(
+func (d *MCPDiscovery) serviceInstancesFromNotReadyEps(
+	proxyIP string,
 	se *networking.ServiceEntry,
 	svcPort *networking.Port,
-	conf *model.Config,
-	hostname,
-	ip string,
-	port int) *model.ServiceInstance {
+	conf model.Config,
+	hostname string) (out []*model.ServiceInstance) {
 	var uid string
 	if d.mixerEnabled() {
 		uid = fmt.Sprintf("kubernetes://%s.%s", conf.Name, conf.Namespace)
 	}
-	out := &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
-			UID:     uid,
-			Address: ip,
-			Port:    port,
-			ServicePort: &model.Port{
-				Name:     svcPort.Name,
-				Port:     int(svcPort.Number),
-				Protocol: protocol.Instance(svcPort.Protocol),
-			},
-		},
-		// ServiceAccount is retrieved in Kube/Controller
-		// using IdentityPodAnnotation
-		//ServiceAccount and Address: ???, //TODO: nino-k
-		Service: &model.Service{
-			Hostname:   host.Name(hostname),
-			Ports:      convertServicePorts(se.Ports),
-			Resolution: model.Resolution(int(se.Resolution)),
-			Attributes: model.ServiceAttributes{
-				Name:      conf.Name,
-				Namespace: conf.Namespace,
-				UID:       uid,
-			},
-		},
-		Labels: labels.Instance(conf.Labels),
+	notReadyEps := notReadyEndpoints(conf)
+	for ip, port := range notReadyEps {
+		if proxyIP == "" || proxyIP == ip {
+			si := &model.ServiceInstance{
+				Endpoint: model.NetworkEndpoint{
+					UID:     uid,
+					Address: ip,
+					Port:    port,
+					ServicePort: &model.Port{
+						Name:     svcPort.Name,
+						Port:     int(svcPort.Number),
+						Protocol: protocol.Instance(svcPort.Protocol),
+					},
+				},
+				// ServiceAccount is retrieved in Kube/Controller
+				// using IdentityPodAnnotation
+				//ServiceAccount and Address: ???, //TODO: nino-k
+				Service: &model.Service{
+					Hostname:   host.Name(hostname),
+					Ports:      convertServicePorts(se.Ports),
+					Resolution: model.Resolution(int(se.Resolution)),
+					Attributes: model.ServiceAttributes{
+						Name:      conf.Name,
+						Namespace: conf.Namespace,
+						UID:       uid,
+					},
+				},
+				Labels: labels.Instance(conf.Labels),
+			}
+			out = append(out, si)
+		}
 	}
-	return out
+	return
+}
+
+func (d *MCPDiscovery) serviceInstancesBySvcPort(
+	svc *model.Service,
+	servicePort int,
+	se *networking.ServiceEntry,
+	conf model.Config,
+) (out []*model.ServiceInstance) {
+	var uid string
+	if d.mixerEnabled() {
+		uid = fmt.Sprintf("kubernetes://%s.%s", conf.Name, conf.Namespace)
+	}
+	for _, svcPort := range se.Ports {
+		for _, h := range se.Hosts {
+			if host.Name(h) == svc.Hostname && servicePort == int(svcPort.Number) {
+				for _, ep := range se.Endpoints {
+					for _, epPort := range ep.Ports {
+						si := &model.ServiceInstance{
+							Endpoint: model.NetworkEndpoint{
+								UID:      uid,
+								Address:  ep.Address,
+								Port:     int(epPort),
+								Locality: ep.Locality,
+								LbWeight: ep.Weight,
+								Network:  ep.Network,
+								ServicePort: &model.Port{
+									Name:     svcPort.Name,
+									Port:     int(svcPort.Number),
+									Protocol: protocol.Instance(svcPort.Protocol),
+								},
+							},
+							// ServiceAccount is retrieved in Kube/Controller
+							// using IdentityPodAnnotation
+							//ServiceAccount, Address: ???, //TODO: nino-k
+							Service: &model.Service{
+								Hostname:   host.Name(h),
+								Ports:      convertServicePorts(se.Ports),
+								Resolution: model.Resolution(int(se.Resolution)),
+								Attributes: model.ServiceAttributes{
+									Name:      conf.Name,
+									Namespace: conf.Namespace,
+									UID:       uid,
+								},
+							},
+							Labels: labels.Instance(conf.Labels),
+						}
+						out = append(out, si)
+					}
+				}
+				// and add notReady endpoints
+				out = append(out, d.serviceInstancesFromNotReadyEps("", se, svcPort, conf, h)...)
+			}
+		}
+	}
+	return
 }
 
 func (d *MCPDiscovery) serviceInstancesByProxyIP(
