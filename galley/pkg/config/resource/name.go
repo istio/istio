@@ -52,17 +52,32 @@ func NewFullName(name string) (Name, error) {
 	return Name{string: name}, nil
 }
 
+// NewShortOrFullName tries to parse the given name to resource.Name. If the name does not include namespace information,
+// the defaultNamespace is used.
+func NewShortOrFullName(name, defaultNamespace string) Name {
+	ns, host := interpretAsNamespaceAndName(name)
+	if ns == "" {
+		return NewName(defaultNamespace, host)
+	}
+	return NewName(ns, host)
+}
+
 // String interface implementation.
 func (n Name) String() string {
 	return n.string
 }
 
-// InterpretAsNamespaceAndName tries to split the name as namespace and name
-func (n Name) InterpretAsNamespaceAndName() (string, string) {
-	parts := strings.SplitN(n.string, "/", 2)
+// interpretAsNamespaceAndName tries to split the string as namespace and name
+func interpretAsNamespaceAndName(name string) (string, string) {
+	parts := strings.SplitN(name, "/", 2)
 	if len(parts) == 1 {
 		return "", parts[0]
 	}
 
 	return parts[0], parts[1]
+}
+
+// InterpretAsNamespaceAndName tries to split the name as namespace and name
+func (n Name) InterpretAsNamespaceAndName() (string, string) {
+	return interpretAsNamespaceAndName(n.String())
 }
