@@ -124,3 +124,33 @@ spec:
   - route:
     - destination:
         host: other.bookinfo.com # Should generate validation error, the SE is in another namespace
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: reviews-mirror
+  namespace: default
+spec:
+  http:
+  - route:
+    - destination:
+        host: reviews
+        subset: v1
+    mirror: # Includes mirroring, but should not generate any errors
+      host: reviews
+      subset: v1
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: reviews-mirror-bogushost
+  namespace: default
+spec:
+  http:
+  - route:
+    - destination:
+        host: reviews
+        subset: v1
+    mirror:
+      host: reviews-bogus # This host does not exist, should result in a validation error
+      subset: v1

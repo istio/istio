@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,11 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package framework
+package security
 
-// Status is interface to extend the ability of the framework.
-// It includes anything needed to be exposed outside to other components, environment or testcases.
-// Any item (component, environment can has a Status)
-// Actual implement can take this interface with its status field.
-type Status interface {
+import (
+	"testing"
+
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/label"
+)
+
+var (
+	ist istio.Instance
+)
+
+func TestMain(m *testing.M) {
+	// Integration test for the Bookinfo flow.
+	framework.
+		NewSuite("examples", m).
+		Label(label.CustomSetup).
+		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
+		RequireEnvironment(environment.Kube).
+		Run()
 }
