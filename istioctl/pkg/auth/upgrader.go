@@ -95,19 +95,19 @@ const (
 )
 
 func NewUpgrader(k8sClient *kubernetes.Clientset, v1PolicyFiles, serviceFiles []string, meshConfigFile, istioNamespace, meshConfigMapName string) (*Upgrader, error) {
-	rootNamespace, err := getRootNamespace(k8sClient, meshConfigFile, meshConfigMapName, istioNamespace)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get root namespace: %v", err)
-	}
-
 	v1alpha1Policies, err := getV1alpha1Policies(v1PolicyFiles)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read policies: %v", err)
 	}
 
+	rootNamespace, err := getRootNamespace(k8sClient, meshConfigFile, meshConfigMapName, istioNamespace)
+	if err != nil {
+		log.Warnf("failed to get root namespace: %v", err)
+	}
+
 	namespaceToServiceToSelector, err := getNamespaceToServiceToSelector(k8sClient, serviceFiles, v1alpha1Policies.ListNamespacesOfToV1alpha1Policies())
 	if err != nil {
-		return nil, fmt.Errorf("failed to get services: %v", err)
+		log.Warnf("failed to get services: %v", err)
 	}
 
 	upgrader := Upgrader{

@@ -142,6 +142,9 @@ func TestAuthConvert(t *testing.T) {
 				"testdata/auth/upgrade/group-in-subject.yaml",
 				"testdata/auth/upgrade/rbac-global-on.yaml",
 			},
+			servicesFiles: []string{
+				"testdata/auth/upgrade/svc-bookinfo.yaml",
+			},
 			configMapFile: "testdata/auth/upgrade/istio-configmap.yaml",
 			expectedError: "Error: failed to convert policies: cannot convert binding to sources: serviceRoleBinding with group is not supported\n",
 		},
@@ -150,7 +153,11 @@ func TestAuthConvert(t *testing.T) {
 			rbacV1alpha1Files: []string{
 				"testdata/auth/upgrade/one-rule-one-service.yaml",
 			},
-			golden: "testdata/auth/upgrade/empty.yaml",
+			servicesFiles: []string{
+				"testdata/auth/upgrade/svc-bookinfo.yaml",
+			},
+			configMapFile: "testdata/auth/upgrade/istio-configmap.yaml",
+			golden:        "testdata/auth/upgrade/empty.yaml",
 		},
 		{
 			name: "One access rule with one service",
@@ -201,7 +208,8 @@ func TestAuthConvert(t *testing.T) {
 			servicesFiles: []string{
 				"testdata/auth/upgrade/svc-bookinfo.yaml",
 			},
-			golden: "testdata/auth/upgrade/one-rule-all-services-with-inclusion.golden.yaml",
+			configMapFile: "testdata/auth/upgrade/istio-configmap.yaml",
+			golden:        "testdata/auth/upgrade/one-rule-all-services-with-inclusion.golden.yaml",
 		},
 		{
 			name: "One access rule with all services with exclusion",
@@ -230,7 +238,8 @@ func TestAuthConvert(t *testing.T) {
 			rbacV1alpha1Files: []string{
 				"testdata/auth/upgrade/cluster-rbac-config-on-with-inclusion.yaml",
 			},
-			golden: "testdata/auth/upgrade/cluster-rbac-config-on-with-inclusion.golden.yaml",
+			configMapFile: "testdata/auth/upgrade/istio-configmap.yaml",
+			golden:        "testdata/auth/upgrade/cluster-rbac-config-on-with-inclusion.golden.yaml",
 		},
 		{
 			name: "RbacConfig_ON_WITH_EXCLUSION only",
