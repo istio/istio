@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/security/pkg/registry/kube"
 	caserver "istio.io/istio/security/pkg/server/ca"
 	"istio.io/istio/security/pkg/server/monitoring"
+	pkgcmd "istio.io/istio/pkg/cmd"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/env"
