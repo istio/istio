@@ -31,11 +31,11 @@ const (
 )
 
 var BuiltInChainsMap = map[string]struct{}{
-	INPUT:       struct{}{},
-	OUTPUT:      struct{}{},
-	FORWARD:     struct{}{},
-	PREROUTING:  struct{}{},
-	POSTROUTING: struct{}{},
+	INPUT:       {},
+	OUTPUT:      {},
+	FORWARD:     {},
+	PREROUTING:  {},
+	POSTROUTING: {},
 }
 
 // Constants used for generating iptables commands
