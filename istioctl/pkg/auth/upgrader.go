@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"sort"
 	"strings"
 
 	"github.com/ghodss/yaml"
@@ -107,7 +108,7 @@ func NewUpgrader(k8sClient *kubernetes.Clientset, v1PolicyFiles, serviceFiles []
 		return nil
 	}
 
-	v1alpha1Policies, err := getV1alpha1Policies(k8sClient, v1PolicyFiles)
+	v1alpha1Policies, err := getV1alpha1Policies(v1PolicyFiles)
 	if err != nil {
 		log.Errorf("failed to read policies: %v", err)
 		return nil
@@ -129,7 +130,7 @@ func NewUpgrader(k8sClient *kubernetes.Clientset, v1PolicyFiles, serviceFiles []
 	return &upgrader
 }
 
-func getV1alpha1Policies(k8sClient *kubernetes.Clientset, v1PolicyFiles []string) (*model.AuthorizationPolicies, error) {
+func getV1alpha1Policies(v1PolicyFiles []string) (*model.AuthorizationPolicies, error) {
 	var configs []model.Config
 	if len(v1PolicyFiles) != 0 {
 		for _, fileName := range v1PolicyFiles {
@@ -143,9 +144,8 @@ func getV1alpha1Policies(k8sClient *kubernetes.Clientset, v1PolicyFiles []string
 			}
 			configs = append(configs, configFromFile...)
 		}
-	} else {
-		// TODO: get from K8s API server.
 	}
+	// TODO: get from K8s API server.
 
 	store := model.MakeIstioStore(memory.Make(schemas.Istio))
 	for _, config := range configs {
@@ -226,7 +226,7 @@ func getNamespaceToServiceToSelector(k8sClient *kubernetes.Clientset, serviceFil
 	namespaceToServiceToSelector := make(map[string]ServiceToWorkloadLabels)
 	for _, svc := range services {
 		if len(svc.Spec.Selector) == 0 {
-			log.Warnf("ignored service with empty selector: %n.%s", svc.Name, svc.Namespace)
+			log.Warnf("ignored service with empty selector: %s.%s", svc.Name, svc.Namespace)
 			continue
 		}
 		if _, found := namespaceToServiceToSelector[svc.Namespace]; !found {
@@ -390,29 +390,29 @@ func (ug *Upgrader) v1alpha1ModelTov1beta1Policy(v1alpha1Model *authz_model.Mode
 		}
 	}
 
-	// If there is no services field or it's defined as "*", it's equivalent to an AuthorizationPolicy
-	// with no workload selector.
-	if len(accessRule.Services) == 0 || accessRule.Services[0] == "*" {
-		name := fmt.Sprintf("%s-all", namespace)
-		authzPolicyConfig := createAuthzConfig(name, nil)
-		ug.AuthorizationPolicies = append(ug.AuthorizationPolicies, authzPolicyConfig)
-		return nil
+	if len(accessRule.Services) == 0 {
+		authzConfig := createAuthzConfig("all-workloads", nil)
+		ug.AuthorizationPolicies = append(ug.AuthorizationPolicies, authzConfig)
 	}
 	for _, service := range accessRule.Services {
-		name := fmt.Sprintf("%s-%s", namespace, strings.Split(service, ".")[0])
-		selector := &v1beta1.WorkloadSelector{
-			MatchLabels: ug.getSelector(service, namespace),
+		for j, selector := range ug.getSelectors(service, namespace) {
+			name := fmt.Sprintf("service-%s-%d", strings.ReplaceAll(service, "*", "wildcard"), j)
+			authzConfig := createAuthzConfig(name, &v1beta1.WorkloadSelector{
+				MatchLabels: selector,
+			})
+			ug.AuthorizationPolicies = append(ug.AuthorizationPolicies, authzConfig)
 		}
-		authzPolicyConfig := createAuthzConfig(name, selector)
-		ug.AuthorizationPolicies = append(ug.AuthorizationPolicies, authzPolicyConfig)
 	}
 	return nil
 }
 
 // getSelector gets the workload label for the service in the given namespace.
-func (ug *Upgrader) getSelector(serviceFullName, namespace string) WorkloadLabels {
+func (ug *Upgrader) getSelectors(serviceFullName, namespace string) []WorkloadLabels {
 	if serviceFullName == "*" {
-		return nil
+		return []WorkloadLabels{
+			// An empty workload selects all workloads in the namespace.
+			{},
+		}
 	}
 
 	var serviceName string
@@ -427,24 +427,31 @@ func (ug *Upgrader) getSelector(serviceFullName, namespace string) WorkloadLabel
 		serviceName = strings.Split(serviceFullName, ".")[0]
 	}
 
-	selectors := ug.NamespaceToServiceToSelector[namespace]
-	for targetServiceName, selector := range selectors {
+	var selectors []WorkloadLabels
+
+	// Sort the services in the map to make sure the output is stable.
+	var targetServices []string
+	for svc := range ug.NamespaceToServiceToSelector[namespace] {
+		targetServices = append(targetServices, svc)
+	}
+	sort.Strings(targetServices)
+	for _, targetService := range targetServices {
+		selector := ug.NamespaceToServiceToSelector[namespace][targetService]
 		if prefixMatch {
-			if strings.HasPrefix(targetServiceName, serviceName) {
-				return selector
+			if strings.HasPrefix(targetService, serviceName) {
+				selectors = append(selectors, selector)
 			}
 		} else if suffixMatch {
-			if strings.HasSuffix(targetServiceName, serviceName) {
-				return selector
+			if strings.HasSuffix(targetService, serviceName) {
+				selectors = append(selectors, selector)
 			}
 		} else {
-			if targetServiceName == serviceName {
-				return selector
+			if targetService == serviceName {
+				selectors = append(selectors, selector)
 			}
 		}
 	}
-
-	return nil
+	return selectors
 }
 
 // TODO(pitlv2109): Handle cases with workload selector from destination.labels and other constraints

@@ -166,6 +166,19 @@ func TestAuthConvert(t *testing.T) {
 			golden:        "testdata/auth/upgrade/one-rule-one-service.golden.yaml",
 		},
 		{
+			name: "One access rule with two services of prefix and suffix",
+			rbacV1alpha1Files: []string{
+				"testdata/auth/upgrade/one-rule-two-services-prefix-suffix.yaml",
+				"testdata/auth/upgrade/one-subject.yaml",
+				"testdata/auth/upgrade/rbac-global-on.yaml",
+			},
+			servicesFiles: []string{
+				"testdata/auth/upgrade/svc-prefix-suffix.yaml",
+			},
+			configMapFile: "testdata/auth/upgrade/istio-configmap.yaml",
+			golden:        "testdata/auth/upgrade/one-rule-two-services-prefix-suffix.golden.yaml",
+		},
+		{
 			name: "One access rule with all services",
 			rbacV1alpha1Files: []string{
 				"testdata/auth/upgrade/one-rule-all-services.yaml",

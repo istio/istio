@@ -27,7 +27,7 @@ spec:
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: default-all
+  name: service-wildcard-0
   namespace: default
 spec:
   rules:
@@ -44,4 +44,6 @@ spec:
     - operation:
         methods:
         - GET
+  selector:
+    matchLabels: {}
 ---
