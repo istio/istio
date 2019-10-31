@@ -52,14 +52,14 @@ func (s *GatewayAnalyzer) Analyze(c analysis.Context) {
 func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Entry, c analysis.Context) {
 	vs := r.Item.(*v1alpha3.VirtualService)
 
-	ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
+	vsNs, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
 	for _, gwName := range vs.Gateways {
 		// This is a special-case accepted value
 		if gwName == util.MeshGateway {
 			continue
 		}
 
-		if !c.Exists(metadata.IstioNetworkingV1Alpha3Gateways, resource.NewName(ns, gwName)) {
+		if !c.Exists(metadata.IstioNetworkingV1Alpha3Gateways, resource.NewShortOrFullName(gwName, vsNs)) {
 			c.Report(metadata.IstioNetworkingV1Alpha3Virtualservices, msg.NewReferencedResourceNotFound(r, "gateway", gwName))
 		}
 	}
