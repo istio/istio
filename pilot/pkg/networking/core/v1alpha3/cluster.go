@@ -16,7 +16,6 @@ package v1alpha3
 
 import (
 	"fmt"
-	"istio.io/api/mesh/v1alpha1"
 	"strconv"
 	"strings"
 
@@ -33,6 +32,7 @@ import (
 
 	"istio.io/istio/pkg/util/gogo"
 
+	"istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 
@@ -115,7 +115,6 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 		// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
 		// DO NOT CALL PLUGINS for these two clusters.
 		outboundClusters = append(outboundClusters, buildBlackHoleCluster(env), buildDefaultPassthroughCluster(env, proxy))
-		// apply load balancer setting for cluster endpoints
 		outboundClusters = envoyfilter.ApplyClusterPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, proxy, push, outboundClusters)
 		// Let ServiceDiscovery decide which IP and Port are used for management if
 		// there are multiple IPs
@@ -136,7 +135,6 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 		if proxy.Type == model.Router && proxy.GetRouterMode() == model.SniDnatRouter {
 			outboundClusters = append(outboundClusters, configgen.buildOutboundSniDnatClusters(env, proxy, push)...)
 		}
-		// apply load balancer setting for cluster endpoints
 		outboundClusters = envoyfilter.ApplyClusterPatches(networking.EnvoyFilter_GATEWAY, proxy, push, outboundClusters)
 		clusters = outboundClusters
 	}
@@ -988,6 +986,13 @@ func applyOutlierDetection(cluster *apiv2.Cluster, outlier *networking.OutlierDe
 
 func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettings, port *model.Port, proxy *model.Proxy, meshConfig *v1alpha1.MeshConfig) {
 
+	// Use locality lb settings from load balancer settings if present, else use mesh wide locality lb settings
+	var localityLbSettings = meshConfig.LocalityLbSetting
+	if lb != nil && lb.LocalityLbSetting != nil {
+		localityLbSettings = lb.LocalityLbSetting
+	}
+	applyLocalityLBSetting(proxy.Locality, cluster, localityLbSettings)
+
 	if lb == nil {
 		return
 	}
@@ -1040,13 +1045,6 @@ func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettin
 			},
 		}
 	}
-
-	// Use locality lb settings from traffic policy if present, else use mesh wide locality lb settings
-	var localityLbSettings = meshConfig.LocalityLbSetting
-	if lb != nil && lb.LocalityLbSetting != nil {
-		localityLbSettings = lb.LocalityLbSetting
-	}
-	applyLocalityLBSetting(proxy.Locality, cluster, localityLbSettings)
 
 	if cluster.OutlierDetection != nil {
 		if cluster.CommonLbConfig == nil {
