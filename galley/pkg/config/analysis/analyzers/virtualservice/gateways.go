@@ -15,8 +15,6 @@
 package virtualservice
 
 import (
-	"fmt"
-
 	"istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/galley/pkg/config/analysis"
@@ -54,26 +52,14 @@ func (s *GatewayAnalyzer) Analyze(c analysis.Context) {
 func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Entry, c analysis.Context) {
 	vs := r.Item.(*v1alpha3.VirtualService)
 
-	ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
+	vsNs, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
 	for _, gwName := range vs.Gateways {
 		// This is a special-case accepted value
 		if gwName == util.MeshGateway {
 			continue
 		}
 
-		gwRName, err := resource.NewFullName(gwName) // Incorrect name should be catched in gw validations
-		if err != nil {
-			c.Report(metadata.IstioNetworkingV1Alpha3Virtualservices,
-				msg.NewParseError(r, fmt.Sprintf("Invalid gateway name %s: %s", gwName, err.Error())))
-
-		}
-
-		gwns, _ := gwRName.InterpretAsNamespaceAndName()
-		if gwns == "" {
-			gwRName = resource.NewName(ns, gwName)
-		}
-
-		if !c.Exists(metadata.IstioNetworkingV1Alpha3Gateways, gwRName) {
+		if !c.Exists(metadata.IstioNetworkingV1Alpha3Gateways, resource.NewShortOrFullName(gwName, vsNs)) {
 			c.Report(metadata.IstioNetworkingV1Alpha3Virtualservices, msg.NewReferencedResourceNotFound(r, "gateway", gwName))
 		}
 	}
