@@ -10,26 +10,8 @@ messages:
       - name: detail
         type: string
 
-  - name: "NotYetImplemented"
-    code: IST0002
-    level: Error
-    description: "A feature that the configuration is depending on is not implemented yet."
-    template: "Not yet implemented: %s"
-    args:
-      - name: detail
-        type: string
-
-  - name: "ParseError"
-    code: IST0003
-    level: Warning
-    description: "There was a parse error during the parsing of the configuration text"
-    template: "Parse error: %s"
-    args:
-      - name: detail
-        type: string
-
   - name: "Deprecated"
-    code: IST0004
+    code: IST0002
     level: Warning
     description: "A feature that the configuration is depending on is now deprecated."
     template: "Deprecated: %s"

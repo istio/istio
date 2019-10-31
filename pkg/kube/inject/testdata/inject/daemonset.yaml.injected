@@ -20,7 +20,7 @@ spec:
       creationTimestamp: null
       labels:
         app: hello
-        security.istio.io/mtlsReady: "true"
+        security.istio.io/tlsMode: istio
         tier: backend
         track: stable
     spec:
@@ -102,7 +102,7 @@ spec:
         - name: ISTIO_META_WORKLOAD_NAME
           value: hello
         - name: ISTIO_META_OWNER
-          value: kubernetes://api/apps/v1/namespaces/default/daemonsets/hello
+          value: kubernetes://apis/apps/v1/namespaces/default/daemonsets/hello
         image: docker.io/istio/proxyv2:unittest
         imagePullPolicy: IfNotPresent
         name: istio-proxy

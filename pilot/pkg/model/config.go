@@ -353,15 +353,6 @@ func (store *istioConfigStore) ServiceEntries() []Config {
 	if err != nil {
 		return nil
 	}
-	supportedTypes := store.ConfigDescriptor()
-	if _, ok := supportedTypes.GetByType(schemas.SyntheticServiceEntry.Type); ok {
-		syntheticServiceEntries, err := store.List(schemas.SyntheticServiceEntry.Type, NamespaceAll)
-		if err != nil {
-			return nil
-		}
-		return append(serviceEntries, syntheticServiceEntries...)
-
-	}
 	return serviceEntries
 }
 

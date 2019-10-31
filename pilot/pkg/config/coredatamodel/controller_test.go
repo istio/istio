@@ -179,7 +179,6 @@ func TestOptions(t *testing.T) {
 	change := convertToChange(
 		[]proto.Message{message},
 		[]string{"service-bar"},
-		setVersion("1"),
 		setCollection(schemas.ServiceEntry.Collection),
 		setTypeURL(schemas.ServiceEntry.MessageName))
 
@@ -242,7 +241,6 @@ func TestListAllNameSpace(t *testing.T) {
 	change := convertToChange(
 		[]proto.Message{message, message2, message3},
 		[]string{"namespace1/some-gateway1", "default/some-other-gateway", "some-other-gateway3"},
-		setVersion("1"),
 		setCollection(schemas.Gateway.Collection),
 		setTypeURL(schemas.Gateway.MessageName))
 
@@ -282,7 +280,6 @@ func TestListSpecificNameSpace(t *testing.T) {
 	change := convertToChange(
 		[]proto.Message{message, message2, message3},
 		[]string{"namespace1/some-gateway1", "default/some-other-gateway", "namespace1/some-other-gateway3"},
-		setVersion("1"),
 		setCollection(schemas.Gateway.Collection),
 		setTypeURL(schemas.Gateway.MessageName))
 
@@ -316,7 +313,6 @@ func TestApplyInvalidType(t *testing.T) {
 	change := convertToChange(
 		[]proto.Message{message},
 		[]string{"some-gateway"},
-		setVersion("1"),
 		setCollection("bad-collection"),
 		setTypeURL("bad-type"))
 
@@ -349,7 +345,6 @@ func TestApplyValidTypeWithNoNamespace(t *testing.T) {
 
 		change := convertToChange([]proto.Message{message},
 			[]string{"some-gateway"},
-			setVersion("1"),
 			setCollection(schemas.Gateway.Collection),
 			setTypeURL(schemas.Gateway.MessageName))
 
@@ -378,7 +373,6 @@ func TestApplyMetadataNameIncludesNamespace(t *testing.T) {
 
 	change := convertToChange([]proto.Message{message},
 		[]string{"istio-namespace/some-gateway"},
-		setVersion("1"),
 		setCollection(schemas.Gateway.Collection),
 		setTypeURL(schemas.Gateway.MessageName))
 
@@ -403,7 +397,6 @@ func TestApplyMetadataNameWithoutNamespace(t *testing.T) {
 
 	change := convertToChange([]proto.Message{message},
 		[]string{"some-gateway"},
-		setVersion("1"),
 		setCollection(schemas.Gateway.Collection),
 		setTypeURL(schemas.Gateway.MessageName))
 
@@ -493,7 +486,6 @@ func TestApplyClusterScopedAuthPolicy(t *testing.T) {
 	change := convertToChange(
 		[]proto.Message{message0},
 		[]string{"bar-namespace/foo"},
-		setVersion("1"),
 		setCollection(schemas.AuthenticationPolicy.Collection),
 		setTypeURL(schemas.AuthenticationPolicy.MessageName))
 
@@ -503,7 +495,6 @@ func TestApplyClusterScopedAuthPolicy(t *testing.T) {
 	change = convertToChange(
 		[]proto.Message{message1},
 		[]string{"default"},
-		setVersion("1"),
 		setCollection(schemas.AuthenticationMeshPolicy.Collection),
 		setTypeURL(schemas.AuthenticationMeshPolicy.MessageName))
 
@@ -530,7 +521,6 @@ func TestApplyClusterScopedAuthPolicy(t *testing.T) {
 	change = convertToChange(
 		[]proto.Message{message1},
 		[]string{"default"},
-		setVersion("1"),
 		setCollection(schemas.AuthenticationPolicy.Collection),
 		setTypeURL(schemas.AuthenticationPolicy.MessageName))
 
@@ -549,7 +539,6 @@ func TestApplyClusterScopedAuthPolicy(t *testing.T) {
 	change = convertToChange(
 		[]proto.Message{message0},
 		[]string{"bar-namespace/foo"},
-		setVersion("1"),
 		setCollection(schemas.AuthenticationPolicy.Collection),
 		setTypeURL(schemas.AuthenticationPolicy.MessageName))
 
@@ -559,7 +548,6 @@ func TestApplyClusterScopedAuthPolicy(t *testing.T) {
 	change = convertToChange(
 		[]proto.Message{},
 		[]string{"default"},
-		setVersion("1"),
 		setCollection(schemas.AuthenticationMeshPolicy.Collection),
 		setTypeURL(schemas.AuthenticationMeshPolicy.MessageName))
 
@@ -852,14 +840,6 @@ func setAnnotations(a map[string]string) func(*sink.Change) {
 	return func(c *sink.Change) {
 		for _, obj := range c.Objects {
 			obj.Metadata.Annotations = a
-		}
-	}
-}
-
-func setVersion(v string) func(*sink.Change) {
-	return func(c *sink.Change) {
-		for _, obj := range c.Objects {
-			obj.Metadata.Version = v
 		}
 	}
 }

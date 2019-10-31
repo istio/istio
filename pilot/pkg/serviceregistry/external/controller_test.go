@@ -86,7 +86,7 @@ func TestController(t *testing.T) {
 			Resolution: networking.ServiceEntry_STATIC,
 		},
 	}
-	expectedCount := int64(7) // 1 service + 6 instances
+	expectedCount := int64(1) // 1 service - We do not call instance handlers any more.
 
 	_, err = configController.Create(cfg)
 	if err != nil {
