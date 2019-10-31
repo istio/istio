@@ -29,7 +29,7 @@ a:
   - name: n1
     value: v1
   - name: n2
-    list: 
+    list:
     - v1
     - v2
     - v3_regex
@@ -135,6 +135,24 @@ a:
     - v1
     - v2
     name: n2
+`,
+		},
+		{
+			desc:      "AddMapEntry",
+			path:      `a.test`,
+			value:     `foo`,
+			wantFound: true,
+			want: `
+a:
+  b:
+  - name: n1
+    value: v1
+  - name: n2
+    list:
+    - v1
+    - v2
+    - v3_regex
+  test: foo
 `,
 		},
 		{
