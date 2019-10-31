@@ -91,7 +91,7 @@ spec:
     - name: ISTIO_META_WORKLOAD_NAME
       value: hellopod
     - name: ISTIO_META_OWNER
-      value: kubernetes://api/v1/namespaces/default/pods/hellopod
+      value: kubernetes://apis/v1/namespaces/default/pods/hellopod
     image: docker.io/istio/proxyv2:unittest
     imagePullPolicy: IfNotPresent
     name: istio-proxy
