@@ -3,7 +3,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   namespace: {{ .Release.Namespace }}
-  name: istio-init-crd-certmanager-10-{{ .Values.global.tag | printf "%v" | trunc 32 }}
+  name: istio-init-crd-certmanager-10-{{ .Values.global.tag | printf "%v" | trunc 32 | trimSuffix "-" }}
 spec:
   template:
     metadata:
