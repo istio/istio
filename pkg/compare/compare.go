@@ -17,6 +17,7 @@ package compare
 import (
 	"fmt"
 	"path/filepath"
+	"reflect"
 	"strings"
 
 	"github.com/google/go-cmp/cmp"
@@ -49,12 +50,17 @@ func (r *YAMLCmpReporter) Report(rs cmp.Result) {
 	if !rs.Equal() {
 		vx, vy := r.path.Last().Values()
 		var dm string
-		if vx.IsValid() && !vy.IsValid() {
+		isNonEmptyX := isValidAndNonEmpty(vx)
+		isNonEmptyY := isValidAndNonEmpty(vy)
+		if isNonEmptyX && !isNonEmptyY {
 			dm = fmt.Sprintf("%v ->", vx)
-		} else if !vx.IsValid() && vy.IsValid() {
+		} else if !isNonEmptyX && isNonEmptyY {
 			dm = fmt.Sprintf("-> %v", vy)
-		} else if vx.IsValid() && vy.IsValid() {
+		} else if isNonEmptyX && isNonEmptyY {
 			dm = fmt.Sprintf("%v -> %v", vx, vy)
+		} else {
+			// ignore the case that both x and y are invalid or empty
+			return
 		}
 		if r.diffTree == nil {
 			r.diffTree = make(map[string]interface{})
@@ -63,6 +69,20 @@ func (r *YAMLCmpReporter) Report(rs cmp.Result) {
 			panic(err)
 		}
 	}
+}
+
+func isValidAndNonEmpty(v reflect.Value) bool {
+	if !v.IsValid() {
+		return false
+	}
+	k := v.Kind()
+	switch k {
+	case reflect.Interface:
+		return isValidAndNonEmpty(v.Elem())
+	case reflect.Array, reflect.Chan, reflect.Map, reflect.Slice, reflect.String:
+		return v.Len() > 0
+	}
+	return true
 }
 
 // String returns a text representation of diff tree.
