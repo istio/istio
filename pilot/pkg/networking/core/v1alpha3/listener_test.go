@@ -568,14 +568,6 @@ func testOutboundListenerRouteV13(t *testing.T, services ...*model.Service) {
 		t.Fatalf("expected %d listeners, found %d", 3, len(listeners))
 	}
 
-	if !listeners[0].ContinueOnListenerFiltersTimeout ||
-		listeners[0].ListenerFiltersTimeout.Seconds !=
-			ptypes.DurationProto(outboundProtocolDetectionTimeout).Seconds ||
-		listeners[0].ListenerFiltersTimeout.Nanos !=
-			ptypes.DurationProto(outboundProtocolDetectionTimeout).Nanos {
-		t.Fatalf("expect continue on listener filter timeout after %v", outboundProtocolDetectionTimeout)
-	}
-
 	l := findListenerByAddress(listeners, wildcardIP)
 	if l == nil {
 		t.Fatalf("expect listener %s", "0.0.0.0_8080")
