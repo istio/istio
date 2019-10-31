@@ -65,16 +65,17 @@ const UnixAddressPrefix = "unix://"
 // envoy supported retry on header values
 var supportedRetryOnPolicies = map[string]bool{
 	// 'x-envoy-retry-on' supported policies:
-	// https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-on
+	// https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/router_filter.html#x-envoy-retry-on
 	"5xx":                    true,
 	"gateway-error":          true,
+	"reset":                  true,
 	"connect-failure":        true,
 	"retriable-4xx":          true,
 	"refused-stream":         true,
 	"retriable-status-codes": true,
 
 	// 'x-envoy-retry-grpc-on' supported policies:
-	// https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-grpc-on
+	// https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/router_filter#x-envoy-retry-grpc-on
 	"cancelled":          true,
 	"deadline-exceeded":  true,
 	"internal":           true,
