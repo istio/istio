@@ -45,13 +45,11 @@ func (a *OverlapSelectorAnalyzer) Metadata() analysis.Metadata {
 
 // Analyze implements Analyzer
 func (a *OverlapSelectorAnalyzer) Analyze(c analysis.Context) {
-	//TODO: Check for overlapping workload selectors?
-
 	podsToSidecars := make(map[resource.Name][]*resource.Entry)
 
-	// This is using an unindexed approach for selectors.
+	// This is using an unindexed approach for matching selectors.
 	// Using an index for selectoes is problematic because selector != label
-	// and we can't know ahead of time what will match a label
+	// We can match a label to a selector, but we can't generate a selector from a label.
 	c.ForEach(metadata.IstioNetworkingV1Alpha3Sidecars, func(rs *resource.Entry) bool {
 		s := rs.Item.(*v1alpha3.Sidecar)
 
@@ -89,22 +87,16 @@ func (a *OverlapSelectorAnalyzer) Analyze(c analysis.Context) {
 		return true
 	})
 
-	for p, rsList := range podsToSidecars {
-		if len(rsList) == 1 {
+	for p, sList := range podsToSidecars {
+		if len(sList) == 1 {
 			continue
 		}
 
 		pNs, pName := p.InterpretAsNamespaceAndName()
+		sNames := getNames(sList)
 
-		var rsNames []string
-		for _, rs := range rsList {
-			_, name := rs.Metadata.Name.InterpretAsNamespaceAndName()
-			rsNames = append(rsNames, name)
-		}
-
-		for _, rs := range rsList {
-			c.Report(metadata.IstioNetworkingV1Alpha3Sidecars, msg.NewConflictingSidecarWorkloadSelectors(rs, rsNames, pNs, pName))
-
+		for _, rs := range sList {
+			c.Report(metadata.IstioNetworkingV1Alpha3Sidecars, msg.NewConflictingSidecarWorkloadSelectors(rs, sNames, pNs, pName))
 		}
 	}
 }

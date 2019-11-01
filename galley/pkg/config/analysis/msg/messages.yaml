@@ -121,8 +121,19 @@ messages:
     template: "The Sidecars %v in namespace %q select the same workload pod %q, which can lead to undefined behavior."
     args:
       - name: conflitingSidecars
-        type: []string
+        type: "[]string"
       - name: namespace
         type: string
       - name: workloadPod
+        type: string
+
+  - name: "MultipleSidecarsWithoutWorkloadSelectors"
+    code: IST0111
+    level: Error
+    description: "More than one sidecar resource in a namespace has no workload selector"
+    template: "The Sidecars %v in namespace %q have no workload selector, which can lead to undefined behavior."
+    args:
+      - name: conflitingSidecars
+        type: "[]string"
+      - name: namespace
         type: string
