@@ -223,7 +223,7 @@ func NewIstiod(kconfig *rest.Config, kclient *kubernetes.Clientset, confDir stri
 	if _, err := os.Stat(GalleyOverride); err == nil {
 		overrideGalley, err := ioutil.ReadFile(GalleyOverride)
 		if err != nil {
-			log.Fatalf("Failed to read overrides ", err)
+			log.Fatalf("Failed to read overrides %v", err)
 		}
 		json.Unmarshal(overrideGalley, gargs)
 	}
