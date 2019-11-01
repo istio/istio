@@ -89,6 +89,8 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 		}
 	}
 
+	// If listener protocol is AUTO which implies that protocol sniffing is used and user configured authN policy
+	// remove the TCP filter chain.
 	if hasAuthnFilter && in.ListenerProtocol == plugin.ListenerProtocolAuto {
 		mutable.FilterChains = HTTPFilterChains
 		mutable.Listener.FilterChains = listenerHTTPFilterChain

@@ -4,11 +4,12 @@ metadata:
   name: global-deny-all
   namespace: my-root-namespace
 spec:
+  {}
 ---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: default-productpage
+  name: service-productpage-0
   namespace: default
 spec:
   rules:
@@ -32,7 +33,7 @@ spec:
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: default-reviews
+  name: service-reviews-0
   namespace: default
 spec:
   rules:
