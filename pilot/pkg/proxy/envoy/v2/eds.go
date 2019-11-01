@@ -611,7 +611,7 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 	// against such behavior and returns nil. When the updated cluster warms up in Envoy, it would update with new endpoints
 	// automatically.
 	if svc.Resolution != model.ClientSideLB {
-		adsLog.Infof("XdsConnection has %s in its eds clusters but its resolution now is updated to %d, skipping it.", clusterName, svc.Resolution)
+		adsLog.Infof("XdsConnection has %s in its eds clusters but its resolution now is updated to %v, skipping it.", clusterName, svc.Resolution)
 		return nil
 	}
 
