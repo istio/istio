@@ -15,7 +15,6 @@
 package istioctl
 
 import (
-	"fmt"
 	"regexp"
 	"strings"
 	"testing"
@@ -77,7 +76,6 @@ func TestWebhookManagement(t *testing.T) {
 			_ = pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
 
 			// Test that webhook configurations are enabled through istioctl successfully.
-			t.Log("check that webhook configurations are enabled through istioctl successfully ...")
 			args := []string{"experimental", "post-install", "webhook", "enable", "--validation", "--webhook-secret",
 				"dns.istio-galley-service-account", "--namespace", "istio-system", "--validation-path", "./config/galley-webhook.yaml",
 				"--injection-path", "./config/sidecar-injector-webhook.yaml"}
@@ -102,15 +100,12 @@ func TestWebhookManagement(t *testing.T) {
 			}
 
 			// Test that webhook statuses returned by running istioctl are as expected.
-			t.Log("check that webhook statuses returned by running istioctl are as expected ...")
 			args = []string{"experimental", "post-install", "webhook", "status"}
 			istioCtl = istioctl.NewOrFail(t, ctx, istioctl.Config{})
 			output, fErr = istioCtl.Invoke(args)
 			if fErr != nil {
 				t.Fatalf("error returned for 'istioctl %s': %v", strings.Join(args, " "), fErr)
 			}
-
-			fmt.Printf("output is %v\n", output)
 
 			// Check that the webhook statuses are as expected
 			expectedRegexps = []*regexp.Regexp{
