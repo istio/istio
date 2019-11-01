@@ -14,8 +14,6 @@
 package sidecar
 
 import (
-	"fmt"
-
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
@@ -95,10 +93,17 @@ func (a *OverlapSelectorAnalyzer) Analyze(c analysis.Context) {
 		if len(rsList) == 1 {
 			continue
 		}
+
+		pNs, pName := p.InterpretAsNamespaceAndName()
+
+		var rsNames []string
 		for _, rs := range rsList {
-			//TODO: New message type
-			c.Report(metadata.IstioNetworkingV1Alpha3Sidecars, msg.NewInternalError(rs,
-				fmt.Sprintf("The Sidecars %v select the same workload pod %q, which can lead to undefined behavior.", rsList, p)))
+			_, name := rs.Metadata.Name.InterpretAsNamespaceAndName()
+			rsNames = append(rsNames, name)
+		}
+
+		for _, rs := range rsList {
+			c.Report(metadata.IstioNetworkingV1Alpha3Sidecars, msg.NewConflictingSidecarWorkloadSelectors(rs, rsNames, pNs, pName))
 
 		}
 	}
