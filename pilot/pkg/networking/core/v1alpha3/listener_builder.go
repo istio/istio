@@ -15,6 +15,8 @@
 package v1alpha3
 
 import (
+	"sort"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
@@ -144,6 +146,13 @@ func (builder *ListenerBuilder) aggregateVirtualInboundListener() *ListenerBuild
 	// TODO: Trim the inboundListeners properly. Those that have been added to filter chains should
 	// be removed while those that haven't been added need to remain in the inboundListeners list.
 	filterChains, needTLS := reduceInboundListenerToFilterChains(builder.inboundListeners)
+	sort.SliceStable(filterChains, func(i, j int) bool {
+		if filterChains[i].Metadata != nil && filterChains[j].Metadata != nil {
+			return filterChains[i].Metadata.FilterMetadata[PilotMetaKey].String() <
+				filterChains[j].Metadata.FilterMetadata[PilotMetaKey].String()
+		}
+		return true
+	})
 
 	builder.virtualInboundListener.FilterChains =
 		append(builder.virtualInboundListener.FilterChains, filterChains...)
