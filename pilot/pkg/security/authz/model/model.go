@@ -159,6 +159,8 @@ func NewModelV1alpha1(trustDomainBundle trustdomain.Bundle, role *istio_rbac.Ser
 			for k, v := range subject.Properties {
 				values := []string{v}
 				if k == attrSrcPrincipal {
+					// TODO(pitlv2109): Refactor this by creating a method for Principal
+					// that searches and replaces all trust domains in both v1alpha1 and v1beta1.
 					values = trustDomainBundle.ReplaceTrustDomainAliases([]string{v})
 				}
 				property[k] = values
