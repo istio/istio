@@ -25,6 +25,7 @@ import (
 	"github.com/spf13/cobra/doc"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
+	pkgcmd "istio.io/istio/pkg/cmd"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/caclient"
@@ -36,7 +37,6 @@ import (
 	"istio.io/istio/security/pkg/registry/kube"
 	caserver "istio.io/istio/security/pkg/server/ca"
 	"istio.io/istio/security/pkg/server/monitoring"
-	pkgcmd "istio.io/istio/pkg/cmd"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/env"

@@ -511,7 +511,9 @@ func TestSecretOptIn(t *testing.T) {
 			secret:       k8ssecret.BuildSecret("test-sa", "istio.test-sa", "unlabeled", nil, nil, nil, nil, nil, IstioSecretType),
 			expectedActions: []ktesting.Action{
 				ktesting.NewCreateAction(nsSchema, "", createNS("unlabeled", map[string]string{})),
-				ktesting.NewCreateAction(secretSchema, "unlabeled", k8ssecret.BuildSecret("test-sa", "istio.test-sa", "unlabeled", nil, nil, nil, nil, nil, IstioSecretType)),
+				ktesting.NewCreateAction(secretSchema, "unlabeled",
+					k8ssecret.BuildSecret("test-sa", "istio.test-sa", "unlabeled",
+						nil, nil, nil, nil, nil, IstioSecretType)),
 			},
 		},
 		"opt-in required, no label => disabled": {
@@ -539,7 +541,9 @@ func TestSecretOptIn(t *testing.T) {
 			expectedActions: []ktesting.Action{
 				ktesting.NewCreateAction(nsSchema, "", createNS("enabled-ns", map[string]string{"istio-managed": "enabled"})),
 				ktesting.NewGetAction(nsSchema, "", "enabled-ns"),
-				ktesting.NewCreateAction(secretSchema, "enabled-ns", k8ssecret.BuildSecret("test-sa", "istio.test-sa", "enabled-ns", nil, nil, nil, nil, nil, IstioSecretType)),
+				ktesting.NewCreateAction(secretSchema, "enabled-ns",
+					k8ssecret.BuildSecret("test-sa", "istio.test-sa",
+						"enabled-ns", nil, nil, nil, nil, nil, IstioSecretType)),
 			},
 		},
 	}
