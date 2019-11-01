@@ -38,7 +38,6 @@ type Bundle struct {
 }
 
 func NewTrustDomainBundle(trustDomain string, trustDomainAliases []string) Bundle {
-
 	return Bundle{
 		// Put the new trust domain to the beginning of the list to avoid changing existing tests.
 		TrustDomains: append([]string{trustDomain}, trustDomainAliases...),
