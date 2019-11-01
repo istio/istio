@@ -404,7 +404,7 @@ func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext
 	}
 	adsLog.Infof("Cluster init time %v %s", time.Since(t0), version)
 
-	s.startPush(version, push, false, edsUpdates)
+	s.startPush(version, push, false, edsUpdates, "")
 }
 
 // WorkloadUpdate is called when workload labels/annotations are updated.
@@ -447,6 +447,10 @@ func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, _ 
 			}
 			s.proxyUpdates[id] = struct{}{}
 			s.proxyUpdatesMutex.Unlock()
+			if pilot.UpdatePartialPush.Get() {
+				adsLog.Infof("Workload update detected for %v, triggering a push now", id)
+				go s.startPush(versionInfo(), s.globalPushContext(), false, nil, id)
+			}
 		}
 		return
 	}
