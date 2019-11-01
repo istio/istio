@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-a-xyz
+  namespace: default
+spec:
+  selector:
+    app: svc-a-xyz
+    version: a
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-b-xyz
+  namespace: default
+spec:
+  selector:
+    app: svc-b-xyz
+    version: b
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-c-xyz
+  namespace: default
+spec:
+  selector:
+    app: svc-c-xyz
+    version: c
+---
