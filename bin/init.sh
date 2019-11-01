@@ -23,34 +23,6 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-export GO_TOP=${GO_TOP:-$(echo "${GOPATH}" | cut -d ':' -f1)}
-export OUT_DIR=${OUT_DIR:-${GO_TOP}/out}
-
-export GOPATH=${GOPATH:-$GO_TOP}
-# Normally set by Makefile
-export ISTIO_BIN=${ISTIO_BIN:-${GOPATH}/bin}
-
-# Set the architecture. Matches logic in the Makefile.
-export GOARCH=${GOARCH:-'amd64'}
-
-# Determine the OS. Matches logic in the Makefile.
-LOCAL_OS=${LOCAL_OS:-"$(uname)"}
-case ${LOCAL_OS} in
-  'Linux')
-    export GOOS=${GOOS:-"linux"}
-    ;;
-  'Darwin')
-    export GOOS=${GOOS:-"darwin"}
-    ;;
-  *)
-    echo "This system's OS ${LOCAL_OS} isn't recognized/supported"
-    exit 1
-    ;;
-esac
-
-# test scripts seem to like to run this script directly rather than use make
-export ISTIO_OUT=${ISTIO_OUT:-${ISTIO_BIN}}
-
 # Download Envoy debug and release binaries for Linux x86_64. They will be included in the
 # docker images created by Dockerfile.proxyv2 and Dockerfile.proxytproxy.
 
@@ -87,6 +59,7 @@ function set_download_command () {
 function download_envoy_if_necessary () {
   if [[ ! -f "$2" ]] ; then
     # Enter the output directory.
+echo "part 2"
     mkdir -p "$(dirname "$2")"
     pushd "$(dirname "$2")"
 
@@ -131,10 +104,12 @@ ISTIO_ENVOY_LINUX_VERSION=${ISTIO_ENVOY_LINUX_VERSION:-${ISTIO_ENVOY_VERSION}}
 ISTIO_ENVOY_LINUX_DEBUG_URL=${ISTIO_ENVOY_LINUX_DEBUG_URL:-${ISTIO_ENVOY_DEBUG_URL}}
 ISTIO_ENVOY_LINUX_RELEASE_URL=${ISTIO_ENVOY_LINUX_RELEASE_URL:-${ISTIO_ENVOY_RELEASE_URL}}
 # Variables for the extracted debug/release Envoy artifacts.
-ISTIO_ENVOY_LINUX_DEBUG_DIR=${ISTIO_ENVOY_LINUX_DEBUG_DIR:-"${OUT_DIR}/linux_amd64/debug"}
+echo ZAB $ISTIO_ENVOY_LINUX_DEBUG_DIR
+ISTIO_ENVOY_LINUX_DEBUG_DIR=${ISTIO_ENVOY_LINUX_DEBUG_DIR:-"${TARGET_OUT}/linux_amd64/debug"}
 ISTIO_ENVOY_LINUX_DEBUG_NAME=${ISTIO_ENVOY_LINUX_DEBUG_NAME:-"envoy-debug-${ISTIO_ENVOY_LINUX_VERSION}"}
 ISTIO_ENVOY_LINUX_DEBUG_PATH=${ISTIO_ENVOY_LINUX_DEBUG_PATH:-"${ISTIO_ENVOY_LINUX_DEBUG_DIR}/${ISTIO_ENVOY_LINUX_DEBUG_NAME}"}
-ISTIO_ENVOY_LINUX_RELEASE_DIR=${ISTIO_ENVOY_LINUX_RELEASE_DIR:-"${OUT_DIR}/linux_amd64/release"}
+echo ZAC $ISTIO_ENVOY_LINUX_RELEASE_DIR
+ISTIO_ENVOY_LINUX_RELEASE_DIR=${ISTIO_ENVOY_LINUX_RELEASE_DIR:-"${TARGET_OUT}/linux_amd64/release"}
 ISTIO_ENVOY_LINUX_RELEASE_NAME=${ISTIO_ENVOY_LINUX_RELEASE_NAME:-"envoy-${ISTIO_ENVOY_LINUX_VERSION}"}
 ISTIO_ENVOY_LINUX_RELEASE_PATH=${ISTIO_ENVOY_LINUX_RELEASE_PATH:-"${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${ISTIO_ENVOY_LINUX_RELEASE_NAME}"}
 
@@ -143,7 +118,7 @@ ISTIO_ENVOY_LINUX_RELEASE_PATH=${ISTIO_ENVOY_LINUX_RELEASE_PATH:-"${ISTIO_ENVOY_
 ISTIO_ENVOY_MACOS_VERSION=${ISTIO_ENVOY_MACOS_VERSION:-1.0.2}
 ISTIO_ENVOY_MACOS_RELEASE_URL=${ISTIO_ENVOY_MACOS_RELEASE_URL:-https://github.com/istio/proxy/releases/download/${ISTIO_ENVOY_MACOS_VERSION}/istio-proxy-${ISTIO_ENVOY_MACOS_VERSION}-macos.tar.gz}
 # Variables for the extracted debug/release Envoy artifacts.
-ISTIO_ENVOY_MACOS_RELEASE_DIR=${ISTIO_ENVOY_MACOS_RELEASE_DIR:-"${OUT_DIR}/darwin_amd64/release"}
+ISTIO_ENVOY_MACOS_RELEASE_DIR=${ISTIO_ENVOY_MACOS_RELEASE_DIR:-"${TARGET_OUT}/darwin_amd64/release"}
 ISTIO_ENVOY_MACOS_RELEASE_NAME=${ISTIO_ENVOY_MACOS_RELEASE_NAME:-"envoy-${ISTIO_ENVOY_MACOS_VERSION}"}
 ISTIO_ENVOY_MACOS_RELEASE_PATH=${ISTIO_ENVOY_MACOS_RELEASE_PATH:-"${ISTIO_ENVOY_MACOS_RELEASE_DIR}/${ISTIO_ENVOY_MACOS_RELEASE_NAME}"}
 
@@ -174,8 +149,8 @@ if [[ ${USE_LOCAL_PROXY} == 1 ]] ; then
   fi
 fi
 
-mkdir -p "${ISTIO_OUT}"
-mkdir -p "${ISTIO_BIN}"
+echo "part 1"
+mkdir -p "${TARGET_OUT}"
 
 # Set the value of DOWNLOAD_COMMAND (either curl or wget)
 set_download_command
@@ -188,24 +163,14 @@ else
 fi
 
 # Download and extract the Envoy linux release binary.
-download_envoy_if_necessary "${ISTIO_ENVOY_LINUX_RELEASE_URL}" "$ISTIO_ENVOY_LINUX_RELEASE_PATH"
+download_envoy_if_necessary "${ISTIO_ENVOY_LINUX_RELEASE_URL}" "${ISTIO_ENVOY_LINUX_RELEASE_PATH}"
 
-if [[ "$LOCAL_OS" == "Darwin" ]]; then
+if [[ "TARGET_OS" == "darwin" ]]; then
   # Download and extract the Envoy macOS release binary
   download_envoy_if_necessary "${ISTIO_ENVOY_MACOS_RELEASE_URL}" "$ISTIO_ENVOY_MACOS_RELEASE_PATH"
   ISTIO_ENVOY_NATIVE_PATH=${ISTIO_ENVOY_MACOS_RELEASE_PATH}
 else
   ISTIO_ENVOY_NATIVE_PATH=${ISTIO_ENVOY_LINUX_RELEASE_PATH}
 fi
-
-# Copy native envoy binary to ISTIO_OUT
-echo "Copying ${ISTIO_ENVOY_NATIVE_PATH} to ${ISTIO_OUT}/envoy"
-cp -f "${ISTIO_ENVOY_NATIVE_PATH}" "${ISTIO_OUT}/envoy"
-
-# TODO(nmittler): Remove once tests no longer use the envoy binary directly.
-# circleCI expects this in the bin directory
-# Make sure the envoy binary exists. This is only used for tests, so use the debug binary.
-echo "Copying ${ISTIO_OUT}/envoy to ${ISTIO_BIN}/envoy"
-cp -f "${ISTIO_OUT}/envoy" "${ISTIO_BIN}/envoy"
 
 "${ROOTDIR}/bin/init_helm.sh"

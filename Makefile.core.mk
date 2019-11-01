@@ -42,8 +42,8 @@ DIRS_TO_CLEAN:=
 FILES_TO_CLEAN:=
 
 # If GOPATH is not set by the env, set it to a sane value
-GOPATH ?= $(shell cd ${ISTIO_GO}/../../..; pwd)
-export GOPATH
+#GOPATH ?= $(shell cd ${ISTIO_GO}/../../..; pwd)
+#export GOPATH
 
 # If GOPATH is made up of several paths, use the first one for our targets in this Makefile
 GO_TOP := $(shell echo ${GOPATH} | cut -d ':' -f1)
@@ -62,30 +62,6 @@ endif
 ifeq ($(GO),)
   $(error Could not find 'go' in path.  Please install go, or if already installed either add it to your path or set GO to point to its directory)
 endif
-
-LOCAL_ARCH := $(shell uname -m)
-ifeq ($(LOCAL_ARCH),x86_64)
-GOARCH_LOCAL := amd64
-else ifeq ($(shell echo $(LOCAL_ARCH) | head -c 5),armv8)
-GOARCH_LOCAL := arm64
-else ifeq ($(shell echo $(LOCAL_ARCH) | head -c 4),armv)
-GOARCH_LOCAL := arm
-else
-GOARCH_LOCAL := $(LOCAL_ARCH)
-endif
-export GOARCH ?= $(GOARCH_LOCAL)
-
-LOCAL_OS := $(shell uname)
-ifeq ($(LOCAL_OS),Linux)
-   export GOOS_LOCAL = linux
-else ifeq ($(LOCAL_OS),Darwin)
-   export GOOS_LOCAL = darwin
-else
-   $(error "This system's OS $(LOCAL_OS) isn't recognized/supported")
-   # export GOOS_LOCAL ?= windows
-endif
-
-export GOOS ?= $(GOOS_LOCAL)
 
 export ENABLE_COREDUMP ?= false
 
@@ -133,17 +109,17 @@ GO_FILES_CMD := find . -name '*.go' | grep -v -E '$(GO_EXCLUDE)'
 # Environment for tests, the directory containing istio and deps binaries.
 # Typically same as GOPATH/bin, so tests work seemlessly with IDEs.
 
-export ISTIO_BIN=$(GO_TOP)/bin
+#export TARGET_OUT=$(TARGET_OUT)/bin
 # Using same package structure as pkg/
-export OUT_DIR=$(GO_TOP)/out
-export ISTIO_OUT:=$(OUT_DIR)/$(GOOS)_$(GOARCH)/$(BUILDTYPE_DIR)
-export ISTIO_OUT_LINUX:=$(OUT_DIR)/linux_amd64/$(BUILDTYPE_DIR)
-export HELM=$(ISTIO_OUT)/helm
-export ARTIFACTS ?= $(ISTIO_OUT)
+#export TARGET_OUT=$(GO_TOP)/out
+#export TARGET_OUT:=$(TARGET_OUT)/$(GOOS)_$(GOARCH)/$(BUILDTYPE_DIR)
+#export GOBIN:=$(TARGET_OUT)/linux_amd64/$(BUILDTYPE_DIR)
+export HELM=$(TARGET_OUT)/helm
+export ARTIFACTS ?= $(TARGET_OUT)
 export REPO_ROOT := $(shell git rev-parse --show-toplevel)
 
 # scratch dir: this shouldn't be simply 'docker' since that's used for docker.save to store tar.gz files
-ISTIO_DOCKER:=${ISTIO_OUT_LINUX}/docker_temp
+ISTIO_DOCKER:=${GOBIN}/docker_temp
 # Config file used for building istio:proxy container.
 DOCKER_PROXY_CFG?=Dockerfile.proxy
 
@@ -151,11 +127,11 @@ DOCKER_PROXY_CFG?=Dockerfile.proxy
 # ISTIO_DOCKER results in slowdown, all files (including multiple copies of envoy) will be
 # copied to the docker temp container - even if you add only a tiny file, >1G of data will
 # be copied, for each docker image.
-DOCKER_BUILD_TOP:=${ISTIO_OUT_LINUX}/docker_build
-DOCKERX_BUILD_TOP:=${ISTIO_OUT_LINUX}/dockerx_build
+DOCKER_BUILD_TOP:=${GOBIN}/docker_build
+DOCKERX_BUILD_TOP:=${GOBIN}/dockerx_build
 
 # dir where tar.gz files from docker.save are stored
-ISTIO_DOCKER_TAR:=${ISTIO_OUT_LINUX}/docker
+ISTIO_DOCKER_TAR:=${TARGET_OUT}/docker
 
 # Populate the git version for istio/proxy (i.e. Envoy)
 ifeq ($(PROXY_REPO_SHA),)
@@ -176,10 +152,10 @@ export ISTIO_ENVOY_LINUX_VERSION ?= ${ISTIO_ENVOY_VERSION}
 export ISTIO_ENVOY_LINUX_DEBUG_URL ?= ${ISTIO_ENVOY_DEBUG_URL}
 export ISTIO_ENVOY_LINUX_RELEASE_URL ?= ${ISTIO_ENVOY_RELEASE_URL}
 # Variables for the extracted debug/release Envoy artifacts.
-export ISTIO_ENVOY_LINUX_DEBUG_DIR ?= ${OUT_DIR}/linux_amd64/debug
+export ISTIO_ENVOY_LINUX_DEBUG_DIR ?= ${TARGET_OUT}/debug
 export ISTIO_ENVOY_LINUX_DEBUG_NAME ?= envoy-debug-${ISTIO_ENVOY_LINUX_VERSION}
 export ISTIO_ENVOY_LINUX_DEBUG_PATH ?= ${ISTIO_ENVOY_LINUX_DEBUG_DIR}/${ISTIO_ENVOY_LINUX_DEBUG_NAME}
-export ISTIO_ENVOY_LINUX_RELEASE_DIR ?= ${OUT_DIR}/linux_amd64/release
+export ISTIO_ENVOY_LINUX_RELEASE_DIR ?= ${TARGET_OUT}/release
 export ISTIO_ENVOY_LINUX_RELEASE_NAME ?= envoy-${ISTIO_ENVOY_VERSION}
 export ISTIO_ENVOY_LINUX_RELEASE_PATH ?= ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${ISTIO_ENVOY_LINUX_RELEASE_NAME}
 
@@ -188,7 +164,7 @@ export ISTIO_ENVOY_LINUX_RELEASE_PATH ?= ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${ISTI
 export ISTIO_ENVOY_MACOS_VERSION ?= 1.0.2
 export ISTIO_ENVOY_MACOS_RELEASE_URL ?= https://github.com/istio/proxy/releases/download/${ISTIO_ENVOY_MACOS_VERSION}/istio-proxy-${ISTIO_ENVOY_MACOS_VERSION}-macos.tar.gz
 # Variables for the extracted debug/release Envoy artifacts.
-export ISTIO_ENVOY_MACOS_RELEASE_DIR ?= ${OUT_DIR}/darwin_amd64/release
+export ISTIO_ENVOY_MACOS_RELEASE_DIR ?= ${TARGET_OUT}/darwin_amd64/release
 export ISTIO_ENVOY_MACOS_RELEASE_NAME ?= envoy-${ISTIO_ENVOY_MACOS_VERSION}
 export ISTIO_ENVOY_MACOS_RELEASE_PATH ?= ${ISTIO_ENVOY_MACOS_RELEASE_DIR}/${ISTIO_ENVOY_MACOS_RELEASE_NAME}
 
@@ -236,7 +212,7 @@ ifeq ($(PULL_POLICY),)
   $(error "PULL_POLICY cannot be empty")
 endif
 
-GEN_CERT := ${ISTIO_BIN}/generate_cert
+GEN_CERT := ${TARGET_OUT}/generate_cert
 
 # Set Google Storage bucket if not set
 GS_BUCKET ?= istio-artifacts
@@ -252,7 +228,7 @@ default: depend build test
 # to provide an accurate result.
 .PHONY: where-is-out where-is-docker-temp where-is-docker-tar
 where-is-out:
-	@echo ${ISTIO_OUT}
+	@echo ${TARGET_OUT}
 where-is-docker-temp:
 	@echo ${ISTIO_DOCKER}
 where-is-docker-tar:
@@ -269,17 +245,17 @@ VER_TO_INT:=awk '{split(substr($$0, match ($$0, /[0-9\.]+/)), a, "."); print a[1
 
 # using a sentinel file so this check is only performed once per version.  Performance is
 # being favored over the unlikely situation that go gets downgraded to an older version
-check-go-version: | $(ISTIO_BIN) ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED)
-${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED):
+check-go-version: | $(TARGET_OUT) ${TARGET_OUT}/have_go_$(GO_VERSION_REQUIRED)
+${TARGET_OUT}/have_go_$(GO_VERSION_REQUIRED):
 	@if test $(shell $(GO) version | $(VER_TO_INT) ) -lt \
                  $(shell echo "$(GO_VERSION_REQUIRED)" | $(VER_TO_INT) ); \
                  then printf "go version $(GO_VERSION_REQUIRED)+ required, found: "; $(GO) version; exit 1; fi
-	@touch ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED)
+	@touch ${TARGET_OUT}/have_go_$(GO_VERSION_REQUIRED)
 
 
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
-init: check-go-version $(ISTIO_OUT)/istio_is_init
-	mkdir -p ${OUT_DIR}/logs
+init: check-go-version $(TARGET_OUT)/istio_is_init
+	mkdir -p $(TARGET_OUT)/logs
 
 # Sync is the same as init in release branch. In master this pulls from master.
 sync: init
@@ -287,25 +263,25 @@ sync: init
 # I tried to make this dependent on what I thought was the appropriate
 # lock file, but it caused the rule for that file to get run (which
 # seems to be about obtaining a new version of the 3rd party libraries).
-$(ISTIO_OUT)/istio_is_init: bin/init.sh istio.deps | $(ISTIO_OUT)
-	ISTIO_OUT=$(ISTIO_OUT) bin/init.sh
-	touch $(ISTIO_OUT)/istio_is_init
-
+$(TARGET_OUT)/istio_is_init: bin/init.sh istio.deps
+	TARGET_OUT=$(TARGET_OUT) bash -c bin/init.sh
+	touch $(TARGET_OUT)/istio_is_init
+# | $(TARGET_OUT)
 # init.sh downloads envoy
-${ISTIO_OUT}/envoy: init
+${TARGET_OUT}/envoy: init
 ${ISTIO_ENVOY_LINUX_DEBUG_PATH}: init
 ${ISTIO_ENVOY_LINUX_RELEASE_PATH}: init
 ${ISTIO_ENVOY_MACOS_RELEASE_PATH}: init
 
 # Pull dependencies, based on the checked in Gopkg.lock file.
 # Developers must manually run `dep ensure` if adding new deps
-depend: init | $(ISTIO_OUT)
+depend: init | $(TARGET_OUT)
 
-OUTPUT_DIRS = $(ISTIO_OUT) $(ISTIO_BIN)
-DIRS_TO_CLEAN+=${ISTIO_OUT}
-ifneq ($(ISTIO_OUT),$(ISTIO_OUT_LINUX))
-  OUTPUT_DIRS += $(ISTIO_OUT_LINUX)
-  DIRS_TO_CLEAN += $(ISTIO_OUT_LINUX)
+OUTPUT_DIRS = $(TARGET_OUT) $(GOBIN)
+DIRS_TO_CLEAN+=${TARGET_OUT}
+ifneq ($(TARGET_OUT),$(GOBIN))
+  OUTPUT_DIRS += $(GOBIN)
+  DIRS_TO_CLEAN += $(GOBIN)
 endif
 
 $(OUTPUT_DIRS):
@@ -313,7 +289,7 @@ $(OUTPUT_DIRS):
 
 .PHONY: ${GEN_CERT}
 ${GEN_CERT}:
-	GOOS=$(GOOS_LOCAL) && GOARCH=$(GOARCH_LOCAL) && CGO_ENABLED=1 common/scripts/gobuild.sh $@ ./security/tools/generate_cert
+	GOOS=$(TARGET_OS) && GOARCH=$(TARGET_ARCH) && CGO_ENABLED=1 common/scripts/gobuild.sh $@ ./security/tools/generate_cert
 
 #-----------------------------------------------------------------------------
 # Target: precommit
@@ -358,11 +334,11 @@ RELEASE_BINARIES:=pilot-discovery pilot-agent sidecar-injector mixc mixs mixgen 
 
 .PHONY: build
 build: depend
-	STATIC=0 GOOS=$(GOOS) GOARCH=$(GOARCH) LDFLAGS='-extldflags -static -s -w' common/scripts/gobuild.sh $(ISTIO_OUT)/ $(BINARIES)
+	STATIC=0 GOOS=$(TARGET_OS) GOARCH=$(TARGET_ARCH) LDFLAGS='-extldflags -static -s -w' common/scripts/gobuild.sh $(TARGET_OUT) $(BINARIES)
 
-.PHONY: build-linux
-build-linux: depend
-	STATIC=0 GOOS=linux GOARCH=amd64 LDFLAGS='-extldflags -static -s -w' common/scripts/gobuild.sh $(ISTIO_OUT_LINUX)/ $(BINARIES)
+.PHONY: build-gobin
+build-gobin: depend
+	STATIC=0 GOOS=linux GOARCH=amd64 LDFLAGS='-extldflags -static -s -w' common/scripts/gobuild.sh $(GOBIN) $(BINARIES)
 
 # Create targets for ISTIO_OUT_LINUX/binary
 # There are two use cases here:
@@ -380,10 +356,12 @@ endif
 endef
 
 $(foreach bin,$(BINARIES),$(eval $(call build-linux,$(bin))))
+# Create targets for $(GOBIN)/binary
+$(foreach bin,$(BINARIES),$(GOBIN)/$(shell basename $(bin))): build-gobin
 
 # Create helper targets for each binary, like "pilot-discovery"
 # As an optimization, these still build everything
-$(foreach bin,$(BINARIES),$(shell basename $(bin))): build
+$(foreach bin,$(BINARIES),$(TARGET_OUT)/$(shell basename $(bin))): build
 
 MARKDOWN_LINT_WHITELIST=localhost:8080,storage.googleapis.com/istio-artifacts/pilot/,http://ratings.default.svc.cluster.local:9080/ratings
 
@@ -415,32 +393,32 @@ RELEASE_LDFLAGS='-extldflags -static -s -w'
 DEBUG_LDFLAGS='-extldflags "-static"'
 
 # Non-static istioctl targets. These are typically a build artifact.
-${ISTIO_OUT}/istioctl-linux: depend
+${TARGET_OUT}/istioctl-linux: depend
 	STATIC=0 GOOS=linux LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
-${ISTIO_OUT}/istioctl-osx: depend
+${TARGET_OUT}/istioctl-osx: depend
 	STATIC=0 GOOS=darwin LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
-${ISTIO_OUT}/istioctl-win.exe: depend
+${TARGET_OUT}/istioctl-win.exe: depend
 	STATIC=0 GOOS=windows LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
 
 # generate the istioctl completion files
-${ISTIO_OUT}/istioctl.bash: istioctl
-	${ISTIO_OUT}/istioctl collateral --bash && \
-	mv istioctl.bash ${ISTIO_OUT}/istioctl.bash
+${TARGET_OUT}/istioctl.bash: istioctl
+	${TARGET_OUT}/istioctl collateral --bash && \
+	mv istioctl.bash ${TARGET_OUT}/istioctl.bash
 
-${ISTIO_OUT}/_istioctl: istioctl
-	${ISTIO_OUT}/istioctl collateral --zsh && \
-	mv _istioctl ${ISTIO_OUT}/_istioctl
+${TARGET_OUT}/_istioctl: istioctl
+	${TARGET_OUT}/istioctl collateral --zsh && \
+	mv _istioctl ${TARGET_OUT}/_istioctl
 
 .PHONY: binaries-test
 binaries-test:
-	go test ./tests/binary/... -v --base-dir ${ISTIO_OUT} --binaries="$(RELEASE_BINARIES)"
+	go test ./tests/binary/... -v --base-dir ${TARGET_OUT} --binaries="$(RELEASE_BINARIES)"
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS
 .PHONY: istioctl-all
-istioctl-all: ${ISTIO_OUT}/istioctl-linux ${ISTIO_OUT}/istioctl-osx ${ISTIO_OUT}/istioctl-win.exe
+istioctl-all: ${TARGET_OUT}/istioctl-linux ${TARGET_OUT}/istioctl-osx ${TARGET_OUT}/istioctl-win.exe
 
 .PHONY: istioctl.completion
-istioctl.completion: ${ISTIO_OUT}/istioctl.bash ${ISTIO_OUT}/_istioctl
+istioctl.completion: ${TARGET_OUT}/istioctl.bash ${TARGET_OUT}/_istioctl
 
 # istioctl-install builds then installs istioctl into $GOPATH/BIN
 # Used for debugging istioctl during dev work
@@ -454,9 +432,9 @@ istioctl-install:
 
 .PHONY: test localTestEnv
 
-JUNIT_REPORT := $(shell which go-junit-report 2> /dev/null || echo "${ISTIO_BIN}/go-junit-report")
+JUNIT_REPORT := $(shell which go-junit-report 2> /dev/null || echo "${TARGET_OUT}/go-junit-report")
 
-${ISTIO_BIN}/go-junit-report:
+${TARGET_OUT}/go-junit-report:
 	@echo "go-junit-report not found. Installing it now..."
 	unset GOOS && unset GOARCH && CGO_ENABLED=1 go get -u github.com/jstemmer/go-junit-report
 
@@ -618,7 +596,7 @@ include tools/istio-docker.mk
 
 push: docker.push
 
-$(HELM): $(ISTIO_OUT)
+$(HELM): $(TARGET_OUT)
 	bin/init_helm.sh
 
 $(HOME)/.helm:

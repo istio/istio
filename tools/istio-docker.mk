@@ -19,7 +19,7 @@
 
 # Docker target will build the go binaries and package the docker for local testing.
 # It does not upload to a registry.
-docker: docker.all
+docker: build-gobin docker.all
 
 # Add new docker targets to the end of the DOCKER_TARGETS list.
 
@@ -45,15 +45,15 @@ $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key: ${GEN_CERT} $(IST
 
 # directives to copy files to docker scratch directory
 
-# tell make which files are copied from $(ISTIO_OUT_LINUX) and generate rules to copy them to the proper location:
+# tell make which files are copied from $(TARGET_OUT) and generate rules to copy them to the proper location:
 # generates rules like the following:
-# $(ISTIO_DOCKER)/pilot-agent: $(ISTIO_OUT_LINUX)/pilot-agent | $(ISTIO_DOCKER)
-# 	cp $(ISTIO_OUT_LINUX)/$FILE $(ISTIO_DOCKER)/($FILE)
-DOCKER_FILES_FROM_ISTIO_OUT_LINUX:=client server \
+# $(ISTIO_DOCKER)/pilot-agent: $(TARGET_OUT)/pilot-agent | $(ISTIO_DOCKER)
+# 	cp $(TARGET_OUT)/$FILE $(ISTIO_DOCKER)/($FILE)
+DOCKER_FILES_FROM_TARGET_OUT:=client server \
                              pilot-discovery pilot-agent sidecar-injector mixs mixgen \
                              istio_ca node_agent node_agent_k8s galley istio-iptables istio-clean-iptables istioctl
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT_LINUX), \
-        $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT_LINUX)/$(FILE) | $(ISTIO_DOCKER); cp $(ISTIO_OUT_LINUX)/$(FILE) $(ISTIO_DOCKER)/$(FILE)))
+        $(eval $(ISTIO_DOCKER)/$(FILE): $(TARGET_OUT)/$(FILE) | $(ISTIO_DOCKER); cp $(TARGET_OUT)/$(FILE) $(ISTIO_DOCKER)/$(FILE)))
 
 # rule for the test certs.
 $(ISTIO_DOCKER)/certs:
@@ -101,7 +101,7 @@ docker.proxyv2: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SH
 docker.proxyv2: tools/packaging/common/envoy_bootstrap_v2.json
 docker.proxyv2: install/gcp/bootstrap/gcp_envoy_bootstrap.json
 docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/envoy
-docker.proxyv2: $(ISTIO_OUT_LINUX)/pilot-agent
+docker.proxyv2: $(TARGET_OUT)/pilot-agent
 docker.proxyv2: pilot/docker/Dockerfile.proxyv2
 docker.proxyv2: pilot/docker/envoy_pilot.yaml.tmpl
 docker.proxyv2: pilot/docker/envoy_policy.yaml.tmpl
@@ -114,7 +114,7 @@ docker.proxytproxy: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REP
 docker.proxytproxy: tools/packaging/common/envoy_bootstrap_v2.json
 docker.proxytproxy: install/gcp/bootstrap/gcp_envoy_bootstrap.json
 docker.proxytproxy: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/envoy
-docker.proxytproxy: $(ISTIO_OUT_LINUX)/pilot-agent
+docker.proxytproxy: $(TARGET_OUT)/pilot-agent
 docker.proxytproxy: pilot/docker/Dockerfile.proxytproxy
 docker.proxytproxy: pilot/docker/envoy_pilot.yaml.tmpl
 docker.proxytproxy: pilot/docker/envoy_policy.yaml.tmpl
@@ -124,22 +124,22 @@ docker.proxytproxy: $(ISTIO_DOCKER)/istio-iptables
 
 docker.pilot: BUILD_PRE=chmod 755 pilot-discovery cacert.pem &&
 docker.pilot: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
-docker.pilot: $(ISTIO_OUT_LINUX)/pilot-discovery
+docker.pilot: $(TARGET_OUT)/pilot-discovery
 docker.pilot: tests/testdata/certs/cacert.pem
 docker.pilot: pilot/docker/Dockerfile.pilot
 	$(DOCKER_RULE)
 
 docker.istiod: BUILD_PRE=chmod 755 istiod&&
 docker.istiod: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
-docker.istiod: $(ISTIO_OUT_LINUX)/istiod
+docker.istiod: $(TARGET_OUT)/istiod
 docker.istiod: docker/Dockerfile.istiod
 	$(DOCKER_RULE)
 
 # Test application
 docker.app: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.app: pkg/test/echo/docker/Dockerfile.app
-docker.app: $(ISTIO_OUT_LINUX)/client
-docker.app: $(ISTIO_OUT_LINUX)/server
+docker.app: $(TARGET_OUT)/client
+docker.app: $(TARGET_OUT)/server
 docker.app: $(ISTIO_DOCKER)/certs
 	$(DOCKER_RULE)
 
@@ -153,10 +153,10 @@ docker.app_sidecar: tools/packaging/deb/postinst.sh
 docker.app_sidecar: pkg/test/echo/docker/echo-start.sh
 docker.app_sidecar: $(ISTIO_DOCKER)/certs
 docker.app_sidecar: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/envoy
-docker.app_sidecar: $(ISTIO_OUT_LINUX)/pilot-agent
-docker.app_sidecar: $(ISTIO_OUT_LINUX)/node_agent
-docker.app_sidecar: $(ISTIO_OUT_LINUX)/client
-docker.app_sidecar: $(ISTIO_OUT_LINUX)/server
+docker.app_sidecar: $(TARGET_OUT)/pilot-agent
+docker.app_sidecar: $(TARGET_OUT)/node_agent
+docker.app_sidecar: $(TARGET_OUT)/client
+docker.app_sidecar: $(TARGET_OUT)/server
 docker.app_sidecar: pkg/test/echo/docker/Dockerfile.app_sidecar
 docker.app_sidecar: pilot/docker/envoy_pilot.yaml.tmpl
 docker.app_sidecar: pilot/docker/envoy_policy.yaml.tmpl
@@ -168,7 +168,7 @@ docker.app_sidecar: $(ISTIO_DOCKER)/istio-clean-iptables
 # Test policy backend for mixer integration
 docker.test_policybackend: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.test_policybackend: mixer/docker/Dockerfile.test_policybackend
-docker.test_policybackend: $(ISTIO_OUT_LINUX)/policybackend
+docker.test_policybackend: $(TARGET_OUT)/policybackend
 	$(DOCKER_RULE)
 
 docker.kubectl: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
@@ -177,7 +177,7 @@ docker.kubectl: docker/Dockerfile$$(suffix $$@)
 
 docker.istioctl: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.istioctl: istioctl/docker/Dockerfile.istioctl
-docker.istioctl: $(ISTIO_OUT_LINUX)/istioctl
+docker.istioctl: $(TARGET_OUT)/istioctl
 	$(DOCKER_RULE)
 
 # mixer docker images
@@ -284,7 +284,7 @@ DOCKER_RULE ?= $(foreach VARIANT,$(DOCKER_BUILD_VARIANTS), time (mkdir -p $(DOCK
 docker.all: $(DOCKER_TARGETS)
 
 # for each docker.XXX target create a tar.docker.XXX target that says how
-# to make a $(ISTIO_OUT_LINUX)/docker/XXX.tar.gz from the docker XXX image
+# to make a $(TARGET_OUT)/docker/XXX.tar.gz from the docker XXX image
 # note that $(subst docker.,,$(TGT)) strips off the "docker." prefix, leaving just the XXX
 
 # create a DOCKER_TAR_TARGETS that's each of DOCKER_TARGETS with a tar. prefix
@@ -303,7 +303,7 @@ tar.docker.app: docker.app | $(ISTIO_DOCKER_TAR)
 # create a DOCKER_TAR_TARGETS that's each of DOCKER_TARGETS with a tar. prefix DOCKER_TAR_TARGETS:=
 $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_TAR_TARGETS+=tar.$(TGT)))
 
-# this target saves a tar.gz of each docker image to ${ISTIO_OUT_LINUX}/docker/
+# this target saves a tar.gz of each docker image to ${TARGET_OUT}/docker/
 docker.save: $(DOCKER_TAR_TARGETS)
 
 # for each docker.XXX target create a push.docker.XXX target that pushes
