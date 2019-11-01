@@ -32,9 +32,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 
-	"istio.io/operator/pkg/util"
-
 	"istio.io/operator/pkg/compare"
+	"istio.io/operator/pkg/util"
 	"istio.io/pkg/log"
 )
 
@@ -527,7 +526,7 @@ func manifestDiff(aom, bom map[string]*K8sObject, im map[string]string, verbose 
 			diff = util.YAMLDiff(string(ay), string(by))
 		} else {
 			ignorePaths := objectIgnorePaths(ak, im)
-			diff = compare.YAMLCmpWithIgnore(string(ay), string(by), ignorePaths)
+			diff = compare.YAMLCmpWithIgnore(string(ay), string(by), ignorePaths, "")
 		}
 
 		if diff != "" {

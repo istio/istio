@@ -17,18 +17,18 @@ package mesh
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/ghodss/yaml"
 	goversion "github.com/hashicorp/go-version"
 	"github.com/spf13/cobra"
 
-	"istio.io/pkg/log"
-
 	"istio.io/operator/pkg/compare"
 	"istio.io/operator/pkg/hooks"
 	"istio.io/operator/pkg/manifest"
 	opversion "istio.io/operator/version"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -44,6 +44,8 @@ const (
 type upgradeArgs struct {
 	// inFilename is the path to the input IstioControlPlane CR.
 	inFilename string
+	// versionsURI is a URI pointing to a YAML formatted versions mapping.
+	versionsURI string
 	// kubeConfigPath is the path to kube config file.
 	kubeConfigPath string
 	// context is the cluster context in the kube config.
@@ -54,20 +56,20 @@ type upgradeArgs struct {
 	skipConfirmation bool
 	// force means directly applying the upgrade without eligibility checks.
 	force bool
-	// versionsURI is a URI pointing to a YAML formatted versions mapping.
-	versionsURI string
 }
 
 // addUpgradeFlags adds upgrade related flags into cobra command
 func addUpgradeFlags(cmd *cobra.Command, args *upgradeArgs) {
 	cmd.PersistentFlags().StringVarP(&args.inFilename, "filename",
 		"f", "", "Path to file containing IstioControlPlane CustomResource")
+	cmd.PersistentFlags().StringVarP(&args.versionsURI, "versionsURI", "u",
+		versionsMapURL, "URI for operator versions to Istio versions map")
 	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig",
 		"c", "", "Path to kube config")
 	cmd.PersistentFlags().StringVar(&args.context, "context", "",
 		"The name of the kubeconfig context to use")
-	cmd.PersistentFlags().BoolVarP(&args.skipConfirmation, "skipConfirmation", "y", false,
-		"If skipConfirmation is set, skips the prompting confirmation for value changes in this upgrade")
+	cmd.PersistentFlags().BoolVar(&args.skipConfirmation, "skip-confirmation", false,
+		"If skip-confirmation is set, skips the prompting confirmation for value changes in this upgrade")
 	cmd.PersistentFlags().BoolVarP(&args.wait, "wait", "w", false,
 		"Wait, if set will wait until all Pods, Services, and minimum number of Pods "+
 			"of a Deployment are in a ready state before the command exits. "+
@@ -76,8 +78,6 @@ func addUpgradeFlags(cmd *cobra.Command, args *upgradeArgs) {
 	cmd.PersistentFlags().BoolVar(&args.force, "force", false,
 		"Apply the upgrade without eligibility checks and testing for changes "+
 			"in profile default values")
-	cmd.PersistentFlags().StringVarP(&args.versionsURI, "versionsURI", "u",
-		versionsMapURL, "URI for operator versions to Istio versions map")
 }
 
 // Upgrade command upgrades Istio control plane in-place with eligibility checks
@@ -110,6 +110,7 @@ func UpgradeCmd() *cobra.Command {
 // upgrade is the main function for Upgrade command
 func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *logger) (err error) {
 	l.logAndPrintf("Client - istioctl version: %s\n", opversion.OperatorVersionString)
+	args.inFilename = strings.TrimSpace(args.inFilename)
 
 	// Generates values for args.inFilename ICP specs yaml
 	targetValues, err := genProfile(true, args.inFilename, "",
@@ -168,7 +169,12 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *logger) (err error) {
 	}
 	l.logAndPrintf("Upgrade version check passed: %v -> %v.\n", currentVersion, targetVersion)
 
-	checkUpgradeValues(currentValues, targetValues, l)
+	// Read the overridden values from args.inFilename
+	overrideValues, _, err := genOverlayICPS(args.inFilename, args.force)
+	if err != nil {
+		return fmt.Errorf("failed to generate override values from file: %v, error: %v", args.inFilename, err)
+	}
+	checkUpgradeValues(currentValues, targetValues, overrideValues, l)
 	waitForConfirmation(args.skipConfirmation, l)
 
 	// Run pre-upgrade hooks
@@ -219,12 +225,12 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *logger) (err error) {
 }
 
 // checkUpgradeValues checks the upgrade eligibility by comparing the current values with the target values
-func checkUpgradeValues(curValues string, tarValues string, l *logger) {
-	diff := compare.YAMLCmp(curValues, tarValues)
+func checkUpgradeValues(curValues, tarValues, ignoreValues string, l *logger) {
+	diff := compare.YAMLCmpWithIgnore(curValues, tarValues, nil, ignoreValues)
 	if diff == "" {
 		l.logAndPrintf("Upgrade check: Values unchanged. The target values are identical to the current values.\n")
 	} else {
-		l.logAndPrintf("Upgrade check: Warning!!! the following values will be changed as part of upgrade. "+
+		l.logAndPrintf("Upgrade check: Warning!!! The following values will be changed as part of upgrade. "+
 			"If you have not overridden these values, they will change in your cluster. Please double check they are correct:\n%s", diff)
 	}
 }
