@@ -119,11 +119,12 @@ istio-ingressgateway:
     mountPath: /etc/istio/ingressgateway-ca-certs
   ### Advanced options ############
 
-  #env:
-    # A gateway with this mode ensures that pilot generates an additional
-    # set of clusters for internal services but without Istio mTLS, to
+  env:
+    # By default, a gateway is in "standard" mode. If the mode is set to "sni-dnat", 
+    # pilot generates an additional
+    # set of clusters for internal services without Istio mTLS, to
     # enable cross cluster routing. Enable when using multi-cluster routing.
-    # ISTIO_META_ROUTER_MODE: "sni-dnat"
+    ISTIO_META_ROUTER_MODE: "standard"
   nodeSelector: {}
   tolerations: []
 
@@ -189,7 +190,7 @@ istio-egressgateway:
     secretName: istio-egressgateway-ca-certs
     mountPath: /etc/istio/egressgateway-ca-certs
   #### Advanced options ########
-  #env:
+  env:
     # Set this to "external" if and only if you want the egress gateway to
     # act as a transparent SNI gateway that routes mTLS/TLS traffic to
     # external services defined using service entries, where the service
@@ -198,10 +199,12 @@ istio-egressgateway:
     # the egress gateway sees the same set of endpoints as the sidecars
     # preserving backward compatibility
     # ISTIO_META_REQUESTED_NETWORK_VIEW: ""
-    # A gateway with this mode ensures that pilot generates an additional
+
+    # By default, a gateway is in "standard" mode. If the mode is set to "sni-dnat", 
+    # pilot generates an additional 
     # set of clusters for internal services but without Istio mTLS, to
     # enable cross cluster routing.
-    # ISTIO_META_ROUTER_MODE: "sni-dnat"
+    ISTIO_META_ROUTER_MODE: "standard"
   nodeSelector: {}
   tolerations: []
   
