@@ -100,6 +100,13 @@ func TestReplaceTrustDomainAliases(t *testing.T) {
 			principals:        []string{"/ns/some-ns/sa/some-sa"},
 			expect:            []string{"/ns/some-ns/sa/some-sa"},
 		},
+		{
+			name:              "No duplicated principals for prefix",
+			trustDomainBundle: NewTrustDomainBundle("new-td", []string{"old-td"}),
+			principals:        []string{"*-td/ns/some-ns/sa/some-sa"},
+			// Rather than output *-td/ns/some-ns/sa/some-sa once for each trust domain.
+			expect:            []string{"*-td/ns/some-ns/sa/some-sa"},
+		},
 	}
 
 	for _, tc := range testCases {

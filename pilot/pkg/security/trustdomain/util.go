@@ -48,3 +48,12 @@ func suffixMatch(a string, pattern string) bool {
 	pattern = strings.TrimPrefix(pattern, "*")
 	return strings.HasSuffix(a, pattern)
 }
+
+func isKeyInList(key string, list []string) bool {
+	for _, l := range list {
+		if key == l {
+			return true
+		}
+	}
+	return false
+}
