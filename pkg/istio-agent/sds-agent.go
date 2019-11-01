@@ -224,6 +224,7 @@ func StartSDS(conf *AgentConf, isSidecar bool, podNamespace string) (*sds.Server
 
 	// Next to the envoy config, writeable dir (mounted as mem)
 	serverOptions.WorkloadUDSPath = LocalSDS
+	serverOptions.UseLocalJWT = true
 
 	// TODO: remove the caching, workload has a single cert
 	workloadSecretCache, _ := newSecretCache(serverOptions)
