@@ -23,17 +23,12 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
-	"istio.io/istio/pkg/test/framework/components/pilot"
-	"istio.io/istio/pkg/test/framework/resource"
 )
 
 var (
 	inst istio.Instance
-	g    galley.Instance
-	p    pilot.Instance
 )
 
 // This test requires `--istio.test.env=kube` because it tests istioctl managing k8s webhook configurations.
@@ -44,17 +39,6 @@ func TestMain(m *testing.M) {
 		RequireEnvironment(environment.Kube).
 		// Deploy Istio
 		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
-		Setup(func(ctx resource.Context) (err error) {
-			if g, err = galley.New(ctx, galley.Config{}); err != nil {
-				return err
-			}
-			if p, err = pilot.New(ctx, pilot.Config{
-				Galley: g,
-			}); err != nil {
-				return err
-			}
-			return nil
-		}).
 		Run()
 }
 
@@ -72,9 +56,6 @@ func TestWebhookManagement(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			g := galley.NewOrFail(t, ctx, galley.Config{})
-			_ = pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
-
 			// Test that webhook configurations are enabled through istioctl successfully.
 			args := []string{"experimental", "post-install", "webhook", "enable", "--validation", "--webhook-secret",
 				"dns.istio-galley-service-account", "--namespace", "istio-system", "--validation-path", "./config/galley-webhook.yaml",
