@@ -25,6 +25,7 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	coreV1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
@@ -584,6 +585,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 		},
 		Labels:         labels.Instance{"app": "prod-app"},
 		ServiceAccount: "spiffe://cluster.local/ns/nsa/sa/svcaccount",
+		TLSMode:        model.DisabledTLSModeLabel,
 	}
 	if len(podServices) != 1 {
 		t.Fatalf("expected 1 instance, got %v", len(podServices))
@@ -632,6 +634,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 		},
 		Labels:         labels.Instance{"app": "prod-app", "istio-locality": "region.zone"},
 		ServiceAccount: "spiffe://cluster.local/ns/nsa/sa/svcaccount",
+		TLSMode:        model.DisabledTLSModeLabel,
 	}
 	if len(podServices) != 1 {
 		t.Fatalf("expected 1 instance, got %v", len(podServices))
@@ -1149,6 +1152,84 @@ func TestController_ExternalNameService(t *testing.T) {
 		if len(instances) != 0 {
 			t.Errorf("should be exactly 0 instance: len(instances) = %v", len(instances))
 		}
+	}
+}
+
+func TestCompareEndpoints(t *testing.T) {
+	addressA := v1.EndpointAddress{IP: "1.2.3.4", Hostname: "a"}
+	addressB := v1.EndpointAddress{IP: "1.2.3.4", Hostname: "b"}
+	portA := v1.EndpointPort{Name: "a"}
+	portB := v1.EndpointPort{Name: "b"}
+	cases := []struct {
+		name string
+		a    *v1.Endpoints
+		b    *v1.Endpoints
+		want bool
+	}{
+		{"both empty", &v1.Endpoints{}, &v1.Endpoints{}, true},
+		{
+			"just not ready endpoints",
+			&v1.Endpoints{Subsets: []v1.EndpointSubset{
+				{NotReadyAddresses: []v1.EndpointAddress{addressA}},
+			}},
+			&v1.Endpoints{},
+			false,
+		},
+		{
+			"not ready to ready",
+			&v1.Endpoints{Subsets: []v1.EndpointSubset{
+				{NotReadyAddresses: []v1.EndpointAddress{addressA}},
+			}},
+			&v1.Endpoints{Subsets: []v1.EndpointSubset{
+				{Addresses: []v1.EndpointAddress{addressA}},
+			}},
+			false,
+		},
+		{
+			"ready and not ready address",
+			&v1.Endpoints{Subsets: []v1.EndpointSubset{
+				{
+					NotReadyAddresses: []v1.EndpointAddress{addressB},
+					Addresses:         []v1.EndpointAddress{addressA},
+				},
+			}},
+			&v1.Endpoints{Subsets: []v1.EndpointSubset{
+				{Addresses: []v1.EndpointAddress{addressA}},
+			}},
+			true,
+		},
+		{
+			"different addresses",
+			&v1.Endpoints{Subsets: []v1.EndpointSubset{
+				{Addresses: []v1.EndpointAddress{addressB}},
+			}},
+			&v1.Endpoints{Subsets: []v1.EndpointSubset{
+				{Addresses: []v1.EndpointAddress{addressA}},
+			}},
+			false,
+		},
+		{
+			"different ports",
+			&v1.Endpoints{Subsets: []v1.EndpointSubset{
+				{Addresses: []v1.EndpointAddress{addressA}, Ports: []v1.EndpointPort{portA}},
+			}},
+			&v1.Endpoints{Subsets: []v1.EndpointSubset{
+				{Addresses: []v1.EndpointAddress{addressA}, Ports: []v1.EndpointPort{portB}},
+			}},
+			false,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			got := compareEndpoints(tt.a, tt.b)
+			inverse := compareEndpoints(tt.b, tt.a)
+			if got != tt.want {
+				t.Errorf("Compare endpoints got %v, want %v", got, tt.want)
+			}
+			if got != inverse {
+				t.Errorf("Expected to be commutative, but was not")
+			}
+		})
 	}
 }
 

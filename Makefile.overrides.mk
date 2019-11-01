@@ -17,8 +17,10 @@
 # this repo is not yet on the container plan by default
 BUILD_WITH_CONTAINER ?= 0
 
+ifeq ($(BUILD_WITH_CONTAINER),1)
 # create phony targets for the top-level items in the repo
 PHONYS := $(shell ls | grep -v Makefile)
 .PHONY: $(PHONYS)
 $(PHONYS):
 	@$(MAKE) $@
+endif

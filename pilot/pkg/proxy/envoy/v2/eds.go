@@ -97,7 +97,7 @@ func loadAssignment(c *EdsCluster) *xdsapi.ClusterLoadAssignment {
 
 // buildEnvoyLbEndpoint packs the endpoint based on istio info.
 func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string, port uint32,
-	network string, weight uint32, mtlsReady bool) *endpoint.LbEndpoint {
+	network string, weight uint32, tlsMode string) *endpoint.LbEndpoint {
 
 	var addr core.Address
 	switch family {
@@ -134,12 +134,12 @@ func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
 	// Istio endpoint level tls transport socket configuation depends on this logic
 	// Do not remove
-	ep.Metadata = util.BuildLbEndpointMetadata(uid, network, mtlsReady)
+	ep.Metadata = util.BuildLbEndpointMetadata(uid, network, tlsMode)
 
 	return ep
 }
 
-func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint, mtlsReady bool) (*endpoint.LbEndpoint, error) {
+func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint, tlsMode string) (*endpoint.LbEndpoint, error) {
 	err := model.ValidateNetworkEndpointAddress(e)
 	if err != nil {
 		return nil, err
@@ -165,7 +165,7 @@ func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint, mtlsReady bool) (*
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
 	// Istio endpoint level tls transport socket configuation depends on this logic
 	// Do not remove
-	ep.Metadata = util.BuildLbEndpointMetadata(e.UID, e.Network, mtlsReady)
+	ep.Metadata = util.BuildLbEndpointMetadata(e.UID, e.Network, tlsMode)
 
 	return ep, nil
 }
@@ -299,7 +299,7 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 						Locality:        ep.GetLocality(),
 						LbWeight:        ep.Endpoint.LbWeight,
 						Attributes:      ep.Service.Attributes,
-						MTLSReady:       ep.MTLSReady,
+						TLSMode:         ep.TLSMode,
 					})
 				}
 			}
@@ -339,8 +339,8 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 			push.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
 			adsLog.Debugf("EDS: Cluster %q (host:%s ports:%v labels:%v) has no instances", clusterName, hostname, port, subsetLabels)
 		}
-		edsInstances.With(clusterTag.Value(clusterName)).Record(float64(len(instances)))
 		locEps = localityLbEndpointsFromInstances(instances)
+		updateEdsStats(locEps, clusterName)
 	}
 
 	for i := 0; i < len(locEps); i++ {
@@ -524,7 +524,7 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []*endpoint.LocalityLbEndpoints {
 	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
 	for _, instance := range instances {
-		lbEp, err := networkEndpointToEnvoyEndpoint(&instance.Endpoint, instance.MTLSReady)
+		lbEp, err := networkEndpointToEnvoyEndpoint(&instance.Endpoint, instance.TLSMode)
 		if err != nil {
 			adsLog.Errorf("EDS: Unexpected pilot model endpoint v1 to v2 conversion: %v", err)
 			totalXDSInternalErrors.Increment()
@@ -602,6 +602,17 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 	if svc == nil {
 		// Shouldn't happen here - but just in case fallback
 		return s.loadAssignmentsForClusterLegacy(push, clusterName)
+	}
+
+	// Service resolution type might have changed and Cluster may be still in the EDS cluster list of "XdsConnection.Clusters".
+	// This can happen if a ServiceEntry's resolution is changed from STATIC to DNS which changes the Envoy cluster type from
+	// EDS to STRICT_DNS. When pushEds is called before Envoy sends the updated cluster list via Endpoint request which in turn
+	// will update "XdsConnection.Clusters", we might accidentally send EDS updates for STRICT_DNS cluster. This check gaurds
+	// against such behavior and returns nil. When the updated cluster warms up in Envoy, it would update with new endpoints
+	// automatically.
+	if svc.Resolution != model.ClientSideLB {
+		adsLog.Infof("XdsConnection has %s in its eds clusters but its resolution now is updated to %v, skipping it.", clusterName, svc.Resolution)
+		return nil
 	}
 
 	svcPort, f := svc.Ports.GetByPort(port)
@@ -854,7 +865,7 @@ func buildLocalityLbEndpointsFromShards(
 				localityEpMap[ep.Locality] = locLbEps
 			}
 			if ep.EnvoyEndpoint == nil {
-				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep.UID, ep.Family, ep.Address, ep.EndpointPort, ep.Network, ep.LbWeight, ep.MTLSReady)
+				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep.UID, ep.Family, ep.Address, ep.EndpointPort, ep.Network, ep.LbWeight, ep.TLSMode)
 			}
 			locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, ep.EnvoyEndpoint)
 
@@ -879,7 +890,17 @@ func buildLocalityLbEndpointsFromShards(
 	if len(locEps) == 0 {
 		push.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
 	}
-	edsInstances.With(clusterTag.Value(clusterName)).Record(float64(len(locEps)))
+
+	updateEdsStats(locEps, clusterName)
 
 	return locEps
+}
+
+func updateEdsStats(locEps []*endpoint.LocalityLbEndpoints, cluster string) {
+	edsInstances.With(clusterTag.Value(cluster)).Record(float64(len(locEps)))
+	epc := 0
+	for _, locLbEps := range locEps {
+		epc += len(locLbEps.GetLbEndpoints())
+	}
+	edsAllLocalityEndpoints.With(clusterTag.Value(cluster)).Record(float64(epc))
 }

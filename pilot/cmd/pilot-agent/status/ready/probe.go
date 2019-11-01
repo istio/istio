@@ -24,97 +24,88 @@ import (
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status/util"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/pkg/log"
 )
 
 // Probe for readiness.
 type Probe struct {
-	ApplicationPorts    []uint16
-	LocalHostAddr       string
-	ProxyIP             string
-	NodeType            model.NodeType
-	AdminPort           uint16
-	receivedFirstUpdate bool
-	listenersBound      bool
+	LocalHostAddr  string
+	ProxyIP        string
+	NodeType       model.NodeType
+	AdminPort      uint16
+	vports         []uint16
+	lastKnownState *probeState
+}
+
+type probeState struct {
+	serverState  uint64
+	versionStats util.Stats
 }
 
 // Check executes the probe and returns an error if the probe fails.
 func (p *Probe) Check() error {
-	// First, check that Envoy has received a configuration update from Pilot.
-	if err := p.checkUpdated(); err != nil {
-		return err
-	}
-
-	// Envoy has received some listener configuration, make sure that configuration has been received for
-	// any of the inbound ports.
-	if p.NodeType == model.Router {
-		if err := p.checkInboundConfigured(); err != nil {
-			return err
+	// Initialize the ServerState to 2 (PRE_INITIALIZING) because 0 indicates LIVE.
+	if p.lastKnownState == nil {
+		p.lastKnownState = &probeState{
+			serverState: uint64(admin.ServerInfo_PRE_INITIALIZING),
 		}
+	}
+	// First, check that Envoy has received a configuration update from Pilot.
+	if err := p.checkConfigStatus(); err != nil {
+		return err
 	}
 
 	return p.isEnvoyReady()
 }
 
-// checkApplicationPorts verifies that Envoy has received configuration for all ports exposed by the application container.
-// Notes it is used only by envoy in Router mode.
-func (p *Probe) checkInboundConfigured() error {
-	if len(p.ApplicationPorts) > 0 {
-		listeningPorts, listeners, err := util.GetInboundListeningPorts(p.LocalHostAddr, p.AdminPort, p.NodeType)
-		if err != nil {
-			return err
-		}
+// checkConfigStatus checks to make sure initial configs have been received from Pilot.
+func (p *Probe) checkConfigStatus() error {
+	s, err := util.GetVersionStats(p.LocalHostAddr, p.AdminPort)
 
-		// The CDS/LDS updates will contain everything, so just ensuring at least one port has been configured
-		// should be sufficient. The full check is mainly to provide a full inspection.
-		for _, appPort := range p.ApplicationPorts {
-			if !listeningPorts[appPort] {
-				err = multierror.Append(err, fmt.Errorf("envoy missing listener for inbound application port: %d", appPort))
-			}
-		}
-		if err != nil {
-			return multierror.Append(fmt.Errorf("failed checking application ports. listeners=%s", listeners), err)
-		}
+	// If there is timeout, Envoy may be busy processing the config - just return the last known state.
+	if err != nil && !isTimeout(err) {
+		return multierror.Prefix(err, "failed retrieving Envoy stats:")
 	}
-	return nil
-}
 
-// checkUpdated checks to make sure updates have been received from Pilot
-func (p *Probe) checkUpdated() error {
-	if p.receivedFirstUpdate {
+	if err == nil {
+		p.lastKnownState.versionStats.CDSVersion = s.CDSVersion
+		p.lastKnownState.versionStats.LDSVersion = s.LDSVersion
+	} else {
+		log.Warnf("config status timed out. using last known values cds status: %d,lds status: %d", p.lastKnownState.versionStats.CDSVersion,
+			p.lastKnownState.versionStats.LDSVersion)
+	}
+
+	if p.lastKnownState.versionStats.CDSVersion > 0 && p.lastKnownState.versionStats.LDSVersion > 0 {
 		return nil
 	}
 
-	s, err := util.GetStats(p.LocalHostAddr, p.AdminPort)
-	if err != nil {
-		return err
-	}
-
-	CDSUpdated := s.CDSUpdatesSuccess > 0 || s.CDSUpdatesRejection > 0
-	LDSUpdated := s.LDSUpdatesSuccess > 0 || s.LDSUpdatesRejection > 0
-	if CDSUpdated && LDSUpdated {
-		p.receivedFirstUpdate = true
-		return nil
-	}
-
-	return fmt.Errorf("config not received from Pilot (is Pilot running?): %s", s.String())
+	return fmt.Errorf("config not received from Pilot (is Pilot running?) %s", p.lastKnownState.versionStats.String())
 }
 
-// checkServerInfo checks to ensure that Envoy is in the READY state
-func (p *Probe) checkServerInfo() error {
-	info, err := util.GetServerInfo(p.LocalHostAddr, p.AdminPort)
-	if err != nil {
-		return fmt.Errorf("failed to get server info: %v", err)
+// checkServerState checks to ensure that Envoy is in the READY state
+func (p *Probe) checkServerState() error {
+	state, err := util.GetServerState(p.LocalHostAddr, p.AdminPort)
+
+	// If there is timeout, Envoy may be busy processing the config - just return the last known state.
+	if err != nil && !isTimeout(err) {
+		return multierror.Prefix(err, "failed retrieving Envoy server state stat:")
 	}
 
-	if info.GetState() != admin.ServerInfo_LIVE {
-		return fmt.Errorf("server is not live, current state is: %v", info.GetState().String())
+	if err == nil {
+		p.lastKnownState.serverState = *state
+	} else {
+		log.Warnf("config server state timed out. using last known state %s", admin.ServerInfo_State(p.lastKnownState.serverState).String())
+	}
+
+	if admin.ServerInfo_State(p.lastKnownState.serverState) != admin.ServerInfo_LIVE {
+		return fmt.Errorf("server is not live, current state is: %s", admin.ServerInfo_State(*state).String())
 	}
 
 	return nil
 }
 
 func (p *Probe) isEnvoyReady() error {
-	if se := p.checkServerInfo(); se != nil {
+	if se := p.checkServerState(); se != nil {
 		return se
 	}
 	if pe := p.pingVirtualListeners(); pe != nil {
@@ -125,16 +116,19 @@ func (p *Probe) isEnvoyReady() error {
 
 // pingVirtualListeners checks to ensure that Envoy is actually listenening on the port.
 func (p *Probe) pingVirtualListeners() error {
-	if len(p.ProxyIP) == 0 || p.listenersBound {
+	if len(p.ProxyIP) == 0 {
 		return nil
 	}
 
 	// Check if traffic capture ports are actually listening.
-	vports, err := util.GetVirtualListenerPorts(p.LocalHostAddr, p.AdminPort)
-	if err != nil {
-		return err
+	if len(p.vports) == 0 {
+		vports, err := util.GetVirtualListenerPorts(p.LocalHostAddr, p.AdminPort)
+		if err != nil {
+			return err
+		}
+		p.vports = append(p.vports, vports...)
 	}
-	for _, vport := range vports {
+	for _, vport := range p.vports {
 		con, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", p.ProxyIP, vport), time.Second*1)
 		if con != nil {
 			con.Close()
@@ -144,6 +138,12 @@ func (p *Probe) pingVirtualListeners() error {
 		}
 	}
 
-	p.listenersBound = true
 	return nil
+}
+
+func isTimeout(err error) bool {
+	if err, ok := err.(net.Error); ok && err.Timeout() {
+		return true
+	}
+	return false
 }

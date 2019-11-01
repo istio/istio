@@ -226,6 +226,23 @@ func (c *Controller) createCacheHandler(informer cache.SharedIndexInformer, otyp
 	return cacheHandler{informer: informer, handler: handler}
 }
 
+// compareEndpoints returns true if the two endpoints are the same in aspects Pilot cares about
+// This currently means only looking at "Ready" endpoints
+func compareEndpoints(a, b *v1.Endpoints) bool {
+	if len(a.Subsets) != len(b.Subsets) {
+		return false
+	}
+	for i := range a.Subsets {
+		if !reflect.DeepEqual(a.Subsets[i].Ports, b.Subsets[i].Ports) {
+			return false
+		}
+		if !reflect.DeepEqual(a.Subsets[i].Addresses, b.Subsets[i].Addresses) {
+			return false
+		}
+	}
+	return true
+}
+
 func (c *Controller) createEDSCacheHandler(informer cache.SharedIndexInformer, otype string) cacheHandler {
 	handler := &kube.ChainHandler{Funcs: []kube.Handler{c.notify}}
 
@@ -241,7 +258,7 @@ func (c *Controller) createEDSCacheHandler(informer cache.SharedIndexInformer, o
 				oldE := old.(*v1.Endpoints)
 				curE := cur.(*v1.Endpoints)
 
-				if !reflect.DeepEqual(oldE.Subsets, curE.Subsets) {
+				if !compareEndpoints(oldE, curE) {
 					incrementEvent(otype, "update")
 					c.queue.Push(kube.Task{Handler: handler.Apply, Obj: cur, Event: model.EventUpdate})
 				} else {
@@ -476,7 +493,7 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 					uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
 				}
 			}
-			mtlsReady := kube.PodMTLSReady(pod)
+			tlsMode := kube.PodTLSMode(pod)
 
 			// identify the port by name. K8S EndpointPort uses the service port name
 			for _, port := range ss.Ports {
@@ -494,7 +511,7 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 						Service:        svc,
 						Labels:         podLabels,
 						ServiceAccount: sa,
-						MTLSReady:      mtlsReady,
+						TLSMode:        tlsMode,
 					})
 				}
 			}
@@ -771,7 +788,7 @@ func (c *Controller) getEndpoints(podIP, address string, endpointPort int32, svc
 		Service:        svc,
 		Labels:         podLabels,
 		ServiceAccount: sa,
-		MTLSReady:      kube.PodMTLSReady(pod),
+		TLSMode:        kube.PodTLSMode(pod),
 	}
 }
 
@@ -930,7 +947,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 					labels = map[string]string(configKube.ConvertLabels(pod.ObjectMeta))
 				}
 
-				mtlsReady := kube.PodMTLSReady(pod)
+				tlsMode := kube.PodTLSMode(pod)
 
 				// EDS and ServiceEntry use name for service port - ADS will need to
 				// map to numbers.
@@ -945,7 +962,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 						Network:         c.endpointNetwork(ea.IP),
 						Locality:        locality,
 						Attributes:      model.ServiceAttributes{Name: ep.Name, Namespace: ep.Namespace},
-						MTLSReady:       mtlsReady,
+						TLSMode:         tlsMode,
 					})
 				}
 			}

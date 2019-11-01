@@ -25,6 +25,7 @@ import (
 	security "istio.io/api/security/v1beta1"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 )
@@ -105,7 +106,7 @@ func TestNewModel(t *testing.T) {
 		},
 	}
 
-	got := NewModelV1alpha1("", nil, role, []*istio_rbac.ServiceRoleBinding{binding1, binding2})
+	got := NewModelV1alpha1(trustdomain.NewTrustDomainBundle("", nil), role, []*istio_rbac.ServiceRoleBinding{binding1, binding2})
 	want := Model{
 		Permissions: []Permission{
 			fullPermission("perm-1"),
@@ -145,11 +146,13 @@ func TestNewModelV1beta1(t *testing.T) {
 					{
 						Names:      []string{"principal"},
 						Properties: []KeyValues{},
+						v1beta1:    true,
 					},
 				},
 				Permissions: []Permission{
 					{
 						AllowAll: true,
+						v1beta1:  true,
 					},
 				},
 			},
@@ -169,12 +172,14 @@ func TestNewModelV1beta1(t *testing.T) {
 				Principals: []Principal{
 					{
 						AllowAll: true,
+						v1beta1:  true,
 					},
 				},
 				Permissions: []Permission{
 					{
 						Hosts:       []string{"host"},
 						Constraints: []KeyValues{},
+						v1beta1:     true,
 					},
 				},
 			},
@@ -192,11 +197,13 @@ func TestNewModelV1beta1(t *testing.T) {
 						Constraints: []KeyValues{
 							{"destination.ip": []string{"value-destination.ip-1", "value-destination.ip-2"}},
 						},
+						v1beta1: true,
 					},
 				},
 				Principals: []Principal{
 					{
 						AllowAll: true,
+						v1beta1:  true,
 					},
 				},
 			},
@@ -212,6 +219,7 @@ func TestNewModelV1beta1(t *testing.T) {
 				Permissions: []Permission{
 					{
 						AllowAll: true,
+						v1beta1:  true,
 					},
 				},
 				Principals: []Principal{
@@ -219,6 +227,7 @@ func TestNewModelV1beta1(t *testing.T) {
 						Properties: []KeyValues{
 							{"request.headers": []string{"value-request.headers-1", "value-request.headers-2"}},
 						},
+						v1beta1: true,
 					},
 				},
 			},
@@ -288,6 +297,7 @@ func TestNewModelV1beta1(t *testing.T) {
 							{"destination.port": []string{"value-destination.port-1", "value-destination.port-2"}},
 							{"connection.sni": []string{"value-connection.sni-1", "value-connection.sni-2"}},
 						},
+						v1beta1: true,
 					},
 					{
 						Hosts: []string{"h3"},
@@ -296,6 +306,7 @@ func TestNewModelV1beta1(t *testing.T) {
 							{"destination.port": []string{"value-destination.port-1", "value-destination.port-2"}},
 							{"connection.sni": []string{"value-connection.sni-1", "value-connection.sni-2"}},
 						},
+						v1beta1: true,
 					},
 				},
 				Principals: []Principal{
@@ -316,6 +327,7 @@ func TestNewModelV1beta1(t *testing.T) {
 							{"request.auth.claims": []string{"value-request.auth.claims-1", "value-request.auth.claims-2"}},
 							{"request.auth.claims[groups]": []string{"value-request.auth.claims[groups]-1", "value-request.auth.claims[groups]-2"}},
 						},
+						v1beta1: true,
 					},
 					{
 						Names: []string{"p3"},
@@ -331,6 +343,7 @@ func TestNewModelV1beta1(t *testing.T) {
 							{"request.auth.claims": []string{"value-request.auth.claims-1", "value-request.auth.claims-2"}},
 							{"request.auth.claims[groups]": []string{"value-request.auth.claims[groups]-1", "value-request.auth.claims[groups]-2"}},
 						},
+						v1beta1: true,
 					},
 				},
 			},
@@ -339,7 +352,7 @@ func TestNewModelV1beta1(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := NewModelV1beta1("", nil, tc.rule)
+			got := NewModelV1beta1(trustdomain.NewTrustDomainBundle("", nil), tc.rule)
 			if !reflect.DeepEqual(*got, tc.want) {
 				t.Errorf("\n got %+v\nwant %+v", *got, tc.want)
 			}
@@ -456,49 +469,6 @@ func TestModel_Generate(t *testing.T) {
 					}
 				}
 			}
-		}
-	}
-}
-
-func TestReplaceTrustDomainAliases(t *testing.T) {
-	type inStruct struct {
-		trustDomain        string
-		trustDomainAliases []string
-		users              []string
-	}
-	testCases := []struct {
-		name   string
-		in     inStruct
-		expect []string
-	}{
-		{
-			name:   "No trust domain aliases (no change in trust domain)",
-			in:     inStruct{"cluster.local", nil, []string{"cluster.local/ns/foo/sa/bar"}},
-			expect: []string{"cluster.local/ns/foo/sa/bar"},
-		},
-		{
-			name:   "One trust domain alias, one principal",
-			in:     inStruct{"td2", []string{"td1"}, []string{"td1/ns/foo/sa/bar"}},
-			expect: []string{"td2/ns/foo/sa/bar", "td1/ns/foo/sa/bar"},
-		},
-		{
-			name:   "One trust domain alias, two principals",
-			in:     inStruct{"td1", []string{"cluster.local"}, []string{"cluster.local/ns/foo/sa/bar", "cluster.local/ns/yyy/sa/zzz"}},
-			expect: []string{"td1/ns/foo/sa/bar", "cluster.local/ns/foo/sa/bar", "td1/ns/yyy/sa/zzz", "cluster.local/ns/yyy/sa/zzz"},
-		},
-		{
-			name: "Two trust domain aliases, two principals",
-			in: inStruct{"td2", []string{"td1", "cluster.local"},
-				[]string{"cluster.local/ns/foo/sa/bar", "td1/ns/yyy/sa/zzz"}},
-			expect: []string{"td2/ns/foo/sa/bar", "td1/ns/foo/sa/bar", "cluster.local/ns/foo/sa/bar",
-				"td2/ns/yyy/sa/zzz", "td1/ns/yyy/sa/zzz", "cluster.local/ns/yyy/sa/zzz"},
-		},
-	}
-
-	for _, tc := range testCases {
-		got := replaceTrustDomainAliases(tc.in.trustDomain, tc.in.trustDomainAliases, tc.in.users)
-		if !reflect.DeepEqual(got, tc.expect) {
-			t.Errorf("%s failed. Expect: %s. Got: %s", tc.name, tc.expect, got)
 		}
 	}
 }

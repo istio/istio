@@ -9,7 +9,7 @@ metadata:
     traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
   creationTimestamp: null
   labels:
-    security.istio.io/mtlsReady: "true"
+    security.istio.io/tlsMode: istio
   name: hellopod
 spec:
   containers:
@@ -46,8 +46,6 @@ spec:
     - NONE
     - --statusPort
     - "15020"
-    - --applicationPorts
-    - "80"
     - --concurrency
     - "2"
     env:
@@ -74,8 +72,6 @@ spec:
       valueFrom:
         fieldRef:
           fieldPath: spec.serviceAccountName
-    - name: ISTIO_AUTO_MTLS_ENABLED
-      value: "true"
     - name: ISTIO_META_POD_NAME
       valueFrom:
         fieldRef:
@@ -88,12 +84,10 @@ spec:
       value: "false"
     - name: ISTIO_META_INTERCEPTION_MODE
       value: REDIRECT
-    - name: ISTIO_META_INCLUDE_INBOUND_PORTS
-      value: "80"
     - name: ISTIO_META_WORKLOAD_NAME
       value: hellopod
     - name: ISTIO_META_OWNER
-      value: kubernetes://api/v1/namespaces/default/pods/hellopod
+      value: kubernetes://apis/v1/namespaces/default/pods/hellopod
     image: docker.io/istio/proxyv2:unittest
     imagePullPolicy: IfNotPresent
     name: istio-proxy

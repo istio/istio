@@ -21,7 +21,6 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
 	"text/template"
@@ -58,14 +57,13 @@ import (
 const trustworthyJWTPath = "/var/run/secrets/tokens/istio-token"
 
 var (
-	role             = &model.Proxy{}
-	proxyIP          string
-	registry         serviceregistry.ServiceRegistry
-	trustDomain      string
-	pilotIdentity    string
-	mixerIdentity    string
-	statusPort       uint16
-	applicationPorts []string
+	role          = &model.Proxy{}
+	proxyIP       string
+	registry      serviceregistry.ServiceRegistry
+	trustDomain   string
+	pilotIdentity string
+	mixerIdentity string
+	statusPort    uint16
 
 	// proxy config flags (named identically)
 	configPath               string
@@ -376,6 +374,8 @@ var (
 						option.PodIP(podIP),
 						option.ControlPlaneAuth(controlPlaneAuthEnabled),
 						option.DisableReportCalls(disableInternalTelemetry),
+						option.SDSTokenPath(sdsTokenPath),
+						option.SDSUDSPath(sdsUDSPath),
 					}
 
 					// Check if nodeIP carries IPv4 or IPv6 and set up proxy accordingly
@@ -417,11 +417,6 @@ var (
 			ctx, cancel := context.WithCancel(context.Background())
 			// If a status port was provided, start handling status probes.
 			if statusPort > 0 {
-				parsedPorts, err := parseApplicationPorts()
-				if err != nil {
-					cancel()
-					return err
-				}
 				localHostAddr := "127.0.0.1"
 				if proxyIPv6 {
 					localHostAddr = "[::1]"
@@ -443,7 +438,6 @@ var (
 					ProxyIP:            proxyAddr,
 					AdminPort:          proxyAdminPort,
 					StatusPort:         statusPort,
-					ApplicationPorts:   parsedPorts,
 					KubeAppHTTPProbers: prober,
 					NodeType:           role.Type,
 				})
@@ -602,21 +596,6 @@ func detectSds(controlPlaneBootstrap bool, sdsAddress, trustworthyJWTPath string
 	return true, trustworthyJWTPath
 }
 
-func parseApplicationPorts() ([]uint16, error) {
-	parsedPorts := make([]uint16, 0, len(applicationPorts))
-	for _, port := range applicationPorts {
-		port := strings.TrimSpace(port)
-		if len(port) > 0 {
-			parsedPort, err := strconv.ParseUint(port, 10, 16)
-			if err != nil {
-				return nil, err
-			}
-			parsedPorts = append(parsedPorts, uint16(parsedPort))
-		}
-	}
-	return parsedPorts, nil
-}
-
 func timeDuration(dur *types.Duration) time.Duration {
 	out, err := types.DurationFromProto(dur)
 	if err != nil {
@@ -668,8 +647,6 @@ func init() {
 
 	proxyCmd.PersistentFlags().Uint16Var(&statusPort, "statusPort", 0,
 		"HTTP Port on which to serve pilot agent status. If zero, agent status will not be provided.")
-	proxyCmd.PersistentFlags().StringSliceVar(&applicationPorts, "applicationPorts", []string{},
-		"Ports exposed by the application. Used to determine that Envoy is configured and ready to receive traffic.")
 
 	// Flags for proxy configuration
 	values := mesh.DefaultProxyConfig()

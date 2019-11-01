@@ -13,17 +13,9 @@ var (
 	// Description: There was an internal error in the toolchain. This is almost always a bug in the implementation.
 	InternalError = diag.NewMessageType(diag.Error, "IST0001", "Internal error: %v")
 
-	// NotYetImplemented defines a diag.MessageType for message "NotYetImplemented".
-	// Description: A feature that the configuration is depending on is not implemented yet.
-	NotYetImplemented = diag.NewMessageType(diag.Error, "IST0002", "Not yet implemented: %s")
-
-	// ParseError defines a diag.MessageType for message "ParseError".
-	// Description: There was a parse error during the parsing of the configuration text
-	ParseError = diag.NewMessageType(diag.Warning, "IST0003", "Parse error: %s")
-
 	// Deprecated defines a diag.MessageType for message "Deprecated".
 	// Description: A feature that the configuration is depending on is now deprecated.
-	Deprecated = diag.NewMessageType(diag.Warning, "IST0004", "Deprecated: %s")
+	Deprecated = diag.NewMessageType(diag.Warning, "IST0002", "Deprecated: %s")
 
 	// ReferencedResourceNotFound defines a diag.MessageType for message "ReferencedResourceNotFound".
 	// Description: A resource being referenced does not exist.
@@ -46,8 +38,8 @@ var (
 	IstioProxyVersionMismatch = diag.NewMessageType(diag.Warning, "IST0105", "The version of the Istio proxy running on the pod does not match the version used by the istio injector (pod version: %s; injector version: %s). This often happens after upgrading the Istio control-plane and can be fixed by redeploying the pod.")
 
 	// SchemaValidationError defines a diag.MessageType for message "SchemaValidationError".
-	// Description: The resource has one or more schema validation errors.
-	SchemaValidationError = diag.NewMessageType(diag.Error, "IST0106", "The resource has one or more schema validation errors: %v")
+	// Description: The resource has a schema validation error.
+	SchemaValidationError = diag.NewMessageType(diag.Error, "IST0106", "Schema validation error: %v")
 
 	// MisplacedAnnotation defines a diag.MessageType for message "MisplacedAnnotation".
 	// Description: An Istio annotation is applied to the wrong kind of resource.
@@ -66,24 +58,6 @@ var (
 func NewInternalError(entry *resource.Entry, detail string) diag.Message {
 	return diag.NewMessage(
 		InternalError,
-		originOrNil(entry),
-		detail,
-	)
-}
-
-// NewNotYetImplemented returns a new diag.Message based on NotYetImplemented.
-func NewNotYetImplemented(entry *resource.Entry, detail string) diag.Message {
-	return diag.NewMessage(
-		NotYetImplemented,
-		originOrNil(entry),
-		detail,
-	)
-}
-
-// NewParseError returns a new diag.Message based on ParseError.
-func NewParseError(entry *resource.Entry, detail string) diag.Message {
-	return diag.NewMessage(
-		ParseError,
 		originOrNil(entry),
 		detail,
 	)
@@ -149,11 +123,11 @@ func NewIstioProxyVersionMismatch(entry *resource.Entry, proxyVersion string, in
 }
 
 // NewSchemaValidationError returns a new diag.Message based on SchemaValidationError.
-func NewSchemaValidationError(entry *resource.Entry, combinedErr error) diag.Message {
+func NewSchemaValidationError(entry *resource.Entry, err error) diag.Message {
 	return diag.NewMessage(
 		SchemaValidationError,
 		originOrNil(entry),
-		combinedErr,
+		err,
 	)
 }
 

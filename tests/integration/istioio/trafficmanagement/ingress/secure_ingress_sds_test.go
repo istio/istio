@@ -28,7 +28,7 @@ func TestSecureIngressSDS(t *testing.T) {
 		Run(istioio.NewBuilder("traffic_management__ingress__secure_gateways_sds").
 			// Configure a TLS ingress gateway for a single host.
 			// https://preliminary.istio.io/docs/tasks/traffic-management/ingress/secure-ingress-sds/#configure-a-tls-ingress-gateway-for-a-single-host
-			Add(istioio.Command{
+			Add(istioio.Script{
 				Input: istioio.Inline{
 					FileName: "httpbin_deployment.sh",
 					Value: `
@@ -52,6 +52,10 @@ metadata:
   name: httpbin
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: httpbin
+      version: v1
   template:
     metadata:
       labels:
@@ -66,12 +70,12 @@ spec:
         - containerPort: 8000
 EOF`,
 				},
-			}, istioio.Command{
+			}, istioio.Script{
 				Input: istioio.Inline{
 					FileName: "httpbin_gen_keys.sh",
 					Value:    `./scripts/mtls-go-example.sh "httpbin.example.com" "httpbin.example.com"`,
 				},
-			}, istioio.Command{
+			}, istioio.Script{
 				Input: istioio.Inline{
 					FileName: "create_httpbin_tls_secret.sh",
 					Value: `
@@ -81,7 +85,7 @@ kubectl create -n istio-system secret generic httpbin-credential \
 
 kubectl get -n istio-system secret httpbin-credential`,
 				},
-			}, istioio.Command{
+			}, istioio.Script{
 				Input: istioio.Inline{
 					FileName: "create_httpbin_tls_gateway.sh",
 					Value: `
@@ -105,7 +109,7 @@ spec:
     - "httpbin.example.com"
 EOF`,
 				},
-			}, istioio.Command{
+			}, istioio.Script{
 				Input: istioio.Inline{
 					FileName: "create_httpbin_ingress_routes.sh",
 					Value: `
@@ -132,7 +136,7 @@ spec:
         host: httpbin
 EOF`,
 				},
-			}, istioio.Command{
+			}, istioio.Script{
 				Input: istioio.Inline{
 					FileName: "check_envoy_sds_update_1.sh",
 					Value: `
@@ -151,7 +155,7 @@ done
 
 echo "ingress gateway SDS stats does not meet in 30 seconds. Expected 1 but got ${stats}" >&2`,
 				},
-			}, istioio.Command{
+			}, istioio.Script{
 				Input: istioio.IfMinikube{
 					Then: istioio.Inline{
 						FileName: "curl_httpbin_tls_gateway_minikube.sh",
@@ -186,7 +190,7 @@ curl -v -HHost:httpbin.example.com \
 https://httpbin.example.com:"$SECURE_INGRESS_PORT"/status/418`,
 					},
 				},
-			}, istioio.Command{
+			}, istioio.Script{
 				Input: istioio.Inline{
 					FileName: "rotate_httpbin_tls_secret.sh",
 					Value: `
@@ -202,7 +206,7 @@ kubectl create -n istio-system secret generic httpbin-credential \
 
 kubectl get -n istio-system secret httpbin-credential`,
 				},
-			}, istioio.Command{
+			}, istioio.Script{
 				Input: istioio.Inline{
 					FileName: "check_envoy_sds_update_2.sh",
 					Value: `
@@ -224,7 +228,7 @@ echo "ingress gateway SDS stats does not meet in 30 seconds. Expected 2 but got 
 			}).
 
 			// Rotate secret and send HTTPS request with new credentials.
-			Add(istioio.Command{
+			Add(istioio.Script{
 				Input: istioio.IfMinikube{
 					Then: istioio.Inline{
 						FileName: "curl_httpbin_tls_gateway_minikube_new_tls_secret.sh",
@@ -263,7 +267,7 @@ https://httpbin.example.com:"$SECURE_INGRESS_PORT"/status/418`,
 
 			// Configure a TLS ingress gateway for multiple hosts.
 			// https://preliminary.istio.io/docs/tasks/traffic-management/ingress/secure-ingress-sds/#configure-a-tls-ingress-gateway-for-multiple-hosts
-			Add(istioio.Command{
+			Add(istioio.Script{
 				Input: istioio.Inline{
 					FileName: "restore_httpbin_tls_secret.sh",
 					Value: `
@@ -275,7 +279,7 @@ kubectl create -n istio-system secret generic httpbin-credential \
 --from-file=key=httpbin.example.com/3_application/private/httpbin.example.com.key.pem \
 --from-file=cert=httpbin.example.com/3_application/certs/httpbin.example.com.cert.pem`,
 				},
-			}, istioio.Command{
+			}, istioio.Script{
 				Input: istioio.Inline{
 					FileName: "helloworld_deployment.sh",
 					Value: `
@@ -299,10 +303,15 @@ metadata:
   name: helloworld-v1
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: helloworld-v1
+      version: v1
   template:
     metadata:
       labels:
         app: helloworld-v1
+        version: v1
     spec:
       containers:
       - name: helloworld
@@ -315,7 +324,7 @@ spec:
         - containerPort: 5000
 EOF`,
 				},
-			}, istioio.Command{
+			}, istioio.Script{
 				Input: istioio.Inline{
 					FileName: "create_helloworld_tls_secret.sh",
 					Value: `
@@ -327,7 +336,7 @@ kubectl create -n istio-system secret generic helloworld-credential \
 
 kubectl get -n istio-system secret helloworld-credential`,
 				},
-			}, istioio.Command{
+			}, istioio.Script{
 				Input: istioio.Inline{
 					FileName: "create_helloworld_tls_gateway.sh",
 					Value: `
@@ -384,7 +393,7 @@ EOF`,
 			}).
 
 			// Send an HTTPS request to access the helloworld service TLS gateway.
-			Add(istioio.Command{
+			Add(istioio.Script{
 				Input: istioio.Inline{
 					FileName: "check_envoy_sds_update_4.sh",
 					Value: `
@@ -403,7 +412,7 @@ done
 
 echo "ingress gateway SDS stats does not meet in 30 seconds. Expected 4 but got ${stats}" >&2`,
 				},
-			}, istioio.Command{
+			}, istioio.Script{
 				Input: istioio.IfMinikube{
 					Then: istioio.Inline{
 						FileName: "curl_helloworld_tls_gateway_minikube.sh",
@@ -442,7 +451,7 @@ https://helloworld-v1.example.com:"$SECURE_INGRESS_PORT"/hello`,
 
 			// Configure a mutual TLS ingress gateway.
 			// https://preliminary.istio.io/docs/tasks/traffic-management/ingress/secure-ingress-sds/#configure-a-mutual-tls-ingress-gateway
-			Add(istioio.Command{
+			Add(istioio.Script{
 				Input: istioio.Inline{
 					FileName: "rotate_httpbin_mtls_secret.sh",
 					Value: `
@@ -457,7 +466,7 @@ kubectl create -n istio-system secret generic httpbin-credential  \
 
 kubectl get -n istio-system secret httpbin-credential`,
 				},
-			}, istioio.Command{
+			}, istioio.Script{
 				Input: istioio.Inline{
 					FileName: "create_httpbin_mtls_gateway.sh",
 					Value: `
@@ -481,7 +490,7 @@ spec:
    - "httpbin.example.com"
 EOF`,
 				},
-			}, istioio.Command{
+			}, istioio.Script{
 				Input: istioio.Inline{
 					FileName: "check_envoy_sds_update_5.sh",
 					Value: `
@@ -503,7 +512,7 @@ echo "ingress gateway SDS stats does not meet in 30 seconds. Expected 5 but got 
 			}).
 
 			// Send an HTTPS request to access the httpbin service mTLS gateway.
-			Add(istioio.Command{
+			Add(istioio.Script{
 				Input: istioio.IfMinikube{
 					Then: istioio.Inline{
 						FileName: "curl_httpbin_mtls_gateway_minikube.sh",
@@ -545,7 +554,7 @@ https://httpbin.example.com:"$SECURE_INGRESS_PORT"/status/418`,
 			}).
 
 			// Cleanup
-			Defer(istioio.Command{
+			Defer(istioio.Script{
 				Input: istioio.Inline{
 					FileName: "check_envoy_sds_update_5.sh",
 					Value: `

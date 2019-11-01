@@ -144,6 +144,7 @@ global:
         requests:
           cpu: 10m
           memory: 10Mi
+    # use fully qualified image names for alternate path to proxy.
     image: proxyv2
 
     # cluster domain. Default value is "cluster.local".
@@ -367,7 +368,7 @@ global:
     # or its DestinationRule does not have TLSSettings specified, Istio configures client side
     # TLS configuration automatically, based on the server side mTLS authentication policy and the
     # availibity of sidecars.
-    auto: true
+    auto: false
 
   # Lists the secrets you need to use to pull Istio images from a private registry.
   imagePullSecrets: []
@@ -414,7 +415,7 @@ global:
   # NOTE: If using templates, follow the pattern in the commented example below.
   # podDNSSearchNamespaces:
   # - global
-  # - "[[ valueOrDefault .DeploymentMeta.Namespace \"default\" ]].global"
+  # - "{{ valueOrDefault .DeploymentMeta.Namespace \"default\" }}.global"
 
   # If set to true, the pilot and citadel mtls will be exposed on the
   # ingress gateway

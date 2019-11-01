@@ -22,8 +22,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gogo/protobuf/types"
-
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
@@ -92,8 +90,7 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 		},
 		//TODO: start mixer first, get its address
 		Mesh: bootstrap.MeshArgs{
-			MixerAddress:    "istio-mixer.istio-system:9091",
-			RdsRefreshDelay: types.DurationProto(10 * time.Millisecond),
+			MixerAddress: "istio-mixer.istio-system:9091",
 		},
 		Config: bootstrap.ConfigArgs{
 			KubeConfig: env.IstioSrc + "/tests/util/kubeconfig",

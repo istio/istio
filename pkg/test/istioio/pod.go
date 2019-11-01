@@ -27,7 +27,7 @@ type PodWait func(ctx Context) kube.PodFetchFunc
 func (s PodWait) run(ctx Context) {
 	ctx.Helper()
 
-	if _, err := ctx.Env.WaitUntilPodsAreReady(s(ctx)); err != nil {
+	if _, err := ctx.KubeEnv().WaitUntilPodsAreReady(s(ctx)); err != nil {
 		ctx.Fatal("failed waiting for pods to start: %v", err)
 	}
 }
@@ -36,7 +36,7 @@ func (s PodWait) run(ctx Context) {
 func SinglePodWait(namespace string, selectors ...string) PodWait {
 	return func(ctx Context) kube.PodFetchFunc {
 		ctx.Helper()
-		return ctx.Env.NewSinglePodFetch(namespace, selectors...)
+		return ctx.KubeEnv().NewSinglePodFetch(namespace, selectors...)
 	}
 }
 
@@ -44,6 +44,6 @@ func SinglePodWait(namespace string, selectors ...string) PodWait {
 func MultiPodWait(namespace string, selectors ...string) PodWait {
 	return func(ctx Context) kube.PodFetchFunc {
 		ctx.Helper()
-		return ctx.Env.NewPodFetch(namespace, selectors...)
+		return ctx.KubeEnv().NewPodFetch(namespace, selectors...)
 	}
 }

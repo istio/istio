@@ -25,7 +25,7 @@ spec:
       creationTimestamp: null
       labels:
         app: status
-        security.istio.io/mtlsReady: "true"
+        security.istio.io/tlsMode: istio
     spec:
       containers:
       - image: fake.docker.io/google-samples/traffic-go-gke:1.0
@@ -61,8 +61,6 @@ spec:
         - NONE
         - --statusPort
         - "123"
-        - --applicationPorts
-        - 1,2,3
         - --concurrency
         - "2"
         env:
@@ -89,8 +87,6 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.serviceAccountName
-        - name: ISTIO_AUTO_MTLS_ENABLED
-          value: "true"
         - name: ISTIO_META_POD_NAME
           valueFrom:
             fieldRef:
@@ -103,8 +99,6 @@ spec:
           value: "false"
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
-        - name: ISTIO_META_INCLUDE_INBOUND_PORTS
-          value: "80"
         - name: ISTIO_METAJSON_ANNOTATIONS
           value: |
             {"readiness.status.sidecar.istio.io/applicationPorts":"1,2,3","readiness.status.sidecar.istio.io/failureThreshold":"300","readiness.status.sidecar.istio.io/initialDelaySeconds":"100","readiness.status.sidecar.istio.io/periodSeconds":"200","status.sidecar.istio.io/port":"123"}
@@ -114,7 +108,7 @@ spec:
         - name: ISTIO_META_WORKLOAD_NAME
           value: statusPort
         - name: ISTIO_META_OWNER
-          value: kubernetes://api/apps/v1/namespaces/default/deployments/statusPort
+          value: kubernetes://apis/apps/v1/namespaces/default/deployments/statusPort
         image: docker.io/istio/proxyv2:unittest
         imagePullPolicy: IfNotPresent
         name: istio-proxy

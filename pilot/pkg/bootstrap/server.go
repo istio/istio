@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/security/pkg/k8s/chiron"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/gogo/protobuf/types"
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	multierror "github.com/hashicorp/go-multierror"
@@ -161,9 +160,8 @@ func init() {
 // MeshArgs provide configuration options for the mesh. If ConfigFile is provided, an attempt will be made to
 // load the mesh from the file. Otherwise, a default mesh will be used with optional overrides.
 type MeshArgs struct {
-	ConfigFile      string
-	MixerAddress    string
-	RdsRefreshDelay *types.Duration
+	ConfigFile   string
+	MixerAddress string
 }
 
 // ConfigArgs provide configuration options for the configuration controller. If FileDir is set, that directory will
@@ -174,9 +172,6 @@ type ConfigArgs struct {
 	ClusterRegistriesNamespace string
 	KubeConfig                 string
 	FileDir                    string
-
-	// Controller if specified, this controller overrides the other config settings.
-	Controller model.ConfigStoreCache
 
 	// DistributionTracking control
 	DistributionCacheRetention time.Duration
@@ -199,9 +194,7 @@ func (ca *ConfigArgs) buildLedger() ledger.Ledger {
 
 // ConsulArgs provides configuration for the Consul service registry.
 type ConsulArgs struct {
-	Config    string
 	ServerURL string
-	Interval  time.Duration
 }
 
 // ServiceArgs provides the composite configuration for all service registries in the system.
@@ -795,14 +788,14 @@ func (s *Server) sseMCPController(args *PilotArgs,
 	clients *[]*sink.Client,
 	configStores *[]model.ConfigStoreCache) {
 	clientNodeID := "SSEMCP"
-	s.discoveryOptions = &coredatamodel.DiscoveryOptions{
-		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
-	}
-	s.mcpDiscovery = coredatamodel.NewMCPDiscovery(s.discoveryOptions)
 	s.incrementalMcpOptions = &coredatamodel.Options{
 		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
 	}
-	controller := coredatamodel.NewSyntheticServiceEntryController(s.incrementalMcpOptions, s.mcpDiscovery)
+	controller := coredatamodel.NewSyntheticServiceEntryController(s.incrementalMcpOptions)
+	s.discoveryOptions = &coredatamodel.DiscoveryOptions{
+		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
+	}
+	s.mcpDiscovery = coredatamodel.NewMCPDiscovery(controller, s.discoveryOptions)
 	incrementalSinkOptions := &sink.Options{
 		CollectionOptions: []sink.CollectionOptions{
 			{
@@ -827,8 +820,6 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 		if err := s.initMCPConfigController(args); err != nil {
 			return err
 		}
-	} else if args.Config.Controller != nil {
-		s.configController = args.Config.Controller
 	} else if args.Config.FileDir != "" {
 		store := memory.Make(schemas.Istio)
 		configController := memory.NewController(store)
@@ -1066,7 +1057,6 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		clusterID := args.Config.ControllerOptions.ClusterID
 		s.incrementalMcpOptions.XDSUpdater = s.EnvoyXdsServer
 		s.incrementalMcpOptions.ClusterID = clusterID
-		s.discoveryOptions.XDSUpdater = s.EnvoyXdsServer
 		s.discoveryOptions.Env = environment
 		s.discoveryOptions.ClusterID = clusterID
 	}

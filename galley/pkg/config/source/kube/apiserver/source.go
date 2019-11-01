@@ -101,13 +101,13 @@ func (s *Source) Dispatch(h event.Handler) {
 // Start implements processor.Source
 func (s *Source) Start() {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	if s.started {
 		scope.Source.Warn("Source.Start: already started")
+		s.mu.Unlock()
 		return
 	}
 	s.started = true
+	s.mu.Unlock()
 
 	// Create a set of pending resources. These will be matched up with incoming CRD events for creating watchers for
 	// each resource that we expect.

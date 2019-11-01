@@ -26,9 +26,8 @@ import (
 )
 
 const (
-	rbacEnableTmpl             = "testdata/rbac/v1alpha1/istio-rbac-enable.yaml.tmpl"
-	rbacRulesTmpl              = "testdata/rbac/v1alpha1/istio-rbac-rules.yaml.tmpl"
-	destinationRuleDisableMtls = "testdata/networking/v1alpha3/destination-rule-no-mtls.yaml"
+	rbacEnableTmpl = "testdata/rbac/v1alpha1/istio-rbac-enable.yaml.tmpl"
+	rbacRulesTmpl  = "testdata/rbac/v1alpha1/istio-rbac-rules.yaml.tmpl"
 )
 
 func setupRbacRules(t *testing.T, rules []string) *deployableConfig {
@@ -66,11 +65,8 @@ func TestRBACForSidecar(t *testing.T) {
 	if tc.Kube.AuthSdsEnabled {
 		t.Skipf("Skipping %s: auth_sds_enable=true=true.", t.Name())
 	}
-	yamls := []string{rbacEnableTmpl, rbacRulesTmpl}
-	if !tc.Kube.AuthEnabled {
-		yamls = append(yamls, destinationRuleDisableMtls)
-	}
-	cfgs := setupRbacRules(t, yamls)
+
+	cfgs := setupRbacRules(t, []string{rbacEnableTmpl, rbacRulesTmpl})
 	if cfgs != nil {
 		if err := cfgs.Setup(); err != nil {
 			t.Fatal(err)

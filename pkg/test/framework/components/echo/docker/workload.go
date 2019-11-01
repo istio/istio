@@ -121,7 +121,6 @@ func newWorkload(e *native.Environment, cfg echo.Config, dumpDir string) (out *w
 		// Need NET_ADMIN for iptables.
 		capabilities = []string{"NET_ADMIN"}
 
-		applicationPorts := w.portMap.applicationPorts()
 		pilotHost := fmt.Sprintf("istio-pilot.%s", e.SystemNamespace)
 
 		pilotAddress := fmt.Sprintf("%s:%d", pilotHost, discoveryPort(cfg.Pilot))
@@ -135,8 +134,8 @@ func newWorkload(e *native.Environment, cfg echo.Config, dumpDir string) (out *w
 			fmt.Sprintf("%s:%s", pilotHost, ip.String()),
 		}
 
-		agentArgs := fmt.Sprintf("--proxyLogLevel debug --statusPort %d --domain %s --trust-domain %s --applicationPorts %s",
-			agentStatusPort, e.Domain, e.Domain, applicationPorts)
+		agentArgs := fmt.Sprintf("--proxyLogLevel debug --statusPort %d --domain %s --trust-domain %s",
+			agentStatusPort, e.Domain, e.Domain)
 
 		metaJSONLabels := fmt.Sprintf("{\"app\":\"%s\"}", cfg.Service)
 		interceptionMode := "REDIRECT"
@@ -155,7 +154,6 @@ func newWorkload(e *native.Environment, cfg echo.Config, dumpDir string) (out *w
 			"ENVOY_USER=istio-proxy",
 			"ISTIO_AGENT_FLAGS="+agentArgs,
 			"ISTIO_INBOUND_INTERCEPTION_MODE="+interceptionMode,
-			"ISTIO_INBOUND_PORTS="+applicationPorts,
 			"ISTIO_SERVICE_CIDR=*",
 			"ISTIO_CP_AUTH="+authPolicy.String(),
 			"ISTIO_META_ISTIO_PROXY_SHA="+envoy.LatestStableSHA,
@@ -163,7 +161,6 @@ func newWorkload(e *native.Environment, cfg echo.Config, dumpDir string) (out *w
 			"ISTIO_META_CONFIG_NAMESPACE="+cfg.Namespace.Name(),
 			"ISTIO_METAJSON_LABELS="+metaJSONLabels,
 			"ISTIO_META_INTERCEPTION_MODE="+interceptionMode,
-			"ISTIO_META_INCLUDE_INBOUND_PORTS"+applicationPorts,
 		)
 	} else {
 		w.readinessProbe = noSidecarReadinessProbe(w.portMap.http().hostPort)

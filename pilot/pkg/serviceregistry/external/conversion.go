@@ -127,13 +127,6 @@ func convertServices(cfg model.Config) []*model.Service {
 	return out
 }
 
-func endpointMTLSReady(labels map[string]string) bool {
-	if labels != nil && labels[model.MTLSReadyLabelName] == "true" {
-		return true
-	}
-	return false
-}
-
 func convertEndpoint(service *model.Service, servicePort *networking.Port,
 	endpoint *networking.ServiceEntry_Endpoint) *model.ServiceInstance {
 	var instancePort uint32
@@ -151,7 +144,7 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 		family = model.AddressFamilyTCP
 	}
 
-	mtlsReady := endpointMTLSReady(endpoint.Labels)
+	tlsMode := model.GetTLSModeFromEndpointLabels(endpoint.Labels)
 
 	return &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
@@ -163,17 +156,19 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 			Locality:    endpoint.Locality,
 			LbWeight:    endpoint.Weight,
 		},
-		// TODO ServiceAccount
-		Service:   service,
-		Labels:    endpoint.Labels,
-		MTLSReady: mtlsReady,
+		Service: service,
+		Labels:  endpoint.Labels,
+		TLSMode: tlsMode,
 	}
 }
 
-func convertInstances(cfg model.Config) []*model.ServiceInstance {
+func convertInstances(cfg model.Config, services []*model.Service) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
-	for _, service := range convertServices(cfg) {
+	if services == nil {
+		services = convertServices(cfg)
+	}
+	for _, service := range services {
 		for _, serviceEntryPort := range serviceEntry.Ports {
 			if len(serviceEntry.Endpoints) == 0 &&
 				serviceEntry.Resolution == networking.ServiceEntry_DNS {
@@ -187,9 +182,9 @@ func convertInstances(cfg model.Config) []*model.ServiceInstance {
 						Port:        int(serviceEntryPort.Number),
 						ServicePort: convertPort(serviceEntryPort),
 					},
-					// TODO ServiceAccount
 					Service: service,
 					Labels:  nil,
+					TLSMode: model.DisabledTLSModeLabel,
 				})
 			} else {
 				for _, endpoint := range serviceEntry.Endpoints {

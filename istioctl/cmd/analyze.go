@@ -19,18 +19,43 @@ import (
 	"os"
 	"strings"
 
+	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 
+	"istio.io/pkg/env"
+
 	"istio.io/istio/galley/pkg/config/analysis/analyzers"
+	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/local"
 	"istio.io/istio/galley/pkg/config/meta/metadata"
 	cfgKube "istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/pkg/kube"
 )
 
+type AnalyzerFoundIssuesError struct{}
+
+const (
+	FoundIssueString = "Analyzer found issues."
+)
+
+func (f AnalyzerFoundIssuesError) Error() string {
+	return FoundIssueString
+}
+
 var (
 	useKube      bool
 	useDiscovery string
+	failureLevel = messageThreshold{diag.Warning} // messages at least this level will generate an error exit code
+	outputLevel  = messageThreshold{diag.Info}    // messages at least this level will be included in the output
+	colorize     bool
+
+	termEnvVar = env.RegisterStringVar("TERM", "", "Specifies terminal type.  Use 'dumb' to suppress color output")
+
+	colorPrefixes = map[diag.Level]string{
+		diag.Info:    "",           // no special color for info messages
+		diag.Warning: "\033[33m",   // yellow
+		diag.Error:   "\033[1;31m", // bold red
+	}
 )
 
 // Analyze command
@@ -111,20 +136,54 @@ istioctl experimental analyze -k -d false
 			// If files are provided, treat them (collectively) as a source.
 			if len(files) > 0 {
 				if err = sa.AddFileKubeSource(files); err != nil {
-					return err
+					// Partial success is possible, so don't return early, but do print.
+					// TODO(https://github.com/istio/istio/issues/17862): If we had any such errors, we should return a nonzero exit code
+					fmt.Fprintf(cmd.ErrOrStderr(), "Error(s) reading files: %v", err)
 				}
 			}
 
-			messages, err := sa.Analyze(cancel)
+			result, err := sa.Analyze(cancel)
 			if err != nil {
 				return err
 			}
 
-			for _, m := range messages {
-				fmt.Fprintf(cmd.OutOrStdout(), "%v\n", m.String())
+			// Maybe output details about which analyzers ran
+			if verbose {
+				if len(result.SkippedAnalyzers) > 0 {
+					fmt.Fprintln(cmd.ErrOrStderr(), "Skipped analyzers:")
+					for _, a := range result.SkippedAnalyzers {
+						fmt.Fprintln(cmd.ErrOrStderr(), "\t", a)
+					}
+				}
+				if len(result.ExecutedAnalyzers) > 0 {
+					fmt.Fprintln(cmd.ErrOrStderr(), "Executed analyzers:")
+					for _, a := range result.ExecutedAnalyzers {
+						fmt.Fprintln(cmd.ErrOrStderr(), "\t", a)
+					}
+				}
+				fmt.Fprintln(cmd.ErrOrStderr())
 			}
 
-			return nil
+			// Filter outputMessages by specified level
+			var outputMessages diag.Messages
+			for _, m := range result.Messages {
+				if m.Type.Level().IsWorseThanOrEqualTo(outputLevel.Level) {
+					outputMessages = append(outputMessages, m)
+				}
+			}
+
+			// Print validation message output, or a line indicating that none were found
+			if len(outputMessages) == 0 {
+				fmt.Fprintln(cmd.ErrOrStderr(), "\u2714 No validation issues found.")
+			} else {
+				for _, m := range outputMessages {
+					fmt.Fprintln(cmd.OutOrStdout(), renderMessage(m))
+				}
+			}
+
+			// Return code is based on the unfiltered validation message list
+			// We're intentionally keeping failure threshold and output threshold decoupled for now
+			return errorIfMessagesExceedThreshold(result.Messages)
 		},
 	}
 
@@ -134,7 +193,13 @@ istioctl experimental analyze -k -d false
 		"'true' to enable service discovery, 'false' to disable it. "+
 			"Defaults to true if --use-kube is set, false otherwise. "+
 			"Analyzers requiring resources made available by enabling service discovery will be skipped.")
-
+	analysisCmd.PersistentFlags().BoolVar(&colorize, "color", istioctlColorDefault(analysisCmd),
+		"Default true.  Disable with '=false' or set $TERM to dumb")
+	analysisCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
+	analysisCmd.PersistentFlags().Var(&failureLevel, "failure-threshold",
+		fmt.Sprintf("The severity level of analysis at which to set a non-zero exit code. Valid values: %v", diag.GetAllLevelStrings()))
+	analysisCmd.PersistentFlags().Var(&outputLevel, "output-threshold",
+		fmt.Sprintf("The severity level of analysis at which to display messages. Valid values: %v", diag.GetAllLevelStrings()))
 	return analysisCmd
 }
 
@@ -160,4 +225,97 @@ func serviceDiscovery() (bool, error) {
 	default:
 		return false, fmt.Errorf("invalid argument value for discovery")
 	}
+}
+
+func colorPrefix(m diag.Message) string {
+	if !colorize {
+		return ""
+	}
+
+	prefix, ok := colorPrefixes[m.Type.Level()]
+	if !ok {
+		return ""
+	}
+
+	return prefix
+}
+
+func colorSuffix() string {
+	if !colorize {
+		return ""
+	}
+
+	return "\033[0m"
+}
+
+func renderMessage(m diag.Message) string {
+	origin := ""
+	if m.Origin != nil {
+		origin = " (" + m.Origin.FriendlyName() + ")"
+	}
+	return fmt.Sprintf(
+		"%s%v%s [%v]%s %s", colorPrefix(m), m.Type.Level(), colorSuffix(), m.Type.Code(), origin, fmt.Sprintf(m.Type.Template(), m.Parameters...))
+}
+
+func istioctlColorDefault(cmd *cobra.Command) bool {
+	if strings.EqualFold(termEnvVar.Get(), "dumb") {
+		return false
+	}
+
+	file, ok := cmd.OutOrStdout().(*os.File)
+	if ok {
+		if !isatty.IsTerminal(file.Fd()) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func errorIfMessagesExceedThreshold(messages []diag.Message) error {
+	foundIssues := false
+	for _, m := range messages {
+		if m.Type.Level().IsWorseThanOrEqualTo(failureLevel.Level) {
+			foundIssues = true
+		}
+	}
+
+	if foundIssues {
+		return AnalyzerFoundIssuesError{}
+	}
+
+	return nil
+}
+
+type messageThreshold struct {
+	diag.Level
+}
+
+// String satisfies interface pflag.Value
+func (m *messageThreshold) String() string {
+	return m.Level.String()
+}
+
+// Type satisfies interface pflag.Value
+func (m *messageThreshold) Type() string {
+	return "Level"
+}
+
+// Set satisfies interface pflag.Value
+func (m *messageThreshold) Set(s string) error {
+	l, err := LevelFromString(s)
+	if err != nil {
+		return err
+	}
+	m.Level = l
+	return nil
+}
+
+func LevelFromString(s string) (diag.Level, error) {
+	val, ok := diag.GetUppercaseStringToLevelMap()[strings.ToUpper(s)]
+	if !ok {
+		return diag.Level{}, fmt.Errorf("%q not a valid option, please choose from: %v", s, diag.GetAllLevelStrings())
+	}
+
+	return val, nil
 }

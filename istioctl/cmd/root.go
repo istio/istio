@@ -68,10 +68,11 @@ var (
 func defaultLogOptions() *log.Options {
 	o := log.DefaultOptions()
 
-	// These scopes are, by default, too chatty for command line use
+	// These scopes are, at the default "INFO" level, too chatty for command line use
 	o.SetOutputLevel("validation", log.ErrorLevel)
 	o.SetOutputLevel("processing", log.ErrorLevel)
 	o.SetOutputLevel("source", log.ErrorLevel)
+	o.SetOutputLevel("analysis", log.WarnLevel)
 
 	return o
 }
@@ -165,7 +166,6 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(mesh.UpgradeCmd())
 
 	experimentalCmd.AddCommand(multicluster.NewCreateRemoteSecretCommand())
-	experimentalCmd.AddCommand(multicluster.NewCreateTrustAnchorCommand())
 	experimentalCmd.AddCommand(multicluster.NewMulticlusterCommand())
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
