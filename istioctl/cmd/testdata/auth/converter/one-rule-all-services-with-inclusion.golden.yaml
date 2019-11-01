@@ -1,32 +1,23 @@
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: global-deny-all
-  namespace: my-root-namespace
+  name: default-deny-all
+  namespace: default
 spec:
+  {}
 ---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: ns1-allow-all
-  namespace: ns1
-spec:
-  rules:
-    - {}
----
-apiVersion: security.istio.io/v1beta1
-kind: AuthorizationPolicy
-metadata:
-  name: ns2-allow-all
+  name: ns2-deny-all
   namespace: ns2
 spec:
-  rules:
-    - {}
+  {}
 ---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: default-all
+  name: service-wildcard-0
   namespace: default
 spec:
   rules:
@@ -43,4 +34,6 @@ spec:
     - operation:
         methods:
         - GET
+  selector:
+    matchLabels: {}
 ---

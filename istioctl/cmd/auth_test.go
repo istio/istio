@@ -113,7 +113,7 @@ func TestAuthValidator(t *testing.T) {
 	}
 }
 
-func TestAuthUpgrade(t *testing.T) {
+func TestAuthConvert(t *testing.T) {
 	testCases := []struct {
 		name              string
 		rbacV1alpha1Files []string
@@ -123,81 +123,147 @@ func TestAuthUpgrade(t *testing.T) {
 		golden            string
 	}{
 		{
+			name: "One access rule with multiple services",
+			rbacV1alpha1Files: []string{
+				"testdata/auth/converter/one-rule-multiple-services.yaml",
+				"testdata/auth/converter/two-subjects.yaml",
+				"testdata/auth/converter/rbac-global-on.yaml",
+			},
+			servicesFiles: []string{
+				"testdata/auth/converter/svc-bookinfo.yaml",
+			},
+			configMapFile: "testdata/auth/converter/istio-configmap.yaml",
+			golden:        "testdata/auth/converter/one-rule-multiple-services.golden.yaml",
+		},
+		{
 			name: "RBAC policy with (unsupported) group field",
-			rbacV1alpha1Files: []string{"testdata/auth/upgrade/one-rule-one-service.yaml",
-				"testdata/auth/upgrade/group-in-subject.yaml", "testdata/auth/upgrade/rbac-global-on.yaml"},
-			configMapFile: "testdata/auth/upgrade/istio-configmap.yaml",
+			rbacV1alpha1Files: []string{
+				"testdata/auth/converter/one-rule-one-service.yaml",
+				"testdata/auth/converter/group-in-subject.yaml",
+				"testdata/auth/converter/rbac-global-on.yaml",
+			},
+			servicesFiles: []string{
+				"testdata/auth/converter/svc-bookinfo.yaml",
+			},
+			configMapFile: "testdata/auth/converter/istio-configmap.yaml",
 			expectedError: "Error: failed to convert policies: cannot convert binding to sources: serviceRoleBinding with group is not supported\n",
 		},
 		{
-			name:              "Missing ClusterRbacConfig",
-			rbacV1alpha1Files: []string{"testdata/auth/upgrade/one-rule-one-service.yaml"},
-			golden:            "testdata/auth/upgrade/empty.yaml",
+			name: "Missing ClusterRbacConfig",
+			rbacV1alpha1Files: []string{
+				"testdata/auth/converter/one-rule-one-service.yaml",
+			},
+			servicesFiles: []string{
+				"testdata/auth/converter/svc-bookinfo.yaml",
+			},
+			configMapFile: "testdata/auth/converter/istio-configmap.yaml",
+			golden:        "testdata/auth/converter/empty.yaml",
 		},
 		{
 			name: "One access rule with one service",
-			rbacV1alpha1Files: []string{"testdata/auth/upgrade/one-rule-one-service.yaml",
-				"testdata/auth/upgrade/one-subject.yaml", "testdata/auth/upgrade/rbac-global-on.yaml"},
-			servicesFiles: []string{"testdata/auth/upgrade/svc-bookinfo.yaml"},
-			configMapFile: "testdata/auth/upgrade/istio-configmap.yaml",
-			golden:        "testdata/auth/upgrade/one-rule-one-service.golden.yaml",
+			rbacV1alpha1Files: []string{
+				"testdata/auth/converter/one-rule-one-service.yaml",
+				"testdata/auth/converter/one-subject.yaml",
+				"testdata/auth/converter/rbac-global-on.yaml",
+			},
+			servicesFiles: []string{
+				"testdata/auth/converter/svc-bookinfo.yaml",
+			},
+			configMapFile: "testdata/auth/converter/istio-configmap.yaml",
+			golden:        "testdata/auth/converter/one-rule-one-service.golden.yaml",
+		},
+		{
+			name: "One access rule with two services of prefix and suffix",
+			rbacV1alpha1Files: []string{
+				"testdata/auth/converter/one-rule-two-services-prefix-suffix.yaml",
+				"testdata/auth/converter/one-subject.yaml",
+				"testdata/auth/converter/rbac-global-on.yaml",
+			},
+			servicesFiles: []string{
+				"testdata/auth/converter/svc-prefix-suffix.yaml",
+			},
+			configMapFile: "testdata/auth/converter/istio-configmap.yaml",
+			golden:        "testdata/auth/converter/one-rule-two-services-prefix-suffix.golden.yaml",
 		},
 		{
 			name: "One access rule with all services",
-			rbacV1alpha1Files: []string{"testdata/auth/upgrade/one-rule-all-services.yaml",
-				"testdata/auth/upgrade/two-subjects.yaml", "testdata/auth/upgrade/rbac-global-on.yaml"},
-			servicesFiles: []string{"testdata/auth/upgrade/svc-bookinfo.yaml"},
-			configMapFile: "testdata/auth/upgrade/istio-configmap.yaml",
-			golden:        "testdata/auth/upgrade/one-rule-all-services.golden.yaml",
+			rbacV1alpha1Files: []string{
+				"testdata/auth/converter/one-rule-all-services.yaml",
+				"testdata/auth/converter/two-subjects.yaml",
+				"testdata/auth/converter/rbac-global-on.yaml",
+			},
+			servicesFiles: []string{
+				"testdata/auth/converter/svc-bookinfo.yaml",
+			},
+			configMapFile: "testdata/auth/converter/istio-configmap.yaml",
+			golden:        "testdata/auth/converter/one-rule-all-services.golden.yaml",
 		},
 		{
 			name: "One access rule with all services with inclusion",
-			rbacV1alpha1Files: []string{"testdata/auth/upgrade/one-rule-all-services.yaml",
-				"testdata/auth/upgrade/two-subjects.yaml", "testdata/auth/upgrade/cluster-rbac-config-on-with-inclusion.yaml"},
-			servicesFiles: []string{"testdata/auth/upgrade/svc-bookinfo.yaml"},
-			golden:        "testdata/auth/upgrade/one-rule-all-services-with-inclusion.golden.yaml",
+			rbacV1alpha1Files: []string{
+				"testdata/auth/converter/one-rule-all-services.yaml",
+				"testdata/auth/converter/two-subjects.yaml",
+				"testdata/auth/converter/cluster-rbac-config-on-with-inclusion.yaml",
+			},
+			servicesFiles: []string{
+				"testdata/auth/converter/svc-bookinfo.yaml",
+			},
+			configMapFile: "testdata/auth/converter/istio-configmap.yaml",
+			golden:        "testdata/auth/converter/one-rule-all-services-with-inclusion.golden.yaml",
 		},
 		{
 			name: "One access rule with all services with exclusion",
-			rbacV1alpha1Files: []string{"testdata/auth/upgrade/one-rule-all-services.yaml",
-				"testdata/auth/upgrade/two-subjects.yaml", "testdata/auth/upgrade/cluster-rbac-config-on-with-exclusion.yaml"},
-			servicesFiles: []string{"testdata/auth/upgrade/svc-bookinfo.yaml"},
-			configMapFile: "testdata/auth/upgrade/istio-configmap.yaml",
-			golden:        "testdata/auth/upgrade/one-rule-all-services-with-exclusion.golden.yaml",
+			rbacV1alpha1Files: []string{
+				"testdata/auth/converter/one-rule-all-services.yaml",
+				"testdata/auth/converter/two-subjects.yaml",
+				"testdata/auth/converter/cluster-rbac-config-on-with-exclusion.yaml",
+			},
+			servicesFiles: []string{
+				"testdata/auth/converter/svc-bookinfo.yaml",
+			},
+			configMapFile: "testdata/auth/converter/istio-configmap.yaml",
+			golden:        "testdata/auth/converter/one-rule-all-services-with-exclusion.golden.yaml",
+		},
+
+		{
+			name: "ClusterRbacConfig only",
+			rbacV1alpha1Files: []string{
+				"testdata/auth/converter/rbac-global-on.yaml",
+			},
+			configMapFile: "testdata/auth/converter/istio-configmap.yaml",
+			golden:        "testdata/auth/converter/rbac-global-on.golden.yaml",
 		},
 		{
-			name: "One access rule with multiple services",
-			rbacV1alpha1Files: []string{"testdata/auth/upgrade/one-rule-multiple-services.yaml",
-				"testdata/auth/upgrade/two-subjects.yaml", "testdata/auth/upgrade/rbac-global-on.yaml"},
-			servicesFiles: []string{"testdata/auth/upgrade/svc-bookinfo.yaml"},
-			configMapFile: "testdata/auth/upgrade/istio-configmap.yaml",
-			golden:        "testdata/auth/upgrade/one-rule-multiple-services.golden.yaml",
+			name: "RbacConfig_ON_WITH_INCLUSION only",
+			rbacV1alpha1Files: []string{
+				"testdata/auth/converter/cluster-rbac-config-on-with-inclusion.yaml",
+			},
+			configMapFile: "testdata/auth/converter/istio-configmap.yaml",
+			golden:        "testdata/auth/converter/cluster-rbac-config-on-with-inclusion.golden.yaml",
 		},
 		{
-			name:              "ClusterRbacConfig only",
-			rbacV1alpha1Files: []string{"testdata/auth/upgrade/rbac-global-on.yaml"},
-			configMapFile:     "testdata/auth/upgrade/istio-configmap.yaml",
-			golden:            "testdata/auth/upgrade/rbac-global-on.golden.yaml",
-		},
-		{
-			name:              "RbacConfig_ON_WITH_INCLUSION only",
-			rbacV1alpha1Files: []string{"testdata/auth/upgrade/cluster-rbac-config-on-with-inclusion.yaml"},
-			golden:            "testdata/auth/upgrade/cluster-rbac-config-on-with-inclusion.golden.yaml",
-		},
-		{
-			name:              "RbacConfig_ON_WITH_EXCLUSION only",
-			rbacV1alpha1Files: []string{"testdata/auth/upgrade/cluster-rbac-config-on-with-exclusion.yaml"},
-			configMapFile:     "testdata/auth/upgrade/istio-configmap.yaml",
-			golden:            "testdata/auth/upgrade/cluster-rbac-config-on-with-exclusion.golden.yaml",
+			name: "RbacConfig_ON_WITH_EXCLUSION only",
+			rbacV1alpha1Files: []string{
+				"testdata/auth/converter/cluster-rbac-config-on-with-exclusion.yaml",
+			},
+			configMapFile: "testdata/auth/converter/istio-configmap.yaml",
+			golden:        "testdata/auth/converter/cluster-rbac-config-on-with-exclusion.golden.yaml",
 		},
 	}
 	for _, c := range testCases {
-		command := fmt.Sprintf("experimental auth upgrade -f %s -s %s -m %s",
+		// cleanupForTest clean the values of policyFiles and serviceFiles. Otherwise, the variables will be
+		// appended with new values
+		policyFiles = nil
+		serviceFiles = nil
+
+		command := fmt.Sprintf("experimental auth convert -f %s -s %s -m %s",
 			strings.Join(c.rbacV1alpha1Files, ","), strings.Join(c.servicesFiles, ","), c.configMapFile)
-		if c.expectedError != "" {
-			runCommandAndCheckExpectedCmdError(c.name, command, c.expectedError, t)
-		} else {
-			runCommandAndCheckGoldenFile(c.name, command, c.golden, t)
-		}
+		t.Run(c.name, func(t *testing.T) {
+			if c.expectedError != "" {
+				runCommandAndCheckExpectedCmdError(c.name, command, c.expectedError, t)
+			} else {
+				runCommandAndCheckGoldenFile(c.name, command, c.golden, t)
+			}
+		})
 	}
 }
