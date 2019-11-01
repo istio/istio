@@ -39,6 +39,14 @@ const (
 	// The maximum number of attempts that the command will check for the upgrade completion,
 	// which means only the target version exist and the old version pods have been terminated.
 	upgradeWaitCheckVerMaxAttempts = 60
+
+	// This message provide the guide of how to upgrade Istio data plane
+	upgradeSidecarMessage = "To upgrade the Istio data plane, you will need to re-inject it.\n" +
+		"If you’re using automatic sidecar injection, you can upgrade the sidecar by doing a rolling" +
+		" update for all the pods:\n" +
+		"    kubectl rollout restart deployment --namespace <namespace with auto injection>\n" +
+		"If you’re using manual injection, you can upgrade the sidecar by executing:\n" +
+		"    kubectl apply -f < (istioctl kube-inject -f <original application deployment yaml>)"
 )
 
 type upgradeArgs struct {
@@ -87,11 +95,10 @@ func UpgradeCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "upgrade",
 		Short: "Upgrade Istio control plane in-place",
-		Long: "The mesh upgrade command checks for upgrade version eligibility and," +
+		Long: "The upgrade command checks for upgrade version eligibility and," +
 			" if eligible, upgrades the Istio control plane components in-place. Warning: " +
 			"traffic may be disrupted during upgrade. Please ensure PodDisruptionBudgets " +
 			"are defined to maintain service continuity.",
-		Example: `mesh upgrade`,
 		RunE: func(cmd *cobra.Command, args []string) (e error) {
 			l := newLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.OutOrStderr())
 			initLogsOrExit(rootArgs)
@@ -129,9 +136,9 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *logger) (err error) {
 	targetVersion := targetICPS.GetTag()
 	if targetVersion != opversion.OperatorVersionString {
 		if !args.force {
-			return fmt.Errorf("the target version %v in %v is not supported "+
-				"by istioctl %v, please download istioctl %v and run upgrade again", targetVersion,
-				args.inFilename, opversion.OperatorVersionString, targetVersion)
+			return fmt.Errorf("the target version %v is not supported by istioctl %v, "+
+				"please download istioctl %v and run upgrade again", targetVersion,
+				opversion.OperatorVersionString, targetVersion)
 		}
 		l.logAndPrintf("Warning. The target version %v does not equal to the binary version %v",
 			targetVersion, opversion.OperatorVersionString)
@@ -204,6 +211,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *logger) (err error) {
 
 	if !args.wait {
 		l.logAndPrintf("Upgrade submitted. Please use `istioctl version` to check the current versions.")
+		l.logAndPrintf(upgradeSidecarMessage)
 		return nil
 	}
 
@@ -220,7 +228,8 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *logger) (err error) {
 		return fmt.Errorf("failed to read the upgraded Istio version. Error: %v", err)
 	}
 
-	l.logAndPrintf("Success. Now the Istio control plane is running at version %v.", upgradeVer)
+	l.logAndPrintf("Success. Now the Istio control plane is running at version %v.\n", upgradeVer)
+	l.logAndPrintf(upgradeSidecarMessage)
 	return nil
 }
 
