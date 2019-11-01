@@ -374,6 +374,8 @@ var (
 						option.PodIP(podIP),
 						option.ControlPlaneAuth(controlPlaneAuthEnabled),
 						option.DisableReportCalls(disableInternalTelemetry),
+						option.SDSTokenPath(sdsTokenPath),
+						option.SDSUDSPath(sdsUDSPath),
 					}
 
 					// Check if nodeIP carries IPv4 or IPv6 and set up proxy accordingly
