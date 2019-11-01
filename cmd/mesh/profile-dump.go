@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-
 	"text/template"
 
 	"github.com/ghodss/yaml"
@@ -28,6 +27,7 @@ import (
 	"istio.io/operator/pkg/component/component"
 	"istio.io/operator/pkg/helm"
 	"istio.io/operator/pkg/manifest"
+	"istio.io/operator/pkg/name"
 	"istio.io/operator/pkg/tpath"
 	"istio.io/operator/pkg/translate"
 	"istio.io/operator/pkg/util"
@@ -175,6 +175,34 @@ func genICPS(inFilename, profile, setOverlayYAML string, force bool, l *logger) 
 		return "", nil, err
 	}
 	return finalYAML, finalICPS, nil
+}
+
+func genOverlayICPS(filename string, force bool) (string, *v1alpha2.IstioControlPlaneSpec, error) {
+	if filename == "" {
+		return "", nil, nil
+	}
+
+	b, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return "", nil, fmt.Errorf("could not read from file %s: %s", filename, err)
+	}
+	overlayICPS, _, err := unmarshalAndValidateICP(string(b), force)
+	if err != nil {
+		return "", nil, err
+	}
+
+	globalVals := make(map[string]interface{})
+	_, err = name.SetFromPath(overlayICPS, "Values", &globalVals)
+	if err != nil {
+		return "", nil, err
+	}
+
+	overlayValues, err := yaml.Marshal(globalVals)
+	if err != nil {
+		return "", nil, err
+	}
+
+	return string(overlayValues), overlayICPS, nil
 }
 
 func genProfile(helmValues bool, inFilename, profile, setOverlayYAML, configPath string, force bool, l *logger) (string, error) {

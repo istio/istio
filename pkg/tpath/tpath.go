@@ -224,6 +224,15 @@ func WritePathContext(nc *PathContext, value interface{}) error {
 	return nil
 }
 
+func IsLeafNode(treeNode interface{}) bool {
+	switch treeNode.(type) {
+	case map[string]interface{}, []interface{}:
+		return false
+	default:
+		return true
+	}
+}
+
 // TODO Merge this into existing WritePathContext method (istio/istio#15494)
 // DeleteFromTree sets value at path of input untyped tree to nil
 func DeleteFromTree(valueTree map[string]interface{}, path util.Path, remainPath util.Path) (bool, error) {
