@@ -514,7 +514,7 @@ subsets:
       - ip: 10.40.1.5
         targetRef:
           kind: Pod
-          name: kube-dns-548976df6c-d9kkv
+          name: kube-dns-548976df6c-dxxyv
       - ip: 10.40.1.4
         targetRef:
           kind: Pod

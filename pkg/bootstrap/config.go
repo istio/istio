@@ -17,6 +17,7 @@ package bootstrap
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"os"
 	"path"
@@ -24,7 +25,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/juju/errors"
 	"golang.org/x/oauth2/google"
 
 	meshAPI "istio.io/api/mesh/v1alpha1"
@@ -273,7 +273,7 @@ func getProxyConfigOptions(config *meshAPI.ProxyConfig, metadata *model.NodeMeta
 			// in-cluster credentials are fetched by using the GCE metadata server.
 			// You may also specify environment variable GOOGLE_APPLICATION_CREDENTIALS to point a GCP credentials file.
 			if cred, err = google.FindDefaultCredentials(context.Background()); err != nil {
-				return nil, errors.Errorf("Unable to process Stackdriver tracer: %v", err)
+				return nil, fmt.Errorf("unable to process Stackdriver tracer: %v", err)
 			}
 
 			opts = append(opts, option.StackDriverEnabled(true),

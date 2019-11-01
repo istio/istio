@@ -92,7 +92,7 @@ func initMeshGatewayHosts(ctx analysis.Context) map[util.ScopedFqdn][]*resource.
 			}
 
 			for _, h := range vs.Hosts {
-				scopedFqdn := util.GetScopedFqdnHostname(hostsNamespaceScope, vsNamespace, h)
+				scopedFqdn := util.NewScopedFqdn(hostsNamespaceScope, vsNamespace, h)
 				vsNames := hostsVirtualServices[scopedFqdn]
 				if len(vsNames) == 0 {
 					hostsVirtualServices[scopedFqdn] = []*resource.Entry{r}

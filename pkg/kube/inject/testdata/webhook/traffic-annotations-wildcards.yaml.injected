@@ -20,7 +20,7 @@ spec:
       creationTimestamp: null
       labels:
         app: traffic
-        security.istio.io/mtlsReady: "true"
+        security.istio.io/tlsMode: istio
     spec:
       containers:
       - image: fake.docker.io/google-samples/traffic-go-gke:1.0

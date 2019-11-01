@@ -59,8 +59,6 @@ function download_untar_istio_release() {
 
   wget  -q "${LINUX_DIST_URL}" -P "${dir}"
   tar -xzf "${dir}/istio-${tag}-linux.tar.gz" -C "${dir}"
-
-  export ISTIOCTL_BIN="${GOPATH}/src/istio.io/istio/istio-${TAG}/bin/istioctl"
 }
 
 function build_images() {

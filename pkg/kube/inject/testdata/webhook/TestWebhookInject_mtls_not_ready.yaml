@@ -1,6 +1,6 @@
 metadata:
   labels:
-    security.istio.io/mtlsReady: "false"
+    security.istio.io/tlsMode: "disabled"
 spec:
   initContainers:
     - name: c0

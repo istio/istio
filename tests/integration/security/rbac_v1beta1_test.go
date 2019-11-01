@@ -97,6 +97,14 @@ func TestV1beta1_JWT(t *testing.T) {
 				Inject: true,
 			})
 
+			args := map[string]string{
+				"Namespace": ns.Name(),
+			}
+			policies := tmpl.EvaluateAllOrFail(t, args,
+				file.AsStringOrFail(t, "testdata/rbac/v1beta1-jwt.yaml.tmpl"))
+			g.ApplyConfigOrFail(t, ns, policies...)
+			defer g.DeleteConfigOrFail(t, ns, policies...)
+
 			var a, b echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
 				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
@@ -126,16 +134,10 @@ func TestV1beta1_JWT(t *testing.T) {
 				newTestCase("[Token1]", jwt.TokenIssuer1, "/token2", false),
 				newTestCase("[Token2]", jwt.TokenIssuer2, "/token1", false),
 				newTestCase("[Token2]", jwt.TokenIssuer2, "/token2", true),
+				newTestCase("[Token1]", jwt.TokenIssuer1, "/tokenAny", true),
+				newTestCase("[Token2]", jwt.TokenIssuer2, "/tokenAny", true),
+				newTestCase("[NoJWT]", "", "/tokenAny", false),
 			}
-
-			args := map[string]string{
-				"Namespace": ns.Name(),
-			}
-			policies := tmpl.EvaluateAllOrFail(t, args,
-				file.AsStringOrFail(t, "testdata/rbac/v1beta1-jwt.yaml.tmpl"))
-
-			g.ApplyConfigOrFail(t, ns, policies...)
-			defer g.DeleteConfigOrFail(t, ns, policies...)
 
 			rbacUtil.RunRBACTest(t, cases)
 		})
