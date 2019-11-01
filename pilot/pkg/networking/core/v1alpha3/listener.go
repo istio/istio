@@ -586,7 +586,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 			tcpNetworkFilters = buildInboundNetworkFilters(pluginParams.Env, pluginParams.Node, pluginParams.ServiceInstance)
 
 		case plugin.ListenerProtocolAuto:
-			// TODO(crazyxy) avoid bypassing authN using TCP
 			// Build filter chain options for listener configured with protocol sniffing
 			// Double the number of filter chains. Half of filter chains are used as http filter chain and half of them are used as tcp proxy
 			// id in [0, len(allChains)/2) are configured as http filter chain, [(len(allChains)/2, len(allChains)) are configured as tcp proxy

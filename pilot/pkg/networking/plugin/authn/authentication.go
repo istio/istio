@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
@@ -67,16 +68,30 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 	if mutable.Listener == nil || (len(mutable.Listener.FilterChains) != len(mutable.FilterChains)) {
 		return fmt.Errorf("expected same number of filter chains in listener (%d) and mutable (%d)", len(mutable.Listener.FilterChains), len(mutable.FilterChains))
 	}
+
+	var HTTPFilterChains []plugin.FilterChain
+	var listenerHTTPFilterChain []*listener.FilterChain
+	hasAuthnFilter := false
+
 	for i := range mutable.Listener.FilterChains {
 		if in.ListenerProtocol == plugin.ListenerProtocolHTTP || mutable.FilterChains[i].ListenerProtocol == plugin.ListenerProtocolHTTP {
 			// Adding Jwt filter and authn filter, if needed.
 			if filter := applier.JwtFilter(util.IsXDSMarshalingToAnyEnabled(in.Node)); filter != nil {
 				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
+				hasAuthnFilter = true
 			}
 			if filter := applier.AuthNFilter(in.Node.Type, util.IsXDSMarshalingToAnyEnabled(in.Node)); filter != nil {
 				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
+				hasAuthnFilter = true
 			}
+			HTTPFilterChains = append(HTTPFilterChains, mutable.FilterChains[i])
+			listenerHTTPFilterChain = append(listenerHTTPFilterChain, mutable.Listener.FilterChains[i])
 		}
+	}
+
+	if hasAuthnFilter && in.ListenerProtocol == plugin.ListenerProtocolAuto {
+		mutable.FilterChains = HTTPFilterChains
+		mutable.Listener.FilterChains = listenerHTTPFilterChain
 	}
 
 	return nil
