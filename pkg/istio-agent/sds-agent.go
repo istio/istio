@@ -130,13 +130,13 @@ var (
 	gatewaySecretChan       chan struct{}
 )
 
-// AgentConf contains the configuration of the agent, based on the injected
+// SDSAgent contains the configuration of the agent, based on the injected
 // environment:
 // - SDS hostPath if node-agent was used
 // - /etc/certs/key if Citadel or other mounted Secrets are used
 // - root cert to use for connecting to XDS server
 // - CA address, with proper defaults and detection
-type AgentConf struct {
+type SDSAgent struct {
 	// Location of JWTPath to connect to CA. If empty, SDS is not possible.
 	// If set SDS will be used - either local or via hostPath.
 	JWTPath string
@@ -157,15 +157,16 @@ type AgentConf struct {
 	SAN string
 }
 
-// DetectSDS will check if the JWT token required for local SDS is present, and set additional
-// config options for the in-process SDS agent.
+// NewSDSAgent wraps the logic for a local SDS. It will check if the JWT token required for local SDS is
+// present, and set additional config options for the in-process SDS agent.
 //
-// The JWT token is currently using a pre-defined
+// The JWT token is currently using a pre-defined audience (istio-ca) or it must match the trust domain (WIP).
+// If the JWT token is not present - the local SDS agent can't authenticate.
 //
 // If node agent and JWT are mounted: it indicates user injected a config using hostPath, and will be used.
 //
-func DetectSDS(discAddr string, tlsRequired bool) *AgentConf {
-	ac := &AgentConf{}
+func NewSDSAgent(discAddr string, tlsRequired bool) *SDSAgent {
+	ac := &SDSAgent{}
 
 	istiodHost, discPort, err := net.SplitHostPort(discAddr)
 	if err != nil {
@@ -217,7 +218,7 @@ func DetectSDS(discAddr string, tlsRequired bool) *AgentConf {
 // 3. Monitor mode - watching secret in same namespace ( Ingress)
 //
 // 4. TODO: File watching, for backward compat/migration from mounted secrets.
-func StartSDS(conf *AgentConf, isSidecar bool, podNamespace string) (*sds.Server, error) {
+func (conf *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, error) {
 	applyEnvVars()
 
 	gatewaySdsCacheOptions = workloadSdsCacheOptions

@@ -351,7 +351,7 @@ var (
 			if !sdsEnabled { // Not using citadel agent - this is either Pilot or Istiod.
 
 				// Istiod and new SDS-only mode doesn't use sdsUdsPathVar - sdsEnabled will be false.
-				sa := istio_agent.DetectSDS(discoveryAddress, controlPlaneAuthEnabled)
+				sa := istio_agent.NewSDSAgent(discoveryAddress, controlPlaneAuthEnabled)
 
 				if sa.JWTPath != "" && role.Type == model.SidecarProxy {
 					// If user injected a JWT token for SDS - use SDS.
@@ -367,7 +367,7 @@ var (
 					// Ingress: WIP, permissions needed.
 
 					// citadel node-agent not found, but we have a K8S JWT available. Start an in-process SDS.
-					_, err := istio_agent.StartSDS(sa, role.Type == model.SidecarProxy, podNamespaceVar.Get())
+					_, err := sa.Start(role.Type == model.SidecarProxy, podNamespaceVar.Get())
 					if err != nil {
 						log.Fatala("Failed to start in-process SDS", err)
 					}
