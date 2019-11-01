@@ -276,8 +276,8 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 				t, err := getCredentialToken(ctx)
 				if err != nil {
 					sdsServiceLog.Errorf("%s Close connection. Failed to get credential token from "+
-							"incoming request: %v", conIDresourceNamePrefix, err)
-						return err
+						"incoming request: %v", conIDresourceNamePrefix, err)
+					return err
 				}
 				token = t
 			}
