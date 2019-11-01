@@ -247,11 +247,15 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 			"plus the 2 fallthrough filter chains, found %d", len(listeners[0].FilterChains)+2, len(l.FilterChains))
 	}
 
+	sawFakePluginFilter := false
 	sawIpv4PassthroughCluster := false
 	sawIpv6PassthroughCluster := false
 	for _, fc := range l.FilterChains {
-		if len(fc.Filters) == 1 && fc.Filters[0].Name == xdsutil.TCPProxy &&
+		if len(fc.Filters) == 2 && fc.Filters[1].Name == xdsutil.TCPProxy &&
 			fc.Metadata.FilterMetadata[PilotMetaKey].Fields["original_listener_name"].GetStringValue() == VirtualInboundListenerName {
+			if fc.Filters[0].Name == fakePluginTCPFilter {
+				sawFakePluginFilter = true
+			}
 			if ipLen := len(fc.FilterChainMatch.PrefixRanges); ipLen != 1 {
 				t.Fatalf("expect passthrough filter chain has 1 ip address, found %d", ipLen)
 			}
@@ -275,11 +279,18 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 			if !reflect.DeepEqual(fc.FilterChainMatch.ApplicationProtocols, applicationProtocols) {
 				t.Fatalf("expect %v application protocols, found %v", applicationProtocols, fc.FilterChainMatch.ApplicationProtocols)
 			}
+			if !strings.Contains(fc.Filters[0].GetTypedConfig().String(), fakePluginHTTPFilter) {
+				t.Errorf("failed to find the fake plugin HTTP filter: %v", fc.Filters[0].GetTypedConfig().String())
+			}
 		}
 	}
 
 	if !sawIpv4PassthroughCluster {
 		t.Fatalf("fail to find the ipv4 passthrough filter chain in listener %v", l)
+	}
+
+	if !sawFakePluginFilter {
+		t.Fatalf("fail to find the fake plugin TCP filter in listener %v", l)
 	}
 
 	if len(l.ListenerFilters) != 2 {
