@@ -33,7 +33,7 @@ type Probe struct {
 	ProxyIP        string
 	NodeType       model.NodeType
 	AdminPort      uint16
-	vports         []uint16
+	listenersBound bool
 	lastKnownState *probeState
 }
 
@@ -116,19 +116,20 @@ func (p *Probe) isEnvoyReady() error {
 
 // pingVirtualListeners checks to ensure that Envoy is actually listenening on the port.
 func (p *Probe) pingVirtualListeners() error {
-	if len(p.ProxyIP) == 0 {
+	// It is OK to cache this because, for hot restarts the initial listener update check
+	// will ensure listeners are received and drain + parent shutdown wait times will ensure it is bound
+	// before child Envoy takes traffic.
+	if len(p.ProxyIP) == 0 || p.listenersBound {
 		return nil
 	}
 
 	// Check if traffic capture ports are actually listening.
-	if len(p.vports) == 0 {
-		vports, err := util.GetVirtualListenerPorts(p.LocalHostAddr, p.AdminPort)
-		if err != nil {
-			return err
-		}
-		p.vports = append(p.vports, vports...)
+	vports, err := util.GetVirtualListenerPorts(p.LocalHostAddr, p.AdminPort)
+	if err != nil {
+		return err
 	}
-	for _, vport := range p.vports {
+
+	for _, vport := range vports {
 		con, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", p.ProxyIP, vport), time.Second*1)
 		if con != nil {
 			con.Close()
@@ -137,6 +138,8 @@ func (p *Probe) pingVirtualListeners() error {
 			return fmt.Errorf("listener on address %d is still not listening: %v", vport, err)
 		}
 	}
+
+	p.listenersBound = true
 
 	return nil
 }
