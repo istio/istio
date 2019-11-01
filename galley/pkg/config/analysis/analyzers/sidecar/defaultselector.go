@@ -14,8 +14,6 @@
 package sidecar
 
 import (
-	"fmt"
-
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
@@ -55,12 +53,11 @@ func (a *DefaultSelectorAnalyzer) Analyze(c analysis.Context) {
 	})
 
 	// Check for more than one selector-less sidecar instance, per namespace
-	for ns, sidecars := range nsToSidecars {
-		if len(sidecars) > 1 {
-			for _, r := range sidecars {
-				//TODO: New message type
-				c.Report(metadata.IstioNetworkingV1Alpha3Sidecars, msg.NewInternalError(r,
-					fmt.Sprintf("TODO: Multiple sidecars with no selector in namespace %s: %v", ns, r.Metadata.Name)))
+	for ns, sList := range nsToSidecars {
+		if len(sList) > 1 {
+			sNames := getNames(sList)
+			for _, r := range sList {
+				c.Report(metadata.IstioNetworkingV1Alpha3Sidecars, msg.NewMultipleSidecarsWithoutWorkloadSelectors(r, sNames, ns))
 			}
 		}
 	}
