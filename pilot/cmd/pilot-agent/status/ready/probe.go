@@ -68,7 +68,8 @@ func (p *Probe) checkConfigStatus() error {
 		p.lastKnownState.versionStats.CDSVersion = s.CDSVersion
 		p.lastKnownState.versionStats.LDSVersion = s.LDSVersion
 	} else {
-		log.Warn("config status timed out. using last known status")
+		log.Warnf("config status timed out. using last known values cds status: %d,lds status: %d", p.lastKnownState.versionStats.CDSVersion,
+			p.lastKnownState.versionStats.LDSVersion)
 	}
 
 	if p.lastKnownState.versionStats.CDSVersion > 0 && p.lastKnownState.versionStats.LDSVersion > 0 {
@@ -90,7 +91,7 @@ func (p *Probe) checkServerState() error {
 	if err == nil {
 		p.lastKnownState.serverState = *state
 	} else {
-		log.Warn("config server state timed out. using last known status")
+		log.Warnf("config server state timed out. using last known state %s", admin.ServerInfo_State(p.lastKnownState.serverState).String())
 	}
 
 	if admin.ServerInfo_State(p.lastKnownState.serverState) != admin.ServerInfo_LIVE {
