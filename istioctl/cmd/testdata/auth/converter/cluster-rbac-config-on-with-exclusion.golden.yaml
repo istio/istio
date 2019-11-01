@@ -4,23 +4,23 @@ metadata:
   name: global-deny-all
   namespace: my-root-namespace
 spec:
+  {}
 ---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: default-productpage
-  namespace: default
+  name: ns1-allow-all
+  namespace: ns1
 spec:
   rules:
-  - from:
-    - source:
-        namespaces:
-        - istio-system
-    to:
-    - operation:
-        methods:
-        - GET
-  selector:
-    matchLabels:
-      app: productpage
+    - {}
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: ns2-allow-all
+  namespace: ns2
+spec:
+  rules:
+    - {}
 ---
