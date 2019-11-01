@@ -1,0 +1,24 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: metadata-exchange
+spec:
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: ANY # inbound, outbound, and gateway
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.wasm
+          config:
+            config:
+              configuration: envoy.wasm.metadata_exchange
+              vm_config:
+                runtime: envoy.wasm.runtime.null
+                code:
+                  inline_string: envoy.wasm.metadata_exchange
