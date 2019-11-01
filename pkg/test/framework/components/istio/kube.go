@@ -40,6 +40,11 @@ type kubeComponent struct {
 	deployment  *deployment.Instance
 }
 
+const (
+	DefaultValidatingWebhookConfigurationName = "istio-galley"
+	DefaultMutatingWebhookConfigurationName   = "istio-sidecar-injector"
+)
+
 var _ io.Closer = &kubeComponent{}
 var _ Instance = &kubeComponent{}
 var _ resource.Dumper = &kubeComponent{}
@@ -171,6 +176,13 @@ func (i *kubeComponent) Close() error {
 		if err2 == nil {
 			err = multierror.Append(err, i.environment.Accessor.WaitForNamespaceDeletion(i.settings.SystemNamespace))
 		}
+		// Note: when cleaning up an Istio deployment, ValidatingWebhookConfiguration
+		// and MutatingWebhookConfiguration must be cleaned up. Otherwise, next
+		// Istio deployment in the cluster will be impacted, causing flaky test results.
+		// Clean up ValidatingWebhookConfiguration, if any
+		_ = i.environment.DeleteValidatingWebhook(DefaultValidatingWebhookConfigurationName)
+		// Clean up MutatingWebhookConfiguration, if any
+		_ = i.environment.DeleteMutatingWebhook(DefaultMutatingWebhookConfigurationName)
 	}
 
 	return err.ErrorOrNil()
