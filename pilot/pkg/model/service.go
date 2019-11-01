@@ -106,7 +106,7 @@ const (
 	Passthrough
 )
 
-// Converts Resolution in to String.
+// String converts Resolution in to String.
 func (resolution Resolution) String() string {
 	switch resolution {
 	case ClientSideLB:
