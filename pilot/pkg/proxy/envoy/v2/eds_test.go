@@ -183,6 +183,49 @@ func TestEDSServiceResolutionUpdate(t *testing.T) {
 	}
 }
 
+func TestServiceDeletion(t *testing.T) {
+
+	server, tearDown := initLocalPilotTestEnv(t)
+	defer tearDown()
+
+	// add a eds type of cluster with static end points.
+	addEdsClusterWithStaticEndpoints(server)
+
+	adscConn := adsConnectAndWait(t, 0x0a0a0a0a)
+	defer adscConn.Close()
+
+	// Validate that endpoints are pushed correctly.
+	testEndpoints("10.0.0.53", "outbound|8080||edsdns.svc.cluster.local", adscConn, t)
+
+	// Wipe out all endpoints.
+	server.EnvoyXdsServer.MemRegistry.SetEndpoints("edsdns.svc.cluster.local", "", []*model.IstioEndpoint{})
+
+	if upd, err := adscConn.Wait(15*time.Second, "eds"); err != nil {
+		t.Fatal("Expecting EDS update as part of a partial push", err, upd)
+	}
+
+	lbe := adscConn.GetEndpoints()["outbound|8080||edsdns.svc.cluster.local"]
+	if len(lbe.Endpoints) != 0 {
+		t.Fatalf("There should be no endpoints for outbound|8080||edsdns.svc.cluster.local. Endpoints:\n%v", adscConn.EndpointsJSON())
+	}
+
+	if len(server.EnvoyXdsServer.EndpointShardsByService["edsdns.svc.cluster.local"]) == 0 {
+		t.Fatalf("Expected service key %s to be present in EndpointShardsByService. But missing %v", "edsdns.svc.cluster.local", server.EnvoyXdsServer.EndpointShardsByService)
+	}
+
+	server.EnvoyXdsServer.MemRegistry.SetEndpoints("edsdns.svc.cluster.local", "",
+		[]*model.IstioEndpoint{
+			{
+				Address:         "10.10.1.1",
+				ServicePortName: "http",
+				EndpointPort:    8080,
+			}})
+
+	_, _ = adscConn.Wait(15*time.Second, "eds")
+	testEndpoints("10.10.1.1", "outbound|8080||edsdns.svc.cluster.local", adscConn, t)
+
+}
+
 func adsConnectAndWait(t *testing.T, ip int) *adsc.ADSC {
 	adscConn, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
 		IP: testIP(uint32(ip)),

@@ -16,6 +16,7 @@ package v2
 
 import (
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -370,8 +371,18 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 }
 
 // SvcUpdate is a callback from service discovery when service info changes.
-func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, ports map[string]uint32, _ map[uint32]string) {
-	inboundServiceUpdates.Increment()
+func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, ports map[string]uint32, portByNum map[uint32]string) {
+	if ports == nil && portByNum == nil {
+		inboundServiceDeletes.Increment()
+		svc := strings.Split(hostname, ".")
+		serviceName := svc[0]
+		namespace := svc[1]
+		s.mutex.Lock()
+		defer s.mutex.Unlock()
+		s.deleteEndpointShards(cluster, serviceName, namespace, true)
+	} else {
+		inboundServiceUpdates.Increment()
+	}
 }
 
 // Update clusters for an incremental EDS push, and initiate the push.
@@ -437,13 +448,7 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 	// Should delete the service EndpointShards, when endpoints deleted or service deleted.
 	if len(istioEndpoints) == 0 {
 		if s.EndpointShardsByService[serviceName][namespace] != nil {
-			s.EndpointShardsByService[serviceName][namespace].mutex.Lock()
-			delete(s.EndpointShardsByService[serviceName][namespace].Shards, clusterID)
-			svcShards := len(s.EndpointShardsByService[serviceName][namespace].Shards)
-			s.EndpointShardsByService[serviceName][namespace].mutex.Unlock()
-			if svcShards == 0 {
-				delete(s.EndpointShardsByService[serviceName], namespace)
-			}
+			s.deleteEndpointShards(clusterID, serviceName, namespace, false)
 			adsLog.Infof("Incremental push, service %s has no endpoints", serviceName)
 			s.ConfigUpdate(&model.PushRequest{
 				Full:              false,
@@ -514,6 +519,24 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 			ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
 			EdsUpdates:         edsUpdates,
 		})
+	}
+}
+
+// deleteEndpointShards deletes matching endpoints from EndpointShardsByService map. This is called when
+// endpoints are deleted or the service is deleted. If deleteKeys is true, this method will also delete the
+// associated entries from map.
+func (s *DiscoveryServer) deleteEndpointShards(cluster, serviceName, namespace string, deleteKeys bool) {
+	if s.EndpointShardsByService[serviceName][namespace] != nil {
+		s.EndpointShardsByService[serviceName][namespace].mutex.Lock()
+		delete(s.EndpointShardsByService[serviceName][namespace].Shards, cluster)
+		svcShards := len(s.EndpointShardsByService[serviceName][namespace].Shards)
+		s.EndpointShardsByService[serviceName][namespace].mutex.Unlock()
+		if svcShards == 0 && deleteKeys {
+			delete(s.EndpointShardsByService[serviceName], namespace)
+		}
+		if len(s.EndpointShardsByService[serviceName]) == 0 && deleteKeys {
+			delete(s.EndpointShardsByService, serviceName)
+		}
 	}
 }
 

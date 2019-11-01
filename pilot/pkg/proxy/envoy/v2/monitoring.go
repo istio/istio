@@ -153,6 +153,7 @@ var (
 	inboundConfigUpdates  = inboundUpdates.With(typeTag.Value("config"))
 	inboundEDSUpdates     = inboundUpdates.With(typeTag.Value("eds"))
 	inboundServiceUpdates = inboundUpdates.With(typeTag.Value("svc"))
+	inboundServiceDeletes = inboundUpdates.With(typeTag.Value("svcdelete"))
 )
 
 func recordSendError(metric monitoring.Metric, err error) {
