@@ -41,7 +41,7 @@ export FROM_PATH=${FROM_PATH:-"$(mktemp -d from_dir.XXXXXX)"}
 export TO_PATH=${TO_PATH:-"$(mktemp -d to_dir.XXXXXX)"}
 
 # Set to any non-empty value to use kubectl configured cluster instead of mason provisioned cluster.
-UPGRADE_TEST_LOCAL="${UPGRADE_TEST_LOCAL:-"true"}"
+UPGRADE_TEST_LOCAL="${UPGRADE_TEST_LOCAL:-""}"
 
 echo "Testing upgrade and downgrade between ${SOURCE_HUB}/${SOURCE_TAG} and ${TARGET_HUB}/${TARGET_TAG}"
 
