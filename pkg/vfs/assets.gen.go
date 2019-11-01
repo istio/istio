@@ -36682,11 +36682,7 @@ spec:
             cpu: 10m
             memory: 10Mi
       imagePullPolicy: Always
-      certificates:
-        - secretName: dns.istio-galley-service-account
-          dnsNames: [istio-galley.istio-system.svc, istio-galley.istio-system]
-        - secretName: dns.istio-sidecar-injector-service-account
-          dnsNames: [istio-sidecar-injector.istio-system.svc, istio-sidecar-injector.istio-system]
+      certificates: []
       operatorManageWebhooks: false
       controlPlaneSecurityEnabled: true
       disablePolicyChecks: true

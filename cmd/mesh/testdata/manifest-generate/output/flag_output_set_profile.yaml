@@ -402,14 +402,7 @@ data:
     # The DNS certificate provisioning is enabled by default now so it get tested.
     # TODO (lei-tang): we'll decide whether enable it by default or not before Istio 1.4 Release.
     certificates:
-      - dnsNames:
-        - istio-galley.istio-system.svc
-        - istio-galley.istio-system
-        secretName: dns.istio-galley-service-account
-      - dnsNames:
-        - istio-sidecar-injector.istio-system.svc
-        - istio-sidecar-injector.istio-system
-        secretName: dns.istio-sidecar-injector-service-account
+      []
 
     defaultConfig:
       #
