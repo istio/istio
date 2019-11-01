@@ -56,7 +56,6 @@ func BuildClientCmd(kubeconfig, context string) clientcmd.ClientConfig {
 	loadingRules.DefaultClientConfig = &clientcmd.DefaultClientConfig
 	loadingRules.ExplicitPath = kubeconfig
 	configOverrides := &clientcmd.ConfigOverrides{
-		ClusterDefaults: clientcmd.ClusterDefaults,
 		CurrentContext:  context,
 	}
 
