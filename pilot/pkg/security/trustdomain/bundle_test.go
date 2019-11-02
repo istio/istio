@@ -105,7 +105,7 @@ func TestReplaceTrustDomainAliases(t *testing.T) {
 			trustDomainBundle: NewTrustDomainBundle("new-td", []string{"old-td"}),
 			principals:        []string{"*-td/ns/some-ns/sa/some-sa"},
 			// Rather than output *-td/ns/some-ns/sa/some-sa once for each trust domain.
-			expect:            []string{"*-td/ns/some-ns/sa/some-sa"},
+			expect: []string{"*-td/ns/some-ns/sa/some-sa"},
 		},
 	}
 
