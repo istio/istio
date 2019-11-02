@@ -286,15 +286,15 @@ func (c *SyntheticServiceEntryController) configStoreUpdate(resources []*sink.Ob
 	c.configStore = configs
 	c.configStoreMu.Unlock()
 
-	if len(svcChangeByNamespace) != 0 {
-		if c.XDSUpdater != nil {
-			c.XDSUpdater.ConfigUpdate(&model.PushRequest{
-				Full:               true,
-				ConfigTypesUpdated: map[string]struct{}{schemas.SyntheticServiceEntry.Type: {}},
-				NamespacesUpdated:  svcChangeByNamespace,
-			})
-		}
+	// if len(svcChangeByNamespace) != 0 {
+	if c.XDSUpdater != nil {
+		c.XDSUpdater.ConfigUpdate(&model.PushRequest{
+			Full:               true,
+			ConfigTypesUpdated: map[string]struct{}{schemas.SyntheticServiceEntry.Type: {}},
+			NamespacesUpdated:  svcChangeByNamespace,
+		})
 	}
+	//	}
 }
 
 func (c *SyntheticServiceEntryController) incrementalUpdate(resources []*sink.Object) {
