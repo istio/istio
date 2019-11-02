@@ -393,18 +393,6 @@ func convertEndpoints(se *networking.ServiceEntry, cfgName, ns string) (endpoint
 	return endpoints
 }
 
-func (c *SyntheticServiceEntryController) endpointVersion(ns, name string) string {
-	c.configStoreMu.Lock()
-	defer c.configStoreMu.Unlock()
-	if namedConf, ok := c.configStore[ns]; ok {
-		if conf, ok := namedConf[name]; ok {
-			return version(conf.Annotations, endpointKey)
-		}
-		return ""
-	}
-	return ""
-}
-
 func version(anno map[string]string, key string) string {
 	if version, ok := anno[key]; ok {
 		return version

@@ -261,7 +261,8 @@ func TestDeleteService(t *testing.T) {
 	server.EnvoyXdsServer.MemRegistry.RemoveService("removeservice.com")
 
 	if len(server.EnvoyXdsServer.EndpointShardsByService["removeservice.com"]) != 0 {
-		t.Fatalf("Expected service key %s to be deleted in EndpointShardsByService. But is still there %v", "removeservice.com", server.EnvoyXdsServer.EndpointShardsByService)
+		t.Fatalf("Expected service key %s to be deleted in EndpointShardsByService. But is still there %v",
+			"removeservice.com", server.EnvoyXdsServer.EndpointShardsByService)
 	}
 }
 
