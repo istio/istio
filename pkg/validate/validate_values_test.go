@@ -63,6 +63,15 @@ global:
 `,
 		},
 		{
+			desc: "CNIConfig",
+			yamlStr: `
+cni:
+  cniBinDir: "/var/lib/cni/bin"
+  cniConfDir: "/var/run/multus/cni/net.d"
+`,
+		},
+
+		{
 			desc: "BadIPRange",
 			yamlStr: `
 global:
@@ -122,6 +131,14 @@ global:
     foo: "bar"
 `,
 			wantErrs: makeErrors([]string{`unknown field "foo" in v1alpha1.ProxyConfig`}),
+		},
+		{
+			desc: "unknown field",
+			yamlStr: `
+cni:
+  foo: "bar"
+`,
+			wantErrs: makeErrors([]string{`unknown field "foo" in v1alpha1.CNIConfig`}),
 		},
 	}
 

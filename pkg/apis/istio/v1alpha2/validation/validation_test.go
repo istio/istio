@@ -37,7 +37,7 @@ func TestValidate(t *testing.T) {
 		{
 			name: "With CNI defined",
 			toValidate: &v1alpha1.Values{
-				IstioCni: &v1alpha1.CNIConfig{
+				Cni: &v1alpha1.CNIConfig{
 					Enabled: &types.BoolValue{Value: true},
 				},
 			},

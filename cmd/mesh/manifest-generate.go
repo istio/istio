@@ -68,7 +68,7 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, l *logger) {
 		os.Exit(1)
 	}
 
-	overlayFromSet, err := makeTreeFromSetList(mgArgs.set)
+	overlayFromSet, err := makeTreeFromSetList(mgArgs.set, mgArgs.force)
 	if err != nil {
 		l.logAndFatal(err.Error())
 	}

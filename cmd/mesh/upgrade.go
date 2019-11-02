@@ -197,7 +197,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *logger) (err error) {
 	}
 
 	// Apply the Istio Control Plane specs reading from inFilename to the cluster
-	err = genApplyManifests(nil, args.inFilename, rootArgs.dryRun,
+	err = genApplyManifests(nil, args.inFilename, args.force, rootArgs.dryRun,
 		rootArgs.verbose, args.kubeConfigPath, args.context, upgradeWaitSecWhenApply, l)
 	if err != nil {
 		return fmt.Errorf("failed to apply the Istio Control Plane specs. Error: %v", err)
