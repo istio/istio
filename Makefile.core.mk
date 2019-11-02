@@ -385,7 +385,7 @@ go-gen:
 	@go build -o /tmp/bin/mixgen "${REPO_ROOT}/mixer/tools/mixgen/main.go"
 	@PATH=${PATH}:/tmp/bin go generate ./...
 
-gen: go-gen tidy-go mirror-licenses
+gen: go-gen tidy-go mirror-licenses update-crds
 
 gen-check: gen check-clean-repo
 
@@ -699,15 +699,8 @@ show.%: ; $(info $* $(H) $($*))
 # Target: custom resource definitions
 #-----------------------------------------------------------------------------
 
-API_UPDATE_BRANCH ?= "master"
-
 update-crds: 
-	$(eval API_TMP := $(shell mktemp -d -u))
-	@mkdir -p $(API_TMP)
-	@git clone -q --depth 1 --single-branch --branch $(API_UPDATE_BRANCH) https://github.com/istio/api $(API_TMP)
-	@rm -f $(REPO_ROOT)/install/kubernetes/helm/istio-init/files/crd-all.gen.yaml
-	@cp $(API_TMP)/kubernetes/customresourcedefinitions.gen.yaml $(REPO_ROOT)/install/kubernetes/helm/istio-init/files/crd-all.gen.yaml
-	@rm -rf $(API_TMP)
+	bin/update_crds.sh
 
 #-----------------------------------------------------------------------------
 # Target: artifacts and distribution
