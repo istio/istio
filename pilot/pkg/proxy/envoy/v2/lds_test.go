@@ -511,7 +511,7 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 				Meta: model.NodeMetadata{
 					InstanceIPs:     []string{test.ip}, // as service instance of ingress gateway
 					ConfigNamespace: "istio-system",
-					IstioVersion:    "1.3.0",
+					IstioVersion:    "1.4.0",
 				}.ToStruct(),
 				IP:        test.ip,
 				Namespace: "consumerns", // namespace must match the namespace of the sidecar in the configs.yaml

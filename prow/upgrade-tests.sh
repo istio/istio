@@ -28,13 +28,13 @@ WD=$(cd "$WD"; pwd)
 ROOT=$(dirname "$WD")
 
 # Set up inputs needed by /istio/istio/tests/upgrade/test_crossgrade.sh, the default settings is to test upgrade from
-# 1.3.1 to 1.3.2 using helm chart
+# 1.3.0 to 1.3.4 using helm chart
 # These environment variables are passed by /istio/test-infra/prow/cluster/jobs istio periodic upgrade jobs
 export SOURCE_HUB=${SOURCE_HUB:-"docker.io/istio"}
-export SOURCE_TAG=${SOURCE_TAG:-"1.3.1"}
+export SOURCE_TAG=${SOURCE_TAG:-"1.3.0"}
 export SOURCE_RELEASE_PATH=${SOURCE_RELEASE_PATH:-"https://github.com/istio/istio/releases/download/${SOURCE_TAG}"}
 export TARGET_HUB=${TARGET_HUB:-"docker.io/istio"}
-export TARGET_TAG=${TARGET_TAG:-"1.3.2"}
+export TARGET_TAG=${TARGET_TAG:-"1.3.4"}
 export TARGET_RELEASE_PATH=${TAGET_RELEASE_PATH:-"https://github.com/istio/istio/releases/download/${TARGET_TAG}"}
 export INSTALL_OPTIONS=${ISTALL_OPTIONS:-"helm"}
 export FROM_PATH=${FROM_PATH:-"$(mktemp -d from_dir.XXXXXX)"}
