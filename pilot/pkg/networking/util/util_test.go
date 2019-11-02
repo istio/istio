@@ -36,6 +36,7 @@ import (
 	"gopkg.in/d4l3k/messagediff.v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -648,4 +649,48 @@ func TestCustomHandleCrash(t *testing.T) {
 	})
 
 	panic("test")
+}
+
+func TestIsAllowAnyOutbound(t *testing.T) {
+	tests := []struct {
+		node   *model.Proxy
+		result bool
+	}{
+		{
+			node:   &model.Proxy{},
+			result: false,
+		},
+		{
+			node: &model.Proxy{
+				SidecarScope: &model.SidecarScope{},
+			},
+			result: false,
+		},
+		{
+			node: &model.Proxy{
+				SidecarScope: &model.SidecarScope{
+					OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+						Mode: networking.OutboundTrafficPolicy_REGISTRY_ONLY,
+					},
+				},
+			},
+			result: false,
+		},
+		{
+			node: &model.Proxy{
+				SidecarScope: &model.SidecarScope{
+					OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+						Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
+					},
+				},
+			},
+			result: true,
+		},
+	}
+	for i := range tests {
+		out := IsAllowAnyOutbound(tests[i].node)
+		if out != tests[i].result {
+			t.Errorf("Expected %t but got %t for test case: %v\n", tests[i].result, out, tests[i].node)
+		}
+	}
 }
