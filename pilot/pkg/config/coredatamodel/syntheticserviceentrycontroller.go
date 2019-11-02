@@ -105,10 +105,6 @@ func (c *SyntheticServiceEntryController) Apply(change *sink.Change) error {
 	if change.Collection != schemas.SyntheticServiceEntry.Collection {
 		return fmt.Errorf("apply: type not supported %s", change.Collection)
 	}
-	// Apply is getting called with no changes!!
-	if len(change.Objects) == 0 {
-		return nil
-	}
 
 	defer atomic.AddUint32(&c.synced, 1)
 
