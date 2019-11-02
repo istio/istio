@@ -16,7 +16,6 @@ package v2
 
 import (
 	"strconv"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -371,15 +370,15 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 }
 
 // SvcUpdate is a callback from service discovery when service info changes.
-func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, ports map[string]uint32, portByNum map[uint32]string) {
-	if ports == nil && portByNum == nil {
+func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, namespace string, event model.Event, ports map[string]uint32,
+	portByNum map[uint32]string) {
+	// When a service deleted, we should cleanup the endpoint shards and also remove keys from EndpointShardsByService to
+	// prevent memory leaks.
+	if event == model.EventDelete {
 		inboundServiceDeletes.Increment()
-		svc := strings.Split(hostname, ".")
-		serviceName := svc[0]
-		namespace := svc[1]
 		s.mutex.Lock()
 		defer s.mutex.Unlock()
-		s.deleteEndpointShards(cluster, serviceName, namespace, true)
+		s.deleteEndpointShards(cluster, hostname, namespace, true)
 	} else {
 		inboundServiceUpdates.Increment()
 	}
@@ -444,8 +443,10 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 	defer s.mutex.Unlock()
 	requireFull := false
 
-	// To prevent memory leak.
-	// Should delete the service EndpointShards, when endpoints deleted or service deleted.
+	// Should delete the service EndpointShards when endpoints become zero to prevent memory leak,
+	// but we should not do not delete the keys from EndpointShardsByService map - that will trigger
+	// unnecessary full push which can become a real problem if a pod is in crashloop and thus endpoints
+	// flip flopping between 1 and 0.
 	if len(istioEndpoints) == 0 {
 		if s.EndpointShardsByService[serviceName][namespace] != nil {
 			s.deleteEndpointShards(clusterID, serviceName, namespace, false)
@@ -529,7 +530,8 @@ func (s *DiscoveryServer) deleteEndpointShards(cluster, serviceName, namespace s
 	if s.EndpointShardsByService[serviceName][namespace] != nil {
 		s.EndpointShardsByService[serviceName][namespace].mutex.Lock()
 		delete(s.EndpointShardsByService[serviceName][namespace].Shards, cluster)
-		svcShards := len(s.EndpointShardsByService[serviceName][namespace].Shards)
+		shards := s.EndpointShardsByService[serviceName][namespace].Shards
+		svcShards := len(shards)
 		s.EndpointShardsByService[serviceName][namespace].mutex.Unlock()
 		if svcShards == 0 && deleteKeys {
 			delete(s.EndpointShardsByService[serviceName], namespace)

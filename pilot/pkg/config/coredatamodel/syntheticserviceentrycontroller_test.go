@@ -54,7 +54,8 @@ func (f *FakeXdsUpdater) EDSUpdate(shard, hostname, ns string, entry []*model.Is
 	return <-f.EDSErr
 }
 
-func (f *FakeXdsUpdater) SvcUpdate(shard, hostname string, ports map[string]uint32, rports map[uint32]string) {
+func (f *FakeXdsUpdater) SvcUpdate(shard, hostname string, namespace string, event model.Event, ports map[string]uint32,
+	rports map[uint32]string) {
 }
 
 func (f *FakeXdsUpdater) WorkloadUpdate(id string, labels map[string]string, annotations map[string]string) {
