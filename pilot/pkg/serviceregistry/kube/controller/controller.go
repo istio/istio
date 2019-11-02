@@ -850,25 +850,24 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 		log.Debugf("Handle event %s for service %s in namespace %s", event, svc.Name, svc.Namespace)
 
 		svcConv := kube.ConvertService(*svc, c.domainSuffix, c.ClusterID)
+		ports := map[string]uint32{}
+		portsByNum := map[uint32]string{}
+
+		for _, port := range svc.Spec.Ports {
+			ports[port.Name] = uint32(port.Port)
+			portsByNum[uint32(port.Port)] = port.Name
+		}
+
+		instances := kube.ExternalNameServiceInstances(*svc, svcConv)
+
 		switch event {
 		case model.EventDelete:
 			c.Lock()
 			delete(c.servicesMap, svcConv.Hostname)
 			delete(c.externalNameSvcInstanceMap, svcConv.Hostname)
 			c.Unlock()
-			// EDS needs to just know when service is deleted.
-			c.XDSUpdater.SvcUpdate(c.ClusterID, svc.Name, svc.Namespace, event, nil, nil)
 		default:
 			// instance conversion is only required when service is added/updated.
-			instances := kube.ExternalNameServiceInstances(*svc, svcConv)
-
-			ports := map[string]uint32{}
-			portsByNum := map[uint32]string{}
-
-			for _, port := range svc.Spec.Ports {
-				ports[port.Name] = uint32(port.Port)
-				portsByNum[uint32(port.Port)] = port.Name
-			}
 			c.Lock()
 			c.servicesMap[svcConv.Hostname] = svcConv
 			if instances == nil {
@@ -877,9 +876,10 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 				c.externalNameSvcInstanceMap[svcConv.Hostname] = instances
 			}
 			c.Unlock()
-			// EDS needs the port mapping when service added/updated.
-			c.XDSUpdater.SvcUpdate(c.ClusterID, svc.Name, svc.Namespace, event, ports, portsByNum)
 		}
+
+		// EDS needs the port mapping when service added/updated.
+		c.XDSUpdater.SvcUpdate(c.ClusterID, svc.Name, svc.Namespace, event, ports, portsByNum)
 
 		f(svcConv, event)
 
