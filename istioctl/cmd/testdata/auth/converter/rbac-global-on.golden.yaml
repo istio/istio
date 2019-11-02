@@ -4,4 +4,5 @@ metadata:
   name: global-deny-all
   namespace: my-root-namespace
 spec:
+  {}
 ---
