@@ -642,5 +642,7 @@ func BuildLbEndpointMetadata(uid string, network string, tlsMode string) *core.M
 
 // IsAllowAnyOutbound checks if allow_any is enabled for outbound traffic
 func IsAllowAnyOutbound(node *model.Proxy) bool {
-	return node.SidecarScope.OutboundTrafficPolicy != nil && node.SidecarScope.OutboundTrafficPolicy.Mode == networking.OutboundTrafficPolicy_ALLOW_ANY
+	return node.SidecarScope != nil &&
+		node.SidecarScope.OutboundTrafficPolicy != nil &&
+		node.SidecarScope.OutboundTrafficPolicy.Mode == networking.OutboundTrafficPolicy_ALLOW_ANY
 }
