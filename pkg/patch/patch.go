@@ -85,6 +85,7 @@ package patch
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/kr/pretty"
@@ -141,7 +142,14 @@ func YAMLManifestPatch(baseYAML string, namespace string, overlays []*v1alpha2.K
 		}
 	}
 	// Render the remaining objects with no overlays.
-	for k, oo := range bom {
+	// keep the original sorted order
+	keys := make([]string, 0)
+	for key := range bom {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		oo := bom[k]
 		if oom[k] != nil {
 			// Skip objects that have overlays, these were rendered above.
 			continue

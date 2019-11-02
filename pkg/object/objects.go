@@ -214,7 +214,7 @@ func (o *K8sObject) AddLabels(labels map[string]string) {
 // K8sObjects holds a collection of k8s objects, so that we can filter / sequence them
 type K8sObjects []*K8sObject
 
-// ParseK8sObjectsFromYAMLManifest returns a K8sObjects represetation of manifest.
+// ParseK8sObjectsFromYAMLManifest returns a K8sObjects representation of manifest.
 func ParseK8sObjectsFromYAMLManifest(manifest string) (K8sObjects, error) {
 	var b bytes.Buffer
 
