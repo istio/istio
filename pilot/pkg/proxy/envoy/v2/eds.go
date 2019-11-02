@@ -449,7 +449,7 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 	// flip flopping between 1 and 0.
 	if len(istioEndpoints) == 0 {
 		if s.EndpointShardsByService[serviceName][namespace] != nil {
-			s.deleteEndpointShards(clusterID, serviceName, namespace, false)
+			s.deleteEndpointShards(clusterID, serviceName, namespace, true)
 			adsLog.Infof("Incremental push, service %s has no endpoints", serviceName)
 			s.ConfigUpdate(&model.PushRequest{
 				Full:              false,

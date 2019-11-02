@@ -242,6 +242,7 @@ func verifyEndpoints(t *testing.T, ctx framework.TestContext, c echo.Instance, p
 				t.Fatal(err)
 			}
 			validator := structpath.ForProto(msg)
+			fmt.Printf("Cluster output for %s.  %v", fmt.Sprintf("outbound|%s||%s.%s.svc.cluster.local", params.port, params.svcName, params.namespace.Name()), msg)
 			for _, endpoint := range endpoints {
 				err = validator.
 					Select("{.clusterStatuses[?(@.name=='%v')]}", fmt.Sprintf("outbound|%s||%s.%s.svc.cluster.local", params.port, params.svcName, params.namespace.Name())).
