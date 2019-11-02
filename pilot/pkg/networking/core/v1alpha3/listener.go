@@ -1471,7 +1471,7 @@ func (configgen *ConfigGeneratorImpl) onVirtualOutboundListener(env *model.Envir
 	push *model.PushContext,
 	ipTablesListener *xdsapi.Listener) *xdsapi.Listener {
 
-	hostname := host.Name(util.BlackHoleCluster)
+	svc := util.FallThroughFilterChainBlackHoleService
 	mesh := env.Mesh
 	redirectPort := &model.Port{
 		Port:     int(mesh.ProxyListenPort),
@@ -1488,8 +1488,8 @@ func (configgen *ConfigGeneratorImpl) onVirtualOutboundListener(env *model.Envir
 	// contains just the final passthrough/blackhole
 	fallbackFilter := ipTablesListener.FilterChains[len(ipTablesListener.FilterChains)-1].Filters[0]
 
-	if isAllowAnyOutbound(node) {
-		hostname = util.PassthroughCluster
+	if util.IsAllowAnyOutbound(node) {
+		svc = util.FallThroughFilterChainPassthroughService
 	}
 
 	pluginParams := &plugin.InputParams{
@@ -1500,10 +1500,7 @@ func (configgen *ConfigGeneratorImpl) onVirtualOutboundListener(env *model.Envir
 		Push:                       push,
 		Bind:                       "",
 		Port:                       redirectPort,
-		Service: &model.Service{
-			Hostname: hostname,
-			Ports:    model.PortList{redirectPort},
-		},
+		Service:                    svc,
 	}
 
 	mutable := &plugin.MutableObjects{
@@ -1638,6 +1635,7 @@ type filterChainOpts struct {
 	match            *listener.FilterChainMatch
 	listenerFilters  []*listener.ListenerFilter
 	networkFilters   []*listener.Filter
+	isFallThrough    bool
 }
 
 // buildListenerOpts are the options required to build a Listener
@@ -1921,6 +1919,7 @@ func appendListenerFallthroughRoute(l *xdsapi.Listener, opts *buildListenerOpts,
 
 		opts.filterChainOpts = append(opts.filterChainOpts, &filterChainOpts{
 			networkFilters: []*listener.Filter{tcpFilter},
+			isFallThrough:  true,
 		})
 		l.FilterChains = append(l.FilterChains, &listener.FilterChain{FilterChainMatch: wildcardMatch})
 
@@ -2170,6 +2169,7 @@ func getPluginFilterChain(opts buildListenerOpts) []plugin.FilterChain {
 		} else {
 			filterChain[id].ListenerProtocol = plugin.ListenerProtocolHTTP
 		}
+		filterChain[id].IsFallThrough = opts.filterChainOpts[id].isFallThrough
 	}
 
 	return filterChain

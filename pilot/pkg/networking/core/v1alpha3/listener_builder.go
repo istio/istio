@@ -578,7 +578,7 @@ func newTCPProxyOutboundListenerFilter(env *model.Environment, node *model.Proxy
 		StatPrefix:       util.BlackHoleCluster,
 		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
 	}
-	if isAllowAnyOutbound(node) {
+	if util.IsAllowAnyOutbound(node) {
 		// We need a passthrough filter to fill in the filter stack for orig_dst listener
 		tcpProxy = &tcp_proxy.TcpProxy{
 			StatPrefix:       util.PassthroughCluster,
@@ -597,8 +597,4 @@ func newTCPProxyOutboundListenerFilter(env *model.Environment, node *model.Proxy
 		filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(tcpProxy)}
 	}
 	return &filter
-}
-
-func isAllowAnyOutbound(node *model.Proxy) bool {
-	return node.SidecarScope.OutboundTrafficPolicy != nil && node.SidecarScope.OutboundTrafficPolicy.Mode == networking.OutboundTrafficPolicy_ALLOW_ANY
 }
