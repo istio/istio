@@ -83,7 +83,7 @@ func manifestApply(args *rootArgs, maArgs *manifestApplyArgs, l *logger) {
 		_, _ = fmt.Fprintf(os.Stderr, "Could not configure logs: %s", err)
 		os.Exit(1)
 	}
-	if err := genApplyManifests(maArgs.set, maArgs.inFilename, args.dryRun, args.verbose,
+	if err := genApplyManifests(maArgs.set, maArgs.inFilename, maArgs.force, args.dryRun, args.verbose,
 		maArgs.kubeConfigPath, maArgs.context, maArgs.readinessTimeout, l); err != nil {
 		l.logAndFatalf("Failed to generate and apply manifests, error: %v", err)
 	}

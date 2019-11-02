@@ -52,6 +52,26 @@ message ArchConfig {
 message CNIConfig {
   // Controls whether CNI is enabled.
   google.protobuf.BoolValue enabled = 1;
+
+  string hub = 2;
+
+  string tag = 3;
+
+  string image = 4;
+
+  string pullPolicy = 5;
+
+  string cniBinDir = 6;
+
+  string cniConfDir = 7;
+
+  string cniConfFileName = 8;
+
+  repeated string excludeNamespaces = 9;
+
+  TypeMapStringInterface podAnnotations = 10;
+
+  string psp_cluster_role = 11;
 }
 
 // Configuration for CPU target utilization for HorizontalPodAutoscaler target.
@@ -1731,7 +1751,7 @@ message KialiConfig {
 message Values {
   CertManagerConfig certmanager = 1;
 
-  CNIConfig istioCni = 2;
+  CNIConfig cni = 2;
 
   CoreDNSConfig istiocoredns = 3;
 

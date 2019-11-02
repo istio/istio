@@ -62,7 +62,6 @@ var (
 		"istioEgressgateway":  "istio-egressgateway",
 		"istioIngressgateway": "istio-ingressgateway",
 		"proxyInit":           "proxy_init",
-		"istioCni":            "istio_cni",
 	}
 	// replaceMapping substitutes the value for the key in all files.
 	replaceMapping = map[string]string{
