@@ -530,8 +530,7 @@ func (s *DiscoveryServer) deleteEndpointShards(cluster, serviceName, namespace s
 	if s.EndpointShardsByService[serviceName][namespace] != nil {
 		s.EndpointShardsByService[serviceName][namespace].mutex.Lock()
 		delete(s.EndpointShardsByService[serviceName][namespace].Shards, cluster)
-		shards := s.EndpointShardsByService[serviceName][namespace].Shards
-		svcShards := len(shards)
+		svcShards := len(s.EndpointShardsByService[serviceName][namespace].Shards)
 		s.EndpointShardsByService[serviceName][namespace].mutex.Unlock()
 		if svcShards == 0 && deleteKeys {
 			delete(s.EndpointShardsByService[serviceName], namespace)

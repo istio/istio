@@ -251,7 +251,7 @@ func verifyEndpoints(t *testing.T, ctx framework.TestContext, c echo.Instance, p
 					ContainSubstring("HEALTHY", "{.hostStatuses}").
 					Check()
 				if err != nil {
-					return err
+					return fmt.Errorf("Cluster verification failed for %s. got %v", fmt.Sprintf("outbound|%s||%s.%s.svc.cluster.local", params.port, params.svcName, params.namespace.Name()), msg)
 				}
 			}
 		}
