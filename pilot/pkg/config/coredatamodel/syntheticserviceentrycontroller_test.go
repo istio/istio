@@ -444,7 +444,7 @@ func TestApplyNonIncrementalAnnotations(t *testing.T) {
 				"networking.alpha.istio.io/serviceVersion":   "2",
 				"networking.alpha.istio.io/endpointsVersion": "2",
 			},
-			want: "EDSUpdate",
+			want: "ConfigUpdate",
 		},
 		{
 			description: "service and endpoints annotation both versions changed",

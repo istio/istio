@@ -270,23 +270,17 @@ func (c *SyntheticServiceEntryController) configStoreUpdate(resources []*sink.Ob
 			svcChangeByNamespace[conf.Namespace] = struct{}{}
 			continue
 		}
-
-		// this is done before updating internal cache
-		oldEpVersion := c.endpointVersion(conf.Namespace, conf.Name)
-		newEpVersion := version(conf.Annotations, endpointKey)
-		if oldEpVersion != newEpVersion {
-			if err := c.edsUpdate(conf); err != nil {
-				log.Warnf("edsUpdate: %v", err)
-			}
-		}
-
 	}
 
 	c.configStoreMu.Lock()
 	c.configStore = configs
 	c.configStoreMu.Unlock()
 
-	// if len(svcChangeByNamespace) != 0 {
+	// TODO: Service change is not triggering full update in the e-e-pilot test. Even endpoint change is not
+	// functioning correctly. Currently it is working because on edsUpdate if we set endpoints to 0, we remove
+	// the service from EndpointShardsByService and subsequent eds updates trigger a full push. That is being
+	// fixed in https://github.com/istio/istio/pull/18574. Need to fix this issue and re-enable conditional
+	// full push. For now, any configupdate triggers a full push much like service entries.
 	if c.XDSUpdater != nil {
 		c.XDSUpdater.ConfigUpdate(&model.PushRequest{
 			Full:               true,
@@ -294,7 +288,7 @@ func (c *SyntheticServiceEntryController) configStoreUpdate(resources []*sink.Ob
 			NamespacesUpdated:  svcChangeByNamespace,
 		})
 	}
-	//	}
+
 }
 
 func (c *SyntheticServiceEntryController) incrementalUpdate(resources []*sink.Object) {
