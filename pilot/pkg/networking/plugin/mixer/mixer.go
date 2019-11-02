@@ -143,7 +143,17 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 			}
 		} else {
 			for cnum := range mutable.FilterChains {
-				mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
+				if mutable.FilterChains[cnum].IsFallThrough {
+					svc := util.FallThroughFilterChainBlackHoleService
+					if util.IsAllowAnyOutbound(in.Node) {
+						svc = util.FallThroughFilterChainPassthroughService
+					}
+					attrs := createOutboundListenerAttributes(in)
+					fallThroughFilter := buildOutboundTCPFilter(in.Env.Mesh, attrs, in.Node, svc)
+					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, fallThroughFilter)
+				} else {
+					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
+				}
 			}
 		}
 		return nil
