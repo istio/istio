@@ -148,11 +148,8 @@ func deleteTestService(apiServerURL string, svcName, svcNamespace string) error 
 	if err != nil {
 		return err
 	}
-	if err := client.CoreV1().Services(svcNamespace).Delete(svcName, &metav1.DeleteOptions{}); err != nil {
-		return err
-	}
 
-	return nil
+	return client.CoreV1().Services(svcNamespace).Delete(svcName, &metav1.DeleteOptions{});
 }
 
 func initLocalPilot(istioSrc string) (*bootstrap.Server, error) {
