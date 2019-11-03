@@ -12,15 +12,12 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-################################################################################
-# tcp-echo service
-################################################################################
 apiVersion: v1
 kind: Service
 metadata:
   name: tcp-echo
   labels:
-    app: tcp-echo
+    service: tcp-echo
 spec:
   ports:
   - name: tcp
@@ -31,7 +28,10 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: tcp-echo
+  name: tcp-echo-v1
+  labels:
+    app: tcp-echo
+    version: v1
 spec:
   replicas: 1
   selector:
@@ -48,6 +48,33 @@ spec:
       - name: tcp-echo
         image: docker.io/istio/tcp-echo-server:1.1
         imagePullPolicy: IfNotPresent
-        args: [ "9000", "hello" ]
+        args: [ "9000", "one" ]
+        ports:
+        - containerPort: 9000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tcp-echo-v2
+  labels:
+    app: tcp-echo
+    version: v2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tcp-echo
+      version: v2
+  template:
+    metadata:
+      labels:
+        app: tcp-echo
+        version: v2
+    spec:
+      containers:
+      - name: tcp-echo
+        image: docker.io/istio/tcp-echo-server:1.1
+        imagePullPolicy: IfNotPresent
+        args: [ "9000", "two" ]
         ports:
         - containerPort: 9000
