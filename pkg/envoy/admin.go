@@ -32,6 +32,13 @@ func Shutdown(adminPort uint32) error {
 	return err
 }
 
+// DrainListeners drains inbound listeners of Envoy so that inflight requests
+// can gracefully finish and even continue making outbound calls as needed.
+func DrainListeners(adminPort uint32) error {
+	_, err := doEnvoyPost("drain_listeners?inboundonly", "", "", adminPort)
+	return err
+}
+
 // GetServerInfo returns a structure representing a call to /server_info
 func GetServerInfo(adminPort uint32) (*envoyAdmin.ServerInfo, error) {
 	buffer, err := doEnvoyGet("server_info", adminPort)
