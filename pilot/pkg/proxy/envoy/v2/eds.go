@@ -795,7 +795,7 @@ func (s *DiscoveryServer) removeEdsCon(clusterName string, node string) {
 	}
 }
 
-func (s *DiscoveryServer) updateEdsClusters(added sets.Set, removed sets.Set, connection *XdsConnection) {
+func (s *DiscoveryServer) updateEdsClients(added sets.Set, removed sets.Set, connection *XdsConnection) {
 	edsClusterMutex.Lock()
 	defer edsClusterMutex.Unlock()
 

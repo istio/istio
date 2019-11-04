@@ -351,7 +351,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				previous := sets.NewSet(con.Clusters...)
 				current := sets.NewSet(clusters...)
 
-				s.updateEdsClusters(current.Difference(previous), previous.Difference(current), con)
+				s.updateEdsClients(current.Difference(previous), previous.Difference(current), con)
 
 				con.Clusters = clusters
 				adsLog.Debugf("ADS:EDS: REQ %s %s clusters:%d", peerAddr, con.ConID, len(con.Clusters))
