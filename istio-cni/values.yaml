@@ -1,6 +1,6 @@
 cni:
-  hub: gcr.io/istio-release
-  tag: master-latest-daily
+  hub: gcr.io/istio-testing
+  tag: latest
   image: install-cni
   pullPolicy: Always
 
@@ -16,9 +16,11 @@ cni:
   cniBinDir: /opt/cni/bin
   cniConfDir: /etc/cni/net.d
   cniConfFileName: ""
+
   excludeNamespaces:
     - istio-system
 
+  # Custom annotations on pod level, if you need them
   podAnnotations: {}
 
   # If this value is set a RoleBinding will be created
