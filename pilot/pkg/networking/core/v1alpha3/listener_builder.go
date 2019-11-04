@@ -296,11 +296,12 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
 	ipTablesListener := &xdsapi.Listener{
-		Name:           VirtualOutboundListenerName,
-		Address:        util.BuildAddress(actualWildcard, uint32(env.Mesh.ProxyListenPort)),
-		Transparent:    isTransparentProxy,
-		UseOriginalDst: proto.BoolTrue,
-		FilterChains:   filterChains,
+		Name:             VirtualOutboundListenerName,
+		Address:          util.BuildAddress(actualWildcard, uint32(env.Mesh.ProxyListenPort)),
+		Transparent:      isTransparentProxy,
+		UseOriginalDst:   proto.BoolTrue,
+		FilterChains:     filterChains,
+		TrafficDirection: core.TrafficDirection_OUTBOUND,
 	}
 	configgen.onVirtualOutboundListener(env, node, push, ipTablesListener)
 	builder.virtualListener = ipTablesListener
@@ -329,6 +330,10 @@ func (builder *ListenerBuilder) buildVirtualInboundListener(
 		Transparent:    isTransparentProxy,
 		UseOriginalDst: proto.BoolTrue,
 		FilterChains:   filterChains,
+	}
+	// Set traffic direction on listener, so that draining works correctly
+	if !isTransparentProxy.Value {
+		builder.virtualInboundListener.TrafficDirection = core.TrafficDirection_INBOUND
 	}
 	if builder.useInboundFilterChain {
 		builder.aggregateVirtualInboundListener()
