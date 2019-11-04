@@ -50,13 +50,13 @@ else
     $(error This system's OS $(LOCAL_OS) isn't supported)
 endif
 
-export TARGET_OUT ?= $(shell pwd)/out/$(TARGET_ARCH)_$(TARGET_OS)
+export TARGET_OUT ?= $(shell pwd)/out/$(TARGET_OS)_$(TARGET_ARCH)
 
 ifeq ($(BUILD_WITH_CONTAINER),1)
-export TARGET_OUT = /work/out/$(TARGET_ARCH)_$(TARGET_OS)
+export TARGET_OUT = /work/out/$(TARGET_OS)_$(TARGET_ARCH)
 CONTAINER_CLI ?= docker
 DOCKER_SOCKET_MOUNT ?= -v /var/run/docker.sock:/var/run/docker.sock
-IMG ?= gcr.io/istio-testing/build-tools:2019-10-25T16-21-08
+IMG ?= gcr.io/istio-testing/build-tools:release-1.4-2019-11-04T14-44-32
 UID = $(shell id -u)
 PWD = $(shell pwd)
 
