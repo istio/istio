@@ -97,7 +97,7 @@ func loadAssignment(c *EdsCluster) *xdsapi.ClusterLoadAssignment {
 
 // buildEnvoyLbEndpoint packs the endpoint based on istio info.
 func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string, port uint32,
-	network string, weight uint32, mtlsReady bool) *endpoint.LbEndpoint {
+	network string, weight uint32, tlsMode string) *endpoint.LbEndpoint {
 
 	var addr core.Address
 	switch family {
@@ -134,12 +134,12 @@ func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
 	// Istio endpoint level tls transport socket configuation depends on this logic
 	// Do not remove
-	ep.Metadata = util.BuildLbEndpointMetadata(uid, network, mtlsReady)
+	ep.Metadata = util.BuildLbEndpointMetadata(uid, network, tlsMode)
 
 	return ep
 }
 
-func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint, mtlsReady bool) (*endpoint.LbEndpoint, error) {
+func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint, tlsMode string) (*endpoint.LbEndpoint, error) {
 	err := model.ValidateNetworkEndpointAddress(e)
 	if err != nil {
 		return nil, err
@@ -165,7 +165,7 @@ func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint, mtlsReady bool) (*
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
 	// Istio endpoint level tls transport socket configuation depends on this logic
 	// Do not remove
-	ep.Metadata = util.BuildLbEndpointMetadata(e.UID, e.Network, mtlsReady)
+	ep.Metadata = util.BuildLbEndpointMetadata(e.UID, e.Network, tlsMode)
 
 	return ep, nil
 }
@@ -299,7 +299,7 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 						Locality:        ep.GetLocality(),
 						LbWeight:        ep.Endpoint.LbWeight,
 						Attributes:      ep.Service.Attributes,
-						MTLSReady:       ep.MTLSReady,
+						TLSMode:         ep.TLSMode,
 					})
 				}
 			}
@@ -524,7 +524,7 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []*endpoint.LocalityLbEndpoints {
 	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
 	for _, instance := range instances {
-		lbEp, err := networkEndpointToEnvoyEndpoint(&instance.Endpoint, instance.MTLSReady)
+		lbEp, err := networkEndpointToEnvoyEndpoint(&instance.Endpoint, instance.TLSMode)
 		if err != nil {
 			adsLog.Errorf("EDS: Unexpected pilot model endpoint v1 to v2 conversion: %v", err)
 			totalXDSInternalErrors.Increment()
@@ -611,7 +611,7 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 	// against such behavior and returns nil. When the updated cluster warms up in Envoy, it would update with new endpoints
 	// automatically.
 	if svc.Resolution != model.ClientSideLB {
-		adsLog.Infof("XdsConnection has %s in its eds clusters but its resolution now is updated to %d, skipping it.", clusterName, svc.Resolution)
+		adsLog.Infof("XdsConnection has %s in its eds clusters but its resolution now is updated to %v, skipping it.", clusterName, svc.Resolution)
 		return nil
 	}
 
@@ -779,7 +779,7 @@ func (s *DiscoveryServer) getEdsCluster(clusterName string) *EdsCluster {
 }
 
 // getOrAddEdsCluster will track the eds connection with clusters, for optimized event-based push and debug
-func (s *DiscoveryServer) getOrAddEdsCluster(clusterName, node string, connection *XdsConnection) *EdsCluster {
+func (s *DiscoveryServer) getOrAddEdsCluster(clusterName string, connection *XdsConnection) *EdsCluster {
 	edsClusterMutex.Lock()
 	defer edsClusterMutex.Unlock()
 
@@ -794,7 +794,7 @@ func (s *DiscoveryServer) getOrAddEdsCluster(clusterName, node string, connectio
 	// TODO: find a more efficient way to make edsClusters and EdsClients init atomic
 	// Currently use edsClusterMutex lock
 	c.mutex.Lock()
-	c.EdsClients[node] = connection
+	c.EdsClients[connection.ConID] = connection
 	c.mutex.Unlock()
 
 	return c
@@ -872,7 +872,7 @@ func buildLocalityLbEndpointsFromShards(
 				localityEpMap[ep.Locality] = locLbEps
 			}
 			if ep.EnvoyEndpoint == nil {
-				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep.UID, ep.Family, ep.Address, ep.EndpointPort, ep.Network, ep.LbWeight, ep.MTLSReady)
+				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep.UID, ep.Family, ep.Address, ep.EndpointPort, ep.Network, ep.LbWeight, ep.TLSMode)
 			}
 			locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, ep.EnvoyEndpoint)
 

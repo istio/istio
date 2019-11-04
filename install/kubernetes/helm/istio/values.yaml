@@ -415,7 +415,7 @@ global:
   # NOTE: If using templates, follow the pattern in the commented example below.
   # podDNSSearchNamespaces:
   # - global
-  # - "[[ valueOrDefault .DeploymentMeta.Namespace \"default\" ]].global"
+  # - "{{ valueOrDefault .DeploymentMeta.Namespace \"default\" }}.global"
 
   # If set to true, the pilot and citadel mtls will be exposed on the
   # ingress gateway

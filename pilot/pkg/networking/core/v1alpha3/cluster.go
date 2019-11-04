@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -67,20 +68,34 @@ const (
 )
 
 var (
-	defaultInboundCircuitBreakerThresholds  = v2Cluster.CircuitBreakers_Thresholds{}
+	defaultInboundCircuitBreakerThresholds = v2Cluster.CircuitBreakers_Thresholds{
+		// This disables circuit breaking by default by setting highest possible values.
+		// See: https://www.envoyproxy.io/docs/envoy/v1.11.1/faq/disable_circuit_breaking
+		MaxRetries:         &wrappers.UInt32Value{Value: math.MaxUint32},
+		MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
+		MaxConnections:     &wrappers.UInt32Value{Value: math.MaxUint32},
+		MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
+	}
 	defaultOutboundCircuitBreakerThresholds = v2Cluster.CircuitBreakers_Thresholds{
 		// DefaultMaxRetries specifies the default for the Envoy circuit breaker parameter max_retries. This
 		// defines the maximum number of parallel retries a given Envoy will allow to the upstream cluster. Envoy defaults
 		// this value to 3, however that has shown to be insufficient during periods of pod churn (e.g. rolling updates),
 		// where multiple endpoints in a cluster are terminated. In these scenarios the circuit breaker can kick
 		// in before Pilot is able to deliver an updated endpoint list to Envoy, leading to client-facing 503s.
-		MaxRetries: &wrappers.UInt32Value{Value: 1024},
+		MaxRetries: &wrappers.UInt32Value{Value: math.MaxUint32},
+		// This disables circuit breaking by default by setting highest possible values.
+		// See: https://www.envoyproxy.io/docs/envoy/v1.11.1/faq/disable_circuit_breaking
+		MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
+		MaxConnections:     &wrappers.UInt32Value{Value: math.MaxUint32},
+		MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
 	}
 
 	defaultDestinationRule = networking.DestinationRule{}
 
-	plaintextTransportSocketMatch = &apiv2.Cluster_TransportSocketMatch{
-		Name:  "plaintext",
+	// defaultTransportSocketMatch applies to endpoints that have no security.istio.io/tlsMode label
+	// or those whose label value does not match "istio"
+	defaultTransportSocketMatch = &apiv2.Cluster_TransportSocketMatch{
+		Name:  "tlsMode-disabled",
 		Match: &structpb.Struct{},
 		TransportSocket: &core.TransportSocket{
 			Name: util.EnvoyRawBufferSocketName,
@@ -224,7 +239,8 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 				policy:          destinationRule.TrafficPolicy,
 				port:            port,
 				serviceAccounts: serviceAccounts,
-				sni:             defaultSni,
+				istioMtlsSni:    defaultSni,
+				simpleTLSSni:    string(service.Hostname),
 				clusterMode:     DefaultClusterMode,
 				direction:       model.TrafficDirectionOutbound,
 				proxy:           proxy,
@@ -255,7 +271,8 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 					policy:          destinationRule.TrafficPolicy,
 					port:            port,
 					serviceAccounts: serviceAccounts,
-					sni:             defaultSni,
+					istioMtlsSni:    defaultSni,
+					simpleTLSSni:    string(service.Hostname),
 					clusterMode:     DefaultClusterMode,
 					direction:       model.TrafficDirectionOutbound,
 					proxy:           proxy,
@@ -270,7 +287,8 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 					policy:          subset.TrafficPolicy,
 					port:            port,
 					serviceAccounts: serviceAccounts,
-					sni:             defaultSni,
+					istioMtlsSni:    defaultSni,
+					simpleTLSSni:    string(service.Hostname),
 					clusterMode:     DefaultClusterMode,
 					direction:       model.TrafficDirectionOutbound,
 					proxy:           proxy,
@@ -440,7 +458,7 @@ func buildLocalityLbEndpoints(env *model.Environment, proxyNetworkView map[strin
 		if instance.Endpoint.LbWeight > 0 {
 			ep.LoadBalancingWeight.Value = instance.Endpoint.LbWeight
 		}
-		ep.Metadata = util.BuildLbEndpointMetadata(instance.Endpoint.UID, instance.Endpoint.Network, instance.MTLSReady)
+		ep.Metadata = util.BuildLbEndpointMetadata(instance.Endpoint.UID, instance.Endpoint.Network, instance.TLSMode)
 		locality := instance.GetLocality()
 		lbEndpoints[locality] = append(lbEndpoints[locality], ep)
 	}
@@ -822,7 +840,16 @@ type buildClusterOpts struct {
 	policy          *networking.TrafficPolicy
 	port            *model.Port
 	serviceAccounts []string
-	sni             string
+	// Used for traffic across multiple Istio clusters
+	// the ingress gateway in a remote cluster will use this value to route
+	// traffic to the appropriate service
+	istioMtlsSni string
+	// This is used when the sidecar is sending simple TLS traffic
+	// to endpoints. This is different from the previous SNI
+	// because usually in this case the traffic is going to a
+	// non-sidecar workload that can only understand the service's
+	// hostname in the SNI.
+	simpleTLSSni    string
 	clusterMode     ClusterMode
 	direction       model.TrafficDirection
 	proxy           *model.Proxy
@@ -840,9 +867,9 @@ func applyTrafficPolicy(opts buildClusterOpts, proxy *model.Proxy) {
 	if opts.clusterMode != SniDnatClusterMode && opts.direction != model.TrafficDirectionInbound {
 		autoMTLSEnabled := opts.env.Mesh.GetEnableAutoMtls().Value
 		var mtlsCtxType mtlsContextType
-		tls, mtlsCtxType = conditionallyConvertToIstioMtls(tls, opts.serviceAccounts, opts.sni, opts.proxy,
+		tls, mtlsCtxType = conditionallyConvertToIstioMtls(tls, opts.serviceAccounts, opts.istioMtlsSni, opts.proxy,
 			autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode)
-		applyUpstreamTLSSettings(opts.env, opts.cluster, tls, mtlsCtxType, opts.proxy)
+		applyUpstreamTLSSettings(&opts, tls, mtlsCtxType)
 	}
 }
 
@@ -1072,12 +1099,14 @@ func applyLocalityLBSetting(
 	}
 }
 
-func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tls *networking.TLSSettings,
-	mtlsCtxType mtlsContextType, proxy *model.Proxy) {
+func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.TLSSettings, mtlsCtxType mtlsContextType) {
 	if tls == nil {
 		return
 	}
 
+	env := opts.env
+	cluster := opts.cluster
+	proxy := opts.proxy
 	certValidationContext := &auth.CertificateValidationContext{}
 	var trustedCa *core.DataSource
 	if len(tls.CaCertificates) != 0 {
@@ -1173,29 +1202,30 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 
 	// convert to transport socket matcher if the mode was auto detected
 	if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL && mtlsCtxType == autoDetected && util.IsIstioVersionGE14(proxy) {
-		tlsContext, err := ptypes.MarshalAny(cluster.TlsContext)
-		cluster.TlsContext = nil
+		istioTLSContext, err := ptypes.MarshalAny(cluster.TlsContext)
 		if err != nil {
-			log.Errorf("error marshaling tls context to transport_socket config for cluster %s, err=%v",
+			log.Errorf("error marshaling istio tls context to transport_socket config for cluster %s, err=%v",
 				cluster.Name, err)
 			return // no tls context for the cluster
 		}
+		cluster.TlsContext = nil
+
 		cluster.TransportSocketMatches = []*apiv2.Cluster_TransportSocketMatch{
 			{
-				Name: "mtls",
+				Name: "tlsMode-" + model.IstioMutualTLSModeLabel,
 				Match: &structpb.Struct{
 					Fields: map[string]*structpb.Value{
-						model.MTLSReadyLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: "true"}},
+						model.TLSModeLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: model.IstioMutualTLSModeLabel}},
 					},
 				},
 				TransportSocket: &core.TransportSocket{
 					Name: util.EnvoyTLSSocketName,
 					ConfigType: &core.TransportSocket_TypedConfig{
-						TypedConfig: tlsContext,
+						TypedConfig: istioTLSContext,
 					},
 				},
 			},
-			plaintextTransportSocketMatch,
+			defaultTransportSocketMatch,
 		}
 	}
 }
@@ -1248,13 +1278,7 @@ func buildDefaultPassthroughCluster(env *model.Environment, proxy *model.Proxy) 
 		ConnectTimeout:       gogo.DurationToProtoDuration(env.Mesh.ConnectTimeout),
 		LbPolicy:             lbPolicyClusterProvided(proxy),
 	}
-	passthroughSettings := &networking.ConnectionPoolSettings{
-		Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-			// The envoy default is 1024. This isn't configurable right now so we set
-			// this to a very high value so outbound connections are not limited.
-			MaxConnections: 1024 * 100,
-		},
-	}
+	passthroughSettings := &networking.ConnectionPoolSettings{}
 	applyConnectionPool(env, cluster, passthroughSettings, model.TrafficDirectionOutbound)
 	return cluster
 }
@@ -1291,7 +1315,7 @@ func buildDefaultCluster(env *model.Environment, name string, discoveryType apiv
 		policy:          defaultTrafficPolicy,
 		port:            port,
 		serviceAccounts: nil,
-		sni:             "",
+		istioMtlsSni:    "",
 		clusterMode:     DefaultClusterMode,
 		direction:       direction,
 		proxy:           proxy,

@@ -23,7 +23,7 @@ import (
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
 
-func removeOldChains(ext dep.Dependencies, cmd dep.Cmd) {
+func removeOldChains(ext dep.Dependencies, cmd string) {
 	// Remove the old chains
 	ext.RunQuietlyAndIgnore(cmd, "-t", constants.NAT, "-D", constants.PREROUTING, "-p", constants.TCP, "-j", constants.ISTIOINBOUND)
 	ext.RunQuietlyAndIgnore(cmd, "-t", constants.MANGLE, "-D", constants.PREROUTING, "-p", constants.TCP, "-j", constants.ISTIOINBOUND)
@@ -62,12 +62,12 @@ func run(args []string, flagSet *flag.FlagSet) {
 	}
 
 	defer func() {
-		for _, cmd := range []dep.Cmd{dep.IPTABLESSAVE, dep.IP6TABLESSAVE} {
+		for _, cmd := range []string{dep.IPTABLESSAVE, dep.IP6TABLESSAVE} {
 			ext.RunOrFail(cmd)
 		}
 	}()
 
-	for _, cmd := range []dep.Cmd{dep.IPTABLES, dep.IP6TABLES} {
+	for _, cmd := range []string{dep.IPTABLES, dep.IP6TABLES} {
 		removeOldChains(ext, cmd)
 	}
 }

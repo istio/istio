@@ -22,7 +22,7 @@ import (
 	"time"
 )
 
-const requestTimeout = time.Second * 2
+const requestTimeout = time.Second * 1 // Default readiness probe timeout.
 
 func doHTTPGet(requestURL string) (*bytes.Buffer, error) {
 	httpClient := &http.Client{

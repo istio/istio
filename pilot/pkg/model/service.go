@@ -106,6 +106,20 @@ const (
 	Passthrough
 )
 
+// String converts Resolution in to String.
+func (resolution Resolution) String() string {
+	switch resolution {
+	case ClientSideLB:
+		return "ClientSide"
+	case DNSLB:
+		return "DNS"
+	case Passthrough:
+		return "Passthrough"
+	default:
+		return fmt.Sprintf("%d", int(resolution))
+	}
+}
+
 const (
 	// IstioDefaultConfigNamespace constant for default namespace
 	IstioDefaultConfigNamespace = "default"
@@ -120,11 +134,18 @@ const (
 )
 
 const (
-	// MTLSReadyLabelShortname name used for determining endpoint level tls transport socket configuration
-	MTLSReadyLabelShortname = "mtlsReady"
+	// TLSModeLabelShortname name used for determining endpoint level tls transport socket configuration
+	TLSModeLabelShortname = "tlsMode"
 
-	// MTLSReadyLabelName name for the mtlsReady label given to service instances to toggle mTLS autopilot
-	MTLSReadyLabelName = "security.istio.io/" + MTLSReadyLabelShortname
+	// TLSModeLabelName is the name of label given to service instances to determine whether to use mTLS or
+	// fallback to plaintext/tls
+	TLSModeLabelName = "security.istio.io/" + TLSModeLabelShortname
+
+	// DisabledTLSModeLabel implies that this endpoint should receive traffic as is (mostly plaintext)
+	DisabledTLSModeLabel = "disabled"
+
+	// IstioMutualTLSModeLabel implies that the endpoint is ready to receive Istio mTLS connections.
+	IstioMutualTLSModeLabel = "istio"
 )
 
 // Port represents a network port where a service is listening for
@@ -267,7 +288,7 @@ type ServiceInstance struct {
 	Service        *Service        `json:"service,omitempty"`
 	Labels         labels.Instance `json:"labels,omitempty"`
 	ServiceAccount string          `json:"serviceaccount,omitempty"`
-	MTLSReady      bool            `json:"mtlsReady,omitempty"`
+	TLSMode        string          `json:"tlsMode,omitempty"`
 }
 
 // GetLocality returns the availability zone from an instance. If service instance label for locality
@@ -353,8 +374,8 @@ type IstioEndpoint struct {
 	// used mostly by mixer and RBAC for policy enforcement purposes.
 	Attributes ServiceAttributes
 
-	// MTLSReady endpoint is injected with istio sidecar and ready to configure Istio mTLS
-	MTLSReady bool
+	// TLSMode endpoint is injected with istio sidecar and ready to configure Istio mTLS
+	TLSMode string
 }
 
 // ServiceAttributes represents a group of custom attributes of the service.
@@ -653,6 +674,19 @@ func (s *Service) GetServiceAddressForProxy(node *Proxy) string {
 		return s.ClusterVIPs[node.ClusterID]
 	}
 	return s.Address
+}
+
+// GetTLSModeFromEndpointLabels returns the value of the label
+// security.istio.io/tlsMode if set. Do not return Enums or constants
+// from this function as users could provide values other than istio/disabled
+// and apply custom transport socket matchers here.
+func GetTLSModeFromEndpointLabels(labels map[string]string) string {
+	if labels != nil {
+		if val, exists := labels[TLSModeLabelName]; exists {
+			return val
+		}
+	}
+	return DisabledTLSModeLabel
 }
 
 // DeepCopy creates a clone of Service.

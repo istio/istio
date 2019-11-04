@@ -20,8 +20,22 @@ package istio.envoy.config.filter.http.alpn.v2alpha1;
 
 option go_package = "istio.io/api/envoy/config/filter/http/alpn/v2alpha1";
 
-// FilterConfig is the config for ALPN filter.
+// FilterConfig is the config for Istio-specific filter.
 message FilterConfig {
-  // A list of ALPN that will override the ALPN for upstream TLS connections.
-  repeated string alpn_override = 1;
+  // Upstream protocols
+  enum Protocol {
+    HTTP10 = 0;
+    HTTP11 = 1;
+    HTTP2 = 2;
+  }
+
+  message AlpnOverride {
+    // Upstream protocol
+    Protocol upstream_protocol = 1;
+    // A list of ALPN that will override the ALPN for upstream TLS connections.
+    repeated string alpn_override = 2;
+  }
+
+  // Map from upstream protocol to list of ALPN
+  repeated AlpnOverride alpn_override = 1;
 }

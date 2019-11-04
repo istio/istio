@@ -100,12 +100,6 @@ var ALPNInMesh = []string{"istio"}
 // ALPNHttp advertises that Proxy is going to talking either http2 or http 1.1.
 var ALPNHttp = []string{"h2", "http/1.1"}
 
-var EndpointMetadataMtlsReady = &pstruct.Struct{
-	Fields: map[string]*pstruct.Value{
-		model.MTLSReadyLabelShortname: {Kind: &pstruct.Value_StringValue{StringValue: "true"}},
-	},
-}
-
 func getMaxCidrPrefix(addr string) uint32 {
 	ip := net.ParseIP(addr)
 	if ip.To4() == nil {
@@ -326,7 +320,7 @@ func IsProtocolSniffingEnabledForOutbound(node *model.Proxy) bool {
 }
 
 func IsProtocolSniffingEnabledForInbound(node *model.Proxy) bool {
-	return features.EnableProtocolSniffingForInbound.Get() && IsIstioVersionGE13(node)
+	return features.EnableProtocolSniffingForInbound.Get() && IsIstioVersionGE14(node)
 }
 
 func IsProtocolSniffingEnabledForPort(node *model.Proxy, port *model.Port) bool {
@@ -593,8 +587,8 @@ func HandleCrash(handlers ...func()) {
 }
 
 // BuildLbEndpointMetadata adds metadata values to a lb endpoint
-func BuildLbEndpointMetadata(uid string, network string, mtlsReady bool) *core.Metadata {
-	if uid == "" && network == "" && !mtlsReady {
+func BuildLbEndpointMetadata(uid string, network string, tlsMode string) *core.Metadata {
+	if uid == "" && network == "" && tlsMode == model.DisabledTLSModeLabel {
 		return nil
 	}
 
@@ -616,8 +610,12 @@ func BuildLbEndpointMetadata(uid string, network string, mtlsReady bool) *core.M
 		}
 	}
 
-	if mtlsReady {
-		metadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = EndpointMetadataMtlsReady
+	if tlsMode != "" {
+		metadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = &pstruct.Struct{
+			Fields: map[string]*pstruct.Value{
+				model.TLSModeLabelShortname: {Kind: &pstruct.Value_StringValue{StringValue: tlsMode}},
+			},
+		}
 	}
 
 	return metadata

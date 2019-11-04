@@ -157,7 +157,13 @@ func NewModelV1alpha1(trustDomainBundle trustdomain.Bundle, role *istio_rbac.Ser
 
 			property := KeyValues{}
 			for k, v := range subject.Properties {
-				property[k] = []string{v}
+				values := []string{v}
+				if k == attrSrcPrincipal {
+					// TODO(pitlv2109): Refactor this by creating a method for Principal
+					// that searches and replaces all trust domains in both v1alpha1 and v1beta1.
+					values = trustDomainBundle.ReplaceTrustDomainAliases([]string{v})
+				}
+				property[k] = values
 			}
 			principal.Properties = []KeyValues{property}
 
@@ -176,7 +182,11 @@ func NewModelV1beta1(trustDomainBundle trustdomain.Bundle, rule *security.Rule) 
 	conditionsForPermission := make([]KeyValues, 0)
 	for _, when := range rule.When {
 		if isSupportedPrincipal(when.Key) {
-			conditionsForPrincipal = append(conditionsForPrincipal, KeyValues{when.Key: when.Values})
+			values := when.Values
+			if when.Key == attrSrcPrincipal {
+				values = trustDomainBundle.ReplaceTrustDomainAliases(when.Values)
+			}
+			conditionsForPrincipal = append(conditionsForPrincipal, KeyValues{when.Key: values})
 		} else if isSupportedPermission(when.Key) {
 			conditionsForPermission = append(conditionsForPermission, KeyValues{when.Key: when.Values})
 		} else {
@@ -193,6 +203,7 @@ func NewModelV1beta1(trustDomainBundle trustdomain.Bundle, rule *security.Rule) 
 				Namespaces:        source.Namespaces,
 				RequestPrincipals: source.RequestPrincipals,
 				Properties:        conditionsForPrincipal,
+				v1beta1:           true,
 			}
 			m.Principals = append(m.Principals, principal)
 		}
@@ -201,10 +212,12 @@ func NewModelV1beta1(trustDomainBundle trustdomain.Bundle, rule *security.Rule) 
 		if len(conditionsForPrincipal) != 0 {
 			m.Principals = []Principal{{
 				Properties: conditionsForPrincipal,
+				v1beta1:    true,
 			}}
 		} else {
 			m.Principals = []Principal{{
 				AllowAll: true,
+				v1beta1:  true,
 			}}
 		}
 	}
@@ -217,6 +230,7 @@ func NewModelV1beta1(trustDomainBundle trustdomain.Bundle, rule *security.Rule) 
 				Ports:       operation.Ports,
 				Paths:       operation.Paths,
 				Constraints: conditionsForPermission,
+				v1beta1:     true,
 			}
 			m.Permissions = append(m.Permissions, permission)
 		}
@@ -225,10 +239,12 @@ func NewModelV1beta1(trustDomainBundle trustdomain.Bundle, rule *security.Rule) 
 		if len(conditionsForPermission) != 0 {
 			m.Permissions = []Permission{{
 				Constraints: conditionsForPermission,
+				v1beta1:     true,
 			}}
 		} else {
 			m.Permissions = []Permission{{
 				AllowAll: true,
+				v1beta1:  true,
 			}}
 		}
 	}
