@@ -25,18 +25,17 @@ import (
 	"istio.io/istio/galley/pkg/config/resource"
 )
 
-// OverlapSelectorAnalyzer validates, per namespace, that there aren't multiple Sidecar resources that
-// select overlapping service workloads
-// Also checks for Sidecars with no matching pods at all, despite defining a workload selector.
-// TODO: rename me
-type OverlapSelectorAnalyzer struct{}
+// SelectorAnalyzer validates, per namespace, that:
+// * Sidecars that define a workload selector match at least one pod
+// * there aren't multiple Sidecar resources that select overlapping pods
+type SelectorAnalyzer struct{}
 
-var _ analysis.Analyzer = &OverlapSelectorAnalyzer{}
+var _ analysis.Analyzer = &SelectorAnalyzer{}
 
 // Metadata implements Analyzer
-func (a *OverlapSelectorAnalyzer) Metadata() analysis.Metadata {
+func (a *SelectorAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name: "sidecar.OverlapSelectorAnalyzer",
+		Name: "sidecar.SelectorAnalyzer",
 		Inputs: collection.Names{
 			metadata.IstioNetworkingV1Alpha3Sidecars,
 			metadata.K8SCoreV1Pods,
@@ -45,7 +44,7 @@ func (a *OverlapSelectorAnalyzer) Metadata() analysis.Metadata {
 }
 
 // Analyze implements Analyzer
-func (a *OverlapSelectorAnalyzer) Analyze(c analysis.Context) {
+func (a *SelectorAnalyzer) Analyze(c analysis.Context) {
 	podsToSidecars := make(map[resource.Name][]*resource.Entry)
 
 	// This is using an unindexed approach for matching selectors.

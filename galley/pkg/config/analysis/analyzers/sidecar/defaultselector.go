@@ -23,6 +23,7 @@ import (
 )
 
 // DefaultSelectorAnalyzer validates, per namespace, that there aren't multiple Sidecar resources that have no selector
+// This is distinct from SelectorAnalyzer because it does not require pods, so it can run even if that collection is unavailable
 type DefaultSelectorAnalyzer struct{}
 
 var _ analysis.Analyzer = &DefaultSelectorAnalyzer{}
