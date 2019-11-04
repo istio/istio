@@ -176,6 +176,18 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "sidecarOverlapSelector",
+		inputFiles: []string{"testdata/sidecar-overlap-selector.yaml"},
+		analyzer:   &sidecar.OverlapSelectorAnalyzer{},
+		expected: []message{
+			{msg.ReferencedResourceNotFound, "Sidecar maps-to-nonexistent.default"},
+			{msg.ConflictingSidecarWorkloadSelectors, "Sidecar dupe-1.default"},
+			{msg.ConflictingSidecarWorkloadSelectors, "Sidecar dupe-2.default"},
+			{msg.ConflictingSidecarWorkloadSelectors, "Sidecar overlap-1.default"},
+			{msg.ConflictingSidecarWorkloadSelectors, "Sidecar overlap-2.default"},
+		},
+	},
+	{
 		name:       "virtualServiceConflictingMeshGatewayHosts",
 		inputFiles: []string{"testdata/virtualservice_conflictingmeshgatewayhosts.yaml"},
 		analyzer:   &virtualservice.ConflictingMeshGatewayHostsAnalyzer{},

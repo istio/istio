@@ -28,6 +28,7 @@ import (
 // OverlapSelectorAnalyzer validates, per namespace, that there aren't multiple Sidecar resources that
 // select overlapping service workloads
 // Also checks for Sidecars with no matching pods at all, despite defining a workload selector.
+// TODO: rename me
 type OverlapSelectorAnalyzer struct{}
 
 var _ analysis.Analyzer = &OverlapSelectorAnalyzer{}
