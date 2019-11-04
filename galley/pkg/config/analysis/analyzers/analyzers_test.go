@@ -176,9 +176,9 @@ var testGrid = []testCase{
 		},
 	},
 	{
-		name:       "sidecarOverlapSelector",
-		inputFiles: []string{"testdata/sidecar-overlap-selector.yaml"},
-		analyzer:   &sidecar.OverlapSelectorAnalyzer{},
+		name:       "sidecarSelector",
+		inputFiles: []string{"testdata/sidecar-selector.yaml"},
+		analyzer:   &sidecar.SelectorAnalyzer{},
 		expected: []message{
 			{msg.ReferencedResourceNotFound, "Sidecar maps-to-nonexistent.default"},
 			{msg.ConflictingSidecarWorkloadSelectors, "Sidecar dupe-1.default"},

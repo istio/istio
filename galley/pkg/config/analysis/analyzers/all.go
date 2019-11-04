@@ -38,7 +38,7 @@ func All() []analysis.Analyzer {
 		&injection.Analyzer{},
 		&injection.VersionAnalyzer{},
 		&sidecar.DefaultSelectorAnalyzer{},
-		&sidecar.OverlapSelectorAnalyzer{},
+		&sidecar.SelectorAnalyzer{},
 		&virtualservice.ConflictingMeshGatewayHostsAnalyzer{},
 		&virtualservice.DestinationHostAnalyzer{},
 		&virtualservice.DestinationRuleAnalyzer{},
