@@ -97,14 +97,14 @@ func TestBuildHTTPFilter(t *testing.T) {
 		{
 			name:              "v1alpha1 trust domain with * in principal",
 			trustDomainBundle: trustdomain.NewTrustDomainBundle("td1", []string{"foobar"}),
-			policies:          getPolicies("testdata/v1alpha1/simple-policy-user-with-*-in.yaml", t),
-			want:              getProto("testdata/v1alpha1/simple-policy-user-with-*-out.yaml", t),
+			policies:          getPolicies("testdata/v1alpha1/simple-policy-user-with-wildcard-in.yaml", t),
+			want:              getProto("testdata/v1alpha1/simple-policy-user-with-wildcard-out.yaml", t),
 		},
 		{
 			name:              "v1beta1 trust domain with * in principal",
 			trustDomainBundle: trustdomain.NewTrustDomainBundle("td1", []string{"foobar"}),
-			policies:          getPolicies("testdata/v1beta1/simple-policy-principal-with-*-in.yaml", t),
-			want:              getProto("testdata/v1beta1/simple-policy-principal-with-*-out.yaml", t),
+			policies:          getPolicies("testdata/v1beta1/simple-policy-principal-with-wildcard-in.yaml", t),
+			want:              getProto("testdata/v1beta1/simple-policy-principal-with-wildcard-out.yaml", t),
 		},
 		{
 			name:              "v1alpha1 trust domain aliases with source.principal",
