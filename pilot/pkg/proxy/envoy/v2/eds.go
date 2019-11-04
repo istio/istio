@@ -772,7 +772,7 @@ func (s *DiscoveryServer) getEdsCluster(clusterName string) *EdsCluster {
 }
 
 // getOrAddEdsCluster will track the eds connection with clusters, for optimized event-based push and debug
-func (s *DiscoveryServer) getOrAddEdsCluster(clusterName, node string, connection *XdsConnection) *EdsCluster {
+func (s *DiscoveryServer) getOrAddEdsCluster(clusterName string, connection *XdsConnection) *EdsCluster {
 	edsClusterMutex.Lock()
 	defer edsClusterMutex.Unlock()
 
@@ -787,7 +787,7 @@ func (s *DiscoveryServer) getOrAddEdsCluster(clusterName, node string, connectio
 	// TODO: find a more efficient way to make edsClusters and EdsClients init atomic
 	// Currently use edsClusterMutex lock
 	c.mutex.Lock()
-	c.EdsClients[node] = connection
+	c.EdsClients[connection.ConID] = connection
 	c.mutex.Unlock()
 
 	return c
