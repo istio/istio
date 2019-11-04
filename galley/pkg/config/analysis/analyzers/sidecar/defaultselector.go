@@ -46,7 +46,7 @@ func (a *DefaultSelectorAnalyzer) Analyze(c analysis.Context) {
 
 		ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
 
-		if s.WorkloadSelector != nil {
+		if s.WorkloadSelector == nil {
 			nsToSidecars[ns] = append(nsToSidecars[ns], r)
 		}
 		return true
