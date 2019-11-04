@@ -470,7 +470,7 @@ func createCA(client corev1.CoreV1Interface) *ca.IstioCA {
 		defer cancel()
 		var checkInterval time.Duration
 		if opts.readSigningCertOnly {
-			checkInterval = cmd.ReadSi	gningCertRetryInterval
+			checkInterval = cmd.ReadSigningCertRetryInterval
 		} else {
 			checkInterval = -1
 		}

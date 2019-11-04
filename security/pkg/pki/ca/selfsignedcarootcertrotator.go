@@ -38,6 +38,7 @@ type SelfSignedCARootCertRotatorConfig struct {
 	certInspector      certutil.CertUtil
 	caStorageNamespace string
 	org                string
+	rootCertFile       string
 	client             corev1.CoreV1Interface
 	CheckInterval      time.Duration
 	caCertTTL          time.Duration
