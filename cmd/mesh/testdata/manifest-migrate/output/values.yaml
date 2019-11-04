@@ -255,6 +255,7 @@ values:
   galley:
     image: galley
   gateways:
+    enabled: true
     istio-egressgateway:
       connectTimeout: 10s
       drainDuration: 45s
@@ -275,6 +276,7 @@ values:
         secretName: istio-egressgateway-ca-certs
       type: ClusterIP
       zvpn:
+        enabled: true
         suffix: global
     istio-ingressgateway:
       applicationPorts: ""
@@ -318,6 +320,7 @@ values:
         port: 15443
         targetPort: 15443
       sds:
+        enabled: false
         image: node-agent-k8s
         resources:
           limits:
@@ -336,27 +339,32 @@ values:
       telemetry_addon_gateways:
         grafana_gateway:
           desPort: 3000
+          enabled: false
           name: grafana
           port: 15031
           tls: false
         kiali_gateway:
           desPort: 20001
+          enabled: false
           name: kiali
           port: 15029
           tls: false
         prometheus_gateway:
           desPort: 9090
+          enabled: false
           name: prometheus
           port: 15030
           tls: false
         tracing_gateway:
           desPort: 80
+          enabled: false
           name: tracing
           port: 15032
           tls: false
       telemetry_domain_name: ""
       type: LoadBalancer
       zvpn:
+        enabled: true
         suffix: global
   global:
     arch:
@@ -510,6 +518,9 @@ values:
     tolerations: []
   mixer:
     policy:
+      adapters:
+        kubernetesenv:
+          enabled: true
       image: mixer
     telemetry:
       image: mixer

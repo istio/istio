@@ -46,7 +46,7 @@ type ReverseTranslator struct {
 var (
 	// ReverseTranslators maps a minor version to a corresponding ReverseTranslator.
 	ReverseTranslators = map[version.MinorVersion]*ReverseTranslator{
-		version.NewMinorVersion(1, 3): {
+		version.NewMinorVersion(1, 4): {
 			APIMapping: map[string]*Translation{},
 			KubernetesPatternMapping: map[string]string{
 				"{{.ValueComponentName}}.podAntiAffinityLabelSelector": "{{.FeatureName}}.Components.{{.ComponentName}}.K8s." +
@@ -532,10 +532,17 @@ func (t *ReverseTranslator) isEnablementPath(path util.Path) bool {
 	if len(path) < 2 || path[len(path)-1] != "enabled" {
 		return false
 	}
+
+	pstr := path.String()
+	if pstr == "mixer.policy.enabled" || pstr == "mixer.telemetry.enabled" ||
+		pstr == "gateways.istio-ingressgateway.enabled" || pstr == "gateways.istio-egressgateway.enabled" {
+		return true
+	}
+
 	pf := path[:len(path)-1].String()
 	_, exist := t.ValuesToComponentName[pf]
 
-	return exist || path[0] == "gateways" || path[0] == "mixer"
+	return exist
 }
 
 // renderComponentName renders a template of the form <path>{{.ComponentName}}<path> with
