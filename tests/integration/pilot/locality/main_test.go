@@ -145,15 +145,6 @@ func TestMain(m *testing.M) {
 		Run()
 }
 
-func setupConfig(cfg *istio.Config) {
-	if cfg == nil {
-		return
-	}
-	cfg.Values["pilot.autoscaleEnabled"] = "false"
-	cfg.Values["global.localityLbSetting.failover[0].from"] = "region"
-	cfg.Values["global.localityLbSetting.failover[0].to"] = "closeregion"
-}
-
 func echoConfig(ns namespace.Instance, name string) echo.Config {
 	return echo.Config{
 		Service:   name,

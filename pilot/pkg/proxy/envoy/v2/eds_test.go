@@ -18,7 +18,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"istio.io/api/networking/v1alpha3"
 	"log"
 	"net/http"
 	"reflect"
@@ -32,6 +31,7 @@ import (
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 
+	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
