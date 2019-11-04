@@ -33,7 +33,7 @@ import (
 
 const (
 	appName    = "zipkin"
-	tracesAPI  = "/api/v1/spans?limit=%d&spanName=%s&annotationQuery=%s"
+	tracesAPI  = "/api/v2/traces?limit=%d&spanName=%s&annotationQuery=%s"
 	zipkinPort = 9411
 )
 
