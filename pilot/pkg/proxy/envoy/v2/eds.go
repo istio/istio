@@ -772,28 +772,6 @@ func (s *DiscoveryServer) getEdsCluster(clusterName string) *EdsCluster {
 	return edsClusters[clusterName]
 }
 
-// getOrAddEdsCluster will track the eds connection with clusters, for optimized event-based push and debug
-func (s *DiscoveryServer) getOrAddEdsCluster(clusterName string, connection *XdsConnection) *EdsCluster {
-	edsClusterMutex.Lock()
-	defer edsClusterMutex.Unlock()
-
-	c := edsClusters[clusterName]
-	if c == nil {
-		c = &EdsCluster{
-			EdsClients: map[string]*XdsConnection{},
-		}
-		edsClusters[clusterName] = c
-	}
-
-	// TODO: find a more efficient way to make edsClusters and EdsClients init atomic
-	// Currently use edsClusterMutex lock
-	c.mutex.Lock()
-	c.EdsClients[connection.ConID] = connection
-	c.mutex.Unlock()
-
-	return c
-}
-
 // removeEdsCon is called when a gRPC stream is closed, for each cluster that was watched by the
 // stream. As of 0.7 envoy watches a single cluster per gprc stream.
 func (s *DiscoveryServer) removeEdsCon(clusterName string, node string) {
