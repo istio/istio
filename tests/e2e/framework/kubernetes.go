@@ -625,7 +625,7 @@ func (k *KubeInfo) Teardown() error {
 	log.Infof("Deleting namespace %v", k.Namespace)
 	for attempts := 1; attempts <= maxAttempts; attempts++ {
 		if *useOperator {
-			namespaceDeleted = true
+			namespaceDeleted, _ = util.NamespaceDeleted("istio-operator", k.KubeConfig)
 		} else {
 			namespaceDeleted, _ = util.NamespaceDeleted(k.Namespace, k.KubeConfig)
 		}
