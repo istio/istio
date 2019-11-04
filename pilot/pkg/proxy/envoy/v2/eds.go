@@ -378,7 +378,7 @@ func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, namespace string, 
 		inboundServiceDeletes.Increment()
 		s.mutex.Lock()
 		defer s.mutex.Unlock()
-		s.deleteEndpointShards(cluster, hostname, namespace, true)
+		s.deleteService(cluster, hostname, namespace)
 	} else {
 		inboundServiceUpdates.Increment()
 	}
@@ -449,7 +449,7 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 	// flip flopping between 1 and 0.
 	if len(istioEndpoints) == 0 {
 		if s.EndpointShardsByService[serviceName][namespace] != nil {
-			s.deleteEndpointShards(clusterID, serviceName, namespace, false)
+			s.deleteEndpointShards(clusterID, serviceName, namespace)
 			adsLog.Infof("Incremental push, service %s has no endpoints", serviceName)
 			s.ConfigUpdate(&model.PushRequest{
 				Full:              false,
@@ -523,21 +523,25 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 	}
 }
 
-// deleteEndpointShards deletes matching endpoints from EndpointShardsByService map. This is called when
-// endpoints are deleted or the service is deleted. If deleteKeys is true, this method will also delete the
-// associated entries from map.
-func (s *DiscoveryServer) deleteEndpointShards(cluster, serviceName, namespace string, deleteKeys bool) {
+// deleteEndpointShards deletes matching endpoint shards from EndpointShardsByService map. This is called when
+// endpoints are deleted.
+func (s *DiscoveryServer) deleteEndpointShards(cluster, serviceName, namespace string) {
 	if s.EndpointShardsByService[serviceName][namespace] != nil {
 		s.EndpointShardsByService[serviceName][namespace].mutex.Lock()
 		delete(s.EndpointShardsByService[serviceName][namespace].Shards, cluster)
-		svcShards := len(s.EndpointShardsByService[serviceName][namespace].Shards)
 		s.EndpointShardsByService[serviceName][namespace].mutex.Unlock()
-		if svcShards == 0 && deleteKeys {
-			delete(s.EndpointShardsByService[serviceName], namespace)
-		}
-		if len(s.EndpointShardsByService[serviceName]) == 0 && deleteKeys {
-			delete(s.EndpointShardsByService, serviceName)
-		}
+	}
+}
+
+// deleteService deletes all service related references from EndpointShardsByService. This is called
+// when a service is deleted.
+func (s *DiscoveryServer) deleteService(cluster, serviceName, namespace string) {
+	if s.EndpointShardsByService[serviceName][namespace] != nil {
+		s.EndpointShardsByService[serviceName][namespace].mutex.Lock()
+		delete(s.EndpointShardsByService[serviceName][namespace].Shards, cluster)
+		s.EndpointShardsByService[serviceName][namespace].mutex.Unlock()
+		delete(s.EndpointShardsByService[serviceName], namespace)
+		delete(s.EndpointShardsByService, serviceName)
 	}
 }
 
