@@ -232,12 +232,12 @@ func getNamespaceToServiceToSelector(k8sClient *kubernetes.Clientset, serviceFil
 }
 
 // ConvertV1alpha1ToV1beta1 converts RBAC v1alphal1 to v1beta1 for local policy files.
-func (ug *Converter) ConvertV1alpha1ToV1beta1() error {
-	if err := ug.convert(ug.v1alpha1Policies); err != nil {
+func (c *Converter) ConvertV1alpha1ToV1beta1() error {
+	if err := c.convert(c.v1alpha1Policies); err != nil {
 		return fmt.Errorf("failed to convert policies: %v", err)
 	}
-	for _, authzPolicy := range ug.AuthorizationPolicies {
-		err := ug.parseConfigToString(authzPolicy)
+	for _, authzPolicy := range c.AuthorizationPolicies {
+		err := c.parseConfigToString(authzPolicy)
 		if err != nil {
 			return fmt.Errorf("failed to parse config to string: %v", err)
 		}
@@ -246,9 +246,9 @@ func (ug *Converter) ConvertV1alpha1ToV1beta1() error {
 }
 
 // convert is the main function that converts RBAC v1alphal1 to v1beta1 for local policy files
-func (ug *Converter) convert(authzPolicies *model.AuthorizationPolicies) error {
+func (c *Converter) convert(authzPolicies *model.AuthorizationPolicies) error {
 	// Convert ClusterRbacConfig to AuthorizationPolicy
-	err := ug.convertClusterRbacConfig(authzPolicies)
+	err := c.convertClusterRbacConfig(authzPolicies)
 	if err != nil {
 		// Users might not have access to the cluster-wide RBAC config, so instead of returning an error,
 		// output a warning instead.
@@ -268,7 +268,7 @@ func (ug *Converter) convert(authzPolicies *model.AuthorizationPolicies) error {
 			if bindings, found := bindingsKeyList[roleName]; found {
 				role := roleConfig.Spec.(*rbac_v1alpha1.ServiceRole)
 				m := authz_model.NewModelV1alpha1(trustdomain.NewTrustDomainBundle("", nil), role, bindings)
-				err := ug.v1alpha1ModelTov1beta1Policy(m, ns)
+				err := c.v1alpha1ModelTov1beta1Policy(m, ns)
 				if err != nil {
 					return err
 				}
@@ -279,7 +279,7 @@ func (ug *Converter) convert(authzPolicies *model.AuthorizationPolicies) error {
 }
 
 // convertClusterRbacConfig converts ClusterRbacConfig to AuthorizationPolicy.
-func (ug *Converter) convertClusterRbacConfig(authzPolicies *model.AuthorizationPolicies) error {
+func (c *Converter) convertClusterRbacConfig(authzPolicies *model.AuthorizationPolicies) error {
 	clusterRbacConfig := authzPolicies.GetClusterRbacConfig()
 	if clusterRbacConfig == nil {
 		return fmt.Errorf("no ClusterRbacConfig found")
@@ -291,30 +291,30 @@ func (ug *Converter) convertClusterRbacConfig(authzPolicies *model.Authorization
 			return fmt.Errorf("service-level ClusterRbacConfig (found in ON_WITH_INCLUSION rule) is not supported")
 		}
 		// For each namespace in RbacConfig_ON_WITH_INCLUSION, we simply generate a deny-all rule for that namespace.
-		return ug.generateClusterRbacConfig(rbacNamespaceDeny, clusterRbacConfig.Inclusion.Namespaces, false)
+		return c.generateClusterRbacConfig(rbacNamespaceDeny, clusterRbacConfig.Inclusion.Namespaces, false)
 	}
 	switch clusterRbacConfig.Mode {
 	case rbac_v1alpha1.RbacConfig_OFF:
-		return ug.generateClusterRbacConfig(rbacNamespaceAllow, []string{ug.RootNamespace}, true)
+		return c.generateClusterRbacConfig(rbacNamespaceAllow, []string{c.RootNamespace}, true)
 	case rbac_v1alpha1.RbacConfig_ON:
-		return ug.generateClusterRbacConfig(rbacNamespaceDeny, []string{ug.RootNamespace}, true)
+		return c.generateClusterRbacConfig(rbacNamespaceDeny, []string{c.RootNamespace}, true)
 	case rbac_v1alpha1.RbacConfig_ON_WITH_EXCLUSION:
 		// Support namespace-level only.
 		if len(clusterRbacConfig.Exclusion.Services) > 0 {
 			return fmt.Errorf("service-level ClusterRbacConfig (found in ON_WITH_EXCLUSION rule) is not supported")
 		}
 		// First generate a cluster-wide deny rule.
-		err := ug.generateClusterRbacConfig(rbacNamespaceDeny, []string{ug.RootNamespace}, true)
+		err := c.generateClusterRbacConfig(rbacNamespaceDeny, []string{c.RootNamespace}, true)
 		if err != nil {
 			return fmt.Errorf("failed to convert ClusterRbacConfig: %v", err)
 		}
 		// For each namespace in RbacConfig_ON_WITH_EXCLUSION, we simply generate an allow-rule rule for that namespace.
-		return ug.generateClusterRbacConfig(rbacNamespaceAllow, clusterRbacConfig.Exclusion.Namespaces, false)
+		return c.generateClusterRbacConfig(rbacNamespaceAllow, clusterRbacConfig.Exclusion.Namespaces, false)
 	}
 	return nil
 }
 
-func (ug *Converter) generateClusterRbacConfig(template string, namespaces []string, isRootNamespace bool) error {
+func (c *Converter) generateClusterRbacConfig(template string, namespaces []string, isRootNamespace bool) error {
 	clusterRbacConfigData := map[string]string{
 		"ScopeName": "",
 		"Namespace": "",
@@ -329,7 +329,7 @@ func (ug *Converter) generateClusterRbacConfig(template string, namespaces []str
 		if err != nil {
 			return fmt.Errorf("failed to convert ClusterRbacConfig: %v", err)
 		}
-		ug.ConvertedPolicies.WriteString(policy)
+		c.ConvertedPolicies.WriteString(policy)
 	}
 	return nil
 }
@@ -349,7 +349,7 @@ func fillTemplate(config string, data interface{}) (string, error) {
 
 // v1alpha1ModelTov1beta1Policy converts the policy of one ServiceRole and a list of associated
 // ServiceRoleBinding to the equivalent AuthorizationPolicy.
-func (ug *Converter) v1alpha1ModelTov1beta1Policy(v1alpha1Model *authz_model.Model, namespace string) error {
+func (c *Converter) v1alpha1ModelTov1beta1Policy(v1alpha1Model *authz_model.Model, namespace string) error {
 	if v1alpha1Model == nil {
 		return fmt.Errorf("internal error: No v1alpha1 model")
 	}
@@ -359,21 +359,12 @@ func (ug *Converter) v1alpha1ModelTov1beta1Policy(v1alpha1Model *authz_model.Mod
 	if len(v1alpha1Model.Principals) == 0 {
 		return fmt.Errorf("principals are empty")
 	}
-	// TODO(pitlv2109): Support more complex cases
-	if len(v1alpha1Model.Permissions) > 1 {
-		return fmt.Errorf("more than one access rule is not supported")
-	}
-	accessRule := v1alpha1Model.Permissions[0]
-	operations, err := convertAccessRuleToOperation(&accessRule)
-	if err != nil {
-		return fmt.Errorf("cannot convert access rule to operation: %v", err)
-	}
 	sources, err := convertBindingToSources(v1alpha1Model.Principals)
 	if err != nil {
 		return fmt.Errorf("cannot convert binding to sources: %v", err)
 	}
 
-	createAuthzConfig := func(name string, selector *v1beta1.WorkloadSelector) model.Config {
+	createAuthzConfig := func(name string, selector *v1beta1.WorkloadSelector, operation *rbac_v1beta1.Operation) model.Config {
 		return model.Config{
 			ConfigMeta: model.ConfigMeta{
 				Type:      schemas.AuthorizationPolicy.Type,
@@ -387,7 +378,7 @@ func (ug *Converter) v1alpha1ModelTov1beta1Policy(v1alpha1Model *authz_model.Mod
 						From: sources,
 						To: []*rbac_v1beta1.Rule_To{
 							{
-								Operation: operations,
+								Operation: operation,
 							},
 						},
 					},
@@ -396,24 +387,31 @@ func (ug *Converter) v1alpha1ModelTov1beta1Policy(v1alpha1Model *authz_model.Mod
 		}
 	}
 
-	if len(accessRule.Services) == 0 {
-		authzConfig := createAuthzConfig("all-workloads", nil)
-		ug.AuthorizationPolicies = append(ug.AuthorizationPolicies, authzConfig)
-	}
-	for _, service := range accessRule.Services {
-		for j, selector := range ug.getSelectors(service, namespace) {
-			name := fmt.Sprintf("service-%s-%d", strings.ReplaceAll(service, "*", "wildcard"), j)
-			authzConfig := createAuthzConfig(name, &v1beta1.WorkloadSelector{
-				MatchLabels: selector,
-			})
-			ug.AuthorizationPolicies = append(ug.AuthorizationPolicies, authzConfig)
+	for _, accessRule := range v1alpha1Model.Permissions {
+		operation, err := convertAccessRuleToOperation(&accessRule)
+		if err != nil {
+			return fmt.Errorf("cannot convert access rule to operation: %v", err)
+		}
+
+		if len(accessRule.Services) == 0 {
+			authzConfig := createAuthzConfig("all-workloads", nil, operation)
+			c.AuthorizationPolicies = append(c.AuthorizationPolicies, authzConfig)
+		}
+		for _, service := range accessRule.Services {
+			for j, selector := range c.getSelectors(service, namespace) {
+				name := fmt.Sprintf("service-%s-%d", strings.ReplaceAll(service, "*", "wildcard"), j)
+				authzConfig := createAuthzConfig(name, &v1beta1.WorkloadSelector{
+					MatchLabels: selector,
+				}, operation)
+				c.AuthorizationPolicies = append(c.AuthorizationPolicies, authzConfig)
+			}
 		}
 	}
 	return nil
 }
 
 // getSelector gets the workload label for the service in the given namespace.
-func (ug *Converter) getSelectors(serviceFullName, namespace string) []WorkloadLabels {
+func (c *Converter) getSelectors(serviceFullName, namespace string) []WorkloadLabels {
 	if serviceFullName == "*" {
 		return []WorkloadLabels{
 			// An empty workload selects all workloads in the namespace.
@@ -437,12 +435,12 @@ func (ug *Converter) getSelectors(serviceFullName, namespace string) []WorkloadL
 
 	// Sort the services in the map to make sure the output is stable.
 	var targetServices []string
-	for svc := range ug.NamespaceToServiceToSelector[namespace] {
+	for svc := range c.NamespaceToServiceToSelector[namespace] {
 		targetServices = append(targetServices, svc)
 	}
 	sort.Strings(targetServices)
 	for _, targetService := range targetServices {
-		selector := ug.NamespaceToServiceToSelector[namespace][targetService]
+		selector := c.NamespaceToServiceToSelector[namespace][targetService]
 		if prefixMatch {
 			if strings.HasPrefix(targetService, serviceName) {
 				selectors = append(selectors, selector)
@@ -511,7 +509,7 @@ func convertBindingToSources(principals []authz_model.Principal) ([]*rbac_v1beta
 }
 
 // parseConfigToString parses data from `config` to string.
-func (ug *Converter) parseConfigToString(config model.Config) error {
+func (c *Converter) parseConfigToString(config model.Config) error {
 	schema := schemas.AuthorizationPolicy
 	obj, err := crd.ConvertConfig(schema, config)
 	if err != nil {
@@ -524,9 +522,9 @@ func (ug *Converter) parseConfigToString(config model.Config) error {
 	configLines := strings.Split(string(configInBytes), "\n")
 	for i, configLine := range configLines {
 		if i == len(configLines)-1 && configLine == "" {
-			ug.ConvertedPolicies.WriteString("---\n")
+			c.ConvertedPolicies.WriteString("---\n")
 		} else if !strings.Contains(configLine, "creationTimestamp: null") {
-			ug.ConvertedPolicies.WriteString(fmt.Sprintf("%s\n", configLine))
+			c.ConvertedPolicies.WriteString(fmt.Sprintf("%s\n", configLine))
 		}
 	}
 	return nil
