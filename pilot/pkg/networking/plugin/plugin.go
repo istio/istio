@@ -141,6 +141,8 @@ type FilterChain struct {
 	HTTP []*http_conn.HttpFilter
 	// TCP is the set of network (TCP) filters for this filter chain.
 	TCP []*listener.Filter
+	// IsFallthrough indicates if the filter chain is fallthrough.
+	IsFallThrough bool
 }
 
 // MutableObjects is a set of objects passed to On*Listener callbacks. Fields may be nil or empty.
