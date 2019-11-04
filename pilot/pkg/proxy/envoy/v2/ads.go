@@ -351,6 +351,8 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				previous := sets.NewSet(con.Clusters...)
 				current := sets.NewSet(clusters...)
 
+				s.updateEdsClusters(current.Difference(previous), previous.Difference(current), con)
+
 				// removed clusters
 				for cn := range previous.Difference(current) {
 					s.removeEdsCon(cn, con.ConID)

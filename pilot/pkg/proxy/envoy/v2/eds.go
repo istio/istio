@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
@@ -813,6 +814,44 @@ func (s *DiscoveryServer) removeEdsCon(clusterName string, node string) {
 		// in CDS requests to all sidecars. It may happen if all connections are closed.
 		adsLog.Debugf("EDS: Remove unwatched cluster node:%s cluster:%s", node, clusterName)
 		delete(edsClusters, clusterName)
+	}
+}
+
+func (s *DiscoveryServer) updateEdsClusters(added sets.Set, removed sets.Set, connection *XdsConnection) {
+	edsClusterMutex.Lock()
+	defer edsClusterMutex.Unlock()
+
+	for rc := range removed {
+		c := edsClusters[rc]
+		if c == nil {
+			adsLog.Warnf("EDS: Missing cluster: %s", rc)
+			return
+		}
+		c.mutex.Lock()
+		delete(c.EdsClients, connection.ConID)
+		c.mutex.Unlock()
+		if len(c.EdsClients) == 0 {
+			// This happens when a previously used cluster is no longer watched by any
+			// sidecar. It should not happen very often - normally all clusters are sent
+			// in CDS requests to all sidecars. It may happen if all connections are closed.
+			adsLog.Debugf("EDS: Remove unwatched cluster node:%s cluster:%s", connection.ConID, rc)
+			delete(edsClusters, rc)
+		}
+	}
+
+	for ac := range added {
+		c := edsClusters[ac]
+		if c == nil {
+			c = &EdsCluster{
+				EdsClients: map[string]*XdsConnection{},
+			}
+			edsClusters[ac] = c
+			// TODO: find a more efficient way to make edsClusters and EdsClients init atomic
+			// Currently use edsClusterMutex lock
+			c.mutex.Lock()
+			c.EdsClients[connection.ConID] = connection
+			c.mutex.Unlock()
+		}
 	}
 }
 
