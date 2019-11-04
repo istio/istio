@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/deprecation"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/sidecar"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/virtualservice"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/local"
@@ -53,6 +54,19 @@ type testCase struct {
 // * Expected messages are in the format {msg.ValidationMessageType, "<ResourceKind>/<Namespace>/<ResourceName>"}.
 //     * Note that if Namespace is omitted in the input YAML, it will be skipped here.
 var testGrid = []testCase{
+	{
+		name: "misannoted",
+		inputFiles: []string{
+			"testdata/misannotated.yaml",
+		},
+		analyzer: &annotations.K8sAnalyzer{},
+		expected: []message{
+			{msg.UnknownAnnotation, "Service httpbin"},
+			{msg.MisplacedAnnotation, "Service details"},
+			{msg.MisplacedAnnotation, "Pod grafana-test"},
+			{msg.MisplacedAnnotation, "Deployment fortio-deploy"},
+		},
+	},
 	{
 		name:       "serviceRoleBindings",
 		inputFiles: []string{"testdata/servicerolebindings.yaml"},
@@ -153,6 +167,15 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "sidecarDefaultSelector",
+		inputFiles: []string{"testdata/sidecar-default-selector.yaml"},
+		analyzer:   &sidecar.DefaultSelectorAnalyzer{},
+		expected: []message{
+			{msg.MultipleSidecarsWithoutWorkloadSelectors, "Sidecar has-conflict-2.ns2"},
+			{msg.MultipleSidecarsWithoutWorkloadSelectors, "Sidecar has-conflict-1.ns2"},
+		},
+	},
+	{
 		name:       "virtualServiceConflictingMeshGatewayHosts",
 		inputFiles: []string{"testdata/virtualservice_conflictingmeshgatewayhosts.yaml"},
 		analyzer:   &virtualservice.ConflictingMeshGatewayHostsAnalyzer{},
@@ -190,19 +213,6 @@ var testGrid = []testCase{
 		analyzer:   &virtualservice.GatewayAnalyzer{},
 		expected: []message{
 			{msg.ReferencedResourceNotFound, "VirtualService httpbin-bogus"},
-		},
-	},
-	{
-		name: "misannoted",
-		inputFiles: []string{
-			"testdata/misannotated.yaml",
-		},
-		analyzer: &annotations.K8sAnalyzer{},
-		expected: []message{
-			{msg.UnknownAnnotation, "Service httpbin"},
-			{msg.MisplacedAnnotation, "Service details"},
-			{msg.MisplacedAnnotation, "Pod grafana-test"},
-			{msg.MisplacedAnnotation, "Deployment fortio-deploy"},
 		},
 	},
 }
