@@ -204,11 +204,11 @@ func TestEndpointFlipFlops(t *testing.T) {
 	upd, _ := adscConn.Wait(5*time.Second, "cds")
 
 	if contains(upd, "cds") {
-		t.Fatal("Expecting only EDS update as part of a partial push. But received CDS also +v", upd)
+		t.Fatalf("Expecting only EDS update as part of a partial push. But received CDS also %v", upd)
 	}
 
 	if len(upd) > 0 && !contains(upd, "eds") {
-		t.Fatal("Expecting EDS push as part of a partial push. But did not receive +v", upd)
+		t.Fatalf("Expecting EDS push as part of a partial push. But did not receive %v", upd)
 	}
 
 	lbe := adscConn.GetEndpoints()["outbound|8080||flipflop.com"]
