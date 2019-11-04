@@ -332,7 +332,7 @@ func (builder *ListenerBuilder) buildVirtualInboundListener(
 		FilterChains:   filterChains,
 	}
 	// Set traffic direction on listener, so that draining works correctly
-	if !isTransparentProxy.Value {
+	if isTransparentProxy != nil && isTransparentProxy.Value {
 		builder.virtualInboundListener.TrafficDirection = core.TrafficDirection_INBOUND
 	}
 	if builder.useInboundFilterChain {
