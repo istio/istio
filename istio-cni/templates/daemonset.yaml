@@ -43,6 +43,7 @@ spec:
           operator: Exists
         - effect: NoExecute
           operator: Exists
+      priorityClassName: system-cluster-critical
       serviceAccountName: istio-cni
       # Minimize downtime during a rolling upgrade or deletion; tell Kubernetes to do a "force
       # deletion": https://kubernetes.io/docs/concepts/workloads/pods/pod/#termination-of-pods.
@@ -66,6 +67,8 @@ spec:
                 configMapKeyRef:
                   name: istio-cni-config
                   key: cni_network_config
+            - name: CNI_NET_DIR
+              value: {{ default "/etc/cni/net.d" .Values.cni.cniConfDir }}
           volumeMounts:
             - mountPath: /host/opt/cni/bin
               name: cni-bin-dir
