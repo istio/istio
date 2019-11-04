@@ -505,6 +505,8 @@ metadata:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
   creationTimestamp: null
   labels:
     app: mixer
@@ -586,6 +588,153 @@ status:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
+  creationTimestamp: null
+  labels:
+    app: istio-pilot
+    heritage: Tiller
+    istio: security
+    release: istio
+  name: authorizationpolicies.security.istio.io
+spec:
+  group: security.istio.io
+  names:
+    categories:
+    - istio-io
+    - security-istio-io
+    kind: AuthorizationPolicy
+    plural: authorizationpolicies
+    singular: authorizationpolicy
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          description: 'Configuration for access control on workloads. See more details
+            at: https://istio.io/docs/reference/config/security/v1beta1/authorization-policy.html'
+          properties:
+            rules:
+              description: Optional.
+              items:
+                properties:
+                  from:
+                    description: Optional.
+                    items:
+                      properties:
+                        source:
+                          description: Source specifies the source of a request.
+                          properties:
+                            ipBlocks:
+                              description: Optional.
+                              items:
+                                format: string
+                                type: string
+                              type: array
+                            namespaces:
+                              description: Optional.
+                              items:
+                                format: string
+                                type: string
+                              type: array
+                            principals:
+                              description: Optional.
+                              items:
+                                format: string
+                                type: string
+                              type: array
+                            requestPrincipals:
+                              description: Optional.
+                              items:
+                                format: string
+                                type: string
+                              type: array
+                          type: object
+                      type: object
+                    type: array
+                  to:
+                    description: Optional.
+                    items:
+                      properties:
+                        operation:
+                          description: Operation specifies the operation of a request.
+                          properties:
+                            hosts:
+                              description: Optional.
+                              items:
+                                format: string
+                                type: string
+                              type: array
+                            methods:
+                              description: Optional.
+                              items:
+                                format: string
+                                type: string
+                              type: array
+                            paths:
+                              description: Optional.
+                              items:
+                                format: string
+                                type: string
+                              type: array
+                            ports:
+                              description: Optional.
+                              items:
+                                format: string
+                                type: string
+                              type: array
+                          type: object
+                      type: object
+                    type: array
+                  when:
+                    description: Optional.
+                    items:
+                      properties:
+                        key:
+                          description: The name of an Istio attribute.
+                          format: string
+                          type: string
+                        values:
+                          description: The allowed values for the attribute.
+                          items:
+                            format: string
+                            type: string
+                          type: array
+                      type: object
+                    type: array
+                type: object
+              type: array
+            selector:
+              description: Optional.
+              properties:
+                matchLabels:
+                  additionalProperties:
+                    format: string
+                    type: string
+                  type: object
+              type: object
+          type: object
+      type: object
+  versions:
+  - name: v1beta1
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+
+
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
   creationTimestamp: null
   labels:
     app: istio-pilot
@@ -677,6 +826,8 @@ status:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
   creationTimestamp: null
   labels:
     app: istio-pilot
@@ -715,7 +866,7 @@ spec:
       properties:
         spec:
           description: 'Configuration affecting load balancing, outlier detection,
-            etc. See more details at: https://istio.io/docs/reference/config/networking/v1alpha3/destination-rule.html'
+            etc. See more details at: https://istio.io/docs/reference/config/networking/destination-rule.html'
           properties:
             exportTo:
               description: A list of namespaces to which this destination rule is
@@ -1450,6 +1601,8 @@ status:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
   creationTimestamp: null
   labels:
     app: istio-pilot
@@ -1474,7 +1627,7 @@ spec:
       properties:
         spec:
           description: 'Customizing Envoy configuration generated by Istio. See more
-            details at: https://istio.io/docs/reference/config/networking/v1alpha3/envoy-filter.html'
+            details at: https://istio.io/docs/reference/config/networking/envoy-filter.html'
           properties:
             configPatches:
               description: One or more patches with match conditions.
@@ -1750,6 +1903,8 @@ status:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
   creationTimestamp: null
   labels:
     app: istio-pilot
@@ -1776,7 +1931,7 @@ spec:
       properties:
         spec:
           description: 'Configuration affecting edge load balancer. See more details
-            at: https://istio.io/docs/reference/config/networking/v1alpha3/gateway.html'
+            at: https://istio.io/docs/reference/config/networking/gateway.html'
           properties:
             selector:
               additionalProperties:
@@ -1903,6 +2058,8 @@ status:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
   creationTimestamp: null
   labels:
     app: istio-mixer
@@ -2001,6 +2158,8 @@ status:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
   creationTimestamp: null
   labels:
     app: istio-mixer
@@ -2217,6 +2376,8 @@ status:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
   creationTimestamp: null
   labels:
     app: istio-citadel
@@ -2908,11 +3069,6 @@ spec:
                 applied on.
               items:
                 properties:
-                  labels:
-                    additionalProperties:
-                      format: string
-                      type: string
-                    type: object
                   name:
                     description: The name must be a short name from the service registry.
                     format: string
@@ -2953,6 +3109,8 @@ status:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
   creationTimestamp: null
   labels:
     app: istio-citadel
@@ -3643,11 +3801,6 @@ spec:
                 applied on.
               items:
                 properties:
-                  labels:
-                    additionalProperties:
-                      format: string
-                      type: string
-                    type: object
                   name:
                     description: The name must be a short name from the service registry.
                     format: string
@@ -3688,6 +3841,8 @@ status:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
   creationTimestamp: null
   labels:
     app: istio-mixer
@@ -3773,6 +3928,8 @@ status:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
   creationTimestamp: null
   labels:
     app: istio-mixer
@@ -3862,6 +4019,8 @@ status:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
   creationTimestamp: null
   labels:
     app: mixer
@@ -3955,6 +4114,8 @@ status:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
   creationTimestamp: null
   labels:
     app: mixer
@@ -4115,6 +4276,8 @@ status:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
   creationTimestamp: null
   labels:
     app: istio-pilot
@@ -4162,7 +4325,7 @@ spec:
       properties:
         spec:
           description: 'Configuration affecting service registry. See more details
-            at: https://istio.io/docs/reference/config/networking/v1alpha3/service-entry.html'
+            at: https://istio.io/docs/reference/config/networking/service-entry.html'
           properties:
             addresses:
               description: The virtual IP addresses associated with the service.
@@ -4264,6 +4427,8 @@ status:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
   creationTimestamp: null
   labels:
     app: mixer
@@ -4469,6 +4634,8 @@ status:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
   creationTimestamp: null
   labels:
     app: mixer
@@ -4585,6 +4752,138 @@ status:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
+  creationTimestamp: null
+  labels:
+    app: istio-pilot
+    chart: istio
+    heritage: Tiller
+    release: istio
+  name: sidecars.networking.istio.io
+spec:
+  group: networking.istio.io
+  names:
+    categories:
+    - istio-io
+    - networking-istio-io
+    kind: Sidecar
+    plural: sidecars
+    singular: sidecar
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          description: 'Configuration affecting network reachability of a sidecar.
+            See more details at: https://istio.io/docs/reference/config/networking/sidecar.html'
+          properties:
+            egress:
+              items:
+                properties:
+                  bind:
+                    format: string
+                    type: string
+                  captureMode:
+                    enum:
+                    - DEFAULT
+                    - IPTABLES
+                    - NONE
+                    type: string
+                  hosts:
+                    items:
+                      format: string
+                      type: string
+                    type: array
+                  port:
+                    description: The port associated with the listener.
+                    properties:
+                      name:
+                        description: Label assigned to the port.
+                        format: string
+                        type: string
+                      number:
+                        description: A valid non-negative integer port number.
+                        type: integer
+                      protocol:
+                        description: The protocol exposed on the port.
+                        format: string
+                        type: string
+                    type: object
+                type: object
+              type: array
+            ingress:
+              items:
+                properties:
+                  bind:
+                    description: The IP to which the listener should be bound.
+                    format: string
+                    type: string
+                  captureMode:
+                    enum:
+                    - DEFAULT
+                    - IPTABLES
+                    - NONE
+                    type: string
+                  defaultEndpoint:
+                    format: string
+                    type: string
+                  port:
+                    description: The port associated with the listener.
+                    properties:
+                      name:
+                        description: Label assigned to the port.
+                        format: string
+                        type: string
+                      number:
+                        description: A valid non-negative integer port number.
+                        type: integer
+                      protocol:
+                        description: The protocol exposed on the port.
+                        format: string
+                        type: string
+                    type: object
+                type: object
+              type: array
+            outboundTrafficPolicy:
+              description: This allows to configure the outbound traffic policy.
+              properties:
+                mode:
+                  enum:
+                  - REGISTRY_ONLY
+                  - ALLOW_ANY
+                  type: string
+              type: object
+            workloadSelector:
+              properties:
+                labels:
+                  additionalProperties:
+                    format: string
+                    type: string
+                  type: object
+              type: object
+          type: object
+      type: object
+  versions:
+  - name: v1alpha3
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+
+
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
   creationTimestamp: null
   labels:
     app: istio-pilot
@@ -4627,7 +4926,7 @@ spec:
       properties:
         spec:
           description: 'Configuration affecting label/content routing, sni routing,
-            etc. See more details at: https://istio.io/docs/reference/config/networking/v1alpha3/virtual-service.html'
+            etc. See more details at: https://istio.io/docs/reference/config/networking/virtual-service.html'
           properties:
             exportTo:
               description: A list of namespaces to which this virtual service is exported.
@@ -5308,6 +5607,8 @@ metadata:
     chart: istio
     heritage: Tiller
     release: istio
+  annotations:
+    "helm.sh/resource-policy": keep
 spec:
   group: config.istio.io
   names:
@@ -5338,6 +5639,8 @@ metadata:
     chart: istio
     heritage: Tiller
     release: istio
+  annotations:
+    "helm.sh/resource-policy": keep
 spec:
   group: config.istio.io
   names:
@@ -5368,6 +5671,8 @@ metadata:
     chart: istio
     heritage: Tiller
     release: istio
+  annotations:
+    "helm.sh/resource-policy": keep
 spec:
   group: config.istio.io
   names:
@@ -5398,6 +5703,8 @@ metadata:
     chart: istio
     heritage: Tiller
     release: istio
+  annotations:
+    "helm.sh/resource-policy": keep
 spec:
   group: config.istio.io
   names:
@@ -5414,277 +5721,6 @@ spec:
     - name: v1alpha2
       served: true
       storage: true
----
-
-
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  creationTimestamp: null
-  labels:
-    app: istio-pilot
-    chart: istio
-    heritage: Tiller
-    release: istio
-  name: sidecars.networking.istio.io
-spec:
-  group: networking.istio.io
-  names:
-    categories:
-    - istio-io
-    - networking-istio-io
-    kind: Sidecar
-    plural: sidecars
-    singular: sidecar
-  scope: Namespaced
-  subresources:
-    status: {}
-  validation:
-    openAPIV3Schema:
-      properties:
-        spec:
-          description: 'Configuration affecting network reachability of a sidecar.
-            See more details at: https://istio.io/docs/reference/config/networking/v1alpha3/sidecar.html'
-          properties:
-            egress:
-              items:
-                properties:
-                  bind:
-                    format: string
-                    type: string
-                  captureMode:
-                    enum:
-                    - DEFAULT
-                    - IPTABLES
-                    - NONE
-                    type: string
-                  hosts:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  port:
-                    description: The port associated with the listener.
-                    properties:
-                      name:
-                        description: Label assigned to the port.
-                        format: string
-                        type: string
-                      number:
-                        description: A valid non-negative integer port number.
-                        type: integer
-                      protocol:
-                        description: The protocol exposed on the port.
-                        format: string
-                        type: string
-                    type: object
-                type: object
-              type: array
-            ingress:
-              items:
-                properties:
-                  bind:
-                    description: The ip to which the listener should be bound.
-                    format: string
-                    type: string
-                  captureMode:
-                    enum:
-                    - DEFAULT
-                    - IPTABLES
-                    - NONE
-                    type: string
-                  defaultEndpoint:
-                    format: string
-                    type: string
-                  port:
-                    description: The port associated with the listener.
-                    properties:
-                      name:
-                        description: Label assigned to the port.
-                        format: string
-                        type: string
-                      number:
-                        description: A valid non-negative integer port number.
-                        type: integer
-                      protocol:
-                        description: The protocol exposed on the port.
-                        format: string
-                        type: string
-                    type: object
-                type: object
-              type: array
-            outboundTrafficPolicy:
-              description: This allows to configure the outbound traffic policy.
-              properties:
-                mode:
-                  enum:
-                  - REGISTRY_ONLY
-                  - ALLOW_ANY
-                  type: string
-              type: object
-            workloadSelector:
-              properties:
-                labels:
-                  additionalProperties:
-                    format: string
-                    type: string
-                  type: object
-              type: object
-          type: object
-      type: object
-  versions:
-  - name: v1alpha3
-    served: true
-    storage: true
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
----
-
-
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  creationTimestamp: null
-  labels:
-    app: istio-pilot
-    heritage: Tiller
-    istio: security
-    release: istio
-  name: authorizationpolicies.security.istio.io
-spec:
-  group: security.istio.io
-  names:
-    categories:
-    - istio-io
-    - security-istio-io
-    kind: AuthorizationPolicy
-    plural: authorizationpolicies
-    singular: authorizationpolicy
-  scope: Namespaced
-  subresources:
-    status: {}
-  validation:
-    openAPIV3Schema:
-      properties:
-        spec:
-          description: 'Configuration for access control on workloads. See more details
-            at: https://istio.io/docs/reference/config/security/v1beta1/authorization-policy.html'
-          properties:
-            rules:
-              description: Optional.
-              items:
-                properties:
-                  from:
-                    description: Optional.
-                    items:
-                      properties:
-                        source:
-                          description: Source specifies the source of a request.
-                          properties:
-                            ipBlocks:
-                              description: Optional.
-                              items:
-                                format: string
-                                type: string
-                              type: array
-                            namespaces:
-                              description: Optional.
-                              items:
-                                format: string
-                                type: string
-                              type: array
-                            principals:
-                              description: Optional.
-                              items:
-                                format: string
-                                type: string
-                              type: array
-                            requestPrincipals:
-                              description: Optional.
-                              items:
-                                format: string
-                                type: string
-                              type: array
-                          type: object
-                      type: object
-                    type: array
-                  to:
-                    description: Optional.
-                    items:
-                      properties:
-                        operation:
-                          description: Operation specifies the operation of a request.
-                          properties:
-                            hosts:
-                              description: Optional.
-                              items:
-                                format: string
-                                type: string
-                              type: array
-                            methods:
-                              description: Optional.
-                              items:
-                                format: string
-                                type: string
-                              type: array
-                            paths:
-                              description: Optional.
-                              items:
-                                format: string
-                                type: string
-                              type: array
-                            ports:
-                              description: Optional.
-                              items:
-                                format: string
-                                type: string
-                              type: array
-                          type: object
-                      type: object
-                    type: array
-                  when:
-                    description: Optional.
-                    items:
-                      properties:
-                        key:
-                          description: The name of an Istio attribute.
-                          format: string
-                          type: string
-                        values:
-                          description: The allowed values for the attribute.
-                          items:
-                            format: string
-                            type: string
-                          type: array
-                      type: object
-                    type: array
-                type: object
-              type: array
-            selector:
-              description: Optional.
-              properties:
-                matchLabels:
-                  additionalProperties:
-                    format: string
-                    type: string
-                  type: object
-              type: object
-          type: object
-      type: object
-  versions:
-  - name: v1beta1
-    served: true
-    storage: true
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 
 
