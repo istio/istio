@@ -60,6 +60,19 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: Sidecar
 metadata:
+  name: maps-to-different-ns
+  namespace: other
+spec:
+  workloadSelector:
+    labels:
+      app: reviews # This doesn't exist in the current namespace, and should generate an error
+  egress:
+  - hosts:
+    - "./*"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
   name: dupe-1
   namespace: default
 spec:

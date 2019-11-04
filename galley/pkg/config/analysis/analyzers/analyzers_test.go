@@ -181,6 +181,7 @@ var testGrid = []testCase{
 		analyzer:   &sidecar.SelectorAnalyzer{},
 		expected: []message{
 			{msg.ReferencedResourceNotFound, "Sidecar maps-to-nonexistent.default"},
+			{msg.ReferencedResourceNotFound, "Sidecar maps-to-different-ns.other"},
 			{msg.ConflictingSidecarWorkloadSelectors, "Sidecar dupe-1.default"},
 			{msg.ConflictingSidecarWorkloadSelectors, "Sidecar dupe-2.default"},
 			{msg.ConflictingSidecarWorkloadSelectors, "Sidecar overlap-1.default"},
