@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/sets"
 )
 
 var (
@@ -262,7 +263,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					adsLog.Debugf("ADS:LDS: ACK %s %s %s %s", peerAddr, con.ConID, discReq.VersionInfo, discReq.ResponseNonce)
 					continue
 				}
-				// too verbose - sent immediately after EDS response is received
 				adsLog.Debugf("ADS:LDS: REQ %s %v", con.ConID, peerAddr)
 				con.LDSWatch = true
 				err := s.pushLds(con, s.globalPushContext(), versionInfo())
@@ -297,14 +297,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 							con.mu.Unlock()
 							continue
 						}
-					} else if discReq.ErrorDetail != nil {
-						// If versions mismatch then we should either have an error detail or no routes if a protocol error has occurred
-						if discReq.ErrorDetail != nil {
-							errCode := codes.Code(discReq.ErrorDetail.Code)
-							adsLog.Warnf("ADS:RDS: ACK ERROR %v %s %s:%s", peerAddr, con.ConID, errCode.String(), discReq.ErrorDetail.GetMessage())
-							incrementXDSRejects(rdsReject, con.node.ID, errCode.String())
-						}
-						continue
 					} else if len(routes) == 0 {
 						// XDS protocol indicates an empty request means to send all route information
 						// In practice we can just skip this request, as this seems to happen when
@@ -312,7 +304,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 						continue
 					}
 				}
-
 				con.Routes = routes
 				adsLog.Debugf("ADS:RDS: REQ %s %s routes:%d", peerAddr, con.ConID, len(con.Routes))
 				err := s.pushRoute(con, s.globalPushContext(), versionInfo())
@@ -335,6 +326,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					con.mu.Unlock()
 					continue
 				}
+
 				// clusters and con.Clusters are all empty, this is not an ack and will do nothing.
 				if len(clusters) == 0 && len(con.Clusters) == 0 {
 					continue
@@ -356,12 +348,17 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					continue
 				}
 
-				for _, cn := range con.Clusters {
+				previous := sets.NewSet(con.Clusters...)
+				current := sets.NewSet(clusters...)
+
+				// removed clusters
+				for cn := range previous.Difference(current) {
 					s.removeEdsCon(cn, con.ConID)
 				}
 
-				for _, cn := range clusters {
-					s.getOrAddEdsCluster(cn, con.ConID, con)
+				// new added clusters
+				for cn := range current.Difference(previous) {
+					s.getOrAddEdsCluster(cn, con)
 				}
 
 				con.Clusters = clusters
