@@ -27,10 +27,10 @@ KUBEVIRT_INTERFACES=
 ENABLE_INBOUND_IPV6=
 
 iptables -t nat -N ISTIO_REDIRECT
-iptables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-port 15001
 iptables -t nat -N ISTIO_IN_REDIRECT
-iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-port 15001
 iptables -t nat -N ISTIO_OUTPUT
+iptables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-port 15001
+iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-port 15001
 iptables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT
 iptables -t nat -A ISTIO_OUTPUT -o lo -s 127.0.0.6/32 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -j ISTIO_IN_REDIRECT
@@ -39,7 +39,6 @@ iptables -t nat -A ISTIO_OUTPUT -m owner --uid-owner 0 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 0 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 0 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN
-ip6tables -t filter -F INPUT
 ip6tables -t filter -A INPUT -m state --state ESTABLISHED -j ACCEPT
 ip6tables -t filter -A INPUT -i lo -d ::1 -j ACCEPT
 ip6tables -t filter -A INPUT -j REJECT
