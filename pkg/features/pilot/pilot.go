@@ -189,6 +189,13 @@ var (
 			"and will be removed in the near future.",
 	)
 
+	UpdatePartialPush = env.RegisterBoolVar(
+		"PILOT_UPDATE_PARTIAL_PUSH",
+		false,
+		"If enabled, a push will be sent to a proxy when an update is detected. This can be "+
+			"useful to avoid situations where a pod gets stuck during startup due to race conditions "+
+			"when retrieving pod information.")
+
 	InitialConnectionWindowSize = env.RegisterIntVar("PILOT_INITIAL_CONNECTION_WINDOW_SIZE", 0, "specifies the window size to use for http2 connections").Get()
 
 	InitialStreamWindowSize = env.RegisterIntVar("PILOT_INITIAL_Stream_WINDOW_SIZE", 0, "specifies the window size to use for http2 streams").Get()
