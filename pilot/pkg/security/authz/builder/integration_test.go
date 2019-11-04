@@ -106,6 +106,18 @@ func TestBuildHTTPFilter(t *testing.T) {
 			policies:          getPolicies("testdata/v1beta1/simple-policy-principal-with-*-in.yaml", t),
 			want:              getProto("testdata/v1beta1/simple-policy-principal-with-*-out.yaml", t),
 		},
+		{
+			name:              "v1alpha1 trust domain aliases with source.principal",
+			trustDomainBundle: trustdomain.NewTrustDomainBundle("new-td", []string{"old-td", "some-trustdomain"}),
+			policies:          getPolicies("testdata/v1alpha1/td-aliases-source-principal-in.yaml", t),
+			want:              getProto("testdata/v1alpha1/td-aliases-source-principal-out.yaml", t),
+		},
+		{
+			name:              "v1beta1 trust domain aliases with source.principal",
+			trustDomainBundle: trustdomain.NewTrustDomainBundle("new-td", []string{"old-td", "some-trustdomain"}),
+			policies:          getPolicies("testdata/v1beta1/td-aliases-source-principal-in.yaml", t),
+			want:              getProto("testdata/v1beta1/td-aliases-source-principal-out.yaml", t),
+		},
 	}
 
 	httpbinLabels := map[string]string{

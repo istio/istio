@@ -328,6 +328,11 @@ func (a *Accessor) WaitUntilServiceEndpointsAreReady(ns string, name string, opt
 	return service, endpoints, nil
 }
 
+// DeleteMutatingWebhook deletes the mutating webhook with the given name.
+func (a *Accessor) DeleteMutatingWebhook(name string) error {
+	return a.set.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Delete(name, deleteOptionsForeground())
+}
+
 // DeleteValidatingWebhook deletes the validating webhook with the given name.
 func (a *Accessor) DeleteValidatingWebhook(name string) error {
 	return a.set.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Delete(name, deleteOptionsForeground())

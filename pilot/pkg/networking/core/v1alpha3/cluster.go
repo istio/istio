@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -67,14 +68,26 @@ const (
 )
 
 var (
-	defaultInboundCircuitBreakerThresholds  = v2Cluster.CircuitBreakers_Thresholds{}
+	defaultInboundCircuitBreakerThresholds = v2Cluster.CircuitBreakers_Thresholds{
+		// This disables circuit breaking by default by setting highest possible values.
+		// See: https://www.envoyproxy.io/docs/envoy/v1.11.1/faq/disable_circuit_breaking
+		MaxRetries:         &wrappers.UInt32Value{Value: math.MaxUint32},
+		MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
+		MaxConnections:     &wrappers.UInt32Value{Value: math.MaxUint32},
+		MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
+	}
 	defaultOutboundCircuitBreakerThresholds = v2Cluster.CircuitBreakers_Thresholds{
 		// DefaultMaxRetries specifies the default for the Envoy circuit breaker parameter max_retries. This
 		// defines the maximum number of parallel retries a given Envoy will allow to the upstream cluster. Envoy defaults
 		// this value to 3, however that has shown to be insufficient during periods of pod churn (e.g. rolling updates),
 		// where multiple endpoints in a cluster are terminated. In these scenarios the circuit breaker can kick
 		// in before Pilot is able to deliver an updated endpoint list to Envoy, leading to client-facing 503s.
-		MaxRetries: &wrappers.UInt32Value{Value: 1024},
+		MaxRetries: &wrappers.UInt32Value{Value: math.MaxUint32},
+		// This disables circuit breaking by default by setting highest possible values.
+		// See: https://www.envoyproxy.io/docs/envoy/v1.11.1/faq/disable_circuit_breaking
+		MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
+		MaxConnections:     &wrappers.UInt32Value{Value: math.MaxUint32},
+		MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
 	}
 
 	defaultDestinationRule = networking.DestinationRule{}
@@ -1262,13 +1275,7 @@ func buildDefaultPassthroughCluster(env *model.Environment, proxy *model.Proxy) 
 		ConnectTimeout:       gogo.DurationToProtoDuration(env.Mesh.ConnectTimeout),
 		LbPolicy:             lbPolicyClusterProvided(proxy),
 	}
-	passthroughSettings := &networking.ConnectionPoolSettings{
-		Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-			// The envoy default is 1024. This isn't configurable right now so we set
-			// this to a very high value so outbound connections are not limited.
-			MaxConnections: 1024 * 100,
-		},
-	}
+	passthroughSettings := &networking.ConnectionPoolSettings{}
 	applyConnectionPool(env, cluster, passthroughSettings, model.TrafficDirectionOutbound)
 	return cluster
 }
