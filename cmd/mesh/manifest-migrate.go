@@ -26,7 +26,7 @@ import (
 	"istio.io/operator/pkg/kubectlcmd"
 	"istio.io/operator/pkg/translate"
 	"istio.io/operator/pkg/util"
-	"istio.io/operator/pkg/version"
+	binversion "istio.io/operator/version"
 )
 
 const (
@@ -84,7 +84,7 @@ func migrateFromFiles(rootArgs *rootArgs, args []string, l *logger) {
 
 // translateFunc translates the input values and output the result
 func translateFunc(values []byte, l *logger) {
-	ts, err := translate.NewReverseTranslator(version.NewMinorVersion(1, 3))
+	ts, err := translate.NewReverseTranslator(binversion.OperatorBinaryVersion.MinorVersion)
 	if err != nil {
 		l.logAndFatal("error creating values.yaml translator: ", err.Error())
 	}
