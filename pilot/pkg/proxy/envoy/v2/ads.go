@@ -353,16 +353,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 				s.updateEdsClusters(current.Difference(previous), previous.Difference(current), con)
 
-				// removed clusters
-				for cn := range previous.Difference(current) {
-					s.removeEdsCon(cn, con.ConID)
-				}
-
-				// new added clusters
-				for cn := range current.Difference(previous) {
-					s.getOrAddEdsCluster(cn, con)
-				}
-
 				con.Clusters = clusters
 				adsLog.Debugf("ADS:EDS: REQ %s %s clusters:%d", peerAddr, con.ConID, len(con.Clusters))
 				err := s.pushEds(s.globalPushContext(), con, versionInfo(), nil)
