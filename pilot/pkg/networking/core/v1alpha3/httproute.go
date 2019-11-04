@@ -182,7 +182,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 
 	if features.EnableFallthroughRoute.Get() && !useSniffing {
 		// This needs to be the last virtual host, as routes are evaluated in order.
-		if isAllowAnyOutbound(node) {
+		if util.IsAllowAnyOutbound(node) {
 			virtualHosts = append(virtualHosts, &route.VirtualHost{
 				Name:    util.PassthroughRouteName,
 				Domains: []string{"*"},
