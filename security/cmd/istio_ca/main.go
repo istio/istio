@@ -230,16 +230,6 @@ func initCLI() {
 	flags.StringVar(&opts.cAClientConfig.Org, "org", "", "Organization for the certificate.")
 	flags.DurationVar(&opts.cAClientConfig.RequestedCertTTL, "requested-ca-cert-ttl", cmd.DefaultRequestedCACertTTL,
 		"The requested TTL for the CA certificate.")
-	flags.DurationVar(&opts.selfSignedRootCertCheckInterval, "citadel-self-signed-root-cert-check-interval",
-		cmd.DefaultSelfSignedRootCertCheckInterval,
-		"The interval that self-signed CA checks its root certificate expiration time and rotates root certificate. Setting "+
-			"this interval to zero or a negative value disables automated root cert check and rotation. This interval is suggested to be "+
-			"larger than 10 minutes.")
-	flags.IntVar(&opts.selfSignedRootCertGracePeriodPercentile, "citadel-self-signed-root-cert-grace-period-percentile",
-		cmd.DefaultRootCertGracePeriodPercentile, "Grace period percentile for self-signed root cert.")
-	flags.BoolVar(&opts.enableJitterForRootCertRotator, "citadel-enable-jitter-for-root-cert-rotator", true,
-		"If true, set up a jitter to start root cert rotator. Jitter selects a backoff time in seconds to start root cert "+
-			"rotator, and the back off time is below root cert check interval.")
 	flags.IntVar(&opts.cAClientConfig.RSAKeySize, "key-size", 2048, "Size of generated private key")
 
 	// Certificate signing configuration.
