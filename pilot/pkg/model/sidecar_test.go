@@ -200,19 +200,12 @@ var (
 			Egress: []*networking.IstioEgressListener{
 				{
 					Port: &networking.Port{
-						Number:   23145,
+						Number:   9999,
 						Protocol: "TCP",
 						Name:     "outbound-tcp",
 					},
-					Bind: "7.7.7.7",
-					Hosts: []string{"*/bookinginfo.com",
-						"*/private.com",
-					},
-				},
-				{
-					Hosts: []string{"ns1/*",
-						"*/*.tcp.com",
-					},
+					Bind:  "7.7.7.7",
+					Hosts: []string{"ns1/*"},
 				},
 			},
 		},
@@ -327,159 +320,6 @@ func TestCreateSidecarScope(t *testing.T) {
 		// list of services expected to be in the listener
 		excpectedServices []*Service
 	}{
-		{
-			"no-sidecar-config",
-			nil,
-			nil,
-			nil,
-		},
-		{
-			"no-sidecar-config-with-service",
-			nil,
-			services1,
-			[]*Service{
-				{
-					Hostname: "bar",
-				},
-			},
-		},
-		{
-			"sidecar-with-multiple-egress",
-			configs1,
-			nil,
-			nil,
-		},
-		{
-			"sidecar-with-multiple-egress-with-service",
-			configs1,
-			services1,
-			[]*Service{
-				{
-					Hostname: "bar",
-				},
-			},
-		},
-		{
-			"sidecar-with-multiple-egress-with-service-on-same-port",
-			configs1,
-			services3,
-			[]*Service{
-				{
-					Hostname: "bar",
-				},
-				{
-					Hostname: "barprime",
-				},
-			},
-		},
-		{
-			"sidecar-with-multiple-egress-with-multiple-service",
-			configs1,
-			services4,
-			[]*Service{
-				{
-					Hostname: "bar",
-				},
-				{
-					Hostname: "barprime",
-				},
-			},
-		},
-		{
-			"sidecar-with-zero-egress",
-			configs2,
-			nil,
-			nil,
-		},
-		{
-			"sidecar-with-zero-egress-multiple-service",
-			configs2,
-			services4,
-			nil,
-		},
-		{
-			"sidecar-with-multiple-egress-noport",
-			configs3,
-			nil,
-			nil,
-		},
-		{
-			"sidecar-with-multiple-egress-noport-with-specific-service",
-			configs3,
-			services2,
-			[]*Service{
-				{
-					Hostname: "bar",
-				},
-				{
-					Hostname: "barprime",
-				},
-			},
-		},
-		{
-			"sidecar-with-multiple-egress-noport-with-services",
-			configs3,
-			services4,
-			[]*Service{
-				{
-					Hostname: "bar",
-				},
-				{
-					Hostname: "barprime",
-				},
-			},
-		},
-		{
-			"sidecar-with-egress-port-match-with-services-with-and-without-port",
-			configs4,
-			services5,
-			[]*Service{
-				{
-					Hostname: "bar",
-				},
-			},
-		},
-		{
-			"sidecar-with-egress-port-trims-service-non-matching-ports",
-			configs5,
-			services6,
-			[]*Service{
-				{
-					Hostname: "bar",
-					Ports:    port8000,
-				},
-			},
-		},
-		{
-			"sidecar-with-egress-port-merges-service-ports",
-			configs6,
-			services6,
-			[]*Service{
-				{
-					Hostname: "bar",
-					Ports:    twoPorts,
-				},
-			},
-		},
-		{
-			"sidecar-with-egress-port-trims-and-merges-service-ports",
-			configs6,
-			services7,
-			[]*Service{
-				{
-					Hostname: "bar",
-					Ports:    twoPorts,
-				},
-				{
-					Hostname: "barprime",
-					Ports:    port8000,
-				},
-				{
-					Hostname: "foo",
-					Ports:    twoPorts,
-				},
-			},
-		},
 		{
 			"two-egresslisteners-one-with-port-and-without-port",
 			configs7,
