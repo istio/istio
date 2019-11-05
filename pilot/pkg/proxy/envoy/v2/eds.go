@@ -370,8 +370,7 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 }
 
 // SvcUpdate is a callback from service discovery when service info changes.
-func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, namespace string, event model.Event, ports map[string]uint32,
-	portByNum map[uint32]string) {
+func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, namespace string, event model.Event) {
 	// When a service deleted, we should cleanup the endpoint shards and also remove keys from EndpointShardsByService to
 	// prevent memory leaks.
 	if event == model.EventDelete {
