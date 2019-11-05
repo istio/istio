@@ -28,7 +28,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
 
-	"istio.io/istio/security/pkg/pki/ca"
+	k8ssecret "istio.io/istio/security/pkg/k8s/secret"
 	mockca "istio.io/istio/security/pkg/pki/ca/mock"
 	"istio.io/istio/security/pkg/pki/util"
 	mockutil "istio.io/istio/security/pkg/pki/util/mock"
@@ -50,7 +50,57 @@ var (
 	certChain       = []byte("fake cert chain")
 	rootCert        = []byte("fake root cert")
 	signedCert      = []byte("fake signed cert")
-	istioTestSecret = ca.BuildSecret("test", "istio.test", "test-ns", certChain, caKey, rootCert, nil, nil, IstioSecretType)
+	istioTestSecret = k8ssecret.BuildSecret("test", "istio.test",
+		"test-ns", certChain, caKey, rootCert, nil, nil, IstioSecretType)
+	cert1Pem = `
+-----BEGIN CERTIFICATE-----
+MIIC3jCCAcagAwIBAgIJAMwyWk0iqlOoMA0GCSqGSIb3DQEBCwUAMBwxGjAYBgNV
+BAoMEWs4cy5jbHVzdGVyLmxvY2FsMB4XDTE4MDkyMTAyMjAzNFoXDTI4MDkxODAy
+MjAzNFowHDEaMBgGA1UECgwRazhzLmNsdXN0ZXIubG9jYWwwggEiMA0GCSqGSIb3
+DQEBAQUAA4IBDwAwggEKAoIBAQC8TDtfy23OKCRnkSYrKZwuHG5lOmTZgLwoFR1h
+3NDTkjR9406CjnAy6Gl73CRG3zRYVgY/2dGNqTzAKRCeKZlOzBlK6Kilb0NIJ6it
+s6ooMAxwXlr7jOKiSn6xbaexVMrP0VPUbCgJxQtGs3++hQ14D6WnyfdzPBZJLKbI
+tVdDnAcl/FJXKVV9gIg+MM0gETWOYj5Yd8Ye0FTvoFcgs8NKkxhEZe/LeYa7XYsk
+S0PymwbHwNZcfC4znp2bzu28LUmUe6kL97YU8ubvhR0muRy6h5MnQNMQrRG5Q5j4
+A2+tkO0vto8gOb6/lacEUVYuQdSkMZJiqWEjWgWKeAYdkTJDAgMBAAGjIzAhMA4G
+A1UdDwEB/wQEAwICBDAPBgNVHRMBAf8EBTADAQH/MA0GCSqGSIb3DQEBCwUAA4IB
+AQAxWP3MT0IelJcb+e7fNTfMS0r3UhpiNkRU368Z7gJ4tDNOGRPzntW6CLnaE+3g
+IjOMAE8jlXeEmNuXtDQqQoZwWc1D5ma3jyc83E5H9LJzjfmn5rAHafr29YH85Ms2
+VlKdpP+teYg8Cag9u4ar/AUR4zMUEpGK5U+T9IH44lVqVH23T+DxAT+btsyuGiB0
+DsM76XVDj4g3OKCUalu7a8FHvgTkBpUJBl7vwh9kqo9HwCaj4iC2CwveOm0WtSgy
+K9PpVDxTGNSxqsxKn7DJQ15NTOP+gr29ABqFKwRr+S8ggw6evzHbABQTUMebaRSr
+iH7cSgrzZBiUvJmZRi7/BrYU
+-----END CERTIFICATE-----`
+
+	key1Pem = `
+-----BEGIN PRIVATE KEY-----
+MIIEwAIBADANBgkqhkiG9w0BAQEFAASCBKowggSmAgEAAoIBAQC8TDtfy23OKCRn
+kSYrKZwuHG5lOmTZgLwoFR1h3NDTkjR9406CjnAy6Gl73CRG3zRYVgY/2dGNqTzA
+KRCeKZlOzBlK6Kilb0NIJ6its6ooMAxwXlr7jOKiSn6xbaexVMrP0VPUbCgJxQtG
+s3++hQ14D6WnyfdzPBZJLKbItVdDnAcl/FJXKVV9gIg+MM0gETWOYj5Yd8Ye0FTv
+oFcgs8NKkxhEZe/LeYa7XYskS0PymwbHwNZcfC4znp2bzu28LUmUe6kL97YU8ubv
+hR0muRy6h5MnQNMQrRG5Q5j4A2+tkO0vto8gOb6/lacEUVYuQdSkMZJiqWEjWgWK
+eAYdkTJDAgMBAAECggEBAJTemFqmVQwWxKF1Kn4ZibcTF1zFDBLCKwBtoStMD3YW
+M5YL7nhd8OruwOcCJ1Q5CAOHD63PolOjp7otPUwui1y3FJAa3areCo2zfTLHxxG6
+2zrD/p6+xjeVOhFBJsGWzjn7v5FEaWs/9ChTpf2U6A8yH8BGd3MN4Hi96qboaDO0
+fFz3zOu7sgjkDNZiapZpUuqs7a6MCCr2T3FPwdWUiILZF2t5yWd/l8KabP+3QvvR
+tDU6sNv4j8e+dsF2l9ZT81JLkN+f6HvWcLVAADvcBqMcd8lmMSPgxSbytzKanx7o
+wtzIiGkNZBCVKGO7IK2ByCluiyHDpGul60Th7HUluDECgYEA9/Q1gT8LTHz1n6vM
+2n2umQN9R+xOaEYN304D5DQqptN3S0BCJ4dihD0uqEB5osstRTf4QpP/qb2hMDP4
+qWbWyrc7Z5Lyt6HI1ly6VpVnYKb3HDeJ9M+5Se1ttdwyRCzuT4ZBhT5bbqBatsOU
+V7+dyrJKbk8r9K4qy29UFozz/38CgYEAwmhzPVak99rVmqTpe0gPERW//n+PdW3P
+Ta6ongU8zkkw9LAFwgjGtNpd4nlk0iQigiM4jdJDFl6edrRXv2cisEfJ9+s53AOb
+hXui4HAn2rusPK+Dq2InkHYTGjEGDpx94zC/bjYR1GBIsthIh0w2G9ql8yvLatxG
+x6oXEsb7Lz0CgYEA7Oj+/mDYUNrMbSVfdBvF6Rl2aHQWbncQ5h3Khg55+i/uuY3K
+J66pqKQ0ojoIfk0XEh3qLOLv0qUHD+F4Y5OJAuOT9OBo3J/OH1M2D2hs/+JIFUPT
+on+fEE21F6AuvwkXIhCrJb5w6gB47Etuv3CsOXGkwEURQJXw+bODapB+yc0CgYEA
+t7zoTay6NdcJ0yLR2MZ+FvOrhekhuSaTqyPMEa15jq32KwzCJGUPCJbp7MY217V3
+N+/533A+H8JFmoNP+4KKcnknFb2n7Z0rO7licyUNRdniK2jm1O/r3Mj7vOFgjCaz
+hCnqg0tvBn4Jt55aziTlbuXzuiRGGTUfYE4NiJ2vgTECgYEA8di9yqGhETYQkoT3
+E70JpEmkCWiHl/h2ClLcDkj0gXKFxmhzmvs8G5On4S8toNiJ6efmz0KlHN1F7Ldi
+2iVd9LZnFVP1YwG0mvTJxxc5P5Uy5q/EhCLBAetqoTkWYlPcpkcathmCbCpJG4/x
+iOmuuOfQWnMfcVk8I0YDL5+G9Pg=
+-----END PRIVATE KEY-----`
 )
 
 func TestSecretController(t *testing.T) {
@@ -113,7 +163,9 @@ func TestSecretController(t *testing.T) {
 			saToAdd: createServiceAccount(sidecarInjectorSvcAccount, "test-ns"),
 			expectedActions: []ktesting.Action{
 				ktesting.NewCreateAction(gvr, "test-ns",
-					ca.BuildSecret("test", sidecarInjectorSvcAccount, "test-ns", certChain, caKey, rootCert, nil, nil, IstioSecretType)),
+					k8ssecret.BuildSecret("test", sidecarInjectorSvcAccount,
+						"test-ns", certChain, caKey, rootCert, nil,
+						nil, IstioSecretType)),
 			},
 			gracePeriodRatio: defaultGracePeriodRatio,
 			shouldFail:       false,
@@ -143,9 +195,10 @@ func TestSecretController(t *testing.T) {
 				Namespace:   "test-ns",
 			},
 		}
-		controller, err := NewSecretController(createFakeCA(), requireExplicitOptIn, defaultTTL,
-			tc.gracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(), false, false,
-			[]string{metav1.NamespaceAll}, webhooks)
+		controller, err := NewSecretController(createFakeCA(), requireExplicitOptIn,
+			defaultTTL, tc.gracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(),
+			false, false, []string{metav1.NamespaceAll}, webhooks,
+			"test-ns")
 		if tc.shouldFail {
 			if err == nil {
 				t.Errorf("should have failed to create secret controller")
@@ -182,14 +235,16 @@ func TestSecretContent(t *testing.T) {
 	saNamespace := "test-namespace"
 	client := fake.NewSimpleClientset()
 	controller, err := NewSecretController(createFakeCA(), requireExplicitOptIn, defaultTTL,
-		defaultGracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(), false, false,
-		[]string{metav1.NamespaceAll}, map[string]*DNSNameEntry{})
+		defaultGracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(),
+		false, false, []string{metav1.NamespaceAll}, map[string]*DNSNameEntry{},
+		"test-namespace")
 	if err != nil {
 		t.Errorf("Failed to create secret controller: %v", err)
 	}
 	controller.saAdded(createServiceAccount(saName, saNamespace))
 
-	_ = ca.BuildSecret(saName, GetSecretName(saName), saNamespace, nil, nil, nil, nil, nil, IstioSecretType)
+	_ = k8ssecret.BuildSecret(saName, GetSecretName(saName), saNamespace,
+		nil, nil, nil, nil, nil, IstioSecretType)
 	secret, err := client.CoreV1().Secrets(saNamespace).Get(GetSecretName(saName), metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Failed to retrieve secret: %v", err)
@@ -205,8 +260,9 @@ func TestSecretContent(t *testing.T) {
 func TestDeletedIstioSecret(t *testing.T) {
 	client := fake.NewSimpleClientset()
 	controller, err := NewSecretController(createFakeCA(), requireExplicitOptIn, defaultTTL,
-		defaultGracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(), false, false,
-		[]string{metav1.NamespaceAll}, nil)
+		defaultGracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(),
+		false, false, []string{metav1.NamespaceAll}, nil,
+		"test-ns")
 	if err != nil {
 		t.Errorf("failed to create secret controller: %v", err)
 	}
@@ -229,20 +285,25 @@ func TestDeletedIstioSecret(t *testing.T) {
 		expectedActions []ktesting.Action
 	}{
 		"Recover secret for existing service account": {
-			secret: ca.BuildSecret("test-sa", "istio.test-sa", "test-ns", nil, nil, nil, nil, nil, IstioSecretType),
+			secret: k8ssecret.BuildSecret("test-sa", "istio.test-sa", "test-ns",
+				nil, nil, nil, nil, nil, IstioSecretType),
 			expectedActions: []ktesting.Action{
 				ktesting.NewGetAction(saGvr, "test-ns", "test-sa"),
-				ktesting.NewCreateAction(scrtGvr, "test-ns", ca.BuildSecret("test-sa", "istio.test-sa", "test-ns", nil, nil, nil, nil, nil, IstioSecretType)),
+				ktesting.NewCreateAction(scrtGvr, "test-ns", k8ssecret.BuildSecret("test-sa",
+					"istio.test-sa", "test-ns", nil, nil, nil,
+					nil, nil, IstioSecretType)),
 			},
 		},
 		"Do not recover secret for non-existing service account in the same namespace": {
-			secret: ca.BuildSecret("test-sa2", "istio.test-sa2", "test-ns", nil, nil, nil, nil, nil, IstioSecretType),
+			secret: k8ssecret.BuildSecret("test-sa2", "istio.test-sa2", "test-ns",
+				nil, nil, nil, nil, nil, IstioSecretType),
 			expectedActions: []ktesting.Action{
 				ktesting.NewGetAction(saGvr, "test-ns", "test-sa2"),
 			},
 		},
 		"Do not recover secret for service account in different namespace": {
-			secret: ca.BuildSecret("test-sa", "istio.test-sa", "test-ns2", nil, nil, nil, nil, nil, IstioSecretType),
+			secret: k8ssecret.BuildSecret("test-sa", "istio.test-sa", "test-ns2",
+				nil, nil, nil, nil, nil, IstioSecretType),
 			expectedActions: []ktesting.Action{
 				ktesting.NewGetAction(saGvr, "test-ns2", "test-sa"),
 			},
@@ -259,83 +320,141 @@ func TestDeletedIstioSecret(t *testing.T) {
 }
 
 func TestUpdateSecret(t *testing.T) {
+	secretSchema := schema.GroupVersionResource{
+		Resource: "secrets",
+		Version:  "v1",
+	}
 	gvr := schema.GroupVersionResource{
 		Resource: "secrets",
 		Version:  "v1",
 	}
 	testCases := map[string]struct {
-		expectedActions  []ktesting.Action
-		ttl              time.Duration
-		minGracePeriod   time.Duration
-		rootCert         []byte
-		gracePeriodRatio float32
-		certIsInvalid    bool
+		expectedActions     []ktesting.Action
+		ttl                 time.Duration
+		minGracePeriod      time.Duration
+		rootCert            []byte
+		gracePeriodRatio    float32
+		certIsInvalid       bool
+		createIstioCASecret bool
+		rootCertMatchBundle bool
+		originalKCBSyncTime time.Time
+		expectedKCBSyncTime bool
 	}{
 		"Does not update non-expiring secret": {
-			expectedActions:  []ktesting.Action{},
-			ttl:              time.Hour,
-			gracePeriodRatio: 0.5,
-			minGracePeriod:   10 * time.Minute,
+			expectedActions:     []ktesting.Action{},
+			ttl:                 time.Hour,
+			gracePeriodRatio:    0.5,
+			minGracePeriod:      10 * time.Minute,
+			originalKCBSyncTime: time.Now(),
 		},
 		"Update secret in grace period": {
 			expectedActions: []ktesting.Action{
 				ktesting.NewUpdateAction(gvr, "test-ns", istioTestSecret),
 			},
-			ttl:              time.Hour,
-			gracePeriodRatio: 1, // Always in grace period
-			minGracePeriod:   10 * time.Minute,
+			ttl:                 time.Hour,
+			gracePeriodRatio:    1, // Always in grace period
+			minGracePeriod:      10 * time.Minute,
+			originalKCBSyncTime: time.Now(),
 		},
 		"Update secret in min grace period": {
 			expectedActions: []ktesting.Action{
 				ktesting.NewUpdateAction(gvr, "test-ns", istioTestSecret),
 			},
-			ttl:              10 * time.Minute,
-			gracePeriodRatio: 0.5,
-			minGracePeriod:   time.Hour, // ttl is always in minGracePeriod
+			ttl:                 10 * time.Minute,
+			gracePeriodRatio:    0.5,
+			minGracePeriod:      time.Hour, // ttl is always in minGracePeriod
+			originalKCBSyncTime: time.Now(),
 		},
 		"Update expired secret": {
 			expectedActions: []ktesting.Action{
 				ktesting.NewUpdateAction(gvr, "test-ns", istioTestSecret),
 			},
-			ttl:              -time.Second,
-			gracePeriodRatio: 0.5,
-			minGracePeriod:   10 * time.Minute,
+			ttl:                 -time.Second,
+			gracePeriodRatio:    0.5,
+			minGracePeriod:      10 * time.Minute,
+			originalKCBSyncTime: time.Now(),
 		},
-		"Update secret with different root cert": {
+		"Reload key cert bundle and update secret with different root cert": {
 			expectedActions: []ktesting.Action{
-				ktesting.NewUpdateAction(gvr, "test-ns", istioTestSecret),
+				ktesting.NewCreateAction(secretSchema, "", k8ssecret.BuildSecret("",
+					CASecret, "", nil, nil, []byte(cert1Pem),
+					[]byte(cert1Pem), []byte(key1Pem), IstioSecretType)),
+				ktesting.NewGetAction(secretSchema, "", CASecret),
+				ktesting.NewUpdateAction(secretSchema, "test-ns", istioTestSecret),
 			},
-			ttl:              time.Hour,
-			gracePeriodRatio: 0.5,
-			minGracePeriod:   10 * time.Minute,
-			rootCert:         []byte("Outdated root cert"),
+			ttl:                 time.Hour,
+			gracePeriodRatio:    0.5,
+			minGracePeriod:      10 * time.Minute,
+			rootCert:            []byte("Outdated root cert"),
+			createIstioCASecret: true,
+			originalKCBSyncTime: time.Time{},
 		},
 		"Update secret with invalid certificate": {
 			expectedActions: []ktesting.Action{
-				ktesting.NewUpdateAction(gvr, "test-ns", istioTestSecret),
+				ktesting.NewUpdateAction(secretSchema, "test-ns", istioTestSecret),
 			},
-			ttl:              time.Hour,
-			gracePeriodRatio: 0.5,
-			minGracePeriod:   10 * time.Minute,
-			certIsInvalid:    true,
+			ttl:                 time.Hour,
+			gracePeriodRatio:    0.5,
+			minGracePeriod:      10 * time.Minute,
+			certIsInvalid:       true,
+			originalKCBSyncTime: time.Now(),
+		},
+		"Reload key cert bundle only": {
+			expectedActions: []ktesting.Action{
+				ktesting.NewCreateAction(secretSchema, "", k8ssecret.BuildSecret("",
+					CASecret, "", nil, nil, []byte(cert1Pem),
+					[]byte(cert1Pem), []byte(key1Pem), IstioSecretType)),
+				ktesting.NewGetAction(secretSchema, "", CASecret),
+			},
+			ttl:                 time.Hour,
+			gracePeriodRatio:    0.5,
+			minGracePeriod:      10 * time.Minute,
+			createIstioCASecret: true,
+			rootCert:            []byte(cert1Pem),
+			originalKCBSyncTime: time.Time{},
+			expectedKCBSyncTime: true,
+		},
+		"Skip reloading key cert bundle": {
+			expectedActions: []ktesting.Action{
+				ktesting.NewCreateAction(secretSchema, "", k8ssecret.BuildSecret("",
+					CASecret, "", nil, nil, []byte(cert1Pem),
+					[]byte(cert1Pem), []byte(key1Pem), IstioSecretType)),
+				ktesting.NewUpdateAction(secretSchema, "test-ns", istioTestSecret),
+			},
+			ttl:                 time.Hour,
+			gracePeriodRatio:    0.5,
+			minGracePeriod:      10 * time.Minute,
+			createIstioCASecret: true,
+			rootCert:            []byte(cert1Pem),
+			originalKCBSyncTime: time.Now(),
 		},
 	}
 
 	for k, tc := range testCases {
 		client := fake.NewSimpleClientset()
-
-		controller, err := NewSecretController(createFakeCA(), requireExplicitOptIn, time.Hour,
+		ca := createFakeCA()
+		controller, err := NewSecretController(ca, requireExplicitOptIn, time.Hour,
 			tc.gracePeriodRatio, tc.minGracePeriod, false, client.CoreV1(), false, false,
-			[]string{metav1.NamespaceAll}, nil)
+			[]string{metav1.NamespaceAll}, nil, "")
 		if err != nil {
 			t.Errorf("failed to create secret controller: %v", err)
 		}
-
+		controller.lastKCBSyncTime = tc.originalKCBSyncTime
 		scrt := istioTestSecret
 		if rc := tc.rootCert; rc != nil {
 			scrt.Data[RootCertID] = rc
 		}
-
+		if tc.createIstioCASecret {
+			caScrt := k8ssecret.BuildSecret("", CASecret, "", nil, nil, []byte(cert1Pem),
+				[]byte(cert1Pem), []byte(key1Pem), IstioSecretType)
+			client.CoreV1().Secrets("").Create(caScrt)
+			ca.KeyCertBundle = &mockutil.FakeKeyCertBundle{
+				CertBytes:      caCert,
+				PrivKeyBytes:   caKey,
+				CertChainBytes: certChain,
+				RootCertBytes:  rootCert,
+			}
+		}
 		opts := util.CertOptions{
 			IsSelfSigned: true,
 			TTL:          tc.ttl,
@@ -347,12 +466,25 @@ func TestUpdateSecret(t *testing.T) {
 				t.Error(err)
 			}
 			scrt.Data[CertChainID] = bs
+			if tc.rootCertMatchBundle {
+				ca.KeyCertBundle = &mockutil.FakeKeyCertBundle{
+					CertBytes:      bs,
+					PrivKeyBytes:   []byte(key1Pem),
+					CertChainBytes: bs,
+					RootCertBytes:  bs,
+				}
+			}
 		}
 
 		controller.scrtUpdated(nil, scrt)
 
 		if err := checkActions(client.Actions(), tc.expectedActions); err != nil {
 			t.Errorf("Case %q: %s", k, err.Error())
+		}
+		if tc.originalKCBSyncTime.IsZero() {
+			if tc.expectedKCBSyncTime && controller.lastKCBSyncTime.IsZero() {
+				t.Errorf("Case %q: controller's lastKCBSyncTime should be set", k)
+			}
 		}
 	}
 }
@@ -376,16 +508,18 @@ func TestSecretOptIn(t *testing.T) {
 		"always create when opt-in not required": {
 			requireOptIn: false,
 			ns:           createNS("unlabeled", map[string]string{}),
-			secret:       ca.BuildSecret("test-sa", "istio.test-sa", "unlabeled", nil, nil, nil, nil, nil, IstioSecretType),
+			secret:       k8ssecret.BuildSecret("test-sa", "istio.test-sa", "unlabeled", nil, nil, nil, nil, nil, IstioSecretType),
 			expectedActions: []ktesting.Action{
 				ktesting.NewCreateAction(nsSchema, "", createNS("unlabeled", map[string]string{})),
-				ktesting.NewCreateAction(secretSchema, "unlabeled", ca.BuildSecret("test-sa", "istio.test-sa", "unlabeled", nil, nil, nil, nil, nil, IstioSecretType)),
+				ktesting.NewCreateAction(secretSchema, "unlabeled",
+					k8ssecret.BuildSecret("test-sa", "istio.test-sa", "unlabeled",
+						nil, nil, nil, nil, nil, IstioSecretType)),
 			},
 		},
 		"opt-in required, no label => disabled": {
 			requireOptIn: true,
 			ns:           createNS("unlabeled", map[string]string{}),
-			secret:       ca.BuildSecret("test-sa", "istio.test-sa", "unlabeled", nil, nil, nil, nil, nil, IstioSecretType),
+			secret:       k8ssecret.BuildSecret("test-sa", "istio.test-sa", "unlabeled", nil, nil, nil, nil, nil, IstioSecretType),
 			expectedActions: []ktesting.Action{
 				ktesting.NewCreateAction(nsSchema, "", createNS("unlabeled", map[string]string{})),
 				ktesting.NewGetAction(nsSchema, "", "unlabeled"),
@@ -394,7 +528,7 @@ func TestSecretOptIn(t *testing.T) {
 		"opt-in required, disabled label => disabled": {
 			requireOptIn: true,
 			ns:           createNS("disabled-ns", map[string]string{"istio-managed": "disabled"}),
-			secret:       ca.BuildSecret("test-sa", "istio.test-sa", "disabled-ns", nil, nil, nil, nil, nil, IstioSecretType),
+			secret:       k8ssecret.BuildSecret("test-sa", "istio.test-sa", "disabled-ns", nil, nil, nil, nil, nil, IstioSecretType),
 			expectedActions: []ktesting.Action{
 				ktesting.NewCreateAction(nsSchema, "", createNS("disabled-ns", map[string]string{"istio-managed": "disabled"})),
 				ktesting.NewGetAction(nsSchema, "", "disabled-ns"),
@@ -403,11 +537,13 @@ func TestSecretOptIn(t *testing.T) {
 		"opt-in required, enabled label => enabled": {
 			requireOptIn: true,
 			ns:           createNS("enabled-ns", map[string]string{"istio-managed": "enabled"}),
-			secret:       ca.BuildSecret("test-sa", "istio.test-sa", "enabled-ns", nil, nil, nil, nil, nil, IstioSecretType),
+			secret:       k8ssecret.BuildSecret("test-sa", "istio.test-sa", "enabled-ns", nil, nil, nil, nil, nil, IstioSecretType),
 			expectedActions: []ktesting.Action{
 				ktesting.NewCreateAction(nsSchema, "", createNS("enabled-ns", map[string]string{"istio-managed": "enabled"})),
 				ktesting.NewGetAction(nsSchema, "", "enabled-ns"),
-				ktesting.NewCreateAction(secretSchema, "enabled-ns", ca.BuildSecret("test-sa", "istio.test-sa", "enabled-ns", nil, nil, nil, nil, nil, IstioSecretType)),
+				ktesting.NewCreateAction(secretSchema, "enabled-ns",
+					k8ssecret.BuildSecret("test-sa", "istio.test-sa",
+						"enabled-ns", nil, nil, nil, nil, nil, IstioSecretType)),
 			},
 		},
 	}
@@ -416,7 +552,7 @@ func TestSecretOptIn(t *testing.T) {
 		client := fake.NewSimpleClientset()
 		controller, err := NewSecretController(createFakeCA(), tc.requireOptIn, defaultTTL,
 			defaultGracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(), false, false,
-			[]string{metav1.NamespaceAll}, nil)
+			[]string{metav1.NamespaceAll}, nil, "")
 		if err != nil {
 			t.Errorf("failed to create secret controller: %v", err)
 		}
