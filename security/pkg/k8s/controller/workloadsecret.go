@@ -568,12 +568,11 @@ func (sc *SecretController) tryToSyncKeyCertBundle(rootCertInMem, caCertInMem []
 			return rootCertInMem, fmt.Errorf("failed to reload root cert into KeyCertBundle (%v)", err)
 		}
 		k8sControllerLog.Info("Successfully reloaded root cert into KeyCertBundle.")
-		sc.lastKCBSyncTime = time.Now()
 	} else {
 		k8sControllerLog.Info("CA cert in KeyCertBundle matches CA cert in " +
 			"istio-ca-secret. Skip reloading root cert into KeyCertBundle")
 	}
-
+	sc.lastKCBSyncTime = time.Now()
 	return rootCertInMem, nil
 }
 

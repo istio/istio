@@ -90,7 +90,7 @@ type IstioCAOptions struct {
 }
 
 // NewSelfSignedIstioCAOptions returns a new IstioCAOptions instance using self-signed certificate.
-func NewSelfSignedIstioCAOptions(ctx context.Context, readSigningCertOnly bool,
+func NewSelfSignedIstioCAOptions(ctx context.Context,
 	rootCertGracePeriodPercentile int, caCertTTL, rootCertCheckInverval, certTTL,
 	maxCertTTL time.Duration, org string, dualUse bool, namespace string,
 	readCertRetryInterval time.Duration, client corev1.CoreV1Interface,
@@ -120,17 +120,16 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, readSigningCertOnly bool,
 		CertTTL:    certTTL,
 		MaxCertTTL: maxCertTTL,
 		RotatorConfig: &SelfSignedCARootCertRotatorConfig{
-			CheckInterval:       rootCertCheckInverval,
-			caCertTTL:           caCertTTL,
-			retryInterval:       cmd.ReadSigningCertRetryInterval,
-			certInspector:       certutil.NewCertUtil(rootCertGracePeriodPercentile),
-			caStorageNamespace:  namespace,
-			dualUse:             dualUse,
-			readSigningCertOnly: readSigningCertOnly,
-			org:                 org,
-			rootCertFile:        rootCertFile,
-			enableJitter:        enableJitter,
-			client:              client,
+			CheckInterval:      rootCertCheckInverval,
+			caCertTTL:          caCertTTL,
+			retryInterval:      cmd.ReadSigningCertRetryInterval,
+			certInspector:      certutil.NewCertUtil(rootCertGracePeriodPercentile),
+			caStorageNamespace: namespace,
+			dualUse:            dualUse,
+			org:                org,
+			rootCertFile:       rootCertFile,
+			enableJitter:       enableJitter,
+			client:             client,
 		},
 	}
 	if scrtErr != nil {
