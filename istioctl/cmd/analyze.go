@@ -38,6 +38,7 @@ type FileParseError struct{}
 const (
 	FoundIssueString = "Analyzer found issues."
 	FileParseString  = "Some files couldn't be parsed."
+	LogOutput        = "LOG"
 )
 
 func (f AnalyzerFoundIssuesError) Error() string {
@@ -49,11 +50,12 @@ func (f FileParseError) Error() string {
 }
 
 var (
-	useKube      bool
-	useDiscovery string
-	failureLevel = messageThreshold{diag.Warning} // messages at least this level will generate an error exit code
-	outputLevel  = messageThreshold{diag.Info}    // messages at least this level will be included in the output
-	colorize     bool
+	useKube         bool
+	useDiscovery    string
+	failureLevel    = messageThreshold{diag.Warning} // messages at least this level will generate an error exit code
+	outputLevel     = messageThreshold{diag.Info}    // messages at least this level will be included in the output
+	colorize        bool
+	msgOutputFormat string
 
 	termEnvVar = env.RegisterStringVar("TERM", "", "Specifies terminal type.  Use 'dumb' to suppress color output")
 
@@ -62,12 +64,19 @@ var (
 		diag.Warning: "\033[33m",   // yellow
 		diag.Error:   "\033[1;31m", // bold red
 	}
+
+	msgOutputFormats    = map[string]bool{LogOutput: true}
+	msgOutputFormatKeys []string
 )
 
 // Analyze command
 // Once we're ready to move this functionality out of the "experimental" subtree, we should merge
 // with `istioctl validate`. https://github.com/istio/istio/issues/16777
 func Analyze() *cobra.Command {
+	for k, _ := range msgOutputFormats {
+		msgOutputFormatKeys = append(msgOutputFormatKeys, k)
+	}
+
 	analysisCmd := &cobra.Command{
 		Use:   "analyze <file>...",
 		Short: "Analyze Istio configuration and print validation messages",
@@ -88,6 +97,14 @@ istioctl experimental analyze -d true a.yaml b.yaml services.yaml
 istioctl experimental analyze -k -d false
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			msgOutputFormat = strings.ToUpper(msgOutputFormat)
+			_, ok := msgOutputFormats[msgOutputFormat]
+			if !ok {
+				return CommandParseError{
+					fmt.Errorf("%s not a valid option for format. See istioctl x analyze --help", msgOutputFormat),
+				}
+			}
+
 			files, err := gatherFiles(args)
 			if err != nil {
 				return err
@@ -179,25 +196,30 @@ istioctl experimental analyze -k -d false
 				}
 			}
 
-			// Print validation message output, or a line indicating that none were found
-			if len(outputMessages) == 0 {
-				if parseErrors == 0 {
-					fmt.Fprintln(cmd.ErrOrStderr(), "\u2714 No validation issues found.")
-				} else {
-					fileOrFiles := "files"
-					if parseErrors == 1 {
-						fileOrFiles = "file"
+			switch msgOutputFormat {
+			case LogOutput:
+				// Print validation message output, or a line indicating that none were found
+				if len(outputMessages) == 0 {
+					if parseErrors == 0 {
+						fmt.Fprintln(cmd.ErrOrStderr(), "\u2714 No validation issues found.")
+					} else {
+						fileOrFiles := "files"
+						if parseErrors == 1 {
+							fileOrFiles = "file"
+						}
+						fmt.Fprintf(cmd.ErrOrStderr(),
+							"No validation issues found (but %d %s could not be parsed)\n",
+							parseErrors,
+							fileOrFiles,
+						)
 					}
-					fmt.Fprintf(cmd.ErrOrStderr(),
-						"No validation issues found (but %d %s could not be parsed)\n",
-						parseErrors,
-						fileOrFiles,
-					)
+				} else {
+					for _, m := range outputMessages {
+						fmt.Fprintln(cmd.OutOrStdout(), renderMessage(m))
+					}
 				}
-			} else {
-				for _, m := range outputMessages {
-					fmt.Fprintln(cmd.OutOrStdout(), renderMessage(m))
-				}
+			default: // This should never happen since we validate this already
+				return fmt.Errorf("%q not found in output format switch statement post validate?", msgOutputFormat)
 			}
 
 			// Return code is based on the unfiltered validation message list/parse errors
@@ -223,6 +245,7 @@ istioctl experimental analyze -k -d false
 		fmt.Sprintf("The severity level of analysis at which to set a non-zero exit code. Valid values: %v", diag.GetAllLevelStrings()))
 	analysisCmd.PersistentFlags().Var(&outputLevel, "output-threshold",
 		fmt.Sprintf("The severity level of analysis at which to display messages. Valid values: %v", diag.GetAllLevelStrings()))
+	analysisCmd.PersistentFlags().StringVarP(&msgOutputFormat, "output", "o", LogOutput, fmt.Sprintf("Output format: one of %v", msgOutputFormatKeys))
 	return analysisCmd
 }
 
