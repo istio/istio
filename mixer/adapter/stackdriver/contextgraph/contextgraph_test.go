@@ -147,8 +147,7 @@ func TestBuildWithMeshID(t *testing.T) {
 		projectID: "myid",
 		zone:      "myzone",
 		cluster:   "mycluster",
-		meshID:    "mesh-id",
-		cfg:       &config.Params{ProjectId: "myid"},
+		cfg:       &config.Params{ProjectId: "myid", MeshUid: "what-a-mesh"},
 	}
 
 	mEnv := env.NewEnv(t)
@@ -159,8 +158,8 @@ func TestBuildWithMeshID(t *testing.T) {
 		t.Errorf("Build returned unexpected err: %v", err)
 	}
 
-	if h.meshUID != "mesh-id" {
-		t.Errorf("handler.meshUID: got %q, want %q", h.meshUID, "mesh-id")
+	if got, want := h.meshUID, "what-a-mesh"; got != want {
+		t.Errorf("handler.meshUID: got %q, want %q", got, want)
 	}
 }
 
