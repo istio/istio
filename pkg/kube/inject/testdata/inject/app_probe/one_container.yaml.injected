@@ -115,7 +115,7 @@ spec:
         - name: ISTIO_META_WORKLOAD_NAME
           value: hello
         - name: ISTIO_META_OWNER
-          value: kubernetes://api/apps/v1/namespaces/default/deployments/hello
+          value: kubernetes://apis/apps/v1/namespaces/default/deployments/hello
         - name: ISTIO_KUBE_APP_PROBERS
           value: '{"/app-health/hello/livez":{"port":80},"/app-health/hello/readyz":{"port":3333}}'
         image: docker.io/istio/proxyv2:unittest
