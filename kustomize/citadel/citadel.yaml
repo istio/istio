@@ -119,7 +119,6 @@ spec:
             - --citadel-storage-namespace=istio-system
             - --custom-dns-names=$(CITADEL_DNS)
             - --self-signed-ca=true
-            - --trust-domain=cluster.local
             - --workload-cert-ttl=2160h
           env:
           - name: CITADEL_ENABLE_NAMESPACES_BY_DEFAULT
