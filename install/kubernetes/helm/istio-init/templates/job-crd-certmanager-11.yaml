@@ -13,7 +13,11 @@ spec:
       serviceAccountName: istio-init-service-account
       containers:
       - name: istio-init-crd-certmanager-11
+{{- if (hasKey .Values.global "kubectl") and (hasKey .Values.global.kubectl "image") }}
+        image: "{{ .Values.global.kubectl.image }}"
+{{- else }}
         image: "{{ .Values.global.hub }}/kubectl:{{ .Values.global.tag }}"
+{{- end }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
 {{- if .Values.job.resources }}
         resources:

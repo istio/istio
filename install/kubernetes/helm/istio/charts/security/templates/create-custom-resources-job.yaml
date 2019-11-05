@@ -85,7 +85,11 @@ spec:
       serviceAccountName: istio-security-post-install-account
       containers:
         - name: kubectl
+{{- if (hasKey .Values.global "kubectl") and (hasKey .Values.global.kubectl "image") }}
+          image: "{{ .Values.global.kubectl.image }}"
+{{- else }}
           image: "{{ .Values.global.hub }}/kubectl:{{ .Values.global.tag }}"
+{{- end }}
           imagePullPolicy: IfNotPresent
           command: [ "/bin/bash", "/tmp/security/run.sh", "/tmp/security/custom-resources.yaml" ]
           volumeMounts:
