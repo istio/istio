@@ -25,7 +25,6 @@ import (
 	meshapi "istio.io/api/mesh/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
-	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/test/env"
@@ -78,7 +77,7 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 	bootstrap.PilotCertDir = pilotCertDir
 
 	// Dynamically assign all ports.
-	options := envoy.DiscoveryServiceOptions{
+	options := bootstrap.DiscoveryServiceOptions{
 		HTTPAddr:       ":0",
 		MonitoringAddr: ":0",
 		GrpcAddr:       ":0",
