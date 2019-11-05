@@ -52,7 +52,7 @@ func (d *DestinationHostAnalyzer) Metadata() analysis.Metadata {
 // Analyze implements Analyzer
 func (d *DestinationHostAnalyzer) Analyze(ctx analysis.Context) {
 	// Precompute the set of service entry hosts that exist (there can be more than one defined per ServiceEntry CRD)
-	serviceEntryHosts := initServiceEntryHostNames(ctx)
+	serviceEntryHosts := initServiceEntryHostMap(ctx)
 
 	ctx.ForEach(metadata.IstioNetworkingV1Alpha3Virtualservices, func(r *resource.Entry) bool {
 		d.analyzeVirtualService(r, ctx, serviceEntryHosts)
@@ -61,7 +61,7 @@ func (d *DestinationHostAnalyzer) Analyze(ctx analysis.Context) {
 }
 
 func (d *DestinationHostAnalyzer) analyzeVirtualService(r *resource.Entry, ctx analysis.Context,
-	serviceEntryHosts map[util.ScopedFqdn]bool) {
+	serviceEntryHosts map[util.ScopedFqdn]*v1alpha3.ServiceEntry) {
 
 	vs := r.Item.(*v1alpha3.VirtualService)
 	ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
@@ -83,11 +83,14 @@ func getServiceEntry(nsScopedFqdn util.ScopedFqdn, ctx analysis.Context) *resour
 	return ctx.Find(metadata.IstioNetworkingV1Alpha3Serviceentries, n)
 }
 
-func checkServiceEntryPort(r, rs *resource.Entry, d *v1alpha3.Destination, ctx analysis.Context) {
+func checkServiceEntryPorts(r *resource.Entry, s *v1alpha3.ServiceEntry, d *v1alpha3.Destination, ctx analysis.Context) {
 	port := d.GetPort()
-	s := rs.Item.(*v1alpha3.ServiceEntry)
-	if len(s.GetPorts()) > 0 && port == nil {
-		ctx.Report(metadata.IstioNetworkingV1Alpha3Virtualservices, msg.NewInternalError(r, "TODO: Must specify port if targeted service has more than one"))
+	if port == nil {
+		if len(s.GetPorts()) > 1 {
+			ctx.Report(metadata.IstioNetworkingV1Alpha3Virtualservices, msg.NewInternalError(r, "TODO: Must specify port if targeted service has more than one"))
+			return
+		}
+		// Nothing to check, and that's OK
 		return
 	}
 	foundPort := false
@@ -105,36 +108,37 @@ func checkServiceEntryPort(r, rs *resource.Entry, d *v1alpha3.Destination, ctx a
 
 // TODO: Refactor to avoid duplicating work with checkDestinationHost
 func (d *DestinationHostAnalyzer) checkDestinationPort(r *resource.Entry, vsNamespace string, destination *v1alpha3.Destination,
-	ctx analysis.Context, serviceEntryHosts map[util.ScopedFqdn]bool) {
+	ctx analysis.Context, serviceEntryHosts map[util.ScopedFqdn]*v1alpha3.ServiceEntry) {
 	host := destination.GetHost()
 
 	// Check explicitly defined ServiceEntries as well as services discovered from the platform
 
 	// ServiceEntries can be either namespace scoped or exposed to all namespaces
 	nsScopedFqdn := util.NewScopedFqdn(vsNamespace, vsNamespace, host)
-	if _, ok := serviceEntryHosts[nsScopedFqdn]; ok {
-		checkServiceEntryPort(r, getServiceEntry(nsScopedFqdn, ctx), destination, ctx)
+	if s, ok := serviceEntryHosts[nsScopedFqdn]; ok {
+		checkServiceEntryPorts(r, s, destination, ctx)
 		return
 	}
 
 	// Check ServiceEntries which are exposed to all namespaces
 	allNsScopedFqdn := util.NewScopedFqdn(util.ExportToAllNamespaces, vsNamespace, host)
-	if _, ok := serviceEntryHosts[allNsScopedFqdn]; ok {
-		checkServiceEntryPort(r, getServiceEntry(allNsScopedFqdn, ctx), destination, ctx)
+	if s, ok := serviceEntryHosts[allNsScopedFqdn]; ok {
+		checkServiceEntryPorts(r, s, destination, ctx)
 		return
 	}
 
 	// Check synthetic service entries (service discovery services)
 	name := util.GetResourceNameFromHost(vsNamespace, host)
-	if ctx.Exists(metadata.IstioNetworkingV1Alpha3SyntheticServiceentries, name) {
-		checkServiceEntryPort(r, ctx.Find(metadata.IstioNetworkingV1Alpha3SyntheticServiceentries, name), destination, ctx)
+	se := ctx.Find(metadata.IstioNetworkingV1Alpha3SyntheticServiceentries, name)
+	if se != nil {
+		checkServiceEntryPorts(r, se.Item.(*v1alpha3.ServiceEntry), destination, ctx)
 		return
 	}
 
 	// Now check wildcard matches, namespace scoped or all namespaces
 	// (This more expensive checking left for last)
 	// Assumes the wildcard entries are correctly formatted ("*<dns suffix>")
-	for seHostScopedFqdn := range serviceEntryHosts {
+	for seHostScopedFqdn, s := range serviceEntryHosts {
 		scope, seHost := seHostScopedFqdn.GetScopeAndFqdn()
 
 		// Skip over non-wildcard entries
@@ -151,15 +155,14 @@ func (d *DestinationHostAnalyzer) checkDestinationPort(r *resource.Entry, vsName
 		hostWithoutWildCard := strings.TrimPrefix(host, util.Wildcard)
 
 		if strings.HasSuffix(hostWithoutWildCard, seHostWithoutWildcard) {
-			//TODO: This breaks, of course.
-			checkServiceEntryPort(r, getServiceEntry(seHostScopedFqdn, ctx), destination, ctx)
+			checkServiceEntryPorts(r, s, destination, ctx)
 			return
 		}
 	}
 }
 
 func (d *DestinationHostAnalyzer) checkDestinationHost(vsNamespace string, destination *v1alpha3.Destination,
-	ctx analysis.Context, serviceEntryHosts map[util.ScopedFqdn]bool) bool {
+	ctx analysis.Context, serviceEntryHosts map[util.ScopedFqdn]*v1alpha3.ServiceEntry) bool {
 	host := destination.GetHost()
 
 	// Check explicitly defined ServiceEntries as well as services discovered from the platform
@@ -210,8 +213,8 @@ func (d *DestinationHostAnalyzer) checkDestinationHost(vsNamespace string, desti
 }
 
 //TODO: Need to map to the actual service entry for easy lookup
-func initServiceEntryHostNames(ctx analysis.Context) map[util.ScopedFqdn]bool {
-	hosts := make(map[util.ScopedFqdn]bool)
+func initServiceEntryHostMap(ctx analysis.Context) map[util.ScopedFqdn]*v1alpha3.ServiceEntry {
+	hosts := make(map[util.ScopedFqdn]*v1alpha3.ServiceEntry)
 	ctx.ForEach(metadata.IstioNetworkingV1Alpha3Serviceentries, func(r *resource.Entry) bool {
 		s := r.Item.(*v1alpha3.ServiceEntry)
 		ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
@@ -220,7 +223,7 @@ func initServiceEntryHostNames(ctx analysis.Context) map[util.ScopedFqdn]bool {
 			hostsNamespaceScope = util.ExportToAllNamespaces
 		}
 		for _, h := range s.GetHosts() {
-			hosts[util.NewScopedFqdn(hostsNamespaceScope, ns, h)] = true
+			hosts[util.NewScopedFqdn(hostsNamespaceScope, ns, h)] = s
 		}
 		return true
 	})
