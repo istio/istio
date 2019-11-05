@@ -36,9 +36,6 @@ import (
 const (
 	// epochFileTemplate is a template for the root config JSON
 	epochFileTemplate = "envoy-rev%d.json"
-
-	// drainFile is the location of the bootstrap config used for draining on istio-proxy termination
-	drainFile = "/var/lib/istio/envoy/envoy_bootstrap_drain.json"
 )
 
 type envoy struct {
@@ -98,6 +95,15 @@ func (e *envoy) IsLive() bool {
 	return false
 }
 
+func (e *envoy) Drain() error {
+	adminPort := uint32(e.Config.ProxyAdminPort)
+	err := DrainListeners(adminPort)
+	if err != nil {
+		log.Infof("failed draining listeners for Envoy on port %d: %v", adminPort, err)
+	}
+	return err
+}
+
 func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 	proxyLocalAddressType := "v4"
 	if isIPv6Proxy(e.NodeIPs) {
@@ -139,10 +145,7 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 	// Note: the cert checking still works, the generated file is updated if certs are changed.
 	// We just don't save the generated file, but use a custom one instead. Pilot will keep
 	// monitoring the certs and restart if the content of the certs changes.
-	if _, ok := config.(DrainConfig); ok {
-		// We are doing a graceful termination, apply an empty config to drain all connections
-		fname = drainFile
-	} else if len(e.Config.CustomConfigFile) > 0 {
+	if len(e.Config.CustomConfigFile) > 0 {
 		// there is a custom configuration. Don't write our own config - but keep watching the certs.
 		fname = e.Config.CustomConfigFile
 	} else {
