@@ -108,6 +108,10 @@ func (c *SyntheticServiceEntryController) Apply(change *sink.Change) error {
 
 	defer atomic.AddUint32(&c.synced, 1)
 
+	if len(change.Objects) == 0 {
+		return nil
+	}
+
 	if change.Incremental {
 		// removed first
 		c.removeConfig(change.Removed)
