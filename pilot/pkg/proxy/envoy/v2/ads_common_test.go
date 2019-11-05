@@ -87,7 +87,7 @@ func TestPushTypeFor(t *testing.T) {
 			name:        "sidecar updated for sidecar proxy",
 			proxy:       sidecar,
 			configTypes: []string{schemas.Sidecar.Type},
-			expect:      map[XdsType]bool{CDS: true, EDS:true, LDS: true, RDS: true},
+			expect:      map[XdsType]bool{CDS: true, EDS: true, LDS: true, RDS: true},
 		},
 		{
 			name:        "sidecar updated for gateway proxy",
@@ -123,13 +123,13 @@ func TestPushTypeFor(t *testing.T) {
 			name:        "authenticationpolicy updated",
 			proxy:       sidecar,
 			configTypes: []string{schemas.AuthenticationPolicy.Type},
-			expect:      map[XdsType]bool{CDS: true, EDS:true, LDS: true},
+			expect:      map[XdsType]bool{CDS: true, EDS: true, LDS: true},
 		},
 		{
-			name: "authenticationpolicy updated",
+			name:        "authenticationpolicy updated",
 			proxy:       gateway,
 			configTypes: []string{schemas.AuthenticationPolicy.Type},
-			expect:      map[XdsType]bool{CDS: true, EDS:true,LDS: true},
+			expect:      map[XdsType]bool{CDS: true, EDS: true, LDS: true},
 		},
 		{
 			name:        "unknown type updated",
