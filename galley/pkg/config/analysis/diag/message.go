@@ -15,6 +15,7 @@
 package diag
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"istio.io/istio/galley/pkg/config/resource"
@@ -74,6 +75,17 @@ func (m *Message) String() string {
 	}
 	return fmt.Sprintf(
 		"%v [%v]%s %s", m.Type.Level(), m.Type.Code(), origin, fmt.Sprintf(m.Type.Template(), m.Parameters...))
+}
+
+// MarshalJSON satisfies the Marshaler interface
+func (m *Message) MarshalJSON() ([]byte, error) {
+	result := make(map[string]interface{})
+	result["level"] = m.Type.Level().String()
+	result["code"] = m.Type.Code()
+	result["message"] = fmt.Sprintf(m.Type.Template(), m.Parameters...)
+	result["origin"] = m.Origin
+	result["parameters"] = m.Parameters
+	return json.Marshal(result)
 }
 
 // NewMessageType returns a new MessageType instance.
