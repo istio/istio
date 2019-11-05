@@ -101,7 +101,6 @@ endif
 docker.proxyv2: BUILD_PRE=chmod 755 envoy pilot-agent &&
 docker.proxyv2: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg BASE_VERSION=${BASE_VERSION}
 docker.proxyv2: tools/packaging/common/envoy_bootstrap_v2.json
-docker.proxyv2: tools/packaging/common/envoy_bootstrap_drain.json
 docker.proxyv2: install/gcp/bootstrap/gcp_envoy_bootstrap.json
 docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/envoy
 docker.proxyv2: $(ISTIO_OUT_LINUX)/pilot-agent
@@ -116,7 +115,6 @@ docker.proxyv2: $(ISTIO_DOCKER)/istio-iptables
 # Proxy using TPROXY interception - but no core dumps
 docker.proxytproxy: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg BASE_VERSION=${BASE_VERSION}
 docker.proxytproxy: tools/packaging/common/envoy_bootstrap_v2.json
-docker.proxytproxy: tools/packaging/common/envoy_bootstrap_drain.json
 docker.proxytproxy: install/gcp/bootstrap/gcp_envoy_bootstrap.json
 docker.proxytproxy: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/envoy
 docker.proxytproxy: $(ISTIO_OUT_LINUX)/pilot-agent
@@ -152,7 +150,6 @@ docker.app: $(ISTIO_DOCKER)/certs
 
 # Test application bundled with the sidecar (for non-k8s).
 docker.app_sidecar: tools/packaging/common/envoy_bootstrap_v2.json
-docker.app_sidecar: tools/packaging/common/envoy_bootstrap_drain.json
 docker.app_sidecar: tools/packaging/common/istio-iptables.sh
 docker.app_sidecar: tools/packaging/common/istio-clean-iptables.sh
 docker.app_sidecar: tools/packaging/common/istio-start.sh

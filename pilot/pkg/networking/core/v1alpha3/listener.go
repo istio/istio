@@ -85,7 +85,7 @@ const (
 	// VirtualOutboundListenerName is the name for traffic capture listener
 	VirtualOutboundListenerName = "virtualOutbound"
 
-	// VirtualOutboundListenerName is the name for traffic capture listener
+	// VirtualInboundListenerName is the name for traffic capture listener
 	VirtualInboundListenerName = "virtualInbound"
 
 	// WildcardAddress binds to all IP addresses
