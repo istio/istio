@@ -15,6 +15,7 @@
 package virtualservice
 
 import (
+	"fmt"
 	"strings"
 
 	"istio.io/api/networking/v1alpha3"
@@ -38,7 +39,7 @@ type hostAndSubset struct {
 }
 
 // Metadata implements Analyzer
-func (d *DestinationHostAnalyzer) Metadata() analysis.Metadata {
+func (a *DestinationHostAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name: "virtualservice.DestinationHostAnalyzer",
 		Inputs: collection.Names{
@@ -50,32 +51,30 @@ func (d *DestinationHostAnalyzer) Metadata() analysis.Metadata {
 }
 
 // Analyze implements Analyzer
-func (d *DestinationHostAnalyzer) Analyze(ctx analysis.Context) {
+func (a *DestinationHostAnalyzer) Analyze(ctx analysis.Context) {
 	// Precompute the set of service entry hosts that exist (there can be more than one defined per ServiceEntry CRD)
 	serviceEntryHosts := initServiceEntryHostMap(ctx)
 
 	ctx.ForEach(metadata.IstioNetworkingV1Alpha3Virtualservices, func(r *resource.Entry) bool {
-		d.analyzeVirtualService(r, ctx, serviceEntryHosts)
+		a.analyzeVirtualService(r, ctx, serviceEntryHosts)
 		return true
 	})
 }
 
-func (d *DestinationHostAnalyzer) analyzeVirtualService(r *resource.Entry, ctx analysis.Context,
+func (a *DestinationHostAnalyzer) analyzeVirtualService(r *resource.Entry, ctx analysis.Context,
 	serviceEntryHosts map[util.ScopedFqdn]*v1alpha3.ServiceEntry) {
 
 	vs := r.Item.(*v1alpha3.VirtualService)
 	ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
 
-	destinations := getRouteDestinations(vs)
-
-	for _, destination := range destinations {
-		s := getDestinationHost(ns, destination, ctx, serviceEntryHosts)
+	for _, d := range getRouteDestinations(vs) {
+		s := getDestinationHost(ns, d, ctx, serviceEntryHosts)
 		if s == nil {
 			ctx.Report(metadata.IstioNetworkingV1Alpha3Virtualservices,
-				msg.NewReferencedResourceNotFound(r, "host", destination.GetHost()))
+				msg.NewReferencedResourceNotFound(r, "host", d.GetHost()))
 			continue
 		}
-		checkServiceEntryPorts(r, s, destination, ctx)
+		checkServiceEntryPorts(r, s, d, ctx)
 	}
 }
 
@@ -149,24 +148,31 @@ func initServiceEntryHostMap(ctx analysis.Context) map[util.ScopedFqdn]*v1alpha3
 }
 
 func checkServiceEntryPorts(r *resource.Entry, s *v1alpha3.ServiceEntry, d *v1alpha3.Destination, ctx analysis.Context) {
-	port := d.GetPort()
-	if port == nil {
+	if d.GetPort() == nil {
+		// If destination port isn't specified, it's only a problem if the service being referenced exposes multiple ports.
 		if len(s.GetPorts()) > 1 {
-			ctx.Report(metadata.IstioNetworkingV1Alpha3Virtualservices, msg.NewInternalError(r, "TODO: Must specify port if targeted service has more than one"))
+			var portNumbers []int
+			for _, p := range s.GetPorts() {
+				portNumbers = append(portNumbers, int(p.GetNumber()))
+			}
+			ctx.Report(metadata.IstioNetworkingV1Alpha3Virtualservices,
+				msg.NewVirtualServiceDestinationPortSelectorRequired(r, d.GetHost(), portNumbers))
 			return
 		}
-		// Nothing to check, and that's OK
+
+		// Otherwise, it's not needed and we're done here.
 		return
 	}
+
 	foundPort := false
 	for _, p := range s.GetPorts() {
-		if port.GetNumber() == p.GetNumber() {
+		if d.GetPort().GetNumber() == p.GetNumber() {
 			foundPort = true
 			break
 		}
 	}
 	if !foundPort {
-		ctx.Report(metadata.IstioNetworkingV1Alpha3Virtualservices, msg.NewInternalError(r, "TODO: Could not find matching port on target service"))
-		return
+		ctx.Report(metadata.IstioNetworkingV1Alpha3Virtualservices,
+			msg.NewReferencedResourceNotFound(r, "host+port", fmt.Sprintf("%s+%s", d.GetHost(), d.GetPort())))
 	}
 }

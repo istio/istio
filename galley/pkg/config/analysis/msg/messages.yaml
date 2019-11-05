@@ -137,3 +137,14 @@ messages:
         type: "[]string"
       - name: namespace
         type: string
+
+  - name: "VirtualServiceDestinationPortSelectorRequired"
+    code: IST0112
+    level: Error
+    description: "A VirtualService routes to a service with more than one port exposed, but does not specify which to use."
+    template: "This VirtualService routes to a service %q that exposes multiple ports (%s). Specifying a port in the destination is required to disambiguate."
+    args:
+      - name: destHost
+        type: string
+      - name: destPorts
+        type: "[]int"
