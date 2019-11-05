@@ -48,7 +48,6 @@ var (
 		{Group: "apps", Version: "v1beta1", Kind: "StatefulSet"},
 		{Group: "apps", Version: "v1", Kind: "Deployment"},
 		{Group: "apps", Version: "v1", Kind: "DaemonSet"},
-		{Group: "batch", Version: "v1", Kind: "Job"},
 		{Group: "extensions", Version: "v1beta1", Kind: "DaemonSet"},
 		{Group: "extensions", Version: "v1beta1", Kind: "Deployment"},
 		{Group: "extensions", Version: "v1beta1", Kind: "Ingress"},
