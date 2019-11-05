@@ -232,6 +232,7 @@ func ApplyAll(manifests name.ManifestMap, version version.Version, opts *Install
 
 func applyRecursive(manifests name.ManifestMap, version version.Version, opts *InstallOptions) (CompositeOutput, error) {
 	var wg sync.WaitGroup
+	var mu sync.Mutex
 	out := CompositeOutput{}
 	for c, m := range manifests {
 		c := c
@@ -243,7 +244,10 @@ func applyRecursive(manifests name.ManifestMap, version version.Version, opts *I
 				<-s
 				logAndPrint("Prerequisite for %s has completed, proceeding with install.", c)
 			}
-			out[c] = applyManifest(c, m, version, opts)
+			applyOut := applyManifest(c, m, version, opts)
+			mu.Lock()
+			out[c] = applyOut
+			mu.Unlock()
 
 			// Signal all the components that depend on us.
 			for _, ch := range componentDependencies[c] {
