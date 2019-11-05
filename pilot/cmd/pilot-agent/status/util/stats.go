@@ -56,7 +56,7 @@ func (s *Stats) String() string {
 	if s.LDSVersion > 0 {
 		ldsStatus = "Received"
 	}
-	return fmt.Sprintf("cds update: %s ,lds update: %s", cdsStatus, ldsStatus)
+	return fmt.Sprintf("cds update: %s, lds update: %s", cdsStatus, ldsStatus)
 }
 
 // GetServerState returns the current Envoy state by checking the "server.state" stat.
