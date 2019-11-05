@@ -311,7 +311,13 @@ func (t *Translator) setEnablementAndNamespaces(root map[string]interface{}, icp
 		if err != nil {
 			return err
 		}
-		if err := tpath.WriteNode(root, util.PathFromString(c.ToHelmValuesTreeRoot+"."+HelmValuesEnabledSubpath), e); err != nil {
+
+		enablementPath := c.ToHelmValuesTreeRoot
+		// CNI calls itself "cni" in the chart but "istio_cni" for enablement outside of the chart.
+		if cn == name.CNIComponentName {
+			enablementPath = "istio_cni"
+		}
+		if err := tpath.WriteNode(root, util.PathFromString(enablementPath+"."+HelmValuesEnabledSubpath), e); err != nil {
 			return err
 		}
 

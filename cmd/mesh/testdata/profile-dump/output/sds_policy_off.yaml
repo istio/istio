@@ -10,9 +10,6 @@ autoInjection:
             maxUnavailable: 25%
   enabled: true
 cni:
-  components:
-    cni:
-      enabled: false
   enabled: false
 configManagement:
   components:

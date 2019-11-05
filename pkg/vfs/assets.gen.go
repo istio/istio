@@ -36765,9 +36765,6 @@ spec:
   # Istio CNI feature
   cni:
     enabled: false
-    components:
-      cni:
-        enabled: false
 
   # Global values passed through to helm global.yaml.
   values:
