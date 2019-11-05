@@ -14,10 +14,13 @@
 package cmd
 
 import (
+	"bufio"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
 	"strings"
+	"time"
 
 	"istio.io/istio/tools/istio-iptables/pkg/builder"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
@@ -434,20 +437,73 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	iptConfigurator.handleInboundIpv4Rules(ipv4RangesInclude)
 	iptConfigurator.handleInboundIpv6Rules(ipv6RangesExclude, ipv6RangesInclude)
 
-	// Execute iptables commands
-	for _, cmd := range iptConfigurator.iptables.BuildV4() {
+	iptConfigurator.executeCommands()
+}
+
+func (iptConfigurator *IptablesConfigurator) createRulesFile(f *os.File, contents string) error {
+	defer f.Close()
+	writer := bufio.NewWriter(f)
+	_, err := writer.WriteString(contents)
+	if err != nil {
+		return fmt.Errorf("Unable to write iptables-restore file: %v", err)
+	}
+	err = writer.Flush()
+	return err
+}
+
+func (iptConfigurator *IptablesConfigurator) executeIptableCommands(commands [][]string) {
+	for _, cmd := range commands {
 		if len(cmd) > 1 {
 			iptConfigurator.ext.RunOrFail(cmd[0], cmd[1:]...)
 		} else {
 			iptConfigurator.ext.RunOrFail(cmd[0])
 		}
 	}
+}
 
-	for _, cmd := range iptConfigurator.iptables.BuildV6() {
-		if len(cmd) > 1 {
-			iptConfigurator.ext.RunOrFail(cmd[0], cmd[1:]...)
-		} else {
-			iptConfigurator.ext.RunOrFail(cmd[0])
+func (iptConfigurator *IptablesConfigurator) executeIptableRestoreCommand(isIpv4 bool) error {
+	var data, filename, cmd string
+	if isIpv4 {
+		data = iptConfigurator.iptables.BuildV4Restore()
+		filename = fmt.Sprintf("iptables-rules-%d.txt", time.Now().UnixNano())
+		cmd = constants.IPTABLESRESTORE
+	} else {
+		data = iptConfigurator.iptables.BuildV6Restore()
+		filename = fmt.Sprintf("ip6tables-rules-%d.txt", time.Now().UnixNano())
+		cmd = constants.IP6TABLESRESTORE
+	}
+	rulesFile, err := ioutil.TempFile("", filename)
+	defer os.Remove(rulesFile.Name())
+	if err != nil {
+		return fmt.Errorf("Unable to create iptables-restore file: %v", err)
+	}
+	if err := iptConfigurator.createRulesFile(rulesFile, data); err != nil {
+		return err
+	}
+	// --noflush to prevent flushing/deleting previous contents from table
+	iptConfigurator.ext.RunOrFail(cmd, "--noflush", rulesFile.Name())
+	return nil
+}
+
+func (iptConfigurator *IptablesConfigurator) executeCommands() {
+	if iptConfigurator.cfg.RestoreFormat {
+		// Execute iptables-restore
+		err := iptConfigurator.executeIptableRestoreCommand(true)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
 		}
+		// Execute ip6tables-restore
+		err = iptConfigurator.executeIptableRestoreCommand(false)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+	} else {
+		// Execute iptables commands
+		iptConfigurator.executeIptableCommands(iptConfigurator.iptables.BuildV4())
+		// Execute ip6tables commands
+		iptConfigurator.executeIptableCommands(iptConfigurator.iptables.BuildV6())
+
 	}
 }

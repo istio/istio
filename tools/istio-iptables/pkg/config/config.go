@@ -25,6 +25,7 @@ import (
 // Command line options
 type Config struct {
 	DryRun                  bool   `json:"DRY_RUN"`
+	RestoreFormat           bool   `json:"RESTORE_FORMAT"`
 	ProxyPort               string `json:"PROXY_PORT"`
 	InboundCapturePort      string `json:"INBOUND_CAPTURE_PORT"`
 	ProxyUID                string `json:"PROXY_UID"`
