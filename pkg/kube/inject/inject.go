@@ -207,7 +207,7 @@ type Params struct {
 	Privileged                   bool                   `json:"privileged"`
 	SDSEnabled                   bool                   `json:"sdsEnabled"`
 	PodDNSSearchNamespaces       []string               `json:"podDNSSearchNamespaces"`
-	ProxyEnvironmentVariables    map[string]string      `json:proxyEnvironmentVariables`
+	ProxyEnvironmentVariables    map[string]string      `json:"proxyEnvironmentVariables"`
 }
 
 // Validate validates the parameters and returns an error if there is configuration issue.
