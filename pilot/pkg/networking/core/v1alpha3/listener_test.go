@@ -32,12 +32,14 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
@@ -1657,4 +1659,76 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 	}
 
 	return env
+}
+
+func TestAppendListenerFallthroughRoute(t *testing.T) {
+	env := &model.Environment{
+		Mesh: &meshconfig.MeshConfig{},
+	}
+	tests := []struct {
+		name         string
+		listener     *xdsapi.Listener
+		listenerOpts *buildListenerOpts
+		node         *model.Proxy
+		hostname     string
+	}{
+		{
+			name:         "Registry_Only",
+			listener:     &xdsapi.Listener{},
+			listenerOpts: &buildListenerOpts{},
+			node: &model.Proxy{
+				ID:       "foo.bar",
+				Metadata: &model.NodeMetadata{},
+				SidecarScope: &model.SidecarScope{
+					OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+						Mode: networking.OutboundTrafficPolicy_REGISTRY_ONLY,
+					},
+				},
+			},
+			hostname: util.BlackHoleCluster,
+		},
+		{
+			name:         "Allow_Any",
+			listener:     &xdsapi.Listener{},
+			listenerOpts: &buildListenerOpts{},
+			node: &model.Proxy{
+				ID:       "foo.bar",
+				Metadata: &model.NodeMetadata{},
+				SidecarScope: &model.SidecarScope{
+					OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+						Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
+					},
+				},
+			},
+			hostname: util.PassthroughCluster,
+		},
+	}
+	for idx := range tests {
+		t.Run(tests[idx].name, func(t *testing.T) {
+			appendListenerFallthroughRoute(tests[idx].listener, tests[idx].listenerOpts,
+				tests[idx].node, env, nil)
+			if len(tests[idx].listenerOpts.filterChainOpts) != 1 {
+				t.Errorf("Expected exactly 1 filter chain options")
+			}
+			if !tests[idx].listenerOpts.filterChainOpts[0].isFallThrough {
+				t.Errorf("Expected fall through to be set")
+			}
+			if len(tests[idx].listenerOpts.filterChainOpts[0].networkFilters) != 1 {
+				t.Errorf("Expected exactly 1 network filter in the chain")
+			}
+			filter := tests[idx].listenerOpts.filterChainOpts[0].networkFilters[0]
+			var tcpProxy tcp_proxy.TcpProxy
+			cfg := filter.GetTypedConfig()
+			ptypes.UnmarshalAny(cfg, &tcpProxy)
+			if tcpProxy.StatPrefix != tests[idx].hostname {
+				t.Errorf("Expected stat prefix %s but got %s\n", tests[idx].hostname, tcpProxy.StatPrefix)
+			}
+			if tcpProxy.GetCluster() != tests[idx].hostname {
+				t.Errorf("Expected cluster %s but got %s\n", tests[idx].hostname, tcpProxy.GetCluster())
+			}
+			if len(tests[idx].listener.FilterChains) != 1 {
+				t.Errorf("Expected exactly 1 filter chain on the tests[idx].listener")
+			}
+		})
+	}
 }

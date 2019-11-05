@@ -30,7 +30,6 @@ import (
 	accesslogconfig "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2"
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/ptypes"
@@ -1340,7 +1339,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 	// Lets build the new listener with the filter chains. In the end, we will
 	// merge the filter chains with any existing listener on the same port/bind point
 	l := buildListener(listenerOpts)
-	appendListenerFallthroughRoute(l, &listenerOpts, pluginParams.Node, currentListenerEntry)
+	appendListenerFallthroughRoute(l, &listenerOpts, pluginParams.Node, pluginParams.Env, currentListenerEntry)
 	l.TrafficDirection = core.TrafficDirection_OUTBOUND
 
 	mutable := &plugin.MutableObjects{
@@ -1472,7 +1471,7 @@ func (configgen *ConfigGeneratorImpl) onVirtualOutboundListener(env *model.Envir
 	push *model.PushContext,
 	ipTablesListener *xdsapi.Listener) *xdsapi.Listener {
 
-	hostname := host.Name(util.BlackHoleCluster)
+	svc := util.FallThroughFilterChainBlackHoleService
 	mesh := env.Mesh
 	redirectPort := &model.Port{
 		Port:     int(mesh.ProxyListenPort),
@@ -1489,8 +1488,8 @@ func (configgen *ConfigGeneratorImpl) onVirtualOutboundListener(env *model.Envir
 	// contains just the final passthrough/blackhole
 	fallbackFilter := ipTablesListener.FilterChains[len(ipTablesListener.FilterChains)-1].Filters[0]
 
-	if isAllowAnyOutbound(node) {
-		hostname = util.PassthroughCluster
+	if util.IsAllowAnyOutbound(node) {
+		svc = util.FallThroughFilterChainPassthroughService
 	}
 
 	pluginParams := &plugin.InputParams{
@@ -1501,10 +1500,7 @@ func (configgen *ConfigGeneratorImpl) onVirtualOutboundListener(env *model.Envir
 		Push:                       push,
 		Bind:                       "",
 		Port:                       redirectPort,
-		Service: &model.Service{
-			Hostname: hostname,
-			Ports:    model.PortList{redirectPort},
-		},
+		Service:                    svc,
 	}
 
 	mutable := &plugin.MutableObjects{
@@ -1639,6 +1635,7 @@ type filterChainOpts struct {
 	match            *listener.FilterChainMatch
 	listenerFilters  []*listener.ListenerFilter
 	networkFilters   []*listener.Filter
+	isFallThrough    bool
 }
 
 // buildListenerOpts are the options required to build a Listener
@@ -1894,9 +1891,9 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 // appendListenerFallthroughRoute adds a filter that will match all traffic and direct to the
 // PassthroughCluster. This should be appended as the final filter or it will mask the others.
 // This allows external https traffic, even when port the port (usually 443) is in use by another service.
-func appendListenerFallthroughRoute(l *xdsapi.Listener, opts *buildListenerOpts, node *model.Proxy, currentListenerEntry *outboundListenerEntry) {
-	// If traffic policy is REGISTRY_ONLY, the traffic will already be blocked, so no action is needed.
-	if features.EnableFallthroughRoute.Get() && isAllowAnyOutbound(node) {
+func appendListenerFallthroughRoute(l *xdsapi.Listener, opts *buildListenerOpts,
+	node *model.Proxy, env *model.Environment, currentListenerEntry *outboundListenerEntry) {
+	if features.EnableFallthroughRoute.Get() {
 
 		wildcardMatch := &listener.FilterChainMatch{}
 		for _, fc := range l.FilterChains {
@@ -1918,21 +1915,11 @@ func appendListenerFallthroughRoute(l *xdsapi.Listener, opts *buildListenerOpts,
 			}
 		}
 
-		tcpFilter := &listener.Filter{
-			Name: wellknown.TCPProxy,
-		}
-		tcpProxy := &tcp_proxy.TcpProxy{
-			StatPrefix:       util.PassthroughCluster,
-			ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.PassthroughCluster},
-		}
-		if util.IsXDSMarshalingToAnyEnabled(node) {
-			tcpFilter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)}
-		} else {
-			tcpFilter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(tcpProxy)}
-		}
+		tcpFilter := newTCPProxyOutboundListenerFilter(env, node)
 
 		opts.filterChainOpts = append(opts.filterChainOpts, &filterChainOpts{
 			networkFilters: []*listener.Filter{tcpFilter},
+			isFallThrough:  true,
 		})
 		l.FilterChains = append(l.FilterChains, &listener.FilterChain{FilterChainMatch: wildcardMatch})
 
@@ -2182,6 +2169,7 @@ func getPluginFilterChain(opts buildListenerOpts) []plugin.FilterChain {
 		} else {
 			filterChain[id].ListenerProtocol = plugin.ListenerProtocolHTTP
 		}
+		filterChain[id].IsFallThrough = opts.filterChainOpts[id].isFallThrough
 	}
 
 	return filterChain
