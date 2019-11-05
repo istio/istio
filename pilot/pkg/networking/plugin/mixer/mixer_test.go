@@ -28,8 +28,6 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pilot/pkg/model"
-
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pkg/config/mesh"
 )
@@ -148,8 +146,7 @@ func TestOnOutboundListener(t *testing.T) {
 			},
 		},
 		Node: &model.Proxy{
-			ID:       "foo.bar",
-			Metadata: &model.NodeMetadata{},
+			ID: "foo.bar",
 		},
 	}
 	tests := []struct {
@@ -209,7 +206,7 @@ func TestOnOutboundListener(t *testing.T) {
 				}
 				var tcpClientConfig mccpb.TcpClientConfig
 				cfg := tests[idx].mutableObjects.FilterChains[i].TCP[0].GetTypedConfig()
-				ptypes.UnmarshalAny(cfg, &tcpClientConfig)
+				types.UnmarshalAny(cfg, &tcpClientConfig)
 				if tests[idx].mutableObjects.FilterChains[i].IsFallThrough {
 					hostAttr := tcpClientConfig.MixerAttributes.Attributes["destination.service.host"]
 					if !reflect.DeepEqual(hostAttr, attrStringValue(tests[idx].hostname)) {
