@@ -119,16 +119,19 @@ func PushTypeFor(proxy *model.Proxy, pushEv *XdsEvent) map[XdsType]bool {
 				out[EDS] = true
 			case schemas.EnvoyFilter.Type:
 				out[CDS] = true
+				out[EDS] = true
 				out[LDS] = true
 				out[RDS] = true
 			case schemas.Sidecar.Type:
 				out[CDS] = true
+				out[EDS] = true
 				out[LDS] = true
 				out[RDS] = true
 			case schemas.QuotaSpec.Type, schemas.QuotaSpecBinding.Type:
 				out[RDS] = true
 			case schemas.AuthenticationPolicy.Type, schemas.AuthenticationMeshPolicy.Type:
 				out[CDS] = true
+				out[EDS] = true
 				out[LDS] = true
 			case schemas.ServiceRole.Type, schemas.ServiceRoleBinding.Type, schemas.RbacConfig.Type,
 				schemas.ClusterRbacConfig.Type, schemas.AuthorizationPolicy.Type:
@@ -163,12 +166,14 @@ func PushTypeFor(proxy *model.Proxy, pushEv *XdsEvent) map[XdsType]bool {
 				out[EDS] = true
 			case schemas.EnvoyFilter.Type:
 				out[CDS] = true
+				out[EDS] = true
 				out[LDS] = true
 				out[RDS] = true
 			case schemas.Sidecar.Type, schemas.QuotaSpec.Type, schemas.QuotaSpecBinding.Type:
 				// do not push for gateway
 			case schemas.AuthenticationPolicy.Type, schemas.AuthenticationMeshPolicy.Type:
 				out[CDS] = true
+				out[EDS] = true
 				out[LDS] = true
 			case schemas.ServiceRole.Type, schemas.ServiceRoleBinding.Type, schemas.RbacConfig.Type,
 				schemas.ClusterRbacConfig.Type, schemas.AuthorizationPolicy.Type:
