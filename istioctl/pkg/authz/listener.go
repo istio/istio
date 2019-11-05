@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package auth
+package authz
 
 import (
 	"bytes"
@@ -25,6 +25,7 @@ import (
 	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/jwt_authn/v2alpha"
 	rbac_http_filter "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
 	hcm_filter "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	rbac_tcp_filter "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2"
@@ -50,7 +51,8 @@ type filterChain struct {
 	tlsContext *auth.DownstreamTlsContext
 
 	authN    *authn_filter.FilterConfig
-	jwt      *jwt_filter.JwtAuthentication
+	envoyJWT *envoy_jwt.JwtAuthentication
+	istioJWT *jwt_filter.JwtAuthentication
 	rbacHTTP *rbac_http_filter.RBAC
 	rbacTCP  *rbac_tcp_filter.RBAC
 
@@ -137,12 +139,19 @@ func ParseListener(listener *v2.Listener) *ParsedListener {
 							} else {
 								parsedFC.authN = authN
 							}
+						case "envoy.filters.http.jwt_authn":
+							jwt := &envoy_jwt.JwtAuthentication{}
+							if err := getHTTPFilterConfig(httpFilter, jwt); err != nil {
+								log.Errorf("found JWT filter but failed to parse: %s", err)
+							} else {
+								parsedFC.envoyJWT = jwt
+							}
 						case "jwt-auth":
 							jwt := &jwt_filter.JwtAuthentication{}
 							if err := getHTTPFilterConfig(httpFilter, jwt); err != nil {
 								log.Errorf("found JWT filter but failed to parse: %s", err)
 							} else {
-								parsedFC.jwt = jwt
+								parsedFC.istioJWT = jwt
 							}
 						case "envoy.filters.http.rbac":
 							rbacHTTP := &rbac_http_filter.RBAC{}
@@ -221,14 +230,17 @@ func (l *ParsedListener) print(w io.Writer, printAll bool) {
 		mTLS := fmt.Sprintf("%s (%s)", mTLSEnabled, mTLSMode)
 
 		jwtPolicy := "no (none)"
-		if fc.jwt != nil {
+		if fc.istioJWT != nil || fc.envoyJWT != nil {
 			jwtPolicy = "yes (none)"
 			issuers := make([]string, 0)
-			for _, rule := range fc.jwt.Rules {
+			for _, rule := range fc.istioJWT.GetRules() {
+				issuers = append(issuers, rule.Issuer)
+			}
+			for _, rule := range fc.envoyJWT.GetProviders() {
 				issuers = append(issuers, rule.Issuer)
 			}
 			if len(issuers) != 0 {
-				jwtPolicy = fmt.Sprintf("yes (%s)", strings.Join(issuers, ","))
+				jwtPolicy = fmt.Sprintf("yes (%d: %s)", len(issuers), strings.Join(issuers, ", "))
 			}
 		}
 
@@ -243,7 +255,7 @@ func (l *ParsedListener) print(w io.Writer, printAll bool) {
 				rules = append(rules, p)
 			}
 			if len(rules) != 0 {
-				rbacPolicy = fmt.Sprintf("yes (%s)", strings.Join(rules, ","))
+				rbacPolicy = fmt.Sprintf("yes (%d: %s)", len(rules), strings.Join(rules, ", "))
 			}
 		}
 
@@ -264,9 +276,9 @@ func (l *ParsedListener) print(w io.Writer, printAll bool) {
 
 func PrintParsedListeners(writer io.Writer, parsedListeners []*ParsedListener, printAll bool) {
 	w := new(tabwriter.Writer).Init(writer, 0, 8, 5, ' ', 0)
-	col := "LISTENER\tHTTP ROUTE\tSNI\tALPN\tCERTIFICATE\tmTLS (MODE)\tJWT (ISSUERS)\tRBAC (RULES)"
+	col := "LISTENER[FilterChain]\tHTTP ROUTE\tSNI\tALPN\tCERTIFICATE\tmTLS (MODE)\tJWT (ISSUERS)\tRBAC (RULES)"
 	if !printAll {
-		col = "LISTENER\tCERTIFICATE\tmTLS (MODE)\tJWT (ISSUERS)\tRBAC (RULES)"
+		col = "LISTENER[FilterChain]\tCERTIFICATE\tmTLS (MODE)\tJWT (ISSUERS)\tRBAC (RULES)"
 	}
 
 	if _, err := fmt.Fprintln(w, col); err != nil {

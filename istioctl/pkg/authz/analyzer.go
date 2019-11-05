@@ -15,7 +15,7 @@
 // The auth package provides support for checking the authentication and authorization policy applied
 // in the mesh. It aims to increase the debuggability and observability of auth policies.
 // Note: this is still under active development and is not ready for real use.
-package auth
+package authz
 
 import (
 	"bytes"
@@ -67,7 +67,8 @@ func NewAnalyzer(envoyConfig *configdump.Wrapper) (*Analyzer, error) {
 func (a *Analyzer) getParsedListeners() []*ParsedListener {
 	ret := make([]*ParsedListener, 0)
 	for _, listener := range a.listenerDump.DynamicActiveListeners {
-		if listener.Listener.Address.GetSocketAddress().Address == a.nodeIP {
+		ip := listener.Listener.Address.GetSocketAddress().Address
+		if ip == a.nodeIP || ip == "0.0.0.0" {
 			if ld := ParseListener(listener.Listener); ld != nil {
 				ret = append(ret, ld)
 			}
@@ -87,40 +88,10 @@ func (a *Analyzer) getParsedListeners() []*ParsedListener {
 	return ret
 }
 
-func (a *Analyzer) getParsedClusters() []*ParsedCluster {
-	ret := make([]*ParsedCluster, 0)
-	for _, cluster := range a.clusterDump.DynamicActiveClusters {
-		if cd := ParseCluster(cluster.Cluster); cd != nil && cd.direction == "outbound" {
-			ret = append(ret, cd)
-		}
-	}
-
-	sort.Slice(ret, func(i, j int) bool {
-		if ret[i].domain == ret[j].domain {
-			if ret[i].ns == ret[j].ns {
-				if ret[i].short == ret[j].short {
-					pi, _ := strconv.Atoi(ret[i].port)
-					pj, _ := strconv.Atoi(ret[j].port)
-					return pi < pj
-				}
-				return ret[i].short < ret[j].short
-			}
-			return ret[i].ns < ret[j].ns
-		}
-		return ret[i].domain < ret[j].domain
-	})
-	return ret
-}
-
-// PrintTLS checks the TLS/JWT/RBAC setting for the given envoy config stored in the analyzer.
-func (a *Analyzer) PrintTLS(writer io.Writer, printAll bool) {
+// Print checks the RBAC setting for the given envoy config stored in the analyzer.
+func (a *Analyzer) Print(writer io.Writer, printAll bool) {
 	parsedListeners := a.getParsedListeners()
 	_, _ = fmt.Fprintf(writer, "Checked %d/%d listeners with node IP %s.\n",
 		len(parsedListeners), len(a.listenerDump.DynamicActiveListeners), a.nodeIP)
 	PrintParsedListeners(writer, parsedListeners, printAll)
-
-	parsedClusters := a.getParsedClusters()
-	_, _ = fmt.Fprintf(writer, "\nChecked %d/%d outbound clusters.\n",
-		len(parsedClusters), len(a.clusterDump.DynamicActiveClusters))
-	PrintParsedClusters(writer, parsedClusters, printAll)
 }

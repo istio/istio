@@ -20,7 +20,7 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/istioctl/pkg/auth"
+	"istio.io/istio/istioctl/pkg/authz"
 	"istio.io/istio/pilot/test/util"
 )
 
@@ -69,7 +69,7 @@ func runCommand(name, command string, t *testing.T) (bytes.Buffer, error) {
 	return out, nil
 }
 
-func TestAuthCheck(t *testing.T) {
+func TestAuthZCheck(t *testing.T) {
 	testCases := []struct {
 		name   string
 		in     string
@@ -77,18 +77,18 @@ func TestAuthCheck(t *testing.T) {
 	}{
 		{
 			name:   "listeners and clusters",
-			in:     "testdata/auth/productpage_config_dump.json",
-			golden: "testdata/auth/productpage.golden",
+			in:     "testdata/authz/productpage_config_dump.json",
+			golden: "testdata/authz/productpage.golden",
 		},
 	}
 
 	for _, c := range testCases {
-		command := fmt.Sprintf("experimental auth check -f %s", c.in)
+		command := fmt.Sprintf("experimental authz check -f %s", c.in)
 		runCommandAndCheckGoldenFile(c.name, command, c.golden, t)
 	}
 }
 
-func TestAuthValidator(t *testing.T) {
+func TestAuthZValidator(t *testing.T) {
 	testCases := []struct {
 		name     string
 		in       []string
@@ -96,24 +96,27 @@ func TestAuthValidator(t *testing.T) {
 	}{
 		{
 			name:     "good policy",
-			in:       []string{"testdata/auth/authz-policy.yaml"},
-			expected: auth.GetPolicyValidReport(),
+			in:       []string{"testdata/authz/authz-policy.yaml"},
+			expected: authz.GetPolicyValidReport(),
 		},
 		{
 			name: "bad policy",
-			in:   []string{"testdata/auth/unused-role.yaml", "testdata/auth/notfound-role-in-binding.yaml"},
+			in: []string{
+				"testdata/authz/unused-role.yaml",
+				"testdata/authz/notfound-role-in-binding.yaml",
+			},
 			expected: fmt.Sprintf("%s%s",
-				auth.GetRoleNotFoundReport("some-role", "bind-service-viewer", "default"),
-				auth.GetRoleNotUsedReport("unused-role", "default")),
+				authz.GetRoleNotFoundReport("some-role", "bind-service-viewer", "default"),
+				authz.GetRoleNotUsedReport("unused-role", "default")),
 		},
 	}
 	for _, c := range testCases {
-		command := fmt.Sprintf("experimental auth validate -f %s", strings.Join(c.in, ","))
+		command := fmt.Sprintf("experimental authz validate -f %s", strings.Join(c.in, ","))
 		runCommandAndCheckExpectedString(c.name, command, c.expected, t)
 	}
 }
 
-func TestAuthConvert(t *testing.T) {
+func TestAuthZConvert(t *testing.T) {
 	testCases := []struct {
 		name              string
 		rbacV1alpha1Files []string
@@ -125,129 +128,129 @@ func TestAuthConvert(t *testing.T) {
 		{
 			name: "One access rule with multiple services",
 			rbacV1alpha1Files: []string{
-				"testdata/auth/converter/one-rule-multiple-services.yaml",
-				"testdata/auth/converter/two-subjects.yaml",
-				"testdata/auth/converter/rbac-global-on.yaml",
+				"testdata/authz/converter/one-rule-multiple-services.yaml",
+				"testdata/authz/converter/two-subjects.yaml",
+				"testdata/authz/converter/rbac-global-on.yaml",
 			},
 			servicesFiles: []string{
-				"testdata/auth/converter/svc-bookinfo.yaml",
+				"testdata/authz/converter/svc-bookinfo.yaml",
 			},
-			configMapFile: "testdata/auth/converter/istio-configmap.yaml",
-			golden:        "testdata/auth/converter/one-rule-multiple-services.golden.yaml",
+			configMapFile: "testdata/authz/converter/istio-configmap.yaml",
+			golden:        "testdata/authz/converter/one-rule-multiple-services.golden.yaml",
 		},
 		{
 			name: "RBAC policy with (unsupported) group field",
 			rbacV1alpha1Files: []string{
-				"testdata/auth/converter/one-rule-one-service.yaml",
-				"testdata/auth/converter/group-in-subject.yaml",
-				"testdata/auth/converter/rbac-global-on.yaml",
+				"testdata/authz/converter/one-rule-one-service.yaml",
+				"testdata/authz/converter/group-in-subject.yaml",
+				"testdata/authz/converter/rbac-global-on.yaml",
 			},
 			servicesFiles: []string{
-				"testdata/auth/converter/svc-bookinfo.yaml",
+				"testdata/authz/converter/svc-bookinfo.yaml",
 			},
-			configMapFile: "testdata/auth/converter/istio-configmap.yaml",
+			configMapFile: "testdata/authz/converter/istio-configmap.yaml",
 			expectedError: "Error: failed to convert policies: cannot convert binding to sources: serviceRoleBinding with group is not supported\n",
 		},
 		{
 			name: "Missing ClusterRbacConfig",
 			rbacV1alpha1Files: []string{
-				"testdata/auth/converter/one-rule-one-service.yaml",
+				"testdata/authz/converter/one-rule-one-service.yaml",
 			},
 			servicesFiles: []string{
-				"testdata/auth/converter/svc-bookinfo.yaml",
+				"testdata/authz/converter/svc-bookinfo.yaml",
 			},
-			configMapFile: "testdata/auth/converter/istio-configmap.yaml",
-			golden:        "testdata/auth/converter/empty.yaml",
+			configMapFile: "testdata/authz/converter/istio-configmap.yaml",
+			golden:        "testdata/authz/converter/empty.yaml",
 		},
 		{
 			name: "One access rule with one service",
 			rbacV1alpha1Files: []string{
-				"testdata/auth/converter/one-rule-one-service.yaml",
-				"testdata/auth/converter/one-subject.yaml",
-				"testdata/auth/converter/rbac-global-on.yaml",
+				"testdata/authz/converter/one-rule-one-service.yaml",
+				"testdata/authz/converter/one-subject.yaml",
+				"testdata/authz/converter/rbac-global-on.yaml",
 			},
 			servicesFiles: []string{
-				"testdata/auth/converter/svc-bookinfo.yaml",
+				"testdata/authz/converter/svc-bookinfo.yaml",
 			},
-			configMapFile: "testdata/auth/converter/istio-configmap.yaml",
-			golden:        "testdata/auth/converter/one-rule-one-service.golden.yaml",
+			configMapFile: "testdata/authz/converter/istio-configmap.yaml",
+			golden:        "testdata/authz/converter/one-rule-one-service.golden.yaml",
 		},
 		{
 			name: "One access rule with two services of prefix and suffix",
 			rbacV1alpha1Files: []string{
-				"testdata/auth/converter/one-rule-two-services-prefix-suffix.yaml",
-				"testdata/auth/converter/one-subject.yaml",
-				"testdata/auth/converter/rbac-global-on.yaml",
+				"testdata/authz/converter/one-rule-two-services-prefix-suffix.yaml",
+				"testdata/authz/converter/one-subject.yaml",
+				"testdata/authz/converter/rbac-global-on.yaml",
 			},
 			servicesFiles: []string{
-				"testdata/auth/converter/svc-prefix-suffix.yaml",
+				"testdata/authz/converter/svc-prefix-suffix.yaml",
 			},
-			configMapFile: "testdata/auth/converter/istio-configmap.yaml",
-			golden:        "testdata/auth/converter/one-rule-two-services-prefix-suffix.golden.yaml",
+			configMapFile: "testdata/authz/converter/istio-configmap.yaml",
+			golden:        "testdata/authz/converter/one-rule-two-services-prefix-suffix.golden.yaml",
 		},
 		{
 			name: "One access rule with all services",
 			rbacV1alpha1Files: []string{
-				"testdata/auth/converter/one-rule-all-services.yaml",
-				"testdata/auth/converter/two-subjects.yaml",
-				"testdata/auth/converter/rbac-global-on.yaml",
+				"testdata/authz/converter/one-rule-all-services.yaml",
+				"testdata/authz/converter/two-subjects.yaml",
+				"testdata/authz/converter/rbac-global-on.yaml",
 			},
 			servicesFiles: []string{
-				"testdata/auth/converter/svc-bookinfo.yaml",
+				"testdata/authz/converter/svc-bookinfo.yaml",
 			},
-			configMapFile: "testdata/auth/converter/istio-configmap.yaml",
-			golden:        "testdata/auth/converter/one-rule-all-services.golden.yaml",
+			configMapFile: "testdata/authz/converter/istio-configmap.yaml",
+			golden:        "testdata/authz/converter/one-rule-all-services.golden.yaml",
 		},
 		{
 			name: "One access rule with all services with inclusion",
 			rbacV1alpha1Files: []string{
-				"testdata/auth/converter/one-rule-all-services.yaml",
-				"testdata/auth/converter/two-subjects.yaml",
-				"testdata/auth/converter/cluster-rbac-config-on-with-inclusion.yaml",
+				"testdata/authz/converter/one-rule-all-services.yaml",
+				"testdata/authz/converter/two-subjects.yaml",
+				"testdata/authz/converter/cluster-rbac-config-on-with-inclusion.yaml",
 			},
 			servicesFiles: []string{
-				"testdata/auth/converter/svc-bookinfo.yaml",
+				"testdata/authz/converter/svc-bookinfo.yaml",
 			},
-			configMapFile: "testdata/auth/converter/istio-configmap.yaml",
-			golden:        "testdata/auth/converter/one-rule-all-services-with-inclusion.golden.yaml",
+			configMapFile: "testdata/authz/converter/istio-configmap.yaml",
+			golden:        "testdata/authz/converter/one-rule-all-services-with-inclusion.golden.yaml",
 		},
 		{
 			name: "One access rule with all services with exclusion",
 			rbacV1alpha1Files: []string{
-				"testdata/auth/converter/one-rule-all-services.yaml",
-				"testdata/auth/converter/two-subjects.yaml",
-				"testdata/auth/converter/cluster-rbac-config-on-with-exclusion.yaml",
+				"testdata/authz/converter/one-rule-all-services.yaml",
+				"testdata/authz/converter/two-subjects.yaml",
+				"testdata/authz/converter/cluster-rbac-config-on-with-exclusion.yaml",
 			},
 			servicesFiles: []string{
-				"testdata/auth/converter/svc-bookinfo.yaml",
+				"testdata/authz/converter/svc-bookinfo.yaml",
 			},
-			configMapFile: "testdata/auth/converter/istio-configmap.yaml",
-			golden:        "testdata/auth/converter/one-rule-all-services-with-exclusion.golden.yaml",
+			configMapFile: "testdata/authz/converter/istio-configmap.yaml",
+			golden:        "testdata/authz/converter/one-rule-all-services-with-exclusion.golden.yaml",
 		},
 
 		{
 			name: "ClusterRbacConfig only",
 			rbacV1alpha1Files: []string{
-				"testdata/auth/converter/rbac-global-on.yaml",
+				"testdata/authz/converter/rbac-global-on.yaml",
 			},
-			configMapFile: "testdata/auth/converter/istio-configmap.yaml",
-			golden:        "testdata/auth/converter/rbac-global-on.golden.yaml",
+			configMapFile: "testdata/authz/converter/istio-configmap.yaml",
+			golden:        "testdata/authz/converter/rbac-global-on.golden.yaml",
 		},
 		{
 			name: "RbacConfig_ON_WITH_INCLUSION only",
 			rbacV1alpha1Files: []string{
-				"testdata/auth/converter/cluster-rbac-config-on-with-inclusion.yaml",
+				"testdata/authz/converter/cluster-rbac-config-on-with-inclusion.yaml",
 			},
-			configMapFile: "testdata/auth/converter/istio-configmap.yaml",
-			golden:        "testdata/auth/converter/cluster-rbac-config-on-with-inclusion.golden.yaml",
+			configMapFile: "testdata/authz/converter/istio-configmap.yaml",
+			golden:        "testdata/authz/converter/cluster-rbac-config-on-with-inclusion.golden.yaml",
 		},
 		{
 			name: "RbacConfig_ON_WITH_EXCLUSION only",
 			rbacV1alpha1Files: []string{
-				"testdata/auth/converter/cluster-rbac-config-on-with-exclusion.yaml",
+				"testdata/authz/converter/cluster-rbac-config-on-with-exclusion.yaml",
 			},
-			configMapFile: "testdata/auth/converter/istio-configmap.yaml",
-			golden:        "testdata/auth/converter/cluster-rbac-config-on-with-exclusion.golden.yaml",
+			configMapFile: "testdata/authz/converter/istio-configmap.yaml",
+			golden:        "testdata/authz/converter/cluster-rbac-config-on-with-exclusion.golden.yaml",
 		},
 		{
 			name: "Multiple access rules with one subject",
@@ -278,7 +281,7 @@ func TestAuthConvert(t *testing.T) {
 		policyFiles = nil
 		serviceFiles = nil
 
-		command := fmt.Sprintf("experimental auth convert -f %s -s %s -m %s",
+		command := fmt.Sprintf("experimental authz convert -f %s -s %s -m %s",
 			strings.Join(c.rbacV1alpha1Files, ","), strings.Join(c.servicesFiles, ","), c.configMapFile)
 		t.Run(c.name, func(t *testing.T) {
 			if c.expectedError != "" {

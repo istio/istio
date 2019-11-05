@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package auth
+package authz
 
 import (
 	"fmt"
@@ -34,13 +34,13 @@ type Validator struct {
 const (
 	RoleNotFound        = "serviceRoleNotFound: %q used by ServiceRoleBinding %q at namespace %q.\n"
 	RoleNotUsed         = "serviceRoleNotUsed: ServiceRole %q at namespace %q.\n"
-	PolicyValid         = "Authorization policy is valid.\n"
+	PolicyValid         = "v1alpha1 RBAC policy is valid.\n"
 	RoleMissing         = "no ServiceRole found for validation"
 	BindingMissing      = "no ServiceRoleBinding found for validation"
-	ValidButNoRBACFound = "Valid (no Authorization policy found).\n"
+	ValidButNoRBACFound = "Valid (no v1alpha1 RBAC policy found).\n"
 )
 
-// CheckAndReport checks for Istio authentication and authorization mis-usage.
+// CheckAndReport checks for v1alpha1 RBAC mis-usage.
 func (v *Validator) CheckAndReport() error {
 	err := v.getRoleAndBindingLists()
 	if err != nil {
