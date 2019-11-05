@@ -20,6 +20,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -56,18 +57,79 @@ func (o *DiscoveryOptions) mixerEnabled() bool {
 type MCPDiscovery struct {
 	*SyntheticServiceEntryController
 	*DiscoveryOptions
+	cacheMutex sync.RWMutex
+	// keys [namespace][name]
+	cache          map[string]map[string][]*model.ServiceInstance
+	cacheInitMutex sync.RWMutex
+	cacheInit      bool
 }
 
 // NewMCPDiscovery provides a new instance of Discovery
 func NewMCPDiscovery(controller CoreDataModel, options *DiscoveryOptions) *MCPDiscovery {
-	return &MCPDiscovery{
+	discovery := &MCPDiscovery{
 		SyntheticServiceEntryController: controller.(*SyntheticServiceEntryController),
 		DiscoveryOptions:                options,
+		cache:                           make(map[string]map[string][]*model.ServiceInstance),
+	}
+	discovery.RegisterEventHandler(schemas.SyntheticServiceEntry.Type, func(config model.Config, event model.Event) {
+		discovery.HandleCacheEvents(config, event)
+	})
+	return discovery
+
+}
+
+func (d *MCPDiscovery) initializeCache() error {
+	if !d.cacheInit {
+		sseConfigs, err := d.List(schemas.SyntheticServiceEntry.Type, model.NamespaceAll)
+		if err != nil {
+			return err
+		}
+		d.cacheMutex.Lock()
+		for _, conf := range sseConfigs {
+			// could we merge services with convertInstances?
+			services := convertServices(conf)
+			d.cache[conf.Namespace] = map[string][]*model.ServiceInstance{
+				conf.Name: convertInstances(conf, services),
+			}
+		}
+		d.cacheMutex.Unlock()
+		d.cacheInitMutex.Lock()
+		d.cacheInit = true
+		d.cacheInitMutex.Unlock()
+	}
+	return nil
+}
+
+func (d *MCPDiscovery) HandleCacheEvents(config model.Config, event model.Event) {
+	d.cacheMutex.Lock()
+	defer d.cacheMutex.Unlock()
+	switch event {
+	case model.EventAdd, model.EventUpdate:
+		services := convertServices(config)
+		svcInstances := convertInstances(config, services)
+		cacheByName, ok := d.cache[config.Namespace]
+		if ok {
+			cacheByName[config.Name] = svcInstances
+		} else {
+			d.cache[config.Namespace] = map[string][]*model.ServiceInstance{
+				config.Name: svcInstances,
+			}
+		}
+	case model.EventDelete:
+		cacheByName, ok := d.cache[config.Namespace]
+		if ok {
+			delete(cacheByName, config.Name)
+		}
+		// delete the parent map if no other config exist
+		if len(d.cache[config.Namespace]) == 0 {
+			delete(d.cache, config.Namespace)
+		}
 	}
 }
 
 // Services list declarations of all SyntheticServiceEntries in the system
 func (d *MCPDiscovery) Services() ([]*model.Service, error) {
+	//TODO: convert to read from cache
 	services := make([]*model.Service, 0)
 
 	syntheticServiceEntries, err := d.List(schemas.SyntheticServiceEntry.Type, model.NamespaceAll)
@@ -82,28 +144,37 @@ func (d *MCPDiscovery) Services() ([]*model.Service, error) {
 
 // GetProxyServiceInstances returns service instances co-located with a given proxy
 func (d *MCPDiscovery) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
+	if err := d.initializeCache(); err != nil {
+		return nil, err
+	}
 	out := make([]*model.ServiceInstance, 0)
 
 	// There is only one IP for kube registry
 	proxyIP := proxy.IPAddresses[0]
 
-	// add any other endpoint
-	sseConf, err := d.List(schemas.SyntheticServiceEntry.Type, proxy.ConfigNamespace)
-	if err != nil {
-		return nil, err
+	d.cacheMutex.Lock()
+	defer d.cacheMutex.Unlock()
+	if proxy.ConfigNamespace != model.NamespaceAll {
+		instancesByName, ok := d.cache[proxy.ConfigNamespace]
+		if ok {
+			// consider creating a look up map of serviceInstances by endpoint IP
+			for _, serviceInstances := range instancesByName {
+				for _, si := range serviceInstances {
+					if si.Endpoint.Address == proxyIP {
+						out = append(out, si)
+					}
+				}
+			}
+		}
+		return out, nil
 	}
 
-	for _, conf := range sseConf {
-		se, ok := conf.Spec.(*networking.ServiceEntry)
-		if !ok {
-			return nil, errors.New("getProxyServiceInstances: wrong type")
-		}
-		for _, h := range se.Hosts {
-			for _, svcPort := range se.Ports {
-				// add other endpoints
-				out = append(out, d.serviceInstancesByProxyIP(proxyIP, se, svcPort, conf, h)...)
-				// add notReady endpoints
-				out = append(out, d.serviceInstancesFromNotReadyEps(proxyIP, se, svcPort, conf, h)...)
+	for _, instancesByNs := range d.cache {
+		for _, serviceInstances := range instancesByNs {
+			for _, si := range serviceInstances {
+				if si.Endpoint.Address == proxyIP {
+					out = append(out, si)
+				}
 			}
 		}
 	}
@@ -112,6 +183,7 @@ func (d *MCPDiscovery) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Se
 
 // InstancesByPort implements a service catalog operation
 func (d *MCPDiscovery) InstancesByPort(svc *model.Service, servicePort int, lbls labels.Collection) ([]*model.ServiceInstance, error) {
+	//TODO: convert to read from cache
 	out := make([]*model.ServiceInstance, 0)
 	if svc != nil {
 		sseConf, err := d.List(schemas.SyntheticServiceEntry.Type, svc.Attributes.Namespace)
@@ -129,6 +201,45 @@ func (d *MCPDiscovery) InstancesByPort(svc *model.Service, servicePort int, lbls
 		}
 	}
 	return out, nil
+}
+
+func convertInstances(cfg model.Config, services []*model.Service) []*model.ServiceInstance {
+	out := make([]*model.ServiceInstance, 0)
+	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
+	if services == nil {
+		services = convertServices(cfg)
+	}
+	for _, service := range services {
+		for _, serviceEntryPort := range serviceEntry.Ports {
+			if len(serviceEntry.Endpoints) == 0 &&
+				serviceEntry.Resolution == networking.ServiceEntry_DNS {
+				// when service entry has discovery type DNS and no endpoints
+				// we create endpoints from service's host
+				// Do not use serviceentry.hosts as a service entry is converted into
+				// multiple services (one for each host)
+				out = append(out, &model.ServiceInstance{
+					Endpoint: model.NetworkEndpoint{
+						Address:     string(service.Hostname),
+						Port:        int(serviceEntryPort.Number),
+						ServicePort: convertPort(serviceEntryPort),
+					},
+					Service: service,
+					Labels:  nil,
+					TLSMode: model.DisabledTLSModeLabel,
+				})
+			} else {
+				for _, endpoint := range serviceEntry.Endpoints {
+					out = append(out, convertEndpoint(service, serviceEntryPort, endpoint))
+				}
+				// add notReadyEndpoints if there are any
+				notReadyEps := notReadyEndpoints(cfg)
+				if len(notReadyEps) != 0 {
+					out = append(out, convertNotReadyEndpoints(service, serviceEntryPort, notReadyEps)...)
+				}
+			}
+		}
+	}
+	return out
 }
 
 func convertPort(port *networking.Port) *model.Port {
@@ -227,6 +338,60 @@ func convertServices(cfg model.Config) []*model.Service {
 		}
 	}
 
+	return out
+}
+
+func convertEndpoint(service *model.Service, servicePort *networking.Port,
+	endpoint *networking.ServiceEntry_Endpoint) *model.ServiceInstance {
+	var instancePort uint32
+	var family model.AddressFamily
+	addr := endpoint.GetAddress()
+	if strings.HasPrefix(addr, model.UnixAddressPrefix) {
+		instancePort = 0
+		family = model.AddressFamilyUnix
+		addr = strings.TrimPrefix(addr, model.UnixAddressPrefix)
+	} else {
+		instancePort = endpoint.Ports[servicePort.Name]
+		if instancePort == 0 {
+			instancePort = servicePort.Number
+		}
+		family = model.AddressFamilyTCP
+	}
+
+	tlsMode := model.GetTLSModeFromEndpointLabels(endpoint.Labels)
+
+	return &model.ServiceInstance{
+		Endpoint: model.NetworkEndpoint{
+			Address:     addr,
+			Family:      family,
+			Port:        int(instancePort),
+			ServicePort: convertPort(servicePort),
+			Network:     endpoint.Network,
+			Locality:    endpoint.Locality,
+			LbWeight:    endpoint.Weight,
+		},
+		Service: service,
+		Labels:  endpoint.Labels,
+		TLSMode: tlsMode,
+	}
+}
+
+func convertNotReadyEndpoints(service *model.Service, servicePort *networking.Port,
+	notReadyEps map[string]int) []*model.ServiceInstance {
+	out := make([]*model.ServiceInstance, 0)
+	family := model.AddressFamilyTCP
+
+	for ip, port := range notReadyEps {
+		out = append(out, &model.ServiceInstance{
+			Endpoint: model.NetworkEndpoint{
+				Address:     ip,
+				Family:      family,
+				Port:        int(port),
+				ServicePort: convertPort(servicePort),
+			},
+			Service: service,
+		})
+	}
 	return out
 }
 

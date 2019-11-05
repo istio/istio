@@ -44,8 +44,9 @@ var (
 type SyntheticServiceEntryController struct {
 	configStoreMu sync.RWMutex
 	// keys [namespace][name]
-	configStore map[string]map[string]*model.Config
-	synced      uint32
+	configStore  map[string]map[string]*model.Config
+	eventHandler func(model.Config, model.Event)
+	synced       uint32
 	*Options
 }
 
@@ -123,9 +124,19 @@ func (c *SyntheticServiceEntryController) HasSynced() bool {
 	return atomic.LoadUint32(&c.synced) != 0
 }
 
+func (c *SyntheticServiceEntryController) dispatch(config model.Config, event model.Event) {
+	if c.eventHandler != nil {
+		c.eventHandler(config, event)
+	}
+}
+
 // RegisterEventHandler registers a handler using the type as a key
 func (c *SyntheticServiceEntryController) RegisterEventHandler(typ string, handler func(model.Config, model.Event)) {
-	log.Warnf("registerEventHandler: %s", errUnsupported)
+	// TODO: investigate why it is called more than one
+	if c.eventHandler == nil {
+		c.eventHandler = handler
+
+	}
 }
 
 // Version is not implemented
@@ -181,6 +192,7 @@ func (c *SyntheticServiceEntryController) removeConfig(configName []string) {
 		if byNamespace, ok := c.configStore[namespace]; ok {
 			if conf, ok := byNamespace[name]; ok {
 				delete(byNamespace, conf.Name)
+				c.dispatch(*conf, model.EventDelete)
 			}
 			// clear parent map also
 			if len(byNamespace) == 0 {
@@ -235,16 +247,15 @@ func (c *SyntheticServiceEntryController) configStoreUpdate(resources []*sink.Ob
 			continue
 		}
 
-		// TODO: we shouldn't probably do this check
-		// since this is the differentiating factor
-		// between incremental MCP and non-incremental
 		namedConf, ok := configs[conf.Namespace]
 		if ok {
 			namedConf[conf.Name] = conf
+			c.dispatch(*conf, model.EventUpdate)
 		} else {
 			configs[conf.Namespace] = map[string]*model.Config{
 				conf.Name: conf,
 			}
+			c.dispatch(*conf, model.EventAdd)
 		}
 
 		svcChanged := c.isFullUpdateRequired(conf)
@@ -291,10 +302,12 @@ func (c *SyntheticServiceEntryController) incrementalUpdate(resources []*sink.Ob
 				oldEpVersion = version(namedConf[conf.Name].Annotations, endpointKey)
 			}
 			namedConf[conf.Name] = conf
+			c.dispatch(*conf, model.EventUpdate)
 		} else {
 			c.configStore[conf.Namespace] = map[string]*model.Config{
 				conf.Name: conf,
 			}
+			c.dispatch(*conf, model.EventAdd)
 		}
 		c.configStoreMu.Unlock()
 

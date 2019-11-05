@@ -17,11 +17,13 @@ package coredatamodel_test
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/onsi/gomega"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/coredatamodel"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/host"
@@ -31,10 +33,12 @@ import (
 )
 
 var (
-	d         *coredatamodel.MCPDiscovery
-	namespace = "random-namespace"
-	name      = "test-synthetic-se"
-	svcPort   = []*model.Port{
+	d          *coredatamodel.MCPDiscovery
+	controller coredatamodel.CoreDataModel
+	fx         *FakeXdsUpdater
+	namespace  = "random-namespace"
+	name       = "test-synthetic-se"
+	svcPort    = []*model.Port{
 		{
 			Name:     "http-port",
 			Port:     80,
@@ -46,6 +50,7 @@ var (
 			Protocol: protocol.Instance("http"),
 		},
 	}
+	fakeCreateTime, _ = time.Parse(time.RFC3339, "2006-01-02T15:04:05Z")
 )
 
 // Since service instance is representation of a service with a corresponding backend port
@@ -94,12 +99,8 @@ var (
 func TestGetProxyServiceInstances(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	testSetup(g)
-	proxyIP := "4.4.4.4"
-	proxy := &model.Proxy{
-		IPAddresses: []string{proxyIP},
-	}
 
-	svcInstances, err := d.GetProxyServiceInstances(proxy)
+	svcInstances, err := d.GetProxyServiceInstances(buildProxy("4.4.4.4"))
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(len(svcInstances)).To(gomega.Equal(4))
 
@@ -111,7 +112,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 	}{
 		"4.4.4.4": {
 			address:     "4.4.4.4",
-			ports:       []int{1080, 5555},
+			ports:       []int{1080, 5555, 8080},
 			servicePort: svcPort,
 			hostname:    host.Name("svc.example2.com"),
 		},
@@ -211,10 +212,170 @@ func TestInstancesByPort(t *testing.T) {
 	})
 }
 
-func testSetup(g *gomega.GomegaWithT) {
-	fx := NewFakeXDS()
+func TestItShouldReadFromCache(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	testSetup(g)
+	proxy := buildProxy("4.4.4.4")
+
+	svcInstances, err := d.GetProxyServiceInstances(proxy)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(len(svcInstances)).To(gomega.Equal(4))
+
+	// drain the cache
+	conf := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:              schemas.ServiceEntry.Type,
+			Group:             schemas.ServiceEntry.Group,
+			Version:           schemas.ServiceEntry.Version,
+			Name:              name,
+			Namespace:         namespace,
+			CreationTimestamp: fakeCreateTime,
+		},
+	}
+	d.HandleCacheEvents(conf, model.EventDelete)
+
+	svcInstances, err = d.GetProxyServiceInstances(proxy)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(len(svcInstances)).To(gomega.Equal(0))
+
+}
+
+func TestHandleCacheEvents(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	initDiscovery()
+	fakeCreateTime, _ := time.Parse(time.RFC3339, "2006-01-02T15:04:05Z")
+	conf := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:              schemas.ServiceEntry.Type,
+			Group:             schemas.ServiceEntry.Group,
+			Version:           schemas.ServiceEntry.Version,
+			Name:              name,
+			Namespace:         "default",
+			Domain:            "example2.com",
+			ResourceVersion:   "1",
+			CreationTimestamp: fakeCreateTime,
+			Labels:            map[string]string{"lk1": "lv1"},
+			Annotations:       map[string]string{"ak1": "av1"},
+		},
+		Spec: syntheticServiceEntry0,
+	}
+
+	// add the first config
+	d.HandleCacheEvents(conf, model.EventAdd)
+
+	svcInstances, err := d.GetProxyServiceInstances(buildProxy("4.4.4.4"))
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(len(svcInstances)).ToNot(gomega.Equal(0))
+	for _, s := range svcInstances {
+		g.Expect(s.Labels).To(gomega.Equal(labels.Instance{"foo": "bar"}))
+	}
+
+	// update the first config
+	syntheticServiceEntry0.Endpoints = []*networking.ServiceEntry_Endpoint{
+		{
+			Address: "3.3.3.3",
+			Ports:   map[string]uint32{"http-port": 1080},
+		},
+		{
+			Address: "4.4.4.4",
+			Ports:   map[string]uint32{"http-port": 1080},
+			Labels:  map[string]string{"foo": "bar2"},
+		},
+	}
+	d.HandleCacheEvents(conf, model.EventUpdate)
+	svcInstances, err = d.GetProxyServiceInstances(buildProxy("4.4.4.4"))
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(len(svcInstances)).ToNot(gomega.Equal(0))
+	for _, s := range svcInstances {
+		g.Expect(s.Labels).To(gomega.Equal(labels.Instance{"foo": "bar2"}))
+	}
+
+	// add another config
+	syntheticServiceEntry1.Endpoints = []*networking.ServiceEntry_Endpoint{
+		{
+			Address: "3.3.3.3",
+			Ports:   map[string]uint32{"http-port": 1080},
+		},
+		{
+			Address: "5.5.5.5",
+			Ports:   map[string]uint32{"http-port": 1081},
+			Labels:  map[string]string{"foo1": "bar1"},
+		},
+	}
+	conf2 := conf
+	conf2.Spec = syntheticServiceEntry1
+	conf2.ConfigMeta.Name = "test-name"
+	conf2.ConfigMeta.Namespace = "test-namespace"
+	d.HandleCacheEvents(conf2, model.EventAdd)
+	svcInstances, err = d.GetProxyServiceInstances(buildProxy("5.5.5.5"))
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(len(svcInstances)).ToNot(gomega.Equal(0))
+	for _, s := range svcInstances {
+		g.Expect(s.Labels).To(gomega.Equal(labels.Instance{"foo1": "bar1"}))
+	}
+
+	// add another config in the same namespace as the second one
+	syntheticServiceEntry2 := syntheticServiceEntry1
+	syntheticServiceEntry2.Endpoints = []*networking.ServiceEntry_Endpoint{
+		{
+			Address: "2.2.2.2",
+			Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
+			Labels:  map[string]string{"foo3": "bar3"},
+		},
+	}
+
+	conf3 := conf
+	conf3.Spec = syntheticServiceEntry2
+	conf3.ConfigMeta.Name = "test-name2"
+	conf3.ConfigMeta.Namespace = "test-namespace"
+	d.HandleCacheEvents(conf3, model.EventAdd)
+	svcInstances, err = d.GetProxyServiceInstances(buildProxy("2.2.2.2"))
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(len(svcInstances)).ToNot(gomega.Equal(0))
+	for _, s := range svcInstances {
+		g.Expect(s.Labels).To(gomega.Equal(labels.Instance{"foo3": "bar3"}))
+	}
+
+	// delete the first config
+	d.HandleCacheEvents(conf, model.EventDelete)
+	svcInstances, err = d.GetProxyServiceInstances(buildProxy("4.4.4.4"))
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(len(svcInstances)).To(gomega.Equal(0))
+
+	// delete the second config
+	d.HandleCacheEvents(conf2, model.EventDelete)
+	svcInstances, err = d.GetProxyServiceInstances(buildProxy("5.5.5.5"))
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(len(svcInstances)).To(gomega.Equal(0))
+
+	// check to see if other config in the same namespace
+	// as second config is not deleted
+	svcInstances, err = d.GetProxyServiceInstances(buildProxy("2.2.2.2"))
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(len(svcInstances)).ToNot(gomega.Equal(0))
+	for _, s := range svcInstances {
+		g.Expect(s.Labels).To(gomega.Equal(labels.Instance{"foo3": "bar3"}))
+	}
+
+	// delete the last config
+	d.HandleCacheEvents(conf3, model.EventDelete)
+	svcInstances, err = d.GetProxyServiceInstances(buildProxy("2.2.2.2"))
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(len(svcInstances)).To(gomega.Equal(0))
+}
+
+func buildProxy(proxyIP string) *model.Proxy {
+	return &model.Proxy{
+		IPAddresses: []string{proxyIP},
+	}
+}
+
+func initDiscovery() {
+	fx = NewFakeXDS()
 	fx.EDSErr <- nil
 	testControllerOptions.XDSUpdater = fx
+	controller = coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
+
 	options := &coredatamodel.DiscoveryOptions{
 		ClusterID:    "test",
 		DomainSuffix: "cluster.local",
@@ -224,8 +385,12 @@ func testSetup(g *gomega.GomegaWithT) {
 			},
 		},
 	}
-	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
 	d = coredatamodel.NewMCPDiscovery(controller, options)
+
+}
+
+func testSetup(g *gomega.GomegaWithT) {
+	initDiscovery()
 
 	message := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
 
