@@ -155,7 +155,7 @@ func (e *Ephemeral) BuildSnapshot() (*Snapshot, error) {
 
 	attributes := e.processAttributeManifests(monitoringCtx)
 
-	shandlers := e.processStaticAdapterHandlerConfigs()
+	sHandlers := e.processStaticAdapterHandlerConfigs()
 
 	af := attribute.NewFinder(attributes)
 	e.attributes = af
@@ -164,13 +164,13 @@ func (e *Ephemeral) BuildSnapshot() (*Snapshot, error) {
 	// New dynamic configurations
 	dTemplates := e.processDynamicTemplateConfigs(monitoringCtx, errs)
 	dAdapters := e.processDynamicAdapterConfigs(monitoringCtx, dTemplates, errs)
-	dhandlers := e.processDynamicHandlerConfigs(monitoringCtx, dAdapters, errs)
+	dHandlers := e.processDynamicHandlerConfigs(monitoringCtx, dAdapters, errs)
 	dInstances, dInstErrs := e.processDynamicInstanceConfigs(dTemplates, errs)
 
-	rules := e.processRuleConfigs(monitoringCtx, shandlers, instances, dhandlers, dInstances, errs)
+	rules := e.processRuleConfigs(monitoringCtx, sHandlers, instances, dHandlers, dInstances, errs)
 
 	stats.Record(monitoringCtx,
-		monitoring.HandlersTotal.M(int64(len(shandlers)+len(dhandlers))),
+		monitoring.HandlersTotal.M(int64(len(sHandlers)+len(dHandlers))),
 		monitoring.InstancesTotal.M(int64(len(instances)+len(dInstances))),
 		monitoring.RulesTotal.M(int64(len(rules))),
 		monitoring.AdapterInfosTotal.M(int64(len(dAdapters))),
@@ -185,11 +185,11 @@ func (e *Ephemeral) BuildSnapshot() (*Snapshot, error) {
 		TemplateMetadatas: dTemplates,
 		AdapterMetadatas:  dAdapters,
 		Attributes:        af,
-		HandlersStatic:    shandlers,
+		HandlersStatic:    sHandlers,
 		InstancesStatic:   instances,
 		Rules:             rules,
 
-		HandlersDynamic:  dhandlers,
+		HandlersDynamic:  dHandlers,
 		InstancesDynamic: dInstances,
 
 		MonitoringContext: monitoringCtx,
