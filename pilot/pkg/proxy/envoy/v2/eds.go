@@ -803,7 +803,7 @@ func (s *DiscoveryServer) updateEdsClients(added sets.Set, removed sets.Set, con
 		c := edsClusters[rc]
 		if c == nil {
 			adsLog.Warnf("EDS: Missing cluster: %s", rc)
-			return
+			continue
 		}
 		c.mutex.Lock()
 		delete(c.EdsClients, connection.ConID)
