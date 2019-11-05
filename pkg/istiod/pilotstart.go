@@ -38,7 +38,6 @@ import (
 	mcpapi "istio.io/api/mcp/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd"
-	"istio.io/istio/pilot/pkg/bootstrap"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/coredatamodel"
 	"istio.io/istio/pilot/pkg/features"
@@ -124,9 +123,32 @@ type ServiceArgs struct {
 	Consul     ConsulArgs
 }
 
+// DiscoveryServiceOptions contains options for create a new discovery
+// service instance.
+type DiscoveryServiceOptions struct {
+	// The listening address for HTTP. If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
+	// a port number is automatically chosen.
+	HTTPAddr string
+
+	// The listening address for GRPC. If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
+	// a port number is automatically chosen.
+	GrpcAddr string
+
+	// The listening address for secure GRPC. If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
+	// a port number is automatically chosen.
+	// "" means disabling secure GRPC, used in test.
+	SecureGrpcAddr string
+
+	// The listening address for the monitoring port. If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
+	// a port number is automatically chosen.
+	MonitoringAddr string
+
+	EnableProfiling bool
+}
+
 // PilotArgs provides all of the configuration parameters for the Pilot discovery service.
 type PilotArgs struct {
-	DiscoveryOptions         bootstrap.DiscoveryServiceOptions
+	DiscoveryOptions         DiscoveryServiceOptions
 	Namespace                string
 	Config                   ConfigArgs
 	Service                  ServiceArgs

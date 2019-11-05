@@ -30,8 +30,6 @@ import (
 	"k8s.io/client-go/rest"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/bootstrap"
-
 	"istio.io/istio/galley/pkg/server"
 	"istio.io/istio/galley/pkg/server/settings"
 	"istio.io/istio/pilot/pkg/model"
@@ -172,7 +170,7 @@ func NewIstiod(kconfig *rest.Config, kclient *kubernetes.Clientset, confDir stri
 	basePort := int32(basePortI)
 	server.basePort = basePort
 
-	args.DiscoveryOptions = bootstrap.DiscoveryServiceOptions{
+	args.DiscoveryOptions = DiscoveryServiceOptions{
 		HTTPAddr: ":8080", // lots of tools use this
 		GrpcAddr: fmt.Sprintf(":%d", basePort+10),
 		// Using 12 for K8S-DNS based cert.
