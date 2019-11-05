@@ -14,9 +14,7 @@ metadata:
 {{ toYaml .Values.podLabels | indent 4 }}
     {{- end }}
 spec:
-{{- if .Values.global.defaultPodDisruptionBudget.enabled }}
 {{ include "podDisruptionBudget.spec" .Values.global.defaultPodDisruptionBudget }}
-{{- end }}
   selector:
     matchLabels:
       app: certmanager
