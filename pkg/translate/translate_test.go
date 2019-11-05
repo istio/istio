@@ -40,7 +40,6 @@ defaultNamespace: istio-system
   enabled: false
   namespace: istio-system
 cni:
-  enabled: false
   namespace: istio-system
 galley:
   enabled: false
@@ -64,6 +63,8 @@ global:
 grafana:
   enabled: false
   namespace: istio-system
+istio_cni:
+  enabled: false
 kiali:
   enabled: false
   namespace: istio-system
@@ -106,7 +107,6 @@ defaultNamespace: istio-system
   enabled: false
   namespace: istio-system
 cni:
-  enabled: false
   namespace: istio-system
 galley:
   enabled: false
@@ -132,6 +132,8 @@ global:
 grafana:
   enabled: false
   namespace: istio-system
+istio_cni:
+  enabled: false
 kiali:
   enabled: false
   namespace: istio-system
