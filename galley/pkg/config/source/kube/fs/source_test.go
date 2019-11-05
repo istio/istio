@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 	"syscall"
 	"testing"
+	"time"
 
 	. "github.com/onsi/gomega"
 
@@ -213,7 +214,7 @@ func TestAddUpdateDeleteWithWatcherEnabled(t *testing.T) {
 	acc.Clear()
 	copyFile(t, dir, "foo.yaml", data.YamlN1I1V2)
 
-	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
+	g.Eventually(acc.EventsWithoutOrigins, 2*time.Second).Should(ConsistOf(
 		event.UpdateFor(data.Collection1, withVersion(data.EntryN1I1V2, "v2"))))
 
 	acc.Clear()

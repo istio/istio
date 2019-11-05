@@ -460,7 +460,7 @@ func TestBuiltinResourceWithWatcherEnabled(t *testing.T) {
 			Kind:  resource.Updated,
 			Entry: serviceToEntry(t, svc, spec),
 		}
-		g.Eventually([]resource.Event{events.Expect(t, ch)}).Should(ConsistOf(expected))
+		g.Eventually([]resource.Event{events.Expect(t, ch)}, 2*time.Second).Should(ConsistOf(expected))
 	})
 
 	t.Run("Delete", func(t *testing.T) {
@@ -476,7 +476,7 @@ func TestBuiltinResourceWithWatcherEnabled(t *testing.T) {
 				ID: getID(&svc, spec),
 			},
 		}
-		g.Eventually([]resource.Event{events.Expect(t, ch)}).Should(ConsistOf(expected))
+		g.Eventually([]resource.Event{events.Expect(t, ch)}, 2*time.Second).Should(ConsistOf(expected))
 	})
 }
 
