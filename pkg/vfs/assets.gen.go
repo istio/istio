@@ -212,6 +212,8 @@
 // ../../data/charts/security/nodeagent/templates/daemonset.yaml
 // ../../data/charts/security/nodeagent/templates/serviceaccount.yaml
 // ../../data/charts/security/nodeagent/values.yaml
+// ../../data/examples/multicluster/values-istio-multicluster-gateways.yaml
+// ../../data/examples/multicluster/values-istio-multicluster-primary.yaml
 // ../../data/profiles/default.yaml
 // ../../data/profiles/demo-auth.yaml
 // ../../data/profiles/demo.yaml
@@ -36533,6 +36535,104 @@ func chartsSecurityNodeagentValuesYaml() (*asset, error) {
 	return a, nil
 }
 
+var _examplesMulticlusterValuesIstioMulticlusterGatewaysYaml = []byte(`apiVersion: install.istio.io/v1alpha2
+kind: IstioControlPlane
+spec:
+  values:
+    global:
+      # Provides dns resolution for global services
+      podDNSSearchNamespaces:
+        - global
+        - "{{ valueOrDefault .DeploymentMeta.Namespace \"default\" }}.global"
+
+      multiCluster:
+        enabled: true
+
+      controlPlaneSecurityEnabled: true
+
+    # Multicluster with gateways requires a root CA
+    # Cluster local CAs are bootstrapped with the root CA.
+    security:
+      selfSigned: false
+
+    # Provides dns resolution for service entries of form
+    # name.namespace.global
+    istiocoredns:
+      enabled: true
+
+    gateways:
+      istio-egressgateway:
+        enabled: true
+        env:
+          # Needed to route traffic via egress gateway if desired.
+          ISTIO_META_REQUESTED_NETWORK_VIEW: "external"
+`)
+
+func examplesMulticlusterValuesIstioMulticlusterGatewaysYamlBytes() ([]byte, error) {
+	return _examplesMulticlusterValuesIstioMulticlusterGatewaysYaml, nil
+}
+
+func examplesMulticlusterValuesIstioMulticlusterGatewaysYaml() (*asset, error) {
+	bytes, err := examplesMulticlusterValuesIstioMulticlusterGatewaysYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "examples/multicluster/values-istio-multicluster-gateways.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _examplesMulticlusterValuesIstioMulticlusterPrimaryYaml = []byte(`apiVersion: install.istio.io/v1alpha2
+kind: IstioControlPlane
+spec:
+  values:
+    security:
+      selfSigned: false
+    gateways:
+      istio-ingressgateway:
+        env:
+          ISTIO_META_NETWORK: "network1"
+    global:
+      mtls:
+        enabled: true
+      controlPlaneSecurityEnabled: true
+      proxy:
+        accessLogFile: "/dev/stdout"
+      network: network1
+      meshExpansion:
+        enabled: true
+    pilot:
+      meshNetworks:
+        network1:
+          endpoints:
+          - fromRegistry: Kubernetes
+          gateways:
+          - address: 0.0.0.0
+            port: 443
+        network2:
+          endpoints:
+            - fromRegistry: n2-k8s-config
+          gateways:
+            - address: 0.0.0.0
+              port: 443
+`)
+
+func examplesMulticlusterValuesIstioMulticlusterPrimaryYamlBytes() ([]byte, error) {
+	return _examplesMulticlusterValuesIstioMulticlusterPrimaryYaml, nil
+}
+
+func examplesMulticlusterValuesIstioMulticlusterPrimaryYaml() (*asset, error) {
+	bytes, err := examplesMulticlusterValuesIstioMulticlusterPrimaryYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "examples/multicluster/values-istio-multicluster-primary.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _profilesDefaultYaml = []byte(`apiVersion: install.istio.io/v1alpha2
 kind: IstioControlPlane
 spec:
@@ -38428,6 +38528,8 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/security/nodeagent/templates/daemonset.yaml": chartsSecurityNodeagentTemplatesDaemonsetYaml,
 	"charts/security/nodeagent/templates/serviceaccount.yaml": chartsSecurityNodeagentTemplatesServiceaccountYaml,
 	"charts/security/nodeagent/values.yaml": chartsSecurityNodeagentValuesYaml,
+	"examples/multicluster/values-istio-multicluster-gateways.yaml": examplesMulticlusterValuesIstioMulticlusterGatewaysYaml,
+	"examples/multicluster/values-istio-multicluster-primary.yaml": examplesMulticlusterValuesIstioMulticlusterPrimaryYaml,
 	"profiles/default.yaml": profilesDefaultYaml,
 	"profiles/demo-auth.yaml": profilesDemoAuthYaml,
 	"profiles/demo.yaml": profilesDemoYaml,
@@ -38781,6 +38883,12 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				}},
 				"values.yaml": &bintree{chartsSecurityNodeagentValuesYaml, map[string]*bintree{}},
 			}},
+		}},
+	}},
+	"examples": &bintree{nil, map[string]*bintree{
+		"multicluster": &bintree{nil, map[string]*bintree{
+			"values-istio-multicluster-gateways.yaml": &bintree{examplesMulticlusterValuesIstioMulticlusterGatewaysYaml, map[string]*bintree{}},
+			"values-istio-multicluster-primary.yaml": &bintree{examplesMulticlusterValuesIstioMulticlusterPrimaryYaml, map[string]*bintree{}},
 		}},
 	}},
 	"profiles": &bintree{nil, map[string]*bintree{
