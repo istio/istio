@@ -101,6 +101,8 @@ func PushTypeFor(proxy *model.Proxy, pushEv *XdsEvent) map[XdsType]bool {
 		return out
 	}
 
+	// Note: CDS push must be followed by commentEDS, otherwise after Cluster is warmed, no ClusterLoadAssignment is retained.
+
 	if proxy.Type == model.SidecarProxy {
 		for config := range pushEv.configTypesUpdated {
 			switch config {
