@@ -230,7 +230,9 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 		var results []SyncedVersions
 		adsClientsMutex.RLock()
 		for _, con := range adsClients {
+			// wrap this in independent scope so that panic's don't bypass Unlock...
 			con.mu.RLock()
+
 			if con.node != nil && (proxyNamespace == "" || proxyNamespace == con.node.ConfigNamespace) {
 				// TODO: handle skipped nodes
 				results = append(results, SyncedVersions{
@@ -264,6 +266,9 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 const VersionLen = 12
 
 func (s *DiscoveryServer) getResourceVersion(nonce, key string, cache map[string]string) string {
+	if len(nonce) < VersionLen {
+		return ""
+	}
 	configVersion := nonce[:VersionLen]
 	result, ok := cache[configVersion]
 	if !ok {
