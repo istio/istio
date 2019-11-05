@@ -108,7 +108,11 @@ func getDefaultIstioTop() string {
 	if err != nil {
 		panic(err)
 	}
-	idx := strings.Index(current, "/src/istio.io/istio")
+	substr := "/src/istio.io/istio"
+	if runtime.GOOS == "windows" {
+		substr = "\\src\\istio.io\\istio"
+	}
+	idx := strings.Index(current, substr)
 	if idx > 0 {
 		return current[0:idx]
 	}
