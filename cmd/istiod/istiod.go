@@ -16,13 +16,21 @@ package main
 
 import (
 	"io/ioutil"
+	"istio.io/pkg/env"
+	"net"
 	"os"
+	"strings"
 
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/pkg/istiod"
 	"istio.io/istio/pkg/istiod/k8s"
 	"istio.io/pkg/log"
+)
+
+var (
+	istiodAddress = env.RegisterStringVar("ISTIOD_ADDR", "",
+		"Local service address of istiod. Default value is mesh.defaultConfig.discoveryAddress, use this to override if the discovery address is external")
 )
 
 // Istio control plane with K8S support.
@@ -101,11 +109,32 @@ func initCerts(server *istiod.Server, client *kubernetes.Clientset) {
 
 	// TODO: fallback to citadel (or custom CA) if K8S signing is broken
 
-	// TODO: determine the service name based on pod labels: the install template should define an 'svc: istiodname'
-	// label to allow override of 'istiod.istio-system'.
+	// discAddr configured in mesh config - this is what we'll inject into pods.
+	discAddr := server.Mesh.DefaultConfig.DiscoveryAddress
+	if istiodAddress.Get() != "" {
+		discAddr = istiodAddress.Get()
+	}
+	host, _, err := net.SplitHostPort(discAddr)
+	if err != nil {
+		log.Fatala("Invalid discovery address", discAddr, err)
+	}
+
+	hostParts := strings.Split(host, ".")
+
+	ns := "." + istiod.IstiodNamespace.Get()
+
+	// Names in the Istiod cert - support the old service names as well.
+	// The first is the recommended one, also used by Apiserver for webhooks.
+	names := []string{
+		hostParts[0] + ns + ".svc",
+		hostParts[0] + ns,
+		"istio-pilot" + ns,
+		"istio-galley" + ns,
+		"istio-ca" + ns,
+	}
 
 	certChain, keyPEM, err := k8s.GenKeyCertK8sCA(client.CertificatesV1beta1(), istiod.IstiodNamespace.Get(),
-		"istio-pilot."+istiod.IstiodNamespace.Get()+",istiod."+istiod.IstiodNamespace.Get()+",istiod."+istiod.IstiodNamespace.Get()+".svc")
+		strings.Join(names, ","))
 	if err != nil {
 		log.Fatal("Failed to initialize certs")
 	}

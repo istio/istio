@@ -69,7 +69,7 @@ var (
 	initialBackoffEnv                  = env.RegisterIntVar(InitialBackoff, 10, "").Get()
 
 	// Location of a custom-mounted root (for example using Secret)
-	mountedRoot = "./etc/certs/root-cert.pem"
+	mountedRoot = "/etc/certs/root-cert.pem"
 
 	// Location of K8S CA root.
 	k8sCAPath = "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
@@ -263,11 +263,11 @@ func (conf *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, e
 			// For debugging and backward compat - we may not need it long term
 			// The files can be used if an Pilot configured with SDS disabled is used, will generate
 			// file based XDS config instead of SDS.
-			err = ioutil.WriteFile("./etc/istio/proxy/key.pem", si.PrivateKey, 0700)
+			err = ioutil.WriteFile("/etc/istio/proxy/key.pem", si.PrivateKey, 0700)
 			if err != nil {
 				log.Fatalf("Failed to write certs: %v", err)
 			}
-			err = ioutil.WriteFile("./etc/istio/proxy/cert-chain.pem", si.CertificateChain, 0700)
+			err = ioutil.WriteFile("/etc/istio/proxy/cert-chain.pem", si.CertificateChain, 0700)
 			if err != nil {
 				log.Fatalf("Failed to write certs: %v", err)
 			}
