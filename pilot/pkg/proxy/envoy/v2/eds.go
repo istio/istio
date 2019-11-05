@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
@@ -359,9 +360,6 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 	edsCluster.mutex.Lock()
 	defer edsCluster.mutex.Unlock()
 
-	// Normalize LoadBalancingWeight in range [1, 128]
-	locEps = LoadBalancingWeightNormalize(locEps)
-
 	edsCluster.LoadAssignment = &xdsapi.ClusterLoadAssignment{
 		ClusterName: clusterName,
 		Endpoints:   locEps,
@@ -669,7 +667,6 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 		// EDS filter on the endpoints
 		if s.Env.MeshNetworks != nil && len(s.Env.MeshNetworks.Networks) > 0 {
 			endpoints := EndpointsByNetworkFilter(l.Endpoints, con, s.Env)
-			endpoints = LoadBalancingWeightNormalize(endpoints)
 			filteredCLA := &xdsapi.ClusterLoadAssignment{
 				ClusterName: l.ClusterName,
 				Endpoints:   endpoints,
@@ -771,28 +768,6 @@ func (s *DiscoveryServer) getEdsCluster(clusterName string) *EdsCluster {
 	return edsClusters[clusterName]
 }
 
-// getOrAddEdsCluster will track the eds connection with clusters, for optimized event-based push and debug
-func (s *DiscoveryServer) getOrAddEdsCluster(clusterName string, connection *XdsConnection) *EdsCluster {
-	edsClusterMutex.Lock()
-	defer edsClusterMutex.Unlock()
-
-	c := edsClusters[clusterName]
-	if c == nil {
-		c = &EdsCluster{
-			EdsClients: map[string]*XdsConnection{},
-		}
-		edsClusters[clusterName] = c
-	}
-
-	// TODO: find a more efficient way to make edsClusters and EdsClients init atomic
-	// Currently use edsClusterMutex lock
-	c.mutex.Lock()
-	c.EdsClients[connection.ConID] = connection
-	c.mutex.Unlock()
-
-	return c
-}
-
 // removeEdsCon is called when a gRPC stream is closed, for each cluster that was watched by the
 // stream. As of 0.7 envoy watches a single cluster per gprc stream.
 func (s *DiscoveryServer) removeEdsCon(clusterName string, node string) {
@@ -813,6 +788,44 @@ func (s *DiscoveryServer) removeEdsCon(clusterName string, node string) {
 		// in CDS requests to all sidecars. It may happen if all connections are closed.
 		adsLog.Debugf("EDS: Remove unwatched cluster node:%s cluster:%s", node, clusterName)
 		delete(edsClusters, clusterName)
+	}
+}
+
+func (s *DiscoveryServer) updateEdsClients(added sets.Set, removed sets.Set, connection *XdsConnection) {
+	edsClusterMutex.Lock()
+	defer edsClusterMutex.Unlock()
+
+	for rc := range removed {
+		c := edsClusters[rc]
+		if c == nil {
+			adsLog.Warnf("EDS: Missing cluster: %s", rc)
+			continue
+		}
+		c.mutex.Lock()
+		delete(c.EdsClients, connection.ConID)
+		c.mutex.Unlock()
+		if len(c.EdsClients) == 0 {
+			// This happens when a previously used cluster is no longer watched by any
+			// sidecar. It should not happen very often - normally all clusters are sent
+			// in CDS requests to all sidecars. It may happen if all connections are closed.
+			adsLog.Debugf("EDS: Remove unwatched cluster node:%s cluster:%s", connection.ConID, rc)
+			delete(edsClusters, rc)
+		}
+	}
+
+	for ac := range added {
+		c := edsClusters[ac]
+		if c == nil {
+			c = &EdsCluster{
+				EdsClients: map[string]*XdsConnection{},
+			}
+			edsClusters[ac] = c
+			// TODO: find a more efficient way to make edsClusters and EdsClients init atomic
+			// Currently use edsClusterMutex lock
+			c.mutex.Lock()
+			c.EdsClients[connection.ConID] = connection
+			c.mutex.Unlock()
+		}
 	}
 }
 
@@ -884,8 +897,6 @@ func buildLocalityLbEndpointsFromShards(
 		}
 		locEps = append(locEps, locLbEps)
 	}
-	// Normalize LoadBalancingWeight in range [1, 128]
-	locEps = LoadBalancingWeightNormalize(locEps)
 
 	if len(locEps) == 0 {
 		push.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")

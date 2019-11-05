@@ -30,10 +30,11 @@ import (
 	"k8s.io/client-go/rest"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/bootstrap"
+
 	"istio.io/istio/galley/pkg/server"
 	"istio.io/istio/galley/pkg/server/settings"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
@@ -171,13 +172,12 @@ func NewIstiod(kconfig *rest.Config, kclient *kubernetes.Clientset, confDir stri
 	basePort := int32(basePortI)
 	server.basePort = basePort
 
-	args.DiscoveryOptions = envoy.DiscoveryServiceOptions{
+	args.DiscoveryOptions = bootstrap.DiscoveryServiceOptions{
 		HTTPAddr: ":8080", // lots of tools use this
 		GrpcAddr: fmt.Sprintf(":%d", basePort+10),
 		// Using 12 for K8S-DNS based cert.
 		// TODO: We'll also need 11 for Citadel-based cert
 		SecureGrpcAddr:  fmt.Sprintf(":%d", basePort+12),
-		EnableCaching:   true,
 		EnableProfiling: true,
 	}
 	args.CtrlZOptions = &ctrlz.Options{

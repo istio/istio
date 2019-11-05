@@ -16,10 +16,11 @@ package main
 
 import (
 	"io/ioutil"
-	"istio.io/pkg/env"
 	"net"
 	"os"
 	"strings"
+
+	"istio.io/pkg/env"
 
 	"k8s.io/client-go/kubernetes"
 

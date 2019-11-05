@@ -129,6 +129,10 @@ type Instance interface {
 
 	// ShutdownAndWait is a helper that calls Shutdown and waits for the process to terminate.
 	ShutdownAndWait() Waitable
+
+	// DrainListeners drains inbound listeners of Envoy so that inflight requests
+	// can gracefully finish and even continue making outbound calls as needed.
+	DrainListeners() error
 }
 
 // FactoryFunc is a function that manufactures Envoy Instances.
@@ -369,6 +373,10 @@ func (i *instance) ShutdownAndWait() Waitable {
 		instance:    i,
 		creationErr: i.Shutdown(),
 	}
+}
+
+func (i *instance) DrainListeners() error {
+	return DrainListeners(i.adminPort)
 }
 
 func (i *instance) close() {

@@ -324,8 +324,7 @@ precommit: format lint
 
 format: fmt
 
-fmt: format-go format-python
-	go mod tidy
+fmt: format-go format-python tidy-go
 
 # Build with -i to store the build caches into $GOPATH/pkg
 buildcache:
@@ -385,7 +384,7 @@ go-gen:
 	@go build -o /tmp/bin/mixgen "${REPO_ROOT}/mixer/tools/mixgen/main.go"
 	@PATH=${PATH}:/tmp/bin go generate ./...
 
-gen: go-gen tidy-go mirror-licenses update-crds
+gen: go-gen mirror-licenses format update-crds
 
 gen-check: gen check-clean-repo
 
