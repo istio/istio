@@ -231,21 +231,18 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 		adsClientsMutex.RLock()
 		for _, con := range adsClients {
 			// wrap this in independent scope so that panic's don't bypass Unlock...
-			func() {
-				con.mu.RLock()
-				defer con.mu.RUnlock()
+			con.mu.RLock()
 
-				if con.node != nil && (proxyNamespace == "" || proxyNamespace == con.node.ConfigNamespace) {
-					// TODO: handle skipped nodes
-					results = append(results, SyncedVersions{
-						ProxyID:         con.node.ID,
-						ClusterVersion:  s.getResourceVersion(con.ClusterNonceAcked, resourceID, knownVersions),
-						ListenerVersion: s.getResourceVersion(con.ListenerNonceAcked, resourceID, knownVersions),
-						RouteVersion:    s.getResourceVersion(con.RouteNonceAcked, resourceID, knownVersions),
-					})
-				}
-			}()
-
+			if con.node != nil && (proxyNamespace == "" || proxyNamespace == con.node.ConfigNamespace) {
+				// TODO: handle skipped nodes
+				results = append(results, SyncedVersions{
+					ProxyID:         con.node.ID,
+					ClusterVersion:  s.getResourceVersion(con.ClusterNonceAcked, resourceID, knownVersions),
+					ListenerVersion: s.getResourceVersion(con.ListenerNonceAcked, resourceID, knownVersions),
+					RouteVersion:    s.getResourceVersion(con.RouteNonceAcked, resourceID, knownVersions),
+				})
+			}
+			con.mu.RUnlock()
 		}
 		adsClientsMutex.RUnlock()
 
