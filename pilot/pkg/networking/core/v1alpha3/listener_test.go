@@ -36,7 +36,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	"istio.io/istio/pilot/pkg/networking/util"
+	networkingutil "istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
@@ -1630,30 +1630,28 @@ func TestAppendListenerFallthroughRoute(t *testing.T) {
 			listener:     &xdsapi.Listener{},
 			listenerOpts: &buildListenerOpts{},
 			node: &model.Proxy{
-				ID:       "foo.bar",
-				Metadata: &model.NodeMetadata{},
+				ID: "foo.bar",
 				SidecarScope: &model.SidecarScope{
 					OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
 						Mode: networking.OutboundTrafficPolicy_REGISTRY_ONLY,
 					},
 				},
 			},
-			hostname: util.BlackHoleCluster,
+			hostname: networkingutil.BlackHoleCluster,
 		},
 		{
 			name:         "Allow_Any",
 			listener:     &xdsapi.Listener{},
 			listenerOpts: &buildListenerOpts{},
 			node: &model.Proxy{
-				ID:       "foo.bar",
-				Metadata: &model.NodeMetadata{},
+				ID: "foo.bar",
 				SidecarScope: &model.SidecarScope{
 					OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
 						Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
 					},
 				},
 			},
-			hostname: util.PassthroughCluster,
+			hostname: networkingutil.PassthroughCluster,
 		},
 	}
 	for idx := range tests {
@@ -1672,7 +1670,7 @@ func TestAppendListenerFallthroughRoute(t *testing.T) {
 			filter := tests[idx].listenerOpts.filterChainOpts[0].networkFilters[0]
 			var tcpProxy tcp_proxy.TcpProxy
 			cfg := filter.GetTypedConfig()
-			ptypes.UnmarshalAny(cfg, &tcpProxy)
+			types.UnmarshalAny(cfg, &tcpProxy)
 			if tcpProxy.StatPrefix != tests[idx].hostname {
 				t.Errorf("Expected stat prefix %s but got %s\n", tests[idx].hostname, tcpProxy.StatPrefix)
 			}
