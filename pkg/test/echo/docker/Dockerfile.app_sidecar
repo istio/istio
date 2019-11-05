@@ -15,7 +15,6 @@ COPY istio-iptables.sh                /usr/local/bin/istio-iptables
 COPY istio-clean-iptables.sh          /usr/local/bin/istio-clean-iptables
 COPY postinst.sh                      /usr/local/bin/postinst.sh
 COPY envoy_bootstrap_v2.json          /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
-COPY envoy_bootstrap_drain.json       /var/lib/istio/envoy/envoy_bootstrap_drain.json
 
 # Install the Echo application
 COPY echo-start.sh /usr/local/bin/echo-start.sh
