@@ -41,7 +41,10 @@ var (
 // CheckIstioControlPlaneSpec validates the values in the given Installer spec, using the field map defaultValidations to
 // call the appropriate validation function.
 func CheckIstioControlPlaneSpec(is *v1alpha2.IstioControlPlaneSpec, checkRequired bool) (errs util.Errors) {
-	errs = util.AppendErrs(errs, CheckValues(is.Values))
+	errs = CheckValues(is.Values)
+	if errs != nil {
+		fmt.Println("Run the command with the --force flag if you want to ignore the validation error and proceed.")
+	}
 	return util.AppendErrs(errs, validate(defaultValidations, is, nil, checkRequired))
 }
 
