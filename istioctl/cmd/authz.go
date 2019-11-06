@@ -15,13 +15,16 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
 
 	"github.com/spf13/cobra"
-
-	kubernetes2 "k8s.io/client-go/kubernetes"
+	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/config/memory"
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	"istio.io/istio/pkg/config/schemas"
 
 	"istio.io/istio/istioctl/pkg/authz"
 	"istio.io/istio/istioctl/pkg/kubernetes"
@@ -197,16 +200,73 @@ func getConfigDumpFromPod(podName, podNamespace string) (*configdump.Wrapper, er
 }
 
 func newConverter(v1PolicyFiles, serviceFiles []string, istioNamespace, istioMeshConfigMapName string) (*converter.Converter, error) {
-	if len(v1PolicyFiles) == 0 {
-		return nil, fmt.Errorf("no input file provided")
+	v1alpha1Policies, err := getV1alpha1Policies(v1PolicyFiles)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get v1alpha1 policies: %v", err)
 	}
 
-	var k8sClient *kubernetes2.Clientset
 	k8sClient, err := kube.CreateClientset("", "")
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to Kubernetes: %v", err)
 	}
-	return converter.New(k8sClient, v1PolicyFiles, serviceFiles, meshConfig, istioNamespace, istioMeshConfigMapName)
+	return converter.New(k8sClient, v1alpha1Policies, serviceFiles, meshConfig, istioNamespace, istioMeshConfigMapName)
+}
+
+func getV1alpha1Policies(v1PolicyFiles []string) (*model.AuthorizationPolicies, error) {
+	var authzPolicies *model.AuthorizationPolicies
+	if len(v1PolicyFiles) != 0 {
+		var configs []model.Config
+		for _, fileName := range v1PolicyFiles {
+			rbacFileBuf, err := ioutil.ReadFile(fileName)
+			if err != nil {
+				return nil, err
+			}
+			configFromFile, _, err := crd.ParseInputs(string(rbacFileBuf))
+			if err != nil {
+				return nil, err
+			}
+			configs = append(configs, configFromFile...)
+		}
+
+		store := model.MakeIstioStore(memory.Make(schemas.Istio))
+		for _, config := range configs {
+			if _, err := store.Create(config); err != nil {
+				return nil, err
+			}
+		}
+		env := &model.Environment{
+			IstioConfigStore: store,
+		}
+		var err error
+		authzPolicies, err = model.GetAuthorizationPolicies(env)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		kubeClient, err := clientExecFactory(kubeconfig, configContext)
+		if err != nil {
+			return nil, err
+		}
+		results, err := kubeClient.AllPilotsDiscoveryDo(istioNamespace, "GET", "/debug/authorizationz", nil)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(results) < 0 {
+			return nil, fmt.Errorf("received empty response for authorization information")
+		}
+
+		for _, result := range results {
+			authzDebug := v2.AuthorizationDebug{}
+			if err := json.Unmarshal(result, &authzDebug); err != nil {
+				return nil, err
+			}
+			authzPolicies = authzDebug.AuthorizationPolicies
+			break
+		}
+	}
+
+	return authzPolicies, nil
 }
 
 // AuthZ groups commands used for inspecting and interacting the authorization policy.

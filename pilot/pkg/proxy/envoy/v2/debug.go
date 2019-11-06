@@ -75,6 +75,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	mux.HandleFunc("/debug/configz", s.configz)
 
 	mux.HandleFunc("/debug/authenticationz", s.Authenticationz)
+	mux.HandleFunc("/debug/authorizationz", s.Authorizationz)
 	mux.HandleFunc("/debug/config_dump", s.ConfigDump)
 	mux.HandleFunc("/debug/push_status", s.PushStatusHandler)
 }
@@ -395,6 +396,23 @@ func (s *DiscoveryServer) Authenticationz(w http.ResponseWriter, req *http.Reque
 
 	w.WriteHeader(http.StatusBadRequest)
 	_, _ = w.Write([]byte("You must provide a proxyID in the query string"))
+}
+
+// AuthorizationDebug holds debug information for authorization policy.
+type AuthorizationDebug struct {
+	AuthorizationPolicies *model.AuthorizationPolicies `json:"authorization_policies"`
+}
+
+// Authorizationz dumps the internal authorization policies.
+func (s *DiscoveryServer) Authorizationz(w http.ResponseWriter, req *http.Request) {
+	w.Header().Add("Content-Type", "application/json")
+
+	info := AuthorizationDebug{
+		AuthorizationPolicies: s.globalPushContext().AuthzPolicies,
+	}
+	if b, err := json.MarshalIndent(info, "  ", "  "); err == nil {
+		_, _ = w.Write(b)
+	}
 }
 
 // AnalyzeMTLSSettings returns mTLS compatibility status between client and server policies.
