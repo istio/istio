@@ -233,6 +233,34 @@ func IsLeafNode(treeNode interface{}) bool {
 	}
 }
 
+// GetNodeByPath returns the value at path from the given tree, or false if the path does not exist.
+func GetNodeByPath(treeNode interface{}, path util.Path) (interface{}, bool) {
+	if len(path) == 0 || treeNode == nil {
+		return nil, false
+	}
+	switch nt := treeNode.(type) {
+	case map[string]interface{}:
+		val := nt[path[0]]
+		if val == nil {
+			return nil, false
+		}
+		if len(path) == 1 {
+			return val, true
+		}
+		return GetNodeByPath(val, path[1:])
+	case []interface{}:
+		for _, nn := range nt {
+			np, found := GetNodeByPath(nn, path)
+			if found {
+				return np, true
+			}
+		}
+		return nil, false
+	default:
+		return nil, false
+	}
+}
+
 // TODO Merge this into existing WritePathContext method (istio/istio#15494)
 // DeleteFromTree sets value at path of input untyped tree to nil
 func DeleteFromTree(valueTree map[string]interface{}, path util.Path, remainPath util.Path) (bool, error) {
