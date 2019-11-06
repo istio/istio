@@ -204,16 +204,16 @@ func TestTcpMetric(t *testing.T) {
 				t.Fatalf("unable to retrieve 200 from product page: %v", res.RetCodes)
 			}
 
-			query := fmt.Sprintf("sum(istio_tcp_sent_bytes_total{destination_app=\"%s\"})", "mongodb")
+			query := fmt.Sprintf("sum(istio_tcp_sent_bytes_total{destination_service_name=\"%s\"})", "mongodb")
 			util.ValidateMetric(t, prom, query, "istio_tcp_sent_bytes_total", 1)
 
-			query = fmt.Sprintf("sum(istio_tcp_received_bytes_total{destination_app=\"%s\"})", "mongodb")
+			query = fmt.Sprintf("sum(istio_tcp_received_bytes_total{destination_service_name=\"%s\"})", "mongodb")
 			util.ValidateMetric(t, prom, query, "istio_tcp_received_bytes_total", 1)
 
-			query = fmt.Sprintf("sum(istio_tcp_connections_opened_total{destination_app=\"%s\"})", "mongodb")
+			query = fmt.Sprintf("sum(istio_tcp_connections_opened_total{destination_service_name=\"%s\"})", "mongodb")
 			util.ValidateMetric(t, prom, query, "istio_tcp_connections_opened_total", 1)
 
-			query = fmt.Sprintf("sum(istio_tcp_connections_closed_total{destination_app=\"%s\"})", "mongodb")
+			query = fmt.Sprintf("sum(istio_tcp_connections_closed_total{destination_service_name=\"%s\"})", "mongodb")
 			util.ValidateMetric(t, prom, query, "istio_tcp_connections_closed_total", 1)
 		})
 }
