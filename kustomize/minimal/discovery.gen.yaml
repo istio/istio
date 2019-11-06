@@ -510,7 +510,7 @@ spec:
       containers:
         - name: discovery
           image: "gcr.io/istio-testing/pilot:latest"
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           args:
           - "discovery"
           - --monitoringAddr=:15014

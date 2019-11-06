@@ -112,7 +112,7 @@ spec:
       containers:
         - name: citadel
           image: "gcr.io/istio-testing/citadel:latest"
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           args:
             - --append-dns-names=true
             - --grpc-port=8060

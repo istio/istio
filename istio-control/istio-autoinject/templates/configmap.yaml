@@ -15,6 +15,9 @@ data:
 
 
   mesh: |-
+    # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
+    # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty.
+    sdsUdsPath: {{ .Values.global.sds.udsPath | quote }}
 
     defaultConfig:
       #

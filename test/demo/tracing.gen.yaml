@@ -117,7 +117,7 @@ spec:
       containers:
         - name: jaeger
           image: "docker.io/jaegertracing/all-in-one:1.14"
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 9411
             - containerPort: 16686
