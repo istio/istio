@@ -441,23 +441,10 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: prometheys
+  name: prometheus
   namespace: cp
 spec:
-  host: prometheus.cp
-  trafficPolicy:
-    tls:
-      mode: DISABLE
----
-
-
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: prometheus-full
-  namespace: cp
-spec:
-  host: prometheus.cp.svc.cluster.local
+  host: prometheus
   trafficPolicy:
     tls:
       mode: DISABLE
