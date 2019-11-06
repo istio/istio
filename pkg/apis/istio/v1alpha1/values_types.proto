@@ -1101,6 +1101,11 @@ message PrometheusConfig {
   TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 14;
 
   TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 15;
+
+  // K8s resources settings.
+  //
+  // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
+  Resources resources = 16;
 }
 
 // Configuration for Prometheus adapter in mixer.
@@ -1363,6 +1368,9 @@ message SecurityConfig {
   //
   // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
   TypeMapStringInterface podAnnotations = 11;
+
+  // How long workload certs are valid for
+  string workloadCertTtl = 12;
 }
 
 // ServiceConfig is described in istio.io documentation.
@@ -1432,7 +1440,7 @@ message SidecarInjectorConfig {
   // K8s resources settings.
   //
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-  TypeMapStringInterface resources = 20;
+  Resources resources = 20;
 
   // Enable objectSelector to filter out pods with no need for sidecar before calling istio-sidecar-injector.
   TypeMapStringInterface objectSelector = 21;
