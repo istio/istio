@@ -35,10 +35,12 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/host"
 )
 
 const (
@@ -83,6 +85,23 @@ var ALPNInMesh = []string{"istio"}
 
 // ALPNHttp advertises that Proxy is going to talking either http2 or http 1.1.
 var ALPNHttp = []string{"h2", "http/1.1"}
+
+// FallThroughFilterChainBlackHoleService is the blackhole service used for fall though
+// filter chain
+var FallThroughFilterChainBlackHoleService = &model.Service{
+	Hostname: host.Name(BlackHoleCluster),
+	Attributes: model.ServiceAttributes{
+		Name: BlackHoleCluster,
+	},
+}
+
+// FallThroughFilterChainPassthroughService is the passthrough service used for fall though
+var FallThroughFilterChainPassthroughService = &model.Service{
+	Hostname: host.Name(PassthroughCluster),
+	Attributes: model.ServiceAttributes{
+		Name: PassthroughCluster,
+	},
+}
 
 func getMaxCidrPrefix(addr string) uint32 {
 	ip := net.ParseIP(addr)
@@ -540,4 +559,11 @@ func HandleCrash(handlers ...func()) {
 			handler()
 		}
 	}
+}
+
+// IsAllowAnyOutbound checks if allow_any is enabled for outbound traffic
+func IsAllowAnyOutbound(node *model.Proxy) bool {
+	return node.SidecarScope != nil &&
+		node.SidecarScope.OutboundTrafficPolicy != nil &&
+		node.SidecarScope.OutboundTrafficPolicy.Mode == networking.OutboundTrafficPolicy_ALLOW_ANY
 }
