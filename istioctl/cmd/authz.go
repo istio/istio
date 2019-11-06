@@ -259,9 +259,11 @@ func getV1alpha1Policies(v1PolicyFiles []string) (*model.AuthorizationPolicies, 
 		for _, result := range results {
 			authzDebug := v2.AuthorizationDebug{}
 			if err := json.Unmarshal(result, &authzDebug); err != nil {
-				return nil, err
+				log.Debugf("JSON unmarshal failed: %v", err)
+				continue
 			}
 			authzPolicies = authzDebug.AuthorizationPolicies
+			// Break once we found a successful response from Pilot.
 			break
 		}
 	}

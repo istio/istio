@@ -224,12 +224,13 @@ func (c *Converter) convert(authzPolicies *model.AuthorizationPolicies) error {
 		return nil
 	}
 	// Build a model for each ServiceRole and associated list of ServiceRoleBinding
+	td := trustdomain.NewTrustDomainBundle("cluster.local", nil)
 	for _, ns := range namespaces {
 		bindingsKeyList := authzPolicies.ListServiceRoleBindings(ns)
 		for _, roleConfig := range authzPolicies.ListServiceRoles(ns) {
 			roleName := roleConfig.Name
 			if bindings, found := bindingsKeyList[roleName]; found {
-				m := authz_model.NewModelV1alpha1(trustdomain.NewTrustDomainBundle("", nil), roleConfig.ServiceRole, bindings)
+				m := authz_model.NewModelV1alpha1(td, roleConfig.ServiceRole, bindings)
 				err := c.v1alpha1ModelTov1beta1Policy(m, ns)
 				if err != nil {
 					return err
