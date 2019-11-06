@@ -24,6 +24,7 @@ import (
 
 	"istio.io/istio/security/pkg/caclient/protocol"
 	"istio.io/istio/security/pkg/pki/ca"
+	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
 	pb "istio.io/istio/security/proto"
@@ -97,7 +98,7 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 
 	certPEM, signErr := c.ca.SignWithCertChain(csrPEM, []string{LivenessProbeClientIdentity}, c.interval, false)
 	if signErr != nil {
-		return signErr.(ca.Error)
+		return signErr.(caerror.Error)
 	}
 
 	// Store certificate chain and private key to generate CSR
