@@ -173,6 +173,6 @@ func checkServiceEntryPorts(r *resource.Entry, s *v1alpha3.ServiceEntry, d *v1al
 	}
 	if !foundPort {
 		ctx.Report(metadata.IstioNetworkingV1Alpha3Virtualservices,
-			msg.NewReferencedResourceNotFound(r, "host+port", fmt.Sprintf("%s+%s", d.GetHost(), d.GetPort())))
+			msg.NewReferencedResourceNotFound(r, "host:port", fmt.Sprintf("%s:%d", d.GetHost(), d.GetPort().GetNumber())))
 	}
 }
