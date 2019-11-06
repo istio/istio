@@ -77,9 +77,8 @@ function check_samples() {
 }
 
 function run_yaml_lint(){
-    echo 'Checking yaml files with yamllint'
-    bin/yaml_lint.sh
-    echo 'yamllint check passed'
+    # See https://github.com/istio/istio/issues/18681
+    echo 'Skipping yaml lint due to issue on the release-1.3 branch'
 }
 
 ensure_pilot_types
