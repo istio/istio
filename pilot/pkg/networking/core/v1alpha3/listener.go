@@ -1887,7 +1887,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 		DeprecatedV1:    deprecatedV1,
 	}
 
-	if util.IsIstioVersionGE13(opts.proxy) {
+	if util.IsIstioVersionGE13(opts.proxy) && opts.proxy.Type != model.Router {
 		listener.ListenerFiltersTimeout = util.GogoDurationToDuration(opts.env.Mesh.ProtocolDetectionTimeout)
 		if listener.ListenerFiltersTimeout != nil {
 			listener.ContinueOnListenerFiltersTimeout = true
