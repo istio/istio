@@ -30,6 +30,7 @@ import "strings"
 const (
 	ExitUnknownError   = 1 // for compatibility with existing exit code
 	ExitIncorrectUsage = 64
+	ExitDataError      = 65 // some format error with input data
 
 	// below here are non-zero exit codes that don't indicate an error with istioctl itself
 	ExitAnalyzerFoundIssues = 79 // istioctl analyze found issues, for CI/CD
@@ -43,6 +44,8 @@ func GetExitCode(e error) int {
 	switch e.(type) {
 	case CommandParseError:
 		return ExitIncorrectUsage
+	case FileParseError:
+		return ExitDataError
 	case AnalyzerFoundIssuesError:
 		return ExitAnalyzerFoundIssues
 	default:
