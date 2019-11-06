@@ -457,7 +457,7 @@ func TestUpdateSecret(t *testing.T) {
 		controller, err := NewSecretController(ca, enableNamespacesByDefault, time.Hour,
 			tc.gracePeriodRatio, tc.minGracePeriod, false, client.CoreV1(), false,
 			false, []string{metav1.NamespaceAll}, nil, "", "",
-			false)
+			true)
 		if err != nil {
 			t.Errorf("failed to create secret controller: %v", err)
 		}
