@@ -166,7 +166,7 @@ type SecretController struct {
 
 	// If true, periodically sync with istio-ca-secret to load latest root certificate.
 	// Only used in self signed CA mode.
-	syncWithCaSecret bool
+	syncWithSelfSignedCaSecret bool
 }
 
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
@@ -190,19 +190,19 @@ func NewSecretController(ca certificateAuthority, enableNamespacesByDefault bool
 		istioCaStorageNamespace:   istioCaStorageNamespace,
 		gracePeriodRatio:          gracePeriodRatio,
 		certUtil:                  certutil.NewCertUtil(int(gracePeriodRatio * 100)),
-		caSecretController:        NewCaSecretController(core),
-		rootCertFile:              rootCertFile,
-		enableNamespacesByDefault: enableNamespacesByDefault,
-		minGracePeriod:            minGracePeriod,
-		dualUse:                   dualUse,
-		core:                      core,
-		forCA:                     forCA,
-		pkcs8Key:                  pkcs8Key,
-		namespaces:                make(map[string]struct{}),
-		dnsNames:                  dnsNames,
-		monitoring:                newMonitoringMetrics(),
-		lastKCBSyncTime:           time.Time{},
-		syncWithCaSecret:          selfSignedCa,
+		caSecretController:         NewCaSecretController(core),
+		rootCertFile:               rootCertFile,
+		enableNamespacesByDefault:  enableNamespacesByDefault,
+		minGracePeriod:             minGracePeriod,
+		dualUse:                    dualUse,
+		core:                       core,
+		forCA:                      forCA,
+		pkcs8Key:                   pkcs8Key,
+		namespaces:                 make(map[string]struct{}),
+		dnsNames:                   dnsNames,
+		monitoring:                 newMonitoringMetrics(),
+		lastKCBSyncTime:            time.Time{},
+		syncWithSelfSignedCaSecret: selfSignedCa,
 	}
 
 	for _, ns := range namespaces {
@@ -500,7 +500,7 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 	_, waitErr := sc.certUtil.GetWaitTime(scrt.Data[CertChainID], time.Now(), sc.minGracePeriod)
 
 	caCert, _, _, rootCertificate := sc.ca.GetCAKeyCertBundle().GetAllPem()
-	if sc.syncWithCaSecret && !bytes.Equal(rootCertificate, scrt.Data[RootCertID]) {
+	if sc.syncWithSelfSignedCaSecret && !bytes.Equal(rootCertificate, scrt.Data[RootCertID]) {
 		var err error
 		rootCertificate, err = sc.tryToSyncKeyCertBundle(rootCertificate, caCert)
 		if err != nil {
