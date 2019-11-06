@@ -20,6 +20,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/ghodss/yaml"
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 
@@ -41,6 +42,7 @@ const (
 	FileParseString  = "Some files couldn't be parsed."
 	LogOutput        = "LOG"
 	JsonOutput       = "JSON"
+	YamlOutput       = "YAML"
 )
 
 func (f AnalyzerFoundIssuesError) Error() string {
@@ -67,7 +69,7 @@ var (
 		diag.Error:   "\033[1;31m", // bold red
 	}
 
-	msgOutputFormats    = map[string]bool{LogOutput: true, JsonOutput: true}
+	msgOutputFormats    = map[string]bool{LogOutput: true, JsonOutput: true, YamlOutput: true}
 	msgOutputFormatKeys []string
 )
 
@@ -226,6 +228,12 @@ istioctl experimental analyze -k -d false
 					return err
 				}
 				fmt.Fprintln(cmd.OutOrStdout(), string(jsonOutput))
+			case YamlOutput:
+				yamlOutput, err := yaml.Marshal(outputMessages)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintln(cmd.OutOrStdout(), string(yamlOutput))
 			default: // This should never happen since we validate this already
 				return fmt.Errorf("%q not found in output format switch statement post validate?", msgOutputFormat)
 			}
