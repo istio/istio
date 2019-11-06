@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -39,6 +40,7 @@ const (
 	FoundIssueString = "Analyzer found issues."
 	FileParseString  = "Some files couldn't be parsed."
 	LogOutput        = "LOG"
+	JsonOutput       = "JSON"
 )
 
 func (f AnalyzerFoundIssuesError) Error() string {
@@ -65,7 +67,7 @@ var (
 		diag.Error:   "\033[1;31m", // bold red
 	}
 
-	msgOutputFormats    = map[string]bool{LogOutput: true}
+	msgOutputFormats    = map[string]bool{LogOutput: true, JsonOutput: true}
 	msgOutputFormatKeys []string
 )
 
@@ -218,6 +220,12 @@ istioctl experimental analyze -k -d false
 						fmt.Fprintln(cmd.OutOrStdout(), renderMessage(m))
 					}
 				}
+			case JsonOutput:
+				jsonOutput, err := json.Marshal(outputMessages)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintln(cmd.OutOrStdout(), string(jsonOutput))
 			default: // This should never happen since we validate this already
 				return fmt.Errorf("%q not found in output format switch statement post validate?", msgOutputFormat)
 			}
