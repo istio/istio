@@ -19,6 +19,7 @@ import (
 	"reflect"
 
 	"istio.io/operator/pkg/apis/istio/v1alpha2"
+	"istio.io/operator/pkg/tpath"
 	"istio.io/operator/pkg/util"
 	"istio.io/pkg/log"
 )
@@ -224,29 +225,8 @@ func GetFromTreePath(inputTree map[string]interface{}, path util.Path) (interfac
 	if len(path) == 0 {
 		return nil, false, fmt.Errorf("path is empty")
 	}
-	val := inputTree[path[0]]
-	if val == nil {
-		return nil, false, nil
-	}
-	if len(path) == 1 {
-		return val, true, nil
-	}
-	switch newRoot := val.(type) {
-	case map[string]interface{}:
-		return GetFromTreePath(newRoot, path[1:])
-	case []interface{}:
-		for _, node := range newRoot {
-			nextVal, found, err := GetFromTreePath(node.(map[string]interface{}), path[1:])
-			if err != nil {
-				continue
-			}
-			if found {
-				return nextVal, true, nil
-			}
-		}
-		return nil, false, nil
-	}
-	return GetFromTreePath(val.(map[string]interface{}), path[1:])
+	node, found := tpath.GetNodeByPath(inputTree, path)
+	return node, found, nil
 }
 
 // Namespace returns the namespace for the component. It follows these rules:
