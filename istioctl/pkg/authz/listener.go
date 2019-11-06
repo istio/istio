@@ -276,9 +276,9 @@ func (l *ParsedListener) print(w io.Writer, printAll bool) {
 
 func PrintParsedListeners(writer io.Writer, parsedListeners []*ParsedListener, printAll bool) {
 	w := new(tabwriter.Writer).Init(writer, 0, 8, 5, ' ', 0)
-	col := "LISTENER[FilterChain]\tHTTP ROUTE\tSNI\tALPN\tCERTIFICATE\tmTLS (MODE)\tJWT (ISSUERS)\tRBAC (RULES)"
+	col := "LISTENER[FilterChain]\tHTTP ROUTE\tSNI\tALPN\tCERTIFICATE\tmTLS (MODE)\tJWT (ISSUERS)\tAuthZ (RULES)"
 	if !printAll {
-		col = "LISTENER[FilterChain]\tCERTIFICATE\tmTLS (MODE)\tJWT (ISSUERS)\tRBAC (RULES)"
+		col = "LISTENER[FilterChain]\tCERTIFICATE\tmTLS (MODE)\tJWT (ISSUERS)\tAuthZ (RULES)"
 	}
 
 	if _, err := fmt.Fprintln(w, col); err != nil {

@@ -88,7 +88,7 @@ func (a *Analyzer) getParsedListeners() []*ParsedListener {
 	return ret
 }
 
-// Print checks the RBAC setting for the given envoy config stored in the analyzer.
+// Print checks the AuthZ setting for the given envoy config stored in the analyzer.
 func (a *Analyzer) Print(writer io.Writer, printAll bool) {
 	parsedListeners := a.getParsedListeners()
 	_, _ = fmt.Fprintf(writer, "Checked %d/%d listeners with node IP %s.\n",
