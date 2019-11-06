@@ -3,6 +3,19 @@ kind: Service
 metadata:
   name: reviews
   namespace: default
+spec:
+  ports:
+  - port: 42
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: reviews-2port
+  namespace: default
+spec:
+  ports:
+  - port: 80
+  - port: 443
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
@@ -154,3 +167,43 @@ spec:
     mirror:
       host: reviews-bogus # This host does not exist, should result in a validation error
       subset: v1
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: reviews-bogusport
+  namespace: default
+spec:
+  http:
+  - route:
+    - destination:
+        host: reviews
+        subset: v1
+        port:
+          number: 999 # No match for this port number, should generate an error
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: reviews-2port-missing
+  namespace: default
+spec:
+  http:
+  - route:
+    - destination:  # Since reviews-2port exposes multiple ports, not including a port in the destination is an error
+        host: reviews-2port
+        subset: v1
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: reviews-2port-present
+  namespace: default
+spec:
+  http:
+  - route:
+    - destination:
+        host: reviews-2port
+        subset: v1
+        port:
+          number: 80 # Should not generate an error since we specify a valid port, as required in this case
