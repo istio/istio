@@ -20,13 +20,10 @@ ROOT=$(dirname "$WD")
 
 set -eux
 
-if [[ $(command -v gcloud) ]]; then
-  gcloud auth configure-docker -q
-elif [[ $(command -v docker-credential-gcr) ]]; then
-  docker-credential-gcr configure-docker
-else
-  echo "No credential helpers found, push to docker may not function properly"
-fi
+# shellcheck source=prow/lib.sh
+source "${ROOT}/prow/lib.sh"
+
+setup_gcloud_credentials
 
 # Old prow image does not set this, so needed explicitly here as this is not called through make
 export GO111MODULE=on
@@ -35,7 +32,7 @@ DOCKER_HUB=${DOCKER_HUB:-gcr.io/istio-testing}
 GCS_BUCKET=${GCS_BUCKET:-istio-build/dev}
 
 # Use a pinned version in case breaking changes are needed
-BUILDER_SHA=46c35ab820213298a8d859d494b23922aa3158e2
+BUILDER_SHA=f518f97c49f6fc80082a78894fdea8397c869f66
 
 # Reference to the next minor version of Istio
 # This will create a version like 1.4-alpha.sha
@@ -61,6 +58,28 @@ dependencies:
   operator:
     git: https://github.com/istio/operator
     auto: modules
+
+  api:
+    git: https://github.com/istio/api
+    auto: modules
+  proxy:
+    git: https://github.com/istio/proxy
+    auto: deps
+  pkg:
+    git: https://github.com/istio/pkg
+    auto: modules
+  client-go:
+    git: https://github.com/istio/client-go
+    branch: master
+  gogo-genproto:
+    git: https://github.com/istio/gogo-genproto
+    branch: master
+  test-infra:
+    git: https://github.com/istio/test-infra
+    branch: master
+  tools:
+    git: https://github.com/istio/tools
+    branch: master
 EOF
 )
 
@@ -71,6 +90,8 @@ export PATH=${GOPATH}/bin:${PATH}
 (cd /tmp; go get "istio.io/release-builder@${BUILDER_SHA}")
 
 release-builder build --manifest <(echo "${MANIFEST}")
+
+release-builder validate --release "${WORK_DIR}/out"
 
 if [[ -z "${DRY_RUN:-}" ]]; then
   release-builder publish --release "${WORK_DIR}/out" \

@@ -16,13 +16,13 @@ package coredatamodel_test
 
 import (
 	"fmt"
-	"strconv"
 	"testing"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/onsi/gomega"
 
+	"istio.io/api/annotation"
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/config/coredatamodel"
@@ -54,7 +54,7 @@ func (f *FakeXdsUpdater) EDSUpdate(shard, hostname, ns string, entry []*model.Is
 	return <-f.EDSErr
 }
 
-func (f *FakeXdsUpdater) SvcUpdate(shard, hostname string, ports map[string]uint32, rports map[uint32]string) {
+func (f *FakeXdsUpdater) SvcUpdate(shard, hostname string, namespace string, event model.Event) {
 }
 
 func (f *FakeXdsUpdater) WorkloadUpdate(id string, labels map[string]string, annotations map[string]string) {
@@ -65,9 +65,7 @@ func (f *FakeXdsUpdater) ProxyUpdate(clusterID, ip string) {
 
 func TestIncrementalControllerHasSynced(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	options := &coredatamodel.DiscoveryOptions{}
-	d := coredatamodel.NewMCPDiscovery(options)
-	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions, d)
+	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
 	g.Expect(controller.HasSynced()).To(gomega.BeFalse())
 
 	for i, se := range []*networking.ServiceEntry{syntheticServiceEntry0, syntheticServiceEntry1} {
@@ -75,7 +73,6 @@ func TestIncrementalControllerHasSynced(t *testing.T) {
 
 		change := convertToChange([]proto.Message{message},
 			[]string{fmt.Sprintf("random-namespace/test-synthetic-se-%d", i)},
-			setVersion("1"),
 			setCollection(schemas.SyntheticServiceEntry.Collection),
 			setTypeURL(schemas.SyntheticServiceEntry.MessageName))
 
@@ -87,9 +84,7 @@ func TestIncrementalControllerHasSynced(t *testing.T) {
 
 func TestIncrementalControllerConfigDescriptor(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	options := &coredatamodel.DiscoveryOptions{}
-	d := coredatamodel.NewMCPDiscovery(options)
-	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions, d)
+	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
 
 	descriptor := controller.ConfigDescriptor()
 	g.Expect(descriptor.Types()).To(gomega.HaveLen(1))
@@ -98,9 +93,7 @@ func TestIncrementalControllerConfigDescriptor(t *testing.T) {
 
 func TestIncrementalControllerListInvalidType(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	options := &coredatamodel.DiscoveryOptions{}
-	d := coredatamodel.NewMCPDiscovery(options)
-	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions, d)
+	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
 
 	c, err := controller.List("gateway", "some-phony-name-space")
 	g.Expect(c).To(gomega.BeNil())
@@ -110,9 +103,7 @@ func TestIncrementalControllerListInvalidType(t *testing.T) {
 
 func TestIncrementalControllerListCorrectTypeNoData(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	options := &coredatamodel.DiscoveryOptions{}
-	d := coredatamodel.NewMCPDiscovery(options)
-	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions, d)
+	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
 
 	c, err := controller.List(schemas.SyntheticServiceEntry.Type, "some-phony-name-space")
 	g.Expect(c).To(gomega.BeNil())
@@ -121,9 +112,7 @@ func TestIncrementalControllerListCorrectTypeNoData(t *testing.T) {
 
 func TestIncrementalControllerListAllNameSpace(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	options := &coredatamodel.DiscoveryOptions{}
-	d := coredatamodel.NewMCPDiscovery(options)
-	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions, d)
+	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
 
 	syntheticServiceEntry2 := proto.Clone(syntheticServiceEntry1).(*networking.ServiceEntry)
 	syntheticServiceEntry2.Ports = serviceEntry.Ports
@@ -137,7 +126,6 @@ func TestIncrementalControllerListAllNameSpace(t *testing.T) {
 	change := convertToChange(
 		[]proto.Message{message, message2, message3},
 		[]string{"default/sse-0", "namespace2/sse-1", "namespace3/sse-2"},
-		setVersion("1"),
 		setCollection(schemas.SyntheticServiceEntry.Collection),
 		setTypeURL(schemas.SyntheticServiceEntry.MessageName))
 
@@ -166,9 +154,7 @@ func TestIncrementalControllerListAllNameSpace(t *testing.T) {
 
 func TestIncrementalControllerListSpecificNameSpace(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	options := &coredatamodel.DiscoveryOptions{}
-	d := coredatamodel.NewMCPDiscovery(options)
-	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions, d)
+	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
 
 	syntheticServiceEntry2 := proto.Clone(syntheticServiceEntry1).(*networking.ServiceEntry)
 	syntheticServiceEntry2.Ports = serviceEntry.Ports
@@ -182,7 +168,6 @@ func TestIncrementalControllerListSpecificNameSpace(t *testing.T) {
 	change := convertToChange(
 		[]proto.Message{message, message2, message3},
 		[]string{"default/sse-0", "namespace2/sse-1", "namespace2/sse-2"},
-		setVersion("1"),
 		setCollection(schemas.SyntheticServiceEntry.Collection),
 		setTypeURL(schemas.SyntheticServiceEntry.MessageName))
 
@@ -214,9 +199,7 @@ func TestIncrementalControllerListSpecificNameSpace(t *testing.T) {
 
 func TestIncrementalControllerApplyInvalidType(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	options := &coredatamodel.DiscoveryOptions{}
-	d := coredatamodel.NewMCPDiscovery(options)
-	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions, d)
+	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
 
 	message := convertToResource(g,
 		schemas.Gateway.MessageName,
@@ -225,7 +208,6 @@ func TestIncrementalControllerApplyInvalidType(t *testing.T) {
 	change := convertToChange(
 		[]proto.Message{message},
 		[]string{"some-gateway"},
-		setVersion("1"),
 		setCollection(schemas.Gateway.Collection),
 		setTypeURL(schemas.Gateway.Type))
 
@@ -236,15 +218,12 @@ func TestIncrementalControllerApplyInvalidType(t *testing.T) {
 
 func TestIncrementalControllerApplyMetadataNameIncludesNamespace(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	options := &coredatamodel.DiscoveryOptions{}
-	d := coredatamodel.NewMCPDiscovery(options)
-	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions, d)
+	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
 
 	message := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
 
 	change := convertToChange([]proto.Message{message},
 		[]string{"random-namespace/test-synthetic-se"},
-		setVersion("1"),
 		setCollection(schemas.SyntheticServiceEntry.Collection),
 		setTypeURL(schemas.SyntheticServiceEntry.MessageName))
 
@@ -265,14 +244,11 @@ func TestIncrementalControllerApplyMetadataNameWithoutNamespace(t *testing.T) {
 	fx := NewFakeXDS()
 	fx.EDSErr <- nil
 	testControllerOptions.XDSUpdater = fx
-	options := &coredatamodel.DiscoveryOptions{}
-	d := coredatamodel.NewMCPDiscovery(options)
-	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions, d)
+	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
 
 	message0 := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
 	change0 := convertToChange([]proto.Message{message0},
 		[]string{"synthetic-se-0"},
-		setVersion("1"),
 		setIncremental(),
 		setCollection(schemas.SyntheticServiceEntry.Collection),
 		setTypeURL(schemas.SyntheticServiceEntry.MessageName))
@@ -283,7 +259,6 @@ func TestIncrementalControllerApplyMetadataNameWithoutNamespace(t *testing.T) {
 	message1 := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry1)
 	change1 := convertToChange([]proto.Message{message1},
 		[]string{"synthetic-se-1"},
-		setVersion("1"),
 		setIncremental(),
 		setCollection(schemas.SyntheticServiceEntry.Collection),
 		setTypeURL(schemas.SyntheticServiceEntry.MessageName))
@@ -307,14 +282,11 @@ func TestIncrementalControllerApplyMetadataNameWithoutNamespace(t *testing.T) {
 
 func TestIncrementalControllerApplyChangeNoObjects(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	options := &coredatamodel.DiscoveryOptions{}
-	d := coredatamodel.NewMCPDiscovery(options)
-	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions, d)
+	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
 
 	message := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
 	change := convertToChange([]proto.Message{message},
 		[]string{"synthetic-se-0"},
-		setVersion("1"),
 		setCollection(schemas.SyntheticServiceEntry.Collection),
 		setTypeURL(schemas.SyntheticServiceEntry.MessageName))
 
@@ -345,9 +317,7 @@ func TestIncrementalControllerApplyChangeNoObjects(t *testing.T) {
 
 func TestIncrementalControllerApplyInvalidResource(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	options := &coredatamodel.DiscoveryOptions{}
-	d := coredatamodel.NewMCPDiscovery(options)
-	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions, d)
+	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
 
 	se := proto.Clone(syntheticServiceEntry1).(*networking.ServiceEntry)
 	se.Hosts = nil
@@ -370,9 +340,7 @@ func TestIncrementalControllerApplyInvalidResource(t *testing.T) {
 
 func TestIncrementalControllerApplyInvalidResource_BadTimestamp(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	options := &coredatamodel.DiscoveryOptions{}
-	d := coredatamodel.NewMCPDiscovery(options)
-	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions, d)
+	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
 
 	message0 := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
 	change := convertToChange(
@@ -398,15 +366,12 @@ func TestApplyNonIncrementalChange(t *testing.T) {
 
 	fx := NewFakeXDS()
 	testControllerOptions.XDSUpdater = fx
-	options := &coredatamodel.DiscoveryOptions{}
-	d := coredatamodel.NewMCPDiscovery(options)
-	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions, d)
+	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
 
 	message := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
 
 	change := convertToChange([]proto.Message{message},
 		[]string{"random-namespace/test-synthetic-se"},
-		setVersion("1"),
 		setCollection(schemas.SyntheticServiceEntry.Collection),
 		setTypeURL(schemas.SyntheticServiceEntry.MessageName))
 
@@ -423,7 +388,6 @@ func TestApplyNonIncrementalChange(t *testing.T) {
 
 	change = convertToChange([]proto.Message{message},
 		[]string{"random-namespace/test-synthetic-se1"},
-		setVersion("1"),
 		setCollection(schemas.SyntheticServiceEntry.Collection),
 		setTypeURL(schemas.SyntheticServiceEntry.MessageName))
 
@@ -440,15 +404,12 @@ func TestApplyNonIncrementalChange(t *testing.T) {
 }
 
 func TestApplyNonIncrementalAnnotations(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/17814")
 	g := gomega.NewGomegaWithT(t)
 
 	fx := NewFakeXDS()
 	fx.EDSErr <- nil
 	testControllerOptions.XDSUpdater = fx
-	options := &coredatamodel.DiscoveryOptions{}
-	d := coredatamodel.NewMCPDiscovery(options)
-	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions, d)
+	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
 	message := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
 
 	steps := []struct {
@@ -482,7 +443,7 @@ func TestApplyNonIncrementalAnnotations(t *testing.T) {
 				"networking.alpha.istio.io/serviceVersion":   "2",
 				"networking.alpha.istio.io/endpointsVersion": "2",
 			},
-			want: "EDSUpdate",
+			want: "ConfigUpdate",
 		},
 		{
 			description: "service and endpoints annotation both versions changed",
@@ -493,11 +454,10 @@ func TestApplyNonIncrementalAnnotations(t *testing.T) {
 			want: "ConfigUpdate",
 		},
 	}
-	for i, s := range steps {
+	for _, s := range steps {
 		t.Run(fmt.Sprintf("non incremental resource with %s", s.description), func(_ *testing.T) {
 			change := convertToChange([]proto.Message{message},
 				[]string{"random-namespace/test-synthetic-se"},
-				setVersion(strconv.Itoa(i)),
 				setAnnotations(s.annotations),
 				setCollection(schemas.SyntheticServiceEntry.Collection),
 				setTypeURL(schemas.SyntheticServiceEntry.MessageName))
@@ -517,15 +477,15 @@ func TestApplyIncrementalChangeRemove(t *testing.T) {
 
 	fx := NewFakeXDS()
 	testControllerOptions.XDSUpdater = fx
-	options := &coredatamodel.DiscoveryOptions{}
-	d := coredatamodel.NewMCPDiscovery(options)
-	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions, d)
+	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
 
 	message0 := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
 
 	change := convertToChange([]proto.Message{message0},
 		[]string{"random-namespace/test-synthetic-se"},
-		setVersion("1"),
+		setAnnotations(map[string]string{
+			annotation.AlphaNetworkingServiceVersion.Name: "1",
+		}),
 		setIncremental(),
 		setCollection(schemas.SyntheticServiceEntry.Collection),
 		setTypeURL(schemas.SyntheticServiceEntry.MessageName))
@@ -544,7 +504,9 @@ func TestApplyIncrementalChangeRemove(t *testing.T) {
 	message1 := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry1)
 	change = convertToChange([]proto.Message{message1},
 		[]string{"random-namespace/test-synthetic-se1"},
-		setVersion("1"),
+		setAnnotations(map[string]string{
+			annotation.AlphaNetworkingServiceVersion.Name: "1",
+		}),
 		setIncremental(),
 		setCollection(schemas.SyntheticServiceEntry.Collection),
 		setTypeURL(schemas.SyntheticServiceEntry.MessageName))
@@ -571,8 +533,10 @@ func TestApplyIncrementalChangeRemove(t *testing.T) {
 
 	change = convertToChange([]proto.Message{message1},
 		[]string{"random-namespace/test-synthetic-se1"},
-		setVersion("1"),
 		setIncremental(),
+		setAnnotations(map[string]string{
+			annotation.AlphaNetworkingServiceVersion.Name: "1",
+		}),
 		setRemoved([]string{"random-namespace/test-synthetic-se"}),
 		setCollection(schemas.SyntheticServiceEntry.Collection),
 		setTypeURL(schemas.SyntheticServiceEntry.MessageName))
@@ -596,15 +560,12 @@ func TestApplyIncrementalChange(t *testing.T) {
 
 	fx := NewFakeXDS()
 	testControllerOptions.XDSUpdater = fx
-	options := &coredatamodel.DiscoveryOptions{}
-	d := coredatamodel.NewMCPDiscovery(options)
-	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions, d)
+	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
 
 	message0 := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
 
 	change := convertToChange([]proto.Message{message0},
 		[]string{"random-namespace/test-synthetic-se"},
-		setVersion("1"),
 		setIncremental(),
 		setCollection(schemas.SyntheticServiceEntry.Collection),
 		setTypeURL(schemas.SyntheticServiceEntry.MessageName))
@@ -623,7 +584,6 @@ func TestApplyIncrementalChange(t *testing.T) {
 	message1 := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry1)
 	change = convertToChange([]proto.Message{message1},
 		[]string{"random-namespace/test-synthetic-se1"},
-		setVersion("1"),
 		setIncremental(),
 		setCollection(schemas.SyntheticServiceEntry.Collection),
 		setTypeURL(schemas.SyntheticServiceEntry.MessageName))
@@ -649,16 +609,62 @@ func TestApplyIncrementalChange(t *testing.T) {
 	g.Expect(update).To(gomega.Equal("ConfigUpdate"))
 }
 
+func TestApplyIncrementalChangeEndpiontVersionWithoutServiceVersion(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	fx := NewFakeXDS()
+	testControllerOptions.XDSUpdater = fx
+	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
+
+	message0 := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
+
+	change := convertToChange([]proto.Message{message0},
+		[]string{"random-namespace/test-synthetic-se"},
+		setIncremental(),
+		setCollection(schemas.SyntheticServiceEntry.Collection),
+		setTypeURL(schemas.SyntheticServiceEntry.MessageName))
+
+	err := controller.Apply(change)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	entries, err := controller.List(schemas.SyntheticServiceEntry.Type, "")
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(entries).To(gomega.HaveLen(1))
+	g.Expect(entries[0].Name).To(gomega.Equal("test-synthetic-se"))
+
+	update := <-fx.Events
+	g.Expect(update).To(gomega.Equal("ConfigUpdate"))
+
+	change = convertToChange([]proto.Message{message0},
+		[]string{"random-namespace/test-synthetic-se"},
+		setAnnotations(map[string]string{
+			annotation.AlphaNetworkingEndpointsVersion.Name: "1",
+		}),
+		setIncremental(),
+		setCollection(schemas.SyntheticServiceEntry.Collection),
+		setTypeURL(schemas.SyntheticServiceEntry.MessageName))
+
+	fx.EDSErr <- nil
+	err = controller.Apply(change)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	entries, err = controller.List(schemas.SyntheticServiceEntry.Type, "")
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(entries).To(gomega.HaveLen(1))
+	g.Expect(entries[0].Name).To(gomega.Equal("test-synthetic-se"))
+
+	update = <-fx.Events
+	g.Expect(update).To(gomega.Equal("EDSUpdate"))
+
+}
+
 func TestApplyIncrementalChangesAnnotations(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/17814")
 	g := gomega.NewGomegaWithT(t)
 
 	fx := NewFakeXDS()
 	fx.EDSErr <- nil
 	testControllerOptions.XDSUpdater = fx
-	options := &coredatamodel.DiscoveryOptions{}
-	d := coredatamodel.NewMCPDiscovery(options)
-	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions, d)
+	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
 
 	message := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
 
@@ -676,6 +682,13 @@ func TestApplyIncrementalChangesAnnotations(t *testing.T) {
 			description: "service annotation only",
 			annotations: map[string]string{
 				"networking.alpha.istio.io/serviceVersion": "1",
+			},
+			want: "ConfigUpdate",
+		},
+		{
+			description: "endpoint annotation only",
+			annotations: map[string]string{
+				"networking.alpha.istio.io/endpointsVersion": "1",
 			},
 			want: "ConfigUpdate",
 		},
@@ -704,11 +717,10 @@ func TestApplyIncrementalChangesAnnotations(t *testing.T) {
 			want: "ConfigUpdate",
 		},
 	}
-	for i, s := range steps {
+	for _, s := range steps {
 		t.Run(fmt.Sprintf("incrementall resource with %s", s.description), func(_ *testing.T) {
 			change := convertToChange([]proto.Message{message},
 				[]string{"random-namespace/test-synthetic-se"},
-				setVersion(strconv.Itoa(i)),
 				setIncremental(),
 				setAnnotations(s.annotations),
 				setCollection(schemas.SyntheticServiceEntry.Collection),

@@ -324,8 +324,7 @@ precommit: format lint
 
 format: fmt
 
-fmt: format-go format-python
-	go mod tidy
+fmt: format-go format-python tidy-go
 
 # Build with -i to store the build caches into $GOPATH/pkg
 buildcache:
@@ -372,28 +371,20 @@ $(foreach bin,$(BINARIES),$(shell basename $(bin))): build
 
 MARKDOWN_LINT_WHITELIST=localhost:8080,storage.googleapis.com/istio-artifacts/pilot/,http://ratings.default.svc.cluster.local:9080/ratings
 
-lint: lint-python lint-copyright-banner lint-scripts lint-dockerfiles lint-markdown lint-yaml lint-licenses
+lint: lint-go lint-python lint-copyright-banner lint-scripts lint-dockerfiles lint-markdown lint-yaml lint-licenses
 	@bin/check_helm.sh
 	@bin/check_samples.sh
 	@bin/check_dashboards.sh
 	@go run mixer/tools/adapterlinter/main.go ./mixer/adapter/...
-	@golangci-lint run -c ./common/config/.golangci.yml ./galley/...
-	@golangci-lint run -c ./common/config/.golangci.yml ./istioctl/...
-	@golangci-lint run -c ./common/config/.golangci.yml ./mixer/...
-	@golangci-lint run -c ./common/config/.golangci.yml ./pilot/...
-	@golangci-lint run -c ./common/config/.golangci.yml ./pkg/...
-	@golangci-lint run -c ./common/config/.golangci.yml ./samples/...
-	@golangci-lint run -c ./common/config/.golangci.yml ./security/...
-	@golangci-lint run -c ./common/config/.golangci.yml ./sidecar-injector/...
-	@golangci-lint run -c ./common/config/.golangci.yml ./tests/...
-	@golangci-lint run -c ./common/config/.golangci.yml ./tools/...
 	@testlinter
 	@envvarlinter galley istioctl mixer pilot security sidecar-injector
 
-gen:
+go-gen:
 	@mkdir -p /tmp/bin
 	@go build -o /tmp/bin/mixgen "${REPO_ROOT}/mixer/tools/mixgen/main.go"
 	@PATH=${PATH}:/tmp/bin go generate ./...
+
+gen: go-gen mirror-licenses format update-crds
 
 gen-check: gen check-clean-repo
 
@@ -473,7 +464,7 @@ localTestEnv: build
 
 localTestEnvCleanup: build
 	bin/testEnvLocalK8S.sh stop
-		
+
 .PHONY: pilot-test
 pilot-test:
 	go test ${T} ./pilot/...
@@ -702,6 +693,13 @@ show.goenv: ; $(info $(H) go environment...)
 # show makefile variables. Usage: make show.<variable-name>
 show.%: ; $(info $* $(H) $($*))
 	$(Q) true
+
+#-----------------------------------------------------------------------------
+# Target: custom resource definitions
+#-----------------------------------------------------------------------------
+
+update-crds: 
+	bin/update_crds.sh
 
 #-----------------------------------------------------------------------------
 # Target: artifacts and distribution

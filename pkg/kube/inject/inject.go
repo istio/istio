@@ -79,7 +79,6 @@ var (
 		annotation.SidecarStatusReadinessInitialDelaySeconds.Name: validateUInt32,
 		annotation.SidecarStatusReadinessPeriodSeconds.Name:       validateUInt32,
 		annotation.SidecarStatusReadinessFailureThreshold.Name:    validateUInt32,
-		annotation.SidecarStatusReadinessApplicationPorts.Name:    validateReadinessApplicationPorts,
 		annotation.SidecarTrafficIncludeOutboundIPRanges.Name:     ValidateIncludeIPRanges,
 		annotation.SidecarTrafficExcludeOutboundIPRanges.Name:     ValidateExcludeIPRanges,
 		annotation.SidecarTrafficIncludeInboundPorts.Name:         ValidateIncludeInboundPorts,
@@ -358,13 +357,6 @@ func ValidateIncludeIPRanges(ipRanges string) error {
 func ValidateExcludeIPRanges(ipRanges string) error {
 	if e := validateCIDRList(ipRanges); e != nil {
 		return fmt.Errorf("excludeIPRanges invalid: %v", e)
-	}
-	return nil
-}
-
-func validateReadinessApplicationPorts(ports string) error {
-	if ports != "*" {
-		return validatePortList("readinessApplicationPorts", ports)
 	}
 	return nil
 }
@@ -866,11 +858,11 @@ func IntoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 	}
 
 	metadata.Annotations[annotation.SidecarStatus.Name] = status
-	if status != "" && metadata.Labels[model.MTLSReadyLabelName] == "" {
+	if status != "" && metadata.Labels[model.TLSModeLabelName] == "" {
 		if metadata.Labels == nil {
 			metadata.Labels = make(map[string]string)
 		}
-		metadata.Labels[model.MTLSReadyLabelName] = "true"
+		metadata.Labels[model.TLSModeLabelName] = model.IstioMutualTLSModeLabel
 	}
 
 	return out, nil
@@ -898,6 +890,7 @@ func getContainerPorts(containers []corev1.Container, shouldIncludePorts func(co
 	return strings.Join(parts, ",")
 }
 
+// this function is no longer used by the template but kept around for backwards compatibility
 func applicationPorts(containers []corev1.Container) string {
 	return getContainerPorts(containers, func(c corev1.Container) bool {
 		return c.Name != ProxyContainerName

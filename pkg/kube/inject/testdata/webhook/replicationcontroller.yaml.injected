@@ -14,7 +14,7 @@ spec:
       creationTimestamp: null
       labels:
         app: nginx
-        security.istio.io/mtlsReady: "true"
+        security.istio.io/tlsMode: istio
       name: nginx
     spec:
       containers:
@@ -52,8 +52,6 @@ spec:
         - NONE
         - --statusPort
         - "15020"
-        - --applicationPorts
-        - "80"
         - --concurrency
         - "2"
         env:
@@ -92,12 +90,10 @@ spec:
           value: "false"
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
-        - name: ISTIO_META_INCLUDE_INBOUND_PORTS
-          value: "80"
         - name: ISTIO_META_WORKLOAD_NAME
           value: nginx
         - name: ISTIO_META_OWNER
-          value: kubernetes://api/v1/namespaces/default/pods/nginx
+          value: kubernetes://apis/v1/namespaces/default/pods/nginx
         image: gcr.io/istio-release/proxyv2:master-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-proxy

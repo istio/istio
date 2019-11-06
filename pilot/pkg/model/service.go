@@ -32,6 +32,7 @@ import (
 	"time"
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	"github.com/mitchellh/copystructure"
 
 	authn "istio.io/api/authentication/v1alpha1"
 
@@ -105,6 +106,20 @@ const (
 	Passthrough
 )
 
+// String converts Resolution in to String.
+func (resolution Resolution) String() string {
+	switch resolution {
+	case ClientSideLB:
+		return "ClientSide"
+	case DNSLB:
+		return "DNS"
+	case Passthrough:
+		return "Passthrough"
+	default:
+		return fmt.Sprintf("%d", int(resolution))
+	}
+}
+
 const (
 	// IstioDefaultConfigNamespace constant for default namespace
 	IstioDefaultConfigNamespace = "default"
@@ -119,11 +134,18 @@ const (
 )
 
 const (
-	// MTLSReadyLabelShortname name used for determining endpoint level tls transport socket configuration
-	MTLSReadyLabelShortname = "mtlsReady"
+	// TLSModeLabelShortname name used for determining endpoint level tls transport socket configuration
+	TLSModeLabelShortname = "tlsMode"
 
-	// MTLSReadyLabelName name for the mtlsReady label given to service instances to toggle mTLS autopilot
-	MTLSReadyLabelName = "security.istio.io/" + MTLSReadyLabelShortname
+	// TLSModeLabelName is the name of label given to service instances to determine whether to use mTLS or
+	// fallback to plaintext/tls
+	TLSModeLabelName = "security.istio.io/" + TLSModeLabelShortname
+
+	// DisabledTLSModeLabel implies that this endpoint should receive traffic as is (mostly plaintext)
+	DisabledTLSModeLabel = "disabled"
+
+	// IstioMutualTLSModeLabel implies that the endpoint is ready to receive Istio mTLS connections.
+	IstioMutualTLSModeLabel = "istio"
 )
 
 // Port represents a network port where a service is listening for
@@ -266,7 +288,7 @@ type ServiceInstance struct {
 	Service        *Service        `json:"service,omitempty"`
 	Labels         labels.Instance `json:"labels,omitempty"`
 	ServiceAccount string          `json:"serviceaccount,omitempty"`
-	MTLSReady      bool            `json:"mtlsReady,omitempty"`
+	TLSMode        string          `json:"tlsMode,omitempty"`
 }
 
 // GetLocality returns the availability zone from an instance. If service instance label for locality
@@ -275,8 +297,8 @@ type ServiceInstance struct {
 // 	 - consul: defaults to 'instance.Datacenter'
 //
 // This is used by CDS/EDS to group the endpoints by locality.
-func (si *ServiceInstance) GetLocality() string {
-	return GetLocalityOrDefault(si.Labels[LocalityLabel], si.Endpoint.Locality)
+func (instance *ServiceInstance) GetLocality() string {
+	return GetLocalityOrDefault(instance.Labels[LocalityLabel], instance.Endpoint.Locality)
 }
 
 // GetLocalityOrDefault returns the locality from the supplied label, or falls back to
@@ -352,8 +374,8 @@ type IstioEndpoint struct {
 	// used mostly by mixer and RBAC for policy enforcement purposes.
 	Attributes ServiceAttributes
 
-	// MTLSReady endpoint is injected with istio sidecar and ready to configure Istio mTLS
-	MTLSReady bool
+	// TLSMode endpoint is injected with istio sidecar and ready to configure Istio mTLS
+	TLSMode string
 }
 
 // ServiceAttributes represents a group of custom attributes of the service.
@@ -652,4 +674,51 @@ func (s *Service) GetServiceAddressForProxy(node *Proxy) string {
 		return s.ClusterVIPs[node.ClusterID]
 	}
 	return s.Address
+}
+
+// GetTLSModeFromEndpointLabels returns the value of the label
+// security.istio.io/tlsMode if set. Do not return Enums or constants
+// from this function as users could provide values other than istio/disabled
+// and apply custom transport socket matchers here.
+func GetTLSModeFromEndpointLabels(labels map[string]string) string {
+	if labels != nil {
+		if val, exists := labels[TLSModeLabelName]; exists {
+			return val
+		}
+	}
+	return DisabledTLSModeLabel
+}
+
+// DeepCopy creates a clone of Service.
+// TODO : See if there is any efficient alternative to this function - copystructure can not be used as is because
+// Service has sync.RWMutex that can not be copied.
+func (s *Service) DeepCopy() *Service {
+	attrs := copyInternal(s.Attributes)
+	ports := copyInternal(s.Ports)
+	accounts := copyInternal(s.ServiceAccounts)
+	clusterVIPs := copyInternal(s.ClusterVIPs)
+
+	return &Service{
+		Attributes:      attrs.(ServiceAttributes),
+		Ports:           ports.(PortList),
+		ServiceAccounts: accounts.([]string),
+		CreationTime:    s.CreationTime,
+		Hostname:        s.Hostname,
+		Address:         s.Address,
+		ClusterVIPs:     clusterVIPs.(map[string]string),
+		Resolution:      s.Resolution,
+		MeshExternal:    s.MeshExternal,
+	}
+}
+
+func copyInternal(v interface{}) interface{} {
+	copied, err := copystructure.Copy(v)
+	if err != nil {
+		// There are 2 locations where errors are generated in copystructure.Copy:
+		//  * The reflection walk over the structure fails, which should never happen
+		//  * A configurable copy function returns an error. This is only used for copying times, which never returns an error.
+		// Therefore, this should never happen
+		panic(err)
+	}
+	return copied
 }

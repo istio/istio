@@ -15,13 +15,13 @@ spec:
     metadata:
       annotations:
         sidecar.istio.io/interceptionMode: REDIRECT
-        sidecar.istio.io/status: '{"version":"c42a97ce43602dca6a2d3e26520fbc36ee25f621e95186edb4b65f0231b11301","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"171c3e8336f4bff060d22a80d8339c1e903d259d169cd4e2653bc62351ae4ba6","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
         traffic.sidecar.istio.io/excludeInboundPorts: "15020"
         traffic.sidecar.istio.io/includeInboundPorts: "80"
       creationTimestamp: null
       labels:
         app: hello
-        security.istio.io/mtlsReady: "true"
+        security.istio.io/tlsMode: istio
         tier: backend
         track: stable
     spec:
@@ -63,8 +63,6 @@ spec:
         - NONE
         - --statusPort
         - "15020"
-        - --applicationPorts
-        - "80"
         - --concurrency
         - "2"
         env:
@@ -103,15 +101,13 @@ spec:
           value: "false"
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
-        - name: ISTIO_META_INCLUDE_INBOUND_PORTS
-          value: "80"
         - name: ISTIO_METAJSON_LABELS
           value: |
             {"app":"hello","tier":"backend","track":"stable"}
         - name: ISTIO_META_WORKLOAD_NAME
           value: hello
         - name: ISTIO_META_OWNER
-          value: kubernetes://api/apps/v1/namespaces/default/deployments/hello
+          value: kubernetes://apis/apps/v1/namespaces/default/deployments/hello
         - name: ISTIO_KUBE_APP_PROBERS
           value: '{"/app-health/hello/readyz":{"path":"/ip","port":8000}}'
         image: docker.io/istio/proxyv2:unittest

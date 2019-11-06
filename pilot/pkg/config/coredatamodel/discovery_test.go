@@ -22,7 +22,6 @@ import (
 	"github.com/onsi/gomega"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/coredatamodel"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/host"
@@ -51,7 +50,9 @@ var (
 
 // Since service instance is representation of a service with a corresponding backend port
 // the following ServiceEntry plus a notReadyEndpoint 4.4.4.4:5555 should  yield into 10
-// service instances once flattened. That is one endpoints IP + endpoint Port, per service Port, per service Host
+// service instances once flattened. That is one endpoints IP + endpoint Port, per service Port, per service host.
+// However GetProxyServiceInstances should only return all the ones with 4.4.4.4 IP address since they match the
+// given proxy address
 // e.g:
 //	&networking.ServiceEntry{
 //		Hosts: []string{"svc.example2.com"},
@@ -90,7 +91,7 @@ var (
 // NetworkEndpoint(endpoint{Address:4.4.4.4, Port:5555, servicePort: &{http-alt-port 8080 http}} service:{Hostname: svc.example2.com})
 // NetworkEndpoint(endpoint{Address:4.4.4.4, Port:1080, servicePort: &{http-alt-port 8080 http}} service:{Hostname: svc.example2.com})
 
-func TestNotReadyEndpoints(t *testing.T) {
+func TestGetProxyServiceInstances(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	testSetup(g)
 	proxyIP := "4.4.4.4"
@@ -100,7 +101,7 @@ func TestNotReadyEndpoints(t *testing.T) {
 
 	svcInstances, err := d.GetProxyServiceInstances(proxy)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
-	g.Expect(len(svcInstances)).To(gomega.Equal(10))
+	g.Expect(len(svcInstances)).To(gomega.Equal(4))
 
 	steps := map[string]struct {
 		address     string
@@ -108,18 +109,6 @@ func TestNotReadyEndpoints(t *testing.T) {
 		servicePort []*model.Port
 		hostname    host.Name
 	}{
-		"2.2.2.2": {
-			address:     "2.2.2.2",
-			ports:       []int{7080, 18080},
-			servicePort: svcPort,
-			hostname:    host.Name("svc.example2.com"),
-		},
-		"3.3.3.3": {
-			address:     "3.3.3.3",
-			ports:       []int{1080},
-			servicePort: svcPort,
-			hostname:    host.Name("svc.example2.com"),
-		},
 		"4.4.4.4": {
 			address:     "4.4.4.4",
 			ports:       []int{1080, 5555},
@@ -130,50 +119,22 @@ func TestNotReadyEndpoints(t *testing.T) {
 
 	t.Run("verify service instances", func(_ *testing.T) {
 		for _, svcInstance := range svcInstances {
-			switch svcInstance.Endpoint.Address {
-			case "2.2.2.2":
-				step := steps[svcInstance.Endpoint.Address]
-				g.Expect(step.address).To(gomega.Equal(svcInstance.Endpoint.Address))
-				g.Expect(step.hostname).To(gomega.Equal(svcInstance.Service.Hostname))
-				g.Expect(step.ports).To(gomega.ContainElement(svcInstance.Endpoint.Port))
-				g.Expect(step.servicePort).To(gomega.ContainElement(svcInstance.Endpoint.ServicePort))
-			case "3.3.3.3":
-				step := steps[svcInstance.Endpoint.Address]
-				g.Expect(step.address).To(gomega.Equal(svcInstance.Endpoint.Address))
-				g.Expect(step.hostname).To(gomega.Equal(svcInstance.Service.Hostname))
-				g.Expect(step.ports).To(gomega.ContainElement(svcInstance.Endpoint.Port))
-			case "4.4.4.4":
-				step := steps[svcInstance.Endpoint.Address]
-				g.Expect(step.address).To(gomega.Equal(svcInstance.Endpoint.Address))
-				g.Expect(step.hostname).To(gomega.Equal(svcInstance.Service.Hostname))
-				g.Expect(step.ports).To(gomega.ContainElement(svcInstance.Endpoint.Port))
-			default:
-				t.Fatal("no test step found")
-			}
+			step := steps[svcInstance.Endpoint.Address]
+			g.Expect(step.address).To(gomega.Equal(svcInstance.Endpoint.Address))
+			g.Expect(step.hostname).To(gomega.Equal(svcInstance.Service.Hostname))
+			g.Expect(step.ports).To(gomega.ContainElement(svcInstance.Endpoint.Port))
 		}
 	})
-}
-
-func TestGetService(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	testSetup(g)
-
-	hostname := host.Name(fmt.Sprintf("%s.%s.svc.cluster.local", name, namespace))
-	svc, err := d.GetService(hostname)
-	g.Expect(err).ToNot(gomega.HaveOccurred())
-	g.Expect(svc.Hostname).To(gomega.Equal(hostname))
-	g.Expect(svc.Ports).To(gomega.Equal(convertServicePorts(syntheticServiceEntry0.Ports)))
-	g.Expect(svc.Resolution).To(gomega.Equal(model.Resolution(int(syntheticServiceEntry0.Resolution))))
-	g.Expect(svc.Attributes.Name).To(gomega.Equal(name))
-	g.Expect(svc.Attributes.Namespace).To(gomega.Equal(namespace))
-	g.Expect(svc.Attributes.UID).To(gomega.Equal(fmt.Sprintf("kubernetes://%s.%s", name, namespace)))
 }
 
 func TestInstancesByPort(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	testSetup(g)
-
-	svcInstances, err := d.InstancesByPort(nil, 80, labels.Collection{})
+	svc := &model.Service{
+		Hostname: host.Name("svc.example2.com"),
+	}
+	svcInstances, err := d.InstancesByPort(svc, 80, labels.Collection{})
+	g.Expect(len(svcInstances)).To(gomega.Equal(7))
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
 	steps := map[string]struct {
@@ -255,7 +216,6 @@ func testSetup(g *gomega.GomegaWithT) {
 	fx.EDSErr <- nil
 	testControllerOptions.XDSUpdater = fx
 	options := &coredatamodel.DiscoveryOptions{
-		XDSUpdater:   fx,
 		ClusterID:    "test",
 		DomainSuffix: "cluster.local",
 		Env: &model.Environment{
@@ -264,14 +224,13 @@ func testSetup(g *gomega.GomegaWithT) {
 			},
 		},
 	}
-	d = coredatamodel.NewMCPDiscovery(options)
-	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions, d)
+	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
+	d = coredatamodel.NewMCPDiscovery(controller, options)
 
 	message := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
 
 	change := convertToChange([]proto.Message{message},
 		[]string{fmt.Sprintf("%s/%s", namespace, name)},
-		setVersion("1"),
 		setAnnotations(map[string]string{
 			"networking.alpha.istio.io/notReadyEndpoints": "1.1.1.1:2222,4.4.4.4:5555,6.6.6.6:7777",
 		}),
@@ -289,17 +248,4 @@ func testSetup(g *gomega.GomegaWithT) {
 	update := <-fx.Events
 	g.Expect(update).To(gomega.Equal("ConfigUpdate"))
 
-}
-
-func convertServicePorts(ports []*networking.Port) model.PortList {
-	out := make(model.PortList, 0)
-	for _, port := range ports {
-		out = append(out, &model.Port{
-			Name:     port.Name,
-			Port:     int(port.Number),
-			Protocol: protocol.Instance(port.Protocol),
-		})
-	}
-
-	return out
 }

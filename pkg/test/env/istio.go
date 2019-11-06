@@ -19,6 +19,7 @@ import (
 	"go/build"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"runtime"
@@ -28,40 +29,40 @@ import (
 
 var (
 	// GOPATH environment variable
-	// nolint: golint
+	// nolint: golint, stylecheck
 	GOPATH Variable = "GOPATH"
 
 	// TOP environment variable
-	// nolint: golint
+	// nolint: golint, stylecheck
 	TOP Variable = "TOP"
 
 	// ISTIO_GO environment variable
-	// nolint: golint
+	// nolint: golint, stylecheck
 	ISTIO_GO Variable = "ISTIO_GO"
 
 	// ISTIO_BIN environment variable
-	// nolint: golint
+	// nolint: golint, stylecheck
 	ISTIO_BIN Variable = "ISTIO_BIN"
 
 	// ISTIO_OUT environment variable
-	// nolint: golint
+	// nolint: golint, stylecheck
 	ISTIO_OUT Variable = "ISTIO_OUT"
 
 	// HUB is the Docker hub to be used for images.
-	// nolint: golint
+	// nolint: golint, stylecheck
 	HUB Variable = "HUB"
 
 	// TAG is the Docker tag to be used for images.
-	// nolint: golint
+	// nolint: golint, stylecheck
 	TAG Variable = "TAG"
 
 	// PULL_POLICY is the image pull policy to use when rendering templates.
-	// nolint: golint
+	// nolint: golint, stylecheck
 	PULL_POLICY Variable = "PULL_POLICY"
 
 	// ISTIO_TEST_KUBE_CONFIG is the Kubernetes configuration file to use for testing. If a configuration file
 	// is specified on the command-line, that takes precedence.
-	// nolint: golint
+	// nolint: golint, stylecheck
 	ISTIO_TEST_KUBE_CONFIG Variable = "ISTIO_TEST_KUBE_CONFIG"
 
 	// IstioTop has the top of the istio tree, matches the env variable from make.
@@ -108,7 +109,7 @@ func getDefaultIstioTop() string {
 	if err != nil {
 		panic(err)
 	}
-	idx := strings.Index(current, "/src/istio.io/istio")
+	idx := strings.Index(current, filepath.Join("/src", "istio.io", "istio"))
 	if idx > 0 {
 		return current[0:idx]
 	}

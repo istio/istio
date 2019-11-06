@@ -141,6 +141,8 @@ type FilterChain struct {
 	HTTP []*http_conn.HttpFilter
 	// TCP is the set of network (TCP) filters for this filter chain.
 	TCP []*listener.Filter
+	// IsFallthrough indicates if the filter chain is fallthrough.
+	IsFallThrough bool
 }
 
 // MutableObjects is a set of objects passed to On*Listener callbacks. Fields may be nil or empty.
@@ -191,4 +193,8 @@ type Plugin interface {
 	// OnInboundFilterChains is called whenever a plugin needs to setup the filter chains, including relevant filter chain
 	// configuration, like FilterChainMatch and TLSContext.
 	OnInboundFilterChains(in *InputParams) []FilterChain
+
+	// OnInboundPassthrough is called whenever a new passthrough filter chain is added to the LDS output.
+	// Can be used to add additional filters.
+	OnInboundPassthrough(in *InputParams, mutable *MutableObjects) error
 }

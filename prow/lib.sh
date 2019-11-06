@@ -14,6 +14,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
+function setup_gcloud_credentials() {
+  if [[ $(command -v gcloud) ]]; then
+    gcloud auth configure-docker -q
+  elif [[ $(command -v docker-credential-gcr) ]]; then
+    docker-credential-gcr configure-docker
+  else
+    echo "No credential helpers found, push to docker may not function properly"
+  fi
+}
+
 function setup_and_export_git_sha() {
   if [[ -n "${CI:-}" ]]; then
 
@@ -35,7 +46,7 @@ function setup_and_export_git_sha() {
   fi
   GIT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
   export GIT_BRANCH
-  gcloud auth configure-docker -q
+  setup_gcloud_credentials
 }
 
 # Download and unpack istio release artifacts.
@@ -48,8 +59,6 @@ function download_untar_istio_release() {
 
   wget  -q "${LINUX_DIST_URL}" -P "${dir}"
   tar -xzf "${dir}/istio-${tag}-linux.tar.gz" -C "${dir}"
-
-  export ISTIOCTL_BIN="${GOPATH}/src/istio.io/istio/istio-${TAG}/bin/istioctl"
 }
 
 function build_images() {
@@ -61,10 +70,14 @@ function build_images() {
 
 function kind_load_images() {
   NAME="${1:-istio-testing}"
+
+  # If HUB starts with "docker.io/" removes that part so that filtering and loading below works
+  local hub=${HUB#"docker.io/"}
+
   for i in {1..3}; do
     # Archived local images and load it into KinD's docker daemon
     # Kubernetes in KinD can only access local images from its docker daemon.
-    docker images "${HUB}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 kind --loglevel debug --name "${NAME}" load docker-image && break
+    docker images "${hub}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 kind --loglevel debug --name "${NAME}" load docker-image && break
     echo "Attempt ${i} to load images failed, retrying in 5s..."
     sleep 5
 	done
@@ -73,7 +86,7 @@ function kind_load_images() {
   # We should still load non-variant images as well for things like `app` which do not use variants
   if [[ "${VARIANT:-}" != "" ]]; then
     for i in {1..3}; do
-      docker images "${HUB}/*:${TAG}-${VARIANT}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 kind --loglevel debug --name "${NAME}" load docker-image && break
+      docker images "${hub}/*:${TAG}-${VARIANT}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 kind --loglevel debug --name "${NAME}" load docker-image && break
       echo "Attempt ${i} to load images failed, retrying in 5s..."
       sleep 5
     done
@@ -132,10 +145,10 @@ function clone_cni() {
 function cleanup_kind_cluster() {
   NAME="${1}"
   echo "Test exited with exit code $?."
-  kind export logs --name "${NAME}" "${ARTIFACTS}/kind"
+  kind export logs --name "${NAME}" "${ARTIFACTS}/kind" --loglevel debug || true
   if [[ -z "${SKIP_CLEANUP:-}" ]]; then
     echo "Cleaning up kind cluster"
-    kind delete cluster --name "${NAME}"
+    kind delete cluster --name "${NAME}" --loglevel debug || true
   fi
 }
 

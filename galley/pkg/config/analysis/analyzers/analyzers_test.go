@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/deprecation"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/sidecar"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/virtualservice"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/local"
@@ -54,11 +55,37 @@ type testCase struct {
 //     * Note that if Namespace is omitted in the input YAML, it will be skipped here.
 var testGrid = []testCase{
 	{
+		name: "misannoted",
+		inputFiles: []string{
+			"testdata/misannotated.yaml",
+		},
+		analyzer: &annotations.K8sAnalyzer{},
+		expected: []message{
+			{msg.UnknownAnnotation, "Service httpbin"},
+			{msg.MisplacedAnnotation, "Service details"},
+			{msg.MisplacedAnnotation, "Pod grafana-test"},
+			{msg.MisplacedAnnotation, "Deployment fortio-deploy"},
+		},
+	},
+	{
 		name:       "serviceRoleBindings",
 		inputFiles: []string{"testdata/servicerolebindings.yaml"},
 		analyzer:   &auth.ServiceRoleBindingAnalyzer{},
 		expected: []message{
 			{msg.ReferencedResourceNotFound, "ServiceRoleBinding test-bogus-binding"},
+		},
+	},
+	{
+		name:       "serviceRoleServices",
+		inputFiles: []string{"testdata/serviceroleservices.yaml"},
+		analyzer:   &auth.ServiceRoleServicesAnalyzer{},
+		expected: []message{
+			{msg.ReferencedResourceNotFound, "ServiceRole bogus-short-name.default"},
+			{msg.ReferencedResourceNotFound, "ServiceRole bogus-fqdn.default"},
+			{msg.ReferencedResourceNotFound, "ServiceRole fqdn.anothernamespace"},
+			{msg.ReferencedResourceNotFound, "ServiceRole short-name.anothernamespace"},
+			{msg.ReferencedResourceNotFound, "ServiceRole fqdn-cross-ns.anothernamespace"},
+			{msg.ReferencedResourceNotFound, "ServiceRole namespace-wide.anothernamespace"},
 		},
 	},
 	{
@@ -140,6 +167,28 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "sidecarDefaultSelector",
+		inputFiles: []string{"testdata/sidecar-default-selector.yaml"},
+		analyzer:   &sidecar.DefaultSelectorAnalyzer{},
+		expected: []message{
+			{msg.MultipleSidecarsWithoutWorkloadSelectors, "Sidecar has-conflict-2.ns2"},
+			{msg.MultipleSidecarsWithoutWorkloadSelectors, "Sidecar has-conflict-1.ns2"},
+		},
+	},
+	{
+		name:       "sidecarSelector",
+		inputFiles: []string{"testdata/sidecar-selector.yaml"},
+		analyzer:   &sidecar.SelectorAnalyzer{},
+		expected: []message{
+			{msg.ReferencedResourceNotFound, "Sidecar maps-to-nonexistent.default"},
+			{msg.ReferencedResourceNotFound, "Sidecar maps-to-different-ns.other"},
+			{msg.ConflictingSidecarWorkloadSelectors, "Sidecar dupe-1.default"},
+			{msg.ConflictingSidecarWorkloadSelectors, "Sidecar dupe-2.default"},
+			{msg.ConflictingSidecarWorkloadSelectors, "Sidecar overlap-1.default"},
+			{msg.ConflictingSidecarWorkloadSelectors, "Sidecar overlap-2.default"},
+		},
+	},
+	{
 		name:       "virtualServiceConflictingMeshGatewayHosts",
 		inputFiles: []string{"testdata/virtualservice_conflictingmeshgatewayhosts.yaml"},
 		analyzer:   &virtualservice.ConflictingMeshGatewayHostsAnalyzer{},
@@ -158,6 +207,8 @@ var testGrid = []testCase{
 		analyzer:   &virtualservice.DestinationHostAnalyzer{},
 		expected: []message{
 			{msg.ReferencedResourceNotFound, "VirtualService reviews-bogushost.default"},
+			{msg.ReferencedResourceNotFound, "VirtualService reviews-bookinfo-other.default"},
+			{msg.ReferencedResourceNotFound, "VirtualService reviews-mirror-bogushost.default"},
 		},
 	},
 	{
@@ -166,6 +217,7 @@ var testGrid = []testCase{
 		analyzer:   &virtualservice.DestinationRuleAnalyzer{},
 		expected: []message{
 			{msg.ReferencedResourceNotFound, "VirtualService reviews-bogussubset.default"},
+			{msg.ReferencedResourceNotFound, "VirtualService reviews-mirror-bogussubset.default"},
 		},
 	},
 	{
@@ -174,19 +226,6 @@ var testGrid = []testCase{
 		analyzer:   &virtualservice.GatewayAnalyzer{},
 		expected: []message{
 			{msg.ReferencedResourceNotFound, "VirtualService httpbin-bogus"},
-		},
-	},
-	{
-		name: "misannoted",
-		inputFiles: []string{
-			"testdata/misannotated.yaml",
-		},
-		analyzer: &annotations.K8sAnalyzer{},
-		expected: []message{
-			{msg.UnknownAnnotation, "Service httpbin"},
-			{msg.MisplacedAnnotation, "Service details"},
-			{msg.MisplacedAnnotation, "Pod grafana-test"},
-			{msg.MisplacedAnnotation, "Deployment fortio-deploy"},
 		},
 	},
 }

@@ -13,7 +13,7 @@ spec:
         traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
       creationTimestamp: null
       labels:
-        security.istio.io/mtlsReady: "true"
+        security.istio.io/tlsMode: istio
     spec:
       template:
         metadata:
@@ -54,8 +54,6 @@ spec:
             - NONE
             - --statusPort
             - "15020"
-            - --applicationPorts
-            - ""
             - --concurrency
             - "2"
             env:
@@ -93,11 +91,10 @@ spec:
               value: "false"
             - name: ISTIO_META_INTERCEPTION_MODE
               value: REDIRECT
-            - name: ISTIO_META_INCLUDE_INBOUND_PORTS
             - name: ISTIO_META_WORKLOAD_NAME
               value: hellocron
             - name: ISTIO_META_OWNER
-              value: kubernetes://api/batch/v2alpha1/namespaces/default/cronjobs/hellocron
+              value: kubernetes://apis/batch/v2alpha1/namespaces/default/cronjobs/hellocron
             image: docker.io/istio/proxyv2:unittest
             imagePullPolicy: IfNotPresent
             name: istio-proxy

@@ -10,26 +10,8 @@ messages:
       - name: detail
         type: string
 
-  - name: "NotYetImplemented"
-    code: IST0002
-    level: Error
-    description: "A feature that the configuration is depending on is not implemented yet."
-    template: "Not yet implemented: %s"
-    args:
-      - name: detail
-        type: string
-
-  - name: "ParseError"
-    code: IST0003
-    level: Warning
-    description: "There was a parse error during the parsing of the configuration text"
-    template: "Parse error: %s"
-    args:
-      - name: detail
-        type: string
-
   - name: "Deprecated"
-    code: IST0004
+    code: IST0002
     level: Warning
     description: "A feature that the configuration is depending on is now deprecated."
     template: "Deprecated: %s"
@@ -130,4 +112,28 @@ messages:
       - name: virtualServices
         type: string
       - name: host
+        type: string
+
+  - name: "ConflictingSidecarWorkloadSelectors"
+    code: IST0110
+    level: Error
+    description: "A Sidecar resource selects the same workloads as another Sidecar resource"
+    template: "The Sidecars %v in namespace %q select the same workload pod %q, which can lead to undefined behavior."
+    args:
+      - name: conflitingSidecars
+        type: "[]string"
+      - name: namespace
+        type: string
+      - name: workloadPod
+        type: string
+
+  - name: "MultipleSidecarsWithoutWorkloadSelectors"
+    code: IST0111
+    level: Error
+    description: "More than one sidecar resource in a namespace has no workload selector"
+    template: "The Sidecars %v in namespace %q have no workload selector, which can lead to undefined behavior."
+    args:
+      - name: conflitingSidecars
+        type: "[]string"
+      - name: namespace
         type: string

@@ -13,7 +13,7 @@ spec:
         traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
       creationTimestamp: null
       labels:
-        security.istio.io/mtlsReady: "true"
+        security.istio.io/tlsMode: istio
       name: pi
     spec:
       containers:
@@ -52,8 +52,6 @@ spec:
         - NONE
         - --statusPort
         - "15020"
-        - --applicationPorts
-        - ""
         - --concurrency
         - "2"
         env:
@@ -91,11 +89,10 @@ spec:
           value: "false"
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
-        - name: ISTIO_META_INCLUDE_INBOUND_PORTS
         - name: ISTIO_META_WORKLOAD_NAME
           value: pi
         - name: ISTIO_META_OWNER
-          value: kubernetes://api/batch/v1/namespaces/default/jobs/pi
+          value: kubernetes://apis/batch/v1/namespaces/default/jobs/pi
         image: docker.io/istio/proxyv2:unittest
         imagePullPolicy: IfNotPresent
         name: istio-proxy

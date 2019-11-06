@@ -43,6 +43,7 @@ type Principal struct {
 	RequestPrincipals []string
 	Properties        []KeyValues
 	AllowAll          bool
+	v1beta1           bool
 }
 
 // ValidateForTCP checks if the principal is valid for TCP filter. A principal is not valid for TCP
@@ -90,58 +91,58 @@ func (principal *Principal) Generate(forTCPFilter bool) (*envoy_rbac.Principal, 
 	}
 
 	if len(principal.Users) != 0 {
-		principal := principalForKeyValues(attrSrcPrincipal, principal.Users, forTCPFilter)
+		principal := principal.forKeyValues(attrSrcPrincipal, principal.Users, forTCPFilter)
 		pg.append(principal)
 	}
 
 	if len(principal.Names) > 0 {
-		principal := principalForKeyValues(attrSrcPrincipal, principal.Names, forTCPFilter)
+		principal := principal.forKeyValues(attrSrcPrincipal, principal.Names, forTCPFilter)
 		pg.append(principal)
 	}
 
 	if len(principal.NotNames) > 0 {
-		principal := principalForKeyValues(attrSrcPrincipal, principal.NotNames, forTCPFilter)
+		principal := principal.forKeyValues(attrSrcPrincipal, principal.NotNames, forTCPFilter)
 		pg.append(principalNot(principal))
 	}
 
 	if len(principal.RequestPrincipals) > 0 {
-		principal := principalForKeyValues(attrRequestPrincipal, principal.RequestPrincipals, forTCPFilter)
+		principal := principal.forKeyValues(attrRequestPrincipal, principal.RequestPrincipals, forTCPFilter)
 		pg.append(principal)
 	}
 
 	if principal.Group != "" {
-		principal := principalForKeyValue(attrRequestClaimGroups, principal.Group, forTCPFilter)
+		principal := principal.forKeyValue(attrRequestClaimGroups, principal.Group, forTCPFilter)
 		pg.append(principal)
 	}
 
 	if len(principal.Groups) > 0 {
 		// TODO: Validate attrRequestClaimGroups and principal.Groups are not used at the same time.
-		principal := principalForKeyValues(attrRequestClaimGroups, principal.Groups, forTCPFilter)
+		principal := principal.forKeyValues(attrRequestClaimGroups, principal.Groups, forTCPFilter)
 		pg.append(principal)
 	}
 
 	if len(principal.NotGroups) > 0 {
-		principal := principalForKeyValues(attrRequestClaimGroups, principal.NotGroups, forTCPFilter)
+		principal := principal.forKeyValues(attrRequestClaimGroups, principal.NotGroups, forTCPFilter)
 		pg.append(principalNot(principal))
 	}
 
 	if len(principal.Namespaces) > 0 {
-		principal := principalForKeyValues(attrSrcNamespace, principal.Namespaces, forTCPFilter)
+		principal := principal.forKeyValues(attrSrcNamespace, principal.Namespaces, forTCPFilter)
 		pg.append(principal)
 	}
 
 	if len(principal.NotNamespaces) > 0 {
-		principal := principalForKeyValues(attrSrcNamespace, principal.NotNamespaces, forTCPFilter)
+		principal := principal.forKeyValues(attrSrcNamespace, principal.NotNamespaces, forTCPFilter)
 		pg.append(principalNot(principal))
 	}
 
 	if len(principal.IPs) > 0 {
-		principal := principalForKeyValues(attrSrcIP, principal.IPs, forTCPFilter)
+		principal := principal.forKeyValues(attrSrcIP, principal.IPs, forTCPFilter)
 		pg.append(principal)
 	}
 
 	if len(principal.NotIPs) > 0 {
-		principal := principalForKeyValues(attrSrcIP, principal.NotIPs, forTCPFilter)
+		principal := principal.forKeyValues(attrSrcIP, principal.NotIPs, forTCPFilter)
 		pg.append(principalNot(principal))
 	}
 
@@ -156,13 +157,13 @@ func (principal *Principal) Generate(forTCPFilter bool) (*envoy_rbac.Principal, 
 
 		for _, k := range keys {
 			// TODO: Validate attrSrcPrincipal and principal.Names are not used at the same time.
-			principal := principalForKeyValues(k, p[k], forTCPFilter)
+			newPrincipal := principal.forKeyValues(k, p[k], forTCPFilter)
 			if len(p[k]) == 1 {
 				// FIXME: Temporary hack to avoid changing unit tests during code refactor. Remove once
 				// we finish the code refactor with new unit tests.
-				principal = principalForKeyValue(k, p[k][0], forTCPFilter)
+				newPrincipal = principal.forKeyValue(k, p[k][0], forTCPFilter)
 			}
-			pg.append(principal)
+			pg.append(newPrincipal)
 		}
 	}
 
@@ -190,19 +191,19 @@ func isSupportedPrincipal(key string) bool {
 	return true
 }
 
-// principalForKeyValues converts a key-values pair to envoy RBAC principal. The key specify the
+// forKeyValues converts a key-values pair to envoy RBAC principal. The key specify the
 // type of the principal (e.g. source IP, source principals, etc.), the values specify the allowed
 // value of the key, multiple values are ORed together.
-func principalForKeyValues(key string, values []string, forTCPFilter bool) *envoy_rbac.Principal {
+func (principal *Principal) forKeyValues(key string, values []string, forTCPFilter bool) *envoy_rbac.Principal {
 	pg := principalGenerator{}
 	for _, value := range values {
-		principal := principalForKeyValue(key, value, forTCPFilter)
+		principal := principal.forKeyValue(key, value, forTCPFilter)
 		pg.append(principal)
 	}
 	return pg.orPrincipals()
 }
 
-func principalForKeyValue(key, value string, forTCPFilter bool) *envoy_rbac.Principal {
+func (principal *Principal) forKeyValue(key, value string, forTCPFilter bool) *envoy_rbac.Principal {
 	switch {
 	case attrSrcIP == key:
 		cidr, err := matcher.CidrRange(value)
@@ -224,24 +225,27 @@ func principalForKeyValue(key, value string, forTCPFilter bool) *envoy_rbac.Prin
 		metadata := matcher.MetadataStringMatcher(authn_model.AuthnFilterName, attrSrcPrincipal, m)
 		return principalMetadata(metadata)
 	case attrSrcPrincipal == key:
-		if value == allUsers || value == "*" {
-			return principalAny(true)
-		}
-		// We don't allow users to use "*" in names or not_names. However, we will use "*" internally to
-		// refer to authenticated users, since existing code using regex to map "*" to all authenticated
-		// users.
-		if value == allAuthenticatedUsers {
-			value = "*"
+		if !principal.v1beta1 {
+			// Legacy support for the v1alpha1 policy. The v1beta1 doesn't support these.
+			if value == allUsers || value == "*" {
+				return principalAny(true)
+			}
+			// We don't allow users to use "*" in names or not_names. However, we will use "*" internally to
+			// refer to authenticated users, since existing code using regex to map "*" to all authenticated
+			// users.
+			if value == allAuthenticatedUsers {
+				value = "*"
+			}
 		}
 
 		if forTCPFilter {
-			m := matcher.StringMatcherWithPrefix(value, spiffe.URIPrefix)
+			m := matcher.StringMatcherWithPrefix(value, spiffe.URIPrefix, principal.v1beta1)
 			return principalAuthenticated(m)
 		}
-		metadata := matcher.MetadataStringMatcher(authn_model.AuthnFilterName, key, matcher.StringMatcher(value))
+		metadata := matcher.MetadataStringMatcher(authn_model.AuthnFilterName, key, matcher.StringMatcher(value, principal.v1beta1))
 		return principalMetadata(metadata)
 	case found(key, []string{attrRequestPrincipal, attrRequestAudiences, attrRequestPresenter, attrSrcUser}):
-		m := matcher.MetadataStringMatcher(authn_model.AuthnFilterName, key, matcher.StringMatcher(value))
+		m := matcher.MetadataStringMatcher(authn_model.AuthnFilterName, key, matcher.StringMatcher(value, principal.v1beta1))
 		return principalMetadata(m)
 	case strings.HasPrefix(key, attrRequestHeader):
 		header, err := extractNameInBrackets(strings.TrimPrefix(key, attrRequestHeader))
@@ -258,7 +262,7 @@ func principalForKeyValue(key, value string, forTCPFilter bool) *envoy_rbac.Prin
 		}
 		// Generate a metadata list matcher for the given path keys and value.
 		// On proxy side, the value should be of list type.
-		m := matcher.MetadataListMatcher(authn_model.AuthnFilterName, []string{attrRequestClaims, claim}, value)
+		m := matcher.MetadataListMatcher(authn_model.AuthnFilterName, []string{attrRequestClaims, claim}, value, principal.v1beta1)
 		return principalMetadata(m)
 	default:
 		rbacLog.Debugf("generated dynamic metadata matcher for custom property: %s", key)
@@ -266,7 +270,7 @@ func principalForKeyValue(key, value string, forTCPFilter bool) *envoy_rbac.Prin
 		if forTCPFilter {
 			filterName = RBACTCPFilterName
 		}
-		metadata := matcher.MetadataStringMatcher(filterName, key, matcher.StringMatcher(value))
+		metadata := matcher.MetadataStringMatcher(filterName, key, matcher.StringMatcher(value, principal.v1beta1))
 		return principalMetadata(metadata)
 	}
 }

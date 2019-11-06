@@ -36,7 +36,7 @@ items:
         creationTimestamp: null
         labels:
           app: hello
-          security.istio.io/mtlsReady: "true"
+          security.istio.io/tlsMode: istio
           tier: frontend
           track: stable
       spec:
@@ -78,8 +78,6 @@ items:
           - NONE
           - --statusPort
           - "15020"
-          - --applicationPorts
-          - ""
           - --concurrency
           - "2"
           env:
@@ -117,14 +115,13 @@ items:
             value: "false"
           - name: ISTIO_META_INTERCEPTION_MODE
             value: REDIRECT
-          - name: ISTIO_META_INCLUDE_INBOUND_PORTS
           - name: ISTIO_METAJSON_LABELS
             value: |
               {"app":"hello","tier":"frontend","track":"stable"}
           - name: ISTIO_META_WORKLOAD_NAME
             value: frontend
           - name: ISTIO_META_OWNER
-            value: kubernetes://api/apps/v1/namespaces/default/deployments/frontend
+            value: kubernetes://apis/apps/v1/namespaces/default/deployments/frontend
           image: docker.io/istio/proxyv2:unittest
           imagePullPolicy: IfNotPresent
           name: istio-proxy

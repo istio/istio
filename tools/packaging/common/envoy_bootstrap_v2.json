@@ -535,7 +535,8 @@
       "name": "envoy.zipkin",
       "config": {
         "collector_cluster": "zipkin",
-        "collector_endpoint": "/api/v1/spans",
+        "collector_endpoint": "/api/v2/spans",
+        "collector_endpoint_version": "HTTP_JSON",
         "trace_id_128bit": "true",
         "shared_span_context": "false"
       }
@@ -572,8 +573,8 @@
       "stackdriver_exporter_enabled": true,
       "stackdriver_project_id": "{{ .stackdriverProjectID }}",
       "stdout_exporter_enabled": {{ .stackdriverDebug }},
-      "incoming_trace_context": ["CLOUD_TRACE_CONTEXT", "TRACE_CONTEXT", "GRPC_TRACE_BIN"],
-      "outgoing_trace_context": ["CLOUD_TRACE_CONTEXT", "TRACE_CONTEXT", "GRPC_TRACE_BIN"],
+      "incoming_trace_context": ["CLOUD_TRACE_CONTEXT", "TRACE_CONTEXT", "GRPC_TRACE_BIN", "B3"],
+      "outgoing_trace_context": ["CLOUD_TRACE_CONTEXT", "TRACE_CONTEXT", "GRPC_TRACE_BIN", "B3"],
       "trace_config":{
         "constant_sampler":{
           "decision": "ALWAYS_PARENT"

@@ -143,7 +143,17 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 			}
 		} else {
 			for cnum := range mutable.FilterChains {
-				mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
+				if mutable.FilterChains[cnum].IsFallThrough {
+					svc := util.FallThroughFilterChainBlackHoleService
+					if util.IsAllowAnyOutbound(in.Node) {
+						svc = util.FallThroughFilterChainPassthroughService
+					}
+					attrs := createOutboundListenerAttributes(in)
+					fallThroughFilter := buildOutboundTCPFilter(in.Env.Mesh, attrs, in.Node, svc)
+					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, fallThroughFilter)
+				} else {
+					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
+				}
 			}
 		}
 		return nil
@@ -325,6 +335,11 @@ func (mixerplugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConf
 
 // OnInboundFilterChains is called whenever a plugin needs to setup the filter chains, including relevant filter chain configuration.
 func (mixerplugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
+	return nil
+}
+
+// OnInboundPassthrough is called whenever a new passthrough filter chain is added to the LDS output.
+func (mixerplugin) OnInboundPassthrough(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 	return nil
 }
 

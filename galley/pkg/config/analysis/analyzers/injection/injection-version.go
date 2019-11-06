@@ -90,7 +90,7 @@ func (a *VersionAnalyzer) Analyze(c analysis.Context) {
 				continue
 			}
 			// Attempt to parse out the version of the proxy.
-			_, v := getContainerNameVersion(&container)
+			v := getContainerNameVersion(&container)
 			// We can't check anything without a version; skip the pod.
 			if v == "" {
 				continue
@@ -127,7 +127,7 @@ func tryReturnSidecarInjectorVersion(p *v1.Pod) string {
 			continue
 		}
 
-		_, v := getContainerNameVersion(&c)
+		v := getContainerNameVersion(&c)
 		return v
 	}
 
@@ -137,12 +137,11 @@ func tryReturnSidecarInjectorVersion(p *v1.Pod) string {
 // getContainerNameVersion parses the name and version from a container image.
 // If the version is not specified or can't be found, version is the empty
 // string.
-func getContainerNameVersion(c *v1.Container) (image string, version string) {
+func getContainerNameVersion(c *v1.Container) (version string) {
 	parts := strings.Split(c.Image, ":")
 	if len(parts) != 2 {
-		return c.Image, ""
+		return ""
 	}
-	image = parts[0]
 	version = parts[1]
 	return
 }

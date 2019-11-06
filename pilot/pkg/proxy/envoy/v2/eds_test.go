@@ -155,6 +155,117 @@ func TestEDSOverlapping(t *testing.T) {
 	testOverlappingPorts(server, adscConn, t)
 }
 
+// Validates the behavior when Service resolution type is updated after initial EDS push.
+// See https://github.com/istio/istio/issues/18355 for more details.
+func TestEDSServiceResolutionUpdate(t *testing.T) {
+
+	server, tearDown := initLocalPilotTestEnv(t)
+	defer tearDown()
+
+	// add a eds type of cluster with static end points.
+	addEdsCluster(server, "edsdns.svc.cluster.local", "http", "10.0.0.53", 8080)
+
+	adscConn := adsConnectAndWait(t, 0x0a0a0a0a)
+	defer adscConn.Close()
+
+	// Validate that endpoints are pushed correctly.
+	testEndpoints("10.0.0.53", "outbound|8080||edsdns.svc.cluster.local", adscConn, t)
+
+	// Now update the service resolution to DNSLB with a DNS endpoint.
+	updateServiceResolution(server)
+
+	_, _ = adscConn.Wait(5*time.Second, "eds")
+
+	// Validate that endpoints are skipped.
+	lbe := adscConn.GetEndpoints()["outbound|8080||edsdns.svc.cluster.local"]
+	if lbe != nil && len(lbe.Endpoints) > 0 {
+		t.Fatalf("endpoints not expected for  %s,  but got %v", "edsdns.svc.cluster.local", adscConn.EndpointsJSON())
+	}
+}
+
+// Validate that when endpoints of a service flipflop between 1 and 0 does not trigger a full push.
+func TestEndpointFlipFlops(t *testing.T) {
+
+	server, tearDown := initLocalPilotTestEnv(t)
+	defer tearDown()
+
+	// add a eds type of cluster with static end points.
+	addEdsCluster(server, "flipflop.com", "http", "10.0.0.53", 8080)
+
+	adscConn := adsConnectAndWait(t, 0x0a0a0a0a)
+	defer adscConn.Close()
+
+	// Validate that endpoints are pushed correctly.
+	testEndpoints("10.0.0.53", "outbound|8080||flipflop.com", adscConn, t)
+
+	// Clear the endpoint and validate it does not trigger a full push.
+	server.EnvoyXdsServer.MemRegistry.SetEndpoints("flipflop.com", "", []*model.IstioEndpoint{})
+
+	upd, _ := adscConn.Wait(5*time.Second, "cds")
+
+	if contains(upd, "cds") {
+		t.Fatalf("Expecting only EDS update as part of a partial push. But received CDS also %v", upd)
+	}
+
+	if len(upd) > 0 && !contains(upd, "eds") {
+		t.Fatalf("Expecting EDS push as part of a partial push. But did not receive %v", upd)
+	}
+
+	lbe := adscConn.GetEndpoints()["outbound|8080||flipflop.com"]
+	if len(lbe.Endpoints) != 0 {
+		t.Fatalf("There should be no endpoints for outbound|8080||flipflop.com. Endpoints:\n%v", adscConn.EndpointsJSON())
+	}
+
+	// Validate that keys in service still exist in EndpointShardsByService - this prevents full push.
+	if len(server.EnvoyXdsServer.EndpointShardsByService["flipflop.com"]) == 0 {
+		t.Fatalf("Expected service key %s to be present in EndpointShardsByService. But missing %v", "flipflop.com", server.EnvoyXdsServer.EndpointShardsByService)
+	}
+
+	// Set the endpoints again and validate it does not trigger full push.
+	server.EnvoyXdsServer.MemRegistry.SetEndpoints("flipflop.com", "",
+		[]*model.IstioEndpoint{
+			{
+				Address:         "10.10.1.1",
+				ServicePortName: "http",
+				EndpointPort:    8080,
+			}})
+
+	upd, _ = adscConn.Wait(5*time.Second, "cds")
+
+	if contains(upd, "cds") {
+		t.Fatal("Expecting only EDS update as part of a partial push. But received CDS also +v", upd)
+	}
+
+	if len(upd) > 0 && !contains(upd, "eds") {
+		t.Fatal("Expecting EDS push as part of a partial push. But did not receive +v", upd)
+	}
+
+	testEndpoints("10.10.1.1", "outbound|8080||flipflop.com", adscConn, t)
+}
+
+// Validate that deleting a service clears entries from EndpointShardsByService.
+func TestDeleteService(t *testing.T) {
+
+	server, tearDown := initLocalPilotTestEnv(t)
+	defer tearDown()
+
+	// add a eds type of cluster with static end points.
+	addEdsCluster(server, "removeservice.com", "http", "10.0.0.53", 8080)
+
+	adscConn := adsConnectAndWait(t, 0x0a0a0a0a)
+	defer adscConn.Close()
+
+	// Validate that endpoints are pushed correctly.
+	testEndpoints("10.0.0.53", "outbound|8080||removeservice.com", adscConn, t)
+
+	server.EnvoyXdsServer.MemRegistry.RemoveService("removeservice.com")
+
+	if len(server.EnvoyXdsServer.EndpointShardsByService["removeservice.com"]) != 0 {
+		t.Fatalf("Expected service key %s to be deleted in EndpointShardsByService. But is still there %v",
+			"removeservice.com", server.EnvoyXdsServer.EndpointShardsByService)
+	}
+}
+
 func adsConnectAndWait(t *testing.T, ip int) *adsc.ADSC {
 	adscConn, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
 		IP: testIP(uint32(ip)),
@@ -627,6 +738,59 @@ func addLocalityEndpoints(server *bootstrap.Server, hostname host.Name) {
 	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
 }
 
+func addEdsCluster(server *bootstrap.Server, hostName string, portName string, address string, port int) {
+	server.EnvoyXdsServer.MemRegistry.AddService(host.Name(hostName), &model.Service{
+		Hostname: host.Name(hostName),
+		Ports: model.PortList{
+			{
+				Name:     portName,
+				Port:     port,
+				Protocol: protocol.HTTP,
+			},
+		},
+	})
+
+	server.EnvoyXdsServer.MemRegistry.AddInstance(host.Name(hostName), &model.ServiceInstance{
+		Endpoint: model.NetworkEndpoint{
+			Address: address,
+			Port:    port,
+			ServicePort: &model.Port{
+				Name:     portName,
+				Port:     port,
+				Protocol: protocol.HTTP,
+			},
+		},
+	})
+	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
+}
+
+func updateServiceResolution(server *bootstrap.Server) {
+	server.EnvoyXdsServer.MemRegistry.AddService("edsdns.svc.cluster.local", &model.Service{
+		Hostname: "edsdns.svc.cluster.local",
+		Ports: model.PortList{
+			{
+				Name:     "http",
+				Port:     8080,
+				Protocol: protocol.HTTP,
+			},
+		},
+		Resolution: model.DNSLB,
+	})
+
+	server.EnvoyXdsServer.MemRegistry.AddInstance("edsdns.svc.cluster.local", &model.ServiceInstance{
+		Endpoint: model.NetworkEndpoint{
+			Address: "somevip.com",
+			Port:    8080,
+			ServicePort: &model.Port{
+				Name:     "http",
+				Port:     8080,
+				Protocol: protocol.HTTP,
+			},
+		},
+	})
+	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
+}
+
 func addOverlappingEndpoints(server *bootstrap.Server) {
 	server.EnvoyXdsServer.MemRegistry.AddService("overlapping.cluster.local", &model.Service{
 		Hostname: "overlapping.cluster.local",
@@ -677,4 +841,13 @@ func testEdsz(t *testing.T) {
 	if !strings.Contains(statusStr, "\"outbound|8080||eds.test.svc.cluster.local\"") {
 		t.Fatal("Mock eds service not found ", statusStr)
 	}
+}
+
+func contains(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
 }

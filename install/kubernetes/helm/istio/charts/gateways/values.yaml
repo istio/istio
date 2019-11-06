@@ -119,19 +119,12 @@ istio-ingressgateway:
     mountPath: /etc/istio/ingressgateway-ca-certs
   ### Advanced options ############
 
-  # Ports to explicitly check for readiness. If configured, the readiness check will expect a
-  # listener on these ports. A comma separated list is expected, such as "80,443".
-  #
-  # Warning: If you do not have a gateway configured for the ports provided, this check will always
-  # fail. This is intended for use cases where you always expect to have a listener on the port,
-  # such as 80 or 443 in typical setups.
-  applicationPorts: ""
-
   env:
-    # A gateway with this mode ensures that pilot generates an additional
-    # set of clusters for internal services but without Istio mTLS, to
-    # enable cross cluster routing.
-    ISTIO_META_ROUTER_MODE: "sni-dnat"
+    # By default, a gateway is in "standard" mode. If the mode is set to "sni-dnat", 
+    # pilot generates an additional
+    # set of clusters for internal services without Istio mTLS, to
+    # enable cross cluster routing. Enable when using multi-cluster routing.
+    ISTIO_META_ROUTER_MODE: "standard"
   nodeSelector: {}
   tolerations: []
 
@@ -206,10 +199,12 @@ istio-egressgateway:
     # the egress gateway sees the same set of endpoints as the sidecars
     # preserving backward compatibility
     # ISTIO_META_REQUESTED_NETWORK_VIEW: ""
-    # A gateway with this mode ensures that pilot generates an additional
+
+    # By default, a gateway is in "standard" mode. If the mode is set to "sni-dnat", 
+    # pilot generates an additional 
     # set of clusters for internal services but without Istio mTLS, to
     # enable cross cluster routing.
-    ISTIO_META_ROUTER_MODE: "sni-dnat"
+    ISTIO_META_ROUTER_MODE: "standard"
   nodeSelector: {}
   tolerations: []
   

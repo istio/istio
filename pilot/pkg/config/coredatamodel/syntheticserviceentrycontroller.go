@@ -17,6 +17,7 @@ package coredatamodel
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -34,8 +35,9 @@ import (
 )
 
 var (
-	endpointKey = annotation.AlphaNetworkingEndpointsVersion.Name
-	serviceKey  = annotation.AlphaNetworkingServiceVersion.Name
+	endpointKey         = annotation.AlphaNetworkingEndpointsVersion.Name
+	serviceKey          = annotation.AlphaNetworkingServiceVersion.Name
+	notReadyEndpointkey = annotation.AlphaNetworkingNotReadyEndpoints.Name
 )
 
 // SyntheticServiceEntryController is a temporary storage for the changes received
@@ -43,18 +45,20 @@ var (
 type SyntheticServiceEntryController struct {
 	configStoreMu sync.RWMutex
 	// keys [namespace][name]
-	configStore map[string]map[string]*model.Config
-	synced      uint32
+	configStore         map[string]map[string]*model.Config
+	synced              uint32
+	notReadyEndpointsMu sync.RWMutex
+	// [ip:port]config
+	notReadyEndpoints map[string]*model.Config
 	*Options
-	discovery *MCPDiscovery
 }
 
 // NewSyntheticServiceEntryController provides a new incremental CoreDataModel controller
-func NewSyntheticServiceEntryController(options *Options, d *MCPDiscovery) CoreDataModel {
+func NewSyntheticServiceEntryController(options *Options) CoreDataModel {
 	return &SyntheticServiceEntryController{
-		configStore: make(map[string]map[string]*model.Config),
-		Options:     options,
-		discovery:   d,
+		configStore:       make(map[string]map[string]*model.Config),
+		notReadyEndpoints: make(map[string]*model.Config),
+		Options:           options,
 	}
 }
 
@@ -224,13 +228,27 @@ func (c *SyntheticServiceEntryController) convertToConfig(obj *sink.Object) (con
 		return nil, err
 	}
 
-	c.discovery.RegisterNotReadyEndpoints(conf)
+	c.registerNotReadyEndpoints(conf)
 	return conf, nil
 
 }
 
+// registerNotReadyEndpoints registers newly received NotReadyEndpoints
+// via MCP annotations
+func (c *SyntheticServiceEntryController) registerNotReadyEndpoints(conf *model.Config) {
+	c.notReadyEndpointsMu.Lock()
+	defer c.notReadyEndpointsMu.Unlock()
+
+	if nrEps, ok := conf.Annotations[notReadyEndpointkey]; ok {
+		addrs := strings.Split(nrEps, ",")
+		for _, addr := range addrs {
+			c.notReadyEndpoints[addr] = conf
+		}
+	}
+}
+
 func (c *SyntheticServiceEntryController) configStoreUpdate(resources []*sink.Object) {
-	svcChanged := c.isFullUpdateRequired(resources)
+	svcChangeByNamespace := make(map[string]struct{})
 	configs := make(map[string]map[string]*model.Config)
 	for _, obj := range resources {
 		conf, err := c.convertToConfig(obj)
@@ -247,15 +265,10 @@ func (c *SyntheticServiceEntryController) configStoreUpdate(resources []*sink.Ob
 			}
 		}
 
-		if !svcChanged {
-			// this is done before updating internal cache
-			oldEpVersion := c.endpointVersion(conf.Namespace, conf.Name)
-			newEpVersion := version(conf.Annotations, endpointKey)
-			if newEpVersion != "" && oldEpVersion != newEpVersion {
-				if err := c.edsUpdate(conf); err != nil {
-					log.Warnf("edsUpdate: %v", err)
-				}
-			}
+		svcChanged := c.isFullUpdateRequired(conf)
+		if svcChanged {
+			svcChangeByNamespace[conf.Namespace] = struct{}{}
+			continue
 		}
 	}
 
@@ -263,29 +276,34 @@ func (c *SyntheticServiceEntryController) configStoreUpdate(resources []*sink.Ob
 	c.configStore = configs
 	c.configStoreMu.Unlock()
 
-	if svcChanged {
-		if c.XDSUpdater != nil {
-			c.XDSUpdater.ConfigUpdate(&model.PushRequest{
-				Full:               true,
-				ConfigTypesUpdated: map[string]struct{}{schemas.SyntheticServiceEntry.Type: {}},
-			})
-		}
+	// TODO: Service change is not triggering full update in the e-e-pilot test. Even endpoint change is not
+	// functioning correctly. Currently it is working because on edsUpdate if we set endpoints to 0, we remove
+	// the service from EndpointShardsByService and subsequent eds updates trigger a full push. That is being
+	// fixed in https://github.com/istio/istio/pull/18574. Need to fix this issue and re-enable conditional
+	// full push. For now, any configupdate triggers a full push much like service entries.
+	if c.XDSUpdater != nil {
+		c.XDSUpdater.ConfigUpdate(&model.PushRequest{
+			Full:               true,
+			ConfigTypesUpdated: map[string]struct{}{schemas.SyntheticServiceEntry.Type: {}},
+			NamespacesUpdated:  svcChangeByNamespace,
+		})
 	}
+
 }
 
 func (c *SyntheticServiceEntryController) incrementalUpdate(resources []*sink.Object) {
-	svcChanged := c.isFullUpdateRequired(resources)
+	svcChangeByNamespace := make(map[string]struct{})
 	for _, obj := range resources {
 		conf, err := c.convertToConfig(obj)
 		if err != nil {
 			continue
 		}
 
+		svcChanged := c.isFullUpdateRequired(conf)
 		var oldEpVersion string
 		c.configStoreMu.Lock()
 		namedConf, ok := c.configStore[conf.Namespace]
 		if ok {
-
 			if namedConf[conf.Name] != nil {
 				oldEpVersion = version(namedConf[conf.Name].Annotations, endpointKey)
 			}
@@ -297,18 +315,26 @@ func (c *SyntheticServiceEntryController) incrementalUpdate(resources []*sink.Ob
 		}
 		c.configStoreMu.Unlock()
 
+		if svcChanged {
+			svcChangeByNamespace[conf.Namespace] = struct{}{}
+			continue
+		}
+
 		newEpVersion := version(conf.Annotations, endpointKey)
-		if newEpVersion != "" && oldEpVersion != newEpVersion {
+		if oldEpVersion != newEpVersion {
 			if err := c.edsUpdate(conf); err != nil {
 				log.Warnf("edsUpdate: %v", err)
 			}
 		}
 	}
-	if svcChanged {
-		c.XDSUpdater.ConfigUpdate(&model.PushRequest{
-			Full:               true,
-			ConfigTypesUpdated: map[string]struct{}{schemas.SyntheticServiceEntry.Type: {}},
-		})
+	if len(svcChangeByNamespace) != 0 {
+		if c.XDSUpdater != nil {
+			c.XDSUpdater.ConfigUpdate(&model.PushRequest{
+				Full:               true,
+				ConfigTypesUpdated: map[string]struct{}{schemas.SyntheticServiceEntry.Type: {}},
+				NamespacesUpdated:  svcChangeByNamespace,
+			})
+		}
 	}
 }
 
@@ -322,8 +348,7 @@ func (c *SyntheticServiceEntryController) edsUpdate(config *model.Config) error 
 	return c.XDSUpdater.EDSUpdate(c.ClusterID, hostname, config.Namespace, istioEndpoints)
 }
 
-func (c *SyntheticServiceEntryController) configExist(metadataName string) *model.Config {
-	namespace, name := extractNameNamespace(metadataName)
+func (c *SyntheticServiceEntryController) configExist(namespace, name string) *model.Config {
 	c.configStoreMu.Lock()
 	defer c.configStoreMu.Unlock()
 	configs, ok := c.configStore[namespace]
@@ -337,20 +362,15 @@ func (c *SyntheticServiceEntryController) configExist(metadataName string) *mode
 	return conf
 }
 
-func (c *SyntheticServiceEntryController) isFullUpdateRequired(resources []*sink.Object) bool {
-	for _, obj := range resources {
-		conf := c.configExist(obj.Metadata.Name)
-		if conf == nil {
-			// if config does not exist send it down configUpdate path
-			return true
-		}
-		oldVersion := version(conf.Annotations, serviceKey)
-		newVersion := version(obj.Metadata.Annotations, serviceKey)
-		if oldVersion != newVersion {
-			return true
-		}
+func (c *SyntheticServiceEntryController) isFullUpdateRequired(newConf *model.Config) bool {
+	oldConf := c.configExist(newConf.Namespace, newConf.Name)
+	if oldConf == nil {
+		// if config does not exist send it down configUpdate path
+		return true
 	}
-	return false
+	oldVersion := version(oldConf.Annotations, serviceKey)
+	newVersion := version(newConf.Annotations, serviceKey)
+	return oldVersion != newVersion
 }
 
 func convertEndpoints(se *networking.ServiceEntry, cfgName, ns string) (endpoints []*model.IstioEndpoint) {
@@ -371,18 +391,6 @@ func convertEndpoints(se *networking.ServiceEntry, cfgName, ns string) (endpoint
 		}
 	}
 	return endpoints
-}
-
-func (c *SyntheticServiceEntryController) endpointVersion(ns, name string) string {
-	c.configStoreMu.Lock()
-	defer c.configStoreMu.Unlock()
-	if namedConf, ok := c.configStore[ns]; ok {
-		if conf, ok := namedConf[name]; ok {
-			return version(conf.Annotations, endpointKey)
-		}
-		return ""
-	}
-	return ""
 }
 
 func version(anno map[string]string, key string) string {
