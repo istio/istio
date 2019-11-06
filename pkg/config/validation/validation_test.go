@@ -4727,7 +4727,7 @@ func TestValidateSidecar(t *testing.T) {
 func TestValidateLocalityLbSetting(t *testing.T) {
 	cases := []struct {
 		name  string
-		in    *meshconfig.LocalityLoadBalancerSetting
+		in    *networking.LocalityLoadBalancerSetting
 		valid bool
 	}{
 		{
@@ -4738,8 +4738,8 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 
 		{
 			name: "invalid LocalityLoadBalancerSetting_Distribute total weight > 100",
-			in: &meshconfig.LocalityLoadBalancerSetting{
-				Distribute: []*meshconfig.LocalityLoadBalancerSetting_Distribute{
+			in: &networking.LocalityLoadBalancerSetting{
+				Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
 					{
 						From: "a/b/c",
 						To: map[string]uint32{
@@ -4753,8 +4753,8 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 		},
 		{
 			name: "invalid LocalityLoadBalancerSetting_Distribute total weight < 100",
-			in: &meshconfig.LocalityLoadBalancerSetting{
-				Distribute: []*meshconfig.LocalityLoadBalancerSetting_Distribute{
+			in: &networking.LocalityLoadBalancerSetting{
+				Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
 					{
 						From: "a/b/c",
 						To: map[string]uint32{
@@ -4768,8 +4768,8 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 		},
 		{
 			name: "invalid LocalityLoadBalancerSetting_Distribute weight = 0",
-			in: &meshconfig.LocalityLoadBalancerSetting{
-				Distribute: []*meshconfig.LocalityLoadBalancerSetting_Distribute{
+			in: &networking.LocalityLoadBalancerSetting{
+				Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
 					{
 						From: "a/b/c",
 						To: map[string]uint32{
@@ -4783,8 +4783,8 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 		},
 		{
 			name: "invalid LocalityLoadBalancerSetting specify both distribute and failover",
-			in: &meshconfig.LocalityLoadBalancerSetting{
-				Distribute: []*meshconfig.LocalityLoadBalancerSetting_Distribute{
+			in: &networking.LocalityLoadBalancerSetting{
+				Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
 					{
 						From: "a/b/c",
 						To: map[string]uint32{
@@ -4793,7 +4793,7 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 						},
 					},
 				},
-				Failover: []*meshconfig.LocalityLoadBalancerSetting_Failover{
+				Failover: []*networking.LocalityLoadBalancerSetting_Failover{
 					{
 						From: "region1",
 						To:   "region2",
@@ -4805,8 +4805,8 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 
 		{
 			name: "invalid failover src and dst have same region",
-			in: &meshconfig.LocalityLoadBalancerSetting{
-				Failover: []*meshconfig.LocalityLoadBalancerSetting_Failover{
+			in: &networking.LocalityLoadBalancerSetting{
+				Failover: []*networking.LocalityLoadBalancerSetting_Failover{
 					{
 						From: "region1",
 						To:   "region1",
