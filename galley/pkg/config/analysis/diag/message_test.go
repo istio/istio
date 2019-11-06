@@ -59,5 +59,5 @@ func TestMessage_JSON(t *testing.T) {
 	m := NewMessage(mt, o, "Feta")
 
 	json_bytes, _ := json.Marshal(&m)
-	g.Expect(string(json_bytes)).To(Equal(`{"code":"IST-0042","level":"Error","message":"Cheese type not found: \"Feta\"","origin":"toppings/cheese","parameters":["Feta"]}`))
+	g.Expect(string(json_bytes)).To(Equal(`{"code":"IST-0042","level":"Error","message":"Cheese type not found: \"Feta\"","origin":"toppings/cheese"}`))
 }
