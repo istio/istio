@@ -382,7 +382,7 @@ spec:
       containers:
         - name: galley
           image: "gcr.io/istio-testing/galley:latest"
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           ports:
           - containerPort: 9443
           - containerPort: 15014
@@ -440,7 +440,7 @@ spec:
             
         - name: istio-proxy
           image: "gcr.io/istio-testing/proxyv2:latest"
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           ports:
           - containerPort: 9902
           args:

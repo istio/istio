@@ -163,7 +163,6 @@ template: |
   {{- if .Values.global.logAsJson }}
     - --log_as_json
   {{- end }}
-    - --controlPlaneBootstrap=false
   {{- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
     - --templateFile=/etc/istio/custom-bootstrap/envoy_bootstrap.json
   {{- end }}
@@ -283,10 +282,13 @@ template: |
       capabilities:
         add:
         - NET_ADMIN
+      runAsGroup: 1337
       {{ else -}}
+      {{ if .Values.global.sds.enabled }}
+      runAsGroup: 1337
+      {{- end }}
       runAsUser: 1337
       {{- end }}
-      runAsGroup: 1337
     resources:
       {{ if or (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory`) -}}
       requests:

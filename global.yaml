@@ -216,8 +216,7 @@ global:
 
   # imagePullPolicy is applied to istio control plane components.
   # local tests require IfNotPresent, to avoid uploading to dockerhub.
-  # TODO: Switch to Always as default, and override in the local tests.
-  imagePullPolicy: Always
+  imagePullPolicy: IfNotPresent
 
   # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
   # propagated, not recommended for tests.
