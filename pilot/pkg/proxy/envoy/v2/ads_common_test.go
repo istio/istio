@@ -15,6 +15,7 @@
 package v2
 
 import (
+	"reflect"
 	"strconv"
 	"testing"
 
@@ -35,6 +36,8 @@ func TestProxyNeedsPush(t *testing.T) {
 		{"no namespace or configs", sidecar, nil, nil, true},
 		{"gateway config for sidecar", sidecar, nil, []string{schemas.Gateway.Type}, false},
 		{"gateway config for gateway", gateway, nil, []string{schemas.Gateway.Type}, true},
+		{"quotaspec config for sidecar", sidecar, nil, []string{schemas.QuotaSpec.Type}, true},
+		{"quotaspec config for gateway", gateway, nil, []string{schemas.QuotaSpec.Type}, false},
 	}
 
 	for _, tt := range cases {
@@ -51,6 +54,119 @@ func TestProxyNeedsPush(t *testing.T) {
 			got := ProxyNeedsPush(tt.proxy, pushEv)
 			if got != tt.want {
 				t.Fatalf("Got needs push = %v, expected %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestPushTypeFor(t *testing.T) {
+	t.Parallel()
+
+	sidecar := &model.Proxy{Type: model.SidecarProxy}
+	gateway := &model.Proxy{Type: model.Router}
+
+	tests := []struct {
+		name        string
+		proxy       *model.Proxy
+		configTypes []string
+		expect      map[XdsType]bool
+	}{
+		{
+			name:        "configTypes is empty",
+			proxy:       sidecar,
+			configTypes: nil,
+			expect:      map[XdsType]bool{CDS: true, EDS: true, LDS: true, RDS: true},
+		},
+		{
+			name:        "configTypes is empty",
+			proxy:       gateway,
+			configTypes: nil,
+			expect:      map[XdsType]bool{CDS: true, EDS: true, LDS: true, RDS: true},
+		},
+		{
+			name:        "sidecar updated for sidecar proxy",
+			proxy:       sidecar,
+			configTypes: []string{schemas.Sidecar.Type},
+			expect:      map[XdsType]bool{CDS: true, EDS: true, LDS: true, RDS: true},
+		},
+		{
+			name:        "sidecar updated for gateway proxy",
+			proxy:       gateway,
+			configTypes: []string{schemas.Sidecar.Type},
+			expect:      map[XdsType]bool{},
+		},
+		{
+			name:        "quotaSpec updated for sidecar proxy",
+			proxy:       sidecar,
+			configTypes: []string{schemas.QuotaSpec.Type},
+			expect:      map[XdsType]bool{RDS: true},
+		},
+		{
+			name:        "quotaSpec updated for gateway",
+			proxy:       gateway,
+			configTypes: []string{schemas.QuotaSpec.Type},
+			expect:      map[XdsType]bool{},
+		},
+		{
+			name:        "authorizationpolicy updated",
+			proxy:       sidecar,
+			configTypes: []string{schemas.AuthorizationPolicy.Type},
+			expect:      map[XdsType]bool{LDS: true},
+		},
+		{
+			name:        "authorizationpolicy updated",
+			proxy:       gateway,
+			configTypes: []string{schemas.AuthorizationPolicy.Type},
+			expect:      map[XdsType]bool{LDS: true},
+		},
+		{
+			name:        "authenticationpolicy updated",
+			proxy:       sidecar,
+			configTypes: []string{schemas.AuthenticationPolicy.Type},
+			expect:      map[XdsType]bool{CDS: true, EDS: true, LDS: true},
+		},
+		{
+			name:        "authenticationpolicy updated",
+			proxy:       gateway,
+			configTypes: []string{schemas.AuthenticationPolicy.Type},
+			expect:      map[XdsType]bool{CDS: true, EDS: true, LDS: true},
+		},
+		{
+			name:        "unknown type updated",
+			proxy:       sidecar,
+			configTypes: []string{"unknown"},
+			expect:      map[XdsType]bool{CDS: true, EDS: true, LDS: true, RDS: true},
+		},
+		{
+			name:        "unknown type updated",
+			proxy:       gateway,
+			configTypes: []string{},
+			expect:      map[XdsType]bool{CDS: true, EDS: true, LDS: true, RDS: true},
+		},
+		{
+			name:        "gateway and virtualservice updated for gateway proxy",
+			proxy:       gateway,
+			configTypes: []string{schemas.Gateway.Type, schemas.VirtualService.Type},
+			expect:      map[XdsType]bool{LDS: true, RDS: true},
+		},
+		{
+			name:        "virtualservice and destinationrule updated",
+			proxy:       sidecar,
+			configTypes: []string{schemas.DestinationRule.Type, schemas.VirtualService.Type},
+			expect:      map[XdsType]bool{CDS: true, EDS: true, LDS: true, RDS: true},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfgs := map[string]struct{}{}
+			for _, c := range tt.configTypes {
+				cfgs[c] = struct{}{}
+			}
+			pushEv := &XdsEvent{configTypesUpdated: cfgs}
+			out := PushTypeFor(tt.proxy, pushEv)
+			if !reflect.DeepEqual(out, tt.expect) {
+				t.Errorf("expected: %v, but got %v", tt.expect, out)
 			}
 		})
 	}
