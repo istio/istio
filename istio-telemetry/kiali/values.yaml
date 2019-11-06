@@ -4,8 +4,8 @@
 kiali:
   enabled: false # Note that if using the demo or demo-auth yaml when installing via Helm, this default will be `true`.
   replicaCount: 1
-  hub: docker.io/kiali
-  tag: v1.4.2
+  hub: quay.io/kiali
+  tag: v1.9
   image: kiali
   contextPath: /kiali # The root context path to access the Kiali UI.
   nodeSelector: {}
