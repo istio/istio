@@ -14085,7 +14085,7 @@ spec:
         fsGroup: 472
       containers:
         - name: grafana
-          image: "grafana/grafana:6.3.6"
+          image: "grafana/grafana:6.4.3"
           imagePullPolicy: Always
           ports:
           - containerPort: 3000
