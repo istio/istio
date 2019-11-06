@@ -202,6 +202,12 @@ docker.galley: $(ISTIO_DOCKER)/galley
 
 # security docker images
 
+docker.chiron: BUILD_PRE=chmod 755 chiron &&
+docker.chiron: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
+docker.chiron: security/docker/Dockerfile.chiron
+docker.chiron: $(ISTIO_DOCKER)/chiron
+	$(DOCKER_RULE)
+
 docker.citadel: BUILD_PRE=chmod 755 istio_ca &&
 docker.citadel: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.citadel: security/docker/Dockerfile.citadel
