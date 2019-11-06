@@ -374,15 +374,18 @@ data:
     #  Any service with the identity "td1/ns/foo/sa/a-service-account", "td2/ns/foo/sa/a-service-account",
     #  or "td3/ns/foo/sa/a-service-account" will be treated the same in the Istio mesh.
     trustDomainAliases:
+
     # Set expected values when SDS is disabled
     # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
     # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty.
     sdsUdsPath: ""
+
     # This flag is used by secret discovery service(SDS).
     # If set to true(prerequisite: https://kubernetes.io/docs/concepts/storage/volumes/#projected), Istio will inject volumes mount
     # for k8s service account JWT, so that K8s API server mounts k8s service account JWT to envoy container, which
     # will be used to generate key/cert eventually. This isn't supported for non-k8s case.
     enableSdsTokenMount: false
+
     # This flag is used by secret discovery service(SDS).
     # If set to true, envoy will fetch normal k8s service account JWT from '/var/run/secrets/kubernetes.io/serviceaccount/token'
     # (https://kubernetes.io/docs/tasks/access-application-cluster/access-cluster/#accessing-the-api-from-a-pod)
@@ -1250,23 +1253,10 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: prometheys
+  name: prometheus
   namespace: istio-control
 spec:
-  host: prometheus.istio-control
-  trafficPolicy:
-    tls:
-      mode: DISABLE
----
-
-
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: prometheus-full
-  namespace: istio-control
-spec:
-  host: prometheus.istio-control.svc.cluster.local
+  host: prometheus
   trafficPolicy:
     tls:
       mode: DISABLE

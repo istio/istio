@@ -617,7 +617,6 @@ values:
     enableNamespacesByDefault: true
     image: citadel
     selfSigned: true
-    trustDomain: cluster.local
   sidecarInjectorWebhook:
     enableNamespacesByDefault: false
     image: sidecar_injector

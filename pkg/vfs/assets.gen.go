@@ -8549,7 +8549,11 @@ spec:
         # This container installs the Istio CNI binaries
         # and CNI network config file on each node.
         - name: install-cni
-          image: {{ .Values.cni.hub }}/{{ .Values.cni.image }}:{{ .Values.cni.tag }}
+{{- if contains "/" .Values.cni.image }}
+          image: "{{ .Values.cni.image }}"
+{{- else }}
+          image: "{{ .Values.cni.hub | default .Values.global.hub }}/{{ .Values.cni.image | default "install-cni" }}:{{ .Values.cni.tag | default .Values.global.tag }}"
+{{- end }}
           imagePullPolicy: {{ .Values.cni.pullPolicy | default .Values.global.imagePullPolicy }}
           command: ["/install-cni.sh"]
           env:
@@ -8628,8 +8632,8 @@ func chartsIstioCniTemplatesServiceaccountYaml() (*asset, error) {
 }
 
 var _chartsIstioCniValuesYaml = []byte(`cni:
-  hub: gcr.io/istio-testing
-  tag: latest
+  hub: ""
+  tag: ""
   image: install-cni
   pullPolicy: Always
 
@@ -11845,15 +11849,18 @@ data:
     sdsUdsPath: {{ .Values.global.sds.udsPath | quote }}
 
     {{- else }}
+
     # Set expected values when SDS is disabled
     # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
     # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty.
     sdsUdsPath: ""
+
     # This flag is used by secret discovery service(SDS).
     # If set to true(prerequisite: https://kubernetes.io/docs/concepts/storage/volumes/#projected), Istio will inject volumes mount
     # for k8s service account JWT, so that K8s API server mounts k8s service account JWT to envoy container, which
     # will be used to generate key/cert eventually. This isn't supported for non-k8s case.
     enableSdsTokenMount: false
+
     # This flag is used by secret discovery service(SDS).
     # If set to true, envoy will fetch normal k8s service account JWT from '/var/run/secrets/kubernetes.io/serviceaccount/token'
     # (https://kubernetes.io/docs/tasks/access-application-cluster/access-cluster/#accessing-the-api-from-a-pod)
@@ -28650,6 +28657,7 @@ rules:
       - namespaces
       - nodes
       - pods
+      - pods/log
       - services
       - replicationcontrollers
     verbs:
@@ -28715,6 +28723,7 @@ rules:
       - namespaces
       - nodes
       - pods
+      - pods/log
       - services
       - replicationcontrollers
     verbs:
@@ -32822,21 +32831,10 @@ func chartsIstioTelemetryPrometheusTemplatesDeploymentYaml() (*asset, error) {
 var _chartsIstioTelemetryPrometheusTemplatesDestinationRuleYaml = []byte(`apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: prometheys
+  name: prometheus
   namespace: {{ .Release.Namespace }}
 spec:
-  host: prometheus.{{ .Release.Namespace }}
-  trafficPolicy:
-    tls:
-      mode: DISABLE
----
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: prometheus-full
-  namespace: {{ .Release.Namespace }}
-spec:
-  host: prometheus.{{ .Release.Namespace }}.svc.cluster.local
+  host: prometheus
   trafficPolicy:
     tls:
       mode: DISABLE
@@ -33347,18 +33345,7 @@ metadata:
   name: prometheus
   namespace: {{ .Release.Namespace }}
 spec:
-  host: prometheus.{{ .Release.Namespace }}
-  trafficPolicy:
-    tls:
-      mode: DISABLE
----
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: prometheus-full
-  namespace: {{ .Release.Namespace }}
-spec:
-  host: prometheus.{{ .Release.Namespace }}.svc.cluster.local
+  host: prometheus
   trafficPolicy:
     tls:
       mode: DISABLE
@@ -35904,8 +35891,8 @@ spec:
             - --root-cert=/etc/cacerts/root-cert.pem
             - --cert-chain=/etc/cacerts/cert-chain.pem
           {{- end }}
-          {{- if .Values.security.trustDomain }}
-            - --trust-domain={{ .Values.security.trustDomain }}
+          {{- if .Values.global.trustDomain }}
+            - --trust-domain={{ .Values.global.trustDomain }}
           {{- end }}
           {{- if .Values.security.workloadCertTtl }}
             - --workload-cert-ttl={{ .Values.security.workloadCertTtl }}
@@ -36082,7 +36069,6 @@ security:
   rollingMaxUnavailable: 25%
   image: citadel
   selfSigned: true # indicate if self-signed CA is used.
-  trustDomain: cluster.local # indicate the domain used in SPIFFE identity URL
 
   # 90*24hour = 2160h
   workloadCertTtl: 2160h
@@ -37079,7 +37065,6 @@ spec:
     security:
       image: citadel
       selfSigned: true # indicate if self-signed CA is used.
-      trustDomain: cluster.local # indicate the domain used in SPIFFE identity URL
       enableNamespacesByDefault: true
       dnsCerts:
         istio-pilot-service-account.istio-control: istio-pilot.istio-control

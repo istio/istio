@@ -444,7 +444,6 @@ spec:
     security:
       image: citadel
       selfSigned: true # indicate if self-signed CA is used.
-      trustDomain: cluster.local # indicate the domain used in SPIFFE identity URL
       enableNamespacesByDefault: true
       dnsCerts:
         istio-pilot-service-account.istio-control: istio-pilot.istio-control

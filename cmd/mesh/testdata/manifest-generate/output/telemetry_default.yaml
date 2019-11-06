@@ -443,23 +443,10 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: prometheys
+  name: prometheus
   namespace: istio-control
 spec:
-  host: prometheus.istio-control
-  trafficPolicy:
-    tls:
-      mode: DISABLE
----
-
-
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: prometheus-full
-  namespace: istio-control
-spec:
-  host: prometheus.istio-control.svc.cluster.local
+  host: prometheus
   trafficPolicy:
     tls:
       mode: DISABLE
