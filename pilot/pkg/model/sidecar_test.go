@@ -37,6 +37,14 @@ var (
 		},
 	}
 
+	port7443 = []*Port{
+		{
+			Name:     "grpc-shipping",
+			Port:     7443,
+			Protocol: "grpc-tls",
+		},
+	}
+
 	port8000 = []*Port{
 		{
 			Name:     "uds",
@@ -200,9 +208,9 @@ var (
 			Egress: []*networking.IstioEgressListener{
 				{
 					Port: &networking.Port{
-						Number:   9999,
-						Protocol: "TCP",
-						Name:     "outbound-tcp",
+						Number:   7443,
+						Protocol: "http2-tls",
+						Name:     "grpc",
 					},
 					Bind:  "7.7.7.7",
 					Hosts: []string{"ns1/*"},
@@ -295,7 +303,7 @@ var (
 	services8 = []*Service{
 		{
 			Hostname: "bookinginfo.com",
-			Ports:    port9999,
+			Ports:    port7443,
 			Attributes: ServiceAttributes{
 				Name:      "bookinginfo.com",
 				Namespace: "ns1",
@@ -327,10 +335,7 @@ func TestCreateSidecarScope(t *testing.T) {
 			[]*Service{
 				{
 					Hostname: "bookinginfo.com",
-					Ports:    port9999,
-				},
-				{
-					Hostname: "private.com",
+					Ports:    port7443,
 				},
 			},
 		},
@@ -350,6 +355,10 @@ func TestCreateSidecarScope(t *testing.T) {
 
 			sidecarConfig := tt.sidecarConfig
 			sidecarScope := ConvertToSidecarScope(ps, sidecarConfig, "mynamespace")
+			service := sidecarScope.ServiceForHostname("bookinginfo.com", nil)
+			if service == nil {
+				fmt.Println("error....")
+			}
 			configuredListeneres := 1
 			if sidecarConfig != nil {
 				r := sidecarConfig.Spec.(*networking.Sidecar)
