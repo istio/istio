@@ -149,11 +149,8 @@ type XDSUpdater interface {
 	// name.
 	EDSUpdate(shard, hostname string, namespace string, entry []*IstioEndpoint) error
 
-	// SvcUpdate is called when a service port mapping definition is updated.
-	// This interface is WIP - labels, annotations and other changes to service may be
-	// updated to force a EDS and CDS recomputation and incremental push, as it doesn't affect
-	// LDS/RDS.
-	SvcUpdate(shard, hostname string, ports map[string]uint32, rports map[uint32]string)
+	// SvcUpdate is called when a service definition is updated/deleted.
+	SvcUpdate(shard, hostname string, namespace string, event Event)
 
 	// ConfigUpdate is called to notify the XDS server of config updates and request a push.
 	// The requests may be collapsed and throttled.

@@ -27,9 +27,10 @@ import (
 
 // TestProxy sample struct for proxy
 type TestProxy struct {
-	run     func(interface{}, int, <-chan error) error
-	cleanup func(int)
-	live    func() bool
+	run          func(interface{}, int, <-chan error) error
+	cleanup      func(int)
+	live         func() bool
+	blockChannel chan interface{}
 }
 
 func (tp TestProxy) Run(config interface{}, epoch int, stop <-chan error) error {
@@ -44,6 +45,11 @@ func (tp TestProxy) IsLive() bool {
 		return true
 	}
 	return tp.live()
+}
+
+func (tp TestProxy) Drain() error {
+	tp.blockChannel <- "unblock"
+	return nil
 }
 
 func (tp TestProxy) Cleanup(epoch int) {
@@ -72,7 +78,7 @@ func TestStartExit(t *testing.T) {
 //   * Aborts all proxies
 func TestStartDrain(t *testing.T) {
 	wantEpoch := 0
-	proxiesStarted, wantProxiesStarted := 0, 2
+	proxiesStarted, wantProxiesStarted := 0, 1
 	blockChan := make(chan interface{})
 	ctx, cancel := context.WithCancel(context.Background())
 	startConfig := "start config"
@@ -90,14 +96,10 @@ func TestStartDrain(t *testing.T) {
 				t.Errorf("start wanted config %q, got %q", startConfig, config)
 			}
 			time.Sleep(time.Second * 2) // ensure initial proxy doesn't terminate too quickly
-		} else if currentEpoch == 1 {
-			if _, ok := config.(DrainConfig); !ok {
-				t.Errorf("start expected draining config, got %q", config)
-			}
 		}
 		return nil
 	}
-	a := NewAgent(TestProxy{run: start}, -10*time.Second)
+	a := NewAgent(TestProxy{run: start, blockChannel: blockChan}, -10*time.Second)
 	go func() { _ = a.Run(ctx) }()
 	a.Restart(startConfig)
 	<-blockChan
@@ -257,9 +259,6 @@ func TestStartTwiceStop(t *testing.T) {
 		} else if config == desired2 && epoch == 2 {
 			close(stop1)
 			<-ctx.Done()
-		} else if _, ok := config.(DrainConfig); !ok { // don't need to validate draining proxy here
-			t.Errorf("Unexpected start %v, epoch %d", config, epoch)
-			cancel()
 		}
 		return nil
 	}

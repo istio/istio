@@ -33,6 +33,7 @@ var (
 	liveServerStats = "cluster_manager.cds.update_success: 1\nlistener_manager.lds.update_success: 1\nserver.state: 0"
 	onlyServerStats = "server.state: 0"
 	initServerStats = "cluster_manager.cds.update_success: 1\nlistener_manager.lds.update_success: 1\nserver.state: 2"
+	noServerStats   = ""
 	listeners       = admin.Listeners{
 		ListenerStatuses: []*admin.ListenerStatus{
 			{
@@ -148,6 +149,18 @@ func TestEnvoyNoClusterManagerStats(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	server := createAndStartServer(onlyServerStats)
+	defer server.Close()
+	probe := Probe{AdminPort: 1234}
+
+	err := probe.Check()
+
+	g.Expect(err).To(HaveOccurred())
+}
+
+func TestEnvoyNoServerStats(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	server := createAndStartServer(noServerStats)
 	defer server.Close()
 	probe := Probe{AdminPort: 1234}
 

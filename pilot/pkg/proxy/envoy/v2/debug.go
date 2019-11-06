@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/pprof"
 	"sort"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -46,7 +47,7 @@ const (
 )
 
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
-func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller) {
+func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller, enableProfiling bool) {
 	// For debugging and load testing v2 we add an memory registry.
 	s.MemRegistry = NewMemServiceDiscovery(
 		map[host.Name]*model.Service{ // mock.HelloService.Hostname: mock.HelloService,
@@ -60,6 +61,14 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 		ServiceDiscovery: s.MemRegistry,
 		Controller:       s.MemRegistry.controller,
 	})
+
+	if enableProfiling {
+		mux.HandleFunc("/debug/pprof/", pprof.Index)
+		mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+		mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+		mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+		mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+	}
 
 	mux.HandleFunc("/ready", s.ready)
 
@@ -230,7 +239,9 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 		var results []SyncedVersions
 		adsClientsMutex.RLock()
 		for _, con := range adsClients {
+			// wrap this in independent scope so that panic's don't bypass Unlock...
 			con.mu.RLock()
+
 			if con.node != nil && (proxyNamespace == "" || proxyNamespace == con.node.ConfigNamespace) {
 				// TODO: handle skipped nodes
 				results = append(results, SyncedVersions{
@@ -264,6 +275,9 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 const VersionLen = 12
 
 func (s *DiscoveryServer) getResourceVersion(nonce, key string, cache map[string]string) string {
+	if len(nonce) < VersionLen {
+		return ""
+	}
 	configVersion := nonce[:VersionLen]
 	result, ok := cache[configVersion]
 	if !ok {

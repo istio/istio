@@ -109,7 +109,6 @@ func apply(mesh *Mesh, env Environment) error {
 		secret, err := createRemoteSecret(opt, cluster.client, env)
 		if err != nil {
 			err := fmt.Errorf("not joining cluster %v, could not creating remote secret: %v", cluster.Context, err)
-			env.Errorf(err.Error())
 			errs = multierror.Append(errs, err)
 			continue
 		}
