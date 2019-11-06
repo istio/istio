@@ -135,6 +135,10 @@ const (
 	// Used in xds config. Metavalue bind to this key is used by pilot as xds server but not by envoy.
 	// So the meta data can be erased when pushing to envoy.
 	PilotMetaKey = "pilot_meta"
+
+	// CanonicalHTTPSPort defines the standard port for HTTPS traffic. To avoid conflicts, http services
+	// are not allowed on this port.
+	CanonicalHTTPSPort = 443
 )
 
 var (
@@ -1205,7 +1209,14 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPort
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(node *model.Proxy, listenerOpts buildListenerOpts,
 	pluginParams *plugin.InputParams, listenerMap map[string]*outboundListenerEntry,
 	virtualServices []model.Config, actualWildcard string) {
-
+	if features.BlockHTTPonHTTPSPort.Get() {
+		if listenerOpts.port == CanonicalHTTPSPort && pluginParams.Port.Protocol == protocol.HTTP {
+			msg := fmt.Sprintf("listener conflict detected: service %v specifies an HTTP service on HTTPS only port %d.",
+				pluginParams.Service.Hostname, CanonicalHTTPSPort)
+			pluginParams.Push.Add(model.ProxyStatusConflictOutboundListenerHTTPoverHTTPS, string(pluginParams.Service.Hostname), node, msg)
+			return
+		}
+	}
 	var destinationCIDR string
 	var listenerMapKey string
 	var currentListenerEntry *outboundListenerEntry

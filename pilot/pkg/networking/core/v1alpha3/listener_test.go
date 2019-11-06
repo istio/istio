@@ -277,6 +277,50 @@ func TestOutboundListenerConflict_Unordered(t *testing.T) {
 		buildService("test3.com", wildcardIP, protocol.TCP, tzero))
 }
 
+func TestOutboundListenerConflict_HTTPoverHTTPS(t *testing.T) {
+	os.Setenv(features.BlockHTTPonHTTPSPort.Name, "true")
+	defer os.Setenv(features.BlockHTTPonHTTPSPort.Name, "false")
+	cases := []struct {
+		name             string
+		service          *model.Service
+		expectedListener []string
+	}{
+		{
+			"http on 443",
+			buildServiceWithPort("test1.com", CanonicalHTTPSPort, protocol.HTTP, tnow.Add(1*time.Second)),
+			[]string{},
+		},
+		{
+			"http on 80",
+			buildServiceWithPort("test1.com", CanonicalHTTPSPort, protocol.HTTP, tnow.Add(1*time.Second)),
+			[]string{},
+		},
+		{
+			"https on 443",
+			buildServiceWithPort("test1.com", CanonicalHTTPSPort, protocol.HTTPS, tnow.Add(1*time.Second)),
+			[]string{"0.0.0.0_443"},
+		},
+		{
+			"tcp on 443",
+			buildServiceWithPort("test1.com", CanonicalHTTPSPort, protocol.TCP, tnow.Add(1*time.Second)),
+			[]string{"0.0.0.0_443"},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &fakePlugin{}
+			listeners := buildOutboundListeners(p, &proxy, nil, nil, tt.service)
+			got := []string{}
+			for _, l := range listeners {
+				got = append(got, l.Name)
+			}
+			if !reflect.DeepEqual(got, tt.expectedListener) {
+				t.Fatalf("expected listener %v got %v", tt.expectedListener, got)
+			}
+		})
+	}
+}
+
 func TestOutboundListenerConflict_TCPWithCurrentTCP(t *testing.T) {
 	services := []*model.Service{
 		buildService("test1.com", "1.2.3.4", protocol.TCP, tnow.Add(1*time.Second)),
