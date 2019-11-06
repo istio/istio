@@ -17,8 +17,11 @@ package mtls
 import (
 	"fmt"
 
+	"istio.io/api/authentication/v1alpha1"
+
+	"istio.io/istio/galley/pkg/config/resource"
+
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
-	"istio.io/istio/security/proto/authentication/v1alpha1"
 )
 
 // TargetService is a simple struct type for representing a service
@@ -73,52 +76,82 @@ func (w TargetService) PortName() string {
 // TargetService will require MTLS when an incoming connection occurs using the
 // IsServiceMTLSEnforced() call.
 type PolicyChecker struct {
-	// meshHasStrictMTLSPolicy tracks whether or not mTLS is strictly enforced on the mesh.
-	meshHasStrictMTLSPolicy bool
+	meshMTLSModeAndResource ModeAndResource
 
-	namespaceToMTLSMode map[string]strictMTLSMode
-	serviceToMTLSMode   map[TargetService]strictMTLSMode
+	namespaceToMTLSMode map[string]ModeAndResource
+	serviceToMTLSMode   map[TargetService]ModeAndResource
 }
 
-// strictMTLSMode is a helper type used to represent whether or not MTLS was
-// explicitly enabled, explicitly disabled, or just not present. Useful for the
-// IsServiceMTLSEnforced check to determine which policy applies.
-type strictMTLSMode int
+// Mode is a special type used to distinguish between MTLS being off
+// (unsupported), permissive (supported but not required), and strict (required).
+type Mode int
 
 const (
-	strictMTLSUnset strictMTLSMode = iota
-	strictMTLSExplicitlyEnabled
-	strictMTLSExplicitlyDisabled
+	// ModeOff means MTLS is off (unsupported).
+	ModeOff Mode = iota
+	// ModePermissive means MTLS is permissive (supported but not required)
+	ModePermissive
+	// ModeStrict means MTLS is strict (required)
+	ModeStrict
 )
+
+func (m Mode) String() string {
+	switch m {
+	case ModeOff:
+		return "Off"
+	case ModePermissive:
+		return "Permissive"
+	case ModeStrict:
+		return "Strict"
+	default:
+		return "UNKNOWN"
+	}
+}
+
+// ModeAndResource is a simple tuple type of mode and the resource that
+// specified the mode.
+type ModeAndResource struct {
+	MTLSMode Mode
+	Resource *resource.Entry
+}
 
 // NewPolicyChecker creates a new PolicyChecker instance.
 func NewPolicyChecker() *PolicyChecker {
 	return &PolicyChecker{
-		namespaceToMTLSMode: make(map[string]strictMTLSMode),
-		serviceToMTLSMode:   make(map[TargetService]strictMTLSMode),
+		namespaceToMTLSMode: make(map[string]ModeAndResource),
+		serviceToMTLSMode:   make(map[TargetService]ModeAndResource),
 	}
 }
 
 // AddMeshPolicy adds a mesh-level policy to the checker. Note that there can
 // only be at most one mesh level policy in effect.
-func (pc *PolicyChecker) AddMeshPolicy(p *v1alpha1.Policy) {
-	pc.meshHasStrictMTLSPolicy = doesPolicyEnforceMTLS(p)
+func (pc *PolicyChecker) AddMeshPolicy(r *resource.Entry, p *v1alpha1.Policy) error {
+	mode, err := parsePolicyMTLSMode(p)
+	if err != nil {
+		return err
+	}
+	pc.meshMTLSModeAndResource = ModeAndResource{Resource: r, MTLSMode: mode}
+	return nil
+}
+
+// MeshPolicy returns the current recognized MeshPolicy (as added by AddMeshPolicy).
+func (pc *PolicyChecker) MeshPolicy() ModeAndResource {
+	return pc.meshMTLSModeAndResource
 }
 
 // AddPolicy adds a new policy object to the PolicyChecker to use when later
 // determining if a service is MTLS-enforced. The namespace of the policy is
 // also provided as some policies can target the local namespace.
-func (pc *PolicyChecker) AddPolicy(namespace string, p *v1alpha1.Policy) error {
-	var policyMode strictMTLSMode
-	if doesPolicyEnforceMTLS(p) {
-		policyMode = strictMTLSExplicitlyEnabled
-	} else {
-		policyMode = strictMTLSExplicitlyDisabled
+func (pc *PolicyChecker) AddPolicy(r *resource.Entry, p *v1alpha1.Policy) error {
+	mode, err := parsePolicyMTLSMode(p)
+	if err != nil {
+		return err
 	}
-
+	modeAndResource := ModeAndResource{Resource: r, MTLSMode: mode}
+	namespace, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
 	if len(p.Targets) == 0 {
 		// Rule targets the namespace.
-		pc.namespaceToMTLSMode[namespace] = policyMode
+		pc.namespaceToMTLSMode[namespace] = modeAndResource
 		return nil
 	}
 	// Discover the targeted service and take note. Should normalize.
@@ -127,14 +160,14 @@ func (pc *PolicyChecker) AddPolicy(namespace string, p *v1alpha1.Policy) error {
 
 		if len(target.Ports) == 0 {
 			// Policy targets all ports on service
-			pc.serviceToMTLSMode[NewTargetService(fqdn)] = policyMode
+			pc.serviceToMTLSMode[NewTargetService(fqdn)] = modeAndResource
 		}
 
 		for _, port := range target.Ports {
 			if port.GetName() != "" {
-				pc.serviceToMTLSMode[NewTargetServiceWithPortName(fqdn, port.GetName())] = policyMode
+				pc.serviceToMTLSMode[NewTargetServiceWithPortName(fqdn, port.GetName())] = modeAndResource
 			} else if port.GetNumber() != 0 {
-				pc.serviceToMTLSMode[NewTargetServiceWithPortNumber(fqdn, port.GetNumber())] = policyMode
+				pc.serviceToMTLSMode[NewTargetServiceWithPortNumber(fqdn, port.GetNumber())] = modeAndResource
 			} else {
 				// Unhandled case!
 				return fmt.Errorf("policy has a port with no name/number for target %s", target.Name)
@@ -149,59 +182,52 @@ func (pc *PolicyChecker) AddPolicy(namespace string, p *v1alpha1.Policy) error {
 // connections to use MTLS, or false if MTLS is not a hard-requirement (e.g.
 // mode is permissive, peerIsOptional is true, etc). Only call this after adding
 // all policy resources in effect via AddPolicy or AddMeshPolicy.
-func (pc *PolicyChecker) IsServiceMTLSEnforced(w TargetService) (bool, error) {
+func (pc *PolicyChecker) IsServiceMTLSEnforced(w TargetService) (ModeAndResource, error) {
 	// TODO support understanding port name -> port number mappings
-	switch pc.serviceToMTLSMode[w] {
-	case strictMTLSExplicitlyEnabled:
-		return true, nil
-	case strictMTLSExplicitlyDisabled:
-		return false, nil
-	case strictMTLSUnset:
-		// Fall through switch case
-	default:
-		return false, fmt.Errorf("unknown strictMTLSMode: %v", pc.serviceToMTLSMode[w])
+	var modeAndResource ModeAndResource
+	modeAndResource = pc.serviceToMTLSMode[w]
+	if modeAndResource.Resource != nil {
+		return modeAndResource, nil
 	}
 
 	// Try checking if its enforced on any ports
 	serviceNoPort := NewTargetService(w.FQDN())
-	switch pc.serviceToMTLSMode[serviceNoPort] {
-	case strictMTLSExplicitlyEnabled:
-		return true, nil
-	case strictMTLSExplicitlyDisabled:
-		return false, nil
-	case strictMTLSUnset:
-		// Fall through switch case
-	default:
-		return false, fmt.Errorf("unknown strictMTLSMode: %v", pc.serviceToMTLSMode[serviceNoPort])
+	modeAndResource = pc.serviceToMTLSMode[serviceNoPort]
+	if modeAndResource.Resource != nil {
+		return modeAndResource, nil
 	}
 
 	// Check if enforced on namespace
 	namespace, _ := util.GetResourceNameFromHost("", w.FQDN()).InterpretAsNamespaceAndName()
 	if namespace == "" {
-		return false, fmt.Errorf("unable to extract namespace from fqdn: %s", w.FQDN())
+		return ModeAndResource{}, fmt.Errorf("unable to extract namespace from fqdn: %s", w.FQDN())
 	}
-	switch pc.namespaceToMTLSMode[namespace] {
-	case strictMTLSExplicitlyEnabled:
-		return true, nil
-	case strictMTLSExplicitlyDisabled:
-		return false, nil
-	case strictMTLSUnset:
-		// Fall through switch case
-	default:
-		return false, fmt.Errorf("unknown strictMTLSMode: %v", pc.namespaceToMTLSMode[namespace])
+	modeAndResource = pc.namespaceToMTLSMode[namespace]
+	if modeAndResource.Resource != nil {
+		return modeAndResource, nil
 	}
 
-	// Finally, defer to mesh level policy
-	return pc.meshHasStrictMTLSPolicy, nil
+	// Finally, defer to mesh level policy. No need to check for a nil resource
+	// since the default value is correct.
+	return pc.meshMTLSModeAndResource, nil
 }
 
-// doesPolicyEnforceMTLS is a helper function to determine whether or not a
-// Policy implies Strict MTLS mode.
-func doesPolicyEnforceMTLS(p *v1alpha1.Policy) bool {
-	if p.PeerIsOptional {
-		// Connection can still occur.
-		return false
+// TargetServices returns the list of services known to the policy checker (in
+// no particular order).
+func (pc *PolicyChecker) TargetServices() []TargetService {
+	tss := make([]TargetService, len(pc.serviceToMTLSMode))
+	i := 0
+	for ts := range pc.serviceToMTLSMode {
+		tss[i] = ts
+		i++
 	}
+
+	return tss
+}
+
+// parsePolicyMTLSMode is a helper function to determine what mtls mode a Policy
+// implies.
+func parsePolicyMTLSMode(p *v1alpha1.Policy) (Mode, error) {
 	for _, peer := range p.Peers {
 		mtlsParams, ok := peer.Params.(*v1alpha1.PeerAuthenticationMethod_Mtls)
 		if !ok {
@@ -209,12 +235,30 @@ func doesPolicyEnforceMTLS(p *v1alpha1.Policy) bool {
 			continue
 		}
 
-		// The default value if no Mtls is specified on mtlsParams is strict.
-		// If we do have parameters, though, ensure they do not imply permissive mode.
-		return mtlsParams.Mtls == nil ||
-			(!mtlsParams.Mtls.AllowTls && mtlsParams.Mtls.Mode != v1alpha1.MutualTls_PERMISSIVE)
+		var mode Mode
+		if mtlsParams.Mtls == nil {
+			mode = ModeStrict
+		} else {
+			switch mtlsParams.Mtls.GetMode() {
+			case v1alpha1.MutualTls_PERMISSIVE:
+				mode = ModePermissive
+			case v1alpha1.MutualTls_STRICT:
+				mode = ModeStrict
+			default:
+				// Shouldn't happen!
+				return mode, fmt.Errorf("Unknown MTLS mode when analyzing policy: %s", mtlsParams.Mtls.GetMode().String())
+			}
+		}
+		// Now check for modifiers that might downgrade strict to permissive.
+		if mode == ModeStrict && mtlsParams.Mtls != nil && mtlsParams.Mtls.AllowTls {
+			mode = ModePermissive
+		}
+		if mode == ModeStrict && p.PeerIsOptional {
+			mode = ModePermissive
+		}
+		return mode, nil
 	}
 
 	// No MTLS configuration found
-	return false
+	return ModeOff, nil
 }

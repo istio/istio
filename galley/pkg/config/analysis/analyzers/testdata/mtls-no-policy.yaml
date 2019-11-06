@@ -1,0 +1,13 @@
+# We have a DR for our service, but no policy
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: no-policy-service-dr
+  namespace: no-policy
+spec:
+  host: missing-policy-service.no-policy.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+# Nothing else specified. Without a Policy, this will fail.
+---

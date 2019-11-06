@@ -148,3 +148,22 @@ messages:
         type: string
       - name: destPorts
         type: "[]int"
+
+  - name: "MTLSPolicyConflict"
+    code: IST0113
+    level: Error
+    description: "A DestinationRule and Policy are in conflict with regards to mTLS."
+    template: "A DestinationRule and Policy are in conflict with regards to mTLS for host %s in namespace %s. The DestinationRule %q specifies that mTLS must be %t but the Policy object %q specifies %t."
+    args:
+      - name: host
+        type: string
+      - name: namespace
+        type: string
+      - name: destinationRuleName
+        type: string
+      - name: destinationRuleMTLSMode
+        type: bool
+      - name: policyName
+        type: string
+      - name: policyMTLSMode
+        type: string

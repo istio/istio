@@ -1,0 +1,29 @@
+# Our service has two secure mtls ports, but the DR only specifies one.
+apiVersion: authentication.istio.io/v1alpha1
+kind: Policy
+metadata:
+  name: default
+  namespace: my-namespace
+spec:
+  targets:
+  - name: my-service
+    ports:
+    - number: 8080
+    - number: 8081
+  peers:
+  - mtls:
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: default
+  namespace: my-namespace
+spec:
+  host: my-service.my-namespace.svc.cluster.local
+  trafficPolicy:
+    portLevelSettings:
+    - port: 
+        number: 8080
+      tls:
+        mode: ISTIO_MUTUAL
+---

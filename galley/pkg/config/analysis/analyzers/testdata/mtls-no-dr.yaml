@@ -1,0 +1,48 @@
+# Require mTLS for our service
+apiVersion: authentication.istio.io/v1alpha1
+kind: Policy
+metadata:
+  name: default
+  namespace: missing-dr
+spec:
+  targets:
+  - name: missing-dr-service
+  peers:
+  - mtls:
+# Nothing else specified. Without a DR, this will fail.
+---
+# We also specify another mtls for another service, but this one has a DR.
+apiVersion: authentication.istio.io/v1alpha1
+kind: Policy
+metadata:
+  name: default
+  namespace: has-dr
+spec:
+  targets:
+  - name: has-dr-service
+  peers:
+  - mtls:
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: default
+  namespace: has-dr
+spec:
+  host: has-dr-service.has-dr.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+---
+# We also add a DR explicitly in here for missing-dr-service to ensure we only
+# see one error message.
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: missing-dr-service-dr
+  namespace: has-dr
+spec:
+  host: missing-dr-service.missing-dr.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
