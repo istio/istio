@@ -41,7 +41,15 @@ var (
 		{
 			Name:     "grpc-shipping",
 			Port:     7443,
-			Protocol: "grpc-tls",
+			Protocol: "GRPC",
+		},
+	}
+
+	port7442 = []*Port{
+		{
+			Name:     "ajna-tls",
+			Port:     7442,
+			Protocol: "HTTP",
 		},
 	}
 
@@ -206,15 +214,38 @@ var (
 		},
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
+				// {
+				// 	Port: &networking.Port{
+				// 		Number:   7443,
+				// 		Protocol: "GRPC",
+				// 		Name:     "grpc-tls",
+				// 	},
+				// 	Hosts: []string{"service-mesh/*"},
+				// },
+				// {
+				// 	Port: &networking.Port{
+				// 		Number:   7442,
+				// 		Protocol: "HTTP",
+				// 		Name:     "http-tls",
+				// 	},
+				// 	Hosts: []string{"service-mesh/*"},
+				// },
 				{
 					Port: &networking.Port{
-						Number:   7443,
-						Protocol: "http2-tls",
-						Name:     "grpc",
+						Number:   7014,
+						Protocol: "HTTP",
+						Name:     "http-plain",
 					},
-					Bind:  "7.7.7.7",
-					Hosts: []string{"ns1/*"},
+					Hosts: []string{"*/*"},
 				},
+				// {
+				// 	Port: &networking.Port{
+				// 		Number:   7012,
+				// 		Protocol: "grpc-plain",
+				// 		Name:     "HTTP",
+				// 	},
+				// 	Hosts: []string{"*/*"},
+				// },
 			},
 		},
 	}
@@ -302,18 +333,19 @@ var (
 
 	services8 = []*Service{
 		{
-			Hostname: "bookinginfo.com",
+			Hostname: "shipping.svc.cluster.local",
 			Ports:    port7443,
 			Attributes: ServiceAttributes{
-				Name:      "bookinginfo.com",
-				Namespace: "ns1",
+				Name:      "shipping",
+				Namespace: "service-mesh",
 			},
 		},
 		{
-			Hostname: "private.com",
+			Hostname: "ajna.svc.cluster.local",
+			Ports:    port7442,
 			Attributes: ServiceAttributes{
-				Name:      "private.com",
-				Namespace: "ns1",
+				Name:      "ajna",
+				Namespace: "funnel",
 			},
 		},
 	}
@@ -334,8 +366,12 @@ func TestCreateSidecarScope(t *testing.T) {
 			services8,
 			[]*Service{
 				{
-					Hostname: "bookinginfo.com",
+					Hostname: "shipping.svc.cluster.local",
 					Ports:    port7443,
+				},
+				{
+					Hostname: "ajna.svc.cluster.local",
+					Ports:    port7442,
 				},
 			},
 		},
@@ -355,7 +391,7 @@ func TestCreateSidecarScope(t *testing.T) {
 
 			sidecarConfig := tt.sidecarConfig
 			sidecarScope := ConvertToSidecarScope(ps, sidecarConfig, "mynamespace")
-			service := sidecarScope.ServiceForHostname("bookinginfo.com", nil)
+			service := sidecarScope.ServiceForHostname("shipping.svc.cluster.local", nil)
 			if service == nil {
 				fmt.Println("error....")
 			}
