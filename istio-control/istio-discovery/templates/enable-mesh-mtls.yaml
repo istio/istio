@@ -33,8 +33,9 @@ spec:
     tls:
       mode: ISTIO_MUTUAL
 ---
-# Destination rule to disable (m)TLS when talking to API server, as API server doesn't have sidecar.
-# Customer should add similar destination rules for other services that dont' have sidecar.
+{{- if not .Values.global.mtls.auto }}
+# We only need explicit destination rule with ISITO_MUTUAL when auto mTLS is not
+# enabled.
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
@@ -48,6 +49,7 @@ spec:
     tls:
       mode: DISABLE
 ---
+{{ end }}
 {{- else }}
 # Authentication policy to enable permissive mode for all services (that have sidecar) in the mesh.
 apiVersion: "authentication.istio.io/v1alpha1"
@@ -61,6 +63,5 @@ spec:
   - mtls:
       mode: PERMISSIVE
 ---
-
 {{ end }}
 {{ end }}
