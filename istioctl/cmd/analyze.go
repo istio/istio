@@ -40,9 +40,9 @@ type FileParseError struct{}
 const (
 	FoundIssueString = "Analyzer found issues."
 	FileParseString  = "Some files couldn't be parsed."
-	LogOutput        = "LOG"
-	JsonOutput       = "JSON"
-	YamlOutput       = "YAML"
+	LogOutput        = "log"
+	JsonOutput       = "json"
+	YamlOutput       = "yaml"
 )
 
 func (f AnalyzerFoundIssuesError) Error() string {
@@ -68,15 +68,16 @@ var (
 		diag.Warning: "\033[33m",   // yellow
 		diag.Error:   "\033[1;31m", // bold red
 	}
-
-	msgOutputFormats    = map[string]bool{LogOutput: true, JsonOutput: true, YamlOutput: true}
-	msgOutputFormatKeys []string
 )
 
 // Analyze command
 // Once we're ready to move this functionality out of the "experimental" subtree, we should merge
 // with `istioctl validate`. https://github.com/istio/istio/issues/16777
 func Analyze() *cobra.Command {
+	// Validate the output format before doing potentially expensive work to fail earlier
+	msgOutputFormats := map[string]bool{LogOutput: true, JsonOutput: true, YamlOutput: true}
+	var msgOutputFormatKeys []string
+
 	for k, _ := range msgOutputFormats {
 		msgOutputFormatKeys = append(msgOutputFormatKeys, k)
 	}
@@ -101,7 +102,7 @@ istioctl experimental analyze -d true a.yaml b.yaml services.yaml
 istioctl experimental analyze -k -d false
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			msgOutputFormat = strings.ToUpper(msgOutputFormat)
+			msgOutputFormat = strings.ToLower(msgOutputFormat)
 			_, ok := msgOutputFormats[msgOutputFormat]
 			if !ok {
 				return CommandParseError{
@@ -235,7 +236,7 @@ istioctl experimental analyze -k -d false
 				}
 				fmt.Fprintln(cmd.OutOrStdout(), string(yamlOutput))
 			default: // This should never happen since we validate this already
-				return fmt.Errorf("%q not found in output format switch statement post validate?", msgOutputFormat)
+				panic(fmt.Sprintf("%q not found in output format switch statement post validate?", msgOutputFormat))
 			}
 
 			// Return code is based on the unfiltered validation message list/parse errors
