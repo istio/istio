@@ -19,9 +19,9 @@ import (
 	"testing"
 	"time"
 
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/gogo/protobuf/types"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
