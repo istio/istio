@@ -80,7 +80,7 @@ data:
               trusted_ca:
                 filename: /etc/certs/root-cert.pem
               verify_subject_alt_name:
-              - spiffe://cluster.local/ns/{{ .Values.global.configNamespace }}/sa/istio-galley-service-account
+              - spiffe://{{ .Values.global.trustDomain }}/ns/{{ .Values.global.configNamespace }}/sa/istio-galley-service-account
 
         hosts:
           - socket_address:

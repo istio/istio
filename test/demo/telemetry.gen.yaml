@@ -525,6 +525,7 @@ spec:
         - /var/lib/envoy/envoy.yaml.tmpl
         - --controlPlaneAuthPolicy
         - MUTUAL_TLS
+        - --trust-domain=cluster.local
         env:
         - name: POD_NAME
           valueFrom:
