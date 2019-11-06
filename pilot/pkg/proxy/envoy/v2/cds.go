@@ -15,7 +15,6 @@
 package v2
 
 import (
-	"fmt"
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -75,14 +74,11 @@ func (s *DiscoveryServer) generateRawClusters(node *model.Proxy, push *model.Pus
 
 	for _, c := range rawClusters {
 		if err := c.Validate(); err != nil {
-			retErr := fmt.Errorf("CDS: Generated invalid cluster for node %v: %v", node, err)
 			adsLog.Errorf("CDS: Generated invalid cluster for node:%s: %v, %v", node.ID, err, c)
 			cdsBuildErrPushes.Increment()
 			totalXDSInternalErrors.Increment()
 			// Generating invalid clusters is a bug.
-			// Panic instead of trying to recover from that, since we can't
-			// assume anything about the state.
-			panic(retErr.Error())
+			// Instead of panic, which will break down the whole cluster. Just ignore it here, let envoy process it.
 		}
 	}
 	return rawClusters
