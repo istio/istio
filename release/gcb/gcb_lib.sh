@@ -58,7 +58,7 @@ function create_manifest_check_consistency() {
   popd || exit
 
   pushd ../operator || exit
-    OPERATOR_REPO_SHA=$(git rev-parse "${API_REPO_SHA}")
+    OPERATOR_REPO_SHA=$(git rev-parse "${OPERATOR_REPO_SHA}")
     INSTALLER_REPO_SHA=$(tr -d '[:space:]' < 'installer.sha')
   popd || exit
 
