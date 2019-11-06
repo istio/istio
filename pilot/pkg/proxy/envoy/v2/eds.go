@@ -528,9 +528,9 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string, namespace string,
 			}
 			adsLog.Infof("Incremental push, service %s has no endpoints", serviceName)
 			s.ConfigUpdate(&model.PushRequest{
-				Full:              false,
+				Full:             false,
 				TargetNamespaces: map[string]struct{}{namespace: {}},
-				EdsUpdates:        map[string]struct{}{serviceName: {}},
+				EdsUpdates:       map[string]struct{}{serviceName: {}},
 			})
 		}
 		return
