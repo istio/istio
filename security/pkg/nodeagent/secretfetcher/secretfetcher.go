@@ -463,7 +463,6 @@ func (sf *SecretFetcher) updateSecretInCache(oldScrt, newScrt *model.SecretItem)
 // shouldUpdateSecret indicates whether secret update is required to reload new secret.
 func shouldUpdateSecret(oldScrt, oldCaScrt, newScrt, newCaScrt *model.SecretItem) bool {
 	if newScrt == nil && newCaScrt == nil {
-		secretFetcherLog.Warnf("Secret object: %v has empty field, skip update", oldScrt.ResourceName)
 		return false
 	}
 
