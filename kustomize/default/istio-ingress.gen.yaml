@@ -141,6 +141,7 @@ spec:
           - MUTUAL_TLS
           - --discoveryAddress
           - istio-pilot.istio-system:15011
+          - --trust-domain=cluster.local
           readinessProbe:
             failureThreshold: 30
             httpGet:
@@ -193,6 +194,8 @@ spec:
             value: istio-ingressgateway
           - name: ISTIO_META_OWNER
             value: kubernetes://api/apps/v1/namespaces/istio-system/deployments/istio-ingressgateway
+          - name: ISTIO_META_MESH_ID
+            value: "cluster.local"
           - name: ISTIO_META_POD_NAME
             valueFrom:
               fieldRef:
