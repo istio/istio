@@ -884,6 +884,9 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings) (errs error
 			}
 		}
 	}
+	if err := validateLocalityLbSetting(settings.LocalityLbSetting); err != nil {
+		errs = multierror.Append(errs, err)
+	}
 	return
 }
 
@@ -2515,7 +2518,7 @@ func appendErrors(err error, errs ...error) error {
 }
 
 // validateLocalityLbSetting checks the LocalityLbSetting of MeshConfig
-func validateLocalityLbSetting(lb *meshconfig.LocalityLoadBalancerSetting) error {
+func validateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting) error {
 	if lb == nil {
 		return nil
 	}
