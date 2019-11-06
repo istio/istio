@@ -72,7 +72,9 @@ func (p *Probe) checkConfigStatus() error {
 			p.lastKnownState.versionStats.LDSVersion)
 	}
 
-	if p.lastKnownState.versionStats.CDSVersion > 0 && p.lastKnownState.versionStats.LDSVersion > 0 {
+	// Envoy seems to not updatig cds version (need to confirm) when partial rejection happens.
+	// Till that is fixed, we should treat LDS success as readiness success as LDS happens last.
+	if p.lastKnownState.versionStats.LDSVersion > 0 {
 		return nil
 	}
 
@@ -95,7 +97,7 @@ func (p *Probe) checkServerState() error {
 	}
 
 	if admin.ServerInfo_State(p.lastKnownState.serverState) != admin.ServerInfo_LIVE {
-		return fmt.Errorf("server is not live, current state is: %s", admin.ServerInfo_State(*state).String())
+		return fmt.Errorf("server is not live, current state is: %s", admin.ServerInfo_State(p.lastKnownState.serverState).String())
 	}
 
 	return nil
