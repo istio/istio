@@ -94,7 +94,7 @@ type PushContext struct {
 
 	// AuthzPolicies stores the existing authorization policies in the cluster. Could be nil if there
 	// are no authorization policies in the cluster.
-	AuthzPolicies *AuthorizationPolicies `json:"-"`
+	AuthzPolicies *AuthorizationPolicies `json:"authz_policies"`
 
 	// Env has a pointer to the shared environment used to create the snapshot.
 	Env *Environment `json:"-"`

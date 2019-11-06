@@ -50,6 +50,10 @@ func NewTrustDomainBundle(trustDomain string, trustDomainAliases []string) Bundl
 // If the local trust domain is "td2" and its alias is "td1" (migrating from td1 to td2),
 // replaceTrustDomainAliases returns ["td2/ns/foo/sa/bar", "td1/ns/foo/sa/bar]].
 func (t Bundle) ReplaceTrustDomainAliases(principals []string) []string {
+	if len(t.TrustDomains) == 0 {
+		return principals
+	}
+
 	principalsIncludingAliases := []string{}
 	for _, principal := range principals {
 		isTrustDomainBeingEnforced := isTrustDomainBeingEnforced(principal)

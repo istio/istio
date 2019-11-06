@@ -67,7 +67,12 @@ func TestGetAuthorizationPolicies(t *testing.T) {
 			name:   "add ServiceRole",
 			config: []Config{roleCfg},
 			want: &RolesAndBindings{
-				Roles:    []Config{roleCfg},
+				Roles: []ServiceRoleConfig{
+					{
+						Name:        roleCfg.Name,
+						ServiceRole: roleCfg.Spec.(*rbacproto.ServiceRole),
+					},
+				},
 				Bindings: map[string][]*rbacproto.ServiceRoleBinding{}},
 		},
 		{
@@ -91,7 +96,12 @@ func TestGetAuthorizationPolicies(t *testing.T) {
 			name:   "add ServiceRoleBinding and ServiceRole",
 			config: []Config{roleCfg, bindingCfg},
 			want: &RolesAndBindings{
-				Roles: []Config{roleCfg},
+				Roles: []ServiceRoleConfig{
+					{
+						Name:        roleCfg.Name,
+						ServiceRole: roleCfg.Spec.(*rbacproto.ServiceRole),
+					},
+				},
 				Bindings: map[string][]*rbacproto.ServiceRoleBinding{
 					"test-role-1": {bindingCfg.Spec.(*rbacproto.ServiceRoleBinding)},
 				},
@@ -102,7 +112,7 @@ func TestGetAuthorizationPolicies(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			authzPolicies := createFakeAuthorizationPolicies(c.config, t)
-			got := authzPolicies.namespaceToV1alpha1Policies[testNS]
+			got := authzPolicies.NamespaceToV1alpha1Policies[testNS]
 			if !reflect.DeepEqual(c.want, got) {
 				t.Errorf("want:\n%s\n, got:\n%s\n", c.want, got)
 			}
@@ -159,7 +169,7 @@ func TestAuthorizationPolicies_ListNamespacesOfServiceRoles(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			authzPolicies := createFakeAuthorizationPolicies(tc.configs, t)
 
-			got := authzPolicies.ListNamespacesOfToV1alpha1Policies()
+			got := authzPolicies.ListV1alpha1Namespaces()
 			if diff := cmp.Diff(tc.want, got, cmpopts.SortSlices(func(a, b string) bool { return a < b })); diff != "" {
 				t.Errorf("want:%v\n got: %v diff %v\n", tc.want, got, diff)
 			}
@@ -185,7 +195,7 @@ func TestAuthorizationPolicies_ListServiceRolesRoles(t *testing.T) {
 		name    string
 		ns      string
 		configs []Config
-		want    []Config
+		want    []ServiceRoleConfig
 	}{
 		{
 			name: "no roles",
@@ -216,8 +226,11 @@ func TestAuthorizationPolicies_ListServiceRolesRoles(t *testing.T) {
 				newConfig("role", "bar", role),
 				newConfig("binding", "bar", binding),
 			},
-			want: []Config{
-				newConfig("role", "bar", role),
+			want: []ServiceRoleConfig{
+				{
+					Name:        "role",
+					ServiceRole: role,
+				},
 			},
 		},
 		{
@@ -228,9 +241,15 @@ func TestAuthorizationPolicies_ListServiceRolesRoles(t *testing.T) {
 				newConfig("role-1", "bar", role),
 				newConfig("role-2", "bar", role),
 			},
-			want: []Config{
-				newConfig("role-1", "bar", role),
-				newConfig("role-2", "bar", role),
+			want: []ServiceRoleConfig{
+				{
+					Name:        "role-1",
+					ServiceRole: role,
+				},
+				{
+					Name:        "role-2",
+					ServiceRole: role,
+				},
 			},
 		},
 	}
@@ -400,7 +419,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		ns             string
 		workloadLabels map[string]string
 		configs        []Config
-		want           []Config
+		want           []AuthorizationPolicyConfig
 	}{
 		{
 			name: "no policies",
@@ -422,8 +441,12 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			configs: []Config{
 				newConfig("authz-1", "bar", policy),
 			},
-			want: []Config{
-				newConfig("authz-1", "bar", policy),
+			want: []AuthorizationPolicyConfig{
+				{
+					Name:                "authz-1",
+					Namespace:           "bar",
+					AuthorizationPolicy: policy,
+				},
 			},
 		},
 		{
@@ -434,9 +457,17 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 				newConfig("authz-1", "bar", policy),
 				newConfig("authz-2", "bar", policy),
 			},
-			want: []Config{
-				newConfig("authz-1", "bar", policy),
-				newConfig("authz-2", "bar", policy),
+			want: []AuthorizationPolicyConfig{
+				{
+					Name:                "authz-1",
+					Namespace:           "bar",
+					AuthorizationPolicy: policy,
+				},
+				{
+					Name:                "authz-2",
+					Namespace:           "bar",
+					AuthorizationPolicy: policy,
+				},
 			},
 		},
 		{
@@ -449,8 +480,12 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			configs: []Config{
 				newConfig("authz-1", "bar", policyWithSelector),
 			},
-			want: []Config{
-				newConfig("authz-1", "bar", policyWithSelector),
+			want: []AuthorizationPolicyConfig{
+				{
+					Name:                "authz-1",
+					Namespace:           "bar",
+					AuthorizationPolicy: policyWithSelector,
+				},
 			},
 		},
 		{
@@ -464,8 +499,12 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			configs: []Config{
 				newConfig("authz-1", "bar", policyWithSelector),
 			},
-			want: []Config{
-				newConfig("authz-1", "bar", policyWithSelector),
+			want: []AuthorizationPolicyConfig{
+				{
+					Name:                "authz-1",
+					Namespace:           "bar",
+					AuthorizationPolicy: policyWithSelector,
+				},
 			},
 		},
 		{
@@ -498,8 +537,12 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			configs: []Config{
 				newConfig("authz-1", "istio-config", policy),
 			},
-			want: []Config{
-				newConfig("authz-1", "istio-config", policy),
+			want: []AuthorizationPolicyConfig{
+				{
+					Name:                "authz-1",
+					Namespace:           "istio-config",
+					AuthorizationPolicy: policy,
+				},
 			},
 		},
 		{
@@ -508,8 +551,12 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			configs: []Config{
 				newConfig("authz-1", "istio-config", policy),
 			},
-			want: []Config{
-				newConfig("authz-1", "istio-config", policy),
+			want: []AuthorizationPolicyConfig{
+				{
+					Name:                "authz-1",
+					Namespace:           "istio-config",
+					AuthorizationPolicy: policy,
+				},
 			},
 		},
 		{
@@ -519,9 +566,17 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 				newConfig("authz-1", "istio-config", policy),
 				newConfig("authz-2", "bar", policy),
 			},
-			want: []Config{
-				newConfig("authz-1", "istio-config", policy),
-				newConfig("authz-2", "bar", policy),
+			want: []AuthorizationPolicyConfig{
+				{
+					Name:                "authz-1",
+					Namespace:           "istio-config",
+					AuthorizationPolicy: policy,
+				},
+				{
+					Name:                "authz-2",
+					Namespace:           "bar",
+					AuthorizationPolicy: policy,
+				},
 			},
 		},
 	}
