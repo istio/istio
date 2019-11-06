@@ -20,7 +20,7 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	//listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/golang/protobuf/ptypes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -222,4 +222,97 @@ func TestOnOutboundListener(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestOnOutboundListenerSkipMixer(t *testing.T) {
+	mp := mixerplugin{}
+
+	testcases := []struct {
+		name        string
+		meshconfig  *meshconfig.MeshConfig
+		nodeType    model.NodeType
+		wantFilters int
+	}{
+		{"both disabled", &meshconfig.MeshConfig{DisablePolicyChecks: true, DisableMixerHttpReports: true}, model.Router, 0},
+		{"only check disabled", &meshconfig.MeshConfig{DisablePolicyChecks: true, DisableMixerHttpReports: false}, model.Router, 1},
+		{"router only report disabled", &meshconfig.MeshConfig{DisablePolicyChecks: false, DisableMixerHttpReports: true}, model.Router, 1},
+		// no client side checks, so sidecar only + report disabled should mean no mixer filter
+		{"sidecar only report disabled", &meshconfig.MeshConfig{DisablePolicyChecks: false, DisableMixerHttpReports: true}, model.SidecarProxy, 0},
+		{"both enabled", &meshconfig.MeshConfig{DisablePolicyChecks: false, DisableMixerHttpReports: false}, model.SidecarProxy, 1},
+	}
+
+	for _, v := range testcases {
+		t.Run(v.name, func(tt *testing.T) {
+			mcfg := v.meshconfig
+			mcfg.MixerCheckServer = "mixer"
+			mcfg.MixerReportServer = "mixer"
+			inputParams := &plugin.InputParams{
+				ListenerProtocol: plugin.ListenerProtocolHTTP,
+				Env: &model.Environment{
+					Mesh: v.meshconfig,
+				},
+				Node: &model.Proxy{
+					ID:       "foo.bar",
+					Type:     v.nodeType,
+					Metadata: &model.NodeMetadata{},
+				},
+			}
+			mutable := &plugin.MutableObjects{Listener: &xdsapi.Listener{}, FilterChains: []plugin.FilterChain{{}}}
+			mp.OnOutboundListener(inputParams, mutable)
+			for _, chain := range mutable.FilterChains {
+				if got := len(chain.HTTP); got != v.wantFilters {
+					tt.Errorf("Got %d HTTP filters; wanted %d", got, v.wantFilters)
+				}
+			}
+		})
+	}
+}
+
+func TestOnInboundListenerSkipMixer(t *testing.T) {
+	mp := mixerplugin{}
+
+	testcases := []struct {
+		name        string
+		meshconfig  *meshconfig.MeshConfig
+		nodeType    model.NodeType
+		wantFilters int
+	}{
+		{"both disabled", &meshconfig.MeshConfig{DisablePolicyChecks: true, DisableMixerHttpReports: true}, model.Router, 0},
+		{"only check disabled", &meshconfig.MeshConfig{DisablePolicyChecks: true, DisableMixerHttpReports: false}, model.Router, 1},
+		{"router only report disabled", &meshconfig.MeshConfig{DisablePolicyChecks: false, DisableMixerHttpReports: true}, model.Router, 1},
+		{"sidecar only report disabled", &meshconfig.MeshConfig{DisablePolicyChecks: false, DisableMixerHttpReports: true}, model.SidecarProxy, 1},
+		{"both enabled", &meshconfig.MeshConfig{DisablePolicyChecks: false, DisableMixerHttpReports: false}, model.SidecarProxy, 1},
+	}
+
+	for _, v := range testcases {
+		t.Run(v.name, func(tt *testing.T) {
+			mcfg := v.meshconfig
+			mcfg.MixerCheckServer = "mixer"
+			mcfg.MixerReportServer = "mixer"
+			inputParams := &plugin.InputParams{
+				ListenerProtocol: plugin.ListenerProtocolHTTP,
+				Env: &model.Environment{
+					Mesh: v.meshconfig,
+				},
+				Node: &model.Proxy{
+					ID:       "foo.bar",
+					Type:     v.nodeType,
+					Metadata: &model.NodeMetadata{},
+				},
+			}
+			mutable := &plugin.MutableObjects{Listener: &xdsapi.Listener{Address: testAddress()}, FilterChains: []plugin.FilterChain{{}}}
+			mp.OnInboundListener(inputParams, mutable)
+			for _, chain := range mutable.FilterChains {
+				if got := len(chain.HTTP); got != v.wantFilters {
+					tt.Errorf("Got %d HTTP filters; wanted %d", got, v.wantFilters)
+				}
+			}
+		})
+	}
+}
+
+func testAddress() *core.Address {
+	return &core.Address{Address: &core.Address_SocketAddress{SocketAddress: &core.SocketAddress{
+		Address:       "127.0.0.1",
+		PortSpecifier: &core.SocketAddress_PortValue{PortValue: uint32(9090)}}}}
 }
