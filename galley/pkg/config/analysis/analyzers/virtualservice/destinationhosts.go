@@ -68,17 +68,17 @@ func (a *DestinationHostAnalyzer) analyzeVirtualService(r *resource.Entry, ctx a
 	ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
 
 	for _, d := range getRouteDestinations(vs) {
-		s := getDestinationHost(ns, d.GetHost(), ctx, serviceEntryHosts)
+		s := getDestinationHost(ctx, ns, d.GetHost(), serviceEntryHosts)
 		if s == nil {
 			ctx.Report(metadata.IstioNetworkingV1Alpha3Virtualservices,
 				msg.NewReferencedResourceNotFound(r, "host", d.GetHost()))
 			continue
 		}
-		checkServiceEntryPorts(r, s, d, ctx)
+		checkServiceEntryPorts(ctx, r, d, s)
 	}
 }
 
-func getDestinationHost(sourceNs, host string, ctx analysis.Context,
+func getDestinationHost(ctx analysis.Context, sourceNs, host string,
 	serviceEntryHosts map[util.ScopedFqdn]*v1alpha3.ServiceEntry) *v1alpha3.ServiceEntry {
 
 	// Check explicitly defined ServiceEntries as well as services discovered from the platform
@@ -144,7 +144,7 @@ func initServiceEntryHostMap(ctx analysis.Context) map[util.ScopedFqdn]*v1alpha3
 	return result
 }
 
-func checkServiceEntryPorts(r *resource.Entry, s *v1alpha3.ServiceEntry, d *v1alpha3.Destination, ctx analysis.Context) {
+func checkServiceEntryPorts(ctx analysis.Context, r *resource.Entry, d *v1alpha3.Destination, s *v1alpha3.ServiceEntry) {
 	if d.GetPort() == nil {
 		// If destination port isn't specified, it's only a problem if the service being referenced exposes multiple ports.
 		if len(s.GetPorts()) > 1 {
