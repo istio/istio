@@ -445,19 +445,6 @@ spec:
                 - s390x      
 
 ---
-# Source: prometheus/templates/destination-rule.yaml
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: prometheus
-  namespace: istio-system
-spec:
-  host: prometheus
-  trafficPolicy:
-    tls:
-      mode: DISABLE
-
----
 # Source: prometheus/templates/ingress.yaml
 
 ---

@@ -77,17 +77,6 @@ subjects:
   name: prometheus
   namespace: {{ .Release.Namespace }}
 ---
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: prometheus
-  namespace: {{ .Release.Namespace }}
-spec:
-  host: prometheus
-  trafficPolicy:
-    tls:
-      mode: DISABLE
----
 {{- if not .Values.prometheus.service.nodePort.enabled }}
 apiVersion: v1
 kind: Service
