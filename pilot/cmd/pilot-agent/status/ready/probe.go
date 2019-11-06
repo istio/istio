@@ -110,6 +110,9 @@ func (p *Probe) isEnvoyReady() error {
 	if se := p.checkServerState(); se != nil {
 		return se
 	}
+	if p.NodeType == model.Router {
+		return nil
+	}
 	if pe := p.pingVirtualListeners(); pe != nil {
 		return pe
 	}
