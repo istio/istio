@@ -71,6 +71,7 @@ type CommonComponentFields struct {
 	renderer helm.TemplateRenderer
 }
 
+// NewComponent creates a new IstioComponent with the given name and options.
 func NewComponent(cn name.ComponentName, opts *Options) IstioComponent {
 	var component IstioComponent
 	switch cn {
@@ -104,10 +105,14 @@ func NewComponent(cn name.ComponentName, opts *Options) IstioComponent {
 		component = NewKialiComponent(opts)
 	case name.CNIComponentName:
 		component = NewCNIComponent(opts)
+	case name.CoreDNSComponentName:
+		component = NewCoreDNSComponent(opts)
 	case name.TracingComponentName:
 		component = NewTracingComponent(opts)
 	case name.GrafanaComponentName:
 		component = NewGrafanaComponent(opts)
+	default:
+		panic("Unknown component name: " + string(cn))
 	}
 	return component
 }
@@ -637,6 +642,39 @@ func (c *CNIComponent) RenderManifest() (string, error) {
 
 // Name implements the IstioComponent interface.
 func (c *CNIComponent) Name() name.ComponentName {
+	return c.CommonComponentFields.name
+}
+
+// CoreDNSComponent is the egress gateway component.
+type CoreDNSComponent struct {
+	*CommonComponentFields
+}
+
+// NewCoreDNSComponent creates a new IngressComponent and returns a pointer to it.
+func NewCoreDNSComponent(opts *Options) *CoreDNSComponent {
+	return &CoreDNSComponent{
+		&CommonComponentFields{
+			Options: opts,
+			name:    name.CoreDNSComponentName,
+		},
+	}
+}
+
+// Run implements the IstioComponent interface.
+func (c *CoreDNSComponent) Run() error {
+	return runComponent(c.CommonComponentFields)
+}
+
+// RenderManifest implements the IstioComponent interface.
+func (c *CoreDNSComponent) RenderManifest() (string, error) {
+	if !c.started {
+		return "", fmt.Errorf("component %s not started in RenderManifest", c.Name())
+	}
+	return renderManifest(c.CommonComponentFields)
+}
+
+// Name implements the IstioComponent interface.
+func (c *CoreDNSComponent) Name() name.ComponentName {
 	return c.CommonComponentFields.name
 }
 

@@ -40,6 +40,11 @@ configManagement:
             maxUnavailable: 25%
         tolerations: []
   enabled: true
+coreDNS:
+  components:
+    coreDNS:
+      enabled: false
+  enabled: false
 gateways:
   components:
     egressGateway:
@@ -486,7 +491,6 @@ values:
   istiocoredns:
     coreDNSImage: coredns/coredns:1.1.2
     coreDNSPluginImage: istio/coredns-plugin:0.2-istio-1.1
-    enabled: false
     podAntiAffinityLabelSelector: []
     podAntiAffinityTermLabelSelector: []
     replicaCount: 1

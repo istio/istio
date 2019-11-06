@@ -4,7 +4,7 @@ description: Configuration for Istio control plane installation through the Oper
 location: https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 56
+number_of_entries: 59
 ---
 <p>IstioControlPlane is a schema for both defining and customizing Istio control plane installations.
 Running the operator with an empty user defined InstallSpec results in an control plane with default values, using the
@@ -269,7 +269,7 @@ No
 <td><code>enabled</code></td>
 <td><code><a href="#TypeBoolValueForPB">TypeBoolValueForPB</a></code></td>
 <td>
-<p>Selects whether gateway feature is installed. Must be set for any sub-component to be installed.</p>
+<p>Selects whether CNI feature is installed. Must be set for any sub-component to be installed.</p>
 
 </td>
 <td>
@@ -474,6 +474,122 @@ No
 <tr id="ConfigManagementFeatureSpec-Components-galley">
 <td><code>galley</code></td>
 <td><code><a href="#GalleyComponentSpec">GalleyComponentSpec</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="CoreDNSComponentSpec">CoreDNSComponentSpec</h2>
+<section>
+<p>Configuration options for CoreDNS component.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="CoreDNSComponentSpec-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="#TypeBoolValueForPB">TypeBoolValueForPB</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="CoreDNSComponentSpec-namespace">
+<td><code>namespace</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="CoreDNSComponentSpec-k8s">
+<td><code>k8s</code></td>
+<td><code><a href="#KubernetesResourcesSpec">KubernetesResourcesSpec</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="CoreDNSFeatureSpec">CoreDNSFeatureSpec</h2>
+<section>
+<p>Configuration options for CoreDNS feature.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="CoreDNSFeatureSpec-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="#TypeBoolValueForPB">TypeBoolValueForPB</a></code></td>
+<td>
+<p>Selects whether CoreDNS feature is installed. Must be set for any sub-component to be installed.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="CoreDNSFeatureSpec-components">
+<td><code>components</code></td>
+<td><code><a href="#CoreDNSFeatureSpec-Components">Components</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="CoreDNSFeatureSpec-Components">CoreDNSFeatureSpec.Components</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="CoreDNSFeatureSpec-Components-namespace">
+<td><code>namespace</code></td>
+<td><code>string</code></td>
+<td>
+<p>Namespace that CoreDNS components are installed into.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="CoreDNSFeatureSpec-Components-coreDNS">
+<td><code>coreDNS</code></td>
+<td><code><a href="#CoreDNSComponentSpec">CoreDNSComponentSpec</a></code></td>
 <td>
 </td>
 <td>
@@ -1137,6 +1253,15 @@ No
 <tr id="IstioControlPlaneSpec-cni">
 <td><code>cni</code></td>
 <td><code><a href="#CNIFeatureSpec">CNIFeatureSpec</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="IstioControlPlaneSpec-coreDNS">
+<td><code>coreDNS</code></td>
+<td><code><a href="#CoreDNSFeatureSpec">CoreDNSFeatureSpec</a></code></td>
 <td>
 </td>
 <td>

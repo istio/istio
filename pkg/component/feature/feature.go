@@ -67,6 +67,8 @@ func NewFeature(ft name.FeatureName, opts *Options) IstioFeature {
 		feature = NewGatewayFeature(opts)
 	case name.CNIFeatureName:
 		feature = NewCNIFeature(opts)
+	case name.CoreDNSFeatureName:
+		feature = NewCoreDNSFeature(opts)
 	case name.ThirdPartyFeatureName:
 		feature = NewThirdPartyFeature(opts)
 	}
@@ -304,6 +306,30 @@ func (f *CNIFeature) Run() error {
 
 // RenderManifest implements the IstioFeature interface.
 func (f *CNIFeature) RenderManifest() (name.ManifestMap, util.Errors) {
+	return renderComponents(f.components)
+}
+
+// CoreDNSFeature is the cni feature.
+type CoreDNSFeature struct {
+	// CommonFeatureFields is the struct shared among all features.
+	CommonFeatureFields
+}
+
+// NewCoreDNSFeature creates a new CoreDNSFeature and returns a pointer to it.
+func NewCoreDNSFeature(opts *Options) *CoreDNSFeature {
+	cff := buildCommonFeatureFields(opts, name.CoreDNSFeatureName)
+	return &CoreDNSFeature{
+		CommonFeatureFields: *cff,
+	}
+}
+
+// Run implements the IstioFeature interface.
+func (f *CoreDNSFeature) Run() error {
+	return runComponents(f.components)
+}
+
+// RenderManifest implements the IstioFeature interface.
+func (f *CoreDNSFeature) RenderManifest() (name.ManifestMap, util.Errors) {
 	return renderComponents(f.components)
 }
 

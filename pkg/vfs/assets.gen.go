@@ -38062,6 +38062,7 @@ toFeature:
     IngressGateway:     Gateways
     EgressGateway:      Gateways
     Cni:                Cni
+    CoreDNS:            CoreDNS
     Grafana:            ThirdParty
     Prometheus:         ThirdParty
     Tracing:            ThirdParty
@@ -38106,6 +38107,9 @@ featureMaps:
   Cni:
     Components:
       - Cni
+  CoreDNS:
+    Components:
+      - CoreDNS
   ThirdParty:
     Components:
       - Grafana
@@ -38185,6 +38189,12 @@ componentMaps:
     ContainerName:        "install-cni"
     HelmSubdir:           "istio-cni"
     ToHelmValuesTreeRoot: "cni"
+  CoreDNS:
+    ResourceType:         "Deployment"
+    ResourceName:         "istiocoredns"
+    ContainerName:        "coredns"
+    HelmSubdir:           "istiocoredns"
+    ToHelmValuesTreeRoot: "istiocoredns"
   Tracing:
     ResourceType:         "Deployment"
     ResourceName:         "istio-tracing"
