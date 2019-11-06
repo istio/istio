@@ -28,13 +28,13 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: meshexpansion-vs-pilot1
+  name: meshexpansion-vs-pilot
   namespace: {{ .Release.Namespace }}
   labels:
     release: {{ .Release.Name }}
 spec:
   hosts:
-  - istio-pilot.{{ .Values.global.istioNamespace }}.svc.cluster.local
+  - istio-pilot.{{ .Values.global.istioNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
   gateways:
   - meshexpansion-gateway
   tcp:
@@ -42,27 +42,20 @@ spec:
     - port: {{ $gateway.externalPort }}
     route:
     - destination:
-        host: istio-pilot.{{ .Values.global.istioNamespace }}.svc.cluster.local
+        host: istio-pilot.{{ .Values.global.istioNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
         port:
           number: 15011
-  #  - match:
-  #    - port: 53
-  #    route:
-  #    - destination:
-  #        host: kube-dns.kube-system.svc.cluster.local
-  #        port:
-  #          number: 53
 ---
 
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: meshexpansion-dr-pilot9
+  name: meshexpansion-dr-pilot
   namespace: {{ .Release.Namespace }}
   labels:
     release: {{ .Release.Name }}
 spec:
-  host: istio-pilot.{{ .Release.Namespace }}.svc.cluster.local
+  host: istio-pilot.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
   trafficPolicy:
     portLevelSettings:
     - port:
@@ -81,7 +74,7 @@ metadata:
     release: {{ .Release.Name }}
 spec:
   hosts:
-  - istio-citadel.{{ $.Release.Namespace }}.svc.cluster.local
+  - istio-citadel.{{ $.Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
   gateways:
   - meshexpansion-gateway
   tcp:
@@ -89,7 +82,7 @@ spec:
     - port: 8060
     route:
     - destination:
-        host: istio-citadel.{{ $.Release.Namespace }}.svc.cluster.local
+        host: istio-citadel.{{ $.Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
         port:
           number: 8060
 
