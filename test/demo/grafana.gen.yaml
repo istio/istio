@@ -14214,19 +14214,6 @@ spec:
           name:  istio-grafana-configuration-dashboards-pilot-dashboard
 
 ---
-# Source: grafana/templates/destination-rule.yaml
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: grafana
-  namespace: istio-system
-spec:
-  host: grafana.istio-system
-  trafficPolicy:
-    tls:
-      mode: DISABLE
-
----
 # Source: grafana/templates/grafana-policy.yaml
 apiVersion: authentication.istio.io/v1alpha1
 kind: Policy

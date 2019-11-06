@@ -5,23 +5,6 @@ TODO(https://github.com/istio/istio/issues/18199) remove this configuration from
 */ -}}
 
 {{ if .Values.clusterResources }}
-# Destination rule to disable (m)TLS when talking to API server, as API server doesn't have sidecar.
-# Customer should add similar destination rules for other services that dont' have sidecar.
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: "api-server"
-  namespace: {{ .Release.Namespace }}
-  labels:
-    release: {{ .Release.Name }}
-spec:
-  host: "kubernetes.default.svc.cluster.local"
-  trafficPolicy:
-    tls:
-      mode: DISABLE
-
----
-
 {{- if .Values.global.mtls.enabled }}
 
 # Authentication policy to enable mutual TLS for all services (that have sidecar) in the mesh.
@@ -50,6 +33,21 @@ spec:
     tls:
       mode: ISTIO_MUTUAL
 ---
+# Destination rule to disable (m)TLS when talking to API server, as API server doesn't have sidecar.
+# Customer should add similar destination rules for other services that dont' have sidecar.
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: "api-server"
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: {{ .Release.Name }}
+spec:
+  host: "kubernetes.default.svc.cluster.local"
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+---
 {{- else }}
 # Authentication policy to enable permissive mode for all services (that have sidecar) in the mesh.
 apiVersion: "authentication.istio.io/v1alpha1"
@@ -62,19 +60,6 @@ spec:
   peers:
   - mtls:
       mode: PERMISSIVE
----
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: "default"
-  namespace: {{ .Release.Namespace }}
-  labels:
-    release: {{ .Release.Name }}
-spec:
-  host: "*.local"
-  trafficPolicy:
-    tls:
-      mode: DISABLE
 ---
 
 {{ end }}
