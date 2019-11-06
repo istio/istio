@@ -148,11 +148,8 @@ func deleteTestService(apiServerURL string, svcName, svcNamespace string) error 
 	if err != nil {
 		return err
 	}
-	if err := client.CoreV1().Services(svcNamespace).Delete(svcName, &metav1.DeleteOptions{}); err != nil {
-		return err
-	}
 
-	return nil
+	return client.CoreV1().Services(svcNamespace).Delete(svcName, &metav1.DeleteOptions{})
 }
 
 func initLocalPilot(istioSrc string) (*bootstrap.Server, error) {
@@ -162,7 +159,6 @@ func initLocalPilot(istioSrc string) (*bootstrap.Server, error) {
 		DiscoveryOptions: envoy.DiscoveryServiceOptions{
 			HTTPAddr:        ":18080", // An unused port will be chosen
 			GrpcAddr:        ":0",
-			EnableCaching:   true,
 			EnableProfiling: true,
 		},
 		//TODO: start mixer first, get its address

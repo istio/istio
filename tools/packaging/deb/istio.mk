@@ -47,7 +47,6 @@ $(foreach DEST,$(ISTIO_DEB_DEST),\
         $(eval SIDECAR_FILES+=src/istio.io/istio/tools/packaging/common/$(notdir $(DEST))=$(DEST)))
 
 SIDECAR_FILES+=src/istio.io/istio/tools/packaging/common/envoy_bootstrap_v2.json=/var/lib/istio/envoy/envoy_bootstrap_tmpl.json
-SIDECAR_FILES+=src/istio.io/istio/tools/packaging/common/envoy_bootstrap_drain.json=/var/lib/istio/envoy/envoy_bootstrap_drain.json
 
 # original name used in 0.2 - will be updated to 'istio.deb' since it now includes all istio binaries.
 ISTIO_DEB_NAME ?= istio-sidecar

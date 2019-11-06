@@ -483,7 +483,7 @@ func buildLocalityLbEndpoints(env *model.Environment, proxyNetworkView map[strin
 		})
 	}
 
-	return util.LocalityLbWeightNormalize(localityLbEndpoints)
+	return localityLbEndpoints
 }
 
 func buildInboundLocalityLbEndpoints(bind string, port int) []*endpoint.LocalityLbEndpoints {

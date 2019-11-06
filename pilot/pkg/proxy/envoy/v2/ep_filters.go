@@ -175,11 +175,6 @@ func createLocalityLbEndpoints(base *endpoint.LocalityLbEndpoints, lbEndpoints [
 	return ep
 }
 
-// LoadBalancingWeightNormalize set LoadBalancingWeight with a valid value.
-func LoadBalancingWeightNormalize(endpoints []*endpoint.LocalityLbEndpoints) []*endpoint.LocalityLbEndpoints {
-	return util.LocalityLbWeightNormalize(endpoints)
-}
-
 func getNetworkRegistry(network *v1alpha1.Network) string {
 	var registryName string
 	for _, eps := range network.Endpoints {

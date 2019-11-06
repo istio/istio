@@ -52,11 +52,14 @@ func (s *Stats) String() string {
 	ldsStatus := "Not Received"
 	if s.CDSVersion > 0 {
 		cdsStatus = "Received"
+	} else if s.LDSVersion > 0 {
+		cdsStatus = "Rejected"
 	}
+
 	if s.LDSVersion > 0 {
 		ldsStatus = "Received"
 	}
-	return fmt.Sprintf("cds update: %s ,lds update: %s", cdsStatus, ldsStatus)
+	return fmt.Sprintf("cds update: %s, lds update: %s", cdsStatus, ldsStatus)
 }
 
 // GetServerState returns the current Envoy state by checking the "server.state" stat.
@@ -64,6 +67,9 @@ func GetServerState(localHostAddr string, adminPort uint16) (*uint64, error) {
 	stats, err := doHTTPGet(fmt.Sprintf("http://%s:%d/stats?usedonly&filter=%s", localHostAddr, adminPort, statServerState))
 	if err != nil {
 		return nil, err
+	}
+	if !strings.Contains(stats.String(), "server.state") {
+		return nil, fmt.Errorf("stats version is not preset: %s", stats.String())
 	}
 
 	s := &Stats{}

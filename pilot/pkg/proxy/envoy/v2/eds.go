@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
@@ -359,9 +360,6 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 	edsCluster.mutex.Lock()
 	defer edsCluster.mutex.Unlock()
 
-	// Normalize LoadBalancingWeight in range [1, 128]
-	locEps = LoadBalancingWeightNormalize(locEps)
-
 	edsCluster.LoadAssignment = &xdsapi.ClusterLoadAssignment{
 		ClusterName: clusterName,
 		Endpoints:   locEps,
@@ -370,8 +368,17 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 }
 
 // SvcUpdate is a callback from service discovery when service info changes.
-func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, ports map[string]uint32, _ map[uint32]string) {
-	inboundServiceUpdates.Increment()
+func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, namespace string, event model.Event) {
+	// When a service deleted, we should cleanup the endpoint shards and also remove keys from EndpointShardsByService to
+	// prevent memory leaks.
+	if event == model.EventDelete {
+		inboundServiceDeletes.Increment()
+		s.mutex.Lock()
+		defer s.mutex.Unlock()
+		s.deleteService(cluster, hostname, namespace)
+	} else {
+		inboundServiceUpdates.Increment()
+	}
 }
 
 // Update clusters for an incremental EDS push, and initiate the push.
@@ -433,17 +440,13 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 	defer s.mutex.Unlock()
 	requireFull := false
 
-	// To prevent memory leak.
-	// Should delete the service EndpointShards, when endpoints deleted or service deleted.
+	// Should delete the service EndpointShards when endpoints become zero to prevent memory leak,
+	// but we should not do not delete the keys from EndpointShardsByService map - that will trigger
+	// unnecessary full push which can become a real problem if a pod is in crashloop and thus endpoints
+	// flip flopping between 1 and 0.
 	if len(istioEndpoints) == 0 {
 		if s.EndpointShardsByService[serviceName][namespace] != nil {
-			s.EndpointShardsByService[serviceName][namespace].mutex.Lock()
-			delete(s.EndpointShardsByService[serviceName][namespace].Shards, clusterID)
-			svcShards := len(s.EndpointShardsByService[serviceName][namespace].Shards)
-			s.EndpointShardsByService[serviceName][namespace].mutex.Unlock()
-			if svcShards == 0 {
-				delete(s.EndpointShardsByService[serviceName], namespace)
-			}
+			s.deleteEndpointShards(clusterID, serviceName, namespace)
 			adsLog.Infof("Incremental push, service %s has no endpoints", serviceName)
 			s.ConfigUpdate(&model.PushRequest{
 				Full:              false,
@@ -514,6 +517,33 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 			ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
 			EdsUpdates:         edsUpdates,
 		})
+	}
+}
+
+// deleteEndpointShards deletes matching endpoint shards from EndpointShardsByService map. This is called when
+// endpoints are deleted.
+func (s *DiscoveryServer) deleteEndpointShards(cluster, serviceName, namespace string) {
+	if s.EndpointShardsByService[serviceName][namespace] != nil {
+		s.EndpointShardsByService[serviceName][namespace].mutex.Lock()
+		delete(s.EndpointShardsByService[serviceName][namespace].Shards, cluster)
+		s.EndpointShardsByService[serviceName][namespace].mutex.Unlock()
+	}
+}
+
+// deleteService deletes all service related references from EndpointShardsByService. This is called
+// when a service is deleted.
+func (s *DiscoveryServer) deleteService(cluster, serviceName, namespace string) {
+	if s.EndpointShardsByService[serviceName][namespace] != nil {
+		s.EndpointShardsByService[serviceName][namespace].mutex.Lock()
+		delete(s.EndpointShardsByService[serviceName][namespace].Shards, cluster)
+		svcShards := len(s.EndpointShardsByService[serviceName][namespace].Shards)
+		s.EndpointShardsByService[serviceName][namespace].mutex.Unlock()
+		if svcShards == 0 {
+			delete(s.EndpointShardsByService[serviceName], namespace)
+		}
+		if len(s.EndpointShardsByService[serviceName]) == 0 {
+			delete(s.EndpointShardsByService, serviceName)
+		}
 	}
 }
 
@@ -669,7 +699,6 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 		// EDS filter on the endpoints
 		if s.Env.MeshNetworks != nil && len(s.Env.MeshNetworks.Networks) > 0 {
 			endpoints := EndpointsByNetworkFilter(l.Endpoints, con, s.Env)
-			endpoints = LoadBalancingWeightNormalize(endpoints)
 			filteredCLA := &xdsapi.ClusterLoadAssignment{
 				ClusterName: l.ClusterName,
 				Endpoints:   endpoints,
@@ -771,28 +800,6 @@ func (s *DiscoveryServer) getEdsCluster(clusterName string) *EdsCluster {
 	return edsClusters[clusterName]
 }
 
-// getOrAddEdsCluster will track the eds connection with clusters, for optimized event-based push and debug
-func (s *DiscoveryServer) getOrAddEdsCluster(clusterName, node string, connection *XdsConnection) *EdsCluster {
-	edsClusterMutex.Lock()
-	defer edsClusterMutex.Unlock()
-
-	c := edsClusters[clusterName]
-	if c == nil {
-		c = &EdsCluster{
-			EdsClients: map[string]*XdsConnection{},
-		}
-		edsClusters[clusterName] = c
-	}
-
-	// TODO: find a more efficient way to make edsClusters and EdsClients init atomic
-	// Currently use edsClusterMutex lock
-	c.mutex.Lock()
-	c.EdsClients[node] = connection
-	c.mutex.Unlock()
-
-	return c
-}
-
 // removeEdsCon is called when a gRPC stream is closed, for each cluster that was watched by the
 // stream. As of 0.7 envoy watches a single cluster per gprc stream.
 func (s *DiscoveryServer) removeEdsCon(clusterName string, node string) {
@@ -813,6 +820,44 @@ func (s *DiscoveryServer) removeEdsCon(clusterName string, node string) {
 		// in CDS requests to all sidecars. It may happen if all connections are closed.
 		adsLog.Debugf("EDS: Remove unwatched cluster node:%s cluster:%s", node, clusterName)
 		delete(edsClusters, clusterName)
+	}
+}
+
+func (s *DiscoveryServer) updateEdsClients(added sets.Set, removed sets.Set, connection *XdsConnection) {
+	edsClusterMutex.Lock()
+	defer edsClusterMutex.Unlock()
+
+	for rc := range removed {
+		c := edsClusters[rc]
+		if c == nil {
+			adsLog.Warnf("EDS: Missing cluster: %s", rc)
+			continue
+		}
+		c.mutex.Lock()
+		delete(c.EdsClients, connection.ConID)
+		c.mutex.Unlock()
+		if len(c.EdsClients) == 0 {
+			// This happens when a previously used cluster is no longer watched by any
+			// sidecar. It should not happen very often - normally all clusters are sent
+			// in CDS requests to all sidecars. It may happen if all connections are closed.
+			adsLog.Debugf("EDS: Remove unwatched cluster node:%s cluster:%s", connection.ConID, rc)
+			delete(edsClusters, rc)
+		}
+	}
+
+	for ac := range added {
+		c := edsClusters[ac]
+		if c == nil {
+			c = &EdsCluster{
+				EdsClients: map[string]*XdsConnection{},
+			}
+			edsClusters[ac] = c
+			// TODO: find a more efficient way to make edsClusters and EdsClients init atomic
+			// Currently use edsClusterMutex lock
+			c.mutex.Lock()
+			c.EdsClients[connection.ConID] = connection
+			c.mutex.Unlock()
+		}
 	}
 }
 
@@ -884,8 +929,6 @@ func buildLocalityLbEndpointsFromShards(
 		}
 		locEps = append(locEps, locLbEps)
 	}
-	// Normalize LoadBalancingWeight in range [1, 128]
-	locEps = LoadBalancingWeightNormalize(locEps)
 
 	if len(locEps) == 0 {
 		push.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")

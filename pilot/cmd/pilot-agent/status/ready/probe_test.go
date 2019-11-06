@@ -34,6 +34,7 @@ import (
 var (
 	liveServerStats = "cluster_manager.cds.version: 1\nlistener_manager.lds.version: 1\nserver.state: 0"
 	onlyServerStats = "server.state: 0"
+	noServerStats   = ""
 	initServerStats = "cluster_manager.cds.version: 1\nlistener_manager.lds.version: 1\nserver.state: 2"
 	listeners       = admin.Listeners{
 		ListenerStatuses: []*admin.ListenerStatus{
@@ -75,8 +76,7 @@ func TestEnvoyStatsIncompleteCDS(t *testing.T) {
 
 	err := probe.Check()
 
-	g.Expect(err).To(HaveOccurred())
-	g.Expect(err.Error()).To(ContainSubstring("cds update: Not Received"))
+	g.Expect(err).NotTo(HaveOccurred())
 }
 
 func TestEnvoyStatsIncompleteLDS(t *testing.T) {
@@ -161,6 +161,18 @@ func TestEnvoyNoClusterManagerStats(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	server := createAndStartServer(onlyServerStats)
+	defer server.Close()
+	probe := Probe{AdminPort: 1234}
+
+	err := probe.Check()
+
+	g.Expect(err).To(HaveOccurred())
+}
+
+func TestEnvoyNoServerStats(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	server := createAndStartServer(noServerStats)
 	defer server.Close()
 	probe := Probe{AdminPort: 1234}
 

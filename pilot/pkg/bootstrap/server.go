@@ -65,7 +65,6 @@ import (
 	istio_networking "istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/proxy/envoy"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
@@ -205,7 +204,7 @@ type ServiceArgs struct {
 
 // PilotArgs provides all of the configuration parameters for the Pilot discovery service.
 type PilotArgs struct {
-	DiscoveryOptions         envoy.DiscoveryServiceOptions
+	DiscoveryOptions         DiscoveryServiceOptions
 	Namespace                string
 	Mesh                     MeshArgs
 	Config                   ConfigArgs
@@ -220,6 +219,29 @@ type PilotArgs struct {
 	KeepaliveOptions         *istiokeepalive.Options
 	// ForceStop is set as true when used for testing to make the server stop quickly
 	ForceStop bool
+}
+
+// DiscoveryServiceOptions contains options for create a new discovery
+// service instance.
+type DiscoveryServiceOptions struct {
+	// The listening address for HTTP. If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
+	// a port number is automatically chosen.
+	HTTPAddr string
+
+	// The listening address for GRPC. If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
+	// a port number is automatically chosen.
+	GrpcAddr string
+
+	// The listening address for secure GRPC. If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
+	// a port number is automatically chosen.
+	// "" means disabling secure GRPC, used in test.
+	SecureGrpcAddr string
+
+	// The listening address for the monitoring port. If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
+	// a port number is automatically chosen.
+	MonitoringAddr string
+
+	EnableProfiling bool
 }
 
 // Server contains the runtime configuration for the Pilot discovery service.
@@ -1027,20 +1049,11 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		PushContext:      model.NewPushContext(),
 	}
 
-	// Set up discovery service
-	discovery, err := envoy.NewDiscoveryService(
-		environment,
-		args.DiscoveryOptions,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create discovery service: %v", err)
-	}
-	s.mux = discovery.RestContainer.ServeMux
-
 	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(environment,
 		istio_networking.NewConfigGenerator(args.Plugins),
 		s.ServiceController, s.kubeRegistry, s.configController)
-	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController)
+	s.mux = http.NewServeMux()
+	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController, args.DiscoveryOptions.EnableProfiling)
 
 	if s.kubeRegistry != nil {
 		// kubeRegistry may use the environment for push status reporting.
