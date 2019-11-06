@@ -44,21 +44,20 @@ var (
 var (
 	checkCmd = &cobra.Command{
 		Use:   "check <pod-name>[.<pod-namespace>]",
-		Short: "Check Envoy config dump for filters configured for access control",
-		Long: `Check Envoy config dump for filters configured for access control.
-The command reads the Envoy config dump for the given pod and checks the filter
-configuration related to access control. For example, it shows whether or not the
-Envoy is configured with a RBAC filter and the configured rule names if there is one.
+		Short: "Check Envoy config dump for authorization configuration.",
+		Long: `Check reads the Envoy config dump and checks the filter configuration
+related to authorization. For example, it shows whether or not the Envoy is configured
+with authorization and the rules used in the authorization.
 
-The Envoy config could be provided either by pod name or from a config dump file
+The Envoy config dump could be provided either by pod name or from a config dump file
 (the whole output of http://localhost:15000/config_dump of an Envoy instance).
 
 THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 `,
-		Example: `  # Check the Envoy config dump from the pod httpbin-88ddbcfdd-nt5jb in namespace foo:
-  istioctl x authz check httpbin-88ddbcfdd-nt5jb.foo
+		Example: `  # Check Envoy authorization configuration for pod httpbin-88ddbcfdd-nt5jb:
+  istioctl x authz check httpbin-88ddbcfdd-nt5jb
 
-  # Check the Envoy config dump from a file:
+  # Check Envoy authorization configuration from a config dump file:
   istioctl x authz check -f httpbin_config_dump.json`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 1 {
@@ -217,10 +216,10 @@ func AuthZ() *cobra.Command {
 		Use:   "authz",
 		Short: "Inspect and interact with authorization policies",
 		Long: `Commands to inspect and interact with the authorization policies
-  check - check Envoy config dump for filters configured for access control
+  check - check Envoy config dump for authorization configuration
   convert - convert v1alpha1 RBAC policies to v1beta1 authorization policies
 `,
-		Example: `  # Check Envoy config dump for pod httpbin-88ddbcfdd-nt5jb:
+		Example: `  # Check Envoy authorization configuration for pod httpbin-88ddbcfdd-nt5jb:
   istioctl x authz check httpbin-88ddbcfdd-nt5jb
 
   # Convert the v1alpha1 RBAC policies in the current cluster to v1beta1 authorization policies:

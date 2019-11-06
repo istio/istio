@@ -1,5 +1,5 @@
 Checked 17/39 listeners with node IP 10.52.2.21.
-LISTENER[FilterChain]     CERTIFICATE                   mTLS (MODE)      JWT (ISSUERS)                        RBAC (RULES)
+LISTENER[FilterChain]     CERTIFICATE                   mTLS (MODE)      JWT (ISSUERS)                        AuthZ (RULES)
 0.0.0.0_80                none                          no (none)        no (none)                            no (none)
 0.0.0.0_3000              none                          no (none)        no (none)                            no (none)
 0.0.0.0_8000              none                          no (none)        no (none)                            no (none)
