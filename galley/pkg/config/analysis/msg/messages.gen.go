@@ -63,7 +63,7 @@ var (
 
 	// VirtualServiceDestinationPortSelectorRequired defines a diag.MessageType for message "VirtualServiceDestinationPortSelectorRequired".
 	// Description: A VirtualService routes to a service with more than one port exposed, but does not specify which to use.
-	VirtualServiceDestinationPortSelectorRequired = diag.NewMessageType(diag.Error, "IST0112", "This VirtualService routes to a service %q that exposes multiple ports (%s). Specifying a port in the destination is required to disambiguate.")
+	VirtualServiceDestinationPortSelectorRequired = diag.NewMessageType(diag.Error, "IST0112", "This VirtualService routes to a service %q that exposes multiple ports %v. Specifying a port in the destination is required to disambiguate.")
 )
 
 // NewInternalError returns a new diag.Message based on InternalError.
