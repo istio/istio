@@ -20,7 +20,6 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/istioctl/pkg/authz"
 	"istio.io/istio/pilot/test/util"
 )
 
@@ -30,16 +29,6 @@ func runCommandAndCheckGoldenFile(name, command, golden string, t *testing.T) {
 		t.Errorf("%s: unexpected error: %s", name, err)
 	}
 	util.CompareContent(out.Bytes(), golden, t)
-}
-
-func runCommandAndCheckExpectedString(name, command, expected string, t *testing.T) {
-	out, err := runCommand(name, command, t)
-	if err != nil {
-		t.Fatalf("test %q failed: %v", name, expected)
-	}
-	if out.String() != expected {
-		t.Errorf("test %q failed. \nExpected\n%s\nGot%s\n", name, expected, out.String())
-	}
 }
 
 func runCommandAndCheckExpectedCmdError(name, command, expected string, t *testing.T) {
@@ -85,34 +74,6 @@ func TestAuthZCheck(t *testing.T) {
 	for _, c := range testCases {
 		command := fmt.Sprintf("experimental authz check -f %s", c.in)
 		runCommandAndCheckGoldenFile(c.name, command, c.golden, t)
-	}
-}
-
-func TestAuthZValidator(t *testing.T) {
-	testCases := []struct {
-		name     string
-		in       []string
-		expected string
-	}{
-		{
-			name:     "good policy",
-			in:       []string{"testdata/authz/authz-policy.yaml"},
-			expected: authz.GetPolicyValidReport(),
-		},
-		{
-			name: "bad policy",
-			in: []string{
-				"testdata/authz/unused-role.yaml",
-				"testdata/authz/notfound-role-in-binding.yaml",
-			},
-			expected: fmt.Sprintf("%s%s",
-				authz.GetRoleNotFoundReport("some-role", "bind-service-viewer", "default"),
-				authz.GetRoleNotUsedReport("unused-role", "default")),
-		},
-	}
-	for _, c := range testCases {
-		command := fmt.Sprintf("experimental authz validate -f %s", strings.Join(c.in, ","))
-		runCommandAndCheckExpectedString(c.name, command, c.expected, t)
 	}
 }
 

@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/istioctl/pkg/util/handlers"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/security/authz/converter"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
@@ -45,17 +44,21 @@ var (
 var (
 	checkCmd = &cobra.Command{
 		Use:   "check <pod-name>[.<pod-namespace>]",
-		Short: "Check the authorization configuration based on Envoy config",
-		Long: `Check analyzes the authorization configuration based on the Envoy config. The Envoy config could
-be provided either by pod name or from a config dump file (the whole output of http://localhost:15000/config_dump
-of an Envoy instance).
+		Short: "Check Envoy config dump for filters configured for access control",
+		Long: `Check Envoy config dump for filters configured for access control.
+The command reads the Envoy config dump for the given pod and checks the filter
+configuration related to access control. For example, it shows whether or not the
+Envoy is configured with a RBAC filter and the configured rule names if there is one.
+
+The Envoy config could be provided either by pod name or from a config dump file
+(the whole output of http://localhost:15000/config_dump of an Envoy instance).
 
 THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 `,
-		Example: `  # Check the authorization configuration for pod httpbin-88ddbcfdd-nt5jb in namespace foo:
+		Example: `  # Check the Envoy config dump from the pod httpbin-88ddbcfdd-nt5jb in namespace foo:
   istioctl x authz check httpbin-88ddbcfdd-nt5jb.foo
 
-  # Check the authorization configuration from a config dump file:
+  # Check the Envoy config dump from a file:
   istioctl x authz check -f httpbin_config_dump.json`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 1 {
@@ -94,7 +97,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 	convertCmd = &cobra.Command{
 		Use:   "convert",
 		Short: "Convert v1alpha1 RBAC policy to v1beta1 authorization policy",
-		Long: `Convert converts Istio v1alpha1 RBAC policy to v1beta1 authorization policy. The command talks to Kubernetes
+		Long: `Convert Istio v1alpha1 RBAC policy to v1beta1 authorization policy. The command talks to Kubernetes
 API server to get all the information needed to complete the conversion, including the v1alpha1 RBAC policies in the current
 cluster, the Istio config-map for root namespace configuration and the k8s Service translating the
 service name to workload selector.
@@ -141,35 +144,6 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			_ = c.Root().PersistentFlags().Set("log_target", "stderr")
 
 			return c.Root().PersistentPreRunE(c, args)
-		},
-	}
-
-	validatorCmd = &cobra.Command{
-		Use:   "validate v1alpha1-policy.yaml",
-		Short: "Validate v1alpha1 RBAC policies for potential incorrect usage",
-		Long: `Validate validates the v1alpha1 RBAC policies for potential issues such as:
-  * ServiceRoleBinding refers to a non existing ServiceRole.
-	* ServiceRole not used.
-
-THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
-`,
-		Example: `  # Validate the v1alpha1 RBAC policy provided through command line:
-  istioctl x authz validate -f v1alpha1-policy-1.yaml,v1alpha1-policy-2.yaml`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			validator, err := newValidator(policyFiles)
-			if err != nil {
-				return err
-			}
-			err = validator.CheckAndReport()
-			if err != nil {
-				return err
-			}
-			writer := cmd.OutOrStdout()
-			_, err = writer.Write([]byte(validator.Report.String()))
-			if err != nil {
-				return fmt.Errorf("failed to write report: %v", err)
-			}
-			return nil
 		},
 	}
 )
@@ -236,17 +210,6 @@ func newConverter(v1PolicyFiles, serviceFiles []string, istioNamespace, istioMes
 	return converter.New(k8sClient, v1PolicyFiles, serviceFiles, meshConfig, istioNamespace, istioMeshConfigMapName)
 }
 
-func newValidator(policyFiles []string) (*authz.Validator, error) {
-	if len(policyFiles) == 0 {
-		return nil, fmt.Errorf("no input file provided")
-	}
-	validator := &authz.Validator{
-		PolicyFiles:          policyFiles,
-		RoleKeyToServiceRole: make(map[string]model.Config),
-	}
-	return validator, nil
-}
-
 // AuthZ groups commands used for inspecting and interacting the authorization policy.
 // Note: this is still under active development and is not ready for real use.
 func AuthZ() *cobra.Command {
@@ -254,21 +217,19 @@ func AuthZ() *cobra.Command {
 		Use:   "authz",
 		Short: "Inspect and interact with authorization policies",
 		Long: `Commands to inspect and interact with the authorization policies
-  check - check the authorization configuration in Envoy
+  check - check Envoy config dump for filters configured for access control
   convert - convert v1alpha1 RBAC policies to v1beta1 authorization policies
-  validate - validate v1alpha1 RBAC policies for potential incorrect usage
 `,
-		Example: `  # Check the authorization configuration for pod httpbin-88ddbcfdd-nt5jb:
-  istioctl experimental auth check httpbin-88ddbcfdd-nt5jb
+		Example: `  # Check Envoy config dump for pod httpbin-88ddbcfdd-nt5jb:
+  istioctl x authz check httpbin-88ddbcfdd-nt5jb
 
   # Convert the v1alpha1 RBAC policies in the current cluster to v1beta1 authorization policies:
-  istioctl experimental auth convert > v1beta1-authz.yaml
+  istioctl x authz convert > v1beta1-authz.yaml
 `,
 	}
 
 	cmd.AddCommand(checkCmd)
 	cmd.AddCommand(convertCmd)
-	cmd.AddCommand(validatorCmd)
 	return cmd
 }
 
@@ -276,9 +237,7 @@ func init() {
 	checkCmd.PersistentFlags().BoolVarP(&printAll, "all", "a", false,
 		"Show additional information (e.g. SNI and ALPN)")
 	checkCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
-		"Check the authorization configuration from the config dump file")
-	validatorCmd.PersistentFlags().StringSliceVarP(&policyFiles, "file", "f", []string{},
-		"v1alph1 RBAC policy file to be validated")
+		"Check the Envoy config dump from a file")
 	convertCmd.PersistentFlags().StringSliceVarP(&policyFiles, "file", "f", []string{},
 		"v1alpha1 RBAC policy that needs to be converted to v1beta1 authorization policy")
 	convertCmd.PersistentFlags().StringSliceVarP(&serviceFiles, "service", "s", []string{},
