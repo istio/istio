@@ -76,8 +76,7 @@ func TestEnvoyStatsIncompleteCDS(t *testing.T) {
 
 	err := probe.Check()
 
-	g.Expect(err).To(HaveOccurred())
-	g.Expect(err.Error()).To(ContainSubstring("cds update: Not Received"))
+	g.Expect(err).NotTo(HaveOccurred())
 }
 
 func TestEnvoyStatsIncompleteLDS(t *testing.T) {
