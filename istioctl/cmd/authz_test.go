@@ -255,24 +255,24 @@ func TestAuthZConvert(t *testing.T) {
 		{
 			name: "Multiple access rules with one subject",
 			rbacV1alpha1Files: []string{
-				"testdata/auth/converter/multiple-access-rules.yaml",
-				"testdata/auth/converter/one-subject.yaml",
+				"testdata/authz/converter/multiple-access-rules.yaml",
+				"testdata/authz/converter/one-subject.yaml",
 			},
 			servicesFiles: []string{
-				"testdata/auth/converter/svc-bookinfo.yaml",
+				"testdata/authz/converter/svc-bookinfo.yaml",
 			},
-			golden: "testdata/auth/converter/multiple-access-rules-one-subject.golden.yaml",
+			golden: "testdata/authz/converter/multiple-access-rules-one-subject.golden.yaml",
 		},
 		{
 			name: "Multiple access rules with two subjects",
 			rbacV1alpha1Files: []string{
-				"testdata/auth/converter/multiple-access-rules.yaml",
-				"testdata/auth/converter/two-subjects.yaml",
+				"testdata/authz/converter/multiple-access-rules.yaml",
+				"testdata/authz/converter/two-subjects.yaml",
 			},
 			servicesFiles: []string{
-				"testdata/auth/converter/svc-bookinfo.yaml",
+				"testdata/authz/converter/svc-bookinfo.yaml",
 			},
-			golden: "testdata/auth/converter/multiple-access-rules-two-subjects.golden.yaml",
+			golden: "testdata/authz/converter/multiple-access-rules-two-subjects.golden.yaml",
 		},
 	}
 	for _, c := range testCases {
