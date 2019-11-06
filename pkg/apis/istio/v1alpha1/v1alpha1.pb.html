@@ -4046,6 +4046,19 @@ No
 No
 </td>
 </tr>
+<tr id="PrometheusConfig-resources">
+<td><code>resources</code></td>
+<td><code><a href="#Resources">Resources</a></code></td>
+<td>
+<p>K8s resources settings.</p>
+
+<p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -4938,6 +4951,17 @@ No
 No
 </td>
 </tr>
+<tr id="SecurityConfig-workloadCertTtl">
+<td><code>workloadCertTtl</code></td>
+<td><code>string</code></td>
+<td>
+<p>How long workload certs are valid for</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -5164,7 +5188,7 @@ No
 </tr>
 <tr id="SidecarInjectorConfig-resources">
 <td><code>resources</code></td>
-<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td><code><a href="#Resources">Resources</a></code></td>
 <td>
 <p>K8s resources settings.</p>
 
