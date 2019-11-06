@@ -78,35 +78,58 @@ func (l *logger) logAndPrint(v ...interface{}) {
 	}
 	s := fmt.Sprint(v...)
 	if !l.logToStdErr {
-		l.print(s)
-		l.print("\n")
+		l.print(s + "\n")
+	} else {
+		log.Infof(s)
+	}
+}
+
+func (l *logger) logAndError(v ...interface{}) {
+	if len(v) == 0 {
+		return
+	}
+	s := fmt.Sprint(v...)
+	if !l.logToStdErr {
+		l.printErr(s + "\n")
 	} else {
 		log.Infof(s)
 	}
 }
 
 func (l *logger) logAndFatal(v ...interface{}) {
-	l.logAndPrint(v...)
+	l.logAndError(v...)
 	os.Exit(-1)
 }
 
 func (l *logger) logAndPrintf(format string, a ...interface{}) {
 	s := fmt.Sprintf(format, a...)
 	if !l.logToStdErr {
-		l.print(s)
-		l.print("\n")
+		l.print(s + "\n")
+	} else {
+		log.Infof(s)
+	}
+}
+
+func (l *logger) logAndErrorf(format string, a ...interface{}) {
+	s := fmt.Sprintf(format, a...)
+	if !l.logToStdErr {
+		l.printErr(s + "\n")
 	} else {
 		log.Infof(s)
 	}
 }
 
 func (l *logger) logAndFatalf(format string, a ...interface{}) {
-	l.logAndPrintf(format, a...)
+	l.logAndErrorf(format, a...)
 	os.Exit(-1)
 }
 
 func (l *logger) print(s string) {
 	_, _ = l.stdOut.Write([]byte(s))
+}
+
+func (l *logger) printErr(s string) {
+	_, _ = l.stdErr.Write([]byte(s))
 }
 
 func refreshGoldenFiles() bool {
