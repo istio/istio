@@ -194,6 +194,7 @@ message IstioControlPlaneSpec {
     AutoInjectionFeatureSpec auto_injection = 30;
     GatewayFeatureSpec gateways = 31;
     CNIFeatureSpec cni = 32;
+    CoreDNSFeatureSpec coreDNS = 33;
     // Overrides for default global values.yaml.
     TypeMapStringInterface values = 50;
     // Unvalidated overrides for default global values.yaml.
@@ -332,7 +333,7 @@ message GatewayFeatureSpec {
 
 // Configuration options for cni feature.
 message CNIFeatureSpec {
-    // Selects whether gateway feature is installed. Must be set for any sub-component to be installed.
+    // Selects whether CNI feature is installed. Must be set for any sub-component to be installed.
     TypeBoolValueForPB enabled = 1;
 
     message Components {
@@ -340,6 +341,21 @@ message CNIFeatureSpec {
         string namespace = 1;
 
         CNIComponentSpec cni = 20;
+    }
+
+    Components components = 50;
+}
+
+// Configuration options for CoreDNS feature.
+message CoreDNSFeatureSpec {
+    // Selects whether CoreDNS feature is installed. Must be set for any sub-component to be installed.
+    TypeBoolValueForPB enabled = 1;
+
+    message Components {
+        // Namespace that CoreDNS components are installed into.
+        string namespace = 1;
+
+        CoreDNSComponentSpec coreDNS = 20;
     }
 
     Components components = 50;
@@ -436,6 +452,13 @@ message EgressGatewayComponentSpec {
 
 // Configuration options for cni component.
 message CNIComponentSpec {
+    TypeBoolValueForPB enabled = 1;
+    string namespace = 2;
+    KubernetesResourcesSpec k8s = 80;
+}
+
+// Configuration options for CoreDNS component.
+message CoreDNSComponentSpec {
     TypeBoolValueForPB enabled = 1;
     string namespace = 2;
     KubernetesResourcesSpec k8s = 80;

@@ -4,6 +4,8 @@
 
 # Cni component is disabled.
 
+# CoreDNS component is disabled.
+
 # EgressGateway component is disabled.
 
 # Galley component is disabled.

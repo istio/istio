@@ -48,6 +48,7 @@ const (
 	AutoInjectionFeatureName     FeatureName = "AutoInjection"
 	GatewayFeatureName           FeatureName = "Gateways"
 	CNIFeatureName               FeatureName = "Cni"
+	CoreDNSFeatureName           FeatureName = "CoreDNS"
 	ThirdPartyFeatureName        FeatureName = "ThirdParty"
 )
 
@@ -68,6 +69,8 @@ const (
 	NodeAgentComponentName       ComponentName = "NodeAgent"
 	IngressComponentName         ComponentName = "IngressGateway"
 	EgressComponentName          ComponentName = "EgressGateway"
+	CNIComponentName             ComponentName = "Cni"
+	CoreDNSComponentName         ComponentName = "CoreDNS"
 
 	// The following are third party components, not a part of the IstioControlPlaneAPI but still installed in some
 	// profiles through the Helm API.
@@ -75,7 +78,6 @@ const (
 	PrometheusOperatorComponentName ComponentName = "PrometheusOperator"
 	GrafanaComponentName            ComponentName = "Grafana"
 	KialiComponentName              ComponentName = "Kiali"
-	CNIComponentName                ComponentName = "Cni"
 	TracingComponentName            ComponentName = "Tracing"
 )
 
@@ -93,6 +95,8 @@ var (
 		IngressComponentName:         GatewayFeatureName,
 		EgressComponentName:          GatewayFeatureName,
 		CNIComponentName:             CNIFeatureName,
+		CoreDNSComponentName:         CoreDNSFeatureName,
+
 		// External
 		PrometheusComponentName:         ThirdPartyFeatureName,
 		PrometheusOperatorComponentName: ThirdPartyFeatureName,
