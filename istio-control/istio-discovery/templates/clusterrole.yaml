@@ -63,5 +63,8 @@ rules:
 - apiGroups: [""]
   resources: ["endpoints", "pods", "services", "nodes", "replicationcontrollers"]
   verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["replicasets"]
+  verbs: ["get", "list", "watch"]
 ---
 {{ end }}
