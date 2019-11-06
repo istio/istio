@@ -5,7 +5,7 @@ constraints:
           - equals: {
             "Body": {
               "selector": {
-                "match_labels": {
+                "matchLabels": {
                   "app": "httpbin",
                   "version": "v1"
                 }
