@@ -351,7 +351,6 @@ func TestUpdateSecret(t *testing.T) {
 		gracePeriodRatio    float32
 		certIsInvalid       bool
 		createIstioCASecret bool
-		rootCertMatchBundle bool
 		originalKCBSyncTime time.Time
 		expectedKCBSyncTime bool
 	}{
