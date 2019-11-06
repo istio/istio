@@ -68,7 +68,7 @@ func (a *DestinationHostAnalyzer) analyzeVirtualService(r *resource.Entry, ctx a
 	ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
 
 	for _, d := range getRouteDestinations(vs) {
-		s := getDestinationHost(ns, d, ctx, serviceEntryHosts)
+		s := getDestinationHost(ns, d.GetHost(), ctx, serviceEntryHosts)
 		if s == nil {
 			ctx.Report(metadata.IstioNetworkingV1Alpha3Virtualservices,
 				msg.NewReferencedResourceNotFound(r, "host", d.GetHost()))
@@ -78,29 +78,21 @@ func (a *DestinationHostAnalyzer) analyzeVirtualService(r *resource.Entry, ctx a
 	}
 }
 
-func getDestinationHost(vsNamespace string, destination *v1alpha3.Destination,
-	ctx analysis.Context, serviceEntryHosts map[util.ScopedFqdn]*v1alpha3.ServiceEntry) *v1alpha3.ServiceEntry {
-	host := destination.GetHost()
+func getDestinationHost(sourceNs, host string, ctx analysis.Context,
+	serviceEntryHosts map[util.ScopedFqdn]*v1alpha3.ServiceEntry) *v1alpha3.ServiceEntry {
 
 	// Check explicitly defined ServiceEntries as well as services discovered from the platform
 
 	// ServiceEntries can be either namespace scoped or exposed to all namespaces
-	nsScopedFqdn := util.NewScopedFqdn(vsNamespace, vsNamespace, host)
+	nsScopedFqdn := util.NewScopedFqdn(sourceNs, sourceNs, host)
 	if s, ok := serviceEntryHosts[nsScopedFqdn]; ok {
 		return s
 	}
 
 	// Check ServiceEntries which are exposed to all namespaces
-	allNsScopedFqdn := util.NewScopedFqdn(util.ExportToAllNamespaces, vsNamespace, host)
+	allNsScopedFqdn := util.NewScopedFqdn(util.ExportToAllNamespaces, sourceNs, host)
 	if s, ok := serviceEntryHosts[allNsScopedFqdn]; ok {
 		return s
-	}
-
-	// Check synthetic service entries (service discovery services)
-	name := util.GetResourceNameFromHost(vsNamespace, host)
-	sr := ctx.Find(metadata.IstioNetworkingV1Alpha3SyntheticServiceentries, name)
-	if sr != nil {
-		return sr.Item.(*v1alpha3.ServiceEntry)
 	}
 
 	// Now check wildcard matches, namespace scoped or all namespaces
@@ -115,7 +107,7 @@ func getDestinationHost(vsNamespace string, destination *v1alpha3.Destination,
 		}
 
 		// Skip over entries not visible to the current virtual service namespace
-		if scope != util.ExportToAllNamespaces && scope != vsNamespace {
+		if scope != util.ExportToAllNamespaces && scope != sourceNs {
 			continue
 		}
 
@@ -131,8 +123,9 @@ func getDestinationHost(vsNamespace string, destination *v1alpha3.Destination,
 }
 
 func initServiceEntryHostMap(ctx analysis.Context) map[util.ScopedFqdn]*v1alpha3.ServiceEntry {
-	hosts := make(map[util.ScopedFqdn]*v1alpha3.ServiceEntry)
-	ctx.ForEach(metadata.IstioNetworkingV1Alpha3Serviceentries, func(r *resource.Entry) bool {
+	result := make(map[util.ScopedFqdn]*v1alpha3.ServiceEntry)
+
+	extractFn := func(r *resource.Entry) bool {
 		s := r.Item.(*v1alpha3.ServiceEntry)
 		ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
 		hostsNamespaceScope := ns
@@ -140,11 +133,15 @@ func initServiceEntryHostMap(ctx analysis.Context) map[util.ScopedFqdn]*v1alpha3
 			hostsNamespaceScope = util.ExportToAllNamespaces
 		}
 		for _, h := range s.GetHosts() {
-			hosts[util.NewScopedFqdn(hostsNamespaceScope, ns, h)] = s
+			result[util.NewScopedFqdn(hostsNamespaceScope, ns, h)] = s
 		}
 		return true
-	})
-	return hosts
+	}
+
+	ctx.ForEach(metadata.IstioNetworkingV1Alpha3Serviceentries, extractFn)
+	ctx.ForEach(metadata.IstioNetworkingV1Alpha3SyntheticServiceentries, extractFn)
+
+	return result
 }
 
 func checkServiceEntryPorts(r *resource.Entry, s *v1alpha3.ServiceEntry, d *v1alpha3.Destination, ctx analysis.Context) {
