@@ -37295,7 +37295,7 @@ spec:
         grafanaURL:
         jaegerURL:
       prometheusNamespace:
-      createDemoSecret: true
+      createDemoSecret: false
       security:
         enabled: false
         cert_file: /kiali-cert/cert-chain.pem
