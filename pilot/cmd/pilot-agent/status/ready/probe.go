@@ -34,20 +34,19 @@ type Probe struct {
 // Check executes the probe and returns an error if the probe fails.
 func (p *Probe) Check() error {
 	// First, check that Envoy has received a configuration update from Pilot.
-	if err := p.checkUpdated(); err != nil {
+	if err := p.checkConfigStatus(); err != nil {
 		return err
 	}
-
-	return p.checkServerInfo()
+	return p.checkServerState()
 }
 
-// checkUpdated checks to make sure updates have been received from Pilot
-func (p *Probe) checkUpdated() error {
+// checkConfigStatus checks to make sure initial configs have been received from Pilot.
+func (p *Probe) checkConfigStatus() error {
 	if p.receivedFirstUpdate {
 		return nil
 	}
 
-	s, err := util.GetStats(p.LocalHostAddr, p.AdminPort)
+	s, err := util.GetUpdateStatusStats(p.LocalHostAddr, p.AdminPort)
 	if err != nil {
 		return err
 	}
@@ -62,15 +61,15 @@ func (p *Probe) checkUpdated() error {
 	return fmt.Errorf("config not received from Pilot (is Pilot running?): %s", s.String())
 }
 
-// checkServerInfo checks to ensure that Envoy is in the READY state
-func (p *Probe) checkServerInfo() error {
-	info, err := util.GetServerInfo(p.LocalHostAddr, p.AdminPort)
+// checkServerState checks to ensure that Envoy is in the READY state
+func (p *Probe) checkServerState() error {
+	state, err := util.GetServerState(p.LocalHostAddr, p.AdminPort)
 	if err != nil {
 		return fmt.Errorf("failed to get server info: %v", err)
 	}
 
-	if info.GetState() != admin.ServerInfo_LIVE {
-		return fmt.Errorf("server is not live, current state is: %v", info.GetState().String())
+	if state != nil && admin.ServerInfo_State(*state) != admin.ServerInfo_LIVE {
+		return fmt.Errorf("server is not live, current state is: %v", admin.ServerInfo_State(*state).String())
 	}
 
 	return nil

@@ -15,6 +15,8 @@
 package v1alpha3
 
 import (
+	"sort"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
@@ -144,6 +146,13 @@ func (builder *ListenerBuilder) aggregateVirtualInboundListener() *ListenerBuild
 	// TODO: Trim the inboundListeners properly. Those that have been added to filter chains should
 	// be removed while those that haven't been added need to remain in the inboundListeners list.
 	filterChains, needTLS := reduceInboundListenerToFilterChains(builder.inboundListeners)
+	sort.SliceStable(filterChains, func(i, j int) bool {
+		if filterChains[i].Metadata != nil && filterChains[j].Metadata != nil {
+			return filterChains[i].Metadata.FilterMetadata[PilotMetaKey].String() <
+				filterChains[j].Metadata.FilterMetadata[PilotMetaKey].String()
+		}
+		return true
+	})
 
 	builder.virtualInboundListener.FilterChains =
 		append(builder.virtualInboundListener.FilterChains, filterChains...)
@@ -161,7 +170,7 @@ func (builder *ListenerBuilder) aggregateVirtualInboundListener() *ListenerBuild
 	if util.IsProtocolSniffingEnabledForInbound(builder.node) {
 		builder.virtualInboundListener.ListenerFilters =
 			append(builder.virtualInboundListener.ListenerFilters, &listener.ListenerFilter{
-				Name: envoyListenerHTTPInspector,
+				Name: xdsutil.HttpInspector,
 			})
 	}
 
@@ -287,11 +296,12 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
 	ipTablesListener := &xdsapi.Listener{
-		Name:           VirtualOutboundListenerName,
-		Address:        util.BuildAddress(actualWildcard, uint32(env.Mesh.ProxyListenPort)),
-		Transparent:    isTransparentProxy,
-		UseOriginalDst: proto.BoolTrue,
-		FilterChains:   filterChains,
+		Name:             VirtualOutboundListenerName,
+		Address:          util.BuildAddress(actualWildcard, uint32(env.Mesh.ProxyListenPort)),
+		Transparent:      isTransparentProxy,
+		UseOriginalDst:   proto.BoolTrue,
+		FilterChains:     filterChains,
+		TrafficDirection: core.TrafficDirection_OUTBOUND,
 	}
 	configgen.onVirtualOutboundListener(env, node, push, ipTablesListener)
 	builder.virtualListener = ipTablesListener
@@ -320,6 +330,10 @@ func (builder *ListenerBuilder) buildVirtualInboundListener(
 		Transparent:    isTransparentProxy,
 		UseOriginalDst: proto.BoolTrue,
 		FilterChains:   filterChains,
+	}
+	// Set traffic direction on listener, so that draining works correctly
+	if isTransparentProxy != nil && isTransparentProxy.Value {
+		builder.virtualInboundListener.TrafficDirection = core.TrafficDirection_INBOUND
 	}
 	if builder.useInboundFilterChain {
 		builder.aggregateVirtualInboundListener()
@@ -531,7 +545,7 @@ func newHTTPPassThroughFilterChain(configgen *ConfigGeneratorImpl, env *model.En
 		}
 		httpOpts := configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, in)
 		httpOpts.statPrefix = clusterName
-		connectionManager := buildHTTPConnectionManager(node, env, httpOpts, mutable.FilterChains[0].HTTP)
+		connectionManager := buildHTTPConnectionManager(in, env, httpOpts, mutable.FilterChains[0].HTTP)
 
 		filter := &listener.Filter{
 			Name: xdsutil.HTTPConnectionManager,
@@ -547,7 +561,7 @@ func newHTTPPassThroughFilterChain(configgen *ConfigGeneratorImpl, env *model.En
 			PrefixRanges: []*core.CidrRange{
 				util.ConvertAddressToCidr(matchingIP),
 			},
-			ApplicationProtocols: applicationProtocols,
+			ApplicationProtocols: plaintextHTTPALPNs,
 		}
 
 		filterChain := &listener.FilterChain{
@@ -569,7 +583,7 @@ func newTCPProxyOutboundListenerFilter(env *model.Environment, node *model.Proxy
 		StatPrefix:       util.BlackHoleCluster,
 		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
 	}
-	if isAllowAnyOutbound(node) {
+	if util.IsAllowAnyOutbound(node) {
 		// We need a passthrough filter to fill in the filter stack for orig_dst listener
 		tcpProxy = &tcp_proxy.TcpProxy{
 			StatPrefix:       util.PassthroughCluster,
@@ -588,8 +602,4 @@ func newTCPProxyOutboundListenerFilter(env *model.Environment, node *model.Proxy
 		filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(tcpProxy)}
 	}
 	return &filter
-}
-
-func isAllowAnyOutbound(node *model.Proxy) bool {
-	return node.SidecarScope.OutboundTrafficPolicy != nil && node.SidecarScope.OutboundTrafficPolicy.Mode == networking.OutboundTrafficPolicy_ALLOW_ANY
 }

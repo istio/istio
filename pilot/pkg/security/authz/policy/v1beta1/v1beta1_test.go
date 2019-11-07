@@ -74,7 +74,7 @@ func TestV1beta1Generator_Generate(t *testing.T) {
 			if got.GetRules() == nil {
 				t.Fatal("rule must not be nil")
 			}
-			if err := policy.Verify(got.GetRules(), tc.wantRules); err != nil {
+			if err := policy.Verify(got.GetRules(), tc.wantRules, false); err != nil {
 				t.Fatalf("%s\n%s", err, spew.Sdump(got))
 			}
 		})

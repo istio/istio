@@ -19,6 +19,7 @@ import (
 	"go/build"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"runtime"
@@ -108,7 +109,7 @@ func getDefaultIstioTop() string {
 	if err != nil {
 		panic(err)
 	}
-	idx := strings.Index(current, "/src/istio.io/istio")
+	idx := strings.Index(current, filepath.Join("/src", "istio.io", "istio"))
 	if idx > 0 {
 		return current[0:idx]
 	}

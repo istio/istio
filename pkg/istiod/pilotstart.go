@@ -29,6 +29,8 @@ import (
 
 	"google.golang.org/grpc/credentials"
 
+	"istio.io/istio/pilot/pkg/bootstrap"
+
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 
@@ -54,7 +56,6 @@ import (
 	istio_networking "istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/proxy/envoy"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/external"
@@ -129,7 +130,7 @@ type ServiceArgs struct {
 
 // PilotArgs provides all of the configuration parameters for the Pilot discovery service.
 type PilotArgs struct {
-	DiscoveryOptions         envoy.DiscoveryServiceOptions
+	DiscoveryOptions         bootstrap.DiscoveryServiceOptions
 	Namespace                string
 	Config                   ConfigArgs
 	Service                  ServiceArgs
@@ -540,16 +541,7 @@ func (s *Server) addConfig2ServiceEntry() {
 
 func (s *Server) initDiscoveryService(args *PilotArgs, onXDSStart func(model.XDSUpdater)) error {
 
-	// Set up discovery service
-	discovery, err := envoy.NewDiscoveryService(
-		s.Environment,
-		args.DiscoveryOptions,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create discovery service: %v", err)
-	}
-	s.mux = discovery.RestContainer.ServeMux
-
+	// This is  the XDSUpdater
 	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(s.Environment,
 		istio_networking.NewConfigGenerator(args.Plugins),
 		s.ServiceController, nil, s.ConfigController)
@@ -558,15 +550,14 @@ func (s *Server) initDiscoveryService(args *PilotArgs, onXDSStart func(model.XDS
 		onXDSStart(s.EnvoyXdsServer)
 	}
 
-	// This is  the XDSUpdater
-
-	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController)
+	s.mux = http.NewServeMux()
+	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController, args.DiscoveryOptions.EnableProfiling)
 
 	// create grpc/http server
 	s.initGrpcServer(args.KeepaliveOptions)
 
 	// TODO: if certs are completely disabled, skip this.
-	if err = s.initSecureGrpcServer(args.KeepaliveOptions); err != nil {
+	if err := s.initSecureGrpcServer(args.KeepaliveOptions); err != nil {
 		return err
 	}
 

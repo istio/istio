@@ -16,7 +16,6 @@ package util
 
 import (
 	"fmt"
-	"math"
 	"net"
 	"runtime"
 	"sort"
@@ -39,10 +38,12 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/host"
 )
 
 const (
@@ -69,8 +70,6 @@ const (
 	// IstioMetadataKey is the key under which metadata is added to a route or cluster
 	// regarding the virtual service or destination rule used for each
 	IstioMetadataKey = "istio"
-	// The range of LoadBalancingWeight is [1, 128]
-	maxLoadBalancingWeight = 128
 
 	// EnvoyTransportSocketMetadataKey is the key under which metadata is added to an endpoint
 	// which determines the endpoint level transport socket configuration.
@@ -99,6 +98,23 @@ var ALPNInMesh = []string{"istio"}
 
 // ALPNHttp advertises that Proxy is going to talking either http2 or http 1.1.
 var ALPNHttp = []string{"h2", "http/1.1"}
+
+// FallThroughFilterChainBlackHoleService is the blackhole service used for fall though
+// filter chain
+var FallThroughFilterChainBlackHoleService = &model.Service{
+	Hostname: host.Name(BlackHoleCluster),
+	Attributes: model.ServiceAttributes{
+		Name: BlackHoleCluster,
+	},
+}
+
+// FallThroughFilterChainPassthroughService is the passthrough service used for fall though
+var FallThroughFilterChainPassthroughService = &model.Service{
+	Hostname: host.Name(PassthroughCluster),
+	Attributes: model.ServiceAttributes{
+		Name: PassthroughCluster,
+	},
+}
 
 func getMaxCidrPrefix(addr string) uint32 {
 	ip := net.ParseIP(addr)
@@ -166,61 +182,6 @@ func GetNetworkEndpointAddress(n *model.NetworkEndpoint) *core.Address {
 	default:
 		panic(fmt.Sprintf("unhandled Family %v", n.Family))
 	}
-}
-
-// lbWeightNormalize set LbEndpoints within a locality with a valid LoadBalancingWeight.
-func lbWeightNormalize(endpoints []*endpoint.LbEndpoint) []*endpoint.LbEndpoint {
-	var totalLbEndpointsNum uint32
-	var needNormalize bool
-
-	for _, ep := range endpoints {
-		if ep.GetLoadBalancingWeight().GetValue() > maxLoadBalancingWeight {
-			needNormalize = true
-		}
-		totalLbEndpointsNum += ep.GetLoadBalancingWeight().GetValue()
-	}
-	if !needNormalize {
-		return endpoints
-	}
-
-	out := make([]*endpoint.LbEndpoint, len(endpoints))
-	for i, ep := range endpoints {
-		weight := float64(ep.GetLoadBalancingWeight().GetValue()*maxLoadBalancingWeight) / float64(totalLbEndpointsNum)
-		ep.LoadBalancingWeight = &wrappers.UInt32Value{
-			Value: uint32(math.Ceil(weight)),
-		}
-		out[i] = ep
-	}
-
-	return out
-}
-
-// LocalityLbWeightNormalize set LocalityLbEndpoints within a cluster with a valid LoadBalancingWeight.
-func LocalityLbWeightNormalize(endpoints []*endpoint.LocalityLbEndpoints) []*endpoint.LocalityLbEndpoints {
-	var totalLbEndpointsNum uint32
-	var needNormalize bool
-
-	for i, localityLbEndpoint := range endpoints {
-		if localityLbEndpoint.GetLoadBalancingWeight().GetValue() > maxLoadBalancingWeight {
-			needNormalize = true
-		}
-		totalLbEndpointsNum += localityLbEndpoint.GetLoadBalancingWeight().GetValue()
-		endpoints[i].LbEndpoints = lbWeightNormalize(localityLbEndpoint.LbEndpoints)
-	}
-	if !needNormalize {
-		return endpoints
-	}
-
-	out := make([]*endpoint.LocalityLbEndpoints, len(endpoints))
-	for i, localityLbEndpoint := range endpoints {
-		weight := float64(localityLbEndpoint.GetLoadBalancingWeight().GetValue()*maxLoadBalancingWeight) / float64(totalLbEndpointsNum)
-		localityLbEndpoint.LoadBalancingWeight = &wrappers.UInt32Value{
-			Value: uint32(math.Ceil(weight)),
-		}
-		out[i] = localityLbEndpoint
-	}
-
-	return out
 }
 
 // GetByAddress returns a listener by its address
@@ -320,7 +281,7 @@ func IsProtocolSniffingEnabledForOutbound(node *model.Proxy) bool {
 }
 
 func IsProtocolSniffingEnabledForInbound(node *model.Proxy) bool {
-	return features.EnableProtocolSniffingForInbound.Get() && IsIstioVersionGE13(node)
+	return features.EnableProtocolSniffingForInbound.Get() && IsIstioVersionGE14(node)
 }
 
 func IsProtocolSniffingEnabledForPort(node *model.Proxy, port *model.Port) bool {
@@ -619,4 +580,11 @@ func BuildLbEndpointMetadata(uid string, network string, tlsMode string) *core.M
 	}
 
 	return metadata
+}
+
+// IsAllowAnyOutbound checks if allow_any is enabled for outbound traffic
+func IsAllowAnyOutbound(node *model.Proxy) bool {
+	return node.SidecarScope != nil &&
+		node.SidecarScope.OutboundTrafficPolicy != nil &&
+		node.SidecarScope.OutboundTrafficPolicy.Mode == networking.OutboundTrafficPolicy_ALLOW_ANY
 }
