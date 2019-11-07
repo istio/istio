@@ -74,7 +74,7 @@ func (s *ServiceRoleServicesAnalyzer) buildNamespaceServiceMap(ctx analysis.Cont
 
 	ctx.ForEach(metadata.K8SCoreV1Services, func(r *resource.Entry) bool {
 		rns, rs := r.Metadata.Name.InterpretAsNamespaceAndName()
-		nsm[rns] = append(nsm[rns], util.GetScopedFqdnHostname(rns, rns, rs))
+		nsm[rns] = append(nsm[rns], util.NewScopedFqdn(rns, rns, rs))
 		return true
 	})
 
