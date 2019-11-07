@@ -40,12 +40,17 @@ option (gogoproto.gostring_all) = false;
 
 // Configuration format for the `stackdriver` adapter.
 message Params {
+    // next id: 12
+
     // Endpoint URL to send stackdriver data - leave empty to use the
     // StackDriver SDK's default value (monitoring.googleapis.com).
     string endpoint = 1;
 
     // GCP Project to attach metrics to.
     string project_id = 2;
+
+    // Unique identifier for a Mesh
+    string mesh_uid = 11;
 
     // This adapter batches the data it sends to Stackdriver; we will push to stackdriver every push_interval.
     // If no value is provided we default to once per minute.
