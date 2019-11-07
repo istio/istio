@@ -252,12 +252,18 @@ containers:
     value: "true"
   - name: STACKDRIVER_TRACING_DEBUG
     value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetDebug }}"
+  {{- if .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAnnotations }}
   - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ANNOTATIONS
     value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAnnotations }}"
+  {{- end }}
+  {{- if .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAttributes }}
   - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ATTRIBUTES
     value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAttributes }}"
+  {{- end }}
+  {{- if .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfMessageEvents }}
   - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS
     value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfMessageEvents }}"
+  {{- end }}
   {{- end }}
   imagePullPolicy: {{ .Values.global.imagePullPolicy }}
   {{ if ne (annotation .ObjectMeta `status.sidecar.istio.io/port` (valueOrDefault .Values.global.proxy.statusPort 0 )) `0` }}
