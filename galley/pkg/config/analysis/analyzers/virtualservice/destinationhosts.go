@@ -52,16 +52,16 @@ func (d *DestinationHostAnalyzer) Metadata() analysis.Metadata {
 // Analyze implements Analyzer
 func (d *DestinationHostAnalyzer) Analyze(ctx analysis.Context) {
 	// Precompute the set of service entry hosts that exist (there can be more than one defined per ServiceEntry CRD)
-	serviceEntryHosts, wildcardHosts := initServiceEntryHostNames(ctx)
+	serviceEntryHosts := initServiceEntryHostNames(ctx)
 
 	ctx.ForEach(metadata.IstioNetworkingV1Alpha3Virtualservices, func(r *resource.Entry) bool {
-		d.analyzeVirtualService(r, ctx, serviceEntryHosts, wildcardHosts)
+		d.analyzeVirtualService(r, ctx, serviceEntryHosts)
 		return true
 	})
 }
 
 func (d *DestinationHostAnalyzer) analyzeVirtualService(r *resource.Entry, ctx analysis.Context,
-	serviceEntryHosts map[util.ScopedFqdn]bool, wildcardHosts []util.ScopedFqdn) {
+	serviceEntryHosts map[util.ScopedFqdn]bool) {
 
 	vs := r.Item.(*v1alpha3.VirtualService)
 	ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
@@ -69,7 +69,7 @@ func (d *DestinationHostAnalyzer) analyzeVirtualService(r *resource.Entry, ctx a
 	destinations := getRouteDestinations(vs)
 
 	for _, destination := range destinations {
-		if !d.checkDestinationHost(ns, destination, ctx, serviceEntryHosts, wildcardHosts) {
+		if !d.checkDestinationHost(ns, destination, ctx, serviceEntryHosts) {
 			ctx.Report(metadata.IstioNetworkingV1Alpha3Virtualservices,
 				msg.NewReferencedResourceNotFound(r, "host", destination.GetHost()))
 		}
@@ -77,7 +77,7 @@ func (d *DestinationHostAnalyzer) analyzeVirtualService(r *resource.Entry, ctx a
 }
 
 func (d *DestinationHostAnalyzer) checkDestinationHost(vsNamespace string, destination *v1alpha3.Destination,
-	ctx analysis.Context, serviceEntryHosts map[util.ScopedFqdn]bool, wildcardHosts []util.ScopedFqdn) bool {
+	ctx analysis.Context, serviceEntryHosts map[util.ScopedFqdn]bool) bool {
 	host := destination.GetHost()
 
 	// Check explicitly defined ServiceEntries as well as services discovered from the platform
@@ -94,21 +94,30 @@ func (d *DestinationHostAnalyzer) checkDestinationHost(vsNamespace string, desti
 		return true
 	}
 
+	// Check synthetic service entries (service discovery services)
 	name := util.GetResourceNameFromHost(vsNamespace, host)
 	if ctx.Exists(metadata.IstioNetworkingV1Alpha3SyntheticServiceentries, name) {
 		return true
 	}
 
 	// Now check wildcard matches, namespace scoped or all namespaces
-	for _, seHostScopedFqdn := range wildcardHosts {
-		ns, seHost := seHostScopedFqdn.GetScopedNamespaceAndName()
+	// (This more expensive checking left for last)
+	// Assumes the wildcard entries are correctly formatted ("*<dns suffix>")
+	for seHostScopedFqdn := range serviceEntryHosts {
+		scope, seHost := seHostScopedFqdn.GetScopeAndFqdn()
 
-		if ns != util.ExportToAllNamespaces && ns != vsNamespace {
+		// Skip over non-wildcard entries
+		if !strings.HasPrefix(seHost, util.Wildcard) {
 			continue
 		}
 
-		seHostWithoutWildcard := strings.TrimPrefix(seHost, "*")
-		hostWithoutWildCard := strings.TrimPrefix(host, "*")
+		// Skip over entries not visible to the current virtual service namespace
+		if scope != util.ExportToAllNamespaces && scope != vsNamespace {
+			continue
+		}
+
+		seHostWithoutWildcard := strings.TrimPrefix(seHost, util.Wildcard)
+		hostWithoutWildCard := strings.TrimPrefix(host, util.Wildcard)
 
 		if strings.HasSuffix(hostWithoutWildCard, seHostWithoutWildcard) {
 			return true
@@ -118,9 +127,8 @@ func (d *DestinationHostAnalyzer) checkDestinationHost(vsNamespace string, desti
 	return false
 }
 
-func initServiceEntryHostNames(ctx analysis.Context) (map[util.ScopedFqdn]bool, []util.ScopedFqdn) {
+func initServiceEntryHostNames(ctx analysis.Context) map[util.ScopedFqdn]bool {
 	hosts := make(map[util.ScopedFqdn]bool)
-	wildcardHosts := make([]util.ScopedFqdn, 0)
 	ctx.ForEach(metadata.IstioNetworkingV1Alpha3Serviceentries, func(r *resource.Entry) bool {
 		s := r.Item.(*v1alpha3.ServiceEntry)
 		ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
@@ -129,13 +137,9 @@ func initServiceEntryHostNames(ctx analysis.Context) (map[util.ScopedFqdn]bool, 
 			hostsNamespaceScope = util.ExportToAllNamespaces
 		}
 		for _, h := range s.GetHosts() {
-			scopedHost := util.NewScopedFqdn(hostsNamespaceScope, ns, h)
-			if strings.HasPrefix(h, "*") {
-				wildcardHosts = append(wildcardHosts, scopedHost)
-			}
-			hosts[scopedHost] = true // Add wildcards for exact matches also
+			hosts[util.NewScopedFqdn(hostsNamespaceScope, ns, h)] = true
 		}
 		return true
 	})
-	return hosts, wildcardHosts
+	return hosts
 }

@@ -23,6 +23,7 @@ const (
 	MeshGateway             = "mesh"
 	ExportToNamespaceLocal  = "."
 	ExportToAllNamespaces   = "*"
+	Wildcard                = "*"
 )
 
 var (
