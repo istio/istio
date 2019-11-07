@@ -16,96 +16,61 @@ package ready
 
 import (
 	"fmt"
-	"net"
 
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
-	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status/util"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/pkg/log"
 )
 
 // Probe for readiness.
 type Probe struct {
-	LocalHostAddr  string
-	NodeType       model.NodeType
-	AdminPort      uint16
-	lastKnownState *probeState
-}
-
-type probeState struct {
-	serverState  uint64
-	versionStats util.Stats
+	LocalHostAddr       string
+	NodeType            model.NodeType
+	AdminPort           uint16
+	receivedFirstUpdate bool
 }
 
 // Check executes the probe and returns an error if the probe fails.
 func (p *Probe) Check() error {
-	// Initialize the ServerState to 2 (PRE_INITIALIZING) because 0 indicates LIVE.
-	if p.lastKnownState == nil {
-		p.lastKnownState = &probeState{
-			serverState: uint64(admin.ServerInfo_PRE_INITIALIZING),
-		}
-	}
 	// First, check that Envoy has received a configuration update from Pilot.
 	if err := p.checkConfigStatus(); err != nil {
 		return err
 	}
-
 	return p.checkServerState()
 }
 
 // checkConfigStatus checks to make sure initial configs have been received from Pilot.
 func (p *Probe) checkConfigStatus() error {
-	s, err := util.GetVersionStats(p.LocalHostAddr, p.AdminPort)
-
-	// If there is timeout, Envoy may be busy processing the config - just return the last known state.
-	if err != nil && !isTimeout(err) {
-		return multierror.Prefix(err, "failed retrieving Envoy stats:")
-	}
-
-	if err == nil {
-		p.lastKnownState.versionStats.CDSVersion = s.CDSVersion
-		p.lastKnownState.versionStats.LDSVersion = s.LDSVersion
-	} else {
-		log.Warnf("config status timed out. using last known values cds status: %d,lds status: %d", p.lastKnownState.versionStats.CDSVersion,
-			p.lastKnownState.versionStats.LDSVersion)
-	}
-
-	// Envoy seems to not updatig cds version (need to confirm) when partial rejection happens.
-	// Till that is fixed, we should treat LDS success as readiness success as LDS happens last.
-	if p.lastKnownState.versionStats.LDSVersion > 0 {
+	if p.receivedFirstUpdate {
 		return nil
 	}
 
-	return fmt.Errorf("config not received from Pilot (is Pilot running?) %s", p.lastKnownState.versionStats.String())
+	s, err := util.GetUpdateStatusStats(p.LocalHostAddr, p.AdminPort)
+	if err != nil {
+		return err
+	}
+
+	CDSUpdated := s.CDSUpdatesSuccess > 0 || s.CDSUpdatesRejection > 0
+	LDSUpdated := s.LDSUpdatesSuccess > 0 || s.LDSUpdatesRejection > 0
+	if CDSUpdated && LDSUpdated {
+		p.receivedFirstUpdate = true
+		return nil
+	}
+
+	return fmt.Errorf("config not received from Pilot (is Pilot running?): %s", s.String())
 }
 
 // checkServerState checks to ensure that Envoy is in the READY state
 func (p *Probe) checkServerState() error {
 	state, err := util.GetServerState(p.LocalHostAddr, p.AdminPort)
-
-	// If there is timeout, Envoy may be busy processing the config - just return the last known state.
-	if err != nil && !isTimeout(err) {
-		return multierror.Prefix(err, "failed retrieving Envoy server state stat:")
+	if err != nil {
+		return fmt.Errorf("failed to get server info: %v", err)
 	}
 
-	if err == nil {
-		p.lastKnownState.serverState = *state
-	} else {
-		log.Warnf("config server state timed out. using last known state %s", admin.ServerInfo_State(p.lastKnownState.serverState).String())
-	}
-
-	if admin.ServerInfo_State(p.lastKnownState.serverState) != admin.ServerInfo_LIVE {
-		return fmt.Errorf("server is not live, current state is: %s", admin.ServerInfo_State(p.lastKnownState.serverState).String())
+	if state != nil && admin.ServerInfo_State(*state) != admin.ServerInfo_LIVE {
+		return fmt.Errorf("server is not live, current state is: %v", admin.ServerInfo_State(*state).String())
 	}
 
 	return nil
-}
-
-func isTimeout(err error) bool {
-	if err, ok := err.(net.Error); ok && err.Timeout() {
-		return true
-	}
-	return false
 }
