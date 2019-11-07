@@ -185,11 +185,11 @@ func NewSecretController(ca certificateAuthority, enableNamespacesByDefault bool
 	}
 
 	c := &SecretController{
-		ca:                        ca,
-		certTTL:                   certTTL,
-		istioCaStorageNamespace:   istioCaStorageNamespace,
-		gracePeriodRatio:          gracePeriodRatio,
-		certUtil:                  certutil.NewCertUtil(int(gracePeriodRatio * 100)),
+		ca:                         ca,
+		certTTL:                    certTTL,
+		istioCaStorageNamespace:    istioCaStorageNamespace,
+		gracePeriodRatio:           gracePeriodRatio,
+		certUtil:                   certutil.NewCertUtil(int(gracePeriodRatio * 100)),
 		caSecretController:         NewCaSecretController(core),
 		rootCertFile:               rootCertFile,
 		enableNamespacesByDefault:  enableNamespacesByDefault,
