@@ -60,6 +60,10 @@ var (
 	// MultipleSidecarsWithoutWorkloadSelectors defines a diag.MessageType for message "MultipleSidecarsWithoutWorkloadSelectors".
 	// Description: More than one sidecar resource in a namespace has no workload selector
 	MultipleSidecarsWithoutWorkloadSelectors = diag.NewMessageType(diag.Error, "IST0111", "The Sidecars %v in namespace %q have no workload selector, which can lead to undefined behavior.")
+
+	// VirtualServiceDestinationPortSelectorRequired defines a diag.MessageType for message "VirtualServiceDestinationPortSelectorRequired".
+	// Description: A VirtualService routes to a service with more than one port exposed, but does not specify which to use.
+	VirtualServiceDestinationPortSelectorRequired = diag.NewMessageType(diag.Error, "IST0112", "This VirtualService routes to a service %q that exposes multiple ports %v. Specifying a port in the destination is required to disambiguate.")
 )
 
 // NewInternalError returns a new diag.Message based on InternalError.
@@ -186,6 +190,16 @@ func NewMultipleSidecarsWithoutWorkloadSelectors(entry *resource.Entry, confliti
 		originOrNil(entry),
 		conflitingSidecars,
 		namespace,
+	)
+}
+
+// NewVirtualServiceDestinationPortSelectorRequired returns a new diag.Message based on VirtualServiceDestinationPortSelectorRequired.
+func NewVirtualServiceDestinationPortSelectorRequired(entry *resource.Entry, destHost string, destPorts []int) diag.Message {
+	return diag.NewMessage(
+		VirtualServiceDestinationPortSelectorRequired,
+		originOrNil(entry),
+		destHost,
+		destPorts,
 	)
 }
 
