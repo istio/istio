@@ -479,6 +479,9 @@ message GlobalConfig {
   // Specifies the trust domain that corresponds to the root cert of CA.
   string trustDomain = 34;
 
+  // The trust domain aliases represent the aliases of trustDomain.
+  repeated string trustDomainAliases = 42;
+
   // Controls whether to use of Mesh Configuration Protocol to distribute configuration.
   google.protobuf.BoolValue useMCP = 35;
 
@@ -491,6 +494,8 @@ message GlobalConfig {
   TypeSliceOfMapStringInterface certificates = 40;
 
   google.protobuf.BoolValue operatorManageWebhooks = 41;
+
+  // The next available key is 43
 }
 
 // GlobalLoggingConfig specifies the global logging level settings for the Istio control plane components.
