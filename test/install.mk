@@ -16,7 +16,7 @@ run-build:  dep run-build-cluster run-build-demo run-build-micro run-build-minim
 # Kustomization for cluster-wide resources. Must be used as first step ( if old installer was used - this might not be
 # required).
 run-build-cluster:
-	bin/iop istio-system cluster ${BASE}/crds -t > kustomize/cluster/crds-namespace.gen.yaml
+	bin/iop istio-system cluster ${BASE}/base -t > kustomize/cluster/crds-namespace.gen.yaml
 
 # Micro profile - just pilot and ingress, in a separate namespace.
 # This can be used side-by-side with istio-system. For example knative uses a similar config as ingress while allowing
@@ -90,19 +90,19 @@ run-build-demo: dep
 	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-telemetry/kiali -t ${DEMO_OPTS} > test/demo/kiali.gen.yaml
 	bin/iop ${ISTIO_SYSTEM_NS} istio ${BASE}/istio-telemetry/tracing -t ${DEMO_OPTS} > test/demo/tracing.gen.yaml
 
-install-full: ${TMPDIR} install-crds install-base install-ingress install-telemetry install-policy
+install-full: ${TMPDIR} install-base-chart install-base install-ingress install-telemetry install-policy
 
-.PHONY: ${GOPATH}/out/yaml/crds
-# Install CRDS
-install-crds: crds
-	kubectl apply -f crds/files
-	kubectl wait --for=condition=Established -f crds/files
+.PHONY: ${GOPATH}/out/yaml/base
+# Install base
+install-base-chart: base
+	kubectl apply -f base/files
+	kubectl wait --for=condition=Established -f base/files
 
 # Individual step to install or update base istio. Citadel or cert provisioning components is by default deployed
 # into "istio-system" ns, while config, discovery, auto-inject components are deployed into "istio-control" ns.
 # This setup is optimized for migration from 1.1 and testing - note that autoinject is enabled by default,
 # since new integration tests seem to fail to inject
-install-base: install-crds
+install-base: install-base-chart
 	kubectl create ns ${ISTIO_SYSTEM_NS} || true
 	# Autoinject global enabled - we won't be able to install injector
 	kubectl label ns ${ISTIO_SYSTEM_NS} istio-injection=disabled --overwrite
@@ -145,7 +145,7 @@ install-egress:
 install-telemetry:
 	kubectl create ns ${ISTIO_TELEMETRY_NS} || true
 	kubectl label ns ${ISTIO_TELEMETRY_NS} istio-injection=disabled --overwrite
-	#bin/iop istio-telemetry istio-grafana $IBASE/istio-telemetry/grafana/ 
+	#bin/iop istio-telemetry istio-grafana $IBASE/istio-telemetry/grafana/
 	bin/iop ${ISTIO_TELEMETRY_NS} istio-prometheus ${BASE}/istio-telemetry/prometheus/ ${IOP_OPTS} ${INSTALL_OPTS}
 	bin/iop ${ISTIO_TELEMETRY_NS} istio-mixer ${BASE}/istio-telemetry/mixer-telemetry/ ${IOP_OPTS} ${INSTALL_OPTS}
 	kubectl wait deployments istio-telemetry prometheus -n ${ISTIO_TELEMETRY_NS} --for=condition=available --timeout=${WAIT_TIMEOUT}

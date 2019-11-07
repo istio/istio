@@ -4,7 +4,7 @@
 # Will create a custom config file with citadel DNS overrides and replace the CITADEL_DNS
 
 bases:
-  - ../../../crds
+  - ../../../base
   # Goes to istio-system
   - ../../../kustomize/citadel
   # The istio-testing is setting the namespace to istio-testing
