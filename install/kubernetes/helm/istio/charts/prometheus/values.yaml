@@ -31,6 +31,11 @@ tolerations: []
 podAntiAffinityLabelSelector: []
 podAntiAffinityTermLabelSelector: []
 
+persist: false
+storageClassName: ""
+storageSize: 10Gi
+accessMode: ReadWriteMany
+
 # Controls the frequency of prometheus scraping
 scrapeInterval: 15s
 
