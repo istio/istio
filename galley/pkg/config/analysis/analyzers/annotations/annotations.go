@@ -30,66 +30,10 @@ import (
 type K8sAnalyzer struct{}
 
 var (
-	// Currently we don't have an Istio API that enumerates Istio annotations.
-	// This slice is currently hand-crafted, but
-	// could be generated similarly to https://istio.io/docs/reference/config/annotations/
-	istioAnnotations = []*annotation.Instance{
-		&annotation.AlphaCanonicalServiceAccounts,
-		&annotation.AlphaIdentity,
-		&annotation.AlphaKubernetesServiceAccounts,
-		&annotation.OperatorInstallChartOwner,
-		&annotation.OperatorInstallOwnerGeneration,
-		&annotation.OperatorInstallVersion,
-		&annotation.IoKubernetesIngressClass,
-		&annotation.AlphaNetworkingEndpointsVersion,
-		&annotation.AlphaNetworkingNotReadyEndpoints,
-		&annotation.AlphaNetworkingServiceVersion,
-		&annotation.NetworkingExportTo,
-		&annotation.PolicyCheck,
-		&annotation.PolicyCheckBaseRetryWaitTime,
-		&annotation.PolicyCheckMaxRetryWaitTime,
-		&annotation.PolicyCheckRetries,
-		&annotation.PolicyLang,
-		&annotation.SidecarStatusReadinessApplicationPorts,
-		&annotation.SidecarStatusReadinessFailureThreshold,
-		&annotation.SidecarStatusReadinessInitialDelaySeconds,
-		&annotation.SidecarStatusReadinessPeriodSeconds,
-		&annotation.SecurityAutoMTLS,
-		&annotation.SidecarBootstrapOverride,
-		&annotation.SidecarComponentLogLevel,
-		&annotation.SidecarControlPlaneAuthPolicy,
-		&annotation.SidecarDiscoveryAddress,
-		&annotation.SidecarInject,
-		&annotation.SidecarInterceptionMode,
-		&annotation.SidecarLogLevel,
-		&annotation.SidecarProxyCPU,
-		&annotation.SidecarProxyImage,
-		&annotation.SidecarProxyMemory,
-		&annotation.SidecarRewriteAppHTTPProbers,
-		&annotation.SidecarStatsInclusionPrefixes,
-		&annotation.SidecarStatsInclusionRegexps,
-		&annotation.SidecarStatsInclusionSuffixes,
-		&annotation.SidecarStatus,
-		&annotation.SidecarUserVolume,
-		&annotation.SidecarUserVolumeMount,
-		&annotation.SidecarStatusPort,
-		&annotation.SidecarTrafficExcludeInboundPorts,
-		&annotation.SidecarTrafficExcludeOutboundIPRanges,
-		&annotation.SidecarTrafficExcludeOutboundPorts,
-		&annotation.SidecarTrafficIncludeInboundPorts,
-		&annotation.SidecarTrafficIncludeOutboundIPRanges,
-		&annotation.SidecarTrafficKubevirtInterfaces,
-	}
+	istioAnnotations = annotation.AllResourceAnnotations()
 
-	// Currently we don't have an Istio API that enumerates Istio annotations ResourceTypes
-	// (This map is currently hand-crafted. ResourceTypes could be a []string, not an enum.)
-	resourceTypeNames = map[annotation.ResourceTypes]string{
-		annotation.Any:          "Any",
-		annotation.Ingress:      "Ingress",
-		annotation.Pod:          "Pod",
-		annotation.Service:      "Service",
-		annotation.ServiceEntry: "ServiceEntry",
-	}
+	//TODO need String() method for the annotation resourceType.
+	resourceTypeNames = annotation.AllResourceTypes()
 )
 
 // Metadata implements analyzer.Analyzer
@@ -228,6 +172,10 @@ func lookupAnnotation(ann string) *annotation.Instance {
 func resourceTypesAsStrings(resourceTypes []annotation.ResourceTypes) []string {
 	retval := make([]string, len(resourceTypes))
 	var ok bool
+	for i, resourceType := range resourceTypes {
+		if resourceType
+	}
+
 	for i, resourceType := range resourceTypes {
 		retval[i], ok = resourceTypeNames[resourceType]
 		if !ok {
