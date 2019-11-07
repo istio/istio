@@ -171,9 +171,6 @@ func TestValidateValuesFromProfile(t *testing.T) {
 			profile: "demo",
 		},
 		{
-			profile: "demo-auth",
-		},
-		{
 			profile: "minimal",
 		},
 		{

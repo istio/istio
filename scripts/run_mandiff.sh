@@ -36,7 +36,6 @@ ISTIO_SYSTEM_NS=${ISTIO_SYSTEM_NS:-istio-system}
 ISTIO_RELEASE=${ISTIO_RELEASE:-istio}
 ISTIO_DEFAULT_PROFILE=${ISTIO_DEFAULT_PROFILE:-default}
 ISTIO_DEMO_PROFILE=${ISTIO_DEMO_PROFILE:-demo}
-ISTIO_DEMOAUTH_PROFILE=${ISTIO_DEMOAUTH_PROFILE:-"demo-auth"}
 ISTIO_MINIMAL_PROFILE=${ISTIO_MINIMAL_PROFILE:-minimal}
 ISTIO_SDS_PROFILE=${ISTIO_SDS_PROFILE:-sds}\
 
@@ -44,7 +43,6 @@ ISTIO_SDS_PROFILE=${ISTIO_SDS_PROFILE:-sds}\
 declare -A PROFILE_CHARTS_MAP
 PROFILE_CHARTS_MAP["${ISTIO_DEFAULT_PROFILE}"]="crds istio-control/istio-discovery istio-control/istio-config istio-control/istio-autoinject gateways/istio-ingress istio-telemetry/mixer-telemetry istio-telemetry/prometheus istio-policy security/citadel"
 PROFILE_CHARTS_MAP["${ISTIO_DEMO_PROFILE}"]="crds istio-control/istio-discovery istio-control/istio-config istio-control/istio-autoinject gateways/istio-ingress gateways/istio-egress istio-telemetry/mixer-telemetry istio-telemetry/prometheus istio-telemetry/kiali istio-telemetry/grafana istio-telemetry/tracing istio-policy security/citadel"
-PROFILE_CHARTS_MAP["${ISTIO_DEMOAUTH_PROFILE}"]="crds istio-control/istio-discovery istio-control/istio-config istio-control/istio-autoinject gateways/istio-ingress gateways/istio-egress istio-telemetry/mixer-telemetry istio-telemetry/prometheus istio-telemetry/kiali istio-telemetry/grafana istio-telemetry/tracing istio-policy security/citadel"
 PROFILE_CHARTS_MAP["${ISTIO_MINIMAL_PROFILE}"]="crds istio-control/istio-discovery"
 PROFILE_CHARTS_MAP["${ISTIO_SDS_PROFILE}"]="crds istio-control/istio-discovery istio-control/istio-config istio-control/istio-autoinject gateways/istio-ingress istio-telemetry/mixer-telemetry istio-telemetry/prometheus istio-policy security/citadel security/nodeagent"
 
@@ -130,7 +128,6 @@ function mesh_mandiff_with_profile() {
 
 mesh_mandiff_with_profile "${ISTIO_DEFAULT_PROFILE}" > "${OUT}/mandiff-default-profile.diff" || { echo "${ISTIO_DEFAULT_PROFILE} profile has diffs"; exit 1; }
 mesh_mandiff_with_profile "${ISTIO_DEMO_PROFILE}" > "${OUT}/mandiff-demo-profile.diff" || { echo "${ISTIO_DEMO_PROFILE} profile has diffs"; exit 1; }
-mesh_mandiff_with_profile "${ISTIO_DEMOAUTH_PROFILE}" > "${OUT}/mandiff-demoauth-profile.diff" || { echo "${ISTIO_DEMOAUTH_PROFILE} profile has diffs"; exit 1; }
 mesh_mandiff_with_profile "${ISTIO_MINIMAL_PROFILE}" > "${OUT}/mandiff-minimal-profile.diff" || { echo "${ISTIO_MINIMAL_PROFILE} profile has diffs"; exit 1; }
 mesh_mandiff_with_profile "${ISTIO_SDS_PROFILE}" > "${OUT}/mandiff-sds-profile.diff" || { echo "${ISTIO_SDS_PROFILE} profile has diffs"; exit 1; }
 
