@@ -23,11 +23,10 @@ import (
 
 	kubernetes2 "k8s.io/client-go/kubernetes"
 
-	"istio.io/istio/istioctl/pkg/auth"
+	"istio.io/istio/istioctl/pkg/authz"
 	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/istioctl/pkg/util/handlers"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/security/authz/converter"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
@@ -45,30 +44,21 @@ var (
 var (
 	checkCmd = &cobra.Command{
 		Use:   "check <pod-name>[.<pod-namespace>]",
-		Short: "Check the TLS/JWT/RBAC settings based on Envoy config",
-		Long: `Check analyzes the TLS/JWT/RBAC settings directly based on the Envoy config. The Envoy config could
-be provided either by pod name or from a config dump file (the whole output of http://localhost:15000/config_dump
-of an Envoy instance).
+		Short: "Check Envoy config dump for authorization configuration.",
+		Long: `Check reads the Envoy config dump and checks the filter configuration
+related to authorization. For example, it shows whether or not the Envoy is configured
+with authorization and the rules used in the authorization.
 
-Currently only the listeners with node IP and clusters on outbound direction are analyzed:
-- listeners with node IP generally tell how should other pods talk to the Envoy instance which include
-  the server side TLS/JWT/RBAC settings.
-
-- clusters on outbound direction generally tell how should the Envoy instance talk to other pods which
-  include the client side TLS settings.
-
-To check the TLS setting, you could run 'check' on both of the client and server pods and compare
-the cluster results of the client pod and the listener results of the server pod.
-
-To check the JWT/RBAC setting, you could run 'check' only on your server pods and check the listener results.
+The Envoy config dump could be provided either by pod name or from a config dump file
+(the whole output of http://localhost:15000/config_dump of an Envoy instance).
 
 THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 `,
-		Example: `  # Check the TLS/JWT/RBAC policy status for pod httpbin-88ddbcfdd-nt5jb in namespace foo:
-  istioctl experimental auth check httpbin-88ddbcfdd-nt5jb.foo
+		Example: `  # Check Envoy authorization configuration for pod httpbin-88ddbcfdd-nt5jb:
+  istioctl x authz check httpbin-88ddbcfdd-nt5jb
 
-  # Check the TLS/JWT/RBAC policy status from a config dump file:
-  istioctl experimental auth check -f httpbin_config_dump.txt`,
+  # Check Envoy authorization configuration from a config dump file:
+  istioctl x authz check -f httpbin_config_dump.json`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 1 {
 				cmd.Println(cmd.UsageString())
@@ -94,11 +84,11 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 				return fmt.Errorf("expecting pod name or config dump, found: %d", len(args))
 			}
 
-			analyzer, err := auth.NewAnalyzer(configDump)
+			analyzer, err := authz.NewAnalyzer(configDump)
 			if err != nil {
 				return err
 			}
-			analyzer.PrintTLS(cmd.OutOrStdout(), printAll)
+			analyzer.Print(cmd.OutOrStdout(), printAll)
 			return nil
 		},
 	}
@@ -106,9 +96,9 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 	convertCmd = &cobra.Command{
 		Use:   "convert",
 		Short: "Convert v1alpha1 RBAC policy to v1beta1 authorization policy",
-		Long: `Convert converts Istio v1alpha1 RBAC policy to v1beta1 authorization policy. The command talks to Kubernetes
-API server to get all the information needed to complete the conversion, including the currently applied v1alpha1
-RBAC policies, the Istio config-map for root namespace configuration and the k8s Service translating the
+		Long: `Convert Istio v1alpha1 RBAC policy to v1beta1 authorization policy. The command talks to Kubernetes
+API server to get all the information needed to complete the conversion, including the v1alpha1 RBAC policies in the current
+cluster, the Istio config-map for root namespace configuration and the k8s Service translating the
 service name to workload selector.
 
 The tool can also be used in offline mode without talking to the Kubernetes API server. In this mode,
@@ -124,11 +114,11 @@ Please always review the converted policies before applying them.
 
 THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 `,
-		Example: `  # Convert the v1alpha1 RBAC policy currently applied in the cluster:
-  istioctl experimental auth convert > v1beta1-authz.yaml
+		Example: `  # Convert the v1alpha1 RBAC policy in the current cluster:
+  istioctl x authz convert > v1beta1-authz.yaml
 
   # Convert the v1alpha1 RBAC policy provided through command line: 
-  istioctl experimental auth convert -f v1alpha1-policy-1.yaml,v1alpha1-policy-2.yaml
+  istioctl x authz convert -f v1alpha1-policy-1.yaml,v1alpha1-policy-2.yaml
   --service services.yaml --meshConfigFile meshConfig.yaml > v1beta1-authz.yaml
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -153,33 +143,6 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			_ = c.Root().PersistentFlags().Set("log_target", "stderr")
 
 			return c.Root().PersistentPreRunE(c, args)
-		},
-	}
-
-	validatorCmd = &cobra.Command{
-		Use:   "validate <policy-file1,policy-file2,...>",
-		Short: "Validate authentication and authorization policy",
-		Long: `This command goes through all authorization policy files and finds potential issues such as:
-						* ServiceRoleBinding refers to a non existing ServiceRole.
-						* ServiceRole not used.
-           It does not require access to the cluster as the validation is against local files.
-					`,
-		Example: "istioctl experimental auth validate -f policy1.yaml,policy2.yaml",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			validator, err := newValidator(policyFiles)
-			if err != nil {
-				return err
-			}
-			err = validator.CheckAndReport()
-			if err != nil {
-				return err
-			}
-			writer := cmd.OutOrStdout()
-			_, err = writer.Write([]byte(validator.Report.String()))
-			if err != nil {
-				return fmt.Errorf("failed to write report: %v", err)
-			}
-			return nil
 		},
 	}
 )
@@ -246,39 +209,26 @@ func newConverter(v1PolicyFiles, serviceFiles []string, istioNamespace, istioMes
 	return converter.New(k8sClient, v1PolicyFiles, serviceFiles, meshConfig, istioNamespace, istioMeshConfigMapName)
 }
 
-func newValidator(policyFiles []string) (*auth.Validator, error) {
-	if len(policyFiles) == 0 {
-		return nil, fmt.Errorf("no input file provided")
-	}
-	validator := &auth.Validator{
-		PolicyFiles:          policyFiles,
-		RoleKeyToServiceRole: make(map[string]model.Config),
-	}
-	return validator, nil
-}
-
-// Auth groups commands used for checking the authentication and authorization policy status.
+// AuthZ groups commands used for inspecting and interacting the authorization policy.
 // Note: this is still under active development and is not ready for real use.
-func Auth() *cobra.Command {
+func AuthZ() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "auth",
-		Short: "Inspect and interact with authentication and authorization policies in the mesh",
-		Long: `Commands to inspect and interact with the authentication (TLS, JWT) and authorization (RBAC) policies in the mesh
-  check - check the TLS/JWT/RBAC settings based on the Envoy config
+		Use:   "authz",
+		Short: "Inspect and interact with authorization policies",
+		Long: `Commands to inspect and interact with the authorization policies
+  check - check Envoy config dump for authorization configuration
   convert - convert v1alpha1 RBAC policies to v1beta1 authorization policies
-	validate - check for potential incorrect usage in authorization policy files.
 `,
-		Example: `  # Check the TLS/JWT/RBAC settings for pod httpbin-88ddbcfdd-nt5jb:
-  istioctl experimental auth check httpbin-88ddbcfdd-nt5jb
+		Example: `  # Check Envoy authorization configuration for pod httpbin-88ddbcfdd-nt5jb:
+  istioctl x authz check httpbin-88ddbcfdd-nt5jb
 
-  # Convert the v1alpha1 RBAC policies currently applied in the cluster to v1beta1 authorization policies:
-  istioctl experimental auth convert > v1beta1-authz.yaml
+  # Convert the v1alpha1 RBAC policies in the current cluster to v1beta1 authorization policies:
+  istioctl x authz convert > v1beta1-authz.yaml
 `,
 	}
 
 	cmd.AddCommand(checkCmd)
 	cmd.AddCommand(convertCmd)
-	cmd.AddCommand(validatorCmd)
 	return cmd
 }
 
@@ -286,9 +236,7 @@ func init() {
 	checkCmd.PersistentFlags().BoolVarP(&printAll, "all", "a", false,
 		"Show additional information (e.g. SNI and ALPN)")
 	checkCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
-		"Check the TLS/JWT/RBAC setting from the config dump file")
-	validatorCmd.PersistentFlags().StringSliceVarP(&policyFiles, "file", "f", []string{},
-		"Authorization policy file")
+		"Check the Envoy config dump from a file")
 	convertCmd.PersistentFlags().StringSliceVarP(&policyFiles, "file", "f", []string{},
 		"v1alpha1 RBAC policy that needs to be converted to v1beta1 authorization policy")
 	convertCmd.PersistentFlags().StringSliceVarP(&serviceFiles, "service", "s", []string{},
