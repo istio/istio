@@ -1,4 +1,4 @@
-# This is used to generate minimal demo mode. It is included from demo and demo-auth values.
+# This is used to generate minimal demo mode. It is included from demo.
 # It is shipped with the release, used for bookinfo or quick installation of istio.
 # Includes components used in the demo, defaults to alpha3 rules.
 # Note: please only put common configuration for the demo profiles here.

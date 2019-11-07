@@ -215,7 +215,6 @@
 // ../../data/examples/multicluster/values-istio-multicluster-gateways.yaml
 // ../../data/examples/multicluster/values-istio-multicluster-primary.yaml
 // ../../data/profiles/default.yaml
-// ../../data/profiles/demo-auth.yaml
 // ../../data/profiles/demo.yaml
 // ../../data/profiles/minimal.yaml
 // ../../data/profiles/remote.yaml
@@ -37355,135 +37354,6 @@ func profilesDefaultYaml() (*asset, error) {
 	return a, nil
 }
 
-var _profilesDemoAuthYaml = []byte(`apiVersion: install.istio.io/v1alpha2
-kind: IstioControlPlane
-spec:
-  gateways:
-    components:
-      egressGateway:
-        enabled: true
-        k8s:
-          resources:
-            requests:
-              cpu: 10m
-              memory: 40Mi
-      ingressGateway:
-        enabled: true
-        k8s:
-          resources:
-            requests:
-              cpu: 10m
-              memory: 40Mi
-  policy:
-    components:
-      policy:
-        k8s:
-          resources:
-            requests:
-              cpu: 10m
-              memory: 100Mi
-
-  telemetry:
-    components:
-      telemetry:
-        k8s:
-          resources:
-            requests:
-              cpu: 50m
-              memory: 100Mi
-
-
-  trafficManagement:
-    components:
-      pilot:
-        k8s:
-          env:
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.name
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.namespace
-            - name: GODEBUG
-              value: gctrace=1
-            - name: PILOT_TRACE_SAMPLING
-              value: "100"
-            - name: CONFIG_NAMESPACE
-              value: istio-config
-          resources:
-            requests:
-              cpu: 10m
-              memory: 100Mi
-
-  values:
-    global:
-      disablePolicyChecks: false
-      mtls:
-        enabled: true
-      proxy:
-        accessLogFile: /dev/stdout
-        resources:
-          requests:
-            cpu: 10m
-            memory: 40Mi
-
-    pilot:
-      autoscaleEnabled: false
-
-    mixer:
-      adapters:
-        useAdapterCRDs: false
-        kubernetesenv:
-          enabled: true
-        prometheus:
-          enabled: true
-          metricsExpiryDuration: 10m
-        stackdriver:
-          enabled: false
-        stdio:
-          enabled: true
-          outputAsJson: false
-      policy:
-        autoscaleEnabled: false
-      telemetry:
-        autoscaleEnabled: false
-
-    gateways:
-      istio-egressgateway:
-        autoscaleEnabled: false
-      istio-ingressgateway:
-        autoscaleEnabled: false
-
-    grafana:
-      enabled: true
-
-    tracing:
-      enabled: true
-
-    kiali:
-      enabled: true
-      createDemoSecret: true
-`)
-
-func profilesDemoAuthYamlBytes() ([]byte, error) {
-	return _profilesDemoAuthYaml, nil
-}
-
-func profilesDemoAuthYaml() (*asset, error) {
-	bytes, err := profilesDemoAuthYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "profiles/demo-auth.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _profilesDemoYaml = []byte(`apiVersion: install.istio.io/v1alpha2
 kind: IstioControlPlane
 spec:
@@ -38526,7 +38396,6 @@ var _bindata = map[string]func() (*asset, error){
 	"examples/multicluster/values-istio-multicluster-gateways.yaml": examplesMulticlusterValuesIstioMulticlusterGatewaysYaml,
 	"examples/multicluster/values-istio-multicluster-primary.yaml": examplesMulticlusterValuesIstioMulticlusterPrimaryYaml,
 	"profiles/default.yaml": profilesDefaultYaml,
-	"profiles/demo-auth.yaml": profilesDemoAuthYaml,
 	"profiles/demo.yaml": profilesDemoYaml,
 	"profiles/minimal.yaml": profilesMinimalYaml,
 	"profiles/remote.yaml": profilesRemoteYaml,
@@ -38888,7 +38757,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 	}},
 	"profiles": &bintree{nil, map[string]*bintree{
 		"default.yaml": &bintree{profilesDefaultYaml, map[string]*bintree{}},
-		"demo-auth.yaml": &bintree{profilesDemoAuthYaml, map[string]*bintree{}},
 		"demo.yaml": &bintree{profilesDemoYaml, map[string]*bintree{}},
 		"minimal.yaml": &bintree{profilesMinimalYaml, map[string]*bintree{}},
 		"remote.yaml": &bintree{profilesRemoteYaml, map[string]*bintree{}},

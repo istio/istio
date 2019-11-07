@@ -31,9 +31,6 @@ func TestProfileDump(t *testing.T) {
 			desc: "all_off",
 		},
 		{
-			desc: "demo-auth_certmanager_on",
-		},
-		{
 			desc: "sds_policy_off",
 		},
 	}
