@@ -39,17 +39,9 @@ var (
 
 	port7443 = []*Port{
 		{
-			Name:     "grpc-shipping",
 			Port:     7443,
 			Protocol: "GRPC",
-		},
-	}
-
-	port7442 = []*Port{
-		{
-			Name:     "ajna-tls",
-			Port:     7442,
-			Protocol: "HTTP",
+			Name:     "service-grpc-tls",
 		},
 	}
 
@@ -214,38 +206,40 @@ var (
 		},
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
-				// {
-				// 	Port: &networking.Port{
-				// 		Number:   7443,
-				// 		Protocol: "GRPC",
-				// 		Name:     "grpc-tls",
-				// 	},
-				// 	Hosts: []string{"service-mesh/*"},
-				// },
-				// {
-				// 	Port: &networking.Port{
-				// 		Number:   7442,
-				// 		Protocol: "HTTP",
-				// 		Name:     "http-tls",
-				// 	},
-				// 	Hosts: []string{"service-mesh/*"},
-				// },
 				{
 					Port: &networking.Port{
-						Number:   7014,
-						Protocol: "HTTP",
-						Name:     "http-plain",
+						Number:   23145,
+						Protocol: "TCP",
+						Name:     "outbound-tcp",
 					},
-					Hosts: []string{"*/*"},
+					Bind: "7.7.7.7",
+					Hosts: []string{"*/bookinginfo.com",
+						"*/private.com",
+					},
 				},
-				// {
-				// 	Port: &networking.Port{
-				// 		Number:   7012,
-				// 		Protocol: "grpc-plain",
-				// 		Name:     "HTTP",
-				// 	},
-				// 	Hosts: []string{"*/*"},
-				// },
+				{
+					Hosts: []string{"ns1/*",
+						"*/*.tcp.com",
+					},
+				},
+			},
+		},
+	}
+
+	configs8 = &Config{
+		ConfigMeta: ConfigMeta{
+			Name: "different-port-name",
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Number:   7443,
+						Protocol: "GRPC",
+						Name:     "listener-grpc-tls",
+					},
+					Hosts: []string{"mesh/*"},
+				},
 			},
 		},
 	}
@@ -333,19 +327,29 @@ var (
 
 	services8 = []*Service{
 		{
-			Hostname: "shipping.svc.cluster.local",
-			Ports:    port7443,
+			Hostname: "bookinginfo.com",
+			Ports:    port9999,
 			Attributes: ServiceAttributes{
-				Name:      "shipping",
-				Namespace: "service-mesh",
+				Name:      "bookinginfo.com",
+				Namespace: "ns1",
 			},
 		},
 		{
-			Hostname: "ajna.svc.cluster.local",
-			Ports:    port7442,
+			Hostname: "private.com",
 			Attributes: ServiceAttributes{
-				Name:      "ajna",
-				Namespace: "funnel",
+				Name:      "private.com",
+				Namespace: "ns1",
+			},
+		},
+	}
+
+	services9 = []*Service{
+		{
+			Hostname: "foo.svc.cluster.local",
+			Ports:    port7443,
+			Attributes: ServiceAttributes{
+				Name:      "foo",
+				Namespace: "mesh",
 			},
 		},
 	}
@@ -361,17 +365,181 @@ func TestCreateSidecarScope(t *testing.T) {
 		excpectedServices []*Service
 	}{
 		{
+			"no-sidecar-config",
+			nil,
+			nil,
+			nil,
+		},
+		{
+			"no-sidecar-config-with-service",
+			nil,
+			services1,
+			[]*Service{
+				{
+					Hostname: "bar",
+				},
+			},
+		},
+		{
+			"sidecar-with-multiple-egress",
+			configs1,
+			nil,
+			nil,
+		},
+		{
+			"sidecar-with-multiple-egress-with-service",
+			configs1,
+			services1,
+			[]*Service{
+				{
+					Hostname: "bar",
+				},
+			},
+		},
+		{
+			"sidecar-with-multiple-egress-with-service-on-same-port",
+			configs1,
+			services3,
+			[]*Service{
+				{
+					Hostname: "bar",
+				},
+				{
+					Hostname: "barprime",
+				},
+			},
+		},
+		{
+			"sidecar-with-multiple-egress-with-multiple-service",
+			configs1,
+			services4,
+			[]*Service{
+				{
+					Hostname: "bar",
+				},
+				{
+					Hostname: "barprime",
+				},
+			},
+		},
+		{
+			"sidecar-with-zero-egress",
+			configs2,
+			nil,
+			nil,
+		},
+		{
+			"sidecar-with-zero-egress-multiple-service",
+			configs2,
+			services4,
+			nil,
+		},
+		{
+			"sidecar-with-multiple-egress-noport",
+			configs3,
+			nil,
+			nil,
+		},
+		{
+			"sidecar-with-multiple-egress-noport-with-specific-service",
+			configs3,
+			services2,
+			[]*Service{
+				{
+					Hostname: "bar",
+				},
+				{
+					Hostname: "barprime",
+				},
+			},
+		},
+		{
+			"sidecar-with-multiple-egress-noport-with-services",
+			configs3,
+			services4,
+			[]*Service{
+				{
+					Hostname: "bar",
+				},
+				{
+					Hostname: "barprime",
+				},
+			},
+		},
+		{
+			"sidecar-with-egress-port-match-with-services-with-and-without-port",
+			configs4,
+			services5,
+			[]*Service{
+				{
+					Hostname: "bar",
+				},
+			},
+		},
+		{
+			"sidecar-with-egress-port-trims-service-non-matching-ports",
+			configs5,
+			services6,
+			[]*Service{
+				{
+					Hostname: "bar",
+					Ports:    port8000,
+				},
+			},
+		},
+		{
+			"sidecar-with-egress-port-merges-service-ports",
+			configs6,
+			services6,
+			[]*Service{
+				{
+					Hostname: "bar",
+					Ports:    twoPorts,
+				},
+			},
+		},
+		{
+			"sidecar-with-egress-port-trims-and-merges-service-ports",
+			configs6,
+			services7,
+			[]*Service{
+				{
+					Hostname: "bar",
+					Ports:    twoPorts,
+				},
+				{
+					Hostname: "barprime",
+					Ports:    port8000,
+				},
+				{
+					Hostname: "foo",
+					Ports:    twoPorts,
+				},
+			},
+		},
+		{
 			"two-egresslisteners-one-with-port-and-without-port",
 			configs7,
 			services8,
 			[]*Service{
 				{
-					Hostname: "shipping.svc.cluster.local",
-					Ports:    port7443,
+					Hostname: "bookinginfo.com",
+					Ports:    port9999,
 				},
 				{
-					Hostname: "ajna.svc.cluster.local",
-					Ports:    port7442,
+					Hostname: "private.com",
+				},
+			},
+		},
+		// Validates when service is scoped to Sidecar, it uses service port rather than listener port.
+		{
+			"service-port-used-while-cloning",
+			configs8,
+			services9,
+			[]*Service{
+				{
+					Hostname: "foo.svc.cluster.local",
+					Ports:    port7443,
 				},
 			},
 		},
@@ -391,10 +559,6 @@ func TestCreateSidecarScope(t *testing.T) {
 
 			sidecarConfig := tt.sidecarConfig
 			sidecarScope := ConvertToSidecarScope(ps, sidecarConfig, "mynamespace")
-			service := sidecarScope.ServiceForHostname("shipping.svc.cluster.local", nil)
-			if service == nil {
-				fmt.Println("error....")
-			}
 			configuredListeneres := 1
 			if sidecarConfig != nil {
 				r := sidecarConfig.Spec.(*networking.Sidecar)
