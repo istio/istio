@@ -1023,8 +1023,8 @@ func TestDuplicateClusters(t *testing.T) {
 func TestSidecarLocalityLB(t *testing.T) {
 	g := NewGomegaWithT(t)
 	// Distribute locality loadbalancing setting
-	testMesh.LocalityLbSetting = &meshconfig.LocalityLoadBalancerSetting{
-		Distribute: []*meshconfig.LocalityLoadBalancerSetting_Distribute{
+	testMesh.LocalityLbSetting = &networking.LocalityLoadBalancerSetting{
+		Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
 			{
 				From: "region1/zone1/subzone1",
 				To: map[string]uint32{
@@ -1075,7 +1075,7 @@ func TestSidecarLocalityLB(t *testing.T) {
 
 	// Test failover
 	// Distribute locality loadbalancing setting
-	testMesh.LocalityLbSetting = &meshconfig.LocalityLoadBalancerSetting{}
+	testMesh.LocalityLbSetting = &networking.LocalityLoadBalancerSetting{}
 
 	clusters, err = buildTestClusters("*.example.org", model.DNSLB, model.SidecarProxy,
 		&core.Locality{
@@ -1111,11 +1111,76 @@ func TestSidecarLocalityLB(t *testing.T) {
 	}
 }
 
+func TestLocalityLBDestinationRuleOverride(t *testing.T) {
+	g := NewGomegaWithT(t)
+	// Distribute locality loadbalancing setting
+	testMesh.LocalityLbSetting = &networking.LocalityLoadBalancerSetting{
+		Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
+			{
+				From: "region1/zone1/subzone1",
+				To: map[string]uint32{
+					"region1/zone1/*":        50,
+					"region2/zone1/subzone1": 50,
+				},
+			},
+		},
+	}
+
+	clusters, err := buildTestClusters("*.example.org", model.DNSLB, model.SidecarProxy,
+		&core.Locality{
+			Region:  "region1",
+			Zone:    "zone1",
+			SubZone: "subzone1",
+		}, testMesh,
+		&networking.DestinationRule{
+			Host: "*.example.org",
+			TrafficPolicy: &networking.TrafficPolicy{
+				OutlierDetection: &networking.OutlierDetection{
+					ConsecutiveErrors: 5,
+					MinHealthPercent:  10,
+				},
+				LoadBalancer: &networking.LoadBalancerSettings{LocalityLbSetting: &networking.LocalityLoadBalancerSetting{
+					Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
+						{
+							From: "region1/zone1/subzone1",
+							To: map[string]uint32{
+								"region1/zone1/*":        60,
+								"region2/zone1/subzone1": 40,
+							},
+						},
+					},
+				}},
+			},
+		})
+	g.Expect(err).NotTo(HaveOccurred())
+
+	if clusters[0].CommonLbConfig == nil {
+		t.Fatalf("CommonLbConfig should be set for cluster %+v", clusters[0])
+	}
+	g.Expect(clusters[0].CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(10)))
+
+	g.Expect(len(clusters[0].LoadAssignment.Endpoints)).To(Equal(3))
+	for _, localityLbEndpoint := range clusters[0].LoadAssignment.Endpoints {
+		locality := localityLbEndpoint.Locality
+		if locality.Region == "region1" && locality.SubZone == "subzone1" {
+			g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(40)))
+			g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(Equal(uint32(40)))
+		} else if locality.Region == "region1" && locality.SubZone == "subzone2" {
+			g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(20)))
+			g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(Equal(uint32(20)))
+		} else if locality.Region == "region2" {
+			g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(40)))
+			g.Expect(len(localityLbEndpoint.LbEndpoints)).To(Equal(1))
+			g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(Equal(uint32(40)))
+		}
+	}
+}
+
 func TestGatewayLocalityLB(t *testing.T) {
 	g := NewGomegaWithT(t)
 	// Distribute locality loadbalancing setting
-	testMesh.LocalityLbSetting = &meshconfig.LocalityLoadBalancerSetting{
-		Distribute: []*meshconfig.LocalityLoadBalancerSetting_Distribute{
+	testMesh.LocalityLbSetting = &networking.LocalityLoadBalancerSetting{
+		Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
 			{
 				From: "region1/zone1/subzone1",
 				To: map[string]uint32{
@@ -1174,7 +1239,7 @@ func TestGatewayLocalityLB(t *testing.T) {
 	}
 
 	// Test failover
-	testMesh.LocalityLbSetting = &meshconfig.LocalityLoadBalancerSetting{}
+	testMesh.LocalityLbSetting = &networking.LocalityLoadBalancerSetting{}
 
 	clusters, err = buildTestClustersWithProxyMetadata("*.example.org", model.DNSLB, false, model.Router,
 		&core.Locality{
