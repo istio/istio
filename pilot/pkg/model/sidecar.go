@@ -483,14 +483,15 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 	importedServices := make([]*Service, 0)
 	for _, s := range services {
 		configNamespace := s.Attributes.Namespace
+		// If a listener is defined with port, we should match services with port.
+		needsPortMatch := ilw.IstioListener != nil && ilw.IstioListener.Port != nil
+		importedHosts, nsFound := ilw.listenerHosts[configNamespace]
 		// Check if there is an explicit import of form ns/* or ns/host
-		if importedHosts, nsFound := ilw.listenerHosts[configNamespace]; nsFound {
+		if needsPortMatch || nsFound {
 			hostFound := false
 			for _, importedHost := range importedHosts {
 				// Check if the hostnames match per usual hostname matching rules
 				if importedHost.Matches(s.Hostname) {
-					// If a listener is defined with port, we should match services with port.
-					needsPortMatch := ilw.IstioListener != nil && ilw.IstioListener.Port != nil
 					portMatched := false
 					if needsPortMatch {
 						for _, port := range s.Ports {
@@ -530,7 +531,8 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 		}
 
 		// Check if there is an import of form */host or */*
-		if importedHosts, wnsFound := ilw.listenerHosts[wildcardNamespace]; wnsFound {
+		importedHosts, wnsFound := ilw.listenerHosts[wildcardNamespace]
+		if !needsPortMatch && wnsFound {
 			for _, importedHost := range importedHosts {
 				// Check if the hostnames match per usual hostname matching rules
 				if importedHost.Matches(s.Hostname) {
