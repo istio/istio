@@ -21,6 +21,7 @@ ingress:
     #     - grafana.local
 persist: false
 storageClassName: ""
+storageSize: 5Gi
 accessMode: ReadWriteMany
 security:
   enabled: false

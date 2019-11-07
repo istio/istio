@@ -15,5 +15,5 @@ spec:
     - {{ .Values.accessMode }}
   resources:
     requests:
-      storage: 5Gi
+      storage: {{ .Values.storageSize }}
 {{- end }}
