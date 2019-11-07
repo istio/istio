@@ -15,15 +15,21 @@
 package controller
 
 import (
+	"fmt"
 	"log"
+	"os"
 	"testing"
 	"time"
 
-	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"github.com/hashicorp/go-multierror"
+
+	crd "istio.io/istio/pilot/pkg/config/kube/crd/controller"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	kube "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/test/mock"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 // Package controller tests the pilot controller using a k8s cluster or standalone apiserver.
@@ -38,8 +44,8 @@ const (
 	resync = 1 * time.Second
 )
 
-func makeClient(t *testing.T, desc model.ConfigDescriptor) (*crd.Client, error) {
-	cl, err := crd.NewClient("", "", desc, "")
+func makeClient(desc schema.Set) (*crd.Client, error) {
+	cl, err := crd.NewClient("", "", desc, "", &model.DisabledLedger{})
 	if err != nil {
 		return nil, err
 	}
@@ -56,9 +62,43 @@ func makeClient(t *testing.T, desc model.ConfigDescriptor) (*crd.Client, error) 
 	return cl, nil
 }
 
+// resolveConfig checks whether to use the in-cluster or out-of-cluster config
+func resolveConfig(kubeconfig string) (string, error) {
+	// Consistency with kubectl
+	if kubeconfig == "" {
+		kubeconfig = os.Getenv("KUBECONFIG")
+	}
+	if kubeconfig == "" {
+		home := os.Getenv("HOME")
+		defaultCfg := home + "/.kube/config"
+		_, err := os.Stat(kubeconfig)
+		if err != nil {
+			kubeconfig = defaultCfg
+		}
+	}
+	if kubeconfig != "" {
+		info, err := os.Stat(kubeconfig)
+		if err != nil {
+			if os.IsNotExist(err) {
+				err = fmt.Errorf("kubernetes configuration file %q does not exist", kubeconfig)
+			} else {
+				err = multierror.Append(err, fmt.Errorf("kubernetes configuration file %q", kubeconfig))
+			}
+			return "", err
+		}
+
+		// if it's an empty file, switch to in-cluster config
+		if info.Size() == 0 {
+			log.Println("using in-cluster configuration")
+			return "", nil
+		}
+	}
+	return kubeconfig, nil
+}
+
 // makeTempClient allocates a namespace and cleans it up on test completion
 func makeTempClient(t *testing.T) (*crd.Client, string, func()) {
-	kubeconfig, err := kube.ResolveConfig("")
+	kubeconfig, err := resolveConfig("")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,8 +110,8 @@ func makeTempClient(t *testing.T) (*crd.Client, string, func()) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	desc := append(model.IstioConfigTypes, mock.Types...)
-	cl, err := makeClient(t, desc)
+	desc := append(schemas.Istio, mock.Types...)
+	cl, err := makeClient(desc)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -103,17 +143,17 @@ func TestTempWorkspace(t *testing.T) {
 
 }
 
-func storeInvariant(t *testing.T, client *crd.Client, ns string) {
+func storeInvariant(t *testing.T, client model.ConfigStore, ns string) {
 	mock.CheckMapInvariant(client, t, ns, 5)
 	log.Println("Check Map Invariant done")
 }
 
-func istioConfig(t *testing.T, client *crd.Client, ns string) {
+func istioConfig(t *testing.T, client model.ConfigStore, ns string) {
 	mock.CheckIstioConfigTypes(client, ns, t)
 }
 
 func TestUnknownConfig(t *testing.T) {
-	desc := model.ConfigDescriptor{model.ProtoSchema{
+	desc := schema.Set{schema.Instance{
 		Type:        "unknown-config",
 		Plural:      "unknown-configs",
 		Group:       "test",
@@ -121,23 +161,23 @@ func TestUnknownConfig(t *testing.T) {
 		MessageName: "test.MockConfig",
 		Validate:    nil,
 	}}
-	_, err := makeClient(t, desc)
+	_, err := makeClient(desc)
 	if err == nil {
 		t.Fatalf("expect client to fail with unknown types")
 	}
 }
 
 func controllerEvents(t *testing.T, cl *crd.Client, ns string) {
-	ctl := crd.NewController(cl, kube.ControllerOptions{WatchedNamespace: ns, ResyncPeriod: resync})
+	ctl := crd.NewController(cl, kube.Options{WatchedNamespace: ns, ResyncPeriod: resync})
 	mock.CheckCacheEvents(cl, ctl, ns, 5, t)
 }
 
 func controllerCacheFreshness(t *testing.T, cl *crd.Client, ns string) {
-	ctl := crd.NewController(cl, kube.ControllerOptions{WatchedNamespace: ns, ResyncPeriod: resync})
+	ctl := crd.NewController(cl, kube.Options{WatchedNamespace: ns, ResyncPeriod: resync})
 	mock.CheckCacheFreshness(ctl, ns, t)
 }
 
 func controllerClientSync(t *testing.T, cl *crd.Client, ns string) {
-	ctl := crd.NewController(cl, kube.ControllerOptions{WatchedNamespace: ns, ResyncPeriod: resync})
+	ctl := crd.NewController(cl, kube.Options{WatchedNamespace: ns, ResyncPeriod: resync})
 	mock.CheckCacheSync(cl, ctl, ns, 5, t)
 }

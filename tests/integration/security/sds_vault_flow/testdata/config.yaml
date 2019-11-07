@@ -1,0 +1,14 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: vault-service-entry
+spec:
+  hosts:
+  - vault-server
+  addresses:
+  - 34.83.129.211/32
+  ports:
+  - number: 8200
+    name: https
+    protocol: HTTPS
+  location: MESH_EXTERNAL

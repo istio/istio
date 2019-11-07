@@ -1,0 +1,90 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: echosrv
+spec:
+  ports:
+  - port: 8080
+    name: http
+  selector:
+    app: echosrv
+---
+
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: echosrv
+spec:
+  host: echosrv.test.svc.cluster.local
+  subsets:
+    - name: v1
+      labels:
+        version: v1
+    - name: v2
+      labels:
+        version: v2
+      trafficPolicy:
+        tls:
+          mode: ISTIO_MUTUAL
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: echosrv-deployment-v1
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: echosrv
+  minReadySeconds: 60
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app: echosrv
+        version: v1
+    spec:
+      containers:
+      - name: echosrv
+        image: istio/fortio:latest
+        ports:
+        - containerPort: 8080
+        args:
+          - server
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: echosrv-deployment-v2
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: echosrv
+      version: v2
+  minReadySeconds: 60
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app: echosrv
+        version: v2
+    spec:
+      containers:
+      - name: echosrv
+        image: istio/fortio:latest
+        ports:
+        - containerPort: 8080
+        args:
+          - server
+---

@@ -12,11 +12,11 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-FROM websphere-liberty:latest
+FROM websphere-liberty:19.0.0.6-javaee8
 
 ENV SERVERDIRNAME reviews
 
-ADD ./servers/LibertyProjectServer /opt/ibm/wlp/usr/servers/defaultServer/
+COPY ./servers/LibertyProjectServer /opt/ibm/wlp/usr/servers/defaultServer/
 
 RUN /opt/ibm/wlp/bin/installUtility install  --acceptLicense /opt/ibm/wlp/usr/servers/defaultServer/server.xml
 
@@ -27,4 +27,4 @@ ENV SERVICE_VERSION ${service_version:-v1}
 ENV ENABLE_RATINGS ${enable_ratings:-false}
 ENV STAR_COLOR ${star_color:-black}
 
-CMD /opt/ibm/wlp/bin/server run defaultServer
+CMD ["/opt/ibm/wlp/bin/server", "run", "defaultServer"]

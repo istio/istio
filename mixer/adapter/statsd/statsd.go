@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // nolint: lll
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -a mixer/adapter/statsd/config/config.proto -x "-n statsd -t metric"
+//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/adapter/statsd/config/config.proto -x "-n statsd -t metric"
 
 // Package statsd provides an adapter that implements the metrics template to
 // serialize generated metric values to a statsd backend.
@@ -29,10 +29,11 @@ import (
 	"github.com/cactus/go-statsd-client/statsd"
 	multierror "github.com/hashicorp/go-multierror"
 
+	"istio.io/istio/mixer/adapter/metadata"
 	"istio.io/istio/mixer/adapter/statsd/config"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/template/metric"
+	"istio.io/pkg/pool"
 )
 
 const (
@@ -115,23 +116,9 @@ func (h *handler) Close() error { return h.client.Close() }
 
 // GetInfo returns the Info associated with this adapter implementation.
 func GetInfo() adapter.Info {
-	return adapter.Info{
-		Name:        "statsd",
-		Impl:        "istio.io/istio/mixer/adapter/statsd",
-		Description: "Produces statsd metrics",
-		SupportedTemplates: []string{
-			metric.TemplateName,
-		},
-		DefaultConfig: &config.Params{
-			Address:       "localhost:8125",
-			Prefix:        "",
-			FlushDuration: 300 * time.Millisecond,
-			FlushBytes:    512,
-			SamplingRate:  1.0,
-		},
-
-		NewBuilder: func() adapter.HandlerBuilder { return &builder{} },
-	}
+	info := metadata.GetInfo("statsd")
+	info.NewBuilder = func() adapter.HandlerBuilder { return &builder{} }
+	return info
 }
 
 type builder struct {

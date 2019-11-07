@@ -1,0 +1,101 @@
+#The following example demonstrates the use of a dedicated egress gateway
+#through which all external service traffic is forwarded.
+
+
+# Sidecar - no imports defined, isolated namespace.
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: default
+  namespace: exampleegressgw
+spec:
+  egress:
+  - hosts:
+      - exampleegressgw/*
+---
+# Test workload entry
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: workload
+  namespace: exampleegressgw
+spec:
+  hosts:
+  - test.exampleegressgw
+
+  ports:
+  - number: 1300
+    name: tcplocal
+    protocol: TCP
+
+  location: MESH_INTERNAL
+  resolution: STATIC
+
+  endpoints:
+  - address: 10.13.0.1
+    ports:
+      tcplocal: 31200
+---
+
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: external-svc-httpbin
+  namespace: exampleegressgw
+spec:
+  hosts:
+  - httpbin.com
+  location: MESH_EXTERNAL
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: DNS
+
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+ name: istio-egressgateway
+ namespace: exampleegressgw
+spec:
+ selector:
+   istio: egressgateway
+ servers:
+ - port:
+     number: 80
+     name: http
+     protocol: HTTP
+   hosts:
+   - "*"
+---
+#And the associated VirtualService to route from the sidecar to the
+#gateway service (istio-egressgateway.istio-system.svc.cluster.local), as
+#well as route from the gateway to the external service.
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: gateway-routing
+  namespace: exampleegressgw
+spec:
+  hosts:
+  - httpbin.com
+  gateways:
+  - mesh
+  - istio-egressgateway
+  http:
+  - match:
+    - port: 80
+      gateways:
+      - mesh
+    route:
+    - destination:
+        host: istio-egressgateway.istio-system.svc.cluster.local
+  - match:
+    - port: 80
+      gateways:
+      - istio-egressgateway
+    route:
+    - destination:
+        host: httpbin.com
+---

@@ -15,7 +15,6 @@
 package consul
 
 import (
-	"sync"
 	"testing"
 	"time"
 
@@ -24,49 +23,29 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
-const (
-	resync          = 5 * time.Millisecond
-	notifyThreshold = resync * 10
-)
+const notifyThreshold = 10 * time.Second
 
 func TestController(t *testing.T) {
-	// https://github.com/istio/istio/issues/2318
-	t.SkipNow()
-
 	ts := newServer()
-	defer ts.Server.Close()
+	defer ts.server.Close()
 	conf := api.DefaultConfig()
-	conf.Address = ts.Server.URL
+	conf.Address = ts.server.URL
 
 	cl, err := api.NewClient(conf)
 	if err != nil {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
 
-	countMutex := sync.Mutex{}
-	count := 0
+	updateChannel := make(chan struct{}, 10)
 
-	incrementCount := func() {
-		countMutex.Lock()
-		defer countMutex.Unlock()
-		count++
-	}
-	getCountAndReset := func() int {
-		countMutex.Lock()
-		defer countMutex.Unlock()
-		i := count
-		count = 0
-		return i
-	}
-
-	ctl := NewConsulMonitor(cl, resync)
+	ctl := NewConsulMonitor(cl)
 	ctl.AppendInstanceHandler(func(instance *api.CatalogService, event model.Event) error {
-		incrementCount()
+		updateChannel <- struct{}{}
 		return nil
 	})
 
 	ctl.AppendServiceHandler(func(instances []*api.CatalogService, event model.Event) error {
-		incrementCount()
+		updateChannel <- struct{}{}
 		return nil
 	})
 
@@ -74,50 +53,27 @@ func TestController(t *testing.T) {
 	go ctl.Start(stop)
 	defer close(stop)
 
-	time.Sleep(notifyThreshold)
-	getCountAndReset()
-
-	time.Sleep(notifyThreshold)
-	if i := getCountAndReset(); i != 0 {
-		t.Errorf("got %d notifications from controller, want %d", i, 0)
+	expectNotify := func(t *testing.T, times int) {
+		t.Helper()
+		for i := 0; i < times; i++ {
+			select {
+			case <-updateChannel:
+				continue
+			case <-time.After(notifyThreshold):
+				t.Fatalf("got %d notifications from controller, want %d", i, times)
+			}
+		}
 	}
 
-	// re-ordering of service instances -> does not trigger update
-	ts.Lock.Lock()
-	tmpReview := reviews[0]
-	reviews[0] = reviews[len(reviews)-1]
-	reviews[len(reviews)-1] = tmpReview
-	ts.Lock.Unlock()
+	//The first query from monitor to Consul always doesn't block because the index is 0
+	expectNotify(t, 2)
 
-	time.Sleep(notifyThreshold)
-	if i := getCountAndReset(); i != 0 {
-		t.Errorf("got %d notifications from controller, want %d", i, 0)
-	}
+	//There won't be any notifications if X-Consul-Index doesn't change
+	expectNotify(t, 0)
 
-	// same service, new tag -> triggers instance update
-	ts.Lock.Lock()
-	ts.Productpage[0].ServiceTags = append(ts.Productpage[0].ServiceTags, "new|tag")
-	ts.Lock.Unlock()
-	time.Sleep(notifyThreshold)
-	if i := getCountAndReset(); i != 1 {
-		t.Errorf("got %d notifications from controller, want %d", i, 2)
-	}
-
-	// delete a service instance -> trigger instance update
-	ts.Lock.Lock()
-	ts.Reviews = reviews[0:1]
-	ts.Lock.Unlock()
-	time.Sleep(notifyThreshold)
-	if i := getCountAndReset(); i != 1 {
-		t.Errorf("got %d notifications from controller, want %d", i, 1)
-	}
-
-	// delete a service -> trigger service and instance update
-	ts.Lock.Lock()
-	delete(ts.Services, "productpage")
-	ts.Lock.Unlock()
-	time.Sleep(notifyThreshold)
-	if i := getCountAndReset(); i != 2 {
-		t.Errorf("got %d notifications from controller, want %d", i, 2)
-	}
+	//X-Consul-Index change means that the Consul Catalog changes, so there will be notifications
+	ts.lock.Lock()
+	ts.consulIndex++
+	ts.lock.Unlock()
+	expectNotify(t, 2)
 }

@@ -25,6 +25,10 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"fmt"
+	"io/ioutil"
+	"strings"
+
+	"istio.io/pkg/log"
 )
 
 // GenCSR generates a X.509 certificate sign request and private key with the given options.
@@ -44,7 +48,10 @@ func GenCSR(options CertOptions) ([]byte, []byte, error) {
 		return nil, nil, fmt.Errorf("CSR creation failed (%v)", err)
 	}
 
-	csr, privKey := encodePem(true, csrBytes, priv)
+	csr, privKey, err := encodePem(true, csrBytes, priv, options.PKCS8Key)
+	if err != nil {
+		return nil, nil, err
+	}
 	return csr, privKey, nil
 }
 
@@ -61,8 +68,41 @@ func GenCSRTemplate(options CertOptions) (*x509.CertificateRequest, error) {
 		if err != nil {
 			return nil, err
 		}
+		if options.IsDualUse {
+			cn, err := DualUseCommonName(h)
+			if err != nil {
+				// log and continue
+				log.Errorf("dual-use failed for CSR template - omitting CN (%v)", err)
+			} else {
+				template.Subject.CommonName = cn
+			}
+		}
 		template.ExtraExtensions = []pkix.Extension{*s}
 	}
 
 	return template, nil
+}
+
+// AppendRootCerts appends root certificates in RootCertFile to the input certificate.
+func AppendRootCerts(pemCert []byte, rootCertFile string) ([]byte, error) {
+	var rootCerts []byte
+	if len(pemCert) > 0 {
+		// Copy the input certificate
+		rootCerts = make([]byte, len(pemCert))
+		copy(rootCerts, pemCert)
+	}
+	if len(rootCertFile) > 0 {
+		log.Debugf("append root certificates from %v", rootCertFile)
+		certBytes, err := ioutil.ReadFile(rootCertFile)
+		if err != nil {
+			return rootCerts, fmt.Errorf("failed to read root certificates (%v)", err)
+		}
+		log.Debugf("The root certificates to be appended is: %v", rootCertFile)
+		if len(rootCerts) > 0 {
+			// Append a newline after the last cert
+			rootCerts = []byte(strings.TrimSuffix(string(rootCerts), "\n") + "\n")
+		}
+		rootCerts = append(rootCerts, certBytes...)
+	}
+	return rootCerts, nil
 }

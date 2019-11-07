@@ -15,12 +15,19 @@
 package perf
 
 import (
+	"fmt"
 	"net"
 	"net/http"
 	"net/rpc"
+	"time"
 
-	"istio.io/istio/pkg/log"
+	multierror "github.com/hashicorp/go-multierror"
+
+	"istio.io/pkg/log"
 )
+
+// TODO(lichuqiang): modify defaultTimeout accordingly.
+const defaultTimeout = 5 * time.Minute
 
 // Controller is the top-level perf benchmark controller. It drives the test by managing the client(s) that generate
 // load against a Mixer instance.
@@ -74,36 +81,62 @@ func newController() (*Controller, error) {
 }
 
 func (c *Controller) initializeClients(address string, setup *Setup) error {
-	var err error
 	for i, conn := range c.clients {
 		var bytes []byte
-		bytes, err = marshallLoad(&setup.Loads[i])
+		var err error
+		bytes, err = marshalLoad(&setup.Loads[i])
 		if err != nil {
 			return err
 		}
 		params := ClientServerInitParams{Address: address, Load: bytes}
-		e := conn.Call("ClientServer.InitializeClient", params, nil)
-		if e != nil && err == nil {
-			// Capture the first error
-			err = e
+		err = conn.Call("ClientServer.InitializeClient", params, nil)
+		if err != nil {
+			return err
 		}
 	}
 
-	return err
+	return nil
 }
 
-func (c *Controller) runClients(iterations int) error {
-	var err error
+// nolinter: unparam
+func (c *Controller) runClients(iterations int, timeout time.Duration) error {
+	if len(c.clients) == 0 {
+		return nil
+	}
+
+	if timeout == 0 {
+		timeout = defaultTimeout
+	}
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
+	resCount := 0
+	errCh := make(chan error, len(c.clients))
+
 	for _, conn := range c.clients {
-		// TODO: This needs to be an async call when we have more than 1 client.
-		e := conn.Call("ClientServer.Run", iterations, nil)
-		if e != nil && err == nil {
-			// Capture the first error
-			err = e
+		connc := conn
+		// Make calls asynchronously.
+		go func() { errCh <- connc.Call("ClientServer.Run", iterations, nil) }()
+	}
+
+	var errors *multierror.Error
+	for {
+		if resCount >= len(c.clients) {
+			// All of the calls returned
+			break
+		}
+		select {
+		case e := <-errCh:
+			resCount++
+			if e != nil {
+				errors = multierror.Append(errors, e)
+			}
+		case <-timer.C:
+			return fmt.Errorf("timeout waiting for call response")
 		}
 	}
 
-	return err
+	return errors.ErrorOrNil()
 }
 
 func (c *Controller) close() (err error) {

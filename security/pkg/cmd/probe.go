@@ -18,8 +18,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/mixer/cmd/shared"
-	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/probe"
+	"istio.io/pkg/log"
+	"istio.io/pkg/probe"
 )
 
 // NewProbeCmd creates the cobra.Command for the probe command
@@ -29,6 +29,7 @@ func NewProbeCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "probe",
 		Short: "Check the liveness or readiness of a locally-running server",
+		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
 			if !probeOptions.IsValid() {
 				shared.Fatalf("probe-path or interval are not valid\n\n%s", cmd.UsageString())

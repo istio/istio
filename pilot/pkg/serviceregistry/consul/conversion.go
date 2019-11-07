@@ -20,8 +20,13 @@ import (
 
 	"github.com/hashicorp/consul/api"
 
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
+	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 const (
@@ -29,15 +34,15 @@ const (
 	externalTagName = "external"
 )
 
-func convertLabels(labels []string) model.Labels {
-	out := make(model.Labels, len(labels))
-	for _, tag := range labels {
+func convertLabels(labelsStr []string) labels.Instance {
+	out := make(labels.Instance, len(labelsStr))
+	for _, tag := range labelsStr {
 		vals := strings.Split(tag, "|")
 		// Labels not of form "key|value" are ignored to avoid possible collisions
 		if len(vals) > 1 {
 			out[vals[0]] = vals[1]
 		} else {
-			log.Warnf("Tag %v ignored since it is not of form key|value", tag)
+			log.Debugf("Tag %v ignored since it is not of form key|value", tag)
 		}
 	}
 	return out
@@ -45,7 +50,7 @@ func convertLabels(labels []string) model.Labels {
 
 func convertPort(port int, name string) *model.Port {
 	if name == "" {
-		name = "http"
+		name = "tcp"
 	}
 
 	return &model.Port{
@@ -56,7 +61,7 @@ func convertPort(port int, name string) *model.Port {
 }
 
 func convertService(endpoints []*api.CatalogService) *model.Service {
-	name, externalName := "", ""
+	name := ""
 
 	meshExternal := false
 	resolution := model.ClientSideLB
@@ -65,7 +70,7 @@ func convertService(endpoints []*api.CatalogService) *model.Service {
 	for _, endpoint := range endpoints {
 		name = endpoint.ServiceName
 
-		port := convertPort(endpoint.ServicePort, endpoint.NodeMeta[protocolTagName])
+		port := convertPort(endpoint.ServicePort, endpoint.ServiceMeta[protocolTagName])
 
 		if svcPort, exists := ports[port.Port]; exists && svcPort.Protocol != port.Protocol {
 			log.Warnf("Service %v has two instances on same port %v but different protocols (%v, %v)",
@@ -76,8 +81,7 @@ func convertService(endpoints []*api.CatalogService) *model.Service {
 
 		// TODO This will not work if service is a mix of external and local services
 		// or if a service has more than one external name
-		if endpoint.NodeMeta[externalTagName] != "" {
-			externalName = endpoint.NodeMeta[externalTagName]
+		if endpoint.ServiceMeta[externalTagName] != "" {
 			meshExternal = true
 			resolution = model.Passthrough
 		}
@@ -88,21 +92,26 @@ func convertService(endpoints []*api.CatalogService) *model.Service {
 		svcPorts = append(svcPorts, port)
 	}
 
+	hostname := serviceHostname(name)
 	out := &model.Service{
-		Hostname:     serviceHostname(name),
+		Hostname:     hostname,
 		Address:      "0.0.0.0",
 		Ports:        svcPorts,
-		ExternalName: model.Hostname(externalName),
 		MeshExternal: meshExternal,
 		Resolution:   resolution,
+		Attributes: model.ServiceAttributes{
+			ServiceRegistry: string(serviceregistry.ConsulRegistry),
+			Name:            string(hostname),
+			Namespace:       model.IstioDefaultConfigNamespace,
+		},
 	}
 
 	return out
 }
 
 func convertInstance(instance *api.CatalogService) *model.ServiceInstance {
-	labels := convertLabels(instance.ServiceTags)
-	port := convertPort(instance.ServicePort, instance.NodeMeta[protocolTagName])
+	svcLabels := convertLabels(instance.ServiceTags)
+	port := convertPort(instance.ServicePort, instance.ServiceMeta[protocolTagName])
 
 	addr := instance.ServiceAddress
 	if addr == "" {
@@ -111,42 +120,47 @@ func convertInstance(instance *api.CatalogService) *model.ServiceInstance {
 
 	meshExternal := false
 	resolution := model.ClientSideLB
-	externalName := instance.NodeMeta[externalTagName]
+	externalName := instance.ServiceMeta[externalTagName]
 	if externalName != "" {
 		meshExternal = true
 		resolution = model.DNSLB
 	}
 
+	tlsMode := model.GetTLSModeFromEndpointLabels(svcLabels)
+	hostname := serviceHostname(instance.ServiceName)
 	return &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
 			Address:     addr,
 			Port:        instance.ServicePort,
 			ServicePort: port,
+			Locality:    instance.Datacenter,
 		},
-		AvailabilityZone: instance.Datacenter,
 		Service: &model.Service{
-			Hostname: serviceHostname(instance.ServiceName),
-			Address:  instance.ServiceAddress,
-			Ports:    model.PortList{port},
-			// TODO ExternalName come from metadata?
-			ExternalName: model.Hostname(externalName),
+			Hostname:     hostname,
+			Address:      instance.ServiceAddress,
+			Ports:        model.PortList{port},
 			MeshExternal: meshExternal,
 			Resolution:   resolution,
+			Attributes: model.ServiceAttributes{
+				Name:      string(hostname),
+				Namespace: model.IstioDefaultConfigNamespace,
+			},
 		},
-		Labels: labels,
+		Labels:  svcLabels,
+		TLSMode: tlsMode,
 	}
 }
 
 // serviceHostname produces FQDN for a consul service
-func serviceHostname(name string) model.Hostname {
+func serviceHostname(name string) host.Name {
 	// TODO include datacenter in Hostname?
 	// consul DNS uses "redis.service.us-east-1.consul" -> "[<optional_tag>].<svc>.service.[<optional_datacenter>].consul"
-	return model.Hostname(fmt.Sprintf("%s.service.consul", name))
+	return host.Name(fmt.Sprintf("%s.service.consul", name))
 }
 
 // parseHostname extracts service name from the service hostname
-func parseHostname(hostname model.Hostname) (name string, err error) {
-	parts := strings.Split(hostname.String(), ".")
+func parseHostname(hostname host.Name) (name string, err error) {
+	parts := strings.Split(string(hostname), ".")
 	if len(parts) < 1 || parts[0] == "" {
 		err = fmt.Errorf("missing service name from the service hostname %q", hostname)
 		return
@@ -155,11 +169,11 @@ func parseHostname(hostname model.Hostname) (name string, err error) {
 	return
 }
 
-func convertProtocol(name string) model.Protocol {
-	protocol := model.ParseProtocol(name)
-	if protocol == model.ProtocolUnsupported {
+func convertProtocol(name string) protocol.Instance {
+	p := protocol.Parse(name)
+	if p == protocol.Unsupported {
 		log.Warnf("unsupported protocol value: %s", name)
-		return model.ProtocolTCP
+		return protocol.TCP
 	}
-	return protocol
+	return p
 }

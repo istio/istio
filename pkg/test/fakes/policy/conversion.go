@@ -19,7 +19,7 @@ import (
 	"reflect"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/any"
+	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/mixer/template/metric"
 )
@@ -30,7 +30,7 @@ var knownProtoTypes = []reflect.Type{
 	reflect.TypeOf(metric.InstanceMsg{}),
 }
 
-func toAny(p proto.Message) (*any.Any, error) {
+func toAny(p proto.Message) (*types.Any, error) {
 	url := reflect.TypeOf(p).Elem().String()
 
 	b, err := proto.Marshal(p)
@@ -38,13 +38,13 @@ func toAny(p proto.Message) (*any.Any, error) {
 		return nil, err
 	}
 
-	return &any.Any{
+	return &types.Any{
 		Value:   b,
 		TypeUrl: url,
 	}, nil
 }
 
-func fromAny(a *any.Any) (proto.Message, error) {
+func fromAny(a *types.Any) (proto.Message, error) {
 	for _, t := range knownProtoTypes {
 		if t.String() == a.TypeUrl {
 			p := reflect.New(t).Interface().(proto.Message)

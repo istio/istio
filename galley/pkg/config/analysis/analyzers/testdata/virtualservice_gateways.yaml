@@ -1,0 +1,59 @@
+# Broken config in a yaml config file
+#
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: httpbin-gateway
+spec:
+  selector:
+    istio: ingressgateway
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: crossnamespace-gw
+  namespace: another
+spec:
+  selector:
+    istio: ingressgateway
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: httpbin
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - httpbin-gateway # Expected: no validation error since this gateway exists
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: httpbin-bogus
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - httpbin-gateway-bogus # Expected: validation error since this gateway does not exist
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: httpbin-mesh
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - mesh # Expected: no validation error, "mesh" is a special-case value
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: cross-test
+  namespace: default
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - another/crossnamespace-gw  # No validation error expected

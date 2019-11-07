@@ -24,10 +24,11 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
+	"github.com/gogo/protobuf/types"
 
 	"istio.io/api/policy/v1beta1"
-	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/compiled"
+	"istio.io/pkg/attribute"
 )
 
 func checkErrors(t *testing.T, gotError error, wantError error) {
@@ -51,21 +52,18 @@ func checkErrors(t *testing.T, gotError error, wantError error) {
 }
 
 func TestValueTypeEncoder_Errors(t *testing.T) {
-	compiler := compiled.NewBuilder(StatdardVocabulary())
+	compiler := compiled.NewBuilder(StandardVocabulary())
 
 	for _, tst := range []struct {
 		input        interface{}
 		typeName     string
 		builderError error
 		encoderError error
+		bag          map[string]interface{}
 	}{
 		{
 			input:        "badAttribute",
 			builderError: errors.New("unknown attribute"),
-		},
-		{
-			input:        "response.time",
-			builderError: errors.New("unsupported type"),
 		},
 		{
 			input:        "incorrectMessage",
@@ -92,6 +90,72 @@ func TestValueTypeEncoder_Errors(t *testing.T) {
 			input:        time.Time{},
 			builderError: errors.New("unsupported type"),
 		},
+		{
+			input:        "source.ip",
+			encoderError: errors.New("incorrect type for IP_ADDRESS"),
+			bag: map[string]interface{}{
+				"source.ip": "this should be a byte array",
+			},
+		},
+		{
+			input:        "request.path",
+			builderError: errors.New("incorrect type for .istio.policy.v1beta1.IPAddress"),
+			bag: map[string]interface{}{
+				"request.path": "this should be a byte array",
+			},
+			typeName: ".istio.policy.v1beta1.IPAddress",
+		},
+		{
+			input:        "context.timestamp",
+			encoderError: errors.New("incorrect type for TIMESTAMP"),
+			bag: map[string]interface{}{
+				"context.timestamp": []byte{1, 2, 4, 8},
+			},
+		},
+		{
+			input:        "context.timestamp",
+			encoderError: errors.New("invalid timestamp"),
+			bag: map[string]interface{}{
+				"context.timestamp": time.Date(20000, 1, 1, 0, 0, 0, 0, time.UTC).UTC(),
+			},
+		},
+		{
+			input:        "response.duration",
+			encoderError: errors.New("error converting value"),
+			bag: map[string]interface{}{
+				"response.duration": "invalid",
+			},
+		},
+		{
+			input:        "request.headers",
+			builderError: errors.New("unsupported type: STRING_MAP"),
+			bag: map[string]interface{}{
+				"request.headers": map[string]string{
+					"user": "me",
+				},
+			},
+		},
+		{
+			input:        "test.uri",
+			encoderError: errors.New("error converting value"),
+			bag: map[string]interface{}{
+				"test.uri": int64(5),
+			},
+		},
+		{
+			input:        "test.dns_name",
+			encoderError: errors.New("error converting value"),
+			bag: map[string]interface{}{
+				"test.dns_name": int64(5),
+			},
+		},
+		{
+			input:        "test.email_address",
+			encoderError: errors.New("error converting value"),
+			bag: map[string]interface{}{
+				"test.email_address": int64(5),
+			},
+		},
 	} {
 		t.Run(fmt.Sprintf("%v", tst.input), func(t *testing.T) {
 			vt := valueTypeName
@@ -107,9 +171,7 @@ func TestValueTypeEncoder_Errors(t *testing.T) {
 			if enc == nil {
 				return
 			}
-			bag := attribute.GetMutableBagForTesting(map[string]interface{}{
-				"request.reason": "TWO",
-			})
+			bag := attribute.GetMutableBagForTesting(tst.bag)
 			var ba []byte
 			_, err = enc.Encode(bag, ba)
 			checkErrors(t, err, tst.encoderError)
@@ -118,7 +180,12 @@ func TestValueTypeEncoder_Errors(t *testing.T) {
 }
 
 func TestValueTypeEncoder(t *testing.T) {
-	compiler := compiled.NewBuilder(StatdardVocabulary())
+	compiler := compiled.NewBuilder(StandardVocabulary())
+	now := time.Now()
+	ts, err := types.TimestampProto(now)
+	if err != nil {
+		t.Fatalf("invalid time: %v", err)
+	}
 	for _, tst := range []struct {
 		input    interface{}
 		output   v1beta1.Value
@@ -169,6 +236,52 @@ func TestValueTypeEncoder(t *testing.T) {
 				"test.bool": false,
 			},
 		},
+		{
+			input: "response.time",
+			output: v1beta1.Value{Value: &v1beta1.Value_TimestampValue{
+				TimestampValue: &v1beta1.TimeStamp{ts}}},
+			bag: map[string]interface{}{
+				"response.time": now,
+			},
+		},
+		{
+			input: "source.ip",
+			output: v1beta1.Value{Value: &v1beta1.Value_IpAddressValue{
+				IpAddressValue: &v1beta1.IPAddress{Value: []byte{1, 2, 4, 8}}}},
+			bag: map[string]interface{}{
+				"source.ip": []byte{1, 2, 4, 8},
+			},
+		},
+		{
+			input: "response.duration",
+			output: v1beta1.Value{&v1beta1.Value_DurationValue{
+				DurationValue: &v1beta1.Duration{Value: types.DurationProto(time.Minute)}}},
+			bag: map[string]interface{}{
+				"response.duration": time.Minute,
+			},
+		},
+		{
+			input:  "test.uri",
+			output: v1beta1.Value{&v1beta1.Value_UriValue{UriValue: &v1beta1.Uri{Value: "/health"}}},
+			bag: map[string]interface{}{
+				"test.uri": "/health",
+			},
+		},
+		{
+			input:  "test.dns_name",
+			output: v1beta1.Value{&v1beta1.Value_DnsNameValue{DnsNameValue: &v1beta1.DNSName{Value: "a.b.c.d"}}},
+			bag: map[string]interface{}{
+				"test.dns_name": "a.b.c.d",
+			},
+		},
+		{
+			input: "test.email_address",
+			output: v1beta1.Value{&v1beta1.Value_EmailAddressValue{
+				EmailAddressValue: &v1beta1.EmailAddress{Value: "user@google.com"}}},
+			bag: map[string]interface{}{
+				"test.email_address": "user@google.com",
+			},
+		},
 	} {
 		t.Run(fmt.Sprintf("%v", tst.input), func(t *testing.T) {
 			vt := valueTypeName
@@ -185,7 +298,7 @@ func TestValueTypeEncoder(t *testing.T) {
 			bag := attribute.GetMutableBagForTesting(tst.bag)
 			var ba []byte
 			if ba, err = enc.Encode(bag, ba); err != nil {
-				t.Fatalf("unexpected encoder  error: %v", err)
+				t.Fatalf("unexpected encoder error: %v", err)
 			}
 
 			bout, _ := tst.output.Marshal()

@@ -17,19 +17,23 @@ package dispatcher
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"strings"
 
-	"github.com/gogo/googleapis/google/rpc"
 	multierror "github.com/hashicorp/go-multierror"
+	"go.opencensus.io/stats"
+
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
+	mixerpb "istio.io/api/mixer/v1"
+	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/pool"
+	"istio.io/istio/mixer/pkg/runtime/monitoring"
 	"istio.io/istio/mixer/pkg/runtime/routing"
 	"istio.io/istio/mixer/pkg/status"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
+	"istio.io/pkg/pool"
 )
 
 const queueAllocSize = 64
@@ -101,28 +105,10 @@ func (s *session) ensureParallelism(minParallelism int) {
 	}
 }
 
-func (s *session) dispatch() error {
+func (s *session) dispatch() error { //nolint: unparam
 	// Determine namespace to scope config resolution
-	namespace, err := getIdentityNamespace(s.bag)
-	if err != nil {
-		// early return.
-		updateRequestCounters(0, 0)
-		log.Warnf("unable to determine identity namespace: '%v', operation='%d'", err, s.variety)
-		return err
-	}
+	namespace := getIdentityNamespace(s.bag)
 	destinations := s.rc.Routes.GetDestinations(s.variety, namespace)
-
-	// TODO: some adapters assume destination service existence, pass via context
-	destinationService := ""
-	v, ok := s.bag.Get("destination.service")
-	if ok {
-		destinationService = v.(string)
-	}
-	ctx := adapter.NewContextWithRequestData(s.ctx, &adapter.RequestData{
-		DestinationService: adapter.Service{
-			FullName: destinationService,
-		},
-	})
 
 	// Ensure that we can run dispatches to all destinations in parallel.
 	s.ensureParallelism(destinations.Count())
@@ -130,6 +116,7 @@ func (s *session) dispatch() error {
 	foundQuota := false
 	ninputs := 0
 	ndestinations := 0
+
 	for _, destination := range destinations.Entries() {
 		var state *dispatchState
 
@@ -137,29 +124,39 @@ func (s *session) dispatch() error {
 			// We buffer states for report calls and dispatch them later
 			state = s.reportStates[destination]
 			if state == nil {
-				state = s.impl.getDispatchState(ctx, destination)
+				state = s.impl.getDispatchState(s.ctx, destination)
 				s.reportStates[destination] = state
 			}
 		}
 
 		for _, group := range destination.InstanceGroups {
-			if !group.Matches(s.bag) {
-				continue
+			groupMatched := group.Matches(s.bag)
+
+			if groupMatched {
+				ndestinations++
 			}
-			ndestinations++
 
 			for j, input := range group.Builders {
 				if s.variety == tpb.TEMPLATE_VARIETY_QUOTA {
 					// only dispatch instances with a matching name
-
 					if !strings.EqualFold(input.InstanceShortName, s.quotaArgs.Quota) {
 						continue
 					}
-
+					if !groupMatched {
+						// This is a conditional quota and it does not apply to the requester
+						// return what was requested
+						s.quotaResult.Amount = s.quotaArgs.Amount
+						s.quotaResult.ValidDuration = defaultValidDuration
+					}
 					foundQuota = true
 				}
 
+				if !groupMatched {
+					continue
+				}
+
 				var instance interface{}
+				var err error
 				if instance, err = input.Builder(s.bag); err != nil {
 					log.Errorf("error creating instance: destination='%v', error='%v'", destination.FriendlyName, err)
 					s.err = multierror.Append(s.err, err)
@@ -174,7 +171,7 @@ func (s *session) dispatch() error {
 				}
 
 				// for other templates, dispatch for each instance individually.
-				state = s.impl.getDispatchState(ctx, destination)
+				state = s.impl.getDispatchState(s.ctx, destination)
 				state.instances = append(state.instances, instance)
 				if s.variety == tpb.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR {
 					state.mapper = group.Mappers[j]
@@ -185,17 +182,83 @@ func (s *session) dispatch() error {
 				state.quotaArgs.BestEffort = s.quotaArgs.BestEffort
 				state.quotaArgs.DeduplicationID = s.quotaArgs.DeduplicationID
 				state.quotaArgs.QuotaAmount = s.quotaArgs.Amount
+
+				state.outputPrefix = input.ActionName + ".output."
+
+				// TODO(kuat) make output bag concurrency safe
 				s.dispatchToHandler(state)
 			}
 		}
 	}
 
-	updateRequestCounters(ndestinations, ninputs)
+	stats.Record(s.ctx,
+		monitoring.DestinationsPerRequest.M(int64(ndestinations)),
+		monitoring.InstancesPerRequest.M(int64(ninputs)))
+
 	s.waitForDispatched()
 
 	if s.variety == tpb.TEMPLATE_VARIETY_QUOTA && !foundQuota {
-		log.Errorf("Requested quota '%s' is invalid", s.quotaArgs.Quota)
-		s.err = multierror.Append(s.err, fmt.Errorf("requested quota '%s' is invalid", s.quotaArgs.Quota))
+		// If quota is not found it is very likely that quotaSpec / quotaSpecBinding was applied first
+		// We still err on the side of allowing access, but warn about the fact that quota was not found.
+		s.quotaResult.Amount = s.quotaArgs.Amount
+		s.quotaResult.ValidDuration = defaultValidDuration
+		log.Warnf("Requested quota '%s' is not configured", s.quotaArgs.Quota)
+	}
+
+	// aggregate header operations after filtering by attribute conditions
+	if s.variety == tpb.TEMPLATE_VARIETY_CHECK && status.IsOK(s.checkResult.Status) {
+		for _, directiveGroup := range destinations.Directives() {
+			if directiveGroup.Condition != nil {
+				if matches, err := directiveGroup.Condition.EvaluateBoolean(s.bag); err != nil || !matches {
+					continue
+				}
+			}
+
+			for _, op := range directiveGroup.Operations {
+				hop := mixerpb.HeaderOperation{
+					Name: op.HeaderName,
+				}
+				switch op.Operation {
+				case descriptor.APPEND:
+					hop.Operation = mixerpb.APPEND
+				case descriptor.REMOVE:
+					hop.Operation = mixerpb.REMOVE
+				case descriptor.REPLACE:
+					hop.Operation = mixerpb.REPLACE
+				}
+
+				if op.Operation != descriptor.REMOVE {
+					var verr error
+					hop.Value, verr = op.HeaderValue.EvaluateString(s.responseBag)
+					if verr != nil {
+						log.Warnf("Failed to evaluate header value: %v", verr)
+						continue
+					}
+					if hop.Value == "" {
+						continue
+					}
+				}
+
+				// default response if RouteDirective is only action
+				if s.checkResult.IsDefault() {
+					s.checkResult = adapter.CheckResult{
+						ValidUseCount: defaultValidUseCount,
+						ValidDuration: defaultValidDuration,
+					}
+				}
+
+				if s.checkResult.RouteDirective == nil {
+					s.checkResult.RouteDirective = &mixerpb.RouteDirective{}
+				}
+
+				switch op.Type {
+				case routing.RequestHeaderOperation:
+					s.checkResult.RouteDirective.RequestHeaderOperations = append(s.checkResult.RouteDirective.RequestHeaderOperations, hop)
+				case routing.ResponseHeaderOperation:
+					s.checkResult.RouteDirective.ResponseHeaderOperations = append(s.checkResult.RouteDirective.ResponseHeaderOperations, hop)
+				}
+			}
+		}
 	}
 
 	return nil
@@ -207,6 +270,10 @@ func (s *session) dispatchBufferedReports() {
 
 	// dispatch the buffered dispatchStates we've got
 	for k, v := range s.reportStates {
+		if len(v.instances) == 0 {
+			// do not dispatch to handler if nothing is buffered
+			continue
+		}
 		s.dispatchToHandler(v)
 		delete(s.reportStates, k)
 	}
@@ -255,6 +322,11 @@ func (s *session) waitForDispatched() {
 			}
 			st = state.checkResult.Status
 
+			if state.outputBag != nil {
+				s.responseBag.Merge(state.outputBag)
+				state.outputBag.Done()
+			}
+
 		case tpb.TEMPLATE_VARIETY_QUOTA:
 			if s.quotaResult.IsDefault() {
 				s.quotaResult = state.quotaResult
@@ -274,7 +346,15 @@ func (s *session) waitForDispatched() {
 			if buf == nil {
 				buf = pool.GetBuffer()
 				// the first failure result's code becomes the result code for the output
+				// `buf` variable guards the first failure since it is set the first time
 				code = rpc.Code(st.Code)
+
+				// update the direct response matching the error status
+				if s.variety == tpb.TEMPLATE_VARIETY_CHECK {
+					if response := status.GetDirectHTTPResponse(st); response != nil {
+						s.handleDirectResponse(st, response)
+					}
+				}
 			} else {
 				buf.WriteString(", ")
 			}
@@ -293,5 +373,48 @@ func (s *session) waitForDispatched() {
 			s.quotaResult.Status = status.WithMessage(code, buf.String())
 		}
 		pool.PutBuffer(buf)
+	}
+}
+
+func (s *session) handleDirectResponse(st rpc.Status, response *descriptor.DirectHttpResponse) {
+	if s.checkResult.RouteDirective == nil {
+		s.checkResult.RouteDirective = &mixerpb.RouteDirective{}
+	}
+	directive := s.checkResult.RouteDirective
+	if response.Code != 0 {
+		directive.DirectResponseCode = uint32(response.Code)
+	} else {
+		directive.DirectResponseCode = uint32(status.HTTPStatusFromCode(rpc.Code(st.Code)))
+	}
+	directive.DirectResponseBody = response.Body
+	for header, value := range response.Headers {
+		if !strings.EqualFold(header, "Set-Cookie") {
+			directive.ResponseHeaderOperations = append(directive.ResponseHeaderOperations,
+				mixerpb.HeaderOperation{
+					Operation: mixerpb.REPLACE,
+					Name:      header,
+					Value:     value,
+				})
+		} else { // append Set-Cookie headers in multiple lines
+			// Folded cookie syntax can be complicated. See, for example,
+			// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#Syntax.
+			// Unfortunately, the net/http library does not expose/support cookie parsing.
+			// Here we handle a much simpler syntax - a comma separated list of cookies.
+			// The simplification comes at the cost of preventing the use of 'Expires'
+			// cookie attribute. A more robust parser would require 100-150 LOC and could
+			// be modeled after the following JS or Java code:
+			// https://github.com/nfriedly/set-cookie-parser/blob/master/lib/set-cookie.js
+			// or
+			// https://github.com/google/j2objc/commit/16820fdbc8f76ca0c33472810ce0cb03d20efe25
+			cookies := strings.Split(value, ",")
+			for _, cv := range cookies {
+				directive.ResponseHeaderOperations = append(directive.ResponseHeaderOperations,
+					mixerpb.HeaderOperation{
+						Operation: mixerpb.APPEND,
+						Name:      header,
+						Value:     cv,
+					})
+			}
+		}
 	}
 }

@@ -15,16 +15,20 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
 	"net/http/pprof"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus/promhttp"
+	ocprom "contrib.go.opencensus.io/exporter/prometheus"
+	"github.com/prometheus/client_golang/prometheus"
+	"go.opencensus.io/stats/view"
+	"google.golang.org/grpc/stats"
 
-	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/version"
+	"istio.io/pkg/log"
+	"istio.io/pkg/version"
 )
 
 type monitor struct {
@@ -55,12 +59,25 @@ func startMonitor(port uint16, enableProfiling bool, lf listenFunc) (*monitor, e
 	// is coming. that design will include proper coverage of statusz/healthz type
 	// functionality, in addition to how mixer reports its own metrics.
 	mux := http.NewServeMux()
-	mux.Handle(metricsPath, promhttp.Handler())
+
+	registry := prometheus.NewRegistry()
+	registry.MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
+	registry.MustRegister(prometheus.NewGoCollector())
+
+	exporter, err := ocprom.NewExporter(ocprom.Options{Registry: registry})
+	if err != nil {
+		return nil, fmt.Errorf("could not set up prometheus exporter: %v", err)
+	}
+	view.RegisterExporter(exporter)
+	mux.Handle(metricsPath, exporter)
+
 	mux.HandleFunc(versionPath, func(out http.ResponseWriter, req *http.Request) {
 		if _, err := out.Write([]byte(version.Info.String())); err != nil {
 			log.Errorf("Unable to write version string: %v", err)
 		}
 	})
+
+	version.Info.RecordComponentBuildTag("mixer")
 
 	if enableProfiling {
 		mux.HandleFunc("/debug/pprof/", pprof.Index)
@@ -101,4 +118,44 @@ L:
 		}
 	}
 	return err
+}
+
+type multiStatsHandler struct {
+	handlers []stats.Handler
+}
+
+// HandleRPC processes the RPC stats.
+func (m *multiStatsHandler) HandleRPC(ctx context.Context, rs stats.RPCStats) {
+	for _, h := range m.handlers {
+		h.HandleRPC(ctx, rs)
+	}
+}
+
+// TagRPC can attach some information to the given context.
+func (m *multiStatsHandler) TagRPC(ctx context.Context, rti *stats.RPCTagInfo) context.Context {
+	c := ctx
+	for _, h := range m.handlers {
+		c = h.TagRPC(c, rti)
+	}
+	return c
+}
+
+// TagConn can attach some information to the given context.
+func (m *multiStatsHandler) TagConn(ctx context.Context, cti *stats.ConnTagInfo) context.Context {
+	c := ctx
+	for _, h := range m.handlers {
+		c = h.TagConn(c, cti)
+	}
+	return c
+}
+
+// HandleConn processes the Conn stats.
+func (m *multiStatsHandler) HandleConn(ctx context.Context, cs stats.ConnStats) {
+	for _, h := range m.handlers {
+		h.HandleConn(ctx, cs)
+	}
+}
+
+func newMultiStatsHandler(handlers ...stats.Handler) stats.Handler {
+	return &multiStatsHandler{handlers: handlers}
 }

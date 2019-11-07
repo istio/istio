@@ -16,86 +16,99 @@ package v2_test
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
-	"sync"
 	"testing"
 	"time"
 
+	"github.com/golang/protobuf/proto"
+
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
-	"istio.io/istio/pkg/bootstrap"
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/istio/tests/util"
+
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+)
+
+const (
+	routeA = "http.80"
+	routeB = "https.443.https.my-gateway.testns"
 )
 
 // Regression for envoy restart and overlapping connections
 func TestAdsReconnectWithNonce(t *testing.T) {
-	_ = initLocalPilotTestEnv(t)
-	edsstr, err := connectADS(util.MockPilotGrpcAddr)
+	_, tearDown := initLocalPilotTestEnv(t)
+	defer tearDown()
+	edsstr, cancel, err := connectADS(util.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = sendEDSReq([]string{"service3.default.svc.cluster.local|http"}, sidecarId(app3Ip, "app3"), edsstr)
+	err = sendEDSReq([]string{"outbound|1080||service3.default.svc.cluster.local"}, sidecarID(app3Ip, "app3"), edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, _ := adsReceive(edsstr, 5*time.Second)
+	res, err := adsReceive(edsstr, 15*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// closes old process
-	_ = edsstr.CloseSend()
+	cancel()
 
-	edsstr, err = connectADS(util.MockPilotGrpcAddr)
+	edsstr, cancel, err = connectADS(util.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer edsstr.CloseSend()
+	defer cancel()
 
-	err = sendEDSReqReconnect([]string{"service3.default.svc.cluster.local|http"}, edsstr, res)
+	err = sendEDSReqReconnect([]string{"outbound|1080||service3.default.svc.cluster.local"}, edsstr, res)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = sendEDSReq([]string{"service3.default.svc.cluster.local|http"}, sidecarId(app3Ip, "app3"), edsstr)
+	err = sendEDSReq([]string{"outbound|1080||service3.default.svc.cluster.local"}, sidecarID(app3Ip, "app3"), edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, _ = adsReceive(edsstr, 5*time.Second)
-	_ = edsstr.CloseSend()
+	res, _ = adsReceive(edsstr, 15*time.Second)
 
 	t.Log("Received ", res)
 }
 
 // Regression for envoy restart and overlapping connections
 func TestAdsReconnect(t *testing.T) {
-	initLocalPilotTestEnv(t)
-	edsstr, err := connectADS(util.MockPilotGrpcAddr)
+	s, tearDown := initLocalPilotTestEnv(t)
+	defer tearDown()
+
+	edsstr, cancel, err := connectADS(util.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = sendCDSReq(sidecarId(app3Ip, "app3"), edsstr)
+	err = sendCDSReq(sidecarID(app3Ip, "app3"), edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, _ = adsReceive(edsstr, 5*time.Second)
+	_, _ = adsReceive(edsstr, 15*time.Second)
 
 	// envoy restarts and reconnects
-	edsstr2, err := connectADS(util.MockPilotGrpcAddr)
+	edsstr2, cancel2, err := connectADS(util.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer edsstr2.CloseSend()
-	err = sendCDSReq(sidecarId(app3Ip, "app3"), edsstr2)
+	defer cancel2()
+	err = sendCDSReq(sidecarID(app3Ip, "app3"), edsstr2)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, _ = adsReceive(edsstr2, 5*time.Second)
+	_, _ = adsReceive(edsstr2, 15*time.Second)
 
 	// closes old process
-	_ = edsstr.CloseSend()
+	cancel()
 
 	time.Sleep(1 * time.Second)
 
 	// event happens
-	v2.PushAll()
+	v2.AdsPushAll(s.EnvoyXdsServer)
 	// will trigger recompute and push (we may need to make a change once diff is implemented
 
 	m, err := adsReceive(edsstr2, 3*time.Second)
@@ -106,13 +119,15 @@ func TestAdsReconnect(t *testing.T) {
 }
 
 func TestTLS(t *testing.T) {
-	initLocalPilotTestEnv(t)
-	edsstr, err := connectADSS(util.MockPilotSecureAddr)
+	_, tearDown := initLocalPilotTestEnv(t)
+	defer tearDown()
+
+	edsstr, cancel, err := connectADSS(util.MockPilotSecureAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer edsstr.CloseSend()
-	err = sendCDSReq(sidecarId(app3Ip, "app3"), edsstr)
+	defer cancel()
+	err = sendCDSReq(sidecarID(app3Ip, "app3"), edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,29 +135,24 @@ func TestTLS(t *testing.T) {
 	if err != nil {
 		t.Error("Failed to receive with TLS connection ", err)
 	}
-
-	bootstrap.IstioCertDir = util.IstioSrc + "/tests/testdata/certs/default"
-	c, err := bootstrap.Checkin(true, util.MockPilotSecureAddr, "cluster", sidecarId(app3Ip, "app3"),
-		1*time.Second, 2)
-	if err != nil {
-		t.Fatal("Failed to checkin", err)
-	}
-	t.Log("AZ:", c.AvailabilityZone)
 }
 
 func TestAdsClusterUpdate(t *testing.T) {
-	server := initLocalPilotTestEnv(t)
-	edsstr, err := connectADS(util.MockPilotGrpcAddr)
+	_, tearDown := initLocalPilotTestEnv(t)
+	defer tearDown()
+
+	edsstr, cancel, err := connectADS(util.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer cancel()
 
 	var sendEDSReqAndVerify = func(clusterName string) {
-		err = sendEDSReq([]string{clusterName}, sidecarId("1.1.1.1", "app3"), edsstr)
+		err = sendEDSReq([]string{clusterName}, sidecarID("1.1.1.1", "app3"), edsstr)
 		if err != nil {
 			t.Fatal(err)
 		}
-		res, err := adsReceive(edsstr, 5*time.Second)
+		res, err := adsReceive(edsstr, 15*time.Second)
 		if err != nil {
 			t.Fatal("Recv failed", err)
 		}
@@ -163,26 +173,22 @@ func TestAdsClusterUpdate(t *testing.T) {
 		}
 	}
 
-	_ = server.EnvoyXdsServer.MemRegistry.AddEndpoint("adsupdate.default.svc.cluster.local",
-		"http-main", 2080, "10.2.0.1", 1080)
-
-	cluster1 := "adsupdate.default.svc.cluster.local|http-main"
+	cluster1 := "outbound|80||adsclusterupdate.default.svc.cluster.local"
 	sendEDSReqAndVerify(cluster1)
 
-	// register a second endpoint
-	_ = server.EnvoyXdsServer.MemRegistry.AddEndpoint("adsupdate2.default.svc.cluster.local",
-		"http-status", 2080, "10.2.0.2", 1081)
-
-	cluster2 := "adsupdate2.default.svc.cluster.local|http-status"
+	cluster2 := "outbound|80||adsclusterupdate2.default.svc.cluster.local"
 	sendEDSReqAndVerify(cluster2)
 }
 
 func TestAdsUpdate(t *testing.T) {
-	server := initLocalPilotTestEnv(t)
-	edsstr, err := connectADS(util.MockPilotGrpcAddr)
+	server, tearDown := initLocalPilotTestEnv(t)
+	defer tearDown()
+
+	edsstr, cancel, err := connectADS(util.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer cancel()
 
 	// Old style cluster.
 	// TODO: convert tests (except eds) to new style.
@@ -191,15 +197,17 @@ func TestAdsUpdate(t *testing.T) {
 		Address:  "10.11.0.1",
 		Ports:    testPorts(0),
 	})
+	server.EnvoyXdsServer.ClearCache()
+	time.Sleep(time.Millisecond * 200)
 	_ = server.EnvoyXdsServer.MemRegistry.AddEndpoint("adsupdate.default.svc.cluster.local",
 		"http-main", 2080, "10.2.0.1", 1080)
 
-	err = sendEDSReq([]string{"adsupdate.default.svc.cluster.local|http-main"}, sidecarId("1.1.1.1", "app3"), edsstr)
+	err = sendEDSReq([]string{"outbound|2080||adsupdate.default.svc.cluster.local"}, sidecarID("1.1.1.1", "app3"), edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	res1, err := adsReceive(edsstr, 5*time.Second)
+	res1, err := adsReceive(edsstr, 15*time.Second)
 	if err != nil {
 		t.Fatal("Recv failed", err)
 	}
@@ -224,107 +232,208 @@ func TestAdsUpdate(t *testing.T) {
 	if len(lbe) == 0 {
 		t.Fatal("No lb endpoints")
 	}
-	if "10.2.0.1" != lbe[0].Endpoint.Address.GetSocketAddress().Address {
-		t.Error("Expecting 10.2.0.1 got ", lbe[0].Endpoint.Address.GetSocketAddress().Address)
+	if lbe[0].GetEndpoint().Address.GetSocketAddress().Address != "10.2.0.1" {
+		t.Error("Expecting 10.2.0.1 got ", lbe[0].GetEndpoint().Address.GetSocketAddress().Address)
 	}
-	strResponse, _ := model.ToJSONWithIndent(res1, " ")
-	_ = ioutil.WriteFile(util.IstioOut+"/edsv2_sidecar.json", []byte(strResponse), 0644)
+	strResponse, _ := gogoprotomarshal.ToJSONWithIndent(res1, " ")
+	_ = ioutil.WriteFile(env.IstioOut+"/edsv2_sidecar.json", []byte(strResponse), 0644)
 
 	_ = server.EnvoyXdsServer.MemRegistry.AddEndpoint("adsupdate.default.svc.cluster.local",
 		"http-main", 2080, "10.1.7.1", 1080)
 
 	// will trigger recompute and push for all clients - including some that may be closing
 	// This reproduced the 'push on closed connection' bug.
-	v2.PushAll()
+	v2.AdsPushAll(server.EnvoyXdsServer)
 
-	res1, err = adsReceive(edsstr, 5*time.Second)
+	res1, err = adsReceive(edsstr, 15*time.Second)
 	if err != nil {
 		t.Fatal("Recv2 failed", err)
 	}
-	strResponse, _ = model.ToJSONWithIndent(res1, " ")
-	_ = ioutil.WriteFile(util.IstioOut+"/edsv2_update.json", []byte(strResponse), 0644)
-	_ = edsstr.CloseSend()
+	strResponse, _ = gogoprotomarshal.ToJSONWithIndent(res1, " ")
+	_ = ioutil.WriteFile(env.IstioOut+"/edsv2_update.json", []byte(strResponse), 0644)
 }
 
-// Make a direct EDS grpc request to pilot, verify the result is as expected.
-func TestAdsMultiple(t *testing.T) {
-	server := initLocalPilotTestEnv(t)
-	errChan := make(chan error, 100)
+func TestEnvoyRDSProtocolError(t *testing.T) {
+	server, tearDown := initLocalPilotTestEnv(t)
+	defer tearDown()
 
-	wg := &sync.WaitGroup{}
-	wgConnect := &sync.WaitGroup{}
-
-	n := 10
-	nPushes := 10
-
-	wg.Add(n)
-	wgConnect.Add(n)
-	for i := 0; i < n; i++ {
-		i := i
-		go func() {
-			edsstr, err := connectADS(util.MockPilotGrpcAddr)
-			if err != nil {
-				errChan <- err
-			}
-
-			err = sendEDSReq([]string{"service3.default.svc.cluster.local|http-main"}, sidecarId(testIp(uint32(0x0a200000+i)), "app3"), edsstr)
-			if err != nil {
-				errChan <- err
-			}
-
-			res1, err := adsReceive(edsstr, 5*time.Second)
-			if err != nil {
-				errChan <- err
-			}
-			wgConnect.Done()
-
-			cla, err := getLoadAssignment(res1)
-			if err != nil {
-				errChan <- err
-			}
-
-			ep := cla.Endpoints
-			if len(ep) == 0 {
-				t.Fatal("No endpoints")
-				errChan <- fmt.Errorf("No endpoints received")
-			}
-			lbe := ep[0].LbEndpoints
-			if len(lbe) == 0 {
-				errChan <- fmt.Errorf("No lb endpoints received")
-			}
-
-			for j := 0; j < nPushes; j++ {
-				_, err = adsReceive(edsstr, 5*time.Second)
-				if err != nil {
-					errChan <- fmt.Errorf("Receive 2 failed: %s", err)
-				}
-			}
-			_ = edsstr.CloseSend()
-			wg.Done()
-		}()
+	edsstr, cancel, err := connectADS(util.MockPilotGrpcAddr)
+	if err != nil {
+		t.Fatal(err)
 	}
-	ok := waitTimeout(wgConnect, 10*time.Second)
-	if !ok {
-		t.Fatal("Failed to connect")
+	defer cancel()
+
+	// wait for debounce
+	time.Sleep(3 * v2.DebounceAfter)
+
+	err = sendRDSReq(gatewayID(gatewayIP), []string{routeA, routeB}, "", edsstr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := adsReceive(edsstr, 15*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res == nil || len(res.Resources) == 0 {
+		t.Fatal("No routes returned")
 	}
 
-	// will trigger recompute and push for all clients - including some that may be closing
-	// This reproduced the 'push on closed connection' bug.
-	for j := 0; j < nPushes; j++ {
-		_ = server.EnvoyXdsServer.MemRegistry.AddEndpoint("service3.default.svc.cluster.local",
-			"http-main", 2080, "10.1.7.1", 1080)
-		v2.PushAll()
-		log.Println("Push done ", j)
+	v2.AdsPushAll(server.EnvoyXdsServer)
+
+	res, err = adsReceive(edsstr, 15*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res == nil || len(res.Resources) != 2 {
+		t.Fatal("No routes returned")
 	}
 
-	ok = waitTimeout(wg, 20*time.Second)
-	if !ok {
-		t.Fatal("Failed to receive all responses")
+	// send a protocol error
+	err = sendRDSReq(gatewayID(gatewayIP), nil, res.Nonce, edsstr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Refresh routes
+	err = sendRDSReq(gatewayID(gatewayIP), []string{routeA, routeB}, "", edsstr)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	close(errChan)
-
-	for e := range errChan {
-		t.Fatal(e)
+	res, err = adsReceive(edsstr, 15*time.Second)
+	if err != nil {
+		t.Fatal(err)
 	}
+
+	if res == nil || len(res.Resources) == 0 {
+		t.Fatal("No routes after protocol error")
+	}
+}
+
+func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
+	server, tearDown := initLocalPilotTestEnv(t)
+	defer tearDown()
+
+	edsstr, cancel, err := connectADS(util.MockPilotGrpcAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cancel()
+
+	// wait for debounce
+	time.Sleep(3 * v2.DebounceAfter)
+
+	err = sendRDSReq(gatewayID(gatewayIP), []string{routeA}, "", edsstr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := adsReceive(edsstr, 15*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res == nil || len(res.Resources) == 0 {
+		t.Fatal("No routes returned")
+	}
+	route1, err := unmarshallRoute(res.Resources[0].Value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Resources) != 1 || route1.Name != routeA {
+		t.Fatal("Expected only the http.80 route to be returned")
+	}
+
+	v2.AdsPushAll(server.EnvoyXdsServer)
+
+	res, err = adsReceive(edsstr, 15*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res == nil || len(res.Resources) == 0 {
+		t.Fatal("No routes returned")
+	}
+	if len(res.Resources) != 1 {
+		t.Fatal("Expected only 1 route to be returned")
+	}
+	route1, err = unmarshallRoute(res.Resources[0].Value)
+	if err != nil || len(res.Resources) != 1 || route1.Name != routeA {
+		t.Fatal("Expected only the http.80 route to be returned")
+	}
+
+	// Test update from A -> B
+	err = sendRDSReq(gatewayID(gatewayIP), []string{routeB}, "", edsstr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err = adsReceive(edsstr, 15*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res == nil || len(res.Resources) == 0 {
+		t.Fatal("No routes returned")
+	}
+	route1, err = unmarshallRoute(res.Resources[0].Value)
+	if err != nil || len(res.Resources) != 1 || route1.Name != routeB {
+		t.Fatal("Expected only the http.80 route to be returned")
+	}
+
+	// Test update from B -> A, B
+	err = sendRDSReq(gatewayID(gatewayIP), []string{routeA, routeB}, res.Nonce, edsstr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	res, err = adsReceive(edsstr, 15*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if res == nil || len(res.Resources) == 0 {
+		t.Fatal("No routes after protocol error")
+	}
+	if len(res.Resources) != 2 {
+		t.Fatal("Expected 2 routes to be returned")
+	}
+
+	route1, err = unmarshallRoute(res.Resources[0].Value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	route2, err := unmarshallRoute(res.Resources[1].Value)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if (route1.Name == routeA && route2.Name != routeB) || (route2.Name == routeA && route1.Name != routeB) {
+		t.Fatal("Expected http.80 and https.443.http routes to be returned")
+	}
+
+	// Test update from B, B -> A
+
+	err = sendRDSReq(gatewayID(gatewayIP), []string{routeA}, "", edsstr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err = adsReceive(edsstr, 15*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res == nil || len(res.Resources) == 0 {
+		t.Fatal("No routes returned")
+	}
+	route1, err = unmarshallRoute(res.Resources[0].Value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Resources) != 1 || route1.Name != routeA {
+		t.Fatal("Expected only the http.80 route to be returned")
+	}
+}
+
+func unmarshallRoute(value []byte) (*xdsapi.RouteConfiguration, error) {
+	route := &xdsapi.RouteConfiguration{}
+
+	err := proto.Unmarshal(value, route)
+	if err != nil {
+		return nil, err
+	}
+	return route, nil
 }

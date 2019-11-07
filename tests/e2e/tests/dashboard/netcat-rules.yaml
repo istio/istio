@@ -9,11 +9,15 @@ spec:
   selector:
     app: netcat-srv
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: netcat-srv
 spec:
+  selector:
+    matchLabels:
+      app: netcat-srv
+      version: v1
   template:
     metadata:
       labels:
@@ -40,11 +44,15 @@ spec:
   selector:
     app: netcat-client
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: netcat-client
 spec:
+  selector:
+    matchLabels:
+      app: netcat-client
+      version: v1
   template:
     metadata:
       labels:

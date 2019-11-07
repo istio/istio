@@ -30,20 +30,21 @@
 //
 // To get LDS or CDS, use -type lds or -type cds, and provide the pod id or app label. For example:
 // ```bash
-// go run pilot_cli.go -type lds -res httpbin-5766dd474b-2hlnx
-// go run pilot_cli.go -type lds -res httpbin
+// go run pilot_cli.go --type lds --proxytag httpbin-5766dd474b-2hlnx  # --res will be ignored
+// go run pilot_cli.go --type lds --proxytag httpbin
 // ```
 // Note If more than one pod match with the app label, one will be picked arbitrarily.
 //
-// For EDS, provide comma-separated-list of clusters. For example:
+// For EDS/RDS, provide comma-separated-list of corresponding clusters or routes name. For example:
 // ```bash
-// go run ./pilot/tools/debug/pilot_cli.go -type eds -res "inbound|http||sleep.default.svc.cluster.local,outbound|http||httpbin.default.svc.cluster.local"
+// go run ./pilot/tools/debug/pilot_cli.go --type eds --proxytag httpbin \
+// --res "inbound|http||sleep.default.svc.cluster.local,outbound|http||httpbin.default.svc.cluster.local"
 // ```
 //
 // Script requires kube config in order to connect to k8s registry to get pod information (for LDS and CDS type). The default
 // value for kubeconfig path is .kube/config in home folder (works for Linux only). It can be changed via -kubeconfig flag.
 // ```bash
-// go run ./pilot/debug/pilot_cli.go -type lds -res httpbin -kubeconfig path/to/kube/config
+// go run ./pilot/debug/pilot_cli.go --type lds --proxytag httpbin --kubeconfig path/to/kube/config
 // ```
 
 package main
@@ -62,7 +63,7 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"google.golang.org/grpc"
 	v1 "k8s.io/api/core/v1"
@@ -71,9 +72,11 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
-	"istio.io/istio/pkg/log"
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
+
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -90,15 +93,15 @@ type PodInfo struct {
 }
 
 func getAllPods(kubeconfig string) (*v1.PodList, error) {
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	cfg, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
 		return nil, err
 	}
-	clientset, err := kubernetes.NewForConfig(config)
+	clientset, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
-	return clientset.Core().Pods("").List(meta_v1.ListOptions{})
+	return clientset.CoreV1().Pods(meta_v1.NamespaceAll).List(meta_v1.ListOptions{})
 }
 
 func NewPodInfo(nameOrAppLabel string, kubeconfig string, proxyType string) *PodInfo {
@@ -172,50 +175,26 @@ func configTypeToTypeURL(configType string) string {
 
 func (p PodInfo) makeRequest(configType string) *xdsapi.DiscoveryRequest {
 	return &xdsapi.DiscoveryRequest{
-		Node: &envoy_api_v2_core1.Node{
+		Node: &core1.Node{
 			Id: p.makeNodeID(),
 		},
 		TypeUrl: configTypeToTypeURL(configType)}
 }
 
-func (p PodInfo) getResource(pilotURL, configType string) *xdsapi.DiscoveryResponse {
+func (p PodInfo) appendResources(req *xdsapi.DiscoveryRequest, resources []string) *xdsapi.DiscoveryRequest {
+	req.ResourceNames = resources
+	return req
+}
+
+func (p PodInfo) getXdsResponse(pilotURL string, req *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error) {
 	conn, err := grpc.Dial(pilotURL, grpc.WithInsecure())
 	if err != nil {
 		panic(err.Error())
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	adsClient := ads.NewAggregatedDiscoveryServiceClient(conn)
 	stream, err := adsClient.StreamAggregatedResources(context.Background())
-	if err != nil {
-		panic(err.Error())
-	}
-	err = stream.Send(p.makeRequest(configType))
-	if err != nil {
-		panic(err.Error())
-	}
-	res, err := stream.Recv()
-	if err != nil {
-		panic(err.Error())
-	}
-	return res
-}
-
-func makeEDSRequest(resources string) *xdsapi.DiscoveryRequest {
-	return &xdsapi.DiscoveryRequest{
-		ResourceNames: strings.Split(resources, ","),
-	}
-}
-
-func edsRequest(pilotURL string, req *xdsapi.DiscoveryRequest) *xdsapi.DiscoveryResponse {
-	conn, err := grpc.Dial(pilotURL, grpc.WithInsecure())
-	if err != nil {
-		panic(err.Error())
-	}
-	defer conn.Close()
-
-	adsClient := xdsapi.NewEndpointDiscoveryServiceClient(conn)
-	stream, err := adsClient.StreamEndpoints(context.Background())
 	if err != nil {
 		panic(err.Error())
 	}
@@ -227,11 +206,13 @@ func edsRequest(pilotURL string, req *xdsapi.DiscoveryRequest) *xdsapi.Discovery
 	if err != nil {
 		panic(err.Error())
 	}
-	return res
+	return res, err
 }
 
+var homeVar = env.RegisterStringVar("HOME", "", "")
+
 func resolveKubeConfigPath(kubeConfig string) string {
-	path := strings.Replace(kubeConfig, "~", os.Getenv("HOME"), 1)
+	path := strings.Replace(kubeConfig, "~", homeVar.Get(), 1)
 	ret, err := filepath.Abs(path)
 	if err != nil {
 		panic(err.Error())
@@ -239,17 +220,18 @@ func resolveKubeConfigPath(kubeConfig string) string {
 	return ret
 }
 
-func portForwardPilot(kubeConfig, pilotURL string) (error, *os.Process, string) {
+// nolint: golint
+func portForwardPilot(kubeConfig, pilotURL string) (*os.Process, string, error) {
 	if pilotURL != "" {
 		// No need to port-forward, url is already provided.
-		return nil, nil, pilotURL
+		return nil, pilotURL, nil
 	}
 	log.Info("Pilot url is not provided, try to port-forward pilot pod.")
 
 	podName := ""
 	pods, err := getAllPods(kubeConfig)
 	if err != nil {
-		return err, nil, ""
+		return nil, "", err
 	}
 	for _, pod := range pods.Items {
 		if app, ok := pod.ObjectMeta.Labels["istio"]; ok && app == "pilot" {
@@ -257,7 +239,7 @@ func portForwardPilot(kubeConfig, pilotURL string) (error, *os.Process, string) 
 		}
 	}
 	if podName == "" {
-		return fmt.Errorf("cannot find istio-pilot pod"), nil, ""
+		return nil, "", fmt.Errorf("cannot find istio-pilot pod")
 	}
 
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -267,7 +249,7 @@ func portForwardPilot(kubeConfig, pilotURL string) (error, *os.Process, string) 
 	c := exec.Command(parts[0], parts[1:]...)
 	err = c.Start()
 	if err != nil {
-		return err, nil, ""
+		return nil, "", err
 	}
 	// Make sure istio-pilot is reachable.
 	reachable := false
@@ -275,15 +257,15 @@ func portForwardPilot(kubeConfig, pilotURL string) (error, *os.Process, string) 
 	for i := 0; i < 10 && !reachable; i++ {
 		conn, err := net.Dial("tcp", url)
 		if err == nil {
-			conn.Close()
+			_ = conn.Close()
 			reachable = true
 		}
 		time.Sleep(1 * time.Second)
 	}
 	if !reachable {
-		return fmt.Errorf("cannot reach local pilot url: %s", url), nil, ""
+		return nil, "", fmt.Errorf("cannot reach local pilot url: %s", url)
 	}
-	return nil, c.Process, fmt.Sprintf("localhost:%d", localPort)
+	return c.Process, fmt.Sprintf("localhost:%d", localPort), nil
 }
 
 func main() {
@@ -291,11 +273,12 @@ func main() {
 	pilotURL := flag.String("pilot", "", "pilot address. Will try port forward if not provided.")
 	configType := flag.String("type", "lds", "lds, cds, or eds. Default lds.")
 	proxyType := flag.String("proxytype", "", "sidecar, ingress, router.")
-	resources := flag.String("res", "", "Resource(s) to get config for. Should be pod name or app label or istio label for lds and cds type. For eds, it is comma separated list of cluster name.")
+	proxyTag := flag.String("proxytag", "", "Pod name or app label or istio label to identify the proxy.")
+	resources := flag.String("res", "", "Resource(s) to get config for. LDS/CDS should leave it empty.")
 	outputFile := flag.String("out", "", "output file. Leave blank to go to stdout")
 	flag.Parse()
 
-	err, process, pilot := portForwardPilot(resolveKubeConfigPath(*kubeConfig), *pilotURL)
+	process, pilot, err := portForwardPilot(resolveKubeConfigPath(*kubeConfig), *pilotURL)
 	if err != nil {
 		log.Errorf("pilot port forward failed: %v", err)
 		return
@@ -308,24 +291,27 @@ func main() {
 			}
 		}
 	}()
+	pod := NewPodInfo(*proxyTag, resolveKubeConfigPath(*kubeConfig), *proxyType)
 
 	var resp *xdsapi.DiscoveryResponse
-	if *configType == "lds" || *configType == "cds" {
-		pod := NewPodInfo(*resources, resolveKubeConfigPath(*kubeConfig), *proxyType)
-		resp = pod.getResource(pilot, *configType)
-	} else if *configType == "eds" {
-		resp = edsRequest(pilot, makeEDSRequest(*resources))
-	} else {
+	switch *configType {
+	case "lds", "cds":
+		resp, err = pod.getXdsResponse(pilot, pod.makeRequest(*configType))
+	case "rds", "eds":
+		resp, err = pod.getXdsResponse(pilot, pod.appendResources(pod.makeRequest(*configType), strings.Split(*resources, ",")))
+	default:
 		log.Errorf("Unknown config type: %q", *configType)
 		os.Exit(1)
 	}
 
-	strResponse, _ := model.ToJSONWithIndent(resp, " ")
+	if err != nil {
+		log.Errorf("Failed to get Xds response for %v. Error: %v", *resources, err)
+		return
+	}
+	strResponse, _ := gogoprotomarshal.ToJSONWithIndent(resp, " ")
 	if outputFile == nil || *outputFile == "" {
 		fmt.Printf("%v\n", strResponse)
-	} else {
-		if err := ioutil.WriteFile(*outputFile, []byte(strResponse), 0644); err != nil {
-			log.Errorf("Cannot write output to file %q", *outputFile)
-		}
+	} else if err := ioutil.WriteFile(*outputFile, []byte(strResponse), 0644); err != nil {
+		log.Errorf("Cannot write output to file %q", *outputFile)
 	}
 }

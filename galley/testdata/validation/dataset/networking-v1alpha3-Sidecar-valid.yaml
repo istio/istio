@@ -1,0 +1,8 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: valid-sidecar-config
+spec:
+  egress:
+  - hosts:
+    - "abc/*"

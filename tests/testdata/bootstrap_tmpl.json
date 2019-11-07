@@ -6,7 +6,7 @@
       "zone": "testzone"
     },
     "metadata": {
-      "foo": "bar"
+      {{ .EnvoyConfigOpt.meta_json_str }}
     }
   },
   "stats_config": {
@@ -30,13 +30,15 @@
     },
     "ads_config": {
       "api_type": "GRPC",
+      "grpc_services": {
+        "envoy_grpc": {
+          "cluster_name": "xds-grpc"
+        }
+      },
       "refresh_delay": {
         "seconds": 30,
         "nanos": 0
-      },
-      "cluster_names": [
-        "xds-grpc"
-      ]
+      }
     }
   },
   "static_resources": {
@@ -158,18 +160,10 @@
             "filters": [
               {
                 "name": "envoy.tcp_proxy",
-                "config": {
-                  "deprecated_v1": true,
-                  "value": {
-                    "stat_prefix": "mixertcpproxy",
-                    "route_config": {
-                      "routes": [
-                        {
-                          "cluster": "service1"
-                        }
-                      ]
-                    }
-                  }
+                "typed_config": {
+                "@type": "type.googleapis.com/envoy.config.filter.network.tcp_proxy.v2.TcpProxy",
+                  "stat_prefix": "mixertcpproxy",
+                  "cluster": "service1"
                 }
               }
             ]
@@ -295,18 +289,10 @@
             "filters": [
               {
                 "name": "envoy.tcp_proxy",
-                "config": {
-                  "deprecated_v1": true,
-                  "value": {
-                    "stat_prefix": "grpc15011",
-                    "route_config": {
-                      "routes": [
-                        {
-                          "cluster": "xds_grpc"
-                        }
-                      ]
-                    }
-                  }
+                "typed_config": {
+                  "@type": "type.googleapis.com/envoy.config.filter.network.tcp_proxy.v2.TcpProxy",
+                  "stat_prefix": "grpc15011",
+                  "cluster": "xds_grpc"
                 }
               }
             ]

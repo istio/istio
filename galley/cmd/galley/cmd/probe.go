@@ -15,34 +15,36 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 
-	"istio.io/istio/galley/cmd/shared"
-	"istio.io/istio/pkg/probe"
+	"istio.io/pkg/probe"
 )
 
-func probeCmd(printf, fatalf shared.FormatFn) *cobra.Command {
+func probeCmd() *cobra.Command {
 	var (
 		probeOptions probe.Options
 	)
 
-	probeCmd := &cobra.Command{
+	prb := &cobra.Command{
 		Use:   "probe",
 		Short: "Check the liveness or readiness of a locally-running server",
 		Run: func(cmd *cobra.Command, _ []string) {
 			if !probeOptions.IsValid() {
-				fatalf("some options are not valid")
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "some options are not valid")
+				return
 			}
 			if err := probe.NewFileClient(&probeOptions).GetStatus(); err != nil {
-				fatalf("fail on inspecting path %s: %v", probeOptions.Path, err)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "fail on inspecting path %s: %v", probeOptions.Path, err)
 			}
-			printf("OK")
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "OK")
 		},
 	}
-	probeCmd.PersistentFlags().StringVar(&probeOptions.Path, "probe-path", "",
+	prb.PersistentFlags().StringVar(&probeOptions.Path, "probe-path", "",
 		"Path of the file for checking the availability.")
-	probeCmd.PersistentFlags().DurationVar(&probeOptions.UpdateInterval, "interval", 0,
+	prb.PersistentFlags().DurationVar(&probeOptions.UpdateInterval, "interval", 0,
 		"Duration used for checking the target file's last modified time.")
 
-	return probeCmd
+	return prb
 }

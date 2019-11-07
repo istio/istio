@@ -49,6 +49,26 @@ func intrinsics() []FunctionMetadata {
 			ArgumentTypes: []config.ValueType{config.VALUE_TYPE_UNSPECIFIED, config.VALUE_TYPE_UNSPECIFIED},
 		},
 		{
+			Name:          "LT",
+			ReturnType:    config.BOOL,
+			ArgumentTypes: []config.ValueType{config.VALUE_TYPE_UNSPECIFIED, config.VALUE_TYPE_UNSPECIFIED},
+		},
+		{
+			Name:          "LEQ",
+			ReturnType:    config.BOOL,
+			ArgumentTypes: []config.ValueType{config.VALUE_TYPE_UNSPECIFIED, config.VALUE_TYPE_UNSPECIFIED},
+		},
+		{
+			Name:          "GT",
+			ReturnType:    config.BOOL,
+			ArgumentTypes: []config.ValueType{config.VALUE_TYPE_UNSPECIFIED, config.VALUE_TYPE_UNSPECIFIED},
+		},
+		{
+			Name:          "GEQ",
+			ReturnType:    config.BOOL,
+			ArgumentTypes: []config.ValueType{config.VALUE_TYPE_UNSPECIFIED, config.VALUE_TYPE_UNSPECIFIED},
+		},
+		{
 			Name:          "OR",
 			ReturnType:    config.VALUE_TYPE_UNSPECIFIED,
 			ArgumentTypes: []config.ValueType{config.VALUE_TYPE_UNSPECIFIED, config.VALUE_TYPE_UNSPECIFIED},
@@ -72,6 +92,16 @@ func intrinsics() []FunctionMetadata {
 			Name:          "conditional",
 			ReturnType:    config.VALUE_TYPE_UNSPECIFIED,
 			ArgumentTypes: []config.ValueType{config.BOOL, config.VALUE_TYPE_UNSPECIFIED, config.VALUE_TYPE_UNSPECIFIED},
+		},
+		{
+			Name:          "ADD",
+			ReturnType:    config.VALUE_TYPE_UNSPECIFIED,
+			ArgumentTypes: []config.ValueType{config.VALUE_TYPE_UNSPECIFIED, config.VALUE_TYPE_UNSPECIFIED},
+		},
+		{
+			Name:          "size",
+			ReturnType:    config.INT64,
+			ArgumentTypes: []config.ValueType{config.STRING},
 		},
 	}
 }

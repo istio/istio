@@ -4,13 +4,17 @@ metadata:
   name: istio-security-custom-resources
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-security
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
+    app: {{ template "security.name" . }}
+    chart: {{ template "security.chart" . }}
     heritage: {{ .Release.Service }}
-    istio: security
+    release: {{ .Release.Name }}
+    istio: citadel
 data:
   custom-resources.yaml: |-
-    {{- include "security-default.yaml.tpl" . | indent 4}}
+    {{- if .Values.global.mtls.enabled }}
+      {{- include "security-default.yaml.tpl" . | indent 4}}
+    {{- else }}
+      {{- include "security-permissive.yaml.tpl" . | indent 4}}
+    {{- end }}
   run.sh: |-
     {{- include "install-custom-resources.sh.tpl" . | indent 4}}

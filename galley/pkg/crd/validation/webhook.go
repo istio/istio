@@ -15,7 +15,9 @@
 package validation
 
 import (
+	"bytes"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -27,26 +29,46 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/howeyc/fsnotify"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/api/admissionregistration/v1beta1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	clientset "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 
 	mixerCrd "istio.io/istio/mixer/pkg/config/crd"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/schema"
 )
 
 var (
 	runtimeScheme = runtime.NewScheme()
 	codecs        = serializer.NewCodecFactory(runtimeScheme)
 	deserializer  = codecs.UniversalDeserializer()
+
+	// Expect AdmissionRequest to only include these top-level field names
+	validFields = map[string]bool{
+		"apiVersion": true,
+		"kind":       true,
+		"metadata":   true,
+		"spec":       true,
+		"status":     true,
+	}
 )
 
+func init() {
+	_ = v1beta1.AddToScheme(runtimeScheme)
+}
+
 const (
-	watchDebounceDelay = 100 * time.Millisecond
+	watchDebounceDelay             = 100 * time.Millisecond
+	retryUpdateAfterFailureTimeout = time.Second
+
+	httpsHandlerReadyPath = "/ready"
 )
 
 // WebhookParameters contains the configuration for the Istio Pilot validation
@@ -56,15 +78,14 @@ type WebhookParameters struct {
 	MixerValidator store.BackendValidator
 
 	// PilotDescriptor provides a description of all pilot configuration resources.
-	PilotDescriptor model.ConfigDescriptor
+	PilotDescriptor schema.Set
 
 	// DomainSuffix is the DNS domain suffix for Pilot CRD resources,
 	// e.g. cluster.local.
 	DomainSuffix string
 
-	// Port where the webhook is served. Per k8s admission
-	// registration requirements this should be 443 unless there is
-	// only a single port for the service.
+	// Port where the webhook is served. the number should be greater than 1024 for non-root
+	// user, because non-root user cannot bind port number less than 1024
 	Port uint
 
 	// CertFile is the path to the x509 certificate for https.
@@ -73,53 +94,170 @@ type WebhookParameters struct {
 	// KeyFile is the path to the x509 private key matching `CertFile`.
 	KeyFile string
 
-	// HealthCheckInterval configures how frequently the health check
-	// file is updated. Value of zero disables the health check
-	// update.
-	HealthCheckInterval time.Duration
+	// WebhookConfigFile is the path to the validatingwebhookconfiguration
+	// file that should be used for self-registration.
+	WebhookConfigFile string
 
-	// HealthCheckFile specifies the path to the health check file
-	// that is periodically updated.
-	HealthCheckFile string
+	// CACertFile is the path to the x509 CA bundle file.
+	CACertFile string
+
+	// DeploymentAndServiceNamespace is the namespace in which the validation deployment and service resides.
+	DeploymentAndServiceNamespace string
+
+	// Name of the k8s validatingwebhookconfiguration
+	WebhookName string
+
+	// DeploymentName is the name of the validation deployment. This, along with
+	// DeploymentAndServiceNamespace, is used to set the ownerReference in the
+	// validatingwebhookconfiguration. This enables k8s to clean-up the cluster-scoped
+	// validatingwebhookconfiguration when the deployment is deleted.
+	DeploymentName string
+
+	// ServiceName is the name of the k8s service of the validation webhook. This is
+	// used to verify endpoint readiness before registering the validatingwebhookconfiguration.
+	ServiceName string
+
+	Clientset clientset.Interface
+
+	// Enable galley validation mode
+	EnableValidation bool
+
+	// Enable reconcile validatingwebhookconfiguration
+	EnableReconcileWebhookConfiguration bool
+}
+
+type createInformerEndpointSource func(cl clientset.Interface, namespace, name string) cache.ListerWatcher
+
+var (
+	defaultCreateInformerEndpointSource = func(cl clientset.Interface, namespace, name string) cache.ListerWatcher {
+		return cache.NewListWatchFromClient(
+			cl.CoreV1().RESTClient(),
+			"endpoints",
+			namespace,
+			fields.ParseSelectorOrDie(fmt.Sprintf("metadata.name=%s", name)))
+	}
+)
+
+// String produces a stringified version of the arguments for debugging.
+func (p *WebhookParameters) String() string {
+	buf := &bytes.Buffer{}
+
+	fmt.Fprintf(buf, "DomainSuffix: %s\n", p.DomainSuffix)
+	fmt.Fprintf(buf, "Port: %d\n", p.Port)
+	fmt.Fprintf(buf, "CertFile: %s\n", p.CertFile)
+	fmt.Fprintf(buf, "KeyFile: %s\n", p.KeyFile)
+	fmt.Fprintf(buf, "WebhookConfigFile: %s\n", p.WebhookConfigFile)
+	fmt.Fprintf(buf, "CACertFile: %s\n", p.CACertFile)
+	fmt.Fprintf(buf, "DeploymentAndServiceNamespace: %s\n", p.DeploymentAndServiceNamespace)
+	fmt.Fprintf(buf, "WebhookName: %s\n", p.WebhookName)
+	fmt.Fprintf(buf, "DeploymentName: %s\n", p.DeploymentName)
+	fmt.Fprintf(buf, "ServiceName: %s\n", p.ServiceName)
+	fmt.Fprintf(buf, "EnableValidation: %v\n", p.EnableValidation)
+	fmt.Fprintf(buf, "EnableReconcileWebhookConfiguration: %v\n", p.EnableReconcileWebhookConfiguration)
+
+	return buf.String()
+}
+
+// DefaultArgs allocates an WebhookParameters struct initialized with Webhook's default configuration.
+func DefaultArgs() *WebhookParameters {
+	return &WebhookParameters{
+		Port:                                9443,
+		CertFile:                            constants.DefaultCertChain,
+		KeyFile:                             constants.DefaultKey,
+		CACertFile:                          constants.DefaultRootCert,
+		DeploymentAndServiceNamespace:       "istio-system",
+		DeploymentName:                      "istio-galley",
+		ServiceName:                         "istio-galley",
+		WebhookName:                         "istio-galley",
+		EnableValidation:                    true,
+		EnableReconcileWebhookConfiguration: true,
+	}
 }
 
 // Webhook implements the validating admission webhook for validating Istio configuration.
 type Webhook struct {
+	keyCertWatcher *fsnotify.Watcher
+
 	mu   sync.RWMutex
 	cert *tls.Certificate
 
 	// pilot
-	descriptor   model.ConfigDescriptor
+	descriptor   schema.Set
 	domainSuffix string
 
 	// mixer
 	validator store.BackendValidator
 
-	healthCheckInterval time.Duration
-	healthCheckFile     string
-	server              *http.Server
-	watcher             *fsnotify.Watcher
-	certFile            string
-	keyFile             string
+	server                        *http.Server
+	clientset                     clientset.Interface
+	deploymentAndServiceNamespace string
+	deploymentName                string
+	serviceName                   string
+	webhookName                   string
+	keyFile                       string
+	certFile                      string
+
+	// test hook for informers
+	createInformerEndpointSource createInformerEndpointSource
+}
+
+// Reload the server's cert/key for TLS from file and save it for later use by the https server.
+func (wh *Webhook) reloadKeyCert() {
+	pair, err := reloadKeyCert(wh.certFile, wh.keyFile)
+	if err != nil {
+		return
+	}
+
+	wh.mu.Lock()
+	wh.cert = pair
+	wh.mu.Unlock()
+}
+
+// Reload the server's cert/key for TLS from file.
+func reloadKeyCert(certFile, keyFile string) (*tls.Certificate, error) {
+	pair, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		reportValidationCertKeyUpdateError(err)
+		scope.Warnf("Cert/Key reload error: %v", err)
+		return nil, err
+	}
+
+	reportValidationCertKeyUpdate()
+	scope.Info("Cert and Key reloaded")
+
+	var row int
+	for _, cert := range pair.Certificate {
+		if x509Cert, err := x509.ParseCertificates(cert); err != nil {
+			scope.Infof("x509 cert [%v] - ParseCertificates() error: %v\n", row, err)
+			row++
+		} else {
+			for _, c := range x509Cert {
+				scope.Infof("x509 cert [%v] - Issuer: %q, Subject: %q, SN: %x, NotBefore: %q, NotAfter: %q\n",
+					row, c.Issuer, c.Subject, c.SerialNumber,
+					c.NotBefore.Format(time.RFC3339), c.NotAfter.Format(time.RFC3339))
+				row++
+			}
+		}
+	}
+	return &pair, nil
 }
 
 // NewWebhook creates a new instance of the admission webhook controller.
 func NewWebhook(p WebhookParameters) (*Webhook, error) {
-	pair, err := tls.LoadX509KeyPair(p.CertFile, p.KeyFile)
+	pair, err := reloadKeyCert(p.CertFile, p.KeyFile)
 	if err != nil {
 		return nil, err
 	}
 
-	watcher, err := fsnotify.NewWatcher()
+	// Configuration must be updated whenever the caBundle changes. Watch the parent directory of
+	// the target files so we can catch symlink updates of k8s secrets.
+	keyCertWatcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
 	}
-
-	// watch the parent directory of the target files so we can catch
-	// symlink updates of k8s secrets
 	for _, file := range []string{p.CertFile, p.KeyFile} {
 		watchDir, _ := filepath.Split(file)
-		if err := watcher.Watch(watchDir); err != nil {
+		if err := keyCertWatcher.Watch(watchDir); err != nil {
 			return nil, fmt.Errorf("could not watch %v: %v", file, err)
 		}
 	}
@@ -128,14 +266,18 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		server: &http.Server{
 			Addr: fmt.Sprintf(":%v", p.Port),
 		},
-		watcher:             watcher,
-		healthCheckInterval: p.HealthCheckInterval,
-		healthCheckFile:     p.HealthCheckFile,
-		certFile:            p.CertFile,
-		keyFile:             p.KeyFile,
-		cert:                &pair,
-		descriptor:          p.PilotDescriptor,
-		validator:           p.MixerValidator,
+		keyFile:                       p.KeyFile,
+		certFile:                      p.CertFile,
+		keyCertWatcher:                keyCertWatcher,
+		cert:                          pair,
+		descriptor:                    p.PilotDescriptor,
+		validator:                     p.MixerValidator,
+		clientset:                     p.Clientset,
+		deploymentName:                p.DeploymentName,
+		serviceName:                   p.ServiceName,
+		webhookName:                   p.WebhookName,
+		deploymentAndServiceNamespace: p.DeploymentAndServiceNamespace,
+		createInformerEndpointSource:  defaultCreateInformerEndpointSource,
 	}
 
 	// mtls disabled because apiserver webhook cert usage is still TBD.
@@ -143,54 +285,57 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	h := http.NewServeMux()
 	h.HandleFunc("/admitpilot", wh.serveAdmitPilot)
 	h.HandleFunc("/admitmixer", wh.serveAdmitMixer)
+	h.HandleFunc(httpsHandlerReadyPath, wh.serveReady)
 	wh.server.Handler = h
 
 	return wh, nil
 }
 
+//Stop the server
+func (wh *Webhook) Stop() {
+	wh.server.Close() // nolint: errcheck
+}
+
 // Run implements the webhook server
-func (wh *Webhook) Run(stop <-chan struct{}) {
+func (wh *Webhook) Run(ready chan<- struct{}, stopCh <-chan struct{}) {
 	go func() {
 		if err := wh.server.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
-			log.Errorf("ListenAndServeTLS for admission webhook returned error: %v", err)
+			scope.Fatalf("admission webhook ListenAndServeTLS failed: %v", err)
 		}
 	}()
-	defer wh.watcher.Close() // nolint: errcheck
-	defer wh.server.Close()  // nolint: errcheck
+	defer func() {
+		wh.Stop()
+	}()
 
-	var healthC <-chan time.Time
-	if wh.healthCheckInterval != 0 && wh.healthCheckFile != "" {
-		t := time.NewTicker(wh.healthCheckInterval)
-		healthC = t.C
-		defer t.Stop()
+	// During initial Istio installation its possible for custom
+	// resources to be created concurrently with galley startup. This
+	// can lead to validation failures with "no endpoints available"
+	// if the webhook is registered before the endpoint is visible to
+	// the rest of the system. Minimize this problem by waiting for the
+	// galley endpoint to be available at least once before
+	// self-registering. Subsequent Istio upgrades rely on deployment
+	// rolling updates to set maxUnavailable to zero.
+	if shutdown := wh.waitForEndpointReady(stopCh); shutdown {
+		return
 	}
-	var timerC <-chan time.Time
+
+	ready <- struct{}{}
+
+	// use a timer to debounce key/cert updates
+	var keyCertTimerC <-chan time.Time
 
 	for {
 		select {
-		case <-timerC:
-			timerC = nil
-			pair, err := tls.LoadX509KeyPair(wh.certFile, wh.keyFile)
-			if err != nil {
-				log.Errorf("reload cert error: %v", err)
-				break
+		case <-keyCertTimerC:
+			keyCertTimerC = nil
+			wh.reloadKeyCert()
+		case event, more := <-wh.keyCertWatcher.Event:
+			if more && (event.IsModify() || event.IsCreate()) && keyCertTimerC == nil {
+				keyCertTimerC = time.After(watchDebounceDelay)
 			}
-			wh.mu.Lock()
-			wh.cert = &pair
-			wh.mu.Unlock()
-		case event := <-wh.watcher.Event:
-			// use a timer to debounce cert updates
-			if (event.IsModify() || event.IsCreate()) && timerC == nil {
-				timerC = time.After(watchDebounceDelay)
-			}
-		case err := <-wh.watcher.Error:
-			log.Errorf("Watcher error: %v", err)
-		case <-healthC:
-			content := []byte(`ok`)
-			if err := ioutil.WriteFile(wh.healthCheckFile, content, 0644); err != nil {
-				log.Errorf("Health check update of %q failed: %v", wh.healthCheckFile, err)
-			}
-		case <-stop:
+		case err := <-wh.keyCertWatcher.Error:
+			scope.Errorf("configWatcher error: %v", err)
+		case <-stopCh:
 			return
 		}
 	}
@@ -203,7 +348,7 @@ func (wh *Webhook) getCert(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 }
 
 func toAdmissionResponse(err error) *admissionv1beta1.AdmissionResponse {
-	return &admissionv1beta1.AdmissionResponse{Result: &metav1.Status{Message: err.Error()}}
+	return &admissionv1beta1.AdmissionResponse{Result: &v1.Status{Message: err.Error()}}
 }
 
 type admitFunc func(*admissionv1beta1.AdmissionRequest) *admissionv1beta1.AdmissionResponse
@@ -216,6 +361,7 @@ func serve(w http.ResponseWriter, r *http.Request, admit admitFunc) {
 		}
 	}
 	if len(body) == 0 {
+		reportValidationHTTPError(http.StatusBadRequest)
 		http.Error(w, "no body found", http.StatusBadRequest)
 		return
 	}
@@ -223,6 +369,7 @@ func serve(w http.ResponseWriter, r *http.Request, admit admitFunc) {
 	// verify the content type is accurate
 	contentType := r.Header.Get("Content-Type")
 	if contentType != "application/json" {
+		reportValidationHTTPError(http.StatusUnsupportedMediaType)
 		http.Error(w, "invalid Content-Type, want `application/json`", http.StatusUnsupportedMediaType)
 		return
 	}
@@ -245,11 +392,18 @@ func serve(w http.ResponseWriter, r *http.Request, admit admitFunc) {
 
 	resp, err := json.Marshal(response)
 	if err != nil {
+		reportValidationHTTPError(http.StatusInternalServerError)
 		http.Error(w, fmt.Sprintf("could encode response: %v", err), http.StatusInternalServerError)
+		return
 	}
 	if _, err := w.Write(resp); err != nil {
+		reportValidationHTTPError(http.StatusInternalServerError)
 		http.Error(w, fmt.Sprintf("could write response: %v", err), http.StatusInternalServerError)
 	}
+}
+
+func (wh *Webhook) serveReady(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
 }
 
 func (wh *Webhook) serveAdmitPilot(w http.ResponseWriter, r *http.Request) {
@@ -264,29 +418,44 @@ func (wh *Webhook) admitPilot(request *admissionv1beta1.AdmissionRequest) *admis
 	switch request.Operation {
 	case admissionv1beta1.Create, admissionv1beta1.Update:
 	default:
-		log.Warnf("Unsupported webhook operation %v", request.Operation)
+		scope.Warnf("Unsupported webhook operation %v", request.Operation)
+		reportValidationFailed(request, reasonUnsupportedOperation)
 		return &admissionv1beta1.AdmissionResponse{Allowed: true}
 	}
 
 	var obj crd.IstioKind
 	if err := yaml.Unmarshal(request.Object.Raw, &obj); err != nil {
+		scope.Infof("cannot decode configuration: %v", err)
+		reportValidationFailed(request, reasonYamlDecodeError)
 		return toAdmissionResponse(fmt.Errorf("cannot decode configuration: %v", err))
 	}
 
-	schema, exists := wh.descriptor.GetByType(crd.CamelCaseToKabobCase(obj.Kind))
+	s, exists := wh.descriptor.GetByType(crd.CamelCaseToKebabCase(obj.Kind))
 	if !exists {
+		scope.Infof("unrecognized type %v", obj.Kind)
+		reportValidationFailed(request, reasonUnknownType)
 		return toAdmissionResponse(fmt.Errorf("unrecognized type %v", obj.Kind))
 	}
 
-	out, err := crd.ConvertObject(schema, &obj, wh.domainSuffix)
+	out, err := crd.ConvertObject(s, &obj, wh.domainSuffix)
 	if err != nil {
+		scope.Infof("error decoding configuration: %v", err)
+		reportValidationFailed(request, reasonCRDConversionError)
 		return toAdmissionResponse(fmt.Errorf("error decoding configuration: %v", err))
 	}
 
-	if err := schema.Validate(out.Name, out.Namespace, out.Spec); err != nil {
+	if err := s.Validate(out.Name, out.Namespace, out.Spec); err != nil {
+		scope.Infof("configuration is invalid: %v", err)
+		reportValidationFailed(request, reasonInvalidConfig)
 		return toAdmissionResponse(fmt.Errorf("configuration is invalid: %v", err))
 	}
 
+	if reason, err := checkFields(request.Object.Raw, request.Kind.Kind, request.Namespace, obj.Name); err != nil {
+		reportValidationFailed(request, reason)
+		return toAdmissionResponse(err)
+	}
+
+	reportValidationPass(request)
 	return &admissionv1beta1.AdmissionResponse{Allowed: true}
 }
 
@@ -302,24 +471,58 @@ func (wh *Webhook) admitMixer(request *admissionv1beta1.AdmissionRequest) *admis
 		ev.Type = store.Update
 		var obj unstructured.Unstructured
 		if err := yaml.Unmarshal(request.Object.Raw, &obj); err != nil {
+			reportValidationFailed(request, reasonYamlDecodeError)
 			return toAdmissionResponse(fmt.Errorf("cannot decode configuration: %v", err))
 		}
+
 		ev.Value = mixerCrd.ToBackEndResource(&obj)
 		ev.Key.Name = ev.Value.Metadata.Name
+
+		if reason, err := checkFields(request.Object.Raw, request.Kind.Kind, request.Namespace, ev.Key.Name); err != nil {
+			reportValidationFailed(request, reason)
+			return toAdmissionResponse(err)
+		}
+
 	case admissionv1beta1.Delete:
 		if request.Name == "" {
+			reportValidationFailed(request, reasonUnknownType)
 			return toAdmissionResponse(fmt.Errorf("illformed request: name not found on delete request"))
 		}
 		ev.Type = store.Delete
 		ev.Key.Name = request.Name
 	default:
-		log.Warnf("Unsupported webhook operation %v", request.Operation)
+		scope.Warnf("Unsupported webhook operation %v", request.Operation)
+		reportValidationFailed(request, reasonUnsupportedOperation)
 		return &admissionv1beta1.AdmissionResponse{Allowed: true}
 	}
 
-	if err := wh.validator.Validate(ev); err != nil {
-		return toAdmissionResponse(err)
+	// webhook skips deletions
+	if ev.Type == store.Update {
+		if err := wh.validator.Validate(ev); err != nil {
+			reportValidationFailed(request, reasonInvalidConfig)
+			return toAdmissionResponse(err)
+		}
 	}
 
+	reportValidationPass(request)
 	return &admissionv1beta1.AdmissionResponse{Allowed: true}
+}
+
+func checkFields(raw []byte, kind string, namespace string, name string) (string, error) {
+	trial := make(map[string]json.RawMessage)
+	if err := yaml.Unmarshal(raw, &trial); err != nil {
+		scope.Infof("cannot decode configuration fields: %v", err)
+		return reasonYamlDecodeError, fmt.Errorf("cannot decode configuration fields: %v", err)
+	}
+
+	for key := range trial {
+		if _, ok := validFields[key]; !ok {
+			scope.Infof("unknown field %q on %s resource %s/%s",
+				key, kind, namespace, name)
+			return reasonInvalidConfig, fmt.Errorf("unknown field %q on %s resource %s/%s",
+				key, kind, namespace, name)
+		}
+	}
+
+	return "", nil
 }

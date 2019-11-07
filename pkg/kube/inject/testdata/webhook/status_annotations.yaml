@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: statusPort
+spec:
+  replicas: 7
+  selector:
+    matchLabels:
+      app: status
+  template:
+    metadata:
+      annotations:
+        status.sidecar.istio.io/port: "123"
+        readiness.status.sidecar.istio.io/initialDelaySeconds: "100"
+        readiness.status.sidecar.istio.io/periodSeconds: "200"
+        readiness.status.sidecar.istio.io/failureThreshold: "300"
+        readiness.status.sidecar.istio.io/applicationPorts: "1,2,3"
+      labels:
+        app: status
+    spec:
+      containers:
+      - name: status
+        image: "fake.docker.io/google-samples/traffic-go-gke:1.0"
+        ports:
+        - name: http
+          containerPort: 80

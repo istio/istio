@@ -18,55 +18,58 @@ import (
 	"reflect"
 	"testing"
 
-	"k8s.io/api/core/v1"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/fake"
-
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/api/annotation"
 	"istio.io/istio/security/pkg/registry"
+
+	coreV1 "k8s.io/api/core/v1"
+	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/fake"
 )
 
-func createService(svcAcct string) *v1.Service {
-	return &v1.Service{
-		ObjectMeta: meta_v1.ObjectMeta{
+func createService(svcAcct string, canonicalSvcAcct string) *coreV1.Service {
+	return &coreV1.Service{
+		ObjectMeta: metaV1.ObjectMeta{
 			Annotations: map[string]string{
-				kube.KubeServiceAccountsOnVMAnnotation: svcAcct,
+				annotation.AlphaKubernetesServiceAccounts.Name: svcAcct,
+				annotation.AlphaCanonicalServiceAccounts.Name:  canonicalSvcAcct,
 			},
 		},
 	}
 }
 
 type servicePair struct {
-	oldSvc *v1.Service
-	newSvc *v1.Service
+	oldSvc *coreV1.Service
+	newSvc *coreV1.Service
 }
 
 func TestServiceController(t *testing.T) {
 	testCases := map[string]struct {
-		toAdd    *v1.Service
-		toDelete *v1.Service
+		toAdd    *coreV1.Service
+		toDelete *coreV1.Service
 		toUpdate *servicePair
 		mapping  map[string]string
 	}{
 		"add k8s service": {
-			toAdd: createService("svc@test.serviceaccount.com"),
+			toAdd: createService("svc@test.serviceaccount.com", "canonical_svc@test.serviceaccount.com"),
 			mapping: map[string]string{
-				"svc@test.serviceaccount.com": "svc@test.serviceaccount.com",
+				"svc@test.serviceaccount.com":           "svc@test.serviceaccount.com",
+				"canonical_svc@test.serviceaccount.com": "canonical_svc@test.serviceaccount.com",
 			},
 		},
 		"add and delete k8s service": {
-			toAdd:    createService("svc@test.serviceaccount.com"),
-			toDelete: createService("svc@test.serviceaccount.com"),
+			toAdd:    createService("svc@test.serviceaccount.com", "canonical_svc@test.serviceaccount.com"),
+			toDelete: createService("svc@test.serviceaccount.com", "canonical_svc@test.serviceaccount.com"),
 			mapping:  map[string]string{},
 		},
 		"add and update k8s service": {
-			toAdd: createService("svc1@test.serviceaccount.com"),
+			toAdd: createService("svc1@test.serviceaccount.com", "canonical_svc1@test.serviceaccount.com"),
 			toUpdate: &servicePair{
-				oldSvc: createService("svc1@test.serviceaccount.com"),
-				newSvc: createService("svc2@test.serviceaccount.com"),
+				oldSvc: createService("svc1@test.serviceaccount.com", "canonical_svc1@test.serviceaccount.com"),
+				newSvc: createService("svc2@test.serviceaccount.com", "canonical_svc2@test.serviceaccount.com"),
 			},
 			mapping: map[string]string{
-				"svc2@test.serviceaccount.com": "svc2@test.serviceaccount.com",
+				"svc2@test.serviceaccount.com":           "svc2@test.serviceaccount.com",
+				"canonical_svc2@test.serviceaccount.com": "canonical_svc2@test.serviceaccount.com",
 			},
 		},
 	}
@@ -76,7 +79,7 @@ func TestServiceController(t *testing.T) {
 		reg := &registry.IdentityRegistry{
 			Map: make(map[string]string),
 		}
-		controller := NewServiceController(client.CoreV1(), "test-ns", reg)
+		controller := NewServiceController(client.CoreV1(), []string{"test-ns"}, reg)
 
 		if c.toAdd != nil {
 			controller.serviceAdded(c.toAdd)

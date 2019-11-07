@@ -1,3 +1,9 @@
+{{if eq .createService "true"}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{.service}}
+---
 # Test service without the proxy
 apiVersion: v1
 kind: Service
@@ -6,6 +12,9 @@ metadata:
   labels:
     app: {{.service}}
 spec:
+{{if eq .headless "true"}}
+  clusterIP: None
+{{end}}
   ports:
   - port: 80
     targetPort: {{.port1}}
@@ -13,12 +22,18 @@ spec:
   - port: 8080
     targetPort: {{.port2}}
     name: http-two
+{{if eq .headless "true"}}
+  - port: 10090
+    targetPort: {{.port3}}
+    name: tcp
+{{else}}
   - port: 90
     targetPort: {{.port3}}
     name: tcp
   - port: 9090
     targetPort: {{.port4}}
-    name: https
+    name: tcp-two
+{{end}}
   - port: 70
     targetPort: {{.port5}}
     name: http2-example
@@ -27,28 +42,42 @@ spec:
     name: grpc
   selector:
     app: {{.service}}
+{{end}}
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
 
   name: {{.deployment}}
 spec:
-  replicas: 1
+  replicas: {{.replicas}}
+  selector:
+    matchLabels:
+      app: {{.service}}
+      version: {{.version}}
+      name: {{.deployment}}
   template:
     metadata:
       labels:
         app: {{.service}}
         version: {{.version}}
-{{if eq .injectProxy "false"}}
+        name: {{.deployment}}
       annotations:
+{{if eq .injectProxy "false"}}
         sidecar.istio.io/inject: "false"
 {{end}}
+        sidecar.istio.io/userVolumeMount: '{"uds":{"mountPath":"/var/run/uds"}}'
     spec:
+{{if eq .serviceAccount "true"}}
+      serviceAccountName: {{.service}}
+{{end}}
       containers:
       - name: app
         image: {{.Hub}}/app:{{.Tag}}
         imagePullPolicy: {{.ImagePullPolicy}}
+        volumeMounts:
+        - mountPath: /var/run/uds
+          name: uds
         args:
           - --port
           - "{{.port1}}"
@@ -62,10 +91,8 @@ spec:
           - "{{.port5}}"
           - --grpc
           - "{{.port6}}"
-          - --port
-          - "10090"
-          - --port
-          - "19090"
+          - --uds
+          - "/var/run/uds/serverSock"
 {{if eq .healthPort "true"}}
           - --port
           - "3333"
@@ -79,8 +106,6 @@ spec:
         - containerPort: {{.port4}}
         - containerPort: {{.port5}}
         - containerPort: {{.port6}}
-        - containerPort: 10090
-        - containerPort: 19090
 {{if eq .healthPort "true"}}
         - name: tcp-health-port
           containerPort: 3333
@@ -98,4 +123,8 @@ spec:
           periodSeconds: 10
           failureThreshold: 10
 {{end}}
+      volumes:
+      - emptyDir:
+          medium: Memory
+        name: uds
 ---

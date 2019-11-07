@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: istio-config
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: default-sidecar-scope
+  namespace: istio-config
+spec:
+  egress:
+    # If this config is applied, sidecars will only be able to talk to
+    # other services in the same namespace, in addition to istio-telemetry
+    # and istio-policy
+  - hosts:
+    - "./*"
+    - "istio-system/istio-telemetry.istio-system.svc.cluster.local"
+    - "istio-system/istio-policy.istio-system.svc.cluster.local"
+---

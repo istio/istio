@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"istio.io/istio/security/pkg/registry"
+	"istio.io/istio/security/pkg/server/ca/authenticate"
 )
 
 func TestSameIDAuthroizer(t *testing.T) {
@@ -40,7 +41,7 @@ func TestSameIDAuthroizer(t *testing.T) {
 
 	authz := &sameIDAuthorizer{}
 	for id, tc := range testCases {
-		err := authz.authorize(&caller{authSourceClientCertificate, tc.callerIDs}, tc.requestedIDs)
+		err := authz.authorize(&authenticate.Caller{authenticate.AuthSourceClientCertificate, tc.callerIDs}, tc.requestedIDs)
 		if len(tc.expectedErr) > 0 {
 			if err == nil {
 				t.Errorf("%s: succeeded. Error expected: %v", id, err)
@@ -54,14 +55,14 @@ func TestSameIDAuthroizer(t *testing.T) {
 }
 
 func TestRegistryAuthorizerWithJWT(t *testing.T) {
-	idRequestor := &caller{
-		authSource: authSourceIDToken,
-		identities: []string{"id"},
+	idRequestor := &authenticate.Caller{
+		AuthSource: authenticate.AuthSourceIDToken,
+		Identities: []string{"id"},
 	}
 	requestedIDs := []string{"spiffe://id", "spiffe://id2"}
 
 	testCases := map[string]struct {
-		requestor    *caller
+		requestor    *authenticate.Caller
 		requestedIDs []string
 		authorizor   *registryAuthorizor
 		expectedErr  string
@@ -151,7 +152,7 @@ func TestRegistryAuthorizerWithClientCertificate(t *testing.T) {
 
 	for id, c := range testCases { // nolint: vet
 		authz := &registryAuthorizor{&c.registry}
-		err := authz.authorize(&caller{authSourceClientCertificate, c.callerIDs}, c.requestedIDs)
+		err := authz.authorize(&authenticate.Caller{authenticate.AuthSourceClientCertificate, c.callerIDs}, c.requestedIDs)
 		if c.expectedErr != "" {
 			if err == nil {
 				t.Errorf("%s: succeeded. Error expected: %v", id, err)

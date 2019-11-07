@@ -16,16 +16,12 @@ package pilot
 
 import (
 	"fmt"
-	"strings"
 	"testing"
-	"time"
+
+	"istio.io/pkg/log"
 )
 
 func TestServiceEntry(t *testing.T) {
-	if !tc.Egress {
-		t.Skipf("Skipping %s: egress=false", t.Name())
-	}
-
 	// This list is ordered so that cases that use the same egress rule are adjacent. This is
 	// done to avoid applying config changes more than necessary.
 	cases := []struct {
@@ -34,48 +30,175 @@ func TestServiceEntry(t *testing.T) {
 		url               string
 		shouldBeReachable bool
 	}{
+		// use www.google.com as google.com results in 301
 		{
-			name:              "REACHABLE_httpbin.org",
-			config:            "testdata/networking/v1alpha3/serviceentry-httpbin.yaml",
-			url:               "http://httpbin.org/headers",
+			name:              "REACHABLE_www.google.com_80_over_google_80",
+			config:            "testdata/networking/v1alpha3/service-entry-google.yaml",
+			url:               "http://www.google.com",
 			shouldBeReachable: true,
 		},
 		{
-			name:              "UNREACHABLE_httpbin.org_443",
-			config:            "testdata/networking/v1alpha3/serviceentry-httpbin.yaml",
-			url:               "https://httpbin.org:443/headers",
-			shouldBeReachable: false,
-		},
-		{
-			name:              "REACHABLE_www.httpbin.org",
-			config:            "testdata/networking/v1alpha3/serviceentry-wildcard-httpbin.yaml",
-			url:               "http://www.httpbin.org/headers",
+			name:              "REACHABLE_www.google.com_443_over_google_443",
+			config:            "testdata/networking/v1alpha3/service-entry-google.yaml",
+			url:               "https://www.google.com",
 			shouldBeReachable: true,
 		},
+		// use www.bing.com as bing.com results in 301.
 		{
-			name:              "UNREACHABLE_httpbin.org",
-			config:            "testdata/networking/v1alpha3/serviceentry-wildcard-httpbin.yaml",
-			url:               "http://httpbin.org/headers",
+			name:              "UNREACHABLE_www.bing.com_443_over_google_443",
+			config:            "testdata/networking/v1alpha3/service-entry-google.yaml",
+			url:               "https://www.bing.com",
 			shouldBeReachable: false,
 		},
 		{
-			name:              "REACHABLE_wikipedia_sni",
-			config:            "testdata/networking/v1alpha3/serviceentry-tcp-wikipedia-sni.yaml",
+			name:              "UNREACHABLE_www.bing.com_80_over_google_443",
+			config:            "testdata/networking/v1alpha3/service-entry-google.yaml",
+			url:               "http://www.bing.com",
+			shouldBeReachable: false,
+		},
+		{
+			name:              "REACHABLE_www.bing.com_80_over_bing_wildcard_80",
+			config:            "testdata/networking/v1alpha3/service-entry-wildcard-bing.yaml",
+			url:               "http://www.bing.com",
+			shouldBeReachable: true,
+		},
+		// note this will get a 301 move response when reachable
+		{
+			name:              "UNREACHABLE_www_bing.com_443_over_bing_wildcard_80",
+			config:            "testdata/networking/v1alpha3/service-entry-wildcard-bing.yaml",
+			url:               "https://www.bing.com",
+			shouldBeReachable: false,
+		},
+		// test resolution NONE
+		{
+			name:              "REACHABLE_www.wikipedia.org_443_over_wikipedia_cidr_range_443",
+			config:            "testdata/networking/v1alpha3/service-entry-tcp-wikipedia-cidr.yaml",
 			url:               "https://www.wikipedia.org",
 			shouldBeReachable: true,
 		},
-		// FIXME: re-enable once we get this working
-		//{
-		//	name:              "REACHABLE_wikipedia_range",
-		//	config:            "testdata/networking/v1alpha3/serviceentry-tcp-wikipedia-cidr.yaml",
-		//	url:               "https://www.wikipedia.org",
-		//	shouldBeReachable: true,
-		//},
 		{
-			name:              "UNREACHABLE_cnn",
-			config:            "testdata/networking/v1alpha3/serviceentry-tcp-wikipedia-cidr.yaml",
-			url:               "https://cnn.com",
+			name:              "UNREACHABLE_www.google.com_443_over_wikipedia_cidr_range_443",
+			config:            "testdata/networking/v1alpha3/service-entry-tcp-wikipedia-cidr.yaml",
+			url:               "https://www.google.com",
 			shouldBeReachable: false,
+		},
+		{
+			name:              "REACHABLE_en.wikipedia.org_443_over_wikipedia_wildcard_tls",
+			config:            "testdata/networking/v1alpha3/wildcard-tls-wikipedia.yaml",
+			url:               "https://en.wikipedia.org/wiki/Main_Page",
+			shouldBeReachable: true,
+		},
+		{
+			name:              "REACHABLE_de.wikipedia.org_443__over_wikipedia_wildcard_tls",
+			config:            "testdata/networking/v1alpha3/wildcard-tls-wikipedia.yaml",
+			url:               "https://de.wikipedia.org/wiki/Wikipedia:Hauptseite",
+			shouldBeReachable: true,
+		},
+		{
+			name:              "UNREACHABLE_www.wikipedia.org_443_over_wikipedia_wildcard_tls",
+			config:            "testdata/networking/v1alpha3/wildcard-tls-wikipedia.yaml",
+			url:               "https://www.wikipedia.org",
+			shouldBeReachable: false,
+		},
+		{
+			name:              "UNREACHABLE_www.bing.com_443_over_wikipedia_wildcard_tls",
+			config:            "testdata/networking/v1alpha3/wildcard-tls-wikipedia.yaml",
+			url:               "https://www.bing.com",
+			shouldBeReachable: false,
+		},
+		// test TLS protocol without VS, resolution DNS
+		// doesn't match specified host *.google.co.uk or *.google.co.in
+		{
+			name:              "UNREACHABLE_www.google.com_443_no_vs_over_google_wildcard_tls",
+			config:            "testdata/networking/v1alpha3/wildcard-tls-google-no-vs.yaml",
+			url:               "https://www.google.com",
+			shouldBeReachable: false,
+		},
+		{
+			name:              "UNREACHABLE_www.google.com_80_no_vs_over_google_wildcard_tls",
+			config:            "testdata/networking/v1alpha3/wildcard-tls-google-no-vs.yaml",
+			url:               "http://www.google.com",
+			shouldBeReachable: false,
+		},
+		{
+			name:              "UNREACHABLE_www.google.co.uk_80_no_vs_over_google_wildcard_tls",
+			config:            "testdata/networking/v1alpha3/wildcard-tls-google-no-vs.yaml",
+			url:               "http://www.google.co.uk/",
+			shouldBeReachable: false,
+		},
+		{
+			name:              "UNREACHABLE_www.google.co.in_80_no_vs_over_google_wildcard_tls",
+			config:            "testdata/networking/v1alpha3/wildcard-tls-google-no-vs.yaml",
+			url:               "http://www.google.co.in/",
+			shouldBeReachable: false,
+		},
+		{
+			name:              "REACHABLE_www.google.co.uk_443_no_vs_over_google_wildcard_tls",
+			config:            "testdata/networking/v1alpha3/wildcard-tls-google-no-vs.yaml",
+			url:               "https://www.google.co.uk/",
+			shouldBeReachable: true,
+		},
+		{
+			name:              "REACHABLE_www.google.co.in_443_no_vs_over_google_wildcard_tls",
+			config:            "testdata/networking/v1alpha3/wildcard-tls-google-no-vs.yaml",
+			url:               "https://www.google.co.in/",
+			shouldBeReachable: true,
+		},
+		// test https without VS - related multihosts with resolution DNS
+		{
+			name:              "REACHABLE_www.google.co.in_443_no_vs_over_google_wildcard_443",
+			config:            "testdata/networking/v1alpha3/wildcard-https-google-no-vs.yaml",
+			url:               "https://www.google.co.in/",
+			shouldBeReachable: true,
+		},
+		{
+			name:              "REACHABLE_www.google.com.uk_443_no_vs_over_google_wildcard_443",
+			config:            "testdata/networking/v1alpha3/wildcard-https-google-no-vs.yaml",
+			url:               "https://www.google.co.uk/",
+			shouldBeReachable: true,
+		},
+		{
+			name:              "UNREACHABLE_www.google.com_443_no_vs_over_google_wildcard_443_https",
+			config:            "testdata/networking/v1alpha3/wildcard-https-google-no-vs.yaml",
+			url:               "https://www.google.com",
+			shouldBeReachable: false,
+		},
+		// test unrelated multihosts with resolution NONE
+		{
+			name:              "REACHABLE_www.google.com_443_no_vs_over_multihosts_wildcard_443",
+			config:            "testdata/networking/v1alpha3/wildcard-https-multihosts-no-vs.yaml",
+			url:               "https://www.google.com",
+			shouldBeReachable: true,
+		},
+		{
+			name:              "REACHABLE_www.bing.com_443_no_vs_over_multihosts_wildcard_443",
+			config:            "testdata/networking/v1alpha3/wildcard-https-multihosts-no-vs.yaml",
+			url:               "https://www.bing.com",
+			shouldBeReachable: true,
+		},
+		{
+			name:              "UNREACHABLE_www.google.com_80_no_vs_over_multihosts_wildcard_443",
+			config:            "testdata/networking/v1alpha3/wildcard-https-multihosts-no-vs.yaml",
+			url:               "http://www.google.com",
+			shouldBeReachable: false,
+		},
+		{
+			name:              "UNREACHABLE_www.bing.com_80_no_vs_over_multihosts_wildcard_443",
+			config:            "testdata/networking/v1alpha3/wildcard-https-multihosts-no-vs.yaml",
+			url:               "http://www.bing.com",
+			shouldBeReachable: false,
+		},
+		{
+			name:              "UNREACHABLE_www.wikipedia.org_443_no_vs_over_multihosts_wildcard_443",
+			config:            "testdata/networking/v1alpha3/wildcard-https-multihosts-no-vs.yaml",
+			url:               "https://www.wikipedia.org",
+			shouldBeReachable: false,
+		},
+		{
+			name:              "REACHABLE_cn.bing.com_443_no_vs_over_multihosts_wildcard_443",
+			config:            "testdata/networking/v1alpha3/wildcard-https-multihosts-no-vs.yaml",
+			url:               "https://cn.bing.com",
+			shouldBeReachable: true,
 		},
 	}
 
@@ -117,15 +240,15 @@ func TestServiceEntry(t *testing.T) {
 
 			for cluster := range tc.Kube.Clusters {
 				// Make the requests and verify the reachability
-				for _, src := range []string{"a", "b"} {
-					runRetriableTest(t, cluster, "from_"+src, 3, func() error {
-						trace := fmt.Sprint(time.Now().UnixNano())
-						resp := ClientRequest(cluster, src, cs.url, 1, fmt.Sprintf("-key Trace-Id -val %q", trace))
-						reachable := resp.IsHTTPOk() && strings.Contains(resp.Body, trace)
+				for _, src := range []string{"a"} {
+					runRetriableTest(t, "from_"+src, 3, func() error {
+						resp := ClientRequest(cluster, src, cs.url, 1, "")
+						reachable := resp.IsHTTPOk()
 						if reachable && !cs.shouldBeReachable {
 							return fmt.Errorf("%s is reachable from %s (should be unreachable)", cs.url, src)
 						}
 						if !reachable && cs.shouldBeReachable {
+							log.Errorf("%s is not reachable while it should be reachable from %s", cs.url, src)
 							return errAgain
 						}
 

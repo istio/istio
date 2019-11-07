@@ -15,11 +15,10 @@
 package configdump
 
 import (
-	"fmt"
+	"sort"
 
-	"github.com/bradfitz/slice"
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
-	proto "github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes"
 )
 
 // GetDynamicClusterDump retrieves a cluster dump with just dynamic active clusters in it
@@ -29,7 +28,7 @@ func (w *Wrapper) GetDynamicClusterDump(stripVersions bool) (*adminapi.ClustersC
 		return nil, err
 	}
 	dac := clusterDump.GetDynamicActiveClusters()
-	slice.Sort(dac, func(i, j int) bool {
+	sort.Slice(dac, func(i, j int) bool {
 		return dac[i].Cluster.Name < dac[j].Cluster.Name
 	})
 	if stripVersions {
@@ -43,15 +42,12 @@ func (w *Wrapper) GetDynamicClusterDump(stripVersions bool) (*adminapi.ClustersC
 
 // GetClusterConfigDump retrieves the cluster config dump from the ConfigDump
 func (w *Wrapper) GetClusterConfigDump() (*adminapi.ClustersConfigDump, error) {
-	if w.Configs == nil {
-		return nil, fmt.Errorf("config dump has no cluster dump")
-	}
-	clusterDumpAny, ok := w.Configs["clusters"]
-	if !ok {
-		return nil, fmt.Errorf("config dump has no cluster dump")
+	clusterDumpAny, err := w.getSection(clusters)
+	if err != nil {
+		return nil, err
 	}
 	clusterDump := &adminapi.ClustersConfigDump{}
-	err := proto.UnmarshalAny(&clusterDumpAny, clusterDump)
+	err = ptypes.UnmarshalAny(&clusterDumpAny, clusterDump)
 	if err != nil {
 		return nil, err
 	}

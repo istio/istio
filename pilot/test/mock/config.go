@@ -21,43 +21,36 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/gogo/protobuf/proto"
 	"go.uber.org/atomic"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	rbac "istio.io/api/rbac/v1alpha1"
-	routing "istio.io/api/routing/v1alpha1"
+	authz "istio.io/api/security/v1beta1"
+	api "istio.io/api/type/v1beta1"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/model/test"
-	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/config/schemas"
 	pkgtest "istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/config"
 )
 
 var (
 	// Types defines the mock config descriptor
-	Types = model.ConfigDescriptor{model.MockConfig}
-
-	// ExampleRouteRule is an example route rule
-	ExampleRouteRule = &routing.RouteRule{
-		Destination: &routing.IstioService{
-			Name: "world",
-		},
-		Route: []*routing.DestinationWeight{
-			{Weight: 80, Labels: map[string]string{"version": "v1"}},
-			{Weight: 20, Labels: map[string]string{"version": "v2"}},
-		},
-	}
+	Types = schema.Set{schemas.MockConfig}
 
 	// ExampleVirtualService is an example V2 route rule
 	ExampleVirtualService = &networking.VirtualService{
 		Hosts: []string{"prod", "test"},
 		Http: []*networking.HTTPRoute{
 			{
-				Route: []*networking.DestinationWeight{
+				Route: []*networking.HTTPRouteDestination{
 					{
 						Destination: &networking.Destination{
 							Host: "job",
@@ -92,36 +85,8 @@ var (
 		Host: "ratings",
 		TrafficPolicy: &networking.TrafficPolicy{
 			LoadBalancer: &networking.LoadBalancerSettings{
-				new(networking.LoadBalancerSettings_Simple),
+				LbPolicy: new(networking.LoadBalancerSettings_Simple),
 			},
-		},
-	}
-
-	// ExampleIngressRule is an example ingress rule
-	ExampleIngressRule = &routing.IngressRule{
-		Destination: &routing.IstioService{
-			Name: "world",
-		},
-		Port: 80,
-		DestinationServicePort: &routing.IngressRule_DestinationPort{DestinationPort: 80},
-	}
-
-	// ExampleEgressRule is an example egress rule
-	ExampleEgressRule = &routing.EgressRule{
-		Destination: &routing.IstioService{
-			Service: "*cnn.com",
-		},
-		Ports:          []*routing.EgressRule_Port{{Port: 80, Protocol: "http"}},
-		UseEgressProxy: false,
-	}
-
-	// ExampleDestinationPolicy is an example destination policy
-	ExampleDestinationPolicy = &routing.DestinationPolicy{
-		Destination: &routing.IstioService{
-			Name: "world",
-		},
-		LoadBalancing: &routing.LoadBalancing{
-			LbPolicy: &routing.LoadBalancing_Name{Name: routing.LoadBalancing_RANDOM},
 		},
 	}
 
@@ -129,13 +94,13 @@ var (
 	ExampleHTTPAPISpec = &mccpb.HTTPAPISpec{
 		Attributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
-				"api.service": {Value: &mpb.Attributes_AttributeValue_StringValue{"petstore"}},
+				"api.service": {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: "petstore"}},
 			},
 		},
 		Patterns: []*mccpb.HTTPAPISpecPattern{{
 			Attributes: &mpb.Attributes{
 				Attributes: map[string]*mpb.Attributes_AttributeValue{
-					"api.operation": {Value: &mpb.Attributes_AttributeValue_StringValue{"getPet"}},
+					"api.operation": {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: "getPet"}},
 				},
 			},
 			HttpMethod: "GET",
@@ -207,14 +172,9 @@ var (
 			Name: "hello",
 		}},
 		Peers: []*authn.PeerAuthenticationMethod{{
-			Params: &authn.PeerAuthenticationMethod_Mtls{},
-		}},
-	}
-
-	// ExampleAuthenticationMeshPolicy is an example cluster-scoped authentication Policy
-	ExampleAuthenticationMeshPolicy = &authn.Policy{
-		Peers: []*authn.PeerAuthenticationMethod{{
-			Params: &authn.PeerAuthenticationMethod_Mtls{},
+			Params: &authn.PeerAuthenticationMethod_Mtls{
+				Mtls: &authn.MutualTls{},
+			},
 		}},
 	}
 
@@ -251,6 +211,16 @@ var (
 	ExampleRbacConfig = &rbac.RbacConfig{
 		Mode: rbac.RbacConfig_ON,
 	}
+
+	// ExampleAuthorizationPolicy is an example AuthorizationPolicy
+	ExampleAuthorizationPolicy = &authz.AuthorizationPolicy{
+		Selector: &api.WorkloadSelector{
+			MatchLabels: map[string]string{
+				"app":     "httpbin",
+				"version": "v1",
+			},
+		},
+	}
 )
 
 // Make creates a mock config indexed by a number
@@ -258,7 +228,7 @@ func Make(namespace string, i int) model.Config {
 	name := fmt.Sprintf("%s%d", "mock-config", i)
 	return model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      model.MockConfig.Type,
+			Type:      schemas.MockConfig.Type,
 			Group:     "test.istio.io",
 			Version:   "v1",
 			Name:      name,
@@ -270,9 +240,9 @@ func Make(namespace string, i int) model.Config {
 				"annotationkey": name,
 			},
 		},
-		Spec: &test.MockConfig{
+		Spec: &config.MockConfig{
 			Key: name,
-			Pairs: []*test.ConfigPair{
+			Pairs: []*config.ConfigPair{
 				{Key: "key", Value: strconv.Itoa(i)},
 			},
 		},
@@ -283,15 +253,15 @@ func Make(namespace string, i int) model.Config {
 func Compare(a, b model.Config) bool {
 	a.ResourceVersion = ""
 	b.ResourceVersion = ""
-	a.CreationTimestamp = meta_v1.NewTime(time.Time{})
-	b.CreationTimestamp = meta_v1.NewTime(time.Time{})
+	a.CreationTimestamp = time.Time{}
+	b.CreationTimestamp = time.Time{}
 	return reflect.DeepEqual(a, b)
 }
 
 // CheckMapInvariant validates operational invariants of an empty config registry
 func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n int) {
 	// check that the config descriptor is the mock config descriptor
-	_, contains := r.ConfigDescriptor().GetByType(model.MockConfig.Type)
+	_, contains := r.ConfigDescriptor().GetByType(schemas.MockConfig.Type)
 	if !contains {
 		t.Error("expected config mock types")
 	}
@@ -316,8 +286,8 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 
 	// check that elements are stored
 	for i, elt := range elts {
-		v1, ok := r.Get(model.MockConfig.Type, elt.Name, elt.Namespace)
-		if !ok || !Compare(elt, *v1) {
+		v1 := r.Get(schemas.MockConfig.Type, elt.Name, elt.Namespace)
+		if v1 == nil || !Compare(elt, *v1) {
 			t.Errorf("wanted %v, got %v", elt, v1)
 		} else {
 			revs[i] = v1.ResourceVersion
@@ -332,20 +302,20 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 
 	invalid := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:            model.MockConfig.Type,
+			Type:            schemas.MockConfig.Type,
 			Name:            "invalid",
 			ResourceVersion: revs[0],
 		},
-		Spec: &test.MockConfig{},
+		Spec: &config.MockConfig{},
 	}
 
 	missing := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:            model.MockConfig.Type,
+			Type:            schemas.MockConfig.Type,
 			Name:            "missing",
 			ResourceVersion: revs[0],
 		},
-		Spec: &test.MockConfig{Key: "missing"},
+		Spec: &config.MockConfig{Key: "missing"},
 	}
 
 	if _, err := r.Create(model.Config{}); err == nil {
@@ -385,12 +355,12 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 	}
 
 	// check for missing element
-	if _, ok := r.Get(model.MockConfig.Type, "missing", ""); ok {
+	if cfg := r.Get(schemas.MockConfig.Type, "missing", ""); cfg != nil {
 		t.Error("unexpected configuration object found")
 	}
 
 	// check for missing element
-	if _, ok := r.Get("missing", "missing", ""); ok {
+	if cfg := r.Get("missing", "missing", ""); cfg != nil {
 		t.Error("unexpected configuration object found")
 	}
 
@@ -400,15 +370,15 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 	}
 
 	// delete missing elements
-	if err := r.Delete(model.MockConfig.Type, "missing", ""); err == nil {
+	if err := r.Delete(schemas.MockConfig.Type, "missing", ""); err == nil {
 		t.Error("expected error on deletion of missing element")
 	}
-	if err := r.Delete(model.MockConfig.Type, "missing", "unknown"); err == nil {
+	if err := r.Delete(schemas.MockConfig.Type, "missing", "unknown"); err == nil {
 		t.Error("expected error on deletion of missing element in unknown namespace")
 	}
 
 	// list elements
-	l, err := r.List(model.MockConfig.Type, namespace)
+	l, err := r.List(schemas.MockConfig.Type, namespace)
 	if err != nil {
 		t.Errorf("List error %#v, %v", l, err)
 	}
@@ -419,7 +389,7 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 	// update all elements
 	for i := 0; i < n; i++ {
 		elt := Make(namespace, i)
-		elt.Spec.(*test.MockConfig).Pairs[0].Value += "(updated)"
+		elt.Spec.(*config.MockConfig).Pairs[0].Value += "(updated)"
 		elt.ResourceVersion = revs[i]
 		elts[i] = elt
 		if _, err = r.Update(elt); err != nil {
@@ -429,21 +399,21 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 
 	// check that elements are stored
 	for i, elt := range elts {
-		v1, ok := r.Get(model.MockConfig.Type, elts[i].Name, elts[i].Namespace)
-		if !ok || !Compare(elt, *v1) {
+		v1 := r.Get(schemas.MockConfig.Type, elts[i].Name, elts[i].Namespace)
+		if v1 == nil || !Compare(elt, *v1) {
 			t.Errorf("wanted %v, got %v", elt, v1)
 		}
 	}
 
 	// delete all elements
 	for i := range elts {
-		if err = r.Delete(model.MockConfig.Type, elts[i].Name, elts[i].Namespace); err != nil {
+		if err = r.Delete(schemas.MockConfig.Type, elts[i].Name, elts[i].Namespace); err != nil {
 			t.Error(err)
 		}
 	}
 	log.Info("Delete elements")
 
-	l, err = r.List(model.MockConfig.Type, namespace)
+	l, err = r.List(schemas.MockConfig.Type, namespace)
 	if err != nil {
 		t.Error(err)
 	}
@@ -456,37 +426,38 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 // CheckIstioConfigTypes validates that an empty store can ingest Istio config objects
 func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing.T) {
 	configName := "example"
+	// Global scoped policies like MeshPolicy are not isolated, can't be
+	// run as part of the normal test suites - if needed they should
+	// be run in separate environment. The test suites are setting cluster
+	// scoped policies that may interfere and would require serialization
 
 	cases := []struct {
 		name       string
 		configName string
-		schema     model.ProtoSchema
+		schema     schema.Instance
 		spec       proto.Message
 	}{
-		{"RouteRule", configName, model.RouteRule, ExampleRouteRule},
-		{"VirtualService", configName, model.VirtualService, ExampleVirtualService},
-		{"DestinationRule", configName, model.DestinationRule, ExampleDestinationRule},
-		{"ServiceEntry", configName, model.ServiceEntry, ExampleServiceEntry},
-		{"Gatway", configName, model.Gateway, ExampleGateway},
-		{"IngressRule", configName, model.IngressRule, ExampleIngressRule},
-		{"EgressRule", configName, model.EgressRule, ExampleEgressRule},
-		{"DestinationPolicy", configName, model.DestinationPolicy, ExampleDestinationPolicy},
-		{"HTTPAPISpec", configName, model.HTTPAPISpec, ExampleHTTPAPISpec},
-		{"HTTPAPISpecBinding", configName, model.HTTPAPISpecBinding, ExampleHTTPAPISpecBinding},
-		{"QuotaSpec", configName, model.QuotaSpec, ExampleQuotaSpec},
-		{"QuotaSpecBinding", configName, model.QuotaSpecBinding, ExampleQuotaSpecBinding},
-		{"Policy", configName, model.AuthenticationPolicy, ExampleAuthenticationPolicy},
-		{"MeshPolicy", model.DefaultAuthenticationPolicyName, model.AuthenticationMeshPolicy, ExampleAuthenticationMeshPolicy},
-		{"ServiceRole", configName, model.ServiceRole, ExampleServiceRole},
-		{"ServiceRoleBinding", configName, model.ServiceRoleBinding, ExampleServiceRoleBinding},
-		{"RbacConfig", model.DefaultRbacConfigName, model.RbacConfig, ExampleRbacConfig},
+		{"VirtualService", configName, schemas.VirtualService, ExampleVirtualService},
+		{"DestinationRule", configName, schemas.DestinationRule, ExampleDestinationRule},
+		{"ServiceEntry", configName, schemas.ServiceEntry, ExampleServiceEntry},
+		{"Gateway", configName, schemas.Gateway, ExampleGateway},
+		{"HTTPAPISpec", configName, schemas.HTTPAPISpec, ExampleHTTPAPISpec},
+		{"HTTPAPISpecBinding", configName, schemas.HTTPAPISpecBinding, ExampleHTTPAPISpecBinding},
+		{"QuotaSpec", configName, schemas.QuotaSpec, ExampleQuotaSpec},
+		{"QuotaSpecBinding", configName, schemas.QuotaSpecBinding, ExampleQuotaSpecBinding},
+		{"Policy", configName, schemas.AuthenticationPolicy, ExampleAuthenticationPolicy},
+		{"ServiceRole", configName, schemas.ServiceRole, ExampleServiceRole},
+		{"ServiceRoleBinding", configName, schemas.ServiceRoleBinding, ExampleServiceRoleBinding},
+		{"RbacConfig", constants.DefaultRbacConfigName, schemas.RbacConfig, ExampleRbacConfig},
+		{"ClusterRbacConfig", constants.DefaultRbacConfigName, schemas.ClusterRbacConfig, ExampleRbacConfig},
+		{"AuthorizationPolicy", configName, schemas.AuthorizationPolicy, ExampleAuthorizationPolicy},
 	}
 
 	for _, c := range cases {
 		configMeta := model.ConfigMeta{
 			Type:    c.schema.Type,
 			Name:    c.configName,
-			Group:   c.schema.Group + model.IstioAPIGroupDomain,
+			Group:   c.schema.Group + constants.IstioAPIGroupDomain,
 			Version: c.schema.Version,
 		}
 		if !c.schema.ClusterScoped {
@@ -508,7 +479,7 @@ func CheckCacheEvents(store model.ConfigStore, cache model.ConfigStoreCache, nam
 	stop := make(chan struct{})
 	defer close(stop)
 	added, deleted := atomic.NewInt64(0), atomic.NewInt64(0)
-	cache.RegisterEventHandler(model.MockConfig.Type, func(c model.Config, ev model.Event) {
+	cache.RegisterEventHandler(schemas.MockConfig.Type, func(_ model.Config, ev model.Event) {
 		switch ev {
 		case model.EventAdd:
 			if deleted.Load() != 0 {
@@ -541,16 +512,16 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *test
 	o := Make(namespace, 0)
 
 	// validate cache consistency
-	cache.RegisterEventHandler(model.MockConfig.Type, func(config model.Config, ev model.Event) {
-		elts, _ := cache.List(model.MockConfig.Type, namespace)
-		elt, exists := cache.Get(o.Type, o.Name, o.Namespace)
+	cache.RegisterEventHandler(schemas.MockConfig.Type, func(config model.Config, ev model.Event) {
+		elts, _ := cache.List(schemas.MockConfig.Type, namespace)
+		elt := cache.Get(o.Type, o.Name, o.Namespace)
 		switch ev {
 		case model.EventAdd:
 			if len(elts) != 1 {
 				t.Errorf("Got %#v, expected %d element(s) on Add event", elts, 1)
 			}
-			if !exists || elt == nil || !reflect.DeepEqual(elt.Spec, o.Spec) {
-				t.Errorf("Got %#v, %t, expected %#v", elt, exists, o)
+			if elt == nil || !reflect.DeepEqual(elt.Spec, o.Spec) {
+				t.Errorf("Got %#v, expected %#v", elt, o)
 			}
 
 			log.Infof("Calling Update(%s)", config.Key())
@@ -563,19 +534,19 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *test
 			if len(elts) != 1 {
 				t.Errorf("Got %#v, expected %d element(s) on Update event", elts, 1)
 			}
-			if !exists || elt == nil {
-				t.Errorf("Got %#v, %t, expected nonempty", elt, exists)
+			if elt == nil {
+				t.Errorf("Got %#v, expected nonempty", elt)
 			}
 
 			log.Infof("Calling Delete(%s)", config.Key())
-			if err := cache.Delete(model.MockConfig.Type, config.Name, config.Namespace); err != nil {
+			if err := cache.Delete(schemas.MockConfig.Type, config.Name, config.Namespace); err != nil {
 				t.Error(err)
 			}
 		case model.EventDelete:
 			if len(elts) != 0 {
 				t.Errorf("Got %#v, expected zero elements on Delete event", elts)
 			}
-			log.Infof("Stopping channel for (%#v)", config.Key)
+			log.Infof("Stopping channel for (%#v)", config.Key())
 			close(stop)
 			done <- true
 		}
@@ -584,7 +555,7 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *test
 	go cache.Run(stop)
 
 	// try warm-up with empty Get
-	if _, exists := cache.Get("unknown", "example", namespace); exists {
+	if cfg := cache.Get("unknown", "example", namespace); cfg != nil {
 		t.Error("unexpected result for unknown type")
 	}
 
@@ -620,21 +591,21 @@ func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreCache, names
 	defer close(stop)
 	go cache.Run(stop)
 	pkgtest.Eventually(t, "HasSynced", cache.HasSynced)
-	os, _ := cache.List(model.MockConfig.Type, namespace)
+	os, _ := cache.List(schemas.MockConfig.Type, namespace)
 	if len(os) != n {
 		t.Errorf("cache.List => Got %d, expected %d", len(os), n)
 	}
 
 	// remove elements directly through client
 	for i := 0; i < n; i++ {
-		if err := store.Delete(model.MockConfig.Type, keys[i].Name, keys[i].Namespace); err != nil {
+		if err := store.Delete(schemas.MockConfig.Type, keys[i].Name, keys[i].Namespace); err != nil {
 			t.Error(err)
 		}
 	}
 
 	// check again in the controller cache
 	pkgtest.Eventually(t, "no elements in cache", func() bool {
-		os, _ = cache.List(model.MockConfig.Type, namespace)
+		os, _ = cache.List(schemas.MockConfig.Type, namespace)
 		log.Infof("cache.List => Got %d, expected %d", len(os), 0)
 		return len(os) == 0
 	})
@@ -648,8 +619,8 @@ func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreCache, names
 
 	// check directly through the client
 	pkgtest.Eventually(t, "cache and backing store match", func() bool {
-		cs, _ := cache.List(model.MockConfig.Type, namespace)
-		os, _ := store.List(model.MockConfig.Type, namespace)
+		cs, _ := cache.List(schemas.MockConfig.Type, namespace)
+		os, _ := store.List(schemas.MockConfig.Type, namespace)
 		log.Infof("cache.List => Got %d, expected %d", len(cs), n)
 		log.Infof("store.List => Got %d, expected %d", len(os), n)
 		return len(os) == n && len(cs) == n
@@ -657,7 +628,7 @@ func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreCache, names
 
 	// remove elements directly through the client
 	for i := 0; i < n; i++ {
-		if err := store.Delete(model.MockConfig.Type, keys[i].Name, keys[i].Namespace); err != nil {
+		if err := store.Delete(schemas.MockConfig.Type, keys[i].Name, keys[i].Namespace); err != nil {
 			t.Error(err)
 		}
 	}

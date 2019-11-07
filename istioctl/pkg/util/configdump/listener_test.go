@@ -16,15 +16,17 @@ package configdump
 
 import (
 	"testing"
+
+	"github.com/golang/protobuf/ptypes/any"
 )
 
 func TestWrapper_GetListenerConfigDump(t *testing.T) {
 	tests := []struct {
 		name                    string
-		noConfigs               bool
-		noListener              bool
 		wantVersion             string
 		wantStatic, wantDynamic int
+		noConfigs               bool
+		noListener              bool
 		wantErr                 bool
 	}{
 		{
@@ -48,7 +50,7 @@ func TestWrapper_GetListenerConfigDump(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			w := setupWrapper(t)
 			if tt.noListener {
-				delete(w.Configs, "listeners")
+				w.Configs = []*any.Any{}
 			}
 			if tt.noConfigs {
 				w.Configs = nil
@@ -77,9 +79,9 @@ func TestWrapper_GetListenerConfigDump(t *testing.T) {
 func TestWrapper_GetDynamicListenerDump(t *testing.T) {
 	tests := []struct {
 		name                                string
+		wantStatic, wantDynamic             int
 		noListener                          bool
 		stripVersion, wantVersion, wantLast bool
-		wantStatic, wantDynamic             int
 		wantErr                             bool
 	}{
 		{
@@ -108,7 +110,7 @@ func TestWrapper_GetDynamicListenerDump(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			w := setupWrapper(t)
 			if tt.noListener {
-				delete(w.Configs, "listeners")
+				w.Configs = []*any.Any{}
 			}
 			got, err := w.GetDynamicListenerDump(tt.stripVersion)
 			if (err != nil) != tt.wantErr {

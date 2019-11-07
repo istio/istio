@@ -1,8 +1,0 @@
-apiVersion: "config.istio.io/v1alpha2"
-kind: solarwinds
-metadata:
-  name: valid-solarwinds
-spec:
-  appoptics_access_token: token
-  papertrail_url: logs0.papertrailapp.com:8080
-  papertrail_local_retention_duration: 1h

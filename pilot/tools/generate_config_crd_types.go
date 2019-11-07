@@ -14,7 +14,7 @@
 
 // Tool to generate pilot/pkg/config/kube/types.go
 // Example run command:
-// go run pilot/tools/generate_config_crd_types.go --template pilot/tools/types.go.tmpl --output pilot/pkg/config/kube/crd/types.go
+// go run pilot/tools/generate_config_crd_types.go --template pilot/tools/types.go.tmpl --output pilot/pkg/config/kube/crd/types.gen.go
 package main
 
 import (
@@ -27,7 +27,8 @@ import (
 	"text/template"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 // ConfigData is data struct to feed to types.go template.
@@ -37,15 +38,13 @@ type ConfigData struct {
 }
 
 // MakeConfigData prepare data for code generation for the given schema.
-func MakeConfigData(schema model.ProtoSchema) ConfigData {
+func MakeConfigData(schema schema.Instance) ConfigData {
 	out := ConfigData{
-		IstioKind: crd.KabobCaseToCamelCase(schema.Type),
-		CrdKind:   crd.KabobCaseToCamelCase(schema.Type),
+		IstioKind: crd.KebabCaseToCamelCase(schema.Type),
+		CrdKind:   crd.KebabCaseToCamelCase(schema.Type),
 	}
-	// Tweak to match current naming.
-	// TODO(xiaolanz): change to meet the new naming convention.
-	if schema.Group == "authentication" {
-		out.IstioKind = crd.KabobCaseToCamelCase(schema.Group + "-" + schema.Type)
+	if len(schema.VariableName) > 0 {
+		out.IstioKind = schema.VariableName
 	}
 	log.Printf("Generating Istio type %s for %s.%s CRD\n", out.IstioKind, out.CrdKind, schema.Group)
 	return out
@@ -58,12 +57,12 @@ func main() {
 
 	tmpl := template.Must(template.ParseFiles(*templateFile))
 
-	// Prepare to generate types for mock schema and all schema listed in model.IstioConfigTypes
+	// Prepare to generate types for mock schema and all Istio schemas
 	typeList := []ConfigData{
-		MakeConfigData(model.MockConfig),
+		MakeConfigData(schemas.MockConfig),
 	}
-	for _, schema := range model.IstioConfigTypes {
-		typeList = append(typeList, MakeConfigData(schema))
+	for _, s := range schemas.Istio {
+		typeList = append(typeList, MakeConfigData(s))
 	}
 	var buffer bytes.Buffer
 	if err := tmpl.Execute(&buffer, typeList); err != nil {
@@ -79,9 +78,7 @@ func main() {
 	// Output
 	if outputFile == nil || *outputFile == "" {
 		fmt.Println(string(out))
-	} else {
-		if err := ioutil.WriteFile(*outputFile, out, 0644); err != nil {
-			panic(err)
-		}
+	} else if err := ioutil.WriteFile(*outputFile, out, 0644); err != nil {
+		panic(err)
 	}
 }

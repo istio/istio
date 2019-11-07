@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // nolint: lll
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -a mixer/adapter/denier/config/config.proto -x "-n denier -t checknothing -t listentry -t quota"
+//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/adapter/denier/config/config.proto -x "-n denier -t checknothing -t listentry -t quota"
 
 // Package denier provides an adapter that will return a status code (typically
 // FAILED_PRECONDITION) for all calls. It implements the checkNothing, quota and
@@ -27,9 +27,10 @@ import (
 	"context"
 	"time"
 
-	rpc "github.com/gogo/googleapis/google/rpc"
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 
 	"istio.io/istio/mixer/adapter/denier/config"
+	"istio.io/istio/mixer/adapter/metadata"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/status"
 	"istio.io/istio/mixer/template/checknothing"
@@ -77,18 +78,9 @@ func (*handler) Close() error { return nil }
 
 // GetInfo returns the Info associated with this adapter implementation.
 func GetInfo() adapter.Info {
-	return adapter.Info{
-		Name:        "denier",
-		Impl:        "istio.io/istio/mixer/adapter/denier",
-		Description: "Rejects any check and quota request with a configurable error",
-		SupportedTemplates: []string{
-			checknothing.TemplateName,
-			listentry.TemplateName,
-			quota.TemplateName,
-		},
-		DefaultConfig: defaultParam(),
-		NewBuilder:    func() adapter.HandlerBuilder { return &builder{} },
-	}
+	info := metadata.GetInfo("denier")
+	info.NewBuilder = func() adapter.HandlerBuilder { return &builder{} }
+	return info
 }
 
 type builder struct {

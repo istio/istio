@@ -19,6 +19,7 @@ import (
 	"os"
 	"os/exec"
 	"testing"
+	"time"
 
 	istio_mixer_v1 "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/attribute"
@@ -111,11 +112,9 @@ func run(b benchmark, setup *Setup, settings *Settings, coprocess bool) {
 			return
 		}
 		defer func() { _ = cmd.Process.Kill() }()
-	} else {
-		if _, err = NewClientServer(controller.location()); err != nil {
-			b.fatalf("agent creation failed: '%v'", err)
-			return
-		}
+	} else if _, err = NewClientServer(controller.location()); err != nil {
+		b.fatalf("agent creation failed: '%v'", err)
+		return
 	}
 
 	controller.waitForClient()
@@ -126,7 +125,7 @@ func run(b benchmark, setup *Setup, settings *Settings, coprocess bool) {
 	}
 
 	// Do a test run first to see if there are any errors.
-	if err = controller.runClients(1); err != nil {
+	if err = controller.runClients(1, time.Duration(0)); err != nil {
 		b.fatalf("error during test client run: '%v'", err)
 	}
 
@@ -135,7 +134,7 @@ func run(b benchmark, setup *Setup, settings *Settings, coprocess bool) {
 		name = "CoProc"
 	}
 	b.run(name, func(bb benchmark) {
-		_ = controller.runClients(bb.n())
+		_ = controller.runClients(bb.n(), time.Duration(0))
 	})
 
 	// Even though we have a deferred close for controller, do it explicitly before leaving control to perform
@@ -177,10 +176,10 @@ func runDispatcherOnly(b benchmark, setup *Setup, settings *Settings) {
 	for i, r := range requests {
 		switch req := r.(type) {
 		case *istio_mixer_v1.ReportRequest:
-			bags[i] = attribute.NewProtoBag(&req.Attributes[0], globalDict, attribute.GlobalList())
+			bags[i] = attribute.GetProtoBag(&req.Attributes[0], globalDict, attribute.GlobalList())
 
 		case *istio_mixer_v1.CheckRequest:
-			bags[i] = attribute.NewProtoBag(&req.Attributes, globalDict, attribute.GlobalList())
+			bags[i] = attribute.GetProtoBag(&req.Attributes, globalDict, attribute.GlobalList())
 
 		default:
 			b.fatalf("unknown request type: %v", r)

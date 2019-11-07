@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors. All Rights Reserved.
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,16 +22,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/cache"
+	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	xds "github.com/envoyproxy/go-control-plane/pkg/server"
-	"github.com/envoyproxy/go-control-plane/pkg/util"
-	"github.com/gogo/protobuf/types"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/grpc"
 
 	mpb "istio.io/api/mixer/v1"
@@ -52,7 +53,10 @@ node:
 dynamic_resources:
   lds_config: { ads: {} }
   ads_config:
-    cluster_names: ["xds"]
+    api_type: GRPC
+    grpc_services:
+      envoy_grpc:
+        cluster_name: xds
 static_resources:
   clusters:
   - name: xds
@@ -83,7 +87,9 @@ static_resources:
 // Check attributes from a good GET request
 const checkAttributesOkGet = `
 {
+  "context.reporter.uid": "",
   "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
   "context.protocol": "http",
 	"key": "count%s",
   "mesh1.ip": "[1 1 1 1]",
@@ -93,6 +99,9 @@ const checkAttributesOkGet = `
   "request.useragent": "Go-http-client/1.1",
   "request.method": "GET",
   "request.scheme": "http",
+  "request.url_path": "/echo",
+  "destination.uid": "",
+  "destination.namespace": "",
   "target.namespace": "XYZ222",
   "target.uid": "POD222",
   "request.headers": {
@@ -112,7 +121,7 @@ func (hasher) ID(*core.Node) string {
 }
 
 func makeListener(s *env.TestSetup, key string) *v2.Listener {
-	mxServiceConfig, err := util.MessageToStruct(&mccpb.ServiceConfig{
+	mxServiceConfig, err := conversion.MessageToStruct(&mccpb.ServiceConfig{
 		MixerAttributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
 				"key": {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: key}},
@@ -121,50 +130,50 @@ func makeListener(s *env.TestSetup, key string) *v2.Listener {
 	if err != nil {
 		panic(err)
 	}
-	mxConf, err := util.MessageToStruct(env.GetDefaultHTTPServerConf())
+	mxConf, err := conversion.MessageToStruct(env.GetDefaultHTTPServerConf())
 	if err != nil {
 		panic(err)
 	}
 
 	manager := &hcm.HttpConnectionManager{
-		CodecType:  hcm.AUTO,
+		CodecType:  hcm.HttpConnectionManager_AUTO,
 		StatPrefix: "http",
 		RouteSpecifier: &hcm.HttpConnectionManager_RouteConfig{
 			RouteConfig: &v2.RouteConfiguration{
 				Name: key,
-				VirtualHosts: []route.VirtualHost{{
+				VirtualHosts: []*route.VirtualHost{{
 					Name:    "backend",
 					Domains: []string{"*"},
-					Routes: []route.Route{{
-						Match: route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}},
+					Routes: []*route.Route{{
+						Match: &route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}},
 						Action: &route.Route_Route{Route: &route.RouteAction{
 							ClusterSpecifier: &route.RouteAction_Cluster{Cluster: "backend"},
 						}},
-						PerFilterConfig: map[string]*types.Struct{
+						PerFilterConfig: map[string]*structpb.Struct{
 							"mixer": mxServiceConfig,
 						}}}}}}},
 		HttpFilters: []*hcm.HttpFilter{{
-			Name:   "mixer",
-			Config: mxConf,
+			Name:       "mixer",
+			ConfigType: &hcm.HttpFilter_Config{mxConf},
 		}, {
-			Name: util.Router,
+			Name: wellknown.Router,
 		}},
 	}
 
-	pbst, err := util.MessageToStruct(manager)
+	pbst, err := conversion.MessageToStruct(manager)
 	if err != nil {
 		panic(err)
 	}
 
 	return &v2.Listener{
 		Name: strconv.Itoa(int(s.Ports().ServerProxyPort)),
-		Address: core.Address{Address: &core.Address_SocketAddress{SocketAddress: &core.SocketAddress{
+		Address: &core.Address{Address: &core.Address_SocketAddress{SocketAddress: &core.SocketAddress{
 			Address:       "127.0.0.1",
 			PortSpecifier: &core.SocketAddress_PortValue{PortValue: uint32(s.Ports().ServerProxyPort)}}}},
-		FilterChains: []listener.FilterChain{{
-			Filters: []listener.Filter{{
-				Name:   util.HTTPConnectionManager,
-				Config: pbst,
+		FilterChains: []*listener.FilterChain{{
+			Filters: []*listener.Filter{{
+				Name:       wellknown.HTTPConnectionManager,
+				ConfigType: &listener.Filter_Config{pbst},
 			}},
 		}},
 	}

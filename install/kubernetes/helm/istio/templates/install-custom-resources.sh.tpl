@@ -10,17 +10,17 @@ fi
 
 pathToResourceYAML=${1}
 
-/kubectl get validatingwebhookconfiguration istio-galley 2>/dev/null
+kubectl get validatingwebhookconfiguration istio-galley 2>/dev/null
 if [ "$?" -eq 0 ]; then
     echo "istio-galley validatingwebhookconfiguration found - waiting for istio-galley deployment to be ready"
     while true; do
-        /kubectl -n {{ .Release.Namespace }} get deployment istio-galley 2>/dev/null
+        kubectl -n {{ .Release.Namespace }} get deployment istio-galley 2>/dev/null
         if [ "$?" -eq 0 ]; then
             break
         fi
         sleep 1
     done
-    /kubectl -n {{ .Release.Namespace }} rollout status deployment istio-galley
+    kubectl -n {{ .Release.Namespace }} rollout status deployment istio-galley
     if [ "$?" -ne 0 ]; then
         echo "istio-galley deployment rollout status check failed"
         exit 1
@@ -28,5 +28,5 @@ if [ "$?" -eq 0 ]; then
     echo "istio-galley deployment ready for configuration validation"
 fi
 sleep 5
-/kubectl apply -f ${pathToResourceYAML}
+kubectl apply -f ${pathToResourceYAML}
 {{ end }}

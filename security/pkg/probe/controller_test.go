@@ -19,20 +19,23 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/googleapis/google/rpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/balancer"
 
-	"istio.io/istio/pkg/probe"
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
+
 	"istio.io/istio/security/pkg/caclient/protocol"
+	"istio.io/istio/security/pkg/caclient/protocol/mock"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/util"
 	pb "istio.io/istio/security/proto"
+	"istio.io/pkg/probe"
 )
 
 func TestGcpGetServiceIdentity(t *testing.T) {
 	bundle, err := util.NewVerifiedKeyCertBundleFromFile(
-		"./testdata/ca.crt", "./testdata/ca.key", "", "./testdata/root.crt")
+		"../pki/testdata/multilevelpki/int-cert.pem", "../pki/testdata/multilevelpki/int-key.pem",
+		"", "../pki/testdata/multilevelpki/root-cert.pem")
 	if err != nil {
 		t.Error(err)
 	}
@@ -40,6 +43,10 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 		CertTTL:       time.Minute * time.Duration(2),
 		MaxCertTTL:    time.Minute * time.Duration(4),
 		KeyCertBundle: bundle,
+		RotatorConfig: &ca.SelfSignedCARootCertRotatorConfig{
+			// Disable root cert rotator by setting check interval to 0ns.
+			CheckInterval: time.Duration(0),
+		},
 	})
 	if err != nil {
 		t.Fatalf("Failed to create a CA instances: %v", err)
@@ -50,14 +57,15 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 		err      string
 		expected string
 	}{
-		"Check success": {
+		// TODO: test successful case.
+		"Returned no cert": {
 			resp: &pb.CsrResponse{
 				IsApproved: true,
 				Status:     &rpc.Status{Code: int32(rpc.OK), Message: "OK"},
 				SignedCert: nil,
 				CertChain:  nil,
 			},
-			expected: "",
+			expected: "CSR sign failure: failed to parse cert PEM: invalid PEM encoded certificate",
 		},
 		"SendCSR failed": {
 			resp:     nil,
@@ -67,13 +75,13 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 		"gRPC server is not available": {
 			resp:     nil,
 			err:      fmt.Sprintf("%v", balancer.ErrTransientFailure.Error()),
-			expected: "",
+			expected: "all SubConns are in TransientFailure",
 		},
 	}
 
 	for id, c := range testCases {
 		fakeProvider := func(_ string, _ []grpc.DialOption) (protocol.CAProtocol, error) {
-			return protocol.NewFakeProtocol(c.resp, c.err), nil
+			return mock.NewFakeProtocol(c.resp, c.err), nil
 		}
 		// test liveness probe check controller
 		controller, err := NewLivenessCheckController(

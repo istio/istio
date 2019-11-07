@@ -13,21 +13,23 @@
 // limitations under the License.
 
 // nolint
-//go:generate protoc testdata/tmpl1.proto -otestdata/tmpl1.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
-//go:generate protoc testdata/tmpl2.proto -otestdata/tmpl2.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
-//go:generate protoc testdata/adptCfg.proto -otestdata/adptCfg.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
-//go:generate protoc testdata/adptCfg2.proto -otestdata/adptCfg2.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate $REPO_ROOT/bin/protoc.sh testdata/tmpl1.proto -otestdata/tmpl1.descriptor -I.
+//go:generate $REPO_ROOT/bin/protoc.sh testdata/tmpl2.proto -otestdata/tmpl2.descriptor -I.
+//go:generate $REPO_ROOT/bin/protoc.sh testdata/adptCfg.proto -otestdata/adptCfg.descriptor -I.
+//go:generate $REPO_ROOT/bin/protoc.sh testdata/adptCfg2.proto -otestdata/adptCfg2.descriptor -I.
 
 package config
 
 import (
+	"bytes"
 	"context"
-	"encoding/json"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/ghodss/yaml"
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -38,7 +40,7 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/template"
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 var tmpl1Base64Str = getFileDescSetBase64("testdata/tmpl1.descriptor")
@@ -58,41 +60,29 @@ func (d *dummyHandlerBuilder) Build(ctx context.Context, env adapter.Env) (adapt
 	return nil, nil
 }
 
-var tmpl1Instance, _ = yaml.YAMLToJSON([]byte(`
+var tmpl1InstanceParam = unmarshalTestData(`
 s1: source.name | "yoursrc"
-`))
-var tmpl1InstanceParam map[string]interface{}
-var _ = json.Unmarshal(tmpl1Instance, &tmpl1InstanceParam)
+`)
 
-var adpt1Bytes, _ = yaml.YAMLToJSON([]byte(`
+var adapter1Params = unmarshalTestData(`
 abc: "abcstring"
-`))
-var adapter1Params map[string]interface{}
-var _ = json.Unmarshal(adpt1Bytes, &adapter1Params)
+`)
 
-var adpt2Bytes, _ = yaml.YAMLToJSON([]byte(`
+var adapter2Params = unmarshalTestData(`
 pqr: "abcstring"
-`))
-var adapter2Params map[string]interface{}
-var _ = json.Unmarshal(adpt2Bytes, &adapter2Params)
+`)
 
-var invalidBytes, _ = yaml.YAMLToJSON([]byte(`
+var invalidHandlerParams = unmarshalTestData(`
 fildNotFound: "abcstring"
-`))
-var invalidHandlerParams map[string]interface{}
-var _ = json.Unmarshal(invalidBytes, &invalidHandlerParams)
+`)
 
-var tmpl2Instance, _ = yaml.YAMLToJSON([]byte(`
+var tmpl2InstanceParam = unmarshalTestData(`
 s2: source.name | "yoursrc"
-`))
-var tmpl2InstanceParam map[string]interface{}
-var _ = json.Unmarshal(tmpl2Instance, &tmpl2InstanceParam)
+`)
 
-var badInstance, _ = yaml.YAMLToJSON([]byte(`
+var badInstanceParamIn = unmarshalTestData(`
 badFld: "s1stringVal"
-`))
-var badInstanceParamIn map[string]interface{}
-var _ = json.Unmarshal(badInstance, &badInstanceParamIn)
+`)
 
 var validCfg = []*store.Event{
 	updateEvent("attributes.attributemanifest.ns", &configpb.AttributeManifest{
@@ -526,6 +516,191 @@ InstancesStatic:
 Rules:
 Attributes:
   template.attr: BOOL
+`,
+	},
+
+	{
+		Name: "basic handler cr config",
+		Events1: []*store.Event{
+			{
+				Key: store.Key{
+					Name:      "a1",
+					Namespace: "ns",
+					Kind:      "handler",
+				},
+				Type: store.Update,
+				Value: &store.Resource{
+					Spec: &configpb.Handler{
+						Name:            "a1",
+						CompiledAdapter: "adapter1",
+					},
+				},
+			},
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+  Name:    a1.ns
+  Adapter: adapter1
+  Params:  &Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}
+InstancesStatic:
+Rules:
+Attributes:
+  template.attr: BOOL
+`,
+	},
+	{
+		Name: "basic handler cr config with params",
+		Events1: []*store.Event{
+			{
+				Key: store.Key{
+					Name:      "a2",
+					Namespace: "ns",
+					Kind:      "handler",
+				},
+				Type: store.Update,
+				Value: &store.Resource{
+					Spec: &configpb.Handler{
+						Name:            "a2",
+						CompiledAdapter: "adapter2",
+						Params:          adapter2Params,
+					},
+				},
+			},
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+  Name:    a2.ns
+  Adapter: adapter2
+  Params:  &Struct{Fields:map[string]*Value{pqr: &Value{Kind:&Value_StringValue{StringValue:abcstring,},XXX_unrecognized:[],},},XXX_unrecognized:[],}
+InstancesStatic:
+Rules:
+Attributes:
+  template.attr: BOOL
+`,
+	},
+
+	{
+		Name: "basic static handler cr with dynamic cr",
+		Events1: []*store.Event{
+			{
+				Key: store.Key{
+					Name:      "h1",
+					Namespace: "ns",
+					Kind:      "handler",
+				},
+				Type: store.Update,
+				Value: &store.Resource{
+					Spec: &configpb.Handler{
+						Name:            "a2",
+						CompiledAdapter: "adapter2",
+					},
+				},
+			},
+			updateEvent("a1.adapter.default", &adapter_model.Info{
+				Description:  "testAdapter description",
+				SessionBased: true,
+				Config:       adpt1DescBase64,
+				Templates:    []string{},
+			}),
+			updateEvent("h1.handler.default", &descriptorpb.Handler{
+				Adapter: "a1.default",
+				Params:  adapter1Params,
+			}),
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+	Name: apa
+	Name: check
+	Name: quota
+	Name: report
+AdaptersStatic:
+	Name: adapter1
+	Name: adapter2
+HandlersStatic:
+	Name:    h1.ns
+	Adapter: adapter2
+	Params:  &Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}
+InstancesStatic:
+Rules:
+AdaptersDynamic:
+	Name:      a1.adapter.default
+	Templates:
+HandlersDynamic:
+	Name:    h1.handler.default
+	Adapter: a1.adapter.default
+Attributes:
+	template.attr: BOOL
+`,
+	},
+
+	{
+		Name: "basic static handler cr with same-name dynamic cr",
+		Events1: []*store.Event{
+			{
+				Key: store.Key{
+					Name:      "h1",
+					Namespace: "ns",
+					Kind:      "handler",
+				},
+				Type: store.Update,
+				Value: &store.Resource{
+					Spec: &configpb.Handler{
+						Name:            "a2",
+						CompiledAdapter: "adapter2",
+					},
+				},
+			},
+			updateEvent("a1.adapter.default", &adapter_model.Info{
+				Description:  "testAdapter description",
+				SessionBased: true,
+				Config:       adpt1DescBase64,
+				Templates:    []string{},
+			}),
+			updateEvent("h1.handler.ns", &descriptorpb.Handler{
+				Adapter: "a1.default",
+				Params:  adapter1Params,
+			}),
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+	Name: apa
+	Name: check
+	Name: quota
+	Name: report
+AdaptersStatic:
+	Name: adapter1
+	Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+AdaptersDynamic:
+	Name:      a1.adapter.default
+	Templates:
+HandlersDynamic:
+	Name:    h1.handler.ns
+	Adapter: a1.adapter.default
+Attributes:
+	template.attr: BOOL
 `,
 	},
 
@@ -1884,7 +2059,7 @@ TemplatesDynamic:
 Attributes:
   template.attr: BOOL
 `,
-		wantErr: "instance='i1.instance.default'.params: config does not conforms to schema of template " +
+		wantErr: "instance='i1.instance.default'.params: config does not conform to schema of template " +
 			"'t1.default': fieldEncoder 's1' not found in message 'InstanceMsg'",
 	},
 	{
@@ -2449,7 +2624,11 @@ Attributes:
 			Config:       adpt1DescBase64,
 		}), updateEvent("h1.handler.default", &descriptorpb.Handler{
 			Adapter: "a1.default",
-			Params:  "string instead of map[string]interface{}",
+			Params: &types.Struct{
+				Fields: map[string]*types.Value{
+					"foo": nil,
+				},
+			},
 		})},
 		E: `
 ID: 0
@@ -2470,7 +2649,7 @@ AdaptersDynamic:
 Attributes:
   template.attr: BOOL
 `,
-		wantErr: "handler='h1.handler.default'.params: invalid params block. It must be of type map[string]interface{}",
+		wantErr: "handler='h1.handler.default'.params: error converting parameters to dictionary: error serializing struct value: nil",
 	},
 	{
 		Name: "add handler - bad adapter",
@@ -2797,6 +2976,100 @@ Attributes:
 `,
 		wantErr: "instance='i1.instance.default'.template: template 'not.a.template' not found",
 	},
+
+	{
+		Name: "add static instance - missing template",
+		Events1: []*store.Event{
+			updateEvent("i1.instance.default", &descriptorpb.Instance{
+				CompiledTemplate: "checkk",
+				Params: &types.Struct{
+					Fields: map[string]*types.Value{
+						"extra_field": {},
+					},
+				},
+			}),
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: "instance='i1.instance.default': missing compiled template",
+	},
+	{
+		Name: "add static instance - bad params",
+		Events1: []*store.Event{
+			updateEvent("i1.instance.default", &descriptorpb.Instance{
+				CompiledTemplate: "check",
+				Params: &types.Struct{
+					Fields: map[string]*types.Value{
+						"extra_field": {},
+					},
+				},
+				AttributeBindings: map[string]string{"test": "test"},
+			}),
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: "instance='i1.instance.default': nil Value",
+	},
+
+	{
+		Name: "add static instance - extra field",
+		Events1: []*store.Event{
+			updateEvent("i1.instance.default", &descriptorpb.Instance{
+				CompiledTemplate: "check",
+				Params: &types.Struct{
+					Fields: map[string]*types.Value{
+						"extra_field": {Kind: &types.Value_StringValue{StringValue: "test"}},
+					},
+				},
+			}),
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: `instance='i1.instance.default': unknown field "extra_field" in v1beta1.Instance`,
+	},
+
 	{
 		Name: "add instance - bad param type",
 		Events1: []*store.Event{
@@ -2812,7 +3085,11 @@ Attributes:
 			}),
 			updateEvent("i1.instance.default", &descriptorpb.Instance{
 				Template: "t1.default",
-				Params:   "string instead of a map[string]interface{}",
+				Params: &types.Struct{
+					Fields: map[string]*types.Value{
+						"foo": nil,
+					},
+				},
 			}),
 		},
 		E: `
@@ -2836,7 +3113,7 @@ Attributes:
   source.name: STRING
   template.attr: BOOL
 `,
-		wantErr: "instance='i1.instance.default'.params: invalid params block. It must be of type map[string]interface{}",
+		wantErr: "instance='i1.instance.default'.params: invalid params block.",
 	},
 	{
 		Name: "add instance - bad template reference",
@@ -2921,7 +3198,7 @@ TemplatesDynamic:
 Attributes:
   template.attr: BOOL
 `,
-		wantErr: "instance='i1.instance.default'.params: config does not conforms to schema of template " +
+		wantErr: "instance='i1.instance.default'.params: config does not conform to schema of template " +
 			"'t1.default': fieldEncoder 'badFld' not found in message 'InstanceMsg'",
 	},
 	{
@@ -4005,6 +4282,7 @@ var stdTemplates = map[string]*template.Info{
 	},
 	"check": {
 		Name:    "check",
+		CtrCfg:  &descriptorpb.Instance{},
 		Variety: adapter_model.TEMPLATE_VARIETY_CHECK,
 		InferType: func(cp proto.Message, tEvalFn template.TypeEvalFn) (proto.Message, error) {
 			return nil, nil
@@ -4092,8 +4370,7 @@ func runTests(t *testing.T) {
 			}
 
 			if (test.wantErr == "" && err != nil) ||
-				(test.wantErr != "" && err == nil) ||
-				(test.wantErr != "" && !strings.Contains(err.Error(), test.wantErr)) {
+				(test.wantErr != "" && err == nil) {
 				tt.Fatalf("**want error '%s' error; got %v", test.wantErr, err)
 			}
 
@@ -4170,4 +4447,19 @@ func updateEvent(keystr string, spec proto.Message) *store.Event {
 func deleteEvent(keystr string) *store.Event {
 	keySegments := strings.Split(keystr, ".")
 	return &store.Event{Type: store.Delete, Key: store.Key{Name: keySegments[0], Kind: keySegments[1], Namespace: keySegments[2]}}
+}
+
+func unmarshalTestData(data string) *types.Struct {
+	jsonData, err := yaml.YAMLToJSON([]byte(data))
+	if err != nil {
+		panic(fmt.Errorf("unmarshalTestData: YAMLToJSON error: %v", err))
+	}
+
+	result := &types.Struct{}
+
+	if err = jsonpb.Unmarshal(bytes.NewReader(jsonData), result); err != nil {
+		panic(fmt.Errorf("unmarshalTestData: json.Unmarshal error: %v", err))
+	}
+
+	return result
 }

@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors.
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import (
 // BatchMeasurements reads slices of Measurement types off a channel populated by the web handler
 // and packages them into batches conforming to the limitations imposed by the API.
 func BatchMeasurements(prepChan <-chan []*Measurement,
-	pushChan chan<- []*Measurement, stopChan <-chan struct{}, batchSize int, logger adapter.Logger) {
+	pushChan chan<- []*Measurement, stopChan <-chan struct{}, batchSize int) {
 	var currentBatch []*Measurement
 	ticker := time.NewTicker(time.Millisecond * 500)
 	defer ticker.Stop()

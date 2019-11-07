@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors. All Rights Reserved.
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -76,8 +76,8 @@ type HTTPServer struct {
 	mu         sync.Mutex
 }
 
-func pubkeyHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "%v", publicKey)
+func pubkeyHandler(w http.ResponseWriter, _ *http.Request) {
+	_, _ = fmt.Fprintf(w, "%v", publicKey)
 }
 
 // handle handles a request and sends response. If ?delay=n is in request URL, then sleeps for
@@ -120,9 +120,7 @@ func (s *HTTPServer) handle(w http.ResponseWriter, r *http.Request) {
 	reqHeaders[":authority"] = []string{r.Host}
 	reqHeaders[":path"] = []string{r.URL.String()}
 	for name, headers := range r.Header {
-		for _, h := range headers {
-			reqHeaders[name] = append(reqHeaders[name], h)
-		}
+		reqHeaders[name] = append(reqHeaders[name], headers...)
 	}
 
 	s.mu.Lock()
@@ -147,16 +145,19 @@ func NewHTTPServer(port uint16) (*HTTPServer, error) {
 }
 
 // Start starts the server
-// TODO: Add a channel so this can return an error
-func (s *HTTPServer) Start() {
+func (s *HTTPServer) Start() <-chan error {
+	errCh := make(chan error)
 	go func() {
 		http.HandleFunc("/", s.handle)
 		http.HandleFunc("/pubkey", pubkeyHandler)
-		_ = http.Serve(s.lis, nil)
+		errCh <- http.Serve(s.lis, nil)
+	}()
+	go func() {
+		url := fmt.Sprintf("http://localhost:%v/echo", s.port)
+		errCh <- WaitForHTTPServer(url)
 	}()
 
-	url := fmt.Sprintf("http://localhost:%v/echo", s.port)
-	WaitForHTTPServer(url)
+	return errCh
 }
 
 // Stop shutdown the server

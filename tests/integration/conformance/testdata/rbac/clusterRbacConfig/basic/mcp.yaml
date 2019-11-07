@@ -1,0 +1,18 @@
+constraints:
+  - collection: istio/rbac/v1alpha1/clusterrbacconfigs
+    check:
+      - exactlyOne:
+          - equals: {
+            "Body": {
+              "inclusion": {
+                "services": [
+                  "mongodb.default.svc.cluster.local"
+                ]
+              },
+              "mode": "ON_WITH_INCLUSION"
+            },
+            "Metadata": {
+              "name": "default"
+            },
+            "TypeURL": "type.googleapis.com/istio.rbac.v1alpha1.RbacConfig"
+          }

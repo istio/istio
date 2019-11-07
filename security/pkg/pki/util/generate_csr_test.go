@@ -49,7 +49,7 @@ func TestGenCSR(t *testing.T) {
 	if csr.Subject.Organization[0] != "MyOrg" {
 		t.Errorf("csr subject does not match")
 	}
-	if !strings.HasSuffix(string(csr.Extensions[0].Value[:]), "test_ca.com") {
+	if !strings.HasSuffix(string(csr.Extensions[0].Value), "test_ca.com") {
 		t.Errorf("csr host does not match")
 	}
 }
@@ -66,5 +66,39 @@ func TestGenCSRWithInvalidOption(t *testing.T) {
 
 	if err == nil || csr != nil || priv != nil {
 		t.Errorf("Should have failed")
+	}
+}
+
+func TestGenCSRTemplateForDualUse(t *testing.T) {
+	tt := map[string]struct {
+		host       string
+		expectedCN string
+	}{
+		"Single host": {
+			host:       "bla.com",
+			expectedCN: "bla.com",
+		},
+		"Multiple hosts": {
+			host:       "a.org,b.net,c.groups",
+			expectedCN: "a.org",
+		},
+	}
+
+	for _, tc := range tt {
+		opts := CertOptions{
+			Host:       tc.host,
+			Org:        "MyOrg",
+			RSAKeySize: 512,
+			IsDualUse:  true,
+		}
+
+		csr, err := GenCSRTemplate(opts)
+		if err != nil {
+			t.Error(err)
+		}
+
+		if csr.Subject.CommonName != tc.expectedCN {
+			t.Errorf("unexpected value for 'CommonName' field: want %v but got %v", tc.expectedCN, csr.Subject.CommonName)
+		}
 	}
 }

@@ -1,156 +1,660 @@
-# Istio-wide Integration Test Framework
+# Istio Integration Tests
 
-This framework provides a universal way to bring various components into a test environment.
-Unlike [e2e tests](https://github.com/istio/istio/tree/master/tests/e2e), integration tests usually don't need to start the whole package of istio
-and application services, instead, each integration test only needs several modules related to this test case.
-This integration test framework is built for this requirement. It's designed to be flexible enough for developers to pick the combination of components based on what behaviors are tested.
+This folder contains Istio integration tests that use the test framework checked in at
+[istio.io/istio/pkg/test/framework](https://github.com/istio/istio/tree/master/pkg/test/framework).
 
-## Concept
-The idea is to decouple **component** with **test case**.
+## Table of Contents
 
-![integration_framework_structure](https://github.com/istio/istio/tree/master/tests/integration/images/integration_framework_structure.jpg)
+1. [Overview](#overview)
+1. [Writing Tests](#writing-tests)
+    1. [Adding a Test Suite](#adding-a-test-suite)
+    1. [Sub-Tests](#sub-tests)
+    1. [Parallel Tests](#parallel-tests)
+    1. [Using Components](#using-components)
+    1. [Writing Components](#writing-components)
+1. [Running Tests](#running-tests)
+    1. [Test Parallelism and Kubernetes](#test-parellelism-and-kubernetes)
+    1. [Test Selection](#test-selection)
+    1. [Running Tests on CI](#running-tests-on-ci)
+        1. [Step 1: Add a Test Script](#step-1-add-a-test-script)
+        1. [Step 2: Add a Prow Job](#step-2-add-a-prow-job)
+        1. [Step 3: Update TestGrid](#step-3-update-testgrid)
+1. [Environments](#environments)
+    1. [Native Environment](#native-environment-default)
+    1. [Kubernetes Environment](#kubernetes-environment)
+1. [Diagnosing Failures](#diagnosing-failures)
+    1. [Working Directory](#working-directory)
+    1. [Enabling CI Mode](#enabling-ci-mode)
+    1. [Preserving State (No Cleanup)](#preserving-state-no-cleanup)
+    1. [Additional Logging](#additional-logging)
+    1. [Running Tests Under Debugger](#running-tests-under-debugger-goland)
+1. [Reference](#reference)
+    1. [Helm Values Overrides](#helm-values-overrides)
+    1. [Commandline Flags](#command-line-flags)
+1. [Notes](#notes)
+    1. [Running on a Mac](#running-on-a-mac)
 
-We break down `component`, `test environment` and `framework` into different abstractions.
+## Overview
 
-#### Component
-`Component` is the smallest element in this framework, it can be any separated modules (mixer, proxy...), applications (bookinfo, echo server) or external tools (prometheus).
+The goal of the framework is to make it as easy as possible to author and run tests. In its simplest
+case, just typing ```go test ./...``` should be sufficient to run tests.
 
-#### Environment
-`Environment` is the package that combines multiple components as well as some higher level test environment setting.
+## Writing Tests
 
-#### Framework
-`TestEnvManager` is the core part of this framework. It's a test environment manager for environment setting up and tearing down. 
-It takes one environment, brings up everything defined in this environment including components, kicks off tests with results recorded, and then tears down components and cleans up the environment afterwards.
+The test framework is designed to work with standard go tooling and allows developers
+to write environment-agnostics tests in a high-level fashion. The quickest way to get started with authoring
+new tests is to checkout the code in the
+[framework](https://github.com/istio/istio/tree/master/tests/integration/framework) folder.
 
-#### Life cycle of a component:  
-* Components are defined in a environment by creating an instance in `GetComponents() []framework.Component` in `test environment`.
-* In `TestEnvManager.StartUp()` components will be triggered to start at once, and then `TestEnvManager.WaitUntilReady()` is going to check if everything is ready.
-If not, it will wait and retry several times before either the entire environment is ready or some components still fail after multiple attempts.
-If the environment can't be ready, the framework will throw a error and exit.
-* Components will be stopped in `testEnvManager.TearDown()` when tests finish.
+### Adding a Test Suite
 
-More details can be found in **Add test** section.
+All tests that use the framework, must run as part of a *suite*. Only a single suite can be defined per package, since
+it is bootstrapped by a Go `TestMain`, which has the same restriction.
 
-## Run the demo
+To begin, create a new folder for your suite under
+[tests/integration](https://github.com/istio/istio/tree/master/tests/integration).
 
-On a linux machine, run the following command:
-
-```bash
-tests/integration/example/integration.sh
+```console
+$ cd ${ISTIO}/tests/integration
+$ mkdir mysuite
 ```
 
-It builds mixs (mixer binary), downloads envoy binary and installs fortio binary from vendor directory
-and brings these three components on local processes for two simple tests.
+Within that package, create a `TestMain` to bootstrap the test suite:
 
-[Sample1](https://github.com/istio/istio/tree/master/tests/integration/example/tests/sample1)
-shows how to reuse a test cases in different test environments
-
-[Sample2](https://github.com/istio/istio/tree/master/tests/integration/example/tests/sample2)
-shows how to reuse a test environment in different test cases
-
-
-### Run a single test manually
-
-```bash
-go test -v ./tests/integration/example/tests/sample1 \
--envoy_binary <envoy_binary_path> \
--envoy_start_script <envoy_start_script_path> \
--mixer_binary <mixer_binary_path> \
--fortio_binary <fortio_binary_path>
-```
-
-One example:
-```bash
-go test -v ./tests/integration/example/tests/sample1
--envoy_binary /home/bootstrap/go/out/linux_amd64/release/envoy \
--envoy_start_script /home/bootstrap/go/src/istio.io/proxy/src/envoy/http/mixer/start_envoy \
--mixer_binary /home/bootstrap/go/out/linux_amd64/release/mixs \
--fortio_binary fortio
-```
-
-
-## File Structure
-Under istio/tests/integration directory, it has three top level folders: **component, framework and example**.
-
-* **component** is a centralized locations for existing components. New reusable components should be put here.
-* **framework** has structures and interfaces for this integration test framework.
-* **example** is a folder with demo showing how to use this framework. Developers can add their own tests based on the structure in the folder.
-
-    * integration.sh is the entry script to build and trigger tests.
-    * tests contains test files.
-    * environment contains TestEnv implementations for tests here.
-
-
-## Add tests
-
-Besides the simple demos, there is another example of using this framework: [security integration](https://github.com/istio/istio/tree/master/security/tests/integration)
-
-### Find the components or create new ones
-
-Based on what modules you need (mixer, proxy and/or some applications) to test
-and where you want to set up those modules (local process, local kube or actual kubernetes cluster),
-one or more componensare required.
-
-Different components will simply implement the Component interface. The Component interface essentially abstract out how a particular component / server can be started, stopped, and monitored.
-Each component has a customized `configuration` and `status` for data sharing and communication between inside and outside of the component.
-`Component` interface has GET and SET function for `configuration` and only GET for `status` since it's expected to be modified only inside this component.
-
-We have a centralized location [istio/tests/integration/components](https://github.com/istio/istio/tree/master/tests/integration/component)
-to keep components for reuse in different cases.
-It is advised to reuse existing components if possible.
-Also, you can update existing components to satisfy your requirement as long as the change is backward compatible and
-does not break existing tests.  If you cannot find a component to reuse, you can create your own and put it in the same components directory
-if it is can be reused by other developers and test cases.
-
-* A component must implement Component interface with all methods:
-
-    * `GetName()`: GetName return component name. This enforce every component to have a name.
-    * `Start()`: Start defines how to step up and start this component. Will be called in testEnvManager.SetUp()
-    * `Stop()`: Stop defines how to stop this component. Will be called in testEnvManager.TearDown()
-    * `IsAlive()`: This is a method to check if this component is alive and working properly. It’s way to monitor if it’s being successfully started/stopped.
-    * `GetConfig()`: GetConfig returns the config of this component for outside use. It can be called anytime during the whole component lifetime. It's recommended to use sync. Mutex to lock data while read in case component itself is accessing config.
-    * `SetConfig(config Config)`: SetConfig sets a config into this component. Initial config is set when during initialization. But config can be updated at runtime using SetConfig. Component needs to implement extra functions to apply new configs. It's recommended to use sync.Mutex to lock data while write in case component itself is accessing config.
-    * `GetStatus()`: GetStatus returns the status of this component for outside use. It can be called anytime during the whole component lifetime. It's recommended to use sync.Mutex to lock data while read in case component itself is updating status.
-
-### Create a test environment
-
-Create a test environment and define what components are included.
-
-* A environment must implement environment interface with all methods:
-
-    * `GetComponents()`: The key part, this method bakes components in this environment and returns them in a list. It should be singleton-like function
-    * `GetName()`: GetName return environment name. This enforce every environment to have a name.
-    * `Bringup()`: Preparations should be done for the whole environment
-    * `Cleanup()`: Clean everything created by this test environment, not component level
-
-### Create your test files
-Create tests under your code directory and import framework package. 
-Here are [two example test files](https://github.com/istio/istio/tree/master/tests/integration/example/tests). Create multiple test cases with the name “Testxxx” and then add a TestMain(). 
-Only several things need to be included in `TestMain()`.
-
-`testEM.RunTest(m)` handles bringing up environment, triggering tests and teardown.
-
-```bash
-var (
-    testEM *framework.TestEnvManager
-)
-
+```go
 func TestMain(m *testing.M) {
-      //Parse flags for environments and components
-      flag.Parse()
+    framework.
+        NewSuite("mysuite", m).
+        Run()
+}
+```
 
-      // Create an environment
-      testEnv := mixerEnvoyEnv.NewMixerEnvoyEnv(“mixer_envoy_env”)
-      
-      // Feed the env to a testEnvManager testEM
-      testEM = framework.NewTestEnvManager(testEnv, “sample_Test”)
+Next, define your tests in the same package:
 
-      // Kick off tests through testEnvManager
-      res := testEM.RunTest(m)
+```go
+func TestMyLogic(t *testing.T) {
+    framework.
+        NewTest(t).
+        Run(func(ctx framework.TestContext) {
+            // Create a component
+            g := galley.NewOrFail(ctx, ctx, cfg)
 
-      log.Printf("Test result %d in env %s", res, mixerEnvoyEnvName)
-      os.Exit(res)
+            // Use the component.
+            g.ApplyConfigOrFail(ctx, nil, mycfg)
+            defer g.DeleteConfigOrFail(ctx, nil, mycfg)
+
+            // Do more stuff here.
+        }
+}
+```
+
+The `framework.TestContext` is a wrapper around the underlying `testing.T` and implements the same interface. Test code
+should generally not interact with the `testing.T` directly.
+
+In the `TestMain`, you can also restrict the test to particular environment, apply labels, or do test-wide setup, such as
+ deploying Istio.
+
+```go
+func TestMain(m *testing.M) {
+    framework.
+        NewSuite("mysuite", m).
+        // Restrict the test to the K8s environment only, tests will be skipped in native environment.
+        RequireEnvironment(environment.Kube).
+        // Deploy Istio on the cluster
+        Setup(istio.SetupOnKube(nil, nil)).
+        // Run your own custom setup
+        Setup(mySetup).
+        Run()
 }
 
+func mySetup(ctx resource.Context) error {
+    // Your own setup code
+    return nil
+}
 ```
 
+### Sub-Tests
+
+Go allows you to run sub-tests with `t.Run()`. Similarly, this framework supports nesting tests with `ctx.NewSubTest()`:
+
+```go
+func TestMyLogic(t *testing.T) {
+    framework.
+        NewTest(t).
+        Run(func(ctx framework.TestContext) {
+
+            // Create a component
+            g := galley.NewOrFail(ctx, ctx, cfg)
+
+            configs := []struct{
+                name: string
+                yaml: string
+            } {
+                // Some array of YAML
+            }
+
+            for _, cfg := range configs {
+                ctx.NewSubTest(cfg.name).
+                    Run(func(ctx framework.TestContext) {
+                        g.ApplyConfigOrFail(ctx, nil, mycfg)
+                        defer g.DeleteConfigOrFail(ctx, nil, mycfg)
+                        // Do more stuff here.
+                    })
+            }
+        })
+}
+```
+
+Under the hood, calling `subtest.Run()` delegates to `t.Run()` in order to create a child `testing.T`.
+
+### Parallel Tests
+
+Many tests can take a while to start up for a variety of reasons, such as waiting for pods to start or waiting
+for a particular piece of configuration to propagate throughout the system. Where possible, it may be desirable
+to run these sorts of tests in parallel:
+
+```go
+func TestMyLogic(t *testing.T) {
+    framework.
+        NewTest(t).
+        RunParallel(func(ctx framework.TestContext) {
+            // ...
+        }
+}
+```
+
+Under the hood, this relies on Go's `t.Parallel()` and will, therefore, have the same behavior.
+
+A parallel test will run in parallel with siblings that share the same parent test. The parent test function
+will exit before the parallel children are executed. It should be noted that if the parent test is prevented
+from exiting (e.g. parent test is waiting for something to occur within the child test), the test will
+deadlock.
+
+Consider the following example:
+
+```go
+func TestMyLogic(t *testing.T) {
+    framework.NewTest(t).
+        Run(func(ctx framework.TestContext) {
+            ctx.NewSubTest("T1").
+                Run(func(ctx framework.TestContext) {
+                    ctx.NewSubTest("T1a").
+                        RunParallel(func(ctx framework.TestContext) {
+                            // Run in parallel with T1b
+                        })
+                    ctx.NewSubTest("T1b").
+                        RunParallel(func(ctx framework.TestContext) {
+                            // Run in parallel with T1a
+                        })
+                    // Exits before T1a and T1b are run.
+                })
+
+            ctx.NewSubTest("T2").
+                Run(func(ctx framework.TestContext) {
+                    ctx.NewSubTest("T2a").
+                        RunParallel(func(ctx framework.TestContext) {
+                            // Run in parallel with T2b
+                        })
+                    ctx.NewSubTest("T2b").
+                        RunParallel(func(ctx framework.TestContext) {
+                            // Run in parallel with T2a
+                        })
+                    // Exits before T2a and T2b are run.
+                })
+        })
+}
+```
+
+In the example above, non-parallel parents T1 and T2 contain parallel children T1a, T1b, T2a, T2b.
+
+Since both T1 and T2 are non-parallel, they are run synchronously: T1 followed by T2. After T1 exits,
+T1a and T1b are run asynchronously with each other. After T1a and T1b complete, T2 is then run in the
+same way: T2 exits, then T2a and T2b are run asynchronously to completion.
+
+### Using Components
+
+The framework, itself, is just a platform for running tests and tracking resources. Without these `resources`, there
+isn't much added value. Enter: components.
+
+Components are utilities that provide abstractions for Istio resources. They are maintained in the
+[components package](https://github.com/istio/istio/tree/master/pkg/test/framework/components), which defines
+various Istio components such as galley, pilot, and namespaces.
+
+Each component defines their own API which simplifies their use from test code, abstracting away the
+environment-specific details. This means that the test code can (and should, where possible) be written in an
+environment-agnostic manner, so that they can be run against any Istio implementation.
+
+For example, the following code creates and then interacts with a Galley and Pilot component:
+
+```go
+func TestMyLogic(t *testing.T) {
+    framework.
+        NewTest(t).
+        Run(func(ctx framework.TestContext) {
+            // Create the components.
+            g := galley.NewOrFail(ctx, ctx, galley.Config{})
+            p := pilot.NewOrFail(ctx, ctx, pilot.Config {
+                Galley: g,
+            })
+
+            // Apply configuration via Galley.
+            g.ApplyConfigOrFail(ctx, nil, mycfg)
+            defer g.DeleteConfigOrFail(ctx, nil, mycfg)
+
+            // Wait until Pilot has received the configuration update.
+            p.StartDiscoveryOrFail(t, discoveryRequest)
+            p.WatchDiscoveryOrFail(t, timeout,
+                func(response *xdsapi.DiscoveryResponse) (b bool, e error) {
+                    // Validate that the discovery response has the configuration applied.
+                })
+            // Do more stuff...
+        }
+}
+```
+
+When a component is created, the framework tracks its lifecycle. When the test exits, any components that were
+created during the test are automatically closed.
+
+### Writing Components
+
+To add a new component, you'll first need to create a top-level folder for your component under the
+[components folder](https://github.com/istio/istio/tree/master/pkg/test/framework/components).
+
+```console
+$ cd ${ISTIO}/tests/integration
+$ mkdir mycomponent
+```
+
+You'll then need to define your component's API.
+
+```go
+package mycomponent
+
+type Instance interface {
+    resource.Resource
+
+    DoStuff() error
+    DoStuffOrFail(t test.Failer)
+}
+```
+
+| NOTE: A common pattern is to provide two versions of many methods: one that returns an error as well as an `OrFail` version that fails the test upon encountering an error. This provides options to the calling test and helps to simplify the calling logic. |
+| --- |
+
+Next you need to implement your component for one or more environments. If possible, create both a native and Kubernetes version.
+
+```go
+package mycomponent
+
+type nativeComponent struct {
+    id resource.ID
+    // ...
+}
+
+func newNative(ctx resource.Context) (Instance, error) {
+    if config.Galley == nil {
+        return nil, errors.New("galley must be provided")
+    }
+
+    instance := &nativeComponent{}
+    instance.id = ctx.TrackResource(instance)
+
+    //...
+    return instance, nil
+}
+
+func (c *nativeComponent) ID() resource.ID {
+    return c.id
+}
+```
+
+Each implementation of the component must implement `resource.Resource`, which just exposes a unique identifier for your
+component instances used for resource tracking by the framework. To get the ID, the component must call `ctx.TrackResource`
+during construction.
+
+Finally, you'll need to provide an environment-agnostic constructor for your component:
+
+```go
+package mycomponent
+
+func New(ctx resource.Context) (i Instance, err error){
+    err = resource.UnsupportedEnvironment(ctx.Environment())
+    ctx.Environment().Case(environment.Native, func() {
+        i, err = newNative(ctx)
+    })
+    ctx.Environment().Case(environment.Kube, func() {
+        i, err = newKube(ctx)
+    })
+    return
+}
+
+func NewOrFail(t test.Failer, ctx resource.Context) Instance {
+    i, err := New(ctx)
+    if err != nil {
+        t.Fatal(err)
+    }
+    return i
+}
+```
+
+Now that everything is in place, you can begin using your component:
+
+```go
+func TestMyLogic(t *testing.T) {
+    framework.
+        NewTest(t).
+        Run(func(ctx framework.TestContext) {
+            // Create the components.
+            g := myComponent.NewOrFail(ctx, ctx)
+
+            // Do more stuff...
+        }
+}
+```
+
+## Running Tests
+
+The test framework builds on top of the Go testing infrastructure, and is therefore compatible with
+the standard `go test` command-line.  For example, to run the tests under the `/tests/integration/mycomponent`
+using the default (native) environment, you can simply type:
+
+```console
+$ go test ./tests/integration/mycomponent/...
+```
+
+Note that samples below invoking variations of ```go test ./...``` are intended to be run from the ```tests/integration``` directory.
+
+| WARNING: Many tests, including integration tests, assume that a [Helm](https://helm.sh/docs/using_helm/#installing-helm) client is installed and on the path.|
+| --- |
+
+### Test Parellelism and Kubernetes
+
+By default, Go will run tests within the same package (i.e. suite) synchronously. However, tests in other packages
+may be run concurrently.
+
+When running in the [Kubernetes environment](#kubernetes-environment) this can be problematic for suites that deploy
+Istio. The Istio deployment, as it stands is a singleton per cluster. If multiple suites attempt to deploy/configure
+Istio, they can corrupt each other and/or simply fail.  To avoid this issue, you have a couple of options:
+
+1. Run one suite per command (e.g. `go test ./tests/integration/mysuite/...`)
+1. Disable parallelism with `-p 1` (e.g. `go test -p 1 ./...`). A major disadvantage to doing this is that it will also disable
+parallelism within the suite, even when explicitly specified via [RunParallel](#parallel-tests).
+
+### Test Selection
+
+When no flags are specified, the test framework will run all applicable tests. It is possible to filter in/out specific
+tests using 2 mechanisms:
+
+1. The standard ```-run <regexp>``` flag, as exposed by Go's own test framework.
+1. ```--istio.test.select <filter-expr>``` flag to select/skip framework-aware tests that use labels.
+
+For example, if a test, or test suite uses labels in this fashion:
+
+```go
+func TestMain(m *testing.M) {
+    framework.
+        NewSuite("galley_conversion", m).
+        // Test is tagged with "Presubmit" label
+        Label(label.CustomSetup).
+        Run()
+```
+
+Then you can explicitly select execution of such tests using label based selection. For example, the following expression
+will select only the tests that have the ```label.CustomSetup``` label.
+
+```console
+$ go test ./... --istio.test.select +customsetup
+```
+
+Similarly, you can exclude tests that use ```label.CustomSetup``` label by:
+
+```console
+$ go test ./... --istio.test.select -customsetup
+```
+
+You can "and" the predicates by separating with commas:
+
+```console
+$ go test ./... --istio.test.select +customsetup,-postsubmit
+```
+
+This will select tests that have ```label.CustomSetup``` only. It will **not** select tests that have both ```label.CustomSetup```
+and ```label.Postsubmit```.
+
+### Running Tests on CI
+
+Istio's CI/CD system is composed of 2 parts:
+
+Tool | Description |
+---|---
+[Prow](https://github.com/kubernetes/test-infra/tree/master/prow) | Kubernetes-based CI/CD system developed by the Kubernetes community and is deployed in Google Kubernetes Engine (GKE).
+[TestGrid](https://k8s-testgrid.appspot.com/istio-release) | A Kubernetes dashboard used for visualizing the status of the Prow jobs.
+
+This section describes the steps for adding new tests to Prow and TestGrid.
+
+#### Step 1: Add a Test Script
+
+To simplify the process of running tests from Prow, each suite is given its own test script under the
+[prow](https://github.com/istio/istio/tree/master/prow) folder.
+
+Embedded in the name of the script is the following:
+
+1. Type of test (unit, end-to-end, integration)
+1. Component/feature being tested
+1. The environment used (i.e. native/local or k8s)
+1. Job execution (i.e. presubmit, postsubmit)
+
+For example, the file `integ-security-k8s-presubmit-tests.sh` runs integration tests for various Istio security
+features on Kubernetes during PR pre-submit.
+
+In general, when creating a new script use similar scripts as a guide.
+
+#### Step 2: Add a Prow Job
+
+Istio's Prow jobs are configured in the [istio/test-infra](https://github.com/istio/test-infra) repository.
+
+The [prow/cluster/jobs/istio/istio](https://github.com/istio/test-infra/tree/master/prow/cluster/jobs/istio/istio) folder
+contains configuration files for running Prow jobs against various Istio branches.
+
+For example, [istio.istio.master.yaml](https://github.com/istio/test-infra/blob/master/prow/cluster/jobs/istio/istio/istio.istio.master.gen.yaml)
+configures Prow jobs that run against Istio's master branch.
+
+Each configuration file contains sections for both **presubmit** and **postsubmit**. To add a new job, add a new config
+stanza to one of these sections, using an existing config stanza as a template.
+
+In general, all tests *should* be required to succeed. However, as flaky tests appear we may need to temporarily disable
+certain jobs from gating PR submission. This can be done by adding the following to the configuration:
+
+```yaml
+optional: true
+```
+
+When this is done, however, a GitHub issue should be raised to address the flake and move the job back to required.
+
+#### Step 3: Update TestGrid
+
+TestGrid is owned by the Kubernetes team and its configuration is located in the
+[kubernetes/test-infra](https://github.com/kubernetes/test-infra) repository.
+Configuring testgrid is explained [here](https://github.com/kubernetes/test-infra/blob/master/testgrid/config.md)
+
+## Environments
+
+When running tests, only one environment can be specified. Currently, the framework supports the following:
+
+### Native Environment (Default)
+
+The test binaries run on the native platform either in-memory, or as processes. This is the default, however you can
+also explicitly specify the native environment:
+
+```console
+$ go test ./... -istio.test.env native
+```
+
+### Kubernetes Environment
+
+The test binaries run in a Kubernetes cluster, but the test logic runs in the test binary. To specify the Kubernetes
+environment:
+
+```console
+$ go test ./... -p 1 --istio.test.env kube
+```
+
+| WARNING: ```-p 1``` is required when running directly in the ```tests/integration/``` folder, when using ```kube``` environment. |
+| --- |
+
+When running the tests against the Kubernetes environment, you will need to provide a K8s cluster to run the tests
+against.
+(See [here](https://github.com/istio/istio/blob/master/tests/integration/GKE.md)
+for info about how to set up a suitable GKE cluster.)
+You can specify the kube config file that should be used to use for connecting to the cluster, through
+command-line:
+
+```console
+$ go test ./... -p 1 --istio.test.env kube --istio.test.kube.config ~/.kube/config
+```
+
+If not specified, `~/.kube/config` will be used by default.
+
+**Be aware that any existing content will be altered and/or removed from the cluster**.
+
+Note that the HUB and TAG environment variables **must** be set when running tests in the Kubernetes environment.
+
+## Diagnosing Failures
+
+### Working Directory
+
+The test framework will generate additional diagnostic output in its work directory. Typically, this is
+created under the host operating system's temporary folder (which can be overridden using
+the `--istio.test.work_dir` flag). The name of the work dir will be based on the test id that is supplied in
+a tests TestMain method. These files typically contain some of the logging & diagnostic output that components
+spew out as part of test execution
+
+```console
+$ go test galley/... --istio.test.work_dir /foo
+  ...
+
+$ ls /foo
+  galley-test-4ef25d910d2746f9b38/
+
+$ ls /foo/galley-test-4ef25d910d2746f9b38/
+  istio-system-1537332205890088657.yaml
+  ...
+```
+
+### Enabling CI Mode
+
+When executing in the CI systems, the makefiles use the ```--istio.test.ci``` flag. This flag causes a few changes in
+behavior. Specifically, more verbose logging output will be displayed, some of the timeout values will be more relaxed, and
+additional diagnostic data will be dumped into the working directory at the end of the test execution.
+
+The flag is not enabled by default to provide a better U/X when running tests locally (i.e. additional logging can clutter
+test output and error dumping can take quite a while). However, if you see a behavior difference between local and CI runs,
+you can enable the flag to make the tests work in a similar fashion.
+
+### Preserving State (No Cleanup)
+
+By default, the test framework will cleanup all deployed artifacts after the test run, especially on the Kubernetes
+environment. You can specify the ```--istio.test.nocleanup``` flag to stop the framework from cleaning up the state
+for investigation.
+
+### Additional Logging
+
+The framework accepts standard istio logging flags. You can use these flags to enable additional logging for both the
+framework, as well as some of the components that are used in-line in the native environment:
+
+```console
+$ go test ./... --log_output_level=tf:debug,mcp:debug
+```
+
+The above example will enable debugging logging for the test framework (```tf```) and the MCP protocol stack (```mcp```).
+
+### Running Tests Under Debugger (GoLand)
+
+The tests authored in the new test framework can be debugged directly under GoLand using the debugger. If you want to
+pass command-line flags to the test while running under the debugger, you can use the
+[Run/Debug configurations dialog](https://i.stack.imgur.com/C6y0L.png) to specify these flags as program arguments.
+
+## Reference
+
+### Helm Values Overrides
+
+If your tests require special Helm values flags, you can specify your Helm values via additional
+for Kubernetes environments. See [mtls_healthcheck_test.go](security/healthcheck/mtls_healthcheck_test.go) for example.
+
+### Command-Line Flags
+
+The test framework supports the following command-line flags:
+
+```plain
+  -istio.test.env string
+        Specify the environment to run the tests against. Allowed values are: [native kube] (default "native")
+
+  -istio.test.work_dir string
+        Local working directory for creating logs/temp files. If left empty, os.TempDir() is used.
+
+ -istio.test.ci
+        Enable CI Mode. Additional logging and state dumping will be enabled.
+
+  -istio.test.nocleanup
+        Do not cleanup resources after test completion
+
+  -istio.test.select string
+        Comma separatated list of labels for selecting tests to run (e.g. 'foo,+bar-baz').
+
+  -istio.test.hub string
+        Container registry hub to use (default HUB environment variable)
+
+  -istio.test.tag string
+        Common Container tag to use when deploying container images (default TAG environment variable)
+
+  -istio.test.pullpolicy string
+        Common image pull policy to use when deploying container images
+
+  -istio.test.kube.config string
+        The path to the kube config file for cluster environments
+
+  -istio.test.kube.deploy
+        Deploy Istio into the target Kubernetes environment. (default true)
+
+  -istio.test.kube.deployTimeout duration
+        Timeout applied to deploying Istio into the target Kubernetes environment. Only applies if DeployIstio=true.
+
+  -istio.test.kube.undeployTimeout duration
+        Timeout applied to undeploying Istio from the target Kubernetes environment. Only applies if DeployIstio=true.
+
+  -istio.test.kube.systemNamespace string
+        The namespace where the Istio components reside in a typical deployment. (default "istio-system")
+
+  -istio.test.kube.helm.chartDir string
+        Helm chart dir for Istio. Only valid when deploying Istio. (default "/Users/ozben/go/src/istio.io/istio/install/kubernetes/helm/istio")
+
+  -istio.test.kube.helm.values string
+        Manual overrides for Helm values file. Only valid when deploying Istio.
+
+  -istio.test.kube.helm.valuesFile string
+        Helm values file. This can be an absolute path or relative to chartDir. Only valid when deploying Istio. (default "test-values/values-e2e.yaml")
+
+  -istio.test.kube.minikube
+        Indicates that the target environment is Minikube. Used by Ingress component to obtain the right IP address. This also pertains to any environment that doesn't support a LoadBalancer type.
+```
+
+}
+
+## Notes
+
+### Running on a Mac
+
+* Currently some _native_ tests fail when being run on a Mac with an error like:
+
+```plain
+unable to locate an Envoy binary
+```
+
+This is documented in this [PR](https://github.com/istio/istio/issues/13677). Once the Envoy binary is available for the Mac,
+these tests will hopefully succeed.
+
+* If one uses Docker for Mac for the kubernetes environment be sure to specify the `-istio.test.kube.minikube` parameter. The solves an error like:
+
+```plain
+service ingress is not available yet
+```

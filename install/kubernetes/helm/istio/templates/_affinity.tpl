@@ -16,8 +16,15 @@
           values:
         {{- range $key, $val := .Values.global.arch }}
           {{- if gt ($val | int) 0 }}
-          - {{ $key }}
+          - {{ $key | quote }}
           {{- end }}
+        {{- end }}
+        {{- $nodeSelector := default .Values.global.defaultNodeSelector .Values.nodeSelector -}}
+        {{- range $key, $val := $nodeSelector }}
+        - key: {{ $key }}
+          operator: In
+          values:
+          - {{ $val | quote }}
         {{- end }}
 {{- end }}
 
@@ -30,7 +37,57 @@
         - key: beta.kubernetes.io/arch
           operator: In
           values:
-          - {{ $key }}
+          - {{ $key | quote }}
     {{- end }}
   {{- end }}
+{{- end }}
+
+{{- define "podAntiAffinity" }}
+{{- if or .Values.podAntiAffinityLabelSelector .Values.podAntiAffinityTermLabelSelector}}
+  podAntiAffinity:
+    {{- if .Values.podAntiAffinityLabelSelector }}
+    requiredDuringSchedulingIgnoredDuringExecution:
+    {{- include "podAntiAffinityRequiredDuringScheduling" . }}
+    {{- end }}
+    {{- if or .Values.podAntiAffinityTermLabelSelector}}
+    preferredDuringSchedulingIgnoredDuringExecution:
+    {{- include "podAntiAffinityPreferredDuringScheduling" . }}
+    {{- end }}
+{{- end }}
+{{- end }}
+
+{{- define "podAntiAffinityRequiredDuringScheduling" }}
+    {{- range $index, $item := .Values.podAntiAffinityLabelSelector }}
+    - labelSelector:
+        matchExpressions:
+        - key: {{ $item.key }}
+          operator: {{ $item.operator }}
+          {{- if $item.values }}
+          values:
+          {{- $vals := split "," $item.values }}
+          {{- range $i, $v := $vals }}
+          - {{ $v | quote }}
+          {{- end }}
+          {{- end }}
+      topologyKey: {{ $item.topologyKey }}
+    {{- end }}
+{{- end }}
+
+{{- define "podAntiAffinityPreferredDuringScheduling" }}
+    {{- range $index, $item := .Values.podAntiAffinityTermLabelSelector }}
+    - podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: {{ $item.key }}
+            operator: {{ $item.operator }}
+            {{- if $item.values }}
+            values:
+            {{- $vals := split "," $item.values }}
+            {{- range $i, $v := $vals }}
+            - {{ $v | quote }}
+            {{- end }}
+            {{- end }}
+        topologyKey: {{ $item.topologyKey }}
+      weight: 100
+    {{- end }}
 {{- end }}

@@ -17,20 +17,24 @@
 package mockapi // import "istio.io/istio/mixer/pkg/mockapi"
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net"
 	"time"
 
-	rpc "github.com/gogo/googleapis/google/rpc"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	grpcstatus "google.golang.org/grpc/status"
+
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/status"
+	attr "istio.io/pkg/attribute"
 )
 
 // DefaultAmount is the default quota amount to use in testing (1).
@@ -51,20 +55,28 @@ type AttributesServer struct {
 	// GlobalDict controls the known global dictionary for attribute processing.
 	GlobalDict map[string]int32
 
-	// GenerateGRPCError instructs the server whether or not to fail-fast with
-	// an error that will manifest as a GRPC error.
-	GenerateGRPCError bool
-
 	// Handler is what the server will call to simulate passing attribute bags
 	// and method args within the Mixer server. It allows tests to gain access
 	// to the attribute handling pipeline within Mixer and to set the response
 	// details.
 	Handler AttributesHandler
+
+	// CheckMetadata indicates whether to check for presence of gRPC metadata for
+	// forwarded attributes.
+	checkMetadata func(*mixerpb.Attributes) error
+
+	// GenerateGRPCError instructs the server whether or not to fail-fast with
+	// an error that will manifest as a GRPC error.
+	GenerateGRPCError bool
+
+	// CheckGlobalDict indicates whether to check if proxy global dictionary
+	// is ahead of the one in mixer.
+	checkGlobalDict bool
 }
 
 // NewAttributesServer creates an AttributesServer. All channels are set to
 // default length.
-func NewAttributesServer(handler AttributesHandler) *AttributesServer {
+func NewAttributesServer(handler AttributesHandler, checkDict bool) *AttributesServer {
 	list := attribute.GlobalList()
 	globalDict := make(map[string]int32, len(list))
 	for i := 0; i < len(list); i++ {
@@ -72,10 +84,39 @@ func NewAttributesServer(handler AttributesHandler) *AttributesServer {
 	}
 
 	return &AttributesServer{
-		globalDict,
-		false,
-		handler,
+		GlobalDict:        globalDict,
+		GenerateGRPCError: false,
+		Handler:           handler,
+		checkGlobalDict:   checkDict,
 	}
+}
+
+// SetCheckMetadata enables gRPC metadata checking.
+func (a *AttributesServer) SetCheckMetadata(checkMetadata func(*mixerpb.Attributes) error) {
+	a.checkMetadata = checkMetadata
+}
+
+func (a *AttributesServer) validateMetadata(ctx context.Context) error {
+	headers, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return errors.New("no gRPC metadata in the incoming context")
+	}
+	header := headers.Get("x-istio-attributes")
+	if len(header) != 1 {
+		return fmt.Errorf("incorrect x-istio-attributes metadata in gRPC context: %v", header)
+	}
+	decoded, err := base64.StdEncoding.DecodeString(header[0])
+	if err != nil {
+		return err
+	}
+	var attrs mixerpb.Attributes
+	if err = attrs.Unmarshal(decoded); err != nil {
+		return err
+	}
+	if err = a.checkMetadata(&attrs); err != nil {
+		return err
+	}
+	return nil
 }
 
 // Check sends a copy of the protocol buffers attributes wrapper for the preconditions
@@ -83,18 +124,27 @@ func NewAttributesServer(handler AttributesHandler) *AttributesServer {
 // builds a CheckResponse based on server fields. All channel sends timeout to
 // prevent problematic tests from blocking indefinitely.
 func (a *AttributesServer) Check(ctx context.Context, req *mixerpb.CheckRequest) (*mixerpb.CheckResponse, error) {
+	if a.checkMetadata != nil {
+		if err := a.validateMetadata(ctx); err != nil {
+			return nil, err
+		}
+	}
+
 	if a.GenerateGRPCError {
 		return nil, errors.New("error handling check call")
 	}
+	if a.checkGlobalDict && req.GlobalWordCount > uint32(len(a.GlobalDict)) {
+		return nil, fmt.Errorf("global dictionary mismatch: proxy %d and mixer %d", req.GlobalWordCount, len(a.GlobalDict))
+	}
 
-	requestBag := attribute.NewProtoBag(&req.Attributes, a.GlobalDict, attribute.GlobalList())
+	requestBag := attribute.GetProtoBag(&req.Attributes, a.GlobalDict, attribute.GlobalList())
 	defer requestBag.Done()
 
 	result := a.Handler.Check(requestBag)
 	if result.ReferencedAttributes == nil {
 		result.ReferencedAttributes = requestBag.GetReferencedAttributes(a.GlobalDict, int(req.GlobalWordCount))
 	}
-	requestBag.ClearReferencedAttributes()
+	requestBag.Clear()
 
 	resp := &mixerpb.CheckResponse{Precondition: result}
 
@@ -124,7 +174,7 @@ func (a *AttributesServer) Check(ctx context.Context, req *mixerpb.CheckRequest)
 				qr.ReferencedAttributes = *requestBag.GetReferencedAttributes(a.GlobalDict, int(req.GlobalWordCount))
 			}
 			resp.Quotas[name] = qr
-			requestBag.ClearReferencedAttributes()
+			requestBag.Clear()
 		}
 	}
 	return resp, nil
@@ -133,6 +183,11 @@ func (a *AttributesServer) Check(ctx context.Context, req *mixerpb.CheckRequest)
 // Report iterates through the supplied attributes sets, applying the deltas
 // appropriately, and sending the generated bags to the channel.
 func (a *AttributesServer) Report(ctx context.Context, req *mixerpb.ReportRequest) (*mixerpb.ReportResponse, error) {
+	if a.checkMetadata != nil {
+		if err := a.validateMetadata(ctx); err != nil {
+			return nil, err
+		}
+	}
 
 	if a.GenerateGRPCError {
 		return nil, errors.New("error handling report call")
@@ -149,8 +204,8 @@ func (a *AttributesServer) Report(ctx context.Context, req *mixerpb.ReportReques
 		}
 	}
 
-	protoBag := attribute.NewProtoBag(&req.Attributes[0], a.GlobalDict, attribute.GlobalList())
-	requestBag := attribute.GetMutableBag(protoBag)
+	protoBag := attribute.GetProtoBag(&req.Attributes[0], a.GlobalDict, attribute.GlobalList())
+	requestBag := attr.GetMutableBag(protoBag)
 	defer requestBag.Done()
 	defer protoBag.Done()
 
@@ -159,7 +214,7 @@ func (a *AttributesServer) Report(ctx context.Context, req *mixerpb.ReportReques
 	for i := 1; i < len(req.Attributes); i++ {
 		// the first attribute block is handled by the protoBag as a foundation,
 		// deltas are applied to the child bag (i.e. requestBag)
-		if err := requestBag.UpdateBagFromProto(&req.Attributes[i], attribute.GlobalList()); err != nil {
+		if err := attribute.UpdateBagFromProto(requestBag, &req.Attributes[i], attribute.GlobalList()); err != nil {
 			return &mixerpb.ReportResponse{}, fmt.Errorf("could not apply attribute delta: %v", err)
 		}
 

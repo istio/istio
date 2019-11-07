@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors. All Rights Reserved.
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,13 +19,13 @@ import (
 	"net"
 	"testing"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/cache"
 	xds "github.com/envoyproxy/go-control-plane/pkg/server"
-	"github.com/gogo/protobuf/types"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/grpc"
 
 	"istio.io/istio/mixer/test/client/env"
@@ -43,7 +43,10 @@ node:
   cluster: unknown
 dynamic_resources:
   ads_config:
-    cluster_names: ["xds"]
+    api_type: GRPC
+    grpc_services:
+      envoy_grpc:
+        cluster_name: xds
 static_resources:
   clusters:
   - name: xds
@@ -117,8 +120,9 @@ static_resources:
 // Report attributes from a good GET request
 const reportAttributesOkGet = `
 {
-  "destination.uid": "pod1.ns2",
   "context.protocol": "http",
+  "context.proxy_error_code": "-",
+  "context.reporter.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
   "request.host": "*",
@@ -127,13 +131,17 @@ const reportAttributesOkGet = `
   "request.useragent": "Go-http-client/1.1",
   "request.method": "GET",
   "request.scheme": "http",
+  "request.url_path": "/echo",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
+  "destination.uid": "pod1.ns2",
+  "destination.namespace": "",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
   "check.cache_hit": false,
   "quota.cache_hit": false,
   "request.headers": {
@@ -180,24 +188,26 @@ func TestDynamicAttribute(t *testing.T) {
 		Endpoints: cache.Resources{Version: "1", Items: map[string]cache.Resource{
 			"backend": &v2.ClusterLoadAssignment{
 				ClusterName: "backend",
-				Endpoints: []endpoint.LocalityLbEndpoints{{
-					LbEndpoints: []endpoint.LbEndpoint{{
+				Endpoints: []*endpoint.LocalityLbEndpoints{{
+					LbEndpoints: []*endpoint.LbEndpoint{{
 						Metadata: &core.Metadata{
-							FilterMetadata: map[string]*types.Struct{
+							FilterMetadata: map[string]*structpb.Struct{
 								"istio": {
-									Fields: map[string]*types.Value{
-										"uid": {Kind: &types.Value_StringValue{StringValue: "pod1.ns2"}},
+									Fields: map[string]*structpb.Value{
+										"uid": {Kind: &structpb.Value_StringValue{StringValue: "pod1.ns2"}},
 									},
 								},
 							},
 						},
-						Endpoint: &endpoint.Endpoint{
-							Address: &core.Address{Address: &core.Address_SocketAddress{
-								SocketAddress: &core.SocketAddress{
-									Address:       "127.0.0.1",
-									PortSpecifier: &core.SocketAddress_PortValue{PortValue: uint32(s.Ports().BackendPort)},
-								},
-							}},
+						HostIdentifier: &endpoint.LbEndpoint_Endpoint{
+							Endpoint: &endpoint.Endpoint{
+								Address: &core.Address{Address: &core.Address_SocketAddress{
+									SocketAddress: &core.SocketAddress{
+										Address:       "127.0.0.1",
+										PortSpecifier: &core.SocketAddress_PortValue{PortValue: uint32(s.Ports().BackendPort)},
+									},
+								}},
+							},
 						},
 					}},
 				}},

@@ -8,7 +8,7 @@
             },
             "serviceName": "outbound|15004||istio-policy.istio-system.svc.cluster.local"
         },
-        "connectTimeout": "1.000s",
+        "connectTimeout": "1s",
         "maxRequestsPerConnection": 10000,
         "circuitBreakers": {
             "thresholds": [

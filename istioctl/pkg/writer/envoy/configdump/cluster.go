@@ -25,11 +25,12 @@ import (
 
 	protio "istio.io/istio/istioctl/pkg/util/proto"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/host"
 )
 
 // ClusterFilter is used to pass filter information into cluster based config writer print functions
 type ClusterFilter struct {
-	FQDN      model.Hostname
+	FQDN      host.Name
 	Port      int
 	Subset    string
 	Direction model.TrafficDirection
@@ -65,7 +66,7 @@ func (c *ConfigWriter) PrintClusterSummary(filter ClusterFilter) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintln(w, "SERVICE FQDN\tPORT\tSUBSET\tDIRECTION\tTYPE")
+	_, _ = fmt.Fprintln(w, "SERVICE FQDN\tPORT\tSUBSET\tDIRECTION\tTYPE")
 	for _, cluster := range clusters {
 		if filter.Verify(cluster) {
 			if len(strings.Split(cluster.Name, "|")) > 3 {
@@ -73,9 +74,9 @@ func (c *ConfigWriter) PrintClusterSummary(filter ClusterFilter) error {
 				if subset == "" {
 					subset = "-"
 				}
-				fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\n", fqdn, port, subset, direction, cluster.Type)
+				_, _ = fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%s\n", fqdn, port, subset, direction, cluster.GetType())
 			} else {
-				fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\n", cluster.Name, "-", "-", "-", cluster.Type)
+				_, _ = fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%s\n", cluster.Name, "-", "-", "-", cluster.GetType())
 			}
 		}
 	}
@@ -98,7 +99,7 @@ func (c *ConfigWriter) PrintClusterDump(filter ClusterFilter) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintln(c.Stdout, string(out))
+	_, _ = fmt.Fprintln(c.Stdout, string(out))
 	return nil
 }
 
@@ -119,12 +120,16 @@ func (c *ConfigWriter) retrieveSortedClusterSlice() ([]*xdsapi.Cluster, error) {
 	if err != nil {
 		return nil, err
 	}
-	clusters := []*xdsapi.Cluster{}
+	clusters := make([]*xdsapi.Cluster, 0)
 	for _, cluster := range clusterDump.DynamicActiveClusters {
-		clusters = append(clusters, cluster.Cluster)
+		if cluster.Cluster != nil {
+			clusters = append(clusters, cluster.Cluster)
+		}
 	}
 	for _, cluster := range clusterDump.StaticClusters {
-		clusters = append(clusters, cluster.Cluster)
+		if cluster.Cluster != nil {
+			clusters = append(clusters, cluster.Cluster)
+		}
 	}
 	if len(clusters) == 0 {
 		return nil, fmt.Errorf("no clusters found")
@@ -146,10 +151,10 @@ func (c *ConfigWriter) retrieveSortedClusterSlice() ([]*xdsapi.Cluster, error) {
 	return clusters, nil
 }
 
-func safelyParseSubsetKey(key string) (model.TrafficDirection, string, model.Hostname, int) {
+func safelyParseSubsetKey(key string) (model.TrafficDirection, string, host.Name, int) {
 	if len(strings.Split(key, "|")) > 3 {
 		return model.ParseSubsetKey(key)
 	}
-	name := model.Hostname(key)
-	return model.TrafficDirection(""), "", name, 0
+	name := host.Name(key)
+	return "", "", name, 0
 }

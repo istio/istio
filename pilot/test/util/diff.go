@@ -17,18 +17,18 @@ package util
 import (
 	"errors"
 	"io/ioutil"
-	"os"
 	"strings"
 	"testing"
 
 	"github.com/pmezard/go-difflib/difflib"
+
+	"istio.io/pkg/env"
 )
 
 // Refresh controls whether to update the golden artifacts instead.
 // It is set using the environment variable REFRESH_GOLDEN.
 func Refresh() bool {
-	v, exists := os.LookupEnv("REFRESH_GOLDEN")
-	return exists && v == "true"
+	return env.RegisterBoolVar("REFRESH_GOLDEN", false, "").Get()
 }
 
 // Compare compares two byte slices. It returns an error with a
@@ -87,18 +87,23 @@ func CompareContent(content []byte, goldenFile string, t *testing.T) {
 // ReadGoldenFile reads the content of the golden file and fails the test if an error is encountered
 func ReadGoldenFile(content []byte, goldenFile string, t *testing.T) []byte {
 	t.Helper()
+	RefreshGoldenFile(content, goldenFile, t)
+
+	return ReadFile(goldenFile, t)
+}
+
+// RefreshGoldenFile updates the golden file with the given content
+func RefreshGoldenFile(content []byte, goldenFile string, t *testing.T) {
 	if Refresh() {
 		t.Logf("Refreshing golden file %s", goldenFile)
 		if err := ioutil.WriteFile(goldenFile, content, 0644); err != nil {
 			t.Errorf(err.Error())
 		}
 	}
-
-	return ReadFile(goldenFile, t)
 }
 
 // ReadFile reads the content of the given file or fails the test if an error is encountered.
-func ReadFile(file string, t *testing.T) []byte {
+func ReadFile(file string, t testing.TB) []byte {
 	t.Helper()
 	golden, err := ioutil.ReadFile(file)
 	if err != nil {

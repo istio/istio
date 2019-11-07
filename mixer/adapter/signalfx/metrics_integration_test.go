@@ -149,13 +149,13 @@ func TestReportMetrics(t *testing.T) {
 				{
 					CallKind: adapter_integration.REPORT,
 					Attrs: map[string]interface{}{
-						"request.size": 1000,
+						"request.size": int64(1000),
 					},
 				},
 				{
 					CallKind: adapter_integration.REPORT,
 					Attrs: map[string]interface{}{
-						"request.size": 500,
+						"request.size": int64(500),
 					},
 				},
 			},

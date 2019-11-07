@@ -18,17 +18,24 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/http/cookiejar"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/util"
+	"istio.io/pkg/log"
 )
 
+type user struct {
+	username  string
+	cookiejar *cookiejar.Jar
+}
+
 type userVersion struct {
-	user    string
+	user    user
 	version string
 	model   string
 }
@@ -46,12 +53,12 @@ func TestVersionRouting(t *testing.T) {
 		{key: testRule,
 			userVersions: []userVersion{
 				{
-					user:    u1,
+					user:    normalUser,
 					version: "v1",
 					model:   v1Model,
 				},
 				{
-					user:    u2,
+					user:    testUser,
 					version: "v2",
 					model:   v2TestModel,
 				},
@@ -59,9 +66,7 @@ func TestVersionRouting(t *testing.T) {
 		},
 	}
 
-	for _, configVersion := range tf.ConfigVersions() {
-		testVersionRoutingRules(t, configVersion, rules)
-	}
+	testVersionRoutingRules(t, "v1alpha3", rules)
 }
 
 func testVersionRoutingRules(t *testing.T, configVersion string, rules []versionRoutingRule) {
@@ -78,21 +83,18 @@ func testVersionRoutingRule(t *testing.T, configVersion string, rule versionRout
 		inspect(applyRules(configVersion, defaultRules), "failed to apply rules", "", t)
 	}()
 
-	for _, userVersion := range rule.userVersions {
-		_, err := checkRoutingResponse(userVersion.user, userVersion.version,
-			getIngressOrFail(t, configVersion), userVersion.model)
+	for _, uv := range rule.userVersions {
+		_, err := checkRoutingResponse(uv.user.cookiejar, uv.version, getIngressOrFail(t), uv.model)
 		inspect(
-			err, fmt.Sprintf("Failed version routing! %s in %s", userVersion.user, userVersion.version),
-			fmt.Sprintf("Success! Response matches with expected! %s in %s", userVersion.user,
-				userVersion.version), t)
+			err, fmt.Sprintf("Failed version routing! %s in %s", uv.user.username, uv.version),
+			fmt.Sprintf("Success! Response matches with expected! %s in %s", uv.user.username,
+				uv.version), t)
 	}
 }
 
 func TestFaultDelay(t *testing.T) {
 	var rules = []string{testRule, delayRule}
-	for _, configVersion := range tf.ConfigVersions() {
-		doTestFaultDelay(t, configVersion, rules)
-	}
+	doTestFaultDelay(t, "v1alpha3", rules)
 }
 
 func doTestFaultDelay(t *testing.T, configVersion string, rules []string) {
@@ -108,7 +110,7 @@ func doTestFaultDelay(t *testing.T, configVersion string, rules []string) {
 		filepath.Join(modelDir, "productpage-test-user-v1-review-timeout.html"))
 	for i := 0; i < testRetryTimes; i++ {
 		duration, err := checkRoutingResponse(
-			u2, "v1-timeout", getIngressOrFail(t, configVersion),
+			testUser.cookiejar, "v1-timeout", getIngressOrFail(t),
 			testModel)
 		log.Infof("Get response in %d second", duration)
 		if err == nil && duration >= minDuration && duration <= maxDuration {
@@ -134,9 +136,7 @@ type migrationRule struct {
 }
 
 func TestVersionMigration(t *testing.T) {
-	for _, configVersion := range tf.ConfigVersions() {
-		doTestVersionMigration(t, configVersion)
-	}
+	doTestVersionMigration(t, "v1alpha3")
 }
 
 func doTestVersionMigration(t *testing.T, configVersion string) {
@@ -176,22 +176,13 @@ func testVersionMigrationRule(t *testing.T, configVersion string, rule migration
 	modelV1 := util.GetResourcePath(filepath.Join(modelDir, "productpage-normal-user-v1.html"))
 	tolerance := 0.05
 	totalShot := 100
-	cookies := []http.Cookie{
-		{
-			Name:  "foo",
-			Value: "bar",
-		},
-		{
-			Name:  "user",
-			Value: "normal-user",
-		},
-	}
+
+	once := sync.Once{}
 
 	for i := 0; i < testRetryTimes; i++ {
 		c1, cVersionToMigrate := 0, 0
 		for c := 0; c < totalShot; c++ {
-			resp, err := getWithCookie(fmt.Sprintf("%s/productpage",
-				getIngressOrFail(t, configVersion)), cookies)
+			resp, err := getWithCookieJar(fmt.Sprintf("%s/productpage", getIngressOrFail(t)), normalUser.cookiejar)
 			inspect(err, "Failed to record", "", t)
 			if resp.StatusCode != http.StatusOK {
 				log.Errorf("unexpected response status %d", resp.StatusCode)
@@ -209,9 +200,11 @@ func testVersionMigrationRule(t *testing.T, configVersion string, rule migration
 			} else if cVersionToMigrateError = util.CompareToFile(body, rule.modelToMigrate); cVersionToMigrateError == nil {
 				cVersionToMigrate++
 			} else {
-				log.Error("received unexpected version: %s")
-				log.Infof("comparing to the original version: %v", c1CompareError)
-				log.Infof("comparing to the version to migrate to: %v", cVersionToMigrateError)
+				log.Errorf("received unexpected version: %s", configVersion)
+				once.Do(func() {
+					log.Infof("comparing to the original version: %v", c1CompareError)
+					log.Infof("comparing to the version to migrate to: %v", cVersionToMigrateError)
+				})
 			}
 			closeResponseBody(resp)
 		}
@@ -239,9 +232,7 @@ func isWithinPercentage(count int, total int, rate float64, tolerance float64) b
 
 func TestDbRoutingMongo(t *testing.T) {
 	var rules = []string{testDbRule}
-	for _, configVersion := range tf.ConfigVersions() {
-		doTestDbRoutingMongo(t, configVersion, rules)
-	}
+	doTestDbRoutingMongo(t, "v1alpha3", rules)
 }
 
 func doTestDbRoutingMongo(t *testing.T, configVersion string, rules []string) {
@@ -256,18 +247,16 @@ func doTestDbRoutingMongo(t *testing.T, configVersion string, rules []string) {
 
 	respExpr := "glyphicon-star" // not great test for v2 or v3 being alive
 
-	_, err = checkHTTPResponse(u1, getIngressOrFail(t, configVersion), respExpr, 10)
+	err = checkHTTPResponse(getIngressOrFail(t), respExpr, 10)
 	inspect(
-		err, fmt.Sprintf("Failed database routing! %s in v1", u1),
+		err, fmt.Sprintf("Failed database routing! %s in v1", normalUser.username),
 		fmt.Sprintf("Success! Response matches with expected! %s", respExpr), t)
 }
 
 func TestDbRoutingMysql(t *testing.T) {
 	var rules = []string{testMysqlRule}
 
-	for _, configVersion := range tf.ConfigVersions() {
-		doTestDbRoutingMysql(t, configVersion, rules)
-	}
+	doTestDbRoutingMysql(t, "v1alpha3", rules)
 }
 
 func doTestDbRoutingMysql(t *testing.T, configVersion string, rules []string) {
@@ -282,14 +271,13 @@ func doTestDbRoutingMysql(t *testing.T, configVersion string, rules []string) {
 
 	respExpr := "glyphicon-star" // not great test for v2 or v3 being alive
 
-	_, err = checkHTTPResponse(u1, getIngressOrFail(t, configVersion), respExpr, 10)
+	err = checkHTTPResponse(getIngressOrFail(t), respExpr, 10)
 	inspect(
-		err, fmt.Sprintf("Failed database routing! %s in v1", u1),
+		err, fmt.Sprintf("Failed database routing! %s in v1", normalUser.username),
 		fmt.Sprintf("Success! Response matches with expected! %s", respExpr), t)
 }
 
 func TestVMExtendsIstio(t *testing.T) {
-	t.Skip("issue https://github.com/istio/istio/issues/4794")
 	if *framework.TestVM {
 		// TODO (chx) vm_provider flag to select venders
 		vm, err := framework.NewGCPRawVM(tc.CommonConfig.Kube.Namespace)
@@ -315,9 +303,7 @@ func TestExternalDetailsService(t *testing.T) {
 
 	var rules = []string{detailsExternalServiceRouteRule, detailsExternalServiceEgressRule}
 
-	for _, configVersion := range tf.ConfigVersions() {
-		doTestExternalDetailsService(t, configVersion, rules)
-	}
+	doTestExternalDetailsService(t, "v1alpha3", rules)
 }
 
 func doTestExternalDetailsService(t *testing.T, configVersion string, rules []string) {
@@ -330,8 +316,8 @@ func doTestExternalDetailsService(t *testing.T, configVersion string, rules []st
 
 	isbnFetchedFromExternalService := "0486424618"
 
-	_, err = checkHTTPResponse(u1, getIngressOrFail(t, configVersion), isbnFetchedFromExternalService, 1)
+	err = checkHTTPResponse(getIngressOrFail(t), isbnFetchedFromExternalService, 1)
 	inspect(
-		err, fmt.Sprintf("Failed external details routing! %s in v1", u1),
+		err, fmt.Sprintf("Failed external details routing! %s in v1", normalUser.username),
 		fmt.Sprintf("Success! Response matches with expected! %s", isbnFetchedFromExternalService), t)
 }

@@ -22,23 +22,24 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"path"
-	"path/filepath"
 	"reflect"
-	"runtime"
 	"sync"
 	"testing"
 
+	spb "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	istio_mixer_v1 "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/attribute"
+	attr "istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/config/storetest"
 	"istio.io/istio/mixer/pkg/server"
 	"istio.io/istio/mixer/pkg/template"
 	template2 "istio.io/istio/mixer/template"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/pkg/attribute"
 )
 
 // Utility to help write Mixer-adapter integration tests.
@@ -87,6 +88,8 @@ type (
 		// New test can start of with an empty "{}" string and then
 		// get the baseline from the failure logs upon execution.
 		Want string
+
+		SetError SetErrorFn
 	}
 	// Call represents the input to make a call to Mixer
 	Call struct {
@@ -118,7 +121,7 @@ type (
 		// Quota is the response from a check call to Mixer
 		Quota map[string]adapter.QuotaResult `json:"Quota"`
 		// Error is the error from call to Mixer
-		Error error `json:"Error"`
+		Error spb.Status `json:"Error"`
 	}
 )
 
@@ -139,6 +142,9 @@ type (
 	GetStateFn func(ctx interface{}) (interface{}, error)
 	// GetConfigFn returns configuration that is generated
 	GetConfigFn func(ctx interface{}) ([]string, error)
+	// SetErrorFn function will be called just before test begins and setup and config is done. This can be used to
+	// introduce errors in the test
+	SetErrorFn func(ctx interface{}) error
 )
 
 // RunTest performs a Mixer adapter integration test using in-memory Mixer and config store.
@@ -214,6 +220,13 @@ func RunTest(
 	client := istio_mixer_v1.NewMixerClient(conn)
 	defer closeHelper(conn)
 
+	if scenario.SetError != nil {
+		err = scenario.SetError(ctx)
+		if err != nil {
+			t.Fatalf("calling SetError Failed: %v", err)
+		}
+	}
+
 	// Invoke calls async
 	var wg sync.WaitGroup
 
@@ -231,8 +244,8 @@ func RunTest(
 	wg.Wait()
 
 	// get adapter state. NOTE: We are doing marshal and then unmarshal it back into generic interface{}.
-	// This is done to make getState output into generic json map or array; which is exactly what we get when un-marshalling
-	// the baseline json. Without this, deep equality on un-marshalled baseline AdapterState would defer
+	// This is done to make getState output into generic json map or array; which is exactly what we get when un-marshaling
+	// the baseline json. Without this, deep equality on un-marshaled baseline AdapterState would defer
 	// from the rich object returned by getState function.
 	if scenario.GetState != nil {
 		var adptState interface{}
@@ -294,12 +307,14 @@ func execute(c Call, client istio_mixer_v1.MixerClient, returns []Return, i int,
 
 		result, resultErr := client.Check(context.Background(), &req)
 		result.Precondition.ReferencedAttributes = &istio_mixer_v1.ReferencedAttributes{}
-		ret.Error = resultErr
+		ret.Error = errToStatus(resultErr)
+		ret.Check.RouteDirective = result.Precondition.RouteDirective
 		if len(c.Quotas) > 0 {
 			ret.Quota = make(map[string]adapter.QuotaResult)
 			for k := range c.Quotas {
 				ret.Quota[k] = adapter.QuotaResult{
 					Amount: result.Quotas[k].GrantedAmount, ValidDuration: result.Quotas[k].ValidDuration,
+					Status: result.Quotas[k].Status,
 				}
 			}
 		} else {
@@ -314,7 +329,7 @@ func execute(c Call, client istio_mixer_v1.MixerClient, returns []Return, i int,
 				getAttrBag(c.Attrs)},
 		}
 		_, responseErr := client.Report(context.Background(), &req)
-		ret.Error = responseErr
+		ret.Error = errToStatus(responseErr)
 	}
 	returns[i] = ret
 	wg.Done()
@@ -339,23 +354,12 @@ func getServerArgs(
 	data := make([]string, 0)
 	data = append(data, cfgs...)
 
-	// always include the attribute vocabulary
-	_, filename, _, _ := runtime.Caller(0)
-	additionalCrs := []string{
-		"../../../testdata/config/attributes.yaml",
-		"../../../template/metric/template.yaml",
-		"../../../template/quota/template.yaml",
-		"../../../template/listentry/template.yaml",
-	}
-
-	for _, fileRelativePath := range additionalCrs {
-		if f, err := filepath.Abs(path.Join(path.Dir(filename), fileRelativePath)); err != nil {
-			return nil, fmt.Errorf("cannot load attributes.yaml: %v", err)
-		} else if f, err := ioutil.ReadFile(f); err != nil {
-			return nil, fmt.Errorf("cannot load attributes.yaml: %v", err)
-		} else {
-			data = append(data, string(f))
+	for _, cr := range AssetNames() {
+		b, err := Asset(cr)
+		if err != nil {
+			return nil, fmt.Errorf("cannot load %v: %v", cr, err)
 		}
+		data = append(data, string(b))
 	}
 
 	var err error
@@ -370,20 +374,34 @@ func getServerArgs(
 func getAttrBag(attrs map[string]interface{}) istio_mixer_v1.CompressedAttributes {
 	requestBag := attribute.GetMutableBag(nil)
 	for k, v := range attrs {
-		switch v.(type) {
+		switch v := v.(type) {
+		case map[string]string:
+			requestBag.Set(k, attribute.WrapStringMap(v))
 		case map[string]interface{}:
-			mapCast := make(map[string]string, len(v.(map[string]interface{})))
+			mapCast := make(map[string]string, len(v))
 
-			for k1, v1 := range v.(map[string]interface{}) {
+			for k1, v1 := range v {
 				mapCast[k1] = v1.(string)
 			}
-			requestBag.Set(k, mapCast)
+			requestBag.Set(k, attribute.WrapStringMap(mapCast))
 		default:
 			requestBag.Set(k, v)
 		}
 	}
 
 	var attrProto istio_mixer_v1.CompressedAttributes
-	requestBag.ToProto(&attrProto, nil, 0)
+	attr.ToProto(requestBag, &attrProto, nil, 0)
 	return attrProto
+}
+
+func errToStatus(err error) spb.Status {
+	var statusResp spb.Status
+	if s, ok := status.FromError(err); ok {
+		if s == nil {
+			statusResp = spb.Status{Code: int32(codes.OK)}
+		} else {
+			statusResp = *s.Proto()
+		}
+	}
+	return statusResp
 }

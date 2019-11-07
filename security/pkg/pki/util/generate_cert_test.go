@@ -15,17 +15,37 @@
 package util
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
-	"math/big"
-	"reflect"
+	"crypto/x509/pkix"
 	"strings"
 	"testing"
 	"time"
 )
 
-var now = time.Now().Round(time.Second).UTC()
+var (
+	now     = time.Now().Round(time.Second).UTC()
+	certPem = `-----BEGIN CERTIFICATE-----
+MIIC5jCCAc6gAwIBAgIRAIDngVC9z3HRR4DdOvnKO38wDQYJKoZIhvcNAQELBQAw
+HDEaMBgGA1UEChMRazhzLmNsdXN0ZXIubG9jYWwwHhcNMTcxMTE1MDAzMzUyWhcN
+MjcxMTEzMDAzMzUyWjAcMRowGAYDVQQKExFrOHMuY2x1c3Rlci5sb2NhbDCCASIw
+DQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAOLNvPT59LqfuJFZEkHNg5BABXqX
+Yy0yu/t60lsd+Z43eTjEctnhyk45/4KE909wSVdzrq6jvlWCki/iHLkbnZ9Bfk0E
+mGwP2TOjihOPWH9F6i8yO6GI5wqeQki7yiT/NozMo/vSNrso0Xa8WoQSN6svziP8
+b9OeSIIMWIa8F1vD1EOvyHYlZHPMw/IJCqAxQef50FpVu2sB8t4FKeswyv0+Twh+
+J75hB9OiDnM1G8Ex3An4G6KeUX8ptuJS6aLemuZrqOG6dsaG4HrC6OuIuxfyRbe2
+zJyyHeOnGhozGVXS9TpCp3Mkr54NyKl4+p3XfeVtuBeG7UUvHS7EvS+2Bl0CAwEA
+AaMjMCEwDgYDVR0PAQH/BAQDAgIEMA8GA1UdEwEB/wQFMAMBAf8wDQYJKoZIhvcN
+AQELBQADggEBAEe3XmOAod4CoLkOWNFP6RbtSO3jDO6bzV0qOioS8Yj55eQ78hR9
+R14TG5+QCHXz4W3FQMsgEg1OQodmw6lhupkvQn1ZP/zf3a/kfTuK0VOIzqeKe4TI
+IgsccmELXGdxojN23311/tAcq3d8pSTKusH7KNwAQWmerkxB6wzSHTiJWICFJzs4
+RWeVWm0l72yZcYFaZ/LBkn+gRyV88r51BR+IR7sMDB7k6hsdMWdxvNESr1h9JU+Q
+NbOwbkIREzozcpaJ2eSiksLkPIxh8/zaULUpPbVMOeOIybUK4iW+K2FyibCc5r9d
+vbw9mUuRBuYCROUaNv2/TAkauxVPCYPq7Ow=
+-----END CERTIFICATE-----`
+)
 
 func TestGenCertKeyFromOptions(t *testing.T) {
 	// set "notBefore" to be one hour ago, this ensures the issued certifiate to
@@ -60,8 +80,9 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 		KeyUsage:    x509.KeyUsageCertSign,
 		IsCA:        true,
 		Org:         "MyOrg",
+		Host:        caCertOptions.Host,
 	}
-	if VerifyCertificate(caPrivPem, caCertPem, caCertPem, caCertOptions.Host, fields) != nil {
+	if VerifyCertificate(caPrivPem, caCertPem, caCertPem, fields) != nil {
 		t.Error(err)
 	}
 
@@ -218,6 +239,83 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				KeyUsage: x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 			},
 		},
+		{
+			name: "Generate dual-use cert",
+			certOptions: CertOptions{
+				Host:         "spiffe://domain/ns/bar/sa/foo",
+				NotBefore:    notBefore,
+				TTL:          ttl,
+				SignerCert:   caCert,
+				SignerPriv:   caPriv,
+				Org:          "",
+				IsCA:         false,
+				IsSelfSigned: false,
+				IsClient:     true,
+				IsServer:     true,
+				RSAKeySize:   512,
+				IsDualUse:    true,
+			},
+			verifyFields: &VerifyFields{
+				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
+				IsCA:        false,
+				KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+				NotBefore:   notBefore,
+				TTL:         ttl,
+				Org:         "MyOrg",
+				CommonName:  "spiffe://domain/ns/bar/sa/foo",
+			},
+		},
+		{
+			name: "Generate dual-use cert with multiple host names",
+			certOptions: CertOptions{
+				Host:         "a,b,c",
+				NotBefore:    notBefore,
+				TTL:          ttl,
+				SignerCert:   caCert,
+				SignerPriv:   caPriv,
+				Org:          "",
+				IsCA:         false,
+				IsSelfSigned: false,
+				IsClient:     true,
+				IsServer:     true,
+				RSAKeySize:   512,
+				IsDualUse:    true,
+			},
+			verifyFields: &VerifyFields{
+				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
+				IsCA:        false,
+				KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+				NotBefore:   notBefore,
+				TTL:         ttl,
+				Org:         "MyOrg",
+				CommonName:  "a", // only first host used for CN
+			},
+		},
+		{
+			name: "Generate PKCS8 private key",
+			certOptions: CertOptions{
+				Host:         "spiffe://domain/ns/bar/sa/foo",
+				NotBefore:    notBefore,
+				TTL:          ttl,
+				SignerCert:   caCert,
+				SignerPriv:   caPriv,
+				Org:          "",
+				IsCA:         false,
+				IsSelfSigned: false,
+				IsClient:     true,
+				IsServer:     true,
+				RSAKeySize:   512,
+				PKCS8Key:     true,
+			},
+			verifyFields: &VerifyFields{
+				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
+				IsCA:        false,
+				KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+				NotBefore:   notBefore,
+				TTL:         ttl,
+				Org:         "MyOrg",
+			},
+		},
 	}
 
 	for _, c := range cases {
@@ -228,7 +326,8 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 		}
 
 		for _, host := range strings.Split(certOptions.Host, ",") {
-			if err := VerifyCertificate(privPem, certPem, caCertPem, host, c.verifyFields); err != nil {
+			c.verifyFields.Host = host
+			if err := VerifyCertificate(privPem, certPem, caCertPem, c.verifyFields); err != nil {
 				t.Errorf("[%s] cert verification error: %v", c.name, err)
 			}
 		}
@@ -236,69 +335,108 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 }
 
 func TestGenCertFromCSR(t *testing.T) {
-	// First Creates a self-signed CA cert.
-	caPK, err := rsa.GenerateKey(rand.Reader, 1024)
+	keyFile := "../testdata/key.pem"
+	certFile := "../testdata/cert.pem"
+	keycert, err := NewVerifiedKeyCertBundleFromFile(certFile, keyFile, "", certFile)
 	if err != nil {
-		t.Errorf("failed to generate ca's key pair %v", err)
+		t.Errorf("Failed to load CA key and cert from files: %s, %s", keyFile, certFile)
 	}
-	caTmpl := &x509.Certificate{
-		SerialNumber:          big.NewInt(-1),
-		NotBefore:             time.Now().Add(-time.Hour),
-		NotAfter:              time.Now().Add(time.Hour),
-		SignatureAlgorithm:    x509.SHA256WithRSA,
-		KeyUsage:              x509.KeyUsageCertSign,
-		BasicConstraintsValid: true,
-		IsCA: true,
-	}
-	der, err := x509.CreateCertificate(rand.Reader, caTmpl, caTmpl, &caPK.PublicKey, caPK)
-	if err != nil {
-		t.Errorf("failed to Create self signed ca cert %v", err)
-	}
-	caCert, err := x509.ParseCertificate(der)
-	if err != nil {
-		t.Errorf("failed to parse generated ca certificate %v", err)
-	}
+	signingCert, signingKey, _, _ := keycert.GetAll()
 
 	// Then generates signee's key pairs.
-	signeePK, err := rsa.GenerateKey(rand.Reader, 1024)
+	signeeKey, err := rsa.GenerateKey(rand.Reader, 1024)
 	if err != nil {
 		t.Errorf("failed to generate signee key pair %v", err)
 	}
 
-	tmpl := &x509.CertificateRequest{
-		SignatureAlgorithm: x509.SHA256WithRSA,
-		DNSNames:           []string{"test.example.com"},
-		Version:            3,
-	}
-	derBytes, err := x509.CreateCertificateRequest(rand.Reader, tmpl, signeePK)
-	if err != nil {
-		t.Error("failed to create certificate request")
-	}
-	csr, err := x509.ParseCertificateRequest(derBytes)
-	if err != nil {
-		t.Errorf("failed to parse certificate request %v", err)
+	cases := []struct {
+		name        string
+		subjectIDs  []string
+		csrTemplate *x509.CertificateRequest
+	}{
+		{
+			name:       "Single subject ID",
+			subjectIDs: []string{"spiffe://test.com/abc/def"},
+			csrTemplate: &x509.CertificateRequest{
+				SignatureAlgorithm: x509.SHA256WithRSA,
+				DNSNames:           []string{"name_in_csr"},
+				Version:            3,
+			},
+		},
+		{
+			name:       "Two subject IDs",
+			subjectIDs: []string{"spiffe://test.com/abc/def", "test.com"},
+			csrTemplate: &x509.CertificateRequest{
+				SignatureAlgorithm: x509.SHA256WithRSA,
+				DNSNames:           []string{"name_in_csr"},
+				Version:            3,
+			},
+		},
+		{
+			name:       "Common name in CSR",
+			subjectIDs: []string{"test.com"},
+			csrTemplate: &x509.CertificateRequest{
+				Subject:            pkix.Name{CommonName: "common_name"},
+				SignatureAlgorithm: x509.SHA256WithRSA,
+				DNSNames:           []string{"name_in_csr"},
+				Version:            3,
+			},
+		},
 	}
 
-	derBytes, err = GenCertFromCSR(csr, caCert, &signeePK.PublicKey, caPK, time.Hour, false)
-	if err != nil {
-		t.Errorf("failed to GenCertFromCSR, error %v", err)
-	}
+	for _, c := range cases {
+		derBytes, err := x509.CreateCertificateRequest(rand.Reader, c.csrTemplate, signeeKey)
+		if err != nil {
+			t.Error("failed to create certificate request")
+		}
+		csr, err := x509.ParseCertificateRequest(derBytes)
+		if err != nil {
+			t.Errorf("failed to parse certificate request %v", err)
+		}
+		derBytes, err = GenCertFromCSR(csr, signingCert, &signeeKey.PublicKey, *signingKey, c.subjectIDs, time.Hour, false)
+		if err != nil {
+			t.Errorf("failed to GenCertFromCSR, error %v", err)
+		}
 
-	// Verifies the certificate.
-	out, err := x509.ParseCertificate(derBytes)
-	if err != nil {
-		t.Errorf("failed to parse generated certificate %v", err)
-	}
-	if !reflect.DeepEqual(out.DNSNames, tmpl.DNSNames) {
-		t.Errorf("generated cert dns name is unexpected, got %v, want %v", out.DNSNames, tmpl.DNSNames)
-	}
-	pool := x509.NewCertPool()
-	pool.AddCert(caCert)
-	vo := x509.VerifyOptions{
-		Roots: pool,
-	}
-	if _, err := out.Verify(vo); err != nil {
-		t.Errorf("verification of the signed certificate failed %v", err)
+		// Verify the certificate.
+		out, err := x509.ParseCertificate(derBytes)
+		if err != nil {
+			t.Errorf("failed to parse generated certificate %v", err)
+		}
+		if len(c.csrTemplate.Subject.CommonName) == 0 {
+			if len(out.Subject.CommonName) > 0 {
+				t.Errorf("Common name should be empty, but got %s", out.Subject.CommonName)
+			}
+		} else if out.Subject.CommonName != c.subjectIDs[0] {
+			t.Errorf("Unmatched common name, expected %s, got %s", c.subjectIDs[0], out.Subject.CommonName)
+		}
+		if len(out.Subject.Organization) > 0 {
+			t.Errorf("Organization should be empty, but got %s", out.Subject.Organization)
+		}
+
+		ids, err := ExtractIDs(out.Extensions)
+		if err != nil {
+			t.Errorf("failed to extract IDs from cert extension: %v", err)
+		}
+		if len(c.subjectIDs) != len(ids) {
+			t.Errorf("Wrong number of IDs encoded. Expected %d, but got %d.", len(c.subjectIDs), len(ids))
+		}
+		if len(c.subjectIDs) == 1 && c.subjectIDs[0] != ids[0] {
+			t.Errorf("incorrect ID encoded: %v VS (expected) %v", ids[0], c.subjectIDs[0])
+		}
+		if len(c.subjectIDs) == 2 {
+			if !(c.subjectIDs[0] == ids[0] && c.subjectIDs[1] == ids[1] || c.subjectIDs[0] == ids[1] && c.subjectIDs[1] == ids[0]) {
+				t.Errorf("incorrect IDs encoded: %v, %v VS (expected) %v, %v", ids[0], ids[1], c.subjectIDs[0], c.subjectIDs[1])
+			}
+		}
+		pool := x509.NewCertPool()
+		pool.AddCert(signingCert)
+		vo := x509.VerifyOptions{
+			Roots: pool,
+		}
+		if _, err := out.Verify(vo); err != nil {
+			t.Errorf("verification of the signed certificate failed %v", err)
+		}
 	}
 }
 
@@ -350,7 +488,66 @@ func TestLoadSignerCredsFromFiles(t *testing.T) {
 		}
 
 		if cert == nil || key == nil {
-			t.Errorf("[%s] Faild to load signer credeitials from files: %v, %v", id, tc.certFile, tc.keyFile)
+			t.Errorf("[%s] Failed to load signer credentials from files: %v, %v", id, tc.certFile, tc.keyFile)
+		}
+	}
+}
+
+// TestAppendRootCerts verifies that AppendRootCerts works properly.
+func TestAppendRootCerts(t *testing.T) {
+	testCases := map[string]struct {
+		pemCert          []byte
+		rootFile         string
+		expectedErr      string
+		expectedRootCert []byte
+	}{
+		"Empty pem cert and root file": {
+			pemCert:          []byte{},
+			rootFile:         "",
+			expectedErr:      "",
+			expectedRootCert: []byte{},
+		},
+		"Non empty root file": {
+			pemCert:          []byte{},
+			rootFile:         "../testdata/cert.pem",
+			expectedErr:      "",
+			expectedRootCert: []byte(certPem + "\n"),
+		},
+		"Non empty pem cert": {
+			pemCert:          []byte(certPem),
+			rootFile:         "",
+			expectedErr:      "",
+			expectedRootCert: []byte(certPem),
+		},
+		"Non empty pem cert and non empty root file": {
+			pemCert:          []byte(certPem),
+			rootFile:         "../testdata/cert.pem",
+			expectedErr:      "",
+			expectedRootCert: append([]byte(certPem+"\n"), []byte(certPem+"\n")...),
+		},
+		"Not existing root file": {
+			pemCert:  []byte{},
+			rootFile: "../testdata/notexistcert.pem",
+			expectedErr: "failed to read root certificates (open ../testdata/notexistcert.pem: " +
+				"no such file or directory)",
+			expectedRootCert: []byte{},
+		},
+	}
+
+	for id, tc := range testCases {
+		rc, err := AppendRootCerts(tc.pemCert, tc.rootFile)
+		if len(tc.expectedErr) > 0 {
+			if err == nil {
+				t.Errorf("[%s] Succeeded. Error expected: %s", id, tc.expectedErr)
+			} else if err.Error() != tc.expectedErr {
+				t.Errorf("[%s] incorrect error message: %s VS (expected) %s",
+					id, err.Error(), tc.expectedErr)
+			}
+		} else if err != nil {
+			t.Errorf("[%s] Unexpected error: %s", id, err.Error())
+		}
+		if !bytes.Equal(rc, tc.expectedRootCert) {
+			t.Errorf("[%s] root cert does not match. %v VS (expected) %v", id, rc, tc.expectedRootCert)
 		}
 	}
 }

@@ -20,6 +20,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"sort"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -27,117 +29,146 @@ import (
 	"github.com/hashicorp/consul/api"
 
 	"istio.io/istio/pilot/pkg/model"
-)
-
-var (
-	services = map[string][]string{
-		"productpage": {"version|v1"},
-		"reviews":     {"version|v1", "version|v2", "version|v3"},
-	}
-	productpage = []*api.CatalogService{
-		{
-			Node:           "istio",
-			Address:        "172.19.0.5",
-			ID:             "111-111-111",
-			ServiceName:    "productpage",
-			ServiceTags:    []string{"version|v1"},
-			ServiceAddress: "172.19.0.11",
-			ServicePort:    9080,
-		},
-	}
-	reviews = []*api.CatalogService{
-		{
-			Node:           "istio",
-			Address:        "172.19.0.5",
-			ID:             "222-222-222",
-			ServiceName:    "reviews",
-			ServiceTags:    []string{"version|v1"},
-			ServiceAddress: "172.19.0.6",
-			ServicePort:    9081,
-		},
-		{
-			Node:           "istio",
-			Address:        "172.19.0.5",
-			ID:             "333-333-333",
-			ServiceName:    "reviews",
-			ServiceTags:    []string{"version|v2"},
-			ServiceAddress: "172.19.0.7",
-			ServicePort:    9081,
-		},
-		{
-			Node:           "istio",
-			Address:        "172.19.0.5",
-			ID:             "444-444-444",
-			ServiceName:    "reviews",
-			ServiceTags:    []string{"version|v3"},
-			ServiceAddress: "172.19.0.8",
-			ServicePort:    9080,
-			NodeMeta:       map[string]string{protocolTagName: "tcp"},
-		},
-	}
+	"istio.io/istio/pkg/config/labels"
 )
 
 type mockServer struct {
-	Server      *httptest.Server
-	Services    map[string][]string
-	Productpage []*api.CatalogService
-	Reviews     []*api.CatalogService
-	Lock        sync.Mutex
+	server      *httptest.Server
+	services    map[string][]string
+	productpage []*api.CatalogService
+	reviews     []*api.CatalogService
+	rating      []*api.CatalogService
+	lock        sync.Mutex
+	consulIndex int
 }
 
 func newServer() *mockServer {
 	m := mockServer{
-		Productpage: make([]*api.CatalogService, len(productpage)),
-		Reviews:     make([]*api.CatalogService, len(reviews)),
-		Services:    make(map[string][]string),
-	}
-
-	copy(m.Reviews, reviews)
-	copy(m.Productpage, productpage)
-	for k, v := range services {
-		m.Services[k] = v
+		productpage: []*api.CatalogService{
+			{
+				Node:           "istio-node",
+				Address:        "172.19.0.5",
+				ID:             "istio-node-id",
+				ServiceID:      "productpage",
+				ServiceName:    "productpage",
+				ServiceTags:    []string{"version|v1"},
+				ServiceAddress: "172.19.0.11",
+				ServicePort:    9080,
+			},
+		},
+		reviews: []*api.CatalogService{
+			{
+				Node:           "istio-node",
+				Address:        "172.19.0.5",
+				ID:             "istio-node-id",
+				ServiceID:      "reviews-id",
+				ServiceName:    "reviews",
+				ServiceTags:    []string{"version|v1"},
+				ServiceAddress: "172.19.0.6",
+				ServicePort:    9081,
+			},
+			{
+				Node:           "istio-node",
+				Address:        "172.19.0.5",
+				ID:             "istio-node-id",
+				ServiceID:      "reviews-id",
+				ServiceName:    "reviews",
+				ServiceTags:    []string{"version|v2"},
+				ServiceAddress: "172.19.0.7",
+				ServicePort:    9081,
+			},
+			{
+				Node:           "istio-node",
+				Address:        "172.19.0.5",
+				ID:             "istio-node-id",
+				ServiceID:      "reviews-id",
+				ServiceName:    "reviews",
+				ServiceTags:    []string{"version|v3"},
+				ServiceAddress: "172.19.0.8",
+				ServicePort:    9080,
+				ServiceMeta:    map[string]string{protocolTagName: "tcp"},
+			},
+		},
+		rating: []*api.CatalogService{
+			{
+				Node:           "istio-node",
+				Address:        "172.19.0.6",
+				ID:             "istio-node-id",
+				ServiceID:      "rating-id",
+				ServiceName:    "rating",
+				ServiceTags:    []string{"version|v1"},
+				ServiceAddress: "172.19.0.12",
+				ServicePort:    9080,
+			},
+		},
+		services: map[string][]string{
+			"productpage": {"version|v1"},
+			"reviews":     {"version|v1", "version|v2", "version|v3"},
+			"rating":      {"version|v1"},
+		},
+		consulIndex: 1,
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/v1/catalog/services" {
-			m.Lock.Lock()
-			data, _ := json.Marshal(&m.Services)
-			m.Lock.Unlock()
+			m.lock.Lock()
+			data, _ := json.Marshal(&m.services)
+			w.Header().Set("X-Consul-Index", strconv.Itoa(m.consulIndex))
+			m.lock.Unlock()
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprintln(w, string(data))
+			_, _ = fmt.Fprintln(w, string(data))
 		} else if r.URL.Path == "/v1/catalog/service/reviews" {
-			m.Lock.Lock()
-			data, _ := json.Marshal(&m.Reviews)
-			m.Lock.Unlock()
+			m.lock.Lock()
+			data, _ := json.Marshal(&m.reviews)
+			w.Header().Set("X-Consul-Index", strconv.Itoa(m.consulIndex))
+			m.lock.Unlock()
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprintln(w, string(data))
+			_, _ = fmt.Fprintln(w, string(data))
 		} else if r.URL.Path == "/v1/catalog/service/productpage" {
-			m.Lock.Lock()
-			data, _ := json.Marshal(&m.Productpage)
-			m.Lock.Unlock()
+			m.lock.Lock()
+			data, _ := json.Marshal(&m.productpage)
+			w.Header().Set("X-Consul-Index", strconv.Itoa(m.consulIndex))
+			m.lock.Unlock()
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprintln(w, string(data))
+			_, _ = fmt.Fprintln(w, string(data))
+		} else if r.URL.Path == "/v1/catalog/service/rating" {
+			m.lock.Lock()
+			data, _ := json.Marshal(&m.rating)
+			w.Header().Set("X-Consul-Index", strconv.Itoa(m.consulIndex))
+			m.lock.Unlock()
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = fmt.Fprintln(w, string(data))
 		} else {
+			m.lock.Lock()
 			data, _ := json.Marshal(&[]*api.CatalogService{})
+			w.Header().Set("X-Consul-Index", strconv.Itoa(m.consulIndex))
+			m.lock.Unlock()
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprintln(w, string(data))
+			_, _ = fmt.Fprintln(w, string(data))
 		}
 	}))
 
-	m.Server = server
+	m.server = server
 	return &m
 }
 
 func TestInstances(t *testing.T) {
 	ts := newServer()
-	defer ts.Server.Close()
-	controller, err := NewController(ts.Server.URL, 3*time.Second)
+	defer ts.server.Close()
+	controller, err := NewController(ts.server.URL)
 	if err != nil {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
-
 	hostname := serviceHostname("reviews")
-	instances, err := controller.InstancesByPort(hostname, 0, model.LabelsCollection{})
+	svc := &model.Service{
+		Hostname: hostname,
+		Attributes: model.ServiceAttributes{
+			Name:      "reviews",
+			Namespace: model.IstioDefaultConfigNamespace,
+		},
+	}
+
+	instances, err := controller.InstancesByPort(svc, 0, labels.Collection{})
 	if err != nil {
 		t.Errorf("client encountered error during Instances(): %v", err)
 	}
@@ -153,8 +184,8 @@ func TestInstances(t *testing.T) {
 
 	filterTagKey := "version"
 	filterTagVal := "v3"
-	instances, err = controller.InstancesByPort(hostname, 0, model.LabelsCollection{
-		model.Labels{filterTagKey: filterTagVal},
+	instances, err = controller.InstancesByPort(svc, 0, labels.Collection{
+		labels.Instance{filterTagKey: filterTagVal},
 	})
 	if err != nil {
 		t.Errorf("client encountered error during Instances(): %v", err)
@@ -175,7 +206,7 @@ func TestInstances(t *testing.T) {
 	}
 
 	filterPort := 9081
-	instances, err = controller.InstancesByPort(hostname, filterPort, model.LabelsCollection{})
+	instances, err = controller.InstancesByPort(svc, filterPort, labels.Collection{})
 	if err != nil {
 		t.Errorf("client encountered error during Instances(): %v", err)
 	}
@@ -193,13 +224,19 @@ func TestInstances(t *testing.T) {
 
 func TestInstancesBadHostname(t *testing.T) {
 	ts := newServer()
-	defer ts.Server.Close()
-	controller, err := NewController(ts.Server.URL, 3*time.Second)
+	defer ts.server.Close()
+	controller, err := NewController(ts.server.URL)
 	if err != nil {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
-
-	instances, err := controller.InstancesByPort("", 0, model.LabelsCollection{})
+	svc := &model.Service{
+		Hostname: "",
+		Attributes: model.ServiceAttributes{
+			Name:      "reviews",
+			Namespace: model.IstioDefaultConfigNamespace,
+		},
+	}
+	instances, err := controller.InstancesByPort(svc, 0, labels.Collection{})
 	if err == nil {
 		t.Error("Instances() should return error when provided bad hostname")
 	}
@@ -210,14 +247,21 @@ func TestInstancesBadHostname(t *testing.T) {
 
 func TestInstancesError(t *testing.T) {
 	ts := newServer()
-	controller, err := NewController(ts.Server.URL, 3*time.Second)
+	controller, err := NewController(ts.server.URL)
 	if err != nil {
-		ts.Server.Close()
+		ts.server.Close()
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
-
-	ts.Server.Close()
-	instances, err := controller.InstancesByPort(serviceHostname("reviews"), 0, model.LabelsCollection{})
+	hostname := serviceHostname("reviews")
+	svc := &model.Service{
+		Hostname: hostname,
+		Attributes: model.ServiceAttributes{
+			Name:      "reviews",
+			Namespace: model.IstioDefaultConfigNamespace,
+		},
+	}
+	ts.server.Close()
+	instances, err := controller.InstancesByPort(svc, 0, labels.Collection{})
 	if err == nil {
 		t.Error("Instances() should return error when client experiences connection problem")
 	}
@@ -228,8 +272,8 @@ func TestInstancesError(t *testing.T) {
 
 func TestGetService(t *testing.T) {
 	ts := newServer()
-	defer ts.Server.Close()
-	controller, err := NewController(ts.Server.URL, 3*time.Second)
+	defer ts.server.Close()
+	controller, err := NewController(ts.server.URL)
 	if err != nil {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
@@ -250,13 +294,13 @@ func TestGetService(t *testing.T) {
 
 func TestGetServiceError(t *testing.T) {
 	ts := newServer()
-	controller, err := NewController(ts.Server.URL, 3*time.Second)
+	controller, err := NewController(ts.server.URL)
 	if err != nil {
-		ts.Server.Close()
+		ts.server.Close()
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
 
-	ts.Server.Close()
+	ts.server.Close()
 	service, err := controller.GetService("productpage.service.consul")
 	if err == nil {
 		t.Error("GetService() should return error when client experiences connection problem")
@@ -268,8 +312,8 @@ func TestGetServiceError(t *testing.T) {
 
 func TestGetServiceBadHostname(t *testing.T) {
 	ts := newServer()
-	defer ts.Server.Close()
-	controller, err := NewController(ts.Server.URL, 3*time.Second)
+	defer ts.server.Close()
+	controller, err := NewController(ts.server.URL)
 	if err != nil {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
@@ -285,15 +329,13 @@ func TestGetServiceBadHostname(t *testing.T) {
 
 func TestGetServiceNoInstances(t *testing.T) {
 	ts := newServer()
-	defer ts.Server.Close()
-	controller, err := NewController(ts.Server.URL, 3*time.Second)
+	defer ts.server.Close()
+	controller, err := NewController(ts.server.URL)
 	if err != nil {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
 
-	ts.Productpage = []*api.CatalogService{}
-
-	service, err := controller.GetService("productpage.service.consul")
+	service, err := controller.GetService("details.service.consul")
 	if err != nil {
 		t.Errorf("GetService() encountered unexpected error: %v", err)
 	}
@@ -302,109 +344,64 @@ func TestGetServiceNoInstances(t *testing.T) {
 	}
 }
 
-func TestGetServiceAttributes(t *testing.T) {
-	ts := newServer()
-	defer ts.Server.Close()
-	controller, err := NewController(ts.Server.URL, 3*time.Second)
-	if err != nil {
-		t.Errorf("could not create Consul Controller: %v", err)
-	}
-
-	attr, err := controller.GetServiceAttributes("productpage.service.consul")
-	if err != nil {
-		t.Errorf("client encountered error during GetServiceAttributes(): %v", err)
-	}
-	if attr == nil {
-		t.Error("service attributes should exist")
-	}
-
-	expect := model.ServiceAttributes{
-		Name:      serviceHostname("productpage").String(),
-		Namespace: model.IstioDefaultConfigNamespace,
-	}
-	if !reflect.DeepEqual(*attr, expect) {
-		t.Errorf("GetServiceAttributes() incorrect service attributes returned => %v, want %v",
-			*attr, expect)
-	}
-}
-
-func TestGetServiceAttributesNoInstances(t *testing.T) {
-	ts := newServer()
-	defer ts.Server.Close()
-	controller, err := NewController(ts.Server.URL, 3*time.Second)
-	if err != nil {
-		t.Errorf("could not create Consul Controller: %v", err)
-	}
-
-	ts.Productpage = []*api.CatalogService{}
-
-	attr, err := controller.GetServiceAttributes("productpage.service.consul")
-	if err != nil {
-		t.Errorf("GetServiceAttributes() encountered unexpected error: %v", err)
-	}
-	if attr != nil {
-		t.Error("service attributes should not exist")
-	}
-}
-
 func TestServices(t *testing.T) {
 	ts := newServer()
-	defer ts.Server.Close()
-	controller, err := NewController(ts.Server.URL, 3*time.Second)
+	defer ts.server.Close()
+	controller, err := NewController(ts.server.URL)
 	if err != nil {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
 
 	services, err := controller.Services()
 	if err != nil {
-		t.Errorf("client encountered error during Services(): %v", err)
+		t.Errorf("client encountered error during services(): %v", err)
 	}
 	serviceMap := make(map[string]*model.Service)
 	for _, svc := range services {
 		name, err := parseHostname(svc.Hostname)
 		if err != nil {
-			t.Errorf("Services() error parsing hostname: %v", err)
+			t.Errorf("services() error parsing hostname: %v", err)
 		}
 		serviceMap[name] = svc
 	}
 
-	for _, name := range []string{"productpage", "reviews"} {
+	for _, name := range []string{"productpage", "reviews", "rating"} {
 		if _, exists := serviceMap[name]; !exists {
-			t.Errorf("Services() missing: %q", name)
+			t.Errorf("services() missing: %q", name)
 		}
 	}
-	if len(services) != 2 {
-		t.Errorf("Services() returned wrong # of services: %q, want 2", len(services))
+	if len(services) != 3 {
+		t.Errorf("services() returned wrong # of services: %q, want 3", len(services))
 	}
 }
 
 func TestServicesError(t *testing.T) {
 	ts := newServer()
-	controller, err := NewController(ts.Server.URL, 3*time.Second)
+	controller, err := NewController(ts.server.URL)
 	if err != nil {
-		ts.Server.Close()
+		ts.server.Close()
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
 
-	ts.Server.Close()
+	ts.server.Close()
 	services, err := controller.Services()
 	if err == nil {
-		t.Error("Services() should return error when client experiences connection problem")
+		t.Error("services() should return error when client experiences connection problem")
 	}
 	if len(services) != 0 {
-		t.Errorf("Services() returned wrong # of services: %q, want 0", len(services))
+		t.Errorf("services() returned wrong # of services: %q, want 0", len(services))
 	}
 }
 
 func TestGetProxyServiceInstances(t *testing.T) {
 	ts := newServer()
-	defer ts.Server.Close()
-	controller, err := NewController(ts.Server.URL, 3*time.Second)
+	defer ts.server.Close()
+	controller, err := NewController(ts.server.URL)
 	if err != nil {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
 
-	services, err := controller.GetProxyServiceInstances(&model.Proxy{IPAddress: "172.19.0.11"})
+	services, err := controller.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{"172.19.0.11"}})
 	if err != nil {
 		t.Errorf("client encountered error during GetProxyServiceInstances(): %v", err)
 	}
@@ -420,18 +417,185 @@ func TestGetProxyServiceInstances(t *testing.T) {
 
 func TestGetProxyServiceInstancesError(t *testing.T) {
 	ts := newServer()
-	controller, err := NewController(ts.Server.URL, 3*time.Second)
+	controller, err := NewController(ts.server.URL)
 	if err != nil {
-		ts.Server.Close()
+		ts.server.Close()
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
 
-	ts.Server.Close()
-	instances, err := controller.GetProxyServiceInstances(&model.Proxy{IPAddress: "172.19.0.11"})
+	ts.server.Close()
+	instances, err := controller.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{"172.19.0.11"}})
 	if err == nil {
 		t.Error("GetProxyServiceInstances() should return error when client experiences connection problem")
 	}
 	if len(instances) != 0 {
 		t.Errorf("GetProxyServiceInstances() returned wrong # of instances: %q, want 0", len(instances))
+	}
+}
+
+func TestGetProxyServiceInstancesWithMultiIPs(t *testing.T) {
+	ts := newServer()
+	defer ts.server.Close()
+	controller, err := NewController(ts.server.URL)
+	if err != nil {
+		t.Errorf("could not create Consul Controller: %v", err)
+	}
+
+	services, err := controller.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{"10.78.11.18", "172.19.0.12"}})
+	if err != nil {
+		t.Errorf("client encountered error during GetProxyServiceInstances(): %v", err)
+	}
+	if len(services) != 1 {
+		t.Errorf("GetProxyServiceInstances() returned wrong # of endpoints => %q, want 1", len(services))
+	}
+
+	if services[0].Service.Hostname != serviceHostname("rating") {
+		t.Errorf("GetProxyServiceInstances() wrong service instance returned => hostname %q, want %q",
+			services[0].Service.Hostname, serviceHostname("productpage"))
+	}
+}
+
+func TestGetProxyWorkloadLabels(t *testing.T) {
+	ts := newServer()
+	defer ts.server.Close()
+	controller, err := NewController(ts.server.URL)
+	if err != nil {
+		t.Errorf("could not create Consul Controller: %v", err)
+	}
+
+	tests := []struct {
+		name     string
+		ips      []string
+		expected labels.Collection
+	}{
+		{
+			name:     "rating",
+			ips:      []string{"10.78.11.18", "172.19.0.12"},
+			expected: labels.Collection{{"version": "v1"}},
+		},
+		{
+			name:     "No proxy ip",
+			ips:      nil,
+			expected: labels.Collection{},
+		},
+		{
+			name:     "No match",
+			ips:      []string{"1.2.3.4", "2.3.4.5"},
+			expected: labels.Collection{},
+		},
+		{
+			name:     "Only match on Service Address",
+			ips:      []string{"172.19.0.5"},
+			expected: labels.Collection{},
+		},
+		{
+			name:     "Match multiple services",
+			ips:      []string{"172.19.0.7", "172.19.0.8"},
+			expected: labels.Collection{{"version": "v2"}, {"version": "v3"}},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			wlLabels, err := controller.GetProxyWorkloadLabels(&model.Proxy{IPAddresses: test.ips})
+			sort.Slice(wlLabels, func(i, j int) bool {
+				return wlLabels[i].String() < wlLabels[j].String()
+			})
+			if err != nil {
+				t.Errorf("client encountered error during GetProxyWorkloadLabels(): %v", err)
+			}
+			if wlLabels == nil {
+				t.Error("labels should exist")
+			}
+
+			if !reflect.DeepEqual(wlLabels, test.expected) {
+				t.Errorf("GetProxyWorkloadLabels() wrong labels => returned %#v, want %#v", wlLabels, test.expected)
+			}
+		})
+	}
+}
+
+func TestGetServiceByCache(t *testing.T) {
+	ts := newServer()
+	controller, err := NewController(ts.server.URL)
+	if err != nil {
+		t.Errorf("could not create Consul Controller: %v", err)
+	}
+	_, _ = controller.GetService("productpage.service.consul")
+	ts.server.Close()
+	service, err := controller.GetService("productpage.service.consul")
+	if err != nil {
+		t.Errorf("client encountered error during GetService(): %v", err)
+	}
+	if service == nil {
+		t.Error("service should exist")
+	}
+
+	if service.Hostname != serviceHostname("productpage") {
+		t.Errorf("GetService() incorrect service returned => %q, want %q",
+			service.Hostname, serviceHostname("productpage"))
+	}
+}
+
+func TestGetInstanceByCacheAfterChanged(t *testing.T) {
+	ts := newServer()
+	defer ts.server.Close()
+	controller, err := NewController(ts.server.URL)
+	if err != nil {
+		t.Errorf("could not create Consul Controller: %v", err)
+	}
+	go controller.Run(make(chan struct{}))
+
+	hostname := serviceHostname("reviews")
+	svc := &model.Service{
+		Hostname: hostname,
+		Attributes: model.ServiceAttributes{
+			Name:      "reviews",
+			Namespace: model.IstioDefaultConfigNamespace,
+		},
+	}
+	instances, err := controller.InstancesByPort(svc, 0, labels.Collection{})
+	if err != nil {
+		t.Errorf("client encountered error during Instances(): %v", err)
+	}
+	if len(instances) != 3 {
+		t.Errorf("Instances() returned wrong # of service instances => %q, want 3", len(instances))
+	}
+	for _, inst := range instances {
+		if inst.Service.Hostname != hostname {
+			t.Errorf("Instances() returned wrong service instance => %v, want %q",
+				inst.Service.Hostname, hostname)
+		}
+	}
+
+	ts.lock.Lock()
+	ts.reviews = []*api.CatalogService{
+		{
+			Node:           "istio-node",
+			Address:        "172.19.0.5",
+			ID:             "istio-node-id",
+			ServiceID:      "reviews-id",
+			ServiceName:    "reviews",
+			ServiceTags:    []string{"version|v1"},
+			ServiceAddress: "172.19.0.7",
+			ServicePort:    9081,
+		},
+	}
+	ts.consulIndex++
+	ts.lock.Unlock()
+
+	time.Sleep(notifyThreshold)
+	instances, err = controller.InstancesByPort(svc, 0, labels.Collection{})
+	if err != nil {
+		t.Errorf("client encountered error during Instances(): %v", err)
+	}
+	if len(instances) != 1 {
+		t.Errorf("Instances() returned wrong # of service instances => %q, want 1", len(instances))
+	}
+	for _, inst := range instances {
+		if inst.Service.Hostname != hostname {
+			t.Errorf("Instances() returned wrong service instance => %v, want %q",
+				inst.Service.Hostname, hostname)
+		}
 	}
 }

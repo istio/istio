@@ -18,10 +18,16 @@ import (
 	"context"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/timestamp"
-	contextgraphpb "google.golang.org/genproto/googleapis/cloud/contextgraph/v1alpha1"
-	"google.golang.org/grpc/status"
+
+	contextgraphpb "istio.io/istio/mixer/adapter/stackdriver/internal/google.golang.org/genproto/googleapis/cloud/contextgraph/v1alpha1"
+	"istio.io/istio/pkg/mcp/status"
 )
+
+// Maximum payload size allowed for calling this API is 600KB. Set to
+// 550 to be safe.
+const maxReq = 550 * 1024
 
 func (h *handler) cacheAndSend(ctx context.Context) {
 	epoch := 0
@@ -48,7 +54,7 @@ func (h *handler) cacheAndSend(ctx context.Context) {
 				lastFlush = t
 			}
 			if err := h.send(ctx, t, h.entitiesToSend, h.edgesToSend); err != nil {
-				h.env.Logger().Errorf("sending context graph batch failed: %v", err)
+				_ = h.env.Logger().Errorf("sending context graph batch failed: %v", err)
 				// TODO: Invalidate these entities and edges so we try again on the next tick?
 			}
 			epoch++
@@ -82,6 +88,31 @@ func (e edge) ToProto() *contextgraphpb.Relationship {
 		SourceFullName: e.sourceFullName,
 		TargetFullName: e.destinationFullName,
 	}
+}
+
+// splitBySize helps find the largest BatchRequest that is smaller than the max request size
+func splitBySizeEntity(msg *contextgraphpb.AssertBatchRequest) int {
+	curSize := 0
+	curIndex := 0
+	for ; curIndex < len(msg.EntityPresentAssertions); curIndex++ {
+		curSize += proto.Size(msg.EntityPresentAssertions[curIndex])
+		if curSize >= maxReq {
+			break
+		}
+	}
+	return curIndex
+}
+
+func splitBySizeRelationship(msg *contextgraphpb.AssertBatchRequest) int {
+	curSize := 0
+	curIndex := 0
+	for ; curIndex < len(msg.RelationshipPresentAssertions); curIndex++ {
+		curSize += proto.Size(msg.RelationshipPresentAssertions[curIndex])
+		if curSize >= maxReq {
+			break
+		}
+	}
+	return curIndex
 }
 
 func (h *handler) send(ctx context.Context, t time.Time, entitiesToSend []entity, edgesToSend []edge) error {
@@ -119,14 +150,57 @@ func (h *handler) send(ctx context.Context, t time.Time, entitiesToSend []entity
 		req.RelationshipPresentAssertions = append(req.RelationshipPresentAssertions, relAsst)
 	}
 
-	// TODO: Batch requests if there are too many entities and edges in one request.
+	h.env.Logger().Debugf("Context api request size: %v", proto.Size(req))
+	h.env.Logger().Debugf("Sending %v entities and %v relationships",
+		len(req.EntityPresentAssertions), len(req.RelationshipPresentAssertions))
 
-	h.env.Logger().Debugf("Context api request: %s", req)
+	if proto.Size(req) < maxReq {
+		if err := h.call(ctx, req); err != nil {
+			return err
+		}
+	} else {
+		entReq := &contextgraphpb.AssertBatchRequest{
+			EntityPresentAssertions:       req.EntityPresentAssertions,
+			RelationshipPresentAssertions: nil,
+		}
+		relReq := &contextgraphpb.AssertBatchRequest{
+			EntityPresentAssertions:       nil,
+			RelationshipPresentAssertions: req.RelationshipPresentAssertions,
+		}
+
+		for len(entReq.EntityPresentAssertions) > 0 {
+			split := splitBySizeEntity(entReq)
+			allRequests := entReq.EntityPresentAssertions
+			entReq.EntityPresentAssertions = allRequests[:split]
+			h.env.Logger().Debugf("Batch request size: %v", proto.Size(entReq))
+			if err := h.call(ctx, entReq); err != nil {
+				return err
+			}
+			entReq.EntityPresentAssertions = allRequests[split:]
+		}
+
+		for len(relReq.RelationshipPresentAssertions) > 0 {
+			split := splitBySizeRelationship(relReq)
+			allRequests := relReq.RelationshipPresentAssertions
+			relReq.RelationshipPresentAssertions = allRequests[:split]
+			h.env.Logger().Debugf("Batch request size: %v", proto.Size(relReq))
+			if err := h.call(ctx, relReq); err != nil {
+				return err
+			}
+			relReq.RelationshipPresentAssertions = allRequests[split:]
+		}
+	}
+	return nil
+}
+
+func (h *handler) call(ctx context.Context, req *contextgraphpb.AssertBatchRequest) error {
+	h.env.Logger().Debugf("Sending Context Graph AssertBatch with %d entities, and %d relationships",
+		len(req.EntityPresentAssertions), len(req.RelationshipPresentAssertions))
 	if _, err := h.assertBatch(ctx, req); err != nil {
 		s, _ := status.FromError(err)
 		if d := s.Proto().Details; len(d) > 0 {
 			// Log the debug message, if present.
-			h.env.Logger().Errorf("STATUS: %s\n", d[0].Value)
+			_ = h.env.Logger().Errorf("STATUS: %s\n", d[0].Value)
 		}
 		return err
 	}

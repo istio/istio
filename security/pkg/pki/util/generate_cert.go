@@ -20,6 +20,8 @@ package util
 
 import (
 	"crypto"
+	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -28,7 +30,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/big"
+	"strings"
 	"time"
+
+	"istio.io/pkg/log"
 )
 
 // CertOptions contains options for generating a new certificate.
@@ -44,19 +49,25 @@ type CertOptions struct {
 	// TTL of the certificate. NotAfter - NotBefore.
 	TTL time.Duration
 
-	// Signer certificate (PEM encoded).
+	// Signer certificate.
 	SignerCert *x509.Certificate
 
-	// Signer private key (PEM encoded).
+	// Signer private key.
 	SignerPriv crypto.PrivateKey
+
+	// Signer private key (PEM encoded).
+	SignerPrivPem []byte
 
 	// Organization for this certificate.
 	Org string
 
+	// The size of RSA private key to be generated.
+	RSAKeySize int
+
 	// Whether this certificate is used as signing cert for CA.
 	IsCA bool
 
-	// Whether this cerificate is self-signed.
+	// Whether this certificate is self-signed.
 	IsSelfSigned bool
 
 	// Whether this certificate is for a client.
@@ -65,8 +76,11 @@ type CertOptions struct {
 	// Whether this certificate is for a server.
 	IsServer bool
 
-	// The size of RSA private key to be generated.
-	RSAKeySize int
+	// Whether this certificate is for dual-use clients (SAN+CN).
+	IsDualUse bool
+
+	// If true, the private key is encoded with PKCS#8.
+	PKCS8Key bool
 }
 
 // GenCertKeyFromOptions generates a X.509 certificate and a private key with the given options.
@@ -93,15 +107,57 @@ func GenCertKeyFromOptions(options CertOptions) (pemCert []byte, pemKey []byte, 
 		return nil, nil, fmt.Errorf("cert generation fails at X509 cert creation (%v)", err)
 	}
 
-	pemCert, pemKey = encodePem(false, certBytes, priv)
-	err = nil
+	pemCert, pemKey, err = encodePem(false, certBytes, priv, options.PKCS8Key)
+	if err != nil {
+		return nil, nil, err
+	}
 	return
+}
+
+func publicKey(priv interface{}) interface{} {
+	switch k := priv.(type) {
+	case *rsa.PrivateKey:
+		return &k.PublicKey
+	case *ecdsa.PrivateKey:
+		return &k.PublicKey
+	case ed25519.PrivateKey:
+		return k.Public().(ed25519.PublicKey)
+	default:
+		return nil
+	}
+}
+
+// GenRootCertFromExistingKey generates a X.509 certificate using existing
+// CA private key. Only called by a self-signed Citadel.
+func GenRootCertFromExistingKey(options CertOptions) (pemCert []byte, pemKey []byte, err error) {
+	if !options.IsSelfSigned || len(options.SignerPrivPem) == 0 {
+		return nil, nil, fmt.Errorf("skip cert " +
+			"generation. Citadel is not in self-signed mode or CA private key is not " +
+			"available")
+	}
+
+	template, err := genCertTemplateFromOptions(options)
+	if err != nil {
+		return nil, nil, fmt.Errorf("cert generation fails at cert template creation (%v)", err)
+	}
+	caPrivateKey, err := ParsePemEncodedKey(options.SignerPrivPem)
+	if err != nil {
+		return nil, nil, fmt.Errorf("unrecogniazed CA "+
+			"private key, skip root cert rotation: %s", err.Error())
+	}
+	certBytes, err := x509.CreateCertificate(rand.Reader, template, template, publicKey(caPrivateKey), caPrivateKey)
+	if err != nil {
+		return nil, nil, fmt.Errorf("cert generation fails at X509 cert creation (%v)", err)
+	}
+
+	pemCert = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certBytes})
+	return pemCert, options.SignerPrivPem, nil
 }
 
 // GenCertFromCSR generates a X.509 certificate with the given CSR.
 func GenCertFromCSR(csr *x509.CertificateRequest, signingCert *x509.Certificate, publicKey interface{},
-	signingKey crypto.PrivateKey, ttl time.Duration, isCA bool) (cert []byte, err error) {
-	tmpl, err := genCertTemplateFromCSR(csr, ttl, isCA)
+	signingKey crypto.PrivateKey, subjectIDs []string, ttl time.Duration, isCA bool) (cert []byte, err error) {
+	tmpl, err := genCertTemplateFromCSR(csr, subjectIDs, ttl, isCA)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +193,9 @@ func LoadSignerCredsFromFiles(signerCertFile string, signerPrivFile string) (*x5
 
 // genCertTemplateFromCSR generates a certificate template with the given CSR.
 // The NotBefore value of the cert is set to current time.
-func genCertTemplateFromCSR(csr *x509.CertificateRequest, ttl time.Duration, isCA bool) (*x509.Certificate, error) {
+func genCertTemplateFromCSR(csr *x509.CertificateRequest, subjectIDs []string, ttl time.Duration, isCA bool) (
+	*x509.Certificate, error) {
+	subjectIDsInString := strings.Join(subjectIDs, ",")
 	var keyUsage x509.KeyUsage
 	extKeyUsages := []x509.ExtKeyUsage{}
 	if isCA {
@@ -150,7 +208,24 @@ func genCertTemplateFromCSR(csr *x509.CertificateRequest, ttl time.Duration, isC
 		extKeyUsages = append(extKeyUsages, x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth)
 	}
 
-	exts := append(csr.Extensions, csr.ExtraExtensions...)
+	// Build cert extensions with the subjectIDs.
+	ext, err := BuildSubjectAltNameExtension(subjectIDsInString)
+	if err != nil {
+		return nil, err
+	}
+	exts := []pkix.Extension{*ext}
+
+	subject := pkix.Name{}
+	// Dual use mode if common name in CSR is not empty.
+	// In this case, set CN as determined by DualUseCommonName(subjectIDsInString).
+	if len(csr.Subject.CommonName) != 0 {
+		if cn, err := DualUseCommonName(subjectIDsInString); err != nil {
+			// log and continue
+			log.Errorf("dual-use failed for cert template - omitting CN (%v)", err)
+		} else {
+			subject.CommonName = cn
+		}
+	}
 
 	now := time.Now()
 
@@ -160,18 +235,15 @@ func genCertTemplateFromCSR(csr *x509.CertificateRequest, ttl time.Duration, isC
 	}
 
 	return &x509.Certificate{
-		SerialNumber: serialNum,
-		Subject:      csr.Subject,
-		NotBefore:    now,
-		NotAfter:     now.Add(ttl),
-		KeyUsage:     keyUsage,
-		ExtKeyUsage:  extKeyUsages,
-		IsCA:         isCA,
+		SerialNumber:          serialNum,
+		Subject:               subject,
+		NotBefore:             now,
+		NotAfter:              now.Add(ttl),
+		KeyUsage:              keyUsage,
+		ExtKeyUsage:           extKeyUsages,
+		IsCA:                  isCA,
 		BasicConstraintsValid: true,
 		ExtraExtensions:       exts,
-		DNSNames:              csr.DNSNames,
-		EmailAddresses:        csr.EmailAddresses,
-		IPAddresses:           csr.IPAddresses,
 		SignatureAlgorithm:    csr.SignatureAlgorithm}, nil
 }
 
@@ -204,25 +276,36 @@ func genCertTemplateFromOptions(options CertOptions) (*x509.Certificate, error) 
 		return nil, err
 	}
 
+	subject := pkix.Name{
+		Organization: []string{options.Org},
+	}
+
 	exts := []pkix.Extension{}
 	if h := options.Host; len(h) > 0 {
 		s, err := BuildSubjectAltNameExtension(h)
 		if err != nil {
 			return nil, err
 		}
+		if options.IsDualUse {
+			cn, err := DualUseCommonName(h)
+			if err != nil {
+				// log and continue
+				log.Errorf("dual-use failed for cert template - omitting CN (%v)", err)
+			} else {
+				subject.CommonName = cn
+			}
+		}
 		exts = []pkix.Extension{*s}
 	}
 
 	return &x509.Certificate{
-		SerialNumber: serialNum,
-		Subject: pkix.Name{
-			Organization: []string{options.Org},
-		},
-		NotBefore:   notBefore,
-		NotAfter:    notBefore.Add(options.TTL),
-		KeyUsage:    keyUsage,
-		ExtKeyUsage: extKeyUsages,
-		IsCA:        options.IsCA,
+		SerialNumber:          serialNum,
+		Subject:               subject,
+		NotBefore:             notBefore,
+		NotAfter:              notBefore.Add(options.TTL),
+		KeyUsage:              keyUsage,
+		ExtKeyUsage:           extKeyUsages,
+		IsCA:                  options.IsCA,
 		BasicConstraintsValid: true,
 		ExtraExtensions:       exts}, nil
 }
@@ -236,14 +319,24 @@ func genSerialNum() (*big.Int, error) {
 	return serialNum, nil
 }
 
-func encodePem(isCSR bool, csrOrCert []byte, priv *rsa.PrivateKey) ([]byte, []byte) {
+func encodePem(isCSR bool, csrOrCert []byte, priv *rsa.PrivateKey, pkcs8 bool) (
+	csrOrCertPem []byte, privPem []byte, err error) {
 	encodeMsg := "CERTIFICATE"
 	if isCSR {
 		encodeMsg = "CERTIFICATE REQUEST"
 	}
-	csrOrCertPem := pem.EncodeToMemory(&pem.Block{Type: encodeMsg, Bytes: csrOrCert})
+	csrOrCertPem = pem.EncodeToMemory(&pem.Block{Type: encodeMsg, Bytes: csrOrCert})
 
-	privDer := x509.MarshalPKCS1PrivateKey(priv)
-	privPem := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: privDer})
-	return csrOrCertPem, privPem
+	var encodedKey []byte
+	if pkcs8 {
+		if encodedKey, err = x509.MarshalPKCS8PrivateKey(priv); err != nil {
+			return nil, nil, err
+		}
+		privPem = pem.EncodeToMemory(&pem.Block{Type: blockTypePKCS8PrivateKey, Bytes: encodedKey})
+	} else {
+		encodedKey = x509.MarshalPKCS1PrivateKey(priv)
+		privPem = pem.EncodeToMemory(&pem.Block{Type: blockTypeRSAPrivateKey, Bytes: encodedKey})
+	}
+	err = nil
+	return
 }

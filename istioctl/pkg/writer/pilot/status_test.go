@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors.
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,11 +20,20 @@ import (
 	"io/ioutil"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 
-	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/tests/util"
 )
+
+var (
+	preDefinedNonce = newNonce()
+)
+
+func newNonce() string {
+	return uuid.New().String()
+}
 
 func TestStatusWriter_PrintAll(t *testing.T) {
 	tests := []struct {
@@ -38,6 +47,7 @@ func TestStatusWriter_PrintAll(t *testing.T) {
 			input: map[string][]v2.SyncStatus{
 				"pilot1": statusInput1(),
 				"pilot2": statusInput2(),
+				"pilot3": statusInput3(),
 			},
 			want: "testdata/multiStatusMultiPilot.txt",
 		},
@@ -110,6 +120,14 @@ func TestStatusWriter_PrintSingle(t *testing.T) {
 			want:      "testdata/singleStatus.txt",
 		},
 		{
+			name: "fallback to proxy version",
+			input: map[string][]v2.SyncStatus{
+				"pilot2": statusInputProxyVersion(),
+			},
+			filterPod: "proxy2",
+			want:      "testdata/singleStatusFallback.txt",
+		},
+		{
 			name: "error if given non-syncstatus info",
 			input: map[string][]v2.SyncStatus{
 				"pilot1": {},
@@ -149,12 +167,13 @@ func statusInput1() []v2.SyncStatus {
 	return []v2.SyncStatus{
 		{
 			ProxyID:         "proxy1",
-			ClusterSent:     "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
-			ClusterAcked:    "2009-11-10 22:00:00 +0000 UTC m=+0.000000001",
-			ListenerSent:    "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
-			ListenerAcked:   "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
-			EndpointSent:    "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
-			EndpointAcked:   "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
+			IstioVersion:    "1.1",
+			ClusterSent:     preDefinedNonce,
+			ClusterAcked:    newNonce(),
+			ListenerSent:    preDefinedNonce,
+			ListenerAcked:   preDefinedNonce,
+			EndpointSent:    preDefinedNonce,
+			EndpointAcked:   preDefinedNonce,
 			EndpointPercent: 100,
 		},
 	}
@@ -164,14 +183,48 @@ func statusInput2() []v2.SyncStatus {
 	return []v2.SyncStatus{
 		{
 			ProxyID:       "proxy2",
-			ClusterSent:   "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
-			ClusterAcked:  "2009-11-10 22:00:00 +0000 UTC m=+0.000000001",
-			ListenerSent:  "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
-			ListenerAcked: "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
-			EndpointSent:  "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
-			EndpointAcked: "2009-11-10 22:00:00 +0000 UTC m=+0.000000001",
-			RouteSent:     "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
-			RouteAcked:    "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
+			IstioVersion:  "1.1",
+			ClusterSent:   preDefinedNonce,
+			ClusterAcked:  newNonce(),
+			ListenerSent:  preDefinedNonce,
+			ListenerAcked: preDefinedNonce,
+			EndpointSent:  preDefinedNonce,
+			EndpointAcked: newNonce(),
+			RouteSent:     preDefinedNonce,
+			RouteAcked:    preDefinedNonce,
+		},
+	}
+}
+
+func statusInput3() []v2.SyncStatus {
+	return []v2.SyncStatus{
+		{
+			ProxyID:       "proxy3",
+			IstioVersion:  "1.1",
+			ClusterSent:   preDefinedNonce,
+			ClusterAcked:  "",
+			ListenerAcked: preDefinedNonce,
+			EndpointSent:  preDefinedNonce,
+			EndpointAcked: "",
+			RouteSent:     preDefinedNonce,
+			RouteAcked:    preDefinedNonce,
+		},
+	}
+}
+
+func statusInputProxyVersion() []v2.SyncStatus {
+	return []v2.SyncStatus{
+		{
+			ProxyID:       "proxy2",
+			ProxyVersion:  "1.1",
+			ClusterSent:   preDefinedNonce,
+			ClusterAcked:  newNonce(),
+			ListenerSent:  preDefinedNonce,
+			ListenerAcked: preDefinedNonce,
+			EndpointSent:  preDefinedNonce,
+			EndpointAcked: newNonce(),
+			RouteSent:     preDefinedNonce,
+			RouteAcked:    preDefinedNonce,
 		},
 	}
 }

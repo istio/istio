@@ -1,9 +1,16 @@
-{{ if .Values.jaeger.enabled }}
+{{ if eq .Values.provider "jaeger" }}
 
 apiVersion: v1
 kind: List
+metadata:
+  name: jaeger-services
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: jaeger
+    chart: {{ template "tracing.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 items:
-{{- if .Values.ingress.enabled }}
 - apiVersion: v1
   kind: Service
   metadata:
@@ -11,24 +18,22 @@ items:
     namespace: {{ .Release.Namespace }}
     annotations:
       {{- range $key, $val := .Values.service.annotations }}
-      {{ $key }}: {{ $val }}
+      {{ $key }}: {{ $val | quote }}
       {{- end }}
     labels:
       app: jaeger
       jaeger-infra: jaeger-service
-      chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-      release: {{ .Release.Name }}
+      chart: {{ template "tracing.chart" . }}
       heritage: {{ .Release.Service }}
+      release: {{ .Release.Name }}
   spec:
     ports:
       - name: query-http
-        port: 80
+        port: 16686
         protocol: TCP
-        targetPort: {{ .Values.service.uiPort }}
+        targetPort: 16686
     selector:
       app: jaeger
-    type: LoadBalancer
-{{- end }}
 - apiVersion: v1
   kind: Service
   metadata:
@@ -37,9 +42,9 @@ items:
     labels:
       app: jaeger
       jaeger-infra: collector-service
-      chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-      release: {{ .Release.Name }}
+      chart: {{ template "tracing.chart" . }}
       heritage: {{ .Release.Service }}
+      release: {{ .Release.Name }}
   spec:
     ports:
     - name: jaeger-collector-tchannel
@@ -49,6 +54,10 @@ items:
     - name: jaeger-collector-http
       port: 14268
       targetPort: 14268
+      protocol: TCP
+    - name: jaeger-collector-grpc
+      port: 14250
+      targetPort: 14250
       protocol: TCP
     selector:
       app: jaeger
@@ -61,9 +70,9 @@ items:
     labels:
       app: jaeger
       jaeger-infra: agent-service
-      chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-      release: {{ .Release.Name }}
+      chart: {{ template "tracing.chart" . }}
       heritage: {{ .Release.Service }}
+      release: {{ .Release.Name }}
   spec:
     ports:
     - name: agent-zipkin-thrift

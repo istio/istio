@@ -16,10 +16,36 @@ package configdump
 
 import (
 	"bytes"
+	"reflect"
+	"strings"
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
-	"github.com/gogo/protobuf/jsonpb"
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
+	emptypb "github.com/golang/protobuf/ptypes/empty"
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
+
+// nonstrictResolver is an AnyResolver that ignores unknown proto messages
+type nonstrictResolver struct{}
+
+var (
+	envoyResolver nonstrictResolver
+)
+
+func (m *nonstrictResolver) Resolve(typeURL string) (proto.Message, error) {
+	// See https://github.com/golang/protobuf/issues/747#issuecomment-437463120
+	mname := typeURL
+	if slash := strings.LastIndex(typeURL, "/"); slash >= 0 {
+		mname = mname[slash+1:]
+	}
+	mt := proto.MessageType(mname)
+	if mt == nil {
+		// istioctl should keep going if it encounters new Envoy versions; ignore unknown types
+		return &exprpb.Type{TypeKind: &exprpb.Type_Dyn{Dyn: &emptypb.Empty{}}}, nil
+	}
+	return reflect.New(mt.Elem()).Interface().(proto.Message), nil
+}
 
 // Wrapper is a wrapper around the Envoy ConfigDump
 // It has extra helper functions for handling any/struct/marshal protobuf pain
@@ -30,8 +56,7 @@ type Wrapper struct {
 // MarshalJSON is a custom marshaller to handle protobuf pain
 func (w *Wrapper) MarshalJSON() ([]byte, error) {
 	buffer := &bytes.Buffer{}
-	jsonm := &jsonpb.Marshaler{}
-	err := jsonm.Marshal(buffer, w)
+	err := (&jsonpb.Marshaler{}).Marshal(buffer, w)
 	if err != nil {
 		return nil, err
 	}
@@ -40,11 +65,9 @@ func (w *Wrapper) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON is a custom unmarshaller to handle protobuf pain
 func (w *Wrapper) UnmarshalJSON(b []byte) error {
-	buf := bytes.NewBuffer(b)
-	jsonum := &jsonpb.Unmarshaler{}
 	cd := &adminapi.ConfigDump{}
-	err := jsonum.Unmarshal(buf, cd)
+	err := (&jsonpb.Unmarshaler{AllowUnknownFields: true,
+		AnyResolver: &envoyResolver}).Unmarshal(bytes.NewReader(b), cd)
 	*w = Wrapper{cd}
 	return err
-
 }

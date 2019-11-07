@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors. All Rights Reserved.
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,12 +21,13 @@ import (
 	"sync"
 	"time"
 
-	rpc "github.com/gogo/googleapis/google/rpc"
 	"google.golang.org/grpc"
 
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
+
 	mixerpb "istio.io/api/mixer/v1"
-	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/mockapi"
+	"istio.io/pkg/attribute"
 )
 
 // Handler stores data for Check, Quota and Report.
@@ -80,7 +81,6 @@ type MixerServer struct {
 	report *Handler
 	quota  *Handler
 
-	qma         mockapi.QuotaArgs
 	quotaAmount int64
 	quotaLimit  int64
 
@@ -88,6 +88,9 @@ type MixerServer struct {
 	quotaReferenced *mixerpb.ReferencedAttributes
 
 	directive *mixerpb.RouteDirective
+
+	sync.Mutex
+	qma mockapi.QuotaArgs
 }
 
 // Check is called by the mock mixer api
@@ -108,6 +111,9 @@ func (ts *MixerServer) Report(bag attribute.Bag) rpc.Status {
 
 // Quota is called by the mock mixer api
 func (ts *MixerServer) Quota(bag attribute.Bag, qma mockapi.QuotaArgs) (mockapi.QuotaResponse, rpc.Status) {
+	ts.Lock()
+	defer ts.Unlock()
+
 	if !ts.quota.stress {
 		// In non-stress case, saved for test verification
 		ts.qma = qma
@@ -135,7 +141,7 @@ func (ts *MixerServer) Quota(bag attribute.Bag, qma mockapi.QuotaArgs) (mockapi.
 }
 
 // NewMixerServer creates a new Mixer server
-func NewMixerServer(port uint16, stress bool) (*MixerServer, error) {
+func NewMixerServer(port uint16, stress bool, checkDict bool, checkSourceUID string) (*MixerServer, error) {
 	log.Printf("Mixer server listening on port %v\n", port)
 	s := &MixerServer{
 		check:  newHandler(stress),
@@ -151,21 +157,34 @@ func NewMixerServer(port uint16, stress bool) (*MixerServer, error) {
 		return nil, err
 	}
 
-	attrSrv := mockapi.NewAttributesServer(s)
+	attrSrv := mockapi.NewAttributesServer(s, checkDict)
+	if checkSourceUID != "" {
+		attrSrv.SetCheckMetadata(func(attrs *mixerpb.Attributes) error {
+			value := attrs.Attributes["source.uid"].GetStringValue()
+			if value != checkSourceUID {
+				return fmt.Errorf("got source.uid = %q, expected %q", value, checkSourceUID)
+			}
+			return nil
+		})
+	}
 	s.gs = mockapi.NewMixerServer(attrSrv)
 	return s, nil
 }
 
 // Start starts the mixer server
-// TODO: Add a channel so this can return an error
-func (ts *MixerServer) Start() {
+func (ts *MixerServer) Start() <-chan error {
+	errCh := make(chan error)
+
 	go func() {
 		err := ts.gs.Serve(ts.lis)
 		if err != nil {
-			log.Fatalf("failed to start mixer server: %v", err)
+			errCh <- fmt.Errorf("failed to start mixer server: %v", err)
 		}
-		log.Printf("Mixer server starts\n")
 	}()
+
+	// wait for grpc server up
+	time.AfterFunc(1*time.Second, func() { close(errCh) })
+	return errCh
 }
 
 // Stop shutdown the server

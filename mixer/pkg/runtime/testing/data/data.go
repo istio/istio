@@ -14,7 +14,10 @@
 
 package data
 
-import "strings"
+import (
+	"io/ioutil"
+	"strings"
+)
 
 // ServiceConfig is a standard service config.
 var ServiceConfig = `
@@ -94,6 +97,15 @@ metadata:
   namespace: istio-system
 spec:
   foo: attr.string
+`
+
+// InstanceCheckOutput1 is a standard testing instance for template tcheckoutput
+var InstanceCheckOutput1 = `
+apiVersion: config.istio.io/v1alpha2
+kind: tcheckoutput
+metadata:
+  name: icheckoutput1
+  namespace: istio-system
 `
 
 // InstanceHalt1 is a standard testing instance.
@@ -224,6 +236,15 @@ metadata:
 spec:
 `
 
+// HandlerACheckOutput1 is a standard handler for type acheckoutput
+var HandlerACheckOutput1 = `
+apiVersion: config.istio.io/v1alpha2
+kind: acheckoutput
+metadata:
+  name: hcheckoutput1
+  namespace: istio-system
+`
+
 // HandlerAReport1 is a handler of type acheck with name hreport1.
 var HandlerAReport1 = `
 apiVersion: "config.istio.io/v1alpha2"
@@ -234,9 +255,6 @@ metadata:
 spec:
 `
 
-// FqnAReport1 is the fully qualified name of HandlerAReport1.
-var FqnAReport1 = "hreport1.areport.istio-system"
-
 // HandlerAQuota1 is a handler of type aquota with name hquota1.
 var HandlerAQuota1 = `
 apiVersion: "config.istio.io/v1alpha2"
@@ -246,9 +264,6 @@ metadata:
   namespace: istio-system
 spec:
 `
-
-// FqnAQuota1 is the fully qualified name of HandlerAReport1.
-var FqnAQuota1 = "hquota1.aquota.istio-system"
 
 // HandlerAPA1 is an APA handler.
 var HandlerAPA1 = `
@@ -282,7 +297,7 @@ metadata:
   name: rcheck1
   namespace: istio-system
 spec:
-  selector: 'true'
+  match: 'true'
   actions:
   - handler: hcheck1.acheck
     instances:
@@ -297,7 +312,7 @@ metadata:
   name: rcheck1
   namespace: istio-system
 spec:
-  selector: needmorecheese
+  match: needmorecheese
   actions:
   - handler: hcheck1.acheck
     instances:
@@ -317,6 +332,29 @@ spec:
     instances:
     - icheck1.tcheck.istio-system
     - icheck2.tcheck.istio-system
+`
+
+// RuleCheck1WithInstance1And2Operation has instances icheck1 & icheck2 and a header operation
+var RuleCheck1WithInstance1And2Operation = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: rcheck1
+  namespace: istio-system
+spec:
+  actions:
+  - handler: hcheck1.acheck
+    instances:
+    - icheck1.tcheck.istio-system
+    - icheck2.tcheck.istio-system
+  requestHeaderOperations:
+  - name: a-header
+    values:
+    - '"test"'
+  responseHeaderOperations:
+  - name: b-header
+    values:
+    - '"test"'
 `
 
 // RuleCheck1WithMatchClause is Rule Check1 with a conditional.
@@ -372,7 +410,7 @@ metadata:
   name: rcheck1
   namespace: istio-system
 spec:
-  selector: destination.name
+  match: destination.name
   actions:
   - handler: hcheck1.acheck
     instances:
@@ -467,6 +505,88 @@ spec:
     - ihalt1.thalt.istio-system
 `
 
+// RuleCheckOutput1 is a standard testing rule for check output template
+var RuleCheckOutput1 = `
+apiVersion: config.istio.io/v1alpha2
+kind: rule
+metadata:
+  name: rcheckoutput1
+  namespace: istio-system
+spec:
+  actions:
+  - handler: hcheckoutput1.acheckoutput
+    instances:
+    - icheckoutput1.tcheckoutput.istio-system
+    name: sample
+  requestHeaderOperations:
+  - name: user
+    values:
+    - sample.output.value
+  - name: empty-header
+    values:
+    - '""'
+`
+
+// RuleCheckOutput2 is a testing rule for check output template with multiple outputs
+var RuleCheckOutput2 = `
+apiVersion: config.istio.io/v1alpha2
+kind: rule
+metadata:
+  name: rcheckoutput2
+  namespace: istio-system
+spec:
+  actions:
+  - handler: hcheckoutput1.acheckoutput
+    instances:
+    - icheckoutput1.tcheckoutput.istio-system
+    name: a
+  - handler: hcheckoutput1.acheckoutput
+    instances:
+    - icheckoutput1.tcheckoutput.istio-system
+    name: b
+  requestHeaderOperations:
+  - name: a-header
+    values:
+    - a.output.value
+    operation: REPLACE
+  - name: user
+    operation: REMOVE
+  responseHeaderOperations:
+  - name: b-header
+    values:
+    - b.output.value
+    - prefix.generated.string
+    operation: APPEND
+`
+
+// RuleCheckNoActionsOrHeaderOps has no actions and no responseHeaderOperations. Should be elided.
+var RuleCheckNoActionsOrHeaderOps = `
+apiVersion: config.istio.io/v1alpha2
+kind: rule
+metadata:
+  name: noactions
+  namespace: istio-system
+spec:
+  actions: []
+  responseHeaderOperations: []
+`
+
+// RuleCheckHeaderOpWithNoActions has a responseHeaderOperation, but no actions. Should not be elided.
+var RuleCheckHeaderOpWithNoActions = `
+apiVersion: config.istio.io/v1alpha2
+kind: rule
+metadata:
+  name: noactions
+  namespace: istio-system
+spec:
+  actions: []
+  responseHeaderOperations:
+  - name: b-header
+    values:
+    - '"test"'
+    operation: APPEND
+`
+
 // RuleReport1 is a standard testing instance config with name rreport1. It references I1 and H1.
 var RuleReport1 = `
 apiVersion: "config.istio.io/v1alpha2"
@@ -510,6 +630,21 @@ spec:
     - iquota1.tquota.istio-system
 `
 
+// RuleQuota1Conditional conditionally selects iquota1
+var RuleQuota1Conditional = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: rquota1
+  namespace: istio-system
+spec:
+  match: attr.string == "select"
+  actions:
+  - handler: hquota1.aquota
+    instances:
+    - iquota1.tquota.istio-system
+`
+
 // RuleQuota2 references iquota1 and hquota1.
 var RuleQuota2 = `
 apiVersion: "config.istio.io/v1alpha2"
@@ -538,7 +673,115 @@ spec:
     - iapa1.tapa.istio-system
 `
 
+// ListHandler1 is a dynamic handler of listentry template named as hdynlist1
+var ListHandler1 = `
+apiVersion: config.istio.io/v1alpha2
+kind: handler
+metadata:
+  name: hdynlist1
+  namespace: istio-system
+spec:
+  adapter: listbackend-nosession
+  connection:
+    address: 127.0.0.1:8080
+  params:
+    provider_url: google.com
+    overrides:
+    - a
+    - b
+    caching_interval: 5s
+`
+
+// ListHandler2 is a dynamic handler of listentry template named as hdynlist2
+var ListHandler2 = `
+apiVersion: config.istio.io/v1alpha2
+kind: handler
+metadata:
+  name: hdynlist2
+  namespace: istio-system
+spec:
+  adapter: listbackend-nosession
+  connection:
+    address: 127.0.0.1:8080
+  params:
+    refresh_interval: 5s
+    caching_use_count: 50
+`
+
+// ListHandler3 is a dynamic handler of listentry template named as hdynlist3
+var ListHandler3 = `
+apiVersion: config.istio.io/v1alpha2
+kind: handler
+metadata:
+  name: hdynlist3
+  namespace: istio-system
+spec:
+  adapter: listbackend-nosession
+  connection:
+    address: 127.0.0.1:8080
+  params:
+    blacklist: true
+`
+
+// ListHandler3Addr is a dynamic handler that is same as ListHandler3 but has different backend address
+var ListHandler3Addr = `
+apiVersion: config.istio.io/v1alpha2
+kind: handler
+metadata:
+  name: hdynlist3
+  namespace: istio-system
+spec:
+  adapter: listbackend-nosession
+  connection:
+    address: 127.0.0.1:8081
+  params:
+    blacklist: true
+`
+
+// FqdnListHandler3 is fqdn of ListHandler3
+var FqdnListHandler3 = "hdynlist3.handler.istio-system"
+
+// InstanceDynamic is the instance of the template listentry
+var InstanceDynamic = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: instance
+metadata:
+  name: idynlistentry1
+  namespace: istio-system
+spec:
+  template: listentry
+  params:
+`
+
+// RuleDynamic is a testing rule of dynamic instance idynlistentry1 and dynamic handler hdynlist3
+var RuleDynamic = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: rdynlist1
+  namespace: istio-system
+spec:
+  actions:
+  - handler: hdynlist3.handler
+    instances:
+    - idynlistentry1.istio-system
+`
+
 // JoinConfigs is a utility for joining various pieces of config for consumption by store code.
 func JoinConfigs(configs ...string) string {
 	return strings.Join(configs, "\n---\n")
+}
+
+// ReadConfigs reads config from the given path list and returns them as a string.
+func ReadConfigs(paths ...string) (string, error) {
+	cfg := ""
+	for _, p := range paths {
+		fc, err := ioutil.ReadFile(p)
+		if err != nil {
+			return "", err
+		}
+		cfg = JoinConfigs(cfg, string(fc))
+	}
+
+	return cfg, nil
 }

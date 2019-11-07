@@ -1,0 +1,109 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: httpbin-1
+  namespace: foo
+spec:
+  selector:
+    matchLabels:
+      app: httpbin
+      version: v1
+  rules:
+  - to:
+    - operation:
+        methods: ["GET", "POST"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: httpbin-2
+  namespace: foo
+spec:
+  selector:
+    matchLabels:
+      app: httpbin
+  rules:
+    - to:
+      - operation:
+          paths: ["/v1", "/v2"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: httpbin-3
+  namespace: foo
+spec:
+  selector:
+    matchLabels:
+      version: v1
+  rules:
+    - to:
+        - operation:
+            hosts: ["google.com", "httpbin.org"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: httpbin-4
+  namespace: foo
+spec:
+  rules:
+    - to:
+        - operation:
+            ports: ["80", "90"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: httpbin-5
+  namespace: foo
+spec:
+  rules:
+    - from:
+        - source:
+            principals: ["principals1", "principals2"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: httpbin-6
+  namespace: foo
+spec:
+  rules:
+    - from:
+        - source:
+            requestPrincipals: ["requestPrincipals1", "requestPrincipals2"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: httpbin-7
+  namespace: foo
+spec:
+  rules:
+    - from:
+        - source:
+            namespaces: ["namespaces1", "namespaces2"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: httpbin-8
+  namespace: foo
+spec:
+  rules:
+    - from:
+        - source:
+            ipBlocks: ["1.2.3.4", "5.6.7.0/24"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: httpbin-9
+  namespace: foo
+spec:
+  rules:
+    - when:
+        - key: "request.headers[X-abc]"
+          values: ["abc1", "abc2"]
+---

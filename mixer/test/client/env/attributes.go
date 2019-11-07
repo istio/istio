@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors. All Rights Reserved.
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,31 +19,8 @@ import (
 	"fmt"
 	"reflect"
 
-	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/pkg/attribute"
 )
-
-func verifyRawStringMap(actual map[string]string, expected map[string]interface{}) error {
-	for k, v := range expected {
-		vstring := v.(string)
-		// "-" make sure the key does not exist.
-		if vstring == "-" {
-			if _, ok := actual[k]; ok {
-				return fmt.Errorf("key %+v is NOT expected", k)
-			}
-		} else {
-			if val, ok := actual[k]; ok {
-				// "*" only check key exist
-				if val != vstring && vstring != "*" {
-					return fmt.Errorf("key %+v value doesn't match. Actual %+v, expected %+v",
-						k, val, vstring)
-				}
-			} else {
-				return fmt.Errorf("key %+v is expected", k)
-			}
-		}
-	}
-	return nil
-}
 
 // TODO: remove duplicated code by change StringMap object to expose the whole map
 func verifyObjStringMap(actual attribute.StringMap, expected map[string]interface{}) error {
@@ -140,11 +117,9 @@ func Verify(b *attribute.MutableBag, expectedJSON string) error {
 		case map[string]interface{}:
 			if val, ok := b.Get(k); ok {
 				var err error
-				switch val.(type) {
+				switch vvv := val.(type) {
 				case attribute.StringMap:
-					err = verifyObjStringMap(val.(attribute.StringMap), v.(map[string]interface{}))
-				case map[string]string:
-					err = verifyRawStringMap(val.(map[string]string), v.(map[string]interface{}))
+					err = verifyObjStringMap(vvv, vv)
 				default:
 					return fmt.Errorf("attribute %+v is of a unknown type %+v",
 						k, reflect.TypeOf(val))

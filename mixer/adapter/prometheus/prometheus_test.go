@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors.
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,6 +19,9 @@ import (
 	"errors"
 	"net/http"
 	"reflect"
+	"sort"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -34,6 +37,9 @@ import (
 type testServer struct {
 	errOnStart bool
 }
+
+type metricInfos []*config.Params_MetricInfo
+type metricInsts []*metric.Instance
 
 var _ Server = &testServer{}
 
@@ -109,6 +115,13 @@ var (
 				&config.Params_MetricInfo_BucketsDefinition_Linear{NumFiniteBuckets: 5, Offset: 45, Width: 12}}},
 	}
 
+	gaugeWithLabels = &config.Params_MetricInfo{
+		InstanceName: "labeled_gauge",
+		Description:  "super power strength gauge",
+		Kind:         config.GAUGE,
+		LabelNames:   []string{"bool", "string", "email"},
+	}
+
 	counter = &config.Params_MetricInfo{
 		InstanceName: "special_counter",
 		Description:  "count all the special tests",
@@ -141,10 +154,30 @@ var (
 		LabelNames:   []string{},
 	}
 
+	gaugeWithLabelsVal = &metric.Instance{
+		Name: gaugeWithLabels.InstanceName,
+		Dimensions: map[string]interface{}{
+			"bool":   true,
+			"string": "testing",
+			"email":  "test@istio.io",
+		},
+		Value: float64(45),
+	}
+
 	counterVal = &metric.Instance{
 		Name: counter.InstanceName,
 		Dimensions: map[string]interface{}{
 			"bool":   true,
+			"string": "testing",
+			"email":  "test@istio.io",
+		},
+		Value: float64(45),
+	}
+
+	counterVal2 = &metric.Instance{
+		Name: counter.InstanceName,
+		Dimensions: map[string]interface{}{
+			"bool":   false,
 			"string": "testing",
 			"email":  "test@istio.io",
 		},
@@ -180,17 +213,17 @@ func TestBuild(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		metrics []*config.Params_MetricInfo
+		metrics metricInfos
 	}{
-		{"No Metrics", []*config.Params_MetricInfo{}},
-		{"One Gauge", []*config.Params_MetricInfo{gaugeNoLabels}},
-		{"No Instance Name", []*config.Params_MetricInfo{noInstanceName}},
-		{"One Counter", []*config.Params_MetricInfo{counterNoLabels}},
-		{"Distribution", []*config.Params_MetricInfo{histogramNoLabels}},
-		{"Multiple Metrics", []*config.Params_MetricInfo{counterNoLabels, gaugeNoLabels, histogramNoLabels}},
-		{"With Labels", []*config.Params_MetricInfo{counter, histogram}},
-		{"counter With Labels modified", []*config.Params_MetricInfo{counterModified}},
-		{"No Descriptions", []*config.Params_MetricInfo{counterNoLabelsNoDesc, gaugeNoLabelsNoDesc, histogramNoLabelsNoDesc}},
+		{"No Metrics", metricInfos{}},
+		{"One Gauge", metricInfos{gaugeNoLabels}},
+		{"No Instance Name", metricInfos{noInstanceName}},
+		{"One Counter", metricInfos{counterNoLabels}},
+		{"Distribution", metricInfos{histogramNoLabels}},
+		{"Multiple Metrics", metricInfos{counterNoLabels, gaugeNoLabels, histogramNoLabels}},
+		{"With Labels", metricInfos{counter, histogram}},
+		{"counter With Labels modified", metricInfos{counterModified}},
+		{"No Descriptions", metricInfos{counterNoLabelsNoDesc, gaugeNoLabelsNoDesc, histogramNoLabelsNoDesc}},
 	}
 
 	for _, v := range tests {
@@ -199,7 +232,35 @@ func TestBuild(t *testing.T) {
 			f.SetMetricTypes(nil)
 			_ = f.Validate()
 			if _, err := f.Build(context.Background(), test.NewEnv(t)); err != nil {
-				t.Errorf("NewMetricsAspect() => unexpected error: %v", err)
+				t.Errorf("Build() => unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidate_withExpirationPolicy(t *testing.T) {
+	f := newBuilder(&testServer{})
+
+	tests := []struct {
+		name    string
+		policy  *config.Params_MetricsExpirationPolicy
+		wantErr bool
+	}{
+		{"No Policy", nil, false},
+		{"Good Policy", expPolicy(10*time.Minute, 1*time.Second), false},
+		{"Missing Expiration", &config.Params_MetricsExpirationPolicy{ExpiryCheckIntervalDuration: 1 * time.Minute}, true},
+		{"Missing Interval", &config.Params_MetricsExpirationPolicy{MetricsExpiryDuration: 1 * time.Minute}, false},
+	}
+
+	for _, v := range tests {
+		t.Run(v.name, func(t *testing.T) {
+			f.SetAdapterConfig(makeConfigWithExpirationPolicy(v.policy))
+			f.SetMetricTypes(nil)
+			err := f.Validate()
+			if err == nil && v.wantErr {
+				t.Error("Validate() should have produced an error")
+			} else if err != nil && !v.wantErr {
+				t.Errorf("Validate() => unexpected error: %v", err)
 			}
 		})
 	}
@@ -255,11 +316,11 @@ func TestBucket(t *testing.T) {
 	}
 }
 
-func TestFactory_BuildServerFail(t *testing.T) {
+func TestBuild_ServerFail(t *testing.T) {
 	f := newBuilder(&testServer{errOnStart: true})
 	f.SetAdapterConfig(makeConfig())
 	if _, err := f.Build(context.Background(), test.NewEnv(t)); err == nil {
-		t.Error("NewMetricsAspect() => expected error on server startup")
+		t.Error("Build() => expected error on server startup")
 	}
 }
 
@@ -292,7 +353,7 @@ func TestBuild_MetricDefinitionErrors(t *testing.T) {
 	}
 }
 
-func TestFactory_Build_MetricDefinitionConflicts(t *testing.T) {
+func TestBuild_MetricDefinitionConflicts(t *testing.T) {
 	f := newBuilder(&testServer{})
 
 	gaugeWithLabels := &config.Params_MetricInfo{
@@ -346,25 +407,21 @@ func TestProm_Close(t *testing.T) {
 	}
 }
 
-func TestProm_Record(t *testing.T) {
+func TestProm_HandleMetrics(t *testing.T) {
 	duration, _ := time.ParseDuration("386ms")
 
 	f := newBuilder(&testServer{})
 	tests := []struct {
 		name    string
-		metrics []*config.Params_MetricInfo
-		values  []*metric.Instance
+		metrics metricInfos
+		values  metricInsts
 	}{
-		{"Counter and Gauge",
-			[]*config.Params_MetricInfo{counterNoLabels, gaugeNoLabels},
-			[]*metric.Instance{gaugeVal, newCounterVal(counterNoLabels.InstanceName, float64(16))}},
-		{"Int64", []*config.Params_MetricInfo{gaugeNoLabels}, []*metric.Instance{newGaugeVal(gaugeVal.Name, int64(8))}},
-		{"Int64WithLabels", []*config.Params_MetricInfo{counter},
-			[]*metric.Instance{counterVal}},
-		{"Duration", []*config.Params_MetricInfo{gaugeNoLabels}, []*metric.Instance{newGaugeVal(gaugeVal.Name, duration)}},
-		{"String", []*config.Params_MetricInfo{gaugeNoLabels}, []*metric.Instance{newGaugeVal(gaugeVal.Name, "8.243543")}},
-		{"histogram int64", []*config.Params_MetricInfo{histogramNoLabels},
-			[]*metric.Instance{newHistogramVal(histogramNoLabels.InstanceName, int64(8))}},
+		{"Counter and Gauge", metricInfos{counterNoLabels, gaugeNoLabels}, metricInsts{gaugeVal, newCounterVal(counterNoLabels.InstanceName, float64(16))}},
+		{"Int64", metricInfos{gaugeNoLabels}, metricInsts{newGaugeVal(gaugeVal.Name, int64(8))}},
+		{"Int64WithLabels", metricInfos{counter}, metricInsts{counterVal}},
+		{"Duration", metricInfos{gaugeNoLabels}, metricInsts{newGaugeVal(gaugeVal.Name, duration)}},
+		{"String", metricInfos{gaugeNoLabels}, metricInsts{newGaugeVal(gaugeVal.Name, "8.243543")}},
+		{"histogram int64", metricInfos{histogramNoLabels}, metricInsts{newHistogramVal(histogramNoLabels.InstanceName, int64(8))}},
 	}
 
 	for _, v := range tests {
@@ -374,35 +431,34 @@ func TestProm_Record(t *testing.T) {
 			if err != nil {
 				t.Errorf("Build() => unexpected error: %v", err)
 			}
-			aspect := a.(metric.Handler)
+			hndlr := a.(metric.Handler)
 
-			err = aspect.HandleMetric(context.Background(), v.values)
+			err = hndlr.HandleMetric(context.Background(), v.values)
 			if err != nil {
-				t.Errorf("Record() => unexpected error: %v", err)
+				t.Errorf("HandleMetric() => unexpected error: %v", err)
 			}
 			// Check tautological recording of entries.
-			pr := aspect.(*handler)
+			pr := hndlr.(*handler)
 			for _, adapterVal := range v.values {
 				ci, ok := pr.metrics[adapterVal.Name]
 				if !ok {
-					t.Errorf("Record() could not find metric with name %s:", adapterVal.Name)
+					t.Errorf("HandleMetric() could not find metric with name %s:", adapterVal.Name)
 					continue
 				}
-				c := ci.c
 				m := new(dto.Metric)
-				switch c.(type) {
+				switch c := ci.c.(type) {
 				case *prometheus.CounterVec:
-					if err := c.(*prometheus.CounterVec).With(promLabels(adapterVal.Dimensions)).Write(m); err != nil {
+					if err := c.With(promLabels(adapterVal.Dimensions)).Write(m); err != nil {
 						t.Errorf("Error writing metric value to proto: %v", err)
 						continue
 					}
 				case *prometheus.GaugeVec:
-					if err := c.(*prometheus.GaugeVec).With(promLabels(adapterVal.Dimensions)).Write(m); err != nil {
+					if err := c.With(promLabels(adapterVal.Dimensions)).Write(m); err != nil {
 						t.Errorf("Error writing metric value to proto: %v", err)
 						continue
 					}
 				case *prometheus.HistogramVec:
-					if err := c.(*prometheus.HistogramVec).With(promLabels(adapterVal.Dimensions)).(prometheus.Metric).Write(m); err != nil {
+					if err := c.With(promLabels(adapterVal.Dimensions)).(prometheus.Metric).Write(m); err != nil {
 						t.Errorf("Error writing metric value to proto: %v", err)
 						continue
 					}
@@ -411,33 +467,28 @@ func TestProm_Record(t *testing.T) {
 				got := metricValue(m)
 				want, err := promValue(adapterVal.Value)
 				if err != nil {
-					t.Errorf("Record(%s) could not get desired value: %v", adapterVal.Name, err)
+					t.Errorf("HandleMetric(%s) could not get desired value: %v", adapterVal.Name, err)
 				}
 				if got != want {
-					t.Errorf("Record(%s) => %f, want %f", adapterVal.Name, got, want)
+					t.Errorf("HandleMetric(%s) => %f, want %f", adapterVal.Name, got, want)
 				}
 			}
 		})
 	}
 }
 
-func TestProm_RecordFailures(t *testing.T) {
+func TestProm_HandleMetricFailures(t *testing.T) {
 	f := newBuilder(&testServer{})
 	tests := []struct {
 		name    string
-		metrics []*config.Params_MetricInfo
-		values  []*metric.Instance
+		metrics metricInfos
+		values  metricInsts
 	}{
-		{"Not Found", []*config.Params_MetricInfo{counterNoLabels},
-			[]*metric.Instance{newGaugeVal(gaugeVal.Name, true)}},
-		{"Bool", []*config.Params_MetricInfo{gaugeNoLabels},
-			[]*metric.Instance{newGaugeVal(gaugeVal.Name, true)}},
-		{"Text String (Gauge)", []*config.Params_MetricInfo{gaugeNoLabels},
-			[]*metric.Instance{newGaugeVal(gaugeVal.Name, "not a value")}},
-		{"Text String (Counter)", []*config.Params_MetricInfo{counterNoLabels},
-			[]*metric.Instance{newCounterVal(counterNoLabels.InstanceName, "not a value")}},
-		{"Text String (Histogram)", []*config.Params_MetricInfo{histogram},
-			[]*metric.Instance{newHistogramVal(histogramVal.Name, "not a value")}},
+		{"Not Found", metricInfos{counterNoLabels}, metricInsts{newGaugeVal(gaugeVal.Name, true)}},
+		{"Bool", metricInfos{gaugeNoLabels}, metricInsts{newGaugeVal(gaugeVal.Name, true)}},
+		{"Text String (Gauge)", metricInfos{gaugeNoLabels}, metricInsts{newGaugeVal(gaugeVal.Name, "not a value")}},
+		{"Text String (Counter)", metricInfos{counterNoLabels}, metricInsts{newCounterVal(counterNoLabels.InstanceName, "not a value")}},
+		{"Text String (Histogram)", metricInfos{histogram}, metricInsts{newHistogramVal(histogramVal.Name, "not a value")}},
 	}
 
 	for _, v := range tests {
@@ -450,7 +501,7 @@ func TestProm_RecordFailures(t *testing.T) {
 			aspect := a.(metric.Handler)
 			err = aspect.HandleMetric(context.Background(), v.values)
 			if err == nil {
-				t.Error("Record() - expected error, got none")
+				t.Error("HandleMetric() - expected error, got none")
 			}
 		})
 	}
@@ -465,6 +516,115 @@ func (m marshaler) Marshal() ([]byte, error) {
 func TestComputeSha(t *testing.T) {
 	// just ensure we don't panic
 	_ = computeSha(marshaler{}, test.NewEnv(t).Logger())
+}
+
+func TestMetricExpiration(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/17182")
+	testPolicy := expPolicy(50*time.Millisecond, 10*time.Millisecond)
+	altPolicy := expPolicy(50*time.Millisecond, 0)
+
+	cases := []struct {
+		name             string
+		metrics          metricInfos
+		valuesToExpire   metricInsts
+		valuesToRefresh  metricInsts
+		expirationPolicy *config.Params_MetricsExpirationPolicy
+		checkWaitTime    time.Duration
+	}{
+		{"No expiration", metricInfos{counter}, metricInsts{counterVal}, metricInsts{}, nil, 0},
+		{"Single metric expiration (counter)", metricInfos{counter}, metricInsts{counterVal}, metricInsts{}, testPolicy, 200 * time.Millisecond},
+		{"Single metric expiration (counter, alt policy)", metricInfos{counter}, metricInsts{counterVal}, metricInsts{}, altPolicy, 200 * time.Millisecond},
+		{"Single metric expiration (gauge)", metricInfos{gaugeWithLabels}, metricInsts{gaugeWithLabelsVal}, metricInsts{}, testPolicy, 200 * time.Millisecond},
+		{"Single metric expiration (histogram)", metricInfos{histogram}, metricInsts{histogramVal}, metricInsts{}, testPolicy, 200 * time.Millisecond},
+		{"Preserve non-stale metrics", metricInfos{counter}, metricInsts{counterVal}, metricInsts{counterVal2}, testPolicy, 200 * time.Millisecond},
+	}
+
+	f := newBuilder(&testServer{})
+	for _, v := range cases {
+		t.Run(v.name, func(t *testing.T) {
+			f.SetAdapterConfig(makeConfigWithExpirationPolicy(v.expirationPolicy, v.metrics...))
+			a, err := f.Build(context.Background(), test.NewEnv(t))
+			if err != nil {
+				t.Errorf("Build() => unexpected error: %v", err)
+			}
+			h := a.(metric.Handler)
+
+			if err := h.HandleMetric(context.Background(), v.valuesToExpire); err != nil {
+				t.Errorf("HandleMetric() => unexpected error: %v", err)
+			}
+
+			time.Sleep(v.checkWaitTime)
+
+			inst := a.(*handler)
+			if v.expirationPolicy != nil {
+
+				h.HandleMetric(context.Background(), v.valuesToRefresh) // add fresh instances
+				inst.labelsCache.EvictExpired()                         // ensure eviction
+				inst.labelsCache.RemoveAll()                            // prevent further evictions
+
+				if int(inst.labelsCache.Stats().Evictions) != len(v.valuesToExpire) {
+					t.Errorf("Bad number of evictions: got %d, wanted %d", inst.labelsCache.Stats().Evictions, len(v.valuesToExpire))
+				}
+
+				totalMetrics := 0
+
+				var wg sync.WaitGroup
+				for _, m := range v.metrics {
+					ch := make(chan prometheus.Metric)
+					go func() {
+						for {
+							elem, more := <-ch
+							if !more {
+								wg.Done()
+								return
+							}
+							t.Logf("collector (%s): %+v", m.Name, elem)
+							totalMetrics++
+						}
+					}()
+					wg.Add(1)
+					inst.metrics[m.InstanceName].c.Collect(ch)
+					close(ch)
+				}
+
+				wg.Wait()
+				if totalMetrics != len(v.valuesToRefresh) {
+					t.Errorf("Bad number of metrics remaining: got %d, want %d", totalMetrics, len(v.valuesToRefresh))
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkKey(b *testing.B) {
+	pl := prometheus.Labels(map[string]string{
+		"a":      "14.5",
+		"c":      "hello",
+		"f":      "cannonball",
+		"b":      "kubernetes",
+		"g":      "istio",
+		"d":      "system",
+		"magic":  "15ms",
+		"lots":   "tons",
+		"of":     "0.0001",
+		"fun":    "isn't it?",
+		"test":   "production",
+		"joy":    "sadness",
+		"allocs": "zero"})
+
+	keys := make([]string, 0, len(pl))
+	// ensure stable order
+	for k := range pl {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		key("testMetric", "gauge", pl, keys)
+	}
 }
 
 func metricValue(m *dto.Metric) float64 {
@@ -509,4 +669,31 @@ func newHistogramVal(name string, val interface{}) *metric.Instance {
 
 func makeConfig(metrics ...*config.Params_MetricInfo) *config.Params {
 	return &config.Params{Metrics: metrics}
+}
+
+func makeConfigWithExpirationPolicy(policy *config.Params_MetricsExpirationPolicy, metrics ...*config.Params_MetricInfo) *config.Params {
+	return &config.Params{Metrics: metrics, MetricsExpirationPolicy: policy}
+}
+
+func expPolicy(expiry, check time.Duration) *config.Params_MetricsExpirationPolicy {
+	return &config.Params_MetricsExpirationPolicy{expiry, check}
+}
+
+func TestPromLogger_Println(t *testing.T) {
+	testEnvLogger := test.NewEnv(t)
+	underTest := &promLogger{logger: testEnvLogger}
+
+	underTest.Println("Istio Service Mesh", 94.5, false)
+
+	logs := testEnvLogger.GetLogs()
+	if len(logs) != 1 {
+		t.Fatalf("Println() did not produce correct number of logs; got %d, want 1", len(logs))
+	}
+
+	line := logs[0]
+	want := "Prometheus handler error: Istio Service Mesh 94.5 false\n"
+	if !strings.EqualFold(line, want) {
+		t.Fatalf("Println() did not produce expected logs; got '%s', want '%s'", line, want)
+	}
+
 }

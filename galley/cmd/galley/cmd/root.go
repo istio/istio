@@ -17,61 +17,92 @@ package cmd
 import (
 	"flag"
 	"fmt"
-	"time"
+	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
+	"github.com/spf13/viper"
 
-	"istio.io/istio/galley/cmd/shared"
-	"istio.io/istio/pkg/collateral"
-	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/version"
-)
-
-var (
-	flags = struct {
-		kubeConfig   string
-		resyncPeriod time.Duration
-	}{}
-
-	loggingOptions = log.DefaultOptions()
+	"istio.io/istio/galley/pkg/envvar"
+	"istio.io/pkg/collateral"
+	"istio.io/pkg/collateral/metrics"
+	"istio.io/pkg/env"
+	"istio.io/pkg/version"
 )
 
 // GetRootCmd returns the root of the cobra command-tree.
-func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
+func GetRootCmd(args []string) *cobra.Command {
+
 	rootCmd := &cobra.Command{
 		Use:          "galley",
 		Short:        "Galley provides configuration management services for Istio.",
 		Long:         "Galley provides configuration management services for Istio.",
 		SilenceUsage: true,
+		Args:         cobra.ExactArgs(0),
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) > 0 {
-				return fmt.Errorf("%q is an invalid argument", args[0])
-			}
-
-			return log.Configure(loggingOptions)
+			return nil
 		},
 	}
+
+	var cfgFile string
+	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "Config file containing args")
+
+	cobra.OnInitialize(func() {
+		if len(cfgFile) > 0 {
+			viper.SetConfigFile(cfgFile)
+			err := viper.ReadInConfig() // Find and read the config file
+			if err != nil {             // Handle errors reading the config file
+				_, _ = os.Stderr.WriteString(fmt.Errorf("fatal error in config file: %s", err).Error())
+				os.Exit(1)
+			}
+		}
+	})
+
 	rootCmd.SetArgs(args)
 	rootCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
-
-	rootCmd.PersistentFlags().StringVar(&flags.kubeConfig, "kubeconfig", "",
-		"Use a Kubernetes configuration file instead of in-cluster configuration")
-
-	rootCmd.PersistentFlags().DurationVar(&flags.resyncPeriod, "resyncPeriod", 0,
-		"Resync period for rescanning Kubernetes resources")
-
-	rootCmd.AddCommand(serverCmd(printf, fatalf))
-	rootCmd.AddCommand(validatorCmd(printf, fatalf))
-	rootCmd.AddCommand(probeCmd(printf, fatalf))
+	rootCmd.AddCommand(serverCmd())
+	rootCmd.AddCommand(probeCmd())
 	rootCmd.AddCommand(version.CobraCommand())
-	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
+
+	// TODO: We need to filter out the collaterals, as Galley has code-level dependencies on other component's code.
+	// Over time, this set of dependencies should go away. Until then, using CobraCommandWithFilter to filter out
+	// the environment variables and metrics.
+	rootCmd.AddCommand(collateral.CobraCommandWithFilter(rootCmd, &doc.GenManHeader{
 		Title:   "Istio Galley Server",
 		Section: "galley CLI",
 		Manual:  "Istio Galley Server",
+	}, collateral.Predicates{
+		SelectEnv:    selectEnv,
+		SelectMetric: selectMetric,
 	}))
 
 	loggingOptions.AttachCobraFlags(rootCmd)
 
 	return rootCmd
+}
+
+func selectEnv(e env.Var) bool {
+	for _, n := range envvar.RegisteredEnvVarNames() {
+		if e.Name == n {
+			return true
+		}
+	}
+	return false
+}
+
+func selectMetric(m metrics.Exported) bool {
+	if strings.HasPrefix(m.Name, "pilot") {
+		return false
+	}
+
+	if strings.HasPrefix(m.Name, "mixer") {
+		return false
+	}
+
+	if m.Name == "endpoint_no_pod" {
+		return false
+	}
+
+	return true
 }

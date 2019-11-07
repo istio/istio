@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    sidecar.istio.io/inject: "false"
+  creationTimestamp: null
+  name: hellopod
+spec:
+  containers:
+  - image: fake.docker.io/google-samples/hello-go-gke:1.0
+    name: hello
+    ports:
+    - containerPort: 80
+      name: http
+    resources: {}
+  dnsConfig:
+    searches:
+    - test
+status: {}
+---

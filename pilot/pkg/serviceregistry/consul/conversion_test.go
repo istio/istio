@@ -20,22 +20,22 @@ import (
 
 	"github.com/hashicorp/consul/api"
 
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 var (
 	protocols = []struct {
 		name string
 		port int
-		out  model.Protocol
+		out  protocol.Instance
 	}{
-		{"tcp", 80, model.ProtocolTCP},
-		{"http", 81, model.ProtocolHTTP},
-		{"https", 443, model.ProtocolHTTPS},
-		{"http2", 83, model.ProtocolHTTP2},
-		{"grpc", 84, model.ProtocolGRPC},
-		{"udp", 85, model.ProtocolUDP},
-		{"", 86, model.ProtocolHTTP},
+		{"tcp", 80, protocol.TCP},
+		{"http", 81, protocol.HTTP},
+		{"https", 443, protocol.HTTPS},
+		{"http2", 83, protocol.HTTP2},
+		{"grpc", 84, protocol.GRPC},
+		{"udp", 85, protocol.UDP},
+		{"", 86, protocol.TCP},
 	}
 
 	goodLabels = []string{
@@ -73,7 +73,7 @@ func TestConvertLabels(t *testing.T) {
 func TestConvertInstance(t *testing.T) {
 	ip := "172.19.0.11"
 	port := 9080
-	protocol := "udp"
+	p := "udp"
 	name := "productpage"
 	tagKey1 := "version"
 	tagVal1 := "v1"
@@ -92,25 +92,25 @@ func TestConvertInstance(t *testing.T) {
 		ServiceAddress: ip,
 		ServicePort:    port,
 		Datacenter:     dc,
-		NodeMeta:       map[string]string{protocolTagName: protocol},
+		ServiceMeta:    map[string]string{protocolTagName: p},
 	}
 
 	out := convertInstance(&consulServiceInst)
 
-	if out.Endpoint.ServicePort.Protocol != model.ProtocolUDP {
-		t.Errorf("convertInstance() => %v, want %v", out.Endpoint.ServicePort.Protocol, model.ProtocolUDP)
+	if out.Endpoint.ServicePort.Protocol != protocol.UDP {
+		t.Errorf("convertInstance() => %v, want %v", out.Endpoint.ServicePort.Protocol, protocol.UDP)
 	}
 
-	if out.Endpoint.ServicePort.Name != protocol {
-		t.Errorf("convertInstance() => %v, want %v", out.Endpoint.ServicePort.Name, protocol)
+	if out.Endpoint.ServicePort.Name != p {
+		t.Errorf("convertInstance() => %v, want %v", out.Endpoint.ServicePort.Name, p)
 	}
 
 	if out.Endpoint.ServicePort.Port != port {
 		t.Errorf("convertInstance() => %v, want %v", out.Endpoint.ServicePort.Port, port)
 	}
 
-	if out.AvailabilityZone != dc {
-		t.Errorf("convertInstance() => %v, want %v", out.AvailabilityZone, dc)
+	if out.Endpoint.Locality != dc {
+		t.Errorf("convertInstance() => %v, want %v", out.Endpoint.Locality, dc)
 	}
 
 	if out.Endpoint.Address != ip {
@@ -138,7 +138,7 @@ func TestConvertInstance(t *testing.T) {
 		t.Errorf("convertInstance() incorrect # of service ports => %q, want %q", len(out.Service.Ports), 1)
 	}
 
-	if out.Service.Ports[0].Port != port || out.Service.Ports[0].Name != protocol {
+	if out.Service.Ports[0].Port != port || out.Service.Ports[0].Name != p {
 		t.Errorf("convertInstance() incorrect service port => %q", out.Service.Ports[0])
 	}
 
@@ -169,7 +169,7 @@ func TestConvertService(t *testing.T) {
 			},
 			ServiceAddress: "172.19.0.11",
 			ServicePort:    9080,
-			NodeMeta:       map[string]string{protocolTagName: "udp"},
+			ServiceMeta:    map[string]string{protocolTagName: "udp"},
 		},
 		{
 			Node:        "istio-node",
@@ -181,7 +181,7 @@ func TestConvertService(t *testing.T) {
 			},
 			ServiceAddress: "172.19.0.12",
 			ServicePort:    9080,
-			NodeMeta:       map[string]string{protocolTagName: "udp"},
+			ServiceMeta:    map[string]string{protocolTagName: "udp"},
 		},
 	}
 

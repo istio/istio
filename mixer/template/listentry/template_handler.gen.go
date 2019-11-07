@@ -27,14 +27,16 @@ import (
 //
 // Example config:
 //
-// ```
+// ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
-// kind: listentry
+// kind: instance
 // metadata:
 //   name: appversion
 //   namespace: istio-system
 // spec:
-//   value: source.labels["version"]
+//   compiledTemplate: listentry
+//   params:
+//     value: source.labels["version"]
 // ```
 
 // Fully qualified name of the template
@@ -52,8 +54,8 @@ type Instance struct {
 	// Name of the instance as specified in configuration.
 	Name string
 
-	// Specifies the entry to verify in the list.
-	Value string
+	// Specifies the entry to verify in the list. This value can either be a string or an IP address.
+	Value interface{}
 }
 
 // HandlerBuilder must be implemented by adapters if they want to

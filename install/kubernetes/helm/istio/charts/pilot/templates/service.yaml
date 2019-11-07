@@ -4,25 +4,20 @@ metadata:
   name: istio-pilot
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-pilot
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
+    app: {{ template "pilot.name" . }}
+    chart: {{ template "pilot.chart" . }}
     heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+    istio: pilot
 spec:
   ports:
-  - port: 15003
-    name: http-old-discovery # mTLS or non-mTLS depending on auth setting
-  - port: 15005
-    name: https-discovery # always mTLS
-  - port: 15007
-    name: http-discovery # always plain-text
   - port: 15010
     name: grpc-xds # direct
   - port: 15011
     name: https-xds # mTLS
   - port: 8080
     name: http-legacy-discovery # direct
-  - port: 9093
+  - port: {{ .Values.global.monitoringPort }}
     name: http-monitoring
   selector:
     istio: pilot

@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors. All Rights Reserved.
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,9 +22,11 @@ import (
 	"testing"
 	"time"
 
-	rpc "github.com/gogo/googleapis/google/rpc"
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 
 	mixerpb "istio.io/api/mixer/v1"
+
+	"istio.io/istio/pkg/envoy"
 	"istio.io/istio/pkg/test"
 )
 
@@ -35,7 +37,7 @@ type TestSetup struct {
 	mfConf *MixerFilterConf
 	ports  *Ports
 
-	envoy             *Envoy
+	envoy             envoy.Instance
 	mixer             *MixerServer
 	backend           *HTTPServer
 	testName          uint16
@@ -44,6 +46,7 @@ type TestSetup struct {
 	noProxy           bool
 	noBackend         bool
 	disableHotRestart bool
+	checkDict         bool
 
 	FiltersBeforeMixer string
 
@@ -65,6 +68,12 @@ type TestSetup struct {
 
 	// AccessLogPath is the access log path for Envoy
 	AccessLogPath string
+
+	// expected source.uid attribute at the mixer gRPC metadata
+	mixerSourceUID string
+
+	// Dir is the working dir for envoy
+	Dir string
 }
 
 // NewTestSetup creates a new test setup
@@ -139,6 +148,11 @@ func (s *TestSetup) SetStress(stress bool) {
 	s.stress = stress
 }
 
+// SetCheckDict set the checkDict flag
+func (s *TestSetup) SetCheckDict(checkDict bool) {
+	s.checkDict = checkDict
+}
+
 // SetNoMixer set NoMixer flag
 func (s *TestSetup) SetNoMixer(no bool) {
 	s.noMixer = no
@@ -164,26 +178,34 @@ func (s *TestSetup) SetNoBackend(no bool) {
 	s.noBackend = no
 }
 
+// SetMixerSourceUID sets the expected source.uid at the mixer server gRPC metadata
+func (s *TestSetup) SetMixerSourceUID(uid string) {
+	s.mixerSourceUID = uid
+}
+
 // SetUp setups Envoy, Mixer, and Backend server for test.
 func (s *TestSetup) SetUp() error {
 	var err error
-	s.envoy, err = s.NewEnvoy()
+	s.envoy, err = s.newEnvoy()
 	if err != nil {
 		log.Printf("unable to create Envoy %v", err)
 		return err
 	}
 
-	err = s.envoy.Start()
+	err = startEnvoy(s.envoy)
 	if err != nil {
 		return err
 	}
 
 	if !s.noMixer {
-		s.mixer, err = NewMixerServer(s.ports.MixerPort, s.stress)
+		s.mixer, err = NewMixerServer(s.ports.MixerPort, s.stress, s.checkDict, s.mixerSourceUID)
 		if err != nil {
 			log.Printf("unable to create mixer server %v", err)
 		} else {
-			s.mixer.Start()
+			errCh := s.mixer.Start()
+			if err = <-errCh; err != nil {
+				log.Fatalf("mixer start failed %v", err)
+			}
 		}
 	}
 
@@ -192,7 +214,10 @@ func (s *TestSetup) SetUp() error {
 		if err != nil {
 			log.Printf("unable to create HTTP server %v", err)
 		} else {
-			s.backend.Start()
+			errCh := s.backend.Start()
+			if err = <-errCh; err != nil {
+				log.Fatalf("backend server start failed %v", err)
+			}
 		}
 	}
 
@@ -203,9 +228,11 @@ func (s *TestSetup) SetUp() error {
 
 // TearDown shutdown the servers.
 func (s *TestSetup) TearDown() {
-	if err := s.envoy.Stop(); err != nil {
+	if err := stopEnvoy(s.envoy); err != nil {
 		s.t.Errorf("error quitting envoy: %v", err)
 	}
+	removeEnvoySharedMemory(s.envoy)
+
 	if s.mixer != nil {
 		s.mixer.Stop()
 	}
@@ -231,20 +258,20 @@ func (s *TestSetup) ReStartEnvoy() {
 	log.Printf("new allocated ports are %v:", s.ports)
 	var err error
 	s.epoch++
-	s.envoy, err = s.NewEnvoy()
+	s.envoy, err = s.newEnvoy()
 	if err != nil {
 		s.t.Errorf("unable to re-start envoy %v", err)
 		return
 	}
 
-	err = s.envoy.Start()
+	err = startEnvoy(s.envoy)
 	if err != nil {
 		s.t.Fatalf("unable to re-start envoy %v", err)
 	}
 
 	s.WaitEnvoyReady()
 
-	_ = oldEnvoy.Stop()
+	_ = stopEnvoy(oldEnvoy)
 }
 
 // VerifyCheckCount verifies the number of Check calls.
@@ -280,6 +307,26 @@ func (s *TestSetup) VerifyReport(tag string, result string) {
 	if err := Verify(bag, result); err != nil {
 		s.t.Fatalf("Failed to verify %s report: %v\n, Attributes: %+v",
 			tag, err, bag)
+	}
+}
+
+// VerifyTwoReports verifies two Report bags, in any order.
+func (s *TestSetup) VerifyTwoReports(tag string, result1, result2 string) {
+	s.t.Helper()
+	bag1 := <-s.mixer.report.ch
+	bag2 := <-s.mixer.report.ch
+	if err1 := Verify(bag1, result1); err1 != nil {
+		// try the other way
+		if err2 := Verify(bag1, result2); err2 != nil {
+			s.t.Fatalf("Failed to verify %s report: %v\n%v\n, Attributes: %+v",
+				tag, err1, err2, bag1)
+		} else if err3 := Verify(bag2, result1); err3 != nil {
+			s.t.Fatalf("Failed to verify %s report: %v\n, Attributes: %+v",
+				tag, err3, bag2)
+		}
+	} else if err4 := Verify(bag2, result2); err4 != nil {
+		s.t.Fatalf("Failed to verify %s report: %v\n, Attributes: %+v",
+			tag, err4, bag2)
 	}
 }
 
@@ -323,7 +370,7 @@ type stats struct {
 
 // WaitEnvoyReady waits until envoy receives and applies all config
 func (s *TestSetup) WaitEnvoyReady() {
-	// Sometimes on circle CI, connection is refused even when envoy reports warm clusters and listeners...
+	// Sometimes on CI, connection is refused even when envoy reports warm clusters and listeners...
 	// Inject a 1 second delay to force readiness
 	time.Sleep(1 * time.Second)
 

@@ -16,53 +16,70 @@ package consul
 
 import (
 	"fmt"
-	"time"
+	"sync"
 
 	"github.com/hashicorp/consul/api"
 
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/spiffe"
 )
 
 // Controller communicates with Consul and monitors for changes
 type Controller struct {
-	client  *api.Client
-	monitor Monitor
+	client           *api.Client
+	monitor          Monitor
+	services         map[string]*model.Service //key hostname value service
+	servicesList     []*model.Service
+	serviceInstances map[string][]*model.ServiceInstance //key hostname value serviceInstance array
+	cacheMutex       sync.Mutex
+	initDone         bool
 }
 
 // NewController creates a new Consul controller
-func NewController(addr string, interval time.Duration) (*Controller, error) {
+func NewController(addr string) (*Controller, error) {
 	conf := api.DefaultConfig()
 	conf.Address = addr
 
 	client, err := api.NewClient(conf)
-	return &Controller{
-		monitor: NewConsulMonitor(client, interval),
+	monitor := NewConsulMonitor(client)
+	controller := Controller{
+		monitor: monitor,
 		client:  client,
-	}, err
+	}
+
+	//Watch the change events to refresh local caches
+	monitor.AppendServiceHandler(controller.ServiceChanged)
+	monitor.AppendInstanceHandler(controller.InstanceChanged)
+	return &controller, err
 }
 
 // Services list declarations of all services in the system
 func (c *Controller) Services() ([]*model.Service, error) {
-	data, err := c.getServices()
+	c.cacheMutex.Lock()
+	defer c.cacheMutex.Unlock()
+
+	err := c.initCache()
 	if err != nil {
 		return nil, err
 	}
 
-	services := make([]*model.Service, 0, len(data))
-	for name := range data {
-		endpoints, err := c.getCatalogService(name, nil)
-		if err != nil {
-			return nil, err
-		}
-		services = append(services, convertService(endpoints))
-	}
-
-	return services, nil
+	return c.servicesList, nil
 }
 
 // GetService retrieves a service by host name if it exists
-func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error) {
+func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
+	c.cacheMutex.Lock()
+	defer c.cacheMutex.Unlock()
+
+	err := c.initCache()
+	if err != nil {
+		return nil, err
+	}
+
 	// Get actual service by name
 	name, err := parseHostname(hostname)
 	if err != nil {
@@ -70,43 +87,10 @@ func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error)
 		return nil, err
 	}
 
-	endpoints, err := c.getCatalogService(name, nil)
-	if len(endpoints) == 0 || err != nil {
-		return nil, err
+	if service, ok := c.services[name]; ok {
+		return service, nil
 	}
-
-	return convertService(endpoints), nil
-}
-
-// GetServiceAttributes retrieves namespace of a service if it exists.
-func (c *Controller) GetServiceAttributes(hostname model.Hostname) (*model.ServiceAttributes, error) {
-	svc, err := c.GetService(hostname)
-	if svc != nil {
-		return &model.ServiceAttributes{
-			Name:      hostname.String(),
-			Namespace: model.IstioDefaultConfigNamespace}, nil
-	}
-	return nil, err
-}
-
-func (c *Controller) getServices() (map[string][]string, error) {
-	data, _, err := c.client.Catalog().Services(nil)
-	if err != nil {
-		log.Warnf("Could not retrieve services from consul: %v", err)
-		return nil, err
-	}
-
-	return data, nil
-}
-
-func (c *Controller) getCatalogService(name string, q *api.QueryOptions) ([]*api.CatalogService, error) {
-	endpoints, _, err := c.client.Catalog().Service(name, "", q)
-	if err != nil {
-		log.Warnf("Could not retrieve service catalogue from consul: %v", err)
-		return nil, err
-	}
-
-	return endpoints, nil
+	return nil, nil
 }
 
 // ManagementPorts retrieves set of health check ports by instance IP.
@@ -125,38 +109,36 @@ func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 	return nil
 }
 
-// Instances retrieves instances for a service and its ports that match
-// any of the supplied labels. All instances match an empty tag list.
-func (c *Controller) Instances(hostname model.Hostname, ports []string,
-	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
-	return nil, fmt.Errorf("NOT IMPLEMENTED")
-}
-
 // InstancesByPort retrieves instances for a service that match
 // any of the supplied labels. All instances match an empty tag list.
-func (c *Controller) InstancesByPort(hostname model.Hostname, port int,
-	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
+func (c *Controller) InstancesByPort(svc *model.Service, port int,
+	labels labels.Collection) ([]*model.ServiceInstance, error) {
+	c.cacheMutex.Lock()
+	defer c.cacheMutex.Unlock()
+
+	err := c.initCache()
+	if err != nil {
+		return nil, err
+	}
+
 	// Get actual service by name
-	name, err := parseHostname(hostname)
+	name, err := parseHostname(svc.Hostname)
 	if err != nil {
-		log.Infof("parseHostname(%s) => error %v", hostname, err)
+		log.Infof("parseHostname(%s) => error %v", svc.Hostname, err)
 		return nil, err
 	}
 
-	endpoints, err := c.getCatalogService(name, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	instances := []*model.ServiceInstance{}
-	for _, endpoint := range endpoints {
-		instance := convertInstance(endpoint)
-		if labels.HasSubsetOf(instance.Labels) && portMatch(instance, port) {
-			instances = append(instances, instance)
+	if serviceInstances, ok := c.serviceInstances[name]; ok {
+		var instances []*model.ServiceInstance
+		for _, instance := range serviceInstances {
+			if labels.HasSubsetOf(instance.Labels) && portMatch(instance, port) {
+				instances = append(instances, instance)
+			}
 		}
-	}
 
-	return instances, nil
+		return instances, nil
+	}
+	return nil, fmt.Errorf("could not find instance of service: %s", name)
 }
 
 // returns true if an instance's port matches with any in the provided list
@@ -166,23 +148,52 @@ func portMatch(instance *model.ServiceInstance, port int) bool {
 
 // GetProxyServiceInstances lists service instances co-located with a given proxy
 func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.ServiceInstance, error) {
-	data, err := c.getServices()
+	c.cacheMutex.Lock()
+	defer c.cacheMutex.Unlock()
+
+	err := c.initCache()
 	if err != nil {
 		return nil, err
 	}
+
 	out := make([]*model.ServiceInstance, 0)
-	for svcName := range data {
-		endpoints, err := c.getCatalogService(svcName, nil)
-		if err != nil {
-			return nil, err
-		}
-		for _, endpoint := range endpoints {
-			addr := endpoint.ServiceAddress
-			if addr == "" {
-				addr = endpoint.Address
+	for _, instances := range c.serviceInstances {
+		for _, instance := range instances {
+			addr := instance.Endpoint.Address
+			if len(node.IPAddresses) > 0 {
+				for _, ipAddress := range node.IPAddresses {
+					if ipAddress == addr {
+						out = append(out, instance)
+						break
+					}
+				}
 			}
-			if node.IPAddress == addr {
-				out = append(out, convertInstance(endpoint))
+		}
+	}
+
+	return out, nil
+}
+
+func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.Collection, error) {
+	c.cacheMutex.Lock()
+	defer c.cacheMutex.Unlock()
+
+	err := c.initCache()
+	if err != nil {
+		return nil, err
+	}
+
+	out := make(labels.Collection, 0)
+	for _, instances := range c.serviceInstances {
+		for _, instance := range instances {
+			addr := instance.Endpoint.Address
+			if len(proxy.IPAddresses) > 0 {
+				for _, ipAddress := range proxy.IPAddresses {
+					if ipAddress == addr {
+						out = append(out, instance.Labels)
+						break
+					}
+				}
 			}
 		}
 	}
@@ -214,7 +225,7 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 }
 
 // GetIstioServiceAccounts implements model.ServiceAccounts operation TODO
-func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []string) []string {
+func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
 	// Need to get service account of service registered with consul
 	// Currently Consul does not have service account or equivalent concept
 	// As a step-1, to enabling istio security in Consul, We assume all the services run in default service account
@@ -222,6 +233,81 @@ func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []st
 	// Follow - https://goo.gl/Dt11Ct
 
 	return []string{
-		"spiffe://cluster.local/ns/default/sa/default",
+		spiffe.MustGenSpiffeURI("default", "default"),
 	}
+}
+
+func (c *Controller) initCache() error {
+	if c.initDone {
+		return nil
+	}
+
+	c.services = make(map[string]*model.Service)
+	c.serviceInstances = make(map[string][]*model.ServiceInstance)
+
+	// get all services from consul
+	consulServices, err := c.getServices()
+	if err != nil {
+		return err
+	}
+
+	for serviceName := range consulServices {
+		// get endpoints of a service from consul
+		endpoints, err := c.getCatalogService(serviceName, nil)
+		if err != nil {
+			return err
+		}
+		c.services[serviceName] = convertService(endpoints)
+
+		instances := make([]*model.ServiceInstance, len(endpoints))
+		for i, endpoint := range endpoints {
+			instances[i] = convertInstance(endpoint)
+		}
+		c.serviceInstances[serviceName] = instances
+	}
+
+	c.servicesList = make([]*model.Service, 0, len(c.services))
+	for _, value := range c.services {
+		c.servicesList = append(c.servicesList, value)
+	}
+
+	c.initDone = true
+	return nil
+}
+
+func (c *Controller) getServices() (map[string][]string, error) {
+	data, _, err := c.client.Catalog().Services(nil)
+	if err != nil {
+		log.Warnf("Could not retrieve services from consul: %v", err)
+		return nil, err
+	}
+
+	return data, nil
+}
+
+// nolint: unparam
+func (c *Controller) getCatalogService(name string, q *api.QueryOptions) ([]*api.CatalogService, error) {
+	endpoints, _, err := c.client.Catalog().Service(name, "", q)
+	if err != nil {
+		log.Warnf("Could not retrieve service catalog from consul: %v", err)
+		return nil, err
+	}
+
+	return endpoints, nil
+}
+
+func (c *Controller) refreshCache() {
+	c.cacheMutex.Lock()
+	defer c.cacheMutex.Unlock()
+	c.initDone = false
+}
+
+func (c *Controller) InstanceChanged(instance *api.CatalogService, event model.Event) error {
+	c.refreshCache()
+	return nil
+}
+
+func (c *Controller) ServiceChanged(instances []*api.CatalogService, event model.Event) error {
+	c.refreshCache()
+	return nil
 }

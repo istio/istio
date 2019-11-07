@@ -16,14 +16,16 @@ package configdump
 
 import (
 	"testing"
+
+	"github.com/golang/protobuf/ptypes/any"
 )
 
 func TestWrapper_GetRouteConfigDump(t *testing.T) {
 	tests := []struct {
 		name                    string
+		wantStatic, wantDynamic int
 		noConfigs               bool
 		noRoute                 bool
-		wantStatic, wantDynamic int
 		wantErr                 bool
 	}{
 		{
@@ -46,7 +48,7 @@ func TestWrapper_GetRouteConfigDump(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			w := setupWrapper(t)
 			if tt.noRoute {
-				delete(w.Configs, "routes")
+				w.Configs = []*any.Any{}
 			}
 			if tt.noConfigs {
 				w.Configs = nil
@@ -72,9 +74,9 @@ func TestWrapper_GetRouteConfigDump(t *testing.T) {
 func TestWrapper_GetDynamicRouteDump(t *testing.T) {
 	tests := []struct {
 		name                                string
+		wantStatic, wantDynamic             int
 		noRoute                             bool
 		stripVersion, wantVersion, wantLast bool
-		wantStatic, wantDynamic             int
 		wantErr                             bool
 	}{
 		{
@@ -103,7 +105,7 @@ func TestWrapper_GetDynamicRouteDump(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			w := setupWrapper(t)
 			if tt.noRoute {
-				delete(w.Configs, "routes")
+				w.Configs = []*any.Any{}
 			}
 			got, err := w.GetDynamicRouteDump(tt.stripVersion)
 			if (err != nil) != tt.wantErr {

@@ -20,7 +20,7 @@ import (
 	"os"
 	"sync"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -95,7 +95,7 @@ func NewCommonConfigWithVersion(testID, version string) (*CommonConfig, error) {
 		return nil, err
 	}
 	cl := new(testCleanup)
-	cl.skipCleanup = *skipCleanup
+	cl.skipCleanup = os.Getenv("SKIP_CLEANUP") != "" || *skipCleanup
 
 	c := &CommonConfig{
 		Info:    t,
@@ -107,6 +107,7 @@ func NewCommonConfigWithVersion(testID, version string) (*CommonConfig, error) {
 	c.Cleanup.RegisterCleanable(c.Kube.Istioctl)
 	c.Cleanup.RegisterCleanable(c.Kube.AppManager)
 	if c.Kube.RemoteKubeConfig != "" {
+		c.Cleanup.RegisterCleanable(c.Kube.RemoteIstioctl)
 		c.Cleanup.RegisterCleanable(c.Kube.RemoteAppManager)
 	}
 
@@ -186,7 +187,7 @@ func (t *testCleanup) cleanup() {
 }
 
 // Save test logs to tmp dir
-// Fetch and save cluster pod logs using kuebctl
+// Fetch and save cluster pod logs using kubectl
 // Logs are uploaded during test tear down
 func (c *CommonConfig) saveLogs(r int) error {
 	// Logs are fetched even if skip_cleanup is called - the namespace is left around.
@@ -199,7 +200,15 @@ func (c *CommonConfig) saveLogs(r int) error {
 		log.Errorf("Could not create status file. Error %s", err)
 		return err
 	}
-	return c.Info.FetchAndSaveClusterLogs(c.Kube.Namespace, c.Kube.KubeConfig)
+	if err := c.Info.FetchAndSaveClusterLogs(c.Kube.Namespace, c.Kube.KubeConfig); err != nil {
+		return err
+	}
+	if c.Kube.RemoteKubeConfig != "" {
+		if err := c.Info.FetchAndSaveClusterLogs(c.Kube.Namespace, c.Kube.RemoteKubeConfig); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // RunTest sets up all registered cleanables in FIFO order

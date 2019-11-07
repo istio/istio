@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: liveness-http
+  labels:
+    app: liveness-http
+spec:
+  ports:
+  - name: http
+    port: 8001
+  selector:
+    app: liveness-http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: liveness-http
+spec:
+  selector:
+    matchLabels:
+      app: liveness-http
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: liveness-http
+        version: v1
+    spec:
+      containers:
+      - name: liveness-http
+        image: docker.io/istio/health:example
+        ports:
+        - containerPort: 8001
+        livenessProbe:
+          httpGet:
+            path: /foo
+            port: 8001
+          initialDelaySeconds: 5
+          periodSeconds: 5

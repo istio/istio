@@ -1,4 +1,4 @@
-// Copyright 2017 Google Ina.
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // nolint: lll
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -a mixer/adapter/list/config/config.proto -x "-n listchecker -t listentry"
+//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/adapter/list/config/config.proto -x "-n listchecker -t listentry"
 
 // Package list provides an adapter that implements the listEntry
 // template to enable blacklist / whitelist checking of values.
@@ -33,9 +33,11 @@ import (
 	"sync"
 	"time"
 
-	rpc "github.com/gogo/googleapis/google/rpc"
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 
+	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/adapter/list/config"
+	"istio.io/istio/mixer/adapter/metadata"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/status"
 	"istio.io/istio/mixer/template/listentry"
@@ -79,7 +81,28 @@ func (h *handler) HandleListEntry(_ context.Context, entry *listentry.Instance) 
 		return adapter.CheckResult{}, err
 	}
 
-	found, err := l.checkList(entry.Value)
+	var value string
+
+	switch entryVal := entry.Value.(type) {
+	case *v1beta1.Value:
+		strVal := entryVal.GetStringValue()
+		ipVal := entryVal.GetIpAddressValue()
+		if strVal != "" {
+			value = strVal
+		} else if ipVal != nil {
+			// IP_ADDRESS comes in as byte array.
+			value = net.IP(ipVal.Value).String()
+		} else {
+			return getCheckResult(h.config, rpc.INVALID_ARGUMENT, fmt.Sprintf("%v is not a valid string or IP address", entryVal)), nil
+		}
+	case string:
+		value = entryVal
+	case []byte:
+		value = net.IP(entryVal).String()
+	default:
+		return getCheckResult(h.config, rpc.INVALID_ARGUMENT, fmt.Sprintf("%v is not a valid string or IP address", entryVal)), nil
+	}
+	found, err := l.checkList(value)
 	code := rpc.OK
 	msg := ""
 
@@ -89,18 +112,14 @@ func (h *handler) HandleListEntry(_ context.Context, entry *listentry.Instance) 
 	} else if h.config.Blacklist {
 		if found {
 			code = rpc.PERMISSION_DENIED
-			msg = fmt.Sprintf("%s is blacklisted", entry.Value)
+			msg = fmt.Sprintf("%s is blacklisted", value)
 		}
 	} else if !found {
-		code = rpc.NOT_FOUND
-		msg = fmt.Sprintf("%s is not whitelisted", entry.Value)
+		code = rpc.PERMISSION_DENIED
+		msg = fmt.Sprintf("%s is not whitelisted", value)
 	}
 
-	return adapter.CheckResult{
-		Status:        status.WithMessage(code, msg),
-		ValidDuration: h.config.CachingInterval,
-		ValidUseCount: h.config.CachingUseCount,
-	}, nil
+	return getCheckResult(h.config, code, msg), nil
 }
 
 func (h *handler) Close() error {
@@ -246,34 +265,30 @@ func (h *handler) purgeList() {
 	h.lock.Unlock()
 }
 
-func (h *handler) hasData() bool {
+func (h *handler) hasData() (bool, error) {
 	h.lock.Lock()
 	result := h.list != nil
+	err := h.lastFetchError
 	h.lock.Unlock()
 
-	return result
+	return result, err
+}
+
+func getCheckResult(config config.Params, code rpc.Code, msg string) adapter.CheckResult {
+	return adapter.CheckResult{
+		Status:        status.WithMessage(code, msg),
+		ValidDuration: config.CachingInterval,
+		ValidUseCount: config.CachingUseCount,
+	}
 }
 
 ///////////////// Bootstrap ///////////////
 
 // GetInfo returns the Info associated with this adapter implementation.
 func GetInfo() adapter.Info {
-	return adapter.Info{
-		Name:               "listchecker",
-		Impl:               "istio.io/istio/mixer/adapter/list",
-		Description:        "Checks whether an entry is present in a list",
-		SupportedTemplates: []string{listentry.TemplateName},
-		DefaultConfig: &config.Params{
-			RefreshInterval: 60 * time.Second,
-			Ttl:             300 * time.Second,
-			CachingInterval: 300 * time.Second,
-			CachingUseCount: 10000,
-			EntryType:       config.STRINGS,
-			Blacklist:       false,
-		},
-
-		NewBuilder: func() adapter.HandlerBuilder { return &builder{} },
-	}
+	info := metadata.GetInfo("listchecker")
+	info.NewBuilder = func() adapter.HandlerBuilder { return &builder{} }
+	return info
 }
 
 type builder struct {

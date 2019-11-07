@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors.
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,9 +25,11 @@ import (
 	"github.com/alicebob/miniredis"
 	"github.com/alicebob/miniredis/server"
 
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/adapter/redisquota/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/adapter/test"
+	"istio.io/istio/mixer/pkg/status"
 	"istio.io/istio/mixer/template/quota"
 )
 
@@ -469,6 +471,7 @@ func TestHandleQuota(t *testing.T) {
 	}
 
 	for id, c := range cases {
+		t.Logf("Executing test case '%s'", id)
 		b := info.NewBuilder().(*builder)
 
 		b.SetAdapterConfig(&config.Params{
@@ -514,21 +517,22 @@ func TestHandleQuota(t *testing.T) {
 func TestHandleQuotaErrorMsg(t *testing.T) {
 	cases := map[string]struct {
 		quotaType   map[string]*quota.Type
-		mockRedis   map[string]interface{}
+		mockRedis   map[string]server.Cmd
 		quotaConfig []config.Params_Quota
 		instance    quota.Instance
 		req         RequestInfo
 		errMsg      []string
+		status      rpc.Status
 	}{
 		"Failed to run the script": {
-			mockRedis: map[string]interface{}{
-				"PING": func(c *server.Peer, cmd string, args []string) {
+			mockRedis: map[string]server.Cmd{
+				"PING": func(c *server.Peer, _ string, _ []string) {
 					c.WriteInline("PONG")
 				},
-				"SCRIPT": func(c *server.Peer, cmd string, args []string) {
+				"SCRIPT": func(c *server.Peer, _ string, _ []string) {
 					c.WriteInline("OK")
 				},
-				"EVALSHA": func(c *server.Peer, cmd string, args []string) {
+				"EVALSHA": func(c *server.Peer, _ string, _ []string) {
 					c.WriteError("Error")
 				},
 			},
@@ -554,19 +558,20 @@ func TestHandleQuotaErrorMsg(t *testing.T) {
 				},
 			},
 			errMsg: []string{
-				"key: fixed-window maxAmount: 10",
+				"key: fixed-window;source=test maxAmount: 10",
 				"failed to run quota script: Error",
 			},
+			status: status.WithUnavailable("failed to run quota script: Error"),
 		},
 		"Invalid response from the script": {
-			mockRedis: map[string]interface{}{
-				"PING": func(c *server.Peer, cmd string, args []string) {
+			mockRedis: map[string]server.Cmd{
+				"PING": func(c *server.Peer, _ string, _ []string) {
 					c.WriteInline("PONG")
 				},
-				"SCRIPT": func(c *server.Peer, cmd string, args []string) {
+				"SCRIPT": func(c *server.Peer, _ string, _ []string) {
 					c.WriteOK()
 				},
-				"EVALSHA": func(c *server.Peer, cmd string, args []string) {
+				"EVALSHA": func(c *server.Peer, _ string, _ []string) {
 					c.WriteLen(1)
 					c.WriteInt(10)
 				},
@@ -593,9 +598,10 @@ func TestHandleQuotaErrorMsg(t *testing.T) {
 				},
 			},
 			errMsg: []string{
-				"key: fixed-window maxAmount: 10",
+				"key: fixed-window;source=test maxAmount: 10",
 				"invalid response from the redis server: [10]",
 			},
+			status: status.WithInternal("invalid response from the redis server: [10]"),
 		},
 	}
 
@@ -608,7 +614,7 @@ func TestHandleQuotaErrorMsg(t *testing.T) {
 		}
 
 		for funcTime, funcHandler := range c.mockRedis {
-			if err = s.Register(funcTime, funcHandler.(func(c *server.Peer, cmd string, args []string))); err != nil {
+			if err = s.Register(funcTime, funcHandler); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -629,7 +635,7 @@ func TestHandleQuotaErrorMsg(t *testing.T) {
 
 		quotaHandler := adapterHandler.(*handler)
 
-		_, err = quotaHandler.HandleQuota(context.Background(), &c.instance, adapter.QuotaArgs{
+		quotaResult, err := quotaHandler.HandleQuota(context.Background(), &c.instance, adapter.QuotaArgs{
 			QuotaAmount: c.req.token,
 			BestEffort:  c.req.bestEffort,
 		})
@@ -639,13 +645,18 @@ func TestHandleQuotaErrorMsg(t *testing.T) {
 			continue
 		}
 
+		if c.status.GetCode() != quotaResult.Status.GetCode() {
+			t.Errorf("%v: unexpected error code: %v, expected: %v", id, quotaResult.Status.GetCode(), c.status.GetCode())
+			continue
+		}
+
 		if len(env.GetLogs()) != len(c.errMsg) {
-			t.Errorf("%v: Invalid number of error messages. Exptected: %v Got %v",
+			t.Errorf("%v: Invalid number of error messages. Expected: %v Got %v",
 				id, len(c.errMsg), len(env.GetLogs()))
 		} else {
 			for idx, msg := range c.errMsg {
 				if msg != env.GetLogs()[idx] {
-					t.Errorf("%v: Unexpected error message. Exptected: %v Got %v",
+					t.Errorf("%v: Unexpected error message. Expected: %v Got %v",
 						id, msg, env.GetLogs()[idx])
 				}
 			}

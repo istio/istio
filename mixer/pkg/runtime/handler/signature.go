@@ -24,7 +24,8 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
+	"istio.io/pkg/pool"
 )
 
 type signature [sha1.Size]byte
@@ -57,7 +58,7 @@ func calculateSignature(handler hndlr, insts interface{}) signature {
 	}
 	sort.Strings(instanceNames)
 
-	buf := new(bytes.Buffer)
+	buf := pool.GetBuffer()
 	encoded := true
 
 	encoded = encoded && encode(buf, handler.AdapterName())
@@ -65,6 +66,10 @@ func calculateSignature(handler hndlr, insts interface{}) signature {
 		(reflect.ValueOf(handler.AdapterParams()).Kind() != reflect.Ptr || !reflect.ValueOf(handler.AdapterParams()).IsNil()) {
 		encoded = encoded && encode(buf, handler.AdapterParams())
 	}
+	if handler.ConnectionConfig() != nil {
+		encoded = encoded && encode(buf, handler.ConnectionConfig())
+	}
+
 	for _, name := range instanceNames {
 		instance := instanceMap[name]
 		encoded = encoded && encode(buf, instance.TemplateName())
@@ -73,10 +78,11 @@ func calculateSignature(handler hndlr, insts interface{}) signature {
 
 	if encoded {
 		sha := sha1.Sum(buf.Bytes())
-		buf.Reset()
+		pool.PutBuffer(buf)
 		return sha
 	}
 
+	pool.PutBuffer(buf)
 	return zeroSignature
 }
 
@@ -84,6 +90,7 @@ type hndlr interface {
 	GetName() string
 	AdapterName() string
 	AdapterParams() interface{}
+	ConnectionConfig() interface{}
 }
 type inst interface {
 	GetName() string

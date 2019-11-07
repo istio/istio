@@ -21,50 +21,55 @@ import (
 )
 
 func TestDoAllDirs(t *testing.T) {
-	got := doAllDirs([]string{"testdata/bad"})
+	reps := doAllDirs([]string{"testdata/bad"})
+
+	got := make([]string, len(reps))
+	for i := range reps {
+		got[i] = reps[i].msg
+	}
 
 	sort.Strings(got)
 	want := []string{
-		"testdata/bad/gorutn_logimprt.go:14:2:Adapters must use env.ScheduleWork or env.ScheduleDaemon " +
+		"testdata/bad/gorutn_logimprt.gen.go:14:2:Adapters must use env.ScheduleWork or env.ScheduleDaemon " +
 			"in order to dispatch goroutines. This ensures all adapter goroutines are prevented from crashing Mixer " +
 			"as a whole by catching any panics they produce.",
-		"testdata/bad/gorutn_logimprt.go:5:2:\"log\" import is not recommended; Adapters must instead use " +
+		"testdata/bad/gorutn_logimprt.gen.go:5:2:\"log\" import is not recommended; Adapters must instead use " +
 			"env.Logger for logging during execution. This logger understands which adapter is running and routes " +
 			"the data to the place where the operator wants to see it.",
-		"testdata/bad/gorutn_logimprt2.go:15:2:Adapters must use env.ScheduleWork or env.ScheduleDaemon " +
+		"testdata/bad/gorutn_logimprt2.gen.go:15:2:Adapters must use env.ScheduleWork or env.ScheduleDaemon " +
 			"in order to dispatch goroutines. This ensures all adapter goroutines are prevented from crashing Mixer " +
 			"as a whole by catching any panics they produce.",
-		"testdata/bad/gorutn_logimprt2.go:6:2:\"github.com/golang/glog\" import is not recommended; Adapters must instead use " +
+		"testdata/bad/gorutn_logimprt2.gen.go:6:2:\"github.com/golang/glog\" import is not recommended; Adapters must instead use " +
 			"env.Logger for logging during execution. This logger understands which adapter is running and routes " +
 			"the data to the place where the operator wants to see it.",
 	}
 	if !reflect.DeepEqual(want, got) {
-		t.Errorf("errors dont match\nwant:%v\ngot :%v", want, got)
+		t.Errorf("errors don't match\nwant:%v\ngot :%v", want, got)
 	}
 }
 
 func TestDoAllDirsBadPath(t *testing.T) {
 	// check no panics and no reports
 	got := getReport([]string{"testdata/unknown"})
-	want := []string{}
+	want := reports{}
 	if !reflect.DeepEqual(want, got) {
-		t.Errorf("errors dont match\nwant:%v\ngot :%v", want, got)
+		t.Errorf("errors don't match\nwant:%v\ngot :%v", want, got)
 	}
 }
 
 func TestDoAllDirsGood(t *testing.T) {
 	got := getReport([]string{"testdata/bad2"})
-	want := []string{}
+	want := reports{}
 	if !reflect.DeepEqual(want, got) {
-		t.Errorf("errors dont match\nwant:%v\ngot :%v", want, got)
+		t.Errorf("errors don't match\nwant:%v\ngot :%v", want, got)
 	}
 }
 
 func TestDoAllDirsCurrentDir(t *testing.T) {
 	got := getReport([]string{})
-	want := []string{}
+	want := reports{}
 	if !reflect.DeepEqual(want, got) {
-		t.Errorf("errors dont match\nwant:%v\ngot :%v", want, got)
+		t.Errorf("errors don't match\nwant:%v\ngot :%v", want, got)
 	}
 }
 
@@ -73,6 +78,6 @@ func TestReportSort(t *testing.T) {
 	sort.Sort(rpts)
 	want := reports{report{pos: 1}, report{pos: 2}, report{pos: 3}, report{pos: 4}}
 	if !reflect.DeepEqual(want, rpts) {
-		t.Errorf("errors dont match\nwant:%v\ngot :%v", want, rpts)
+		t.Errorf("errors don't match\nwant:%v\ngot :%v", want, rpts)
 	}
 }

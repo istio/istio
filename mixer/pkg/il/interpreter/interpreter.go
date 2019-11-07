@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package interpreter implements an interpreter based runtime for the Mixer IL. Typically a user
-// creates a program, in IL form, and creates an Interpreter, by calling interpeter.New, which takes
+// creates a program, in IL form, and creates an Interpreter, by calling interpreter.New, which takes
 // a program, and its external, native bindings as input.
 //
 // Once an interpreter with a program is created, it can be used for multiple evaluation sessions.
@@ -60,21 +60,21 @@ func New(p *il.Program, es map[string]Extern) *Interpreter {
 
 // Eval finds the function identified by the fnName parameter in the program, and evaluates
 // it against the given bag.
-func (i *Interpreter) Eval(fnName string, bag attribute.Bag) (Result, error) {
-	fn := i.program.Functions.Get(fnName)
+func (in *Interpreter) Eval(fnName string, bag attribute.Bag) (Result, error) {
+	fn := in.program.Functions.Get(fnName)
 	if fn == nil {
 		return Result{}, fmt.Errorf("function not found: '%s'", fnName)
 	}
 
-	return i.run(fn, bag, false)
+	return in.run(fn, bag, false)
 }
 
 // EvalFnID finds the function identified by the fnID parameter in the program, and evaluates
 // it against the given bag.
-func (i *Interpreter) EvalFnID(fnID uint32, bag attribute.Bag) (Result, error) {
-	fn := i.program.Functions.GetByID(fnID)
+func (in *Interpreter) EvalFnID(fnID uint32, bag attribute.Bag) (Result, error) {
+	fn := in.program.Functions.GetByID(fnID)
 
-	return i.run(fn, bag, false)
+	return in.run(fn, bag, false)
 }
 
 func newIntr(p *il.Program, es map[string]Extern, s *Stepper) *Interpreter {

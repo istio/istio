@@ -19,18 +19,27 @@ import (
 	"strings"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/visibility"
 )
 
 func convertPort(port *networking.Port) *model.Port {
 	return &model.Port{
 		Name:     port.Name,
 		Port:     int(port.Number),
-		Protocol: model.ParseProtocol(port.Protocol),
+		Protocol: protocol.Parse(port.Protocol),
 	}
 }
 
-func convertServices(serviceEntry *networking.ServiceEntry) []*model.Service {
+func convertServices(cfg model.Config) []*model.Service {
+	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
+	creationTime := cfg.CreationTimestamp
+
 	out := make([]*model.Service, 0)
 
 	var resolution model.Resolution
@@ -48,26 +57,69 @@ func convertServices(serviceEntry *networking.ServiceEntry) []*model.Service {
 		svcPorts = append(svcPorts, convertPort(port))
 	}
 
-	for _, host := range serviceEntry.Hosts {
+	var exportTo map[visibility.Instance]bool
+	if len(serviceEntry.ExportTo) > 0 {
+		exportTo = make(map[visibility.Instance]bool)
+		for _, e := range serviceEntry.ExportTo {
+			exportTo[visibility.Instance(e)] = true
+		}
+	}
+
+	for _, hostname := range serviceEntry.Hosts {
 		if len(serviceEntry.Addresses) > 0 {
 			for _, address := range serviceEntry.Addresses {
-				if _, _, cidrErr := net.ParseCIDR(address); cidrErr == nil || net.ParseIP(address) != nil {
+				if ip, network, cidrErr := net.ParseCIDR(address); cidrErr == nil {
+					newAddress := address
+					ones, zeroes := network.Mask.Size()
+					if ones == zeroes {
+						// /32 mask. Remove the /32 and make it a normal IP address
+						newAddress = ip.String()
+					}
 					out = append(out, &model.Service{
+						CreationTime: creationTime,
 						MeshExternal: serviceEntry.Location == networking.ServiceEntry_MESH_EXTERNAL,
-						Hostname:     model.Hostname(host),
+						Hostname:     host.Name(hostname),
+						Address:      newAddress,
+						Ports:        svcPorts,
+						Resolution:   resolution,
+						Attributes: model.ServiceAttributes{
+							ServiceRegistry: string(serviceregistry.MCPRegistry),
+							Name:            hostname,
+							Namespace:       cfg.Namespace,
+							ExportTo:        exportTo,
+						},
+					})
+				} else if net.ParseIP(address) != nil {
+					out = append(out, &model.Service{
+						CreationTime: creationTime,
+						MeshExternal: serviceEntry.Location == networking.ServiceEntry_MESH_EXTERNAL,
+						Hostname:     host.Name(hostname),
 						Address:      address,
 						Ports:        svcPorts,
 						Resolution:   resolution,
+						Attributes: model.ServiceAttributes{
+							ServiceRegistry: string(serviceregistry.MCPRegistry),
+							Name:            hostname,
+							Namespace:       cfg.Namespace,
+							ExportTo:        exportTo,
+						},
 					})
 				}
 			}
 		} else {
 			out = append(out, &model.Service{
+				CreationTime: creationTime,
 				MeshExternal: serviceEntry.Location == networking.ServiceEntry_MESH_EXTERNAL,
-				Hostname:     model.Hostname(host),
-				Address:      model.UnspecifiedIP,
+				Hostname:     host.Name(hostname),
+				Address:      constants.UnspecifiedIP,
 				Ports:        svcPorts,
 				Resolution:   resolution,
+				Attributes: model.ServiceAttributes{
+					ServiceRegistry: string(serviceregistry.MCPRegistry),
+					Name:            hostname,
+					Namespace:       cfg.Namespace,
+					ExportTo:        exportTo,
+				},
 			})
 		}
 	}
@@ -92,22 +144,31 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 		family = model.AddressFamilyTCP
 	}
 
+	tlsMode := model.GetTLSModeFromEndpointLabels(endpoint.Labels)
+
 	return &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
 			Address:     addr,
 			Family:      family,
 			Port:        int(instancePort),
 			ServicePort: convertPort(servicePort),
+			Network:     endpoint.Network,
+			Locality:    endpoint.Locality,
+			LbWeight:    endpoint.Weight,
 		},
-		// TODO AvailabilityZone, ServiceAccount
 		Service: service,
 		Labels:  endpoint.Labels,
+		TLSMode: tlsMode,
 	}
 }
 
-func convertInstances(serviceEntry *networking.ServiceEntry) []*model.ServiceInstance {
+func convertInstances(cfg model.Config, services []*model.Service) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
-	for _, service := range convertServices(serviceEntry) {
+	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
+	if services == nil {
+		services = convertServices(cfg)
+	}
+	for _, service := range services {
 		for _, serviceEntryPort := range serviceEntry.Ports {
 			if len(serviceEntry.Endpoints) == 0 &&
 				serviceEntry.Resolution == networking.ServiceEntry_DNS {
@@ -117,13 +178,13 @@ func convertInstances(serviceEntry *networking.ServiceEntry) []*model.ServiceIns
 				// multiple services (one for each host)
 				out = append(out, &model.ServiceInstance{
 					Endpoint: model.NetworkEndpoint{
-						Address:     service.Hostname.String(),
+						Address:     string(service.Hostname),
 						Port:        int(serviceEntryPort.Number),
 						ServicePort: convertPort(serviceEntryPort),
 					},
-					// TODO AvailabilityZone, ServiceAccount
 					Service: service,
 					Labels:  nil,
+					TLSMode: model.DisabledTLSModeLabel,
 				})
 			} else {
 				for _, endpoint := range serviceEntry.Endpoints {

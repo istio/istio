@@ -13,8 +13,8 @@
 // limitations under the License.
 
 // nolint
-//go:generate protoc testdata/all/types.proto  --include_imports  -otestdata/all/types.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh  -d false -f mixer/pkg/protobuf/yaml/testdata/all/types.proto
+//go:generate $REPO_ROOT/bin/protoc.sh testdata/all/types.proto  --include_imports  -otestdata/all/types.descriptor -I.
+//go:generate $REPO_ROOT/bin/mixer_codegen.sh  -d false -f mixer/pkg/protobuf/yaml/testdata/all/types.proto
 
 package yaml
 
@@ -29,7 +29,7 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 
-	"istio.io/istio/mixer/pkg/protobuf/yaml/testdata/all"
+	foo "istio.io/istio/mixer/pkg/protobuf/yaml/testdata/all"
 )
 
 var (
@@ -259,6 +259,9 @@ map_str_sint32:
     key1: 123
 map_str_sint64:
     key1: 123
+
+google_protobuf_duration: 10s
+google_protobuf_timestamp: 2018-08-15T00:00:01Z
 `
 
 	simpleNoValues = `
@@ -976,7 +979,7 @@ map_str_str:
 }
 
 // Why is this case not included it inside the above `simple` yaml ? Because for this case jsonpb cannot unmarshal
-// into proto and therefore I cannot validate the unmarshalled data of custom marshalled bits using reflect.deepequals.
+// into proto and therefore I cannot validate the unmarshaled data of custom marshaled bits using reflect.deepequals.
 // Therefore, for these two cases, we will unmarshal the encoded bytes and check for specific fields.
 func TestEncodeBytesForEnumMapVals(t *testing.T) {
 	fds, fdsLoadErr := GetFileDescSet("testdata/all/types.descriptor")
@@ -1033,6 +1036,75 @@ map_fixed32_enum:
 		}
 		if v, ok := got.MapStrEnum["key2"]; !ok || v != foo.TWO {
 			t.Errorf("map_str_enum[key2]=%v; want TWO", v)
+		}
+	}
+}
+
+func TestMapDeterministicEncoding(t *testing.T) {
+	fds, fdsLoadErr := GetFileDescSet("testdata/all/types.descriptor")
+	if fdsLoadErr != nil {
+		t.Fatal(fdsLoadErr)
+	}
+	strMaps := []string{
+		`
+map_str_str:
+  key1: one
+  key2: two
+  key3: three
+  key4: four
+  key5: five
+  key6: six
+  key7: seven
+  key8: eight
+  key9: nine
+  key10: ten
+`,
+		`
+map_str_str:
+  key2: two
+  key1: one
+  key9: nine
+  key3: three
+  key4: four
+  key7: seven
+  key5: five
+  key6: six
+  key8: eight
+  key10: ten
+`,
+		`
+map_str_str:
+  key2: two
+  key7: seven
+  key1: one
+  key4: four
+  key9: nine
+  key3: three
+  key5: five
+  key10: ten
+  key6: six
+  key8: eight
+`,
+	}
+
+	var ba []byte
+	str := ""
+	for _, s := range strMaps {
+		jsonBytes, _ := yaml.YAMLToJSON([]byte(s))
+		var in map[string]interface{}
+		if err := json.Unmarshal(jsonBytes, &in); err != nil {
+			t.Fatal("bad yaml")
+		}
+		r := NewEncoder(fds)
+		gotBytes, err := r.EncodeBytes(in, ".foo.Simple", false)
+		if err != nil {
+			t.Errorf("got error '%v'", err)
+		}
+		if ba == nil {
+			ba = gotBytes
+			str = s
+		} else if !bytes.Equal(ba, gotBytes) {
+			t.Fatalf("map encoding is not deterministic: %v and %v encode differently, want %v, got %v", s, str, ba, gotBytes)
 		}
 	}
 }

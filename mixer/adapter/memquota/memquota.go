@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // nolint: lll
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -a mixer/adapter/memquota/config/config.proto -x "-n memquota -t quota"
+//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/adapter/memquota/config/config.proto -x "-n memquota -t quota"
 
 // Package memquota provides a simple in-memory quota implementation. It's
 // trivial to set up, but it has various limitations:
@@ -35,6 +35,7 @@ import (
 	"time"
 
 	"istio.io/istio/mixer/adapter/memquota/config"
+	"istio.io/istio/mixer/adapter/metadata"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/status"
 	"istio.io/istio/mixer/template/quota"
@@ -106,7 +107,7 @@ func (h *handler) HandleQuota(context context.Context, instance *quota.Instance,
 }
 
 func (h *handler) alloc(instance *quota.Instance, args adapter.QuotaArgs, q Limit) (adapter.QuotaResult, error) {
-	amount, exp, key, err := h.common.handleDedup(instance, args, func(key string, currentTime time.Time, currentTick int64) (int64, time.Time,
+	amount, exp, key := h.common.handleDedup(instance, args, func(key string, currentTime time.Time, currentTick int64) (int64, time.Time,
 		time.Duration) {
 		result := args.QuotaAmount
 
@@ -152,11 +153,11 @@ func (h *handler) alloc(instance *quota.Instance, args adapter.QuotaArgs, q Limi
 		Status:        status.OK,
 		Amount:        amount,
 		ValidDuration: exp,
-	}, err
+	}, nil
 }
 
 func (h *handler) free(instance *quota.Instance, args adapter.QuotaArgs, q Limit) (adapter.QuotaResult, error) {
-	amount, _, _, err := h.common.handleDedup(instance, args, func(key string, currentTime time.Time, currentTick int64) (int64, time.Time,
+	amount, _, _ := h.common.handleDedup(instance, args, func(key string, currentTime time.Time, currentTick int64) (int64, time.Time,
 		time.Duration) {
 		result := args.QuotaAmount
 
@@ -195,7 +196,7 @@ func (h *handler) free(instance *quota.Instance, args adapter.QuotaArgs, q Limit
 	return adapter.QuotaResult{
 		Status: status.OK,
 		Amount: amount,
-	}, err
+	}, nil
 }
 
 func (h *handler) Close() error {
@@ -207,19 +208,9 @@ func (h *handler) Close() error {
 
 // GetInfo returns the Info associated with this adapter implementation.
 func GetInfo() adapter.Info {
-	return adapter.Info{
-		Name:        "memquota",
-		Impl:        "istio.io/istio/mixer/adapter/memquota",
-		Description: "Volatile memory-based quota tracking",
-		SupportedTemplates: []string{
-			quota.TemplateName,
-		},
-		DefaultConfig: &config.Params{
-			MinDeduplicationDuration: 1 * time.Second,
-		},
-
-		NewBuilder: func() adapter.HandlerBuilder { return &builder{} },
-	}
+	info := metadata.GetInfo("memquota")
+	info.NewBuilder = func() adapter.HandlerBuilder { return &builder{} }
+	return info
 }
 
 type builder struct {

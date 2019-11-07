@@ -13,13 +13,15 @@ with the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/ad
 
 <p>Example config:</p>
 
-<pre><code>apiVersion: &quot;config.istio.io/v1alpha2&quot;
-kind: listentry
+<pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha2&quot;
+kind: instance
 metadata:
   name: appversion
   namespace: istio-system
 spec:
-  value: source.labels[&quot;version&quot;]
+  compiledTemplate: listentry
+  params:
+    value: source.labels[&quot;version&quot;]
 </code></pre>
 
 <h2 id="Template">Template</h2>
@@ -37,15 +39,19 @@ then the expression&rsquo;s <a href="https://istio.io/docs/reference//config/pol
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
 <tr id="Template-value">
 <td><code>value</code></td>
-<td><code>string</code></td>
+<td><code><a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#Value">Value</a></code></td>
 <td>
-<p>Specifies the entry to verify in the list.</p>
+<p>Specifies the entry to verify in the list. This value can either be a string or an IP address.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>

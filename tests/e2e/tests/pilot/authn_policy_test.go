@@ -16,8 +16,9 @@ package pilot
 
 import (
 	"fmt"
-	"io/ioutil"
 	"testing"
+
+	"istio.io/istio/tests/common/jwt"
 )
 
 func TestMTlsWithAuthNPolicy(t *testing.T) {
@@ -27,10 +28,16 @@ func TestMTlsWithAuthNPolicy(t *testing.T) {
 		// The whole authn test suites should be rewritten after PR #TBD for better consistency.
 		t.Skipf("Skipping %s: authn=true", t.Name())
 	}
-	// This policy will enable mTLS globally (mesh policy)
+	// Define the default permissive global mesh resource.
+	globalPermissive := resource{
+		Kind: "MeshPolicy",
+		Name: "default",
+	}
+	// This policy will remove the permissive policy and enable mTLS mesh policy.
 	globalCfg := &deployableConfig{
 		Namespace:  "", // Use blank for cluster CRD.
 		YamlFiles:  []string{"testdata/authn/v1alpha1/global-mtls.yaml.tmpl"},
+		Removes:    []resource{globalPermissive},
 		kubeconfig: tc.Kube.KubeConfig,
 	}
 	// This policy disable mTLS for c and d:80.
@@ -60,12 +67,12 @@ func TestMTlsWithAuthNPolicy(t *testing.T) {
 					for _, port := range ports {
 						for _, domain := range []string{"", "." + tc.Kube.Namespace} {
 							testName := fmt.Sprintf("%s from %s cluster->%s%s_%s", src, cluster, dst, domain, port)
-							runRetriableTest(t, cluster, testName, 15, func() error {
+							runRetriableTest(t, testName, 15, func() error {
 								reqURL := fmt.Sprintf("http://%s%s:%s/%s", dst, domain, port, src)
 								resp := ClientRequest(cluster, src, reqURL, 1, "")
 								if src == "t" && (dst == "b" || (dst == "d" && port == "8080")) {
 									if len(resp.ID) == 0 {
-										// t cannot talk to b nor d:80
+										// t cannot talk to b nor d:8080
 										return nil
 									}
 									return errAgain
@@ -85,15 +92,16 @@ func TestMTlsWithAuthNPolicy(t *testing.T) {
 }
 
 func TestAuthNJwt(t *testing.T) {
-	// JWT token used is borrowed from https://github.com/istio/proxy/blob/master/src/envoy/http/jwt_auth/sample/correct_jwt.
-	// The Token expires in year 2132, issuer is 628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com.
-	// Test will fail if this service account is deleted.
-	p := "testdata/authn/v1alpha1/correct_jwt"
-	token, err := ioutil.ReadFile(p)
-	if err != nil {
-		t.Fatalf("failed to read %q", p)
+	// Skip test if SDS is enabled.
+	// Istio does not support legacy JWTs anymore.
+	// Only Kubernetes 1.12 (beta) and later support trustworthy JWTs.
+	if tc.Kube.AuthSdsEnabled {
+		t.Skipf("Skipping %s: auth_sds_enable=true=true.", t.Name())
 	}
-	validJwtToken := string(token)
+
+	validJwtToken := jwt.TokenIssuer1
+	validJwt2Token := jwt.TokenIssuer2
+	invalidJwtToken := jwt.TokenInvalid
 
 	// Policy enforces JWT authn for service 'c' and 'd:80'.
 	cfgs := &deployableConfig{
@@ -114,6 +122,7 @@ func TestAuthNJwt(t *testing.T) {
 		dst    string
 		src    string
 		port   string
+		path   string
 		token  string
 		expect string
 	}{
@@ -126,9 +135,20 @@ func TestAuthNJwt(t *testing.T) {
 		{dst: "b", src: "d", port: "8080", token: "testToken", expect: "200"},
 
 		{dst: "c", src: "a", port: "80", token: validJwtToken, expect: "200"},
-		{dst: "c", src: "a", port: "8080", token: "invalidToken", expect: "401"},
+		{dst: "c", src: "a", port: "80", token: validJwt2Token, expect: "401"},
+		{dst: "c", src: "a", port: "8080", token: invalidJwtToken, expect: "401"},
 		{dst: "c", src: "b", port: "", token: "random", expect: "401"},
 		{dst: "c", src: "d", port: "80", token: validJwtToken, expect: "200"},
+
+		// JWT authentication is disabled for requests at path "/health_check".
+		{dst: "c", src: "a", port: "80", path: "/health_check", token: invalidJwtToken, expect: "200"},
+		{dst: "c", src: "a", port: "80", path: "/health_check", token: validJwtToken, expect: "200"},
+		{dst: "c", src: "a", port: "80", path: "/health_check", token: validJwt2Token, expect: "200"},
+
+		// JWT authentication is enabled for requests at path "/jwt2" only with validJwt2Token.
+		{dst: "c", src: "a", port: "80", path: "/jwt2", token: invalidJwtToken, expect: "401"},
+		{dst: "c", src: "a", port: "80", path: "/jwt2", token: validJwtToken, expect: "401"},
+		{dst: "c", src: "a", port: "80", path: "/jwt2", token: validJwt2Token, expect: "200"},
 
 		{dst: "d", src: "c", port: "8080", token: "bar", expect: "200"},
 	}
@@ -138,21 +158,22 @@ func TestAuthNJwt(t *testing.T) {
 			dst    string
 			src    string
 			port   string
+			path   string
 			token  string
 			expect string
 		}{
 			// This needs to be de-flaked when authN is enabled https://github.com/istio/istio/issues/6288
-			{dst: "d", src: "a", port: "", token: validJwtToken, expect: "200"},
-			{dst: "d", src: "b", port: "80", token: "foo", expect: "401"},
+			{dst: "d", src: "a", port: "", path: "", token: validJwtToken, expect: "200"},
+			{dst: "d", src: "b", port: "80", path: "", token: "foo", expect: "401"},
 		}
 		cases = append(cases, extraCases...)
 	}
 
 	for _, c := range cases {
-		testName := fmt.Sprintf("%s->%s[%s]", c.src, c.dst, c.expect)
-		runRetriableTest(t, primaryCluster, testName, defaultRetryBudget, func() error {
-			extra := fmt.Sprintf("-key \"Authorization\" -val \"Bearer %s\"", c.token)
-			resp := ClientRequest(primaryCluster, c.src, fmt.Sprintf("http://%s:%s", c.dst, c.port), 1, extra)
+		testName := fmt.Sprintf("%s->%s%s[%s]", c.src, c.dst, c.path, c.expect)
+		runRetriableTest(t, testName, defaultRetryBudget, func() error {
+			extra := fmt.Sprintf("--key \"Authorization\" --val \"Bearer %s\"", c.token)
+			resp := ClientRequest(primaryCluster, c.src, fmt.Sprintf("http://%s:%s%s", c.dst, c.port, c.path), 1, extra)
 			if len(resp.Code) > 0 && resp.Code[0] == c.expect {
 				return nil
 			}
@@ -183,9 +204,9 @@ func TestGatewayIngress_AuthN_JWT(t *testing.T) {
 	}
 	defer cfgs.Teardown()
 
-	runRetriableTest(t, primaryCluster, "GatewayIngress_AuthN_JWT", defaultRetryBudget, func() error {
+	runRetriableTest(t, "GatewayIngress_AuthN_JWT", defaultRetryBudget, func() error {
 		reqURL := fmt.Sprintf("http://%s.%s/c", ingressGatewayServiceName, istioNamespace)
-		resp := ClientRequest(primaryCluster, "t", reqURL, 1, "-key Host -val uk.bookinfo.com")
+		resp := ClientRequest(primaryCluster, "t", reqURL, 1, "--key Host --val uk.bookinfo.com")
 		if len(resp.Code) > 0 && resp.Code[0] == "401" {
 			return nil
 		}

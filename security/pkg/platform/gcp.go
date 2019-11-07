@@ -17,14 +17,15 @@ package platform
 import (
 	"fmt"
 
+	"istio.io/istio/pkg/spiffe"
+
 	"cloud.google.com/go/compute/metadata"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	"istio.io/istio/pkg/log"
 	cred "istio.io/istio/security/pkg/credential"
-	"istio.io/istio/security/pkg/pki/util"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -55,15 +56,6 @@ type GcpClientImpl struct {
 	fetcher cred.TokenFetcher
 }
 
-// NewGcpClientImpl creates a new GcpClientImpl.
-func NewGcpClientImpl(rootCert, ca string) *GcpClientImpl {
-	return &GcpClientImpl{
-		rootCertFile: rootCert,
-		caAddr:       ca,
-		fetcher:      &cred.GcpTokenFetcher{Aud: fmt.Sprintf("grpc://%s", ca)},
-	}
-}
-
 // IsProperPlatform returns whether the client is on GCE.
 func (ci *GcpClientImpl) IsProperPlatform() bool {
 	return metadata.OnGCE()
@@ -77,7 +69,7 @@ func (ci *GcpClientImpl) GetDialOptions() ([]grpc.DialOption, error) {
 		return nil, err
 	}
 
-	creds, err := credentials.NewClientTLSFromFile(ci.rootCertFile, "")
+	creds, err := credentials.NewClientTLSFromFile(ci.rootCertFile, CitadelDNSSan)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +86,7 @@ func (ci *GcpClientImpl) GetServiceIdentity() (string, error) {
 		log.Errorf("Failed to get service account with error: %v", err)
 		return "", err
 	}
-	return util.GenSanURI("default", serviceAccount)
+	return spiffe.GenSpiffeURI("default", serviceAccount)
 }
 
 // GetAgentCredential returns the GCP JWT for the serivce account.

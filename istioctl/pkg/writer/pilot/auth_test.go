@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors.
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,13 +16,12 @@ package pilot
 
 import (
 	"bytes"
-	"encoding/json"
 	"io/ioutil"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
-	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/tests/util"
 )
 
@@ -38,17 +37,12 @@ func TestTLSCheckWriter_PrintAll(t *testing.T) {
 			input: authInput(),
 			want:  "testdata/multiAuth.txt",
 		},
-		{
-			name:    "error if given non-auth info",
-			wantErr: true,
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := &bytes.Buffer{}
 			tcw := TLSCheckWriter{Writer: got}
-			input, _ := json.Marshal(tt.input)
-			err := tcw.PrintAll(input)
+			err := tcw.PrintAll(tt.input)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
@@ -76,17 +70,12 @@ func TestTLSCheckWriter_PrintSingle(t *testing.T) {
 			input:         authInput(),
 			want:          "testdata/singleAuth.txt",
 		},
-		{
-			name:    "error if given non-auth info",
-			wantErr: true,
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := &bytes.Buffer{}
 			tcw := TLSCheckWriter{Writer: got}
-			input, _ := json.Marshal(tt.input)
-			err := tcw.PrintSingle(input, tt.filterService)
+			err := tcw.PrintSingle(tt.input, tt.filterService)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
@@ -103,8 +92,8 @@ func TestTLSCheckWriter_PrintSingle(t *testing.T) {
 func authInput() []v2.AuthenticationDebug {
 	return []v2.AuthenticationDebug{
 		{
-			Host: "host1",
-			Port: 1,
+			Host:                     "host1",
+			Port:                     1,
 			AuthenticationPolicyName: "auth-policy1/namespace1",
 			DestinationRuleName:      "destination-rule1/namespace1",
 			ServerProtocol:           "HTTP",
@@ -112,8 +101,8 @@ func authInput() []v2.AuthenticationDebug {
 			TLSConflictStatus:        "OK",
 		},
 		{
-			Host: "host2",
-			Port: 2,
+			Host:                     "host2",
+			Port:                     2,
 			AuthenticationPolicyName: "auth-policy2/namespace2",
 			DestinationRuleName:      "destination-rule2/namespace2",
 			ServerProtocol:           "HTTP",
@@ -121,8 +110,8 @@ func authInput() []v2.AuthenticationDebug {
 			TLSConflictStatus:        "OK",
 		},
 		{
-			Host: "",
-			Port: 9999,
+			Host:                     "",
+			Port:                     9999,
 			AuthenticationPolicyName: "auth-policy/namespace",
 			DestinationRuleName:      "destination-rule/namespace",
 			ServerProtocol:           "HTTP",

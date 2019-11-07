@@ -1,0 +1,44 @@
+# This ServiceEntry exposes the hosts needed for Python `pip`.
+# After applying this file, Istio-enabled pods will be able to execute
+# `pip search istio`.
+
+# HTTP and TLS, the host must be specified
+# See https://istio.io/docs/tasks/traffic-management/egress/
+
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: python-https
+spec:
+  hosts:
+  - pypi.python.org
+  ports:
+  - number: 443
+    name: https
+    protocol: HTTPS
+---
+# pypi.python.org may 301 redirect to pypi.org, so we need this too.
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: pypi-https
+spec:
+  hosts:
+  - pypi.org
+  ports:
+  - number: 443
+    name: https
+    protocol: HTTPS
+---
+# pip install may fetch files from files.pythonhosted.org
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: pythonhosted-https
+spec:
+  hosts:
+  - files.pythonhosted.org
+  ports:
+  - number: 443
+    name: https
+    protocol: HTTPS

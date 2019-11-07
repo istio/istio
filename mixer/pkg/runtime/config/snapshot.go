@@ -15,6 +15,8 @@
 package config
 
 import (
+	"context"
+
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 	"github.com/gogo/protobuf/types"
@@ -22,9 +24,10 @@ import (
 	adptTmpl "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/protobuf/yaml/dynamic"
+	"istio.io/istio/mixer/pkg/runtime/lang"
 	"istio.io/istio/mixer/pkg/template"
+	"istio.io/pkg/attribute"
 )
 
 type (
@@ -38,7 +41,7 @@ type (
 		Adapters  map[string]*adapter.Info
 
 		// Config store based information
-		Attributes ast.AttributeDescriptorFinder
+		Attributes attribute.AttributeDescriptorFinder
 
 		HandlersStatic  map[string]*HandlerStatic
 		InstancesStatic map[string]*InstanceStatic
@@ -52,8 +55,8 @@ type (
 		InstancesDynamic map[string]*InstanceDynamic
 		Rules            []*Rule
 
-		// Perf Counters relevant to configuration.
-		Counters Counters
+		// Used to update Perf measures relevant to configuration.
+		MonitoringContext context.Context
 	}
 
 	// HandlerDynamic configuration for dynamically loaded, grpc adapters. Fully resolved.
@@ -93,6 +96,12 @@ type (
 
 		// Params of the instance; used to to create the config SHA.
 		Params map[string]interface{}
+
+		// AttributeBindings used to map the adapter output back into attributes
+		AttributeBindings map[string]string
+
+		// Language runtime to use for output expressions
+		Language lang.LanguageRuntime
 	}
 
 	// InstanceStatic configuration for compiled templates. Fully resolved.
@@ -108,6 +117,9 @@ type (
 
 		// inferred type for the instance.
 		InferredType proto.Message
+
+		// Language runtime to use for output expressions
+		Language lang.LanguageRuntime
 	}
 
 	// Rule configuration. Fully resolved.
@@ -124,6 +136,13 @@ type (
 		ActionsDynamic []*ActionDynamic
 
 		ActionsStatic []*ActionStatic
+
+		RequestHeaderOperations []*v1beta1.Rule_HeaderOperationTemplate
+
+		ResponseHeaderOperations []*v1beta1.Rule_HeaderOperationTemplate
+
+		// Language runtime to use for expressions
+		Language lang.LanguageRuntime
 	}
 
 	// ActionDynamic configuration. Fully resolved.
@@ -132,15 +151,18 @@ type (
 		Handler *HandlerDynamic
 		// Instances that should be generated as part of invoking action.
 		Instances []*InstanceDynamic
+		// Name of the action (optional)
+		Name string
 	}
 
 	// ActionStatic configuration. Fully resolved.
 	ActionStatic struct {
 		// Handler that this action is resolved to.
 		Handler *HandlerStatic
-
 		// Instances that should be generated as part of invoking action.
 		Instances []*InstanceStatic
+		// Name of the action (optional)
+		Name string
 	}
 
 	// Template contains info about a template
@@ -164,6 +186,10 @@ type (
 
 		// package name of the `Template` message
 		PackageName string
+
+		// AttributeManifest declares the output attributes for the template.
+		// For attribute producing adapters, the output attributes are of the form $out.field_name.
+		AttributeManifest map[string]*v1beta1.AttributeManifest_AttributeInfo
 	}
 
 	// Adapter contains info about an adapter
@@ -187,9 +213,9 @@ type (
 // Empty returns a new, empty configuration snapshot.
 func Empty() *Snapshot {
 	return &Snapshot{
-		ID:       -1,
-		Rules:    []*Rule{},
-		Counters: newCounters(-1),
+		ID:                -1,
+		Rules:             []*Rule{},
+		MonitoringContext: context.Background(),
 	}
 }
 
@@ -206,6 +232,11 @@ func (h HandlerStatic) AdapterName() string {
 // AdapterParams gets AdapterParams
 func (h HandlerStatic) AdapterParams() interface{} {
 	return h.Params
+}
+
+// ConnectionConfig returns nil for static handler
+func (h HandlerStatic) ConnectionConfig() interface{} {
+	return nil
 }
 
 // GetName gets name
@@ -236,6 +267,11 @@ func (h HandlerDynamic) AdapterName() string {
 // AdapterParams gets AdapterParams
 func (h HandlerDynamic) AdapterParams() interface{} {
 	return h.AdapterConfig
+}
+
+// ConnectionConfig gets connection config of dynamic handler
+func (h HandlerDynamic) ConnectionConfig() interface{} {
+	return h.Connection
 }
 
 // GetName gets name

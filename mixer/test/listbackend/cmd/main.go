@@ -29,7 +29,7 @@ func main() {
 
 	s, err := listbackend.NewNoSessionServer(addr)
 	if err != nil {
-		fmt.Printf("unable to start sever: %v", err)
+		fmt.Printf("unable to start server: %v", err)
 		os.Exit(-1)
 	}
 

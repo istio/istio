@@ -1,20 +1,33 @@
 #!/bin/bash
 
+# Copyright Istio Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 # Setting up docker daemon on host
 echo "Adding insecure registry to docker daemon in host..."
 echo "You old docker daemon file can be found at /lib/systemd/system/docker.service_old"
-sudo ls /lib/systemd/system/docker.service_old
-if [ $? -ne 0 ]; then
+if ! sudo ls /lib/systemd/system/docker.service_old; then
     sudo cp /lib/systemd/system/docker.service /lib/systemd/system/docker.service_old
 else
     echo "There is an old docker.service_old file on your system."
-    read -p "If you believe it's outdated, we can update it[default: no]: " update
-    overrwriteExisting=${update:-"no"}
-    if [[ $overrwriteExisting = *"y"* ]] || [[ $overrwriteExisting = *"Y"* ]]; then
+    read -p "If you believe it's outdated, we can update it[default: no]: " -r update
+    overwriteExisting=${update:-"no"}
+    if [[ $overwriteExisting = *"y"* ]] || [[ $overwriteExisting = *"Y"* ]]; then
         sudo cp /lib/systemd/system/docker.service /lib/systemd/system/docker.service_old
     fi
 fi
-echo "sudo sed -i 's/ExecStart=\/usr\/bin\/dockerd -H fd:\/\//ExecStart=\/usr\/bin\/dockerd -H fd:\/\/ --insecure-registry 10.10.0.2:5000/' /lib/systemd/system/docker.service"
+echo "sudo sed -i 's/ExecStart=\\/usr\\/bin\\/dockerd -H fd:\\/\\//ExecStart=\\/usr\\/bin\\/dockerd -H fd:\\/\\/ --insecure-registry 10.10.0.2:5000/' /lib/systemd/system/docker.service"
 sudo sed -i 's/ExecStart=\/usr\/bin\/dockerd -H fd:\/\//ExecStart=\/usr\/bin\/dockerd -H fd:\/\/ --insecure-registry 10.10.0.2:5000/' /lib/systemd/system/docker.service
 sudo systemctl daemon-reload
 sudo systemctl restart docker

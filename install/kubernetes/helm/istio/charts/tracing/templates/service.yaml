@@ -1,5 +1,13 @@
 apiVersion: v1
 kind: List
+metadata:
+  name: tracing-services
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.provider }}
+    chart: {{ template "tracing.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 items:
 - apiVersion: v1
   kind: Service
@@ -7,19 +15,18 @@ items:
     name: zipkin
     namespace: {{ .Release.Namespace }}
     labels:
-      app: jaeger
-      chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-      release: {{ .Release.Name }}
+      app: {{ .Values.provider }}
+      chart: {{ template "tracing.chart" . }}
       heritage: {{ .Release.Service }}
+      release: {{ .Release.Name }}
   spec:
-    type: {{ .Values.service.type }}
     ports:
       - port: {{ .Values.service.externalPort }}
-        targetPort: {{ .Values.service.internalPort }}
+        targetPort: {{ .Values.zipkin.queryPort }}
         protocol: TCP
         name: {{ .Values.service.name }}
     selector:
-      app: jaeger
+      app: {{ .Values.provider }}
 - apiVersion: v1
   kind: Service
   metadata:
@@ -27,18 +34,23 @@ items:
     namespace: {{ .Release.Namespace }}
     annotations:
       {{- range $key, $val := .Values.service.annotations }}
-      {{ $key }}: {{ $val }}
+      {{ $key }}: {{ $val | quote }}
       {{- end }}
     labels:
-      app: jaeger
-      chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-      release: {{ .Release.Name }}
+      app: {{ .Values.provider }}
+      chart: {{ template "tracing.chart" . }}
       heritage: {{ .Release.Service }}
+      release: {{ .Release.Name }}
   spec:
+    type: {{ .Values.service.type }}
     ports:
-      - name: query-http
-        port: 80
+      - name: http-query
+        port: {{ .Values.service.externalPort }}
         protocol: TCP
-        targetPort: {{ .Values.service.uiPort }}
+{{ if eq .Values.provider "jaeger" }}
+        targetPort: 16686
+{{ else }}
+        targetPort: {{ .Values.zipkin.queryPort }}
+{{ end}}
     selector:
-      app: jaeger
+      app: {{ .Values.provider }}

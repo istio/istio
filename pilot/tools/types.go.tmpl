@@ -19,37 +19,38 @@ package crd
 // This file contains Go definitions for Custom Resource Definition kinds
 // to adhere to the idiomatic use of k8s API machinery.
 // These definitions are synthesized from Istio configuration type descriptors
-// as declared in the Pilot config model.
+// as declared in the Istio config model.
 
 import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schema"
+    "istio.io/istio/pkg/config/schemas"
 )
 
-type schemaType struct {
-        schema     model.ProtoSchema
-        object     IstioObject
-        collection IstioObjectList
+type SchemaType struct {
+        Schema     schema.Instance
+        Object     IstioObject
+        Collection IstioObjectList
 }
 
-var knownTypes = map[string]schemaType{
-{{range $index, $element := .}}model.{{ .IstioKind }}.Type: {
-        schema: model.{{ .IstioKind }},
-        object: &{{ .CrdKind }}{
+var KnownTypes = map[string]SchemaType{
+{{range $index, $element := .}}schemas.{{ .IstioKind }}.Type: {
+        Schema: schemas.{{ .IstioKind }},
+        Object: &{{ .CrdKind }}{
             TypeMeta: meta_v1.TypeMeta{
                 Kind:       "{{ .CrdKind }}",
-                APIVersion: apiVersion(&model.{{ .IstioKind }}),
+                APIVersion: APIVersion(&schemas.{{ .IstioKind }}),
             },
         },
-        collection: &{{ .CrdKind }}List{},
+        Collection: &{{ .CrdKind }}List{},
     },
 {{end}}
 }
 
 {{range $index, $element := .}}
-// {{ .CrdKind }} is the generic Kubernetes API object wrapper
+// {{ .CrdKind }} is the generic Kubernetes API Object wrapper
 type {{ .CrdKind }} struct {
 	meta_v1.TypeMeta   `json:",inline"`
 	meta_v1.ObjectMeta `json:"metadata"`

@@ -1,9 +1,10 @@
 ---
 title: StatsD
-description: Adapter to deliver metrics to a StatsD backend
+description: Adapter to deliver metrics to a StatsD backend.
 location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/statsd.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
+supported_templates: metric
 aliases:
   - /docs/reference/config/adapters/statsd.html
 number_of_entries: 3
@@ -23,6 +24,7 @@ number_of_entries: 3
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -33,6 +35,9 @@ number_of_entries: 3
 <p>Address of the statsd server, e.g. localhost:8125</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-prefix">
 <td><code>prefix</code></td>
@@ -41,14 +46,20 @@ number_of_entries: 3
 <p>Metric prefix, do not specify for no prefix</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-flush_duration">
 <td><code>flushDuration</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">Duration</a></code></td>
 <td>
 <p>FlushDuration controls the maximum amount of time between sending metrics to the statsd collection server.
 Metrics are reported when either flush<em>bytes is full or flush</em>duration time has elapsed since the last report.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Params-flush_bytes">
@@ -59,6 +70,9 @@ Metrics are reported when either flush<em>bytes is full or flush</em>duration ti
 same (private) network 1432 bytes is recommended for better performance.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-sampling_rate">
 <td><code>samplingRate</code></td>
@@ -67,13 +81,19 @@ same (private) network 1432 bytes is recommended for better performance.</p>
 <p>Chance that any particular metric is sampled when incremented; can take the range [0, 1], defaults to 1 if unspecified.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-metrics">
 <td><code>metrics</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#Params-MetricInfo">Params.MetricInfo</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#Params-MetricInfo">MetricInfo</a>&gt;</code></td>
 <td>
 <p>Map of metric name -&gt; info. If a metric&rsquo;s name is not in the map then the metric will not be exported to statsd.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -89,13 +109,17 @@ same (private) network 1432 bytes is recommended for better performance.</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
 <tr id="Params-MetricInfo-type">
 <td><code>type</code></td>
-<td><code><a href="#Params-MetricInfo-Type">Params.MetricInfo.Type</a></code></td>
+<td><code><a href="#Params-MetricInfo-Type">Type</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Params-MetricInfo-name_template">
@@ -110,6 +134,9 @@ we use the template:
 
 <p>If name_template is the empty string the Istio metric name will be used for statsd metric&rsquo;s name.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>

@@ -22,8 +22,8 @@ import (
 	"io/ioutil"
 	"os"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/pki/util"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -35,7 +35,7 @@ var (
 )
 
 func fatalf(template string, args ...interface{}) {
-	log.Errorf(template, args)
+	log.Errorf(template, args...)
 	os.Exit(-1)
 }
 

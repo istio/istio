@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,41 +20,42 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/mock"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 var (
-	camelKabobs = []struct{ in, out string }{
+	camelKebabs = []struct{ in, out string }{
 		{"ExampleNameX", "example-name-x"},
 		{"Example1", "example1"},
 		{"ExampleXY", "example-x-y"},
 	}
 )
 
-func TestCamelKabob(t *testing.T) {
-	for _, tt := range camelKabobs {
-		s := CamelCaseToKabobCase(tt.in)
+func TestCamelKebab(t *testing.T) {
+	for _, tt := range camelKebabs {
+		s := CamelCaseToKebabCase(tt.in)
 		if s != tt.out {
-			t.Errorf("CamelCaseToKabobCase(%q) => %q, want %q", tt.in, s, tt.out)
+			t.Errorf("CamelCaseToKebabCase(%q) => %q, want %q", tt.in, s, tt.out)
 		}
-		u := KabobCaseToCamelCase(tt.out)
+		u := KebabCaseToCamelCase(tt.out)
 		if u != tt.in {
-			t.Errorf("kabobToCamel(%q) => %q, want %q", tt.out, u, tt.in)
+			t.Errorf("kebabToCamel(%q) => %q, want %q", tt.out, u, tt.in)
 		}
 	}
 }
 
 func TestConvert(t *testing.T) {
-	if _, err := ConvertConfig(model.RouteRule, model.Config{}); err == nil {
+	if _, err := ConvertConfig(schemas.VirtualService, model.Config{}); err == nil {
 		t.Errorf("expected error for converting empty config")
 	}
-	if _, err := ConvertObject(model.RouteRule, &IstioKind{Spec: map[string]interface{}{"x": 1}}, "local"); err == nil {
-		t.Errorf("expected error for converting empty object")
+	if _, err := ConvertObject(schemas.VirtualService, &IstioKind{Spec: map[string]interface{}{"x": 1}}, "local"); err != nil {
+		t.Errorf("error for converting object: %s", err)
 	}
 	config := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:            model.RouteRule.Type,
-			Group:           "config.istio.io",
-			Version:         "v1alpha2",
+			Type:            schemas.VirtualService.Type,
+			Group:           "networking.istio.io",
+			Version:         "v1alpha3",
 			Name:            "test",
 			Namespace:       "default",
 			Domain:          "cluster",
@@ -62,14 +63,14 @@ func TestConvert(t *testing.T) {
 			Labels:          map[string]string{"label": "value"},
 			Annotations:     map[string]string{"annotation": "value"},
 		},
-		Spec: mock.ExampleRouteRule,
+		Spec: mock.ExampleVirtualService,
 	}
 
-	obj, err := ConvertConfig(model.RouteRule, config)
+	obj, err := ConvertConfig(schemas.VirtualService, config)
 	if err != nil {
 		t.Errorf("ConvertConfig() => unexpected error %v", err)
 	}
-	got, err := ConvertObject(model.RouteRule, obj, "cluster")
+	got, err := ConvertObject(schemas.VirtualService, obj, "cluster")
 	if err != nil {
 		t.Errorf("ConvertObject() => unexpected error %v", err)
 	}
@@ -91,14 +92,15 @@ func TestParseInputs(t *testing.T) {
 	if varr, others, err := ParseInputs("---\n"); err != nil || len(varr) != 0 || len(others) != 0 {
 		t.Errorf(`ParseInput("---") => got %v, %v, %v`, varr, others, err)
 	}
-	if _, _, err := ParseInputs("kind: RouteRule\nspec:\n  destination: x"); err == nil {
+	if _, _, err := ParseInputs("kind: VirtualService\nspec:\n  destination: x"); err == nil {
 		t.Error("ParseInput(bad spec) => got no error")
 	}
-	if _, _, err := ParseInputs("kind: RouteRule\nspec:\n  destination:\n    service:"); err == nil {
+	if _, _, err := ParseInputs("kind: VirtualService\nspec:\n  destination:\n    service:"); err == nil {
 		t.Error("ParseInput(invalid spec) => got no error")
 	}
 
-	varr, _, err := ParseInputs("kind: RouteRule\nspec:\n  destination:\n    service: x")
+	validInput := `{"kind":"VirtualService", "spec":{"hosts":["foo"],"http":[{"route":[{"destination":{"host":"bar"},"weight":100}]}]}}`
+	varr, _, err := ParseInputs(validInput)
 	if err != nil || len(varr) == 0 {
 		t.Errorf("ParseInputs(correct input) => got %v, %v", varr, err)
 	}

@@ -16,71 +16,83 @@ package v2
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
-	"sync"
+	"net/http/pprof"
+	"sort"
 
-	"github.com/gogo/protobuf/jsonpb"
+	"istio.io/istio/pilot/pkg/features"
+
+	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/ptypes/any"
 
 	authn "istio.io/api/authentication/v1alpha1"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	networking_core "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
-	authn_plugin "istio.io/istio/pilot/pkg/networking/plugin/authn"
+	"istio.io/istio/pilot/pkg/networking/util"
+	authn_alpha1 "istio.io/istio/pilot/pkg/security/authn/v1alpha1"
+	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pkg/config/host"
 )
 
-// memregistry is based on mock/discovery - it is used for testing and debugging v2.
-// In future (post 1.0) it may be used for representing remote pilots.
+const (
+	// configNameNotApplicable is used to represent the name of the authentication policy or
+	// destination rule when they are not specified.
+	configNameNotApplicable = "-"
+)
 
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
-func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller) {
+func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller, enableProfiling bool) {
 	// For debugging and load testing v2 we add an memory registry.
 	s.MemRegistry = NewMemServiceDiscovery(
-		map[model.Hostname]*model.Service{ // mock.HelloService.Hostname: mock.HelloService,
+		map[host.Name]*model.Service{ // mock.HelloService.Hostname: mock.HelloService,
 		}, 2)
+	s.MemRegistry.EDSUpdater = s
+	s.MemRegistry.ClusterID = "v2-debug"
 
 	sctl.AddRegistry(aggregate.Registry{
 		ClusterID:        "v2-debug",
 		Name:             serviceregistry.ServiceRegistry("memAdapter"),
 		ServiceDiscovery: s.MemRegistry,
-		ServiceAccounts:  s.MemRegistry,
 		Controller:       s.MemRegistry.controller,
 	})
 
-	mux.HandleFunc("/debug/edsz", edsz)
-	mux.HandleFunc("/debug/adsz", adsz)
+	if enableProfiling {
+		mux.HandleFunc("/debug/pprof/", pprof.Index)
+		mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+		mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+		mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+		mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+	}
+
+	mux.HandleFunc("/ready", s.ready)
+
+	mux.HandleFunc("/debug/edsz", s.edsz)
+	mux.HandleFunc("/debug/adsz", s.adsz)
 	mux.HandleFunc("/debug/cdsz", cdsz)
 	mux.HandleFunc("/debug/syncz", Syncz)
+	mux.HandleFunc("/debug/config_distribution", s.distributedVersions)
 
 	mux.HandleFunc("/debug/registryz", s.registryz)
 	mux.HandleFunc("/debug/endpointz", s.endpointz)
+	mux.HandleFunc("/debug/endpointShardz", s.endpointShardz)
 	mux.HandleFunc("/debug/configz", s.configz)
 
-	mux.HandleFunc("/debug/authenticationz", s.authenticationz)
-	mux.HandleFunc("/debug/config_dump", ConfigDump)
-}
-
-// NewMemServiceDiscovery builds an in-memory MemServiceDiscovery
-func NewMemServiceDiscovery(services map[model.Hostname]*model.Service, versions int) *MemServiceDiscovery {
-	return &MemServiceDiscovery{
-		services:            services,
-		versions:            versions,
-		controller:          &memServiceController{},
-		instancesByPortNum:  map[string][]*model.ServiceInstance{},
-		instancesByPortName: map[string][]*model.ServiceInstance{},
-		ip2instance:         map[string][]*model.ServiceInstance{},
-	}
+	mux.HandleFunc("/debug/authenticationz", s.Authenticationz)
+	mux.HandleFunc("/debug/config_dump", s.ConfigDump)
+	mux.HandleFunc("/debug/push_status", s.PushStatusHandler)
 }
 
 // SyncStatus is the synchronization status between Pilot and a given Envoy
 type SyncStatus struct {
 	ProxyID         string `json:"proxy,omitempty"`
+	ProxyVersion    string `json:"proxy_version,omitempty"`
+	IstioVersion    string `json:"istio_version,omitempty"`
 	ClusterSent     string `json:"cluster_sent,omitempty"`
 	ClusterAcked    string `json:"cluster_acked,omitempty"`
 	ListenerSent    string `json:"listener_sent,omitempty"`
@@ -93,16 +105,15 @@ type SyncStatus struct {
 }
 
 // Syncz dumps the synchronization status of all Envoys connected to this Pilot instance
-func Syncz(w http.ResponseWriter, req *http.Request) {
-	adsClientsMutex.RLock()
-	defer adsClientsMutex.RUnlock()
-	syncz := []SyncStatus{}
+func Syncz(w http.ResponseWriter, _ *http.Request) {
+	syncz := make([]SyncStatus, 0)
 	adsClientsMutex.RLock()
 	for _, con := range adsClients {
 		con.mu.RLock()
-		if con.modelNode != nil {
+		if con.node != nil {
 			syncz = append(syncz, SyncStatus{
-				ProxyID:         con.modelNode.ID,
+				ProxyID:         con.node.ID,
+				IstioVersion:    con.node.Metadata.IstioVersion,
 				ClusterSent:     con.ClusterNonceSent,
 				ClusterAcked:    con.ClusterNonceAcked,
 				ListenerSent:    con.ListenerNonceSent,
@@ -120,236 +131,11 @@ func Syncz(w http.ResponseWriter, req *http.Request) {
 	out, err := json.MarshalIndent(&syncz, "", "    ")
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, "unable to marshal syncz information: %v", err)
+		_, _ = fmt.Fprintf(w, "unable to marshal syncz information: %v", err)
 		return
 	}
 	w.Header().Add("Content-Type", "application/json")
-	w.Write(out)
-	w.WriteHeader(http.StatusOK)
-}
-
-// TODO: the mock was used for test setup, has no mutex. This will also be used for
-// integration and load tests, will need to add mutex as we cleanup the code.
-
-type memServiceController struct {
-	svcHandlers  []func(*model.Service, model.Event)
-	instHandlers []func(*model.ServiceInstance, model.Event)
-}
-
-func (c *memServiceController) AppendServiceHandler(f func(*model.Service, model.Event)) error {
-	c.svcHandlers = append(c.svcHandlers, f)
-	return nil
-}
-
-func (c *memServiceController) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
-	c.instHandlers = append(c.instHandlers, f)
-	return nil
-}
-
-func (c *memServiceController) Run(<-chan struct{}) {}
-
-// MemServiceDiscovery is a mock discovery interface
-type MemServiceDiscovery struct {
-	services map[model.Hostname]*model.Service
-	// Endpoints table. Key is the fqdn of the service, ':', port
-	instancesByPortNum            map[string][]*model.ServiceInstance
-	instancesByPortName           map[string][]*model.ServiceInstance
-	ip2instance                   map[string][]*model.ServiceInstance
-	versions                      int
-	WantGetProxyServiceInstances  []*model.ServiceInstance
-	ServicesError                 error
-	GetServiceError               error
-	InstancesError                error
-	GetProxyServiceInstancesError error
-	controller                    model.Controller
-
-	// Single mutex for now - it's for debug only.
-	mutex sync.Mutex
-}
-
-// ClearErrors clear errors used for mocking failures during model.MemServiceDiscovery interface methods
-func (sd *MemServiceDiscovery) ClearErrors() {
-	sd.ServicesError = nil
-	sd.GetServiceError = nil
-	sd.InstancesError = nil
-	sd.GetProxyServiceInstancesError = nil
-}
-
-// AddService adds an in-memory service.
-func (sd *MemServiceDiscovery) AddService(name model.Hostname, svc *model.Service) {
-	sd.mutex.Lock()
-	sd.services[name] = svc
-	sd.mutex.Unlock()
-	// TODO: notify listeners
-}
-
-// AddInstance adds an in-memory instance.
-func (sd *MemServiceDiscovery) AddInstance(service model.Hostname, instance *model.ServiceInstance) {
-	// WIP: add enough code to allow tests and load tests to work
-	sd.mutex.Lock()
-	defer sd.mutex.Unlock()
-	svc := sd.services[service]
-	if svc == nil {
-		return
-	}
-	instance.Service = svc
-	sd.ip2instance[instance.Endpoint.Address] = []*model.ServiceInstance{instance}
-
-	key := fmt.Sprintf("%s:%d", service, instance.Endpoint.ServicePort.Port)
-	instanceList := sd.instancesByPortNum[key]
-	sd.instancesByPortNum[key] = append(instanceList, instance)
-
-	key = fmt.Sprintf("%s:%s", service, instance.Endpoint.ServicePort.Name)
-	instanceList = sd.instancesByPortName[key]
-	sd.instancesByPortName[key] = append(instanceList, instance)
-}
-
-// AddEndpoint adds an endpoint to a service.
-func (sd *MemServiceDiscovery) AddEndpoint(service model.Hostname, servicePortName string, servicePort int, address string, port int) *model.ServiceInstance {
-	instance := &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
-			Address: address,
-			Port:    port,
-			ServicePort: &model.Port{
-				Name:     servicePortName,
-				Port:     servicePort,
-				Protocol: model.ProtocolHTTP,
-			},
-		},
-	}
-	sd.AddInstance(service, instance)
-	return instance
-}
-
-// Services implements discovery interface
-// Each call to Services() should return a list of new *model.Service
-func (sd *MemServiceDiscovery) Services() ([]*model.Service, error) {
-	sd.mutex.Lock()
-	defer sd.mutex.Unlock()
-	if sd.ServicesError != nil {
-		return nil, sd.ServicesError
-	}
-	out := make([]*model.Service, 0, len(sd.services))
-	for _, service := range sd.services {
-		// Make a new service out of the existing one
-		newSvc := *service
-		out = append(out, &newSvc)
-	}
-	return out, sd.ServicesError
-}
-
-// GetService implements discovery interface
-// Each call to GetService() should return a new *model.Service
-func (sd *MemServiceDiscovery) GetService(hostname model.Hostname) (*model.Service, error) {
-	sd.mutex.Lock()
-	defer sd.mutex.Unlock()
-	if sd.GetServiceError != nil {
-		return nil, sd.GetServiceError
-	}
-	val := sd.services[hostname]
-	if val == nil {
-		return nil, errors.New("missing service")
-	}
-	// Make a new service out of the existing one
-	newSvc := *val
-	return &newSvc, sd.GetServiceError
-}
-
-// GetServiceAttributes implements discovery interface.
-func (sd *MemServiceDiscovery) GetServiceAttributes(hostname model.Hostname) (*model.ServiceAttributes, error) {
-	return &model.ServiceAttributes{
-		Name:      hostname.String(),
-		Namespace: model.IstioDefaultConfigNamespace}, nil
-}
-
-// Instances filters the service instances by labels. This assumes single port, as is
-// used by EDS/ADS.
-func (sd *MemServiceDiscovery) Instances(hostname model.Hostname, ports []string,
-	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
-	sd.mutex.Lock()
-	defer sd.mutex.Unlock()
-	if sd.InstancesError != nil {
-		return nil, sd.InstancesError
-	}
-	if len(ports) != 1 {
-		adsLog.Warna("Unexpected ports ", ports)
-		return nil, nil
-	}
-	key := hostname.String() + ":" + ports[0]
-	instances, ok := sd.instancesByPortName[key]
-	if !ok {
-		return nil, nil
-	}
-	return instances, nil
-}
-
-// InstancesByPort filters the service instances by labels. This assumes single port, as is
-// used by EDS/ADS.
-func (sd *MemServiceDiscovery) InstancesByPort(hostname model.Hostname, port int,
-	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
-	sd.mutex.Lock()
-	defer sd.mutex.Unlock()
-	if sd.InstancesError != nil {
-		return nil, sd.InstancesError
-	}
-	key := fmt.Sprintf("%s:%d", hostname.String(), port)
-	instances, ok := sd.instancesByPortNum[key]
-	if !ok {
-		return nil, nil
-	}
-	return instances, nil
-}
-
-// GetProxyServiceInstances returns service instances associated with a node, resulting in
-// 'in' services.
-func (sd *MemServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) ([]*model.ServiceInstance, error) {
-	sd.mutex.Lock()
-	defer sd.mutex.Unlock()
-	if sd.GetProxyServiceInstancesError != nil {
-		return nil, sd.GetProxyServiceInstancesError
-	}
-	if sd.WantGetProxyServiceInstances != nil {
-		return sd.WantGetProxyServiceInstances, nil
-	}
-	out := make([]*model.ServiceInstance, 0)
-	si, found := sd.ip2instance[node.IPAddress]
-	if found {
-		out = append(out, si...)
-	}
-	return out, sd.GetProxyServiceInstancesError
-}
-
-// ManagementPorts implements discovery interface
-func (sd *MemServiceDiscovery) ManagementPorts(addr string) model.PortList {
-	sd.mutex.Lock()
-	defer sd.mutex.Unlock()
-	return model.PortList{{
-		Name:     "http",
-		Port:     3333,
-		Protocol: model.ProtocolHTTP,
-	}, {
-		Name:     "custom",
-		Port:     9999,
-		Protocol: model.ProtocolTCP,
-	}}
-}
-
-// WorkloadHealthCheckInfo implements discovery interface
-func (sd *MemServiceDiscovery) WorkloadHealthCheckInfo(addr string) model.ProbeList {
-	return nil
-}
-
-// GetIstioServiceAccounts gets the Istio service accounts for a service hostname.
-func (sd *MemServiceDiscovery) GetIstioServiceAccounts(hostname model.Hostname, ports []string) []string {
-	sd.mutex.Lock()
-	defer sd.mutex.Unlock()
-	if hostname == "world.default.svc.cluster.local" {
-		return []string{
-			"spiffe://cluster.local/ns/default/sa/serviceaccount1",
-			"spiffe://cluster.local/ns/default/sa/serviceaccount2",
-		}
-	}
-	return make([]string, 0)
+	_, _ = w.Write(out)
 }
 
 // registryz providees debug support for registry - adding and listing model items.
@@ -357,125 +143,197 @@ func (sd *MemServiceDiscovery) GetIstioServiceAccounts(hostname model.Hostname, 
 func (s *DiscoveryServer) registryz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
 	w.Header().Add("Content-Type", "application/json")
-	svcName := req.Form.Get("svc")
-	if svcName != "" {
-		data, err := ioutil.ReadAll(req.Body)
-		if err != nil {
-			return
-		}
-		svc := &model.Service{}
-		err = json.Unmarshal(data, svc)
-		if err != nil {
-			return
-		}
-		s.MemRegistry.AddService(model.Hostname(svcName), svc)
-	}
 
-	all, err := s.env.ServiceDiscovery.Services()
+	all, err := s.Env.ServiceDiscovery.Services()
 	if err != nil {
 		return
 	}
-	fmt.Fprintln(w, "[")
+	_, _ = fmt.Fprintln(w, "[")
 	for _, svc := range all {
 		b, err := json.MarshalIndent(svc, "", "  ")
 		if err != nil {
 			return
 		}
 		_, _ = w.Write(b)
-		fmt.Fprintln(w, ",")
+		_, _ = fmt.Fprintln(w, ",")
 	}
-	fmt.Fprintln(w, "{}]")
+	_, _ = fmt.Fprintln(w, "{}]")
+}
+
+// Dumps info about the endpoint shards, tracked using the new direct interface.
+// Legacy registry provides are synced to the new data structure as well, during
+// the full push.
+func (s *DiscoveryServer) endpointShardz(w http.ResponseWriter, req *http.Request) {
+	_ = req.ParseForm()
+	w.Header().Add("Content-Type", "application/json")
+	s.mutex.RLock()
+	out, _ := json.MarshalIndent(s.EndpointShardsByService, " ", " ")
+	s.mutex.RUnlock()
+	_, _ = w.Write(out)
 }
 
 // Endpoint debugging
 func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
 	w.Header().Add("Content-Type", "application/json")
-	svcName := req.Form.Get("svc")
-	if svcName != "" {
-		data, err := ioutil.ReadAll(req.Body)
-		if err != nil {
-			return
-		}
-		svc := &model.ServiceInstance{}
-		err = json.Unmarshal(data, svc)
-		if err != nil {
-			return
-		}
-		s.MemRegistry.AddInstance(model.Hostname(svcName), svc)
-	}
 	brief := req.Form.Get("brief")
 	if brief != "" {
-		svc, _ := s.env.ServiceDiscovery.Services()
+		svc, _ := s.Env.ServiceDiscovery.Services()
 		for _, ss := range svc {
 			for _, p := range ss.Ports {
-				all, err := s.env.ServiceDiscovery.InstancesByPort(ss.Hostname, p.Port, nil)
+				all, err := s.Env.ServiceDiscovery.InstancesByPort(ss, p.Port, nil)
 				if err != nil {
 					return
 				}
 				for _, svc := range all {
-					fmt.Fprintf(w, "%s:%s %v %s:%d %v %v %s\n", ss.Hostname,
+					_, _ = fmt.Fprintf(w, "%s:%s %v %s:%d %v %s\n", ss.Hostname,
 						p.Name, svc.Endpoint.Family, svc.Endpoint.Address, svc.Endpoint.Port, svc.Labels,
-						svc.GetAZ(), svc.ServiceAccount)
+						svc.ServiceAccount)
 				}
 			}
 		}
 		return
 	}
 
-	svc, _ := s.env.ServiceDiscovery.Services()
-	fmt.Fprint(w, "[\n")
+	svc, _ := s.Env.ServiceDiscovery.Services()
+	_, _ = fmt.Fprint(w, "[\n")
 	for _, ss := range svc {
 		for _, p := range ss.Ports {
-			all, err := s.env.ServiceDiscovery.InstancesByPort(ss.Hostname, p.Port, nil)
+			all, err := s.Env.ServiceDiscovery.InstancesByPort(ss, p.Port, nil)
 			if err != nil {
 				return
 			}
-			fmt.Fprintf(w, "\n{\"svc\": \"%s:%s\", \"ep\": [\n", ss.Hostname, p.Name)
+			_, _ = fmt.Fprintf(w, "\n{\"svc\": \"%s:%s\", \"ep\": [\n", ss.Hostname, p.Name)
 			for _, svc := range all {
 				b, err := json.MarshalIndent(svc, "  ", "  ")
 				if err != nil {
 					return
 				}
 				_, _ = w.Write(b)
-				fmt.Fprint(w, ",\n")
+				_, _ = fmt.Fprint(w, ",\n")
 			}
-			fmt.Fprint(w, "\n{}]},")
+			_, _ = fmt.Fprint(w, "\n{}]},")
 		}
 	}
-	fmt.Fprint(w, "\n{}]\n")
+	_, _ = fmt.Fprint(w, "\n{}]\n")
+}
+
+// SyncedVersions shows what resourceVersion of a given resource has been acked by Envoy.
+type SyncedVersions struct {
+	ProxyID         string `json:"proxy,omitempty"`
+	ClusterVersion  string `json:"cluster_acked,omitempty"`
+	ListenerVersion string `json:"listener_acked,omitempty"`
+	RouteVersion    string `json:"route_acked,omitempty"`
+}
+
+func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.Request) {
+	if !features.EnableDistributionTracking {
+		w.WriteHeader(http.StatusConflict)
+		_, _ = fmt.Fprint(w, "Pilot Version tracking is disabled.  Please set the "+
+			"PILOT_ENABLE_CONFIG_DISTRIBUTION_TRACKING environment variable to true to enable.")
+		return
+	}
+	if resourceID := req.URL.Query().Get("resource"); resourceID != "" {
+		proxyNamespace := req.URL.Query().Get("proxy_namespace")
+		knownVersions := make(map[string]string)
+		var results []SyncedVersions
+		adsClientsMutex.RLock()
+		for _, con := range adsClients {
+			// wrap this in independent scope so that panic's don't bypass Unlock...
+			con.mu.RLock()
+
+			if con.node != nil && (proxyNamespace == "" || proxyNamespace == con.node.ConfigNamespace) {
+				// TODO: handle skipped nodes
+				results = append(results, SyncedVersions{
+					ProxyID:         con.node.ID,
+					ClusterVersion:  s.getResourceVersion(con.ClusterNonceAcked, resourceID, knownVersions),
+					ListenerVersion: s.getResourceVersion(con.ListenerNonceAcked, resourceID, knownVersions),
+					RouteVersion:    s.getResourceVersion(con.RouteNonceAcked, resourceID, knownVersions),
+				})
+			}
+			con.mu.RUnlock()
+		}
+		adsClientsMutex.RUnlock()
+
+		out, err := json.MarshalIndent(&results, "", "    ")
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = fmt.Fprintf(w, "unable to marshal syncedVersion information: %v", err)
+			return
+		}
+		w.Header().Add("Content-Type", "application/json")
+		_, _ = w.Write(out)
+	} else {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		_, _ = fmt.Fprintf(w, "querystring parameter 'resource' is required")
+	}
+}
+
+// The Config Version is only used as the nonce prefix, but we can reconstruct it because is is a
+// b64 encoding of a 64 bit array, which will always be 12 chars in length.
+// len = ceil(bitlength/(2^6))+1
+const VersionLen = 12
+
+func (s *DiscoveryServer) getResourceVersion(nonce, key string, cache map[string]string) string {
+	if len(nonce) < VersionLen {
+		return ""
+	}
+	configVersion := nonce[:VersionLen]
+	result, ok := cache[configVersion]
+	if !ok {
+		lookupResult, err := s.Env.IstioConfigStore.GetResourceAtVersion(configVersion, key)
+		if err != nil {
+			adsLog.Errorf("Unable to retrieve resource %s at version %s: %v", key, configVersion, err)
+			lookupResult = ""
+		}
+		// update the cache even on an error, because errors will not resolve themselves, and we don't want to
+		// repeat the same error for many adsClients.
+		cache[configVersion] = lookupResult
+		return lookupResult
+	}
+	return result
 }
 
 // Config debugging.
 func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
-	fmt.Fprintf(w, "\n[\n")
-	for _, typ := range s.env.IstioConfigStore.ConfigDescriptor() {
-		cfg, _ := s.env.IstioConfigStore.List(typ.Type, "")
+	_, _ = fmt.Fprintf(w, "\n[\n")
+	for _, typ := range s.Env.IstioConfigStore.ConfigDescriptor() {
+		cfg, _ := s.Env.IstioConfigStore.List(typ.Type, "")
 		for _, c := range cfg {
 			b, err := json.MarshalIndent(c, "  ", "  ")
 			if err != nil {
 				return
 			}
 			_, _ = w.Write(b)
-			fmt.Fprint(w, ",\n")
+			_, _ = fmt.Fprint(w, ",\n")
 		}
 	}
-	fmt.Fprint(w, "\n{}]")
+	_, _ = fmt.Fprint(w, "\n{}]")
 }
 
-// Returns whether the given destination rule use (Istio) mutual TLS setting for given port.
-// TODO: check subsets possibly conflicts between subsets.
-func isMTlsOn(mesh *meshconfig.MeshConfig, rule *networking.DestinationRule, port *model.Port) bool {
+// collectTLSSettingsForPort returns TLSSettings for the given port, key by subset name (the service-level settings
+// should have key is an empty string). TLSSettings could be nil, indicate it was not set.
+func collectTLSSettingsForPort(rule *networking.DestinationRule, port *model.Port) map[string]*networking.TLSSettings {
 	if rule == nil {
-		return mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS
+		return map[string]*networking.TLSSettings{"": nil}
 	}
-	if rule.TrafficPolicy == nil {
-		return false
-	}
-	_, _, _, tls := networking_core.SelectTrafficPolicyComponents(rule.TrafficPolicy, port)
 
-	return tls != nil && tls.Mode == networking.TLSSettings_ISTIO_MUTUAL
+	output := make(map[string]*networking.TLSSettings)
+	output[""] = getTLSSettingsForTrafficPolicyAndPort(rule.TrafficPolicy, port)
+	for _, subset := range rule.GetSubsets() {
+		output[subset.GetName()] = getTLSSettingsForTrafficPolicyAndPort(subset.GetTrafficPolicy(), port)
+	}
+
+	return output
+}
+
+func getTLSSettingsForTrafficPolicyAndPort(trafficPolicy *networking.TrafficPolicy, port *model.Port) *networking.TLSSettings {
+	if trafficPolicy == nil {
+		return nil
+	}
+	_, _, _, tls := networking_core.SelectTrafficPolicyComponents(trafficPolicy, port)
+	return tls
 }
 
 // AuthenticationDebug holds debug information for service authentication policy.
@@ -489,84 +347,158 @@ type AuthenticationDebug struct {
 	TLSConflictStatus        string `json:"TLS_conflict_status"`
 }
 
-func configName(config *model.Config) string {
+// Pretty to-string function for unit test log.
+func (p *AuthenticationDebug) String() string {
+	return fmt.Sprintf("{%s:%d, authn=%q, dr=%q, server=%q, client=%q, status=%q}", p.Host, p.Port, p.AuthenticationPolicyName,
+		p.DestinationRuleName, p.ServerProtocol, p.ClientProtocol, p.TLSConflictStatus)
+}
+
+func configName(config *model.ConfigMeta) string {
 	if config != nil {
-		return fmt.Sprintf("%s/%s", config.Name, config.Namespace)
+		return fmt.Sprintf("%s/%s", config.Namespace, config.Name)
 	}
-	return "-"
+	return configNameNotApplicable
 }
 
-func mTLSModeToString(useTLS bool) string {
-	if useTLS {
-		return "mTLS"
-	}
-	return "HTTP"
-}
-
-// Authentication debugging
-// This handler lists what authentication policy and destination rules is used for a service, and
-// whether or not they have TLS setting conflicts (i.e authentication policy use mutual TLS, but
-// destination rule doesn't use ISTIO_MUTUAL TLS mode). If service is not provided, (via request
-// paramerter `svc`), it lists result for all services.
-func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Request) {
-	_ = req.ParseForm()
+// Authenticationz dumps the authn tls-check info.
+// This handler lists what authentication policy is used for a service and destination rules to
+// that service that a proxy instance received.
+// Proxy ID (<pod>.<namespace> need to be provided  to correctly  determine which destination rules
+// are visible.
+func (s *DiscoveryServer) Authenticationz(w http.ResponseWriter, req *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
-	// This should be svc. However, use proxyID param for now so it can be used with
-	// `pilot-discovery debug` command
-	interestedSvc := req.Form.Get("proxyID")
+	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
+		adsClientsMutex.RLock()
+		defer adsClientsMutex.RUnlock()
 
-	fmt.Fprintf(w, "\n[\n")
-	svc, _ := s.env.ServiceDiscovery.Services()
-	for _, ss := range svc {
-		if interestedSvc != "" && interestedSvc != ss.Hostname.String() {
-			continue
+		connections, ok := adsSidecarIDConnectionsMap[proxyID]
+		if !ok {
+			w.WriteHeader(http.StatusNotFound)
+			// Need to dump an empty JSON array so istioctl can peacefully ignore.
+			_, _ = fmt.Fprintf(w, "\n[\n]")
+			return
 		}
-		for _, p := range ss.Ports {
-			info := AuthenticationDebug{
-				Host: string(ss.Hostname),
-				Port: p.Port,
-			}
-			authnConfig := s.env.IstioConfigStore.AuthenticationPolicyByDestination(ss.Hostname, p)
-			info.AuthenticationPolicyName = configName(authnConfig)
-			if authnConfig != nil {
-				policy := authnConfig.Spec.(*authn.Policy)
-				serverSideTLS, _ := authn_plugin.RequireTLS(policy, model.Sidecar)
-				info.ServerProtocol = mTLSModeToString(serverSideTLS)
-			} else {
-				info.ServerProtocol = mTLSModeToString(s.env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS)
-			}
 
-			destConfig := s.env.IstioConfigStore.DestinationRule(ss.Hostname)
-			info.DestinationRuleName = configName(destConfig)
-			if destConfig != nil {
-				rule := destConfig.Spec.(*networking.DestinationRule)
-				info.ClientProtocol = mTLSModeToString(isMTlsOn(s.env.Mesh, rule, p))
-			} else {
-				info.ClientProtocol = mTLSModeToString(s.env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS)
+		var mostRecentProxy *model.Proxy
+		mostRecent := ""
+		for key := range connections {
+			if mostRecent == "" || key > mostRecent {
+				mostRecent = key
 			}
-
-			if info.ClientProtocol != info.ServerProtocol {
-				info.TLSConflictStatus = "CONFLICT"
-			} else {
-				info.TLSConflictStatus = "OK"
-			}
-			if b, err := json.MarshalIndent(info, "  ", "  "); err == nil {
-				_, _ = w.Write(b)
-			}
-			fmt.Fprintf(w, ",\n")
 		}
+		mostRecentProxy = connections[mostRecent].node
+		svc, _ := s.Env.ServiceDiscovery.Services()
+		autoMTLSEnabled := s.Env.Mesh.GetEnableAutoMtls() != nil && s.Env.Mesh.GetEnableAutoMtls().Value
+		info := []*AuthenticationDebug{}
+		for _, ss := range svc {
+			if ss.MeshExternal {
+				// Skip external services
+				continue
+			}
+			for _, p := range ss.Ports {
+				authnPolicy, authnMeta := s.globalPushContext().AuthenticationPolicyForWorkload(ss, p)
+				destConfig := s.globalPushContext().DestinationRule(mostRecentProxy, ss)
+				info = append(info, AnalyzeMTLSSettings(autoMTLSEnabled, ss.Hostname, p, authnPolicy, authnMeta, destConfig)...)
+			}
+		}
+		if b, err := json.MarshalIndent(info, "  ", "  "); err == nil {
+			_, _ = w.Write(b)
+		}
+		return
 	}
-	fmt.Fprint(w, "\n{}]")
+
+	w.WriteHeader(http.StatusBadRequest)
+	_, _ = w.Write([]byte("You must provide a proxyID in the query string"))
+}
+
+// AnalyzeMTLSSettings returns mTLS compatibility status between client and server policies.
+func AnalyzeMTLSSettings(autoMTLSEnabled bool, hostname host.Name, port *model.Port, authnPolicy *authn.Policy, authnMeta *model.ConfigMeta,
+	destConfig *model.Config) []*AuthenticationDebug {
+	authnPolicyName := configName(authnMeta)
+	serverMTLSMode := authn_alpha1.GetMutualTLSMode(authnPolicy)
+
+	baseDebugInfo := AuthenticationDebug{
+		Port:                     port.Port,
+		AuthenticationPolicyName: authnPolicyName,
+		ServerProtocol:           serverMTLSMode.String(),
+		ClientProtocol:           configNameNotApplicable,
+	}
+
+	var rule *networking.DestinationRule
+	destinationRuleName := configNameNotApplicable
+
+	if destConfig != nil {
+		rule = destConfig.Spec.(*networking.DestinationRule)
+		destinationRuleName = configName(&destConfig.ConfigMeta)
+	}
+
+	output := []*AuthenticationDebug{}
+
+	clientTLSModes := collectTLSSettingsForPort(rule, port)
+	var subsets []string
+	for k := range clientTLSModes {
+		subsets = append(subsets, k)
+	}
+	sort.Strings(subsets)
+
+	for _, ss := range subsets {
+		c := clientTLSModes[ss]
+		info := baseDebugInfo
+		info.DestinationRuleName = destinationRuleName
+		if c != nil {
+			info.ClientProtocol = c.GetMode().String()
+		}
+		if ss == "" {
+			info.Host = string(hostname)
+		} else {
+			info.Host = fmt.Sprintf("%s|%s", hostname, ss)
+		}
+		info.TLSConflictStatus = EvaluateTLSState(autoMTLSEnabled, c, serverMTLSMode)
+
+		output = append(output, &info)
+	}
+	return output
+}
+
+// EvaluateTLSState returns the conflict state (string) for the input client+server settings.
+// The output string could be:
+// - "AUTO": auto mTLS feature is enabled, client TLS (destination rule) is not set and pilot can auto detect client (m)TLS settings.
+// - "OK": both client and server TLS settings are set correctly.
+// - "CONFLICT": both client and server TLS settings are set, but could be incompatible.
+func EvaluateTLSState(autoMTLSEnabled bool, clientMode *networking.TLSSettings, serverMode authn_model.MutualTLSMode) string {
+	const okState string = "OK"
+	const conflictState string = "CONFLICT"
+	const autoState string = "AUTO"
+
+	if clientMode == nil {
+		if autoMTLSEnabled {
+			return autoState
+		}
+		// TLS settings was not set explicitly, pilot will try a setting that work well with the
+		// destination authN policy. We could use the separate state value (e.g AUTO) in the future.
+		return okState
+	}
+
+	if (serverMode == authn_model.MTLSDisable && clientMode.GetMode() == networking.TLSSettings_DISABLE) ||
+		(serverMode == authn_model.MTLSStrict && clientMode.GetMode() == networking.TLSSettings_ISTIO_MUTUAL) ||
+		(serverMode == authn_model.MTLSPermissive &&
+			(clientMode.GetMode() == networking.TLSSettings_ISTIO_MUTUAL || clientMode.GetMode() == networking.TLSSettings_DISABLE)) {
+		return okState
+	}
+
+	return conflictState
 }
 
 // adsz implements a status and debug interface for ADS.
 // It is mapped to /debug/adsz
-func adsz(w http.ResponseWriter, req *http.Request) {
+func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
 	w.Header().Add("Content-Type", "application/json")
 	if req.Form.Get("push") != "" {
-		adsPushAll()
-		fmt.Fprintf(w, "Pushed to %d servers", len(adsClients))
+		AdsPushAll(s)
+		adsClientsMutex.RLock()
+		_, _ = fmt.Fprintf(w, "Pushed to %d servers", len(adsClients))
+		adsClientsMutex.RUnlock()
 		return
 	}
 	writeAllADS(w)
@@ -575,14 +507,14 @@ func adsz(w http.ResponseWriter, req *http.Request) {
 // ConfigDump returns information in the form of the Envoy admin API config dump for the specified proxy
 // The dump will only contain dynamic listeners/clusters/routes and can be used to compare what an Envoy instance
 // should look like according to Pilot vs what it currently does look like.
-func ConfigDump(w http.ResponseWriter, req *http.Request) {
+func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
 		adsClientsMutex.RLock()
 		defer adsClientsMutex.RUnlock()
 		connections, ok := adsSidecarIDConnectionsMap[proxyID]
-		if !ok {
+		if !ok || len(connections) == 0 {
 			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte("Proxy not connected to this Pilot instance"))
+			_, _ = w.Write([]byte("Proxy not connected to this Pilot instance"))
 			return
 		}
 
@@ -593,22 +525,87 @@ func ConfigDump(w http.ResponseWriter, req *http.Request) {
 				mostRecent = key
 			}
 		}
-		dump, err := connections[mostRecent].configDump()
+		dump, err := s.configDump(connections[mostRecent])
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
+			_, _ = w.Write([]byte(err.Error()))
 			return
 		}
 		if err := jsonm.Marshal(w, dump); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
+			_, _ = w.Write([]byte(err.Error()))
 			return
 		}
-		w.WriteHeader(http.StatusOK)
 		return
 	}
 	w.WriteHeader(http.StatusBadRequest)
-	w.Write([]byte("You must provide a proxyID in the query string"))
+	_, _ = w.Write([]byte("You must provide a proxyID in the query string"))
+}
+
+// configDump converts the connection internal state into an Envoy Admin API config dump proto
+// It is used in debugging to create a consistent object for comparison between Envoy and Pilot outputs
+func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump, error) {
+	dynamicActiveClusters := []*adminapi.ClustersConfigDump_DynamicCluster{}
+	clusters := s.generateRawClusters(conn.node, s.globalPushContext())
+
+	for _, cs := range clusters {
+		dynamicActiveClusters = append(dynamicActiveClusters, &adminapi.ClustersConfigDump_DynamicCluster{Cluster: cs})
+	}
+	clustersAny, err := util.MessageToAnyWithError(&adminapi.ClustersConfigDump{
+		VersionInfo:           versionInfo(),
+		DynamicActiveClusters: dynamicActiveClusters,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	dynamicActiveListeners := []*adminapi.ListenersConfigDump_DynamicListener{}
+	listeners := s.generateRawListeners(conn, s.globalPushContext())
+	for _, cs := range listeners {
+		dynamicActiveListeners = append(dynamicActiveListeners, &adminapi.ListenersConfigDump_DynamicListener{Listener: cs})
+	}
+	listenersAny, err := util.MessageToAnyWithError(&adminapi.ListenersConfigDump{
+		VersionInfo:            versionInfo(),
+		DynamicActiveListeners: dynamicActiveListeners,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	routes := s.generateRawRoutes(conn, s.globalPushContext())
+	routeConfigAny := util.MessageToAny(&adminapi.RoutesConfigDump{})
+	if len(routes) > 0 {
+		dynamicRouteConfig := []*adminapi.RoutesConfigDump_DynamicRouteConfig{}
+		for _, rs := range routes {
+			dynamicRouteConfig = append(dynamicRouteConfig, &adminapi.RoutesConfigDump_DynamicRouteConfig{RouteConfig: rs})
+		}
+		routeConfigAny, err = util.MessageToAnyWithError(&adminapi.RoutesConfigDump{DynamicRouteConfigs: dynamicRouteConfig})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	bootstrapAny := util.MessageToAny(&adminapi.BootstrapConfigDump{})
+	// The config dump must have all configs with connections specified in
+	// https://www.envoyproxy.io/docs/envoy/latest/api-v2/admin/v2alpha/config_dump.proto
+	configDump := &adminapi.ConfigDump{Configs: []*any.Any{bootstrapAny, clustersAny, listenersAny, routeConfigAny}}
+	return configDump, nil
+}
+
+// PushStatusHandler dumps the last PushContext
+func (s *DiscoveryServer) PushStatusHandler(w http.ResponseWriter, req *http.Request) {
+	if model.LastPushStatus == nil {
+		return
+	}
+	out, err := model.LastPushStatus.JSON()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = fmt.Fprintf(w, "unable to marshal push information: %v", err)
+		return
+	}
+	w.Header().Add("Content-Type", "application/json")
+
+	_, _ = w.Write(out)
 }
 
 func writeAllADS(w io.Writer) {
@@ -618,58 +615,75 @@ func writeAllADS(w io.Writer) {
 	// Dirty json generation - because standard json is dirty (struct madness)
 	// Unfortunately we must use the jsonbp to encode part of the json - I'm sure there are
 	// better ways, but this is mainly for debugging.
-	fmt.Fprint(w, "[\n")
+	_, _ = fmt.Fprint(w, "[\n")
 	comma := false
 	for _, c := range adsClients {
 		if comma {
-			fmt.Fprint(w, ",\n")
+			_, _ = fmt.Fprint(w, ",\n")
 		} else {
 			comma = true
 		}
-		fmt.Fprintf(w, "\n\n  {\"node\": \"%s\",\n \"addr\": \"%s\",\n \"connect\": \"%v\",\n \"listeners\":[\n", c.ConID, c.PeerAddr, c.Connect)
+		_, _ = fmt.Fprintf(w, "\n\n  {\"node\": \"%s\",\n \"addr\": \"%s\",\n \"connect\": \"%v\",\n \"listeners\":[\n", c.ConID, c.PeerAddr, c.Connect)
 		printListeners(w, c)
-		fmt.Fprint(w, "],\n")
-		fmt.Fprintf(w, "\"RDSRoutes\":[\n")
+		_, _ = fmt.Fprint(w, "],\n")
+		_, _ = fmt.Fprintf(w, "\"RDSRoutes\":[\n")
 		printRoutes(w, c)
-		fmt.Fprint(w, "],\n")
-		fmt.Fprintf(w, "\"clusters\":[\n")
+		_, _ = fmt.Fprint(w, "],\n")
+		_, _ = fmt.Fprintf(w, "\"clusters\":[\n")
 		printClusters(w, c)
-		fmt.Fprint(w, "]}\n")
+		_, _ = fmt.Fprint(w, "]}\n")
 	}
-	fmt.Fprint(w, "]\n")
+	_, _ = fmt.Fprint(w, "]\n")
+}
+
+func (s *DiscoveryServer) ready(w http.ResponseWriter, req *http.Request) {
+	if s.ConfigController != nil {
+		if !s.ConfigController.HasSynced() {
+			w.WriteHeader(503)
+			return
+		}
+	}
+	if s.KubeController != nil {
+		if !s.KubeController.HasSynced() {
+			w.WriteHeader(503)
+			return
+		}
+	}
+	w.WriteHeader(200)
 }
 
 // edsz implements a status and debug interface for EDS.
-// It is mapped to /debug/edsz on the monitor port (9093).
-func edsz(w http.ResponseWriter, req *http.Request) {
+// It is mapped to /debug/edsz on the monitor port (15014).
+func (s *DiscoveryServer) edsz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
 	w.Header().Add("Content-Type", "application/json")
 
 	if req.Form.Get("push") != "" {
-		PushAll()
+		AdsPushAll(s)
 	}
 
-	edsClusterMutex.Lock()
+	edsClusterMutex.RLock()
+	defer edsClusterMutex.RUnlock()
 	comma := false
 	if len(edsClusters) > 0 {
-		fmt.Fprintln(w, "[")
-		for _, eds := range edsClusters {
+		_, _ = fmt.Fprintln(w, "[")
+		for cluster := range edsClusters {
 			if comma {
-				fmt.Fprint(w, ",\n")
+				_, _ = fmt.Fprint(w, ",\n")
 			} else {
 				comma = true
 			}
+			cla := s.loadAssignmentsForClusterLegacy(s.globalPushContext(), cluster)
 			jsonm := &jsonpb.Marshaler{Indent: "  "}
-			dbgString, _ := jsonm.MarshalToString(eds.LoadAssignment)
+			dbgString, _ := jsonm.MarshalToString(cla)
 			if _, err := w.Write([]byte(dbgString)); err != nil {
 				return
 			}
 		}
-		fmt.Fprintln(w, "]")
+		_, _ = fmt.Fprintln(w, "]")
 	} else {
 		w.WriteHeader(404)
 	}
-	edsClusterMutex.Unlock()
 }
 
 // cdsz implements a status and debug interface for CDS.
@@ -680,32 +694,32 @@ func cdsz(w http.ResponseWriter, req *http.Request) {
 
 	adsClientsMutex.RLock()
 
-	fmt.Fprint(w, "[\n")
+	_, _ = fmt.Fprint(w, "[\n")
 	comma := false
 	for _, c := range adsClients {
 		if comma {
-			fmt.Fprint(w, ",\n")
+			_, _ = fmt.Fprint(w, ",\n")
 		} else {
 			comma = true
 		}
-		fmt.Fprintf(w, "\n\n  {\"node\": \"%s\", \"addr\": \"%s\", \"connect\": \"%v\",\"Clusters\":[\n", c.ConID, c.PeerAddr, c.Connect)
+		_, _ = fmt.Fprintf(w, "\n\n  {\"node\": \"%s\", \"addr\": \"%s\", \"connect\": \"%v\",\"Clusters\":[\n", c.ConID, c.PeerAddr, c.Connect)
 		printClusters(w, c)
-		fmt.Fprint(w, "]}\n")
+		_, _ = fmt.Fprint(w, "]}\n")
 	}
-	fmt.Fprint(w, "]\n")
+	_, _ = fmt.Fprint(w, "]\n")
 
 	adsClientsMutex.RUnlock()
 }
 
 func printListeners(w io.Writer, c *XdsConnection) {
 	comma := false
-	for _, ls := range c.HTTPListeners {
+	for _, ls := range c.LDSListeners {
 		if ls == nil {
 			adsLog.Errorf("INVALID LISTENER NIL")
 			continue
 		}
 		if comma {
-			fmt.Fprint(w, ",\n")
+			_, _ = fmt.Fprint(w, ",\n")
 		} else {
 			comma = true
 		}
@@ -719,13 +733,13 @@ func printListeners(w io.Writer, c *XdsConnection) {
 
 func printClusters(w io.Writer, c *XdsConnection) {
 	comma := false
-	for _, cl := range c.HTTPClusters {
+	for _, cl := range c.CDSClusters {
 		if cl == nil {
 			adsLog.Errorf("INVALID Cluster NIL")
 			continue
 		}
 		if comma {
-			fmt.Fprint(w, ",\n")
+			_, _ = fmt.Fprint(w, ",\n")
 		} else {
 			comma = true
 		}
@@ -745,7 +759,7 @@ func printRoutes(w io.Writer, c *XdsConnection) {
 			continue
 		}
 		if comma {
-			fmt.Fprint(w, ",\n")
+			_, _ = fmt.Fprint(w, ",\n")
 		} else {
 			comma = true
 		}

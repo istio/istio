@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors.
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,7 +31,8 @@ import (
 
 	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/adapter/stackdriver/config"
-	helper "istio.io/istio/mixer/adapter/stackdriver/helper"
+	"istio.io/istio/mixer/adapter/stackdriver/helper"
+	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/adapter/test"
 	metrict "istio.io/istio/mixer/template/metric"
 )
@@ -47,14 +48,14 @@ func (f *fakebuf) Record(in []*monitoringpb.TimeSeries) {
 func (*fakebuf) Close() error { return nil }
 
 var clientFunc = func(err error) createClientFunc {
-	return func(cfg *config.Params) (*monitoring.MetricClient, error) {
+	return func(cfg *config.Params, logger adapter.Logger) (*monitoring.MetricClient, error) {
 		return nil, err
 	}
 }
 
 var dummyShouldFill = func() bool { return true }
 var dummyMetadataFn = func() (string, error) { return "", nil }
-var dummyMetadataGenerator = helper.NewMetadataGenerator(dummyShouldFill, dummyMetadataFn, dummyMetadataFn, dummyMetadataFn)
+var dummyMetadataGenerator = helper.NewMetadataGenerator(dummyShouldFill, dummyMetadataFn, dummyMetadataFn, dummyMetadataFn, dummyMetadataFn)
 
 func TestFactory_NewMetricsAspect(t *testing.T) {
 	tests := []struct {
@@ -189,7 +190,7 @@ func TestRecord(t *testing.T) {
 	}
 	m := &metricpb.Metric{
 		Type:   "type",
-		Labels: map[string]string{"str": "str", "int": "34"},
+		Labels: map[string]string{"str": "str", "int": "34", "mesh_uid": "mesh-id"},
 	}
 	info := map[string]info{
 		"gauge": {
@@ -253,7 +254,8 @@ func TestRecord(t *testing.T) {
 	}
 	now := time.Now()
 	pbnow, _ := ptypes.TimestampProto(now)
-
+	pbend, _ := ptypes.TimestampProto(now)
+	pbend.Nanos += usec
 	tests := []struct {
 		name     string
 		vals     []*metrict.Instance
@@ -274,8 +276,8 @@ func TestRecord(t *testing.T) {
 				MetricKind: metricpb.MetricDescriptor_GAUGE,
 				ValueType:  metricpb.MetricDescriptor_INT64,
 				Points: []*monitoringpb.Point{{
-					Interval: &monitoringpb.TimeInterval{StartTime: pbnow, EndTime: pbnow},
-					Value:    &monitoringpb.TypedValue{&monitoringpb.TypedValue_Int64Value{Int64Value: int64(7)}},
+					Interval: &monitoringpb.TimeInterval{StartTime: pbnow, EndTime: pbend},
+					Value:    &monitoringpb.TypedValue{Value: &monitoringpb.TypedValue_Int64Value{Int64Value: int64(7)}},
 				}},
 			},
 		}},
@@ -292,8 +294,8 @@ func TestRecord(t *testing.T) {
 				MetricKind: metricpb.MetricDescriptor_CUMULATIVE,
 				ValueType:  metricpb.MetricDescriptor_STRING,
 				Points: []*monitoringpb.Point{{
-					Interval: &monitoringpb.TimeInterval{StartTime: pbnow, EndTime: pbnow},
-					Value:    &monitoringpb.TypedValue{&monitoringpb.TypedValue_StringValue{StringValue: "asldkfj"}},
+					Interval: &monitoringpb.TimeInterval{StartTime: pbnow, EndTime: pbend},
+					Value:    &monitoringpb.TypedValue{Value: &monitoringpb.TypedValue_StringValue{StringValue: "asldkfj"}},
 				}},
 			},
 		}},
@@ -310,8 +312,8 @@ func TestRecord(t *testing.T) {
 				MetricKind: metricpb.MetricDescriptor_DELTA,
 				ValueType:  metricpb.MetricDescriptor_BOOL,
 				Points: []*monitoringpb.Point{{
-					Interval: &monitoringpb.TimeInterval{StartTime: pbnow, EndTime: pbnow},
-					Value:    &monitoringpb.TypedValue{&monitoringpb.TypedValue_BoolValue{BoolValue: true}},
+					Interval: &monitoringpb.TimeInterval{StartTime: pbnow, EndTime: pbend},
+					Value:    &monitoringpb.TypedValue{Value: &monitoringpb.TypedValue_BoolValue{BoolValue: true}},
 				}},
 			},
 		}},
@@ -328,7 +330,7 @@ func TestRecord(t *testing.T) {
 				MetricKind: metricpb.MetricDescriptor_CUMULATIVE,
 				ValueType:  metricpb.MetricDescriptor_DISTRIBUTION,
 				Points: []*monitoringpb.Point{{
-					Interval: &monitoringpb.TimeInterval{StartTime: pbnow, EndTime: pbnow},
+					Interval: &monitoringpb.TimeInterval{StartTime: pbnow, EndTime: pbend},
 					Value: &monitoringpb.TypedValue{Value: &monitoringpb.TypedValue_DistributionValue{
 						DistributionValue: &distribution.Distribution{
 							Count:         1,
@@ -351,7 +353,7 @@ func TestRecord(t *testing.T) {
 				MetricKind: metricpb.MetricDescriptor_CUMULATIVE,
 				ValueType:  metricpb.MetricDescriptor_DISTRIBUTION,
 				Points: []*monitoringpb.Point{{
-					Interval: &monitoringpb.TimeInterval{StartTime: pbnow, EndTime: pbnow},
+					Interval: &monitoringpb.TimeInterval{StartTime: pbnow, EndTime: pbend},
 					Value: &monitoringpb.TypedValue{Value: &monitoringpb.TypedValue_DistributionValue{
 						DistributionValue: &distribution.Distribution{
 							Count:         1,
@@ -374,7 +376,7 @@ func TestRecord(t *testing.T) {
 				MetricKind: metricpb.MetricDescriptor_CUMULATIVE,
 				ValueType:  metricpb.MetricDescriptor_DISTRIBUTION,
 				Points: []*monitoringpb.Point{{
-					Interval: &monitoringpb.TimeInterval{StartTime: pbnow, EndTime: pbnow},
+					Interval: &monitoringpb.TimeInterval{StartTime: pbnow, EndTime: pbend},
 					Value: &monitoringpb.TypedValue{Value: &monitoringpb.TypedValue_DistributionValue{
 						DistributionValue: &distribution.Distribution{
 							Count:         1,
@@ -389,7 +391,13 @@ func TestRecord(t *testing.T) {
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
 			buf := &fakebuf{}
-			s := &handler{metricInfo: info, md: helper.Metadata{ProjectID: projectID}, client: buf, l: test.NewEnv(t).Logger(), now: func() time.Time { return now }}
+			s := &handler{
+				metricInfo: info,
+				md:         helper.Metadata{ProjectID: projectID, MeshID: "mesh-id"},
+				client:     buf,
+				l:          test.NewEnv(t).Logger(),
+				now:        func() time.Time { return now },
+			}
 			_ = s.HandleMetric(context.Background(), tt.vals)
 
 			if len(buf.buf) != len(tt.expected) {
@@ -410,7 +418,7 @@ func TestRecord(t *testing.T) {
 
 func TestProjectID(t *testing.T) {
 	createClientFn := func(pid string) createClientFunc {
-		return func(cfg *config.Params) (*monitoring.MetricClient, error) {
+		return func(cfg *config.Params, logger adapter.Logger) (*monitoring.MetricClient, error) {
 			if cfg.ProjectId != pid {
 				return nil, fmt.Errorf("wanted %v got %v", pid, cfg.ProjectId)
 			}
@@ -443,7 +451,7 @@ func TestProjectID(t *testing.T) {
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			mg := helper.NewMetadataGenerator(dummyShouldFill, tt.pid, dummyMetadataFn, dummyMetadataFn)
+			mg := helper.NewMetadataGenerator(dummyShouldFill, tt.pid, dummyMetadataFn, dummyMetadataFn, dummyMetadataFn)
 			b := &builder{createClient: createClientFn(tt.want), mg: mg}
 			b.SetAdapterConfig(tt.cfg)
 			_, err := b.Build(context.Background(), test.NewEnv(t))
@@ -473,8 +481,8 @@ func TestProjectMetadata(t *testing.T) {
 			"filled",
 			[]*metrict.Instance{
 				{
-					Name:  "metric",
-					Value: int64(1),
+					Name:                  "metric",
+					Value:                 int64(1),
 					MonitoredResourceType: "mr-type",
 					MonitoredResourceDimensions: map[string]interface{}{
 						"project_id":   "id",
@@ -496,8 +504,8 @@ func TestProjectMetadata(t *testing.T) {
 			"empty",
 			[]*metrict.Instance{
 				{
-					Name:  "metric",
-					Value: int64(1),
+					Name:                  "metric",
+					Value:                 int64(1),
 					MonitoredResourceType: "mr-type",
 					MonitoredResourceDimensions: map[string]interface{}{
 						"project_id":   "",
@@ -522,7 +530,7 @@ func TestProjectMetadata(t *testing.T) {
 			buf := &fakebuf{}
 			s := &handler{
 				metricInfo: info,
-				md:         helper.Metadata{ProjectID: "pid", Location: "location", ClusterName: "cluster"},
+				md:         helper.Metadata{ProjectID: "pid", Location: "location", ClusterName: "cluster", MeshID: "mesh-id"},
 				client:     buf,
 				l:          test.NewEnv(t).Logger(),
 				now:        func() time.Time { return now },

@@ -50,6 +50,21 @@ func TestConvert(t *testing.T) {
 			t.Errorf("%s: Got %+v, Want %+v", tt.title, tt.dest, tt.expected)
 		}
 	}
+
+	ev := BackendEvent{
+		Key: Key{
+			Kind: "handler",
+		},
+	}
+	want := Event{
+		Key: Key{
+			Kind: "handler",
+		},
+	}
+
+	if got, err := ConvertValue(ev, map[string]proto.Message{"handler": &cfg.Handler{}}); err != nil || !reflect.DeepEqual(got, want) {
+		t.Errorf("ConvertValue(%#v) => got %#v, %v, want %#v", ev, got, err, want)
+	}
 }
 
 func TestConvertFail(t *testing.T) {

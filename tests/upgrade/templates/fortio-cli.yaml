@@ -1,0 +1,28 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cli-fortio
+spec:
+  backoffLimit: 5
+  template:
+    metadata:
+      labels:
+        app: cli-fortio
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      restartPolicy: "OnFailure"
+      containers:
+      - name: echosrv
+        image: istio/fortio:latest
+        imagePullPolicy: Always
+        args:
+          - load
+          - -c
+          - "32"
+          - -t
+          - "500s"
+          - -qps
+          - "10"
+          - http://echosrv.test.svc.cluster.local:8080/echo?size=200

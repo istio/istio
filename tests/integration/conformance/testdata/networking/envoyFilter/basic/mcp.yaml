@@ -1,0 +1,40 @@
+constraints:
+  - collection: istio/networking/v1alpha3/envoyfilters
+    check:
+    - exactlyOne:
+      - equals: {
+        "Body": {
+          "filters": [
+            {
+              "filterConfig": {
+                "abort": {
+                  "httpStatus": 444,
+                  "percentage": {
+                    "denominator": "HUNDRED",
+                    "numerator": 100
+                  }
+                },
+                "headers": {
+                  "exactMatch": "foobar123",
+                  "name": "envoyfilter-test"
+                },
+              },
+              "filterName": "envoy.fault",
+              "filterType": "HTTP",
+              "insertPosition": {},
+              "listenerMatch": {
+                "listenerProtocol": "HTTP",
+                "listenerType": "SIDECAR_INBOUND"
+              }
+            }
+          ],
+          "workloadLabels": {
+            "app": "c"
+          }
+        },
+        "Metadata": {
+          "name": "{{.Namespace}}/simple-envoy-filter"
+        },
+        "TypeURL": "type.googleapis.com/istio.networking.v1alpha3.EnvoyFilter"
+      }
+

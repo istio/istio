@@ -49,28 +49,42 @@ func TestNewKeyCertBundleRotator(t *testing.T) {
 			config:      nil,
 			expectedErr: "nil configuration passed",
 		},
-		"onprem env": {
+		"No CA address": {
 			config: &Config{
 				RootCertFile:  "../platform/testdata/cert-root-good.pem",
 				KeyFile:       "../platform/testdata/key-from-root-good.pem",
 				CertChainFile: "../platform/testdata/cert-from-root-good.pem",
 				Env:           "onprem",
+				CAAddress:     "",
+			},
+			expectedErr: "istio CA address is empty",
+		},
+		"Successful init with on prem env": {
+			config: &Config{
+				RootCertFile:             "../platform/testdata/cert-root-good.pem",
+				KeyFile:                  "../platform/testdata/key-from-root-good.pem",
+				CertChainFile:            "../platform/testdata/cert-from-root-good.pem",
+				Env:                      "onprem",
+				CAAddress:                "0.0.0.0:8060",
+				CSRGracePeriodPercentage: 50,
 			},
 			expectedErr: "",
 		},
-		"unspecified env": {
+		"Successful init with unspecified env": {
 			config: &Config{
-				RootCertFile:  "../platform/testdata/cert-root-good.pem",
-				KeyFile:       "../platform/testdata/key-from-root-good.pem",
-				CertChainFile: "../platform/testdata/cert-from-root-good.pem",
-				Env:           "unspecified",
+				RootCertFile:             "../platform/testdata/cert-root-good.pem",
+				KeyFile:                  "../platform/testdata/key-from-root-good.pem",
+				CertChainFile:            "../platform/testdata/cert-from-root-good.pem",
+				Env:                      "unspecified",
+				CAAddress:                "0.0.0.0:8060",
+				CSRGracePeriodPercentage: 50,
 			},
 			expectedErr: "",
 		},
 	}
 
 	for id, c := range testCases {
-		_, err := NewKeyCertBundleRotator(c.config, &fakeKeyCertRetriever{}, &pkimock.FakeKeyCertBundle{})
+		_, err := NewKeyCertBundleRotator(c.config, &pkimock.FakeKeyCertBundle{})
 
 		if len(c.expectedErr) > 0 {
 			if err == nil {
@@ -103,7 +117,7 @@ func TestKeyCertBundleRotator(t *testing.T) {
 				CertChain:  newCertChain,
 				PrivateKey: newKey,
 			},
-			certutil: &utilmock.FakeCertUtil{Duration: time.Duration(time.Millisecond * 300)},
+			certutil: &utilmock.FakeCertUtil{Duration: time.Millisecond * 300},
 			keycert: &pkimock.FakeKeyCertBundle{
 				CertBytes:      oldCert,
 				PrivKeyBytes:   oldKey,
@@ -119,7 +133,7 @@ func TestKeyCertBundleRotator(t *testing.T) {
 				CertChain:  newCertChain,
 				PrivateKey: newKey,
 			},
-			certutil:    &utilmock.FakeCertUtil{Duration: time.Duration(time.Millisecond * 300)},
+			certutil:    &utilmock.FakeCertUtil{Duration: time.Millisecond * 300},
 			keycert:     &pkimock.FakeKeyCertBundle{RootCertBytes: oldRootCert},
 			updated:     true,
 			expectedErr: "",
@@ -130,7 +144,7 @@ func TestKeyCertBundleRotator(t *testing.T) {
 				CertChain:  newCertChain,
 				PrivateKey: newKey,
 			},
-			certutil: &utilmock.FakeCertUtil{Duration: time.Duration(time.Hour)},
+			certutil: &utilmock.FakeCertUtil{Duration: time.Hour},
 			keycert: &pkimock.FakeKeyCertBundle{
 				CertBytes:      oldCert,
 				PrivKeyBytes:   oldKey,

@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
@@ -26,11 +27,11 @@ import (
 	diff "gopkg.in/d4l3k/messagediff.v1"
 
 	"istio.io/api/policy/v1beta1"
-	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/lang/compiled"
 	protoyaml "istio.io/istio/mixer/pkg/protobuf/yaml"
-	"istio.io/istio/mixer/pkg/protobuf/yaml/testdata/all"
+	foo "istio.io/istio/mixer/pkg/protobuf/yaml/testdata/all"
+	"istio.io/istio/mixer/pkg/runtime/lang"
+	"istio.io/pkg/attribute"
 )
 
 func TestEncodeVarintZeroExtend(t *testing.T) {
@@ -121,6 +122,7 @@ str: "'mystring'"
 i64: response.size| 0
 mapStrStr:
   source_service: source.service | "unknown"
+  source_version: source.labels["version"] | "unknown"
 oth:
   inenum: "'INNERTHREE'"
 enm: request.reason
@@ -143,6 +145,7 @@ str: mystring
 i64: 200
 mapStrStr:
   source_service: a.svc.cluster.local
+  source_version: v1
 oth:
   inenum: INNERTHREE
 enm: TWO
@@ -548,6 +551,15 @@ map_str_istio_value:
     test.i64: test.i64
     float: 5.5
     str: request.path
+    ip: source.ip
+ipaddress_istio_value: source.ip
+map_str_ipaddress_istio_value:
+    host1: source.ip
+timestamp_istio_value: context.timestamp
+duration_istio_value: response.duration
+dnsname_istio_value: test.dns_name
+uri_istio_value: test.uri
+emailaddress_istio_value: test.email_address
 `
 
 const valueStr = `
@@ -560,6 +572,37 @@ map_str_istio_value:
          double_value: 5.5
     str:
          string_value: "INNERTHREE"
+    ip:
+         ip_address_value:
+             value:
+             - 8
+             - 0
+             - 0
+             - 1
+
+ipaddress_istio_value:
+    value:
+    - 8
+    - 0
+    - 0
+    - 1
+map_str_ipaddress_istio_value:
+    host1:
+        value:
+        - 8
+        - 0
+        - 0
+        - 1
+timestamp_istio_value:
+    value: 2018-08-15T00:00:01Z
+duration_istio_value:
+    value: 10s
+dnsname_istio_value:
+    value: google.com
+uri_istio_value:
+    value: https://maps.google.com
+emailaddress_istio_value:
+    value: istio@google.com
 `
 
 type testdata struct {
@@ -567,7 +610,7 @@ type testdata struct {
 	input       string
 	output      string
 	msg         string
-	compiler    Compiler
+	compiler    lang.Compiler
 	skipUnknown bool
 }
 
@@ -576,7 +619,7 @@ func TestStaticPrecoded(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	compiler := compiled.NewBuilder(StatdardVocabulary())
+	compiler := compiled.NewBuilder(StandardVocabulary())
 	res := protoyaml.NewResolver(fds)
 
 	b := NewEncoderBuilder(res, compiler, false)
@@ -653,7 +696,7 @@ func TestDynamicEncoder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	compiler := compiled.NewBuilder(StatdardVocabulary())
+	compiler := compiled.NewBuilder(StandardVocabulary())
 	res := protoyaml.NewResolver(fds)
 	for _, td := range []testdata{
 		{
@@ -726,7 +769,7 @@ func TestStaticEncoder(t *testing.T) {
 }
 
 func testMsg(t *testing.T, input string, output string, res protoyaml.Resolver,
-	compiler Compiler, msgName string, skipUnknown bool) {
+	compiler lang.Compiler, msgName string, skipUnknown bool) {
 	data := map[string]interface{}{}
 	var err error
 	var ba []byte
@@ -775,6 +818,7 @@ func testMsg(t *testing.T, input string, output string, res protoyaml.Resolver,
 		"request.reason":        "TWO",
 		"response.size":         int64(200),
 		"response.code":         int64(662),
+		"source.labels":         attribute.WrapStringMap(map[string]string{"version": "v1"}),
 		"source.service":        "a.svc.cluster.local",
 		"request.path":          "INNERTHREE",
 		"connection.sent.bytes": int64(2),
@@ -783,6 +827,12 @@ func testMsg(t *testing.T, input string, output string, res protoyaml.Resolver,
 		"test.i64":              int64(-123),
 		"test.i32":              int64(123),
 		"test.bool":             true,
+		"source.ip":             []byte{8, 0, 0, 1},
+		"response.duration":     10 * time.Second,
+		"context.timestamp":     time.Date(2018, 8, 15, 0, 0, 1, 0, time.UTC).UTC(),
+		"test.dns_name":         "google.com",
+		"test.uri":              "https://maps.google.com",
+		"test.email_address":    "istio@google.com",
 	})
 	ba, err = de.Encode(bag, ba)
 	if err != nil {
@@ -834,8 +884,8 @@ func Test_transFormQuotedString(t *testing.T) {
 	}
 }
 
-// StatdardVocabulary returns Istio standard vocabulary
-func StatdardVocabulary() ast.AttributeDescriptorFinder {
+// StandardVocabulary returns Istio standard vocabulary
+func StandardVocabulary() attribute.AttributeDescriptorFinder {
 	attrs := map[string]*v1beta1.AttributeManifest_AttributeInfo{
 		"api.operation":                   {ValueType: v1beta1.STRING},
 		"api.protocol":                    {ValueType: v1beta1.STRING},
@@ -894,9 +944,12 @@ func StatdardVocabulary() ast.AttributeDescriptorFinder {
 		"test.i32":                        {ValueType: v1beta1.INT64},
 		"test.i64":                        {ValueType: v1beta1.INT64},
 		"test.float":                      {ValueType: v1beta1.DOUBLE},
+		"test.uri":                        {ValueType: v1beta1.URI},
+		"test.dns_name":                   {ValueType: v1beta1.DNS_NAME},
+		"test.email_address":              {ValueType: v1beta1.EMAIL_ADDRESS},
 	}
 
-	return ast.NewFinder(attrs)
+	return attribute.NewFinder(attrs)
 }
 
 func Test_Int64(t *testing.T) {

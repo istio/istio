@@ -10,12 +10,12 @@ spec:
       - headers:
           version:
             exact: v2
-        source_labels:
+        sourceLabels:
           version: v1
       route:
       - destination:
           host: c
-          subset: v2
+          subset: headersubset
         weight: 100
     - route:
       - destination:

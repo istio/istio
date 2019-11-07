@@ -1,0 +1,30 @@
+{{- range $key, $spec := .Values }}
+{{- if or (eq $key "policy") (eq $key "telemetry") }}
+{{- if $spec.enabled }}
+{{- if $.Values.global.defaultPodDisruptionBudget.enabled }}
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: istio-{{ $key }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app: {{ $key }}
+    chart: {{ template "mixer.chart" $ }}
+    heritage: {{ $.Release.Service }}
+    release: {{ $.Release.Name }}
+    version: {{ $.Chart.Version }}
+    istio: mixer
+    istio-mixer-type: {{ $key }}
+spec:
+{{ include "podDisruptionBudget.spec" $.Values.global.defaultPodDisruptionBudget }}
+  selector:
+    matchLabels:
+      app: {{ $key }}
+      release: {{ $.Release.Name }}
+      istio: mixer
+      istio-mixer-type: {{ $key }}
+---
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

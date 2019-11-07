@@ -20,13 +20,13 @@ import (
 	"fmt"
 	"time"
 
-	contextgraph "cloud.google.com/go/contextgraph/apiv1alpha1"
 	gax "github.com/googleapis/gax-go"
 	"google.golang.org/api/option"
-	contextgraphpb "google.golang.org/genproto/googleapis/cloud/contextgraph/v1alpha1"
 
 	"istio.io/istio/mixer/adapter/stackdriver/config"
 	"istio.io/istio/mixer/adapter/stackdriver/helper"
+	contextgraph "istio.io/istio/mixer/adapter/stackdriver/internal/cloud.google.com/go/contextgraph/apiv1alpha1"
+	contextgraphpb "istio.io/istio/mixer/adapter/stackdriver/internal/google.golang.org/genproto/googleapis/cloud/contextgraph/v1alpha1"
 	"istio.io/istio/mixer/pkg/adapter"
 	edgepb "istio.io/istio/mixer/template/edge"
 )
@@ -39,9 +39,10 @@ type (
 		projectID string
 		zone      string
 		cluster   string
+		meshID    string
 		mg        helper.MetadataGenerator
-		opts      []option.ClientOption
 		newClient newClientFn
+		cfg       *config.Params
 	}
 	handler struct {
 		client         *contextgraph.Client
@@ -68,17 +69,20 @@ var _ edgepb.Handler = &handler{}
 
 // adapter.HandlerBuilder#Build
 func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
+	opts := helper.ToOpts(b.cfg, env.Logger())
 
 	env.Logger().Debugf("Proj, zone, cluster, opts: %s,%s,%s,%s",
-		b.projectID, b.zone, b.cluster, b.opts)
+		b.projectID, b.zone, b.cluster, opts)
 
-	// TODO: meshUID should come from an attribute when
-	// multi-cluster Istio is supported. Currently we assume each
-	// cluster is its own mesh.
+	meshUID := fmt.Sprintf("%s/%s/%s", b.projectID, b.zone, b.cluster)
+	if len(b.meshID) > 0 {
+		meshUID = b.meshID
+	}
+
 	h := &handler{
 		env:            env,
 		projectID:      b.projectID,
-		meshUID:        fmt.Sprintf("%s/%s/%s", b.projectID, b.zone, b.cluster),
+		meshUID:        meshUID,
 		zone:           b.zone,
 		cluster:        b.cluster,
 		entityCache:    newEntityCache(env.Logger()),
@@ -91,7 +95,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 	}
 
 	var err error
-	h.client, err = b.newClient(ctx, b.opts...)
+	h.client, err = b.newClient(ctx, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -104,16 +108,15 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 
 // adapter.HandlerBuilder#SetAdapterConfig
 func (b *builder) SetAdapterConfig(cfg adapter.Config) {
-	c := cfg.(*config.Params)
-	b.projectID = c.ProjectId
+	b.cfg = cfg.(*config.Params)
+	b.projectID = b.cfg.ProjectId
 	md := b.mg.GenerateMetadata()
 	if b.projectID == "" {
 		b.projectID = md.ProjectID
 	}
 	b.zone = md.Location
 	b.cluster = md.ClusterName
-
-	b.opts = helper.ToOpts(c)
+	b.meshID = md.MeshID
 }
 
 // adapter.HandlerBuilder#Validate
@@ -155,12 +158,19 @@ func (h *handler) HandleEdge(ctx context.Context, insts []*edgepb.Instance) erro
 			i.DestinationWorkloadName,
 			i.DestinationWorkloadNamespace,
 		}
+		destinationService := service{
+			meshUID:      h.meshUID,
+			namespace:    i.DestinationServiceNamespace,
+			name:         i.DestinationServiceName,
+			istioProject: h.projectID,
+		}
 		h.traffics <- trafficAssertion{
-			source,
-			destination,
-			i.ContextProtocol,
-			i.ApiProtocol,
-			i.Timestamp,
+			source:             source,
+			destination:        destination,
+			contextProtocol:    i.ContextProtocol,
+			apiProtocol:        i.ApiProtocol,
+			destinationService: destinationService,
+			timestamp:          i.Timestamp,
 		}
 	}
 	return nil

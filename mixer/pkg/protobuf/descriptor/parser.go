@@ -13,7 +13,6 @@
 // limitations under the License.
 
 /*
-TODO currently this package is tested via the mixer/tools/pkg/modelgen. Create separate test file for this package.
 Code in this class is mostly a copy from https://github.com/golang/protobuf/blob/master/protoc-gen-go/generator/generator.go
 TODO:
 -  Handle name collision. When multiple files in the FileDescriptorSet have the same name, the protoc-gen-go do name

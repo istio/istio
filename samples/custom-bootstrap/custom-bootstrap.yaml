@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-custom-bootstrap-config
+  namespace: default
+data:
+  custom_bootstrap.json: |
+    {
+      "tracing": {
+        "http": {
+          "name": "envoy.zipkin",
+          "config": {
+            "collector_cluster": "zipkin",
+            "collector_endpoint": "/api/v1/spans/custom",
+            "trace_id_128bit": "true"
+          }
+        }
+      }
+    }

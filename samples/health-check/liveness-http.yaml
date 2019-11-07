@@ -11,11 +11,15 @@ spec:
   selector:
     app: liveness-http
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: liveness-http
 spec:
+  selector:
+    matchLabels:
+      app: liveness-http
+      version: v1
   template:
     metadata:
       labels:

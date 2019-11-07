@@ -1,5 +1,5 @@
 {{- range $key, $spec := .Values }}
-{{- if and (ne $key "global") (ne $key "enabled") }}
+{{- if ne $key "enabled" }}
 {{- if $spec.enabled }}
 apiVersion: v1
 kind: Service
@@ -8,12 +8,12 @@ metadata:
   namespace: {{ $spec.namespace | default $.Release.Namespace }}
   annotations:
     {{- range $key, $val := $spec.serviceAnnotations }}
-    {{ $key }}: {{ $val }}
+    {{ $key }}: {{ $val | quote }}
     {{- end }}
   labels:
-    chart: {{ $.Chart.Name }}-{{ $.Chart.Version | replace "+" "_" }}
-    release: {{ $.Release.Name }}
+    chart: {{ template "gateway.chart" $ }}
     heritage: {{ $.Release.Service }}
+    release: {{ $.Release.Name }}
     {{- range $key, $val := $spec.labels }}
     {{ $key }}: {{ $val }}
     {{- end }}
@@ -21,8 +21,20 @@ spec:
 {{- if $spec.loadBalancerIP }}
   loadBalancerIP: "{{ $spec.loadBalancerIP }}"
 {{- end }}
+{{- if $spec.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+{{ toYaml $spec.loadBalancerSourceRanges | indent 4 }}
+{{- end }}
+{{- if $spec.externalTrafficPolicy }}
+  externalTrafficPolicy: {{$spec.externalTrafficPolicy }}
+{{- end }}
+{{- if $spec.externalIPs }}
+  externalIPs:
+{{ toYaml $spec.externalIPs | indent 4 }}
+{{- end }}
   type: {{ .type }}
   selector:
+    release: {{ $.Release.Name }}
     {{- range $key, $val := $spec.labels }}
     {{ $key }}: {{ $val }}
     {{- end }}
@@ -32,6 +44,14 @@ spec:
       {{- range $pkey, $pval := $val }}
       {{ $pkey}}: {{ $pval }}
       {{- end }}
+    {{- end }}
+    {{- if $.Values.global.meshExpansion.enabled }}
+    {{- range $key, $val := $spec.meshExpansionPorts }}
+    -
+      {{- range $pkey, $pval := $val }}
+      {{ $pkey}}: {{ $pval }}
+      {{- end }}
+    {{- end }}
     {{- end }}
 ---
 {{- end }}

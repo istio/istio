@@ -18,6 +18,8 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"testing"
+
+	"github.com/golang/protobuf/ptypes/any"
 )
 
 func setupWrapper(t *testing.T) *Wrapper {
@@ -32,10 +34,10 @@ func setupWrapper(t *testing.T) *Wrapper {
 func TestWrapper_GetClusterConfigDump(t *testing.T) {
 	tests := []struct {
 		name                    string
-		noConfigs               bool
-		noCluster               bool
 		wantVersion             string
 		wantStatic, wantDynamic int
+		noConfigs               bool
+		noCluster               bool
 		wantErr                 bool
 	}{
 		{
@@ -59,7 +61,7 @@ func TestWrapper_GetClusterConfigDump(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			w := setupWrapper(t)
 			if tt.noCluster {
-				delete(w.Configs, "clusters")
+				w.Configs = []*any.Any{}
 			}
 			if tt.noConfigs {
 				w.Configs = nil
@@ -87,9 +89,9 @@ func TestWrapper_GetClusterConfigDump(t *testing.T) {
 func TestWrapper_GetDynamicClusterDump(t *testing.T) {
 	tests := []struct {
 		name                                string
+		wantStatic, wantDynamic             int
 		noCluster                           bool
 		stripVersion, wantVersion, wantLast bool
-		wantStatic, wantDynamic             int
 		wantErr                             bool
 	}{
 		{
@@ -118,7 +120,7 @@ func TestWrapper_GetDynamicClusterDump(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			w := setupWrapper(t)
 			if tt.noCluster {
-				delete(w.Configs, "clusters")
+				w.Configs = []*any.Any{}
 			}
 			got, err := w.GetDynamicClusterDump(tt.stripVersion)
 			if (err != nil) != tt.wantErr {

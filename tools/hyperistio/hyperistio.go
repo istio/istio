@@ -23,15 +23,17 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
+	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/mixer/test/client/env"
+
+	mixerEnv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
-	agent "istio.io/istio/pkg/bootstrap"
+	envoyBootstrap "istio.io/istio/pkg/bootstrap"
+	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/keepalive"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
 )
 
@@ -66,11 +68,14 @@ func startAll() error {
 	}
 
 	// Mixer test servers
-	srv, err := env.NewHTTPServer(7070)
+	srv, err := mixerEnv.NewHTTPServer(7070)
 	if err != nil {
 		return err
 	}
-	srv.Start()
+	errCh := srv.Start()
+	if err = <-errCh; err != nil {
+		log.Fatalf("backend server start failed %v", err)
+	}
 
 	go util.RunHTTP(7072, "v1")
 	go util.RunGRPC(7073, "v1", "", "")
@@ -87,11 +92,14 @@ func startAll() error {
 }
 
 func startMixer() error {
-	srv, err := env.NewMixerServer(9091, false)
+	srv, err := mixerEnv.NewMixerServer(9091, false, false, "")
 	if err != nil {
 		return err
 	}
-	srv.Start()
+	errCh := srv.Start()
+	if err = <-errCh; err != nil {
+		log.Fatalf("mixer start failed %v", err)
+	}
 
 	go func() {
 		for {
@@ -104,31 +112,34 @@ func startMixer() error {
 }
 
 func startEnvoy() error {
-	cfg := &meshconfig.ProxyConfig{
-		DiscoveryAddress:      "localhost:8080",
-		ConfigPath:            util.IstioOut,
-		BinaryPath:            util.IstioBin + "/envoy",
-		ServiceCluster:        "test",
-		CustomConfigFile:      util.IstioSrc + "/tools/deb/envoy_bootstrap_v2.json",
-		DiscoveryRefreshDelay: ptypes.DurationProto(10 * time.Second), // crash if not set
-		ConnectTimeout:        ptypes.DurationProto(5 * time.Second),  // crash if not set
-		DrainDuration:         ptypes.DurationProto(30 * time.Second), // crash if 0
-
+	cfg := envoyBootstrap.Config{
+		Node:           "sidecar~127.0.0.2~a~a",
+		DNSRefreshRate: "60s",
+		LocalEnv:       os.Environ(),
+		Proxy: &meshconfig.ProxyConfig{
+			DiscoveryAddress: "localhost:8080",
+			ConfigPath:       env.IstioOut,
+			BinaryPath:       env.IstioBin + "/envoy",
+			ServiceCluster:   "test",
+			CustomConfigFile: env.IstioSrc + "/tools/packaging/common/envoy_bootstrap_v2.json",
+			ConnectTimeout:   types.DurationProto(5 * time.Second),  // crash if not set
+			DrainDuration:    types.DurationProto(30 * time.Second), // crash if 0
+			StatNameLength:   189,
+		},
 	}
-	cfgF, err := agent.WriteBootstrap(cfg, "sidecar~127.0.0.2~a~a", 1, []string{}, nil)
+	cfgF, err := envoyBootstrap.New(cfg).CreateFileForEpoch(1)
 	if err != nil {
 		return err
 	}
 	stop := make(chan error)
-	envoyLog, err := os.Create(util.IstioOut + "/envoy_hyperistio_sidecar.log")
+	envoyLog, err := os.Create(env.IstioOut + "/envoy_hyperistio_sidecar.log")
 	if err != nil {
 		envoyLog = os.Stderr
 	}
-	agent.RunProxy(cfg, "node", 1, cfgF, stop, envoyLog, envoyLog, []string{
+	_, err = envoyBootstrap.RunProxy(cfg.Proxy, "node", 1, cfgF, stop, envoyLog, envoyLog, []string{
 		"--disable-hot-restart", // "-l", "trace",
 	})
-
-	return nil
+	return err
 }
 
 // startPilot with defaults:
@@ -141,41 +152,40 @@ func startEnvoy() error {
 func startPilot() error {
 	stop := make(chan struct{})
 
-	mcfg := model.DefaultMeshConfig()
+	mcfg := mesh.DefaultMeshConfig()
 	mcfg.ProxyHttpPort = 15002
 
 	// Create a test pilot discovery service configured to watch the tempDir.
 	args := bootstrap.PilotArgs{
 		Namespace: "testing",
-		DiscoveryOptions: envoy.DiscoveryServiceOptions{
+		DiscoveryOptions: bootstrap.DiscoveryServiceOptions{
 			HTTPAddr:        ":15007",
 			GrpcAddr:        ":15010",
 			SecureGrpcAddr:  ":15011",
-			EnableCaching:   true,
 			EnableProfiling: true,
 		},
 
 		Mesh: bootstrap.MeshArgs{
-			MixerAddress:    "localhost:9091",
-			RdsRefreshDelay: ptypes.DurationProto(10 * time.Millisecond),
+			MixerAddress: "localhost:9091",
 		},
 		Config: bootstrap.ConfigArgs{
-			KubeConfig: util.IstioSrc + "/.circleci/config",
+			KubeConfig: env.IstioSrc + "/tests/util/kubeconfig",
 		},
 		Service: bootstrap.ServiceArgs{
 			// Using the Mock service registry, which provides the hello and world services.
 			Registries: []string{
 				string(serviceregistry.MockRegistry)},
 		},
-		MeshConfig: &mcfg,
+		MeshConfig:       &mcfg,
+		KeepaliveOptions: keepalive.DefaultOption(),
 	}
-	bootstrap.PilotCertDir = util.IstioSrc + "/tests/testdata/certs/pilot"
+	bootstrap.PilotCertDir = env.IstioSrc + "/tests/testdata/certs/pilot"
 
 	bootstrap.FilepathWalkInterval = 5 * time.Second
 	// Static testdata, should include all configs we want to test.
 	args.Config.FileDir = os.Getenv("ISTIO_CONFIG")
 	if args.Config.FileDir == "" {
-		args.Config.FileDir = util.IstioSrc + "/tests/testdata/config"
+		args.Config.FileDir = env.IstioSrc + "/tests/testdata/config"
 	}
 	log.Println("Using mock configs: ", args.Config.FileDir)
 	// Create and setup the controller.
@@ -185,8 +195,7 @@ func startPilot() error {
 	}
 
 	// Start the server.
-	_, err = s.Start(stop)
-	if err != nil {
+	if err := s.Start(stop); err != nil {
 		return err
 	}
 	return nil

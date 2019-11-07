@@ -1,7 +1,6 @@
 // Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
-
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
@@ -29,7 +28,9 @@ import (
 	octrace "go.opencensus.io/trace"
 
 	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/adapter/opencensus"
 	"istio.io/istio/mixer/template/tracespan"
+	"istio.io/pkg/attribute"
 )
 
 // How long to wait for a response from ingest when sending spans.  New spans will
@@ -122,11 +123,11 @@ func (th *tracinghandler) HandleTraceSpan(ctx context.Context, values []*tracesp
 }
 
 func (th *tracinghandler) shouldSend(span *tracespan.Instance) bool {
-	parentContext, ok := adapter.ExtractParentContext(span.TraceId, span.ParentSpanId)
+	parentContext, ok := opencensus.ExtractParentContext(span.TraceId, span.ParentSpanId)
 	if !ok {
 		return false
 	}
-	spanContext, ok := adapter.ExtractSpanContext(span.SpanId, parentContext)
+	spanContext, ok := opencensus.ExtractSpanContext(span.SpanId, parentContext)
 	if !ok {
 		return false
 	}
@@ -161,16 +162,16 @@ func convertInstance(istioSpan *tracespan.Instance) *trace.Span {
 
 	tags := map[string]string{}
 
-	if labels, ok := istioSpan.SpanTags["destination.labels"].(map[string]string); ok {
-		for k, v := range labels {
+	if labels, ok := istioSpan.SpanTags["destination.labels"].(attribute.StringMap); ok {
+		for k, v := range labels.Entries() {
 			if k != "" && v != "" {
 				tags["destination.labels."+k] = v
 			}
 		}
 	}
 
-	if labels, ok := istioSpan.SpanTags["source.labels"].(map[string]string); ok {
-		for k, v := range labels {
+	if labels, ok := istioSpan.SpanTags["source.labels"].(attribute.StringMap); ok {
+		for k, v := range labels.Entries() {
 			if k != "" && v != "" {
 				tags["source.labels."+k] = v
 			}
@@ -226,18 +227,20 @@ func convertInstance(istioSpan *tracespan.Instance) *trace.Span {
 		span.LocalEndpoint.ServiceName = &n
 	}
 
-	if ip, ok := istioSpan.SpanTags["source.ip"].(net.IP); ok {
-		ips := ip.String()
+	if ip, ok := istioSpan.SpanTags["source.ip"].([]byte); ok {
+		ips := net.IP(ip).String()
 		span.LocalEndpoint.Ipv4 = &ips
+		tags["source.ip"] = ips
 	}
 
 	if n, ok := istioSpan.SpanTags["destination.name"].(string); ok && n != "" {
 		span.RemoteEndpoint.ServiceName = &n
 	}
 
-	if ip, ok := istioSpan.SpanTags["destination.ip"].(net.IP); ok {
-		ips := ip.String()
+	if ip, ok := istioSpan.SpanTags["destination.ip"].([]byte); ok {
+		ips := net.IP(ip).String()
 		span.RemoteEndpoint.Ipv4 = &ips
+		tags["destination.ip"] = ips
 	}
 
 	if istioSpan.ParentSpanId != "" {

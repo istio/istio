@@ -1,0 +1,30 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: handler
+metadata:
+  name: handler
+  namespace: istio-system
+spec:
+  compiledAdapter: denier
+  params:
+    status:
+      code: 7
+      message: Not allowed
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: instance
+metadata:
+  name: denyrequest
+  namespace: istio-system
+spec:
+  compiledTemplate: checknothing
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: denyingress
+  namespace: istio-system
+spec:
+  match: (source.labels["istio"] | "") == "ingressgateway" && (request.headers["x-user"] | "") == "john"
+  actions:
+  - handler: handler
+    instances: [ denyrequest ]

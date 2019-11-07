@@ -1,4 +1,4 @@
-// Copyright 2017 the Istio Authors.
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,11 +18,13 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
 	"text/template"
 	"time"
+	"unicode/utf8"
 
 	"cloud.google.com/go/logging"
 	"cloud.google.com/go/logging/logadmin"
@@ -30,11 +32,12 @@ import (
 	"google.golang.org/api/option"
 	"google.golang.org/genproto/googleapis/api/monitoredres"
 
+	istio_policy_v1beta1 "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/adapter/stackdriver/config"
 	"istio.io/istio/mixer/adapter/stackdriver/helper"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/template/logentry"
+	"istio.io/pkg/pool"
 )
 
 type (
@@ -67,6 +70,7 @@ type (
 		client, syncClient io.Closer
 		info               map[string]info
 		md                 helper.Metadata
+		types              map[string]*logentry.Type
 	}
 )
 
@@ -99,7 +103,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		// Try to fill project id with Metadata if it is not provided.
 		cfg.ProjectId = md.ProjectID
 	}
-	client, err := b.makeClient(context.Background(), cfg.ProjectId, helper.ToOpts(cfg)...)
+	client, err := b.makeClient(context.Background(), cfg.ProjectId, helper.ToOpts(cfg, env.Logger())...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create stackdriver logging client: %v", err)
 	}
@@ -107,7 +111,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		_ = logger.Errorf("Stackdriver logger failed with: %v", err)
 	}
 
-	syncClient, err := b.makeSyncClient(context.Background(), cfg.ProjectId, helper.ToOpts(cfg)...)
+	syncClient, err := b.makeSyncClient(context.Background(), cfg.ProjectId, helper.ToOpts(cfg, env.Logger())...)
 	if err != nil {
 		_ = logger.Errorf("failed to create stackdriver sink logging client: %v", err)
 		syncClient = nil
@@ -135,8 +139,12 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 			ctx := context.Background()
 			var sinkErr error
 			// first try to CreateSink, if error is AlreadyExists then update that sink.
-			if _, sinkErr = syncClient.CreateSink(ctx, sink); isAlreadyExists(sinkErr) {
-				_, sinkErr = syncClient.UpdateSink(ctx, sink)
+			if _, sinkErr = syncClient.CreateSinkOpt(ctx, sink,
+				logadmin.SinkOptions{UniqueWriterIdentity: log.SinkInfo.UniqueWriterIdentity}); isAlreadyExists(sinkErr) {
+				_, sinkErr = syncClient.UpdateSinkOpt(ctx, sink,
+					logadmin.SinkOptions{UpdateDestination: log.SinkInfo.UpdateDestination,
+						UpdateFilter:          log.SinkInfo.UpdateFilter,
+						UpdateIncludeChildren: log.SinkInfo.UpdateIncludeChildren})
 			}
 			if sinkErr != nil {
 				logger.Warningf("failed to create/update stackdriver logging sink: %v", sinkErr)
@@ -151,7 +159,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 			flush:  client.Logger(name).Flush,
 		}
 	}
-	return &handler{client: client, syncClient: syncClient, now: time.Now, l: logger, info: infos, md: md}, nil
+	return &handler{client: client, syncClient: syncClient, now: time.Now, l: logger, info: infos, md: md, types: b.types}, nil
 }
 
 func (h *handler) HandleLogEntry(_ context.Context, values []*logentry.Instance) error {
@@ -162,13 +170,6 @@ func (h *handler) HandleLogEntry(_ context.Context, values []*logentry.Instance)
 			continue
 		}
 
-		defer func() {
-			err := linfo.flush()
-			if err != nil {
-				h.l.Warningf("failed to flush log entry: %v", err)
-			}
-		}()
-
 		buf := pool.GetBuffer()
 		if err := linfo.tmpl.Execute(buf, v.Variables); err != nil {
 			// We'll just continue on with an empty payload for this entry - we could still be populating the HTTP req with valuable info, for example.
@@ -177,10 +178,14 @@ func (h *handler) HandleLogEntry(_ context.Context, values []*logentry.Instance)
 		payload := buf.String()
 		pool.PutBuffer(buf)
 
+		var logEntryTypes map[string]istio_policy_v1beta1.ValueType
+		if typeInfo, found := h.types[v.Name]; found {
+			logEntryTypes = typeInfo.Variables
+		}
 		e := logging.Entry{
 			Timestamp:   h.now(), // TODO: use timestamp on Instance when timestamps work
 			Severity:    logging.ParseSeverity(v.Severity),
-			Labels:      toLabelMap(linfo.labels, v.Variables),
+			Labels:      toLabelMap(linfo.labels, v.Variables, logEntryTypes),
 			Payload:     payload,
 			HTTPRequest: toReq(linfo.req, v.Variables),
 		}
@@ -196,6 +201,13 @@ func (h *handler) HandleLogEntry(_ context.Context, values []*logentry.Instance)
 		}
 		linfo.log(e)
 	}
+
+	for name, linfo := range h.info {
+		err := linfo.flush()
+		if err != nil {
+			h.l.Warningf("failed to flush log %s: %v", name, err)
+		}
+	}
 	return nil
 }
 
@@ -209,18 +221,39 @@ func (h *handler) Close() error {
 	return h.client.Close()
 }
 
-func toLabelMap(names []string, variables map[string]interface{}) map[string]string {
+func toLabelMap(names []string, variables map[string]interface{}, logEntryTypes map[string]istio_policy_v1beta1.ValueType) map[string]string {
 	out := make(map[string]string, len(names))
 	for _, name := range names {
 		v := variables[name]
 		switch vt := v.(type) {
 		case string:
-			out[name] = vt
+			out[name] = stripBadUTF8(vt)
+		case []byte:
+			if logEntryTypes[name] == istio_policy_v1beta1.IP_ADDRESS {
+				out[name] = net.IP(vt).String()
+			} else {
+				out[name] = stripBadUTF8(fmt.Sprintf("%v", vt))
+			}
 		default:
-			out[name] = fmt.Sprintf("%v", vt)
+			out[name] = stripBadUTF8(fmt.Sprintf("%v", vt))
 		}
 	}
 	return out
+}
+
+func stripBadUTF8(input string) string {
+	if utf8.ValidString(input) {
+		return input
+	}
+
+	out := make([]rune, 0, len(input))
+	for _, r := range input {
+		if r == utf8.RuneError {
+			continue
+		}
+		out = append(out, r)
+	}
+	return string(out)
 }
 
 func toReq(mapping *config.Params_LogInfo_HttpRequestMapping, variables map[string]interface{}) *logging.HTTPRequest {
@@ -238,8 +271,7 @@ func toReq(mapping *config.Params_LogInfo_HttpRequestMapping, variables map[stri
 	if variables[mapping.Method] != nil {
 		method = variables[mapping.Method].(string)
 	}
-	var httpHeaders http.Header
-	httpHeaders = make(http.Header)
+	httpHeaders := make(http.Header)
 	if variables[mapping.UserAgent] != nil {
 		httpHeaders.Add("User-Agent", variables[mapping.UserAgent].(string))
 	}
@@ -271,8 +303,8 @@ func toReq(mapping *config.Params_LogInfo_HttpRequestMapping, variables map[stri
 		req.Latency = latency
 	}
 
-	req.LocalIP = fmt.Sprintf("%v", variables[mapping.LocalIp])
-	req.RemoteIP = fmt.Sprintf("%v", variables[mapping.RemoteIp])
+	req.LocalIP = adapter.Stringify(variables[mapping.LocalIp])
+	req.RemoteIP = adapter.Stringify(variables[mapping.RemoteIp])
 	return req
 }
 

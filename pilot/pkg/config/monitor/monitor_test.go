@@ -22,9 +22,12 @@ import (
 	"github.com/onsi/gomega"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/config/monitor"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 const checkInterval = 100 * time.Millisecond
@@ -61,7 +64,7 @@ var updateConfigSet = []*model.Config{
 				{
 					Port: &networking.Port{
 						Number:   80,
-						Protocol: "HTTPS",
+						Protocol: "HTTP2",
 						Name:     "http",
 					},
 					Hosts: []string{"*.example.com"},
@@ -74,7 +77,7 @@ var updateConfigSet = []*model.Config{
 func TestMonitorForChange(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
-	configDescriptor := model.ConfigDescriptor{model.Gateway}
+	configDescriptor := schema.Set{schemas.Gateway}
 
 	store := memory.Make(configDescriptor)
 
@@ -98,7 +101,7 @@ func TestMonitorForChange(t *testing.T) {
 		callCount++
 		return configs, err
 	}
-	mon := monitor.NewMonitor(store, checkInterval, someConfigFunc)
+	mon := monitor.NewMonitor("", store, checkInterval, someConfigFunc)
 	stop := make(chan struct{})
 	defer func() { stop <- struct{}{} }() // shut it down
 	mon.Start(stop)
@@ -123,8 +126,8 @@ func TestMonitorForChange(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		gateway := c[0].Spec.(*networking.Gateway)
-		if gateway.Servers[0].Port.Protocol != "HTTPS" {
-			return errors.New("Protocol has not been updated")
+		if gateway.Servers[0].Port.Protocol != "HTTP2" {
+			return errors.New("protocol has not been updated")
 		}
 
 		return nil
@@ -139,7 +142,7 @@ func TestMonitorForChange(t *testing.T) {
 func TestMonitorForError(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
-	configDescriptor := model.ConfigDescriptor{model.Gateway}
+	configDescriptor := schema.Set{schemas.Gateway}
 
 	store := memory.Make(configDescriptor)
 
@@ -158,14 +161,14 @@ func TestMonitorForError(t *testing.T) {
 			err = nil
 		case 3:
 			configs = nil
-			err = errors.New("SnapshotFunc can't connect!!")
+			err = errors.New("snapshotFunc can't connect")
 			delay <- struct{}{}
 		}
 
 		callCount++
 		return configs, err
 	}
-	mon := monitor.NewMonitor(store, checkInterval, someConfigFunc)
+	mon := monitor.NewMonitor("", store, checkInterval, someConfigFunc)
 	stop := make(chan struct{})
 	defer func() { stop <- struct{}{} }() // shut it down
 	mon.Start(stop)
@@ -178,7 +181,7 @@ func TestMonitorForError(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		if len(c) != 1 {
-			return errors.New("Config files erased on Copilot error")
+			return errors.New("config files erased on Copilot error")
 		}
 
 		return nil

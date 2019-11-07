@@ -19,9 +19,10 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/gogo/protobuf/jsonpb"
+	"github.com/golang/protobuf/jsonpb"
 
 	"istio.io/istio/istioctl/pkg/util/configdump"
+	sdscompare "istio.io/istio/istioctl/pkg/writer/compare/sds"
 )
 
 // ConfigWriter is a writer for processing responses from the Envoy Admin config_dump endpoint
@@ -33,6 +34,8 @@ type ConfigWriter struct {
 // Prime loads the config dump into the writer ready for printing
 func (c *ConfigWriter) Prime(b []byte) error {
 	cd := configdump.Wrapper{}
+	// TODO(fisherxu): migrate this to jsonpb when issue fixed in golang
+	// Issue to track -> https://github.com/golang/protobuf/issues/632
 	err := json.Unmarshal(b, &cd)
 	if err != nil {
 		return fmt.Errorf("error unmarshalling config dump response from Envoy: %v", err)
@@ -55,4 +58,40 @@ func (c *ConfigWriter) PrintBootstrapDump() error {
 		return fmt.Errorf("unable to marshal bootstrap in Envoy config dump")
 	}
 	return nil
+}
+
+// PrintSecretDump prints just the secret config dump to the ConfigWriter stdout
+func (c *ConfigWriter) PrintSecretDump() error {
+	if c.configDump == nil {
+		return fmt.Errorf("config writer has not been primed")
+	}
+	secretDump, err := c.configDump.GetSecretConfigDump()
+	if err != nil {
+		return fmt.Errorf("sidecar doesn't support secrets: %v", err)
+	}
+	jsonm := &jsonpb.Marshaler{Indent: "    "}
+	if err := jsonm.Marshal(c.Stdout, secretDump); err != nil {
+		return fmt.Errorf("unable to marshal secrets in Envoy config dump")
+	}
+	return nil
+}
+
+// PrintSecretSummary prints a summary of dynamic active secrets from the config dump
+func (c *ConfigWriter) PrintSecretSummary() error {
+	secretDump, err := c.configDump.GetSecretConfigDump()
+	if err != nil {
+		return err
+	}
+	if len(secretDump.DynamicActiveSecrets) == 0 &&
+		len(secretDump.DynamicWarmingSecrets) == 0 {
+		fmt.Fprintln(c.Stdout, "No active or warming secrets found.")
+		return nil
+	}
+	secretItems, err := sdscompare.GetEnvoySecrets(c.configDump)
+	if err != nil {
+		return err
+	}
+
+	secretWriter := sdscompare.NewSDSWriter(c.Stdout, sdscompare.TABULAR)
+	return secretWriter.PrintSecretItems(secretItems)
 }

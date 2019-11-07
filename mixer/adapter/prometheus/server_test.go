@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors.
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import (
 	"istio.io/istio/mixer/pkg/adapter/test"
 )
 
-func doesNothing(http.ResponseWriter, *http.Request) {}
+func doesNothing(_ http.ResponseWriter, _ *http.Request) {}
 
 func TestServer(t *testing.T) {
 	testAddr := "127.0.0.1:0"

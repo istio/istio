@@ -6,7 +6,7 @@ spec:
   hosts:
   - uk.bookinfo.com
   gateways:
-  - istio-ingressgateway # pinned to ingress gateway only
+  - istio-system/istio-ingressgateway # pinned to ingress gateway only
   http:
   - match:
     - port: 80

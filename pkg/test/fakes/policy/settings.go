@@ -14,7 +14,11 @@
 
 package policy
 
-import "fmt"
+import (
+	"fmt"
+	"strconv"
+	"time"
+)
 
 type settings map[string]string
 
@@ -28,6 +32,30 @@ func (s settings) setDenyCheck(value bool) settings {
 
 func (s settings) getDenyCheck() bool {
 	return s.getBoolOrDefault("denyCheck")
+}
+
+func (s settings) setValidDuration(d time.Duration) {
+	s.setString("validDuration", d.String())
+}
+
+func (s settings) getValidDuration() time.Duration {
+	if ds, ok := s["validDuration"]; !ok {
+		d, _ := time.ParseDuration(ds)
+		return d
+	}
+	return 5 * time.Second
+}
+
+func (s settings) setValidCount(d int32) {
+	s.setString("validCount", string(d))
+}
+
+func (s settings) getValidCount() int32 {
+	if cs, ok := s["validCount"]; !ok {
+		c, _ := strconv.Atoi(cs)
+		return int32(c)
+	}
+	return 1
 }
 
 func (s settings) setBool(name string, value bool) settings {

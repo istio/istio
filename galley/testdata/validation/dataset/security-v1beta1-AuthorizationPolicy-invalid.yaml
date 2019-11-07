@@ -1,0 +1,18 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: invalid-authorization-policy
+spec:
+  selector:
+    matchLabels:
+      app: httpbin
+      version: v1
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/default/sa/sleep"]
+    to:
+    - operation:
+        methods: ["GET"]
+    when:
+    - values: ["key is missing"]

@@ -19,8 +19,7 @@ import (
 	"sort"
 	"sync"
 
-	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/il"
+	"istio.io/pkg/attribute"
 )
 
 // NewFakeBag creates a FakeBag and converts map[string]string to StringMap
@@ -30,7 +29,7 @@ func NewFakeBag(attrs map[string]interface{}) *FakeBag {
 	}
 	for k, v := range attrs {
 		if sm, ok := v.(map[string]string); ok {
-			bag.Attrs[k] = NewStringMap(k, sm, bag)
+			bag.Attrs[k] = attribute.NewStringMap(k, sm, bag)
 		} else {
 			bag.Attrs[k] = v
 		}
@@ -54,7 +53,7 @@ var _ attribute.Bag = (*FakeBag)(nil)
 func (b *FakeBag) Get(name string) (interface{}, bool) {
 	c, found := b.Attrs[name]
 	b.referencedLock.Lock()
-	b.referenced[name] = true
+	b.referenced[name] = found
 	b.referencedLock.Unlock()
 	return c, found
 }
@@ -67,18 +66,33 @@ func (b *FakeBag) Names() []string {
 // Done indicates the bag can be reclaimed.
 func (b *FakeBag) Done() {}
 
+// Contains returns true if the key is present in the bag.
+func (b *FakeBag) Contains(key string) bool {
+	_, found := b.Attrs[key]
+	return found
+}
+
 // String is needed to implement the Bag interface.
 func (b *FakeBag) String() string { return "" }
 
+// ReferenceTracker is not set
+func (b *FakeBag) ReferenceTracker() attribute.ReferenceTracker {
+	return b
+}
+
 // ReferencedList returns the sorted list of attributes that were referenced. Attribute references through
-// string maps are encoded as mapname[keyname].
+// string maps are encoded as mapname[keyname]. Absent values are prefixed with "-".
 func (b *FakeBag) ReferencedList() []string {
 
 	attributes := make([]string, 0, len(b.referenced))
 
 	b.referencedLock.RLock()
-	for k := range b.referenced {
-		attributes = append(attributes, k)
+	for k, found := range b.referenced {
+		attr := k
+		if !found {
+			attr = "-" + attr
+		}
+		attributes = append(attributes, attr)
 	}
 	b.referencedLock.RUnlock()
 
@@ -87,28 +101,23 @@ func (b *FakeBag) ReferencedList() []string {
 	return attributes
 }
 
-// NewStringMap creates an il.StringMap given map[string]string
-func NewStringMap(name string, entries map[string]string, parent *FakeBag) il.StringMap {
-	return stringMap{Name: name, Entries: entries, parent: parent}
+// Reference implements reference tracker interface
+func (b *FakeBag) Reference(string, attribute.Presence) {
 }
 
-type stringMap struct {
-	// Name of the stringmap  -- request.headers
-	Name string
-	// Entries in the stringmap
-	Entries map[string]string
-
-	parent *FakeBag
-}
-
-// Get returns a stringmap value and records access
-func (s stringMap) Get(key string) (string, bool) {
-	str, found := s.Entries[key]
-	if s.parent != nil {
-		name := fmt.Sprintf(`%s[%s]`, s.Name, key)
-		s.parent.referencedLock.Lock()
-		s.parent.referenced[name] = true
-		s.parent.referencedLock.Unlock()
+// MapReference implements reference tracker interface
+func (b *FakeBag) MapReference(attr, key string, cond attribute.Presence) {
+	name := fmt.Sprintf(`%s[%s]`, attr, key)
+	b.referencedLock.Lock()
+	switch cond {
+	case attribute.Exact:
+		b.referenced[name] = true
+	default:
+		b.referenced[name] = false
 	}
-	return str, found
+	b.referencedLock.Unlock()
 }
+
+func (b *FakeBag) Clear()                                              {}
+func (b *FakeBag) Restore(attribute.ReferencedAttributeSnapshot)       {}
+func (b *FakeBag) Snapshot() (_ attribute.ReferencedAttributeSnapshot) { return }

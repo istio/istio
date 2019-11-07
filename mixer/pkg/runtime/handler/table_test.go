@@ -20,12 +20,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
-	dto "github.com/prometheus/client_model/go"
-
-	"istio.io/istio/mixer/pkg/pool"
+	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/runtime/testing/data"
+	"istio.io/istio/mixer/pkg/template"
+	"istio.io/pkg/pool"
 )
 
 // Create a standard global config with Handler H1, Instance I1 and rule R1 referencing I1 and H1.
@@ -111,6 +110,42 @@ func TestNew_NoReuse_DifferentConfig(t *testing.T) {
 	}
 }
 
+func TestNew_NoReuse_DifferentConnectionConfig(t *testing.T) {
+	templates := map[string]*template.Info{}
+	adapters := map[string]*adapter.Info{}
+
+	// Load base dynamic config, which includes listentry template and listbackend adapter config
+	dynamicConfig, err := data.ReadConfigs("../../../template/listentry/template.yaml", "../../../test/listbackend/nosession.yaml")
+	dynamicConfig = data.JoinConfigs(dynamicConfig, data.InstanceDynamic, data.RuleDynamic)
+
+	// Join base dynamic config with dynamic handler
+	config1 := data.JoinConfigs(dynamicConfig, data.ListHandler3)
+	if err != nil {
+		t.Fatalf("fail to load dynamic config: %v", err)
+	}
+	s, _ := config.GetSnapshotForTest(templates, adapters, data.ServiceConfig, config1)
+	table := NewTable(Empty(), s, nil)
+
+	if len(table.entries) != 1 {
+		t.Fatalf("got %v entries in route table, want 1", len(table.entries))
+	}
+
+	// Join base dynamic config with dynamic handler which has different connection address
+	config2 := data.JoinConfigs(dynamicConfig, data.ListHandler3Addr)
+	// NewTable again using the slightly different config
+	s, _ = config.GetSnapshotForTest(templates, adapters, data.ServiceConfig, config2)
+
+	table2 := NewTable(table, s, nil)
+
+	if len(table2.entries) != 1 {
+		t.Fatalf("got %v entries in route table, want 1", len(table2.entries))
+	}
+
+	if table2.entries[data.FqdnListHandler3] == table.entries[data.FqdnListHandler3] {
+		t.Fatalf("got same entry %+v in route table after handler config change, want different entries", table2.entries[data.FqdnListHandler3])
+	}
+}
+
 func TestTable_Get(t *testing.T) {
 	table := &Table{
 		entries: make(map[string]Entry),
@@ -168,7 +203,7 @@ func TestCleanup_Basic(t *testing.T) {
 	expected := `
 [acheck] NewBuilder =>
 [acheck] NewBuilder <=
-[acheck] HandlerBuilder.SetAdapterConfig => '&Struct{Fields:map[string]*Value{},}'
+[acheck] HandlerBuilder.SetAdapterConfig => '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}'
 [acheck] HandlerBuilder.SetAdapterConfig <=
 [acheck] HandlerBuilder.Validate =>
 [acheck] HandlerBuilder.Validate <= (SUCCESS)
@@ -187,10 +222,9 @@ func TestCleanup_WorkerNotClosed(t *testing.T) {
 		SpawnWorker            bool
 		SpawnDaemon            bool
 		CloseGoRoutines        bool
-		wantWorkerStrayRoutine float64
-		wantDaemonStrayRoutine float64
+		wantWorkerStrayRoutine int64
+		wantDaemonStrayRoutine int64
 	}{
-
 		{
 			SpawnWorker:            true,
 			SpawnDaemon:            true,
@@ -229,7 +263,10 @@ func TestCleanup_WorkerNotClosed(t *testing.T) {
 			s, _ := config.GetSnapshotForTest(templates, adapters, data.ServiceConfig, globalCfg)
 			s.ID = int64(idx * 2)
 
-			oldTable := NewTable(Empty(), s, pool.NewGoroutinePool(5, false))
+			gp := pool.NewGoroutinePool(5, false)
+			gp.AddWorkers(5)
+			oldTable := NewTable(Empty(), s, gp)
+			oldTable.strayWorkersRetryDuration = 5 * time.Millisecond
 
 			s = config.Empty()
 			// Every iteration of this test is working with two different config snapshot (old and new). We need to
@@ -244,18 +281,14 @@ func TestCleanup_WorkerNotClosed(t *testing.T) {
 			// give time for counters to get updated before validating them.
 			time.Sleep(500 * time.Millisecond)
 
-			var c prometheus.Metric = oldTable.entries["hcheck1.acheck.istio-system"].env.counters.workers
-			m := new(dto.Metric)
-			_ = c.Write(m)
-			if *m.GetGauge().Value != tt.wantWorkerStrayRoutine {
-				t.Fatalf("expected %v worker stray routines; got %v", tt.wantWorkerStrayRoutine, *m.GetGauge().Value)
+			gotWorkers := oldTable.entries["hcheck1.acheck.istio-system"].env.Workers()
+			if gotWorkers != tt.wantWorkerStrayRoutine {
+				t.Fatalf("got %v worker stray routines; wanted %v", gotWorkers, tt.wantWorkerStrayRoutine)
 			}
 
-			c = oldTable.entries[data.FqnACheck1].env.counters.daemons
-			m = new(dto.Metric)
-			_ = c.Write(m)
-			if *m.GetGauge().Value != tt.wantDaemonStrayRoutine {
-				t.Fatalf("expected %v daemon stray routines; got %v", tt.wantDaemonStrayRoutine, *m.GetGauge().Value)
+			gotDaemons := oldTable.entries[data.FqnACheck1].env.Daemons()
+			if gotDaemons != tt.wantDaemonStrayRoutine {
+				t.Fatalf("got %v daemon stray routines; wanted %v", gotDaemons, tt.wantDaemonStrayRoutine)
 			}
 		})
 	}
@@ -279,7 +312,7 @@ func TestCleanup_NoChange(t *testing.T) {
 	expected := `
 [acheck] NewBuilder =>
 [acheck] NewBuilder <=
-[acheck] HandlerBuilder.SetAdapterConfig => '&Struct{Fields:map[string]*Value{},}'
+[acheck] HandlerBuilder.SetAdapterConfig => '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}'
 [acheck] HandlerBuilder.SetAdapterConfig <=
 [acheck] HandlerBuilder.Validate =>
 [acheck] HandlerBuilder.Validate <= (SUCCESS)
@@ -347,7 +380,7 @@ func TestCleanup_CloseError(t *testing.T) {
 	expected := `
 [acheck] NewBuilder =>
 [acheck] NewBuilder <=
-[acheck] HandlerBuilder.SetAdapterConfig => '&Struct{Fields:map[string]*Value{},}'
+[acheck] HandlerBuilder.SetAdapterConfig => '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}'
 [acheck] HandlerBuilder.SetAdapterConfig <=
 [acheck] HandlerBuilder.Validate =>
 [acheck] HandlerBuilder.Validate <= (SUCCESS)
@@ -382,7 +415,7 @@ func TestCleanup_ClosePanic(t *testing.T) {
 	expected := `
 [acheck] NewBuilder =>
 [acheck] NewBuilder <=
-[acheck] HandlerBuilder.SetAdapterConfig => '&Struct{Fields:map[string]*Value{},}'
+[acheck] HandlerBuilder.SetAdapterConfig => '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}'
 [acheck] HandlerBuilder.SetAdapterConfig <=
 [acheck] HandlerBuilder.Validate =>
 [acheck] HandlerBuilder.Validate <= (SUCCESS)

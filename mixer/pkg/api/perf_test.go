@@ -26,10 +26,13 @@ import (
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/pool"
+	attr "istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/loadshedding"
 	"istio.io/istio/mixer/pkg/runtime/dispatcher"
 	"istio.io/istio/mixer/pkg/status"
+	"istio.io/pkg/attribute"
+	"istio.io/pkg/log"
+	"istio.io/pkg/pool"
 )
 
 type benchState struct {
@@ -47,13 +50,17 @@ func (bs *benchState) createGRPCServer() (string, error) {
 		return "", err
 	}
 
+	for _, s := range log.Scopes() {
+		s.SetOutputLevel(log.NoneLevel)
+	}
+
 	// get everything wired up
-	bs.gs = grpc.NewServer(grpc.MaxConcurrentStreams(256), grpc.MaxMsgSize(1024*1024))
+	bs.gs = grpc.NewServer(grpc.MaxConcurrentStreams(256), grpc.MaxRecvMsgSize(1024*1024))
 
 	bs.gp = pool.NewGoroutinePool(32, false)
 	bs.gp.AddWorkers(32)
 
-	ms := NewGRPCServer(bs, bs.gp, nil)
+	ms := NewGRPCServer(bs, bs.gp, nil, loadshedding.NewThrottler(loadshedding.DefaultOptions()))
 	bs.s = ms.(*grpcServer)
 	mixerpb.RegisterMixerServer(bs.gs, bs.s)
 
@@ -191,9 +198,9 @@ func unaryBench(b *testing.B, grpcCompression, useGlobalDict bool) {
 		request := &mixerpb.CheckRequest{}
 
 		if useGlobalDict {
-			bag.ToProto(&request.Attributes, revGlobalDict, len(revGlobalDict))
+			attr.ToProto(bag, &request.Attributes, revGlobalDict, len(revGlobalDict))
 		} else {
-			bag.ToProto(&request.Attributes, nil, 0)
+			attr.ToProto(bag, &request.Attributes, nil, 0)
 		}
 
 		wg.Add(1)
@@ -243,7 +250,7 @@ func getGlobalDict() []string {
 }
 
 func setRequestAttrs(bag *attribute.MutableBag, uuid []byte) {
-	bag.Set("request.headers", map[string]string{
+	bag.Set("request.headers", attribute.WrapStringMap(map[string]string{
 		":authority":        "localhost:27070",
 		":method":           "GET",
 		":path":             "/echo",
@@ -252,19 +259,19 @@ func setRequestAttrs(bag *attribute.MutableBag, uuid []byte) {
 		"user-agent":        "Go-http-client/1.1",
 		"x-forwarded-proto": "http",
 		"x-request-id":      string(uuid),
-	})
+	}))
 	bag.Set("request.host", "localhost:27070")
 	bag.Set("request.path", "/echo")
 	bag.Set("request.size", int64(0))
 	bag.Set("request.time", time.Now())
-	bag.Set("response.headers", map[string]string{
+	bag.Set("response.headers", attribute.WrapStringMap(map[string]string{
 		":status":                       "200",
 		"content-length":                "0",
 		"content-type":                  "text/plain; charset=utf-8",
 		"date":                          time.Now().String(),
 		"server":                        "envoy",
 		"x-envoy-upstream-service-time": "0",
-	})
+	}))
 	bag.Set("response.http.code", int64(200))
 	bag.Set("response.duration", time.Duration(50)*time.Millisecond)
 	bag.Set("response.size", int64(64))

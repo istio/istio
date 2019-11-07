@@ -36,14 +36,13 @@ var baseSingleCheckSetup = perf.Setup{
 	Loads: []perf.Load{{
 		Multiplier: 1,
 		Requests: []perf.Request{
-			perf.BasicCheck{
-				Attributes: map[string]interface{}{
+			perf.BuildBasicCheck(
+				map[string]interface{}{
 					"attr.bool":   true,
 					"attr.string": "str1",
 					"attr.double": float64(23.45),
 					"attr.int64":  int64(42),
-				},
-			},
+				}, nil),
 		},
 	}},
 }

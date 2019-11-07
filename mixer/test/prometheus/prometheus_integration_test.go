@@ -15,8 +15,10 @@
 package prometheus
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"testing"
 
 	dto "github.com/prometheus/client_model/go"
@@ -84,6 +86,7 @@ func TestReport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("could not read file: %v", err)
 	}
+
 	adapter_integration.RunTest(
 		t,
 		nil,
@@ -103,18 +106,19 @@ func TestReport(t *testing.T) {
 			ParallelCalls: []adapter_integration.Call{
 				{
 					CallKind: adapter_integration.REPORT,
-					Attrs:    map[string]interface{}{"request.size": 555},
+					Attrs:    map[string]interface{}{"request.size": int64(555)},
 				},
 				{
 					CallKind: adapter_integration.REPORT,
-					Attrs:    map[string]interface{}{"request.size": 445},
+					Attrs:    map[string]interface{}{"request.size": int64(445)},
 				},
 			},
 
 			GetState: func(ctx interface{}) (interface{}, error) {
 				s := ctx.(Server)
 				mfChan := make(chan *dto.MetricFamily, 1)
-				go prom2json.FetchMetricFamilies(fmt.Sprintf(prometheusMetricsURLTemplate, s.PromPort()), mfChan, "", "", true)
+				transport := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+				go prom2json.FetchMetricFamilies(fmt.Sprintf(prometheusMetricsURLTemplate, s.PromPort()), mfChan, transport)
 				result := []prom2json.Family{}
 				for mf := range mfChan {
 					result = append(result, *prom2json.NewFamily(mf))

@@ -3,15 +3,23 @@ name: Feature request
 about: Suggest an idea to improve Istio
 
 ---
+(This is used to request new product features, please visit <https://discuss.istio.io> for questions on using Istio)
 
-**Is your feature request related to a problem? Please describe.**
-A clear and concise description of what the problem is
-
-**Describe the solution you'd like**
-A clear and concise description of what you want to happen.
+**Describe the feature request**
 
 **Describe alternatives you've considered**
-A clear and concise description of any alternative solutions or features you've considered.
+
+**Affected product area (please put an X in all that apply)**
+
+[ ] Configuration Infrastructure
+[ ] Docs
+[ ] Installation
+[ ] Networking
+[ ] Performance and Scalability
+[ ] Policies and Telemetry
+[ ] Security
+[ ] Test and Release
+[ ] User Experience
+[ ] Developer Infrastructure
 
 **Additional context**
-Add any other context about the feature request here.

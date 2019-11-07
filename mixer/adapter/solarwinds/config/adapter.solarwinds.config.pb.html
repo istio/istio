@@ -1,9 +1,10 @@
 ---
 title: SolarWinds
-description: Adapter to deliver logs and metrics to Papertrail and AppOptics backends
+description: Adapter to deliver logs and metrics to Papertrail and AppOptics backends.
 location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/solarwinds.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
+supported_templates: metric,logentry
 aliases:
   - /docs/reference/config/adapters/solarwinds.html
 number_of_entries: 3
@@ -22,58 +23,60 @@ and the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/tem
 <p>Example config usage:</p>
 
 <pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha2&quot;
-kind: solarwinds
+kind: handler
 metadata:
-  name: handler
+  name: solarwinds
   namespace: istio-system
 spec:
-  appoptics_access_token: &lt;APPOPTICS SAMPLE TOKEN&gt;
-  papertrail_url: &lt;PAPERTRAIL URL&gt;
-  papertrail_local_retention_duration: &lt;RETENTION PERIOD FOR LOGS LOCALLY, Optional&gt;
-  metrics:
-    requestcount.metric.istio-system:
-      label_names:
-      - source_service
-      - source_version
-      - destination_service
-      - destination_version
-      - response_code
-    requestduration.metric.istio-system:
-      label_names:
-      - source_service
-      - source_version
-      - destination_service
-      - destination_version
-      - response_code
-    requestsize.metric.istio-system:
-      label_names:
-      - source_service
-      - source_version
-      - destination_service
-      - destination_version
-      - response_code
-    responsesize.metric.istio-system:
-      label_names:
-      - source_service
-      - source_version
-      - destination_service
-      - destination_version
-      - response_code
-    tcpbytesent.metric.istio-system:
-      label_names:
-      - source_service
-      - source_version
-      - destination_service
-      - destination_version
-    tcpbytereceived.metric.istio-system:
-      label_names:
-      - source_service
-      - source_version
-      - destination_service
-      - destination_version
-  logs:
-    solarwindslogentry.logentry.istio-system:
-      payloadTemplate: '&lbrace;&lbrace;or (.originIp) &quot;-&quot;}} - &lbrace;&lbrace;or (.sourceUser) &quot;-&quot;}} [&lbrace;&lbrace;or (.timestamp.Format &quot;2006-01-02T15:04:05Z07:00&quot;) &quot;-&quot;}}] &quot;&lbrace;&lbrace;or (.method) &quot;-&quot;}} &lbrace;&lbrace;or (.url) &quot;-&quot;}} &lbrace;&lbrace;or (.protocol) &quot;-&quot;}}&quot; &lbrace;&lbrace;or (.responseCode) &quot;-&quot;}} &lbrace;&lbrace;or (.responseSize) &quot;-&quot;}}'
+  compiledAdapter: solarwinds
+  params:
+    appoptics_access_token: &lt;APPOPTICS SAMPLE TOKEN&gt;
+    papertrail_url: &lt;PAPERTRAIL URL&gt;
+    papertrail_local_retention_duration: &lt;RETENTION PERIOD FOR LOGS LOCALLY, Optional&gt;
+    metrics:
+      requestcount.metric.istio-system:
+        label_names:
+        - source_service
+        - source_version
+        - destination_service
+        - destination_version
+        - response_code
+      requestduration.metric.istio-system:
+        label_names:
+        - source_service
+        - source_version
+        - destination_service
+        - destination_version
+        - response_code
+      requestsize.metric.istio-system:
+        label_names:
+        - source_service
+        - source_version
+        - destination_service
+        - destination_version
+        - response_code
+      responsesize.metric.istio-system:
+        label_names:
+        - source_service
+        - source_version
+        - destination_service
+        - destination_version
+        - response_code
+      tcpbytesent.metric.istio-system:
+        label_names:
+        - source_service
+        - source_version
+        - destination_service
+        - destination_version
+      tcpbytereceived.metric.istio-system:
+        label_names:
+        - source_service
+        - source_version
+        - destination_service
+        - destination_version
+    logs:
+      solarwindslogentry.logentry.istio-system:
+        payloadTemplate: '&lbrace;&lbrace;or (.originIp) &quot;-&quot;}} - &lbrace;&lbrace;or (.sourceUser) &quot;-&quot;}} [&lbrace;&lbrace;or (.timestamp.Format &quot;2006-01-02T15:04:05Z07:00&quot;) &quot;-&quot;}}] &quot;&lbrace;&lbrace;or (.method) &quot;-&quot;}} &lbrace;&lbrace;or (.url) &quot;-&quot;}} &lbrace;&lbrace;or (.protocol) &quot;-&quot;}}&quot; &lbrace;&lbrace;or (.responseCode) &quot;-&quot;}} &lbrace;&lbrace;or (.responseSize) &quot;-&quot;}}'
 </code></pre>
 
 <table class="message-fields">
@@ -82,6 +85,7 @@ spec:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -93,6 +97,9 @@ spec:
 will NOT be shipped to AppOptics</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-appoptics_batch_size">
 <td><code>appopticsBatchSize</code></td>
@@ -100,8 +107,11 @@ will NOT be shipped to AppOptics</p>
 <td>
 <p>Optional. Max batch size of metrics to be sent to AppOptics.
 AppOptics does not allow batch size greater than 1000.
-If this is unspecified or given a value 0 explicitely, a default batch size of 1000 will be used.</p>
+If this is unspecified or given a value 0 explicitly, a default batch size of 1000 will be used.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Params-papertrail_url">
@@ -112,30 +122,42 @@ If this is unspecified or given a value 0 explicitely, a default batch size of 1
 dropped.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-papertrail_local_retention_duration">
 <td><code>papertrailLocalRetentionDuration</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">Duration</a></code></td>
 <td>
 <p>This is the duration for which logs will be persisted locally until it is shipped to papertrail in the event
 of a network failure. Default value is 1 hour.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-metrics">
 <td><code>metrics</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#Params-MetricInfo">Params.MetricInfo</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#Params-MetricInfo">MetricInfo</a>&gt;</code></td>
 <td>
 <p>A map of Istio metric name to solarwinds metric info.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-logs">
 <td><code>logs</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#Params-LogInfo">Params.LogInfo</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#Params-LogInfo">LogInfo</a>&gt;</code></td>
 <td>
 <p>A map of Istio logentry name to solarwinds log info.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -151,6 +173,7 @@ of a network failure. Default value is 1 hour.</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -169,6 +192,9 @@ It will be given the full set of variables for the log to use to construct its r
 If it is not provided, a default template in place will be used.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 </tbody>
 </table>
@@ -183,6 +209,7 @@ If it is not provided, a default template in place will be used.</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -192,6 +219,9 @@ If it is not provided, a default template in place will be used.</p>
 <td>
 <p>The names of labels to use: these need to match the dimensions of the Istio metric.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>

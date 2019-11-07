@@ -72,6 +72,7 @@ spec:
     destination.name: destination.name | "unknown"
     source.ip: source.ip | ip("0.0.0.0")
     source.name: source.name | "unknown"
+    source.labels: source.labels | emptyStringMap()
 `
 )
 
@@ -223,6 +224,7 @@ func TestReportTraces(t *testing.T) {
                     "destination.name": "destsvc",
                     "httpStatusCode": "200",
                     "source.ip": "10.0.0.1",
+                    "source.labels.version": "v1",
                     "source.name": "srcsvc"
                    },
                    "timestamp": 999900000,
@@ -254,6 +256,7 @@ func TestReportTraces(t *testing.T) {
                     "destination.name": "unknown",
                     "httpStatusCode": "200",
                     "source.ip": "10.0.0.2",
+                    "source.labels.version": "v1",
                     "source.name": "unknown"
                    },
                    "timestamp": 999905000,

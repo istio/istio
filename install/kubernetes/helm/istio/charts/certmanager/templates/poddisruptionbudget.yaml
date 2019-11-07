@@ -1,0 +1,22 @@
+{{- if .Values.global.defaultPodDisruptionBudget.enabled }}
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: certmanager
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: certmanager
+    chart: {{ template "certmanager.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+    version: {{ .Chart.Version }}
+    {{- if .Values.podLabels }}
+{{ toYaml .Values.podLabels | indent 4 }}
+    {{- end }}
+spec:
+{{ include "podDisruptionBudget.spec" .Values.global.defaultPodDisruptionBudget }}
+  selector:
+    matchLabels:
+      app: certmanager
+      release: {{ .Release.Name }}
+{{- end }}

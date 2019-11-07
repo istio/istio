@@ -2,6 +2,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: istio-ingress
+  namespace: testns
 spec:
   selector:
     istio: ingress
@@ -27,6 +28,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: ingress
+  namespace: testns
 spec:
   # K8S Ingress rules are converted on the fly to a VirtualService.
   # The local tests may run without k8s - so for ingress we test with the

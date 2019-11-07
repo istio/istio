@@ -49,12 +49,18 @@ spec:
 ---
 # 2 deployments so we can change routing rules
 # 1st deployment, 1 pod for service inside the cluster, will get istio injected
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: echosrv-deployment-1
 spec:
   replicas: 1 # tells deployment to run 1 pod matching the template
+  selector:
+    matchLabels:
+      app: echosrv
+      version: v1
+      test: a
+      extrap: non # can't use "no" as that's a boolean...
   template: # create pods using pod definition in this template
     metadata:
       # a unique name is generated from the deployment name
@@ -67,6 +73,8 @@ spec:
       containers:
       - name: echosrv
         image: {{.FortioImage}}
+        securityContext:
+          runAsUser: 0
         ports:
          - containerPort: 8080
          - containerPort: 8079
@@ -77,12 +85,18 @@ spec:
 ---
 # 2nd deployment, 1 pod for service inside the cluster, will get istio injected
 # same as above except for the version and extra port
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: echosrv-deployment-2
 spec:
   replicas: 1 # tells deployment to run 1 pod matching the template
+  selector:
+    matchLabels:
+      app: echosrv
+      version: v2
+      test: b
+      extrap: oui # can't seem to be able to use "yes" here and in selector...
   template: # create pods using pod definition in this template
     metadata:
       # a unique name is generated from the deployment name
@@ -95,6 +109,8 @@ spec:
       containers:
       - name: echosrv
         image: {{.FortioImage}}
+        securityContext:
+          runAsUser: 0
         ports:
          - containerPort: 8080
          - containerPort: 8079
@@ -123,5 +139,5 @@ spec:
     extrap: oui
 ---
 # We can't use a third service for the security open proxy issue as the issue
-# is only triggered using pod ip (service cluster ip + non existant port is not
+# is only triggered using pod ip (service cluster ip + non existent port is not
 # routed)

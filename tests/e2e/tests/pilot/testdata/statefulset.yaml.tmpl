@@ -1,0 +1,39 @@
+# To test headless to headless with/without istio auth
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{.service}}
+  labels:
+    app: {{.service}}
+spec:
+  clusterIP: None
+  ports:
+  - port: 19090
+    name: tcp
+  selector:
+    app: {{.service}}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{.service}}
+spec:
+  selector:
+    matchLabels:
+      app: {{.service}} # has to match .spec.template.metadata.labels
+  serviceName: "{{.service}}"
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: {{.service}} # has to match .spec.selector.matchLabels
+    spec:
+      containers:
+      - name: app
+        image: {{.Hub}}/app:{{.Tag}}
+        imagePullPolicy: {{.ImagePullPolicy}}
+        args:
+          - --port
+          - "{{.port}}"
+        ports:
+        - containerPort: {{.port}}

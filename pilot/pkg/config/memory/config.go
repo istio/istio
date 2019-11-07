@@ -20,7 +20,12 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/pkg/log"
+
+	"istio.io/pkg/ledger"
+
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schema"
 )
 
 var (
@@ -28,11 +33,18 @@ var (
 	errAlreadyExists = errors.New("item already exists")
 )
 
+const ledgerLogf = "error tracking pilot config memory versions for distribution: %v"
+
 // Make creates an in-memory config store from a config descriptor
-func Make(descriptor model.ConfigDescriptor) model.ConfigStore {
+func Make(descriptor schema.Set) model.ConfigStore {
+	return MakeWithLedger(descriptor, ledger.Make(time.Minute))
+}
+
+func MakeWithLedger(descriptor schema.Set, configLedger ledger.Ledger) model.ConfigStore {
 	out := store{
 		descriptor: descriptor,
 		data:       make(map[string]map[string]*sync.Map),
+		ledger:     configLedger,
 	}
 	for _, typ := range descriptor.Types() {
 		out.data[typ] = make(map[string]*sync.Map)
@@ -41,32 +53,41 @@ func Make(descriptor model.ConfigDescriptor) model.ConfigStore {
 }
 
 type store struct {
-	descriptor model.ConfigDescriptor
+	descriptor schema.Set
 	data       map[string]map[string]*sync.Map
+	ledger     ledger.Ledger
 }
 
-func (cr *store) ConfigDescriptor() model.ConfigDescriptor {
+func (cr *store) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
+	return cr.ledger.GetPreviousValue(version, key)
+}
+
+func (cr *store) ConfigDescriptor() schema.Set {
 	return cr.descriptor
 }
 
-func (cr *store) Get(typ, name, namespace string) (*model.Config, bool) {
+func (cr *store) Version() string {
+	return cr.ledger.RootHash()
+}
+
+func (cr *store) Get(typ, name, namespace string) *model.Config {
 	_, ok := cr.data[typ]
 	if !ok {
-		return nil, false
+		return nil
 	}
 
 	ns, exists := cr.data[typ][namespace]
 	if !exists {
-		return nil, false
+		return nil
 	}
 
 	out, exists := ns.Load(name)
 	if !exists {
-		return nil, false
+		return nil
 	}
 	config := out.(model.Config)
 
-	return &config, true
+	return &config
 }
 
 func (cr *store) List(typ, namespace string) ([]model.Config, error) {
@@ -110,17 +131,21 @@ func (cr *store) Delete(typ, name, namespace string) error {
 		return errNotFound
 	}
 
+	err := cr.ledger.Delete(model.Key(typ, name, namespace))
+	if err != nil {
+		log.Warnf(ledgerLogf, err)
+	}
 	ns.Delete(name)
 	return nil
 }
 
 func (cr *store) Create(config model.Config) (string, error) {
 	typ := config.Type
-	schema, ok := cr.descriptor.GetByType(typ)
+	s, ok := cr.descriptor.GetByType(typ)
 	if !ok {
 		return "", errors.New("unknown type")
 	}
-	if err := schema.Validate(config.Name, config.Namespace, config.Spec); err != nil {
+	if err := s.Validate(config.Name, config.Namespace, config.Spec); err != nil {
 		return "", err
 	}
 	ns, exists := cr.data[typ][config.Namespace]
@@ -132,7 +157,18 @@ func (cr *store) Create(config model.Config) (string, error) {
 	_, exists = ns.Load(config.Name)
 
 	if !exists {
-		config.ResourceVersion = time.Now().String()
+		tnow := time.Now()
+		config.ResourceVersion = tnow.String()
+
+		// Set the creation timestamp, if not provided.
+		if config.CreationTimestamp.IsZero() {
+			config.CreationTimestamp = tnow
+		}
+
+		_, err := cr.ledger.Put(model.Key(typ, config.Namespace, config.Name), config.Version)
+		if err != nil {
+			log.Warnf(ledgerLogf, err)
+		}
 		ns.Store(config.Name, config)
 		return config.ResourceVersion, nil
 	}
@@ -141,11 +177,11 @@ func (cr *store) Create(config model.Config) (string, error) {
 
 func (cr *store) Update(config model.Config) (string, error) {
 	typ := config.Type
-	schema, ok := cr.descriptor.GetByType(typ)
+	s, ok := cr.descriptor.GetByType(typ)
 	if !ok {
 		return "", errors.New("unknown type")
 	}
-	if err := schema.Validate(config.Name, config.Namespace, config.Spec); err != nil {
+	if err := s.Validate(config.Name, config.Namespace, config.Spec); err != nil {
 		return "", err
 	}
 
@@ -165,6 +201,10 @@ func (cr *store) Update(config model.Config) (string, error) {
 
 	rev := time.Now().String()
 	config.ResourceVersion = rev
+	_, err := cr.ledger.Put(model.Key(typ, config.Namespace, config.Name), config.Version)
+	if err != nil {
+		log.Warnf(ledgerLogf, err)
+	}
 	ns.Store(config.Name, config)
 	return rev, nil
 }

@@ -29,12 +29,12 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/fake"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	k8stesting "k8s.io/client-go/testing"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/mixer/pkg/config/store"
-	"istio.io/istio/pkg/probe"
+	"istio.io/pkg/probe"
 )
 
 // The "retryTimeout" used by the test.
@@ -43,7 +43,9 @@ const testingRetryTimeout = 10 * time.Millisecond
 // The timeout for "waitFor" function, waiting for the expected event to come.
 const waitForTimeout = time.Second
 
-func createFakeDiscovery(*rest.Config) (discovery.DiscoveryInterface, error) {
+const apiGroupVersion = ConfigAPIGroup + "/" + ConfigAPIVersion
+
+func createFakeDiscovery(_ *rest.Config) (discovery.DiscoveryInterface, error) {
 	return &fake.FakeDiscovery{
 		Fake: &k8stesting.Fake{
 			Resources: []*metav1.APIResourceList{
@@ -65,30 +67,39 @@ type dummyListerWatcherBuilder struct {
 	watchers map[string]*watch.RaceFreeFakeWatcher
 }
 
-func (d *dummyListerWatcherBuilder) build(res metav1.APIResource) cache.ListerWatcher {
+func (f *fakeDynamicResource) List(opts metav1.ListOptions) (*unstructured.UnstructuredList, error) {
+	list := &unstructured.UnstructuredList{}
+	f.d.mu.RLock()
+	for k, v := range f.d.data {
+		if k.Kind == f.res.Kind {
+			list.Items = append(list.Items, *v)
+		}
+	}
+	f.d.mu.RUnlock()
+	return list, nil
+}
+
+func (f *fakeDynamicResource) Watch(opts metav1.ListOptions) (watch.Interface, error) {
+	return f.w, nil
+}
+
+type fakeDynamicResource struct {
+	d *dummyListerWatcherBuilder
+	dynamic.ResourceInterface
+	w   watch.Interface
+	res metav1.APIResource
+}
+
+func (d *dummyListerWatcherBuilder) build(res metav1.APIResource) dynamic.ResourceInterface {
 	w := watch.NewRaceFreeFake()
 	d.mu.Lock()
 	d.watchers[res.Kind] = w
 	d.mu.Unlock()
 
-	return &cache.ListWatch{
-		ListFunc: func(metav1.ListOptions) (runtime.Object, error) {
-			list := &unstructured.UnstructuredList{}
-			d.mu.RLock()
-			for k, v := range d.data {
-				if k.Kind == res.Kind {
-					list.Items = append(list.Items, *v)
-				}
-			}
-			d.mu.RUnlock()
-			return list, nil
-		},
-		WatchFunc: func(metav1.ListOptions) (watch.Interface, error) {
-			return w, nil
-		},
-	}
+	return &fakeDynamicResource{d: d, w: w, res: res}
 }
 
+// nolint: unparam
 func (d *dummyListerWatcherBuilder) put(key store.Key, spec map[string]interface{}) error {
 	res := &unstructured.Unstructured{}
 	res.SetKind(key.Kind)
@@ -144,7 +155,7 @@ func getTempClient() (*Store, string, *dummyListerWatcherBuilder) {
 			return lw, nil
 		},
 		Probe:         probe.NewProbe(),
-		retryInterval: 0,
+		retryInterval: 1 * time.Millisecond,
 	}
 	return client, ns, lw
 }
@@ -295,25 +306,7 @@ func TestStoreFailToInit(t *testing.T) {
 	s.Stop()
 }
 
-func TestCrdsAreNotReady(t *testing.T) {
-	emptyDiscovery := &fake.FakeDiscovery{Fake: &k8stesting.Fake{}}
-	s, _, _ := getTempClient()
-	s.discoveryBuilder = func(*rest.Config) (discovery.DiscoveryInterface, error) {
-		return emptyDiscovery, nil
-	}
-	start := time.Now()
-	err := s.Init([]string{"Handler", "Action"})
-	d := time.Since(start)
-	if err != nil {
-		t.Errorf("Got %v, Want nil", err)
-	}
-	if d < testingRetryTimeout {
-		t.Errorf("Duration for Init %v is too short, maybe not retrying", d)
-	}
-	s.Stop()
-}
-
-func TestCrdsRetryMakeSucceed(t *testing.T) {
+func TestCriticalCrdsAreReady(t *testing.T) {
 	fakeDiscovery := &fake.FakeDiscovery{
 		Fake: &k8stesting.Fake{
 			Resources: []*metav1.APIResourceList{
@@ -321,16 +314,87 @@ func TestCrdsRetryMakeSucceed(t *testing.T) {
 			},
 		},
 	}
-	callCount := 0
+	var callCount int32
+	fakeDiscovery.AddReactor("get", "resource", func(k8stesting.Action) (bool, runtime.Object, error) {
+		atomic.AddInt32(&callCount, 1)
+		fakeDiscovery.Resources[0].APIResources = append(
+			fakeDiscovery.Resources[0].APIResources,
+			metav1.APIResource{Name: "handlers", SingularName: "handler", Kind: "Handler", Namespaced: true},
+			metav1.APIResource{Name: "actions", SingularName: "action", Kind: "Action", Namespaced: true},
+		)
+		return true, nil, nil
+	})
+
+	s, _, _ := getTempClient()
+	s.discoveryBuilder = func(*rest.Config) (discovery.DiscoveryInterface, error) {
+		return fakeDiscovery, nil
+	}
+	s.criticalKinds = []string{"Handler", "Action"}
+	s.bgRetryInterval = 1 * time.Millisecond
+	err := s.Init([]string{"Handler", "Action", "Whatever"})
+	if err != nil {
+		t.Errorf("Got error %v from Init", err)
+	}
+	count := atomic.LoadInt32(&callCount)
+	if count != 1 {
+		t.Errorf("callCount is not expected, got %v wang 1", count)
+	}
+	s.Stop()
+}
+
+func TestCriticalCrdsAreNotReadyRetryTimeout(t *testing.T) {
+	fakeDiscovery := &fake.FakeDiscovery{
+		Fake: &k8stesting.Fake{
+			Resources: []*metav1.APIResourceList{
+				{GroupVersion: apiGroupVersion},
+			},
+		},
+	}
+	var callCount int32
+	fakeDiscovery.AddReactor("get", "resource", func(k8stesting.Action) (bool, runtime.Object, error) {
+		atomic.AddInt32(&callCount, 1)
+		return true, nil, nil
+	})
+
+	s, _, _ := getTempClient()
+	s.discoveryBuilder = func(*rest.Config) (discovery.DiscoveryInterface, error) {
+		return fakeDiscovery, nil
+	}
+	s.criticalKinds = []string{"Handler"}
+	s.retryTimeout = 2 * time.Second
+	s.retryInterval = time.Second
+	err := s.Init([]string{"Handler", "Action"})
+	errorMsg := "failed to discover critical kinds: [Handler]"
+	if err == nil {
+		t.Errorf("got no error from Init, want Init to fail")
+	} else if err.Error() != errorMsg {
+		t.Errorf("got Init error message %v, want %v", err.Error(), errorMsg)
+	}
+	count := atomic.LoadInt32(&callCount)
+	if count < 1 || count > 3 {
+		t.Errorf("got callCount %v, want call count to be more than 1 and less than 3 times", count)
+	}
+	s.Stop()
+}
+
+func TestCriticalCrdsRetryMakeSucceed(t *testing.T) {
+	fakeDiscovery := &fake.FakeDiscovery{
+		Fake: &k8stesting.Fake{
+			Resources: []*metav1.APIResourceList{
+				{GroupVersion: apiGroupVersion},
+			},
+		},
+	}
+	var callCount int32
 	// Gradually increase the number of API resources.
 	fakeDiscovery.AddReactor("get", "resource", func(k8stesting.Action) (bool, runtime.Object, error) {
-		callCount++
-		if callCount == 2 {
+		count := atomic.AddInt32(&callCount, 1)
+		if count == 2 {
 			fakeDiscovery.Resources[0].APIResources = append(
 				fakeDiscovery.Resources[0].APIResources,
 				metav1.APIResource{Name: "handlers", SingularName: "handler", Kind: "Handler", Namespaced: true},
 			)
-		} else if callCount == 3 {
+		} else if count == 3 {
 			fakeDiscovery.Resources[0].APIResources = append(
 				fakeDiscovery.Resources[0].APIResources,
 				metav1.APIResource{Name: "actions", SingularName: "action", Kind: "Action", Namespaced: true},
@@ -345,12 +409,15 @@ func TestCrdsRetryMakeSucceed(t *testing.T) {
 	}
 	// Should set a longer timeout to avoid early quitting retry loop due to lack of computational power.
 	s.retryTimeout = 2 * time.Second
+	s.retryInterval = 10 * time.Millisecond
+	s.criticalKinds = []string{"Handler", "Action"}
 	err := s.Init([]string{"Handler", "Action"})
 	if err != nil {
 		t.Errorf("Got %v, Want nil", err)
 	}
-	if callCount != 3 {
-		t.Errorf("Got %d, Want 3", callCount)
+	count := atomic.LoadInt32(&callCount)
+	if count != 3 {
+		t.Errorf("Got %d, Want 3", count)
 	}
 	s.Stop()
 }
@@ -380,6 +447,7 @@ func TestCrdsRetryAsynchronously(t *testing.T) {
 		return true, nil, nil
 	})
 	s, ns, lw := getTempClient()
+	s.bgRetryInterval = 1 * time.Millisecond
 	s.discoveryBuilder = func(*rest.Config) (discovery.DiscoveryInterface, error) {
 		return fakeDiscovery, nil
 	}
@@ -403,7 +471,7 @@ func TestCrdsRetryAsynchronously(t *testing.T) {
 	}
 	atomic.StoreInt32(&count, 1)
 
-	after := time.After(time.Second / 10)
+	after := time.After(time.Second)
 	tick := time.Tick(time.Millisecond)
 loop:
 	for {
@@ -430,4 +498,40 @@ loop:
 	if err = waitFor(wch, store.Update, k2); err != nil {
 		t.Errorf("Got %v, Want nil", err)
 	}
+}
+
+func TestCrdsRetryAsynchronouslyStoreClose(t *testing.T) {
+	fakeDiscovery := &fake.FakeDiscovery{
+		Fake: &k8stesting.Fake{
+			Resources: []*metav1.APIResourceList{
+				{GroupVersion: apiGroupVersion},
+			},
+		},
+	}
+	callCount := 0
+	mutex := sync.RWMutex{}
+	fakeDiscovery.AddReactor("get", "resource", func(k8stesting.Action) (bool, runtime.Object, error) {
+		mutex.Lock()
+		callCount++
+		mutex.Unlock()
+		return true, nil, nil
+	})
+
+	s, _, _ := getTempClient()
+	s.discoveryBuilder = func(*rest.Config) (discovery.DiscoveryInterface, error) {
+		return fakeDiscovery, nil
+	}
+	s.bgRetryInterval = 10 * time.Millisecond
+	s.Init([]string{"Handler", "Action"})
+
+	// Close store, which should shut down the background retry.
+	// With 10ms retry interval and 30ms before shutdown, at most 5 discovery calls would be made.
+	time.Sleep(30 * time.Millisecond)
+	s.Stop()
+	time.Sleep(30 * time.Millisecond)
+	mutex.RLock()
+	if callCount > 5 {
+		t.Errorf("got %v, want no more than 5 calls", callCount)
+	}
+	mutex.RUnlock()
 }

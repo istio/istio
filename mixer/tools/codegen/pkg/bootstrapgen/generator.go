@@ -71,7 +71,9 @@ var aliasTypes = map[string]string{
 	"adapter.DNSName":      strString,
 	"adapter.EmailAddress": strString,
 	"adapter.URI":          strString,
-	"net.IP":               "[]uint8",
+	"net.IP":               "[]byte",
+	"int":                  strInt64,
+	"map[string]string":    "attribute.WrapStringMap",
 }
 
 func containsValueTypeOrResMsg(ti modelgen.TypeInfo) bool {
@@ -113,13 +115,6 @@ func (g *Generator) generateInternal(fdsFiles map[string]string,
 			},
 			"getAliasType": func(goType string) string {
 				return aliasTypes[goType]
-			},
-			"isAliasTypeSkipIp": func(goType string) bool {
-				if "net.IP" == goType {
-					return false
-				}
-				_, found := aliasTypes[goType]
-				return found
 			},
 			"containsValueTypeOrResMsg": containsValueTypeOrResMsg,
 			"reportTypeUsed": func(ti modelgen.TypeInfo) string {

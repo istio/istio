@@ -50,7 +50,7 @@ func withArgs(args []string, errorf func(format string, a ...interface{})) {
 			"-o template.gen.go",
 		Run: func(cmd *cobra.Command, args []string) {
 
-			if len(args) <= 0 && len(mappingFile) == 0 {
+			if len(args) == 0 && len(mappingFile) == 0 {
 				errorf("Must specify at least one file descriptor set protobuf file.")
 			}
 
@@ -61,6 +61,9 @@ func withArgs(args []string, errorf func(format string, a ...interface{})) {
 			importMapping := make(map[string]string)
 			for _, maps := range mappings {
 				m := strings.Split(maps, ":")
+				if len(m) != 2 {
+					errorf("Invalid flag -m %v", mappings)
+				}
 				importMapping[strings.TrimSpace(m[0])] = strings.TrimSpace(m[1])
 			}
 			fdsFiles := make(map[string]string) // FDS and their package import path

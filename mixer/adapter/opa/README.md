@@ -10,15 +10,15 @@ Opa adapter embedded the [Open Policy Agent](http://www.openpolicyagent.org/) as
 The adapter is responsible for (1) instantiating an [Open Policy Agent](http://www.openpolicyagent.org/) instance,
 (2) passing the parameters to [Open Policy Agent](http://www.openpolicyagent.org/) and getting the evaluation results from OPA at runtime
 
-## Configuration flow (1 and 2 in the above figure):
+## Configuration flow (1 and 2 in the above figure)
 
-  1. Service producer sets authorization rules via istioctl. The rules are saved in Istio Configuration server.
-  1. The authorization adapter fetches the rules and passes to [Open Policy Agent](http://www.openpolicyagent.org/).
+1. Service producer sets authorization rules via istioctl. The rules are saved in Istio Configuration server.
+1. The authorization adapter fetches the rules and passes to [Open Policy Agent](http://www.openpolicyagent.org/).
 
-## Runtime flow (3 and 4 in the above figure):
+## Runtime flow (3 and 4 in the above figure)
 
-  1. The request context is defined by the [authorization template](https://github.com/istio/istio/blob/master/mixer/template/authorization/template.proto), which has two parts, "subject" defines the client identity, and "action" defines how the resource is accessed.
-  1. [Open Policy Agent](http://www.openpolicyagent.org/) evaluates the request context against the rules, and returns the result.
+1. The request context is defined by the [authorization template](https://github.com/istio/istio/blob/master/mixer/template/authorization/template.proto), which has two parts, "subject" defines the client identity, and "action" defines how the resource is accessed.
+1. [Open Policy Agent](http://www.openpolicyagent.org/) evaluates the request context against the rules, and returns the result.
 
 ## Configuration
 

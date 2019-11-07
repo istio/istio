@@ -19,20 +19,19 @@ import (
 	"testing"
 	"time"
 
+	"go.opencensus.io/stats/view"
+
 	authn "istio.io/api/authentication/v1alpha1"
 	"istio.io/istio/pilot/pkg/model/test"
 )
 
 func TestResolveJwksURIUsingOpenID(t *testing.T) {
-	r := newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
+	r := NewJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
 
-	ms, err := test.NewServer()
+	ms, err := test.StartNewServer()
 	defer ms.Stop()
 	if err != nil {
-		t.Fatal("failed to create mock server")
-	}
-	if err := ms.Start(); err != nil {
-		t.Fatal("failed to start mock server")
+		t.Fatal("failed to start a mock server")
 	}
 
 	mockCertURL := ms.URL + "/oauth2/v3/certs"
@@ -73,15 +72,12 @@ func TestResolveJwksURIUsingOpenID(t *testing.T) {
 }
 
 func TestSetAuthenticationPolicyJwksURIs(t *testing.T) {
-	r := newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
+	r := NewJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
 
-	ms, err := test.NewServer()
+	ms, err := test.StartNewServer()
 	defer ms.Stop()
 	if err != nil {
-		t.Fatal("failed to create mock server")
-	}
-	if err := ms.Start(); err != nil {
-		t.Fatal("failed to start mock server")
+		t.Fatal("failed to start a mock server")
 	}
 
 	mockCertURL := ms.URL + "/oauth2/v3/certs"
@@ -128,6 +124,27 @@ func TestSetAuthenticationPolicyJwksURIs(t *testing.T) {
 			},
 			PrincipalBinding: authn.PrincipalBinding_USE_ORIGIN,
 		},
+		"jwks": {
+			Targets: []*authn.TargetSelector{{
+				Name: "two",
+				Ports: []*authn.PortSelector{
+					{
+						Port: &authn.PortSelector_Number{
+							Number: 80,
+						},
+					},
+				},
+			}},
+			Origins: []*authn.OriginAuthenticationMethod{
+				{
+					Jwt: &authn.Jwt{
+						Issuer: "http://abc",
+						Jwks:   "JSONWebKeySet",
+					},
+				},
+			},
+			PrincipalBinding: authn.PrincipalBinding_USE_ORIGIN,
+		},
 	}
 
 	cases := []struct {
@@ -142,6 +159,10 @@ func TestSetAuthenticationPolicyJwksURIs(t *testing.T) {
 			in:       authNPolicies["two"],
 			expected: "http://xyz",
 		},
+		{
+			in:       authNPolicies["jwks"],
+			expected: "",
+		},
 	}
 	for _, c := range cases {
 		_ = r.SetAuthenticationPolicyJwksURIs(c.in)
@@ -153,16 +174,13 @@ func TestSetAuthenticationPolicyJwksURIs(t *testing.T) {
 }
 
 func TestGetPublicKey(t *testing.T) {
-	r := newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
+	r := NewJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
 	defer r.Close()
 
-	ms, err := test.NewServer()
+	ms, err := test.StartNewServer()
 	defer ms.Stop()
 	if err != nil {
-		t.Fatal("failed to create mock server")
-	}
-	if err := ms.Start(); err != nil {
-		t.Fatal("failed to start mock server")
+		t.Fatal("failed to start a mock server")
 	}
 
 	mockCertURL := ms.URL + "/oauth2/v3/certs"
@@ -196,18 +214,191 @@ func TestGetPublicKey(t *testing.T) {
 	}
 }
 
-func TestJwtPubKeyRefresh(t *testing.T) {
-	r := newJwksResolver(time.Millisecond /*ExpireDuration*/, 100*time.Millisecond /*EvictionDuration*/, 2*time.Millisecond /*RefreshInterval*/)
+func TestGetPublicKeyUsingTLS(t *testing.T) {
+	r := newJwksResolverWithCABundlePaths(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval, []string{"./test/testcert/cert.pem"})
 	defer r.Close()
 
-	ms, err := test.NewServer()
+	ms, err := test.StartNewTLSServer("./test/testcert/cert.pem", "./test/testcert/key.pem")
 	defer ms.Stop()
 	if err != nil {
-		t.Fatal("failed to create mock server")
+		t.Fatal("failed to start a mock server")
 	}
-	if err := ms.Start(); err != nil {
-		t.Fatal("failed to start mock server")
+
+	mockCertURL := ms.URL + "/oauth2/v3/certs"
+	pk, err := r.GetPublicKey(mockCertURL)
+	if err != nil {
+		t.Errorf("GetPublicKey(%+v) fails: expected no error, got (%v)", mockCertURL, err)
 	}
+	if test.JwtPubKey1 != pk {
+		t.Errorf("GetPublicKey(%+v): expected (%s), got (%s)", mockCertURL, test.JwtPubKey1, pk)
+	}
+}
+
+func TestGetPublicKeyUsingTLSBadCert(t *testing.T) {
+	r := newJwksResolverWithCABundlePaths(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval, []string{"./test/testcert/cert2.pem"})
+	defer r.Close()
+
+	ms, err := test.StartNewTLSServer("./test/testcert/cert.pem", "./test/testcert/key.pem")
+	defer ms.Stop()
+	if err != nil {
+		t.Fatal("failed to start a mock server")
+	}
+
+	mockCertURL := ms.URL + "/oauth2/v3/certs"
+	_, err = r.GetPublicKey(mockCertURL)
+	if err == nil {
+		t.Errorf("GetPublicKey(%+v) did not fail: expected bad certificate error, got no error", mockCertURL)
+	}
+}
+
+func TestGetPublicKeyUsingTLSWithoutCABundles(t *testing.T) {
+	r := newJwksResolverWithCABundlePaths(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval, []string{})
+	defer r.Close()
+
+	ms, err := test.StartNewTLSServer("./test/testcert/cert.pem", "./test/testcert/key.pem")
+	defer ms.Stop()
+	if err != nil {
+		t.Fatal("failed to start a mock server")
+	}
+
+	mockCertURL := ms.URL + "/oauth2/v3/certs"
+	_, err = r.GetPublicKey(mockCertURL)
+	if err == nil {
+		t.Errorf("GetPublicKey(%+v) did not fail: expected https unsupported error, got no error", mockCertURL)
+	}
+}
+
+func TestJwtPubKeyEvictionForNotUsed(t *testing.T) {
+	r := NewJwksResolver(100*time.Millisecond /*EvictionDuration*/, 2*time.Millisecond /*RefreshInterval*/)
+	defer r.Close()
+
+	ms := startMockServer(t)
+	defer ms.Stop()
+
+	// Mock server returns JwtPubKey2 for later calls.
+	// Verify the refresher has run and got new key from mock server.
+	verifyKeyRefresh(t, r, ms, test.JwtPubKey2)
+
+	// Wait until unused keys are evicted.
+	mockCertURL := ms.URL + "/oauth2/v3/certs"
+	retries := 0
+	for ; retries < 3; retries++ {
+		time.Sleep(time.Second)
+		// Verify the public key is evicted.
+		if _, found := r.keyEntries.Load(mockCertURL); found {
+			// Retry after some sleep.
+			continue
+		}
+		break
+	}
+	if retries == 3 {
+		t.Errorf("Unused keys failed to be evicted")
+	}
+}
+
+func TestJwtPubKeyEvictionForNotRefreshed(t *testing.T) {
+	r := NewJwksResolver(2*time.Second /*EvictionDuration*/, 100*time.Millisecond /*RefreshInterval*/)
+	defer r.Close()
+
+	ms := startMockServer(t)
+	defer ms.Stop()
+
+	// Configures the mock server to return error after the first request.
+	ms.ReturnErrorAfterFirstNumHits = 1
+
+	mockCertURL := ms.URL + "/oauth2/v3/certs"
+
+	// Keep getting the public key to change the lastUsedTime of the public key.
+	done := make(chan struct{})
+	go func() {
+		c := time.NewTicker(100 * time.Millisecond)
+		for {
+			select {
+			case <-done:
+				return
+			case <-c.C:
+				_, _ = r.GetPublicKey(mockCertURL)
+			}
+		}
+	}()
+	defer func() {
+		done <- struct{}{}
+	}()
+
+	pk, err := r.GetPublicKey(mockCertURL)
+	if err != nil {
+		t.Fatalf("GetPublicKey(%+v) fails: expected no error, got (%v)", mockCertURL, err)
+	}
+	// Mock server returns JwtPubKey1 for first call.
+	if test.JwtPubKey1 != pk {
+		t.Fatalf("GetPublicKey(%+v): expected (%s), got (%s)", mockCertURL, test.JwtPubKey1, pk)
+	}
+
+	// Verify the cached public key is removed after failed to refresh longer than the eviction duration.
+	time.Sleep(5 * time.Second)
+	_, err = r.GetPublicKey(mockCertURL)
+	if err == nil {
+		t.Errorf("GetPublicKey(%+v) fails: expected error, got no error", mockCertURL)
+	}
+}
+
+func TestJwtPubKeyLastRefreshedTime(t *testing.T) {
+	r := NewJwksResolver(JwtPubKeyEvictionDuration, 2*time.Millisecond /*RefreshInterval*/)
+	defer r.Close()
+
+	ms := startMockServer(t)
+	defer ms.Stop()
+
+	// Mock server returns JwtPubKey2 for later calls.
+	// Verify the refresher has run and got new key from mock server.
+	verifyKeyRefresh(t, r, ms, test.JwtPubKey2)
+
+	// The lastRefreshedTime should change for each successful refresh.
+	verifyKeyLastRefreshedTime(t, r, ms, true /* wantChanged */)
+}
+
+func TestJwtPubKeyRefreshWithNetworkError(t *testing.T) {
+	r := NewJwksResolver(JwtPubKeyEvictionDuration, time.Second /*RefreshInterval*/)
+	defer r.Close()
+
+	ms := startMockServer(t)
+	defer ms.Stop()
+
+	// Configures the mock server to return error after the first request.
+	ms.ReturnErrorAfterFirstNumHits = 1
+
+	// The refresh job should continue using the previously fetched public key (JwtPubKey1).
+	verifyKeyRefresh(t, r, ms, test.JwtPubKey1)
+
+	// The lastRefreshedTime should not change the refresh failed due to network error.
+	verifyKeyLastRefreshedTime(t, r, ms, false /* wantChanged */)
+}
+
+func getCounterValue(counterName string, t *testing.T) float64 {
+	counterValue := 0.0
+	if data, err := view.RetrieveData(counterName); err == nil {
+		if len(data) != 0 {
+			counterValue = data[0].Data.(*view.SumData).Value
+		}
+	} else {
+		t.Fatalf("failed to get value for counter %s: %v", counterName, err)
+	}
+	return counterValue
+}
+
+func TestJwtPubKeyMetric(t *testing.T) {
+	r := NewJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
+	defer r.Close()
+
+	ms, err := test.StartNewServer()
+	defer ms.Stop()
+	if err != nil {
+		t.Fatal("failed to start a mock server")
+	}
+	ms.ReturnErrorForFirstNumHits = 1
+
+	successValueBefore := getCounterValue(networkFetchSuccessCounter.Name(), t)
+	failValueBefore := getCounterValue(networkFetchFailCounter.Name(), t)
 
 	mockCertURL := ms.URL + "/oauth2/v3/certs"
 	cases := []struct {
@@ -215,76 +406,95 @@ func TestJwtPubKeyRefresh(t *testing.T) {
 		expectedJwtPubkey string
 	}{
 		{
-			in: mockCertURL,
-			// Mock server returns JwtPubKey1 for first call.
+			in:                mockCertURL,
+			expectedJwtPubkey: "",
+		},
+		{
+			in:                mockCertURL,
 			expectedJwtPubkey: test.JwtPubKey1,
 		},
 	}
 	for _, c := range cases {
-		pk, err := r.GetPublicKey(c.in)
-		if err != nil {
-			t.Errorf("GetPublicKey(%+v) fails: expected no error, got (%v)", c.in, err)
-		}
+		pk, _ := r.GetPublicKey(c.in)
 		if c.expectedJwtPubkey != pk {
 			t.Errorf("GetPublicKey(%+v): expected (%s), got (%s)", c.in, c.expectedJwtPubkey, pk)
 		}
+	}
+
+	successValueAfter := getCounterValue(networkFetchSuccessCounter.Name(), t)
+	failValueAfter := getCounterValue(networkFetchFailCounter.Name(), t)
+	if successValueBefore >= successValueAfter {
+		t.Errorf("the success counter is not incremented")
+	}
+	if failValueBefore >= failValueAfter {
+		t.Errorf("the fail counter is not incremented")
+	}
+}
+
+func startMockServer(t *testing.T) *test.MockOpenIDDiscoveryServer {
+	t.Helper()
+
+	ms, err := test.StartNewServer()
+	if err != nil {
+		t.Fatal("failed to start a mock server")
+	}
+	return ms
+}
+
+func verifyKeyRefresh(t *testing.T, r *JwksResolver, ms *test.MockOpenIDDiscoveryServer, expectedJwtPubkey string) {
+	t.Helper()
+	mockCertURL := ms.URL + "/oauth2/v3/certs"
+
+	pk, err := r.GetPublicKey(mockCertURL)
+	if err != nil {
+		t.Fatalf("GetPublicKey(%+v) fails: expected no error, got (%v)", mockCertURL, err)
+	}
+	// Mock server returns JwtPubKey1 for first call.
+	if test.JwtPubKey1 != pk {
+		t.Fatalf("GetPublicKey(%+v): expected (%s), got (%s)", mockCertURL, test.JwtPubKey1, pk)
 	}
 
 	// Wait until refresh job at least finished once.
-	wait := time.Millisecond
 	retries := 0
-	for ; retries < 3; retries++ {
-		time.Sleep(wait)
-		// Make sure refresh job has run and detect change happened.
-		if atomic.LoadUint64(&r.keyChangedCount) == 0 {
-			// Retry after some sleep.
-			wait *= 2
-			continue
-		}
-
-		break
-	}
-
-	if retries == 3 {
-		t.Errorf("Refresher failed to run")
-	}
-
-	cases = []struct {
-		in                string
-		expectedJwtPubkey string
-	}{
-		{
-			in: mockCertURL,
-			// Mock server returns JwtPubKey2 for later calls.
-			// Verify the refresher has run and got new key from mock server.
-			expectedJwtPubkey: test.JwtPubKey2,
-		},
-	}
-	for _, c := range cases {
-		pk, err := r.GetPublicKey(c.in)
-		if err != nil {
-			t.Errorf("GetPublicKey(%+v) fails: expected no error, got (%v)", c.in, err)
-		}
-		if c.expectedJwtPubkey != pk {
-			t.Errorf("GetPublicKey(%+v): expected (%s), got (%s)", c.in, c.expectedJwtPubkey, pk)
+	for ; retries < 20; retries++ {
+		time.Sleep(time.Second)
+		// Make sure refresh job has run and detect change or refresh happened.
+		if atomic.LoadUint64(&r.refreshJobKeyChangedCount) > 0 || atomic.LoadUint64(&r.refreshJobFetchFailedCount) > 0 {
+			break
 		}
 	}
-
-	// Wait until unused keys are evicted.
-	wait = 50 * time.Millisecond
-	retries = 0
-	for ; retries < 3; retries++ {
-		time.Sleep(wait)
-		if _, found := r.keyEntries.Load(mockCertURL); found {
-			// Retry after some sleep.
-			wait *= 2
-			continue
-		}
-
-		break
+	if retries == 20 {
+		t.Fatalf("Refresher failed to run")
 	}
 
-	if retries == 3 {
-		t.Errorf("Unused keys failed to be evicted")
+	pk, err = r.GetPublicKey(mockCertURL)
+	if err != nil {
+		t.Fatalf("GetPublicKey(%+v) fails: expected no error, got (%v)", mockCertURL, err)
+	}
+	if expectedJwtPubkey != pk {
+		t.Fatalf("GetPublicKey(%+v): expected (%s), got (%s)", mockCertURL, expectedJwtPubkey, pk)
+	}
+}
+
+func verifyKeyLastRefreshedTime(t *testing.T, r *JwksResolver, ms *test.MockOpenIDDiscoveryServer, wantChanged bool) {
+	t.Helper()
+	mockCertURL := ms.URL + "/oauth2/v3/certs"
+
+	e, found := r.keyEntries.Load(mockCertURL)
+	if !found {
+		t.Fatalf("No cached public key for %s", mockCertURL)
+	}
+	oldRefreshedTime := e.(jwtPubKeyEntry).lastRefreshedTime
+
+	time.Sleep(200 * time.Millisecond)
+
+	e, found = r.keyEntries.Load(mockCertURL)
+	if !found {
+		t.Fatalf("No cached public key for %s", mockCertURL)
+	}
+	newRefreshedTime := e.(jwtPubKeyEntry).lastRefreshedTime
+
+	if actualChanged := oldRefreshedTime != newRefreshedTime; actualChanged != wantChanged {
+		t.Errorf("Want changed: %t but got %t", wantChanged, actualChanged)
 	}
 }

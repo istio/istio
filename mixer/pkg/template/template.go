@@ -24,9 +24,9 @@ import (
 	adptTmpl "istio.io/api/mixer/adapter/model/v1beta1"
 	pb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/lang/compiled"
+	"istio.io/istio/mixer/pkg/runtime/lang"
+	"istio.io/pkg/attribute"
 )
 
 type (
@@ -49,7 +49,9 @@ type (
 	HandlerSupportsTemplateFn func(hndlr adapter.Handler) bool
 
 	// DispatchCheckFn dispatches the instance to the handler.
-	DispatchCheckFn func(ctx context.Context, handler adapter.Handler, instance interface{}) (adapter.CheckResult, error)
+	// It may also produce output attributes in the output bag with the given prefix.
+	DispatchCheckFn func(ctx context.Context, handler adapter.Handler, instance interface{},
+		out *attribute.MutableBag, outPrefix string) (cr adapter.CheckResult, err error)
 
 	// DispatchReportFn dispatches the instances to the handler.
 	DispatchReportFn func(ctx context.Context, handler adapter.Handler, instances []interface{}) error
@@ -120,7 +122,7 @@ type (
 	//       return nil, err
 	//     }
 	//  }
-	CreateInstanceBuilderFn func(instanceName string, instanceParam proto.Message, builder *compiled.ExpressionBuilder) (InstanceBuilderFn, error)
+	CreateInstanceBuilderFn func(instanceName string, instanceParam proto.Message, builder lang.Compiler) (InstanceBuilderFn, error)
 
 	// CreateOutputExpressionsFn builds and returns a map of attribute names to the expression for calculating them.
 	//
@@ -141,8 +143,8 @@ type (
 	//
 	CreateOutputExpressionsFn func(
 		instanceParam proto.Message,
-		finder ast.AttributeDescriptorFinder,
-		expb *compiled.ExpressionBuilder) (map[string]compiled.Expression, error)
+		finder attribute.AttributeDescriptorFinder,
+		expb lang.Compiler) (map[string]compiled.Expression, error)
 
 	// OutputMapperFn maps the results of an APA output bag, with "$out"s, by processing it through
 	// AttributeBindings.
@@ -210,7 +212,7 @@ func NewRepository(templateInfos map[string]Info) Repository {
 		}
 	}
 
-	allSupportedTmpls := make([]string, len(templateInfos))
+	allSupportedTmpls := make([]string, 0, len(templateInfos))
 	tmplToBuilderNames := make(map[string]string)
 
 	for t, v := range templateInfos {

@@ -18,8 +18,8 @@ import (
 	"testing"
 
 	"istio.io/istio/pilot/pkg/config/memory"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/mock"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 func TestStoreInvariant(t *testing.T) {
@@ -28,6 +28,6 @@ func TestStoreInvariant(t *testing.T) {
 }
 
 func TestIstioConfig(t *testing.T) {
-	store := memory.Make(model.IstioConfigTypes)
+	store := memory.Make(schemas.Istio)
 	mock.CheckIstioConfigTypes(store, "some-namespace", t)
 }

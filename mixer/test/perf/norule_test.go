@@ -37,9 +37,7 @@ var baseNoRuleReportSetup = perf.Setup{
 	Loads: []perf.Load{{
 		Multiplier: 1,
 		Requests: []perf.Request{
-			perf.BasicReport{
-				Attributes: map[string]interface{}{},
-			},
+			perf.BuildBasicReport(map[string]interface{}{}),
 		},
 	}},
 }
@@ -55,9 +53,7 @@ var baseNoRuleCheckSetup = perf.Setup{
 	Loads: []perf.Load{{
 		Multiplier: 1,
 		Requests: []perf.Request{
-			perf.BasicCheck{
-				Attributes: map[string]interface{}{},
-			},
+			perf.BuildBasicCheck(map[string]interface{}{}, nil),
 		},
 	}},
 }

@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors. All Rights Reserved.
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,11 +24,24 @@ import (
 
 // Stats in Envoy proxy.
 var expectedStats = map[string]int{
-	"http_mixer_filter.total_blocking_remote_check_calls": 1,
-	"http_mixer_filter.total_blocking_remote_quota_calls": 1,
-	"http_mixer_filter.total_check_calls":                 20,
-	"http_mixer_filter.total_quota_calls":                 20,
-	"http_mixer_filter.total_report_calls":                20,
+	// Policy check stats
+	"http_mixer_filter.total_check_calls":             20,
+	"http_mixer_filter.total_check_cache_hits":        19,
+	"http_mixer_filter.total_check_cache_misses":      1,
+	"http_mixer_filter.total_check_cache_hit_accepts": 19,
+	"http_mixer_filter.total_check_cache_hit_denies":  0,
+	"http_mixer_filter.total_remote_check_calls":      1,
+	"http_mixer_filter.total_remote_check_accepts":    1,
+	"http_mixer_filter.total_remote_check_denies":     0,
+	// Quota check stats
+	"http_mixer_filter.total_quota_calls":             20,
+	"http_mixer_filter.total_quota_cache_hits":        19,
+	"http_mixer_filter.total_quota_cache_misses":      1,
+	"http_mixer_filter.total_quota_cache_hit_accepts": 9,
+	"http_mixer_filter.total_quota_cache_hit_denies":  10,
+	// Report stats
+	"http_mixer_filter.total_remote_report_calls": 1,
+	"http_mixer_filter.total_report_calls":        20,
 }
 
 func TestQuotaCache(t *testing.T) {
@@ -90,8 +103,10 @@ func TestQuotaCache(t *testing.T) {
 	if respStats, err := s.WaitForStatsUpdateAndGetStats(2); err == nil {
 		// Because prefetch code may have some margin, actual number of check and quota calls are not
 		// determined.
+		s.VerifyStatsLT(respStats, "http_mixer_filter.total_remote_calls", 5)
 		s.VerifyStatsLT(respStats, "http_mixer_filter.total_remote_check_calls", 5)
 		s.VerifyStatsLT(respStats, "http_mixer_filter.total_remote_quota_calls", 5)
+		s.VerifyStatsLT(respStats, "http_mixer_filter.total_remote_quota_prefetch_calls", 5)
 		s.VerifyStatsLT(respStats, "http_mixer_filter.total_remote_report_calls", 5)
 	} else {
 		t.Errorf("Failed to get stats from Envoy %v", err)

@@ -6,7 +6,11 @@ metadata:
   name: istio-citadel
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-citadel
+    app: {{ template "security.name" . }}
+    chart: {{ template "security.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+    istio: citadel
 spec:
   ports:
     - name: grpc-citadel
@@ -14,6 +18,6 @@ spec:
       targetPort: 8060
       protocol: TCP
     - name: http-monitoring
-      port: 9093
+      port: {{ .Values.global.monitoringPort }}
   selector:
     istio: citadel

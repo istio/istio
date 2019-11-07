@@ -4,6 +4,7 @@ description: Adapter for a Redis-based quota management system.
 location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/redisquota.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
+supported_templates: quota
 aliases:
   - /docs/reference/config/adapters/redisquota.html
 number_of_entries: 4
@@ -23,19 +24,19 @@ rolling window algorithm. And it is using Redis as a shared data storage.</p>
 <pre><code class="language-yaml">redisServerUrl: localhost:6379
 connectionPoolSize: 10
 quotas:
-  - name: requestCount.quota.istio-system
-    maxAmount: 50
-    validDuration: 60s
-    bucketDuration: 1s
-    rateLimitAlgorithm: ROLLING_WINDOW
-    overrides:
-      - dimensions:
-          destination: ratings
-          source: reviews
-        maxAmount: 12
-      - dimensions:
-          destination: reviews
-        maxAmount: 5
+- name: requestcount.quota.istio-system
+  maxAmount: 50
+  validDuration: 60s
+  bucketDuration: 1s
+  rateLimitAlgorithm: ROLLING_WINDOW
+  overrides:
+  - dimensions:
+      destination: ratings
+      source: reviews
+    maxAmount: 12
+  - dimensions:
+      destination: reviews
+    maxAmount: 5
 </code></pre>
 
 <table class="message-fields">
@@ -44,24 +45,31 @@ quotas:
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
 <tr id="Params-quotas">
 <td><code>quotas</code></td>
-<td><code><a href="#Params-Quota">Params.Quota[]</a></code></td>
+<td><code><a href="#Params-Quota">Quota[]</a></code></td>
 <td>
 <p>The set of known quotas. At least one quota configuration is required</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Params-redis_server_url">
 <td><code>redisServerUrl</code></td>
 <td><code>string</code></td>
 <td>
-<p>Redis connection string <hostname>:<port number>
+<p>Redis connection string <code>&lt;hostname&gt;:&lt;port number&gt;</code>
 ex) localhost:6379</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Params-connection_pool_size">
@@ -71,6 +79,9 @@ ex) localhost:6379</p>
 <p>Maximum number of idle connections to redis
 Default is 10 connections per every CPU as reported by runtime.NumCPU.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -84,6 +95,7 @@ Default is 10 connections per every CPU as reported by runtime.NumCPU.</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -93,8 +105,11 @@ Default is 10 connections per every CPU as reported by runtime.NumCPU.</p>
 <td>
 <p>The specific dimensions for which this override applies.
 String representation of instance dimensions is used to check against configured dimensions.
-dimensions should not be empty</p>
+<code>dimensions</code> should not be empty</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Params-Override-max_amount">
@@ -104,6 +119,9 @@ dimensions should not be empty</p>
 <p>The upper limit for this quota override.
 This value should be bigger than 0</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -117,6 +135,7 @@ This value should be bigger than 0</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -127,6 +146,9 @@ This value should be bigger than 0</p>
 <p>The name of the quota</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-Quota-max_amount">
 <td><code>maxAmount</code></td>
@@ -135,41 +157,56 @@ This value should be bigger than 0</p>
 <p>The upper limit for this quota. max_amount should be bigger than 0</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-Quota-valid_duration">
 <td><code>validDuration</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">Duration</a></code></td>
 <td>
 <p>The amount of time allocated quota remains valid before it is
 automatically released. This is only meaningful for rate limit quotas.
-value should be 0 &lt; valid_duration</p>
+value should be <code>0 &lt; validDuration</code></p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Params-Quota-bucket_duration">
 <td><code>bucketDuration</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">Duration</a></code></td>
 <td>
-<p>bucket<em>duration will be ignored if rate</em>limit<em>algorithm is FIXED</em>WINDOW
-value should be 0 &lt; bucket<em>duration &lt; valid</em>duration</p>
+<p>The <code>bucketDuration</code> will be ignored if <code>rateLimitAlgorithm</code> is <code>FIXED_WINDOW</code>
+value should be <code>0 &lt; bucketDuration &lt; validDuration</code></p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Params-Quota-rate_limit_algorithm">
 <td><code>rateLimitAlgorithm</code></td>
-<td><code><a href="#Params-QuotaAlgorithm">Params.QuotaAlgorithm</a></code></td>
+<td><code><a href="#Params-QuotaAlgorithm">QuotaAlgorithm</a></code></td>
 <td>
-<p>Quota management algorithm. The default value is FIXED_WINDOW</p>
+<p>Quota management algorithm. The default value is <code>FIXED_WINDOW</code></p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Params-Quota-overrides">
 <td><code>overrides</code></td>
-<td><code><a href="#Params-Override">Params.Override[]</a></code></td>
+<td><code><a href="#Params-Override">Override[]</a></code></td>
 <td>
 <p>Overrides associated with this quota.
 The first matching override is applied.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -190,14 +227,14 @@ The first matching override is applied.</p>
 <tr id="Params-QuotaAlgorithm-FIXED_WINDOW">
 <td><code>FIXED_WINDOW</code></td>
 <td>
-<p>FIXED_WINDOW The fixed window approach can allow 2x peak specified rate, whereas the rolling-window doesn&rsquo;t.</p>
+<p><code>FIXED_WINDOW</code> The fixed window approach can allow 2x peak specified rate, whereas the rolling-window doesn&rsquo;t.</p>
 
 </td>
 </tr>
 <tr id="Params-QuotaAlgorithm-ROLLING_WINDOW">
 <td><code>ROLLING_WINDOW</code></td>
 <td>
-<p>ROLLING_WINDOW The rolling window algorithm&rsquo;s additional precision comes at the cost of increased redis resource usage.</p>
+<p><code>ROLLING_WINDOW</code> The rolling window algorithm&rsquo;s additional precision comes at the cost of increased redis resource usage.</p>
 
 </td>
 </tr>

@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	multierror "github.com/hashicorp/go-multierror"
 
@@ -46,6 +47,11 @@ func (m *Memstore) Stop() {
 
 // Init implements store.Backend interface.
 func (m *Memstore) Init(kinds []string) error {
+	return nil
+}
+
+// WaitForSynced implements store.Backend interface
+func (m *Memstore) WaitForSynced(time.Duration) error {
 	return nil
 }
 
@@ -103,7 +109,7 @@ func (m *Memstore) Delete(k store.Key) {
 // data with the specified specs, and returns a new store with the backend.
 // Note that this store can't change, Watch does not emit any events.
 func SetupStoreForTest(data ...string) (store.Store, error) {
-	m := &Memstore{data: map[store.Key]*store.BackEndResource{}, donec: make(chan struct{})}
+	m := NewMemstore()
 	var errs error
 	for i, d := range data {
 		for j, chunk := range strings.Split(d, "\n---\n") {

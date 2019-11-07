@@ -25,15 +25,20 @@ spec:
   ports:
   - name: http
     port: 8000
+    targetPort: 80
   selector:
     app: httpbin
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: httpbin
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: httpbin
+      version: v1
   template:
     metadata:
       labels:
@@ -41,8 +46,8 @@ spec:
         version: v1
     spec:
       containers:
-      - image: docker.io/citizenstig/httpbin
+      - image: docker.io/kennethreitz/httpbin
         imagePullPolicy: IfNotPresent
         name: httpbin
         ports:
-        - containerPort: 8000
+        - containerPort: 80

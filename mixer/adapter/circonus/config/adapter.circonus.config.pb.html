@@ -4,6 +4,7 @@ description: Adapter for circonus.com's monitoring solution.
 location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/circonus.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
+supported_templates: metric
 aliases:
   - /docs/reference/config/adapters/circonus.html
 number_of_entries: 3
@@ -23,6 +24,7 @@ number_of_entries: 3
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -33,17 +35,26 @@ number_of_entries: 3
 <p>Circonus SubmissionURL to HTTPTrap check</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-submission_interval">
 <td><code>submissionInterval</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">Duration</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Params-metrics">
 <td><code>metrics</code></td>
-<td><code><a href="#Params-MetricInfo">Params.MetricInfo[]</a></code></td>
+<td><code><a href="#Params-MetricInfo">MetricInfo[]</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -59,6 +70,7 @@ number_of_entries: 3
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -69,11 +81,17 @@ number_of_entries: 3
 <p>name</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-MetricInfo-type">
 <td><code>type</code></td>
-<td><code><a href="#Params-MetricInfo-Type">Params.MetricInfo.Type</a></code></td>
+<td><code><a href="#Params-MetricInfo-Type">Type</a></code></td>
 <td>
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>

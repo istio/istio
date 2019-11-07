@@ -1,0 +1,20 @@
+{{- if .Values.global.defaultPodDisruptionBudget.enabled }}
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: istio-pilot
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "pilot.name" . }}
+    chart: {{ template "pilot.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+    istio: pilot
+spec:
+{{ include "podDisruptionBudget.spec" .Values.global.defaultPodDisruptionBudget }}
+  selector:
+    matchLabels:
+      app: {{ template "pilot.name" . }}
+      release: {{ .Release.Name }}
+      istio: pilot
+{{- end }}

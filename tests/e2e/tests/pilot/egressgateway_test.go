@@ -19,7 +19,7 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // To route all external traffic via Istio Egress gateway
@@ -48,10 +48,10 @@ func TestRouteHTTPViaEgressGateway(t *testing.T) {
 	defer cfgs.Teardown()
 
 	for cluster := range tc.Kube.Clusters {
-		runRetriableTest(t, cluster, "RouteHTTPViaEgressGateway", defaultRetryBudget, func() error {
+		runRetriableTest(t, "RouteHTTPViaEgressGateway", defaultRetryBudget, func() error {
 			// We use an arbitrary IP to ensure that the test fails if networking logic is implemented incorrectly
 			reqURL := fmt.Sprintf("http://1.1.1.1/bookinfo")
-			resp := ClientRequest(cluster, "a", reqURL, 100, "-key Host -val scooby.eu.bookinfo.com")
+			resp := ClientRequest(cluster, "a", reqURL, 100, "--key Host --val scooby.eu.bookinfo.com")
 			count := make(map[string]int)
 			for _, elt := range resp.Host {
 				count[elt]++
@@ -74,7 +74,7 @@ func TestRouteHTTPViaEgressGateway(t *testing.T) {
 // 2. Add egress gateway
 // 3. Add virtual service for each service entry such that
 //    3.a. TLS Traffic from all sidecars (i.e. mesh gateway) goes to egress gateway svc
-//    3.b. TLS Traffic from egress gateway goes to actual destination (in our case, its google.com)
+//    3.b. TLS Traffic from egress gateway goes to actual destination (in our case, www.google.com or www.bing.com)
 func TestRouteSNIViaEgressGateway(t *testing.T) {
 	// In authn enable test, mTLS is enabled globally, which mean all clients will use TLS
 	// to talk to egress-gateway. We need to explicitly specify the TLSMode to DISABLE in the
@@ -85,6 +85,7 @@ func TestRouteSNIViaEgressGateway(t *testing.T) {
 			"testdata/networking/v1alpha3/disable-mtls-egressgateway.yaml",
 			"testdata/networking/v1alpha3/egressgateway.yaml",
 			"testdata/networking/v1alpha3/service-entry-google.yaml",
+			"testdata/networking/v1alpha3/service-entry-bing.yaml",
 			"testdata/networking/v1alpha3/rule-route-via-egressgateway.yaml"},
 		kubeconfig: tc.Kube.KubeConfig,
 	}
@@ -94,18 +95,20 @@ func TestRouteSNIViaEgressGateway(t *testing.T) {
 	defer cfgs.Teardown()
 
 	for cluster := range tc.Kube.Clusters {
-		runRetriableTest(t, cluster, "RouteSNIViaEgressGateway", defaultRetryBudget, func() error {
-			reqURL := fmt.Sprintf("https://www.google.com")
-			resp := ClientRequest(cluster, "a", reqURL, 100, "")
-			count := make(map[string]int)
-			for _, elt := range resp.Code {
-				count[elt]++
-			}
-			log.Infof("request counts %v", count)
-			if count[httpOK] >= 95 {
-				return nil
-			}
-			return errAgain
-		})
+		for _, url := range []string{"https://www.google.com", "https://www.bing.com"} {
+			runRetriableTest(t, "RouteSNIViaEgressGateway", defaultRetryBudget, func() error {
+				reqURL := url
+				resp := ClientRequest(cluster, "a", reqURL, 100, "")
+				count := make(map[string]int)
+				for _, elt := range resp.Code {
+					count[elt]++
+				}
+				log.Infof("request counts %v", count)
+				if count[httpOK] >= 95 {
+					return nil
+				}
+				return errAgain
+			})
+		}
 	}
 }

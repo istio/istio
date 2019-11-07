@@ -17,9 +17,9 @@ package kube
 import (
 	"testing"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // TestRemoveIPFromEndpoint if the provided IP to deregister has already

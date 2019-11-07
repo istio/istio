@@ -89,9 +89,13 @@ type Instance struct {
 //
 // OutputTemplate refers to the output from the adapter. It is used inside the attribute_binding section of the config
 // to assign values to the generated attributes using the `$out.<field name of the OutputTemplate>` syntax.
-// Next ID: 31
+// Next ID: 33
 type Output struct {
 	fieldsSet map[string]bool
+
+	// Refers to the source.uid for a pod. This is for TCP use cases where the attribute is not present.
+	// attribute_bindings can refer to this field using $out.source_pod_uid
+	SourcePodUid string
 
 	// Refers to source pod ip address. attribute_bindings can refer to this field using $out.source_pod_ip
 	SourcePodIp net.IP
@@ -122,6 +126,10 @@ type Output struct {
 
 	// Refers to the (controlling) owner of the source pod. Attribute_bindings can refer to this field using $out.source_owner
 	SourceOwner string
+
+	// Refers to the destination.uid for a pod. This is for TCP use cases where the attribute is not present.
+	// attribute_bindings can refer to this field using $out.destination_pod_uid
+	DestinationPodUid string
 
 	// Refers to destination pod ip address. attribute_bindings can refer to this field using $out.destination_pod_ip
 	DestinationPodIp net.IP
@@ -159,6 +167,11 @@ type Output struct {
 
 func NewOutput() *Output {
 	return &Output{fieldsSet: make(map[string]bool)}
+}
+
+func (o *Output) SetSourcePodUid(val string) {
+	o.fieldsSet["source_pod_uid"] = true
+	o.SourcePodUid = val
 }
 
 func (o *Output) SetSourcePodIp(val net.IP) {
@@ -209,6 +222,11 @@ func (o *Output) SetSourceWorkloadNamespace(val string) {
 func (o *Output) SetSourceOwner(val string) {
 	o.fieldsSet["source_owner"] = true
 	o.SourceOwner = val
+}
+
+func (o *Output) SetDestinationPodUid(val string) {
+	o.fieldsSet["destination_pod_uid"] = true
+	o.DestinationPodUid = val
 }
 
 func (o *Output) SetDestinationPodIp(val net.IP) {

@@ -2,6 +2,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: all
+  namespace: testns
 spec:
   hosts:
   - service3.default.svc.cluster.local

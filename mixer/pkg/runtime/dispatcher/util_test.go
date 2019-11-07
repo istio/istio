@@ -17,7 +17,7 @@ package dispatcher
 import (
 	"testing"
 
-	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/pkg/attribute"
 )
 
 func TestGetIdentityNamespace(t *testing.T) {
@@ -42,10 +42,7 @@ func TestGetIdentityNamespace(t *testing.T) {
 	}}
 
 	for _, cs := range cases {
-		result, err := getIdentityNamespace(cs.bag)
-		if err != nil {
-			t.Fail()
-		}
+		result := getIdentityNamespace(cs.bag)
 		if result != cs.want {
 			t.Errorf("got %q, want %q", result, cs.want)
 		}

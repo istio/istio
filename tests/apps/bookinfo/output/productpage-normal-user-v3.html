@@ -7,10 +7,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <!-- Latest compiled and minified CSS -->
-<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+<link rel="stylesheet" href="static/bootstrap/css/bootstrap.min.css">
 
 <!-- Optional theme -->
-<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap-theme.min.css">
+<link rel="stylesheet" href="static/bootstrap/css/bootstrap-theme.min.css">
 
   </head>
   <body>
@@ -18,17 +18,17 @@
     
 
 <nav class="navbar navbar-inverse navbar-static-top">
-    <div class="container">
-        <div class="navbar-header">
-            <a class="navbar-brand" href="#">BookInfo Sample</a>
-        </div>
-        
-        <p class="navbar-text navbar-right">
-            <i class="glyphicon glyphicon-user" aria-hidden="true"></i>
-            <span style="padding-left: 5px;">normal-user  ( <a href="logout">sign out</a> )</span>
-        </p>
-        
+  <div class="container">
+    <div class="navbar-header">
+      <a class="navbar-brand" href="#">BookInfo Sample</a>
     </div>
+    
+    <p class="navbar-text navbar-right">
+      <i class="glyphicon glyphicon-user" aria-hidden="true"></i>
+      <span style="padding-left: 5px;">normal-user ( <a href="logout">sign out</a> )</span>
+    </p>
+    
+  </div>
 </nav>
 
 <!---
@@ -53,7 +53,7 @@
   </div>
 </div>
 -->
-    
+
 <div id="login-modal" class="modal fade" role="dialog">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -66,8 +66,8 @@
           <p><input type="text" class="form-control" name="username" id="username" placeholder="User Name"></p>
           <p><input type="password" class="form-control" name="passwd" placeholder="Password"></p>
           <p>
-             <button type="submit" class="btn btn-primary">Sign in</button>
-             <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary">Sign in</button>
+            <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
           </p>
         </form>
       </div>
@@ -81,7 +81,7 @@
     <div class="col-md-12">
       <h3 class="text-center text-primary">The Comedy of Errors</h3>
       
-        <p>Summary: <a href="https://en.wikipedia.org/wiki/The_Comedy_of_Errors">Wikipedia Summary</a>: The Comedy of Errors is one of <b>William Shakespeare's</b> early plays. It is his shortest and one of his most farcical comedies, with a major part of the humour coming from slapstick and mistaken identity, in addition to puns and word play.</p>
+      <p>Summary: <a href="https://en.wikipedia.org/wiki/The_Comedy_of_Errors">Wikipedia Summary</a>: The Comedy of Errors is one of <b>William Shakespeare's</b> early plays. It is his shortest and one of his most farcical comedies, with a major part of the humour coming from slapstick and mistaken identity, in addition to puns and word play.</p>
       
     </div>
   </div>
@@ -89,72 +89,72 @@
   <div class="row">
     <div class="col-md-6">
       
-        <h4 class="text-center text-primary">Book Details</h4>
-        <dl>
-          <dt>Type:</dt>paperback
-          <dt>Pages:</dt>200
-          <dt>Publisher:</dt>PublisherA
-          <dt>Language:</dt>English
-          <dt>ISBN-10:</dt>1234567890
-          <dt>ISBN-13:</dt>123-1234567890
-        </dl>
+      <h4 class="text-center text-primary">Book Details</h4>
+      <dl>
+        <dt>Type:</dt>paperback
+        <dt>Pages:</dt>200
+        <dt>Publisher:</dt>PublisherA
+        <dt>Language:</dt>English
+        <dt>ISBN-10:</dt>1234567890
+        <dt>ISBN-13:</dt>123-1234567890
+      </dl>
       
     </div>
 
     <div class="col-md-6">
       
-        <h4 class="text-center text-primary">Book Reviews</h4>
+      <h4 class="text-center text-primary">Book Reviews</h4>
+      
+      <blockquote>
+        <p>An extremely entertaining play by Shakespeare. The slapstick humour is refreshing!</p>
+        <small>Reviewer1</small>
         
-          <blockquote>
-            <p>An extremely entertaining play by Shakespeare. The slapstick humour is refreshing!</p>
-            <small>Reviewer1</small>
-            
-              
-                <font color="red">
-                  <!-- full stars: -->
-                  
-                    <span class="glyphicon glyphicon-star"></span>
-                  
-                    <span class="glyphicon glyphicon-star"></span>
-                  
-                    <span class="glyphicon glyphicon-star"></span>
-                  
-                    <span class="glyphicon glyphicon-star"></span>
-                  
-                    <span class="glyphicon glyphicon-star"></span>
-                  
-                  <!-- empty stars: -->
-                  
-                </font>
-              
-            
-          </blockquote>
         
-          <blockquote>
-            <p>Absolutely fun and entertaining. The play lacks thematic depth when compared to other plays by Shakespeare.</p>
-            <small>Reviewer2</small>
-            
-              
-                <font color="red">
-                  <!-- full stars: -->
-                  
-                    <span class="glyphicon glyphicon-star"></span>
-                  
-                    <span class="glyphicon glyphicon-star"></span>
-                  
-                    <span class="glyphicon glyphicon-star"></span>
-                  
-                    <span class="glyphicon glyphicon-star"></span>
-                  
-                  <!-- empty stars: -->
-                  
-                    <span class="glyphicon glyphicon-star-empty"></span>
-                  
-                </font>
-              
-            
-          </blockquote>
+        <font color="red">
+          <!-- full stars: -->
+          
+          <span class="glyphicon glyphicon-star"></span>
+          
+          <span class="glyphicon glyphicon-star"></span>
+          
+          <span class="glyphicon glyphicon-star"></span>
+          
+          <span class="glyphicon glyphicon-star"></span>
+          
+          <span class="glyphicon glyphicon-star"></span>
+          
+          <!-- empty stars: -->
+          
+        </font>
         
+        
+      </blockquote>
+      
+      <blockquote>
+        <p>Absolutely fun and entertaining. The play lacks thematic depth when compared to other plays by Shakespeare.</p>
+        <small>Reviewer2</small>
+        
+        
+        <font color="red">
+          <!-- full stars: -->
+          
+          <span class="glyphicon glyphicon-star"></span>
+          
+          <span class="glyphicon glyphicon-star"></span>
+          
+          <span class="glyphicon glyphicon-star"></span>
+          
+          <span class="glyphicon glyphicon-star"></span>
+          
+          <!-- empty stars: -->
+          
+          <span class="glyphicon glyphicon-star-empty"></span>
+          
+        </font>
+        
+        
+      </blockquote>
+      
       
     </div>
   </div>
@@ -163,15 +163,15 @@
 
     
 <!-- Latest compiled and minified JavaScript -->
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+<script src="static/jquery.min.js"></script>
 
 <!-- Latest compiled and minified JavaScript -->
-<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+<script src="static/bootstrap/js/bootstrap.min.js"></script>
 
 <script type="text/javascript">
-$('#login-modal').on('shown.bs.modal', function () {
-     $('#username').focus();
-});
+  $('#login-modal').on('shown.bs.modal', function () {
+    $('#username').focus();
+  });
 </script>
 
   </body>

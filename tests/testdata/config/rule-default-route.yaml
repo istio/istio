@@ -2,6 +2,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   name: c
+  namespace: testns
 spec:
    hosts:
    - c.foo
@@ -18,12 +19,41 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: default-route
+  name: default-route-1
+  namespace: testns
 spec:
   hosts:
     - c.foo
+  gateways:
+  #- mesh # doesnt work
+  - my-gateway
   http:
-    - route:
+    - match:
+      - uri:
+           prefix: /bar
+      route:
+      - destination:
+          host: c.foo
+        weight: 100
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default-route-2
+  namespace: testns
+spec:
+  hosts:
+    - c.foo
+  gateways:
+  #- mesh
+  - my-gateway
+  http:
+    - match:
+      - uri:
+           exact: /foo
+      rewrite:
+        uri: /bar
+      route:
       - destination:
           host: c.foo
         weight: 100

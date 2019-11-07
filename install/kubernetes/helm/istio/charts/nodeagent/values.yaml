@@ -1,0 +1,36 @@
+#
+# nodeagent configuration
+#
+enabled: false
+image: node-agent-k8s
+env:
+  # name of authentication provider.
+  CA_PROVIDER: "Citadel"
+  # CA endpoint.
+  CA_ADDR: "istio-citadel:8060"
+  # names of authentication provider's plugins.
+  PLUGINS: ""
+  VALID_TOKEN: true
+nodeSelector: {}
+tolerations: []
+
+# Specify the pod anti-affinity that allows you to constrain which nodes
+# your pod is eligible to be scheduled based on labels on pods that are
+# already running on the node rather than based on labels on nodes.
+# There are currently two types of anti-affinity:
+#    "requiredDuringSchedulingIgnoredDuringExecution"
+#    "preferredDuringSchedulingIgnoredDuringExecution"
+# which denote "hard" vs. "soft" requirements, you can define your values
+# in "podAntiAffinityLabelSelector" and "podAntiAffinityTermLabelSelector"
+# correspondingly.
+# For example:
+# podAntiAffinityLabelSelector:
+# - key: security
+#   operator: In
+#   values: S1,S2
+#   topologyKey: "kubernetes.io/hostname"
+# This pod anti-affinity rule says that the pod requires not to be scheduled
+# onto a node if that node is already running a pod with label having key
+# "security" and value "S1".
+podAntiAffinityLabelSelector: []
+podAntiAffinityTermLabelSelector: []

@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors. All Rights Reserved.
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"testing"
 
-	rpc "github.com/gogo/googleapis/google/rpc"
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 
 	"istio.io/istio/mixer/test/client/env"
 )
@@ -28,28 +28,60 @@ const checkAttributesOkPost = `
 {
   "context.protocol": "tcp",
   "context.time": "*",
+  "context.reporter.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "source.ip": "[127 0 0 1]",
+  "destination.uid": "",
+  "destination.namespace": "",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
-  "connection.id": "*",
-  "connection.event": "open"
+  "origin.ip": "[127 0 0 1]",
+  "connection.id": "*"
 }
 `
 
 // Report attributes from a good POST request
-const reportAttributesOkPost = `
+const reportAttributesOkPostOpen = `
 {
   "context.protocol": "tcp",
   "context.time": "*",
+  "context.reporter.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "source.ip": "[127 0 0 1]",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
+  "destination.uid": "",
+  "destination.namespace": "",
   "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
+  "check.cache_hit": false,
+  "quota.cache_hit": false,
+  "connection.received.bytes": "*",
+  "connection.received.bytes_total": "*",
+  "connection.sent.bytes": "*",
+  "connection.sent.bytes_total": "*",
+  "connection.id": "*",
+  "connection.event": "open"
+}
+`
+const reportAttributesOkPostClose = `
+{
+  "context.protocol": "tcp",
+  "context.time": "*",
+  "context.reporter.uid": "",
+  "mesh1.ip": "[1 1 1 1]",
+  "source.ip": "[127 0 0 1]",
+  "target.uid": "POD222",
+  "target.namespace": "XYZ222",
+  "destination.ip": "[127 0 0 1]",
+  "destination.port": "*",
+  "destination.uid": "",
+  "destination.namespace": "",
+  "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
   "check.cache_hit": false,
   "quota.cache_hit": false,
   "connection.received.bytes": "*",
@@ -67,17 +99,21 @@ const reportAttributesFailPost = `
 {
   "context.protocol": "tcp",
   "context.time": "*",
+  "context.reporter.uid": "",
   "mesh1.ip": "[1 1 1 1]",
   "source.ip": "*",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
   "check.cache_hit": false,
   "quota.cache_hit": false,
   "connection.received.bytes": "*",
   "connection.received.bytes_total": "*",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
+  "destination.uid": "",
+  "destination.namespace": "",
   "connection.sent.bytes": 0,
   "connection.sent.bytes_total": 0,
   "connection.duration": "*",
@@ -90,14 +126,34 @@ const reportAttributesFailPost = `
 
 // Stats in Envoy proxy.
 var expectedStats = map[string]int{
-	"tcp_mixer_filter.total_blocking_remote_check_calls": 2,
-	"tcp_mixer_filter.total_blocking_remote_quota_calls": 0,
-	"tcp_mixer_filter.total_check_calls":                 2,
+	// Policy check stats
+	"tcp_mixer_filter.total_check_calls":             2,
+	"tcp_mixer_filter.total_check_cache_hits":        0,
+	"tcp_mixer_filter.total_check_cache_misses":      2,
+	"tcp_mixer_filter.total_check_cache_hit_accepts": 0,
+	"tcp_mixer_filter.total_check_cache_hit_denies":  0,
+	"tcp_mixer_filter.total_remote_check_calls":      2,
+	"tcp_mixer_filter.total_remote_check_accepts":    1,
+	"tcp_mixer_filter.total_remote_check_denies":     1,
+	// Quota check stats
 	"tcp_mixer_filter.total_quota_calls":                 0,
-	"tcp_mixer_filter.total_remote_check_calls":          2,
+	"tcp_mixer_filter.total_quota_cache_hits":            0,
+	"tcp_mixer_filter.total_quota_cache_misses":          0,
+	"tcp_mixer_filter.total_quota_cache_hit_accepts":     0,
+	"tcp_mixer_filter.total_quota_cache_hit_denies":      0,
 	"tcp_mixer_filter.total_remote_quota_calls":          0,
-	"tcp_mixer_filter.total_remote_report_calls":         2,
-	"tcp_mixer_filter.total_report_calls":                2,
+	"tcp_mixer_filter.total_remote_quota_accepts":        0,
+	"tcp_mixer_filter.total_remote_quota_denies":         0,
+	"tcp_mixer_filter.total_remote_quota_prefetch_calls": 0,
+	// Stats for RPCs to mixer policy server
+	"tcp_mixer_filter.total_remote_calls":             2,
+	"tcp_mixer_filter.total_remote_call_successes":    2,
+	"tcp_mixer_filter.total_remote_call_timeouts":     0,
+	"tcp_mixer_filter.total_remote_call_send_errors":  0,
+	"tcp_mixer_filter.total_remote_call_other_errors": 0,
+	// Report stats
+	"tcp_mixer_filter.total_remote_report_calls": 2,
+	"tcp_mixer_filter.total_report_calls":        3,
 }
 
 func TestTCPMixerFilter(t *testing.T) {
@@ -116,7 +172,7 @@ func TestTCPMixerFilter(t *testing.T) {
 		t.Errorf("Failed in request %s: %v", tag, err)
 	}
 	s.VerifyCheck(tag, checkAttributesOkPost)
-	s.VerifyReport(tag, reportAttributesOkPost)
+	s.VerifyTwoReports(tag, reportAttributesOkPostOpen, reportAttributesOkPostClose)
 
 	tag = "MixerFail"
 	s.SetMixerCheckStatus(rpc.Status{

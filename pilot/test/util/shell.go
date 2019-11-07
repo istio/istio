@@ -16,39 +16,11 @@ package util
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 	"strings"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
-
-// Run command and stream output
-func Run(command string) error {
-	log.Info(command)
-	parts := strings.Split(command, " ")
-	/* #nosec */
-	c := exec.Command(parts[0], parts[1:]...)
-	c.Stdout = os.Stdout
-	c.Stderr = os.Stderr
-	return c.Run()
-}
-
-// RunInput command and pass input via stdin
-func RunInput(command, input string) error {
-	clipped := input
-	if len(clipped) > 20 {
-		clipped = fmt.Sprintf("%s <clipped len=%d>", clipped[0:20], len(input))
-	}
-	log.Infof("Run %q on input:\n%s", command, clipped)
-	parts := strings.Split(command, " ")
-	/* #nosec */
-	c := exec.Command(parts[0], parts[1:]...)
-	c.Stdin = strings.NewReader(input)
-	c.Stdout = os.Stdout
-	c.Stderr = os.Stderr
-	return c.Run()
-}
 
 // Shell out a command and aggregate output
 func Shell(command string) (string, error) {

@@ -17,10 +17,8 @@ import (
 	"fmt"
 	"os"
 	"testing"
-	"time"
 
-	"github.com/golang/protobuf/ptypes"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
@@ -29,6 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pkg/keepalive"
 )
 
 func buildLocalClient(apiServerURL string) (*kubernetes.Clientset, error) {
@@ -149,35 +148,32 @@ func deleteTestService(apiServerURL string, svcName, svcNamespace string) error 
 	if err != nil {
 		return err
 	}
-	if err := client.CoreV1().Services(svcNamespace).Delete(svcName, &metav1.DeleteOptions{}); err != nil {
-		return err
-	}
 
-	return nil
+	return client.CoreV1().Services(svcNamespace).Delete(svcName, &metav1.DeleteOptions{})
 }
 
-func initLocalPilot(IstioSrc string) (*bootstrap.Server, error) {
+func initLocalPilot(istioSrc string) (*bootstrap.Server, error) {
 
 	serverAgrs := bootstrap.PilotArgs{
 		Namespace: "istio-system",
 		DiscoveryOptions: envoy.DiscoveryServiceOptions{
 			HTTPAddr:        ":18080", // An unused port will be chosen
 			GrpcAddr:        ":0",
-			EnableCaching:   true,
 			EnableProfiling: true,
 		},
 		//TODO: start mixer first, get its address
 		Mesh: bootstrap.MeshArgs{
-			MixerAddress:    "istio-mixer.istio-system:9091",
-			RdsRefreshDelay: ptypes.DurationProto(10 * time.Millisecond),
+			MixerAddress: "istio-mixer.istio-system:9091",
 		},
 		Config: bootstrap.ConfigArgs{
-			KubeConfig: IstioSrc + "/.circleci/config",
+			KubeConfig: istioSrc + "/tests/util/kubeconfig",
 		},
 		Service: bootstrap.ServiceArgs{
 			Registries: []string{
 				string(serviceregistry.KubernetesRegistry)},
 		},
+		KeepaliveOptions: keepalive.DefaultOption(),
+		ForceStop:        true,
 	}
 	// Create the server for the discovery service.
 	discoveryServer, err := bootstrap.NewServer(serverAgrs)
@@ -190,7 +186,7 @@ func initLocalPilot(IstioSrc string) (*bootstrap.Server, error) {
 
 func startLocalPilot(s *bootstrap.Server, stop chan struct{}) {
 	// Start the server
-	_, _ = s.Start(stop)
+	s.Start(stop)
 }
 
 // Test availability of local API Server

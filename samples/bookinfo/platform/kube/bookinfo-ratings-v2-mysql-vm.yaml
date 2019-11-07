@@ -1,0 +1,53 @@
+# Copyright 2017 Istio Authors
+#
+#   Licensed under the Apache License, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+#   Unless required by applicable law or agreed to in writing, software
+#   distributed under the License is distributed on an "AS IS" BASIS,
+#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#   See the License for the specific language governing permissions and
+#   limitations under the License.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ratings-v2-mysql-vm
+  labels:
+    app: ratings
+    version: v2-mysql-vm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ratings
+      version: v2-mysql-vm
+  template:
+    metadata:
+      labels:
+        app: ratings
+        version: v2-mysql-vm
+    spec:
+      containers:
+      - name: ratings
+        image: docker.io/istio/examples-bookinfo-ratings-v2:1.15.0
+        imagePullPolicy: IfNotPresent
+        env:
+          # This assumes you registered your mysql vm as
+          # istioctl register -n vm mysqldb 1.2.3.4 3306
+          - name: DB_TYPE
+            value: "mysql"
+          - name: MYSQL_DB_HOST
+            value: mysqldb.vm.svc.cluster.local
+          - name: MYSQL_DB_PORT
+            value: "3306"
+          - name: MYSQL_DB_USER
+            value: root
+          - name: MYSQL_DB_PASSWORD
+            value: password
+        ports:
+        - containerPort: 9080
+---

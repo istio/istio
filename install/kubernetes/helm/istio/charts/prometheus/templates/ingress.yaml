@@ -6,21 +6,33 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: prometheus
+    chart: {{ template "prometheus.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
   annotations:
     {{- range $key, $value := .Values.ingress.annotations }}
       {{ $key }}: {{ $value | quote }}
     {{- end }}
 spec:
   rules:
+{{- if .Values.ingress.hosts }}
     {{- range $host := .Values.ingress.hosts }}
     - host: {{ $host }}
       http:
         paths:
-          - path: /
+          - path: {{ if $.Values.contextPath }} {{ $.Values.contextPath }} {{ else }} / {{ end }}
             backend:
               serviceName: prometheus
               servicePort: 9090
     {{- end -}}
+{{- else }}
+    - http:
+        paths:
+          - path: {{ if .Values.contextPath }} {{ .Values.contextPath }} {{ else }} / {{ end }}
+            backend:
+              serviceName: prometheus
+              servicePort: 9090
+{{- end }}
   {{- if .Values.ingress.tls }}
   tls:
 {{ toYaml .Values.ingress.tls | indent 4 }}

@@ -1,0 +1,56 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: handler
+metadata:
+  name: kubeenvhandler
+  namespace: istio-system
+spec:
+  compiledAdapter: prometheus
+  params:
+    metrics:
+    - name: kube_request_count
+      instance_name: kubeenvrequestcount.instance.istio-system
+      kind: COUNTER
+      label_names:
+      - response_code
+      - source_pod
+      - source_workload_uid
+      - source_workload
+      - source_owner
+      - destination_pod
+      - destination_workload_uid
+      - destination_workload
+      - destination_owner
+      - destination_container
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: instance
+metadata:
+  name: kubeenvrequestcount
+  namespace: istio-system
+spec:
+  compiledTemplate: metric
+  params:
+    value: "1"
+    dimensions:
+      response_code: response.code | 200
+      source_pod: source.name | "unknown"
+      source_workload_uid: source.workload.uid | "unknown"
+      source_workload: source.workload.name | "unknown"
+      source_owner: source.owner | "unknown"
+      destination_pod: destination.name | "unknown"
+      destination_workload: destination.workload.name | "unknown"
+      destination_workload_uid: destination.workload.uid | "unknown"
+      destination_owner: destination.owner | "unknown"
+      destination_container: destination.container.name | "unknown"
+    monitored_resource_type: '"UNSPECIFIED"'
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: promkubeenv
+  namespace: istio-system
+spec:
+  match: "true"
+  actions:
+  - handler: kubeenvhandler
+    instances: [ kubeenvrequestcount ]

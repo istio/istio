@@ -23,75 +23,53 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/mixer/pkg/config/store"
-	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/probe"
+	"istio.io/pkg/log"
+	"istio.io/pkg/probe"
 )
 
 const (
-	// API group / version for istio config.
-	apiGroup        = "config.istio.io"
-	apiVersion      = "v1alpha2"
-	apiGroupVersion = apiGroup + "/" + apiVersion
-)
-
-const (
-	// initWaiterInterval is the interval to check if the initial data is ready
-	// in the cache.
-	initWaiterInterval = time.Millisecond
-
 	// crdRetryTimeout is the default timeout duration to retry initialization
 	// of the caches when some CRDs are missing. The timeout can be customized
 	// through "retry-timeout" query parameter in the config URL,
 	// like k8s://?retry-timeout=1m
 	crdRetryTimeout = time.Second * 30
+
+	// crdRetryInterval is the default retry interval between the attempt to
+	// initialize caches
+	crdRetryInterval = time.Second
+
+	// crdBgRetryInterval is the default retry interval between the attempts to
+	// initialize cache for crd kinds that are not ready at store initialization.
+	crdBgRetryInterval = time.Second * 10
+
+	// ConfigAPIGroup is the API group for the config CRDs.
+	ConfigAPIGroup = "config.istio.io"
+	// ConfigAPIVersion is the API version for the config CRDs.
+	ConfigAPIVersion = "v1alpha2"
 )
 
-// When retrying happens on initializing caches, it shouldn't log the message for
-// every retry, it may flood the log messages if the initialization is never satisfied.
-// see also https://github.com/istio/istio/issues/3138
-const logPerRetries = 100
-
 type listerWatcherBuilderInterface interface {
-	build(res metav1.APIResource) cache.ListerWatcher
-}
-
-func waitForSynced(donec chan struct{}, informers map[string]cache.SharedInformer) <-chan struct{} {
-	out := make(chan struct{})
-	go func() {
-		tick := time.NewTicker(initWaiterInterval)
-	loop:
-		for len(informers) > 0 {
-			select {
-			case <-donec:
-				break loop
-			case <-tick.C:
-				for k, i := range informers {
-					if i.HasSynced() {
-						delete(informers, k)
-					}
-				}
-			}
-		}
-		tick.Stop()
-		close(out)
-	}()
-	return out
+	build(res metav1.APIResource) dynamic.ResourceInterface
 }
 
 // Store offers store.StoreBackend interface through kubernetes custom resource definitions.
 type Store struct {
-	conf         *rest.Config
-	ns           map[string]bool
-	retryTimeout time.Duration
-	donec        chan struct{}
+	conf            *rest.Config
+	ns              map[string]bool
+	retryTimeout    time.Duration
+	donec           chan struct{}
+	apiGroupVersion string
 
-	cacheMutex sync.Mutex
+	cacheMutex sync.RWMutex
 	caches     map[string]cache.Store
+	informers  map[string]cache.SharedInformer
 
 	watchMutex sync.RWMutex
 	watchCh    chan store.BackendEvent
@@ -105,6 +83,15 @@ type Store struct {
 	// The interval to wait between the attempt to initialize caches. This is not const
 	// to allow changing the value for unittests.
 	retryInterval time.Duration
+
+	// The interval to wait between the attempt to initialize caches for crd kinds that
+	// are not ready at store initialization. This is not const to allow changing the
+	// value for unittests.
+	bgRetryInterval time.Duration
+
+	// criticalkinds are the kinds that are critical for mixer function and must be ready
+	// for store initialization.
+	criticalKinds []string
 }
 
 var _ store.Backend = new(Store)
@@ -116,11 +103,9 @@ func (s *Store) Stop() {
 }
 
 // checkAndCreateCaches checks the presence of custom resource definitions through the discovery API,
-// and then create caches through lwBUilder which is in kinds. It retries as long as retryDone channel
-// is open.
+// and then create caches through lwBUilder which is in kinds.
 // Returns the created shared informers, and the list of kinds which are not created yet.
 func (s *Store) checkAndCreateCaches(
-	retryDone chan struct{},
 	d discovery.DiscoveryInterface,
 	lwBuilder listerWatcherBuilderInterface,
 	kinds []string) []string {
@@ -128,56 +113,46 @@ func (s *Store) checkAndCreateCaches(
 	for _, k := range kinds {
 		kindsSet[k] = true
 	}
-	informers := map[string]cache.SharedInformer{}
-	retryCount := 0
-loop:
-	for added := 0; added < len(kinds); {
-		select {
-		case <-retryDone:
-			break loop
-		default:
-		}
-		if retryCount > 0 {
-			if retryCount%logPerRetries == 1 {
-				remainingKeys := make([]string, 0, len(kinds))
-				for k := range kindsSet {
-					remainingKeys = append(remainingKeys, k)
-				}
-				log.Debugf("Retrying to fetch config: %+v", remainingKeys)
-			}
-			time.Sleep(s.retryInterval)
-		}
-		retryCount++
-		resources, err := d.ServerResourcesForGroupVersion(apiGroupVersion)
-		if err != nil {
-			log.Debugf("Failed to obtain resources for CRD: %v", err)
+	groupVersion := ConfigAPIGroup + "/" + ConfigAPIVersion
+	if s.apiGroupVersion != "" {
+		groupVersion = s.apiGroupVersion
+	}
+
+	resources, err := d.ServerResourcesForGroupVersion(groupVersion)
+	if err != nil {
+		log.Warnf("Failed to obtain resources for CRD: %v", err)
+		return kinds
+	}
+	s.cacheMutex.Lock()
+	for _, res := range resources.APIResources {
+		if _, ok := s.caches[res.Kind]; ok {
 			continue
 		}
-		s.cacheMutex.Lock()
-		for _, res := range resources.APIResources {
-
-			if _, ok := s.caches[res.Kind]; ok {
-				continue
-			}
-			if _, ok := kindsSet[res.Kind]; ok {
-				cl := lwBuilder.build(res)
-				informer := cache.NewSharedInformer(cl, &unstructured.Unstructured{}, 0)
-				s.caches[res.Kind] = informer.GetStore()
-				informers[res.Kind] = informer
-				delete(kindsSet, res.Kind)
-				informer.AddEventHandler(s)
-				go informer.Run(s.donec)
-				added++
-			}
+		if _, ok := kindsSet[res.Kind]; ok {
+			res.Group = ConfigAPIGroup
+			res.Version = ConfigAPIVersion
+			cl := lwBuilder.build(res)
+			informer := cache.NewSharedInformer(
+				&cache.ListWatch{
+					ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+						return cl.List(options)
+					},
+					WatchFunc: cl.Watch,
+				},
+				&unstructured.Unstructured{}, 0)
+			s.caches[res.Kind] = informer.GetStore()
+			s.informers[res.Kind] = informer
+			delete(kindsSet, res.Kind)
+			informer.AddEventHandler(s)
+			go informer.Run(s.donec)
 		}
-		s.cacheMutex.Unlock()
 	}
-	<-waitForSynced(retryDone, informers)
+	s.cacheMutex.Unlock()
+
 	remaining := make([]string, 0, len(kindsSet))
 	for k := range kindsSet {
 		remaining = append(remaining, k)
 	}
-	var err error
 	if len(remaining) > 0 {
 		err = fmt.Errorf("not yet ready: %+v", remaining)
 	}
@@ -195,20 +170,93 @@ func (s *Store) Init(kinds []string) error {
 	if err != nil {
 		return err
 	}
+
+	log.Infof("Kinds: %#v", kinds)
+
 	s.caches = make(map[string]cache.Store, len(kinds))
+	s.informers = make(map[string]cache.SharedInformer, len(kinds))
+	remaining := s.checkAndCreateCaches(d, lwBuilder, kinds)
 	timeout := time.After(s.retryTimeout)
-	timeoutdone := make(chan struct{})
-	s.retryInterval = time.Second / 2
-	go func() {
-		<-timeout
-		close(timeoutdone)
-	}()
-	remainingKinds := s.checkAndCreateCaches(timeoutdone, d, lwBuilder, kinds)
-	if len(remainingKinds) > 0 {
-		// Wait asynchronously for other kinds.
-		go s.checkAndCreateCaches(s.donec, d, lwBuilder, remainingKinds)
+	ticker := time.NewTicker(s.retryInterval)
+	defer ticker.Stop()
+	stopRetry := false
+	for len(s.extractCriticalKinds(remaining)) != 0 && !stopRetry {
+		select {
+		case <-timeout:
+			stopRetry = true
+		case <-ticker.C:
+			remaining = s.checkAndCreateCaches(d, lwBuilder, remaining)
+		}
+	}
+	ticker.Stop()
+	if len(remaining) > 0 {
+		if cks := s.extractCriticalKinds(remaining); len(cks) != 0 {
+			return fmt.Errorf("failed to discover critical kinds: %v", cks)
+		}
+		log.Warnf("Failed to discover kinds: %v, start retry in background", remaining)
+		go s.retryCreateCache(d, lwBuilder, remaining)
 	}
 	return nil
+}
+
+func (s *Store) extractCriticalKinds(r []string) []string {
+	cks := make([]string, 0, len(r))
+	for _, k := range r {
+		for _, ck := range s.criticalKinds {
+			if ck == k {
+				cks = append(cks, ck)
+			}
+		}
+	}
+	return cks
+}
+
+func (s *Store) retryCreateCache(
+	d discovery.DiscoveryInterface,
+	lwBuilder listerWatcherBuilderInterface,
+	kinds []string) {
+	remaining := kinds
+	ticker := time.NewTicker(s.bgRetryInterval)
+	defer ticker.Stop()
+	stopRetry := false
+
+	for len(remaining) != 0 && !stopRetry {
+		select {
+		case <-s.donec:
+			stopRetry = true
+		case <-ticker.C:
+			rm := s.checkAndCreateCaches(d, lwBuilder, remaining)
+			if len(rm) < len(remaining) {
+				log.Debugf("discovered %v new kinds, remaining undiscovered kinds: %v", len(remaining)-len(rm), rm)
+			}
+			remaining = rm
+		}
+	}
+}
+
+// WaitForSynced implements store.WaitForSynced interface
+func (s *Store) WaitForSynced(timeout time.Duration) error {
+	stop := time.After(timeout)
+	tick := time.NewTicker(10 * time.Millisecond)
+	defer tick.Stop()
+
+	for {
+		select {
+		case <-stop:
+			return fmt.Errorf("exceeded timeout %v", timeout)
+		case <-tick.C:
+			synced := true
+			for _, i := range s.informers {
+				if !i.HasSynced() {
+					synced = false
+					break
+				}
+			}
+			if synced {
+				return nil
+			}
+		}
+	}
 }
 
 // Watch implements store.Backend interface.
@@ -225,9 +273,9 @@ func (s *Store) Get(key store.Key) (*store.BackEndResource, error) {
 	if s.ns != nil && !s.ns[key.Namespace] {
 		return nil, store.ErrNotFound
 	}
-	s.cacheMutex.Lock()
+	s.cacheMutex.RLock()
 	c, ok := s.caches[key.Kind]
-	s.cacheMutex.Unlock()
+	s.cacheMutex.RUnlock()
 	if !ok {
 		return nil, store.ErrNotFound
 	}
@@ -263,7 +311,7 @@ func ToBackEndResource(uns *unstructured.Unstructured) *store.BackEndResource {
 // List implements store.Backend interface.
 func (s *Store) List() map[store.Key]*store.BackEndResource {
 	result := make(map[store.Key]*store.BackEndResource)
-	s.cacheMutex.Lock()
+	s.cacheMutex.RLock()
 	for kind, c := range s.caches {
 		for _, obj := range c.List() {
 			uns := obj.(*unstructured.Unstructured)
@@ -274,7 +322,7 @@ func (s *Store) List() map[store.Key]*store.BackEndResource {
 			result[key] = ToBackEndResource(uns)
 		}
 	}
-	s.cacheMutex.Unlock()
+	s.cacheMutex.RUnlock()
 	return result
 }
 

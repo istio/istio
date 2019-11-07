@@ -1,4 +1,4 @@
-// Copyright 2017 the Istio Authors.
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // nolint: lll
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -a mixer/adapter/stackdriver/config/config.proto -i mixer/adapter/stackdriver/config -x "-n stackdriver -t logentry -t tracespan -t metric"
+//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/adapter/stackdriver/config/config.proto -i mixer/adapter/stackdriver/config -x "-n stackdriver -t logentry -t tracespan -t metric"
 
 // Package stackdriver provides an adapter that implements the logEntry and metrics
 // templates to serialize generated values to Stackdriver.
@@ -25,7 +25,7 @@ import (
 	md "cloud.google.com/go/compute/metadata"
 	multierror "github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/mixer/adapter/stackdriver/config"
+	"istio.io/istio/mixer/adapter/metadata"
 	"istio.io/istio/mixer/adapter/stackdriver/contextgraph"
 	"istio.io/istio/mixer/adapter/stackdriver/helper"
 	"istio.io/istio/mixer/adapter/stackdriver/log"
@@ -84,26 +84,20 @@ func GetInfo() adapter.Info {
 		}
 		return md.Zone()
 	}
-	mg := helper.NewMetadataGenerator(md.OnGCE, md.ProjectID, clusterLocationFn, clusterNameFn)
-	return adapter.Info{
-		Name:        "stackdriver",
-		Impl:        "istio.io/istio/mixer/adapter/stackdriver",
-		Description: "Publishes StackDriver metrics, logs and traces.",
-		SupportedTemplates: []string{
-			edgepb.TemplateName,
-			logentry.TemplateName,
-			metric.TemplateName,
-			tracespan.TemplateName,
-		},
-		DefaultConfig: &config.Params{},
-		NewBuilder: func() adapter.HandlerBuilder {
-			return &builder{
-				m: sdmetric.NewBuilder(mg),
-				l: log.NewBuilder(mg),
-				t: trace.NewBuilder(mg),
-				c: contextgraph.NewBuilder(mg),
-			}
-		}}
+	meshIDFn := func() (string, error) {
+		return md.InstanceAttributeValue("mesh-id")
+	}
+	mg := helper.NewMetadataGenerator(md.OnGCE, md.ProjectID, clusterLocationFn, clusterNameFn, meshIDFn)
+	info := metadata.GetInfo("stackdriver")
+	info.NewBuilder = func() adapter.HandlerBuilder {
+		return &builder{
+			m: sdmetric.NewBuilder(mg),
+			l: log.NewBuilder(mg),
+			t: trace.NewBuilder(mg),
+			c: contextgraph.NewBuilder(mg),
+		}
+	}
+	return info
 }
 
 func (b *builder) SetMetricTypes(metrics map[string]*metric.Type) {

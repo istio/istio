@@ -18,6 +18,7 @@ package tracespan
 
 import (
 	"context"
+	"net"
 	"time"
 
 	"istio.io/istio/mixer/pkg/adapter"
@@ -29,32 +30,32 @@ import (
 //
 // ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
-// kind: tracespan
+// kind: instance
 // metadata:
 //   name: default
 //   namespace: istio-system
 // spec:
-//   traceId: request.headers["x-b3-traceid"]
-//   spanId: request.headers["x-b3-spanid"] | ""
-//   parentSpanId: request.headers["x-b3-parentspanid"] | ""
-//   spanName: request.path | "/"
-//   startTime: request.time
-//   endTime: response.time
-//   clientSpan: (context.reporter.local | true) == false
-//   rewriteClientSpanId: false
-//   spanTags:
-//     http.method: request.method | ""
-//     http.status_code: response.code | 200
-//     http.url: request.path | ""
-//     request.size: request.size | 0
-//     response.size: response.size | 0
-//     source.ip: source.ip | ip("0.0.0.0")
-//     source.service: source.service | ""
-//     source.user: source.user | ""
-//     source.version: source.labels["version"] | ""
+//   compiledTemplate: tracespan
+//   params:
+//     traceId: request.headers["x-b3-traceid"]
+//     spanId: request.headers["x-b3-spanid"] | ""
+//     parentSpanId: request.headers["x-b3-parentspanid"] | ""
+//     spanName: request.path | "/"
+//     startTime: request.time
+//     endTime: response.time
+//     clientSpan: (context.reporter.kind | "inbound") == "outbound"
+//     rewriteClientSpanId: "false"
+//     spanTags:
+//       http.method: request.method | ""
+//       http.status_code: response.code | 200
+//       http.url: request.path | ""
+//       request.size: request.size | 0
+//       response.size: response.size | 0
+//       source.principal: source.principal | ""
+//       source.version: source.labels["version"] | ""
 // ```
 //
-// See also: [Distributed Tracing](https://istio.io/docs/tasks/telemetry/distributed-tracing/)
+// See also: [Distributed Tracing](https://istio.io/docs/tasks/observability/distributed-tracing/)
 // for information on tracing within Istio.
 
 // Fully qualified name of the template
@@ -135,6 +136,56 @@ type Instance struct {
 	//
 	// Optional
 	RewriteClientSpanId bool
+
+	// Identifies the source (client side) of this span.
+	// Should usually be set to `source.workload.name`.
+	//
+	// Optional.
+	SourceName string
+
+	// Client IP address. Should usually be set to `source.ip`.
+	//
+	// Optional.
+	SourceIp net.IP
+
+	// Identifies the destination (server side) of this span.
+	// Should usually be set to `destination.workload.name`.
+	//
+	// Optional.
+	DestinationName string
+
+	// Server IP address. Should usually be set to `destination.ip`.
+	//
+	// Optional.
+	DestinationIp net.IP
+
+	// Request body size. Should usually be set to `request.size`.
+	//
+	// Optional.
+	RequestSize int64
+
+	// Total request size (headers and body).
+	// Should usually be set to `request.total_size`.
+	//
+	// Optional.
+	RequestTotalSize int64
+
+	// Response body size. Should usually be set to `response.size`.
+	//
+	// Optional.
+	ResponseSize int64
+
+	// Response total size (headers and body).
+	// Should usually be set to `response.total_size`.
+	//
+	// Optional.
+	ResponseTotalSize int64
+
+	// One of "http", "https", or "grpc" or any other value of
+	// the `api.protocol` attribute. Should usually be set to `api.protocol`.
+	//
+	// Optional.
+	ApiProtocol string
 }
 
 // HandlerBuilder must be implemented by adapters if they want to

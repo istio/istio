@@ -20,14 +20,19 @@ import (
 )
 
 func TestHttp(t *testing.T) {
+	// Skip test if SDS is enabled.
+	// Istio does not support legacy JWTs anymore.
+	// Only Kubernetes 1.12 (beta) and later support trustworthy JWTs.
+	if tc.Kube.AuthSdsEnabled {
+		t.Skipf("Skipping %s: auth_sds_enable=true=true.", t.Name())
+	}
+
 	srcPods := []string{"a", "b", "t"}
-	dstPods := []string{"a", "b"}
+	dstPods := []string{"a", "b", "headless"}
 	ports := []string{"", "80", "8080"}
 	if !tc.Kube.AuthEnabled {
 		// t is not behind proxy, so it cannot talk in Istio auth.
 		dstPods = append(dstPods, "t")
-		// mTLS is not supported for headless services
-		dstPods = append(dstPods, "headless")
 	} else {
 		// Auth is enabled for d:80, and disabled for d:8080 using per-service policy.
 		// We expect request from non-envoy client ("t") to d:80 should always fail,
@@ -59,7 +64,7 @@ func TestHttp(t *testing.T) {
 					for _, port := range ports {
 						for _, domain := range []string{"", "." + tc.Kube.Namespace} {
 							testName := fmt.Sprintf("%s from %s cluster->%s%s_%s", src, cluster, dst, domain, port)
-							runRetriableTest(t, cluster, testName, defaultRetryBudget, func() error {
+							runRetriableTest(t, testName, defaultRetryBudget, func() error {
 								reqURL := fmt.Sprintf("http://%s%s:%s/%s", dst, domain, port, src)
 								resp := ClientRequest(cluster, src, reqURL, 1, "")
 								// Auth is enabled for d:80 and disable for d:8080 using per-service
@@ -83,13 +88,7 @@ func TestHttp(t *testing.T) {
 										logs.add(cluster, src, id, logEntry)
 									}
 									if dst != "t" {
-										if dst == "headless" { // headless points to b
-											if src != "b" {
-												logs.add(cluster, "b", id, logEntry)
-											}
-										} else {
-											logs.add(cluster, dst, id, logEntry)
-										}
+										logs.add(cluster, dst, id, logEntry)
 									}
 									return nil
 								}

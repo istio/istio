@@ -1,31 +1,38 @@
 {{- if .Values.ingress.enabled -}}
-{{- $serviceName := include "grafana.fullname" . -}}
-{{- $servicePort := .Values.service.externalPort -}}
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
-  name: {{ template "grafana.fullname" . }}
+  name: grafana
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "grafana.name" . }}
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
+    chart: {{ template "grafana.chart" . }}
     heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
   annotations:
     {{- range $key, $value := .Values.ingress.annotations }}
       {{ $key }}: {{ $value | quote }}
     {{- end }}
 spec:
   rules:
+{{- if .Values.ingress.hosts }}
     {{- range $host := .Values.ingress.hosts }}
     - host: {{ $host }}
       http:
         paths:
-          - path: /
+          - path: {{ if $.Values.contextPath }} {{ $.Values.contextPath }} {{ else }} / {{ end }}
             backend:
-              serviceName: {{ $serviceName }}
-              servicePort: {{ $servicePort }}
+              serviceName: grafana
+              servicePort: 3000
     {{- end -}}
+{{- else }}
+    - http:
+        paths:
+          - path: {{ if .Values.contextPath }} {{ .Values.contextPath }} {{ else }} / {{ end }}
+            backend:
+              serviceName: grafana
+              servicePort: 3000
+{{- end }}
   {{- if .Values.ingress.tls }}
   tls:
 {{ toYaml .Values.ingress.tls | indent 4 }}

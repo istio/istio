@@ -19,15 +19,15 @@ import (
 	"reflect"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	envoy_api_v2_route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	hcfilter "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/health_check/v2"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
-	"github.com/gogo/protobuf/types"
+	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/proto"
 )
 
 // Plugin implements Istio mTLS auth
@@ -39,24 +39,31 @@ func NewPlugin() plugin.Plugin {
 }
 
 // BuildHealthCheckFilter returns a HealthCheck filter.
-func buildHealthCheckFilter(probe *model.Probe) *http_conn.HttpFilter {
-	return &http_conn.HttpFilter{
-		Name: xdsutil.HealthCheck,
-		Config: util.MessageToStruct(&hcfilter.HealthCheck{
-			PassThroughMode: &types.BoolValue{
-				Value: true,
+func buildHealthCheckFilter(probe *model.Probe, isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
+	config := &hcfilter.HealthCheck{
+		PassThroughMode: proto.BoolTrue,
+		Headers: []*route.HeaderMatcher{
+			{
+				Name:                 ":path",
+				HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{ExactMatch: probe.Path},
 			},
-			Headers: []*envoy_api_v2_route.HeaderMatcher{
-				{
-					Name:  ":path",
-					Value: probe.Path,
-				},
-			},
-		}),
+		},
 	}
+
+	out := &http_conn.HttpFilter{
+		Name: xdsutil.HealthCheck,
+	}
+
+	if isXDSMarshalingToAnyEnabled {
+		out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(config)}
+	} else {
+		out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(config)}
+	}
+
+	return out
 }
 
-func buildHealthCheckFilters(filterChain *plugin.FilterChain, probes model.ProbeList, endpoint *model.NetworkEndpoint) {
+func buildHealthCheckFilters(filterChain *plugin.FilterChain, probes model.ProbeList, endpoint *model.NetworkEndpoint, isXDSMarshalingToAnyEnabled bool) {
 	for _, probe := range probes {
 		// Check that the probe matches the listener port. If not, then the probe will be handled
 		// as a management port and not traced. If the port does match, then we need to add a
@@ -64,7 +71,7 @@ func buildHealthCheckFilters(filterChain *plugin.FilterChain, probes model.Probe
 		// If no probe port is defined, then port has not specifically been defined, so assume filter
 		// needs to be applied.
 		if probe.Port == nil || probe.Port.Port == endpoint.Port {
-			filter := buildHealthCheckFilter(probe)
+			filter := buildHealthCheckFilter(probe, isXDSMarshalingToAnyEnabled)
 			if !containsHTTPFilter(filterChain.HTTP, filter) {
 				filterChain.HTTP = append(filterChain.HTTP, filter)
 			}
@@ -96,7 +103,7 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 		return nil
 	}
 
-	if in.Node.Type != model.Sidecar {
+	if in.Node.Type != model.SidecarProxy {
 		// Only care about sidecar.
 		return nil
 	}
@@ -109,19 +116,27 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 		return fmt.Errorf("listener not defined in mutable %v", mutable)
 	}
 
+	isXDSMarshalingToAnyEnabled := util.IsXDSMarshalingToAnyEnabled(in.Node)
+
 	for i := range mutable.Listener.FilterChains {
-		if in.ListenerProtocol == plugin.ListenerProtocolHTTP {
-			buildHealthCheckFilters(&mutable.FilterChains[i], in.Env.WorkloadHealthCheckInfo(in.Node.IPAddress),
-				&in.ServiceInstance.Endpoint)
+		if mutable.FilterChains[i].ListenerProtocol == plugin.ListenerProtocolHTTP {
+			for _, ip := range in.Node.IPAddresses {
+				buildHealthCheckFilters(&mutable.FilterChains[i], in.Env.WorkloadHealthCheckInfo(ip),
+					&in.ServiceInstance.Endpoint, isXDSMarshalingToAnyEnabled)
+			}
 		}
 	}
 
 	return nil
 }
 
+// OnVirtualListener implments the Plugin interface method.
+func (Plugin) OnVirtualListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+	return nil
+}
+
 // OnInboundCluster implements the Plugin interface method.
-func (Plugin) OnInboundCluster(env model.Environment, node model.Proxy, service *model.Service,
-	servicePort *model.Port, cluster *xdsapi.Cluster) {
+func (Plugin) OnInboundCluster(in *plugin.InputParams, cluster *xdsapi.Cluster) {
 }
 
 // OnOutboundRouteConfiguration implements the Plugin interface method.
@@ -133,6 +148,15 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, route *xdsapi.
 }
 
 // OnOutboundCluster implements the Plugin interface method.
-func (Plugin) OnOutboundCluster(env model.Environment, node model.Proxy, service *model.Service,
-	servicePort *model.Port, cluster *xdsapi.Cluster) {
+func (Plugin) OnOutboundCluster(in *plugin.InputParams, cluster *xdsapi.Cluster) {
+}
+
+// OnInboundFilterChains is called whenever a plugin needs to setup the filter chains, including relevant filter chain configuration.
+func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
+	return nil
+}
+
+// OnInboundPassthrough is called whenever a new passthrough filter chain is added to the LDS output.
+func (Plugin) OnInboundPassthrough(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+	return nil
 }

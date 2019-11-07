@@ -1,0 +1,18 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: istio-egressgateway
+spec:
+  selector:
+    istio: egressgateway
+  servers:
+    - port:
+        number: 80
+        name: https
+        protocol: HTTPS
+      hosts:
+        - bing.com
+      tls:
+        mode: SIMPLE
+        serverCertificate: /etc/certs/server.pem
+        privateKey: /etc/certs/privatekey.pem

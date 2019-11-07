@@ -1,0 +1,24 @@
+# For egress gateway, allow pod a to access it with GET at any paths.
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: egressgateway-viewer
+spec:
+  rules:
+    - services: ["istio-egressgateway.{{ .IstioNamespace }}.svc.cluster.local"]
+      methods: ["GET"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRoleBinding
+metadata:
+  name: bind-egressgateway-viewer
+spec:
+  subjects:
+  # This is a temporary workaround in the test as authentication policy is not supported on gateway.
+  # TODO(yangminzhu): Use the user field instead once authentication policy is supported on gateway.
+    - properties:
+        request.headers[x-forwarded-client-cert]: "*URI=spiffe://cluster.local/ns/istio-system/sa/a"
+  roleRef:
+    kind: ServiceRole
+    name: "egressgateway-viewer"
+---

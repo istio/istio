@@ -1,0 +1,47 @@
+[
+    {
+        "name": "outbound|15014||istio-policy.istio-system.svc.cluster.local",
+        "addedViaApi": true,
+        "hostStatuses": [
+            {
+                "address": {
+                    "socketAddress": {
+                        "address": "172.17.0.14",
+                        "portValue": 15014
+                    }
+                },
+                "stats": [
+                    {
+                        "type": "GAUGE",
+                        "name": "cx_active"
+                    },
+                    {
+                        "name": "cx_connect_fail"
+                    },
+                    {
+                        "name": "cx_total"
+                    },
+                    {
+                        "type": "GAUGE",
+                        "name": "rq_active"
+                    },
+                    {
+                        "name": "rq_error"
+                    },
+                    {
+                        "name": "rq_success"
+                    },
+                    {
+                        "name": "rq_timeout"
+                    },
+                    {
+                        "name": "rq_total"
+                    }
+                ],
+                "healthStatus": {
+                    "edsHealthStatus": "UNHEALTHY"
+                }
+            }
+        ]
+    }
+]

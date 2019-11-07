@@ -19,8 +19,9 @@ import (
 	"time"
 
 	mixerpb "istio.io/api/mixer/v1"
-	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/pkg/log"
+	attr "istio.io/istio/mixer/pkg/attribute"
+	"istio.io/pkg/attribute"
+	"istio.io/pkg/log"
 )
 
 type attrCase struct {
@@ -31,8 +32,8 @@ type attrCase struct {
 }
 
 func TestKeyShape(t *testing.T) {
-	allKeys := make(map[string]struct{}, 0)
-	globalWords := attribute.GlobalList()
+	allKeys := make(map[string]struct{})
+	globalWords := attr.GlobalList()
 
 	cases := []struct {
 		ra    mixerpb.ReferencedAttributes
@@ -107,8 +108,8 @@ func TestKeyShape(t *testing.T) {
 						"e":            false,
 						"f":            []byte{0, 1, 2},
 						"g":            time.Now(),
-						"h":            time.Duration(time.Second * 10),
-						"i":            map[string]string{"j": "k"},
+						"h":            time.Second * 10,
+						"i":            attribute.WrapStringMap(map[string]string{"j": "k"}),
 					},
 					true,
 					true,
@@ -160,8 +161,8 @@ func TestKeyShape(t *testing.T) {
 						"e": false,
 						"f": []byte{0, 1, 2},
 						"g": time.Now(),
-						"h": time.Duration(time.Second * 10),
-						"i": map[string]string{"j": "j", "k": "k"},
+						"h": time.Second * 10,
+						"i": attribute.WrapStringMap(map[string]string{"j": "j", "k": "k"}),
 					},
 					true,
 					true,
@@ -177,8 +178,8 @@ func TestKeyShape(t *testing.T) {
 						"e": false,
 						"f": []byte{0, 1, 2},
 						"g": time.Now(),
-						"h": time.Duration(10 * time.Second),
-						"i": map[string]string{"j": "j", "k": "k", "l": "l"},
+						"h": 10 * time.Second,
+						"i": attribute.WrapStringMap(map[string]string{"j": "j", "k": "k", "l": "l"}),
 						"j": "k",
 					},
 					true,
@@ -195,8 +196,8 @@ func TestKeyShape(t *testing.T) {
 						"e": false,
 						"f": []byte{0, 1, 2},
 						"g": time.Now(),
-						"h": time.Duration(10 * time.Second),
-						"i": map[string]string{"X": "k", "l": "m"},
+						"h": 10 * time.Second,
+						"i": attribute.WrapStringMap(map[string]string{"X": "k", "l": "m"}),
 					},
 					false,
 					true,
@@ -233,8 +234,8 @@ func TestKeyShape(t *testing.T) {
 					"ra with many absent entries, three unrelated entries in bag",
 					map[string]interface{}{
 						"x": "y",
-						"z": map[string]string{"Y": "Y"},
-						"i": map[string]string{"Y": "Y"},
+						"z": attribute.WrapStringMap(map[string]string{"Y": "Y"}),
+						"i": attribute.WrapStringMap(map[string]string{"Y": "Y"}),
 					},
 					true,
 					true,
@@ -244,8 +245,8 @@ func TestKeyShape(t *testing.T) {
 					"ra with many absent entries, two unrelated entries in bag and an absent entry present",
 					map[string]interface{}{
 						"x": "y",
-						"z": map[string]string{"Y": "Y"},
-						"a": 0,
+						"z": attribute.WrapStringMap(map[string]string{"Y": "Y"}),
+						"a": int64(0),
 					},
 					true,
 					false,
@@ -255,8 +256,8 @@ func TestKeyShape(t *testing.T) {
 					"ra with many absent entries, absent key in string map",
 					map[string]interface{}{
 						"x": "y",
-						"z": map[string]string{"Y": "Y"},
-						"i": map[string]string{"j": "j", "k": "k"},
+						"z": attribute.WrapStringMap(map[string]string{"Y": "Y"}),
+						"i": attribute.WrapStringMap(map[string]string{"j": "j", "k": "k"}),
 					},
 					true,
 					false,
@@ -301,11 +302,11 @@ func TestKeyShape(t *testing.T) {
 				bag := attribute.GetMutableBagForTesting(ac.bag)
 
 				if ok := shape.checkAbsentAttrs(bag); ok != ac.checkAbsent {
-					t.Errorf("Expecting %v, got %v", ac.checkAbsent, ok)
+					t.Errorf("Expecting checkAbsent %v, got %v", ac.checkAbsent, ok)
 				}
 
 				if ok := shape.checkPresentAttrs(bag); ok != ac.checkPresent {
-					t.Errorf("Expecting %v, got %v", ac.checkPresent, ok)
+					t.Errorf("Expecting checkPresent %v, got %v", ac.checkPresent, ok)
 				}
 
 				if ok := shape.isCompatible(bag); ok != ac.checkAbsent && ac.checkPresent {

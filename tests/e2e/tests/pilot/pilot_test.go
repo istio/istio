@@ -27,22 +27,24 @@ import (
 	"testing"
 	"time"
 
-	"go.uber.org/multierr"
+	"github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/pilot/pkg/kube/inject"
-	"istio.io/istio/pkg/log"
+	util2 "istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/util"
+	"istio.io/pkg/log"
 )
 
 const (
-	defaultRetryBudget      = 50
+	defaultRetryBudget      = 10
 	retryDelay              = time.Second
 	httpOK                  = "200"
 	ingressAppName          = "ingress"
 	ingressContainerName    = "ingress"
-	defaultPropagationDelay = 10 * time.Second
+	defaultPropagationDelay = 5 * time.Second
 	primaryCluster          = framework.PrimaryCluster
+	remoteCluster           = framework.RemoteCluster
 )
 
 var (
@@ -51,12 +53,13 @@ var (
 		Egress:  true,
 	}
 
-	errAgain     = errors.New("try again")
-	idRegex      = regexp.MustCompile("(?i)X-Request-Id=(.*)")
-	versionRegex = regexp.MustCompile("ServiceVersion=(.*)")
-	portRegex    = regexp.MustCompile("ServicePort=(.*)")
-	codeRegex    = regexp.MustCompile("StatusCode=(.*)")
-	hostRegex    = regexp.MustCompile("Host=(.*)")
+	errAgain        = errors.New("try again")
+	idRegex         = regexp.MustCompile("(?i)X-Request-Id=(.*)")
+	versionRegex    = regexp.MustCompile("ServiceVersion=(.*)")
+	portRegex       = regexp.MustCompile("ServicePort=(.*)")
+	codeRegex       = regexp.MustCompile("StatusCode=(.*)")
+	hostRegex       = regexp.MustCompile("Host=(.*)")
+	appsWithSidecar []string
 )
 
 func init() {
@@ -72,14 +75,79 @@ func TestMain(m *testing.M) {
 	os.Exit(tc.RunTest(m))
 }
 
+func TestCoreDumpGenerated(t *testing.T) {
+	if strings.Contains(os.Getenv("TEST_ENV"), "minikube") {
+		t.Skipf("Skipping %s in minikube environment", t.Name())
+	}
+	// Simplest way to create out of process core file.
+	crashContainer := "istio-proxy"
+	crashProgPath := "/tmp/crashing_program"
+	coreDir := "var/lib/istio"
+	script := `#!/bin/bash
+kill -SIGSEGV $$
+`
+	err := ioutil.WriteFile(crashProgPath, []byte(script), 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ingressGatewayPod, err := getIngressGatewayPodName()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := util2.CopyFilesToPod(crashContainer, ingressGatewayPod, tc.Kube.Namespace, crashProgPath, crashProgPath); err != nil {
+		t.Fatalf("could not copy file to pod %s: %v", ingressGatewayPod, err)
+	}
+
+	out, err := util.PodExec(tc.Kube.Namespace, ingressGatewayPod, crashContainer, crashProgPath, false, "")
+	if !strings.HasPrefix(out, "command terminated with exit code 139") {
+		t.Fatalf("did not get expected crash error for %s in pod %s, got: %v", crashProgPath, ingressGatewayPod, err)
+	}
+
+	// No easy way to look for a specific core file.
+	response, err := util.PodExec(tc.Kube.Namespace, ingressGatewayPod, crashContainer, "find "+coreDir, false, "")
+	if !strings.Contains(response, "core.") {
+		t.Fatalf("%s did not contain core file, contents: %s, err:%v", coreDir, response, err)
+	}
+
+	response, err = util.PodExec(tc.Kube.Namespace, ingressGatewayPod, crashContainer, "rm "+getCorefilename(response), false, "")
+	if err != nil {
+		t.Fatalf("could not remove core file, response:%s, err:%v", response, err)
+	}
+}
+
+func getIngressGatewayPodName() (string, error) {
+	label := "istio=ingressgateway"
+	res, err := util.Shell("kubectl -n %s -l=%s get pods -o=jsonpath='{range .items[*]}{.metadata.name}{\" \"}{"+
+		".metadata.labels.%s}{\"\\n\"}{end}'", tc.Kube.Namespace, label, label)
+	if err != nil {
+		return "", err
+	}
+
+	rv := strings.Split(res, "\n")
+	if len(rv) < 2 {
+		return "", fmt.Errorf("bad response for get ingressgateway: %s", res)
+	}
+
+	return strings.TrimSpace(rv[0]), nil
+}
+
+func getCorefilename(resp string) string {
+	for _, line := range strings.Split(resp, "\n") {
+		if strings.Contains(line, "core.") {
+			return strings.TrimSpace(line)
+		}
+	}
+	return ""
+}
+
 func setTestConfig() error {
 	cc, err := framework.NewCommonConfig("pilot_test")
 	if err != nil {
 		return err
 	}
 	tc.CommonConfig = cc
-
-	tc.Kube.InstallAddons = true // zipkin is used
 
 	appDir, err := ioutil.TempDir(os.TempDir(), "pilot_test")
 	if err != nil {
@@ -88,7 +156,7 @@ func setTestConfig() error {
 	tc.AppDir = appDir
 
 	// Add additional apps for this test suite.
-	apps := getApps(tc)
+	apps := getApps()
 	for i := range apps {
 		tc.Kube.AppManager.AddApp(&apps[i])
 		if tc.Kube.RemoteKubeConfig != "" {
@@ -102,7 +170,6 @@ func setTestConfig() error {
 		tc.extraConfig[cluster] = &deployableConfig{
 			Namespace: tc.Kube.Namespace,
 			YamlFiles: []string{
-				"testdata/headless.yaml",
 				"testdata/external-wikipedia.yaml",
 				"testdata/externalbin.yaml",
 			},
@@ -121,7 +188,7 @@ func check(err error, msg string) {
 }
 
 // runRetriableTest runs the given test function the provided number of times.
-func runRetriableTest(t *testing.T, cluster, testName string, retries int, f func() error, errorFunc ...func()) {
+func runRetriableTest(t *testing.T, testName string, retries int, f func() error, errorFunc ...func()) {
 	t.Run(testName, func(t *testing.T) {
 		// Run all request tests in parallel.
 		// TODO(nmittler): Consider t.Parallel()?
@@ -153,16 +220,44 @@ func runRetriableTest(t *testing.T, cluster, testName string, retries int, f fun
 	})
 }
 
+type resource struct {
+	// Kind of the resource
+	Kind string
+	// Name of the resource
+	Name string
+}
+
 // deployableConfig is a collection of configs that are applied/deleted as a single unit.
 type deployableConfig struct {
-	Namespace  string
-	YamlFiles  []string
+	Namespace string
+	YamlFiles []string
+	// List of resources must be removed during deployableConfig setup, and restored
+	// during teardown. These resources must exist before deployableConfig setup runs, and should be
+	// in the same namespace defined above. Typically, they are added by the default Istio installation
+	// (e.g the default global authentication policy) and need to be modified for tests.
+	Removes    []resource
 	applied    []string
+	removed    []string
 	kubeconfig string
 }
 
 // Setup pushes the config and waits for it to propagate to all nodes in the cluster.
 func (c *deployableConfig) Setup() error {
+	c.removed = []string{}
+	for _, r := range c.Removes {
+		content, err := util.KubeGetYaml(c.Namespace, r.Kind, r.Name, c.kubeconfig)
+		if err != nil {
+			// Run the teardown function now and return
+			_ = c.Teardown()
+			return err
+		}
+		if err := util.KubeDeleteContents(c.Namespace, content, c.kubeconfig); err != nil {
+			// Run the teardown function now and return
+			_ = c.Teardown()
+			return err
+		}
+		c.removed = append(c.removed, content)
+	}
 	c.applied = []string{}
 	// Apply the configs.
 	for _, yamlFile := range c.YamlFiles {
@@ -190,12 +285,16 @@ func (c *deployableConfig) Teardown() error {
 
 // Teardown deletes the deployed configuration.
 func (c *deployableConfig) TeardownNoDelay() error {
-	var err error
+	var err *multierror.Error
 	for _, yamlFile := range c.applied {
-		err = multierr.Append(err, util.KubeDelete(c.Namespace, yamlFile, c.kubeconfig))
+		err = multierror.Append(err, util.KubeDelete(c.Namespace, yamlFile, c.kubeconfig))
+	}
+	// Restore configs that was removed
+	for _, yaml := range c.removed {
+		err = multierror.Append(err, util.KubeApplyContents(c.Namespace, yaml, c.kubeconfig))
 	}
 	c.applied = []string{}
-	return err
+	return err.ErrorOrNil()
 }
 
 func (c *deployableConfig) propagationDelay() time.Duration {
@@ -225,8 +324,17 @@ func (t *testConfig) Setup() (err error) {
 	for cluster, kc := range t.Kube.Clusters {
 		if err == nil && !util.CheckPodsRunning(t.Kube.Namespace, kc) {
 			err = fmt.Errorf("can't get all pods running in %s cluster", cluster)
-			break
+			return
 		}
+	}
+
+	if len(t.Kube.Clusters) > 1 {
+		// For multicluster tests, add the remote cluster into the mesh
+		// and verify the multicluster service mesh before starting tests
+		err = createAndVerifyMCMeshConfig()
+	} else {
+		// Verify the service mesh config for a single cluster
+		err = verifyMeshConfig()
 	}
 
 	return
@@ -238,37 +346,43 @@ func (t *testConfig) Teardown() (err error) {
 	for _, ec := range t.extraConfig {
 		e := ec.Teardown()
 		if e != nil {
-			err = multierr.Append(err, e)
+			err = multierror.Append(err, e)
 		}
 	}
 	return
 }
 
-func getApps(tc *testConfig) []framework.App {
+func getApps() []framework.App {
+	appsWithSidecar = []string{"a-", "b-", "c-", "d-", "headless-"}
 	return []framework.App{
 		// deploy a healthy mix of apps, with and without proxy
-		getApp("t", "t", 8080, 80, 9090, 90, 7070, 70, "unversioned", false),
-		getApp("a", "a", 8080, 80, 9090, 90, 7070, 70, "v1", true),
-		getApp("b", "b", 80, 8080, 90, 9090, 70, 7070, "unversioned", true),
-		getApp("c-v1", "c", 80, 8080, 90, 9090, 70, 7070, "v1", true),
-		getApp("c-v2", "c", 80, 8080, 90, 9090, 70, 7070, "v2", true),
-		getApp("d", "d", 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true),
+		getApp("t", "t", 1, 8080, 80, 9090, 90, 7070, 70, "unversioned", false, false, false, true),
+		getApp("a", "a", 1, 8080, 80, 9090, 90, 7070, 70, "v1", true, false, true, true),
+		getApp("b", "b", 1, 80, 8080, 90, 9090, 70, 7070, "unversioned", true, false, true, true),
+		getApp("c-v1", "c", 1, 80, 8080, 90, 9090, 70, 7070, "v1", true, false, true, true),
+		getApp("c-v2", "c", 1, 80, 8080, 90, 9090, 70, 7070, "v2", true, false, true, false),
+		getApp("d", "d", 1, 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true, false, true, true),
+		getApp("headless", "headless", 1, 80, 8080, 10090, 19090, 70, 7070, "unversioned", true, true, true, true),
+		getStatefulSet("statefulset", 19090, true),
+
+		getJob("test-job", true),
 	}
 }
 
-func getApp(deploymentName, serviceName string, port1, port2, port3, port4, port5, port6 int,
-	version string, injectProxy bool) framework.App {
-	// TODO(nmittler): Eureka does not support management ports ... should we support other registries?
+func getApp(deploymentName, serviceName string, replicas, port1, port2, port3, port4, port5, port6 int,
+	version string, injectProxy bool, headless bool, serviceAccount bool, createService bool) framework.App {
+	// TODO(nmittler): Consul does not support management ports ... should we support other registries?
 	healthPort := "true"
 
 	// Return the config.
 	return framework.App{
 		AppYamlTemplate: "testdata/app.yaml.tmpl",
 		Template: map[string]string{
-			"Hub":             tc.Kube.PilotHub(),
-			"Tag":             tc.Kube.PilotTag(),
+			"Hub":             tc.Kube.AppHub(),
+			"Tag":             tc.Kube.AppTag(),
 			"service":         serviceName,
 			"deployment":      deploymentName,
+			"replicas":        strconv.Itoa(replicas),
 			"port1":           strconv.Itoa(port1),
 			"port2":           strconv.Itoa(port2),
 			"port3":           strconv.Itoa(port3),
@@ -276,13 +390,60 @@ func getApp(deploymentName, serviceName string, port1, port2, port3, port4, port
 			"port5":           strconv.Itoa(port5),
 			"port6":           strconv.Itoa(port6),
 			"version":         version,
+			"injectProxy":     strconv.FormatBool(injectProxy),
+			"headless":        strconv.FormatBool(headless),
+			"serviceAccount":  strconv.FormatBool(serviceAccount),
+			"healthPort":      healthPort,
+			"ImagePullPolicy": tc.Kube.ImagePullPolicy(),
+			"createService":   strconv.FormatBool(createService),
+		},
+		KubeInject: injectProxy,
+	}
+}
+
+func getStatefulSet(service string, port int, injectProxy bool) framework.App {
+
+	// Return the config.
+	return framework.App{
+		AppYamlTemplate: "testdata/statefulset.yaml.tmpl",
+		Template: map[string]string{
+			"Hub":             tc.Kube.PilotHub(),
+			"Tag":             tc.Kube.PilotTag(),
+			"service":         service,
+			"port":            strconv.Itoa(port),
 			"istioNamespace":  tc.Kube.Namespace,
 			"injectProxy":     strconv.FormatBool(injectProxy),
-			"healthPort":      healthPort,
 			"ImagePullPolicy": tc.Kube.ImagePullPolicy(),
 		},
 		KubeInject: injectProxy,
 	}
+}
+
+func getJob(jobName string, injectProxy bool) framework.App {
+
+	// Return the config.
+	return framework.App{
+		AppYamlTemplate: "testdata/job.yaml",
+		Template: map[string]string{
+			"name": jobName,
+		},
+		KubeInject: injectProxy,
+	}
+}
+
+// ClientRequestForError makes a request from inside the specified k8s container. The request is expected
+// to fail and the error is returned.
+func ClientRequestForError(cluster, app, url string, count int) error {
+	pods := tc.Kube.GetAppPods(cluster)[app]
+	if len(pods) == 0 {
+		log.Errorf("Missing pod names for app %q from %s cluster", app, cluster)
+		return nil
+	}
+
+	pod := pods[0]
+	cmd := fmt.Sprintf("client --url %s --count %d", url, count)
+	_, err := util.PodExec(tc.Kube.Namespace, pod, "app", cmd, true, tc.Kube.Clusters[cluster])
+	return err
 }
 
 // ClientRequest makes a request from inside the specified k8s container.
@@ -296,7 +457,7 @@ func ClientRequest(cluster, app, url string, count int, extra string) ClientResp
 	}
 
 	pod := pods[0]
-	cmd := fmt.Sprintf("client -url %s -count %d %s", url, count, extra)
+	cmd := fmt.Sprintf("client --url %s --count %d %s", url, count, extra)
 	request, err := util.PodExec(tc.Kube.Namespace, pod, "app", cmd, true, tc.Kube.Clusters[cluster])
 	if err != nil {
 		log.Errorf("client request error %v for %s in %s from %s cluster", err, url, app, cluster)
@@ -438,12 +599,12 @@ func (a *accessLogs) checkLog(t *testing.T, cluster, app string, pods map[string
 		container = inject.ProxyContainerName
 	}
 
-	runRetriableTest(t, cluster, app, defaultRetryBudget, func() error {
+	runRetriableTest(t, app, defaultRetryBudget, func() error {
 		// find all ids and counts
 		// TODO: this can be optimized for many string submatching
 		counts := make(map[string]int)
 		for _, request := range a.logs[cluster][app] {
-			counts[request.id] = counts[request.id] + 1
+			counts[request.id]++
 		}
 
 		// Concat the logs from all pods.

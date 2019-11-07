@@ -22,27 +22,26 @@ import (
 	"strings"
 
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/config/schemas"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 
 // ConvertObject converts an IstioObject k8s-style object to the
 // internal configuration model.
-func ConvertObject(schema model.ProtoSchema, object IstioObject, domain string) (*model.Config, error) {
+func ConvertObject(schema schema.Instance, object IstioObject, domain string) (*model.Config, error) {
 	data, err := schema.FromJSONMap(object.GetSpec())
 	if err != nil {
 		return nil, err
 	}
 	meta := object.GetObjectMeta()
-
-	//// FIXME this is a gross hack to hardcode a service's domain name in kubernetes
-	//if domain == "" {
-	//	domain = "svc.cluster.local"
-	//} else {
-	//	domain = "svc." + domain
-	//}
 
 	return &model.Config{
 		ConfigMeta: model.ConfigMeta{
@@ -55,29 +54,54 @@ func ConvertObject(schema model.ProtoSchema, object IstioObject, domain string) 
 			Labels:            meta.Labels,
 			Annotations:       meta.Annotations,
 			ResourceVersion:   meta.ResourceVersion,
-			CreationTimestamp: meta.CreationTimestamp,
+			CreationTimestamp: meta.CreationTimestamp.Time,
+		},
+		Spec: data,
+	}, nil
+}
+
+// ConvertObjectFromUnstructured converts an IstioObject k8s-style object to the
+// internal configuration model.
+func ConvertObjectFromUnstructured(schema schema.Instance, un *unstructured.Unstructured, domain string) (*model.Config, error) {
+	data, err := schema.FromJSONMap(un.Object["spec"])
+	if err != nil {
+		return nil, err
+	}
+
+	return &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:              schema.Type,
+			Group:             ResourceGroup(&schema),
+			Version:           schema.Version,
+			Name:              un.GetName(),
+			Namespace:         un.GetNamespace(),
+			Domain:            domain,
+			Labels:            un.GetLabels(),
+			Annotations:       un.GetAnnotations(),
+			ResourceVersion:   un.GetResourceVersion(),
+			CreationTimestamp: un.GetCreationTimestamp().Time,
 		},
 		Spec: data,
 	}, nil
 }
 
 // ConvertConfig translates Istio config to k8s config JSON
-func ConvertConfig(schema model.ProtoSchema, config model.Config) (IstioObject, error) {
-	spec, err := model.ToJSONMap(config.Spec)
+func ConvertConfig(schema schema.Instance, cfg model.Config) (IstioObject, error) {
+	spec, err := gogoprotomarshal.ToJSONMap(cfg.Spec)
 	if err != nil {
 		return nil, err
 	}
-	namespace := config.Namespace
+	namespace := cfg.Namespace
 	if namespace == "" {
 		namespace = meta_v1.NamespaceDefault
 	}
-	out := knownTypes[schema.Type].object.DeepCopyObject().(IstioObject)
+	out := KnownTypes[schema.Type].Object.DeepCopyObject().(IstioObject)
 	out.SetObjectMeta(meta_v1.ObjectMeta{
-		Name:            config.Name,
+		Name:            cfg.Name,
 		Namespace:       namespace,
-		ResourceVersion: config.ResourceVersion,
-		Labels:          config.Labels,
-		Annotations:     config.Annotations,
+		ResourceVersion: cfg.ResourceVersion,
+		Labels:          cfg.Labels,
+		Annotations:     cfg.Annotations,
 	})
 	out.SetSpec(spec)
 
@@ -91,8 +115,8 @@ func ResourceName(s string) string {
 }
 
 // ResourceGroup generates the k8s API group for each schema.
-func ResourceGroup(schema *model.ProtoSchema) string {
-	return schema.Group + model.IstioAPIGroupDomain
+func ResourceGroup(schema *schema.Instance) string {
+	return schema.Group + constants.IstioAPIGroupDomain
 }
 
 // TODO - add special cases for type-to-kind and kind-to-type
@@ -100,8 +124,8 @@ func ResourceGroup(schema *model.ProtoSchema) string {
 // information to the abstract model and/or elevating k8s
 // representation to first-class type to avoid extra conversions.
 
-// KabobCaseToCamelCase converts "my-name" to "MyName"
-func KabobCaseToCamelCase(s string) string {
+// KebabCaseToCamelCase converts "my-name" to "MyName"
+func KebabCaseToCamelCase(s string) string {
 	switch s {
 	case "http-api-spec":
 		return "HTTPAPISpec"
@@ -111,14 +135,14 @@ func KabobCaseToCamelCase(s string) string {
 		words := strings.Split(s, "-")
 		out := ""
 		for _, word := range words {
-			out = out + strings.Title(word)
+			out += strings.Title(word)
 		}
 		return out
 	}
 }
 
-// CamelCaseToKabobCase converts "MyName" to "my-name"
-func CamelCaseToKabobCase(s string) string {
+// CamelCaseToKebabCase converts "MyName" to "my-name"
+func CamelCaseToKebabCase(s string) string {
 	switch s {
 	case "HTTPAPISpec":
 		return "http-api-spec"
@@ -161,25 +185,25 @@ func parseInputsImpl(inputs string, withValidate bool) ([]model.Config, []IstioK
 			continue
 		}
 
-		schema, exists := model.IstioConfigTypes.GetByType(CamelCaseToKabobCase(obj.Kind))
+		s, exists := schemas.Istio.GetByType(CamelCaseToKebabCase(obj.Kind))
 		if !exists {
 			log.Debugf("unrecognized type %v", obj.Kind)
 			others = append(others, obj)
 			continue
 		}
 
-		config, err := ConvertObject(schema, &obj, "")
+		cfg, err := ConvertObject(s, &obj, "")
 		if err != nil {
 			return nil, nil, fmt.Errorf("cannot parse proto message: %v", err)
 		}
 
 		if withValidate {
-			if err := schema.Validate(config.Name, config.Namespace, config.Spec); err != nil {
+			if err := s.Validate(cfg.Name, cfg.Namespace, cfg.Spec); err != nil {
 				return nil, nil, fmt.Errorf("configuration is invalid: %v", err)
 			}
 		}
 
-		varr = append(varr, *config)
+		varr = append(varr, *cfg)
 	}
 
 	return varr, others, nil

@@ -17,21 +17,28 @@ package aggregate
 import (
 	"sync"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
+
+	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/labels"
 )
 
 // Registry specifies the collection of service registry related interfaces
 type Registry struct {
-	Name      serviceregistry.ServiceRegistry
+	// Name is the type of the registry - Kubernetes, Consul, etc.
+	Name serviceregistry.ServiceRegistry
+	// ClusterID is used when multiple registries of the same type are used,
+	// for example in the case of K8S multicluster.
 	ClusterID string
 	model.Controller
 	model.ServiceDiscovery
-	model.ServiceAccounts
 }
+
+// TODO: rename Name to Type and ClusterID to Name ?
 
 var (
 	clusterAddressesMutex sync.Mutex
@@ -83,8 +90,8 @@ func (c *Controller) DeleteRegistry(clusterID string) {
 
 // GetRegistries returns a copy of all registries
 func (c *Controller) GetRegistries() []Registry {
-	c.storeLock.Lock()
-	defer c.storeLock.Unlock()
+	c.storeLock.RLock()
+	defer c.storeLock.RUnlock()
 
 	return c.registries
 }
@@ -103,7 +110,7 @@ func (c *Controller) GetRegistryIndex(clusterID string) (int, bool) {
 func (c *Controller) Services() ([]*model.Service, error) {
 	// smap is a map of hostname (string) to service, used to identify services that
 	// are installed in multiple clusters.
-	smap := make(map[model.Hostname]*model.Service)
+	smap := make(map[host.Name]*model.Service)
 
 	services := make([]*model.Service, 0)
 	var errs error
@@ -117,28 +124,41 @@ func (c *Controller) Services() ([]*model.Service, error) {
 		// Race condition: multiple threads may call Services, and multiple services
 		// may modify one of the service's cluster ID
 		clusterAddressesMutex.Lock()
-		for _, s := range svcs {
-			sp, ok := smap[s.Hostname]
-			if !ok {
-				// First time we see a service. The result will have a single service per hostname
-				// The first cluster will be listed first, so the services in the primary cluster
-				// will be used for default settings. If a service appears in multiple clusters,
-				// the order is less clear.
-				sp = s
-				smap[s.Hostname] = sp
-				services = append(services, sp)
-			}
+		if r.ClusterID == "" { // Should we instead check for registry name to be on safe side?
+			// If the service is does not have a cluster ID (consul, ServiceEntries, CloudFoundry, etc.)
+			// Do not bother checking for the cluster ID.
+			// DO NOT ASSIGN CLUSTER ID to non-k8s registries. This will prevent service entries with multiple
+			// VIPs or CIDR ranges in the address field
+			services = append(services, svcs...)
+		} else {
+			// This is K8S typically
+			for _, s := range svcs {
+				sp, ok := smap[s.Hostname]
+				if !ok {
+					// First time we see a service. The result will have a single service per hostname
+					// The first cluster will be listed first, so the services in the primary cluster
+					// will be used for default settings. If a service appears in multiple clusters,
+					// the order is less clear.
+					sp = s
+					smap[s.Hostname] = sp
+					services = append(services, sp)
+				}
 
-			// If the registry has a cluster ID, keep track of the cluster and the
-			// local address inside the cluster.
-			// TODO: what is this used for ? Do we want to support multiple VIPs, or
-			// only use the 'primary' VIP ?
-			if r.ClusterID != "" {
+				sp.Mutex.Lock()
+				// If the registry has a cluster ID, keep track of the cluster and the
+				// local address inside the cluster.
 				if sp.ClusterVIPs == nil {
 					sp.ClusterVIPs = make(map[string]string)
 				}
 				sp.ClusterVIPs[r.ClusterID] = s.Address
-				smap[s.Hostname] = sp
+
+				if s.Attributes.ClusterExternalAddresses != nil && len(s.Attributes.ClusterExternalAddresses[r.ClusterID]) > 0 {
+					if sp.Attributes.ClusterExternalAddresses == nil {
+						sp.Attributes.ClusterExternalAddresses = make(map[string][]string)
+					}
+					sp.Attributes.ClusterExternalAddresses[r.ClusterID] = s.Attributes.ClusterExternalAddresses[r.ClusterID]
+				}
+				sp.Mutex.Unlock()
 			}
 		}
 		clusterAddressesMutex.Unlock()
@@ -147,7 +167,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 }
 
 // GetService retrieves a service by hostname if exists
-func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error) {
+func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 	var errs error
 	for _, r := range c.GetRegistries() {
 		service, err := r.GetService(hostname)
@@ -160,20 +180,6 @@ func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error)
 			return service, nil
 		}
 
-	}
-	return nil, errs
-}
-
-// GetServiceAttributes retrieves the custom attributes of a service if exists
-func (c *Controller) GetServiceAttributes(hostname model.Hostname) (*model.ServiceAttributes, error) {
-	var errs error
-	for _, r := range c.GetRegistries() {
-		svc, err := r.GetService(hostname)
-		if err != nil {
-			errs = multierror.Append(errs, err)
-		} else if svc != nil {
-			return r.GetServiceAttributes(svc.Hostname)
-		}
 	}
 	return nil, errs
 }
@@ -200,39 +206,15 @@ func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 	return nil
 }
 
-// Instances retrieves instances for a service and its ports that match
-// any of the supplied labels. All instances match an empty label list.
-func (c *Controller) Instances(hostname model.Hostname, ports []string,
-	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
-	var instances, tmpInstances []*model.ServiceInstance
-	var errs error
-	for _, r := range c.GetRegistries() {
-		var err error
-		tmpInstances, err = r.Instances(hostname, ports, labels)
-		if err != nil {
-			errs = multierror.Append(errs, err)
-		} else if len(tmpInstances) > 0 {
-			if errs != nil {
-				log.Warnf("Instances() found match but encountered an error: %v", errs)
-			}
-			instances = append(instances, tmpInstances...)
-		}
-	}
-	if len(instances) > 0 {
-		errs = nil
-	}
-	return instances, errs
-}
-
 // InstancesByPort retrieves instances for a service on a given port that match
 // any of the supplied labels. All instances match an empty label list.
-func (c *Controller) InstancesByPort(hostname model.Hostname, port int,
-	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
+func (c *Controller) InstancesByPort(svc *model.Service, port int,
+	labels labels.Collection) ([]*model.ServiceInstance, error) {
 	var instances, tmpInstances []*model.ServiceInstance
 	var errs error
 	for _, r := range c.GetRegistries() {
 		var err error
-		tmpInstances, err = r.InstancesByPort(hostname, port, labels)
+		tmpInstances, err = r.InstancesByPort(svc, port, labels)
 		if err != nil {
 			errs = multierror.Append(errs, err)
 		} else if len(tmpInstances) > 0 {
@@ -267,7 +249,32 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.Servi
 
 	if len(out) > 0 {
 		if errs != nil {
-			log.Warnf("GetProxyServiceInstances() found match but encountered an error: %v", errs)
+			log.Debugf("GetProxyServiceInstances() found match but encountered an error: %v", errs)
+		}
+		return out, nil
+	}
+
+	return out, errs
+}
+
+func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.Collection, error) {
+	var out labels.Collection
+	var errs error
+	// It doesn't make sense for a single proxy to be found in more than one registry.
+	// TODO: if otherwise, warning or else what to do about it.
+	for _, r := range c.GetRegistries() {
+		wlLabels, err := r.GetProxyWorkloadLabels(proxy)
+		if err != nil {
+			errs = multierror.Append(errs, err)
+		} else if len(wlLabels) > 0 {
+			out = append(out, wlLabels...)
+			break
+		}
+	}
+
+	if len(out) > 0 {
+		if errs != nil {
+			log.Warnf("GetProxyWorkloadLabels() found match but encountered an error: %v", errs)
 		}
 		return out, nil
 	}
@@ -309,9 +316,9 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 }
 
 // GetIstioServiceAccounts implements model.ServiceAccounts operation
-func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []string) []string {
+func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
 	for _, r := range c.GetRegistries() {
-		if svcAccounts := r.GetIstioServiceAccounts(hostname, ports); svcAccounts != nil {
+		if svcAccounts := r.GetIstioServiceAccounts(svc, ports); svcAccounts != nil {
 			return svcAccounts
 		}
 	}

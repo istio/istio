@@ -18,9 +18,10 @@ import (
 	"errors"
 	"flag"
 	"path/filepath"
+	"time"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/util"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -42,21 +43,23 @@ type App struct {
 
 // AppManager organize and deploy apps
 type AppManager struct {
-	Apps       []*App
-	tmpDir     string
-	namespace  string
-	istioctl   *Istioctl
-	active     bool
-	Kubeconfig string
+	Apps             []*App
+	tmpDir           string
+	namespace        string
+	istioctl         *Istioctl
+	active           bool
+	Kubeconfig       string
+	checkDeployments bool
 }
 
 // NewAppManager create a new AppManager
-func NewAppManager(tmpDir, namespace string, istioctl *Istioctl, kubeconfig string) *AppManager {
+func NewAppManager(tmpDir, namespace string, istioctl *Istioctl, kubeconfig string, checkDeployments bool) *AppManager {
 	return &AppManager{
-		namespace:  namespace,
-		tmpDir:     tmpDir,
-		istioctl:   istioctl,
-		Kubeconfig: kubeconfig,
+		namespace:        namespace,
+		tmpDir:           tmpDir,
+		istioctl:         istioctl,
+		Kubeconfig:       kubeconfig,
+		checkDeployments: checkDeployments,
 	}
 }
 
@@ -90,17 +93,22 @@ func (am *AppManager) deploy(a *App) error {
 			log.Errorf("CreateTempfile failed %v", err)
 			return err
 		}
-		if err = am.istioctl.KubeInject(a.AppYaml, finalYaml); err != nil {
+		if err = am.istioctl.KubeInject(a.AppYaml, finalYaml, am.Kubeconfig); err != nil {
 			log.Errorf("KubeInject failed for yaml %s: %v", a.AppYaml, err)
 			return err
 		}
 	}
-	if err := util.KubeApply(am.namespace, finalYaml, am.Kubeconfig); err != nil {
-		log.Errorf("Kubectl apply %s failed", finalYaml)
-		return err
+	var err error
+	for i := 0; i < 3; i++ {
+		if err = util.KubeApply(am.namespace, finalYaml, am.Kubeconfig); err == nil {
+			break
+		}
+		log.Warnf("Kubectl apply %s failed", finalYaml)
+		// wait for admission webhook configuration populate.
+		time.Sleep(5 * time.Second)
 	}
 	a.deployedYaml = finalYaml
-	return nil
+	return err
 }
 
 // Setup deploy apps
@@ -114,7 +122,10 @@ func (am *AppManager) Setup() error {
 			return err
 		}
 	}
-	return am.CheckDeployments()
+	if am.checkDeployments {
+		return am.CheckDeployments()
+	}
+	return nil
 }
 
 // Teardown currently does nothing, only to satisfied cleanable{}

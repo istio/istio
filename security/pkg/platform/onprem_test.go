@@ -190,9 +190,9 @@ func TestOnpremIsProperPlatform(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to create OnPrem client %v", err)
 	}
-	exptected := onprem.IsProperPlatform()
-	if !exptected {
-		t.Errorf("Unexpected response: %v.", exptected)
+	expected := onprem.IsProperPlatform()
+	if !expected {
+		t.Errorf("Unexpected response: %v.", expected)
 	}
 }
 

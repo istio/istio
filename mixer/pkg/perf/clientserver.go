@@ -19,7 +19,7 @@ import (
 	"net/http"
 	"net/rpc"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // ClientServer is an RPC server that the Controller connects to remotely control a Mixer perf test client.
@@ -149,7 +149,7 @@ func (s *ClientServer) InitializeClient(params ClientServerInitParams, _ *struct
 	_ = log.Sync()
 
 	var load Load
-	if err := unmarshallLoad(params.Load, &load); err != nil {
+	if err := unmarshalLoad(params.Load, &load); err != nil {
 		return err
 	}
 	return s.client.initialize(params.Address, &load)

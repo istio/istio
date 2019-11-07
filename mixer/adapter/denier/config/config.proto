@@ -17,6 +17,7 @@ syntax = "proto3";
 // $title: Denier
 // $description: Adapter that always returns a precondition denial.
 // $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/denier.html
+// $supported_templates: listentry,quota,checknothing
 // $aliases:
 // $  - /docs/reference/config/adapters/denier.html
 

@@ -4,6 +4,7 @@ description: Adapter that always returns a precondition denial.
 location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/denier.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
+supported_templates: listentry,quota,checknothing
 aliases:
   - /docs/reference/config/adapters/denier.html
 number_of_entries: 2
@@ -25,23 +26,30 @@ and the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/tem
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
 <tr id="Params-status">
 <td><code>status</code></td>
-<td><code><a href="#google-rpc-Status">google.rpc.Status</a></code></td>
+<td><code><a href="#google-rpc-Status">Status</a></code></td>
 <td>
 <p>The error to return when denying a request.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-valid_duration">
 <td><code>validDuration</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">Duration</a></code></td>
 <td>
 <p>The duration for which the denial is valid.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Params-valid_use_count">
@@ -51,15 +59,18 @@ and the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/tem
 <p>The number of times the denial may be used.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 </tbody>
 </table>
 </section>
 <h2 id="google-rpc-Status">google.rpc.Status</h2>
 <section>
-<p>The <code>Status</code> type defines a logical error model that is suitable for different
-programming environments, including REST APIs and RPC APIs. It is used by
-<a href="https://github.com/grpc">gRPC</a>. The error model is designed to be:</p>
+<p>The <code>Status</code> type defines a logical error model that is suitable for
+different programming environments, including REST APIs and RPC APIs. It is
+used by <a href="https://github.com/grpc">gRPC</a>. The error model is designed to be:</p>
 
 <ul>
 <li>Simple to use and understand for most users</li>
@@ -68,15 +79,16 @@ programming environments, including REST APIs and RPC APIs. It is used by
 
 <h3 id="overview">Overview</h3>
 
-<p>The <code>Status</code> message contains three pieces of data: error code, error message,
-and error details. The error code should be an enum value of
-<em>google.rpc.Code</em>, but it may accept additional error codes if needed.  The
-error message should be a developer-facing English message that helps
-developers <em>understand</em> and <em>resolve</em> the error. If a localized user-facing
-error message is needed, put the localized message in the error details or
-localize it in the client. The optional error details may contain arbitrary
-information about the error. There is a predefined set of error detail types
-in the package <code>google.rpc</code> that can be used for common error conditions.</p>
+<p>The <code>Status</code> message contains three pieces of data: error code, error
+message, and error details. The error code should be an enum value of
+<em>google.rpc.Code</em>, but it may accept additional error codes
+if needed.  The error message should be a developer-facing English message
+that helps developers <em>understand</em> and <em>resolve</em> the error. If a localized
+user-facing error message is needed, put the localized message in the error
+details or localize it in the client. The optional error details may contain
+arbitrary information about the error. There is a predefined set of error
+detail types in the package <code>google.rpc</code> that can be used for common error
+conditions.</p>
 
 <h3 id="language-mapping">Language mapping</h3>
 
@@ -120,6 +132,7 @@ be used directly after any stripping needed for security/privacy reasons.</p></l
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -127,8 +140,12 @@ be used directly after any stripping needed for security/privacy reasons.</p></l
 <td><code>code</code></td>
 <td><code>int32</code></td>
 <td>
-<p>The status code, which should be an enum value of <em>google.rpc.Code</em>.</p>
+<p>The status code, which should be an enum value of
+<em>google.rpc.Code</em>.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="google-rpc-Status-message">
@@ -137,17 +154,24 @@ be used directly after any stripping needed for security/privacy reasons.</p></l
 <td>
 <p>A developer-facing error message, which should be in English. Any
 user-facing error message should be localized and sent in the
-<a href="#google-rpc-Status-details">google.rpc.Status.details</a> field, or localized by the client.</p>
+<a href="#google-rpc-Status-details">google.rpc.Status.details</a> field, or localized
+by the client.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="google-rpc-Status-details">
 <td><code>details</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#any">google.protobuf.Any[]</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#any">Any[]</a></code></td>
 <td>
 <p>A list of messages that carry the error details.  There is a common set of
 message types for APIs to use.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>

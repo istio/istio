@@ -1,23 +1,37 @@
 ---
 name: Bug report
 about: Report a bug to help us improve Istio
-
 ---
+(NOTE: This is used to report product bugs:
+  To report a security vulnerability, please visit <https://istio.io/about/security-vulnerabilities/>
+  To ask questions about how to use Istio, please visit <https://discuss.istio.io>
+)
 
-**Describe the bug**
-A clear and concise description of what the bug is.
+**Bug description**
+
+**Affected product area (please put an X in all that apply)**
+
+[ ] Configuration Infrastructure
+[ ] Docs
+[ ] Installation
+[ ] Networking
+[ ] Performance and Scalability
+[ ] Policies and Telemetry
+[ ] Security
+[ ] Test and Release
+[ ] User Experience
+[ ] Developer Infrastructure
 
 **Expected behavior**
-A clear and concise description of what you expected to happen.
 
 **Steps to reproduce the bug**
-Steps to reproduce the behavior.
 
-**Version**
-What version of istio and Kubernetes are you using? Use `istioctl version` and `kubectl version`
+**Version (include the output of `istioctl version --remote` and `kubectl version`)**
 
-**Is Istio Auth enabled or not?**
-Did you install the stable istio.yaml, istio-auth.yaml.... or if using the Helm chart please provide full command line input.
+**How was Istio installed?**
 
-**Environment**
-Which environment, cloud vendor, OS, etc are you using?
+**Environment where bug was observed (cloud vendor, OS, etc)**
+
+Additionally, please consider attaching a [cluster state archive](http://istio.io/help/bugs/#generating-a-cluster-state-archive) by attaching
+the dump file to this issue.
+

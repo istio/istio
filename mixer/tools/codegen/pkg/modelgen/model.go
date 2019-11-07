@@ -20,7 +20,7 @@ import (
 	"strconv"
 	"strings"
 
-	proto "github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 
 	tmpl "istio.io/api/mixer/adapter/model/v1beta1"
@@ -181,8 +181,8 @@ func (m *Model) fillModel(templateProto *protoDesc.FileDescriptor, resourceProto
 		m.diags = append(m.diags, diags...)
 	}
 
-	// ensure OutputTemplate is present for APA
-	if m.VarietyName == tmpl.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR.String() {
+	// ensure OutputTemplate is present for APA and output-producing check adapters
+	if m.VarietyName == tmpl.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR.String() || m.VarietyName == tmpl.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT.String() {
 		if outTmplDesc, ok := getMsg(templateProto, "OutputTemplate"); !ok {
 			m.addError(templateProto.GetName(), unknownLine, "message 'OutputTemplate' not defined")
 		} else {
@@ -349,7 +349,7 @@ func (m *Model) addTopLevelFields(fd *protoDesc.FileDescriptor) {
 	}
 
 	if tmplVariety, err := proto.GetExtension(fd.GetOptions(), tmpl.E_TemplateVariety); err == nil {
-		m.VarietyName = (*(tmplVariety.(*tmpl.TemplateVariety))).String()
+		m.VarietyName = (tmplVariety.(*tmpl.TemplateVariety)).String()
 	}
 
 	// For file level comments, comments from multiple locations are composed.

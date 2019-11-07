@@ -1,4 +1,4 @@
-// Copyright 2017 the Istio Authors.
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
 package helper
 
 import (
+	"os"
+
 	gapiopts "google.golang.org/api/option"
 
 	"istio.io/istio/mixer/adapter/stackdriver/config"
@@ -29,6 +31,7 @@ type Metadata struct {
 	ProjectID   string
 	Location    string
 	ClusterName string
+	MeshID      string
 }
 
 // MetadataGenerator creates metadata based on the given metadata functions.
@@ -41,15 +44,17 @@ type metadataGeneratorImpl struct {
 	projectIDFn   metadataFn
 	locationFn    metadataFn
 	clusterNameFn metadataFn
+	meshIDFn      metadataFn
 }
 
 // NewMetadataGenerator creates a MetadataGenerator with the given functions.
-func NewMetadataGenerator(shouldFill shouldFillFn, projectIDFn, locationFn, clusterNameFn metadataFn) MetadataGenerator {
+func NewMetadataGenerator(shouldFill shouldFillFn, projectIDFn, locationFn, clusterNameFn, meshIDFn metadataFn) MetadataGenerator {
 	return &metadataGeneratorImpl{
 		shouldFill:    shouldFill,
 		projectIDFn:   projectIDFn,
 		locationFn:    locationFn,
 		clusterNameFn: clusterNameFn,
+		meshIDFn:      meshIDFn,
 	}
 }
 
@@ -68,6 +73,9 @@ func (mg *metadataGeneratorImpl) GenerateMetadata() Metadata {
 	if cn, err := mg.clusterNameFn(); err == nil {
 		md.ClusterName = cn
 	}
+	if mid, err := mg.meshIDFn(); err == nil {
+		md.MeshID = mid
+	}
 	return md
 }
 
@@ -80,22 +88,30 @@ func (md *Metadata) FillProjectMetadata(in map[string]string) {
 		if key == "project_id" {
 			in[key] = md.ProjectID
 		}
-		if key == "location" {
+		if key == "location" || key == "zone" {
 			in[key] = md.Location
 		}
 		if key == "cluster_name" {
 			in[key] = md.ClusterName
 		}
+		if key == "mesh_uid" {
+			in[key] = md.MeshID
+		}
 	}
 }
 
 // ToOpts converts the Stackdriver config params to options for configuring Stackdriver clients.
-func ToOpts(cfg *config.Params) (opts []gapiopts.ClientOption) {
+func ToOpts(cfg *config.Params, logger adapter.Logger) (opts []gapiopts.ClientOption) {
 	switch cfg.Creds.(type) {
 	case *config.Params_ApiKey:
-		opts = append(opts, gapiopts.WithAPIKey(cfg.GetApiKey()))
+		logger.Warningf("API Key is no longer supported by gRPC client. Use ServiceAccountPath instead.")
 	case *config.Params_ServiceAccountPath:
-		opts = append(opts, gapiopts.WithCredentialsFile(cfg.GetServiceAccountPath()))
+		path := cfg.GetServiceAccountPath()
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			opts = append(opts, gapiopts.WithCredentialsFile(path))
+		} else {
+			logger.Warningf("could not find %v, using Application Default Credentials instead", path)
+		}
 	case *config.Params_AppCredentials:
 		// When using default app credentials the SDK handles everything for us.
 	}

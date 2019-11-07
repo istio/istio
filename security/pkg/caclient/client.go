@@ -19,12 +19,19 @@ import (
 	"io/ioutil"
 	"time"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/caclient/protocol"
-	"istio.io/istio/security/pkg/nodeagent/secrets"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/platform"
 	pb "istio.io/istio/security/proto"
+	"istio.io/pkg/log"
+)
+
+const (
+	// keyFilePermission is the permission bits for private key file.
+	keyFilePermission = 0600
+
+	// certFilePermission is the permission bits for certificate file.
+	certFilePermission = 0644
 )
 
 // CAClient is a client to provision key and certificate from the upstream CA via CSR protocol.
@@ -81,7 +88,7 @@ func (c *CAClient) Retrieve(options *pkiutil.CertOptions) (newCert []byte, certC
 		retries++
 		timer := time.NewTimer(retrialInterval)
 		// Exponentially increase the backoff time.
-		retrialInterval = retrialInterval * 2
+		retrialInterval *= 2
 		<-timer.C
 	}
 }
@@ -109,8 +116,8 @@ func (c *CAClient) createCSRRequest(opts *pkiutil.CertOptions) ([]byte, *pb.CsrR
 // SaveKeyCert stores the specified key/cert into file specified by the path.
 // TODO(incfly): move this into CAClient struct's own method later.
 func SaveKeyCert(keyFile, certFile string, privKey, cert []byte) error {
-	if err := ioutil.WriteFile(keyFile, privKey, secrets.KeyFilePermission); err != nil {
+	if err := ioutil.WriteFile(keyFile, privKey, keyFilePermission); err != nil {
 		return err
 	}
-	return ioutil.WriteFile(certFile, cert, secrets.CertFilePermission)
+	return ioutil.WriteFile(certFile, cert, certFilePermission)
 }

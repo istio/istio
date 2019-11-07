@@ -1,0 +1,98 @@
+---
+title: policy
+layout: protoc-gen-docs
+generator: protoc-gen-docs
+number_of_entries: 2
+---
+<p>adapter config for policy backend.</p>
+
+<h2 id="Params">Params</h2>
+<section>
+<p>Config for policy backend, which could be used as a fake adapter for integration test,
+supports checknothing and keyval template.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params-check_params">
+<td><code>checkParams</code></td>
+<td><code><a href="#Params-CheckParams">CheckParams</a></code></td>
+<td>
+<p>Specify check related params.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="Params-table">
+<td><code>table</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>Specify route directive related params.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params-CheckParams">Params.CheckParams</h2>
+<section>
+<p>Check params which controls check result returned by policy backend.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params-CheckParams-check_allow">
+<td><code>checkAllow</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Controls that request should be allowed or not.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="Params-CheckParams-valid_duration">
+<td><code>validDuration</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">Duration</a></code></td>
+<td>
+<p>Valid duration of the check result.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="Params-CheckParams-valid_count">
+<td><code>validCount</code></td>
+<td><code>int64</code></td>
+<td>
+<p>Valid request count of the check result.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>

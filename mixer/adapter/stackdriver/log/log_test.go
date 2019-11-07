@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors.
+// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ package log
 import (
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -31,6 +32,7 @@ import (
 	"google.golang.org/api/option"
 	"google.golang.org/genproto/googleapis/api/monitoredres"
 
+	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/adapter/stackdriver/config"
 	"istio.io/istio/mixer/adapter/stackdriver/helper"
 	"istio.io/istio/mixer/pkg/adapter/test"
@@ -39,7 +41,7 @@ import (
 
 var dummyShouldFill = func() bool { return true }
 var dummyMetadataFn = func() (string, error) { return "", nil }
-var dummyMetadataGenerator = helper.NewMetadataGenerator(dummyShouldFill, dummyMetadataFn, dummyMetadataFn, dummyMetadataFn)
+var dummyMetadataGenerator = helper.NewMetadataGenerator(dummyShouldFill, dummyMetadataFn, dummyMetadataFn, dummyMetadataFn, dummyMetadataFn)
 
 func TestBuild(t *testing.T) {
 	b := &builder{makeClient: func(context.Context, string, ...option.ClientOption) (*logging.Client, error) {
@@ -133,7 +135,7 @@ func TestEmptyProjectID(t *testing.T) {
 				makeSyncClient: func(context.Context, string, ...option.ClientOption) (*logadmin.Client, error) {
 					return &logadmin.Client{}, nil
 				},
-				mg: helper.NewMetadataGenerator(dummyShouldFill, tt.pidFn, dummyMetadataFn, dummyMetadataFn),
+				mg: helper.NewMetadataGenerator(dummyShouldFill, tt.pidFn, dummyMetadataFn, dummyMetadataFn, dummyMetadataFn),
 			}
 			b.SetAdapterConfig(tt.cfg)
 			if _, err := b.Build(context.Background(), test.NewEnv(t)); err != nil {
@@ -152,9 +154,12 @@ func TestHandleLogEntry(t *testing.T) {
 		info     map[string]info
 		vals     []*logentry.Instance
 		expected []logging.Entry
+		types    map[string]*logentry.Type
 	}{
-		{"empty", map[string]info{}, []*logentry.Instance{}, []logging.Entry{}},
-		{"missing", map[string]info{}, []*logentry.Instance{{Name: "missing"}}, []logging.Entry{}},
+		{"empty", map[string]info{}, []*logentry.Instance{}, []logging.Entry{}, map[string]*logentry.Type{}},
+		{"missing", map[string]info{}, []*logentry.Instance{{Name: "missing"}}, []logging.Entry{}, map[string]*logentry.Type{
+			"missing": {},
+		}},
 		{"happy",
 			map[string]info{"happy": {tmpl: template.Must(template.New("").Parse("literal")), log: log}},
 			[]*logentry.Instance{{Name: "happy"}},
@@ -165,6 +170,8 @@ func TestHandleLogEntry(t *testing.T) {
 					Labels:    map[string]string{},
 					Payload:   "literal",
 				},
+			}, map[string]*logentry.Type{
+				"happy": {},
 			}},
 		{"labels",
 			map[string]info{"labels": {tmpl: template.Must(template.New("").Parse("literal")), labels: []string{"foo", "time"}, log: log}},
@@ -175,6 +182,33 @@ func TestHandleLogEntry(t *testing.T) {
 					Severity:  logging.Default,
 					Labels:    map[string]string{"foo": "bar", "time": fmt.Sprintf("%v", now)},
 					Payload:   "literal",
+				},
+			},
+			map[string]*logentry.Type{
+				"labels": {
+					Variables: map[string]descriptor.ValueType{
+						"foo":  descriptor.STRING,
+						"time": descriptor.TIMESTAMP,
+					},
+				},
+			}},
+		{"labels with bad utf8",
+			map[string]info{"labels": {tmpl: template.Must(template.New("").Parse("literal")), labels: []string{"foo", "time"}, log: log}},
+			[]*logentry.Instance{{Name: "labels", Variables: map[string]interface{}{"foo": "bar\xed\xa0\x80", "time": now}}},
+			[]logging.Entry{
+				{
+					Timestamp: now,
+					Severity:  logging.Default,
+					Labels:    map[string]string{"foo": "bar", "time": fmt.Sprintf("%v", now)},
+					Payload:   "literal",
+				},
+			},
+			map[string]*logentry.Type{
+				"labels": {
+					Variables: map[string]descriptor.ValueType{
+						"foo":  descriptor.STRING,
+						"time": descriptor.TIMESTAMP,
+					},
 				},
 			}},
 		{"labels only one",
@@ -187,11 +221,18 @@ func TestHandleLogEntry(t *testing.T) {
 					Labels:    map[string]string{"foo": "bar"},
 					Payload:   "literal",
 				},
+			},
+			map[string]*logentry.Type{
+				"labels": {
+					Variables: map[string]descriptor.ValueType{
+						"foo": descriptor.STRING,
+					},
+				},
 			}},
 		{"req map",
 			map[string]info{"reqmap": {
 				tmpl:   template.Must(template.New("").Parse("literal")),
-				labels: []string{"foo"},
+				labels: []string{"foo", "source_ip"},
 				req: &config.Params_LogInfo_HttpRequestMapping{
 					Status:       "status",
 					LocalIp:      "localip",
@@ -205,21 +246,22 @@ func TestHandleLogEntry(t *testing.T) {
 			[]*logentry.Instance{{
 				Name: "reqmap",
 				Variables: map[string]interface{}{
-					"foo":      "bar",
-					"time":     fmt.Sprintf("%v", now),
-					"status":   int64(200),
-					"localip":  "127.0.0.1",
-					"remoteip": "1.0.0.127",
-					"latency":  time.Second,
-					"reqsize":  123,
-					"respsize": int64(456),
+					"foo":       "bar",
+					"time":      fmt.Sprintf("%v", now),
+					"status":    int64(200),
+					"localip":   "127.0.0.1",
+					"remoteip":  []byte(net.ParseIP("1.0.0.127")),
+					"source_ip": []byte(net.ParseIP("1.0.0.127")),
+					"latency":   time.Second,
+					"reqsize":   123,
+					"respsize":  int64(456),
 				},
 			}},
 			[]logging.Entry{
 				{
 					Timestamp: now,
 					Severity:  logging.Default,
-					Labels:    map[string]string{"foo": "bar"},
+					Labels:    map[string]string{"foo": "bar", "source_ip": "1.0.0.127"},
 					Payload:   "literal",
 					HTTPRequest: &logging.HTTPRequest{
 						Status:       200,
@@ -229,6 +271,21 @@ func TestHandleLogEntry(t *testing.T) {
 						RequestSize:  123,
 						ResponseSize: 456,
 						Request:      &http.Request{URL: &url.URL{}, Method: "", Header: make(http.Header)},
+					},
+				},
+			},
+			map[string]*logentry.Type{
+				"reqmap": {
+					Variables: map[string]descriptor.ValueType{
+						"foo":       descriptor.STRING,
+						"status":    descriptor.INT64,
+						"reqsize":   descriptor.INT64,
+						"respsize":  descriptor.INT64,
+						"latency":   descriptor.DURATION,
+						"time":      descriptor.TIMESTAMP,
+						"localip":   descriptor.IP_ADDRESS,
+						"remoteip":  descriptor.IP_ADDRESS,
+						"source_ip": descriptor.IP_ADDRESS,
 					},
 				},
 			}},
@@ -242,6 +299,15 @@ func TestHandleLogEntry(t *testing.T) {
 					Labels:    map[string]string{},
 					Payload:   fmt.Sprintf("%d-%s-%v", 1, "foo", now),
 				},
+			},
+			map[string]*logentry.Type{
+				"template": {
+					Variables: map[string]descriptor.ValueType{
+						"b": descriptor.STRING,
+						"a": descriptor.INT64,
+						"c": descriptor.TIMESTAMP,
+					},
+				},
 			}},
 		{"resource",
 			map[string]info{"resource": {tmpl: template.Must(template.New("").Parse("{{.a}}-{{.b}}-{{.c}}")), log: log}},
@@ -253,6 +319,15 @@ func TestHandleLogEntry(t *testing.T) {
 					Labels:    map[string]string{},
 					Payload:   fmt.Sprintf("1-foo-%v", now),
 					Resource:  &monitoredres.MonitoredResource{Type: "mr-type", Labels: map[string]string{}},
+				},
+			},
+			map[string]*logentry.Type{
+				"resource": {
+					Variables: map[string]descriptor.ValueType{
+						"b": descriptor.STRING,
+						"a": descriptor.INT64,
+						"c": descriptor.TIMESTAMP,
+					},
 				},
 			}},
 	}
@@ -271,9 +346,10 @@ func TestHandleLogEntry(t *testing.T) {
 				}
 			}
 			h := &handler{
-				info: tinfo,
-				l:    test.NewEnv(t).Logger(),
-				now:  func() time.Time { return now },
+				info:  tinfo,
+				l:     test.NewEnv(t).Logger(),
+				now:   func() time.Time { return now },
+				types: tt.types,
 			}
 			if err := h.HandleLogEntry(context.Background(), tt.vals); err != nil {
 				t.Fatalf("Got error while logging, should never happen.")
@@ -343,7 +419,7 @@ func TestProjectMetadata(t *testing.T) {
 			"filled",
 			[]*logentry.Instance{
 				{
-					Name: "log",
+					Name:                  "log",
 					MonitoredResourceType: "mr-type",
 					MonitoredResourceDimensions: map[string]interface{}{
 						"project_id":   "id",
@@ -365,7 +441,7 @@ func TestProjectMetadata(t *testing.T) {
 			"empty",
 			[]*logentry.Instance{
 				{
-					Name: "log",
+					Name:                  "log",
 					MonitoredResourceType: "mr-type",
 					MonitoredResourceDimensions: map[string]interface{}{
 						"project_id":   "",
@@ -400,7 +476,7 @@ func TestProjectMetadata(t *testing.T) {
 			h := &handler{
 				info: infoMap,
 				l:    test.NewEnv(t).Logger(),
-				now:  func() time.Time { return time.Now() },
+				now:  time.Now,
 				md:   helper.Metadata{ProjectID: "pid", Location: "location", ClusterName: "cluster"},
 			}
 			if err := h.HandleLogEntry(context.Background(), tt.vals); err != nil {

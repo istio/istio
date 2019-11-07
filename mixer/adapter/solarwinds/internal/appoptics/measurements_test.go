@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors.
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@ func TestCreate(t *testing.T) {
 		}
 
 		if count != 1 {
-			t.Errorf("Received requests dont match expected.")
+			t.Errorf("Received requests don't match expected.")
 		}
 	})
 }

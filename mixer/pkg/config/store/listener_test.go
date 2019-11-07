@@ -23,7 +23,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
-	"istio.io/istio/pkg/probe"
+	"istio.io/pkg/probe"
 )
 
 const watchFlushDuration = time.Millisecond
@@ -41,7 +41,10 @@ func TestStartWatch_Basic(t *testing.T) {
 		"foo": &mockProto{},
 	}
 
-	initialResources, _, err := StartWatch(s, kinds)
+	if err := s.Init(kinds); err != nil {
+		t.Fatalf("unexpected error %v", err)
+	}
+	initialResources, _, err := StartWatch(s)
 
 	if !s.initCalled {
 		t.Fatal("Init should have been called")
@@ -68,31 +71,12 @@ func TestStartWatch_Basic(t *testing.T) {
 	}
 }
 
-func TestStartWatch_InitFailure(t *testing.T) {
-	s := &mockStore{
-		initErrorToReturn: errors.New("cannot init"),
-	}
-
-	kinds := map[string]proto.Message{
-		"foo": &mockProto{},
-	}
-
-	_, _, err := StartWatch(s, kinds)
-	if err != s.initErrorToReturn {
-		t.Fatalf("Expected error was not returned: %v", err)
-	}
-}
-
 func TestStartWatch_WatchFailure(t *testing.T) {
 	s := &mockStore{
 		watchErrorToReturn: errors.New("cannot watch"),
 	}
 
-	kinds := map[string]proto.Message{
-		"foo": &mockProto{},
-	}
-
-	_, _, err := StartWatch(s, kinds)
+	_, _, err := StartWatch(s)
 	if err != s.watchErrorToReturn {
 		t.Fatalf("Expected error was not returned: %v", err)
 	}
@@ -131,19 +115,15 @@ func TestWatchChanges(t *testing.T) {
 }
 
 type mockStore struct {
-	// Init method related fields
-	initCalled        bool
-	initKinds         map[string]proto.Message
-	initErrorToReturn error
-
-	// Watch method related fields
-	watchCalled          bool
+	initKinds            map[string]proto.Message
+	initErrorToReturn    error
 	watchChannelToReturn chan Event
 	watchErrorToReturn   error
+	listResultToReturn   map[Key]*Resource
 
-	// List method related fields
-	listCalled         bool
-	listResultToReturn map[Key]*Resource
+	initCalled  bool
+	watchCalled bool
+	listCalled  bool
 }
 
 var _ Store = &mockStore{}
@@ -156,6 +136,10 @@ func (m *mockStore) Init(kinds map[string]proto.Message) error {
 	m.initKinds = kinds
 
 	return m.initErrorToReturn
+}
+
+func (m *mockStore) WaitForSynced(time.Duration) error {
+	return nil
 }
 
 // Watch creates a channel to receive the events. A store can conduct a single

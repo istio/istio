@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-volume
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: user-volume
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/userMount: '[{"name": "proto", "mountPath": "/etc/proto/description.proto", "readonly": true}]'
+        sidecar.istio.io/userVolume: '[{"name": "proto", "persistentVolumeClaim": [{"claimName": "some-claim-name"}]}]'
+      labels:
+        app: user-volume
+    spec:
+      containers:
+        - name: user-volume
+          image: "fake.docker.io/google-samples/hello-go-gke:1.0"
+          ports:
+            - name: http
+              containerPort: 80
+

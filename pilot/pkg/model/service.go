@@ -28,12 +28,19 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
+
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	"github.com/mitchellh/copystructure"
 
 	authn "istio.io/api/authentication/v1alpha1"
-)
 
-// Hostname describes a (possibly wildcarded) hostname
-type Hostname string
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/visibility"
+)
 
 // Service describes an Istio service (e.g., catalog.mystore.com:8080)
 // Each service has a fully qualified domain name (FQDN) and one or more
@@ -46,8 +53,22 @@ type Hostname string
 // foo.default.svc.cluster.local hostname, has a virtual IP of 10.0.1.1 and
 // listens on ports 80, 8080
 type Service struct {
-	// Hostname of the service, e.g. "catalog.mystore.com"
-	Hostname Hostname `json:"hostname"`
+	// Attributes contains additional attributes associated with the service
+	// used mostly by mixer and RBAC for policy enforcement purposes.
+	Attributes ServiceAttributes
+
+	// Ports is the set of network ports where the service is listening for
+	// connections
+	Ports PortList `json:"ports,omitempty"`
+
+	// ServiceAccounts specifies the service accounts that run the service.
+	ServiceAccounts []string `json:"serviceAccounts,omitempty"`
+
+	// CreationTime records the time this service was created, if available.
+	CreationTime time.Time `json:"creationTime,omitempty"`
+
+	// Name of the service, e.g. "catalog.mystore.com"
+	Hostname host.Name `json:"hostname"`
 
 	// Address specifies the service IPv4 address of the load balancer
 	Address string `json:"address,omitempty"`
@@ -56,27 +77,6 @@ type Service struct {
 	// in each of the clusters where the service resides
 	ClusterVIPs map[string]string `json:"cluster-vips,omitempty"`
 
-	// Ports is the set of network ports where the service is listening for
-	// connections
-	Ports PortList `json:"ports,omitempty"`
-
-	// ExternalName is only set for external services and holds the external
-	// service DNS name.  External services are name-based solution to represent
-	// external service instances as a service inside the cluster.
-	// Deprecated : made obsolete by the MeshExternal and Resolution flags.
-	ExternalName Hostname `json:"external"`
-
-	// ServiceAccounts specifies the service accounts that run the service.
-	ServiceAccounts []string `json:"serviceaccounts,omitempty"`
-
-	// MeshExternal (if true) indicates that the service is external to the mesh.
-	// These services are defined using Istio's ServiceEntry spec.
-	MeshExternal bool
-
-	// LoadBalancingDisabled indicates that no load balancing should be done for this service.
-	// Deprecated : made obsolete by the MeshExternal and Resolution flags.
-	LoadBalancingDisabled bool `json:"-"`
-
 	// Resolution indicates how the service instances need to be resolved before routing
 	// traffic. Most services in the service registry will use static load balancing wherein
 	// the proxy will decide the service instance that will receive the traffic. Service entries
@@ -84,6 +84,13 @@ type Service struct {
 	// or use the passthrough model (i.e. proxy will forward the traffic to the network endpoint requested
 	// by the caller)
 	Resolution Resolution
+
+	// Protect concurrent ClusterVIPs read/write
+	Mutex sync.RWMutex
+
+	// MeshExternal (if true) indicates that the service is external to the mesh.
+	// These services are defined using Istio's ServiceEntry spec.
+	MeshExternal bool
 }
 
 // Resolution indicates how the service instances need to be resolved before routing
@@ -99,12 +106,46 @@ const (
 	Passthrough
 )
 
-const (
-	// UnspecifiedIP constant for empty IP address
-	UnspecifiedIP = "0.0.0.0"
+// String converts Resolution in to String.
+func (resolution Resolution) String() string {
+	switch resolution {
+	case ClientSideLB:
+		return "ClientSide"
+	case DNSLB:
+		return "DNS"
+	case Passthrough:
+		return "Passthrough"
+	default:
+		return fmt.Sprintf("%d", int(resolution))
+	}
+}
 
+const (
 	// IstioDefaultConfigNamespace constant for default namespace
 	IstioDefaultConfigNamespace = "default"
+
+	// LocalityLabel indicates the region/zone/subzone of an instance. It is used to override the native
+	// registry's value.
+	//
+	// Note: because k8s labels does not support `/`, so we use `.` instead in k8s.
+	LocalityLabel = "istio-locality"
+	// k8s istio-locality label separator
+	k8sSeparator = "."
+)
+
+const (
+	// TLSModeLabelShortname name used for determining endpoint level tls transport socket configuration
+	TLSModeLabelShortname = "tlsMode"
+
+	// TLSModeLabelName is the name of label given to service instances to determine whether to use mTLS or
+	// fallback to plaintext/tls
+	TLSModeLabelName = "security.istio.io/" + TLSModeLabelShortname
+
+	// DisabledTLSModeLabel implies that this endpoint should receive traffic as is (mostly plaintext)
+	DisabledTLSModeLabel = "disabled"
+
+	// IstioMutualTLSModeLabel implies that the endpoint is ready to receive Istio mTLS connections.
+	IstioMutualTLSModeLabel = "istio"
 )
 
 // Port represents a network port where a service is listening for
@@ -121,41 +162,11 @@ type Port struct {
 	Port int `json:"port"`
 
 	// Protocol to be used for the port.
-	Protocol Protocol `json:"protocol,omitempty"`
+	Protocol protocol.Instance `json:"protocol,omitempty"`
 }
 
 // PortList is a set of ports
 type PortList []*Port
-
-// Protocol defines network protocols for ports
-type Protocol string
-
-const (
-	// ProtocolGRPC declares that the port carries gRPC traffic
-	ProtocolGRPC Protocol = "GRPC"
-	// ProtocolHTTP declares that the port carries HTTP/1.1 traffic.
-	// Note that HTTP/1.0 or earlier may not be supported by the proxy.
-	ProtocolHTTP Protocol = "HTTP"
-	// ProtocolHTTP2 declares that the port carries HTTP/2 traffic
-	ProtocolHTTP2 Protocol = "HTTP2"
-	// ProtocolHTTPS declares that the port carries HTTPS traffic
-	ProtocolHTTPS Protocol = "HTTPS"
-	// ProtocolTCP declares the the port uses TCP.
-	// This is the default protocol for a service port.
-	ProtocolTCP Protocol = "TCP"
-	// ProtocolTLS declares that the port carries TLS traffic.
-	// TLS traffic is assumed to contain SNI as part of the handshake.
-	ProtocolTLS Protocol = "TLS"
-	// ProtocolUDP declares that the port uses UDP.
-	// Note that UDP protocol is not currently supported by the proxy.
-	ProtocolUDP Protocol = "UDP"
-	// ProtocolMongo declares that the port carries mongoDB traffic
-	ProtocolMongo Protocol = "Mongo"
-	// ProtocolRedis declares that the port carries redis traffic
-	ProtocolRedis Protocol = "Redis"
-	// ProtocolUnsupported - value to signify that the protocol is unsupported
-	ProtocolUnsupported Protocol = "UnsupportedProtocol"
-)
 
 // AddressFamily indicates the kind of transport used to reach a NetworkEndpoint
 type AddressFamily int
@@ -168,6 +179,7 @@ const (
 	AddressFamilyUnix
 )
 
+// String converts addressfamily into string (tcp/unix)
 func (f AddressFamily) String() string {
 	switch f {
 	case AddressFamilyTCP:
@@ -187,73 +199,12 @@ const (
 	TrafficDirectionInbound TrafficDirection = "inbound"
 	// TrafficDirectionOutbound indicates outbound traffic
 	TrafficDirectionOutbound TrafficDirection = "outbound"
+
+	// trafficDirectionOutboundSrvPrefix the prefix for a DNS SRV type subset key
+	trafficDirectionOutboundSrvPrefix = string(TrafficDirectionOutbound) + "_"
+	// trafficDirectionInboundSrvPrefix the prefix for a DNS SRV type subset key
+	trafficDirectionInboundSrvPrefix = string(TrafficDirectionInbound) + "_"
 )
-
-// ParseProtocol from string ignoring case
-func ParseProtocol(s string) Protocol {
-	switch strings.ToLower(s) {
-	case "tcp":
-		return ProtocolTCP
-	case "udp":
-		return ProtocolUDP
-	case "grpc":
-		return ProtocolGRPC
-	case "http":
-		return ProtocolHTTP
-	case "http2":
-		return ProtocolHTTP2
-	case "https":
-		return ProtocolHTTPS
-	case "tls":
-		return ProtocolTLS
-	case "mongo":
-		return ProtocolMongo
-	case "redis":
-		return ProtocolRedis
-	}
-
-	return ProtocolUnsupported
-}
-
-// IsHTTP2 is true for protocols that use HTTP/2 as transport protocol
-func (p Protocol) IsHTTP2() bool {
-	switch p {
-	case ProtocolHTTP2, ProtocolGRPC:
-		return true
-	default:
-		return false
-	}
-}
-
-// IsHTTP is true for protocols that use HTTP as transport protocol
-func (p Protocol) IsHTTP() bool {
-	switch p {
-	case ProtocolHTTP, ProtocolHTTP2, ProtocolGRPC:
-		return true
-	default:
-		return false
-	}
-}
-
-// IsTCP is true for protocols that use TCP as transport protocol
-func (p Protocol) IsTCP() bool {
-	switch p {
-	case ProtocolTCP, ProtocolHTTPS, ProtocolTLS, ProtocolMongo, ProtocolRedis:
-		return true
-	default:
-		return false
-	}
-}
-
-// IsTLS is true for protocols on top of TLS (e.g. HTTPS)
-func (p Protocol) IsTLS() bool {
-	switch p {
-	case ProtocolHTTPS, ProtocolTLS:
-		return true
-	default:
-		return false
-	}
-}
 
 // NetworkEndpoint defines a network address (IP:port) associated with an instance of the
 // service. A service has one or more instances each running in a
@@ -294,19 +245,16 @@ type NetworkEndpoint struct {
 
 	// Defines a platform-specific workload instance identifier (optional).
 	UID string
+
+	// The network where this endpoint is present
+	Network string
+
+	// The locality where the endpoint is present. / separated string
+	Locality string
+
+	// The load balancing weight associated with this endpoint.
+	LbWeight uint32
 }
-
-// Labels is a non empty set of arbitrary strings. Each version of a service can
-// be differentiated by a unique set of labels associated with the version. These
-// labels are assigned to all instances of a particular service version. For
-// example, lets say catalog.mystore.com has 2 versions v1 and v2. v1 instances
-// could have labels gitCommit=aeiou234, region=us-east, while v2 instances could
-// have labels name=kittyCat,region=us-east.
-type Labels map[string]string
-
-// LabelsCollection is a collection of labels used for comparing labels against a
-// collection of labels
-type LabelsCollection []Labels
 
 // Probe represents a health probe associated with an instance of service.
 type Probe struct {
@@ -336,71 +284,135 @@ type ProbeList []*Probe
 //      --> NetworkEndpoint(172.16.0.3:8888), Service(catalog.myservice.com), Labels(kitty=cat)
 //      --> NetworkEndpoint(172.16.0.4:8888), Service(catalog.myservice.com), Labels(kitty=cat)
 type ServiceInstance struct {
-	Endpoint         NetworkEndpoint `json:"endpoint,omitempty"`
-	Service          *Service        `json:"service,omitempty"`
-	Labels           Labels          `json:"labels,omitempty"`
-	AvailabilityZone string          `json:"az,omitempty"`
-	ServiceAccount   string          `json:"serviceaccount,omitempty"`
+	Endpoint       NetworkEndpoint `json:"endpoint,omitempty"`
+	Service        *Service        `json:"service,omitempty"`
+	Labels         labels.Instance `json:"labels,omitempty"`
+	ServiceAccount string          `json:"serviceaccount,omitempty"`
+	TLSMode        string          `json:"tlsMode,omitempty"`
 }
 
-const (
-	// AZLabel indicates the region/zone of an instance. It is used if the native
-	// registry doesn't provide one.
-	AZLabel = "istio-az"
-)
-
-// GetAZ returns the availability zone from an instance.
-// - k8s: region/zone, extracted from node's failure-domain.beta.kubernetes.io/{region,zone}
-// - consul: defaults to 'instance.Datacenter'
+// GetLocality returns the availability zone from an instance. If service instance label for locality
+// is set we use this. Otherwise, we use the one set by the registry:
+//   - k8s: region/zone, extracted from node's failure-domain.beta.kubernetes.io/{region,zone}
+// 	 - consul: defaults to 'instance.Datacenter'
 //
-// This is used by EDS to group the endpoints by AZ and by .
-func (si *ServiceInstance) GetAZ() string {
-	if si.AvailabilityZone != "" {
-		return si.AvailabilityZone
+// This is used by CDS/EDS to group the endpoints by locality.
+func (instance *ServiceInstance) GetLocality() string {
+	return GetLocalityOrDefault(instance.Labels[LocalityLabel], instance.Endpoint.Locality)
+}
+
+// GetLocalityOrDefault returns the locality from the supplied label, or falls back to
+// the supplied default locality if the supplied label is empty. Because Kubernetes
+// labels don't support `/`, we replace "." with "/" in the supplied label as a workaround.
+func GetLocalityOrDefault(label, defaultLocality string) string {
+	if len(label) > 0 {
+		// if there are /'s present we don't need to replace
+		if strings.Contains(label, "/") {
+			return label
+		}
+		// replace "." with "/"
+		return strings.Replace(label, k8sSeparator, "/", -1)
 	}
-	return si.Labels[AZLabel]
+	return defaultLocality
+}
+
+// IstioEndpoint has the information about a single address+port for a specific
+// service and shard.
+//
+// TODO: Replace NetworkEndpoint and ServiceInstance with Istio endpoints
+// - ServicePortName replaces ServicePort, since port number and protocol may not
+// be available when endpoint callbacks are made.
+// - It no longer splits into one ServiceInstance and one NetworkEndpoint - both
+// are in a single struct
+// - doesn't have a pointer to Service - the full Service object may not be available at
+// the time the endpoint is received. The service name is used as a key and used to reconcile.
+// - it has a cached EnvoyEndpoint object - to avoid re-allocating it for each request and
+// client.
+type IstioEndpoint struct {
+
+	// Labels points to the workload or deployment labels.
+	Labels map[string]string
+
+	// Family indicates what type of endpoint, such as TCP or Unix Domain Socket.
+	// Default is TCP.
+	Family AddressFamily
+
+	// Address is the address of the endpoint, using envoy proto.
+	Address string
+
+	// ServicePortName tracks the name of the port, to avoid 'eventual consistency' issues.
+	// Sometimes the Endpoint is visible before Service - so looking up the port number would
+	// fail. Instead the mapping to number is made when the clusters are computed. The lazy
+	// computation will also help with 'on-demand' and 'split horizon' - where it will be skipped
+	// for not used clusters or endpoints behind a gate.
+	ServicePortName string
+
+	// UID identifies the workload, for telemetry purpose.
+	UID string
+
+	// EnvoyEndpoint is a cached LbEndpoint, converted from the data, to
+	// avoid recomputation
+	EnvoyEndpoint *endpoint.LbEndpoint
+
+	// ServiceAccount holds the associated service account.
+	ServiceAccount string
+
+	// Network holds the network where this endpoint is present
+	Network string
+
+	// The locality where the endpoint is present. / separated string
+	Locality string
+
+	// EndpointPort is the port where the workload is listening, can be different
+	// from the service port.
+	EndpointPort uint32
+
+	// The load balancing weight associated with this endpoint.
+	LbWeight uint32
+
+	// Attributes contains additional attributes associated with the service
+	// used mostly by mixer and RBAC for policy enforcement purposes.
+	Attributes ServiceAttributes
+
+	// TLSMode endpoint is injected with istio sidecar and ready to configure Istio mTLS
+	TLSMode string
 }
 
 // ServiceAttributes represents a group of custom attributes of the service.
 type ServiceAttributes struct {
+	// ServiceRegistry indicates the backing service registry system where this service
+	// was sourced from.
+	// TODO: move the ServiceRegistry type from platform.go to model
+	ServiceRegistry string
 	// Name is "destination.service.name" attribute
 	Name string
 	// Namespace is "destination.service.namespace" attribute
 	Namespace string
 	// UID is "destination.service.uid" attribute
 	UID string
+	// ExportTo defines the visibility of Service in
+	// a namespace when the namespace is imported.
+	ExportTo map[visibility.Instance]bool
+
+	// For Kubernetes platform
+
+	// ClusterExternalAddresses is a mapping between a cluster name and the external
+	// address(es) to access the service from outside the cluster.
+	// Used by the aggregator to aggregate the Attributes.ClusterExternalAddresses
+	// for clusters where the service resides
+	ClusterExternalAddresses map[string][]string
 }
 
 // ServiceDiscovery enumerates Istio service instances.
+// nolint: lll
+//go:generate counterfeiter -o ../networking/core/v1alpha3/fakes/fake_service_discovery.gen.go --fake-name ServiceDiscovery . ServiceDiscovery
 type ServiceDiscovery interface {
 	// Services list declarations of all services in the system
 	Services() ([]*Service, error)
 
 	// GetService retrieves a service by host name if it exists
-	GetService(hostname Hostname) (*Service, error)
-
-	// GetServiceAttributes retrieves the custom attributes of a service
-	GetServiceAttributes(hostname Hostname) (*ServiceAttributes, error)
-
-	// Instances retrieves instances for a service and its ports that match
-	// any of the supplied labels. All instances match an empty tag list.
-	//
-	// For example, consider the example of catalog.mystore.com as described in NetworkEndpoints
-	// Instances(catalog.myservice.com, 80) ->
-	//      --> NetworkEndpoint(172.16.0.1:8888), Service(catalog.myservice.com), Labels(foo=bar)
-	//      --> NetworkEndpoint(172.16.0.2:8888), Service(catalog.myservice.com), Labels(foo=bar)
-	//      --> NetworkEndpoint(172.16.0.3:8888), Service(catalog.myservice.com), Labels(kitty=cat)
-	//      --> NetworkEndpoint(172.16.0.4:8888), Service(catalog.myservice.com), Labels(kitty=cat)
-	//
-	// Calling Instances with specific labels returns a trimmed list.
-	// e.g., Instances(catalog.myservice.com, 80, foo=bar) ->
-	//      --> NetworkEndpoint(172.16.0.1:8888), Service(catalog.myservice.com), Labels(foo=bar)
-	//      --> NetworkEndpoint(172.16.0.2:8888), Service(catalog.myservice.com), Labels(foo=bar)
-	//
-	// Similar concepts apply for calling this function with a specific
-	// port, hostname and labels.
-	// Deprecated: made obsolete by InstancesByPort
-	Instances(hostname Hostname, ports []string, labels LabelsCollection) ([]*ServiceInstance, error)
+	// Deprecated - do not use for anything other than tests
+	GetService(hostname host.Name) (*Service, error)
 
 	// InstancesByPort retrieves instances for a service on the given ports with labels that match
 	// any of the supplied labels. All instances match an empty tag list.
@@ -424,7 +436,7 @@ type ServiceDiscovery interface {
 	// CDS (clusters.go) calls it for building 'dnslb' type clusters.
 	// EDS calls it for building the endpoints result.
 	// Consult istio-dev before using this for anything else (except debugging/tools)
-	InstancesByPort(hostname Hostname, servicePort int, labels LabelsCollection) ([]*ServiceInstance, error)
+	InstancesByPort(svc *Service, servicePort int, labels labels.Collection) ([]*ServiceInstance, error)
 
 	// GetProxyServiceInstances returns the service instances that co-located with a given Proxy
 	//
@@ -445,6 +457,8 @@ type ServiceDiscovery interface {
 	// determine the intended destination of a connection without a Host header on the request.
 	GetProxyServiceInstances(*Proxy) ([]*ServiceInstance, error)
 
+	GetProxyWorkloadLabels(*Proxy) (labels.Collection, error)
+
 	// ManagementPorts lists set of management ports associated with an IPv4 address.
 	// These management ports are typically used by the platform for out of band management
 	// tasks such as health checks, etc. In a scenario where the proxy functions in the
@@ -457,137 +471,11 @@ type ServiceDiscovery interface {
 	// These probes are used by the platform to identify requests that are performing
 	// health checks.
 	WorkloadHealthCheckInfo(addr string) ProbeList
-}
 
-// ServiceAccounts exposes Istio service accounts
-type ServiceAccounts interface {
 	// GetIstioServiceAccounts returns a list of service accounts looked up from
 	// the specified service hostname and ports.
-	GetIstioServiceAccounts(hostname Hostname, ports []string) []string
-}
-
-// String returns Hostname as a string; Hostname is already an alias of a string, so this is really for convenience over
-// explicit casting.
-func (h Hostname) String() string {
-	return string(h)
-}
-
-// Matches returns true if this Hostname "matches" the other hostname. Hostnames match if:
-// - they're fully resolved (i.e. not wildcarded) and match exactly (i.e. an exact string match)
-// - one or both are wildcarded (e.g. "*.foo.com"), in which case we use wildcard resolution rules
-// to determine if h is covered by o.
-// e.g.:
-//  Hostname("foo.com").Matches("foo.com")   = true
-//  Hostname("foo.com").Matches("bar.com")   = false
-//  Hostname("*.com").Matches("foo.com")     = true
-//  Hostname("*.com").Matches("foo.com")     = true
-//  Hostname("*.foo.com").Matches("foo.com") = false
-func (h Hostname) Matches(o Hostname) bool {
-	if !strings.Contains(string(h), "*") && !strings.Contains(string(o), "*") {
-		return h == o
-	}
-	la, sa := strings.Contains(string(h), "*"), strings.Contains(string(o), "*")
-	longer, shorter := strings.TrimLeft(string(h), "*"), strings.TrimLeft(string(o), "*")
-	if len(longer) < len(shorter) {
-		longer, shorter = shorter, longer
-		la, sa = sa, la
-	}
-
-	matches := strings.HasSuffix(longer, shorter)
-	if matches && la && !sa && strings.TrimSuffix(longer, shorter) == "." {
-		// we match, but the longer is a wildcard and the shorter is not; we need to ensure we don't match input
-		// like `*.foo.com` to `foo.com` in that case (to avoid matching a domain literal to a wildcard subdomain)
-		return false
-	}
-	return matches
-}
-
-// Hostnames is a collection of Hostname; it exists so it's easy to sort hostnames consistently across Pilot.
-// In a few locations we care about the order hostnames appear in Envoy config: primarily HTTP routes, but also in
-// gateways, and for SNI. In those locations, we sort hostnames longest to shortest with wildcards last.
-type Hostnames []Hostname
-
-// prove we implement the interface at compile time
-var _ sort.Interface = Hostnames{}
-
-func (h Hostnames) Len() int {
-	return len(h)
-}
-
-func (h Hostnames) Less(i, j int) bool {
-	a, b := h[i], h[j]
-	if len(a) == 0 && len(b) == 0 {
-		return true // doesn't matter, they're both the empty string
-	}
-	// we sort longest to shortest, alphabetically, with wildcards last
-	ai, aj := strings.Contains(a.String(), "*"), strings.Contains(b.String(), "*")
-	if ai && !aj {
-		// h[i] is a wildcard, but h[j] isn't; therefore h[j] < h[i]
-		return false
-	} else if !ai && aj {
-		// h[j] is a wildcard, but h[i] isn't; therefore h[i] < h[j]
-		return true
-	}
-	// they're either both wildcards, or both not; in either case we sort them longest to shortest, alphabetically
-	if len(a) == len(b) {
-		return a < b
-	}
-	return len(a) > len(b)
-}
-
-func (h Hostnames) Swap(i, j int) {
-	h[i], h[j] = h[j], h[i]
-}
-
-// SubsetOf is true if the label has identical values for the keys
-func (l Labels) SubsetOf(that Labels) bool {
-	for k, v := range l {
-		if that[k] != v {
-			return false
-		}
-	}
-	return true
-}
-
-// Equals returns true if the labels are identical
-func (l Labels) Equals(that Labels) bool {
-	if l == nil {
-		return that == nil
-	}
-	if that == nil {
-		return l == nil
-	}
-	return l.SubsetOf(that) && that.SubsetOf(l)
-}
-
-// HasSubsetOf returns true if the input labels are a super set of one labels in a
-// collection or if the tag collection is empty
-func (labels LabelsCollection) HasSubsetOf(that Labels) bool {
-	if len(labels) == 0 {
-		return true
-	}
-	for _, label := range labels {
-		if label.SubsetOf(that) {
-			return true
-		}
-	}
-	return false
-}
-
-// IsSupersetOf returns true if the input labels are a subset set of any set of labels in a
-// collection
-func (labels LabelsCollection) IsSupersetOf(that Labels) bool {
-
-	if len(labels) == 0 {
-		return len(that) == 0
-	}
-
-	for _, label := range labels {
-		if that.SubsetOf(label) {
-			return true
-		}
-	}
-	return false
+	// Deprecated - service account tracking moved to XdsServer, incremental.
+	GetIstioServiceAccounts(svc *Service, ports []int) []string
 }
 
 // Match returns true if port matches with authentication port selector criteria.
@@ -627,7 +515,7 @@ func (ports PortList) Get(name string) (*Port, bool) {
 // GetByPort retrieves a port declaration by port value
 func (ports PortList) GetByPort(num int) (*Port, bool) {
 	for _, port := range ports {
-		if port.Port == num {
+		if port.Port == num && port.Protocol != protocol.UDP {
 			return port, true
 		}
 	}
@@ -636,27 +524,27 @@ func (ports PortList) GetByPort(num int) (*Port, bool) {
 
 // External predicate checks whether the service is external
 func (s *Service) External() bool {
-	return s.ExternalName != ""
+	return s.MeshExternal
 }
 
 // Key generates a unique string referencing service instances for a given port and labels.
 // The separator character must be exclusive to the regular expressions allowed in the
 // service declaration.
 // Deprecated
-func (s *Service) Key(port *Port, labels Labels) string {
+func (s *Service) Key(port *Port, l labels.Instance) string {
 	// TODO: check port is non nil and membership of port in service
-	return ServiceKey(s.Hostname, PortList{port}, LabelsCollection{labels})
+	return ServiceKey(s.Hostname, PortList{port}, labels.Collection{l})
 }
 
 // ServiceKey generates a service key for a collection of ports and labels
 // Deprecated
 //
-// Interface wants to turn `Hostname` into `fmt.Stringer`, completely defeating the purpose of the type alias.
+// Interface wants to turn `Name` into `fmt.Stringer`, completely defeating the purpose of the type alias.
 // nolint: interfacer
-func ServiceKey(hostname Hostname, servicePorts PortList, labelsList LabelsCollection) string {
+func ServiceKey(hostname host.Name, servicePorts PortList, labelsList labels.Collection) string {
 	// example: name.namespace|http|env=prod;env=test,version=my-v1
 	var buffer bytes.Buffer
-	buffer.WriteString(hostname.String())
+	buffer.WriteString(string(hostname))
 	np := len(servicePorts)
 	nt := len(labelsList)
 
@@ -688,16 +576,16 @@ func ServiceKey(hostname Hostname, servicePorts PortList, labelsList LabelsColle
 
 	if nt > 0 {
 		buffer.WriteString("|")
-		labels := make([]string, nt)
+		l := make([]string, nt)
 		for i := 0; i < nt; i++ {
-			labels[i] = labelsList[i].String()
+			l[i] = labelsList[i].String()
 		}
-		sort.Strings(labels)
+		sort.Strings(l)
 		for i := 0; i < nt; i++ {
 			if i > 0 {
 				buffer.WriteString(";")
 			}
-			buffer.WriteString(labels[i])
+			buffer.WriteString(l[i])
 		}
 	}
 	return buffer.String()
@@ -705,9 +593,9 @@ func ServiceKey(hostname Hostname, servicePorts PortList, labelsList LabelsColle
 
 // ParseServiceKey is the inverse of the Service.String() method
 // Deprecated
-func ParseServiceKey(s string) (hostname Hostname, ports PortList, labels LabelsCollection) {
+func ParseServiceKey(s string) (hostname host.Name, ports PortList, lc labels.Collection) {
 	parts := strings.Split(s, "|")
-	hostname = Hostname(parts[0])
+	hostname = host.Name(parts[0])
 
 	var names []string
 	if len(parts) > 1 {
@@ -722,7 +610,7 @@ func ParseServiceKey(s string) (hostname Hostname, ports PortList, labels Labels
 
 	if len(parts) > 2 && len(parts[2]) > 0 {
 		for _, tag := range strings.Split(parts[2], ";") {
-			labels = append(labels, ParseLabelsString(tag))
+			lc = append(lc, labels.Parse(tag))
 		}
 	}
 	return
@@ -730,8 +618,16 @@ func ParseServiceKey(s string) (hostname Hostname, ports PortList, labels Labels
 
 // BuildSubsetKey generates a unique string referencing service instances for a given service name, a subset and a port.
 // The proxy queries Pilot with this key to obtain the list of instances in a subset.
-func BuildSubsetKey(direction TrafficDirection, subsetName string, hostname Hostname, port int) string {
+func BuildSubsetKey(direction TrafficDirection, subsetName string, hostname host.Name, port int) string {
 	return fmt.Sprintf("%s|%d|%s|%s", direction, port, subsetName, hostname)
+}
+
+// BuildDNSSrvSubsetKey generates a unique string referencing service instances for a given service name, a subset and a port.
+// The proxy queries Pilot with this key to obtain the list of instances in a subset.
+// This is used only for the SNI-DNAT router. Do not use for other purposes.
+// The DNS Srv format of the cluster is also used as the default SNI string for Istio mTLS connections
+func BuildDNSSrvSubsetKey(direction TrafficDirection, subsetName string, hostname host.Name, port int) string {
+	return fmt.Sprintf("%s_.%d_.%s_.%s", direction, port, subsetName, hostname)
 }
 
 // IsValidSubsetKey checks if a string is valid for subset key parsing.
@@ -740,59 +636,89 @@ func IsValidSubsetKey(s string) bool {
 }
 
 // ParseSubsetKey is the inverse of the BuildSubsetKey method
-func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, hostname Hostname, port int) {
-	parts := strings.Split(s, "|")
-	direction = TrafficDirection(parts[0])
-	port, _ = strconv.Atoi(parts[1])
+func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, hostname host.Name, port int) {
+	var parts []string
+	dnsSrvMode := false
+	// This could be the DNS srv form of the cluster that uses outbound_.port_.subset_.hostname
+	// Since we dont want every callsite to implement the logic to differentiate between the two forms
+	// we add an alternate parser here.
+	if strings.HasPrefix(s, trafficDirectionOutboundSrvPrefix) ||
+		strings.HasPrefix(s, trafficDirectionInboundSrvPrefix) {
+		parts = strings.SplitN(s, ".", 4)
+		dnsSrvMode = true
+	} else {
+		parts = strings.Split(s, "|")
+	}
+
+	if len(parts) < 4 {
+		return
+	}
+
+	direction = TrafficDirection(strings.TrimSuffix(parts[0], "_"))
+	port, _ = strconv.Atoi(strings.TrimSuffix(parts[1], "_"))
 	subsetName = parts[2]
-	hostname = Hostname(parts[3])
+
+	if dnsSrvMode {
+		subsetName = strings.TrimSuffix(parts[2], "_")
+	}
+
+	hostname = host.Name(parts[3])
 	return
 }
 
-func (l Labels) String() string {
-	labels := make([]string, 0, len(l))
-	for k, v := range l {
-		if len(v) > 0 {
-			labels = append(labels, fmt.Sprintf("%s=%s", k, v))
-		} else {
-			labels = append(labels, k)
-		}
-	}
-	sort.Strings(labels)
-
-	var buffer bytes.Buffer
-	var first = true
-	for _, label := range labels {
-		if !first {
-			buffer.WriteString(",")
-		} else {
-			first = false
-		}
-		buffer.WriteString(label)
-	}
-	return buffer.String()
-}
-
-// ParseLabelsString extracts labels from a string
-func ParseLabelsString(s string) Labels {
-	pairs := strings.Split(s, ",")
-	tag := make(map[string]string, len(pairs))
-
-	for _, pair := range pairs {
-		kv := strings.Split(pair, "=")
-		if len(kv) > 1 {
-			tag[kv[0]] = kv[1]
-		} else {
-			tag[kv[0]] = ""
-		}
-	}
-	return tag
-}
-
 // GetServiceAddressForProxy returns a Service's IP address specific to the cluster where the node resides
-func (s Service) GetServiceAddressForProxy(node *Proxy) string {
+func (s *Service) GetServiceAddressForProxy(node *Proxy) string {
+	s.Mutex.RLock()
+	defer s.Mutex.RUnlock()
 	if node.ClusterID != "" && s.ClusterVIPs[node.ClusterID] != "" {
 		return s.ClusterVIPs[node.ClusterID]
 	}
 	return s.Address
+}
+
+// GetTLSModeFromEndpointLabels returns the value of the label
+// security.istio.io/tlsMode if set. Do not return Enums or constants
+// from this function as users could provide values other than istio/disabled
+// and apply custom transport socket matchers here.
+func GetTLSModeFromEndpointLabels(labels map[string]string) string {
+	if labels != nil {
+		if val, exists := labels[TLSModeLabelName]; exists {
+			return val
+		}
+	}
+	return DisabledTLSModeLabel
+}
+
+// DeepCopy creates a clone of Service.
+// TODO : See if there is any efficient alternative to this function - copystructure can not be used as is because
+// Service has sync.RWMutex that can not be copied.
+func (s *Service) DeepCopy() *Service {
+	attrs := copyInternal(s.Attributes)
+	ports := copyInternal(s.Ports)
+	accounts := copyInternal(s.ServiceAccounts)
+	clusterVIPs := copyInternal(s.ClusterVIPs)
+
+	return &Service{
+		Attributes:      attrs.(ServiceAttributes),
+		Ports:           ports.(PortList),
+		ServiceAccounts: accounts.([]string),
+		CreationTime:    s.CreationTime,
+		Hostname:        s.Hostname,
+		Address:         s.Address,
+		ClusterVIPs:     clusterVIPs.(map[string]string),
+		Resolution:      s.Resolution,
+		MeshExternal:    s.MeshExternal,
+	}
+}
+
+func copyInternal(v interface{}) interface{} {
+	copied, err := copystructure.Copy(v)
+	if err != nil {
+		// There are 2 locations where errors are generated in copystructure.Copy:
+		//  * The reflection walk over the structure fails, which should never happen
+		//  * A configurable copy function returns an error. This is only used for copying times, which never returns an error.
+		// Therefore, this should never happen
+		panic(err)
+	}
+	return copied
 }

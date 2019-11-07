@@ -1,8 +1,0 @@
-dependencies:
-  - name: sidecarInjectorWebhook
-    version: 0.8.0
-    # repository: file://../sidecarInjectorWebhook
-    condition: sidecarInjectorWebhook.enabled
-  - name: security
-    version: 0.8.0
-    # repository: file://../security

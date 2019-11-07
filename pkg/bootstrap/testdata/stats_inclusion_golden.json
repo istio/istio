@@ -1,0 +1,287 @@
+{
+  "node": {
+    "id": "sidecar~1.2.3.4~foo~bar",
+    "cluster": "istio-proxy",
+    "locality": {},
+    "metadata": {"INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","sidecar.istio.io/statsInclusionPrefixes":"cluster_manager,cluster.xds-grpc,listener.","EXCHANGE_KEYS":"NAME,NAMESPACE,INSTANCE_IPS,LABELS,OWNER,PLATFORM_METADATA,WORKLOAD_NAME,CANONICAL_TELEMETRY_SERVICE,MESH_ID,SERVICE_ACCOUNT"}
+  },
+  "stats_config": {
+    "use_all_default_tags": false,
+    "stats_tags": [
+      {
+        "tag_name": "cluster_name",
+        "regex": "^cluster\\.((.+?(\\..+?\\.svc\\.cluster\\.local)?)\\.)"
+      },
+      {
+        "tag_name": "tcp_prefix",
+        "regex": "^tcp\\.((.*?)\\.)\\w+?$"
+      },
+      {
+        "tag_name": "response_code",
+        "regex": "(response_code=\\.=(.+?);\\.;)|_rq(_(\\.d{3}))$",
+      },
+      {
+        "tag_name": "response_code_class",
+        "regex": "_rq(_(\\dxx))$"
+      },
+      {
+        "tag_name": "http_conn_manager_listener_prefix",
+        "regex": "^listener(?=\\.).*?\\.http\\.(((?:[_.[:digit:]]*|[_\\[\\]aAbBcCdDeEfF[:digit:]]*))\\.)"
+      },
+      {
+        "tag_name": "http_conn_manager_prefix",
+        "regex": "^http\\.(((?:[_.[:digit:]]*|[_\\[\\]aAbBcCdDeEfF[:digit:]]*))\\.)"
+      },
+      {
+        "tag_name": "listener_address",
+        "regex": "^listener\\.(((?:[_.[:digit:]]*|[_\\[\\]aAbBcCdDeEfF[:digit:]]*))\\.)"
+      },
+      {
+        "tag_name": "mongo_prefix",
+        "regex": "^mongo\\.(.+?)\\.(collection|cmd|cx_|op_|delays_|decoding_)(.*?)$"
+      },
+      {
+        "regex": "(reporter=\\.=(.+?);\\.;)",
+        "tag_name": "reporter"
+      },
+      {
+        "regex": "(source_namespace=\\.=(.+?);\\.;)",
+        "tag_name": "source_namespace"
+      },
+      {
+        "regex": "(source_workload=\\.=(.+?);\\.;)",
+        "tag_name": "source_workload"
+      },
+      {
+        "regex": "(source_workload_namespace=\\.=(.+?);\\.;)",
+        "tag_name": "source_workload_namespace"
+      },
+      {
+        "regex": "(source_principal=\\.=(.+?);\\.;)",
+        "tag_name": "source_principal"
+      },
+      {
+        "regex": "(source_app=\\.=(.+?);\\.;)",
+        "tag_name": "source_app"
+      },
+      {
+        "regex": "(source_version=\\.=(.+?);\\.;)",
+        "tag_name": "source_version"
+      },
+      {
+        "regex": "(destination_namespace=\\.=(.+?);\\.;)",
+        "tag_name": "destination_namespace"
+      },
+      {
+        "regex": "(destination_workload=\\.=(.+?);\\.;)",
+        "tag_name": "destination_workload"
+      },
+      {
+        "regex": "(destination_workload_namespace=\\.=(.+?);\\.;)",
+        "tag_name": "destination_workload_namespace"
+      },
+      {
+        "regex": "(destination_principal=\\.=(.+?);\\.;)",
+        "tag_name": "destination_principal"
+      },
+      {
+        "regex": "(destination_app=\\.=(.+?);\\.;)",
+        "tag_name": "destination_app"
+      },
+      {
+        "regex": "(destination_version=\\.=(.+?);\\.;)",
+        "tag_name": "destination_version"
+      },
+      {
+        "regex": "(destination_service=\\.=(.+?);\\.;)",
+        "tag_name": "destination_service"
+      },
+      {
+        "regex": "(destination_service_name=\\.=(.+?);\\.;)",
+        "tag_name": "destination_service_name"
+      },
+      {
+        "regex": "(destination_service_namespace=\\.=(.+?);\\.;)",
+        "tag_name": "destination_service_namespace"
+      },
+      {
+        "regex": "(request_protocol=\\.=(.+?);\\.;)",
+        "tag_name": "request_protocol"
+      },
+      {
+        "regex": "(response_flags=\\.=(.+?);\\.;)",
+        "tag_name": "response_flags"
+      },
+      {
+        "regex": "(connection_security_policy=\\.=(.+?);\\.;)",
+        "tag_name": "connection_security_policy"
+      },
+      {
+        "regex": "(permissive_response_code=\\.=(.+?);\\.;)",
+        "tag_name": "permissive_response_code"
+      },
+      {
+        "regex": "(permissive_response_policyid=\\.=(.+?);\\.;)",
+        "tag_name": "permissive_response_policyid"
+      },
+      {
+        "regex": "(cache\\.(.+?)\\.)",
+        "tag_name": "cache"
+      },
+      {
+        "regex": "(component\\.(.+?)\\.)",
+        "tag_name": "component"
+      },
+      {
+        "regex": "(tag\\.(.+?)\\.)",
+        "tag_name": "tag"
+      }
+    ],
+    "stats_matcher": {
+      "inclusion_list": {
+        "patterns": [{"prefix": "reporter="},{
+            "prefix": "cluster_manager"
+          },
+          {
+            "prefix": "cluster.xds-grpc"
+          },
+          {
+            "prefix": "listener."
+          }
+        ]
+      }
+    }
+  },
+  "admin": {
+    "access_log_path": "/dev/null",
+    "address": {
+      "socket_address": {
+        "address": "127.0.0.1",
+        "port_value": 15000
+      }
+    }
+  },
+  "dynamic_resources": {
+    "lds_config": {
+      "ads": {}
+    },
+    "cds_config": {
+      "ads": {}
+    },
+    "ads_config": {
+      "api_type": "GRPC",
+      "grpc_services": [
+        {
+          "envoy_grpc": {
+            "cluster_name": "xds-grpc"
+          }
+        }
+      ]
+    }
+  },
+  "static_resources": {
+    "clusters": [
+      {
+        "name": "prometheus_stats",
+        "type": "STATIC",
+        "connect_timeout": "0.250s",
+        "lb_policy": "ROUND_ROBIN",
+        "hosts": [
+          {
+            "socket_address": {
+              "protocol": "TCP",
+              "address": "127.0.0.1",
+              "port_value": 15000
+            }
+          }
+        ]
+      },
+      {
+        "name": "xds-grpc",
+        "type": "STRICT_DNS",
+        "dns_refresh_rate": "60s",
+        "dns_lookup_family": "V4_ONLY",
+        "connect_timeout": "1s",
+        "lb_policy": "ROUND_ROBIN",
+        
+        "hosts": [
+          {
+            "socket_address": {"address": "istio-pilot", "port_value": 15010}
+          }
+        ],
+        "circuit_breakers": {
+          "thresholds": [
+            {
+              "priority": "DEFAULT",
+              "max_connections": 100000,
+              "max_pending_requests": 100000,
+              "max_requests": 100000
+            },
+            {
+              "priority": "HIGH",
+              "max_connections": 100000,
+              "max_pending_requests": 100000,
+              "max_requests": 100000
+            }
+          ]
+        },
+        "upstream_connection_options": {
+          "tcp_keepalive": {
+            "keepalive_time": 300
+          }
+        },
+        "http2_protocol_options": { }
+      }
+      
+    ],
+    "listeners":[
+      {
+        "address": {
+          "socket_address": {
+            "protocol": "TCP",
+            "address": "0.0.0.0",
+            "port_value": 15090
+          }
+        },
+        "filter_chains": [
+          {
+            "filters": [
+              {
+                "name": "envoy.http_connection_manager",
+                "config": {
+                  "codec_type": "AUTO",
+                  "stat_prefix": "stats",
+                  "route_config": {
+                    "virtual_hosts": [
+                      {
+                        "name": "backend",
+                        "domains": [
+                          "*"
+                        ],
+                        "routes": [
+                          {
+                            "match": {
+                              "prefix": "/stats/prometheus"
+                            },
+                            "route": {
+                              "cluster": "prometheus_stats"
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  "http_filters": {
+                    "name": "envoy.router"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+  
+  
+}

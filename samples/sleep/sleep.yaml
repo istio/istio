@@ -16,6 +16,11 @@
 # Sleep service
 ##################################################################################################
 apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sleep
+---
+apiVersion: v1
 kind: Service
 metadata:
   name: sleep
@@ -28,20 +33,32 @@ spec:
   selector:
     app: sleep
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: sleep
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: sleep
   template:
     metadata:
       labels:
         app: sleep
     spec:
+      serviceAccountName: sleep
       containers:
       - name: sleep
-        image: tutum/curl
-        command: ["/bin/sleep","infinity"]
+        image: governmentpaas/curl-ssl
+        command: ["/bin/sleep", "3650d"]
         imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - mountPath: /etc/sleep/tls
+          name: secret-volume
+      volumes:
+      - name: secret-volume
+        secret:
+          secretName: sleep-secret
+          optional: true
 ---

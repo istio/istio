@@ -58,7 +58,7 @@ const (
 )
 
 // handleDedup is a wrapper function that handles dedupping semantics.
-func (du *dedupUtil) handleDedup(instance *quota.Instance, args adapter.QuotaArgs, qf quotaFunc) (int64, time.Duration, string, error) {
+func (du *dedupUtil) handleDedup(instance *quota.Instance, args adapter.QuotaArgs, qf quotaFunc) (int64, time.Duration, string) {
 	key := makeKey(instance.Name, instance.Dimensions)
 
 	du.Lock()
@@ -92,7 +92,7 @@ func (du *dedupUtil) handleDedup(instance *quota.Instance, args adapter.QuotaArg
 		du.logger.Infof("Quota operation satisfied through deduplication: dedupID %v, amount %v", args.DeduplicationID, result.amount)
 	}
 
-	return amount, exp, key, nil
+	return amount, exp, key
 }
 
 // reapDedup cleans up dedup entries from the oldDedup map and moves all entries from
@@ -101,10 +101,9 @@ func (du *dedupUtil) handleDedup(instance *quota.Instance, args adapter.QuotaArg
 // This is normally called on a regular basis via a go routine. It's also used directly
 // from tests to inject specific behaviors.
 func (du *dedupUtil) reapDedup() {
-	t := du.oldDedup
-	du.oldDedup = du.recentDedup
-	du.recentDedup = t
+	du.oldDedup, du.recentDedup = du.recentDedup, du.oldDedup
 
+	t := du.recentDedup
 	if len(t) > 0 {
 		du.logger.Debugf("Running repear to reclaim %d old deduplication entries", len(t))
 	}

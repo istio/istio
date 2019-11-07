@@ -1,6 +1,6 @@
-Thank you for installing {{ .Chart.Name }}.
+Thank you for installing {{ .Chart.Name | title }}.
 
-Your release is named {{ .Release.Name }}.
+Your release is named {{ .Release.Name | title }}.
 
 To get started running application with Istio, execute the following steps:
 

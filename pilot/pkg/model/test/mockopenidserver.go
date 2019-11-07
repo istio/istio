@@ -15,22 +15,24 @@
 package test
 
 import (
+	"crypto/tls"
 	"errors"
 	"fmt"
-	"math/rand"
 	"net"
 	"net/http"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/mux"
-	"istio.io/istio/pkg/log"
+
+	"istio.io/pkg/log"
 )
 
 var (
-	portBase   uint16 = 20000
-	cfgContent        = "{\"jwks_uri\": \"%s\"}"
+	cfgContent  = "{\"jwks_uri\": \"%s\"}"
+	serverMutex = &sync.Mutex{}
 )
 
 const (
@@ -47,25 +49,54 @@ type MockOpenIDDiscoveryServer struct {
 	URL    string
 	server *http.Server
 
-	// How many times openIDCfg is called, use this number to verfiy cache takes effect.
+	// How many times openIDCfg is called, use this number to verify cache takes effect.
 	OpenIDHitNum uint64
 
-	// How many times jwtPubKey is called, use this number to verfiy cache takes effect.
+	// How many times jwtPubKey is called, use this number to verify cache takes effect.
 	PubKeyHitNum uint64
+
+	// The mock server will return an error for the first number of hits for public key, this is used
+	// to simulate network errors and test the retry logic in jwks resolver for public key fetch.
+	ReturnErrorForFirstNumHits uint64
+
+	// The mock server will start to return an error after the first number of hits for public key,
+	// this is used to simulate network errors and test the refresh logic in jwks resolver.
+	ReturnErrorAfterFirstNumHits uint64
+
+	// If both TLSKeyFile and TLSCertFile are set, Start() will attempt to start a HTTPS server.
+	TLSKeyFile  string
+	TLSCertFile string
 }
 
-// NewServer creates a mock openID discovery server.
-func NewServer() (*MockOpenIDDiscoveryServer, error) {
-	port, err := allocPort()
-	if err != nil {
-		log.Errorf("Server failed to pick an available port: %v", err)
-		return nil, err
+// StartNewServer creates a mock openID discovery server and starts it
+func StartNewServer() (*MockOpenIDDiscoveryServer, error) {
+	serverMutex.Lock()
+	defer serverMutex.Unlock()
+
+	server := &MockOpenIDDiscoveryServer{
+		// 0 means the mock server always return the success result.
+		ReturnErrorForFirstNumHits:   0,
+		ReturnErrorAfterFirstNumHits: 0,
 	}
 
-	return &MockOpenIDDiscoveryServer{
-		Port: port,
-		URL:  fmt.Sprintf("http://localhost:%d", port),
-	}, nil
+	return server, server.Start()
+}
+
+// StartNewTLSServer creates a mock openID discovery server that serves HTTPS and starts it
+func StartNewTLSServer(tlsCert, tlsKey string) (*MockOpenIDDiscoveryServer, error) {
+	serverMutex.Lock()
+	defer serverMutex.Unlock()
+
+	server := &MockOpenIDDiscoveryServer{
+		// 0 means the mock server always return the success result.
+		ReturnErrorForFirstNumHits:   0,
+		ReturnErrorAfterFirstNumHits: 0,
+
+		TLSCertFile: tlsCert,
+		TLSKeyFile:  tlsKey,
+	}
+
+	return server, server.Start()
 }
 
 // Start starts the mock server.
@@ -78,20 +109,45 @@ func (ms *MockOpenIDDiscoveryServer) Start() error {
 		Addr:    ":" + strconv.Itoa(ms.Port),
 		Handler: router,
 	}
+	ln, err := net.Listen("tcp", ":0")
+	if err != nil {
+		log.Errorf("Server failed to listen %v", err)
+		return err
+	}
+
+	scheme := "http"
+	if ms.TLSCertFile != "" && ms.TLSKeyFile != "" {
+		scheme = "https"
+	}
+
+	port := ln.Addr().(*net.TCPAddr).Port
+	ms.URL = fmt.Sprintf("%s://localhost:%d", scheme, port)
+	server.Addr = ":" + strconv.Itoa(port)
 
 	// Starts the HTTP and waits for it to begin receiving requests.
 	// Returns an error if the server doesn't serve traffic within about 2 seconds.
 	go func() {
-		if err := server.ListenAndServe(); err != nil {
+		if scheme == "https" {
+			if err := server.ServeTLS(ln, ms.TLSCertFile, ms.TLSKeyFile); err != nil {
+				log.Errorf("Server failed to serve TLS in %q: %v", ms.URL, err)
+			}
+			return
+		}
+		if err := server.Serve(ln); err != nil {
 			log.Errorf("Server failed to serve in %q: %v", ms.URL, err)
 		}
 	}()
 
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
 	wait := 300 * time.Millisecond
 	for try := 0; try < 5; try++ {
 		time.Sleep(wait)
 		// Try to call the server
-		if _, err := http.Get(fmt.Sprintf("%s/.well-known/openid-configuration", ms.URL)); err != nil {
+		if _, err := httpClient.Get(fmt.Sprintf("%s/.well-known/openid-configuration", ms.URL)); err != nil {
 			log.Infof("Server not yet serving: %v", err)
 			// Retry after some sleep.
 			wait *= 2
@@ -105,7 +161,7 @@ func (ms *MockOpenIDDiscoveryServer) Start() error {
 		return nil
 	}
 
-	ms.Stop()
+	_ = ms.Stop()
 	return errors.New("server failed to start")
 }
 
@@ -127,48 +183,22 @@ func (ms *MockOpenIDDiscoveryServer) openIDCfg(w http.ResponseWriter, req *http.
 
 func (ms *MockOpenIDDiscoveryServer) jwtPubKey(w http.ResponseWriter, req *http.Request) {
 	atomic.AddUint64(&ms.PubKeyHitNum, 1)
+	if ms.ReturnErrorAfterFirstNumHits != 0 && atomic.LoadUint64(&ms.PubKeyHitNum) > ms.ReturnErrorAfterFirstNumHits {
+		w.WriteHeader(http.StatusForbidden)
+		fmt.Fprintf(w, "Mock server configured to return error after %d hits", ms.ReturnErrorAfterFirstNumHits)
+		return
+	}
 
-	if atomic.LoadUint64(&ms.PubKeyHitNum) == 1 {
+	if atomic.LoadUint64(&ms.PubKeyHitNum) <= ms.ReturnErrorForFirstNumHits {
+		w.WriteHeader(http.StatusForbidden)
+		fmt.Fprintf(w, "Mock server configured to return error until %d retries", ms.ReturnErrorForFirstNumHits)
+		return
+	}
+
+	if atomic.LoadUint64(&ms.PubKeyHitNum) == ms.ReturnErrorForFirstNumHits+1 {
 		fmt.Fprintf(w, "%v", JwtPubKey1)
 		return
 	}
 
 	fmt.Fprintf(w, "%v", JwtPubKey2)
-}
-
-// allocPort allocate a free port.
-func allocPort() (int, error) {
-	minPort := 32768
-	maxPort := 60000
-
-	port := random(minPort, maxPort)
-
-	// Test entire range of ports
-	stop := port
-	for {
-		if !isPortUsed(port) {
-			return port, nil
-		}
-		port++
-		if port > maxPort {
-			port = minPort
-		}
-		if port == stop {
-			break
-		}
-	}
-
-	return 0, errors.New("portpicker: no unused port")
-}
-
-// isPortUsed checks if a port is used
-func isPortUsed(port int) bool {
-	serverPort := fmt.Sprintf("localhost:%v", port)
-	_, err := net.Dial("tcp", serverPort)
-	return err == nil
-}
-
-func random(min, max int) int {
-	rand.Seed(time.Now().Unix())
-	return rand.Intn(max-min) + min
 }

@@ -24,7 +24,6 @@ type ConfigGeneratorImpl struct {
 }
 
 func NewConfigGenerator(plugins []plugin.Plugin) *ConfigGeneratorImpl {
-	// TODO: Stick indices and other stuff here
 	return &ConfigGeneratorImpl{
 		Plugins: plugins,
 	}

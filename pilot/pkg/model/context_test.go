@@ -15,39 +15,182 @@
 package model_test
 
 import (
-	"fmt"
+	"bytes"
+	"encoding/json"
 	"reflect"
 	"testing"
+
+	"github.com/golang/protobuf/jsonpb"
+	structpb "github.com/golang/protobuf/ptypes/struct"
+	"github.com/stretchr/testify/assert"
+
+	"istio.io/istio/pkg/config/labels"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 )
 
+func TestNodeMetadata(t *testing.T) {
+	tests := []struct {
+		name  string
+		in    model.NodeMetadata
+		out   string
+		inOut model.NodeMetadata
+	}{
+		{
+			"empty",
+			model.NodeMetadata{},
+			"{}",
+			model.NodeMetadata{Raw: map[string]interface{}{}},
+		},
+		{
+			"csvlists",
+			model.NodeMetadata{InstanceIPs: []string{"abc", "1.2.3.4"}},
+			`{"INSTANCE_IPS":"abc,1.2.3.4"}`,
+			model.NodeMetadata{
+				InstanceIPs: []string{"abc", "1.2.3.4"},
+				Raw: map[string]interface{}{
+					"INSTANCE_IPS": "abc,1.2.3.4",
+				}},
+		},
+		{
+			"labels",
+			model.NodeMetadata{Labels: map[string]string{"foo": "bar"}},
+			`{"LABELS":{"foo":"bar"}}`,
+			model.NodeMetadata{Labels: map[string]string{"foo": "bar"},
+				Raw: map[string]interface{}{
+					"LABELS": map[string]interface{}{
+						"foo": "bar",
+					},
+				}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			j, err := json.Marshal(tt.in)
+			if err != nil {
+				t.Fatalf("failed to marshal: %v", err)
+			}
+			if string(j) != tt.out {
+				t.Errorf("Got json '%s', expected '%s'", string(j), tt.out)
+			}
+			var meta model.NodeMetadata
+			if err := json.Unmarshal(j, &meta); err != nil {
+				t.Fatalf("failed to unmarshal: %v", err)
+			}
+			if !reflect.DeepEqual(meta, tt.inOut) {
+				t.Fatalf("Got metadata\n%#v, expected\n%#v", meta, tt.inOut)
+			}
+		})
+	}
+}
+
+func TestStringList(t *testing.T) {
+	cases := []struct {
+		in     string
+		expect model.StringList
+	}{
+		{`"a,b,c"`, []string{"a", "b", "c"}},
+		{`"a"`, []string{"a"}},
+		{`""`, []string{}},
+		{`"123,@#$#,abcdef"`, []string{"123", "@#$#", "abcdef"}},
+	}
+	for _, tt := range cases {
+		t.Run(tt.in, func(t *testing.T) {
+			var out model.StringList
+			if err := json.Unmarshal([]byte(tt.in), &out); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(out, tt.expect) {
+				t.Fatalf("Expected %v, got %v", tt.expect, out)
+			}
+			b, err := json.Marshal(out)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(string(b), tt.in) {
+				t.Fatalf("Expected %v, got %v", tt.in, string(b))
+			}
+		})
+	}
+}
+
+func TestPodPortList(t *testing.T) {
+	cases := []struct {
+		name   string
+		in     string
+		expect model.PodPortList
+	}{
+		{"no port", `"[]"`, model.PodPortList{}},
+		{"one port", `"[{\"name\":\"foo\",\"containerPort\":9080,\"protocol\":\"TCP\"}]"`, model.PodPortList{{"foo", 9080, "TCP"}}},
+		{
+			"two ports",
+			`"[{\"name\":\"foo\",\"containerPort\":9080,\"protocol\":\"TCP\"},{\"containerPort\":8888,\"protocol\":\"TCP\"}]"`,
+			model.PodPortList{{"foo", 9080, "TCP"}, {ContainerPort: 8888, Protocol: "TCP"}},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			var out model.PodPortList
+			if err := json.Unmarshal([]byte(tt.in), &out); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(out, tt.expect) {
+				t.Fatalf("Expected %v, got %v", tt.expect, out)
+			}
+			b, err := json.Marshal(out)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(string(b), tt.in) {
+				t.Fatalf("Expected %v, got %v", tt.in, string(b))
+			}
+		})
+	}
+}
+
 func TestServiceNode(t *testing.T) {
-	nodes := []struct {
-		in  model.Proxy
+	cases := []struct {
+		in  *model.Proxy
 		out string
 	}{
 		{
-			in:  memory.HelloProxyV0,
+			in:  &memory.HelloProxyV0,
 			out: "sidecar~10.1.1.0~v0.default~default.svc.cluster.local",
 		},
 		{
-			in: model.Proxy{
-				Type:   model.Ingress,
-				ID:     "random",
-				Domain: "local",
+			in: &model.Proxy{
+				Type:         model.Router,
+				ID:           "random",
+				IPAddresses:  []string{"10.3.3.3"},
+				DNSDomain:    "local",
+				Metadata:     &model.NodeMetadata{},
+				IstioVersion: model.MaxIstioVersion,
 			},
-			out: "ingress~~random~local",
+			out: "router~10.3.3.3~random~local",
+		},
+		{
+			in: &model.Proxy{
+				Type:        model.SidecarProxy,
+				ID:          "random",
+				IPAddresses: []string{"10.3.3.3", "10.4.4.4", "10.5.5.5", "10.6.6.6"},
+				DNSDomain:   "local",
+				Metadata: &model.NodeMetadata{
+					InstanceIPs: []string{"10.3.3.3", "10.4.4.4", "10.5.5.5", "10.6.6.6"},
+				},
+				IstioVersion: model.MaxIstioVersion,
+			},
+			out: "sidecar~10.3.3.3~random~local",
 		},
 	}
 
-	for _, node := range nodes {
+	for _, node := range cases {
 		out := node.in.ServiceNode()
 		if out != node.out {
 			t.Errorf("%#v.ServiceNode() => Got %s, want %s", node.in, out, node.out)
 		}
-		in, err := model.ParseServiceNode(node.out)
+		in, err := model.ParseServiceNodeWithMetadata(node.out, node.in.Metadata)
+
 		if err != nil {
 			t.Errorf("ParseServiceNode(%q) => Got error %v", node.out, err)
 		}
@@ -55,6 +198,100 @@ func TestServiceNode(t *testing.T) {
 			t.Errorf("ParseServiceNode(%q) => Got %#v, want %#v", node.out, in, node.in)
 		}
 	}
+}
+
+func TestParseMetadata(t *testing.T) {
+	cases := []struct {
+		name     string
+		metadata map[string]interface{}
+		out      model.Proxy
+	}{
+		{
+			name: "Basic Case",
+			out: model.Proxy{Type: "sidecar", IPAddresses: []string{"1.1.1.1"}, DNSDomain: "domain", ID: "id", IstioVersion: model.MaxIstioVersion,
+				Metadata: &model.NodeMetadata{Raw: map[string]interface{}{}}},
+		},
+		{
+			name:     "Capture Arbitrary Metadata",
+			metadata: map[string]interface{}{"foo": "bar"},
+			out: model.Proxy{Type: "sidecar", IPAddresses: []string{"1.1.1.1"}, DNSDomain: "domain", ID: "id", IstioVersion: model.MaxIstioVersion,
+				Metadata: &model.NodeMetadata{
+					Raw: map[string]interface{}{
+						"foo": "bar",
+					}},
+			},
+		},
+		{
+			name: "Capture Labels",
+			metadata: map[string]interface{}{
+				"LABELS": map[string]string{
+					"foo": "bar",
+				},
+			},
+			out: model.Proxy{Type: "sidecar", IPAddresses: []string{"1.1.1.1"}, DNSDomain: "domain", ID: "id", IstioVersion: model.MaxIstioVersion,
+				Metadata: &model.NodeMetadata{
+					Raw: map[string]interface{}{
+						"LABELS": map[string]interface{}{"foo": "bar"},
+					},
+					Labels: map[string]string{"foo": "bar"},
+				},
+				WorkloadLabels: labels.Collection{map[string]string{
+					"foo": "bar",
+				}}},
+		},
+		{
+			name: "Capture Pod Ports",
+			metadata: map[string]interface{}{
+				"POD_PORTS": `[{"name":"http","containerPort":8080,"protocol":"TCP"},{"name":"grpc","containerPort":8079,"protocol":"TCP"}]`,
+			},
+			out: model.Proxy{Type: "sidecar", IPAddresses: []string{"1.1.1.1"}, DNSDomain: "domain", ID: "id", IstioVersion: model.MaxIstioVersion,
+				Metadata: &model.NodeMetadata{
+					Raw: map[string]interface{}{
+						"POD_PORTS": `[{"name":"http","containerPort":8080,"protocol":"TCP"},{"name":"grpc","containerPort":8079,"protocol":"TCP"}]`,
+					},
+					PodPorts: []model.PodPort{
+						{"http", 8080, "TCP"},
+						{"grpc", 8079, "TCP"},
+					}},
+			},
+		},
+	}
+
+	nodeID := "sidecar~1.1.1.1~id~domain"
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			meta, err := mapToStruct(tt.metadata)
+			if err != nil {
+				t.Fatalf("failed to setup metadata: %v", err)
+			}
+			parsed, err := model.ParseMetadata(meta)
+			if err != nil {
+				t.Fatalf("failed to parse service node: %v", err)
+			}
+			node, err := model.ParseServiceNodeWithMetadata(nodeID, parsed)
+			if err != nil {
+				t.Fatalf("failed to parse service node: %v", err)
+			}
+			if !reflect.DeepEqual(&tt.out, node) {
+				t.Errorf("Got \n%v, want \n%v", node, &tt.out)
+			}
+		})
+	}
+}
+
+func mapToStruct(msg map[string]interface{}) (*structpb.Struct, error) {
+	b, err := json.Marshal(msg)
+	if err != nil {
+		return nil, err
+	}
+
+	pbs := &structpb.Struct{}
+	if err := jsonpb.Unmarshal(bytes.NewBuffer(b), pbs); err != nil {
+		return nil, err
+	}
+
+	return pbs, nil
 }
 
 func TestParsePort(t *testing.T) {
@@ -66,35 +303,104 @@ func TestParsePort(t *testing.T) {
 	}
 }
 
-func TestDefaultConfig(t *testing.T) {
-	config := model.DefaultProxyConfig()
-	if err := model.ValidateProxyConfig(&config); err != nil {
-		t.Errorf("validation of default proxy config failed with %v", err)
+func TestGetOrDefault(t *testing.T) {
+	assert.Equal(t, "a", model.GetOrDefault("a", "b"))
+	assert.Equal(t, "b", model.GetOrDefault("", "b"))
+}
+
+func TestProxyVersion_Compare(t *testing.T) {
+	type fields struct {
+		Major int
+		Minor int
+		Patch int
+	}
+	type args struct {
+		inv *model.IstioVersion
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   int
+	}{
+		{
+			name:   "greater major",
+			fields: fields{Major: 2, Minor: 1, Patch: 1},
+			args:   args{&model.IstioVersion{Major: 1, Minor: 2, Patch: 1}},
+			want:   1,
+		},
+		{
+			name:   "equal at minor",
+			fields: fields{Major: 2, Minor: 1, Patch: 1},
+			args:   args{&model.IstioVersion{Major: 2, Minor: 1, Patch: -1}},
+			want:   0,
+		},
+		{
+			name:   "less at patch",
+			fields: fields{Major: 2, Minor: 1, Patch: 0},
+			args:   args{&model.IstioVersion{Major: 2, Minor: 1, Patch: 1}},
+			want:   -1,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pversion := &model.IstioVersion{
+				Major: tt.fields.Major,
+				Minor: tt.fields.Minor,
+				Patch: tt.fields.Patch,
+			}
+			if got := pversion.Compare(tt.args.inv); got != tt.want {
+				t.Errorf("ProxyVersion.Compare() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 
-func TestDefaultMeshConfig(t *testing.T) {
-	mesh := model.DefaultMeshConfig()
-	if err := model.ValidateMeshConfig(&mesh); err != nil {
-		t.Errorf("validation of default mesh config failed with %v", err)
+func Test_parseIstioVersion(t *testing.T) {
+	type args struct {
+		ver string
 	}
-}
-
-func TestApplyMeshConfigDefaults(t *testing.T) {
-	configPath := "/test/config/patch"
-	yaml := fmt.Sprintf(`
-defaultConfig:
-  configPath: %s
-`, configPath)
-
-	want := model.DefaultMeshConfig()
-	want.DefaultConfig.ConfigPath = configPath
-
-	got, err := model.ApplyMeshConfigDefaults(yaml)
-	if err != nil {
-		t.Fatalf("ApplyMeshConfigDefaults() failed: %v", err)
+	tests := []struct {
+		name string
+		args args
+		want *model.IstioVersion
+	}{
+		{
+			name: "major.minor.patch",
+			args: args{ver: "1.2.3"},
+			want: &model.IstioVersion{Major: 1, Minor: 2, Patch: 3},
+		},
+		{
+			name: "major.minor",
+			args: args{ver: "1.2"},
+			want: &model.IstioVersion{Major: 1, Minor: 2, Patch: 0},
+		},
+		{
+			name: "release-major.minor-date",
+			args: args{ver: "release-1.2-123214234"},
+			want: &model.IstioVersion{Major: 1, Minor: 2, Patch: 0},
+		},
+		{
+			name: "master-date",
+			args: args{ver: "master-123214234"},
+			want: model.MaxIstioVersion,
+		},
+		{
+			name: "junk-major.minor.patch",
+			args: args{ver: "junk-1.2.3214234"},
+			want: model.MaxIstioVersion,
+		},
+		{
+			name: "junk-garbage",
+			args: args{ver: "junk-garbage"},
+			want: model.MaxIstioVersion,
+		},
 	}
-	if !reflect.DeepEqual(got, &want) {
-		t.Fatalf("Wrong default values:\n got %#v \nwant %#v", got, &want)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := model.ParseIstioVersion(tt.args.ver); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("parseIstioVersion() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

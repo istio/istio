@@ -21,20 +21,21 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 
-	"istio.io/istio/pkg/collateral"
-	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/version"
-	"istio.io/istio/security/cmd/node_agent/na"
-	"istio.io/istio/security/pkg/cmd"
+	pkgcmd "istio.io/istio/pkg/cmd"
+	"istio.io/istio/pkg/config/constants"
+	nvm "istio.io/istio/security/pkg/nodeagent/vm"
+	"istio.io/pkg/collateral"
+	"istio.io/pkg/log"
+	"istio.io/pkg/version"
 )
 
 var (
-	naConfig = na.NewConfig()
+	naConfig = nvm.NewConfig()
 
 	rootCmd = &cobra.Command{
 		Use:   "node_agent",
-		Short: "Istio security per-node agent",
-
+		Short: "Istio security per-node agent.",
+		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
 			runNodeAgent()
 		},
@@ -64,14 +65,17 @@ func init() {
 	flags.StringVar(&cAClientConfig.Platform, "platform", "vm", "The platform istio runs on: vm | k8s")
 
 	flags.StringVar(&cAClientConfig.CertChainFile, "cert-chain",
-		"/etc/certs/cert-chain.pem", "Node Agent identity cert file")
+		constants.DefaultCertChain, "Node Agent identity cert file")
 	flags.StringVar(&cAClientConfig.KeyFile,
-		"key", "/etc/certs/key.pem", "Node Agent private key file")
+		"key", constants.DefaultKey, "Node Agent private key file")
 	flags.StringVar(&cAClientConfig.RootCertFile, "root-cert",
-		"/etc/certs/root-cert.pem", "Root Certificate file")
+		constants.DefaultRootCert, "Root Certificate file")
+
+	flags.BoolVar(&naConfig.DualUse, "experimental-dual-use",
+		false, "Enable dual-use mode. Generates certificates with a CommonName identical to the SAN.")
 
 	naConfig.LoggingOptions.AttachCobraFlags(rootCmd)
-	cmd.InitializeFlags(rootCmd)
+	pkgcmd.AddFlags(rootCmd)
 }
 
 func main() {
@@ -94,7 +98,7 @@ func runNodeAgent() {
 		log.Errora(err)
 		os.Exit(-1)
 	}
-	nodeAgent, err := na.NewNodeAgent(naConfig)
+	nodeAgent, err := nvm.NewNodeAgent(naConfig)
 	if err != nil {
 		log.Errora(err)
 		os.Exit(-1)

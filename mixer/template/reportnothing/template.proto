@@ -20,19 +20,20 @@ syntax = "proto3";
 // $aliases:
 // $  - /docs/reference/config/template/reportnothing.html
 
-// The `reportnothing` template represents an empty block of data, which can useful
+// The `reportnothing` template represents an empty block of data, which can be useful
 // in different testing scenarios.
 //
 // Example config:
 //
 // ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
-// kind: reportnothing
+// kind: instance
 // metadata:
 //   name: reportrequest
 //   namespace: istio-system
 // spec:
-// ```\
+//   compiledTemplate: reportnothing
+// ```
 package reportNothing;
 
 import "mixer/adapter/model/v1beta1/extensions.proto";

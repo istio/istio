@@ -1,0 +1,21 @@
+{{- range $key, $spec := .Values }}
+{{- if ne $key "enabled" }}
+{{- if $spec.enabled }}
+{{- if ($spec.sds) and (eq $spec.sds.enabled true) }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $key }}-sds
+  namespace: {{ $spec.namespace | default $.Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $key }}-sds
+subjects:
+- kind: ServiceAccount
+  name: {{ $key }}-service-account
+---
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

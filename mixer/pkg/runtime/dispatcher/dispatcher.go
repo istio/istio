@@ -27,9 +27,9 @@ import (
 
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime/routing"
+	"istio.io/pkg/attribute"
+	"istio.io/pkg/pool"
 )
 
 // Dispatcher dispatches incoming API calls to configured adapters.
@@ -118,6 +118,8 @@ const (
 // Check implementation of runtime.Impl.
 func (d *Impl) Check(ctx context.Context, bag attribute.Bag) (adapter.CheckResult, error) {
 	s := d.getSession(ctx, tpb.TEMPLATE_VARIETY_CHECK, bag)
+	// allocate bag for storing check output on top of input attributes
+	s.responseBag = attribute.GetMutableBag(bag)
 
 	var r adapter.CheckResult
 	err := s.dispatch()
@@ -139,6 +141,7 @@ func (d *Impl) Check(ctx context.Context, bag attribute.Bag) (adapter.CheckResul
 		}
 	}
 
+	s.responseBag.Done()
 	d.putSession(s)
 	return r, err
 }
@@ -177,6 +180,7 @@ func (d *Impl) Preprocess(ctx context.Context, bag attribute.Bag, responseBag *a
 	return err
 }
 
+// Session template variety is CHECK for output producing templates (CHECK_WITH_OUTPUT)
 func (d *Impl) getSession(context context.Context, variety tpb.TemplateVariety, bag attribute.Bag) *session {
 	s := d.sessionPool.Get().(*session)
 
@@ -235,9 +239,9 @@ func (d *Impl) acquireRoutingContext() *RoutingContext {
 }
 
 // ChangeRoute changes the routing table on the Impl which, in turn, ends up creating a new RoutingContext.
-func (d *Impl) ChangeRoute(new *routing.Table) *RoutingContext {
+func (d *Impl) ChangeRoute(newTable *routing.Table) *RoutingContext {
 	newRC := &RoutingContext{
-		Routes: new,
+		Routes: newTable,
 	}
 
 	d.rcLock.Lock()

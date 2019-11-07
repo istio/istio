@@ -1,0 +1,17 @@
+rules:
+  policies:
+    httpbin:
+      permissions:
+        - andRules:
+            rules:
+              - orRules:
+                  rules:
+                    - header:
+                        exactMatch: /v1alpha1
+                        name: :path
+      principals:
+        - andIds:
+            ids:
+              - orIds:
+                  ids:
+                    - any: true

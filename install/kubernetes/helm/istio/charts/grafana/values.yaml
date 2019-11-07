@@ -1,0 +1,117 @@
+#
+# addon grafana configuration
+#
+enabled: false
+replicaCount: 1
+image:
+  repository: grafana/grafana
+  tag: 6.4.3
+ingress:
+  enabled: false
+  ## Used to create an Ingress record.
+  hosts:
+    - grafana.local
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  tls: []
+    # Secrets must be manually created in the namespace.
+    # - secretName: grafana-tls
+    #   hosts:
+    #     - grafana.local
+persist: false
+storageClassName: ""
+accessMode: ReadWriteMany
+security:
+  enabled: false
+  secretName: grafana
+  usernameKey: username
+  passphraseKey: passphrase
+nodeSelector: {}
+tolerations: []
+
+env: {}
+  # Define additional environment variables for configuring grafana.
+  # @see https://grafana.com/docs/installation/configuration/#using-environment-variables
+  # Format: env_variable_name: value
+  # For example:
+  # GF_SMTP_ENABLED: true
+  # GF_SMTP_HOST: email-smtp.eu-west-1.amazonaws.com:2587
+  # GF_SMTP_FROM_ADDRESS: alerts@mydomain.com
+  # GF_SMTP_FROM_NAME: Grafana
+
+envSecrets: {}
+  # The key name and ENV name must match in the secrets file.
+  # @see https://grafana.com/docs/installation/configuration/#using-environment-variables
+  # For example:
+  # ---
+  # apiVersion: v1
+  # kind: Secret
+  # metadata:
+  #   name: grafana-secrets
+  #   namespace: istio-system
+  # data:
+  #   GF_SMTP_USER: bXl1c2Vy
+  #   GF_SMTP_PASSWORD: bXlwYXNzd29yZA==
+  # type: Opaque
+  # ---
+  # env_variable_key_name: secretsName
+  # ---
+  # GF_SMTP_USER: grafana-secrets
+  # GF_SMTP_PASSWORD: grafana-secrets
+
+# Specify the pod anti-affinity that allows you to constrain which nodes
+# your pod is eligible to be scheduled based on labels on pods that are
+# already running on the node rather than based on labels on nodes.
+# There are currently two types of anti-affinity:
+#    "requiredDuringSchedulingIgnoredDuringExecution"
+#    "preferredDuringSchedulingIgnoredDuringExecution"
+# which denote "hard" vs. "soft" requirements, you can define your values
+# in "podAntiAffinityLabelSelector" and "podAntiAffinityTermLabelSelector"
+# correspondingly.
+# For example:
+# podAntiAffinityLabelSelector:
+# - key: security
+#   operator: In
+#   values: S1,S2
+#   topologyKey: "kubernetes.io/hostname"
+# This pod anti-affinity rule says that the pod requires not to be scheduled
+# onto a node if that node is already running a pod with label having key
+# "security" and value "S1".
+podAntiAffinityLabelSelector: []
+podAntiAffinityTermLabelSelector: []
+
+contextPath: /grafana
+service:
+  annotations: {}
+  name: http
+  type: ClusterIP
+  externalPort: 3000
+  loadBalancerIP:
+  loadBalancerSourceRanges: []
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        orgId: 1
+        url: http://prometheus:9090
+        access: proxy
+        isDefault: true
+        jsonData:
+          timeInterval: 5s
+        editable: true
+
+dashboardProviders:
+  dashboardproviders.yaml:
+    apiVersion: 1
+    providers:
+      - name: 'istio'
+        orgId: 1
+        folder: 'istio'
+        type: file
+        disableDeletion: false
+        options:
+          path: /var/lib/grafana/dashboards/istio

@@ -1,6 +1,6 @@
 #!/bin/bash
-#
-# Copyright 2017,2018 Istio Authors. All Rights Reserved.
+
+# Copyright 2018 Istio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,29 +13,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
 
 # Init script downloads or updates envoy and the go dependencies. Called from Makefile, which sets
 # the needed environment variables.
 
-ROOT=$(cd $(dirname $0)/..; pwd)
-ISTIO_GO=$ROOT
 
 set -o errexit
 set -o nounset
 set -o pipefail
 
-# TODO(nmittler): Remove before merging.
-set -x # echo on
-
-# TODO(nmittler): Remove these variables and require that this script be run from the Makefile
-
-# Set GOPATH to match the expected layout
-GO_TOP=$(cd $(dirname $0)/../../../..; pwd)
-
+export GO_TOP=${GO_TOP:-$(echo "${GOPATH}" | cut -d ':' -f1)}
 export OUT_DIR=${OUT_DIR:-${GO_TOP}/out}
 
-HELM_VER=v2.7.2
+HELM_VER=${HELM_VER:-v2.10.0}
 
 export GOPATH=${GOPATH:-$GO_TOP}
 # Normally set by Makefile
@@ -60,16 +50,38 @@ case $LOCAL_OS in
 esac
 export GOOS=${GOOS:-${LOCAL_OS}}
 
+# Gets the download command supported by the system (currently either curl or wget)
+# simplify because init.sh has already decided which one is
+DOWNLOAD_COMMAND=""
+function set_download_command () {
+    # Try curl.
+    if command -v curl > /dev/null; then
+        if curl --version | grep Protocols  | grep https > /dev/null; then
+	       DOWNLOAD_COMMAND='curl -Lo '
+	       return
+        fi
+    fi
+
+    # Try wget.
+    if command -v wget > /dev/null; then
+        DOWNLOAD_COMMAND='wget -O '
+        return
+    fi
+}
+set_download_command
+
 # test scripts seem to like to run this script directly rather than use make
 export ISTIO_OUT=${ISTIO_OUT:-${ISTIO_BIN}}
 
 # install helm if not present, it must be the local version.
-if [ ! -f ${ISTIO_OUT}/helm ] ; then
+if [ ! -f "${ISTIO_OUT}/version.helm.${HELM_VER}" ] ; then
     TD=$(mktemp -d)
     # Install helm. Please keep it in sync with .circleci
-    cd ${TD} && \
-        curl -Lo ${TD}/helm.tgz https://storage.googleapis.com/kubernetes-helm/helm-${HELM_VER}-${LOCAL_OS}-amd64.tar.gz && \
+    cd "${TD}" && \
+        ${DOWNLOAD_COMMAND} "${TD}/helm.tgz" "https://storage.googleapis.com/kubernetes-helm/helm-${HELM_VER}-${LOCAL_OS}-amd64.tar.gz" && \
         tar xfz helm.tgz && \
-        mv ${LOCAL_OS}-amd64/helm ${ISTIO_OUT}/helm && \
-        rm -rf ${TD}
+        mv ${LOCAL_OS}-amd64/helm "${ISTIO_OUT}/helm-${HELM_VER}" && \
+        cp "${ISTIO_OUT}/helm-${HELM_VER}" "${ISTIO_OUT}/helm" && \
+        rm -rf "${TD}" && \
+        touch "${ISTIO_OUT}/version.helm.${HELM_VER}"
 fi

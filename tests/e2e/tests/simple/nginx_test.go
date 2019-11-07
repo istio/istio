@@ -26,9 +26,9 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/util"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -73,7 +73,7 @@ func TestNginx(t *testing.T) {
 	url := fmt.Sprintf("http://%s/%s", nginxServiceName, src)
 
 	runRetriableTest(t, "Reachable", defaultRetryBudget, func() error {
-		hostHeader := fmt.Sprintf("-key Host -val %s", dest)
+		hostHeader := fmt.Sprintf("--key Host --val %s", dest)
 		resp := tc.SendClientRequest(src, url, 1, hostHeader)
 		if !resp.IsHTTPOk() {
 			return errAgain
@@ -126,7 +126,7 @@ func getApps(kubeMasterCIDR string) []framework.App {
 }
 
 func getApp(deploymentName, serviceName string, port1, port2, port3, port4, port5, port6 int, version string, injectProxy, perServiceAuth bool) framework.App {
-	// TODO(nmittler): Eureka does not support management ports ... should we support other registries?
+	// TODO(nmittler): Consul does not support management ports ... should we support other registries?
 	healthPort := "true"
 
 	// Return the config.
@@ -134,8 +134,8 @@ func getApp(deploymentName, serviceName string, port1, port2, port3, port4, port
 		AppYamlTemplate: util.GetResourcePath(appYamlTmpl),
 		KubeInject:      injectProxy,
 		Template: map[string]string{
-			"Hub":             tc.Kube.PilotHub(),
-			"Tag":             tc.Kube.PilotTag(),
+			"Hub":             tc.Kube.AppHub(),
+			"Tag":             tc.Kube.AppTag(),
 			"service":         serviceName,
 			"perServiceAuth":  strconv.FormatBool(perServiceAuth),
 			"deployment":      deploymentName,
@@ -163,12 +163,12 @@ func (t *testConfig) imagePullPolicy() string {
 }
 
 func getKubeMasterCIDROrFail(t *testing.T) string {
-	ip, err := util.GetKubeMasterIP()
+	ip, err := util.GetKubeMasterIP(tc.Kube.KubeConfig)
 	if err != nil {
 		t.Fatalf("Unable to retrieve Kube Master IP: %v", err)
 		return ""
 	}
-	subnet, err := util.GetClusterSubnet()
+	subnet, err := util.GetClusterSubnet(tc.Kube.KubeConfig)
 	if err != nil {
 		t.Fatalf("Unable to determine cluster subnet: %v", err)
 	}
@@ -186,7 +186,7 @@ func (t *testConfig) SendClientRequest(app, url string, count int, extra string)
 	}
 
 	pod := pods[0]
-	cmd := fmt.Sprintf("client -url %s -count %d %s", url, count, extra)
+	cmd := fmt.Sprintf("client --url %s --count %d %s", url, count, extra)
 	request, err := util.PodExec(t.Kube.Namespace, pod, "app", cmd, true, t.Kube.KubeConfig)
 	if err != nil {
 		log.Errorf("client request error %v for %s in %s", err, url, app)

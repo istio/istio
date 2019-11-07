@@ -23,16 +23,18 @@ import (
 	"text/tabwriter"
 	"time"
 
-	rpc "github.com/gogo/googleapis/google/rpc"
 	otgrpc "github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	ot "github.com/opentracing/opentracing-go"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
 
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
+
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/cmd/shared"
-	"istio.io/istio/mixer/pkg/attribute"
+	attr "istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/pkg/tracing"
+	"istio.io/pkg/attribute"
 )
 
 type clientState struct {
@@ -106,7 +108,7 @@ func parseBytes(s string) (interface{}, error) {
 }
 
 func parseStringMap(s string) (interface{}, error) {
-	m := make(map[string]string)
+	m := attribute.NewStringMap("", make(map[string]string, 1), nil)
 	for _, pair := range strings.Split(s, ";") {
 		colon := strings.Index(pair, ":")
 		if colon < 0 {
@@ -115,7 +117,7 @@ func parseStringMap(s string) (interface{}, error) {
 
 		k := pair[0:colon]
 		v := pair[colon+1:]
-		m[k] = v
+		m.Set(k, v)
 	}
 
 	return m, nil
@@ -143,7 +145,7 @@ func parseAny(s string) (interface{}, error) {
 
 type convertFn func(string) (interface{}, error)
 
-func process(b *attribute.MutableBag, s string, f convertFn) error {
+func process(b *attribute.MutableBag, dict *map[string]int32, s string, f convertFn) error {
 	if len(s) > 0 {
 		for _, seg := range strings.Split(s, ",") {
 			eq := strings.Index(seg, "=")
@@ -164,55 +166,60 @@ func process(b *attribute.MutableBag, s string, f convertFn) error {
 
 			// add to results
 			b.Set(name, nv)
+			(*dict)[name] = int32(len(*dict))
 		}
 	}
 
 	return nil
 }
 
-func parseAttributes(rootArgs *rootArgs) (*mixerpb.CompressedAttributes, error) {
+func parseAttributes(rootArgs *rootArgs) (*mixerpb.CompressedAttributes, []string, error) {
 	b := attribute.GetMutableBag(nil)
-
-	if err := process(b, rootArgs.stringAttributes, parseString); err != nil {
-		return nil, err
+	gb := make(map[string]int32)
+	if err := process(b, &gb, rootArgs.stringAttributes, parseString); err != nil {
+		return nil, nil, err
 	}
 
-	if err := process(b, rootArgs.int64Attributes, parseInt64); err != nil {
-		return nil, err
+	if err := process(b, &gb, rootArgs.int64Attributes, parseInt64); err != nil {
+		return nil, nil, err
 	}
 
-	if err := process(b, rootArgs.doubleAttributes, parseFloat64); err != nil {
-		return nil, err
+	if err := process(b, &gb, rootArgs.doubleAttributes, parseFloat64); err != nil {
+		return nil, nil, err
 	}
 
-	if err := process(b, rootArgs.boolAttributes, parseBool); err != nil {
-		return nil, err
+	if err := process(b, &gb, rootArgs.boolAttributes, parseBool); err != nil {
+		return nil, nil, err
 	}
 
-	if err := process(b, rootArgs.timestampAttributes, parseTime); err != nil {
-		return nil, err
+	if err := process(b, &gb, rootArgs.timestampAttributes, parseTime); err != nil {
+		return nil, nil, err
 	}
 
-	if err := process(b, rootArgs.durationAttributes, parseDuration); err != nil {
-		return nil, err
+	if err := process(b, &gb, rootArgs.durationAttributes, parseDuration); err != nil {
+		return nil, nil, err
 	}
 
-	if err := process(b, rootArgs.bytesAttributes, parseBytes); err != nil {
-		return nil, err
+	if err := process(b, &gb, rootArgs.bytesAttributes, parseBytes); err != nil {
+		return nil, nil, err
 	}
 
-	if err := process(b, rootArgs.stringMapAttributes, parseStringMap); err != nil {
-		return nil, err
+	if err := process(b, &gb, rootArgs.stringMapAttributes, parseStringMap); err != nil {
+		return nil, nil, err
 	}
 
-	if err := process(b, rootArgs.attributes, parseAny); err != nil {
-		return nil, err
+	if err := process(b, &gb, rootArgs.attributes, parseAny); err != nil {
+		return nil, nil, err
 	}
 
 	var attrs mixerpb.CompressedAttributes
-	b.ToProto(&attrs, nil, 0)
+	attr.ToProto(b, &attrs, nil, 0)
 
-	return &attrs, nil
+	dw := make([]string, len(gb))
+	for k, v := range gb {
+		dw[v] = k
+	}
+	return &attrs, dw, nil
 }
 
 func decodeError(err error) string {
@@ -243,7 +250,7 @@ func decodeStatus(status rpc.Status) string {
 	return result
 }
 
-// nolint:deadcode
+/* Useful debugging aid, commented out until needed.
 func dumpAttributes(printf, fatalf shared.FormatFn, attrs *mixerpb.CompressedAttributes) {
 	if attrs == nil {
 		return
@@ -264,18 +271,19 @@ func dumpAttributes(printf, fatalf shared.FormatFn, attrs *mixerpb.CompressedAtt
 	buf := bytes.Buffer{}
 	tw := tabwriter.NewWriter(&buf, 0, 0, 2, ' ', 0)
 
-	fmt.Fprint(tw, "  Attribute\tType\tValue\n")
+	_, _ = fmt.Fprint(tw, "  Attribute\tType\tValue\n")
 
 	for _, name := range names {
 		v, _ := b.Get(name)
-		fmt.Fprintf(tw, "  %s\t%T\t%v\n", name, v, v)
+		_, _ = fmt.Fprintf(tw, "  %s\t%T\t%v\n", name, v, v)
 	}
 
 	_ = tw.Flush()
 	printf("%s", buf.String())
 }
+*/
 
-func dumpReferencedAttributes(printf, fatalf shared.FormatFn, attrs *mixerpb.ReferencedAttributes) {
+func dumpReferencedAttributes(printf shared.FormatFn, attrs *mixerpb.ReferencedAttributes) {
 	vals := make([]string, 0, len(attrs.AttributeMatches))
 	for _, at := range attrs.AttributeMatches {
 		out := attrs.Words[-1*at.Name-1]

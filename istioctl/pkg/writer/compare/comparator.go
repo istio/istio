@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ type Comparator struct {
 	envoy, pilot *configdump.Wrapper
 	w            io.Writer
 	context      int
+	location     string
 }
 
 // NewComparator is a comparator constructor
@@ -52,6 +53,7 @@ func NewComparator(w io.Writer, pilotResponses map[string][]byte, envoyResponse 
 	c.envoy = envoyDump
 	c.w = w
 	c.context = 7
+	c.location = "Local" // the time.Location for formatting time.Time instances
 	return c, nil
 }
 

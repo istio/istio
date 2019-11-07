@@ -1,0 +1,37 @@
+{{- if .Values.global.enableHelmTest }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ template "grafana.fullname" . }}-test
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: grafana-test
+    chart: {{ template "grafana.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    istio: grafana
+  annotations:
+    sidecar.istio.io/inject: "false"
+    helm.sh/hook: test-success
+spec:
+{{- if .Values.global.priorityClassName }}
+  priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
+  containers:
+    - name: "{{ template "grafana.fullname" . }}-test"
+      image: pstauffer/curl:v1.0.3
+      imagePullPolicy: "{{ .Values.global.imagePullPolicy }}"
+      command: ['curl']
+      args: ['http://grafana:{{ .Values.grafana.service.externalPort }}']
+  restartPolicy: Never
+  affinity:
+    {{- include "nodeaffinity" . | indent 4 }}
+    {{- include "podAntiAffinity" . | indent 4 }}
+  {{- if .Values.tolerations }}
+  tolerations:
+{{ toYaml .Values.tolerations | indent 2 }}
+  {{- else if .Values.global.defaultTolerations }}
+  tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 2 }}
+  {{- end }}
+{{- end }}

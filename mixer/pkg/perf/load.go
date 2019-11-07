@@ -20,7 +20,7 @@ import (
 	"math/rand"
 	"time"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/pkg/log"
 )
 
 // Load is the load to apply on the Mixer during the perf test.
@@ -100,14 +100,14 @@ func (l *Load) UnmarshalJSON(bytes []byte) error {
 			if err := json.Unmarshal(raw, &r); err != nil {
 				return err
 			}
-			l.Requests[i] = &r
+			l.Requests[i] = r
 
 		case "basicCheck":
 			var r BasicCheck
 			if err := json.Unmarshal(raw, &r); err != nil {
 				return err
 			}
-			l.Requests[i] = &r
+			l.Requests[i] = r
 
 		default:
 			return fmt.Errorf("unrecognized request type: '%v'", rtmp.Type)
@@ -120,7 +120,7 @@ func (l *Load) UnmarshalJSON(bytes []byte) error {
 func (l *Load) createRequestProtos() []interface{} {
 	initialSet := []interface{}{}
 	for _, r := range l.Requests {
-		initialSet = append(initialSet, r.createRequestProtos()...)
+		initialSet = append(initialSet, r.getRequestProto())
 	}
 
 	requests := initialSet

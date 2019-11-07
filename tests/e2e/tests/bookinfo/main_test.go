@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/http/cookiejar"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -28,19 +30,18 @@ import (
 	"time"
 
 	multierror "github.com/hashicorp/go-multierror"
+	"golang.org/x/net/publicsuffix"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/util"
+	"istio.io/pkg/log"
 )
 
 const (
-	u1                                 = "normal-user"
-	u2                                 = "test-user"
 	bookinfoSampleDir                  = "samples/bookinfo"
 	yamlExtension                      = "yaml"
-	deploymentDir                      = "kube"
-	routeRulesDir                      = "kube"
+	deploymentDir                      = "platform/kube"
+	routeRulesDir                      = "networking"
 	bookinfoYaml                       = "bookinfo"
 	bookinfoRatingsv2Yaml              = "bookinfo-ratings-v2"
 	bookinfoRatingsMysqlYaml           = "bookinfo-ratings-v2-mysql"
@@ -49,26 +50,32 @@ const (
 	bookinfoDetailsExternalServiceYaml = "bookinfo-details-v2"
 	modelDir                           = "tests/apps/bookinfo/output"
 	bookinfoGateway                    = routeRulesDir + "/" + "bookinfo-gateway"
-	allRule                            = routeRulesDir + "/" + "route-rule-all-v1"
-	delayRule                          = routeRulesDir + "/" + "route-rule-ratings-test-delay"
-	tenRule                            = routeRulesDir + "/" + "/route-rule-reviews-90-10"
-	twentyRule                         = routeRulesDir + "/" + "route-rule-reviews-80-20"
-	fiftyRule                          = routeRulesDir + "/" + "route-rule-reviews-50-v3"
-	testRule                           = routeRulesDir + "/" + "route-rule-reviews-test-v2"
-	testDbRule                         = routeRulesDir + "/" + "route-rule-ratings-db"
-	testMysqlRule                      = routeRulesDir + "/" + "route-rule-ratings-mysql"
-	detailsExternalServiceRouteRule    = routeRulesDir + "/" + "route-rule-details-v2"
+	delayRule                          = routeRulesDir + "/" + "virtual-service-ratings-test-delay"
+	tenRule                            = routeRulesDir + "/" + "virtual-service-reviews-90-10"
+	twentyRule                         = routeRulesDir + "/" + "virtual-service-reviews-80-20"
+	fiftyRule                          = routeRulesDir + "/" + "virtual-service-reviews-50-v3"
+	testRule                           = routeRulesDir + "/" + "virtual-service-reviews-test-v2"
+	testDbRule                         = routeRulesDir + "/" + "virtual-service-ratings-db"
+	testMysqlRule                      = routeRulesDir + "/" + "virtual-service-ratings-mysql"
+	detailsExternalServiceRouteRule    = routeRulesDir + "/" + "virtual-service-details-v2"
 	detailsExternalServiceEgressRule   = routeRulesDir + "/" + "egress-rule-google-apis"
-	reviewsDestinationRule             = routeRulesDir + "/" + "destination-policy-reviews"
+
+	// users
+	normalUsername = "normal-user"
+	testUsername   = "test-user"
 )
 
 var (
+	cjopts = cookiejar.Options{
+		PublicSuffixList: publicsuffix.List,
+	}
+	normalUser = user{username: normalUsername}
+	testUser   = user{username: testUsername}
+
 	tc *testConfig
 	tf = &framework.TestFlags{
-		V1alpha1: true,  //implies envoyv1
-		V1alpha3: false, //implies envoyv2
-		Ingress:  true,
-		Egress:   true,
+		Ingress: true,
+		Egress:  true,
 	}
 	testRetryTimes = 5
 	defaultRules   = []string{bookinfoGateway}
@@ -86,18 +93,14 @@ func init() {
 	tf.Init()
 }
 
-func getWithCookie(url string, cookies []http.Cookie) (*http.Response, error) {
+func getWithCookieJar(url string, jar *cookiejar.Jar) (*http.Response, error) {
 	// Declare http client
-	client := &http.Client{}
+	client := &http.Client{Jar: jar}
 
 	// Declare HTTP Method and Url
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
-	}
-	for _, c := range cookies {
-		// Set cookie
-		req.AddCookie(&c)
 	}
 	return client.Do(req)
 }
@@ -109,27 +112,25 @@ func closeResponseBody(r *http.Response) {
 }
 
 func getPreprocessedRulePath(t *testConfig, version, rule string) string {
-	// transform, for example "routing/route-rule" into
-	// "{t.rulesDir}/routing/v1aplha3/route-rule.yaml"
+	// transform, for example "routing/virtual-service" into
+	// "{t.rulesDir}/routing/v1aplha3/virtual-service.yaml"
 	parts := strings.Split(rule, string(os.PathSeparator))
 	parts[len(parts)-1] = parts[len(parts)-1] + "." + yamlExtension
 
-	return util.GetResourcePath(filepath.Join(t.rulesDir, "routing", version,
+	return util.GetResourcePath(filepath.Join(t.rulesDir, routeRulesDir, version,
 		strings.Join(parts[1:], string(os.PathSeparator))))
 }
 
-func getOriginalRulePath(version, rule string) string {
+func getOriginalRulePath(rule string) string {
 	parts := strings.Split(rule, string(os.PathSeparator))
-	if version == "v1alpha3" {
-		parts[0] = "routing"
-	}
+
+	parts[0] = routeRulesDir
 	parts[len(parts)-1] = parts[len(parts)-1] + "." + yamlExtension
-	return util.GetResourcePath(filepath.Join(bookinfoSampleDir,
-		strings.Join(parts, string(os.PathSeparator))))
+	return util.GetResourcePath(filepath.Join(bookinfoSampleDir, strings.Join(parts, string(os.PathSeparator))))
 }
 
 func preprocessRule(t *testConfig, version, rule string) error {
-	src := getOriginalRulePath(version, rule)
+	src := getOriginalRulePath(rule)
 	dest := getPreprocessedRulePath(t, version, rule)
 	ori, err := ioutil.ReadFile(src)
 	if err != nil {
@@ -137,7 +138,7 @@ func preprocessRule(t *testConfig, version, rule string) error {
 		return err
 	}
 	content := string(ori)
-	content = strings.Replace(content, "jason", u2, -1)
+	content = strings.Replace(content, "jason", testUsername, -1)
 
 	err = os.MkdirAll(filepath.Dir(dest), 0700)
 	if err != nil {
@@ -157,18 +158,18 @@ func preprocessRule(t *testConfig, version, rule string) error {
 func (t *testConfig) Setup() error {
 	//generate rule yaml files, replace "jason" with actual user
 	if tc.Kube.AuthEnabled {
-		allRules = append(allRules, routeRulesDir+"/"+"route-rule-all-v1-mtls")
-		defaultRules = append(defaultRules, routeRulesDir+"/"+"route-rule-all-v1-mtls")
+		allRules = append(allRules, routeRulesDir+"/"+"destination-rule-all-mtls")
+		defaultRules = append(defaultRules, routeRulesDir+"/"+"destination-rule-all-mtls")
 	} else {
-		allRules = append(allRules, routeRulesDir+"/"+"route-rule-all-v1")
-		defaultRules = append(defaultRules, routeRulesDir+"/"+"route-rule-all-v1")
+		allRules = append(allRules, routeRulesDir+"/"+"destination-rule-all")
+		defaultRules = append(defaultRules, routeRulesDir+"/"+"destination-rule-all")
 	}
+	allRules = append(allRules, routeRulesDir+"/"+"virtual-service-all-v1")
+	defaultRules = append(defaultRules, routeRulesDir+"/"+"virtual-service-all-v1")
 	for _, rule := range allRules {
-		for _, configVersion := range tf.ConfigVersions() {
-			err := preprocessRule(t, configVersion, rule)
-			if err != nil {
-				return nil
-			}
+		err := preprocessRule(t, "v1alpha3", rule)
+		if err != nil {
+			return nil
 		}
 	}
 
@@ -176,7 +177,40 @@ func (t *testConfig) Setup() error {
 		return fmt.Errorf("can't get all pods running")
 	}
 
-	return setUpDefaultRouting()
+	var err error
+	if err = setUpDefaultRouting(); err != nil {
+		return fmt.Errorf("failed to setup default routing: %v", err)
+	}
+
+	if normalUser.cookiejar, err = setupCookieJar(normalUsername, "pass"); err != nil {
+		return fmt.Errorf("failed to setup normal-user cookie jar: %v", err)
+	}
+	if testUser.cookiejar, err = setupCookieJar(testUsername, "pass"); err != nil {
+		return fmt.Errorf("failed to setup test-user cookie jar: %v", err)
+	}
+
+	return nil
+}
+
+func setupCookieJar(user, pass string) (*cookiejar.Jar, error) {
+	gateway, err := tc.Kube.IngressGateway()
+	if err != nil {
+		return nil, err
+	}
+	jar, err := cookiejar.New(&cjopts)
+	if err != nil {
+		return nil, fmt.Errorf("failed building cookiejar: %v", err)
+	}
+	client := http.Client{Jar: jar}
+	resp, err := client.PostForm(fmt.Sprintf("%s/login", gateway), url.Values{
+		"password": {pass},
+		"username": {user},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed login for user '%s': %v", user, err)
+	}
+	resp.Body.Close()
+	return jar, nil
 }
 
 func (t *testConfig) Teardown() error {
@@ -200,63 +234,45 @@ func inspect(err error, fMsg, sMsg string, t *testing.T) {
 }
 
 func setUpDefaultRouting() error {
-	for _, configVersion := range tf.ConfigVersions() { // should be only one version applied, checked in TestMain
-		if err := applyRules(configVersion, defaultRules); err != nil {
-			return fmt.Errorf("could not apply rules '%s': %v", defaultRules, err)
-		}
-		standby := 0
-		for i := 0; i <= testRetryTimes; i++ {
-			time.Sleep(time.Duration(standby) * time.Second)
-			var gateway string
-			var errGw error
-
-			if configVersion == "v1alpha3" {
-				gateway, errGw = tc.Kube.IngressGateway()
-			} else {
-				gateway, errGw = tc.Kube.Ingress()
-			}
-
-			if errGw != nil {
-				return errGw
-			}
-
-			resp, err := http.Get(fmt.Sprintf("%s/productpage", gateway))
-			if err != nil {
-				log.Infof("Error talking to productpage: %s", err)
-			} else {
-				log.Infof("Get from page: %d", resp.StatusCode)
-				if resp.StatusCode == http.StatusOK {
-					log.Info("Get response from product page!")
-					break
-				}
-				closeResponseBody(resp)
-			}
-			if i == testRetryTimes {
-				return errors.New("unable to set default route")
-			}
-			standby += 5
-			log.Errorf("Couldn't get to the bookinfo product page, trying again in %d second", standby)
-		}
-
-		log.Info("Success! Default route got expected response")
-		return nil
+	if err := applyRules("v1alpha3", defaultRules); err != nil {
+		return fmt.Errorf("could not apply rules '%s': %v", defaultRules, err)
 	}
+	standby := 0
+	for i := 0; i <= testRetryTimes; i++ {
+		time.Sleep(time.Duration(standby) * time.Second)
+		var gateway string
+		var errGw error
+
+		gateway, errGw = tc.Kube.IngressGateway()
+		if errGw != nil {
+			return errGw
+		}
+
+		resp, err := http.Get(fmt.Sprintf("%s/productpage", gateway))
+		if err != nil {
+			log.Infof("Error talking to productpage: %s", err)
+		} else {
+			log.Infof("Get from page: %d", resp.StatusCode)
+			if resp.StatusCode == http.StatusOK {
+				log.Info("Get response from product page!")
+				break
+			}
+			closeResponseBody(resp)
+		}
+		if i == testRetryTimes {
+			return errors.New("unable to set default route")
+		}
+		standby += 5
+		log.Errorf("Couldn't get to the bookinfo product page, trying again in %d second", standby)
+	}
+
+	log.Info("Success! Default route got expected response")
 	return nil
 }
 
-func checkRoutingResponse(user, version, gateway, modelFile string) (int, error) {
+func checkRoutingResponse(jar *cookiejar.Jar, version, gateway, modelFile string) (int, error) {
 	startT := time.Now()
-	cookies := []http.Cookie{
-		{
-			Name:  "foo",
-			Value: "bar",
-		},
-		{
-			Name:  "user",
-			Value: user,
-		},
-	}
-	resp, err := getWithCookie(fmt.Sprintf("%s/productpage", gateway), cookies)
+	resp, err := getWithCookieJar(fmt.Sprintf("%s/productpage", gateway), jar)
 	if err != nil {
 		return -1, err
 	}
@@ -271,49 +287,49 @@ func checkRoutingResponse(user, version, gateway, modelFile string) (int, error)
 	}
 
 	if err = util.CompareToFile(body, modelFile); err != nil {
-		log.Errorf("Error: User %s in version %s didn't get expected response", user, version)
+		log.Errorf("Error: Version %s didn't get expected response", version)
 		duration = -1
 	}
 	return duration, err
 }
 
-func checkHTTPResponse(user, gateway, expr string, count int) (int, error) {
+func checkHTTPResponse(gateway, expr string, count int) error {
 	resp, err := http.Get(fmt.Sprintf("%s/productpage", gateway))
 	if err != nil {
-		return -1, err
+		return err
 	}
 
 	defer closeResponseBody(resp)
 	log.Infof("Get from page: %d", resp.StatusCode)
 	if resp.StatusCode != http.StatusOK {
 		log.Errorf("Get response from product page failed!")
-		return -1, fmt.Errorf("status code is %d", resp.StatusCode)
+		return fmt.Errorf("status code is %d", resp.StatusCode)
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return -1, err
+		return err
 	}
 
 	if expr == "" {
-		return 1, nil
+		return nil
 	}
 
 	re, err := regexp.Compile(expr)
 	if err != nil {
-		return -1, err
+		return err
 	}
 
 	ref := re.FindAll(body, -1)
 	if ref == nil {
 		log.Infof("%v", string(body))
-		return -1, fmt.Errorf("could not find %v in response", expr)
+		return fmt.Errorf("could not find %v in response", expr)
 	}
 	if count > 0 && len(ref) < count {
 		log.Infof("%v", string(body))
-		return -1, fmt.Errorf("could not find %v # of %v in response. found %v", count, expr, len(ref))
+		return fmt.Errorf("could not find %v # of %v in response. found %v", count, expr, len(ref))
 	}
-	return 1, nil
+	return nil
 }
 
 func deleteRules(configVersion string, ruleKeys []string) error {
@@ -333,7 +349,6 @@ func applyRules(configVersion string, ruleKeys []string) error {
 	for _, ruleKey := range ruleKeys {
 		rule := getPreprocessedRulePath(tc, configVersion, ruleKey)
 		if err := util.KubeApply(tc.Kube.Namespace, rule, tc.Kube.KubeConfig); err != nil {
-			//log.Errorf("Kubectl apply %s failed", rule)
 			return err
 		}
 	}
@@ -386,20 +401,11 @@ func setTestConfig() error {
 func TestMain(m *testing.M) {
 	flag.Parse()
 	check(framework.InitLogging(), "cannot setup logging")
-
-	if tf.V1alpha1 && tf.V1alpha3 {
-		check(errors.New("both v1alpha1 and v1alpha3 are requested"),
-			"cannot test both v1alpha1 and alpha3 simultaneously")
-	}
-
 	check(setTestConfig(), "could not create TestConfig")
 	tc.Cleanup.RegisterCleanable(tc)
 	os.Exit(tc.RunTest(m))
 }
 
-func getIngressOrFail(t *testing.T, configVersion string) string {
-	if configVersion == "v1alpha3" {
-		return tc.Kube.IngressGatewayOrFail(t)
-	}
-	return tc.Kube.IngressOrFail(t)
+func getIngressOrFail(t *testing.T) string {
+	return tc.Kube.IngressGatewayOrFail(t)
 }
