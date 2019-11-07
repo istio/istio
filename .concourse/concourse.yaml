@@ -82,7 +82,7 @@ jobs:
             echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
             export KUBECONFIG=/tmp/kubeconfig.yaml
             kubectl delete namespace istio-system --ignore-not-found
-            kubectl apply -k istio-installer/crds
+            kubectl apply -k istio-installer/base
             kubectl apply -k istio-installer/test/demo
     - task: install-and-test-bookinfo
       params:
@@ -137,7 +137,7 @@ jobs:
             echo "$KUBECONFIG" > /tmp/kubeconfig.yaml
             export KUBECONFIG=/tmp/kubeconfig.yaml
             kubectl delete namespace istio-system --ignore-not-found
-            kubectl apply -k crds
+            kubectl apply -k base
             kubectl apply -k test/demo
             ISTIO_CONTROL=istio-system INGRESS_NS=istio-system bin/test.sh --skip-cleanup ../istio-master
       on_failure:

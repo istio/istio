@@ -241,11 +241,11 @@ data:
     accessLogFile: ""
 
     enableEnvoyAccessLogService: false
+    mixerCheckServer: istio-policy.istio-system.svc.cluster.local:15004
     # reportBatchMaxEntries is the number of requests that are batched before telemetry data is sent to the mixer server
     reportBatchMaxEntries: 100
     # reportBatchMaxTime is the max waiting time before the telemetry data of a request is sent to the mixer server
     reportBatchMaxTime: 1s
-    mixerCheckServer: istio-policy.istio-system.svc.cluster.local:15004
     disableMixerHttpReports: true
 
     disablePolicyChecks: true
@@ -415,29 +415,6 @@ rules:
     - "certificatesigningrequests/approval"
     - "certificatesigningrequests/status"
   verbs: ["update", "create", "get", "delete"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: istio-reader-istio-system
-  labels:
-    app: istio-reader
-    release: istio-system-istio
-rules:
-- apiGroups:
-  - "config.istio.io"
-  - "rbac.istio.io"
-  - "security.istio.io"
-  - "networking.istio.io"
-  - "authentication.istio.io"
-  resources: ["*"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: [""]
-  resources: ["endpoints", "pods", "services", "nodes", "replicationcontrollers"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["apps"]
-  resources: ["replicasets"]
-  verbs: ["get", "list", "watch"]
 ---
 
 

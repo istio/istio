@@ -513,6 +513,14 @@ global:
   # webhook configurations. When this option is set as false, webhooks manage their
   # own webhook configurations.
   operatorManageWebhooks: false
+  istioRemote: false
+
+  # Settings for remote cluster.
+  createRemoteSvcEndpoints: false
+  remotePilotCreateSvcEndpoint: false
+  remotePolicyAddress: ""
+  remotePilotAddress: ""
+  remoteTelemetryAddress: ""
 
 # Internal setting - used when generating helm templates for kustomize.
 # clusterResources controls the inclusion of cluster-wide resources when generating the charts/installing.

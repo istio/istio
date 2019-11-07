@@ -133,3 +133,5 @@ mixer:
     reportBatchMaxTime: 1s
 
     sessionAffinityEnabled: false
+  policy:
+    enabled: false

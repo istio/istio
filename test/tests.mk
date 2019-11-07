@@ -33,7 +33,7 @@ run-multinamespace: run-build install-full
 
 # Tests running against 'micro' environment - just citadel + pilot + ingress
 # TODO: also add 'nano' - pilot + ingress without citadel, some users are using this a-la-carte option
-run-micro-tests: install-crds install-base install-ingress run-simple run-simple-strict
+run-micro-tests: install-base-chart install-base install-ingress run-simple run-simple-strict
 
 
 
