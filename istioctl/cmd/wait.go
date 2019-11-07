@@ -100,7 +100,7 @@ will block until the bookinfo virtual service has been distributed to all proxie
 				if err != nil {
 					return err
 				} else if float32(present)/float32(present+notpresent) >= threshold {
-					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Resource %s present on %d out of %d sidecars",
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Resource %s present on %d out of %d sidecars\n",
 						targetResource, present, present+notpresent)
 					return nil
 				}
@@ -152,7 +152,7 @@ func printVerbosef(cmd *cobra.Command, template string, args ...interface{}) {
 
 func validateType(typ string) error {
 	for _, instance := range schemas.Istio {
-		if typ == instance.VariableName || typ == instance.Type {
+		if strings.EqualFold(typ, instance.VariableName) || strings.EqualFold(typ, instance.Type) {
 			targetSchemaInstance = instance
 			return nil
 		}
