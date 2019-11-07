@@ -903,10 +903,10 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum by (typeURL) (galley_runtime_state_type_instances_total)",
+          "expr": "sum by (collection) (galley_runtime_state_type_instances_total)",
           "format": "time_series",
           "intervalFactor": 1,
-          "legendFormat": "{{ typeURL }}",
+          "legendFormat": "{{ collection }}",
           "refId": "A"
         }
       ],
