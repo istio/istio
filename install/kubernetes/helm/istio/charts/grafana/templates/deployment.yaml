@@ -103,6 +103,12 @@ spec:
             subPath: {{ base $path }}
             readOnly: true
           {{- end }}
+          {{- range $key, $value := .Values.customDashboards }}
+          - name: dashboards-custom-{{ $key | replace "." "_" }}
+            mountPath: "/var/lib/grafana/dashboards/custom/{{ $key }}"
+            subPath: {{ $key }}
+            readOnly: true
+          {{- end -}}
           - name: config
             mountPath: "/etc/grafana/provisioning/datasources/datasources.yaml"
             subPath: datasources.yaml
@@ -136,3 +142,8 @@ spec:
         configMap:
           name:  istio-grafana-configuration-dashboards-{{ $filename }}
 {{- end }}
+{{- range $key, $value := .Values.customDashboards }}
+      - name: dashboards-custom-{{ $key | replace "." "_" }}
+        configMap:
+          name:  custom-grafana-configuration-dashboards-{{ $key | replace "." "_" }}
+{{- end -}}

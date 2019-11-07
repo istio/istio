@@ -115,3 +115,10 @@ dashboardProviders:
         disableDeletion: false
         options:
           path: /var/lib/grafana/dashboards/istio
+
+customDashboards: {}
+  # kubernetes.json: |
+  #   {
+  #     "description": "",
+  #     ...
+  #   }

@@ -1,4 +1,5 @@
 {{- $files := .Files }}
+{{- $customDashboards := .Values.customDashboards }}
 {{- range $path, $bytes := .Files.Glob "dashboards/*.json" }}
 {{- $filename := trimSuffix (ext $path) (base $path) }}
 apiVersion: v1
@@ -14,5 +15,8 @@ metadata:
     istio: grafana
 data:
   {{ base $path }}: '{{ $files.Get $path }}'
+  {{- range $key, $value := $customDashboards }}
+  {{ $key }}: {{ $value }}
+  {{- end -}}
 ---
 {{- end }}
