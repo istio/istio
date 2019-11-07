@@ -37521,7 +37521,10 @@ spec:
     enabled: false
 
   gateways:
-    enabled: false
+    enabled: true
+    components:
+      egressGateway:
+        enabled: false
 
   values:
     pilot:
