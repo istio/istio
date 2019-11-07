@@ -270,7 +270,6 @@ type Server struct {
 	mux                   *http.ServeMux
 	kubeRegistry          *controller2.Controller
 	fileWatcher           filewatcher.FileWatcher
-	discoveryOptions      *coredatamodel.DiscoveryOptions
 	mcpDiscovery          *coredatamodel.MCPDiscovery
 	incrementalMcpOptions *coredatamodel.Options
 	mcpOptions            *coredatamodel.Options
@@ -774,10 +773,7 @@ func (s *Server) sseMCPController(args *PilotArgs,
 		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
 	}
 	controller := coredatamodel.NewSyntheticServiceEntryController(s.incrementalMcpOptions)
-	s.discoveryOptions = &coredatamodel.DiscoveryOptions{
-		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
-	}
-	s.mcpDiscovery = coredatamodel.NewMCPDiscovery(controller, s.discoveryOptions)
+	s.mcpDiscovery = coredatamodel.NewMCPDiscovery(controller)
 	incrementalSinkOptions := &sink.Options{
 		CollectionOptions: []sink.CollectionOptions{
 			{
@@ -1019,8 +1015,6 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		clusterID := args.Config.ControllerOptions.ClusterID
 		s.incrementalMcpOptions.XDSUpdater = s.EnvoyXdsServer
 		s.incrementalMcpOptions.ClusterID = clusterID
-		s.discoveryOptions.Env = environment
-		s.discoveryOptions.ClusterID = clusterID
 	}
 
 	// Implement EnvoyXdsServer grace shutdown

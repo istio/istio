@@ -22,7 +22,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/onsi/gomega"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/coredatamodel"
 	"istio.io/istio/pilot/pkg/model"
@@ -150,84 +149,64 @@ func TestInstancesByPort(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	testSetup(g)
 	svc := &model.Service{
+		Attributes: model.ServiceAttributes{
+			Namespace: "random-namespace",
+		},
 		Hostname: host.Name("svc.example2.com"),
 	}
 	svcInstances, err := d.InstancesByPort(svc, 80, labels.Collection{})
-	g.Expect(len(svcInstances)).To(gomega.Equal(7))
+	g.Expect(len(svcInstances)).To(gomega.Equal(6))
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
 	steps := map[string]struct {
 		address     string
 		ports       []int
-		servicePort []*model.Port
+		servicePort *model.Port
 		hostname    host.Name
 	}{
 		"2.2.2.2": {
 			address:     "2.2.2.2",
 			ports:       []int{7080, 18080},
-			servicePort: svcPort,
+			servicePort: svcPort[0],
 			hostname:    host.Name("svc.example2.com"),
 		},
 		"3.3.3.3": {
 			address:     "3.3.3.3",
 			ports:       []int{1080},
-			servicePort: svcPort,
+			servicePort: svcPort[0],
 			hostname:    host.Name("svc.example2.com"),
 		},
 		"4.4.4.4": {
 			address:     "4.4.4.4",
 			ports:       []int{1080, 5555},
-			servicePort: svcPort,
+			servicePort: svcPort[0],
 			hostname:    host.Name("svc.example2.com"),
 		},
 		"6.6.6.6": {
 			address:     "6.6.6.6",
 			ports:       []int{7777},
-			servicePort: svcPort,
+			servicePort: svcPort[0],
 			hostname:    host.Name("svc.example2.com"),
 		},
 		"1.1.1.1": {
 			address:     "1.1.1.1",
 			ports:       []int{2222},
-			servicePort: svcPort,
+			servicePort: svcPort[0],
 			hostname:    host.Name("svc.example2.com"),
 		},
 	}
 
-	t.Run("verify service instances", func(_ *testing.T) {
-		for _, svcInstance := range svcInstances {
-			switch svcInstance.Endpoint.Address {
-			case "2.2.2.2":
-				step := steps[svcInstance.Endpoint.Address]
-				g.Expect(step.address).To(gomega.Equal(svcInstance.Endpoint.Address))
-				g.Expect(step.hostname).To(gomega.Equal(svcInstance.Service.Hostname))
-				g.Expect(step.ports).To(gomega.ContainElement(svcInstance.Endpoint.Port))
-				g.Expect(step.servicePort).To(gomega.ContainElement(svcInstance.Endpoint.ServicePort))
-			case "3.3.3.3":
-				step := steps[svcInstance.Endpoint.Address]
-				g.Expect(step.address).To(gomega.Equal(svcInstance.Endpoint.Address))
-				g.Expect(step.hostname).To(gomega.Equal(svcInstance.Service.Hostname))
-				g.Expect(step.ports).To(gomega.ContainElement(svcInstance.Endpoint.Port))
-			case "4.4.4.4":
-				step := steps[svcInstance.Endpoint.Address]
-				g.Expect(step.address).To(gomega.Equal(svcInstance.Endpoint.Address))
-				g.Expect(step.hostname).To(gomega.Equal(svcInstance.Service.Hostname))
-				g.Expect(step.ports).To(gomega.ContainElement(svcInstance.Endpoint.Port))
-			case "6.6.6.6":
-				step := steps[svcInstance.Endpoint.Address]
-				g.Expect(step.address).To(gomega.Equal(svcInstance.Endpoint.Address))
-				g.Expect(step.hostname).To(gomega.Equal(svcInstance.Service.Hostname))
-				g.Expect(step.ports).To(gomega.ContainElement(svcInstance.Endpoint.Port))
-			case "1.1.1.1":
-				step := steps[svcInstance.Endpoint.Address]
-				g.Expect(step.address).To(gomega.Equal(svcInstance.Endpoint.Address))
-				g.Expect(step.hostname).To(gomega.Equal(svcInstance.Service.Hostname))
-				g.Expect(step.ports).To(gomega.ContainElement(svcInstance.Endpoint.Port))
-			default:
-				t.Fatal("no test step found")
-			}
-		}
-	})
+	for _, svcInstance := range svcInstances {
+		step := steps[svcInstance.Endpoint.Address]
+		t.Run(fmt.Sprintf("verify service instances %s", step.address), func(_ *testing.T) {
+			g.Expect(step.address).To(gomega.Equal(svcInstance.Endpoint.Address))
+			g.Expect(step.hostname).To(gomega.Equal(svcInstance.Service.Hostname))
+			g.Expect(step.ports).To(gomega.ContainElement(svcInstance.Endpoint.Port))
+			g.Expect(step.servicePort.Name).To(gomega.Equal(svcInstance.Endpoint.ServicePort.Name))
+			g.Expect(step.servicePort.Port).To(gomega.Equal(svcInstance.Endpoint.ServicePort.Port))
+			g.Expect(protocol.Parse(string(step.servicePort.Protocol))).To(gomega.Equal(protocol.Parse(string(svcInstance.Endpoint.ServicePort.Protocol))))
+		})
+	}
 }
 
 func TestGetProxyServiceInstancesReadsFromCache(t *testing.T) {
@@ -277,18 +256,28 @@ func TestHandleCacheEvents(t *testing.T) {
 	}
 
 	// update the first config
-	syntheticServiceEntry0.Endpoints = []*networking.ServiceEntry_Endpoint{
-		{
-			Address: "3.3.3.3",
-			Ports:   map[string]uint32{"http-port": 1080},
+	updatedSyntheticServiceEntry0 := &networking.ServiceEntry{
+		Hosts: []string{"svc.example2.com"},
+		Ports: []*networking.Port{
+			{Number: 80, Name: "http-port", Protocol: "http"},
+			{Number: 8080, Name: "http-alt-port", Protocol: "http"},
 		},
-		{
-			Address: "4.4.4.4",
-			Ports:   map[string]uint32{"http-port": 1080},
-			Labels:  map[string]string{"foo": "bar2"},
+		Location:   networking.ServiceEntry_MESH_EXTERNAL,
+		Resolution: networking.ServiceEntry_DNS,
+		Endpoints: []*networking.ServiceEntry_Endpoint{
+			{
+				Address: "3.3.3.3",
+				Ports:   map[string]uint32{"http-port": 1080},
+			},
+			{
+				Address: "4.4.4.4",
+				Ports:   map[string]uint32{"http-port": 1080},
+				Labels:  map[string]string{"foo": "bar2"},
+			},
 		},
 	}
-	conf.Spec = syntheticServiceEntry0
+
+	conf.Spec = updatedSyntheticServiceEntry0
 
 	d.HandleCacheEvents(conf, model.EventUpdate)
 	svcInstances, err = d.GetProxyServiceInstances(buildProxy("4.4.4.4", conf1Ns))
@@ -351,12 +340,168 @@ func TestHandleCacheEvents(t *testing.T) {
 	// as second config is not deleted
 	svcInstances, err = d.GetProxyServiceInstances(buildProxy("2.2.2.2", conf3Ns))
 	g.Expect(err).ToNot(gomega.HaveOccurred())
-	g.Expect(len(svcInstances)).ToNot(gomega.Equal(0))
+	g.Expect(len(svcInstances)).To(gomega.Equal(2))
 	for _, s := range svcInstances {
 		g.Expect(s.Labels).To(gomega.Equal(labels.Instance{"foo3": "bar3"}))
 	}
 
 	// delete the last config
+	d.HandleCacheEvents(conf3, model.EventDelete)
+	svcInstances, err = d.GetProxyServiceInstances(buildProxy("2.2.2.2", conf3Ns))
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(len(svcInstances)).To(gomega.Equal(0))
+}
+
+func TestInstancesByPortReadsFromCache(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	initDiscovery()
+
+	// add the first config
+	hostname := host.Name("svc.example2.com")
+	conf1Ns := "default"
+	conf := buildConfig(syntheticServiceEntry0, name, conf1Ns)
+
+	d.HandleCacheEvents(conf, model.EventAdd)
+
+	svc := &model.Service{
+		Attributes: model.ServiceAttributes{
+			Namespace: conf1Ns,
+		},
+		Hostname: hostname,
+	}
+	svcInstances, err := d.InstancesByPort(svc, 80, labels.Collection{})
+	g.Expect(len(svcInstances)).To(gomega.Equal(3))
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	for _, s := range svcInstances {
+		g.Expect(s.Service.Hostname).To(gomega.Equal(hostname))
+		g.Expect(s.Endpoint.ServicePort.Name).To(gomega.Equal("http-port"))
+		g.Expect(s.Endpoint.ServicePort.Port).To(gomega.Equal(80))
+		g.Expect(s.Endpoint.ServicePort.Protocol).To(gomega.Equal(protocol.Instance("HTTP")))
+	}
+
+	// update the first config
+	updatedSyntheticServiceEntry0 := &networking.ServiceEntry{
+		Hosts: []string{"svc.example2.com"},
+		Ports: []*networking.Port{
+			{Number: 80, Name: "http-port", Protocol: "http"},
+			{Number: 8080, Name: "http-alt-port", Protocol: "http"},
+		},
+		Location:   networking.ServiceEntry_MESH_EXTERNAL,
+		Resolution: networking.ServiceEntry_DNS,
+		Endpoints: []*networking.ServiceEntry_Endpoint{
+			{
+				Address: "3.3.3.3",
+				Ports:   map[string]uint32{"http-port": 1080},
+			},
+			{
+				Address: "4.4.4.4",
+				Ports:   map[string]uint32{"http-port": 1080},
+				Labels:  map[string]string{"foo": "bar2"},
+			},
+		},
+	}
+
+	conf.Spec = updatedSyntheticServiceEntry0
+
+	d.HandleCacheEvents(conf, model.EventUpdate)
+	svcInstances, err = d.InstancesByPort(svc, 80, labels.Collection{})
+	g.Expect(len(svcInstances)).To(gomega.Equal(2))
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	for _, s := range svcInstances {
+		g.Expect(s.Service.Hostname).To(gomega.Equal(hostname))
+		g.Expect(s.Endpoint.ServicePort.Name).To(gomega.Equal("http-port"))
+		g.Expect(s.Endpoint.ServicePort.Port).To(gomega.Equal(80))
+		g.Expect(s.Endpoint.ServicePort.Protocol).To(gomega.Equal(protocol.Instance("HTTP")))
+		if s.Endpoint.Address == "4.4.4.4" {
+			g.Expect(s.Labels).To(gomega.Equal(labels.Instance{"foo": "bar2"}))
+		}
+	}
+
+	// add another config
+	syntheticServiceEntry1.Endpoints = []*networking.ServiceEntry_Endpoint{
+		{
+			Address: "3.3.3.3",
+			Ports:   map[string]uint32{"http-port": 1080},
+		},
+		{
+			Address: "5.5.5.5",
+			Ports:   map[string]uint32{"http-port": 1081},
+			Labels:  map[string]string{"foo1": "bar1"},
+		},
+	}
+	hostname2 := host.Name("example2.com")
+	conf2Ns := "test-namespace"
+	conf2 := buildConfig(syntheticServiceEntry1, "test-name", conf2Ns)
+
+	d.HandleCacheEvents(conf2, model.EventAdd)
+	svc2 := &model.Service{
+		Attributes: model.ServiceAttributes{
+			Namespace: conf2Ns,
+		},
+		Hostname: hostname2,
+	}
+	svcInstances, err = d.InstancesByPort(svc2, 80, labels.Collection{})
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(len(svcInstances)).To(gomega.Equal(2))
+	for _, s := range svcInstances {
+		g.Expect(s.Service.Hostname).To(gomega.Equal(hostname2))
+		g.Expect(s.Endpoint.ServicePort.Name).To(gomega.Equal("http-port"))
+		g.Expect(s.Endpoint.ServicePort.Port).To(gomega.Equal(80))
+		g.Expect(s.Endpoint.ServicePort.Protocol).To(gomega.Equal(protocol.Instance("HTTP")))
+		if s.Endpoint.Address == "5.5.5.5" {
+			g.Expect(s.Labels).To(gomega.Equal(labels.Instance{"foo1": "bar1"}))
+		}
+	}
+
+	// add another config in the same namespace as the second one
+	conf3Ns := "test-namespace"
+	hostname3 := host.Name("example3.com")
+	conf3 := buildConfig(syntheticServiceEntry2, "test-name2", conf3Ns)
+
+	d.HandleCacheEvents(conf3, model.EventAdd)
+	svc3 := &model.Service{
+		Attributes: model.ServiceAttributes{
+			Namespace: conf3Ns,
+		},
+		Hostname: hostname3,
+	}
+	svcInstances, err = d.InstancesByPort(svc3, 80, labels.Collection{})
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(len(svcInstances)).To(gomega.Equal(1))
+	for _, s := range svcInstances {
+		g.Expect(s.Service.Hostname).To(gomega.Equal(hostname3))
+		g.Expect(s.Endpoint.ServicePort.Name).To(gomega.Equal("http-port2"))
+		g.Expect(s.Endpoint.ServicePort.Port).To(gomega.Equal(80))
+		g.Expect(s.Endpoint.ServicePort.Protocol).To(gomega.Equal(protocol.Instance("HTTP")))
+		g.Expect(s.Labels).To(gomega.Equal(labels.Instance{"foo3": "bar3"}))
+	}
+
+	// delete the first config
+	d.HandleCacheEvents(conf, model.EventDelete)
+	svcInstances, err = d.InstancesByPort(svc, 80, labels.Collection{})
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(len(svcInstances)).To(gomega.Equal(0))
+
+	// delete the second config
+	d.HandleCacheEvents(conf2, model.EventDelete)
+	svcInstances, err = d.InstancesByPort(svc2, 80, labels.Collection{})
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(len(svcInstances)).To(gomega.Equal(0))
+
+	// check to see if other config in the same namespace
+	// as second config is not deleted
+	svcInstances, err = d.InstancesByPort(svc3, 80, labels.Collection{})
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(len(svcInstances)).To(gomega.Equal(1))
+	for _, s := range svcInstances {
+		g.Expect(s.Service.Hostname).To(gomega.Equal(hostname3))
+		g.Expect(s.Endpoint.ServicePort.Name).To(gomega.Equal("http-port2"))
+		g.Expect(s.Endpoint.ServicePort.Port).To(gomega.Equal(80))
+		g.Expect(s.Endpoint.ServicePort.Protocol).To(gomega.Equal(protocol.Instance("HTTP")))
+		g.Expect(s.Labels).To(gomega.Equal(labels.Instance{"foo3": "bar3"}))
+	}
+
+	//	// delete the last config
 	d.HandleCacheEvents(conf3, model.EventDelete)
 	svcInstances, err = d.GetProxyServiceInstances(buildProxy("2.2.2.2", conf3Ns))
 	g.Expect(err).ToNot(gomega.HaveOccurred())
@@ -394,16 +539,7 @@ func initDiscovery() {
 	testControllerOptions.XDSUpdater = fx
 	controller = coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
 
-	options := &coredatamodel.DiscoveryOptions{
-		ClusterID:    "test",
-		DomainSuffix: "cluster.local",
-		Env: &model.Environment{
-			Mesh: &meshconfig.MeshConfig{
-				MixerCheckServer: "mixer",
-			},
-		},
-	}
-	d = coredatamodel.NewMCPDiscovery(controller, options)
+	d = coredatamodel.NewMCPDiscovery(controller)
 }
 
 func testSetup(g *gomega.GomegaWithT) {

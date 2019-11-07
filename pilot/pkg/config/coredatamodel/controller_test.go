@@ -162,7 +162,7 @@ var (
 	}
 
 	syntheticServiceEntry2 = &networking.ServiceEntry{
-		Hosts: []string{"example2.com"},
+		Hosts: []string{"example3.com"},
 		Ports: []*networking.Port{
 			{Number: 80, Name: "http-port2", Protocol: "http"},
 			{Number: 8080, Name: "http-alt-port2", Protocol: "http"},
