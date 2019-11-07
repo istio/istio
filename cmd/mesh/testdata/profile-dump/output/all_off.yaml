@@ -324,7 +324,7 @@ values:
     disablePolicyChecks: true
     enableHelmTest: false
     enableTracing: true
-    imagePullPolicy: Always
+    imagePullPolicy: IfNotPresent
     imagePullSecrets: []
     k8sIngress:
       enableHttps: false
@@ -430,7 +430,7 @@ values:
         secure: true
       zipkin:
         address: ""
-    trustDomain: ""
+    trustDomain: cluster.local
     useMCP: true
   grafana:
     accessMode: ReadWriteMany
@@ -455,7 +455,7 @@ values:
     envSecrets: {}
     image:
       repository: grafana/grafana
-      tag: 6.3.6
+      tag: 6.4.3
     ingress:
       annotations: null
       enabled: false
@@ -497,7 +497,7 @@ values:
       usernameKey: username
       viewOnlyMode: false
     enabled: false
-    hub: docker.io/kiali
+    hub: quay.io/kiali
     ingress:
       annotations: null
       enabled: false
@@ -513,7 +513,7 @@ values:
       cert_file: /kiali-cert/cert-chain.pem
       enabled: false
       private_key_file: /kiali-cert/key.pem
-    tag: v1.4.2
+    tag: v1.9
   mixer:
     adapters:
       kubernetesenv:

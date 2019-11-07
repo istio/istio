@@ -94,6 +94,31 @@ rules:
 
 
 apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: istio-reader-istio-control
+  labels:
+    app: istio-reader
+    release: istio
+rules:
+- apiGroups:
+  - "config.istio.io"
+  - "rbac.istio.io"
+  - "security.istio.io"
+  - "networking.istio.io"
+  - "authentication.istio.io"
+  resources: ["*"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["endpoints", "pods", "services", "nodes", "replicationcontrollers"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["replicasets"]
+  verbs: ["get", "list", "watch"]
+---
+
+
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: istio-pilot-istio-control
@@ -107,6 +132,24 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: istio-pilot-service-account
+    namespace: istio-control
+---
+
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: istio-reader-istio-control
+  labels:
+    app: istio-reader
+    release: istio
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: istio-reader-istio-control
+subjects:
+  - kind: ServiceAccount
+    name: istio-reader-service-account
     namespace: istio-control
 ---
 
@@ -365,7 +408,7 @@ data:
 
     # The trust domain corresponds to the trust root of a system.
     # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
-    trustDomain: ""
+    trustDomain: "cluster.local"
 
     #  The trust domain aliases represent the aliases of trust_domain.
     #  For example, if we have
@@ -519,6 +562,7 @@ spec:
         - cluster.local
         - --secureGrpcAddr
         - ""
+        - --trust-domain=cluster.local
         - --keepaliveMaxServerConnectionAge
         - 30m
         env:
@@ -541,7 +585,7 @@ spec:
         - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
           value: "false"
         image: docker.io/istio/pilot:1.1.4
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         name: discovery
         ports:
         - containerPort: 8080
@@ -570,6 +614,7 @@ spec:
         - /var/lib/envoy/envoy.yaml.tmpl
         - --controlPlaneAuthPolicy
         - MUTUAL_TLS
+        - --trust-domain=cluster.local
         env:
         - name: POD_NAME
           valueFrom:
@@ -589,7 +634,7 @@ spec:
         - name: SDS_ENABLED
           value: "false"
         image: docker.io/istio/proxyv2:1.1.4
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
         - containerPort: 15011
@@ -622,21 +667,6 @@ spec:
 ---
 
 
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: "api-server"
-  namespace: istio-control
-  labels:
-    release: istio
-spec:
-  host: "kubernetes.default.svc.cluster.local"
-  trafficPolicy:
-    tls:
-      mode: DISABLE
----
-
-
 apiVersion: "authentication.istio.io/v1alpha1"
 kind: "MeshPolicy"
 metadata:
@@ -647,21 +677,6 @@ spec:
   peers:
   - mtls:
       mode: PERMISSIVE
----
-
-
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: "default"
-  namespace: istio-control
-  labels:
-    release: istio
-spec:
-  host: "*.local"
-  trafficPolicy:
-    tls:
-      mode: DISABLE
 ---
 
 
@@ -715,6 +730,17 @@ metadata:
   namespace: istio-control
   labels:
     app: pilot
+    release: istio
+---
+
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-reader-service-account
+  namespace: istio-control
+  labels:
+    app: istio-reader
     release: istio
 ---
 
@@ -1182,7 +1208,7 @@ spec:
       containers:
         - name: prometheus
           image: "docker.io/prom/prometheus:v2.12.0"
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           args:
             - '--storage.tsdb.retention=6h'
             - '--config.file=/etc/prometheus/prometheus.yml'
@@ -1247,19 +1273,6 @@ spec:
                 operator: In
                 values:
                 - s390x
----
-
-
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: prometheus
-  namespace: istio-control
-spec:
-  host: prometheus
-  trafficPolicy:
-    tls:
-      mode: DISABLE
 ---
 
 

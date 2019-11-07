@@ -372,7 +372,7 @@ spec:
       containers:
         - name: prometheus
           image: "docker.io/prom/prometheus:v2.12.0"
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           args:
             - '--storage.tsdb.retention=6h'
             - '--config.file=/etc/prometheus/prometheus.yml'
@@ -437,19 +437,6 @@ spec:
                 operator: In
                 values:
                 - s390x
----
-
-
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: prometheus
-  namespace: istio-control
-spec:
-  host: prometheus
-  trafficPolicy:
-    tls:
-      mode: DISABLE
 ---
 
 
@@ -567,7 +554,7 @@ spec:
         - name: GOMAXPROCS
           value: "6"
         image: docker.io/istio/mixer:1.1.4
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
             path: /version
@@ -605,6 +592,7 @@ spec:
         - /var/lib/envoy/envoy.yaml.tmpl
         - --controlPlaneAuthPolicy
         - MUTUAL_TLS
+        - --trust-domain=cluster.local
         env:
         - name: POD_NAME
           valueFrom:
@@ -624,7 +612,7 @@ spec:
         - name: SDS_ENABLED
           value: "false"
         image: docker.io/istio/proxyv2:1.1.4
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
         - containerPort: 15004
