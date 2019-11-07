@@ -490,7 +490,7 @@ values:
     enabled: false
   kiali:
     contextPath: /kiali
-    createDemoSecret: true
+    createDemoSecret: false
     dashboard:
       grafanaURL: null
       jaegerURL: null
