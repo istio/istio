@@ -224,7 +224,7 @@ istioctl experimental analyze -k -d false
 					}
 				}
 			case JsonOutput:
-				jsonOutput, err := json.Marshal(outputMessages)
+				jsonOutput, err := json.MarshalIndent(outputMessages, "", "\t")
 				if err != nil {
 					return err
 				}
