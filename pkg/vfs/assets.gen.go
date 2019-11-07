@@ -121,7 +121,6 @@
 // ../../data/charts/istio-telemetry/grafana/templates/configmap-dashboards.yaml
 // ../../data/charts/istio-telemetry/grafana/templates/configmap.yaml
 // ../../data/charts/istio-telemetry/grafana/templates/deployment.yaml
-// ../../data/charts/istio-telemetry/grafana/templates/destination-rule.yaml
 // ../../data/charts/istio-telemetry/grafana/templates/grafana-policy.yaml
 // ../../data/charts/istio-telemetry/grafana/templates/pvc.yaml
 // ../../data/charts/istio-telemetry/grafana/templates/service.yaml
@@ -156,7 +155,6 @@
 // ../../data/charts/istio-telemetry/prometheus/templates/clusterrolebindings.yaml
 // ../../data/charts/istio-telemetry/prometheus/templates/configmap.yaml
 // ../../data/charts/istio-telemetry/prometheus/templates/deployment.yaml
-// ../../data/charts/istio-telemetry/prometheus/templates/destination-rule.yaml
 // ../../data/charts/istio-telemetry/prometheus/templates/ingress.yaml
 // ../../data/charts/istio-telemetry/prometheus/templates/service.yaml
 // ../../data/charts/istio-telemetry/prometheus/templates/serviceaccount.yaml
@@ -7705,13 +7703,13 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: meshexpansion-vs-pilot1
+  name: meshexpansion-vs-pilot
   namespace: {{ .Release.Namespace }}
   labels:
     release: {{ .Release.Name }}
 spec:
   hosts:
-  - istio-pilot.{{ .Values.global.istioNamespace }}.svc.cluster.local
+  - istio-pilot.{{ .Values.global.istioNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
   gateways:
   - meshexpansion-gateway
   tcp:
@@ -7719,27 +7717,20 @@ spec:
     - port: {{ $gateway.externalPort }}
     route:
     - destination:
-        host: istio-pilot.{{ .Values.global.istioNamespace }}.svc.cluster.local
+        host: istio-pilot.{{ .Values.global.istioNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
         port:
           number: 15011
-  #  - match:
-  #    - port: 53
-  #    route:
-  #    - destination:
-  #        host: kube-dns.kube-system.svc.cluster.local
-  #        port:
-  #          number: 53
 ---
 
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: meshexpansion-dr-pilot9
+  name: meshexpansion-dr-pilot
   namespace: {{ .Release.Namespace }}
   labels:
     release: {{ .Release.Name }}
 spec:
-  host: istio-pilot.{{ .Release.Namespace }}.svc.cluster.local
+  host: istio-pilot.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
   trafficPolicy:
     portLevelSettings:
     - port:
@@ -7758,7 +7749,7 @@ metadata:
     release: {{ .Release.Name }}
 spec:
   hosts:
-  - istio-citadel.{{ $.Release.Namespace }}.svc.cluster.local
+  - istio-citadel.{{ $.Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
   gateways:
   - meshexpansion-gateway
   tcp:
@@ -7766,7 +7757,7 @@ spec:
     - port: 8060
     route:
     - destination:
-        host: istio-citadel.{{ $.Release.Namespace }}.svc.cluster.local
+        host: istio-citadel.{{ $.Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
         port:
           number: 8060
 
@@ -8923,7 +8914,6 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
   {{- if .Values.global.logAsJson }}
     - --log_as_json
   {{- end }}
-    - --controlPlaneBootstrap=false
   {{- if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+`) }}
     - --templateFile=/etc/istio/custom-bootstrap/envoy_bootstrap.json
   {{- end }}
@@ -9043,10 +9033,13 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
       capabilities:
         add:
         - NET_ADMIN
+      runAsGroup: 1337
       {{ else -}}
+      {{ if .Values.global.sds.enabled }}
+      runAsGroup: 1337
+      {{- end }}
       runAsUser: 1337
       {{- end }}
-      runAsGroup: 1337
     resources:
       {{ if or (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyCPU`+"`"+`) (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/proxyMemory`+"`"+`) -}}
       requests:
@@ -9410,6 +9403,9 @@ data:
 
 
   mesh: |-
+    # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
+    # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty.
+    sdsUdsPath: {{ .Values.global.sds.udsPath | quote }}
 
     defaultConfig:
       #
@@ -11469,6 +11465,29 @@ rules:
     - "certificatesigningrequests/status"
   verbs: ["update", "create", "get", "delete"]
 ---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: istio-reader-{{ .Release.Namespace }}
+  labels:
+    app: istio-reader
+    release: {{ .Release.Name }}
+rules:
+- apiGroups:
+  - "config.istio.io"
+  - "rbac.istio.io"
+  - "security.istio.io"
+  - "networking.istio.io"
+  - "authentication.istio.io"
+  resources: ["*"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["endpoints", "pods", "services", "nodes", "replicationcontrollers"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["replicasets"]
+  verbs: ["get", "list", "watch"]
+---
 {{ end }}
 `)
 
@@ -11502,6 +11521,22 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: istio-pilot-service-account
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: istio-reader-{{ .Release.Namespace }}
+  labels:
+    app: istio-reader
+    release: {{ .Release.Name }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: istio-reader-{{ .Release.Namespace }}
+subjects:
+  - kind: ServiceAccount
+    name: istio-reader-service-account
     namespace: {{ .Release.Namespace }}
 ---
 {{ end }}
@@ -11583,7 +11618,7 @@ data:
               trusted_ca:
                 filename: /etc/certs/root-cert.pem
               verify_subject_alt_name:
-              - spiffe://cluster.local/ns/{{ .Values.global.configNamespace }}/sa/istio-galley-service-account
+              - spiffe://{{ .Values.global.trustDomain }}/ns/{{ .Values.global.configNamespace }}/sa/istio-galley-service-account
 
         hosts:
           - socket_address:
@@ -12103,7 +12138,7 @@ spec:
               path: /ready
               port: 8080
             initialDelaySeconds: 5
-            periodSeconds: 30
+            periodSeconds: 5
             timeoutSeconds: 5
           env:
           - name: POD_NAME
@@ -12280,23 +12315,6 @@ TODO(https://github.com/istio/istio/issues/18199) remove this configuration from
 */ -}}
 
 {{ if .Values.clusterResources }}
-# Destination rule to disable (m)TLS when talking to API server, as API server doesn't have sidecar.
-# Customer should add similar destination rules for other services that dont' have sidecar.
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: "api-server"
-  namespace: {{ .Release.Namespace }}
-  labels:
-    release: {{ .Release.Name }}
-spec:
-  host: "kubernetes.default.svc.cluster.local"
-  trafficPolicy:
-    tls:
-      mode: DISABLE
-
----
-
 {{- if .Values.global.mtls.enabled }}
 
 # Authentication policy to enable mutual TLS for all services (that have sidecar) in the mesh.
@@ -12310,8 +12328,8 @@ spec:
   peers:
   - mtls: {}
 ---
-# Corresponding destination rule to configure client side to use mutual TLS when talking to
-# any service (host) in the mesh.
+{{- if not .Values.global.mtls.auto }}
+# We only need explicit destination rule with ISITO_MUTUAL when auto mTLS is not enabled.
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
@@ -12324,6 +12342,20 @@ spec:
   trafficPolicy:
     tls:
       mode: ISTIO_MUTUAL
+---
+{{ end }}
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: "api-server"
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: {{ .Release.Name }}
+spec:
+  host: "kubernetes.default.svc.{{ .Values.global.proxy.clusterDomain }}"
+  trafficPolicy:
+    tls:
+      mode: DISABLE
 ---
 {{- else }}
 # Authentication policy to enable permissive mode for all services (that have sidecar) in the mesh.
@@ -12338,20 +12370,6 @@ spec:
   - mtls:
       mode: PERMISSIVE
 ---
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: "default"
-  namespace: {{ .Release.Namespace }}
-  labels:
-    release: {{ .Release.Name }}
-spec:
-  host: "*.local"
-  trafficPolicy:
-    tls:
-      mode: DISABLE
----
-
 {{ end }}
 {{ end }}
 `)
@@ -12468,6 +12486,21 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: pilot
+    release: {{ .Release.Name }}
+---
+apiVersion: v1
+kind: ServiceAccount
+{{- if .Values.global.imagePullSecrets }}
+imagePullSecrets:
+{{- range .Values.global.imagePullSecrets }}
+  - name: {{ . }}
+{{- end }}
+{{- end }}
+metadata:
+  name: istio-reader-service-account
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: istio-reader
     release: {{ .Release.Name }}
 ---
 {{ end }}
@@ -28183,33 +28216,6 @@ func chartsIstioTelemetryGrafanaTemplatesDeploymentYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsIstioTelemetryGrafanaTemplatesDestinationRuleYaml = []byte(`apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: grafana
-  namespace: {{ .Release.Namespace }}
-spec:
-  host: grafana.{{ .Release.Namespace }}
-  trafficPolicy:
-    tls:
-      mode: DISABLE
-`)
-
-func chartsIstioTelemetryGrafanaTemplatesDestinationRuleYamlBytes() ([]byte, error) {
-	return _chartsIstioTelemetryGrafanaTemplatesDestinationRuleYaml, nil
-}
-
-func chartsIstioTelemetryGrafanaTemplatesDestinationRuleYaml() (*asset, error) {
-	bytes, err := chartsIstioTelemetryGrafanaTemplatesDestinationRuleYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-telemetry/grafana/templates/destination-rule.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _chartsIstioTelemetryGrafanaTemplatesGrafanaPolicyYaml = []byte(`apiVersion: authentication.istio.io/v1alpha1
 kind: Policy
 metadata:
@@ -28370,7 +28376,7 @@ var _chartsIstioTelemetryGrafanaValuesYaml = []byte(`grafana:
   replicaCount: 1
   image:
     repository: grafana/grafana
-    tag: 6.3.6
+    tag: 6.4.3
   persist: false
   storageClassName: ""
   accessMode: ReadWriteMany
@@ -28511,8 +28517,8 @@ func chartsIstioTelemetryGrafanaValuesYaml() (*asset, error) {
 var _chartsIstioTelemetryKialiChartYaml = []byte(`apiVersion: v1
 description: Kiali is an open source project for service mesh observability, refer to https://www.kiali.io for details.
 name: kiali
-version: 1.4.0
-appVersion: 1.4.0
+version: 1.9.0
+appVersion: 1.9.0
 tillerVersion: ">=2.7.2"
 `)
 
@@ -28706,6 +28712,7 @@ rules:
       - monitoringdashboards
     verbs:
       - get
+      - list
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -28860,6 +28867,8 @@ data:
 {{ toYaml . | indent 8 }}
 {{- end }}
 {{- end }}
+    deployment:
+      accessible_namespaces: ['**']
     server:
       port: 20001
 {{- if .Values.kiali.contextPath }}
@@ -28872,6 +28881,12 @@ data:
         url: {{ .Values.kiali.dashboard.jaegerURL }}
       grafana:
         url: {{ .Values.kiali.dashboard.grafanaURL }}
+      prometheus:
+{{- if .Values.global.prometheusNamespace }}
+        url: http://prometheus.{{ .Values.global.prometheusNamespace }}:9090
+{{ else }}
+        url: http://prometheus:9090
+{{- end }}
 {{- if .Values.kiali.security.enabled }}
     identity:
       cert_file: {{ .Values.kiali.security.cert_file }}
@@ -28987,16 +29002,6 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        - name: PROMETHEUS_SERVICE_URL
-          {{- if .Values.global.prometheusNamespace }}
-          value: http://prometheus.{{ .Values.global.prometheusNamespace }}:9090
-          {{ else }}
-          value: http://prometheus:9090
-          {{- end }}
-{{- if .Values.kiali.contextPath }}
-        - name: SERVER_WEB_ROOT
-          value: {{ .Values.kiali.contextPath }}
-{{- end }}
         volumeMounts:
         - name: kiali-configuration
           mountPath: "/kiali-configuration"
@@ -29113,8 +29118,8 @@ var _chartsIstioTelemetryKialiValuesYaml = []byte(`#
 kiali:
   enabled: false # Note that if using the demo or demo-auth yaml when installing via Helm, this default will be `+"`"+`true`+"`"+`.
   replicaCount: 1
-  hub: docker.io/kiali
-  tag: v1.4.2
+  hub: quay.io/kiali
+  tag: v1.9
   image: kiali
   contextPath: /kiali # The root context path to access the Kiali UI.
   nodeSelector: {}
@@ -30558,7 +30563,7 @@ data:
               trusted_ca:
                 filename: /etc/certs/root-cert.pem
               verify_subject_alt_name:
-              - spiffe://cluster.local/ns/{{ .Values.global.configNamespace }}/sa/istio-galley-service-account
+              - spiffe://{{ .Values.global.trustDomain }}/ns/{{ .Values.global.configNamespace }}/sa/istio-galley-service-account
 
         hosts:
           - socket_address:
@@ -32827,33 +32832,6 @@ func chartsIstioTelemetryPrometheusTemplatesDeploymentYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsIstioTelemetryPrometheusTemplatesDestinationRuleYaml = []byte(`apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: prometheus
-  namespace: {{ .Release.Namespace }}
-spec:
-  host: prometheus
-  trafficPolicy:
-    tls:
-      mode: DISABLE
-`)
-
-func chartsIstioTelemetryPrometheusTemplatesDestinationRuleYamlBytes() ([]byte, error) {
-	return _chartsIstioTelemetryPrometheusTemplatesDestinationRuleYaml, nil
-}
-
-func chartsIstioTelemetryPrometheusTemplatesDestinationRuleYaml() (*asset, error) {
-	bytes, err := chartsIstioTelemetryPrometheusTemplatesDestinationRuleYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-telemetry/prometheus/templates/destination-rule.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _chartsIstioTelemetryPrometheusTemplatesIngressYaml = []byte(`{{- if .Values.prometheus.ingress.enabled -}}
 apiVersion: extensions/v1beta1
 kind: Ingress
@@ -33337,17 +33315,6 @@ subjects:
 - kind: ServiceAccount
   name: prometheus
   namespace: {{ .Release.Namespace }}
----
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: prometheus
-  namespace: {{ .Release.Namespace }}
-spec:
-  host: prometheus
-  trafficPolicy:
-    tls:
-      mode: DISABLE
 ---
 {{- if not .Values.prometheus.service.nodePort.enabled }}
 apiVersion: v1
@@ -36925,7 +36892,7 @@ spec:
           requests:
             cpu: 10m
             memory: 10Mi
-      imagePullPolicy: Always
+      imagePullPolicy: IfNotPresent
       certificates: []
       operatorManageWebhooks: false
       controlPlaneSecurityEnabled: true
@@ -36968,7 +36935,7 @@ spec:
         enabled: true
       priorityClassName: ""
       useMCP: true
-      trustDomain: ""
+      trustDomain: "cluster.local"
       outboundTrafficPolicy:
         mode: ALLOW_ANY
       sds:
@@ -37200,7 +37167,7 @@ spec:
       replicaCount: 1
       image:
         repository: grafana/grafana
-        tag: 6.3.6
+        tag: 6.4.3
       persist: false
       storageClassName: ""
       accessMode: ReadWriteMany
@@ -37308,8 +37275,8 @@ spec:
     kiali:
       enabled: false
       replicaCount: 1
-      hub: docker.io/kiali
-      tag: v1.4.2
+      hub: quay.io/kiali
+      tag: v1.9
       contextPath: /kiali
       nodeSelector: {}
       podAntiAffinityLabelSelector: []
@@ -38302,7 +38269,6 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/istio-telemetry/grafana/templates/configmap-dashboards.yaml": chartsIstioTelemetryGrafanaTemplatesConfigmapDashboardsYaml,
 	"charts/istio-telemetry/grafana/templates/configmap.yaml": chartsIstioTelemetryGrafanaTemplatesConfigmapYaml,
 	"charts/istio-telemetry/grafana/templates/deployment.yaml": chartsIstioTelemetryGrafanaTemplatesDeploymentYaml,
-	"charts/istio-telemetry/grafana/templates/destination-rule.yaml": chartsIstioTelemetryGrafanaTemplatesDestinationRuleYaml,
 	"charts/istio-telemetry/grafana/templates/grafana-policy.yaml": chartsIstioTelemetryGrafanaTemplatesGrafanaPolicyYaml,
 	"charts/istio-telemetry/grafana/templates/pvc.yaml": chartsIstioTelemetryGrafanaTemplatesPvcYaml,
 	"charts/istio-telemetry/grafana/templates/service.yaml": chartsIstioTelemetryGrafanaTemplatesServiceYaml,
@@ -38337,7 +38303,6 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/istio-telemetry/prometheus/templates/clusterrolebindings.yaml": chartsIstioTelemetryPrometheusTemplatesClusterrolebindingsYaml,
 	"charts/istio-telemetry/prometheus/templates/configmap.yaml": chartsIstioTelemetryPrometheusTemplatesConfigmapYaml,
 	"charts/istio-telemetry/prometheus/templates/deployment.yaml": chartsIstioTelemetryPrometheusTemplatesDeploymentYaml,
-	"charts/istio-telemetry/prometheus/templates/destination-rule.yaml": chartsIstioTelemetryPrometheusTemplatesDestinationRuleYaml,
 	"charts/istio-telemetry/prometheus/templates/ingress.yaml": chartsIstioTelemetryPrometheusTemplatesIngressYaml,
 	"charts/istio-telemetry/prometheus/templates/service.yaml": chartsIstioTelemetryPrometheusTemplatesServiceYaml,
 	"charts/istio-telemetry/prometheus/templates/serviceaccount.yaml": chartsIstioTelemetryPrometheusTemplatesServiceaccountYaml,
@@ -38612,7 +38577,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 					"configmap-dashboards.yaml": &bintree{chartsIstioTelemetryGrafanaTemplatesConfigmapDashboardsYaml, map[string]*bintree{}},
 					"configmap.yaml": &bintree{chartsIstioTelemetryGrafanaTemplatesConfigmapYaml, map[string]*bintree{}},
 					"deployment.yaml": &bintree{chartsIstioTelemetryGrafanaTemplatesDeploymentYaml, map[string]*bintree{}},
-					"destination-rule.yaml": &bintree{chartsIstioTelemetryGrafanaTemplatesDestinationRuleYaml, map[string]*bintree{}},
 					"grafana-policy.yaml": &bintree{chartsIstioTelemetryGrafanaTemplatesGrafanaPolicyYaml, map[string]*bintree{}},
 					"pvc.yaml": &bintree{chartsIstioTelemetryGrafanaTemplatesPvcYaml, map[string]*bintree{}},
 					"service.yaml": &bintree{chartsIstioTelemetryGrafanaTemplatesServiceYaml, map[string]*bintree{}},
@@ -38661,7 +38625,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 					"clusterrolebindings.yaml": &bintree{chartsIstioTelemetryPrometheusTemplatesClusterrolebindingsYaml, map[string]*bintree{}},
 					"configmap.yaml": &bintree{chartsIstioTelemetryPrometheusTemplatesConfigmapYaml, map[string]*bintree{}},
 					"deployment.yaml": &bintree{chartsIstioTelemetryPrometheusTemplatesDeploymentYaml, map[string]*bintree{}},
-					"destination-rule.yaml": &bintree{chartsIstioTelemetryPrometheusTemplatesDestinationRuleYaml, map[string]*bintree{}},
 					"ingress.yaml": &bintree{chartsIstioTelemetryPrometheusTemplatesIngressYaml, map[string]*bintree{}},
 					"service.yaml": &bintree{chartsIstioTelemetryPrometheusTemplatesServiceYaml, map[string]*bintree{}},
 					"serviceaccount.yaml": &bintree{chartsIstioTelemetryPrometheusTemplatesServiceaccountYaml, map[string]*bintree{}},

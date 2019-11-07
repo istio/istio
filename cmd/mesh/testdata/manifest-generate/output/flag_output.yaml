@@ -370,7 +370,7 @@ spec:
       containers:
         - name: prometheus
           image: "docker.io/prom/prometheus:v2.12.0"
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           args:
             - '--storage.tsdb.retention=6h'
             - '--config.file=/etc/prometheus/prometheus.yml'
@@ -435,19 +435,6 @@ spec:
                 operator: In
                 values:
                 - s390x
----
-
-
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: prometheus
-  namespace: cp
-spec:
-  host: prometheus
-  trafficPolicy:
-    tls:
-      mode: DISABLE
 ---
 
 
