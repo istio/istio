@@ -24,10 +24,12 @@ import (
 )
 
 const (
-	statCdsVersion    = "cluster_manager.cds.version"
-	statLdsVersion    = "listener_manager.lds.version"
-	statServerState   = "server.state"
-	versionStatsRegex = "^(cluster_manager.cds|listener_manager.lds).version$"
+	statCdsRejected  = "cluster_manager.cds.update_success"
+	statsCdsSuccess  = "cluster_manager.cds.update_rejected"
+	statLdsRejected  = "listener_manager.lds.update_rejected"
+	statsLdsSuccess  = "listener_manager.lds.update_success"
+	statServerState  = "server.state"
+	updateStatsRegex = "^(cluster_manager.cds|listener_manager.lds).(update_success|update_rejected)$"
 )
 
 type stat struct {
@@ -38,28 +40,22 @@ type stat struct {
 
 // Stats contains values of interest from a poll of Envoy stats.
 type Stats struct {
-	// Hash of the contents from the last successful cluster update.
-	CDSVersion uint64
-	// Hash of the contents from the last successful listener update.
-	LDSVersion uint64
+	// Update Stats.
+	CDSUpdatesSuccess   uint64
+	CDSUpdatesRejection uint64
+	LDSUpdatesSuccess   uint64
+	LDSUpdatesRejection uint64
 	// Server State of Envoy.
 	ServerState uint64
 }
 
 // String representation of the Stats.
 func (s *Stats) String() string {
-	cdsStatus := "Not Received"
-	ldsStatus := "Not Received"
-	if s.CDSVersion > 0 {
-		cdsStatus = "Received"
-	} else if s.LDSVersion > 0 {
-		cdsStatus = "Rejected"
-	}
-
-	if s.LDSVersion > 0 {
-		ldsStatus = "Received"
-	}
-	return fmt.Sprintf("cds update: %s, lds update: %s", cdsStatus, ldsStatus)
+	return fmt.Sprintf("cds updates: %d successful, %d rejected; lds updates: %d successful, %d rejected",
+		s.CDSUpdatesSuccess,
+		s.CDSUpdatesRejection,
+		s.LDSUpdatesSuccess,
+		s.LDSUpdatesRejection)
 }
 
 // GetServerState returns the current Envoy state by checking the "server.state" stat.
@@ -83,17 +79,19 @@ func GetServerState(localHostAddr string, adminPort uint16) (*uint64, error) {
 	return &s.ServerState, nil
 }
 
-// GetVersionStats returns the version stats for CDS and LDS.
-func GetVersionStats(localHostAddr string, adminPort uint16) (*Stats, error) {
-	stats, err := doHTTPGet(fmt.Sprintf("http://%s:%d/stats?usedonly&filter=%s", localHostAddr, adminPort, versionStatsRegex))
+// GetUpdateStatusStats returns the version stats for CDS and LDS.
+func GetUpdateStatusStats(localHostAddr string, adminPort uint16) (*Stats, error) {
+	stats, err := doHTTPGet(fmt.Sprintf("http://%s:%d/stats?usedonly&filter=%s", localHostAddr, adminPort, updateStatsRegex))
 	if err != nil {
 		return nil, err
 	}
 
 	s := &Stats{}
 	allStats := []*stat{
-		{name: statCdsVersion, value: &s.CDSVersion},
-		{name: statLdsVersion, value: &s.LDSVersion},
+		{name: statsCdsSuccess, value: &s.CDSUpdatesSuccess},
+		{name: statCdsRejected, value: &s.CDSUpdatesRejection},
+		{name: statsLdsSuccess, value: &s.LDSUpdatesSuccess},
+		{name: statLdsRejected, value: &s.LDSUpdatesRejection},
 	}
 	if err := parseStats(stats, allStats); err != nil {
 		return nil, err

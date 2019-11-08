@@ -33,13 +33,19 @@ import (
 )
 
 type AnalyzerFoundIssuesError struct{}
+type FileParseError struct{}
 
 const (
 	FoundIssueString = "Analyzer found issues."
+	FileParseString  = "Some files couldn't be parsed."
 )
 
 func (f AnalyzerFoundIssuesError) Error() string {
 	return FoundIssueString
+}
+
+func (f FileParseError) Error() string {
+	return FileParseString
 }
 
 var (
@@ -134,11 +140,12 @@ istioctl experimental analyze -k -d false
 			}
 
 			// If files are provided, treat them (collectively) as a source.
+			parseErrors := 0
 			if len(files) > 0 {
 				if err = sa.AddFileKubeSource(files); err != nil {
 					// Partial success is possible, so don't return early, but do print.
-					// TODO(https://github.com/istio/istio/issues/17862): If we had any such errors, we should return a nonzero exit code
 					fmt.Fprintf(cmd.ErrOrStderr(), "Error(s) reading files: %v", err)
+					parseErrors++
 				}
 			}
 
@@ -174,16 +181,32 @@ istioctl experimental analyze -k -d false
 
 			// Print validation message output, or a line indicating that none were found
 			if len(outputMessages) == 0 {
-				fmt.Fprintln(cmd.ErrOrStderr(), "\u2714 No validation issues found.")
+				if parseErrors == 0 {
+					fmt.Fprintln(cmd.ErrOrStderr(), "\u2714 No validation issues found.")
+				} else {
+					fileOrFiles := "files"
+					if parseErrors == 1 {
+						fileOrFiles = "file"
+					}
+					fmt.Fprintf(cmd.ErrOrStderr(),
+						"No validation issues found (but %d %s could not be parsed)\n",
+						parseErrors,
+						fileOrFiles,
+					)
+				}
 			} else {
 				for _, m := range outputMessages {
 					fmt.Fprintln(cmd.OutOrStdout(), renderMessage(m))
 				}
 			}
 
-			// Return code is based on the unfiltered validation message list
+			// Return code is based on the unfiltered validation message list/parse errors
 			// We're intentionally keeping failure threshold and output threshold decoupled for now
-			return errorIfMessagesExceedThreshold(result.Messages)
+			returnError := errorIfMessagesExceedThreshold(result.Messages)
+			if returnError == nil && parseErrors > 0 {
+				returnError = FileParseError{}
+			}
+			return returnError
 		},
 	}
 
