@@ -2,17 +2,17 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istio-pilot-{{ .Release.Namespace }}
+  name: istio-reader-{{ .Release.Namespace }}
   labels:
-    app: pilot
+    app: istio-reader
     release: {{ .Release.Name }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istio-pilot-{{ .Release.Namespace }}
+  name: istio-reader-{{ .Release.Namespace }}
 subjects:
   - kind: ServiceAccount
-    name: istio-pilot-service-account
+    name: istio-reader-service-account
     namespace: {{ .Release.Namespace }}
 ---
 {{ end }}

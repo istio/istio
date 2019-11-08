@@ -360,15 +360,6 @@ metadata:
     app: pilot
     release: istio-system-istio
 ---
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-reader-service-account
-  namespace: istio-system
-  labels:
-    app: istio-reader
-    release: istio-system-istio
----
 
 
 ---
@@ -438,22 +429,6 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: istio-pilot-service-account
-    namespace: istio-system
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: istio-reader-istio-system
-  labels:
-    app: istio-reader
-    release: istio-system-istio
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: istio-reader-istio-system
-subjects:
-  - kind: ServiceAccount
-    name: istio-reader-service-account
     namespace: istio-system
 ---
 
