@@ -351,7 +351,7 @@ func runCA() {
 		sc, err := controller.NewSecretController(ca, opts.enableNamespacesByDefault,
 			opts.workloadCertTTL, opts.workloadCertGracePeriodRatio, opts.workloadCertMinGracePeriod,
 			opts.dualUse, cs.CoreV1(), opts.signCACerts, opts.pkcs8Keys, listenedNamespaces, webhooks,
-			opts.istioCaStorageNamespace, opts.rootCertFile)
+			opts.istioCaStorageNamespace, opts.rootCertFile, opts.selfSignedCA)
 		if err != nil {
 			fatalf("Failed to create secret controller: %v", err)
 		}
@@ -464,7 +464,7 @@ func createCA(client corev1.CoreV1Interface) *ca.IstioCA {
 		} else {
 			checkInterval = -1
 		}
-		caOpts, err = ca.NewSelfSignedIstioCAOptions(ctx, opts.readSigningCertOnly,
+		caOpts, err = ca.NewSelfSignedIstioCAOptions(ctx,
 			opts.selfSignedRootCertGracePeriodPercentile, opts.selfSignedCACertTTL,
 			opts.selfSignedRootCertCheckInterval, opts.workloadCertTTL,
 			opts.maxWorkloadCertTTL, spiffe.GetTrustDomain(), opts.dualUse,

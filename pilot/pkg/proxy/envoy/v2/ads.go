@@ -28,10 +28,8 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
-	"istio.io/istio/pkg/config/schemas"
 	istiolog "istio.io/pkg/log"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/sets"
@@ -351,15 +349,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				previous := sets.NewSet(con.Clusters...)
 				current := sets.NewSet(clusters...)
 
-				// removed clusters
-				for cn := range previous.Difference(current) {
-					s.removeEdsCon(cn, con.ConID)
-				}
-
-				// new added clusters
-				for cn := range current.Difference(previous) {
-					s.getOrAddEdsCluster(cn, con)
-				}
+				s.updateEdsClients(current.Difference(previous), previous.Difference(current), con)
 
 				con.Clusters = clusters
 				adsLog.Debugf("ADS:EDS: REQ %s %s clusters:%d", peerAddr, con.ConID, len(con.Clusters))
@@ -536,27 +526,28 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 
 	// check version, suppress if changed.
 	currentVersion := versionInfo()
+	pushTypes := PushTypeFor(con.node, pushEv)
 
-	if con.CDSWatch {
+	if con.CDSWatch && pushTypes[CDS] {
 		err := s.pushCds(con, pushEv.push, currentVersion)
 		if err != nil {
 			return err
 		}
 	}
 
-	if len(con.Clusters) > 0 {
+	if len(con.Clusters) > 0 && pushTypes[EDS] {
 		err := s.pushEds(pushEv.push, con, currentVersion, nil)
 		if err != nil {
 			return err
 		}
 	}
-	if con.LDSWatch {
+	if con.LDSWatch && pushTypes[LDS] {
 		err := s.pushLds(con, pushEv.push, currentVersion)
 		if err != nil {
 			return err
 		}
 	}
-	if len(con.Routes) > 0 {
+	if len(con.Routes) > 0 && pushTypes[RDS] {
 		err := s.pushRoute(con, pushEv.push, currentVersion)
 		if err != nil {
 			return err
@@ -672,48 +663,6 @@ func (s *DiscoveryServer) startPush(req *model.PushRequest) {
 	for _, p := range pending {
 		s.pushQueue.Enqueue(p, req)
 	}
-}
-
-func ProxyNeedsPush(proxy *model.Proxy, pushEv *XdsEvent) bool {
-	if !features.ScopePushes.Get() {
-		// If push scoping is not enabled, we push for all proxies
-		return true
-	}
-
-	targetNamespaces := pushEv.namespacesUpdated
-	configs := pushEv.configTypesUpdated
-
-	// appliesToProxy starts as false, we will set it to true if we encounter any configs that require a push
-	appliesToProxy := false
-	// If no config specified, this request applies to all proxies
-	if len(configs) == 0 {
-		appliesToProxy = true
-	}
-	for config := range configs {
-		if config == schemas.Gateway.Type && proxy.Type == model.SidecarProxy {
-			// Gateways do not impact sidecars, so no need to push
-		} else {
-			// This config may impact the proxy, so we do need to push
-			appliesToProxy = true
-		}
-	}
-
-	if !appliesToProxy {
-		return false
-	}
-
-	// If no only namespaces specified, this request applies to all proxies
-	if len(targetNamespaces) == 0 {
-		return true
-	}
-
-	// Otherwise, only apply if the egress listener will import the config present in the update
-	for ns := range targetNamespaces {
-		if proxy.SidecarScope.DependsOnNamespace(ns) {
-			return true
-		}
-	}
-	return false
 }
 
 func (s *DiscoveryServer) addCon(conID string, con *XdsConnection) {

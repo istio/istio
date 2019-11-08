@@ -37,6 +37,9 @@ var (
 		&annotation.AlphaCanonicalServiceAccounts,
 		&annotation.AlphaIdentity,
 		&annotation.AlphaKubernetesServiceAccounts,
+		&annotation.OperatorInstallChartOwner,
+		&annotation.OperatorInstallOwnerGeneration,
+		&annotation.OperatorInstallVersion,
 		&annotation.IoKubernetesIngressClass,
 		&annotation.AlphaNetworkingEndpointsVersion,
 		&annotation.AlphaNetworkingNotReadyEndpoints,
@@ -81,6 +84,7 @@ var (
 	// Currently we don't have an Istio API that enumerates Istio annotations ResourceTypes
 	// (This map is currently hand-crafted. ResourceTypes could be a []string, not an enum.)
 	resourceTypeNames = map[annotation.ResourceTypes]string{
+		annotation.Any:          "Any",
 		annotation.Ingress:      "Ingress",
 		annotation.Pod:          "Pod",
 		annotation.Service:      "Service",
@@ -142,34 +146,44 @@ func (*K8sAnalyzer) allowAnnotations(r *resource.Entry, ctx analysis.Context, ki
 	}
 
 	// It is fine if the annotation is kubectl.kubernetes.io/last-applied-configuration.
+outer:
 	for ann := range r.Metadata.Annotations {
-		if istioAnnotation(ann) {
-
-			annotationDef := lookupAnnotation(ann)
-			if annotationDef == nil {
-				ctx.Report(collectionType,
-					msg.NewUnknownAnnotation(r, ann))
-				continue
-			}
-
-			attachesTo := resourceTypesAsStrings(annotationDef.Resources)
-			if !contains(attachesTo, kind) {
-				ctx.Report(collectionType,
-					msg.NewMisplacedAnnotation(r, ann, strings.Join(attachesTo, ", ")))
-				continue
-			}
-
-			// TODO: Check annotation.Deprecated.  Not implemented because no
-			// deprecations in the table have yet been deprecated!
-
-			// Note: currently we don't validate the value of the annotation,
-			// just key and placement.
-			// There is annotation value validation (for pod annotations) in the web hook at
-			// istio.io/istio/pkg/kube/inject/inject.go.  Rather than refactoring
-			// that code I intend to bring all of the web hook checks into this framework
-			// and checking here will be redundant.
+		if !istioAnnotation(ann) {
+			continue
 		}
+
+		annotationDef := lookupAnnotation(ann)
+		if annotationDef == nil {
+			ctx.Report(collectionType,
+				msg.NewUnknownAnnotation(r, ann))
+			continue
+		}
+
+		// If the annotation def attaches to Any, exit early
+		for _, rt := range annotationDef.Resources {
+			if rt == annotation.Any {
+				continue outer
+			}
+		}
+
+		attachesTo := resourceTypesAsStrings(annotationDef.Resources)
+		if !contains(attachesTo, kind) {
+			ctx.Report(collectionType,
+				msg.NewMisplacedAnnotation(r, ann, strings.Join(attachesTo, ", ")))
+			continue
+		}
+
+		// TODO: Check annotation.Deprecated.  Not implemented because no
+		// deprecations in the table have yet been deprecated!
+
+		// Note: currently we don't validate the value of the annotation,
+		// just key and placement.
+		// There is annotation value validation (for pod annotations) in the web hook at
+		// istio.io/istio/pkg/kube/inject/inject.go.  Rather than refactoring
+		// that code I intend to bring all of the web hook checks into this framework
+		// and checking here will be redundant.
 	}
+
 }
 
 // istioAnnotation is true if the annotation is in Istio's namespace
