@@ -271,6 +271,7 @@ type Server struct {
 	kubeRegistry          *controller2.Controller
 	fileWatcher           filewatcher.FileWatcher
 	mcpDiscovery          *coredatamodel.MCPDiscovery
+	discoveryOptions      *coredatamodel.DiscoveryOptions
 	incrementalMcpOptions *coredatamodel.Options
 	mcpOptions            *coredatamodel.Options
 	certController        *chiron.WebhookController
@@ -773,7 +774,10 @@ func (s *Server) sseMCPController(args *PilotArgs,
 		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
 	}
 	controller := coredatamodel.NewSyntheticServiceEntryController(s.incrementalMcpOptions)
-	s.mcpDiscovery = coredatamodel.NewMCPDiscovery(controller)
+	s.discoveryOptions = &coredatamodel.DiscoveryOptions{
+		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
+	}
+	s.mcpDiscovery = coredatamodel.NewMCPDiscovery(controller, s.discoveryOptions)
 	incrementalSinkOptions := &sink.Options{
 		CollectionOptions: []sink.CollectionOptions{
 			{
@@ -1015,6 +1019,8 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		clusterID := args.Config.ControllerOptions.ClusterID
 		s.incrementalMcpOptions.XDSUpdater = s.EnvoyXdsServer
 		s.incrementalMcpOptions.ClusterID = clusterID
+		s.discoveryOptions.Env = environment
+		s.discoveryOptions.ClusterID = clusterID
 	}
 
 	// Implement EnvoyXdsServer grace shutdown

@@ -22,6 +22,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/onsi/gomega"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/coredatamodel"
 	"istio.io/istio/pilot/pkg/model"
@@ -508,6 +509,56 @@ func TestInstancesByPortReadsFromCache(t *testing.T) {
 	g.Expect(len(svcInstances)).To(gomega.Equal(0))
 }
 
+func TestServicesReadsFromCache(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	initDiscovery()
+
+	message := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
+	message1 := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry1)
+	message2 := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry2)
+
+	change := convertToChange([]proto.Message{message, message1, message2},
+		[]string{
+			fmt.Sprintf("%s/%s", "ns1", name),
+			fmt.Sprintf("%s/%s", "ns2", name),
+			fmt.Sprintf("%s/%s", "ns3", name),
+		},
+		setCollection(schemas.SyntheticServiceEntry.Collection),
+		setTypeURL(schemas.SyntheticServiceEntry.MessageName))
+
+	err := controller.Apply(change)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	services, err := d.Services()
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(len(services)).To(gomega.Equal(3))
+	for _, s := range services {
+		switch s.Attributes.Namespace {
+		case "ns1":
+			g.Expect(string(s.Hostname)).To(gomega.Equal(syntheticServiceEntry0.Hosts[0]))
+			for i, p := range syntheticServiceEntry0.Ports {
+				g.Expect(s.Ports[i].Name).To(gomega.Equal(p.Name))
+				g.Expect(s.Ports[i].Port).To(gomega.Equal(int(p.Number)))
+				g.Expect(s.Ports[i].Protocol).To(gomega.Equal(protocol.Parse(p.Protocol)))
+			}
+		case "ns2":
+			g.Expect(string(s.Hostname)).To(gomega.Equal(syntheticServiceEntry1.Hosts[0]))
+			for i, p := range syntheticServiceEntry1.Ports {
+				g.Expect(s.Ports[i].Name).To(gomega.Equal(p.Name))
+				g.Expect(s.Ports[i].Port).To(gomega.Equal(int(p.Number)))
+				g.Expect(s.Ports[i].Protocol).To(gomega.Equal(protocol.Parse(p.Protocol)))
+			}
+		case "ns3":
+			g.Expect(string(s.Hostname)).To(gomega.Equal(syntheticServiceEntry2.Hosts[0]))
+			for i, p := range syntheticServiceEntry2.Ports {
+				g.Expect(s.Ports[i].Name).To(gomega.Equal(p.Name))
+				g.Expect(s.Ports[i].Port).To(gomega.Equal(int(p.Number)))
+				g.Expect(s.Ports[i].Protocol).To(gomega.Equal(protocol.Parse(p.Protocol)))
+			}
+		}
+	}
+}
+
 func buildProxy(proxyIP, ns string) *model.Proxy {
 	return &model.Proxy{
 		IPAddresses:     []string{proxyIP},
@@ -538,8 +589,16 @@ func initDiscovery() {
 	fx.EDSErr <- nil
 	testControllerOptions.XDSUpdater = fx
 	controller = coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
-
-	d = coredatamodel.NewMCPDiscovery(controller)
+	options := &coredatamodel.DiscoveryOptions{
+		ClusterID:    "test",
+		DomainSuffix: "cluster.local",
+		Env: &model.Environment{
+			Mesh: &meshconfig.MeshConfig{
+				MixerCheckServer: "mixer",
+			},
+		},
+	}
+	d = coredatamodel.NewMCPDiscovery(controller, options)
 }
 
 func testSetup(g *gomega.GomegaWithT) {
