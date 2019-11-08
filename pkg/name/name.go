@@ -59,7 +59,7 @@ type ComponentName string
 const (
 	// IstioComponent names corresponding to the IstioControlPlane proto component names. Must be the same, since these
 	// are used for struct traversal.
-	IstioBaseComponentName       ComponentName = "crds"
+	IstioBaseComponentName       ComponentName = "Base"
 	PilotComponentName           ComponentName = "Pilot"
 	GalleyComponentName          ComponentName = "Galley"
 	SidecarInjectorComponentName ComponentName = "Injector"

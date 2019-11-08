@@ -45,7 +45,7 @@ kubernetesMapping:
   "{{.FeatureName}}.Components.{{.ComponentName}}.K8S.Tolerations":
     outPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.tolerations"
 toFeature:
-    crds:               Base
+    Base:               Base
     Pilot:              TrafficManagement
     Galley:             ConfigManagement
     Injector:           AutoInjection
@@ -74,7 +74,7 @@ featureMaps:
   Base:
     alwaysEnabled: true
     Components:
-      - crds
+      - Base
   TrafficManagement:
     Components:
       - Pilot
@@ -114,9 +114,9 @@ featureMaps:
       - Kiali
 
 componentMaps:
-  crds:
+  Base:
     ToHelmValuesTreeRoot: "global"
-    HelmSubdir:           "crds"
+    HelmSubdir:           "base"
     AlwaysEnabled:        true
   Pilot:
     ResourceType:         "Deployment"
