@@ -27,7 +27,6 @@ import (
 )
 
 func TestValueToProto(t *testing.T) {
-	t.Skip("Skipping due to https://github.com/istio/istio/issues/17217")
 	tests := []struct {
 		desc      string
 		valueYAML string
@@ -134,6 +133,11 @@ gateways:
    egressGateway:
      enabled: false
  enabled: false
+coreDNS:
+ components:
+   coreDNS:
+     enabled: false
+ enabled: false
 trafficManagement:
  components:
    pilot:
@@ -220,6 +224,8 @@ pilot:
   enabled: true
 nodeagent:
   enabled: true
+istiocoredns:
+  enabled: true
 gateways:
   enabled: true
   istio-ingressgateway:
@@ -269,6 +275,11 @@ security:
     citadel:
       enabled: false
   enabled: true
+coreDNS:
+ components:
+   coreDNS:
+     enabled: true
+ enabled: true
 trafficManagement:
    components:
      pilot:
@@ -326,6 +337,11 @@ telemetry:
    telemetry:
      enabled: false
  enabled: false
+coreDNS:
+ components:
+   coreDNS:
+     enabled: false
+ enabled: false
 policy:
  components:
    namespace: istio-policy
@@ -372,7 +388,7 @@ autoInjection:
 `,
 		},
 	}
-	tr, err := NewReverseTranslator(version.NewMinorVersion(1, 3))
+	tr, err := NewReverseTranslator(version.NewMinorVersion(1, 4))
 	if err != nil {
 		t.Fatal("fail to get helm value.yaml translator")
 	}

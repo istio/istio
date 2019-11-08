@@ -260,7 +260,6 @@ values:
   galley:
     image: galley
   gateways:
-    enabled: true
     istio-egressgateway:
       connectTimeout: 10s
       drainDuration: 45s
