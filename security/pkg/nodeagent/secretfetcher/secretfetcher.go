@@ -159,7 +159,7 @@ func (sf *SecretFetcher) InitWithKubeClient(core corev1.CoreV1Interface) { // no
 	sf.InitWithKubeClientAndNs(core, namespaceVar.Get())
 }
 
-// InitWithKubeClient initializes SecretFetcher to watch kubernetes secrets.
+// InitWithKubeClientAndNs initializes SecretFetcher to watch kubernetes secrets.
 func (sf *SecretFetcher) InitWithKubeClientAndNs(core corev1.CoreV1Interface, namespace string) { // nolint:interfacer
 	istioSecretSelector := fields.SelectorFromSet(nil).String()
 	scrtLW := &cache.ListWatch{

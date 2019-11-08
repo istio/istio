@@ -168,7 +168,7 @@ type SDSAgent struct {
 func NewSDSAgent(discAddr string, tlsRequired bool) *SDSAgent {
 	ac := &SDSAgent{}
 
-	istiodHost, discPort, err := net.SplitHostPort(discAddr)
+	discHost, discPort, err := net.SplitHostPort(discAddr)
 	if err != nil {
 		log.Fatala("Invalid discovery address", discAddr, err)
 	}
@@ -198,10 +198,10 @@ func NewSDSAgent(discAddr string, tlsRequired bool) *SDSAgent {
 	if discPort == "15012" {
 		ac.RequireCerts = true
 		// For local debugging - the discoveryAddress is set to localhost, but the cert issued for normal SA.
-		if istiodHost == "localhost" {
-			istiodHost = "istiod.istio-system"
+		if discHost == "localhost" {
+			discHost = "istiod.istio-system"
 		}
-		ac.SAN = istiodHost
+		ac.SAN = discHost
 	}
 
 	return ac
