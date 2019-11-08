@@ -23,7 +23,6 @@ import (
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/protocol"
 )
 
 const (
@@ -483,62 +482,20 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 	importedServices := make([]*Service, 0)
 	for _, s := range services {
 		configNamespace := s.Attributes.Namespace
-		// If a listener is defined with port, we should match services with port.
-		needsPortMatch := ilw.IstioListener != nil && ilw.IstioListener.Port != nil
-		importedHosts, nsFound := ilw.listenerHosts[configNamespace]
+
 		// Check if there is an explicit import of form ns/* or ns/host
-		if needsPortMatch || nsFound {
-			hostFound := false
-			for _, importedHost := range importedHosts {
-				// Check if the hostnames match per usual hostname matching rules
-				if importedHost.Matches(s.Hostname) {
-					portMatched := false
-					if needsPortMatch {
-						for _, port := range s.Ports {
-							if port.Port == int(ilw.IstioListener.Port.GetNumber()) {
-								portMatched = true
-								break
-							}
-						}
-					} else {
-						importedServices = append(importedServices, s)
-						hostFound = true
-						break
-					}
-					// If there is a port match, we should trim the service ports to the port specified by listener.
-					if portMatched {
-						for _, port := range s.Ports {
-							if port.Port == int(ilw.IstioListener.Port.GetNumber()) {
-								sc := s.DeepCopy()
-								sc.Ports = []*Port{
-									{
-										ilw.IstioListener.Port.GetName(),
-										int(ilw.IstioListener.Port.GetNumber()),
-										protocol.Instance(ilw.IstioListener.Port.GetProtocol()),
-									},
-								}
-								importedServices = append(importedServices, sc)
-								hostFound = true
-								break
-							}
-						}
-					}
-				}
-			}
-			if hostFound {
+		if importedHosts, nsFound := ilw.listenerHosts[configNamespace]; nsFound {
+			if hostFound, sidecarServices := matchingServices(importedHosts, s, ilw); hostFound {
+				importedServices = append(importedServices, sidecarServices...)
 				continue
 			}
 		}
 
 		// Check if there is an import of form */host or */*
-		importedHosts, wnsFound := ilw.listenerHosts[wildcardNamespace]
-		if !needsPortMatch && wnsFound {
-			for _, importedHost := range importedHosts {
-				// Check if the hostnames match per usual hostname matching rules
-				if importedHost.Matches(s.Hostname) {
-					importedServices = append(importedServices, s)
-					break
-				}
+		if importedHosts, wnsFound := ilw.listenerHosts[wildcardNamespace]; wnsFound {
+			if hostFound, sidecarServices := matchingServices(importedHosts, s, ilw); hostFound {
+				importedServices = append(importedServices, sidecarServices...)
+				continue
 			}
 		}
 	}
@@ -562,4 +519,45 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 		}
 	}
 	return filteredServices
+}
+
+func matchingServices(importedHosts []host.Name, service *Service, ilw *IstioEgressListenerWrapper) (bool, []*Service) {
+	// If a listener is defined with port, we should match services with port.
+	needsPortMatch := ilw.IstioListener != nil && ilw.IstioListener.Port != nil
+	hostFound := false
+	importedServices := make([]*Service, 0)
+
+	for _, importedHost := range importedHosts {
+		// Check if the hostnames match per usual hostname matching rules
+		if importedHost.Matches(service.Hostname) {
+			portMatched := false
+			if needsPortMatch {
+				for _, port := range service.Ports {
+					if port.Port == int(ilw.IstioListener.Port.GetNumber()) {
+						portMatched = true
+						break
+					}
+				}
+			} else {
+				importedServices = append(importedServices, service)
+				hostFound = true
+				break
+			}
+			// If there is a port match, we should trim the service ports to the port specified by listener.
+			if portMatched {
+				for _, port := range service.Ports {
+					if port.Port == int(ilw.IstioListener.Port.GetNumber()) {
+						ports := []*Port{}
+						sc := service.DeepCopy()
+						ports = append(ports, port)
+						sc.Ports = ports
+						importedServices = append(importedServices, sc)
+						hostFound = true
+						break
+					}
+				}
+			}
+		}
+	}
+	return hostFound, importedServices
 }
