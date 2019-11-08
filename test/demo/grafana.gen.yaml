@@ -13999,7 +13999,6 @@ data:
 
 ---
 # Source: grafana/templates/configmap.yaml
-
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -14010,18 +14009,19 @@ metadata:
     release: istio-system-istio
     istio: grafana
 data:
-  datasources.yaml: |-
+  datasources.yaml: |
     apiVersion: 1
     datasources:
-    - name: Prometheus
-      type: prometheus
-      orgId: 1
-      url: http://prometheus:9090
-      access: proxy
+    - access: proxy
+      editable: true
       isDefault: true
       jsonData:
         timeInterval: 5s
-      editable: true
+      name: Prometheus
+      orgId: 1
+      type: prometheus
+      url: http://prometheus:9090
+    
   dashboardproviders.yaml: |
     apiVersion: 1
     providers:
