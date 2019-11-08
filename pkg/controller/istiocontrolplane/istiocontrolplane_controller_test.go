@@ -20,9 +20,6 @@ import (
 	"strconv"
 	"testing"
 
-	"istio.io/operator/pkg/apis/istio/v1alpha2"
-	"istio.io/operator/pkg/helmreconciler"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -30,6 +27,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"istio.io/operator/pkg/apis/istio/v1alpha2"
+	"istio.io/operator/pkg/helmreconciler"
 )
 
 var (
@@ -37,12 +37,12 @@ var (
 		"Pilot": {
 			Status: v1alpha2.InstallStatus_HEALTHY,
 		},
-		"crds": {
+		"Base": {
 			Status: v1alpha2.InstallStatus_HEALTHY,
 		},
 	}
 	defaultStatus = map[string]*v1alpha2.InstallStatus_VersionStatus{
-		"crds": {
+		"Base": {
 			Status: v1alpha2.InstallStatus_HEALTHY,
 		},
 		"Pilot": {
@@ -71,7 +71,7 @@ var (
 		},
 	}
 	demoStatus = map[string]*v1alpha2.InstallStatus_VersionStatus{
-		"crds": {
+		"Base": {
 			Status: v1alpha2.InstallStatus_HEALTHY,
 		},
 		"Pilot": {
@@ -112,7 +112,7 @@ var (
 		},
 	}
 	sdsStatus = map[string]*v1alpha2.InstallStatus_VersionStatus{
-		"crds": {
+		"Base": {
 			Status: v1alpha2.InstallStatus_HEALTHY,
 		},
 		"Pilot": {

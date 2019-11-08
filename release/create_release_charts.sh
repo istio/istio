@@ -19,7 +19,7 @@ set -o errexit
 set -o pipefail
 
 TEMP_DIR_DEFAULT="/tmp"
-INSTALLER_CHARTS=(crds gateways istio-cni istiocoredns istio-telemetry istio-control istio-policy security)
+INSTALLER_CHARTS=(base gateways istio-cni istiocoredns istio-telemetry istio-control istio-policy security)
 INSTALLER_REPO="installer"
 
 function usage() {

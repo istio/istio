@@ -45,7 +45,7 @@ popd
 # create charts directory if it doesn't exist.
 mkdir -p "${OUT_DIR}"
 
-for c in crds gateways istio-cni istiocoredns istio-telemetry istio-control istio-policy security
+for c in base gateways istio-cni istiocoredns istio-telemetry istio-control istio-policy security
 do
     cp -Rf "${INSTALLER_DIR}/${c}" "${OUT_DIR}"
 done
