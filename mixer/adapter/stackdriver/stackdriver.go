@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // nolint: lll
-//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/adapter/stackdriver/config/config.proto -i mixer/adapter/stackdriver/config -x "-n stackdriver -t logentry -t tracespan -t metric"
+//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/adapter/stackdriver/config/config.proto -i mixer/adapter/stackdriver/config -x "-n stackdriver -t logentry -t tracespan -t metric -t edges"
 
 // Package stackdriver provides an adapter that implements the logEntry and metrics
 // templates to serialize generated values to Stackdriver.
@@ -84,10 +84,7 @@ func GetInfo() adapter.Info {
 		}
 		return md.Zone()
 	}
-	meshIDFn := func() (string, error) {
-		return md.InstanceAttributeValue("mesh-id")
-	}
-	mg := helper.NewMetadataGenerator(md.OnGCE, md.ProjectID, clusterLocationFn, clusterNameFn, meshIDFn)
+	mg := helper.NewMetadataGenerator(md.OnGCE, md.ProjectID, clusterLocationFn, clusterNameFn)
 	info := metadata.GetInfo("stackdriver")
 	info.NewBuilder = func() adapter.HandlerBuilder {
 		return &builder{

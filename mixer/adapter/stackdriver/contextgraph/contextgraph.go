@@ -39,7 +39,6 @@ type (
 		projectID string
 		zone      string
 		cluster   string
-		meshID    string
 		mg        helper.MetadataGenerator
 		newClient newClientFn
 		cfg       *config.Params
@@ -74,9 +73,10 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 	env.Logger().Debugf("Proj, zone, cluster, opts: %s,%s,%s,%s",
 		b.projectID, b.zone, b.cluster, opts)
 
-	meshUID := fmt.Sprintf("%s/%s/%s", b.projectID, b.zone, b.cluster)
-	if len(b.meshID) > 0 {
-		meshUID = b.meshID
+	meshUID := b.cfg.MeshUid
+	if len(meshUID) == 0 {
+		// must be a fallback here
+		meshUID = fmt.Sprintf("%s/%s/%s", b.projectID, b.zone, b.cluster)
 	}
 
 	h := &handler{
@@ -116,7 +116,6 @@ func (b *builder) SetAdapterConfig(cfg adapter.Config) {
 	}
 	b.zone = md.Location
 	b.cluster = md.ClusterName
-	b.meshID = md.MeshID
 }
 
 // adapter.HandlerBuilder#Validate
