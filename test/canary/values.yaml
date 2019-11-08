@@ -51,8 +51,6 @@ global:
 
     envoyStatsd:
       enabled: false
-    envoyMetricsService:
-      enabled: false
 
 
 

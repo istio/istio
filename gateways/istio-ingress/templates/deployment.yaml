@@ -137,13 +137,17 @@ spec:
         {{- else }}
           - zipkin:9411
         {{- end }}
-        {{- if .Values.global.proxy.envoyMetricsService.enabled }}
-          - --envoyMetricsServiceAddress
-          - {{ .Values.global.proxy.envoyMetricsService.host }}:{{ .Values.global.proxy.envoyMetricsService.port }}
-        {{- end }}
-        {{- if .Values.global.proxy.envoyAccessLogService.enabled }}
-          - --envoyAccessLogServiceAddress
-          - {{ .Values.global.proxy.envoyAccessLogService.host }}:{{ .Values.global.proxy.envoyAccessLogService.port }}
+        {{- if $.Values.global.proxy.envoyMetricsService.enabled }}
+          - --envoyMetricsService
+          {{- with  $.Values.global.proxy.envoyMetricsService }}
+          - '{"address":"{{ .host }}:{{.port }}"{{ if .tlsSettings }},"tlsSettings":{{ .tlsSettings | toJson }}{{- end }}{{ if .tcpKeepalive }},"tcpKeepalive":{{ .tcpKeepalive | toJson }}{{- end }}}'
+          {{- end }}
+        {{- end}}
+        {{- if $.Values.global.proxy.envoyAccessLogService.enabled }}
+          - --envoyAccessLogService
+          {{- with  $.Values.global.proxy.envoyAccessLogService }}
+          - '{"address":"{{ .host }}:{{.port }}"{{ if .tlsSettings }},"tlsSettings":{{ .tlsSettings | toJson }}{{- end }}{{ if .tcpKeepalive }},"tcpKeepalive":{{ .tcpKeepalive | toJson }}{{- end }}}'
+          {{- end }}
         {{- end }}
           - --proxyAdminPort
           - "15000"

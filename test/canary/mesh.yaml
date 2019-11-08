@@ -20,7 +20,6 @@ defaultConfig:
 
   connectTimeout: 1s
   #statsdUdpAddress: "1111"
-  envoyMetricsServiceAddress: ""
 
   proxyAdminPort: 15000
   concurrency: 0

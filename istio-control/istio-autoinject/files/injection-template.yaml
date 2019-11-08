@@ -131,12 +131,12 @@ template: |
     - "{{ .ProxyConfig.StatsdUdpAddress }}"
   {{- end }}
   {{- if .Values.global.proxy.envoyMetricsService.enabled }}
-    - --envoyMetricsServiceAddress
-    - "{{ .ProxyConfig.GetEnvoyMetricsService.GetAddress }}"
+    - --envoyMetricsService
+    - '{{ protoToJSON .ProxyConfig.EnvoyMetricsService }}'
   {{- end }}
   {{- if .Values.global.proxy.envoyAccessLogService.enabled }}
-    - --envoyAccessLogServiceAddress
-    - "{{ .ProxyConfig.GetEnvoyAccessLogService.GetAddress }}"
+    - --envoyAccessLogService
+    - '{{ protoToJSON .ProxyConfig.EnvoyAccessLogService }}'
   {{- end }}
     - --proxyAdminPort
     - "{{ .ProxyConfig.ProxyAdminPort }}"

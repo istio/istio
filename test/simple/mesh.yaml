@@ -13,7 +13,6 @@ defaultConfig:
   discoveryAddress: istio-pilot.istio-system:15010
 
   connectTimeout: 1s
-  envoyMetricsServiceAddress: ""
 
   proxyAdminPort: 15000
   concurrency: 0
