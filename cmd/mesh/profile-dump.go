@@ -259,9 +259,10 @@ func unmarshalAndValidateICPS(icpsYAML string, force bool, l *logger) (*v1alpha2
 	}
 	if errs := validate.CheckIstioControlPlaneSpec(icps, true); len(errs) != 0 {
 		if !force {
+			l.logAndError("Run the command with the --force flag if you want to ignore the validation error and proceed.")
 			return nil, fmt.Errorf(errs.Error())
 		}
-		l.logAndPrint("Proceeding despite the following validation errors: \n", errs.Error())
+		l.logAndError("Proceeding despite the following validation errors: \n", errs.Error())
 	}
 	return icps, nil
 }

@@ -172,12 +172,6 @@ func (c *Client) GetConfig(kubeconfig, context, name, namespace, output string,
 	return c.kubectl(subcmds, params)
 }
 
-func logAndPrint(v ...interface{}) {
-	s := fmt.Sprintf(v[0].(string), v[1:]...)
-	log.Infof(s)
-	fmt.Println(s)
-}
-
 // kubectl runs the `kubectl` command by specifying subcommands in subcmds with kubectlParams
 func (c *Client) kubectl(subcmds []string, params *kubectlParams) (string, string, error) {
 	hasStdin := strings.TrimSpace(params.stdin) != ""
@@ -216,7 +210,7 @@ func (c *Client) kubectl(subcmds []string, params *kubectlParams) (string, strin
 	}
 
 	if params.dryRun {
-		logAndPrint("dry run mode: would be running this cmd:\n%s\n", cmdStr)
+		log.Infof("dry run mode: would be running this cmd:\n%s\n", cmdStr)
 		return "", "", nil
 	}
 
