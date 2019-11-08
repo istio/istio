@@ -15,6 +15,7 @@
 package diag
 
 import (
+	"encoding/json"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -49,4 +50,14 @@ func TestMessage_Unstructured(t *testing.T) {
 
 	g.Expect(m.Unstructured(true)).To((HaveKey("origin")))
 	g.Expect(m.Unstructured(false)).To(Not(HaveKey("origin")))
+}
+
+func TestMessage_JSON(t *testing.T) {
+	g := NewGomegaWithT(t)
+	o := testOrigin("toppings/cheese")
+	mt := NewMessageType(Error, "IST-0042", "Cheese type not found: %q")
+	m := NewMessage(mt, o, "Feta")
+
+	json_bytes, _ := json.Marshal(&m)
+	g.Expect(string(json_bytes)).To(Equal(`{"code":"IST-0042","level":"Error","message":"Cheese type not found: \"Feta\"","origin":"toppings/cheese"}`))
 }
