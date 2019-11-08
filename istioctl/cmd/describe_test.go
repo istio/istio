@@ -58,6 +58,7 @@ var (
 			Namespace: "istio-system",
 			Labels: map[string]string{
 				"istio": "ingressgateway",
+				"app":   "istio-ingressgateway",
 			},
 		},
 		Spec: coreV1.ServiceSpec{
@@ -88,6 +89,7 @@ var (
 			Namespace: "istio-system",
 			Labels: map[string]string{
 				"istio": "ingressgateway",
+				"app":   "istio-ingressgateway",
 			},
 		},
 		Spec: coreV1.PodSpec{

@@ -824,7 +824,7 @@ func routeDestinationMatchesSvc(route *envoy_api_route.Route, svc v1.Service, vh
 	// If Istio was deployed with telemetry or policy we'll have the K8s Service
 	// nicely connected to the Envoy Route.
 	if mixerConfigMatches(svc.ObjectMeta.Namespace, svc.ObjectMeta.Name,
-		route.GetPerFilterConfig()["mixer"], route.GetTypedPerFilterConfig()["mixer"]) {
+		route.GetPerFilterConfig()["mixer"], route.GetTypedPerFilterConfig()["mixer"]) { // nolint: staticcheck
 		return true
 	}
 
@@ -832,7 +832,7 @@ func routeDestinationMatchesSvc(route *envoy_api_route.Route, svc v1.Service, vh
 		if weightedClusters := rte.GetWeightedClusters(); weightedClusters != nil {
 			for _, weightedCluster := range weightedClusters.Clusters {
 				if mixerConfigMatches(svc.ObjectMeta.Namespace, svc.ObjectMeta.Name,
-					weightedCluster.GetPerFilterConfig()["mixer"], weightedCluster.GetTypedPerFilterConfig()["mixer"]) {
+					weightedCluster.GetPerFilterConfig()["mixer"], weightedCluster.GetTypedPerFilterConfig()["mixer"]) { // nolint: staticcheck
 					return true
 				}
 			}
@@ -1074,7 +1074,7 @@ func getIstioVirtualServicePathForSvcFromListener(cd *configdump.Wrapper, svc v1
 			for _, filterChain := range listener.Listener.FilterChains {
 				for _, filter := range filterChain.Filters {
 					if filter.Name == "mixer" {
-						svcName, svcNamespace, err := getMixerDestinationSvc(filter.GetConfig())
+						svcName, svcNamespace, err := getMixerDestinationSvc(filter.GetConfig()) // nolint: staticcheck
 						if err == nil && svcName == svc.ObjectMeta.Name && svcNamespace == svc.ObjectMeta.Namespace {
 							return getIstioConfig(filterChain.Metadata)
 						}
