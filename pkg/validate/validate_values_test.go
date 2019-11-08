@@ -47,6 +47,8 @@ global:
 			desc: "ProxyConfig",
 			yamlStr: `
 global:
+  podDNSSearchNamespaces:
+  - "my-namespace"
   proxy:
     enabled: true
     includeIPRanges: "1.1.0.0/16,2.2.0.0/16"
@@ -54,8 +56,6 @@ global:
     includeInboundPorts: "111,222"
     excludeInboundPorts: "333,444"
     clusterDomain: "my.domain"
-    podDnsSearchNamespaces: 
-    - "my-namespace"
     connectTimeout: "11s"
     drainDuration: "22s"
     parentShutdownDuration: "33s"
