@@ -49,6 +49,7 @@ type RolesAndBindings struct {
 }
 
 // AuthorizationPolicies organizes authorization policies by namespace.
+// TODO(yangminzhu): Rename to avoid confusion from the AuthorizationPolicy CRD.
 type AuthorizationPolicies struct {
 	// Maps from namespace to the v1alpha1 RBAC policies, deprecated by v1beta1 Authorization policy.
 	NamespaceToV1alpha1Policies map[string]*RolesAndBindings `json:"namespace_to_v1alpha1_policies"`

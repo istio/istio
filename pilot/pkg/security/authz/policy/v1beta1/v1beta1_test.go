@@ -41,7 +41,7 @@ func TestV1beta1Generator_Generate(t *testing.T) {
 				{
 					Name:                "default",
 					Namespace:           "foo",
-					AuthorizationPolicy: policy.SimpleAuthzProto("default"),
+					AuthorizationPolicy: policy.SimpleAuthorizationProto("default"),
 				},
 			},
 			wantRules: map[string][]string{
@@ -56,12 +56,12 @@ func TestV1beta1Generator_Generate(t *testing.T) {
 				{
 					Name:                "default",
 					Namespace:           "foo",
-					AuthorizationPolicy: policy.SimpleAuthzProto("default"),
+					AuthorizationPolicy: policy.SimpleAuthorizationProto("default"),
 				},
 				{
 					Name:                "default",
 					Namespace:           "istio-system",
-					AuthorizationPolicy: policy.SimpleAuthzProto("default"),
+					AuthorizationPolicy: policy.SimpleAuthorizationProto("default"),
 				},
 			},
 			wantRules: map[string][]string{
