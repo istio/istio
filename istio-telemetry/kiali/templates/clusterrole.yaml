@@ -14,8 +14,8 @@ rules:
       - nodes
       - pods
       - pods/log
-      - services
       - replicationcontrollers
+      - services
     verbs:
       - get
       - list
@@ -23,8 +23,8 @@ rules:
   - apiGroups: ["extensions", "apps"]
     resources:
       - deployments
-      - statefulsets
       - replicasets
+      - statefulsets
     verbs:
       - get
       - list
@@ -81,8 +81,8 @@ rules:
       - nodes
       - pods
       - pods/log
-      - services
       - replicationcontrollers
+      - services
     verbs:
       - get
       - list
@@ -90,8 +90,8 @@ rules:
   - apiGroups: ["extensions", "apps"]
     resources:
       - deployments
-      - statefulsets
       - replicasets
+      - statefulsets
     verbs:
       - get
       - list
@@ -127,3 +127,4 @@ rules:
       - monitoringdashboards
     verbs:
       - get
+      - list
