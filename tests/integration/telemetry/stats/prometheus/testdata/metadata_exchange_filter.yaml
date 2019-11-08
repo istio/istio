@@ -19,7 +19,6 @@ spec:
             config:
               configuration: envoy.wasm.metadata_exchange
               vm_config:
-                vm_id: mx_inbound
                 runtime: envoy.wasm.runtime.null
                 code:
                   inline_string: envoy.wasm.metadata_exchange
@@ -38,7 +37,6 @@ spec:
             config:
               configuration: envoy.wasm.metadata_exchange
               vm_config:
-                vm_id: mx_outbound
                 runtime: envoy.wasm.runtime.null
                 code:
                   inline_string: envoy.wasm.metadata_exchange
@@ -57,7 +55,6 @@ spec:
             config:
               configuration: envoy.wasm.metadata_exchange
               vm_config:
-                vm_id: mx_outbound
                 runtime: envoy.wasm.runtime.null
                 code:
                   inline_string: envoy.wasm.metadata_exchange
