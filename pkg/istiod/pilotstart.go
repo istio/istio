@@ -650,7 +650,6 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 	s.EnvoyXdsServer.Register(s.GrpcServer)
 }
 
-
 // initEventHandlers sets up event handlers for config and service updates
 func (s *Server) initEventHandlers() error {
 	// Flush cached discovery responses whenever services configuration change.
@@ -699,7 +698,6 @@ func (s *Server) initEventHandlers() error {
 
 	return nil
 }
-
 
 func (s *Server) grpcServerOptions(options *istiokeepalive.Options) []grpc.ServerOption {
 	interceptors := []grpc.UnaryServerInterceptor{
