@@ -35,7 +35,6 @@ import (
 	opa "istio.io/istio/mixer/adapter/opa/config"
 	prometheus "istio.io/istio/mixer/adapter/prometheus/config"
 	redisquota "istio.io/istio/mixer/adapter/redisquota/config"
-	signalfx "istio.io/istio/mixer/adapter/signalfx/config"
 	solarwinds "istio.io/istio/mixer/adapter/solarwinds/config"
 	stackdriver "istio.io/istio/mixer/adapter/stackdriver/config"
 	statsd "istio.io/istio/mixer/adapter/statsd/config"
@@ -221,22 +220,6 @@ var (
 			DefaultConfig: &redisquota.Params{
 				RedisServerUrl:     "localhost:6379",
 				ConnectionPoolSize: 10,
-			},
-		},
-
-		{
-			Name:        "signalfx",
-			Description: "Sends metrics and traces to SignalFx",
-			SupportedTemplates: []string{
-				metric.TemplateName,
-				tracespan.TemplateName,
-			},
-			DefaultConfig: &signalfx.Params{
-				EnableMetrics:            true,
-				EnableTracing:            true,
-				DatapointInterval:        10 * time.Second,
-				TracingBufferSize:        1000,
-				TracingSampleProbability: 1.0,
 			},
 		},
 
