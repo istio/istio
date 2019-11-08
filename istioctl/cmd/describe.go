@@ -1104,7 +1104,7 @@ func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podsLabel
 
 	// Currently no support for non-standard gateways selecting non ingressgateway pods
 	ingressSvcs, err := kubeClient.CoreV1().Services(istioNamespace).List(metav1.ListOptions{
-		LabelSelector: "istio=ingressgateway",
+		LabelSelector: "app=istio-ingressgateway",
 	})
 	if err != nil {
 		return multierror.Prefix(err, "Could not find ingress gateway service")
