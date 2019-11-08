@@ -4,7 +4,6 @@ defaultConfig:
   parentShutdownDuration: 1m0s
   discoveryAddress: istio-pilot.istio-micro:15010
   connectTimeout: 1s
-  envoyMetricsServiceAddress: ""
   proxyAdminPort: 15000
   concurrency: 0
 

@@ -1,8 +1,4 @@
 ---
-# Source: base/templates/endpoints.yaml
-
-
----
 # Source: base/templates/namespaces.yaml
 # To prevent accidental injection into istio control plane namespaces.
 apiVersion: v1
@@ -5240,6 +5236,10 @@ rules:
   resources: ["replicasets"]
   verbs: ["get", "list", "watch"]
 ---
+
+
+---
+# Source: base/templates/endpoints.yaml
 
 
 ---
