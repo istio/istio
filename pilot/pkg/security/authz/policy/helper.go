@@ -186,7 +186,7 @@ func AuthzPolicyTag(name string) string {
 	return fmt.Sprintf("UserFromPolicy[%s]", name)
 }
 
-func SimpleAuthzProto(name string) *authpb.AuthorizationPolicy {
+func SimpleAuthorizationProto(name string) *authpb.AuthorizationPolicy {
 	return &authpb.AuthorizationPolicy{
 		Rules: []*authpb.Rule{
 			{
@@ -209,14 +209,14 @@ func SimpleAuthzProto(name string) *authpb.AuthorizationPolicy {
 	}
 }
 
-func SimpleAuthzPolicy(name string, namespace string) *model.Config {
+func SimpleAuthorizationPolicy(name string, namespace string) *model.Config {
 	return &model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:      schemas.AuthorizationPolicy.Type,
 			Name:      name,
 			Namespace: namespace,
 		},
-		Spec: SimpleAuthzProto(name),
+		Spec: SimpleAuthorizationProto(name),
 	}
 }
 
