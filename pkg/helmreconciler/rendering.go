@@ -18,6 +18,8 @@ import (
 	"context"
 	"fmt"
 
+	"istio.io/pkg/version"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -102,6 +104,21 @@ func mergeICPSWithProfile(icp *v1alpha2.IstioControlPlaneSpec) (*v1alpha2.IstioC
 	_, baseYAML, err := unmarshalAndValidateICP(baseCRYAML)
 	if err != nil {
 		return nil, err
+	}
+
+	// Due to the fact that base profile is compiled in before a tag can be created, we must allow an additional
+	// override from variables that are set during release build time.
+	hub := version.DockerInfo.Hub
+	tag := version.DockerInfo.Tag
+	if hub != "unknown" && tag != "unknown" {
+		buildHubTagOverlayYAML, err := helm.GenerateHubTagOverlay(hub, tag)
+		if err != nil {
+			return nil, err
+		}
+		baseYAML, err = helm.OverlayYAML(baseYAML, buildHubTagOverlayYAML)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	overlayYAML, err := util.MarshalWithJSONPB(icp)
