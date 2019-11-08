@@ -15,7 +15,7 @@ traceSampling: 1.0
 # if protocol sniffing is enabled for outbound
 enableProtocolSniffingForOutbound: true
 # if protocol sniffing is enabled for inbound
-enableProtocolSniffingForInbound: false
+enableProtocolSniffingForInbound: true
 # Resources for a small pilot install
 resources:
   requests:

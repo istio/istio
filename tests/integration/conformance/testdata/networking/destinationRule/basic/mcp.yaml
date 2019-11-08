@@ -17,17 +17,17 @@ constraints:
               "version":"v2"
             },
             "name":"v2",
-            "traffic_policy":{
-              "load_balancer":{
+            "trafficPolicy":{
+              "loadBalancer":{
                 "simple":"ROUND_ROBIN"
               }
             }
           }
           ],
-          "traffic_policy":{
-            "port_level_settings":[
+          "trafficPolicy":{
+            "portLevelSettings":[
             {
-              "load_balancer":{
+              "loadBalancer":{
                 "simple":"LEAST_CONN"
               },
               "port":{
@@ -35,7 +35,7 @@ constraints:
               }
             },
             {
-              "load_balancer":{
+              "loadBalancer":{
                 "simple":"ROUND_ROBIN"
               },
               "port":{

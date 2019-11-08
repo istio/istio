@@ -21,21 +21,18 @@ import (
 	"fmt"
 	"time"
 
-	"k8s.io/apimachinery/pkg/fields"
-
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-
-	"istio.io/istio/security/pkg/pki/util"
-	"istio.io/pkg/log"
-
 	cert "k8s.io/api/certificates/v1beta1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/client-go/kubernetes"
 	certclient "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
+	"k8s.io/client-go/rest"
 
 	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/security/pkg/pki/util"
+	"istio.io/pkg/log"
 )
 
 // TODO:

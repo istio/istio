@@ -69,7 +69,7 @@ func TestWaitCmd(t *testing.T) {
 		},
 		{
 			execClientConfig: cannedResponseMap,
-			args:             strings.Split("x wait --timeout 2s virtual-service foo.default", " "),
+			args:             strings.Split("x wait --timeout 2s virtualservice foo.default", " "),
 			wantException:    false,
 		},
 	}

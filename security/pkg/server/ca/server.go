@@ -67,7 +67,7 @@ type CertificateAuthority interface {
 // specified port.
 type Server struct {
 	monitoring     monitoringMetrics
-	authenticators []authenticator
+	Authenticators []authenticator
 	hostnames      []string
 	authorizer     authorizer
 	ca             CertificateAuthority
@@ -75,6 +75,7 @@ type Server struct {
 	certificate    *tls.Certificate
 	port           int
 	forCA          bool
+	grpcServer     *grpc.Server
 }
 
 // CreateCertificate handles an incoming certificate signing request (CSR). It does
@@ -182,36 +183,50 @@ func (s *Server) HandleCSR(ctx context.Context, request *pb.CsrRequest) (*pb.Csr
 
 // Run starts a GRPC server on the specified port.
 func (s *Server) Run() error {
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", s.port))
-	if err != nil {
-		return fmt.Errorf("cannot listen on port %d (error: %v)", s.port, err)
+	grpcServer := s.grpcServer
+	var listener net.Listener
+	var err error
+
+	if grpcServer == nil {
+		listener, err = net.Listen("tcp", fmt.Sprintf(":%d", s.port))
+		if err != nil {
+			return fmt.Errorf("cannot listen on port %d (error: %v)", s.port, err)
+		}
+
+		var grpcOptions []grpc.ServerOption
+		grpcOptions = append(grpcOptions, s.createTLSServerOption(), grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor))
+
+		grpcServer = grpc.NewServer(grpcOptions...)
 	}
-
-	var grpcOptions []grpc.ServerOption
-	grpcOptions = append(grpcOptions, s.createTLSServerOption(), grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor))
-
-	grpcServer := grpc.NewServer(grpcOptions...)
 	pb.RegisterIstioCAServiceServer(grpcServer, s)
 	pb.RegisterIstioCertificateServiceServer(grpcServer, s)
 
 	grpc_prometheus.EnableHandlingTimeHistogram()
 	grpc_prometheus.Register(grpcServer)
 
-	// grpcServer.Serve() is a blocking call, so run it in a goroutine.
-	go func() {
-		serverCaLog.Infof("Starting GRPC server on port %d", s.port)
+	if listener != nil {
+		// grpcServer.Serve() is a blocking call, so run it in a goroutine.
+		go func() {
+			serverCaLog.Infof("Starting GRPC server on port %d", s.port)
 
-		err := grpcServer.Serve(listener)
+			err := grpcServer.Serve(listener)
 
-		// grpcServer.Serve() always returns a non-nil error.
-		serverCaLog.Warnf("GRPC server returns an error: %v", err)
-	}()
+			// grpcServer.Serve() always returns a non-nil error.
+			serverCaLog.Warnf("GRPC server returns an error: %v", err)
+		}()
+	}
 
 	return nil
 }
 
 // New creates a new instance of `IstioCAServiceServer`.
 func New(ca CertificateAuthority, ttl time.Duration, forCA bool,
+	hostlist []string, port int, trustDomain string, sdsEnabled bool) (*Server, error) {
+	return NewWithGRPC(nil, ca, ttl, forCA, hostlist, port, trustDomain, sdsEnabled)
+}
+
+// New creates a new instance of `IstioCAServiceServer`, running inside an existing gRPC server.
+func NewWithGRPC(grpc *grpc.Server, ca CertificateAuthority, ttl time.Duration, forCA bool,
 	hostlist []string, port int, trustDomain string, sdsEnabled bool) (*Server, error) {
 
 	if len(hostlist) == 0 {
@@ -252,13 +267,14 @@ func New(ca CertificateAuthority, ttl time.Duration, forCA bool,
 	rootCertExpiryTimestamp.Record(extractRootCertExpiryTimestamp(ca))
 
 	server := &Server{
-		authenticators: authenticators,
+		Authenticators: authenticators,
 		authorizer:     &registryAuthorizor{registry.GetIdentityRegistry()},
 		serverCertTTL:  ttl,
 		ca:             ca,
 		hostnames:      hostlist,
 		forCA:          forCA,
 		port:           port,
+		grpcServer:     grpc,
 		monitoring:     newMonitoringMetrics(),
 	}
 	return server, nil
@@ -316,7 +332,7 @@ func (s *Server) getServerCertificate() (*tls.Certificate, error) {
 func (s *Server) authenticate(ctx context.Context) *authenticate.Caller {
 	// TODO: apply different authenticators in specific order / according to configuration.
 	var errMsg string
-	for id, authn := range s.authenticators {
+	for id, authn := range s.Authenticators {
 		u, err := authn.Authenticate(ctx)
 		if err != nil {
 			errMsg += fmt.Sprintf("Authenticator %s at index %d got error: %v. ", authn.AuthenticatorType(), id, err)
