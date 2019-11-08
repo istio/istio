@@ -44,15 +44,15 @@ grafana:
     datasources.yaml:
       apiVersion: 1
       datasources:
-      # - name: Prometheus2
-      #   type: prometheus2
-      #   orgId: 2
-      #   url: http://prometheus:9090
-      #   access: proxy
-      #   isDefault: false
-      #   jsonData:
-      #     timeInterval: 5s
-      #   editable: true
+      - name: Prometheus
+        type: prometheus
+        orgId: 1
+        url: http://prometheus:9090
+        access: proxy
+        isDefault: true
+        jsonData:
+          timeInterval: 5s
+        editable: true
 
   dashboardProviders:
     dashboardproviders.yaml:
