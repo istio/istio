@@ -32,7 +32,7 @@ data:
     external_services:
       istio:
         url_service_version: http://istio-pilot.{{ .Values.global.configNamespace }}:8080/version
-      jaeger:
+      tracing:
         url: {{ .Values.kiali.dashboard.jaegerURL }}
       grafana:
         url: {{ .Values.kiali.dashboard.grafanaURL }}

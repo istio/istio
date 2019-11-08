@@ -42,7 +42,7 @@ data:
     external_services:
       istio:
         url_service_version: http://istio-pilot.istio-system:8080/version
-      jaeger:
+      tracing:
         url: 
       grafana:
         url: 
@@ -79,8 +79,8 @@ rules:
       - nodes
       - pods
       - pods/log
-      - services
       - replicationcontrollers
+      - services
     verbs:
       - get
       - list
@@ -88,8 +88,8 @@ rules:
   - apiGroups: ["extensions", "apps"]
     resources:
       - deployments
-      - statefulsets
       - replicasets
+      - statefulsets
     verbs:
       - get
       - list
@@ -146,8 +146,8 @@ rules:
       - nodes
       - pods
       - pods/log
-      - services
       - replicationcontrollers
+      - services
     verbs:
       - get
       - list
@@ -155,8 +155,8 @@ rules:
   - apiGroups: ["extensions", "apps"]
     resources:
       - deployments
-      - statefulsets
       - replicasets
+      - statefulsets
     verbs:
       - get
       - list
@@ -192,6 +192,7 @@ rules:
       - monitoringdashboards
     verbs:
       - get
+      - list
 
 ---
 # Source: kiali/templates/clusterrolebinding.yaml
