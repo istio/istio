@@ -196,9 +196,6 @@ func NewVerifyCommand() *cobra.Command {
 		# Verify that Istio can be freshly installed
 		istioctl verify-install
 		
-		# Verify that the deployment matches the istio-demo profile
-		istioctl verify-install -f istio-demo.yaml
-		
 		# Verify the deployment matches a custom Istio deployment configuration
 		istioctl verify-install -f $HOME/istio.yaml
 `,
