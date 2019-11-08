@@ -36,11 +36,12 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
-	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/istiod"
 	"istio.io/pkg/log"
+
+	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 )
 
 // Helpers to configure the k8s-dependent registries

@@ -63,7 +63,7 @@ func (cca *ClientCertAuthenticator) AuthenticatorType() string {
 // chain validation itself.
 func (cca *ClientCertAuthenticator) Authenticate(ctx context.Context) (*Caller, error) {
 	peer, ok := peer.FromContext(ctx)
-	if !ok || peer.AuthInfo == nil {
+	if !ok {
 		return nil, fmt.Errorf("no client certificate is presented")
 	}
 

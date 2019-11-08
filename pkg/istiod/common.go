@@ -15,29 +15,28 @@
 package istiod
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
-	"os"
 	"strconv"
-
-	"istio.io/pkg/log"
 
 	"google.golang.org/grpc"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/bootstrap"
+
 	"istio.io/istio/galley/pkg/server"
+
 	"istio.io/istio/galley/pkg/server/settings"
 	"istio.io/istio/pilot/pkg/model"
-	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/filewatcher"
+
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 )
 
 // Server contains the runtime configuration for Istiod.
@@ -89,15 +88,6 @@ type Server struct {
 	secureGrpcListener net.Listener
 }
 
-var (
-
-	// GalleyOverride is an optional json file, in the format defined by the galley.Args struct, to patch
-	// galley settings. It can be mounted as a config map for users who need advanced features - until a proper
-	// high-level API ( MeshConfig or Istio API ) is defined if the use case is common enough.
-	// Break-glass only, version-specific.
-	GalleyOverride = "./var/lib/istio/galley/galley.json"
-)
-
 // InitCommon starts the common services - metrics. Ctrlz is currently started by Galley, will need
 // to be refactored and moved here.
 func (s *Server) InitCommon(args *PilotArgs) {
@@ -141,7 +131,7 @@ func NewIstiod(kconfig *rest.Config, kclient *kubernetes.Clientset, confDir stri
 
 	// If the namespace isn't set, try looking it up from the environment.
 	if args.Namespace == "" {
-		args.Namespace = IstiodNamespace.Get()
+		args.Namespace = podNamespaceVar.Get()
 	}
 	if args.KeepaliveOptions == nil {
 		args.KeepaliveOptions = istiokeepalive.DefaultOption()
@@ -170,7 +160,7 @@ func NewIstiod(kconfig *rest.Config, kclient *kubernetes.Clientset, confDir stri
 	basePort := int32(basePortI)
 	server.basePort = basePort
 
-	args.DiscoveryOptions = DiscoveryServiceOptions{
+	args.DiscoveryOptions = bootstrap.DiscoveryServiceOptions{
 		HTTPAddr: ":8080", // lots of tools use this
 		GrpcAddr: fmt.Sprintf(":%d", basePort+10),
 		// Using 12 for K8S-DNS based cert.
@@ -216,16 +206,6 @@ func NewIstiod(kconfig *rest.Config, kclient *kubernetes.Clientset, confDir stri
 	gargs.KubeRestConfig = kconfig
 	gargs.KubeInterface = kclient
 
-	// TODO: add to mesh.yaml - possibly using same model as tracers/etc
-
-	if _, err := os.Stat(GalleyOverride); err == nil {
-		overrideGalley, err := ioutil.ReadFile(GalleyOverride)
-		if err != nil {
-			log.Fatalf("Failed to read overrides %v", err)
-		}
-		json.Unmarshal(overrideGalley, gargs)
-	}
-
 	// The file is loaded and watched by Galley using galley/pkg/meshconfig watcher/reader
 	// Current code in galley doesn't expose it - we'll use 2 Caches instead.
 
@@ -233,22 +213,6 @@ func NewIstiod(kconfig *rest.Config, kclient *kubernetes.Clientset, confDir stri
 
 	// Actual files are loaded by galley/pkg/src/fs, which recursively loads .yaml and .yml files
 	// The files are suing YAMLToJSON, but interpret Kind, APIVersion
-
-	// This is the 'mesh' file served by Galley - not clear who is using it, ideally we should drop it.
-	// It is based on default configs, will include overrides from user, merged CRD, etc.
-	// TODO: when the mesh.yaml is reloaded, replace the file watched by Galley as well.
-	if _, err := os.Stat(meshCfgFile); err != nil {
-		// Galley requires this file to exist. Create it in a writeable directory, override.
-		meshBytes, err := json.Marshal(server.Mesh)
-		if err != nil {
-			return nil, fmt.Errorf("failed to serialize mesh %v", err)
-		}
-		err = ioutil.WriteFile("/tmp/mesh", meshBytes, 0700)
-		if err != nil {
-			return nil, fmt.Errorf("failed to serialize mesh %v", err)
-		}
-		meshCfgFile = "/tmp/mesh"
-	}
 
 	gargs.MeshConfigFile = meshCfgFile
 	gargs.MonitoringPort = uint(basePort + 15)
