@@ -419,6 +419,8 @@ values:
           memory: 10Mi
     sds:
       enabled: false
+      token:
+        aud: istio-ca
       udsPath: ""
     tracer:
       datadog:
