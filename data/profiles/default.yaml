@@ -354,6 +354,8 @@ spec:
       sds:
         enabled: false
         udsPath: ""
+        token:
+          aud: istio-ca
       meshNetworks: {}
       localityLbSetting:
         enabled: true

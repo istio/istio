@@ -37166,6 +37166,8 @@ spec:
       sds:
         enabled: false
         udsPath: ""
+        token:
+          aud: istio-ca
       meshNetworks: {}
       localityLbSetting:
         enabled: true
@@ -37798,8 +37800,8 @@ spec:
       sds:
         enabled: true
         udsPath: "unix:/var/run/sds/uds_path"
-        useNormalJwt: false
-        useTrustworthyJwt: true
+        token:
+          aud: "istio-ca"
     nodeagent:
       image: node-agent-k8s
       env:
