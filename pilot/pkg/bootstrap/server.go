@@ -1050,10 +1050,13 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	}
 
 	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(environment,
-		istio_networking.NewConfigGenerator(args.Plugins),
-		s.ServiceController, s.kubeRegistry, s.configController)
+		istio_networking.NewConfigGenerator(args.Plugins))
 	s.mux = http.NewServeMux()
 	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController, args.DiscoveryOptions.EnableProfiling)
+
+	if err := s.initEventHandlers(); err != nil {
+		return err
+	}
 
 	if s.kubeRegistry != nil {
 		// kubeRegistry may use the environment for push status reporting.
@@ -1102,12 +1105,9 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	s.GRPCListeningAddr = grpcListener.Addr()
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		go func() {
-			if !s.waitForCacheSync(stop) {
-				return
-			}
-		}()
-
+		if !s.waitForCacheSync(stop) {
+			return fmt.Errorf("failed to sync cache")
+		}
 		log.Infof("starting discovery service at http=%s grpc=%s", listener.Addr(), grpcListener.Addr())
 		go func() {
 			if err := s.httpServer.Serve(listener); err != nil {
@@ -1425,6 +1425,55 @@ func (s *Server) initCertController(args *PilotArgs) error {
 
 		return nil
 	})
+
+	return nil
+}
+
+// initEventHandlers sets up event handlers for config and service updates
+func (s *Server) initEventHandlers() error {
+	// Flush cached discovery responses whenever services configuration change.
+	serviceHandler := func(svc *model.Service, _ model.Event) {
+		pushReq := &model.PushRequest{
+			Full:               true,
+			NamespacesUpdated:  map[string]struct{}{svc.Attributes.Namespace: {}},
+			ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
+		}
+		s.EnvoyXdsServer.ConfigUpdate(pushReq)
+	}
+	if err := s.ServiceController.AppendServiceHandler(serviceHandler); err != nil {
+		return fmt.Errorf("append service handler failed: %v", err)
+	}
+
+	instanceHandler := func(si *model.ServiceInstance, _ model.Event) {
+		// TODO: This is an incomplete code. This code path is called for service entries, consul, etc.
+		// In all cases, this is simply an instance update and not a config update. So, we need to update
+		// EDS in all proxies, and do a full config push for the instance that just changed (add/update only).
+		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{
+			Full:              true,
+			NamespacesUpdated: map[string]struct{}{si.Service.Attributes.Namespace: {}},
+			// TODO: extend and set service instance type, so no need re-init push context
+			ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
+		})
+	}
+	if err := s.ServiceController.AppendInstanceHandler(instanceHandler); err != nil {
+		return fmt.Errorf("append instance handler failed: %v", err)
+	}
+
+	// TODO(Nino-k): remove this case once incrementalUpdate is default
+	if s.configController != nil {
+		// TODO: changes should not trigger a full recompute of LDS/RDS/CDS/EDS
+		// (especially mixerclient HTTP and quota)
+		configHandler := func(c model.Config, _ model.Event) {
+			pushReq := &model.PushRequest{
+				Full:               true,
+				ConfigTypesUpdated: map[string]struct{}{c.Type: {}},
+			}
+			s.EnvoyXdsServer.ConfigUpdate(pushReq)
+		}
+		for _, descriptor := range schemas.Istio {
+			s.configController.RegisterEventHandler(descriptor.Type, configHandler)
+		}
+	}
 
 	return nil
 }
