@@ -505,9 +505,9 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 					}
 					// If there is a port match, we should trim the service ports to the port specified by listener.
 					if portMatched {
-						ports := []*Port{}
 						for _, port := range s.Ports {
 							if port.Port == int(ilw.IstioListener.Port.GetNumber()) {
+								ports := []*Port{}
 								sc := s.DeepCopy()
 								ports = append(ports, port)
 								sc.Ports = ports
