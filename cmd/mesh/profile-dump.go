@@ -15,10 +15,8 @@
 package mesh
 
 import (
-	"bytes"
 	"fmt"
 	"io/ioutil"
-	"text/template"
 
 	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
@@ -145,7 +143,7 @@ func genICPS(inFilename, profile, setOverlayYAML string, force bool, l *logger) 
 	hub := version.DockerInfo.Hub
 	tag := version.DockerInfo.Tag
 	if hub != "unknown" && tag != "unknown" {
-		buildHubTagOverlayYAML, err := generateHubTagOverlay(hub, tag)
+		buildHubTagOverlayYAML, err := helm.GenerateHubTagOverlay(hub, tag)
 		if err != nil {
 			return "", nil, err
 		}
@@ -282,34 +280,4 @@ func getConfigSubtree(manifest, path string) (string, error) {
 		return "", err
 	}
 	return string(out), nil
-}
-
-// generateHubTagOverlay creates an IstioControlPlaneSpec overlay YAML for hub and tag.
-func generateHubTagOverlay(hub, tag string) (string, error) {
-	hubTagYAMLTemplate := `
-hub: {{.Hub}}
-tag: {{.Tag}}
-`
-	ts := struct {
-		Hub string
-		Tag string
-	}{
-		Hub: hub,
-		Tag: tag,
-	}
-	return renderTemplate(hubTagYAMLTemplate, ts)
-}
-
-// helper method to render template
-func renderTemplate(tmpl string, ts interface{}) (string, error) {
-	t, err := template.New("").Parse(tmpl)
-	if err != nil {
-		return "", err
-	}
-	buf := new(bytes.Buffer)
-	err = t.Execute(buf, ts)
-	if err != nil {
-		return "", err
-	}
-	return buf.String(), nil
 }
