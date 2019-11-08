@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -115,7 +116,8 @@ type sdsservice struct {
 	tickerInterval time.Duration
 
 	// close channel.
-	closing chan bool
+	closing  chan bool
+	localJWT bool
 }
 
 // ClientDebug represents a single SDS connection to the ndoe agent
@@ -137,7 +139,7 @@ type Debug struct {
 }
 
 // newSDSService creates Secret Discovery Service which implements envoy v2 SDS API.
-func newSDSService(st cache.SecretManager, skipTokenVerification bool, recycleInterval time.Duration) *sdsservice {
+func newSDSService(st cache.SecretManager, skipTokenVerification, localJWT bool, recycleInterval time.Duration) *sdsservice {
 	if st == nil {
 		return nil
 	}
@@ -147,6 +149,7 @@ func newSDSService(st cache.SecretManager, skipTokenVerification bool, recycleIn
 		skipToken:      skipTokenVerification,
 		tickerInterval: recycleInterval,
 		closing:        make(chan bool),
+		localJWT:       localJWT,
 	}
 
 	go ret.clearStaledClientsJob()
@@ -202,7 +205,7 @@ func (s *sdsservice) DeltaSecrets(stream sds.SecretDiscoveryService_DeltaSecrets
 // StreamSecrets serves SDS discovery requests and SDS push requests
 func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecretsServer) error {
 	token := ""
-	var ctx context.Context
+	ctx := context.Background()
 
 	var receiveError error
 	reqChannel := make(chan *xdsapi.DiscoveryRequest, 1)
@@ -260,7 +263,15 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			defer recycleConnection(conID, resourceName)
 
 			conIDresourceNamePrefix := sdsLogPrefix(conID, resourceName)
-			if !s.skipToken {
+			if s.localJWT {
+				// Running in-process, no need to pass the token from envoy to agent as in-context - use the file
+				tok, err := ioutil.ReadFile("./var/run/secrets/tokens/istio-token")
+				if err != nil {
+					sdsServiceLog.Errorf("Failed to get credential token: %v", err)
+					return err
+				}
+				token = string(tok)
+			} else if !s.skipToken {
 				ctx = stream.Context()
 				t, err := getCredentialToken(ctx)
 				if err != nil {
@@ -360,7 +371,15 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 // FetchSecrets generates and returns secret from SecretManager in response to DiscoveryRequest
 func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error) {
 	token := ""
-	if !s.skipToken {
+	if s.localJWT {
+		// Running in-process, no need to pass the token from envoy to agent as in-context - use the file
+		tok, err := ioutil.ReadFile("./var/run/secrets/tokens/istio-token")
+		if err != nil {
+			sdsServiceLog.Errorf("Failed to get credential token: %v", err)
+			return nil, err
+		}
+		token = string(tok)
+	} else if !s.skipToken {
 		t, err := getCredentialToken(ctx)
 		if err != nil {
 			sdsServiceLog.Errorf("Failed to get credential token: %v", err)
