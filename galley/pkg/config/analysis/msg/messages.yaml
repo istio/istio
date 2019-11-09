@@ -120,7 +120,7 @@ messages:
     description: "A Sidecar resource selects the same workloads as another Sidecar resource"
     template: "The Sidecars %v in namespace %q select the same workload pod %q, which can lead to undefined behavior."
     args:
-      - name: conflitingSidecars
+      - name: conflictingSidecars
         type: "[]string"
       - name: namespace
         type: string
@@ -133,7 +133,7 @@ messages:
     description: "More than one sidecar resource in a namespace has no workload selector"
     template: "The Sidecars %v in namespace %q have no workload selector, which can lead to undefined behavior."
     args:
-      - name: conflitingSidecars
+      - name: conflictingSidecars
         type: "[]string"
       - name: namespace
         type: string
