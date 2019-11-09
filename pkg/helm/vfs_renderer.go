@@ -64,7 +64,7 @@ type VFSRenderer struct {
 // NewVFSRenderer creates a VFSRenderer with the given relative path to helm charts, component name and namespace and
 // a base values YAML string.
 func NewVFSRenderer(helmChartDirPath, componentName, namespace string) *VFSRenderer {
-	log.Infof("NewVFSRenderer with helmChart=%s, componentName=%s, namespace=%s", helmChartDirPath, componentName, namespace)
+	log.Debugf("NewVFSRenderer with helmChart=%s, componentName=%s, namespace=%s", helmChartDirPath, componentName, namespace)
 	return &VFSRenderer{
 		namespace:        namespace,
 		componentName:    componentName,
@@ -74,7 +74,7 @@ func NewVFSRenderer(helmChartDirPath, componentName, namespace string) *VFSRende
 
 // Run implements the TemplateRenderer interface.
 func (h *VFSRenderer) Run() error {
-	log.Infof("Run VFSRenderer with helmChart=%s, componentName=%s, namespace=%s", h.helmChartDirPath, h.componentName, h.namespace)
+	log.Debugf("Run VFSRenderer with helmChart=%s, componentName=%s, namespace=%s", h.helmChartDirPath, h.componentName, h.namespace)
 	if err := h.loadChart(); err != nil {
 		return err
 	}
@@ -124,7 +124,7 @@ func (h *VFSRenderer) loadChart() error {
 			Data: b,
 		}
 		bfs = append(bfs, bf)
-		log.Infof("Chart loaded: %s", bf.Name)
+		log.Debugf("Chart loaded: %s", bf.Name)
 	}
 
 	h.chart, err = chartutil.LoadFiles(bfs)
