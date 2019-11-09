@@ -1,4 +1,16 @@
 ---
+# Source: base/templates/namespaces.yaml
+# To prevent accidental injection into istio control plane namespaces.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: istio-system
+  labels:
+    istio-operator-managed: Reconcile
+    istio-injection: disabled
+---
+
+---
 # Source: base/templates/serviceaccount.yaml
 
 apiVersion: v1
@@ -5264,18 +5276,6 @@ subjects:
 ---
 # Source: base/templates/endpoints.yaml
 
-
----
-# Source: base/templates/namespaces.yaml
-# To prevent accidental injection into istio control plane namespaces.
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: istio-system
-  labels:
-    istio-operator-managed: Reconcile
-    istio-injection: disabled
----
 
 ---
 # Source: base/templates/services.yaml

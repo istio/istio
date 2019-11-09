@@ -1,4 +1,4 @@
-{{- if .Values.prometheus.createPrometheusResource }}
+{{- if .Values.prometheusOperator.createPrometheusResource }}
 apiVersion: monitoring.coreos.com/v1
 kind: Prometheus
 metadata:
@@ -7,10 +7,10 @@ metadata:
   labels:
     release: {{ .Release.Name }}
 spec:
-  image: "{{ .Values.prometheus.hub }}/{{ .Values.prometheus.image | default "prometheus" }}:{{ .Values.prometheus.tag }}"
-  version: {{ .Values.prometheus.tag }}
-  retention: {{ .Values.prometheus.retention }}
-  scrapeInterval: {{ .Values.prometheus.scrapeInterval }}
+  image: "{{ .Values.prometheusOperator.hub }}/{{ .Values.prometheusOperator.image | default "prometheus" }}:{{ .Values.prometheusOperator.tag }}"
+  version: {{ .Values.prometheusOperator.tag }}
+  retention: {{ .Values.prometheusOperator.retention }}
+  scrapeInterval: {{ .Values.prometheusOperator.scrapeInterval }}
   serviceAccountName: prometheus
   serviceMonitorSelector:
     any: true
@@ -24,9 +24,9 @@ spec:
   affinity:
   {{- include "nodeaffinity" . | indent 2 }}
   {{- include "podAntiAffinity" . | indent 2 }}
-{{- if .Values.prometheus.tolerations }}
+{{- if .Values.prometheusOperator.tolerations }}
   tolerations:
-{{ toYaml .Values.prometheus.tolerations | indent 2 }}
+{{ toYaml .Values.prometheusOperator.tolerations | indent 2 }}
 {{- end }}
   podMetadata:
     labels:
@@ -77,7 +77,7 @@ subjects:
   name: prometheus
   namespace: {{ .Release.Namespace }}
 ---
-{{- if not .Values.prometheus.service.nodePort.enabled }}
+{{- if not .Values.prometheusOperator.service.nodePort.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -86,7 +86,7 @@ metadata:
   annotations:
     prometheus.io/scrape: 'true'
     {{- if .Values.service }}
-    {{- range $key, $val := .Values.prometheus.service.annotations }}
+    {{- range $key, $val := .Values.prometheusOperator.service.annotations }}
     {{ $key }}: {{ $val | quote }}
     {{- end }}
     {{- end }}
@@ -114,7 +114,7 @@ spec:
   type: NodePort
   ports:
   - port: 9090
-    nodePort: {{ .Values.prometheus.service.nodePort.port }}
+    nodePort: {{ .Values.prometheusOperator.service.nodePort.port }}
     name: http-prometheus
   selector:
     app: prometheus
