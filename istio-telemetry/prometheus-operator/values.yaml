@@ -1,4 +1,4 @@
-prometheus:
+prometheusOperator:
   # Controls the default scrape interval used in the ServiceMonitors
   scrapeInterval: 15s
 
