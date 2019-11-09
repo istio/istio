@@ -793,6 +793,10 @@ func (ps *PushContext) updateContext(
 			authzChanged = true
 		case schemas.AuthenticationPolicy.Type, schemas.AuthenticationMeshPolicy.Type:
 			authnChanged = true
+		case "":
+			// Special case(s): synthetic events can update more than one object. Currently ingress.
+			virtualServicesChanged = true
+			gatewayChanged = true
 		}
 	}
 
