@@ -36,3 +36,8 @@ data:
       cert_file: {{ .Values.security.cert_file }}
       private_key_file: {{ .Values.security.private_key_file }}
 {{- end}}
+{{- if .Values.excludedWorkloads }}
+    kubernetes_config:
+      excluded_workloads:
+{{ toYaml .Values.excludedWorkloads | indent 8 }}
+{{- end -}}
