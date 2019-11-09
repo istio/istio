@@ -136,9 +136,9 @@ func (t *Translator) OverlayK8sSettings(yml string, icp *v1alpha2.IstioControlPl
 	if err != nil {
 		return "", err
 	}
-	log.Infof("Manifest contains the following objects:")
+	log.Debugf("Manifest contains the following objects:")
 	for _, o := range objects {
-		log.Infof("%s", o.HashNameKind())
+		log.Debugf("%s", o.HashNameKind())
 	}
 	// om is a map of kind:name string to Object ptr.
 	om := objects.ToNameKindMap()
@@ -147,30 +147,30 @@ func (t *Translator) OverlayK8sSettings(yml string, icp *v1alpha2.IstioControlPl
 		if err != nil {
 			return "", err
 		}
-		log.Infof("Checking for path %s in IstioControlPlaneSpec", inPath)
+		log.Debugf("Checking for path %s in IstioControlPlaneSpec", inPath)
 		m, found, err := name.GetFromStructPath(icp, inPath)
 		if err != nil {
 			return "", err
 		}
 		if !found {
-			log.Infof("path %s not found in IstioControlPlaneSpec, skip mapping.", inPath)
+			log.Debugf("path %s not found in IstioControlPlaneSpec, skip mapping.", inPath)
 			continue
 		}
 		if mstr, ok := m.(string); ok && mstr == "" {
-			log.Infof("path %s is empty string, skip mapping.", inPath)
+			log.Debugf("path %s is empty string, skip mapping.", inPath)
 			continue
 		}
 		// Zero int values are due to proto3 compiling to scalars rather than ptrs. Skip these because values of 0 are
 		// the default in destination fields and need not be set explicitly.
 		if mint, ok := util.ToIntValue(m); ok && mint == 0 {
-			log.Infof("path %s is int 0, skip mapping.", inPath)
+			log.Debugf("path %s is int 0, skip mapping.", inPath)
 			continue
 		}
 		outPath, err := t.renderResourceComponentPathTemplate(v.OutPath, componentName)
 		if err != nil {
 			return "", err
 		}
-		log.Infof("path has value in IstioControlPlaneSpec, mapping to output path %s", outPath)
+		log.Debugf("path has value in IstioControlPlaneSpec, mapping to output path %s", outPath)
 		path := util.PathFromString(outPath)
 		pe := path[0]
 		// Output path must start with [kind:name], which is used to map to the object to overlay.

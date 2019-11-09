@@ -787,7 +787,7 @@ func renderManifest(c *CommonComponentFields) (string, error) {
 		return "", err
 	}
 
-	log.Infof("Merged values:\n%s\n", mergedYAML)
+	log.Debugf("Merged values:\n%s\n", mergedYAML)
 
 	my, err := c.renderer.RenderManifest(mergedYAML)
 	if err != nil {
@@ -816,7 +816,7 @@ func renderManifest(c *CommonComponentFields) (string, error) {
 		return "", err
 	}
 	if !found {
-		log.Infof("Manifest after resources: \n%s\n", my)
+		log.Debugf("Manifest after resources: \n%s\n", my)
 		return my, nil
 	}
 	kyo, err := yaml.Marshal(overlays)
