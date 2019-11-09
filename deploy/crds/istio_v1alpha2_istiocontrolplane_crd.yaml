@@ -30,10 +30,6 @@ spec:
             submits requests to. Cannot be updated. In CamelCase.
             More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
           type: string
-        metadata:
-          description: 'Metadata about the istio control plane resource.
-            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#metadata'
-          type: object
         spec:
           description: 'Specification of the desired state of the istio control plane resource.
             More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
