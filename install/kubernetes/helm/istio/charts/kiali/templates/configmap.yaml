@@ -11,6 +11,8 @@ metadata:
 data:
   config.yaml: |
     istio_namespace: {{ .Release.Namespace }}
+    deployment:
+      accessible_namespaces: ['**']
     auth:
       strategy: {{ .Values.dashboard.auth.strategy }}
     server:
