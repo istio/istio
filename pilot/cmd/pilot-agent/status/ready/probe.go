@@ -110,7 +110,12 @@ func (p *Probe) pingVirtualListeners() error {
 
 	for _, vport := range vports {
 		con, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", p.ProxyIP, vport), time.Second*1)
-		defer con.Close()
+		if con != nil {
+			con.Close()
+		}
+		if isTimeout(err) {
+			continue
+		}
 		if err != nil {
 			return fmt.Errorf("listener on address %d is still not listening: %v", vport, err)
 		}
@@ -119,4 +124,11 @@ func (p *Probe) pingVirtualListeners() error {
 	p.listenersBound = true
 
 	return nil
+}
+
+func isTimeout(err error) bool {
+	if err, ok := err.(net.Error); ok && err.Timeout() {
+		return true
+	}
+	return false
 }
