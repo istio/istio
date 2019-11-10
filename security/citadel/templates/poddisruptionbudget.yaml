@@ -5,7 +5,7 @@ metadata:
   name: istio-citadel
   namespace: {{ .Release.Namespace }}
   labels:
-    app: citadel
+    app: security
     istio: citadel
     release: {{ .Release.Name }}
 spec:

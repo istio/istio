@@ -361,7 +361,7 @@ metadata:
   name: istio-telemetry
   namespace: istio-system
   labels:
-    app: istio-telemetry
+    app: mixer
     istio: mixer
     release: istio-system-istio
 spec:
@@ -390,7 +390,6 @@ metadata:
     app: istio-mixer
     istio: mixer
     release: istio-system-istio
-    istio-mixer-type: telemetry
 spec:
   replicas: 1
   strategy:
@@ -404,7 +403,7 @@ spec:
   template:
     metadata:
       labels:
-        app: istio-telemetry
+        app: telemetry
         istio: mixer
         istio-mixer-type: telemetry
       annotations:
@@ -571,8 +570,8 @@ metadata:
   name: istio-telemetry
   namespace: istio-system
   labels:
+    app: mixer
     release: istio-system-istio
-    app: istio-telemetry
 spec:
     maxReplicas: 5
     minReplicas: 1

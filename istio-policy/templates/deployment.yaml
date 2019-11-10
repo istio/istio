@@ -19,13 +19,12 @@ spec:
       maxUnavailable: {{ .Values.mixer.policy.rollingMaxUnavailable }}
   selector:
     matchLabels:
-      app: istio-policy
       istio: mixer
       istio-mixer-type: policy
   template:
     metadata:
       labels:
-        app: istio-policy
+        app: policy
         istio: mixer
         istio-mixer-type: policy
       annotations:

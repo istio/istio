@@ -21,6 +21,7 @@ metadata:
   labels:
     app: istio-ingressgateway
     release: istio-system-istio
+    istio: ingressgateway
 spec:
   type: LoadBalancer
   selector:

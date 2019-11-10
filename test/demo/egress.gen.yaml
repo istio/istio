@@ -47,6 +47,7 @@ metadata:
   labels:
     app: istio-egressgateway
     release: istio-system-istio
+    istio: egressgateway
 spec:
   type: ClusterIP
   selector:

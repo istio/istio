@@ -4,7 +4,7 @@ metadata:
   name: istio-sidecar-injector
   namespace: {{ .Release.Namespace }}
   labels:
-    app: sidecar-injector
+    app: sidecarInjectorWebhook
     release: {{ .Release.Name }}
     istio: sidecar-injector
 spec:

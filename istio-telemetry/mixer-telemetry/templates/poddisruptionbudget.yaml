@@ -5,7 +5,7 @@ metadata:
   name: istio-telemetry
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-telemetry
+    app: telemetry
     release: {{ .Release.Name }}
     istio: mixer
     istio-mixer-type: telemetry
@@ -13,7 +13,7 @@ spec:
   minAvailable: 1
   selector:
     matchLabels:
-      app: istio-telemetry
+      app: telemetry
       release: {{ .Release.Name }}
       istio: mixer
       istio-mixer-type: telemetry

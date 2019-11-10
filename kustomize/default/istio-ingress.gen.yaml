@@ -21,6 +21,7 @@ metadata:
   labels:
     app: istio-ingressgateway
     release: istio-system-istio
+    istio: ingressgateway
 spec:
   type: LoadBalancer
   selector:
@@ -307,6 +308,7 @@ metadata:
   namespace: istio-system
   labels:
     app: istio-ingressgateway
+    istio: ingressgateway
     release: istio-system-istio
 spec:
   maxReplicas: 5

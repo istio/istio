@@ -12,6 +12,7 @@ metadata:
   labels:
     app: istio-ingressgateway
     release: {{ .Release.Name }}
+    istio: ingressgateway
 spec:
 {{- if $gateway.loadBalancerIP }}
   loadBalancerIP: "{{ $gateway.loadBalancerIP }}"
