@@ -502,7 +502,22 @@ message GlobalConfig {
 
   google.protobuf.BoolValue operatorManageWebhooks = 41;
 
-  // The next available key is 44
+  // Settings for remote cluster.
+
+  // Controls whether to use the Istio remote control plane
+  google.protobuf.BoolValue istioRemote = 44;
+  google.protobuf.BoolValue createRemoteSvcEndpoints = 45;
+  // If set, a selector-less service and endpoint for istio-pilot are created with the remotePilotAddress IP,
+  // which ensures the istio-pilot. is DNS resolvable in the remote cluster.
+  google.protobuf.BoolValue remotePilotCreateSvcEndpoint = 46;
+  // Specifies the Istio control plane’s policy Pod IP address or remote cluster DNS resolvable hostname.
+  string remotePolicyAddress = 47;
+  // Specifies the Istio control plane’s pilot Pod IP address or remote cluster DNS resolvable hostname.
+  string remotePilotAddress = 48;
+  // Specifies the Istio control plane’s telemetry Pod IP address or remote cluster DNS resolvable hostname
+  string remoteTelemetryAddress = 49;
+
+  // The next available key is 50
 }
 
 // GlobalLoggingConfig specifies the global logging level settings for the Istio control plane components.
@@ -1028,6 +1043,11 @@ message PilotConfig {
   //
   // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
   TypeMapStringInterface podAnnotations = 30;
+
+  // ConfigSource describes a source of configuration data for networking
+  // rules, and other Istio configuration artifacts. Multiple data sources
+  // can be configured for a single control plane.
+  PilotConfigSource configSource = 31;
 }
 
 // Controls legacy k8s ingress. Only one pilot profile should enable ingress support.
@@ -1064,6 +1084,14 @@ message PilotPolicyConfig {
 message PilotTelemetryConfig {
   // Controls whether telemetry is exported for Pilot.
   google.protobuf.BoolValue enabled = 1;
+}
+
+// PilotConfigSource describes information about a configuration store inside a
+// mesh. A single control plane instance can interact with one or more data
+// sources.
+message PilotConfigSource {
+  // Describes the source of configuration, if nothing is specified default is MCP.
+  string subscribedResources = 1;
 }
 
 // Configuration for a port.
