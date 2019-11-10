@@ -31,9 +31,6 @@ type K8sAnalyzer struct{}
 
 var (
 	istioAnnotations = annotation.AllResourceAnnotations()
-
-	//TODO need String() method for the annotation resourceType.
-	resourceTypeNames = annotation.AllResourceTypes()
 )
 
 // Metadata implements analyzer.Analyzer
@@ -55,7 +52,7 @@ func (*K8sAnalyzer) Metadata() analysis.Metadata {
 // Analyze implements analysis.Analyzer
 func (fa *K8sAnalyzer) Analyze(ctx analysis.Context) {
 	ctx.ForEach(metadata.K8SCoreV1Endpoints, func(r *resource.Entry) bool {
-		fa.allowAnnotations(r, ctx, "Endpoints", metadata.K8SCoreV1Endpoints)
+		fa.allowAnnotations(r, ctx, "Endpoint", metadata.K8SCoreV1Endpoints)
 		return true
 	})
 	ctx.ForEach(metadata.K8SCoreV1Namespaces, func(r *resource.Entry) bool {
@@ -170,16 +167,10 @@ func lookupAnnotation(ann string) *annotation.Instance {
 }
 
 func resourceTypesAsStrings(resourceTypes []annotation.ResourceTypes) []string {
-	retval := make([]string, len(resourceTypes))
-	var ok bool
-	for i, resourceType := range resourceTypes {
-		if resourceType
-	}
-
-	for i, resourceType := range resourceTypes {
-		retval[i], ok = resourceTypeNames[resourceType]
-		if !ok {
-			retval[i] = "Unknown"
+	retval := []string{}
+	for _, resourceType := range resourceTypes {
+		if s := resourceType.String(); s != "Unknown" {
+			retval = append(retval, s)
 		}
 	}
 	return retval
