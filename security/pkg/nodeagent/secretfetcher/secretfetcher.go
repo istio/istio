@@ -156,7 +156,11 @@ var namespaceVar = env.RegisterStringVar(ingressSecretNamespace, "", "")
 
 // InitWithKubeClient initializes SecretFetcher to watch kubernetes secrets.
 func (sf *SecretFetcher) InitWithKubeClient(core corev1.CoreV1Interface) { // nolint:interfacer
-	namespace := namespaceVar.Get()
+	sf.InitWithKubeClientAndNs(core, namespaceVar.Get())
+}
+
+// InitWithKubeClientAndNs initializes SecretFetcher to watch kubernetes secrets.
+func (sf *SecretFetcher) InitWithKubeClientAndNs(core corev1.CoreV1Interface, namespace string) { // nolint:interfacer
 	istioSecretSelector := fields.SelectorFromSet(nil).String()
 	scrtLW := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {

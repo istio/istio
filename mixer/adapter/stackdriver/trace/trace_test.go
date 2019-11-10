@@ -90,7 +90,7 @@ func TestProjectID(t *testing.T) {
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			mg := helper.NewMetadataGenerator(dummyShouldFill, tt.pid, dummyMetadataFn, dummyMetadataFn, dummyMetadataFn)
+			mg := helper.NewMetadataGenerator(dummyShouldFill, tt.pid, dummyMetadataFn, dummyMetadataFn)
 			b := &builder{mg: mg}
 			b.SetAdapterConfig(tt.cfg)
 			_, err := b.Build(context.Background(), test.NewEnv(t))

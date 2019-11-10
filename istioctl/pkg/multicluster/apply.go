@@ -92,11 +92,6 @@ func apply(mesh *Mesh, env Environment) error {
 			continue
 		}
 
-		if cluster.DisableRegistryJoin {
-			env.Printf("not joining cluster %v, service registry not joined yet\n", cluster)
-			continue
-		}
-
 		opt := RemoteSecretOptions{
 			KubeOptions: KubeOptions{
 				Context:   cluster.Context,

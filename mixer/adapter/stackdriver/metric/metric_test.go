@@ -55,7 +55,7 @@ var clientFunc = func(err error) createClientFunc {
 
 var dummyShouldFill = func() bool { return true }
 var dummyMetadataFn = func() (string, error) { return "", nil }
-var dummyMetadataGenerator = helper.NewMetadataGenerator(dummyShouldFill, dummyMetadataFn, dummyMetadataFn, dummyMetadataFn, dummyMetadataFn)
+var dummyMetadataGenerator = helper.NewMetadataGenerator(dummyShouldFill, dummyMetadataFn, dummyMetadataFn, dummyMetadataFn)
 
 func TestFactory_NewMetricsAspect(t *testing.T) {
 	tests := []struct {
@@ -190,7 +190,7 @@ func TestRecord(t *testing.T) {
 	}
 	m := &metricpb.Metric{
 		Type:   "type",
-		Labels: map[string]string{"str": "str", "int": "34", "mesh_uid": "mesh-id"},
+		Labels: map[string]string{"str": "str", "int": "34", "mesh_uid": "quite-a-mesh"},
 	}
 	info := map[string]info{
 		"gauge": {
@@ -392,8 +392,9 @@ func TestRecord(t *testing.T) {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
 			buf := &fakebuf{}
 			s := &handler{
+				meshUID:    "quite-a-mesh",
 				metricInfo: info,
-				md:         helper.Metadata{ProjectID: projectID, MeshID: "mesh-id"},
+				md:         helper.Metadata{ProjectID: projectID},
 				client:     buf,
 				l:          test.NewEnv(t).Logger(),
 				now:        func() time.Time { return now },
@@ -451,12 +452,55 @@ func TestProjectID(t *testing.T) {
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			mg := helper.NewMetadataGenerator(dummyShouldFill, tt.pid, dummyMetadataFn, dummyMetadataFn, dummyMetadataFn)
+			mg := helper.NewMetadataGenerator(dummyShouldFill, tt.pid, dummyMetadataFn, dummyMetadataFn)
 			b := &builder{createClient: createClientFn(tt.want), mg: mg}
 			b.SetAdapterConfig(tt.cfg)
 			_, err := b.Build(context.Background(), test.NewEnv(t))
 			if err != nil {
 				t.Errorf("Project id is not expected: %v", err)
+			}
+		})
+	}
+}
+
+func TestMeshUID(t *testing.T) {
+	createClientFn := func(meshUID string) createClientFunc {
+		return func(cfg *config.Params, logger adapter.Logger) (*monitoring.MetricClient, error) {
+			if cfg.MeshUid != meshUID {
+				return nil, fmt.Errorf("got %v; wanted %v", cfg.MeshUid, meshUID)
+			}
+			return nil, nil
+		}
+	}
+	tests := []struct {
+		name string
+		cfg  *config.Params
+		want string
+	}{
+		{
+			"empty mesh id",
+			&config.Params{
+				MeshUid: "",
+			},
+			"",
+		},
+		{
+			"mesh uid in config",
+			&config.Params{
+				MeshUid: "another-mesh",
+			},
+			"another-mesh",
+		},
+	}
+
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
+			mg := helper.NewMetadataGenerator(dummyShouldFill, dummyMetadataFn, dummyMetadataFn, dummyMetadataFn)
+			b := &builder{createClient: createClientFn(tt.want), mg: mg}
+			b.SetAdapterConfig(tt.cfg)
+			_, err := b.Build(context.Background(), test.NewEnv(t))
+			if err != nil {
+				t.Errorf("Mesh UID is not expected: %v", err)
 			}
 		})
 	}
@@ -530,7 +574,7 @@ func TestProjectMetadata(t *testing.T) {
 			buf := &fakebuf{}
 			s := &handler{
 				metricInfo: info,
-				md:         helper.Metadata{ProjectID: "pid", Location: "location", ClusterName: "cluster", MeshID: "mesh-id"},
+				md:         helper.Metadata{ProjectID: "pid", Location: "location", ClusterName: "cluster"},
 				client:     buf,
 				l:          test.NewEnv(t).Logger(),
 				now:        func() time.Time { return now },

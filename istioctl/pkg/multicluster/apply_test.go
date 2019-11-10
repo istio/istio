@@ -433,7 +433,10 @@ func TestApply_DisableRegistryInOneCluster(t *testing.T) {
 				action("get", "serviceaccounts"): 1,
 			},
 			clusters[1].uid: {
-				action("list", "secrets"): 1,
+				action("list", "secrets"):        2,
+				action("get", "namespaces"):      1,
+				action("get", "serviceaccounts"): 1,
+				action("get", "secrets"):         1,
 			},
 			clusters[2].uid: {
 				action("get", "secrets"):         2,

@@ -173,22 +173,22 @@ func NewConflictingMeshGatewayVirtualServiceHosts(entry *resource.Entry, virtual
 }
 
 // NewConflictingSidecarWorkloadSelectors returns a new diag.Message based on ConflictingSidecarWorkloadSelectors.
-func NewConflictingSidecarWorkloadSelectors(entry *resource.Entry, conflitingSidecars []string, namespace string, workloadPod string) diag.Message {
+func NewConflictingSidecarWorkloadSelectors(entry *resource.Entry, conflictingSidecars []string, namespace string, workloadPod string) diag.Message {
 	return diag.NewMessage(
 		ConflictingSidecarWorkloadSelectors,
 		originOrNil(entry),
-		conflitingSidecars,
+		conflictingSidecars,
 		namespace,
 		workloadPod,
 	)
 }
 
 // NewMultipleSidecarsWithoutWorkloadSelectors returns a new diag.Message based on MultipleSidecarsWithoutWorkloadSelectors.
-func NewMultipleSidecarsWithoutWorkloadSelectors(entry *resource.Entry, conflitingSidecars []string, namespace string) diag.Message {
+func NewMultipleSidecarsWithoutWorkloadSelectors(entry *resource.Entry, conflictingSidecars []string, namespace string) diag.Message {
 	return diag.NewMessage(
 		MultipleSidecarsWithoutWorkloadSelectors,
 		originOrNil(entry),
-		conflitingSidecars,
+		conflictingSidecars,
 		namespace,
 	)
 }
