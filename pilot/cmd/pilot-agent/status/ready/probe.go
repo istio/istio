@@ -37,6 +37,7 @@ type Probe struct {
 
 // Check executes the probe and returns an error if the probe fails.
 func (p *Probe) Check() error {
+	p.listenersBound = true
 	// First, check that Envoy has received a configuration update from Pilot.
 	if err := p.checkConfigStatus(); err != nil {
 		return err
