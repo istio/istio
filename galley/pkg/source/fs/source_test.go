@@ -413,6 +413,7 @@ func TestBuiltinResource(t *testing.T) {
 	})
 }
 func TestBuiltinResourceWithWatcherEnabled(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/18385")
 	dir := createTempDir(t)
 	defer deleteTempDir(t, dir)
 
