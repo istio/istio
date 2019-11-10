@@ -25,6 +25,24 @@ rules:
 ---
 
 
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: istio-reader-cp
+  labels:
+    app: istio-reader
+    release: istio
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: istio-reader-cp
+subjects:
+  - kind: ServiceAccount
+    name: istio-reader-service-account
+    namespace: cp
+---
+
+
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
@@ -5254,6 +5272,17 @@ metadata:
   labels:
     istio-operator-managed: Reconcile
     istio-injection: disabled
+---
+
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-reader-service-account
+  namespace: cp
+  labels:
+    app: istio-reader
+    release: istio
 ---
 
 # CertManager component is disabled.
