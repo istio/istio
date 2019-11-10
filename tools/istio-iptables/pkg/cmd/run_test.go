@@ -365,3 +365,108 @@ func TestHandleInboundPortsIncludeWithEmptyInboundPorts(t *testing.T) {
 		t.Errorf("Expected ip6Rules to be empty; instead got %#v", ip6Rules)
 	}
 }
+
+func TestHandleInboundPortsIncludeWithInboundPorts(t *testing.T) {
+	iptConfigurator := NewIptablesConfigurator(constructConfig())
+	iptConfigurator.cfg.InboundPortsInclude = "32000,31000"
+	iptConfigurator.handleInboundPortsInclude()
+
+	ip4Rules := FormatIptablesCommands(iptConfigurator.iptables.BuildV4())
+	ip6Rules := FormatIptablesCommands(iptConfigurator.iptables.BuildV6())
+	if !reflect.DeepEqual([]string{}, ip6Rules) {
+		t.Errorf("Expected ip6Rules to be empty; instead got %#v", ip6Rules)
+	}
+	expectedIpv4Rules := []string{
+		"iptables -t nat -N ISTIO_INBOUND",
+		"iptables -t nat -A PREROUTING -p tcp -j ISTIO_INBOUND",
+		"iptables -t nat -A ISTIO_INBOUND -p tcp --dport 32000 -j ISTIO_IN_REDIRECT",
+		"iptables -t nat -A ISTIO_INBOUND -p tcp --dport 31000 -j ISTIO_IN_REDIRECT",
+	}
+	if !reflect.DeepEqual(ip4Rules, expectedIpv4Rules) {
+		t.Errorf("Output mismatch\nExpected: %#v\nActual: %#v", expectedIpv4Rules, ip4Rules)
+	}
+}
+
+func TestHandleInboundPortsIncludeWithWildcardInboundPorts(t *testing.T) {
+	iptConfigurator := NewIptablesConfigurator(constructConfig())
+	iptConfigurator.cfg.InboundPortsInclude = "*"
+	iptConfigurator.handleInboundPortsInclude()
+
+	ip4Rules := FormatIptablesCommands(iptConfigurator.iptables.BuildV4())
+	ip6Rules := FormatIptablesCommands(iptConfigurator.iptables.BuildV6())
+	if !reflect.DeepEqual([]string{}, ip6Rules) {
+		t.Errorf("Expected ip6Rules to be empty; instead got %#v", ip6Rules)
+	}
+	expectedIpv4Rules := []string{
+		"iptables -t nat -N ISTIO_INBOUND",
+		"iptables -t nat -A PREROUTING -p tcp -j ISTIO_INBOUND",
+		"iptables -t nat -A ISTIO_INBOUND -p tcp --dport 22 -j RETURN",
+		"iptables -t nat -A ISTIO_INBOUND -p tcp -j ISTIO_IN_REDIRECT",
+	}
+	if !reflect.DeepEqual(ip4Rules, expectedIpv4Rules) {
+		t.Errorf("Output mismatch\nExpected: %#v\nActual: %#v", expectedIpv4Rules, ip4Rules)
+	}
+}
+
+func TestHandleInboundPortsIncludeWithInboundPortsAndTproxy(t *testing.T) {
+	config := constructConfig()
+	config.DryRun = true
+	iptConfigurator := NewIptablesConfigurator(config)
+	iptConfigurator.cfg.InboundPortsInclude = "32000,31000"
+	iptConfigurator.cfg.InboundInterceptionMode = "TPROXY"
+	iptConfigurator.handleInboundPortsInclude()
+
+	ip4Rules := FormatIptablesCommands(iptConfigurator.iptables.BuildV4())
+	ip6Rules := FormatIptablesCommands(iptConfigurator.iptables.BuildV6())
+	if !reflect.DeepEqual([]string{}, ip6Rules) {
+		t.Errorf("Expected ip6Rules to be empty; instead got %#v", ip6Rules)
+	}
+	expectedIpv4Rules := []string{
+		"iptables -t mangle -N ISTIO_DIVERT",
+		"iptables -t mangle -N ISTIO_TPROXY",
+		"iptables -t mangle -N ISTIO_INBOUND",
+		"iptables -t mangle -A ISTIO_DIVERT -j MARK --set-mark 1337",
+		"iptables -t mangle -A ISTIO_DIVERT -j ACCEPT",
+		"iptables -t mangle -A ISTIO_TPROXY ! -d 127.0.0.1/32 -p tcp -j TPROXY --tproxy-mark 1337/0xffffffff --on-port 15001",
+		"iptables -t mangle -A PREROUTING -p tcp -j ISTIO_INBOUND",
+		"iptables -t mangle -A ISTIO_INBOUND -p tcp --dport 32000 -m socket -j ISTIO_DIVERT",
+		"iptables -t mangle -A ISTIO_INBOUND -p tcp --dport 32000 -m socket -j ISTIO_DIVERT",
+		"iptables -t mangle -A ISTIO_INBOUND -p tcp --dport 32000 -j ISTIO_TPROXY",
+		"iptables -t mangle -A ISTIO_INBOUND -p tcp --dport 31000 -m socket -j ISTIO_DIVERT",
+		"iptables -t mangle -A ISTIO_INBOUND -p tcp --dport 31000 -m socket -j ISTIO_DIVERT",
+		"iptables -t mangle -A ISTIO_INBOUND -p tcp --dport 31000 -j ISTIO_TPROXY",
+	}
+	if !reflect.DeepEqual(ip4Rules, expectedIpv4Rules) {
+		t.Errorf("Output mismatch\nExpected: %#v\nActual: %#v", expectedIpv4Rules, ip4Rules)
+	}
+}
+
+func TestHandleInboundPortsIncludeWithWildcardInboundPortsAndTproxy(t *testing.T) {
+	config := constructConfig()
+	config.DryRun = true
+	iptConfigurator := NewIptablesConfigurator(config)
+	iptConfigurator.cfg.InboundPortsInclude = "*"
+	iptConfigurator.cfg.InboundInterceptionMode = "TPROXY"
+	iptConfigurator.handleInboundPortsInclude()
+
+	ip4Rules := FormatIptablesCommands(iptConfigurator.iptables.BuildV4())
+	ip6Rules := FormatIptablesCommands(iptConfigurator.iptables.BuildV6())
+	if !reflect.DeepEqual([]string{}, ip6Rules) {
+		t.Errorf("Expected ip6Rules to be empty; instead got %#v", ip6Rules)
+	}
+	expectedIpv4Rules := []string{
+		"iptables -t mangle -N ISTIO_DIVERT",
+		"iptables -t mangle -N ISTIO_TPROXY",
+		"iptables -t mangle -N ISTIO_INBOUND",
+		"iptables -t mangle -A ISTIO_DIVERT -j MARK --set-mark 1337",
+		"iptables -t mangle -A ISTIO_DIVERT -j ACCEPT",
+		"iptables -t mangle -A ISTIO_TPROXY ! -d 127.0.0.1/32 -p tcp -j TPROXY --tproxy-mark 1337/0xffffffff --on-port 15001",
+		"iptables -t mangle -A PREROUTING -p tcp -j ISTIO_INBOUND",
+		"iptables -t mangle -A ISTIO_INBOUND -p tcp --dport 22 -j RETURN",
+		"iptables -t mangle -A ISTIO_INBOUND -p tcp -m socket -j ISTIO_DIVERT",
+		"iptables -t mangle -A ISTIO_INBOUND -p tcp -j ISTIO_TPROXY",
+	}
+	if !reflect.DeepEqual(ip4Rules, expectedIpv4Rules) {
+		t.Errorf("Output mismatch\nExpected: %#v\nActual: %#v", expectedIpv4Rules, ip4Rules)
+	}
+}
