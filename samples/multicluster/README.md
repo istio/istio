@@ -1,88 +1,97 @@
 
-Set environment variables for the three clusters in the mesh
+# Instructions for building a multi-cluster multi-network mesh.
+
+Choose clusters to build a mesh from. The clusters may be on the same or
+diferent network.
 
 ```
 bash
-export CLUSTER1_KUBECONFIG=${HOME}/.kube/config
-export CLUSTER1_CONTEXT=west0
+export CLUSTER0_KUBECONFIG=${HOME}/.kube/config
+export CLUSTER0_CONTEXT=west0
 
-export CLUSTER0_KUBECONFIG=$HOME/.kube/config
-export CLUSTER0_CONTEXT=west1
+export CLUSTER1_KUBECONFIG=$HOME/.kube/config
+export CLUSTER1_CONTEXT=west1
 
 export CLUSTER2_KUBECONFIG=$HOME/.kube/config
 export CLUSTER2_CONTEXT=east0
 ```
 
-Configure an org name for root and intermediate certs.
+Pick the mesh specific parameters.
 
 ```bash
+# Organization name for root and intermediate certs.
 export ORG_NAME=jason.example.com
-```
 
-Configure the MESH_ID.
-
-```bash
+# Pick a unique ID for the mesh.b
 export MESH_ID=MyMesh
 ```
 
-Pick a working directory for generated files. This will be created if it doesn't
-exist.
+Create a working directory for generated certs and configuration.
 
 ```bash
 export WORKDIR=mesh-workspace
+[ ! -d "${WORKDIR}" ] && mkdir ${WORKDIR}
 ```
 
-Create a single merged KUBECONFIG with only clusters in the mesh. This is used
-in all subsequent steps. This only needs to be run once per mesh.
+Create a single merged KUBECONFIG with clusters in the mesh. This is used in
+subsequent steps. This only needs to be run once per mesh.
 
 ```bash
-./update-kubeconfig.sh
+./setup-mesh.sh prepare-kubeconfig
 ```
 
-Prepare the initial set of artifacts for the mesh. This creates the following:
+Prepare the initial configuration for the mesh. This creates:
 
-* base control plane configuration
-* initial empty mesh topology file
-* root key and cert. This will sign all intermediate certs in the mesh.
+* The base control plane configuration.
+* The initial empty mesh topology file that you will add your clusters to.
+* A root key and cer that will sign intermediate certs for each cluster.
 
 This only needs to be run once per mesh.
 
 ```bash
-./prepare-mesh.sh
+./setup-mesh.sh prepare-mesh
 ```
 
-Update the clusters after you've added your clusters to
-`${WORKDIR}/topology. This script performs the following steps:
-
-* generates interemediate certs for each cluster
-* generates control plane configuration for each cluster. These are persisted as
-  `${WORKDIR}/istio-<context>.yaml` for inspection.
-* creates the necessary gateways for cross-network traffic.
-* configures the control planes for cross-cluster service discovery.
-* installs the bookinfo app in each cluster
+Build the mesh. Add your clusters to `${WORKDIR}/topology` and apply
+configuration to each cluster to form the multicluster mesh.  Build the
+mesh.
 
 ```bash
-./update-clusters.sh
+./setup-mesh.sh apply
 ```
 
-You can simulate
+Install the sample bookinfo application in each cluster.
+
+```bash
+./setup-mesh.sh install-bookinfo
+```
+
+Scale the bookinfo services in each cluster to simulate partial service
+availability. The application should continue to function when accessed through
+cluster's gateway.
 
 ```bash
 # only serve review-v1 and ratings-v1
-kubectl --context=us-west1-a_vpc0-prod0 scale deployment details-v1 --replicas=0
-kubectl --context=us-west1-a_vpc0-prod0 scale deployment productpage-v1 --replicas=0
-kubectl --context=us-west1-a_vpc0-prod0 scale deployment reviews-v2 --replicas=0
-kubectl --context=us-west1-a_vpc0-prod0 scale deployment reviews-v3 --replicas=0
+for DEPLOYMENT in details-v1 productpage-v1 reviews-v2 reviews-v3; do
+    kubectl --kubeconfig=${CLUSTER0_KUBECONFIG} --context=${CLUSTER0_CONTEXT} \
+        scale deployment ${DEPLOYMENT} --replicas=0
+done
 
 # only serve review-v2 and productpage-v1
-kubectl --context=us-west1-a_vpc0-prod1 scale deployment ratings-v1 --replicas=0
-kubectl --context=us-west1-a_vpc0-prod1 scale deployment details-v1 --replicas=0
-kubectl --context=us-west1-a_vpc0-prod1 scale deployment reviews-v1 --replicas=0
-kubectl --context=us-west1-a_vpc0-prod1 scale deployment reviews-v3 --replicas=0
+for DEPLOYMENT in details-v1 reviews-v2 reviews-v3 ratings-v1; do
+    kubectl --kubeconfig=${CLUSTER1_KUBECONFIG} --context=${CLUSTER1_CONTEXT} \
+        scale deployment ${DEPLOYMENT} --replicas=0
+done
 
 # only serve review-v3 and details-v1
-kubectl --context=us-east1-b_vpc1-prod0 scale deployment productpage-v1 --replicas=0
-kubectl --context=us-east1-b_vpc1-prod0 scale deployment ratings-v1-v1 --replicas=0
-kubectl --context=us-east1-b_vpc1-prod0 scale deployment reviews-v1 --replicas=0
-kubectl --context=us-east1-b_vpc1-prod0 scale deployment reviews-v2 --replicas=0
+for DEPLOYMENT in productpage-v1 reviews-v2 reviews-v1 ratings-v1; do
+    kubectl --kubeconfig=${CLUSTER2_KUBECONFIG} --context=${CLUSTER2_CONTEXT} \
+        scale deployment ${DEPLOYMENT} --replicas=0
+done
+```
+
+Teardown the mesh and restore cluster's to the original state.
+
+```bash
+./setup-mesh teardown
 ```
