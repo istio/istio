@@ -121,9 +121,8 @@ func GetVirtualListenerPorts(localHostAddr string, adminPort uint16) ([]uint16, 
 	}
 	ports := make([]uint16, 0)
 	for _, l := range listeners.ListenerStatuses {
-		if l.Name == networking.VirtualOutboundListenerName || l.Name == networking.VirtualInboundListenerName {
-			if l.LocalAddress != nil && l.LocalAddress.GetSocketAddress() != nil &&
-				!isLocalListener(l.LocalAddress.GetSocketAddress().GetAddress()) {
+		if l.Name == networking.VirtualInboundListenerName {
+			if l.LocalAddress != nil && l.LocalAddress.GetSocketAddress() != nil {
 				ports = append(ports, uint16(l.LocalAddress.GetSocketAddress().GetPortValue()))
 			}
 		}

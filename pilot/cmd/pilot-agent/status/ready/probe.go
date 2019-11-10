@@ -37,7 +37,6 @@ type Probe struct {
 
 // Check executes the probe and returns an error if the probe fails.
 func (p *Probe) Check() error {
-	p.listenersBound = true
 	// First, check that Envoy has received a configuration update from Pilot.
 	if err := p.checkConfigStatus(); err != nil {
 		return err
@@ -111,9 +110,7 @@ func (p *Probe) pingVirtualListeners() error {
 
 	for _, vport := range vports {
 		con, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", p.ProxyIP, vport), time.Second*1)
-		if con != nil {
-			con.Close()
-		}
+		defer con.Close()
 		if err != nil {
 			return fmt.Errorf("listener on address %d is still not listening: %v", vport, err)
 		}
