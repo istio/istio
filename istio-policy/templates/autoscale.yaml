@@ -5,7 +5,7 @@ metadata:
   name: istio-policy
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-policy
+    app: mixer
     release: {{ .Release.Name }}
 spec:
     maxReplicas: {{ .Values.mixer.policy.autoscaleMax }}

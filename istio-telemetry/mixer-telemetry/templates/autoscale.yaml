@@ -5,8 +5,8 @@ metadata:
   name: istio-telemetry
   namespace: {{ .Release.Namespace }}
   labels:
+    app: mixer
     release: {{ .Release.Name }}
-    app: istio-telemetry
 spec:
     maxReplicas: {{ .Values.mixer.telemetry.autoscaleMax }}
     minReplicas: {{ .Values.mixer.telemetry.autoscaleMin }}

@@ -6,6 +6,7 @@ metadata:
   name: istio-citadel-service-account
   namespace: istio-system
   labels:
+    app: security
     release: istio-system-istio
 
 ---
@@ -63,7 +64,7 @@ metadata:
   name: istio-citadel
   namespace: istio-system
   labels:
-    app: citadel
+    app: security
     istio: citadel
     release: istio-system-istio
 
@@ -87,7 +88,7 @@ metadata:
   name: istio-citadel
   namespace: istio-system
   labels:
-    app: citadel
+    app: security
     istio: citadel
     release: istio-system-istio
 
@@ -177,7 +178,7 @@ metadata:
   name: istio-citadel
   namespace: istio-system
   labels:
-    app: citadel
+    app: security
     istio: citadel
     release: istio-system-istio
 spec:

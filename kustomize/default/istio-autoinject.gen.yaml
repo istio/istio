@@ -485,7 +485,7 @@ metadata:
   name: istio-sidecar-injector-service-account
   namespace: istio-system
   labels:
-    app: sidecar-injector
+    app: sidecarInjectorWebhook
     release: istio-system-istio
     istio: sidecar-injector
 
@@ -535,7 +535,7 @@ metadata:
   name: istio-sidecar-injector
   namespace: istio-system
   labels:
-    app: sidecar-injector
+    app: sidecarInjectorWebhook
     release: istio-system-istio
     istio: sidecar-injector
 spec:
@@ -553,7 +553,7 @@ metadata:
   name: istio-sidecar-injector
   namespace: istio-system
   labels:
-    app: sidecar-injector
+    app: sidecarInjectorWebhook
     release: istio-system-istio
     istio: sidecar-injector
 spec:

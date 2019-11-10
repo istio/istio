@@ -7,6 +7,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: istio-egressgateway
+    istio: egressgateway
     release: {{ .Release.Name }}
 spec:
   maxReplicas: {{ $gateway.autoscaleMax }}
