@@ -17,7 +17,7 @@
 set -o errexit
 
 #
-# U defined configuration
+# User defined configuration
 #
 
 # Keep all generated artificates in a dedicated workspace
@@ -38,7 +38,7 @@ set -o errexit
 : "${CLUSTER2_KUBECONFIG:?CLUSTER2_KUBECONFIG not set}"
 
 #
-# D configuration
+# derived configuration
 #
 
 # Resolve to an absolute path
