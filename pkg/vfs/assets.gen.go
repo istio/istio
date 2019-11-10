@@ -7,9 +7,11 @@
 // ../../data/charts/base/files/crd-mixer.yaml
 // ../../data/charts/base/kustomization.yaml
 // ../../data/charts/base/templates/clusterrole.yaml
+// ../../data/charts/base/templates/clusterrolebinding.yaml
 // ../../data/charts/base/templates/crds.yaml
 // ../../data/charts/base/templates/endpoints.yaml
 // ../../data/charts/base/templates/namespaces.yaml
+// ../../data/charts/base/templates/serviceaccount.yaml
 // ../../data/charts/base/templates/services.yaml
 // ../../data/charts/base/values.yaml
 // ../../data/charts/gateways/istio-egress/Chart.yaml
@@ -5785,6 +5787,41 @@ func chartsBaseTemplatesClusterroleYaml() (*asset, error) {
 	return a, nil
 }
 
+var _chartsBaseTemplatesClusterrolebindingYaml = []byte(`{{ if .Values.clusterResources }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: istio-reader-{{ .Release.Namespace }}
+  labels:
+    app: istio-reader
+    release: {{ .Release.Name }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: istio-reader-{{ .Release.Namespace }}
+subjects:
+  - kind: ServiceAccount
+    name: istio-reader-service-account
+    namespace: {{ .Release.Namespace }}
+---
+{{ end }}
+`)
+
+func chartsBaseTemplatesClusterrolebindingYamlBytes() ([]byte, error) {
+	return _chartsBaseTemplatesClusterrolebindingYaml, nil
+}
+
+func chartsBaseTemplatesClusterrolebindingYaml() (*asset, error) {
+	bytes, err := chartsBaseTemplatesClusterrolebindingYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/base/templates/clusterrolebinding.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _chartsBaseTemplatesCrdsYaml = []byte(`{{ .Files.Get "files/crd-all.gen.yaml" }}
 {{ .Files.Get "files/crd-mixer.yaml" }}
 {{- if .Values.certmanager }}
@@ -5967,6 +6004,40 @@ func chartsBaseTemplatesNamespacesYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "charts/base/templates/namespaces.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsBaseTemplatesServiceaccountYaml = []byte(`{{ if .Values.clusterResources }}
+apiVersion: v1
+kind: ServiceAccount
+{{- if .Values.global.imagePullSecrets }}
+imagePullSecrets:
+{{- range .Values.global.imagePullSecrets }}
+  - name: {{ . }}
+{{- end }}
+{{- end }}
+metadata:
+  name: istio-reader-service-account
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: istio-reader
+    release: {{ .Release.Name }}
+---
+{{ end }}
+`)
+
+func chartsBaseTemplatesServiceaccountYamlBytes() ([]byte, error) {
+	return _chartsBaseTemplatesServiceaccountYaml, nil
+}
+
+func chartsBaseTemplatesServiceaccountYaml() (*asset, error) {
+	bytes, err := chartsBaseTemplatesServiceaccountYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/base/templates/serviceaccount.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -6328,6 +6399,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: istio-egressgateway
+    istio: egressgateway
     release: {{ .Release.Name }}
 spec:
   maxReplicas: {{ $gateway.autoscaleMax }}
@@ -6613,7 +6685,7 @@ spec:
           - serviceAccountToken:
               path: istio-token
               expirationSeconds: 43200
-              audience: {{ .Values.global.trustDomain }}
+              audience: {{ .Values.global.sds.token.aud }}
       {{- end }}
       {{ if .Values.global.sds.enabled }}
       - name: sdsudspath
@@ -6807,6 +6879,7 @@ metadata:
   labels:
     app: istio-egressgateway
     release: {{ .Release.Name }}
+    istio: egressgateway
 spec:
   type: ClusterIP
   selector:
@@ -7314,6 +7387,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: istio-ingressgateway
+    istio: ingressgateway
     release: {{ .Release.Name }}
 spec:
   maxReplicas: {{ $gateway.autoscaleMax }}
@@ -7547,13 +7621,17 @@ spec:
         {{- else }}
           - zipkin:9411
         {{- end }}
-        {{- if .Values.global.proxy.envoyMetricsService.enabled }}
-          - --envoyMetricsServiceAddress
-          - {{ .Values.global.proxy.envoyMetricsService.host }}:{{ .Values.global.proxy.envoyMetricsService.port }}
-        {{- end }}
-        {{- if .Values.global.proxy.envoyAccessLogService.enabled }}
-          - --envoyAccessLogServiceAddress
-          - {{ .Values.global.proxy.envoyAccessLogService.host }}:{{ .Values.global.proxy.envoyAccessLogService.port }}
+        {{- if $.Values.global.proxy.envoyMetricsService.enabled }}
+          - --envoyMetricsService
+          {{- with  $.Values.global.proxy.envoyMetricsService }}
+          - '{"address":"{{ .host }}:{{.port }}"{{ if .tlsSettings }},"tlsSettings":{{ .tlsSettings | toJson }}{{- end }}{{ if .tcpKeepalive }},"tcpKeepalive":{{ .tcpKeepalive | toJson }}{{- end }}}'
+          {{- end }}
+        {{- end}}
+        {{- if $.Values.global.proxy.envoyAccessLogService.enabled }}
+          - --envoyAccessLogService
+          {{- with  $.Values.global.proxy.envoyAccessLogService }}
+          - '{"address":"{{ .host }}:{{.port }}"{{ if .tlsSettings }},"tlsSettings":{{ .tlsSettings | toJson }}{{- end }}{{ if .tcpKeepalive }},"tcpKeepalive":{{ .tcpKeepalive | toJson }}{{- end }}}'
+          {{- end }}
         {{- end }}
           - --proxyAdminPort
           - "15000"
@@ -7710,7 +7788,7 @@ spec:
           - serviceAccountToken:
               path: istio-token
               expirationSeconds: 43200
-              audience: {{ .Values.global.trustDomain }}
+              audience: {{ .Values.global.sds.token.aud }}
       {{- end }}
       - name: istio-certs
         secret:
@@ -8218,6 +8296,7 @@ metadata:
   labels:
     app: istio-ingressgateway
     release: {{ .Release.Name }}
+    istio: ingressgateway
 spec:
 {{- if $gateway.loadBalancerIP }}
   loadBalancerIP: "{{ $gateway.loadBalancerIP }}"
@@ -9085,12 +9164,12 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
     - "{{ .ProxyConfig.StatsdUdpAddress }}"
   {{- end }}
   {{- if .Values.global.proxy.envoyMetricsService.enabled }}
-    - --envoyMetricsServiceAddress
-    - "{{ .ProxyConfig.GetEnvoyMetricsService.GetAddress }}"
+    - --envoyMetricsService
+    - '{{ protoToJSON .ProxyConfig.EnvoyMetricsService }}'
   {{- end }}
   {{- if .Values.global.proxy.envoyAccessLogService.enabled }}
-    - --envoyAccessLogServiceAddress
-    - "{{ .ProxyConfig.GetEnvoyAccessLogService.GetAddress }}"
+    - --envoyAccessLogService
+    - '{{ protoToJSON .ProxyConfig.EnvoyAccessLogService }}'
   {{- end }}
     - --proxyAdminPort
     - "{{ .ProxyConfig.ProxyAdminPort }}"
@@ -9698,7 +9777,7 @@ metadata:
   name: istio-sidecar-injector
   namespace: {{ .Release.Namespace }}
   labels:
-    app: sidecar-injector
+    app: sidecarInjectorWebhook
     release: {{ .Release.Name }}
     istio: sidecar-injector
 spec:
@@ -9989,7 +10068,7 @@ metadata:
   name: istio-sidecar-injector
   namespace: {{ .Release.Namespace }}
   labels:
-    app: sidecar-injector
+    app: sidecarInjectorWebhook
     release: {{ .Release.Name }}
     istio: sidecar-injector
 spec:
@@ -10027,7 +10106,7 @@ metadata:
   name: istio-sidecar-injector-service-account
   namespace: {{ .Release.Namespace }}
   labels:
-    app: sidecar-injector
+    app: sidecarInjectorWebhook
     release: {{ .Release.Name }}
     istio: sidecar-injector
 `)
@@ -11703,22 +11782,6 @@ subjects:
     name: istio-pilot-service-account
     namespace: {{ .Release.Namespace }}
 ---
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: istio-reader-{{ .Release.Namespace }}
-  labels:
-    app: istio-reader
-    release: {{ .Release.Name }}
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: istio-reader-{{ .Release.Namespace }}
-subjects:
-  - kind: ServiceAccount
-    name: istio-reader-service-account
-    namespace: {{ .Release.Namespace }}
----
 {{ end }}
 `)
 
@@ -12221,16 +12284,34 @@ data:
     {{- end }}
 
     {{- if .Values.global.proxy.envoyMetricsService.enabled }}
-       # Envoy's Metrics Service stats sink pushes Envoy metrics to a remote collector via the Metrics Service gRPC API.
+      #
+      # Envoy's Metrics Service stats sink pushes Envoy metrics to a remote collector via the Metrics Service gRPC API.
       envoyMetricsService:
         address: {{ .Values.global.proxy.envoyMetricsService.host }}:{{ .Values.global.proxy.envoyMetricsService.port }}
+      {{- if .Values.global.proxy.envoyMetricsService.tlsSettings }}
+        tlsSettings:
+{{ toYaml .Values.global.proxy.envoyMetricsService.tlsSettings | trim | indent 10 }}
+      {{- end}}
+      {{- if .Values.global.proxy.envoyMetricsService.tcpKeepalive }}
+        tcpKeepalive:
+{{ toYaml .Values.global.proxy.envoyMetricsService.tcpKeepalive | trim | indent 10 }}
+      {{- end}}
     {{- end}}
 
 
     {{- if .Values.global.proxy.envoyAccessLogService.enabled }}
+      #
       # Envoy's AccessLog Service pushes access logs to a remote collector via the Access Log Service gRPC API.
       envoyAccessLogService:
         address: {{ .Values.global.proxy.envoyAccessLogService.host }}:{{ .Values.global.proxy.envoyAccessLogService.port }}
+      {{- if .Values.global.proxy.envoyAccessLogService.tlsSettings }}
+        tlsSettings:
+{{ toYaml .Values.global.proxy.envoyAccessLogService.tlsSettings | trim | indent 10 }}
+      {{- end}}
+      {{- if .Values.global.proxy.envoyAccessLogService.tcpKeepalive }}
+        tcpKeepalive:
+{{ toYaml .Values.global.proxy.envoyAccessLogService.tcpKeepalive | trim | indent 10 }}
+      {{- end}}
     {{- end}}
 
 ---
@@ -12477,7 +12558,7 @@ spec:
         projected:
           sources:
           - serviceAccountToken:
-              audience: {{ .Values.global.trustDomain }}
+              audience: {{ .Values.global.sds.token.aud }}
               expirationSeconds: 43200
               path: istio-token
       {{- end }}
@@ -12701,21 +12782,6 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: pilot
-    release: {{ .Release.Name }}
----
-apiVersion: v1
-kind: ServiceAccount
-{{- if .Values.global.imagePullSecrets }}
-imagePullSecrets:
-{{- range .Values.global.imagePullSecrets }}
-  - name: {{ . }}
-{{- end }}
-{{- end }}
-metadata:
-  name: istio-reader-service-account
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: istio-reader
     release: {{ .Release.Name }}
 ---
 {{ end }}
@@ -13107,7 +13173,7 @@ metadata:
   name: istio-policy
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-policy
+    app: mixer
     release: {{ .Release.Name }}
 spec:
     maxReplicas: {{ .Values.mixer.policy.autoscaleMax }}
@@ -13579,13 +13645,12 @@ spec:
       maxUnavailable: {{ .Values.mixer.policy.rollingMaxUnavailable }}
   selector:
     matchLabels:
-      app: istio-policy
       istio: mixer
       istio-mixer-type: policy
   template:
     metadata:
       labels:
-        app: istio-policy
+        app: policy
         istio: mixer
         istio-mixer-type: policy
       annotations:
@@ -13611,7 +13676,7 @@ spec:
         projected:
           sources:
           - serviceAccountToken:
-              audience: {{ .Values.global.trustDomain }}
+              audience: {{ .Values.global.sds.token.aud }}
               expirationSeconds: 43200
               path: istio-token
       {{- end }}
@@ -13807,7 +13872,7 @@ metadata:
   name: istio-policy
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-policy
+    app: policy
     release: {{ .Release.Name }}
     istio: mixer
     istio-mixer-type: policy
@@ -13815,7 +13880,7 @@ spec:
   minAvailable: 1
   selector:
     matchLabels:
-      app: istio-policy
+      app: policy
       release: {{ .Release.Name }}
       istio: mixer
       istio-mixer-type: policy
@@ -13845,7 +13910,7 @@ metadata:
   name: istio-policy
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-policy
+    app: mixer
     istio: mixer
     release: {{ .Release.Name }}
 spec:
@@ -13857,7 +13922,8 @@ spec:
   - name: http-policy-monitoring
     port: 15014
   selector:
-    app: istio-policy
+    istio: mixer
+    istio-mixer-type: policy
 {{- if .Values.mixer.policy.sessionAffinityEnabled }}
   sessionAffinity: ClientIP
 {{- end }}
@@ -16007,10 +16073,10 @@ var _chartsIstioTelemetryGrafanaDashboardsGalleyDashboardJson = []byte(`{
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum by (typeURL) (galley_runtime_state_type_instances_total)",
+          "expr": "sum by (collection) (galley_runtime_state_type_instances_total)",
           "format": "time_series",
           "intervalFactor": 1,
-          "legendFormat": "{{ typeURL }}",
+          "legendFormat": "{{ collection }}",
           "refId": "A"
         }
       ],
@@ -28861,8 +28927,8 @@ rules:
       - nodes
       - pods
       - pods/log
-      - services
       - replicationcontrollers
+      - services
     verbs:
       - get
       - list
@@ -28870,8 +28936,8 @@ rules:
   - apiGroups: ["extensions", "apps"]
     resources:
       - deployments
-      - statefulsets
       - replicasets
+      - statefulsets
     verbs:
       - get
       - list
@@ -28928,8 +28994,8 @@ rules:
       - nodes
       - pods
       - pods/log
-      - services
       - replicationcontrollers
+      - services
     verbs:
       - get
       - list
@@ -28937,8 +29003,8 @@ rules:
   - apiGroups: ["extensions", "apps"]
     resources:
       - deployments
-      - statefulsets
       - replicasets
+      - statefulsets
     verbs:
       - get
       - list
@@ -28974,6 +29040,7 @@ rules:
       - monitoringdashboards
     verbs:
       - get
+      - list
 `)
 
 func chartsIstioTelemetryKialiTemplatesClusterroleYamlBytes() ([]byte, error) {
@@ -29075,7 +29142,7 @@ data:
     external_services:
       istio:
         url_service_version: http://istio-pilot.{{ .Values.global.configNamespace }}:8080/version
-      jaeger:
+      tracing:
         url: {{ .Values.kiali.dashboard.jaegerURL }}
       grafana:
         url: {{ .Values.kiali.dashboard.grafanaURL }}
@@ -29556,8 +29623,8 @@ metadata:
   name: istio-telemetry
   namespace: {{ .Release.Namespace }}
   labels:
+    app: mixer
     release: {{ .Release.Name }}
-    app: istio-telemetry
 spec:
     maxReplicas: {{ .Values.mixer.telemetry.autoscaleMax }}
     minReplicas: {{ .Values.mixer.telemetry.autoscaleMin }}
@@ -30033,7 +30100,7 @@ spec:
       destination_principal: destination.principal | "unknown"
       destination_app: destination.labels["app"] | "unknown"
       destination_version: destination.labels["version"] | "unknown"
-      destination_service: destination.service.host | request.host | "unknown"
+      destination_service: destination.service.host | conditional((destination.service.name | "unknown") == "unknown", "unknown", request.host)
       destination_service_name: destination.service.name | "unknown"
       destination_service_namespace: destination.service.namespace | "unknown"
       request_protocol: api.protocol | context.protocol | "unknown"
@@ -30068,7 +30135,7 @@ spec:
       destination_principal: destination.principal | "unknown"
       destination_app: destination.labels["app"] | "unknown"
       destination_version: destination.labels["version"] | "unknown"
-      destination_service: destination.service.host | request.host | "unknown"
+      destination_service: destination.service.host | conditional((destination.service.name | "unknown") == "unknown", "unknown", request.host)
       destination_service_name: destination.service.name | "unknown"
       destination_service_namespace: destination.service.namespace | "unknown"
       request_protocol: api.protocol | context.protocol | "unknown"
@@ -30103,7 +30170,7 @@ spec:
       destination_principal: destination.principal | "unknown"
       destination_app: destination.labels["app"] | "unknown"
       destination_version: destination.labels["version"] | "unknown"
-      destination_service: destination.service.host | request.host | "unknown"
+      destination_service: destination.service.host | conditional((destination.service.name | "unknown") == "unknown", "unknown", request.host)
       destination_service_name: destination.service.name | "unknown"
       destination_service_namespace: destination.service.namespace | "unknown"
       request_protocol: api.protocol | context.protocol | "unknown"
@@ -30138,7 +30205,7 @@ spec:
       destination_principal: destination.principal | "unknown"
       destination_app: destination.labels["app"] | "unknown"
       destination_version: destination.labels["version"] | "unknown"
-      destination_service: destination.service.host | request.host | "unknown"
+      destination_service: destination.service.host | conditional((destination.service.name | "unknown") == "unknown", "unknown", request.host)
       destination_service_name: destination.service.name | "unknown"
       destination_service_namespace: destination.service.namespace | "unknown"
       request_protocol: api.protocol | context.protocol | "unknown"
@@ -30173,7 +30240,7 @@ spec:
       destination_principal: destination.principal | "unknown"
       destination_app: destination.labels["app"] | "unknown"
       destination_version: destination.labels["version"] | "unknown"
-      destination_service: destination.service.host | request.host | "unknown"
+      destination_service: destination.service.host | "unknown"
       destination_service_name: destination.service.name | "unknown"
       destination_service_namespace: destination.service.namespace | "unknown"
       connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
@@ -30204,7 +30271,7 @@ spec:
       destination_principal: destination.principal | "unknown"
       destination_app: destination.labels["app"] | "unknown"
       destination_version: destination.labels["version"] | "unknown"
-      destination_service: destination.service.host | request.host | "unknown"
+      destination_service: destination.service.host | "unknown"
       destination_service_name: destination.service.name | "unknown"
       destination_service_namespace: destination.service.namespace | "unknown"
       connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
@@ -31004,7 +31071,6 @@ metadata:
     app: istio-mixer
     istio: mixer
     release: {{ .Release.Name }}
-    istio-mixer-type: telemetry
 spec:
   replicas: {{ .Values.mixer.telemetry.replicaCount }}
   strategy:
@@ -31018,7 +31084,7 @@ spec:
   template:
     metadata:
       labels:
-        app: istio-telemetry
+        app: telemetry
         istio: mixer
         istio-mixer-type: telemetry
       annotations:
@@ -31044,7 +31110,7 @@ spec:
         projected:
           sources:
           - serviceAccountToken:
-              audience: {{ .Values.global.trustDomain }}
+              audience: {{ .Values.global.sds.token.aud }}
               expirationSeconds: 43200
               path: istio-token
       {{- end }}
@@ -31245,7 +31311,7 @@ metadata:
   name: istio-telemetry
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-telemetry
+    app: telemetry
     release: {{ .Release.Name }}
     istio: mixer
     istio-mixer-type: telemetry
@@ -31253,7 +31319,7 @@ spec:
   minAvailable: 1
   selector:
     matchLabels:
-      app: istio-telemetry
+      app: telemetry
       release: {{ .Release.Name }}
       istio: mixer
       istio-mixer-type: telemetry
@@ -31283,7 +31349,7 @@ metadata:
   name: istio-telemetry
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-telemetry
+    app: mixer
     istio: mixer
     release: {{ .Release.Name }}
 spec:
@@ -33435,7 +33501,7 @@ func chartsIstioTelemetryPrometheusOperatorTemplates_affinityTpl() (*asset, erro
 	return a, nil
 }
 
-var _chartsIstioTelemetryPrometheusOperatorTemplatesPrometheusYaml = []byte(`{{- if .Values.prometheus.createPrometheusResource }}
+var _chartsIstioTelemetryPrometheusOperatorTemplatesPrometheusYaml = []byte(`{{- if .Values.prometheusOperator.createPrometheusResource }}
 apiVersion: monitoring.coreos.com/v1
 kind: Prometheus
 metadata:
@@ -33444,10 +33510,10 @@ metadata:
   labels:
     release: {{ .Release.Name }}
 spec:
-  image: "{{ .Values.prometheus.hub }}/{{ .Values.prometheus.image | default "prometheus" }}:{{ .Values.prometheus.tag }}"
-  version: {{ .Values.prometheus.tag }}
-  retention: {{ .Values.prometheus.retention }}
-  scrapeInterval: {{ .Values.prometheus.scrapeInterval }}
+  image: "{{ .Values.prometheusOperator.hub }}/{{ .Values.prometheusOperator.image | default "prometheus" }}:{{ .Values.prometheusOperator.tag }}"
+  version: {{ .Values.prometheusOperator.tag }}
+  retention: {{ .Values.prometheusOperator.retention }}
+  scrapeInterval: {{ .Values.prometheusOperator.scrapeInterval }}
   serviceAccountName: prometheus
   serviceMonitorSelector:
     any: true
@@ -33461,9 +33527,9 @@ spec:
   affinity:
   {{- include "nodeaffinity" . | indent 2 }}
   {{- include "podAntiAffinity" . | indent 2 }}
-{{- if .Values.prometheus.tolerations }}
+{{- if .Values.prometheusOperator.tolerations }}
   tolerations:
-{{ toYaml .Values.prometheus.tolerations | indent 2 }}
+{{ toYaml .Values.prometheusOperator.tolerations | indent 2 }}
 {{- end }}
   podMetadata:
     labels:
@@ -33514,7 +33580,7 @@ subjects:
   name: prometheus
   namespace: {{ .Release.Namespace }}
 ---
-{{- if not .Values.prometheus.service.nodePort.enabled }}
+{{- if not .Values.prometheusOperator.service.nodePort.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -33523,7 +33589,7 @@ metadata:
   annotations:
     prometheus.io/scrape: 'true'
     {{- if .Values.service }}
-    {{- range $key, $val := .Values.prometheus.service.annotations }}
+    {{- range $key, $val := .Values.prometheusOperator.service.annotations }}
     {{ $key }}: {{ $val | quote }}
     {{- end }}
     {{- end }}
@@ -33551,7 +33617,7 @@ spec:
   type: NodePort
   ports:
   - port: 9090
-    nodePort: {{ .Values.prometheus.service.nodePort.port }}
+    nodePort: {{ .Values.prometheusOperator.service.nodePort.port }}
     name: http-prometheus
   selector:
     app: prometheus
@@ -33606,7 +33672,7 @@ spec:
       - {{ .Values.global.telemetryNamespace }}
   endpoints:
   - port: prometheus
-    interval: {{ .Values.prometheus.scrapeInterval }}
+    interval: {{ .Values.prometheusOperator.scrapeInterval }}
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
@@ -33625,9 +33691,9 @@ spec:
     any: true
   endpoints:
   - port: http-monitoring
-    interval: {{ .Values.prometheus.scrapeInterval }}
+    interval: {{ .Values.prometheusOperator.scrapeInterval }}
   - port: http-policy-monitoring
-    interval: {{ .Values.prometheus.scrapeInterval }}
+    interval: {{ .Values.prometheusOperator.scrapeInterval }}
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
@@ -33647,7 +33713,7 @@ spec:
   endpoints:
   - path: /stats/prometheus
     targetPort: 15090
-    interval: {{ .Values.prometheus.scrapeInterval }}
+    interval: {{ .Values.prometheusOperator.scrapeInterval }}
     relabelings:
     - sourceLabels: [__meta_kubernetes_pod_container_port_name]
       action: keep
@@ -33677,7 +33743,7 @@ spec:
     any: true
   jobLabel: kubernetes-pods
   endpoints:
-  - interval: {{ .Values.prometheus.scrapeInterval }}
+  - interval: {{ .Values.prometheusOperator.scrapeInterval }}
     relabelings:
     - sourceLabels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
       action: keep
@@ -33706,7 +33772,7 @@ spec:
       action: replace
       targetLabel: pod_name
 ---
-{{- if .Values.prometheus.security.enabled }}
+{{- if .Values.prometheusOperator.security.enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -33723,7 +33789,7 @@ spec:
     any: true
   jobLabel: kubernetes-pods-secure
   endpoints:
-  - interval: {{ .Values.prometheus.scrapeInterval }}
+  - interval: {{ .Values.prometheusOperator.scrapeInterval }}
     scheme: https
     tlsConfig:
       caFile: /etc/prometheus/secrets/istio.prometheus/root-cert.pem
@@ -33780,7 +33846,7 @@ spec:
     any: true
   jobLabel: kubernetes-services
   endpoints:
-  - interval: {{ .Values.prometheus.scrapeInterval }}
+  - interval: {{ .Values.prometheusOperator.scrapeInterval }}
     relabelings:
     - sourceLabels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
       action: keep
@@ -33809,7 +33875,7 @@ spec:
       action: replace
       targetLabel: pod_name
 ---
-{{- if .Values.prometheus.security.enabled }}
+{{- if .Values.prometheusOperator.security.enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -33826,7 +33892,7 @@ spec:
     any: true
   jobLabel: kubernetes-services-secure
   endpoints:
-  - interval: {{ .Values.prometheus.scrapeInterval }}
+  - interval: {{ .Values.prometheusOperator.scrapeInterval }}
     scheme: https
     tlsConfig:
       caFile: /etc/prometheus/secrets/istio.prometheus/root-cert.pem
@@ -33879,14 +33945,14 @@ spec:
   endpoints:
   - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
     honorLabels: true
-    interval: {{ .Values.prometheus.scrapeInterval }}
+    interval: {{ .Values.prometheusOperator.scrapeInterval }}
     port: http-metrics
     scheme: http
     tlsConfig:
       insecureSkipVerify: true
   - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
     honorLabels: true
-    interval: {{ .Values.prometheus.scrapeInterval }}
+    interval: {{ .Values.prometheusOperator.scrapeInterval }}
     relabelings:
     - sourceLabels: [job]
       action: replace
@@ -33926,7 +33992,7 @@ func chartsIstioTelemetryPrometheusOperatorTemplatesServicemonitorsYaml() (*asse
 	return a, nil
 }
 
-var _chartsIstioTelemetryPrometheusOperatorValuesYaml = []byte(`prometheus:
+var _chartsIstioTelemetryPrometheusOperatorValuesYaml = []byte(`prometheusOperator:
   # Controls the default scrape interval used in the ServiceMonitors
   scrapeInterval: 15s
 
@@ -36029,7 +36095,7 @@ metadata:
   name: istio-citadel
   namespace: {{ .Release.Namespace }}
   labels:
-    app: citadel
+    app: security
     istio: citadel
     release: {{ .Release.Name }}
 
@@ -36088,6 +36154,11 @@ spec:
           {{- if .Values.security.workloadCertTtl }}
             - --workload-cert-ttl={{ .Values.security.workloadCertTtl }}
           {{- end }}
+          {{- if .Values.security.citadelHealthCheck }}
+            - --liveness-probe-path=/tmp/ca.liveness # path to the liveness health check status file
+            - --liveness-probe-interval=60s # interval for health check file update
+            - --probe-check-interval=15s    # interval for health status check
+          {{- end }}
           {{- if .Values.global.logAsJson }}
             - --log_as_json
           {{- end }}
@@ -36101,11 +36172,22 @@ spec:
           {{- end }}
           {{- end }}
           livenessProbe:
+          {{- if .Values.security.citadelHealthCheck }}
+            exec:
+              command:
+              - /usr/local/bin/istio_ca
+              - probe
+              - --probe-path=/tmp/ca.liveness # path to the liveness health check status file
+              - --interval=125s # the maximum time gap allowed between the file mtime and the current sys clock
+            initialDelaySeconds: 60
+            periodSeconds: 60
+          {{- else }}
             httpGet:
               path: /version
               port: 15014
             initialDelaySeconds: 5
             periodSeconds: 5
+          {{- end }}
           resources:
 {{- if .Values.security.resources }}
 {{ toYaml .Values.security.resources | indent 12 }}
@@ -36154,7 +36236,7 @@ metadata:
   name: istio-citadel
   namespace: {{ .Release.Namespace }}
   labels:
-    app: citadel
+    app: security
     istio: citadel
     release: {{ .Release.Name }}
 spec:
@@ -36188,7 +36270,7 @@ metadata:
   name: istio-citadel
   namespace: {{ .Release.Namespace }}
   labels:
-    app: citadel
+    app: security
     istio: citadel
     release: {{ .Release.Name }}
 
@@ -36225,6 +36307,7 @@ metadata:
   name: istio-citadel-service-account
   namespace: {{ .Release.Namespace }}
   labels:
+    app: security
     release: {{ .Release.Name }}
   {{- if .Values.global.imagePullSecrets }}
 spec:
@@ -36260,6 +36343,7 @@ security:
   rollingMaxUnavailable: 25%
   image: citadel
   selfSigned: true # indicate if self-signed CA is used.
+  citadelHealthCheck: false
 
   # 90*24hour = 2160h
   workloadCertTtl: 2160h
@@ -36322,7 +36406,8 @@ security:
   podAntiAffinityTermLabelSelector: []
 
   resources: {}
-kustomize: false`)
+kustomize: false
+`)
 
 func chartsSecurityCitadelValuesYamlBytes() ([]byte, error) {
 	return _chartsSecurityCitadelValuesYaml, nil
@@ -38385,9 +38470,11 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/base/files/crd-mixer.yaml": chartsBaseFilesCrdMixerYaml,
 	"charts/base/kustomization.yaml": chartsBaseKustomizationYaml,
 	"charts/base/templates/clusterrole.yaml": chartsBaseTemplatesClusterroleYaml,
+	"charts/base/templates/clusterrolebinding.yaml": chartsBaseTemplatesClusterrolebindingYaml,
 	"charts/base/templates/crds.yaml": chartsBaseTemplatesCrdsYaml,
 	"charts/base/templates/endpoints.yaml": chartsBaseTemplatesEndpointsYaml,
 	"charts/base/templates/namespaces.yaml": chartsBaseTemplatesNamespacesYaml,
+	"charts/base/templates/serviceaccount.yaml": chartsBaseTemplatesServiceaccountYaml,
 	"charts/base/templates/services.yaml": chartsBaseTemplatesServicesYaml,
 	"charts/base/values.yaml": chartsBaseValuesYaml,
 	"charts/gateways/istio-egress/Chart.yaml": chartsGatewaysIstioEgressChartYaml,
@@ -38655,9 +38742,11 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"kustomization.yaml": &bintree{chartsBaseKustomizationYaml, map[string]*bintree{}},
 			"templates": &bintree{nil, map[string]*bintree{
 				"clusterrole.yaml": &bintree{chartsBaseTemplatesClusterroleYaml, map[string]*bintree{}},
+				"clusterrolebinding.yaml": &bintree{chartsBaseTemplatesClusterrolebindingYaml, map[string]*bintree{}},
 				"crds.yaml": &bintree{chartsBaseTemplatesCrdsYaml, map[string]*bintree{}},
 				"endpoints.yaml": &bintree{chartsBaseTemplatesEndpointsYaml, map[string]*bintree{}},
 				"namespaces.yaml": &bintree{chartsBaseTemplatesNamespacesYaml, map[string]*bintree{}},
+				"serviceaccount.yaml": &bintree{chartsBaseTemplatesServiceaccountYaml, map[string]*bintree{}},
 				"services.yaml": &bintree{chartsBaseTemplatesServicesYaml, map[string]*bintree{}},
 			}},
 			"values.yaml": &bintree{chartsBaseValuesYaml, map[string]*bintree{}},

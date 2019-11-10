@@ -25,6 +25,24 @@ rules:
 ---
 
 
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: istio-reader-istio-control
+  labels:
+    app: istio-reader
+    release: istio
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: istio-reader-istio-control
+subjects:
+  - kind: ServiceAccount
+    name: istio-reader-service-account
+    namespace: istio-control
+---
+
+
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
@@ -5256,6 +5274,17 @@ metadata:
     istio-injection: disabled
 ---
 
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-reader-service-account
+  namespace: istio-control
+  labels:
+    app: istio-reader
+    release: istio
+---
+
 # CertManager component is disabled.
 
 # Citadel component is disabled.
@@ -5530,22 +5559,6 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: istio-pilot-service-account
-    namespace: istio-control
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: istio-reader-istio-control
-  labels:
-    app: istio-reader
-    release: istio
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: istio-reader-istio-control
-subjects:
-  - kind: ServiceAccount
-    name: istio-reader-service-account
     namespace: istio-control
 ---
 apiVersion: v1
@@ -6051,15 +6064,6 @@ metadata:
   namespace: istio-control
   labels:
     app: pilot
-    release: istio
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-reader-service-account
-  namespace: istio-control
-  labels:
-    app: istio-reader
     release: istio
 ---
 

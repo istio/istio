@@ -105,8 +105,6 @@ protoc_gen_python_plugin := $(protoc_gen_python_prefix):$(repo_dir)/$(python_out
 
 protoc_gen_docs_plugin := --docs_out=warnings=true,mode=html_fragment_with_front_matter:$(repo_dir)/
 
-protoc_gen_k8s_support_plugins := --jsonshim_out=$(gogo_mapping):$(out_path) --deepcopy_out=$(gogo_mapping):$(out_path)
-
 ########################
 
 types_v1alpha2_path := pkg/apis/istio/v1alpha2
@@ -117,7 +115,7 @@ types_v1alpha2_pb_docs := $(types_v1alpha2_path)/v1alpha2.pb.html
 types_v1alpha2_openapi := $(types_v1alpha2_protos:.proto=.json)
 
 $(types_v1alpha2_pb_gos) $(types_v1alpha2_pb_docs) $(types_v1alpha2_pb_pythons): $(types_v1alpha2_protos)
-	@$(protoc) $(go_plugin) $(protoc_gen_k8s_support_plugins) $(protoc_gen_docs_plugin)$(types_v1alpha2_path) $(protoc_gen_python_plugin) $^
+	@$(protoc) $(go_plugin) $(protoc_gen_docs_plugin)$(types_v1alpha2_path) $(protoc_gen_python_plugin) $^
 	@cp -r ${TMPDIR}/pkg/* pkg/
 	@rm -fr ${TMPDIR}/pkg
 	@go run $(repo_dir)/pkg/apis/istio/fixup_structs/main.go -f $(types_v1alpha2_path)/istiocontrolplane_types.pb.go
@@ -137,7 +135,7 @@ values_v1alpha1_pb_docs := $(values_v1alpha1_path)/v1alpha1.pb.html
 values_v1alpha1_openapi := $(values_v1alpha1_protos:.proto=.json)
 
 $(values_v1alpha1_pb_gos) $(values_v1alpha1_pb_docs) $(values_v1alpha1_pb_pythons): $(values_v1alpha1_protos)
-	@$(protoc) $(go_plugin) $(protoc_gen_k8s_support_plugins) $(protoc_gen_docs_plugin)$(values_v1alpha1_path) $(protoc_gen_python_plugin) $^
+	@$(protoc) $(go_plugin) $(protoc_gen_docs_plugin)$(values_v1alpha1_path) $(protoc_gen_python_plugin) $^
 	@cp -r ${TMPDIR}/pkg/* pkg/
 	@rm -fr ${TMPDIR}/pkg
 	@go run $(repo_dir)/pkg/apis/istio/fixup_structs/main.go -f $(values_v1alpha1_path)/values_types.pb.go
