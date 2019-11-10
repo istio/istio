@@ -37,24 +37,25 @@ set -o errexit
 : "${CLUSTER2_CONTEXT:?CLUSTER2_CONTEXT not set}"
 : "${CLUSTER2_KUBECONFIG:?CLUSTER2_KUBECONFIG not set}"
 
+
 #
 # derived configuration
 #
 
 # Resolve to an absolute path
-WORKDIR=$(readlink -f ${WORKDIR})
+WORKDIR=$(readlink -f "${WORKDIR}")
 
 # kubeconfig containing the three test clusters
-MERGED_KUBECONFIG=${WORKDIR}/"mesh.kubeconfig"
+MERGED_KUBECONFIG="${WORKDIR}/mesh.kubeconfig"
 
 # Per-cluster IstioControlPlane are derived from this common base IstioControlPlane.
-BASE_FILENAME=${WORKDIR}/base.yaml
+BASE_FILENAME="${WORKDIR}/base.yaml"
 
 # Description of the mesh topology. Includes the list of clusters in the mesh.
-MESH_TOPOLOGY_FILENAME=${WORKDIR}/topology.yaml
+MESH_TOPOLOGY_FILENAME="${WORKDIR}/topology.yaml"
 
 # Store root and intermediate certs
-CERTS_DIR=${WORKDIR}/certs
+CERTS_DIR="${WORKDIR}/certs"
 
 #
 # helper functions
@@ -70,41 +71,42 @@ export KUBECONFIG_LIST=""
 # extract the minified kubeconfig for a single cluster as specified
 # by the kubeconfig path and context name.
 extract_kubeconfig() {
-  local KUBECONFIG=${1}
-  local CONTEXT=${2}
+  local KUBECONFIG="${1}"
+  local CONTEXT="${2}"
   local MINIFIED_KUBECONFIG
 
-  MINIFIED_KUBECONFIG=$(mktemp ${TMP_KUBECONFIG_DIR}/XXXXXX)
-  kubectl --kubeconfig ${KUBECONFIG} --context ${CONTEXT} \
-    config view --minify --raw > ${MINIFIED_KUBECONFIG}
+  MINIFIED_KUBECONFIG=$(mktemp "${TMP_KUBECONFIG_DIR}"/XXXXXX)
+  kubectl --kubeconfig "${KUBECONFIG}" --context "${CONTEXT}" \
+    config view --minify --raw > "${MINIFIED_KUBECONFIG}"
 
-  if [[ ${EXISTING_CONTEXTS[${CONTEXT}]+_} ]]; then
-    local CONTEXT_RENAMED=${CONTEXT}"-${RANDOM}"
+  if [[ "${EXISTING_CONTEXTS[${CONTEXT}]+_}" ]]; then
+    local CONTEXT_RENAMED="${CONTEXT}-${RANDOM}"
 
     echo "${CONTEXT} is not unique in the merged kubeconfig. Renaming to ${CONTEXT_RENAMED} " > /dev/stderr
-    kubectl --kubeconfig ${MINIFIED_KUBECONFIG} \
-      config rename-context ${CONTEXT} ${CONTEXT_RENAMED} > /dev/null
-    CONTEXT=${CONTEXT_RENAMED}
+    kubectl --kubeconfig "${MINIFIED_KUBECONFIG}" \
+      config rename-context "${CONTEXT}" "${CONTEXT_RENAMED}" > /dev/null
+    CONTEXT="${CONTEXT_RENAMED}"
   fi
 
   EXISTING_CONTEXTS["${CONTEXT}"]=y
-  KUBECONFIG_LIST=${KUBECONFIG_LIST}:${MINIFIED_KUBECONFIG}
+  KUBECONFIG_LIST="${KUBECONFIG_LIST}":"${MINIFIED_KUBECONFIG}"
 }
 
 # Prepare a kubeconfig with clusters in the mesh.
 prepare_kubeconfig() {
   # create a local working directory to manage kubeconfig files.
-  export TMP_KUBECONFIG_DIR=$(mktemp -d ./kubeconfig_workdir_XXXXXX)
+  TMP_KUBECONFIG_DIR="$(mktemp -d ./kubeconfig_workdir_XXXXXX)"
+  export TMP_KUBECONFIG_DIR
   cleanup() {
-    rm -rf ${TMP_KUBECONFIG_DIR}
+    rm -rf "${TMP_KUBECONFIG_DIR}"
   }
   trap cleanup EXIT
 
-  extract_kubeconfig ${CLUSTER0_KUBECONFIG} ${CLUSTER0_CONTEXT}
-  extract_kubeconfig ${CLUSTER1_KUBECONFIG} ${CLUSTER1_CONTEXT}
-  extract_kubeconfig ${CLUSTER2_KUBECONFIG} ${CLUSTER2_CONTEXT}
+  extract_kubeconfig "${CLUSTER0_KUBECONFIG}" "${CLUSTER0_CONTEXT}"
+  extract_kubeconfig "${CLUSTER1_KUBECONFIG}" "${CLUSTER1_CONTEXT}"
+  extract_kubeconfig "${CLUSTER2_KUBECONFIG}" "${CLUSTER2_CONTEXT}"
 
-  KUBECONFIG=${KUBECONFIG_LIST} kubectl config view --raw --flatten > ${MERGED_KUBECONFIG}
+  KUBECONFIG="${KUBECONFIG_LIST}" kubectl config view --raw --flatten > "${MERGED_KUBECONFIG}"
 
   echo ""
   echo "Success! Run the following command to use as the default kubeconfig in the current shell"
@@ -117,7 +119,7 @@ prepare_kubeconfig() {
 # for all cluster's control planes.
 create_base_yaml() {
   echo "creating ${BASE_FILENAME} for the common base control plane configuration"
-  cat > ${BASE_FILENAME} << EOF
+  cat > "${BASE_FILENAME}" << EOF
 apiVersion: install.istio.io/v1alpha2
 kind: IstioControlPlane
 spec:
@@ -133,14 +135,18 @@ EOF
 # Create a the initial mesh topology file. This includes the list of
 # clusters in the mesh along with per-cluster attributes, e.g. network.
 create_mesh_topology() {
+  if [ -f "${MESH_TOPOLOGY_FILENAME}" ]; then
+    echo "${MESH_TOPOLOGY_FILENAME} already exists."
+    return
+  fi
   echo "creating ${MESH_TOPOLOGY_FILENAME} to describe the mesh topology"
-  cat > ${MESH_TOPOLOGY_FILENAME} << EOF
+    cat > "${MESH_TOPOLOGY_FILENAME}" << EOF
 # auto-generated mesh topology file.
 
 # Example topology description.
 #
 # mesh_id: ${MESH_ID}
-# clusters:
+# contexts:
 #   # 'cluster0' is the cluster's context as defined by the
 #   # current kubeconfig file
 #   cluster0:
@@ -159,7 +165,7 @@ create_mesh_topology() {
 #
 
 mesh_id: ${MESH_ID}
-clusters:
+contexts:
 # add your clusters here
 EOF
 }
@@ -167,8 +173,8 @@ EOF
 # Create an offline root certificate. This root signs the
 # intermediate certificates for each cluster.
 create_offline_root_ca(){
-  if [[ ! -d ${CERTS_DIR} ]]; then
-    mkdir ${CERTS_DIR}
+  if [[ ! -d "${CERTS_DIR}" ]]; then
+    mkdir "${CERTS_DIR}"
   fi
 
   if [[ -f "${CERTS_DIR}/root-key.pem" ]]; then
@@ -178,11 +184,11 @@ create_offline_root_ca(){
 
   echo "generating root certs for ${ORG_NAME}"
 
-  pushd ${CERTS_DIR} >/dev/null
+  pushd "${CERTS_DIR}" >/dev/null
   # TODO - use local copy from the release if it were available?
   curl -sO https://raw.githubusercontent.com/istio/istio/release-1.4/samples/certs/Makefile
-  export ROOTCA_ORG=${ORG_NAME}
-  export CITADEL_ORG=${ORG_NAME}
+  export ROOTCA_ORG="${ORG_NAME}"
+  export CITADEL_ORG="${ORG_NAME}"
   make root-ca >/dev/null
   popd >/dev/null
 }
@@ -202,8 +208,8 @@ prepare_mesh() {
 
 # TODO(ayj) - remove once istioctl installs these
 apply_missing_service_account() {
-  local CONTEXT=${1}
-  kc() { kubectl --context ${CONTEXT} $@;  }
+  local CONTEXT="${1}"
+  kc() { kubectl --context "${CONTEXT}" "$@";  }
 
   kc create clusterrole istio-reader-istio-system \
     --verb=get,list,watch --resource=nodes,pods,endpoints,services,replicasets.apps,replicationcontrollers \
@@ -219,13 +225,13 @@ apply_missing_service_account() {
 # cluster in the mesh.
 apply_intermediate_ca() {
   echo "creating and installing intermediate certs for ${CONTEXT} in the ${ORG_NAME} org"
-  local CONTEXT=${1}
-  kc() { kubectl --context ${CONTEXT} $@; }
+  local CONTEXT="${1}"
+  kc() { kubectl --context "${CONTEXT}" "$@"; }
 
-  pushd ${CERTS_DIR}
+  pushd "${CERTS_DIR}"
 
-  make intermediate-${CONTEXT}-certs
-  cd ${CERTS_DIR}/intermediate-${CONTEXT}
+  make "intermediate-${CONTEXT}-certs"
+  cd "${CERTS_DIR}/intermediate-${CONTEXT}"
 
   kc create namespace istio-system \
     --dry-run -o yaml | kc apply -f -
@@ -240,22 +246,21 @@ apply_intermediate_ca() {
 }
 
 apply_istio_control_plane() {
-  local CONTEXT=${1}
-  ic() { istioctl --context ${CONTEXT} $@; }
+  local CONTEXT="${1}"
+  ic() { istioctl --context "${CONTEXT}" "$@"; }
 
   # TODO remove the hub/tag or make it optional and parameterize it.
-  ic x multicluster generate -f ${MESH_TOPOLOGY_FILENAME} --from ${BASE_FILENAME} > ${WORKDIR}/istio-${CONTEXT}.yaml
-  ic manifest apply -f ${WORKDIR}/istio-${CONTEXT}.yaml --set hub=docker/istio.io --set tag=1.4.0-beta.3
+  ic x multicluster generate -f "${MESH_TOPOLOGY_FILENAME}" --from "${BASE_FILENAME}" > "${WORKDIR}/istio-${CONTEXT}.yaml"
+  ic manifest apply -f "${WORKDIR}/istio-${CONTEXT}.yaml" --set hub=docker.io/istio --set tag=1.4.0-beta.3
 }
 
 # TODO(ayj) - remove when the istioctl supports the --wait-for-gateway option
 wait_for_gateway() {
-  local CONTEXT=${1}
-  kc() { kubectl --context ${CONTEXT} $@; }
+  local CONTEXT="${1}"
+  kc() { kubectl --context "${CONTEXT}" "$@"; }
 
   while true; do
-    IP=(kc istio-system get svc istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-    if [[ $? -eq 0 ]]; then
+    if IP=$(kc -n istio-system get svc istio-ingressgateway -o "jsonpath"='{.status.loadBalancer.ingress[0].ip}'); then
       echo "Ingress gateway external IP for cluster ${CONTEXT} is ready: ${IP}"
       return 0
     fi
@@ -264,8 +269,8 @@ wait_for_gateway() {
 }
 
 create_passthrough_gateway() {
-  local CONTEXT=${1}
-  kc() { kubectl --context ${CONTEXT} $@; }
+  local CONTEXT="${1}"
+  kc() { kubectl --context "${CONTEXT}" "$@"; }
 
   kc apply -f - <<EOF
 apiVersion: networking.istio.io/v1alpha3
@@ -295,31 +300,31 @@ apply() {
   # Step 1) Install the intermediate certificate and Istio control
   # plane in each cluster
   for CONTEXT in $(kubectl config get-contexts -o name); do
-      apply_intermediate_ca ${CONTEXT}
-      apply_missing_service_account ${CONTEXT}
-      apply_istio_control_plane ${CONTEXT}
+      apply_intermediate_ca "${CONTEXT}"
+      apply_missing_service_account "${CONTEXT}"
+      apply_istio_control_plane "${CONTEXT}"
   done
 
   # Step 2) The ingress gateway's external IP is required for
   # cross-network traffic. Wait for the external IPs to be
   # allocated before proceeding.
   for CONTEXT in $(kubectl config get-contexts -o name); do
-    wait_for_gateway ${CONTEXT}
+    wait_for_gateway "${CONTEXT}"
   done
 
   # Step 3) re-generate and apply configuration. The updated
   # configuration includes the allocated external IPs from step (2).
   for CONTEXT in $(kubectl config get-contexts -o name); do
-      apply_istio_control_plane ${CONTEXT}
+      apply_istio_control_plane "${CONTEXT}"
 
       # required for multi-network mesh.
-      create_passthrough_gateway ${CONTEXT}
+      create_passthrough_gateway "${CONTEXT}"
   done
 
   # Step 4) Synchronize each cluster's service registry with the
   # other clusters in the mesh. This is required for cross-cluster
   # load balancing.
-  istioctl x multicluster apply -f ${MESH_TOPOLOGY_FILENAME}
+  istioctl x multicluster apply -f "${MESH_TOPOLOGY_FILENAME}"
 }
 
 # Teardown the mesh. Delete all of the in-cluster resources that
@@ -328,7 +333,7 @@ teardown() {
   echo "Tearing down the mesh"
 
   for CONTEXT in $(kubectl config get-contexts -o name); do
-    kc() { kubectl --context ${CONTEXT} $@; }
+    kc() { kubectl --context "${CONTEXT}" "$@"; }
 
     # wait for galley to die so it doesn't re-create the webhook config.
     kc delete namespace istio-system  --wait --ignore-not-found >/dev/null || true
@@ -349,7 +354,7 @@ install_bookinfo() {
   echo "Installing bookinfo in each cluster"
 
   for CONTEXT in $(kubectl config get-contexts -o name); do
-    kc() { kubectl --context ${CONTEXT} $@; }
+    kc() { kubectl --context "${CONTEXT}" "$@"; }
 
     # enable automatic sidecar injection on the default namespace
     kc label namespace default istio-injection=enabled --overwrite
@@ -361,12 +366,12 @@ install_bookinfo() {
 }
 
 describe() {
-  istioctl x mc describe -f ${MESH_TOPOLOGY_FILENAME}
+  istioctl x mc describe -f "${MESH_TOPOLOGY_FILENAME}"
 }
 
 check_prerequisties() {
-  if [[ ! -d ${WORKDIR} ]]; then
-    echo "error: workspace directory '${WORKDIR}' does not exist"
+  if [[ ! -d "${WORKDIR}" ]]; then
+    echo "error: workspace directory '${WORKDIR}' not found. Run 'mkdir workspace && export WORKDIR=\$(pwd)/workspace' "
     exit 1
   fi
 }
