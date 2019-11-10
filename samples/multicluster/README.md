@@ -4,8 +4,7 @@
 Choose clusters to build a mesh from. The clusters may be on the same or
 diferent network.
 
-```
-bash
+```bash
 export CLUSTER0_KUBECONFIG=${HOME}/.kube/config
 export CLUSTER0_CONTEXT=west0
 
@@ -34,7 +33,7 @@ export WORKDIR=mesh-workspace
 ```
 
 Create a single merged KUBECONFIG with clusters in the mesh. This is used in
-subsequent steps. This only needs to be run once per mesh.
+subsequent steps.
 
 ```bash
 ./setup-mesh.sh prepare-kubeconfig
@@ -46,17 +45,18 @@ Prepare the initial configuration for the mesh. This creates:
 * The initial empty mesh topology file that you will add your clusters to.
 * A root key and cer that will sign intermediate certs for each cluster.
 
-This only needs to be run once per mesh.
-
 ```bash
 ./setup-mesh.sh prepare-mesh
 ```
 
 Build the mesh. Add your clusters to `${WORKDIR}/topology` and apply
-configuration to each cluster to form the multicluster mesh.  Build the
-mesh.
+configuration to build the multicluster
 
 ```bash
+# add your clusters following the example in the file.
+${EDITOR} ${WORKDIR}/topology.yaml
+
+#
 ./setup-mesh.sh apply
 ```
 
@@ -90,7 +90,7 @@ for DEPLOYMENT in productpage-v1 reviews-v2 reviews-v1 ratings-v1; do
 done
 ```
 
-Teardown the mesh and restore cluster's to the original state.
+Teardown the mesh and restore the cluster to their original state.
 
 ```bash
 ./setup-mesh teardown
