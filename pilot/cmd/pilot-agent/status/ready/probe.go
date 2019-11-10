@@ -113,9 +113,6 @@ func (p *Probe) pingVirtualListeners() error {
 		if con != nil {
 			con.Close()
 		}
-		if isTimeout(err) {
-			continue
-		}
 		if err != nil {
 			return fmt.Errorf("listener on address %d is still not listening: %v", vport, err)
 		}
@@ -124,11 +121,4 @@ func (p *Probe) pingVirtualListeners() error {
 	p.listenersBound = true
 
 	return nil
-}
-
-func isTimeout(err error) bool {
-	if err, ok := err.(net.Error); ok && err.Timeout() {
-		return true
-	}
-	return false
 }
