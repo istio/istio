@@ -8,6 +8,7 @@ security:
   rollingMaxUnavailable: 25%
   image: citadel
   selfSigned: true # indicate if self-signed CA is used.
+  citadelHealthCheck: false
 
   # 90*24hour = 2160h
   workloadCertTtl: 2160h

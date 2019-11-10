@@ -64,6 +64,11 @@ spec:
           {{- if .Values.security.workloadCertTtl }}
             - --workload-cert-ttl={{ .Values.security.workloadCertTtl }}
           {{- end }}
+          {{- if .Values.security.citadelHealthCheck }}
+            - --liveness-probe-path=/tmp/ca.liveness # path to the liveness health check status file
+            - --liveness-probe-interval=60s # interval for health check file update
+            - --probe-check-interval=15s    # interval for health status check
+          {{- end }}
           {{- if .Values.global.logAsJson }}
             - --log_as_json
           {{- end }}
@@ -77,11 +82,22 @@ spec:
           {{- end }}
           {{- end }}
           livenessProbe:
+          {{- if .Values.security.citadelHealthCheck }}
+            exec:
+              command:
+              - /usr/local/bin/istio_ca
+              - probe
+              - --probe-path=/tmp/ca.liveness # path to the liveness health check status file
+              - --interval=125s # the maximum time gap allowed between the file mtime and the current sys clock
+            initialDelaySeconds: 60
+            periodSeconds: 60
+          {{- else }}
             httpGet:
               path: /version
               port: 15014
             initialDelaySeconds: 5
             periodSeconds: 5
+          {{- end }}
           resources:
 {{- if .Values.security.resources }}
 {{ toYaml .Values.security.resources | indent 12 }}
