@@ -19,6 +19,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/meta/metadata"
@@ -34,10 +35,12 @@ var _ analysis.Analyzer = &Analyzer{}
 // We assume that enablement is via an istio-injection=enabled namespace label
 // In theory, there can be alternatives using Mutatingwebhookconfiguration, but they're very uncommon
 // See https://istio.io/docs/ops/troubleshooting/injection/ for more info.
-const injectionLabelName = "istio-injection"
-const injectionLabelEnableValue = "enabled"
+const (
+	injectionLabelName        = "istio-injection"
+	injectionLabelEnableValue = "enabled"
 
-const istioProxyName = "istio-proxy"
+	istioProxyName = "istio-proxy"
+)
 
 // Metadata implements Analyzer
 func (a *Analyzer) Metadata() analysis.Metadata {
@@ -89,6 +92,11 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 			return true
 		}
 
+		// If a pod has injection explicitly disabled, no need to check further
+		if val := pod.GetAnnotations()[annotation.SidecarInject.Name]; strings.ToLower(val) == "false" {
+			return true
+		}
+
 		proxyImage := ""
 		for _, container := range pod.Spec.Containers {
 			if container.Name == istioProxyName {
@@ -100,11 +108,6 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 		if proxyImage == "" {
 			c.Report(metadata.K8SCoreV1Pods, msg.NewPodMissingProxy(r, pod.Name, pod.GetNamespace()))
 		}
-
-		// TODO: if the pod is injected, check that it's using the right image. This would
-		// cover scenarios where Istio is upgraded but pods are not restarted.
-		// This is challenging because getting the expected image for the current version
-		// of Istio is non-trivial and non-standard across versions
 
 		return true
 	})
