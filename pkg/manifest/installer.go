@@ -265,11 +265,10 @@ func applyRecursive(manifests name.ManifestMap, version version.Version, opts *I
 }
 
 func applyManifest(componentName name.ComponentName, manifestStr string, version version.Version, opts *InstallOptions) *ComponentApplyOutput {
+	stdout, stderr := "", ""
 	objects, err := object.ParseK8sObjectsFromYAMLManifest(manifestStr)
 	if err != nil {
-		return &ComponentApplyOutput{
-			Err: err,
-		}
+		return buildComponentApplyOutput(stdout, stderr, "", err)
 	}
 
 	componentLabel := fmt.Sprintf("%s=%s", istioComponentLabelStr, componentName)
@@ -281,23 +280,17 @@ func applyManifest(componentName name.ComponentName, manifestStr string, version
 		extraArgsGet := []string{"--all-namespaces", "--selector", componentLabel}
 		stdoutGet, stderrGet, err := kubectl.GetAll(opts.Kubeconfig, opts.Context, "", "yaml", extraArgsGet...)
 		if err != nil || strings.TrimSpace(stdoutGet) == "" {
-			return &ComponentApplyOutput{
-				Stdout: stdoutGet,
-				Stderr: stderrGet,
-				Err:    err,
-			}
+			return buildComponentApplyOutput(stdoutGet, stderrGet, "", err)
 		}
 
 		extraArgsDel := []string{"--selector", componentLabel}
 		stdoutDel, stderrDel, err := kubectl.Delete(opts.DryRun, opts.Verbose, opts.Kubeconfig, opts.Context, "", stdoutGet, extraArgsDel...)
-		return &ComponentApplyOutput{
-			Stdout: stdoutDel,
-			Stderr: stderrDel,
-			Err:    err,
-		}
+		stdout += "\n" + stdoutDel
+		stderr += "\n" + stderrDel
+		return buildComponentApplyOutput(stdout, stderr, "", err)
 	}
 
-	namespace, stdoutCRD, stderrCRD := "", "", ""
+	namespace := ""
 	for _, o := range objects {
 		o.AddLabels(map[string]string{istioComponentLabelStr: string(componentName)})
 		o.AddLabels(map[string]string{operatorLabelStr: operatorReconcileStr})
@@ -319,45 +312,62 @@ func applyManifest(componentName name.ComponentName, manifestStr string, version
 
 	logAndPrint("Applying manifest for component %s", componentName)
 
+	nsObjects := nsKindObjects(objects)
+	if len(nsObjects) > 0 {
+		mns, err := nsObjects.JSONManifest()
+		if err != nil {
+			return buildComponentApplyOutput(stdout, stderr, "", err)
+		}
+
+		stdoutNs, stderrNs, err := kubectl.Apply(opts.DryRun, opts.Verbose, opts.Kubeconfig, opts.Context, namespace, mns, extraArgs...)
+		stdout += "\n" + stdoutNs
+		stderr += "\n" + stderrNs
+		if err != nil {
+			return buildComponentApplyOutput(stdout, stderr, "", err)
+		}
+
+		if err := waitForResources(nsObjects, opts); err != nil {
+			return buildComponentApplyOutput(stdout, stderr, "", err)
+		}
+	}
+
 	crdObjects := cRDKindObjects(objects)
 	if len(crdObjects) > 0 {
 		mcrd, err := crdObjects.JSONManifest()
 		if err != nil {
-			return &ComponentApplyOutput{
-				Err: err,
-			}
+			return buildComponentApplyOutput(stdout, stderr, "", err)
 		}
 
-		stdoutCRD, stderrCRD, err = kubectl.Apply(opts.DryRun, opts.Verbose, opts.Kubeconfig, opts.Context, namespace, mcrd, extraArgs...)
+		stdoutCRD, stderrCRD, err := kubectl.Apply(opts.DryRun, opts.Verbose, opts.Kubeconfig, opts.Context, namespace, mcrd, extraArgs...)
+		stdout += "\n" + stdoutCRD
+		stderr += "\n" + stderrCRD
 		if err != nil {
-			// Not all Istio components are robust to not yet created CRDs.
-			if err := waitForCRDs(objects, opts.DryRun); err != nil {
-				return &ComponentApplyOutput{
-					Stdout: stdoutCRD,
-					Stderr: stderrCRD,
-					Err:    err,
-				}
-			}
+			return buildComponentApplyOutput(stdout, stderr, "", err)
+		}
+		// Not all Istio components are robust to not yet created CRDs.
+		if err := waitForCRDs(objects, opts.DryRun); err != nil {
+			return buildComponentApplyOutput(stdout, stderr, "", err)
 		}
 	}
 
-	stdout, stderr := "", ""
-	nonCrdObjects := nonCRDKindObjects(objects)
-	m, err := nonCrdObjects.JSONManifest()
+	nonNsCrdObjects := objectsNotInLists(objects, nsObjects, crdObjects)
+	m, err := nonNsCrdObjects.JSONManifest()
 	if err != nil {
-		return &ComponentApplyOutput{
-			Stdout: stdoutCRD,
-			Stderr: stderrCRD,
-			Err:    err,
-		}
+		return buildComponentApplyOutput(stdout, stderr, "", err)
 	}
-	stdout, stderr, err = kubectl.Apply(opts.DryRun, opts.Verbose, opts.Kubeconfig, opts.Context, namespace, m, extraArgs...)
+	stdoutNonNsCrd, stderrNonNsCrd, err := kubectl.Apply(opts.DryRun, opts.Verbose, opts.Kubeconfig, opts.Context, namespace, m, extraArgs...)
+	stdout += "\n" + stdoutNonNsCrd
+	stderr += "\n" + stderrNonNsCrd
 	logAndPrint("Finished applying manifest for component %s", componentName)
 	ym, _ := objects.YAMLManifest()
+	return buildComponentApplyOutput(stdout, stderr, ym, err)
+}
+
+func buildComponentApplyOutput(stdout string, stderr string, manifest string, err error) *ComponentApplyOutput {
 	return &ComponentApplyOutput{
-		Stdout:   stdoutCRD + "\n" + stdout,
-		Stderr:   stderrCRD + "\n" + stderr,
-		Manifest: ym,
+		Stdout:   stdout,
+		Stderr:   stderr,
+		Manifest: manifest,
 		Err:      err,
 	}
 }
@@ -408,10 +418,28 @@ func cRDKindObjects(objects object.K8sObjects) object.K8sObjects {
 	return ret
 }
 
-func nonCRDKindObjects(objects object.K8sObjects) object.K8sObjects {
+func nsKindObjects(objects object.K8sObjects) object.K8sObjects {
 	var ret object.K8sObjects
 	for _, o := range objects {
-		if o.Kind != "CustomResourceDefinition" {
+		if o.Kind == "Namespace" {
+			ret = append(ret, o)
+		}
+	}
+	return ret
+}
+
+func objectsNotInLists(objects object.K8sObjects, lists ...object.K8sObjects) object.K8sObjects {
+	var ret object.K8sObjects
+
+	filterMap := make(map[*object.K8sObject]bool)
+	for _, list := range lists {
+		for _, object := range list {
+			filterMap[object] = true
+		}
+	}
+
+	for _, o := range objects {
+		if !filterMap[o] {
 			ret = append(ret, o)
 		}
 	}
@@ -479,7 +507,6 @@ func waitForResources(objects object.K8sObjects, opts *InstallOptions) error {
 		return nil
 	}
 
-	logAndPrint("Waiting for resources ready with timeout of %v", opts.WaitTimeout)
 	cs, err := kubernetes.NewForConfig(k8sRESTConfig)
 	if err != nil {
 		return fmt.Errorf("k8s client error: %s", err)
@@ -489,10 +516,17 @@ func waitForResources(objects object.K8sObjects, opts *InstallOptions) error {
 		pods := []v1.Pod{}
 		services := []v1.Service{}
 		deployments := []deployment{}
+		namespaces := []v1.Namespace{}
 
 		for _, o := range objects {
 			kind := o.GroupVersionKind().Kind
 			switch kind {
+			case "Namespace":
+				namespace, err := cs.CoreV1().Namespaces().Get(o.Name, metav1.GetOptions{})
+				if err != nil {
+					return false, err
+				}
+				namespaces = append(namespaces, *namespace)
 			case "Pod":
 				pod, err := cs.CoreV1().Pods(o.Namespace).Get(o.Name, metav1.GetOptions{})
 				if err != nil {
@@ -561,7 +595,10 @@ func waitForResources(objects object.K8sObjects, opts *InstallOptions) error {
 				services = append(services, *svc)
 			}
 		}
-		isReady := podsReady(pods) && deploymentsReady(deployments) && servicesReady(services)
+		isReady := namespacesReady(namespaces) && podsReady(pods) && deploymentsReady(deployments) && servicesReady(services)
+		if !isReady {
+			logAndPrint("Waiting for resources ready with timeout of %v", opts.WaitTimeout)
+		}
 		return isReady, nil
 	})
 
@@ -569,8 +606,6 @@ func waitForResources(objects object.K8sObjects, opts *InstallOptions) error {
 		logAndPrint("Failed to wait for resources ready: %v", errPoll)
 		return fmt.Errorf("failed to wait for resources ready: %s", errPoll)
 	}
-
-	logAndPrint("Resources are ready.")
 	return nil
 }
 
@@ -582,6 +617,16 @@ func getPods(client kubernetes.Interface, namespace string, selector map[string]
 	return list.Items, err
 }
 
+func namespacesReady(namespaces []v1.Namespace) bool {
+	for _, namespace := range namespaces {
+		if !isNamespaceReady(&namespace) {
+			logAndPrint("Namespace is not ready: %s/%s", namespace.GetName())
+			return false
+		}
+	}
+	return true
+}
+
 func podsReady(pods []v1.Pod) bool {
 	for _, pod := range pods {
 		if !isPodReady(&pod) {
@@ -590,6 +635,10 @@ func podsReady(pods []v1.Pod) bool {
 		}
 	}
 	return true
+}
+
+func isNamespaceReady(namespace *v1.Namespace) bool {
+	return namespace.Status.Phase == v1.NamespaceActive
 }
 
 func isPodReady(pod *v1.Pod) bool {
