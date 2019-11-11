@@ -177,6 +177,7 @@ func init() {
 		ldsReject,
 		rdsReject,
 		edsInstances,
+		edsAllLocalityEndpoints,
 		rdsExpiredNonce,
 		totalXDSRejects,
 		monServices,
