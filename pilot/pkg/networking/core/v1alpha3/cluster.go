@@ -977,6 +977,8 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 	}
 
 	var certValidationContext *auth.CertificateValidationContext
+	log.Warnf("Building mTLS Settings for cluster: %s", cluster.GetName())
+
 	var trustedCa *core.DataSource
 	if len(tls.CaCertificates) != 0 {
 		trustedCa = &core.DataSource{
@@ -1046,10 +1048,15 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 				authn_model.ConstructSdsSecretConfig(authn_model.SDSDefaultResourceName,
 					env.Mesh.SdsUdsPath, metadata))
 
+			resourceName := authn_model.SDSRootResourceName
+			if strings.HasSuffix(cluster.GetName(), "global") {
+				log.Warnf("Building special mTLS.")
+				resourceName = "cluster2"
+			}
 			cluster.TlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 					DefaultValidationContext:         &auth.CertificateValidationContext{VerifySubjectAltName: tls.SubjectAltNames},
-					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(authn_model.SDSRootResourceName, env.Mesh.SdsUdsPath, metadata),
+					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(resourceName, env.Mesh.SdsUdsPath, metadata),
 				},
 			}
 		}
