@@ -50,7 +50,7 @@ func (f FileParseError) Error() string {
 
 var (
 	useKube      bool
-	useDiscovery string
+	useDiscovery bool
 	failureLevel = messageThreshold{diag.Warning} // messages at least this level will generate an error exit code
 	outputLevel  = messageThreshold{diag.Info}    // messages at least this level will be included in the output
 	colorize     bool
@@ -94,9 +94,9 @@ istioctl experimental analyze -k -d false
 			}
 			cancel := make(chan struct{})
 
-			sd, err := serviceDiscovery()
-			if err != nil {
-				return err
+			// If not explicitly specified, the discovery flag should match useKube
+			if !cmd.Flags().Changed("discovery") {
+				useDiscovery = useKube
 			}
 
 			// We use the "namespace" arg that's provided as part of root istioctl as a flag for specifying what namespace to use
@@ -132,7 +132,7 @@ istioctl experimental analyze -k -d false
 				selectedNamespace = defaultNamespace
 			}
 
-			sa := local.NewSourceAnalyzer(metadata.MustGet(), analyzers.AllCombined(), selectedNamespace, nil, sd)
+			sa := local.NewSourceAnalyzer(metadata.MustGet(), analyzers.AllCombined(), selectedNamespace, nil, useDiscovery)
 
 			// If we're using kube, use that as a base source.
 			if k != nil {
@@ -212,7 +212,7 @@ istioctl experimental analyze -k -d false
 
 	analysisCmd.PersistentFlags().BoolVarP(&useKube, "use-kube", "k", false,
 		"Use live Kubernetes cluster for analysis")
-	analysisCmd.PersistentFlags().StringVarP(&useDiscovery, "discovery", "d", "",
+	analysisCmd.PersistentFlags().BoolVarP(&useDiscovery, "discovery", "d", false, // Note that this default val gets overridden to match --use-kube
 		"'true' to enable service discovery, 'false' to disable it. "+
 			"Defaults to true if --use-kube is set, false otherwise. "+
 			"Analyzers requiring resources made available by enabling service discovery will be skipped.")
@@ -235,19 +235,6 @@ func gatherFiles(args []string) ([]string, error) {
 		result = append(result, a)
 	}
 	return result, nil
-}
-
-func serviceDiscovery() (bool, error) {
-	switch strings.ToLower(useDiscovery) {
-	case "":
-		return useKube, nil
-	case "true":
-		return true, nil
-	case "false":
-		return false, nil
-	default:
-		return false, fmt.Errorf("invalid argument value for discovery")
-	}
 }
 
 func colorPrefix(m diag.Message) string {
