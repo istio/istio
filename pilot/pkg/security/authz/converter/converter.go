@@ -36,7 +36,6 @@ import (
 	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
@@ -53,12 +52,10 @@ type WorkloadLabels map[string]string
 type ServiceToWorkloadLabels map[string]WorkloadLabels
 
 type Converter struct {
-	K8sClient *kubernetes.Clientset
-
 	v1alpha1Policies             *model.AuthorizationPolicies
 	RootNamespace                string
 	NamespaceToServiceToSelector map[string]ServiceToWorkloadLabels
-	AuthorizationPolicies        []model.Config
+	v1beta1Policies              []model.Config
 	ConvertedPolicies            strings.Builder
 }
 
@@ -95,64 +92,31 @@ const (
 	istioConfigMapKey = "mesh"
 )
 
-func New(k8sClient *kubernetes.Clientset, v1PolicyFiles, serviceFiles []string,
+func New(k8sClient *kubernetes.Clientset, v1alpha1Policies *model.AuthorizationPolicies, serviceFiles []string,
 	meshConfigFile, istioNamespace, meshConfigMapName string) (*Converter, error) {
-	v1alpha1Policies, err := getV1alpha1Policies(v1PolicyFiles)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read policies: %v", err)
+	var rootNamespace string
+	if v1alpha1Policies.RootNamespace != "" {
+		rootNamespace = v1alpha1Policies.RootNamespace
+	} else {
+		var err error
+		rootNamespace, err = getRootNamespace(k8sClient, meshConfigFile, meshConfigMapName, istioNamespace)
+		if err != nil {
+			log.Warnf("failed to get root namespace: %v", err)
+		}
 	}
 
-	rootNamespace, err := getRootNamespace(k8sClient, meshConfigFile, meshConfigMapName, istioNamespace)
-	if err != nil {
-		log.Warnf("failed to get root namespace: %v", err)
-	}
-
-	namespaceToServiceToSelector, err := getNamespaceToServiceToSelector(k8sClient, serviceFiles, v1alpha1Policies.ListNamespacesOfToV1alpha1Policies())
+	namespaceToServiceToSelector, err := getNamespaceToServiceToSelector(k8sClient, serviceFiles, v1alpha1Policies.ListV1alpha1Namespaces())
 	if err != nil {
 		log.Warnf("failed to get services: %v", err)
 	}
 
 	converter := Converter{
-		K8sClient:                    k8sClient,
 		v1alpha1Policies:             v1alpha1Policies,
 		RootNamespace:                rootNamespace,
 		NamespaceToServiceToSelector: namespaceToServiceToSelector,
-		AuthorizationPolicies:        []model.Config{},
+		v1beta1Policies:              []model.Config{},
 	}
 	return &converter, nil
-}
-
-func getV1alpha1Policies(v1PolicyFiles []string) (*model.AuthorizationPolicies, error) {
-	var configs []model.Config
-	if len(v1PolicyFiles) != 0 {
-		for _, fileName := range v1PolicyFiles {
-			rbacFileBuf, err := ioutil.ReadFile(fileName)
-			if err != nil {
-				return nil, fmt.Errorf("failed to read file %s", fileName)
-			}
-			configFromFile, _, err := crd.ParseInputs(string(rbacFileBuf))
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse file: %v", err)
-			}
-			configs = append(configs, configFromFile...)
-		}
-	}
-	// TODO: get from K8s API server.
-
-	store := model.MakeIstioStore(memory.Make(schemas.Istio))
-	for _, config := range configs {
-		if _, err := store.Create(config); err != nil {
-			return nil, fmt.Errorf("failed to add config: %s", err)
-		}
-	}
-	env := &model.Environment{
-		IstioConfigStore: store,
-	}
-	authzPolicies, err := model.GetAuthorizationPolicies(env)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create authz policies: %s", err)
-	}
-	return authzPolicies, nil
 }
 
 // getRootNamespace returns the root namespace configured in the MeshConfig.
@@ -235,7 +199,7 @@ func (c *Converter) ConvertV1alpha1ToV1beta1() error {
 	if err := c.convert(c.v1alpha1Policies); err != nil {
 		return fmt.Errorf("failed to convert policies: %v", err)
 	}
-	for _, authzPolicy := range c.AuthorizationPolicies {
+	for _, authzPolicy := range c.v1beta1Policies {
 		err := c.parseConfigToString(authzPolicy)
 		if err != nil {
 			return fmt.Errorf("failed to parse config to string: %v", err)
@@ -253,20 +217,20 @@ func (c *Converter) convert(authzPolicies *model.AuthorizationPolicies) error {
 		// output a warning instead.
 		log.Warnf("failed to convert ClusterRbacConfig: %s", err)
 	}
-	namespaces := authzPolicies.ListNamespacesOfToV1alpha1Policies()
+	namespaces := authzPolicies.ListV1alpha1Namespaces()
 	if len(namespaces) == 0 {
 		// Similarly, a user might want to convert ClusterRbacConfig only.
 		log.Warn("no namespace found for ServiceRole and ServiceRoleBinding")
 		return nil
 	}
 	// Build a model for each ServiceRole and associated list of ServiceRoleBinding
+	td := trustdomain.NewTrustDomainBundle("cluster.local", nil)
 	for _, ns := range namespaces {
 		bindingsKeyList := authzPolicies.ListServiceRoleBindings(ns)
 		for _, roleConfig := range authzPolicies.ListServiceRoles(ns) {
 			roleName := roleConfig.Name
 			if bindings, found := bindingsKeyList[roleName]; found {
-				role := roleConfig.Spec.(*rbac_v1alpha1.ServiceRole)
-				m := authz_model.NewModelV1alpha1(trustdomain.NewTrustDomainBundle("", nil), role, bindings)
+				m := authz_model.NewModelV1alpha1(td, roleConfig.ServiceRole, bindings)
 				err := c.v1alpha1ModelTov1beta1Policy(m, ns)
 				if err != nil {
 					return err
@@ -394,7 +358,7 @@ func (c *Converter) v1alpha1ModelTov1beta1Policy(v1alpha1Model *authz_model.Mode
 
 		if len(accessRule.Services) == 0 {
 			authzConfig := createAuthzConfig("all-workloads", nil, operation)
-			c.AuthorizationPolicies = append(c.AuthorizationPolicies, authzConfig)
+			c.v1beta1Policies = append(c.v1beta1Policies, authzConfig)
 		}
 		for _, service := range accessRule.Services {
 			for j, selector := range c.getSelectors(service, namespace) {
@@ -402,7 +366,7 @@ func (c *Converter) v1alpha1ModelTov1beta1Policy(v1alpha1Model *authz_model.Mode
 				authzConfig := createAuthzConfig(name, &v1beta1.WorkloadSelector{
 					MatchLabels: selector,
 				}, operation)
-				c.AuthorizationPolicies = append(c.AuthorizationPolicies, authzConfig)
+				c.v1beta1Policies = append(c.v1beta1Policies, authzConfig)
 			}
 		}
 	}
