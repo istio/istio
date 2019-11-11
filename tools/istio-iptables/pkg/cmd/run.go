@@ -451,7 +451,7 @@ func (iptConfigurator *IptablesConfigurator) createRulesFile(f *os.File, content
 	return err
 }
 
-func (iptConfigurator *IptablesConfigurator) executeIptableCommands(commands [][]string) {
+func (iptConfigurator *IptablesConfigurator) executeIptablesCommands(commands [][]string) {
 	for _, cmd := range commands {
 		if len(cmd) > 1 {
 			iptConfigurator.ext.RunOrFail(cmd[0], cmd[1:]...)
@@ -461,7 +461,7 @@ func (iptConfigurator *IptablesConfigurator) executeIptableCommands(commands [][
 	}
 }
 
-func (iptConfigurator *IptablesConfigurator) executeIptableRestoreCommand(isIpv4 bool) error {
+func (iptConfigurator *IptablesConfigurator) executeIptablesRestoreCommand(isIpv4 bool) error {
 	var data, filename, cmd string
 	if isIpv4 {
 		data = iptConfigurator.iptables.BuildV4Restore()
@@ -475,7 +475,7 @@ func (iptConfigurator *IptablesConfigurator) executeIptableRestoreCommand(isIpv4
 	rulesFile, err := ioutil.TempFile("", filename)
 	defer os.Remove(rulesFile.Name())
 	if err != nil {
-		return fmt.Errorf("Unable to create iptables-restore file: %v", err)
+		return fmt.Errorf("unable to create iptables-restore file: %v", err)
 	}
 	if err := iptConfigurator.createRulesFile(rulesFile, data); err != nil {
 		return err
@@ -488,22 +488,22 @@ func (iptConfigurator *IptablesConfigurator) executeIptableRestoreCommand(isIpv4
 func (iptConfigurator *IptablesConfigurator) executeCommands() {
 	if iptConfigurator.cfg.RestoreFormat {
 		// Execute iptables-restore
-		err := iptConfigurator.executeIptableRestoreCommand(true)
+		err := iptConfigurator.executeIptablesRestoreCommand(true)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
 		// Execute ip6tables-restore
-		err = iptConfigurator.executeIptableRestoreCommand(false)
+		err = iptConfigurator.executeIptablesRestoreCommand(false)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
 	} else {
 		// Execute iptables commands
-		iptConfigurator.executeIptableCommands(iptConfigurator.iptables.BuildV4())
+		iptConfigurator.executeIptablesCommands(iptConfigurator.iptables.BuildV4())
 		// Execute ip6tables commands
-		iptConfigurator.executeIptableCommands(iptConfigurator.iptables.BuildV6())
+		iptConfigurator.executeIptablesCommands(iptConfigurator.iptables.BuildV6())
 
 	}
 }
