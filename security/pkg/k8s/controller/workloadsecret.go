@@ -139,12 +139,16 @@ type SecretController struct {
 	// The most recent time when root cert in keycertbundle is synced with root
 	// cert in istio-ca-secret.
 	lastKCBSyncTime time.Time
+
+	// If true, periodically sync with istio-ca-secret to load latest root certificate.
+	// Only used in self signed CA mode.
+	syncWithSelfSignedCaSecret bool
 }
 
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
 func NewSecretController(ca certificateAuthority, certTTL time.Duration, gracePeriodRatio float32,
 	minGracePeriod time.Duration, dualUse bool, core corev1.CoreV1Interface, forCA bool, namespaces []string,
-	dnsNames map[string]*DNSNameEntry, istioCaStorageNamespace string) (*SecretController, error) {
+	dnsNames map[string]*DNSNameEntry, istioCaStorageNamespace string, selfSignedCa bool) (*SecretController, error) {
 	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {
 		return nil, fmt.Errorf("grace period ratio %f should be within [0, 1]", gracePeriodRatio)
 	}
@@ -154,20 +158,21 @@ func NewSecretController(ca certificateAuthority, certTTL time.Duration, gracePe
 	}
 
 	c := &SecretController{
-		ca:                      ca,
-		certTTL:                 certTTL,
-		istioCaStorageNamespace: istioCaStorageNamespace,
-		gracePeriodRatio:        gracePeriodRatio,
-		certUtil:                certutil.NewCertUtil(int(gracePeriodRatio * 100)),
-		caSecretController:      NewCaSecretController(core),
-		minGracePeriod:          minGracePeriod,
-		dualUse:                 dualUse,
-		core:                    core,
-		forCA:                   forCA,
-		namespaces:              make(map[string]struct{}),
-		dnsNames:                dnsNames,
-		monitoring:              newMonitoringMetrics(),
-		lastKCBSyncTime:         time.Time{},
+		ca:                         ca,
+		certTTL:                    certTTL,
+		istioCaStorageNamespace:    istioCaStorageNamespace,
+		gracePeriodRatio:           gracePeriodRatio,
+		certUtil:                   certutil.NewCertUtil(int(gracePeriodRatio * 100)),
+		caSecretController:         NewCaSecretController(core),
+		minGracePeriod:             minGracePeriod,
+		dualUse:                    dualUse,
+		core:                       core,
+		forCA:                      forCA,
+		namespaces:                 make(map[string]struct{}),
+		dnsNames:                   dnsNames,
+		monitoring:                 newMonitoringMetrics(),
+		lastKCBSyncTime:            time.Time{},
+		syncWithSelfSignedCaSecret: selfSignedCa,
 	}
 
 	for _, ns := range namespaces {
@@ -403,7 +408,7 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 	_, waitErr := sc.certUtil.GetWaitTime(scrt.Data[CertChainID], time.Now(), sc.minGracePeriod)
 
 	caCert, _, _, rootCertificate := sc.ca.GetCAKeyCertBundle().GetAllPem()
-	if !bytes.Equal(rootCertificate, scrt.Data[RootCertID]) {
+	if sc.syncWithSelfSignedCaSecret && !bytes.Equal(rootCertificate, scrt.Data[RootCertID]) {
 		var err error
 		rootCertificate, err = sc.tryToSyncKeyCertBundle(rootCertificate, caCert)
 		if err != nil {
