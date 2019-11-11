@@ -52,7 +52,7 @@ func (*K8sAnalyzer) Metadata() analysis.Metadata {
 // Analyze implements analysis.Analyzer
 func (fa *K8sAnalyzer) Analyze(ctx analysis.Context) {
 	ctx.ForEach(metadata.K8SCoreV1Endpoints, func(r *resource.Entry) bool {
-		fa.allowAnnotations(r, ctx, "Endpoint", metadata.K8SCoreV1Endpoints)
+		fa.allowAnnotations(r, ctx, "Endpoints", metadata.K8SCoreV1Endpoints)
 		return true
 	})
 	ctx.ForEach(metadata.K8SCoreV1Namespaces, func(r *resource.Entry) bool {

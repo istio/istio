@@ -101,6 +101,25 @@ kind: Namespace
 metadata:
   name: staging
   annotations:
-    # Sidecar injector annoation does not belong to Namespace
+    # Sidecar injector annotation does not belong to Namespace
     sidecar.istio.io/inject: "true"
-spec:
+spec: {}
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: test-endpoints
+  annotations:
+    # Endpoints should not have any Istio annotations
+    sidecar.istio.io/statsInclusionPrefixes: cluster.outbound
+subsets:
+- addresses:
+  - ip: 10.36.0.4
+    nodeName: kubernetes-node
+    targetRef:
+      kind: Pod
+      name: test-endpoints-755599958f-qkrk8
+  ports:
+  - name: http
+    port: 8080
+    protocol: TCP
