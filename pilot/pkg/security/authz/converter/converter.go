@@ -67,6 +67,10 @@ const (
 )
 
 const (
+	messageToBeRemoved = "===PLEASE REVIEW THE GENERATED POLICY AND REMOVE THIS LINE BEFORE APPLYING IT===\n"
+)
+
+const (
 	rbacNamespaceAllow = `apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
@@ -116,6 +120,7 @@ func New(k8sClient *kubernetes.Clientset, v1alpha1Policies *model.AuthorizationP
 		NamespaceToServiceToSelector: namespaceToServiceToSelector,
 		v1beta1Policies:              []model.Config{},
 	}
+	converter.ConvertedPolicies.WriteString(messageToBeRemoved)
 	return &converter, nil
 }
 
@@ -431,6 +436,10 @@ func convertAccessRuleToOperation(rule *authz_model.Permission) (*rbac_v1beta1.O
 	operation.Methods = rule.Methods
 	operation.Paths = rule.Paths
 	// TODO(pitlv2109): Handle destination.port
+	if len(rule.Constraints) > 0 && len(rule.Constraints[0]) > 0 {
+		fmt.Println(rule.Constraints[0])
+		return nil, fmt.Errorf("serviceRole with constraints is not supported")
+	}
 	return &operation, nil
 }
 
