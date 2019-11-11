@@ -191,6 +191,9 @@ func (c *Cache) fillStatus(group string, request *source.Request, peerAddr strin
 					}
 				}
 			}
+			if collectionExists && peerExists {
+				break
+			}
 		}
 		if !collectionExists {
 			// initiate the synced map
