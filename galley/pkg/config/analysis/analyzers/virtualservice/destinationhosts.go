@@ -68,7 +68,7 @@ func (a *DestinationHostAnalyzer) analyzeVirtualService(r *resource.Entry, ctx a
 	ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
 
 	for _, d := range getRouteDestinations(vs) {
-		s := getDestinationHost(ctx, ns, d.GetHost(), serviceEntryHosts)
+		s := getDestinationHost(ns, d.GetHost(), serviceEntryHosts)
 		if s == nil {
 			ctx.Report(metadata.IstioNetworkingV1Alpha3Virtualservices,
 				msg.NewReferencedResourceNotFound(r, "host", d.GetHost()))
@@ -78,9 +78,7 @@ func (a *DestinationHostAnalyzer) analyzeVirtualService(r *resource.Entry, ctx a
 	}
 }
 
-func getDestinationHost(ctx analysis.Context, sourceNs, host string,
-	serviceEntryHosts map[util.ScopedFqdn]*v1alpha3.ServiceEntry) *v1alpha3.ServiceEntry {
-
+func getDestinationHost(sourceNs, host string, serviceEntryHosts map[util.ScopedFqdn]*v1alpha3.ServiceEntry) *v1alpha3.ServiceEntry {
 	// Check explicitly defined ServiceEntries as well as services discovered from the platform
 
 	// ServiceEntries can be either namespace scoped or exposed to all namespaces
