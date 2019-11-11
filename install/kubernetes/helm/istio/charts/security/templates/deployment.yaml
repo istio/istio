@@ -69,6 +69,9 @@ spec:
           {{- if .Values.workloadCertTtl }}
             - --workload-cert-ttl={{ .Values.workloadCertTtl }}
           {{- end }}
+          {{- if .Values.maxWorkloadCertTtl }}
+            - --max-workload-cert-ttl={{ .Values.maxWorkloadCertTtl }}
+          {{- end }}
           {{- if .Values.citadelHealthCheck }}
             - --liveness-probe-path=/tmp/ca.liveness # path to the liveness health check status file
             - --liveness-probe-interval=60s # interval for health check file update

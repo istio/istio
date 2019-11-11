@@ -17,6 +17,7 @@ podAnnotations: {}
 citadelHealthCheck: false
 # 90*24hour = 2160h
 workloadCertTtl: 2160h
+maxWorkloadCertTtl: 2160h
 # Environment variables that configure Citadel.
 env: {}
 
