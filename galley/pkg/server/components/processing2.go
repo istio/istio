@@ -122,7 +122,7 @@ func (p *Processing2) Start() (err error) {
 
 	if p.args.EnableConfigAnalysis {
 		combinedAnalyzer := analyzers.AllCombined()
-		combinedAnalyzer.RemoveDisabled(kubeResources.DisabledCollections(), transformProviders)
+		combinedAnalyzer.RemoveDisabled(colsInSnapshots, kubeResources.DisabledCollections(), transformProviders)
 
 		settings := snapshotter.AnalyzingDistributorSettings{
 			StatusUpdater:     updater,

@@ -622,7 +622,7 @@ snapshots:
       - "istio/networking/v1alpha3/gateways"
       - "istio/networking/v1alpha3/serviceentries"
       - "istio/networking/v1alpha3/sidecars"
-      - "istio/networking/v1alpha3/virtualservices"
+      #- "istio/networking/v1alpha3/virtualservices"
       - "istio/networking/v1alpha3/synthetic/serviceentries"
       - "k8s/core/v1/namespaces"
       - "k8s/core/v1/services"

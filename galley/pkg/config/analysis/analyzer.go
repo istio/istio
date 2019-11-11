@@ -74,21 +74,35 @@ func combineInputs(analyzers []Analyzer) collection.Names {
 // RemoveDisabled removes analyzers that require disabled input collections. The names of removed analyzers are returned.
 // Transformer information is used to determine, based on the disabled input collections, which output collections
 // should be disabled. Any analyzers that require those output collections will be removed.
-func (c *CombinedAnalyzer) RemoveDisabled(disabledInputs collection.Names, xformProviders transformer.Providers) []string {
+func (c *CombinedAnalyzer) RemoveDisabled(snapshotCols, disabledInputs collection.Names, xformProviders transformer.Providers) []string {
 	disabledOutputs := getDisabledOutputs(disabledInputs, xformProviders)
 	var enabled []Analyzer
 	var removedNames []string
 
+	//TODO: Better everything
+	scMap := make(map[collection.Name]bool)
+	for _, sc := range snapshotCols {
+		scMap[sc] = true
+	}
+
 mainloop:
 	for _, a := range c.analyzers {
-		// Skip over any analyzers that require disabled input
 		for _, in := range a.Metadata().Inputs {
+			// Skip over any analyzers that require disabled input
 			if _, ok := disabledOutputs[in]; ok {
 				scope.Analysis.Infof("Skipping analyzer %q because collection %s is disabled.", a.Metadata().Name, in)
 				removedNames = append(removedNames, a.Metadata().Name)
 				continue mainloop
 			}
+
+			// Skip over any analyzers needing collections not in the snapshot
+			if _, ok := scMap[in]; !ok {
+				scope.Analysis.Infof("Skipping analyzer %q because collection %s is not in the snapshot(s).", a.Metadata().Name, in)
+				removedNames = append(removedNames, a.Metadata().Name)
+				continue mainloop
+			}
 		}
+
 		enabled = append(enabled, a)
 	}
 
