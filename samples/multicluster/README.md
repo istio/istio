@@ -1,5 +1,4 @@
-
-# Instructions for building a multi-cluster multi-network mesh.
+# Instructions for building a multi-cluster multi-network mesh
 
 Choose clusters to build a mesh from. The clusters may be on the same or
 diferent network.
