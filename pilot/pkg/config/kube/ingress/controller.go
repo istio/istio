@@ -151,7 +151,11 @@ func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model
 		// An updated ingress may also trigger an Add or Delete for one of its constituent sub-rules.
 		switch typ {
 		case schemas.VirtualService.Type:
-			f(model.Config{}, event)
+			f(model.Config{
+				ConfigMeta: model.ConfigMeta {
+					Type: typ,
+				},
+			}, event)
 		}
 
 		return nil
