@@ -27,8 +27,6 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
-	"istio.io/istio/pkg/config/schemas"
 )
 
 var (
@@ -86,12 +84,6 @@ type DiscoveryServer struct {
 	// APIs and service registry info
 	ConfigGenerator core.ConfigGenerator
 
-	// ConfigController provides readiness info (if initial sync is complete)
-	ConfigController model.ConfigStoreCache
-
-	// KubeController provides readiness info (if initial sync is complete)
-	KubeController *controller.Controller
-
 	concurrentPushLimit chan struct{}
 
 	// DebugConfigs controls saving snapshots of configs for /debug/adsz.
@@ -136,77 +128,19 @@ type EndpointShards struct {
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
-func NewDiscoveryServer(
-	env *model.Environment,
-	generator core.ConfigGenerator,
-	ctl model.Controller,
-	kubeController *controller.Controller,
-	configCache model.ConfigStoreCache) *DiscoveryServer {
+func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator) *DiscoveryServer {
 	out := &DiscoveryServer{
 		Env:                     env,
 		ConfigGenerator:         generator,
-		ConfigController:        configCache,
-		KubeController:          kubeController,
 		EndpointShardsByService: map[string]map[string]*EndpointShards{},
 		concurrentPushLimit:     make(chan struct{}, features.PushThrottle),
 		pushChannel:             make(chan *model.PushRequest, 10),
 		pushQueue:               NewPushQueue(),
-	}
-
-	// Flush cached discovery responses whenever services configuration change.
-	serviceHandler := func(svc *model.Service, _ model.Event) {
-		pushReq := &model.PushRequest{
-			Full:               true,
-			NamespacesUpdated:  map[string]struct{}{svc.Attributes.Namespace: {}},
-			ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
-		}
-		out.ConfigUpdate(pushReq)
-	}
-	if err := ctl.AppendServiceHandler(serviceHandler); err != nil {
-		adsLog.Errorf("Append service handler failed: %v", err)
-		return nil
-	}
-
-	instanceHandler := func(si *model.ServiceInstance, _ model.Event) {
-		// TODO: This is an incomplete code. This code path is called for service entries, consul, etc.
-		// In all cases, this is simply an instance update and not a config update. So, we need to update
-		// EDS in all proxies, and do a full config push for the instance that just changed (add/update only).
-		out.ConfigUpdate(&model.PushRequest{
-			Full:              true,
-			NamespacesUpdated: map[string]struct{}{si.Service.Attributes.Namespace: {}},
-			// TODO: extend and set service instance type, so no need re-init push context
-			ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
-		})
-	}
-	if err := ctl.AppendInstanceHandler(instanceHandler); err != nil {
-		adsLog.Errorf("Append instance handler failed: %v", err)
-		return nil
+		DebugConfigs:            features.DebugConfigs,
 	}
 
 	// Flush cached discovery responses when detecting jwt public key change.
 	model.JwtKeyResolver.PushFunc = out.ClearCache
-
-	// TODO(Nino-k): remove this case once incrementalUpdate is default
-	if configCache != nil {
-		// TODO: changes should not trigger a full recompute of LDS/RDS/CDS/EDS
-		// (especially mixerclient HTTP and quota)
-		configHandler := func(c model.Config, _ model.Event) {
-			pushReq := &model.PushRequest{
-				Full:               true,
-				ConfigTypesUpdated: map[string]struct{}{c.Type: {}},
-			}
-			out.ConfigUpdate(pushReq)
-		}
-		for _, descriptor := range schemas.Istio {
-			configCache.RegisterEventHandler(descriptor.Type, configHandler)
-		}
-	}
-
-	out.DebugConfigs = features.DebugConfigs
-
-	pushThrottle := features.PushThrottle
-
-	adsLog.Infof("Starting ADS server with pushThrottle=%d", pushThrottle)
 
 	return out
 }
@@ -217,6 +151,7 @@ func (s *DiscoveryServer) Register(rpcs *grpc.Server) {
 }
 
 func (s *DiscoveryServer) Start(stopCh <-chan struct{}) {
+	adsLog.Infof("Starting ADS server")
 	go s.handleUpdates(stopCh)
 	go s.periodicRefreshMetrics(stopCh)
 	go s.sendPushes(stopCh)

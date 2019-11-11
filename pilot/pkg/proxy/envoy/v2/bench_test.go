@@ -66,8 +66,7 @@ func SetupDiscoveryServer(t testing.TB, cfgs ...model.Config) *DiscoveryServer {
 	if err := env.PushContext.InitContext(env, env.PushContext, nil); err != nil {
 		t.Fatal(err)
 	}
-	s := NewDiscoveryServer(env, v1alpha3.NewConfigGenerator([]plugin.Plugin{}),
-		serviceControllers, nil, configController)
+	s := NewDiscoveryServer(env, v1alpha3.NewConfigGenerator([]plugin.Plugin{}))
 	if err := s.updateServiceShards(s.globalPushContext()); err != nil {
 		t.Fatalf("Failed to update service shards: %v", err)
 	}

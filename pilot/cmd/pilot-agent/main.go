@@ -348,7 +348,7 @@ var (
 			sdsUDSPath := sdsUdsPathVar.Get()
 			sdsEnabled, sdsTokenPath := detectSds(controlPlaneBootstrap, sdsUDSPath, trustworthyJWTPath)
 
-			if !sdsEnabled { // Not using citadel agent - this is either Pilot or Istiod.
+			if !sdsEnabled && role.Type == model.SidecarProxy { // Not using citadel agent - this is either Pilot or Istiod.
 
 				// Istiod and new SDS-only mode doesn't use sdsUdsPathVar - sdsEnabled will be false.
 				sa := istio_agent.NewSDSAgent(discoveryAddress, controlPlaneAuthEnabled)
@@ -498,7 +498,7 @@ var (
 
 			agent := envoy.NewAgent(envoyProxy, features.TerminationDrainDuration())
 
-			if sdsEnabled {
+			if sdsEnabled && role.Type == model.SidecarProxy {
 				tlsCertsToWatch = []string{}
 			}
 

@@ -283,6 +283,9 @@ func NewValidateCommand(istioNamespace *string) *cobra.Command {
 
 		# Validate current services under 'default' namespace within the cluster
 		kubectl get services -o yaml |istioctl validate -f -
+
+		# Also see the related experimental command 'istioctl x analyze'
+		istioctl x analyze samples/bookinfo/networking/bookinfo-gateway.yaml
 `,
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {

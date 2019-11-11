@@ -637,18 +637,6 @@ func writeAllADS(w io.Writer) {
 }
 
 func (s *DiscoveryServer) ready(w http.ResponseWriter, req *http.Request) {
-	if s.ConfigController != nil {
-		if !s.ConfigController.HasSynced() {
-			w.WriteHeader(503)
-			return
-		}
-	}
-	if s.KubeController != nil {
-		if !s.KubeController.HasSynced() {
-			w.WriteHeader(503)
-			return
-		}
-	}
 	w.WriteHeader(200)
 }
 
