@@ -99,7 +99,7 @@ func TestPushTypeFor(t *testing.T) {
 			name:        "quotaSpec updated for sidecar proxy",
 			proxy:       sidecar,
 			configTypes: []string{schemas.QuotaSpec.Type},
-			expect:      map[XdsType]bool{RDS: true},
+			expect:      map[XdsType]bool{LDS: true, RDS: true},
 		},
 		{
 			name:        "quotaSpec updated for gateway",
