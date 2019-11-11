@@ -5,7 +5,7 @@ global:
   telemetryNamespace: istio-system
   policyNamespace: istio-system
 
-  controlPlaneSecurityEnabled: false
+  controlPlaneSecurityEnabled: true
 
   mtls:
     # Default setting for service-to-service mtls. Can be set explicitly using

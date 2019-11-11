@@ -37879,7 +37879,7 @@ spec:
         enabled: true
   values:
     global:
-      controlPlaneSecurityEnabled: false
+      controlPlaneSecurityEnabled: true
       mtls:
         enabled: true
       sds:
