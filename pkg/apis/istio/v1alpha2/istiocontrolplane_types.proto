@@ -19,8 +19,9 @@ import "k8s.io/api/autoscaling/v2beta1/generated.proto";
 import "k8s.io/apimachinery/pkg/apis/meta/v1/generated.proto";
 import "github.com/gogo/protobuf/protobuf/google/protobuf/wrappers.proto";
 
-// $title: Operator Installation
-// $description: Configuration for Istio control plane installation through the Operator.
+// $title: Installation Options (istioctl)
+// $description: Configuration options for Istio control plane installation using istioctl.
+// $weight: 10
 // $location: https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.html
 //
 // TODO: for some reason the below fails proto compilation in this repo.
