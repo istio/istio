@@ -38149,8 +38149,6 @@ var _translateconfigTranslateconfig14Yaml = []byte(`apiMapping:
     outPath: "global.resources"
   DefaultNamespace:
     outPath: "global.istioNamespace"
-  Values.Proxy:
-    outPath: "global.proxy"
   ConfigManagement.Components.Namespace:
     outPath: "global.configNamespace"
   Policy.Components.Namespace:
