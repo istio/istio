@@ -344,9 +344,6 @@ teardown() {
     kc delete clusterrole -l operator.istio.io/managed=Reconcile --ignore-not-found
     kc delete clusterrolebinding -l operator.istio.io/managed=Reconcile --ignore-not-found
     kc delete crd -l operator.istio.io/managed=Reconcile --ignore-not-found
-
-    # remove the bookinfo app in the default namespace
-    kc delete -f ../bookinfo/platform/kube/bookinfo.yaml --wait --ignore-not-found
   done
 }
 
