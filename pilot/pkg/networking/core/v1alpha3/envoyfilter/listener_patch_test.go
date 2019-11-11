@@ -719,13 +719,9 @@ func TestApplyListenerPatches(t *testing.T) {
 	}
 }
 
-func BenchmarkStatsListener(b *testing.B) {
-	//func TestStatsListener(b *testing.T) {
-
-	faultFilterOut := &fault.HTTPFault{
-		UpstreamCluster: "scooby",
-	}
-	faultFilterOutAny, _ := ptypes.MarshalAny(faultFilterOut)
+// This benchmark measures the performance of Telemetry V2 EnvoyFilter patches. The intent here is to
+// measure overhead of using EnvoyFilters rather than native code.
+func BenchmarkTelemetryV2Filters(b *testing.B) {
 	listener := []*xdsapi.Listener{
 		{
 			Name: "another-listener",
@@ -748,10 +744,8 @@ func BenchmarkStatsListener(b *testing.B) {
 								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
 									XffNumTrustedHops: 4,
 									HttpFilters: []*http_conn.HttpFilter{
-										{Name: xdsutil.Fault,
-											ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: faultFilterOutAny},
-										},
 										{Name: "http-filter3"},
+										{Name: xdsutil.Router},
 										{Name: "http-filter2"},
 									},
 								}),

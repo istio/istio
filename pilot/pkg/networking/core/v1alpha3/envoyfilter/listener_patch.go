@@ -204,10 +204,11 @@ func doNetworkFilterListOperation(proxy *model.Proxy, patchContext networking.En
 				continue
 			}
 
-			fc.Filters = append(fc.Filters, proto.Clone(cp.Value).(*xdslistener.Filter))
+			clonedVal := proto.Clone(cp.Value).(*xdslistener.Filter)
+			fc.Filters = append(fc.Filters, clonedVal)
 			if insertPosition < len(fc.Filters)-1 {
 				copy(fc.Filters[insertPosition+1:], fc.Filters[insertPosition:])
-				fc.Filters[insertPosition] = proto.Clone(cp.Value).(*xdslistener.Filter)
+				fc.Filters[insertPosition] = clonedVal
 			}
 		} else if cp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE {
 			// insert before without a filter match is same as insert in the beginning
@@ -227,9 +228,10 @@ func doNetworkFilterListOperation(proxy *model.Proxy, patchContext networking.En
 			if insertPosition == -1 {
 				continue
 			}
-			fc.Filters = append(fc.Filters, proto.Clone(cp.Value).(*xdslistener.Filter))
+			clonedVal := proto.Clone(cp.Value).(*xdslistener.Filter)
+			fc.Filters = append(fc.Filters, clonedVal)
 			copy(fc.Filters[insertPosition+1:], fc.Filters[insertPosition:])
-			fc.Filters[insertPosition] = proto.Clone(cp.Value).(*xdslistener.Filter)
+			fc.Filters[insertPosition] = clonedVal
 		}
 	}
 	if networkFiltersRemoved {
@@ -352,10 +354,11 @@ func doHTTPFilterListOperation(proxy *model.Proxy, patchContext networking.Envoy
 				continue
 			}
 
-			hcm.HttpFilters = append(hcm.HttpFilters, proto.Clone(cp.Value).(*http_conn.HttpFilter))
+			clonedVal := proto.Clone(cp.Value).(*http_conn.HttpFilter)
+			hcm.HttpFilters = append(hcm.HttpFilters, clonedVal)
 			if insertPosition < len(hcm.HttpFilters)-1 {
 				copy(hcm.HttpFilters[insertPosition+1:], hcm.HttpFilters[insertPosition:])
-				hcm.HttpFilters[insertPosition] = proto.Clone(cp.Value).(*http_conn.HttpFilter)
+				hcm.HttpFilters[insertPosition] = clonedVal
 			}
 		} else if cp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE {
 			// insert before without a filter match is same as insert in the beginning
@@ -376,9 +379,11 @@ func doHTTPFilterListOperation(proxy *model.Proxy, patchContext networking.Envoy
 			if insertPosition == -1 {
 				continue
 			}
-			hcm.HttpFilters = append(hcm.HttpFilters, proto.Clone(cp.Value).(*http_conn.HttpFilter))
+
+			clonedVal := proto.Clone(cp.Value).(*http_conn.HttpFilter)
+			hcm.HttpFilters = append(hcm.HttpFilters, clonedVal)
 			copy(hcm.HttpFilters[insertPosition+1:], hcm.HttpFilters[insertPosition:])
-			hcm.HttpFilters[insertPosition] = proto.Clone(cp.Value).(*http_conn.HttpFilter)
+			hcm.HttpFilters[insertPosition] = clonedVal
 		}
 	}
 	if httpFiltersRemoved {
