@@ -17,11 +17,12 @@ package envoyfilter
 import (
 	"fmt"
 	"io/ioutil"
-	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pkg/test/env"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pkg/test/env"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
