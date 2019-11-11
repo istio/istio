@@ -212,7 +212,7 @@ istioctl experimental analyze -k -d false
 
 	analysisCmd.PersistentFlags().BoolVarP(&useKube, "use-kube", "k", false,
 		"Use live Kubernetes cluster for analysis")
-	analysisCmd.PersistentFlags().BoolVarP(&useDiscovery, "discovery", "d", false, // Note that this default val gets overriden to match --use-kube
+	analysisCmd.PersistentFlags().BoolVarP(&useDiscovery, "discovery", "d", false, // Note that this default val gets overridden to match --use-kube
 		"'true' to enable service discovery, 'false' to disable it. "+
 			"Defaults to true if --use-kube is set, false otherwise. "+
 			"Analyzers requiring resources made available by enabling service discovery will be skipped.")
