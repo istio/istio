@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2018 Istio Authors
+# Copyright Istio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -350,21 +350,6 @@ teardown() {
   done
 }
 
-install_bookinfo() {
-  echo "Installing bookinfo in each cluster"
-
-  for CONTEXT in $(kubectl config get-contexts -o name); do
-    kc() { kubectl --context "${CONTEXT}" "$@"; }
-
-    # enable automatic sidecar injection on the default namespace
-    kc label namespace default istio-injection=enabled --overwrite
-
-    # install the bookinfo service and expose it through the ingress gateway
-    kc apply -f ../bookinfo/platform/kube/bookinfo.yaml
-    kc apply -f ../bookinfo/networking/bookinfo-gateway.yaml
-  done
-}
-
 describe() {
   istioctl x mc describe -f "${MESH_TOPOLOGY_FILENAME}"
 }
@@ -377,7 +362,7 @@ check_prerequisties() {
 }
 
 usage() {
-  echo "Usage: prepare-kubeconfig  | prepare-mesh | apply | bookinfo
+  echo "Usage: $0 prepare-kubeconfig | prepare-mesh | apply | teardown
 
 prepare-kubeconfig
   Create a merged kubeconfig containing only clusters in the mesh.
@@ -392,11 +377,8 @@ apply
   and registers each control plane with remote kube-apiservers for
   service and workload discovery.
 
-install-bookinfo
-  Install the sample bookinfo application in each cluster.
-
 teardown
-  Remove the Istio control plane and sample bookinfo app from all clusters.
+  Remove the Istio control plane from all clusters.
 "
 }
 
@@ -413,10 +395,6 @@ case $1 in
 
   apply)
     apply
-    ;;
-
-  install-bookinfo)
-    install_bookinfo
     ;;
 
   describe)

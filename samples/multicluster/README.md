@@ -62,7 +62,7 @@ ${EDITOR} ${WORKDIR}/topology.yaml
 Install the sample bookinfo application in each cluster.
 
 ```bash
-./setup-mesh.sh install-bookinfo
+./setup-bookinfo.sh install
 ```
 
 Scale the bookinfo services in each cluster to simulate partial service
@@ -89,8 +89,9 @@ for DEPLOYMENT in productpage-v1 reviews-v2 reviews-v1 ratings-v1; do
 done
 ```
 
-Teardown the mesh and restore the cluster to their original state.
+Teardown the mesh and remove the sample bookinfo application.
 
 ```bash
-./setup-mesh teardown
+./setup-mesh.sh teardown
+./setup-bookinfo.sh uninstall
 ```
