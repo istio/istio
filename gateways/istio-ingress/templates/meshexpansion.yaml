@@ -1,4 +1,3 @@
-{{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
 {{- if .Values.global.meshExpansion.enabled }}
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
@@ -39,7 +38,7 @@ spec:
   - meshexpansion-gateway
   tcp:
   - match:
-    - port: {{ $gateway.externalPort }}
+    - port: 15011
     route:
     - destination:
         host: istio-pilot.{{ .Values.global.istioNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
