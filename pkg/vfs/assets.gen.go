@@ -36800,6 +36800,9 @@ func chartsSecurityNodeagentValuesYaml() (*asset, error) {
 var _examplesMulticlusterValuesIstioMulticlusterGatewaysYaml = []byte(`apiVersion: install.istio.io/v1alpha2
 kind: IstioControlPlane
 spec:
+  coreDNS:
+    enabled: true
+    
   values:
     global:
       # Provides dns resolution for global services
@@ -36816,11 +36819,6 @@ spec:
     # Cluster local CAs are bootstrapped with the root CA.
     security:
       selfSigned: false
-
-    # Provides dns resolution for service entries of form
-    # name.namespace.global
-    istiocoredns:
-      enabled: true
 
     gateways:
       istio-egressgateway:
