@@ -31,7 +31,6 @@ pilot:
     requests:
       cpu: 10m
       memory: 100Mi
-  autoscaleEnabled: false
 
 mixer:
   policy:

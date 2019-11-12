@@ -100,18 +100,6 @@ pilot:
     # This is required to be different than 'istio' if multiple ingresses are present.
     ingressClass: istio
 
-  telemetry:
-    enabled: true
-
-    v1:
-      # Will define mixerCheckServer and mixerReportServer
-      enabled: false
-
-    v2:
-      # For Null VM case now. If enabled, will set disableMixerHttpReports to true and not define mixerReportServer
-      # also enable metadata exchange and stats filter.
-      enabled: true
-
   policy:
     # Will not define mixerCheckServer and mixerReportServer
     enabled: false
@@ -135,3 +123,11 @@ mixer:
     sessionAffinityEnabled: false
   policy:
     enabled: false
+
+
+telemetry:
+  enabled: true
+  v2:
+    # For Null VM case now. If enabled, will set disableMixerHttpReports to true and not define mixerReportServer
+    # also enable metadata exchange and stats filter.
+    enabled: true

@@ -50,7 +50,7 @@ data:
     {{- else }}
     mixerCheckServer: istio-policy.{{ .Values.global.policyNamespace }}.svc.cluster.local:9091
     {{- end }}
-    {{- if .Values.pilot.telemetry.enabled }}
+    {{- if .Values.telemetry.enabled }}
     {{- if .Values.global.controlPlaneSecurityEnabled }}
     mixerReportServer: istio-telemetry.{{ .Values.global.telemetryNamespace }}.svc.cluster.local:15004
     {{- else }}
@@ -81,7 +81,7 @@ data:
     sidecarToTelemetrySessionAffinity: {{ .Values.mixer.telemetry.sessionAffinityEnabled }}
     {{- end }}
 
-    {{- if .Values.pilot.telemetry.v2.enabled }}
+    {{- if .Values.telemetry.v2.enabled }}
     disableMixerHttpReports: true
     {{- else }}
     disableMixerHttpReports: false
