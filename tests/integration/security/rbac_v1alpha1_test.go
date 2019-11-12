@@ -243,7 +243,7 @@ func TestV1_GRPC(t *testing.T) {
 				policies := tmpl.EvaluateAllOrFail(t, namespaceTmpl,
 					file.AsStringOrFail(t, rbacClusterConfigTmpl),
 					file.AsStringOrFail(t, "testdata/rbac/v1-policy-grpc.yaml.tmpl"),
-					file.AsStringOrFail(t, "testdata/rbac/mtls-for-a.tmpl"))
+					file.AsStringOrFail(t, "testdata/rbac/mtls-for-a.yaml.tmpl"))
 				g.ApplyConfigOrFail(t, ns, policies...)
 				defer g.DeleteConfigOrFail(t, ns, policies...)
 
