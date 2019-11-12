@@ -1,7 +1,7 @@
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: service-wildcard-0
+  name: service-wildcard-rule0-target0
   namespace: default
 spec:
   rules:
@@ -24,7 +24,7 @@ spec:
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: service-productpage-0
+  name: service-productpage-rule1-target0
   namespace: default
 spec:
   rules:
@@ -48,7 +48,7 @@ spec:
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: service-reviews-0
+  name: service-reviews-rule1-target0
   namespace: default
 spec:
   rules:
