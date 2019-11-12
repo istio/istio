@@ -95,6 +95,7 @@ func TestEndpointShardsMemoryLeak(t *testing.T) {
 		if !exist {
 			t.Errorf("Service %s not exist", se.Spec.(*networking.ServiceEntry).Hosts[0])
 		}
+
 		endpointShards.mutex.RLock()
 		epNum := len(endpointShards.Shards[""])
 		endpointShards.mutex.RUnlock()
@@ -106,7 +107,9 @@ func TestEndpointShardsMemoryLeak(t *testing.T) {
 		// TODO: figure out a way to notify
 		time.Sleep(100 * time.Millisecond)
 
+		server.mutex.RLock()
 		_, exist = server.EndpointShardsByService[se.Spec.(*networking.ServiceEntry).Hosts[0]]
+		server.mutex.RUnlock()
 		if exist {
 			t.Errorf("EndpointShards of service %s should be deleted", se.Spec.(*networking.ServiceEntry).Hosts[0])
 		}
