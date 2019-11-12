@@ -152,7 +152,7 @@ func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model
 		switch typ {
 		case schemas.VirtualService.Type:
 			f(model.Config{
-				ConfigMeta: model.ConfigMeta {
+				ConfigMeta: model.ConfigMeta{
 					Type: typ,
 				},
 			}, event)
