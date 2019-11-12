@@ -1,0 +1,14 @@
+{{- range $key, $value := .Values.customDashboards }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: custom-grafana-configuration-dashboards-{{ $key | replace "." "_" }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app: grafana
+    release: {{ $.Release.Name }}
+    istio: grafana
+data:
+  {{ $key }}: {{ $value }}
+---
+{{- end }}
