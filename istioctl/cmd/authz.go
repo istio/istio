@@ -114,7 +114,8 @@ mapping with equivalent syntax is not possible (e.g., constraints no longer vali
 in the new workload oriented model, converting a service name containing a wildcard
 to workload selector).
 
-Please always review the converted policies before applying them.
+Please always review the converted policies, and remove the "===PLEASE REVIEW THE GENERATED POLICY AND REMOVE THIS LINE BEFORE APPLYING IT==="
+string on top of the converted policies before apply them.
 
 THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 `,
