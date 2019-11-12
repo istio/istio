@@ -133,7 +133,7 @@ func FullNameFromNamespaceAndName(namespace, name string) FullName {
 	return FullName{string: namespace + "/" + name}
 }
 
-// String inteface implementation.
+// String interface implementation.
 func (n FullName) String() string {
 	return n.string
 }

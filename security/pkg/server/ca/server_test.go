@@ -521,7 +521,7 @@ func TestGetServerCertificate(t *testing.T) {
 
 	ca, err := ca.NewIstioCA(caopts)
 	if err != nil {
-		t.Errorf("Got error while createing plugged-cert CA: %v", err)
+		t.Errorf("Got error while creating plugged-cert CA: %v", err)
 	}
 	if ca == nil {
 		t.Fatalf("Failed to create a plugged-cert CA.")

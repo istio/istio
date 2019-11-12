@@ -370,7 +370,7 @@ func runCA() {
 		// add certificate identity to the identity registry for the liveness probe check
 		if registryErr := reg.AddMapping(probecontroller.LivenessProbeClientIdentity,
 			probecontroller.LivenessProbeClientIdentity); registryErr != nil {
-			log.Errorf("Failed to add indentity mapping: %v", registryErr)
+			log.Errorf("Failed to add identity mapping: %v", registryErr)
 		}
 
 		ch := make(chan struct{})
