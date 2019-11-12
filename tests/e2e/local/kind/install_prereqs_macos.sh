@@ -40,7 +40,7 @@ install_kubectl
 function check_and_install_golang() {
     echo "Checking Golang is installed..."
     if ! go help > /dev/null; then
-        echo "Golang is not installed. Installing the lastest stable release..."
+        echo "Golang is not installed. Installing the latest stable release..."
         if ! brew install golang; then
             echo "Installation of Golang from brew fails. Please install it manually."
             exit 1
