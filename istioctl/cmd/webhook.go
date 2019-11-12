@@ -74,6 +74,9 @@ func (opts *enableCliOptions) Validate() error {
 	if !opts.enableValidationWebhook && !opts.enableMutationWebhook {
 		return fmt.Errorf("no webhook to enable")
 	}
+	if len(opts.webhookSecretNameSpace) == 0 {
+		return fmt.Errorf("the namespace of the webhook secret is required; specify it through --namespace")
+	}
 	if opts.enableValidationWebhook {
 		if len(opts.validationWebhookConfigPath) == 0 {
 			return fmt.Errorf("--validation-path <yaml-file> is required for the validation webhook configuration")
