@@ -107,8 +107,9 @@ func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, clusterI
 	m.remoteKubeControllers[clusterID] = &remoteKubeController
 	m.m.Unlock()
 
-	_ = kubectl.AppendServiceHandler(func(*model.Service, model.Event) { m.updateHandler() })
-	_ = kubectl.AppendInstanceHandler(func(*model.ServiceInstance, model.Event) { m.updateHandler() })
+	_ = kubectl.AppendServiceHandler(func(svc *model.Service, _ model.Event) { m.updateHandler(svc) })
+	// Actually this do not take effect as kube controller incremental eds.
+	_ = kubectl.AppendInstanceHandler(func(svcInstance *model.ServiceInstance, _ model.Event) { m.updateHandler(svcInstance.Service) })
 	go kubectl.Run(stopCh)
 	return nil
 }
@@ -147,10 +148,11 @@ func (m *Multicluster) ReloadNetworkLookup(meshNetworks *meshconfig.MeshNetworks
 	}
 }
 
-func (m *Multicluster) updateHandler() {
+func (m *Multicluster) updateHandler(svc *model.Service) {
 	if m.XDSUpdater != nil {
 		req := &model.PushRequest{
 			Full:               true,
+			NamespacesUpdated:  map[string]struct{}{svc.Attributes.Namespace: {}},
 			ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
 		}
 		m.XDSUpdater.ConfigUpdate(req)

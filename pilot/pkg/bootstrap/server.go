@@ -35,7 +35,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 	prom "github.com/prometheus/client_golang/prometheus"
 
 	"google.golang.org/grpc"
@@ -78,12 +78,12 @@ import (
 	"istio.io/istio/pkg/config/schemas"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
-	configz "istio.io/istio/pkg/mcp/configz/client"
+	"istio.io/istio/pkg/mcp/configz/client"
 	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/mcp/monitoring"
 	"istio.io/istio/pkg/mcp/sink"
 
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -1432,7 +1432,8 @@ func (s *Server) initCertController(args *PilotArgs) error {
 // initEventHandlers sets up event handlers for config and service updates
 func (s *Server) initEventHandlers() error {
 	// Flush cached discovery responses whenever services configuration change.
-	serviceHandler := func(svc *model.Service, _ model.Event) {
+	serviceHandler := func(svc *model.Service, event model.Event) {
+		s.EnvoyXdsServer.SvcUpdate(svc.Attributes.ClusterID, string(svc.Hostname), svc.Attributes.Namespace, event)
 		pushReq := &model.PushRequest{
 			Full:               true,
 			NamespacesUpdated:  map[string]struct{}{svc.Attributes.Namespace: {}},

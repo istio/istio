@@ -401,6 +401,10 @@ type ServiceAttributes struct {
 	// Used by the aggregator to aggregate the Attributes.ClusterExternalAddresses
 	// for clusters where the service resides
 	ClusterExternalAddresses map[string][]string
+
+	// The ID for multi clusters.
+	// Currently only used by service event handler.
+	ClusterID string
 }
 
 // ServiceDiscovery enumerates Istio service instances.

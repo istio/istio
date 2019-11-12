@@ -296,7 +296,11 @@ func (c *Controller) Run(stop <-chan struct{}) {
 // AppendServiceHandler implements a service catalog operation
 func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) error {
 	for _, r := range c.GetRegistries() {
-		if err := r.AppendServiceHandler(f); err != nil {
+		handlerWrapper := func(svc *model.Service, event model.Event) {
+			svc.Attributes.ClusterID = r.ClusterID
+			f(svc, event)
+		}
+		if err := r.AppendServiceHandler(handlerWrapper); err != nil {
 			log.Infof("Fail to append service handler to adapter %s", r.Name)
 			return err
 		}

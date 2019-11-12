@@ -856,8 +856,6 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 			delete(c.servicesMap, svcConv.Hostname)
 			delete(c.externalNameSvcInstanceMap, svcConv.Hostname)
 			c.Unlock()
-			// EDS needs to just know when service is deleted.
-			c.XDSUpdater.SvcUpdate(c.ClusterID, svc.Name, svc.Namespace, event)
 		default:
 			// instance conversion is only required when service is added/updated.
 			instances := kube.ExternalNameServiceInstances(*svc, svcConv)
@@ -869,7 +867,6 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 				c.externalNameSvcInstanceMap[svcConv.Hostname] = instances
 			}
 			c.Unlock()
-			c.XDSUpdater.SvcUpdate(c.ClusterID, svc.Name, svc.Namespace, event)
 		}
 
 		f(svcConv, event)

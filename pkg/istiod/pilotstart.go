@@ -674,7 +674,8 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 // initEventHandlers sets up event handlers for config and service updates
 func (s *Server) initEventHandlers() error {
 	// Flush cached discovery responses whenever services configuration change.
-	serviceHandler := func(svc *model.Service, _ model.Event) {
+	serviceHandler := func(clusterID string, svc *model.Service, event model.Event) {
+		s.EnvoyXdsServer.SvcUpdate("", string(svc.Hostname), svc.Attributes.Namespace, event)
 		pushReq := &model.PushRequest{
 			Full:               true,
 			NamespacesUpdated:  map[string]struct{}{svc.Attributes.Namespace: {}},
