@@ -21,22 +21,13 @@ set -o errexit
 #
 
 # Keep all generated artificates in a dedicated workspace
-: "${WORKDIR:?WORKDIR not set}"
+: "${WORKDIR:-${WORKDIR_DEFAULT}}"
 
 # Each mesh should have a unique ID.
 : "${MESH_ID:?MESH_ID not set}"
 
 # Organization name to use when creating the root and intermediate certificates.
 : "${ORG_NAME:?ORG_NAME not set}"
-
-# kubeconfig and context for the three test clusters
-: "${CLUSTER0_CONTEXT:?CLUSTER0_CONTEXT not set}"
-: "${CLUSTER0_KUBECONFIG:?CLUSTER0_KUBECONFIG not set}"
-: "${CLUSTER1_CONTEXT:?CLUSTER1_CONTEXT not set}"
-: "${CLUSTER1_KUBECONFIG:?CLUSTER1_KUBECONFIG not set}"
-: "${CLUSTER2_CONTEXT:?CLUSTER2_CONTEXT not set}"
-: "${CLUSTER2_KUBECONFIG:?CLUSTER2_KUBECONFIG not set}"
-
 
 #
 # derived configuration
@@ -54,6 +45,9 @@ BASE_FILENAME="${WORKDIR}/base.yaml"
 # Description of the mesh topology. Includes the list of clusters in the mesh.
 MESH_TOPOLOGY_FILENAME="${WORKDIR}/topology.yaml"
 
+# intermediate list of clusters
+CLUSTER_LIST="${WORKDIR}/cluster_list"
+
 # Store root and intermediate certs
 CERTS_DIR="${WORKDIR}/certs"
 
@@ -61,39 +55,7 @@ CERTS_DIR="${WORKDIR}/certs"
 # helper functions
 #
 
-# track existing contexts that were already merged. A random suffix
-# is added to non-unique contexts.
-declare -A EXISTING_CONTEXTS
-
-# accumulate kubeconfigs that will be later merged.
-export KUBECONFIG_LIST=""
-
-# extract the minified kubeconfig for a single cluster as specified
-# by the kubeconfig path and context name.
-extract_kubeconfig() {
-  local KUBECONFIG="${1}"
-  local CONTEXT="${2}"
-  local MINIFIED_KUBECONFIG
-
-  MINIFIED_KUBECONFIG=$(mktemp "${TMP_KUBECONFIG_DIR}"/XXXXXX)
-  kubectl --kubeconfig "${KUBECONFIG}" --context "${CONTEXT}" \
-    config view --minify --raw > "${MINIFIED_KUBECONFIG}"
-
-  if [[ "${EXISTING_CONTEXTS[${CONTEXT}]+_}" ]]; then
-    local CONTEXT_RENAMED="${CONTEXT}-${RANDOM}"
-
-    echo "${CONTEXT} is not unique in the merged kubeconfig. Renaming to ${CONTEXT_RENAMED} " > /dev/stderr
-    kubectl --kubeconfig "${MINIFIED_KUBECONFIG}" \
-      config rename-context "${CONTEXT}" "${CONTEXT_RENAMED}" > /dev/null
-    CONTEXT="${CONTEXT_RENAMED}"
-  fi
-
-  EXISTING_CONTEXTS["${CONTEXT}"]=y
-  KUBECONFIG_LIST="${KUBECONFIG_LIST}":"${MINIFIED_KUBECONFIG}"
-}
-
-# Prepare a kubeconfig with clusters in the mesh.
-prepare_kubeconfig() {
+generate_topology() {
   # create a local working directory to manage kubeconfig files.
   TMP_KUBECONFIG_DIR="$(mktemp -d ./kubeconfig_workdir_XXXXXX)"
   export TMP_KUBECONFIG_DIR
@@ -102,72 +64,69 @@ prepare_kubeconfig() {
   }
   trap cleanup EXIT
 
-  extract_kubeconfig "${CLUSTER0_KUBECONFIG}" "${CLUSTER0_CONTEXT}"
-  extract_kubeconfig "${CLUSTER1_KUBECONFIG}" "${CLUSTER1_CONTEXT}"
-  extract_kubeconfig "${CLUSTER2_KUBECONFIG}" "${CLUSTER2_CONTEXT}"
+  MESH_ID=$(grep -e "^mesh: \(.*\)$" "${WORKDIR}/cluster_list" |cut -d: -f2 | sed 's/ //')
+
+  # track existing contexts that were already merged. A random suffix
+  # is added to non-unique contexts.
+  declare -A EXISTING_CONTEXTS
+
+  local KUBECONFIG_LIST=""
+
+  cat <<EOF > "${MESH_TOPOLOGY_FILENAME}"
+# auto-generated - do not edit by hand
+mesh_id: ${MESH_ID}
+contexts:
+EOF
+
+  while IFS=' ' read TYPE KUBECONFIG CONTEXT NETWORK; do
+    # skip comments
+    [[ "${KUBECONFIG}" == \#* ]] && continue
+
+    if [[ "${TYPE}" == "cluster:" ]]; then
+      echo "  ${CONTEXT}:" >> "${MESH_TOPOLOGY_FILENAME}"
+      echo "    network: ${NETWORK}" >> "${MESH_TOPOLOGY_FILENAME}"
+
+      MINIFIED_KUBECONFIG=$(mktemp "${TMP_KUBECONFIG_DIR}"/XXXXXX)
+      kubectl --kubeconfig "${KUBECONFIG}" --context "${CONTEXT}" \
+        config view --minify --raw > "${MINIFIED_KUBECONFIG}"
+
+      if [[ "${EXISTING_CONTEXTS[${CONTEXT}]+_}" ]]; then
+        echo "Cluster contexts must be unique. Please rename with 'kubectl config rename-contexts ${context} <new-context>'"
+        exit 177
+      fi
+
+      EXISTING_CONTEXTS["${CONTEXT}"]=y
+      KUBECONFIG_LIST="${KUBECONFIG_LIST}":"${MINIFIED_KUBECONFIG}"
+    fi
+  done  < "${WORKDIR}/cluster_list"
 
   KUBECONFIG="${KUBECONFIG_LIST}" kubectl config view --raw --flatten > "${MERGED_KUBECONFIG}"
 
-  echo ""
-  echo "Success! Run the following command to use as the default kubeconfig in the current shell"
-  echo
-  echo "    export KUBECONFIG=${MERGED_KUBECONFIG}"
-  echo
 }
 
-# Create a IstioControlPlane that will be the base configuration
-# for all cluster's control planes.
-create_base_yaml() {
-  echo "creating ${BASE_FILENAME} for the common base control plane configuration"
-  cat > "${BASE_FILENAME}" << EOF
-apiVersion: install.istio.io/v1alpha2
-kind: IstioControlPlane
-spec:
-  values:
-    security:
-      selfSigned: false
-    global:
-      mtls:
-        enabled: true
-EOF
+add_cluster() {
+  kubeconfig=${1}
+  context=${2}
+  network=${3}
+
+  # filter out duplicates
+  if grep -q -e "cluster: ${context}"                          "${WORKDIR}/cluster_list" ; then return; fi
+  if grep -q -e "cluster: ${kubeconfig} ${context}"            "${WORKDIR}/cluster_list" ; then return; fi
+  if grep -q -e "cluster: ${kubeconfig} ${context} ${network}" "${WORKDIR}/cluster_list" ; then return; fi
+
+  echo "cluster: ${kubeconfig} ${context} ${network}" >> "${WORKDIR}/cluster_list"
+  generate_topology
 }
 
-# Create a the initial mesh topology file. This includes the list of
-# clusters in the mesh along with per-cluster attributes, e.g. network.
-create_mesh_topology() {
-  if [ -f "${MESH_TOPOLOGY_FILENAME}" ]; then
-    echo "${MESH_TOPOLOGY_FILENAME} already exists."
-    return
-  fi
-  echo "creating ${MESH_TOPOLOGY_FILENAME} to describe the mesh topology"
-    cat > "${MESH_TOPOLOGY_FILENAME}" << EOF
-# auto-generated mesh topology file.
+remove_cluster() {
+  kubeconfig=${1}
+  context=${2}
+  network=${3}
 
-# Example topology description.
-#
-# mesh_id: ${MESH_ID}
-# contexts:
-#   # 'cluster0' is the cluster's context as defined by the
-#   # current kubeconfig file
-#   cluster0:
-#     # 'network' is a user chosen name of the cluster's
-#     # network, e.g. name of the VPC the cluster is running in.
-#     network: network-0
-#
-#     # name of the k8s serviceaccount other clusters will use
-#     # when reading services from this cluster.
-#     serviceAccountReader: istio-reader-service-account
-#
-#   # multiple clusters can be added.
-#   cluster1:
-#     network: network-1
-#     serviceAccountReader: istio-reader-service-account
-#
+  LINE="cluster: ${kubeconfig} ${context} ${network}"
 
-mesh_id: ${MESH_ID}
-contexts:
-# add your clusters here
-EOF
+  sed -i "\|^${LINE}|d" "${WORKDIR}/cluster_list"
+  generate_topology
 }
 
 # Create an offline root certificate. This root signs the
@@ -193,32 +152,24 @@ create_offline_root_ca(){
   popd >/dev/null
 }
 
-# Prepare the environment for building a multi-cluster mesh. This
+# Create the environment for building a multi-cluster mesh. This
 # creates the mesh's nitial configuration and root certificate
-prepare_mesh() {
-  create_base_yaml
-  create_mesh_topology
+create_mesh() {
   create_offline_root_ca
 
-  echo "Success!"
-  echo ""
-  echo "    Add clusters to ${MESH_TOPOLOGY_FILENAME} and run '${0} apply' to update the mesh"
-  echo ""
-}
+  # create mesh configuration
+  echo "mesh_id: ${MESH_ID}" > ${WORKDIR}/cluster_list
 
-# TODO(ayj) - remove once istioctl installs these
-apply_missing_service_account() {
-  local CONTEXT="${1}"
-  kc() { kubectl --context "${CONTEXT}" "$@";  }
-
-  kc create clusterrole istio-reader-istio-system \
-    --verb=get,list,watch --resource=nodes,pods,endpoints,services,replicasets.apps,replicationcontrollers \
-    --dry-run -o yaml | kc apply -f -
-  kc create serviceaccount istio-reader-service-account -n istio-system \
-    --dry-run -o yaml | kc apply -f -
-  kc create clusterrolebinding istio-reader-istio-system \
-    --clusterrole=istio-reader-istio-system --serviceaccount=istio-system:istio-reader-service-account \
-    --dry-run -o yaml | kc apply -f -
+  echo "    Success!"
+  echo ""
+  echo "    Use '${0} add-cluster <kubeconfig> <context> <network>' to add clusters"
+  echo "    to the mesh configuration. Run '${0} apply' to apply the configuration to the live"
+  echo "    clusters to form the mesh".
+  echo ""
+  echo "    Run the following command to use as the default kubeconfig in the current shell"
+  echo
+  echo "    export KUBECONFIG=${MERGED_KUBECONFIG}"
+  echo ""
 }
 
 # Create an intermediate certificate with a common root for each
@@ -301,7 +252,6 @@ apply() {
   # plane in each cluster
   for CONTEXT in $(kubectl config get-contexts -o name); do
       apply_intermediate_ca "${CONTEXT}"
-      apply_missing_service_account "${CONTEXT}"
       apply_istio_control_plane "${CONTEXT}"
   done
 
@@ -359,14 +309,19 @@ check_prerequisties() {
 }
 
 usage() {
-  echo "Usage: $0 prepare-kubeconfig | prepare-mesh | apply | teardown
+  echo "Usage: $0 create-mesh | add-cluster | remove-cluster | apply | teardown
 
-prepare-kubeconfig
-  Create a merged kubeconfig containing only clusters in the mesh.
-
-prepare-mesh
-  Prepare the workspace with the initial files and root certificates
+create-mesh
+  Create the workspace with the initial files and root certificates
   to build a mesh.
+
+add-cluster <kubeconfig> <context> <network>
+  Add a cluster to the mesh configuration. Use '${0} apply' to apply
+  the configuration changes to the mesh.
+
+remove-cluster <kubeconfig> <context> <network>
+  Remove a cluster from the mesh configuration. Use '${0} apply' to
+  apply the configuration changes to the mesh.
 
 apply
   Apply the desired control plane and multicluster state to the
@@ -382,12 +337,34 @@ teardown
 check_prerequisties
 
 case $1 in
-  prepare-kubeconfig)
-    prepare_kubeconfig
+  create-mesh)
+    create-mesh
     ;;
 
-  prepare-mesh)
-    prepare_mesh
+  add-cluster)
+    if [ "$#" -ne 4 ]; then
+      usage
+      exist 127
+    fi
+
+    kubeconfig=${2}
+    context=${3}
+    network=${4}
+
+    add_cluster "${kubeconfig}" "${context}" "${network}"
+    ;;
+
+  remove-cluster)
+    if [ "$#" -ne 4 ]; then
+      usage
+      exit 127
+    fi
+
+    kubeconfig=${2}
+    context=${3}
+    network=${4}
+
+    remove_cluster "${kubeconfig}" "${context}" "${network}"
     ;;
 
   apply)
