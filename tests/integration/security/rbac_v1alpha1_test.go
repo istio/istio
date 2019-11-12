@@ -15,10 +15,8 @@
 package security
 
 import (
-	"fmt"
 	"strconv"
 	"testing"
-	// "time"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common/scheme"
