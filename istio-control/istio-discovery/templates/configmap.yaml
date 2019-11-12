@@ -50,7 +50,7 @@ data:
     {{- else }}
     mixerCheckServer: istio-policy.{{ .Values.global.policyNamespace }}.svc.cluster.local:9091
     {{- end }}
-    {{- if and .Values.pilot.telemetry.enabled .Values.pilot.telemetry.v1.enabled }}
+    {{- if .Values.pilot.telemetry.enabled }}
     {{- if .Values.global.controlPlaneSecurityEnabled }}
     mixerReportServer: istio-telemetry.{{ .Values.global.telemetryNamespace }}.svc.cluster.local:15004
     {{- else }}
