@@ -325,15 +325,12 @@ func (builder *ListenerBuilder) buildVirtualInboundListener(
 		filterChains = append(filterChains, newHTTPPassThroughFilterChain(configgen, env, node, push)...)
 	}
 	builder.virtualInboundListener = &xdsapi.Listener{
-		Name:           VirtualInboundListenerName,
-		Address:        util.BuildAddress(actualWildcard, ProxyInboundListenPort),
-		Transparent:    isTransparentProxy,
-		UseOriginalDst: proto.BoolTrue,
-		FilterChains:   filterChains,
-	}
-	// Set traffic direction on listener, so that draining works correctly
-	if isTransparentProxy != nil && isTransparentProxy.Value {
-		builder.virtualInboundListener.TrafficDirection = core.TrafficDirection_INBOUND
+		Name:             VirtualInboundListenerName,
+		Address:          util.BuildAddress(actualWildcard, ProxyInboundListenPort),
+		Transparent:      isTransparentProxy,
+		UseOriginalDst:   proto.BoolTrue,
+		TrafficDirection: core.TrafficDirection_INBOUND,
+		FilterChains:     filterChains,
 	}
 	if builder.useInboundFilterChain {
 		builder.aggregateVirtualInboundListener()

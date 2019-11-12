@@ -97,8 +97,8 @@ func (b *builder) Validate() *adapter.ConfigErrors {
 
 func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
 	logger := env.Logger()
-	md := b.mg.GenerateMetadata()
 	cfg := b.cfg
+	md := b.mg.GenerateMetadata()
 	if cfg.ProjectId == "" {
 		// Try to fill project id with Metadata if it is not provided.
 		cfg.ProjectId = md.ProjectID

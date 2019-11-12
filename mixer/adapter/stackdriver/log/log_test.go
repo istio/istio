@@ -41,7 +41,7 @@ import (
 
 var dummyShouldFill = func() bool { return true }
 var dummyMetadataFn = func() (string, error) { return "", nil }
-var dummyMetadataGenerator = helper.NewMetadataGenerator(dummyShouldFill, dummyMetadataFn, dummyMetadataFn, dummyMetadataFn, dummyMetadataFn)
+var dummyMetadataGenerator = helper.NewMetadataGenerator(dummyShouldFill, dummyMetadataFn, dummyMetadataFn, dummyMetadataFn)
 
 func TestBuild(t *testing.T) {
 	b := &builder{makeClient: func(context.Context, string, ...option.ClientOption) (*logging.Client, error) {
@@ -135,7 +135,7 @@ func TestEmptyProjectID(t *testing.T) {
 				makeSyncClient: func(context.Context, string, ...option.ClientOption) (*logadmin.Client, error) {
 					return &logadmin.Client{}, nil
 				},
-				mg: helper.NewMetadataGenerator(dummyShouldFill, tt.pidFn, dummyMetadataFn, dummyMetadataFn, dummyMetadataFn),
+				mg: helper.NewMetadataGenerator(dummyShouldFill, tt.pidFn, dummyMetadataFn, dummyMetadataFn),
 			}
 			b.SetAdapterConfig(tt.cfg)
 			if _, err := b.Build(context.Background(), test.NewEnv(t)); err != nil {

@@ -154,9 +154,9 @@ func syntheticServiceEntryValidator(ns string) galley.SnapshotValidatorFunc {
 		if err := v.Select("{.Body}").
 			Equals("10.43.240.10", "{.addresses[0]}").
 			Equals(fmt.Sprintf("kube-dns.%s.svc.cluster.local", ns), "{.hosts[0]}").
-			Equals(1, "{.location}").
-			Equals(1, "{.resolution}").
-			Equals(fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/kube-dns", ns), "{.subject_alt_names[0]}").
+			Equals("MESH_INTERNAL", "{.location}").
+			Equals("STATIC", "{.resolution}").
+			Equals(fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/kube-dns", ns), "{.subjectAltNames[0]}").
 			Check(); err != nil {
 			return err
 		}

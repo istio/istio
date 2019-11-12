@@ -59,7 +59,7 @@ func init() {
 
 const (
 	// default service account to use for remote cluster access.
-	DefaultServiceAccountName = "istio-pilot-service-account"
+	DefaultServiceAccountName = "istio-reader-service-account"
 
 	remoteSecretPrefix = "istio-remote-secret-"
 )

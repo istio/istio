@@ -140,8 +140,8 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(statusCommand())
 
 	rootCmd.AddCommand(install.NewVerifyCommand())
-	experimentalCmd.AddCommand(Auth())
-	rootCmd.AddCommand(seeExperimentalCmd("auth"))
+	experimentalCmd.AddCommand(AuthZ())
+	rootCmd.AddCommand(seeExperimentalCmd("authz"))
 	experimentalCmd.AddCommand(graduatedCmd("convert-ingress"))
 	experimentalCmd.AddCommand(graduatedCmd("dashboard"))
 	experimentalCmd.AddCommand(uninjectCommand())

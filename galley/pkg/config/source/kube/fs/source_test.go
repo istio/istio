@@ -195,6 +195,7 @@ func TestAddUpdateDelete(t *testing.T) {
 }
 
 func TestAddUpdateDeleteWithWatcherEnabled(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/18385")
 	g := NewGomegaWithT(t)
 
 	dir := createTempDir(t)

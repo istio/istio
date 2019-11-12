@@ -233,6 +233,40 @@
             "alpn_protocols": [
               "h2"
             ],
+            {{ if eq .sds_uds_path "unix:/etc/istio/proxy/SDS" }}
+             "tls_certificate_sds_secret_configs":[
+              {
+                "name":"default",
+                "sds_config":{
+                  "api_config_source":{
+                    "api_type":"GRPC",
+                    "grpc_services":[
+                      {
+                        "google_grpc":{
+                          "target_uri": "{{ .sds_uds_path }}",
+                          "channel_credentials":{
+                            "local_credentials":{
+                            }
+                          },
+                          "stat_prefix":"sdsstat"
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            ],
+            "validation_context": {
+              "trusted_ca": {
+                "filename": "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+              },
+              "verify_subject_alt_name": [
+                {{- range $a, $s := .pilot_SAN }}
+                "{{$s}}"
+                {{- end}}
+              ]
+            }
+            {{ else }}
             "tls_certificate_sds_secret_configs":[
               {
                 "name":"default",
@@ -312,6 +346,7 @@
                 }
               }
             }
+            {{ end }}
           },
         },
         {{ else }}

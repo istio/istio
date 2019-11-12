@@ -70,6 +70,7 @@ type (
 		now func() time.Time // used to control time in tests
 
 		md         helper.Metadata
+		meshUID    string
 		metricInfo map[string]info
 		client     bufferedClient
 		// We hold a ref for cleanup during Close()
@@ -199,6 +200,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		now:        time.Now,
 		client:     buffered,
 		md:         md,
+		meshUID:    cfg.MeshUid,
 		metricInfo: types,
 		ticker:     ticker,
 		quit:       quit,
@@ -243,8 +245,8 @@ func (h *handler) HandleMetric(_ context.Context, vals []*metric.Instance) error
 		}
 
 		// Populate the "mesh_uid" label from a canonical source if we know it
-		if len(h.md.MeshID) > 0 {
-			ts.Metric.Labels["mesh_uid"] = h.md.MeshID
+		if len(h.meshUID) > 0 {
+			ts.Metric.Labels["mesh_uid"] = h.meshUID
 		}
 
 		// The logging SDK has logic built in that does this for us: if a resource is not provided it fills in the global

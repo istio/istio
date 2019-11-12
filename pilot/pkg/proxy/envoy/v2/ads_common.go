@@ -101,7 +101,7 @@ func PushTypeFor(proxy *model.Proxy, pushEv *XdsEvent) map[XdsType]bool {
 		return out
 	}
 
-	// Note: CDS push must be followed by commentEDS, otherwise after Cluster is warmed, no ClusterLoadAssignment is retained.
+	// Note: CDS push must be followed by EDS, otherwise after Cluster is warmed, no ClusterLoadAssignment is retained.
 
 	if proxy.Type == model.SidecarProxy {
 		for config := range pushEv.configTypesUpdated {
@@ -130,6 +130,8 @@ func PushTypeFor(proxy *model.Proxy, pushEv *XdsEvent) map[XdsType]bool {
 				out[LDS] = true
 				out[RDS] = true
 			case schemas.QuotaSpec.Type, schemas.QuotaSpecBinding.Type:
+				// LDS must be pushed, otherwise RDS is not reloaded
+				out[LDS] = true
 				out[RDS] = true
 			case schemas.AuthenticationPolicy.Type, schemas.AuthenticationMeshPolicy.Type:
 				out[CDS] = true

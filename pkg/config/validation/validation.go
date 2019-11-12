@@ -215,6 +215,21 @@ func ValidateHTTPHeaderName(name string) error {
 	return nil
 }
 
+// ValidateStringMatch validates a StringMatch
+func ValidateStringMatch(m *networking.StringMatch) error {
+	if m == nil {
+		return nil
+	}
+	switch x := m.MatchType.(type) {
+	case *networking.StringMatch_Regex:
+		// Default max size for safe regex is 100
+		if len(x.Regex) > 100 {
+			return fmt.Errorf("regex match '%s' cannot be greater than 100 bytes", x.Regex)
+		}
+	}
+	return nil
+}
+
 // ValidatePercent checks that percent is in range
 func ValidatePercent(val int32) error {
 	if val < 0 || val > 100 {
@@ -883,6 +898,9 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings) (errs error
 				errs = appendErrors(errs, fmt.Errorf("ttl required for HttpCookie"))
 			}
 		}
+	}
+	if err := validateLocalityLbSetting(settings.LocalityLbSetting); err != nil {
+		errs = multierror.Append(errs, err)
 	}
 	return
 }
@@ -1981,7 +1999,15 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 					errs = appendErrors(errs, fmt.Errorf("header match %v cannot be null", name))
 				}
 				errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+				errs = appendErrors(errs, ValidateStringMatch(header))
 			}
+			for _, m := range match.QueryParams {
+				errs = appendErrors(errs, ValidateStringMatch(m))
+			}
+			errs = appendErrors(errs, ValidateStringMatch(match.Authority))
+			errs = appendErrors(errs, ValidateStringMatch(match.Method))
+			errs = appendErrors(errs, ValidateStringMatch(match.Scheme))
+			errs = appendErrors(errs, ValidateStringMatch(match.Uri))
 
 			if match.Port != 0 {
 				errs = appendErrors(errs, ValidatePort(int(match.Port)))
@@ -2515,7 +2541,7 @@ func appendErrors(err error, errs ...error) error {
 }
 
 // validateLocalityLbSetting checks the LocalityLbSetting of MeshConfig
-func validateLocalityLbSetting(lb *meshconfig.LocalityLoadBalancerSetting) error {
+func validateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting) error {
 	if lb == nil {
 		return nil
 	}

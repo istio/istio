@@ -17,6 +17,7 @@ package multicluster
 import (
 	"fmt"
 	"io/ioutil"
+	"sync"
 	"time"
 
 	"github.com/gogo/protobuf/types"
@@ -163,7 +164,9 @@ func waitForReadyGateways(env Environment, mesh *Mesh) error {
 
 	var wg errgroup.Group
 
+	var notReadyMu sync.Mutex
 	notReady := make(map[ktypes.UID]struct{})
+
 	for uid := range mesh.clustersByUID {
 		c := mesh.clustersByUID[uid]
 		notReady[uid] = struct{}{}
@@ -171,7 +174,9 @@ func waitForReadyGateways(env Environment, mesh *Mesh) error {
 			return env.Poll(1*time.Second, 5*time.Minute, func() (bool, error) {
 				gateways := c.readIngressGateways()
 				if len(gateways) > 0 {
+					notReadyMu.Lock()
 					delete(notReady, c.uid)
+					notReadyMu.Unlock()
 					return true, nil
 				}
 				return false, nil

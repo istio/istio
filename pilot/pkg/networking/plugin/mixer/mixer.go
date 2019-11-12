@@ -112,6 +112,10 @@ func createOutboundListenerAttributes(in *plugin.InputParams) attributes {
 	return attrs
 }
 
+func skipMixerHTTPFilter(dir direction, mesh *meshconfig.MeshConfig, node *model.Proxy) bool {
+	return disablePolicyChecks(dir, mesh, node) && mesh.GetDisableMixerHttpReports()
+}
+
 // OnOutboundListener implements the Callbacks interface method.
 func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 	if in.Env.Mesh.MixerCheckServer == "" && in.Env.Mesh.MixerReportServer == "" {
@@ -120,8 +124,13 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 
 	attrs := createOutboundListenerAttributes(in)
 
+	skipHTTPFilter := skipMixerHTTPFilter(outbound, in.Env.Mesh, in.Node)
+
 	switch in.ListenerProtocol {
 	case plugin.ListenerProtocolHTTP:
+		if skipHTTPFilter {
+			return nil
+		}
 		httpFilter := buildOutboundHTTPFilter(in.Env.Mesh, attrs, in.Node)
 		for cnum := range mutable.FilterChains {
 			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
@@ -135,7 +144,7 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 			// to decide the type of filter to attach
 			httpFilter := buildOutboundHTTPFilter(in.Env.Mesh, attrs, in.Node)
 			for cnum := range mutable.FilterChains {
-				if mutable.FilterChains[cnum].ListenerProtocol == plugin.ListenerProtocolHTTP {
+				if mutable.FilterChains[cnum].ListenerProtocol == plugin.ListenerProtocolHTTP && !skipHTTPFilter {
 					mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
 				} else {
 					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
@@ -163,7 +172,9 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 		for cnum := range mutable.FilterChains {
 			switch mutable.FilterChains[cnum].ListenerProtocol {
 			case plugin.ListenerProtocolHTTP:
-				mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
+				if !skipHTTPFilter {
+					mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
+				}
 			case plugin.ListenerProtocolTCP:
 				mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
 			}
@@ -208,8 +219,13 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 		}
 	}
 
+	skipHTTPFilter := skipMixerHTTPFilter(inbound, in.Env.Mesh, in.Node)
+
 	switch in.ListenerProtocol {
 	case plugin.ListenerProtocolHTTP:
+		if skipHTTPFilter {
+			return nil
+		}
 		filter := buildInboundHTTPFilter(in.Env.Mesh, attrs, in.Node)
 		for cnum := range mutable.FilterChains {
 			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, filter)
@@ -227,7 +243,9 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 		for cnum := range mutable.FilterChains {
 			switch mutable.FilterChains[cnum].ListenerProtocol {
 			case plugin.ListenerProtocolHTTP:
-				mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
+				if !skipHTTPFilter {
+					mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
+				}
 			case plugin.ListenerProtocolTCP:
 				mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
 			}

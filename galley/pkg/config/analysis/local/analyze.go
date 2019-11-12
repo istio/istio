@@ -39,7 +39,7 @@ import (
 	"istio.io/istio/galley/pkg/config/util/kuberesource"
 )
 
-const domainSuffix = "svc.local"
+const domainSuffix = "cluster.local"
 
 // Patch table
 var (
