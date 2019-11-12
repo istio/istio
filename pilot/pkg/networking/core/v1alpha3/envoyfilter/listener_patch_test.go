@@ -16,8 +16,13 @@ package envoyfilter
 
 import (
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pkg/test/env"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
@@ -713,4 +718,91 @@ func TestApplyListenerPatches(t *testing.T) {
 			}
 		})
 	}
+}
+
+// This benchmark measures the performance of Telemetry V2 EnvoyFilter patches. The intent here is to
+// measure overhead of using EnvoyFilters rather than native code.
+func BenchmarkTelemetryV2Filters(b *testing.B) {
+	listener := []*xdsapi.Listener{
+		{
+			Name: "another-listener",
+			Address: &core.Address{
+				Address: &core.Address_SocketAddress{
+					SocketAddress: &core.SocketAddress{
+						PortSpecifier: &core.SocketAddress_PortValue{
+							PortValue: 80,
+						},
+					},
+				},
+			},
+			ListenerFilters: []*listener.ListenerFilter{{Name: "envoy.tls_inspector"}},
+			FilterChains: []*listener.FilterChain{
+				{
+					Filters: []*listener.Filter{
+						{
+							Name: xdsutil.HTTPConnectionManager,
+							ConfigType: &listener.Filter_TypedConfig{
+								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
+									XffNumTrustedHops: 4,
+									HttpFilters: []*http_conn.HttpFilter{
+										{Name: "http-filter3"},
+										{Name: xdsutil.Router},
+										{Name: "http-filter2"},
+									},
+								}),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	path := filepath.Join(env.IstioSrc, "tests/integration/telemetry/stats/prometheus/testdata")
+	files, err := ioutil.ReadDir(path)
+	if err != nil {
+		b.Fatalf("failed to read telemetry v2 Envoy Filters")
+	}
+	if len(files) != 2 {
+		// Cheap attempt to make sure someone notices this test exists if they make changes to the folder and break things.
+		b.Fatalf("Expected to find 2 EnvoyFilters for telemetry v2.")
+	}
+	var configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch
+	for _, patchFile := range files {
+		f, err := ioutil.ReadFile(filepath.Join(path, patchFile.Name()))
+		if err != nil {
+			b.Fatalf("failed to read file %v", patchFile)
+		}
+		configs, _, err := crd.ParseInputs(string(f))
+		if err != nil {
+			b.Fatalf("failed to unmarshal EnvoyFilter: %v", err)
+		}
+		for _, c := range configs {
+			configPatches = append(configPatches, c.Spec.(*networking.EnvoyFilter).ConfigPatches...)
+		}
+	}
+
+	sidecarProxy := &model.Proxy{
+		Type:            model.SidecarProxy,
+		ConfigNamespace: "not-default",
+		Metadata: &model.NodeMetadata{
+			IstioVersion: "1.2.2",
+			Raw: map[string]interface{}{
+				"foo": "sidecar",
+				"bar": "proxy",
+			},
+		},
+	}
+	serviceDiscovery := &fakes.ServiceDiscovery{}
+	env := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
+	push := model.NewPushContext()
+	push.InitContext(env, nil, nil)
+
+	var got interface{}
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		got = ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, sidecarProxy, push,
+			listener, false)
+	}
+	_ = got
 }

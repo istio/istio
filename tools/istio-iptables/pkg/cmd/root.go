@@ -164,17 +164,17 @@ func init() {
 	}
 	viper.SetDefault(constants.InboundTProxyRouteTable, "133")
 
-	rootCmd.Flags().BoolP(constants.DryRun, "n", true, "Do not call any external dependencies like iptables")
+	rootCmd.Flags().BoolP(constants.DryRun, "n", false, "Do not call any external dependencies like iptables")
 	if err := viper.BindPFlag(constants.DryRun, rootCmd.Flags().Lookup(constants.DryRun)); err != nil {
 		handleError(err)
 	}
 	viper.SetDefault(constants.DryRun, false)
 
-	rootCmd.Flags().BoolP(constants.RestoreFormat, "f", false, "Print iptables rules in iptables-restore interpretable format")
+	rootCmd.Flags().BoolP(constants.RestoreFormat, "f", true, "Print iptables rules in iptables-restore interpretable format")
 	if err := viper.BindPFlag(constants.RestoreFormat, rootCmd.Flags().Lookup(constants.RestoreFormat)); err != nil {
 		handleError(err)
 	}
-	viper.SetDefault(constants.RestoreFormat, false)
+	viper.SetDefault(constants.RestoreFormat, true)
 }
 
 func Execute() {
