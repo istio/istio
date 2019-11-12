@@ -136,7 +136,7 @@ func genApplyManifests(setOverlay []string, inFilename string, force bool, dryRu
 	}
 	for cn := range manifests {
 		if out[cn].Err != nil {
-			cs := fmt.Sprintf("Component %s failed install:", cn)
+			cs := fmt.Sprintf("Component %s install returned the following errors:", cn)
 			l.logAndPrintf("\n%s\n%s", cs, strings.Repeat("=", len(cs)))
 			l.logAndPrint("Error: ", out[cn].Err, "\n")
 		} else {
