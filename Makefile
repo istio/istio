@@ -56,7 +56,7 @@ ifeq ($(BUILD_WITH_CONTAINER),1)
 export TARGET_OUT = /work/out/$(TARGET_OS)_$(TARGET_ARCH)
 CONTAINER_CLI ?= docker
 DOCKER_SOCKET_MOUNT ?= -v /var/run/docker.sock:/var/run/docker.sock
-IMG ?= gcr.io/istio-testing/build-tools:release-1.4-2019-11-05T22-47-16
+IMG ?= gcr.io/istio-testing/build-tools:release-1.4-2019-11-08T19-46-32
 UID = $(shell id -u)
 PWD = $(shell pwd)
 
@@ -92,7 +92,7 @@ RUN = $(CONTAINER_CLI) run -t -i --sig-proxy=true -u $(UID):docker --rm \
 else
 $(info Building with your local toolchain.)
 RUN =
-GOBIN ?= $(GOPATH)/bin
+export GOBIN ?= $(GOPATH)/bin
 endif
 
 MAKE = $(RUN) make --no-print-directory -e -f Makefile.core.mk
