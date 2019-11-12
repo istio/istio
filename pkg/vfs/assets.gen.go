@@ -36864,16 +36864,17 @@ spec:
         enabled: true
     pilot:
       meshNetworks:
-        network1:
-          endpoints:
-          - fromRegistry: Kubernetes
-          gateways:
-          - address: 0.0.0.0
-            port: 443
-        network2:
-          endpoints:
+        networks:
+          network1:
+            endpoints:
+            - fromRegistry: Kubernetes
+            gateways:
+            - address: 0.0.0.0
+              port: 443
+          network2:
+            endpoints:
             - fromRegistry: n2-k8s-config
-          gateways:
+            gateways:
             - address: 0.0.0.0
               port: 443
 `)
