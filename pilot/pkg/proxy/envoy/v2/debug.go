@@ -615,7 +615,7 @@ func (s *DiscoveryServer) PushStatusHandler(w http.ResponseWriter, req *http.Req
 	if model.LastPushStatus == nil {
 		return
 	}
-	out, err := model.LastPushStatus.JSON()
+	out, err := model.LastPushStatus.StatusJSON()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = fmt.Fprintf(w, "unable to marshal push information: %v", err)

@@ -444,13 +444,13 @@ func NewPushContext() *PushContext {
 }
 
 // JSON implements json.Marshaller, with a lock.
-func (ps *PushContext) JSON() ([]byte, error) {
+func (ps *PushContext) StatusJSON() ([]byte, error) {
 	if ps == nil {
 		return []byte{'{', '}'}, nil
 	}
 	ps.proxyStatusMutex.RLock()
 	defer ps.proxyStatusMutex.RUnlock()
-	return json.MarshalIndent(ps, "", "    ")
+	return json.MarshalIndent(ps.ProxyStatus, "", "    ")
 }
 
 // OnConfigChange is called when a config change is detected.
