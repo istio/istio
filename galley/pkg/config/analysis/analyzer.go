@@ -28,7 +28,7 @@ type Analyzer interface {
 
 // CombinedAnalyzer is a special Analyzer that combines multiple analyzers into one
 type CombinedAnalyzer struct {
-	metadata  Metadata
+	name      string
 	analyzers []Analyzer
 }
 
@@ -36,17 +36,17 @@ type CombinedAnalyzer struct {
 // For input metadata, use the union of the component analyzers
 func Combine(name string, analyzers ...Analyzer) *CombinedAnalyzer {
 	return &CombinedAnalyzer{
-		metadata: Metadata{
-			Name:   name,
-			Inputs: combineInputs(analyzers),
-		},
+		name:      name,
 		analyzers: analyzers,
 	}
 }
 
 // Metadata implements Analyzer
 func (c *CombinedAnalyzer) Metadata() Metadata {
-	return c.metadata
+	return Metadata{
+		Name:   c.name,
+		Inputs: combineInputs(c.analyzers),
+	}
 }
 
 // Analyze implements Analyzer
@@ -62,27 +62,19 @@ func (c *CombinedAnalyzer) Analyze(ctx Context) {
 	}
 }
 
-func combineInputs(analyzers []Analyzer) collection.Names {
-	result := make([]collection.Name, 0)
-	for _, a := range analyzers {
-		result = append(result, a.Metadata().Inputs...)
-	}
-
-	return result
-}
-
-// RemoveDisabled removes analyzers that require disabled input collections. The names of removed analyzers are returned.
+// RemoveSkipped removes analyzers that should be skipped, meaning they meet one of the following criteria:
+// 1. The analyzer requires disabled input collections. The names of removed analyzers are returned.
 // Transformer information is used to determine, based on the disabled input collections, which output collections
 // should be disabled. Any analyzers that require those output collections will be removed.
-func (c *CombinedAnalyzer) RemoveDisabled(snapshotCols, disabledInputs collection.Names, xformProviders transformer.Providers) []string {
+// 2. The analyzer requires a collection not available in the current snapshot(s)
+func (c *CombinedAnalyzer) RemoveSkipped(colsInSnapshots, disabledInputs collection.Names, xformProviders transformer.Providers) []string {
 	disabledOutputs := getDisabledOutputs(disabledInputs, xformProviders)
 	var enabled []Analyzer
 	var removedNames []string
 
-	//TODO: Better everything
-	scMap := make(map[collection.Name]bool)
-	for _, sc := range snapshotCols {
-		scMap[sc] = true
+	snapshotCols := make(map[collection.Name]bool)
+	for _, col := range colsInSnapshots {
+		snapshotCols[col] = true
 	}
 
 mainloop:
@@ -95,8 +87,8 @@ mainloop:
 				continue mainloop
 			}
 
-			// Skip over any analyzers needing collections not in the snapshot
-			if _, ok := scMap[in]; !ok {
+			// Skip over any analyzers needing collections not in the snapshot(s)
+			if _, ok := snapshotCols[in]; !ok {
 				scope.Analysis.Infof("Skipping analyzer %q because collection %s is not in the snapshot(s).", a.Metadata().Name, in)
 				removedNames = append(removedNames, a.Metadata().Name)
 				continue mainloop
@@ -116,6 +108,15 @@ func (c *CombinedAnalyzer) AnalyzerNames() []string {
 	for _, a := range c.analyzers {
 		result = append(result, a.Metadata().Name)
 	}
+	return result
+}
+
+func combineInputs(analyzers []Analyzer) collection.Names {
+	result := make([]collection.Name, 0)
+	for _, a := range analyzers {
+		result = append(result, a.Metadata().Inputs...)
+	}
+
 	return result
 }
 
