@@ -432,14 +432,13 @@ func convertAccessRuleToOperation(rule *authz_model.Permission) (*rbac_v1beta1.O
 	if rule == nil {
 		return nil, fmt.Errorf("invalid input: No rule found in ServiceRole")
 	}
+	if len(rule.Constraints) > 0 && len(rule.Constraints[0]) > 0 {
+		return nil, fmt.Errorf("serviceRole with constraints is not supported")
+	}
 	operation := rbac_v1beta1.Operation{}
 	operation.Methods = rule.Methods
 	operation.Paths = rule.Paths
 	// TODO(pitlv2109): Handle destination.port
-	if len(rule.Constraints) > 0 && len(rule.Constraints[0]) > 0 {
-		fmt.Println(rule.Constraints[0])
-		return nil, fmt.Errorf("serviceRole with constraints is not supported")
-	}
 	return &operation, nil
 }
 
