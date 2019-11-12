@@ -9,7 +9,7 @@ spec:
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: service-svc-wildcard-0
+  name: service-svc-wildcard-rule0-target0
   namespace: default
 spec:
   rules:
@@ -29,7 +29,7 @@ spec:
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: service-svc-wildcard-1
+  name: service-svc-wildcard-rule0-target1
   namespace: default
 spec:
   rules:
@@ -49,7 +49,7 @@ spec:
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: service-svc-wildcard-2
+  name: service-svc-wildcard-rule0-target2
   namespace: default
 spec:
   rules:
@@ -69,7 +69,7 @@ spec:
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: service-wildcard-xyz-0
+  name: service-wildcard-xyz-rule0-target0
   namespace: default
 spec:
   rules:
@@ -89,7 +89,7 @@ spec:
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: service-wildcard-xyz-1
+  name: service-wildcard-xyz-rule0-target1
   namespace: default
 spec:
   rules:
@@ -109,7 +109,7 @@ spec:
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: service-wildcard-xyz-2
+  name: service-wildcard-xyz-rule0-target2
   namespace: default
 spec:
   rules:
