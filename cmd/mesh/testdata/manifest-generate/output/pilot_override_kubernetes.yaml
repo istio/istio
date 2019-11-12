@@ -5629,6 +5629,7 @@ data:
 
     enableEnvoyAccessLogService: false
     mixerCheckServer: istio-policy.istio-control.svc.cluster.local:15004
+    mixerReportServer: istio-telemetry.istio-control.svc.cluster.local:15004
     # reportBatchMaxEntries is the number of requests that are batched before telemetry data is sent to the mixer server
     reportBatchMaxEntries: 100
     # reportBatchMaxTime is the max waiting time before the telemetry data of a request is sent to the mixer server
