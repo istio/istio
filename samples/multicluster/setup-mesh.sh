@@ -16,6 +16,11 @@
 
 set -o errexit
 
+if [ "${V}" == 1 ]; then
+  set -x
+fi
+
+
 #
 # User defined configuration
 #
@@ -34,7 +39,7 @@ set -o errexit
 #
 
 # Resolve to an absolute path
-WORKDIR=$(readlink -f "${WORKDIR}")
+WORKDIR=$(cd "$(dirname "${WORKDIR}")" && pwd)/$(basename "${WORKDIR}")
 
 # kubeconfig containing the three test clusters
 MERGED_KUBECONFIG="${WORKDIR}/mesh.kubeconfig"
@@ -66,42 +71,30 @@ generate_topology() {
 
   MESH_ID=$(grep -e "^mesh: \(.*\)$" "${CLUSTER_LIST}" |cut -d: -f2 | sed 's/ //')
 
-  # track existing contexts that were already merged. A random suffix
-  # is added to non-unique contexts.
-  declare -A EXISTING_CONTEXTS
-
-  local KUBECONFIG_LIST=""
-
   cat <<EOF > "${MESH_TOPOLOGY_FILENAME}"
 # auto-generated - do not edit by hand
 mesh_id: ${MESH_ID}
 contexts:
 EOF
 
+  # pass 1) generate the topology.yaml file.
   while IFS=' ' read -r TYPE KUBECONFIG CONTEXT NETWORK; do
-    # skip comments
-    [[ "${KUBECONFIG}" == \#* ]] && continue
+    [[ "${TYPE}" != "cluster:" ]] && continue
 
-    if [[ "${TYPE}" == "cluster:" ]]; then
-      echo "  ${CONTEXT}:" >> "${MESH_TOPOLOGY_FILENAME}"
-      echo "    network: ${NETWORK}" >> "${MESH_TOPOLOGY_FILENAME}"
+    echo "  ${CONTEXT}:" >> "${MESH_TOPOLOGY_FILENAME}"
+    echo "    network: ${NETWORK}" >> "${MESH_TOPOLOGY_FILENAME}"
+  done < "${CLUSTER_LIST}"
 
-      MINIFIED_KUBECONFIG=$(mktemp "${TMP_KUBECONFIG_DIR}"/XXXXXX)
-      kubectl --kubeconfig "${KUBECONFIG}" --context "${CONTEXT}" \
-        config view --minify --raw > "${MINIFIED_KUBECONFIG}"
+  # pass 2) re-generate a single merged kubeconfig for clusters in the mesh.
+  local KUBECONFIG_LIST=""
+  while IFS=' ' read -r TYPE KUBECONFIG CONTEXT NETWORK; do
+    [[ "${TYPE}" != "cluster:" ]] && continue
 
-      if [[ "${EXISTING_CONTEXTS[${CONTEXT}]+_}" ]]; then
-        echo "Cluster contexts must be unique. Please rename with 'kubectl config rename-contexts ${context} <new-context>'"
-        exit 177
-      fi
-
-      EXISTING_CONTEXTS["${CONTEXT}"]=y
-      KUBECONFIG_LIST="${KUBECONFIG_LIST}":"${MINIFIED_KUBECONFIG}"
-    fi
+    MINIFIED_KUBECONFIG=$(mktemp "${TMP_KUBECONFIG_DIR}"/XXXXXX)
+    kubectl --kubeconfig "${KUBECONFIG}" --context "${CONTEXT}" config view --minify --raw > "${MINIFIED_KUBECONFIG}"
+    KUBECONFIG_LIST="${KUBECONFIG_LIST}":"${MINIFIED_KUBECONFIG}"
   done  < "${CLUSTER_LIST}"
-
   KUBECONFIG="${KUBECONFIG_LIST}" kubectl config view --raw --flatten > "${MERGED_KUBECONFIG}"
-
 }
 
 add_cluster() {
@@ -109,11 +102,37 @@ add_cluster() {
   context=${2}
   network=${3}
 
-  # filter out duplicates
-  if grep -q -e "cluster: ${kubeconfig} ${context}"            "${CLUSTER_LIST}" ; then return; fi
-  if grep -q -e "cluster: ${kubeconfig} ${context} ${network}" "${CLUSTER_LIST}" ; then return; fi
+  LINE="cluster: ${kubeconfig} ${context} ${network}"
 
-  echo "cluster: ${kubeconfig} ${context} ${network}" >> "${CLUSTER_LIST}"
+  # The network or underlying kubeconfig contents may have changed for an
+  # existing {kubeconfig,context} tuple. Remove the current entry so we can
+  # re-add it properly in subsqeuent steps.
+  if grep -q -e "cluster: ${kubeconfig} ${context}" "${CLUSTER_LIST}"; then
+    sed -i "\|^cluster: ${kubeconfig} ${context} |d" "${CLUSTER_LIST}"
+  fi
+
+  # contexts must be unique within the mesh.
+  CONTEXTS=${context}
+  while IFS=' ' read -r TYPE KUBECONFIG CONTEXT NETWORK; do
+    if [ "${CONTEXTS}" != "" ]; then
+      CONTEXTS="${CONTEXTS}\n"
+    fi
+    CONTEXTS="${CONTEXTS}${CONTEXT}"
+  done < "${CLUSTER_LIST}"
+
+  ERROR=0
+  while read -r COUNT CONTEXT; do
+    if [ "${COUNT}" != 1 ]; then
+      echo "Context ${CONTEXT} is not unique. Please rename with 'kubectl config rename-context' and try again"
+      ERROR=1
+    fi
+  done < <(echo -e ${CONTEXTS} | sort | uniq -c)
+
+  if [ "${ERROR}" == 1 ]; then
+    exit 127
+  fi
+
+  echo "${LINE}" >> "${CLUSTER_LIST}"
   generate_topology
 }
 
