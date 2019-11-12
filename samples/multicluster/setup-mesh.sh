@@ -110,7 +110,6 @@ add_cluster() {
   network=${3}
 
   # filter out duplicates
-  if grep -q -e "cluster: ${context}"                          "${CLUSTER_LIST}" ; then return; fi
   if grep -q -e "cluster: ${kubeconfig} ${context}"            "${CLUSTER_LIST}" ; then return; fi
   if grep -q -e "cluster: ${kubeconfig} ${context} ${network}" "${CLUSTER_LIST}" ; then return; fi
 
@@ -152,9 +151,24 @@ create_offline_root_ca(){
   popd >/dev/null
 }
 
+create_base() {
+  cat << EOF > "${BASE_FILENAME}"
+apiVersion: install.istio.io/v1alpha2
+kind: IstioControlPlane
+spec:
+  values:
+    security:
+      selfSigned: false
+    global:
+      mtls:
+        enabled: true
+EOF
+}
+
 # Create the environment for building a multi-cluster mesh. This
 # creates the mesh's nitial configuration and root certificate
 create_mesh() {
+  create_base
   create_offline_root_ca
 
   # create mesh configuration
@@ -285,8 +299,10 @@ teardown() {
   for CONTEXT in $(kubectl config get-contexts -o name); do
     kc() { kubectl --context "${CONTEXT}" "$@"; }
 
+    echo "Tearing down control cluster ${CONTEXT}"
+
     # wait for galley to die so it doesn't re-create the webhook config.
-    kc delete namespace istio-system  --wait --ignore-not-found >/dev/null || true
+    kc delete namespace istio-system  --wait --ignore-not-found || true
     kc delete mutatingwebhookconfiguration -l operator.istio.io/managed=Reconcile --ignore-not-found
     kc delete validatingwebhookconfiguration -l operator.istio.io/managed=Reconcile --ignore-not-found
 
@@ -338,7 +354,7 @@ check_prerequisties
 
 case $1 in
   create-mesh)
-    create-mesh
+    create_mesh
     ;;
 
   add-cluster)
