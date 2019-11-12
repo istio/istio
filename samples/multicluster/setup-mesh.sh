@@ -64,7 +64,7 @@ generate_topology() {
   }
   trap cleanup EXIT
 
-  MESH_ID=$(grep -e "^mesh: \(.*\)$" "${WORKDIR}/cluster_list" |cut -d: -f2 | sed 's/ //')
+  MESH_ID=$(grep -e "^mesh: \(.*\)$" "${CLUSTER_LIST}" |cut -d: -f2 | sed 's/ //')
 
   # track existing contexts that were already merged. A random suffix
   # is added to non-unique contexts.
@@ -110,9 +110,9 @@ add_cluster() {
   network=${3}
 
   # filter out duplicates
-  if grep -q -e "cluster: ${context}"                          "${WORKDIR}/cluster_list" ; then return; fi
-  if grep -q -e "cluster: ${kubeconfig} ${context}"            "${WORKDIR}/cluster_list" ; then return; fi
-  if grep -q -e "cluster: ${kubeconfig} ${context} ${network}" "${WORKDIR}/cluster_list" ; then return; fi
+  if grep -q -e "cluster: ${context}"                          "${CLUSTER_LIST}" ; then return; fi
+  if grep -q -e "cluster: ${kubeconfig} ${context}"            "${CLUSTER_LIST}" ; then return; fi
+  if grep -q -e "cluster: ${kubeconfig} ${context} ${network}" "${CLUSTER_LIST}" ; then return; fi
 
   echo "cluster: ${kubeconfig} ${context} ${network}" >> "${CLUSTER_LIST}"
   generate_topology
@@ -125,7 +125,7 @@ remove_cluster() {
 
   LINE="cluster: ${kubeconfig} ${context} ${network}"
 
-  sed -i "\|^${LINE}|d" "${WORKDIR}/cluster_list"
+  sed -i "\|^${LINE}|d" "${CLUSTER_LIST}"
   generate_topology
 }
 
@@ -158,7 +158,7 @@ create_mesh() {
   create_offline_root_ca
 
   # create mesh configuration
-  echo "mesh_id: ${MESH_ID}" > ${WORKDIR}/cluster_list
+  echo "mesh_id: ${MESH_ID}" > "${CLUSTER_LIST}"
 
   echo "    Success!"
   echo ""
