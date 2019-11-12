@@ -71,7 +71,6 @@ whitelisted_modules:
   - github.com/daviddengcn/go-colortext
   - github.com/dchest/siphash
   - github.com/dnaeon/go-vcr
-  - github.com/docker/docker
   - github.com/duosecurity/duo_api_golang
   - github.com/dustin/go-humanize
   - github.com/facebookgo/stack
@@ -92,9 +91,6 @@ whitelisted_modules:
   - github.com/JeffAshton/win_pdh
   - github.com/jmespath/go-jmespath
   - github.com/jteeuwen/go-bindata
-  - github.com/juju/errors
-  - github.com/juju/loggo
-  - github.com/juju/testing
   - github.com/julienschmidt/httprouter
   - github.com/koneu/natend
   - github.com/kr/logfmt
@@ -118,7 +114,6 @@ whitelisted_modules:
   - github.com/russross/blackfriday
   - github.com/russross/blackfriday/v2
   - github.com/sean-/seed
-  - github.com/signalfx/com_signalfx_metrics_protobuf
   - github.com/smartystreets/assertions
   - github.com/smartystreets/goconvey
   - github.com/storageos/go-api
