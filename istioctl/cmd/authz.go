@@ -253,7 +253,7 @@ func getV1alpha1Policies(v1PolicyFiles []string) (*model.AuthorizationPolicies, 
 			return nil, err
 		}
 
-		if len(results) < 0 {
+		if len(results) == 0 {
 			return nil, fmt.Errorf("received empty response for authorization information")
 		}
 
@@ -266,6 +266,10 @@ func getV1alpha1Policies(v1PolicyFiles []string) (*model.AuthorizationPolicies, 
 			authzPolicies = authzDebug.AuthorizationPolicies
 			// Break once we found a successful response from Pilot.
 			break
+		}
+
+		if authzPolicies == nil {
+			return nil, fmt.Errorf("no v1alpha1 RBAC policy")
 		}
 	}
 
