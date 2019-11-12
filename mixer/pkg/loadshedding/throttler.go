@@ -76,15 +76,28 @@ var (
 		"The number of requests that have been dropped by the loadshedder.",
 		stats.UnitDimensionless)
 
+	predictedCost = stats.Int64(
+		"loadshedding/predicted_cost_shed_total",
+		"The total predicted cost of all requests that have been dropped.",
+		stats.UnitDimensionless)
+
 	throttledView = &view.View{
 		Name:        "mixer/" + throttled.Name(),
 		Measure:     throttled,
+		Aggregation: view.Count(),
+	}
+	predictedCostView = &view.View{
+		Name:        "mixer/" + predictedCost.Name(),
+		Measure:     predictedCost,
 		Aggregation: view.Count(),
 	}
 )
 
 func init() {
 	if err := view.Register(throttledView); err != nil {
+		panic(err)
+	}
+	if err := view.Register(predictedCostView); err != nil {
 		panic(err)
 	}
 }
@@ -104,7 +117,7 @@ func NewThrottler(opts Options) *Throttler {
 	}
 
 	if opts.AverageLatencyThreshold > 0 {
-		e := NewGRPCLatencyEvaluator(opts.SamplesPerSecond, opts.SampleHalfLife)
+		e := NewGRPCLatencyEvaluatorWithThreshold(opts.SamplesPerSecond, opts.SampleHalfLife, opts.LatencyEnforcementThreshold)
 		t.evaluators[e.Name()] = e
 		t.thresholds[e.Name()] = opts.AverageLatencyThreshold.Seconds()
 	}
@@ -146,6 +159,7 @@ func (t *Throttler) Throttle(ri RequestInfo) bool {
 				continue
 			}
 			stats.Record(context.Background(), throttled.M(1))
+			stats.Record(context.Background(), predictedCost.M(int64(ri.PredictedCost)))
 			scope.Warn(msg)
 			return true
 		}

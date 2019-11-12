@@ -50,7 +50,7 @@ func TestEvaluateAgainst_GRPCLatency(t *testing.T) {
 
 	for _, v := range cases {
 		t.Run(v.name, func(tt *testing.T) {
-			e := loadshedding.NewGRPCLatencyEvaluator(v.samplingRate, v.halfLife)
+			e := loadshedding.NewGRPCLatencyEvaluatorWithThreshold(v.samplingRate, v.halfLife, rate.Limit(0))
 			stop := make(chan bool)
 			for i := 0; i < 10; i++ {
 				go func(ch chan bool) {
@@ -84,6 +84,56 @@ func TestEvaluateAgainst_GRPCLatency(t *testing.T) {
 			if !loadshedding.ThresholdExceeded(le) {
 				tt.Logf("Got: %#v", le)
 				tt.Errorf("EvaluateAgainst(%#v, %f) => Status: %v; wanted %v", pc, failingThreshold, le.Status, loadshedding.ExceedsThreshold)
+			}
+			close(stop)
+		})
+	}
+}
+
+func TestEvaluateAgainst_GRPCLatency_WithThreshold(t *testing.T) {
+
+	cases := []struct {
+		name         string
+		threshold    rate.Limit
+		shouldExceed bool
+	}{
+		{"BelowThreshold", rate.Inf, false},
+		{"BeyondThreshold", rate.Limit(1), true},
+	}
+
+	for _, v := range cases {
+		t.Run(v.name, func(tt *testing.T) {
+			e := loadshedding.NewGRPCLatencyEvaluatorWithThreshold(0, 0, v.threshold)
+			stop := make(chan bool)
+			for i := 0; i < 10; i++ {
+				go func(ch chan bool) {
+					for {
+						select {
+						case <-ch:
+							return
+						default:
+							// establish an average latency of 1s
+							e.HandleRPC(context.Background(), oneSec)
+						}
+
+					}
+				}(stop)
+			}
+
+			// allow collection of some latency measurements
+			time.Sleep(500 * time.Millisecond)
+
+			pc := loadshedding.RequestInfo{PredictedCost: 1.0}
+			failingThreshold := 0.5 // simulates a threshold of 0.5 secs (which we should be above)
+
+			for i := 0; i < 10; i++ {
+				e.EvaluateAgainst(pc, failingThreshold) // simulate 10 requests checked for load-shedding
+			}
+
+			le := e.EvaluateAgainst(pc, failingThreshold)
+			if got, want := loadshedding.ThresholdExceeded(le), v.shouldExceed; got != want {
+				tt.Logf("Got: %#v", le)
+				tt.Errorf("EvaluateAgainst(%#v, %f) => got exceeded == %t; wanted exceeded == %t", pc, failingThreshold, got, want)
 			}
 			close(stop)
 		})
