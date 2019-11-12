@@ -65,7 +65,7 @@ func GetServerState(localHostAddr string, adminPort uint16) (*uint64, error) {
 		return nil, err
 	}
 	if !strings.Contains(stats.String(), "server.state") {
-		return nil, fmt.Errorf("stats version is not preset: %s", stats.String())
+		return nil, fmt.Errorf("server.state is not yet updated: %s", stats.String())
 	}
 
 	s := &Stats{}
