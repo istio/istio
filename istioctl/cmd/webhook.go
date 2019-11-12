@@ -75,7 +75,7 @@ func (opts *enableCliOptions) Validate() error {
 		return fmt.Errorf("no webhook to enable")
 	}
 	if len(opts.webhookSecretNameSpace) == 0 {
-		return fmt.Errorf("the namespace of the webhook secret is required; specify it through --namespace")
+		return fmt.Errorf("--namespace <namespace-of-webhook-secret> is required")
 	}
 	if opts.enableValidationWebhook {
 		if len(opts.validationWebhookConfigPath) == 0 {
