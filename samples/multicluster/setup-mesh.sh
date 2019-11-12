@@ -78,7 +78,7 @@ mesh_id: ${MESH_ID}
 contexts:
 EOF
 
-  while IFS=' ' read TYPE KUBECONFIG CONTEXT NETWORK; do
+  while IFS=' ' read -r TYPE KUBECONFIG CONTEXT NETWORK; do
     # skip comments
     [[ "${KUBECONFIG}" == \#* ]] && continue
 
@@ -98,7 +98,7 @@ EOF
       EXISTING_CONTEXTS["${CONTEXT}"]=y
       KUBECONFIG_LIST="${KUBECONFIG_LIST}":"${MINIFIED_KUBECONFIG}"
     fi
-  done  < "${WORKDIR}/cluster_list"
+  done  < "${CLUSTER_LIST}"
 
   KUBECONFIG="${KUBECONFIG_LIST}" kubectl config view --raw --flatten > "${MERGED_KUBECONFIG}"
 
@@ -114,7 +114,7 @@ add_cluster() {
   if grep -q -e "cluster: ${kubeconfig} ${context}"            "${WORKDIR}/cluster_list" ; then return; fi
   if grep -q -e "cluster: ${kubeconfig} ${context} ${network}" "${WORKDIR}/cluster_list" ; then return; fi
 
-  echo "cluster: ${kubeconfig} ${context} ${network}" >> "${WORKDIR}/cluster_list"
+  echo "cluster: ${kubeconfig} ${context} ${network}" >> "${CLUSTER_LIST}"
   generate_topology
 }
 
