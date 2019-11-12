@@ -350,7 +350,7 @@ func (c *Converter) v1alpha1ModelTov1beta1Policy(v1alpha1Model *authz_model.Mode
 		}
 	}
 
-	for _, accessRule := range v1alpha1Model.Permissions {
+	for i, accessRule := range v1alpha1Model.Permissions {
 		operation, err := convertAccessRuleToOperation(&accessRule)
 		if err != nil {
 			return fmt.Errorf("cannot convert access rule to operation: %v", err)
@@ -362,7 +362,7 @@ func (c *Converter) v1alpha1ModelTov1beta1Policy(v1alpha1Model *authz_model.Mode
 		}
 		for _, service := range accessRule.Services {
 			for j, selector := range c.getSelectors(service, namespace) {
-				name := fmt.Sprintf("service-%s-%d", strings.ReplaceAll(service, "*", "wildcard"), j)
+				name := fmt.Sprintf("service-%s-rule%d-target%d", strings.ReplaceAll(service, "*", "wildcard"), i, j)
 				authzConfig := createAuthzConfig(name, &v1beta1.WorkloadSelector{
 					MatchLabels: selector,
 				}, operation)
