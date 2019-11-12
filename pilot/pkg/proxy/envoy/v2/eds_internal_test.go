@@ -72,6 +72,12 @@ func TestEndpointShardsMemoryLeak(t *testing.T) {
 		return
 	}
 
+	configStore.RegisterEventHandler(schemas.ServiceEntry.Type, func(config model.Config, event model.Event) {
+		serviceEntry := config.Spec.(*networking.ServiceEntry)
+		hostname := serviceEntry.Hosts[0]
+		server.SvcUpdate("", hostname, config.Namespace, event)
+	})
+
 	if err := server.updateServiceShards(server.globalPushContext()); err != nil {
 		t.Errorf("Failed updateServiceShards: %v", err)
 	}
@@ -93,7 +99,6 @@ func TestEndpointShardsMemoryLeak(t *testing.T) {
 		}
 
 		configStore.Delete(se.Type, se.Name, se.Namespace)
-
 		// TODO: figure out a way to notify
 		time.Sleep(100 * time.Millisecond)
 
@@ -101,7 +106,5 @@ func TestEndpointShardsMemoryLeak(t *testing.T) {
 		if exist {
 			t.Errorf("EndpointShards of service %s should be deleted", se.Spec.(*networking.ServiceEntry).Hosts[0])
 		}
-
 	}
-
 }
