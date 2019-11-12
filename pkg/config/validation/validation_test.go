@@ -4327,7 +4327,7 @@ func TestValidateMixerService(t *testing.T) {
 			in:   &mccpb.IstioService{Name: "test-service-name", Namespace: strings.Repeat("x", 64)},
 		},
 		{
-			name: "invalid domian or labels",
+			name: "invalid domain or labels",
 			in:   &mccpb.IstioService{Name: "test-service-name", Domain: strings.Repeat("x", 256)},
 		},
 		{

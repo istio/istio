@@ -152,7 +152,7 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 	return option.NewTemplateParams(opts...)
 }
 
-// substituteValues substitutes variables known to the boostrap like pod_ip.
+// substituteValues substitutes variables known to the bootstrap like pod_ip.
 // "http.{pod_ip}_" with pod_id = [10.3.3.3,10.4.4.4] --> [http.10.3.3.3_,http.10.4.4.4_]
 func substituteValues(patterns []string, varName string, values []string) []string {
 	ret := make([]string, 0, len(patterns))

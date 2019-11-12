@@ -110,7 +110,7 @@ func (c *KeyCertBundleRotator) Start(errCh chan<- error) {
 		}
 		co, coErr := c.keycert.CertOptions()
 		if coErr != nil {
-			err := fmt.Errorf("failed to extact CertOptions from bundle: %v, abort auto rotation", coErr)
+			err := fmt.Errorf("failed to extract CertOptions from bundle: %v, abort auto rotation", coErr)
 			log.Errora(err)
 			errCh <- err
 			return
