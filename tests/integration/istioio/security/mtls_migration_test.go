@@ -25,7 +25,6 @@ import (
 //https://istio.io/docs/tasks/security/mtls-migration/
 //https://github.com/istio/istio.io/blob/release-1.2/content/docs/tasks/security/mtls-migration/index.md
 func TestMutualTLSMigration(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/17909")
 
 	framework.
 		NewTest(t).

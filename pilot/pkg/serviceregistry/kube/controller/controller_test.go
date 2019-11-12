@@ -118,7 +118,7 @@ func (fx *FakeXdsUpdater) EDSUpdate(shard, hostname string, namespace string, en
 // This interface is WIP - labels, annotations and other changes to service may be
 // updated to force a EDS and CDS recomputation and incremental push, as it doesn't affect
 // LDS/RDS.
-func (fx *FakeXdsUpdater) SvcUpdate(shard, hostname string, ports map[string]uint32, rports map[uint32]string) {
+func (fx *FakeXdsUpdater) SvcUpdate(shard, hostname string, namespace string, event model.Event) {
 	select {
 	case fx.Events <- XdsEvent{Type: "service", ID: hostname}:
 	default:
@@ -585,6 +585,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 		},
 		Labels:         labels.Instance{"app": "prod-app"},
 		ServiceAccount: "spiffe://cluster.local/ns/nsa/sa/svcaccount",
+		TLSMode:        model.DisabledTLSModeLabel,
 	}
 	if len(podServices) != 1 {
 		t.Fatalf("expected 1 instance, got %v", len(podServices))
@@ -633,6 +634,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 		},
 		Labels:         labels.Instance{"app": "prod-app", "istio-locality": "region.zone"},
 		ServiceAccount: "spiffe://cluster.local/ns/nsa/sa/svcaccount",
+		TLSMode:        model.DisabledTLSModeLabel,
 	}
 	if len(podServices) != 1 {
 		t.Fatalf("expected 1 instance, got %v", len(podServices))

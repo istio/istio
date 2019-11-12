@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
@@ -97,7 +98,7 @@ func loadAssignment(c *EdsCluster) *xdsapi.ClusterLoadAssignment {
 
 // buildEnvoyLbEndpoint packs the endpoint based on istio info.
 func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string, port uint32,
-	network string, weight uint32, mtlsReady bool) *endpoint.LbEndpoint {
+	network string, weight uint32, tlsMode string) *endpoint.LbEndpoint {
 
 	var addr core.Address
 	switch family {
@@ -134,12 +135,12 @@ func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
 	// Istio endpoint level tls transport socket configuation depends on this logic
 	// Do not remove
-	ep.Metadata = util.BuildLbEndpointMetadata(uid, network, mtlsReady)
+	ep.Metadata = util.BuildLbEndpointMetadata(uid, network, tlsMode)
 
 	return ep
 }
 
-func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint, mtlsReady bool) (*endpoint.LbEndpoint, error) {
+func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint, tlsMode string) (*endpoint.LbEndpoint, error) {
 	err := model.ValidateNetworkEndpointAddress(e)
 	if err != nil {
 		return nil, err
@@ -165,7 +166,7 @@ func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint, mtlsReady bool) (*
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
 	// Istio endpoint level tls transport socket configuation depends on this logic
 	// Do not remove
-	ep.Metadata = util.BuildLbEndpointMetadata(e.UID, e.Network, mtlsReady)
+	ep.Metadata = util.BuildLbEndpointMetadata(e.UID, e.Network, tlsMode)
 
 	return ep, nil
 }
@@ -299,7 +300,7 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 						Locality:        ep.GetLocality(),
 						LbWeight:        ep.Endpoint.LbWeight,
 						Attributes:      ep.Service.Attributes,
-						MTLSReady:       ep.MTLSReady,
+						TLSMode:         ep.TLSMode,
 					})
 				}
 			}
@@ -359,9 +360,6 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 	edsCluster.mutex.Lock()
 	defer edsCluster.mutex.Unlock()
 
-	// Normalize LoadBalancingWeight in range [1, 128]
-	locEps = LoadBalancingWeightNormalize(locEps)
-
 	edsCluster.LoadAssignment = &xdsapi.ClusterLoadAssignment{
 		ClusterName: clusterName,
 		Endpoints:   locEps,
@@ -370,8 +368,17 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 }
 
 // SvcUpdate is a callback from service discovery when service info changes.
-func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, ports map[string]uint32, _ map[uint32]string) {
-	inboundServiceUpdates.Increment()
+func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, namespace string, event model.Event) {
+	// When a service deleted, we should cleanup the endpoint shards and also remove keys from EndpointShardsByService to
+	// prevent memory leaks.
+	if event == model.EventDelete {
+		inboundServiceDeletes.Increment()
+		s.mutex.Lock()
+		defer s.mutex.Unlock()
+		s.deleteService(cluster, hostname, namespace)
+	} else {
+		inboundServiceUpdates.Increment()
+	}
 }
 
 // Update clusters for an incremental EDS push, and initiate the push.
@@ -433,17 +440,13 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 	defer s.mutex.Unlock()
 	requireFull := false
 
-	// To prevent memory leak.
-	// Should delete the service EndpointShards, when endpoints deleted or service deleted.
+	// Should delete the service EndpointShards when endpoints become zero to prevent memory leak,
+	// but we should not do not delete the keys from EndpointShardsByService map - that will trigger
+	// unnecessary full push which can become a real problem if a pod is in crashloop and thus endpoints
+	// flip flopping between 1 and 0.
 	if len(istioEndpoints) == 0 {
 		if s.EndpointShardsByService[serviceName][namespace] != nil {
-			s.EndpointShardsByService[serviceName][namespace].mutex.Lock()
-			delete(s.EndpointShardsByService[serviceName][namespace].Shards, clusterID)
-			svcShards := len(s.EndpointShardsByService[serviceName][namespace].Shards)
-			s.EndpointShardsByService[serviceName][namespace].mutex.Unlock()
-			if svcShards == 0 {
-				delete(s.EndpointShardsByService[serviceName], namespace)
-			}
+			s.deleteEndpointShards(clusterID, serviceName, namespace)
 			adsLog.Infof("Incremental push, service %s has no endpoints", serviceName)
 			s.ConfigUpdate(&model.PushRequest{
 				Full:              false,
@@ -517,6 +520,33 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 	}
 }
 
+// deleteEndpointShards deletes matching endpoint shards from EndpointShardsByService map. This is called when
+// endpoints are deleted.
+func (s *DiscoveryServer) deleteEndpointShards(cluster, serviceName, namespace string) {
+	if s.EndpointShardsByService[serviceName][namespace] != nil {
+		s.EndpointShardsByService[serviceName][namespace].mutex.Lock()
+		delete(s.EndpointShardsByService[serviceName][namespace].Shards, cluster)
+		s.EndpointShardsByService[serviceName][namespace].mutex.Unlock()
+	}
+}
+
+// deleteService deletes all service related references from EndpointShardsByService. This is called
+// when a service is deleted.
+func (s *DiscoveryServer) deleteService(cluster, serviceName, namespace string) {
+	if s.EndpointShardsByService[serviceName][namespace] != nil {
+		s.EndpointShardsByService[serviceName][namespace].mutex.Lock()
+		delete(s.EndpointShardsByService[serviceName][namespace].Shards, cluster)
+		svcShards := len(s.EndpointShardsByService[serviceName][namespace].Shards)
+		s.EndpointShardsByService[serviceName][namespace].mutex.Unlock()
+		if svcShards == 0 {
+			delete(s.EndpointShardsByService[serviceName], namespace)
+		}
+		if len(s.EndpointShardsByService[serviceName]) == 0 {
+			delete(s.EndpointShardsByService, serviceName)
+		}
+	}
+}
+
 // LocalityLbEndpointsFromInstances returns a list of Envoy v2 LocalityLbEndpoints.
 // Envoy v2 Endpoints are constructed from Pilot's older data structure involving
 // model.ServiceInstance objects. Envoy expects the endpoints grouped by zone, so
@@ -524,7 +554,7 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []*endpoint.LocalityLbEndpoints {
 	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
 	for _, instance := range instances {
-		lbEp, err := networkEndpointToEnvoyEndpoint(&instance.Endpoint, instance.MTLSReady)
+		lbEp, err := networkEndpointToEnvoyEndpoint(&instance.Endpoint, instance.TLSMode)
 		if err != nil {
 			adsLog.Errorf("EDS: Unexpected pilot model endpoint v1 to v2 conversion: %v", err)
 			totalXDSInternalErrors.Increment()
@@ -610,8 +640,9 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 	// will update "XdsConnection.Clusters", we might accidentally send EDS updates for STRICT_DNS cluster. This check gaurds
 	// against such behavior and returns nil. When the updated cluster warms up in Envoy, it would update with new endpoints
 	// automatically.
-	if svc.Resolution != model.ClientSideLB {
-		adsLog.Infof("XdsConnection has %s in its eds clusters but its resolution now is updated to %d, skipping it.", clusterName, svc.Resolution)
+	// Gateways use EDS for Passthrough cluster. So we should allow Passthrough here.
+	if svc.Resolution == model.DNSLB {
+		adsLog.Infof("XdsConnection has %s in its eds clusters but its resolution now is updated to %v, skipping it.", clusterName, svc.Resolution)
 		return nil
 	}
 
@@ -669,7 +700,6 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 		// EDS filter on the endpoints
 		if s.Env.MeshNetworks != nil && len(s.Env.MeshNetworks.Networks) > 0 {
 			endpoints := EndpointsByNetworkFilter(l.Endpoints, con, s.Env)
-			endpoints = LoadBalancingWeightNormalize(endpoints)
 			filteredCLA := &xdsapi.ClusterLoadAssignment{
 				ClusterName: l.ClusterName,
 				Endpoints:   endpoints,
@@ -686,8 +716,12 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 
 			// Failover should only be enabled when there is an outlier detection, otherwise Envoy
 			// will never detect the hosts are unhealthy and redirect traffic.
-			enableFailover := hasOutlierDetection(push, con.node, clusterName)
-			loadbalancer.ApplyLocalityLBSetting(con.node.Locality, l, s.Env.Mesh.LocalityLbSetting, enableFailover)
+			enableFailover, loadBalancerSettings := getOutlierDetectionAndLoadBalancerSettings(push, con.node, clusterName)
+			var localityLbSettings = s.Env.Mesh.LocalityLbSetting
+			if loadBalancerSettings != nil && loadBalancerSettings.LocalityLbSetting != nil {
+				localityLbSettings = loadBalancerSettings.LocalityLbSetting
+			}
+			loadbalancer.ApplyLocalityLBSetting(con.node.Locality, l, localityLbSettings, enableFailover)
 		}
 
 		for _, e := range l.Endpoints {
@@ -739,28 +773,31 @@ func getDestinationRule(push *model.PushContext, proxy *model.Proxy, hostname ho
 	return nil, nil
 }
 
-func hasOutlierDetection(push *model.PushContext, proxy *model.Proxy, clusterName string) bool {
+func getOutlierDetectionAndLoadBalancerSettings(push *model.PushContext, proxy *model.Proxy, clusterName string) (bool, *networkingapi.LoadBalancerSettings) {
 	_, subsetName, hostname, portNumber := model.ParseSubsetKey(clusterName)
-
+	var outlierDetectionEnabled = false
+	var lbSettings *networkingapi.LoadBalancerSettings
 	destinationRule, port := getDestinationRule(push, proxy, hostname, portNumber)
 	if destinationRule == nil || port == nil {
-		return false
+		return false, nil
 	}
 
-	_, outlierDetection, _, _ := networking.SelectTrafficPolicyComponents(destinationRule.TrafficPolicy, port)
+	_, outlierDetection, loadBalancerSettings, _ := networking.SelectTrafficPolicyComponents(destinationRule.TrafficPolicy, port)
+	lbSettings = loadBalancerSettings
 	if outlierDetection != nil {
-		return true
+		outlierDetectionEnabled = true
 	}
 
 	for _, subset := range destinationRule.Subsets {
 		if subset.Name == subsetName {
-			_, outlierDetection, _, _ := networking.SelectTrafficPolicyComponents(subset.TrafficPolicy, port)
+			_, outlierDetection, loadBalancerSettings, _ := networking.SelectTrafficPolicyComponents(subset.TrafficPolicy, port)
+			lbSettings = loadBalancerSettings
 			if outlierDetection != nil {
-				return true
+				outlierDetectionEnabled = true
 			}
 		}
 	}
-	return false
+	return outlierDetectionEnabled, lbSettings
 }
 
 // getEdsCluster returns a cluster.
@@ -769,28 +806,6 @@ func (s *DiscoveryServer) getEdsCluster(clusterName string) *EdsCluster {
 	edsClusterMutex.RLock()
 	defer edsClusterMutex.RUnlock()
 	return edsClusters[clusterName]
-}
-
-// getOrAddEdsCluster will track the eds connection with clusters, for optimized event-based push and debug
-func (s *DiscoveryServer) getOrAddEdsCluster(clusterName, node string, connection *XdsConnection) *EdsCluster {
-	edsClusterMutex.Lock()
-	defer edsClusterMutex.Unlock()
-
-	c := edsClusters[clusterName]
-	if c == nil {
-		c = &EdsCluster{
-			EdsClients: map[string]*XdsConnection{},
-		}
-		edsClusters[clusterName] = c
-	}
-
-	// TODO: find a more efficient way to make edsClusters and EdsClients init atomic
-	// Currently use edsClusterMutex lock
-	c.mutex.Lock()
-	c.EdsClients[node] = connection
-	c.mutex.Unlock()
-
-	return c
 }
 
 // removeEdsCon is called when a gRPC stream is closed, for each cluster that was watched by the
@@ -813,6 +828,44 @@ func (s *DiscoveryServer) removeEdsCon(clusterName string, node string) {
 		// in CDS requests to all sidecars. It may happen if all connections are closed.
 		adsLog.Debugf("EDS: Remove unwatched cluster node:%s cluster:%s", node, clusterName)
 		delete(edsClusters, clusterName)
+	}
+}
+
+func (s *DiscoveryServer) updateEdsClients(added sets.Set, removed sets.Set, connection *XdsConnection) {
+	edsClusterMutex.Lock()
+	defer edsClusterMutex.Unlock()
+
+	for rc := range removed {
+		c := edsClusters[rc]
+		if c == nil {
+			adsLog.Warnf("EDS: Missing cluster: %s", rc)
+			continue
+		}
+		c.mutex.Lock()
+		delete(c.EdsClients, connection.ConID)
+		c.mutex.Unlock()
+		if len(c.EdsClients) == 0 {
+			// This happens when a previously used cluster is no longer watched by any
+			// sidecar. It should not happen very often - normally all clusters are sent
+			// in CDS requests to all sidecars. It may happen if all connections are closed.
+			adsLog.Debugf("EDS: Remove unwatched cluster node:%s cluster:%s", connection.ConID, rc)
+			delete(edsClusters, rc)
+		}
+	}
+
+	for ac := range added {
+		c := edsClusters[ac]
+		if c == nil {
+			c = &EdsCluster{
+				EdsClients: map[string]*XdsConnection{},
+			}
+			edsClusters[ac] = c
+			// TODO: find a more efficient way to make edsClusters and EdsClients init atomic
+			// Currently use edsClusterMutex lock
+			c.mutex.Lock()
+			c.EdsClients[connection.ConID] = connection
+			c.mutex.Unlock()
+		}
 	}
 }
 
@@ -865,7 +918,7 @@ func buildLocalityLbEndpointsFromShards(
 				localityEpMap[ep.Locality] = locLbEps
 			}
 			if ep.EnvoyEndpoint == nil {
-				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep.UID, ep.Family, ep.Address, ep.EndpointPort, ep.Network, ep.LbWeight, ep.MTLSReady)
+				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep.UID, ep.Family, ep.Address, ep.EndpointPort, ep.Network, ep.LbWeight, ep.TLSMode)
 			}
 			locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, ep.EnvoyEndpoint)
 
@@ -884,8 +937,6 @@ func buildLocalityLbEndpointsFromShards(
 		}
 		locEps = append(locEps, locLbEps)
 	}
-	// Normalize LoadBalancingWeight in range [1, 128]
-	locEps = LoadBalancingWeightNormalize(locEps)
 
 	if len(locEps) == 0 {
 		push.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")

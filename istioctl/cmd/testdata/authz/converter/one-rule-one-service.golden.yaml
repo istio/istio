@@ -1,0 +1,27 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: global-deny-all
+  namespace: my-root-namespace
+spec:
+  {}
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: service-productpage-rule0-target0
+  namespace: default
+spec:
+  rules:
+  - from:
+    - source:
+        namespaces:
+        - istio-system
+    to:
+    - operation:
+        methods:
+        - GET
+  selector:
+    matchLabels:
+      app: productpage
+---

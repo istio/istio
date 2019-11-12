@@ -195,7 +195,6 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 		args.Plugins = bootstrap.DefaultPlugins
 		args.Config.FileDir = env.IstioSrc + "/tests/testdata/networking/sidecar-ns-scope"
 		args.Mesh.MixerAddress = ""
-		args.Mesh.RdsRefreshDelay = nil
 		args.MeshConfig = nil
 		args.Mesh.ConfigFile = env.IstioSrc + "/tests/testdata/networking/sidecar-ns-scope/mesh.yaml"
 		args.Service.Registries = []string{}
@@ -258,7 +257,6 @@ func TestLDSWithIngressGateway(t *testing.T) {
 		args.Plugins = bootstrap.DefaultPlugins
 		args.Config.FileDir = env.IstioSrc + "/tests/testdata/networking/ingress-gateway"
 		args.Mesh.MixerAddress = ""
-		args.Mesh.RdsRefreshDelay = nil
 		args.Mesh.ConfigFile = env.IstioSrc + "/tests/testdata/networking/ingress-gateway/mesh.yaml"
 		args.Service.Registries = []string{}
 	})
@@ -380,7 +378,6 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 		args.Plugins = bootstrap.DefaultPlugins
 		args.Config.FileDir = env.IstioSrc + "/tests/testdata/networking/sidecar-without-service"
 		args.Mesh.MixerAddress = ""
-		args.Mesh.RdsRefreshDelay = nil
 		args.Mesh.ConfigFile = env.IstioSrc + "/tests/testdata/networking/sidecar-without-service/mesh.yaml"
 		args.Service.Registries = []string{}
 	})
@@ -467,7 +464,6 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 		args.Plugins = bootstrap.DefaultPlugins
 		args.Config.FileDir = env.IstioSrc + "/tests/testdata/networking/envoyfilter-without-service"
 		args.Mesh.MixerAddress = ""
-		args.Mesh.RdsRefreshDelay = nil
 		args.Mesh.ConfigFile = env.IstioSrc + "/tests/testdata/networking/envoyfilter-without-service/mesh.yaml"
 		args.Service.Registries = []string{}
 	})
@@ -515,7 +511,7 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 				Meta: model.NodeMetadata{
 					InstanceIPs:     []string{test.ip}, // as service instance of ingress gateway
 					ConfigNamespace: "istio-system",
-					IstioVersion:    "1.3.0",
+					IstioVersion:    "1.4.0",
 				}.ToStruct(),
 				IP:        test.ip,
 				Namespace: "consumerns", // namespace must match the namespace of the sidecar in the configs.yaml

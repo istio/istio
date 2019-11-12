@@ -30,9 +30,9 @@ type MeshDesc struct {
 	// Mesh Identifier.
 	MeshID string `json:"mesh_id,omitempty"`
 
-	// Collection of clustersByContext in the multi-cluster mesh. Clusters are indexed by Context name and
-	// reference clustersByContext defined in the Kubeconfig following kubectl precedence rules.
-	Clusters map[string]ClusterDesc `json:"clusters,omitempty"`
+	// Collection of clusters in the multi-cluster mesh. Clusters are indexed by context name and
+	// reference clusters defined in the Kubeconfig following kubectl precedence rules.
+	Clusters map[string]ClusterDesc `json:"contexts,omitempty"`
 }
 
 // ClusterDesc describes attributes of a cluster and the desired state of joining the mesh.

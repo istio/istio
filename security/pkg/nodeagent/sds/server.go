@@ -97,6 +97,10 @@ type Options struct {
 
 	// GrpcServer is an already configured (shared) grpc server. If set, the agent will just register on the server.
 	GrpcServer *grpc.Server
+
+	// UseLocalJWT is set when the sds server should use its own local JWT, and not expect one
+	// from the UDS caller. Used when it runs in the same container with Envoy.
+	UseLocalJWT bool
 }
 
 // Server is the gPRC server that exposes SDS through UDS.
@@ -115,8 +119,8 @@ type Server struct {
 // NewServer creates and starts the Grpc server for SDS.
 func NewServer(options Options, workloadSecretCache, gatewaySecretCache cache.SecretManager) (*Server, error) {
 	s := &Server{
-		workloadSds: newSDSService(workloadSecretCache, false, options.RecycleInterval),
-		gatewaySds:  newSDSService(gatewaySecretCache, true, options.RecycleInterval),
+		workloadSds: newSDSService(workloadSecretCache, false, options.UseLocalJWT, options.RecycleInterval),
+		gatewaySds:  newSDSService(gatewaySecretCache, true, options.UseLocalJWT, options.RecycleInterval),
 	}
 	if options.EnableWorkloadSDS {
 		if err := s.initWorkloadSdsService(&options); err != nil {
@@ -136,7 +140,9 @@ func NewServer(options Options, workloadSecretCache, gatewaySecretCache cache.Se
 	}
 	version.Info.RecordComponentBuildTag("citadel_agent")
 
-	s.initDebugServer(options.DebugPort)
+	if options.DebugPort > 0 {
+		s.initDebugServer(options.DebugPort)
+	}
 	return s, nil
 }
 

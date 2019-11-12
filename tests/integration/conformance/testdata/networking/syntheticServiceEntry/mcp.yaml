@@ -36,7 +36,7 @@ constraints:
                   "hosts": [
                     "kube-dns.{{.Namespace}}.svc.cluster.local"
                   ],
-                  "location": 1,
+                  "location": "MESH_INTERNAL",
                   "ports": [
                   {
                     "name": "dns",
@@ -49,8 +49,8 @@ constraints:
                     "protocol": "TCP"
                   }
                   ],
-                  "resolution": 1,
-                  "subject_alt_names": [
+                  "resolution": "STATIC",
+                  "subjectAltNames": [
                     "spiffe://cluster.local/ns/{{.Namespace}}/sa/kube-dns"
                   ]
                 },

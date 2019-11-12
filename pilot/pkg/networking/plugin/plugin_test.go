@@ -34,10 +34,10 @@ var (
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
 		Metadata: &model.NodeMetadata{
-			IstioVersion:    "1.3",
+			IstioVersion:    "1.4",
 			ConfigNamespace: "not-default",
 		},
-		IstioVersion:    &model.IstioVersion{Major: 1, Minor: 3},
+		IstioVersion:    &model.IstioVersion{Major: 1, Minor: 4},
 		ConfigNamespace: "not-default",
 	}
 )

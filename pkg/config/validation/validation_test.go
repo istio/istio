@@ -2238,6 +2238,26 @@ func TestValidateHTTPRoute(t *testing.T) {
 			}},
 			Match: []*networking.HTTPMatchRequest{nil},
 		}, valid: true},
+		{name: "valid regex", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.bar"},
+			}},
+			Match: []*networking.HTTPMatchRequest{{
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Regex{Regex: "foo"},
+				},
+			}},
+		}, valid: true},
+		{name: "too large regex", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.bar"},
+			}},
+			Match: []*networking.HTTPMatchRequest{{
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Regex{Regex: strings.Repeat("a", 101)},
+				},
+			}},
+		}, valid: false},
 	}
 
 	for _, tc := range testCases {
@@ -3268,15 +3288,15 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 			valid: true},
 
-		{name: "discovery type DNS, label mtlsReady", in: networking.ServiceEntry{
+		{name: "discovery type DNS, label tlsMode: istio", in: networking.ServiceEntry{
 			Hosts: []string{"*.google.com"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
 			Endpoints: []*networking.ServiceEntry_Endpoint{
-				{Address: "lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}, Labels: map[string]string{"security.istio.io/mtlsReady": "true"}},
-				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}, Labels: map[string]string{"security.istio.io/mtlsReady": "true"}},
+				{Address: "lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}, Labels: map[string]string{"security.istio.io/tlsMode": "istio"}},
+				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}, Labels: map[string]string{"security.istio.io/tlsMode": "istio"}},
 			},
 			Resolution: networking.ServiceEntry_DNS,
 		},
@@ -4307,7 +4327,7 @@ func TestValidateMixerService(t *testing.T) {
 			in:   &mccpb.IstioService{Name: "test-service-name", Namespace: strings.Repeat("x", 64)},
 		},
 		{
-			name: "invalid domian or labels",
+			name: "invalid domain or labels",
 			in:   &mccpb.IstioService{Name: "test-service-name", Domain: strings.Repeat("x", 256)},
 		},
 		{
@@ -4727,7 +4747,7 @@ func TestValidateSidecar(t *testing.T) {
 func TestValidateLocalityLbSetting(t *testing.T) {
 	cases := []struct {
 		name  string
-		in    *meshconfig.LocalityLoadBalancerSetting
+		in    *networking.LocalityLoadBalancerSetting
 		valid bool
 	}{
 		{
@@ -4738,8 +4758,8 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 
 		{
 			name: "invalid LocalityLoadBalancerSetting_Distribute total weight > 100",
-			in: &meshconfig.LocalityLoadBalancerSetting{
-				Distribute: []*meshconfig.LocalityLoadBalancerSetting_Distribute{
+			in: &networking.LocalityLoadBalancerSetting{
+				Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
 					{
 						From: "a/b/c",
 						To: map[string]uint32{
@@ -4753,8 +4773,8 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 		},
 		{
 			name: "invalid LocalityLoadBalancerSetting_Distribute total weight < 100",
-			in: &meshconfig.LocalityLoadBalancerSetting{
-				Distribute: []*meshconfig.LocalityLoadBalancerSetting_Distribute{
+			in: &networking.LocalityLoadBalancerSetting{
+				Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
 					{
 						From: "a/b/c",
 						To: map[string]uint32{
@@ -4768,8 +4788,8 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 		},
 		{
 			name: "invalid LocalityLoadBalancerSetting_Distribute weight = 0",
-			in: &meshconfig.LocalityLoadBalancerSetting{
-				Distribute: []*meshconfig.LocalityLoadBalancerSetting_Distribute{
+			in: &networking.LocalityLoadBalancerSetting{
+				Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
 					{
 						From: "a/b/c",
 						To: map[string]uint32{
@@ -4783,8 +4803,8 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 		},
 		{
 			name: "invalid LocalityLoadBalancerSetting specify both distribute and failover",
-			in: &meshconfig.LocalityLoadBalancerSetting{
-				Distribute: []*meshconfig.LocalityLoadBalancerSetting_Distribute{
+			in: &networking.LocalityLoadBalancerSetting{
+				Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
 					{
 						From: "a/b/c",
 						To: map[string]uint32{
@@ -4793,7 +4813,7 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 						},
 					},
 				},
-				Failover: []*meshconfig.LocalityLoadBalancerSetting_Failover{
+				Failover: []*networking.LocalityLoadBalancerSetting_Failover{
 					{
 						From: "region1",
 						To:   "region2",
@@ -4805,8 +4825,8 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 
 		{
 			name: "invalid failover src and dst have same region",
-			in: &meshconfig.LocalityLoadBalancerSetting{
-				Failover: []*meshconfig.LocalityLoadBalancerSetting_Failover{
+			in: &networking.LocalityLoadBalancerSetting{
+				Failover: []*networking.LocalityLoadBalancerSetting_Failover{
 					{
 						From: "region1",
 						To:   "region1",

@@ -65,16 +65,17 @@ const UnixAddressPrefix = "unix://"
 // envoy supported retry on header values
 var supportedRetryOnPolicies = map[string]bool{
 	// 'x-envoy-retry-on' supported policies:
-	// https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-on
+	// https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/router_filter.html#x-envoy-retry-on
 	"5xx":                    true,
 	"gateway-error":          true,
+	"reset":                  true,
 	"connect-failure":        true,
 	"retriable-4xx":          true,
 	"refused-stream":         true,
 	"retriable-status-codes": true,
 
 	// 'x-envoy-retry-grpc-on' supported policies:
-	// https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-grpc-on
+	// https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/router_filter#x-envoy-retry-grpc-on
 	"cancelled":          true,
 	"deadline-exceeded":  true,
 	"internal":           true,
@@ -210,6 +211,21 @@ func ValidateMixerService(svc *mccpb.IstioService) (errs error) {
 func ValidateHTTPHeaderName(name string) error {
 	if name == "" {
 		return fmt.Errorf("header name cannot be empty")
+	}
+	return nil
+}
+
+// ValidateStringMatch validates a StringMatch
+func ValidateStringMatch(m *networking.StringMatch) error {
+	if m == nil {
+		return nil
+	}
+	switch x := m.MatchType.(type) {
+	case *networking.StringMatch_Regex:
+		// Default max size for safe regex is 100
+		if len(x.Regex) > 100 {
+			return fmt.Errorf("regex match '%s' cannot be greater than 100 bytes", x.Regex)
+		}
 	}
 	return nil
 }
@@ -882,6 +898,9 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings) (errs error
 				errs = appendErrors(errs, fmt.Errorf("ttl required for HttpCookie"))
 			}
 		}
+	}
+	if err := validateLocalityLbSetting(settings.LocalityLbSetting); err != nil {
+		errs = multierror.Append(errs, err)
 	}
 	return
 }
@@ -1980,7 +1999,15 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 					errs = appendErrors(errs, fmt.Errorf("header match %v cannot be null", name))
 				}
 				errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+				errs = appendErrors(errs, ValidateStringMatch(header))
 			}
+			for _, m := range match.QueryParams {
+				errs = appendErrors(errs, ValidateStringMatch(m))
+			}
+			errs = appendErrors(errs, ValidateStringMatch(match.Authority))
+			errs = appendErrors(errs, ValidateStringMatch(match.Method))
+			errs = appendErrors(errs, ValidateStringMatch(match.Scheme))
+			errs = appendErrors(errs, ValidateStringMatch(match.Uri))
 
 			if match.Port != 0 {
 				errs = appendErrors(errs, ValidatePort(int(match.Port)))
@@ -2514,7 +2541,7 @@ func appendErrors(err error, errs ...error) error {
 }
 
 // validateLocalityLbSetting checks the LocalityLbSetting of MeshConfig
-func validateLocalityLbSetting(lb *meshconfig.LocalityLoadBalancerSetting) error {
+func validateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting) error {
 	if lb == nil {
 		return nil
 	}

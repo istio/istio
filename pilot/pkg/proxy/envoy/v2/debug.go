@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/pprof"
 	"sort"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -46,7 +47,7 @@ const (
 )
 
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
-func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller) {
+func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller, enableProfiling bool) {
 	// For debugging and load testing v2 we add an memory registry.
 	s.MemRegistry = NewMemServiceDiscovery(
 		map[host.Name]*model.Service{ // mock.HelloService.Hostname: mock.HelloService,
@@ -60,6 +61,14 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 		ServiceDiscovery: s.MemRegistry,
 		Controller:       s.MemRegistry.controller,
 	})
+
+	if enableProfiling {
+		mux.HandleFunc("/debug/pprof/", pprof.Index)
+		mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+		mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+		mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+		mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+	}
 
 	mux.HandleFunc("/ready", s.ready)
 
@@ -75,6 +84,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	mux.HandleFunc("/debug/configz", s.configz)
 
 	mux.HandleFunc("/debug/authenticationz", s.Authenticationz)
+	mux.HandleFunc("/debug/authorizationz", s.Authorizationz)
 	mux.HandleFunc("/debug/config_dump", s.ConfigDump)
 	mux.HandleFunc("/debug/push_status", s.PushStatusHandler)
 }
@@ -230,7 +240,9 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 		var results []SyncedVersions
 		adsClientsMutex.RLock()
 		for _, con := range adsClients {
+			// wrap this in independent scope so that panic's don't bypass Unlock...
 			con.mu.RLock()
+
 			if con.node != nil && (proxyNamespace == "" || proxyNamespace == con.node.ConfigNamespace) {
 				// TODO: handle skipped nodes
 				results = append(results, SyncedVersions{
@@ -264,6 +276,9 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 const VersionLen = 12
 
 func (s *DiscoveryServer) getResourceVersion(nonce, key string, cache map[string]string) string {
+	if len(nonce) < VersionLen {
+		return ""
+	}
 	configVersion := nonce[:VersionLen]
 	result, ok := cache[configVersion]
 	if !ok {
@@ -395,6 +410,23 @@ func (s *DiscoveryServer) Authenticationz(w http.ResponseWriter, req *http.Reque
 
 	w.WriteHeader(http.StatusBadRequest)
 	_, _ = w.Write([]byte("You must provide a proxyID in the query string"))
+}
+
+// AuthorizationDebug holds debug information for authorization policy.
+type AuthorizationDebug struct {
+	AuthorizationPolicies *model.AuthorizationPolicies `json:"authorization_policies"`
+}
+
+// Authorizationz dumps the internal authorization policies.
+func (s *DiscoveryServer) Authorizationz(w http.ResponseWriter, req *http.Request) {
+	w.Header().Add("Content-Type", "application/json")
+
+	info := AuthorizationDebug{
+		AuthorizationPolicies: s.globalPushContext().AuthzPolicies,
+	}
+	if b, err := json.MarshalIndent(info, "  ", "  "); err == nil {
+		_, _ = w.Write(b)
+	}
 }
 
 // AnalyzeMTLSSettings returns mTLS compatibility status between client and server policies.
@@ -583,7 +615,7 @@ func (s *DiscoveryServer) PushStatusHandler(w http.ResponseWriter, req *http.Req
 	if model.LastPushStatus == nil {
 		return
 	}
-	out, err := model.LastPushStatus.JSON()
+	out, err := model.LastPushStatus.StatusJSON()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = fmt.Fprintf(w, "unable to marshal push information: %v", err)
@@ -623,18 +655,6 @@ func writeAllADS(w io.Writer) {
 }
 
 func (s *DiscoveryServer) ready(w http.ResponseWriter, req *http.Request) {
-	if s.ConfigController != nil {
-		if !s.ConfigController.HasSynced() {
-			w.WriteHeader(503)
-			return
-		}
-	}
-	if s.KubeController != nil {
-		if !s.KubeController.HasSynced() {
-			w.WriteHeader(503)
-			return
-		}
-	}
 	w.WriteHeader(200)
 }
 

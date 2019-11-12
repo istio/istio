@@ -1,0 +1,128 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: global-deny-all
+  namespace: my-root-namespace
+spec:
+  {}
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: service-svc-wildcard-rule0-target0
+  namespace: default
+spec:
+  rules:
+  - from:
+    - source:
+        namespaces:
+        - istio-system
+    to:
+    - operation:
+        methods:
+        - GET
+  selector:
+    matchLabels:
+      app: svc-a-xyz
+      version: a
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: service-svc-wildcard-rule0-target1
+  namespace: default
+spec:
+  rules:
+  - from:
+    - source:
+        namespaces:
+        - istio-system
+    to:
+    - operation:
+        methods:
+        - GET
+  selector:
+    matchLabels:
+      app: svc-b-xyz
+      version: b
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: service-svc-wildcard-rule0-target2
+  namespace: default
+spec:
+  rules:
+  - from:
+    - source:
+        namespaces:
+        - istio-system
+    to:
+    - operation:
+        methods:
+        - GET
+  selector:
+    matchLabels:
+      app: svc-c-xyz
+      version: c
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: service-wildcard-xyz-rule0-target0
+  namespace: default
+spec:
+  rules:
+  - from:
+    - source:
+        namespaces:
+        - istio-system
+    to:
+    - operation:
+        methods:
+        - GET
+  selector:
+    matchLabels:
+      app: svc-a-xyz
+      version: a
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: service-wildcard-xyz-rule0-target1
+  namespace: default
+spec:
+  rules:
+  - from:
+    - source:
+        namespaces:
+        - istio-system
+    to:
+    - operation:
+        methods:
+        - GET
+  selector:
+    matchLabels:
+      app: svc-b-xyz
+      version: b
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: service-wildcard-xyz-rule0-target2
+  namespace: default
+spec:
+  rules:
+  - from:
+    - source:
+        namespaces:
+        - istio-system
+    to:
+    - operation:
+        methods:
+        - GET
+  selector:
+    matchLabels:
+      app: svc-c-xyz
+      version: c
+---

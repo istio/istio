@@ -37,6 +37,14 @@ var (
 		},
 	}
 
+	port7443 = []*Port{
+		{
+			Port:     7443,
+			Protocol: "GRPC",
+			Name:     "service-grpc-tls",
+		},
+	}
+
 	port8000 = []*Port{
 		{
 			Name:     "uds",
@@ -218,6 +226,24 @@ var (
 		},
 	}
 
+	configs8 = &Config{
+		ConfigMeta: ConfigMeta{
+			Name: "different-port-name",
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Number:   7443,
+						Protocol: "GRPC",
+						Name:     "listener-grpc-tls",
+					},
+					Hosts: []string{"mesh/*"},
+				},
+			},
+		},
+	}
+
 	services1 = []*Service{
 		{Hostname: "bar"},
 	}
@@ -313,6 +339,17 @@ var (
 			Attributes: ServiceAttributes{
 				Name:      "private.com",
 				Namespace: "ns1",
+			},
+		},
+	}
+
+	services9 = []*Service{
+		{
+			Hostname: "foo.svc.cluster.local",
+			Ports:    port7443,
+			Attributes: ServiceAttributes{
+				Name:      "foo",
+				Namespace: "mesh",
 			},
 		},
 	}
@@ -491,6 +528,18 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 				{
 					Hostname: "private.com",
+				},
+			},
+		},
+		// Validates when service is scoped to Sidecar, it uses service port rather than listener port.
+		{
+			"service-port-used-while-cloning",
+			configs8,
+			services9,
+			[]*Service{
+				{
+					Hostname: "foo.svc.cluster.local",
+					Ports:    port7443,
 				},
 			},
 		},

@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/structpath"
 )
 
@@ -47,40 +48,43 @@ const (
 var testParamMu = &sync.Mutex{}
 
 type testParam struct {
-	env       environment.Name
-	timeout   time.Duration
-	namespace string
-	svcName   string
-	clusterIP string
-	portName  string
-	port      string
-	san       string
-	endpoints []string
+	env                 environment.Name
+	timeout             time.Duration
+	namespace           namespace.Instance
+	svcName             string
+	clusterIP           string
+	portName            string
+	port                string
+	san                 string
+	expectedNumEndpoint int
+	endpoints           []string
 }
 
-func newTestParams(ctx framework.TestContext, ns string) (t testParam) {
+func newTestParams(ctx framework.TestContext, ns namespace.Instance) (t testParam) {
 	ctx.Environment().Case(environment.Kube, func() {
 		t = testParam{
-			env:       environment.Kube,
-			timeout:   time.Second * 240,
-			namespace: ns,
-			svcName:   "tcp-echo",
-			portName:  "tcp",
-			port:      "9000",
-			san:       "default",
+			env:                 environment.Kube,
+			timeout:             time.Second * 120,
+			namespace:           ns,
+			svcName:             "tcp-echo",
+			portName:            "tcp",
+			port:                "9000",
+			san:                 "default",
+			expectedNumEndpoint: 1,
 		}
 	})
 	ctx.Environment().Case(environment.Native, func() {
 		t = testParam{
-			env:       environment.Native,
-			timeout:   time.Second * 60,
-			namespace: ns,
-			svcName:   "kube-dns",
-			clusterIP: "10.43.240.10",
-			portName:  "tcp-dns",
-			port:      "53",
-			san:       "kube-dns",
-			endpoints: []string{"10.40.1.4"},
+			env:                 environment.Native,
+			timeout:             time.Second * 60,
+			namespace:           ns,
+			svcName:             "kube-dns",
+			clusterIP:           "10.43.240.10",
+			portName:            "tcp-dns",
+			port:                "53",
+			san:                 "kube-dns",
+			expectedNumEndpoint: 1,
+			endpoints:           []string{"10.40.1.4"},
 		}
 	})
 	return t
@@ -95,9 +99,10 @@ func (t *testParam) update(test testcase) {
 		}
 		t.port = "9001"
 	case endpointUpdate:
+		testParamMu.Lock()
+		defer testParamMu.Unlock()
+		t.expectedNumEndpoint = 2
 		if t.env == environment.Native {
-			testParamMu.Lock()
-			defer testParamMu.Unlock()
 			t.endpoints = append(t.endpoints, "10.40.1.5")
 			return
 		}
@@ -113,7 +118,7 @@ func (t *testParam) getEndpoints(env resource.Environment, tt *testing.T) (addre
 	}
 
 	eps, err := env.(*kubeEnv.Environment).GetEndpoints(
-		t.namespace,
+		t.namespace.Name(),
 		t.svcName,
 		kubeApiMeta.GetOptions{})
 
@@ -129,15 +134,14 @@ func (t *testParam) getEndpoints(env resource.Environment, tt *testing.T) (addre
 }
 
 func TestSyntheticServiceEntry(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/17953")
 	ctx := framework.NewContext(t)
 	defer ctx.Done()
 
 	ns := namespace.NewOrFail(t, ctx, namespace.Config{Prefix: "sse", Inject: true})
-	testParams := newTestParams(ctx, ns.Name())
+	testParams := newTestParams(ctx, ns)
 
 	// apply a sse
-	applyConfig(serviceEntry, ns, ctx, t)
+	applyConfig(serviceEntry, testParams, t)
 
 	collection := metadata.IstioNetworkingV1alpha3SyntheticServiceentries.Collection.String()
 
@@ -158,89 +162,78 @@ func TestSyntheticServiceEntry(t *testing.T) {
 	discoveryReq := pilot.NewDiscoveryRequest(nodeID, pilot.Listener)
 	p.StartDiscoveryOrFail(t, discoveryReq)
 
-	t.Run("check initial service and endpoint", func(t *testing.T) {
-		p.WatchDiscoveryOrFail(t, testParams.timeout,
-			func(response *xdsapi.DiscoveryResponse) (b bool, e error) {
-				validator := structpath.ForProto(response)
-				instance := validator.Select("{.resources[?(@.address.socketAddress.portValue==%v)]}", testParams.port)
-				if instance.Check() != nil {
-					return false, nil
-				}
-				if err := validateSse(validator, testParams); err != nil {
-					return false, nil
-				}
-				endpoint := testParams.getEndpoints(ctx.Environment(), t)
-				// wait for the new instance to become ready
-				if len(endpoint) == 0 {
-					return false, nil
-				}
-				if err := verifyEndpoints(t, client, testParams, endpoint[0]); err != nil {
-					return false, nil
-				}
-				return true, nil
-			})
+	steps := []struct {
+		description string
+		testCase    testcase
+	}{
+		{
+			description: "check initial service and endpoint",
+			testCase:    serviceEntry,
+		},
+		{
+			description: "update service",
+			testCase:    serviceUpdate,
+		},
+		{
+			description: "update endpoint",
+			testCase:    endpointUpdate,
+		},
+	}
 
-	})
-
-	//service update
-	applyConfig(serviceUpdate, ns, ctx, t)
-	testParams.update(serviceUpdate)
-
-	t.Run("update service", func(t *testing.T) {
-		p.WatchDiscoveryOrFail(t, testParams.timeout,
-			func(response *xdsapi.DiscoveryResponse) (b bool, e error) {
-				validator := structpath.ForProto(response)
-				if validator.Select("{.resources[?(@.address.socketAddress.portValue==%v)]}", testParams.port).Check() != nil {
-					return false, nil
-				}
-				if err := validateSse(validator, testParams); err != nil {
-					return false, nil
-				}
-				endpoint := testParams.getEndpoints(ctx.Environment(), t)
-				// wait for the new instance to become ready
-				if len(endpoint) == 0 {
-					return false, nil
-				}
-				if err := verifyEndpoints(t, client, testParams, endpoint[0]); err != nil {
-					return false, nil
-				}
-				return true, nil
-			})
-	})
-
-	// endpoint update
-	applyConfig(endpointUpdate, ns, ctx, t)
-	testParams.update(endpointUpdate)
-
-	t.Run("update endpoint", func(t *testing.T) {
-		p.WatchDiscoveryOrFail(t, testParams.timeout,
-			func(response *xdsapi.DiscoveryResponse) (b bool, e error) {
-				validator := structpath.ForProto(response)
-				if validator.Select("{.resources[?(@.address.socketAddress.portValue==%v)]}", testParams.port).Check() != nil {
-					return false, nil
-				}
-				if err := validateSse(validator, testParams); err != nil {
-					return false, nil
-				}
-				endpoints := testParams.getEndpoints(ctx.Environment(), t)
-				// wait for the new replica to become ready
-				if len(endpoints) != 2 {
-					return false, nil
-				}
-				// verify endpoints
-				for _, e := range endpoints {
-					if err := verifyEndpoints(t, client, testParams, e); err != nil {
-						fmt.Println(err)
+	for _, s := range steps {
+		switch s.testCase {
+		case serviceEntry:
+			// no op
+		case serviceUpdate:
+			applyConfig(serviceUpdate, testParams, t)
+			testParams.update(serviceUpdate)
+		case endpointUpdate:
+			applyConfig(endpointUpdate, testParams, t)
+			testParams.update(endpointUpdate)
+		}
+		t.Run(s.description, func(t *testing.T) {
+			p.WatchDiscoveryOrFail(t, testParams.timeout,
+				func(response *xdsapi.DiscoveryResponse) (b bool, e error) {
+					validator := structpath.ForProto(response)
+					instance := validator.Select("{.resources[?(@.address.socketAddress.portValue==%v)]}", testParams.port)
+					if instance.Check() != nil {
 						return false, nil
 					}
+					if err := validateSse(validator, testParams); err != nil {
+						return false, nil
+					}
+					return true, nil
+				})
 
-				}
-				return true, nil
-			})
-	})
+			// need to verify endpoints with retry since env.(*kubeEnv.Environment).GetEndpoints
+			// not always fetches endpoints immediately
+			if err := validateEndpointsWithRetry(5, 10*time.Second, t, ctx, client, testParams); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
 }
 
-func verifyEndpoints(t *testing.T, c echo.Instance, params testParam, endpoint string) (err error) {
+func validateEndpointsWithRetry(try int, wait time.Duration, t *testing.T, ctx framework.TestContext, c echo.Instance, params testParam) (err error) {
+	for i := 0; i <= try; i++ {
+		err = verifyEndpoints(t, ctx, c, params)
+		if err == nil {
+			return
+		}
+		if i >= (try - 1) {
+			break
+		}
+		time.Sleep(wait)
+	}
+	return fmt.Errorf("validateEndpointsWithRetry: try failed: %v", err)
+}
+
+func verifyEndpoints(t *testing.T, ctx framework.TestContext, c echo.Instance, params testParam) (err error) {
+	endpoints := params.getEndpoints(ctx.Environment(), t)
+	// wait for the new replica(s) to become ready
+	if len(endpoints) != params.expectedNumEndpoint {
+		return fmt.Errorf("verifyEndpoints: expected %d endpoints but only got %v", params.expectedNumEndpoint, endpoints)
+	}
 	workloads, _ := c.Workloads()
 	for _, w := range workloads {
 		if w.Sidecar() != nil {
@@ -249,56 +242,42 @@ func verifyEndpoints(t *testing.T, c echo.Instance, params testParam, endpoint s
 				t.Fatal(err)
 			}
 			validator := structpath.ForProto(msg)
-			err = validator.
-				Select("{.clusterStatuses[?(@.name=='%v')]}", fmt.Sprintf("outbound|%s||%s.%s.svc.cluster.local", params.port, params.svcName, params.namespace)).
-				Equals("true", "{.addedViaApi}").
-				ContainSubstring(endpoint, "{.hostStatuses}").
-				ContainSubstring(params.port, "{.hostStatuses}").
-				ContainSubstring("HEALTHY", "{.hostStatuses}").
-				Check()
-			if err != nil {
-				return err
+			for _, endpoint := range endpoints {
+				err = validator.
+					Select("{.clusterStatuses[?(@.name=='%v')]}", fmt.Sprintf("outbound|%s||%s.%s.svc.cluster.local", params.port, params.svcName, params.namespace.Name())).
+					Equals("true", "{.addedViaApi}").
+					ContainSubstring(endpoint, "{.hostStatuses}").
+					ContainSubstring(params.port, "{.hostStatuses}").
+					ContainSubstring("HEALTHY", "{.hostStatuses}").
+					Check()
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
 	return err
 }
 
-func applyConfig(testName testcase, namespace namespace.Instance, ctx framework.TestContext, t *testing.T) {
-	var folder, config string
-	//TODO (Nino-K): investigate why the clearConfig can not be triggered either during
-	// service update or endpoint update for each env
-	// Tringgering clear Config at the same time (e.g during ServiceUpdate or EndpointUpdate)
-	// for each env makes galley not to always forward the endpoints along with the SE which
-	// can make the test flaky
-	ctx.Environment().Case(environment.Kube, func() {
-		if testName == serviceUpdate {
-			if err := g.ClearConfig(); err != nil {
-				t.Fatal(err)
-			}
-		}
-		folder = "kube"
-	})
-	ctx.Environment().Case(environment.Native, func() {
-		if testName == endpointUpdate {
-			if err := g.ClearConfig(); err != nil {
-				t.Fatal(err)
-			}
-		}
+func applyConfig(testName testcase, params testParam, t *testing.T) {
+	var config string
 
-		folder = "native"
-	})
+	initialDeployment := fmt.Sprintf("testdata/%s/initial_deployment.yaml", params.env)
+	updateService := fmt.Sprintf("testdata/%s/update_service.yaml", params.env)
+	updateEndpoint := fmt.Sprintf("testdata/%s/update_endpoints.yaml", params.env)
 
 	switch testName {
 	case serviceEntry:
-		config = fmt.Sprintf("testdata/%s/initial_deployment.yaml", folder)
+		config = initialDeployment
 	case serviceUpdate:
-		config = fmt.Sprintf("testdata/%s/update_service.yaml", folder)
+		g.DeleteConfigOrFail(t, params.namespace, file.AsStringOrFail(t, initialDeployment))
+		config = updateService
 	case endpointUpdate:
-		config = fmt.Sprintf("testdata/%s/update_endpoints.yaml", folder)
+		g.DeleteConfigOrFail(t, params.namespace, file.AsStringOrFail(t, updateService))
+		config = updateEndpoint
 	}
 
-	if err := g.ApplyConfigDir(namespace, config); err != nil {
+	if err := g.ApplyConfigDir(params.namespace, config); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -313,19 +292,19 @@ func validateSse(response *structpath.Instance, params testParam) error {
 }
 
 func syntheticServiceEntryValidator(params testParam) galley.SnapshotValidatorFunc {
-	return galley.NewSingleObjectSnapshotValidator(params.namespace, func(ns string, actual *galley.SnapshotObject) error {
+	return galley.NewSingleObjectSnapshotValidator(params.namespace.Name(), func(ns string, actual *galley.SnapshotObject) error {
 		v := structpath.ForProto(actual)
 		if err := v.Equals(metadata.IstioNetworkingV1alpha3SyntheticServiceentries.TypeURL.String(), "{.TypeURL}").
-			Equals(fmt.Sprintf("%s/%s", params.namespace, params.svcName), "{.Metadata.name}").
+			Equals(fmt.Sprintf("%s/%s", params.namespace.Name(), params.svcName), "{.Metadata.name}").
 			Check(); err != nil {
 			return err
 		}
 		// Compare the body
 		inst := v.Select("{.Body}").
-			Equals(fmt.Sprintf("%s.%s.svc.cluster.local", params.svcName, params.namespace), "{.hosts[0]}").
-			Equals(1, "{.location}").
-			Equals(1, "{.resolution}").
-			Equals(fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/%s", params.namespace, params.san), "{.subject_alt_names[0]}")
+			Equals(fmt.Sprintf("%s.%s.svc.cluster.local", params.svcName, params.namespace.Name()), "{.hosts[0]}").
+			Equals("MESH_INTERNAL", "{.location}").
+			Equals("STATIC", "{.resolution}").
+			Equals(fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/%s", params.namespace.Name(), params.san), "{.subjectAltNames[0]}")
 		if params.env == environment.Native {
 			inst.Equals(params.clusterIP, "{.addresses[0]}")
 		}

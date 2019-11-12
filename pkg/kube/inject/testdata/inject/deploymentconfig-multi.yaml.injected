@@ -35,7 +35,7 @@ items:
         creationTimestamp: null
         labels:
           app: hello
-          security.istio.io/mtlsReady: "true"
+          security.istio.io/tlsMode: istio
           tier: backend
           track: stable
       spec:
@@ -117,7 +117,7 @@ items:
           - name: ISTIO_META_WORKLOAD_NAME
             value: hello
           - name: ISTIO_META_OWNER
-            value: kubernetes://api/apps.openshift.io/v1/namespaces/default/deploymentconfigs/hello
+            value: kubernetes://apis/apps.openshift.io/v1/namespaces/default/deploymentconfigs/hello
           image: docker.io/istio/proxyv2:unittest
           imagePullPolicy: IfNotPresent
           name: istio-proxy

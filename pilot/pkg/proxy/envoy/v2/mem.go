@@ -133,6 +133,14 @@ func (sd *MemServiceDiscovery) AddService(name host.Name, svc *model.Service) {
 	// TODO: notify listeners
 }
 
+// RemoveService removes an in-memory service.
+func (sd *MemServiceDiscovery) RemoveService(name host.Name) {
+	sd.mutex.Lock()
+	delete(sd.services, name)
+	sd.mutex.Unlock()
+	sd.EDSUpdater.SvcUpdate(sd.ClusterID, string(name), "", model.EventDelete)
+}
+
 // AddInstance adds an in-memory instance.
 func (sd *MemServiceDiscovery) AddInstance(service host.Name, instance *model.ServiceInstance) {
 	// WIP: add enough code to allow tests and load tests to work

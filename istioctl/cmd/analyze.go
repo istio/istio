@@ -15,10 +15,12 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
 
+	"github.com/ghodss/yaml"
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 
@@ -33,20 +35,31 @@ import (
 )
 
 type AnalyzerFoundIssuesError struct{}
+type FileParseError struct{}
 
 const (
 	FoundIssueString = "Analyzer found issues."
+	FileParseString  = "Some files couldn't be parsed."
+	LogOutput        = "log"
+	JsonOutput       = "json"
+	YamlOutput       = "yaml"
 )
 
 func (f AnalyzerFoundIssuesError) Error() string {
 	return FoundIssueString
 }
 
+func (f FileParseError) Error() string {
+	return FileParseString
+}
+
 var (
-	useKube      bool
-	useDiscovery string
-	messageLevel = thresholdLevelParser{diag.Warning} // messages at least this level will generate an error exit code
-	colorize     bool
+	useKube         bool
+	useDiscovery    bool
+	failureLevel    = messageThreshold{diag.Warning} // messages at least this level will generate an error exit code
+	outputLevel     = messageThreshold{diag.Info}    // messages at least this level will be included in the output
+	colorize        bool
+	msgOutputFormat string
 
 	termEnvVar = env.RegisterStringVar("TERM", "", "Specifies terminal type.  Use 'dumb' to suppress color output")
 
@@ -61,6 +74,14 @@ var (
 // Once we're ready to move this functionality out of the "experimental" subtree, we should merge
 // with `istioctl validate`. https://github.com/istio/istio/issues/16777
 func Analyze() *cobra.Command {
+	// Validate the output format before doing potentially expensive work to fail earlier
+	msgOutputFormats := map[string]bool{LogOutput: true, JsonOutput: true, YamlOutput: true}
+	var msgOutputFormatKeys []string
+
+	for k, _ := range msgOutputFormats {
+		msgOutputFormatKeys = append(msgOutputFormatKeys, k)
+	}
+
 	analysisCmd := &cobra.Command{
 		Use:   "analyze <file>...",
 		Short: "Analyze Istio configuration and print validation messages",
@@ -81,15 +102,23 @@ istioctl experimental analyze -d true a.yaml b.yaml services.yaml
 istioctl experimental analyze -k -d false
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			msgOutputFormat = strings.ToLower(msgOutputFormat)
+			_, ok := msgOutputFormats[msgOutputFormat]
+			if !ok {
+				return CommandParseError{
+					fmt.Errorf("%s not a valid option for format. See istioctl x analyze --help", msgOutputFormat),
+				}
+			}
+
 			files, err := gatherFiles(args)
 			if err != nil {
 				return err
 			}
 			cancel := make(chan struct{})
 
-			sd, err := serviceDiscovery()
-			if err != nil {
-				return err
+			// If not explicitly specified, the discovery flag should match useKube
+			if !cmd.Flags().Changed("discovery") {
+				useDiscovery = useKube
 			}
 
 			// We use the "namespace" arg that's provided as part of root istioctl as a flag for specifying what namespace to use
@@ -125,7 +154,7 @@ istioctl experimental analyze -k -d false
 				selectedNamespace = defaultNamespace
 			}
 
-			sa := local.NewSourceAnalyzer(metadata.MustGet(), analyzers.AllCombined(), selectedNamespace, nil, sd)
+			sa := local.NewSourceAnalyzer(metadata.MustGet(), analyzers.AllCombined(), selectedNamespace, nil, useDiscovery)
 
 			// If we're using kube, use that as a base source.
 			if k != nil {
@@ -133,11 +162,12 @@ istioctl experimental analyze -k -d false
 			}
 
 			// If files are provided, treat them (collectively) as a source.
+			parseErrors := 0
 			if len(files) > 0 {
 				if err = sa.AddFileKubeSource(files); err != nil {
 					// Partial success is possible, so don't return early, but do print.
-					// TODO(https://github.com/istio/istio/issues/17862): If we had any such errors, we should return a nonzero exit code
 					fmt.Fprintf(cmd.ErrOrStderr(), "Error(s) reading files: %v", err)
+					parseErrors++
 				}
 			}
 
@@ -163,30 +193,76 @@ istioctl experimental analyze -k -d false
 				fmt.Fprintln(cmd.ErrOrStderr())
 			}
 
-			if len(result.Messages) == 0 {
-				fmt.Fprintln(cmd.ErrOrStderr(), "\u2714 No validation issues found.")
-			} else {
-				for _, m := range result.Messages {
-					fmt.Fprintln(cmd.OutOrStdout(), renderMessage(m))
+			// Filter outputMessages by specified level
+			var outputMessages diag.Messages
+			for _, m := range result.Messages {
+				if m.Type.Level().IsWorseThanOrEqualTo(outputLevel.Level) {
+					outputMessages = append(outputMessages, m)
 				}
 			}
 
-			return errorIfMessagesExceedThreshold(result.Messages)
+			switch msgOutputFormat {
+			case LogOutput:
+				// Print validation message output, or a line indicating that none were found
+				if len(outputMessages) == 0 {
+					if parseErrors == 0 {
+						fmt.Fprintln(cmd.ErrOrStderr(), "\u2714 No validation issues found.")
+					} else {
+						fileOrFiles := "files"
+						if parseErrors == 1 {
+							fileOrFiles = "file"
+						}
+						fmt.Fprintf(cmd.ErrOrStderr(),
+							"No validation issues found (but %d %s could not be parsed)\n",
+							parseErrors,
+							fileOrFiles,
+						)
+					}
+				} else {
+					for _, m := range outputMessages {
+						fmt.Fprintln(cmd.OutOrStdout(), renderMessage(m))
+					}
+				}
+			case JsonOutput:
+				jsonOutput, err := json.MarshalIndent(outputMessages, "", "\t")
+				if err != nil {
+					return err
+				}
+				fmt.Fprintln(cmd.OutOrStdout(), string(jsonOutput))
+			case YamlOutput:
+				yamlOutput, err := yaml.Marshal(outputMessages)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintln(cmd.OutOrStdout(), string(yamlOutput))
+			default: // This should never happen since we validate this already
+				panic(fmt.Sprintf("%q not found in output format switch statement post validate?", msgOutputFormat))
+			}
+
+			// Return code is based on the unfiltered validation message list/parse errors
+			// We're intentionally keeping failure threshold and output threshold decoupled for now
+			returnError := errorIfMessagesExceedThreshold(result.Messages)
+			if returnError == nil && parseErrors > 0 {
+				returnError = FileParseError{}
+			}
+			return returnError
 		},
 	}
 
 	analysisCmd.PersistentFlags().BoolVarP(&useKube, "use-kube", "k", false,
 		"Use live Kubernetes cluster for analysis")
-	analysisCmd.PersistentFlags().StringVarP(&useDiscovery, "discovery", "d", "",
+	analysisCmd.PersistentFlags().BoolVarP(&useDiscovery, "discovery", "d", false, // Note that this default val gets overriden to match --use-kube
 		"'true' to enable service discovery, 'false' to disable it. "+
 			"Defaults to true if --use-kube is set, false otherwise. "+
 			"Analyzers requiring resources made available by enabling service discovery will be skipped.")
 	analysisCmd.PersistentFlags().BoolVar(&colorize, "color", istioctlColorDefault(analysisCmd),
 		"Default true.  Disable with '=false' or set $TERM to dumb")
 	analysisCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
-	analysisCmd.PersistentFlags().Var(&messageLevel, "failure-threshold",
-		"The severity level of analysis at which to set a non-zero exit code. "+
-			"Defaults to WARN, with INFO and ERROR being the other values.")
+	analysisCmd.PersistentFlags().Var(&failureLevel, "failure-threshold",
+		fmt.Sprintf("The severity level of analysis at which to set a non-zero exit code. Valid values: %v", diag.GetAllLevelStrings()))
+	analysisCmd.PersistentFlags().Var(&outputLevel, "output-threshold",
+		fmt.Sprintf("The severity level of analysis at which to display messages. Valid values: %v", diag.GetAllLevelStrings()))
+	analysisCmd.PersistentFlags().StringVarP(&msgOutputFormat, "output", "o", LogOutput, fmt.Sprintf("Output format: one of %v", msgOutputFormatKeys))
 	return analysisCmd
 }
 
@@ -199,19 +275,6 @@ func gatherFiles(args []string) ([]string, error) {
 		result = append(result, a)
 	}
 	return result, nil
-}
-
-func serviceDiscovery() (bool, error) {
-	switch strings.ToLower(useDiscovery) {
-	case "":
-		return useKube, nil
-	case "true":
-		return true, nil
-	case "false":
-		return false, nil
-	default:
-		return false, fmt.Errorf("invalid argument value for discovery")
-	}
 }
 
 func colorPrefix(m diag.Message) string {
@@ -262,7 +325,7 @@ func istioctlColorDefault(cmd *cobra.Command) bool {
 func errorIfMessagesExceedThreshold(messages []diag.Message) error {
 	foundIssues := false
 	for _, m := range messages {
-		if m.Type.Level().IsWorseThanOrEqualTo(messageLevel.Level) {
+		if m.Type.Level().IsWorseThanOrEqualTo(failureLevel.Level) {
 			foundIssues = true
 		}
 	}
@@ -274,22 +337,22 @@ func errorIfMessagesExceedThreshold(messages []diag.Message) error {
 	return nil
 }
 
-type thresholdLevelParser struct {
+type messageThreshold struct {
 	diag.Level
 }
 
 // String satisfies interface pflag.Value
-func (m *thresholdLevelParser) String() string {
+func (m *messageThreshold) String() string {
 	return m.Level.String()
 }
 
 // Type satisfies interface pflag.Value
-func (m *thresholdLevelParser) Type() string {
+func (m *messageThreshold) Type() string {
 	return "Level"
 }
 
 // Set satisfies interface pflag.Value
-func (m *thresholdLevelParser) Set(s string) error {
+func (m *messageThreshold) Set(s string) error {
 	l, err := LevelFromString(s)
 	if err != nil {
 		return err

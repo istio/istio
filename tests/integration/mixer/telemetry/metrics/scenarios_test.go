@@ -135,7 +135,7 @@ func testMetric(t *testing.T, ctx framework.TestContext, label string, labelValu
 		t.Fatal(err)
 	}
 
-	// We shold see 10 requests but giving an error of 1, to make test less flaky.
+	// We should see 10 requests but giving an error of 1, to make test less flaky.
 	if (f - i) < float64(9) {
 		t.Errorf("Bad metric value: got %f, want at least 9", f-i)
 	}

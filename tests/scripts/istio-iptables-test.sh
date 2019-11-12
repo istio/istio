@@ -29,10 +29,11 @@ function show_difference() {
 }
 
 function refresh_reference() {
-    local NAME=$1
-    local ACTUAL=$2
+    local TESTMODE=$1
+    local NAME=$2
+    local ACTUAL=$3
 
-    echo "${ACTUAL}" > "${SCRIPT_DIR}/testdata/${NAME}_golden.txt"
+    echo "${ACTUAL}" > "${SCRIPT_DIR}/testdata/${TESTMODE}/${NAME}_golden.txt"
     echo "golden file for test ${NAME} updated"
 }
 
@@ -66,7 +67,7 @@ function compareWithGolden() {
     FILE_UNDER_TEST="${SCRIPT_DIR}/../../tools/packaging/common/istio-clean-iptables.sh"
    ;;
    "golang_clean")
-    FILE_UNDER_TEST="${ISTIO_OUT}/istio-clean-iptables --dryRun"
+    FILE_UNDER_TEST="${ISTIO_OUT}/istio-clean-iptables --dry-run"
    ;;
   esac
 
@@ -78,9 +79,9 @@ function compareWithGolden() {
   ACTUAL_OUTPUT="$(${FILE_UNDER_TEST} ${PARAMS} 2>/dev/null)"
 
   if [[ "x${REFRESH_GOLDEN:-false}x" = "xtruex" ]] ; then
-    refresh_reference "${TEST_NAME}" "${ACTUAL_OUTPUT}"
+    refresh_reference "${TEST_MODE}" "${TEST_NAME}" "${ACTUAL_OUTPUT}"
   else
-    EXPECTED_OUTPUT=$(cat "${SCRIPT_DIR}/testdata/${TEST_NAME}_golden.txt")
+    EXPECTED_OUTPUT=$(cat "${SCRIPT_DIR}/testdata/${TEST_MODE}/${TEST_NAME}_golden.txt")
     if assert_equals "${TEST_NAME}" "${ACTUAL_OUTPUT}" "${EXPECTED_OUTPUT}"; then
       echo -e "ok\tistio.io/$0/${TEST_NAME} (${TEST_MODE})\t0.000s"
     else

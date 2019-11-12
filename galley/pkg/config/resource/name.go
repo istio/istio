@@ -32,24 +32,32 @@ func NewName(namespace, local string) Name {
 	return Name{string: namespace + "/" + local}
 }
 
-// NewFullName returns a given name as a resource Name
+// NewFullName returns a given name as a resource Name, validating it for correctness
 func NewFullName(name string) (Name, error) {
 	if name == "" {
 		return Name{string: ""}, errors.New("invalid name: can not be empty")
 	}
-	begin := 0
-	for i, r := range name {
-		if r == '/' {
-			if begin == i {
-				return Name{string: ""}, fmt.Errorf("invalid name %s: namespace must not be empty", name)
-			}
-			begin = i + 1
-		}
+
+	ns, n := splitNamespaceAndName(name)
+
+	if ns == "" {
+		return Name{string: ""}, fmt.Errorf("invalid name %s: namespace must not be empty", name)
 	}
-	if begin == len(name) {
+	if n == "" {
 		return Name{string: ""}, fmt.Errorf("invalid name %s: name must not be empty", name)
 	}
+
 	return Name{string: name}, nil
+}
+
+// NewShortOrFullName tries to parse the given name to resource.Name. If the name does not include namespace information,
+// the defaultNamespace is used.
+func NewShortOrFullName(defaultNamespace, name string) Name {
+	ns, host := splitNamespaceAndName(name)
+	if ns == "" {
+		return NewName(defaultNamespace, host)
+	}
+	return NewName(ns, host)
 }
 
 // String interface implementation.
@@ -57,12 +65,17 @@ func (n Name) String() string {
 	return n.string
 }
 
-// InterpretAsNamespaceAndName tries to split the name as namespace and name
-func (n Name) InterpretAsNamespaceAndName() (string, string) {
-	parts := strings.SplitN(n.string, "/", 2)
+// splitNamespaceAndName tries to split the string as namespace and name
+func splitNamespaceAndName(name string) (string, string) {
+	parts := strings.SplitN(name, "/", 2)
 	if len(parts) == 1 {
 		return "", parts[0]
 	}
 
 	return parts[0], parts[1]
+}
+
+// InterpretAsNamespaceAndName tries to split the name as namespace and name
+func (n Name) InterpretAsNamespaceAndName() (string, string) {
+	return splitNamespaceAndName(n.String())
 }

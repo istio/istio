@@ -15,9 +15,7 @@ metadata:
     {{ $key }}: {{ $val }}
     {{- end }}
 spec:
-{{- if $.Values.global.defaultPodDisruptionBudget.enabled }}
 {{ include "podDisruptionBudget.spec" $.Values.global.defaultPodDisruptionBudget }}
-{{- end }}
   selector:
     matchLabels:
       release: {{ $.Release.Name }}

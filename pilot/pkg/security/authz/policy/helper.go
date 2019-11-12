@@ -16,6 +16,7 @@ package policy
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/davecgh/go-spew/spew"
@@ -124,15 +125,15 @@ func SimpleRole(name string, namespace string, service string) *model.Config {
 	}
 }
 
-func SimplePrincipal(name string) string {
-	return fmt.Sprintf("cluster.local/ns/%s/sa/%s", name, name)
-}
-
 func CustomPrincipal(trustDomain, namespace, saName string) string {
 	return fmt.Sprintf("%s/ns/%s/sa/%s", trustDomain, namespace, saName)
 }
 
-func SimpleBinding(name string, namespace string, role string) *model.Config {
+func BindingTag(name string) string {
+	return fmt.Sprintf("UserFromBinding[%s]", name)
+}
+
+func SimpleBinding(name, namespace, role string) *model.Config {
 	return &model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:      schemas.ServiceRoleBinding.Type,
@@ -142,7 +143,28 @@ func SimpleBinding(name string, namespace string, role string) *model.Config {
 		Spec: &istio_rbac.ServiceRoleBinding{
 			Subjects: []*istio_rbac.Subject{
 				{
-					User: SimplePrincipal(name),
+					User: BindingTag(name),
+				},
+			},
+			RoleRef: &istio_rbac.RoleRef{
+				Name: role,
+				Kind: "ServiceRole",
+			},
+		},
+	}
+}
+
+func SimpleBindingWithUser(name, namespace, role, user string) *model.Config {
+	return &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:      schemas.ServiceRoleBinding.Type,
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: &istio_rbac.ServiceRoleBinding{
+			Subjects: []*istio_rbac.Subject{
+				{
+					User: user,
 				},
 			},
 			RoleRef: &istio_rbac.RoleRef{
@@ -164,28 +186,21 @@ func AuthzPolicyTag(name string) string {
 	return fmt.Sprintf("UserFromPolicy[%s]", name)
 }
 
-func SimpleAuthzPolicy(name string, namespace string) *model.Config {
-	return &model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:      schemas.AuthorizationPolicy.Type,
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: &authpb.AuthorizationPolicy{
-			Rules: []*authpb.Rule{
-				{
-					From: []*authpb.Rule_From{
-						{
-							Source: &authpb.Source{
-								Principals: []string{AuthzPolicyTag(name)},
-							},
+func SimpleAuthorizationProto(name string) *authpb.AuthorizationPolicy {
+	return &authpb.AuthorizationPolicy{
+		Rules: []*authpb.Rule{
+			{
+				From: []*authpb.Rule_From{
+					{
+						Source: &authpb.Source{
+							Principals: []string{AuthzPolicyTag(name)},
 						},
 					},
-					To: []*authpb.Rule_To{
-						{
-							Operation: &authpb.Operation{
-								Methods: []string{"GET"},
-							},
+				},
+				To: []*authpb.Rule_To{
+					{
+						Operation: &authpb.Operation{
+							Methods: []string{"GET"},
 						},
 					},
 				},
@@ -194,7 +209,18 @@ func SimpleAuthzPolicy(name string, namespace string) *model.Config {
 	}
 }
 
-func Verify(got *envoy_rbac.RBAC, want map[string][]string) error {
+func SimpleAuthorizationPolicy(name string, namespace string) *model.Config {
+	return &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:      schemas.AuthorizationPolicy.Type,
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: SimpleAuthorizationProto(name),
+	}
+}
+
+func Verify(got *envoy_rbac.RBAC, want map[string][]string, needToCheckPrincipals bool) error {
 	var err error
 	if len(want) == 0 {
 		if len(got.GetPolicies()) != 0 {
@@ -216,8 +242,11 @@ func Verify(got *envoy_rbac.RBAC, want map[string][]string) error {
 			if !ok {
 				err = multierror.Append(err, fmt.Errorf("not found rule %q", key))
 			} else {
-				// FIXME(pitlv2109/yangmingzhu): This doesn't always work because |actualStr| might contain
-				// more stuff than |values| from |want|. Need to check both ways.
+				// Enable principal count check if principals are important for the current test (e.g. generating RBAC config based
+				// on trust domain aliases).
+				if needToCheckPrincipals {
+					err = checkPrincipalCounts(key, actualStr, values)
+				}
 				for _, value := range values {
 					if !strings.Contains(actualStr, value) {
 						err = multierror.Append(err, fmt.Errorf("not found %q in rule %q", value, key))
@@ -228,4 +257,33 @@ func Verify(got *envoy_rbac.RBAC, want map[string][]string) error {
 	}
 
 	return err
+}
+
+// checkSourcePrincipalCounts checks if |actual| and |want| have the same number of source.principal.
+// For example, both |actual| and |want| can only have one key "source.principal",
+// but |actual| can have "foo" and "bar", and |want| can only has "foo". This is possible since
+// in v1beta1, principals can be a list.
+func checkPrincipalCounts(ruleKey string, actual string, want []string) error {
+	// Only work with principals, not other identities like namespaces.
+	keyRegEx := regexp.MustCompile("source.principal")
+	keyMatches := keyRegEx.FindAllStringIndex(actual, -1)
+	numPrincipals := 0
+	for _, w := range want {
+		if isPrincipal(w) {
+			numPrincipals++
+		}
+	}
+	if len(keyMatches) != numPrincipals {
+		return fmt.Errorf("the number of principals are not the same in rule %q.\n"+
+			"Got %s, want %s", ruleKey, actual, want)
+	}
+	return nil
+}
+
+// isPrincipal returns if s is an Istio authorization principal.
+// It supports * in principals (including prefix or suffix in some cases),
+// but the principals must be in the format */*/*/*/*.
+// This should be used for testing only.
+func isPrincipal(s string) bool {
+	return s == "*" || len(strings.Split(s, "/")) == 5
 }

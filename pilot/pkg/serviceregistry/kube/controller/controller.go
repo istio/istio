@@ -493,7 +493,7 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 					uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
 				}
 			}
-			mtlsReady := kube.PodMTLSReady(pod)
+			tlsMode := kube.PodTLSMode(pod)
 
 			// identify the port by name. K8S EndpointPort uses the service port name
 			for _, port := range ss.Ports {
@@ -511,7 +511,7 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 						Service:        svc,
 						Labels:         podLabels,
 						ServiceAccount: sa,
-						MTLSReady:      mtlsReady,
+						TLSMode:        tlsMode,
 					})
 				}
 			}
@@ -788,7 +788,7 @@ func (c *Controller) getEndpoints(podIP, address string, endpointPort int32, svc
 		Service:        svc,
 		Labels:         podLabels,
 		ServiceAccount: sa,
-		MTLSReady:      kube.PodMTLSReady(pod),
+		TLSMode:        kube.PodTLSMode(pod),
 	}
 }
 
@@ -847,26 +847,20 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 			}
 		}
 
-		log.Debugf("Handle service %s in namespace %s", svc.Name, svc.Namespace)
-
-		hostname := svc.Name + "." + svc.Namespace
-		ports := map[string]uint32{}
-		portsByNum := map[uint32]string{}
-
-		for _, port := range svc.Spec.Ports {
-			ports[port.Name] = uint32(port.Port)
-			portsByNum[uint32(port.Port)] = port.Name
-		}
+		log.Debugf("Handle event %s for service %s in namespace %s", event, svc.Name, svc.Namespace)
 
 		svcConv := kube.ConvertService(*svc, c.domainSuffix, c.ClusterID)
-		instances := kube.ExternalNameServiceInstances(*svc, svcConv)
 		switch event {
 		case model.EventDelete:
 			c.Lock()
 			delete(c.servicesMap, svcConv.Hostname)
 			delete(c.externalNameSvcInstanceMap, svcConv.Hostname)
 			c.Unlock()
+			// EDS needs to just know when service is deleted.
+			c.XDSUpdater.SvcUpdate(c.ClusterID, svc.Name, svc.Namespace, event)
 		default:
+			// instance conversion is only required when service is added/updated.
+			instances := kube.ExternalNameServiceInstances(*svc, svcConv)
 			c.Lock()
 			c.servicesMap[svcConv.Hostname] = svcConv
 			if instances == nil {
@@ -875,9 +869,8 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 				c.externalNameSvcInstanceMap[svcConv.Hostname] = instances
 			}
 			c.Unlock()
+			c.XDSUpdater.SvcUpdate(c.ClusterID, svc.Name, svc.Namespace, event)
 		}
-		// EDS needs the port mapping.
-		c.XDSUpdater.SvcUpdate(c.ClusterID, hostname, ports, portsByNum)
 
 		f(svcConv, event)
 
@@ -947,7 +940,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 					labels = map[string]string(configKube.ConvertLabels(pod.ObjectMeta))
 				}
 
-				mtlsReady := kube.PodMTLSReady(pod)
+				tlsMode := kube.PodTLSMode(pod)
 
 				// EDS and ServiceEntry use name for service port - ADS will need to
 				// map to numbers.
@@ -962,7 +955,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 						Network:         c.endpointNetwork(ea.IP),
 						Locality:        locality,
 						Attributes:      model.ServiceAttributes{Name: ep.Name, Namespace: ep.Namespace},
-						MTLSReady:       mtlsReady,
+						TLSMode:         tlsMode,
 					})
 				}
 			}
