@@ -7422,6 +7422,7 @@ data:
 
     enableEnvoyAccessLogService: false
     mixerCheckServer: istio-policy.istio-system.svc.cluster.local:15004
+    mixerReportServer: istio-telemetry.istio-system.svc.cluster.local:15004
     # policyCheckFailOpen allows traffic in cases when the mixer policy service cannot be reached.
     # Default is false which means the traffic is denied when the client is unable to connect to Mixer.
     policyCheckFailOpen: false
