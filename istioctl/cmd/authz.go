@@ -267,6 +267,10 @@ func getV1alpha1Policies(v1PolicyFiles []string) (*model.AuthorizationPolicies, 
 			// Break once we found a successful response from Pilot.
 			break
 		}
+
+		if authzPolicies == nil {
+			return nil, fmt.Errorf("no v1alpha1 RBAC policy")
+		}
 	}
 
 	return authzPolicies, nil
