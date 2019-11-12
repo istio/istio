@@ -562,18 +562,6 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 	return nil
 }
 
-type mockController struct{}
-
-func (c *mockController) AppendServiceHandler(f func(*model.Service, model.Event)) error {
-	return nil
-}
-
-func (c *mockController) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
-	return nil
-}
-
-func (c *mockController) Run(<-chan struct{}) {}
-
 func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	var clients []*sink.Client
@@ -968,14 +956,8 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		registered[serviceRegistry] = true
 		log.Infof("Adding %s registry adapter", serviceRegistry)
 		switch serviceRegistry {
-		case serviceregistry.MockRegistry:
-			s.initMemoryRegistry(serviceControllers)
 		case serviceregistry.KubernetesRegistry:
 			if err := s.createK8sServiceControllers(serviceControllers, args); err != nil {
-				return err
-			}
-		case serviceregistry.ConsulRegistry:
-			if err := s.initConsulRegistry(serviceControllers, args); err != nil {
 				return err
 			}
 		case serviceregistry.MCPRegistry:
@@ -987,6 +969,12 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 						Controller:       s.mcpDiscovery,
 					})
 			}
+		case serviceregistry.ConsulRegistry:
+			if err := s.initConsulRegistry(serviceControllers, args); err != nil {
+				return err
+			}
+		case serviceregistry.MockRegistry:
+			s.initMemoryRegistry(serviceControllers)
 		default:
 			return fmt.Errorf("service registry %s is not supported", r)
 		}
@@ -1015,29 +1003,15 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 
 func (s *Server) initMemoryRegistry(serviceControllers *aggregate.Controller) {
 	// MemServiceDiscovery implementation
-	discovery1 := srmemory.NewDiscovery(
-		map[host.Name]*model.Service{ // srmemory.HelloService.Hostname: srmemory.HelloService,
-		}, 2)
+	discovery := srmemory.NewDiscovery(map[host.Name]*model.Service{}, 2)
 
-	discovery2 := srmemory.NewDiscovery(
-		map[host.Name]*model.Service{ // srmemory.WorldService.Hostname: srmemory.WorldService,
-		}, 2)
-
-	registry1 := aggregate.Registry{
-		Name:             serviceregistry.ServiceRegistry("mockAdapter1"),
-		ClusterID:        "mockAdapter1",
-		ServiceDiscovery: discovery1,
-		Controller:       &mockController{},
+	registry := aggregate.Registry{
+		Name:             serviceregistry.MockRegistry,
+		ServiceDiscovery: discovery,
+		Controller:       &srmemory.MockController{},
 	}
 
-	registry2 := aggregate.Registry{
-		Name:             serviceregistry.ServiceRegistry("mockAdapter2"),
-		ClusterID:        "mockAdapter2",
-		ServiceDiscovery: discovery2,
-		Controller:       &mockController{},
-	}
-	serviceControllers.AddRegistry(registry1)
-	serviceControllers.AddRegistry(registry2)
+	serviceControllers.AddRegistry(registry)
 }
 
 func (s *Server) initDiscoveryService(args *PilotArgs) error {
