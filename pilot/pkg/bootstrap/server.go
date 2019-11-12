@@ -595,28 +595,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			}
 		}
 
-		securityOption, err := mcpSecurityOptions(ctx, cancel, configSource)
-		if err != nil {
-			return err
-		}
-
-		keepaliveOption := grpc.WithKeepaliveParams(keepalive.ClientParameters{
-			Time:    args.KeepaliveOptions.Time,
-			Timeout: args.KeepaliveOptions.Timeout,
-		})
-
-		initialWindowSizeOption := grpc.WithInitialWindowSize(int32(args.MCPInitialWindowSize))
-		initialConnWindowSizeOption := grpc.WithInitialConnWindowSize(int32(args.MCPInitialConnWindowSize))
-		msgSizeOption := grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(args.MCPMaxMessageSize))
-
-		conn, err := grpc.DialContext(
-			ctx,
-			configSource.Address,
-			securityOption,
-			msgSizeOption,
-			keepaliveOption,
-			initialWindowSizeOption,
-			initialConnWindowSizeOption)
+		conn, err := grpcDial(ctx, cancel, configSource, args)
 		if err != nil {
 			log.Errorf("Unable to dial MCP Server %q: %v", configSource.Address, err)
 			cancel()
@@ -630,16 +609,9 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 
 			//TODO(Nino-K): https://github.com/istio/istio/issues/16976
 			args.Service.Registries = []string{string(serviceregistry.MCPRegistry)}
-			conn, err := grpc.DialContext(
-				ctx,
-				configSource.Address,
-				securityOption,
-				msgSizeOption,
-				keepaliveOption,
-				initialWindowSizeOption,
-				initialConnWindowSizeOption)
+			conn, err := grpcDial(ctx, cancel, configSource, args)
 			if err != nil {
-				log.Errorf("Unable to dial SSE MCP Server %q: %v", configSource.Address, err)
+				log.Errorf("Unable to dial MCP Server %q: %v", configSource.Address, err)
 				cancel()
 				return err
 			}
@@ -739,10 +711,10 @@ func mcpSecurityOptions(ctx context.Context, cancel context.CancelFunc, configSo
 						return nil, ctx.Err()
 					case <-time.After(requiredMCPCertCheckFreq):
 						// retry
+						continue
 					}
-					continue
 				}
-				log.Infof("%v found", requiredFiles[0])
+				log.Debugf("MCP certificate file %s found", requiredFiles[0])
 				requiredFiles = requiredFiles[1:]
 			}
 
@@ -1450,4 +1422,30 @@ func (s *Server) initEventHandlers() error {
 	}
 
 	return nil
+}
+
+func grpcDial(ctx context.Context, cancel context.CancelFunc,
+	configSource *meshconfig.ConfigSource, args *PilotArgs) (conn *grpc.ClientConn, err error) {
+	securityOption, err := mcpSecurityOptions(ctx, cancel, configSource)
+	if err != nil {
+		return nil, err
+	}
+
+	keepaliveOption := grpc.WithKeepaliveParams(keepalive.ClientParameters{
+		Time:    args.KeepaliveOptions.Time,
+		Timeout: args.KeepaliveOptions.Timeout,
+	})
+
+	initialWindowSizeOption := grpc.WithInitialWindowSize(int32(args.MCPInitialWindowSize))
+	initialConnWindowSizeOption := grpc.WithInitialConnWindowSize(int32(args.MCPInitialConnWindowSize))
+	msgSizeOption := grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(args.MCPMaxMessageSize))
+
+	return grpc.DialContext(
+		ctx,
+		configSource.Address,
+		securityOption,
+		msgSizeOption,
+		keepaliveOption,
+		initialWindowSizeOption,
+		initialConnWindowSizeOption)
 }
