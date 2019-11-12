@@ -134,11 +134,13 @@ func genApplyManifests(setOverlay []string, inFilename string, force bool, dryRu
 	if err != nil {
 		return fmt.Errorf("failed to apply manifest with kubectl client: %v", err)
 	}
+	gotError := false
 	for cn := range manifests {
 		if out[cn].Err != nil {
 			cs := fmt.Sprintf("Component %s install returned the following errors:", cn)
 			l.logAndPrintf("\n%s\n%s", cs, strings.Repeat("=", len(cs)))
 			l.logAndPrint("Error: ", out[cn].Err, "\n")
+			gotError = true
 		} else {
 			cs := fmt.Sprintf("Component %s installed successfully:", cn)
 			l.logAndPrintf("\n%s\n%s", cs, strings.Repeat("=", len(cs)))
@@ -146,11 +148,17 @@ func genApplyManifests(setOverlay []string, inFilename string, force bool, dryRu
 
 		if strings.TrimSpace(out[cn].Stderr) != "" {
 			l.logAndPrint("Error detail:\n", out[cn].Stderr, "\n")
+			gotError = true
 		}
 		if strings.TrimSpace(out[cn].Stdout) != "" {
 			l.logAndPrint(out[cn].Stdout, "\n")
 		}
 	}
+
+	if gotError {
+		l.logAndPrint("\n\n*** Errors were logged during apply operation. Please check component installation logs above. ***\n")
+	}
+
 	return nil
 }
 
