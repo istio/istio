@@ -179,7 +179,9 @@ func newFakeController(_ *testing.T) (*Controller, *FakeXdsUpdater) {
 		XDSUpdater:       fx,
 	})
 	_ = c.AppendInstanceHandler(func(instance *model.ServiceInstance, event model.Event) {})
-	_ = c.AppendServiceHandler(func(service *model.Service, event model.Event) {})
+	_ = c.AppendServiceHandler(func(service *model.Service, event model.Event) {
+		fx.SvcUpdate("", string(service.Hostname), service.Attributes.Namespace, event)
+	})
 	c.Env = &model.Environment{
 		Mesh: &meshconfig.MeshConfig{
 			MixerCheckServer: "mixer",

@@ -30,14 +30,13 @@ import (
 )
 
 // newDiscoveryServer creates a DiscoveryServer with the provided configs using the mem registry
-func newDiscoveryServer(cfgs ...model.Config) (*DiscoveryServer, model.ConfigStoreCache, error) {
+func newDiscoveryServer() (*DiscoveryServer, model.ConfigStoreCache, error) {
 	m := mesh.DefaultMeshConfig()
 	store := memory.Make(schemas.Istio)
 	configController := memory.NewController(store)
 	istioConfigStore := model.MakeIstioStore(configController)
 	serviceControllers := aggregate.NewController()
 	serviceEntryStore := external.NewServiceDiscovery(configController, istioConfigStore)
-	go configController.Run(make(chan struct{}))
 	serviceEntryRegistry := aggregate.Registry{
 		Name:             "ServiceEntries",
 		Controller:       serviceEntryStore,
@@ -52,21 +51,13 @@ func newDiscoveryServer(cfgs ...model.Config) (*DiscoveryServer, model.ConfigSto
 		ServiceDiscovery: serviceControllers,
 		PushContext:      model.NewPushContext(),
 	}
-	for _, cfg := range cfgs {
-		if _, err := configController.Create(cfg); err != nil {
-			return nil, nil, err
-		}
-	}
-	if err := env.PushContext.InitContext(env, env.PushContext, nil); err != nil {
-		return nil, nil, err
-	}
+
 	s := NewDiscoveryServer(env, v1alpha3.NewConfigGenerator([]plugin.Plugin{}))
 	return s, configController, nil
 }
 
 func TestEndpointShardsMemoryLeak(t *testing.T) {
-	configs := createEndpoints(2, 5)
-	server, configStore, err := newDiscoveryServer(configs...)
+	server, configStore, err := newDiscoveryServer()
 	if err != nil {
 		t.Errorf("Failed creating discovery server: %v", err)
 		return
@@ -77,6 +68,19 @@ func TestEndpointShardsMemoryLeak(t *testing.T) {
 		hostname := serviceEntry.Hosts[0]
 		server.SvcUpdate("", hostname, config.Namespace, event)
 	})
+
+	go configStore.Run(make(chan struct{}))
+
+	configs := createEndpoints(2, 5)
+	for _, cfg := range configs {
+		if _, err := configStore.Create(cfg); err != nil {
+			t.Errorf("Failed create: %v", cfg)
+		}
+	}
+
+	if err := server.Env.PushContext.InitContext(server.Env, nil, nil); err != nil {
+		t.Errorf("Failed init context: %v", err)
+	}
 
 	if err := server.updateServiceShards(server.globalPushContext()); err != nil {
 		t.Errorf("Failed updateServiceShards: %v", err)
