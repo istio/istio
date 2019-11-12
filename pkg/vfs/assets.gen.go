@@ -36801,7 +36801,12 @@ kind: IstioControlPlane
 spec:
   coreDNS:
     enabled: true
-    
+
+  gateways:
+    components:
+      egressGateway:
+        enabled: true
+
   values:
     global:
       # Provides dns resolution for global services
@@ -36821,7 +36826,6 @@ spec:
 
     gateways:
       istio-egressgateway:
-        enabled: true
         env:
           # Needed to route traffic via egress gateway if desired.
           ISTIO_META_REQUESTED_NETWORK_VIEW: "external"
