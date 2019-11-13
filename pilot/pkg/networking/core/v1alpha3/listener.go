@@ -1888,7 +1888,7 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, env *model.Env
 			},
 		}
 
-		if util.IsIstioVersionGE14(node) {
+		if util.IsIstioVersionGE14(pluginParams.Node) {
 			fl.CommonConfig.FilterStateObjectsToLog = envoyWasmStateToLog
 		}
 
