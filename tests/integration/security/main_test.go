@@ -29,7 +29,6 @@ var (
 	ist           istio.Instance
 	g             galley.Instance
 	p             pilot.Instance
-	isMtlsEnabled bool
 	rootNamespace string
 )
 
@@ -55,6 +54,5 @@ func setupConfig(cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	isMtlsEnabled = cfg.IsMtlsEnabled()
 	rootNamespace = cfg.SystemNamespace
 }

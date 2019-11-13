@@ -368,7 +368,7 @@ global:
     # or its DestinationRule does not have TLSSettings specified, Istio configures client side
     # TLS configuration automatically, based on the server side mTLS authentication policy and the
     # availibity of sidecars.
-    auto: false
+    auto: true
 
   # Lists the secrets you need to use to pull Istio images from a private registry.
   imagePullSecrets: []
