@@ -12066,7 +12066,7 @@ data:
     {{- else }}
     mixerCheckServer: istio-policy.{{ .Values.global.policyNamespace }}.svc.cluster.local:9091
     {{- end }}
-    {{- if .Values.pilot.telemetry.enabled }}
+    {{- if .Values.telemetry.enabled }}
     {{- if .Values.global.controlPlaneSecurityEnabled }}
     mixerReportServer: istio-telemetry.{{ .Values.global.telemetryNamespace }}.svc.cluster.local:15004
     {{- else }}
@@ -12097,7 +12097,7 @@ data:
     sidecarToTelemetrySessionAffinity: {{ .Values.mixer.telemetry.sessionAffinityEnabled }}
     {{- end }}
 
-    {{- if .Values.pilot.telemetry.v2.enabled }}
+    {{- if .Values.telemetry.v2.enabled }}
     disableMixerHttpReports: true
     {{- else }}
     disableMixerHttpReports: false
@@ -12801,7 +12801,7 @@ func chartsIstioControlIstioDiscoveryTemplatesServiceaccountYaml() (*asset, erro
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2Yaml = []byte(`{{- if and .Values.pilot.telemetry.enabled .Values.pilot.telemetry.v2.enabled }}
+var _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2Yaml = []byte(`{{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
 {{ .Files.Get "metadata-exchange-v2.yaml" }}
 ---
 {{ .Files.Get "stats-filter-v2.yaml" }}
@@ -12924,18 +12924,6 @@ pilot:
     # This is required to be different than 'istio' if multiple ingresses are present.
     ingressClass: istio
 
-  telemetry:
-    enabled: true
-
-    v1:
-      # Will define mixerCheckServer and mixerReportServer
-      enabled: false
-
-    v2:
-      # For Null VM case now. If enabled, will set disableMixerHttpReports to true and not define mixerReportServer
-      # also enable metadata exchange and stats filter.
-      enabled: true
-
   policy:
     # Will not define mixerCheckServer and mixerReportServer
     enabled: false
@@ -12958,6 +12946,14 @@ mixer:
 
     sessionAffinityEnabled: false
   policy:
+    enabled: false
+
+
+telemetry:
+  enabled: true
+  v2:
+    # For Null VM case now. If enabled, will set disableMixerHttpReports to true and not define mixerReportServer
+    # also enable metadata exchange and stats filter.
     enabled: false
 `)
 
@@ -37286,11 +37282,14 @@ spec:
         ingressService: istio-ingressgateway
         ingressControllerMode: "OFF"
         ingressClass: istio
-      telemetry:
-        enabled: true
       policy:
         enabled: false
       useMCP: true
+
+    telemetry:
+      enabled: true
+      v2:
+        enabled: false
 
     mixer:
       adapters:
