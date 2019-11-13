@@ -16,7 +16,6 @@ package v2
 
 import (
 	"testing"
-	"time"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
@@ -63,10 +62,14 @@ func TestEndpointShardsMemoryLeak(t *testing.T) {
 		return
 	}
 
+	var syncCh = make(chan struct{})
 	configStore.RegisterEventHandler(schemas.ServiceEntry.Type, func(config model.Config, event model.Event) {
 		serviceEntry := config.Spec.(*networking.ServiceEntry)
 		hostname := serviceEntry.Hosts[0]
 		server.SvcUpdate("", hostname, config.Namespace, event)
+		if event == model.EventDelete {
+			syncCh <- struct{}{}
+		}
 	})
 
 	go configStore.Run(make(chan struct{}))
@@ -87,6 +90,7 @@ func TestEndpointShardsMemoryLeak(t *testing.T) {
 	}
 
 	for _, se := range configs {
+		// before deleting service entry
 		endpointShardsByNamespace, exist := server.EndpointShardsByService[se.Spec.(*networking.ServiceEntry).Hosts[0]]
 		if !exist {
 			t.Errorf("Service %s not exist", se.Spec.(*networking.ServiceEntry).Hosts[0])
@@ -103,10 +107,13 @@ func TestEndpointShardsMemoryLeak(t *testing.T) {
 			t.Errorf("Service %s endpoint does not match", se.Spec.(*networking.ServiceEntry).Hosts[0])
 		}
 
+		// delete ServiceEntry
 		configStore.Delete(se.Type, se.Name, se.Namespace)
-		// TODO: figure out a way to notify
-		time.Sleep(100 * time.Millisecond)
 
+		// wait for deletion handler processing done
+		<-syncCh
+
+		// after deleted
 		server.mutex.RLock()
 		_, exist = server.EndpointShardsByService[se.Spec.(*networking.ServiceEntry).Hosts[0]]
 		server.mutex.RUnlock()
