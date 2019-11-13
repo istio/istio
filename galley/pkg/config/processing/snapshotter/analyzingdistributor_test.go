@@ -163,6 +163,42 @@ func TestAnalyzeNamespaceMessageHasNoOrigin(t *testing.T) {
 	g.Expect(u.messages).To(HaveLen(1))
 }
 
+func TestAnalyzeNamespaceMessageHasOriginWithNoNamespace(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	u := &updaterMock{}
+	a := &analyzerMock{
+		collectionToAccess: data.Collection1,
+		entriesToReport: []*resource.Entry{
+			{
+				Origin: fakeOrigin{
+					friendlyName: "myFriendlyName",
+					// explicitly set namespace to the empty string
+					namespace: "",
+				},
+			},
+		},
+	}
+	d := NewInMemoryDistributor()
+
+	settings := AnalyzingDistributorSettings{
+		StatusUpdater:      u,
+		Analyzer:           analysis.Combine("testCombined", a),
+		Distributor:        d,
+		AnalysisSnapshots:  []string{metadata.Default},
+		TriggerSnapshot:    metadata.Default,
+		CollectionReporter: nil,
+		AnalysisNamespaces: []string{"includedNamespace"},
+	}
+	ad := NewAnalyzingDistributor(settings)
+
+	sDefault := getTestSnapshot()
+
+	ad.Distribute(metadata.Default, sDefault)
+	g.Eventually(func() []*Snapshot { return a.analyzeCalls }).Should(Not(BeEmpty()))
+	g.Expect(u.messages).To(HaveLen(1))
+}
+
 func TestAnalyzeSortsMessages(t *testing.T) {
 	g := NewGomegaWithT(t)
 
@@ -214,3 +250,13 @@ func getTestSnapshot(names ...string) *Snapshot {
 		set: coll.NewSetFromCollections(c),
 	}
 }
+
+var _ resource.Origin = fakeOrigin{}
+
+type fakeOrigin struct {
+	namespace    string
+	friendlyName string
+}
+
+func (f fakeOrigin) Namespace() string    { return f.namespace }
+func (f fakeOrigin) FriendlyName() string { return f.friendlyName }
