@@ -28,6 +28,7 @@ global:
 
   policyNamespace: istio-system
 
+  configRootNamespace: istio-system
 
   ## End new settings
   ## After this line we have the old Istio settings.
