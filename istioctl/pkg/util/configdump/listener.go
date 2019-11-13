@@ -27,17 +27,26 @@ func (w *Wrapper) GetDynamicListenerDump(stripVersions bool) (*adminapi.Listener
 	if err != nil {
 		return nil, err
 	}
-	dal := listenerDump.GetDynamicActiveListeners()
+
+	// TODO: This is a stop gap fix because we need to figure out how to represent errored
+	// or warming or draining listeners.
+	dal := make([]*adminapi.ListenersConfigDump_DynamicListener, 0)
+	for _, l := range listenerDump.DynamicListeners {
+		if l.ActiveState != nil {
+			dal = append(dal, l)
+		}
+	}
+
 	sort.Slice(dal, func(i, j int) bool {
-		return dal[i].Listener.Name < dal[j].Listener.Name
+		return dal[i].ActiveState.Listener.Name < dal[j].ActiveState.Listener.Name
 	})
 	if stripVersions {
 		for i := range dal {
-			dal[i].VersionInfo = ""
-			dal[i].LastUpdated = nil
+			dal[i].ActiveState.VersionInfo = ""
+			dal[i].ActiveState.LastUpdated = nil
 		}
 	}
-	return &adminapi.ListenersConfigDump{DynamicActiveListeners: dal}, nil
+	return &adminapi.ListenersConfigDump{DynamicListeners: dal}, nil
 }
 
 // GetListenerConfigDump retrieves the listener config dump from the ConfigDump
