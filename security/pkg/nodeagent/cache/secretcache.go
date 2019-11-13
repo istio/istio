@@ -566,6 +566,25 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 	if !sc.fetcher.UseCaClient {
 		return sc.generateGatewaySecret(token, connKey, t)
 	}
+
+	cacheLog.Warnf("Try to find %s ...", connKey.ResourceName)
+	if connKey.ResourceName == "cluster2" {
+		cacheLog.Warnf("Finding cluster2 resource.")
+		secretItem, exist := sc.fetcher.FindIngressGatewaySecret(connKey.ResourceName)
+		if !exist {
+			return nil, fmt.Errorf("cannot find secret for cluster2 request %+v", connKey)
+		}
+		cacheLog.Warnf("Resource exists. Return %s as Root Cert: %s", connKey.ResourceName, string(secretItem.RootCert))
+		return &model.SecretItem{
+			ResourceName: connKey.ResourceName,
+			RootCert:     secretItem.RootCert,
+			ExpireTime:   secretItem.ExpireTime,
+			Token:        token,
+			CreatedTime:  t,
+			Version:      t.String(),
+		}, nil
+	}
+
 	conIDresourceNamePrefix := cacheLogPrefix(connKey.ConnectionID, connKey.ResourceName)
 	// call authentication provider specific plugins to exchange token if necessary.
 	numOutgoingRequests.With(RequestType.Value(TokenExchange)).Increment()
@@ -649,6 +668,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 		sc.rotate(true /*updateRootFlag*/)
 	}
 
+	cacheLog.Warnf("Certchain: ", string(certChain))
 	return &model.SecretItem{
 		CertificateChain: certChain,
 		PrivateKey:       keyPEM,

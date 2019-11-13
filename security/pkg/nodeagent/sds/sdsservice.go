@@ -225,6 +225,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			}
 
 			resourceName, err := parseDiscoveryRequest(discReq)
+			sdsServiceLog.Warnf("Received request: %s", resourceName)
 			if err != nil {
 				sdsServiceLog.Errorf("Close connection. Failed to parse discovery request: %v", err)
 				return err

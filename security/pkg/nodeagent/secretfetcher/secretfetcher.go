@@ -16,6 +16,7 @@ package secretfetcher
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"strings"
@@ -258,14 +259,19 @@ func (sf *SecretFetcher) InitWithKubeConfigMapClientAndNs(core corev1.CoreV1Inte
 func extractSpiffeTBIntoSecretItem(cm *v1.ConfigMap, t time.Time) *model.SecretItem {
 	// Extract CA cert from CA only k8s ConfigMap.
 	trustDomain := cm.Data[trustDomainKey]
-	trustBundle := []byte(cm.Data[trustBundleKey])
+	trustBundle := cm.Data[trustBundleKey]
+
+	tbDecoded, err := base64.StdEncoding.DecodeString(trustBundle)
+	if err != nil {
+		secretFetcherLog.Errorf("Error decoding the trustbundle")
+	}
 
 	newSecret := &model.SecretItem{
 		ResourceName:                  trustDomain,
 		CreatedTime:                   t,
 		Version:                       t.String(),
 		RootCertOwnedByCompoundSecret: false,
-		RootCert:                      trustBundle,
+		RootCert:                      tbDecoded,
 		ExpireTime:                    time.Now().Add(time.Hour * 24 * 360 * 10), // Don't worry about expiration time.
 	}
 	secretFetcherLog.Warnf(
