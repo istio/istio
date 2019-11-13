@@ -83,8 +83,6 @@
 // ../../data/charts/istio-control/istio-config/values.yaml
 // ../../data/charts/istio-control/istio-discovery/Chart.yaml
 // ../../data/charts/istio-control/istio-discovery/NOTES.txt
-// ../../data/charts/istio-control/istio-discovery/metadata-exchange-v2.yaml
-// ../../data/charts/istio-control/istio-discovery/stats-filter-v2.yaml
 // ../../data/charts/istio-control/istio-discovery/templates/_affinity.tpl
 // ../../data/charts/istio-control/istio-discovery/templates/_helpers.tpl
 // ../../data/charts/istio-control/istio-discovery/templates/autoscale.yaml
@@ -11393,146 +11391,6 @@ func chartsIstioControlIstioDiscoveryNotesTxt() (*asset, error) {
 	return a, nil
 }
 
-var _chartsIstioControlIstioDiscoveryMetadataExchangeV2Yaml = []byte(`apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-  name: metadata-exchange
-spec:
-  configPatches:
-    - applyTo: HTTP_FILTER
-      match:
-        context: ANY # inbound, outbound, and gateway
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.http_connection_manager"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: envoy.filters.http.wasm
-          config:
-            config:
-              configuration: envoy.wasm.metadata_exchange
-              vm_config:
-                runtime: envoy.wasm.runtime.null
-                code:
-                  inline_string: envoy.wasm.metadata_exchange`)
-
-func chartsIstioControlIstioDiscoveryMetadataExchangeV2YamlBytes() ([]byte, error) {
-	return _chartsIstioControlIstioDiscoveryMetadataExchangeV2Yaml, nil
-}
-
-func chartsIstioControlIstioDiscoveryMetadataExchangeV2Yaml() (*asset, error) {
-	bytes, err := chartsIstioControlIstioDiscoveryMetadataExchangeV2YamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-control/istio-discovery/metadata-exchange-v2.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsIstioControlIstioDiscoveryStatsFilterV2Yaml = []byte(`apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-  name: stats-filter
-spec:
-  configPatches:
-    - applyTo: HTTP_FILTER
-      match:
-        context: SIDECAR_OUTBOUND
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.http_connection_manager"
-              subFilter:
-                name: "envoy.router"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: envoy.filters.http.wasm
-          config:
-            config:
-              root_id: stats_outbound
-              configuration: |
-                {
-                  "debug": "false",
-                  "stat_prefix": "istio",
-                }
-              vm_config:
-                vm_id: stats_outbound
-                runtime: envoy.wasm.runtime.null
-                code:
-                  inline_string: envoy.wasm.stats
-    - applyTo: HTTP_FILTER
-      match:
-        context: SIDECAR_INBOUND
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.http_connection_manager"
-              subFilter:
-                name: "envoy.router"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: envoy.filters.http.wasm
-          config:
-            config:
-              root_id: stats_inbound
-              configuration: |
-                {
-                  "debug": "false",
-                  "stat_prefix": "istio",
-                }
-              vm_config:
-                vm_id: stats_inbound
-                runtime: envoy.wasm.runtime.null
-                code:
-                  inline_string: envoy.wasm.stats
-    - applyTo: HTTP_FILTER
-      match:
-        context: GATEWAY
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.http_connection_manager"
-              subFilter:
-                name: "envoy.router"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: envoy.filters.http.wasm
-          config:
-            config:
-              root_id: stats_outbound
-              configuration: |
-                {
-                  "debug": "false",
-                  "stat_prefix": "istio",
-                }
-              vm_config:
-                vm_id: stats_outbound
-                runtime: envoy.wasm.runtime.null
-                code:
-                  inline_string: envoy.wasm.stats`)
-
-func chartsIstioControlIstioDiscoveryStatsFilterV2YamlBytes() ([]byte, error) {
-	return _chartsIstioControlIstioDiscoveryStatsFilterV2Yaml, nil
-}
-
-func chartsIstioControlIstioDiscoveryStatsFilterV2Yaml() (*asset, error) {
-	bytes, err := chartsIstioControlIstioDiscoveryStatsFilterV2YamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-control/istio-discovery/stats-filter-v2.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _chartsIstioControlIstioDiscoveryTemplates_affinityTpl = []byte(`{{/* affinity - https://kubernetes.io/docs/concepts/configuration/assign-pod-node/ */}}
 
 {{- define "nodeaffinity" }}
@@ -12802,10 +12660,128 @@ func chartsIstioControlIstioDiscoveryTemplatesServiceaccountYaml() (*asset, erro
 }
 
 var _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2Yaml = []byte(`{{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
-{{ .Files.Get "metadata-exchange-v2.yaml" }}
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: metadata-exchange
+{{- if .Values.global.configRootNamespace }}
+  namespace: {{ .Values.global.configRootNamespace }}
+{{- else }}
+  namespace: {{ .Release.Namespace }}
+{{- end }}
+spec:
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: ANY # inbound, outbound, and gateway
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.wasm
+          config:
+            config:
+              configuration: envoy.wasm.metadata_exchange
+              vm_config:
+                runtime: envoy.wasm.runtime.null
+                code:
+                  inline_string: envoy.wasm.metadata_exchange
 ---
-{{ .Files.Get "stats-filter-v2.yaml" }}
-{{- end }}`)
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: stats-filter
+{{- if .Values.global.configRootNamespace }}
+  namespace: {{ .Values.global.configRootNamespace }}
+{{- else }}
+  namespace: {{ .Release.Namespace }}
+{{- end }}
+spec:
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: SIDECAR_OUTBOUND
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "envoy.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.wasm
+          config:
+            config:
+              root_id: stats_outbound
+              configuration: |
+                {
+                  "debug": "false",
+                  "stat_prefix": "istio",
+                }
+              vm_config:
+                vm_id: stats_outbound
+                runtime: envoy.wasm.runtime.null
+                code:
+                  inline_string: envoy.wasm.stats
+    - applyTo: HTTP_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "envoy.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.wasm
+          config:
+            config:
+              root_id: stats_inbound
+              configuration: |
+                {
+                  "debug": "false",
+                  "stat_prefix": "istio",
+                }
+              vm_config:
+                vm_id: stats_inbound
+                runtime: envoy.wasm.runtime.null
+                code:
+                  inline_string: envoy.wasm.stats
+    - applyTo: HTTP_FILTER
+      match:
+        context: GATEWAY
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+              subFilter:
+                name: "envoy.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.wasm
+          config:
+            config:
+              root_id: stats_outbound
+              configuration: |
+                {
+                  "debug": "false",
+                  "stat_prefix": "istio",
+                }
+              vm_config:
+                vm_id: stats_outbound
+                runtime: envoy.wasm.runtime.null
+                code:
+                  inline_string: envoy.wasm.stats
+{{- end }}
+
+`)
 
 func chartsIstioControlIstioDiscoveryTemplatesTelemetryv2YamlBytes() ([]byte, error) {
 	return _chartsIstioControlIstioDiscoveryTemplatesTelemetryv2Yaml, nil
@@ -38545,8 +38521,6 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/istio-control/istio-config/values.yaml": chartsIstioControlIstioConfigValuesYaml,
 	"charts/istio-control/istio-discovery/Chart.yaml": chartsIstioControlIstioDiscoveryChartYaml,
 	"charts/istio-control/istio-discovery/NOTES.txt": chartsIstioControlIstioDiscoveryNotesTxt,
-	"charts/istio-control/istio-discovery/metadata-exchange-v2.yaml": chartsIstioControlIstioDiscoveryMetadataExchangeV2Yaml,
-	"charts/istio-control/istio-discovery/stats-filter-v2.yaml": chartsIstioControlIstioDiscoveryStatsFilterV2Yaml,
 	"charts/istio-control/istio-discovery/templates/_affinity.tpl": chartsIstioControlIstioDiscoveryTemplates_affinityTpl,
 	"charts/istio-control/istio-discovery/templates/_helpers.tpl": chartsIstioControlIstioDiscoveryTemplates_helpersTpl,
 	"charts/istio-control/istio-discovery/templates/autoscale.yaml": chartsIstioControlIstioDiscoveryTemplatesAutoscaleYaml,
@@ -38845,8 +38819,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"istio-discovery": &bintree{nil, map[string]*bintree{
 				"Chart.yaml": &bintree{chartsIstioControlIstioDiscoveryChartYaml, map[string]*bintree{}},
 				"NOTES.txt": &bintree{chartsIstioControlIstioDiscoveryNotesTxt, map[string]*bintree{}},
-				"metadata-exchange-v2.yaml": &bintree{chartsIstioControlIstioDiscoveryMetadataExchangeV2Yaml, map[string]*bintree{}},
-				"stats-filter-v2.yaml": &bintree{chartsIstioControlIstioDiscoveryStatsFilterV2Yaml, map[string]*bintree{}},
 				"templates": &bintree{nil, map[string]*bintree{
 					"_affinity.tpl": &bintree{chartsIstioControlIstioDiscoveryTemplates_affinityTpl, map[string]*bintree{}},
 					"_helpers.tpl": &bintree{chartsIstioControlIstioDiscoveryTemplates_helpersTpl, map[string]*bintree{}},
