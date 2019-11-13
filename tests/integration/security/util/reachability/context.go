@@ -73,7 +73,7 @@ func CreateContext(ctx framework.TestContext, g galley.Instance, p pilot.Instanc
 	echoboot.NewBuilderOrFail(ctx, ctx).
 		With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
 		With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
-		With(&headless, util.EchoConfig("headless", ns, false, nil, g, p)).
+		With(&headless, util.EchoConfig("headless", ns, true, nil, g, p)).
 		With(&naked, util.EchoConfig("naked", ns, false, echo.NewAnnotations().
 			SetBool(echo.SidecarInject, false), g, p)).
 		BuildOrFail(ctx)
