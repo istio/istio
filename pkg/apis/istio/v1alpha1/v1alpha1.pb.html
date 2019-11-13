@@ -2,7 +2,7 @@
 title: v1alpha1
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 83
+number_of_entries: 84
 ---
 <h2 id="AddonIngressConfig">AddonIngressConfig</h2>
 <section>
@@ -3727,17 +3727,6 @@ No
 No
 </td>
 </tr>
-<tr id="PilotConfig-telemetry">
-<td><code>telemetry</code></td>
-<td><code><a href="#PilotTelemetryConfig">PilotTelemetryConfig</a></code></td>
-<td>
-<p>Controls whether telemetry is exported for Pilot.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
 <tr id="PilotConfig-rollingMaxSurge">
 <td><code>rollingMaxSurge</code></td>
 <td><code><a href="#TypeIntOrStringForPB">TypeIntOrStringForPB</a></code></td>
@@ -3940,9 +3929,9 @@ No
 </tbody>
 </table>
 </section>
-<h2 id="PilotTelemetryConfig">PilotTelemetryConfig</h2>
+<h2 id="PilotTelemetryV1Config">PilotTelemetryV1Config</h2>
 <section>
-<p>Controls whether telemetry is exported for Pilot.</p>
+<p>Controls whether pilot will configure telemetry v1.</p>
 
 <table class="message-fields">
 <thead>
@@ -3954,11 +3943,11 @@ No
 </tr>
 </thead>
 <tbody>
-<tr id="PilotTelemetryConfig-enabled">
+<tr id="PilotTelemetryV1Config-enabled">
 <td><code>enabled</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
 <td>
-<p>Controls whether telemetry is exported for Pilot.</p>
+<p>Controls whether pilot will configure telemetry v1.</p>
 
 </td>
 <td>
@@ -5529,6 +5518,45 @@ No
 </tbody>
 </table>
 </section>
+<h2 id="TelemetryConfig">TelemetryConfig</h2>
+<section>
+<p>Controls telemetry configuration</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TelemetryConfig-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+<p>Controls whether telemetry is exported for Pilot.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TelemetryConfig-v2">
+<td><code>v2</code></td>
+<td><code><a href="#PilotTelemetryV1Config">PilotTelemetryV1Config</a></code></td>
+<td>
+<p>Use telemetry v2.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
 <h2 id="TracerConfig">TracerConfig</h2>
 <section>
 <p>Configuration for each of the supported tracers.</p>
@@ -6335,6 +6363,17 @@ No
 <td><code>pilot</code></td>
 <td><code><a href="#PilotConfig">PilotConfig</a></code></td>
 <td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="Values-telemetry">
+<td><code>telemetry</code></td>
+<td><code><a href="#TelemetryConfig">TelemetryConfig</a></code></td>
+<td>
+<p>Controls whether telemetry is exported for Pilot.</p>
+
 </td>
 <td>
 No

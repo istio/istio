@@ -387,11 +387,14 @@ spec:
         ingressService: istio-ingressgateway
         ingressControllerMode: "OFF"
         ingressClass: istio
-      telemetry:
-        enabled: true
       policy:
         enabled: false
       useMCP: true
+
+    telemetry:
+      enabled: true
+      v2:
+        enabled: false
 
     mixer:
       adapters:

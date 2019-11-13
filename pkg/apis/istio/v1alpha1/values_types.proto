@@ -1020,9 +1020,6 @@ message PilotConfig {
   // Controls whether Istio policy is applied to Pilot.
   PilotPolicyConfig policy = 22;
 
-  // Controls whether telemetry is exported for Pilot.
-  PilotTelemetryConfig telemetry = 23;
-
   // K8s rolling update strategy
   TypeIntOrStringForPB rollingMaxSurge  = 24;
 
@@ -1080,9 +1077,18 @@ message PilotPolicyConfig {
   google.protobuf.BoolValue enabled = 1;
 }
 
-// Controls whether telemetry is exported for Pilot.
-message PilotTelemetryConfig {
+// Controls telemetry configuration
+message TelemetryConfig {
   // Controls whether telemetry is exported for Pilot.
+  google.protobuf.BoolValue enabled = 1;
+
+  // Use telemetry v2.
+  PilotTelemetryV1Config v2 = 3;
+}
+
+// Controls whether pilot will configure telemetry v1.
+message PilotTelemetryV1Config {
+  // Controls whether pilot will configure telemetry v1.
   google.protobuf.BoolValue enabled = 1;
 }
 
@@ -1806,6 +1812,9 @@ message Values {
   NodeAgentConfig nodeagent = 9;
 
   PilotConfig pilot = 10;
+
+  // Controls whether telemetry is exported for Pilot.
+  TelemetryConfig telemetry = 23;
 
   PrometheusConfig prometheus = 11;
 
