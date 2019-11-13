@@ -148,11 +148,12 @@ const (
 var (
 	applicationProtocols = []string{"http/1.0", "http/1.1"}
 
-	// Headers added by the metadata exchange filter
+	// State logged by the metadata exchange filter about the upstream and downstream service instances
 	// We need to propagate these as part of access log service stream
 	// Logging them by default on the console may be an issue as the base64 encoded string is bound to be a big one.
-	// But end users can certainly configure it on their own via the meshConfig
-	envoyWasmHeadersToLog = []string{"x-envoy-peer-metadata", "x-envoy-peer-metadata-id"}
+	// But end users can certainly configure it on their own via the meshConfig using the %FILTERSTATE% macro.
+	envoyWasmStateToLog = []string{"envoy.wasm.metadata_exchange.upstream", "envoy.wasm.metadata_exchange.upstream_id",
+		"envoy.wasm.metadata_exchange.downstream", "envoy.wasm.metadata_exchange.downstream_id"}
 
 	// EnvoyJSONLogFormat12 map of values for envoy json based access logs for Istio 1.2
 	EnvoyJSONLogFormat12 = &structpb.Struct{
@@ -1748,8 +1749,10 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 					},
 				},
 			},
-			AdditionalRequestHeadersToLog:  envoyWasmHeadersToLog,
-			AdditionalResponseHeadersToLog: envoyWasmHeadersToLog,
+		}
+
+		if util.IsIstioVersionGE14(node) {
+			fl.CommonConfig.FilterStateObjectsToLog = envoyWasmStateToLog
 		}
 
 		acc := &accesslog.AccessLog{
