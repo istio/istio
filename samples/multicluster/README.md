@@ -1,5 +1,8 @@
 # Instructions for building a multi-cluster multi-network mesh
 
+These instructions assume a kubeconfig file already exists with the clusters to
+be added to the mesh.
+
 Pick the mesh specific parameters.
 
 ```bash
@@ -17,18 +20,22 @@ export WORKDIR=mesh-workspace
 [ ! -d "${WORKDIR}" ] && mkdir ${WORKDIR}
 ```
 
-Prepare the initial configuration for the mesh. This creates a root key and cer
+Prepare the initial configuration for the mesh. This creates a root key and cert
 that will sign intermediate certs for each cluster.
 
 ```bash
 ./setup-mesh.sh create-mesh
 ```
 
-dd your clusters to your mesh and apply configuration to build the multicluster
+Add clusters to mesh and apply the configuration to build the multicluster
 
 ```bash
-./setup-mesh.sh add-cluster ${KUBECONFIG0} ${CONTEXT0} ${NETWORK1}
-./setup-mesh.sh add-cluster ${KUBECONFIG1} ${CONTEXT1} ${NETWORK1}
+# add clusters to the mesh following the example in the topology file.
+# Clusters are identifed by the context name as defined by the kubeconfig
+# file.
+${EDITOR} ${WORKDIR}/topology.yaml
+
+# apply topology changes
 ./setup-mesh.sh apply
 ```
 
