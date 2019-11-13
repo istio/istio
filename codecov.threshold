@@ -32,9 +32,9 @@ istio.io/istio/pkg/mcp/source/client_source.go=90
 istio.io/istio/pkg/mcp/source/source.go=90
 istio.io/istio/security/pkg/nodeagent=90
 istio.io/istio/security/pkg/k8s=90
-istio.io/istio/security/pkg/pki=86
-istio.io/istio/security/pkg/caclient=85
-istio.io/istio/security/pkg/server=75
+istio.io/istio/security/pkg/pki=90
+istio.io/istio/security/pkg/caclient=90
+istio.io/istio/security/pkg/server=90
 istio.io/istio/istioctl/cmd/istioctl/kubeinject.go=41
 istio.io/istio/istioctl/cmd/istioctl/main.go=66
 
@@ -46,4 +46,4 @@ istio.io/istio/tests
 istio.io/istio/pilot/pkg/networking/plugin=50
 istio.io/istio/galley/pkg/runtime=30
 istio.io/istio/galley/pkg/meshconfig/cache.go=100
-istio.io/istio/pilot/pkg/model/authentication.go=20
+istio.io/istio/pilot/pkg/model/authentication.go=90
