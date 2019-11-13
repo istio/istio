@@ -24,7 +24,7 @@ Prepare the initial configuration for the mesh. This creates a root key and cert
 that will sign intermediate certs for each cluster.
 
 ```bash
-./setup-mesh.sh create-mesh
+./setup-mesh.sh prep
 ```
 
 Add clusters to mesh and apply the configuration to build the multicluster
