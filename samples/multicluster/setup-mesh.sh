@@ -285,7 +285,7 @@ check_prerequisties() {
 }
 
 usage() {
-  echo "Usage: $0 create-mesh | add-cluster | remove-cluster | apply | teardown
+  echo "Usage: $0 create-mesh | apply | teardown
 
 create-mesh
   Create the files to build mesh. This includes the root key and cert, base
