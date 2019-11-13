@@ -74,7 +74,7 @@ If you're trying to do a local build that bypasses the build container, you'll n
 to execute the following step one time.
 
 ```
-GO111MODULE=on go get github.com/jteeuwen/go-bindata/go-bindata@v3.0.8-0.20180305030458-6025e8de665b
+GO111MODULE=on go get github.com/jteeuwen/go-bindata/go-bindata@6025e8de665b
 ```
 
 #### Clone the repo
