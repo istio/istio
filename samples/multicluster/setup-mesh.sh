@@ -129,9 +129,9 @@ spec:
 EOF
 }
 
-# Create the environment for building a multi-cluster mesh. This
-# creates the mesh's nitial configuration and root certificate
-create_mesh() {
+# Prepare the environment for building a multi-cluster mesh. This creates the
+# mesh's nitial configuration and root certificate
+prep_mesh() {
   create_mesh_topology
   create_base
   create_offline_root_ca
@@ -285,11 +285,12 @@ check_prerequisties() {
 }
 
 usage() {
-  echo "Usage: $0 create-mesh | add-cluster | remove-cluster | apply | teardown
+  echo "Usage: $0 prep-mesh | apply | teardown
 
-create-mesh
-  Create the files to build mesh. This includes the root key and cert, base
-  IstioControlPlane configuration, and initial empty mesh topology file.
+prep-mesh
+  Prepare the workspace and files to build mesh. This includes the root key and
+  cert, base IstioControlPlane configuration, and initial empty mesh topology
+  file.
 
 apply
   Apply the desired Istio control plane state and mesh topology to the
@@ -305,8 +306,8 @@ teardown
 check_prerequisties
 
 case $1 in
-  create-mesh)
-    create_mesh
+  prep-mesh)
+    prep_mesh
     ;;
 
   apply)
