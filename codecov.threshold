@@ -18,7 +18,7 @@
 # or go file.
 
 # Istio wide default
-istio.io=5
+istio.io=90
 
 # Overrides
 istio.io/istio/mixer/adapter/solarwinds/internal/papertrail/papertrail_logger.go=50
@@ -30,8 +30,8 @@ istio.io/istio/pilot/cmd/pilot-agent/status/server.go=61
 istio.io/istio/pkg/mcp/creds/watcher.go=100
 istio.io/istio/pkg/mcp/source/client_source.go=90
 istio.io/istio/pkg/mcp/source/source.go=90
-istio.io/istio/security/pkg/nodeagent=76
-istio.io/istio/security/pkg/k8s=73
+istio.io/istio/security/pkg/nodeagent=90
+istio.io/istio/security/pkg/k8s=90
 istio.io/istio/security/pkg/pki=86
 istio.io/istio/security/pkg/caclient=85
 istio.io/istio/security/pkg/server=75
