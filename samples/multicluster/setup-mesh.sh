@@ -215,7 +215,7 @@ EOF
 }
 
 mesh_contexts() {
-  echo $(sed -n 's/^  \([^ ]\+\):$/\1/p' workspace/topology.yaml | tr '\n' ' ')
+  sed -n 's/^  \([^ ]\+\):$/\1/p' "${MESH_TOPOLOGY_FILENAME}" | tr '\n' ' '
 }
 
 # apply the desired configuration to create the multi-cluster mesh.
