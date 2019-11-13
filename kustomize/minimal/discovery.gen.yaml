@@ -241,7 +241,7 @@ data:
     reportBatchMaxEntries: 100
     # reportBatchMaxTime is the max waiting time before the telemetry data of a request is sent to the mixer server
     reportBatchMaxTime: 1s
-    disableMixerHttpReports: true
+    disableMixerHttpReports: false
 
     disablePolicyChecks: true
 
@@ -595,118 +595,6 @@ spec:
 
 
 ---
-# Source: istio-discovery/templates/telemetryv2.yaml
-
-apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-  name: metadata-exchange
-spec:
-  configPatches:
-    - applyTo: HTTP_FILTER
-      match:
-        context: ANY # inbound, outbound, and gateway
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.http_connection_manager"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: envoy.filters.http.wasm
-          config:
-            config:
-              configuration: envoy.wasm.metadata_exchange
-              vm_config:
-                runtime: envoy.wasm.runtime.null
-                code:
-                  inline_string: envoy.wasm.metadata_exchange
----
-apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-  name: stats-filter
-spec:
-  configPatches:
-    - applyTo: HTTP_FILTER
-      match:
-        context: SIDECAR_OUTBOUND
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.http_connection_manager"
-              subFilter:
-                name: "envoy.router"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: envoy.filters.http.wasm
-          config:
-            config:
-              root_id: stats_outbound
-              configuration: |
-                {
-                  "debug": "false",
-                  "stat_prefix": "istio",
-                }
-              vm_config:
-                vm_id: stats_outbound
-                runtime: envoy.wasm.runtime.null
-                code:
-                  inline_string: envoy.wasm.stats
-    - applyTo: HTTP_FILTER
-      match:
-        context: SIDECAR_INBOUND
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.http_connection_manager"
-              subFilter:
-                name: "envoy.router"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: envoy.filters.http.wasm
-          config:
-            config:
-              root_id: stats_inbound
-              configuration: |
-                {
-                  "debug": "false",
-                  "stat_prefix": "istio",
-                }
-              vm_config:
-                vm_id: stats_inbound
-                runtime: envoy.wasm.runtime.null
-                code:
-                  inline_string: envoy.wasm.stats
-    - applyTo: HTTP_FILTER
-      match:
-        context: GATEWAY
-        listener:
-          filterChain:
-            filter:
-              name: "envoy.http_connection_manager"
-              subFilter:
-                name: "envoy.router"
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: envoy.filters.http.wasm
-          config:
-            config:
-              root_id: stats_outbound
-              configuration: |
-                {
-                  "debug": "false",
-                  "stat_prefix": "istio",
-                }
-              vm_config:
-                vm_id: stats_outbound
-                runtime: envoy.wasm.runtime.null
-                code:
-                  inline_string: envoy.wasm.stats
----
 # Source: istio-discovery/templates/autoscale.yaml
 
 apiVersion: autoscaling/v2beta1
@@ -755,4 +643,7 @@ spec:
 ---
 # Source: istio-discovery/templates/configmap-jwks.yaml
 
+
+---
+# Source: istio-discovery/templates/telemetryv2.yaml
 
