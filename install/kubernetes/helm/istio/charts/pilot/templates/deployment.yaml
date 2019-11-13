@@ -115,7 +115,7 @@ spec:
             value: "{{ .Values.enableProtocolSniffingForInbound }}"
 {{- if .Values.enableProxyClientOriginalAddress }}
           - name: PILOT_ENABLE_PROXY_CLIENT_ORIGINAL_ADDRESS
-            value: "1"
+            value: "{{ .Values.enableProxyClientOriginalAddress }}"
 {{- end }}
           resources:
 {{- if .Values.resources }}
