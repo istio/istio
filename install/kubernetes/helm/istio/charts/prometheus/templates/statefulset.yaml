@@ -1,7 +1,6 @@
-# TODO: the original template has service account, roles, etc
-{{- if not .Values.persistentVolume.enabled }}
+{{- if .Values.persistentVolume.enabled }}
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: prometheus
   namespace: {{ .Release.Namespace }}
@@ -25,17 +24,23 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
+      # Storage Volume is owned by the root user
+      securityContext:
+        fsGroup: 0
+        runAsGroup: 0
+        runAsUser: 0
       serviceAccountName: prometheus
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
       containers:
         - name: prometheus
-          image: "{{ .Values.hub }}/{{ .Values.image }}:{{ .Values.tag }}"
+          image: "{{ .Values.hub }}/prometheus:{{ .Values.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           args:
             - '--storage.tsdb.retention={{ .Values.retention }}'
             - '--config.file=/etc/prometheus/prometheus.yml'
+            - '--storage.tsdb.path={{ .Values.persistentVolume.mountPath }}'
           ports:
             - containerPort: 9090
               name: http
@@ -58,6 +63,8 @@ spec:
             mountPath: /etc/prometheus
           - mountPath: /etc/istio-certs
             name: istio-certs
+          - name: storage-volume
+            mountPath: {{ .Values.persistentVolume.mountPath }}
       volumes:
       - name: config-volume
         configMap:
@@ -78,5 +85,25 @@ spec:
       {{- else if .Values.global.defaultTolerations }}
       tolerations:
 {{ toYaml .Values.global.defaultTolerations | indent 6 }}
+      {{- end }}
+  volumeClaimTemplates:
+    - metadata:
+        name: storage-volume
+        {{- if .Values.persistentVolume.annotations }}
+        annotations:
+{{ toYaml .Values.persistentVolume.annotations | indent 10 }}
+        {{- end }}
+      spec:
+        accessModes:
+{{ toYaml .Values.persistentVolume.accessModes | indent 10 }}
+        resources:
+          requests:
+            storage: "{{ .Values.persistentVolume.size }}"
+      {{- if .Values.persistentVolume.storageClass }}
+      {{- if (eq "-" .Values.persistentVolume.storageClass) }}
+        storageClassName: ""
+      {{- else }}
+        storageClassName: "{{ .Values.persistentVolume.storageClass }}"
+      {{- end }}
       {{- end }}
 {{- end }}
