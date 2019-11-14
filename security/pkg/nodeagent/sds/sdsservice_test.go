@@ -475,7 +475,7 @@ func TestStreamSecretsPush(t *testing.T) {
 	// Test push new secret to proxy.
 	if err := NotifyProxy(cache.ConnKey{ConnectionID: conID, ResourceName: testResourceName},
 		pushSecret); err != nil {
-		t.Fatalf("failed to send push notificiation to proxy %q: %v", conID, err)
+		t.Fatalf("failed to send push notification to proxy %q: %v", conID, err)
 	}
 	// load pushed secret into cache, this is needed to detect an ACK request.
 	st.secrets.Store(cache.ConnKey{ConnectionID: conID, ResourceName: testResourceName}, pushSecret)
@@ -496,7 +496,7 @@ func TestStreamSecretsPush(t *testing.T) {
 
 	// Test push nil secret(indicates close the streaming connection) to proxy.
 	if err := NotifyProxy(cache.ConnKey{ConnectionID: conID, ResourceName: testResourceName}, nil); err != nil {
-		t.Fatalf("failed to send push notificiation to proxy %q", conID)
+		t.Fatalf("failed to send push notification to proxy %q", conID)
 	}
 	notifyChanOne <- notifyMsg{Err: nil, Message: "receive nil secret"}
 
@@ -605,7 +605,7 @@ func TestStreamSecretsMultiplePush(t *testing.T) {
 	// Test push new secret to proxy.
 	if err := NotifyProxy(cache.ConnKey{ConnectionID: conID, ResourceName: testResourceName},
 		pushSecret); err != nil {
-		t.Fatalf("failed to send push notificiation to proxy %q", conID)
+		t.Fatalf("failed to send push notification to proxy %q", conID)
 	}
 
 	notifyChan <- notifyMsg{Err: nil, Message: "receive secret"}
@@ -727,7 +727,7 @@ func TestStreamSecretsUpdateFailures(t *testing.T) {
 	// Test push new secret to proxy.
 	if err := NotifyProxy(cache.ConnKey{ConnectionID: conID, ResourceName: testResourceName},
 		pushSecret); err != nil {
-		t.Fatalf("failed to send push notificiation to proxy %q: %v", conID, err)
+		t.Fatalf("failed to send push notification to proxy %q: %v", conID, err)
 	}
 	// load pushed secret into cache, this is needed to detect an ACK request.
 	st.secrets.Store(cache.ConnKey{ConnectionID: conID, ResourceName: testResourceName}, pushSecret)

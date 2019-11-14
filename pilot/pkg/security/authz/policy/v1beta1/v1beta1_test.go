@@ -28,7 +28,7 @@ import (
 func TestV1beta1Generator_Generate(t *testing.T) {
 	testCases := []struct {
 		name         string
-		policies     []model.Config
+		policies     []model.AuthorizationPolicyConfig
 		wantRules    map[string][]string
 		forTCPFilter bool
 	}{
@@ -37,8 +37,12 @@ func TestV1beta1Generator_Generate(t *testing.T) {
 		},
 		{
 			name: "one policy",
-			policies: []model.Config{
-				*policy.SimpleAuthzPolicy("default", "foo"),
+			policies: []model.AuthorizationPolicyConfig{
+				{
+					Name:                "default",
+					Namespace:           "foo",
+					AuthorizationPolicy: policy.SimpleAuthorizationProto("default"),
+				},
 			},
 			wantRules: map[string][]string{
 				"ns[foo]-policy[default]-rule[0]": {
@@ -48,9 +52,17 @@ func TestV1beta1Generator_Generate(t *testing.T) {
 		},
 		{
 			name: "two policies",
-			policies: []model.Config{
-				*policy.SimpleAuthzPolicy("default", "foo"),
-				*policy.SimpleAuthzPolicy("default", "istio-system"),
+			policies: []model.AuthorizationPolicyConfig{
+				{
+					Name:                "default",
+					Namespace:           "foo",
+					AuthorizationPolicy: policy.SimpleAuthorizationProto("default"),
+				},
+				{
+					Name:                "default",
+					Namespace:           "istio-system",
+					AuthorizationPolicy: policy.SimpleAuthorizationProto("default"),
+				},
 			},
 			wantRules: map[string][]string{
 				"ns[foo]-policy[default]-rule[0]": {

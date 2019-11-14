@@ -102,8 +102,8 @@ func TestBuilder_BuildHTTPFilter(t *testing.T) {
 		{
 			name: "v1beta1 only",
 			policies: []*model.Config{
-				policy.SimpleAuthzPolicy("authz-bar", "a"),
-				policy.SimpleAuthzPolicy("authz-foo", "a"),
+				policy.SimpleAuthorizationPolicy("authz-bar", "a"),
+				policy.SimpleAuthorizationPolicy("authz-foo", "a"),
 			},
 			wantPolicies: []string{"ns[a]-policy[authz-bar]-rule[0]", "ns[a]-policy[authz-foo]-rule[0]"},
 		},
@@ -113,7 +113,7 @@ func TestBuilder_BuildHTTPFilter(t *testing.T) {
 				policy.SimpleClusterRbacConfig(),
 				policy.SimpleRole("role-1", "a", "bar"),
 				policy.SimpleBinding("binding-1", "a", "role-1"),
-				policy.SimpleAuthzPolicy("authz-bar", "a"),
+				policy.SimpleAuthorizationPolicy("authz-bar", "a"),
 			},
 			wantPolicies: []string{"ns[a]-policy[authz-bar]-rule[0]"},
 		},

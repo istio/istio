@@ -108,7 +108,7 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 
 	ca, err := NewIstioCA(caopts)
 	if err != nil {
-		t.Errorf("Got error while createing self-signed CA: %v", err)
+		t.Errorf("Got error while creating self-signed CA: %v", err)
 	}
 	if ca == nil {
 		t.Fatalf("Failed to create a self-signed CA.")
@@ -199,7 +199,7 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 
 	ca, err := NewIstioCA(caopts)
 	if err != nil {
-		t.Errorf("Got error while createing self-signed CA: %v", err)
+		t.Errorf("Got error while creating self-signed CA: %v", err)
 	}
 	if ca == nil {
 		t.Fatalf("Failed to create a self-signed CA.")
@@ -288,7 +288,7 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 
 	ca, err := NewIstioCA(caopts)
 	if err != nil {
-		t.Errorf("Got error while createing self-signed CA: %v", err)
+		t.Errorf("Got error while creating self-signed CA: %v", err)
 	}
 	if ca == nil {
 		t.Fatalf("Failed to create a self-signed CA.")
@@ -334,7 +334,7 @@ func TestCreatePluggedCertCA(t *testing.T) {
 
 	ca, err := NewIstioCA(caopts)
 	if err != nil {
-		t.Errorf("Got error while createing plugged-cert CA: %v", err)
+		t.Errorf("Got error while creating plugged-cert CA: %v", err)
 	}
 	if ca == nil {
 		t.Fatalf("Failed to create a plugged-cert CA.")
@@ -558,7 +558,7 @@ func TestSignWithCertChain(t *testing.T) {
 
 	ca, err := NewIstioCA(caopts)
 	if err != nil {
-		t.Errorf("Got error while createing plugged-cert CA: %v", err)
+		t.Errorf("Got error while creating plugged-cert CA: %v", err)
 	}
 	if ca == nil {
 		t.Fatalf("Failed to create a plugged-cert CA.")

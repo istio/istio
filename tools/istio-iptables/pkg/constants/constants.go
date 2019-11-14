@@ -77,4 +77,11 @@ const (
 	KubeVirtInterfaces        = "kube-virt-interfaces"
 	DryRun                    = "dry-run"
 	Clean                     = "clean"
+	RestoreFormat             = "restore-format"
+)
+
+// Constants for iptables commands
+const (
+	IPTABLESRESTORE  = "iptables-restore"
+	IP6TABLESRESTORE = "ip6tables-restore"
 )

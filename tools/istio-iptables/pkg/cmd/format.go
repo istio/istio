@@ -12,12 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package cmd
 
-import (
-	"istio.io/istio/tools/istio-clean-iptables/pkg/cmd"
-)
+import "strings"
 
-func main() {
-	cmd.Execute()
+func FormatIptablesCommands(commands [][]string) []string {
+	output := make([]string, 0)
+	for _, cmd := range commands {
+		output = append(output, strings.Join(cmd, " "))
+	}
+	return output
 }

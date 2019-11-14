@@ -28,19 +28,6 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 )
 
-// MockController specifies a mock Controller for testing
-type MockController struct{}
-
-func (c *MockController) AppendServiceHandler(f func(*model.Service, model.Event)) error {
-	return nil
-}
-
-func (c *MockController) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
-	return nil
-}
-
-func (c *MockController) Run(<-chan struct{}) {}
-
 var discovery1 *memory.ServiceDiscovery
 var discovery2 *memory.ServiceDiscovery
 
@@ -60,13 +47,13 @@ func buildMockController() *Controller {
 	registry1 := Registry{
 		Name:             serviceregistry.ServiceRegistry("mockAdapter1"),
 		ServiceDiscovery: discovery1,
-		Controller:       &MockController{},
+		Controller:       &memory.MockController{},
 	}
 
 	registry2 := Registry{
 		Name:             serviceregistry.ServiceRegistry("mockAdapter2"),
 		ServiceDiscovery: discovery2,
-		Controller:       &MockController{},
+		Controller:       &memory.MockController{},
 	}
 
 	ctls := NewController()
@@ -92,14 +79,14 @@ func buildMockControllerForMultiCluster() *Controller {
 		Name:             serviceregistry.ServiceRegistry("mockAdapter1"),
 		ClusterID:        "cluster-1",
 		ServiceDiscovery: discovery1,
-		Controller:       &MockController{},
+		Controller:       &memory.MockController{},
 	}
 
 	registry2 := Registry{
 		Name:             serviceregistry.ServiceRegistry("mockAdapter2"),
 		ClusterID:        "cluster-2",
 		ServiceDiscovery: discovery2,
-		Controller:       &MockController{},
+		Controller:       &memory.MockController{},
 	}
 
 	ctls := NewController()

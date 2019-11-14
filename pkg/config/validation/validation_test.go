@@ -2238,6 +2238,26 @@ func TestValidateHTTPRoute(t *testing.T) {
 			}},
 			Match: []*networking.HTTPMatchRequest{nil},
 		}, valid: true},
+		{name: "valid regex", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.bar"},
+			}},
+			Match: []*networking.HTTPMatchRequest{{
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Regex{Regex: "foo"},
+				},
+			}},
+		}, valid: true},
+		{name: "too large regex", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.bar"},
+			}},
+			Match: []*networking.HTTPMatchRequest{{
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Regex{Regex: strings.Repeat("a", 101)},
+				},
+			}},
+		}, valid: false},
 	}
 
 	for _, tc := range testCases {
@@ -4307,7 +4327,7 @@ func TestValidateMixerService(t *testing.T) {
 			in:   &mccpb.IstioService{Name: "test-service-name", Namespace: strings.Repeat("x", 64)},
 		},
 		{
-			name: "invalid domian or labels",
+			name: "invalid domain or labels",
 			in:   &mccpb.IstioService{Name: "test-service-name", Domain: strings.Repeat("x", 256)},
 		},
 		{

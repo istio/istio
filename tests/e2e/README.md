@@ -12,7 +12,7 @@ Developers, on the other hand, are recommended to run the tests locally before s
 
 ### Using a local VM
 
-E2E tests can be run on your local machines. It helps local testing and debuging. You can use one of the following to set up a local testing environment.
+E2E tests can be run on your local machines. It helps local testing and debugging. You can use one of the following to set up a local testing environment.
 
 1. See [vagrant/README](local/vagrant/README.md) for instructions to set up a local Vagrant VM environment to run E2E tests.
 

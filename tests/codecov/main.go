@@ -30,7 +30,7 @@ var (
 	reportFile     = flag.String("report_file", "", "Code coverage report file")
 	baselineFile   = flag.String("baseline_file", "", "Code coverage baseline file")
 	thresholdFiles = flag.String("threshold_files", "", "File containing package to threshold mappings, as overrides")
-	skipDeleted    = flag.Bool("skip_deleted", true, "Whehter deleted files should be skipped")
+	skipDeleted    = flag.Bool("skip_deleted", true, "Whether deleted files should be skipped")
 
 	// report line format (e.g., <option value="file0">istio.io/istio/galley/cmd/shared/shared.go (0.0%)</option>)
 	reportRegexp = regexp.MustCompile(` *<option value="(.*)">(.*) \((.*)%\)</option>`)
