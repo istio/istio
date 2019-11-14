@@ -56,7 +56,7 @@ ifeq ($(BUILD_WITH_CONTAINER),1)
 export TARGET_OUT = /work/out/$(TARGET_OS)_$(TARGET_ARCH)
 CONTAINER_CLI ?= docker
 DOCKER_SOCKET_MOUNT ?= -v /var/run/docker.sock:/var/run/docker.sock
-IMG ?= gcr.io/istio-testing/build-tools:master-2019-11-08T17-21-18
+IMG ?= gcr.io/istio-testing/build-tools:master-2019-11-14T12-01-13
 UID = $(shell id -u)
 GID = `grep docker /etc/group | cut -f3 -d:`
 PWD = $(shell pwd)
@@ -95,6 +95,7 @@ RUN = $(CONTAINER_CLI) run -t -i --sig-proxy=true -u $(UID):$(GID) --rm \
 	-e TARGET_ARCH="$(TARGET_ARCH)" \
 	-e TARGET_OS="$(TARGET_OS)" \
 	-e TARGET_OUT="$(TARGET_OUT)" \
+	-e USER="${USER}" \
 	$(ENV_VARS) \
 	-v /etc/passwd:/etc/passwd:ro \
 	$(DOCKER_SOCKET_MOUNT) \
