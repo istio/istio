@@ -15,6 +15,9 @@
 package virtualservice
 
 import (
+	"fmt"
+
+	"istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/galley/pkg/config/analysis"
@@ -43,6 +46,13 @@ func (s *GatewayAnalyzer) Metadata() analysis.Metadata {
 
 // Analyze implements Analyzer
 func (s *GatewayAnalyzer) Analyze(c analysis.Context) {
+	c.ForEach(metadata.IstioMeshV1Alpha1MeshConfig, func(r *resource.Entry) bool {
+		mc := r.Item.(*v1alpha1.MeshConfig)
+		c.Report(metadata.IstioMeshV1Alpha1MeshConfig, msg.NewInternalError(r, fmt.Sprintf("DEBUG0a:\n %v\n %v\n %v\n %v", r.Metadata.Name, mc.GetEnableAutoMtls(), mc.GetOutboundClusterStatName(), mc)))
+		mc.GetEnableAutoMtls()
+		return true
+	})
+
 	c.ForEach(metadata.IstioNetworkingV1Alpha3Virtualservices, func(r *resource.Entry) bool {
 		s.analyzeVirtualService(r, c)
 		return true

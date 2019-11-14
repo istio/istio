@@ -25,5 +25,7 @@ func Default() *v1alpha1.MeshConfig {
 	meshconfig := mesh.DefaultMeshConfig()
 	meshconfig.IngressClass = "istio"
 	meshconfig.IngressControllerMode = v1alpha1.MeshConfig_STRICT
+	//meshconfig.EnableTracing = false
+	meshconfig.OutboundClusterStatName = "larry (base_default)"
 	return &meshconfig
 }

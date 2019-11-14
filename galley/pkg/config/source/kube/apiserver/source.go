@@ -24,12 +24,15 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/galley/pkg/config/meta/schema"
 	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
+	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver/status"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
+	"istio.io/istio/pkg/config/mesh"
 )
 
 var (
@@ -212,6 +215,21 @@ func (s *Source) startWatchers() {
 			s.watchers[r.Collection.Name] = col
 		}
 	}
+
+	// TODO: This sends everything into a restart loop, since processing doesn't expect to encounter events after it starts
+	// TODO: Refactor, move, etc.
+	// TODO: Also get actual data from kube instead of just using different default
+	// TODO: Also hide this behind a flag
+	meshconfig := mesh.DefaultMeshConfig()
+	meshconfig.OutboundClusterStatName = "curly (apiserver_source)"
+	r := &resource.Entry{
+		Metadata: resource.Metadata{
+			Name: resource.NewName("istio-system", "meshconfig"),
+		},
+		Item: &meshconfig,
+	}
+	s.handlers.Handle(event.AddFor(metadata.IstioMeshV1Alpha1MeshConfig, r))
+	s.handlers.Handle(event.FullSyncFor(metadata.IstioMeshV1Alpha1MeshConfig))
 
 	if s.statusCtl != nil {
 		scope.Source.Infof("Starting status controller...")
