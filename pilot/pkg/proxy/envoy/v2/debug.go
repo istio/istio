@@ -580,11 +580,12 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	dynamicActiveListeners := []*adminapi.ListenersConfigDump_DynamicListener{}
 	listeners := s.generateRawListeners(conn, s.globalPushContext())
 	for _, cs := range listeners {
-		dynamicActiveListeners = append(dynamicActiveListeners, &adminapi.ListenersConfigDump_DynamicListener{Listener: cs})
+		dynamicActiveListeners = append(dynamicActiveListeners, &adminapi.ListenersConfigDump_DynamicListener{
+			ActiveState: &adminapi.ListenersConfigDump_DynamicListenerState{Listener: cs}})
 	}
 	listenersAny, err := util.MessageToAnyWithError(&adminapi.ListenersConfigDump{
-		VersionInfo:            versionInfo(),
-		DynamicActiveListeners: dynamicActiveListeners,
+		VersionInfo:      versionInfo(),
+		DynamicListeners: dynamicActiveListeners,
 	})
 	if err != nil {
 		return nil, err
