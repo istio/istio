@@ -16,8 +16,21 @@
 
 set -o errexit
 
+# Keep all generated artificates in a dedicated workspace
+: "${WORKDIR:?WORKDIR must be set}"
+
+# Resolve to an absolute path
+WORKDIR=$(cd "$(dirname "${WORKDIR}")" && pwd)/$(basename "${WORKDIR}")
+
+# Description of the mesh topology. Includes the list of clusters in the mesh.
+MESH_TOPOLOGY_FILENAME="${WORKDIR}/topology.yaml"
+
+mesh_contexts() {
+  sed -n 's/^  \([^ ]\+\):$/\1/p' "${MESH_TOPOLOGY_FILENAME}" | tr '\n' ' '
+}
+
 install() {
-  for CONTEXT in $(kubectl config get-contexts -o name); do
+  for CONTEXT in $(mesh_contexts); do
     kc() { kubectl --context "${CONTEXT}" "$@"; }
 
     # enable automatic sidecar injection on the default namespace
@@ -30,7 +43,7 @@ install() {
 }
 
 uninstall() {
-  for CONTEXT in $(kubectl config get-contexts -o name); do
+  for CONTEXT in $(mesh_contexts); do
     kc() { kubectl --context "${CONTEXT}" "$@"; }
 
     # install the bookinfo service and expose it through the ingress gateway
