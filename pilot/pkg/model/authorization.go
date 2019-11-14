@@ -116,6 +116,11 @@ func (policy *AuthorizationPolicies) IsRBACEnabled(service string, namespace str
 		return false
 	}
 
+	// If service or namespace is empty just return false.
+	if len(service) == 0 || len(namespace) == 0 {
+		return false
+	}
+
 	rbacConfig := policy.RbacConfig
 	switch rbacConfig.Mode {
 	case rbacproto.RbacConfig_ON:
