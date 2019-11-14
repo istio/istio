@@ -1275,6 +1275,9 @@ func buildDefaultCluster(push *model.PushContext, name string, discoveryType api
 
 	if discoveryType == apiv2.Cluster_STRICT_DNS {
 		cluster.DnsLookupFamily = apiv2.Cluster_V4_ONLY
+		if _, ipv6 := ipv4AndIpv6Support(proxy); ipv6 {
+			cluster.DnsLookupFamily = apiv2.Cluster_AUTO
+		}
 		dnsRate := gogo.DurationToProtoDuration(push.Mesh.DnsRefreshRate)
 		cluster.DnsRefreshRate = dnsRate
 		if util.IsIstioVersionGE13(proxy) && features.RespectDNSTTL.Get() {

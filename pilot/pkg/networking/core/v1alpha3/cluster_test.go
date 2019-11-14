@@ -1412,6 +1412,32 @@ func TestClusterDiscoveryTypeAndLbPolicyPassthroughIstioVersion12(t *testing.T) 
 	g.Expect(clusters[0].EdsClusterConfig).To(BeNil())
 }
 
+func TestClusterDnsLookupFamily(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	for _, inAndOut := range []struct {
+		ips       []string
+		DNSFamily apiv2.Cluster_DnsLookupFamily
+	}{
+		{[]string{"192.168.1.1"}, apiv2.Cluster_V4_ONLY},
+		{[]string{"2002:ac1b::1"}, apiv2.Cluster_AUTO},
+		{[]string{"192.168.1.1", "2002:ac1b::1"}, apiv2.Cluster_AUTO},
+	} {
+		clusters, err := buildTestClustersWithProxyMetadataWithIps(
+			"*.example.org", model.DNSLB, true, model.SidecarProxy, nil, testMesh,
+			&networking.DestinationRule{
+				Host: "*.example.org",
+			},
+			nil, // authnPolicy
+			&model.NodeMetadata{}, model.MaxIstioVersion, inAndOut.ips,
+		)
+
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(clusters[0].GetDnsLookupFamily()).To(Equal(inAndOut.DNSFamily))
+		g.Expect(clusters[0].EdsClusterConfig).To(BeNil())
+	}
+}
+
 func TestBuildClustersDefaultCircuitBreakerThresholds(t *testing.T) {
 	g := NewGomegaWithT(t)
 
