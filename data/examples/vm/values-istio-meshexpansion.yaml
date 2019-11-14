@@ -1,0 +1,14 @@
+apiVersion: install.istio.io/v1alpha2
+kind: IstioControlPlane
+spec:
+  values:
+    global:
+      meshExpansion:
+        enabled: true
+     
+      controlPlaneSecurityEnabled: true
+
+    # Multicluster with gateways requires a root CA
+    # Cluster local CAs are bootstrapped with the root CA.
+    security:
+      selfSigned: false

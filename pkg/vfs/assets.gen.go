@@ -215,6 +215,8 @@
 // ../../data/charts/security/nodeagent/values.yaml
 // ../../data/examples/multicluster/values-istio-multicluster-gateways.yaml
 // ../../data/examples/multicluster/values-istio-multicluster-primary.yaml
+// ../../data/examples/vm/values-istio-meshexpansion-gateways.yaml
+// ../../data/examples/vm/values-istio-meshexpansion.yaml
 // ../../data/profiles/default.yaml
 // ../../data/profiles/demo.yaml
 // ../../data/profiles/minimal.yaml
@@ -36869,6 +36871,76 @@ func examplesMulticlusterValuesIstioMulticlusterPrimaryYaml() (*asset, error) {
 	return a, nil
 }
 
+var _examplesVmValuesIstioMeshexpansionGatewaysYaml = []byte(`apiVersion: install.istio.io/v1alpha2
+kind: IstioControlPlane
+spec:
+  values:
+    global:
+      multiCluster:
+        enabled: true
+      
+      meshExpansion:
+        enabled: true
+     
+      controlPlaneSecurityEnabled: true
+
+    # Multicluster with gateways requires a root CA
+    # Cluster local CAs are bootstrapped with the root CA.
+    security:
+      selfSigned: false
+
+    # Provides dns resolution for service entries of form
+    # name.namespace.global
+    istiocoredns:
+      enabled: true
+`)
+
+func examplesVmValuesIstioMeshexpansionGatewaysYamlBytes() ([]byte, error) {
+	return _examplesVmValuesIstioMeshexpansionGatewaysYaml, nil
+}
+
+func examplesVmValuesIstioMeshexpansionGatewaysYaml() (*asset, error) {
+	bytes, err := examplesVmValuesIstioMeshexpansionGatewaysYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "examples/vm/values-istio-meshexpansion-gateways.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _examplesVmValuesIstioMeshexpansionYaml = []byte(`apiVersion: install.istio.io/v1alpha2
+kind: IstioControlPlane
+spec:
+  values:
+    global:
+      meshExpansion:
+        enabled: true
+     
+      controlPlaneSecurityEnabled: true
+
+    # Multicluster with gateways requires a root CA
+    # Cluster local CAs are bootstrapped with the root CA.
+    security:
+      selfSigned: false
+`)
+
+func examplesVmValuesIstioMeshexpansionYamlBytes() ([]byte, error) {
+	return _examplesVmValuesIstioMeshexpansionYaml, nil
+}
+
+func examplesVmValuesIstioMeshexpansionYaml() (*asset, error) {
+	bytes, err := examplesVmValuesIstioMeshexpansionYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "examples/vm/values-istio-meshexpansion.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _profilesDefaultYaml = []byte(`apiVersion: install.istio.io/v1alpha2
 kind: IstioControlPlane
 spec:
@@ -38653,6 +38725,8 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/security/nodeagent/values.yaml": chartsSecurityNodeagentValuesYaml,
 	"examples/multicluster/values-istio-multicluster-gateways.yaml": examplesMulticlusterValuesIstioMulticlusterGatewaysYaml,
 	"examples/multicluster/values-istio-multicluster-primary.yaml": examplesMulticlusterValuesIstioMulticlusterPrimaryYaml,
+	"examples/vm/values-istio-meshexpansion-gateways.yaml": examplesVmValuesIstioMeshexpansionGatewaysYaml,
+	"examples/vm/values-istio-meshexpansion.yaml": examplesVmValuesIstioMeshexpansionYaml,
 	"profiles/default.yaml": profilesDefaultYaml,
 	"profiles/demo.yaml": profilesDemoYaml,
 	"profiles/minimal.yaml": profilesMinimalYaml,
@@ -39012,6 +39086,10 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"multicluster": &bintree{nil, map[string]*bintree{
 			"values-istio-multicluster-gateways.yaml": &bintree{examplesMulticlusterValuesIstioMulticlusterGatewaysYaml, map[string]*bintree{}},
 			"values-istio-multicluster-primary.yaml": &bintree{examplesMulticlusterValuesIstioMulticlusterPrimaryYaml, map[string]*bintree{}},
+		}},
+		"vm": &bintree{nil, map[string]*bintree{
+			"values-istio-meshexpansion-gateways.yaml": &bintree{examplesVmValuesIstioMeshexpansionGatewaysYaml, map[string]*bintree{}},
+			"values-istio-meshexpansion.yaml": &bintree{examplesVmValuesIstioMeshexpansionYaml, map[string]*bintree{}},
 		}},
 	}},
 	"profiles": &bintree{nil, map[string]*bintree{
