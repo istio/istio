@@ -50,11 +50,14 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/envoy"
+	istio_agent "istio.io/istio/pkg/istio-agent"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 
 const trustworthyJWTPath = "/var/run/secrets/tokens/istio-token"
+
+// TODO: Move most of this to pkg.
 
 var (
 	role          = &model.Proxy{}
@@ -260,6 +263,7 @@ var (
 					}
 				}
 			}
+
 			role.DNSDomain = getDNSDomain(podNamespace, role.DNSDomain)
 			setSpiffeTrustDomain(podNamespace, role.DNSDomain)
 
@@ -339,8 +343,44 @@ var (
 				log.Infof("Effective config: %s", out)
 			}
 
+			// Legacy - so pilot-agent can be used with citadel node agent.
+			// Main will be replaced by istio-agent when we clean up - this code can stay here and be removed with the rest.
 			sdsUDSPath := sdsUdsPathVar.Get()
 			sdsEnabled, sdsTokenPath := detectSds(controlPlaneBootstrap, sdsUDSPath, trustworthyJWTPath)
+
+			if !sdsEnabled && role.Type == model.SidecarProxy { // Not using citadel agent - this is either Pilot or Istiod.
+
+				// Istiod and new SDS-only mode doesn't use sdsUdsPathVar - sdsEnabled will be false.
+				sa := istio_agent.NewSDSAgent(discoveryAddress, controlPlaneAuthEnabled)
+
+				if sa.JWTPath != "" && role.Type == model.SidecarProxy {
+					// If user injected a JWT token for SDS - use SDS.
+					sdsEnabled = true
+					sdsTokenPath = sa.JWTPath
+					sdsUDSPath = sa.SDSAddress
+
+					if sa.RequireCerts {
+						controlPlaneAuthEnabled = true
+					}
+
+					// For normal Istio - start in process SDS.
+					// Ingress: WIP, permissions needed.
+
+					// citadel node-agent not found, but we have a K8S JWT available. Start an in-process SDS.
+					_, err := sa.Start(role.Type == model.SidecarProxy, podNamespaceVar.Get())
+					if err != nil {
+						log.Fatala("Failed to start in-process SDS", err)
+					}
+
+					if sa.RequireCerts {
+						proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
+					}
+					if sa.SAN != "" {
+						pilotSAN = append(pilotSAN, sa.SAN)
+					}
+				}
+			}
+
 			// dedupe cert paths so we don't set up 2 watchers for the same file:
 			tlsCertsToWatch = dedupeStrings(tlsCertsToWatch)
 
@@ -360,6 +400,8 @@ var (
 				sdsUDSPath = ""
 				sdsTokenPath = ""
 			}
+
+			// If the token and path are present - use SDS.
 
 			// TODO: change Mixer and Pilot to use standard template and deprecate this custom bootstrap parser
 			if controlPlaneBootstrap {
@@ -456,8 +498,12 @@ var (
 
 			agent := envoy.NewAgent(envoyProxy, features.TerminationDrainDuration())
 
-			watcher := envoy.NewWatcher(tlsCertsToWatch, agent.Restart)
+			if sdsEnabled && role.Type == model.SidecarProxy {
+				tlsCertsToWatch = []string{}
+			}
 
+			// Watcher is also kicking envoy start.
+			watcher := envoy.NewWatcher(tlsCertsToWatch, agent.Restart)
 			go watcher.Run(ctx)
 
 			// On SIGINT or SIGTERM, cancel the context, triggering a graceful shutdown
@@ -741,6 +787,10 @@ func waitForFile(fname string, maxWait time.Duration) bool {
 	}
 }
 
+// TODO: get the config and bootstrap from istiod, by passing the env
+
+// Use env variables - from injection, k8s and local namespace config map.
+// No CLI parameters.
 func main() {
 	if err := rootCmd.Execute(); err != nil {
 		log.Errora(err)

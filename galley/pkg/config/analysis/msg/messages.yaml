@@ -120,7 +120,7 @@ messages:
     description: "A Sidecar resource selects the same workloads as another Sidecar resource"
     template: "The Sidecars %v in namespace %q select the same workload pod %q, which can lead to undefined behavior."
     args:
-      - name: conflitingSidecars
+      - name: conflictingSidecars
         type: "[]string"
       - name: namespace
         type: string
@@ -133,7 +133,18 @@ messages:
     description: "More than one sidecar resource in a namespace has no workload selector"
     template: "The Sidecars %v in namespace %q have no workload selector, which can lead to undefined behavior."
     args:
-      - name: conflitingSidecars
+      - name: conflictingSidecars
         type: "[]string"
       - name: namespace
         type: string
+
+  - name: "VirtualServiceDestinationPortSelectorRequired"
+    code: IST0112
+    level: Error
+    description: "A VirtualService routes to a service with more than one port exposed, but does not specify which to use."
+    template: "This VirtualService routes to a service %q that exposes multiple ports %v. Specifying a port in the destination is required to disambiguate."
+    args:
+      - name: destHost
+        type: string
+      - name: destPorts
+        type: "[]int"

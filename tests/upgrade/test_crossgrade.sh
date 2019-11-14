@@ -478,7 +478,7 @@ checkEchosrv
 
 # Run internal traffic in the background since we may have to relaunch it if the job fails.
 sendInternalRequestTraffic &
-sendExternalRequestTraffic "${INGRESS_ADDR}" &   # TODO: if we wait this to finish, all the following steps will suceed.
+sendExternalRequestTraffic "${INGRESS_ADDR}" &   # TODO: if we wait this to finish, all the following steps will succeed.
 # Let traffic clients establish all connections. There's some small startup delay, this covers it.
 echo "Waiting for traffic to settle..."
 sleep 20

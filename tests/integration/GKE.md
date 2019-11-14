@@ -6,7 +6,7 @@
 
 ## Step 1: Set up GCP
 
-This section walks you through the one-time set-up for creating and configuring a Google Coud Platform (GCP) project.
+This section walks you through the one-time set-up for creating and configuring a Google Cloud Platform (GCP) project.
 
 ### Install Google Cloud SDK
 

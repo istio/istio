@@ -72,7 +72,7 @@ function install_docker_machine() {
 function install_kubectl() {
   echo "Checking kubectl..."
   if ! kubectl --help > /dev/null; then
-    echo "kubectl is not installed. Installing the lastest stable release..."
+    echo "kubectl is not installed. Installing the latest stable release..."
     if ! brew install kubectl; then
     	echo "Installation of kubectl from brew fails. Please install it manually."
         exit 1

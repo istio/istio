@@ -23,7 +23,6 @@ import (
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/protocol"
 )
 
 const (
@@ -508,14 +507,10 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 					if portMatched {
 						for _, port := range s.Ports {
 							if port.Port == int(ilw.IstioListener.Port.GetNumber()) {
+								ports := []*Port{}
 								sc := s.DeepCopy()
-								sc.Ports = []*Port{
-									{
-										ilw.IstioListener.Port.GetName(),
-										int(ilw.IstioListener.Port.GetNumber()),
-										protocol.Instance(ilw.IstioListener.Port.GetProtocol()),
-									},
-								}
+								ports = append(ports, port)
+								sc.Ports = ports
 								importedServices = append(importedServices, sc)
 								hostFound = true
 								break

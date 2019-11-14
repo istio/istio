@@ -65,6 +65,7 @@ var testGrid = []testCase{
 			{msg.MisplacedAnnotation, "Service details"},
 			{msg.MisplacedAnnotation, "Pod grafana-test"},
 			{msg.MisplacedAnnotation, "Deployment fortio-deploy"},
+			{msg.MisplacedAnnotation, "Namespace staging"},
 		},
 	},
 	{
@@ -209,6 +210,8 @@ var testGrid = []testCase{
 			{msg.ReferencedResourceNotFound, "VirtualService reviews-bogushost.default"},
 			{msg.ReferencedResourceNotFound, "VirtualService reviews-bookinfo-other.default"},
 			{msg.ReferencedResourceNotFound, "VirtualService reviews-mirror-bogushost.default"},
+			{msg.ReferencedResourceNotFound, "VirtualService reviews-bogusport.default"},
+			{msg.VirtualServiceDestinationPortSelectorRequired, "VirtualService reviews-2port-missing.default"},
 		},
 	},
 	{

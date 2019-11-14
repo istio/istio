@@ -205,7 +205,7 @@ func TestSyntheticServiceEntry(t *testing.T) {
 					return true, nil
 				})
 
-			// need to verify endpionts with retry since env.(*kubeEnv.Environment).GetEndpoints
+			// need to verify endpoints with retry since env.(*kubeEnv.Environment).GetEndpoints
 			// not always fetches endpoints immediately
 			if err := validateEndpointsWithRetry(5, 10*time.Second, t, ctx, client, testParams); err != nil {
 				t.Fatal(err)
@@ -302,9 +302,9 @@ func syntheticServiceEntryValidator(params testParam) galley.SnapshotValidatorFu
 		// Compare the body
 		inst := v.Select("{.Body}").
 			Equals(fmt.Sprintf("%s.%s.svc.cluster.local", params.svcName, params.namespace.Name()), "{.hosts[0]}").
-			Equals(1, "{.location}").
-			Equals(1, "{.resolution}").
-			Equals(fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/%s", params.namespace.Name(), params.san), "{.subject_alt_names[0]}")
+			Equals("MESH_INTERNAL", "{.location}").
+			Equals("STATIC", "{.resolution}").
+			Equals(fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/%s", params.namespace.Name(), params.san), "{.subjectAltNames[0]}")
 		if params.env == environment.Native {
 			inst.Equals(params.clusterIP, "{.addresses[0]}")
 		}

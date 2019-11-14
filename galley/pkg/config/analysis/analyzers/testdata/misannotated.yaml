@@ -95,3 +95,12 @@ spec:
     spec:
       containers:
       - name: fortio
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: staging
+  annotations:
+    # Sidecar injector annotation does not belong to Namespace
+    sidecar.istio.io/inject: "true"
+spec: {}

@@ -140,15 +140,16 @@ func (d *AnalyzingDistributor) analyzeAndDistribute(cancelCh chan struct{}, name
 	d.s.Analyzer.Analyze(ctx)
 	scope.Analysis.Debugf("Finished analyzing the current snapshot, found messages: %v", ctx.messages)
 
-	// Only keep messages for resources in namespaces we want to analyze
-	// If the message doesn't have an origin (meaning we can't determine the namespace) fail open and keep it
-	// If no such limit is specified, keep them all.
+	// Only keep messages for resources in namespaces we want to analyze if the
+	// message doesn't have an origin (meaning we can't determine the
+	// namespace). Also kept are cluster-level resources where the namespace is
+	// the empty string. If no such limit is specified, keep them all.
 	var msgs diag.Messages
 	if len(namespaces) == 0 {
 		msgs = ctx.messages
 	} else {
 		for _, m := range ctx.messages {
-			if m.Origin != nil {
+			if m.Origin != nil && m.Origin.Namespace() != "" {
 				if _, ok := namespaces[m.Origin.Namespace()]; !ok {
 					continue
 				}
