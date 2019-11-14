@@ -892,6 +892,21 @@ func init() {
 
 	versions = make([]string, 0)
 
+	versions = append(versions, "v1beta1")
+
+	b.Add(schema.ResourceSpec{
+		Kind:      "RequestAuthentication",
+		ListKind:  "RequestAuthenticationList",
+		Singular:  "requestauthentication",
+		Plural:    "requestauthentications",
+		Versions:  versions,
+		Group:     "security.istio.io",
+		Target:    metadata.Types.Get("istio/security/v1beta1/requestauthentications"),
+		Converter: converter.Get("identity"),
+	})
+
+	versions = make([]string, 0)
+
 	versions = append(versions, "v1")
 
 	b.Add(schema.ResourceSpec{

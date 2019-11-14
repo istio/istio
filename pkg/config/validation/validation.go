@@ -1528,6 +1528,12 @@ func ValidateAuthorizationPolicy(_, _ string, msg proto.Message) error {
 	return nil
 }
 
+// ValidateRequestAuthentication checks that request authentication spec is well-formed.
+func ValidateRequestAuthentication(_, _ string, _ proto.Message) error {
+	// TODO(diemtvu) Implement this.
+	return nil
+}
+
 // ValidateServiceRole checks that ServiceRole is well-formed.
 func ValidateServiceRole(_, _ string, msg proto.Message) error {
 	in, ok := msg.(*rbac.ServiceRole)
