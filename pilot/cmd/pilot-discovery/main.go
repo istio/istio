@@ -40,6 +40,11 @@ var (
 	serverArgs = bootstrap.PilotArgs{
 		CtrlZOptions:     ctrlz.DefaultOptions(),
 		KeepaliveOptions: keepalive.DefaultOption(),
+		// TODO replace with mesh config?
+		InjectionOptions: bootstrap.InjectionOptions{
+			InjectionDirectory: "/etc/istio/inject",
+			Port:               15017,
+		},
 	}
 
 	loggingOptions = log.DefaultOptions()

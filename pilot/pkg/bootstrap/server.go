@@ -25,11 +25,13 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
 	"time"
 
+	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/security/pkg/k8s/chiron"
 
 	"github.com/davecgh/go-spew/spew"
@@ -202,9 +204,15 @@ type ServiceArgs struct {
 	Consul     ConsulArgs
 }
 
+type InjectionOptions struct {
+	InjectionDirectory string
+	Port               int
+}
+
 // PilotArgs provides all of the configuration parameters for the Pilot discovery service.
 type PilotArgs struct {
 	DiscoveryOptions         DiscoveryServiceOptions
+	InjectionOptions         InjectionOptions
 	Namespace                string
 	Mesh                     MeshArgs
 	Config                   ConfigArgs
@@ -332,6 +340,9 @@ func NewServer(args PilotArgs) (*Server, error) {
 	}
 	if err := s.initClusterRegistries(&args); err != nil {
 		return nil, fmt.Errorf("cluster registries: %v", err)
+	}
+	if err := s.initSidecarInjector(&args); err != nil {
+		return nil, fmt.Errorf("sidecar injector: %v", err)
 	}
 
 	if args.CtrlZOptions != nil {
@@ -1317,11 +1328,10 @@ func (s *Server) initCertController(args *PilotArgs) error {
 			// Only one service (currently Pilot) will save the key and certificate in a directory.
 			// Create directory at s.mesh.K8SCertificateSetting.PilotCertificatePath if it doesn't exist.
 			svcName := "istio.pilot"
-			userHomeDir, err := os.UserHomeDir()
+			dir, err := pilotDnsCertDir()
 			if err != nil {
-				return fmt.Errorf("could not find local user folder: %v", err)
+				return err
 			}
-			dir := userHomeDir + DefaultDirectoryForKeyCert
 			if _, err := os.Stat(dir); os.IsNotExist(err) {
 				err := os.MkdirAll(dir, os.ModePerm)
 				if err != nil {
@@ -1375,6 +1385,14 @@ func (s *Server) initCertController(args *PilotArgs) error {
 	return nil
 }
 
+func pilotDnsCertDir() (string, error) {
+	userHomeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("could not find local user folder: %v", err)
+	}
+	return userHomeDir + DefaultDirectoryForKeyCert, nil
+}
+
 // initEventHandlers sets up event handlers for config and service updates
 func (s *Server) initEventHandlers() error {
 	// Flush cached discovery responses whenever services configuration change.
@@ -1421,6 +1439,41 @@ func (s *Server) initEventHandlers() error {
 		}
 	}
 
+	return nil
+}
+
+func (s *Server) initSidecarInjector(args *PilotArgs) error {
+	injectPath := args.InjectionOptions.InjectionDirectory
+	if injectPath == "" {
+		log.Infof("Skipping sidecar injector, injection path not specified")
+		return nil
+	}
+	// If the injection path exists, we will set up injection
+	if _, err := os.Stat(injectPath); !os.IsNotExist(err) {
+		dir, err := pilotDnsCertDir()
+		if err != nil {
+			return err
+		}
+		parameters := inject.WebhookParameters{
+			ConfigFile: filepath.Join(injectPath, "config"),
+			ValuesFile: filepath.Join(injectPath, "values"),
+			MeshFile:   args.Mesh.ConfigFile,
+			CertFile:   filepath.Join(dir, "cert-chain.pem"),
+			KeyFile:    filepath.Join(dir, "key.pem"),
+			Port:       args.InjectionOptions.Port,
+		}
+
+		wh, err := inject.NewWebhook(parameters)
+		if err != nil {
+			return fmt.Errorf("failed to create injection webhook: %v", err)
+		}
+		s.addStartFunc(func(stop <-chan struct{}) error {
+			go wh.Run(stop)
+			return nil
+		})
+		return nil
+	}
+	log.Infof("Skipping sidecar injector, template not found")
 	return nil
 }
 
