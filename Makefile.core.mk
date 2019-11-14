@@ -58,12 +58,14 @@ clean-vfs:
 	@rm -fr pkg/vfs/assets.gen.go
 
 mesh: generate-vfs
+	# First line is for test environment, second is for target. Since these architectures can differ, the workaround
+	# is to build both. TODO: figure out some way to implement this better, e.g. separate test target.
 	go build -o $(GOBIN)/mesh ./cmd/mesh.go
-	GOARCH=$(TARGET_ARCH) GOOS=$(TARGET_OS) go build -o $(TARGET_OUT)/mesh ./cmd/mesh.go
+	STATIC=0 GOOS=$(TARGET_OS) GOARCH=$(TARGET_ARCH) LDFLAGS='-extldflags -static -s -w' common/scripts/gobuild.sh $(TARGET_OUT)/mesh ./cmd/mesh.go
 
 controller: generate-vfs
 	go build -o $(GOBIN)/istio-operator ./cmd/manager
-	GOARCH=$(TARGET_ARCH) GOOS=$(TARGET_OS) go build -o $(TARGET_OUT)/istio-operator ./cmd/manager
+	STATIC=0 GOOS=$(TARGET_OS) GOARCH=$(TARGET_ARCH) LDFLAGS='-extldflags -static -s -w' common/scripts/gobuild.sh $(TARGET_OUT)/istio-operator ./cmd/manager
 
 docker: controller
 	mkdir -p $(GOBIN)/docker
