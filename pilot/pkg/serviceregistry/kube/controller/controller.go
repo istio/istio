@@ -25,7 +25,7 @@ import (
 	"time"
 
 	"github.com/yl2chen/cidranger"
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/informers"
@@ -899,6 +899,25 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 			}
 		}
 
+		log.Debugf("Handle event %s for endpoint %s in namespace %s", event, ep.Name, ep.Namespace)
+
+		// headless service cluster discovery type is ORIGINAL_DST, we do not need update EDD.
+		if features.EnableHeadlessService.Get() {
+			if obj, _, _ := c.services.informer.GetIndexer().GetByKey(kube.KeyFunc(ep.Name, ep.Namespace)); obj != nil {
+				svc := obj.(*v1.Service)
+				// if the service is headless service, trigger a full push.
+				if svc.Spec.ClusterIP == v1.ClusterIPNone {
+					c.XDSUpdater.ConfigUpdate(&model.PushRequest{
+						Full:              true,
+						NamespacesUpdated: map[string]struct{}{ep.Namespace: {}},
+						// TODO: extend and set service instance type, so no need to re-init push context
+						ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
+					})
+					return nil
+				}
+			}
+		}
+
 		c.updateEDS(ep, event)
 
 		return nil
@@ -970,22 +989,6 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 			}
 		}
 		log.Infof("Handle EDS endpoint %s in namespace %s -> %v", ep.Name, ep.Namespace, addresses)
-	}
-
-	if features.EnableHeadlessService.Get() {
-		if obj, _, _ := c.services.informer.GetIndexer().GetByKey(kube.KeyFunc(ep.Name, ep.Namespace)); obj != nil {
-			svc := obj.(*v1.Service)
-			// if the service is headless service, trigger a full push.
-			if svc.Spec.ClusterIP == v1.ClusterIPNone {
-				c.XDSUpdater.ConfigUpdate(&model.PushRequest{
-					Full:              true,
-					NamespacesUpdated: map[string]struct{}{ep.Namespace: {}},
-					// TODO: extend and set service instance type, so no need to re-init push context
-					ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
-				})
-				return
-			}
-		}
 	}
 
 	_ = c.XDSUpdater.EDSUpdate(c.ClusterID, string(hostname), ep.Namespace, endpoints)
