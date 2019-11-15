@@ -216,20 +216,23 @@ func (s *Source) startWatchers() {
 		}
 	}
 
-	// TODO: This sends everything into a restart loop. Why, exactly?
-	// TODO: Refactor, move, etc.
-	// TODO: Also get actual data from kube instead of just using different default
-	// TODO: Also hide this behind a flag
-	meshconfig := mesh.DefaultMeshConfig()
-	meshconfig.OutboundClusterStatName = "curly (apiserver_source)"
-	r := &resource.Entry{
-		Metadata: resource.Metadata{
-			Name: resource.NewName("istio-system", "meshconfig"),
-		},
-		Item: &meshconfig,
+	if s.options.IncludeMeshConfig {
+		// TODO: Actually get from k8s config map. (this should be associated with the configmap watcher, probably)
+		// TODO: Somehow check assumption that configmap is in the set of resources to watch
+		// TODO: Refactor, move, etc.
+		// TODO: Also get actual data from kube instead of just using different default
+		// TODO: Also hide this behind a flag
+		meshconfig := mesh.DefaultMeshConfig()
+		meshconfig.OutboundClusterStatName = "curly (apiserver_source)"
+		r := &resource.Entry{
+			Metadata: resource.Metadata{
+				Name: resource.NewName("istio-system", "meshconfig"),
+			},
+			Item: &meshconfig,
+		}
+		s.handlers.Handle(event.AddFor(meshcfg.IstioMeshconfig, r))
+		s.handlers.Handle(event.FullSyncFor(meshcfg.IstioMeshconfig))
 	}
-	s.handlers.Handle(event.AddFor(meshcfg.IstioMeshconfig, r))
-	s.handlers.Handle(event.FullSyncFor(meshcfg.IstioMeshconfig))
 
 	if s.statusCtl != nil {
 		scope.Source.Infof("Starting status controller...")

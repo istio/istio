@@ -191,8 +191,9 @@ func (sa *SourceAnalyzer) AddFileKubeSource(files []string) error {
 // AddRunningKubeSource adds a source based on a running k8s cluster to the current SourceAnalyzer
 func (sa *SourceAnalyzer) AddRunningKubeSource(k kube.Interfaces) {
 	o := apiserver.Options{
-		Client:    k,
-		Resources: sa.kubeResources,
+		Client:            k,
+		Resources:         sa.kubeResources,
+		IncludeMeshConfig: true,
 	}
 	src := apiserverNew(o)
 

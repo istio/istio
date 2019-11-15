@@ -94,10 +94,10 @@ func (s *KubeSource) SetDefaultNamespace(defaultNs string) {
 	s.defaultNs = defaultNs
 }
 
-//TODO: If true, this should make sure we include meshcfg in reported collections, and try to parse it out of the config map if we can
+//IncludeMeshConfig specifies that we should include meshcfg in reported collections, and try to parse it out of the config map if we can
 func (s *KubeSource) IncludeMeshConfig() {
 	s.source = inmemory.New(append(s.resources.Collections(), meshcfg.IstioMeshconfig))
-	//TODO: Probably need to set a flag too
+	//TODO: need to set a flag too, and that flag should result in an Add event if there is a config map with the right data in the set of files
 }
 
 // Start implements processor.Source
