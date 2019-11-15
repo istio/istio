@@ -80,6 +80,15 @@ var (
 	// Component enablement mapping. Ex "{{.ValueComponent}}.enabled": {"{{.FeatureName}}.Components.{{.ComponentName}}.enabled}", nil},
 	// Feature enablement mapping. Ex: "{{.ValueComponent}}.enabled": {"{{.FeatureName}}.enabled}", nil},
 	componentEnablementPattern = "{{.FeatureName}}.Components.{{.ComponentName}}.Enabled"
+	// specialComponentPath lists cases of component path of values.yaml we need to have special treatment.
+	specialComponentPath = map[string]bool{
+		"mixer":                         true,
+		"mixer.policy":                  true,
+		"mixer.telemetry":               true,
+		"gateways":                      true,
+		"gateways.istio-ingressgateway": true,
+		"gateways.istio-egressgateway":  true,
+	}
 )
 
 // initAPIMapping generate the reverse mapping from original translator apiMapping.
@@ -325,6 +334,12 @@ apiVersion: apps/v1
 kind: Deployment
 name: istio-%s`
 
+	// need to do special handling for gateways and mixer
+	// ex. because deployment name should be istio-telemetry instead of istio-mixer.telemetry, we need to get rid of the prefix mixer part.
+	if specialComponentPath[newPS] && len(newP) > 2 {
+		newPS = newP[1 : len(newP)-1].String()
+	}
+
 	stString := fmt.Sprintf(stVal, newPS)
 	if err := yaml.Unmarshal([]byte(stString), &st); err != nil {
 		return err
@@ -533,16 +548,12 @@ func (t *ReverseTranslator) isEnablementPath(path util.Path) bool {
 		return false
 	}
 
-	pstr := path.String()
-	if pstr == "mixer.policy.enabled" || pstr == "mixer.telemetry.enabled" ||
-		pstr == "gateways.enabled" ||
-		pstr == "gateways.istio-ingressgateway.enabled" || pstr == "gateways.istio-egressgateway.enabled" {
+	pf := path[:len(path)-1].String()
+	if specialComponentPath[pf] {
 		return true
 	}
 
-	pf := path[:len(path)-1].String()
 	_, exist := t.ValuesToComponentName[pf]
-
 	return exist
 }
 

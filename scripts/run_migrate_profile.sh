@@ -45,10 +45,18 @@ export GO111MODULE=on
 # and the diff with current profile as reference to update.
 function run_migrate_command() {
     local profile="${1}"
-    local out_profile_path="${OUT}/profiles/${profile}"
+    local out_profile_migrated="${OUT}/${profile}_migrated.yaml"
+    local local_profile="${ROOT}/data/profiles/${profile}.yaml"
+    local out_diff="${OUT}/${profile}_diff"
     mkdir -p "${OUT}/profiles"
-    go run ./cmd/mesh.go manifest migrate "${CHARTS_DIR}" > "${out_profile_path}"
-    go run ./cmd/mesh.go manifest diff "${out_profile_path}" "${ROOT}/data/profiles/${profile}.yaml"
+    go run ./cmd/mesh.go manifest migrate "${CHARTS_DIR}" > "${out_profile_migrated}"
+    status=0
+    go run ./cmd/mesh.go profile diff "${out_profile_migrated}" "${local_profile}" > "${out_diff}" || status=1
+    if [ "${status}" -eq 1 ];then
+      echo "diff output to ${out_diff}"
+    else
+      echo "No diff found"
+    fi
 }
 
 # check the default profile.
