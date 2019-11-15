@@ -615,7 +615,9 @@ func TestAuthorizationPolicies_IsRBACEnabled(t *testing.T) {
 						Mode: rbacproto.RbacConfig_ON,
 					}),
 			},
-			want: true,
+			service:   "product.default.svc",
+			namespace: "default",
+			want:      true,
 		},
 		{
 			name: "enabled with permissive",
@@ -626,7 +628,9 @@ func TestAuthorizationPolicies_IsRBACEnabled(t *testing.T) {
 						EnforcementMode: rbacproto.EnforcementMode_PERMISSIVE,
 					}),
 			},
-			want: true,
+			service:   "product.default.svc",
+			namespace: "default",
+			want:      true,
 		},
 		{
 			name: "enabled by inclusion.service",
@@ -672,7 +676,9 @@ func TestAuthorizationPolicies_IsRBACEnabled(t *testing.T) {
 						Mode: rbacproto.RbacConfig_ON,
 					}),
 			},
-			want: true,
+			service:   "override.svc",
+			namespace: "ns",
+			want:      true,
 		},
 		{
 			name: "disabled by default",
@@ -685,6 +691,29 @@ func TestAuthorizationPolicies_IsRBACEnabled(t *testing.T) {
 						Mode: rbacproto.RbacConfig_OFF,
 					}),
 			},
+		},
+		{
+			name: "disabled-if-service-empty",
+			config: []Config{
+				newConfig("default", "",
+					&rbacproto.RbacConfig{
+						Mode: rbacproto.RbacConfig_ON,
+					}),
+			},
+			service:   "",
+			namespace: "default",
+			want:      false,
+		},
+		{
+			name: "disabled-if-ns-empty",
+			config: []Config{
+				newConfig("default", "",
+					&rbacproto.RbacConfig{
+						Mode: rbacproto.RbacConfig_ON,
+					}),
+			},
+			service: "product.default.svc",
+			want:    false,
 		},
 		{
 			name: "disabled by exclusion.service",
