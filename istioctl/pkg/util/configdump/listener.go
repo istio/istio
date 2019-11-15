@@ -28,8 +28,6 @@ func (w *Wrapper) GetDynamicListenerDump(stripVersions bool) (*adminapi.Listener
 		return nil, err
 	}
 
-	// TODO: This is a stop gap fix because we need to figure out how to represent errored
-	// or warming or draining listeners.
 	dal := make([]*adminapi.ListenersConfigDump_DynamicListener, 0)
 	for _, l := range listenerDump.DynamicListeners {
 		if l.ActiveState != nil {

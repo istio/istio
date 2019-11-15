@@ -728,8 +728,6 @@ func getInboundHTTPConnectionManager(cd *configdump.Wrapper, port int32) (*http_
 
 	for _, listener := range listeners.DynamicListeners {
 		if listener.ActiveState == nil {
-			// TODO: fix me. This logic is broken. listeners to show should include listeners being warmed
-			// otherwise there will be a diff with what Pilot sent
 			continue
 		}
 		if filter.Verify(listener.ActiveState.Listener) {
@@ -1076,7 +1074,6 @@ func getIstioVirtualServicePathForSvcFromListener(cd *configdump.Wrapper, svc v1
 	// VirtualServices for TCP may appear in the listeners
 	for _, listener := range listeners.DynamicListeners {
 		if listener.ActiveState == nil {
-			// TODO: Fix me.
 			continue
 		}
 		if filter.Verify(listener.ActiveState.Listener) {
