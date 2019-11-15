@@ -25,6 +25,7 @@ import (
 	kubeJson "k8s.io/apimachinery/pkg/runtime/serializer/json"
 
 	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/galley/pkg/config/meshcfg"
 	"istio.io/istio/galley/pkg/config/meta/schema"
 	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
@@ -91,6 +92,12 @@ func NewKubeSource(resources schema.KubeResources) *KubeSource {
 // SetDefaultNamespace enables injecting a default namespace for resources where none is already specified
 func (s *KubeSource) SetDefaultNamespace(defaultNs string) {
 	s.defaultNs = defaultNs
+}
+
+//TODO: If true, this should make sure we include meshcfg in reported collections, and try to parse it out of the config map if we can
+func (s *KubeSource) IncludeMeshConfig() {
+	s.source = inmemory.New(append(s.resources.Collections(), meshcfg.IstioMeshconfig))
+	//TODO: Probably need to set a flag too
 }
 
 // Start implements processor.Source

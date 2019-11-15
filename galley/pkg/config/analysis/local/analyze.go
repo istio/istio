@@ -107,15 +107,16 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 	if len(sa.sources) == 0 {
 		return result, fmt.Errorf("at least one file and/or Kubernetes source must be provided")
 	}
+	scope.Analysis.Infof("SourceAnalyzer.Analyze: meshcfg.IstioMeshconfig == %q", meshcfg.IstioMeshconfig)
 
 	inputs := make([]precedenceSourceInput, 0)
 
 	meshsrc := meshcfg.NewInmemory()
 	meshsrc.Set(meshcfg.Default())
-	inputs = append(inputs, precedenceSourceInput{src: meshsrc, cols: collection.Names{metadata.IstioMeshV1Alpha1MeshConfig}})
+	inputs = append(inputs, precedenceSourceInput{src: meshsrc, cols: collection.Names{meshcfg.IstioMeshconfig}})
 
 	for _, s := range sa.sources {
-		inputs = append(inputs, precedenceSourceInput{src: s, cols: sa.kubeResources.Collections()})
+		inputs = append(inputs, precedenceSourceInput{src: s, cols: append(sa.kubeResources.Collections(), meshcfg.IstioMeshconfig)})
 	}
 
 	var namespaces []string
@@ -166,6 +167,7 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 func (sa *SourceAnalyzer) AddFileKubeSource(files []string) error {
 	src := inmemory.NewKubeSource(sa.kubeResources)
 	src.SetDefaultNamespace(sa.namespace)
+	src.IncludeMeshConfig()
 
 	var errs error
 

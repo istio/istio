@@ -20,6 +20,7 @@ import (
 
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/meta/schema/collection"
+	"istio.io/istio/galley/pkg/config/scope"
 )
 
 // precedenceSource is a processor.Source implementation that combines multiple sources in precedence order
@@ -32,7 +33,7 @@ type precedenceSource struct {
 	mu      sync.Mutex
 	started bool
 
-	inputs  []event.Source
+	inputs  []precedenceSourceInput
 	handler event.Handler
 
 	eventStateMu     sync.Mutex
@@ -53,20 +54,9 @@ type precedenceHandler struct {
 var _ event.Source = &precedenceSource{}
 
 func newPrecedenceSource(inputs []precedenceSourceInput) *precedenceSource {
-	expectedCounts := make(map[collection.Name]int)
-
-	sources := make([]event.Source, 0)
-	for _, i := range inputs {
-		sources = append(sources, i.src)
-		for _, c := range i.cols {
-			expectedCounts[c]++
-		}
-	}
-
 	return &precedenceSource{
-		inputs:           sources,
+		inputs:           inputs,
 		resourcePriority: make(map[string]int),
-		expectedCounts:   expectedCounts,
 	}
 }
 
@@ -89,6 +79,7 @@ func (ph *precedenceHandler) Handle(e event.Event) {
 // For each collection, we want to only send this once, after all upstream sources have sent theirs.
 func (ph *precedenceHandler) handleFullSync(e event.Event) {
 	ph.src.expectedCounts[e.Source]--
+	scope.Analysis.Infof("precedenceHandler.handleFullSync: Got event %v, for col %v, counts at %d", e, e.Source, ph.src.expectedCounts[e.Source])
 	if ph.src.expectedCounts[e.Source] > 0 {
 		return
 	}
@@ -122,7 +113,7 @@ func (s *precedenceSource) Dispatch(h event.Handler) {
 			precedence: i,
 			src:        s,
 		}
-		input.Dispatch(ph)
+		input.src.Dispatch(ph)
 	}
 }
 
@@ -130,13 +121,29 @@ func (s *precedenceSource) Dispatch(h event.Handler) {
 func (s *precedenceSource) Start() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	scope.Analysis.Infof("precedenceSource.Start")
 
 	if s.started {
 		return
 	}
 
+	// Reset expected counts map
+	s.expectedCounts = make(map[collection.Name]int)
 	for _, i := range s.inputs {
-		i.Start()
+		scope.Analysis.Infof("precedenceSource.Start: input source: %v", i.src)
+
+		for _, c := range i.cols {
+			s.expectedCounts[c]++
+			scope.Analysis.Infof("precedenceSource.Start: \t\tcol: %v = %d", c, s.expectedCounts[c])
+		}
+	}
+
+	for k, v := range s.expectedCounts {
+		scope.Analysis.Infof("precedenceSource.Start: expectedCounts for %v is %d", k, v)
+	}
+
+	for _, i := range s.inputs {
+		i.src.Start()
 	}
 
 	s.started = true
@@ -146,6 +153,7 @@ func (s *precedenceSource) Start() {
 func (s *precedenceSource) Stop() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	scope.Analysis.Infof("precedenceSource.Stop")
 
 	if !s.started {
 		return
@@ -154,6 +162,6 @@ func (s *precedenceSource) Stop() {
 	s.started = false
 
 	for _, i := range s.inputs {
-		i.Stop()
+		i.src.Stop()
 	}
 }

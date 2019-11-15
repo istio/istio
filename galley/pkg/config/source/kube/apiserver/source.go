@@ -24,7 +24,7 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
+	"istio.io/istio/galley/pkg/config/meshcfg"
 	"istio.io/istio/galley/pkg/config/meta/schema"
 	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
@@ -228,8 +228,8 @@ func (s *Source) startWatchers() {
 		},
 		Item: &meshconfig,
 	}
-	s.handlers.Handle(event.AddFor(metadata.IstioMeshV1Alpha1MeshConfig, r))
-	s.handlers.Handle(event.FullSyncFor(metadata.IstioMeshV1Alpha1MeshConfig))
+	s.handlers.Handle(event.AddFor(meshcfg.IstioMeshconfig, r))
+	s.handlers.Handle(event.FullSyncFor(meshcfg.IstioMeshconfig))
 
 	if s.statusCtl != nil {
 		scope.Source.Infof("Starting status controller...")
