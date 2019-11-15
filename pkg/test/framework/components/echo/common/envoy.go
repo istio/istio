@@ -130,7 +130,7 @@ func CheckOutboundConfig(target echo.Instance, port echo.Port, validator *struct
 		// TCP case: Make sure we have an outbound listener configured.
 		listenerName := listenerName(target.Address(), port)
 		return validator.
-			Exists("{.configs[*].dynamicActiveListeners[?(@.listener.name == '%s')]}", listenerName).
+			Exists("{.configs[*].dynamicListeners[?(@.activeState.listener.name == '%s')]}", listenerName).
 			Check()
 	}
 	return nil
