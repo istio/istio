@@ -110,7 +110,7 @@ func TestAuthZConvert(t *testing.T) {
 				"testdata/authz/converter/svc-bookinfo.yaml",
 			},
 			configMapFile: "testdata/authz/converter/istio-configmap.yaml",
-			expectedError: "Error: failed to convert policies: cannot convert binding to sources: serviceRoleBinding with group is not supported\n",
+			expectedError: "Error: failed to convert policies: cannot convert binding to sources: ServiceRoleBinding with group is not supported\n",
 		},
 		{
 			name: "ServiceRole with constraints",
@@ -123,7 +123,7 @@ func TestAuthZConvert(t *testing.T) {
 				"testdata/authz/converter/svc-bookinfo.yaml",
 			},
 			configMapFile: "testdata/authz/converter/istio-configmap.yaml",
-			expectedError: "Error: failed to convert policies: cannot convert access rule to operation: serviceRole with constraints is not supported\n",
+			expectedError: "Error: failed to convert policies: cannot convert access rule to operation: ServiceRole with constraints is not supported\n",
 		},
 		{
 			name: "Missing ClusterRbacConfig",
