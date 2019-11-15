@@ -2,7 +2,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-  - citadel.yaml
+  - citadel.gen.yaml
 
 # Must be installed in istio-system to preserve secrets, it is a singleton.
 namespace: istio-system
