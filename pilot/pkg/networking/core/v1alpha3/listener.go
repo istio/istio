@@ -121,7 +121,10 @@ const (
 	// EnvoyServerName for istio's envoy
 	EnvoyServerName = "istio-envoy"
 
-	httpEnvoyAccessLogName = "http_envoy_accesslog"
+	httpEnvoyAccessLogFriendlyName = "http_envoy_accesslog"
+	tcpEnvoyAccessLogFriendlyName = "tcp_envoy_accesslog"
+
+	tcpEnvoyALSName = "envoy.tcp_grpc_access_log"
 
 	// EnvoyAccessLogCluster is the cluster name that has details for server implementing Envoy ALS.
 	// This cluster is created in bootstrap.
@@ -1877,7 +1880,7 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, env *model.Env
 	if env.Mesh.EnableEnvoyAccessLogService {
 		fl := &accesslogconfig.HttpGrpcAccessLogConfig{
 			CommonConfig: &accesslogconfig.CommonGrpcAccessLogConfig{
-				LogName: httpEnvoyAccessLogName,
+				LogName: httpEnvoyAccessLogFriendlyName,
 				GrpcService: &core.GrpcService{
 					TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
 						EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
