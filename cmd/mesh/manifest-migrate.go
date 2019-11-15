@@ -23,6 +23,7 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/spf13/cobra"
 
+	"istio.io/operator/pkg/apis/istio/v1alpha2"
 	"istio.io/operator/pkg/kubectlcmd"
 	"istio.io/operator/pkg/translate"
 	"istio.io/operator/pkg/util"
@@ -65,7 +66,7 @@ func manifestMigrateCmd(rootArgs *rootArgs, mmArgs *manifestMigrateArgs) *cobra.
 }
 
 func valueFileFilter(path string) bool {
-	return filepath.Base(path) == "values.yaml"
+	return filepath.Base(path) == "values.yaml" || filepath.Base(path) == "global.yaml"
 }
 
 // migrateFromFiles handles migration for local values.yaml files
@@ -93,16 +94,19 @@ func translateFunc(values []byte, l *logger) {
 	if err != nil {
 		l.logAndFatal("error translating values.yaml: ", err.Error())
 	}
+	isCP := &v1alpha2.IstioControlPlane{Spec: isCPSpec, Kind: "IstioControlPlane", ApiVersion: "install.istio.io/v1alpha2"}
+
 	ms := jsonpb.Marshaler{}
-	gotString, err := ms.MarshalToString(isCPSpec)
+	gotString, err := ms.MarshalToString(isCP)
 	if err != nil {
-		l.logAndFatal("error marshaling translated IstioControlPlaneSpec: ", err.Error())
+		l.logAndFatal("error marshaling translated IstioControlPlane: ", err.Error())
 	}
-	cpYaml, _ := yaml.JSONToYAML([]byte(gotString))
+
+	isCPYaml, _ := yaml.JSONToYAML([]byte(gotString))
 	if err != nil {
 		l.logAndFatal("error converting JSON: ", gotString, "\n", err.Error())
 	}
-	l.print(string(cpYaml) + "\n")
+	l.print(string(isCPYaml) + "\n")
 }
 
 // migrateFromClusterConfig handles migration for in cluster config.

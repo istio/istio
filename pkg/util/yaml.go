@@ -97,12 +97,12 @@ func UnmarshalWithJSONPB(y string, out proto.Message) error {
 }
 
 // UnmarshalValuesWithJSONPB unmarshals y into out using golang jsonpb.
-func UnmarshalValuesWithJSONPB(y string, out proto.Message) error {
+func UnmarshalValuesWithJSONPB(y string, out proto.Message, allowUnknown bool) error {
 	jb, err := yaml.YAMLToJSON([]byte(y))
 	if err != nil {
 		return err
 	}
-	u := jsonpb2.Unmarshaler{AllowUnknownFields: false}
+	u := jsonpb2.Unmarshaler{AllowUnknownFields: allowUnknown}
 	err = u.Unmarshal(bytes.NewReader(jb), out)
 	if err != nil {
 		return err
