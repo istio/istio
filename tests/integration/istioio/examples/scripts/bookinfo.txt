@@ -21,17 +21,17 @@ set -o pipefail
 # Remove the injection label to prevent following command to fail
 kubectl label namespace default istio-injection-
 
-# $snippet automatic_sidecar_injection.sh syntax="bash"
+# $snippet automatic_sidecar_injection syntax="bash"
 $ kubectl label namespace default istio-injection=enabled
 # $endsnippet
 
-# $snippet deploy_bookinfo_application.sh syntax="bash"
+# $snippet deploy_bookinfo_application syntax="bash"
 $ kubectl apply -f @samples/bookinfo/platform/kube/bookinfo.yaml@
 # $endsnippet
 
-# $snippet verify_service.sh syntax="bash" outputis="text" outputsnippet="true"
+# $snippet verify_service syntax="bash" outputis="text" outputsnippet="true"
 $ kubectl get services
-# $snippetoutput verifier="lineRegex"
+# $verify verifier="lineRegex"
 NAME *TYPE *CLUSTER-IP *EXTERNAL-IP *PORT\(S\) *AGE
 details *ClusterIP *[0-9.]* *.none. *9080/TCP
 kubernetes *ClusterIP *[0-9.]* *.none. *443/TCP
@@ -43,9 +43,9 @@ reviews *ClusterIP *[0-9.]* *.none. *9080/TCP
 kubectl wait --for=condition=available deployment --all --timeout=300s
 kubectl wait --for=condition=Ready pod --all --timeout=300s
 
-# $snippet verify_pods.sh syntax="bash" outputis="text" outputsnippet="true"
+# $snippet verify_pods syntax="bash" outputis="text" outputsnippet="true"
 $ kubectl get pods
-# $snippetoutput verifier="lineRegex"
+# $verify verifier="lineRegex"
 NAME *READY *STATUS *RESTARTS *AGE
 details-v1-[0-9a-z]*-[0-9a-z]* *2/2 *Running *0
 productpage-v1-[0-9a-z]*-[0-9a-z]* *2/2 *Running *0

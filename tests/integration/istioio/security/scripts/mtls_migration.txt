@@ -18,23 +18,23 @@ set -e
 set -u
 set -o pipefail
 
-# $snippet curl_foo_bar_legacy.sh syntax="bash" outputis="text"
+# $snippet curl_foo_bar_legacy syntax="bash" outputis="text"
 #nolint
 $ for from in "foo" "bar" "legacy"; do kubectl exec $(kubectl get pod -l app=sleep -n ${from} -o jsonpath={.items..metadata.name}) -c sleep -n ${from} -- curl http://httpbin.foo:8000/ip -s -o /dev/null -w "sleep.${from} to httpbin.foo: %{http_code}\n"; done
-# $snippetoutput
+# $verify
 sleep.foo to httpbin.foo: 200
 sleep.bar to httpbin.foo: 200
 sleep.legacy to httpbin.foo: 200
 # $endsnippet
 
-# $snippet verify_initial_policies.sh syntax="bash" outputis="text"
+# $snippet verify_initial_policies syntax="bash" outputis="text"
 $ kubectl get policies.authentication.istio.io --all-namespaces
-# $snippetoutput
+# $verify
 NAMESPACE      NAME                          AGE
 istio-system   grafana-ports-mtls-disabled   ?
 # $endsnippet
 
-# $snippet configure_mtls_destinationrule.sh syntax="bash"
+# $snippet configure_mtls_destinationrule syntax="bash"
 $ cat <<EOF | kubectl apply -n foo -f -
 apiVersion: "networking.istio.io/v1alpha3"
 kind: "DestinationRule"
@@ -48,16 +48,16 @@ spec:
 EOF
 # $endsnippet
 
-# $snippet curl_foo_bar_legacy_post_dr.sh syntax="bash" outputis="text"
+# $snippet curl_foo_bar_legacy_post_dr syntax="bash" outputis="text"
 #nolint
 $ for from in "foo" "bar" "legacy"; do kubectl exec $(kubectl get pod -l app=sleep -n ${from} -o jsonpath={.items..metadata.name}) -c sleep -n ${from} -- curl http://httpbin.foo:8000/ip -s -o /dev/null -w "sleep.${from} to httpbin.foo: %{http_code}\n"; done
-# $snippetoutput
+# $verify
 sleep.foo to httpbin.foo: 200
 sleep.bar to httpbin.foo: 200
 sleep.legacy to httpbin.foo: 200
 # $endsnippet
 
-# $snippet httpbin_foo_mtls_only.sh syntax="bash"
+# $snippet httpbin_foo_mtls_only syntax="bash"
 $ cat <<EOF | kubectl apply -n foo -f -
 apiVersion: "authentication.istio.io/v1alpha1"
 kind: "Policy"
@@ -77,12 +77,16 @@ EOF
 set +e
 set +o pipefail
 
-# $snippet curl_foo_bar_legacy_httpbin_foo_mtls.sh syntax="bash" outputis="text"
+# $snippet curl_foo_bar_legacy_httpbin_foo_mtls syntax="bash" outputis="text"
 #nolint
 $ for from in "foo" "bar" "legacy"; do kubectl exec $(kubectl get pod -l app=sleep -n ${from} -o jsonpath={.items..metadata.name}) -c sleep -n ${from} -- curl http://httpbin.foo:8000/ip -s -o /dev/null -w "sleep.${from} to httpbin.foo: %{http_code}\n"; done
-# $snippetoutput
+# $verify
 sleep.foo to httpbin.foo: 200
 sleep.bar to httpbin.foo: 200
 sleep.legacy to httpbin.foo: 000
 command terminated with exit code 56
 # $endsnippet
+
+# Restore error handling
+set -e
+set -o pipefail
