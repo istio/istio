@@ -4,7 +4,7 @@
 # Security is not enabled - this can be used for users who have ipsec or other secure VPC, or don't need the
 # security features. It is also intended to verify that Istio can work without citadel for a-la-carte modes.
 
-run-test-noauth: ${GOBIN}/istioctl run-test-noauth-micro run-test-noauth-full run-test-knative
+run-test-noauth: ${GOBIN}/istioctl run-build run-test-noauth-micro run-test-noauth-full run-test-knative
 
 # Run a test with the smallest/simplest install possible
 run-test-noauth-micro:
@@ -39,11 +39,10 @@ run-test-noauth-micro:
 
 	# Verify ingress and pilot are happy
 	# The 'simple' fortio has a rewrite rule - so /fortio/fortio/ is the real UI
-	curl -s localhost:30080/fortio/fortio/ |grep fortio_chart.js
+	timeout 10s sh -c 'until curl -s localhost:30080/fortio/fortio/ | grep fortio_chart.js; do echo "retrying..."; sleep .1; done'
 
 	# This is the ingress gateway, no rewrite. Without host it hits the redirect
-	curl -s localhost:30080/fortio/ -HHost:fortio-ingress.example.com | grep fortio_chart.js
-
+	timeout 3s sh -c 'until curl -s localhost:30080/fortio/ -HHost:fortio-ingress.example.com | grep fortio_chart.js; do echo "retrying..."; sleep .1; done'
 
 # Installs minimal istio (pilot + ingressgateway) to support knative serving.
 # Then installs a simple service and waits for the route to be ready.

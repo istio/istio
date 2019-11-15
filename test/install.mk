@@ -11,7 +11,7 @@ INSTALL_OPTS="--set global.istioNamespace=${ISTIO_CONTROL_NS} --set global.confi
 # used directly with kubectl apply -f https://....
 # TODO: Add a local test - to check various things are in the right place (jsonpath or equivalent)
 # TODO: run a local etcd/apiserver and verify apiserver accepts the files
-run-build:  dep run-build-cluster run-build-demo run-build-micro run-build-minimal run-build-citadel run-build-default run-build-canary
+run-build:  dep run-build-cluster run-build-demo run-build-micro run-build-minimal run-build-citadel run-build-default run-build-canary run-build-ingress
 
 # Kustomization for cluster-wide resources. Must be used as first step ( if old installer was used - this might not be
 # required).
@@ -30,6 +30,7 @@ run-build-minimal:
 	  --set global.controlPlaneSecurityEnabled=false \
 	  --set pilot.useMCP=false \
 	  --set pilot.ingress.ingressControllerMode=STRICT \
+	  --set global.mtls.auto=false \
 	  --set pilot.plugins="health" > kustomize/minimal/discovery.gen.yaml
 
 # Generate config for ingress matching minimal profie. Runs in istio-system.
@@ -48,7 +49,7 @@ run-build-ingress:
       > test/knative/istio-ingress.gen.yaml
 
 run-build-citadel:
-	bin/iop ${ISTIO_SYSTEM_NS} istio-system-security ${BASE}/security/citadel -t --set kustomize=true > kustomize/citadel/citadel.yaml
+	bin/iop ${ISTIO_SYSTEM_NS} istio-system-security ${BASE}/security/citadel -t --set kustomize=true > kustomize/citadel/citadel.gen.yaml
 
 # A canary pilot, to be used for testing config changes in pilot.
 run-build-canary: run-build-cluster

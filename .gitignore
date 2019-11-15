@@ -1,0 +1,2 @@
+test/**/*.gen.yaml
+kustomize/**/*.gen.yaml
