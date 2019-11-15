@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,28 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ingress
+package curl_test
 
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment"
-	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/util/curl"
 )
 
-var (
-	inst istio.Instance
-)
-
-func TestMain(m *testing.M) {
-	// Integration test for the ingress SDS Gateway flow.
-	framework.
-		NewSuite("trafficmanagement_ingress", m).
-		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(&inst, nil)).
-		RequireEnvironment(environment.Kube).
-		Run()
-
+func TestGetVersion(t *testing.T) {
+	_, err := curl.GetVersion()
+	if err != nil {
+		t.Fatal(err)
+	}
 }

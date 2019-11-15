@@ -1,0 +1,122 @@
+#!/usr/bin/env bash
+
+# Copyright Istio Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+set -e
+set -u
+set -o pipefail
+
+# $snippet create_httpbin_mtls_secrets syntax="bash"
+$ kubectl -n istio-system delete secret httpbin-credential
+$ kubectl create -n istio-system secret generic httpbin-credential  \
+--from-file=key=httpbin.example.com/3_application/private/httpbin.example.com.key.pem \
+--from-file=cert=httpbin.example.com/3_application/certs/httpbin.example.com.cert.pem \
+--from-file=cacert=httpbin.example.com/2_intermediate/certs/ca-chain.cert.pem
+# $endsnippet
+
+# $snippet configure_httpbin_mtls_ingress syntax="bash"
+$ cat <<EOF | kubectl apply -f -
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+ name: mygateway
+spec:
+ selector:
+   istio: ingressgateway # use istio default ingress gateway
+ servers:
+ - port:
+     number: 443
+     name: https
+     protocol: HTTPS
+   tls:
+     mode: MUTUAL
+     credentialName: "httpbin-credential" # must be the same as secret
+   hosts:
+   - "httpbin.example.com"
+EOF
+# $endsnippet
+
+# Wait for the change to propagate
+sleep 5s
+
+# We already created a snippet for this.
+$ export SECURE_INGRESS_PORT={{ .secureIngressPortCommand }}
+$ export INGRESS_HOST={{ .ingressHostCommand }}
+
+# The next command is expected to fail, but don't error the script.
+set +e
+set +o pipefail
+
+# $snippet httpbin_verify_require_mtls syntax="bash"
+$ curl -v -HHost:httpbin.example.com \
+--resolve httpbin.example.com:$SECURE_INGRESS_PORT:$INGRESS_HOST \
+--cacert httpbin.example.com/2_intermediate/certs/ca-chain.cert.pem \
+https://httpbin.example.com:$SECURE_INGRESS_PORT/status/418
+# verify verifier="contains"
+alert handshake failure
+# $snippetoutput
+* TLSv1.2 (OUT), TLS header, Certificate Status (22):
+* TLSv1.2 (OUT), TLS handshake, Client hello (1):
+* TLSv1.2 (IN), TLS handshake, Server hello (2):
+* TLSv1.2 (IN), TLS handshake, Certificate (11):
+* TLSv1.2 (IN), TLS handshake, Server key exchange (12):
+* TLSv1.2 (IN), TLS handshake, Request CERT (13):
+* TLSv1.2 (IN), TLS handshake, Server finished (14):
+* TLSv1.2 (OUT), TLS handshake, Certificate (11):
+* TLSv1.2 (OUT), TLS handshake, Client key exchange (16):
+* TLSv1.2 (OUT), TLS change cipher, Client hello (1):
+* TLSv1.2 (OUT), TLS handshake, Finished (20):
+* TLSv1.2 (IN), TLS alert, Server hello (2):
+* error:14094410:SSL routines:ssl3_read_bytes:sslv3 alert handshake failure
+# $endsnippet
+
+# Restore error handling
+set -e
+set -o pipefail
+
+# $snippet httpbin_mtls_success syntax="bash"
+$ curl -v -HHost:httpbin.example.com \
+--resolve httpbin.example.com:$SECURE_INGRESS_PORT:$INGRESS_HOST \
+--cacert httpbin.example.com/2_intermediate/certs/ca-chain.cert.pem \
+--cert httpbin.example.com/4_client/certs/httpbin.example.com.cert.pem \
+--key httpbin.example.com/4_client/private/httpbin.example.com.key.pem \
+https://httpbin.example.com:$SECURE_INGRESS_PORT/status/418
+# $verify verifier="contains" source="stderr"
+HTTP/2 418
+# $verify verifier="contains" source="stdout"
+-=[ teapot ]=-
+# $snippetoutput
+...
+HTTP/2 418
+...
+-=[ teapot ]=-
+
+   _...._
+ .'  _ _ `.
+| ."` ^ `". _,
+\_;`"---"`|//
+  |       ;/
+  \_     _/
+    `"""`
+# $endsnippet
+
+# $snippet create_httpbin_separate_secrets syntax="bash"
+$ kubectl -n istio-system delete secret httpbin-credential
+$ kubectl create -n istio-system secret generic httpbin-credential  \
+--from-file=key=httpbin.example.com/3_application/private/httpbin.example.com.key.pem \
+--from-file=cert=httpbin.example.com/3_application/certs/httpbin.example.com.cert.pem
+$ kubectl create -n istio-system secret generic httpbin-credential-cacert  \
+--from-file=cacert=httpbin.example.com/2_intermediate/certs/ca-chain.cert.pem
+# $endsnippet
