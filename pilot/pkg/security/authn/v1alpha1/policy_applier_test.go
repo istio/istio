@@ -853,7 +853,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 				{
 					TLSContext: tlsContext,
 					FilterChainMatch: &listener.FilterChainMatch{
-						ApplicationProtocols: []string{"istio"},
+						ApplicationProtocols: []string{"istio", "istio-mixerless"},
 					},
 					ListenerFilters: []*listener.ListenerFilter{
 						{

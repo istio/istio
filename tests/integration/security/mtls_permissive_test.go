@@ -62,8 +62,8 @@ func verifyListener(listener *xdsapi.Listener, t *testing.T) error {
 		return fmt.Errorf("expect exactly 2 filter chains, actually %d", l)
 	}
 	mtlsChain := listener.FilterChains[0]
-	if !reflect.DeepEqual(mtlsChain.FilterChainMatch.ApplicationProtocols, []string{"istio"}) {
-		return errors.New("alpn is not istio")
+	if !reflect.DeepEqual(mtlsChain.FilterChainMatch.ApplicationProtocols, []string{"istio", "istio-mixerless"}) {
+		return errors.New("alpn is not istio/istio-mixerless")
 	}
 	if mtlsChain.TlsContext == nil {
 		return errors.New("tls context is empty")

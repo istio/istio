@@ -528,7 +528,7 @@ func TestOptions(t *testing.T) {
 			option: option.EnvoyMetricsServiceTLS(&networkingAPI.TLSSettings{
 				Mode: networkingAPI.TLSSettings_ISTIO_MUTUAL,
 			}, &model.NodeMetadata{}),
-			expected: "{\"common_tls_context\":{\"tls_certificates\":[{\"certificate_chain\":{\"filename\":\"/etc/certs/root-cert.pem\"},\"private_key\":{\"filename\":\"/etc/certs/key.pem\"}}],\"validation_context\":{\"trusted_ca\":{\"filename\":\"/etc/certs/cert-chain.pem\"}},\"alpn_protocols\":[\"istio\",\"h2\"]},\"sni\":\"envoy_metrics_service\"}", // nolint: lll
+			expected: "{\"common_tls_context\":{\"tls_certificates\":[{\"certificate_chain\":{\"filename\":\"/etc/certs/root-cert.pem\"},\"private_key\":{\"filename\":\"/etc/certs/key.pem\"}}],\"validation_context\":{\"trusted_ca\":{\"filename\":\"/etc/certs/cert-chain.pem\"}},\"alpn_protocols\":[\"istio-mixerless\",\"istio\",\"h2\"]},\"sni\":\"envoy_metrics_service\"}", // nolint: lll
 		},
 		{
 			testName: "envoy metrics keepalive nil",
@@ -598,7 +598,7 @@ func TestOptions(t *testing.T) {
 			option: option.EnvoyAccessLogServiceTLS(&networkingAPI.TLSSettings{
 				Mode: networkingAPI.TLSSettings_ISTIO_MUTUAL,
 			}, &model.NodeMetadata{}),
-			expected: "{\"common_tls_context\":{\"tls_certificates\":[{\"certificate_chain\":{\"filename\":\"/etc/certs/root-cert.pem\"},\"private_key\":{\"filename\":\"/etc/certs/key.pem\"}}],\"validation_context\":{\"trusted_ca\":{\"filename\":\"/etc/certs/cert-chain.pem\"}},\"alpn_protocols\":[\"istio\",\"h2\"]},\"sni\":\"envoy_accesslog_service\"}", // nolint: lll
+			expected: "{\"common_tls_context\":{\"tls_certificates\":[{\"certificate_chain\":{\"filename\":\"/etc/certs/root-cert.pem\"},\"private_key\":{\"filename\":\"/etc/certs/key.pem\"}}],\"validation_context\":{\"trusted_ca\":{\"filename\":\"/etc/certs/cert-chain.pem\"}},\"alpn_protocols\":[\"istio-mixerless\",\"istio\",\"h2\"]},\"sni\":\"envoy_accesslog_service\"}", // nolint: lll
 		},
 		{
 			testName: "envoy access log keepalive nil",
