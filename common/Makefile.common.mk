@@ -104,7 +104,7 @@ update-common-protos:
 	@git clone -q --depth 1 --single-branch --branch $(UPDATE_BRANCH) https://github.com/istio/common-files $(TMP)/common-files
 	@cd $(TMP)/common-files ; git rev-parse HEAD > common-protos/.commonfiles.sha
 	@rm -fr common-protos
-	@cp -ar $(TMP)/common-files/common-protos/* $(shell pwd)/common-protos
+	@cp -ar $(TMP)/common-files/common-protos $(shell pwd)
 	@rm -fr $(TMP)/common-files
 
 check-clean-repo:
