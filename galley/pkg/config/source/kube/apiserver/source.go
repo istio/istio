@@ -216,7 +216,7 @@ func (s *Source) startWatchers() {
 		}
 	}
 
-	// TODO: This sends everything into a restart loop, since processing doesn't expect to encounter events after it starts
+	// TODO: This sends everything into a restart loop. Why, exactly?
 	// TODO: Refactor, move, etc.
 	// TODO: Also get actual data from kube instead of just using different default
 	// TODO: Also hide this behind a flag

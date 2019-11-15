@@ -104,13 +104,19 @@ func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, 
 func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) {
 	var result AnalysisResult
 
-	meshsrc := meshcfg.NewInmemory()
-	meshsrc.Set(meshcfg.Default())
-
 	if len(sa.sources) == 0 {
 		return result, fmt.Errorf("at least one file and/or Kubernetes source must be provided")
 	}
-	src := newPrecedenceSource(sa.sources)
+
+	inputs := make([]precedenceSourceInput, 0)
+
+	meshsrc := meshcfg.NewInmemory()
+	meshsrc.Set(meshcfg.Default())
+	inputs = append(inputs, precedenceSourceInput{src: meshsrc, cols: collection.Names{metadata.IstioMeshV1Alpha1MeshConfig}})
+
+	for _, s := range sa.sources {
+		inputs = append(inputs, precedenceSourceInput{src: s, cols: sa.kubeResources.Collections()})
+	}
 
 	var namespaces []string
 	if sa.namespace != "" {
@@ -135,7 +141,7 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 	processorSettings := processor.Settings{
 		Metadata:           sa.m,
 		DomainSuffix:       domainSuffix,
-		Source:             event.CombineSources(src, meshsrc),
+		Source:             newPrecedenceSource(inputs),
 		TransformProviders: sa.transformerProviders,
 		Distributor:        distributor,
 		EnabledSnapshots:   []string{metadata.LocalAnalysis, metadata.SyntheticServiceEntry},

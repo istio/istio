@@ -26,6 +26,8 @@ import (
 // Such that events from sources later in the input list take precedence over events affecting
 // the same resource from sources earlier in the list
 // Only events from the highest precedence source so far are allowed through.
+// Each source input also needs to include the collections it provides,
+// so we know how many to wait for before sending a full sync
 type precedenceSource struct {
 	mu      sync.Mutex
 	started bool
@@ -35,7 +37,12 @@ type precedenceSource struct {
 
 	eventStateMu     sync.Mutex
 	resourcePriority map[string]int
-	fullSyncCounts   map[collection.Name]int
+	expectedCounts   map[collection.Name]int
+}
+
+type precedenceSourceInput struct {
+	src  event.Source
+	cols collection.Names
 }
 
 type precedenceHandler struct {
@@ -45,11 +52,21 @@ type precedenceHandler struct {
 
 var _ event.Source = &precedenceSource{}
 
-func newPrecedenceSource(sources []event.Source) *precedenceSource {
+func newPrecedenceSource(inputs []precedenceSourceInput) *precedenceSource {
+	expectedCounts := make(map[collection.Name]int)
+
+	sources := make([]event.Source, 0)
+	for _, i := range inputs {
+		sources = append(sources, i.src)
+		for _, c := range i.cols {
+			expectedCounts[c]++
+		}
+	}
+
 	return &precedenceSource{
 		inputs:           sources,
 		resourcePriority: make(map[string]int),
-		fullSyncCounts:   make(map[collection.Name]int),
+		expectedCounts:   expectedCounts,
 	}
 }
 
@@ -71,8 +88,8 @@ func (ph *precedenceHandler) Handle(e event.Event) {
 // handleFullSync handles FullSync events, which are a special case.
 // For each collection, we want to only send this once, after all upstream sources have sent theirs.
 func (ph *precedenceHandler) handleFullSync(e event.Event) {
-	ph.src.fullSyncCounts[e.Source]++
-	if ph.src.fullSyncCounts[e.Source] != len(ph.src.inputs) {
+	ph.src.expectedCounts[e.Source]--
+	if ph.src.expectedCounts[e.Source] > 0 {
 		return
 	}
 	ph.src.handler.Handle(e)

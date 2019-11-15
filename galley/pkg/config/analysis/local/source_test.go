@@ -19,6 +19,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
+	"istio.io/istio/galley/pkg/config/testing/data"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
 )
 
@@ -27,7 +29,8 @@ func TestBasicSingleSource(t *testing.T) {
 
 	s1 := &fixtures.Source{}
 
-	ps := newPrecedenceSource([]event.Source{s1})
+	psi := precedenceSourceInput{src: s1, cols: collection.Names{data.Collection1}}
+	ps := newPrecedenceSource([]precedenceSourceInput{psi})
 
 	h := &fixtures.Accumulator{}
 	ps.Dispatch(h)
@@ -49,7 +52,10 @@ func TestWaitAndCombineFullSync(t *testing.T) {
 	s1 := &fixtures.Source{}
 	s2 := &fixtures.Source{}
 
-	ps := newPrecedenceSource([]event.Source{s1, s2})
+	psi1 := precedenceSourceInput{src: s1, cols: collection.Names{data.Collection1}}
+	psi2 := precedenceSourceInput{src: s2, cols: collection.Names{data.Collection1}}
+
+	ps := newPrecedenceSource([]precedenceSourceInput{psi1, psi2})
 
 	h := &fixtures.Accumulator{}
 	ps.Dispatch(h)
@@ -73,7 +79,11 @@ func TestPrecedence(t *testing.T) {
 	s2 := &fixtures.Source{}
 	s3 := &fixtures.Source{}
 
-	ps := newPrecedenceSource([]event.Source{s1, s2, s3})
+	psi1 := precedenceSourceInput{src: s1, cols: collection.Names{data.Collection1}}
+	psi2 := precedenceSourceInput{src: s2, cols: collection.Names{data.Collection1}}
+	psi3 := precedenceSourceInput{src: s3, cols: collection.Names{data.Collection1}}
+
+	ps := newPrecedenceSource([]precedenceSourceInput{psi1, psi2, psi3})
 
 	h := &fixtures.Accumulator{}
 	ps.Dispatch(h)
