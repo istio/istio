@@ -398,10 +398,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			routeName:             "9000",
 			sidecarConfig:         sidecarConfig,
 			virtualServiceConfigs: nil,
-			expectedHosts: map[string]map[string]bool{
-				"bookinfo.com:9999": {"bookinfo.com:9999": true, "*.bookinfo.com:9999": true},
-				"bookinfo.com:70":   {"bookinfo.com:70": true, "*.bookinfo.com:70": true},
-			},
+			expectedHosts:         map[string]map[string]bool{},
 		},
 		{
 			name:                  "sidecar config with unix domain socket listener",
@@ -639,9 +636,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			routeName:             "18888",
 			sidecarConfig:         sidecarConfigWithRegistryOnly,
 			virtualServiceConfigs: nil,
-			expectedHosts: map[string]map[string]bool{
-				"test-headless.com:8888": {"test-headless.com:8888": true, "*.test-headless.com:8888": true},
-			},
+			expectedHosts:         map[string]map[string]bool{},
 		},
 	}
 

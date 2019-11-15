@@ -480,23 +480,18 @@ func (ilw *IstioEgressListenerWrapper) selectVirtualServices(virtualServices []C
 func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, configNamespace string) []*Service {
 
 	importedServices := make([]*Service, 0)
+	wildcardHosts, wnsFound := ilw.listenerHosts[wildcardNamespace]
 	for _, s := range services {
 		configNamespace := s.Attributes.Namespace
 
 		// Check if there is an explicit import of form ns/* or ns/host
 		if importedHosts, nsFound := ilw.listenerHosts[configNamespace]; nsFound {
-			if hostFound, sidecarServices := matchingServices(importedHosts, s, ilw); hostFound {
-				importedServices = append(importedServices, sidecarServices...)
-				continue
-			}
+			importedServices = append(importedServices, matchingServices(importedHosts, s, ilw)...)
 		}
 
 		// Check if there is an import of form */host or */*
-		if importedHosts, wnsFound := ilw.listenerHosts[wildcardNamespace]; wnsFound {
-			if hostFound, sidecarServices := matchingServices(importedHosts, s, ilw); hostFound {
-				importedServices = append(importedServices, sidecarServices...)
-				continue
-			}
+		if wnsFound {
+			importedServices = append(importedServices, matchingServices(wildcardHosts, s, ilw)...)
 		}
 	}
 
@@ -521,10 +516,10 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 	return filteredServices
 }
 
-func matchingServices(importedHosts []host.Name, service *Service, ilw *IstioEgressListenerWrapper) (bool, []*Service) {
+func matchingServices(importedHosts []host.Name, service *Service, ilw *IstioEgressListenerWrapper) []*Service {
 	// If a listener is defined with port, we should match services with port.
-	needsPortMatch := ilw.IstioListener != nil && ilw.IstioListener.Port != nil
-	hostFound := false
+	// If an unix domain socket is given as a port, we should not match by port and include services based on hosts.
+	needsPortMatch := ilw.IstioListener != nil && ilw.IstioListener.Port != nil && ilw.IstioListener.Port.GetNumber() != 0
 	importedServices := make([]*Service, 0)
 
 	for _, importedHost := range importedHosts {
@@ -540,7 +535,6 @@ func matchingServices(importedHosts []host.Name, service *Service, ilw *IstioEgr
 				}
 			} else {
 				importedServices = append(importedServices, service)
-				hostFound = true
 				break
 			}
 			// If there is a port match, we should trim the service ports to the port specified by listener.
@@ -552,12 +546,11 @@ func matchingServices(importedHosts []host.Name, service *Service, ilw *IstioEgr
 						ports = append(ports, port)
 						sc.Ports = ports
 						importedServices = append(importedServices, sc)
-						hostFound = true
 						break
 					}
 				}
 			}
 		}
 	}
-	return hostFound, importedServices
+	return importedServices
 }
