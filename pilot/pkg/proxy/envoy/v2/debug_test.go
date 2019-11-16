@@ -822,3 +822,19 @@ func TestAnalyzeMTLSSettings(t *testing.T) {
 		})
 	}
 }
+
+func TestDebugHandlers(t *testing.T) {
+	server, tearDown := initLocalPilotTestEnv(t)
+	defer tearDown()
+
+	req, err := http.NewRequest("GET", "/debug", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rr := httptest.NewRecorder()
+	debug := http.HandlerFunc(server.EnvoyXdsServer.Debug)
+	debug.ServeHTTP(rr, req)
+	if rr.Code != 200 {
+		t.Errorf("Error in generatating debug endpoint list")
+	}
+}
