@@ -626,7 +626,6 @@ snapshots:
       - "istio/networking/v1alpha3/sidecars"
       - "istio/networking/v1alpha3/virtualservices"
       - "istio/networking/v1alpha3/synthetic/serviceentries"
-      - "k8s/core/v1/endpoints"
       - "k8s/core/v1/namespaces"
       - "k8s/core/v1/services"
       - "k8s/core/v1/pods"
@@ -1038,7 +1037,6 @@ transforms:
       "k8s/core/v1/services": "k8s/core/v1/services"
       "k8s/core/v1/pods": "k8s/core/v1/pods"
       "k8s/apps/v1/deployments": "k8s/apps/v1/deployments"
-      "k8s/core/v1/endpoints": "k8s/core/v1/endpoints"
       "istio/mesh/v1alpha1/MeshConfig": "istio/mesh/v1alpha1/MeshConfig"
 
       # Legacy Mixer CRD mappings

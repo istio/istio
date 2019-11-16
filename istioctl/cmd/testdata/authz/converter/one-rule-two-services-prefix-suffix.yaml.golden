@@ -1,3 +1,4 @@
+===PLEASE REVIEW THE GENERATED POLICY AND REMOVE THIS LINE BEFORE APPLYING IT===
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
