@@ -263,7 +263,7 @@
           "refId": "G"
         },
         {
-          "expr": "sum(label_replace(container_memory_usage_bytes{job=\"kubernetes-cadvisor\", container_name=~\"mixer|istio-proxy\", pod_name=~\"istio-telemetry-.*|istio-policy-.*\"}, \"service\", \"$1\" , \"pod_name\", \"(istio-telemetry|istio-policy)-.*\")) by (service)",
+          "expr": "sum(label_replace(container_memory_usage_bytes{job=\"kubernetes-cadvisor\", container=~\"mixer|istio-proxy\", pod=~\"istio-telemetry-.*|istio-policy-.*\"}, \"service\", \"$1\" , \"pod\", \"(istio-telemetry|istio-policy)-.*\")) by (service)",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -271,11 +271,11 @@
           "refId": "C"
         },
         {
-          "expr": "sum(label_replace(container_memory_usage_bytes{job=\"kubernetes-cadvisor\", container_name=~\"mixer|istio-proxy\", pod_name=~\"istio-telemetry-.*|istio-policy-.*\"}, \"service\", \"$1\" , \"pod_name\", \"(istio-telemetry|istio-policy)-.*\")) by (container_name, service)",
+          "expr": "sum(label_replace(container_memory_usage_bytes{job=\"kubernetes-cadvisor\", container=~\"mixer|istio-proxy\", pod=~\"istio-telemetry-.*|istio-policy-.*\"}, \"service\", \"$1\" , \"pod\", \"(istio-telemetry|istio-policy)-.*\")) by (container, service)",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
-          "legendFormat": "{{ service }} - {{ container_name }} (k8s)",
+          "legendFormat": "{{ service }} - {{ container }} (k8s)",
           "refId": "B"
         }
       ],
@@ -356,7 +356,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "label_replace(sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container_name=~\"mixer|istio-proxy\", pod_name=~\"istio-telemetry-.*|istio-policy-.*\"}[1m])) by (pod_name), \"service\", \"$1\" , \"pod_name\", \"(istio-telemetry|istio-policy)-.*\")",
+          "expr": "label_replace(sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container=~\"mixer|istio-proxy\", pod=~\"istio-telemetry-.*|istio-policy-.*\"}[1m])) by (pod), \"service\", \"$1\" , \"pod\", \"(istio-telemetry|istio-policy)-.*\")",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -364,11 +364,11 @@
           "refId": "A"
         },
         {
-          "expr": "label_replace(sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container_name=~\"mixer|istio-proxy\", pod_name=~\"istio-telemetry-.*|istio-policy-.*\"}[1m])) by (container_name, pod_name), \"service\", \"$1\" , \"pod_name\", \"(istio-telemetry|istio-policy)-.*\")",
+          "expr": "label_replace(sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container=~\"mixer|istio-proxy\", pod=~\"istio-telemetry-.*|istio-policy-.*\"}[1m])) by (container, pod), \"service\", \"$1\" , \"pod\", \"(istio-telemetry|istio-policy)-.*\")",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
-          "legendFormat": "{{ service }} - {{ container_name }} (k8s)",
+          "legendFormat": "{{ service }} - {{ container }} (k8s)",
           "refId": "B"
         },
         {
@@ -467,10 +467,10 @@
           "refId": "A"
         },
         {
-          "expr": "sum(label_replace(container_fs_usage_bytes{job=\"kubernetes-cadvisor\", container_name=~\"mixer|istio-proxy\", pod_name=~\"istio-telemetry-.*|istio-policy-.*\"}, \"service\", \"$1\" , \"pod_name\", \"(istio-telemetry|istio-policy)-.*\")) by (container_name, service)",
+          "expr": "sum(label_replace(container_fs_usage_bytes{job=\"kubernetes-cadvisor\", container=~\"mixer|istio-proxy\", pod=~\"istio-telemetry-.*|istio-policy-.*\"}, \"service\", \"$1\" , \"pod\", \"(istio-telemetry|istio-policy)-.*\")) by (container, service)",
           "format": "time_series",
           "intervalFactor": 2,
-          "legendFormat": "{{ service }} - {{ container_name }}",
+          "legendFormat": "{{ service }} - {{ container }}",
           "refId": "B"
         }
       ],
