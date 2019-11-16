@@ -25,6 +25,8 @@ import (
 	"github.com/spf13/cobra/doc"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
+	"istio.io/istio/pkg/kube"
+
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/pkg/collateral"
@@ -87,9 +89,13 @@ var (
 
 			stop := make(chan struct{})
 			if flags.reconcileWebhookConfig {
+				client, err := kube.CreateClientset(flags.kubeconfigFile, "")
+				if err != nil {
+					return err
+				}
 				params := inject.WebhookCertParams{
 					CaCertFile:        flags.caCertFile,
-					KubeconfigFile:    flags.kubeconfigFile,
+					KubeClient:        client,
 					WebhookConfigName: flags.webhookConfigName,
 					WebhookName:       flags.webhookName,
 				}

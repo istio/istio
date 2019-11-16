@@ -44,6 +44,9 @@ var (
 		InjectionOptions: bootstrap.InjectionOptions{
 			InjectionDirectory: "/etc/istio/inject",
 			Port:               15017,
+			EnableReconcile:    true,
+			WebhookName:        "sidecar-injector.istio.io",
+			WebhookConfigName:  "istio-sidecar-injector",
 		},
 	}
 

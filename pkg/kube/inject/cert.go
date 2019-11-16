@@ -28,24 +28,18 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/util"
 	"istio.io/pkg/log"
 )
 
 type WebhookCertParams struct {
 	CaCertFile        string
-	KubeconfigFile    string
+	KubeClient        kubernetes.Interface
 	WebhookConfigName string
 	WebhookName       string
 }
 
 func PatchCertLoop(stopCh <-chan struct{}, p WebhookCertParams) error {
-	client, err := kube.CreateClientset(p.KubeconfigFile, "")
-	if err != nil {
-		return err
-	}
-
 	caCertPem, err := ioutil.ReadFile(p.CaCertFile)
 	if err != nil {
 		return err
@@ -61,7 +55,7 @@ func PatchCertLoop(stopCh <-chan struct{}, p WebhookCertParams) error {
 	}
 
 	var retry bool
-	if err = util.PatchMutatingWebhookConfig(client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
+	if err = util.PatchMutatingWebhookConfig(p.KubeClient.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
 		p.WebhookConfigName, p.WebhookName, caCertPem); err != nil {
 		retry = true
 	}
@@ -69,7 +63,7 @@ func PatchCertLoop(stopCh <-chan struct{}, p WebhookCertParams) error {
 	shouldPatch := make(chan struct{})
 
 	watchlist := cache.NewListWatchFromClient(
-		client.AdmissionregistrationV1beta1().RESTClient(),
+		p.KubeClient.AdmissionregistrationV1beta1().RESTClient(),
 		"mutatingwebhookconfigurations",
 		"",
 		fields.ParseSelectorOrDie(fmt.Sprintf("metadata.name=%s", p.WebhookConfigName)))
@@ -106,14 +100,14 @@ func PatchCertLoop(stopCh <-chan struct{}, p WebhookCertParams) error {
 		for {
 			select {
 			case <-delayedRetryC:
-				if retry := doPatch(client, caCertPem, p.WebhookConfigName, p.WebhookName); retry {
+				if retry := doPatch(p.KubeClient, caCertPem, p.WebhookConfigName, p.WebhookName); retry {
 					delayedRetryC = time.After(delayedRetryTime)
 				} else {
 					log.Infof("Retried patch succeeded")
 					delayedRetryC = nil
 				}
 			case <-shouldPatch:
-				if retry := doPatch(client, caCertPem, p.WebhookConfigName, p.WebhookName); retry {
+				if retry := doPatch(p.KubeClient, caCertPem, p.WebhookConfigName, p.WebhookName); retry {
 					if delayedRetryC == nil {
 						delayedRetryC = time.After(delayedRetryTime)
 					}
@@ -125,7 +119,7 @@ func PatchCertLoop(stopCh <-chan struct{}, p WebhookCertParams) error {
 					log.Infof("Detected a change in CABundle (via secret), patching MutatingWebhookConfiguration again")
 					caCertPem = b
 
-					if retry := doPatch(client, caCertPem, p.WebhookConfigName, p.WebhookName); retry {
+					if retry := doPatch(p.KubeClient, caCertPem, p.WebhookConfigName, p.WebhookName); retry {
 						if delayedRetryC == nil {
 							delayedRetryC = time.After(delayedRetryTime)
 							log.Infof("Patch failed - retrying every %v until success", delayedRetryTime)
@@ -145,7 +139,7 @@ func PatchCertLoop(stopCh <-chan struct{}, p WebhookCertParams) error {
 
 const delayedRetryTime = time.Second
 
-func doPatch(cs *kubernetes.Clientset, caCertPem []byte, configName, name string) (retry bool) {
+func doPatch(cs kubernetes.Interface, caCertPem []byte, configName, name string) (retry bool) {
 	client := cs.AdmissionregistrationV1beta1().MutatingWebhookConfigurations()
 	if err := util.PatchMutatingWebhookConfig(client, configName, name, caCertPem); err != nil {
 		log.Errorf("Patch webhook failed: %v", err)

@@ -205,8 +205,11 @@ type ServiceArgs struct {
 }
 
 type InjectionOptions struct {
+	EnableReconcile    bool
 	InjectionDirectory string
 	Port               int
+	WebhookName        string
+	WebhookConfigName  string
 }
 
 // PilotArgs provides all of the configuration parameters for the Pilot discovery service.
@@ -1467,7 +1470,18 @@ func (s *Server) initSidecarInjector(args *PilotArgs) error {
 		if err != nil {
 			return fmt.Errorf("failed to create injection webhook: %v", err)
 		}
+
+		params := inject.WebhookCertParams{
+			CaCertFile:        filepath.Join(dir, "root.pem"),
+			KubeClient:        s.kubeClient,
+			WebhookConfigName: args.InjectionOptions.WebhookConfigName,
+			WebhookName:       args.InjectionOptions.WebhookName,
+		}
 		s.addStartFunc(func(stop <-chan struct{}) error {
+
+			if err := inject.PatchCertLoop(stop, params); err != nil {
+				return multierror.Prefix(err, "failed to start patch cert loop")
+			}
 			go wh.Run(stop)
 			return nil
 		})
