@@ -12,6 +12,30 @@ kind: Namespace
 metadata:
   name: secondary
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: myservice
+  namespace: primary
+spec:
+  selector:
+    app: myservice
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myservice-pod
+  namespace: primary
+  labels:
+    app: myservice
+spec:
+  containers:
+  - name: istio-proxy
+---
 apiVersion: authentication.istio.io/v1alpha1
 kind: Policy
 metadata:
@@ -35,6 +59,30 @@ spec:
       mode: ISTIO_MUTUAL
   exportTo:
   - "."
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: myotherservice
+  namespace: secondary
+spec:
+  selector:
+    app: myotherservice
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myotherservice-pod
+  namespace: secondary
+  labels:
+    app: myotherservice
+spec:
+  containers:
+  - name: istio-proxy
 ---
 apiVersion: authentication.istio.io/v1alpha1
 kind: Policy

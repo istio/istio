@@ -34,11 +34,18 @@ func TestMTLSPolicyChecker_singleResource(t *testing.T) {
 		policy    string
 	}
 
+	type PortNameMapping struct {
+		fqdn   string
+		name   string
+		number uint32
+	}
+
 	tests := map[string]struct {
-		meshPolicy string
-		policy     PolicyResource
-		service    TargetService
-		want       Mode
+		meshPolicy       string
+		portNameMappings []PortNameMapping
+		policy           PolicyResource
+		service          TargetService
+		want             Mode
 	}{
 		"no policies means no strict mtls": {
 			// Note no policies specified
@@ -79,6 +86,13 @@ peers:
 			want:    ModePermissive,
 		},
 		"service specific policy using port name": {
+			portNameMappings: []PortNameMapping{
+				PortNameMapping{
+					fqdn:   "foobar.my-namespace.svc.cluster.local",
+					name:   "https",
+					number: 8080,
+				},
+			},
 			policy: PolicyResource{
 
 				namespace: "my-namespace",
@@ -91,7 +105,7 @@ peers:
 - mtls:
 `,
 			},
-			service: NewTargetServiceWithPortName("foobar.my-namespace.svc.cluster.local", "https"),
+			service: NewTargetServiceWithPortNumber("foobar.my-namespace.svc.cluster.local", 8080),
 			want:    ModeStrict,
 		},
 		"non-matching host service specific policy": {
@@ -231,7 +245,16 @@ peers:
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			pc := NewPolicyChecker()
+			fqdnToPortNameToNumber := make(map[string]map[string]uint32)
+			for _, portMapping := range tc.portNameMappings {
+				if _, ok := fqdnToPortNameToNumber[portMapping.fqdn]; !ok {
+					fqdnToPortNameToNumber[portMapping.fqdn] = make(map[string]uint32)
+				}
+
+				fqdnToPortNameToNumber[portMapping.fqdn][portMapping.name] = portMapping.number
+			}
+
+			pc := NewPolicyChecker(fqdnToPortNameToNumber)
 
 			if tc.meshPolicy != "" {
 				meshpb, err := yAMLToPolicy(tc.meshPolicy)
@@ -272,11 +295,18 @@ func TestMTLSPolicyChecker_multipleResources(t *testing.T) {
 		policy    string
 	}
 
+	type PortNameMapping struct {
+		fqdn   string
+		name   string
+		number uint32
+	}
+
 	tests := map[string]struct {
-		meshPolicy string
-		policies   []PolicyResource
-		service    TargetService
-		want       Mode
+		meshPolicy       string
+		portNameMappings []PortNameMapping
+		policies         []PolicyResource
+		service          TargetService
+		want             Mode
 	}{
 		"namespace policy overrides mesh policy": {
 			meshPolicy: `
@@ -358,7 +388,16 @@ peers:
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			pc := NewPolicyChecker()
+			fqdnToPortNameToNumber := make(map[string]map[string]uint32)
+			for _, portMapping := range tc.portNameMappings {
+				if _, ok := fqdnToPortNameToNumber[portMapping.fqdn]; !ok {
+					fqdnToPortNameToNumber[portMapping.fqdn] = make(map[string]uint32)
+				}
+
+				fqdnToPortNameToNumber[portMapping.fqdn][portMapping.name] = portMapping.number
+			}
+
+			pc := NewPolicyChecker(fqdnToPortNameToNumber)
 			// Add mesh policy, if it exists.
 			meshpb, err := yAMLToPolicy(tc.meshPolicy)
 			if err != nil {

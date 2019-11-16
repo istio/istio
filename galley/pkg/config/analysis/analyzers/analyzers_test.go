@@ -185,6 +185,14 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "mtlsAnalyzerNoSidecar",
+		inputFiles: []string{"testdata/mtls-no-sidecar.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected:   []message{
+			// no messages, this test case verifies no false positives
+		},
+	},
+	{
 		name:       "mtlsAnalyzerWithMeshPolicy",
 		inputFiles: []string{"testdata/mtls-meshpolicy.yaml"},
 		analyzer:   &auth.MTLSAnalyzer{},
@@ -332,7 +340,7 @@ func TestAnalyzers(t *testing.T) {
 			}
 
 			actualMsgs := extractFields(result.Messages)
-			g.Expect(actualMsgs).To(ConsistOf(testCase.expected))
+			g.Expect(actualMsgs).To(ConsistOf(testCase.expected), fmt.Sprintf("%#v", result.Messages))
 		})
 	}
 

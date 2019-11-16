@@ -68,6 +68,10 @@ var (
 	// MTLSPolicyConflict defines a diag.MessageType for message "MTLSPolicyConflict".
 	// Description: A DestinationRule and Policy are in conflict with regards to mTLS.
 	MTLSPolicyConflict = diag.NewMessageType(diag.Error, "IST0113", "A DestinationRule and Policy are in conflict with regards to mTLS for host %s in namespace %s. The DestinationRule %q specifies that mTLS must be %t but the Policy object %q specifies %t.")
+
+	// PolicySpecifiesPortNameThatDoesntExist defines a diag.MessageType for message "PolicySpecifiesPortNameThatDoesntExist".
+	// Description: A Policy targets a port name that cannot be found.
+	PolicySpecifiesPortNameThatDoesntExist = diag.NewMessageType(diag.Warning, "IST0114", "Port name %s could not be found for host %s, which means the Policy won't be enforced.")
 )
 
 // NewInternalError returns a new diag.Message based on InternalError.
@@ -218,6 +222,16 @@ func NewMTLSPolicyConflict(entry *resource.Entry, host string, namespace string,
 		destinationRuleMTLSMode,
 		policyName,
 		policyMTLSMode,
+	)
+}
+
+// NewPolicySpecifiesPortNameThatDoesntExist returns a new diag.Message based on PolicySpecifiesPortNameThatDoesntExist.
+func NewPolicySpecifiesPortNameThatDoesntExist(entry *resource.Entry, portName string, host string) diag.Message {
+	return diag.NewMessage(
+		PolicySpecifiesPortNameThatDoesntExist,
+		originOrNil(entry),
+		portName,
+		host,
 	)
 }
 

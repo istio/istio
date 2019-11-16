@@ -59,7 +59,7 @@ func (d destinations) Less(i, j int) bool {
 	ts1 := d[i].targetService
 	ts2 := d[j].targetService
 	if ts1.FQDN() == ts2.FQDN() {
-		return (ts1.PortNumber() != 0) || (ts1.PortName() != "")
+		return ts1.PortNumber() != 0
 	}
 
 	// Defer to the sort order for target service hostname
@@ -138,7 +138,12 @@ func (dc *DestinationRuleChecker) AddDestinationRule(resource *resource.Entry, r
 
 // DoesNamespaceUseMTLSToService returns true if, according to DestinationRules
 // added to the checker, mTLS will be used when communicating to the specified
-// targetService from the source namespace to the destinaton namespace.
+// TargetService from the source namespace to the destinaton namespace.
+//
+// If the TargetService's FQDN has a wildcard, then the set of DestinationRules
+// considered for routing are only rules that match a superset of the hosts
+// specified by the TargetService FQDN. This means you can check, for example,
+// the hostname '*.svc.cluster.local' to see if strict MTLS is enforced globally.
 func (dc *DestinationRuleChecker) DoesNamespaceUseMTLSToService(srcNamespace, dstNamespace string, ts TargetService) (bool, *resource.Entry) {
 	// First, check for a destination rule for src namespace.
 	var matchingDestination *destination
@@ -164,7 +169,9 @@ func (dc *DestinationRuleChecker) DoesNamespaceUseMTLSToService(srcNamespace, ds
 }
 
 // findMatchingRuleInNamespace looks up a DestinationRule in a namespace for a
-// specified target service, optionally including privately-exported rules.
+// specified target service, optionally including privately-exported rules. Note
+// that if target service has a wildcard in it, then matched rules must be a
+// strict superset of the target service hostnames.
 func (dc *DestinationRuleChecker) findMatchingRuleInNamespace(namespace string, ts TargetService, includePrivate bool) *destination {
 	// TODO Port name should be handled at some point.
 	// TODO We should really presort these ahead of time.
@@ -179,7 +186,7 @@ func (dc *DestinationRuleChecker) findMatchingRuleInNamespace(namespace string, 
 	sort.Sort(ds)
 
 	for _, d := range ds {
-		if !host.Name(d.targetService.FQDN()).Matches(host.Name(ts.FQDN())) {
+		if !host.Name(ts.FQDN()).SubsetOf(host.Name(d.targetService.FQDN())) {
 			continue
 		}
 

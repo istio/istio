@@ -27,24 +27,14 @@ import (
 // TargetService is a simple struct type for representing a service
 // targeted by an Authentication policy.
 type TargetService struct {
-	fQDN string
-
-	// Either portNumber/portName will be set, or neither. The constructors
-	// prevent both from ever being set.
+	fQDN       string
 	portNumber uint32
-	portName   string
 }
 
 // NewTargetServiceWithPortNumber creates a new TargetService using the specified
 // fqdn and portNumber.
 func NewTargetServiceWithPortNumber(fqdn string, portNumber uint32) TargetService {
 	return TargetService{fQDN: fqdn, portNumber: portNumber}
-}
-
-// NewTargetServiceWithPortName creates a new TargetService using the specified fqdn
-// and portName.
-func NewTargetServiceWithPortName(fqdn, portName string) TargetService {
-	return TargetService{fQDN: fqdn, portName: portName}
 }
 
 // NewTargetService creates a new TargetService using the specified fqdn. Because no
@@ -59,16 +49,9 @@ func (w TargetService) FQDN() string {
 	return w.fQDN
 }
 
-// PortNumber is the port used by the service. If set (non-zero), then
-// PortName must be the default value ("").
+// PortNumber is the port used by the service.
 func (w TargetService) PortNumber() uint32 {
 	return w.portNumber
-}
-
-// PortName is the name of the port used by the service. If set (not ""),
-// then PortNumber must be the default value (0).
-func (w TargetService) PortName() string {
-	return w.portName
 }
 
 // PolicyChecker allows callers to add a set of v1alpha1.Policy objects in the
@@ -78,8 +61,9 @@ func (w TargetService) PortName() string {
 type PolicyChecker struct {
 	meshMTLSModeAndResource ModeAndResource
 
-	namespaceToMTLSMode map[string]ModeAndResource
-	serviceToMTLSMode   map[TargetService]ModeAndResource
+	namespaceToMTLSMode        map[string]ModeAndResource
+	serviceToMTLSMode          map[TargetService]ModeAndResource
+	fqdnToPortNameToPortNumber map[string]map[string]uint32
 }
 
 // Mode is a special type used to distinguish between MTLS being off
@@ -116,10 +100,11 @@ type ModeAndResource struct {
 }
 
 // NewPolicyChecker creates a new PolicyChecker instance.
-func NewPolicyChecker() *PolicyChecker {
+func NewPolicyChecker(fqdnToPortNameToPortNumber map[string]map[string]uint32) *PolicyChecker {
 	return &PolicyChecker{
-		namespaceToMTLSMode: make(map[string]ModeAndResource),
-		serviceToMTLSMode:   make(map[TargetService]ModeAndResource),
+		namespaceToMTLSMode:        make(map[string]ModeAndResource),
+		serviceToMTLSMode:          make(map[TargetService]ModeAndResource),
+		fqdnToPortNameToPortNumber: fqdnToPortNameToPortNumber,
 	}
 }
 
@@ -139,9 +124,23 @@ func (pc *PolicyChecker) MeshPolicy() ModeAndResource {
 	return pc.meshMTLSModeAndResource
 }
 
+type NamedPortInPolicyNotFoundError struct {
+	PortName     string
+	PolicyOrigin string
+	FQDN         string
+}
+
+func (e NamedPortInPolicyNotFoundError) Error() string {
+	return fmt.Sprintf("named port '%s' not found for fqdn '%s', unable to analyze policy '%s'", e.PortName, e.FQDN, e.PolicyOrigin)
+}
+
 // AddPolicy adds a new policy object to the PolicyChecker to use when later
 // determining if a service is MTLS-enforced. The namespace of the policy is
 // also provided as some policies can target the local namespace.
+//
+// If the Policy uses a named port, and the port cannot be looked up in the map
+// provided to NewPolicyChecker, then an error of type
+// NamedPortInPolicyNotFoundError is returned.
 func (pc *PolicyChecker) AddPolicy(r *resource.Entry, p *v1alpha1.Policy) error {
 	mode, err := parsePolicyMTLSMode(p)
 	if err != nil {
@@ -165,7 +164,26 @@ func (pc *PolicyChecker) AddPolicy(r *resource.Entry, p *v1alpha1.Policy) error 
 
 		for _, port := range target.Ports {
 			if port.GetName() != "" {
-				pc.serviceToMTLSMode[NewTargetServiceWithPortName(fqdn, port.GetName())] = modeAndResource
+				// Look up the port number for the name. If we can't find it, we
+				// need to complain about a different error
+				// TODO handle missing reference error.
+				if _, ok := pc.fqdnToPortNameToPortNumber[fqdn]; !ok {
+					return NamedPortInPolicyNotFoundError{
+						PortName:     port.GetName(),
+						PolicyOrigin: r.Origin.FriendlyName(),
+						FQDN:         fqdn,
+					}
+				}
+				portNumber := pc.fqdnToPortNameToPortNumber[fqdn][port.GetName()]
+				if portNumber == 0 {
+					return NamedPortInPolicyNotFoundError{
+						PortName:     port.GetName(),
+						PolicyOrigin: r.Origin.FriendlyName(),
+						FQDN:         fqdn,
+					}
+				}
+
+				pc.serviceToMTLSMode[NewTargetServiceWithPortNumber(fqdn, portNumber)] = modeAndResource
 			} else if port.GetNumber() != 0 {
 				pc.serviceToMTLSMode[NewTargetServiceWithPortNumber(fqdn, port.GetNumber())] = modeAndResource
 			} else {

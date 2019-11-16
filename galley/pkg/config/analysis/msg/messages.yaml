@@ -167,3 +167,14 @@ messages:
         type: string
       - name: policyMTLSMode
         type: string
+
+  - name: "PolicySpecifiesPortNameThatDoesntExist"
+    code: IST0114
+    level: Warning
+    description: "A Policy targets a port name that cannot be found."
+    template: "Port name %s could not be found for host %s, which means the Policy won't be enforced."
+    args:
+      - name: portName
+        type: string
+      - name: host
+        type: string
