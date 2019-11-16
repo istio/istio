@@ -1083,12 +1083,12 @@ message TelemetryConfig {
   google.protobuf.BoolValue enabled = 1;
 
   // Use telemetry v2.
-  PilotTelemetryV1Config v2 = 3;
+  TelemetryV2Config v2 = 3;
 }
 
-// Controls whether pilot will configure telemetry v1.
-message PilotTelemetryV1Config {
-  // Controls whether pilot will configure telemetry v1.
+// Controls whether pilot will configure telemetry v2.
+message TelemetryV2Config {
+  // Controls whether pilot will configure telemetry v2.
   google.protobuf.BoolValue enabled = 1;
 }
 
