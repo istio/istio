@@ -117,12 +117,6 @@ spec:
   - name: v1alpha2
     served: true
     storage: true
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 
 
@@ -155,7 +149,7 @@ spec:
       properties:
         spec:
           description: 'Configuration for access control on workloads. See more details
-            at: https://istio.io/docs/reference/config/security/v1beta1/authorization-policy.html'
+            at: https://istio.io/docs/reference/config/security/authorization-policy.html'
           properties:
             rules:
               description: Optional.
@@ -262,12 +256,6 @@ spec:
   - name: v1beta1
     served: true
     storage: true
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 
 
@@ -300,7 +288,7 @@ spec:
       properties:
         spec:
           description: 'Configuration for Role Based Access Control. See more details
-            at: https://istio.io/docs/reference/config/authorization/istio.rbac.v1alpha1.html'
+            at: https://istio.io/docs/reference/config/security/istio.rbac.v1alpha1.html'
           properties:
             enforcementMode:
               enum:
@@ -355,12 +343,6 @@ spec:
   - name: v1alpha1
     served: true
     storage: true
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 
 
@@ -541,6 +523,41 @@ spec:
                                 description: Hash based on the source IP address.
                                 type: boolean
                             type: object
+                          localityLbSetting:
+                            properties:
+                              distribute:
+                                description: 'Optional: only one of distribute or
+                                  failover can be set.'
+                                items:
+                                  properties:
+                                    from:
+                                      description: Originating locality, '/' separated,
+                                        e.g.
+                                      format: string
+                                      type: string
+                                    to:
+                                      additionalProperties:
+                                        type: integer
+                                      description: Map of upstream localities to traffic
+                                        distribution weights.
+                                      type: object
+                                  type: object
+                                type: array
+                              failover:
+                                description: 'Optional: only failover or distribute
+                                  can be set.'
+                                items:
+                                  properties:
+                                    from:
+                                      description: Originating region.
+                                      format: string
+                                      type: string
+                                    to:
+                                      format: string
+                                      type: string
+                                  type: object
+                                type: array
+                            type: object
                           simple:
                             enum:
                             - ROUND_ROBIN
@@ -678,6 +695,41 @@ spec:
                                     useSourceIp:
                                       description: Hash based on the source IP address.
                                       type: boolean
+                                  type: object
+                                localityLbSetting:
+                                  properties:
+                                    distribute:
+                                      description: 'Optional: only one of distribute
+                                        or failover can be set.'
+                                      items:
+                                        properties:
+                                          from:
+                                            description: Originating locality, '/'
+                                              separated, e.g.
+                                            format: string
+                                            type: string
+                                          to:
+                                            additionalProperties:
+                                              type: integer
+                                            description: Map of upstream localities
+                                              to traffic distribution weights.
+                                            type: object
+                                        type: object
+                                      type: array
+                                    failover:
+                                      description: 'Optional: only failover or distribute
+                                        can be set.'
+                                      items:
+                                        properties:
+                                          from:
+                                            description: Originating region.
+                                            format: string
+                                            type: string
+                                          to:
+                                            format: string
+                                            type: string
+                                        type: object
+                                      type: array
                                   type: object
                                 simple:
                                   enum:
@@ -888,6 +940,41 @@ spec:
                           description: Hash based on the source IP address.
                           type: boolean
                       type: object
+                    localityLbSetting:
+                      properties:
+                        distribute:
+                          description: 'Optional: only one of distribute or failover
+                            can be set.'
+                          items:
+                            properties:
+                              from:
+                                description: Originating locality, '/' separated,
+                                  e.g.
+                                format: string
+                                type: string
+                              to:
+                                additionalProperties:
+                                  type: integer
+                                description: Map of upstream localities to traffic
+                                  distribution weights.
+                                type: object
+                            type: object
+                          type: array
+                        failover:
+                          description: 'Optional: only failover or distribute can
+                            be set.'
+                          items:
+                            properties:
+                              from:
+                                description: Originating region.
+                                format: string
+                                type: string
+                              to:
+                                format: string
+                                type: string
+                            type: object
+                          type: array
+                      type: object
                     simple:
                       enum:
                       - ROUND_ROBIN
@@ -1024,6 +1111,41 @@ spec:
                                 description: Hash based on the source IP address.
                                 type: boolean
                             type: object
+                          localityLbSetting:
+                            properties:
+                              distribute:
+                                description: 'Optional: only one of distribute or
+                                  failover can be set.'
+                                items:
+                                  properties:
+                                    from:
+                                      description: Originating locality, '/' separated,
+                                        e.g.
+                                      format: string
+                                      type: string
+                                    to:
+                                      additionalProperties:
+                                        type: integer
+                                      description: Map of upstream localities to traffic
+                                        distribution weights.
+                                      type: object
+                                  type: object
+                                type: array
+                              failover:
+                                description: 'Optional: only failover or distribute
+                                  can be set.'
+                                items:
+                                  properties:
+                                    from:
+                                      description: Originating region.
+                                      format: string
+                                      type: string
+                                    to:
+                                      format: string
+                                      type: string
+                                  type: object
+                                type: array
+                            type: object
                           simple:
                             enum:
                             - ROUND_ROBIN
@@ -1130,12 +1252,6 @@ spec:
   - name: v1alpha3
     served: true
     storage: true
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 
 
@@ -1432,12 +1548,6 @@ spec:
   - name: v1alpha3
     served: true
     storage: true
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 
 
@@ -1587,12 +1697,6 @@ spec:
   - name: v1alpha3
     served: true
     storage: true
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 
 
@@ -1687,12 +1791,6 @@ spec:
   - name: v1alpha2
     served: true
     storage: true
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 
 
@@ -1905,12 +2003,6 @@ spec:
   - name: v1alpha2
     served: true
     storage: true
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 
 
@@ -1944,7 +2036,7 @@ spec:
       properties:
         spec:
           description: 'Authentication policy for Istio services. See more details
-            at: https://istio.io/docs/reference/config/istio.authentication.v1alpha1.html'
+            at: https://istio.io/docs/reference/config/security/istio.authentication.v1alpha1.html'
           properties:
             originIsOptional:
               type: boolean
@@ -2638,12 +2730,6 @@ spec:
   - name: v1alpha1
     served: true
     storage: true
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 
 
@@ -2676,7 +2762,7 @@ spec:
       properties:
         spec:
           description: 'Authentication policy for Istio services. See more details
-            at: https://istio.io/docs/reference/config/istio.authentication.v1alpha1.html'
+            at: https://istio.io/docs/reference/config/security/istio.authentication.v1alpha1.html'
           properties:
             originIsOptional:
               type: boolean
@@ -3370,12 +3456,6 @@ spec:
   - name: v1alpha1
     served: true
     storage: true
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 
 
@@ -3457,12 +3537,6 @@ spec:
   - name: v1alpha2
     served: true
     storage: true
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 
 
@@ -3548,12 +3622,6 @@ spec:
   - name: v1alpha2
     served: true
     storage: true
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 
 
@@ -3588,7 +3656,7 @@ spec:
       properties:
         spec:
           description: 'Configuration for Role Based Access Control. See more details
-            at: https://istio.io/docs/reference/config/authorization/istio.rbac.v1alpha1.html'
+            at: https://istio.io/docs/reference/config/security/istio.rbac.v1alpha1.html'
           properties:
             enforcementMode:
               enum:
@@ -3643,12 +3711,104 @@ spec:
   - name: v1alpha1
     served: true
     storage: true
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
+---
+
+
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
+  creationTimestamp: null
+  labels:
+    app: istio-pilot
+    heritage: Tiller
+    istio: security
+    release: istio
+  name: requestauthentications.security.istio.io
+spec:
+  group: security.istio.io
+  names:
+    categories:
+    - istio-io
+    - security-istio-io
+    kind: RequestAuthentication
+    plural: requestauthentications
+    singular: requestauthentication
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          description: RequestAuthentication defines what request authentication methods
+            are supported by a workload.
+          properties:
+            jwtRules:
+              description: Define the list of JWTs that can be validated at the selected
+                workloads' proxy.
+              items:
+                properties:
+                  audiences:
+                    items:
+                      format: string
+                      type: string
+                    type: array
+                  fromHeaders:
+                    description: List of header locations from which JWT is expected.
+                    items:
+                      properties:
+                        name:
+                          description: The HTTP header name.
+                          format: string
+                          type: string
+                        prefix:
+                          description: The prefix that should be stripped before decoding
+                            the token.
+                          format: string
+                          type: string
+                      type: object
+                    type: array
+                  fromParams:
+                    description: List of query parameters from which JWT is expected.
+                    items:
+                      format: string
+                      type: string
+                    type: array
+                  issuer:
+                    description: Identifies the issuer that issued the JWT.
+                    format: string
+                    type: string
+                  jwks:
+                    description: JSON Web Key Set of public keys to validate signature
+                      of the JWT.
+                    format: string
+                    type: string
+                  jwks_uri:
+                    format: string
+                    type: string
+                  jwksUri:
+                    format: string
+                    type: string
+                type: object
+              type: array
+            selector:
+              description: The selector determines the workloads to apply the RequestAuthentication
+                on.
+              properties:
+                matchLabels:
+                  additionalProperties:
+                    format: string
+                    type: string
+                  type: object
+              type: object
+          type: object
+      type: object
+  versions:
+  - name: v1beta1
+    served: true
+    storage: true
 ---
 
 
@@ -3805,12 +3965,6 @@ spec:
   - name: v1alpha2
     served: true
     storage: true
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 
 
@@ -3956,12 +4110,6 @@ spec:
   - name: v1alpha3
     served: true
     storage: true
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 
 
@@ -4007,7 +4155,7 @@ spec:
       properties:
         spec:
           description: 'Configuration for Role Based Access Control. See more details
-            at: https://istio.io/docs/reference/config/authorization/istio.rbac.v1alpha1.html'
+            at: https://istio.io/docs/reference/config/security/istio.rbac.v1alpha1.html'
           properties:
             actions:
               items:
@@ -4163,12 +4311,6 @@ spec:
   - name: v1alpha1
     served: true
     storage: true
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 
 
@@ -4203,7 +4345,7 @@ spec:
       properties:
         spec:
           description: 'Configuration for Role Based Access Control. See more details
-            at: https://istio.io/docs/reference/config/authorization/istio.rbac.v1alpha1.html'
+            at: https://istio.io/docs/reference/config/security/istio.rbac.v1alpha1.html'
           properties:
             rules:
               description: The set of access rules (permissions) that the role has.
@@ -4281,12 +4423,6 @@ spec:
   - name: v1alpha1
     served: true
     storage: true
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 
 
@@ -4411,12 +4547,6 @@ spec:
   - name: v1alpha3
     served: true
     storage: true
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 
 
@@ -5128,12 +5258,6 @@ spec:
   - name: v1alpha3
     served: true
     storage: true
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 
 
