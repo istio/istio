@@ -15,28 +15,18 @@
 package main
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
-	"github.com/howeyc/fsnotify"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
-	"k8s.io/api/admissionregistration/v1beta1"
-	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/cmd"
-	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
-	"istio.io/istio/pkg/util"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/log"
 	"istio.io/pkg/probe"
@@ -97,7 +87,13 @@ var (
 
 			stop := make(chan struct{})
 			if flags.reconcileWebhookConfig {
-				if err := patchCertLoop(stop); err != nil {
+				params := inject.WebhookCertParams{
+					CaCertFile:        flags.caCertFile,
+					KubeconfigFile:    flags.kubeconfigFile,
+					WebhookConfigName: flags.webhookConfigName,
+					WebhookName:       flags.webhookName,
+				}
+				if err := inject.PatchCertLoop(stop, params); err != nil {
 					return multierror.Prefix(err, "failed to start patch cert loop")
 				}
 			}
@@ -124,120 +120,6 @@ var (
 		},
 	}
 )
-
-const delayedRetryTime = time.Second
-
-func patchCertLoop(stopCh <-chan struct{}) error {
-	client, err := kube.CreateClientset(flags.kubeconfigFile, "")
-	if err != nil {
-		return err
-	}
-
-	caCertPem, err := ioutil.ReadFile(flags.caCertFile)
-	if err != nil {
-		return err
-	}
-
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return err
-	}
-	watchDir, _ := filepath.Split(flags.caCertFile)
-	if err = watcher.Watch(watchDir); err != nil {
-		return fmt.Errorf("could not watch %v: %v", flags.caCertFile, err)
-	}
-
-	var retry bool
-	if err = util.PatchMutatingWebhookConfig(client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
-		flags.webhookConfigName, flags.webhookName, caCertPem); err != nil {
-		retry = true
-	}
-
-	shouldPatch := make(chan struct{})
-
-	watchlist := cache.NewListWatchFromClient(
-		client.AdmissionregistrationV1beta1().RESTClient(),
-		"mutatingwebhookconfigurations",
-		"",
-		fields.ParseSelectorOrDie(fmt.Sprintf("metadata.name=%s", flags.webhookConfigName)))
-
-	_, controller := cache.NewInformer(
-		watchlist,
-		&v1beta1.MutatingWebhookConfiguration{},
-		0,
-		cache.ResourceEventHandlerFuncs{
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				oldConfig := oldObj.(*v1beta1.MutatingWebhookConfiguration)
-				newConfig := newObj.(*v1beta1.MutatingWebhookConfiguration)
-
-				if oldConfig.ResourceVersion != newConfig.ResourceVersion {
-					for i, w := range newConfig.Webhooks {
-						if w.Name == flags.webhookName && !bytes.Equal(newConfig.Webhooks[i].ClientConfig.CABundle, caCertPem) {
-							log.Infof("Detected a change in CABundle, patching MutatingWebhookConfiguration again")
-							shouldPatch <- struct{}{}
-							break
-						}
-					}
-				}
-			},
-		},
-	)
-	go controller.Run(stopCh)
-
-	go func() {
-		var delayedRetryC <-chan time.Time
-		if retry {
-			delayedRetryC = time.After(delayedRetryTime)
-		}
-
-		for {
-			select {
-			case <-delayedRetryC:
-				if retry := doPatch(client, caCertPem); retry {
-					delayedRetryC = time.After(delayedRetryTime)
-				} else {
-					log.Infof("Retried patch succeeded")
-					delayedRetryC = nil
-				}
-			case <-shouldPatch:
-				if retry := doPatch(client, caCertPem); retry {
-					if delayedRetryC == nil {
-						delayedRetryC = time.After(delayedRetryTime)
-					}
-				} else {
-					delayedRetryC = nil
-				}
-			case <-watcher.Event:
-				if b, err := ioutil.ReadFile(flags.caCertFile); err == nil {
-					log.Infof("Detected a change in CABundle (via secret), patching MutatingWebhookConfiguration again")
-					caCertPem = b
-
-					if retry := doPatch(client, caCertPem); retry {
-						if delayedRetryC == nil {
-							delayedRetryC = time.After(delayedRetryTime)
-							log.Infof("Patch failed - retrying every %v until success", delayedRetryTime)
-						}
-					} else {
-						delayedRetryC = nil
-					}
-				} else {
-					log.Errorf("CA bundle file read error: %v", err)
-				}
-			}
-		}
-	}()
-
-	return nil
-}
-
-func doPatch(cs *kubernetes.Clientset, caCertPem []byte) (retry bool) {
-	client := cs.AdmissionregistrationV1beta1().MutatingWebhookConfigurations()
-	if err := util.PatchMutatingWebhookConfig(client, flags.webhookConfigName, flags.webhookName, caCertPem); err != nil {
-		log.Errorf("Patch webhook failed: %v", err)
-		return true
-	}
-	return false
-}
 
 func init() {
 	rootCmd.PersistentFlags().StringVar(&flags.meshconfig, "meshConfig", "/etc/istio/config/mesh",
