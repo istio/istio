@@ -756,11 +756,11 @@ func TranslateHelmValues(icp *v1alpha2.IstioControlPlaneSpec, translator *transl
 		log.Infof("Values from IstioControlPlaneSpec.Values:\n%s", util.ToYAML(globalVals))
 		log.Infof("Values from IstioControlPlaneSpec.UnvalidatedValues:\n%s", util.ToYAML(globalUnvalidatedVals))
 	}
-	mergedVals, err := overlayTrees(globalVals, apiVals)
+	mergedVals, err := overlayTrees(apiVals, globalVals)
 	if err != nil {
 		return "", err
 	}
-	mergedVals, err = overlayTrees(globalUnvalidatedVals, mergedVals)
+	mergedVals, err = overlayTrees(mergedVals, globalUnvalidatedVals)
 	if err != nil {
 		return "", err
 	}
