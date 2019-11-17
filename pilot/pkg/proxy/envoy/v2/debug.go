@@ -70,7 +70,7 @@ var indexTmpl = template.Must(template.New("index").Parse(`<html>
 </style>
 <body>
 <br/>
-<table id="endpoints" align="center">
+<table id="endpoints">
 <tr><th>Endpoint</th><th>Description</th></tr>
 {{range .}}
 	<tr>
