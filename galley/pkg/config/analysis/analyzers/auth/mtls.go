@@ -206,7 +206,7 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 
 	// Also handle the less-common case where a global DR exists that specifies
 	// mtls, but MTLS is off
-	if mpr.MTLSMode == mtls.ModeOff && globalMtls {
+	if mpr.MTLSMode == mtls.ModePlaintext && globalMtls {
 		// We may or may not have a matching policy. If we don't, use the
 		// special string (none)
 		globalPolicyName := "(none)"
@@ -233,7 +233,7 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 		// If we don't have a sidecar, don't check policy and treat as plaintext
 		if _, ok := fqdnsWithoutSidecars[ts.FQDN()]; ok {
 			tsPolicy = mtls.ModeAndResource{
-				MTLSMode: mtls.ModeOff,
+				MTLSMode: mtls.ModePlaintext,
 				Resource: nil,
 			}
 		} else {
@@ -251,7 +251,7 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 		for ns := range namespaces {
 			mtlsUsed, matchingDR := drc.DoesNamespaceUseMTLSToService(ns, tsNamespace, ts)
 			if (tsPolicy.MTLSMode == mtls.ModeStrict && !mtlsUsed) ||
-				(tsPolicy.MTLSMode == mtls.ModeOff && mtlsUsed) {
+				(tsPolicy.MTLSMode == mtls.ModePlaintext && mtlsUsed) {
 
 				// If global mTLS is misconfigured, and one of the resources we
 				// are about to complain about is missing, it's almost certainly
