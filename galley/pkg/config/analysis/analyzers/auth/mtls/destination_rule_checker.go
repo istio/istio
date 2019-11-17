@@ -145,11 +145,15 @@ func (dc *DestinationRuleChecker) AddDestinationRule(resource *resource.Entry, r
 // specified by the TargetService FQDN. This means you can check, for example,
 // the hostname '*.svc.cluster.local' to see if strict MTLS is enforced globally.
 func (dc *DestinationRuleChecker) DoesNamespaceUseMTLSToService(srcNamespace, dstNamespace string, ts TargetService) (bool, *resource.Entry) {
-	// First, check for a destination rule for src namespace.
 	var matchingDestination *destination
-	matchingDestination = dc.findMatchingRuleInNamespace(srcNamespace, ts, true)
-	if matchingDestination != nil {
-		return matchingDestination.usesMTLS, matchingDestination.resource
+	// First, check for a destination rule for src namespace only if the
+	// namespace isn't istio-system. Pilot has this behavior to ensure that the
+	// rules in istio-system don't override other rules.
+	if srcNamespace != "istio-system" {
+		matchingDestination = dc.findMatchingRuleInNamespace(srcNamespace, ts, true)
+		if matchingDestination != nil {
+			return matchingDestination.usesMTLS, matchingDestination.resource
+		}
 	}
 
 	// Now check destination namespace
