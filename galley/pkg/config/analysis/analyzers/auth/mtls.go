@@ -177,7 +177,11 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 	})
 
 	// Here we explicitly handle the common case where a user specifies a
-	// MeshPolicy with no global MTLS rule
+	// MeshPolicy with no global MTLS rule. We also track if we report a problem
+	// with the global configuration. This is used later to suppress
+	// reporting a message for every service/namespace combination due to the
+	// same misconfiguration.
+	globalMTLSMisconfigured := false
 	mpr := pc.MeshPolicy()
 	globalMtls, globalDR := drc.DoesNamespaceUseMTLSToService("istio-system", "istio-system", mtls.NewTargetService("*.svc.cluster.local"))
 	if mpr.MTLSMode == mtls.ModeStrict && !globalMtls {
@@ -187,7 +191,17 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 		if globalDR != nil {
 			globalDRName = globalDR.Origin.FriendlyName()
 		}
-		c.Report(metadata.IstioAuthenticationV1Alpha1Meshpolicies, msg.NewMTLSPolicyConflict(mpr.Resource, "*.svc.cluster.local", "istio-system", globalDRName, globalMtls, mpr.Resource.Origin.FriendlyName(), mpr.MTLSMode.String()))
+		c.Report(
+			metadata.IstioAuthenticationV1Alpha1Meshpolicies,
+			msg.NewMTLSPolicyConflict(
+				mpr.Resource,
+				"*.svc.cluster.local",
+				"istio-system",
+				globalDRName,
+				globalMtls,
+				mpr.Resource.Origin.FriendlyName(),
+				mpr.MTLSMode.String()))
+		globalMTLSMisconfigured = true
 	}
 
 	// Also handle the less-common case where a global DR exists that specifies
@@ -199,7 +213,17 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 		if mpr.Resource != nil {
 			globalPolicyName = mpr.Resource.Origin.FriendlyName()
 		}
-		c.Report(metadata.IstioNetworkingV1Alpha3Destinationrules, msg.NewMTLSPolicyConflict(globalDR, "*.svc.cluster.local", "istio-system", globalDR.Origin.FriendlyName(), globalMtls, globalPolicyName, mpr.MTLSMode.String()))
+		c.Report(
+			metadata.IstioNetworkingV1Alpha3Destinationrules,
+			msg.NewMTLSPolicyConflict(
+				globalDR,
+				"*.svc.cluster.local",
+				"istio-system",
+				globalDR.Origin.FriendlyName(),
+				globalMtls,
+				globalPolicyName,
+				mpr.MTLSMode.String()))
+		globalMTLSMisconfigured = true
 	}
 
 	// Iterate over all fqdns and namespaces, and check that the mtls mode
@@ -228,6 +252,14 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 			mtlsUsed, matchingDR := drc.DoesNamespaceUseMTLSToService(ns, tsNamespace, ts)
 			if (tsPolicy.MTLSMode == mtls.ModeStrict && !mtlsUsed) ||
 				(tsPolicy.MTLSMode == mtls.ModeOff && mtlsUsed) {
+
+				// If global mTLS is misconfigured, and one of the resources we
+				// are about to complain about is missing, it's almost certainly
+				// due to the same underlying problem (a missing global
+				// DR/MeshPolicy). In that case, don't emit since it's redundant.
+				if globalMTLSMisconfigured && (tsPolicy.Resource == nil || matchingDR == nil) {
+					continue
+				}
 				if tsPolicy.Resource != nil {
 					// We may or may not have a matching DR. If we don't, use
 					// the special string (none)
@@ -235,7 +267,16 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 					if matchingDR != nil {
 						matchingDRName = matchingDR.Origin.FriendlyName()
 					}
-					c.Report(metadata.IstioAuthenticationV1Alpha1Policies, msg.NewMTLSPolicyConflict(tsPolicy.Resource, ts.FQDN(), ns, matchingDRName, mtlsUsed, tsPolicy.Resource.Origin.FriendlyName(), tsPolicy.MTLSMode.String()))
+					c.Report(
+						metadata.IstioAuthenticationV1Alpha1Policies,
+						msg.NewMTLSPolicyConflict(
+							tsPolicy.Resource,
+							ts.String(),
+							ns,
+							matchingDRName,
+							mtlsUsed,
+							tsPolicy.Resource.Origin.FriendlyName(),
+							tsPolicy.MTLSMode.String()))
 				}
 				if matchingDR != nil {
 					// We may or may not have a matching policy. If we don't, use
@@ -244,7 +285,16 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 					if tsPolicy.Resource != nil {
 						policyName = tsPolicy.Resource.Origin.FriendlyName()
 					}
-					c.Report(metadata.IstioNetworkingV1Alpha3Destinationrules, msg.NewMTLSPolicyConflict(matchingDR, ts.FQDN(), ns, matchingDR.Origin.FriendlyName(), mtlsUsed, policyName, tsPolicy.MTLSMode.String()))
+					c.Report(
+						metadata.IstioNetworkingV1Alpha3Destinationrules,
+						msg.NewMTLSPolicyConflict(
+							matchingDR,
+							ts.String(),
+							ns,
+							matchingDR.Origin.FriendlyName(),
+							mtlsUsed,
+							policyName,
+							tsPolicy.MTLSMode.String()))
 				}
 			}
 		}

@@ -153,7 +153,7 @@ messages:
     code: IST0113
     level: Error
     description: "A DestinationRule and Policy are in conflict with regards to mTLS."
-    template: "A DestinationRule and Policy are in conflict with regards to mTLS for host %s in namespace %s. The DestinationRule %q specifies that mTLS must be %t but the Policy object %q specifies %t."
+    template: "A DestinationRule and Policy are in conflict with regards to mTLS for host %s in namespace %s. The DestinationRule %q specifies that mTLS must be %t but the Policy object %q specifies %s."
     args:
       - name: host
         type: string

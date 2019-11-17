@@ -67,7 +67,7 @@ var (
 
 	// MTLSPolicyConflict defines a diag.MessageType for message "MTLSPolicyConflict".
 	// Description: A DestinationRule and Policy are in conflict with regards to mTLS.
-	MTLSPolicyConflict = diag.NewMessageType(diag.Error, "IST0113", "A DestinationRule and Policy are in conflict with regards to mTLS for host %s in namespace %s. The DestinationRule %q specifies that mTLS must be %t but the Policy object %q specifies %t.")
+	MTLSPolicyConflict = diag.NewMessageType(diag.Error, "IST0113", "A DestinationRule and Policy are in conflict with regards to mTLS for host %s in namespace %s. The DestinationRule %q specifies that mTLS must be %t but the Policy object %q specifies %s.")
 
 	// PolicySpecifiesPortNameThatDoesntExist defines a diag.MessageType for message "PolicySpecifiesPortNameThatDoesntExist".
 	// Description: A Policy targets a port name that cannot be found.

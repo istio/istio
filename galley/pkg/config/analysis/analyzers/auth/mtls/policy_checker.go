@@ -54,6 +54,13 @@ func (w TargetService) PortNumber() uint32 {
 	return w.portNumber
 }
 
+func (w TargetService) String() string {
+	if w.PortNumber() != 0 {
+		return fmt.Sprintf("%s:%d", w.fQDN, w.portNumber)
+	}
+	return w.FQDN()
+}
+
 // PolicyChecker allows callers to add a set of v1alpha1.Policy objects in the
 // mesh. Once these are loaded, you can query whether or not a specific
 // TargetService will require MTLS when an incoming connection occurs using the
