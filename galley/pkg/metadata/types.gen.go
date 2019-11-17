@@ -208,6 +208,9 @@ var (
 	// istio/security/v1beta1/authorizationpolicies metadata
 	IstioSecurityV1beta1Authorizationpolicies resource.Info
 
+	// istio/security/v1beta1/requestauthentications metadata
+	IstioSecurityV1beta1Requestauthentications resource.Info
+
 	// k8s/core/v1/endpoints metadata
 	K8sCoreV1Endpoints resource.Info
 
@@ -395,6 +398,9 @@ func init() {
 	IstioSecurityV1beta1Authorizationpolicies = b.Register(
 		"istio/security/v1beta1/authorizationpolicies",
 		"type.googleapis.com/istio.security.v1beta1.AuthorizationPolicy")
+	IstioSecurityV1beta1Requestauthentications = b.Register(
+		"istio/security/v1beta1/requestauthentications",
+		"type.googleapis.com/istio.security.v1beta1.RequestAuthentication")
 	K8sCoreV1Endpoints = b.Register(
 		"k8s/core/v1/endpoints",
 		"type.googleapis.com/k8s.io.api.core.v1.Endpoints")
