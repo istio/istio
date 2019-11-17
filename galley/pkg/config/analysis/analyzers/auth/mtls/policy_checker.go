@@ -78,8 +78,8 @@ type PolicyChecker struct {
 type Mode int
 
 const (
-	// ModeOff means MTLS is off (unsupported).
-	ModeOff Mode = iota
+	// ModePlaintext means MTLS is off (unsupported).
+	ModePlaintext Mode = iota
 	// ModePermissive means MTLS is permissive (supported but not required)
 	ModePermissive
 	// ModeStrict means MTLS is strict (required)
@@ -88,8 +88,8 @@ const (
 
 func (m Mode) String() string {
 	switch m {
-	case ModeOff:
-		return "Off"
+	case ModePlaintext:
+		return "Plaintext"
 	case ModePermissive:
 		return "Permissive"
 	case ModeStrict:
@@ -285,5 +285,5 @@ func parsePolicyMTLSMode(p *v1alpha1.Policy) (Mode, error) {
 	}
 
 	// No MTLS configuration found
-	return ModeOff, nil
+	return ModePlaintext, nil
 }

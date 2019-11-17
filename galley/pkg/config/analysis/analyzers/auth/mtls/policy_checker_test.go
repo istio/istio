@@ -50,7 +50,7 @@ func TestMTLSPolicyChecker_singleResource(t *testing.T) {
 		"no policies means no strict mtls": {
 			// Note no policies specified
 			service: NewTargetServiceWithPortNumber("foobar.my-namespace.svc.cluster.local", 8080),
-			want:    ModeOff,
+			want:    ModePlaintext,
 		},
 		"service specific policy": {
 			policy: PolicyResource{
@@ -122,7 +122,7 @@ peers:
 `,
 			},
 			service: NewTargetServiceWithPortNumber("foobar.my-namespace.svc.cluster.local", 8080),
-			want:    ModeOff,
+			want:    ModePlaintext,
 		},
 		"non-matching namespace service specific policy": {
 			policy: PolicyResource{
@@ -137,7 +137,7 @@ peers:
 `,
 			},
 			service: NewTargetServiceWithPortNumber("foobar.my-namespace.svc.cluster.local", 8080),
-			want:    ModeOff,
+			want:    ModePlaintext,
 		},
 		"policy matches service but is not strict": {
 			policy: PolicyResource{
@@ -206,7 +206,7 @@ peers:
 `,
 			},
 			service: NewTargetServiceWithPortNumber("foobar.my-namespace.svc.cluster.local", 8080),
-			want:    ModeOff,
+			want:    ModePlaintext,
 		},
 		"policy matches every port on service": {
 			policy: PolicyResource{

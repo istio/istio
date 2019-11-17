@@ -177,8 +177,8 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 	})
 
 	// Here we explicitly handle the common case where a user specifies a
-	// MeshPolicy with no global MTLS rule. We also track if we report a problem
-	// with the global configuration. This is used later to suppress
+	// MeshPolicy with no global DestinationRule. We also track if we report a
+	// problem with the global configuration. This is used later to suppress
 	// reporting a message for every service/namespace combination due to the
 	// same misconfiguration.
 	globalMTLSMisconfigured := false
