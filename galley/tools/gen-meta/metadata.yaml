@@ -236,6 +236,15 @@ resources:
     proto: "istio.security.v1beta1.AuthorizationPolicy"
     collection: "istio/security/v1beta1/authorizationpolicies"
 
+  - kind: "RequestAuthentication"
+    singular: "requestauthentication"
+    plural: "requestauthentications"
+    group: "security.istio.io"
+    versions:
+      - "v1beta1"
+    proto: "istio.security.v1beta1.RequestAuthentication"
+    collection: "istio/security/v1beta1/requestauthentications"
+
   # Types from Mixer
 
   - kind: "rule"
