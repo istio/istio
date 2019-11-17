@@ -39,7 +39,6 @@ type v1beta1PolicyApplier struct {
 }
 
 func (a v1beta1PolicyApplier) JwtFilter(isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
-	log.Infof("++++++++++++++++++++++++++++++++++ v1beta1 JwtFilter")
 	var filterConfigProto *envoy_jwt.JwtAuthentication
 	filterConfigProto = convertToEnvoyJwtConfig(a.aggregateJWTRules())
 
@@ -139,6 +138,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWT) *envoy_jwt.JwtAuthenticati
 					},
 				},
 				Requires: &envoy_jwt.JwtRequirement{
+					// TODO(diemvu): change to AllowMissing requirement.
 					RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
 						AllowMissingOrFailed: &empty.Empty{},
 					},
