@@ -246,6 +246,19 @@ var (
 		VariableName:  "AuthorizationPolicy",
 	}
 
+	// RequestAuthentication describes the request authentication.
+	RequestAuthentication = schema.Instance{
+		Type:          "request-authentication",
+		Plural:        "requestauthentications",
+		Group:         "security",
+		Version:       "v1beta1",
+		MessageName:   "istio.security.v1beta1.RequestAuthentication",
+		Validate:      validation.ValidateRequestAuthentication,
+		Collection:    "istio/security/v1beta1/requestauthentications",
+		ClusterScoped: false,
+		VariableName:  "RequestAuthentication",
+	}
+
 	// Istio lists all Istio schemas.
 	Istio = schema.Set{
 		VirtualService,
@@ -266,5 +279,6 @@ var (
 		RbacConfig,
 		ClusterRbacConfig,
 		AuthorizationPolicy,
+		RequestAuthentication,
 	}
 )

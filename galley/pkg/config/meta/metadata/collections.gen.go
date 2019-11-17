@@ -177,6 +177,9 @@ var (
 	// IstioSecurityV1Beta1Authorizationpolicies is the name of collection istio/security/v1beta1/authorizationpolicies
 	IstioSecurityV1Beta1Authorizationpolicies = collection.NewName("istio/security/v1beta1/authorizationpolicies")
 
+	// IstioSecurityV1Beta1Requestauthentications is the name of collection istio/security/v1beta1/requestauthentications
+	IstioSecurityV1Beta1Requestauthentications = collection.NewName("istio/security/v1beta1/requestauthentications")
+
 	// K8SAppsV1Deployments is the name of collection k8s/apps/v1/deployments
 	K8SAppsV1Deployments = collection.NewName("k8s/apps/v1/deployments")
 
@@ -359,6 +362,9 @@ var (
 
 	// K8SSecurityIstioIoV1Beta1Authorizationpolicies is the name of collection k8s/security.istio.io/v1beta1/authorizationpolicies
 	K8SSecurityIstioIoV1Beta1Authorizationpolicies = collection.NewName("k8s/security.istio.io/v1beta1/authorizationpolicies")
+
+	// K8SSecurityIstioIoV1Beta1Requestauthentications is the name of collection k8s/security.istio.io/v1beta1/requestauthentications
+	K8SSecurityIstioIoV1Beta1Requestauthentications = collection.NewName("k8s/security.istio.io/v1beta1/requestauthentications")
 )
 
 // CollectionNames returns the collection names declared in this package.
@@ -420,6 +426,7 @@ func CollectionNames() []collection.Name {
 		IstioRbacV1Alpha1Servicerolebindings,
 		IstioRbacV1Alpha1Serviceroles,
 		IstioSecurityV1Beta1Authorizationpolicies,
+		IstioSecurityV1Beta1Requestauthentications,
 		K8SAppsV1Deployments,
 		K8SAuthenticationIstioIoV1Alpha1Meshpolicies,
 		K8SAuthenticationIstioIoV1Alpha1Policies,
@@ -481,5 +488,6 @@ func CollectionNames() []collection.Name {
 		K8SRbacIstioIoV1Alpha1Rbacconfigs,
 		K8SRbacIstioIoV1Alpha1Serviceroles,
 		K8SSecurityIstioIoV1Beta1Authorizationpolicies,
+		K8SSecurityIstioIoV1Beta1Requestauthentications,
 	}
 }
