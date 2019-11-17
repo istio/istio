@@ -1158,6 +1158,8 @@ func TestController_ExternalNameService(t *testing.T) {
 func TestCompareEndpoints(t *testing.T) {
 	addressA := v1.EndpointAddress{IP: "1.2.3.4", Hostname: "a"}
 	addressB := v1.EndpointAddress{IP: "1.2.3.4", Hostname: "b"}
+	labelsA := map[string]string{"security.istio.io/tlsMode": "istio"}
+	labelsB := map[string]string{"security.istio.io/tlsMode": "disable"}
 	portA := v1.EndpointPort{Name: "a"}
 	portB := v1.EndpointPort{Name: "b"}
 	cases := []struct {
@@ -1217,6 +1219,57 @@ func TestCompareEndpoints(t *testing.T) {
 				{Addresses: []v1.EndpointAddress{addressA}, Ports: []v1.EndpointPort{portB}},
 			}},
 			false,
+		},
+		{
+			"both do not have labels",
+			&v1.Endpoints{Subsets: []v1.EndpointSubset{
+				{Addresses: []v1.EndpointAddress{addressA}, Ports: []v1.EndpointPort{portA}},
+			}},
+			&v1.Endpoints{
+				Subsets: []v1.EndpointSubset{
+					{Addresses: []v1.EndpointAddress{addressA}, Ports: []v1.EndpointPort{portA}},
+				}},
+			true,
+		},
+		{
+			"no label to add labels",
+			&v1.Endpoints{Subsets: []v1.EndpointSubset{
+				{Addresses: []v1.EndpointAddress{addressA}, Ports: []v1.EndpointPort{portA}},
+			}},
+			&v1.Endpoints{
+				ObjectMeta: metaV1.ObjectMeta{Labels: labelsA},
+				Subsets: []v1.EndpointSubset{
+					{Addresses: []v1.EndpointAddress{addressA}, Ports: []v1.EndpointPort{portA}},
+				}},
+			false,
+		},
+		{
+			"label change",
+			&v1.Endpoints{
+				ObjectMeta: metaV1.ObjectMeta{Labels: labelsB},
+				Subsets: []v1.EndpointSubset{
+					{Addresses: []v1.EndpointAddress{addressA}, Ports: []v1.EndpointPort{portA}},
+				}},
+			&v1.Endpoints{
+				ObjectMeta: metaV1.ObjectMeta{Labels: labelsA},
+				Subsets: []v1.EndpointSubset{
+					{Addresses: []v1.EndpointAddress{addressA}, Ports: []v1.EndpointPort{portA}},
+				}},
+			false,
+		},
+		{
+			"same labels",
+			&v1.Endpoints{
+				ObjectMeta: metaV1.ObjectMeta{Labels: labelsB},
+				Subsets: []v1.EndpointSubset{
+					{Addresses: []v1.EndpointAddress{addressA}, Ports: []v1.EndpointPort{portA}},
+				}},
+			&v1.Endpoints{
+				ObjectMeta: metaV1.ObjectMeta{Labels: labelsB},
+				Subsets: []v1.EndpointSubset{
+					{Addresses: []v1.EndpointAddress{addressA}, Ports: []v1.EndpointPort{portA}},
+				}},
+			true,
 		},
 	}
 	for _, tt := range cases {

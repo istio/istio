@@ -227,8 +227,12 @@ func (c *Controller) createCacheHandler(informer cache.SharedIndexInformer, otyp
 }
 
 // compareEndpoints returns true if the two endpoints are the same in aspects Pilot cares about
-// This currently means only looking at "Ready" endpoints
+// This currently means only looking at "Ready" endpoints and labels.
 func compareEndpoints(a, b *v1.Endpoints) bool {
+	// If labels have changed, we should treat it as Endpoint change.
+	if !reflect.DeepEqual(a.ObjectMeta.Labels, b.ObjectMeta.Labels) {
+		return false
+	}
 	if len(a.Subsets) != len(b.Subsets) {
 		return false
 	}
