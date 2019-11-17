@@ -696,7 +696,7 @@ func attrUID(node *model.Proxy) attribute {
 func attrNamespace(node *model.Proxy) attribute {
 	parts := strings.Split(node.ID, ".")
 	if len(parts) >= 2 {
-		return attrStringValue(parts[1])
+		return attrStringValue(parts[len(parts)-1])
 	}
 	return attrStringValue("")
 }
