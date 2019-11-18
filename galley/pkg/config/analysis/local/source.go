@@ -121,25 +121,17 @@ func (s *precedenceSource) Dispatch(h event.Handler) {
 func (s *precedenceSource) Start() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	scope.Analysis.Infof("precedenceSource.Start")
 
 	if s.started {
 		return
 	}
 
-	// Reset expected counts map
+	// Init expected counts map
 	s.expectedCounts = make(map[collection.Name]int)
 	for _, i := range s.inputs {
-		scope.Analysis.Infof("precedenceSource.Start: input source: %v", i.src)
-
 		for _, c := range i.cols {
 			s.expectedCounts[c]++
-			scope.Analysis.Infof("precedenceSource.Start: \t\tcol: %v = %d", c, s.expectedCounts[c])
 		}
-	}
-
-	for k, v := range s.expectedCounts {
-		scope.Analysis.Infof("precedenceSource.Start: expectedCounts for %v is %d", k, v)
 	}
 
 	for _, i := range s.inputs {
@@ -153,7 +145,6 @@ func (s *precedenceSource) Start() {
 func (s *precedenceSource) Stop() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	scope.Analysis.Infof("precedenceSource.Stop")
 
 	if !s.started {
 		return

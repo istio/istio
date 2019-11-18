@@ -183,11 +183,7 @@ func (sa *SourceAnalyzer) AddFileKubeSource(files []string) error {
 		}
 
 		if err = src.ApplyContent(file, string(by)); err != nil {
-			// Try to apply as a mesh cfg file first, before giving up and treating it as an error
-			// TODO: This is less chatty in logs if we try it before the main ApplyContent
-			if ok := sa.tryAddFileKubeMeshConfigSource(file, string(by)); !ok {
-				errs = multierror.Append(errs, err)
-			}
+			errs = multierror.Append(errs, err)
 		}
 	}
 
@@ -212,19 +208,23 @@ func (sa *SourceAnalyzer) AddRunningKubeSource(k kube.Interfaces) {
 	sa.sources = append(sa.sources, precedenceSourceInput{src: src, cols: sa.kubeResources.Collections()})
 }
 
-//TODO: Correctly detect bogus files as not mesh config
-func (sa *SourceAnalyzer) tryAddFileKubeMeshConfigSource(filename, yaml string) bool {
-	cfg, err := mesh.ApplyMeshConfigDefaults(yaml)
+// AddFileKubeMeshConfigSource adds a mesh config source based on the specified meshconfig yaml file
+func (sa *SourceAnalyzer) AddFileKubeMeshConfigSource(file string) error {
+	by, err := ioutil.ReadFile(file)
 	if err != nil {
-		return false
+		return err
 	}
-	scope.Analysis.Debugf("Applying file %q as mesh config: %v", filename, err)
+
+	cfg, err := mesh.ApplyMeshConfigDefaults(string(by))
+	if err != nil {
+		return err
+	}
+
 	sa.addMeshConfigSource(cfg)
 
-	return true
+	return nil
 }
 
-//TODO: Share code with what's in kubeinject.go?
 func (sa *SourceAnalyzer) addRunningKubeMeshConfigSource(k kube.Interfaces) error {
 	client, err := k.KubeClient()
 	if err != nil {
@@ -233,12 +233,12 @@ func (sa *SourceAnalyzer) addRunningKubeMeshConfigSource(k kube.Interfaces) erro
 
 	meshConfigMap, err := client.CoreV1().ConfigMaps(sa.istioNamespace).Get(meshConfigMapName, metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("could not read valid configmap %q from namespace %q: %v", meshConfigMapName, sa.istioNamespace, err)
+		return fmt.Errorf("could not read configmap %q from namespace %q: %v", meshConfigMapName, sa.istioNamespace, err)
 	}
 
 	configYaml, ok := meshConfigMap.Data[meshConfigMapKey]
 	if !ok {
-		return fmt.Errorf("missing configuration map key %q", meshConfigMapKey)
+		return fmt.Errorf("missing config map key %q", meshConfigMapKey)
 	}
 
 	cfg, err := mesh.ApplyMeshConfigDefaults(configYaml)

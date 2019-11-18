@@ -282,7 +282,6 @@ func (s *session) applyMeshEvent(e event.Event) {
 	case event.Added, event.Updated:
 		scope.Processing.Infof("session.handleMeshEvent: received an add/update mesh config event: %v", e)
 		s.meshCfg = proto.Clone(e.Entry.Item).(*v1alpha1.MeshConfig)
-		scope.Processing.Infof("session.handleMeshEvent: got mesh config with %v", s.meshCfg.GetOutboundClusterStatName())
 	case event.Deleted:
 		scope.Processing.Infof("session.handleMeshEvent: received a delete mesh config event: %v", e)
 		s.meshCfg = meshcfg.Default()
