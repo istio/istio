@@ -19,8 +19,7 @@ import (
 	"sync"
 
 	v1 "k8s.io/api/core/v1"
-	k8slabels "k8s.io/apimachinery/pkg/labels"
-	listerv1 "k8s.io/client-go/listers/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -42,16 +41,13 @@ type PodCache struct {
 	podsByIP map[string]string
 
 	c *Controller
-
-	lister listerv1.PodLister
 }
 
-func newPodCache(ch cacheHandler, c *Controller, l listerv1.PodLister) *PodCache {
+func newPodCache(ch cacheHandler, c *Controller) *PodCache {
 	out := &PodCache{
 		cacheHandler: ch,
 		c:            c,
 		podsByIP:     make(map[string]string),
-		lister:       l,
 	}
 
 	ch.handler.Append(out.event)
@@ -153,19 +149,19 @@ func (pc *PodCache) getPodByIP(addr string) *v1.Pod {
 }
 
 // getPod first checks if a pod with ip exists in the cache. If it exists, it just returns
-// from the cache otheriwse it loads the pod from underlying store.
+// from the cache otheriwse it loads the pod from k8s.
 func (pc *PodCache) getPod(addr string, namespace string) *v1.Pod {
 	pod := pc.getPodByIP(addr)
 	if pod != nil {
 		return pod
 	}
-	pods, err := pc.lister.Pods(namespace).List(k8slabels.NewSelector())
+	pods, err := pc.c.client.CoreV1().Pods(namespace).List(metav1.ListOptions{})
 	if err != nil {
 		return nil
 	}
-	for _, p := range pods {
+	for _, p := range pods.Items {
 		if p.Status.PodIP == addr {
-			return p
+			return &p
 		}
 	}
 	return nil

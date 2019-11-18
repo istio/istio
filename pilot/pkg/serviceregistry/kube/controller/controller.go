@@ -188,8 +188,7 @@ func NewController(client kubernetes.Interface, options Options) *Controller {
 	out.nodes = out.createCacheHandler(nodeInformer, "Nodes")
 
 	podInformer := sharedInformers.Core().V1().Pods().Informer()
-	podLister := sharedInformers.Core().V1().Pods().Lister()
-	out.pods = newPodCache(out.createCacheHandler(podInformer, "Pod"), out, podLister)
+	out.pods = newPodCache(out.createCacheHandler(podInformer, "Pod"), out)
 
 	return out
 }

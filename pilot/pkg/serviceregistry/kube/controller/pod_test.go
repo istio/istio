@@ -23,7 +23,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
-	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -175,7 +174,7 @@ func TestPodCacheEvents(t *testing.T) {
 	t.Parallel()
 	handler := &kube.ChainHandler{}
 	c, fx := newFakeController(t)
-	podCache := newPodCache(cacheHandler{handler: handler}, c, listerv1.NewPodLister(nil))
+	podCache := newPodCache(cacheHandler{handler: handler}, c)
 
 	f := podCache.event
 
