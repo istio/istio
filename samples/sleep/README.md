@@ -1,7 +1,7 @@
 # Simple sleep service
 
-This sample consists of a simple service that does nothing but sleep.
-It's a ubuntu container with curl installed that can be used as a request source for invoking other services
+This sample consists of a simple pod that does nothing but sleep.
+It's an alpine-based container with curl installed that can be used as a request source for invoking other services
 to experiment with Istio networking.
 
 To use it:
