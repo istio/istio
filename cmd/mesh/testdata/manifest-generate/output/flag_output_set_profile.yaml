@@ -5744,7 +5744,7 @@ data:
     sidecar: false
     tolerations: []
     traceSampling: 1
-    useMCP: true
+    useMCP: false
 
   mesh: |-
     # Set enableTracing to false to disable request tracing.
@@ -5754,8 +5754,8 @@ data:
     accessLogFile: ""
 
     enableEnvoyAccessLogService: false
-    mixerCheckServer: istio-policy.istio-system.svc.cluster.local:15004
-    mixerReportServer: istio-telemetry.istio-system.svc.cluster.local:15004
+    mixerCheckServer: istio-policy.istio-system.svc.cluster.local:9091
+    mixerReportServer: istio-telemetry.istio-system.svc.cluster.local:9091
     # reportBatchMaxEntries is the number of requests that are batched before telemetry data is sent to the mixer server
     reportBatchMaxEntries: 100
     # reportBatchMaxTime is the max waiting time before the telemetry data of a request is sent to the mixer server
@@ -5804,9 +5804,7 @@ data:
     # If true, automatically configure client side mTLS settings to match the corresponding service's
     # server side mTLS authentication policy, when destination rule for that service does not specify
     # TLS settings.
-    enableAutoMtls: true
-    config_sources:
-    - address: localhost:15019
+    enableAutoMtls: false
 
     outboundTrafficPolicy:
       mode: ALLOW_ANY
@@ -5852,10 +5850,10 @@ data:
           address: zipkin.istio-system:9411
       #
       # Mutual TLS authentication between sidecars and istio control plane.
-      controlPlaneAuthPolicy: MUTUAL_TLS
+      controlPlaneAuthPolicy: NONE
       #
       # Address where istio Pilot service is running
-      discoveryAddress: istio-pilot.istio-system:15011
+      discoveryAddress: istio-pilot.istio-system:15010
 ---
 
 
@@ -5971,53 +5969,6 @@ spec:
         volumeMounts:
         - mountPath: /etc/istio/config
           name: config-volume
-      - args:
-        - proxy
-        - --domain
-        - $(POD_NAMESPACE).svc.cluster.local
-        - --serviceCluster
-        - istio-pilot
-        - --templateFile
-        - /var/lib/envoy/envoy.yaml.tmpl
-        - --controlPlaneAuthPolicy
-        - MUTUAL_TLS
-        - --trust-domain=cluster.local
-        env:
-        - name: POD_NAME
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.name
-        - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.namespace
-        - name: INSTANCE_IP
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: status.podIP
-        - name: SDS_ENABLED
-          value: "false"
-        image: gcr.io/istio-testing/proxyv2:latest
-        imagePullPolicy: IfNotPresent
-        name: istio-proxy
-        ports:
-        - containerPort: 15011
-        resources:
-          limits:
-            cpu: 2000m
-            memory: 1024Mi
-          requests:
-            cpu: 100m
-            memory: 128Mi
-        volumeMounts:
-        - mountPath: /etc/certs
-          name: istio-certs
-          readOnly: true
-        - mountPath: /var/lib/envoy
-          name: pilot-envoy-config
       serviceAccountName: istio-pilot-service-account
       volumes:
       - configMap:
@@ -6026,10 +5977,6 @@ spec:
       - configMap:
           name: pilot-envoy-config
         name: pilot-envoy-config
-      - name: istio-certs
-        secret:
-          optional: true
-          secretName: istio.istio-pilot-service-account
 
 ---
 
