@@ -21,51 +21,6 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var splitCases = []struct {
-	merged string
-	split  []string
-}{
-	{
-		merged: "",
-		split:  nil,
-	},
-	{
-		merged: `yaml: foo`,
-		split: []string{
-			`yaml: foo`,
-		},
-	},
-	{
-		merged: `
-yaml: foo
----
-bar: boo
-`,
-		split: []string{
-			`
-yaml: foo
-`,
-			`bar: boo
-`,
-		},
-	},
-	{
-		merged: `
-yaml: foo
----
----
-bar: boo
-`,
-		split: []string{
-			`
-yaml: foo
-`,
-			`bar: boo
-`,
-		},
-	},
-}
-
 var joinCases = []struct {
 	merged string
 	split  []string
