@@ -948,10 +948,10 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 					// This means, the endpoint event has arrived before pod event. This might happen because
 					// PodCache is eventually consistent. We should try to get the pod from underlying store.
 					endpointBeforePodEvents.Increment()
-					pod = c.pods.getPod(ea.IP, ep.Namespace)
-					if pod == nil {
-						// If pod is still not availalable, this an unuusual case.
-						if ea.TargetRef != nil && ea.TargetRef.Kind == "Pod" {
+					if ea.TargetRef != nil && ea.TargetRef.Kind == "Pod" {
+						pod = c.pods.getPod(ea.IP, ea.TargetRef.Name, ea.TargetRef.Namespace)
+						if pod == nil {
+							// If pod is still not availalable, this an unuusual case.
 							endpointsWithNoPods.Increment()
 							log.Errorf("Endpoint without pod %s %s.%s", ea.IP, ep.Name, ep.Namespace)
 							if c.Env != nil {

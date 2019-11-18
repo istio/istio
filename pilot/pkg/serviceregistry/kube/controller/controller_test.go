@@ -1239,7 +1239,9 @@ func createEndpoints(controller *Controller, name, namespace string, portNames, 
 	eas := make([]coreV1.EndpointAddress, 0)
 	for _, ip := range ips {
 		eas = append(eas, coreV1.EndpointAddress{IP: ip, TargetRef: &v1.ObjectReference{
-			Kind: "Pod",
+			Kind:      "Pod",
+			Name:      name,
+			Namespace: namespace,
 		}})
 	}
 

@@ -150,21 +150,16 @@ func (pc *PodCache) getPodByIP(addr string) *v1.Pod {
 
 // getPod first checks if a pod with ip exists in the cache. If it exists, it just returns
 // from the cache otheriwse it loads the pod from k8s.
-func (pc *PodCache) getPod(addr string, namespace string) *v1.Pod {
+func (pc *PodCache) getPod(addr string, name string, namespace string) *v1.Pod {
 	pod := pc.getPodByIP(addr)
 	if pod != nil {
 		return pod
 	}
-	pods, err := pc.c.client.CoreV1().Pods(namespace).List(metav1.ListOptions{})
+	pod, err := pc.c.client.CoreV1().Pods(namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
 		return nil
 	}
-	for _, p := range pods.Items {
-		if p.Status.PodIP == addr {
-			return &p
-		}
-	}
-	return nil
+	return pod
 }
 
 // labelsByIP returns pod labels or nil if pod not found or an error occurred
