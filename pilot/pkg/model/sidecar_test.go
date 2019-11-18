@@ -53,6 +53,19 @@ var (
 		},
 	}
 
+	twoMatchingPorts = []*Port{
+		{
+			Port:     7443,
+			Protocol: "GRPC",
+			Name:     "service-grpc-tls",
+		},
+		{
+			Port:     7442,
+			Protocol: "HTTP",
+			Name:     "http-tls",
+		},
+	}
+
 	port8000 = []*Port{
 		{
 			Name:     "uds",
@@ -422,6 +435,41 @@ var (
 			},
 		},
 	}
+
+	services11 = []*Service{
+		{
+			Hostname: "foo.svc.cluster.local",
+			Ports:    port7443,
+			Attributes: ServiceAttributes{
+				Name:      "foo",
+				Namespace: "ns1",
+			},
+		},
+		{
+			Hostname: "baz.svc.cluster.local",
+			Ports:    port7443,
+			Attributes: ServiceAttributes{
+				Name:      "baz",
+				Namespace: "ns3",
+			},
+		},
+		{
+			Hostname: "bar.svc.cluster.local",
+			Ports:    twoMatchingPorts,
+			Attributes: ServiceAttributes{
+				Name:      "bar",
+				Namespace: "ns2",
+			},
+		},
+		{
+			Hostname: "barprime.svc.cluster.local",
+			Ports:    port7442,
+			Attributes: ServiceAttributes{
+				Name:      "barprime",
+				Namespace: "ns3",
+			},
+		},
+	}
 )
 
 func TestCreateSidecarScope(t *testing.T) {
@@ -628,6 +676,29 @@ func TestCreateSidecarScope(t *testing.T) {
 				{
 					Hostname: "bar.svc.cluster.local",
 					Ports:    port7442,
+					Attributes: ServiceAttributes{
+						Name:      "bar",
+						Namespace: "ns2",
+					},
+				},
+			},
+		},
+		{
+			"wild-card-egress-listener-match-with-two-ports",
+			configs9,
+			services11,
+			[]*Service{
+				{
+					Hostname: "foo.svc.cluster.local",
+					Ports:    port7443,
+				},
+				{
+					Hostname: "baz.svc.cluster.local",
+					Ports:    port7443,
+				},
+				{
+					Hostname: "bar.svc.cluster.local",
+					Ports:    twoMatchingPorts,
 					Attributes: ServiceAttributes{
 						Name:      "bar",
 						Namespace: "ns2",
