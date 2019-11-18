@@ -33,6 +33,21 @@ data:
         url: {{ .Values.dashboard.grafanaURL }}
       prometheus:
         url: {{ .Values.prometheusAddr }}
+{{- if .Values.kubernetesConfig }}
+    kubernetes_config:
+{{- if .Values.kubernetesConfig.burst }}
+      burst: {{ .Values.kubernetesConfig.burst }}
+{{- end }}
+{{- if .Values.kubernetesConfig.qps }}
+      qps: {{ .Values.kubernetesConfig.qps }}
+{{- end }}
+{{- if .Values.kubernetesConfig.cacheDuration }}
+      cache_duration: {{ .Values.kubernetesConfig.cacheDuration }}
+{{- end }}
+{{- if .Values.kubernetesConfig.cacheEnabled }}
+      cache_enabled: {{ .Values.kubernetesConfig.cacheEnabled }}
+{{- end }}
+{{- end }}
 {{- if .Values.security.enabled }}
     identity:
       cert_file: {{ .Values.security.cert_file }}
