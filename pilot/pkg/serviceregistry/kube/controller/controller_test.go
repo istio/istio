@@ -325,7 +325,7 @@ func makeService(n, ns string, cl kubernetes.Interface, t *testing.T) {
 }
 
 func TestController_GetPodLocality(t *testing.T) {
-	//	t.Parallel()
+	t.Parallel()
 	pod1 := generatePod("128.0.1.1", "pod1", "nsA", "", "node1", map[string]string{"app": "prod-app"}, map[string]string{})
 	pod2 := generatePod("128.0.1.2", "pod2", "nsB", "", "node2", map[string]string{"app": "prod-app"}, map[string]string{})
 	podOverride := generatePod("128.0.1.2", "pod2", "nsB", "",
