@@ -495,7 +495,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 			// determine the bindToPort setting for listeners. Validation guarantees that these are all IP listeners.
 			bindToPort := false
 			if noneMode {
-				// dont care what the listener's capture mode setting is. The proxy does not use iptables
+				// do not care what the listener's capture mode setting is. The proxy does not use iptables
 				bindToPort = true
 			} else if ingressListener.CaptureMode == networking.CaptureMode_NONE {
 				// proxy uses iptables redirect or tproxy. IF mode is not set
@@ -859,7 +859,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 		// determine the bindToPort setting for listeners
 		bindToPort := false
 		if noneMode {
-			// dont care what the listener's capture mode setting is. The proxy does not use iptables
+			// do not care what the listener's capture mode setting is. The proxy does not use iptables
 			bindToPort = true
 		} else if egressListener.IstioListener != nil &&
 			// proxy uses iptables redirect or tproxy. IF mode is not set
