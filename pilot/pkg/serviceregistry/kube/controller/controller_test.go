@@ -325,7 +325,7 @@ func makeService(n, ns string, cl kubernetes.Interface, t *testing.T) {
 }
 
 func TestController_GetPodLocality(t *testing.T) {
-	t.Parallel()
+	//	t.Parallel()
 	pod1 := generatePod("128.0.1.1", "pod1", "nsA", "", "node1", map[string]string{"app": "prod-app"}, map[string]string{})
 	pod2 := generatePod("128.0.1.2", "pod2", "nsB", "", "node2", map[string]string{"app": "prod-app"}, map[string]string{})
 	podOverride := generatePod("128.0.1.2", "pod2", "nsB", "",
@@ -1561,8 +1561,8 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 	// Setup kube caches
 	controller, fx := newFakeController(t)
 	defer controller.Stop()
-	pod1 := generatePod("128.0.1.1", "pod1", "nsA", "", "node1", map[string]string{"app": "prod-app"}, map[string]string{})
-	pod2 := generatePod("128.0.1.2", "pod2", "nsA", "", "node2", map[string]string{"app": "prod-app"}, map[string]string{})
+	pod1 := generatePod("172.0.1.1", "pod1", "nsA", "", "node1", map[string]string{"app": "prod-app"}, map[string]string{})
+	pod2 := generatePod("172.0.1.2", "pod2", "nsA", "", "node2", map[string]string{"app": "prod-app"}, map[string]string{})
 
 	pods := []*coreV1.Pod{pod1, pod2}
 	nodes := []*coreV1.Node{
@@ -1580,7 +1580,7 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 	}
 
 	// Create Endpoints for pod1 and validate that EDS is triggered.
-	pod1Ips := []string{"128.0.1.1"}
+	pod1Ips := []string{"172.0.1.1"}
 	portNames := []string{"tcp-port"}
 	createEndpoints(controller, "pod1", "nsA", portNames, pod1Ips, t)
 	if ev := fx.Wait("eds"); ev == nil {
@@ -1591,7 +1591,7 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 	// when PodCache does not yet have entry for the pod.
 	controller.pods.event(pod2, model.EventDelete)
 
-	pod2Ips := []string{"128.0.1.2"}
+	pod2Ips := []string{"172.0.1.2"}
 	createEndpoints(controller, "pod2", "nsA", portNames, pod2Ips, t)
 
 	// Validate that EDS is triggered with endpoints.
