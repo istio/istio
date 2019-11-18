@@ -26,7 +26,6 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 
 	v1beta1 "istio.io/api/security/v1beta1"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
 	pilotutil "istio.io/istio/pilot/pkg/networking/util"
@@ -396,4 +395,3 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 		})
 	}
 }
-

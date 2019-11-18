@@ -31,9 +31,9 @@ import (
 	"istio.io/pkg/log"
 )
 
-// Implemenation of authn.PolicyApplier
+// Implemenation of authn.PolicyApplier with v1beta1 API.
 type v1beta1PolicyApplier struct {
-	jwtPolicies  []*model.Config
+	jwtPolicies []*model.Config
 	// TODO: add mTLS configs.
 	// TODO: add v1alpha1 fallback configs.
 }
@@ -57,13 +57,13 @@ func (a v1beta1PolicyApplier) JwtFilter(isXDSMarshalingToAnyEnabled bool) *http_
 }
 
 func (a v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
-	// TODO: implement this
+	// TODO(diemtvu) implement this.
 	log.Errorf("AuthNFilter(%v, %v) is not yet implemented", proxyType, isXDSMarshalingToAnyEnabled)
 	return nil
 }
 
 func (a v1beta1PolicyApplier) InboundFilterChain(sdsUdsPath string, meta *model.NodeMetadata) []plugin.FilterChain {
-	// TODO: implement this
+	// TODO(diemtvu) implement this.
 	log.Errorf("InboundFilterChain is not yet implemented")
 	return nil
 }
@@ -71,7 +71,7 @@ func (a v1beta1PolicyApplier) InboundFilterChain(sdsUdsPath string, meta *model.
 // NewPolicyApplier returns new applier for v1beta1 authentication policies.
 func NewPolicyApplier(jwtPolicies []*model.Config) authn.PolicyApplier {
 	return &v1beta1PolicyApplier{
-		jwtPolicies:  jwtPolicies,
+		jwtPolicies: jwtPolicies,
 	}
 }
 
@@ -94,6 +94,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWT) *envoy_jwt.JwtAuthenticati
 	}
 	providers := map[string]*envoy_jwt.JwtProvider{}
 	for i, jwtRule := range jwtRules {
+		// TODO(diemtvu): set forward based on input spec after https://github.com/istio/api/pull/1172
 		provider := &envoy_jwt.JwtProvider{
 			Issuer:            jwtRule.Issuer,
 			Audiences:         jwtRule.Audiences,
@@ -103,9 +104,9 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWT) *envoy_jwt.JwtAuthenticati
 
 		for _, location := range jwtRule.FromHeaders {
 			provider.FromHeaders = append(provider.FromHeaders, &envoy_jwt.JwtHeader{
-				Name: location.Name,
-                                ValuePrefix: location.Prefix,
-                        })
+				Name:        location.Name,
+				ValuePrefix: location.Prefix,
+			})
 		}
 		provider.FromParams = jwtRule.FromParams
 
@@ -148,4 +149,3 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWT) *envoy_jwt.JwtAuthenticati
 		Providers: providers,
 	}
 }
-
