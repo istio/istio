@@ -23,6 +23,8 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/api/mesh/v1alpha1"
+
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/meshcfg"
@@ -96,7 +98,7 @@ func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, 
 		kuberesource.DefaultExcludedResourceKinds(),
 		serviceDiscovery)
 
-	return &SourceAnalyzer{
+	sa := &SourceAnalyzer{
 		m:                    m,
 		sources:              make([]precedenceSourceInput, 0),
 		analyzer:             analyzer,
@@ -106,24 +108,19 @@ func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, 
 		kubeResources:        kubeResources,
 		collectionReporter:   cr,
 	}
+
+	sa.addMeshConfigSource(meshcfg.Default())
+
+	return sa
 }
 
 // Analyze loads the sources and executes the analysis
 func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) {
 	var result AnalysisResult
 
-	if len(sa.sources) == 0 {
+	// We need more than the default mesh config we always start with
+	if len(sa.sources) <= 1 {
 		return result, fmt.Errorf("at least one file and/or Kubernetes source must be provided")
-	}
-
-	inputs := make([]precedenceSourceInput, 0)
-
-	meshsrc := meshcfg.NewInmemory()
-	meshsrc.Set(meshcfg.Default())
-	inputs = append(inputs, precedenceSourceInput{src: meshsrc, cols: collection.Names{meshcfg.IstioMeshconfig}})
-
-	for _, s := range sa.sources {
-		inputs = append(inputs, s)
 	}
 
 	var namespaces []string
@@ -149,7 +146,7 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 	processorSettings := processor.Settings{
 		Metadata:           sa.m,
 		DomainSuffix:       domainSuffix,
-		Source:             newPrecedenceSource(inputs),
+		Source:             newPrecedenceSource(sa.sources),
 		TransformProviders: sa.transformerProviders,
 		Distributor:        distributor,
 		EnabledSnapshots:   []string{metadata.LocalAnalysis, metadata.SyntheticServiceEntry},
@@ -174,7 +171,6 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 func (sa *SourceAnalyzer) AddFileKubeSource(files []string) error {
 	src := inmemory.NewKubeSource(sa.kubeResources)
 	src.SetDefaultNamespace(sa.namespace)
-	src.IncludeMeshConfig() //TODO: Should we pass in the ns/configmap to look for this?
 
 	var errs error
 
@@ -185,12 +181,15 @@ func (sa *SourceAnalyzer) AddFileKubeSource(files []string) error {
 			errs = multierror.Append(errs, err)
 			continue
 		}
+
 		if err = src.ApplyContent(file, string(by)); err != nil {
-			errs = multierror.Append(errs, err)
+			// Try to apply as a mesh cfg file first, before giving up and treating it as an error
+			// TODO: This is less chatty in logs if we try it before the main ApplyContent
+			if ok := sa.tryAddFileKubeMeshConfigSource(file, string(by)); !ok {
+				errs = multierror.Append(errs, err)
+			}
 		}
 	}
-
-	//TODO: Can I just Get the mesh config from the inmemory rep directly?
 
 	sa.sources = append(sa.sources, precedenceSourceInput{src: src, cols: sa.kubeResources.Collections()})
 
@@ -211,6 +210,18 @@ func (sa *SourceAnalyzer) AddRunningKubeSource(k kube.Interfaces) {
 
 	src := apiserverNew(o)
 	sa.sources = append(sa.sources, precedenceSourceInput{src: src, cols: sa.kubeResources.Collections()})
+}
+
+//TODO: Correctly detect bogus files as not mesh config
+func (sa *SourceAnalyzer) tryAddFileKubeMeshConfigSource(filename, yaml string) bool {
+	cfg, err := mesh.ApplyMeshConfigDefaults(yaml)
+	if err != nil {
+		return false
+	}
+	scope.Analysis.Debugf("Applying file %q as mesh config: %v", filename, err)
+	sa.addMeshConfigSource(cfg)
+
+	return true
 }
 
 //TODO: Share code with what's in kubeinject.go?
@@ -235,10 +246,13 @@ func (sa *SourceAnalyzer) addRunningKubeMeshConfigSource(k kube.Interfaces) erro
 		return fmt.Errorf("error parsing mesh config: %v", err)
 	}
 
-	meshsrc := meshcfg.NewInmemory()
-	meshsrc.Set(cfg)
-
-	sa.sources = append(sa.sources, precedenceSourceInput{src: meshsrc, cols: collection.Names{meshcfg.IstioMeshconfig}})
+	sa.addMeshConfigSource(cfg)
 
 	return nil
+}
+
+func (sa *SourceAnalyzer) addMeshConfigSource(cfg *v1alpha1.MeshConfig) {
+	meshsrc := meshcfg.NewInmemory()
+	meshsrc.Set(cfg)
+	sa.sources = append(sa.sources, precedenceSourceInput{src: meshsrc, cols: collection.Names{meshcfg.IstioMeshconfig}})
 }
