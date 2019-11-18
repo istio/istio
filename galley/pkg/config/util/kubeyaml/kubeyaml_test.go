@@ -66,6 +66,34 @@ yaml: foo
 	},
 }
 
+func TestSplit(t *testing.T) {
+	for i, c := range splitCases {
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			g := NewGomegaWithT(t)
+
+			actual := Split([]byte(c.merged))
+
+			var exp [][]byte
+			for _, e := range c.split {
+				exp = append(exp, []byte(e))
+			}
+			g.Expect(actual).To(Equal(exp))
+		})
+	}
+}
+
+func TestSplitString(t *testing.T) {
+	for i, c := range splitCases {
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			g := NewGomegaWithT(t)
+
+			actual := SplitString(c.merged)
+
+			g.Expect(actual).To(Equal(c.split))
+		})
+	}
+}
+
 var joinCases = []struct {
 	merged string
 	split  []string

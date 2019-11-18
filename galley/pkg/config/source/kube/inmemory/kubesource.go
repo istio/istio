@@ -18,13 +18,9 @@ import (
 	"bytes"
 	"crypto/sha1"
 	"fmt"
-	"io"
-	"io/ioutil"
-	"strings"
 	"sync"
 
-	"k8s.io/apimachinery/pkg/util/yaml"
-
+	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-multierror"
 	kubeJson "k8s.io/apimachinery/pkg/runtime/serializer/json"
 
@@ -35,6 +31,7 @@ import (
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/inmemory"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
+	"istio.io/istio/galley/pkg/config/util/kubeyaml"
 )
 
 var inMemoryKubeNameDiscriminator int64
@@ -199,29 +196,11 @@ func (s *KubeSource) RemoveContent(name string) {
 func (s *KubeSource) parseContent(r schema.KubeResources, name, yamlText string) ([]kubeResource, error) {
 	var resources []kubeResource
 	var errs error
-
-	reader := strings.NewReader(yamlText)
-	readCloser := ioutil.NopCloser(reader)
-	decoder := yaml.NewDocumentDecoder(readCloser)
-
-	buf := make([]byte, 4096)
-	for {
-		doc, err := readDocument(decoder, buf)
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			e := fmt.Errorf("error reading documents in %s: %v", name, err)
-			scope.Source.Warnf("%v - skipping", e)
-			scope.Source.Debugf("Failed to parse yamlText chunk: %v", yamlText)
-			errs = multierror.Append(errs, e)
-			break
-		}
-
-		chunk := bytes.TrimSpace(doc)
+	for i, chunk := range kubeyaml.Split([]byte(yamlText)) {
+		chunk = bytes.TrimSpace(chunk)
 		r, err := s.parseChunk(r, chunk)
 		if err != nil {
-			e := fmt.Errorf("error processing %s: %v", name, err)
+			e := fmt.Errorf("error processing %s[%d]: %v", name, i, err)
 			scope.Source.Warnf("%v - skipping", e)
 			scope.Source.Debugf("Failed to parse yaml chunk: %v", string(chunk))
 			errs = multierror.Append(errs, e)
@@ -229,35 +208,12 @@ func (s *KubeSource) parseContent(r schema.KubeResources, name, yamlText string)
 		}
 		resources = append(resources, r)
 	}
-
 	return resources, errs
-}
-
-// readDocument is a helper for reading documents from yaml.NewDocumentDecoder.
-// yaml.NewDocumentDecoder returns a Reader instance such that every Read call
-// is an entire document; however like all Readers it requires a byte buffer to
-// write to.
-func readDocument(r io.Reader, buf []byte) ([]byte, error) {
-	var doc []byte
-
-	for {
-		num, err := r.Read(buf)
-		if err != nil && err != io.ErrShortBuffer {
-			return []byte{}, err
-		}
-		doc = append(doc, buf[:num]...)
-
-		if err == nil {
-			break
-		}
-	}
-
-	return doc, nil
 }
 
 func (s *KubeSource) parseChunk(r schema.KubeResources, yamlChunk []byte) (kubeResource, error) {
 	// Convert to JSON
-	jsonChunk, err := yaml.ToJSON(yamlChunk)
+	jsonChunk, err := yaml.YAMLToJSON(yamlChunk)
 	if err != nil {
 		return kubeResource{}, fmt.Errorf("failed converting YAML to JSON: %v", err)
 	}
