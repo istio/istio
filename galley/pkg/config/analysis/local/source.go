@@ -20,7 +20,6 @@ import (
 
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/meta/schema/collection"
-	"istio.io/istio/galley/pkg/config/scope"
 )
 
 // precedenceSource is a processor.Source implementation that combines multiple sources in precedence order
@@ -79,7 +78,6 @@ func (ph *precedenceHandler) Handle(e event.Event) {
 // For each collection, we want to only send this once, after all upstream sources have sent theirs.
 func (ph *precedenceHandler) handleFullSync(e event.Event) {
 	ph.src.expectedCounts[e.Source]--
-	scope.Analysis.Infof("precedenceHandler.handleFullSync: Got event %v, for col %v, counts at %d", e, e.Source, ph.src.expectedCounts[e.Source])
 	if ph.src.expectedCounts[e.Source] > 0 {
 		return
 	}
