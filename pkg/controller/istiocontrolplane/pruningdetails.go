@@ -83,12 +83,12 @@ var (
 		{Group: "networking.istio.io", Version: "v1alpha3", Kind: "ServiceEntry"},
 		{Group: "networking.istio.io", Version: "v1alpha3", Kind: "Sidecar"},
 		{Group: "networking.istio.io", Version: "v1alpha3", Kind: "VirtualService"},
-		{Group: "rbac.istio.io", Version: "v1alpha1", Kind: "AuthorizationPolicy"},
 		{Group: "rbac.istio.io", Version: "v1alpha1", Kind: "ClusterRbacConfig"},
 		{Group: "rbac.istio.io", Version: "v1alpha1", Kind: "RbacConfig"},
 		{Group: "rbac.istio.io", Version: "v1alpha1", Kind: "ServiceRole"},
 		{Group: "rbac.istio.io", Version: "v1alpha1", Kind: "ServiceRoleBinding"},
 		{Group: "security.istio.io", Version: "v1beta1", Kind: "AuthorizationPolicy"},
+		{Group: "security.istio.io", Version: "v1beta1", Kind: "RequestAuthentication"},
 	}
 
 	// ordered by which types should be deleted, first to last
