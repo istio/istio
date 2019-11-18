@@ -33,11 +33,11 @@ import (
 
 func TestValidateConfig(t *testing.T) {
 	invalidCounter := config.Params_MetricInfo{
-		Name: "unsuported",
+		Name: "unsupported",
 		Type: config.COUNTER,
 	}
 	invalidGauge := config.Params_MetricInfo{
-		Name: "unsuported",
+		Name: "unsupported",
 		Type: config.GAUGE,
 	}
 	invalidHistogram := config.Params_MetricInfo{
