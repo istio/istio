@@ -177,7 +177,7 @@ func normalizeClusters(push *model.PushContext, proxy *model.Proxy, clusters []*
 }
 
 // castDestinationRuleOrDefault returns the destination rule enclosed by the config, if not null.
-// Otherwise, return defaul (empty) DR.
+// Otherwise, return default (empty) DR.
 func castDestinationRuleOrDefault(config *model.Config) *networking.DestinationRule {
 	if config != nil {
 		return config.Spec.(*networking.DestinationRule)
