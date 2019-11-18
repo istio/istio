@@ -57,6 +57,7 @@ type ProxyConfig struct {
 	PodIP               net.IP
 	SDSUDSPath          string
 	SDSTokenPath        string
+	BaseId              int
 	ControlPlaneAuth    bool
 	DisableReportCalls  bool
 }
@@ -71,6 +72,7 @@ func NewProxy(cfg ProxyConfig) Proxy {
 	if cfg.ComponentLogLevel != "" {
 		args = append(args, "--component-log-level", cfg.ComponentLogLevel)
 	}
+	args = append(args, "--base-id", fmt.Sprint(cfg.BaseId))
 
 	return &envoy{
 		ProxyConfig: cfg,

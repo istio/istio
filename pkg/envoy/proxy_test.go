@@ -39,11 +39,12 @@ func TestEnvoyArgs(t *testing.T) {
 		PodIP:             nil,
 		SDSUDSPath:        "udspath",
 		SDSTokenPath:      "tokenpath",
+		BaseId:            1,
 	}
 
 	test := &envoy{
 		ProxyConfig: cfg,
-		extraArgs:   []string{"-l", "trace", "--component-log-level", "misc:error"},
+		extraArgs:   []string{"-l", "trace", "--component-log-level", "misc:error", "--base-id", "1"},
 	}
 
 	testProxy := NewProxy(cfg)
@@ -64,6 +65,7 @@ func TestEnvoyArgs(t *testing.T) {
 		"--log-format", "[Envoy (Epoch 5)] [%Y-%m-%d %T.%e][%t][%l][%n] %v",
 		"-l", "trace",
 		"--component-log-level", "misc:error",
+		"--base-id", "1",
 		"--config-yaml", `{"key": "value"}`,
 		"--concurrency", "8",
 	}

@@ -93,6 +93,7 @@ var (
 	proxyComponentLogLevel   string
 	dnsRefreshRate           string
 	concurrency              int
+	baseId                   int
 	templateFile             string
 	disableInternalTelemetry bool
 	tlsCertsToWatch          []string
@@ -492,6 +493,7 @@ var (
 				PodIP:               podIP,
 				SDSUDSPath:          sdsUDSPath,
 				SDSTokenPath:        sdsTokenPath,
+				BaseId:              baseId,
 				ControlPlaneAuth:    controlPlaneAuthEnabled,
 				DisableReportCalls:  disableInternalTelemetry,
 			})
@@ -734,6 +736,8 @@ func init() {
 		"The dns_refresh_rate for bootstrap STRICT_DNS clusters")
 	proxyCmd.PersistentFlags().IntVar(&concurrency, "concurrency", int(values.Concurrency),
 		"number of worker threads to run")
+	proxyCmd.PersistentFlags().IntVar(&baseId, "baseId", 0,
+		"base ID so that multiple envoys can run on the same host if needed")
 	proxyCmd.PersistentFlags().StringVar(&templateFile, "templateFile", "",
 		"Go template bootstrap config")
 	proxyCmd.PersistentFlags().BoolVar(&disableInternalTelemetry, "disableInternalTelemetry", false,
