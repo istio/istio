@@ -38,8 +38,8 @@ func TestBasicSingleSource(t *testing.T) {
 	ps.Start()
 	defer ps.Stop()
 
-	e1 := createTestEvent(event.Added, createTestResource("ns", "resource1", "v1"))
-	e2 := createTestEvent(event.FullSync, nil)
+	e1 := createTestEvent(t, event.Added, createTestResource(t, "ns", "resource1", "v1"))
+	e2 := createTestEvent(t, event.FullSync, nil)
 
 	s1.Handle(e1)
 	s1.Handle(e2)
@@ -52,7 +52,7 @@ func TestWaitAndCombineFullSync(t *testing.T) {
 	s1 := &fixtures.Source{}
 	s2 := &fixtures.Source{}
 
-	psi1 := precedenceSourceInput{src: s1, cols: collection.Names{data.Collection1}}
+	psi1 := precedenceSourceInput{src: s1, cols: collection.Names{data.Collection1, data.Collection2}}
 	psi2 := precedenceSourceInput{src: s2, cols: collection.Names{data.Collection1}}
 
 	ps := newPrecedenceSource([]precedenceSourceInput{psi1, psi2})
@@ -63,13 +63,21 @@ func TestWaitAndCombineFullSync(t *testing.T) {
 	ps.Start()
 	defer ps.Stop()
 
-	e := createTestEvent(event.FullSync, nil)
+	// For collections in more than one source, wait for all sources before publishing fullsync
+	e1 := createTestEvent(t, event.FullSync, nil)
 
-	s1.Handle(e)
+	s1.Handle(e1)
 	g.Expect(h.Events()).To(BeEmpty())
 
-	s2.Handle(e)
-	g.Expect(h.Events()).To(Equal([]event.Event{e}))
+	s2.Handle(e1)
+	g.Expect(h.Events()).To(Equal([]event.Event{e1}))
+
+	// Collection2 is only in one source, so we shouldn't wait for an event from both sources
+	e2 := createTestEvent(t, event.FullSync, nil)
+	e2.Source = data.Collection2
+
+	s1.Handle(e2)
+	g.Expect(h.Events()).To(Equal([]event.Event{e1, e2}))
 }
 
 func TestPrecedence(t *testing.T) {
@@ -91,8 +99,8 @@ func TestPrecedence(t *testing.T) {
 	ps.Start()
 	defer ps.Stop()
 
-	e1 := createTestEvent(event.Added, createTestResource("ns", "resource1", "v1"))
-	e2 := createTestEvent(event.Added, createTestResource("ns", "resource1", "v2"))
+	e1 := createTestEvent(t, event.Added, createTestResource(t, "ns", "resource1", "v1"))
+	e2 := createTestEvent(t, event.Added, createTestResource(t, "ns", "resource1", "v2"))
 
 	s2.Handle(e1)
 	g.Expect(h.Events()).To(Equal([]event.Event{e1}))

@@ -77,7 +77,7 @@ func TestAnalyzersRun(t *testing.T) {
 
 	cancel := make(chan struct{})
 
-	r := createTestResource("ns", "resource", "v1")
+	r := createTestResource(t, "ns", "resource", "v1")
 	msg := msg.NewInternalError(r, "msg")
 	a := &testAnalyzer{
 		fn: func(ctx analysis.Context) {
@@ -107,8 +107,8 @@ func TestFilterOutputByNamespace(t *testing.T) {
 
 	cancel := make(chan struct{})
 
-	r1 := createTestResource("ns1", "resource", "v1")
-	r2 := createTestResource("ns2", "resource", "v1")
+	r1 := createTestResource(t, "ns1", "resource", "v1")
+	r2 := createTestResource(t, "ns2", "resource", "v1")
 	msg1 := msg.NewInternalError(r1, "msg")
 	msg2 := msg.NewInternalError(r2, "msg")
 	a := &testAnalyzer{
