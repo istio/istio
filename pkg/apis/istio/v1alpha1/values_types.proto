@@ -184,7 +184,7 @@ message EgressGatewayConfig {
   google.protobuf.BoolValue enabled = 7;
 
   // Environment variables passed to the proxy container.
-  map<string, string> env = 8;
+  TypeMapStringInterface env = 8;
 
   GatewayLabelsConfig labels = 9;
 
@@ -558,7 +558,7 @@ message IngressGatewayConfig {
   google.protobuf.BoolValue enabled = 10;
 
   // Environment variables passed to the proxy container.
-  map<string, string> env = 11;
+  TypeMapStringInterface env = 11;
 
   repeated string externalIPs = 12;
 
@@ -824,7 +824,7 @@ message MixerTelemetryConfig {
   // env:
   //   ENV_VAR_1: value1
   //   ENV_VAR_2: value2
-  map<string, string> env = 7;
+  TypeMapStringInterface env = 7;
 
   // Image name used for Mixer Telemetry.
   //
@@ -1015,7 +1015,7 @@ message PilotConfig {
   // env:
   //   ENV_VAR_1: value1
   //   ENV_VAR_2: value2
-  map<string, string> env = 21;
+  TypeMapStringInterface env = 21;
 
   // Controls whether Istio policy is applied to Pilot.
   PilotPolicyConfig policy = 22;
@@ -1406,7 +1406,7 @@ message SecurityConfig {
   // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
   TypeMapStringInterface nodeSelector = 8;
 
-  map<string, string> env = 10;
+  TypeMapStringInterface env = 10;
 
   // K8s annotations for pods.
   //

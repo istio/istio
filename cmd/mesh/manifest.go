@@ -114,7 +114,7 @@ func genManifests(inFilename string, setOverlayYAML string, force bool, l *logge
 
 func genApplyManifests(setOverlay []string, inFilename string, force bool, dryRun bool, verbose bool,
 	kubeConfigPath string, context string, waitTimeout time.Duration, l *logger) error {
-	overlayFromSet, err := makeTreeFromSetList(setOverlay, force)
+	overlayFromSet, err := makeTreeFromSetList(setOverlay, force, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate tree from the set overlay, error: %v", err)
 	}
@@ -182,7 +182,7 @@ func fetchInstallPackageFromURL(mergedICPS *v1alpha2.IstioControlPlaneSpec) erro
 }
 
 // makeTreeFromSetList creates a YAML tree from a string slice containing key-value pairs in the format key=value.
-func makeTreeFromSetList(setOverlay []string, force bool) (string, error) {
+func makeTreeFromSetList(setOverlay []string, force bool, l *logger) (string, error) {
 	if len(setOverlay) == 0 {
 		return "", nil
 	}
@@ -212,6 +212,7 @@ func makeTreeFromSetList(setOverlay []string, force bool) (string, error) {
 		}
 		if errs := validate.CheckIstioControlPlaneSpec(icps, true); len(errs) != 0 {
 			if !force {
+				l.logAndError("Run the command with the --force flag if you want to ignore the validation error and proceed.")
 				return "", fmt.Errorf("bad path=value (%s): %s", kv, errs)
 			}
 		}
