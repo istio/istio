@@ -50,13 +50,12 @@ type MCPDiscovery struct {
 	*SyntheticServiceEntryController
 	*DiscoveryOptions
 	cacheMutex sync.RWMutex
-	// keys [namespace][endpointIP]
-	cacheByEndpointIP map[string]map[string][]*model.ServiceInstance
-	// keys [namespace][service.Hostname]
-	cacheByHostName map[string]map[host.Name][]*model.ServiceInstance
+	// key [endpointIP]
+	cacheByEndpointIP map[string][]*model.ServiceInstance
+	// key [service.Hostname]
+	cacheByHostName map[host.Name][]*model.ServiceInstance
 	// key [hostname]
 	cacheServices map[string]*model.Service
-	cacheInit     bool
 }
 
 // NewMCPDiscovery provides a new instance of Discovery
@@ -64,8 +63,8 @@ func NewMCPDiscovery(controller CoreDataModel, options *DiscoveryOptions) *MCPDi
 	discovery := &MCPDiscovery{
 		SyntheticServiceEntryController: controller.(*SyntheticServiceEntryController),
 		DiscoveryOptions:                options,
-		cacheByEndpointIP:               make(map[string]map[string][]*model.ServiceInstance),
-		cacheByHostName:                 make(map[string]map[host.Name][]*model.ServiceInstance),
+		cacheByEndpointIP:               make(map[string][]*model.ServiceInstance),
+		cacheByHostName:                 make(map[host.Name][]*model.ServiceInstance),
 		cacheServices:                   make(map[string]*model.Service),
 	}
 	discovery.RegisterEventHandler(schemas.SyntheticServiceEntry.Type, func(config model.Config, event model.Event) {
@@ -73,36 +72,6 @@ func NewMCPDiscovery(controller CoreDataModel, options *DiscoveryOptions) *MCPDi
 	})
 	return discovery
 
-}
-
-// Considered running this in the Run func, however
-// it is a little too early to populate the cache then
-// since the controller does not receive any data then
-func (d *MCPDiscovery) initializeCache() error {
-	if !d.cacheInit {
-		sseConfigs, err := d.List(schemas.SyntheticServiceEntry.Type, model.NamespaceAll)
-		if err != nil {
-			return err
-		}
-		d.cacheMutex.Lock()
-		for _, conf := range sseConfigs {
-			// this only happens once so no need to check if namespace exist
-			services := convertServices(conf)
-			byIP, byHost := d.convertInstances(conf, services)
-			d.cacheByEndpointIP[conf.Namespace] = byIP
-			d.cacheByHostName[conf.Namespace] = byHost
-			d.mergeCachedServices(services)
-		}
-		d.cacheMutex.Unlock()
-		d.cacheInit = true
-	}
-	return nil
-}
-
-func (d *MCPDiscovery) mergeCachedServices(newServices map[string]*model.Service) {
-	for host, newSvc := range newServices {
-		d.cacheServices[host] = newSvc
-	}
 }
 
 // HandleCacheEvents populates local cache based on events received from controller
@@ -114,56 +83,33 @@ func (d *MCPDiscovery) HandleCacheEvents(config model.Config, event model.Event)
 	switch event {
 	case model.EventAdd, model.EventUpdate:
 		newSvcInstancesByIP, newSvcInstancesByHost := d.convertInstances(config, services)
-		if cacheByIP, exist := d.cacheByEndpointIP[config.Namespace]; exist {
-			for ip, svcInstances := range newSvcInstancesByIP {
-				cacheByIP[ip] = svcInstances
-			}
-		} else {
-			d.cacheByEndpointIP[config.Namespace] = newSvcInstancesByIP
+		for ip, svcInstances := range newSvcInstancesByIP {
+			d.cacheByEndpointIP[ip] = svcInstances
 		}
-		if cacheByHost, exist := d.cacheByHostName[config.Namespace]; exist {
-			for hostname, svcInstances := range newSvcInstancesByHost {
-				cacheByHost[hostname] = svcInstances
-			}
-		} else {
-			d.cacheByHostName[config.Namespace] = newSvcInstancesByHost
+		for hostname, svcInstances := range newSvcInstancesByHost {
+			d.cacheByHostName[hostname] = svcInstances
 		}
 	case model.EventDelete:
 		svcInstancesByIP, svcInstancesByHost := d.convertInstances(config, services)
-		cacheByIP, ok := d.cacheByEndpointIP[config.Namespace]
-		if ok {
-			for ip := range svcInstancesByIP {
-				delete(cacheByIP, ip)
-			}
+		for ip := range svcInstancesByIP {
+			delete(d.cacheByEndpointIP, ip)
 		}
-		// delete the parent map if no other config exist
-		if len(d.cacheByEndpointIP[config.Namespace]) == 0 {
-			delete(d.cacheByEndpointIP, config.Namespace)
-		}
-		cacheByHost, ok := d.cacheByHostName[config.Namespace]
-		if ok {
-			for hostname := range svcInstancesByHost {
-				delete(cacheByHost, hostname)
-			}
-		}
-		// delete the parent map if no other config exist
-		if len(d.cacheByHostName[config.Namespace]) == 0 {
-			delete(d.cacheByHostName, config.Namespace)
+		for hostname := range svcInstancesByHost {
+			delete(d.cacheByHostName, hostname)
 		}
 	}
 }
 
-// mixerEnabled checks to see if mixer is enabled in the environment
-// so we can set the UID on eds endpoints
-func (d *MCPDiscovery) mixerEnabled() bool {
-	return d.DiscoveryOptions.Env != nil && d.DiscoveryOptions.Env.Mesh != nil && (d.DiscoveryOptions.Env.Mesh.MixerCheckServer != "" || d.DiscoveryOptions.Env.Mesh.MixerReportServer != "")
-}
-
-func (d *MCPDiscovery) parseUID(cfg model.Config) string {
-	if d.mixerEnabled() {
-		return "kubernetes://" + cfg.Name + "." + cfg.Namespace
+// Run until a signal is received
+// NOTE: eventually there may be a need for some sort of
+// cache drain/purge mechanism that runs on a time interval
+// basis to purge all caches, the purge maybe necessary since
+// controller's configStore only keeps track of one sink.Change
+// object at a time everytime apply is called.
+func (d *MCPDiscovery) Run(stop <-chan struct{}) {
+	if err := d.initializeCache(); err != nil {
+		log.Warnf("Run: %s", err)
 	}
-	return ""
 }
 
 // Services list declarations of all SyntheticServiceEntries in the system
@@ -182,9 +128,6 @@ func (d *MCPDiscovery) Services() ([]*model.Service, error) {
 
 // GetProxyServiceInstances returns service instances co-located with a given proxy
 func (d *MCPDiscovery) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
-	if err := d.initializeCache(); err != nil {
-		return nil, err
-	}
 	out := make([]*model.ServiceInstance, 0)
 
 	// There is only one IP for kube registry
@@ -193,22 +136,8 @@ func (d *MCPDiscovery) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Se
 	d.cacheMutex.Lock()
 	defer d.cacheMutex.Unlock()
 
-	// svcInstances by a given namespace
-	if proxy.ConfigNamespace != model.NamespaceAll {
-		instancesByIP, ok := d.cacheByEndpointIP[proxy.ConfigNamespace]
-		if ok {
-			if svcInstances, exist := instancesByIP[proxyIP]; exist {
-				out = append(out, svcInstances...)
-			}
-		}
-		return out, nil
-	}
-
-	// svcInstances from all namespaces
-	for _, instancesByIP := range d.cacheByEndpointIP {
-		if svcInstances, exist := instancesByIP[proxyIP]; exist {
-			out = append(out, svcInstances...)
-		}
+	if svcInstances, exist := d.cacheByEndpointIP[proxyIP]; exist {
+		out = append(out, svcInstances...)
 	}
 	return out, nil
 }
@@ -222,7 +151,7 @@ func (d *MCPDiscovery) InstancesByPort(svc *model.Service, servicePort int, labe
 	d.cacheMutex.Lock()
 	defer d.cacheMutex.Unlock()
 
-	instances, found := d.cacheByHostName[svc.Attributes.Namespace][svc.Hostname]
+	instances, found := d.cacheByHostName[svc.Hostname]
 	if found {
 		for _, instance := range instances {
 			if instance.Service.Hostname == svc.Hostname &&
@@ -233,6 +162,58 @@ func (d *MCPDiscovery) InstancesByPort(svc *model.Service, servicePort int, labe
 		}
 	}
 	return out, nil
+}
+
+// mixerEnabled checks to see if mixer is enabled in the environment
+// so we can set the UID on eds endpoints
+func (d *MCPDiscovery) mixerEnabled() bool {
+	return d.DiscoveryOptions.Env != nil && d.DiscoveryOptions.Env.Mesh != nil && (d.DiscoveryOptions.Env.Mesh.MixerCheckServer != "" || d.DiscoveryOptions.Env.Mesh.MixerReportServer != "")
+}
+
+func (d *MCPDiscovery) parseUID(cfg model.Config) string {
+	if d.mixerEnabled() {
+		return "kubernetes://" + cfg.Name + "." + cfg.Namespace
+	}
+	return ""
+}
+
+// Considered running this in the Run func, however
+// it is a little too early to populate the cache then
+// since the controller does not receive any data then
+func (d *MCPDiscovery) initializeCache() error {
+	sseConfigs, err := d.List(schemas.SyntheticServiceEntry.Type, model.NamespaceAll)
+	if err != nil {
+		return err
+	}
+	d.cacheMutex.Lock()
+	for _, conf := range sseConfigs {
+		// this only happens once so no need to check if namespace exist
+		services := convertServices(conf)
+		byIP, byHost := d.convertInstances(conf, services)
+		d.mergeCacheByEndpoint(byIP)
+		d.mergeCacheByHostName(byHost)
+		d.mergeCachedServices(services)
+	}
+	d.cacheMutex.Unlock()
+	return nil
+}
+
+func (d *MCPDiscovery) mergeCachedServices(newServices map[string]*model.Service) {
+	for host, newSvc := range newServices {
+		d.cacheServices[host] = newSvc
+	}
+}
+
+func (d *MCPDiscovery) mergeCacheByEndpoint(newServicesInstances map[string][]*model.ServiceInstance) {
+	for ip, svcInst := range newServicesInstances {
+		d.cacheByEndpointIP[ip] = svcInst
+	}
+}
+
+func (d *MCPDiscovery) mergeCacheByHostName(newServicesInstances map[host.Name][]*model.ServiceInstance) {
+	for host, svcInst := range newServicesInstances {
+		d.cacheByHostName[host] = svcInst
+	}
 }
 
 func (d *MCPDiscovery) convertInstances(cfg model.Config, services map[string]*model.Service) (map[string][]*model.ServiceInstance, map[host.Name][]*model.ServiceInstance) {
@@ -527,14 +508,4 @@ func (d *MCPDiscovery) AppendServiceHandler(f func(*model.Service, model.Event))
 func (d *MCPDiscovery) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
 	log.Warnf("AppendInstanceHandler %s", errUnsupported)
 	return nil
-}
-
-// Run until a signal is received
-// TODO: there should be some sort of cache drain/purge
-// mechanism that runs on a time interval basis to purge
-// all caches, the purge maybe necessary since controller's
-// configStore only keeps track of one sink.Change object at
-// a time everytime apply is called.
-func (d *MCPDiscovery) Run(stop <-chan struct{}) {
-	log.Warnf("Run %s", errUnsupported)
 }

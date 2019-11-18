@@ -94,18 +94,6 @@ func TestGetProxyServiceInstances(t *testing.T) {
 	// add first config
 	testSetup(g)
 
-	// add second config
-	message := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry1)
-
-	namespace2 := "random-namespace2"
-	change := convertToChange([]proto.Message{message},
-		[]string{fmt.Sprintf("%s/%s", namespace2, name)},
-		setCollection(schemas.SyntheticServiceEntry.Collection),
-		setTypeURL(schemas.SyntheticServiceEntry.MessageName))
-
-	err := controller.Apply(change)
-	g.Expect(err).ToNot(gomega.HaveOccurred())
-
 	steps := map[string]struct {
 		namespace       string
 		address         string
@@ -122,19 +110,12 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			servicePort:     svcPort,
 			hostname:        []host.Name{host.Name("svc.example2.com")},
 		},
-		"all namespaces": {
-			namespace:       model.NamespaceAll,
-			address:         "2.2.2.2",
-			numSvcInstances: 4,
-			ports:           []int{7080, 18080, 9080, 18081},
-			servicePort:     svcPort,
-			hostname:        []host.Name{host.Name("example2.com"), host.Name("svc.example2.com")},
-		},
 	}
 
 	for description, step := range steps {
 		t.Run(fmt.Sprintf("verify service instances from %s", description), func(_ *testing.T) {
-			svcInstances, err := d.GetProxyServiceInstances(buildProxy(step.address, step.namespace))
+			proxy := buildProxy(step.address, step.namespace)
+			svcInstances, err := d.GetProxyServiceInstances(proxy)
 			g.Expect(err).ToNot(gomega.HaveOccurred())
 			g.Expect(len(svcInstances)).To(gomega.Equal(step.numSvcInstances))
 			for _, svcInstance := range svcInstances {
