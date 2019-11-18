@@ -154,7 +154,7 @@ istioctl experimental analyze -k -d false
 				selectedNamespace = defaultNamespace
 			}
 
-			sa := local.NewSourceAnalyzer(metadata.MustGet(), analyzers.AllCombined(), selectedNamespace, nil, useDiscovery)
+			sa := local.NewSourceAnalyzer(metadata.MustGet(), analyzers.AllCombined(), selectedNamespace, istioNamespace, nil, useDiscovery)
 
 			// If we're using kube, use that as a base source.
 			if k != nil {

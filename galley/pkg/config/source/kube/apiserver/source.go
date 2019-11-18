@@ -24,15 +24,12 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/meshcfg"
 	"istio.io/istio/galley/pkg/config/meta/schema"
 	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
-	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver/status"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
-	"istio.io/istio/pkg/config/mesh"
 )
 
 var (
@@ -214,24 +211,6 @@ func (s *Source) startWatchers() {
 			col.dispatch(s.handlers)
 			s.watchers[r.Collection.Name] = col
 		}
-	}
-
-	if s.options.IncludeMeshConfig {
-		// TODO: Actually get from k8s config map. (this should be associated with the configmap watcher, probably)
-		// TODO: Somehow check assumption that configmap is in the set of resources to watch
-		// TODO: Refactor, move, etc.
-		// TODO: Also get actual data from kube instead of just using different default
-		// TODO: Also hide this behind a flag
-		meshconfig := mesh.DefaultMeshConfig()
-		meshconfig.OutboundClusterStatName = "curly (apiserver_source)"
-		r := &resource.Entry{
-			Metadata: resource.Metadata{
-				Name: resource.NewName("istio-system", "meshconfig"),
-			},
-			Item: &meshconfig,
-		}
-		s.handlers.Handle(event.AddFor(meshcfg.IstioMeshconfig, r))
-		s.handlers.Handle(event.FullSyncFor(meshcfg.IstioMeshconfig))
 	}
 
 	if s.statusCtl != nil {

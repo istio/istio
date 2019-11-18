@@ -34,9 +34,4 @@ type Options struct {
 	StatusController status.Controller
 
 	// TODO: Add target namespaces here when we do namespace specific listeners.
-
-	// Whether we should also look for mesh config from the config map and generate an event for it
-	// TODO
-	// TODO: If true, send a FullSync but no Add for the mesh config
-	IncludeMeshConfig bool
 }

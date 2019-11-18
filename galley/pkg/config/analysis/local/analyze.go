@@ -21,9 +21,10 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
-	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/meshcfg"
 	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/galley/pkg/config/meta/schema"
@@ -37,9 +38,14 @@ import (
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
 	"istio.io/istio/galley/pkg/config/source/kube/inmemory"
 	"istio.io/istio/galley/pkg/config/util/kuberesource"
+	"istio.io/istio/pkg/config/mesh"
 )
 
-const domainSuffix = "cluster.local"
+const (
+	domainSuffix      = "cluster.local"
+	meshConfigMapKey  = "mesh"
+	meshConfigMapName = "istio"
+)
 
 // Patch table
 var (
@@ -49,10 +55,11 @@ var (
 // SourceAnalyzer handles local analysis of k8s event sources, both live and file-based
 type SourceAnalyzer struct {
 	m                    *schema.Metadata
-	sources              []event.Source
+	sources              []precedenceSourceInput
 	analyzer             *analysis.CombinedAnalyzer
 	transformerProviders transformer.Providers
 	namespace            string
+	istioNamespace       string
 
 	// Which kube resources are used by this analyzer
 	// Derived from metadata and the specified analyzer and transformer providers
@@ -71,7 +78,7 @@ type AnalysisResult struct {
 
 // NewSourceAnalyzer creates a new SourceAnalyzer with no sources. Use the Add*Source methods to add sources in ascending precedence order,
 // then execute Analyze to perform the analysis
-func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, namespace string,
+func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, namespace, istioNamespace string,
 	cr snapshotter.CollectionReporterFn, serviceDiscovery bool) *SourceAnalyzer {
 
 	// collectionReporter hook function defaults to no-op
@@ -91,10 +98,11 @@ func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, 
 
 	return &SourceAnalyzer{
 		m:                    m,
-		sources:              make([]event.Source, 0),
+		sources:              make([]precedenceSourceInput, 0),
 		analyzer:             analyzer,
 		transformerProviders: transformerProviders,
 		namespace:            namespace,
+		istioNamespace:       istioNamespace,
 		kubeResources:        kubeResources,
 		collectionReporter:   cr,
 	}
@@ -107,7 +115,6 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 	if len(sa.sources) == 0 {
 		return result, fmt.Errorf("at least one file and/or Kubernetes source must be provided")
 	}
-	scope.Analysis.Infof("SourceAnalyzer.Analyze: meshcfg.IstioMeshconfig == %q", meshcfg.IstioMeshconfig)
 
 	inputs := make([]precedenceSourceInput, 0)
 
@@ -116,7 +123,7 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 	inputs = append(inputs, precedenceSourceInput{src: meshsrc, cols: collection.Names{meshcfg.IstioMeshconfig}})
 
 	for _, s := range sa.sources {
-		inputs = append(inputs, precedenceSourceInput{src: s, cols: append(sa.kubeResources.Collections(), meshcfg.IstioMeshconfig)})
+		inputs = append(inputs, s)
 	}
 
 	var namespaces []string
@@ -167,7 +174,7 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 func (sa *SourceAnalyzer) AddFileKubeSource(files []string) error {
 	src := inmemory.NewKubeSource(sa.kubeResources)
 	src.SetDefaultNamespace(sa.namespace)
-	src.IncludeMeshConfig()
+	src.IncludeMeshConfig() //TODO: Should we pass in the ns/configmap to look for this?
 
 	var errs error
 
@@ -183,19 +190,55 @@ func (sa *SourceAnalyzer) AddFileKubeSource(files []string) error {
 		}
 	}
 
-	sa.sources = append(sa.sources, src)
+	//TODO: Can I just Get the mesh config from the inmemory rep directly?
+
+	sa.sources = append(sa.sources, precedenceSourceInput{src: src, cols: sa.kubeResources.Collections()})
 
 	return errs
 }
 
 // AddRunningKubeSource adds a source based on a running k8s cluster to the current SourceAnalyzer
+// Also adds a meshcfg source from the running cluster
 func (sa *SourceAnalyzer) AddRunningKubeSource(k kube.Interfaces) {
 	o := apiserver.Options{
-		Client:            k,
-		Resources:         sa.kubeResources,
-		IncludeMeshConfig: true,
+		Client:    k,
+		Resources: sa.kubeResources,
 	}
-	src := apiserverNew(o)
 
-	sa.sources = append(sa.sources, src)
+	if err := sa.addRunningKubeMeshConfigSource(k); err != nil {
+		scope.Analysis.Errorf("error getting mesh config from running kube source: %v", err)
+	}
+
+	src := apiserverNew(o)
+	sa.sources = append(sa.sources, precedenceSourceInput{src: src, cols: sa.kubeResources.Collections()})
+}
+
+//TODO: Share code with what's in kubeinject.go?
+func (sa *SourceAnalyzer) addRunningKubeMeshConfigSource(k kube.Interfaces) error {
+	client, err := k.KubeClient()
+	if err != nil {
+		return fmt.Errorf("error getting KubeClient: %v", err)
+	}
+
+	meshConfigMap, err := client.CoreV1().ConfigMaps(sa.istioNamespace).Get(meshConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("could not read valid configmap %q from namespace %q: %v", meshConfigMapName, sa.istioNamespace, err)
+	}
+
+	configYaml, ok := meshConfigMap.Data[meshConfigMapKey]
+	if !ok {
+		return fmt.Errorf("missing configuration map key %q", meshConfigMapKey)
+	}
+
+	cfg, err := mesh.ApplyMeshConfigDefaults(configYaml)
+	if err != nil {
+		return fmt.Errorf("error parsing mesh config: %v", err)
+	}
+
+	meshsrc := meshcfg.NewInmemory()
+	meshsrc.Set(cfg)
+
+	sa.sources = append(sa.sources, precedenceSourceInput{src: meshsrc, cols: collection.Names{meshcfg.IstioMeshconfig}})
+
+	return nil
 }
