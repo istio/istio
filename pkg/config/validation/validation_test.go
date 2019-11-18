@@ -3510,7 +3510,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 			Resolution: networking.ServiceEntry_STATIC,
 		},
-			valid: false},
+			valid: true},
 
 		{name: "discovery type static, bad endpoint port name", in: networking.ServiceEntry{
 			Hosts:     []string{"google.com"},
