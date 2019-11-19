@@ -273,7 +273,7 @@ istioctl experimental analyze -k -d false
 		fmt.Sprintf("The severity level of analysis at which to display messages. Valid values: %v", diag.GetAllLevelStrings()))
 	analysisCmd.PersistentFlags().StringVarP(&msgOutputFormat, "output", "o", LogOutput,
 		fmt.Sprintf("Output format: one of %v", msgOutputFormatKeys))
-	analysisCmd.PersistentFlags().StringVar(&meshCfgFile, "mesh-config-file", "",
+	analysisCmd.PersistentFlags().StringVar(&meshCfgFile, "meshConfigFile", "",
 		"Overrides the mesh config values to use for analysis.")
 	return analysisCmd
 }
