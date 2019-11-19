@@ -94,7 +94,7 @@ will block until the bookinfo virtual service has been distributed to all proxie
 			targetResource := model.Key(targetSchemaInstance.Type, nameflag, namespace)
 			for {
 				//run the check here as soon as we start
-				// because tickers wont' run immediately
+				// because tickers won't run immediately
 				present, notpresent, err := poll(resourceVersions, targetResource)
 				printVerbosef(cmd, "Received poll result: %d/%d", present, present+notpresent)
 				if err != nil {
