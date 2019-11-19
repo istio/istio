@@ -946,10 +946,10 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 				pod := c.pods.getPodByIP(ea.IP)
 				if pod == nil {
 					// This means, the endpoint event has arrived before pod event. This might happen because
-					// PodCache is eventually consistent. We should try to get the pod from underlying store.
+					// PodCache is eventually consistent. We should try to get the pod from kube-api server.
 					endpointBeforePodEvents.Increment()
 					if ea.TargetRef != nil && ea.TargetRef.Kind == "Pod" {
-						pod = c.pods.getPod(ea.IP, ea.TargetRef.Name, ea.TargetRef.Namespace)
+						pod = c.pods.getPod(ea.TargetRef.Name, ea.TargetRef.Namespace)
 						if pod == nil {
 							// If pod is still not availalable, this an unuusual case.
 							endpointsWithNoPods.Increment()
