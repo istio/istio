@@ -37,11 +37,14 @@ type v1beta1PolicyApplier struct {
 	jwtPolicies []*model.Config
 	// TODO: add mTLS configs.
 	// TODO: add v1alpha1 fallback configs.
+
+	// processedJwtRules is the consolidate JWT rules from all jwtPolicies.
+	processedJwtRules []*v1beta1.JWT
 }
 
-func (a v1beta1PolicyApplier) JwtFilter(isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
+func (a *v1beta1PolicyApplier) JwtFilter(isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
 	var filterConfigProto *envoy_jwt.JwtAuthentication
-	filterConfigProto = convertToEnvoyJwtConfig(a.aggregateJWTRules())
+	filterConfigProto = convertToEnvoyJwtConfig(a.processedJwtRules)
 
 	if filterConfigProto == nil {
 		return nil
@@ -57,13 +60,13 @@ func (a v1beta1PolicyApplier) JwtFilter(isXDSMarshalingToAnyEnabled bool) *http_
 	return out
 }
 
-func (a v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
+func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
 	// TODO(diemtvu) implement this.
 	log.Errorf("AuthNFilter(%v, %v) is not yet implemented", proxyType, isXDSMarshalingToAnyEnabled)
 	return nil
 }
 
-func (a v1beta1PolicyApplier) InboundFilterChain(sdsUdsPath string, meta *model.NodeMetadata) []plugin.FilterChain {
+func (a *v1beta1PolicyApplier) InboundFilterChain(sdsUdsPath string, meta *model.NodeMetadata) []plugin.FilterChain {
 	// TODO(diemtvu) implement this.
 	log.Errorf("InboundFilterChain is not yet implemented")
 	return nil
@@ -71,22 +74,23 @@ func (a v1beta1PolicyApplier) InboundFilterChain(sdsUdsPath string, meta *model.
 
 // NewPolicyApplier returns new applier for v1beta1 authentication policies.
 func NewPolicyApplier(jwtPolicies []*model.Config) authn.PolicyApplier {
-	return &v1beta1PolicyApplier{
+	a := &v1beta1PolicyApplier{
 		jwtPolicies: jwtPolicies,
 	}
+	a.aggregateJWTRules()
+
+	return a
 }
 
-func (a v1beta1PolicyApplier) aggregateJWTRules() []*v1beta1.JWT {
-	ret := []*v1beta1.JWT{}
-	// TODO: deduplicate JWT with the same issuer ??
-	// TODO: sort the rule by issuer for consistency ??
+func (a *v1beta1PolicyApplier) aggregateJWTRules() {
+	a.processedJwtRules = []*v1beta1.JWT{}
+	// TODO(diemtvu) should we need to deduplicate JWT with the same issuer.
 	for idx := range a.jwtPolicies {
 		spec := a.jwtPolicies[idx].Spec.(*v1beta1.RequestAuthentication)
 		for _, rule := range spec.JwtRules {
-			ret = append(ret, rule)
+			a.processedJwtRules = append(a.processedJwtRules, rule)
 		}
 	}
-	return ret
 }
 
 func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWT) *envoy_jwt.JwtAuthentication {
