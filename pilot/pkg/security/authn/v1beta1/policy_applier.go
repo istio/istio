@@ -100,7 +100,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWT) *envoy_jwt.JwtAuthenticati
 		provider := &envoy_jwt.JwtProvider{
 			Issuer:            jwtRule.Issuer,
 			Audiences:         jwtRule.Audiences,
-			Forward:           true,
+			Forward:           false,
 			PayloadInMetadata: jwtRule.Issuer,
 		}
 

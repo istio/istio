@@ -101,7 +101,7 @@ func TestJwtFilter(t *testing.T) {
 											},
 										},
 									},
-									Forward:           true,
+									Forward:           false,
 									PayloadInMetadata: "https://secret.foo.com",
 								},
 							},
@@ -165,7 +165,7 @@ func TestJwtFilter(t *testing.T) {
 											},
 										},
 									},
-									Forward:           true,
+									Forward:           false,
 									PayloadInMetadata: "https://secret.foo.com",
 								},
 								"origins-1": {
@@ -177,8 +177,110 @@ func TestJwtFilter(t *testing.T) {
 											},
 										},
 									},
-									Forward:           true,
+									Forward:           false,
 									PayloadInMetadata: "https://secret.bar.com",
+								},
+							},
+						}),
+				},
+			},
+		},
+		{
+			name: "JWT policy with inline Jwks",
+			in: []*model.Config{
+				{
+					Spec: &v1beta1.RequestAuthentication{
+						JwtRules: []*v1beta1.JWT{
+							{
+								Issuer: "https://secret.foo.com",
+								Jwks:   "what you give is what you get",
+							},
+						},
+					},
+				},
+			},
+			expected: &http_conn.HttpFilter{
+				Name: "envoy.filters.http.jwt_authn",
+				ConfigType: &http_conn.HttpFilter_TypedConfig{
+					TypedConfig: pilotutil.MessageToAny(
+						&envoy_jwt.JwtAuthentication{
+							Rules: []*envoy_jwt.RequirementRule{
+								{
+									Match: &route.RouteMatch{
+										PathSpecifier: &route.RouteMatch_Prefix{
+											Prefix: "/",
+										},
+									},
+									Requires: &envoy_jwt.JwtRequirement{
+										RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
+											AllowMissingOrFailed: &empty.Empty{},
+										},
+									},
+								},
+							},
+							Providers: map[string]*envoy_jwt.JwtProvider{
+								"origins-0": {
+									Issuer: "https://secret.foo.com",
+									JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
+										LocalJwks: &core.DataSource{
+											Specifier: &core.DataSource_InlineString{
+												InlineString: "what you give is what you get",
+											},
+										},
+									},
+									Forward:           false,
+									PayloadInMetadata: "https://secret.foo.com",
+								},
+							},
+						}),
+				},
+			},
+		},
+		{
+			name: "JWT policy with bad Jwks URI",
+			in: []*model.Config{
+				{
+					Spec: &v1beta1.RequestAuthentication{
+						JwtRules: []*v1beta1.JWT{
+							{
+								Issuer:  "https://secret.foo.com",
+								JwksUri: "http://site.not.exist",
+							},
+						},
+					},
+				},
+			},
+			expected: &http_conn.HttpFilter{
+				Name: "envoy.filters.http.jwt_authn",
+				ConfigType: &http_conn.HttpFilter_TypedConfig{
+					TypedConfig: pilotutil.MessageToAny(
+						&envoy_jwt.JwtAuthentication{
+							Rules: []*envoy_jwt.RequirementRule{
+								{
+									Match: &route.RouteMatch{
+										PathSpecifier: &route.RouteMatch_Prefix{
+											Prefix: "/",
+										},
+									},
+									Requires: &envoy_jwt.JwtRequirement{
+										RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
+											AllowMissingOrFailed: &empty.Empty{},
+										},
+									},
+								},
+							},
+							Providers: map[string]*envoy_jwt.JwtProvider{
+								"origins-0": {
+									Issuer: "https://secret.foo.com",
+									JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
+										LocalJwks: &core.DataSource{
+											Specifier: &core.DataSource_InlineString{
+												InlineString: "",
+											},
+										},
+									},
+									Forward:           false,
+									PayloadInMetadata: "https://secret.foo.com",
 								},
 							},
 						}),
@@ -247,7 +349,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 								},
 							},
 						},
-						Forward:           true,
+						Forward:           false,
 						PayloadInMetadata: "https://secret.foo.com",
 					},
 				},
@@ -290,7 +392,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 								},
 							},
 						},
-						Forward:           true,
+						Forward:           false,
 						PayloadInMetadata: "https://secret.foo.com",
 					},
 					"origins-1": {
@@ -302,7 +404,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 								},
 							},
 						},
-						Forward:           true,
+						Forward:           false,
 						PayloadInMetadata: "https://secret.bar.com",
 					},
 				},
@@ -340,7 +442,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 								},
 							},
 						},
-						Forward:           true,
+						Forward:           false,
 						PayloadInMetadata: "https://secret.foo.com",
 					},
 				},
@@ -379,7 +481,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 								},
 							},
 						},
-						Forward:           true,
+						Forward:           false,
 						PayloadInMetadata: "https://secret.foo.com",
 					},
 				},
