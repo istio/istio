@@ -122,7 +122,7 @@ const (
 	EnvoyServerName = "istio-envoy"
 
 	httpEnvoyAccessLogFriendlyName = "http_envoy_accesslog"
-	tcpEnvoyAccessLogFriendlyName = "tcp_envoy_accesslog"
+	tcpEnvoyAccessLogFriendlyName  = "tcp_envoy_accesslog"
 
 	tcpEnvoyALSName = "envoy.tcp_grpc_access_log"
 
