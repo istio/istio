@@ -24,7 +24,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/mesh/v1alpha1"
-
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/meshcfg"
@@ -251,6 +250,7 @@ func (sa *SourceAnalyzer) addRunningKubeMeshConfigSource(k kube.Interfaces) erro
 	return nil
 }
 
+// addMeshConfigSource adds a mesh config source. The last added source takes precedence over the others, without any sort of merging.
 func (sa *SourceAnalyzer) addMeshConfigSource(cfg *v1alpha1.MeshConfig) {
 	meshsrc := meshcfg.NewInmemory()
 	meshsrc.Set(cfg)
