@@ -74,22 +74,19 @@ func (a *v1beta1PolicyApplier) InboundFilterChain(sdsUdsPath string, meta *model
 
 // NewPolicyApplier returns new applier for v1beta1 authentication policies.
 func NewPolicyApplier(jwtPolicies []*model.Config) authn.PolicyApplier {
-	a := &v1beta1PolicyApplier{
-		jwtPolicies: jwtPolicies,
-	}
-	a.aggregateJWTRules()
+	processedJwtRules := []*v1beta1.JWT{}
 
-	return a
-}
-
-func (a *v1beta1PolicyApplier) aggregateJWTRules() {
-	a.processedJwtRules = []*v1beta1.JWT{}
 	// TODO(diemtvu) should we need to deduplicate JWT with the same issuer.
-	for idx := range a.jwtPolicies {
-		spec := a.jwtPolicies[idx].Spec.(*v1beta1.RequestAuthentication)
+	for idx := range jwtPolicies {
+		spec := jwtPolicies[idx].Spec.(*v1beta1.RequestAuthentication)
 		for _, rule := range spec.JwtRules {
-			a.processedJwtRules = append(a.processedJwtRules, rule)
+			processedJwtRules = append(processedJwtRules, rule)
 		}
+	}
+
+	return &v1beta1PolicyApplier{
+		jwtPolicies:       jwtPolicies,
+		processedJwtRules: processedJwtRules,
 	}
 }
 
