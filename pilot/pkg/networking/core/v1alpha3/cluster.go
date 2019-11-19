@@ -1051,7 +1051,7 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tl
 			resourceName := authn_model.SDSRootResourceName
 			if strings.HasSuffix(cluster.GetName(), "global") {
 				log.Warnf("Building special mTLS.")
-				resourceName = "cluster2"
+				resourceName = "cluster-2"
 			}
 			cluster.TlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{

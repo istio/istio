@@ -568,11 +568,11 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 	}
 
 	cacheLog.Warnf("Try to find %s ...", connKey.ResourceName)
-	if connKey.ResourceName == "cluster2" {
-		cacheLog.Warnf("Finding cluster2 resource.")
+	if connKey.ResourceName == "cluster-2" {
+		cacheLog.Warnf("Finding cluster-2 resource.")
 		secretItem, exist := sc.fetcher.FindIngressGatewaySecret(connKey.ResourceName)
 		if !exist {
-			return nil, fmt.Errorf("cannot find secret for cluster2 request %+v", connKey)
+			return nil, fmt.Errorf("cannot find secret for cluster-2 request %+v", connKey)
 		}
 		cacheLog.Warnf("Resource exists. Return %s as Root Cert: %s", connKey.ResourceName, string(secretItem.RootCert))
 		return &model.SecretItem{
@@ -668,7 +668,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 		sc.rotate(true /*updateRootFlag*/)
 	}
 
-	cacheLog.Warnf("Certchain: ", string(certChain))
+	// cacheLog.Warnf("Certchain: ", string(certChain))
 	return &model.SecretItem{
 		CertificateChain: certChain,
 		PrivateKey:       keyPEM,

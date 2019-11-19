@@ -164,6 +164,7 @@ github.com/emicklei/go-restful v2.9.3+incompatible/go.mod h1:otzb+WCGbkyDHkqmQmT
 github.com/envoyproxy/go-control-plane v0.8.7-0.20190821215049-f062b07a671a h1:SaBXBWjRmig9yVB49C6TcbDtbZTbhuFLod7YiGjuFxQ=
 github.com/envoyproxy/go-control-plane v0.8.7-0.20190821215049-f062b07a671a/go.mod h1:XB9+ce7x+IrsjgIVnRnql0O61gj/np0/bGDfhJI3sCU=
 github.com/envoyproxy/go-control-plane v0.9.0 h1:67WMNTvGrl7V1dWdKCeTwxDr7nio9clKoTlLhwIPnT4=
+github.com/envoyproxy/go-control-plane v0.9.1 h1:+8frETDtT11P1dMCWySse/d0jMPOKYYF7OZjl7cZLvQ=
 github.com/envoyproxy/protoc-gen-validate v0.0.0-20190405222122-d6164de49109 h1:FNgqGzbOm637YKRbYGKb9cqGo8i50++w/LWvMau7jrw=
 github.com/envoyproxy/protoc-gen-validate v0.0.0-20190405222122-d6164de49109/go.mod h1:iSmxcyjqTsJpI2R4NaDN7+kN2VEUnK/pcBlmesArF7c=
 github.com/envoyproxy/protoc-gen-validate v0.1.0 h1:EQciDnbrYxy13PgWoY8AqoxGiPrpgBZ1R8UNe3ddc+A=
@@ -816,6 +817,7 @@ istio.io/api v0.0.0-20190405142752-6b8d1849e7f4/go.mod h1:hhLFQmpHia8zgaM37vb2ml
 istio.io/api v0.0.0-20190515205759-982e5c3888c6/go.mod h1:hhLFQmpHia8zgaM37vb2ml9iS5NfNfqZGRt1pS9aVEo=
 istio.io/api v0.0.0-20190820204432-483f2547d882 h1:L0WC/5HTk8T5eGTg/ka9jGZgw7GMuWj9rm6DFF4owL8=
 istio.io/api v0.0.0-20190820204432-483f2547d882/go.mod h1:42cBjnu/rTJcCaKi8nLdIvq0n71RcLrkgZ9IQSvDdSQ=
+istio.io/api v0.0.0-20191115171246-7a8183d7e4bf h1:vzTrXFpFOTNa19yPJGgtaNN3BLcr/OZ+Xz+viP2KJYE=
 istio.io/gogo-genproto v0.0.0-20190731221249-06e20ada0df2 h1:AZ+aTgKSBmBc6KtZU+P+Wr2dOdPriJu09cU8wGMG+/M=
 istio.io/gogo-genproto v0.0.0-20190731221249-06e20ada0df2/go.mod h1:IjvrbUlRbbw4JCpsgvgihcz9USUwEoNTL/uwMtyV5yk=
 istio.io/gogo-genproto v0.0.0-20190819131816-7a8328e41c1a h1:QN+P7SPcjI4az1Lb40MdhJg/OkV03u5XS1DVIk8PS6E=
