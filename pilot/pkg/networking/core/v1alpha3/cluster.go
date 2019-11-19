@@ -1104,6 +1104,8 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.TLSSetting
 		return
 	}
 
+	log.Warnf("Building mTLS Settings for cluster: %s", opts.cluster.GetName())
+
 	env := opts.env
 	cluster := opts.cluster
 	proxy := opts.proxy
@@ -1175,10 +1177,15 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.TLSSetting
 				authn_model.ConstructSdsSecretConfig(authn_model.SDSDefaultResourceName,
 					env.Mesh.SdsUdsPath, proxy.Metadata))
 
+			resourceName := authn_model.SDSRootResourceName
+			if strings.HasSuffix(opts.cluster.GetName(), "global") {
+				log.Warnf("Building special mTLS.")
+				resourceName = "spiffe-tb-1"
+			}
 			cluster.TlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 					DefaultValidationContext:         &auth.CertificateValidationContext{VerifySubjectAltName: tls.SubjectAltNames},
-					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(authn_model.SDSRootResourceName, env.Mesh.SdsUdsPath, proxy.Metadata),
+					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(resourceName, env.Mesh.SdsUdsPath, proxy.Metadata),
 				},
 			}
 		}

@@ -129,6 +129,7 @@ var (
 	workloadSdsCacheOptions cache.Options
 	gatewaySdsCacheOptions  cache.Options
 	serverOptions           sds.Options
+	wSecretChan             chan struct{}
 	gatewaySecretChan       chan struct{}
 	loggingOptions          = log.DefaultOptions()
 	ctrlzOptions            = ctrlz.DefaultOptions()
@@ -209,6 +210,8 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache, gatewaySecr
 		}
 		workloadSdsCacheOptions.TrustDomain = serverOptions.TrustDomain
 		workloadSdsCacheOptions.Plugins = sds.NewPlugins(serverOptions.PluginNames)
+		wSecretChan = make(chan struct{})
+		wSecretFetcher.Run(wSecretChan)
 		workloadSecretCache = cache.NewSecretCache(wSecretFetcher, sds.NotifyProxy, workloadSdsCacheOptions)
 	} else {
 		workloadSecretCache = nil
