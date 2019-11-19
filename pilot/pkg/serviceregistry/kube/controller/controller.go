@@ -80,10 +80,6 @@ var (
 		monitoring.WithLabels(typeTag, eventTag),
 	)
 
-	endpointBeforePodEvents = monitoring.NewSum(
-		"pilot_k8s_endpoints_before_pod_events",
-		"Endpoints events that appeared before pod events and were resolved by loading pod.")
-
 	endpointsWithNoPods = monitoring.NewSum(
 		"pilot_k8s_endpoints_with_no_pods",
 		"Endpoints that does not have any corresponding pods.")
@@ -91,7 +87,6 @@ var (
 
 func init() {
 	monitoring.MustRegister(k8sEvents)
-	monitoring.MustRegister(endpointBeforePodEvents)
 	monitoring.MustRegister(endpointsWithNoPods)
 }
 
@@ -947,7 +942,6 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 				if pod == nil {
 					// This means, the endpoint event has arrived before pod event. This might happen because
 					// PodCache is eventually consistent. We should try to get the pod from kube-api server.
-					endpointBeforePodEvents.Increment()
 					if ea.TargetRef != nil && ea.TargetRef.Kind == "Pod" {
 						pod = c.pods.getPod(ea.TargetRef.Name, ea.TargetRef.Namespace)
 						if pod == nil {

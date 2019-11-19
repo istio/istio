@@ -152,7 +152,7 @@ func (pc *PodCache) getPodByIP(addr string) *v1.Pod {
 func (pc *PodCache) getPod(name string, namespace string) *v1.Pod {
 	pod, err := pc.c.client.CoreV1().Pods(namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
-		log.Warnf("Pod %s in namespace %s does not exist in k8s api server", name, namespace)
+		log.Warnf("failed to get pod %s/%s from kube-apiserver: %v", namespace, name, err)
 		return nil
 	}
 	return pod
