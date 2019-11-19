@@ -117,7 +117,12 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 		namespaces = []string{sa.namespace}
 	}
 
-	result.SkippedAnalyzers = sa.analyzer.RemoveDisabled(sa.kubeResources.DisabledCollections(), sa.transformerProviders)
+	var colsInSnapshots collection.Names
+	for _, c := range sa.m.AllCollectionsInSnapshots([]string{metadata.LocalAnalysis, metadata.SyntheticServiceEntry}) {
+		colsInSnapshots = append(colsInSnapshots, collection.NewName(c))
+	}
+
+	result.SkippedAnalyzers = sa.analyzer.RemoveSkipped(colsInSnapshots, sa.kubeResources.DisabledCollections(), sa.transformerProviders)
 	result.ExecutedAnalyzers = sa.analyzer.AnalyzerNames()
 
 	updater := &snapshotter.InMemoryStatusUpdater{}
