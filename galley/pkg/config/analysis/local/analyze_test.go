@@ -26,10 +26,12 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
+	"istio.io/istio/galley/pkg/config/meshcfg"
 	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
+	"istio.io/istio/galley/pkg/config/source/kube/inmemory"
 	"istio.io/istio/galley/pkg/config/testing/basicmeta"
 	"istio.io/istio/galley/pkg/config/testing/data"
 	"istio.io/istio/galley/pkg/config/testing/k8smeta"
@@ -136,6 +138,8 @@ func TestAddRunningKubeSource(t *testing.T) {
 
 	sa.AddRunningKubeSource(mk)
 	g.Expect(sa.sources).To(HaveLen(2))
+	g.Expect(sa.sources[0].src).To(BeAssignableToTypeOf(&meshcfg.InMemorySource{})) // Base default meshcfg
+	g.Expect(sa.sources[1].src).To(BeAssignableToTypeOf(&apiserver.Source{}))       // All other resources via api server
 }
 
 func TestAddRunningKubeSourceWithMeshCfg(t *testing.T) {
@@ -165,6 +169,9 @@ func TestAddRunningKubeSourceWithMeshCfg(t *testing.T) {
 
 	sa.AddRunningKubeSource(mk)
 	g.Expect(sa.sources).To(HaveLen(3))
+	g.Expect(sa.sources[0].src).To(BeAssignableToTypeOf(&meshcfg.InMemorySource{})) // Base default meshcfg
+	g.Expect(sa.sources[1].src).To(BeAssignableToTypeOf(&meshcfg.InMemorySource{})) // in-cluster meshcfg
+	g.Expect(sa.sources[2].src).To(BeAssignableToTypeOf(&apiserver.Source{}))       // All other resources via api server
 }
 
 func TestAddFileKubeSource(t *testing.T) {
@@ -178,6 +185,8 @@ func TestAddFileKubeSource(t *testing.T) {
 	err := sa.AddFileKubeSource([]string{tmpfile.Name()})
 	g.Expect(err).To(BeNil())
 	g.Expect(sa.sources).To(HaveLen(2))
+	g.Expect(sa.sources[0].src).To(BeAssignableToTypeOf(&meshcfg.InMemorySource{})) // Base default meshcfg
+	g.Expect(sa.sources[1].src).To(BeAssignableToTypeOf(&inmemory.KubeSource{}))    // All other resources via files
 
 	// Note that a blank file for mesh cfg is equivalent to specifying all the defaults
 	tmpMeshFile := tempFileFromString(t, "")
@@ -186,6 +195,7 @@ func TestAddFileKubeSource(t *testing.T) {
 	err = sa.AddFileKubeMeshConfigSource(tmpMeshFile.Name())
 	g.Expect(err).To(BeNil())
 	g.Expect(sa.sources).To(HaveLen(3))
+	g.Expect(sa.sources[2].src).To(BeAssignableToTypeOf(&meshcfg.InMemorySource{})) // meshcfg read from a file
 }
 
 func TestAddFileKubeSourceSkipsBadEntries(t *testing.T) {
