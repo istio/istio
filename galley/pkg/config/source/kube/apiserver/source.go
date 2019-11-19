@@ -107,7 +107,6 @@ func (s *Source) Start() {
 		return
 	}
 	s.started = true
-	s.mu.Unlock()
 
 	// Create a set of pending resources. These will be matched up with incoming CRD events for creating watchers for
 	// each resource that we expect.
@@ -118,6 +117,7 @@ func (s *Source) Start() {
 		key := asKey(r.Group, r.Kind)
 		s.expectedResources[key] = r
 	}
+	s.mu.Unlock()
 
 	// Start the CRD listener. When the listener is fully-synced, the listening of actual resources will start.
 	scope.Source.Infof("Beginning CRD Discovery, to figure out resources that are available...")
