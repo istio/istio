@@ -24,9 +24,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
-	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/external"
@@ -66,7 +64,7 @@ func SetupDiscoveryServer(t testing.TB, cfgs ...model.Config) *DiscoveryServer {
 	if err := env.PushContext.InitContext(env, env.PushContext, nil); err != nil {
 		t.Fatal(err)
 	}
-	s := NewDiscoveryServer(env, v1alpha3.NewConfigGenerator([]plugin.Plugin{}))
+	s := NewDiscoveryServer(env, []string{})
 	if err := s.updateServiceShards(s.globalPushContext()); err != nil {
 		t.Fatalf("Failed to update service shards: %v", err)
 	}
