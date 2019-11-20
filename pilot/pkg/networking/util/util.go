@@ -97,7 +97,7 @@ var ALPNInMeshH2 = []string{"istio-mixerless", "istio", "h2"}
 var ALPNInMesh = []string{"istio-mixerless", "istio"}
 
 // ALPNHttp advertises that Proxy is going to talking either http2 or http 1.1.
-var ALPNHttp = []string{"h2", "http/1.1"}
+var ALPNHttp = []string{"istio-mixerless", "h2", "http/1.1"}
 
 // FallThroughFilterChainBlackHoleService is the blackhole service used for fall though
 // filter chain
