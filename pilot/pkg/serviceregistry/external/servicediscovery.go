@@ -49,7 +49,7 @@ type ServiceEntryStore struct {
 }
 
 // NewServiceDiscovery creates a new ServiceEntry discovery service
-func NewServiceDiscovery(callbacks model.ConfigStoreCache, store model.IstioConfigStore) *ServiceEntryStore {
+func NewServiceDiscovery(configController model.ConfigStoreCache, store model.IstioConfigStore) *ServiceEntryStore {
 	c := &ServiceEntryStore{
 		serviceHandlers:  make([]serviceHandler, 0),
 		instanceHandlers: make([]instanceHandler, 0),
@@ -58,8 +58,8 @@ func NewServiceDiscovery(callbacks model.ConfigStoreCache, store model.IstioConf
 		instances:        map[host.Name]map[string][]*model.ServiceInstance{},
 		updateNeeded:     true,
 	}
-	if callbacks != nil {
-		callbacks.RegisterEventHandler(schemas.ServiceEntry.Type, func(config model.Config, event model.Event) {
+	if configController != nil {
+		configController.RegisterEventHandler(schemas.ServiceEntry.Type, func(config model.Config, event model.Event) {
 			// Recomputing the index here is too expensive.
 			c.changeMutex.Lock()
 			c.lastChange = time.Now()
