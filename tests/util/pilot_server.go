@@ -99,7 +99,7 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 				string(serviceregistry.MockRegistry)},
 		},
 		MeshConfig:        &meshConfig,
-		MCPMaxMessageSize: bootstrap.DefaultMCPMaxMsgSize,
+		MCPMaxMessageSize: 1024 * 1024 * 4,
 		KeepaliveOptions:  keepalive.DefaultOption(),
 		ForceStop:         true,
 		// TODO: add the plugins, so local tests are closer to reality and test full generation

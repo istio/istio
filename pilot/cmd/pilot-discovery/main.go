@@ -45,6 +45,10 @@ var (
 			InjectionDirectory: "/etc/istio/inject",
 			Port:               15017,
 		},
+
+		MCPMaxMessageSize:        1024 * 1024 * 4, // default grpc maximum message size
+		MCPInitialConnWindowSize: 1024 * 1024,     // default grpc InitialWindowSize
+		MCPInitialWindowSize:     1024 * 1024,     // default grpc ConnWindowSize
 	}
 
 	loggingOptions = log.DefaultOptions()
@@ -119,11 +123,11 @@ func init() {
 		"comma separated list of networking plugins to enable")
 
 	// MCP client flags
-	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPMaxMessageSize, "mcpMaxMsgSize", bootstrap.DefaultMCPMaxMsgSize,
+	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPMaxMessageSize, "mcpMaxMsgSize", serverArgs.MCPMaxMessageSize,
 		"Max message size received by MCP's grpc client")
-	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPInitialWindowSize, "mcpInitialWindowSize", bootstrap.DefaultMCPInitialWindowSize,
+	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPInitialWindowSize, "mcpInitialWindowSize", serverArgs.MCPInitialWindowSize,
 		"Initial window size for MCP's gRPC connection")
-	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPInitialConnWindowSize, "mcpInitialConnWindowSize", bootstrap.DefaultMCPInitialConnWindowSize,
+	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPInitialConnWindowSize, "mcpInitialConnWindowSize", serverArgs.MCPInitialConnWindowSize,
 		"Initial connection window size for MCP's gRPC connection")
 
 	// Config Controller options

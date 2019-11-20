@@ -329,6 +329,20 @@ func TestKubeSource_DefaultNamespaceSkipClusterScoped(t *testing.T) {
 	g.Expect(actual[0].Metadata.Name).To(Equal(data.EntryI1V1NoNamespace.Metadata.Name))
 }
 
+func TestKubeSource_CanHandleDocumentSeparatorInComments(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	s, _ := setupKubeSource()
+	s.Start()
+	defer s.Stop()
+
+	s.SetDefaultNamespace("default")
+
+	err := s.ApplyContent("foo", data.YamlI1V1WithCommentContainingDocumentSeparator)
+	g.Expect(err).To(BeNil())
+	g.Expect(s.ContentNames()).To(Equal(map[string]struct{}{"foo": {}}))
+}
+
 func setupKubeSource() (*KubeSource, *fixtures.Accumulator) {
 	s := NewKubeSource(basicmeta.MustGet().KubeSource().Resources())
 
