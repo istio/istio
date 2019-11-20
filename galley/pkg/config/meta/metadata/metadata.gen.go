@@ -813,12 +813,6 @@ sources:
       group: "config.istio.io"
       version: "v1alpha2"
 
-    - collection: "k8s/authentication.istio.io/v1alpha1/meshpolicies"
-      kind: "MeshPolicy"
-      plural: "meshpolicies"
-      group: "authentication.istio.io"
-      version: "v1alpha1"
-
     # Legacy Mixer CRD Types
     - collection: "k8s/config.istio.io/v1alpha2/apikeys"
       kind: "apikey"
