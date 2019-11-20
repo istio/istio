@@ -108,6 +108,8 @@ func (s *Server) initMeshConfiguration(args *PilotArgs) error {
 	log.Infof("flags %s", spew.Sdump(args))
 
 	s.Mesh = meshConfig
+	// TODO: update galley as well.
+	// TODO: update injector (and possibly CA - for trustdomain changes)
 	return nil
 }
 

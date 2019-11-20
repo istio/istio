@@ -49,6 +49,10 @@ func main() {
 		Service: bootstrap.ServiceArgs{
 			Registries: []string{string(serviceregistry.KubernetesRegistry)},
 		},
+		InjectionOptions: bootstrap.InjectionOptions {
+			InjectionDirectory: "./var/lib/istio/inject",
+			Port:               15017,
+		},
 
 		Plugins: bootstrap.DefaultPlugins, // TODO: Should it be in MeshConfig ? Env override until it's done.
 
@@ -74,7 +78,7 @@ func main() {
 		GrpcAddr: fmt.Sprintf(":%d", basePort+10),
 		// Using 12 for K8S-DNS based cert.
 		// TODO: We'll also need 11 for Citadel-based cert
-		SecureGrpcAddr:  fmt.Sprintf(":%d", basePort+12),
+		SecureGrpcAddr:  "",
 		EnableProfiling: true,
 	}
 	args.CtrlZOptions = &ctrlz.Options{

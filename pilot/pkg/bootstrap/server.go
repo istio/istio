@@ -387,7 +387,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	})
 
 	// run secure grpc server for Istiod - using DNS-based certs from K8S
-	s.initSecureGrpcServerDNS(args.KeepaliveOptions)
+	s.initSecureGrpcServerDNS()
 
 	// run grpc server using the Citadel secrets. New installer uses a sidecar for this.
 	// Will be deprecated once Istiod mode is stable.
@@ -614,17 +614,6 @@ func (s *Server) initIstiod(args *PilotArgs) error {
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		return s.StartGalley()
 	})
-
-	// Injector should run along, even if not used - but only if the injection template is mounted.
-	if _, err := os.Stat("./var/lib/istio/inject/injection-template.yaml"); err == nil {
-		s.addStartFunc(func(stop <-chan struct{}) error {
-			err = StartInjector(s.KubeClient, stop)
-			if err != nil {
-				log.Fatalf("Failure to start injector: %v", err)
-			}
-			return err
-		})
-	}
 
 	// Options based on the current 'defaults' in istio.
 	// If adjustments are needed - env or mesh.config ( if of general interest ).

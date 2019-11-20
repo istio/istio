@@ -18,6 +18,8 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
+	"net"
 	"net/http"
 	"path"
 	"reflect"
@@ -35,7 +37,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/external"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
-	istiokeepalive "istio.io/istio/pkg/keepalive"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 )
@@ -188,7 +189,7 @@ func (s *Server) addConfig2ServiceEntry() {
 }
 
 // initialize secureGRPCServer - using K8S DNS certs
-func (s *Server) initSecureGrpcServerDNS(options *istiokeepalive.Options) error {
+func (s *Server) initSecureGrpcServerDNS() error {
 	certDir := DNSCertDir
 
 	key := path.Join(certDir, constants.KeyFilename)
@@ -206,7 +207,7 @@ func (s *Server) initSecureGrpcServerDNS(options *istiokeepalive.Options) error 
 		return err
 	}
 
-	opts := s.grpcServerOptions(options)
+	opts := s.grpcServerOptions(s.Args.KeepaliveOptions)
 	opts = append(opts, grpc.Creds(tlsCreds))
 	s.SecureGRPCServerDNS = grpc.NewServer(opts...)
 	s.EnvoyXdsServer.Register(s.SecureGRPCServerDNS)
@@ -231,6 +232,51 @@ func (s *Server) initSecureGrpcServerDNS(options *istiokeepalive.Options) error 
 			}
 		}),
 	}
+
+	// Default is 15012 - istio-agent relies on this as a default to distinguish what cert auth to expect
+	dnsGrpc := fmt.Sprintf(":%d", s.basePort+12)
+
+	// create secure grpc listener
+	secureGrpcListener, err := net.Listen("tcp", dnsGrpc)
+	if err != nil {
+		return err
+	}
+	s.SecureGRPCListeningAddr = secureGrpcListener.Addr()
+
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		go func() {
+			if !s.waitForCacheSync(stop) {
+				return
+			}
+
+			log.Infof("starting K8S-signed grpc=%s", dnsGrpc)
+			go func() {
+				// This seems the only way to call setupHTTP2 - it may also be possible to set NextProto
+				// on a listener
+				err := s.SecureHTTPServerDNS.ServeTLS(secureGrpcListener, "", "")
+				msg := fmt.Sprintf("Stoppped listening on %s", dnsGrpc)
+				select {
+				case <-stop:
+					log.Info(msg)
+				default:
+					panic(fmt.Sprintf("%s due to error: %v", msg, err))
+				}
+			}()
+			go func() {
+				<-stop
+				if s.Args.ForceStop {
+					s.GrpcServer.Stop()
+				} else {
+					s.GrpcServer.GracefulStop()
+				}
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+				_ = s.SecureHTTPServer.Shutdown(ctx)
+				s.SecureGRPCServer.Stop()
+			}()
+		}()
+		return nil
+	})
 
 	return nil
 }
