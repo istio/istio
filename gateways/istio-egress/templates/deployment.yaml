@@ -197,12 +197,6 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
-          {{- if $gateway.sds }}
-          {{- if $gateway.sds.enabled }}
-          - name: ISTIO_META_USER_SDS
-            value: "true"
-          {{- end }}
-          {{- end }}
           {{- if $gateway.env }}
           {{- range $key, $val := $gateway.env }}
           - name: {{ $key }}
