@@ -28,9 +28,6 @@ const (
 
 	// LatestTag value
 	LatestTag = "latest"
-
-	// BitnamiHubValuesKey values key for the bitnami image hub
-	BitnamiHubValuesKey = "docker.io/bitnami"
 )
 
 // Settings provide kube-specific Settings from flags.
