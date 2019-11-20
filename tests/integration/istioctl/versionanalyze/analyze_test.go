@@ -20,6 +20,7 @@ import (
 
 	. "github.com/onsi/gomega"
 
+	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/istioctl/cmd"
 	"istio.io/istio/pkg/test/framework"
@@ -74,9 +75,7 @@ func TestFileOnly(t *testing.T) {
 
 			// Validation error if we have a service role binding without a service role
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), serviceRoleBindingFile)
-			g.Expect(output).To(HaveLen(2))
-			g.Expect(output[0]).To(ContainSubstring(msg.ReferencedResourceNotFound.Code()))
-			g.Expect(output[1]).To(ContainSubstring(analyzerFoundIssuesError.Error()))
+			expectMessages(t, g, output, msg.ReferencedResourceNotFound)
 			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
 
 			// Error goes away if we include both the binding and its role
@@ -104,9 +103,7 @@ func TestKubeOnly(t *testing.T) {
 
 			// Validation error if we have a service role binding without a service role
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), "--use-kube")
-			g.Expect(output).To(HaveLen(2))
-			g.Expect(output[0]).To(ContainSubstring(msg.ReferencedResourceNotFound.Code()))
-			g.Expect(output[1]).To(ContainSubstring(analyzerFoundIssuesError.Error()))
+			expectMessages(t, g, output, msg.ReferencedResourceNotFound)
 			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
 
 			// Error goes away if we include both the binding and its role
@@ -162,8 +159,7 @@ func TestServiceDiscovery(t *testing.T) {
 
 			// With service discovery on, do expect an error
 			output, err = istioctlSafe(t, istioCtl, ns.Name(), "--discovery=true", reviewsVsAndDrFile)
-			g.Expect(output[0]).To(ContainSubstring(msg.ReferencedResourceNotFound.Code()))
-			g.Expect(output[1]).To(ContainSubstring(analyzerFoundIssuesError.Error()))
+			expectMessages(t, g, output, msg.ReferencedResourceNotFound)
 			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
 
 			// Error goes away if we include the service definition in the resources being analyzed
@@ -173,10 +169,27 @@ func TestServiceDiscovery(t *testing.T) {
 		})
 }
 
+// Verify the output contains messages of the expected type, in order, followed by boilerplate lines
+func expectMessages(t *testing.T, g *GomegaWithT, output []string, messageTypes ...*diag.MessageType) {
+	t.Helper()
+
+	foundIssuesParts := strings.Split(analyzerFoundIssuesError.Error(), "\n")
+
+	g.Expect(output).To(HaveLen(len(messageTypes) + len(foundIssuesParts)))
+
+	for i, line := range output {
+		if i < len(messageTypes) {
+			g.Expect(line).To(ContainSubstring(messageTypes[i].Code()))
+		} else {
+			g.Expect(line).To(ContainSubstring(foundIssuesParts[i-len(messageTypes)]))
+		}
+	}
+}
+
 func expectNoMessages(t *testing.T, g *GomegaWithT, output []string) {
 	t.Helper()
 	g.Expect(output).To(HaveLen(1))
-	g.Expect(output[0]).To(ContainSubstring("No validation issues found"))
+	g.Expect(output[0]).To(ContainSubstring(cmd.NoIssuesString))
 }
 
 func istioctlSafe(t *testing.T, i istioctl.Instance, ns string, extraArgs ...string) ([]string, error) {

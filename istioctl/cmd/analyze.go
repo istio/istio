@@ -38,6 +38,7 @@ type AnalyzerFoundIssuesError struct{}
 type FileParseError struct{}
 
 const (
+	NoIssuesString   = "\u2714 No validation issues found."
 	FoundIssueString = "Analyzers found issues."
 	FileParseString  = "Some files couldn't be parsed."
 	LogOutput        = "log"
@@ -214,7 +215,7 @@ istioctl experimental analyze -k -d false
 				// Print validation message output, or a line indicating that none were found
 				if len(outputMessages) == 0 {
 					if parseErrors == 0 {
-						fmt.Fprintln(cmd.ErrOrStderr(), "\u2714 No validation issues found.")
+						fmt.Fprintln(cmd.ErrOrStderr(), NoIssuesString)
 					} else {
 						fileOrFiles := "files"
 						if parseErrors == 1 {
