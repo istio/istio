@@ -231,7 +231,7 @@ func virtualHostMatch(vh *route.VirtualHost, cp *model.EnvoyFilterConfigPatchWra
 	}
 	if vh == nil {
 		// route configuration has a specific match for a virtual host but
-		// we dont have a virtual host to match.
+		// we do not have a virtual host to match.
 		return false
 	}
 	// check if virtual host names match
@@ -258,7 +258,7 @@ func routeMatch(httpRoute *route.Route, cp *model.EnvoyFilterConfigPatchWrapper)
 
 	if httpRoute == nil {
 		// we have a specific match for particular httpRoute but
-		// we dont have a httpRoute to match.
+		// we do not have a httpRoute to match.
 		return false
 	}
 

@@ -19,7 +19,7 @@ spec:
     - "*/bookinfo.com"
     - "*/private.com"
     # bookinfo.com is on port 9999.
-    # private.com wont get imported
+    # private.com won't get imported
   - hosts:
     - "ns1/*"
     - "*/*.tcp.com"

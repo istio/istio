@@ -126,7 +126,7 @@ func (b *builder) build(_ context.Context, env adapter.Env, newFluentd func(flue
 		pushInterval:  interval,
 		pushTimeout:   timeout,
 	}
-	han.logger, err = newFluentd(fluent.Config{FluentPort: p, FluentHost: h, BufferLimit: int(batchBytes), WriteTimeout: timeout})
+	han.logger, err = newFluentd(fluent.Config{FluentPort: p, FluentHost: h, BufferLimit: int(batchBytes), WriteTimeout: timeout, SubSecondPrecision: true})
 	if err != nil {
 		return nil, err
 	}

@@ -60,6 +60,7 @@ var (
 	outputLevel     = messageThreshold{diag.Info}    // messages at least this level will be included in the output
 	colorize        bool
 	msgOutputFormat string
+	meshCfgFile     string
 
 	termEnvVar = env.RegisterStringVar("TERM", "", "Specifies terminal type.  Use 'dumb' to suppress color output")
 
@@ -154,7 +155,7 @@ istioctl experimental analyze -k -d false
 				selectedNamespace = defaultNamespace
 			}
 
-			sa := local.NewSourceAnalyzer(metadata.MustGet(), analyzers.AllCombined(), selectedNamespace, nil, useDiscovery)
+			sa := local.NewSourceAnalyzer(metadata.MustGet(), analyzers.AllCombined(), selectedNamespace, istioNamespace, nil, useDiscovery)
 
 			// If we're using kube, use that as a base source.
 			if k != nil {
@@ -171,6 +172,13 @@ istioctl experimental analyze -k -d false
 				}
 			}
 
+			// If we explicitly specify mesh config, use it.
+			// This takes precedence over default mesh config or mesh config from a running Kube instance.
+			if meshCfgFile != "" {
+				sa.AddFileKubeMeshConfigSource(meshCfgFile)
+			}
+
+			// Do the analysis
 			result, err := sa.Analyze(cancel)
 			if err != nil {
 				return err
@@ -257,12 +265,16 @@ istioctl experimental analyze -k -d false
 			"Analyzers requiring resources made available by enabling service discovery will be skipped.")
 	analysisCmd.PersistentFlags().BoolVar(&colorize, "color", istioctlColorDefault(analysisCmd),
 		"Default true.  Disable with '=false' or set $TERM to dumb")
-	analysisCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
+	analysisCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false,
+		"Enable verbose output")
 	analysisCmd.PersistentFlags().Var(&failureLevel, "failure-threshold",
 		fmt.Sprintf("The severity level of analysis at which to set a non-zero exit code. Valid values: %v", diag.GetAllLevelStrings()))
 	analysisCmd.PersistentFlags().Var(&outputLevel, "output-threshold",
 		fmt.Sprintf("The severity level of analysis at which to display messages. Valid values: %v", diag.GetAllLevelStrings()))
-	analysisCmd.PersistentFlags().StringVarP(&msgOutputFormat, "output", "o", LogOutput, fmt.Sprintf("Output format: one of %v", msgOutputFormatKeys))
+	analysisCmd.PersistentFlags().StringVarP(&msgOutputFormat, "output", "o", LogOutput,
+		fmt.Sprintf("Output format: one of %v", msgOutputFormatKeys))
+	analysisCmd.PersistentFlags().StringVar(&meshCfgFile, "meshConfigFile", "",
+		"Overrides the mesh config values to use for analysis.")
 	return analysisCmd
 }
 

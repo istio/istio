@@ -25,10 +25,10 @@ import (
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processing/transformer"
 	"istio.io/istio/galley/pkg/config/resource"
-	"istio.io/istio/galley/pkg/config/testing/data"
 )
 
 type analyzer struct {
+	name   string
 	inputs collection.Names
 	ran    bool
 }
@@ -36,7 +36,7 @@ type analyzer struct {
 // Metadata implements Analyzer
 func (a *analyzer) Metadata() Metadata {
 	return Metadata{
-		Name:   "",
+		Name:   a.name,
 		Inputs: a.inputs,
 	}
 }
@@ -57,23 +57,35 @@ func (ctx *context) Canceled() bool                                             
 func TestCombinedAnalyzer(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	a1 := &analyzer{inputs: collection.Names{data.Collection1}}
-	a2 := &analyzer{inputs: collection.Names{data.Collection2}}
-	a3 := &analyzer{inputs: collection.Names{data.Collection3}}
+	col1 := collection.NewName("col1")
+	col2 := collection.NewName("col2")
+	col3 := collection.NewName("col3")
+	col4 := collection.NewName("col4")
 
-	xform := transformer.NewSimpleTransformerProvider(data.Collection3, data.Collection3, func(_ event.Event, _ event.Handler) {})
+	a1 := &analyzer{name: "a1", inputs: collection.Names{col1}}
+	a2 := &analyzer{name: "a2", inputs: collection.Names{col2}}
+	a3 := &analyzer{name: "a3", inputs: collection.Names{col3}}
+	a4 := &analyzer{name: "a4", inputs: collection.Names{col4}}
 
-	a := Combine("combined", a1, a2, a3)
-	removed := a.RemoveDisabled(collection.Names{data.Collection3}, transformer.Providers{xform})
+	xform := transformer.NewSimpleTransformerProvider(col3, col3, func(_ event.Event, _ event.Handler) {})
 
-	g.Expect(removed).To(ConsistOf(a3.Metadata().Name))
-	g.Expect(a.Metadata().Inputs).To(ConsistOf(data.Collection1, data.Collection2, data.Collection3))
+	a := Combine("combined", a1, a2, a3, a4)
+	g.Expect(a.Metadata().Inputs).To(ConsistOf(col1, col2, col3, col4))
+
+	removed := a.RemoveSkipped(
+		collection.Names{col1, col2, col3},
+		collection.Names{col3},
+		transformer.Providers{xform})
+
+	g.Expect(removed).To(ConsistOf(a3.Metadata().Name, a4.Metadata().Name))
+	g.Expect(a.Metadata().Inputs).To(ConsistOf(col1, col2))
 
 	a.Analyze(&context{})
 
 	g.Expect(a1.ran).To(BeTrue())
 	g.Expect(a2.ran).To(BeTrue())
 	g.Expect(a3.ran).To(BeFalse())
+	g.Expect(a4.ran).To(BeFalse())
 }
 
 func TestGetDisabledOutputs(t *testing.T) {

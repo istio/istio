@@ -17,6 +17,7 @@ package v2
 import (
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"io"
 	"net/http"
 	"net/http/pprof"
@@ -39,6 +40,48 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pkg/config/host"
 )
+
+var indexTmpl = template.Must(template.New("index").Parse(`<html>
+<head>
+<title>Pilot Debug Console</title>
+</head>
+<style>
+#endpoints {
+  font-family: "Trebuchet MS", Arial, Helvetica, sans-serif;
+  border-collapse: collapse;
+}
+
+#endpoints td, #endpoints th {
+  border: 1px solid #ddd;
+  padding: 8px;
+}
+
+#endpoints tr:nth-child(even){background-color: #f2f2f2;}
+
+#endpoints tr:hover {background-color: #ddd;}
+
+#endpoints th {
+  padding-top: 12px;
+  padding-bottom: 12px;
+  text-align: left;
+  background-color: black;
+  color: white;
+}
+</style>
+<body>
+<br/>
+<table id="endpoints">
+<tr><th>Endpoint</th><th>Description</th></tr>
+{{range .}}
+	<tr>
+	<td><a href='{{.Href}}'>{{.Name}}</a></td><td>{{.Help}}</td>
+	</tr>
+{{end}}
+</table>
+<br/>
+</body>
+</html>
+`))
 
 const (
 	// configNameNotApplicable is used to represent the name of the authentication policy or
@@ -63,30 +106,39 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	})
 
 	if enableProfiling {
-		mux.HandleFunc("/debug/pprof/", pprof.Index)
-		mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
-		mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
-		mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
-		mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+		s.addDebugHandler(mux, "/debug/pprof/", "Displays pprof index", pprof.Index)
+		s.addDebugHandler(mux, "/debug/pprof/cmdline", "The command line invocation of the current program", pprof.Cmdline)
+		s.addDebugHandler(mux, "/debug/pprof/profile", "CPU profile", pprof.Profile)
+		s.addDebugHandler(mux, "/debug/pprof/symbol", "Symbol looks up the program counters listed in the request", pprof.Symbol)
+		s.addDebugHandler(mux, "/debug/pprof/trace", "A trace of execution of the current program.", pprof.Trace)
 	}
 
+	mux.HandleFunc("/debug", s.Debug)
 	mux.HandleFunc("/ready", s.ready)
 
-	mux.HandleFunc("/debug/edsz", s.edsz)
-	mux.HandleFunc("/debug/adsz", s.adsz)
-	mux.HandleFunc("/debug/cdsz", cdsz)
-	mux.HandleFunc("/debug/syncz", Syncz)
-	mux.HandleFunc("/debug/config_distribution", s.distributedVersions)
+	s.addDebugHandler(mux, "/debug/edsz", "Status and debug interface for EDS", s.edsz)
+	s.addDebugHandler(mux, "/debug/adsz", "Status and debug interface for ADS", s.adsz)
+	s.addDebugHandler(mux, "/debug/adsz?push=true", "Initiates push of the current state to all connected endpoints", s.adsz)
+	s.addDebugHandler(mux, "/debug/cdsz", "Status and debug interface for CDS", cdsz)
 
-	mux.HandleFunc("/debug/registryz", s.registryz)
-	mux.HandleFunc("/debug/endpointz", s.endpointz)
-	mux.HandleFunc("/debug/endpointShardz", s.endpointShardz)
-	mux.HandleFunc("/debug/configz", s.configz)
+	s.addDebugHandler(mux, "/debug/syncz", "Synchronization status of all Envoys connected to this Pilot instance", Syncz)
+	s.addDebugHandler(mux, "/debug/config_distribution", "Version status of all Envoys connected to this Pilot instance", s.distributedVersions)
 
-	mux.HandleFunc("/debug/authenticationz", s.Authenticationz)
-	mux.HandleFunc("/debug/authorizationz", s.Authorizationz)
-	mux.HandleFunc("/debug/config_dump", s.ConfigDump)
-	mux.HandleFunc("/debug/push_status", s.PushStatusHandler)
+	s.addDebugHandler(mux, "/debug/registryz", "Debug support for registry", s.registryz)
+	s.addDebugHandler(mux, "/debug/endpointz", "Debug support for endpoints", s.endpointz)
+	s.addDebugHandler(mux, "/debug/endpointShardz", "Info about the endpoint shards", s.endpointShardz)
+	s.addDebugHandler(mux, "/debug/configz", "Debug support for config", s.configz)
+
+	s.addDebugHandler(mux, "/debug/authenticationz", "Dumpts the authn tls-check info", s.Authenticationz)
+	s.addDebugHandler(mux, "/debug/authorizationz", "Internal authorization policies", s.Authorizationz)
+	s.addDebugHandler(mux, "/debug/config_dump", "ConfigDump in the form of the Envoy admin config dump API for passed in proxyID", s.ConfigDump)
+	s.addDebugHandler(mux, "/debug/push_status", "Last PushContext Details", s.PushStatusHandler)
+}
+
+func (s *DiscoveryServer) addDebugHandler(mux *http.ServeMux, path string, help string,
+	handler func(http.ResponseWriter, *http.Request)) {
+	s.debugHandlers[path] = help
+	mux.HandleFunc(path, handler)
 }
 
 // SyncStatus is the synchronization status between Pilot and a given Envoy
@@ -655,6 +707,34 @@ func writeAllADS(w io.Writer) {
 }
 
 func (s *DiscoveryServer) ready(w http.ResponseWriter, req *http.Request) {
+	w.WriteHeader(200)
+}
+
+// lists all the supported debug endpoints.
+func (s *DiscoveryServer) Debug(w http.ResponseWriter, req *http.Request) {
+	type debugEndpoint struct {
+		Name string
+		Href string
+		Help string
+	}
+	var deps []debugEndpoint
+
+	for k, v := range s.debugHandlers {
+		deps = append(deps, debugEndpoint{
+			Name: k,
+			Href: k,
+			Help: v,
+		})
+	}
+
+	sort.Slice(deps, func(i, j int) bool {
+		return deps[i].Name < deps[j].Name
+	})
+
+	if err := indexTmpl.Execute(w, deps); err != nil {
+		adsLog.Errorf("Error in rendering index template %v", err)
+		w.WriteHeader(500)
+	}
 	w.WriteHeader(200)
 }
 
