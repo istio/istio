@@ -225,16 +225,14 @@ func ValidateStringMatch(m *networking.StringMatch) error {
 	case *networking.StringMatch_Regex:
 		// Pilot allows unsafe regex based on env var. We should respect that.
 		// TODO: See if there is a better way to get this flag here.
-		var unsaferegex bool
+		saferegex := true
 		if result, ok := os.LookupEnv("PILOT_ENABLE_UNSAFE_REGEX"); ok {
 			if value, err := strconv.ParseBool(result); err == nil {
-				unsaferegex = value
-			} else {
-				unsaferegex = false // Assume safe regex if it unparsable.
+				saferegex = !value
 			}
 		}
 		// Default max size for safe regex is 100
-		if !unsaferegex && len(x.Regex) > 100 {
+		if saferegex && len(x.Regex) > 100 {
 			return fmt.Errorf("regex match '%s' cannot be greater than 100 bytes", x.Regex)
 		}
 	}
