@@ -579,6 +579,10 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	var conns []*grpc.ClientConn
 	var configStores []model.ConfigStoreCache
 
+	s.mcpOptions = &coredatamodel.Options{
+		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
+		ConfigLedger: args.Config.buildLedger(),
+	}
 	reporter := monitoring.NewStatsContext("pilot")
 
 	for _, configSource := range s.mesh.ConfigSources {
@@ -746,18 +750,15 @@ func (s *Server) mcpController(args *PilotArgs,
 	reporter monitoring.Reporter,
 	clients *[]*sink.Client,
 	configStores *[]model.ConfigStoreCache) {
+
 	clientNodeID := ""
-	var collections []sink.CollectionOptions
+	collections := make([]sink.CollectionOptions, 0, len(schemas.Istio)-1)
 	for _, c := range schemas.Istio {
 		// do not register SSEs for this controller as there is a dedicated controller
 		if c.Collection == schemas.SyntheticServiceEntry.Collection {
 			continue
 		}
 		collections = append(collections, sink.CollectionOptions{Name: c.Collection, Incremental: false})
-	}
-	s.mcpOptions = &coredatamodel.Options{
-		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
-		ConfigLedger: args.Config.buildLedger(),
 	}
 
 	mcpController := coredatamodel.NewController(s.mcpOptions)
