@@ -59,5 +59,6 @@ func TestMessage_JSON(t *testing.T) {
 	m := NewMessage(mt, o, "Feta")
 
 	j, _ := json.Marshal(&m)
-	g.Expect(string(j)).To(Equal(`{"code":"IST-0042","level":"Error","message":"Cheese type not found: \"Feta\"","origin":"toppings/cheese"}`))
+	g.Expect(string(j)).To(Equal(`{"code":"IST-0042","doc":"https://istio.io/docs/reference/config/analysis/IST-0042"` +
+		`,"level":"Error","message":"Cheese type not found: \"Feta\"","origin":"toppings/cheese"}`))
 }

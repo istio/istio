@@ -21,6 +21,8 @@ import (
 	"istio.io/istio/galley/pkg/config/resource"
 )
 
+const DocPrefix = "https://istio.io/docs/reference/config/analysis"
+
 // MessageType is a type of diagnostic message
 type MessageType struct {
 	// The level of the message.
@@ -63,6 +65,7 @@ func (m *Message) Unstructured(includeOrigin bool) map[string]interface{} {
 		result["origin"] = m.Origin.FriendlyName()
 	}
 	result["message"] = fmt.Sprintf(m.Type.Template(), m.Parameters...)
+	result["doc"] = fmt.Sprintf("%s/%s", DocPrefix, m.Type.Code())
 
 	return result
 }

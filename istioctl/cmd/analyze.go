@@ -38,7 +38,7 @@ type AnalyzerFoundIssuesError struct{}
 type FileParseError struct{}
 
 const (
-	FoundIssueString = "Analyzer found issues."
+	FoundIssueString = "Analyzers found issues."
 	FileParseString  = "Some files couldn't be parsed."
 	LogOutput        = "log"
 	JSONOutput       = "json"
@@ -46,7 +46,7 @@ const (
 )
 
 func (f AnalyzerFoundIssuesError) Error() string {
-	return FoundIssueString
+	return fmt.Sprintf("%s\nSee %s for more information about causes and resolutions.", FoundIssueString, diag.DocPrefix)
 }
 
 func (f FileParseError) Error() string {
