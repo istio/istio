@@ -105,6 +105,9 @@ type DiscoveryServer struct {
 
 	// pushQueue is the buffer that used after debounce and before the real xds push.
 	pushQueue *PushQueue
+
+	// debugHandlers is the list of all the supported debug handlers.
+	debugHandlers map[string]string
 }
 
 // EndpointShards holds the set of endpoint shards of a service. Registries update
@@ -137,6 +140,7 @@ func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator) 
 		pushChannel:             make(chan *model.PushRequest, 10),
 		pushQueue:               NewPushQueue(),
 		DebugConfigs:            features.DebugConfigs,
+		debugHandlers:           map[string]string{},
 	}
 
 	// Flush cached discovery responses when detecting jwt public key change.
