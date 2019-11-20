@@ -15,11 +15,11 @@
 package inmemory
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/sha1"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"strings"
 	"sync"
 
@@ -200,13 +200,11 @@ func (s *KubeSource) parseContent(r schema.KubeResources, name, yamlText string)
 	var resources []kubeResource
 	var errs error
 
-	reader := strings.NewReader(yamlText)
-	readCloser := ioutil.NopCloser(reader)
-	decoder := yaml.NewDocumentDecoder(readCloser)
+	reader := bufio.NewReader(strings.NewReader(yamlText))
+	decoder := yaml.NewYAMLReader(reader)
 
-	buf := make([]byte, 4096)
 	for {
-		doc, err := readDocument(decoder, buf)
+		doc, err := decoder.Read()
 		if err == io.EOF {
 			break
 		}
@@ -231,28 +229,6 @@ func (s *KubeSource) parseContent(r schema.KubeResources, name, yamlText string)
 	}
 
 	return resources, errs
-}
-
-// readDocument is a helper for reading documents from yaml.NewDocumentDecoder.
-// yaml.NewDocumentDecoder returns a Reader instance such that every Read call
-// is an entire document; however like all Readers it requires a byte buffer to
-// write to.
-func readDocument(r io.Reader, buf []byte) ([]byte, error) {
-	var doc []byte
-
-	for {
-		num, err := r.Read(buf)
-		if err != nil && err != io.ErrShortBuffer {
-			return []byte{}, err
-		}
-		doc = append(doc, buf[:num]...)
-
-		if err == nil {
-			break
-		}
-	}
-
-	return doc, nil
 }
 
 func (s *KubeSource) parseChunk(r schema.KubeResources, yamlChunk []byte) (kubeResource, error) {
