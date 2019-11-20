@@ -16,6 +16,7 @@ package k8s
 
 import (
 	"fmt"
+	"istio.io/istio/pilot/pkg/bootstrap"
 
 	"github.com/hashicorp/go-multierror"
 	v1 "k8s.io/api/core/v1"
@@ -55,17 +56,17 @@ type Controllers struct {
 	kubeCfg      *rest.Config
 	kubeRegistry *controller2.Controller
 	multicluster *clusterregistry.Multicluster
-	args         *istiod.PilotArgs
+	args         *bootstrap.PilotArgs
 }
 
-func InitK8S(is *istiod.Server, clientset kubernetes.Interface, config *rest.Config, args *istiod.PilotArgs) (*Controllers, error) {
+func InitK8S(is *istiod.Server, clientset kubernetes.Interface, config *rest.Config, args *bootstrap.PilotArgs) (*Controllers, error) {
 	s := &Controllers{
 		IstioServer: is,
 		kubeCfg:     config,
 		kubeClient:  clientset,
 		args:        args,
 		ControllerOptions: controller2.Options{
-			DomainSuffix: args.DomainSuffix,
+			DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
 			TrustDomain:  args.MeshConfig.TrustDomain,
 		},
 	}
@@ -82,7 +83,7 @@ func (s *Controllers) OnXDSStart(xds model.XDSUpdater) {
 	s.kubeRegistry.XDSUpdater = xds
 }
 
-func (s *Controllers) InitK8SDiscovery(is *istiod.Server, config *rest.Config, args *istiod.PilotArgs) (*Controllers, error) {
+func (s *Controllers) InitK8SDiscovery(is *istiod.Server, config *rest.Config, args *bootstrap.PilotArgs) (*Controllers, error) {
 	s.createK8sServiceControllers(s.IstioServer.ServiceController)
 
 	if err := s.initClusterRegistries(args); err != nil {
@@ -113,12 +114,12 @@ func (s *Controllers) WaitForCacheSync(stop <-chan struct{}) bool {
 
 // initClusterRegistries starts the secret controller to watch for remote
 // clusters and initialize the multicluster structures.s.
-func (s *Controllers) initClusterRegistries(args *istiod.PilotArgs) (err error) {
+func (s *Controllers) initClusterRegistries(args *bootstrap.PilotArgs) (err error) {
 
 	mc, err := clusterregistry.NewMulticluster(s.kubeClient,
 		args.Config.ClusterRegistriesNamespace,
 		s.ControllerOptions.WatchedNamespace,
-		args.DomainSuffix,
+		args.Config.ControllerOptions.DomainSuffix,
 		s.ControllerOptions.ResyncPeriod,
 		s.IstioServer.ServiceController,
 		s.IstioServer.EnvoyXdsServer,
@@ -136,7 +137,7 @@ func (s *Controllers) initClusterRegistries(args *istiod.PilotArgs) (err error) 
 // initConfigController creates the config controller in the pilotConfig.
 // TODO: remove this, use Galley's config controller (wrapped in a ConfigStoreCache interface).
 // IngressSyncer is also initialized - make sure Galley has an equivalent or use the one here.
-func (s *Controllers) initConfigController(args *istiod.PilotArgs) error {
+func (s *Controllers) initConfigController(args *bootstrap.PilotArgs) error {
 	cfgController, err := s.makeKubeConfigController(args)
 	if err != nil {
 		return err
@@ -184,7 +185,7 @@ func (s *Controllers) createK8sServiceControllers(serviceControllers *aggregate.
 		})
 }
 
-func (s *Controllers) makeKubeConfigController(args *istiod.PilotArgs) (model.ConfigStoreCache, error) {
+func (s *Controllers) makeKubeConfigController(args *bootstrap.PilotArgs) (model.ConfigStoreCache, error) {
 	kubeCfgFile := args.Config.KubeConfig
 	configClient, err := controller.NewClient(kubeCfgFile, "", schemas.Istio, s.ControllerOptions.DomainSuffix, &model.DisabledLedger{})
 	if err != nil {

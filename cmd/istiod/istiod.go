@@ -15,23 +15,11 @@
 package main
 
 import (
-	"io/ioutil"
-	"net"
 	"os"
-	"strings"
-
-	"istio.io/pkg/env"
-
-	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/pkg/istiod"
 	"istio.io/istio/pkg/istiod/k8s"
 	"istio.io/pkg/log"
-)
-
-var (
-	istiodAddress = env.RegisterStringVar("ISTIOD_ADDR", "",
-		"Local service address of istiod. Default value is mesh.defaultConfig.discoveryAddress, use this to override if the discovery address is external")
 )
 
 // Istio control plane with K8S support.
@@ -64,7 +52,7 @@ func main() {
 
 	// Create k8s-signed certificates. This allows injector, validation to work without Citadel, and
 	// allows secure SDS connections to Istiod.
-	initCerts(istiods, client)
+	k8s.InitCerts(istiods, client)
 
 	// Init k8s related components, including Galley K8S controllers and
 	// Pilot discovery. Code kept in separate package.
@@ -89,7 +77,7 @@ func main() {
 
 	// Injector should run along, even if not used - but only if the injection template is mounted.
 	if _, err := os.Stat("./var/lib/istio/inject/injection-template.yaml"); err == nil {
-		err = k8s.StartInjector(stop)
+		err = k8s.StartInjector(client, stop)
 		if err != nil {
 			log.Fatalf("Failure to start injector: %v", err)
 		}
@@ -103,56 +91,4 @@ func main() {
 
 	istiods.Serve(stop)
 	istiods.WaitStop(stop)
-}
-
-// initCerts will create the certificates to be used by Istiod GRPC server and webhooks, signed by K8S server.
-func initCerts(server *istiod.Server, client *kubernetes.Clientset) {
-
-	// TODO: fallback to citadel (or custom CA) if K8S signing is broken
-
-	// discAddr configured in mesh config - this is what we'll inject into pods.
-	discAddr := server.Mesh.DefaultConfig.DiscoveryAddress
-	if istiodAddress.Get() != "" {
-		discAddr = istiodAddress.Get()
-	}
-	host, _, err := net.SplitHostPort(discAddr)
-	if err != nil {
-		log.Fatala("Invalid discovery address", discAddr, err)
-	}
-
-	hostParts := strings.Split(host, ".")
-
-	ns := "." + istiod.IstiodNamespace.Get()
-
-	// Names in the Istiod cert - support the old service names as well.
-	// The first is the recommended one, also used by Apiserver for webhooks.
-	names := []string{
-		hostParts[0] + ns + ".svc",
-		hostParts[0] + ns,
-		"istio-pilot" + ns,
-		"istio-galley" + ns,
-		"istio-ca" + ns,
-	}
-
-	certChain, keyPEM, err := k8s.GenKeyCertK8sCA(client.CertificatesV1beta1(), istiod.IstiodNamespace.Get(),
-		strings.Join(names, ","))
-	if err != nil {
-		log.Fatal("Failed to initialize certs")
-	}
-	server.CertChain = certChain
-	server.CertKey = keyPEM
-
-	// Save the certificates to /var/run/secrets/istio-dns - this is needed since most of the code we currently
-	// use to start grpc and webhooks is based on files. This is a memory-mounted dir.
-	if err := os.MkdirAll(istiod.DNSCertDir, 0700); err != nil {
-		log.Fatalf("Failed to create certs dir: %v", err)
-	}
-	err = ioutil.WriteFile(istiod.DNSCertDir+"/key.pem", keyPEM, 0700)
-	if err != nil {
-		log.Fatalf("Failed to write certs: %v", err)
-	}
-	err = ioutil.WriteFile(istiod.DNSCertDir+"/cert-chain.pem", certChain, 0700)
-	if err != nil {
-		log.Fatal("Failed to write certs")
-	}
 }

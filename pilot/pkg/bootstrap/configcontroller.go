@@ -57,7 +57,7 @@ const (
 
 // initConfigController creates the config controller in the pilotConfig.
 func (s *Server) initConfigController(args *PilotArgs) error {
-	if len(s.mesh.ConfigSources) > 0 {
+	if len(s.Mesh.ConfigSources) > 0 {
 		if err := s.initMCPConfigController(args); err != nil {
 			return err
 		}
@@ -70,31 +70,31 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 			return err
 		}
 
-		s.configController = configController
+		s.ConfigController = configController
 	} else {
 		configController, err := s.makeKubeConfigController(args)
 		if err != nil {
 			return err
 		}
 
-		s.configController = configController
+		s.ConfigController = configController
 	}
 
 	// If running in ingress mode (requires k8s), wrap the config controller.
-	if hasKubeRegistry(args.Service.Registries) && s.mesh.IngressControllerMode != meshconfig.MeshConfig_OFF {
+	if hasKubeRegistry(args.Service.Registries) && s.Mesh.IngressControllerMode != meshconfig.MeshConfig_OFF {
 		// Wrap the config controller with a cache.
 		configController, err := configaggregate.MakeCache([]model.ConfigStoreCache{
-			s.configController,
-			ingress.NewController(s.kubeClient, s.mesh, args.Config.ControllerOptions),
+			s.ConfigController,
+			ingress.NewController(s.kubeClient, s.Mesh, args.Config.ControllerOptions),
 		})
 		if err != nil {
 			return err
 		}
 
 		// Update the config controller
-		s.configController = configController
+		s.ConfigController = configController
 
-		if ingressSyncer, errSyncer := ingress.NewStatusSyncer(s.mesh, s.kubeClient,
+		if ingressSyncer, errSyncer := ingress.NewStatusSyncer(s.Mesh, s.kubeClient,
 			args.Namespace, args.Config.ControllerOptions); errSyncer != nil {
 			log.Warnf("Disabled ingress status syncer due to %v", errSyncer)
 		} else {
@@ -106,11 +106,11 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	}
 
 	// Create the config store.
-	s.istioConfigStore = model.MakeIstioStore(s.configController)
+	s.IstioConfigStore = model.MakeIstioStore(s.ConfigController)
 
 	// Defer starting the controller until after the service is created.
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		go s.configController.Run(stop)
+		go s.ConfigController.Run(stop)
 		return nil
 	})
 
@@ -129,7 +129,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	}
 	reporter := monitoring.NewStatsContext("pilot")
 
-	for _, configSource := range s.mesh.ConfigSources {
+	for _, configSource := range s.Mesh.ConfigSources {
 		if strings.Contains(configSource.Address, fsScheme+"://") {
 			srcAddress, err := url.Parse(configSource.Address)
 			if err != nil {
@@ -215,7 +215,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	if err != nil {
 		return err
 	}
-	s.configController = aggregateMcpController
+	s.ConfigController = aggregateMcpController
 	return nil
 }
 

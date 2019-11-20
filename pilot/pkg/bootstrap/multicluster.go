@@ -31,7 +31,7 @@ func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 			args.Config.ControllerOptions.ResyncPeriod,
 			s.ServiceController,
 			s.EnvoyXdsServer,
-			s.meshNetworks)
+			s.MeshNetworks)
 
 		if err != nil {
 			log.Info("Unable to create new Multicluster object")

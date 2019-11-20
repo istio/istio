@@ -66,7 +66,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		}
 	}
 
-	serviceEntryStore := external.NewServiceDiscovery(s.configController, s.istioConfigStore)
+	serviceEntryStore := external.NewServiceDiscovery(s.ConfigController, s.IstioConfigStore)
 
 	// add service entry registry to aggregator by default
 	serviceEntryRegistry := aggregate.Registry{

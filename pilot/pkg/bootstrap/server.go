@@ -92,8 +92,8 @@ func init() {
 	pilotVersion.With(prom.Labels{"version": version.Info.String()}).Set(1)
 }
 
-// startFunc defines a function that will be used to start one or more components of the Pilot discovery service.
-type startFunc func(stop <-chan struct{}) error
+// StartFunc defines a function that will be used to start one or more components of the Pilot discovery service.
+type StartFunc func(stop <-chan struct{}) error
 
 // Server contains the runtime configuration for the Pilot discovery service.
 type Server struct {
@@ -106,21 +106,21 @@ type Server struct {
 	EnvoyXdsServer    *envoyv2.DiscoveryServer
 	ServiceController *aggregate.Controller
 
-	mesh             *meshconfig.MeshConfig
-	meshNetworks     *meshconfig.MeshNetworks
-	configController model.ConfigStoreCache
+	Mesh             *meshconfig.MeshConfig
+	MeshNetworks     *meshconfig.MeshNetworks
+	ConfigController model.ConfigStoreCache
 
 	kubeClient            kubernetes.Interface
-	startFuncs            []startFunc
+	StartFuncs            []StartFunc
 	multicluster          *clusterregistry.Multicluster
-	httpServer            *http.Server
-	grpcServer            *grpc.Server
-	secureHTTPServer      *http.Server
-	secureGRPCServer      *grpc.Server
-	istioConfigStore      model.IstioConfigStore
-	mux                   *http.ServeMux
+	HttpServer            *http.Server
+	GrpcServer            *grpc.Server
+	SecureHTTPServer      *http.Server
+	SecureGRPCServer      *grpc.Server
+	IstioConfigStore      model.IstioConfigStore
+	Mux                   *http.ServeMux
 	kubeRegistry          *kubecontroller.Controller
-	fileWatcher           filewatcher.FileWatcher
+	FileWatcher           filewatcher.FileWatcher
 	discoveryOptions      *coredatamodel.DiscoveryOptions
 	mcpDiscovery          *coredatamodel.MCPDiscovery
 	incrementalMcpOptions *coredatamodel.Options
@@ -148,7 +148,7 @@ func NewServer(args PilotArgs) (*Server, error) {
 	}
 
 	s := &Server{
-		fileWatcher: filewatcher.NewWatcher(),
+		FileWatcher: filewatcher.NewWatcher(),
 	}
 
 	prometheus.EnableHandlingTimeHistogram()
@@ -200,7 +200,7 @@ func NewServer(args PilotArgs) (*Server, error) {
 // but is executed asynchronously. Serving can be canceled at any time by closing the provided stop channel.
 func (s *Server) Start(stop <-chan struct{}) error {
 	// Now start all of the components.
-	for _, fn := range s.startFuncs {
+	for _, fn := range s.StartFuncs {
 		if err := fn(stop); err != nil {
 			return err
 		}
@@ -225,16 +225,16 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 
 func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	environment := &model.Environment{
-		Mesh:             s.mesh,
-		MeshNetworks:     s.meshNetworks,
-		IstioConfigStore: s.istioConfigStore,
+		Mesh:             s.Mesh,
+		MeshNetworks:     s.MeshNetworks,
+		IstioConfigStore: s.IstioConfigStore,
 		ServiceDiscovery: s.ServiceController,
 		PushContext:      model.NewPushContext(),
 	}
 
 	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(environment, args.Plugins)
-	s.mux = http.NewServeMux()
-	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController, args.DiscoveryOptions.EnableProfiling)
+	s.Mux = http.NewServeMux()
+	s.EnvoyXdsServer.InitDebug(s.Mux, s.ServiceController, args.DiscoveryOptions.EnableProfiling)
 
 	if err := s.initEventHandlers(); err != nil {
 		return err
@@ -244,7 +244,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		// kubeRegistry may use the environment for push status reporting.
 		// TODO: maybe all registries should have this as an optional field ?
 		s.kubeRegistry.Env = environment
-		s.kubeRegistry.InitNetworkLookup(s.meshNetworks)
+		s.kubeRegistry.InitNetworkLookup(s.MeshNetworks)
 		s.kubeRegistry.XDSUpdater = s.EnvoyXdsServer
 	}
 
@@ -267,9 +267,9 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 	// create grpc/http server
 	s.initGrpcServer(args.KeepaliveOptions)
-	s.httpServer = &http.Server{
+	s.HttpServer = &http.Server{
 		Addr:    args.DiscoveryOptions.HTTPAddr,
-		Handler: s.mux,
+		Handler: s.Mux,
 	}
 
 	// create http listener
@@ -292,12 +292,12 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		}
 		log.Infof("starting discovery service at http=%s grpc=%s", listener.Addr(), grpcListener.Addr())
 		go func() {
-			if err := s.httpServer.Serve(listener); err != nil {
+			if err := s.HttpServer.Serve(listener); err != nil {
 				log.Warna(err)
 			}
 		}()
 		go func() {
-			if err := s.grpcServer.Serve(grpcListener); err != nil {
+			if err := s.GrpcServer.Serve(grpcListener); err != nil {
 				log.Warna(err)
 			}
 		}()
@@ -307,14 +307,14 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 			model.JwtKeyResolver.Close()
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
-			err := s.httpServer.Shutdown(ctx)
+			err := s.HttpServer.Shutdown(ctx)
 			if err != nil {
 				log.Warna(err)
 			}
 			if args.ForceStop {
-				s.grpcServer.Stop()
+				s.GrpcServer.Stop()
 			} else {
-				s.grpcServer.GracefulStop()
+				s.GrpcServer.GracefulStop()
 			}
 		}()
 
@@ -344,7 +344,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 				go func() {
 					// This seems the only way to call setupHTTP2 - it may also be possible to set NextProto
 					// on a listener
-					err := s.secureHTTPServer.ServeTLS(secureGrpcListener, "", "")
+					err := s.SecureHTTPServer.ServeTLS(secureGrpcListener, "", "")
 					msg := fmt.Sprintf("Stoppped listening on %s", secureGrpcListener.Addr().String())
 					select {
 					case <-stop:
@@ -356,14 +356,14 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 				go func() {
 					<-stop
 					if args.ForceStop {
-						s.grpcServer.Stop()
+						s.GrpcServer.Stop()
 					} else {
-						s.grpcServer.GracefulStop()
+						s.GrpcServer.GracefulStop()
 					}
 					ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 					defer cancel()
-					_ = s.secureHTTPServer.Shutdown(ctx)
-					s.secureGRPCServer.Stop()
+					_ = s.SecureHTTPServer.Shutdown(ctx)
+					s.SecureGRPCServer.Stop()
 				}()
 			}()
 			return nil
@@ -375,8 +375,8 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 	grpcOptions := s.grpcServerOptions(options)
-	s.grpcServer = grpc.NewServer(grpcOptions...)
-	s.EnvoyXdsServer.Register(s.grpcServer)
+	s.GrpcServer = grpc.NewServer(grpcOptions...)
+	s.EnvoyXdsServer.Register(s.GrpcServer)
 }
 
 // initialize secureGRPCServer
@@ -411,9 +411,9 @@ func (s *Server) initSecureGrpcServer(options *istiokeepalive.Options) error {
 
 	opts := s.grpcServerOptions(options)
 	opts = append(opts, grpc.Creds(tlsCreds))
-	s.secureGRPCServer = grpc.NewServer(opts...)
-	s.EnvoyXdsServer.Register(s.secureGRPCServer)
-	s.secureHTTPServer = &http.Server{
+	s.SecureGRPCServer = grpc.NewServer(opts...)
+	s.EnvoyXdsServer.Register(s.SecureGRPCServer)
+	s.SecureHTTPServer = &http.Server{
 		TLSConfig: &tls.Config{
 			Certificates: []tls.Certificate{certificate},
 			VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
@@ -428,9 +428,9 @@ func (s *Server) initSecureGrpcServer(options *istiokeepalive.Options) error {
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.ProtoMajor == 2 && strings.HasPrefix(
 				r.Header.Get("Content-Type"), "application/grpc") {
-				s.secureGRPCServer.ServeHTTP(w, r)
+				s.SecureGRPCServer.ServeHTTP(w, r)
 			} else {
-				s.mux.ServeHTTP(w, r)
+				s.Mux.ServeHTTP(w, r)
 			}
 		}),
 	}
@@ -462,8 +462,8 @@ func (s *Server) grpcServerOptions(options *istiokeepalive.Options) []grpc.Serve
 	return grpcOptions
 }
 
-func (s *Server) addStartFunc(fn startFunc) {
-	s.startFuncs = append(s.startFuncs, fn)
+func (s *Server) addStartFunc(fn StartFunc) {
+	s.StartFuncs = append(s.StartFuncs, fn)
 }
 
 func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
@@ -474,7 +474,7 @@ func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
 				return false
 			}
 		}
-		if !s.configController.HasSynced() {
+		if !s.ConfigController.HasSynced() {
 			return false
 		}
 		return true
@@ -517,7 +517,7 @@ func (s *Server) initEventHandlers() error {
 	}
 
 	// TODO(Nino-k): remove this case once incrementalUpdate is default
-	if s.configController != nil {
+	if s.ConfigController != nil {
 		// TODO: changes should not trigger a full recompute of LDS/RDS/CDS/EDS
 		// (especially mixerclient HTTP and quota)
 		configHandler := func(c model.Config, _ model.Event) {
@@ -528,7 +528,7 @@ func (s *Server) initEventHandlers() error {
 			s.EnvoyXdsServer.ConfigUpdate(pushReq)
 		}
 		for _, descriptor := range schemas.Istio {
-			s.configController.RegisterEventHandler(descriptor.Type, configHandler)
+			s.ConfigController.RegisterEventHandler(descriptor.Type, configHandler)
 		}
 	}
 
