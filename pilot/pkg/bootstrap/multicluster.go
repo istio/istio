@@ -24,14 +24,14 @@ import (
 func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 	if hasKubeRegistry(args.Service.Registries) {
 
-		mc, err := clusterregistry.NewMulticluster(s.KubeClient,
+		mc, err := clusterregistry.NewMulticluster(s.kubeClient,
 			args.Config.ClusterRegistriesNamespace,
 			args.Config.ControllerOptions.WatchedNamespace,
 			args.Config.ControllerOptions.DomainSuffix,
 			args.Config.ControllerOptions.ResyncPeriod,
 			s.ServiceController,
 			s.EnvoyXdsServer,
-			s.MeshNetworks)
+			s.meshNetworks)
 
 		if err != nil {
 			log.Info("Unable to create new Multicluster object")

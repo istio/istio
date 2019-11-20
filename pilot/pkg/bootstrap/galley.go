@@ -62,8 +62,8 @@ func (server *Server) initGalley(args *PilotArgs) error {
 	// Use Galley Ctrlz for all services.
 	gargs.IntrospectionOptions.Port = uint16(server.basePort + 876)
 
-	gargs.KubeRestConfig = server.KubeRestConfig
-	gargs.KubeInterface = server.KubeClient
+	gargs.KubeRestConfig = server.kubeRestConfig
+	gargs.KubeInterface = server.kubeClient
 
 	// TODO: add to mesh.yaml - possibly using same model as tracers/etc
 
@@ -90,7 +90,7 @@ func (server *Server) initGalley(args *PilotArgs) error {
 	// TODO: when the mesh.yaml is reloaded, replace the file watched by Galley as well.
 	if _, err := os.Stat(meshCfgFile); err != nil {
 		// Galley requires this file to exist. Create it in a writeable directory, override.
-		meshBytes, err := json.Marshal(server.Mesh)
+		meshBytes, err := json.Marshal(server.mesh)
 		if err != nil {
 			return fmt.Errorf("failed to serialize mesh %v", err)
 		}
@@ -146,7 +146,7 @@ func (t testHandler) Handle(e event.Event) {
 func (s *Server) NewGalleyK8SSource(resources schema.KubeResources) (src event.Source, err error) {
 
 	o := apiserver.Options{
-		Client:       kube.NewInterfaces(s.KubeRestConfig),
+		Client:       kube.NewInterfaces(s.kubeRestConfig),
 		ResyncPeriod: s.Args.Config.ControllerOptions.ResyncPeriod,
 		Resources:    resources,
 	}

@@ -51,14 +51,16 @@ func (s *Server) initMesh(args *PilotArgs) error {
 
 // initMeshConfiguration creates the mesh in the pilotConfig from the input arguments.
 func (s *Server) initMeshConfiguration(args *PilotArgs) error {
-	// If a config file was specified, use it.
+	// If a config was explicitly specified, use it. Only for tests or apps embedding istio, pilot
+	// uses a file or defaults.
 	if args.MeshConfig != nil {
-		s.Mesh = args.MeshConfig
+		s.mesh = args.MeshConfig
 		return nil
 	}
 	var meshConfig *meshconfig.MeshConfig
 	var err error
 
+	// /etc/istio/config/mesh in pilot, /var/lib/istio/
 	if args.Mesh.ConfigFile != "" {
 		meshConfig, err = cmd.ReadMeshConfig(args.Mesh.ConfigFile)
 		if err != nil {
@@ -73,13 +75,13 @@ func (s *Server) initMeshConfiguration(args *PilotArgs) error {
 				log.Warnf("failed to read mesh configuration, using default: %v", err)
 				return
 			}
-			if !reflect.DeepEqual(meshConfig, s.Mesh) {
+			if !reflect.DeepEqual(meshConfig, s.mesh) {
 				log.Infof("mesh configuration updated to: %s", spew.Sdump(meshConfig))
-				if !reflect.DeepEqual(meshConfig.ConfigSources, s.Mesh.ConfigSources) {
+				if !reflect.DeepEqual(meshConfig.ConfigSources, s.mesh.ConfigSources) {
 					log.Infof("mesh configuration sources have changed")
 					//TODO Need to re-create or reload initConfigController()
 				}
-				s.Mesh = meshConfig
+				s.mesh = meshConfig
 				if s.EnvoyXdsServer != nil {
 					s.EnvoyXdsServer.Env.Mesh = meshConfig
 					s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
@@ -90,7 +92,7 @@ func (s *Server) initMeshConfiguration(args *PilotArgs) error {
 
 	if meshConfig == nil {
 		// Config file either wasn't specified or failed to load - use a default mesh.
-		if meshConfig, err = getMeshConfig(s.KubeClient, kubecontroller.IstioNamespace, kubecontroller.IstioConfigMap); err != nil {
+		if meshConfig, err = getMeshConfig(s.kubeClient, kubecontroller.IstioNamespace, kubecontroller.IstioConfigMap); err != nil {
 			log.Warnf("failed to read the default mesh configuration: %v, from the %s config map in the %s namespace",
 				err, kubecontroller.IstioConfigMap, kubecontroller.IstioNamespace)
 			return err
@@ -107,7 +109,7 @@ func (s *Server) initMeshConfiguration(args *PilotArgs) error {
 	log.Infof("version %s", version.Info.String())
 	log.Infof("flags %s", spew.Sdump(args))
 
-	s.Mesh = meshConfig
+	s.mesh = meshConfig
 	// TODO: update galley as well.
 	// TODO: update injector (and possibly CA - for trustdomain changes)
 	return nil
@@ -129,7 +131,7 @@ func (s *Server) initMeshNetworks(args *PilotArgs) error { //nolint: unparam
 	log.Infof("mesh networks configuration %s", spew.Sdump(meshNetworks))
 	util.ResolveHostsInNetworksConfig(meshNetworks)
 	log.Infof("mesh networks configuration post-resolution %s", spew.Sdump(meshNetworks))
-	s.MeshNetworks = meshNetworks
+	s.meshNetworks = meshNetworks
 
 	// Watch the networks config file for changes and reload if it got modified
 	s.addFileWatcher(args.NetworksConfigFile, func() {
@@ -139,11 +141,11 @@ func (s *Server) initMeshNetworks(args *PilotArgs) error { //nolint: unparam
 			log.Warnf("failed to read mesh networks configuration from %q", args.NetworksConfigFile)
 			return
 		}
-		if !reflect.DeepEqual(meshNetworks, s.MeshNetworks) {
+		if !reflect.DeepEqual(meshNetworks, s.meshNetworks) {
 			log.Infof("mesh networks configuration file updated to: %s", spew.Sdump(meshNetworks))
 			util.ResolveHostsInNetworksConfig(meshNetworks)
 			log.Infof("mesh networks configuration post-resolution %s", spew.Sdump(meshNetworks))
-			s.MeshNetworks = meshNetworks
+			s.meshNetworks = meshNetworks
 			if s.kubeRegistry != nil {
 				s.kubeRegistry.InitNetworkLookup(meshNetworks)
 			}
@@ -165,7 +167,7 @@ func (s *Server) initMeshNetworks(args *PilotArgs) error { //nolint: unparam
 // Using a debouncing mechanism to avoid calling the callback multiple times
 // per event.
 func (s *Server) addFileWatcher(file string, callback func()) {
-	_ = s.FileWatcher.Add(file)
+	_ = s.fileWatcher.Add(file)
 	go func() {
 		var timerC <-chan time.Time
 		for {
@@ -173,7 +175,7 @@ func (s *Server) addFileWatcher(file string, callback func()) {
 			case <-timerC:
 				timerC = nil
 				callback()
-			case <-s.FileWatcher.Events(file):
+			case <-s.fileWatcher.Events(file):
 				// Use a timer to debounce configuration updates
 				if timerC == nil {
 					timerC = time.After(100 * time.Millisecond)
@@ -184,6 +186,7 @@ func (s *Server) addFileWatcher(file string, callback func()) {
 }
 
 // getMeshConfig fetches the ProxyMesh configuration from Kubernetes ConfigMap.
+// Deprecated - does not watch !
 func getMeshConfig(kube kubernetes.Interface, namespace, name string) (*meshconfig.MeshConfig, error) {
 
 	if kube == nil {

@@ -60,6 +60,12 @@ const (
 	DefaultCA = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 )
 
+var (
+	// DNSCertDir is the location to save generated DNS certificates.
+	// TODO: we can probably avoid saving, but will require deeper changes.
+	DNSCertDir = "./var/run/secrets/istio-dns"
+)
+
 // CreateClientset is a helper function that builds a kubernetes Clienset from a kubeconfig
 // filepath. See `BuildClientConfig` for kubeconfig loading rules.
 func CreateClientset(kubeconfig, context string) (*kubernetes.Clientset, *rest.Config, error) {
@@ -323,7 +329,7 @@ func InitCerts(server *Server, client *kubernetes.Clientset) {
 	// TODO: fallback to citadel (or custom CA) if K8S signing is broken
 
 	// discAddr configured in mesh config - this is what we'll inject into pods.
-	discAddr := server.Mesh.DefaultConfig.DiscoveryAddress
+	discAddr := server.mesh.DefaultConfig.DiscoveryAddress
 	if IstiodAddress.Get() != "" {
 		discAddr = IstiodAddress.Get()
 	}

@@ -58,10 +58,7 @@ func (s *Server) initSidecarInjector(args *PilotArgs) error {
 
 	// If the injection path exists, we will set up injection
 	if _, err := os.Stat(filepath.Join(injectPath, "config")); !os.IsNotExist(err) {
-		dir, err := pilotDnsCertDir()
-		if err != nil {
-			return err
-		}
+		dir := DNSCertDir
 		parameters := inject.WebhookParameters{
 			ConfigFile: filepath.Join(injectPath, "config"),
 			ValuesFile: filepath.Join(injectPath, "values"),
@@ -80,7 +77,7 @@ func (s *Server) initSidecarInjector(args *PilotArgs) error {
 		}
 		if webhookConfigName.Get() != "" {
 			s.addStartFunc(func(stop <-chan struct{}) error {
-				if err := patchCertLoop(s.KubeClient, stop); err != nil {
+				if err := patchCertLoop(s.kubeClient, stop); err != nil {
 					return multierror.Prefix(err, "failed to start patch cert loop")
 				}
 				return nil

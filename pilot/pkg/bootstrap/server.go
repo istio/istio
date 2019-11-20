@@ -105,8 +105,8 @@ func init() {
 	pilotVersion.With(prom.Labels{"version": version.Info.String()}).Set(1)
 }
 
-// StartFunc defines a function that will be used to start one or more components of the Pilot discovery service.
-type StartFunc func(stop <-chan struct{}) error
+// startFunc defines a function that will be used to start one or more components of the Pilot discovery service.
+type startFunc func(stop <-chan struct{}) error
 
 // Server contains the runtime configuration for the Pilot discovery service.
 type Server struct {
@@ -119,32 +119,32 @@ type Server struct {
 	EnvoyXdsServer    *envoyv2.DiscoveryServer
 	ServiceController *aggregate.Controller
 
-	Mesh             *meshconfig.MeshConfig
-	MeshNetworks     *meshconfig.MeshNetworks
+	mesh             *meshconfig.MeshConfig
+	meshNetworks     *meshconfig.MeshNetworks
 	ConfigController model.ConfigStoreCache
 
 	// Using Clientset because client is shared with other components - galley and few others expects Clientset.
 	// TODO: change everywhere to use Interface
-	KubeClient       *kubernetes.Clientset
+	kubeClient *kubernetes.Clientset
 
-	StartFuncs       []StartFunc
-	multicluster     *clusterregistry.Multicluster
-	HttpServer       *http.Server
-	GrpcServer       *grpc.Server
-	SecureHTTPServer *http.Server
-	SecureGRPCServer *grpc.Server
-	SecureHTTPServerDNS *http.Server
-	SecureGRPCServerDNS *grpc.Server
-	IstioConfigStore model.IstioConfigStore
-	Mux              *http.ServeMux
-	kubeRegistry     *kubecontroller.Controller
-	FileWatcher      filewatcher.FileWatcher
-	discoveryOptions *coredatamodel.DiscoveryOptions
-	mcpDiscovery     *coredatamodel.MCPDiscovery
+	startFuncs            []startFunc
+	multicluster          *clusterregistry.Multicluster
+	HttpServer            *http.Server
+	GrpcServer            *grpc.Server
+	SecureHTTPServer      *http.Server
+	SecureGRPCServer      *grpc.Server
+	SecureHTTPServerDNS   *http.Server
+	SecureGRPCServerDNS   *grpc.Server
+	istioConfigStore      model.IstioConfigStore
+	mux                   *http.ServeMux
+	kubeRegistry          *kubecontroller.Controller
+	fileWatcher           filewatcher.FileWatcher
+	discoveryOptions      *coredatamodel.DiscoveryOptions
+	mcpDiscovery          *coredatamodel.MCPDiscovery
 	incrementalMcpOptions *coredatamodel.Options
 	mcpOptions            *coredatamodel.Options
 	certController        *chiron.WebhookController
-	KubeRestConfig        *rest.Config
+	kubeRestConfig        *rest.Config
 
 	ConfigStores []model.ConfigStoreCache
 
@@ -186,9 +186,9 @@ func NewServer(args PilotArgs) (*Server, error) {
 	}
 
 	s := &Server{
-		FileWatcher: filewatcher.NewWatcher(),
-		Args: &args,
-		basePort: args.BasePort,
+		fileWatcher: filewatcher.NewWatcher(),
+		Args:        &args,
+		basePort:    args.BasePort,
 	}
 
 	prometheus.EnableHandlingTimeHistogram()
@@ -254,7 +254,7 @@ func NewServer(args PilotArgs) (*Server, error) {
 // but is executed asynchronously. Serving can be canceled at any time by closing the provided stop channel.
 func (s *Server) Start(stop <-chan struct{}) error {
 	// Now start all of the components.
-	for _, fn := range s.StartFuncs {
+	for _, fn := range s.startFuncs {
 		if err := fn(stop); err != nil {
 			return err
 		}
@@ -279,8 +279,8 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 		if kuberr != nil {
 			return multierror.Prefix(kuberr, "failed to connect to Kubernetes API.")
 		}
-		s.KubeClient = client
-		s.KubeRestConfig = kcfg
+		s.kubeClient = client
+		s.kubeRestConfig = kcfg
 	}
 
 	return nil
@@ -288,9 +288,9 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 
 func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	environment := &model.Environment{
-		Mesh:             s.Mesh,
-		MeshNetworks:     s.MeshNetworks,
-		IstioConfigStore: s.IstioConfigStore,
+		Mesh:             s.mesh,
+		MeshNetworks:     s.meshNetworks,
+		IstioConfigStore: s.istioConfigStore,
 		ServiceDiscovery: s.ServiceController,
 		PushContext:      model.NewPushContext(),
 	}
@@ -298,8 +298,8 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	s.Environment = environment
 
 	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(environment, args.Plugins)
-	s.Mux = http.NewServeMux()
-	s.EnvoyXdsServer.InitDebug(s.Mux, s.ServiceController, args.DiscoveryOptions.EnableProfiling)
+	s.mux = http.NewServeMux()
+	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController, args.DiscoveryOptions.EnableProfiling)
 
 	if err := s.initEventHandlers(); err != nil {
 		return err
@@ -309,7 +309,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		// kubeRegistry may use the environment for push status reporting.
 		// TODO: maybe all registries should have this as an optional field ?
 		s.kubeRegistry.Env = environment
-		s.kubeRegistry.InitNetworkLookup(s.MeshNetworks)
+		s.kubeRegistry.InitNetworkLookup(s.meshNetworks)
 		s.kubeRegistry.XDSUpdater = s.EnvoyXdsServer
 	}
 
@@ -334,7 +334,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	s.initGrpcServer(args.KeepaliveOptions)
 	s.HttpServer = &http.Server{
 		Addr:    args.DiscoveryOptions.HTTPAddr,
-		Handler: s.Mux,
+		Handler: s.mux,
 	}
 
 	// create http listener
@@ -499,13 +499,108 @@ func (s *Server) initSecureGrpcServer(options *istiokeepalive.Options) error {
 				r.Header.Get("Content-Type"), "application/grpc") {
 				s.SecureGRPCServer.ServeHTTP(w, r)
 			} else {
-				s.Mux.ServeHTTP(w, r)
+				s.mux.ServeHTTP(w, r)
 			}
 		}),
 	}
 
 	return nil
 }
+
+// initialize secureGRPCServer - using K8S DNS certs
+func (s *Server) initSecureGrpcServerDNS() error {
+	certDir := DNSCertDir
+
+	key := path.Join(certDir, constants.KeyFilename)
+	cert := path.Join(certDir, constants.CertChainFilename)
+
+	tlsCreds, err := credentials.NewServerTLSFromFile(cert, key)
+	// certs not ready yet.
+	if err != nil {
+		return err
+	}
+
+	// TODO: parse the file to determine expiration date. Restart listener before expiration
+	certificate, err := tls.LoadX509KeyPair(cert, key)
+	if err != nil {
+		return err
+	}
+
+	opts := s.grpcServerOptions(s.Args.KeepaliveOptions)
+	opts = append(opts, grpc.Creds(tlsCreds))
+	s.SecureGRPCServerDNS = grpc.NewServer(opts...)
+	s.EnvoyXdsServer.Register(s.SecureGRPCServerDNS)
+
+	s.SecureHTTPServerDNS = &http.Server{
+		TLSConfig: &tls.Config{
+			Certificates: []tls.Certificate{certificate},
+			VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+				// For now accept any certs - pilot is not authenticating the caller, TLS used for
+				// privacy
+				return nil
+			},
+			NextProtos: []string{"h2", "http/1.1"},
+			ClientAuth: tls.NoClientCert, // auth will be based on JWT token signed by K8S
+		},
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.ProtoMajor == 2 && strings.HasPrefix(
+				r.Header.Get("Content-Type"), "application/grpc") {
+				s.SecureGRPCServer.ServeHTTP(w, r)
+			} else {
+				s.mux.ServeHTTP(w, r)
+			}
+		}),
+	}
+
+	// Default is 15012 - istio-agent relies on this as a default to distinguish what cert auth to expect
+	dnsGrpc := fmt.Sprintf(":%d", s.basePort+12)
+
+	// create secure grpc listener
+	secureGrpcListener, err := net.Listen("tcp", dnsGrpc)
+	if err != nil {
+		return err
+	}
+	s.SecureGRPCListeningAddr = secureGrpcListener.Addr()
+
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		go func() {
+			if !s.waitForCacheSync(stop) {
+				return
+			}
+
+			log.Infof("starting K8S-signed grpc=%s", dnsGrpc)
+			go func() {
+				// This seems the only way to call setupHTTP2 - it may also be possible to set NextProto
+				// on a listener
+				err := s.SecureHTTPServerDNS.ServeTLS(secureGrpcListener, "", "")
+				msg := fmt.Sprintf("Stoppped listening on %s", dnsGrpc)
+				select {
+				case <-stop:
+					log.Info(msg)
+				default:
+					panic(fmt.Sprintf("%s due to error: %v", msg, err))
+				}
+			}()
+			go func() {
+				<-stop
+				if s.Args.ForceStop {
+					s.GrpcServer.Stop()
+				} else {
+					s.GrpcServer.GracefulStop()
+				}
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+				_ = s.SecureHTTPServer.Shutdown(ctx)
+				s.SecureGRPCServer.Stop()
+			}()
+		}()
+		return nil
+	})
+
+	return nil
+}
+
+
 
 func (s *Server) grpcServerOptions(options *istiokeepalive.Options) []grpc.ServerOption {
 	interceptors := []grpc.UnaryServerInterceptor{
@@ -531,8 +626,8 @@ func (s *Server) grpcServerOptions(options *istiokeepalive.Options) []grpc.Serve
 	return grpcOptions
 }
 
-func (s *Server) addStartFunc(fn StartFunc) {
-	s.StartFuncs = append(s.StartFuncs, fn)
+func (s *Server) addStartFunc(fn startFunc) {
+	s.startFuncs = append(s.startFuncs, fn)
 }
 
 func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
@@ -609,7 +704,7 @@ func (s *Server) initEventHandlers() error {
 func (s *Server) initIstiod(args *PilotArgs) error {
 	// Create k8s-signed certificates. This allows injector, validation to work without Citadel, and
 	// allows secure SDS connections to Istiod.
-	InitCerts(s, s.KubeClient)
+	InitCerts(s, s.kubeClient)
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		return s.StartGalley()
@@ -619,8 +714,8 @@ func (s *Server) initIstiod(args *PilotArgs) error {
 	// If adjustments are needed - env or mesh.config ( if of general interest ).
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		RunCA(s.SecureGRPCServer, s.KubeClient, &CAOptions{
-			TrustDomain: s.Mesh.TrustDomain,
+		RunCA(s.SecureGRPCServer, s.kubeClient, &CAOptions{
+			TrustDomain: s.mesh.TrustDomain,
 		})
 		return nil
 	})

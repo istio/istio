@@ -48,13 +48,13 @@ func (s *Server) initCertController(args *PilotArgs) error {
 	// Whether a key and cert are generated for Pilot
 	var pilotCertGenerated bool
 
-	if s.Mesh.GetCertificates() == nil || len(s.Mesh.GetCertificates()) == 0 {
+	if s.mesh.GetCertificates() == nil || len(s.mesh.GetCertificates()) == 0 {
 		log.Info("nil certificate config")
 		return nil
 	}
 
-	k8sClient := s.KubeClient
-	for _, c := range s.Mesh.GetCertificates() {
+	k8sClient := s.kubeClient
+	for _, c := range s.mesh.GetCertificates() {
 		name := strings.Join(c.GetDnsNames(), ",")
 		if len(name) == 0 { // must have a DNS name
 			continue
@@ -69,10 +69,7 @@ func (s *Server) initCertController(args *PilotArgs) error {
 			// Only one service (currently Pilot) will save the key and certificate in a directory.
 			// Create directory at s.mesh.K8SCertificateSetting.PilotCertificatePath if it doesn't exist.
 			svcName := "istio.pilot"
-			dir, err := pilotDnsCertDir()
-			if err != nil {
-				return err
-			}
+			dir := DNSCertDir
 			if _, err := os.Stat(dir); os.IsNotExist(err) {
 				err := os.MkdirAll(dir, os.ModePerm)
 				if err != nil {
@@ -124,12 +121,4 @@ func (s *Server) initCertController(args *PilotArgs) error {
 	})
 
 	return nil
-}
-
-func pilotDnsCertDir() (string, error) {
-	userHomeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("could not find local user folder: %v", err)
-	}
-	return userHomeDir + defaultDirectoryForKeyCert, nil
 }

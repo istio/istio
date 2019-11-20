@@ -98,5 +98,5 @@ func main() {
 		log.Fatalf("Failed on start XDS server: %v", err)
 	}
 
-	istiods.WaitStop(stop)
+	<-stop
 }

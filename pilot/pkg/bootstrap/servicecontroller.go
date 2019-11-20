@@ -66,7 +66,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		}
 	}
 
-	serviceEntryStore := external.NewServiceDiscovery(s.ConfigController, s.IstioConfigStore)
+	serviceEntryStore := external.NewServiceDiscovery(s.ConfigController, s.istioConfigStore)
 
 	// add service entry registry to aggregator by default
 	serviceEntryRegistry := aggregate.Registry{
@@ -92,7 +92,7 @@ func (s *Server) initKubeRegistry(serviceControllers *aggregate.Controller, args
 	clusterID := string(serviceregistry.KubernetesRegistry)
 	log.Infof("Primary Cluster name: %s", clusterID)
 	args.Config.ControllerOptions.ClusterID = clusterID
-	kubectl := kubecontroller.NewController(s.KubeClient, args.Config.ControllerOptions)
+	kubectl := kubecontroller.NewController(s.kubeClient, args.Config.ControllerOptions)
 	s.kubeRegistry = kubectl
 	serviceControllers.AddRegistry(
 		aggregate.Registry{
