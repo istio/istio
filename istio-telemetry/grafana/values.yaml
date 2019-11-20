@@ -19,8 +19,8 @@ grafana:
     name: http
     type: ClusterIP
     externalPort: 3000
-    loadBalancerIP:
-    loadBalancerSourceRanges:
+    loadBalancerIP: ""
+    loadBalancerSourceRanges: ""
 
   ingress:
     enabled: false

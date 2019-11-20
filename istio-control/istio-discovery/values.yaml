@@ -42,7 +42,7 @@ pilot:
   # You can use jwksResolverExtraRootCA to provide a root certificate
   # in PEM format. This will then be trusted by pilot when resolving
   # JWKS URIs.
-  jwksResolverExtraRootCA:
+  jwksResolverExtraRootCA: ""
 
   plugins: []
 
@@ -73,7 +73,7 @@ pilot:
   keepaliveMaxServerConnectionAge: 30m
 
   # Additional labels to apply to the deployment.
-  deploymentLabels:
+  deploymentLabels: {}
 
 
   ## Mesh config settings
