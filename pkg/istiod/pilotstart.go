@@ -42,7 +42,6 @@ import (
 	"istio.io/istio/pilot/pkg/config/coredatamodel"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	istio_networking "istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
@@ -563,8 +562,7 @@ func (s *Server) addConfig2ServiceEntry() {
 func (s *Server) initDiscoveryService(args *PilotArgs, onXDSStart func(model.XDSUpdater)) error {
 
 	// This is  the XDSUpdater
-	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(s.Environment,
-		istio_networking.NewConfigGenerator(args.Plugins))
+	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(s.Environment, args.Plugins)
 
 	if err := s.initEventHandlers(); err != nil {
 		return err
