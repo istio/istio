@@ -53,9 +53,9 @@ const (
 	// NodeZoneLabel is the well-known label for kubernetes node zone in beta
 	NodeZoneLabel = "failure-domain.beta.kubernetes.io/zone"
 	// NodeRegionLabelGA is the well-known label for kubernetes node region in ga
-	NodeRegionLabelGA = "failure-domain.kubernetes.io/region"
+	NodeRegionLabelGA = "topology.kubernetes.io/region"
 	// NodeZoneLabelGA is the well-known label for kubernetes node zone in ga
-	NodeZoneLabelGA = "failure-domain.kubernetes.io/zone"
+	NodeZoneLabelGA = "topology.kubernetes.io/zone"
 	// IstioNamespace used by default for Istio cluster-wide installation
 	IstioNamespace = "istio-system"
 	// IstioConfigMap is used by default
