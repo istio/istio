@@ -23,6 +23,8 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
+
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/auth/mtls"
@@ -31,9 +33,9 @@ import (
 	"istio.io/istio/galley/pkg/config/resource"
 )
 
-// MTLSAnalyzer checks for misconfigurations of MTLS policy. More specifically,
-// it detects situations where a DestinationRule's MTLS usage is in conflict
-// with mTLS specified by a policy.
+// MTLSAnalyzer checks for misconfigurations of MTLS policy when autoMtls is
+// disabled. More specifically, it detects situations where a DestinationRule's
+// MTLS usage is in conflict with mTLS specified by a policy.
 //
 // The most common situations that this detects are: 1. A MeshPolicy exists that
 // requires mTLS, but no global destination rule
@@ -74,6 +76,20 @@ func (s *MTLSAnalyzer) Metadata() analysis.Metadata {
 func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 	// TODO Reuse pilot logic as a library rather than reproducing its logic
 	// here.
+
+	// If autoMTLS is turned on, bail out early as the logic used below does not
+	// reason about its usage.
+	autoMtlsEnabled := false
+	c.ForEach(metadata.IstioMeshV1Alpha1MeshConfig, func(r *resource.Entry) bool {
+		mc := r.Item.(*meshconfig.MeshConfig)
+		if mc.GetEnableAutoMtls() != nil && mc.GetEnableAutoMtls().Value {
+			autoMtlsEnabled = true
+		}
+		return true
+	})
+	if autoMtlsEnabled {
+		return
+	}
 
 	// Loop over all services, building up a list of selectors for each. This is
 	// used to determine which pods are in which services, and determine whether
