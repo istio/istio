@@ -92,7 +92,7 @@ func (s *Server) initKubeRegistry(serviceControllers *aggregate.Controller, args
 	clusterID := string(serviceregistry.KubernetesRegistry)
 	log.Infof("Primary Cluster name: %s", clusterID)
 	args.Config.ControllerOptions.ClusterID = clusterID
-	kubectl := kubecontroller.NewController(s.kubeClient, args.Config.ControllerOptions)
+	kubectl := kubecontroller.NewController(s.KubeClient, args.Config.ControllerOptions)
 	s.kubeRegistry = kubectl
 	serviceControllers.AddRegistry(
 		aggregate.Registry{

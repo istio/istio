@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package k8s
+package bootstrap
 
 import (
 	"bytes"
@@ -46,7 +46,7 @@ const (
 // StartInjector will register the injector handle. No webhook patching or reconcile.
 // For now use a different port.
 // TLS will be handled by Envoy
-func StartInjector(k8s kubernetes.Interface, stop chan struct{}) error {
+func StartInjector(k8s kubernetes.Interface, stop <-chan struct{}) error {
 	// TODO: modify code to allow startup without TLS ( let envoy handle it)
 	// TODO: switch readiness to common http based.
 

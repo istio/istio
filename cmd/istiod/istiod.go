@@ -15,10 +15,12 @@
 package main
 
 import (
-	"os"
-
-	"istio.io/istio/pkg/istiod"
-	"istio.io/istio/pkg/istiod/k8s"
+	"fmt"
+	"istio.io/istio/pilot/pkg/bootstrap"
+	"istio.io/istio/pilot/pkg/serviceregistry"
+	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	istiokeepalive "istio.io/istio/pkg/keepalive"
+	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/log"
 )
 
@@ -32,63 +34,65 @@ import (
 // Normal hyperistio is using local config files and MCP sources for config/endpoints,
 // as well as SDS backed by a file-based CA.
 func main() {
-	stop := make(chan struct{})
+	stop := make(<-chan struct{})
 
-	// First create the k8s clientset - and return the config source.
-	// The config includes the address of apiserver and the public key - which will be used
-	// after cert generation, to check that Apiserver-generated certs have same key.
-	client, kcfg, err := k8s.CreateClientset(os.Getenv("KUBECONFIG"), "")
-	if err != nil {
-		// TODO: 'local' mode where k8s is not used - using the config.
-		log.Fatalf("Failed to connect to k8s: %v", err)
+	basePort := 15000
+
+	// Create a test pilot discovery service configured to watch the tempDir.
+	args := &bootstrap.PilotArgs{
+		Config:       bootstrap.ConfigArgs{
+			ControllerOptions: kubecontroller.Options{
+				DomainSuffix: "cluster.local",
+				TrustDomain: "cluster.local",
+			},
+		},
+		Service: bootstrap.ServiceArgs{
+			Registries: []string{string(serviceregistry.KubernetesRegistry)},
+		},
+
+		Plugins: bootstrap.DefaultPlugins, // TODO: Should it be in MeshConfig ? Env override until it's done.
+
+		// MCP is messing up with the grpc settings...
+		MCPMaxMessageSize:        1024 * 1024 * 64,
+		MCPInitialWindowSize:     1024 * 1024 * 64,
+		MCPInitialConnWindowSize: 1024 * 1024 * 64,
+		BasePort: basePort,
+	}
+
+	// If the namespace isn't set, try looking it up from the environment.
+	if args.Namespace == "" {
+		args.Namespace = bootstrap.IstiodNamespace.Get()
+	}
+	if args.KeepaliveOptions == nil {
+		args.KeepaliveOptions = istiokeepalive.DefaultOption()
+	}
+	if args.Config.ClusterRegistriesNamespace == "" {
+		args.Config.ClusterRegistriesNamespace = args.Namespace
+	}
+	args.DiscoveryOptions = bootstrap.DiscoveryServiceOptions{
+		HTTPAddr: ":8080", // lots of tools use this
+		GrpcAddr: fmt.Sprintf(":%d", basePort+10),
+		// Using 12 for K8S-DNS based cert.
+		// TODO: We'll also need 11 for Citadel-based cert
+		SecureGrpcAddr:  fmt.Sprintf(":%d", basePort+12),
+		EnableProfiling: true,
+	}
+	args.CtrlZOptions = &ctrlz.Options{
+		Address: "localhost",
+		Port:    uint16(basePort + 13),
 	}
 
 	// Load the mesh config. Note that the path is slightly changed - attempting to move all istio
 	// related under /var/lib/istio, which is also the home dir of the istio user.
-	istiods, err := istiod.NewIstiod(kcfg, client, "/var/lib/istio/config")
+	istiods, err := bootstrap.NewServer(*args)
 	if err != nil {
 		log.Fatalf("Failed to start istiod: %v", err)
 	}
 
-	// Create k8s-signed certificates. This allows injector, validation to work without Citadel, and
-	// allows secure SDS connections to Istiod.
-	k8s.InitCerts(istiods, client)
-
-	// Init k8s related components, including Galley K8S controllers and
-	// Pilot discovery. Code kept in separate package.
-	k8sServer, err := k8s.InitK8S(istiods, client, kcfg, istiods.Args)
-	if err != nil {
-		log.Fatalf("Failed to start k8s controllers: %v", err)
-	}
-
-	err = istiods.InitDiscovery()
-	if err != nil {
-		log.Fatalf("Failed to init XDS server: %v", err)
-	}
-
-	if _, err := k8sServer.InitK8SDiscovery(istiods, kcfg, istiods.Args); err != nil {
-		log.Fatalf("Failed to init Kubernetes discovery: %v", err)
-	}
-
-	err = istiods.Start(stop, k8sServer.OnXDSStart)
+	err = istiods.Start(stop)
 	if err != nil {
 		log.Fatalf("Failed on start XDS server: %v", err)
 	}
 
-	// Injector should run along, even if not used - but only if the injection template is mounted.
-	if _, err := os.Stat("./var/lib/istio/inject/injection-template.yaml"); err == nil {
-		err = k8s.StartInjector(client, stop)
-		if err != nil {
-			log.Fatalf("Failure to start injector: %v", err)
-		}
-	}
-
-	// Options based on the current 'defaults' in istio.
-	// If adjustments are needed - env or mesh.config ( if of general interest ).
-	istiod.RunCA(istiods.SecureGRPCServer, client, &istiod.CAOptions{
-		TrustDomain: istiods.Mesh.TrustDomain,
-	})
-
-	istiods.Serve(stop)
 	istiods.WaitStop(stop)
 }

@@ -53,7 +53,7 @@ func (s *Server) initCertController(args *PilotArgs) error {
 		return nil
 	}
 
-	k8sClient := s.kubeClient
+	k8sClient := s.KubeClient
 	for _, c := range s.Mesh.GetCertificates() {
 		name := strings.Join(c.GetDnsNames(), ",")
 		if len(name) == 0 { // must have a DNS name

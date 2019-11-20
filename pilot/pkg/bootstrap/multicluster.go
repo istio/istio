@@ -24,7 +24,7 @@ import (
 func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 	if hasKubeRegistry(args.Service.Registries) {
 
-		mc, err := clusterregistry.NewMulticluster(s.kubeClient,
+		mc, err := clusterregistry.NewMulticluster(s.KubeClient,
 			args.Config.ClusterRegistriesNamespace,
 			args.Config.ControllerOptions.WatchedNamespace,
 			args.Config.ControllerOptions.DomainSuffix,

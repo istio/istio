@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package k8s
+package bootstrap
 
 import (
 	"crypto/sha1"
@@ -20,7 +20,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
-	"istio.io/istio/pkg/istiod"
 	"net"
 	"os"
 	"strings"
@@ -319,14 +318,14 @@ func CheckCert(certPEM, caCert []byte) error {
 }
 
 // InitCerts will create the certificates to be used by Istiod GRPC server and webhooks, signed by K8S server.
-func InitCerts(server *istiod.Server, client *kubernetes.Clientset) {
+func InitCerts(server *Server, client *kubernetes.Clientset) {
 
 	// TODO: fallback to citadel (or custom CA) if K8S signing is broken
 
 	// discAddr configured in mesh config - this is what we'll inject into pods.
 	discAddr := server.Mesh.DefaultConfig.DiscoveryAddress
-	if istiod.IstiodAddress.Get() != "" {
-		discAddr = istiod.IstiodAddress.Get()
+	if IstiodAddress.Get() != "" {
+		discAddr = IstiodAddress.Get()
 	}
 	host, _, err := net.SplitHostPort(discAddr)
 	if err != nil {
@@ -335,7 +334,7 @@ func InitCerts(server *istiod.Server, client *kubernetes.Clientset) {
 
 	hostParts := strings.Split(host, ".")
 
-	ns := "." + istiod.IstiodNamespace.Get()
+	ns := "." + IstiodNamespace.Get()
 
 	// Names in the Istiod cert - support the old service names as well.
 	// The first is the recommended one, also used by Apiserver for webhooks.
@@ -347,7 +346,7 @@ func InitCerts(server *istiod.Server, client *kubernetes.Clientset) {
 		"istio-ca" + ns,
 	}
 
-	certChain, keyPEM, err := GenKeyCertK8sCA(client.CertificatesV1beta1(), istiod.IstiodNamespace.Get(),
+	certChain, keyPEM, err := GenKeyCertK8sCA(client.CertificatesV1beta1(), IstiodNamespace.Get(),
 		strings.Join(names, ","))
 	if err != nil {
 		log.Fatal("Failed to initialize certs")
@@ -357,14 +356,14 @@ func InitCerts(server *istiod.Server, client *kubernetes.Clientset) {
 
 	// Save the certificates to /var/run/secrets/istio-dns - this is needed since most of the code we currently
 	// use to start grpc and webhooks is based on files. This is a memory-mounted dir.
-	if err := os.MkdirAll(istiod.DNSCertDir, 0700); err != nil {
+	if err := os.MkdirAll(DNSCertDir, 0700); err != nil {
 		log.Fatalf("Failed to create certs dir: %v", err)
 	}
-	err = ioutil.WriteFile(istiod.DNSCertDir+"/key.pem", keyPEM, 0700)
+	err = ioutil.WriteFile(DNSCertDir+"/key.pem", keyPEM, 0700)
 	if err != nil {
 		log.Fatalf("Failed to write certs: %v", err)
 	}
-	err = ioutil.WriteFile(istiod.DNSCertDir+"/cert-chain.pem", certChain, 0700)
+	err = ioutil.WriteFile(DNSCertDir+"/cert-chain.pem", certChain, 0700)
 	if err != nil {
 		log.Fatal("Failed to write certs")
 	}
