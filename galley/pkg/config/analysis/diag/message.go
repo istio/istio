@@ -65,7 +65,7 @@ func (m *Message) Unstructured(includeOrigin bool) map[string]interface{} {
 		result["origin"] = m.Origin.FriendlyName()
 	}
 	result["message"] = fmt.Sprintf(m.Type.Template(), m.Parameters...)
-	result["doc"] = fmt.Sprintf("%s/%s", DocPrefix, m.Type.Code())
+	result["documentation_url"] = fmt.Sprintf("%s/%s", DocPrefix, m.Type.Code())
 
 	return result
 }
