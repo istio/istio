@@ -67,6 +67,7 @@ func (s *MTLSAnalyzer) Metadata() analysis.Metadata {
 			metadata.K8SCoreV1Services,
 			metadata.IstioAuthenticationV1Alpha1Meshpolicies,
 			metadata.IstioAuthenticationV1Alpha1Policies,
+			metadata.IstioMeshV1Alpha1MeshConfig,
 			metadata.IstioNetworkingV1Alpha3Destinationrules,
 		},
 	}
