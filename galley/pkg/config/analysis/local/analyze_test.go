@@ -21,12 +21,17 @@ import (
 
 	. "github.com/onsi/gomega"
 
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
+	"istio.io/istio/galley/pkg/config/meshcfg"
 	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
+	"istio.io/istio/galley/pkg/config/source/kube/inmemory"
 	"istio.io/istio/galley/pkg/config/testing/basicmeta"
 	"istio.io/istio/galley/pkg/config/testing/data"
 	"istio.io/istio/galley/pkg/config/testing/k8smeta"
@@ -64,7 +69,7 @@ func TestAbortWithNoSources(t *testing.T) {
 
 	cancel := make(chan struct{})
 
-	sa := NewSourceAnalyzer(k8smeta.MustGet(), blankCombinedAnalyzer, "", nil, false)
+	sa := NewSourceAnalyzer(k8smeta.MustGet(), blankCombinedAnalyzer, "", "", nil, false)
 	_, err := sa.Analyze(cancel)
 	g.Expect(err).To(Not(BeNil()))
 }
@@ -74,7 +79,7 @@ func TestAnalyzersRun(t *testing.T) {
 
 	cancel := make(chan struct{})
 
-	r := createTestResource("ns", "resource", "v1")
+	r := createTestResource(t, "ns", "resource", "v1")
 	msg := msg.NewInternalError(r, "msg")
 	a := &testAnalyzer{
 		fn: func(ctx analysis.Context) {
@@ -88,7 +93,7 @@ func TestAnalyzersRun(t *testing.T) {
 		collectionAccessed = col
 	}
 
-	sa := NewSourceAnalyzer(metadata.MustGet(), analysis.Combine("a", a), "", cr, false)
+	sa := NewSourceAnalyzer(metadata.MustGet(), analysis.Combine("a", a), "", "", cr, false)
 	err := sa.AddFileKubeSource([]string{})
 	g.Expect(err).To(BeNil())
 
@@ -104,8 +109,8 @@ func TestFilterOutputByNamespace(t *testing.T) {
 
 	cancel := make(chan struct{})
 
-	r1 := createTestResource("ns1", "resource", "v1")
-	r2 := createTestResource("ns2", "resource", "v1")
+	r1 := createTestResource(t, "ns1", "resource", "v1")
+	r2 := createTestResource(t, "ns2", "resource", "v1")
 	msg1 := msg.NewInternalError(r1, "msg")
 	msg2 := msg.NewInternalError(r2, "msg")
 	a := &testAnalyzer{
@@ -115,7 +120,7 @@ func TestFilterOutputByNamespace(t *testing.T) {
 		},
 	}
 
-	sa := NewSourceAnalyzer(metadata.MustGet(), analysis.Combine("a", a), "ns1", nil, false)
+	sa := NewSourceAnalyzer(metadata.MustGet(), analysis.Combine("a", a), "ns1", "", nil, false)
 	err := sa.AddFileKubeSource([]string{})
 	g.Expect(err).To(BeNil())
 
@@ -129,49 +134,94 @@ func TestAddRunningKubeSource(t *testing.T) {
 
 	mk := mock.NewKube()
 
-	sa := NewSourceAnalyzer(k8smeta.MustGet(), blankCombinedAnalyzer, "", nil, false)
+	sa := NewSourceAnalyzer(k8smeta.MustGet(), blankCombinedAnalyzer, "", "", nil, false)
 
 	sa.AddRunningKubeSource(mk)
-	g.Expect(sa.sources).To(HaveLen(1))
+	g.Expect(sa.sources).To(HaveLen(2))
+	g.Expect(sa.sources[0].src).To(BeAssignableToTypeOf(&meshcfg.InMemorySource{})) // Base default meshcfg
+	g.Expect(sa.sources[1].src).To(BeAssignableToTypeOf(&apiserver.Source{}))       // All other resources via api server
+}
+
+func TestAddRunningKubeSourceWithMeshCfg(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	istioNamespace := "istio-system"
+
+	cfg := &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: meshConfigMapName,
+		},
+		Data: map[string]string{
+			meshConfigMapKey: "",
+		},
+	}
+
+	mk := mock.NewKube()
+	client, err := mk.KubeClient()
+	if err != nil {
+		t.Fatalf("Error getting client for mock kube: %v", err)
+	}
+	if _, err := client.CoreV1().ConfigMaps(istioNamespace).Create(cfg); err != nil {
+		t.Fatalf("Error creating mesh config configmap: %v", err)
+	}
+
+	sa := NewSourceAnalyzer(k8smeta.MustGet(), blankCombinedAnalyzer, "", istioNamespace, nil, false)
+
+	sa.AddRunningKubeSource(mk)
+	g.Expect(sa.sources).To(HaveLen(3))
+	g.Expect(sa.sources[0].src).To(BeAssignableToTypeOf(&meshcfg.InMemorySource{})) // Base default meshcfg
+	g.Expect(sa.sources[1].src).To(BeAssignableToTypeOf(&meshcfg.InMemorySource{})) // in-cluster meshcfg
+	g.Expect(sa.sources[2].src).To(BeAssignableToTypeOf(&apiserver.Source{}))       // All other resources via api server
 }
 
 func TestAddFileKubeSource(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	sa := NewSourceAnalyzer(basicmeta.MustGet(), blankCombinedAnalyzer, "", nil, false)
+	sa := NewSourceAnalyzer(basicmeta.MustGet(), blankCombinedAnalyzer, "", "", nil, false)
 
 	tmpfile := tempFileFromString(t, data.YamlN1I1V1)
 	defer func() { _ = os.Remove(tmpfile.Name()) }()
 
 	err := sa.AddFileKubeSource([]string{tmpfile.Name()})
 	g.Expect(err).To(BeNil())
-	g.Expect(sa.sources).To(HaveLen(1))
+	g.Expect(sa.sources).To(HaveLen(2))
+	g.Expect(sa.sources[0].src).To(BeAssignableToTypeOf(&meshcfg.InMemorySource{})) // Base default meshcfg
+	g.Expect(sa.sources[1].src).To(BeAssignableToTypeOf(&inmemory.KubeSource{}))    // All other resources via files
+
+	// Note that a blank file for mesh cfg is equivalent to specifying all the defaults
+	tmpMeshFile := tempFileFromString(t, "")
+	defer func() { _ = os.Remove(tmpMeshFile.Name()) }()
+
+	err = sa.AddFileKubeMeshConfigSource(tmpMeshFile.Name())
+	g.Expect(err).To(BeNil())
+	g.Expect(sa.sources).To(HaveLen(3))
+	g.Expect(sa.sources[2].src).To(BeAssignableToTypeOf(&meshcfg.InMemorySource{})) // meshcfg read from a file
 }
 
 func TestAddFileKubeSourceSkipsBadEntries(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	sa := NewSourceAnalyzer(basicmeta.MustGet(), blankCombinedAnalyzer, "", nil, false)
+	sa := NewSourceAnalyzer(basicmeta.MustGet(), blankCombinedAnalyzer, "", "", nil, false)
 
 	tmpfile := tempFileFromString(t, kubeyaml.JoinString(data.YamlN1I1V1, "bogus resource entry\n"))
 	defer func() { _ = os.Remove(tmpfile.Name()) }()
 
 	err := sa.AddFileKubeSource([]string{tmpfile.Name()})
 	g.Expect(err).To(Not(BeNil()))
-	g.Expect(sa.sources).To(HaveLen(1))
+	g.Expect(sa.sources).To(HaveLen(2))
 }
 
 func TestAddFileKubeSourceSkipsBadFiles(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	sa := NewSourceAnalyzer(basicmeta.MustGet(), blankCombinedAnalyzer, "", nil, false)
+	sa := NewSourceAnalyzer(basicmeta.MustGet(), blankCombinedAnalyzer, "", "", nil, false)
 
 	tmpfile := tempFileFromString(t, data.YamlN1I1V1)
 	defer func() { _ = os.Remove(tmpfile.Name()) }()
 
 	err := sa.AddFileKubeSource([]string{tmpfile.Name(), "nonexistent-file.yaml"})
 	g.Expect(err).To(Not(BeNil()))
-	g.Expect(sa.sources).To(HaveLen(1))
+	g.Expect(sa.sources).To(HaveLen(2))
 }
 
 func TestResourceFiltering(t *testing.T) {
@@ -193,7 +243,7 @@ func TestResourceFiltering(t *testing.T) {
 	}
 	mk := mock.NewKube()
 
-	sa := NewSourceAnalyzer(metadata.MustGet(), analysis.Combine("a", a), "", nil, true)
+	sa := NewSourceAnalyzer(metadata.MustGet(), analysis.Combine("a", a), "", "", nil, true)
 	sa.AddRunningKubeSource(mk)
 
 	// All but the used collection should be disabled
