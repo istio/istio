@@ -260,6 +260,7 @@ func (s *session) handleMeshEvent(e event.Event) {
 		go s.terminate()
 
 	case starting:
+		scope.Processing.Infof("session.handleMeshEvent: Received initial mesh event, applying it: %+v", e)
 		s.applyMeshEvent(e)
 
 	case buffering:
