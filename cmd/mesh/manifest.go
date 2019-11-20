@@ -37,6 +37,13 @@ import (
 	binversion "istio.io/operator/version"
 )
 
+var (
+	ignoreStdErrList = []string{
+		// TODO: remove when https://github.com/kubernetes/kubernetes/issues/82154 is fixed.
+		"Warning: kubectl apply should be used on resource created by either kubectl create --save-config or kubectl apply",
+	}
+)
+
 // ManifestCmd is a group of commands related to manifest generation, installation, diffing and migration.
 func ManifestCmd() *cobra.Command {
 	mc := &cobra.Command{
@@ -146,7 +153,7 @@ func genApplyManifests(setOverlay []string, inFilename string, force bool, dryRu
 			l.logAndPrintf("\n%s\n%s", cs, strings.Repeat("=", len(cs)))
 		}
 
-		if strings.TrimSpace(out[cn].Stderr) != "" {
+		if !ignoreError(out[cn].Stderr) {
 			l.logAndPrint("Error detail:\n", out[cn].Stderr, "\n")
 			gotError = true
 		}
@@ -160,6 +167,16 @@ func genApplyManifests(setOverlay []string, inFilename string, force bool, dryRu
 	}
 
 	return nil
+}
+
+func ignoreError(stderr string) bool {
+	trimmedStdErr := strings.TrimSpace(stderr)
+	for _, ignore := range ignoreStdErrList {
+		if strings.HasPrefix(trimmedStdErr, ignore) {
+			return true
+		}
+	}
+	return trimmedStdErr == ""
 }
 
 // fetchInstallPackageFromURL downloads installation packages from specified URL.
