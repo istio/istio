@@ -126,4 +126,17 @@ metadata:
 spec:
   n1_i1: v1
 `
+
+	// YamlI1V1WithCommentContainingDocumentSeparator is a testing resource in
+	// yaml form with a comment containing a document separator.
+	YamlI1V1WithCommentContainingDocumentSeparator = `
+# ---
+apiVersion: testdata.istio.io/v1alpha1
+kind: Kind1
+metadata:
+  namespace: n1
+  name: i1
+spec:
+  n1_i1: v1
+`
 )
