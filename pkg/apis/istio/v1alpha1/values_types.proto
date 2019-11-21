@@ -69,7 +69,7 @@ message CNIConfig {
 
   repeated string excludeNamespaces = 9;
 
-  TypeMapStringInterface podAnnotations = 10;
+  TypeMapStringInterface podAnnotations = 10 [deprecated=true];
 
   string psp_cluster_role = 11;
 }
@@ -96,15 +96,24 @@ message CertManagerConfig {
   // Image name for the CertManager Deployment.
   string image = 4;
 
+  uint32 replicaCount = 5 [deprecated=true];
+
+  string email = 6;
+
+  repeated string extraArgs = 7;
   // K8s node selector.
   //
   // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-  TypeMapStringInterface nodeSelector = 5;
+  TypeMapStringInterface nodeSelector = 8 [deprecated=true];
 
   // K8s resources settings.
   //
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-  Resources resources = 6;
+  Resources resources = 9 [deprecated=true];
+
+  string podDnsPolicy = 10;
+
+  TypeMapStringInterface podDnsConfig = 11;
 }
 
 // Mirrors Resources for unmarshaling.
@@ -128,20 +137,32 @@ message CoreDNSConfig {
   // K8s node selector.
   //
   // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-  TypeMapStringInterface nodeSelector = 5;
+  TypeMapStringInterface nodeSelector = 5 [deprecated=true];
 
   // Number of replicas for Core DNS.
-  uint32 replicaCount = 6;
+  uint32 replicaCount = 6 [deprecated=true];
 
   // K8s annotations for pods.
   //
   // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-  TypeMapStringInterface podAnnotations = 7;
+  TypeMapStringInterface podAnnotations = 7 [deprecated=true];
 
   // K8s resources settings.
   //
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-  Resources resources = 8;
+  Resources resources = 8 [deprecated=true];
+
+  // K8s rolling update strategy
+  TypeIntOrStringForPB rollingMaxSurge = 9 [deprecated=true];
+
+  // K8s rolling update strategy
+  TypeIntOrStringForPB rollingMaxUnavailable = 10 [deprecated=true];
+
+  TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 11 [deprecated=true];
+
+  TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 12 [deprecated=true];
+
+  TypeSliceOfMapStringInterface tolerations = 13 [deprecated=true];
 }
 
 // DefaultPodDisruptionBudgetConfig specifies the default pod disruption budget configuration.
@@ -176,7 +197,7 @@ message EgressGatewayConfig {
   // K8s utilization setting for HorizontalPodAutoscaler target.
   //
   // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
-  CPUTargetUtilizationConfig cpu = 5;
+  CPUTargetUtilizationConfig cpu = 5 [deprecated=true];
 
   google.protobuf.Duration drainDuration = 6;
 
@@ -191,12 +212,12 @@ message EgressGatewayConfig {
   // K8s node selector.
   //
   // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-  TypeMapStringInterface nodeSelector = 10;
+  TypeMapStringInterface nodeSelector = 10 [deprecated=true];
 
   // K8s annotations for pods.
   //
   // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-  TypeMapStringInterface podAnnotations = 11;
+  TypeMapStringInterface podAnnotations = 11 [deprecated=true];
 
   // Pod anti-affinity label selector.
   //
@@ -220,10 +241,10 @@ message EgressGatewayConfig {
   //  This pod anti-affinity rule says that the pod requires not to be scheduled
   //  onto a node if that node is already running a pod with label having key
   //  “security” and value “S1”.
-  TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 12;
+  TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 12 [deprecated=true];
 
   // See PodAntiAffinityLabelSelector.
-  TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 13;
+  TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 13 [deprecated=true];
 
   // Ports Configuration for the egress gateway service.
   repeated PortsConfig ports = 14;
@@ -231,7 +252,7 @@ message EgressGatewayConfig {
   // K8s resources settings.
   //
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-  Resources resources = 15;
+  Resources resources = 15 [deprecated=true];
 
   // Config for secret volume mounts.
   repeated SecretVolume secretVolumes = 16;
@@ -280,21 +301,27 @@ message GalleyConfig {
   map<string, string> mesh = 3;
 
   // See EgressGatewayConfig.
-  TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 4;
+  TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 4 [deprecated=true];
 
   // See EgressGatewayConfig.
-  TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 5;
+  TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 5 [deprecated=true];
 
   // Number of replicas in the Galley Deployment.
-  uint32 replicaCount = 6;
+  uint32 replicaCount = 6 [deprecated=true];
 
   // K8s resources settings.
   //
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-  Resources resources = 7;
+  Resources resources = 7 [deprecated=true];
 
   // Enable analysis and status update in Galley
   google.protobuf.BoolValue enableAnalysis = 8;
+
+  // K8s rolling update strategy
+  TypeIntOrStringForPB rollingMaxSurge = 9 [deprecated=true];
+
+  // K8s rolling update strategy
+  TypeIntOrStringForPB rollingMaxUnavailable = 10 [deprecated=true];
 }
 
 // GatewayLabelsConfig is a set of Configuration for gateway labels.
@@ -324,8 +351,12 @@ message GlobalConfig {
   //   3 - Most preferred
   ArchConfig arch = 1;
 
+  TypeSliceOfMapStringInterface certificates = 40;
+
   // Specifies the namespace for the configuration and validation component.
   string configNamespace = 2;
+
+  string configRootNamespace = 50;
 
   // Controls whether the server-side validation is enabled.
   google.protobuf.BoolValue configValidation = 3;
@@ -333,13 +364,14 @@ message GlobalConfig {
   // Controls whether the MTLS for communication between the control plane components is enabled.
   google.protobuf.BoolValue controlPlaneSecurityEnabled = 4;
 
+  repeated string defaultConfigVisibilitySettings = 52;
   // Default k8s node selector for all the Istio control plane components
   //
   // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-  TypeMapStringInterface defaultNodeSelector = 6;
+  TypeMapStringInterface defaultNodeSelector = 6 [deprecated=true];
 
   // Specifies the default pod disruption budget configuration.
-  DefaultPodDisruptionBudgetConfig defaultPodDisruptionBudget = 7;
+  DefaultPodDisruptionBudgetConfig defaultPodDisruptionBudget = 7 [deprecated=true];
 
   // Controls whether the policy enforcement is enabled.
   google.protobuf.BoolValue disablePolicyChecks = 8;
@@ -347,7 +379,7 @@ message GlobalConfig {
   // Default k8s resources settings for all Istio control plane components.
   //
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-  DefaultResourcesConfig defaultResources = 9;
+  DefaultResourcesConfig defaultResources = 9 [deprecated=true];
 
   // Controls whether the helm test templates are enabled.
   google.protobuf.BoolValue enableHelmTest = 10;
@@ -396,11 +428,15 @@ message GlobalConfig {
   // Specifies the Configuration for the legacy kubernetes Ingress.
   KubernetesIngressConfig k8sIngress = 16;
 
+  google.protobuf.BoolValue logAsJson = 36;
+
   // Specifies the global logging level settings for the Istio control plane components.
   GlobalLoggingConfig logging = 17;
 
   // Specifies the Configuration for Istio mesh expansion to bare metal.
   MeshExpansionConfig meshExpansion = 18;
+
+  string meshID = 53;
 
   // Configure the mesh networks to be used by the Split Horizon EDS.
   //
@@ -440,6 +476,8 @@ message GlobalConfig {
   // Specifies the Configuration for Istio mesh across multiple clusters through Istio gateways.
   MultiClusterConfig multiCluster = 22;
 
+  string network = 39;
+
   // Custom DNS config for the pod to resolve names of services in other
   // clusters. Use this to add additional search domains, and other settings.
   // see https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#dns-config
@@ -447,9 +485,13 @@ message GlobalConfig {
   // set of DNS settings than the normal application pods (e.g. in multicluster scenarios).
   repeated string podDNSSearchNamespaces = 43;
 
+  google.protobuf.BoolValue omitSidecarInjectorConfigMap = 38;
+
   // Controls whether to restrict the applications namespace the controller manages;
   // If set it to false, the controller watches all namespaces.
   google.protobuf.BoolValue oneNamespace = 23;
+
+  google.protobuf.BoolValue operatorManageWebhooks = 41;
 
   // Controls the default behavior of the sidecar for handling outbound traffic from the application.
   OutboundTrafficPolicyConfig outboundTrafficPolicy = 24;
@@ -463,7 +505,9 @@ message GlobalConfig {
   // Specifies the k8s priorityClassName for the istio control plane components.
   //
   // See https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
-  string priorityClassName = 27;
+  string priorityClassName = 27 [deprecated=true];
+
+  string prometheusNamespace = 51;
 
   // Specifies how proxies are configured within Istio.
   ProxyConfig proxy = 28;
@@ -492,18 +536,7 @@ message GlobalConfig {
   // Controls whether to use of Mesh Configuration Protocol to distribute configuration.
   google.protobuf.BoolValue useMCP = 35;
 
-  google.protobuf.BoolValue logAsJson = 36;
-
-  google.protobuf.BoolValue omitSidecarInjectorConfigMap = 38;
-
-  string network = 39;
-
-  TypeSliceOfMapStringInterface certificates = 40;
-
-  google.protobuf.BoolValue operatorManageWebhooks = 41;
-
   // Settings for remote cluster.
-
   // Controls whether to use the Istio remote control plane
   google.protobuf.BoolValue istioRemote = 44;
   google.protobuf.BoolValue createRemoteSvcEndpoints = 45;
@@ -517,7 +550,7 @@ message GlobalConfig {
   // Specifies the Istio control plane’s telemetry Pod IP address or remote cluster DNS resolvable hostname
   string remoteTelemetryAddress = 49;
 
-  // The next available key is 50
+  // The next available key is 54
 }
 
 // GlobalLoggingConfig specifies the global logging level settings for the Istio control plane components.
@@ -544,7 +577,7 @@ message IngressGatewayConfig {
   // K8s utilization setting for HorizontalPodAutoscaler target.
   //
   // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
-  CPUTargetUtilizationConfig cpu = 5;
+  CPUTargetUtilizationConfig cpu = 5 [deprecated=true];
 
   google.protobuf.BoolValue customService = 6;
 
@@ -577,29 +610,29 @@ message IngressGatewayConfig {
   // K8s node selector.
   //
   // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-  TypeMapStringInterface nodeSelector = 19;
+  TypeMapStringInterface nodeSelector = 19 [deprecated=true];
 
   // K8s annotations for pods.
   //
   // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-  TypeMapStringInterface podAnnotations = 20;
+  TypeMapStringInterface podAnnotations = 20 [deprecated=true];
 
   // See EgressGatewayConfig.
-  TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 21;
+  TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 21 [deprecated=true];
 
   // See EgressGatewayConfig.
-  TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 22;
+  TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 22 [deprecated=true];
 
   // Port Configuration for the ingress gateway.
   repeated PortsConfig ports = 23;
 
   // Number of replicas for the ingress gateway Deployment.
-  uint32 replicaCount = 24;
+  uint32 replicaCount = 24 [deprecated=true];
 
   // K8s resources settings.
   //
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-  TypeMapStringInterface resources = 25;
+  TypeMapStringInterface resources = 25 [deprecated=true];
 
   // Secret Discovery Service (SDS) Configuration for ingress gateway.
   IngressGatewaySdsConfig sds = 26;
@@ -619,10 +652,10 @@ message IngressGatewayConfig {
   IngressGatewayZvpnConfig zvpn = 30;
 
   // K8s rolling update strategy
-  TypeIntOrStringForPB rollingMaxSurge = 31;
+  TypeIntOrStringForPB rollingMaxSurge = 31 [deprecated=true];
 
   // K8s rolling update strategy
-  TypeIntOrStringForPB rollingMaxUnavailable = 32;
+  TypeIntOrStringForPB rollingMaxUnavailable = 32 [deprecated=true];
 
   // Ports to explicitly check for readiness
   string applicationPorts = 33;
@@ -640,7 +673,7 @@ message IngressGatewaySdsConfig {
   // K8s resources settings.
   //
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-  Resources resources = 3;
+  Resources resources = 3 [deprecated=true];
 }
 
 // IngressGatewayZvpnConfig enables cross-cluster access using SNI matching.
@@ -767,7 +800,7 @@ message MixerPolicyConfig {
   // Target CPU utilization used in HorizontalPodAutoscaler.
   //
   // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
-  CPUTargetUtilizationConfig cpu = 4;
+  CPUTargetUtilizationConfig cpu = 4 [deprecated=true];
 
   // Controls whether Mixer Policy is enabled
   google.protobuf.BoolValue enabled = 5;
@@ -782,10 +815,10 @@ message MixerPolicyConfig {
   // K8s annotations to attach to mixer policy deployment
   //
   // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-  TypeMapStringInterface podAnnotations = 7;
+  TypeMapStringInterface podAnnotations = 7 [deprecated=true];
 
   // Number of replicas in the Mixer Policy Deployment
-  uint32 replicaCount = 8;
+  uint32 replicaCount = 8 [deprecated=true];
 
   // Configuration for different mixer adapters.
   MixerPolicyAdaptersConfig adapters = 9;
@@ -796,7 +829,7 @@ message MixerPolicyConfig {
   // K8s resources settings.
   //
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-  Resources resources = 11;
+  Resources resources = 11 [deprecated=true];
 }
 
 // Configuration for Mixer Telemetry.
@@ -813,7 +846,7 @@ message MixerTelemetryConfig {
   // Target CPU utilization used in HorizontalPodAutoscaler.
   //
   // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
-  CPUTargetUtilizationConfig cpu = 5;
+  CPUTargetUtilizationConfig cpu = 5 [deprecated=true];
 
   // Controls whether Mixer Telemetry is enabled.
   google.protobuf.BoolValue enabled = 6;
@@ -839,21 +872,21 @@ message MixerTelemetryConfig {
   // K8s node selector.
   //
   // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-  TypeMapStringInterface nodeSelector = 10;
+  TypeMapStringInterface nodeSelector = 10 [deprecated=true];
 
   // K8s annotations to attach to mixer telemetry deployment
   //
   // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-  TypeMapStringInterface podAnnotations = 11;
+  TypeMapStringInterface podAnnotations = 11 [deprecated=true];
 
   // Number of replicas in the Mixer Telemetry Deployment.
-  uint32 replicaCount = 12;
+  uint32 replicaCount = 12 [deprecated=true];
 
   // K8s rolling update strategy
-  TypeIntOrStringForPB rollingMaxSurge  = 15;
+  TypeIntOrStringForPB rollingMaxSurge  = 15 [deprecated=true];
 
   // K8s rolling update strategy
-  TypeIntOrStringForPB rollingMaxUnavailable = 16;
+  TypeIntOrStringForPB rollingMaxUnavailable = 16 [deprecated=true];
 
   // Controls whether to use of Mesh Configuration Protocol to distribute configuration.
   google.protobuf.BoolValue useMCP = 17;
@@ -865,16 +898,16 @@ message MixerTelemetryConfig {
   // K8s resources settings.
   //
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-  Resources resources = 13;
+  Resources resources = 13 [deprecated=true];
 
   // Controls whether to enable the sticky session setting when choosing backend pods.
   google.protobuf.BoolValue sessionAffinityEnabled = 14;
 
-  TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 20;
+  TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 20 [deprecated=true];
 
-  TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 21;
+  TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 21 [deprecated=true];
 
-  TypeSliceOfMapStringInterface tolerations = 22;
+  TypeSliceOfMapStringInterface tolerations = 22 [deprecated=true];
 }
 
 // MultiClusterConfig specifies the Configuration for Istio mesh across multiple clusters through the istio gateways.
@@ -905,7 +938,13 @@ message NodeAgentConfig {
   // K8s node selector.
   //
   // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-  TypeMapStringInterface nodeSelector = 4;
+  TypeMapStringInterface nodeSelector = 4 [deprecated=true];
+
+  TypeSliceOfMapStringInterface tolerations = 5 [deprecated=true];
+
+  TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 6 [deprecated=true];
+
+  TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 7 [deprecated=true];
 }
 
 // OutboundTrafficPolicyConfig controls the default behavior of the sidecar for handling outbound traffic from the application.
@@ -935,7 +974,7 @@ message PilotConfig {
   uint32 autoscaleMax = 4;
 
   // Number of replicas in the Pilot Deployment.
-  uint32 replicaCount = 5;
+  uint32 replicaCount = 5 [deprecated=true];
 
   // Image name used for Pilot.
   //
@@ -959,7 +998,7 @@ message PilotConfig {
   // K8s resources settings.
   //
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-  Resources resources = 9;
+  Resources resources = 9 [deprecated=true];
 
   // Namespace that the configuration management feature is installed into, if different from Pilot namespace.
   string configNamespace = 10;
@@ -967,12 +1006,12 @@ message PilotConfig {
   // Target CPU utilization used in HorizontalPodAutoscaler.
   //
   // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
-  CPUTargetUtilizationConfig cpu = 11;
+  CPUTargetUtilizationConfig cpu = 11 [deprecated=true];
 
   // K8s node selector.
   //
   // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-  TypeMapStringInterface nodeSelector = 12;
+  TypeMapStringInterface nodeSelector = 12 [deprecated=true];
 
   // Maximum duration that a sidecar can be connected to a pilot.
   //
@@ -990,10 +1029,10 @@ message PilotConfig {
   TypeMapStringInterface meshNetworks = 15;
 
   // See EgressGatewayConfig.
-  TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 16;
+  TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 16 [deprecated=true];
 
   // See EgressGatewayConfig.
-  TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 17;
+  TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 17 [deprecated=true];
 
   // Configuration settings passed to Pilot as a ConfigMap.
   //
@@ -1021,13 +1060,13 @@ message PilotConfig {
   PilotPolicyConfig policy = 22;
 
   // K8s rolling update strategy
-  TypeIntOrStringForPB rollingMaxSurge  = 24;
+  TypeIntOrStringForPB rollingMaxSurge  = 24 [deprecated=true];
 
   // K8s rolling update strategy
-  TypeIntOrStringForPB rollingMaxUnavailable = 25;
+  TypeIntOrStringForPB rollingMaxUnavailable = 25 [deprecated=true];
 
   //
-  TypeSliceOfMapStringInterface tolerations = 26;
+  TypeSliceOfMapStringInterface tolerations = 26 [deprecated=true];
 
   TypeSliceOfMapStringInterface appNamespaces = 27;
 
@@ -1039,7 +1078,7 @@ message PilotConfig {
   // K8s annotations for pods.
   //
   // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-  TypeMapStringInterface podAnnotations = 30;
+  TypeMapStringInterface podAnnotations = 30 [deprecated=true];
 
   // ConfigSource describes a source of configuration data for networking
   // rules, and other Istio configuration artifacts. Multiple data sources
@@ -1121,7 +1160,7 @@ message PrometheusConfig {
 
   google.protobuf.BoolValue enabled = 2;
 
-  uint32 replicaCount = 3;
+  uint32 replicaCount = 3 [deprecated=true];
 
   string hub = 4;
 
@@ -1129,7 +1168,7 @@ message PrometheusConfig {
 
   string retention = 6;
 
-  TypeMapStringInterface nodeSelector = 7;
+  TypeMapStringInterface nodeSelector = 7 [deprecated=true];
   // GOSTRUCT: NodeSelector             map[string]interface{}    `json:"nodeSelector,omitempty"`
 
   google.protobuf.Duration scrapeInterval = 8;
@@ -1142,16 +1181,16 @@ message PrometheusConfig {
 
   PrometheusSecurityConfig security = 12;
 
-  TypeSliceOfMapStringInterface tolerations = 13;
+  TypeSliceOfMapStringInterface tolerations = 13 [deprecated=true];
 
-  TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 14;
+  TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 14 [deprecated=true];
 
-  TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 15;
+  TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 15 [deprecated=true];
 
   // K8s resources settings.
   //
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-  Resources resources = 16;
+  Resources resources = 16 [deprecated=true];
 }
 
 // Configuration for Prometheus adapter in mixer.
@@ -1289,7 +1328,7 @@ message ProxyConfig {
   // K8s resources settings.
   //
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-  Resources resources = 24;
+  Resources resources = 24 [deprecated=true];
 
   tracer tracer = 25;
 
@@ -1319,6 +1358,24 @@ message EnvoyAccessLogConfig {
   string host = 2;
 
   string port = 3;
+
+  EnvoyAccessLogtlsSettings tlsSettings = 4;
+
+  TypeMapStringInterface tcpKeepalive = 5;
+}
+
+message EnvoyAccessLogtlsSettings {
+  string mode = 1;
+
+  string clientCertificate = 2;
+
+  string privateKey = 3;
+
+  string caCertificates = 4;
+
+  string sni = 5;
+
+  repeated string subjectAltNames = 6;
 }
 
 // Configuration for proxy_init container which sets the pods' networking to intercept the inbound/outbound traffic.
@@ -1328,7 +1385,7 @@ message ProxyInitConfig {
   // K8s resources settings.
   //
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-  Resources resources = 5;
+  Resources resources = 5 [deprecated=true];
 }
 
 // Configuration for K8s resource requests.
@@ -1372,7 +1429,7 @@ message SecurityConfig {
   google.protobuf.BoolValue enabled = 1;
 
   // Number of replicas in the Citadel Deployment.
-  uint32 replicaCount = 2;
+  uint32 replicaCount = 2 [deprecated=true];
 
   // Image name used for Citadel.
   //
@@ -1398,23 +1455,24 @@ message SecurityConfig {
   // Setting to true creates the mesh-wide authentication policy with name "default".
   google.protobuf.BoolValue createMeshPolicy = 7;
 
-  //
-  google.protobuf.BoolValue enableNamespacesByDefault = 9;
+  google.protobuf.BoolValue enableNamespacesByDefault = 8;
+
+  google.protobuf.BoolValue citadelHealthCheck = 9;
 
   // K8s node selector.
   //
   // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-  TypeMapStringInterface nodeSelector = 8;
+  TypeMapStringInterface nodeSelector = 10 [deprecated=true];
 
-  TypeMapStringInterface env = 10;
+  TypeMapStringInterface env = 11;
 
   // K8s annotations for pods.
   //
   // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-  TypeMapStringInterface podAnnotations = 11;
+  TypeMapStringInterface podAnnotations = 12 [deprecated=true];
 
   // How long workload certs are valid for
-  string workloadCertTtl = 12;
+  string workloadCertTtl = 13;
 }
 
 // ServiceConfig is described in istio.io documentation.
@@ -1446,7 +1504,7 @@ message SidecarInjectorConfig {
   // K8s node selector. Each component can overwrite the default values by adding its node selector block in the relevant section and setting the desired values.
   //
   // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-  TypeMapStringInterface nodeSelector = 10;
+  TypeMapStringInterface nodeSelector = 10 [deprecated=true];
 
   // Instructs Istio to not inject the sidecar on those pods, based on labels that are present in those pods.
   //
@@ -1459,13 +1517,13 @@ message SidecarInjectorConfig {
   TypeSliceOfMapStringInterface alwaysInjectSelector = 12;
 
   // See EgressGatewayConfig.
-  TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 13;
+  TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 13 [deprecated=true];
 
   // See EgressGatewayConfig.
-  TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 14;
+  TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 14 [deprecated=true];
 
   // Number of replicas in the Sidecar Injector Deployment.
-  uint32 replicaCount = 15;
+  uint32 replicaCount = 15 [deprecated=true];
 
   //  If true, webhook or istioctl injector will rewrite PodSpec for liveness health check to redirect request to sidecar. This makes liveness check work even when mTLS is enabled.
   google.protobuf.BoolValue rewriteAppHTTPProbe = 16;
@@ -1484,7 +1542,7 @@ message SidecarInjectorConfig {
   // K8s resources settings.
   //
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-  Resources resources = 20;
+  Resources resources = 20 [deprecated=true];
 
   // Enable objectSelector to filter out pods with no need for sidecar before calling istio-sidecar-injector.
   TypeMapStringInterface objectSelector = 21;
@@ -1583,7 +1641,7 @@ message TracingConfig {
   // K8s node selector.
   //
   // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-  TypeMapStringInterface nodeSelector = 4;
+  TypeMapStringInterface nodeSelector = 4 [deprecated=true];
 
   // Configures which tracing system to be installed.
   string provider = 5;
@@ -1599,10 +1657,10 @@ message TracingConfig {
   string contextPath = 9;
 
   // See EgressGatewayConfig.
-  TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 13;
+  TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 13 [deprecated=true];
 
   // See EgressGatewayConfig.
-  TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 14;
+  TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 14 [deprecated=true];
 }
 
 message TracingOpencensusConfig {
@@ -1616,7 +1674,7 @@ message TracingOpencensusConfig {
   // K8s resources settings.
   //
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-  TypeMapStringInterface resources = 5;
+  TypeMapStringInterface resources = 5 [deprecated=true];
 
 }
 
@@ -1678,7 +1736,7 @@ message TracingZipkinConfig {
   // K8s resources settings.
   //
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-  Resources resources = 5;
+  Resources resources = 5 [deprecated=true];
 
   // Configure java heap opts for Zipkin deployment
   uint32 javaOptsHeap = 6;
@@ -1742,7 +1800,7 @@ message KialiConfig {
   string tag = 4;
 
   // Number of replicas for Kiali.
-  uint32 replicaCount = 5;
+  uint32 replicaCount = 5 [deprecated=true];
 
   string prometheusNamespace = 6;
 
@@ -1757,12 +1815,12 @@ message KialiConfig {
   // K8s node selector.
   //
   // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-  TypeMapStringInterface nodeSelector = 10;
+  TypeMapStringInterface nodeSelector = 10 [deprecated=true];
 
   // K8s annotations for pods.
   //
   // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-  TypeMapStringInterface podAnnotations = 11;
+  TypeMapStringInterface podAnnotations = 11 [deprecated=true];
 
   // Pod anti-affinity label selector.
   //
@@ -1786,10 +1844,10 @@ message KialiConfig {
   //  This pod anti-affinity rule says that the pod requires not to be scheduled
   //  onto a node if that node is already running a pod with label having key
   //  “security” and value “S1”.
-  TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 12;
+  TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 12 [deprecated=true];
 
   // See PodAntiAffinityLabelSelector.
-  TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 13;
+  TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 13 [deprecated=true];
 }
 
 message Values {
@@ -1847,4 +1905,3 @@ message ZeroVPNConfig {
 
   string suffix = 2;
 }
-
