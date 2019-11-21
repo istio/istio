@@ -146,7 +146,7 @@ func (s *Server) initDNSCerts() error {
 	}
 
 	if s.kubeClient == nil {
-		return errorOrFatal(port, errors.New("K8S not found, cert signing disabled.")
+		return errorOrFatal(port, errors.New("K8S not found, cert signing disabled."))
 	}
 
 	// TODO: fallback to citadel (or custom CA) if K8S signing is broken
