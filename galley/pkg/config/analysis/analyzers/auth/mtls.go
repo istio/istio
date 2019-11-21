@@ -129,7 +129,9 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 		// Now we loop over all pods looking for sidecars that match our
 		// service. If we find a single pod without a sidecar, we label the
 		// service as not having a sidecar (which means we bypass policy
-		// checking).
+		// checking). If we find no pods at all that match, also assume there's
+		// no sidecar.
+		var foundMatchingPods bool
 		c.ForEach(metadata.K8SCoreV1Pods, func(pr *resource.Entry) bool {
 			// If it's not in our namespace, we're not interested
 			podNs, _ := pr.Metadata.Name.InterpretAsNamespaceAndName()
@@ -139,11 +141,12 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 			pod := pr.Item.(*v1.Pod)
 			podLabels := k8s_labels.Set(pod.ObjectMeta.Labels)
 
-			if !svcSelector.Matches(podLabels) {
+			if svcSelector.Empty() || !svcSelector.Matches(podLabels) {
 				return true
 			}
 
 			// This pod is selected for this service - ensure there's a sidecar.
+			foundMatchingPods = true
 			sidecarFound := false
 			for _, container := range pod.Spec.Containers {
 				if container.Name == "istio-proxy" {
@@ -156,6 +159,10 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 			}
 			return true
 		})
+
+		if !foundMatchingPods {
+			fqdnsWithoutSidecars[fqdn] = struct{}{}
+		}
 
 		return true
 	})

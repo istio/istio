@@ -1,6 +1,6 @@
 # We have a global mesh policy, and a global DR to use mTLS. We also have a DR
 # to override that for a specific service with no sidecar. This shouldn't cause
-# any errors.
+# any errors. 
 apiVersion: authentication.istio.io/v1alpha1
 kind: MeshPolicy
 metadata:
@@ -55,3 +55,28 @@ spec:
     tls:
       mode: DISABLE
 ---
+# Also handle the case where a service exists with no pods. Assume it has no
+# sidecar.
+apiVersion: v1
+kind: Service
+metadata:
+  name: missing-pod-service
+  namespace: no-sidecar
+spec:
+  selector:
+    app: missing-pod-service
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: missing-pod-service-dr
+  namespace: istio-system
+spec:
+  host: missing-pod-service.no-sidecar.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: DISABLE
