@@ -168,6 +168,22 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "mtlsAnalyzerGlobalDestinationRuleNoMeshPolicy",
+		inputFiles: []string{"testdata/mtls-global-dr-no-meshpolicy.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected: []message{
+			{msg.MTLSPolicyConflict, "DestinationRule default.istio-system"},
+		},
+	},
+	{
+		name:       "mtlsAnalyzerIgnoresIstioSystemNamespace",
+		inputFiles: []string{"testdata/mtls-ignores-istio-system.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected:   []message{
+			// no messages, this test case verifies no false positives
+		},
+	},
+	{
 		name:       "mtlsAnalyzerNoDestinationRule",
 		inputFiles: []string{"testdata/mtls-no-dr.yaml"},
 		analyzer:   &auth.MTLSAnalyzer{},
@@ -192,11 +208,11 @@ var testGrid = []testCase{
 		},
 	},
 	{
-		name:       "mtlsAnalyzerIgnoresIstioSystemNamespace",
-		inputFiles: []string{"testdata/mtls-ignores-istio-system.yaml"},
+		name:       "mtlsAnalyzerWithExports",
+		inputFiles: []string{"testdata/mtls-exports.yaml"},
 		analyzer:   &auth.MTLSAnalyzer{},
-		expected:   []message{
-			// no messages, this test case verifies no false positives
+		expected: []message{
+			{msg.MTLSPolicyConflict, "Policy default.primary"},
 		},
 	},
 	{
@@ -208,27 +224,11 @@ var testGrid = []testCase{
 		},
 	},
 	{
-		name:       "mtlsAnalyzerGlobalDestinationRuleNoMeshPolicy",
-		inputFiles: []string{"testdata/mtls-global-dr-no-meshpolicy.yaml"},
-		analyzer:   &auth.MTLSAnalyzer{},
-		expected: []message{
-			{msg.MTLSPolicyConflict, "DestinationRule default.istio-system"},
-		},
-	},
-	{
 		name:       "mtlsAnalyzerWithPermissiveMeshPolicy",
 		inputFiles: []string{"testdata/mtls-meshpolicy-permissive.yaml"},
 		analyzer:   &auth.MTLSAnalyzer{},
 		expected:   []message{
 			// no messages, this test case verifies no false positives
-		},
-	},
-	{
-		name:       "mtlsAnalyzerWithExports",
-		inputFiles: []string{"testdata/mtls-exports.yaml"},
-		analyzer:   &auth.MTLSAnalyzer{},
-		expected: []message{
-			{msg.MTLSPolicyConflict, "Policy default.primary"},
 		},
 	},
 	{
