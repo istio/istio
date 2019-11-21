@@ -130,6 +130,10 @@ func DisableReportCalls(value bool) Instance {
 	return newOptionOrSkipIfZero("DisableReportCalls", strVal)
 }
 
+func OutlierLogPath(value string) Instance {
+	return newOptionOrSkipIfZero("outlier_log_path", value)
+}
+
 func LightstepAddress(value string) Instance {
 	return newOptionOrSkipIfZero("lightstep", value).withConvert(addressConverter(value))
 }

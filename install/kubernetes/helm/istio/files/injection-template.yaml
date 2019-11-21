@@ -123,6 +123,9 @@ containers:
 {{- if .Values.global.proxy.componentLogLevel }}
   - --proxyComponentLogLevel={{ .Values.global.proxy.componentLogLevel }}
 {{- end}}
+{{- if .Values.global.proxy.outlierLogPath }}
+  - --outlierLogPath={{ .Values.global.proxy.outlierLogPath }}
+{{- end}}
   - --dnsRefreshRate
   - {{ .Values.global.proxy.dnsRefreshRate }}
   - --connectTimeout
