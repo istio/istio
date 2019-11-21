@@ -328,7 +328,7 @@ func InitCerts(server *Server) {
 
 	hostParts := strings.Split(host, ".")
 
-	ns := "." + IstiodNamespace.Get()
+	ns := "." + podNamespaceVar.Get()
 
 	// Names in the Istiod cert - support the old service names as well.
 	// The first is the recommended one, also used by Apiserver for webhooks.
@@ -341,7 +341,7 @@ func InitCerts(server *Server) {
 		"istio-ca" + ns,
 	}
 
-	certChain, keyPEM, err := GenKeyCertK8sCA(server.kubeClient.CertificatesV1beta1(), IstiodNamespace.Get(),
+	certChain, keyPEM, err := GenKeyCertK8sCA(server.kubeClient.CertificatesV1beta1(), podNamespaceVar.Get(),
 		strings.Join(names, ","))
 	if err != nil {
 		log.Fatal("Failed to initialize certs")

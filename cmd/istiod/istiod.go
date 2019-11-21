@@ -65,7 +65,7 @@ func main() {
 
 	// If the namespace isn't set, try looking it up from the environment.
 	if args.Namespace == "" {
-		args.Namespace = bootstrap.IstiodNamespace.Get()
+		args.Namespace = bootstrap.podNamespaceVar.Get()
 	}
 	if args.KeepaliveOptions == nil {
 		args.KeepaliveOptions = istiokeepalive.DefaultOption()

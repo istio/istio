@@ -165,7 +165,7 @@ func RunCA(grpc *grpc.Server, cs kubernetes.Interface, opts *CAOptions) {
 	// for all tokens - no need to configure twice. The token may also include cluster info to auto-configure
 	// networking properties.
 	if iss != "" && // issuer set explicitly or extracted from our own JWT
-		(k8sInCluster.Get() != "" || trustedIssuer.Get() != "") { // either set explicitly, or not running in cluster.
+		k8sInCluster.Get() == "" { // not running in cluster - in cluster use direct call to apiserver
 		// Add a custom authenticator using standard JWT validation, if not running in K8S
 		// When running inside K8S - we can use the built-in validator, which also check pod removal (invalidation).
 		oidcAuth, err := newJwtAuthenticator(iss, opts.TrustDomain, aud)
@@ -337,7 +337,7 @@ func createCA(client corev1.CoreV1Interface, opts *CAOptions) *ca.IstioCA {
 			selfSignedRootCertGracePeriodPercentile.Get(), selfSignedCACertTTL.Get(),
 			selfSignedRootCertCheckInterval.Get(), workloadCertTTL.Get(),
 			maxWorkloadCertTTL.Get(), opts.TrustDomain, true,
-			IstiodNamespace.Get(), -1, client, rootCertFile,
+			podNamespaceVar.Get(), -1, client, rootCertFile,
 			enableJitterForRootCertRotator.Get())
 		if err != nil {
 			log.Fatalf("Failed to create a self-signed Citadel (error: %v)", err)
@@ -352,7 +352,7 @@ func createCA(client corev1.CoreV1Interface, opts *CAOptions) *ca.IstioCA {
 		certChainFile := path.Join(localCertDir.Get(), "cert-chain.pem")
 
 		caOpts, err = ca.NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile,
-			rootCertFile, workloadCertTTL.Get(), maxWorkloadCertTTL.Get(), IstiodNamespace.Get(), client)
+			rootCertFile, workloadCertTTL.Get(), maxWorkloadCertTTL.Get(), podNamespaceVar.Get(), client)
 		if err != nil {
 			log.Fatalf("Failed to create an Citadel (error: %v)", err)
 		}
