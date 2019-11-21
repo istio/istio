@@ -30,6 +30,7 @@ import (
 // destination namespace and host name.
 type DestinationRuleChecker struct {
 	namespaceToDestinations map[string]destinations
+	rootNamespace           string
 }
 
 // destination represents a destination specified in a DestinationRule.
@@ -71,10 +72,12 @@ func (d destinations) Swap(i, j int) {
 	d[i], d[j] = d[j], d[i]
 }
 
-// NewDestinationRuleChecker creates a new instance.
-func NewDestinationRuleChecker() *DestinationRuleChecker {
+// NewDestinationRuleChecker creates a new instance with the given config root
+// namespace.
+func NewDestinationRuleChecker(rootNamespace string) *DestinationRuleChecker {
 	return &DestinationRuleChecker{
 		namespaceToDestinations: make(map[string]destinations),
+		rootNamespace:           rootNamespace,
 	}
 }
 
@@ -147,9 +150,9 @@ func (dc *DestinationRuleChecker) AddDestinationRule(resource *resource.Entry, r
 func (dc *DestinationRuleChecker) DoesNamespaceUseMTLSToService(srcNamespace, dstNamespace string, ts TargetService) (bool, *resource.Entry) {
 	var matchingDestination *destination
 	// First, check for a destination rule for src namespace only if the
-	// namespace isn't istio-system. Pilot has this behavior to ensure that the
-	// rules in istio-system don't override other rules.
-	if srcNamespace != "istio-system" {
+	// namespace isn't the root namespace. Pilot has this behavior to ensure that the
+	// rules in the root namespace don't override other rules.
+	if srcNamespace != dc.rootNamespace {
 		matchingDestination = dc.findMatchingRuleInNamespace(srcNamespace, ts, true)
 		if matchingDestination != nil {
 			return matchingDestination.usesMTLS, matchingDestination.resource
@@ -162,8 +165,8 @@ func (dc *DestinationRuleChecker) DoesNamespaceUseMTLSToService(srcNamespace, ds
 		return matchingDestination.usesMTLS, matchingDestination.resource
 	}
 
-	// Finally, try istio-system namespace
-	matchingDestination = dc.findMatchingRuleInNamespace("istio-system", ts, false)
+	// Finally, try the root namespace
+	matchingDestination = dc.findMatchingRuleInNamespace(dc.rootNamespace, ts, false)
 	if matchingDestination != nil {
 		return matchingDestination.usesMTLS, matchingDestination.resource
 	}

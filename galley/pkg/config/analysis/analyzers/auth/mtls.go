@@ -81,13 +81,19 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 	// If autoMTLS is turned on, bail out early as the logic used below does not
 	// reason about its usage.
 	autoMtlsEnabled := false
+	rootNamespace := "istio-system"
 	c.ForEach(metadata.IstioMeshV1Alpha1MeshConfig, func(r *resource.Entry) bool {
 		mc := r.Item.(*meshconfig.MeshConfig)
 		if mc.GetEnableAutoMtls() != nil && mc.GetEnableAutoMtls().Value {
 			autoMtlsEnabled = true
 		}
+
+		if mc.GetRootNamespace() != "" {
+			rootNamespace = mc.GetRootNamespace()
+		}
 		return true
 	})
+
 	if autoMtlsEnabled {
 		return
 	}
@@ -213,7 +219,7 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 		return true
 	})
 
-	drc := mtls.NewDestinationRuleChecker()
+	drc := mtls.NewDestinationRuleChecker(rootNamespace)
 	c.ForEach(metadata.IstioNetworkingV1Alpha3Destinationrules, func(r *resource.Entry) bool {
 		ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
 		namespaces[ns] = struct{}{}
@@ -229,7 +235,7 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 	// same misconfiguration.
 	globalMTLSMisconfigured := false
 	mpr := pc.MeshPolicy()
-	globalMtls, globalDR := drc.DoesNamespaceUseMTLSToService("istio-system", "istio-system", mtls.NewTargetService("*.svc.cluster.local"))
+	globalMtls, globalDR := drc.DoesNamespaceUseMTLSToService(rootNamespace, rootNamespace, mtls.NewTargetService("*.svc.cluster.local"))
 	if mpr.MTLSMode == mtls.ModeStrict && !globalMtls {
 		// We may or may not have a matching DR. If we don't, use
 		// the special string (none)
@@ -242,7 +248,7 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 			msg.NewMTLSPolicyConflict(
 				mpr.Resource,
 				"*.svc.cluster.local",
-				"istio-system",
+				rootNamespace,
 				globalDRName,
 				globalMtls,
 				mpr.Resource.Origin.FriendlyName(),
@@ -264,7 +270,7 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 			msg.NewMTLSPolicyConflict(
 				globalDR,
 				"*.svc.cluster.local",
-				"istio-system",
+				rootNamespace,
 				globalDR.Origin.FriendlyName(),
 				globalMtls,
 				globalPolicyName,
