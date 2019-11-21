@@ -108,6 +108,13 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 	// TODO store portname!
 	c.ForEach(metadata.K8SCoreV1Services, func(r *resource.Entry) bool {
 		svcNs, svcName := r.Metadata.Name.InterpretAsNamespaceAndName()
+
+		// Skip the istio control plane. It doesn't obey Policy/MeshPolicy MTLS
+		// rules in general and instead is controlled by the mesh option
+		// 'controlPlaneSecurityEnabled'.
+		if svcNs == "istio-system" {
+			return true
+		}
 		svc := r.Item.(*v1.ServiceSpec)
 
 		svcSelector := k8s_labels.SelectorFromSet(svc.Selector)

@@ -192,6 +192,14 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "mtlsAnalyzerIgnoresIstioSystemNamespace",
+		inputFiles: []string{"testdata/mtls-ignores-istio-system.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected:   []message{
+			// no messages, this test case verifies no false positives
+		},
+	},
+	{
 		name:       "mtlsAnalyzerWithMeshPolicy",
 		inputFiles: []string{"testdata/mtls-meshpolicy.yaml"},
 		analyzer:   &auth.MTLSAnalyzer{},
