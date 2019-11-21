@@ -685,6 +685,10 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 	adsClientsMutex.Lock()
 	defer adsClientsMutex.Unlock()
 
+	for _, c := range con.Clusters {
+		s.removeEdsCon(c, conID)
+	}
+
 	if _, exist := adsClients[conID]; !exist {
 		adsLog.Errorf("ADS: Removing connection for non-existing node:%v.", conID)
 		totalXDSInternalErrors.Increment()
