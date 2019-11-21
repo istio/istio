@@ -63,7 +63,7 @@ func (server *Server) initGalley(args *PilotArgs) error {
 	gargs.IntrospectionOptions.Port = uint16(server.basePort + 876)
 
 	gargs.KubeRestConfig = server.kubeRestConfig
-	gargs.KubeInterface = server.kubeClient
+	gargs.KubeInterface = server.kubeClientset
 
 	// TODO: add to mesh.yaml - possibly using same model as tracers/etc
 

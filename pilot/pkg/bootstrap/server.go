@@ -121,20 +121,21 @@ type Server struct {
 
 	mesh             *meshconfig.MeshConfig
 	meshNetworks     *meshconfig.MeshNetworks
-	ConfigController model.ConfigStoreCache
+	configController model.ConfigStoreCache
 
 	// Using Clientset because client is shared with other components - galley and few others expects Clientset.
 	// TODO: change everywhere to use Interface
-	kubeClient *kubernetes.Clientset
+	kubeClientset *kubernetes.Clientset
+	kubeClient kubernetes.Interface
 
 	startFuncs            []startFunc
 	multicluster          *clusterregistry.Multicluster
-	HttpServer            *http.Server
-	GrpcServer            *grpc.Server
-	SecureHTTPServer      *http.Server
-	SecureGRPCServer      *grpc.Server
-	SecureHTTPServerDNS   *http.Server
-	SecureGRPCServerDNS   *grpc.Server
+	httpServer            *http.Server
+	grpcServer            *grpc.Server
+	secureHTTPServer      *http.Server
+	secureGRPCServer      *grpc.Server
+	secureHTTPServerDNS   *http.Server
+	secureGRPCServerDNS   *grpc.Server
 	istioConfigStore      model.IstioConfigStore
 	mux                   *http.ServeMux
 	kubeRegistry          *kubecontroller.Controller
@@ -265,7 +266,7 @@ func (s *Server) Start(stop <-chan struct{}) error {
 
 // initKubeClient creates the k8s client if running in an k8s environment.
 func (s *Server) initKubeClient(args *PilotArgs) error {
-	if hasKubeRegistry(args.Service.Registries) && args.Config.FileDir == "" {
+	if hasKubeRegistry(args.Service.Registries) {
 		// We will also need the rest config - where the public key of k8s is stored - use the new method.
 		kc := args.Config.KubeConfig
 		if kc == "" {
@@ -280,7 +281,11 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 			return multierror.Prefix(kuberr, "failed to connect to Kubernetes API.")
 		}
 		s.kubeClient = client
+		s.kubeClientset = client
 		s.kubeRestConfig = kcfg
+	} else {
+		s.kubeClient = nil
+		s.kubeClientset = nil
 	}
 
 	return nil
@@ -332,7 +337,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 	// create grpc/http server
 	s.initGrpcServer(args.KeepaliveOptions)
-	s.HttpServer = &http.Server{
+	s.httpServer = &http.Server{
 		Addr:    args.DiscoveryOptions.HTTPAddr,
 		Handler: s.mux,
 	}
@@ -357,12 +362,12 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		}
 		log.Infof("starting discovery service at http=%s grpc=%s", listener.Addr(), grpcListener.Addr())
 		go func() {
-			if err := s.HttpServer.Serve(listener); err != nil {
+			if err := s.httpServer.Serve(listener); err != nil {
 				log.Warna(err)
 			}
 		}()
 		go func() {
-			if err := s.GrpcServer.Serve(grpcListener); err != nil {
+			if err := s.grpcServer.Serve(grpcListener); err != nil {
 				log.Warna(err)
 			}
 		}()
@@ -372,14 +377,14 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 			model.JwtKeyResolver.Close()
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
-			err := s.HttpServer.Shutdown(ctx)
+			err := s.httpServer.Shutdown(ctx)
 			if err != nil {
 				log.Warna(err)
 			}
 			if args.ForceStop {
-				s.GrpcServer.Stop()
+				s.grpcServer.Stop()
 			} else {
-				s.GrpcServer.GracefulStop()
+				s.grpcServer.GracefulStop()
 			}
 		}()
 
@@ -413,7 +418,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 				go func() {
 					// This seems the only way to call setupHTTP2 - it may also be possible to set NextProto
 					// on a listener
-					err := s.SecureHTTPServer.ServeTLS(secureGrpcListener, "", "")
+					err := s.secureHTTPServer.ServeTLS(secureGrpcListener, "", "")
 					msg := fmt.Sprintf("Stoppped listening on %s", secureGrpcListener.Addr().String())
 					select {
 					case <-stop:
@@ -425,14 +430,14 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 				go func() {
 					<-stop
 					if args.ForceStop {
-						s.GrpcServer.Stop()
+						s.grpcServer.Stop()
 					} else {
-						s.GrpcServer.GracefulStop()
+						s.grpcServer.GracefulStop()
 					}
 					ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 					defer cancel()
-					_ = s.SecureHTTPServer.Shutdown(ctx)
-					s.SecureGRPCServer.Stop()
+					_ = s.secureHTTPServer.Shutdown(ctx)
+					s.secureGRPCServer.Stop()
 				}()
 			}()
 			return nil
@@ -444,8 +449,8 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 	grpcOptions := s.grpcServerOptions(options)
-	s.GrpcServer = grpc.NewServer(grpcOptions...)
-	s.EnvoyXdsServer.Register(s.GrpcServer)
+	s.grpcServer = grpc.NewServer(grpcOptions...)
+	s.EnvoyXdsServer.Register(s.grpcServer)
 }
 
 // initialize secureGRPCServer
@@ -480,9 +485,9 @@ func (s *Server) initSecureGrpcServer(options *istiokeepalive.Options) error {
 
 	opts := s.grpcServerOptions(options)
 	opts = append(opts, grpc.Creds(tlsCreds))
-	s.SecureGRPCServer = grpc.NewServer(opts...)
-	s.EnvoyXdsServer.Register(s.SecureGRPCServer)
-	s.SecureHTTPServer = &http.Server{
+	s.secureGRPCServer = grpc.NewServer(opts...)
+	s.EnvoyXdsServer.Register(s.secureGRPCServer)
+	s.secureHTTPServer = &http.Server{
 		TLSConfig: &tls.Config{
 			Certificates: []tls.Certificate{certificate},
 			VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
@@ -497,7 +502,7 @@ func (s *Server) initSecureGrpcServer(options *istiokeepalive.Options) error {
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.ProtoMajor == 2 && strings.HasPrefix(
 				r.Header.Get("Content-Type"), "application/grpc") {
-				s.SecureGRPCServer.ServeHTTP(w, r)
+				s.secureGRPCServer.ServeHTTP(w, r)
 			} else {
 				s.mux.ServeHTTP(w, r)
 			}
@@ -528,10 +533,10 @@ func (s *Server) initSecureGrpcServerDNS() error {
 
 	opts := s.grpcServerOptions(s.Args.KeepaliveOptions)
 	opts = append(opts, grpc.Creds(tlsCreds))
-	s.SecureGRPCServerDNS = grpc.NewServer(opts...)
-	s.EnvoyXdsServer.Register(s.SecureGRPCServerDNS)
+	s.secureGRPCServerDNS = grpc.NewServer(opts...)
+	s.EnvoyXdsServer.Register(s.secureGRPCServerDNS)
 
-	s.SecureHTTPServerDNS = &http.Server{
+	s.secureHTTPServerDNS = &http.Server{
 		TLSConfig: &tls.Config{
 			Certificates: []tls.Certificate{certificate},
 			VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
@@ -545,7 +550,7 @@ func (s *Server) initSecureGrpcServerDNS() error {
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.ProtoMajor == 2 && strings.HasPrefix(
 				r.Header.Get("Content-Type"), "application/grpc") {
-				s.SecureGRPCServer.ServeHTTP(w, r)
+				s.secureGRPCServer.ServeHTTP(w, r)
 			} else {
 				s.mux.ServeHTTP(w, r)
 			}
@@ -572,7 +577,7 @@ func (s *Server) initSecureGrpcServerDNS() error {
 			go func() {
 				// This seems the only way to call setupHTTP2 - it may also be possible to set NextProto
 				// on a listener
-				err := s.SecureHTTPServerDNS.ServeTLS(secureGrpcListener, "", "")
+				err := s.secureHTTPServerDNS.ServeTLS(secureGrpcListener, "", "")
 				msg := fmt.Sprintf("Stoppped listening on %s", dnsGrpc)
 				select {
 				case <-stop:
@@ -584,14 +589,14 @@ func (s *Server) initSecureGrpcServerDNS() error {
 			go func() {
 				<-stop
 				if s.Args.ForceStop {
-					s.GrpcServer.Stop()
+					s.grpcServer.Stop()
 				} else {
-					s.GrpcServer.GracefulStop()
+					s.grpcServer.GracefulStop()
 				}
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 				defer cancel()
-				_ = s.SecureHTTPServer.Shutdown(ctx)
-				s.SecureGRPCServer.Stop()
+				_ = s.secureHTTPServer.Shutdown(ctx)
+				s.secureGRPCServer.Stop()
 			}()
 		}()
 		return nil
@@ -639,7 +644,7 @@ func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
 				return false
 			}
 		}
-		if !s.ConfigController.HasSynced() {
+		if !s.configController.HasSynced() {
 			return false
 		}
 		return true
@@ -682,7 +687,7 @@ func (s *Server) initEventHandlers() error {
 	}
 
 	// TODO(Nino-k): remove this case once incrementalUpdate is default
-	if s.ConfigController != nil {
+	if s.configController != nil {
 		// TODO: changes should not trigger a full recompute of LDS/RDS/CDS/EDS
 		// (especially mixerclient HTTP and quota)
 		configHandler := func(c model.Config, _ model.Event) {
@@ -693,7 +698,7 @@ func (s *Server) initEventHandlers() error {
 			s.EnvoyXdsServer.ConfigUpdate(pushReq)
 		}
 		for _, descriptor := range schemas.Istio {
-			s.ConfigController.RegisterEventHandler(descriptor.Type, configHandler)
+			s.configController.RegisterEventHandler(descriptor.Type, configHandler)
 		}
 	}
 
@@ -704,7 +709,7 @@ func (s *Server) initEventHandlers() error {
 func (s *Server) initIstiod(args *PilotArgs) error {
 	// Create k8s-signed certificates. This allows injector, validation to work without Citadel, and
 	// allows secure SDS connections to Istiod.
-	InitCerts(s, s.kubeClient)
+	InitCerts(s)
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		return s.StartGalley()
@@ -714,7 +719,7 @@ func (s *Server) initIstiod(args *PilotArgs) error {
 	// If adjustments are needed - env or mesh.config ( if of general interest ).
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		RunCA(s.SecureGRPCServer, s.kubeClient, &CAOptions{
+		RunCA(s.secureGRPCServer, s.kubeClient, &CAOptions{
 			TrustDomain: s.mesh.TrustDomain,
 		})
 		return nil

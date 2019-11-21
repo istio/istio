@@ -25,18 +25,14 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/security/pkg/pki/util"
+	"istio.io/pkg/log"
 	cert "k8s.io/api/certificates/v1beta1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/client-go/kubernetes"
 	certclient "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
-	"k8s.io/client-go/rest"
-
-	kubelib "istio.io/istio/pkg/kube"
-	"istio.io/istio/security/pkg/pki/util"
-	"istio.io/pkg/log"
 )
 
 // TODO:
@@ -65,17 +61,6 @@ var (
 	// TODO: we can probably avoid saving, but will require deeper changes.
 	DNSCertDir = "./var/run/secrets/istio-dns"
 )
-
-// CreateClientset is a helper function that builds a kubernetes Clienset from a kubeconfig
-// filepath. See `BuildClientConfig` for kubeconfig loading rules.
-func CreateClientset(kubeconfig, context string) (*kubernetes.Clientset, *rest.Config, error) {
-	c, err := kubelib.BuildClientConfig(kubeconfig, context)
-	if err != nil {
-		return nil, nil, err
-	}
-	kc, err := kubernetes.NewForConfig(c)
-	return kc, c, err
-}
 
 // Generate a certificate and key from k8s CA
 //
@@ -324,8 +309,11 @@ func CheckCert(certPEM, caCert []byte) error {
 }
 
 // InitCerts will create the certificates to be used by Istiod GRPC server and webhooks, signed by K8S server.
-func InitCerts(server *Server, client *kubernetes.Clientset) {
-
+func InitCerts(server *Server) {
+	if server.kubeClient == nil {
+		log.Warn("K8S not found, cert signing disabled.")
+		return
+	}
 	// TODO: fallback to citadel (or custom CA) if K8S signing is broken
 
 	// discAddr configured in mesh config - this is what we'll inject into pods.
@@ -347,12 +335,13 @@ func InitCerts(server *Server, client *kubernetes.Clientset) {
 	names := []string{
 		hostParts[0] + ns + ".svc",
 		hostParts[0] + ns,
+		"istiod" + ns + ".svc",
 		"istio-pilot" + ns,
 		"istio-galley" + ns,
 		"istio-ca" + ns,
 	}
 
-	certChain, keyPEM, err := GenKeyCertK8sCA(client.CertificatesV1beta1(), IstiodNamespace.Get(),
+	certChain, keyPEM, err := GenKeyCertK8sCA(server.kubeClient.CertificatesV1beta1(), IstiodNamespace.Get(),
 		strings.Join(names, ","))
 	if err != nil {
 		log.Fatal("Failed to initialize certs")

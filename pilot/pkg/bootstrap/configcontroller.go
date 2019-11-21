@@ -109,14 +109,14 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	if err != nil {
 		return err
 	}
-	s.ConfigController = aggregateMcpController
+	s.configController = aggregateMcpController
 
 	// Create the config store.
-	s.istioConfigStore = model.MakeIstioStore(s.ConfigController)
+	s.istioConfigStore = model.MakeIstioStore(s.configController)
 
 	// Defer starting the controller until after the service is created.
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		go s.ConfigController.Run(stop)
+		go s.configController.Run(stop)
 		return nil
 	})
 
