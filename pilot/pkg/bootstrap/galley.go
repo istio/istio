@@ -38,6 +38,12 @@ var (
 )
 
 func (s *Server) initGalley(args *PilotArgs) error {
+	if s.kubeClient == nil {
+		// The default galley config is based on k8s - will fail otherwise.
+		// TODO: if file-based sources are configured, continue with the setup ( standalone )
+		return nil
+	}
+
 	// Galley args
 	gargs := settings.DefaultArgs()
 
