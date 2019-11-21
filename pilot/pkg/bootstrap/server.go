@@ -159,7 +159,8 @@ type Server struct {
 	Environment        *model.Environment
 	SecureGrpcListener net.Listener
 
-	basePort int
+	basePort     int
+	grpcListener net.Listener
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
@@ -261,6 +262,13 @@ func (s *Server) Start(stop <-chan struct{}) error {
 		}
 	}
 
+	// grpcServer is shared by Galley, CA, XDS - must Serve at the end
+	go func() {
+		if err := s.grpcServer.Serve(s.grpcListener); err != nil {
+			log.Warna(err)
+		}
+	}()
+
 	return nil
 }
 
@@ -352,6 +360,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		return err
 	}
 	s.GRPCListeningAddr = grpcListener.Addr()
+	s.grpcListener = grpcListener
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		if !s.waitForCacheSync(stop) {
@@ -360,11 +369,6 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		log.Infof("starting discovery service at http=%s grpc=%s", listener.Addr(), grpcListener.Addr())
 		go func() {
 			if err := s.httpServer.Serve(listener); err != nil {
-				log.Warna(err)
-			}
-		}()
-		go func() {
-			if err := s.grpcServer.Serve(grpcListener); err != nil {
 				log.Warna(err)
 			}
 		}()
@@ -576,14 +580,14 @@ func (s *Server) initSecureGrpcServerDNS() error {
 				case <-stop:
 					log.Info(msg)
 					if s.Args.ForceStop {
-						s.grpcServer.Stop()
+						s.secureGRPCServerDNS.Stop()
 					} else {
-						s.grpcServer.GracefulStop()
+						s.secureGRPCServerDNS.GracefulStop()
 					}
 					ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 					defer cancel()
-					_ = s.secureHTTPServer.Shutdown(ctx)
-					s.secureGRPCServer.Stop()
+					_ = s.secureHTTPServerDNS.Shutdown(ctx)
+					s.secureGRPCServerDNS.Stop()
 				default:
 					panic(fmt.Sprintf("%s due to error: %v", msg, err))
 				}

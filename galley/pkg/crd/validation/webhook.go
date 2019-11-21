@@ -124,6 +124,9 @@ type WebhookParameters struct {
 
 	// Enable reconcile validatingwebhookconfiguration
 	EnableReconcileWebhookConfiguration bool
+
+	// Mux of an existing HTTP server, Galley will not manage its own
+	Mux *http.ServeMux
 }
 
 type createInformerEndpointSource func(cl clientset.Interface, namespace, name string) cache.ListerWatcher
@@ -244,6 +247,22 @@ func reloadKeyCert(certFile, keyFile string) (*tls.Certificate, error) {
 
 // NewWebhook creates a new instance of the admission webhook controller.
 func NewWebhook(p WebhookParameters) (*Webhook, error) {
+	if p.Mux != nil {
+		wh := &Webhook{
+			descriptor:                    p.PilotDescriptor,
+			validator:                     p.MixerValidator,
+			clientset:                     p.Clientset,
+			deploymentName:                p.DeploymentName,
+			serviceName:                   p.ServiceName,
+			webhookName:                   p.WebhookName,
+			deploymentAndServiceNamespace: p.DeploymentAndServiceNamespace,
+			createInformerEndpointSource:  defaultCreateInformerEndpointSource,
+		}
+
+		p.Mux.HandleFunc("/admitpilot", wh.serveAdmitPilot)
+		p.Mux.HandleFunc("/admitmixer", wh.serveAdmitMixer)
+		return wh, nil
+	}
 	pair, err := reloadKeyCert(p.CertFile, p.KeyFile)
 	if err != nil {
 		return nil, err
@@ -298,6 +317,10 @@ func (wh *Webhook) Stop() {
 
 // Run implements the webhook server
 func (wh *Webhook) Run(ready chan<- struct{}, stopCh <-chan struct{}) {
+	if wh.server == nil {
+		// Externally managed
+		return
+	}
 	go func() {
 		if err := wh.server.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
 			scope.Fatalf("admission webhook ListenAndServeTLS failed: %v", err)

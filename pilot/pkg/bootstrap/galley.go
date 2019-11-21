@@ -47,19 +47,33 @@ func (s *Server) initGalley(args *PilotArgs) error {
 	// TODO: load a json file to override defaults (for all components)
 
 	gargs.EnableServer = true
+	gargs.InsecureGRPC = s.grpcServer
+	gargs.SecureGRPC = s.secureGRPCServerDNS
 
-	gargs.ValidationArgs.EnableValidation = true
-	gargs.ValidationArgs.CACertFile = DNSCertDir + "/root-cert.pem"
-	gargs.ValidationArgs.CertFile = DNSCertDir + "/cert-chain.pem"
-	gargs.ValidationArgs.KeyFile = DNSCertDir + "/key.pem"
+	if _, err := os.Stat(DNSCertDir + "/key.pem"); err == nil {
+		gargs.ValidationArgs.EnableValidation = true
+		gargs.ValidationArgs.CACertFile = DNSCertDir + "/root-cert.pem"
+		gargs.ValidationArgs.CertFile = DNSCertDir + "/cert-chain.pem"
+		gargs.ValidationArgs.KeyFile = DNSCertDir + "/key.pem"
+		// Picking a different port from injector - which is on basePort + 443
+		// TODO: share the same port for all 3.
+		gargs.ValidationArgs.Port = uint(s.basePort + 444)
+
+		gargs.ValidationArgs.Mux = s.mux
+	} else {
+		gargs.ValidationArgs.EnableValidation = false
+	}
+
+	// TODO: use the same code as Injection - same port, cert, etc.
+	gargs.ValidationArgs.EnableReconcileWebhookConfiguration = false
 
 	gargs.Readiness.Path = "/tmp/healthReadiness"
-
-	gargs.ValidationArgs.EnableReconcileWebhookConfiguration = false
 	gargs.APIAddress = fmt.Sprintf("tcp://0.0.0.0:%d", s.basePort+901)
+
 	// TODO: For secure, we'll expose the GRPC register method and use the common GRPC+TLS port.
 	gargs.Insecure = true
 	gargs.DisableResourceReadyCheck = true
+
 	// Use Galley Ctrlz for all services.
 	gargs.IntrospectionOptions.Port = uint16(s.basePort + 876)
 
@@ -104,46 +118,26 @@ func (s *Server) initGalley(args *PilotArgs) error {
 
 	gargs.MeshConfigFile = meshCfgFile
 	gargs.MonitoringPort = uint(s.basePort + 15)
+
 	// Galley component
 	// TODO: runs under same gRPC port.
-	s.Galley = NewGalleyServer(gargs)
+	s.Galley = server.New(gargs)
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		return s.StartGalley()
+		if err := s.Galley.Start(); err != nil {
+			log.Fatalf("Error creating server: %v", err)
+		}
+		return nil
 	})
 
 	return nil
 }
 
-// GalleyServer component is the main config processing component that will listen to a config source and publish
-// resources through an MCP server.
-
-// This is a simplified startup for galley, specific for hyperistio/combined:
-// - callout removed - standalone galley supports it, and should be used
-// - acl removed - envoy and Istio RBAC should handle it
-// - listener removed - common grpc server for all components, using Pilot's listener
-
-// NewGalleyServer is the equivalent of the Galley CLI. No attempt  to optimize or reuse -
-// for Pilot we plan to use a 'direct path', bypassing the gRPC layer. This provides max compat
-// and less risks with existing galley.
-func NewGalleyServer(a *settings.Args) *server.Server {
-	s := server.New(a)
-
-	return s
+// WIP: direct integration of the Galley source to Pilot model.
+type pilotModelHandler struct {
 }
 
-// Start implements process.Component
-func (s *Server) StartGalley() (err error) {
-	if err := s.Galley.Start(); err != nil {
-		log.Fatalf("Error creating server: %v", err)
-	}
-	return nil
-}
-
-type testHandler struct {
-}
-
-func (t testHandler) Handle(e event.Event) {
+func (t pilotModelHandler) Handle(e event.Event) {
 	log.Debugf("Event %v", e)
 }
 
@@ -156,7 +150,7 @@ func (s *Server) NewGalleyK8SSource(resources schema.KubeResources) (src event.S
 	}
 	src = apiserver.New(o)
 
-	src.Dispatch(testHandler{})
+	src.Dispatch(pilotModelHandler{})
 
 	return
 }

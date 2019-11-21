@@ -16,6 +16,7 @@ package main
 
 import (
 	"fmt"
+
 	"istio.io/pkg/env"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
@@ -30,6 +31,7 @@ var (
 	basePortEnv = env.RegisterIntVar("BASE_PORT", 15000,
 		"Base port, for running multiple instances on same machine")
 )
+
 // Istio control plane with K8S support - minimal version.
 //
 // This uses the same code as Pilot, but restricts the config options to
@@ -89,7 +91,7 @@ func main() {
 		args.Config.ClusterRegistriesNamespace = args.Namespace
 	}
 	args.DiscoveryOptions = bootstrap.DiscoveryServiceOptions{
-		GrpcAddr: fmt.Sprintf(":%d", basePort+10),
+		GrpcAddr:        fmt.Sprintf(":%d", basePort+10),
 		SecureGrpcAddr:  "",
 		EnableProfiling: true,
 	}

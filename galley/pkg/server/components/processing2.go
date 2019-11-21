@@ -165,7 +165,12 @@ func (p *Processing2) Start() (err error) {
 		grpcOptions = append(grpcOptions, grpc.Creds(credentials))
 	}
 	grpc.EnableTracing = p.args.EnableGRPCTracing
-	p.grpcServer = grpc.NewServer(grpcOptions...)
+
+	if p.args.InsecureGRPC != nil {
+		p.grpcServer = p.args.InsecureGRPC
+	} else {
+		p.grpcServer = grpc.NewServer(grpcOptions...)
+	}
 
 	p.reporter = mcpMetricReporter("galley")
 
@@ -211,12 +216,20 @@ func (p *Processing2) Start() (err error) {
 		address = p.args.APIAddress[idx+3:]
 	}
 
-	if p.listener, err = netListen(network, address); err != nil {
-		err = fmt.Errorf("unable to listen: %v", err)
-		return
+	mcp.RegisterResourceSourceServer(p.grpcServer, p.mcpSource)
+	if p.args.SecureGRPC != nil {
+		mcp.RegisterResourceSourceServer(p.args.SecureGRPC, p.mcpSource)
 	}
 
-	mcp.RegisterResourceSourceServer(p.grpcServer, p.mcpSource)
+	if p.args.InsecureGRPC == nil {
+		if p.listener, err = netListen(network, address); err != nil {
+			err = fmt.Errorf("unable to listen: %v", err)
+			return
+		}
+	} else {
+		// Istiod handles the grpc server and listening.
+		return nil
+	}
 
 	var startWG sync.WaitGroup
 	startWG.Add(1)
