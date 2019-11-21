@@ -43,7 +43,7 @@ if [[ -n ${ISTIO_VERSION} ]]; then
 fi
 
 GIT_DESCRIBE_TAG=$(git describe --tags)
-HUB=${HUB:-""}
+HUB=${HUB:-"docker.io"}
 
 # used by common/scripts/gobuild.sh
 echo "istio.io/pkg/version.buildVersion=${VERSION}"
