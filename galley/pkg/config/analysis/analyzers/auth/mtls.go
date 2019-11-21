@@ -33,6 +33,8 @@ import (
 	"istio.io/istio/galley/pkg/config/resource"
 )
 
+const missingResourceName = "(none)"
+
 // MTLSAnalyzer checks for misconfigurations of MTLS policy when autoMtls is
 // disabled. More specifically, it detects situations where a DestinationRule's
 // MTLS usage is in conflict with mTLS specified by a policy.
@@ -111,7 +113,6 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 	// number. Tracking this means we can normalize to port number later.
 	fqdnToNameToPort := make(map[string]map[string]uint32)
 
-	// TODO store portname!
 	c.ForEach(metadata.K8SCoreV1Services, func(r *resource.Entry) bool {
 		svcNs, svcName := r.Metadata.Name.InterpretAsNamespaceAndName()
 
@@ -237,9 +238,9 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 	mpr := pc.MeshPolicy()
 	globalMtls, globalDR := drc.DoesNamespaceUseMTLSToService(rootNamespace, rootNamespace, mtls.NewTargetService("*.svc.cluster.local"))
 	if mpr.MTLSMode == mtls.ModeStrict && !globalMtls {
-		// We may or may not have a matching DR. If we don't, use
-		// the special string (none)
-		globalDRName := "(none)"
+		// We may or may not have a matching DR. If we don't, use the special
+		// missing resource string
+		globalDRName := missingResourceName
 		if globalDR != nil {
 			globalDRName = globalDR.Origin.FriendlyName()
 		}
@@ -260,8 +261,8 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 	// mtls, but MTLS is off
 	if mpr.MTLSMode == mtls.ModePlaintext && globalMtls {
 		// We may or may not have a matching policy. If we don't, use the
-		// special string (none)
-		globalPolicyName := "(none)"
+		// special missing resource string
+		globalPolicyName := missingResourceName
 		if mpr.Resource != nil {
 			globalPolicyName = mpr.Resource.Origin.FriendlyName()
 		}
@@ -314,8 +315,8 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 				}
 				if tsPolicy.Resource != nil {
 					// We may or may not have a matching DR. If we don't, use
-					// the special string (none)
-					matchingDRName := "(none)"
+					// the special missing resource string
+					matchingDRName := missingResourceName
 					if matchingDR != nil {
 						matchingDRName = matchingDR.Origin.FriendlyName()
 					}
@@ -332,8 +333,8 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 				}
 				if matchingDR != nil {
 					// We may or may not have a matching policy. If we don't, use
-					// the special string (none)
-					policyName := "(none)"
+					// the special missing resource string
+					policyName := missingResourceName
 					if tsPolicy.Resource != nil {
 						policyName = tsPolicy.Resource.Origin.FriendlyName()
 					}
