@@ -236,11 +236,11 @@ func unmarshalAndValidateICP(crYAML string, force bool) (*v1alpha2.IstioControlP
 	}
 	icps, _, err := manifest.ParseK8SYAMLToIstioControlPlaneSpec(crYAML)
 	if err != nil {
-		return nil, "", fmt.Errorf("could not unmarshal the overlay file: %s\n\nOriginal YAML:\n%s", err, crYAML)
+		return nil, "", fmt.Errorf("could not unmarshal the overlay file: %s", err)
 	}
 	if errs := validate.CheckIstioControlPlaneSpec(icps, false); len(errs) != 0 {
 		if !force {
-			return nil, "", fmt.Errorf("input file failed validation with the following errors: %s\n\nOriginal YAML:\n%s", errs, crYAML)
+			return nil, "", fmt.Errorf("input file failed validation with the following errors: %s", errs)
 		}
 	}
 	icpsYAML, err := util.MarshalWithJSONPB(icps)
