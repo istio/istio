@@ -101,7 +101,7 @@ func (s *Server) initCertController(args *PilotArgs) error {
 // TODO: If the discovery address in mesh.yaml is set to port 15012 (XDS-with-DNS-certs) and the name
 // matches the k8s namespace, failure to start DNS server is a fatal error.
 func (s *Server) initDNSCerts() error {
-	if _, err := os.Stat(DNSCertDir+"/key.pem"); err == nil {
+	if _, err := os.Stat(DNSCertDir + "/key.pem"); err == nil {
 		// Existing certificate mounted by user. Skip self-signed certificate generation.
 		// Use this with an existing CA - the expectation is that the cert will match the
 		// DNS name in DiscoveryAddress.
@@ -129,7 +129,7 @@ func (s *Server) initDNSCerts() error {
 
 	// Names in the Istiod cert - support the old service names as well.
 	// The first is the recommended one, also used by Apiserver for webhooks.
-	names := []string {
+	names := []string{
 		envName + ns + ".svc",
 		envName + ns}
 
@@ -141,8 +141,8 @@ func (s *Server) initDNSCerts() error {
 		} else {
 			names = append(names, "istio-pilot"+ns)
 		}
-		names = append(names, "istio-galley" + ns)
-		names = append(names, "istio-ca" + ns)
+		names = append(names, "istio-galley"+ns)
+		names = append(names, "istio-ca"+ns)
 	}
 
 	if s.kubeClient == nil {
@@ -151,7 +151,7 @@ func (s *Server) initDNSCerts() error {
 
 	// TODO: fallback to citadel (or custom CA) if K8S signing is broken
 	certChain, keyPEM, _, err := chiron.GenKeyCertK8sCA(s.kubeClient.CertificatesV1beta1().CertificateSigningRequests(),
-		strings.Join(names, ","), envName+".csr.secret",  s.Args.Namespace, defaultCACertPath)
+		strings.Join(names, ","), envName+".csr.secret", s.Args.Namespace, defaultCACertPath)
 	if err != nil {
 		return errorOrFatal(port, err)
 	}

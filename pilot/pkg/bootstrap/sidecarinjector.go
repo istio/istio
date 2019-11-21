@@ -17,17 +17,19 @@ package bootstrap
 import (
 	"bytes"
 	"fmt"
-	"github.com/hashicorp/go-multierror"
 	"io/ioutil"
-	"istio.io/istio/pkg/util"
-	"istio.io/pkg/env"
+	"os"
+	"path/filepath"
+	"time"
+
+	"github.com/hashicorp/go-multierror"
 	"k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-	"os"
-	"path/filepath"
-	"time"
+
+	"istio.io/istio/pkg/util"
+	"istio.io/pkg/env"
 
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/pkg/log"
@@ -40,16 +42,14 @@ var (
 
 const (
 	// Name of the webhook config in the config - no need to change it.
-	webhookName =  "sidecar-injector.istio.io"
+	webhookName = "sidecar-injector.istio.io"
 )
 
 // Was not used in Pilot for 1.3/1.4 (injector was standalone).
 // In 1.5 - used as part of istiod, if the inject template exists.
 func (s *Server) initSidecarInjector(args *PilotArgs) error {
 	// Injector should run along, even if not used - but only if the injection template is mounted.
-
-	// /etc/istio/inject for pilot, ./var/lib/istio/inject in istiod
-	// TODO: used new one in both, use 'injection-template.yaml'
+	// ./var/lib/istio/inject - enabled by mounting a template in the config.
 	injectPath := args.InjectionOptions.InjectionDirectory
 	if injectPath == "" {
 		log.Infof("Skipping sidecar injector, injection path is missing")
@@ -58,15 +58,14 @@ func (s *Server) initSidecarInjector(args *PilotArgs) error {
 
 	// If the injection path exists, we will set up injection
 	if _, err := os.Stat(filepath.Join(injectPath, "config")); !os.IsNotExist(err) {
-		dir := DNSCertDir
 		parameters := inject.WebhookParameters{
-			ConfigFile: filepath.Join(injectPath, "config"),
-			ValuesFile: filepath.Join(injectPath, "values"),
-			MeshFile:   args.Mesh.ConfigFile,
-			CertFile:   filepath.Join(dir, "cert-chain.pem"),
-			KeyFile:    filepath.Join(dir, "key.pem"),
-			Port:       args.InjectionOptions.Port,
-			HealthCheckFile: "",
+			ConfigFile:          filepath.Join(injectPath, "config"),
+			ValuesFile:          filepath.Join(injectPath, "values"),
+			MeshFile:            args.Mesh.ConfigFile,
+			CertFile:            filepath.Join(DNSCertDir, "cert-chain.pem"),
+			KeyFile:             filepath.Join(DNSCertDir, "key.pem"),
+			Port:                args.InjectionOptions.Port,
+			HealthCheckFile:     "",
 			HealthCheckInterval: 0,
 			MonitoringPort:      0,
 		}

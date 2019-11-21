@@ -214,5 +214,7 @@ func getMeshConfig(kube kubernetes.Interface, namespace, name string) (*meshconf
 	if err != nil {
 		return nil, err
 	}
+
+	log.Warn("Loading default mesh config from K8S, no reload support.")
 	return meshConfig, nil
 }

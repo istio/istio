@@ -16,6 +16,8 @@ package main
 
 import (
 	"fmt"
+	"istio.io/pkg/env"
+
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
@@ -24,6 +26,10 @@ import (
 	"istio.io/pkg/log"
 )
 
+var (
+	basePortEnv = env.RegisterIntVar("BASE_PORT", 15000,
+		"Base port, for running multiple instances on same machine")
+)
 // Istio control plane with K8S support - minimal version.
 //
 // This uses the same code as Pilot, but restricts the config options to
@@ -41,22 +47,26 @@ import (
 func main() {
 	stop := make(<-chan struct{})
 
-	basePort := 15000
+	// TODO: env variable
+	basePort := basePortEnv.Get()
 
 	// Create a test pilot discovery service configured to watch the tempDir.
 	args := &bootstrap.PilotArgs{
-		Config:       bootstrap.ConfigArgs{
+		Config: bootstrap.ConfigArgs{
 			ControllerOptions: kubecontroller.Options{
 				DomainSuffix: "cluster.local",
-				TrustDomain: "cluster.local",
+				TrustDomain:  "cluster.local",
 			},
 		},
 		Service: bootstrap.ServiceArgs{
 			Registries: []string{string(serviceregistry.KubernetesRegistry)},
 		},
-		InjectionOptions: bootstrap.InjectionOptions {
+		InjectionOptions: bootstrap.InjectionOptions{
 			InjectionDirectory: "./var/lib/istio/inject",
-			Port:               15017,
+			Port:               basePort + 17,
+		},
+		Mesh: bootstrap.MeshArgs{
+			ConfigFile: "./var/lib/istio/config/mesh",
 		},
 
 		Plugins: bootstrap.DefaultPlugins, // TODO: Should it be in MeshConfig ? Env override until it's done.
@@ -65,7 +75,7 @@ func main() {
 		MCPMaxMessageSize:        1024 * 1024 * 64,
 		MCPInitialWindowSize:     1024 * 1024 * 64,
 		MCPInitialConnWindowSize: 1024 * 1024 * 64,
-		BasePort: basePort,
+		BasePort:                 basePort,
 	}
 
 	// If the namespace isn't set, try looking it up from the environment.
@@ -79,13 +89,17 @@ func main() {
 		args.Config.ClusterRegistriesNamespace = args.Namespace
 	}
 	args.DiscoveryOptions = bootstrap.DiscoveryServiceOptions{
-		HTTPAddr: ":8080", // lots of tools use this
 		GrpcAddr: fmt.Sprintf(":%d", basePort+10),
-		// Using 12 for K8S-DNS based cert.
-		// TODO: We'll also need 11 for Citadel-based cert
 		SecureGrpcAddr:  "",
 		EnableProfiling: true,
 	}
+	if basePort == 15000 {
+		args.DiscoveryOptions.HTTPAddr = ":8080" // lots of tools use this port
+	} else {
+		// Running a second Istiod on the same machine, avoid port conflicts.
+		args.DiscoveryOptions.HTTPAddr = fmt.Sprintf(":%d", basePort+80)
+	}
+
 	args.CtrlZOptions = &ctrlz.Options{
 		Address: "localhost",
 		Port:    uint16(basePort + 13),

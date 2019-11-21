@@ -97,6 +97,10 @@ type DiscoveryServiceOptions struct {
 	// "" means disabling secure GRPC, used in test.
 	SecureGrpcAddr string
 
+	// The listening address for secure GRPC with DNS-based certificates. Default is :15012, if certificates are available.
+	// Will not start otherwise.
+	SecureGrpcDNSAddr string
+
 	// The listening address for the monitoring port. If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
 	// a port number is automatically chosen.
 	MonitoringAddr string

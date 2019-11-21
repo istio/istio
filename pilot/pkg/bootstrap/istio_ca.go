@@ -125,6 +125,11 @@ type CAOptions struct {
 
 // RunCA will start the cert signing GRPC service on an existing server.
 func RunCA(grpc *grpc.Server, cs kubernetes.Interface, opts *CAOptions) {
+	if cs == nil {
+		// No k8s - no self-signed certs.
+		// TODO: implement it using a local directory, for non-k8s env.
+		return
+	}
 	ca := createCA(cs.CoreV1(), opts)
 
 	iss := trustedIssuer.Get()

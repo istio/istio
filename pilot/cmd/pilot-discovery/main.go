@@ -42,7 +42,7 @@ var (
 		KeepaliveOptions: keepalive.DefaultOption(),
 		// TODO replace with mesh config?
 		InjectionOptions: bootstrap.InjectionOptions{
-			InjectionDirectory: "/etc/istio/inject",
+			InjectionDirectory: "./var/lib/istio/inject",
 			Port:               15017,
 		},
 
