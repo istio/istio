@@ -347,7 +347,7 @@ func TestAnalyzers(t *testing.T) {
 			}
 
 			actualMsgs := extractFields(result.Messages)
-			g.Expect(actualMsgs).To(ConsistOf(testCase.expected), fmt.Sprintf("%#v", result.Messages))
+			g.Expect(actualMsgs).To(ConsistOf(testCase.expected))
 		})
 	}
 
