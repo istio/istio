@@ -337,7 +337,7 @@ func createCA(client corev1.CoreV1Interface, opts *CAOptions) *ca.IstioCA {
 			selfSignedRootCertGracePeriodPercentile.Get(), selfSignedCACertTTL.Get(),
 			selfSignedRootCertCheckInterval.Get(), workloadCertTTL.Get(),
 			maxWorkloadCertTTL.Get(), opts.TrustDomain, true,
-			podNamespaceVar.Get(), -1, client, rootCertFile,
+			PodNamespaceVar.Get(), -1, client, rootCertFile,
 			enableJitterForRootCertRotator.Get())
 		if err != nil {
 			log.Fatalf("Failed to create a self-signed Citadel (error: %v)", err)
@@ -352,7 +352,7 @@ func createCA(client corev1.CoreV1Interface, opts *CAOptions) *ca.IstioCA {
 		certChainFile := path.Join(localCertDir.Get(), "cert-chain.pem")
 
 		caOpts, err = ca.NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile,
-			rootCertFile, workloadCertTTL.Get(), maxWorkloadCertTTL.Get(), podNamespaceVar.Get(), client)
+			rootCertFile, workloadCertTTL.Get(), maxWorkloadCertTTL.Get(), PodNamespaceVar.Get(), client)
 		if err != nil {
 			log.Fatalf("Failed to create an Citadel (error: %v)", err)
 		}

@@ -36,7 +36,7 @@ var (
 	GalleyOverride = "./var/lib/istio/galley/galley.json"
 )
 
-func (server *Server) initGalley(args *PilotArgs) error {
+func (s *Server) initGalley(args *PilotArgs) error {
 	// Galley args
 	gargs := settings.DefaultArgs()
 
@@ -55,15 +55,15 @@ func (server *Server) initGalley(args *PilotArgs) error {
 	gargs.Readiness.Path = "/tmp/healthReadiness"
 
 	gargs.ValidationArgs.EnableReconcileWebhookConfiguration = false
-	gargs.APIAddress = fmt.Sprintf("tcp://0.0.0.0:%d", server.basePort+901)
+	gargs.APIAddress = fmt.Sprintf("tcp://0.0.0.0:%d", s.basePort+901)
 	// TODO: For secure, we'll expose the GRPC register method and use the common GRPC+TLS port.
 	gargs.Insecure = true
 	gargs.DisableResourceReadyCheck = true
 	// Use Galley Ctrlz for all services.
-	gargs.IntrospectionOptions.Port = uint16(server.basePort + 876)
+	gargs.IntrospectionOptions.Port = uint16(s.basePort + 876)
 
-	gargs.KubeRestConfig = server.kubeRestConfig
-	gargs.KubeInterface = server.kubeClientset
+	gargs.KubeRestConfig = s.kubeRestConfig
+	gargs.KubeInterface = s.kubeClientset
 
 	// TODO: add to mesh.yaml - possibly using same model as tracers/etc
 
@@ -90,7 +90,7 @@ func (server *Server) initGalley(args *PilotArgs) error {
 	// TODO: when the mesh.yaml is reloaded, replace the file watched by Galley as well.
 	if _, err := os.Stat(meshCfgFile); err != nil {
 		// Galley requires this file to exist. Create it in a writeable directory, override.
-		meshBytes, err := json.Marshal(server.mesh)
+		meshBytes, err := json.Marshal(s.mesh)
 		if err != nil {
 			return fmt.Errorf("failed to serialize mesh %v", err)
 		}
@@ -102,11 +102,14 @@ func (server *Server) initGalley(args *PilotArgs) error {
 	}
 
 	gargs.MeshConfigFile = meshCfgFile
-	gargs.MonitoringPort = uint(server.basePort + 15)
+	gargs.MonitoringPort = uint(s.basePort + 15)
 	// Galley component
 	// TODO: runs under same gRPC port.
-	server.Galley = NewGalleyServer(gargs)
+	s.Galley = NewGalleyServer(gargs)
 
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		return s.StartGalley()
+	})
 
 	return nil
 }

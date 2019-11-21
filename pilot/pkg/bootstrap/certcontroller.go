@@ -15,10 +15,11 @@
 package bootstrap
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
-	"path"
 	"strings"
 	"time"
 
@@ -42,11 +43,16 @@ const (
 	defaultCACertPath = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 )
 
+var (
+	// DNSCertDir is the location to save generated DNS certificates.
+	// TODO: we can probably avoid saving, but will require deeper changes.
+	DNSCertDir = "./var/run/secrets/istio-dns"
+)
+
+// CertController can create certificates signed by K8S server.
 func (s *Server) initCertController(args *PilotArgs) error {
 	var err error
 	var secretNames, dnsNames, namespaces []string
-	// Whether a key and cert are generated for Pilot
-	var pilotCertGenerated bool
 
 	if s.mesh.GetCertificates() == nil || len(s.mesh.GetCertificates()) == 0 {
 		log.Info("nil certificate config")
@@ -64,42 +70,6 @@ func (s *Server) initCertController(args *PilotArgs) error {
 			secretNames = append(secretNames, c.GetSecretName())
 			dnsNames = append(dnsNames, name)
 			namespaces = append(namespaces, args.Namespace)
-		} else if !pilotCertGenerated {
-			// Generate a key and certificate for the service and save them into a hard-coded directory.
-			// Only one service (currently Pilot) will save the key and certificate in a directory.
-			// Create directory at s.mesh.K8SCertificateSetting.PilotCertificatePath if it doesn't exist.
-			svcName := "istio.pilot"
-			dir := DNSCertDir
-			if _, err := os.Stat(dir); os.IsNotExist(err) {
-				err := os.MkdirAll(dir, os.ModePerm)
-				if err != nil {
-					return fmt.Errorf("err to create directory %v: %v", dir, err)
-				}
-			}
-			// Generate Pilot certificate
-			certChain, keyPEM, caCert, err := chiron.GenKeyCertK8sCA(k8sClient.CertificatesV1beta1().CertificateSigningRequests(),
-				name, svcName+".csr.secret", args.Namespace, defaultCACertPath)
-			if err != nil {
-				log.Errorf("err to generate key cert for %v: %v", svcName, err)
-				return nil
-			}
-			// Save cert-chain.pem, root.pem, and key.pem to the directory.
-			file := path.Join(dir, "cert-chain.pem")
-			if err = ioutil.WriteFile(file, certChain, 0644); err != nil {
-				log.Errorf("err to write %v cert-chain.pem (%v): %v", svcName, file, err)
-				return nil
-			}
-			file = path.Join(dir, "root.pem")
-			if err = ioutil.WriteFile(file, caCert, 0644); err != nil {
-				log.Errorf("err to write %v root.pem (%v): %v", svcName, file, err)
-				return nil
-			}
-			file = path.Join(dir, "key.pem")
-			if err = ioutil.WriteFile(file, keyPEM, 0600); err != nil {
-				log.Errorf("err to write %v key.pem (%v): %v", svcName, file, err)
-				return nil
-			}
-			pilotCertGenerated = true
 		}
 	}
 
@@ -121,4 +91,93 @@ func (s *Server) initCertController(args *PilotArgs) error {
 	})
 
 	return nil
+}
+
+// initDNSCerts will create the certificates to be used by Istiod GRPC server and webhooks, signed by K8S server.
+// If the certificate creation fails - for example no support in K8S - returns an error.
+// Will use the mesh.yaml DiscoveryAddress to find the default expected address of the control plane,
+// with an environment variable allowing override.
+//
+// TODO: If the discovery address in mesh.yaml is set to port 15012 (XDS-with-DNS-certs) and the name
+// matches the k8s namespace, failure to start DNS server is a fatal error.
+func (s *Server) initDNSCerts() error {
+	if _, err := os.Stat(DNSCertDir+"/key.pem"); err == nil {
+		// Existing certificate mounted by user. Skip self-signed certificate generation.
+		// Use this with an existing CA - the expectation is that the cert will match the
+		// DNS name in DiscoveryAddress.
+		return nil
+	}
+
+	// discAddr configured in mesh config - this is what we'll inject into pods.
+	discAddr := s.mesh.DefaultConfig.DiscoveryAddress
+
+	// Explicit override - discovery address may point to a remote cluster.
+	// Istiod will be a local service doing only injection
+	if IstiodAddress.Get() != "" {
+		discAddr = IstiodAddress.Get()
+	}
+	host, port, err := net.SplitHostPort(discAddr)
+	if err != nil {
+		log.Fatala("Invalid discovery address", discAddr, err)
+	}
+
+	hostParts := strings.Split(host, ".")
+
+	ns := "." + PodNamespaceVar.Get()
+
+	envName := hostParts[0]
+
+	// Names in the Istiod cert - support the old service names as well.
+	// The first is the recommended one, also used by Apiserver for webhooks.
+	names := []string {
+		envName + ns + ".svc",
+		envName + ns}
+
+	// Special case - this is the default control plane ( istio-pilot ), take over the role of
+	// CA signer and galley.
+	if envName == "istio-pilot" || envName == "istiod" {
+		if envName == "istio-pilot" {
+			names = append(names, "istiod"+ns)
+		} else {
+			names = append(names, "istio-pilot"+ns)
+		}
+		names = append(names, "istio-galley" + ns)
+		names = append(names, "istio-ca" + ns)
+	}
+
+	if s.kubeClient == nil {
+		return errorOrFatal(port, errors.New("K8S not found, cert signing disabled.")
+	}
+
+	// TODO: fallback to citadel (or custom CA) if K8S signing is broken
+	certChain, keyPEM, _, err := chiron.GenKeyCertK8sCA(s.kubeClient.CertificatesV1beta1().CertificateSigningRequests(),
+		strings.Join(names, ","), envName+".csr.secret",  s.Args.Namespace, defaultCACertPath)
+	if err != nil {
+		return errorOrFatal(port, err)
+	}
+
+	// Save the certificates to /var/run/secrets/istio-dns - this is needed since most of the code we currently
+	// use to start grpc and webhooks is based on files. This is a memory-mounted dir.
+	if err := os.MkdirAll(DNSCertDir, 0700); err != nil {
+		return errorOrFatal(port, fmt.Errorf("Failed to create certs dir: %v", err))
+	}
+	err = ioutil.WriteFile(DNSCertDir+"/key.pem", keyPEM, 0700)
+	if err != nil {
+		return errorOrFatal(port, fmt.Errorf("Failed to write certs: %v", err))
+	}
+	err = ioutil.WriteFile(DNSCertDir+"/cert-chain.pem", certChain, 0700)
+	if err != nil {
+		return errorOrFatal(port, fmt.Errorf("Failed to write certs: %v", err))
+	}
+	return nil
+}
+
+// Special handling for DNS cert creation errors - if istiod is set as discovery address and we fail
+// to create the cert it's a fatal error, better to inform the user by crashing.
+// Otherwise - it is expected that Istio works in backward-compatible mode, using Citadel, etc.
+func errorOrFatal(port string, err error) error {
+	if port == "15012" {
+		log.Fatal(err.Error())
+	}
+	return err
 }

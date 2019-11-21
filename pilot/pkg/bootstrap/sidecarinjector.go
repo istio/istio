@@ -102,7 +102,7 @@ const delayedRetryTime = time.Second
 func patchCertLoop(client kubernetes.Interface, stopCh <-chan struct{}) error {
 
 	// K8S own CA
-	caCertPem, err := ioutil.ReadFile(DefaultCA)
+	caCertPem, err := ioutil.ReadFile(defaultCACertPath)
 	if err != nil {
 		return err
 	}

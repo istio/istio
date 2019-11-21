@@ -24,15 +24,20 @@ import (
 	"istio.io/pkg/log"
 )
 
-// Istio control plane with K8S support.
+// Istio control plane with K8S support - minimal version.
 //
-// - config is loaded from local K8S (in-cluster or using KUBECONFIG)
-// - local endpoints and additional registries from K8S
-// - additional MCP registries supported
-// - includes a Secret controller that provisions certs as secrets.
+// This uses the same code as Pilot, but restricts the config options to
+// what is available in mesh.yaml (mesh config), so there should be no
+// dependency on Helm, complex helm charts. This should run on a VM or
+// in a docker container outside any k8s cluster, as long as the config
+// files are mounted in the expected locations.
 //
-// Normal hyperistio is using local config files and MCP sources for config/endpoints,
-// as well as SDS backed by a file-based CA.
+// - KUBECONFIG should point to a valid configuration, if not set in-cluster is used
+// - optional /var/lib/istio/config/mesh.yaml will be loaded. Defaults should work for common cases.
+// - local endpoints and additional multicluster registries loaded from K8S
+// - additional MCP registries supported, based on mesh.yaml
+// - certificates signed by K8S Apiserver.
+//
 func main() {
 	stop := make(<-chan struct{})
 
@@ -65,7 +70,7 @@ func main() {
 
 	// If the namespace isn't set, try looking it up from the environment.
 	if args.Namespace == "" {
-		args.Namespace = bootstrap.podNamespaceVar.Get()
+		args.Namespace = bootstrap.PodNamespaceVar.Get()
 	}
 	if args.KeepaliveOptions == nil {
 		args.KeepaliveOptions = istiokeepalive.DefaultOption()
