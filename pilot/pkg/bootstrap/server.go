@@ -22,7 +22,6 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
-	"os"
 	"path"
 	"strings"
 	"time"
@@ -270,9 +269,6 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 	if hasKubeRegistry(args.Service.Registries) {
 		// We will also need the rest config - where the public key of k8s is stored - use the new method.
 		kc := args.Config.KubeConfig
-		if kc == "" {
-			kc = os.Getenv("KUBECONFIG")
-		}
 		kcfg, kuberr := kubelib.BuildClientConfig(kc, "")
 		if kuberr != nil {
 			return multierror.Prefix(kuberr, "failed to connect to Kubernetes API.")
