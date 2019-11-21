@@ -46,7 +46,7 @@ type destination struct {
 // from most-specific rules to least-specific. This matches how the API behaves.
 type destinations []destination
 
-// Compile-time check to make sure destinations implements sort.Interface
+// destinations implements sort.Interface
 var _ sort.Interface = destinations{}
 
 func (d destinations) Len() int {
