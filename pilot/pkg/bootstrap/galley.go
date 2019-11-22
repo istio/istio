@@ -43,6 +43,11 @@ func (s *Server) initGalley(args *PilotArgs) error {
 		// TODO: if file-based sources are configured, continue with the setup ( standalone )
 		return nil
 	}
+	if useExternalGalley.Get() {
+		// currently off by default - until dashboard tests are fixed.
+		// It appears the buffers run out or some other issues happen.
+		return nil
+	}
 
 	// Galley args
 	gargs := settings.DefaultArgs()
