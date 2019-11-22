@@ -1,4 +1,3 @@
-# Version is the base image version from the TLD Makefile
 ARG BASE_VERSION=latest
 
 FROM docker.io/istio/base:${BASE_VERSION}

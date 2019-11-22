@@ -1,3 +1,5 @@
+ARG BASE_VERSION=latest
+
 FROM docker.io/istio/base:${BASE_VERSION}
 
 # Install the certs.
