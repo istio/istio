@@ -2,39 +2,38 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   creationTimestamp: null
-  name: hello
+  name: app
 spec:
-  replicas: 7
+  replicas: 1
   selector:
     matchLabels:
-      app: hello
-      tier: backend
-      track: stable
+      app: app
   strategy: {}
   template:
     metadata:
       annotations:
         sidecar.istio.io/interceptionMode: REDIRECT
-        sidecar.istio.io/status: '{"version":"ec8689dff7f37cdfd2c61ffe1941cc189d9f3a65df1a77e3355ae529d0d12194","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
         traffic.sidecar.istio.io/excludeInboundPorts: "15020"
-        traffic.sidecar.istio.io/includeInboundPorts: "80"
+        traffic.sidecar.istio.io/includeInboundPorts: "123"
+        traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
       creationTimestamp: null
       labels:
-        app: hello
+        app: app
         security.istio.io/tlsMode: istio
-        tier: backend
-        track: stable
     spec:
       containers:
-      - image: fake.docker.io/google-samples/hello-go-gke:1.0
-        name: hello
+      - image: image
+        name: name1
+        resources: {}
+      - image: alpine
+        name: name2
         ports:
-        - containerPort: 80
-          name: http
-        readinessProbe:
-          httpGet:
-            path: /app-health/hello/readyz
-            port: 15020
+        - containerPort: 123
+          name: foo
+        resources: {}
+      - image: alpine
+        name: name3
         resources: {}
       - args:
         - proxy
@@ -46,7 +45,7 @@ spec:
         - --binaryPath
         - /usr/local/bin/envoy
         - --serviceCluster
-        - hello.$(POD_NAMESPACE)
+        - app.$(POD_NAMESPACE)
         - --drainDuration
         - 45s
         - --parentShutdownDuration
@@ -73,7 +72,7 @@ spec:
         - name: ISTIO_META_POD_PORTS
           value: |-
             [
-                {"name":"http","containerPort":80}
+                {"name":"foo","containerPort":123}
             ]
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
@@ -105,13 +104,11 @@ spec:
           value: REDIRECT
         - name: ISTIO_METAJSON_LABELS
           value: |
-            {"app":"hello","tier":"backend","track":"stable"}
+            {"app":"app"}
         - name: ISTIO_META_WORKLOAD_NAME
-          value: hello
+          value: app
         - name: ISTIO_META_OWNER
-          value: kubernetes://apis/apps/v1/namespaces/default/deployments/hello
-        - name: ISTIO_KUBE_APP_PROBERS
-          value: '{"/app-health/hello/readyz":{"port":80}}'
+          value: kubernetes://apis/apps/v1/namespaces/default/deployments/app
         image: docker.io/istio/proxyv2:unittest
         imagePullPolicy: IfNotPresent
         name: istio-proxy
@@ -124,8 +121,8 @@ spec:
           httpGet:
             path: /healthz/ready
             port: 15020
-          initialDelaySeconds: 2
-          periodSeconds: 30
+          initialDelaySeconds: 1
+          periodSeconds: 2
         resources:
           limits:
             cpu: "2"
@@ -154,7 +151,7 @@ spec:
         - -m
         - REDIRECT
         - -i
-        - ""
+        - '*'
         - -x
         - ""
         - -b
