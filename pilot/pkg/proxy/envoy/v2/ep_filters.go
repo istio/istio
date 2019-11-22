@@ -57,10 +57,11 @@ func EndpointsByNetworkFilter(proxyNetwork string, endpoints []*endpoint.Localit
 	// to the result. Also count the number of endpoints per each remote network while
 	// iterating so that it can be used as the weight for the gateway endpoint
 	for _, ep := range endpoints {
+		lbEndpoints := make([]*endpoint.LbEndpoint, 0)
+
 		// Weight (number of endpoints) for the EDS cluster for each remote networks
 		remoteEps := map[string]uint32{}
-
-		lbEndpoints := make([]*endpoint.LbEndpoint, 0)
+		// calculate remote network endpoints
 		for _, lbEp := range ep.LbEndpoints {
 			epNetwork := istioMetadata(lbEp, "network")
 			if epNetwork == proxyNetwork {
@@ -75,7 +76,7 @@ func EndpointsByNetworkFilter(proxyNetwork string, endpoints []*endpoint.Localit
 			}
 		}
 
-		// Add endpoints to remote networks' gateways
+		// Add remote networks' gateways to endpoints
 
 		// Iterate over all networks that have the cluster endpoint (weight>0) and
 		// for each one of those add a new endpoint that points to the network's
@@ -99,21 +100,16 @@ func EndpointsByNetworkFilter(proxyNetwork string, endpoints []*endpoint.Localit
 			for _, gw := range gws {
 				gwAddresses := getGatewayAddresses(gw, registryName, env)
 				// If gateway addresses are found, create an endpoint for each one of them
-				if len(gwAddresses) > 0 {
-					for _, gwAddr := range gwAddresses {
-						epAddr := util.BuildAddress(gwAddr, gw.Port)
-						gwEp := &endpoint.LbEndpoint{
-							HostIdentifier: &endpoint.LbEndpoint_Endpoint{
-								Endpoint: &endpoint.Endpoint{
-									Address: epAddr,
-								},
+				for _, gwAddr := range gwAddresses {
+					epAddr := util.BuildAddress(gwAddr, gw.Port)
+					gwEp := &endpoint.LbEndpoint{
+						HostIdentifier: &endpoint.LbEndpoint_Endpoint{
+							Endpoint: &endpoint.Endpoint{
+								Address: epAddr,
 							},
-							LoadBalancingWeight: &wrappers.UInt32Value{
-								Value: w,
-							},
-						}
-						gwEps = append(gwEps, gwEp)
+						},
 					}
+					gwEps = append(gwEps, gwEp)
 				}
 			}
 			if len(gwEps) == 0 {
@@ -121,7 +117,9 @@ func EndpointsByNetworkFilter(proxyNetwork string, endpoints []*endpoint.Localit
 			}
 			weight := w * uint32(multiples/len(gwEps))
 			for _, gwEp := range gwEps {
-				gwEp.LoadBalancingWeight.Value = weight
+				gwEp.LoadBalancingWeight = &wrappers.UInt32Value{
+					Value: weight,
+				}
 				lbEndpoints = append(lbEndpoints, gwEp)
 			}
 		}
