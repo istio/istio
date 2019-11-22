@@ -270,6 +270,7 @@ data:
                 config:
                   codec_type: HTTP2
                   stat_prefix: "15019"
+                  stream_idle_timeout: 0s
                   http2_protocol_options:
                     max_concurrent_streams: 1073741824
 
