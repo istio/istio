@@ -72,7 +72,7 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, l *logger) {
 	if err != nil {
 		l.logAndFatal(err.Error())
 	}
-	manifests, err := genManifests(mgArgs.inFilename, overlayFromSet, mgArgs.force, l)
+	manifests, _, err := genManifests(mgArgs.inFilename, overlayFromSet, mgArgs.force, l)
 	if err != nil {
 		l.logAndFatal(err.Error())
 	}
