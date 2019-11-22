@@ -16,16 +16,10 @@ package name
 
 import (
 	"fmt"
-	"reflect"
 
 	"istio.io/operator/pkg/apis/istio/v1alpha2"
 	"istio.io/operator/pkg/tpath"
 	"istio.io/operator/pkg/util"
-	"istio.io/pkg/log"
-)
-
-var (
-	scope = log.RegisterScope("name", "name", 0)
 )
 
 // FeatureName is a feature name string, typed to constrain allowed values.
@@ -114,7 +108,7 @@ type ManifestMap map[ComponentName]string
 // This follows the logic description in IstioControlPlane proto.
 // IsFeatureEnabledInSpec assumes that controlPlaneSpec has been validated.
 func IsFeatureEnabledInSpec(featureName FeatureName, controlPlaneSpec *v1alpha2.IstioControlPlaneSpec) (bool, error) {
-	featureNodeI, found, err := GetFromStructPath(controlPlaneSpec, string(featureName)+".Enabled")
+	featureNodeI, found, err := tpath.GetFromStructPath(controlPlaneSpec, string(featureName)+".Enabled")
 	if err != nil {
 		return false, fmt.Errorf("error in IsFeatureEnabledInSpec GetFromStructPath featureEnabled for feature=%s: %s", featureName, err)
 	}
@@ -146,7 +140,7 @@ func IsComponentEnabledInSpec(featureName FeatureName, componentName ComponentNa
 	if featureName == ThirdPartyFeatureName {
 		return IsComponentEnabledFromValue(string(componentName), controlPlaneSpec.Values)
 	}
-	featureNodeI, found, err := GetFromStructPath(controlPlaneSpec, string(featureName)+".Enabled")
+	featureNodeI, found, err := tpath.GetFromStructPath(controlPlaneSpec, string(featureName)+".Enabled")
 	if err != nil {
 		return false, fmt.Errorf("error in IsComponentEnabledInSpec GetFromStructPath featureEnabled for feature=%s, component=%s: %s",
 			featureName, componentName, err)
@@ -162,7 +156,7 @@ func IsComponentEnabledInSpec(featureName FeatureName, componentName ComponentNa
 		return false, nil
 	}
 
-	componentNodeI, found, err := GetFromStructPath(controlPlaneSpec, string(featureName)+".Components."+string(componentName)+".Enabled")
+	componentNodeI, found, err := tpath.GetFromStructPath(controlPlaneSpec, string(featureName)+".Components."+string(componentName)+".Enabled")
 	if err != nil {
 		return false, fmt.Errorf("error in IsComponentEnabledInSpec GetFromStructPath componentEnabled for feature=%s, component=%s: %s",
 			featureName, componentName, err)
@@ -184,13 +178,13 @@ func IsComponentEnabledInSpec(featureName FeatureName, componentName ComponentNa
 // valuePath points to component path in the values tree.
 func IsComponentEnabledFromValue(valuePath string, valueSpec map[string]interface{}) (bool, error) {
 	enabledPath := valuePath + ".enabled"
-	enableNodeI, found, err := GetFromTreePath(valueSpec, util.ToYAMLPath(enabledPath))
+	enableNodeI, found, err := tpath.GetFromTreePath(valueSpec, util.ToYAMLPath(enabledPath))
 	if err != nil {
 		return false, fmt.Errorf("error finding component enablement path: %s in helm value.yaml tree", enabledPath)
 	}
 	if !found {
 		// Some components do not specify enablement should be treated as enabled if the root node in the component subtree exists.
-		_, found, err := GetFromTreePath(valueSpec, util.ToYAMLPath(valuePath))
+		_, found, err := tpath.GetFromTreePath(valueSpec, util.ToYAMLPath(valuePath))
 		if found && err == nil {
 			return true, nil
 		}
@@ -205,7 +199,7 @@ func IsComponentEnabledFromValue(valuePath string, valueSpec map[string]interfac
 
 // NamespaceFromValue gets the namespace value in helm value.yaml tree.
 func NamespaceFromValue(valuePath string, valueSpec map[string]interface{}) (string, error) {
-	nsNodeI, found, err := GetFromTreePath(valueSpec, util.ToYAMLPath(valuePath))
+	nsNodeI, found, err := tpath.GetFromTreePath(valueSpec, util.ToYAMLPath(valuePath))
 	if err != nil {
 		return "", fmt.Errorf("namespace path not found: %s from helm value.yaml tree", valuePath)
 	}
@@ -219,16 +213,6 @@ func NamespaceFromValue(valuePath string, valueSpec map[string]interface{}) (str
 	return nsNode, nil
 }
 
-// GetFromTreePath returns the value at path from the given tree, or false if the path does not exist.
-func GetFromTreePath(inputTree map[string]interface{}, path util.Path) (interface{}, bool, error) {
-	scope.Debugf("GetFromTreePath path=%s", path)
-	if len(path) == 0 {
-		return nil, false, fmt.Errorf("path is empty")
-	}
-	node, found := tpath.GetNodeByPath(inputTree, path)
-	return node, found, nil
-}
-
 // Namespace returns the namespace for the component. It follows these rules:
 // 1. If DefaultNamespace is unset, log and error and return the empty string.
 // 2. If the feature and component namespaces are unset, return DefaultNamespace.
@@ -237,7 +221,7 @@ func GetFromTreePath(inputTree map[string]interface{}, path util.Path) (interfac
 // Namespace assumes that controlPlaneSpec has been validated.
 // TODO: remove extra validations when comfort level is high enough.
 func Namespace(featureName FeatureName, componentName ComponentName, controlPlaneSpec *v1alpha2.IstioControlPlaneSpec) (string, error) {
-	defaultNamespaceI, found, err := GetFromStructPath(controlPlaneSpec, "DefaultNamespace")
+	defaultNamespaceI, found, err := tpath.GetFromStructPath(controlPlaneSpec, "DefaultNamespace")
 	if !found {
 		return "", fmt.Errorf("can't find any setting for defaultNamespace for feature=%s, component=%s", featureName, componentName)
 	}
@@ -254,7 +238,7 @@ func Namespace(featureName FeatureName, componentName ComponentName, controlPlan
 	}
 
 	featureNamespace := defaultNamespace
-	featureNodeI, found, err := GetFromStructPath(controlPlaneSpec, string(featureName)+".Components.Namespace")
+	featureNodeI, found, err := tpath.GetFromStructPath(controlPlaneSpec, string(featureName)+".Components.Namespace")
 	if err != nil {
 		return "", fmt.Errorf("error in Namepsace GetFromStructPath featureNamespace for feature=%s, component=%s: %s", featureName, componentName, err)
 	}
@@ -268,7 +252,7 @@ func Namespace(featureName FeatureName, componentName ComponentName, controlPlan
 		}
 	}
 
-	componentNodeI, found, err := GetFromStructPath(controlPlaneSpec, string(featureName)+".Components."+string(componentName)+".Namespace")
+	componentNodeI, found, err := tpath.GetFromStructPath(controlPlaneSpec, string(featureName)+".Components."+string(componentName)+".Namespace")
 	if err != nil {
 		return "", fmt.Errorf("error in Namepsace GetFromStructPath componentNamespace for feature=%s, component=%s: %s", featureName, componentName, err)
 	}
@@ -286,167 +270,4 @@ func Namespace(featureName FeatureName, componentName ComponentName, controlPlan
 		return featureNamespace, nil
 	}
 	return componentNamespace, nil
-}
-
-// GetFromStructPath returns the value at path from the given node, or false if the path does not exist.
-// Node and all intermediate along path must be type struct ptr.
-func GetFromStructPath(node interface{}, path string) (interface{}, bool, error) {
-	return getFromStructPath(node, util.PathFromString(path))
-}
-
-// getFromStructPath is the internal implementation of GetFromStructPath which recurses through a tree of Go structs
-// given a path. It terminates when the end of the path is reached or a path element does not exist.
-func getFromStructPath(node interface{}, path util.Path) (interface{}, bool, error) {
-	scope.Debugf("getFromStructPath path=%s, node(%T)", path, node)
-	if len(path) == 0 {
-		scope.Debugf("getFromStructPath returning node(%T)%v", node, node)
-		return node, !util.IsValueNil(node), nil
-	}
-	kind := reflect.TypeOf(node).Kind()
-	var structElems reflect.Value
-	switch kind {
-	case reflect.Map, reflect.Slice:
-		if len(path) == 0 {
-			return nil, false, fmt.Errorf("getFromStructPath path %s, unsupported leaf type %T", path, node)
-		}
-	case reflect.Ptr:
-		structElems = reflect.ValueOf(node).Elem()
-		if !util.IsStruct(structElems) {
-			return nil, false, fmt.Errorf("getFromStructPath path %s, expected struct ptr, got %T", path, node)
-		}
-	default:
-		return nil, false, fmt.Errorf("getFromStructPath path %s, unsupported type %T", path, node)
-	}
-
-	if util.IsNilOrInvalidValue(structElems) {
-		return nil, false, nil
-	}
-
-	for i := 0; i < structElems.NumField(); i++ {
-		fieldName := structElems.Type().Field(i).Name
-
-		if fieldName != path[0] {
-			continue
-		}
-
-		fv := structElems.Field(i)
-		return getFromStructPath(fv.Interface(), path[1:])
-	}
-
-	return nil, false, nil
-}
-
-// SetFromPath sets out with the value at path from node. out is not set if the path doesn't exist or the value is nil.
-// All intermediate along path must be type struct ptr. Out must be either a struct ptr or map ptr.
-// TODO: move these out to a separate package (istio/istio#15494).
-func SetFromPath(node interface{}, path string, out interface{}) (bool, error) {
-	val, found, err := GetFromStructPath(node, path)
-	if err != nil {
-		return false, err
-	}
-	if !found {
-		return false, nil
-	}
-	if util.IsValueNil(val) {
-		return true, nil
-	}
-
-	return true, Set(val, out)
-}
-
-// Set sets out with the value at path from node. out is not set if the path doesn't exist or the value is nil.
-func Set(val, out interface{}) error {
-	// Special case: map out type must be set through map ptr.
-	if util.IsMap(val) && util.IsMapPtr(out) {
-		reflect.ValueOf(out).Elem().Set(reflect.ValueOf(val))
-		return nil
-	}
-	if util.IsSlice(val) && util.IsSlicePtr(out) {
-		reflect.ValueOf(out).Elem().Set(reflect.ValueOf(val))
-		return nil
-	}
-
-	if reflect.TypeOf(val) != reflect.TypeOf(out) {
-		return fmt.Errorf("setFromPath from type %T != to type %T, %v", val, out, util.IsSlicePtr(out))
-	}
-
-	if !reflect.ValueOf(out).CanSet() {
-		return fmt.Errorf("can't set %v(%T) to out type %T", val, val, out)
-	}
-	reflect.ValueOf(out).Set(reflect.ValueOf(val))
-	return nil
-}
-
-// CreatePatchObjectFromPath constructs patch object for node with path, returns nil object and error if the path is invalid.
-// eg. node:
-//     - name: NEW_VAR
-//       value: new_value
-// and path:
-//       spec.template.spec.containers.[name:discovery].env
-//     will constructs the following patch object:
-//       spec:
-//         template:
-//           spec:
-//             containers:
-//             - name: discovery
-//               env:
-//               - name: NEW_VAR
-//                 value: new_value
-func CreatePatchObjectFromPath(node interface{}, path util.Path) (map[string]interface{}, error) {
-	if len(path) == 0 {
-		return nil, fmt.Errorf("empty path %s", path)
-	}
-	if util.IsKVPathElement(path[0]) {
-		return nil, fmt.Errorf("path %s has an unexpected first element %s", path, path[0])
-	}
-	length := len(path)
-	if util.IsKVPathElement(path[length-1]) {
-		return nil, fmt.Errorf("path %s has an unexpected last element %s", path, path[length-1])
-	}
-
-	patchObj := make(map[string]interface{})
-	var currentNode, nextNode interface{}
-	nextNode = patchObj
-	for i, pe := range path {
-		currentNode = nextNode
-		// last path element
-		if i == length-1 {
-			currentNode, ok := currentNode.(map[string]interface{})
-			if !ok {
-				return nil, fmt.Errorf("path %s has an unexpected non KV element %s", path, pe)
-			}
-			currentNode[pe] = node
-			break
-		}
-
-		if util.IsKVPathElement(pe) {
-			currentNode, ok := currentNode.([]interface{})
-			if !ok {
-				return nil, fmt.Errorf("path %s has an unexpected KV element %s", path, pe)
-			}
-			k, v, err := util.PathKV(pe)
-			if err != nil {
-				return nil, err
-			}
-			if k == "" || v == "" {
-				return nil, fmt.Errorf("path %s has an invalid KV element %s", path, pe)
-			}
-			currentNode[0] = map[string]interface{}{k: v}
-			nextNode = currentNode[0]
-			continue
-		}
-
-		currentNode, ok := currentNode.(map[string]interface{})
-		if !ok {
-			return nil, fmt.Errorf("path %s has an unexpected non KV element %s", path, pe)
-		}
-		// next path element determines the next node type
-		if util.IsKVPathElement(path[i+1]) {
-			currentNode[pe] = make([]interface{}, 1)
-		} else {
-			currentNode[pe] = make(map[string]interface{})
-		}
-		nextNode = currentNode[pe]
-	}
-	return patchObj, nil
 }

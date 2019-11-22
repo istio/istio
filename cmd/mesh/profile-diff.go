@@ -18,10 +18,11 @@ import (
 	"fmt"
 	"os"
 
+	"istio.io/operator/pkg/util"
+
 	"github.com/spf13/cobra"
 
 	"istio.io/operator/pkg/helm"
-	"istio.io/operator/pkg/util"
 	"istio.io/pkg/log"
 )
 

@@ -21,9 +21,10 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/operator/pkg/compare"
+
 	"istio.io/pkg/version"
 
-	"istio.io/operator/pkg/object"
 	"istio.io/operator/pkg/util"
 )
 
@@ -215,7 +216,7 @@ func runTestGroup(t *testing.T, tests testGroup) {
 			}
 
 			for _, v := range []bool{true, false} {
-				diff, err := object.ManifestDiffWithRenameSelectIgnore(got, want,
+				diff, err := compare.ManifestDiffWithRenameSelectIgnore(got, want,
 					"", diffSelect, tt.diffIgnore, v)
 				if err != nil {
 					t.Fatal(err)

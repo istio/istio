@@ -18,10 +18,10 @@ import (
 	"reflect"
 	"testing"
 
+	"istio.io/operator/pkg/util"
+
 	"github.com/kr/pretty"
 	"gopkg.in/yaml.v2"
-
-	"istio.io/operator/pkg/util"
 )
 
 func TestVersion(t *testing.T) {

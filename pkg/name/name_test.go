@@ -18,6 +18,8 @@ import (
 	"reflect"
 	"testing"
 
+	"istio.io/operator/pkg/tpath"
+
 	"github.com/ghodss/yaml"
 
 	"istio.io/operator/pkg/util"
@@ -168,7 +170,7 @@ list2:
 			if err := yaml.Unmarshal([]byte(tt.args.inputTree), &tree); err != nil {
 				t.Fatal(err)
 			}
-			got, found, err := GetFromTreePath(tree, tt.args.path)
+			got, found, err := tpath.GetFromTreePath(tree, tt.args.path)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetFromTreePath() error = %v, wantErr %v", err, tt.wantErr)
 				return

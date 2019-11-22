@@ -46,6 +46,7 @@ type CommonFeatureFields struct {
 	components []component.IstioComponent
 }
 
+// NewFeature returns a new IstioFeature, given the name of the feature and options.
 func NewFeature(ft name.FeatureName, opts *Options) IstioFeature {
 	var feature IstioFeature
 	switch ft {
