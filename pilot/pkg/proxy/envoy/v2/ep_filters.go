@@ -31,9 +31,7 @@ import (
 // of the connected sidecar. The filter will filter out all endpoints which are not present within the
 // sidecar network and add a gateway endpoint to remote networks that have endpoints (if gateway exists).
 // Information for the mesh networks is provided as a MeshNetwork config map.
-func EndpointsByNetworkFilter(endpoints []*endpoint.LocalityLbEndpoints, conn *XdsConnection, env *model.Environment) []*endpoint.LocalityLbEndpoints {
-	// If the sidecar does not specify a network, ignore Split Horizon EDS and return all
-	network := conn.node.Metadata.Network
+func EndpointsByNetworkFilter(proxyNetwork string, endpoints []*endpoint.LocalityLbEndpoints, env *model.Environment) []*endpoint.LocalityLbEndpoints {
 	meshNetworks := env.MeshNetworks.Networks
 
 	// calculate the multiples of weight.
@@ -65,7 +63,7 @@ func EndpointsByNetworkFilter(endpoints []*endpoint.LocalityLbEndpoints, conn *X
 		lbEndpoints := make([]*endpoint.LbEndpoint, 0)
 		for _, lbEp := range ep.LbEndpoints {
 			epNetwork := istioMetadata(lbEp, "network")
-			if epNetwork == network {
+			if epNetwork == proxyNetwork {
 				// This is a local endpoint
 				lbEp.LoadBalancingWeight = &wrappers.UInt32Value{
 					Value: uint32(multiples),

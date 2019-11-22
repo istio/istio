@@ -699,7 +699,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 		// If networks are set (by default they aren't) apply the Split Horizon
 		// EDS filter on the endpoints
 		if s.Env.MeshNetworks != nil && len(s.Env.MeshNetworks.Networks) > 0 {
-			endpoints := EndpointsByNetworkFilter(l.Endpoints, con, s.Env)
+			endpoints := EndpointsByNetworkFilter(con.node.Metadata.Network, l.Endpoints, s.Env)
 			filteredCLA := &xdsapi.ClusterLoadAssignment{
 				ClusterName: l.ClusterName,
 				Endpoints:   endpoints,
