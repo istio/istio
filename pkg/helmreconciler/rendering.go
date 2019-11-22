@@ -110,7 +110,7 @@ func mergeICPSWithProfile(icp *v1alpha2.IstioControlPlaneSpec) (*v1alpha2.IstioC
 	// override from variables that are set during release build time.
 	hub := version.DockerInfo.Hub
 	tag := version.DockerInfo.Tag
-	if hub != "unknown" && tag != "unknown" {
+	if hub != "" && hub != "unknown" && tag != "" && tag != "unknown" {
 		buildHubTagOverlayYAML, err := helm.GenerateHubTagOverlay(hub, tag)
 		if err != nil {
 			return nil, err
