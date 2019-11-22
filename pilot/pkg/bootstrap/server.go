@@ -222,17 +222,14 @@ func NewServer(args PilotArgs) (*Server, error) {
 		return nil, fmt.Errorf("cluster registries: %v", err)
 	}
 
-	// Will run the sidecar injector in pilot - this precedes istiod, which does the same thing but with different
-	// config - certs are local. The code in main() hardcodes port 15017 and InjectionDirectory /etc/istio/inject
-	// and only operates if the directory exists - which is not set in either old or new installer. This code
-	// was used before sidecar injector was split to a separate deployment. Instead of attempting to use the old
-	// code, we'll use the istiod code which was tested more recently.
-	if err := s.initSidecarInjector(&args); err != nil {
-		return nil, fmt.Errorf("sidecar injector: %v", err)
-	}
-
 	if err := s.initDNSListener(&args); err != nil {
 		return nil, fmt.Errorf("istiod: %v", err)
+	}
+
+	// Will run the sidecar injector in pilot.
+	// Only operates if /var/lib/istio/inject exists
+	if err := s.initSidecarInjector(&args); err != nil {
+		return nil, fmt.Errorf("sidecar injector: %v", err)
 	}
 
 	if err := s.initSDSCA(&args); err != nil {
