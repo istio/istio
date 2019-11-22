@@ -164,9 +164,13 @@ containers:
   - name: ISTIO_META_POD_PORTS
     value: |-
       [
+      {{- $first := true }}
       {{- range $index1, $c := .Spec.Containers }}
         {{- range $index2, $p := $c.Ports }}
-          {{if or (ne $index1 0) (ne $index2 0)}},{{end}}{{ structToJSON $p }}
+          {{- if (structToJSON $p) }}
+          {{if not $first}},{{end}}{{ structToJSON $p }}
+          {{- $first = false }}
+          {{- end }}
         {{- end}}
       {{- end}}
       ]
