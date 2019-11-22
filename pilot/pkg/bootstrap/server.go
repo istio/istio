@@ -154,7 +154,6 @@ type Server struct {
 	RootCA []byte
 	Galley *server.Server
 
-	GrpcListener       net.Listener
 	HttpListener       net.Listener
 	Environment        *model.Environment
 	SecureGrpcListener net.Listener
@@ -263,12 +262,27 @@ func (s *Server) Start(stop <-chan struct{}) error {
 		}
 	}
 
-	// grpcServer is shared by Galley, CA, XDS - must Serve at the end
+	// grpcServer is shared by Galley, CA, XDS - must Serve at the end, but before 'wait'
 	go func() {
 		if err := s.grpcServer.Serve(s.grpcListener); err != nil {
 			log.Warna(err)
 		}
 	}()
+
+	if !s.waitForCacheSync(stop) {
+		return fmt.Errorf("failed to sync cache")
+	}
+	log.Infof("starting discovery service at http=%s grpc=%s", s.HttpListener.Addr(),
+		s.grpcListener.Addr())
+
+	// At this point we are ready
+	go func() {
+		if err := s.httpServer.Serve(s.HttpListener); err != nil {
+			log.Warna(err)
+		}
+	}()
+
+	s.cleanupOnStop(stop)
 
 	return nil
 }
@@ -354,6 +368,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		return err
 	}
 	s.HTTPListeningAddr = listener.Addr()
+	s.HttpListener = listener
 
 	// create grpc listener
 	grpcListener, err := net.Listen("tcp", args.DiscoveryOptions.GrpcAddr)
@@ -362,36 +377,6 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	}
 	s.GRPCListeningAddr = grpcListener.Addr()
 	s.grpcListener = grpcListener
-
-	s.addStartFunc(func(stop <-chan struct{}) error {
-		if !s.waitForCacheSync(stop) {
-			return fmt.Errorf("failed to sync cache")
-		}
-		log.Infof("starting discovery service at http=%s grpc=%s", listener.Addr(), grpcListener.Addr())
-		go func() {
-			if err := s.httpServer.Serve(listener); err != nil {
-				log.Warna(err)
-			}
-		}()
-
-		go func() {
-			<-stop
-			model.JwtKeyResolver.Close()
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancel()
-			err := s.httpServer.Shutdown(ctx)
-			if err != nil {
-				log.Warna(err)
-			}
-			if args.ForceStop {
-				s.grpcServer.Stop()
-			} else {
-				s.grpcServer.GracefulStop()
-			}
-		}()
-
-		return nil
-	})
 
 	// run grpc server using the Citadel secrets. New installer uses a sidecar for this.
 	// Will be deprecated once Istiod mode is stable.
@@ -444,6 +429,25 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	}
 
 	return nil
+}
+
+// Wait for the stop, and do cleanups
+func (s *Server) cleanupOnStop(stop <-chan struct{}) {
+	go func() {
+		<-stop
+		model.JwtKeyResolver.Close()
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		err := s.httpServer.Shutdown(ctx)
+		if err != nil {
+			log.Warna(err)
+		}
+		if s.Args.ForceStop {
+			s.grpcServer.Stop()
+		} else {
+			s.grpcServer.GracefulStop()
+		}
+	}()
 }
 
 func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
