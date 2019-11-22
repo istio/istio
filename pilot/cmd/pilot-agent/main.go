@@ -348,7 +348,7 @@ var (
 			sdsUDSPath := sdsUdsPathVar.Get()
 			nodeAgentSDSEnabled, sdsTokenPath := detectSds(controlPlaneBootstrap, sdsUDSPath, trustworthyJWTPath)
 
-			if !nodeAgentSDSEnabled && role.Type == model.SidecarProxy{ // Not using citadel agent - this is either Pilot or Istiod.
+			if !nodeAgentSDSEnabled && role.Type == model.SidecarProxy { // Not using citadel agent - this is either Pilot or Istiod.
 
 				// Istiod and new SDS-only mode doesn't use sdsUdsPathVar - sdsEnabled will be false.
 				sa := istio_agent.NewSDSAgent(discoveryAddress, controlPlaneAuthEnabled)

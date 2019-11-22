@@ -216,7 +216,6 @@ func (p *Processing2) Start() (err error) {
 
 	p.grpcServer = grpc.NewServer(grpcOptions...)
 
-
 	// get the network stuff setup
 	network := "tcp"
 	var address string
