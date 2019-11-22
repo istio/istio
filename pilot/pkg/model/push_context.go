@@ -1480,6 +1480,11 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 	return MergeGateways(out...)
 }
 
+// Only used by test
+func (ps *PushContext) InitMeshNetworks(env *Environment) {
+	ps.initMeshNetworks(env)
+}
+
 // pre computes gateways for each network
 func (ps *PushContext) initMeshNetworks(env *Environment) {
 	if env.MeshNetworks == nil || len(env.MeshNetworks.Networks) == 0 {
