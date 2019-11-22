@@ -480,59 +480,18 @@ func (ilw *IstioEgressListenerWrapper) selectVirtualServices(virtualServices []C
 func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, configNamespace string) []*Service {
 
 	importedServices := make([]*Service, 0)
+	wildcardHosts, wnsFound := ilw.listenerHosts[wildcardNamespace]
 	for _, s := range services {
 		configNamespace := s.Attributes.Namespace
+
 		// Check if there is an explicit import of form ns/* or ns/host
 		if importedHosts, nsFound := ilw.listenerHosts[configNamespace]; nsFound {
-			hostFound := false
-			for _, importedHost := range importedHosts {
-				// Check if the hostnames match per usual hostname matching rules
-				if importedHost.Matches(s.Hostname) {
-					// If a listener is defined with port, we should match services with port.
-					needsPortMatch := ilw.IstioListener != nil && ilw.IstioListener.Port != nil
-					portMatched := false
-					if needsPortMatch {
-						for _, port := range s.Ports {
-							if port.Port == int(ilw.IstioListener.Port.GetNumber()) {
-								portMatched = true
-								break
-							}
-						}
-					} else {
-						importedServices = append(importedServices, s)
-						hostFound = true
-						break
-					}
-					// If there is a port match, we should trim the service ports to the port specified by listener.
-					if portMatched {
-						for _, port := range s.Ports {
-							if port.Port == int(ilw.IstioListener.Port.GetNumber()) {
-								ports := []*Port{}
-								sc := s.DeepCopy()
-								ports = append(ports, port)
-								sc.Ports = ports
-								importedServices = append(importedServices, sc)
-								hostFound = true
-								break
-							}
-						}
-					}
-				}
-			}
-			if hostFound {
-				continue
-			}
+			importedServices = append(importedServices, matchingServices(importedHosts, s, ilw)...)
 		}
 
 		// Check if there is an import of form */host or */*
-		if importedHosts, wnsFound := ilw.listenerHosts[wildcardNamespace]; wnsFound {
-			for _, importedHost := range importedHosts {
-				// Check if the hostnames match per usual hostname matching rules
-				if importedHost.Matches(s.Hostname) {
-					importedServices = append(importedServices, s)
-					break
-				}
-			}
+		if wnsFound {
+			importedServices = append(importedServices, matchingServices(wildcardHosts, s, ilw)...)
 		}
 	}
 
@@ -555,4 +514,43 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 		}
 	}
 	return filteredServices
+}
+
+func matchingServices(importedHosts []host.Name, service *Service, ilw *IstioEgressListenerWrapper) []*Service {
+	// If a listener is defined with port, we should match services with port.
+	// If an unix domain socket is given as a port, we should not match by port and include services based on hosts.
+	needsPortMatch := ilw.IstioListener != nil && ilw.IstioListener.Port != nil && ilw.IstioListener.Port.GetNumber() != 0
+	importedServices := make([]*Service, 0)
+
+	for _, importedHost := range importedHosts {
+		// Check if the hostnames match per usual hostname matching rules
+		if importedHost.Matches(service.Hostname) {
+			portMatched := false
+			if needsPortMatch {
+				for _, port := range service.Ports {
+					if port.Port == int(ilw.IstioListener.Port.GetNumber()) {
+						portMatched = true
+						break
+					}
+				}
+			} else {
+				importedServices = append(importedServices, service)
+				break
+			}
+			// If there is a port match, we should trim the service ports to the port specified by listener.
+			if portMatched {
+				for _, port := range service.Ports {
+					if port.Port == int(ilw.IstioListener.Port.GetNumber()) {
+						ports := []*Port{}
+						sc := service.DeepCopy()
+						ports = append(ports, port)
+						sc.Ports = ports
+						importedServices = append(importedServices, sc)
+						break
+					}
+				}
+			}
+		}
+	}
+	return importedServices
 }

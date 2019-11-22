@@ -27,7 +27,7 @@ var (
 		Hub:        env.HUB.Value(),
 		Tag:        env.TAG.Value(),
 		PullPolicy: env.PULL_POLICY.Value(),
-		BitnamiHub: env.BITNAMIHUB.Value(),
+		BitnamiHub: env.BITNAMIHUB.ValueOrDefault("docker.io/bitnami"),
 	}
 )
 

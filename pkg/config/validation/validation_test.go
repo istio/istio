@@ -16,6 +16,7 @@ package validation
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -2035,9 +2036,10 @@ func TestValidateDestination(t *testing.T) {
 
 func TestValidateHTTPRoute(t *testing.T) {
 	testCases := []struct {
-		name  string
-		route *networking.HTTPRoute
-		valid bool
+		name        string
+		route       *networking.HTTPRoute
+		unsaferegex bool
+		valid       bool
 	}{
 		{name: "empty", route: &networking.HTTPRoute{ // nothing
 		}, valid:                                     false},
@@ -2258,9 +2260,24 @@ func TestValidateHTTPRoute(t *testing.T) {
 				},
 			}},
 		}, valid: false},
+		{name: "too large regex with unsafe enabled", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.bar"},
+			}},
+			Match: []*networking.HTTPMatchRequest{{
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Regex{Regex: strings.Repeat("a", 101)},
+				},
+			}},
+		}, unsaferegex: true, valid: true},
 	}
 
 	for _, tc := range testCases {
+		if tc.unsaferegex {
+			_ = os.Setenv("PILOT_ENABLE_UNSAFE_REGEX", "true")
+
+			defer func() { _ = os.Unsetenv("PILOT_ENABLE_UNSAFE_REGEX") }()
+		}
 		t.Run(tc.name, func(t *testing.T) {
 			if err := validateHTTPRoute(tc.route); (err == nil) != tc.valid {
 				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
@@ -3510,7 +3527,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 			Resolution: networking.ServiceEntry_STATIC,
 		},
-			valid: false},
+			valid: true},
 
 		{name: "discovery type static, bad endpoint port name", in: networking.ServiceEntry{
 			Hosts:     []string{"google.com"},
