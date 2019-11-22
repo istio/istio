@@ -190,6 +190,9 @@ func (p *Processing2) Start() (err error) {
 		if p.args.SecureGRPC != nil {
 			mcp.RegisterResourceSourceServer(p.args.SecureGRPC, p.mcpSource)
 		}
+		go func() {
+			p.runtime.Start()
+		}()
 
 		return nil
 	}
