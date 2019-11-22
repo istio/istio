@@ -126,8 +126,7 @@ var (
 	dependencyWaitCh = make(map[name.ComponentName]chan struct{})
 	kubectl          = kubectlcmd.New()
 
-	k8sRESTConfig  *rest.Config
-	appliedObjects = object.K8sObjects{}
+	k8sRESTConfig *rest.Config
 )
 
 func init() {
@@ -219,10 +218,11 @@ type InstallOptions struct {
 
 // ApplyAll applies all given manifests using kubectl client.
 func ApplyAll(manifests name.ManifestMap, version version.Version, opts *InstallOptions) (CompositeOutput, error) {
-	logAndPrint("Applying manifests for these components:")
+	logAndPrint("Preparing manifests for these components:")
 	for c := range manifests {
 		logAndPrint("- %s", c)
 	}
+	logAndPrint("")
 	log.Infof("Component dependencies tree: \n%s", installTreeString())
 	if err := initK8SRestClient(opts.Kubeconfig, opts.Context); err != nil {
 		return nil, err
@@ -234,19 +234,21 @@ func applyRecursive(manifests name.ManifestMap, version version.Version, opts *I
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	out := CompositeOutput{}
+	allAppliedObjects := object.K8sObjects{}
 	for c, m := range manifests {
 		c := c
 		m := m
 		wg.Add(1)
 		go func() {
 			if s := dependencyWaitCh[c]; s != nil {
-				logAndPrint("%s is waiting on a prerequisite...", c)
+				log.Infof("%s is waiting on a prerequisite...", c)
 				<-s
-				logAndPrint("Prerequisite for %s has completed, proceeding with install.", c)
+				log.Infof("Prerequisite for %s has completed, proceeding with install.", c)
 			}
-			applyOut := applyManifest(c, m, version, opts)
+			applyOut, appliedObjects := applyManifest(c, m, version, opts)
 			mu.Lock()
 			out[c] = applyOut
+			allAppliedObjects = append(allAppliedObjects, appliedObjects...)
 			mu.Unlock()
 
 			// Signal all the components that depend on us.
@@ -259,18 +261,19 @@ func applyRecursive(manifests name.ManifestMap, version version.Version, opts *I
 	}
 	wg.Wait()
 	if opts.Wait {
-		return out, waitForResources(appliedObjects, opts)
+		return out, waitForResources(allAppliedObjects, opts)
 	}
 	return out, nil
 }
 
-func applyManifest(componentName name.ComponentName, manifestStr string, version version.Version, opts *InstallOptions) *ComponentApplyOutput {
+func applyManifest(componentName name.ComponentName, manifestStr string, version version.Version,
+	opts *InstallOptions) (*ComponentApplyOutput, object.K8sObjects) {
 	stdout, stderr := "", ""
+	appliedObjects := object.K8sObjects{}
 	objects, err := object.ParseK8sObjectsFromYAMLManifest(manifestStr)
 	if err != nil {
-		return buildComponentApplyOutput(stdout, stderr, "", err)
+		return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 	}
-
 	componentLabel := fmt.Sprintf("%s=%s", istioComponentLabelStr, componentName)
 
 	// TODO: remove this when `kubectl --prune` supports empty objects
@@ -279,15 +282,32 @@ func applyManifest(componentName name.ComponentName, manifestStr string, version
 	if len(objects) == 0 {
 		extraArgsGet := []string{"--all-namespaces", "--selector", componentLabel}
 		stdoutGet, stderrGet, err := kubectl.GetAll(opts.Kubeconfig, opts.Context, "", "yaml", extraArgsGet...)
-		if err != nil || strings.TrimSpace(stdoutGet) == "" {
-			return buildComponentApplyOutput(stdoutGet, stderrGet, "", err)
+		if err != nil {
+			stdout += "\n" + stdoutGet
+			stderr += "\n" + stderrGet
+			return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
+		}
+		items, err := GetKubectlGetItems(stdoutGet)
+		if err != nil {
+			return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
+		}
+		if len(items) == 0 {
+			return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 		}
 
+		delObjects, err := object.ParseK8sObjectsFromYAMLManifest(stdoutGet)
+		if err != nil {
+			return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
+		}
 		extraArgsDel := []string{"--selector", componentLabel}
 		stdoutDel, stderrDel, err := kubectl.Delete(opts.DryRun, opts.Verbose, opts.Kubeconfig, opts.Context, "", stdoutGet, extraArgsDel...)
 		stdout += "\n" + stdoutDel
 		stderr += "\n" + stderrDel
-		return buildComponentApplyOutput(stdout, stderr, "", err)
+		if err != nil {
+			return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
+		}
+		appliedObjects = append(appliedObjects, delObjects...)
+		return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 	}
 
 	namespace := ""
@@ -302,8 +322,6 @@ func applyManifest(componentName name.ComponentName, manifestStr string, version
 	}
 	objects.Sort(defaultObjectOrder())
 
-	appliedObjects = append(appliedObjects, objects...)
-
 	extraArgs := []string{"--force"}
 	// Base components include namespaces and CRDs, pruning them will remove user configs, which makes it hard to roll back.
 	if componentName != name.IstioBaseComponentName {
@@ -316,54 +334,76 @@ func applyManifest(componentName name.ComponentName, manifestStr string, version
 	if len(nsObjects) > 0 {
 		mns, err := nsObjects.JSONManifest()
 		if err != nil {
-			return buildComponentApplyOutput(stdout, stderr, "", err)
+			return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 		}
 
 		stdoutNs, stderrNs, err := kubectl.Apply(opts.DryRun, opts.Verbose, opts.Kubeconfig, opts.Context, namespace, mns, extraArgs...)
 		stdout += "\n" + stdoutNs
 		stderr += "\n" + stderrNs
 		if err != nil {
-			return buildComponentApplyOutput(stdout, stderr, "", err)
+			return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 		}
 
 		if err := waitForResources(nsObjects, opts); err != nil {
-			return buildComponentApplyOutput(stdout, stderr, "", err)
+			return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 		}
 	}
+	appliedObjects = append(appliedObjects, nsObjects...)
 
 	crdObjects := cRDKindObjects(objects)
 	if len(crdObjects) > 0 {
 		mcrd, err := crdObjects.JSONManifest()
 		if err != nil {
-			return buildComponentApplyOutput(stdout, stderr, "", err)
+			return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 		}
 
 		stdoutCRD, stderrCRD, err := kubectl.Apply(opts.DryRun, opts.Verbose, opts.Kubeconfig, opts.Context, namespace, mcrd, extraArgs...)
 		stdout += "\n" + stdoutCRD
 		stderr += "\n" + stderrCRD
 		if err != nil {
-			return buildComponentApplyOutput(stdout, stderr, "", err)
+			return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 		}
 		// Not all Istio components are robust to not yet created CRDs.
 		if err := waitForCRDs(objects, opts.DryRun); err != nil {
-			return buildComponentApplyOutput(stdout, stderr, "", err)
+			return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 		}
 	}
+	appliedObjects = append(appliedObjects, crdObjects...)
 
 	nonNsCrdObjects := objectsNotInLists(objects, nsObjects, crdObjects)
 	m, err := nonNsCrdObjects.JSONManifest()
 	if err != nil {
-		return buildComponentApplyOutput(stdout, stderr, "", err)
+		return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 	}
 	stdoutNonNsCrd, stderrNonNsCrd, err := kubectl.Apply(opts.DryRun, opts.Verbose, opts.Kubeconfig, opts.Context, namespace, m, extraArgs...)
 	stdout += "\n" + stdoutNonNsCrd
 	stderr += "\n" + stderrNonNsCrd
 	logAndPrint("Finished applying manifest for component %s", componentName)
-	ym, _ := objects.YAMLManifest()
-	return buildComponentApplyOutput(stdout, stderr, ym, err)
+	appliedObjects = append(appliedObjects, nonNsCrdObjects...)
+	return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 }
 
-func buildComponentApplyOutput(stdout string, stderr string, manifest string, err error) *ComponentApplyOutput {
+func GetKubectlGetItems(stdoutGet string) ([]interface{}, error) {
+	yamlGet := make(map[string]interface{})
+	err := yaml.Unmarshal([]byte(stdoutGet), &yamlGet)
+	if err != nil {
+		return nil, err
+	}
+	if yamlGet["kind"] != "List" {
+		return nil, fmt.Errorf("`kubectl get` returned a yaml whose kind is not List")
+	}
+	if _, ok := yamlGet["items"]; !ok {
+		return nil, fmt.Errorf("`kubectl get` returned a yaml without 'items' in the root")
+	}
+	switch items := yamlGet["items"].(type) {
+	case []interface{}:
+		return items, nil
+	}
+	return nil, fmt.Errorf("`kubectl get` returned a yaml incorrecnt type 'items' in the root")
+}
+
+func buildComponentApplyOutput(stdout string, stderr string, objects object.K8sObjects, err error) *ComponentApplyOutput {
+	manifest, _ := objects.YAMLManifest()
 	return &ComponentApplyOutput{
 		Stdout:   stdout,
 		Stderr:   stderr,
@@ -448,11 +488,11 @@ func objectsNotInLists(objects object.K8sObjects, lists ...object.K8sObjects) ob
 
 func waitForCRDs(objects object.K8sObjects, dryRun bool) error {
 	if dryRun {
-		logAndPrint("Not waiting for CRDs in dry run mode.")
+		log.Info("Not waiting for CRDs in dry run mode.")
 		return nil
 	}
 
-	logAndPrint("Waiting for CRDs to be applied.")
+	log.Info("Waiting for CRDs to be applied.")
 	cs, err := apiextensionsclient.NewForConfig(k8sRESTConfig)
 	if err != nil {
 		return fmt.Errorf("k8s client error: %s", err)
@@ -490,11 +530,11 @@ func waitForCRDs(objects object.K8sObjects, dryRun bool) error {
 	})
 
 	if errPoll != nil {
-		logAndPrint("failed to verify CRD creation; %s", errPoll)
+		log.Errorf("failed to verify CRD creation; %s", errPoll)
 		return fmt.Errorf("failed to verify CRD creation: %s", errPoll)
 	}
 
-	logAndPrint("CRDs applied.")
+	log.Info("Finished applying CRDs.")
 	return nil
 }
 
