@@ -27,9 +27,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 )
 
-// EndpointsFilterFunc is a function that filters data from the ClusterLoadAssignment and returns updated one
-type EndpointsFilterFunc func(endpoints []endpoint.LocalityLbEndpoints, conn *XdsConnection, env *model.Environment) []*endpoint.LocalityLbEndpoints
-
 // EndpointsByNetworkFilter is a network filter function to support Split Horizon EDS - filter the endpoints based on the network
 // of the connected sidecar. The filter will filter out all endpoints which are not present within the
 // sidecar network and add a gateway endpoint to remote networks that have endpoints (if gateway exists).
@@ -37,11 +34,12 @@ type EndpointsFilterFunc func(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 func EndpointsByNetworkFilter(endpoints []*endpoint.LocalityLbEndpoints, conn *XdsConnection, env *model.Environment) []*endpoint.LocalityLbEndpoints {
 	// If the sidecar does not specify a network, ignore Split Horizon EDS and return all
 	network := conn.node.Metadata.Network
+	meshNetworks := env.MeshNetworks.Networks
 
 	// calculate the multiples of weight.
 	// It is needed to normalize the LB Weight across different networks.
 	multiples := 1
-	for _, network := range env.MeshNetworks.Networks {
+	for _, network := range meshNetworks {
 		num := 0
 		registryName := getNetworkRegistry(network)
 		for _, gw := range network.Gateways {
@@ -85,7 +83,7 @@ func EndpointsByNetworkFilter(endpoints []*endpoint.LocalityLbEndpoints, conn *X
 		// for each one of those add a new endpoint that points to the network's
 		// gateway with the relevant weight
 		for network, w := range remoteEps {
-			networkConf, found := env.MeshNetworks.Networks[network]
+			networkConf, found := meshNetworks[network]
 			if !found {
 				adsLog.Debugf("the endpoints within network %s will be ignored for no network configured", network)
 				continue
