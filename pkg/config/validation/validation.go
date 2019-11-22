@@ -2436,11 +2436,6 @@ func ValidateServiceEntry(_, _ string, config proto.Message) (errs error) {
 			errs = appendErrors(errs, fmt.Errorf("no endpoints should be provided for resolution type none"))
 		}
 	case networking.ServiceEntry_STATIC:
-		if len(serviceEntry.Endpoints) == 0 {
-			errs = appendErrors(errs,
-				fmt.Errorf("endpoints must be provided if service entry resolution mode is static"))
-		}
-
 		unixEndpoint := false
 		for _, endpoint := range serviceEntry.Endpoints {
 			addr := endpoint.GetAddress()
