@@ -15,36 +15,23 @@
 package v2
 
 import (
-	"net"
-
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
-	"istio.io/api/mesh/v1alpha1"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/config/host"
 )
 
 // EndpointsByNetworkFilter is a network filter function to support Split Horizon EDS - filter the endpoints based on the network
 // of the connected sidecar. The filter will filter out all endpoints which are not present within the
 // sidecar network and add a gateway endpoint to remote networks that have endpoints (if gateway exists).
 // Information for the mesh networks is provided as a MeshNetwork config map.
-func EndpointsByNetworkFilter(proxyNetwork string, endpoints []*endpoint.LocalityLbEndpoints, env *model.Environment) []*endpoint.LocalityLbEndpoints {
-	meshNetworks := env.MeshNetworks.Networks
-
+func EndpointsByNetworkFilter(push *model.PushContext, proxyNetwork string, endpoints []*endpoint.LocalityLbEndpoints) []*endpoint.LocalityLbEndpoints {
 	// calculate the multiples of weight.
 	// It is needed to normalize the LB Weight across different networks.
 	multiples := 1
-	for _, network := range meshNetworks {
-		num := 0
-		registryName := getNetworkRegistry(network)
-		for _, gw := range network.Gateways {
-			addrs := getGatewayAddresses(gw, registryName, env)
-			num += len(addrs)
-		}
-		if num > 1 {
+	for _, gateways := range push.NetworkGateways() {
+		if num := len(gateways); num > 0 {
 			multiples *= num
 		}
 	}
@@ -82,35 +69,20 @@ func EndpointsByNetworkFilter(proxyNetwork string, endpoints []*endpoint.Localit
 		// for each one of those add a new endpoint that points to the network's
 		// gateway with the relevant weight
 		for network, w := range remoteEps {
-			networkConf, found := meshNetworks[network]
-			if !found {
-				adsLog.Debugf("the endpoints within network %s will be ignored for no network configured", network)
-				continue
-			}
-			gws := networkConf.Gateways
-			if len(gws) == 0 {
-				adsLog.Debugf("the endpoints within network %s will be ignored for no gateways configured", network)
-				continue
-			}
-
-			registryName := getNetworkRegistry(networkConf)
+			gateways := push.NetworkGatewaysByNetwork(network)
 			gwEps := make([]*endpoint.LbEndpoint, 0)
 			// There may be multiples gateways for the network. Add an LbEndpoint for
 			// each one of them
-			for _, gw := range gws {
-				gwAddresses := getGatewayAddresses(gw, registryName, env)
-				// If gateway addresses are found, create an endpoint for each one of them
-				for _, gwAddr := range gwAddresses {
-					epAddr := util.BuildAddress(gwAddr, gw.Port)
-					gwEp := &endpoint.LbEndpoint{
-						HostIdentifier: &endpoint.LbEndpoint_Endpoint{
-							Endpoint: &endpoint.Endpoint{
-								Address: epAddr,
-							},
+			for _, gw := range gateways {
+				epAddr := util.BuildAddress(gw.Addr, gw.Port)
+				gwEp := &endpoint.LbEndpoint{
+					HostIdentifier: &endpoint.LbEndpoint_Endpoint{
+						Endpoint: &endpoint.Endpoint{
+							Address: epAddr,
 						},
-					}
-					gwEps = append(gwEps, gwEp)
+					},
 				}
+				gwEps = append(gwEps, gwEp)
 			}
 			if len(gwEps) == 0 {
 				continue
@@ -167,35 +139,4 @@ func createLocalityLbEndpoints(base *endpoint.LocalityLbEndpoints, lbEndpoints [
 		Priority:            base.Priority,
 	}
 	return ep
-}
-
-func getNetworkRegistry(network *v1alpha1.Network) string {
-	var registryName string
-	for _, eps := range network.Endpoints {
-		if eps != nil && len(eps.GetFromRegistry()) > 0 {
-			registryName = eps.GetFromRegistry()
-			break
-		}
-	}
-
-	return registryName
-}
-
-func getGatewayAddresses(gw *v1alpha1.Network_IstioNetworkGateway, registryName string, env *model.Environment) []string {
-	// First, if a gateway address is provided in the configuration use it. If the gateway address
-	// in the config was a hostname it got already resolved and replaced with an IP address
-	// when loading the config
-	if gwIP := net.ParseIP(gw.GetAddress()); gwIP != nil {
-		return []string{gw.GetAddress()}
-	}
-
-	// Second, try to find the gateway addresses by the provided service name
-	if gwSvcName := gw.GetRegistryServiceName(); len(gwSvcName) > 0 && len(registryName) > 0 {
-		svc, _ := env.GetService(host.Name(gwSvcName))
-		if svc != nil {
-			return svc.Attributes.ClusterExternalAddresses[registryName]
-		}
-	}
-
-	return nil
 }

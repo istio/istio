@@ -143,7 +143,9 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			filtered := EndpointsByNetworkFilter(tt.conn.node.Metadata.Network, tt.endpoints, tt.env)
+			push := model.NewPushContext()
+			push.InitContext(tt.env, nil, nil)
+			filtered := EndpointsByNetworkFilter(push, tt.conn.node.Metadata.Network, tt.endpoints)
 			if len(filtered) != len(tt.want) {
 				t.Errorf("Unexpected number of filtered endpoints: got %v, want %v", len(filtered), len(tt.want))
 				return
@@ -311,7 +313,9 @@ func TestEndpointsByNetworkFilter_RegistryServiceName(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			filtered := EndpointsByNetworkFilter(tt.conn.node.Metadata.Network, tt.endpoints, tt.env)
+			push := model.NewPushContext()
+			push.InitContext(tt.env, nil, nil)
+			filtered := EndpointsByNetworkFilter(push, tt.conn.node.Metadata.Network, tt.endpoints)
 			if len(filtered) != len(tt.want) {
 				t.Errorf("Unexpected number of filtered endpoints: got %v, want %v", len(filtered), len(tt.want))
 				return
