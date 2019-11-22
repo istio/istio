@@ -180,8 +180,12 @@ mkdir -p "${ISTIO_BIN}"
 # Set the value of DOWNLOAD_COMMAND (either curl or wget)
 set_download_command
 
-# Download and extract the Envoy linux debug binary.
-download_envoy_if_necessary "${ISTIO_ENVOY_LINUX_DEBUG_URL}" "$ISTIO_ENVOY_LINUX_DEBUG_PATH"
+if [[ -v DEBUG_IMAGE ]]; then
+  # Download and extract the Envoy linux debug binary.
+  download_envoy_if_necessary "${ISTIO_ENVOY_LINUX_DEBUG_URL}" "$ISTIO_ENVOY_LINUX_DEBUG_PATH"
+else
+  echo "Skipping envoy debug. Set DEBUG_IMAGE to download."
+fi
 
 # Download and extract the Envoy linux release binary.
 download_envoy_if_necessary "${ISTIO_ENVOY_LINUX_RELEASE_URL}" "$ISTIO_ENVOY_LINUX_RELEASE_PATH"
@@ -191,7 +195,7 @@ if [[ "$LOCAL_OS" == "Darwin" ]]; then
   download_envoy_if_necessary "${ISTIO_ENVOY_MACOS_RELEASE_URL}" "$ISTIO_ENVOY_MACOS_RELEASE_PATH"
   ISTIO_ENVOY_NATIVE_PATH=${ISTIO_ENVOY_MACOS_RELEASE_PATH}
 else
-  ISTIO_ENVOY_NATIVE_PATH=${ISTIO_ENVOY_LINUX_DEBUG_PATH}
+  ISTIO_ENVOY_NATIVE_PATH=${ISTIO_ENVOY_LINUX_RELEASE_PATH}
 fi
 
 # Copy native envoy binary to ISTIO_OUT
