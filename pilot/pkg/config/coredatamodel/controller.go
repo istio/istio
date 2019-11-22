@@ -36,9 +36,6 @@ import (
 
 var (
 	errUnsupported = errors.New("this operation is not supported by mcp controller")
-
-	syncSpam    = false
-	syncWaitLog = true
 )
 
 const ledgerLogf = "error tracking pilot config versions for coredatamodel distribution: %v"
@@ -243,10 +240,6 @@ func (c *Controller) HasSynced() bool {
 	c.syncedMu.Unlock()
 
 	if len(notReady) > 0 {
-		if syncSpam || syncWaitLog {
-			log.Infof("Configuration not synced: first push for %v not received", notReady)
-			syncWaitLog = false // don't log again, it's in a loop making everything else hard to read
-		}
 		time.Sleep(100 * time.Millisecond)
 		return false
 	}
