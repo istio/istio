@@ -78,7 +78,7 @@ func newWorkload(e *native.Environment, cfg echo.Config, dumpDir string) (out *w
 	}
 
 	// Get the Docker images for the Echo application.
-	imgs, err := images.Get(e)
+	imgs, err := images.Get()
 	if err != nil {
 		return nil, err
 	}

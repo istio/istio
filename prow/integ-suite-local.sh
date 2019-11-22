@@ -31,7 +31,7 @@ setup_and_export_git_sha
 
 cd "${ROOT}"
 
-make sync
+make docker.app_sidecar docker.app
 
 export JUNIT_UNIT_TEST_XML="${ARTIFACTS}/junit_unit-tests.xml"
 export T="-v"
