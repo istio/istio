@@ -861,12 +861,13 @@ func (s *DiscoveryServer) updateEdsClients(added sets.Set, removed sets.Set, con
 				EdsClients: map[string]*XdsConnection{},
 			}
 			edsClusters[ac] = c
-			// TODO: find a more efficient way to make edsClusters and EdsClients init atomic
-			// Currently use edsClusterMutex lock
-			c.mutex.Lock()
-			c.EdsClients[connection.ConID] = connection
-			c.mutex.Unlock()
 		}
+
+		// TODO: find a more efficient way to make edsClusters and EdsClients init atomic
+		// Currently use edsClusterMutex lock
+		c.mutex.Lock()
+		c.EdsClients[connection.ConID] = connection
+		c.mutex.Unlock()
 	}
 }
 
