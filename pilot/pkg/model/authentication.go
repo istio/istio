@@ -16,6 +16,7 @@ package model
 
 import (
 	"istio.io/api/security/v1beta1"
+
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schemas"
 )
@@ -68,7 +69,7 @@ func initAuthenticationPolicies(env *Environment) *AuthenticationPolicies {
 	policy := &AuthenticationPolicies{
 		requestAuthentications: map[string][]Config{},
 		namespaceMTLSMode:      map[string]MutualTLSMode{},
-		rootNamespace:          env.Mesh.GetRootNamespace(),
+		rootNamespace:          env.Mesh().GetRootNamespace(),
 	}
 
 	if configs, err := env.List(schemas.RequestAuthentication.Type, NamespaceAll); err == nil {
@@ -95,7 +96,7 @@ func (policy *AuthenticationPolicies) addRequestAuthentication(configs []Config)
 // GetJwtPoliciesForWorkload returns a list of JWT policies matching to labels.
 func (policy *AuthenticationPolicies) GetJwtPoliciesForWorkload(namespace string,
 	workloadLabels labels.Collection) []*Config {
-	configs := []*Config{}
+	configs := make([]*Config, 0)
 	if nsConfig, ok := policy.requestAuthentications[namespace]; ok {
 		for idx := range nsConfig {
 			cfg := &nsConfig[idx]

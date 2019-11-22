@@ -31,6 +31,7 @@ import (
 
 	authn "istio.io/api/authentication/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/model"
 	networking_core "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -99,7 +100,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 
 	sctl.AddRegistry(serviceregistry.Simple{
 		ClusterID:        "v2-debug",
-		ProviderID:       serviceregistry.ProviderID("memAdapter"),
+		ProviderID:       "memAdapter",
 		ServiceDiscovery: s.MemRegistry,
 		Controller:       s.MemRegistry.controller,
 	})
@@ -440,8 +441,9 @@ func (s *DiscoveryServer) Authenticationz(w http.ResponseWriter, req *http.Reque
 		}
 		mostRecentProxy = connections[mostRecent].node
 		svc, _ := s.Env.ServiceDiscovery.Services()
-		autoMTLSEnabled := s.Env.Mesh.GetEnableAutoMtls() != nil && s.Env.Mesh.GetEnableAutoMtls().Value
-		info := []*AuthenticationDebug{}
+		meshConfig := s.Env.Mesh()
+		autoMTLSEnabled := meshConfig.GetEnableAutoMtls() != nil && meshConfig.GetEnableAutoMtls().Value
+		info := make([]*AuthenticationDebug, 0)
 		for _, ss := range svc {
 			if ss.MeshExternal {
 				// Skip external services
@@ -501,7 +503,7 @@ func AnalyzeMTLSSettings(autoMTLSEnabled bool, hostname host.Name, port *model.P
 		destinationRuleName = configName(&destConfig.ConfigMeta)
 	}
 
-	output := []*AuthenticationDebug{}
+	output := make([]*AuthenticationDebug, 0)
 
 	clientTLSModes := collectTLSSettingsForPort(rule, port)
 	var subsets []string
@@ -614,7 +616,7 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 // configDump converts the connection internal state into an Envoy Admin API config dump proto
 // It is used in debugging to create a consistent object for comparison between Envoy and Pilot outputs
 func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump, error) {
-	dynamicActiveClusters := []*adminapi.ClustersConfigDump_DynamicCluster{}
+	dynamicActiveClusters := make([]*adminapi.ClustersConfigDump_DynamicCluster, 0)
 	clusters := s.generateRawClusters(conn.node, s.globalPushContext())
 
 	for _, cs := range clusters {
@@ -628,7 +630,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 		return nil, err
 	}
 
-	dynamicActiveListeners := []*adminapi.ListenersConfigDump_DynamicListener{}
+	dynamicActiveListeners := make([]*adminapi.ListenersConfigDump_DynamicListener, 0)
 	listeners := s.generateRawListeners(conn, s.globalPushContext())
 	for _, cs := range listeners {
 		dynamicActiveListeners = append(dynamicActiveListeners, &adminapi.ListenersConfigDump_DynamicListener{
@@ -645,7 +647,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	routes := s.generateRawRoutes(conn, s.globalPushContext())
 	routeConfigAny := util.MessageToAny(&adminapi.RoutesConfigDump{})
 	if len(routes) > 0 {
-		dynamicRouteConfig := []*adminapi.RoutesConfigDump_DynamicRouteConfig{}
+		dynamicRouteConfig := make([]*adminapi.RoutesConfigDump_DynamicRouteConfig, 0)
 		for _, rs := range routes {
 			dynamicRouteConfig = append(dynamicRouteConfig, &adminapi.RoutesConfigDump_DynamicRouteConfig{RouteConfig: rs})
 		}
