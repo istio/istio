@@ -236,7 +236,7 @@ func (t *ReverseTranslator) setEnablementAndNamespacesFromValue(valueSpec map[st
 		// set feature enablement
 		feVal := featureName + ".Enabled"
 		outFP := util.ToYAMLPath(string(feVal))
-		curEnabled, found, _ := name.GetFromTreePath(root, outFP)
+		curEnabled, found, _ := tpath.GetFromTreePath(root, outFP)
 		if !found {
 			if err := tpath.WriteNode(root, outFP, enabled); err != nil {
 				return err
@@ -301,7 +301,7 @@ func translateHPASpec(inPath string, outPath string, value interface{}, valueTre
 	}
 	for key, newVal := range valMap {
 		valPath := newPS + key
-		asVal, found, err := name.GetFromTreePath(valueTree, util.ToYAMLPath(valPath))
+		asVal, found, err := tpath.GetFromTreePath(valueTree, util.ToYAMLPath(valPath))
 		if found && err == nil {
 			if err := setOutputAndClean(valPath, outPath+newVal, asVal, valueTree, cpSpecTree, true); err != nil {
 				return err
@@ -309,7 +309,7 @@ func translateHPASpec(inPath string, outPath string, value interface{}, valueTre
 		}
 	}
 	valPath := newPS + ".cpu.targetAverageUtilization"
-	asVal, found, err := name.GetFromTreePath(valueTree, util.ToYAMLPath(valPath))
+	asVal, found, err := tpath.GetFromTreePath(valueTree, util.ToYAMLPath(valPath))
 	if found && err == nil {
 		rs := make([]interface{}, 1)
 		rsVal := `
@@ -405,7 +405,7 @@ func (t *ReverseTranslator) translateK8sTree(valueTree map[string]interface{},
 	cpSpecTree map[string]interface{}) error {
 	for inPath, v := range t.KubernetesMapping {
 		log.Infof("Checking for k8s path %s in helm Value.yaml tree", inPath)
-		m, found, err := name.GetFromTreePath(valueTree, util.ToYAMLPath(inPath))
+		m, found, err := tpath.GetFromTreePath(valueTree, util.ToYAMLPath(inPath))
 		if err != nil {
 			return err
 		}
@@ -509,7 +509,7 @@ func (t *ReverseTranslator) translateTree(valueTree map[string]interface{},
 	cpSpecTree map[string]interface{}) error {
 	for inPath, v := range t.APIMapping {
 		log.Infof("Checking for path %s in helm Value.yaml tree", inPath)
-		m, found, err := name.GetFromTreePath(valueTree, util.ToYAMLPath(inPath))
+		m, found, err := tpath.GetFromTreePath(valueTree, util.ToYAMLPath(inPath))
 		if err != nil {
 			return err
 		}

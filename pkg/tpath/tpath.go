@@ -233,6 +233,16 @@ func IsLeafNode(treeNode interface{}) bool {
 	}
 }
 
+// GetFromTreePath returns the value at path from the given tree, or false if the path does not exist.
+func GetFromTreePath(inputTree map[string]interface{}, path util.Path) (interface{}, bool, error) {
+	log.Debugf("GetFromTreePath path=%s", path)
+	if len(path) == 0 {
+		return nil, false, fmt.Errorf("path is empty")
+	}
+	node, found := GetNodeByPath(inputTree, path)
+	return node, found, nil
+}
+
 // GetNodeByPath returns the value at path from the given tree, or false if the path does not exist.
 func GetNodeByPath(treeNode interface{}, path util.Path) (interface{}, bool) {
 	if len(path) == 0 || treeNode == nil {
@@ -332,4 +342,92 @@ func isMapOrInterface(v interface{}) bool {
 		vv = vv.Elem()
 	}
 	return vv.Kind() == reflect.Map
+}
+
+// GetFromStructPath returns the value at path from the given node, or false if the path does not exist.
+func GetFromStructPath(node interface{}, path string) (interface{}, bool, error) {
+	return getFromStructPath(node, util.PathFromString(path))
+}
+
+// getFromStructPath is the internal implementation of GetFromStructPath which recurses through a tree of Go structs
+// given a path. It terminates when the end of the path is reached or a path element does not exist.
+func getFromStructPath(node interface{}, path util.Path) (interface{}, bool, error) {
+	scope.Debugf("getFromStructPath path=%s, node(%T)", path, node)
+	if len(path) == 0 {
+		scope.Debugf("getFromStructPath returning node(%T)%v", node, node)
+		return node, !util.IsValueNil(node), nil
+	}
+	kind := reflect.TypeOf(node).Kind()
+	var structElems reflect.Value
+	switch kind {
+	case reflect.Map, reflect.Slice:
+		if len(path) == 0 {
+			return nil, false, fmt.Errorf("getFromStructPath path %s, unsupported leaf type %T", path, node)
+		}
+	case reflect.Ptr:
+		structElems = reflect.ValueOf(node).Elem()
+		if !util.IsStruct(structElems) {
+			return nil, false, fmt.Errorf("getFromStructPath path %s, expected struct ptr, got %T", path, node)
+		}
+	default:
+		return nil, false, fmt.Errorf("getFromStructPath path %s, unsupported type %T", path, node)
+	}
+
+	if util.IsNilOrInvalidValue(structElems) {
+		return nil, false, nil
+	}
+
+	for i := 0; i < structElems.NumField(); i++ {
+		fieldName := structElems.Type().Field(i).Name
+
+		if fieldName != path[0] {
+			continue
+		}
+
+		fv := structElems.Field(i)
+		return getFromStructPath(fv.Interface(), path[1:])
+	}
+
+	return nil, false, nil
+}
+
+// SetFromPath sets out with the value at path from node. out is not set if the path doesn't exist or the value is nil.
+// All intermediate along path must be type struct ptr. Out must be either a struct ptr or map ptr.
+// TODO: move these out to a separate package (istio/istio#15494).
+func SetFromPath(node interface{}, path string, out interface{}) (bool, error) {
+	val, found, err := GetFromStructPath(node, path)
+	if err != nil {
+		return false, err
+	}
+	if !found {
+		return false, nil
+	}
+	if util.IsValueNil(val) {
+		return true, nil
+	}
+
+	return true, Set(val, out)
+}
+
+// Set sets out with the value at path from node. out is not set if the path doesn't exist or the value is nil.
+func Set(val, out interface{}) error {
+	// Special case: map out type must be set through map ptr.
+	if util.IsMap(val) && util.IsMapPtr(out) {
+		reflect.ValueOf(out).Elem().Set(reflect.ValueOf(val))
+		return nil
+	}
+	if util.IsSlice(val) && util.IsSlicePtr(out) {
+		reflect.ValueOf(out).Elem().Set(reflect.ValueOf(val))
+		return nil
+	}
+
+	if reflect.TypeOf(val) != reflect.TypeOf(out) {
+		return fmt.Errorf("setFromPath from type %T != to type %T, %v", val, out, util.IsSlicePtr(out))
+	}
+
+	if !reflect.ValueOf(out).CanSet() {
+		return fmt.Errorf("can't set %v(%T) to out type %T", val, val, out)
+	}
+	reflect.ValueOf(out).Set(reflect.ValueOf(val))
+	return nil
 }

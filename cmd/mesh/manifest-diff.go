@@ -20,9 +20,10 @@ import (
 	"os"
 	"path/filepath"
 
+	"istio.io/operator/pkg/compare"
+
 	"github.com/spf13/cobra"
 
-	"istio.io/operator/pkg/object"
 	"istio.io/operator/pkg/util"
 	"istio.io/pkg/log"
 )
@@ -102,7 +103,7 @@ func compareManifestsFromFiles(rootArgs *rootArgs, args []string,
 		l.logAndFatal(fmt.Sprintf("Could not read %q: %v\n", args[1], err.Error()))
 	}
 
-	diff, err := object.ManifestDiffWithRenameSelectIgnore(string(a), string(b), renameResources, selectResources,
+	diff, err := compare.ManifestDiffWithRenameSelectIgnore(string(a), string(b), renameResources, selectResources,
 		ignoreResources, rootArgs.verbose)
 	if err != nil {
 		log.Error(err.Error())
@@ -136,7 +137,7 @@ func compareManifestsFromDirs(rootArgs *rootArgs, dirName1, dirName2,
 		os.Exit(1)
 	}
 
-	diff, err := object.ManifestDiffWithRenameSelectIgnore(mf1, mf2, renameResources, selectResources,
+	diff, err := compare.ManifestDiffWithRenameSelectIgnore(mf1, mf2, renameResources, selectResources,
 		ignoreResources, rootArgs.verbose)
 	if err != nil {
 		log.Error(err.Error())

@@ -47,6 +47,9 @@ const (
 	HelmValuesEnabledSubpath = "enabled"
 	// HelmValuesNamespaceSubpath is the subpath from the component root to the namespace parameter.
 	HelmValuesNamespaceSubpath = "namespace"
+
+	// devDbg generates lots of output useful in development.
+	devDbg = false
 )
 
 var (
@@ -148,7 +151,7 @@ func (t *Translator) OverlayK8sSettings(yml string, icp *v1alpha2.IstioControlPl
 			return "", err
 		}
 		log.Debugf("Checking for path %s in IstioControlPlaneSpec", inPath)
-		m, found, err := name.GetFromStructPath(icp, inPath)
+		m, found, err := tpath.GetFromStructPath(icp, inPath)
 		if err != nil {
 			return "", err
 		}
@@ -238,6 +241,53 @@ func (t *Translator) ValuesOverlaysToHelmValues(in map[string]interface{}, cname
 	}
 	cur[pv[0]] = in
 	return out
+}
+
+// TranslateHelmValues creates a Helm values.yaml config data tree from icp using the given translator.
+func (t *Translator) TranslateHelmValues(icp *v1alpha2.IstioControlPlaneSpec, componentName name.ComponentName) (string, error) {
+	globalVals, globalUnvalidatedVals, apiVals := make(map[string]interface{}), make(map[string]interface{}), make(map[string]interface{})
+
+	// First, translate the IstioControlPlane API to helm Values.
+	apiValsStr, err := t.ProtoToValues(icp)
+	if err != nil {
+		return "", err
+	}
+	err = yaml.Unmarshal([]byte(apiValsStr), &apiVals)
+	if err != nil {
+		return "", err
+	}
+
+	if devDbg {
+		log.Infof("Values translated from IstioControlPlane API:\n%s", apiValsStr)
+	}
+
+	// Add global overlay from IstioControlPlaneSpec.Values.
+	_, err = tpath.SetFromPath(icp, "Values", &globalVals)
+	if err != nil {
+		return "", err
+	}
+	_, err = tpath.SetFromPath(icp, "UnvalidatedValues", &globalUnvalidatedVals)
+	if err != nil {
+		return "", err
+	}
+	if devDbg {
+		log.Infof("Values from IstioControlPlaneSpec.Values:\n%s", util.ToYAML(globalVals))
+		log.Infof("Values from IstioControlPlaneSpec.UnvalidatedValues:\n%s", util.ToYAML(globalUnvalidatedVals))
+	}
+	mergedVals, err := util.OverlayTrees(apiVals, globalVals)
+	if err != nil {
+		return "", err
+	}
+	mergedVals, err = util.OverlayTrees(mergedVals, globalUnvalidatedVals)
+	if err != nil {
+		return "", err
+	}
+
+	mergedYAML, err := yaml.Marshal(mergedVals)
+	if err != nil {
+		return "", err
+	}
+	return string(mergedYAML), err
 }
 
 // Components returns the Components under the featureName feature.
@@ -490,7 +540,7 @@ func firstCharToLower(s string) string {
 
 // mergeK8sObject does strategic merge for overlayNode on the base object.
 func mergeK8sObject(base *object.K8sObject, overlayNode interface{}, path util.Path) (*object.K8sObject, error) {
-	overlay, err := name.CreatePatchObjectFromPath(overlayNode, path)
+	overlay, err := createPatchObjectFromPath(overlayNode, path)
 	if err != nil {
 		return nil, err
 	}
@@ -525,4 +575,78 @@ func mergeK8sObject(base *object.K8sObject, overlayNode interface{}, path util.P
 	}
 
 	return newObj, nil
+}
+
+// createPatchObjectFromPath constructs patch object for node with path, returns nil object and error if the path is invalid.
+// eg. node:
+//     - name: NEW_VAR
+//       value: new_value
+// and path:
+//       spec.template.spec.containers.[name:discovery].env
+//     will constructs the following patch object:
+//       spec:
+//         template:
+//           spec:
+//             containers:
+//             - name: discovery
+//               env:
+//               - name: NEW_VAR
+//                 value: new_value
+func createPatchObjectFromPath(node interface{}, path util.Path) (map[string]interface{}, error) {
+	if len(path) == 0 {
+		return nil, fmt.Errorf("empty path %s", path)
+	}
+	if util.IsKVPathElement(path[0]) {
+		return nil, fmt.Errorf("path %s has an unexpected first element %s", path, path[0])
+	}
+	length := len(path)
+	if util.IsKVPathElement(path[length-1]) {
+		return nil, fmt.Errorf("path %s has an unexpected last element %s", path, path[length-1])
+	}
+
+	patchObj := make(map[string]interface{})
+	var currentNode, nextNode interface{}
+	nextNode = patchObj
+	for i, pe := range path {
+		currentNode = nextNode
+		// last path element
+		if i == length-1 {
+			currentNode, ok := currentNode.(map[string]interface{})
+			if !ok {
+				return nil, fmt.Errorf("path %s has an unexpected non KV element %s", path, pe)
+			}
+			currentNode[pe] = node
+			break
+		}
+
+		if util.IsKVPathElement(pe) {
+			currentNode, ok := currentNode.([]interface{})
+			if !ok {
+				return nil, fmt.Errorf("path %s has an unexpected KV element %s", path, pe)
+			}
+			k, v, err := util.PathKV(pe)
+			if err != nil {
+				return nil, err
+			}
+			if k == "" || v == "" {
+				return nil, fmt.Errorf("path %s has an invalid KV element %s", path, pe)
+			}
+			currentNode[0] = map[string]interface{}{k: v}
+			nextNode = currentNode[0]
+			continue
+		}
+
+		currentNode, ok := currentNode.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("path %s has an unexpected non KV element %s", path, pe)
+		}
+		// next path element determines the next node type
+		if util.IsKVPathElement(path[i+1]) {
+			currentNode[pe] = make([]interface{}, 1)
+		} else {
+			currentNode[pe] = make(map[string]interface{})
+		}
+		nextNode = currentNode[pe]
+	}
+	return patchObj, nil
 }

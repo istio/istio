@@ -23,8 +23,6 @@ import (
 	"sort"
 	"strings"
 
-	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/ghodss/yaml"
 	"k8s.io/helm/pkg/chartutil"
 	"k8s.io/helm/pkg/engine"
 	"k8s.io/helm/pkg/proto/hapi/chart"
@@ -142,36 +140,6 @@ func renderChart(namespace, values string, chrt *chart.Chart) (string, error) {
 	}
 
 	return sb.String(), nil
-}
-
-// OverlayYAML patches the overlay tree over the base tree and returns the result. All trees are expressed as YAML
-// strings.
-func OverlayYAML(base, overlay string) (string, error) {
-	if overlay == "" {
-		return base, nil
-	}
-	bj, err := yaml.YAMLToJSON([]byte(base))
-	if err != nil {
-		return "", fmt.Errorf("yamlToJSON error in base: %s\n%s", err, bj)
-	}
-	oj, err := yaml.YAMLToJSON([]byte(overlay))
-	if err != nil {
-		return "", fmt.Errorf("yamlToJSON error in overlay: %s\n%s", err, oj)
-	}
-	if overlay == "" {
-		oj = []byte("{}")
-	}
-
-	merged, err := jsonpatch.MergePatch(bj, oj)
-	if err != nil {
-		return "", fmt.Errorf("json merge error (%s) for base object: \n%s\n override object: \n%s", err, bj, oj)
-	}
-	my, err := yaml.JSONToYAML(merged)
-	if err != nil {
-		return "", fmt.Errorf("jsonToYAML error (%s) for merged object: \n%s", err, merged)
-	}
-
-	return string(my), nil
 }
 
 // GenerateHubTagOverlay creates an IstioControlPlaneSpec overlay YAML for hub and tag.
