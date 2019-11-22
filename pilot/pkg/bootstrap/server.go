@@ -244,6 +244,7 @@ func NewServer(args PilotArgs) (*Server, error) {
 		return nil, fmt.Errorf("istiod: %v", err)
 	}
 
+	// TODO: don't run this if galley is started, one ctlz is enough
 	if args.CtrlZOptions != nil {
 		_, _ = ctrlz.Run(args.CtrlZOptions, nil)
 	}

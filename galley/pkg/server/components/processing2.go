@@ -98,6 +98,8 @@ func (p *Processing2) Start() (err error) {
 	var src event.Source
 	var updater snapshotter.StatusUpdater
 
+	// TODO: in istiod we have a file watcher and merging - this needs to be integrated there.
+	// AFAIK it is used to push mesh config to remote MCP sinks, should confirm it is still needed.
 	if mesh, err = meshcfgNewFS(p.args.MeshConfigFile); err != nil {
 		return
 	}
@@ -147,31 +149,6 @@ func (p *Processing2) Start() (err error) {
 		return
 	}
 
-	grpcOptions := p.getServerGrpcOptions()
-
-	p.stopCh = make(chan struct{})
-	var checker source.AuthChecker = server.NewAllowAllChecker()
-	if !p.args.Insecure {
-		if checker, err = watchAccessList(p.stopCh, p.args.AccessListFile); err != nil {
-			return
-		}
-
-		var watcher creds.CertificateWatcher
-		if watcher, err = creds.PollFiles(p.stopCh, p.args.CredentialOptions); err != nil {
-			return
-		}
-		credentials := creds.CreateForServer(watcher)
-
-		grpcOptions = append(grpcOptions, grpc.Creds(credentials))
-	}
-	grpc.EnableTracing = p.args.EnableGRPCTracing
-
-	if p.args.InsecureGRPC != nil {
-		p.grpcServer = p.args.InsecureGRPC
-	} else {
-		p.grpcServer = grpc.NewServer(grpcOptions...)
-	}
-
 	p.reporter = mcpMetricReporter("galley")
 
 	options := &source.Options{
@@ -197,6 +174,8 @@ func (p *Processing2) Start() (err error) {
 		}
 	}
 
+	var checker source.AuthChecker = server.NewAllowAllChecker()
+
 	serverOptions := &source.ServerOptions{
 		AuthChecker: checker,
 		RateLimiter: rate.NewLimiter(rate.Every(time.Second), 100), // TODO(Nino-K): https://github.com/istio/istio/issues/12074
@@ -204,6 +183,39 @@ func (p *Processing2) Start() (err error) {
 	}
 
 	p.mcpSource = source.NewServer(options, serverOptions)
+
+	if p.args.InsecureGRPC != nil {
+		p.grpcServer = p.args.InsecureGRPC
+		mcp.RegisterResourceSourceServer(p.grpcServer, p.mcpSource)
+		if p.args.SecureGRPC != nil {
+			mcp.RegisterResourceSourceServer(p.args.SecureGRPC, p.mcpSource)
+		}
+
+		return nil
+	}
+
+	// Starting a GRPC server and associated setup - standalone mode.
+
+	grpcOptions := p.getServerGrpcOptions()
+
+	p.stopCh = make(chan struct{})
+	if !p.args.Insecure {
+		if checker, err = watchAccessList(p.stopCh, p.args.AccessListFile); err != nil {
+			return
+		}
+		serverOptions.AuthChecker = checker
+		var watcher creds.CertificateWatcher
+		if watcher, err = creds.PollFiles(p.stopCh, p.args.CredentialOptions); err != nil {
+			return
+		}
+		credentials := creds.CreateForServer(watcher)
+
+		grpcOptions = append(grpcOptions, grpc.Creds(credentials))
+	}
+	grpc.EnableTracing = p.args.EnableGRPCTracing
+
+	p.grpcServer = grpc.NewServer(grpcOptions...)
+
 
 	// get the network stuff setup
 	network := "tcp"
@@ -217,18 +229,10 @@ func (p *Processing2) Start() (err error) {
 	}
 
 	mcp.RegisterResourceSourceServer(p.grpcServer, p.mcpSource)
-	if p.args.SecureGRPC != nil {
-		mcp.RegisterResourceSourceServer(p.args.SecureGRPC, p.mcpSource)
-	}
 
-	if p.args.InsecureGRPC == nil {
-		if p.listener, err = netListen(network, address); err != nil {
-			err = fmt.Errorf("unable to listen: %v", err)
-			return
-		}
-	} else {
-		// Istiod handles the grpc server and listening.
-		return nil
+	if p.listener, err = netListen(network, address); err != nil {
+		err = fmt.Errorf("unable to listen: %v", err)
+		return
 	}
 
 	var startWG sync.WaitGroup

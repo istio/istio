@@ -94,6 +94,7 @@ func main() {
 		GrpcAddr:        fmt.Sprintf(":%d", basePort+10),
 		SecureGrpcAddr:  "",
 		EnableProfiling: true,
+		MonitoringAddr: fmt.Sprintf(":%d", basePort+18), // TODO: merge all monitoring ports
 	}
 	if basePort == 15000 {
 		args.DiscoveryOptions.HTTPAddr = ":8080" // lots of tools use this port

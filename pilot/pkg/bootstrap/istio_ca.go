@@ -130,8 +130,6 @@ func RunCA(grpc *grpc.Server, cs kubernetes.Interface, opts *CAOptions) {
 		// TODO: implement it using a local directory, for non-k8s env.
 		return
 	}
-	ca := createCA(cs.CoreV1(), opts)
-
 	iss := trustedIssuer.Get()
 	aud := audience.Get()
 
@@ -139,8 +137,7 @@ func RunCA(grpc *grpc.Server, cs kubernetes.Interface, opts *CAOptions) {
 	if token, err := ioutil.ReadFile(JWTPath); err != nil {
 		// for debug we may want to override this by setting trustedIssuer explicitly
 		if iss == "" {
-			log.Warna("istiod running without access to K8S tokens. Disable the CA functionality",
-				JWTPath)
+			log.Warna("istiod running without access to K8S tokens. Disable the CA functionality", JWTPath)
 			return
 		}
 	} else {
@@ -156,6 +153,8 @@ func RunCA(grpc *grpc.Server, cs kubernetes.Interface, opts *CAOptions) {
 			}
 		}
 	}
+
+	ca := createCA(cs.CoreV1(), opts)
 
 	// The CA API uses cert with the max workload cert TTL.
 	// 'hostlist' must be non-empty - but is not used since a grpc server is passed.
