@@ -37,7 +37,7 @@ import (
 var (
 	errUnsupported = errors.New("this operation is not supported by mcp controller")
 
-	syncSpam = false
+	syncSpam    = false
 	syncWaitLog = true
 )
 
