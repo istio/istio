@@ -46,6 +46,10 @@ CLUSTERREG_DIR="$(mktemp -d)"
 KUBECONFIG="${CLUSTERREG_DIR}/local" setup_kind_cluster "" local "${ARTIFACTS}/config-local.yaml"
 KUBECONFIG="${CLUSTERREG_DIR}/remote" setup_kind_cluster "" remote "${ARTIFACTS}/config-remote.yaml"
 
+# Replace with --internal which allows cross-cluster api server access
+kind get kubeconfig --name local --internal > "${CLUSTERREG_DIR}"/local
+kind get kubeconfig --name remote --internal > "${CLUSTERREG_DIR}"/remote
+
 # Trap replaces any previous trap's, so we need to explicitly cleanup both clusters here
 # shellcheck disable=SC2064
 trap "cleanup_kind_cluster local; cleanup_kind_cluster remote" EXIT

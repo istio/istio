@@ -77,7 +77,7 @@ function kind_load_images() {
   for i in {1..3}; do
     # Archived local images and load it into KinD's docker daemon
     # Kubernetes in KinD can only access local images from its docker daemon.
-    docker images "${hub}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 kind --loglevel debug --name "${NAME}" load docker-image && break
+    docker images "${hub}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 kind -v9 --name "${NAME}" load docker-image && break
     echo "Attempt ${i} to load images failed, retrying in 5s..."
     sleep 5
 	done
@@ -86,7 +86,7 @@ function kind_load_images() {
   # We should still load non-variant images as well for things like `app` which do not use variants
   if [[ "${VARIANT:-}" != "" ]]; then
     for i in {1..3}; do
-      docker images "${hub}/*:${TAG}-${VARIANT}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 kind --loglevel debug --name "${NAME}" load docker-image && break
+      docker images "${hub}/*:${TAG}-${VARIANT}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 kind -v9 --name "${NAME}" load docker-image && break
       echo "Attempt ${i} to load images failed, retrying in 5s..."
       sleep 5
     done
