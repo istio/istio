@@ -842,9 +842,10 @@ func (s *DiscoveryServer) updateEdsClients(added sets.Set, removed sets.Set, con
 			continue
 		}
 		c.mutex.Lock()
-		defer c.mutex.Unlock()
 		delete(c.EdsClients, connection.ConID)
-		if len(c.EdsClients) == 0 {
+		clients := len(c.EdsClients)
+		c.mutex.Unlock()
+		if clients == 0 {
 			// This happens when a previously used cluster is no longer watched by any
 			// sidecar. It should not happen very often - normally all clusters are sent
 			// in CDS requests to all sidecars. It may happen if all connections are closed.
