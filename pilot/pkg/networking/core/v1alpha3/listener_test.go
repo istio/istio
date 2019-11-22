@@ -254,6 +254,60 @@ func TestOutboundListenerConfig_WithSidecarV14(t *testing.T) {
 		buildService("test1.com", wildcardIP, protocol.HTTP, tnow.Add(1*time.Second)),
 		buildService("test2.com", wildcardIP, protocol.TCP, tnow),
 		buildService("test3.com", wildcardIP, "unknown", tnow.Add(2*time.Second))}
+	service4 := &model.Service{
+		CreationTime: tnow.Add(1 * time.Second),
+		Hostname:     host.Name("test4.com"),
+		Address:      wildcardIP,
+		ClusterVIPs:  make(map[string]string),
+		Ports: model.PortList{
+			&model.Port{
+				Name:     "udp",
+				Port:     9000,
+				Protocol: protocol.HTTP,
+			},
+		},
+		Resolution: model.Passthrough,
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
+	}
+	services = append(services, service4)
+	service5 := &model.Service{
+		CreationTime: tnow.Add(1 * time.Second),
+		Hostname:     host.Name("test5.com"),
+		Address:      "8.8.8.8",
+		ClusterVIPs:  make(map[string]string),
+		Ports: model.PortList{
+			&model.Port{
+				Name:     "MySQL",
+				Port:     3306,
+				Protocol: protocol.MySQL,
+			},
+		},
+		Resolution: model.Passthrough,
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
+	}
+	services = append(services, service5)
+	service6 := &model.Service{
+		CreationTime: tnow.Add(1 * time.Second),
+		Hostname:     host.Name("test6.com"),
+		Address:      "2.2.2.2",
+		ClusterVIPs:  make(map[string]string),
+		Ports: model.PortList{
+			&model.Port{
+				Name:     "unknown",
+				Port:     8888,
+				Protocol: "unknown",
+			},
+		},
+		Resolution: model.Passthrough,
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
+	}
+	services = append(services, service6)
 	testOutboundListenerConfigWithSidecarV14(t, services...)
 }
 
@@ -492,7 +546,25 @@ func TestOutboundListenerConfig_WithSidecar(t *testing.T) {
 		buildService("test1.com", wildcardIP, protocol.HTTP, tnow.Add(1*time.Second)),
 		buildService("test2.com", wildcardIP, protocol.TCP, tnow),
 		buildService("test3.com", wildcardIP, protocol.HTTP, tnow.Add(2*time.Second))}
+	service4 := &model.Service{
+		CreationTime: tnow.Add(1 * time.Second),
+		Hostname:     host.Name("test4.com"),
+		Address:      wildcardIP,
+		ClusterVIPs:  make(map[string]string),
+		Ports: model.PortList{
+			&model.Port{
+				Name:     "default",
+				Port:     9090,
+				Protocol: protocol.HTTP,
+			},
+		},
+		Resolution: model.Passthrough,
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
+	}
 	testOutboundListenerConfigWithSidecar(t, services...)
+	services = append(services, service4)
 	testOutboundListenerConfigWithSidecarWithCaptureModeNone(t, services...)
 	testOutboundListenerConfigWithSidecarWithUseRemoteAddress(t, services...)
 }
@@ -821,7 +893,6 @@ func testOutboundListenerConfigWithSidecarV14(t *testing.T, services ...*model.S
 						Protocol: "HTTP",
 						Name:     "uds",
 					},
-					Bind:  "1.1.1.1",
 					Hosts: []string{"*/*"},
 				},
 				{
@@ -1055,31 +1126,12 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 	defer func() { _ = os.Unsetenv(features.EnableMysqlFilter.Name) }()
 
 	listeners := buildOutboundListeners(p, &proxy, sidecarConfig, nil, services...)
-	if len(listeners) != 3 {
-		t.Fatalf("expected %d listeners, found %d", 3, len(listeners))
+	if len(listeners) != 1 {
+		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
 	}
 
 	if l := findListenerByPort(listeners, 8080); isHTTPListener(l) {
 		t.Fatalf("expected TCP listener on port 8080, found HTTP: %v", l)
-	}
-
-	if l := findListenerByPort(listeners, 3306); !isMysqlListener(l) {
-		t.Fatalf("expected MySQL listener on port 3306, found %v", l)
-	}
-
-	if l := findListenerByPort(listeners, 9000); !isHTTPListener(l) {
-		t.Fatalf("expected HTTP listener on port 9000, found TCP\n%v", l)
-	} else {
-		f := l.FilterChains[0].Filters[0]
-		cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
-		if !strings.HasPrefix(cfg.Fields["stat_prefix"].GetStringValue(), "outbound_") {
-			t.Fatalf("expected stat prefix to have outbound, %s", cfg.Fields["stat_prefix"].GetStringValue())
-		}
-		if useRemoteAddress, exists := cfg.Fields["use_remote_address"]; exists {
-			if exists && useRemoteAddress.GetBoolValue() {
-				t.Fatalf("expected useRemoteAddress false, found true %v", l)
-			}
-		}
 	}
 }
 
@@ -1095,7 +1147,7 @@ func testOutboundListenerConfigWithSidecarWithUseRemoteAddress(t *testing.T, ser
 			Egress: []*networking.IstioEgressListener{
 				{
 					Port: &networking.Port{
-						Number:   9000,
+						Number:   9090,
 						Protocol: "HTTP",
 						Name:     "uds",
 					},
@@ -1113,8 +1165,8 @@ func testOutboundListenerConfigWithSidecarWithUseRemoteAddress(t *testing.T, ser
 
 	listeners := buildOutboundListeners(p, &proxy, sidecarConfig, nil, services...)
 
-	if l := findListenerByPort(listeners, 9000); !isHTTPListener(l) {
-		t.Fatalf("expected HTTP listener on port 9000, found TCP\n%v", l)
+	if l := findListenerByPort(listeners, 9090); !isHTTPListener(l) {
+		t.Fatalf("expected HTTP listener on port 9090, found TCP\n%v", l)
 	} else {
 		f := l.FilterChains[0].Filters[0]
 		cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
@@ -1194,6 +1246,18 @@ func testOutboundListenerConfigWithSidecarWithCaptureModeNone(t *testing.T, serv
 		}
 		if expectedListenerType == "HTTP" && !isHTTPListener(l) {
 			t.Fatalf("expected HTTP listener %s, but found TCP", listenerName)
+		}
+	}
+
+	if l := findListenerByPort(listeners, 9090); !isHTTPListener(l) {
+		t.Fatalf("expected HTTP listener on port 9090, but not found\n%v", l)
+	} else {
+		f := l.FilterChains[0].Filters[0]
+		cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
+		if useRemoteAddress, exists := cfg.Fields["use_remote_address"]; exists {
+			if exists && useRemoteAddress.GetBoolValue() {
+				t.Fatalf("expected useRemoteAddress false, found true %v", l)
+			}
 		}
 	}
 }
