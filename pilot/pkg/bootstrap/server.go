@@ -121,8 +121,8 @@ type Server struct {
 	mux                   *http.ServeMux
 	kubeRegistry          *kubecontroller.Controller
 	fileWatcher           filewatcher.FileWatcher
-	discoveryOptions      *coredatamodel.DiscoveryOptions
 	mcpDiscovery          *coredatamodel.MCPDiscovery
+	discoveryOptions      *coredatamodel.DiscoveryOptions
 	incrementalMcpOptions *coredatamodel.Options
 	mcpOptions            *coredatamodel.Options
 	certController        *chiron.WebhookController
