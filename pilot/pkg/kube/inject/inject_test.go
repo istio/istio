@@ -469,6 +469,17 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
 		},
 		{
+			// Verifies that pods can have multiple containers
+			in:                           "multi-container.yaml",
+			want:                         "multi-container.yaml.injected",
+			includeIPRanges:              DefaultIncludeIPRanges,
+			includeInboundPorts:          DefaultIncludeInboundPorts,
+			statusPort:                   DefaultStatusPort,
+			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
+			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
+			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+		},
+		{
 			// Verifies that the kubevirtInterfaces list are applied properly from parameters..
 			in:                           "kubevirtInterfaces.yaml",
 			want:                         "kubevirtInterfaces.yaml.injected",
