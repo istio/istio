@@ -42,13 +42,11 @@ import (
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 
-	"istio.io/istio/pilot/cmd"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/coredatamodel"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	"istio.io/istio/pilot/pkg/networking/util"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/external"
@@ -339,7 +337,7 @@ func (s *Server) WatchMeshConfig(args string) error {
 	var err error
 
 	// Mesh config is required - this is the primary source of config.
-	meshConfig, err = cmd.ReadMeshConfig(args)
+	meshConfig, err = mesh.ReadMeshConfig(args)
 	if err != nil {
 		log.Infof("No local mesh config found, using defaults")
 		meshConfig = defaultMeshConfig()
@@ -348,7 +346,7 @@ func (s *Server) WatchMeshConfig(args string) error {
 	// Watch the config file for changes and reload if it got modified
 	s.addFileWatcher(args, func() {
 		// Reload the config file
-		meshConfig, err = cmd.ReadMeshConfig(args)
+		meshConfig, err = mesh.ReadMeshConfig(args)
 		if err != nil {
 			log.Warnf("failed to read mesh configuration, using default: %v", err)
 			return
@@ -387,27 +385,27 @@ func (s *Server) initMeshNetworks(args *PilotArgs) error { //nolint: unparam
 	var meshNetworks *meshconfig.MeshNetworks
 	var err error
 
-	meshNetworks, err = cmd.ReadMeshNetworksConfig(args.NetworksConfigFile)
+	meshNetworks, err = mesh.ReadMeshNetworks(args.NetworksConfigFile)
 	if err != nil {
 		log.Warnf("failed to read mesh networks configuration from %q. using default.", args.NetworksConfigFile)
 		return nil
 	}
 	log.Infof("mesh networks configuration %s", spew.Sdump(meshNetworks))
-	util.ResolveHostsInNetworksConfig(meshNetworks)
+	mesh.ResolveHostsInNetworksConfig(meshNetworks)
 	log.Infof("mesh networks configuration post-resolution %s", spew.Sdump(meshNetworks))
 	s.MeshNetworks = meshNetworks
 
 	// Watch the networks config file for changes and reload if it got modified
 	s.addFileWatcher(args.NetworksConfigFile, func() {
 		// Reload the config file
-		meshNetworks, err := cmd.ReadMeshNetworksConfig(args.NetworksConfigFile)
+		meshNetworks, err := mesh.ReadMeshNetworks(args.NetworksConfigFile)
 		if err != nil {
 			log.Warnf("failed to read mesh networks configuration from %q", args.NetworksConfigFile)
 			return
 		}
 		if !reflect.DeepEqual(meshNetworks, s.MeshNetworks) {
 			log.Infof("mesh networks configuration file updated to: %s", spew.Sdump(meshNetworks))
-			util.ResolveHostsInNetworksConfig(meshNetworks)
+			mesh.ResolveHostsInNetworksConfig(meshNetworks)
 			log.Infof("mesh networks configuration post-resolution %s", spew.Sdump(meshNetworks))
 			s.MeshNetworks = meshNetworks
 

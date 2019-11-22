@@ -46,7 +46,7 @@ import (
 // filter chain (which is the http connection manager) with the updated object.
 func DeprecatedInsertUserFilters(in *plugin.InputParams, listener *xdsapi.Listener,
 	httpConnectionManagers []*http_conn.HttpConnectionManager) error { //nolint: unparam
-	filterCRD := getUserFiltersForWorkload(in.Env, in.Node.WorkloadLabels)
+	filterCRD := getUserFiltersForWorkload(in.Push, in.Node.WorkloadLabels)
 	if filterCRD == nil {
 		return nil
 	}
@@ -119,8 +119,8 @@ func DeprecatedInsertUserFilters(in *plugin.InputParams, listener *xdsapi.Listen
 
 // NOTE: There can be only one filter for a workload. If multiple filters are defined, the behavior
 // is undefined.
-func getUserFiltersForWorkload(env *model.Environment, labels labels.Collection) *networking.EnvoyFilter {
-	f := env.EnvoyFilter(labels)
+func getUserFiltersForWorkload(push *model.PushContext, labels labels.Collection) *networking.EnvoyFilter {
+	f := push.EnvoyFilter(labels)
 	if f != nil {
 		return f.Spec.(*networking.EnvoyFilter)
 	}

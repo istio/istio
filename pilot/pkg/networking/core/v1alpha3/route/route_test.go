@@ -119,9 +119,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		ttl := time.Nanosecond * 100
 		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
-			Env: &model.Environment{
-				Mesh: &meshConfig,
-			},
+			Mesh: &meshConfig,
 		}
 		push.SetDestinationRules([]model.Config{
 			{
@@ -179,9 +177,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
-			Env: &model.Environment{
-				Mesh: &meshConfig,
-			},
+			Mesh: &meshConfig,
 		}
 		push.SetDestinationRules([]model.Config{
 			{
@@ -224,9 +220,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
-			Env: &model.Environment{
-				Mesh: &meshConfig,
-			},
+			Mesh: &meshConfig,
 		}
 
 		push.SetDestinationRules([]model.Config{
@@ -280,9 +274,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
-			Env: &model.Environment{
-				Mesh: &meshConfig,
-			},
+			Mesh: &meshConfig,
 		}
 
 		push.SetDestinationRules([]model.Config{
@@ -308,9 +300,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
-			Env: &model.Environment{
-				Mesh: &meshConfig,
-			},
+			Mesh: &meshConfig,
 		}
 
 		push.SetDestinationRules([]model.Config{
@@ -355,9 +345,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
-			Env: &model.Environment{
-				Mesh: &meshConfig,
-			},
+			Mesh: &meshConfig,
 		}
 		push.SetDestinationRules([]model.Config{
 			{
@@ -375,9 +363,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
-			Env: &model.Environment{
-				Mesh: &meshConfig,
-			},
+			Mesh: &meshConfig,
 		}
 		push.SetDestinationRules([]model.Config{
 			{

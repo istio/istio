@@ -53,7 +53,7 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext,
 }
 
 func (s *DiscoveryServer) generateRawRoutes(con *XdsConnection, push *model.PushContext) []*xdsapi.RouteConfiguration {
-	rawRoutes := s.ConfigGenerator.BuildHTTPRoutes(s.Env, con.node, push, con.Routes)
+	rawRoutes := s.ConfigGenerator.BuildHTTPRoutes(con.node, push, con.Routes)
 	// Now validate each route
 	for _, r := range rawRoutes {
 		if err := r.Validate(); err != nil {

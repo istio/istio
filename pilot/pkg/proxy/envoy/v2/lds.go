@@ -46,7 +46,7 @@ func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, v
 }
 
 func (s *DiscoveryServer) generateRawListeners(con *XdsConnection, push *model.PushContext) []*xdsapi.Listener {
-	rawListeners := s.ConfigGenerator.BuildListeners(s.Env, con.node, push)
+	rawListeners := s.ConfigGenerator.BuildListeners(con.node, push)
 
 	for _, l := range rawListeners {
 		if err := l.Validate(); err != nil {
