@@ -17,13 +17,14 @@ package bootstrap
 import (
 	"context"
 	"fmt"
-	"istio.io/pkg/env"
 	"net/url"
 	"os"
 	"path"
 	"strings"
 	"sync"
 	"time"
+
+	"istio.io/pkg/env"
 
 	"github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
@@ -167,7 +168,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 		}
 
 		// Attempting to connect to galley - use pilot's own config (if operating in istiod mode)
-		if !useExternalGalley.Get() && strings.HasPrefix(configSource.Address, "istio-galley." + args.Namespace) {
+		if !useExternalGalley.Get() && strings.HasPrefix(configSource.Address, "istio-galley."+args.Namespace) {
 			configSource.Address = "127.0.0.1:15010"
 			configSource.TlsSettings = nil
 		}
