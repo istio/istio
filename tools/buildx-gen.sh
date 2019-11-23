@@ -43,9 +43,16 @@ for file in "$@"; do
   for variant in ${DOCKER_ALL_VARIANTS}; do
     image=${file#docker.}
     tag="${TAG}"
+    output="${image}"
     # The default variant has no suffix, others do
     if [[ "${variant}" != "default" ]]; then
       tag+="-${variant}"
+      output+="-${variant}"
+    fi
+    # Add output only if docker save is specified
+    outputfield=""
+    if [[ -n "${DOCKER_SAVE:-}" ]]; then
+      outputfield="output = [\"type=tar,dest=${ISTIO_DOCKER_TAR}/${output}.tar\"]"
     fi
     cat <<EOF >> "${config}"
 target "$image-$variant" {
@@ -56,6 +63,7 @@ target "$image-$variant" {
       BASE_VERSION = "${BASE_VERSION}"
       BASE_DISTRIBUTION = "${variant}"
     }
+    ${outputfield}
 }
 EOF
     # For the default variant, create an alias so we can do things like `build pilot` instead of `build pilot-default`
