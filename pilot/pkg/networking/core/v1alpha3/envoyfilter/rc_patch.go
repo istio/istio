@@ -24,7 +24,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/goutils"
 	"istio.io/pkg/log"
 )
 
@@ -33,7 +33,7 @@ func ApplyRouteConfigurationPatches(
 	proxy *model.Proxy,
 	push *model.PushContext,
 	routeConfiguration *xdsapi.RouteConfiguration) (out *xdsapi.RouteConfiguration) {
-	defer util.HandleCrash(func() {
+	defer goutils.HandleCrash(func() {
 		log.Errorf("listeners patch caused panic, so the patches did not take effect")
 	})
 	// In case the patches cause panic, use the route generated before to reduce the influence.
