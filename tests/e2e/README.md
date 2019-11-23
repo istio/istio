@@ -110,10 +110,6 @@ E2E tests have multiple options available while running them as follows:
 
 ## Tips
 
-# E2E Tips
-
-This file helps note down some ways we have found useful for continuous local development using local e2e tests
-
 1. Running a single test
 If you are debugging a single test, you can run it with `test.run` option in E2E_ARGS as follows:
 
