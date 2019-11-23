@@ -212,6 +212,7 @@ dockerx:
 
 # Reuse the dockerx target, but export save variable to trigger output to .tar
 dockerx.save: DOCKER_SAVE=true
+dockerx.save: $(ISTIO_DOCKER_TAR)
 dockerx.save: dockerx
 	# We also want to gzip all of them
 	gzip -f $(ISTIO_DOCKER_TAR)/*
