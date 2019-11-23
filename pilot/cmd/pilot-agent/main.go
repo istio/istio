@@ -119,6 +119,9 @@ var (
 		"number of attributes for stackdriver")
 	stackdriverTracingMaxNumberOfMessageEvents = env.RegisterIntVar("STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS", 200, "Sets the "+
 		"max number of message events for stackdriver")
+	stsPort = env.RegisterIntVar("stsPort", 0, "HTTP Port on which to serve security token service (STS). If zero, STS will not be provided.")
+	stsServer = env.RegisterStringVar("stsServer", "",
+"Name of a remote STS server which runs behind and serves the token exchange service. If this is set, pilot agent serves as a STS proxy.")
 
 	sdsUdsWaitTimeout = time.Minute
 
@@ -457,6 +460,29 @@ var (
 			ctx, cancel := context.WithCancel(context.Background())
 			// If a status port was provided, start handling status probes.
 			if statusPort > 0 {
+				localHostAddr := "127.0.0.1"
+				if proxyIPv6 {
+					localHostAddr = "[::1]"
+				}
+				prober := kubeAppProberNameVar.Get()
+				statusServer, err := status.NewServer(status.Config{
+					LocalHostAddr:      localHostAddr,
+					AdminPort:          proxyAdminPort,
+					StatusPort:         statusPort,
+					KubeAppHTTPProbers: prober,
+					NodeType:           role.Type,
+				})
+				if err != nil {
+					cancel()
+					return err
+				}
+				go waitForCompletion(ctx, statusServer.Run)
+			}
+
+			// If security token service (STS) port is not zero, start STS server and
+			// listens on that port for STS requests.
+			// For STS, see https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16.
+			if stsPort.Get() > 0 {
 				localHostAddr := "127.0.0.1"
 				if proxyIPv6 {
 					localHostAddr = "[::1]"
