@@ -63,7 +63,10 @@ function download_untar_istio_release() {
 
 function build_images() {
   # Build just the images needed for tests
-   DOCKER_BUILD_VARIANTS="${VARIANT:-default}" make dockerx
+  targets="docker.pilot docker.proxyv2 "
+  targets+="docker.app docker.test_policybackend docker.kubectl "
+  targets+="docker.mixer docker.citadel docker.galley docker.sidecar_injector docker.node-agent-k8s"
+  DOCKER_BUILD_VARIANTS="${VARIANT:-default}" DOCKER_TARGETS="${targets}" make dockerx
 }
 
 function kind_load_images() {
@@ -76,8 +79,8 @@ function kind_load_images() {
     # Archived local images and load it into KinD's docker daemon
     # Kubernetes in KinD can only access local images from its docker daemon.
     docker images "${hub}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 kind -v9 --name "${NAME}" load docker-image && break
-    echo "Attempt ${i} to load images failed, retrying in 5s..."
-    sleep 5
+    echo "Attempt ${i} to load images failed, retrying in 1s..."
+    sleep 1
 	done
 
   # If a variant is specified, load those images as well.
@@ -85,8 +88,8 @@ function kind_load_images() {
   if [[ "${VARIANT:-}" != "" ]]; then
     for i in {1..3}; do
       docker images "${hub}/*:${TAG}-${VARIANT}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 kind -v9 --name "${NAME}" load docker-image && break
-      echo "Attempt ${i} to load images failed, retrying in 5s..."
-      sleep 5
+      echo "Attempt ${i} to load images failed, retrying in 1s..."
+      sleep 1
     done
   fi
 }
