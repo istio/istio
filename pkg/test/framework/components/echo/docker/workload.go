@@ -108,7 +108,7 @@ func newWorkload(e *native.Environment, cfg echo.Config, dumpDir string) (out *w
 		"--version", cfg.Version,
 	}, w.portMap.toEchoArgs()...)
 
-	var image docker.Image
+	var image string
 	var cmd []string
 	var env []string
 	var extraHosts []string

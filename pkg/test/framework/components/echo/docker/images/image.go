@@ -16,9 +16,7 @@ package images
 
 import (
 	"fmt"
-
-	"istio.io/istio/pkg/test/docker"
-	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/framework/core/image"
 )
 
 const (
@@ -37,18 +35,15 @@ type Instance struct {
 
 // Get the images for the Echo application.
 func Get() (Instance, error) {
-	if env.TAG.Value() != "" {
-		hubPrefix := ""
-		if env.HUB.Value() != "" {
-			hubPrefix = env.HUB.Value() + "/"
-		}
-
-		prebuilt := Instance{
-			NoSidecar: docker.Image(fmt.Sprintf("%s%s:%s", hubPrefix, noSidecarImageName, env.TAG.Value())),
-			Sidecar:   docker.Image(fmt.Sprintf("%s%s:%s", hubPrefix, sidecarImageName, env.TAG.Value())),
-		}
-
-		return prebuilt, nil
+	s, err := image.SettingsFromCommandLine()
+	if err != nil {
+		return Instance{}, err
 	}
-	return Instance{}, fmt.Errorf("HUB and TAG are required")
+
+	prebuilt := Instance{
+		NoSidecar: fmt.Sprintf("%s/%s:%s", s.Hub, noSidecarImageName, s.Tag),
+		Sidecar:   fmt.Sprintf("%s/%s:%s", s.Hub, sidecarImageName, s.Tag),
+	}
+
+	return prebuilt, nil
 }
