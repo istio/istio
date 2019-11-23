@@ -52,6 +52,7 @@ for file in "$@"; do
 target "$image" {
     context = "${out}/${file}"
     dockerfile = "Dockerfile.$image"
+    tags = ["${HUB}/${image}:${TAG}"]
     inherits = ["args"]
 }
 EOF

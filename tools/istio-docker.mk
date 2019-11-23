@@ -198,7 +198,7 @@ buildx: DOCKER_RULE?=mkdir -p $(BUILDX_DIR)/$@ && cp -r $^ $(BUILDX_DIR)/$@
 buildx: docker
 buildx:
 	# TODO support multiple distributions. Currently this just passes DEFAULT_DISTRIBUTION
-	./tools/buildx-gen.sh $(BUILDX_DIR) $(BASE_VERSION) $(DEFAULT_DISTRIBUTION) $(DOCKER_TARGETS)
+	HUB=${HUB} TAG=${TAG} ./tools/buildx-gen.sh $(BUILDX_DIR) $(BASE_VERSION) $(DEFAULT_DISTRIBUTION) $(DOCKER_TARGETS)
 	DOCKER_CLI_EXPERIMENTAL=enabled docker buildx bake -f $(BUILDX_DIR)/docker-bake.hcl
 
 # galley docker images
