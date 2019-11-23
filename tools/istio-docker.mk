@@ -192,6 +192,9 @@ docker.mixer_codegen: mixer/docker/Dockerfile.mixer_codegen
 docker.mixer_codegen: $(ISTIO_DOCKER)/mixgen
 	$(DOCKER_RULE)
 
+
+.PHONY: dockerx dockerx.save
+
 # Docker has an experimental new build engine, https://github.com/docker/buildx
 # This brings substantial (10x) performance improvements when building Istio
 # However, its only built into docker since v19.03. Because its so new that devs are likely to not have
@@ -212,7 +215,7 @@ dockerx:
 
 # Reuse the dockerx target, but export save variable to trigger output to .tar
 dockerx.save: DOCKER_SAVE=true
-dockerx.save: | $(ISTIO_DOCKER_TAR)
+dockerx.save: $(ISTIO_DOCKER_TAR)
 dockerx.save: dockerx
 	# We also want to gzip all of them
 	gzip -f $(ISTIO_DOCKER_TAR)/*
