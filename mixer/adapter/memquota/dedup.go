@@ -107,7 +107,7 @@ func (du *dedupUtil) reapDedup() {
 	if len(t) > 0 {
 		du.logger.Debugf("Running repear to reclaim %d old deduplication entries", len(t))
 	}
-	
+
 	for k := range t {
 		delete(t, k)
 	}
