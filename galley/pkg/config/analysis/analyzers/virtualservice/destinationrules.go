@@ -35,7 +35,8 @@ var _ analysis.Analyzer = &DestinationRuleAnalyzer{}
 // Metadata implements Analyzer
 func (d *DestinationRuleAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name: "virtualservice.DestionationRuleAnalyzer",
+		Name:        "virtualservice.DestionationRuleAnalyzer",
+		Description: "Checks the destination rules associated with each virtual service.",
 		Inputs: collection.Names{
 			metadata.IstioNetworkingV1Alpha3Virtualservices,
 			metadata.IstioNetworkingV1Alpha3Destinationrules,

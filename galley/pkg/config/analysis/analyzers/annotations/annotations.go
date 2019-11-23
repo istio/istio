@@ -26,7 +26,7 @@ import (
 	"istio.io/istio/galley/pkg/config/resource"
 )
 
-// K8sAnalyzer checks for misplayed and invalid Istio annotations in K8s resources
+// K8sAnalyzer checks for misplaced and invalid Istio annotations in K8s resources
 type K8sAnalyzer struct{}
 
 var (
@@ -36,7 +36,8 @@ var (
 // Metadata implements analyzer.Analyzer
 func (*K8sAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name: "annotations.K8sAnalyzer",
+		Name:        "annotations.K8sAnalyzer",
+		Description: "Checks for misplaced and invalid Istio annotations in K8s resources.",
 		Inputs: collection.Names{
 			metadata.K8SCoreV1Namespaces,
 			metadata.K8SCoreV1Services,

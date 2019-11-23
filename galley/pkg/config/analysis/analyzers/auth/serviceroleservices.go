@@ -35,7 +35,8 @@ var _ analysis.Analyzer = &ServiceRoleServicesAnalyzer{}
 // Metadata implements Analyzer
 func (s *ServiceRoleServicesAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name: "auth.ServiceRoleServicesAnalyzer",
+		Name:        "auth.ServiceRoleServicesAnalyzer",
+		Description: "Checks the validity of services referred in a Service Role.",
 		Inputs: collection.Names{
 			metadata.IstioRbacV1Alpha1Serviceroles,
 			metadata.K8SCoreV1Services,

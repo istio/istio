@@ -48,7 +48,8 @@ var (
 // Metadata implements analysis.Analyzer
 func (*IngressGatewayPortAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name: "gateway.IngressGatewayPortAnalyzer",
+		Name:        "gateway.IngressGatewayPortAnalyzer",
+		Description: "Checks a Gateway's ports against the gateway's Kubernetes Service ports.",
 		Inputs: collection.Names{
 			metadata.IstioNetworkingV1Alpha3Gateways,
 			metadata.K8SCoreV1Pods,

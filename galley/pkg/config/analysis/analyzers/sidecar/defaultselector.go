@@ -31,7 +31,8 @@ var _ analysis.Analyzer = &DefaultSelectorAnalyzer{}
 // Metadata implements Analyzer
 func (a *DefaultSelectorAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name: "sidecar.DefaultSelectorAnalyzer",
+		Name:        "sidecar.DefaultSelectorAnalyzer",
+		Description: "Validates that there aren't multiple Sidecar resources that have no selector.",
 		Inputs: collection.Names{
 			metadata.IstioNetworkingV1Alpha3Sidecars,
 		},

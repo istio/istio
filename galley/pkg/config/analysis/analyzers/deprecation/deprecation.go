@@ -37,7 +37,8 @@ type FieldAnalyzer struct{}
 // Metadata implements analyzer.Analyzer
 func (*FieldAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name: "deprecation.DeprecationAnalyzer",
+		Name:        "deprecation.DeprecationAnalyzer",
+		Description: "Checks for deprecated Istio types and fields.",
 		Inputs: collection.Names{
 			metadata.IstioNetworkingV1Alpha3Virtualservices,
 			metadata.IstioNetworkingV1Alpha3Envoyfilters,

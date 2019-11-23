@@ -32,7 +32,8 @@ var _ analysis.Analyzer = &ServiceRoleBindingAnalyzer{}
 // Metadata implements Analyzer
 func (s *ServiceRoleBindingAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name: "auth.ServiceRoleBindingAnalyzer",
+		Name:        "auth.ServiceRoleBindingAnalyzer",
+		Description: "Checks the validity of service role bindings.",
 		Inputs: collection.Names{
 			metadata.IstioRbacV1Alpha1Serviceroles,
 			metadata.IstioRbacV1Alpha1Servicerolebindings,

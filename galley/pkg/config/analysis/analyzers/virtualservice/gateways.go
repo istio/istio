@@ -33,7 +33,8 @@ var _ analysis.Analyzer = &GatewayAnalyzer{}
 // Metadata implements Analyzer
 func (s *GatewayAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name: "virtualservice.GatewayAnalyzer",
+		Name:        "virtualservice.GatewayAnalyzer",
+		Description: "Checks the gateways associated with each virtual service.",
 		Inputs: collection.Names{
 			metadata.IstioNetworkingV1Alpha3Gateways,
 			metadata.IstioNetworkingV1Alpha3Virtualservices,

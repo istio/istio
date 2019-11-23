@@ -37,7 +37,8 @@ var _ analysis.Analyzer = &ConflictingMeshGatewayHostsAnalyzer{}
 // Metadata implements Analyzer
 func (c *ConflictingMeshGatewayHostsAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name: "virtualservice.ConflictingMeshGatewayHostsAnalyzer",
+		Name:        "virtualservice.ConflictingMeshGatewayHostsAnalyzer",
+		Description: "Checks if multiple VirtualServices associated with mesh gateway have conflicting hosts.",
 		Inputs: collection.Names{
 			metadata.IstioNetworkingV1Alpha3Virtualservices,
 		},

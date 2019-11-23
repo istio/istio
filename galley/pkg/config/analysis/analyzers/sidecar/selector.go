@@ -35,7 +35,8 @@ var _ analysis.Analyzer = &SelectorAnalyzer{}
 // Metadata implements Analyzer
 func (a *SelectorAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name: "sidecar.SelectorAnalyzer",
+		Name:        "sidecar.SelectorAnalyzer",
+		Description: "Validates that sidecars that define a workload selector match at least one pod, and that there aren't multiple Sidecar resources that select overlapping pods.",
 		Inputs: collection.Names{
 			metadata.IstioNetworkingV1Alpha3Sidecars,
 			metadata.K8SCoreV1Pods,

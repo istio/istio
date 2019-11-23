@@ -323,6 +323,14 @@ func TestAnalyzersHaveUniqueNames(t *testing.T) {
 	}
 }
 
+func TestAnalyzersHaveDescription(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	for _, a := range All() {
+		g.Expect(a.Metadata().Description).ToNot(Equal(""))
+	}
+}
+
 // Pull just the fields we want to check out of diag.Message
 func extractFields(msgs []diag.Message) []message {
 	result := make([]message, 0)
