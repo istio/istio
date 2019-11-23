@@ -63,7 +63,7 @@ function download_untar_istio_release() {
 
 function build_images() {
   # Build just the images needed for tests
-   DOCKER_BUILD_VARIANTS="${VARIANT:-default}" time make dockerx
+   DOCKER_BUILD_VARIANTS="${VARIANT:-default}" make dockerx
 }
 
 function kind_load_images() {
