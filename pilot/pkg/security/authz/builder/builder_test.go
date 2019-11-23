@@ -139,6 +139,8 @@ func TestBuilder_BuildHTTPFilter(t *testing.T) {
 					}
 				} else {
 					rbacConfig := &http_config.RBAC{}
+
+					// nolint: staticcheck
 					if got.GetConfig() == nil {
 						t.Errorf("want struct config when isXDSMarshalingToAnyEnabled is false")
 					} else if err := conversion.StructToMessage(got.GetConfig(), rbacConfig); err != nil {
@@ -225,6 +227,7 @@ func TestBuilder_BuildTCPFilter(t *testing.T) {
 				}
 			} else {
 				rbacConfig := &tcp_config.RBAC{}
+				// nolint: staticcheck
 				if got.GetConfig() == nil {
 					t.Errorf("want struct config when isXDSMarshalingToAnyEnabled is false")
 				} else if err := conversion.StructToMessage(got.GetConfig(), rbacConfig); err != nil {
