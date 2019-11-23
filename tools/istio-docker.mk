@@ -192,14 +192,13 @@ docker.mixer_codegen: mixer/docker/Dockerfile.mixer_codegen
 docker.mixer_codegen: $(ISTIO_DOCKER)/mixgen
 	$(DOCKER_RULE)
 
-BUILDX_DIR = /tmp/buildx
 
-buildx: DOCKER_RULE?=mkdir -p $(BUILDX_DIR)/$@ && cp -r $^ $(BUILDX_DIR)/$@
-buildx: docker
-buildx:
+dockerx: DOCKER_RULE?=mkdir -p $(DOCKERX_BUILD_TOP)/$@ && cp -r $^ $(DOCKERX_BUILD_TOP)/$@
+dockerx: docker
+dockerx:
 	# TODO support multiple distributions. Currently this just passes DEFAULT_DISTRIBUTION
-	HUB=${HUB} TAG=${TAG} ./tools/buildx-gen.sh $(BUILDX_DIR) $(BASE_VERSION) $(DEFAULT_DISTRIBUTION) $(DOCKER_TARGETS)
-	DOCKER_CLI_EXPERIMENTAL=enabled docker buildx bake -f $(BUILDX_DIR)/docker-bake.hcl
+	HUB=$(HUB) TAG=$(TAG) DOCKER_ALL_VARIANTS="$(DOCKER_ALL_VARIANTS)" BASE_VERSION=$(BASE_VERSION) ./tools/buildx-gen.sh $(DOCKERX_BUILD_TOP) $(DOCKER_TARGETS)
+	DOCKER_CLI_EXPERIMENTAL=enabled docker buildx bake -f $(DOCKERX_BUILD_TOP)/docker-bake.hcl $(DOCKER_BUILD_VARIANTS)
 
 # galley docker images
 docker.galley: BUILD_PRE=chmod 755 galley &&
@@ -255,7 +254,8 @@ docker.base: docker/Dockerfile.base
 # 5. This rule finally runs docker build passing $(BUILD_ARGS) to docker if they are specified as a dependency variable
 
 # DOCKER_BUILD_VARIANTS ?=default distroless
-DOCKER_BUILD_VARIANTS ?=default
+DOCKER_BUILD_VARIANTS ?= default
+DOCKER_ALL_VARIANTS ?= default distroless
 DEFAULT_DISTRIBUTION=default
 DOCKER_RULE ?= $(foreach VARIANT,$(DOCKER_BUILD_VARIANTS), time (mkdir -p $(DOCKER_BUILD_TOP)/$@ && cp -r $^ $(DOCKER_BUILD_TOP)/$@ && cd $(DOCKER_BUILD_TOP)/$@ && $(BUILD_PRE) docker build $(BUILD_ARGS) --build-arg BASE_DISTRIBUTION=$(VARIANT) -t $(HUB)/$(subst docker.,,$@):$(subst -$(DEFAULT_DISTRIBUTION),,$(TAG)-$(VARIANT)) -f Dockerfile$(suffix $@) . ); )
 

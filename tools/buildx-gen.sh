@@ -19,41 +19,52 @@ set -eu
 out="${1}"
 config="${out}/docker-bake.hcl"
 shift
-base_version="${1}"
-shift
-base_distribution="${1}"
-shift
 
-# Get all images. Transform from `docker.target` to `"target"`
-images=$(for i in "$@"; do echo "\"${i#docker.}\""; done)
-# shellcheck disable=SC2001
-# shellcheck disable=SC2086
-# Replace newlines with comma, so we get a comma seperated list
-csv=$(echo ${images} | sed -e 's/ /, /g')
-
-# Generate the top header. This defines a group to build all images, as well as the default args
+variants=$(for i in ${DOCKER_ALL_VARIANTS}; do echo "\"${i}\""; done | xargs -d'\n' | sed -e 's/ /, /g')
 cat <<EOF > "${config}"
-group "default" {
-    targets = [${csv}]
-}
-
-target "args" {
-    args = {
-        BASE_VERSION = "${base_version}"
-        BASE_DISTRIBUTION = "${base_distribution}"
-    }
+group "all" {
+    targets = [${variants}]
 }
 EOF
+
+# Generate the top header. This defines a group to build all images for each variant
+for variant in ${DOCKER_ALL_VARIANTS}; do
+  # Get all images. Transform from `docker.target` to `"target"` as a comma seperated list
+  images=$(for i in "$@"; do echo "\"${i#docker.}-${variant}\""; done | xargs -d'\n' | sed -e 's/ /, /g')
+  cat <<EOF >> "${config}"
+group "${variant}" {
+    targets = [${images}]
+}
+EOF
+done
 
 # For each docker image, define a target to build it
 for file in "$@"; do
-  image=${file#docker.}
-  cat <<EOF >> "${config}"
-target "$image" {
+  for variant in ${DOCKER_ALL_VARIANTS}; do
+    image=${file#docker.}
+    tag="${TAG}"
+    # The default variant has no suffix, others do
+    if [[ "${variant}" != "default" ]]; then
+      tag+="-${variant}"
+    fi
+    cat <<EOF >> "${config}"
+target "$image-$variant" {
     context = "${out}/${file}"
     dockerfile = "Dockerfile.$image"
-    tags = ["${HUB}/${image}:${TAG}"]
-    inherits = ["args"]
+    tags = ["${HUB}/${image}:${tag}"]
+    args = {
+      BASE_VERSION = "${BASE_VERSION}"
+      BASE_DISTRIBUTION = "${variant}"
+    }
 }
 EOF
+    # For the default variant, create an alias so we can do things like `build pilot` instead of `build pilot-default`
+    if [[ "${variant}" == "default" ]]; then
+    cat <<EOF >> "${config}"
+target "$image" {
+    inherits = ["$image-$variant"]
+}
+EOF
+    fi
+  done
 done

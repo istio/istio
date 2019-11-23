@@ -153,6 +153,7 @@ DOCKER_PROXY_CFG?=Dockerfile.proxy
 # copied to the docker temp container - even if you add only a tiny file, >1G of data will
 # be copied, for each docker image.
 DOCKER_BUILD_TOP:=${ISTIO_OUT_LINUX}/docker_build
+DOCKERX_BUILD_TOP:=${ISTIO_OUT_LINUX}/dockerx_build
 
 # dir where tar.gz files from docker.save are stored
 ISTIO_DOCKER_TAR:=${ISTIO_OUT_LINUX}/docker
