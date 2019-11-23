@@ -19,7 +19,7 @@
 
 # Docker target will build the go binaries and package the docker for local testing.
 # It does not upload to a registry.
-docker: build-linux docker.all
+docker: docker.all
 
 # Add new docker targets to the end of the DOCKER_TARGETS list.
 DOCKER_TARGETS ?= docker.pilot docker.istiod docker.proxytproxy docker.proxyv2 docker.app docker.app_sidecar docker.test_policybackend \
@@ -192,7 +192,6 @@ docker.mixer_codegen: mixer/docker/Dockerfile.mixer_codegen
 docker.mixer_codegen: $(ISTIO_DOCKER)/mixgen
 	$(DOCKER_RULE)
 
-
 .PHONY: dockerx dockerx.save
 
 # Docker has an experimental new build engine, https://github.com/docker/buildx
@@ -207,11 +206,18 @@ docker.mixer_codegen: $(ISTIO_DOCKER)/mixgen
 dockerx: DOCKER_RULE?=mkdir -p $(DOCKERX_BUILD_TOP)/$@ && cp -r $^ $(DOCKERX_BUILD_TOP)/$@
 dockerx: docker | $(ISTIO_DOCKER_TAR)
 dockerx:
-	# TODO support multiple distributions. Currently this just passes DEFAULT_DISTRIBUTION
-	HUB=$(HUB) TAG=$(TAG) DOCKER_ALL_VARIANTS="$(DOCKER_ALL_VARIANTS)" \
-		ISTIO_DOCKER_TAR=$(ISTIO_DOCKER_TAR) BASE_VERSION=$(BASE_VERSION) DOCKER_SAVE=$(DOCKER_SAVE) \
+	HUB=$(HUB) \
+		TAG=$(TAG) \
+		DOCKER_ALL_VARIANTS="$(DOCKER_ALL_VARIANTS)" \
+		ISTIO_DOCKER_TAR=$(ISTIO_DOCKER_TAR) \
+		BASE_VERSION=$(BASE_VERSION) \
+		DOCKER_SAVE="$(DOCKER_SAVE)" \
 		./tools/buildx-gen.sh $(DOCKERX_BUILD_TOP) $(DOCKER_TARGETS)
 	DOCKER_CLI_EXPERIMENTAL=enabled docker buildx bake -f $(DOCKERX_BUILD_TOP)/docker-bake.hcl $(DOCKER_BUILD_VARIANTS)
+
+# Support individual images like `dockerx.pilot`
+dockerx.%:
+	@DOCKER_TARGETS=docker.$* BUILD_ALL=false $(MAKE) --no-print-directory -f Makefile.core.mk dockerx
 
 # Reuse the dockerx target, but export save variable to trigger output to .tar
 dockerx.save: DOCKER_SAVE=true
