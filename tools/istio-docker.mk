@@ -205,7 +205,7 @@ docker.mixer_codegen: $(ISTIO_DOCKER)/mixgen
 # We then generate a "bake" file, which defines all of the docker files in the repo
 # Finally, we call `docker buildx bake` to generate the images. DOCKER_SAVE can be set to output to a .tar
 dockerx: DOCKER_RULE?=mkdir -p $(DOCKERX_BUILD_TOP)/$@ && cp -r $^ $(DOCKERX_BUILD_TOP)/$@
-dockerx: docker
+dockerx: docker | $(ISTIO_DOCKER_TAR)
 dockerx:
 	# TODO support multiple distributions. Currently this just passes DEFAULT_DISTRIBUTION
 	HUB=$(HUB) TAG=$(TAG) DOCKER_ALL_VARIANTS="$(DOCKER_ALL_VARIANTS)" \
