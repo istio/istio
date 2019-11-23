@@ -192,8 +192,16 @@ docker.mixer_codegen: mixer/docker/Dockerfile.mixer_codegen
 docker.mixer_codegen: $(ISTIO_DOCKER)/mixgen
 	$(DOCKER_RULE)
 
-# galley docker images
+BUILDX_DIR = /tmp/buildx
 
+buildx: DOCKER_RULE?=mkdir -p $(BUILDX_DIR)/$@ && cp -r $^ $(BUILDX_DIR)/$@
+buildx: docker
+buildx:
+	# TODO support multiple distributions. Currently this just passes DEFAULT_DISTRIBUTION
+	./tools/buildx-gen.sh $(BUILDX_DIR) $(BASE_VERSION) $(DEFAULT_DISTRIBUTION) $(DOCKER_TARGETS)
+	DOCKER_CLI_EXPERIMENTAL=enabled docker buildx bake $(BUILDX_DIR)/docker-bake.hcl
+
+# galley docker images
 docker.galley: BUILD_PRE=chmod 755 galley &&
 docker.galley: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.galley: galley/docker/Dockerfile.galley
@@ -249,7 +257,7 @@ docker.base: docker/Dockerfile.base
 # DOCKER_BUILD_VARIANTS ?=default distroless
 DOCKER_BUILD_VARIANTS ?=default
 DEFAULT_DISTRIBUTION=default
-DOCKER_RULE=$(foreach VARIANT,$(DOCKER_BUILD_VARIANTS), time (mkdir -p $(DOCKER_BUILD_TOP)/$@ && cp -r $^ $(DOCKER_BUILD_TOP)/$@ && cd $(DOCKER_BUILD_TOP)/$@ && $(BUILD_PRE) docker build $(BUILD_ARGS) --build-arg BASE_DISTRIBUTION=$(VARIANT) -t $(HUB)/$(subst docker.,,$@):$(subst -$(DEFAULT_DISTRIBUTION),,$(TAG)-$(VARIANT)) -f Dockerfile$(suffix $@) . ); )
+DOCKER_RULE ?= $(foreach VARIANT,$(DOCKER_BUILD_VARIANTS), time (mkdir -p $(DOCKER_BUILD_TOP)/$@ && cp -r $^ $(DOCKER_BUILD_TOP)/$@ && cd $(DOCKER_BUILD_TOP)/$@ && $(BUILD_PRE) docker build $(BUILD_ARGS) --build-arg BASE_DISTRIBUTION=$(VARIANT) -t $(HUB)/$(subst docker.,,$@):$(subst -$(DEFAULT_DISTRIBUTION),,$(TAG)-$(VARIANT)) -f Dockerfile$(suffix $@) . ); )
 
 # This target will package all docker images used in test and release, without re-building
 # go binaries. It is intended for CI/CD systems where the build is done in separate job.

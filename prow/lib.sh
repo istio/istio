@@ -63,9 +63,7 @@ function download_untar_istio_release() {
 
 function build_images() {
   # Build just the images needed for tests
-  for image in pilot proxyv2 app test_policybackend mixer citadel galley sidecar_injector kubectl node-agent-k8s; do
-     DOCKER_BUILD_VARIANTS="${VARIANT:-default}" make docker.${image}
-  done
+  make buildx
 }
 
 function kind_load_images() {
