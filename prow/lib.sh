@@ -63,7 +63,7 @@ function download_untar_istio_release() {
 
 function build_images() {
   # Build just the images needed for tests
-  make buildx
+  time make buildx
 }
 
 function kind_load_images() {
