@@ -24,6 +24,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
@@ -729,6 +730,12 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 }
 
 func (ps *PushContext) createNewContext(env *Environment) error {
+
+	// If any of the custom CRD initialization causes panic, we should recover.
+	defer util.HandleCrash(func() {
+		log.Errorf("initializing push context caused panic")
+	})
+
 	if err := ps.initServiceRegistry(env); err != nil {
 		return err
 	}
@@ -769,6 +776,11 @@ func (ps *PushContext) updateContext(
 	env *Environment,
 	oldPushContext *PushContext,
 	pushReq *PushRequest) error {
+
+	// If any of the custom CRD initialization causes panic, we should recover.
+	defer util.HandleCrash(func() {
+		log.Errorf("updating push context caused panic")
+	})
 
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
 		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged bool
