@@ -12,7 +12,7 @@ spec:
   egress:
   - port:
       number: 23145
-      protocol: TCP
+      protocol: http_proxy
       name: outbound-tcp
     bind: 7.7.7.7
     hosts:

@@ -291,6 +291,24 @@ var (
 		},
 	}
 
+	configs10 = &Config{
+		ConfigMeta: ConfigMeta{
+			Name: "sidecar-scope-with-http-proxy",
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Number:   7443,
+						Protocol: "http_proxy",
+						Name:     "grpc-tls",
+					},
+					Hosts: []string{"*/*"},
+				},
+			},
+		},
+	}
+
 	services1 = []*Service{
 		{Hostname: "bar"},
 	}
@@ -703,6 +721,21 @@ func TestCreateSidecarScope(t *testing.T) {
 						Name:      "bar",
 						Namespace: "ns2",
 					},
+				},
+			},
+		},
+		{
+			"http-proxy-protocol-matches-any-port",
+			configs10,
+			services7,
+			[]*Service{
+				{
+					Hostname: "bar",
+				},
+				{
+					Hostname: "barprime"},
+				{
+					Hostname: "foo",
 				},
 			},
 		},

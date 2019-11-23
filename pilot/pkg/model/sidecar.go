@@ -29,6 +29,7 @@ const (
 	wildcardNamespace = "*"
 	currentNamespace  = "."
 	wildcardService   = host.Name("*")
+	proxyProtocol     = "http_proxy"
 )
 
 // SidecarScope is a wrapper over the Sidecar resource with some
@@ -517,9 +518,11 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 }
 
 func matchingServices(importedHosts []host.Name, service *Service, ilw *IstioEgressListenerWrapper) []*Service {
-	// If a listener is defined with port, we should match services with port.
-	// If an unix domain socket is given as a port, we should not match by port and include services based on hosts.
-	needsPortMatch := ilw.IstioListener != nil && ilw.IstioListener.Port != nil && ilw.IstioListener.Port.GetNumber() != 0
+	// If a listener is defined with port, we should match services with port except in the following cases.
+	//  - If an unix domain socket is given as a port, we should not match by port and include services based on hosts.
+	//  - If Port's protocol is proxy protocol in which case the egress listener is used as generic egress http proxy.
+	needsPortMatch := ilw.IstioListener != nil && ilw.IstioListener.Port != nil &&
+		ilw.IstioListener.Port.GetNumber() != 0 && ilw.IstioListener.Port.Protocol != proxyProtocol
 	importedServices := make([]*Service, 0)
 
 	for _, importedHost := range importedHosts {
