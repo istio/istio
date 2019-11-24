@@ -42,30 +42,30 @@ e2e_bookinfo_envoyv2_v1alpha3: build test/local/auth/e2e_bookinfo_envoyv2
 
 e2e_bookinfo_trustdomain: build test/local/auth/e2e_bookinfo_trustdomain
 
-e2e_simple_run: out_dir
+e2e_simple_run:
 	go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/simple -args --auth_enable=true \
 	--egress=false --ingress=false \
 	--valueFile test-values/values-e2e.yaml \
 	--rbac_enable=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS}
 
-e2e_simple_noauth_run: out_dir
+e2e_simple_noauth_run:
 	go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/simple -args --auth_enable=false \
 	--egress=false --ingress=false \
 	--valueFile test-values/values-e2e.yaml \
 	--rbac_enable=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS}
 
-e2e_mixer_run: out_dir
+e2e_mixer_run:
 	go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/mixer \
 	--auth_enable=false --egress=false --ingress=false --rbac_enable=false \
 	--cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS}
 
-e2e_dashboard_run: out_dir
+e2e_dashboard_run:
 	go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/dashboard -args ${E2E_ARGS} ${EXTRA_E2E_ARGS} -use_galley_config_validator -cluster_wide
 
-e2e_bookinfo_run: out_dir
+e2e_bookinfo_run:
 	go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/bookinfo -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
 
-e2e_stackdriver_run: out_dir
+e2e_stackdriver_run:
 	go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/stackdriver -args ${E2E_ARGS} ${EXTRA_E2E_ARGS} --cluster_wide --gcp_proj=${GCP_PROJ} --sa_cred=/etc/service-account/service-account.json
 
 test/local/auth/e2e_simple: generate_e2e_yaml
@@ -99,7 +99,7 @@ test/local/auth/e2e_pilotv2: generate_e2e_yaml
 	# Run the pilot controller tests
 	go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/controller
 
-e2e_cloudfoundry:
+e2e_cloudfoundry: init
 	iptables -t nat -A OUTPUT -d 127.1.1.1/32 -p tcp -j REDIRECT --to-port 15001
 	go test -v -timeout ${E2E_TIMEOUT} ./tests/e2e/tests/pilot/cloudfoundry ${T} \
 		${CAPTURE_LOG}
