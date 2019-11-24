@@ -182,9 +182,22 @@ func (c *controller) createInformer(
 	handler := &kube.ChainHandler{}
 	handler.Append(c.notify)
 
+	// Add validation during list read here.
+	vlf := func(opts meta_v1.ListOptions) (result runtime.Object, err error) {
+		if result, err = lf(opts); err == nil {
+			err = vf(result)
+		}
+		if err != nil {
+			log.Errorf("failed to add CRD while listing. Value: %v, error: %v", result, err)
+			incrementEvent(otype, "addfailure")
+			return nil, err
+		}
+		return
+	}
+
 	// TODO: finer-grained index (perf)
 	informer := cache.NewSharedIndexInformer(
-		&cache.ListWatch{ListFunc: lf, WatchFunc: wf}, o,
+		&cache.ListWatch{ListFunc: vlf, WatchFunc: wf}, o,
 		resyncPeriod, cache.Indexers{})
 
 	informer.AddEventHandler(
@@ -348,7 +361,7 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 			continue
 		}
 
-		config, err := crd.StrictConvertObject(s, item, c.client.domainSuffix)
+		config, err := crd.ConvertObject(s, item, c.client.domainSuffix)
 		if err != nil {
 			key := item.GetObjectMeta().Namespace + "/" + item.GetObjectMeta().Name
 			log.Errorf("Failed to convert/validate %s object, ignoring: %s %v %v", typ, key, err, item.GetSpec())
