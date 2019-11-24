@@ -182,9 +182,10 @@ func (c *controller) createInformer(
 	handler := &kube.ChainHandler{}
 	handler.Append(c.notify)
 
-	// Add validation during list read here.
+	// Enhance list function with supplied validation function, so that invalid CRD does not enter store.
 	vlf := func(opts meta_v1.ListOptions) (result runtime.Object, err error) {
 		if result, err = lf(opts); err == nil {
+			// This check is primarily needed for tests which use mock config - but helps otherwise also.
 			if obj, ok := result.(crd.IstioObject); ok {
 				err = vf(obj)
 			}
