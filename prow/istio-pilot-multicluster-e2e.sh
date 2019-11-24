@@ -73,4 +73,4 @@ setup_cluster_reg
 
 ./prow/e2e-kind-suite.sh \
   --skip-setup --skip-cleanup --skip-build \
-  --timeout 90m --cluster_registry_dir="$CLUSTERREG_DIR" --single_test e2e_pilotv2_v1alpha3 "$@"
+  --cluster_registry_dir="$CLUSTERREG_DIR" --single_test e2e_pilotv2_v1alpha3 "$@"
