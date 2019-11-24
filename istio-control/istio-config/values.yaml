@@ -4,6 +4,8 @@ galley:
   rollingMaxSurge: 100%
   rollingMaxUnavailable: 25%
 
+  enableServiceDiscovery: false
+
   resources:
     requests:
       cpu: 100m

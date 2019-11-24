@@ -161,12 +161,18 @@ data:
     enableAutoMtls: {{ .Values.global.mtls.auto }}
 
     {{- if .Values.pilot.useMCP }}
-    config_sources:
+    configSources:
     {{- if .Values.global.controlPlaneSecurityEnabled }}
     - address: localhost:15019
     {{- else }}
     - address: istio-galley.{{ .Values.global.configNamespace }}:9901
     {{- end }}
+    {{- if .Values.pilot.configSource.subscribedResources }}
+      subscribedResources:
+    {{- range .Values.pilot.configSource.subscribedResources }}
+        - {{ . }}
+    {{- end }}
+    {{- end}}
     {{- end }}
 
     outboundTrafficPolicy:
