@@ -185,7 +185,9 @@ func (c *controller) createInformer(
 	// Add validation during list read here.
 	vlf := func(opts meta_v1.ListOptions) (result runtime.Object, err error) {
 		if result, err = lf(opts); err == nil {
-			err = vf(result)
+			if obj, ok := result.(crd.IstioObject); ok {
+				err = vf(obj)
+			}
 		}
 		if err != nil {
 			log.Errorf("failed to add CRD while listing. Value: %v, error: %v", result, err)
@@ -364,7 +366,7 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 		config, err := crd.ConvertObject(s, item, c.client.domainSuffix)
 		if err != nil {
 			key := item.GetObjectMeta().Namespace + "/" + item.GetObjectMeta().Name
-			log.Errorf("Failed to convert/validate %s object, ignoring: %s %v %v", typ, key, err, item.GetSpec())
+			log.Errorf("Failed to convert %s object, ignoring: %s %v %v", typ, key, err, item.GetSpec())
 			// DO NOT RETURN ERROR: if a single object is bad, it'll be ignored (with a log message), but
 			// the rest should still be processed.
 			// TODO: find a way to reset and represent the error !!
