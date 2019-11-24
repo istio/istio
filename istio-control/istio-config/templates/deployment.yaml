@@ -68,6 +68,9 @@ spec:
   {{- else }}
           - --enable-reconcileWebhookConfiguration=true
   {{- end }}
+  {{- if .Values.galley.enableServiceDiscovery }}
+          - --enableServiceDiscovery=true
+  {{- end }}
           - --enable-server=true
   {{- if .Values.galley.enableAnalysis }}
           - --enableAnalysis=true
