@@ -103,12 +103,14 @@ func patchCertLoop(client kubernetes.Interface, stopCh <-chan struct{}) error {
 	// K8S own CA
 	caCertPem, err := ioutil.ReadFile(defaultCACertPath)
 	if err != nil {
+		log.Warna("Skipping webhook patch, missing CA path ", defaultCACertPath)
 		return err
 	}
 
 	var retry bool
 	if err = util.PatchMutatingWebhookConfig(client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
 		webhookConfigName.Get(), webhookName, caCertPem); err != nil {
+		log.Warna("Error patching Webhook ", err)
 		retry = true
 	}
 
@@ -179,5 +181,6 @@ func doPatch(cs kubernetes.Interface, webhookConfigName, webhookName string, caC
 		log.Errorf("Patch webhook failed: %v", err)
 		return true
 	}
+	log.Infof("Patched webhook %s", webhookName)
 	return false
 }

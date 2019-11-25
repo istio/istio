@@ -705,7 +705,10 @@ func (s *Server) initDNSListener(args *PilotArgs) error {
 			"port 15012 will not be activated ", err)
 	} else {
 		// run secure grpc server for Istiod - using DNS-based certs from K8S
-		s.initSecureGrpcServerDNS()
+		err := s.initSecureGrpcServerDNS()
+		if err != nil {
+			log.Fatala("Failed to init GRPC on 15012 ", err)
+		}
 	}
 
 	return nil

@@ -108,8 +108,8 @@ var (
 	trustedIssuer = env.RegisterStringVar("TOKEN_ISSUER", "",
 		"OIDC token issuer. If set, will be used to check the tokens.")
 
-	audience = env.RegisterStringVar("AUDIENCE", "istio-ca",
-		"Expected audience in the tokens. For backward compat, default is istio-ca.")
+	audience = env.RegisterStringVar("AUDIENCE", "",
+		"Expected audience in the tokens. ")
 )
 
 const (
@@ -148,7 +148,7 @@ func RunCA(grpc *grpc.Server, cs kubernetes.Interface, opts *CAOptions) {
 			if iss == "" {
 				iss = tok.Iss
 			}
-			if len(tok.Aud) > 0 {
+			if len(tok.Aud) > 0 && len(aud) == 0 {
 				aud = tok.Aud[0]
 			}
 		}

@@ -98,7 +98,10 @@ func (s *Server) initGalley(args *PilotArgs) error {
 		if err != nil {
 			log.Fatalf("Failed to read overrides %v", err)
 		}
-		json.Unmarshal(overrideGalley, gargs)
+		err = json.Unmarshal(overrideGalley, gargs)
+		if err != nil {
+			log.Fatalf("Failed to parse overrides %v", err)
+		}
 	}
 
 	meshCfgFile := args.Mesh.ConfigFile

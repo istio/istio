@@ -148,7 +148,7 @@ func (s *Server) initDNSCerts() error {
 	log.Infoa("Generating K8S-signed cert for ", names)
 
 	if s.kubeClient == nil {
-		return errorOrFatal(port, errors.New("K8S not found, cert signing disabled."))
+		return errorOrFatal(port, errors.New("k8s not found, cert signing disabled."))
 	}
 
 	// TODO: fallback to citadel (or custom CA) if K8S signing is broken
@@ -161,15 +161,15 @@ func (s *Server) initDNSCerts() error {
 	// Save the certificates to /var/run/secrets/istio-dns - this is needed since most of the code we currently
 	// use to start grpc and webhooks is based on files. This is a memory-mounted dir.
 	if err := os.MkdirAll(DNSCertDir, 0700); err != nil {
-		return errorOrFatal(port, fmt.Errorf("Failed to create certs dir: %v", err))
+		return errorOrFatal(port, fmt.Errorf("failed to create certs dir: %v", err))
 	}
 	err = ioutil.WriteFile(DNSCertDir+"/key.pem", keyPEM, 0700)
 	if err != nil {
-		return errorOrFatal(port, fmt.Errorf("Failed to write certs: %v", err))
+		return errorOrFatal(port, fmt.Errorf("failed to write certs: %v", err))
 	}
 	err = ioutil.WriteFile(DNSCertDir+"/cert-chain.pem", certChain, 0700)
 	if err != nil {
-		return errorOrFatal(port, fmt.Errorf("Failed to write certs: %v", err))
+		return errorOrFatal(port, fmt.Errorf("failed to write certs: %v", err))
 	}
 	log.Infoa("Certificates created in ", DNSCertDir)
 	return nil
