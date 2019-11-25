@@ -56,6 +56,8 @@ const (
 	NodeRegionLabelGA = "topology.kubernetes.io/region"
 	// NodeZoneLabelGA is the well-known label for kubernetes node zone in ga
 	NodeZoneLabelGA = "topology.kubernetes.io/zone"
+	// IstioSubzoneLabel is custom subzone label for locality-based routing in Kubernetes see: https://github.com/istio/istio/issues/19114
+	IstioSubzoneLabel = "topology.istio.io/subzone"
 	// IstioNamespace used by default for Istio cluster-wide installation
 	IstioNamespace = "istio-system"
 	// IstioConfigMap is used by default
@@ -358,12 +360,13 @@ func (c *Controller) GetPodLocality(pod *v1.Pod) string {
 
 	region := getLabelValue(node.(*v1.Node), NodeRegionLabel, NodeRegionLabelGA)
 	zone := getLabelValue(node.(*v1.Node), NodeZoneLabel, NodeZoneLabelGA)
+	subzone := getLabelValue(node.(*v1.Node), IstioSubzoneLabel, "")
 
-	if region == "" && zone == "" {
+	if region == "" && zone == "" && subzone == ""{
 		return ""
 	}
 
-	return fmt.Sprintf("%v/%v", region, zone)
+	return fmt.Sprintf("%s/%s/%s", region, zone, subzone)
 }
 
 // ManagementPorts implements a service catalog operation
