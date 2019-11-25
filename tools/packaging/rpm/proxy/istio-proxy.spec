@@ -13,6 +13,8 @@
 %global _prefix /usr/local
 %global envoy_libdir /var/lib/istio/envoy
 
+%global debug_package   %{nil}
+
 Name:           istio-proxy
 Version:        %{package_version}
 Release:        %{package_release}%{?dist}
