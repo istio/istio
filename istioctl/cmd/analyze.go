@@ -270,7 +270,7 @@ istioctl experimental analyze -L
 	}
 
 	analysisCmd.PersistentFlags().BoolVarP(&listAnalyzers, "list-analyzers", "L", false,
-		"List the set of analyzers available to run")
+		"List the analyzers available to run. Suppresses normal execution.")
 	analysisCmd.PersistentFlags().BoolVarP(&useKube, "use-kube", "k", false,
 		"Use live Kubernetes cluster for analysis")
 	analysisCmd.PersistentFlags().BoolVarP(&useDiscovery, "discovery", "d", false, // Note that this default val gets overriden to match --use-kube
