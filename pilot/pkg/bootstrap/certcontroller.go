@@ -69,7 +69,7 @@ func (s *Server) initCertController(args *PilotArgs) error {
 			// Only one service (currently Pilot) will save the key and certificate in a directory.
 			// Create directory at s.mesh.K8SCertificateSetting.PilotCertificatePath if it doesn't exist.
 			svcName := "istio.pilot"
-			dir, err := pilotDnsCertDir()
+			dir, err := pilotDNSCertDir()
 			if err != nil {
 				return err
 			}
@@ -126,7 +126,7 @@ func (s *Server) initCertController(args *PilotArgs) error {
 	return nil
 }
 
-func pilotDnsCertDir() (string, error) {
+func pilotDNSCertDir() (string, error) {
 	userHomeDir, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("could not find local user folder: %v", err)
