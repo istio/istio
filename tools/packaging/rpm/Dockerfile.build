@@ -15,7 +15,7 @@ ENV GOROOT=/usr/local/go \
     PATH=/usr/local/go/bin:/opt/rh/rh-git218/root/usr/bin:/opt/rh/devtoolset-7/root/usr/bin:/opt/llvm/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH}
 
 # Install bazel
-RUN curl -o /usr/local/bin/bazel -L https://github.com/bazelbuild/bazelisk/releases/download/v0.0.8/bazelisk-linux-amd64 && \
+RUN curl -o /usr/local/bin/bazel -L https://github.com/bazelbuild/bazelisk/releases/download/v1.1.0/bazelisk-linux-amd64 && \
     chmod +x /usr/local/bin/bazel
 
 RUN ln -s /usr/bin/cmake3 /usr/bin/cmake && \
