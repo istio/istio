@@ -103,14 +103,14 @@ For each component, there are 2 styles of installing, using 'helm + tiller' or '
 Using `kubectl --prune` is recommended:
 
 ```bash
-helm template --namespace $NAMESPACE -n $COMPONENT $CONFIGDIR -f global.yaml | \
+helm template --namespace $NAMESPACE --name-template $COMPONENT $CONFIGDIR -f global.yaml | \
    kubectl apply -n $NAMESPACE --prune -l release=$COMPONENT -f -
 ```
 
 Using helm:
 
 ```bash
-helm upgrade --namespace $NAMESPACE -n $COMPONENT $CONFIGDIR -f global.yaml
+helm upgrade --namespace $NAMESPACE $COMPONENT $CONFIGDIR -f global.yaml
 ```
 
 The doc will use the `iop $NAMESPACE $COMPONENT $CONFIGDIR` helper from `env.sh` - which is the equivalent
