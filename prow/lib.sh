@@ -182,10 +182,6 @@ function setup_kind_cluster() {
     fi
   fi
 
-  # Temporary until we add this to the docker image
-  (cd $(mktemp -d); go get sigs.k8s.io/kind@v0.6.0)
-  kind version
-
   # Create KinD cluster
   if ! (kind create cluster --name="${NAME}" --config "${CONFIG}" -v9 --retain --image "${IMAGE}" --wait=60s); then
     echo "Could not setup KinD environment. Something wrong with KinD setup. Exporting logs."
