@@ -42,7 +42,7 @@ type hostAndSubset struct {
 func (a *DestinationHostAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "virtualservice.DestinationHostAnalyzer",
-		Description: "Checks the destination hosts associated with each virtual service.",
+		Description: "Checks the destination hosts associated with each virtual service",
 		Inputs: collection.Names{
 			metadata.IstioNetworkingV1Alpha3SyntheticServiceentries,
 			metadata.IstioNetworkingV1Alpha3Serviceentries,

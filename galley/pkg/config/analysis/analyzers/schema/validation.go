@@ -52,7 +52,7 @@ func AllValidationAnalyzers() []analysis.Analyzer {
 func (a *ValidationAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        fmt.Sprintf("schema.ValidationAnalyzer.%s", a.s.VariableName),
-		Description: fmt.Sprintf("Runs schema validation as an analyzer on %s resources.", a.s.VariableName),
+		Description: fmt.Sprintf("Runs schema validation as an analyzer on '%s' resources", a.s.VariableName),
 		Inputs:      collection.Names{collection.NewName(a.s.Collection)},
 	}
 }

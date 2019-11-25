@@ -27,7 +27,7 @@ import (
 	"istio.io/istio/galley/pkg/config/resource"
 )
 
-// IngressGatewayPortAnalyzer checks a Gateway's ports against the gateway's K8s Service ports.
+// IngressGatewayPortAnalyzer checks a gateway's ports against the gateway's Kubernetes service ports.
 type IngressGatewayPortAnalyzer struct{}
 
 var (
@@ -49,7 +49,7 @@ var (
 func (*IngressGatewayPortAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "gateway.IngressGatewayPortAnalyzer",
-		Description: "Checks a Gateway's ports against the gateway's Kubernetes Service ports.",
+		Description: "Checks a gateway's ports against the gateway's Kubernetes service ports",
 		Inputs: collection.Names{
 			metadata.IstioNetworkingV1Alpha3Gateways,
 			metadata.K8SCoreV1Pods,

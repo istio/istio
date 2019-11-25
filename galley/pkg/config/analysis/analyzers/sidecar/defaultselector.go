@@ -22,8 +22,10 @@ import (
 	"istio.io/istio/galley/pkg/config/resource"
 )
 
-// DefaultSelectorAnalyzer validates, per namespace, that there aren't multiple Sidecar resources that have no selector
-// This is distinct from SelectorAnalyzer because it does not require pods, so it can run even if that collection is unavailable
+// DefaultSelectorAnalyzer validates, per namespace, that there aren't multiple
+// sidecar resources that have no selector. This is distinct from
+// SelectorAnalyzer because it does not require pods, so it can run even if that
+// collection is unavailable.
 type DefaultSelectorAnalyzer struct{}
 
 var _ analysis.Analyzer = &DefaultSelectorAnalyzer{}
@@ -32,7 +34,7 @@ var _ analysis.Analyzer = &DefaultSelectorAnalyzer{}
 func (a *DefaultSelectorAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "sidecar.DefaultSelectorAnalyzer",
-		Description: "Validates that there aren't multiple Sidecar resources that have no selector.",
+		Description: "Validates that there aren't multiple sidecar resources that have no selector",
 		Inputs: collection.Names{
 			metadata.IstioNetworkingV1Alpha3Sidecars,
 		},

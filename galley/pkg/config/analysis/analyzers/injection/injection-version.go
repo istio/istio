@@ -45,7 +45,7 @@ type podVersion struct {
 func (a *VersionAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "injection.VersionAnalyzer",
-		Description: "Checks the version of auto-injection configured with the running proxies on pods.",
+		Description: "Checks the version of auto-injection configured with the running proxies on pods",
 		Inputs: collection.Names{
 			metadata.K8SCoreV1Namespaces,
 			metadata.K8SCoreV1Pods,

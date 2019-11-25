@@ -26,8 +26,8 @@ import (
 )
 
 // SelectorAnalyzer validates, per namespace, that:
-// * Sidecars that define a workload selector match at least one pod
-// * there aren't multiple Sidecar resources that select overlapping pods
+// * sidecar resources that define a workload selector match at least one pod
+// * there aren't multiple sidecar resources that select overlapping pods
 type SelectorAnalyzer struct{}
 
 var _ analysis.Analyzer = &SelectorAnalyzer{}
@@ -36,7 +36,7 @@ var _ analysis.Analyzer = &SelectorAnalyzer{}
 func (a *SelectorAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "sidecar.SelectorAnalyzer",
-		Description: "Validates that sidecars that define a workload selector match at least one pod, and that there aren't multiple Sidecar resources that select overlapping pods.",
+		Description: "Validates that sidecars that define a workload selector match at least one pod, and that there aren't multiple sidecar resources that select overlapping pods",
 		Inputs: collection.Names{
 			metadata.IstioNetworkingV1Alpha3Sidecars,
 			metadata.K8SCoreV1Pods,

@@ -27,9 +27,9 @@ import (
 	"istio.io/istio/galley/pkg/config/resource"
 )
 
-// ConflictingMeshGatewayHostsAnalyzer checks if multiple VirtualServices associated
-// with mesh gateway have conflicting hosts. The behavior is undefined if
-// conflicts exist.
+// ConflictingMeshGatewayHostsAnalyzer checks if multiple virtual services
+// associated with the mesh gateway have conflicting hosts. The behavior is
+// undefined if conflicts exist.
 type ConflictingMeshGatewayHostsAnalyzer struct{}
 
 var _ analysis.Analyzer = &ConflictingMeshGatewayHostsAnalyzer{}
@@ -38,7 +38,7 @@ var _ analysis.Analyzer = &ConflictingMeshGatewayHostsAnalyzer{}
 func (c *ConflictingMeshGatewayHostsAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "virtualservice.ConflictingMeshGatewayHostsAnalyzer",
-		Description: "Checks if multiple VirtualServices associated with mesh gateway have conflicting hosts.",
+		Description: "Checks if multiple virtual services associated with the mesh gateway have conflicting hosts",
 		Inputs: collection.Names{
 			metadata.IstioNetworkingV1Alpha3Virtualservices,
 		},

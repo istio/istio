@@ -37,7 +37,7 @@ var (
 func (*K8sAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "annotations.K8sAnalyzer",
-		Description: "Checks for misplaced and invalid Istio annotations in K8s resources.",
+		Description: "Checks for misplaced and invalid Istio annotations in Kubernetes resources",
 		Inputs: collection.Names{
 			metadata.K8SCoreV1Namespaces,
 			metadata.K8SCoreV1Services,

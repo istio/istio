@@ -46,7 +46,7 @@ const (
 func (a *Analyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "injection.Analyzer",
-		Description: "Checks conditions related to Istio sidecar injection.",
+		Description: "Checks conditions related to Istio sidecar injection",
 		Inputs: collection.Names{
 			metadata.K8SCoreV1Namespaces,
 			metadata.K8SCoreV1Pods,
