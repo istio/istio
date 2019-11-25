@@ -139,16 +139,16 @@ docker.istiod: docker/Dockerfile.istiod
 	$(DOCKER_RULE)
 
 # Test application
+docker.app: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.app: pkg/test/echo/docker/Dockerfile.app
 docker.app: $(ISTIO_OUT_LINUX)/client
 docker.app: $(ISTIO_OUT_LINUX)/server
 docker.app: $(ISTIO_DOCKER)/certs
-	mkdir -p $(ISTIO_DOCKER)/testapp
-	cp -r $^ $(ISTIO_DOCKER)/testapp
-	time (cd $(ISTIO_DOCKER)/testapp && docker build -t $(HUB)/app:$(TAG) -f Dockerfile.app .)
+	$(DOCKER_RULE)
 
 
 # Test application bundled with the sidecar (for non-k8s).
+docker.app_sidecar: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.app_sidecar: tools/packaging/common/envoy_bootstrap_v2.json
 docker.app_sidecar: tools/packaging/common/istio-iptables.sh
 docker.app_sidecar: tools/packaging/common/istio-clean-iptables.sh
