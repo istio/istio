@@ -145,6 +145,8 @@ func (s *Server) initDNSCerts() error {
 		names = append(names, "istio-ca"+ns)
 	}
 
+	log.Infoa("Generating K8S-signed cert for ", names)
+
 	if s.kubeClient == nil {
 		return errorOrFatal(port, errors.New("K8S not found, cert signing disabled."))
 	}
@@ -169,6 +171,7 @@ func (s *Server) initDNSCerts() error {
 	if err != nil {
 		return errorOrFatal(port, fmt.Errorf("Failed to write certs: %v", err))
 	}
+	log.Infoa("Certificates created in ", DNSCertDir)
 	return nil
 }
 
