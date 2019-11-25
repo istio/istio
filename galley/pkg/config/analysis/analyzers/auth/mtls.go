@@ -242,7 +242,7 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 		// missing resource string
 		globalDRName := missingResourceName
 		if globalDR != nil {
-			globalDRName = globalDR.Origin.FriendlyName()
+			globalDRName = globalDR.Metadata.Name.String()
 		}
 		c.Report(
 			metadata.IstioAuthenticationV1Alpha1Meshpolicies,
@@ -252,7 +252,7 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 				rootNamespace,
 				globalDRName,
 				globalMtls,
-				mpr.Resource.Origin.FriendlyName(),
+				mpr.Resource.Metadata.Name.String(),
 				mpr.MTLSMode.String()))
 		globalMTLSMisconfigured = true
 	}
@@ -264,7 +264,7 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 		// special missing resource string
 		globalPolicyName := missingResourceName
 		if mpr.Resource != nil {
-			globalPolicyName = mpr.Resource.Origin.FriendlyName()
+			globalPolicyName = mpr.Resource.Metadata.Name.String()
 		}
 		c.Report(
 			metadata.IstioNetworkingV1Alpha3Destinationrules,
@@ -272,7 +272,7 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 				globalDR,
 				"*.svc.cluster.local",
 				rootNamespace,
-				globalDR.Origin.FriendlyName(),
+				globalDR.Metadata.Name.String(),
 				globalMtls,
 				globalPolicyName,
 				mpr.MTLSMode.String()))
@@ -318,7 +318,7 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 					// the special missing resource string
 					matchingDRName := missingResourceName
 					if matchingDR != nil {
-						matchingDRName = matchingDR.Origin.FriendlyName()
+						matchingDRName = matchingDR.Metadata.Name.String()
 					}
 					c.Report(
 						metadata.IstioAuthenticationV1Alpha1Policies,
@@ -328,7 +328,7 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 							ns,
 							matchingDRName,
 							mtlsUsed,
-							tsPolicy.Resource.Origin.FriendlyName(),
+							tsPolicy.Resource.Metadata.Name.String(),
 							tsPolicy.MTLSMode.String()))
 				}
 				if matchingDR != nil {
@@ -336,7 +336,7 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 					// the special missing resource string
 					policyName := missingResourceName
 					if tsPolicy.Resource != nil {
-						policyName = tsPolicy.Resource.Origin.FriendlyName()
+						policyName = tsPolicy.Resource.Metadata.Name.String()
 					}
 					c.Report(
 						metadata.IstioNetworkingV1Alpha3Destinationrules,
@@ -344,7 +344,7 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 							matchingDR,
 							ts.String(),
 							ns,
-							matchingDR.Origin.FriendlyName(),
+							matchingDR.Metadata.Name.String(),
 							mtlsUsed,
 							policyName,
 							tsPolicy.MTLSMode.String()))
