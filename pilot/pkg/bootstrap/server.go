@@ -573,27 +573,23 @@ func (s *Server) initSecureGrpcServerDNS() error {
 			}
 
 			log.Infof("starting K8S-signed grpc=%s", dnsGrpc)
-			go func() {
-				// This seems the only way to call setupHTTP2 - it may also be possible to set NextProto
-				// on a listener
-				err := s.secureHTTPServerDNS.ServeTLS(secureGrpcListener, "", "")
-				msg := fmt.Sprintf("Stoppped listening on %s", dnsGrpc)
-				select {
-				case <-stop:
-					log.Info(msg)
-					if s.Args.ForceStop {
-						s.secureGRPCServerDNS.Stop()
-					} else {
-						s.secureGRPCServerDNS.GracefulStop()
-					}
-					ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-					defer cancel()
-					_ = s.secureHTTPServerDNS.Shutdown(ctx)
+			// This seems the only way to call setupHTTP2 - it may also be possible to set NextProto
+			// on a listener
+			err := s.secureHTTPServerDNS.ServeTLS(secureGrpcListener, "", "")
+			msg := fmt.Sprintf("Stoppped listening on %s %v", dnsGrpc, err)
+			select {
+			case <-stop:
+				log.Info(msg)
+				if s.Args.ForceStop {
 					s.secureGRPCServerDNS.Stop()
-				default:
-					panic(fmt.Sprintf("%s due to error: %v", msg, err))
+				} else {
+					s.secureGRPCServerDNS.GracefulStop()
 				}
-			}()
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+				_ = s.secureHTTPServerDNS.Shutdown(ctx)
+				s.secureGRPCServerDNS.Stop()
+			}
 		}()
 		return nil
 	})
@@ -706,7 +702,7 @@ func (s *Server) initDNSListener(args *PilotArgs) error {
 	err := s.initDNSCerts()
 	if err != nil {
 		log.Warna("Failed to generate DNS k8s-signed certs. Autoinjection and validation will not be enabled, and"+
-			"port 15012 will not be activated", err)
+			"port 15012 will not be activated ", err)
 	} else {
 		// run secure grpc server for Istiod - using DNS-based certs from K8S
 		s.initSecureGrpcServerDNS()
