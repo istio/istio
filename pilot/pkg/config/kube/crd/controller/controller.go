@@ -189,11 +189,7 @@ func (c *controller) createInformer(
 			// This check is primarily needed for tests which use mock config - but helps otherwise also.
 			if obj, ok := result.(crd.IstioObject); ok {
 				if err = vf(obj); err != nil {
-					key := obj.GetObjectMeta().Namespace + "/" + obj.GetObjectMeta().Name
-					log.Errorf("CRD validation failed: %s %s %v", obj.GetObjectKind().GroupVersionKind().GroupKind().Kind,
-						key, err)
-					k8sErrors.With(nameTag.Value(key)).Record(1)
-					return nil, err
+					handleValidationFailure(obj, err)
 				}
 			}
 		}
@@ -209,10 +205,18 @@ func (c *controller) createInformer(
 		cache.ResourceEventHandlerFuncs{
 			// TODO: filtering functions to skip over un-referenced resources (perf)
 			AddFunc: func(obj interface{}) {
+				if err := vf(obj); err != nil {
+					handleValidationFailure(obj, err)
+					return
+				}
 				incrementEvent(otype, "add")
 				c.queue.Push(kube.NewTask(handler.Apply, obj, model.EventAdd))
 			},
 			UpdateFunc: func(old, cur interface{}) {
+				if err := vf(cur); err != nil {
+					handleValidationFailure(cur, err)
+					return
+				}
 				if !reflect.DeepEqual(old, cur) {
 					incrementEvent(otype, "update")
 					c.queue.Push(kube.NewTask(handler.Apply, cur, model.EventUpdate))
@@ -227,6 +231,18 @@ func (c *controller) createInformer(
 		})
 
 	return cacheHandler{informer: informer, handler: handler}
+}
+
+func handleValidationFailure(obj interface{}, err error) {
+	if obj, ok := obj.(crd.IstioObject); ok {
+		key := obj.GetObjectMeta().Namespace + "/" + obj.GetObjectMeta().Name
+		log.Errorf("CRD validation failed: %s %s %v", obj.GetObjectKind().GroupVersionKind().GroupKind().Kind,
+			key, err)
+		k8sErrors.With(nameTag.Value(key)).Record(1)
+	} else {
+		log.Errorf("CRD validation failed for unknown Kind: %s", err)
+		k8sErrors.With(nameTag.Value("unknown")).Record(1)
+	}
 }
 
 func incrementEvent(kind, event string) {
