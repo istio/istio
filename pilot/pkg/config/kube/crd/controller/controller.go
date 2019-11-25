@@ -190,7 +190,7 @@ func (c *controller) createInformer(
 			if obj, ok := result.(crd.IstioObject); ok {
 				if err = vf(obj); err != nil {
 					key := obj.GetObjectMeta().Namespace + "/" + obj.GetObjectMeta().Name
-					log.Errorf("Failed to validate object: %s %s %v", obj.GetObjectKind().GroupVersionKind().GroupKind().Kind,
+					log.Errorf("CRD validation failed: %s %s %v", obj.GetObjectKind().GroupVersionKind().GroupKind().Kind,
 						key, err)
 					k8sErrors.With(nameTag.Value(key)).Record(1)
 					return nil, err
