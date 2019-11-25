@@ -518,11 +518,10 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 }
 
 func matchingServices(importedHosts []host.Name, service *Service, ilw *IstioEgressListenerWrapper) []*Service {
-	// If a listener is defined with port, we should match services with port except in the following cases.
-	//  - If an unix domain socket is given as a port, we should not match by port and include services based on hosts.
-	//  - If Port's protocol is proxy protocol in which case the egress listener is used as generic egress http proxy.
-	needsPortMatch := ilw.IstioListener != nil && ilw.IstioListener.Port != nil &&
-		ilw.IstioListener.Port.GetNumber() != 0 && protocol.Parse(ilw.IstioListener.Port.Protocol) != protocol.HTTP_PROXY
+	// If a listener is defined with a port, we should match services with port except in the following case.
+	//  - If Port's protocol is proxy protocol(HTTP_PROXY) in which case the egress listener is used as generic egress http proxy.
+	needsPortMatch := ilw.IstioListener != nil && ilw.IstioListener.Port.GetNumber() != 0 &&
+		protocol.Parse(ilw.IstioListener.Port.Protocol) != protocol.HTTP_PROXY
 	importedServices := make([]*Service, 0)
 
 	for _, importedHost := range importedHosts {
