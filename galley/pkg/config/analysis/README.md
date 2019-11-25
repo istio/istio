@@ -25,7 +25,10 @@ func (s *GatewayAnalyzer) Metadata() analysis.Metadata {
     return analysis.Metadata{
         // Each analyzer should have a unique name. Use <top-level-pkg>.<struct type>
         Name: "virtualservice.GatewayAnalyzer",
-
+        // Each analyzer should have a short, one line description of what they
+        // do. This description is shown when --list-analyzers is called via
+        // the command line.
+        Description: "Checks that VirtualService resources reference Gateways that exist"
         // Each analyzer should register the collections that it needs to use as input.
         Inputs: collection.Names{
             metadata.IstioNetworkingV1Alpha3Gateways,
