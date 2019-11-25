@@ -93,7 +93,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 		}
 
 		// If a pod has injection explicitly disabled, no need to check further
-		if val := pod.GetAnnotations()[annotation.SidecarInject.Name]; strings.ToLower(val) == "false" {
+		if val := pod.GetAnnotations()[annotation.SidecarInject.Name]; strings.EqualFold(val, "false") {
 			return true
 		}
 

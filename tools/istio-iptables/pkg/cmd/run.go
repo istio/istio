@@ -445,7 +445,7 @@ func (iptConfigurator *IptablesConfigurator) createRulesFile(f *os.File, content
 	writer := bufio.NewWriter(f)
 	_, err := writer.WriteString(contents)
 	if err != nil {
-		return fmt.Errorf("Unable to write iptables-restore file: %v", err)
+		return fmt.Errorf("unable to write iptables-restore file: %v", err)
 	}
 	err = writer.Flush()
 	return err

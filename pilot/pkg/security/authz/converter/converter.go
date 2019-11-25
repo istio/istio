@@ -433,7 +433,7 @@ func convertAccessRuleToOperation(rule *authz_model.Permission) (*rbac_v1beta1.O
 		return nil, fmt.Errorf("invalid input: No rule found in ServiceRole")
 	}
 	if len(rule.Constraints) > 0 && len(rule.Constraints[0]) > 0 {
-		// nolint: gas
+		// nolint: golint
 		return nil, fmt.Errorf("ServiceRole with constraints is not supported")
 	}
 	operation := rbac_v1beta1.Operation{}
@@ -450,7 +450,7 @@ func convertBindingToSources(principals []authz_model.Principal) ([]*rbac_v1beta
 	for _, subject := range principals {
 		// TODO(pitlv2109): Handle group
 		if subject.Group != "" {
-			// nolint: gas
+			// nolint: golint
 			return nil, fmt.Errorf("ServiceRoleBinding with group is not supported")
 		}
 		from := rbac_v1beta1.Rule_From{
