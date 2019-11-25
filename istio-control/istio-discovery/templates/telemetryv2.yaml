@@ -27,7 +27,8 @@ spec:
               vm_config:
                 runtime: envoy.wasm.runtime.null
                 code:
-                  inline_string: envoy.wasm.metadata_exchange
+                  local:
+                    inline_string: envoy.wasm.metadata_exchange
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
@@ -65,7 +66,8 @@ spec:
                 vm_id: stats_outbound
                 runtime: envoy.wasm.runtime.null
                 code:
-                  inline_string: envoy.wasm.stats
+                  local:
+                    inline_string: envoy.wasm.stats
     - applyTo: HTTP_FILTER
       match:
         context: SIDECAR_INBOUND
@@ -91,7 +93,8 @@ spec:
                 vm_id: stats_inbound
                 runtime: envoy.wasm.runtime.null
                 code:
-                  inline_string: envoy.wasm.stats
+                  local:
+                    inline_string: envoy.wasm.stats
     - applyTo: HTTP_FILTER
       match:
         context: GATEWAY
@@ -117,6 +120,7 @@ spec:
                 vm_id: stats_outbound
                 runtime: envoy.wasm.runtime.null
                 code:
-                  inline_string: envoy.wasm.stats
+                  local:
+                    inline_string: envoy.wasm.stats
 {{- end }}
 
