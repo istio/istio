@@ -180,7 +180,7 @@ mkdir -p "${ISTIO_BIN}"
 # Set the value of DOWNLOAD_COMMAND (either curl or wget)
 set_download_command
 
-if [[ -v DEBUG_IMAGE ]]; then
+if [[ ! -z "${DEBUG_IMAGE:-}" ]]; then
   # Download and extract the Envoy linux debug binary.
   download_envoy_if_necessary "${ISTIO_ENVOY_LINUX_DEBUG_URL}" "$ISTIO_ENVOY_LINUX_DEBUG_PATH"
 else
