@@ -12,8 +12,8 @@ spec:
   egress:
   - port:
       number: 23145
-      protocol: http_proxy
-      name: outbound-tcp
+      protocol: HTTP_PROXY
+      name: outbound-egress
     bind: 7.7.7.7
     hosts:
     - "*/bookinfo.com"

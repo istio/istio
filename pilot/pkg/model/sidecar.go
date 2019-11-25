@@ -23,13 +23,13 @@ import (
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 const (
 	wildcardNamespace = "*"
 	currentNamespace  = "."
 	wildcardService   = host.Name("*")
-	proxyProtocol     = "http_proxy"
 )
 
 // SidecarScope is a wrapper over the Sidecar resource with some
@@ -522,7 +522,7 @@ func matchingServices(importedHosts []host.Name, service *Service, ilw *IstioEgr
 	//  - If an unix domain socket is given as a port, we should not match by port and include services based on hosts.
 	//  - If Port's protocol is proxy protocol in which case the egress listener is used as generic egress http proxy.
 	needsPortMatch := ilw.IstioListener != nil && ilw.IstioListener.Port != nil &&
-		ilw.IstioListener.Port.GetNumber() != 0 && ilw.IstioListener.Port.Protocol != proxyProtocol
+		ilw.IstioListener.Port.GetNumber() != 0 && protocol.Parse(ilw.IstioListener.Port.Protocol) != protocol.HTTP_PROXY
 	importedServices := make([]*Service, 0)
 
 	for _, importedHost := range importedHosts {

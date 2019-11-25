@@ -27,6 +27,9 @@ const (
 	// HTTP declares that the port carries HTTP/1.1 traffic.
 	// Note that HTTP/1.0 or earlier may not be supported by the proxy.
 	HTTP Instance = "HTTP"
+	// HTTP_PROXY declares that the port is a generic outbound proxy port.
+	// Note that this is currently applicable only for defining sidecar egress listeners.
+	HTTP_PROXY Instance = "HTTP_PROXY"
 	// HTTP2 declares that the port carries HTTP/2 traffic.
 	HTTP2 Instance = "HTTP2"
 	// HTTPS declares that the port carries HTTPS traffic.
@@ -63,6 +66,8 @@ func Parse(s string) Instance {
 		return GRPCWeb
 	case "http":
 		return HTTP
+	case "http_proxy":
+		return HTTP_PROXY
 	case "http2":
 		return HTTP2
 	case "https":
