@@ -248,20 +248,20 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 
 	// TODO: if ServiceDiscovery is aggregate, and all members support direct, use
 	// the direct interface.
-	var registries []aggregate.Registry
-	var nonK8sRegistries []aggregate.Registry
+	var registries []serviceregistry.Instance
+	var nonK8sRegistries []serviceregistry.Instance
 	if agg, ok := s.Env.ServiceDiscovery.(*aggregate.Controller); ok {
 		registries = agg.GetRegistries()
 	} else {
-		registries = []aggregate.Registry{
-			{
+		registries = []serviceregistry.Instance{
+			serviceregistry.Simple{
 				ServiceDiscovery: s.Env.ServiceDiscovery,
 			},
 		}
 	}
 
 	for _, registry := range registries {
-		if registry.Name != serviceregistry.KubernetesRegistry {
+		if registry.Provider() != serviceregistry.Kubernetes {
 			nonK8sRegistries = append(nonK8sRegistries, registry)
 		}
 	}
@@ -305,7 +305,7 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 				}
 			}
 
-			s.edsUpdate(registry.ClusterID, string(svc.Hostname), svc.Attributes.Namespace, entries, true)
+			s.edsUpdate(registry.Cluster(), string(svc.Hostname), svc.Attributes.Namespace, entries, true)
 		}
 	}
 

@@ -167,7 +167,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 		if resourceContains(configSource.SubscribedResources, meshconfig.Resource_SERVICE_REGISTRY) {
 
 			//TODO(Nino-K): https://github.com/istio/istio/issues/16976
-			args.Service.Registries = []string{string(serviceregistry.MCPRegistry)}
+			args.Service.Registries = []string{string(serviceregistry.MCP)}
 			conn, err := grpcDial(ctx, cancel, configSource, args)
 			if err != nil {
 				log.Errorf("Unable to dial MCP Server %q: %v", configSource.Address, err)

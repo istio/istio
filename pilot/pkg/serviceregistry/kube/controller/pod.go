@@ -123,7 +123,7 @@ func (pc *PodCache) event(obj interface{}, ev model.Event) error {
 
 func (pc *PodCache) proxyUpdates(ip string) {
 	if pc.c != nil && pc.c.XDSUpdater != nil {
-		pc.c.XDSUpdater.ProxyUpdate(pc.c.ClusterID, ip)
+		pc.c.XDSUpdater.ProxyUpdate(pc.c.clusterID, ip)
 	}
 }
 

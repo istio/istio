@@ -706,7 +706,7 @@ func buildHTTPService(hostname string, v visibility.Instance, ip, namespace stri
 		ClusterVIPs:  make(map[string]string),
 		Resolution:   model.DNSLB,
 		Attributes: model.ServiceAttributes{
-			ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+			ServiceRegistry: string(serviceregistry.Kubernetes),
 			Namespace:       namespace,
 			ExportTo:        map[visibility.Instance]bool{v: true},
 		},

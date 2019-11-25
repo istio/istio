@@ -998,7 +998,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					// for each instance. HTTP services can happily reside on 0.0.0.0:PORT and use the
 					// wildcard route match to get to the appropriate pod through original dst clusters.
 					if features.EnableHeadlessService.Get() && bind == "" && service.Resolution == model.Passthrough &&
-						service.Attributes.ServiceRegistry == string(serviceregistry.KubernetesRegistry) && servicePort.Protocol.IsTCP() {
+						service.Attributes.ServiceRegistry == string(serviceregistry.Kubernetes) && servicePort.Protocol.IsTCP() {
 						if instances, err := env.InstancesByPort(service, servicePort.Port, nil); err == nil {
 							for _, instance := range instances {
 								// Skip build outbound listener to the node itself,

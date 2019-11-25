@@ -34,8 +34,7 @@ import (
 )
 
 var (
-	_ model.Controller       = &MCPDiscovery{}
-	_ model.ServiceDiscovery = &MCPDiscovery{}
+	_ serviceregistry.Instance = &MCPDiscovery{}
 )
 
 // DiscoveryOptions stores the configurable attributes of a Control
@@ -110,6 +109,14 @@ func (d *MCPDiscovery) Run(stop <-chan struct{}) {
 	if err := d.initializeCache(); err != nil {
 		log.Warnf("Run: %s", err)
 	}
+}
+
+func (d *MCPDiscovery) Provider() serviceregistry.ProviderID {
+	return serviceregistry.MCP
+}
+
+func (d *MCPDiscovery) Cluster() string {
+	return d.ClusterID
 }
 
 // Services list declarations of all SyntheticServiceEntries in the system
@@ -354,7 +361,7 @@ func convertServices(cfg model.Config) map[string]*model.Service {
 						Ports:        svcPorts,
 						Resolution:   resolution,
 						Attributes: model.ServiceAttributes{
-							ServiceRegistry: string(serviceregistry.MCPRegistry),
+							ServiceRegistry: string(serviceregistry.MCP),
 							Name:            hostname,
 							Namespace:       cfg.Namespace,
 							ExportTo:        exportTo,
@@ -369,7 +376,7 @@ func convertServices(cfg model.Config) map[string]*model.Service {
 						Ports:        svcPorts,
 						Resolution:   resolution,
 						Attributes: model.ServiceAttributes{
-							ServiceRegistry: string(serviceregistry.MCPRegistry),
+							ServiceRegistry: string(serviceregistry.MCP),
 							Name:            hostname,
 							Namespace:       cfg.Namespace,
 							ExportTo:        exportTo,
@@ -386,7 +393,7 @@ func convertServices(cfg model.Config) map[string]*model.Service {
 				Ports:        svcPorts,
 				Resolution:   resolution,
 				Attributes: model.ServiceAttributes{
-					ServiceRegistry: string(serviceregistry.MCPRegistry),
+					ServiceRegistry: string(serviceregistry.MCP),
 					Name:            hostname,
 					Namespace:       cfg.Namespace,
 					ExportTo:        exportTo,
