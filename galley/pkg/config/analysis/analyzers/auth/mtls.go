@@ -15,6 +15,8 @@
 package auth
 
 import (
+	"fmt"
+
 	"istio.io/api/authentication/v1alpha1"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 
@@ -234,9 +236,10 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 	// problem with the global configuration. This is used later to suppress
 	// reporting a message for every service/namespace combination due to the
 	// same misconfiguration.
+	anyK8sServiceHost := fmt.Sprintf("%s.%s", util.Wildcard, util.DefaultKubernetesDomain)
 	globalMTLSMisconfigured := false
 	mpr := pc.MeshPolicy()
-	globalMtls, globalDR := drc.DoesNamespaceUseMTLSToService(rootNamespace, rootNamespace, mtls.NewTargetService("*.svc.cluster.local"))
+	globalMtls, globalDR := drc.DoesNamespaceUseMTLSToService(rootNamespace, rootNamespace, mtls.NewTargetService(anyK8sServiceHost))
 	if mpr.MTLSMode == mtls.ModeStrict && !globalMtls {
 		// We may or may not have a matching DR. If we don't, use the special
 		// missing resource string
@@ -248,7 +251,7 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 			metadata.IstioAuthenticationV1Alpha1Meshpolicies,
 			msg.NewMTLSPolicyConflict(
 				mpr.Resource,
-				"*.svc.cluster.local",
+				anyK8sServiceHost,
 				rootNamespace,
 				globalDRName,
 				globalMtls,
@@ -270,7 +273,7 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 			metadata.IstioNetworkingV1Alpha3Destinationrules,
 			msg.NewMTLSPolicyConflict(
 				globalDR,
-				"*.svc.cluster.local",
+				anyK8sServiceHost,
 				rootNamespace,
 				globalDR.Metadata.Name.String(),
 				globalMtls,
