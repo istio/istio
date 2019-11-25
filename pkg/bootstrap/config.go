@@ -100,7 +100,13 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 		cfg.PilotSubjectAltName = defaultPilotSAN()
 	}
 	if cfg.PlatEnv == nil {
-		cfg.PlatEnv = platform.NewGCP()
+		if platform.IsGCP() {
+			cfg.PlatEnv = platform.NewGCP()
+		} else if platform.IsAWS() {
+			cfg.PlatEnv = platform.NewAWS()
+		} else {
+			cfg.PlatEnv = &platform.Unknown{}
+		}
 	}
 
 	// Remove duplicates from the node IPs.
