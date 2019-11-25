@@ -170,18 +170,19 @@ func TestServiceDiscovery(t *testing.T) {
 }
 
 // Verify the output contains messages of the expected type, in order, followed by boilerplate lines
-func expectMessages(t *testing.T, g *GomegaWithT, output []string, messageTypes ...*diag.MessageType) {
+func expectMessages(t *testing.T, g *GomegaWithT, outputLines []string, expected ...*diag.MessageType) {
 	t.Helper()
 
-	foundIssuesParts := strings.Split(analyzerFoundIssuesError.Error(), "\n")
+	// The boilerplate lines that appear if any issues are found
+	boilerplateLines := strings.Split(analyzerFoundIssuesError.Error(), "\n")
 
-	g.Expect(output).To(HaveLen(len(messageTypes) + len(foundIssuesParts)))
+	g.Expect(outputLines).To(HaveLen(len(expected) + len(boilerplateLines)))
 
-	for i, line := range output {
-		if i < len(messageTypes) {
-			g.Expect(line).To(ContainSubstring(messageTypes[i].Code()))
+	for i, line := range outputLines {
+		if i < len(expected) {
+			g.Expect(line).To(ContainSubstring(expected[i].Code()))
 		} else {
-			g.Expect(line).To(ContainSubstring(foundIssuesParts[i-len(messageTypes)]))
+			g.Expect(line).To(ContainSubstring(boilerplateLines[i-len(expected)]))
 		}
 	}
 }
