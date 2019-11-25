@@ -547,6 +547,7 @@ func buildProxy(proxyIP, ns string) *model.Proxy {
 	}
 }
 
+// nolint: interfacer
 func buildConfig(se *networking.ServiceEntry, name, ns string) model.Config {
 	return model.Config{
 		ConfigMeta: model.ConfigMeta{

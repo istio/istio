@@ -180,7 +180,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			return err
 		}
 		conns = append(conns, conn)
-		s.mcpController(args, conn, reporter, &clients, &configStores)
+		s.mcpController(conn, reporter, &clients, &configStores)
 
 		// create MCP SyntheticServiceEntryController
 		if resourceContains(configSource.SubscribedResources, meshconfig.Resource_SERVICE_REGISTRY) {
@@ -303,7 +303,7 @@ func mcpSecurityOptions(ctx context.Context, cancel context.CancelFunc, configSo
 	return securityOption, nil
 }
 
-func (s *Server) mcpController(args *PilotArgs,
+func (s *Server) mcpController(
 	conn *grpc.ClientConn,
 	reporter monitoring.Reporter,
 	clients *[]*sink.Client,
