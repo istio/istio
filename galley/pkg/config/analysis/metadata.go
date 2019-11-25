@@ -21,8 +21,8 @@ import (
 // Metadata represents metadata for an analyzer
 type Metadata struct {
 	Name string
-	// Description explains what the analyzer checks in a single sentence (shown
-	// when someone runs `istioctl x analyze -L`).
+	// Description is a short explanation of what the analyzer checks. This
+	// field is displayed to users when --list-analyzers is called.
 	Description string
 	Inputs      collection.Names
 }
