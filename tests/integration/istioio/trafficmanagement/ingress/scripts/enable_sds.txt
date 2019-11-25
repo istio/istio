@@ -1,6 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-# Copyright 2017 Istio Authors
+# Copyright Istio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,19 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-#######################################
-#                                     #
-#        pilot-e2e (v1alpha3)         #
-#                                     #
-#######################################
-
-# Exit immediately for non zero status
 set -e
-# Check unset variables
 set -u
-# Print commands
-set -x
+set -o pipefail
 
-# Run tests with auth disabled
-#echo 'Running pilot e2e tests (v1alpha3, noauth)'
-./prow/e2e-suite.sh --single_test e2e_pilotv2_v1alpha3
+# $snippet enable_sds syntax="bash"
+$ helm template install/kubernetes/helm/istio/ --name istio \
+--namespace istio-system -x charts/gateways/templates/deployment.yaml \
+--set gateways.istio-egressgateway.enabled=false \
+--set gateways.istio-ingressgateway.sds.enabled=true > \
+{{ .yamlDir }}/istio-ingressgateway.yaml
+$ kubectl apply -f {{ .yamlDir }}/istio-ingressgateway.yaml
+# $endsnippet

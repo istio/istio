@@ -168,7 +168,7 @@ func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.
 		}
 
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port)
-		// Use the hostname as the SNI value if and only if we dont have a destination VIP or if the destination is a CIDR.
+		// Use the hostname as the SNI value if and only if we do not have a destination VIP or if the destination is a CIDR.
 		// In both cases, the listener will be bound to 0.0.0.0. So SNI match is the only way to distinguish different
 		// target services. If we have a VIP, then we know the destination. There is no need to do a SNI match. It saves us from
 		// having to generate expensive permutations of the host name just like RDS does..

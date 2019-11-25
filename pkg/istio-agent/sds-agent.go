@@ -72,7 +72,7 @@ var (
 	mountedRoot = "/etc/certs/root-cert.pem"
 
 	// Location of K8S CA root.
-	k8sCAPath = "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+	k8sCAPath = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 )
 
 const (

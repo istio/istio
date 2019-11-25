@@ -92,7 +92,7 @@ function download_envoy_if_necessary () {
 
     # Download and extract the binary to the output directory.
     echo "Downloading Envoy: ${DOWNLOAD_COMMAND} $1 to $2"
-    time ${DOWNLOAD_COMMAND} "$1" | tar xz
+    time ${DOWNLOAD_COMMAND} --header "${AUTH_HEADER:-}" "$1" | tar xz
 
     # Copy the extracted binary to the output location
     cp usr/local/bin/envoy "$2"
@@ -117,11 +117,14 @@ if [[ -z "${PROXY_REPO_SHA:-}" ]] ; then
   export PROXY_REPO_SHA
 fi
 
+# Defines the base URL to download envoy from
+ISTIO_ENVOY_BASE_URL=${ISTIO_ENVOY_BASE_URL:-https://storage.googleapis.com/istio-build/proxy}
+
 # These variables are normally set by the Makefile.
 # OS-neutral vars. These currently only work for linux.
 ISTIO_ENVOY_VERSION=${ISTIO_ENVOY_VERSION:-${PROXY_REPO_SHA}}
-ISTIO_ENVOY_DEBUG_URL=${ISTIO_ENVOY_DEBUG_URL:-https://storage.googleapis.com/istio-build/proxy/envoy-debug-${ISTIO_ENVOY_LINUX_VERSION}.tar.gz}
-ISTIO_ENVOY_RELEASE_URL=${ISTIO_ENVOY_RELEASE_URL:-https://storage.googleapis.com/istio-build/proxy/envoy-alpha-${ISTIO_ENVOY_LINUX_VERSION}.tar.gz}
+ISTIO_ENVOY_DEBUG_URL=${ISTIO_ENVOY_DEBUG_URL:-${ISTIO_ENVOY_BASE_URL}/envoy-debug-${ISTIO_ENVOY_LINUX_VERSION}.tar.gz}
+ISTIO_ENVOY_RELEASE_URL=${ISTIO_ENVOY_RELEASE_URL:-${ISTIO_ENVOY_BASE_URL}/envoy-alpha-${ISTIO_ENVOY_LINUX_VERSION}.tar.gz}
 
 # Envoy Linux vars. Normally set by the Makefile.
 ISTIO_ENVOY_LINUX_VERSION=${ISTIO_ENVOY_LINUX_VERSION:-${ISTIO_ENVOY_VERSION}}
@@ -177,8 +180,12 @@ mkdir -p "${ISTIO_BIN}"
 # Set the value of DOWNLOAD_COMMAND (either curl or wget)
 set_download_command
 
-# Download and extract the Envoy linux debug binary.
-download_envoy_if_necessary "${ISTIO_ENVOY_LINUX_DEBUG_URL}" "$ISTIO_ENVOY_LINUX_DEBUG_PATH"
+if [[ -n "${DEBUG_IMAGE:-}" ]]; then
+  # Download and extract the Envoy linux debug binary.
+  download_envoy_if_necessary "${ISTIO_ENVOY_LINUX_DEBUG_URL}" "$ISTIO_ENVOY_LINUX_DEBUG_PATH"
+else
+  echo "Skipping envoy debug. Set DEBUG_IMAGE to download."
+fi
 
 # Download and extract the Envoy linux release binary.
 download_envoy_if_necessary "${ISTIO_ENVOY_LINUX_RELEASE_URL}" "$ISTIO_ENVOY_LINUX_RELEASE_PATH"
@@ -188,7 +195,7 @@ if [[ "$LOCAL_OS" == "Darwin" ]]; then
   download_envoy_if_necessary "${ISTIO_ENVOY_MACOS_RELEASE_URL}" "$ISTIO_ENVOY_MACOS_RELEASE_PATH"
   ISTIO_ENVOY_NATIVE_PATH=${ISTIO_ENVOY_MACOS_RELEASE_PATH}
 else
-  ISTIO_ENVOY_NATIVE_PATH=${ISTIO_ENVOY_LINUX_DEBUG_PATH}
+  ISTIO_ENVOY_NATIVE_PATH=${ISTIO_ENVOY_LINUX_RELEASE_PATH}
 fi
 
 # Copy native envoy binary to ISTIO_OUT

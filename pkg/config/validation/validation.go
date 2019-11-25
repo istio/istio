@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"path"
 	"regexp"
 	"strconv"
@@ -36,7 +37,7 @@ import (
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	rbac "istio.io/api/rbac/v1alpha1"
-	authz "istio.io/api/security/v1beta1"
+	security_beta "istio.io/api/security/v1beta1"
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pkg/config/constants"
@@ -222,8 +223,16 @@ func ValidateStringMatch(m *networking.StringMatch) error {
 	}
 	switch x := m.MatchType.(type) {
 	case *networking.StringMatch_Regex:
+		// Pilot allows unsafe regex based on env var. We should respect that.
+		// TODO: See if there is a better way to get this flag here.
+		saferegex := true
+		if result, ok := os.LookupEnv("PILOT_ENABLE_UNSAFE_REGEX"); ok {
+			if value, err := strconv.ParseBool(result); err == nil {
+				saferegex = !value
+			}
+		}
 		// Default max size for safe regex is 100
-		if len(x.Regex) > 100 {
+		if saferegex && len(x.Regex) > 100 {
 			return fmt.Errorf("regex match '%s' cannot be greater than 100 bytes", x.Regex)
 		}
 	}
@@ -1502,7 +1511,7 @@ func ValidateAuthenticationPolicy(name, namespace string, msg proto.Message) err
 
 // ValidateAuthorizationPolicy checks that AuthorizationPolicy is well-formed.
 func ValidateAuthorizationPolicy(_, _ string, msg proto.Message) error {
-	in, ok := msg.(*authz.AuthorizationPolicy)
+	in, ok := msg.(*security_beta.AuthorizationPolicy)
 	if !ok {
 		return fmt.Errorf("cannot cast to AuthorizationPolicy")
 	}
@@ -1526,6 +1535,22 @@ func ValidateAuthorizationPolicy(_, _ string, msg proto.Message) error {
 		}
 	}
 	return nil
+}
+
+// ValidateRequestAuthentication checks that request authentication spec is well-formed.
+func ValidateRequestAuthentication(_, _ string, msg proto.Message) error {
+	in, ok := msg.(*security_beta.RequestAuthentication)
+	if !ok {
+		return errors.New("cannot cast to RequestAuthentication")
+	}
+	// TODO(diemtvu) add more details validation.
+	var errs error
+	for _, rule := range in.JwtRules {
+		if len(rule.Issuer) == 0 {
+			errs = appendErrors(errs, fmt.Errorf("issuer must be set"))
+		}
+	}
+	return errs
 }
 
 // ValidateServiceRole checks that ServiceRole is well-formed.
@@ -2411,11 +2436,6 @@ func ValidateServiceEntry(_, _ string, config proto.Message) (errs error) {
 			errs = appendErrors(errs, fmt.Errorf("no endpoints should be provided for resolution type none"))
 		}
 	case networking.ServiceEntry_STATIC:
-		if len(serviceEntry.Endpoints) == 0 {
-			errs = appendErrors(errs,
-				fmt.Errorf("endpoints must be provided if service entry resolution mode is static"))
-		}
-
 		unixEndpoint := false
 		for _, endpoint := range serviceEntry.Endpoints {
 			addr := endpoint.GetAddress()

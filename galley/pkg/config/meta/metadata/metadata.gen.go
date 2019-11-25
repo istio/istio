@@ -166,6 +166,10 @@ collections:
     proto: "istio.security.v1beta1.AuthorizationPolicy"
     protoPackage: "istio.io/api/security/v1beta1"
 
+  - name: "istio/security/v1beta1/requestauthentications"
+    proto: "istio.security.v1beta1.RequestAuthentication"
+    protoPackage: "istio.io/api/security/v1beta1"
+
   ### K8s collections ###
 
   # Built-in K8s collections
@@ -286,6 +290,10 @@ collections:
 
   - name: "k8s/security.istio.io/v1beta1/authorizationpolicies"
     proto: "istio.security.v1beta1.AuthorizationPolicy"
+    protoPackage: "istio.io/api/security/v1beta1"
+
+  - name: "k8s/security.istio.io/v1beta1/requestauthentications"
+    proto: "istio.security.v1beta1.RequestAuthentication"
     protoPackage: "istio.io/api/security/v1beta1"
 
     # Keep Legacy Mixer CRD related collections separate, as these will be gone soon.
@@ -568,6 +576,7 @@ snapshots:
       - "istio/rbac/v1alpha1/servicerolebindings"
       - "istio/rbac/v1alpha1/serviceroles"
       - "istio/security/v1beta1/authorizationpolicies"
+      - "istio/security/v1beta1/requestauthentications"
       - "k8s/core/v1/namespaces"
       - "k8s/core/v1/services"
 
@@ -777,6 +786,12 @@ sources:
       group: "security.istio.io"
       version: "v1beta1"
 
+    - collection: "k8s/security.istio.io/v1beta1/requestauthentications"
+      kind: "RequestAuthentication"
+      plural: "requestauthentications"
+      group: "security.istio.io"
+      version: "v1beta1"
+
     - collection: "k8s/config.istio.io/v1alpha2/rules"
       kind: "rule"
       plural: "rules"
@@ -812,12 +827,6 @@ sources:
       plural: "adapters"
       group: "config.istio.io"
       version: "v1alpha2"
-
-    - collection: "k8s/authentication.istio.io/v1alpha1/meshpolicies"
-      kind: "MeshPolicy"
-      plural: "meshpolicies"
-      group: "authentication.istio.io"
-      version: "v1alpha1"
 
     # Legacy Mixer CRD Types
     - collection: "k8s/config.istio.io/v1alpha2/apikeys"
@@ -1031,6 +1040,7 @@ transforms:
       "k8s/rbac.istio.io/v1alpha1/clusterrbacconfigs": "istio/rbac/v1alpha1/clusterrbacconfigs"
       "k8s/rbac.istio.io/v1alpha1/serviceroles": "istio/rbac/v1alpha1/serviceroles"
       "k8s/security.istio.io/v1beta1/authorizationpolicies": "istio/security/v1beta1/authorizationpolicies"
+      "k8s/security.istio.io/v1beta1/requestauthentications": "istio/security/v1beta1/requestauthentications"
       "k8s/core/v1/namespaces": "k8s/core/v1/namespaces"
       "k8s/core/v1/services": "k8s/core/v1/services"
       "k8s/core/v1/pods": "k8s/core/v1/pods"

@@ -17,6 +17,7 @@ require (
 	contrib.go.opencensus.io/exporter/zipkin v0.1.1
 	fortio.org/fortio v1.3.1
 	github.com/DataDog/datadog-go v2.2.0+incompatible
+	github.com/Masterminds/semver v1.4.2
 	github.com/Microsoft/go-winio v0.4.12 // indirect
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
 	github.com/SAP/go-hdb v0.14.1 // indirect
@@ -151,10 +152,10 @@ require (
 	gopkg.in/ory-am/dockertest.v3 v3.3.4 // indirect
 	gopkg.in/square/go-jose.v2 v2.3.1
 	gopkg.in/yaml.v2 v2.2.4
-	istio.io/api v0.0.0-20191113030652-62bf0afefa2f
+	istio.io/api v0.0.0-20191120195622-f0abe0c81e59
 	istio.io/gogo-genproto v0.0.0-20191024203824-d079cc8b1d55
-	istio.io/operator v0.0.0-20191112155055-4be576693cae
-	istio.io/pkg v0.0.0-20191029184635-5c2f5ef63692
+	istio.io/operator v0.0.0-20191121175823-9f96fae01248
+	istio.io/pkg v0.0.0-20191113122952-4f521de9c8ca
 	k8s.io/api v0.0.0
 	k8s.io/apiextensions-apiserver v0.0.0
 	k8s.io/apimachinery v0.0.0

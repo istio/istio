@@ -843,8 +843,9 @@ func (s *DiscoveryServer) updateEdsClients(added sets.Set, removed sets.Set, con
 		}
 		c.mutex.Lock()
 		delete(c.EdsClients, connection.ConID)
+		clients := len(c.EdsClients)
 		c.mutex.Unlock()
-		if len(c.EdsClients) == 0 {
+		if clients == 0 {
 			// This happens when a previously used cluster is no longer watched by any
 			// sidecar. It should not happen very often - normally all clusters are sent
 			// in CDS requests to all sidecars. It may happen if all connections are closed.
@@ -860,12 +861,13 @@ func (s *DiscoveryServer) updateEdsClients(added sets.Set, removed sets.Set, con
 				EdsClients: map[string]*XdsConnection{},
 			}
 			edsClusters[ac] = c
-			// TODO: find a more efficient way to make edsClusters and EdsClients init atomic
-			// Currently use edsClusterMutex lock
-			c.mutex.Lock()
-			c.EdsClients[connection.ConID] = connection
-			c.mutex.Unlock()
 		}
+
+		// TODO: find a more efficient way to make edsClusters and EdsClients init atomic
+		// Currently use edsClusterMutex lock
+		c.mutex.Lock()
+		c.EdsClients[connection.ConID] = connection
+		c.mutex.Unlock()
 	}
 }
 
