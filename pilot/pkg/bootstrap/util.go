@@ -22,7 +22,7 @@ import (
 
 func hasKubeRegistry(registries []string) bool {
 	for _, r := range registries {
-		if serviceregistry.ServiceRegistry(r) == serviceregistry.KubernetesRegistry {
+		if serviceregistry.ProviderID(r) == serviceregistry.Kubernetes {
 			return true
 		}
 	}

@@ -21,13 +21,13 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/kube/secretcontroller"
-	"istio.io/pkg/log"
 )
 
 type kubeController struct {
@@ -96,13 +96,7 @@ func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, clusterI
 	kubectl.InitNetworkLookup(m.meshNetworks)
 
 	remoteKubeController.rc = kubectl
-	m.serviceController.AddRegistry(
-		aggregate.Registry{
-			Name:             serviceregistry.KubernetesRegistry,
-			ClusterID:        clusterID,
-			ServiceDiscovery: kubectl,
-			Controller:       kubectl,
-		})
+	m.serviceController.AddRegistry(kubectl)
 
 	m.remoteKubeControllers[clusterID] = &remoteKubeController
 	m.m.Unlock()

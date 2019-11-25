@@ -107,7 +107,7 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 		Resolution:      resolution,
 		CreationTime:    svc.CreationTimestamp.Time,
 		Attributes: model.ServiceAttributes{
-			ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+			ServiceRegistry: string(serviceregistry.Kubernetes),
 			Name:            svc.Name,
 			Namespace:       svc.Namespace,
 			UID:             fmt.Sprintf("istio://%s/services/%s", svc.Namespace, svc.Name),
