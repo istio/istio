@@ -194,10 +194,10 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 	})
 
 	pc := mtls.NewPolicyChecker(fqdnToNameToPort)
-	c.ForEach(metadata.IstioAuthenticationV1Alpha1Meshpolicies, func(r *resource.Entry) bool {
-		pc.AddMeshPolicy(r, r.Item.(*v1alpha1.Policy))
-		return true
-	})
+	meshPolicyResource := c.Find(metadata.IstioAuthenticationV1Alpha1Meshpolicies, resource.NewName("", "default"))
+	if meshPolicyResource != nil {
+		pc.AddMeshPolicy(meshPolicyResource, meshPolicyResource.Item.(*v1alpha1.Policy))
+	}
 
 	c.ForEach(metadata.IstioAuthenticationV1Alpha1Policies, func(r *resource.Entry) bool {
 		ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
