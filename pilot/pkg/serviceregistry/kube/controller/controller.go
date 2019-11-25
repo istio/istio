@@ -362,7 +362,7 @@ func (c *Controller) GetPodLocality(pod *v1.Pod) string {
 	zone := getLabelValue(node.(*v1.Node), NodeZoneLabel, NodeZoneLabelGA)
 	subzone := getLabelValue(node.(*v1.Node), IstioSubzoneLabel, "")
 
-	if region == "" && zone == "" && subzone == ""{
+	if region == "" && zone == "" && subzone == "" {
 		return ""
 	}
 
