@@ -182,18 +182,20 @@ func (c *controller) createInformer(
 	handler := &kube.ChainHandler{}
 	handler.Append(c.notify)
 
-	// Enhance list function with supplied validation function, so that invalid CRD does not enter store.
+	// Wrap the list function with supplied validation function, so that invalid CRD does not enter store.
 	vlf := func(opts meta_v1.ListOptions) (result runtime.Object, err error) {
+		// List only returns error, if type is missing.
 		if result, err = lf(opts); err == nil {
 			// This check is primarily needed for tests which use mock config - but helps otherwise also.
 			if obj, ok := result.(crd.IstioObject); ok {
-				err = vf(obj)
+				if err = vf(obj); err != nil {
+					key := obj.GetObjectMeta().Namespace + "/" + obj.GetObjectMeta().Name
+					log.Errorf("Failed to validate object: %s %s %v", obj.GetObjectKind().GroupVersionKind().GroupKind().Kind,
+						key, err)
+					k8sErrors.With(nameTag.Value(key)).Record(1)
+					return nil, err
+				}
 			}
-		}
-		if err != nil {
-			log.Errorf("failed to add CRD while listing. Value: %v, error: %v", result, err)
-			incrementEvent(otype, "addfailure")
-			return nil, err
 		}
 		return
 	}
@@ -207,20 +209,10 @@ func (c *controller) createInformer(
 		cache.ResourceEventHandlerFuncs{
 			// TODO: filtering functions to skip over un-referenced resources (perf)
 			AddFunc: func(obj interface{}) {
-				if err := vf(obj); err != nil {
-					log.Errorf("failed to add CRD. New value: %v, error: %v", obj, err)
-					incrementEvent(otype, "addfailure")
-					return
-				}
 				incrementEvent(otype, "add")
 				c.queue.Push(kube.NewTask(handler.Apply, obj, model.EventAdd))
 			},
 			UpdateFunc: func(old, cur interface{}) {
-				if err := vf(cur); err != nil {
-					incrementEvent(otype, "updatefailure")
-					log.Errorf("failed to update CRD. New value: %v, error: %v", cur, err)
-					return
-				}
 				if !reflect.DeepEqual(old, cur) {
 					incrementEvent(otype, "update")
 					c.queue.Push(kube.NewTask(handler.Apply, cur, model.EventUpdate))
