@@ -38,7 +38,9 @@
                 ],
                 "http": [
                     {
-                        "match": [],
+                        "match": [
+                            {}
+                        ],
                         "route": [
                             {
                                 "destination": {
@@ -68,7 +70,9 @@
                 ],
                 "http": [
                     {
-                        "match": [],
+                        "match": [
+                            {}
+                        ],
                         "route": [
                             {
                                 "destination": {

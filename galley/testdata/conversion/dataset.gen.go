@@ -778,7 +778,7 @@ kind: Ingress
 metadata:
   name: echo
   annotations:
-    kubernetes.io/ingress.class: istio
+    kubernetes.io/ingress.class: cls
 spec:
   rules:
   - host: echo1.example.com
@@ -849,7 +849,9 @@ var _datasetExtensionsV1beta1Ingress_multihost_expectedJson = []byte(`{
                 ],
                 "http": [
                     {
-                        "match": [],
+                        "match": [
+                            {}
+                        ],
                         "route": [
                             {
                                 "destination": {
@@ -879,7 +881,9 @@ var _datasetExtensionsV1beta1Ingress_multihost_expectedJson = []byte(`{
                 ],
                 "http": [
                     {
-                        "match": [],
+                        "match": [
+                            {}
+                        ],
                         "route": [
                             {
                                 "destination": {
