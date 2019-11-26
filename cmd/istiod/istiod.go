@@ -61,7 +61,7 @@ func main() {
 			},
 		},
 		Service: bootstrap.ServiceArgs{
-			Registries: []string{string(serviceregistry.KubernetesRegistry)},
+			Registries: []string{string(serviceregistry.Kubernetes)},
 		},
 		InjectionOptions: bootstrap.InjectionOptions{
 			InjectionDirectory: "./var/lib/istio/inject",
