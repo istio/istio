@@ -193,7 +193,11 @@ func (p *Processing2) Start() (err error) {
 		go func() {
 			p.runtime.Start()
 		}()
-
+		if p.callOut != nil {
+			go func() {
+				p.callOut.run()
+			}()
+		}
 		return nil
 	}
 

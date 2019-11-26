@@ -102,6 +102,7 @@ func (s *Server) initGalley(args *PilotArgs) error {
 		if err != nil {
 			log.Fatalf("Failed to parse overrides %v", err)
 		}
+		log.Infoa("Loading Galley override ", gargs)
 	}
 
 	meshCfgFile := args.Mesh.ConfigFile
