@@ -77,6 +77,7 @@ func NewPolicyApplier(jwtPolicies []*model.Config) authn.PolicyApplier {
 	processedJwtRules := []*v1beta1.JWT{}
 
 	// TODO(diemtvu) should we need to deduplicate JWT with the same issuer.
+	// https://github.com/istio/istio/issues/19245
 	for idx := range jwtPolicies {
 		spec := jwtPolicies[idx].Spec.(*v1beta1.RequestAuthentication)
 		for _, rule := range spec.JwtRules {

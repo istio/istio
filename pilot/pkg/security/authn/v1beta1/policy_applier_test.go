@@ -193,7 +193,7 @@ func TestJwtFilter(t *testing.T) {
 						JwtRules: []*v1beta1.JWT{
 							{
 								Issuer: "https://secret.foo.com",
-								Jwks:   "what you give is what you get",
+								Jwks:   "inline-jwks-data",
 							},
 						},
 					},
@@ -224,7 +224,7 @@ func TestJwtFilter(t *testing.T) {
 									JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 										LocalJwks: &core.DataSource{
 											Specifier: &core.DataSource_InlineString{
-												InlineString: "what you give is what you get",
+												InlineString: "inline-jwks-data",
 											},
 										},
 									},
