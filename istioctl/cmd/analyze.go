@@ -38,15 +38,16 @@ type AnalyzerFoundIssuesError struct{}
 type FileParseError struct{}
 
 const (
-	FoundIssueString = "Analyzer found issues."
+	NoIssuesString   = "\u2714 No validation issues found."
+	FoundIssueString = "Analyzers found issues."
 	FileParseString  = "Some files couldn't be parsed."
 	LogOutput        = "log"
-	JsonOutput       = "json"
+	JSONOutput       = "json"
 	YamlOutput       = "yaml"
 )
 
 func (f AnalyzerFoundIssuesError) Error() string {
-	return FoundIssueString
+	return fmt.Sprintf("%s\nSee %s for more information about causes and resolutions.", FoundIssueString, diag.DocPrefix)
 }
 
 func (f FileParseError) Error() string {
@@ -55,11 +56,12 @@ func (f FileParseError) Error() string {
 
 var (
 	useKube         bool
-	useDiscovery    string
+	useDiscovery    bool
 	failureLevel    = messageThreshold{diag.Warning} // messages at least this level will generate an error exit code
 	outputLevel     = messageThreshold{diag.Info}    // messages at least this level will be included in the output
 	colorize        bool
 	msgOutputFormat string
+	meshCfgFile     string
 
 	termEnvVar = env.RegisterStringVar("TERM", "", "Specifies terminal type.  Use 'dumb' to suppress color output")
 
@@ -75,10 +77,10 @@ var (
 // with `istioctl validate`. https://github.com/istio/istio/issues/16777
 func Analyze() *cobra.Command {
 	// Validate the output format before doing potentially expensive work to fail earlier
-	msgOutputFormats := map[string]bool{LogOutput: true, JsonOutput: true, YamlOutput: true}
+	msgOutputFormats := map[string]bool{LogOutput: true, JSONOutput: true, YamlOutput: true}
 	var msgOutputFormatKeys []string
 
-	for k, _ := range msgOutputFormats {
+	for k := range msgOutputFormats {
 		msgOutputFormatKeys = append(msgOutputFormatKeys, k)
 	}
 
@@ -116,9 +118,9 @@ istioctl experimental analyze -k -d false
 			}
 			cancel := make(chan struct{})
 
-			sd, err := serviceDiscovery()
-			if err != nil {
-				return err
+			// If not explicitly specified, the discovery flag should match useKube
+			if !cmd.Flags().Changed("discovery") {
+				useDiscovery = useKube
 			}
 
 			// We use the "namespace" arg that's provided as part of root istioctl as a flag for specifying what namespace to use
@@ -154,7 +156,7 @@ istioctl experimental analyze -k -d false
 				selectedNamespace = defaultNamespace
 			}
 
-			sa := local.NewSourceAnalyzer(metadata.MustGet(), analyzers.AllCombined(), selectedNamespace, nil, sd)
+			sa := local.NewSourceAnalyzer(metadata.MustGet(), analyzers.AllCombined(), selectedNamespace, istioNamespace, nil, useDiscovery)
 
 			// If we're using kube, use that as a base source.
 			if k != nil {
@@ -171,6 +173,13 @@ istioctl experimental analyze -k -d false
 				}
 			}
 
+			// If we explicitly specify mesh config, use it.
+			// This takes precedence over default mesh config or mesh config from a running Kube instance.
+			if meshCfgFile != "" {
+				_ = sa.AddFileKubeMeshConfigSource(meshCfgFile)
+			}
+
+			// Do the analysis
 			result, err := sa.Analyze(cancel)
 			if err != nil {
 				return err
@@ -206,7 +215,7 @@ istioctl experimental analyze -k -d false
 				// Print validation message output, or a line indicating that none were found
 				if len(outputMessages) == 0 {
 					if parseErrors == 0 {
-						fmt.Fprintln(cmd.ErrOrStderr(), "\u2714 No validation issues found.")
+						fmt.Fprintln(cmd.ErrOrStderr(), NoIssuesString)
 					} else {
 						fileOrFiles := "files"
 						if parseErrors == 1 {
@@ -223,7 +232,7 @@ istioctl experimental analyze -k -d false
 						fmt.Fprintln(cmd.OutOrStdout(), renderMessage(m))
 					}
 				}
-			case JsonOutput:
+			case JSONOutput:
 				jsonOutput, err := json.MarshalIndent(outputMessages, "", "\t")
 				if err != nil {
 					return err
@@ -251,18 +260,22 @@ istioctl experimental analyze -k -d false
 
 	analysisCmd.PersistentFlags().BoolVarP(&useKube, "use-kube", "k", false,
 		"Use live Kubernetes cluster for analysis")
-	analysisCmd.PersistentFlags().StringVarP(&useDiscovery, "discovery", "d", "",
+	analysisCmd.PersistentFlags().BoolVarP(&useDiscovery, "discovery", "d", false, // Note that this default val gets overridden to match --use-kube
 		"'true' to enable service discovery, 'false' to disable it. "+
 			"Defaults to true if --use-kube is set, false otherwise. "+
 			"Analyzers requiring resources made available by enabling service discovery will be skipped.")
 	analysisCmd.PersistentFlags().BoolVar(&colorize, "color", istioctlColorDefault(analysisCmd),
 		"Default true.  Disable with '=false' or set $TERM to dumb")
-	analysisCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
+	analysisCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false,
+		"Enable verbose output")
 	analysisCmd.PersistentFlags().Var(&failureLevel, "failure-threshold",
 		fmt.Sprintf("The severity level of analysis at which to set a non-zero exit code. Valid values: %v", diag.GetAllLevelStrings()))
 	analysisCmd.PersistentFlags().Var(&outputLevel, "output-threshold",
 		fmt.Sprintf("The severity level of analysis at which to display messages. Valid values: %v", diag.GetAllLevelStrings()))
-	analysisCmd.PersistentFlags().StringVarP(&msgOutputFormat, "output", "o", LogOutput, fmt.Sprintf("Output format: one of %v", msgOutputFormatKeys))
+	analysisCmd.PersistentFlags().StringVarP(&msgOutputFormat, "output", "o", LogOutput,
+		fmt.Sprintf("Output format: one of %v", msgOutputFormatKeys))
+	analysisCmd.PersistentFlags().StringVar(&meshCfgFile, "meshConfigFile", "",
+		"Overrides the mesh config values to use for analysis.")
 	return analysisCmd
 }
 
@@ -275,19 +288,6 @@ func gatherFiles(args []string) ([]string, error) {
 		result = append(result, a)
 	}
 	return result, nil
-}
-
-func serviceDiscovery() (bool, error) {
-	switch strings.ToLower(useDiscovery) {
-	case "":
-		return useKube, nil
-	case "true":
-		return true, nil
-	case "false":
-		return false, nil
-	default:
-		return false, fmt.Errorf("invalid argument value for discovery")
-	}
 }
 
 func colorPrefix(m diag.Message) string {

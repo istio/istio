@@ -248,20 +248,20 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 
 	// TODO: if ServiceDiscovery is aggregate, and all members support direct, use
 	// the direct interface.
-	var registries []aggregate.Registry
-	var nonK8sRegistries []aggregate.Registry
+	var registries []serviceregistry.Instance
+	var nonK8sRegistries []serviceregistry.Instance
 	if agg, ok := s.Env.ServiceDiscovery.(*aggregate.Controller); ok {
 		registries = agg.GetRegistries()
 	} else {
-		registries = []aggregate.Registry{
-			{
+		registries = []serviceregistry.Instance{
+			serviceregistry.Simple{
 				ServiceDiscovery: s.Env.ServiceDiscovery,
 			},
 		}
 	}
 
 	for _, registry := range registries {
-		if registry.Name != serviceregistry.KubernetesRegistry {
+		if registry.Provider() != serviceregistry.Kubernetes {
 			nonK8sRegistries = append(nonK8sRegistries, registry)
 		}
 	}
@@ -305,7 +305,7 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 				}
 			}
 
-			s.edsUpdate(registry.ClusterID, string(svc.Hostname), svc.Attributes.Namespace, entries, true)
+			s.edsUpdate(registry.Cluster(), string(svc.Hostname), svc.Attributes.Namespace, entries, true)
 		}
 	}
 
@@ -640,7 +640,8 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 	// will update "XdsConnection.Clusters", we might accidentally send EDS updates for STRICT_DNS cluster. This check gaurds
 	// against such behavior and returns nil. When the updated cluster warms up in Envoy, it would update with new endpoints
 	// automatically.
-	if svc.Resolution != model.ClientSideLB {
+	// Gateways use EDS for Passthrough cluster. So we should allow Passthrough here.
+	if svc.Resolution == model.DNSLB {
 		adsLog.Infof("XdsConnection has %s in its eds clusters but its resolution now is updated to %v, skipping it.", clusterName, svc.Resolution)
 		return nil
 	}
@@ -842,8 +843,9 @@ func (s *DiscoveryServer) updateEdsClients(added sets.Set, removed sets.Set, con
 		}
 		c.mutex.Lock()
 		delete(c.EdsClients, connection.ConID)
+		clients := len(c.EdsClients)
 		c.mutex.Unlock()
-		if len(c.EdsClients) == 0 {
+		if clients == 0 {
 			// This happens when a previously used cluster is no longer watched by any
 			// sidecar. It should not happen very often - normally all clusters are sent
 			// in CDS requests to all sidecars. It may happen if all connections are closed.
@@ -859,12 +861,13 @@ func (s *DiscoveryServer) updateEdsClients(added sets.Set, removed sets.Set, con
 				EdsClients: map[string]*XdsConnection{},
 			}
 			edsClusters[ac] = c
-			// TODO: find a more efficient way to make edsClusters and EdsClients init atomic
-			// Currently use edsClusterMutex lock
-			c.mutex.Lock()
-			c.EdsClients[connection.ConID] = connection
-			c.mutex.Unlock()
 		}
+
+		// TODO: find a more efficient way to make edsClusters and EdsClients init atomic
+		// Currently use edsClusterMutex lock
+		c.mutex.Lock()
+		c.EdsClients[connection.ConID] = connection
+		c.mutex.Unlock()
 	}
 }
 

@@ -36,7 +36,7 @@ import (
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	rbac "istio.io/api/rbac/v1alpha1"
-	authz "istio.io/api/security/v1beta1"
+	security_beta "istio.io/api/security/v1beta1"
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pkg/config/constants"
@@ -1487,7 +1487,7 @@ func ValidateAuthenticationPolicy(name, namespace string, msg proto.Message) err
 
 // ValidateAuthorizationPolicy checks that AuthorizationPolicy is well-formed.
 func ValidateAuthorizationPolicy(_, _ string, msg proto.Message) error {
-	in, ok := msg.(*authz.AuthorizationPolicy)
+	in, ok := msg.(*security_beta.AuthorizationPolicy)
 	if !ok {
 		return fmt.Errorf("cannot cast to AuthorizationPolicy")
 	}
@@ -1511,6 +1511,22 @@ func ValidateAuthorizationPolicy(_, _ string, msg proto.Message) error {
 		}
 	}
 	return nil
+}
+
+// ValidateRequestAuthentication checks that request authentication spec is well-formed.
+func ValidateRequestAuthentication(_, _ string, msg proto.Message) error {
+	in, ok := msg.(*security_beta.RequestAuthentication)
+	if !ok {
+		return errors.New("cannot cast to RequestAuthentication")
+	}
+	// TODO(diemtvu) add more details validation.
+	var errs error
+	for _, rule := range in.JwtRules {
+		if len(rule.Issuer) == 0 {
+			errs = appendErrors(errs, fmt.Errorf("issuer must be set"))
+		}
+	}
+	return errs
 }
 
 // ValidateServiceRole checks that ServiceRole is well-formed.
@@ -2388,11 +2404,6 @@ func ValidateServiceEntry(_, _ string, config proto.Message) (errs error) {
 			errs = appendErrors(errs, fmt.Errorf("no endpoints should be provided for resolution type none"))
 		}
 	case networking.ServiceEntry_STATIC:
-		if len(serviceEntry.Endpoints) == 0 {
-			errs = appendErrors(errs,
-				fmt.Errorf("endpoints must be provided if service entry resolution mode is static"))
-		}
-
 		unixEndpoint := false
 		for _, endpoint := range serviceEntry.Endpoints {
 			addr := endpoint.GetAddress()

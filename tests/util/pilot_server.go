@@ -96,10 +96,10 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 		Service: bootstrap.ServiceArgs{
 			// Using the Mock service registry, which provides the hello and world services.
 			Registries: []string{
-				string(serviceregistry.MockRegistry)},
+				string(serviceregistry.Mock)},
 		},
 		MeshConfig:        &meshConfig,
-		MCPMaxMessageSize: bootstrap.DefaultMCPMaxMsgSize,
+		MCPMaxMessageSize: 1024 * 1024 * 4,
 		KeepaliveOptions:  keepalive.DefaultOption(),
 		ForceStop:         true,
 		// TODO: add the plugins, so local tests are closer to reality and test full generation

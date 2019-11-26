@@ -174,7 +174,7 @@ func startPilot() error {
 		Service: bootstrap.ServiceArgs{
 			// Using the Mock service registry, which provides the hello and world services.
 			Registries: []string{
-				string(serviceregistry.MockRegistry)},
+				string(serviceregistry.Mock)},
 		},
 		MeshConfig:       &mcfg,
 		KeepaliveOptions: keepalive.DefaultOption(),

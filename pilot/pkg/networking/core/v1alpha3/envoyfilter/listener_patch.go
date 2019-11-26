@@ -204,10 +204,11 @@ func doNetworkFilterListOperation(proxy *model.Proxy, patchContext networking.En
 				continue
 			}
 
-			fc.Filters = append(fc.Filters, proto.Clone(cp.Value).(*xdslistener.Filter))
+			clonedVal := proto.Clone(cp.Value).(*xdslistener.Filter)
+			fc.Filters = append(fc.Filters, clonedVal)
 			if insertPosition < len(fc.Filters)-1 {
 				copy(fc.Filters[insertPosition+1:], fc.Filters[insertPosition:])
-				fc.Filters[insertPosition] = proto.Clone(cp.Value).(*xdslistener.Filter)
+				fc.Filters[insertPosition] = clonedVal
 			}
 		} else if cp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE {
 			// insert before without a filter match is same as insert in the beginning
@@ -227,9 +228,10 @@ func doNetworkFilterListOperation(proxy *model.Proxy, patchContext networking.En
 			if insertPosition == -1 {
 				continue
 			}
-			fc.Filters = append(fc.Filters, proto.Clone(cp.Value).(*xdslistener.Filter))
+			clonedVal := proto.Clone(cp.Value).(*xdslistener.Filter)
+			fc.Filters = append(fc.Filters, clonedVal)
 			copy(fc.Filters[insertPosition+1:], fc.Filters[insertPosition:])
-			fc.Filters[insertPosition] = proto.Clone(cp.Value).(*xdslistener.Filter)
+			fc.Filters[insertPosition] = clonedVal
 		}
 	}
 	if networkFiltersRemoved {
@@ -284,8 +286,8 @@ func doNetworkFilterOperation(proxy *model.Proxy, patchContext networking.EnvoyF
 				if retVal, err = util.MergeAnyWithAny(filter.GetTypedConfig(), userFilter.GetTypedConfig()); err != nil {
 					retVal = filter.GetTypedConfig()
 				}
-			} else if userFilter.GetConfig() != nil {
-				if retVal, err = util.MergeAnyWithStruct(filter.GetTypedConfig(), userFilter.GetConfig()); err != nil {
+			} else if userFilter.GetConfig() != nil { //nolint:staticcheck
+				if retVal, err = util.MergeAnyWithStruct(filter.GetTypedConfig(), userFilter.GetConfig()); err != nil { //nolint:staticcheck
 					retVal = filter.GetTypedConfig()
 				}
 			}
@@ -311,6 +313,7 @@ func doHTTPFilterListOperation(proxy *model.Proxy, patchContext networking.Envoy
 			//  as this loop will be called very frequently
 		}
 	} else {
+		// nolint: staticcheck
 		if err := conversion.StructToMessage(filter.GetConfig(), hcm); err != nil {
 			return
 		}
@@ -352,10 +355,11 @@ func doHTTPFilterListOperation(proxy *model.Proxy, patchContext networking.Envoy
 				continue
 			}
 
-			hcm.HttpFilters = append(hcm.HttpFilters, proto.Clone(cp.Value).(*http_conn.HttpFilter))
+			clonedVal := proto.Clone(cp.Value).(*http_conn.HttpFilter)
+			hcm.HttpFilters = append(hcm.HttpFilters, clonedVal)
 			if insertPosition < len(hcm.HttpFilters)-1 {
 				copy(hcm.HttpFilters[insertPosition+1:], hcm.HttpFilters[insertPosition:])
-				hcm.HttpFilters[insertPosition] = proto.Clone(cp.Value).(*http_conn.HttpFilter)
+				hcm.HttpFilters[insertPosition] = clonedVal
 			}
 		} else if cp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE {
 			// insert before without a filter match is same as insert in the beginning
@@ -376,9 +380,11 @@ func doHTTPFilterListOperation(proxy *model.Proxy, patchContext networking.Envoy
 			if insertPosition == -1 {
 				continue
 			}
-			hcm.HttpFilters = append(hcm.HttpFilters, proto.Clone(cp.Value).(*http_conn.HttpFilter))
+
+			clonedVal := proto.Clone(cp.Value).(*http_conn.HttpFilter)
+			hcm.HttpFilters = append(hcm.HttpFilters, clonedVal)
 			copy(hcm.HttpFilters[insertPosition+1:], hcm.HttpFilters[insertPosition:])
-			hcm.HttpFilters[insertPosition] = proto.Clone(cp.Value).(*http_conn.HttpFilter)
+			hcm.HttpFilters[insertPosition] = clonedVal
 		}
 	}
 	if httpFiltersRemoved {
@@ -440,8 +446,8 @@ func doHTTPFilterOperation(proxy *model.Proxy, patchContext networking.EnvoyFilt
 				if retVal, err = util.MergeAnyWithAny(httpFilter.GetTypedConfig(), userHTTPFilter.GetTypedConfig()); err != nil {
 					retVal = httpFilter.GetTypedConfig()
 				}
-			} else if userHTTPFilter.GetConfig() != nil {
-				if retVal, err = util.MergeAnyWithStruct(httpFilter.GetTypedConfig(), userHTTPFilter.GetConfig()); err != nil {
+			} else if userHTTPFilter.GetConfig() != nil { //nolint:staticcheck
+				if retVal, err = util.MergeAnyWithStruct(httpFilter.GetTypedConfig(), userHTTPFilter.GetConfig()); err != nil { //nolint:staticcheck
 					retVal = httpFilter.GetTypedConfig()
 				}
 			}
@@ -566,7 +572,7 @@ func proxyMatch(proxy *model.Proxy, cp *model.EnvoyFilterConfigPatchWrapper) boo
 	if cp.ProxyVersionRegex != nil {
 		ver := proxy.Metadata.IstioVersion
 		if ver == "" {
-			// we dont have a proxy version but the user has a regex. so this is a mismatch
+			// we do not have a proxy version but the user has a regex. so this is a mismatch
 			return false
 		}
 		if !cp.ProxyVersionRegex.MatchString(ver) {

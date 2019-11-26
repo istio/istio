@@ -205,7 +205,7 @@ func TestSyntheticServiceEntry(t *testing.T) {
 					return true, nil
 				})
 
-			// need to verify endpionts with retry since env.(*kubeEnv.Environment).GetEndpoints
+			// need to verify endpoints with retry since env.(*kubeEnv.Environment).GetEndpoints
 			// not always fetches endpoints immediately
 			if err := validateEndpointsWithRetry(5, 10*time.Second, t, ctx, client, testParams); err != nil {
 				t.Fatal(err)

@@ -79,7 +79,7 @@ func overlayIstioControlPlane(mesh *Mesh, current *Cluster, meshNetworks *v1alph
 	typedValues := &operatorV1alpha1.Values{
 		Gateways: &operatorV1alpha1.GatewaysConfig{
 			IstioIngressgateway: &operatorV1alpha1.IngressGatewayConfig{
-				Env: map[string]string{
+				Env: map[string]interface{}{
 					"ISTIO_MESH_NETWORK": current.Network,
 				},
 			},
@@ -272,7 +272,7 @@ func meshNetworkForCluster(env Environment, mesh *Mesh, current *Cluster) (*v1al
 		// uses a special name for the local cluster against which it is running.
 		registry := string(cluster.uid)
 		if context == current.Context {
-			registry = string(serviceregistry.KubernetesRegistry)
+			registry = string(serviceregistry.Kubernetes)
 		}
 
 		mn.Networks[network].Endpoints = append(mn.Networks[network].Endpoints,

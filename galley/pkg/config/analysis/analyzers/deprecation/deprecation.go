@@ -165,7 +165,7 @@ func replacedMessage(deprecated, replacement string) string {
 }
 
 // uncertainFixMessage() should be used for fields we don't have a suggested replacement for.
-// It is preferrable to avoid calling it and find out the replacement suggestion instead.
+// It is preferable to avoid calling it and find out the replacement suggestion instead.
 func uncertainFixMessage(field string) string {
 	return fmt.Sprintf("%s is deprecated", field)
 }

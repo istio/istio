@@ -444,13 +444,13 @@ func NewPushContext() *PushContext {
 }
 
 // JSON implements json.Marshaller, with a lock.
-func (ps *PushContext) JSON() ([]byte, error) {
+func (ps *PushContext) StatusJSON() ([]byte, error) {
 	if ps == nil {
 		return []byte{'{', '}'}, nil
 	}
 	ps.proxyStatusMutex.RLock()
 	defer ps.proxyStatusMutex.RUnlock()
-	return json.MarshalIndent(ps, "", "    ")
+	return json.MarshalIndent(ps.ProxyStatus, "", "    ")
 }
 
 // OnConfigChange is called when a config change is detected.
@@ -595,7 +595,7 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Colle
 // GetAllSidecarScopes returns a map of namespace and the set of SidecarScope
 // object associated with the namespace. This will be used by the CDS code to
 // precompute CDS output for each sidecar scope. Since we have a default sidecarscope
-// for namespaces that dont explicitly have one, we are guaranteed to
+// for namespaces that do not explicitly have one, we are guaranteed to
 // have the CDS output cached for every namespace/sidecar scope combo.
 func (ps *PushContext) GetAllSidecarScopes() map[string][]*SidecarScope {
 	return ps.sidecarsByNamespace
@@ -622,7 +622,7 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 	// If the proxy config namespace is same as the root config namespace
 	// look for dest rules in the service's namespace first. This hack is needed
 	// because sometimes, istio-system tends to become the root config namespace.
-	// Destination rules are defined here for global purposes. We dont want these
+	// Destination rules are defined here for global purposes. We do not want these
 	// catch all destination rules to be the only dest rule, when processing CDS for
 	// proxies like the istio-ingressgateway or istio-egressgateway.
 	// If there are no service specific dest rules, we will end up picking up the same
@@ -1193,7 +1193,7 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 		}
 	}
 
-	// build sidecar scopes for namespaces that dont have a non-workloadSelector sidecar CRD object.
+	// build sidecar scopes for namespaces that do not have a non-workloadSelector sidecar CRD object.
 	// Derive the sidecar scope from the root namespace's sidecar object if present. Else fallback
 	// to the default Istio behavior mimicked by the DefaultSidecarScopeForNamespace function.
 	for _, nsMap := range ps.ServiceByHostnameAndNamespace {
