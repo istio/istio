@@ -51,14 +51,17 @@ func EndpointsByNetworkFilter(push *model.PushContext, proxyNetwork string, endp
 		// calculate remote network endpoints
 		for _, lbEp := range ep.LbEndpoints {
 			epNetwork := istioMetadata(lbEp, "network")
-			if epNetwork == proxyNetwork {
-				// This is a local endpoint
+			// This is a local endpoint or remote network endpoint
+			// but can be accessed directly from local network.
+			if epNetwork == proxyNetwork ||
+				len(push.NetworkGatewaysByNetwork(epNetwork)) == 0 {
 				lbEp.LoadBalancingWeight = &wrappers.UInt32Value{
 					Value: uint32(multiples),
 				}
 				lbEndpoints = append(lbEndpoints, lbEp)
 			} else {
-				// Remote endpoint. Increase the weight counter
+				// Remote network endpoint which can not be accessed directly from local network.
+				// Increase the weight counter
 				remoteEps[epNetwork]++
 			}
 		}
@@ -70,9 +73,11 @@ func EndpointsByNetworkFilter(push *model.PushContext, proxyNetwork string, endp
 		// gateway with the relevant weight
 		for network, w := range remoteEps {
 			gateways := push.NetworkGatewaysByNetwork(network)
-			gwEps := make([]*endpoint.LbEndpoint, 0)
-			// There may be multiples gateways for the network. Add an LbEndpoint for
-			// each one of them
+
+			gatewayNum := len(gateways)
+			weight := w * uint32(multiples/gatewayNum)
+
+			// There may be multiples gateways for one network. Add each gateway as an endpoint.
 			for _, gw := range gateways {
 				epAddr := util.BuildAddress(gw.Addr, gw.Port)
 				gwEp := &endpoint.LbEndpoint{
@@ -81,23 +86,16 @@ func EndpointsByNetworkFilter(push *model.PushContext, proxyNetwork string, endp
 							Address: epAddr,
 						},
 					},
-				}
-				gwEps = append(gwEps, gwEp)
-			}
-			if len(gwEps) == 0 {
-				continue
-			}
-			weight := w * uint32(multiples/len(gwEps))
-			for _, gwEp := range gwEps {
-				gwEp.LoadBalancingWeight = &wrappers.UInt32Value{
-					Value: weight,
+					LoadBalancingWeight: &wrappers.UInt32Value{
+						Value: weight,
+					},
 				}
 				lbEndpoints = append(lbEndpoints, gwEp)
 			}
 		}
 
-		// Found local endpoint(s) so add to the result a new one LocalityLbEndpoints
-		// that holds only the local endpoints
+		// Found endpoint(s) that can be accessed from local network
+		// and then build a new LocalityLbEndpoints with them.
 		newEp := createLocalityLbEndpoints(ep, lbEndpoints)
 		filtered = append(filtered, newEp)
 	}
