@@ -119,8 +119,8 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
-        {{- if .Values.mixer.env }}
-        {{- range $key, $val := .Values.mixer.env }}
+        {{- if .Values.mixer.telemetry.env }}
+        {{- range $key, $val := .Values.mixer.telemetry.env }}
         - name: {{ $key }}
           value: "{{ $val }}"
         {{- end }}
