@@ -202,7 +202,11 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 	pc := mtls.NewPolicyChecker(fqdnToNameToPort)
 	meshPolicyResource := c.Find(metadata.IstioAuthenticationV1Alpha1Meshpolicies, resource.NewName("", "default"))
 	if meshPolicyResource != nil {
-		pc.AddMeshPolicy(meshPolicyResource, meshPolicyResource.Item.(*v1alpha1.Policy))
+		err := pc.AddMeshPolicy(meshPolicyResource, meshPolicyResource.Item.(*v1alpha1.Policy))
+		if err != nil {
+			c.Report(metadata.IstioAuthenticationV1Alpha1Meshpolicies, msg.NewInternalError(meshPolicyResource, err.Error()))
+			return
+		}
 	}
 
 	c.ForEach(metadata.IstioAuthenticationV1Alpha1Policies, func(r *resource.Entry) bool {
@@ -218,10 +222,9 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 				c.Report(metadata.IstioAuthenticationV1Alpha1Meshpolicies,
 					msg.NewPolicySpecifiesPortNameThatDoesntExist(r, missingPortNameErr.PortName, missingPortNameErr.FQDN))
 				return true
-			} else {
-				c.Report(metadata.IstioAuthenticationV1Alpha1Meshpolicies, msg.NewInternalError(r, err.Error()))
-				return false
 			}
+			c.Report(metadata.IstioAuthenticationV1Alpha1Meshpolicies, msg.NewInternalError(r, err.Error()))
+			return false
 		}
 		return true
 	})
