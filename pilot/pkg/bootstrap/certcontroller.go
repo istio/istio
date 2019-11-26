@@ -35,9 +35,6 @@ const (
 	// defaultMinCertGracePeriod is the default minimum grace period for workload cert rotation.
 	defaultMinCertGracePeriod = 10 * time.Minute
 
-	// Default directory to store Pilot key and certificate under $HOME directory
-	defaultDirectoryForKeyCert = "/pilot/key-cert"
-
 	// Default CA certificate path
 	// Currently, custom CA path is not supported; no API to get custom CA cert yet.
 	defaultCACertPath = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
