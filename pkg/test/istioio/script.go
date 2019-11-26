@@ -30,17 +30,41 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 )
 
+// outputStream enumerates the selectable output streams.
+type outputStream string
+
 const (
-	snippetStartToken   = "# $snippet"
-	snippetOutputToken  = "# $snippetoutput"
-	snippetEndToken     = "# $endsnippet"
-	syntaxKey           = "syntax"
-	outputIsKey         = "outputis"
-	outputSnippetKey    = "outputsnippet"
-	verifierKey         = "verifier"
-	outputFileExtension = ".output.txt"
-	defaultSyntax       = "text"
-	commandLinePrefix   = "$ "
+	outputStreamStdout outputStream = "stdout"
+	outputStreamStderr outputStream = "stderr"
+	outputStreamAll    outputStream = "all"
+)
+
+// Map of supported output streams.
+var outputStreams = map[outputStream]struct{}{
+	outputStreamStdout: {},
+	outputStreamStderr: {},
+	outputStreamAll:    {},
+}
+
+const (
+	snippetStartToken      = "# $snippet"
+	verifyToken            = "# $verify"
+	snippetOutputToken     = "# $snippetoutput"
+	snippetEndToken        = "# $endsnippet"
+	syntaxKey              = "syntax"
+	outputIsKey            = "outputis"
+	outputSnippetKey       = "outputsnippet"
+	outputStreamKey        = "outputstream"
+	sourceKey              = "source"
+	verifierKey            = "verifier"
+	defaultCommandSyntax   = "bash"
+	defaultOutputSyntax    = "text"
+	commandLinePrefix      = "$ "
+	testOutputDirEnvVar    = "TEST_OUTPUT_DIR"
+	kubeConfigEnvVar       = "KUBECONFIG"
+	outputSnippetExtension = "_output"
+	stdoutExtension        = ".stdout.txt"
+	stderrExtension        = ".stderr.txt"
 )
 
 var (
@@ -56,12 +80,12 @@ var _ Step = Script{}
 // Snippets must be surrounded by the tokens "# $snippet" and "# $endsnippet", each of which must be
 // on placed their own line and must be at the start of that line.  For example:
 //
-//     # $snippet dostuff.sh syntax="bash"
-//     $ kubectl apply -f @samples/bookinfo/platform/kube/rbac/namespace-policy.yaml@
+//     # $snippet dostuff syntax="bash"
+//     $ kubectl apply -f @some/path/relative/to/istio/src/dir.yaml@
 //     # $endsnippet
 //
 // This will run the command
-// `kubectl apply -f samples/bookinfo/platform/kube/rbac/namespace-policy.yaml` and also generate
+// `kubectl apply -f some/path/relative/to/istio/src/dir.yaml` and also generate
 // the snippet.
 //
 // Snippets that reference files in `https://github.com/istio/istio`, as shown above, should
@@ -74,55 +98,171 @@ var _ Step = Script{}
 //
 //     - syntax:
 //         Sets the syntax for the command text. This is used to properly highlight the output
-//         on istio.io.
+//         on istio.io. Defaults to "bash".
 //     - outputis:
-//         Sets the syntax for the output of the last command in the snippet. If set, and the
-//         snippet contains expected output, verification will automatically be performed
-//         against this expected output. By default, the commands and output will be merged
+//         Sets the syntax for the output of the last command in the snippet. Snippet output
+//         will only be generated if this is set. By default, the commands and output will be merged
 //         into a single snippet. This can be overridden with outputsnippet.
 //     - outputsnippet:
 //         A boolean value, which if "true" indicates that the output for the last command of
 //         the snippet should appear in a separate snippet. The name of the generated snippet
-//         will append "_output.txt" to the name of the current snippet.
+//         will append "_output" to the name of the current snippet. Defaults to "false".
+//     - outputstream:
+//         Indicates which command output stream should be used as the snippet output.
+//         Can be one of "stdout", "stderr", or "all". Defaults to "all". The command output
+//         stream is ignored if using a custom $snippetoutput (see below).
 //
-// You can indicate that a snippet should display output via `outputis`. Additionally, you can
-// verify the output of the last command in the snippet against expected results with the
-// `# $snippetoutput` annotation.
+// ==== Verifying Command Output ====
 //
-// Example with verified output:
+// You can add verification logic to the output of the last command run within the snippet block
+// by adding one or more `# $verify` block. Each `verify` block specified will have to succeed
+// in order for the command to be considered successful.  For example:
+//
+//     # $snippet mysnippet syntax="bash"
+//     $ kubectl apply -f somefile.yaml
+//     # $verify verifier="contains" source="stdout"
+//     stdout must contain this string!
+//     # $verify verifier="contains" source="stderr"
+//     and stderr must contain this string!
+//     # $endsnippet
+//
+// The following arguments are supported by `$verify`:
+//
+//     - verifier:
+//         Sets the verification algorithm to be used. Defaults to "token". The following\
+//         values are supported:
+//           - "token":
+//                Performs a token-based comparison of expected and actual output. The syntax
+//                supports the wildcard `?` character to skip comparison for a given token.
+//           - "contains":
+//                verifies that the output contains the given string.
+//           - "notContains":
+//                verifies that the output does not contain the given string.
+//           - "lineRegex":
+//                matches each line of the output against a regex for that line. The number of
+//                lines of the output must match the number of regexes provided. Each regex
+//                must be on a separate line.
+//     - source:
+//         Indicates which command output stream should be used as the input for the verifier.
+//         Can be one of "stdout", "stderr", or "all". Defaults to "all".
+//
+//  ==== Generating Snippet Output ====
+//
+// You can indicate that a snippet should display output with the argument `outputis`:
+//
+//     # $snippet mysnippet syntax="bash" outputis="text"
+//     $ kubectl apply -f somefile.yaml
+//     # $endsnippet
+//
+// This will run the command `kubectl apply -f somefile.yaml` and add the output of the command to the
+// generated snippet:
+//
+//     # $snippet mysnippet syntax="bash" outputis="text"
+//     $ kubectl apply -f somefile.yaml
+//     this is the actual output of the command
+//     # $endsnippet
+//
+// You can create a separate snippet for the output with the `outputsnippet` argument. When specifying
+// `outputsnippet="true"`, a second snippet with the suffix "_output" will be generated:
 //
 //     # $snippet mysnippet syntax="bash" outputis="text" outputsnippet="true"
-//     $ kubectl apply -f @samples/bookinfo/platform/kube/rbac/namespace-policy.yaml@
-//     # $snippetoutput verifier="token"
-//     servicerole.rbac.istio.io/service-viewer created
-//     servicerolebinding.rbac.istio.io/bind-service-viewer created
+//     $ kubectl apply -f somefile.yaml
 //     # $endsnippet
 //
-// This will run the command
-// `kubectl apply -f samples/bookinfo/platform/kube/rbac/namespace-policy.yaml` and will use the
-// token-based verifier to verify that the output matches:
+// Generates:
 //
-//     servicerole.rbac.istio.io/service-viewer created
-//     servicerolebinding.rbac.istio.io/bind-service-viewer created
-//
-// Since `outputsnippet="true"`, it will then create a separate snippet for the actual output of
-// the last command:
-//
-//     # $snippet enforcing_namespace_level_access_control_apply.sh_output.txt syntax="text"
-//     servicerole.rbac.istio.io/service-viewer created
-//     servicerolebinding.rbac.istio.io/bind-service-viewer created
+//     # $snippet mysnippet syntax="bash"
+//     $ kubectl apply -f somefile.yaml
 //     # $endsnippet
 //
-// The following verifiers are supported:
+//     # $snippet mysnippetoutput syntax="text"
+//     this is the actual output of the command
+//     # $endsnippet
 //
-//     - "token":
-//          The default verifier, if not specified. Performs a token-based comparison of expected
-//          and actual output. The syntax supports the wildcard `?` character to skip comparison
-//          for a given token.
-//     - "contains":
-//          verifies that the output contains the given string.
-//     - "notContains":
-//          verifies that the output does not contain the given string.
+// You can specify which output stream of the command to use for the output with the `outputstream`
+// argument (see table above for possible values). This can be useful in cases where a command writes
+// to both stdout and stderr (which can cause unreliable ordering between the two streams). For example:
+//
+//     # $snippet mysnippet syntax="bash" outputis="text" outputstream="stdout"
+//     $ kubectl apply -f somefile.yaml
+//     # $endsnippet
+//
+// Generates:
+//
+//     # $snippet mysnippet syntax="bash" outputis="text"
+//     $ kubectl apply -f somefile.yaml
+//     this is the command's stdout
+//     # $endsnippet
+//
+// You can configure the snippet to ignore the actual output of the command and to use a custom output
+// value instead by specifying a `$snippetoutput block. This is useful for omitting parts of the
+// expected output. For example:
+//
+//     # $snippet mysnippet syntax="bash" outputis="text"
+//     $ kubectl apply -f somefile.yaml
+//     $ $snippetoutput
+//     ... // Omitting parts of the output
+//     hello world
+//     # $endsnippet
+//
+// Generates:
+//
+//     # $snippet mysnippet syntax="bash" outputis="text"
+//     $ kubectl apply -f somefile.yaml
+//     ... // Omitting parts of the output
+//     hello world
+//     # $endsnippet
+//
+// === Customizing Snippet Commands ===
+//
+// You can execute different commands than are used in the generated snippets. This is
+// useful when you need to add additional logic for handling things like retries, which
+// wouldn't be desirable in the online documentation. This is done by evaluating the
+// input as a golang template and applying different parameters for the command and
+// snippet. For example:
+//
+//     {{- $curlOptions := "--retry 10 --retry-connrefused --retry-delay 5 " -}}
+//     {{- if .isSnippet -}}
+//     {{- $curlOptions = "" -}}
+//     {{- end -}}
+//
+//     # $snippet mysnippet syntax="bash"
+//     $ curl {{ $curlOptions }} http://www.google.com
+//     # $endsnippet
+//
+// When the Script is created, you can evaluate the input differently:
+//
+//     istioio.Script{
+//         Input: istioio.Evaluate(istioio.Path("scripts/myfile.txt"), map[string]interface{}{
+//             "isSnippet": false,
+//         }),
+//         SnippetInput: istioio.Evaluate(istioio.Path("scripts/myfile.txt"), map[string]interface{}{
+//             "isSnippet": true,
+//         }),
+//     }
+//
+// This will run the command:
+//
+//     curl --retry 10 --retry-connrefused --retry-delay 5 http://www.google.com
+//
+// And will generate the snippet:
+//
+//     # $snippet mysnippet syntax="bash"
+//     $ curl http://www.google.com
+//     # $endsnippet
+//
+// === Environment ===
+//
+// To simplify common tasks, the following environment variables are set when the command is executed:
+//
+//     - TEST_OUTPUT_DIR:
+//         Set to the working directory of the current test. By default, scripts are run from this
+//         directory. This variable is useful for cases where the execution `WorkDir` has been set,
+//         but the script needs to access files in the test working directory.
+//     - KUBECONFIG:
+//         Set to the value from the test framework. This is necessary to make kubectl commands execute
+//         with the configuration specified on the command line.
+//
 type Script struct {
 	// Input for the parser.
 	Input InputSelector
@@ -135,7 +275,7 @@ type Script struct {
 	// Shell to use when running the command. By default "bash" will be used.
 	Shell string
 
-	// WorkDir for the generated Command.
+	// WorkDir specifies the working directory when executing the script.
 	WorkDir string
 
 	// Env user-provided environment variables for the generated Command.
@@ -169,11 +309,12 @@ func (s Script) runCommand(ctx Context) {
 			sinfo := parseSnippet(ctx, &index, lines)
 
 			// Gather all the command lines from the snippet.
-			snippetCommands := sinfo.getCommands()
-
-			if sinfo.outputIs != "" && len(snippetCommands) > 0 {
-				// Copy stderr and stdout to an output file so that we can validate later.
-				snippetCommands[len(snippetCommands)-1] += " 2>&1 |tee " + sinfo.getOutputFile(ctx)
+			snippetCommands := sinfo.getCommandLines()
+			if sinfo.needsOutput() {
+				// Copy stderr and stdout to output files so that we can validate later.
+				snippetCommands[len(snippetCommands)-1] += fmt.Sprintf(" 1> >(tee %s) 2> >(tee %s >&2)",
+					sinfo.getStdoutFile(),
+					sinfo.getStderrFile())
 			}
 
 			// Copy the commands from the snippet.
@@ -193,8 +334,8 @@ func (s Script) runCommand(ctx Context) {
 	scopes.CI.Infof("Running command script %s", input.Name())
 
 	// Copy the command to workDir.
-	dir, fileName := filepath.Split(input.Name())
-	if err := ioutil.WriteFile(path.Join(ctx.WorkDir(), fileName+".txt"), []byte(command), 0644); err != nil {
+	_, fileName := filepath.Split(input.Name())
+	if err := ioutil.WriteFile(path.Join(ctx.WorkDir(), fileName), []byte(command), 0644); err != nil {
 		ctx.Fatalf("failed copying command %s to workDir: %v", input.Name(), err)
 	}
 
@@ -206,14 +347,14 @@ func (s Script) runCommand(ctx Context) {
 
 	// Create the command.
 	cmd := exec.Command(shell)
-	cmd.Dir = s.getWorkDir(ctx, dir)
+	cmd.Dir = s.getWorkDir(ctx)
 	cmd.Env = s.getEnv(ctx)
 	cmd.Stdin = strings.NewReader(command)
 
 	// Run the command and get the output.
 	output, err := cmd.CombinedOutput()
 
-	// Copy the command output to workDir
+	// Copy the command output from the script to workDir
 	outputFileName := fileName + "_output.txt"
 	if err := ioutil.WriteFile(filepath.Join(ctx.WorkDir(), outputFileName), bytes.TrimSpace(output), 0644); err != nil {
 		ctx.Fatalf("failed copying output for command %s: %v", input.Name(), err)
@@ -236,7 +377,6 @@ func (s Script) createSnippets(ctx Context) {
 	// Process the input line-by-line
 	lines := strings.Split(content, "\n")
 	for index := 0; index < len(lines); index++ {
-		// TODO: parse template parameters for both command and snippet
 		line := lines[index]
 
 		if !isStartOfSnippet(line) {
@@ -247,29 +387,23 @@ func (s Script) createSnippets(ctx Context) {
 		// Parse the snippet and advance the index past it.
 		sinfo := parseSnippet(ctx, &index, lines)
 
-		// If output was specified for this snippet, validate the output.
+		// Verify the output for this snippet.
+		sinfo.verify()
+
+		// Verify the output, if configured to do so.
 		snippetOutput := ""
 		if sinfo.outputIs != "" {
-			// Read the output file for the last command in the snippet.
-			actualOutput, err := ioutil.ReadFile(sinfo.getOutputFile(ctx))
-			if err != nil {
-				ctx.Fatalf("failed reading output file for snippet %s: %v", sinfo.name, err)
-			}
-
-			// Use the actual output as the output for the snippet.
-			snippetOutput = string(actualOutput)
-
-			// If the snippet provided expected output, validate that the actual output
-			// from the command matches.
-			expectedOutput := strings.TrimSpace(sinfo.getExpectedOutput())
-			if expectedOutput != "" {
-				scopes.CI.Infof("Verifying results for snippet %s", sinfo.name)
-				sinfo.verifyOutput(ctx, sinfo.name, expectedOutput, snippetOutput)
+			if len(sinfo.customOutputLines) > 0 {
+				// Use the custom output defined in the snippet.
+				snippetOutput = sinfo.getCustomOutput()
+			} else {
+				// Read the output for the snippet.
+				snippetOutput = sinfo.readOutput()
 			}
 		}
 
 		// Join the command lines for the snippet into a single string.
-		commands := strings.Join(filterCommentLines(sinfo.getCommands()), "\n")
+		commands := strings.Join(filterCommentLines(sinfo.getCommandLines()), "\n")
 
 		// Check to see if the snippet specifies that output should be in a separate snippet.
 		if sinfo.outputSnippet {
@@ -284,7 +418,7 @@ func (s Script) createSnippets(ctx Context) {
 			}.run(ctx)
 
 			// Create a separate snippet for the output.
-			outputSnippetName := sinfo.name + "_output.txt"
+			outputSnippetName := sinfo.name + outputSnippetExtension
 			Snippet{
 				Name:   outputSnippetName,
 				Syntax: sinfo.outputIs,
@@ -308,17 +442,12 @@ func (s Script) createSnippets(ctx Context) {
 	}
 }
 
-func (s Script) getWorkDir(ctx Context, scriptDir string) string {
+func (s Script) getWorkDir(ctx Context) string {
 	if s.WorkDir != "" {
 		// User-specified work dir for the script.
 		return s.WorkDir
 	}
-	// By default, run the command from the scripts dir in case one script calls another.
-	scriptDir, err := filepath.Abs(scriptDir)
-	if err != nil {
-		ctx.Fatalf("failed resolving absolute path for %s", scriptDir)
-	}
-	return scriptDir
+	return ctx.WorkDir()
 }
 
 func (s Script) getEnv(ctx Context) []string {
@@ -326,9 +455,12 @@ func (s Script) getEnv(ctx Context) []string {
 	e := os.Environ()
 
 	// Copy the user-specified environment (if set) and add the k8s config.
-	customVars := make(map[string]string)
+	customVars := map[string]string{
+		// Set the output dir for the test.
+		testOutputDirEnvVar: ctx.WorkDir(),
+	}
 	ctx.Environment().Case(environment.Kube, func() {
-		customVars["KUBECONFIG"] = ctx.KubeEnv().Settings().KubeConfig
+		customVars[kubeConfigEnvVar] = ctx.KubeEnv().Settings().KubeConfig
 	})
 	for k, v := range s.Env {
 		customVars[k] = v
@@ -346,13 +478,16 @@ func isStartOfSnippet(line string) bool {
 }
 
 func parseSnippet(ctx Context, lineIndex *int, lines []string) snippetInfo {
+	ctx.Helper()
+
 	// Remove the start token
 	trimmedLine := strings.TrimPrefix(lines[*lineIndex], snippetStartToken)
 
 	// Parse the start line.
 	info := snippetInfo{
-		// Set the default verifier.
-		verifyOutput: verifyTokens,
+		ctx:          ctx,
+		outputSource: outputStreamAll,
+		syntax:       defaultCommandSyntax,
 	}
 	for _, fields := range strings.Fields(trimmedLine) {
 		arg := strings.TrimSpace(fields)
@@ -383,6 +518,12 @@ func parseSnippet(ctx Context, lineIndex *int, lines []string) snippetInfo {
 				ctx.Fatalf("failed parsing arg %s for snippet %s: %v", arg, info.name, err)
 			}
 			info.outputSnippet = outputSnippet
+		case outputStreamKey:
+			info.outputSource = outputStream(value)
+			if _, ok := outputStreams[info.outputSource]; !ok {
+				ctx.Fatalf("snippet %s: unsupported %s: %s. Must be in %v",
+					info.name, sourceKey, value, info.outputSource, outputStreams)
+			}
 		default:
 			ctx.Fatalf("unsupported snippet attribute: %s", key)
 		}
@@ -392,27 +533,38 @@ func parseSnippet(ctx Context, lineIndex *int, lines []string) snippetInfo {
 		ctx.Fatalf("snippet missing name")
 	}
 
-	if info.syntax == "" {
-		info.syntax = defaultSyntax
-	}
-
 	if info.outputIs == "" && info.outputSnippet {
-		info.outputIs = defaultSyntax
+		info.outputIs = defaultOutputSyntax
 	}
 
 	// Read the body lines for the snippet.
 	foundEnd := false
-	foundOutput := false
+	processingCustomOutput := false
+	var currentVerifier *verifierInfo
+	finishCurrentVerifier := func() {
+		if currentVerifier != nil {
+			info.verifiers = append(info.verifiers, *currentVerifier)
+			currentVerifier = nil
+		}
+	}
 	for *lineIndex++; !foundEnd && *lineIndex < len(lines); *lineIndex++ {
 		line := lines[*lineIndex]
 		if strings.HasPrefix(line, snippetEndToken) {
 			// Found the end of the snippet.
 			foundEnd = true
 		} else if strings.HasPrefix(line, snippetOutputToken) {
-			foundOutput = true
+			processingCustomOutput = true
+			finishCurrentVerifier()
+		} else if strings.HasPrefix(line, verifyToken) {
+			finishCurrentVerifier()
+			currentVerifier = &verifierInfo{
+				name:         tokenVerifierKey,
+				verifier:     verifyTokens,
+				outputSource: outputStreamAll,
+			}
 
 			// Parse the start line of the output.
-			for _, arg := range strings.Fields(line[len(snippetOutputToken):]) {
+			for _, arg := range strings.Fields(line[len(verifyToken):]) {
 				arg = strings.TrimSpace(arg)
 				if arg != "" {
 					key, value, err := parseArg(arg)
@@ -423,22 +575,34 @@ func parseSnippet(ctx Context, lineIndex *int, lines []string) snippetInfo {
 
 					switch key {
 					case verifierKey:
-						info.verifyOutput = verifiers[value]
-						if info.verifyOutput == nil {
+						currentVerifier.name = value
+						currentVerifier.verifier = verifiers[value]
+						if currentVerifier.verifier == nil {
 							ctx.Fatalf("snippet %s: contains invalid snippet output verifier: %s. Must be in %v",
-								value, verifiers)
+								info.name, value, verifiers)
+						}
+					case sourceKey:
+						currentVerifier.outputSource = outputStream(value)
+						if _, ok := outputStreams[currentVerifier.outputSource]; !ok {
+							ctx.Fatalf("snippet %s: unsupported %s: %s. Must be in %v",
+								info.name, sourceKey, value, currentVerifier.outputSource, outputStreams)
 						}
 					default:
 						ctx.Fatalf("unsupported snippet output attribute: %s", key)
 					}
 				}
 			}
-		} else if foundOutput {
-			info.expectedOutput = append(info.expectedOutput, line)
+		} else if currentVerifier != nil {
+			currentVerifier.expectedOutput = append(currentVerifier.expectedOutput, line)
+		} else if processingCustomOutput {
+			info.customOutputLines = append(info.customOutputLines, line)
 		} else {
 			info.commandLines = append(info.commandLines, line)
 		}
 	}
+
+	// Finish the current verifier, if one exists.
+	finishCurrentVerifier()
 
 	if !foundEnd {
 		ctx.Fatalf("snippet %s missing end token", info.name)
@@ -451,26 +615,91 @@ func parseSnippet(ctx Context, lineIndex *int, lines []string) snippetInfo {
 	return info
 }
 
-type snippetInfo struct {
+type verifierInfo struct {
 	name           string
-	syntax         string
-	outputIs       string
-	outputSnippet  bool
-	commandLines   []string
+	verifier       verifier
 	expectedOutput []string
-	verifyOutput   verifier
+	outputSource   outputStream
 }
 
-func (i snippetInfo) getOutputFile(ctx Context) string {
-	return filepath.Join(ctx.WorkDir(), i.name+outputFileExtension)
+func (i verifierInfo) verify(sinfo *snippetInfo) {
+	expectedOutput := strings.TrimSpace(strings.Join(i.expectedOutput, "\n"))
+
+	// Read the output file for the last command in the snippet.
+	actualOutput := sinfo.readFrom(i.outputSource)
+
+	// If the snippet provided expected output, validate that the actual output
+	// from the command matches.
+	if expectedOutput != "" {
+		scopes.CI.Infof("Verifying results for snippet %s with verifier %s", sinfo.name, i.name)
+		i.verifier(sinfo.ctx, sinfo.name, expectedOutput, actualOutput)
+	}
 }
 
-func (i snippetInfo) getCommands() []string {
+type snippetInfo struct {
+	ctx               Context
+	name              string
+	syntax            string
+	outputIs          string
+	outputSnippet     bool
+	customOutputLines []string
+	outputSource      outputStream
+	commandLines      []string
+	verifiers         []verifierInfo
+}
+
+func (i snippetInfo) verify() {
+	for _, v := range i.verifiers {
+		v.verify(&i)
+	}
+}
+
+func (i snippetInfo) readOutput() string {
+	return i.readFrom(i.outputSource)
+}
+
+func (i snippetInfo) readFrom(source outputStream) string {
+	switch source {
+	case outputStreamStdout:
+		return i.readFile(i.getStdoutFile())
+	case outputStreamStderr:
+		return i.readFile(i.getStderrFile())
+	case outputStreamAll:
+		// Concatenate the stdout and stderr.
+		return i.readFile(i.getStdoutFile()) + i.readFile(i.getStderrFile())
+	default:
+		i.ctx.Fatalf("snippet %s: attempting to read from invalid output source: %s", source)
+		return ""
+	}
+}
+
+func (i snippetInfo) readFile(path string) string {
+	// Read the output file for the last command in the snippet.
+	output, err := ioutil.ReadFile(path)
+	if err != nil {
+		i.ctx.Fatalf("snippet %s: failed reading output file %s: %v", i.name, path, err)
+	}
+	return string(output)
+}
+
+func (i snippetInfo) getStdoutFile() string {
+	return filepath.Join(i.ctx.WorkDir(), i.name+stdoutExtension)
+}
+
+func (i snippetInfo) getStderrFile() string {
+	return filepath.Join(i.ctx.WorkDir(), i.name+stderrExtension)
+}
+
+func (i snippetInfo) getCommandLines() []string {
 	return append([]string{}, i.commandLines...)
 }
 
-func (i snippetInfo) getExpectedOutput() string {
-	return strings.Join(i.expectedOutput, "\n")
+func (i snippetInfo) getCustomOutput() string {
+	return strings.Join(i.customOutputLines, "\n")
+}
+
+func (i snippetInfo) needsOutput() bool {
+	return len(i.commandLines) > 0 && (i.outputIs != "" || len(i.verifiers) > 0)
 }
 
 func filterCommentLines(lines []string) []string {

@@ -286,8 +286,8 @@ func doNetworkFilterOperation(proxy *model.Proxy, patchContext networking.EnvoyF
 				if retVal, err = util.MergeAnyWithAny(filter.GetTypedConfig(), userFilter.GetTypedConfig()); err != nil {
 					retVal = filter.GetTypedConfig()
 				}
-			} else if userFilter.GetConfig() != nil {
-				if retVal, err = util.MergeAnyWithStruct(filter.GetTypedConfig(), userFilter.GetConfig()); err != nil {
+			} else if userFilter.GetConfig() != nil { //nolint:staticcheck
+				if retVal, err = util.MergeAnyWithStruct(filter.GetTypedConfig(), userFilter.GetConfig()); err != nil { //nolint:staticcheck
 					retVal = filter.GetTypedConfig()
 				}
 			}
@@ -313,6 +313,7 @@ func doHTTPFilterListOperation(proxy *model.Proxy, patchContext networking.Envoy
 			//  as this loop will be called very frequently
 		}
 	} else {
+		// nolint: staticcheck
 		if err := conversion.StructToMessage(filter.GetConfig(), hcm); err != nil {
 			return
 		}
@@ -445,8 +446,8 @@ func doHTTPFilterOperation(proxy *model.Proxy, patchContext networking.EnvoyFilt
 				if retVal, err = util.MergeAnyWithAny(httpFilter.GetTypedConfig(), userHTTPFilter.GetTypedConfig()); err != nil {
 					retVal = httpFilter.GetTypedConfig()
 				}
-			} else if userHTTPFilter.GetConfig() != nil {
-				if retVal, err = util.MergeAnyWithStruct(httpFilter.GetTypedConfig(), userHTTPFilter.GetConfig()); err != nil {
+			} else if userHTTPFilter.GetConfig() != nil { //nolint:staticcheck
+				if retVal, err = util.MergeAnyWithStruct(httpFilter.GetTypedConfig(), userHTTPFilter.GetConfig()); err != nil { //nolint:staticcheck
 					retVal = httpFilter.GetTypedConfig()
 				}
 			}
@@ -571,7 +572,7 @@ func proxyMatch(proxy *model.Proxy, cp *model.EnvoyFilterConfigPatchWrapper) boo
 	if cp.ProxyVersionRegex != nil {
 		ver := proxy.Metadata.IstioVersion
 		if ver == "" {
-			// we dont have a proxy version but the user has a regex. so this is a mismatch
+			// we do not have a proxy version but the user has a regex. so this is a mismatch
 			return false
 		}
 		if !cp.ProxyVersionRegex.MatchString(ver) {

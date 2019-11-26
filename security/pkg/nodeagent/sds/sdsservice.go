@@ -114,14 +114,15 @@ type sdsConnection struct {
 type sdsservice struct {
 	st cache.SecretManager
 
-	// skipToken indicates whether token is required.
-	skipToken bool
-
 	ticker         *time.Ticker
 	tickerInterval time.Duration
 
 	// close channel.
-	closing  chan bool
+	closing chan bool
+
+	// skipToken indicates whether token is required.
+	skipToken bool
+
 	localJWT bool
 }
 

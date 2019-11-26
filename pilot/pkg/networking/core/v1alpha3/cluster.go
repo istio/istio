@@ -177,7 +177,7 @@ func normalizeClusters(push *model.PushContext, proxy *model.Proxy, clusters []*
 }
 
 // castDestinationRuleOrDefault returns the destination rule enclosed by the config, if not null.
-// Otherwise, return defaul (empty) DR.
+// Otherwise, return default (empty) DR.
 func castDestinationRuleOrDefault(config *model.Config) *networking.DestinationRule {
 	if config != nil {
 		return config.Spec.(*networking.DestinationRule)
@@ -1358,7 +1358,7 @@ func altStatName(statPattern string, host string, subset string, port *model.Por
 
 // shotHostName removes the domain from kubernetes hosts. For other hosts like VMs, this method does not do any thing.
 func shortHostName(host string, attributes model.ServiceAttributes) string {
-	if attributes.ServiceRegistry == string(serviceregistry.KubernetesRegistry) {
+	if attributes.ServiceRegistry == string(serviceregistry.Kubernetes) {
 		return fmt.Sprintf("%s.%s", attributes.Name, attributes.Namespace)
 	}
 	return host

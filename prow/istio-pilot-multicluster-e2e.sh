@@ -40,9 +40,15 @@ networking:
   serviceSubnet: 10.255.10.0/24
 EOF
 
+CLUSTERREG_DIR="$(mktemp -d)"
+
 # Create two clusters. Explicitly delcare the subnet so we can connect the two later
-setup_kind_cluster "" local "${ARTIFACTS}/config-local.yaml"
-setup_kind_cluster "" remote "${ARTIFACTS}/config-remote.yaml"
+KUBECONFIG="${CLUSTERREG_DIR}/local" setup_kind_cluster "" local "${ARTIFACTS}/config-local.yaml"
+KUBECONFIG="${CLUSTERREG_DIR}/remote" setup_kind_cluster "" remote "${ARTIFACTS}/config-remote.yaml"
+
+# Replace with --internal which allows cross-cluster api server access
+kind get kubeconfig --name local --internal > "${CLUSTERREG_DIR}"/local
+kind get kubeconfig --name remote --internal > "${CLUSTERREG_DIR}"/remote
 
 # Trap replaces any previous trap's, so we need to explicitly cleanup both clusters here
 # shellcheck disable=SC2064
@@ -56,8 +62,8 @@ time build_images
 # Set up routing rules for inter-cluster direct pod to pod communication
 DOCKER_IP_LOCAL=$(docker inspect -f "{{ .NetworkSettings.IPAddress }}" local-control-plane)
 DOCKER_IP_REMOTE=$(docker inspect -f "{{ .NetworkSettings.IPAddress }}" remote-control-plane)
-POD_CIDR_LOCAL=$(KUBECONFIG="$(kind get kubeconfig-path --name local)" kubectl get node -ojsonpath='{.items[0].spec.podCIDR}')
-POD_CIDR_REMOTE=$(KUBECONFIG="$(kind get kubeconfig-path --name remote)" kubectl get node -ojsonpath='{.items[0].spec.podCIDR}')
+POD_CIDR_LOCAL=$(KUBECONFIG="${CLUSTERREG_DIR}/local" kubectl get node -ojsonpath='{.items[0].spec.podCIDR}')
+POD_CIDR_REMOTE=$(KUBECONFIG="${CLUSTERREG_DIR}/remote" kubectl get node -ojsonpath='{.items[0].spec.podCIDR}')
 docker exec local-control-plane ip route add "${POD_CIDR_REMOTE}" via "${DOCKER_IP_REMOTE}"
 docker exec remote-control-plane ip route add "${POD_CIDR_LOCAL}" via "${DOCKER_IP_LOCAL}"
 
@@ -66,11 +72,8 @@ time kind_load_images local
 time kind_load_images remote
 
 # Set up cluster registry
-CLUSTERREG_DIR="$(mktemp -d)"
-kind get kubeconfig --name local --internal > "${CLUSTERREG_DIR}"/local
-kind get kubeconfig --name remote --internal > "${CLUSTERREG_DIR}"/remote
 setup_cluster_reg
 
 ./prow/e2e-kind-suite.sh \
   --skip-setup --skip-cleanup --skip-build \
-  --timeout 90m --cluster_registry_dir="$CLUSTERREG_DIR" --single_test e2e_pilotv2_v1alpha3 "$@"
+  --cluster_registry_dir="$CLUSTERREG_DIR" --single_test e2e_pilotv2_v1alpha3 "$@"

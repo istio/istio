@@ -37,12 +37,16 @@ import (
 
 	mcpapi "istio.io/api/mcp/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/pkg/ctrlz"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
+	"istio.io/pkg/version"
+
 	"istio.io/istio/pilot/cmd"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/coredatamodel"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	istio_networking "istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
@@ -54,10 +58,6 @@ import (
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/mcp/monitoring"
 	"istio.io/istio/pkg/mcp/sink"
-	"istio.io/pkg/ctrlz"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
-	"istio.io/pkg/version"
 )
 
 const (
@@ -550,21 +550,13 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 // ServiceEntries from config store to discovery.
 func (s *Server) addConfig2ServiceEntry() {
 	serviceEntryStore := external.NewServiceDiscovery(s.ConfigController, s.IstioConfigStore)
-
-	// add service entry registry to aggregator by default
-	serviceEntryRegistry := aggregate.Registry{
-		Name:             "ServiceEntries",
-		Controller:       serviceEntryStore,
-		ServiceDiscovery: serviceEntryStore,
-	}
-	s.ServiceController.AddRegistry(serviceEntryRegistry)
+	s.ServiceController.AddRegistry(serviceEntryStore)
 }
 
 func (s *Server) initDiscoveryService(args *PilotArgs, onXDSStart func(model.XDSUpdater)) error {
 
 	// This is  the XDSUpdater
-	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(s.Environment,
-		istio_networking.NewConfigGenerator(args.Plugins))
+	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(s.Environment, args.Plugins)
 
 	if err := s.initEventHandlers(); err != nil {
 		return err

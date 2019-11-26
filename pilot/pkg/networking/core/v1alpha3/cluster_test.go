@@ -1591,7 +1591,7 @@ func TestAltStatName(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -1604,7 +1604,7 @@ func TestAltStatName(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "reviews",
 				Namespace:       "namespace1",
 			},
@@ -1617,7 +1617,7 @@ func TestAltStatName(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "reviews",
 				Namespace:       "namespace1",
 			},
@@ -1630,7 +1630,7 @@ func TestAltStatName(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.ConsulRegistry),
+				ServiceRegistry: string(serviceregistry.Consul),
 				Name:            "foo",
 				Namespace:       "bar",
 			},
@@ -1643,7 +1643,7 @@ func TestAltStatName(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -1656,7 +1656,7 @@ func TestAltStatName(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -1669,7 +1669,7 @@ func TestAltStatName(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -1682,7 +1682,7 @@ func TestAltStatName(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -1695,7 +1695,7 @@ func TestAltStatName(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -1708,7 +1708,7 @@ func TestAltStatName(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -1721,7 +1721,7 @@ func TestAltStatName(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -1734,7 +1734,7 @@ func TestAltStatName(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -1747,7 +1747,7 @@ func TestAltStatName(t *testing.T) {
 			"v1",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -1760,7 +1760,7 @@ func TestAltStatName(t *testing.T) {
 			"v1",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "reviews",
 				Namespace:       "default",
 			},
