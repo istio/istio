@@ -76,24 +76,12 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 		if err != nil {
 			return err
 		}
-		// Defer starting the controller until after the service is created.
-		s.addStartFunc(func(stop <-chan struct{}) error {
-			go configController.Run(stop)
-			return nil
-		})
-
 		s.ConfigStores = append(s.ConfigStores, configController)
 	} else {
 		configController, err := s.makeKubeConfigController(args)
 		if err != nil {
 			return err
 		}
-		// Defer starting the controller until after the service is created.
-		s.addStartFunc(func(stop <-chan struct{}) error {
-			go configController.Run(stop)
-			return nil
-		})
-
 		s.ConfigStores = append(s.ConfigStores, configController)
 	}
 
