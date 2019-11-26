@@ -169,6 +169,49 @@ func TestServiceDiscovery(t *testing.T) {
 		})
 }
 
+func TestAllNamespaces(t *testing.T) {
+	framework.
+		NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		Run(func(ctx framework.TestContext) {
+			g := NewGomegaWithT(t)
+
+			ns1 := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "istioctl-analyze-1",
+				Inject: true,
+			})
+			ns2 := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "istioctl-analyze-2",
+				Inject: true,
+			})
+
+			applyFileOrFail(t, ns1.Name(), serviceRoleBindingFile)
+			applyFileOrFail(t, ns2.Name(), serviceRoleBindingFile)
+
+			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+
+			// If we look at one namespace, we should successfully run and see one message (and not anything from any other namespace)
+			output, _ := istioctlSafe(t, istioCtl, ns1.Name(), "--use-kube")
+			expectMessages(t, g, output, msg.ReferencedResourceNotFound)
+
+			// If we use --all-namespaces, we should successfully run and see a message from each namespace
+			output, _ = istioctlSafe(t, istioCtl, "", "--use-kube", "--all-namespaces")
+			// Since this test runs in a cluster with lots of other namespaces we don't actually care about, only look for ns1 and ns2
+			foundCount := 0
+			for _, line := range output {
+				if strings.Contains(line, ns1.Name()) {
+					g.Expect(line).To(ContainSubstring(msg.ReferencedResourceNotFound.Code()))
+					foundCount++
+				}
+				if strings.Contains(line, ns2.Name()) {
+					g.Expect(line).To(ContainSubstring(msg.ReferencedResourceNotFound.Code()))
+					foundCount++
+				}
+			}
+			g.Expect(foundCount).To(Equal(2))
+		})
+}
+
 // Verify the output contains messages of the expected type, in order, followed by boilerplate lines
 func expectMessages(t *testing.T, g *GomegaWithT, outputLines []string, expected ...*diag.MessageType) {
 	t.Helper()
@@ -195,7 +238,10 @@ func expectNoMessages(t *testing.T, g *GomegaWithT, output []string) {
 
 func istioctlSafe(t *testing.T, i istioctl.Instance, ns string, extraArgs ...string) ([]string, error) {
 	t.Helper()
-	args := []string{"experimental", "analyze", "--namespace", ns}
+	args := []string{"experimental", "analyze"}
+	if ns != "" {
+		args = append(args, "--namespace", ns)
+	}
 	output, err := i.Invoke(append(args, extraArgs...))
 	if output == "" {
 		return []string{}, err
