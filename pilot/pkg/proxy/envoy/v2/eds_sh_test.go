@@ -30,7 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
-	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/env"
@@ -229,9 +229,9 @@ func initRegistry(server *bootstrap.Server, clusterNum int, gatewaysIP []string,
 	id := fmt.Sprintf("network%d", clusterNum)
 	memRegistry := v2.NewMemServiceDiscovery(
 		map[host.Name]*model.Service{}, 2)
-	server.ServiceController.AddRegistry(aggregate.Registry{
+	server.ServiceController.AddRegistry(serviceregistry.Simple{
 		ClusterID:        id,
-		Name:             "memAdapter",
+		ProviderID:       "memAdapter",
 		ServiceDiscovery: memRegistry,
 		Controller:       &v2.MemServiceController{},
 	})

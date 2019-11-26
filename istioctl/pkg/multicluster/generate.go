@@ -272,7 +272,7 @@ func meshNetworkForCluster(env Environment, mesh *Mesh, current *Cluster) (*v1al
 		// uses a special name for the local cluster against which it is running.
 		registry := string(cluster.uid)
 		if context == current.Context {
-			registry = string(serviceregistry.KubernetesRegistry)
+			registry = string(serviceregistry.Kubernetes)
 		}
 
 		mn.Networks[network].Endpoints = append(mn.Networks[network].Endpoints,

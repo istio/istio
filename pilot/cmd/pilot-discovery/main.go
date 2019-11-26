@@ -97,7 +97,7 @@ var (
 // when we run on k8s, the default trust domain is 'cluster.local', otherwise it is the empty string
 func hasKubeRegistry() bool {
 	for _, r := range serverArgs.Service.Registries {
-		if serviceregistry.ServiceRegistry(r) == serviceregistry.KubernetesRegistry {
+		if serviceregistry.ProviderID(r) == serviceregistry.Kubernetes {
 			return true
 		}
 	}
@@ -106,9 +106,9 @@ func hasKubeRegistry() bool {
 
 func init() {
 	discoveryCmd.PersistentFlags().StringSliceVar(&serverArgs.Service.Registries, "registries",
-		[]string{string(serviceregistry.KubernetesRegistry)},
+		[]string{string(serviceregistry.Kubernetes)},
 		fmt.Sprintf("Comma separated list of platform service registries to read from (choose one or more from {%s, %s, %s, %s})",
-			serviceregistry.KubernetesRegistry, serviceregistry.ConsulRegistry, serviceregistry.MCPRegistry, serviceregistry.MockRegistry))
+			serviceregistry.Kubernetes, serviceregistry.Consul, serviceregistry.MCP, serviceregistry.Mock))
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ClusterRegistriesNamespace, "clusterRegistriesNamespace", metav1.NamespaceAll,
 		"Namespace for ConfigMap which stores clusters configs")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.KubeConfig, "kubeconfig", "",
