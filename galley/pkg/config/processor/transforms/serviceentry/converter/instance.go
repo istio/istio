@@ -15,6 +15,7 @@
 package converter
 
 import (
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -23,11 +24,14 @@ import (
 
 	"istio.io/api/annotation"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
 
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/pod"
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/pkg/config/constants"
 	configKube "istio.io/istio/pkg/config/kube"
+	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 // Instance of the converter.
@@ -101,7 +105,12 @@ func (i *Instance) convertService(service *resource.Entry, outMeta *resource.Met
 
 	ports := make([]*networking.Port, 0, len(spec.Ports))
 	for _, port := range spec.Ports {
-		ports = append(ports, convertPort(port))
+		p, err := convertPort(port)
+		if err != nil {
+			log.Errorf("convertService: %s", err)
+			continue
+		}
+		ports = append(ports, p)
 	}
 
 	host := serviceHostname(service.Metadata.Name, i.domain)
@@ -269,10 +278,43 @@ func serviceHostname(fullName resource.Name, domainSuffix string) string {
 	return name + "." + namespace + ".svc." + domainSuffix
 }
 
-func convertPort(port coreV1.ServicePort) *networking.Port {
+func convertPort(port coreV1.ServicePort) (*networking.Port, error) {
+	if err := validatePortName(port.Name); err != nil {
+		return nil, err
+	}
+	if err := validateProtocol(string(port.Protocol)); err != nil {
+		return nil, err
+	}
+	if err := validatePort(port.Port); err != nil {
+		return nil, err
+	}
+
 	return &networking.Port{
 		Name:     port.Name,
 		Number:   uint32(port.Port),
 		Protocol: string(configKube.ConvertProtocol(port.Port, port.Name, port.Protocol)),
+	}, nil
+}
+
+func validatePortName(name string) error {
+	if !labels.IsDNS1123Label(name) {
+		return fmt.Errorf("invalid port name: %s", name)
 	}
+	return nil
+}
+
+func validateProtocol(protocolStr string) error {
+	// Empty string is used for protocol sniffing.
+	if protocolStr != "" && protocol.Parse(protocolStr) == protocol.Unsupported {
+		return fmt.Errorf("unsupported protocol: %s", protocolStr)
+	}
+	return nil
+}
+
+// ValidatePort checks that the network port is in range
+func validatePort(port int32) error {
+	if 1 <= port && port <= 65535 {
+		return nil
+	}
+	return fmt.Errorf("port number %d must be in the range 1..65535", port)
 }

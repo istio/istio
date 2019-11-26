@@ -2392,7 +2392,8 @@ func ValidateServiceEntry(_, _ string, config proto.Message) (errs error) {
 			errs = appendErrors(errs, fmt.Errorf("service entry port name %q already defined", port.Name))
 		}
 		servicePorts[port.Name] = true
-		if servicePortNumbers[port.Number] {
+		// make sure the names are different
+		if !servicePorts[port.Name] && servicePortNumbers[port.Number] {
 			errs = appendErrors(errs, fmt.Errorf("service entry port %d already defined", port.Number))
 		}
 		servicePortNumbers[port.Number] = true
