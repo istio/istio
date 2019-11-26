@@ -28,7 +28,7 @@ lint-dependencies:
 lint: lint-copyright-banner lint-dependencies lint-go lint-python lint-scripts lint-yaml lint-dockerfiles lint-licenses
 
 test:
-	@go test -race ./...
+	@go test -v -race ./...
 
 test_with_coverage:
 	@go test -race -coverprofile=coverage.txt -covermode=atomic ./...
@@ -85,7 +85,7 @@ docker.save: docker
 docker.all: docker docker.push
 
 update-goldens:
-	REFRESH_GOLDEN=true go test ./cmd/mesh/...
+	@REFRESH_GOLDEN=true go test -v ./cmd/mesh/...
 
 e2e:
 	@HUB=$(HUB) TAG=$(TAG) bash -c tests/e2e/e2e.sh
