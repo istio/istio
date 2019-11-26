@@ -1777,6 +1777,8 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, env *model.Env
 	}
 
 	if util.IsIstioVersionGE14(pluginParams.Node) &&
+		pluginParams.ServiceInstance != nil &&
+		pluginParams.ServiceInstance.Endpoint.ServicePort != nil &&
 		pluginParams.ServiceInstance.Endpoint.ServicePort.Protocol == protocol.GRPC {
 		filters = append(filters, &http_conn.HttpFilter{
 			Name: "envoy.filters.http.grpc_stats",
