@@ -271,7 +271,7 @@ func parsePolicyMTLSMode(p *v1alpha1.Policy) (Mode, error) {
 				mode = ModeStrict
 			default:
 				// Shouldn't happen!
-				return mode, fmt.Errorf("Unknown MTLS mode when analyzing policy: %s", mtlsParams.Mtls.GetMode().String())
+				return mode, fmt.Errorf("unknown MTLS mode when analyzing policy: %s", mtlsParams.Mtls.GetMode().String())
 			}
 		}
 		// Now check for modifiers that might downgrade strict to permissive.

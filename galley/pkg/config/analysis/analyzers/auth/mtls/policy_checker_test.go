@@ -87,7 +87,7 @@ peers:
 		},
 		"service specific policy using port name": {
 			portNameMappings: []PortNameMapping{
-				PortNameMapping{
+				{
 					fqdn:   "foobar.my-namespace.svc.cluster.local",
 					name:   "https",
 					number: 8080,
