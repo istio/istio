@@ -308,7 +308,7 @@ func (s *grpcServer) Report(ctx context.Context, req *mixerpb.ReportRequest) (*m
 		switch req.RepeatedAttributesSemantics {
 		case mixerpb.DELTA_ENCODING:
 			if reportBag != nil {
-				reportBag.Done()
+				reportBag.Reset()
 			}
 		case mixerpb.INDEPENDENT_ENCODING:
 			if reportBag != nil {
