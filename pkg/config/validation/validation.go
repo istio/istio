@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"os"
 	"path"
 	"regexp"
 	"strconv"
@@ -212,29 +211,6 @@ func ValidateMixerService(svc *mccpb.IstioService) (errs error) {
 func ValidateHTTPHeaderName(name string) error {
 	if name == "" {
 		return fmt.Errorf("header name cannot be empty")
-	}
-	return nil
-}
-
-// ValidateStringMatch validates a StringMatch
-func ValidateStringMatch(m *networking.StringMatch) error {
-	if m == nil {
-		return nil
-	}
-	switch x := m.MatchType.(type) {
-	case *networking.StringMatch_Regex:
-		// Pilot allows unsafe regex based on env var. We should respect that.
-		// TODO: See if there is a better way to get this flag here.
-		saferegex := true
-		if result, ok := os.LookupEnv("PILOT_ENABLE_UNSAFE_REGEX"); ok {
-			if value, err := strconv.ParseBool(result); err == nil {
-				saferegex = !value
-			}
-		}
-		// Default max size for safe regex is 100
-		if saferegex && len(x.Regex) > 100 {
-			return fmt.Errorf("regex match '%s' cannot be greater than 100 bytes", x.Regex)
-		}
 	}
 	return nil
 }
@@ -2024,15 +2000,7 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 					errs = appendErrors(errs, fmt.Errorf("header match %v cannot be null", name))
 				}
 				errs = appendErrors(errs, ValidateHTTPHeaderName(name))
-				errs = appendErrors(errs, ValidateStringMatch(header))
 			}
-			for _, m := range match.QueryParams {
-				errs = appendErrors(errs, ValidateStringMatch(m))
-			}
-			errs = appendErrors(errs, ValidateStringMatch(match.Authority))
-			errs = appendErrors(errs, ValidateStringMatch(match.Method))
-			errs = appendErrors(errs, ValidateStringMatch(match.Scheme))
-			errs = appendErrors(errs, ValidateStringMatch(match.Uri))
 
 			if match.Port != 0 {
 				errs = appendErrors(errs, ValidatePort(int(match.Port)))
