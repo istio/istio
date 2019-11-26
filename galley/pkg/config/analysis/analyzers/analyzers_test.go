@@ -168,6 +168,79 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "mtlsAnalyzerGlobalDestinationRuleNoMeshPolicy",
+		inputFiles: []string{"testdata/mtls-global-dr-no-meshpolicy.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected: []message{
+			{msg.MTLSPolicyConflict, "DestinationRule default.istio-system"},
+		},
+	},
+	{
+		name:       "mtlsAnalyzerIgnoresIstioSystemNamespace",
+		inputFiles: []string{"testdata/mtls-ignores-istio-system.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected:   []message{
+			// no messages, this test case verifies no false positives
+		},
+	},
+	{
+		name:       "mtlsAnalyzerNoDestinationRule",
+		inputFiles: []string{"testdata/mtls-no-dr.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected: []message{
+			{msg.MTLSPolicyConflict, "Policy default.missing-dr"},
+		},
+	},
+	{
+		name:       "mtlsAnalyzerNoPolicy",
+		inputFiles: []string{"testdata/mtls-no-policy.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected: []message{
+			{msg.MTLSPolicyConflict, "DestinationRule no-policy-service-dr.no-policy"},
+		},
+	},
+	{
+		name:       "mtlsAnalyzerNoSidecar",
+		inputFiles: []string{"testdata/mtls-no-sidecar.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected:   []message{
+			// no messages, this test case verifies no false positives
+		},
+	},
+	{
+		name:       "mtlsAnalyzerWithExports",
+		inputFiles: []string{"testdata/mtls-exports.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected: []message{
+			{msg.MTLSPolicyConflict, "Policy default.primary"},
+		},
+	},
+	{
+		name:       "mtlsAnalyzerWithMeshPolicy",
+		inputFiles: []string{"testdata/mtls-meshpolicy.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected: []message{
+			{msg.MTLSPolicyConflict, "MeshPolicy default"},
+		},
+	},
+	{
+		name:       "mtlsAnalyzerWithPermissiveMeshPolicy",
+		inputFiles: []string{"testdata/mtls-meshpolicy-permissive.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected:   []message{
+			// no messages, this test case verifies no false positives
+		},
+	},
+	{
+		name:       "mtlsAnalyzerWithPort",
+		inputFiles: []string{"testdata/mtls-with-port.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected: []message{
+			{msg.MTLSPolicyConflict, "DestinationRule default.my-namespace"},
+			{msg.MTLSPolicyConflict, "Policy default.my-namespace"},
+		},
+	},
+	{
 		name:       "sidecarDefaultSelector",
 		inputFiles: []string{"testdata/sidecar-default-selector.yaml"},
 		analyzer:   &sidecar.DefaultSelectorAnalyzer{},
