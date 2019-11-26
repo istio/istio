@@ -68,7 +68,6 @@ var testGrid = []testCase{
 			{msg.MisplacedAnnotation, "Namespace staging"},
 		},
 	},
-
 	{
 		name:       "mtlsAnalyzerGlobalDestinationRuleNoMeshPolicy",
 		inputFiles: []string{"testdata/mtls-global-dr-no-meshpolicy.yaml"},
@@ -223,7 +222,6 @@ var testGrid = []testCase{
 			{msg.GatewayPortNotOnWorkload, "Gateway httpbin8002-gateway"},
 		},
 	},
-
 	{
 		name:       "istioInjection",
 		inputFiles: []string{"testdata/injection.yaml"},
