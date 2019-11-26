@@ -729,7 +729,6 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 }
 
 func (ps *PushContext) createNewContext(env *Environment) error {
-
 	if err := ps.initServiceRegistry(env); err != nil {
 		return err
 	}

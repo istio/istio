@@ -22,7 +22,7 @@ import (
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/util/goutils"
+	"istio.io/istio/pilot/pkg/util/panic"
 	"istio.io/istio/pkg/config/host"
 )
 
