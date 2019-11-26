@@ -224,3 +224,23 @@ func TestOnOutboundListener(t *testing.T) {
 		})
 	}
 }
+
+func Test_attrNamespace(t *testing.T) {
+	testcases := []struct {
+		name      string
+		nodeID    string
+		namespace string
+	}{
+		{"standard pod name", "foo.bar", "bar"},
+		{"pod name with dot", "foo.123.bar", "bar"},
+	}
+	for _, v := range testcases {
+		t.Run(v.name, func(t *testing.T) {
+			node := model.Proxy{ID: v.nodeID}
+			ns := attrNamespace(&node).GetStringValue()
+			if ns != v.namespace {
+				t.Errorf("%s: expecting %v but got %v", v.name, ns, v.namespace)
+			}
+		})
+	}
+}
