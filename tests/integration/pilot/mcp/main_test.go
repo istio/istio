@@ -60,7 +60,7 @@ func TestMain(m *testing.M) {
 				Galley:     g,
 				MeshConfig: &meshCfg,
 				ServiceArgs: bootstrap.ServiceArgs{
-					Registries: []string{string(serviceregistry.MCPRegistry)},
+					Registries: []string{string(serviceregistry.MCP)},
 				},
 			}); err != nil {
 				return err
