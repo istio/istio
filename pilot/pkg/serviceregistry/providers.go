@@ -14,16 +14,18 @@
 
 package serviceregistry
 
-// ServiceRegistry defines underlying platform supporting service registry
-type ServiceRegistry string
+// ProviderID defines underlying platform supporting service registry
+type ProviderID string
 
 const (
-	// MockRegistry is a service registry that contains 2 hard-coded test services
-	MockRegistry ServiceRegistry = "Mock"
-	// KubernetesRegistry is a service registry backed by k8s API server
-	KubernetesRegistry ServiceRegistry = "Kubernetes"
-	// ConsulRegistry is a service registry backed by Consul
-	ConsulRegistry ServiceRegistry = "Consul"
-	// MCPRegistry is a service registry backed by MCP ServiceEntries
-	MCPRegistry ServiceRegistry = "MCP"
+	// Mock is a service registry that contains 2 hard-coded test services
+	Mock ProviderID = "Mock"
+	// Kubernetes is a service registry backed by k8s API server
+	Kubernetes ProviderID = "Kubernetes"
+	// Consul is a service registry backed by Consul
+	Consul ProviderID = "Consul"
+	// MCP is a service registry backed by MCP ServiceEntries
+	MCP ProviderID = "MCP"
+	// External is a service registry for externally provided ServiceEntries
+	External = "External"
 )

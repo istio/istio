@@ -37,6 +37,11 @@ import (
 
 	mcpapi "istio.io/api/mcp/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/pkg/ctrlz"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
+	"istio.io/pkg/version"
+
 	"istio.io/istio/pilot/cmd"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/coredatamodel"
@@ -53,10 +58,6 @@ import (
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/mcp/monitoring"
 	"istio.io/istio/pkg/mcp/sink"
-	"istio.io/pkg/ctrlz"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
-	"istio.io/pkg/version"
 )
 
 const (
@@ -549,14 +550,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 // ServiceEntries from config store to discovery.
 func (s *Server) addConfig2ServiceEntry() {
 	serviceEntryStore := external.NewServiceDiscovery(s.ConfigController, s.IstioConfigStore)
-
-	// add service entry registry to aggregator by default
-	serviceEntryRegistry := aggregate.Registry{
-		Name:             "ServiceEntries",
-		Controller:       serviceEntryStore,
-		ServiceDiscovery: serviceEntryStore,
-	}
-	s.ServiceController.AddRegistry(serviceEntryRegistry)
+	s.ServiceController.AddRegistry(serviceEntryStore)
 }
 
 func (s *Server) initDiscoveryService(args *PilotArgs, onXDSStart func(model.XDSUpdater)) error {

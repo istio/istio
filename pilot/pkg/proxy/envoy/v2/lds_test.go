@@ -22,6 +22,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	xdsapi_listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
@@ -586,7 +587,7 @@ func memServiceDiscovery(server *bootstrap.Server, t *testing.T) *v2.MemServiceD
 	if !found {
 		t.Fatal("Could not find Mock ServiceRegistry")
 	}
-	registry, ok := server.ServiceController.GetRegistries()[index].ServiceDiscovery.(*v2.MemServiceDiscovery)
+	registry, ok := server.ServiceController.GetRegistries()[index].(serviceregistry.Simple).ServiceDiscovery.(*v2.MemServiceDiscovery)
 	if !ok {
 		t.Fatal("Unexpected type of Mock ServiceRegistry")
 	}

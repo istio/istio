@@ -340,23 +340,23 @@ func TestController_GetPodLocality(t *testing.T) {
 			name: "should return correct az for given address",
 			pods: []*coreV1.Pod{pod1, pod2},
 			nodes: []*coreV1.Node{
-				generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1"}),
-				generateNode("node2", map[string]string{NodeZoneLabel: "zone2", NodeRegionLabel: "region2"}),
+				generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", IstioSubzoneLabel: "subzone1"}),
+				generateNode("node2", map[string]string{NodeZoneLabel: "zone2", NodeRegionLabel: "region2", IstioSubzoneLabel: "subzone2"}),
 			},
 			wantAZ: map[*coreV1.Pod]string{
-				pod1: "region1/zone1",
-				pod2: "region2/zone2",
+				pod1: "region1/zone1/subzone1",
+				pod2: "region2/zone2/subzone2",
 			},
 		},
 		{
-			name: "should return false if pod isnt in the cache",
+			name: "should return false if pod isn't in the cache",
 			wantAZ: map[*coreV1.Pod]string{
 				pod1: "",
 				pod2: "",
 			},
 		},
 		{
-			name: "should return false if node isnt in the cache",
+			name: "should return false if node isn't in the cache",
 			pods: []*coreV1.Pod{pod1, pod2},
 			wantAZ: map[*coreV1.Pod]string{
 				pod1: "",
@@ -371,8 +371,8 @@ func TestController_GetPodLocality(t *testing.T) {
 				generateNode("node2", map[string]string{NodeRegionLabel: "region2"}),
 			},
 			wantAZ: map[*coreV1.Pod]string{
-				pod1: "region1/",
-				pod2: "region2/",
+				pod1: "region1//",
+				pod2: "region2//",
 			},
 		},
 		{
@@ -383,15 +383,27 @@ func TestController_GetPodLocality(t *testing.T) {
 				generateNode("node2", map[string]string{NodeZoneLabel: "zone2"}),
 			},
 			wantAZ: map[*coreV1.Pod]string{
-				pod1: "/zone1",
-				pod2: "/zone2",
+				pod1: "/zone1/",
+				pod2: "/zone2/",
+			},
+		},
+		{
+			name: "should return correct az if node has only subzone label",
+			pods: []*coreV1.Pod{pod1, pod2},
+			nodes: []*coreV1.Node{
+				generateNode("node1", map[string]string{IstioSubzoneLabel: "subzone1"}),
+				generateNode("node2", map[string]string{IstioSubzoneLabel: "subzone2"}),
+			},
+			wantAZ: map[*coreV1.Pod]string{
+				pod1: "//subzone1",
+				pod2: "//subzone2",
 			},
 		},
 		{
 			name: "should return correct az for given address",
 			pods: []*coreV1.Pod{podOverride},
 			nodes: []*coreV1.Node{
-				generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1"}),
+				generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", IstioSubzoneLabel: "subzone1"}),
 			},
 			wantAZ: map[*coreV1.Pod]string{
 				podOverride: "regionOverride/zoneOverride/subzoneOverride",
@@ -527,7 +539,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			Ports:           []*model.Port{{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP}},
 			ServiceAccounts: []string{"acctvm2@gserviceaccount2.com", "spiffe://cluster.local/ns/nsa/sa/acct4"},
 			Attributes: model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "svc1",
 				Namespace:       "nsa",
 				UID:             "istio://nsa/services/svc1"},
@@ -544,7 +556,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 
 	// Test that we first look up instances by Proxy pod
 
-	node := generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1"})
+	node := generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", IstioSubzoneLabel: "subzone1"})
 	addNodes(t, controller, node)
 
 	// 1. pod without `istio-locality` label, get locality from node label.
@@ -572,7 +584,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			Family:      0,
 			Address:     "129.0.0.1",
 			ServicePort: &model.Port{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP},
-			Locality:    "region1/zone1",
+			Locality:    "region1/zone1/subzone1",
 		},
 		Service: &model.Service{
 			Hostname:        "svc1.nsa.svc.company.com",
@@ -580,7 +592,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			Ports:           []*model.Port{{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP}},
 			ServiceAccounts: []string{"acctvm2@gserviceaccount2.com", "spiffe://cluster.local/ns/nsa/sa/acct4"},
 			Attributes: model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "svc1",
 				Namespace:       "nsa",
 				UID:             "istio://nsa/services/svc1"},
@@ -629,7 +641,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			Ports:           []*model.Port{{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP}},
 			ServiceAccounts: []string{"acctvm2@gserviceaccount2.com", "spiffe://cluster.local/ns/nsa/sa/acct4"},
 			Attributes: model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "svc1",
 				Namespace:       "nsa",
 				UID:             "istio://nsa/services/svc1"},
@@ -1568,8 +1580,8 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 
 	pods := []*coreV1.Pod{pod1, pod2}
 	nodes := []*coreV1.Node{
-		generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1"}),
-		generateNode("node2", map[string]string{NodeZoneLabel: "zone2", NodeRegionLabel: "region2"}),
+		generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", IstioSubzoneLabel: "subzone1"}),
+		generateNode("node2", map[string]string{NodeZoneLabel: "zone2", NodeRegionLabel: "region2", IstioSubzoneLabel: "subzone2"}),
 	}
 	addNodes(t, controller, nodes...)
 	addPods(t, controller, pods...)

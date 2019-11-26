@@ -2240,36 +2240,6 @@ func TestValidateHTTPRoute(t *testing.T) {
 			}},
 			Match: []*networking.HTTPMatchRequest{nil},
 		}, valid: true},
-		{name: "valid regex", route: &networking.HTTPRoute{
-			Route: []*networking.HTTPRouteDestination{{
-				Destination: &networking.Destination{Host: "foo.bar"},
-			}},
-			Match: []*networking.HTTPMatchRequest{{
-				Uri: &networking.StringMatch{
-					MatchType: &networking.StringMatch_Regex{Regex: "foo"},
-				},
-			}},
-		}, valid: true},
-		{name: "too large regex", route: &networking.HTTPRoute{
-			Route: []*networking.HTTPRouteDestination{{
-				Destination: &networking.Destination{Host: "foo.bar"},
-			}},
-			Match: []*networking.HTTPMatchRequest{{
-				Uri: &networking.StringMatch{
-					MatchType: &networking.StringMatch_Regex{Regex: strings.Repeat("a", 101)},
-				},
-			}},
-		}, valid: false},
-		{name: "too large regex with unsafe enabled", route: &networking.HTTPRoute{
-			Route: []*networking.HTTPRouteDestination{{
-				Destination: &networking.Destination{Host: "foo.bar"},
-			}},
-			Match: []*networking.HTTPMatchRequest{{
-				Uri: &networking.StringMatch{
-					MatchType: &networking.StringMatch_Regex{Regex: strings.Repeat("a", 101)},
-				},
-			}},
-		}, unsaferegex: true, valid: true},
 	}
 
 	for _, tc := range testCases {

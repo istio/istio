@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
 	configKube "istio.io/istio/pkg/config/kube"
@@ -56,6 +57,8 @@ const (
 	NodeRegionLabelGA = "topology.kubernetes.io/region"
 	// NodeZoneLabelGA is the well-known label for kubernetes node zone in ga
 	NodeZoneLabelGA = "topology.kubernetes.io/zone"
+	// IstioSubzoneLabel is custom subzone label for locality-based routing in Kubernetes see: https://github.com/istio/istio/issues/19114
+	IstioSubzoneLabel = "topology.istio.io/subzone"
 	// IstioNamespace used by default for Istio cluster-wide installation
 	IstioNamespace = "istio-system"
 	// IstioConfigMap is used by default
@@ -111,6 +114,8 @@ type Options struct {
 	TrustDomain string
 }
 
+var _ serviceregistry.Instance = &Controller{}
+
 // Controller is a collection of synchronized resource watchers
 // Caches are thread-safe
 type Controller struct {
@@ -128,8 +133,8 @@ type Controller struct {
 	// use env data and push status. It may be null in tests.
 	Env *model.Environment
 
-	// ClusterID identifies the remote cluster in a multicluster env.
-	ClusterID string
+	// clusterID identifies the remote cluster in a multicluster env.
+	clusterID string
 
 	// XDSUpdater will push EDS changes to the ADS model.
 	XDSUpdater model.XDSUpdater
@@ -165,7 +170,7 @@ func NewController(client kubernetes.Interface, options Options) *Controller {
 		domainSuffix:               options.DomainSuffix,
 		client:                     client,
 		queue:                      kube.NewQueue(1 * time.Second),
-		ClusterID:                  options.ClusterID,
+		clusterID:                  options.ClusterID,
 		XDSUpdater:                 options.XDSUpdater,
 		servicesMap:                make(map[host.Name]*model.Service),
 		externalNameSvcInstanceMap: make(map[host.Name][]*model.ServiceInstance),
@@ -186,6 +191,14 @@ func NewController(client kubernetes.Interface, options Options) *Controller {
 	out.pods = newPodCache(out.createCacheHandler(podInformer, "Pod"), out)
 
 	return out
+}
+
+func (c *Controller) Provider() serviceregistry.ProviderID {
+	return serviceregistry.Kubernetes
+}
+
+func (c *Controller) Cluster() string {
+	return c.clusterID
 }
 
 // notify is the first handler in the handler chain.
@@ -358,12 +371,13 @@ func (c *Controller) GetPodLocality(pod *v1.Pod) string {
 
 	region := getLabelValue(node.(*v1.Node), NodeRegionLabel, NodeRegionLabelGA)
 	zone := getLabelValue(node.(*v1.Node), NodeZoneLabel, NodeZoneLabelGA)
+	subzone := getLabelValue(node.(*v1.Node), IstioSubzoneLabel, "")
 
-	if region == "" && zone == "" {
+	if region == "" && zone == "" && subzone == "" {
 		return ""
 	}
 
-	return fmt.Sprintf("%v/%v", region, zone)
+	return fmt.Sprintf("%s/%s/%s", region, zone, subzone)
 }
 
 // ManagementPorts implements a service catalog operation
@@ -608,8 +622,8 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 		return nil, fmt.Errorf("no workload labels found")
 	}
 
-	if proxy.Metadata.ClusterID != c.ClusterID {
-		return nil, fmt.Errorf("proxy is in cluster %v, but controller is for cluster %v", proxy.Metadata.ClusterID, c.ClusterID)
+	if proxy.Metadata.ClusterID != c.clusterID {
+		return nil, fmt.Errorf("proxy is in cluster %v, but controller is for cluster %v", proxy.Metadata.ClusterID, c.clusterID)
 	}
 
 	// Create a pod with just the information needed to find the associated Services
@@ -853,7 +867,7 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 
 		log.Debugf("Handle event %s for service %s in namespace %s", event, svc.Name, svc.Namespace)
 
-		svcConv := kube.ConvertService(*svc, c.domainSuffix, c.ClusterID)
+		svcConv := kube.ConvertService(*svc, c.domainSuffix, c.clusterID)
 		switch event {
 		case model.EventDelete:
 			c.Lock()
@@ -861,7 +875,7 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 			delete(c.externalNameSvcInstanceMap, svcConv.Hostname)
 			c.Unlock()
 			// EDS needs to just know when service is deleted.
-			c.XDSUpdater.SvcUpdate(c.ClusterID, svc.Name, svc.Namespace, event)
+			c.XDSUpdater.SvcUpdate(c.clusterID, svc.Name, svc.Namespace, event)
 		default:
 			// instance conversion is only required when service is added/updated.
 			instances := kube.ExternalNameServiceInstances(*svc, svcConv)
@@ -873,7 +887,7 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 				c.externalNameSvcInstanceMap[svcConv.Hostname] = instances
 			}
 			c.Unlock()
-			c.XDSUpdater.SvcUpdate(c.ClusterID, svc.Name, svc.Namespace, event)
+			c.XDSUpdater.SvcUpdate(c.clusterID, svc.Name, svc.Namespace, event)
 		}
 
 		f(svcConv, event)
@@ -997,7 +1011,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 		log.Infof("Handle EDS endpoint %s in namespace %s -> %v", ep.Name, ep.Namespace, addresses)
 	}
 
-	_ = c.XDSUpdater.EDSUpdate(c.ClusterID, string(hostname), ep.Namespace, endpoints)
+	_ = c.XDSUpdater.EDSUpdate(c.clusterID, string(hostname), ep.Namespace, endpoints)
 }
 
 // namedRangerEntry for holding network's CIDR and name
@@ -1034,7 +1048,7 @@ func (c *Controller) InitNetworkLookup(meshNetworks *meshconfig.MeshNetworks) {
 				}
 				_ = c.ranger.Insert(rangerEntry)
 			}
-			if ep.GetFromRegistry() != "" && ep.GetFromRegistry() == c.ClusterID {
+			if ep.GetFromRegistry() != "" && ep.GetFromRegistry() == c.clusterID {
 				c.networkForRegistry = n
 			}
 		}

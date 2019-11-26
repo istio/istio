@@ -34,8 +34,7 @@ import (
 )
 
 var (
-	_ model.Controller       = &MCPDiscovery{}
-	_ model.ServiceDiscovery = &MCPDiscovery{}
+	_ serviceregistry.Instance = &MCPDiscovery{}
 )
 
 // DiscoveryOptions stores the configurable attributes of a Control
@@ -112,6 +111,14 @@ func (d *MCPDiscovery) Run(stop <-chan struct{}) {
 	}
 }
 
+func (d *MCPDiscovery) Provider() serviceregistry.ProviderID {
+	return serviceregistry.MCP
+}
+
+func (d *MCPDiscovery) Cluster() string {
+	return d.ClusterID
+}
+
 // Services list declarations of all SyntheticServiceEntries in the system
 func (d *MCPDiscovery) Services() ([]*model.Service, error) {
 	if err := d.initializeCache(); err != nil {
@@ -167,7 +174,8 @@ func (d *MCPDiscovery) InstancesByPort(svc *model.Service, servicePort int, labe
 // mixerEnabled checks to see if mixer is enabled in the environment
 // so we can set the UID on eds endpoints
 func (d *MCPDiscovery) mixerEnabled() bool {
-	return d.DiscoveryOptions.Env != nil && d.DiscoveryOptions.Env.Mesh != nil && (d.DiscoveryOptions.Env.Mesh.MixerCheckServer != "" || d.DiscoveryOptions.Env.Mesh.MixerReportServer != "")
+	return d.DiscoveryOptions.Env != nil && d.DiscoveryOptions.Env.Mesh != nil &&
+		(d.DiscoveryOptions.Env.Mesh.MixerCheckServer != "" || d.DiscoveryOptions.Env.Mesh.MixerReportServer != "")
 }
 
 func (d *MCPDiscovery) parseUID(cfg model.Config) string {
@@ -216,7 +224,10 @@ func (d *MCPDiscovery) mergeCacheByHostName(newServicesInstances map[host.Name][
 	}
 }
 
-func (d *MCPDiscovery) convertInstances(cfg model.Config, services map[string]*model.Service) (map[string][]*model.ServiceInstance, map[host.Name][]*model.ServiceInstance) {
+func (d *MCPDiscovery) convertInstances(
+	cfg model.Config,
+	services map[string]*model.Service,
+) (map[string][]*model.ServiceInstance, map[host.Name][]*model.ServiceInstance) {
 	byIP := make(map[string][]*model.ServiceInstance)
 	byHost := make(map[host.Name][]*model.ServiceInstance)
 	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
@@ -350,7 +361,7 @@ func convertServices(cfg model.Config) map[string]*model.Service {
 						Ports:        svcPorts,
 						Resolution:   resolution,
 						Attributes: model.ServiceAttributes{
-							ServiceRegistry: string(serviceregistry.MCPRegistry),
+							ServiceRegistry: string(serviceregistry.MCP),
 							Name:            hostname,
 							Namespace:       cfg.Namespace,
 							ExportTo:        exportTo,
@@ -365,7 +376,7 @@ func convertServices(cfg model.Config) map[string]*model.Service {
 						Ports:        svcPorts,
 						Resolution:   resolution,
 						Attributes: model.ServiceAttributes{
-							ServiceRegistry: string(serviceregistry.MCPRegistry),
+							ServiceRegistry: string(serviceregistry.MCP),
 							Name:            hostname,
 							Namespace:       cfg.Namespace,
 							ExportTo:        exportTo,
@@ -382,7 +393,7 @@ func convertServices(cfg model.Config) map[string]*model.Service {
 				Ports:        svcPorts,
 				Resolution:   resolution,
 				Attributes: model.ServiceAttributes{
-					ServiceRegistry: string(serviceregistry.MCPRegistry),
+					ServiceRegistry: string(serviceregistry.MCP),
 					Name:            hostname,
 					Namespace:       cfg.Namespace,
 					ExportTo:        exportTo,
