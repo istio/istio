@@ -86,6 +86,10 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 	// reason about its usage.
 	autoMtlsEnabled := false
 	rootNamespace := "istio-system"
+
+	// Only one MeshConfig should exist in practice - we use ForEach to avoid
+	// specifying where to look for the MeshConfig (which allows the Context
+	// object to provide it to us).
 	c.ForEach(metadata.IstioMeshV1Alpha1MeshConfig, func(r *resource.Entry) bool {
 		mc := r.Item.(*meshconfig.MeshConfig)
 		if mc.GetEnableAutoMtls() != nil && mc.GetEnableAutoMtls().Value {
