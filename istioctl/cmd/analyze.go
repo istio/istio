@@ -62,6 +62,7 @@ var (
 	colorize        bool
 	msgOutputFormat string
 	meshCfgFile     string
+	allNamespaces   bool
 
 	termEnvVar = env.RegisterStringVar("TERM", "", "Specifies terminal type.  Use 'dumb' to suppress color output")
 
@@ -156,6 +157,11 @@ istioctl experimental analyze -k -d false
 				selectedNamespace = defaultNamespace
 			}
 
+			// If we've explicitly asked for all namespaces, blank the selectedNamespace var out
+			if allNamespaces {
+				selectedNamespace = ""
+			}
+
 			sa := local.NewSourceAnalyzer(metadata.MustGet(), analyzers.AllCombined(), selectedNamespace, istioNamespace, nil, useDiscovery)
 
 			// If we're using kube, use that as a base source.
@@ -187,6 +193,12 @@ istioctl experimental analyze -k -d false
 
 			// Maybe output details about which analyzers ran
 			if verbose {
+				if allNamespaces {
+					fmt.Fprintln(cmd.ErrOrStderr(), "Analyzed resources in all namespaces")
+				} else {
+					fmt.Fprintln(cmd.ErrOrStderr(), "Analyzed resources in namespace:", selectedNamespace)
+				}
+
 				if len(result.SkippedAnalyzers) > 0 {
 					fmt.Fprintln(cmd.ErrOrStderr(), "Skipped analyzers:")
 					for _, a := range result.SkippedAnalyzers {
@@ -276,6 +288,8 @@ istioctl experimental analyze -k -d false
 		fmt.Sprintf("Output format: one of %v", msgOutputFormatKeys))
 	analysisCmd.PersistentFlags().StringVar(&meshCfgFile, "meshConfigFile", "",
 		"Overrides the mesh config values to use for analysis.")
+	analysisCmd.PersistentFlags().BoolVar(&allNamespaces, "all-namespaces", false,
+		"Analyze all namespaces")
 	return analysisCmd
 }
 
