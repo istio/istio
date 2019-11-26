@@ -66,6 +66,11 @@ data:
         {{- else }}
           address: zipkin.{{ .Values.global.telemetryNamespace }}:9411
         {{- end }}
+      {{- else if eq .Values.global.proxy.tracer "datadog" }}
+      tracing:
+        datadog:
+          # Address of the DataDog Agent
+          address: {{ .Values.global.tracer.datadog.address }}
       {{- end }}
 
     {{- if .Values.global.controlPlaneSecurityEnabled }}
