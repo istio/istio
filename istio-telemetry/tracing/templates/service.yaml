@@ -8,7 +8,7 @@ metadata:
     release: {{ .Release.Name }}
 spec:
   ports:
-    - port: {{ .Values.tracing.service.externalPort }}
+    - port: {{ .Values.tracing.zipkin.queryPort }}
       targetPort: {{ .Values.tracing.zipkin.queryPort }}
       protocol: TCP
       name: {{ .Values.tracing.service.name }}
