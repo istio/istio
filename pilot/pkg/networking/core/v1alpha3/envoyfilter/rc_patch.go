@@ -33,7 +33,7 @@ func ApplyRouteConfigurationPatches(
 	proxy *model.Proxy,
 	push *model.PushContext,
 	routeConfiguration *xdsapi.RouteConfiguration) (out *xdsapi.RouteConfiguration) {
-	defer goutils.HandleCrash(func() {
+	defer panic.HandleCrash(func() {
 		log.Errorf("listeners patch caused panic, so the patches did not take effect")
 	})
 	// In case the patches cause panic, use the route generated before to reduce the influence.

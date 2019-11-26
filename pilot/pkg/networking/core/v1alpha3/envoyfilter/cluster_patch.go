@@ -32,7 +32,7 @@ func ApplyClusterPatches(
 	proxy *model.Proxy,
 	push *model.PushContext,
 	clusters []*xdsapi.Cluster) (out []*xdsapi.Cluster) {
-	defer goutils.HandleCrash(func() {
+	defer panic.HandleCrash(func() {
 		log.Errorf("clusters patch caused panic, so the patches did not take effect")
 	})
 	// In case the patches cause panic, use the clusters generated before to reduce the influence.
