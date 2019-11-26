@@ -30,6 +30,7 @@ import (
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
@@ -182,23 +183,9 @@ func (c *controller) createInformer(
 	handler := &kube.ChainHandler{}
 	handler.Append(c.notify)
 
-	// Wrap the list function with supplied validation function, so that invalid CRD does not enter store.
-	vlf := func(opts meta_v1.ListOptions) (result runtime.Object, err error) {
-		// List only returns error, if type is missing.
-		if result, err = lf(opts); err == nil {
-			// This check is primarily needed for tests which use mock config - but helps otherwise also.
-			if obj, ok := result.(crd.IstioObject); ok {
-				if err = vf(obj); err != nil {
-					handleValidationFailure(obj, err)
-				}
-			}
-		}
-		return
-	}
-
 	// TODO: finer-grained index (perf)
 	informer := cache.NewSharedIndexInformer(
-		&cache.ListWatch{ListFunc: vlf, WatchFunc: wf}, o,
+		&cache.ListWatch{ListFunc: lf, WatchFunc: wf}, o,
 		resyncPeriod, cache.Indexers{})
 
 	informer.AddEventHandler(
@@ -326,7 +313,13 @@ func (c *controller) Get(typ, name, namespace string) *model.Config {
 		return nil
 	}
 
-	config, err := crd.ConvertObject(s, obj, c.client.domainSuffix)
+	var config *model.Config
+	if features.EnableCRDValidation.Get() {
+		config, err = crd.StrictConvertObject(s, obj, c.client.domainSuffix)
+	} else {
+		config, err = crd.ConvertObject(s, obj, c.client.domainSuffix)
+	}
+
 	if err != nil {
 		return nil
 	}
@@ -372,15 +365,21 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 			continue
 		}
 
-		config, err := crd.ConvertObject(s, item, c.client.domainSuffix)
+		var config *model.Config
+		var err error
+		if features.EnableCRDValidation.Get() {
+			config, err = crd.StrictConvertObject(s, item, c.client.domainSuffix)
+		} else {
+			config, err = crd.ConvertObject(s, item, c.client.domainSuffix)
+		}
+
 		if err != nil {
 			key := item.GetObjectMeta().Namespace + "/" + item.GetObjectMeta().Name
-			log.Errorf("Failed to convert %s object, ignoring: %s %v %v", typ, key, err, item.GetSpec())
 			// DO NOT RETURN ERROR: if a single object is bad, it'll be ignored (with a log message), but
 			// the rest should still be processed.
 			// TODO: find a way to reset and represent the error !!
 			newErrors.Store(key, err)
-			k8sErrors.With(nameTag.Value(key)).Record(1)
+			handleValidationFailure(item, err)
 		} else {
 			out = append(out, *config)
 		}

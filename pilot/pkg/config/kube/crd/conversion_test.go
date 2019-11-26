@@ -79,6 +79,41 @@ func TestConvert(t *testing.T) {
 	}
 }
 
+func TestStrictConvertObject(t *testing.T) {
+	// Validate that StringConvertObject rejects invalid spec.
+	if _, err := StrictConvertObject(schemas.VirtualService, &IstioKind{Spec: map[string]interface{}{"x": 1}}, "local"); err == nil {
+		t.Error("Expected to fail the validation but was success")
+	}
+
+	// Validate that StrictConvertObject accepts valid spec.
+	config := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:            schemas.VirtualService.Type,
+			Group:           "networking.istio.io",
+			Version:         "v1alpha3",
+			Name:            "test",
+			Namespace:       "default",
+			Domain:          "cluster",
+			ResourceVersion: "1234",
+			Labels:          map[string]string{"label": "value"},
+			Annotations:     map[string]string{"annotation": "value"},
+		},
+		Spec: mock.ExampleVirtualService,
+	}
+
+	obj, err := ConvertConfig(schemas.VirtualService, config)
+	if err != nil {
+		t.Errorf("ConvertConfig() => unexpected error %v", err)
+	}
+	got, err := StrictConvertObject(schemas.VirtualService, obj, "cluster")
+	if err != nil {
+		t.Errorf("StrictConvertObject() => unexpected error %v", err)
+	}
+	if !reflect.DeepEqual(&config, got) {
+		t.Errorf("StrictConvertObject(ConvertConfig(%#v)) => got %#v", config, got)
+	}
+}
+
 func TestParseInputs(t *testing.T) {
 	if varr, _, err := ParseInputs(""); len(varr) > 0 || err != nil {
 		t.Errorf(`ParseInput("") => got %v, %v, want nil, nil`, varr, err)

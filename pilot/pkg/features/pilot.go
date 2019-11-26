@@ -253,6 +253,14 @@ var (
 			"but the older, deprecated regex field. This should only be enabled to support "+
 			"legacy deployments that have not yet been migrated to the new safe regular expressions.",
 	)
+
+	EnableCRDValidation = env.RegisterBoolVar(
+		"PILOT_ENABLE_CRD_VALIDATION",
+		false,
+		"If enabled, pilot will validate CRDs while retrieving resources from cache."+
+			"By default pilot will validate them during event processing."+
+			"Enable this flag, if galley is not used so that Pilot does not process invalid CRDs.",
+	)
 )
 
 var (
