@@ -141,7 +141,7 @@ func (dc *DestinationRuleChecker) AddDestinationRule(resource *resource.Entry, r
 
 // DoesNamespaceUseMTLSToService returns true if, according to DestinationRules
 // added to the checker, mTLS will be used when communicating to the specified
-// TargetService from the source namespace to the destinaton namespace.
+// TargetService from the source namespace to the destination namespace.
 //
 // If the TargetService's FQDN has a wildcard, then the set of DestinationRules
 // considered for routing are only rules that match a superset of the hosts
