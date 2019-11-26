@@ -80,8 +80,10 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 						// 1 endpoint to gateway of network2 with weight 1 because it has 1 endpoint
 						{address: "2.2.2.2", weight: 1},
 						{address: "2.2.2.20", weight: 1},
+						// network4 has no gateway, which means it can be accessed from network1
+						{address: "40.0.0.1", weight: 2},
 					},
-					weight: 6,
+					weight: 8,
 				},
 			},
 		},
@@ -97,8 +99,9 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 						{address: "20.0.0.1", weight: 2},
 						// 1 endpoint to gateway of network1 with weight 4 because it has 2 endpoints
 						{address: "1.1.1.1", weight: 4},
+						{address: "40.0.0.1", weight: 2},
 					},
-					weight: 6,
+					weight: 8,
 				},
 			},
 		},
@@ -115,8 +118,9 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 						// 1 endpoint to gateway of network2 with weight 2 because it has 1 endpoint
 						{address: "2.2.2.2", weight: 1},
 						{address: "2.2.2.20", weight: 1},
+						{address: "40.0.0.1", weight: 2},
 					},
-					weight: 6,
+					weight: 8,
 				},
 			},
 		},
@@ -252,8 +256,9 @@ func TestEndpointsByNetworkFilter_RegistryServiceName(t *testing.T) {
 						{address: "10.0.0.2", weight: 1},
 						// 1 endpoint to gateway of network2 with weight 1 because it has 1 endpoint
 						{address: "2.2.2.2", weight: 1},
+						{address: "40.0.0.1", weight: 1},
 					},
-					weight: 3,
+					weight: 4,
 				},
 			},
 		},
@@ -269,8 +274,9 @@ func TestEndpointsByNetworkFilter_RegistryServiceName(t *testing.T) {
 						{address: "20.0.0.1", weight: 1},
 						// 1 endpoint to gateway of network1 with weight 2 because it has 2 endpoints
 						{address: "1.1.1.1", weight: 2},
+						{address: "40.0.0.1", weight: 1},
 					},
-					weight: 3,
+					weight: 4,
 				},
 			},
 		},
@@ -286,8 +292,9 @@ func TestEndpointsByNetworkFilter_RegistryServiceName(t *testing.T) {
 						{address: "1.1.1.1", weight: 2},
 						// 1 endpoint to gateway of network2 with weight 1 because it has 1 endpoint
 						{address: "2.2.2.2", weight: 1},
+						{address: "40.0.0.1", weight: 1},
 					},
-					weight: 3,
+					weight: 4,
 				},
 			},
 		},
