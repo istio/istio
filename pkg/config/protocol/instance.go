@@ -46,12 +46,6 @@ const (
 	Redis Instance = "Redis"
 	// MySQL declares that the port carries MySQL traffic.
 	MySQL Instance = "MySQL"
-	// DNS declares that the port carries DNS traffic.
-	DNS Instance = "DNS"
-	// Prometheus declares that the port carries Prometheus traffic.
-	Prometheus Instance = "Prometheus"
-	// Tiller declares that the port carries Tiller traffic.
-	Tiller Instance = "Tiller"
 	// Unsupported - value to signify that the protocol is unsupported.
 	Unsupported Instance = "UnsupportedProtocol"
 )
@@ -81,12 +75,6 @@ func Parse(s string) Instance {
 		return Redis
 	case "mysql":
 		return MySQL
-	case "dns":
-		return DNS
-	case "prometheus":
-		return Prometheus
-	case "tiller":
-		return Tiller
 	}
 
 	return Unsupported

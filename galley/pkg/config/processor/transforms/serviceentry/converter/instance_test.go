@@ -402,19 +402,24 @@ func TestServicePorts(t *testing.T) {
 					annotation.AlphaNetworkingServiceVersion.Name: version,
 				},
 			}
+
+			ports := []*networking.Port{
+				{
+					Name:     c.name,
+					Number:   8080,
+					Protocol: string(c.out),
+				},
+			}
+			if c.name == "" {
+				ports = []*networking.Port{}
+			}
 			expected := networking.ServiceEntry{
 				Hosts:      []string{hostForNamespace(namespace)},
 				Addresses:  []string{ip},
 				Resolution: networking.ServiceEntry_NONE,
 				Location:   networking.ServiceEntry_MESH_INTERNAL,
-				Ports: []*networking.Port{
-					{
-						Name:     c.name,
-						Number:   8080,
-						Protocol: string(c.out),
-					},
-				},
-				Endpoints: []*networking.ServiceEntry_Endpoint{},
+				Ports:      ports,
+				Endpoints:  []*networking.ServiceEntry_Endpoint{},
 			}
 
 			actualMeta, actual := doConvert(t, service, nil, newPodCache())

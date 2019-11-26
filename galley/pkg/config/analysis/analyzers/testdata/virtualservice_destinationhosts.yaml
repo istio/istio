@@ -6,6 +6,8 @@ metadata:
 spec:
   ports:
   - port: 42
+    name: tcp-test
+    protocol: TCP
 ---
 apiVersion: v1
 kind: Service
@@ -15,7 +17,11 @@ metadata:
 spec:
   ports:
   - port: 80
+    name: http-test
+    protocol: HTTP
   - port: 443
+    name: https-test
+    protocol: HTTPS
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
