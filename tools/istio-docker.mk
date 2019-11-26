@@ -60,11 +60,7 @@ $(ISTIO_DOCKER)/certs:
 
 # tell make which files are copied from the source tree and generate rules to copy them to the proper location:
 # TODO(sdake)                      $(NODE_AGENT_TEST_FILES) $(GRAFANA_FILES)
-DOCKER_FILES_FROM_SOURCE:=tools/packaging/common/istio-iptables.sh tools/packaging/common/istio-clean-iptables.sh \
-                          tests/testdata/certs/cert.crt tests/testdata/certs/cert.key tests/testdata/certs/cacert.pem
-# generates rules like the following:
-# $(ISTIO_DOCKER)/tools/packaging/common/istio-iptables.sh: $(ISTIO_OUT)/tools/packaging/common/istio-iptables.sh | $(ISTIO_DOCKER)
-# 	cp $FILE $$(@D))
+DOCKER_FILES_FROM_SOURCE:=tests/testdata/certs/cert.crt tests/testdata/certs/cert.key tests/testdata/certs/cacert.pem
 $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
         $(eval $(ISTIO_DOCKER)/$(notdir $(FILE)): $(FILE) | $(ISTIO_DOCKER); cp $(FILE) $$(@D)))
 
@@ -107,7 +103,6 @@ docker.proxyv2: $(ISTIO_OUT_LINUX)/pilot-agent
 docker.proxyv2: pilot/docker/Dockerfile.proxyv2
 docker.proxyv2: pilot/docker/envoy_pilot.yaml.tmpl
 docker.proxyv2: pilot/docker/envoy_policy.yaml.tmpl
-docker.proxyv2: tools/packaging/common/istio-iptables.sh
 docker.proxyv2: pilot/docker/envoy_telemetry.yaml.tmpl
 docker.proxyv2: $(ISTIO_DOCKER)/istio-iptables
 	$(DOCKER_RULE)
@@ -121,8 +116,8 @@ docker.proxytproxy: $(ISTIO_OUT_LINUX)/pilot-agent
 docker.proxytproxy: pilot/docker/Dockerfile.proxytproxy
 docker.proxytproxy: pilot/docker/envoy_pilot.yaml.tmpl
 docker.proxytproxy: pilot/docker/envoy_policy.yaml.tmpl
-docker.proxytproxy: tools/packaging/common/istio-iptables.sh
 docker.proxytproxy: pilot/docker/envoy_telemetry.yaml.tmpl
+docker.proxytproxy: $(ISTIO_DOCKER)/istio-iptables
 	$(DOCKER_RULE)
 
 docker.pilot: BUILD_PRE=chmod 755 pilot-discovery cacert.pem &&
@@ -150,8 +145,6 @@ docker.app: $(ISTIO_DOCKER)/certs
 # Test application bundled with the sidecar (for non-k8s).
 docker.app_sidecar: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.app_sidecar: tools/packaging/common/envoy_bootstrap_v2.json
-docker.app_sidecar: tools/packaging/common/istio-iptables.sh
-docker.app_sidecar: tools/packaging/common/istio-clean-iptables.sh
 docker.app_sidecar: tools/packaging/common/istio-start.sh
 docker.app_sidecar: tools/packaging/common/istio-node-agent-start.sh
 docker.app_sidecar: tools/packaging/deb/postinst.sh
@@ -166,6 +159,8 @@ docker.app_sidecar: pkg/test/echo/docker/Dockerfile.app_sidecar
 docker.app_sidecar: pilot/docker/envoy_pilot.yaml.tmpl
 docker.app_sidecar: pilot/docker/envoy_policy.yaml.tmpl
 docker.app_sidecar: pilot/docker/envoy_telemetry.yaml.tmpl
+docker.app_sidecar: $(ISTIO_DOCKER)/istio-iptables
+docker.app_sidecar: $(ISTIO_DOCKER)/istio-clean-iptables
 	$(DOCKER_RULE)
 
 # Test policy backend for mixer integration
