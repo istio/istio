@@ -1,7 +1,4 @@
 mixer:
-  env:
-    # max procs should be ceil(cpu limit + 1)
-    GOMAXPROCS: "6"
 
   adapters:
     # stdio is a debug adapter in istio-telemetry, it is not recommended for production use.
@@ -48,6 +45,10 @@ mixer:
     cpu:
       targetAverageUtilization: 80
     sessionAffinityEnabled: false
+
+    env:
+      # max procs should be ceil(cpu limit + 1)
+      GOMAXPROCS: "6"
 
     # mixer load shedding configuration.
     # When mixer detects that it is overloaded, it starts rejecting grpc requests.
