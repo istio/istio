@@ -65,9 +65,6 @@ for ((i=1; i<=$#; i++)); do
         -s|--single_test) ((i++)); SINGLE_TEST=${!i}
         continue
         ;;
-        --timeout) ((i++)); E2E_TIMEOUT=${!i}
-        continue
-        ;;
         --variant) ((i++)); VARIANT="${!i}"
         continue
         ;;
@@ -77,8 +74,7 @@ done
 
 
 E2E_ARGS+=("--test_logs_path=${ARTIFACTS}")
-# e2e tests with kind clusters on prow will get deleted when prow
-# deleted the pod
+# e2e tests with kind clusters on prow will get deleted when prow deletes the pod
 E2E_ARGS+=("--skip_cleanup")
 E2E_ARGS+=("--use_local_cluster")
 
@@ -105,7 +101,4 @@ if [[ "${ENABLE_ISTIO_CNI:-false}" == true ]]; then
    cni_run_daemon_kind
 fi
 
-time ISTIO_DOCKER_HUB=$HUB \
-  E2E_ARGS="${E2E_ARGS[*]}" \
-  JUNIT_E2E_XML="${ARTIFACTS}/junit.xml" \
-  make with_junit_report TARGET="${SINGLE_TEST}" ${VARIANT:+ VARIANT="${VARIANT}"} ${E2E_TIMEOUT:+ E2E_TIMEOUT="${E2E_TIMEOUT}"}
+time make with_junit_report E2E_ARGS="${E2E_ARGS[*]}" TARGET="${SINGLE_TEST}" ${VARIANT:+ VARIANT="${VARIANT}"}
