@@ -37,7 +37,7 @@ func probeCmd() *cobra.Command {
 			if err := probe.NewFileClient(&probeOptions).GetStatus(); err != nil {
 				return fmt.Errorf("fail on inspecting path %s: %v", probeOptions.Path, err)
 			}
-			fmt.Println("OK")
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "OK")
 			return nil
 		},
 	}
