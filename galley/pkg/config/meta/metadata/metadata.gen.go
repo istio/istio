@@ -623,6 +623,8 @@ snapshots:
   - name: "localAnalysis"
     strategy: immediate
     collections:
+      - "istio/authentication/v1alpha1/meshpolicies"
+      - "istio/authentication/v1alpha1/policies"
       - "istio/rbac/v1alpha1/servicerolebindings"
       - "istio/rbac/v1alpha1/serviceroles"
       - "istio/mesh/v1alpha1/MeshConfig"
@@ -827,12 +829,6 @@ sources:
       plural: "adapters"
       group: "config.istio.io"
       version: "v1alpha2"
-
-    - collection: "k8s/authentication.istio.io/v1alpha1/meshpolicies"
-      kind: "MeshPolicy"
-      plural: "meshpolicies"
-      group: "authentication.istio.io"
-      version: "v1alpha1"
 
     # Legacy Mixer CRD Types
     - collection: "k8s/config.istio.io/v1alpha2/apikeys"

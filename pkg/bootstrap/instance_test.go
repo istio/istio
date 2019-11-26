@@ -161,6 +161,7 @@ func TestGolden(t *testing.T) {
 				_ = os.Remove(credPath)
 			},
 			check: func(got *v2.Bootstrap, t *testing.T) {
+				// nolint: staticcheck
 				cfg := got.Tracing.Http.GetConfig()
 				sdMsg := tracev2.OpenCensusConfig{}
 				if err := conversion.StructToMessage(cfg, &sdMsg); err != nil {

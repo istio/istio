@@ -377,7 +377,7 @@ func generateVirtualHostDomains(service *model.Service, port int, node *model.Pr
 	domains = append(domains, generateAltVirtualHosts(string(service.Hostname), port, node.DNSDomain)...)
 
 	if service.Resolution == model.Passthrough &&
-		service.Attributes.ServiceRegistry == string(serviceregistry.KubernetesRegistry) {
+		service.Attributes.ServiceRegistry == string(serviceregistry.Kubernetes) {
 		for _, domain := range domains {
 			domains = append(domains, wildcardDomainPrefix+domain)
 		}

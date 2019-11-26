@@ -19,12 +19,14 @@
 
 # Docker target will build the go binaries and package the docker for local testing.
 # It does not upload to a registry.
-docker: build-linux docker.all
+docker: docker.all
 
 # Add new docker targets to the end of the DOCKER_TARGETS list.
-DOCKER_TARGETS:=docker.pilot docker.istiod docker.proxytproxy docker.proxyv2 docker.app docker.app_sidecar docker.test_policybackend \
+
+DOCKER_TARGETS ?= docker.pilot docker.istiod docker.proxytproxy docker.proxyv2 docker.app docker.app_sidecar docker.test_policybackend \
 	docker.mixer docker.mixer_codegen docker.citadel docker.galley docker.sidecar_injector docker.kubectl docker.node-agent-k8s \
 	docker.istioctl
+
 $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 	mkdir -p $@
 
@@ -139,16 +141,16 @@ docker.istiod: docker/Dockerfile.istiod
 	$(DOCKER_RULE)
 
 # Test application
+docker.app: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.app: pkg/test/echo/docker/Dockerfile.app
 docker.app: $(ISTIO_OUT_LINUX)/client
 docker.app: $(ISTIO_OUT_LINUX)/server
 docker.app: $(ISTIO_DOCKER)/certs
-	mkdir -p $(ISTIO_DOCKER)/testapp
-	cp -r $^ $(ISTIO_DOCKER)/testapp
-	time (cd $(ISTIO_DOCKER)/testapp && docker build -t $(HUB)/app:$(TAG) -f Dockerfile.app .)
+	$(DOCKER_RULE)
 
 
 # Test application bundled with the sidecar (for non-k8s).
+docker.app_sidecar: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.app_sidecar: tools/packaging/common/envoy_bootstrap_v2.json
 docker.app_sidecar: tools/packaging/common/istio-iptables.sh
 docker.app_sidecar: tools/packaging/common/istio-clean-iptables.sh
@@ -197,8 +199,41 @@ docker.mixer_codegen: mixer/docker/Dockerfile.mixer_codegen
 docker.mixer_codegen: $(ISTIO_DOCKER)/mixgen
 	$(DOCKER_RULE)
 
-# galley docker images
+.PHONY: dockerx dockerx.save
 
+# Docker has an experimental new build engine, https://github.com/docker/buildx
+# This brings substantial (10x) performance improvements when building Istio
+# However, its only built into docker since v19.03. Because its so new that devs are likely to not have
+# this version, and because its experimental, this is not the default build method. As this matures we should migrate over.
+# For performance, in CI this method is used.
+# This target works by reusing the existing docker methods. Each docker target declares it's dependencies.
+# We then override the docker rule and "build" all of these, where building just copies the dependencies
+# We then generate a "bake" file, which defines all of the docker files in the repo
+# Finally, we call `docker buildx bake` to generate the images. DOCKER_SAVE can be set to output to a .tar
+dockerx: DOCKER_RULE?=mkdir -p $(DOCKERX_BUILD_TOP)/$@ && cp -r $^ $(DOCKERX_BUILD_TOP)/$@
+dockerx: docker | $(ISTIO_DOCKER_TAR)
+dockerx:
+	HUB=$(HUB) \
+		TAG=$(TAG) \
+		DOCKER_ALL_VARIANTS="$(DOCKER_ALL_VARIANTS)" \
+		ISTIO_DOCKER_TAR=$(ISTIO_DOCKER_TAR) \
+		BASE_VERSION=$(BASE_VERSION) \
+		DOCKER_SAVE="$(DOCKER_SAVE)" \
+		./tools/buildx-gen.sh $(DOCKERX_BUILD_TOP) $(DOCKER_TARGETS)
+	DOCKER_CLI_EXPERIMENTAL=enabled docker buildx bake -f $(DOCKERX_BUILD_TOP)/docker-bake.hcl $(DOCKER_BUILD_VARIANTS)
+
+# Support individual images like `dockerx.pilot`
+dockerx.%:
+	@DOCKER_TARGETS=docker.$* BUILD_ALL=false $(MAKE) --no-print-directory -f Makefile.core.mk dockerx
+
+# Reuse the dockerx target, but export save variable to trigger output to .tar
+dockerx.save: DOCKER_SAVE=true
+dockerx.save: $(ISTIO_DOCKER_TAR)
+dockerx.save: dockerx
+	# We also want to gzip all of them
+	gzip -f $(ISTIO_DOCKER_TAR)/*
+
+# galley docker images
 docker.galley: BUILD_PRE=chmod 755 galley &&
 docker.galley: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.galley: galley/docker/Dockerfile.galley
@@ -252,9 +287,10 @@ docker.base: docker/Dockerfile.base
 # 5. This rule finally runs docker build passing $(BUILD_ARGS) to docker if they are specified as a dependency variable
 
 # DOCKER_BUILD_VARIANTS ?=default distroless
-DOCKER_BUILD_VARIANTS ?=default
+DOCKER_BUILD_VARIANTS ?= default
+DOCKER_ALL_VARIANTS ?= default distroless
 DEFAULT_DISTRIBUTION=default
-DOCKER_RULE=$(foreach VARIANT,$(DOCKER_BUILD_VARIANTS), time (mkdir -p $(DOCKER_BUILD_TOP)/$@ && cp -r $^ $(DOCKER_BUILD_TOP)/$@ && cd $(DOCKER_BUILD_TOP)/$@ && $(BUILD_PRE) docker build $(BUILD_ARGS) --build-arg BASE_DISTRIBUTION=$(VARIANT) -t $(HUB)/$(subst docker.,,$@):$(subst -$(DEFAULT_DISTRIBUTION),,$(TAG)-$(VARIANT)) -f Dockerfile$(suffix $@) . ); )
+DOCKER_RULE ?= $(foreach VARIANT,$(DOCKER_BUILD_VARIANTS), time (mkdir -p $(DOCKER_BUILD_TOP)/$@ && cp -r $^ $(DOCKER_BUILD_TOP)/$@ && cd $(DOCKER_BUILD_TOP)/$@ && $(BUILD_PRE) docker build $(BUILD_ARGS) --build-arg BASE_DISTRIBUTION=$(VARIANT) -t $(HUB)/$(subst docker.,,$@):$(subst -$(DEFAULT_DISTRIBUTION),,$(TAG)-$(VARIANT)) -f Dockerfile$(suffix $@) . ); )
 
 # This target will package all docker images used in test and release, without re-building
 # go binaries. It is intended for CI/CD systems where the build is done in separate job.
@@ -281,7 +317,8 @@ tar.docker.app: docker.app | $(ISTIO_DOCKER_TAR)
 $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_TAR_TARGETS+=tar.$(TGT)))
 
 # this target saves a tar.gz of each docker image to ${ISTIO_OUT_LINUX}/docker/
-docker.save: $(DOCKER_TAR_TARGETS)
+#docker.save: $(DOCKER_TAR_TARGETS)
+docker.save: dockerx.save
 
 # for each docker.XXX target create a push.docker.XXX target that pushes
 # the local docker image to another hub

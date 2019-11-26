@@ -311,7 +311,7 @@ func makeService(hostname host.Name, configNamespace, address string, ports map[
 		MeshExternal: external,
 		Resolution:   resolution,
 		Attributes: model.ServiceAttributes{
-			ServiceRegistry: string(serviceregistry.MCPRegistry),
+			ServiceRegistry: string(serviceregistry.MCP),
 			Name:            string(hostname),
 			Namespace:       configNamespace,
 		},

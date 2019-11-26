@@ -63,9 +63,10 @@ function download_untar_istio_release() {
 
 function build_images() {
   # Build just the images needed for tests
-  for image in pilot proxyv2 app test_policybackend mixer citadel galley sidecar_injector kubectl node-agent-k8s; do
-     DOCKER_BUILD_VARIANTS="${VARIANT:-default}" make docker.${image}
-  done
+  targets="docker.pilot docker.proxyv2 "
+  targets+="docker.app docker.test_policybackend docker.kubectl "
+  targets+="docker.mixer docker.citadel docker.galley docker.sidecar_injector docker.node-agent-k8s"
+  DOCKER_BUILD_VARIANTS="${VARIANT:-default}" DOCKER_TARGETS="${targets}" make dockerx
 }
 
 function kind_load_images() {
@@ -77,18 +78,18 @@ function kind_load_images() {
   for i in {1..3}; do
     # Archived local images and load it into KinD's docker daemon
     # Kubernetes in KinD can only access local images from its docker daemon.
-    docker images "${hub}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 kind --loglevel debug --name "${NAME}" load docker-image && break
-    echo "Attempt ${i} to load images failed, retrying in 5s..."
-    sleep 5
+    docker images "${hub}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 kind -v9 --name "${NAME}" load docker-image && break
+    echo "Attempt ${i} to load images failed, retrying in 1s..."
+    sleep 1
 	done
 
   # If a variant is specified, load those images as well.
   # We should still load non-variant images as well for things like `app` which do not use variants
   if [[ "${VARIANT:-}" != "" ]]; then
     for i in {1..3}; do
-      docker images "${hub}/*:${TAG}-${VARIANT}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 kind --loglevel debug --name "${NAME}" load docker-image && break
-      echo "Attempt ${i} to load images failed, retrying in 5s..."
-      sleep 5
+      docker images "${hub}/*:${TAG}-${VARIANT}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 kind -v9 --name "${NAME}" load docker-image && break
+      echo "Attempt ${i} to load images failed, retrying in 1s..."
+      sleep 1
     done
   fi
 }
@@ -145,20 +146,20 @@ function clone_cni() {
 function cleanup_kind_cluster() {
   NAME="${1}"
   echo "Test exited with exit code $?."
-  kind export logs --name "${NAME}" "${ARTIFACTS}/kind" --loglevel debug || true
+  kind export logs --name "${NAME}" "${ARTIFACTS}/kind" -v9 || true
   if [[ -z "${SKIP_CLEANUP:-}" ]]; then
     echo "Cleaning up kind cluster"
-    kind delete cluster --name "${NAME}" --loglevel debug || true
+    kind delete cluster --name "${NAME}" -v9 || true
   fi
 }
 
 function setup_kind_cluster() {
-  IMAGE="${1:-}"
+  IMAGE="${1:-kindest/node:v1.16.2}"
   NAME="${2:-istio-testing}"
   CONFIG="${3:-}"
   # Delete any previous e2e KinD cluster
   echo "Deleting previous KinD cluster with name=${NAME}"
-  if ! (kind delete cluster --name="${NAME}") > /dev/null; then
+  if ! (kind delete cluster --name="${NAME}" -v9) > /dev/null; then
     echo "No existing kind cluster with name ${NAME}. Continue..."
   fi
 
@@ -177,19 +178,16 @@ function setup_kind_cluster() {
       # Kubernetes 1.13, 1.14
       CONFIG=./prow/config/trustworthy-jwt-13-14.yaml
     else
-      # Kubernetes 1.15
+      # Kubernetes 1.15+
       CONFIG=./prow/config/trustworthy-jwt.yaml
     fi
   fi
 
   # Create KinD cluster
-  if ! (kind create cluster --name="${NAME}" --config "${CONFIG}" --loglevel debug --retain --image "${IMAGE}" --wait=60s); then
+  if ! (kind create cluster --name="${NAME}" --config "${CONFIG}" -v9 --retain --image "${IMAGE}" --wait=60s); then
     echo "Could not setup KinD environment. Something wrong with KinD setup. Exporting logs."
     exit 1
   fi
-
-  KUBECONFIG="$(kind get kubeconfig-path --name="${NAME}")"
-  export KUBECONFIG
 
   kubectl apply -f ./prow/config/metrics
 }
