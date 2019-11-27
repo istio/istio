@@ -62,8 +62,8 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 	c.ForEach(metadata.K8SCoreV1Namespaces, func(r *resource.Entry) bool {
 
 		// Ignore system namespaces
-		// TODO: namespaces can in theory be anything, so we need to make this more configurable
-		if strings.HasPrefix(r.Metadata.Name.String(), "kube-") || strings.HasPrefix(r.Metadata.Name.String(), util.IstioNamespace(c)) {
+		ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
+		if util.IsSystemNamespace(c, ns) {
 			return true
 		}
 

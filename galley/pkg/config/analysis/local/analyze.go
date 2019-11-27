@@ -108,6 +108,7 @@ func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, 
 		collectionReporter:   cr,
 	}
 
+	// For our default mesh config, use the provided istioNamespace as the root namespace
 	meshcfg := meshcfg.Default()
 	meshcfg.RootNamespace = istioNamespace
 	sa.addMeshConfigSource(meshcfg)
