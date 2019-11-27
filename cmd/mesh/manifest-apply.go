@@ -64,9 +64,8 @@ func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs) *cobra.Comm
 		Short: "Generates and applies an Istio install manifest.",
 		Long:  "The apply subcommand generates an Istio install manifest and applies it to a cluster.",
 		Args:  cobra.ExactArgs(0),
-		Run: func(cmd *cobra.Command, args []string) {
-			// Passing cmd.OutOrStdXXX() allows capturing command output for e2e tests.
-			l := newLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.OutOrStderr())
+		RunE: func(cmd *cobra.Command, args []string) error {
+			l := newLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
 			// Warn users if they use `manifest apply` without any config args.
 			if maArgs.inFilename == "" && len(maArgs.set) == 0 && !maArgs.skipConfirmation {
 				if !confirm("This will install the default Istio profile into the cluster. Proceed? (y/N)", cmd.OutOrStdout()) {
@@ -74,19 +73,20 @@ func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs) *cobra.Comm
 					os.Exit(1)
 				}
 			}
-			manifestApply(rootArgs, maArgs, l)
+			return manifestApply(rootArgs, maArgs, l)
 		}}
 }
 
-func manifestApply(args *rootArgs, maArgs *manifestApplyArgs, l *logger) {
+func manifestApply(args *rootArgs, maArgs *manifestApplyArgs, l *logger) error {
 	if err := configLogs(args.logToStdErr); err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "Could not configure logs: %s", err)
-		os.Exit(1)
+		return fmt.Errorf("could not configure logs: %s", err)
 	}
 	if err := genApplyManifests(maArgs.set, maArgs.inFilename, maArgs.force, args.dryRun, args.verbose,
 		maArgs.kubeConfigPath, maArgs.context, maArgs.readinessTimeout, l); err != nil {
-		l.logAndFatalf("Failed to generate and apply manifests, error: %v", err)
+		return fmt.Errorf("failed to generate and apply manifests, error: %v", err)
 	}
+
+	return nil
 }
 
 func confirm(msg string, writer io.Writer) bool {

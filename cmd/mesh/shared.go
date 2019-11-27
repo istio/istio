@@ -96,11 +96,6 @@ func (l *logger) logAndError(v ...interface{}) {
 	}
 }
 
-func (l *logger) logAndFatal(v ...interface{}) {
-	l.logAndError(v...)
-	os.Exit(-1)
-}
-
 func (l *logger) logAndPrintf(format string, a ...interface{}) {
 	s := fmt.Sprintf(format, a...)
 	if !l.logToStdErr {

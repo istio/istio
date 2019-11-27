@@ -48,18 +48,18 @@ func profileDumpCmd(rootArgs *rootArgs, pdArgs *profileDumpArgs) *cobra.Command 
 			}
 			return nil
 		},
-		Run: func(cmd *cobra.Command, args []string) {
-			l := newLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.OutOrStderr())
-			profileDump(args, rootArgs, pdArgs, l)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			l := newLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
+			return profileDump(args, rootArgs, pdArgs, l)
 		}}
 
 }
 
-func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l *logger) {
+func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l *logger) error {
 	initLogsOrExit(rootArgs)
 
 	if len(args) == 1 && pdArgs.inFilename != "" {
-		l.logAndFatal("Cannot specify both profile name and filename flag.")
+		return fmt.Errorf("cannot specify both profile name and filename flag")
 	}
 
 	profile := ""
@@ -68,8 +68,10 @@ func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l *
 	}
 	y, err := genProfile(pdArgs.helmValues, pdArgs.inFilename, profile, "", pdArgs.configPath, true, l)
 	if err != nil {
-		l.logAndFatal(err.Error())
+		return err
 	}
 
 	l.print(y + "\n")
+
+	return nil
 }

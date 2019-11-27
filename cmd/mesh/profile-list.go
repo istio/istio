@@ -28,14 +28,14 @@ func profileListCmd(rootArgs *rootArgs) *cobra.Command {
 		Short: "Lists available Istio configuration profiles",
 		Long:  "The list subcommand lists the available Istio configuration profiles.",
 		Args:  cobra.ExactArgs(0),
-		Run: func(cmd *cobra.Command, args []string) {
-			profileList(rootArgs)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return profileList(rootArgs)
 		}}
 
 }
 
 // profileList list all the builtin profiles.
-func profileList(args *rootArgs) {
+func profileList(args *rootArgs) error {
 	initLogsOrExit(args)
 	profiles := helm.ListBuiltinProfiles()
 	if len(profiles) == 0 {
@@ -46,4 +46,6 @@ func profileList(args *rootArgs) {
 			fmt.Printf("    %s\n", profile)
 		}
 	}
+
+	return nil
 }

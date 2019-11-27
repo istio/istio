@@ -16,14 +16,12 @@ package mesh
 
 import (
 	"fmt"
-	"os"
 
 	"istio.io/operator/pkg/util"
 
 	"github.com/spf13/cobra"
 
 	"istio.io/operator/pkg/helm"
-	"istio.io/pkg/log"
 )
 
 func profileDiffCmd(rootArgs *rootArgs) *cobra.Command {
@@ -33,39 +31,36 @@ func profileDiffCmd(rootArgs *rootArgs) *cobra.Command {
 		Long:  "The diff subcommand displays the differences between two Istio configuration profiles.",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 2 {
-				return fmt.Errorf("diff requires two files")
+				return fmt.Errorf("diff requires two profiles")
 			}
 			return nil
 		},
-		Run: func(cmd *cobra.Command, args []string) {
-			profileDiff(rootArgs, args)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return profileDiff(rootArgs, args)
 		}}
 
 }
 
 // profileDiff compare two profile files.
-func profileDiff(rootArgs *rootArgs, args []string) {
+func profileDiff(rootArgs *rootArgs, args []string) error {
 	initLogsOrExit(rootArgs)
 
 	a, err := helm.ReadProfileYAML(args[0])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Could not read %q: %v\n", args[0], err.Error())
-		log.Errorf("could not read the profile values from %s: %s", args[0], err)
-		os.Exit(1)
+		return fmt.Errorf("could not read %q: %v", args[0], err)
 	}
 
 	b, err := helm.ReadProfileYAML(args[1])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Could not read %q: %v\n", args[1], err.Error())
-		log.Errorf("could not read the profile values from %s: %s", args[1], err)
-		os.Exit(1)
+		return fmt.Errorf("could not read %q: %v", args[1], err)
 	}
 
 	diff := util.YAMLDiff(a, b)
 	if diff == "" {
 		fmt.Println("Profiles are identical")
 	} else {
-		fmt.Printf("Difference of profiles are:\n%s", diff)
-		os.Exit(1)
+		return fmt.Errorf("difference of profiles are:\n%s", diff)
 	}
+
+	return nil
 }
