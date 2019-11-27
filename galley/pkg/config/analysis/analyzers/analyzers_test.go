@@ -381,6 +381,20 @@ func TestAnalyzers(t *testing.T) {
 	})
 }
 
+// Verify that all of the analyzers tested here are also registered in All()
+func TestAnalyzersInAll(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	var allNames []string
+	for _, a := range All() {
+		allNames = append(allNames, a.Metadata().Name)
+	}
+
+	for _, tc := range testGrid {
+		g.Expect(allNames).To(ContainElement(tc.analyzer.Metadata().Name))
+	}
+}
+
 func TestAnalyzersHaveUniqueNames(t *testing.T) {
 	g := NewGomegaWithT(t)
 
