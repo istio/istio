@@ -25,8 +25,6 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
-
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/auth/mtls"
@@ -82,29 +80,16 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 	// TODO Reuse pilot logic as a library rather than reproducing its logic
 	// here.
 
+	mc := util.MeshConfig(c)
+
 	// If autoMTLS is turned on, bail out early as the logic used below does not
 	// reason about its usage.
-	autoMtlsEnabled := false
-	rootNamespace := "istio-system"
-
-	// Only one MeshConfig should exist in practice - we use ForEach to avoid
-	// specifying where to look for the MeshConfig (which allows the Context
-	// object to provide it to us).
-	c.ForEach(metadata.IstioMeshV1Alpha1MeshConfig, func(r *resource.Entry) bool {
-		mc := r.Item.(*meshconfig.MeshConfig)
-		if mc.GetEnableAutoMtls() != nil && mc.GetEnableAutoMtls().Value {
-			autoMtlsEnabled = true
-		}
-
-		if mc.GetRootNamespace() != "" {
-			rootNamespace = mc.GetRootNamespace()
-		}
-		return true
-	})
-
-	if autoMtlsEnabled {
+	if mc.GetEnableAutoMtls().GetValue() == true {
 		return
 	}
+
+	// The mesh config object includes a default value for this already, so it should be set
+	rootNamespace := mc.GetRootNamespace()
 
 	// Loop over all services, building up a list of selectors for each. This is
 	// used to determine which pods are in which services, and determine whether
@@ -125,7 +110,7 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 		// Skip the istio control plane. It doesn't obey Policy/MeshPolicy MTLS
 		// rules in general and instead is controlled by the mesh option
 		// 'controlPlaneSecurityEnabled'.
-		if svcNs == "istio-system" {
+		if svcNs == util.IstioNamespace(c) {
 			return true
 		}
 		svc := r.Item.(*v1.ServiceSpec)

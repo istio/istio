@@ -108,7 +108,9 @@ func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, 
 		collectionReporter:   cr,
 	}
 
-	sa.addMeshConfigSource(meshcfg.Default())
+	meshcfg := meshcfg.Default()
+	meshcfg.RootNamespace = istioNamespace
+	sa.addMeshConfigSource(meshcfg)
 
 	return sa
 }

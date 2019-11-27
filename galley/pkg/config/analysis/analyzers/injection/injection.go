@@ -21,6 +21,7 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/istio/galley/pkg/config/analysis"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/galley/pkg/config/meta/schema/collection"
@@ -47,6 +48,7 @@ func (a *Analyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name: "injection.Analyzer",
 		Inputs: collection.Names{
+			metadata.IstioMeshV1Alpha1MeshConfig,
 			metadata.K8SCoreV1Namespaces,
 			metadata.K8SCoreV1Pods,
 		},
@@ -61,7 +63,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 
 		// Ignore system namespaces
 		// TODO: namespaces can in theory be anything, so we need to make this more configurable
-		if strings.HasPrefix(r.Metadata.Name.String(), "kube-") || strings.HasPrefix(r.Metadata.Name.String(), "istio-") {
+		if strings.HasPrefix(r.Metadata.Name.String(), "kube-") || strings.HasPrefix(r.Metadata.Name.String(), util.IstioNamespace(c)) {
 			return true
 		}
 
