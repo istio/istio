@@ -313,11 +313,9 @@ func (c *controller) Get(typ, name, namespace string) *model.Config {
 		return nil
 	}
 
-	var config *model.Config
-	if features.EnableCRDValidation.Get() {
-		config, err = crd.StrictConvertObject(s, obj, c.client.domainSuffix)
-	} else {
-		config, err = crd.ConvertObject(s, obj, c.client.domainSuffix)
+	config, err := crd.ConvertObject(s, obj, c.client.domainSuffix)
+	if err == nil && features.EnableCRDValidation.Get() {
+		err = s.Validate(config.Name, config.Namespace, config.Spec)
 	}
 
 	if err != nil {
@@ -365,12 +363,10 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 			continue
 		}
 
-		var config *model.Config
-		var err error
-		if features.EnableCRDValidation.Get() {
-			config, err = crd.StrictConvertObject(s, item, c.client.domainSuffix)
-		} else {
-			config, err = crd.ConvertObject(s, item, c.client.domainSuffix)
+		config, err := crd.ConvertObject(s, item, c.client.domainSuffix)
+
+		if err == nil && features.EnableCRDValidation.Get() {
+			err = s.Validate(config.Name, config.Namespace, config.Spec)
 		}
 
 		if err != nil {

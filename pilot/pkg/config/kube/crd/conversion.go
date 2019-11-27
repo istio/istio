@@ -36,22 +36,13 @@ import (
 
 // ConvertObject converts an IstioObject k8s-style object to the internal configuration model.
 func ConvertObject(schema schema.Instance, object IstioObject, domain string) (*model.Config, error) {
-	return convertObjectInternal(schema, object, domain, false)
-}
-
-// StrictConvertObject converts an IstioObject k8s-style object to the internal configuration model and enforces validation.
-func StrictConvertObject(schema schema.Instance, object IstioObject, domain string) (*model.Config, error) {
-	return convertObjectInternal(schema, object, domain, true)
-}
-
-func convertObjectInternal(schema schema.Instance, object IstioObject, domain string, validate bool) (*model.Config, error) {
 	data, err := schema.FromJSONMap(object.GetSpec())
 	if err != nil {
 		return nil, err
 	}
 	meta := object.GetObjectMeta()
 
-	config := &model.Config{
+	return &model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:              schema.Type,
 			Group:             ResourceGroup(&schema),
@@ -65,12 +56,7 @@ func convertObjectInternal(schema schema.Instance, object IstioObject, domain st
 			CreationTimestamp: meta.CreationTimestamp.Time,
 		},
 		Spec: data,
-	}
-
-	if validate {
-		err = schema.Validate(config.Name, config.Namespace, config.Spec)
-	}
-	return config, err
+	}, nil
 }
 
 // ConvertObjectFromUnstructured converts an IstioObject k8s-style object to the

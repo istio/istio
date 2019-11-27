@@ -257,9 +257,9 @@ var (
 	EnableCRDValidation = env.RegisterBoolVar(
 		"PILOT_ENABLE_CRD_VALIDATION",
 		false,
-		"If enabled, pilot will validate CRDs while retrieving resources from cache."+
-			"By default pilot will validate them during event processing."+
-			"Enable this flag, if galley is not used so that Pilot does not process invalid CRDs.",
+		"If enabled, pilot will validate CRDs while retrieving CRDs from kubernetes cache."+
+			"Use this flag to enable validation of CRDs in Pilot, especially in deployments "+
+			"that do not have galley installed.",
 	)
 )
 
