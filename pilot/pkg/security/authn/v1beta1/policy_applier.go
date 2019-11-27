@@ -43,8 +43,7 @@ type v1beta1PolicyApplier struct {
 }
 
 func (a *v1beta1PolicyApplier) JwtFilter(isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
-	var filterConfigProto *envoy_jwt.JwtAuthentication
-	filterConfigProto = convertToEnvoyJwtConfig(a.processedJwtRules)
+	filterConfigProto := convertToEnvoyJwtConfig(a.processedJwtRules)
 
 	if filterConfigProto == nil {
 		return nil
@@ -80,9 +79,7 @@ func NewPolicyApplier(jwtPolicies []*model.Config) authn.PolicyApplier {
 	// https://github.com/istio/istio/issues/19245
 	for idx := range jwtPolicies {
 		spec := jwtPolicies[idx].Spec.(*v1beta1.RequestAuthentication)
-		for _, rule := range spec.JwtRules {
-			processedJwtRules = append(processedJwtRules, rule)
-		}
+		processedJwtRules = append(processedJwtRules, spec.JwtRules...)
 	}
 
 	return &v1beta1PolicyApplier{
