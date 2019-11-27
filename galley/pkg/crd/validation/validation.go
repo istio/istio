@@ -98,15 +98,14 @@ func RunValidation(ready chan<- struct{}, stopCh chan struct{}, vc *WebhookParam
 	if err != nil || vc.Clientset == nil {
 		log.Fatalf("cannot create validation webhook service: %v", err)
 	}
+	validationLivenessProbe := probe.NewProbe()
 	if livenessProbeController != nil {
-		validationLivenessProbe := probe.NewProbe()
 		validationLivenessProbe.SetAvailable(nil)
 		validationLivenessProbe.RegisterProbe(livenessProbeController, "validationLiveness")
-		defer validationLivenessProbe.SetAvailable(errors.New("stopped"))
 	}
 
+	validationReadinessProbe := probe.NewProbe()
 	if readinessProbeController != nil {
-		validationReadinessProbe := probe.NewProbe()
 		validationReadinessProbe.SetAvailable(errors.New("init"))
 		validationReadinessProbe.RegisterProbe(readinessProbeController, "validationReadiness")
 
@@ -128,23 +127,28 @@ func RunValidation(ready chan<- struct{}, stopCh chan struct{}, vc *WebhookParam
 					ready = false
 				} else {
 					validationReadinessProbe.SetAvailable(nil)
-
 					if !ready {
 						scope.Info("https handler for validation webhook is ready\n")
 						ready = true
 					}
 				}
-				select {
-				case <-stopCh:
-					validationReadinessProbe.SetAvailable(errors.New("stopped"))
-					return
-				case <-time.After(httpsHandlerReadinessFreq):
-					// check again
-				}
+				<-time.After(httpsHandlerReadinessFreq)
+				// check again
 			}
 		}()
 	}
 
+	go func() {
+		for range stopCh {
+			if livenessProbeController != nil {
+				validationLivenessProbe.SetAvailable(errors.New("stopped"))
+			}
+			if readinessProbeController != nil {
+				validationReadinessProbe.SetAvailable(errors.New("stopped"))
+			}
+			break
+		}
+	}()
 	go wh.Run(ready, stopCh)
 }
 
