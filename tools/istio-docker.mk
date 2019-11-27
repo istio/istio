@@ -202,7 +202,7 @@ docker.mixer_codegen: $(ISTIO_DOCKER)/mixgen
 # This target works by reusing the existing docker methods. Each docker target declares it's dependencies.
 # We then override the docker rule and "build" all of these, where building just copies the dependencies
 # We then generate a "bake" file, which defines all of the docker files in the repo
-# Finally, we call `docker buildx bake` to generate the images. DOCKER_SAVE can be set to output to a .tar
+# Finally, we call `docker buildx bake` to generate the images.
 dockerx: DOCKER_RULE?=mkdir -p $(DOCKERX_BUILD_TOP)/$@ && cp -r $^ $(DOCKERX_BUILD_TOP)/$@
 dockerx: docker | $(ISTIO_DOCKER_TAR)
 dockerx:
@@ -211,20 +211,12 @@ dockerx:
 		DOCKER_ALL_VARIANTS="$(DOCKER_ALL_VARIANTS)" \
 		ISTIO_DOCKER_TAR=$(ISTIO_DOCKER_TAR) \
 		BASE_VERSION=$(BASE_VERSION) \
-		DOCKER_SAVE="$(DOCKER_SAVE)" \
 		./tools/buildx-gen.sh $(DOCKERX_BUILD_TOP) $(DOCKER_TARGETS)
 	DOCKER_CLI_EXPERIMENTAL=enabled docker buildx bake -f $(DOCKERX_BUILD_TOP)/docker-bake.hcl $(DOCKER_BUILD_VARIANTS)
 
 # Support individual images like `dockerx.pilot`
 dockerx.%:
 	@DOCKER_TARGETS=docker.$* BUILD_ALL=false $(MAKE) --no-print-directory -f Makefile.core.mk dockerx
-
-# Reuse the dockerx target, but export save variable to trigger output to .tar
-dockerx.save: DOCKER_SAVE=true
-dockerx.save: $(ISTIO_DOCKER_TAR)
-dockerx.save: dockerx
-	# We also want to gzip all of them
-	gzip -f $(ISTIO_DOCKER_TAR)/*
 
 # galley docker images
 docker.galley: BUILD_PRE=chmod 755 galley &&
@@ -310,8 +302,7 @@ tar.docker.app: docker.app | $(ISTIO_DOCKER_TAR)
 $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_TAR_TARGETS+=tar.$(TGT)))
 
 # this target saves a tar.gz of each docker image to ${ISTIO_OUT_LINUX}/docker/
-#docker.save: $(DOCKER_TAR_TARGETS)
-docker.save: dockerx.save
+docker.save: $(DOCKER_TAR_TARGETS)
 
 # for each docker.XXX target create a push.docker.XXX target that pushes
 # the local docker image to another hub
