@@ -146,6 +146,7 @@ func RunValidation(ready chan<- struct{}, stopCh chan struct{}, vc *WebhookParam
 			if readinessProbeController != nil {
 				validationReadinessProbe.SetAvailable(errors.New("stopped"))
 			}
+			// nolint: staticcheck
 			break
 		}
 	}()
