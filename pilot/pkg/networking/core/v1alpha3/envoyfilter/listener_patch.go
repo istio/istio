@@ -29,7 +29,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/util/panic"
+	"istio.io/istio/pilot/pkg/util/runtime"
 )
 
 // ApplyListenerPatches applies patches to LDS output
@@ -39,7 +39,7 @@ func ApplyListenerPatches(
 	push *model.PushContext,
 	listeners []*xdsapi.Listener,
 	skipAdds bool) (out []*xdsapi.Listener) {
-	defer panic.HandleCrash(func() {
+	defer runtime.HandleCrash(func() {
 		log.Errorf("listeners patch caused panic, so the patches did not take effect")
 	})
 	// In case the patches cause panic, use the listeners generated before to reduce the influence.
