@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package multiplemtlsgateway
+package sds_ingress
 
 import (
 	"testing"
@@ -32,10 +32,21 @@ var (
 	p    pilot.Instance
 )
 
+var (
+	singleTLSCredName  = []string{"bookinfo-credential-1"}
+	singleTLCredCAName = []string{"bookinfo-credential-1-cacert"}
+	singleTLSHost      = "bookinfo1.example.com"
+
+	multipleTLSCredNames = []string{"bookinfo-credential-1", "bookinfo-credential-2", "bookinfo-credential-3",
+		"bookinfo-credential-4", "bookinfo-credential-5"}
+	multipleTLSHosts = []string{"bookinfo1.example.com", "bookinfo2.example.com", "bookinfo3.example.com",
+		"bookinfo4.example.com", "bookinfo5.example.com"}
+)
+
 func TestMain(m *testing.M) {
-	// Integration test for the ingress SDS multiple Gateway flow.
+	// Integration test for the ingress SDS Gateway flow.
 	framework.
-		NewSuite("sds_ingress_multiple_mtls_gateways_test", m).
+		NewSuite("sds_ingress_multi_mtls_gateway_invalid_secret_test", m).
 		Label(label.CustomSetup).
 		Label(label.Flaky).
 		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
