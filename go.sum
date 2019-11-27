@@ -112,7 +112,6 @@ github.com/circonus-labs/circonus-gometrics v2.3.1+incompatible/go.mod h1:nmEj6D
 github.com/circonus-labs/circonusllhist v0.1.3 h1:TJH+oke8D16535+jHExHj4nQvzlZrj7ug5D7I/orNUA=
 github.com/circonus-labs/circonusllhist v0.1.3/go.mod h1:kMXHVDlOchFAehlya5ePtbp5jckzBHf4XRpQvBOLI+I=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
-github.com/cncf/udpa v0.0.0-20191127193423-5f054cc4b1a0 h1:63W5yOufKqbBbA4mzFc7hHygbXgmWQgSsz5m2OsB+0w=
 github.com/cncf/udpa/go v0.0.0-20191127193423-5f054cc4b1a0 h1:JDgYvo/W+p3kUtiLXK+zh9o+pXYNLLzsl0d6cqwGelw=
 github.com/cncf/udpa/go v0.0.0-20191127193423-5f054cc4b1a0/go.mod h1:M8M6+tZqaGXZJjfX53e64911xZQV5JYwmTeXPW+k8Sc=
 github.com/codahale/hdrhistogram v0.0.0-20161010025455-3a0bb77429bd h1:qMd81Ts1T2OTKmB4acZcyKaMtRnY5Y44NuXGX2GFJ1w=
