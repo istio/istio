@@ -132,26 +132,21 @@ func RunValidation(ready chan<- struct{}, stopCh chan struct{}, vc *WebhookParam
 						ready = true
 					}
 				}
-				select {
-				case <-time.After(httpsHandlerReadinessFreq):
-					// check again
-				}
+				<-time.After(httpsHandlerReadinessFreq)
+				// check again
 			}
 		}()
 	}
 
 	go func() {
-		for {
-			select {
-			case <-stopCh:
-				if livenessProbeController != nil {
-					validationLivenessProbe.SetAvailable(errors.New("stopped"))
-				}
-				if readinessProbeController != nil {
-					validationReadinessProbe.SetAvailable(errors.New("stopped"))
-				}
-				return
+		for range stopCh {
+			if livenessProbeController != nil {
+				validationLivenessProbe.SetAvailable(errors.New("stopped"))
 			}
+			if readinessProbeController != nil {
+				validationReadinessProbe.SetAvailable(errors.New("stopped"))
+			}
+			return
 		}
 	}()
 	go wh.Run(ready, stopCh)
