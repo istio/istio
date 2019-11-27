@@ -45,7 +45,7 @@ RUN chown -R istio-proxy /var/lib/istio
 # CAP_NET_ADMIN, so any iptables rule matching on "-m owner --uid-owner
 # istio-proxy" will not match connections from those processes anymore.
 # Instead, rely on the process's effective gid being istio-proxy and create a
-# "-m owner --gid-owner istio-proxy" iptables rule in istio-iptables.sh.
+# "-m owner --gid-owner istio-proxy" iptables rule in istio-iptables.
 # hadolint ignore=DL3002
 USER 0:1337
 
