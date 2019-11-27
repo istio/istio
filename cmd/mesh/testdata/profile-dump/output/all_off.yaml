@@ -180,10 +180,6 @@ trafficManagement:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
-        - name: PILOT_TRACE_SAMPLING
-          value: "1"
-        - name: CONFIG_NAMESPACE
-          value: istio-config
         hpaSpec:
           maxReplicas: 5
           metrics:
@@ -546,6 +542,8 @@ values:
       sessionAffinityEnabled: false
     telemetry:
       autoscaleEnabled: true
+      env:
+        GOMAXPROCS: "6"
       image: mixer
       loadshedding:
         latencyThreshold: 100ms
