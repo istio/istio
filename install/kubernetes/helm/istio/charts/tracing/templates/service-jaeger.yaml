@@ -65,6 +65,26 @@ items:
 - apiVersion: v1
   kind: Service
   metadata:
+    name: jaeger-collector-headless
+    namespace: {{ .Release.Namespace }}
+    labels:
+      app: jaeger
+      jaeger-infra: collector-service
+      chart: {{ template "tracing.chart" . }}
+      heritage: {{ .Release.Service }}
+      release: {{ .Release.Name }}
+  spec:
+    ports:
+    - name: jaeger-collector-grpc
+      port: 14250
+      targetPort: 14250
+      protocol: TCP
+    selector:
+      app: jaeger
+    clusterIP: None
+- apiVersion: v1
+  kind: Service
+  metadata:
     name: jaeger-agent
     namespace: {{ .Release.Namespace }}
     labels:
