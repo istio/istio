@@ -52,6 +52,7 @@ var (
 	// showing up with no break for this time, we'll trigger a push.
 	DebounceMax time.Duration
 
+	// Statically link protobuf descriptors from UDPA
 	_ = udpa.TypedStruct{}
 )
 
