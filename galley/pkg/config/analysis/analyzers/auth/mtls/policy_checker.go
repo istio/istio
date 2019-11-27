@@ -27,26 +27,26 @@ import (
 // TargetService is a simple struct type for representing a service
 // targeted by an Authentication policy.
 type TargetService struct {
-	fQDN       string
+	fqdn       string
 	portNumber uint32
 }
 
 // NewTargetServiceWithPortNumber creates a new TargetService using the specified
 // fqdn and portNumber.
 func NewTargetServiceWithPortNumber(fqdn string, portNumber uint32) TargetService {
-	return TargetService{fQDN: fqdn, portNumber: portNumber}
+	return TargetService{fqdn: fqdn, portNumber: portNumber}
 }
 
 // NewTargetService creates a new TargetService using the specified fqdn. Because no
 // port is specified, this implicitly represents the service bound to any port.
 func NewTargetService(fqdn string) TargetService {
-	return TargetService{fQDN: fqdn}
+	return TargetService{fqdn: fqdn}
 }
 
 // FQDN is the fully-qualified domain name for the service (e.g.
 // foobar.my-namespace.svc.cluster.local).
 func (w TargetService) FQDN() string {
-	return w.fQDN
+	return w.fqdn
 }
 
 // PortNumber is the port used by the service.
@@ -56,9 +56,9 @@ func (w TargetService) PortNumber() uint32 {
 
 func (w TargetService) String() string {
 	if w.PortNumber() != 0 {
-		return fmt.Sprintf("%s:%d", w.fQDN, w.portNumber)
+		return fmt.Sprintf("%s:%d", w.fqdn, w.portNumber)
 	}
-	return w.FQDN()
+	return w.fqdn
 }
 
 // PolicyChecker allows callers to add a set of v1alpha1.Policy objects in the
