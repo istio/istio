@@ -55,26 +55,25 @@ func manifestGenerateCmd(rootArgs *rootArgs, mgArgs *manifestGenerateArgs) *cobr
 			}
 			return nil
 		},
-		Run: func(cmd *cobra.Command, args []string) {
-			l := newLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.OutOrStderr())
-			manifestGenerate(rootArgs, mgArgs, l)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			l := newLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
+			return manifestGenerate(rootArgs, mgArgs, l)
 		}}
 
 }
 
-func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, l *logger) {
+func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, l *logger) error {
 	if err := configLogs(args.logToStdErr); err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "Could not configure logs: %s", err)
-		os.Exit(1)
+		return fmt.Errorf("could not configure logs: %s", err)
 	}
 
 	overlayFromSet, err := makeTreeFromSetList(mgArgs.set, mgArgs.force, l)
 	if err != nil {
-		l.logAndFatal(err.Error())
+		return err
 	}
 	manifests, err := genManifests(mgArgs.inFilename, overlayFromSet, mgArgs.force, l)
 	if err != nil {
-		l.logAndFatal(err.Error())
+		return err
 	}
 
 	if mgArgs.outFilename == "" {
@@ -83,12 +82,14 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, l *logger) {
 		}
 	} else {
 		if err := os.MkdirAll(mgArgs.outFilename, os.ModePerm); err != nil {
-			l.logAndFatal(err.Error())
+			return err
 		}
 		if err := manifest.RenderToDir(manifests, mgArgs.outFilename, args.dryRun); err != nil {
-			l.logAndFatal(err.Error())
+			return err
 		}
 	}
+
+	return nil
 }
 
 func orderedManifests(mm name.ManifestMap) []string {
