@@ -1434,16 +1434,11 @@ func buildInboundListeners(p plugin.Plugin, proxy *model.Proxy, sidecarConfig *m
 	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		return nil
 	}
-	instances := make([]*model.ServiceInstance, len(services))
-	for i, s := range services {
-		instances[i] = &model.ServiceInstance{
-			Service:  s,
-			Endpoint: buildEndpoint(s),
-		}
+	if err := proxy.SetServiceInstances(&env); err != nil {
+		return nil
 	}
 
 	proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata.IstioVersion)
-	proxy.ServiceInstances = instances
 	if sidecarConfig == nil {
 		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 	} else {
@@ -1614,6 +1609,15 @@ func buildListenerEnv(services []*model.Service) model.Environment {
 func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServices []*model.Config) model.Environment {
 	serviceDiscovery := new(fakes.ServiceDiscovery)
 	serviceDiscovery.ServicesReturns(services, nil)
+
+	instances := make([]*model.ServiceInstance, len(services))
+	for i, s := range services {
+		instances[i] = &model.ServiceInstance{
+			Service:  s,
+			Endpoint: buildEndpoint(s),
+		}
+	}
+	serviceDiscovery.GetProxyServiceInstancesReturns(instances, nil)
 
 	configStore := &fakes.IstioConfigStore{
 		EnvoyFilterStub: func(workloadLabels labels.Collection) *model.Config {
