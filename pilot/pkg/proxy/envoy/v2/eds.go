@@ -672,17 +672,17 @@ func (s *DiscoveryServer) generateEndpoints(clusterName string, proxy *model.Pro
 		return nil
 	}
 
-		// If networks are set (by default they aren't) apply the Split Horizon
-		// EDS filter on the endpoints
-		if push.Networks != nil && len(push.Networks.Networks) > 0 {
-			endpoints := EndpointsByNetworkFilter(push, proxy.Metadata.Network, l.Endpoints)
-			filteredCLA := &xdsapi.ClusterLoadAssignment{
-				ClusterName: l.ClusterName,
-				Endpoints:   endpoints,
-				Policy:      l.Policy,
-			}
-			l = filteredCLA
+	// If networks are set (by default they aren't) apply the Split Horizon
+	// EDS filter on the endpoints
+	if push.Networks != nil && len(push.Networks.Networks) > 0 {
+		endpoints := EndpointsByNetworkFilter(push, proxy.Metadata.Network, l.Endpoints)
+		filteredCLA := &xdsapi.ClusterLoadAssignment{
+			ClusterName: l.ClusterName,
+			Endpoints:   endpoints,
+			Policy:      l.Policy,
 		}
+		l = filteredCLA
+	}
 
 	// If locality aware routing is enabled, prioritize endpoints or set their lb weight.
 	if push.Mesh.LocalityLbSetting != nil {
@@ -715,6 +715,9 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 	for _, clusterName := range con.Clusters {
 
 		l := s.generateEndpoints(clusterName, con.node, push, edsUpdatedServices)
+		if l == nil {
+			continue
+		}
 
 		for _, e := range l.Endpoints {
 			endpoints += len(e.LbEndpoints)
