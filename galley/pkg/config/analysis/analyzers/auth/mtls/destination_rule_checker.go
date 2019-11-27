@@ -28,6 +28,11 @@ import (
 // DestinationRules added to the instance. It handles the complicated logic of
 // looking up which DestinationRule takes effect for a given source namespace,
 // destination namespace and host name.
+//
+// This logic matches the logic Pilot uses:
+// https://github.com/istio/istio/blob/4a442e9f4cbdedb0accdb33bd8b96a3e59691b0b/pilot/pkg/model/push_context.go#L605
+// and what's documented on the istio.io site:
+// https://istio.io/docs/ops/traffic-management/deploy-guidelines/#cross-namespace-configuration-sharing
 type DestinationRuleChecker struct {
 	namespaceToDestinations map[string]destinations
 	rootNamespace           string
