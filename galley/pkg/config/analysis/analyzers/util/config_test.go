@@ -18,9 +18,9 @@ import (
 
 	. "github.com/onsi/gomega"
 
+	"istio.io/istio/galley/pkg/config/analysis/testing/fixtures"
 	"istio.io/istio/galley/pkg/config/meshcfg"
 	"istio.io/istio/galley/pkg/config/resource"
-	"istio.io/istio/galley/pkg/config/testing/fixtures"
 )
 
 func TestIsSystemNamespace(t *testing.T) {
