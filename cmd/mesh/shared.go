@@ -55,16 +55,17 @@ func configLogs(logToStdErr bool) error {
 	return log.Configure(opt)
 }
 
-type logger struct {
+//Logger is the struct used for mesh command
+type Logger struct {
 	logToStdErr bool
 	stdOut      io.Writer
 	stdErr      io.Writer
 }
 
-// newLogger creates a new logger and returns a pointer to it.
+// NewLogger creates a new logger and returns a pointer to it.
 // stdOut and stdErr can be used to capture output for testing.
-func newLogger(logToStdErr bool, stdOut, stdErr io.Writer) *logger {
-	return &logger{
+func NewLogger(logToStdErr bool, stdOut, stdErr io.Writer) *Logger {
+	return &Logger{
 		logToStdErr: logToStdErr,
 		stdOut:      stdOut,
 		stdErr:      stdErr,
@@ -72,7 +73,7 @@ func newLogger(logToStdErr bool, stdOut, stdErr io.Writer) *logger {
 }
 
 // TODO: this really doesn't belong here. Figure out if it's generally needed and possibly move to istio.io/pkg/log.
-func (l *logger) logAndPrint(v ...interface{}) {
+func (l *Logger) logAndPrint(v ...interface{}) {
 	if len(v) == 0 {
 		return
 	}
@@ -84,7 +85,7 @@ func (l *logger) logAndPrint(v ...interface{}) {
 	}
 }
 
-func (l *logger) logAndError(v ...interface{}) {
+func (l *Logger) logAndError(v ...interface{}) {
 	if len(v) == 0 {
 		return
 	}
@@ -96,7 +97,7 @@ func (l *logger) logAndError(v ...interface{}) {
 	}
 }
 
-func (l *logger) logAndPrintf(format string, a ...interface{}) {
+func (l *Logger) logAndPrintf(format string, a ...interface{}) {
 	s := fmt.Sprintf(format, a...)
 	if !l.logToStdErr {
 		l.print(s + "\n")
@@ -105,7 +106,7 @@ func (l *logger) logAndPrintf(format string, a ...interface{}) {
 	}
 }
 
-func (l *logger) logAndErrorf(format string, a ...interface{}) {
+func (l *Logger) logAndErrorf(format string, a ...interface{}) {
 	s := fmt.Sprintf(format, a...)
 	if !l.logToStdErr {
 		l.printErr(s + "\n")
@@ -114,16 +115,16 @@ func (l *logger) logAndErrorf(format string, a ...interface{}) {
 	}
 }
 
-func (l *logger) logAndFatalf(format string, a ...interface{}) {
+func (l *Logger) logAndFatalf(format string, a ...interface{}) {
 	l.logAndErrorf(format, a...)
 	os.Exit(-1)
 }
 
-func (l *logger) print(s string) {
+func (l *Logger) print(s string) {
 	_, _ = l.stdOut.Write([]byte(s))
 }
 
-func (l *logger) printErr(s string) {
+func (l *Logger) printErr(s string) {
 	_, _ = l.stdErr.Write([]byte(s))
 }
 

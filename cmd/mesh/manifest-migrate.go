@@ -56,7 +56,7 @@ func manifestMigrateCmd(rootArgs *rootArgs, mmArgs *manifestMigrateArgs) *cobra.
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			l := newLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
+			l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
 
 			if len(args) == 0 {
 				return migrateFromClusterConfig(rootArgs, mmArgs, l)
@@ -71,7 +71,7 @@ func valueFileFilter(path string) bool {
 }
 
 // migrateFromFiles handles migration for local values.yaml files
-func migrateFromFiles(rootArgs *rootArgs, args []string, l *logger) error {
+func migrateFromFiles(rootArgs *rootArgs, args []string, l *Logger) error {
 	initLogsOrExit(rootArgs)
 	value, err := util.ReadFilesWithFilter(args[0], valueFileFilter)
 	if err != nil {
@@ -85,7 +85,7 @@ func migrateFromFiles(rootArgs *rootArgs, args []string, l *logger) error {
 }
 
 // translateFunc translates the input values and output the result
-func translateFunc(values []byte, l *logger) error {
+func translateFunc(values []byte, l *Logger) error {
 	ts, err := translate.NewReverseTranslator(binversion.OperatorBinaryVersion.MinorVersion)
 	if err != nil {
 		return fmt.Errorf("error creating values.yaml translator: %s", err)
@@ -113,7 +113,7 @@ func translateFunc(values []byte, l *logger) error {
 }
 
 // migrateFromClusterConfig handles migration for in cluster config.
-func migrateFromClusterConfig(rootArgs *rootArgs, mmArgs *manifestMigrateArgs, l *logger) error {
+func migrateFromClusterConfig(rootArgs *rootArgs, mmArgs *manifestMigrateArgs, l *Logger) error {
 	initLogsOrExit(rootArgs)
 
 	l.logAndPrint("translating in cluster specs\n")

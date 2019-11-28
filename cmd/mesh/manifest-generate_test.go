@@ -163,7 +163,7 @@ func TestLDFlags(t *testing.T) {
 	}()
 	version.DockerInfo.Hub = "testHub"
 	version.DockerInfo.Tag = "testTag"
-	l := newLogger(true, os.Stdout, os.Stderr)
+	l := NewLogger(true, os.Stdout, os.Stderr)
 	_, icps, err := genICPS("", "default", "", true, l)
 	if err != nil {
 		t.Fatal(err)

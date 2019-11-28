@@ -104,7 +104,7 @@ func UpgradeCmd() *cobra.Command {
 			"traffic may be disrupted during upgrade. Please ensure PodDisruptionBudgets " +
 			"are defined to maintain service continuity.",
 		RunE: func(cmd *cobra.Command, args []string) (e error) {
-			l := newLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.OutOrStderr())
+			l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.OutOrStderr())
 			initLogsOrExit(rootArgs)
 			err := upgrade(rootArgs, macArgs, l)
 			if err != nil {
@@ -119,7 +119,7 @@ func UpgradeCmd() *cobra.Command {
 }
 
 // upgrade is the main function for Upgrade command
-func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *logger) (err error) {
+func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *Logger) (err error) {
 	l.logAndPrintf("Client - istioctl version: %s\n", opversion.OperatorVersionString)
 	args.inFilename = strings.TrimSpace(args.inFilename)
 
@@ -240,7 +240,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l *logger) (err error) {
 }
 
 // checkUpgradeValues checks the upgrade eligibility by comparing the current values with the target values
-func checkUpgradeValues(curValues, tarValues, ignoreValues string, l *logger) {
+func checkUpgradeValues(curValues, tarValues, ignoreValues string, l *Logger) {
 	diff := compare.YAMLCmpWithIgnore(curValues, tarValues, nil, ignoreValues)
 	if diff == "" {
 		l.logAndPrintf("Upgrade check: Values unchanged. The target values are identical to the current values.\n")
@@ -251,7 +251,7 @@ func checkUpgradeValues(curValues, tarValues, ignoreValues string, l *logger) {
 }
 
 // waitForConfirmation waits for user's confirmation if skipConfirmation is not set
-func waitForConfirmation(skipConfirmation bool, l *logger) {
+func waitForConfirmation(skipConfirmation bool, l *Logger) {
 	if skipConfirmation {
 		return
 	}
@@ -291,7 +291,7 @@ func readValuesFromInjectorConfigMap(kubeClient manifest.ExecClient, istioNamesp
 }
 
 // checkSupportedVersions checks if the upgrade cur -> tar is supported by the tool
-func checkSupportedVersions(cur, tar, versionsURI string, l *logger) error {
+func checkSupportedVersions(cur, tar, versionsURI string, l *Logger) error {
 	tarGoVersion, err := goversion.NewVersion(tar)
 	if err != nil {
 		return fmt.Errorf("failed to parse the target version: %v", tar)
@@ -315,7 +315,7 @@ func checkSupportedVersions(cur, tar, versionsURI string, l *logger) error {
 }
 
 // retrieveControlPlaneVersion retrieves the version number from the Istio control plane
-func retrieveControlPlaneVersion(kubeClient manifest.ExecClient, istioNamespace string, l *logger) (string, error) {
+func retrieveControlPlaneVersion(kubeClient manifest.ExecClient, istioNamespace string, l *Logger) (string, error) {
 	cv, e := kubeClient.GetIstioVersions(istioNamespace)
 	if e != nil {
 		return "", fmt.Errorf("failed to retrieve Istio control plane version, error: %v", e)
@@ -339,7 +339,7 @@ func retrieveControlPlaneVersion(kubeClient manifest.ExecClient, istioNamespace 
 
 // waitUpgradeComplete waits for the upgrade to complete by periodically comparing the current component version
 // to the target version.
-func waitUpgradeComplete(kubeClient manifest.ExecClient, istioNamespace string, targetVer string, l *logger) error {
+func waitUpgradeComplete(kubeClient manifest.ExecClient, istioNamespace string, targetVer string, l *Logger) error {
 	for i := 1; i <= upgradeWaitCheckVerMaxAttempts; i++ {
 		sleepSeconds(upgradeWaitSecCheckVerPerLoop)
 		cv, e := kubeClient.GetIstioVersions(istioNamespace)
