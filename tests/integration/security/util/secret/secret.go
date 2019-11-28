@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"testing"
 
+	"istio.io/istio/pkg/test"
+
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/k8s/chiron"
 	"istio.io/istio/security/pkg/k8s/controller"
@@ -71,7 +73,8 @@ func ExamineOrFail(t testing.TB, secret *v1.Secret) {
 }
 
 // ExamineDNSSecretOrFail calls ExamineDNSSecret and fails t if an error occurs.
-func ExamineDNSSecretOrFail(t testing.TB, secret *v1.Secret, expectedID string) {
+func ExamineDNSSecretOrFail(t test.Failer, secret *v1.Secret, expectedID string) {
+	t.Helper()
 	if err := ExamineDNSSecret(secret, expectedID); err != nil {
 		t.Fatal(err)
 	}

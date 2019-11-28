@@ -102,13 +102,13 @@ func TestDNSCertificate(t *testing.T) {
 			// Test that DNS certificates have been generated.
 			ctx.NewSubTest("generateDNSCertificates").
 				Run(func(ctx framework.TestContext) {
-					t.Log("check that DNS certificates have been generated ...")
-					galleySecret = c.WaitForSecretToExistOrFail(t, galleySecretName, secretWaitTime)
-					sidecarInjectorSecret = c.WaitForSecretToExistOrFail(t, sidecarInjectorSecretName, secretWaitTime)
-					t.Log(`checking Galley DNS certificate is valid`)
-					secret.ExamineDNSSecretOrFail(t, galleySecret, galleyDNSName)
-					t.Log(`checking Sidecar Injector DNS certificate is valid`)
-					secret.ExamineDNSSecretOrFail(t, sidecarInjectorSecret, sidecarInjectorDNSName)
+					ctx.Log("check that DNS certificates have been generated ...")
+					galleySecret = c.WaitForSecretToExistOrFail(ctx, galleySecretName, secretWaitTime)
+					sidecarInjectorSecret = c.WaitForSecretToExistOrFail(ctx, sidecarInjectorSecretName, secretWaitTime)
+					ctx.Log(`checking Galley DNS certificate is valid`)
+					secret.ExamineDNSSecretOrFail(ctx, galleySecret, galleyDNSName)
+					ctx.Log(`checking Sidecar Injector DNS certificate is valid`)
+					secret.ExamineDNSSecretOrFail(ctx, sidecarInjectorSecret, sidecarInjectorDNSName)
 				})
 
 			// Test certificate regeneration: if a DNS certificate is deleted, Chiron will regenerate it.
@@ -117,14 +117,14 @@ func TestDNSCertificate(t *testing.T) {
 					env.DeleteSecret(istioNs, galleySecretName)
 					env.DeleteSecret(istioNs, sidecarInjectorSecretName)
 					// Sleep 5 seconds for the certificate regeneration to take place.
-					t.Log(`sleep 5 seconds for the certificate regeneration to take place ...`)
+					ctx.Log(`sleep 5 seconds for the certificate regeneration to take place ...`)
 					time.Sleep(5 * time.Second)
-					galleySecret = c.WaitForSecretToExistOrFail(t, galleySecretName, secretWaitTime)
-					sidecarInjectorSecret = c.WaitForSecretToExistOrFail(t, sidecarInjectorSecretName, secretWaitTime)
-					t.Log(`checking regenerated Galley DNS certificate is valid`)
-					secret.ExamineDNSSecretOrFail(t, galleySecret, galleyDNSName)
-					t.Log(`checking regenerated Sidecar Injector DNS certificate is valid`)
-					secret.ExamineDNSSecretOrFail(t, sidecarInjectorSecret, sidecarInjectorDNSName)
+					galleySecret = c.WaitForSecretToExistOrFail(ctx, galleySecretName, secretWaitTime)
+					sidecarInjectorSecret = c.WaitForSecretToExistOrFail(ctx, sidecarInjectorSecretName, secretWaitTime)
+					ctx.Log(`checking regenerated Galley DNS certificate is valid`)
+					secret.ExamineDNSSecretOrFail(ctx, galleySecret, galleyDNSName)
+					ctx.Log(`checking regenerated Sidecar Injector DNS certificate is valid`)
+					secret.ExamineDNSSecretOrFail(ctx, sidecarInjectorSecret, sidecarInjectorDNSName)
 				})
 
 			// Test certificate rotation: when the CA certificate is updated, certificates will be rotated.
@@ -132,16 +132,16 @@ func TestDNSCertificate(t *testing.T) {
 				Run(func(ctx framework.TestContext) {
 					galleySecret.Data[controller.RootCertID] = []byte(caCertUpdated)
 					if _, err := env.GetSecret(istioNs).Update(galleySecret); err != nil {
-						t.Fatalf("failed to update secret (%s:%s), error: %s", istioNs, galleySecret.Name, err)
+						ctx.Fatalf("failed to update secret (%s:%s), error: %s", istioNs, galleySecret.Name, err)
 					}
 					// Sleep 5 seconds for the certificate rotation to take place.
-					t.Log(`sleep 5 seconds for certificate rotation to take place ...`)
+					ctx.Log(`sleep 5 seconds for certificate rotation to take place ...`)
 					time.Sleep(5 * time.Second)
-					galleySecret2 = c.WaitForSecretToExistOrFail(t, galleySecretName, secretWaitTime)
-					t.Log(`checking rotated Galley DNS certificate is valid`)
-					secret.ExamineDNSSecretOrFail(t, galleySecret2, galleyDNSName)
+					galleySecret2 = c.WaitForSecretToExistOrFail(ctx, galleySecretName, secretWaitTime)
+					ctx.Log(`checking rotated Galley DNS certificate is valid`)
+					secret.ExamineDNSSecretOrFail(ctx, galleySecret2, galleyDNSName)
 					if bytes.Equal(galleySecret2.Data[controller.CertChainID], galleySecret.Data[controller.CertChainID]) {
-						t.Errorf("the rotated cert should be different from the original cert (%v, %v)",
+						ctx.Errorf("the rotated cert should be different from the original cert (%v, %v)",
 							string(galleySecret2.Data[controller.CertChainID]), string(galleySecret.Data[controller.CertChainID]))
 					}
 				})
@@ -151,17 +151,17 @@ func TestDNSCertificate(t *testing.T) {
 				Run(func(ctx framework.TestContext) {
 					sidecarInjectorSecret.Data[controller.CertChainID] = []byte(certExpired)
 					if _, err := env.GetSecret(istioNs).Update(sidecarInjectorSecret); err != nil {
-						t.Fatalf("failed to update secret (%s:%s), error: %s", istioNs, sidecarInjectorSecret.Name, err)
+						ctx.Fatalf("failed to update secret (%s:%s), error: %s", istioNs, sidecarInjectorSecret.Name, err)
 					}
 					// Sleep 5 seconds for the certificate rotation to take place.
-					t.Log(`sleep 5 seconds for expired certificate rotation to take place ...`)
+					ctx.Log(`sleep 5 seconds for expired certificate rotation to take place ...`)
 					time.Sleep(5 * time.Second)
-					sidecarInjectorSecret2 = c.WaitForSecretToExistOrFail(t, sidecarInjectorSecretName, secretWaitTime)
-					t.Log(`checking rotated Sidecar Injector DNS certificate is valid`)
-					secret.ExamineDNSSecretOrFail(t, sidecarInjectorSecret2, sidecarInjectorDNSName)
+					sidecarInjectorSecret2 = c.WaitForSecretToExistOrFail(ctx, sidecarInjectorSecretName, secretWaitTime)
+					ctx.Log(`checking rotated Sidecar Injector DNS certificate is valid`)
+					secret.ExamineDNSSecretOrFail(ctx, sidecarInjectorSecret2, sidecarInjectorDNSName)
 					if bytes.Equal(sidecarInjectorSecret2.Data[controller.CertChainID],
 						sidecarInjectorSecret.Data[controller.CertChainID]) {
-						t.Errorf("the rotated cert should be different from the original cert (%v, %v)",
+						ctx.Errorf("the rotated cert should be different from the original cert (%v, %v)",
 							string(sidecarInjectorSecret2.Data[controller.CertChainID]),
 							string(sidecarInjectorSecret.Data[controller.CertChainID]))
 					}
