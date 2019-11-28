@@ -41,7 +41,7 @@ import (
 // ones that are compiled in. If it does, the starting point will be the base and profile YAMLs at that file path.
 // Otherwise it will be the compiled in profile YAMLs.
 // In step 3, the remaining fields in the same user overlay are applied on the resulting profile base.
-func genICPS(inFilename, profile, setOverlayYAML string, force bool, l *logger) (string, *v1alpha2.IstioControlPlaneSpec, error) {
+func genICPS(inFilename, profile, setOverlayYAML string, force bool, l *Logger) (string, *v1alpha2.IstioControlPlaneSpec, error) {
 	overlayYAML := ""
 	var overlayICPS *v1alpha2.IstioControlPlaneSpec
 	set := make(map[string]interface{})
@@ -128,7 +128,7 @@ func genICPS(inFilename, profile, setOverlayYAML string, force bool, l *logger) 
 	return finalYAML, finalICPS, nil
 }
 
-func genProfile(helmValues bool, inFilename, profile, setOverlayYAML, configPath string, force bool, l *logger) (string, error) {
+func genProfile(helmValues bool, inFilename, profile, setOverlayYAML, configPath string, force bool, l *Logger) (string, error) {
 	finalYAML, finalICPS, err := genICPS(inFilename, profile, setOverlayYAML, force, l)
 	if err != nil {
 		return "", err
@@ -175,7 +175,7 @@ func unmarshalAndValidateICP(crYAML string, force bool) (*v1alpha2.IstioControlP
 	return icps, icpsYAML, nil
 }
 
-func unmarshalAndValidateICPS(icpsYAML string, force bool, l *logger) (*v1alpha2.IstioControlPlaneSpec, error) {
+func unmarshalAndValidateICPS(icpsYAML string, force bool, l *Logger) (*v1alpha2.IstioControlPlaneSpec, error) {
 	icps := &v1alpha2.IstioControlPlaneSpec{}
 	if err := util.UnmarshalWithJSONPB(icpsYAML, icps); err != nil {
 		return nil, fmt.Errorf("could not unmarshal the merged YAML: %s\n\nYAML:\n%s", err, icpsYAML)

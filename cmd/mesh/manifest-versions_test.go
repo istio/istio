@@ -32,7 +32,7 @@ func TestGetVersionCompatibleMap(t *testing.T) {
 	type args struct {
 		versionsURI string
 		binVersion  *goversion.Version
-		l           *logger
+		l           *Logger
 	}
 
 	testDataDir = filepath.Join(repoRootDir, "cmd/mesh/testdata/manifest-versions")
@@ -43,7 +43,7 @@ func TestGetVersionCompatibleMap(t *testing.T) {
 	goVerNonexistent, _ := goversion.NewVersion("0.0.999")
 	goVer133, _ := goversion.NewVersion("1.3.3")
 
-	l := newLogger(true, os.Stdout, os.Stderr)
+	l := NewLogger(true, os.Stdout, os.Stderr)
 
 	b, err := ioutil.ReadFile(operatorVersionsFilePath)
 	if err != nil {

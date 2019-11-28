@@ -43,7 +43,7 @@ var (
 )
 
 func genApplyManifests(setOverlay []string, inFilename string, force bool, dryRun bool, verbose bool,
-	kubeConfigPath string, context string, waitTimeout time.Duration, l *logger) error {
+	kubeConfigPath string, context string, waitTimeout time.Duration, l *Logger) error {
 	overlayFromSet, err := MakeTreeFromSetList(setOverlay, force, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate tree from the set overlay, error: %v", err)
@@ -93,7 +93,7 @@ func genApplyManifests(setOverlay []string, inFilename string, force bool, dryRu
 }
 
 // GenManifests generate manifest from input file and setOverLay
-func GenManifests(inFilename string, setOverlayYAML string, force bool, l *logger) (name.ManifestMap, error) {
+func GenManifests(inFilename string, setOverlayYAML string, force bool, l *Logger) (name.ManifestMap, error) {
 	mergedYAML, err := genProfile(false, inFilename, "", setOverlayYAML, "", force, l)
 	if err != nil {
 		return nil, err
@@ -154,7 +154,7 @@ func fetchInstallPackageFromURL(mergedICPS *v1alpha2.IstioControlPlaneSpec) erro
 }
 
 // MakeTreeFromSetList creates a YAML tree from a string slice containing key-value pairs in the format key=value.
-func MakeTreeFromSetList(setOverlay []string, force bool, l *logger) (string, error) {
+func MakeTreeFromSetList(setOverlay []string, force bool, l *Logger) (string, error) {
 	if len(setOverlay) == 0 {
 		return "", nil
 	}

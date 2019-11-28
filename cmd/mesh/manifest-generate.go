@@ -40,7 +40,7 @@ type manifestGenerateArgs struct {
 func addManifestGenerateFlags(cmd *cobra.Command, args *manifestGenerateArgs) {
 	cmd.PersistentFlags().StringVarP(&args.inFilename, "filename", "f", "", filenameFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.outFilename, "output", "o", "", "Manifest output directory path")
-	cmd.PersistentFlags().StringSliceVarP(&args.set, "set", "s", nil, setFlagHelpStr)
+	cmd.PersistentFlags().StringSliceVarP(&args.set, "set", "s", nil, SetFlagHelpStr)
 	cmd.PersistentFlags().BoolVar(&args.force, "force", false, "Proceed even with validation errors")
 }
 
@@ -56,13 +56,13 @@ func manifestGenerateCmd(rootArgs *rootArgs, mgArgs *manifestGenerateArgs) *cobr
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			l := newLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
+			l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
 			return manifestGenerate(rootArgs, mgArgs, l)
 		}}
 
 }
 
-func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, l *logger) error {
+func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, l *Logger) error {
 	if err := configLogs(args.logToStdErr); err != nil {
 		return fmt.Errorf("could not configure logs: %s", err)
 	}

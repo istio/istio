@@ -56,12 +56,12 @@ func manifestVersionsCmd(rootArgs *rootArgs, versionsArgs *manifestVersionsArgs)
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			l := newLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
+			l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
 			return manifestVersions(rootArgs, versionsArgs, l)
 		}}
 }
 
-func manifestVersions(args *rootArgs, mvArgs *manifestVersionsArgs, l *logger) error {
+func manifestVersions(args *rootArgs, mvArgs *manifestVersionsArgs, l *Logger) error {
 	initLogsOrExit(args)
 
 	myVersionMap, err := getVersionCompatibleMap(mvArgs.versionsURI, binversion.OperatorBinaryGoVersion, l)
@@ -84,7 +84,7 @@ func manifestVersions(args *rootArgs, mvArgs *manifestVersionsArgs, l *logger) e
 }
 
 func getVersionCompatibleMap(versionsURI string, binVersion *goversion.Version,
-	l *logger) (*version.CompatibilityMapping, error) {
+	l *Logger) (*version.CompatibilityMapping, error) {
 	var b []byte
 	var err error
 
@@ -110,7 +110,7 @@ func getVersionCompatibleMap(versionsURI string, binVersion *goversion.Version,
 	return myVersionMap, nil
 }
 
-func loadCompatibleMapFile(versionsURI string, l *logger) ([]byte, error) {
+func loadCompatibleMapFile(versionsURI string, l *Logger) ([]byte, error) {
 	var err error
 	if util.IsHTTPURL(versionsURI) {
 		if b, err := httprequest.Get(versionsURI); err == nil {

@@ -55,7 +55,7 @@ func addManifestApplyFlags(cmd *cobra.Command, args *manifestApplyArgs) {
 		" The --wait flag must be set for this flag to apply")
 	cmd.PersistentFlags().BoolVarP(&args.wait, "wait", "w", false, "Wait, if set will wait until all Pods, Services, and minimum number of Pods "+
 		"of a Deployment are in a ready state before the command exits. It will wait for a maximum duration of --readiness-timeout seconds")
-	cmd.PersistentFlags().StringSliceVarP(&args.set, "set", "s", nil, setFlagHelpStr)
+	cmd.PersistentFlags().StringSliceVarP(&args.set, "set", "s", nil, SetFlagHelpStr)
 }
 
 func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs) *cobra.Command {
@@ -65,7 +65,7 @@ func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs) *cobra.Comm
 		Long:  "The apply subcommand generates an Istio install manifest and applies it to a cluster.",
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			l := newLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
+			l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
 			// Warn users if they use `manifest apply` without any config args.
 			if maArgs.inFilename == "" && len(maArgs.set) == 0 && !maArgs.skipConfirmation {
 				if !confirm("This will install the default Istio profile into the cluster. Proceed? (y/N)", cmd.OutOrStdout()) {
@@ -77,7 +77,7 @@ func manifestApplyCmd(rootArgs *rootArgs, maArgs *manifestApplyArgs) *cobra.Comm
 		}}
 }
 
-func manifestApply(args *rootArgs, maArgs *manifestApplyArgs, l *logger) error {
+func manifestApply(args *rootArgs, maArgs *manifestApplyArgs, l *Logger) error {
 	if err := configLogs(args.logToStdErr); err != nil {
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
