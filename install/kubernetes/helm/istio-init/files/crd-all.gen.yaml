@@ -96,6 +96,8 @@ spec:
     kind: AuthorizationPolicy
     plural: authorizationpolicies
     singular: authorizationpolicy
+    shortNames:
+    - authzpol
   scope: Namespaced
   subresources:
     status: {}
