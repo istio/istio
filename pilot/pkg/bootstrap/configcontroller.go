@@ -37,7 +37,6 @@ import (
 	"istio.io/istio/pilot/pkg/config/memory"
 	configmonitor "istio.io/istio/pilot/pkg/config/monitor"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schemas"
 	configz "istio.io/istio/pkg/mcp/configz/client"
@@ -165,9 +164,6 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 
 		// create MCP SyntheticServiceEntryController
 		if resourceContains(configSource.SubscribedResources, meshconfig.Resource_SERVICE_REGISTRY) {
-
-			//TODO(Nino-K): https://github.com/istio/istio/issues/16976
-			args.Service.Registries = []string{string(serviceregistry.MCP)}
 			conn, err := grpcDial(ctx, cancel, configSource, args)
 			if err != nil {
 				log.Errorf("Unable to dial MCP Server %q: %v", configSource.Address, err)

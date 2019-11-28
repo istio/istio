@@ -139,15 +139,12 @@ func RunValidation(ready chan<- struct{}, stopCh chan struct{}, vc *WebhookParam
 	}
 
 	go func() {
-		for range stopCh {
-			if livenessProbeController != nil {
-				validationLivenessProbe.SetAvailable(errors.New("stopped"))
-			}
-			if readinessProbeController != nil {
-				validationReadinessProbe.SetAvailable(errors.New("stopped"))
-			}
-			// nolint: staticcheck
-			break
+		<-stopCh
+		if livenessProbeController != nil {
+			validationLivenessProbe.SetAvailable(errors.New("stopped"))
+		}
+		if readinessProbeController != nil {
+			validationReadinessProbe.SetAvailable(errors.New("stopped"))
 		}
 	}()
 	go wh.Run(ready, stopCh)

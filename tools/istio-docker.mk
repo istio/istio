@@ -22,8 +22,10 @@
 docker: docker.all
 
 # Add new docker targets to the end of the DOCKER_TARGETS list.
+
 DOCKER_TARGETS ?= docker.pilot docker.istiod docker.proxytproxy docker.proxyv2 docker.app docker.app_sidecar docker.test_policybackend \
-	docker.mixer docker.mixer_codegen docker.citadel docker.galley docker.sidecar_injector docker.kubectl docker.node-agent-k8s
+	docker.mixer docker.mixer_codegen docker.citadel docker.galley docker.sidecar_injector docker.kubectl docker.node-agent-k8s \
+	docker.istioctl
 
 $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 	mkdir -p $@
@@ -49,7 +51,7 @@ $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key: ${GEN_CERT} $(IST
 # 	cp $(ISTIO_OUT_LINUX)/$FILE $(ISTIO_DOCKER)/($FILE)
 DOCKER_FILES_FROM_ISTIO_OUT_LINUX:=client server \
                              pilot-discovery pilot-agent sidecar-injector mixs mixgen \
-                             istio_ca node_agent node_agent_k8s galley istio-iptables istio-clean-iptables
+                             istio_ca node_agent node_agent_k8s galley istio-iptables istio-clean-iptables istioctl
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT_LINUX), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT_LINUX)/$(FILE) | $(ISTIO_DOCKER); cp $(ISTIO_OUT_LINUX)/$(FILE) $(ISTIO_DOCKER)/$(FILE)))
 
@@ -60,11 +62,7 @@ $(ISTIO_DOCKER)/certs:
 
 # tell make which files are copied from the source tree and generate rules to copy them to the proper location:
 # TODO(sdake)                      $(NODE_AGENT_TEST_FILES) $(GRAFANA_FILES)
-DOCKER_FILES_FROM_SOURCE:=tools/packaging/common/istio-iptables.sh tools/packaging/common/istio-clean-iptables.sh \
-                          tests/testdata/certs/cert.crt tests/testdata/certs/cert.key tests/testdata/certs/cacert.pem
-# generates rules like the following:
-# $(ISTIO_DOCKER)/tools/packaging/common/istio-iptables.sh: $(ISTIO_OUT)/tools/packaging/common/istio-iptables.sh | $(ISTIO_DOCKER)
-# 	cp $FILE $$(@D))
+DOCKER_FILES_FROM_SOURCE:=tests/testdata/certs/cert.crt tests/testdata/certs/cert.key tests/testdata/certs/cacert.pem
 $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
         $(eval $(ISTIO_DOCKER)/$(notdir $(FILE)): $(FILE) | $(ISTIO_DOCKER); cp $(FILE) $$(@D)))
 
@@ -107,7 +105,6 @@ docker.proxyv2: $(ISTIO_OUT_LINUX)/pilot-agent
 docker.proxyv2: pilot/docker/Dockerfile.proxyv2
 docker.proxyv2: pilot/docker/envoy_pilot.yaml.tmpl
 docker.proxyv2: pilot/docker/envoy_policy.yaml.tmpl
-docker.proxyv2: tools/packaging/common/istio-iptables.sh
 docker.proxyv2: pilot/docker/envoy_telemetry.yaml.tmpl
 docker.proxyv2: $(ISTIO_DOCKER)/istio-iptables
 	$(DOCKER_RULE)
@@ -121,8 +118,8 @@ docker.proxytproxy: $(ISTIO_OUT_LINUX)/pilot-agent
 docker.proxytproxy: pilot/docker/Dockerfile.proxytproxy
 docker.proxytproxy: pilot/docker/envoy_pilot.yaml.tmpl
 docker.proxytproxy: pilot/docker/envoy_policy.yaml.tmpl
-docker.proxytproxy: tools/packaging/common/istio-iptables.sh
 docker.proxytproxy: pilot/docker/envoy_telemetry.yaml.tmpl
+docker.proxytproxy: $(ISTIO_DOCKER)/istio-iptables
 	$(DOCKER_RULE)
 
 docker.pilot: BUILD_PRE=chmod 755 pilot-discovery cacert.pem &&
@@ -150,8 +147,6 @@ docker.app: $(ISTIO_DOCKER)/certs
 # Test application bundled with the sidecar (for non-k8s).
 docker.app_sidecar: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.app_sidecar: tools/packaging/common/envoy_bootstrap_v2.json
-docker.app_sidecar: tools/packaging/common/istio-iptables.sh
-docker.app_sidecar: tools/packaging/common/istio-clean-iptables.sh
 docker.app_sidecar: tools/packaging/common/istio-start.sh
 docker.app_sidecar: tools/packaging/common/istio-node-agent-start.sh
 docker.app_sidecar: tools/packaging/deb/postinst.sh
@@ -166,6 +161,8 @@ docker.app_sidecar: pkg/test/echo/docker/Dockerfile.app_sidecar
 docker.app_sidecar: pilot/docker/envoy_pilot.yaml.tmpl
 docker.app_sidecar: pilot/docker/envoy_policy.yaml.tmpl
 docker.app_sidecar: pilot/docker/envoy_telemetry.yaml.tmpl
+docker.app_sidecar: $(ISTIO_DOCKER)/istio-iptables
+docker.app_sidecar: $(ISTIO_DOCKER)/istio-clean-iptables
 	$(DOCKER_RULE)
 
 # Test policy backend for mixer integration
@@ -176,6 +173,11 @@ docker.test_policybackend: $(ISTIO_OUT_LINUX)/policybackend
 
 docker.kubectl: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.kubectl: docker/Dockerfile$$(suffix $$@)
+	$(DOCKER_RULE)
+
+docker.istioctl: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
+docker.istioctl: istioctl/docker/Dockerfile.istioctl
+docker.istioctl: $(ISTIO_OUT_LINUX)/istioctl
 	$(DOCKER_RULE)
 
 # mixer docker images
@@ -202,7 +204,7 @@ docker.mixer_codegen: $(ISTIO_DOCKER)/mixgen
 # This target works by reusing the existing docker methods. Each docker target declares it's dependencies.
 # We then override the docker rule and "build" all of these, where building just copies the dependencies
 # We then generate a "bake" file, which defines all of the docker files in the repo
-# Finally, we call `docker buildx bake` to generate the images. DOCKER_SAVE can be set to output to a .tar
+# Finally, we call `docker buildx bake` to generate the images.
 dockerx: DOCKER_RULE?=mkdir -p $(DOCKERX_BUILD_TOP)/$@ && cp -r $^ $(DOCKERX_BUILD_TOP)/$@
 dockerx: docker | $(ISTIO_DOCKER_TAR)
 dockerx:
@@ -211,20 +213,12 @@ dockerx:
 		DOCKER_ALL_VARIANTS="$(DOCKER_ALL_VARIANTS)" \
 		ISTIO_DOCKER_TAR=$(ISTIO_DOCKER_TAR) \
 		BASE_VERSION=$(BASE_VERSION) \
-		DOCKER_SAVE="$(DOCKER_SAVE)" \
 		./tools/buildx-gen.sh $(DOCKERX_BUILD_TOP) $(DOCKER_TARGETS)
 	DOCKER_CLI_EXPERIMENTAL=enabled docker buildx bake -f $(DOCKERX_BUILD_TOP)/docker-bake.hcl $(DOCKER_BUILD_VARIANTS)
 
 # Support individual images like `dockerx.pilot`
 dockerx.%:
 	@DOCKER_TARGETS=docker.$* BUILD_ALL=false $(MAKE) --no-print-directory -f Makefile.core.mk dockerx
-
-# Reuse the dockerx target, but export save variable to trigger output to .tar
-dockerx.save: DOCKER_SAVE=true
-dockerx.save: $(ISTIO_DOCKER_TAR)
-dockerx.save: dockerx
-	# We also want to gzip all of them
-	gzip -f $(ISTIO_DOCKER_TAR)/*
 
 # galley docker images
 docker.galley: BUILD_PRE=chmod 755 galley &&
@@ -310,8 +304,7 @@ tar.docker.app: docker.app | $(ISTIO_DOCKER_TAR)
 $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_TAR_TARGETS+=tar.$(TGT)))
 
 # this target saves a tar.gz of each docker image to ${ISTIO_OUT_LINUX}/docker/
-#docker.save: $(DOCKER_TAR_TARGETS)
-docker.save: dockerx.save
+docker.save: $(DOCKER_TAR_TARGETS)
 
 # for each docker.XXX target create a push.docker.XXX target that pushes
 # the local docker image to another hub

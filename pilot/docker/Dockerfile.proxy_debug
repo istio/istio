@@ -7,7 +7,7 @@ FROM docker.io/istio/base:${BASE_VERSION} as default
 ARG proxy_version
 ARG istio_version
 
-COPY istio-iptables.sh /usr/local/bin/istio-iptables
+COPY istio-iptables /usr/local/bin/istio-iptables
 
 # Install Envoy.
 COPY envoy /usr/local/bin/envoy
