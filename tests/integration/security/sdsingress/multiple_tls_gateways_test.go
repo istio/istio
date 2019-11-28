@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package sds_ingress
+package sdsingress
 
 import (
 	"testing"
@@ -21,7 +21,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/ingress"
-	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
+	ingressutil "istio.io/istio/tests/integration/security/sdsingress/util"
 )
 
 // testMultiTlsGateways deploys multiple TLS gateways with SDS enabled, and creates kubernetes that store

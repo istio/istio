@@ -60,6 +60,35 @@ test.integration.%.kube: | $(JUNIT_REPORT)
 # Test targets to run with the new installer. Some targets are filtered now as they are not yet working
 NEW_INSTALLER_TARGETS = $(shell GOPATH=${GOPATH} go list ../istio/tests/integration/... | grep -v "/mixer\|telemetry/tracing\|/istioctl\|/istioio")
 
+# TODO: Exclude examples and qualification since they are very flaky.
+TEST_PACKAGES = $(shell go list ./tests/integration/... | grep -v /qualification | grep -v /examples)
+
+# Various tests have issues with the operator currently
+# When running in operator mode, skip these tests, until these issues are resolved:
+# /mcp: https://github.com/istio/installer/pull/566
+# /sds_citadel_control_plane_auth_disabled: https://github.com/istio/istio/issues/19109
+# /servertracing: https://github.com/istio/istio/issues/19177
+OPERATOR_TEST_PACKAGES = $(shell go list ./tests/integration/... \
+  | grep -v /qualification \
+  | grep -v /examples \
+  | grep -v /mcp \
+  | grep -v /sds_citadel_control_plane_auth_disabled \
+  | grep -v /servertracing \
+)
+
+test.integration.operator: $(JUNIT_REPORT)
+	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
+	$(GO) test -p 1 ${T} ${OPERATOR_TEST_PACKAGES} ${_INTEGRATION_TEST_WORKDIR_FLAG} ${_INTEGRATION_TEST_CIMODE_FLAG} -timeout 30m \
+	--istio.test.select -postsubmit,-flaky \
+	--istio.test.env kube \
+	--istio.test.kube.operator \
+	--istio.test.kube.config ${INTEGRATION_TEST_KUBECONFIG} \
+	--istio.test.hub=${HUB} \
+	--istio.test.tag=${TAG} \
+	--istio.test.pullpolicy=${_INTEGRATION_TEST_PULL_POLICY} \
+	${_INTEGRATION_TEST_INGRESS_FLAG} \
+	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
+
 # Runs tests using the new installer. Istio is deployed before the test and setup and cleanup are disabled.
 # For this to work, the -customsetup selector is used.
 test.integration.new.installer: istioctl | $(JUNIT_REPORT)
@@ -86,9 +115,6 @@ test.integration.%.local: | $(JUNIT_REPORT)
 	$(GO) test -p 1 ${T} -race ./tests/integration/$(subst .,/,$*)/... \
 	--istio.test.env native \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
-
-# TODO: Exclude examples and qualification since they are very flaky.
-TEST_PACKAGES = $(shell go list ./tests/integration/... | grep -v /qualification | grep -v /examples)
 
 # Generate presubmit integration test targets for each component in kubernetes environment
 test.integration.%.kube.presubmit: istioctl | $(JUNIT_REPORT)
