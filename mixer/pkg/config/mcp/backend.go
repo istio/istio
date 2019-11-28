@@ -200,6 +200,7 @@ func (b *backend) Init(kinds []string) error {
 		Updater:           b,
 		ID:                mixerNodeID,
 		Reporter:          b.mcpReporter,
+		Probe:             b.Probe,
 	}
 
 	cl := mcp.NewResourceSourceClient(conn)

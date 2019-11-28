@@ -23,6 +23,7 @@ import (
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/mcp/monitoring"
+	"istio.io/pkg/probe"
 )
 
 var (
@@ -39,6 +40,7 @@ type Client struct {
 	client mcp.ResourceSourceClient
 	*Sink
 	reporter monitoring.Reporter
+	*probe.Probe
 }
 
 // NewClient returns a new instance of Client.
@@ -47,6 +49,7 @@ func NewClient(client mcp.ResourceSourceClient, options *Options) *Client {
 		Sink:     New(options),
 		reporter: options.Reporter,
 		client:   client,
+		Probe:    options.Probe,
 	}
 }
 
@@ -75,6 +78,7 @@ func (c *Client) Run(ctx context.Context) {
 				reconnectTestProbe()
 			}
 
+			c.SetAvailable(err)
 			if err == nil {
 				c.reporter.RecordStreamCreateSuccess()
 				scope.Info("New MCP sink stream created")
@@ -90,5 +94,6 @@ func (c *Client) Run(ctx context.Context) {
 			c.reporter.RecordRecvError(err, status.Code(err))
 			scope.Errorf("Error receiving MCP response: %v", err)
 		}
+		c.SetAvailable(err)
 	}
 }

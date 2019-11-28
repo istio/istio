@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/mcp/monitoring"
 	"istio.io/istio/pkg/mcp/status"
 	"istio.io/pkg/log"
+	"istio.io/pkg/probe"
 )
 
 var scope = log.RegisterScope("mcp", "mcp debugging", 0)
@@ -351,6 +352,7 @@ type Options struct {
 	ID                string
 	Metadata          map[string]string
 	Reporter          monitoring.Reporter
+	*probe.Probe
 }
 
 // Stream is for sending RequestResources messages and receiving Resource messages.
