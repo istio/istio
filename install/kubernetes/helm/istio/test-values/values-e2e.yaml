@@ -96,8 +96,6 @@ mixer:
   adapters:
     stdio:
       enabled: true
-  kiali:
-    enabled: true
 
 sidecarInjectorWebhook:
   rewriteAppHTTPProbe: true
