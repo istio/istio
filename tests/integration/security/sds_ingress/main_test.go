@@ -46,9 +46,8 @@ var (
 func TestMain(m *testing.M) {
 	// Integration test for the ingress SDS Gateway flow.
 	framework.
-		NewSuite("sds_ingress_multi_mtls_gateway_invalid_secret_test", m).
+		NewSuite("sds_ingress", m).
 		Label(label.CustomSetup).
-		Label(label.Flaky).
 		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {
 			if g, err = galley.New(ctx, galley.Config{}); err != nil {
