@@ -67,11 +67,11 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, l *logger) e
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
 
-	overlayFromSet, err := makeTreeFromSetList(mgArgs.set, mgArgs.force, l)
+	overlayFromSet, err := MakeTreeFromSetList(mgArgs.set, mgArgs.force, l)
 	if err != nil {
 		return err
 	}
-	manifests, err := genManifests(mgArgs.inFilename, overlayFromSet, mgArgs.force, l)
+	manifests, err := GenManifests(mgArgs.inFilename, overlayFromSet, mgArgs.force, l)
 	if err != nil {
 		return err
 	}
