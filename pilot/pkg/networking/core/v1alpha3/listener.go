@@ -854,6 +854,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 	for _, egressListener := range node.SidecarScope.EgressListeners {
 
 		services := egressListener.Services()
+
+		// There is a possibility that egress listener might not have selected any service - early return from here.
+		if len(services) == 0 {
+			continue
+		}
 		virtualServices := egressListener.VirtualServices()
 
 		// determine the bindToPort setting for listeners
