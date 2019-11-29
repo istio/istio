@@ -15,6 +15,7 @@
 package external
 
 import (
+	"reflect"
 	"sync"
 	"time"
 
@@ -62,21 +63,35 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 		updateNeeded:     true,
 	}
 	if configController != nil {
-		configController.RegisterEventHandler(schemas.ServiceEntry.Type, func(config model.Config, event model.Event) {
+		configController.RegisterEventHandler(schemas.ServiceEntry.Type, func(old, curr model.Config, event model.Event) {
 			// Recomputing the index here is too expensive.
 			c.changeMutex.Lock()
 			c.lastChange = time.Now()
 			c.updateNeeded = true
 			c.changeMutex.Unlock()
 
-			// TODO : Currently any update to ServiceEntry triggers a full push. We need to identify what has actually
-			// changed and call appropriate handlers - for example call only service handler for the changed services
-			// and call instance handlers only when instance update happens. This requires us to rework the handlers to
-			// have both old and new objects so that they can compare and be smart.
-			services := convertServices(config)
-			for _, handler := range c.serviceHandlers {
-				for _, service := range services {
-					go handler(service, event)
+			cs := convertServices(curr)
+
+			// If it is add/delete event we should always do a full push. If it is update event, we should do full push,
+			// only when services have changed - otherwise, just call instance handlers to push endpoint updates.
+			fp := true
+			if event == model.EventUpdate {
+				os := convertServices(old)
+				fp = servicesChanged(os, cs)
+			}
+
+			if fp {
+				for _, handler := range c.serviceHandlers {
+					for _, service := range cs {
+						go handler(service, event)
+					}
+				}
+			} else {
+				instances := convertInstances(curr, cs)
+				for _, handler := range c.instanceHandlers {
+					for _, instance := range instances {
+						go handler(instance, event)
+					}
 				}
 			}
 		})
@@ -271,4 +286,14 @@ func (d *ServiceEntryStore) GetIstioServiceAccounts(svc *model.Service, ports []
 	//for service entries, there is no istio auth, no service accounts, etc. It is just a
 	// service, with service instances, and dns.
 	return nil
+}
+
+// This method compares if services have changed, that needs full push.
+func servicesChanged(os []*model.Service, ns []*model.Service) bool {
+	// Length of services have changed, needs full push.
+	if len(os) != len(ns) {
+		return true
+	}
+	// TODO : check if any finer grained check is possible, rather than comparing entire object.
+	return !reflect.DeepEqual(os, ns)
 }

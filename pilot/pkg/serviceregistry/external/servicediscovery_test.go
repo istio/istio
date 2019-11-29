@@ -224,6 +224,86 @@ func TestNonServiceConfig(t *testing.T) {
 	}
 }
 
+func TestServicesChanged(t *testing.T) {
+
+	var updatedHttpDNS = &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:              schemas.ServiceEntry.Type,
+			Name:              "httpDNS",
+			Namespace:         "httpDNS",
+			CreationTimestamp: GlobalTime,
+			Labels:            map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
+		},
+		Spec: &networking.ServiceEntry{
+			Hosts: []string{"*.google.com", "*.mail.com"},
+			Ports: []*networking.Port{
+				{Number: 80, Name: "http-port", Protocol: "http"},
+				{Number: 8080, Name: "http-alt-port", Protocol: "http"},
+			},
+			Endpoints: []*networking.ServiceEntry_Endpoint{
+				{
+					Address: "us.google.com",
+					Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
+					Labels:  map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
+				},
+				{
+					Address: "uk.google.com",
+					Ports:   map[string]uint32{"http-port": 1080},
+					Labels:  map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
+				},
+				{
+					Address: "de.google.com",
+					Labels:  map[string]string{"foo": "bar", model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
+				},
+			},
+			Location:   networking.ServiceEntry_MESH_EXTERNAL,
+			Resolution: networking.ServiceEntry_DNS,
+		},
+	}
+
+	cases := []struct {
+		name string
+		a    *model.Config
+		b    *model.Config
+		want bool
+	}{
+		{
+			"same config",
+			httpDNS,
+			httpDNS,
+			false,
+		},
+		{
+			"different config",
+			httpDNS,
+			httpNoneInternal,
+			true,
+		},
+		{
+			"different resolution",
+			tcpDNS,
+			tcpStatic,
+			true,
+		},
+		{
+			"same config with additional host",
+			httpDNS,
+			updatedHttpDNS,
+			true,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			as := convertServices(*tt.a)
+			bs := convertServices(*tt.b)
+			got := servicesChanged(as, bs)
+			if got != tt.want {
+				t.Errorf("ServicesChanged got %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func sortServices(services []*model.Service) {
 	sort.Slice(services, func(i, j int) bool { return services[i].Hostname < services[j].Hostname })
 	for _, service := range services {

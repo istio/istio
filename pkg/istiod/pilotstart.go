@@ -697,7 +697,7 @@ func (s *Server) initEventHandlers() error {
 	if s.ConfigController != nil {
 		// TODO: changes should not trigger a full recompute of LDS/RDS/CDS/EDS
 		// (especially mixerclient HTTP and quota)
-		configHandler := func(c model.Config, _ model.Event) {
+		configHandler := func(_, c model.Config, _ model.Event) {
 			pushReq := &model.PushRequest{
 				Full:               true,
 				ConfigTypesUpdated: map[string]struct{}{c.Type: {}},

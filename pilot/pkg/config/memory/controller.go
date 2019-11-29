@@ -37,7 +37,7 @@ func NewController(cs model.ConfigStore) model.ConfigStoreCache {
 	return out
 }
 
-func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model.Event)) {
+func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model.Config, model.Event)) {
 	c.monitor.AppendEventHandler(typ, f)
 }
 

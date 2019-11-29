@@ -96,11 +96,11 @@ type ConfigStoreCache struct {
 		result1 []model.Config
 		result2 error
 	}
-	RegisterEventHandlerStub        func(string, func(model.Config, model.Event))
+	RegisterEventHandlerStub        func(string, func(model.Config, model.Config, model.Event))
 	registerEventHandlerMutex       sync.RWMutex
 	registerEventHandlerArgsForCall []struct {
 		arg1 string
-		arg2 func(model.Config, model.Event)
+		arg2 func(model.Config, model.Config, model.Event)
 	}
 	RunStub        func(<-chan struct{})
 	runMutex       sync.RWMutex
@@ -553,11 +553,11 @@ func (fake *ConfigStoreCache) ListReturnsOnCall(i int, result1 []model.Config, r
 	}{result1, result2}
 }
 
-func (fake *ConfigStoreCache) RegisterEventHandler(arg1 string, arg2 func(model.Config, model.Event)) {
+func (fake *ConfigStoreCache) RegisterEventHandler(arg1 string, arg2 func(model.Config, model.Config, model.Event)) {
 	fake.registerEventHandlerMutex.Lock()
 	fake.registerEventHandlerArgsForCall = append(fake.registerEventHandlerArgsForCall, struct {
 		arg1 string
-		arg2 func(model.Config, model.Event)
+		arg2 func(model.Config, model.Config, model.Event)
 	}{arg1, arg2})
 	fake.recordInvocation("RegisterEventHandler", []interface{}{arg1, arg2})
 	fake.registerEventHandlerMutex.Unlock()
@@ -572,13 +572,13 @@ func (fake *ConfigStoreCache) RegisterEventHandlerCallCount() int {
 	return len(fake.registerEventHandlerArgsForCall)
 }
 
-func (fake *ConfigStoreCache) RegisterEventHandlerCalls(stub func(string, func(model.Config, model.Event))) {
+func (fake *ConfigStoreCache) RegisterEventHandlerCalls(stub func(string, func(model.Config, model.Config, model.Event))) {
 	fake.registerEventHandlerMutex.Lock()
 	defer fake.registerEventHandlerMutex.Unlock()
 	fake.RegisterEventHandlerStub = stub
 }
 
-func (fake *ConfigStoreCache) RegisterEventHandlerArgsForCall(i int) (string, func(model.Config, model.Event)) {
+func (fake *ConfigStoreCache) RegisterEventHandlerArgsForCall(i int) (string, func(model.Config, model.Config, model.Event)) {
 	fake.registerEventHandlerMutex.RLock()
 	defer fake.registerEventHandlerMutex.RUnlock()
 	argsForCall := fake.registerEventHandlerArgsForCall[i]

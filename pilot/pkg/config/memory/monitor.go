@@ -25,7 +25,7 @@ const (
 )
 
 // Handler specifies a function to apply on a Config for a given event type
-type Handler func(model.Config, model.Event)
+type Handler func(model.Config, model.Config, model.Event)
 
 // Monitor provides methods of manipulating changes in the config store
 type Monitor interface {
@@ -100,6 +100,6 @@ func (m *configstoreMonitor) AppendEventHandler(typ string, h Handler) {
 
 func (m *configstoreMonitor) applyHandlers(config model.Config, e model.Event) {
 	for _, f := range m.handlers[config.Type] {
-		f(config, e)
+		f(model.Config{}, config, e)
 	}
 }
