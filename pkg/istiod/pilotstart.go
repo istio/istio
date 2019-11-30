@@ -549,7 +549,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 // addConfig2ServiceEntry creates and initializes the ServiceController used for translating
 // ServiceEntries from config store to discovery.
 func (s *Server) addConfig2ServiceEntry() {
-	serviceEntryStore := external.NewServiceDiscovery(s.ConfigController, s.IstioConfigStore)
+	serviceEntryStore := external.NewServiceDiscovery(s.ConfigController, s.IstioConfigStore, s.EnvoyXdsServer)
 	s.ServiceController.AddRegistry(serviceEntryStore)
 }
 

@@ -61,7 +61,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		}
 	}
 
-	serviceEntryStore := external.NewServiceDiscovery(s.configController, s.istioConfigStore)
+	serviceEntryStore := external.NewServiceDiscovery(s.configController, s.istioConfigStore, s.EnvoyXdsServer)
 	serviceControllers.AddRegistry(serviceEntryStore)
 
 	s.ServiceController = serviceControllers

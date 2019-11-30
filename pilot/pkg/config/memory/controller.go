@@ -77,8 +77,10 @@ func (c *controller) Create(config model.Config) (revision string, err error) {
 }
 
 func (c *controller) Update(config model.Config) (newRevision string, err error) {
+	oldconfig := c.configStore.Get(config.Type, config.Name, config.Namespace)
 	if newRevision, err = c.configStore.Update(config); err == nil {
 		c.monitor.ScheduleProcessEvent(ConfigEvent{
+			old:    *oldconfig,
 			config: config,
 			event:  model.EventUpdate,
 		})

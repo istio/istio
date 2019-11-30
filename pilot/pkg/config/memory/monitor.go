@@ -37,6 +37,7 @@ type Monitor interface {
 // ConfigEvent defines the event to be processed
 type ConfigEvent struct {
 	config model.Config
+	old    model.Config
 	event  model.Event
 }
 
@@ -91,15 +92,15 @@ func (m *configstoreMonitor) processConfigEvent(ce ConfigEvent) {
 		log.Warnf("Config Type %s does not exist in config store", ce.config.Type)
 		return
 	}
-	m.applyHandlers(ce.config, ce.event)
+	m.applyHandlers(ce.old, ce.config, ce.event)
 }
 
 func (m *configstoreMonitor) AppendEventHandler(typ string, h Handler) {
 	m.handlers[typ] = append(m.handlers[typ], h)
 }
 
-func (m *configstoreMonitor) applyHandlers(config model.Config, e model.Event) {
+func (m *configstoreMonitor) applyHandlers(old model.Config, config model.Config, e model.Event) {
 	for _, f := range m.handlers[config.Type] {
-		f(model.Config{}, config, e)
+		f(old, config, e)
 	}
 }

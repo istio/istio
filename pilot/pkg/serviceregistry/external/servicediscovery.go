@@ -37,9 +37,8 @@ type instanceHandler func(*model.ServiceInstance, model.Event)
 
 // ServiceEntryStore communicates with ServiceEntry CRDs and monitors for changes
 type ServiceEntryStore struct {
-	serviceHandlers  []serviceHandler
-	instanceHandlers []instanceHandler
-	store            model.IstioConfigStore
+	xdsUpdater model.XDSUpdater
+	store      model.IstioConfigStore
 
 	storeMutex sync.RWMutex
 
@@ -53,14 +52,13 @@ type ServiceEntryStore struct {
 }
 
 // NewServiceDiscovery creates a new ServiceEntry discovery service
-func NewServiceDiscovery(configController model.ConfigStoreCache, store model.IstioConfigStore) *ServiceEntryStore {
+func NewServiceDiscovery(configController model.ConfigStoreCache, store model.IstioConfigStore, xdsUpdater model.XDSUpdater) *ServiceEntryStore {
 	c := &ServiceEntryStore{
-		serviceHandlers:  make([]serviceHandler, 0),
-		instanceHandlers: make([]instanceHandler, 0),
-		store:            store,
-		ip2instance:      map[string][]*model.ServiceInstance{},
-		instances:        map[host.Name]map[string][]*model.ServiceInstance{},
-		updateNeeded:     true,
+		xdsUpdater:   xdsUpdater,
+		store:        store,
+		ip2instance:  map[string][]*model.ServiceInstance{},
+		instances:    map[host.Name]map[string][]*model.ServiceInstance{},
+		updateNeeded: true,
 	}
 	if configController != nil {
 		configController.RegisterEventHandler(schemas.ServiceEntry.Type, func(old, curr model.Config, event model.Event) {
@@ -73,7 +71,7 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 			cs := convertServices(curr)
 
 			// If it is add/delete event we should always do a full push. If it is update event, we should do full push,
-			// only when services have changed - otherwise, just call instance handlers to push endpoint updates.
+			// only when services have changed - otherwise, just push endpoint updates.
 			fp := true
 			if event == model.EventUpdate {
 				os := convertServices(old)
@@ -81,22 +79,35 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 			}
 
 			if fp {
-				for _, handler := range c.serviceHandlers {
-					for _, service := range cs {
-						go handler(service, event)
-					}
+				pushReq := &model.PushRequest{
+					Full:               true,
+					NamespacesUpdated:  map[string]struct{}{curr.Namespace: {}},
+					ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
 				}
+				xdsUpdater.ConfigUpdate(pushReq)
 			} else {
 				instances := convertInstances(curr, cs)
-				for _, handler := range c.instanceHandlers {
-					for _, instance := range instances {
-						go handler(instance, event)
+				endpoints := make([]*model.IstioEndpoint, 0)
+				for _, instance := range instances {
+					for _, port := range instance.Service.Ports {
+						endpoints = append(endpoints, &model.IstioEndpoint{
+							Address:         instance.Endpoint.Address,
+							EndpointPort:    uint32(port.Port),
+							ServicePortName: port.Name,
+							Labels:          instance.Labels,
+							UID:             instance.Endpoint.UID,
+							ServiceAccount:  instance.ServiceAccount,
+							Network:         instance.Endpoint.Network,
+							Locality:        instance.Endpoint.Locality,
+							Attributes:      model.ServiceAttributes{Name: instance.Service.Attributes.Name, Namespace: instance.Service.Attributes.Namespace},
+							TLSMode:         instance.TLSMode,
+						})
 					}
 				}
+				xdsUpdater.EDSUpdate(c.Cluster(), curr.Name, curr.Namespace, endpoints)
 			}
 		})
 	}
-
 	return c
 }
 
@@ -108,15 +119,13 @@ func (d *ServiceEntryStore) Cluster() string {
 	return ""
 }
 
-// AppendServiceHandler adds service resource event handler
+// AppendServiceHandler adds service resource event handler. Service Entries does not use these handlers.
 func (d *ServiceEntryStore) AppendServiceHandler(f func(*model.Service, model.Event)) error {
-	d.serviceHandlers = append(d.serviceHandlers, f)
 	return nil
 }
 
-// AppendInstanceHandler adds instance event handler.
+// AppendInstanceHandler adds instance event handler. Service Entries does not use these handlers.
 func (d *ServiceEntryStore) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
-	d.instanceHandlers = append(d.instanceHandlers, f)
 	return nil
 }
 
