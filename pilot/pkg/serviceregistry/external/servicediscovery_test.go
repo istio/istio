@@ -244,7 +244,7 @@ func TestNonServiceConfig(t *testing.T) {
 
 func TestServicesChanged(t *testing.T) {
 
-	var updatedHttpDNS = &model.Config{
+	var updatedHTTPDNS = &model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:              schemas.ServiceEntry.Type,
 			Name:              "httpDNS",
@@ -279,7 +279,7 @@ func TestServicesChanged(t *testing.T) {
 		},
 	}
 
-	var updatedHttpDNSPort = &model.Config{
+	var updatedHTTPDNSPort = &model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:              schemas.ServiceEntry.Type,
 			Name:              "httpDNS",
@@ -380,18 +380,18 @@ func TestServicesChanged(t *testing.T) {
 		{
 			"config modified with additional host",
 			httpDNS,
-			updatedHttpDNS,
+			updatedHTTPDNS,
 			true,
 		},
 		{
 			"config modified with additional port",
-			updatedHttpDNS,
-			updatedHttpDNSPort,
+			updatedHTTPDNS,
+			updatedHTTPDNSPort,
 			true,
 		},
 		{
 			"same config with additional endpoint",
-			updatedHttpDNS,
+			updatedHTTPDNS,
 			updatedEndpoint,
 			false,
 		},

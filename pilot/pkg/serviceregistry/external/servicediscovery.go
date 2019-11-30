@@ -108,7 +108,7 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 						})
 					}
 				}
-				c.XdsUpdater.EDSUpdate(c.Cluster(), curr.Name, curr.Namespace, endpoints)
+				_ = c.XdsUpdater.EDSUpdate(c.Cluster(), curr.Name, curr.Namespace, endpoints)
 			}
 		})
 	}
