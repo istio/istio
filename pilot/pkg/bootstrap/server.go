@@ -52,6 +52,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pilot/pkg/serviceregistry/external"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schemas"
@@ -126,6 +127,7 @@ type Server struct {
 	incrementalMcpOptions *coredatamodel.Options
 	mcpOptions            *coredatamodel.Options
 	certController        *chiron.WebhookController
+	serviceEntryStore     *external.ServiceEntryStore
 }
 
 var podNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", "", "")
@@ -246,6 +248,12 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		s.kubeRegistry.Env = environment
 		s.kubeRegistry.InitNetworkLookup(s.meshNetworks)
 		s.kubeRegistry.XDSUpdater = s.EnvoyXdsServer
+	}
+
+	// TODO: Split initDiscoveryService method in to createDiscoveryServer and initDiscoveryService so that, this special
+	// handling is not needed. Because of dependency ordering problem, we need to set this explicitly here.
+	if s.serviceEntryStore != nil {
+		s.serviceEntryStore.XdsUpdater = s.EnvoyXdsServer
 	}
 
 	if s.mcpOptions != nil {

@@ -19,6 +19,8 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/host"
@@ -32,12 +34,9 @@ import (
 
 var _ serviceregistry.Instance = &ServiceEntryStore{}
 
-type serviceHandler func(*model.Service, model.Event)
-type instanceHandler func(*model.ServiceInstance, model.Event)
-
 // ServiceEntryStore communicates with ServiceEntry CRDs and monitors for changes
 type ServiceEntryStore struct {
-	xdsUpdater model.XDSUpdater
+	XdsUpdater model.XDSUpdater
 	store      model.IstioConfigStore
 
 	storeMutex sync.RWMutex
@@ -54,7 +53,7 @@ type ServiceEntryStore struct {
 // NewServiceDiscovery creates a new ServiceEntry discovery service
 func NewServiceDiscovery(configController model.ConfigStoreCache, store model.IstioConfigStore, xdsUpdater model.XDSUpdater) *ServiceEntryStore {
 	c := &ServiceEntryStore{
-		xdsUpdater:   xdsUpdater,
+		XdsUpdater:   xdsUpdater,
 		store:        store,
 		ip2instance:  map[string][]*model.ServiceInstance{},
 		instances:    map[host.Name]map[string][]*model.ServiceInstance{},
@@ -74,8 +73,13 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 			// only when services have changed - otherwise, just push endpoint updates.
 			fp := true
 			if event == model.EventUpdate {
-				os := convertServices(old)
-				fp = servicesChanged(os, cs)
+				// This is not needed, update should always have old populated, but just in case.
+				if old.Spec != nil {
+					os := convertServices(old)
+					fp = servicesChanged(os, cs)
+				} else {
+					log.Warnf("Spec is not available in the old service entry during update, proceeding with full push %v", old)
+				}
 			}
 
 			if fp {
@@ -84,7 +88,7 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 					NamespacesUpdated:  map[string]struct{}{curr.Namespace: {}},
 					ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
 				}
-				xdsUpdater.ConfigUpdate(pushReq)
+				c.XdsUpdater.ConfigUpdate(pushReq)
 			} else {
 				instances := convertInstances(curr, cs)
 				endpoints := make([]*model.IstioEndpoint, 0)
@@ -104,7 +108,7 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 						})
 					}
 				}
-				xdsUpdater.EDSUpdate(c.Cluster(), curr.Name, curr.Namespace, endpoints)
+				c.XdsUpdater.EDSUpdate(c.Cluster(), curr.Name, curr.Namespace, endpoints)
 			}
 		})
 	}
