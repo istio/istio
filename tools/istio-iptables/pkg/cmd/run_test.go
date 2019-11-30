@@ -65,8 +65,11 @@ func TestHandleInboundIpv6RulesWithEmptyInboundPorts(t *testing.T) {
 		"ip6tables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-port 15001",
 		"ip6tables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT",
 		"ip6tables -t nat -A ISTIO_OUTPUT -o lo -s ::6/128 -j RETURN",
-		"ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -j ISTIO_IN_REDIRECT",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -m owner --uid-owner 1337 -j ISTIO_IN_REDIRECT",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --uid-owner 1337 -j RETURN",
 		"ip6tables -t nat -A ISTIO_OUTPUT -m owner --uid-owner 1337 -j RETURN",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -m owner --gid-owner 1337 -j ISTIO_IN_REDIRECT",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --gid-owner 1337 -j RETURN",
 		"ip6tables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 1337 -j RETURN",
 		"ip6tables -t nat -A ISTIO_OUTPUT -d ::1/128 -j RETURN",
 	}
@@ -97,8 +100,11 @@ func TestHandleInboundIpv6RulesWithInboundPorts(t *testing.T) {
 		"ip6tables -t nat -A ISTIO_INBOUND -p tcp --dport 5000 -j ISTIO_IN_REDIRECT",
 		"ip6tables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT",
 		"ip6tables -t nat -A ISTIO_OUTPUT -o lo -s ::6/128 -j RETURN",
-		"ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -j ISTIO_IN_REDIRECT",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -m owner --uid-owner 1337 -j ISTIO_IN_REDIRECT",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --uid-owner 1337 -j RETURN",
 		"ip6tables -t nat -A ISTIO_OUTPUT -m owner --uid-owner 1337 -j RETURN",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -m owner --gid-owner 1337 -j ISTIO_IN_REDIRECT",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --gid-owner 1337 -j RETURN",
 		"ip6tables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 1337 -j RETURN",
 		"ip6tables -t nat -A ISTIO_OUTPUT -d ::1/128 -j RETURN",
 	}
@@ -132,8 +138,11 @@ func TestHandleInboundIpv6RulesWithWildcardRanges(t *testing.T) {
 		"ip6tables -t nat -A ISTIO_INBOUND -p tcp --dport 5000 -j ISTIO_IN_REDIRECT",
 		"ip6tables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT",
 		"ip6tables -t nat -A ISTIO_OUTPUT -o lo -s ::6/128 -j RETURN",
-		"ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -j ISTIO_IN_REDIRECT",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -m owner --uid-owner 1337 -j ISTIO_IN_REDIRECT",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --uid-owner 1337 -j RETURN",
 		"ip6tables -t nat -A ISTIO_OUTPUT -m owner --uid-owner 1337 -j RETURN",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -m owner --gid-owner 1337 -j ISTIO_IN_REDIRECT",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --gid-owner 1337 -j RETURN",
 		"ip6tables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 1337 -j RETURN",
 		"ip6tables -t nat -A ISTIO_OUTPUT -d ::1/128 -j RETURN",
 		"ip6tables -t nat -A ISTIO_OUTPUT -j ISTIO_REDIRECT",
@@ -170,8 +179,11 @@ func TestHandleInboundIpv6RulesWithIpNets(t *testing.T) {
 		"ip6tables -t nat -A ISTIO_INBOUND -p tcp --dport 5000 -j ISTIO_IN_REDIRECT",
 		"ip6tables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT",
 		"ip6tables -t nat -A ISTIO_OUTPUT -o lo -s ::6/128 -j RETURN",
-		"ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -j ISTIO_IN_REDIRECT",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -m owner --uid-owner 1337 -j ISTIO_IN_REDIRECT",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --uid-owner 1337 -j RETURN",
 		"ip6tables -t nat -A ISTIO_OUTPUT -m owner --uid-owner 1337 -j RETURN",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -m owner --gid-owner 1337 -j ISTIO_IN_REDIRECT",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --gid-owner 1337 -j RETURN",
 		"ip6tables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 1337 -j RETURN",
 		"ip6tables -t nat -A ISTIO_OUTPUT -d ::1/128 -j RETURN",
 		"ip6tables -t nat -A ISTIO_OUTPUT -d 10.0.0.0/8 -j RETURN",
@@ -212,10 +224,17 @@ func TestHandleInboundIpv6RulesWithUidGid(t *testing.T) {
 		"ip6tables -t nat -A ISTIO_INBOUND -p tcp --dport 5000 -j ISTIO_IN_REDIRECT",
 		"ip6tables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT",
 		"ip6tables -t nat -A ISTIO_OUTPUT -o lo -s ::6/128 -j RETURN",
-		"ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -j ISTIO_IN_REDIRECT",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -m owner --uid-owner 3 -j ISTIO_IN_REDIRECT",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --uid-owner 3 -j RETURN",
 		"ip6tables -t nat -A ISTIO_OUTPUT -m owner --uid-owner 3 -j RETURN",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -m owner --uid-owner 4 -j ISTIO_IN_REDIRECT",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --uid-owner 4 -j RETURN",
 		"ip6tables -t nat -A ISTIO_OUTPUT -m owner --uid-owner 4 -j RETURN",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -m owner --gid-owner 1 -j ISTIO_IN_REDIRECT",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --gid-owner 1 -j RETURN",
 		"ip6tables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 1 -j RETURN",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -m owner --gid-owner 2 -j ISTIO_IN_REDIRECT",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --gid-owner 2 -j RETURN",
 		"ip6tables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 2 -j RETURN",
 		"ip6tables -t nat -A ISTIO_OUTPUT -d ::1/128 -j RETURN",
 		"ip6tables -t nat -A ISTIO_OUTPUT -d 10.0.0.0/8 -j RETURN",
@@ -499,5 +518,42 @@ func TestHandleInboundPortsIncludeWithWildcardInboundPortsAndTproxy(t *testing.T
 	}
 	if !reflect.DeepEqual(ip4Rules, expectedIpv4Rules) {
 		t.Errorf("Output mismatch\nExpected: %#v\nActual: %#v", expectedIpv4Rules, ip4Rules)
+	}
+}
+
+func TestHandleInboundIpv4RulesWithUidGid(t *testing.T) {
+	cfg := constructConfig()
+	cfg.DryRun = true
+	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
+	iptConfigurator.cfg.EnableInboundIPv6 = false
+	iptConfigurator.cfg.ProxyGID = "1,2"
+	iptConfigurator.cfg.ProxyUID = "3,4"
+	iptConfigurator.run()
+	actual := FormatIptablesCommands(iptConfigurator.iptables.BuildV4())
+	expected := []string{
+		"iptables -t nat -N ISTIO_REDIRECT",
+		"iptables -t nat -N ISTIO_IN_REDIRECT",
+		"iptables -t nat -N ISTIO_OUTPUT",
+		"iptables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-port 15001",
+		"iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-port 15001",
+		"iptables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT",
+		"iptables -t nat -A ISTIO_OUTPUT -o lo -s 127.0.0.6/32 -j RETURN",
+		"iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --uid-owner 3 -j ISTIO_IN_REDIRECT",
+		"iptables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --uid-owner 3 -j RETURN",
+		"iptables -t nat -A ISTIO_OUTPUT -m owner --uid-owner 3 -j RETURN",
+		"iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --uid-owner 4 -j ISTIO_IN_REDIRECT",
+		"iptables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --uid-owner 4 -j RETURN",
+		"iptables -t nat -A ISTIO_OUTPUT -m owner --uid-owner 4 -j RETURN",
+		"iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --gid-owner 1 -j ISTIO_IN_REDIRECT",
+		"iptables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --gid-owner 1 -j RETURN",
+		"iptables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 1 -j RETURN",
+		"iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --gid-owner 2 -j ISTIO_IN_REDIRECT",
+		"iptables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --gid-owner 2 -j RETURN",
+		"iptables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 2 -j RETURN",
+		"iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN",
+	}
+
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf("Output mismatch.\nExpected: %#v\nActual: %#v", expected, actual)
 	}
 }

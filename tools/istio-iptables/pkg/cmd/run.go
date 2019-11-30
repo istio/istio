@@ -22,10 +22,10 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/pkg/env"
+
 	"istio.io/istio/tools/istio-iptables/pkg/builder"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
-
-	"istio.io/pkg/env"
 
 	"istio.io/istio/tools/istio-iptables/pkg/config"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
@@ -237,17 +237,31 @@ func (iptConfigurator *IptablesConfigurator) handleInboundIpv6Rules(ipv6RangesEx
 	// ::6 is bind connect from inbound passthrough cluster
 	iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-s", "::6/128", "-j", constants.RETURN)
 
-	// Redirect app calls to back itself via Envoy when using the service VIP or endpoint
-	// address, e.g. appN => Envoy (client) => Envoy (server) => appN.
-	iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "!", "-d", "::1/128", "-j", constants.ISTIOINREDIRECT)
-
 	for _, uid := range split(iptConfigurator.cfg.ProxyUID) {
+		// Redirect app calls back to itself via Envoy when using the service VIP
+		// e.g. appN => Envoy (client) => Envoy (server) => appN.
+		// nolint: lll
+		iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "!", "-d", "::1/128", "-m", "owner", "--uid-owner", uid, "-j", constants.ISTIOINREDIRECT)
+
+		// Do not redirect app calls to back itself via Envoy when using the endpoint address
+		// e.g. appN => appN by lo
+		iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-m", "owner", "!", "--uid-owner", uid, "-j", constants.RETURN)
+
 		// Avoid infinite loops. Don't redirect Envoy traffic directly back to
 		// Envoy for non-loopback traffic.
 		iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-m", "owner", "--uid-owner", uid, "-j", constants.RETURN)
 	}
 
 	for _, gid := range split(iptConfigurator.cfg.ProxyGID) {
+		// Redirect app calls back to itself via Envoy when using the service VIP
+		// e.g. appN => Envoy (client) => Envoy (server) => appN.
+		// nolint: lll
+		iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "!", "-d", "::1/128", "-m", "owner", "--gid-owner", gid, "-j", constants.ISTIOINREDIRECT)
+
+		// Do not redirect app calls to back itself via Envoy when using the endpoint address
+		// e.g. appN => appN by lo
+		iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-m", "owner", "!", "--gid-owner", gid, "-j", constants.RETURN)
+
 		// Avoid infinite loops. Don't redirect Envoy traffic directly back to
 		// Envoy for non-loopback traffic.
 		iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-m", "owner", "--gid-owner", gid, "-j", constants.RETURN)
@@ -372,19 +386,31 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	// 127.0.0.6 is bind connect from inbound passthrough cluster
 	iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-s", "127.0.0.6/32", "-j", constants.RETURN)
 
-	if !disableRedirectionOnLocalLoopbackVar.Get() {
-		// Redirect app calls back to itself via Envoy when using the service VIP or endpoint
-		// address, e.g. appN => Envoy (client) => Envoy (server) => appN.
-		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "!", "-d", "127.0.0.1/32", "-j", constants.ISTIOINREDIRECT)
-	}
-
 	for _, uid := range split(iptConfigurator.cfg.ProxyUID) {
+		// Redirect app calls back to itself via Envoy when using the service VIP
+		// e.g. appN => Envoy (client) => Envoy (server) => appN.
+		// nolint: lll
+		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "!", "-d", "127.0.0.1/32", "-m", "owner", "--uid-owner", uid, "-j", constants.ISTIOINREDIRECT)
+
+		// Do not redirect app calls to back itself via Envoy when using the endpoint address
+		// e.g. appN => appN by lo
+		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-m", "owner", "!", "--uid-owner", uid, "-j", constants.RETURN)
+
 		// Avoid infinite loops. Don't redirect Envoy traffic directly back to
 		// Envoy for non-loopback traffic.
 		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-m", "owner", "--uid-owner", uid, "-j", constants.RETURN)
 	}
 
 	for _, gid := range split(iptConfigurator.cfg.ProxyGID) {
+		// Redirect app calls back to itself via Envoy when using the service VIP
+		// e.g. appN => Envoy (client) => Envoy (server) => appN.
+		// nolint: lll
+		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "!", "-d", "127.0.0.1/32", "-m", "owner", "--gid-owner", gid, "-j", constants.ISTIOINREDIRECT)
+
+		// Do not redirect app calls to back itself via Envoy when using the endpoint address
+		// e.g. appN => appN by lo
+		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-m", "owner", "!", "--gid-owner", gid, "-j", constants.RETURN)
+
 		// Avoid infinite loops. Don't redirect Envoy traffic directly back to
 		// Envoy for non-loopback traffic.
 		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-m", "owner", "--gid-owner", gid, "-j", constants.RETURN)
