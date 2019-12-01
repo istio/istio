@@ -255,9 +255,9 @@ func init() {
 	rootCmd.PersistentFlags().IntVar(&flags.port, "port", 9443, "Webhook port")
 	rootCmd.PersistentFlags().IntVar(&flags.monitoringPort, "monitoringPort", 15014, "Webhook monitoring port")
 
-	rootCmd.PersistentFlags().DurationVar(&flags.healthCheckInterval, "healthCheckInterval", 0,
+	rootCmd.PersistentFlags().DurationVar(&flags.healthCheckInterval, "healthCheckInterval", -1*time.Second,
 		"Configure how frequently the health check file specified by --healthCheckFile should be updated")
-	rootCmd.PersistentFlags().StringVar(&flags.healthCheckFile, "healthCheckFile", "",
+	rootCmd.PersistentFlags().StringVar(&flags.healthCheckFile, "healthCheckFile", "/tmp/health",
 		"File that should be periodically updated if health checking is enabled")
 	rootCmd.PersistentFlags().StringVar(&flags.kubeconfigFile, "kubeconfig", "",
 		"Specifies path to kubeconfig file. This must be specified when not running inside a Kubernetes pod.")

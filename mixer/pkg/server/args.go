@@ -128,8 +128,8 @@ func DefaultArgs() *Args {
 		ConfigWaitTimeout:      2 * time.Minute,
 		LoggingOptions:         log.DefaultOptions(),
 		TracingOptions:         tracing.DefaultOptions(),
-		LivenessProbeOptions:   &probe.Options{},
-		ReadinessProbeOptions:  &probe.Options{},
+		LivenessProbeOptions:   &probe.Options{Path: "/tmp/healthLiveness", UpdateInterval: -1 * time.Second},
+		ReadinessProbeOptions:  &probe.Options{Path: "/tmp/healthReadiness", UpdateInterval: -1 * time.Second},
 		IntrospectionOptions:   ctrlz.DefaultOptions(),
 		EnableProfiling:        true,
 		NumCheckCacheEntries:   5000 * 5 * 60, // 5000 QPS with average TTL of 5 minutes
