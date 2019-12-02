@@ -102,7 +102,7 @@ type PushContext struct {
 	// AuthNPolicies contains a map of hostname and port to authentication policy
 	AuthnPolicies processedAuthnPolicies `json:"-"`
 
-	// (beta) Authn policies for each namespace.
+	// AuthnBetaPolicies contains (beta) Authn policies by namespace.
 	AuthnBetaPolicies *AuthenticationPolicies `json:"-"`
 
 	initDone bool
@@ -939,8 +939,8 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 
 // Caches list of authentication policies
 func (ps *PushContext) initAuthnPolicies(env *Environment) error {
-	// Processing beta policy.
-	ps.AuthnBetaPolicies = processAuthenticationPolicies(env)
+	// Init beta policy.
+	ps.AuthnBetaPolicies = initAuthenticationPolicies(env)
 
 	// Processing alpha policy. This will be removed after beta API released.
 	authNPolicies, err := env.List(schemas.AuthenticationPolicy.Type, NamespaceAll)

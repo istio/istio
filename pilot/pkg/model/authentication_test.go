@@ -99,7 +99,7 @@ func getTestAuthenticationPolicies(configs []*Config, t *testing.T) *Authenticat
 		IstioConfigStore: MakeIstioStore(configStore),
 		Mesh:             &mesh.MeshConfig{RootNamespace: rootNamespace},
 	}
-	return processAuthenticationPolicies(environment)
+	return initAuthenticationPolicies(environment)
 }
 
 func createTestConfig(name string, namespace string, selector *selectorpb.WorkloadSelector) *Config {

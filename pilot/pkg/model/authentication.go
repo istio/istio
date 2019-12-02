@@ -62,8 +62,9 @@ type AuthenticationPolicies struct {
 	rootNamespace string
 }
 
-// processAuthenticationPolicies gets the authentication policies in the mesh.
-func processAuthenticationPolicies(env *Environment) *AuthenticationPolicies {
+// initAuthenticationPolicies creates a new AuthenticationPolicies structand populates with the
+// authentication policies in the mesh environment.
+func initAuthenticationPolicies(env *Environment) *AuthenticationPolicies {
 	policy := &AuthenticationPolicies{
 		requestAuthentications: map[string][]Config{},
 		namespaceMTLSMode:      map[string]MutualTLSMode{},
