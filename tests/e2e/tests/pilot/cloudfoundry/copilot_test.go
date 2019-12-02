@@ -322,7 +322,7 @@ func runEnvoy(t *testing.T, nodeID string, grpcPort, debugPort uint16) *mixerEnv
 	gateway.SetNoProxy(true)
 	gateway.SetNoBackend(true)
 	gateway.IstioSrc = env.IstioSrc
-	gateway.IstioOut = env.IstioOut
+	gateway.TargetOut = env.TargetOut
 	gateway.Ports().PilotGrpcPort = grpcPort
 	gateway.Ports().PilotHTTPPort = debugPort
 	gateway.EnvoyConfigOpt = map[string]interface{}{

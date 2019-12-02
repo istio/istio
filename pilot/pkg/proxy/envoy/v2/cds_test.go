@@ -43,7 +43,7 @@ func TestCDS(t *testing.T) {
 	}
 
 	strResponse, _ := gogoprotomarshal.ToJSONWithIndent(res, " ")
-	_ = ioutil.WriteFile(env.IstioOut+"/cdsv2_sidecar.json", []byte(strResponse), 0644)
+	_ = ioutil.WriteFile(env.TargetOut+"/cdsv2_sidecar.json", []byte(strResponse), 0644)
 
 	t.Log("CDS response", strResponse)
 	if len(res.Resources) == 0 {

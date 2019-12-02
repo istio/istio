@@ -143,7 +143,7 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
 	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)
 	testEnv.IstioSrc = env.IstioSrc
-	testEnv.IstioOut = env.IstioOut
+	testEnv.TargetOut = env.TargetOut
 
 	localIP = getLocalIP()
 

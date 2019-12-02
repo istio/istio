@@ -108,7 +108,7 @@ func TestEds(t *testing.T) {
 			t.Error("No clusters in ADS response")
 		}
 		strResponse, _ := json.MarshalIndent(clusters, " ", " ")
-		_ = ioutil.WriteFile(env.IstioOut+"/cdsv2_sidecar.json", strResponse, 0644)
+		_ = ioutil.WriteFile(env.TargetOut+"/cdsv2_sidecar.json", strResponse, 0644)
 
 	})
 	t.Run("WeightedServiceEntry", func(t *testing.T) {

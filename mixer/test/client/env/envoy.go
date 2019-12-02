@@ -34,7 +34,7 @@ const (
 
 // newEnvoy creates a new Envoy struct and starts envoy.
 func (s *TestSetup) newEnvoy() (envoy.Instance, error) {
-	confPath := filepath.Join(env.IstioOut, fmt.Sprintf("config.conf.%v.yaml", s.ports.AdminPort))
+	confPath := filepath.Join(env.TargetOut, fmt.Sprintf("config.conf.%v.yaml", s.ports.AdminPort))
 	log.Printf("Envoy config: in %v\n", confPath)
 	if err := s.CreateEnvoyConf(confPath); err != nil {
 		return nil, err

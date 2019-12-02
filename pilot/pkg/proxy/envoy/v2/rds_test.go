@@ -71,7 +71,7 @@ func TestRDS(t *testing.T) {
 			}
 
 			strResponse, _ := gogoprotomarshal.ToJSONWithIndent(res, " ")
-			_ = ioutil.WriteFile(env.IstioOut+fmt.Sprintf("/rdsv2/%s_%d.json", tt.name, idx), []byte(strResponse), 0644)
+			_ = ioutil.WriteFile(env.TargetOut+fmt.Sprintf("/rdsv2/%s_%d.json", tt.name, idx), []byte(strResponse), 0644)
 			if len(res.Resources) == 0 {
 				t.Fatal("No response")
 			}

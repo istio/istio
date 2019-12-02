@@ -63,8 +63,8 @@ type TestSetup struct {
 	// other files in the source tree
 	IstioSrc string
 
-	// IstioOut is the base output directory.
-	IstioOut string
+	// TargetOut is the base output directory.
+	TargetOut string
 
 	// AccessLogPath is the access log path for Envoy
 	AccessLogPath string

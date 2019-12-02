@@ -79,7 +79,7 @@ var (
 	IstioBin = verifyFile(GOBIN, GOBIN.ValueOrDefaultFunc(getDefaultIstioBin))
 
 	// TargetOut is the location of the output directory ($TOP/out)
-	TargetOut = verifyFile(TARGET_OUT, TARGET_OUT.ValueOrDefaultFunc(getDefaultIstioOut))
+	TargetOut = verifyFile(TARGET_OUT, TARGET_OUT.ValueOrDefaultFunc(getDefaultTargetOut))
 
 	// TODO: Some of these values are overlapping. We should re-align them.
 
@@ -124,7 +124,7 @@ func getDefaultIstioBin() string {
 	return fmt.Sprintf("%s/bin", build.Default.GOPATH)
 }
 
-func getDefaultIstioOut() string {
+func getDefaultTargetOut() string {
 	return fmt.Sprintf("%s/out/%s_%s", build.Default.GOPATH, runtime.GOOS, runtime.GOARCH)
 }
 

@@ -118,7 +118,7 @@ func startEnvoy() error {
 		LocalEnv:       os.Environ(),
 		Proxy: &meshconfig.ProxyConfig{
 			DiscoveryAddress: "localhost:8080",
-			ConfigPath:       env.IstioOut,
+			ConfigPath:       env.TargetOut,
 			BinaryPath:       env.IstioBin + "/envoy",
 			ServiceCluster:   "test",
 			CustomConfigFile: env.IstioSrc + "/tools/packaging/common/envoy_bootstrap_v2.json",
@@ -132,7 +132,7 @@ func startEnvoy() error {
 		return err
 	}
 	stop := make(chan error)
-	envoyLog, err := os.Create(env.IstioOut + "/envoy_hyperistio_sidecar.log")
+	envoyLog, err := os.Create(env.TargetOut + "/envoy_hyperistio_sidecar.log")
 	if err != nil {
 		envoyLog = os.Stderr
 	}

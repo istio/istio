@@ -75,7 +75,7 @@ func TestLDSIsolated(t *testing.T) {
 			return
 		}
 
-		err = ldsr.Save(env.IstioOut + "/none")
+		err = ldsr.Save(env.TargetOut + "/none")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -99,7 +99,7 @@ func TestLDSIsolated(t *testing.T) {
 		}
 
 		for _, s := range []string{"lds_tcp", "lds_http", "rds", "cds", "ecds"} {
-			want, err := ioutil.ReadFile(env.IstioOut + "/none_" + s + ".json")
+			want, err := ioutil.ReadFile(env.TargetOut + "/none_" + s + ".json")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -151,7 +151,7 @@ func TestLDSIsolated(t *testing.T) {
 			return
 		}
 
-		err = ldsr.Save(env.IstioOut + "/seexample")
+		err = ldsr.Save(env.TargetOut + "/seexample")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -181,7 +181,7 @@ func TestLDSIsolated(t *testing.T) {
 			return
 		}
 
-		err = ldsr.Save(env.IstioOut + "/seexample-eg")
+		err = ldsr.Save(env.TargetOut + "/seexample-eg")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -204,7 +204,7 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
 	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)
 	testEnv.IstioSrc = env.IstioSrc
-	testEnv.IstioOut = env.IstioOut
+	testEnv.TargetOut = env.TargetOut
 
 	server.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
 	defer tearDown()
@@ -265,7 +265,7 @@ func TestLDSWithIngressGateway(t *testing.T) {
 	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
 	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)
 	testEnv.IstioSrc = env.IstioSrc
-	testEnv.IstioOut = env.IstioOut
+	testEnv.TargetOut = env.TargetOut
 
 	server.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
 	defer tearDown()
@@ -334,7 +334,7 @@ func TestLDS(t *testing.T) {
 		}
 
 		strResponse, _ := gogoprotomarshal.ToJSONWithIndent(res, " ")
-		_ = ioutil.WriteFile(env.IstioOut+"/ldsv2_sidecar.json", []byte(strResponse), 0644)
+		_ = ioutil.WriteFile(env.TargetOut+"/ldsv2_sidecar.json", []byte(strResponse), 0644)
 
 		if len(res.Resources) == 0 {
 			t.Fatal("No response")
@@ -360,7 +360,7 @@ func TestLDS(t *testing.T) {
 
 		strResponse, _ := gogoprotomarshal.ToJSONWithIndent(res, " ")
 
-		_ = ioutil.WriteFile(env.IstioOut+"/ldsv2_gateway.json", []byte(strResponse), 0644)
+		_ = ioutil.WriteFile(env.TargetOut+"/ldsv2_gateway.json", []byte(strResponse), 0644)
 
 		if len(res.Resources) == 0 {
 			t.Fatal("No response")
@@ -389,7 +389,7 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
 	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)
 	testEnv.IstioSrc = env.IstioSrc
-	testEnv.IstioOut = env.IstioOut
+	testEnv.TargetOut = env.TargetOut
 
 	server.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
 	defer tearDown()
@@ -478,7 +478,7 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
 	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)
 	testEnv.IstioSrc = env.IstioSrc
-	testEnv.IstioOut = env.IstioOut
+	testEnv.TargetOut = env.TargetOut
 
 	server.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
 	defer tearDown()
