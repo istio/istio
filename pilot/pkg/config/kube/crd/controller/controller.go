@@ -263,6 +263,7 @@ func (c *controller) HasSynced() bool {
 }
 
 func (c *controller) Run(stop <-chan struct{}) {
+	log.Infoa("Starting Pilot K8S CRD controller")
 	go func() {
 		cache.WaitForCacheSync(stop, c.HasSynced)
 		c.queue.Run(stop)
