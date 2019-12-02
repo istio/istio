@@ -331,24 +331,3 @@ docker.push: $(DOCKER_PUSH_TARGETS)
 # Scan images for security vulnerabilities using the ImageScanner tool
 docker.scan_images: $(DOCKER_PUSH_TARGETS)
 	$(foreach TGT,$(DOCKER_TARGETS),$(call run_vulnerability_scanning,$(subst docker.,,$(TGT)),$(HUB)/$(subst docker.,,$(TGT)):$(TAG)))
-
-# Base image for 'debug' containers.
-# You can run it first to use local changes (or guarantee it is built from scratch)
-docker.basedebug:
-	docker build -t istionightly/base_debug -f docker/Dockerfile.xenial_debug docker/
-
-# Run this target to generate images based on Bionic Ubuntu
-# This must be run as a first step, before the 'docker' step.
-docker.basedebug_bionic:
-	docker build -t istionightly/base_debug_bionic -f docker/Dockerfile.bionic_debug docker/
-	docker tag istionightly/base_debug_bionic istionightly/base_debug
-
-# Run this target to generate images based on Debian Slim
-# This must be run as a first step, before the 'docker' step.
-docker.basedebug_deb:
-	docker build -t istionightly/base_debug_deb -f docker/Dockerfile.deb_debug docker/
-	docker tag istionightly/base_debug_deb istionightly/base_debug
-
-# Job run from the nightly cron to publish an up-to-date xenial with the debug tools.
-docker.push.basedebug: docker.basedebug
-	docker push istionightly/base_debug:latest
