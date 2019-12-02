@@ -170,5 +170,3 @@ if [[ "${TARGET_OS}" == "darwin" ]]; then
 else
   ISTIO_ENVOY_NATIVE_PATH=${ISTIO_ENVOY_LINUX_RELEASE_PATH}
 fi
-
-"${ROOTDIR}/bin/init_helm.sh"

@@ -259,7 +259,7 @@ sync: init
 # lock file, but it caused the rule for that file to get run (which
 # seems to be about obtaining a new version of the 3rd party libraries).
 $(TARGET_OUT)/istio_is_init: bin/init.sh istio.deps
-	TARGET_OUT=$(TARGET_OUT) TARGET_OS=$(TARGET_OS) DEBUG_IMAGE=$(DEBUG_IMAGE) bash -c bin/init.sh
+	TARGET_OUT=$(TARGET_OUT) TARGET_OS=$(TARGET_OS) bash -c bin/init.sh
 	touch $(TARGET_OUT)/istio_is_init
 # | $(TARGET_OUT)
 # init.sh downloads envoy
@@ -434,6 +434,7 @@ ${TARGET_OUT}/go-junit-report:
 	unset GOOS && unset GOARCH && CGO_ENABLED=1 go get -u github.com/jstemmer/go-junit-report
 
 with_junit_report: | $(JUNIT_REPORT)
+	touch $(JUNIT_OUT)
 	$(MAKE) $(TARGET) 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 # Run coverage tests

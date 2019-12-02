@@ -61,13 +61,13 @@ function compareWithGolden() {
     FILE_UNDER_TEST="${SCRIPT_DIR}/../../tools/packaging/common/istio-iptables.sh"
    ;;
    "golang")
-    FILE_UNDER_TEST="${ISTIO_OUT}/istio-iptables --dry-run"
+    FILE_UNDER_TEST="${TARGET_OUT}/istio-iptables --dry-run"
    ;;
    "script_clean")
     FILE_UNDER_TEST="${SCRIPT_DIR}/../../tools/packaging/common/istio-clean-iptables.sh"
    ;;
    "golang_clean")
-    FILE_UNDER_TEST="${ISTIO_OUT}/istio-clean-iptables --dry-run"
+    FILE_UNDER_TEST="${TARGET_OUT}/istio-clean-iptables --dry-run"
    ;;
   esac
 
