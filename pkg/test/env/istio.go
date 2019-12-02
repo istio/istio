@@ -40,13 +40,13 @@ var (
 	// nolint: golint, stylecheck
 	ISTIO_GO Variable = "ISTIO_GO"
 
-	// ISTIO_BIN environment variable
+	// GOBIN environment variable
 	// nolint: golint, stylecheck
-	ISTIO_BIN Variable = "ISTIO_BIN"
+	GOBIN Variable = "GOBIN"
 
-	// ISTIO_OUT environment variable
+	// TARGET_OUT environment variable
 	// nolint: golint, stylecheck
-	ISTIO_OUT Variable = "ISTIO_OUT"
+	TARGET_OUT Variable = "TARGET_OUT"
 
 	// HUB is the Docker hub to be used for images.
 	// nolint: golint, stylecheck
@@ -73,14 +73,13 @@ var (
 	IstioTop = TOP.ValueOrDefaultFunc(getDefaultIstioTop)
 
 	// IstioSrc is the location if istio source ($TOP/src/istio.io/istio
-	IstioSrc = "/work"
-	//path.Join(IstioTop, "src/istio.io/istio")
+	IstioSrc = path.Join(IstioTop, "src/istio.io/istio")
 
 	// IstioBin is the location of the binary output directory
-	IstioBin = verifyFile(ISTIO_BIN, ISTIO_BIN.ValueOrDefaultFunc(getDefaultIstioBin))
+	IstioBin = verifyFile(GOBIN, GOBIN.ValueOrDefaultFunc(getDefaultIstioBin))
 
 	// IstioOut is the location of the output directory ($TOP/out)
-	IstioOut = verifyFile(ISTIO_OUT, ISTIO_OUT.ValueOrDefaultFunc(getDefaultIstioOut))
+	IstioOut = verifyFile(TARGET_OUT, TARGET_OUT.ValueOrDefaultFunc(getDefaultIstioOut))
 
 	// TODO: Some of these values are overlapping. We should re-align them.
 
