@@ -5713,6 +5713,7 @@ data:
             config:
               codec_type: HTTP2
               stat_prefix: "15010"
+              stream_idle_timeout: 0s
               http2_protocol_options:
                 max_concurrent_streams: 1073741824
 
@@ -7287,6 +7288,9 @@ rules:
     - "certificatesigningrequests/approval"
     - "certificatesigningrequests/status"
   verbs: ["update", "create", "get", "delete"]
+- apiGroups: ["discovery.k8s.io"]
+  resources: ["endpointslices"]
+  verbs: ["get", "list", "watch"]
 ---
 
 
@@ -7391,6 +7395,7 @@ data:
             config:
               codec_type: HTTP2
               stat_prefix: "15011"
+              stream_idle_timeout: 0s
               http2_protocol_options:
                 max_concurrent_streams: 1073741824
 
@@ -7449,6 +7454,7 @@ data:
                 config:
                   codec_type: HTTP2
                   stat_prefix: "15019"
+                  stream_idle_timeout: 0s
                   http2_protocol_options:
                     max_concurrent_streams: 1073741824
 
@@ -7498,8 +7504,11 @@ data:
     autoscaleMin: 1
     configMap: true
     configNamespace: istio-config
+    configSource:
+      subscribedResources: []
     cpu:
       targetAverageUtilization: 80
+    deploymentLabels: {}
     enableProtocolSniffingForInbound: false
     enableProtocolSniffingForOutbound: true
     enabled: true
@@ -7509,6 +7518,7 @@ data:
       ingressClass: istio
       ingressControllerMode: "OFF"
       ingressService: istio-ingressgateway
+    jwksResolverExtraRootCA: ""
     keepaliveMaxServerConnectionAge: 30m
     meshNetworks:
       networks: {}
@@ -7593,7 +7603,7 @@ data:
     # server side mTLS authentication policy, when destination rule for that service does not specify
     # TLS settings.
     enableAutoMtls: true
-    config_sources:
+    configSources:
     - address: localhost:15019
 
     outboundTrafficPolicy:
@@ -8592,9 +8602,9 @@ spec:
               - key: beta.kubernetes.io/arch
                 operator: In
                 values:
-                - amd64
-                - ppc64le
-                - s390x
+                - "amd64"
+                - "ppc64le"
+                - "s390x"
           preferredDuringSchedulingIgnoredDuringExecution:
           - weight: 2
             preference:
@@ -8602,21 +8612,21 @@ spec:
               - key: beta.kubernetes.io/arch
                 operator: In
                 values:
-                - amd64
+                - "amd64"
           - weight: 2
             preference:
               matchExpressions:
               - key: beta.kubernetes.io/arch
                 operator: In
                 values:
-                - ppc64le
+                - "ppc64le"
           - weight: 2
             preference:
               matchExpressions:
               - key: beta.kubernetes.io/arch
                 operator: In
                 values:
-                - s390x
+                - "s390x"
 ---
 
 
@@ -9877,6 +9887,7 @@ data:
                 config:
                   codec_type: HTTP2
                   stat_prefix: "15019"
+                  stream_idle_timeout: 0s
                   http2_protocol_options:
                     max_concurrent_streams: 1073741824
 
