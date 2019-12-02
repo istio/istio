@@ -109,7 +109,7 @@ GO_FILES_CMD := find . -name '*.go' | grep -v -E '$(GO_EXCLUDE)'
 # Environment for tests, the directory containing istio and deps binaries.
 # Typically same as GOPATH/bin, so tests work seemlessly with IDEs.
 
-export HELM=$(TARGET_OUT)/helm
+export HELM=helm
 export ARTIFACTS ?= $(TARGET_OUT)
 export REPO_ROOT := $(shell git rev-parse --show-toplevel)
 
