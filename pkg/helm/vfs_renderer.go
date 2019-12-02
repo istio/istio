@@ -140,9 +140,9 @@ func BuiltinProfileToFilename(name string) string {
 
 // stripPrefix removes the the given prefix from prefix.
 func stripPrefix(path, prefix string) string {
-	pl := len(strings.Split(prefix, "/"))
-	pv := strings.Split(path, "/")
-	return strings.Join(pv[pl:], "/")
+	pl := len(strings.Split(prefix, string(filepath.Separator)))
+	pv := strings.Split(path, string(filepath.Separator))
+	return strings.Join(pv[pl:], string(filepath.Separator))
 }
 
 // list all the builtin profiles.
