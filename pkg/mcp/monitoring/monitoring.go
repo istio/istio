@@ -25,21 +25,19 @@ import (
 )
 
 const (
-	collection   = "collection"
-	errorCode    = "code"
-	errorStr     = "error"
-	connectionID = "connectionID"
-	code         = "code"
-	component    = "component"
+	collection = "collection"
+	errorCode  = "code"
+	errorStr   = "error"
+	code       = "code"
+	component  = "component"
 )
 
 var (
-	collectionTag   = monitoring.MustCreateLabel(collection)
-	errorCodeTag    = monitoring.MustCreateLabel(errorCode)
-	errorTag        = monitoring.MustCreateLabel(errorStr)
-	connectionIDTag = monitoring.MustCreateLabel(connectionID)
-	codeTag         = monitoring.MustCreateLabel(code)
-	componentTag    = monitoring.MustCreateLabel(component)
+	collectionTag = monitoring.MustCreateLabel(collection)
+	errorCodeTag  = monitoring.MustCreateLabel(errorCode)
+	errorTag      = monitoring.MustCreateLabel(errorStr)
+	codeTag       = monitoring.MustCreateLabel(code)
+	componentTag  = monitoring.MustCreateLabel(component)
 
 	// currentStreamCount is a measure of the number of connected clients.
 	currentStreamCount = monitoring.NewGauge(
@@ -53,7 +51,7 @@ var (
 		"istio_mcp_message_sizes_bytes",
 		"Size of messages received from clients.",
 		[]float64{1, 4, 16, 64, 256, 1024, 4096, 16384, 65536, 262144, 1048576, 4194304, 16777216, 67108864, 268435456, 1073741824},
-		monitoring.WithLabels(componentTag, collectionTag, connectionIDTag),
+		monitoring.WithLabels(componentTag, collectionTag),
 		monitoring.WithUnit(monitoring.Bytes),
 	)
 
@@ -61,14 +59,14 @@ var (
 	requestAcksTotal = monitoring.NewSum(
 		"istio_mcp_request_acks_total",
 		"The number of request acks received by the source.",
-		monitoring.WithLabels(componentTag, collectionTag, connectionIDTag),
+		monitoring.WithLabels(componentTag, collectionTag),
 	)
 
 	// requestNacksTotal is a measure of the number of received NACK requests.
 	requestNacksTotal = monitoring.NewSum(
 		"istio_mcp_request_nacks_total",
 		"The number of request nacks received by the source.",
-		monitoring.WithLabels(componentTag, collectionTag, connectionIDTag, codeTag),
+		monitoring.WithLabels(componentTag, collectionTag, codeTag),
 	)
 
 	// sendFailuresTotal is a measure of the number of network send failures.
@@ -153,7 +151,6 @@ func (s *StatsContext) RecordRecvError(err error, code codes.Code) {
 func (s *StatsContext) RecordRequestSize(collection string, connectionID int64, size int) {
 	s.requestSizeBytes.With(
 		collectionTag.Value(collection),
-		connectionIDTag.Value(strconv.FormatInt(connectionID, 10)),
 	).Record(float64(size))
 }
 
@@ -161,7 +158,6 @@ func (s *StatsContext) RecordRequestSize(collection string, connectionID int64, 
 func (s *StatsContext) RecordRequestAck(collection string, connectionID int64) {
 	s.requestAcksTotal.With(
 		collectionTag.Value(collection),
-		connectionIDTag.Value(strconv.FormatInt(connectionID, 10)),
 	).Increment()
 }
 
@@ -169,7 +165,6 @@ func (s *StatsContext) RecordRequestAck(collection string, connectionID int64) {
 func (s *StatsContext) RecordRequestNack(collection string, connectionID int64, code codes.Code) {
 	s.requestNacksTotal.With(
 		collectionTag.Value(collection),
-		connectionIDTag.Value(strconv.FormatInt(connectionID, 10)),
 		codeTag.Value(code.String()),
 	).Increment()
 }

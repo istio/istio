@@ -1,0 +1,177 @@
+#!/usr/bin/env bash
+
+# Copyright Istio Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+set -e
+set -u
+set -o pipefail
+
+# $snippet restore_httpbin_creds syntax="bash"
+$ kubectl -n istio-system delete secret httpbin-credential
+$ kubectl create -n istio-system secret generic httpbin-credential \
+--from-file=key=httpbin.example.com/3_application/private/httpbin.example.com.key.pem \
+--from-file=cert=httpbin.example.com/3_application/certs/httpbin.example.com.cert.pem
+# $endsnippet
+
+# $snippet helloworldv1_deploy syntax="bash"
+$ cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: Service
+metadata:
+  name: helloworld-v1
+  labels:
+    app: helloworld-v1
+spec:
+  ports:
+  - name: http
+    port: 5000
+  selector:
+    app: helloworld-v1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: helloworld-v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: helloworld-v1
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: helloworld-v1
+        version: v1
+    spec:
+      containers:
+      - name: helloworld
+        image: istio/examples-helloworld-v1
+        resources:
+          requests:
+            cpu: "100m"
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5000
+EOF
+# $endsnippet
+
+# $snippet gen_certs_helloworld-v1 syntax="bash"
+$ pushd mtls-go-example
+$ ./generate.sh helloworld-v1.example.com {{ .password }}
+$ mkdir ../helloworld-v1.example.com && mv 1_root 2_intermediate 3_application 4_client ../helloworld-v1.example.com
+$ popd
+$ kubectl create -n istio-system secret generic helloworld-credential \
+--from-file=key=helloworld-v1.example.com/3_application/private/helloworld-v1.example.com.key.pem \
+--from-file=cert=helloworld-v1.example.com/3_application/certs/helloworld-v1.example.com.cert.pem
+# $endsnippet
+
+# $snippet helloworldv1_gateway_deploy syntax="bash"
+$ cat <<EOF | kubectl apply -f -
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: mygateway
+spec:
+  selector:
+    istio: ingressgateway # use istio default ingress gateway
+  servers:
+  - port:
+      number: 443
+      name: https-httpbin
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: "httpbin-credential"
+    hosts:
+    - "httpbin.example.com"
+  - port:
+      number: 443
+      name: https-helloworld
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: "helloworld-credential"
+    hosts:
+    - "helloworld-v1.example.com"
+EOF
+# $endsnippet
+
+# $snippet helloworldv1_virtualservice_deploy syntax="bash"
+$ cat <<EOF | kubectl apply -f -
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: helloworld-v1
+spec:
+  hosts:
+  - "helloworld-v1.example.com"
+  gateways:
+  - mygateway
+  http:
+  - match:
+    - uri:
+        exact: /hello
+    route:
+    - destination:
+        host: helloworld-v1
+        port:
+          number: 5000
+EOF
+# $endsnippet
+
+echo "Waiting for helloworldv1 deployment to start"
+
+kubectl wait --for=condition=available deployment --all --timeout=60s
+kubectl wait --for=condition=Ready pod --all --timeout=60s
+
+# We already created a snippet for this.
+$ export SECURE_INGRESS_PORT={{ .secureIngressPortCommand }}
+$ export INGRESS_HOST={{ .ingressHostCommand }}
+
+# $snippet helloworldv1_deploy_verify syntax="bash" outputis=text
+$ curl -v {{ .curlOptions }}-HHost:helloworld-v1.example.com \
+--resolve helloworld-v1.example.com:$SECURE_INGRESS_PORT:$INGRESS_HOST \
+--cacert helloworld-v1.example.com/2_intermediate/certs/ca-chain.cert.pem \
+https://helloworld-v1.example.com:$SECURE_INGRESS_PORT/hello
+# $verify verifier="contains"
+HTTP/2 200
+# $snippetoutput
+HTTP/2 200
+# $endsnippet
+
+# $snippet helloworldv1_deploy_verify_httpbin syntax="bash" outputis=text
+$ curl -v {{ .curlOptions }}-HHost:httpbin.example.com \
+--resolve httpbin.example.com:$SECURE_INGRESS_PORT:$INGRESS_HOST \
+--cacert httpbin.example.com/2_intermediate/certs/ca-chain.cert.pem \
+https://httpbin.example.com:$SECURE_INGRESS_PORT/status/418
+# $verify verifier="contains" source="stderr"
+HTTP/2 418
+# $verify verifier="contains" source="stdout"
+-=[ teapot ]=-
+# $snippetoutput
+...
+HTTP/2 418
+...
+-=[ teapot ]=-
+
+   _...._
+ .'  _ _ `.
+| ."` ^ `". _,
+\_;`"---"`|//
+  |       ;/
+  \_     _/
+    `"""`
+# $endsnippet

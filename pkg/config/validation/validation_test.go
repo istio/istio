@@ -16,6 +16,7 @@ package validation
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -30,7 +31,7 @@ import (
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	rbac "istio.io/api/rbac/v1alpha1"
-	authz "istio.io/api/security/v1beta1"
+	security_beta "istio.io/api/security/v1beta1"
 	api "istio.io/api/type/v1beta1"
 
 	"istio.io/istio/pkg/config/constants"
@@ -2035,9 +2036,10 @@ func TestValidateDestination(t *testing.T) {
 
 func TestValidateHTTPRoute(t *testing.T) {
 	testCases := []struct {
-		name  string
-		route *networking.HTTPRoute
-		valid bool
+		name        string
+		route       *networking.HTTPRoute
+		unsaferegex bool
+		valid       bool
 	}{
 		{name: "empty", route: &networking.HTTPRoute{ // nothing
 		}, valid:                                     false},
@@ -2238,29 +2240,14 @@ func TestValidateHTTPRoute(t *testing.T) {
 			}},
 			Match: []*networking.HTTPMatchRequest{nil},
 		}, valid: true},
-		{name: "valid regex", route: &networking.HTTPRoute{
-			Route: []*networking.HTTPRouteDestination{{
-				Destination: &networking.Destination{Host: "foo.bar"},
-			}},
-			Match: []*networking.HTTPMatchRequest{{
-				Uri: &networking.StringMatch{
-					MatchType: &networking.StringMatch_Regex{Regex: "foo"},
-				},
-			}},
-		}, valid: true},
-		{name: "too large regex", route: &networking.HTTPRoute{
-			Route: []*networking.HTTPRouteDestination{{
-				Destination: &networking.Destination{Host: "foo.bar"},
-			}},
-			Match: []*networking.HTTPMatchRequest{{
-				Uri: &networking.StringMatch{
-					MatchType: &networking.StringMatch_Regex{Regex: strings.Repeat("a", 101)},
-				},
-			}},
-		}, valid: false},
 	}
 
 	for _, tc := range testCases {
+		if tc.unsaferegex {
+			_ = os.Setenv("PILOT_ENABLE_UNSAFE_REGEX", "true")
+
+			defer func() { _ = os.Unsetenv("PILOT_ENABLE_UNSAFE_REGEX") }()
+		}
 		t.Run(tc.name, func(t *testing.T) {
 			if err := validateHTTPRoute(tc.route); (err == nil) != tc.valid {
 				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
@@ -2373,6 +2360,20 @@ func TestValidateVirtualService(t *testing.T) {
 			Http: []*networking.HTTPRoute{{
 				Route: []*networking.HTTPRouteDestination{{
 					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: false},
+		{name: "with no destination", in: &networking.VirtualService{
+			Hosts: []string{"*.foo.bar", "*.bar"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{}},
+			}},
+		}, valid: false},
+		{name: "destination with out hosts", in: &networking.VirtualService{
+			Hosts: []string{"*.foo.bar", "*.bar"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{},
 				}},
 			}},
 		}, valid: false},
@@ -3510,7 +3511,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 			Resolution: networking.ServiceEntry_STATIC,
 		},
-			valid: false},
+			valid: true},
 
 		{name: "discovery type static, bad endpoint port name", in: networking.ServiceEntry{
 			Hosts:     []string{"google.com"},
@@ -3866,40 +3867,40 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 	}{
 		{
 			name: "good",
-			in: &authz.AuthorizationPolicy{
+			in: &security_beta.AuthorizationPolicy{
 				Selector: &api.WorkloadSelector{
 					MatchLabels: map[string]string{
 						"app":     "httpbin",
 						"version": "v1",
 					},
 				},
-				Rules: []*authz.Rule{
+				Rules: []*security_beta.Rule{
 					{
-						From: []*authz.Rule_From{
+						From: []*security_beta.Rule_From{
 							{
-								Source: &authz.Source{
+								Source: &security_beta.Source{
 									Principals: []string{"sa1"},
 								},
 							},
 							{
-								Source: &authz.Source{
+								Source: &security_beta.Source{
 									Principals: []string{"sa2"},
 								},
 							},
 						},
-						To: []*authz.Rule_To{
+						To: []*security_beta.Rule_To{
 							{
-								Operation: &authz.Operation{
+								Operation: &security_beta.Operation{
 									Methods: []string{"GET"},
 								},
 							},
 							{
-								Operation: &authz.Operation{
+								Operation: &security_beta.Operation{
 									Methods: []string{"POST"},
 								},
 							},
 						},
-						When: []*authz.Condition{
+						When: []*security_beta.Condition{
 							{
 								Key:    "source.ip",
 								Values: []string{"1.2.3.4", "5.6.7.0/24"},
@@ -3916,30 +3917,30 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 		},
 		{
 			name: "key missing",
-			in: &authz.AuthorizationPolicy{
+			in: &security_beta.AuthorizationPolicy{
 				Selector: &api.WorkloadSelector{
 					MatchLabels: map[string]string{
 						"app":     "httpbin",
 						"version": "v1",
 					},
 				},
-				Rules: []*authz.Rule{
+				Rules: []*security_beta.Rule{
 					{
-						From: []*authz.Rule_From{
+						From: []*security_beta.Rule_From{
 							{
-								Source: &authz.Source{
+								Source: &security_beta.Source{
 									Principals: []string{"sa1"},
 								},
 							},
 						},
-						To: []*authz.Rule_To{
+						To: []*security_beta.Rule_To{
 							{
-								Operation: &authz.Operation{
+								Operation: &security_beta.Operation{
 									Methods: []string{"GET"},
 								},
 							},
 						},
-						When: []*authz.Condition{
+						When: []*security_beta.Condition{
 							{
 								Values: []string{"v1", "v2"},
 							},
@@ -3951,7 +3952,7 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 		},
 		{
 			name: "empty selector: key",
-			in: &authz.AuthorizationPolicy{
+			in: &security_beta.AuthorizationPolicy{
 				Selector: &api.WorkloadSelector{
 					MatchLabels: map[string]string{
 						"app":     "",
@@ -3963,7 +3964,7 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 		},
 		{
 			name: "empty selector: value",
-			in: &authz.AuthorizationPolicy{
+			in: &security_beta.AuthorizationPolicy{
 				Selector: &api.WorkloadSelector{
 					MatchLabels: map[string]string{
 						"app": "httpbin",
@@ -3975,15 +3976,15 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 		},
 		{
 			name: "invalid attribute",
-			in: &authz.AuthorizationPolicy{
+			in: &security_beta.AuthorizationPolicy{
 				Selector: &api.WorkloadSelector{
 					MatchLabels: map[string]string{
 						"app": "httpbin",
 					},
 				},
-				Rules: []*authz.Rule{
+				Rules: []*security_beta.Rule{
 					{
-						When: []*authz.Condition{
+						When: []*security_beta.Condition{
 							{
 								Key:    "key1",
 								Values: []string{"v1"},
@@ -4989,5 +4990,51 @@ func TestValidationIPSubnet(t *testing.T) {
 				t.Errorf("test: \"%s\" expected to fail but succeeded", tt.name)
 			}
 		}
+	}
+}
+
+func TestValidateRequestAuthentication(t *testing.T) {
+	cases := []struct {
+		name       string
+		configName string
+		in         proto.Message
+		valid      bool
+	}{
+		{
+			name:       "empty spec",
+			configName: someName,
+			in:         &security_beta.RequestAuthentication{},
+			valid:      true,
+		},
+		{
+			name:       "empty jwt rule",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				JwtRules: []*security_beta.JWT{
+					{},
+				},
+			},
+			valid: false,
+		},
+		{
+			name:       "empty issuer",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				JwtRules: []*security_beta.JWT{
+					{
+						Issuer: "",
+					},
+				},
+			},
+			valid: false,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := ValidateRequestAuthentication(c.configName, someNamespace, c.in); (got == nil) != c.valid {
+				t.Errorf("got(%v) != want(%v)\n", c.valid, got)
+			}
+		})
 	}
 }

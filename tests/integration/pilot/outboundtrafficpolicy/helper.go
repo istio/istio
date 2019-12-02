@@ -147,10 +147,14 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 						{
 							Name:     "http",
 							Protocol: protocol.HTTP,
+							// We use a port > 1024 to not require root
+							InstancePort: 8090,
 						},
 						{
 							Name:     "https",
 							Protocol: protocol.HTTPS,
+							// We use a port > 1024 to not require root
+							InstancePort: 8091,
 						},
 					},
 				}).BuildOrFail(t)

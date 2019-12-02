@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	udpa "github.com/cncf/udpa/go/udpa/type/v1"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/google/uuid"
 	"go.uber.org/atomic"
@@ -50,6 +51,9 @@ var (
 	// while debouncing. Defaults to 10 seconds. If events keep
 	// showing up with no break for this time, we'll trigger a push.
 	DebounceMax time.Duration
+
+	// Statically link protobuf descriptors from UDPA
+	_ = udpa.TypedStruct{}
 )
 
 const (
@@ -105,6 +109,9 @@ type DiscoveryServer struct {
 
 	// pushQueue is the buffer that used after debounce and before the real xds push.
 	pushQueue *PushQueue
+
+	// debugHandlers is the list of all the supported debug handlers.
+	debugHandlers map[string]string
 }
 
 // EndpointShards holds the set of endpoint shards of a service. Registries update
@@ -128,15 +135,16 @@ type EndpointShards struct {
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
-func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator) *DiscoveryServer {
+func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServer {
 	out := &DiscoveryServer{
 		Env:                     env,
-		ConfigGenerator:         generator,
+		ConfigGenerator:         core.NewConfigGenerator(plugins),
 		EndpointShardsByService: map[string]map[string]*EndpointShards{},
 		concurrentPushLimit:     make(chan struct{}, features.PushThrottle),
 		pushChannel:             make(chan *model.PushRequest, 10),
 		pushQueue:               NewPushQueue(),
 		DebugConfigs:            features.DebugConfigs,
+		debugHandlers:           map[string]string{},
 	}
 
 	// Flush cached discovery responses when detecting jwt public key change.

@@ -114,7 +114,8 @@ mapping with equivalent syntax is not possible (e.g., constraints no longer vali
 in the new workload oriented model, converting a service name containing a wildcard
 to workload selector).
 
-Please always review the converted policies before applying them.
+Please always review the converted policies, and remove the "===PLEASE REVIEW THE GENERATED POLICY AND REMOVE THIS LINE BEFORE APPLYING IT==="
+string on top of the converted policies before apply them.
 
 THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 `,
@@ -253,7 +254,7 @@ func getV1alpha1Policies(v1PolicyFiles []string) (*model.AuthorizationPolicies, 
 			return nil, err
 		}
 
-		if len(results) < 0 {
+		if len(results) == 0 {
 			return nil, fmt.Errorf("received empty response for authorization information")
 		}
 
@@ -266,6 +267,10 @@ func getV1alpha1Policies(v1PolicyFiles []string) (*model.AuthorizationPolicies, 
 			authzPolicies = authzDebug.AuthorizationPolicies
 			// Break once we found a successful response from Pilot.
 			break
+		}
+
+		if authzPolicies == nil {
+			return nil, fmt.Errorf("no v1alpha1 RBAC policy")
 		}
 	}
 

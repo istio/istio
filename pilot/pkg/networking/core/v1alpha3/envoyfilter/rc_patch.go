@@ -24,7 +24,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/runtime"
 	"istio.io/pkg/log"
 )
 
@@ -33,7 +33,7 @@ func ApplyRouteConfigurationPatches(
 	proxy *model.Proxy,
 	push *model.PushContext,
 	routeConfiguration *xdsapi.RouteConfiguration) (out *xdsapi.RouteConfiguration) {
-	defer util.HandleCrash(func() {
+	defer runtime.HandleCrash(func() {
 		log.Errorf("listeners patch caused panic, so the patches did not take effect")
 	})
 	// In case the patches cause panic, use the route generated before to reduce the influence.
@@ -231,7 +231,7 @@ func virtualHostMatch(vh *route.VirtualHost, cp *model.EnvoyFilterConfigPatchWra
 	}
 	if vh == nil {
 		// route configuration has a specific match for a virtual host but
-		// we dont have a virtual host to match.
+		// we do not have a virtual host to match.
 		return false
 	}
 	// check if virtual host names match
@@ -258,7 +258,7 @@ func routeMatch(httpRoute *route.Route, cp *model.EnvoyFilterConfigPatchWrapper)
 
 	if httpRoute == nil {
 		// we have a specific match for particular httpRoute but
-		// we dont have a httpRoute to match.
+		// we do not have a httpRoute to match.
 		return false
 	}
 

@@ -19,6 +19,7 @@ import (
 	"sync"
 
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -122,7 +123,7 @@ func (pc *PodCache) event(obj interface{}, ev model.Event) error {
 
 func (pc *PodCache) proxyUpdates(ip string) {
 	if pc.c != nil && pc.c.XDSUpdater != nil {
-		pc.c.XDSUpdater.ProxyUpdate(pc.c.ClusterID, ip)
+		pc.c.XDSUpdater.ProxyUpdate(pc.c.clusterID, ip)
 	}
 }
 
@@ -145,6 +146,16 @@ func (pc *PodCache) getPodByIP(addr string) *v1.Pod {
 		return nil
 	}
 	return item.(*v1.Pod)
+}
+
+// getPod loads the pod from k8s.
+func (pc *PodCache) getPod(name string, namespace string) *v1.Pod {
+	pod, err := pc.c.client.CoreV1().Pods(namespace).Get(name, metav1.GetOptions{})
+	if err != nil {
+		log.Warnf("failed to get pod %s/%s from kube-apiserver: %v", namespace, name, err)
+		return nil
+	}
+	return pod
 }
 
 // labelsByIP returns pod labels or nil if pod not found or an error occurred

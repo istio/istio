@@ -67,6 +67,10 @@ const (
 )
 
 const (
+	messageToBeRemoved = "===PLEASE REVIEW THE GENERATED POLICY AND REMOVE THIS LINE BEFORE APPLYING IT===\n"
+)
+
+const (
 	rbacNamespaceAllow = `apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
@@ -116,6 +120,7 @@ func New(k8sClient *kubernetes.Clientset, v1alpha1Policies *model.AuthorizationP
 		NamespaceToServiceToSelector: namespaceToServiceToSelector,
 		v1beta1Policies:              []model.Config{},
 	}
+	converter.ConvertedPolicies.WriteString(messageToBeRemoved)
 	return &converter, nil
 }
 
@@ -350,7 +355,7 @@ func (c *Converter) v1alpha1ModelTov1beta1Policy(v1alpha1Model *authz_model.Mode
 		}
 	}
 
-	for _, accessRule := range v1alpha1Model.Permissions {
+	for i, accessRule := range v1alpha1Model.Permissions {
 		operation, err := convertAccessRuleToOperation(&accessRule)
 		if err != nil {
 			return fmt.Errorf("cannot convert access rule to operation: %v", err)
@@ -362,7 +367,7 @@ func (c *Converter) v1alpha1ModelTov1beta1Policy(v1alpha1Model *authz_model.Mode
 		}
 		for _, service := range accessRule.Services {
 			for j, selector := range c.getSelectors(service, namespace) {
-				name := fmt.Sprintf("service-%s-%d", strings.ReplaceAll(service, "*", "wildcard"), j)
+				name := fmt.Sprintf("service-%s-rule%d-target%d", strings.ReplaceAll(service, "*", "wildcard"), i, j)
 				authzConfig := createAuthzConfig(name, &v1beta1.WorkloadSelector{
 					MatchLabels: selector,
 				}, operation)
@@ -427,6 +432,10 @@ func convertAccessRuleToOperation(rule *authz_model.Permission) (*rbac_v1beta1.O
 	if rule == nil {
 		return nil, fmt.Errorf("invalid input: No rule found in ServiceRole")
 	}
+	if len(rule.Constraints) > 0 && len(rule.Constraints[0]) > 0 {
+		// nolint: golint
+		return nil, fmt.Errorf("ServiceRole with constraints is not supported")
+	}
 	operation := rbac_v1beta1.Operation{}
 	operation.Methods = rule.Methods
 	operation.Paths = rule.Paths
@@ -441,7 +450,8 @@ func convertBindingToSources(principals []authz_model.Principal) ([]*rbac_v1beta
 	for _, subject := range principals {
 		// TODO(pitlv2109): Handle group
 		if subject.Group != "" {
-			return nil, fmt.Errorf("serviceRoleBinding with group is not supported")
+			// nolint: golint
+			return nil, fmt.Errorf("ServiceRoleBinding with group is not supported")
 		}
 		from := rbac_v1beta1.Rule_From{
 			Source: &rbac_v1beta1.Source{},

@@ -15,10 +15,10 @@
 package coredatamodel
 
 import (
-	"errors"
-	"fmt"
 	"net"
 	"strconv"
+	"strings"
+	"sync"
 
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -34,8 +34,7 @@ import (
 )
 
 var (
-	_ model.Controller       = &MCPDiscovery{}
-	_ model.ServiceDiscovery = &MCPDiscovery{}
+	_ serviceregistry.Instance = &MCPDiscovery{}
 )
 
 // DiscoveryOptions stores the configurable attributes of a Control
@@ -45,38 +44,93 @@ type DiscoveryOptions struct {
 	DomainSuffix string
 }
 
-// mixerEnabled checks to see if mixer is enabled in the environment
-// so we can set the UID on eds endpoints
-func (o *DiscoveryOptions) mixerEnabled() bool {
-	return o.Env != nil && o.Env.Mesh != nil && (o.Env.Mesh.MixerCheckServer != "" || o.Env.Mesh.MixerReportServer != "")
-}
-
 // MCPDiscovery provides discovery interface for SyntheticServiceEntries
 type MCPDiscovery struct {
 	*SyntheticServiceEntryController
 	*DiscoveryOptions
+	cacheMutex sync.RWMutex
+	// key [endpointIP]
+	cacheByEndpointIP map[string][]*model.ServiceInstance
+	// key [service.Hostname]
+	cacheByHostName map[host.Name][]*model.ServiceInstance
+	// key [hostname]
+	cacheServices map[string]*model.Service
 }
 
 // NewMCPDiscovery provides a new instance of Discovery
 func NewMCPDiscovery(controller CoreDataModel, options *DiscoveryOptions) *MCPDiscovery {
-	return &MCPDiscovery{
+	discovery := &MCPDiscovery{
 		SyntheticServiceEntryController: controller.(*SyntheticServiceEntryController),
 		DiscoveryOptions:                options,
+		cacheByEndpointIP:               make(map[string][]*model.ServiceInstance),
+		cacheByHostName:                 make(map[host.Name][]*model.ServiceInstance),
+		cacheServices:                   make(map[string]*model.Service),
 	}
+	discovery.RegisterEventHandler(schemas.SyntheticServiceEntry.Type, func(config model.Config, event model.Event) {
+		discovery.HandleCacheEvents(config, event)
+	})
+	return discovery
+
+}
+
+// HandleCacheEvents populates local cache based on events received from controller
+func (d *MCPDiscovery) HandleCacheEvents(config model.Config, event model.Event) {
+	d.cacheMutex.Lock()
+	defer d.cacheMutex.Unlock()
+	services := convertServices(config)
+	d.mergeCachedServices(services)
+	switch event {
+	case model.EventAdd, model.EventUpdate:
+		newSvcInstancesByIP, newSvcInstancesByHost := d.convertInstances(config, services)
+		for ip, svcInstances := range newSvcInstancesByIP {
+			d.cacheByEndpointIP[ip] = svcInstances
+		}
+		for hostname, svcInstances := range newSvcInstancesByHost {
+			d.cacheByHostName[hostname] = svcInstances
+		}
+	case model.EventDelete:
+		svcInstancesByIP, svcInstancesByHost := d.convertInstances(config, services)
+		for ip := range svcInstancesByIP {
+			delete(d.cacheByEndpointIP, ip)
+		}
+		for hostname := range svcInstancesByHost {
+			delete(d.cacheByHostName, hostname)
+		}
+	}
+}
+
+// Run until a signal is received
+// NOTE: eventually there may be a need for some sort of
+// cache drain/purge mechanism that runs on a time interval
+// basis to purge all caches, the purge maybe necessary since
+// controller's configStore only keeps track of one sink.Change
+// object at a time everytime apply is called.
+func (d *MCPDiscovery) Run(stop <-chan struct{}) {
+	if err := d.initializeCache(); err != nil {
+		log.Warnf("Run: %s", err)
+	}
+}
+
+func (d *MCPDiscovery) Provider() serviceregistry.ProviderID {
+	return serviceregistry.MCP
+}
+
+func (d *MCPDiscovery) Cluster() string {
+	return d.ClusterID
 }
 
 // Services list declarations of all SyntheticServiceEntries in the system
 func (d *MCPDiscovery) Services() ([]*model.Service, error) {
-	services := make([]*model.Service, 0)
-
-	syntheticServiceEntries, err := d.List(schemas.SyntheticServiceEntry.Type, model.NamespaceAll)
-	if err != nil {
+	if err := d.initializeCache(); err != nil {
 		return nil, err
 	}
-	for _, cfg := range syntheticServiceEntries {
-		services = append(services, convertServices(cfg)...)
+	out := make([]*model.Service, 0)
+	d.cacheMutex.Lock()
+	defer d.cacheMutex.Unlock()
+	for _, s := range d.cacheServices {
+		out = append(out, s)
 	}
-	return services, nil
+	return out, nil
 }
 
 // GetProxyServiceInstances returns service instances co-located with a given proxy
@@ -86,127 +140,170 @@ func (d *MCPDiscovery) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Se
 	// There is only one IP for kube registry
 	proxyIP := proxy.IPAddresses[0]
 
-	// add not ready endpoint
-	d.notReadyEndpointsMu.Lock()
-	defer d.notReadyEndpointsMu.Unlock()
-	for addr, conf := range d.notReadyEndpoints {
-		notReadyIP, port, err := net.SplitHostPort(addr)
-		if err != nil {
-			continue
-		}
-		notReadyPort, err := strconv.Atoi(port)
-		if proxyIP != notReadyIP || err != nil {
-			continue
-		}
-		se, ok := conf.Spec.(*networking.ServiceEntry)
-		if !ok {
-			return nil, errors.New("getProxyServiceInstances: wrong type")
-		}
-		for _, h := range se.Hosts {
-			for _, svcPort := range se.Ports {
-				out = append(out, d.notReadyServiceInstance(se, svcPort, conf, h, notReadyIP, notReadyPort))
-			}
-		}
-	}
+	d.cacheMutex.Lock()
+	defer d.cacheMutex.Unlock()
 
-	// add any other endpoint
-	svcInstances, err := d.serviceInstancesFromConfig(proxy.ConfigNamespace, proxy.IPAddresses[0])
-	if err != nil {
-		return nil, err
+	if svcInstances, exist := d.cacheByEndpointIP[proxyIP]; exist {
+		out = append(out, svcInstances...)
 	}
-	out = append(out, svcInstances...)
 	return out, nil
 }
 
 // InstancesByPort implements a service catalog operation
-func (d *MCPDiscovery) InstancesByPort(svc *model.Service, servicePort int, lbls labels.Collection) ([]*model.ServiceInstance, error) {
+func (d *MCPDiscovery) InstancesByPort(svc *model.Service, servicePort int, labels labels.Collection) ([]*model.ServiceInstance, error) {
+	if err := d.initializeCache(); err != nil {
+		return nil, err
+	}
 	out := make([]*model.ServiceInstance, 0)
+	d.cacheMutex.Lock()
+	defer d.cacheMutex.Unlock()
 
-	d.notReadyEndpointsMu.Lock()
-	defer d.notReadyEndpointsMu.Unlock()
-
-	for addr, conf := range d.notReadyEndpoints {
-		notReadyIP, port, err := net.SplitHostPort(addr)
-		if err != nil {
-			continue
-		}
-		notReadyPort, err := strconv.Atoi(port)
-		if err != nil {
-			continue
-		}
-		se, ok := conf.Spec.(*networking.ServiceEntry)
-		if !ok {
-			return nil, errors.New("instancesByPort: wrong type")
-		}
-
-		for _, svcPort := range se.Ports {
-			for _, h := range se.Hosts {
-				if host.Name(h) == svc.Hostname && servicePort == int(svcPort.Number) {
-					// add not ready endpoint
-					out = append(out, d.notReadyServiceInstance(se, svcPort, conf, h, notReadyIP, notReadyPort))
-				}
+	instances, found := d.cacheByHostName[svc.Hostname]
+	if found {
+		for _, instance := range instances {
+			if instance.Service.Hostname == svc.Hostname &&
+				labels.HasSubsetOf(instance.Labels) &&
+				portMatchSingle(instance, servicePort) {
+				out = append(out, instance)
 			}
 		}
 	}
-	// add other endpoints
-	if svc != nil {
-		sseConf, err := d.List(schemas.SyntheticServiceEntry.Type, svc.Attributes.Namespace)
-		if err != nil {
-			return nil, err
-		}
+	return out, nil
+}
 
-		for _, conf := range sseConf {
-			se, ok := conf.Spec.(*networking.ServiceEntry)
-			if !ok {
-				return nil, errors.New("instancesByPort: wrong type")
-			}
-			for _, h := range se.Hosts {
-				for _, svcPort := range se.Ports {
-					if host.Name(h) == svc.Hostname && int(svcPort.Number) == servicePort {
-						var uid string
-						if d.mixerEnabled() {
-							uid = fmt.Sprintf("kubernetes://%s.%s", conf.Name, conf.Namespace)
-						}
-						for _, ep := range se.Endpoints {
-							for _, epPort := range ep.Ports {
-								si := &model.ServiceInstance{
-									Endpoint: model.NetworkEndpoint{
-										UID:      uid,
-										Address:  ep.Address,
-										Port:     int(epPort),
-										Locality: ep.Locality,
-										LbWeight: ep.Weight,
-										Network:  ep.Network,
-										ServicePort: &model.Port{
-											Name:     svcPort.Name,
-											Port:     int(svcPort.Number),
-											Protocol: protocol.Instance(svcPort.Protocol),
-										},
-									},
-									// ServiceAccount is retrieved in Kube/Controller
-									// using IdentityPodAnnotation
-									//ServiceAccount, Address: ???, //TODO: nino-k
-									Service: &model.Service{
-										Hostname:   host.Name(h),
-										Ports:      convertServicePorts(se.Ports),
-										Resolution: model.Resolution(int(se.Resolution)),
-										Attributes: model.ServiceAttributes{
-											Name:      conf.Name,
-											Namespace: conf.Namespace,
-											UID:       uid,
-										},
-									},
-									Labels: labels.Instance(conf.Labels),
-								}
-								out = append(out, si)
-							}
-						}
+// mixerEnabled checks to see if mixer is enabled in the environment
+// so we can set the UID on eds endpoints
+func (d *MCPDiscovery) mixerEnabled() bool {
+	return d.DiscoveryOptions.Env != nil && d.DiscoveryOptions.Env.Mesh != nil &&
+		(d.DiscoveryOptions.Env.Mesh.MixerCheckServer != "" || d.DiscoveryOptions.Env.Mesh.MixerReportServer != "")
+}
+
+func (d *MCPDiscovery) parseUID(cfg model.Config) string {
+	if d.mixerEnabled() {
+		return "kubernetes://" + cfg.Name + "." + cfg.Namespace
+	}
+	return ""
+}
+
+// Considered running this in the Run func, however
+// it is a little too early to populate the cache then
+// since the controller does not receive any data then
+func (d *MCPDiscovery) initializeCache() error {
+	sseConfigs, err := d.List(schemas.SyntheticServiceEntry.Type, model.NamespaceAll)
+	if err != nil {
+		return err
+	}
+	d.cacheMutex.Lock()
+	for _, conf := range sseConfigs {
+		// this only happens once so no need to check if namespace exist
+		services := convertServices(conf)
+		byIP, byHost := d.convertInstances(conf, services)
+		d.mergeCacheByEndpoint(byIP)
+		d.mergeCacheByHostName(byHost)
+		d.mergeCachedServices(services)
+	}
+	d.cacheMutex.Unlock()
+	return nil
+}
+
+func (d *MCPDiscovery) mergeCachedServices(newServices map[string]*model.Service) {
+	for host, newSvc := range newServices {
+		d.cacheServices[host] = newSvc
+	}
+}
+
+func (d *MCPDiscovery) mergeCacheByEndpoint(newServicesInstances map[string][]*model.ServiceInstance) {
+	for ip, svcInst := range newServicesInstances {
+		d.cacheByEndpointIP[ip] = svcInst
+	}
+}
+
+func (d *MCPDiscovery) mergeCacheByHostName(newServicesInstances map[host.Name][]*model.ServiceInstance) {
+	for host, svcInst := range newServicesInstances {
+		d.cacheByHostName[host] = svcInst
+	}
+}
+
+func (d *MCPDiscovery) convertInstances(
+	cfg model.Config,
+	services map[string]*model.Service,
+) (map[string][]*model.ServiceInstance, map[host.Name][]*model.ServiceInstance) {
+	byIP := make(map[string][]*model.ServiceInstance)
+	byHost := make(map[host.Name][]*model.ServiceInstance)
+	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
+	for _, service := range services {
+		for _, serviceEntryPort := range serviceEntry.Ports {
+			if len(serviceEntry.Endpoints) == 0 &&
+				serviceEntry.Resolution == networking.ServiceEntry_DNS {
+				// when service entry has discovery type DNS and no endpoints
+				// we create endpoints from service's host
+				// Do not use serviceentry.hosts as a service entry is converted into
+				// multiple services (one for each host)
+				// NOTE: these are excluded from byIP since GetProxyServiceInstances
+				// can not work on hostnames
+				svcInstance := &model.ServiceInstance{
+					Endpoint: model.NetworkEndpoint{
+						UID:         d.parseUID(cfg),
+						Address:     string(service.Hostname),
+						Port:        int(serviceEntryPort.Number),
+						ServicePort: convertPort(serviceEntryPort),
+					},
+					Service: service,
+					Labels:  nil,
+					TLSMode: model.DisabledTLSModeLabel,
+				}
+				if svcInstances, exist := byHost[service.Hostname]; exist {
+					svcInstances = append(svcInstances, svcInstance)
+					byHost[service.Hostname] = svcInstances
+				} else {
+					byHost[service.Hostname] = []*model.ServiceInstance{svcInstance}
+				}
+			} else {
+				for _, endpoint := range serviceEntry.Endpoints {
+					svcInstance := d.convertEndpoint(cfg, service, serviceEntryPort, endpoint)
+					// populate byIP with all endpoints attached to service
+					if svcInstances, exist := byIP[endpoint.Address]; exist {
+						svcInstances = append(svcInstances, svcInstance)
+						byIP[endpoint.Address] = svcInstances
+					} else {
+						byIP[endpoint.Address] = []*model.ServiceInstance{svcInstance}
+					}
+					// populate byHost with all service instances
+					if svcInstances, exist := byHost[service.Hostname]; exist {
+						svcInstances = append(svcInstances, svcInstance)
+						byHost[service.Hostname] = svcInstances
+					} else {
+						byHost[service.Hostname] = []*model.ServiceInstance{svcInstance}
+					}
+
+				}
+				notReadyEps := notReadyEndpoints(cfg)
+				for ip, port := range notReadyEps {
+					svcInstancesFromNotReadyEps := convertNotReadyEndpoints(service, serviceEntryPort, ip, port)
+					// populate byIP with notReadyEndpoints associated to service
+					if svcInstances, exist := byIP[ip]; exist {
+						svcInstances = append(svcInstances, svcInstancesFromNotReadyEps...)
+						byIP[ip] = svcInstances
+					} else {
+						byIP[ip] = svcInstancesFromNotReadyEps
+					}
+					// populate byHost with notReadyEndpoints associated to service
+					if svcInstances, exist := byHost[service.Hostname]; exist {
+						svcInstances = append(svcInstances, svcInstancesFromNotReadyEps...)
+						byHost[service.Hostname] = svcInstances
+					} else {
+						byHost[service.Hostname] = svcInstancesFromNotReadyEps
 					}
 				}
 			}
 		}
 	}
-	return out, nil
+	return byIP, byHost
+}
+
+// returns true if an instance's port matches with any in the provided list
+func portMatchSingle(instance *model.ServiceInstance, port int) bool {
+	return port == 0 || port == instance.Endpoint.ServicePort.Port
 }
 
 func convertPort(port *networking.Port) *model.Port {
@@ -217,11 +314,11 @@ func convertPort(port *networking.Port) *model.Port {
 	}
 }
 
-func convertServices(cfg model.Config) []*model.Service {
+func convertServices(cfg model.Config) map[string]*model.Service {
 	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
 	creationTime := cfg.CreationTimestamp
 
-	out := make([]*model.Service, 0)
+	out := make(map[string]*model.Service)
 
 	var resolution model.Resolution
 	switch serviceEntry.Resolution {
@@ -256,7 +353,7 @@ func convertServices(cfg model.Config) []*model.Service {
 						// /32 mask. Remove the /32 and make it a normal IP address
 						newAddress = ip.String()
 					}
-					out = append(out, &model.Service{
+					out[hostname] = &model.Service{
 						CreationTime: creationTime,
 						MeshExternal: serviceEntry.Location == networking.ServiceEntry_MESH_EXTERNAL,
 						Hostname:     host.Name(hostname),
@@ -264,14 +361,14 @@ func convertServices(cfg model.Config) []*model.Service {
 						Ports:        svcPorts,
 						Resolution:   resolution,
 						Attributes: model.ServiceAttributes{
-							ServiceRegistry: string(serviceregistry.MCPRegistry),
+							ServiceRegistry: string(serviceregistry.MCP),
 							Name:            hostname,
 							Namespace:       cfg.Namespace,
 							ExportTo:        exportTo,
 						},
-					})
+					}
 				} else if net.ParseIP(address) != nil {
-					out = append(out, &model.Service{
+					out[hostname] = &model.Service{
 						CreationTime: creationTime,
 						MeshExternal: serviceEntry.Location == networking.ServiceEntry_MESH_EXTERNAL,
 						Hostname:     host.Name(hostname),
@@ -279,16 +376,16 @@ func convertServices(cfg model.Config) []*model.Service {
 						Ports:        svcPorts,
 						Resolution:   resolution,
 						Attributes: model.ServiceAttributes{
-							ServiceRegistry: string(serviceregistry.MCPRegistry),
+							ServiceRegistry: string(serviceregistry.MCP),
 							Name:            hostname,
 							Namespace:       cfg.Namespace,
 							ExportTo:        exportTo,
 						},
-					})
+					}
 				}
 			}
 		} else {
-			out = append(out, &model.Service{
+			out[hostname] = &model.Service{
 				CreationTime: creationTime,
 				MeshExternal: serviceEntry.Location == networking.ServiceEntry_MESH_EXTERNAL,
 				Hostname:     host.Name(hostname),
@@ -296,141 +393,88 @@ func convertServices(cfg model.Config) []*model.Service {
 				Ports:        svcPorts,
 				Resolution:   resolution,
 				Attributes: model.ServiceAttributes{
-					ServiceRegistry: string(serviceregistry.MCPRegistry),
+					ServiceRegistry: string(serviceregistry.MCP),
 					Name:            hostname,
 					Namespace:       cfg.Namespace,
 					ExportTo:        exportTo,
 				},
-			})
+			}
 		}
 	}
 
 	return out
 }
 
-func (d *MCPDiscovery) serviceInstancesFromConfig(namespace, proxyIP string) ([]*model.ServiceInstance, error) {
-	out := make([]*model.ServiceInstance, 0)
-	sseConf, err := d.List(schemas.SyntheticServiceEntry.Type, namespace)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, conf := range sseConf {
-		se, ok := conf.Spec.(*networking.ServiceEntry)
-		if !ok {
-			return nil, errors.New("serviceInstancesFromConfig: wrong type")
+func (d *MCPDiscovery) convertEndpoint(cfg model.Config, service *model.Service, servicePort *networking.Port,
+	endpoint *networking.ServiceEntry_Endpoint) *model.ServiceInstance {
+	var instancePort uint32
+	var family model.AddressFamily
+	addr := endpoint.GetAddress()
+	if strings.HasPrefix(addr, model.UnixAddressPrefix) {
+		instancePort = 0
+		family = model.AddressFamilyUnix
+		addr = strings.TrimPrefix(addr, model.UnixAddressPrefix)
+	} else {
+		instancePort = endpoint.Ports[servicePort.Name]
+		if instancePort == 0 {
+			instancePort = servicePort.Number
 		}
-		for _, h := range se.Hosts {
-			for _, svcPort := range se.Ports {
-				// add other endpoints
-				out = append(out, d.serviceInstancesByProxyIP(proxyIP, se, svcPort, conf, h)...)
-			}
-		}
+		family = model.AddressFamilyTCP
 	}
-	return out, nil
 
-}
+	tlsMode := model.GetTLSModeFromEndpointLabels(endpoint.Labels)
 
-func (d *MCPDiscovery) notReadyServiceInstance(
-	se *networking.ServiceEntry,
-	svcPort *networking.Port,
-	conf *model.Config,
-	hostname,
-	ip string,
-	port int) *model.ServiceInstance {
-	var uid string
-	if d.mixerEnabled() {
-		uid = fmt.Sprintf("kubernetes://%s.%s", conf.Name, conf.Namespace)
-	}
-	out := &model.ServiceInstance{
+	return &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
-			UID:     uid,
-			Address: ip,
-			Port:    port,
-			ServicePort: &model.Port{
-				Name:     svcPort.Name,
-				Port:     int(svcPort.Number),
-				Protocol: protocol.Instance(svcPort.Protocol),
-			},
+			UID:         d.parseUID(cfg),
+			Address:     addr,
+			Family:      family,
+			Port:        int(instancePort),
+			ServicePort: convertPort(servicePort),
+			Network:     endpoint.Network,
+			Locality:    endpoint.Locality,
+			LbWeight:    endpoint.Weight,
 		},
-		// ServiceAccount is retrieved in Kube/Controller
-		// using IdentityPodAnnotation
-		//ServiceAccount and Address: ???, //TODO: nino-k
-		Service: &model.Service{
-			Hostname:   host.Name(hostname),
-			Ports:      convertServicePorts(se.Ports),
-			Resolution: model.Resolution(int(se.Resolution)),
-			Attributes: model.ServiceAttributes{
-				Name:      conf.Name,
-				Namespace: conf.Namespace,
-				UID:       uid,
-			},
-		},
-		Labels: labels.Instance(conf.Labels),
+		Service: service,
+		Labels:  endpoint.Labels,
+		TLSMode: tlsMode,
 	}
+}
+
+// TODO: this serviceInstance is poorly constructed,
+// figure out how to populate other critical fields
+func convertNotReadyEndpoints(service *model.Service, servicePort *networking.Port, ip string, port int) []*model.ServiceInstance {
+	out := make([]*model.ServiceInstance, 0)
+	family := model.AddressFamilyTCP
+	out = append(out, &model.ServiceInstance{
+		Endpoint: model.NetworkEndpoint{
+			Address:     ip,
+			Family:      family,
+			Port:        port,
+			ServicePort: convertPort(servicePort),
+		},
+		Service: service,
+	})
 	return out
 }
 
-func (d *MCPDiscovery) serviceInstancesByProxyIP(
-	proxyIP string,
-	se *networking.ServiceEntry,
-	svcPort *networking.Port,
-	conf model.Config,
-	hostname string) (out []*model.ServiceInstance) {
-	var uid string
-	if d.mixerEnabled() {
-		uid = fmt.Sprintf("kubernetes://%s.%s", conf.Name, conf.Namespace)
-	}
-	for _, ep := range se.Endpoints {
-		if ep.Address == proxyIP {
-			for _, epPort := range ep.Ports {
-				si := &model.ServiceInstance{
-					Endpoint: model.NetworkEndpoint{
-						UID:      uid,
-						Address:  ep.Address,
-						Port:     int(epPort),
-						Locality: ep.Locality,
-						LbWeight: ep.Weight,
-						Network:  ep.Network,
-						ServicePort: &model.Port{
-							Name:     svcPort.Name,
-							Port:     int(svcPort.Number),
-							Protocol: protocol.Instance(svcPort.Protocol),
-						},
-					},
-					// ServiceAccount is retrieved in Kube/Controller
-					// using IdentityPodAnnotation
-					//ServiceAccount, Address: ???, //TODO: nino-k
-					Service: &model.Service{
-						Hostname:   host.Name(hostname),
-						Ports:      convertServicePorts(se.Ports),
-						Resolution: model.Resolution(int(se.Resolution)),
-						Attributes: model.ServiceAttributes{
-							Name:      conf.Name,
-							Namespace: conf.Namespace,
-							UID:       uid,
-						},
-					},
-					Labels: labels.Instance(conf.Labels),
-				}
-				out = append(out, si)
+func notReadyEndpoints(conf model.Config) map[string]int {
+	notReadyEndpoints := make(map[string]int)
+	if nrEps, ok := conf.Annotations[notReadyEndpointkey]; ok {
+		addrs := strings.Split(nrEps, ",")
+		for _, addr := range addrs {
+			notReadyIP, port, err := net.SplitHostPort(addr)
+			if err != nil {
+				log.Errorf("notReadyEndpoints: %v", err)
 			}
+			notReadyPort, err := strconv.Atoi(port)
+			if err != nil {
+				log.Errorf("notReadyEndpoints: %v", err)
+			}
+			notReadyEndpoints[notReadyIP] = notReadyPort
 		}
 	}
-	return out
-}
-
-func convertServicePorts(ports []*networking.Port) model.PortList {
-	out := make(model.PortList, 0)
-	for _, port := range ports {
-		out = append(out, &model.Port{
-			Name:     port.Name,
-			Port:     int(port.Number),
-			Protocol: protocol.Instance(port.Protocol),
-		})
-	}
-
-	return out
+	return notReadyEndpoints
 }
 
 // GetService Not Supported
@@ -475,9 +519,4 @@ func (d *MCPDiscovery) AppendServiceHandler(f func(*model.Service, model.Event))
 func (d *MCPDiscovery) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
 	log.Warnf("AppendInstanceHandler %s", errUnsupported)
 	return nil
-}
-
-// Run until a signal is received
-func (d *MCPDiscovery) Run(stop <-chan struct{}) {
-	log.Warnf("Run %s", errUnsupported)
 }

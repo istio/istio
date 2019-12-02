@@ -118,14 +118,15 @@ func TestPrioritized(t *testing.T) {
 						BuildOrFail(ctx)
 
 					fakeHostname := fmt.Sprintf("fake-eds-external-service-%v.com", r.Int())
+
 					deploy(ctx, ns, serviceConfig{
 						Name:             "prioritized-eds",
 						Host:             fakeHostname,
 						Namespace:        ns.Name(),
 						Resolution:       "STATIC",
-						ServiceBAddress:  b.WorkloadsOrFail(ctx)[0].Address(),
+						ServiceBAddress:  b.Address(),
 						ServiceBLocality: "region/zone/subzone",
-						ServiceCAddress:  c.WorkloadsOrFail(ctx)[0].Address(),
+						ServiceCAddress:  c.Address(),
 						ServiceCLocality: "notregion/notzone/notsubzone",
 					}, a)
 

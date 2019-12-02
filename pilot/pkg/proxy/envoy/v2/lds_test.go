@@ -22,6 +22,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	xdsapi_listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
@@ -80,7 +81,7 @@ func TestLDSIsolated(t *testing.T) {
 		}
 
 		// 7071 (inbound), 2001 (service - also as http proxy), 15002 (http-proxy), 18010 (fortio), 15006 (virtual inbound)
-		// We dont get mixer on 9091 or 15004 because there are no services defined in istio-system namespace
+		// We do not get mixer on 9091 or 15004 because there are no services defined in istio-system namespace
 		// in the none.yaml setup
 		if len(ldsr.GetHTTPListeners()) != 5 {
 			// TODO: we are still debating if for HTTP services we have any use case to create a 127.0.0.1:port outbound
@@ -586,7 +587,7 @@ func memServiceDiscovery(server *bootstrap.Server, t *testing.T) *v2.MemServiceD
 	if !found {
 		t.Fatal("Could not find Mock ServiceRegistry")
 	}
-	registry, ok := server.ServiceController.GetRegistries()[index].ServiceDiscovery.(*v2.MemServiceDiscovery)
+	registry, ok := server.ServiceController.GetRegistries()[index].(serviceregistry.Simple).ServiceDiscovery.(*v2.MemServiceDiscovery)
 	if !ok {
 		t.Fatal("Unexpected type of Mock ServiceRegistry")
 	}

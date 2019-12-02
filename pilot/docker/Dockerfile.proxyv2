@@ -13,7 +13,7 @@ COPY gcp_envoy_bootstrap.json /var/lib/istio/envoy/gcp_envoy_bootstrap_tmpl.json
 
 RUN chown -R istio-proxy /var/lib/istio
 
-COPY istio-iptables.sh /usr/local/bin/istio-iptables
+COPY istio-iptables /usr/local/bin/istio-iptables
 
 # The following section is used as base image if BASE_DISTRIBUTION=distroless
 # hadolint ignore=DL3007

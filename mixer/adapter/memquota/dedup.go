@@ -108,7 +108,6 @@ func (du *dedupUtil) reapDedup() {
 		du.logger.Debugf("Running repear to reclaim %d old deduplication entries", len(t))
 	}
 
-	// TODO: why isn't there a O(1) way to clear a map to the empty state?!
 	for k := range t {
 		delete(t, k)
 	}

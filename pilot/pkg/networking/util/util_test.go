@@ -622,35 +622,6 @@ func TestMergeAnyWithStruct(t *testing.T) {
 	}
 }
 
-func TestHandleCrash(t *testing.T) {
-	defer func() {
-		if x := recover(); x != nil {
-			t.Errorf("Expected no panic ")
-		}
-	}()
-
-	defer HandleCrash()
-	panic("test")
-}
-
-func TestCustomHandleCrash(t *testing.T) {
-	ch := make(chan struct{}, 1)
-	defer func() {
-		select {
-		case <-ch:
-			t.Logf("crash handler called")
-		case <-time.After(1 * time.Second):
-			t.Errorf("Custom handler not called")
-		}
-	}()
-
-	defer HandleCrash(func() {
-		ch <- struct{}{}
-	})
-
-	panic("test")
-}
-
 func TestIsAllowAnyOutbound(t *testing.T) {
 	tests := []struct {
 		name   string
