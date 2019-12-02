@@ -16,7 +16,6 @@ package controller
 
 import (
 	"fmt"
-	"path/filepath"
 	"reflect"
 	"sort"
 	"sync"
@@ -43,26 +42,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/env"
 )
-
-func makeClient(t *testing.T) kubernetes.Interface {
-	// Don't depend on symlink, and don't use real cluster.
-	// This is the local kube config matching localhost (testEnvLocalK8S.sh start)
-	kubeconfig := filepath.Join(env.IstioSrc, "tests/util/kubeconfig")
-	client, err := CreateInterface(kubeconfig)
-	if err != nil {
-		t.Skipf("Unable to create kube client from config %s, skipping test. Error: %v", kubeconfig, err)
-	}
-
-	// Verify that we can connect to the API server.
-	_, err = client.CoreV1().Namespaces().List(metaV1.ListOptions{})
-	if err != nil {
-		t.Skipf("Unable to connect kube client from config %s, skipping test. Error: %v", kubeconfig, err)
-	}
-
-	return client
-}
 
 const (
 	testService  = "test"
@@ -152,20 +132,6 @@ func (fx *FakeXdsUpdater) Clear() {
 			wait = false
 		}
 	}
-}
-
-func newLocalController(t *testing.T) (*Controller, *FakeXdsUpdater) {
-	fx := NewFakeXDS()
-	ki := makeClient(t)
-	ctl := NewController(ki, Options{
-		WatchedNamespace: "",
-		ResyncPeriod:     resync,
-		DomainSuffix:     domainSuffix,
-		XDSUpdater:       fx,
-		Metrics:          &model.Environment{},
-	})
-	go ctl.Run(ctl.stop)
-	return ctl, fx
 }
 
 func newFakeController() (*Controller, *FakeXdsUpdater) {

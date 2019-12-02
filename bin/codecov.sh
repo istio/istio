@@ -40,15 +40,9 @@ fi
 COVERAGEDIR="$(mktemp -d /tmp/istio_coverage.XXXXXXXXXX)"
 mkdir -p "$COVERAGEDIR"
 
-function cleanup() {
-  make -f Makefile.core.mk localTestEnvCleanup
-}
-
-trap cleanup EXIT
 
 # Setup environment needed by some tests.
 make -f Makefile.core.mk sync
-make -f Makefile.core.mk localTestEnv
 
 # coverage test needs to run one package per command.
 # This script runs nproc/2 in parallel.
