@@ -48,7 +48,8 @@ export MASTER_CLUSTER_IP=10.99.0.1
 # TODO: customize the ports and generate a local config
 export KUBECONFIG=${REPO_ROOT}/tests/util/kubeconfig
 
-"${ISTIO_GO}/bin/init.sh"
+#(TODO) is this needed? I don't believe so.
+#"${ISTIO_GO}/bin/init.sh"
 
 # Checked in certificates, to avoid regenerating them
 CERTDIR=${CERTDIR:-${ISTIO_GO}/tests/util/pki/istio-certs}
