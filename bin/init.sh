@@ -170,3 +170,7 @@ if [[ "${TARGET_OS}" == "darwin" ]]; then
 else
   ISTIO_ENVOY_NATIVE_PATH=${ISTIO_ENVOY_LINUX_RELEASE_PATH}
 fi
+
+# Copy native envoy binary to TARGET_OUT
+echo "Copying ${ISTIO_ENVOY_NATIVE_PATH} to ${TARGET_OUT}/envoy"
+cp -f "${ISTIO_ENVOY_NATIVE_PATH}" "${TARGET_OUT}/envoy"
