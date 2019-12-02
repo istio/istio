@@ -1,0 +1,30 @@
+apiVersion: "security.istio.io/v1beta1"
+kind: "AuthorizationPolicy"
+metadata:
+  name: "authz"
+  namespace: {{ .Namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: b
+  rules:
+  - from:
+    - source:
+        requestPrincipals: ["*"]
+---
+apiVersion: "security.istio.io/v1beta1"
+kind: "AuthorizationPolicy"
+metadata:
+  name: "authz"
+  namespace: {{ .Namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: c
+  rules:
+  - from:
+    - source:
+        requestPrincipals: ["*"]
+  - to:
+    - operation:
+        paths: ["/healthz"]

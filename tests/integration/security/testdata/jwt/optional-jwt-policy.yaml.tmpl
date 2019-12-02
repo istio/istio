@@ -1,0 +1,12 @@
+apiVersion: "authentication.istio.io/v1alpha1"
+kind: "Policy"
+metadata:
+  name: "default"
+  namespace: {{ .Namespace }}
+spec:
+  origins:
+  - jwt:
+      issuer: "test-issuer-1@istio.io"
+      jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
+  principalBinding: USE_ORIGIN
+  originIsOptional: true
