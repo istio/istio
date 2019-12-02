@@ -28,8 +28,8 @@ var (
 	envoyFileNamePattern = regexp.MustCompile("^envoy$|^envoy-[a-f0-9]+$|^envoy-debug-[a-f0-9]+$")
 )
 
-// FindBinary searches for an Envoy debug binary under ISTIO_OUT. If the ISTIO_OUT environment variable
-// is not set, the default location under GOPATH is assumed. If ISTIO_OUT contains multiple debug binaries,
+// FindBinary searches for an Envoy debug binary under TARGET_OUT. If the TARGET_OUT environment variable
+// is not set, the default location under GOPATH is assumed. If TARGET_OUT contains multiple debug binaries,
 // the most recent file is used.
 func FindBinary() (string, error) {
 	binPaths, err := findBinaries()
@@ -38,7 +38,7 @@ func FindBinary() (string, error) {
 	}
 
 	if len(binPaths) == 0 {
-		return "", fmt.Errorf("unable to locate an Envoy binary under dir %s", env.IstioOut)
+		return "", fmt.Errorf("unable to locate an Envoy binary under dir %s", env.TargetOut)
 	}
 
 	latestBinPath, err := findMostRecentFile(binPaths)
@@ -60,7 +60,7 @@ func FindBinaryOrFail(t test.Failer) string {
 
 func findBinaries() ([]string, error) {
 	binPaths := make([]string, 0)
-	err := filepath.Walk(env.IstioOut, func(path string, f os.FileInfo, err error) error {
+	err := filepath.Walk(env.TargetOut, func(path string, f os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
