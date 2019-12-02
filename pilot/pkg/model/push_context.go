@@ -16,11 +16,13 @@ package model
 
 import (
 	"encoding/json"
+	"net"
 	"sort"
 	"sync"
 	"time"
 
 	authn "istio.io/api/authentication/v1alpha1"
+	"istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -105,6 +107,18 @@ type PushContext struct {
 	initDone bool
 
 	Version string
+
+	// cache gateways addresses for each network
+	// this is mainly used for kubernetes multi-cluster scenario
+	networkGateways map[string][]*Gateway
+}
+
+// Gateway is the gateway of a network
+type Gateway struct {
+	// gateway ip address
+	Addr string
+	// gateway port
+	Port uint32
 }
 
 type processedDestRules struct {
@@ -723,6 +737,9 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 			return nil
 		}
 	}
+
+	// TODO: only do this when meshnetworks or gateway service changed
+	ps.initMeshNetworks(env)
 
 	ps.initDone = true
 	return nil
@@ -1461,4 +1478,81 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 		return nil
 	}
 	return MergeGateways(out...)
+}
+
+// Only used by test
+func (ps *PushContext) InitMeshNetworks(env *Environment) {
+	ps.initMeshNetworks(env)
+}
+
+// pre computes gateways for each network
+func (ps *PushContext) initMeshNetworks(env *Environment) {
+	if env.MeshNetworks == nil || len(env.MeshNetworks.Networks) == 0 {
+		return
+	}
+
+	ps.networkGateways = map[string][]*Gateway{}
+	for network, networkConf := range env.MeshNetworks.Networks {
+		gws := networkConf.Gateways
+		if len(gws) == 0 {
+			log.Debugf("the endpoints within network %s will be ignored because of invalid MeshNetworks", network)
+			continue
+		}
+
+		registryName := getNetworkRegistry(networkConf)
+		gateways := []*Gateway{}
+		for _, gw := range gws {
+			gatewayAddresses := getGatewayAddresses(gw, registryName, env)
+			for _, addr := range gatewayAddresses {
+				gateways = append(gateways, &Gateway{addr, gw.Port})
+			}
+		}
+
+		ps.networkGateways[network] = gateways
+	}
+
+	return
+}
+
+func getNetworkRegistry(network *v1alpha1.Network) string {
+	var registryName string
+	for _, eps := range network.Endpoints {
+		if eps != nil && len(eps.GetFromRegistry()) > 0 {
+			registryName = eps.GetFromRegistry()
+			break
+		}
+	}
+
+	return registryName
+}
+
+func getGatewayAddresses(gw *v1alpha1.Network_IstioNetworkGateway, registryName string, env *Environment) []string {
+	// First, if a gateway address is provided in the configuration use it. If the gateway address
+	// in the config was a hostname it got already resolved and replaced with an IP address
+	// when loading the config
+	if gwIP := net.ParseIP(gw.GetAddress()); gwIP != nil {
+		return []string{gw.GetAddress()}
+	}
+
+	// Second, try to find the gateway addresses by the provided service name
+	if gwSvcName := gw.GetRegistryServiceName(); len(gwSvcName) > 0 && len(registryName) > 0 {
+		svc, _ := env.GetService(host.Name(gwSvcName))
+		if svc != nil {
+			return svc.Attributes.ClusterExternalAddresses[registryName]
+		}
+	}
+
+	return nil
+}
+
+func (ps *PushContext) NetworkGateways() map[string][]*Gateway {
+	return ps.networkGateways
+}
+
+func (ps *PushContext) NetworkGatewaysByNetwork(network string) []*Gateway {
+	if ps.networkGateways != nil {
+		return ps.networkGateways[network]
+	}
+
+	return nil
 }
