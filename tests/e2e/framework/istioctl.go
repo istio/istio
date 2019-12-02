@@ -91,7 +91,7 @@ func (i *Istioctl) Install() error {
 	if i.localPath == "" {
 		if i.remotePath == "" {
 			// If a remote URL or env variable is not set, default to the locally built istioctl
-			i.localPath = filepath.Join(env.TargetOut, "/bin/istioctl")
+			i.localPath = filepath.Join(env.TargetOut, "istioctl")
 			i.binaryPath = i.localPath
 			return nil
 		}
