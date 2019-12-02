@@ -18,10 +18,10 @@ import (
 	"fmt"
 	"encoding/json"
 	"errors"
+	"golang.org/x/net/context"
 	"istio.io/pkg/log"
 	"net/http"
 	"os"
-	"istio.io/istio/pilot/pkg/model"
 )
 
 const (
@@ -89,14 +89,14 @@ type TokenManager interface {
 
 // Server provides an endpoint for handling security token service (STS) requests.
 type Server struct {
-	tokenManager TokenManager
+	tokenManager *TokenManager
 	stsServer    *http.Server
 }
 
 // Config for the STS server.
 type Config struct {
 	LocalHostAddr string
-	LocalPort 	  uint16
+	LocalPort 	  int
 }
 
 // ServeStsRequests handles STS requests and sends exchanged token in responses.
@@ -208,8 +208,14 @@ func (s *Server) DumpStsStatus(w http.ResponseWriter, _ *http.Request) {
 	}
 }
 
+func (s *Server) Stop() {
+	if err := s.stsServer.Shutdown(context.TODO()); err != nil {
+		stsServiceLog.Error("failed to shutdown STS server")
+	}
+}
+
 // NewServer creates a new status server.
-func NewServer(config Config, tokenManager TokenManager) (*Server, error) {
+func NewServer(config Config, tokenManager *TokenManager) (*Server, error) {
 	s := &Server{
 		tokenManager: tokenManager,
 	}
@@ -226,6 +232,7 @@ func NewServer(config Config, tokenManager TokenManager) (*Server, error) {
 		stsServiceLog.Errora(err)
 		notifyExit()
 	}()
+	return s, nil
 }
 
 // notifyExit sends SIGTERM to itself

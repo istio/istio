@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"istio.io/istio/pilot/cmd/pilot-agent/stsservice"
 	"net"
 	"os"
 	"strings"
@@ -53,6 +54,7 @@ import (
 	istio_agent "istio.io/istio/pkg/istio-agent"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/security/pkg/tokenmanager"
 )
 
 const trustworthyJWTPath = "/var/run/secrets/tokens/istio-token"
@@ -487,19 +489,20 @@ var (
 				if proxyIPv6 {
 					localHostAddr = "[::1]"
 				}
-				prober := kubeAppProberNameVar.Get()
-				statusServer, err := status.NewServer(status.Config{
-					LocalHostAddr:      localHostAddr,
-					AdminPort:          proxyAdminPort,
-					StatusPort:         statusPort,
-					KubeAppHTTPProbers: prober,
-					NodeType:           role.Type,
-				})
+				tokenManager, err := tokenmanager.CreateTokenManager(trustDomain)
 				if err != nil {
 					cancel()
 					return err
 				}
-				go waitForCompletion(ctx, statusServer.Run)
+				stsServer, err := stsservice.NewServer(stsservice.Config{
+					LocalHostAddr:      localHostAddr,
+					LocalPort:          stsPort.Get(),
+				}, tokenManager)
+				if err != nil {
+					cancel()
+					return err
+				}
+				defer stsServer.Stop()
 			}
 
 			log.Infof("PilotSAN %#v", pilotSAN)
