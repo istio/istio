@@ -77,7 +77,7 @@ $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_BIN), \
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_BIN), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_BIN)/$(FILE) | $(ISTIO_DOCKER); cp $(ISTIO_BIN)/$(FILE) $(ISTIO_DOCKER)/$(FILE)))
 
-docker.sidecar_injector: BUILD_PRE=chmod 755 sidecar-injector &&
+docker.sidecar_injector: BUILD_PRE=; chmod 755 sidecar-injector
 docker.sidecar_injector: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.sidecar_injector: sidecar-injector/docker/Dockerfile.sidecar_injector
 docker.sidecar_injector:$(ISTIO_DOCKER)/sidecar-injector
@@ -96,7 +96,7 @@ else
 endif
 
 # Default proxy image.
-docker.proxyv2: BUILD_PRE=chmod 755 envoy pilot-agent &&
+docker.proxyv2: BUILD_PRE=; chmod 755 envoy pilot-agent
 docker.proxyv2: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg BASE_VERSION=${BASE_VERSION}
 docker.proxyv2: tools/packaging/common/envoy_bootstrap_v2.json
 docker.proxyv2: install/gcp/bootstrap/gcp_envoy_bootstrap.json
@@ -122,14 +122,14 @@ docker.proxytproxy: pilot/docker/envoy_telemetry.yaml.tmpl
 docker.proxytproxy: $(ISTIO_DOCKER)/istio-iptables
 	$(DOCKER_RULE)
 
-docker.pilot: BUILD_PRE=chmod 755 pilot-discovery cacert.pem &&
+docker.pilot: BUILD_PRE=; chmod 755 pilot-discovery cacert.pem
 docker.pilot: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.pilot: $(ISTIO_OUT_LINUX)/pilot-discovery
 docker.pilot: tests/testdata/certs/cacert.pem
 docker.pilot: pilot/docker/Dockerfile.pilot
 	$(DOCKER_RULE)
 
-docker.istiod: BUILD_PRE=chmod 755 istiod&&
+docker.istiod: BUILD_PRE=; chmod 755 istiod
 docker.istiod: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.istiod: $(ISTIO_OUT_LINUX)/istiod
 docker.istiod: docker/Dockerfile.istiod
@@ -182,7 +182,7 @@ docker.istioctl: $(ISTIO_OUT_LINUX)/istioctl
 
 # mixer docker images
 
-docker.mixer: BUILD_PRE=chmod 755 mixs &&
+docker.mixer: BUILD_PRE=; chmod 755 mixs
 docker.mixer: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.mixer: mixer/docker/Dockerfile.mixer
 docker.mixer: $(ISTIO_DOCKER)/mixs
@@ -205,7 +205,7 @@ docker.mixer_codegen: $(ISTIO_DOCKER)/mixgen
 # We then override the docker rule and "build" all of these, where building just copies the dependencies
 # We then generate a "bake" file, which defines all of the docker files in the repo
 # Finally, we call `docker buildx bake` to generate the images.
-dockerx: DOCKER_RULE?=mkdir -p $(DOCKERX_BUILD_TOP)/$@ && cp -r $^ $(DOCKERX_BUILD_TOP)/$@
+dockerx: DOCKER_RULE?=mkdir -p $(DOCKERX_BUILD_TOP)/$@ && cp -r $^ $(DOCKERX_BUILD_TOP)/$@; cd $(DOCKERX_BUILD_TOP)/$@ $(BUILD_PRE)
 dockerx: docker | $(ISTIO_DOCKER_TAR)
 dockerx:
 	HUB=$(HUB) \
@@ -221,7 +221,7 @@ dockerx.%:
 	@DOCKER_TARGETS=docker.$* BUILD_ALL=false $(MAKE) --no-print-directory -f Makefile.core.mk dockerx
 
 # galley docker images
-docker.galley: BUILD_PRE=chmod 755 galley &&
+docker.galley: BUILD_PRE=; chmod 755 galley
 docker.galley: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.galley: galley/docker/Dockerfile.galley
 docker.galley: $(ISTIO_DOCKER)/galley
@@ -229,7 +229,7 @@ docker.galley: $(ISTIO_DOCKER)/galley
 
 # security docker images
 
-docker.citadel: BUILD_PRE=chmod 755 istio_ca &&
+docker.citadel: BUILD_PRE=; chmod 755 istio_ca
 docker.citadel: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.citadel: security/docker/Dockerfile.citadel
 docker.citadel: $(ISTIO_DOCKER)/istio_ca
@@ -277,7 +277,7 @@ docker.base: docker/Dockerfile.base
 DOCKER_BUILD_VARIANTS ?= default
 DOCKER_ALL_VARIANTS ?= default distroless
 DEFAULT_DISTRIBUTION=default
-DOCKER_RULE ?= $(foreach VARIANT,$(DOCKER_BUILD_VARIANTS), time (mkdir -p $(DOCKER_BUILD_TOP)/$@ && cp -r $^ $(DOCKER_BUILD_TOP)/$@ && cd $(DOCKER_BUILD_TOP)/$@ && $(BUILD_PRE) docker build $(BUILD_ARGS) --build-arg BASE_DISTRIBUTION=$(VARIANT) -t $(HUB)/$(subst docker.,,$@):$(subst -$(DEFAULT_DISTRIBUTION),,$(TAG)-$(VARIANT)) -f Dockerfile$(suffix $@) . ); )
+DOCKER_RULE ?= $(foreach VARIANT,$(DOCKER_BUILD_VARIANTS), time (mkdir -p $(DOCKER_BUILD_TOP)/$@ && cp -r $^ $(DOCKER_BUILD_TOP)/$@ && cd $(DOCKER_BUILD_TOP)/$@ $(BUILD_PRE); docker build $(BUILD_ARGS) --build-arg BASE_DISTRIBUTION=$(VARIANT) -t $(HUB)/$(subst docker.,,$@):$(subst -$(DEFAULT_DISTRIBUTION),,$(TAG)-$(VARIANT)) -f Dockerfile$(suffix $@) . ); )
 
 # This target will package all docker images used in test and release, without re-building
 # go binaries. It is intended for CI/CD systems where the build is done in separate job.
