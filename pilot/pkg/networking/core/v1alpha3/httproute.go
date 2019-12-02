@@ -182,7 +182,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 
 	if features.EnableFallthroughRoute.Get() && !useSniffing {
 		// This needs to be the last virtual host, as routes are evaluated in order.
-		if isAllowAnyOutbound(node) {
+		if util.IsAllowAnyOutbound(node) {
 			virtualHosts = append(virtualHosts, &route.VirtualHost{
 				Name:    util.PassthroughRouteName,
 				Domains: []string{"*"},
@@ -377,7 +377,7 @@ func generateVirtualHostDomains(service *model.Service, port int, node *model.Pr
 	domains = append(domains, generateAltVirtualHosts(string(service.Hostname), port, node.DNSDomain)...)
 
 	if service.Resolution == model.Passthrough &&
-		service.Attributes.ServiceRegistry == string(serviceregistry.KubernetesRegistry) {
+		service.Attributes.ServiceRegistry == string(serviceregistry.Kubernetes) {
 		for _, domain := range domains {
 			domains = append(domains, wildcardDomainPrefix+domain)
 		}

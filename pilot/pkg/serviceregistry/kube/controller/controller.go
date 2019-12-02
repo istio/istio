@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
 	configKube "istio.io/istio/pkg/config/kube"
@@ -53,9 +54,11 @@ const (
 	// NodeZoneLabel is the well-known label for kubernetes node zone in beta
 	NodeZoneLabel = "failure-domain.beta.kubernetes.io/zone"
 	// NodeRegionLabelGA is the well-known label for kubernetes node region in ga
-	NodeRegionLabelGA = "failure-domain.kubernetes.io/region"
+	NodeRegionLabelGA = "topology.kubernetes.io/region"
 	// NodeZoneLabelGA is the well-known label for kubernetes node zone in ga
-	NodeZoneLabelGA = "failure-domain.kubernetes.io/zone"
+	NodeZoneLabelGA = "topology.kubernetes.io/zone"
+	// IstioSubzoneLabel is custom subzone label for locality-based routing in Kubernetes see: https://github.com/istio/istio/issues/19114
+	IstioSubzoneLabel = "topology.istio.io/subzone"
 	// IstioNamespace used by default for Istio cluster-wide installation
 	IstioNamespace = "istio-system"
 	// IstioConfigMap is used by default
@@ -74,16 +77,20 @@ var (
 	typeTag  = monitoring.MustCreateLabel("type")
 	eventTag = monitoring.MustCreateLabel("event")
 
-	// experiment on getting some monitoring on config errors.
 	k8sEvents = monitoring.NewSum(
 		"pilot_k8s_reg_events",
 		"Events from k8s registry.",
 		monitoring.WithLabels(typeTag, eventTag),
 	)
+
+	endpointsWithNoPods = monitoring.NewSum(
+		"pilot_k8s_endpoints_with_no_pods",
+		"Endpoints that does not have any corresponding pods.")
 )
 
 func init() {
 	monitoring.MustRegister(k8sEvents)
+	monitoring.MustRegister(endpointsWithNoPods)
 }
 
 func incrementEvent(kind, event string) {
@@ -107,6 +114,8 @@ type Options struct {
 	TrustDomain string
 }
 
+var _ serviceregistry.Instance = &Controller{}
+
 // Controller is a collection of synchronized resource watchers
 // Caches are thread-safe
 type Controller struct {
@@ -124,8 +133,8 @@ type Controller struct {
 	// use env data and push status. It may be null in tests.
 	Env *model.Environment
 
-	// ClusterID identifies the remote cluster in a multicluster env.
-	ClusterID string
+	// clusterID identifies the remote cluster in a multicluster env.
+	clusterID string
 
 	// XDSUpdater will push EDS changes to the ADS model.
 	XDSUpdater model.XDSUpdater
@@ -161,7 +170,7 @@ func NewController(client kubernetes.Interface, options Options) *Controller {
 		domainSuffix:               options.DomainSuffix,
 		client:                     client,
 		queue:                      kube.NewQueue(1 * time.Second),
-		ClusterID:                  options.ClusterID,
+		clusterID:                  options.ClusterID,
 		XDSUpdater:                 options.XDSUpdater,
 		servicesMap:                make(map[host.Name]*model.Service),
 		externalNameSvcInstanceMap: make(map[host.Name][]*model.ServiceInstance),
@@ -182,6 +191,14 @@ func NewController(client kubernetes.Interface, options Options) *Controller {
 	out.pods = newPodCache(out.createCacheHandler(podInformer, "Pod"), out)
 
 	return out
+}
+
+func (c *Controller) Provider() serviceregistry.ProviderID {
+	return serviceregistry.Kubernetes
+}
+
+func (c *Controller) Cluster() string {
+	return c.clusterID
 }
 
 // notify is the first handler in the handler chain.
@@ -354,12 +371,13 @@ func (c *Controller) GetPodLocality(pod *v1.Pod) string {
 
 	region := getLabelValue(node.(*v1.Node), NodeRegionLabel, NodeRegionLabelGA)
 	zone := getLabelValue(node.(*v1.Node), NodeZoneLabel, NodeZoneLabelGA)
+	subzone := getLabelValue(node.(*v1.Node), IstioSubzoneLabel, "")
 
-	if region == "" && zone == "" {
+	if region == "" && zone == "" && subzone == "" {
 		return ""
 	}
 
-	return fmt.Sprintf("%v/%v", region, zone)
+	return fmt.Sprintf("%s/%s/%s", region, zone, subzone)
 }
 
 // ManagementPorts implements a service catalog operation
@@ -604,8 +622,8 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 		return nil, fmt.Errorf("no workload labels found")
 	}
 
-	if proxy.Metadata.ClusterID != c.ClusterID {
-		return nil, fmt.Errorf("proxy is in cluster %v, but controller is for cluster %v", proxy.Metadata.ClusterID, c.ClusterID)
+	if proxy.Metadata.ClusterID != c.clusterID {
+		return nil, fmt.Errorf("proxy is in cluster %v, but controller is for cluster %v", proxy.Metadata.ClusterID, c.clusterID)
 	}
 
 	// Create a pod with just the information needed to find the associated Services
@@ -847,26 +865,20 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 			}
 		}
 
-		log.Debugf("Handle service %s in namespace %s", svc.Name, svc.Namespace)
+		log.Debugf("Handle event %s for service %s in namespace %s", event, svc.Name, svc.Namespace)
 
-		hostname := svc.Name + "." + svc.Namespace
-		ports := map[string]uint32{}
-		portsByNum := map[uint32]string{}
-
-		for _, port := range svc.Spec.Ports {
-			ports[port.Name] = uint32(port.Port)
-			portsByNum[uint32(port.Port)] = port.Name
-		}
-
-		svcConv := kube.ConvertService(*svc, c.domainSuffix, c.ClusterID)
-		instances := kube.ExternalNameServiceInstances(*svc, svcConv)
+		svcConv := kube.ConvertService(*svc, c.domainSuffix, c.clusterID)
 		switch event {
 		case model.EventDelete:
 			c.Lock()
 			delete(c.servicesMap, svcConv.Hostname)
 			delete(c.externalNameSvcInstanceMap, svcConv.Hostname)
 			c.Unlock()
+			// EDS needs to just know when service is deleted.
+			c.XDSUpdater.SvcUpdate(c.clusterID, svc.Name, svc.Namespace, event)
 		default:
+			// instance conversion is only required when service is added/updated.
+			instances := kube.ExternalNameServiceInstances(*svc, svcConv)
 			c.Lock()
 			c.servicesMap[svcConv.Hostname] = svcConv
 			if instances == nil {
@@ -875,9 +887,8 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 				c.externalNameSvcInstanceMap[svcConv.Hostname] = instances
 			}
 			c.Unlock()
+			c.XDSUpdater.SvcUpdate(c.clusterID, svc.Name, svc.Namespace, event)
 		}
-		// EDS needs the port mapping.
-		c.XDSUpdater.SvcUpdate(c.ClusterID, hostname, ports, portsByNum)
 
 		f(svcConv, event)
 
@@ -906,6 +917,25 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 			}
 		}
 
+		log.Debugf("Handle event %s for endpoint %s in namespace %s", event, ep.Name, ep.Namespace)
+
+		// headless service cluster discovery type is ORIGINAL_DST, we do not need update EDS.
+		if features.EnableHeadlessService.Get() {
+			if obj, _, _ := c.services.informer.GetIndexer().GetByKey(kube.KeyFunc(ep.Name, ep.Namespace)); obj != nil {
+				svc := obj.(*v1.Service)
+				// if the service is headless service, trigger a full push.
+				if svc.Spec.ClusterIP == v1.ClusterIPNone {
+					c.XDSUpdater.ConfigUpdate(&model.PushRequest{
+						Full:              true,
+						NamespacesUpdated: map[string]struct{}{ep.Namespace: {}},
+						// TODO: extend and set service instance type, so no need to re-init push context
+						ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
+					})
+					return nil
+				}
+			}
+		}
+
 		c.updateEDS(ep, event)
 
 		return nil
@@ -924,16 +954,20 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 			for _, ea := range ss.Addresses {
 				pod := c.pods.getPodByIP(ea.IP)
 				if pod == nil {
-					// This can not happen in usual case
+					// This means, the endpoint event has arrived before pod event. This might happen because
+					// PodCache is eventually consistent. We should try to get the pod from kube-api server.
 					if ea.TargetRef != nil && ea.TargetRef.Kind == "Pod" {
-						log.Warnf("Endpoint without pod %s %s.%s", ea.IP, ep.Name, ep.Namespace)
-						if c.Env != nil {
-							c.Env.PushContext.Add(model.EndpointNoPod, string(hostname), nil, ea.IP)
+						pod = c.pods.getPod(ea.TargetRef.Name, ea.TargetRef.Namespace)
+						if pod == nil {
+							// If pod is still not availalable, this an unuusual case.
+							endpointsWithNoPods.Increment()
+							log.Errorf("Endpoint without pod %s %s.%s", ea.IP, ep.Name, ep.Namespace)
+							if c.Env != nil {
+								c.Env.PushContext.Add(model.EndpointNoPod, string(hostname), nil, ea.IP)
+							}
+							continue
 						}
-						// TODO: keep them in a list, and check when pod events happen !
-						continue
 					}
-					// For service without selector, maybe there are no related pods
 				}
 
 				var labels map[string]string
@@ -971,31 +1005,13 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 
 	if log.InfoEnabled() {
 		var addresses []string
-		for _, ss := range ep.Subsets {
-			for _, a := range ss.Addresses {
-				addresses = append(addresses, a.IP)
-			}
+		for _, iep := range endpoints {
+			addresses = append(addresses, iep.Address)
 		}
 		log.Infof("Handle EDS endpoint %s in namespace %s -> %v", ep.Name, ep.Namespace, addresses)
 	}
 
-	if features.EnableHeadlessService.Get() {
-		if obj, _, _ := c.services.informer.GetIndexer().GetByKey(kube.KeyFunc(ep.Name, ep.Namespace)); obj != nil {
-			svc := obj.(*v1.Service)
-			// if the service is headless service, trigger a full push.
-			if svc.Spec.ClusterIP == v1.ClusterIPNone {
-				c.XDSUpdater.ConfigUpdate(&model.PushRequest{
-					Full:              true,
-					NamespacesUpdated: map[string]struct{}{ep.Namespace: {}},
-					// TODO: extend and set service instance type, so no need to re-init push context
-					ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
-				})
-				return
-			}
-		}
-	}
-
-	_ = c.XDSUpdater.EDSUpdate(c.ClusterID, string(hostname), ep.Namespace, endpoints)
+	_ = c.XDSUpdater.EDSUpdate(c.clusterID, string(hostname), ep.Namespace, endpoints)
 }
 
 // namedRangerEntry for holding network's CIDR and name
@@ -1032,7 +1048,7 @@ func (c *Controller) InitNetworkLookup(meshNetworks *meshconfig.MeshNetworks) {
 				}
 				_ = c.ranger.Insert(rangerEntry)
 			}
-			if ep.GetFromRegistry() != "" && ep.GetFromRegistry() == c.ClusterID {
+			if ep.GetFromRegistry() != "" && ep.GetFromRegistry() == c.clusterID {
 				c.networkForRegistry = n
 			}
 		}

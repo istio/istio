@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schemas"
@@ -27,6 +28,8 @@ import (
 // TODO: move this out of 'external' package. Either 'serviceentry' package or
 // merge with aggregate (caching, events), and possibly merge both into the
 // config directory, for a single top-level cache and event system.
+
+var _ serviceregistry.Instance = &ServiceEntryStore{}
 
 type serviceHandler func(*model.Service, model.Event)
 type instanceHandler func(*model.ServiceInstance, model.Event)
@@ -49,7 +52,7 @@ type ServiceEntryStore struct {
 }
 
 // NewServiceDiscovery creates a new ServiceEntry discovery service
-func NewServiceDiscovery(callbacks model.ConfigStoreCache, store model.IstioConfigStore) *ServiceEntryStore {
+func NewServiceDiscovery(configController model.ConfigStoreCache, store model.IstioConfigStore) *ServiceEntryStore {
 	c := &ServiceEntryStore{
 		serviceHandlers:  make([]serviceHandler, 0),
 		instanceHandlers: make([]instanceHandler, 0),
@@ -58,31 +61,36 @@ func NewServiceDiscovery(callbacks model.ConfigStoreCache, store model.IstioConf
 		instances:        map[host.Name]map[string][]*model.ServiceInstance{},
 		updateNeeded:     true,
 	}
-	if callbacks != nil {
-		callbacks.RegisterEventHandler(schemas.ServiceEntry.Type, func(config model.Config, event model.Event) {
+	if configController != nil {
+		configController.RegisterEventHandler(schemas.ServiceEntry.Type, func(config model.Config, event model.Event) {
 			// Recomputing the index here is too expensive.
 			c.changeMutex.Lock()
 			c.lastChange = time.Now()
 			c.updateNeeded = true
 			c.changeMutex.Unlock()
 
+			// TODO : Currently any update to ServiceEntry triggers a full push. We need to identify what has actually
+			// changed and call appropriate handlers - for example call only service handler for the changed services
+			// and call instance handlers only when instance update happens. This requires us to rework the handlers to
+			// have both old and new objects so that they can compare and be smart.
 			services := convertServices(config)
 			for _, handler := range c.serviceHandlers {
 				for _, service := range services {
 					go handler(service, event)
 				}
 			}
-
-			instances := convertInstances(config, services)
-			for _, handler := range c.instanceHandlers {
-				for _, instance := range instances {
-					go handler(instance, event)
-				}
-			}
 		})
 	}
 
 	return c
+}
+
+func (d *ServiceEntryStore) Provider() serviceregistry.ProviderID {
+	return serviceregistry.External
+}
+
+func (d *ServiceEntryStore) Cluster() string {
+	return ""
 }
 
 // AppendServiceHandler adds service resource event handler

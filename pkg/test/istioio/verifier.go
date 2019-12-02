@@ -15,9 +15,14 @@
 package istioio
 
 import (
+	"regexp"
 	"strings"
 	"text/scanner"
 	"unicode"
+)
+
+const (
+	tokenVerifierKey = "token"
 )
 
 // verifier for output of a shell command.
@@ -25,10 +30,10 @@ type verifier func(ctx Context, name, expectedOutput, actualOutput string)
 
 // verifiers supported by in the command scripts.
 var verifiers = map[string]verifier{
-	"":            verifyTokens, // Default
-	"token":       verifyTokens,
-	"contains":    verifyContains,
-	"notContains": verifyNotContains,
+	tokenVerifierKey: verifyTokens,
+	"contains":       verifyContains,
+	"notContains":    verifyNotContains,
+	"lineRegex":      verifyLineRegex,
 }
 
 // verifyTokens tokenizes the output and compares against the tokens from the given file.
@@ -94,7 +99,6 @@ func verifyContains(ctx Context, name, expectedOutput, actualOutput string) {
 	if !strings.Contains(actualOutput, expectedOutput) {
 		ctx.Fatalf("verification failed for command %s: output does not contain expected text.\nExpected:\n%s\nOutput:\n%s",
 			name, expectedOutput, actualOutput)
-		return
 	}
 }
 
@@ -102,6 +106,23 @@ func verifyNotContains(ctx Context, name, expectedOutput, actualOutput string) {
 	if strings.Contains(actualOutput, expectedOutput) {
 		ctx.Fatalf("verification failed for command %s: output contains not expected text.\nNot Expected:\n%s\nOutput:\n%s",
 			name, expectedOutput, actualOutput)
-		return
+	}
+}
+
+func verifyLineRegex(ctx Context, name, expectedOutput, actualOutput string) {
+	expectedOutputLines := strings.Split(strings.TrimSpace(expectedOutput), "\n")
+	actualOutputLines := strings.Split(strings.TrimSpace(actualOutput), "\n")
+
+	if len(expectedOutputLines) != len(actualOutputLines) {
+		ctx.Fatalf("verification failed for command %s: line count: (expected %d, found %d). Expected:\n%s\nto match:\n%s",
+			name, len(expectedOutputLines), len(actualOutputLines), actualOutput, expectedOutput)
+	}
+
+	for lineIndex := 0; lineIndex < len(expectedOutputLines); lineIndex++ {
+		if match, _ := regexp.MatchString(expectedOutputLines[lineIndex], actualOutputLines[lineIndex]); !match {
+			ctx.Fatalf("verification failed for command %s: output does not match expected regex.\nExpected:\n%s\nOutput:\n%s",
+				name, expectedOutputLines[lineIndex], actualOutputLines[lineIndex])
+			return
+		}
 	}
 }

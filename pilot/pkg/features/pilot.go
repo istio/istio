@@ -187,7 +187,7 @@ var (
 
 	EnableProtocolSniffingForInbound = env.RegisterBoolVar(
 		"PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND",
-		false,
+		true,
 		"If enabled, protocol sniffing will be used for inbound listeners whose port protocol is not specified or unsupported",
 	)
 
@@ -252,6 +252,14 @@ var (
 		"If enabled, pilot will generate Envoy configuration that does not use safe_regex "+
 			"but the older, deprecated regex field. This should only be enabled to support "+
 			"legacy deployments that have not yet been migrated to the new safe regular expressions.",
+	)
+
+	EnableCRDValidation = env.RegisterBoolVar(
+		"PILOT_ENABLE_CRD_VALIDATION",
+		false,
+		"If enabled, pilot will validate CRDs while retrieving CRDs from kubernetes cache."+
+			"Use this flag to enable validation of CRDs in Pilot, especially in deployments "+
+			"that do not have galley installed.",
 	)
 )
 

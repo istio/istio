@@ -29,8 +29,7 @@ export GOPROXY ?= https://proxy.golang.org
 export GOSUMDB ?= sum.golang.org
 
 # locations where artifacts are stored
-ISTIO_DOCKER_HUB ?= docker.io/istio
-export ISTIO_DOCKER_HUB
+
 ISTIO_GCS ?= istio-release/releases/$(VERSION)
 ISTIO_URL ?= https://storage.googleapis.com/$(ISTIO_GCS)
 ISTIO_CNI_HUB ?= gcr.io/istio-testing
@@ -153,6 +152,7 @@ DOCKER_PROXY_CFG?=Dockerfile.proxy
 # copied to the docker temp container - even if you add only a tiny file, >1G of data will
 # be copied, for each docker image.
 DOCKER_BUILD_TOP:=${ISTIO_OUT_LINUX}/docker_build
+DOCKERX_BUILD_TOP:=${ISTIO_OUT_LINUX}/dockerx_build
 
 # dir where tar.gz files from docker.save are stored
 ISTIO_DOCKER_TAR:=${ISTIO_OUT_LINUX}/docker
@@ -164,10 +164,12 @@ endif
 
 # Envoy binary variables Keep the default URLs up-to-date with the latest push from istio/proxy.
 
+export ISTIO_ENVOY_BASE_URL ?= https://storage.googleapis.com/istio-build/proxy
+
 # OS-neutral vars. These currently only work for linux.
 export ISTIO_ENVOY_VERSION ?= ${PROXY_REPO_SHA}
-export ISTIO_ENVOY_DEBUG_URL ?= https://storage.googleapis.com/istio-build/proxy/envoy-debug-$(ISTIO_ENVOY_VERSION).tar.gz
-export ISTIO_ENVOY_RELEASE_URL ?= https://storage.googleapis.com/istio-build/proxy/envoy-alpha-$(ISTIO_ENVOY_VERSION).tar.gz
+export ISTIO_ENVOY_DEBUG_URL ?= $(ISTIO_ENVOY_BASE_URL)/envoy-debug-$(ISTIO_ENVOY_VERSION).tar.gz
+export ISTIO_ENVOY_RELEASE_URL ?= $(ISTIO_ENVOY_BASE_URL)/envoy-alpha-$(ISTIO_ENVOY_VERSION).tar.gz
 
 # Envoy Linux vars.
 export ISTIO_ENVOY_LINUX_VERSION ?= ${ISTIO_ENVOY_VERSION}
@@ -324,8 +326,7 @@ precommit: format lint
 
 format: fmt
 
-fmt: format-go format-python
-	go mod tidy
+fmt: format-go format-python tidy-go
 
 # Build with -i to store the build caches into $GOPATH/pkg
 buildcache:
@@ -364,7 +365,21 @@ build-linux: depend
 	STATIC=0 GOOS=linux GOARCH=amd64 LDFLAGS='-extldflags -static -s -w' common/scripts/gobuild.sh $(ISTIO_OUT_LINUX)/ $(BINARIES)
 
 # Create targets for ISTIO_OUT_LINUX/binary
-$(foreach bin,$(BINARIES),$(ISTIO_OUT_LINUX)/$(shell basename $(bin))): build-linux
+# There are two use cases here:
+# * Building all docker images (generally in CI). In this case we want to build everything at once, so they share work
+# * Building a single docker image (generally during dev). In this case we just want to build the single binary alone
+BUILD_ALL ?= true
+define build-linux =
+.PHONY: $(ISTIO_OUT_LINUX)/$(shell basename $(1))
+ifeq ($(BUILD_ALL),true)
+$(ISTIO_OUT_LINUX)/$(shell basename $(1)): build-linux
+else
+$(ISTIO_OUT_LINUX)/$(shell basename $(1)):
+	STATIC=0 GOOS=linux GOARCH=amd64 LDFLAGS='-extldflags -static -s -w' common/scripts/gobuild.sh $(ISTIO_OUT_LINUX)/ $(1)
+endif
+endef
+
+$(foreach bin,$(BINARIES),$(eval $(call build-linux,$(bin))))
 
 # Create helper targets for each binary, like "pilot-discovery"
 # As an optimization, these still build everything
@@ -385,7 +400,7 @@ go-gen:
 	@go build -o /tmp/bin/mixgen "${REPO_ROOT}/mixer/tools/mixgen/main.go"
 	@PATH=${PATH}:/tmp/bin go generate ./...
 
-gen: go-gen tidy-go mirror-licenses
+gen: go-gen mirror-licenses format update-crds
 
 gen-check: gen check-clean-repo
 
@@ -445,18 +460,23 @@ ${ISTIO_BIN}/go-junit-report:
 	@echo "go-junit-report not found. Installing it now..."
 	unset GOOS && unset GOARCH && CGO_ENABLED=1 go get -u github.com/jstemmer/go-junit-report
 
+with_junit_report: | $(JUNIT_REPORT)
+	$(MAKE) $(TARGET) 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
+
 # Run coverage tests
-JUNIT_UNIT_TEST_XML ?= $(ARTIFACTS)/junit_unit-tests.xml
+JUNIT_OUT ?= $(ARTIFACTS)/junit.xml
+$(JUNIT_OUT):
+	mkdir -p $(dir $(JUNIT_OUT))
+
 ifeq ($(WHAT),)
        TEST_OBJ = common-test pilot-test mixer-test security-test galley-test istioctl-test
 else
        TEST_OBJ = selected-pkg-test
 endif
 test: | $(JUNIT_REPORT)
-	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
 	KUBECONFIG="$${KUBECONFIG:-$${REPO_ROOT}/tests/util/kubeconfig}" \
 	$(MAKE) -f Makefile.core.mk --keep-going $(TEST_OBJ) \
-	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
+	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 GOTEST_PARALLEL ?= '-test.parallel=1'
 
@@ -546,9 +566,9 @@ common-coverage:
 
 RACE_TESTS ?= pilot-racetest mixer-racetest security-racetest galley-test common-racetest istioctl-racetest
 racetest: $(JUNIT_REPORT)
-	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
+	mkdir -p $(dir $(JUNIT_OUT))
 	$(MAKE) -f Makefile.core.mk --keep-going $(RACE_TESTS) \
-	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
+	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 .PHONY: pilot-racetest
 pilot-racetest:
@@ -654,30 +674,6 @@ FILES_TO_CLEAN+=install/consul/istio.yaml \
                 install/kubernetes/istio.yaml \
                 samples/bookinfo/platform/consul/bookinfo.sidecars.yaml \
 
-.PHONY: generate_e2e_yaml generate_e2e_yaml_coredump
-generate_e2e_yaml: $(e2e_files)
-
-generate_e2e_yaml_coredump: export ENABLE_COREDUMP=true
-generate_e2e_yaml_coredump:
-	$(MAKE) -f Makefile.core.mk generate_e2e_yaml
-
-# Create yaml files for e2e tests. Applies values-e2e.yaml, then values-$filename.yaml
-$(e2e_files): $(HELM) $(HOME)/.helm istio-init.yaml
-	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
-	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/$@
-	$(HELM) template \
-		--name=istio \
-		--namespace=istio-system \
-		--set-string global.tag=${TAG_VARIANT} \
-		--set-string global.hub=${HUB} \
-		--set-string global.imagePullPolicy=$(PULL_POLICY) \
-		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
-		--set istio_cni.enabled=${ENABLE_ISTIO_CNI} \
-		${EXTRA_HELM_SETTINGS} \
-		--values install/kubernetes/helm/istio/test-values/values-e2e.yaml \
-		--values install/kubernetes/helm/istio/test-values/values-$@ \
-		install/kubernetes/helm/istio >> install/kubernetes/$@
-
 #-----------------------------------------------------------------------------
 # Target: environment and tools
 #-----------------------------------------------------------------------------
@@ -699,15 +695,8 @@ show.%: ; $(info $* $(H) $($*))
 # Target: custom resource definitions
 #-----------------------------------------------------------------------------
 
-API_UPDATE_BRANCH ?= "master"
-
 update-crds: 
-	$(eval API_TMP := $(shell mktemp -d -u))
-	@mkdir -p $(API_TMP)
-	@git clone -q --depth 1 --single-branch --branch $(API_UPDATE_BRANCH) https://github.com/istio/api $(API_TMP)
-	@rm -f $(REPO_ROOT)/install/kubernetes/helm/istio-init/files/crd-all.gen.yaml
-	@cp $(API_TMP)/kubernetes/customresourcedefinitions.gen.yaml $(REPO_ROOT)/install/kubernetes/helm/istio-init/files/crd-all.gen.yaml
-	@rm -rf $(API_TMP)
+	bin/update_crds.sh
 
 #-----------------------------------------------------------------------------
 # Target: artifacts and distribution

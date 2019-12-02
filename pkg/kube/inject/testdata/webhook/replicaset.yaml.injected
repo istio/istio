@@ -16,7 +16,7 @@ spec:
       creationTimestamp: null
       labels:
         app: hello
-        security.istio.io/tlsMode: "istio"
+        security.istio.io/tlsMode: istio
     spec:
       containers:
       - image: fake.docker.io/google-samples/hello-go-gke:1.0
@@ -80,6 +80,8 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.serviceAccountName
+        - name: ISTIO_AUTO_MTLS_ENABLED
+          value: "true"
         - name: ISTIO_META_POD_NAME
           valueFrom:
             fieldRef:

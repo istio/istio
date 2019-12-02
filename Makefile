@@ -33,6 +33,8 @@ ifeq ($(LOCAL_ARCH),x86_64)
     TARGET_ARCH ?= amd64
 else ifeq ($(shell echo $(LOCAL_ARCH) | head -c 5),armv8)
     TARGET_ARCH ?= arm64
+else ifeq ($(LOCAL_ARCH),aarch64)
+    TARGET_ARCH ?= arm64
 else ifeq ($(shell echo $(LOCAL_ARCH) | head -c 4),armv)
     TARGET_ARCH ?= arm
 else
@@ -56,7 +58,7 @@ ifeq ($(BUILD_WITH_CONTAINER),1)
 export TARGET_OUT = /work/out/$(TARGET_OS)_$(TARGET_ARCH)
 CONTAINER_CLI ?= docker
 DOCKER_SOCKET_MOUNT ?= -v /var/run/docker.sock:/var/run/docker.sock
-IMG ?= gcr.io/istio-testing/build-tools:2019-10-25T15-41-11
+IMG ?= gcr.io/istio-testing/build-tools:master-2019-11-14T12-01-13
 UID = $(shell id -u)
 GID = `grep docker /etc/group | cut -f3 -d:`
 PWD = $(shell pwd)
@@ -81,14 +83,22 @@ $(info Using gcr credential directory $(HOME)/.config/gcloud.)
 DOCKER_CREDS_MOUNT+=--mount type=bind,source="$(HOME)/.config/gcloud",destination="/config/.config/gcloud",readonly
 endif
 
+ENV_VARS:=
+ifdef HUB
+ENV_VARS+=-e HUB="$(HUB)"
+endif
+ifdef TAG
+ENV_VARS+=-e TAG="$(TAG)"
+endif
+
 RUN = $(CONTAINER_CLI) run -t -i --sig-proxy=true -u $(UID):$(GID) --rm \
 	-e IN_BUILD_CONTAINER="$(BUILD_WITH_CONTAINER)" \
 	-e TZ="$(TIMEZONE)" \
 	-e TARGET_ARCH="$(TARGET_ARCH)" \
 	-e TARGET_OS="$(TARGET_OS)" \
 	-e TARGET_OUT="$(TARGET_OUT)" \
-	-e HUB="$(HUB)" \
-	-e TAG="$(TAG)" \
+	-e USER="${USER}" \
+	$(ENV_VARS) \
 	-v /etc/passwd:/etc/passwd:ro \
 	$(DOCKER_SOCKET_MOUNT) \
 	$(CONTAINER_OPTIONS) \
@@ -111,7 +121,7 @@ default:
 else
 
 $(info Building with your local toolchain.)
-GOBIN ?= $(GOPATH)/bin
+export GOBIN ?= $(GOPATH)/bin
 include Makefile.core.mk
 
 endif

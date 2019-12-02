@@ -67,6 +67,7 @@ var (
 		PolicyNamespace:                DefaultSystemNamespace,
 		IngressNamespace:               DefaultSystemNamespace,
 		EgressNamespace:                DefaultSystemNamespace,
+		Operator:                       false,
 		DeployIstio:                    true,
 		DeployTimeout:                  0,
 		UndeployTimeout:                0,
@@ -115,11 +116,19 @@ type Config struct {
 	// The Helm values file to be used.
 	ValuesFile string
 
+	// Override values specifically for the ICP crd
+	// This is mostly required for cases where --set cannot be used
+	// If specified, Values will be ignored
+	ControlPlaneValues string
+
 	// Overrides for the Helm values file.
 	Values map[string]string
 
 	// Indicates that the test should deploy Istio into the target Kubernetes cluster before running tests.
 	DeployIstio bool
+
+	// Operator determines if we should use the operator for installation
+	Operator bool
 
 	// Do not wait for the validation webhook before completing the deployment. This is useful for
 	// doing deployments without Galley.
@@ -130,15 +139,16 @@ type Config struct {
 	CustomSidecarInjectorNamespace string
 }
 
-// Is mtls enabled. Check in Values flag and Values file.
+// IsMtlsEnabled checks in Values flag and Values file.
 func (c *Config) IsMtlsEnabled() bool {
-	if c.Values["global.mtls.enabled"] == "true" {
+	if c.Values["global.mtls.enabled"] == "true" ||
+		c.Values["global.mtls.auto"] == "true" {
 		return true
 	}
 
 	data, err := file.AsString(filepath.Join(c.ChartDir, c.ValuesFile))
 	if err != nil {
-		return false
+		return true
 	}
 	m := make(map[interface{}]interface{})
 	err = yaml2.Unmarshal([]byte(data), &m)
@@ -150,12 +160,55 @@ func (c *Config) IsMtlsEnabled() bool {
 		case map[interface{}]interface{}:
 			switch mtlsVal := globalVal["mtls"].(type) {
 			case map[interface{}]interface{}:
-				return mtlsVal["enabled"].(bool)
+				if !mtlsVal["enabled"].(bool) && !mtlsVal["auto"].(bool) {
+					return false
+				}
 			}
 		}
 	}
 
-	return false
+	return true
+}
+
+func (c *Config) IstioControlPlane() string {
+	data := c.ControlPlaneValues
+	if c.ValuesFile != "" {
+		var err error
+		data, err = file.AsString(filepath.Join(c.ChartDir, c.ValuesFile))
+		if err != nil {
+			return ""
+		}
+	}
+	s, err := image.SettingsFromCommandLine()
+	if err != nil {
+		return ""
+	}
+
+	return fmt.Sprintf(`
+apiVersion: install.istio.io/v1alpha2
+kind: IstioControlPlane
+spec:
+  hub: %s
+  tag: %s
+  values:
+%s
+`, s.Hub, s.Tag, Indent(data, "    "))
+}
+
+// indents a block of text with an indent string
+func Indent(text, indent string) string {
+	if text[len(text)-1:] == "\n" {
+		result := ""
+		for _, j := range strings.Split(text[:len(text)-1], "\n") {
+			result += indent + j + "\n"
+		}
+		return result
+	}
+	result := ""
+	for _, j := range strings.Split(strings.TrimRight(text, "\n"), "\n") {
+		result += indent + j + "\n"
+	}
+	return result[:len(result)-1]
 }
 
 // DefaultConfig creates a new Config from defaults, environments variables, and command-line parameters.
@@ -284,6 +337,7 @@ func (c *Config) String() string {
 	result += fmt.Sprintf("IngressNamespace:               %s\n", c.IngressNamespace)
 	result += fmt.Sprintf("EgressNamespace:                %s\n", c.EgressNamespace)
 	result += fmt.Sprintf("DeployIstio:                    %v\n", c.DeployIstio)
+	result += fmt.Sprintf("Operator:                       %v\n", c.Operator)
 	result += fmt.Sprintf("DeployTimeout:                  %s\n", c.DeployTimeout.String())
 	result += fmt.Sprintf("UndeployTimeout:                %s\n", c.UndeployTimeout.String())
 	result += fmt.Sprintf("Values:                         %v\n", c.Values)

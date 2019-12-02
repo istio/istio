@@ -245,12 +245,17 @@ installIstioAtVersionUsingIstioctl(){
 }
 
 # istioctl x upgrade supports upgrade istio release version
-# from 1.3.x to 1.3.y
 # from 1.3.x to 1.4.0
+# 1.3.3 to 1.4.0
+# 1.3.0 to 1.4.0 --force
 upgradeIstioAtVersionUsingIstioctl(){
   writeMsg "istioctl upgrade istio using version ${2} from ${3}."
   istioctl_path="${3}"/bin
-  "${istioctl_path}"/istioctl experimental manifest upgrade --skip-confirmation
+  if "${FROM_TAG}" < "1.3.3"; then
+    "${istioctl_path}"/istioctl experimental manifest upgrade --skip-confirmation --force
+  else
+    "${istioctl_path}"/istioctl experimental manifest upgrade --skip-confirmation
+  fi
 }
 
 istioInstallOptions() {
@@ -473,7 +478,7 @@ checkEchosrv
 
 # Run internal traffic in the background since we may have to relaunch it if the job fails.
 sendInternalRequestTraffic &
-sendExternalRequestTraffic "${INGRESS_ADDR}" &   # TODO: if we wait this to finish, all the following steps will suceed.
+sendExternalRequestTraffic "${INGRESS_ADDR}" &   # TODO: if we wait this to finish, all the following steps will succeed.
 # Let traffic clients establish all connections. There's some small startup delay, this covers it.
 echo "Waiting for traffic to settle..."
 sleep 20
@@ -493,7 +498,6 @@ writeMsg "Starting rollback - first, rolling back data plane to ${FROM_PATH}"
 resetConfigMap istio-sidecar-injector "${TMP_DIR}"/sidecar-injector-configmap.yaml
 restartDataPlane echosrv-deployment-v1
 sleep 140
-
 
 istioInstallOptions
 waitForPodsReady "${ISTIO_NAMESPACE}"

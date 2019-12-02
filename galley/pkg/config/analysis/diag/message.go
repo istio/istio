@@ -15,10 +15,13 @@
 package diag
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"istio.io/istio/galley/pkg/config/resource"
 )
+
+const DocPrefix = "https://istio.io/docs/reference/config/analysis"
 
 // MessageType is a type of diagnostic message
 type MessageType struct {
@@ -62,6 +65,7 @@ func (m *Message) Unstructured(includeOrigin bool) map[string]interface{} {
 		result["origin"] = m.Origin.FriendlyName()
 	}
 	result["message"] = fmt.Sprintf(m.Type.Template(), m.Parameters...)
+	result["documentation_url"] = fmt.Sprintf("%s/%s", DocPrefix, m.Type.Code())
 
 	return result
 }
@@ -74,6 +78,11 @@ func (m *Message) String() string {
 	}
 	return fmt.Sprintf(
 		"%v [%v]%s %s", m.Type.Level(), m.Type.Code(), origin, fmt.Sprintf(m.Type.Template(), m.Parameters...))
+}
+
+// MarshalJSON satisfies the Marshaler interface
+func (m *Message) MarshalJSON() ([]byte, error) {
+	return json.Marshal(m.Unstructured(true))
 }
 
 // NewMessageType returns a new MessageType instance.

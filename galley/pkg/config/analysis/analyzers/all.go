@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/schema"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/sidecar"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/virtualservice"
 )
 
@@ -30,12 +31,15 @@ func All() []analysis.Analyzer {
 	analyzers := []analysis.Analyzer{
 		// Please keep this list sorted alphabetically by pkg.name for convenience
 		&annotations.K8sAnalyzer{},
+		&auth.MTLSAnalyzer{},
 		&auth.ServiceRoleBindingAnalyzer{},
 		&auth.ServiceRoleServicesAnalyzer{},
 		&deprecation.FieldAnalyzer{},
 		&gateway.IngressGatewayPortAnalyzer{},
 		&injection.Analyzer{},
 		&injection.VersionAnalyzer{},
+		&sidecar.DefaultSelectorAnalyzer{},
+		&sidecar.SelectorAnalyzer{},
 		&virtualservice.ConflictingMeshGatewayHostsAnalyzer{},
 		&virtualservice.DestinationHostAnalyzer{},
 		&virtualservice.DestinationRuleAnalyzer{},

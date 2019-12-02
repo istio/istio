@@ -106,19 +106,21 @@ func NewFakeXDS() *FakeXdsUpdater {
 }
 
 func (fx *FakeXdsUpdater) EDSUpdate(shard, hostname string, namespace string, entry []*model.IstioEndpoint) error {
-	select {
-	case fx.Events <- XdsEvent{Type: "eds", ID: hostname}:
-	default:
+	if len(entry) > 0 {
+		select {
+		case fx.Events <- XdsEvent{Type: "eds", ID: hostname}:
+		default:
+		}
+
 	}
 	return nil
-
 }
 
 // SvcUpdate is called when a service port mapping definition is updated.
 // This interface is WIP - labels, annotations and other changes to service may be
 // updated to force a EDS and CDS recomputation and incremental push, as it doesn't affect
 // LDS/RDS.
-func (fx *FakeXdsUpdater) SvcUpdate(shard, hostname string, ports map[string]uint32, rports map[uint32]string) {
+func (fx *FakeXdsUpdater) SvcUpdate(shard, hostname string, namespace string, event model.Event) {
 	select {
 	case fx.Events <- XdsEvent{Type: "service", ID: hostname}:
 	default:
@@ -338,23 +340,23 @@ func TestController_GetPodLocality(t *testing.T) {
 			name: "should return correct az for given address",
 			pods: []*coreV1.Pod{pod1, pod2},
 			nodes: []*coreV1.Node{
-				generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1"}),
-				generateNode("node2", map[string]string{NodeZoneLabel: "zone2", NodeRegionLabel: "region2"}),
+				generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", IstioSubzoneLabel: "subzone1"}),
+				generateNode("node2", map[string]string{NodeZoneLabel: "zone2", NodeRegionLabel: "region2", IstioSubzoneLabel: "subzone2"}),
 			},
 			wantAZ: map[*coreV1.Pod]string{
-				pod1: "region1/zone1",
-				pod2: "region2/zone2",
+				pod1: "region1/zone1/subzone1",
+				pod2: "region2/zone2/subzone2",
 			},
 		},
 		{
-			name: "should return false if pod isnt in the cache",
+			name: "should return false if pod isn't in the cache",
 			wantAZ: map[*coreV1.Pod]string{
 				pod1: "",
 				pod2: "",
 			},
 		},
 		{
-			name: "should return false if node isnt in the cache",
+			name: "should return false if node isn't in the cache",
 			pods: []*coreV1.Pod{pod1, pod2},
 			wantAZ: map[*coreV1.Pod]string{
 				pod1: "",
@@ -369,8 +371,8 @@ func TestController_GetPodLocality(t *testing.T) {
 				generateNode("node2", map[string]string{NodeRegionLabel: "region2"}),
 			},
 			wantAZ: map[*coreV1.Pod]string{
-				pod1: "region1/",
-				pod2: "region2/",
+				pod1: "region1//",
+				pod2: "region2//",
 			},
 		},
 		{
@@ -381,15 +383,27 @@ func TestController_GetPodLocality(t *testing.T) {
 				generateNode("node2", map[string]string{NodeZoneLabel: "zone2"}),
 			},
 			wantAZ: map[*coreV1.Pod]string{
-				pod1: "/zone1",
-				pod2: "/zone2",
+				pod1: "/zone1/",
+				pod2: "/zone2/",
+			},
+		},
+		{
+			name: "should return correct az if node has only subzone label",
+			pods: []*coreV1.Pod{pod1, pod2},
+			nodes: []*coreV1.Node{
+				generateNode("node1", map[string]string{IstioSubzoneLabel: "subzone1"}),
+				generateNode("node2", map[string]string{IstioSubzoneLabel: "subzone2"}),
+			},
+			wantAZ: map[*coreV1.Pod]string{
+				pod1: "//subzone1",
+				pod2: "//subzone2",
 			},
 		},
 		{
 			name: "should return correct az for given address",
 			pods: []*coreV1.Pod{podOverride},
 			nodes: []*coreV1.Node{
-				generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1"}),
+				generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", IstioSubzoneLabel: "subzone1"}),
 			},
 			wantAZ: map[*coreV1.Pod]string{
 				podOverride: "regionOverride/zoneOverride/subzoneOverride",
@@ -525,7 +539,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			Ports:           []*model.Port{{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP}},
 			ServiceAccounts: []string{"acctvm2@gserviceaccount2.com", "spiffe://cluster.local/ns/nsa/sa/acct4"},
 			Attributes: model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "svc1",
 				Namespace:       "nsa",
 				UID:             "istio://nsa/services/svc1"},
@@ -542,7 +556,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 
 	// Test that we first look up instances by Proxy pod
 
-	node := generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1"})
+	node := generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", IstioSubzoneLabel: "subzone1"})
 	addNodes(t, controller, node)
 
 	// 1. pod without `istio-locality` label, get locality from node label.
@@ -570,7 +584,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			Family:      0,
 			Address:     "129.0.0.1",
 			ServicePort: &model.Port{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP},
-			Locality:    "region1/zone1",
+			Locality:    "region1/zone1/subzone1",
 		},
 		Service: &model.Service{
 			Hostname:        "svc1.nsa.svc.company.com",
@@ -578,7 +592,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			Ports:           []*model.Port{{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP}},
 			ServiceAccounts: []string{"acctvm2@gserviceaccount2.com", "spiffe://cluster.local/ns/nsa/sa/acct4"},
 			Attributes: model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "svc1",
 				Namespace:       "nsa",
 				UID:             "istio://nsa/services/svc1"},
@@ -627,7 +641,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			Ports:           []*model.Port{{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP}},
 			ServiceAccounts: []string{"acctvm2@gserviceaccount2.com", "spiffe://cluster.local/ns/nsa/sa/acct4"},
 			Attributes: model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "svc1",
 				Namespace:       "nsa",
 				UID:             "istio://nsa/services/svc1"},
@@ -757,9 +771,9 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 	portNames := []string{"tcp-port"}
 	createEndpoints(controller, "svc1", "nsA", portNames, svc1Ips, t)
 	createEndpoints(controller, "svc2", "nsA", portNames, svc2Ips, t)
-	for i := 0; i < 2; i++ {
-		<-fx.Events
-	}
+
+	// We expect only one EDS update with Endpoints.
+	<-fx.Events
 
 	hostname := kube.ServiceHostname("svc1", "nsA", domainSuffix)
 	svc, err := controller.GetService(hostname)
@@ -1236,7 +1250,11 @@ func TestCompareEndpoints(t *testing.T) {
 func createEndpoints(controller *Controller, name, namespace string, portNames, ips []string, t *testing.T) {
 	eas := make([]coreV1.EndpointAddress, 0)
 	for _, ip := range ips {
-		eas = append(eas, coreV1.EndpointAddress{IP: ip})
+		eas = append(eas, coreV1.EndpointAddress{IP: ip, TargetRef: &v1.ObjectReference{
+			Kind:      "Pod",
+			Name:      name,
+			Namespace: namespace,
+		}})
 	}
 
 	eps := make([]coreV1.EndpointPort, 0)
@@ -1498,8 +1516,18 @@ func TestEndpointUpdate(t *testing.T) {
 	controller, fx := newFakeController(t)
 	defer controller.Stop()
 
-	// 1. incremental eds for normal service endpoint update
+	pod1 := generatePod("128.0.0.1", "pod1", "nsA", "", "node1", map[string]string{"app": "prod-app"}, map[string]string{})
+	pods := []*coreV1.Pod{pod1}
+	addPods(t, controller, pods...)
+	for _, pod := range pods {
+		if err := waitForPod(controller, pod.Status.PodIP); err != nil {
+			t.Errorf("wait for pod err: %v", err)
+		}
+		// pod first time occur will trigger xds push
+		fx.Wait("xds")
+	}
 
+	// 1. incremental eds for normal service endpoint update
 	createService(controller, "svc1", "nsa", nil,
 		[]int32{8080}, map[string]string{"app": "prod-app"}, t)
 	if ev := fx.Wait("service"); ev == nil {
@@ -1539,5 +1567,49 @@ func TestEndpointUpdate(t *testing.T) {
 	updateEndpoints(controller, "svc1", "nsa", portNames, svc1Ips, t)
 	if ev := fx.Wait("xds"); ev == nil {
 		t.Errorf("Timeout xds push")
+	}
+}
+
+// Validates that when Pilot sees Endpoint before the corresponding Pod, it loads Pod from K8S and proceed.
+func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
+	// Setup kube caches
+	controller, fx := newFakeController(t)
+	defer controller.Stop()
+	pod1 := generatePod("172.0.1.1", "pod1", "nsA", "", "node1", map[string]string{"app": "prod-app"}, map[string]string{})
+	pod2 := generatePod("172.0.1.2", "pod2", "nsA", "", "node2", map[string]string{"app": "prod-app"}, map[string]string{})
+
+	pods := []*coreV1.Pod{pod1, pod2}
+	nodes := []*coreV1.Node{
+		generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", IstioSubzoneLabel: "subzone1"}),
+		generateNode("node2", map[string]string{NodeZoneLabel: "zone2", NodeRegionLabel: "region2", IstioSubzoneLabel: "subzone2"}),
+	}
+	addNodes(t, controller, nodes...)
+	addPods(t, controller, pods...)
+	for _, pod := range pods {
+		if err := waitForPod(controller, pod.Status.PodIP); err != nil {
+			t.Errorf("wait for pod err: %v", err)
+		}
+		// pod first time occur will trigger xds push
+		fx.Wait("xds")
+	}
+
+	// Create Endpoints for pod1 and validate that EDS is triggered.
+	pod1Ips := []string{"172.0.1.1"}
+	portNames := []string{"tcp-port"}
+	createEndpoints(controller, "pod1", "nsA", portNames, pod1Ips, t)
+	if ev := fx.Wait("eds"); ev == nil {
+		t.Errorf("Timeout incremental eds")
+	}
+
+	// Now delete pod2, from PodCache and send Endpoints. This simulates the case that endpoint comes
+	// when PodCache does not yet have entry for the pod.
+	controller.pods.event(pod2, model.EventDelete)
+
+	pod2Ips := []string{"172.0.1.2"}
+	createEndpoints(controller, "pod2", "nsA", portNames, pod2Ips, t)
+
+	// Validate that EDS is triggered with endpoints.
+	if ev := fx.Wait("eds"); ev == nil {
+		t.Errorf("Timeout incremental eds")
 	}
 }

@@ -13,6 +13,8 @@
 %global _prefix /usr/local
 %global envoy_libdir /var/lib/istio/envoy
 
+%global debug_package   %{nil}
+
 Name:           istio-proxy
 Version:        %{package_version}
 Release:        %{package_release}%{?dist}
@@ -28,7 +30,6 @@ BuildRequires:  cmake3
 Source0:        istio-proxy.tar.gz
 Source1:        sidecar.env
 Source2:        envoy_bootstrap_v2.json
-Source3:        envoy_bootstrap_drain.json
 
 %description
 The Istio Proxy is a microservice proxy that can be used on the client and server side, and forms a microservice mesh. The Proxy supports a large number of features.
@@ -50,7 +51,7 @@ istio-proxy is the proxy required by the Istio Pilot Agent that talks to Istio p
 %build
 export CC=clang
 export CXX=clang++
-bazel --output_base=/builder/bazel_cache --output_user_root=/builder/bazel_cache/root  build //...
+bazel --output_base=/builder/bazel_cache --output_user_root=/builder/bazel_cache/root  build --config=release //...
 bazel shutdown
 
 %install
@@ -61,14 +62,14 @@ install -d -m755 $RPM_BUILD_ROOT/%{envoy_libdir}
 install -m755 ${RPM_BUILD_DIR}/istio-proxy/bazel-bin/src/envoy/envoy ${RPM_BUILD_ROOT}%{_bindir}
 install -m644 %{SOURCE1} $RPM_BUILD_ROOT%{envoy_libdir}/sidecar.env
 install -m644 %{SOURCE2} $RPM_BUILD_ROOT%{envoy_libdir}/envoy_bootstrap_tmpl.json
-install -m644 %{SOURCE3} $RPM_BUILD_ROOT%{envoy_libdir}/envoy_bootstrap_drain.json
 
 %files
 %attr(0755,root,root) %{_bindir}/envoy
 %attr(0644,root,root) %{envoy_libdir}/sidecar.env
 %attr(0644,root,root) %{envoy_libdir}/envoy_bootstrap_tmpl.json
-%attr(0644,root,root) %{envoy_libdir}/envoy_bootstrap_drain.json
 
 %changelog
+* Tue Nov 19 2019 Idan Zach <zachidan@gmail.com>
+- Upgrade envoy version
 * Fri Feb 15 2019 Jonh Wendell <jonh.wendell@redhat.com>
-  First release
+- First release

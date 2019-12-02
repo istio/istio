@@ -36,12 +36,11 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/istiod"
 	"istio.io/pkg/log"
-
-	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 )
 
 // Helpers to configure the k8s-dependent registries
@@ -171,18 +170,12 @@ func (s *Controllers) initConfigController(args *istiod.PilotArgs) error {
 
 // createK8sServiceControllers creates all the k8s service controllers under this pilot
 func (s *Controllers) createK8sServiceControllers(serviceControllers *aggregate.Controller) {
-	clusterID := string(serviceregistry.KubernetesRegistry)
+	clusterID := string(serviceregistry.Kubernetes)
 	log.Infof("Primary Cluster name: %s", clusterID)
 	s.ControllerOptions.ClusterID = clusterID
 	kubectl := controller2.NewController(s.kubeClient, s.ControllerOptions)
 	s.kubeRegistry = kubectl
-	serviceControllers.AddRegistry(
-		aggregate.Registry{
-			Name:             serviceregistry.KubernetesRegistry,
-			ClusterID:        clusterID,
-			ServiceDiscovery: kubectl,
-			Controller:       kubectl,
-		})
+	serviceControllers.AddRegistry(kubectl)
 }
 
 func (s *Controllers) makeKubeConfigController(args *istiod.PilotArgs) (model.ConfigStoreCache, error) {

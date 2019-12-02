@@ -52,6 +52,26 @@ var (
 	// ConflictingMeshGatewayVirtualServiceHosts defines a diag.MessageType for message "ConflictingMeshGatewayVirtualServiceHosts".
 	// Description: Conflicting hosts on VirtualServices associated with mesh gateway
 	ConflictingMeshGatewayVirtualServiceHosts = diag.NewMessageType(diag.Error, "IST0109", "The VirtualServices %s associated with mesh gateway define the same host %s which can lead to undefined behavior. This can be fixed by merging the conflicting VirtualServices into a single resource.")
+
+	// ConflictingSidecarWorkloadSelectors defines a diag.MessageType for message "ConflictingSidecarWorkloadSelectors".
+	// Description: A Sidecar resource selects the same workloads as another Sidecar resource
+	ConflictingSidecarWorkloadSelectors = diag.NewMessageType(diag.Error, "IST0110", "The Sidecars %v in namespace %q select the same workload pod %q, which can lead to undefined behavior.")
+
+	// MultipleSidecarsWithoutWorkloadSelectors defines a diag.MessageType for message "MultipleSidecarsWithoutWorkloadSelectors".
+	// Description: More than one sidecar resource in a namespace has no workload selector
+	MultipleSidecarsWithoutWorkloadSelectors = diag.NewMessageType(diag.Error, "IST0111", "The Sidecars %v in namespace %q have no workload selector, which can lead to undefined behavior.")
+
+	// VirtualServiceDestinationPortSelectorRequired defines a diag.MessageType for message "VirtualServiceDestinationPortSelectorRequired".
+	// Description: A VirtualService routes to a service with more than one port exposed, but does not specify which to use.
+	VirtualServiceDestinationPortSelectorRequired = diag.NewMessageType(diag.Error, "IST0112", "This VirtualService routes to a service %q that exposes multiple ports %v. Specifying a port in the destination is required to disambiguate.")
+
+	// MTLSPolicyConflict defines a diag.MessageType for message "MTLSPolicyConflict".
+	// Description: A DestinationRule and Policy are in conflict with regards to mTLS.
+	MTLSPolicyConflict = diag.NewMessageType(diag.Error, "IST0113", "A DestinationRule and Policy are in conflict with regards to mTLS for host %s in namespace %s. The DestinationRule %q specifies that mTLS must be %t but the Policy object %q specifies %s.")
+
+	// PolicySpecifiesPortNameThatDoesntExist defines a diag.MessageType for message "PolicySpecifiesPortNameThatDoesntExist".
+	// Description: A Policy targets a port name that cannot be found.
+	PolicySpecifiesPortNameThatDoesntExist = diag.NewMessageType(diag.Warning, "IST0114", "Port name %s could not be found for host %s, which means the Policy won't be enforced.")
 )
 
 // NewInternalError returns a new diag.Message based on InternalError.
@@ -156,6 +176,61 @@ func NewConflictingMeshGatewayVirtualServiceHosts(entry *resource.Entry, virtual
 		ConflictingMeshGatewayVirtualServiceHosts,
 		originOrNil(entry),
 		virtualServices,
+		host,
+	)
+}
+
+// NewConflictingSidecarWorkloadSelectors returns a new diag.Message based on ConflictingSidecarWorkloadSelectors.
+func NewConflictingSidecarWorkloadSelectors(entry *resource.Entry, conflictingSidecars []string, namespace string, workloadPod string) diag.Message {
+	return diag.NewMessage(
+		ConflictingSidecarWorkloadSelectors,
+		originOrNil(entry),
+		conflictingSidecars,
+		namespace,
+		workloadPod,
+	)
+}
+
+// NewMultipleSidecarsWithoutWorkloadSelectors returns a new diag.Message based on MultipleSidecarsWithoutWorkloadSelectors.
+func NewMultipleSidecarsWithoutWorkloadSelectors(entry *resource.Entry, conflictingSidecars []string, namespace string) diag.Message {
+	return diag.NewMessage(
+		MultipleSidecarsWithoutWorkloadSelectors,
+		originOrNil(entry),
+		conflictingSidecars,
+		namespace,
+	)
+}
+
+// NewVirtualServiceDestinationPortSelectorRequired returns a new diag.Message based on VirtualServiceDestinationPortSelectorRequired.
+func NewVirtualServiceDestinationPortSelectorRequired(entry *resource.Entry, destHost string, destPorts []int) diag.Message {
+	return diag.NewMessage(
+		VirtualServiceDestinationPortSelectorRequired,
+		originOrNil(entry),
+		destHost,
+		destPorts,
+	)
+}
+
+// NewMTLSPolicyConflict returns a new diag.Message based on MTLSPolicyConflict.
+func NewMTLSPolicyConflict(entry *resource.Entry, host string, namespace string, destinationRuleName string, destinationRuleMTLSMode bool, policyName string, policyMTLSMode string) diag.Message {
+	return diag.NewMessage(
+		MTLSPolicyConflict,
+		originOrNil(entry),
+		host,
+		namespace,
+		destinationRuleName,
+		destinationRuleMTLSMode,
+		policyName,
+		policyMTLSMode,
+	)
+}
+
+// NewPolicySpecifiesPortNameThatDoesntExist returns a new diag.Message based on PolicySpecifiesPortNameThatDoesntExist.
+func NewPolicySpecifiesPortNameThatDoesntExist(entry *resource.Entry, portName string, host string) diag.Message {
+	return diag.NewMessage(
+		PolicySpecifiesPortNameThatDoesntExist,
+		originOrNil(entry),
+		portName,
 		host,
 	)
 }

@@ -29,7 +29,6 @@ import (
 
 	mixerEnv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
-	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	envoyBootstrap "istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/config/mesh"
@@ -159,17 +158,15 @@ func startPilot() error {
 	// Create a test pilot discovery service configured to watch the tempDir.
 	args := bootstrap.PilotArgs{
 		Namespace: "testing",
-		DiscoveryOptions: envoy.DiscoveryServiceOptions{
+		DiscoveryOptions: bootstrap.DiscoveryServiceOptions{
 			HTTPAddr:        ":15007",
 			GrpcAddr:        ":15010",
 			SecureGrpcAddr:  ":15011",
-			EnableCaching:   true,
 			EnableProfiling: true,
 		},
 
 		Mesh: bootstrap.MeshArgs{
-			MixerAddress:    "localhost:9091",
-			RdsRefreshDelay: types.DurationProto(10 * time.Millisecond),
+			MixerAddress: "localhost:9091",
 		},
 		Config: bootstrap.ConfigArgs{
 			KubeConfig: env.IstioSrc + "/tests/util/kubeconfig",
@@ -177,7 +174,7 @@ func startPilot() error {
 		Service: bootstrap.ServiceArgs{
 			// Using the Mock service registry, which provides the hello and world services.
 			Registries: []string{
-				string(serviceregistry.MockRegistry)},
+				string(serviceregistry.Mock)},
 		},
 		MeshConfig:       &mcfg,
 		KeepaliveOptions: keepalive.DefaultOption(),

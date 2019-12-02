@@ -50,16 +50,19 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/envoy"
+	istio_agent "istio.io/istio/pkg/istio-agent"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 
 const trustworthyJWTPath = "/var/run/secrets/tokens/istio-token"
 
+// TODO: Move most of this to pkg.
+
 var (
 	role          = &model.Proxy{}
 	proxyIP       string
-	registry      serviceregistry.ServiceRegistry
+	registryID    serviceregistry.ProviderID
 	trustDomain   string
 	pilotIdentity string
 	mixerIdentity string
@@ -184,9 +187,9 @@ var (
 			// operational parameters correctly.
 			proxyIPv6 := isIPv6Proxy(role.IPAddresses)
 			if len(role.ID) == 0 {
-				if registry == serviceregistry.KubernetesRegistry {
+				if registryID == serviceregistry.Kubernetes {
 					role.ID = podName + "." + podNamespace
-				} else if registry == serviceregistry.ConsulRegistry {
+				} else if registryID == serviceregistry.Consul {
 					role.ID = role.IPAddresses[0] + ".service.consul"
 				} else {
 					role.ID = role.IPAddresses[0]
@@ -238,7 +241,7 @@ var (
 			case meshconfig.AuthenticationPolicy_MUTUAL_TLS.String():
 				controlPlaneAuthEnabled = true
 				proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
-				if registry == serviceregistry.KubernetesRegistry {
+				if registryID == serviceregistry.Kubernetes {
 					partDiscoveryAddress := strings.Split(discoveryAddress, ":")
 					discoveryHostname := partDiscoveryAddress[0]
 					parts := strings.Split(discoveryHostname, ".")
@@ -260,6 +263,7 @@ var (
 					}
 				}
 			}
+
 			role.DNSDomain = getDNSDomain(podNamespace, role.DNSDomain)
 			setSpiffeTrustDomain(podNamespace, role.DNSDomain)
 
@@ -339,8 +343,44 @@ var (
 				log.Infof("Effective config: %s", out)
 			}
 
+			// Legacy - so pilot-agent can be used with citadel node agent.
+			// Main will be replaced by istio-agent when we clean up - this code can stay here and be removed with the rest.
 			sdsUDSPath := sdsUdsPathVar.Get()
 			sdsEnabled, sdsTokenPath := detectSds(controlPlaneBootstrap, sdsUDSPath, trustworthyJWTPath)
+
+			if !sdsEnabled && role.Type == model.SidecarProxy { // Not using citadel agent - this is either Pilot or Istiod.
+
+				// Istiod and new SDS-only mode doesn't use sdsUdsPathVar - sdsEnabled will be false.
+				sa := istio_agent.NewSDSAgent(discoveryAddress, controlPlaneAuthEnabled)
+
+				if sa.JWTPath != "" && role.Type == model.SidecarProxy {
+					// If user injected a JWT token for SDS - use SDS.
+					sdsEnabled = true
+					sdsTokenPath = sa.JWTPath
+					sdsUDSPath = sa.SDSAddress
+
+					if sa.RequireCerts {
+						controlPlaneAuthEnabled = true
+					}
+
+					// For normal Istio - start in process SDS.
+					// Ingress: WIP, permissions needed.
+
+					// citadel node-agent not found, but we have a K8S JWT available. Start an in-process SDS.
+					_, err := sa.Start(role.Type == model.SidecarProxy, podNamespaceVar.Get())
+					if err != nil {
+						log.Fatala("Failed to start in-process SDS", err)
+					}
+
+					if sa.RequireCerts {
+						proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
+					}
+					if sa.SAN != "" {
+						pilotSAN = append(pilotSAN, sa.SAN)
+					}
+				}
+			}
+
 			// dedupe cert paths so we don't set up 2 watchers for the same file:
 			tlsCertsToWatch = dedupeStrings(tlsCertsToWatch)
 
@@ -361,6 +401,8 @@ var (
 				sdsTokenPath = ""
 			}
 
+			// If the token and path are present - use SDS.
+
 			// TODO: change Mixer and Pilot to use standard template and deprecate this custom bootstrap parser
 			if controlPlaneBootstrap {
 				if templateFile != "" && proxyConfig.CustomConfigFile == "" {
@@ -372,6 +414,8 @@ var (
 						option.PodIP(podIP),
 						option.ControlPlaneAuth(controlPlaneAuthEnabled),
 						option.DisableReportCalls(disableInternalTelemetry),
+						option.SDSTokenPath(sdsTokenPath),
+						option.SDSUDSPath(sdsUDSPath),
 					}
 
 					// Check if nodeIP carries IPv4 or IPv6 and set up proxy accordingly
@@ -454,8 +498,12 @@ var (
 
 			agent := envoy.NewAgent(envoyProxy, features.TerminationDrainDuration())
 
-			watcher := envoy.NewWatcher(tlsCertsToWatch, agent.Restart)
+			if sdsEnabled && role.Type == model.SidecarProxy {
+				tlsCertsToWatch = []string{}
+			}
 
+			// Watcher is also kicking envoy start.
+			watcher := envoy.NewWatcher(tlsCertsToWatch, agent.Restart)
 			go watcher.Run(ctx)
 
 			// On SIGINT or SIGTERM, cancel the context, triggering a graceful shutdown
@@ -493,10 +541,10 @@ func setSpiffeTrustDomain(podNamespace string, domain string) {
 	if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
 		pilotTrustDomain := trustDomain
 		if len(pilotTrustDomain) == 0 {
-			if registry == serviceregistry.KubernetesRegistry &&
+			if registryID == serviceregistry.Kubernetes &&
 				(domain == podNamespace+".svc.cluster.local" || domain == "") {
 				pilotTrustDomain = "cluster.local"
-			} else if registry == serviceregistry.ConsulRegistry &&
+			} else if registryID == serviceregistry.Consul &&
 				(domain == "service.consul" || domain == "") {
 				pilotTrustDomain = ""
 			} else {
@@ -523,9 +571,9 @@ func getSAN(ns string, defaultSA string, overrideIdentity string) []string {
 
 func getDNSDomain(podNamespace, domain string) string {
 	if len(domain) == 0 {
-		if registry == serviceregistry.KubernetesRegistry {
+		if registryID == serviceregistry.Kubernetes {
 			domain = podNamespace + ".svc.cluster.local"
-		} else if registry == serviceregistry.ConsulRegistry {
+		} else if registryID == serviceregistry.Consul {
 			domain = "service.consul"
 		} else {
 			domain = ""
@@ -612,10 +660,10 @@ func appendTLSCerts(rs *meshconfig.RemoteService) {
 }
 
 func init() {
-	proxyCmd.PersistentFlags().StringVar((*string)(&registry), "serviceregistry",
-		string(serviceregistry.KubernetesRegistry),
+	proxyCmd.PersistentFlags().StringVar((*string)(&registryID), "serviceregistry",
+		string(serviceregistry.Kubernetes),
 		fmt.Sprintf("Select the platform for service registry, options are {%s, %s, %s, %s}",
-			serviceregistry.KubernetesRegistry, serviceregistry.ConsulRegistry, serviceregistry.MCPRegistry, serviceregistry.MockRegistry))
+			serviceregistry.Kubernetes, serviceregistry.Consul, serviceregistry.MCP, serviceregistry.Mock))
 	proxyCmd.PersistentFlags().StringVar(&proxyIP, "ip", "",
 		"Proxy IP address. If not provided uses ${INSTANCE_IP} environment variable.")
 	proxyCmd.PersistentFlags().StringVar(&role.ID, "id", "",
@@ -739,6 +787,10 @@ func waitForFile(fname string, maxWait time.Duration) bool {
 	}
 }
 
+// TODO: get the config and bootstrap from istiod, by passing the env
+
+// Use env variables - from injection, k8s and local namespace config map.
+// No CLI parameters.
 func main() {
 	if err := rootCmd.Execute(); err != nil {
 		log.Errora(err)

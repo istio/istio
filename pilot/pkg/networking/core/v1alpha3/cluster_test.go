@@ -1023,8 +1023,8 @@ func TestDuplicateClusters(t *testing.T) {
 func TestSidecarLocalityLB(t *testing.T) {
 	g := NewGomegaWithT(t)
 	// Distribute locality loadbalancing setting
-	testMesh.LocalityLbSetting = &meshconfig.LocalityLoadBalancerSetting{
-		Distribute: []*meshconfig.LocalityLoadBalancerSetting_Distribute{
+	testMesh.LocalityLbSetting = &networking.LocalityLoadBalancerSetting{
+		Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
 			{
 				From: "region1/zone1/subzone1",
 				To: map[string]uint32{
@@ -1075,7 +1075,7 @@ func TestSidecarLocalityLB(t *testing.T) {
 
 	// Test failover
 	// Distribute locality loadbalancing setting
-	testMesh.LocalityLbSetting = &meshconfig.LocalityLoadBalancerSetting{}
+	testMesh.LocalityLbSetting = &networking.LocalityLoadBalancerSetting{}
 
 	clusters, err = buildTestClusters("*.example.org", model.DNSLB, model.SidecarProxy,
 		&core.Locality{
@@ -1111,11 +1111,76 @@ func TestSidecarLocalityLB(t *testing.T) {
 	}
 }
 
+func TestLocalityLBDestinationRuleOverride(t *testing.T) {
+	g := NewGomegaWithT(t)
+	// Distribute locality loadbalancing setting
+	testMesh.LocalityLbSetting = &networking.LocalityLoadBalancerSetting{
+		Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
+			{
+				From: "region1/zone1/subzone1",
+				To: map[string]uint32{
+					"region1/zone1/*":        50,
+					"region2/zone1/subzone1": 50,
+				},
+			},
+		},
+	}
+
+	clusters, err := buildTestClusters("*.example.org", model.DNSLB, model.SidecarProxy,
+		&core.Locality{
+			Region:  "region1",
+			Zone:    "zone1",
+			SubZone: "subzone1",
+		}, testMesh,
+		&networking.DestinationRule{
+			Host: "*.example.org",
+			TrafficPolicy: &networking.TrafficPolicy{
+				OutlierDetection: &networking.OutlierDetection{
+					ConsecutiveErrors: 5,
+					MinHealthPercent:  10,
+				},
+				LoadBalancer: &networking.LoadBalancerSettings{LocalityLbSetting: &networking.LocalityLoadBalancerSetting{
+					Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
+						{
+							From: "region1/zone1/subzone1",
+							To: map[string]uint32{
+								"region1/zone1/*":        60,
+								"region2/zone1/subzone1": 40,
+							},
+						},
+					},
+				}},
+			},
+		})
+	g.Expect(err).NotTo(HaveOccurred())
+
+	if clusters[0].CommonLbConfig == nil {
+		t.Fatalf("CommonLbConfig should be set for cluster %+v", clusters[0])
+	}
+	g.Expect(clusters[0].CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(10)))
+
+	g.Expect(len(clusters[0].LoadAssignment.Endpoints)).To(Equal(3))
+	for _, localityLbEndpoint := range clusters[0].LoadAssignment.Endpoints {
+		locality := localityLbEndpoint.Locality
+		if locality.Region == "region1" && locality.SubZone == "subzone1" {
+			g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(40)))
+			g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(Equal(uint32(40)))
+		} else if locality.Region == "region1" && locality.SubZone == "subzone2" {
+			g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(20)))
+			g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(Equal(uint32(20)))
+		} else if locality.Region == "region2" {
+			g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(40)))
+			g.Expect(len(localityLbEndpoint.LbEndpoints)).To(Equal(1))
+			g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(Equal(uint32(40)))
+		}
+	}
+}
+
 func TestGatewayLocalityLB(t *testing.T) {
 	g := NewGomegaWithT(t)
 	// Distribute locality loadbalancing setting
-	testMesh.LocalityLbSetting = &meshconfig.LocalityLoadBalancerSetting{
-		Distribute: []*meshconfig.LocalityLoadBalancerSetting_Distribute{
+	testMesh.LocalityLbSetting = &networking.LocalityLoadBalancerSetting{
+		Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
 			{
 				From: "region1/zone1/subzone1",
 				To: map[string]uint32{
@@ -1174,7 +1239,7 @@ func TestGatewayLocalityLB(t *testing.T) {
 	}
 
 	// Test failover
-	testMesh.LocalityLbSetting = &meshconfig.LocalityLoadBalancerSetting{}
+	testMesh.LocalityLbSetting = &networking.LocalityLoadBalancerSetting{}
 
 	clusters, err = buildTestClustersWithProxyMetadata("*.example.org", model.DNSLB, false, model.Router,
 		&core.Locality{
@@ -1360,7 +1425,7 @@ func TestClusterDiscoveryTypeAndLbPolicyPassthroughIstioVersion12(t *testing.T) 
 	g.Expect(clusters[0].EdsClusterConfig).To(BeNil())
 }
 
-func TestPassthroughClusterMaxConnections(t *testing.T) {
+func TestBuildClustersDefaultCircuitBreakerThresholds(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	configgen := NewConfigGenerator([]plugin.Plugin{})
@@ -1373,11 +1438,59 @@ func TestPassthroughClusterMaxConnections(t *testing.T) {
 	g.Expect(len(clusters)).ShouldNot(Equal(0))
 
 	for _, cluster := range clusters {
-		if cluster.Name == "PassthroughCluster" {
+		if cluster.Name != "BlackHoleCluster" {
 			fmt.Println(cluster.CircuitBreakers)
 			g.Expect(cluster.CircuitBreakers).NotTo(BeNil())
-			g.Expect(cluster.CircuitBreakers.Thresholds[0].MaxConnections.Value).To(Equal(uint32(102400)))
+			g.Expect(cluster.CircuitBreakers.Thresholds[0]).To(Equal(getDefaultCircuitBreakerThresholds(model.TrafficDirectionOutbound)))
 		}
+	}
+}
+
+func TestBuildInboundClustersDefaultCircuitBreakerThresholds(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	configgen := NewConfigGenerator([]plugin.Plugin{})
+	serviceDiscovery := &fakes.ServiceDiscovery{}
+	configStore := &fakes.IstioConfigStore{}
+	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
+
+	proxy := &model.Proxy{
+		Metadata:     &model.NodeMetadata{},
+		SidecarScope: &model.SidecarScope{},
+	}
+
+	servicePort := &model.Port{
+		Name:     "default",
+		Port:     80,
+		Protocol: protocol.HTTP,
+	}
+
+	service := &model.Service{
+		Hostname:    host.Name("backend.default.svc.cluster.local"),
+		Address:     "1.1.1.1",
+		ClusterVIPs: make(map[string]string),
+		Ports:       model.PortList{servicePort},
+		Resolution:  model.Passthrough,
+	}
+
+	instances := []*model.ServiceInstance{
+		{
+			Service: service,
+			Endpoint: model.NetworkEndpoint{
+				Address:     "192.168.1.1",
+				Port:        10001,
+				ServicePort: servicePort,
+			},
+		},
+	}
+
+	clusters := configgen.buildInboundClusters(env, proxy, env.PushContext, instances, []*model.Port{servicePort})
+	g.Expect(len(clusters)).ShouldNot(Equal(0))
+
+	for _, cluster := range clusters {
+		fmt.Println(cluster.CircuitBreakers)
+		g.Expect(cluster.CircuitBreakers).NotTo(BeNil())
+		g.Expect(cluster.CircuitBreakers.Thresholds[0]).To(Equal(getDefaultCircuitBreakerThresholds(model.TrafficDirectionInbound)))
 	}
 }
 
@@ -1478,7 +1591,7 @@ func TestAltStatName(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -1491,7 +1604,7 @@ func TestAltStatName(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "reviews",
 				Namespace:       "namespace1",
 			},
@@ -1504,7 +1617,7 @@ func TestAltStatName(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "reviews",
 				Namespace:       "namespace1",
 			},
@@ -1517,7 +1630,7 @@ func TestAltStatName(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.ConsulRegistry),
+				ServiceRegistry: string(serviceregistry.Consul),
 				Name:            "foo",
 				Namespace:       "bar",
 			},
@@ -1530,7 +1643,7 @@ func TestAltStatName(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -1543,7 +1656,7 @@ func TestAltStatName(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -1556,7 +1669,7 @@ func TestAltStatName(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -1569,7 +1682,7 @@ func TestAltStatName(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -1582,7 +1695,7 @@ func TestAltStatName(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -1595,7 +1708,7 @@ func TestAltStatName(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -1608,7 +1721,7 @@ func TestAltStatName(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -1621,7 +1734,7 @@ func TestAltStatName(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -1634,7 +1747,7 @@ func TestAltStatName(t *testing.T) {
 			"v1",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -1647,7 +1760,7 @@ func TestAltStatName(t *testing.T) {
 			"v1",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "reviews",
 				Namespace:       "default",
 			},

@@ -92,11 +92,6 @@ func apply(mesh *Mesh, env Environment) error {
 			continue
 		}
 
-		if cluster.DisableRegistryJoin {
-			env.Printf("not joining cluster %v, service registry not joined yet\n", cluster)
-			continue
-		}
-
 		opt := RemoteSecretOptions{
 			KubeOptions: KubeOptions{
 				Context:   cluster.Context,
@@ -109,7 +104,6 @@ func apply(mesh *Mesh, env Environment) error {
 		secret, err := createRemoteSecret(opt, cluster.client, env)
 		if err != nil {
 			err := fmt.Errorf("not joining cluster %v, could not creating remote secret: %v", cluster.Context, err)
-			env.Errorf(err.Error())
 			errs = multierror.Append(errs, err)
 			continue
 		}

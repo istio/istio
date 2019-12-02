@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -67,14 +68,26 @@ const (
 )
 
 var (
-	defaultInboundCircuitBreakerThresholds  = v2Cluster.CircuitBreakers_Thresholds{}
+	defaultInboundCircuitBreakerThresholds = v2Cluster.CircuitBreakers_Thresholds{
+		// This disables circuit breaking by default by setting highest possible values.
+		// See: https://www.envoyproxy.io/docs/envoy/v1.11.1/faq/disable_circuit_breaking
+		MaxRetries:         &wrappers.UInt32Value{Value: math.MaxUint32},
+		MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
+		MaxConnections:     &wrappers.UInt32Value{Value: math.MaxUint32},
+		MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
+	}
 	defaultOutboundCircuitBreakerThresholds = v2Cluster.CircuitBreakers_Thresholds{
 		// DefaultMaxRetries specifies the default for the Envoy circuit breaker parameter max_retries. This
 		// defines the maximum number of parallel retries a given Envoy will allow to the upstream cluster. Envoy defaults
 		// this value to 3, however that has shown to be insufficient during periods of pod churn (e.g. rolling updates),
 		// where multiple endpoints in a cluster are terminated. In these scenarios the circuit breaker can kick
 		// in before Pilot is able to deliver an updated endpoint list to Envoy, leading to client-facing 503s.
-		MaxRetries: &wrappers.UInt32Value{Value: 1024},
+		MaxRetries: &wrappers.UInt32Value{Value: math.MaxUint32},
+		// This disables circuit breaking by default by setting highest possible values.
+		// See: https://www.envoyproxy.io/docs/envoy/v1.11.1/faq/disable_circuit_breaking
+		MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
+		MaxConnections:     &wrappers.UInt32Value{Value: math.MaxUint32},
+		MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
 	}
 
 	defaultDestinationRule = networking.DestinationRule{}
@@ -117,8 +130,6 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 		// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
 		// DO NOT CALL PLUGINS for these two clusters.
 		outboundClusters = append(outboundClusters, buildBlackHoleCluster(env), buildDefaultPassthroughCluster(env, proxy))
-		// apply load balancer setting for cluster endpoints
-		applyLocalityLBSetting(proxy.Locality, outboundClusters, env.Mesh.LocalityLbSetting)
 		outboundClusters = envoyfilter.ApplyClusterPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, proxy, push, outboundClusters)
 		// Let ServiceDiscovery decide which IP and Port are used for management if
 		// there are multiple IPs
@@ -139,8 +150,6 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 		if proxy.Type == model.Router && proxy.GetRouterMode() == model.SniDnatRouter {
 			outboundClusters = append(outboundClusters, configgen.buildOutboundSniDnatClusters(env, proxy, push)...)
 		}
-		// apply load balancer setting for cluster endpoints
-		applyLocalityLBSetting(proxy.Locality, outboundClusters, env.Mesh.LocalityLbSetting)
 		outboundClusters = envoyfilter.ApplyClusterPatches(networking.EnvoyFilter_GATEWAY, proxy, push, outboundClusters)
 		clusters = outboundClusters
 	}
@@ -168,7 +177,7 @@ func normalizeClusters(push *model.PushContext, proxy *model.Proxy, clusters []*
 }
 
 // castDestinationRuleOrDefault returns the destination rule enclosed by the config, if not null.
-// Otherwise, return defaul (empty) DR.
+// Otherwise, return default (empty) DR.
 func castDestinationRuleOrDefault(config *model.Config) *networking.DestinationRule {
 	if config != nil {
 		return config.Spec.(*networking.DestinationRule)
@@ -470,7 +479,7 @@ func buildLocalityLbEndpoints(env *model.Environment, proxyNetworkView map[strin
 		})
 	}
 
-	return util.LocalityLbWeightNormalize(localityLbEndpoints)
+	return localityLbEndpoints
 }
 
 func buildInboundLocalityLbEndpoints(bind string, port int) []*endpoint.LocalityLbEndpoints {
@@ -853,7 +862,8 @@ func applyTrafficPolicy(opts buildClusterOpts, proxy *model.Proxy) {
 
 	applyConnectionPool(opts.env, opts.cluster, connectionPool, opts.direction)
 	applyOutlierDetection(opts.cluster, outlierDetection)
-	applyLoadBalancer(opts.cluster, loadBalancer, opts.port, proxy)
+	applyLoadBalancer(opts.cluster, loadBalancer, opts.port, proxy, opts.env.Mesh)
+
 	if opts.clusterMode != SniDnatClusterMode && opts.direction != model.TrafficDirectionInbound {
 		autoMTLSEnabled := opts.env.Mesh.GetEnableAutoMtls().Value
 		var mtlsCtxType mtlsContextType
@@ -1001,7 +1011,7 @@ func applyOutlierDetection(cluster *apiv2.Cluster, outlier *networking.OutlierDe
 	}
 }
 
-func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettings, port *model.Port, proxy *model.Proxy) {
+func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettings, port *model.Port, proxy *model.Proxy, meshConfig *meshconfig.MeshConfig) {
 	if cluster.OutlierDetection != nil {
 		if cluster.CommonLbConfig == nil {
 			cluster.CommonLbConfig = &apiv2.Cluster_CommonLbConfig{}
@@ -1011,6 +1021,13 @@ func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettin
 			LocalityWeightedLbConfig: &apiv2.Cluster_CommonLbConfig_LocalityWeightedLbConfig{},
 		}
 	}
+
+	// Use locality lb settings from load balancer settings if present, else use mesh wide locality lb settings
+	var localityLbSettings = meshConfig.LocalityLbSetting
+	if lb != nil && lb.LocalityLbSetting != nil {
+		localityLbSettings = lb.LocalityLbSetting
+	}
+	applyLocalityLBSetting(proxy.Locality, cluster, localityLbSettings)
 
 	if lb == nil {
 		return
@@ -1068,18 +1085,17 @@ func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettin
 
 func applyLocalityLBSetting(
 	locality *core.Locality,
-	clusters []*apiv2.Cluster,
-	localityLB *meshconfig.LocalityLoadBalancerSetting,
+	cluster *apiv2.Cluster,
+	localityLB *networking.LocalityLoadBalancerSetting,
 ) {
 	if locality == nil || localityLB == nil {
 		return
 	}
-	for _, cluster := range clusters {
-		// Failover should only be applied with outlier detection, or traffic will never failover.
-		enabledFailover := cluster.OutlierDetection != nil
-		if cluster.LoadAssignment != nil {
-			loadbalancer.ApplyLocalityLBSetting(locality, cluster.LoadAssignment, localityLB, enabledFailover)
-		}
+
+	// Failover should only be applied with outlier detection, or traffic will never failover.
+	enabledFailover := cluster.OutlierDetection != nil
+	if cluster.LoadAssignment != nil {
+		loadbalancer.ApplyLocalityLBSetting(locality, cluster.LoadAssignment, localityLB, enabledFailover)
 	}
 }
 
@@ -1262,13 +1278,7 @@ func buildDefaultPassthroughCluster(env *model.Environment, proxy *model.Proxy) 
 		ConnectTimeout:       gogo.DurationToProtoDuration(env.Mesh.ConnectTimeout),
 		LbPolicy:             lbPolicyClusterProvided(proxy),
 	}
-	passthroughSettings := &networking.ConnectionPoolSettings{
-		Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-			// The envoy default is 1024. This isn't configurable right now so we set
-			// this to a very high value so outbound connections are not limited.
-			MaxConnections: 1024 * 100,
-		},
-	}
+	passthroughSettings := &networking.ConnectionPoolSettings{}
 	applyConnectionPool(env, cluster, passthroughSettings, model.TrafficDirectionOutbound)
 	return cluster
 }
@@ -1348,7 +1358,7 @@ func altStatName(statPattern string, host string, subset string, port *model.Por
 
 // shotHostName removes the domain from kubernetes hosts. For other hosts like VMs, this method does not do any thing.
 func shortHostName(host string, attributes model.ServiceAttributes) string {
-	if attributes.ServiceRegistry == string(serviceregistry.KubernetesRegistry) {
+	if attributes.ServiceRegistry == string(serviceregistry.Kubernetes) {
 		return fmt.Sprintf("%s.%s", attributes.Name, attributes.Namespace)
 	}
 	return host

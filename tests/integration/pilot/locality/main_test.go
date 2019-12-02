@@ -96,6 +96,12 @@ metadata:
 spec:
   host: {{.Host}}
   trafficPolicy:
+    loadBalancer:
+      simple: ROUND_ROBIN
+      localityLbSetting:
+        failover:
+        - from: region
+          to: closeregion
     outlierDetection:
       consecutiveErrors: 100
       interval: 1s
@@ -125,7 +131,7 @@ func init() {
 func TestMain(m *testing.M) {
 	framework.NewSuite("locality_prioritized_failover_loadbalancing", m).
 		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, setupConfig)).
+		SetupOnEnv(environment.Kube, istio.Setup(&ist, nil)).
 		Setup(func(ctx resource.Context) (err error) {
 			if g, err = galley.New(ctx, galley.Config{}); err != nil {
 				return err
@@ -139,15 +145,6 @@ func TestMain(m *testing.M) {
 		Run()
 }
 
-func setupConfig(cfg *istio.Config) {
-	if cfg == nil {
-		return
-	}
-	cfg.Values["pilot.autoscaleEnabled"] = "false"
-	cfg.Values["global.localityLbSetting.failover[0].from"] = "region"
-	cfg.Values["global.localityLbSetting.failover[0].to"] = "closeregion"
-}
-
 func echoConfig(ns namespace.Instance, name string) echo.Config {
 	return echo.Config{
 		Service:   name,
@@ -158,6 +155,8 @@ func echoConfig(ns namespace.Instance, name string) echo.Config {
 				Name:        "http",
 				Protocol:    protocol.HTTP,
 				ServicePort: 80,
+				// We use a port > 1024 to not require root
+				InstancePort: 8090,
 			},
 		},
 		Galley: g,

@@ -51,9 +51,9 @@ func (r *RealDependencies) LookupUser() (*user.User, error) {
 	return user.Lookup(username)
 }
 
-func (r *RealDependencies) execute(cmd Cmd, redirectStdout bool, args ...string) error {
+func (r *RealDependencies) execute(cmd string, redirectStdout bool, args ...string) error {
 	fmt.Printf("%s %s\n", cmd, strings.Join(args, " "))
-	externalCommand := exec.Command(string(cmd), args...)
+	externalCommand := exec.Command(cmd, args...)
 	externalCommand.Stdout = os.Stdout
 	//TODO Check naming and redirection logic
 	if !redirectStdout {
@@ -63,7 +63,7 @@ func (r *RealDependencies) execute(cmd Cmd, redirectStdout bool, args ...string)
 }
 
 // RunOrFail runs a command and panics, if it fails
-func (r *RealDependencies) RunOrFail(cmd Cmd, args ...string) {
+func (r *RealDependencies) RunOrFail(cmd string, args ...string) {
 	err := r.execute(cmd, false, args...)
 
 	if err != nil {
@@ -72,11 +72,11 @@ func (r *RealDependencies) RunOrFail(cmd Cmd, args ...string) {
 }
 
 // Run runs a command
-func (r *RealDependencies) Run(cmd Cmd, args ...string) error {
+func (r *RealDependencies) Run(cmd string, args ...string) error {
 	return r.execute(cmd, false, args...)
 }
 
 // RunQuietlyAndIgnore runs a command quietly and ignores errors
-func (r *RealDependencies) RunQuietlyAndIgnore(cmd Cmd, args ...string) {
+func (r *RealDependencies) RunQuietlyAndIgnore(cmd string, args ...string) {
 	_ = r.execute(cmd, true, args...)
 }

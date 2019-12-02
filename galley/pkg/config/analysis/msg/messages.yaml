@@ -113,3 +113,68 @@ messages:
         type: string
       - name: host
         type: string
+
+  - name: "ConflictingSidecarWorkloadSelectors"
+    code: IST0110
+    level: Error
+    description: "A Sidecar resource selects the same workloads as another Sidecar resource"
+    template: "The Sidecars %v in namespace %q select the same workload pod %q, which can lead to undefined behavior."
+    args:
+      - name: conflictingSidecars
+        type: "[]string"
+      - name: namespace
+        type: string
+      - name: workloadPod
+        type: string
+
+  - name: "MultipleSidecarsWithoutWorkloadSelectors"
+    code: IST0111
+    level: Error
+    description: "More than one sidecar resource in a namespace has no workload selector"
+    template: "The Sidecars %v in namespace %q have no workload selector, which can lead to undefined behavior."
+    args:
+      - name: conflictingSidecars
+        type: "[]string"
+      - name: namespace
+        type: string
+
+  - name: "VirtualServiceDestinationPortSelectorRequired"
+    code: IST0112
+    level: Error
+    description: "A VirtualService routes to a service with more than one port exposed, but does not specify which to use."
+    template: "This VirtualService routes to a service %q that exposes multiple ports %v. Specifying a port in the destination is required to disambiguate."
+    args:
+      - name: destHost
+        type: string
+      - name: destPorts
+        type: "[]int"
+
+  - name: "MTLSPolicyConflict"
+    code: IST0113
+    level: Error
+    description: "A DestinationRule and Policy are in conflict with regards to mTLS."
+    template: "A DestinationRule and Policy are in conflict with regards to mTLS for host %s in namespace %s. The DestinationRule %q specifies that mTLS must be %t but the Policy object %q specifies %s."
+    args:
+      - name: host
+        type: string
+      - name: namespace
+        type: string
+      - name: destinationRuleName
+        type: string
+      - name: destinationRuleMTLSMode
+        type: bool
+      - name: policyName
+        type: string
+      - name: policyMTLSMode
+        type: string
+
+  - name: "PolicySpecifiesPortNameThatDoesntExist"
+    code: IST0114
+    level: Warning
+    description: "A Policy targets a port name that cannot be found."
+    template: "Port name %s could not be found for host %s, which means the Policy won't be enforced."
+    args:
+      - name: portName
+        type: string
+      - name: host
+        type: string

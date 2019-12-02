@@ -24,6 +24,7 @@ import (
 
 // TestAuthorizationForHTTPServices simulates the task in https://www.istio.io/docs/tasks/security/authz-http/
 func TestAuthorizationForHTTPServices(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/18511")
 	framework.
 		NewTest(t).
 		Run(istioio.NewBuilder("tasks__security__authorization_for_http_services").

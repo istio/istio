@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/deprecation"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/sidecar"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/virtualservice"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/local"
@@ -53,6 +54,93 @@ type testCase struct {
 // * Expected messages are in the format {msg.ValidationMessageType, "<ResourceKind>/<Namespace>/<ResourceName>"}.
 //     * Note that if Namespace is omitted in the input YAML, it will be skipped here.
 var testGrid = []testCase{
+	{
+		name: "misannoted",
+		inputFiles: []string{
+			"testdata/misannotated.yaml",
+		},
+		analyzer: &annotations.K8sAnalyzer{},
+		expected: []message{
+			{msg.UnknownAnnotation, "Service httpbin"},
+			{msg.MisplacedAnnotation, "Service details"},
+			{msg.MisplacedAnnotation, "Pod grafana-test"},
+			{msg.MisplacedAnnotation, "Deployment fortio-deploy"},
+			{msg.MisplacedAnnotation, "Namespace staging"},
+		},
+	},
+	{
+		name:       "mtlsAnalyzerGlobalDestinationRuleNoMeshPolicy",
+		inputFiles: []string{"testdata/mtls-global-dr-no-meshpolicy.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected: []message{
+			{msg.MTLSPolicyConflict, "DestinationRule default.istio-system"},
+		},
+	},
+	{
+		name:       "mtlsAnalyzerIgnoresIstioSystemNamespace",
+		inputFiles: []string{"testdata/mtls-ignores-istio-system.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected:   []message{
+			// no messages, this test case verifies no false positives
+		},
+	},
+	{
+		name:       "mtlsAnalyzerNoDestinationRule",
+		inputFiles: []string{"testdata/mtls-no-dr.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected: []message{
+			{msg.MTLSPolicyConflict, "Policy default.missing-dr"},
+		},
+	},
+	{
+		name:       "mtlsAnalyzerNoPolicy",
+		inputFiles: []string{"testdata/mtls-no-policy.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected: []message{
+			{msg.MTLSPolicyConflict, "DestinationRule no-policy-service-dr.no-policy"},
+		},
+	},
+	{
+		name:       "mtlsAnalyzerNoSidecar",
+		inputFiles: []string{"testdata/mtls-no-sidecar.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected:   []message{
+			// no messages, this test case verifies no false positives
+		},
+	},
+	{
+		name:       "mtlsAnalyzerWithExports",
+		inputFiles: []string{"testdata/mtls-exports.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected: []message{
+			{msg.MTLSPolicyConflict, "Policy default.primary"},
+		},
+	},
+	{
+		name:       "mtlsAnalyzerWithMeshPolicy",
+		inputFiles: []string{"testdata/mtls-meshpolicy.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected: []message{
+			{msg.MTLSPolicyConflict, "MeshPolicy default"},
+		},
+	},
+	{
+		name:       "mtlsAnalyzerWithPermissiveMeshPolicy",
+		inputFiles: []string{"testdata/mtls-meshpolicy-permissive.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected:   []message{
+			// no messages, this test case verifies no false positives
+		},
+	},
+	{
+		name:       "mtlsAnalyzerWithPort",
+		inputFiles: []string{"testdata/mtls-with-port.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected: []message{
+			{msg.MTLSPolicyConflict, "DestinationRule default.my-namespace"},
+			{msg.MTLSPolicyConflict, "Policy default.my-namespace"},
+		},
+	},
 	{
 		name:       "serviceRoleBindings",
 		inputFiles: []string{"testdata/servicerolebindings.yaml"},
@@ -134,7 +222,6 @@ var testGrid = []testCase{
 			{msg.GatewayPortNotOnWorkload, "Gateway httpbin8002-gateway"},
 		},
 	},
-
 	{
 		name:       "istioInjection",
 		inputFiles: []string{"testdata/injection.yaml"},
@@ -150,6 +237,28 @@ var testGrid = []testCase{
 		analyzer:   &injection.VersionAnalyzer{},
 		expected: []message{
 			{msg.IstioProxyVersionMismatch, "Pod details-v1-pod-old.enabled-namespace"},
+		},
+	},
+	{
+		name:       "sidecarDefaultSelector",
+		inputFiles: []string{"testdata/sidecar-default-selector.yaml"},
+		analyzer:   &sidecar.DefaultSelectorAnalyzer{},
+		expected: []message{
+			{msg.MultipleSidecarsWithoutWorkloadSelectors, "Sidecar has-conflict-2.ns2"},
+			{msg.MultipleSidecarsWithoutWorkloadSelectors, "Sidecar has-conflict-1.ns2"},
+		},
+	},
+	{
+		name:       "sidecarSelector",
+		inputFiles: []string{"testdata/sidecar-selector.yaml"},
+		analyzer:   &sidecar.SelectorAnalyzer{},
+		expected: []message{
+			{msg.ReferencedResourceNotFound, "Sidecar maps-to-nonexistent.default"},
+			{msg.ReferencedResourceNotFound, "Sidecar maps-to-different-ns.other"},
+			{msg.ConflictingSidecarWorkloadSelectors, "Sidecar dupe-1.default"},
+			{msg.ConflictingSidecarWorkloadSelectors, "Sidecar dupe-2.default"},
+			{msg.ConflictingSidecarWorkloadSelectors, "Sidecar overlap-1.default"},
+			{msg.ConflictingSidecarWorkloadSelectors, "Sidecar overlap-2.default"},
 		},
 	},
 	{
@@ -172,6 +281,9 @@ var testGrid = []testCase{
 		expected: []message{
 			{msg.ReferencedResourceNotFound, "VirtualService reviews-bogushost.default"},
 			{msg.ReferencedResourceNotFound, "VirtualService reviews-bookinfo-other.default"},
+			{msg.ReferencedResourceNotFound, "VirtualService reviews-mirror-bogushost.default"},
+			{msg.ReferencedResourceNotFound, "VirtualService reviews-bogusport.default"},
+			{msg.VirtualServiceDestinationPortSelectorRequired, "VirtualService reviews-2port-missing.default"},
 		},
 	},
 	{
@@ -180,6 +292,7 @@ var testGrid = []testCase{
 		analyzer:   &virtualservice.DestinationRuleAnalyzer{},
 		expected: []message{
 			{msg.ReferencedResourceNotFound, "VirtualService reviews-bogussubset.default"},
+			{msg.ReferencedResourceNotFound, "VirtualService reviews-mirror-bogussubset.default"},
 		},
 	},
 	{
@@ -188,19 +301,6 @@ var testGrid = []testCase{
 		analyzer:   &virtualservice.GatewayAnalyzer{},
 		expected: []message{
 			{msg.ReferencedResourceNotFound, "VirtualService httpbin-bogus"},
-		},
-	},
-	{
-		name: "misannoted",
-		inputFiles: []string{
-			"testdata/misannotated.yaml",
-		},
-		analyzer: &annotations.K8sAnalyzer{},
-		expected: []message{
-			{msg.UnknownAnnotation, "Service httpbin"},
-			{msg.MisplacedAnnotation, "Service details"},
-			{msg.MisplacedAnnotation, "Pod grafana-test"},
-			{msg.MisplacedAnnotation, "Deployment fortio-deploy"},
 		},
 	},
 }
@@ -232,7 +332,7 @@ func TestAnalyzers(t *testing.T) {
 				requestedInputsByAnalyzer[analyzerName][col] = struct{}{}
 			}
 
-			sa := local.NewSourceAnalyzer(metadata.MustGet(), analysis.Combine("testCombined", testCase.analyzer), "", cr, true)
+			sa := local.NewSourceAnalyzer(metadata.MustGet(), analysis.Combine("testCombined", testCase.analyzer), "", "istio-system", cr, true)
 
 			err := sa.AddFileKubeSource(testCase.inputFiles)
 			if err != nil {
@@ -279,6 +379,20 @@ func TestAnalyzers(t *testing.T) {
 					"Either the metadata is wrong or the test cases for the analyzer are insufficient.", analyzerName))
 		}
 	})
+}
+
+// Verify that all of the analyzers tested here are also registered in All()
+func TestAnalyzersInAll(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	var allNames []string
+	for _, a := range All() {
+		allNames = append(allNames, a.Metadata().Name)
+	}
+
+	for _, tc := range testGrid {
+		g.Expect(allNames).To(ContainElement(tc.analyzer.Metadata().Name))
+	}
 }
 
 func TestAnalyzersHaveUniqueNames(t *testing.T) {

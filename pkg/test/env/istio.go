@@ -19,6 +19,7 @@ import (
 	"go/build"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"runtime"
@@ -54,6 +55,10 @@ var (
 	// TAG is the Docker tag to be used for images.
 	// nolint: golint, stylecheck
 	TAG Variable = "TAG"
+
+	// BITNAMIHUB is the Docker registry to be used for the bitnami images.
+	// nolint: golint
+	BITNAMIHUB Variable = "BITNAMIHUB"
 
 	// PULL_POLICY is the image pull policy to use when rendering templates.
 	// nolint: golint, stylecheck
@@ -108,7 +113,7 @@ func getDefaultIstioTop() string {
 	if err != nil {
 		panic(err)
 	}
-	idx := strings.Index(current, "/src/istio.io/istio")
+	idx := strings.Index(current, filepath.Join("/src", "istio.io", "istio"))
 	if idx > 0 {
 		return current[0:idx]
 	}

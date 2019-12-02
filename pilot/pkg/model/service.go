@@ -106,6 +106,20 @@ const (
 	Passthrough
 )
 
+// String converts Resolution in to String.
+func (resolution Resolution) String() string {
+	switch resolution {
+	case ClientSideLB:
+		return "ClientSide"
+	case DNSLB:
+		return "DNS"
+	case Passthrough:
+		return "Passthrough"
+	default:
+		return fmt.Sprintf("%d", int(resolution))
+	}
+}
+
 const (
 	// IstioDefaultConfigNamespace constant for default namespace
 	IstioDefaultConfigNamespace = "default"
@@ -626,7 +640,7 @@ func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, ho
 	var parts []string
 	dnsSrvMode := false
 	// This could be the DNS srv form of the cluster that uses outbound_.port_.subset_.hostname
-	// Since we dont want every callsite to implement the logic to differentiate between the two forms
+	// Since we do not want every callsite to implement the logic to differentiate between the two forms
 	// we add an alternate parser here.
 	if strings.HasPrefix(s, trafficDirectionOutboundSrvPrefix) ||
 		strings.HasPrefix(s, trafficDirectionInboundSrvPrefix) {

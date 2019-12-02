@@ -150,8 +150,6 @@ func setupConfig(cfg *istio.Config) {
 	}
 	// disable telemetry and mixer filter
 	cfg.Values["global.disablePolicyChecks"] = "true"
-	cfg.Values["global.MixerCheckServer"] = ""
-	cfg.Values["global.MixerReportServer"] = ""
 	cfg.Values["mixer.telemetry.enabled"] = "false"
 }
 

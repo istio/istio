@@ -49,10 +49,10 @@ func getDefaultProxy() model.Proxy {
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
 		Metadata: &model.NodeMetadata{
-			IstioVersion:    "1.3",
+			IstioVersion:    "1.4",
 			ConfigNamespace: "not-default",
 		},
-		IstioVersion:    model.ParseIstioVersion("1.3"),
+		IstioVersion:    model.ParseIstioVersion("1.4"),
 		ConfigNamespace: "not-default",
 	}
 }
@@ -275,8 +275,8 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 
 		if len(fc.Filters) == 1 && fc.Filters[0].Name == xdsutil.HTTPConnectionManager &&
 			fc.Metadata.FilterMetadata[PilotMetaKey].Fields["original_listener_name"].GetStringValue() == VirtualInboundListenerName {
-			if !reflect.DeepEqual(fc.FilterChainMatch.ApplicationProtocols, applicationProtocols) {
-				t.Fatalf("expect %v application protocols, found %v", applicationProtocols, fc.FilterChainMatch.ApplicationProtocols)
+			if !reflect.DeepEqual(fc.FilterChainMatch.ApplicationProtocols, plaintextHTTPALPNs) {
+				t.Fatalf("expect %v application protocols, found %v", plaintextHTTPALPNs, fc.FilterChainMatch.ApplicationProtocols)
 			}
 			if !strings.Contains(fc.Filters[0].GetTypedConfig().String(), fakePluginHTTPFilter) {
 				t.Errorf("failed to find the fake plugin HTTP filter: %v", fc.Filters[0].GetTypedConfig().String())
@@ -292,13 +292,15 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 		t.Fatalf("fail to find the fake plugin TCP filter in listener %v", l)
 	}
 
-	if len(l.ListenerFilters) != 2 {
-		t.Fatalf("expected %d listener filters, found %d", 2, len(l.ListenerFilters))
+	if len(l.ListenerFilters) != 3 {
+		t.Fatalf("expected %d listener filters, found %d", 3, len(l.ListenerFilters))
 	}
 
 	if l.ListenerFilters[0].Name != xdsutil.OriginalDestination ||
-		l.ListenerFilters[1].Name != envoyListenerHTTPInspector {
-		t.Fatalf("expect listener filters [%q, %q], found [%q, %q]",
-			xdsutil.OriginalDestination, envoyListenerHTTPInspector, l.ListenerFilters[0].Name, l.ListenerFilters[1].Name)
+		l.ListenerFilters[1].Name != xdsutil.TlsInspector ||
+		l.ListenerFilters[2].Name != xdsutil.HttpInspector {
+		t.Fatalf("expect listener filters [%q, %q, %q], found [%q, %q, %q]",
+			xdsutil.OriginalDestination, xdsutil.TlsInspector, xdsutil.HttpInspector,
+			l.ListenerFilters[0].Name, l.ListenerFilters[1].Name, l.ListenerFilters[2].Name)
 	}
 }

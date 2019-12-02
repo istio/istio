@@ -43,12 +43,12 @@ func TestApplyLocalitySetting(t *testing.T) {
 	t.Run("Distribute", func(t *testing.T) {
 		tests := []struct {
 			name       string
-			distribute []*meshconfig.LocalityLoadBalancerSetting_Distribute
+			distribute []*networking.LocalityLoadBalancerSetting_Distribute
 			expected   []int
 		}{
 			{
 				name: "distribution between subzones",
-				distribute: []*meshconfig.LocalityLoadBalancerSetting_Distribute{
+				distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
 					{
 						From: "region1/zone1/subzone1",
 						To: map[string]uint32{
@@ -157,7 +157,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 	})
 }
 
-func buildEnvForClustersWithDistribute(distribute []*meshconfig.LocalityLoadBalancerSetting_Distribute) *model.Environment {
+func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBalancerSetting_Distribute) *model.Environment {
 	serviceDiscovery := &fakes.ServiceDiscovery{}
 
 	serviceDiscovery.ServicesReturns([]*model.Service{
@@ -180,7 +180,7 @@ func buildEnvForClustersWithDistribute(distribute []*meshconfig.LocalityLoadBala
 			Seconds: 10,
 			Nanos:   1,
 		},
-		LocalityLbSetting: &meshconfig.LocalityLoadBalancerSetting{
+		LocalityLbSetting: &networking.LocalityLoadBalancerSetting{
 			Distribute: distribute,
 		},
 	}
@@ -237,8 +237,8 @@ func buildEnvForClustersWithFailover() *model.Environment {
 			Seconds: 10,
 			Nanos:   1,
 		},
-		LocalityLbSetting: &meshconfig.LocalityLoadBalancerSetting{
-			Failover: []*meshconfig.LocalityLoadBalancerSetting_Failover{
+		LocalityLbSetting: &networking.LocalityLoadBalancerSetting{
+			Failover: []*networking.LocalityLoadBalancerSetting_Failover{
 				{
 					From: "region1",
 					To:   "region2",

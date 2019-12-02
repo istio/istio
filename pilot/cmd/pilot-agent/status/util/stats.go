@@ -24,18 +24,29 @@ import (
 )
 
 const (
-	statCdsUpdatesSuccess   = "cluster_manager.cds.update_success"
-	statCdsUpdatesRejection = "cluster_manager.cds.update_rejected"
-	statLdsUpdatesSuccess   = "listener_manager.lds.update_success"
-	statLdsUpdatesRejection = "listener_manager.lds.update_rejected"
+	statCdsRejected  = "cluster_manager.cds.update_success"
+	statsCdsSuccess  = "cluster_manager.cds.update_rejected"
+	statLdsRejected  = "listener_manager.lds.update_rejected"
+	statsLdsSuccess  = "listener_manager.lds.update_success"
+	statServerState  = "server.state"
+	updateStatsRegex = "^(cluster_manager.cds|listener_manager.lds).(update_success|update_rejected)$"
 )
+
+type stat struct {
+	name  string
+	value *uint64
+	found bool
+}
 
 // Stats contains values of interest from a poll of Envoy stats.
 type Stats struct {
+	// Update Stats.
 	CDSUpdatesSuccess   uint64
 	CDSUpdatesRejection uint64
 	LDSUpdatesSuccess   uint64
 	LDSUpdatesRejection uint64
+	// Server State of Envoy.
+	ServerState uint64
 }
 
 // String representation of the Stats.
@@ -47,22 +58,42 @@ func (s *Stats) String() string {
 		s.LDSUpdatesRejection)
 }
 
-// GetStats from Envoy.
-func GetStats(localHostAddr string, adminPort uint16) (*Stats, error) {
-	input, err := doHTTPGet(fmt.Sprintf("http://%s:%d/stats?usedonly", localHostAddr, adminPort))
+// GetServerState returns the current Envoy state by checking the "server.state" stat.
+func GetServerState(localHostAddr string, adminPort uint16) (*uint64, error) {
+	stats, err := doHTTPGet(fmt.Sprintf("http://%s:%d/stats?usedonly&filter=%s", localHostAddr, adminPort, statServerState))
 	if err != nil {
-		return nil, multierror.Prefix(err, "failed retrieving Envoy stats:")
+		return nil, err
+	}
+	if !strings.Contains(stats.String(), "server.state") {
+		return nil, fmt.Errorf("server.state is not yet updated: %s", stats.String())
 	}
 
-	// Parse the Envoy stats.
 	s := &Stats{}
 	allStats := []*stat{
-		{name: statCdsUpdatesSuccess, value: &s.CDSUpdatesSuccess},
-		{name: statCdsUpdatesRejection, value: &s.CDSUpdatesRejection},
-		{name: statLdsUpdatesSuccess, value: &s.LDSUpdatesSuccess},
-		{name: statLdsUpdatesRejection, value: &s.LDSUpdatesRejection},
+		{name: statServerState, value: &s.ServerState},
 	}
-	if err := parseStats(input, allStats); err != nil {
+	if err := parseStats(stats, allStats); err != nil {
+		return nil, err
+	}
+
+	return &s.ServerState, nil
+}
+
+// GetUpdateStatusStats returns the version stats for CDS and LDS.
+func GetUpdateStatusStats(localHostAddr string, adminPort uint16) (*Stats, error) {
+	stats, err := doHTTPGet(fmt.Sprintf("http://%s:%d/stats?usedonly&filter=%s", localHostAddr, adminPort, updateStatsRegex))
+	if err != nil {
+		return nil, err
+	}
+
+	s := &Stats{}
+	allStats := []*stat{
+		{name: statsCdsSuccess, value: &s.CDSUpdatesSuccess},
+		{name: statCdsRejected, value: &s.CDSUpdatesRejection},
+		{name: statsLdsSuccess, value: &s.LDSUpdatesSuccess},
+		{name: statLdsRejected, value: &s.LDSUpdatesRejection},
+	}
+	if err := parseStats(stats, allStats); err != nil {
 		return nil, err
 	}
 
@@ -84,12 +115,6 @@ func parseStats(input *bytes.Buffer, stats []*stat) (err error) {
 		}
 	}
 	return
-}
-
-type stat struct {
-	name  string
-	value *uint64
-	found bool
 }
 
 func (s *stat) processLine(line string) error {

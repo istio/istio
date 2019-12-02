@@ -60,6 +60,35 @@ func (ctx *testContext) ForEach(c collection.Name, fn analysis.IteratorFn) {
 // Canceled implements analysis.Context
 func (ctx *testContext) Canceled() bool { return false }
 
+func TestCorrectArgs(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	m1 := &v1alpha3.VirtualService{}
+
+	testSchema := schema.Instance{
+		Collection: metadata.IstioNetworkingV1Alpha3Virtualservices.String(),
+		Validate: func(name, ns string, msg proto.Message) (errs error) {
+			g.Expect(name).To(Equal("name"))
+			g.Expect(ns).To(Equal("ns"))
+			g.Expect(msg).To(Equal(m1))
+
+			return nil
+		},
+	}
+	ctx := &testContext{
+		entries: []*resource.Entry{
+			{
+				Item: &v1alpha3.VirtualService{},
+				Metadata: resource.Metadata{
+					Name: resource.NewName("ns", "name"),
+				},
+			},
+		},
+	}
+	a := ValidationAnalyzer{s: testSchema}
+	a.Analyze(ctx)
+}
+
 func TestSchemaValidationWrapper(t *testing.T) {
 	testCol := metadata.IstioNetworkingV1Alpha3Virtualservices
 

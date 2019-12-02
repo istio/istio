@@ -31,6 +31,9 @@ import (
 
 var (
 	controlZport = 0
+
+	// label selector
+	labelSelector = ""
 )
 
 // port-forward to Istio System Prometheus; open browser
@@ -196,15 +199,41 @@ func envoyDashCmd() *cobra.Command {
 		Long:    `Open the Envoy admin dashboard for a sidecar`,
 		Example: `istioctl dashboard envoy productpage-123-456.default`,
 		RunE: func(c *cobra.Command, args []string) error {
-			if len(args) < 1 {
+			if labelSelector == "" && len(args) < 1 {
 				c.Println(c.UsageString())
-				return fmt.Errorf("specify a pod")
+				return fmt.Errorf("specify a pod or --selector")
 			}
 
-			podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
+			if labelSelector != "" && len(args) > 0 {
+				c.Println(c.UsageString())
+				return fmt.Errorf("name cannot be provided when a selector is specified")
+			}
+
 			client, err := clientExecFactory(kubeconfig, configContext)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
+			}
+
+			var podName, ns string
+			if labelSelector != "" {
+				pl, err := client.PodsForSelector(handlers.HandleNamespace(namespace, defaultNamespace), labelSelector)
+				if err != nil {
+					return fmt.Errorf("not able to locate pod with selector %s: %v", labelSelector, err)
+				}
+
+				if len(pl.Items) < 1 {
+					return errors.New("no pods found")
+				}
+
+				if len(pl.Items) > 1 {
+					log.Warnf("more than 1 pods fits selector: %s; will use pod: %s", labelSelector, pl.Items[0].Name)
+				}
+
+				// only use the first pod in the list
+				podName = pl.Items[0].Name
+				ns = pl.Items[0].Namespace
+			} else {
+				podName, ns = handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
 			}
 
 			return portForward(podName, ns, fmt.Sprintf("Envoy sidecar %s", podName),
@@ -223,22 +252,48 @@ func controlZDashCmd() *cobra.Command {
 		Long:    `Open the ControlZ web UI for a pod in the Istio control plane`,
 		Example: `istioctl dashboard controlz pilot-123-456.istio-system`,
 		RunE: func(c *cobra.Command, args []string) error {
-			if len(args) < 1 {
+			if labelSelector == "" && len(args) < 1 {
 				c.Println(c.UsageString())
-				return fmt.Errorf("specify a pod")
+				return fmt.Errorf("specify a pod or --selector")
 			}
 
-			podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
+			if labelSelector != "" && len(args) > 0 {
+				c.Println(c.UsageString())
+				return fmt.Errorf("name cannot be provided when a selector is specified")
+			}
+
 			client, err := clientExecFactory(kubeconfig, configContext)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
+			}
+
+			var podName, ns string
+			if labelSelector != "" {
+				pl, err := client.PodsForSelector(handlers.HandleNamespace(namespace, defaultNamespace), labelSelector)
+				if err != nil {
+					return fmt.Errorf("not able to locate pod with selector %s: %v", labelSelector, err)
+				}
+
+				if len(pl.Items) < 1 {
+					return errors.New("no pods found")
+				}
+
+				if len(pl.Items) > 1 {
+					log.Warnf("more than 1 pods fits selector: %s; will use pod: %s", labelSelector, pl.Items[0].Name)
+				}
+
+				// only use the first pod in the list
+				podName = pl.Items[0].Name
+				ns = pl.Items[0].Namespace
+			} else {
+				podName, ns = handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
 			}
 
 			return portForward(podName, ns, fmt.Sprintf("ControlZ %s", podName),
 				"http://localhost:%d", controlZport, client, c.OutOrStdout())
 		},
 	}
-
+	
 	return cmd
 }
 
@@ -306,9 +361,13 @@ func dashboard() *cobra.Command {
 	dashboardCmd.AddCommand(jaegerDashCmd())
 	dashboardCmd.AddCommand(zipkinDashCmd())
 
-	dashboardCmd.AddCommand(envoyDashCmd())
+	envoy := envoyDashCmd()
+	envoy.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "label selector")
+	dashboardCmd.AddCommand(envoy)
+
 	controlz := controlZDashCmd()
 	controlz.PersistentFlags().IntVar(&controlZport, "ctrlz_port", 9876, "ControlZ port")
+	controlz.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "label selector")
 	dashboardCmd.AddCommand(controlz)
 
 	return dashboardCmd

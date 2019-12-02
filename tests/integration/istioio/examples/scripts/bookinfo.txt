@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+
+# Copyright 2019 Istio Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+set -e
+set -u
+set -o pipefail
+
+# Remove the injection label to prevent following command to fail
+kubectl label namespace default istio-injection-
+
+# $snippet automatic_sidecar_injection syntax="bash"
+$ kubectl label namespace default istio-injection=enabled
+# $endsnippet
+
+# $snippet deploy_bookinfo_application syntax="bash"
+$ kubectl apply -f @samples/bookinfo/platform/kube/bookinfo.yaml@
+# $endsnippet
+
+# $snippet verify_service syntax="bash" outputis="text" outputsnippet="true"
+$ kubectl get services
+# $verify verifier="lineRegex"
+NAME *TYPE *CLUSTER-IP *EXTERNAL-IP *PORT\(S\) *AGE
+details *ClusterIP *[0-9.]* *.none. *9080/TCP
+kubernetes *ClusterIP *[0-9.]* *.none. *443/TCP
+productpage *ClusterIP *[0-9.]* *.none. *9080/TCP
+ratings *ClusterIP *[0-9.]* *.none. *9080/TCP
+reviews *ClusterIP *[0-9.]* *.none. *9080/TCP
+# $endsnippet
+
+kubectl wait --for=condition=available deployment --all --timeout=300s
+kubectl wait --for=condition=Ready pod --all --timeout=300s
+
+# $snippet verify_pods syntax="bash" outputis="text" outputsnippet="true"
+$ kubectl get pods
+# $verify verifier="lineRegex"
+NAME *READY *STATUS *RESTARTS *AGE
+details-v1-[0-9a-z]*-[0-9a-z]* *2/2 *Running *0
+productpage-v1-[0-9a-z]*-[0-9a-z]* *2/2 *Running *0
+ratings-v1-[0-9a-z]*-[0-9a-z]* *2/2 *Running *0
+reviews-v1-[0-9a-z]*-[0-9a-z]* *2/2 *Running *0
+reviews-v2-[0-9a-z]*-[0-9a-z]* *2/2 *Running *0
+reviews-v3-[0-9a-z]*-[0-9a-z]* *2/2 *Running *0
+# $endsnippet

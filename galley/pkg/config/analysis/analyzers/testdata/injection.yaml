@@ -44,3 +44,15 @@ spec:
   containers:
   - image: gcr.io/google-samples/microservices-demo/adservice:v0.1.1
     name: server
+---
+# Pod that explicitly disables injection. Should not generate a warning.
+kind: Pod
+metadata:
+  name: podinjectiondisabled
+  namespace: default
+  annotations:
+    sidecar.istio.io/inject: "false"
+spec:
+  containers:
+  - image: gcr.io/google-samples/microservices-demo/adservice:v0.1.1
+    name: server

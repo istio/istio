@@ -2,39 +2,23 @@
 
 This directory contains Istio end-to-end tests and associated test framework.
 
+NOTE: These tests are considered deprecated. All new tests should try to use the new testing framework.
+This allows tests to run locally as well as in Kubernetes and is more flexible. See `./tests/integration` or the [docs](https://github.com/istio/istio/wiki/Istio-Test-Framework).
+
 E2E tests are meant to ensure functional correctness in an E2E environment to make sure Istio works with one or more
 deployments. For now, these tests run with kind in Prow in both pre-submit and post-submit stages. Their results can be found in
-<https://prow.istio.io/> and <https://k8s-testgrid.appspot.com/istio>.
+<https://prow.istio.io/> and <https://k8s-testgrid.appspot.com/istio_istio_postsubmit>.
 
 Developers, on the other hand, are recommended to run the tests locally before sending out any PR.
 
 ## Running E2E Tests
 
-### Using a local VM
+In CI, tests run using [kind](https://kind.sigs.k8s.io/). The same commands run in CI can be run locally, as the test scripts set up a
+hermetic environment.
 
-E2E tests can be run on your local machines. It helps local testing and debuging. You can use one of the following to set up a local testing environment.
+For example: `prow/e2e-kind-suite.sh --auth_enable --single_test e2e_simple`.
 
-1. See [vagrant/README](local/vagrant/README.md) for instructions to set up a local Vagrant VM environment to run E2E tests.
-
-1. See [minikube/README](local/minikube/README.md) for instructions to set up a Minikube VM environment to run E2E tests.
-
-All local testing options requires the `--use_local_cluster` flag so the framework will not create a LoadBalancer and talk directly to the Pod running istio-ingress.
-
-### Using GKE
-
-Optionally, you can set up a GKE environment to run the E2E tests. See [instructions](UsingGKE.md).
-
-### Using CI (PR pre-submit stage)
-
-You can send a PR to trigger all E2E tests in CI, but you should run these tests locally before sending it out to avoid wasting valuable and shared CI resources.
-
-By default, CI does not run all GKE based E2E tests in pre-submit, but they are be triggered manually using the following commands after "prow/istio-presubmit" completes and has generated the required artifacts for testing.
-
-`/test e2e-suite-rbac-no_auth`
-
-`/test e2e-suite-rbac-auth`
-
-`/test e2e-cluster_wide-auth`
+The full list of jobs can be found in [test-infra](https://github.com/istio/test-infra/blob/master/prow/config/jobs/istio.yaml).
 
 ## Debugging
 
@@ -123,3 +107,53 @@ E2E tests have multiple options available while running them as follows:
 - `--use_mcp` - If true will use MCP for configuring Istio components (default: true)
 - `--use_cni` - If true install the Istio CNI which will add the IP table rules for Envoy instead of the init container (default: false)
 - `--cniHelmRepo` - Location/name of the Istio-CNI helm (default: istio.io/istio-cni)
+
+## Tips
+
+1. Running a single test
+If you are debugging a single test, you can run it with `test.run` option in E2E_ARGS as follows:
+
+    ```bash
+    make e2e_mixer E2E_ARGS="--use_local_cluster --cluster_wide --test.run TestRedisQuota" HUB=localhost:5000 TAG=latest
+    ```
+
+1. Using `--skip_setup` and `--skip_cleanup` options in E2E tests
+If you are debugging a test, you can choose to skip the cleanup process, so that the test setup still remains and you
+can debug test easily. Also, if you are developing a new test and setup of istio system will remain same, you can use
+the option to skip setup too so that you can save time for setting up istio system in e2e test.
+
+    Ex: Using --skip_cleanup option to debug test:
+
+    ```bash
+    make e2e_mixer E2E_ARGS="--use_local_cluster --cluster_wide --skip_cleanup --test.run TestRedisQuota" HUB=localhost:5000 TAG=latest
+    ```
+
+    Ex: Using --skip_cleanup and --skip_setup option for debugging/development of test:
+
+    ```bash
+    make e2e_mixer E2E_ARGS="--use_local_cluster --cluster_wide --skip_cleanup --skip_setup --test.run TestRedisQuota" HUB=localhost:5000 TAG=latest
+    ```
+
+1. Update just one istio component you are debugging.
+More often than not, you would be debugging one istio component say mixer, pilot, citadel etc. You can update a single
+component when running the test using component specific HUB and TAG
+
+    Ex: Consider a scenario where you are debugging a mixer test and just want to update mixer code when running the test again.
+    1. First time, run test with option of --skip_cleanup
+
+        ```bash
+        make e2e_mixer E2E_ARGS="--use_local_cluster --cluster_wide --skip_cleanup --test.run TestRedisQuota" HUB=localhost:5000 TAG=latest
+        ```
+
+    1. Next update mixer code and build and push it to localregistry at localhost:5000 with a new TAG say latest1
+    (TAG is changed, to make sure we would be using the new mixer binary)
+
+        ```bash
+        make push.docker.mixer TAG=latest
+        ```
+
+    1. Use the newly uploaded mixer image in the test now using E2E test option --mixer_tag
+
+        ```bash
+        make e2e_mixer E2E_ARGS="--use_local_cluster --cluster_wide --skip_cleanup --mixer_tag latest1 --test.run TestRedisQuota" TAG=latest
+        ```

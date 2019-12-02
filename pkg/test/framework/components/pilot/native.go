@@ -25,7 +25,6 @@ import (
 	meshapi "istio.io/api/mesh/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
-	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/test/env"
@@ -78,7 +77,7 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 	bootstrap.PilotCertDir = pilotCertDir
 
 	// Dynamically assign all ports.
-	options := envoy.DiscoveryServiceOptions{
+	options := bootstrap.DiscoveryServiceOptions{
 		HTTPAddr:       ":0",
 		MonitoringAddr: ":0",
 		GrpcAddr:       ":0",
@@ -91,6 +90,13 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 		m = cfg.MeshConfig
 	}
 
+	if cfg.ServiceArgs.Registries == nil {
+		cfg.ServiceArgs = bootstrap.ServiceArgs{
+			// A ServiceEntry registry is added by default, which is what we want. Don't include any other registries.
+			Registries: []string{},
+		}
+	}
+
 	bootstrapArgs := bootstrap.PilotArgs{
 		Namespace:        e.SystemNamespace,
 		DiscoveryOptions: options,
@@ -101,10 +107,7 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 		},
 		MeshConfig: m,
 		// Use the config store for service entries as well.
-		Service: bootstrap.ServiceArgs{
-			// A ServiceEntry registry is added by default, which is what we want. Don't include any other registries.
-			Registries: []string{},
-		},
+		Service: cfg.ServiceArgs,
 		// Include all of the default plugins for integration with Mixer, etc.
 		Plugins:   bootstrap.DefaultPlugins,
 		ForceStop: true,
@@ -121,7 +124,7 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 		Address: galleyHostPort,
 	})
 
-	bootstrapArgs.MCPMaxMessageSize = bootstrap.DefaultMCPMaxMsgSize
+	bootstrapArgs.MCPMaxMessageSize = 1024 * 1024 * 4
 
 	var err error
 	// Create the server for the discovery service.
