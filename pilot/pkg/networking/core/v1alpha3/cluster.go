@@ -218,7 +218,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			}
 
 			setUpstreamProtocol(proxy, defaultCluster, port, model.TrafficDirectionOutbound)
-			serviceMTLSMode := authn_model.MTLSUnknown
+			serviceMTLSMode := model.MTLSUnknown
 			if !service.MeshExternal {
 				// Only need the authentication MTLS mode when service is not external.
 				policy, _ := push.AuthenticationPolicyForWorkload(service, port)
@@ -751,11 +751,11 @@ func conditionallyConvertToIstioMtls(
 	proxy *model.Proxy,
 	autoMTLSEnabled bool,
 	meshExternal bool,
-	serviceMTLSMode authn_model.MutualTLSMode,
+	serviceMTLSMode model.MutualTLSMode,
 ) (*networking.TLSSettings, mtlsContextType) {
 	mtlsCtx := userSupplied
 	if tls == nil {
-		if meshExternal || !autoMTLSEnabled || serviceMTLSMode == authn_model.MTLSUnknown || serviceMTLSMode == authn_model.MTLSDisable {
+		if meshExternal || !autoMTLSEnabled || serviceMTLSMode == model.MTLSUnknown || serviceMTLSMode == model.MTLSDisable {
 			return nil, mtlsCtx
 		}
 
@@ -854,7 +854,7 @@ type buildClusterOpts struct {
 	direction       model.TrafficDirection
 	proxy           *model.Proxy
 	meshExternal    bool
-	serviceMTLSMode authn_model.MutualTLSMode
+	serviceMTLSMode model.MutualTLSMode
 }
 
 func applyTrafficPolicy(opts buildClusterOpts, proxy *model.Proxy) {

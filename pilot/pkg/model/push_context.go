@@ -102,6 +102,10 @@ type PushContext struct {
 	// AuthNPolicies contains a map of hostname and port to authentication policy
 	AuthnPolicies processedAuthnPolicies `json:"-"`
 
+	// (beta) Authn policies for each namespace.
+	// namepspaceAuthnBetaPolicies map[string]*processedAuthnBetaPolices
+	AuthnBetaPolicies *AuthenticationPolicies `json:"-"`
+
 	initDone bool
 
 	Version string
@@ -126,6 +130,11 @@ type authnPolicyByPort struct {
 	policy       *authn.Policy
 	// store the config metadata for debugging purposes.
 	configMeta *ConfigMeta
+}
+
+type processedAuthnBetaPolices struct {
+	mtlsPolicies []*Config
+	jwtPolicies  []*Config
 }
 
 // XDSUpdater is used for direct updates of the xDS model and incremental push.
@@ -773,7 +782,9 @@ func (ps *PushContext) updateContext(
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
 		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged bool
 
+	log.Infof(" @@@@ updateContext %v", pushReq)
 	for k := range pushReq.ConfigTypesUpdated {
+		log.Infof(" @@@@ updateContext pushReq type %v", k)
 		switch k {
 		case schemas.ServiceEntry.Type, schemas.SyntheticServiceEntry.Type:
 			servicesChanged = true
@@ -791,7 +802,8 @@ func (ps *PushContext) updateContext(
 			schemas.ClusterRbacConfig.Type, schemas.RbacConfig.Type,
 			schemas.AuthorizationPolicy.Type:
 			authzChanged = true
-		case schemas.AuthenticationPolicy.Type, schemas.AuthenticationMeshPolicy.Type:
+		case schemas.AuthenticationPolicy.Type, schemas.AuthenticationMeshPolicy.Type,
+			schemas.RequestAuthentication.Type:
 			authnChanged = true
 		}
 	}
@@ -829,10 +841,12 @@ func (ps *PushContext) updateContext(
 
 	if authnChanged {
 		if err := ps.initAuthnPolicies(env); err != nil {
+			log.Errorf("failed to initialize authn policies %v", err)
 			return err
 		}
 	} else {
 		ps.AuthnPolicies = oldPushContext.AuthnPolicies
+		ps.AuthnBetaPolicies = oldPushContext.AuthnBetaPolicies
 	}
 
 	if authzChanged {
@@ -934,6 +948,10 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 
 // Caches list of authentication policies
 func (ps *PushContext) initAuthnPolicies(env *Environment) error {
+	// Processing beta policy.
+	ps.AuthnBetaPolicies = processAuthenticationPolicies(env)
+
+	// Processing alpha policy. This will be removed after beta API released.
 	authNPolicies, err := env.List(schemas.AuthenticationPolicy.Type, NamespaceAll)
 	if err != nil {
 		return err
