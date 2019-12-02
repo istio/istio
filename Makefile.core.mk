@@ -301,7 +301,7 @@ define build-linux
 ifeq ($(BUILD_ALL),true)
 $(ISTIO_OUT_LINUX)/$(shell basename $(1)): build-linux
 else
-$(ISTIO_OUT_LINUX)/$(shell basename $(1)):
+$(ISTIO_OUT_LINUX)/$(shell basename $(1)): $(ISTIO_OUT_LINUX)
 	STATIC=0 GOOS=linux GOARCH=amd64 LDFLAGS='-extldflags -static -s -w' common/scripts/gobuild.sh $(ISTIO_OUT_LINUX)/ $(1)
 endif
 endef
