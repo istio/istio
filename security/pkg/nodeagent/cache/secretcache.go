@@ -723,16 +723,15 @@ func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,
 
 		// If non-retryable error, fail the request by returning err
 		if !isRetryableErr(status.Code(err), httpRespCode, isCSR) {
-			cacheLog.Errorf("%s hit non-retryable error %v", requestErrorString, err)
+			cacheLog.Errorf("%s hit non-retryable error (HTTP code: %d). Error: %v", requestErrorString, httpRespCode, err)
 			return nil, err
 		}
 
 		// If reach envoy timeout, fail the request by returning err
 		if startTime.Add(time.Millisecond * envoyDefaultTimeoutInMilliSec).Before(time.Now()) {
-			cacheLog.Errorf("%s retry timed out %v", requestErrorString, err)
+			cacheLog.Errorf("%s retrial timed out: %v", requestErrorString, err)
 			return nil, err
 		}
-
 		retry++
 		backOffInMilliSec = rand.Int63n(retry * initialBackOffIntervalInMilliSec)
 		time.Sleep(time.Duration(backOffInMilliSec) * time.Millisecond)

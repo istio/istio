@@ -84,24 +84,31 @@ func (p Plugin) ExchangeToken(ctx context.Context, trustDomain, k8sSAjwt string)
 	req.Header.Set("Content-Type", contentType)
 
 	resp, err := p.hTTPClient.Do(req)
-	if err != nil {
-		stsClientLog.Errorf("Failed to call getfederatedtoken: %v", err)
+	errMsg := "failed to call getfederatedtoken. "
+	if err != nil || resp == nil {
 		statusCode := http.StatusServiceUnavailable
 		// If resp is not null, return the actually status code returned from the token service.
 		// If resp is null, return a service unavailable status and try again.
 		if resp != nil {
 			statusCode = resp.StatusCode
+			errMsg = errMsg + fmt.Sprintf("HTTP status: %s. Error: %s", resp.Status, err.Error())
+		} else {
+			errMsg = errMsg + fmt.Sprintf("HTTP response empty. Error: %s", err.Error())
 		}
-		return "", time.Now(), statusCode, errors.New("failed to exchange token")
+		return "", time.Now(), statusCode, errors.New(errMsg)
 	}
 	defer resp.Body.Close()
 
 	body, _ := ioutil.ReadAll(resp.Body)
 	respData := &federatedTokenResponse{}
 	if err := json.Unmarshal(body, respData); err != nil {
-		stsClientLog.Errorf("Failed to unmarshal response data: (HTTP status %d) %v",
-			resp.StatusCode, err)
-		return "", time.Now(), resp.StatusCode, errors.New("failed to exchange token")
+		return "", time.Now(), resp.StatusCode, fmt.Errorf(
+			"failed to unmarshal response data. HTTP status: %s. Error: %s", resp.Status, err.Error())
+	}
+
+	if len(respData.AccessToken) == 0 {
+		return "", time.Now(), resp.StatusCode, fmt.Errorf(
+			"exchanged empty token. HTTP status: %s", resp.Status)
 	}
 	if respData.AccessToken == "" {
 		stsClientLog.Errora("Failed to exchange token", string(body))
