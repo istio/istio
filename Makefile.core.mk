@@ -592,7 +592,6 @@ include tools/istio-docker.mk
 push: docker.push
 
 $(HELM): $(TARGET_OUT)
-	bin/init_helm.sh
 
 $(HOME)/.helm:
 	$(HELM) init --client-only
