@@ -92,7 +92,7 @@ test.integration.operator: $(JUNIT_REPORT)
 # Runs tests using the new installer. Istio is deployed before the test and setup and cleanup are disabled.
 # For this to work, the -customsetup selector is used.
 test.integration.new.installer: istioctl | $(JUNIT_REPORT)
-	KUBECONFIG=${INTEGRATION_TEST_KUBECONFIG} ${ISTIO_OUT}/istioctl manifest apply \
+	KUBECONFIG=${INTEGRATION_TEST_KUBECONFIG} ${TARGET_OUT}/istioctl manifest apply \
 		--set hub=${HUB} \
 		--set tag=${TAG} \
 		--skip-confirmation \
@@ -118,7 +118,7 @@ test.integration.%.local: | $(JUNIT_REPORT)
 
 # Generate presubmit integration test targets for each component in kubernetes environment
 test.integration.%.kube.presubmit: istioctl | $(JUNIT_REPORT)
-	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 ${T} ./tests/integration/$(subst .,/,$*)/... ${_INTEGRATION_TEST_WORKDIR_FLAG} ${_INTEGRATION_TEST_CIMODE_FLAG} -timeout 30m \
+	PATH=${PATH}:${TARGET_OUT} $(GO) test -p 1 ${T} ./tests/integration/$(subst .,/,$*)/... ${_INTEGRATION_TEST_WORKDIR_FLAG} ${_INTEGRATION_TEST_CIMODE_FLAG} -timeout 30m \
     --istio.test.select -postsubmit,-flaky \
 	--istio.test.env kube \
 	--istio.test.kube.config ${INTEGRATION_TEST_KUBECONFIG} \
@@ -152,7 +152,7 @@ test.integration.local.presubmit: | $(JUNIT_REPORT)
 # All integration tests targeting Kubernetes environment.
 .PHONY: test.integration.kube
 test.integration.kube: istioctl | $(JUNIT_REPORT)
-	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 ${T} ${TEST_PACKAGES} ${_INTEGRATION_TEST_WORK_DIR_FLAG} ${_INTEGRATION_TEST_CIMODE_FLAG} -timeout 30m \
+	PATH=${PATH}:${TARGET_OUT} $(GO) test -p 1 ${T} ${TEST_PACKAGES} ${_INTEGRATION_TEST_WORK_DIR_FLAG} ${_INTEGRATION_TEST_CIMODE_FLAG} -timeout 30m \
 	--istio.test.env kube \
 	--istio.test.kube.config ${INTEGRATION_TEST_KUBECONFIG} \
 	--istio.test.hub=${HUB} \
@@ -164,7 +164,7 @@ test.integration.kube: istioctl | $(JUNIT_REPORT)
 # Presubmit integration tests targeting Kubernetes environment.
 .PHONY: test.integration.kube.presubmit
 test.integration.kube.presubmit: istioctl | $(JUNIT_REPORT)
-	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 ${T} ${TEST_PACKAGES} ${_INTEGRATION_TEST_WORK_DIR_FLAG} ${_INTEGRATION_TEST_CIMODE_FLAG} -timeout 30m \
+	PATH=${PATH}:${TARGET_OUT} $(GO) test -p 1 ${T} ${TEST_PACKAGES} ${_INTEGRATION_TEST_WORK_DIR_FLAG} ${_INTEGRATION_TEST_CIMODE_FLAG} -timeout 30m \
     --istio.test.select -postsubmit,-flaky \
  	--istio.test.env kube \
 	--istio.test.kube.config ${INTEGRATION_TEST_KUBECONFIG} \
