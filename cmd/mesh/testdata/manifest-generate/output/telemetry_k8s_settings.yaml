@@ -5833,9 +5833,9 @@ spec:
               - key: beta.kubernetes.io/arch
                 operator: In
                 values:
-                - amd64
-                - ppc64le
-                - s390x
+                - "amd64"
+                - "ppc64le"
+                - "s390x"
           preferredDuringSchedulingIgnoredDuringExecution:
           - weight: 2
             preference:
@@ -5843,21 +5843,21 @@ spec:
               - key: beta.kubernetes.io/arch
                 operator: In
                 values:
-                - amd64
+                - "amd64"
           - weight: 2
             preference:
               matchExpressions:
               - key: beta.kubernetes.io/arch
                 operator: In
                 values:
-                - ppc64le
+                - "ppc64le"
           - weight: 2
             preference:
               matchExpressions:
               - key: beta.kubernetes.io/arch
                 operator: In
                 values:
-                - s390x
+                - "s390x"
 ---
 
 
@@ -7118,6 +7118,7 @@ data:
                 config:
                   codec_type: HTTP2
                   stat_prefix: "15019"
+                  stream_idle_timeout: 0s
                   http2_protocol_options:
                     max_concurrent_streams: 1073741824
 
