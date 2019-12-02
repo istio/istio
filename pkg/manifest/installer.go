@@ -146,7 +146,11 @@ func ParseK8SYAMLToIstioControlPlaneSpec(yml string) (*v1alpha2.IstioControlPlan
 	if err != nil {
 		return nil, nil, err
 	}
-	y, err := yaml.Marshal(o.UnstructuredObject().Object["spec"])
+	spec, ok := o.UnstructuredObject().Object["spec"]
+	if !ok {
+		return nil, nil, fmt.Errorf("spec is missing from IstioControlPlane YAML")
+	}
+	y, err := yaml.Marshal(spec)
 	if err != nil {
 		return nil, nil, err
 	}
