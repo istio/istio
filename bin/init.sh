@@ -174,3 +174,6 @@ fi
 # Copy native envoy binary to TARGET_OUT
 echo "Copying ${ISTIO_ENVOY_NATIVE_PATH} to ${TARGET_OUT}/envoy"
 cp -f "${ISTIO_ENVOY_NATIVE_PATH}" "${TARGET_OUT}/envoy"
+
+echo "Copying ${ISTIO_ENVOY_NATIVE_PATH} to ${GOBIN}/envoy"
+cp -f "${ISTIO_ENVOY_NATIVE_PATH}" "${GOBIN}/envoy"
