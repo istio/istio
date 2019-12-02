@@ -29,7 +29,7 @@ spec:
   jobLabel: istio
   selector:
     matchExpressions:
-      - {key: istio, operator: In, values: [mixer,pilot,galley,citadel]}
+      - {key: istio, operator: In, values: [mixer,pilot,galley,citadel,sidecar-injector]}
   namespaceSelector:
     any: true
   endpoints:
