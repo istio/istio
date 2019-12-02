@@ -23,7 +23,7 @@ docker: docker.all
 
 # Add new docker targets to the end of the DOCKER_TARGETS list.
 
-DOCKER_TARGETS ?= docker.pilot docker.istiod docker.proxytproxy docker.proxyv2 docker.app docker.app_sidecar docker.test_policybackend \
+DOCKER_TARGETS ?= docker.pilot docker.proxytproxy docker.proxyv2 docker.app docker.app_sidecar docker.test_policybackend \
 	docker.mixer docker.mixer_codegen docker.citadel docker.galley docker.sidecar_injector docker.kubectl docker.node-agent-k8s \
 	docker.istioctl
 
@@ -126,13 +126,10 @@ docker.pilot: BUILD_PRE=; chmod 755 pilot-discovery cacert.pem
 docker.pilot: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.pilot: $(ISTIO_OUT_LINUX)/pilot-discovery
 docker.pilot: tests/testdata/certs/cacert.pem
+docker.pilot: sidecar-injector/inject/config
+docker.pilot: sidecar-injector/inject/values
+docker.pilot: pilot/docker/mesh
 docker.pilot: pilot/docker/Dockerfile.pilot
-	$(DOCKER_RULE)
-
-docker.istiod: BUILD_PRE=; chmod 755 istiod
-docker.istiod: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
-docker.istiod: $(ISTIO_OUT_LINUX)/istiod
-docker.istiod: docker/Dockerfile.istiod
 	$(DOCKER_RULE)
 
 # Test application
