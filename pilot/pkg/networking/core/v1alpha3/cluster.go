@@ -1358,7 +1358,7 @@ func altStatName(statPattern string, host string, subset string, port *model.Por
 
 // shotHostName removes the domain from kubernetes hosts. For other hosts like VMs, this method does not do any thing.
 func shortHostName(host string, attributes model.ServiceAttributes) string {
-	if attributes.ServiceRegistry == string(serviceregistry.KubernetesRegistry) {
+	if attributes.ServiceRegistry == string(serviceregistry.Kubernetes) {
 		return fmt.Sprintf("%s.%s", attributes.Name, attributes.Namespace)
 	}
 	return host

@@ -64,6 +64,14 @@ var (
 	// VirtualServiceDestinationPortSelectorRequired defines a diag.MessageType for message "VirtualServiceDestinationPortSelectorRequired".
 	// Description: A VirtualService routes to a service with more than one port exposed, but does not specify which to use.
 	VirtualServiceDestinationPortSelectorRequired = diag.NewMessageType(diag.Error, "IST0112", "This VirtualService routes to a service %q that exposes multiple ports %v. Specifying a port in the destination is required to disambiguate.")
+
+	// MTLSPolicyConflict defines a diag.MessageType for message "MTLSPolicyConflict".
+	// Description: A DestinationRule and Policy are in conflict with regards to mTLS.
+	MTLSPolicyConflict = diag.NewMessageType(diag.Error, "IST0113", "A DestinationRule and Policy are in conflict with regards to mTLS for host %s in namespace %s. The DestinationRule %q specifies that mTLS must be %t but the Policy object %q specifies %s.")
+
+	// PolicySpecifiesPortNameThatDoesntExist defines a diag.MessageType for message "PolicySpecifiesPortNameThatDoesntExist".
+	// Description: A Policy targets a port name that cannot be found.
+	PolicySpecifiesPortNameThatDoesntExist = diag.NewMessageType(diag.Warning, "IST0114", "Port name %s could not be found for host %s, which means the Policy won't be enforced.")
 )
 
 // NewInternalError returns a new diag.Message based on InternalError.
@@ -200,6 +208,30 @@ func NewVirtualServiceDestinationPortSelectorRequired(entry *resource.Entry, des
 		originOrNil(entry),
 		destHost,
 		destPorts,
+	)
+}
+
+// NewMTLSPolicyConflict returns a new diag.Message based on MTLSPolicyConflict.
+func NewMTLSPolicyConflict(entry *resource.Entry, host string, namespace string, destinationRuleName string, destinationRuleMTLSMode bool, policyName string, policyMTLSMode string) diag.Message {
+	return diag.NewMessage(
+		MTLSPolicyConflict,
+		originOrNil(entry),
+		host,
+		namespace,
+		destinationRuleName,
+		destinationRuleMTLSMode,
+		policyName,
+		policyMTLSMode,
+	)
+}
+
+// NewPolicySpecifiesPortNameThatDoesntExist returns a new diag.Message based on PolicySpecifiesPortNameThatDoesntExist.
+func NewPolicySpecifiesPortNameThatDoesntExist(entry *resource.Entry, portName string, host string) diag.Message {
+	return diag.NewMessage(
+		PolicySpecifiesPortNameThatDoesntExist,
+		originOrNil(entry),
+		portName,
+		host,
 	)
 }
 

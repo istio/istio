@@ -33,6 +33,8 @@ ifeq ($(LOCAL_ARCH),x86_64)
     TARGET_ARCH ?= amd64
 else ifeq ($(shell echo $(LOCAL_ARCH) | head -c 5),armv8)
     TARGET_ARCH ?= arm64
+else ifeq ($(LOCAL_ARCH),aarch64)
+    TARGET_ARCH ?= arm64
 else ifeq ($(shell echo $(LOCAL_ARCH) | head -c 4),armv)
     TARGET_ARCH ?= arm
 else

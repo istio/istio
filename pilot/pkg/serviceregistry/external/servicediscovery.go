@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schemas"
@@ -27,6 +28,8 @@ import (
 // TODO: move this out of 'external' package. Either 'serviceentry' package or
 // merge with aggregate (caching, events), and possibly merge both into the
 // config directory, for a single top-level cache and event system.
+
+var _ serviceregistry.Instance = &ServiceEntryStore{}
 
 type serviceHandler func(*model.Service, model.Event)
 type instanceHandler func(*model.ServiceInstance, model.Event)
@@ -80,6 +83,14 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 	}
 
 	return c
+}
+
+func (d *ServiceEntryStore) Provider() serviceregistry.ProviderID {
+	return serviceregistry.External
+}
+
+func (d *ServiceEntryStore) Cluster() string {
+	return ""
 }
 
 // AppendServiceHandler adds service resource event handler

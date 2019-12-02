@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/mixer"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	util "istio.io/istio/tests/integration/mixer"
@@ -94,9 +93,6 @@ func testsetup(ctx resource.Context) error {
 		return err
 	}
 	galInst = &g
-	if _, err = mixer.New(ctx, mixer.Config{Galley: g}); err != nil {
-		return err
-	}
 	ing, err := ingress.New(ctx, ingress.Config{Istio: ist})
 	if err != nil {
 		return err

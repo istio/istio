@@ -98,9 +98,9 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	s.MemRegistry.EDSUpdater = s
 	s.MemRegistry.ClusterID = "v2-debug"
 
-	sctl.AddRegistry(aggregate.Registry{
+	sctl.AddRegistry(serviceregistry.Simple{
 		ClusterID:        "v2-debug",
-		Name:             serviceregistry.ServiceRegistry("memAdapter"),
+		ProviderID:       serviceregistry.ProviderID("memAdapter"),
 		ServiceDiscovery: s.MemRegistry,
 		Controller:       s.MemRegistry.controller,
 	})

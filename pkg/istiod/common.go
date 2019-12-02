@@ -221,9 +221,11 @@ func NewIstiod(kconfig *rest.Config, kclient *kubernetes.Clientset, confDir stri
 	if _, err := os.Stat(GalleyOverride); err == nil {
 		overrideGalley, err := ioutil.ReadFile(GalleyOverride)
 		if err != nil {
-			log.Fatalf("Failed to read overrides %v", err)
+			log.Fatalf("Failed to read overrides: %v", err)
 		}
-		json.Unmarshal(overrideGalley, gargs)
+		if err := json.Unmarshal(overrideGalley, gargs); err != nil {
+			log.Fatalf("Failed to unmarshal galley override: %v", err)
+		}
 	}
 
 	// The file is loaded and watched by Galley using galley/pkg/meshconfig watcher/reader
