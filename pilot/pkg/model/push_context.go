@@ -782,9 +782,7 @@ func (ps *PushContext) updateContext(
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
 		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged bool
 
-	log.Infof(" @@@@ updateContext %v", pushReq)
 	for k := range pushReq.ConfigTypesUpdated {
-		log.Infof(" @@@@ updateContext pushReq type %v", k)
 		switch k {
 		case schemas.ServiceEntry.Type, schemas.SyntheticServiceEntry.Type:
 			servicesChanged = true
@@ -841,7 +839,6 @@ func (ps *PushContext) updateContext(
 
 	if authnChanged {
 		if err := ps.initAuthnPolicies(env); err != nil {
-			log.Errorf("failed to initialize authn policies %v", err)
 			return err
 		}
 	} else {

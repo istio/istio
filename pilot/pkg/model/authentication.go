@@ -16,8 +16,6 @@ package model
 
 import (
 	"istio.io/api/security/v1beta1"
-	// Cannot import cycle
-	// authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schemas"
 )
@@ -41,14 +39,16 @@ const (
 
 // String converts MutualTLSMode to human readable string for debugging.
 func (mode MutualTLSMode) String() string {
-	// declare an array of strings
-	names := [...]string{
-		"UNKNOWN",
-		"DISABLE",
-		"PERMISSIVE",
-		"STRICT"}
-
-	return names[mode]
+	switch mode {
+	case MTLSDisable:
+		return "DISABLE"
+	case MTLSPermissive:
+		return "PERMISSIVE"
+	case MTLSStrict:
+		return "STRICT"
+	default:
+		return "UNKNOWN"
+	}
 }
 
 // AuthenticationPolicies organizes authentication (mTLS + JWT) policies by namespace.
