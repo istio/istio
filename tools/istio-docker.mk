@@ -52,7 +52,7 @@ $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key: ${GEN_CERT} $(IST
 DOCKER_FILES_FROM_TARGET_OUT:=client server \
                              pilot-discovery pilot-agent sidecar-injector mixs mixgen \
                              istio_ca node_agent node_agent_k8s galley istio-iptables istio-clean-iptables istioctl
-$(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT_LINUX), \
+$(foreach FILE,$(DOCKER_FILES_FROM_TARGET_OUT), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(TARGET_OUT)/$(FILE) | $(ISTIO_DOCKER); cp $(TARGET_OUT)/$(FILE) $(ISTIO_DOCKER)/$(FILE)))
 
 # rule for the test certs.
