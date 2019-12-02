@@ -30,6 +30,7 @@ import (
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
@@ -192,8 +193,7 @@ func (c *controller) createInformer(
 			// TODO: filtering functions to skip over un-referenced resources (perf)
 			AddFunc: func(obj interface{}) {
 				if err := vf(obj); err != nil {
-					log.Errorf("failed to add CRD. New value: %v, error: %v", obj, err)
-					incrementEvent(otype, "addfailure")
+					handleValidationFailure(obj, err)
 					return
 				}
 				incrementEvent(otype, "add")
@@ -201,8 +201,7 @@ func (c *controller) createInformer(
 			},
 			UpdateFunc: func(old, cur interface{}) {
 				if err := vf(cur); err != nil {
-					incrementEvent(otype, "updatefailure")
-					log.Errorf("failed to update CRD. New value: %v, error: %v", cur, err)
+					handleValidationFailure(cur, err)
 					return
 				}
 				if !reflect.DeepEqual(old, cur) {
@@ -219,6 +218,18 @@ func (c *controller) createInformer(
 		})
 
 	return cacheHandler{informer: informer, handler: handler}
+}
+
+func handleValidationFailure(obj interface{}, err error) {
+	if obj, ok := obj.(crd.IstioObject); ok {
+		key := obj.GetObjectMeta().Namespace + "/" + obj.GetObjectMeta().Name
+		log.Errorf("CRD validation failed: %s %s %v", obj.GetObjectKind().GroupVersionKind().GroupKind().Kind,
+			key, err)
+		k8sErrors.With(nameTag.Value(key)).Record(1)
+	} else {
+		log.Errorf("CRD validation failed for unknown Kind: %s", err)
+		k8sErrors.With(nameTag.Value("unknown")).Record(1)
+	}
 }
 
 func incrementEvent(kind, event string) {
@@ -304,6 +315,10 @@ func (c *controller) Get(typ, name, namespace string) *model.Config {
 	}
 
 	config, err := crd.ConvertObject(s, obj, c.client.domainSuffix)
+	if err == nil && features.EnableCRDValidation.Get() {
+		err = s.Validate(config.Name, config.Namespace, config.Spec)
+	}
+
 	if err != nil {
 		return nil
 	}
@@ -350,14 +365,18 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 		}
 
 		config, err := crd.ConvertObject(s, item, c.client.domainSuffix)
+
+		if err == nil && features.EnableCRDValidation.Get() {
+			err = s.Validate(config.Name, config.Namespace, config.Spec)
+		}
+
 		if err != nil {
 			key := item.GetObjectMeta().Namespace + "/" + item.GetObjectMeta().Name
-			log.Errorf("Failed to convert %s object, ignoring: %s %v %v", typ, key, err, item.GetSpec())
 			// DO NOT RETURN ERROR: if a single object is bad, it'll be ignored (with a log message), but
 			// the rest should still be processed.
 			// TODO: find a way to reset and represent the error !!
 			newErrors.Store(key, err)
-			k8sErrors.With(nameTag.Value(key)).Record(1)
+			handleValidationFailure(item, err)
 		} else {
 			out = append(out, *config)
 		}

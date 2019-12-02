@@ -33,6 +33,7 @@ require (
 	github.com/cenkalti/backoff v2.0.0+incompatible
 	github.com/census-instrumentation/opencensus-proto v0.2.1
 	github.com/circonus-labs/circonus-gometrics v2.3.1+incompatible
+	github.com/cncf/udpa/go v0.0.0-20191127193423-5f054cc4b1a0
 	github.com/codahale/hdrhistogram v0.0.0-20161010025455-3a0bb77429bd // indirect
 	github.com/containerd/containerd v1.3.0 // indirect
 	github.com/containerd/continuity v0.0.0-20190426062206-aaeac12a7ffc // indirect
@@ -146,7 +147,7 @@ require (
 	golang.org/x/tools v0.0.0-20190624180213-70d37148ca0c
 	google.golang.org/api v0.8.0
 	google.golang.org/genproto v0.0.0-20191009194640-548a555dbc03
-	google.golang.org/grpc v1.24.0
+	google.golang.org/grpc v1.25.1
 	gopkg.in/d4l3k/messagediff.v1 v1.2.1
 	gopkg.in/mgo.v2 v2.0.0-20180705113604-9856a29383ce // indirect
 	gopkg.in/ory-am/dockertest.v3 v3.3.4 // indirect
@@ -154,7 +155,7 @@ require (
 	gopkg.in/yaml.v2 v2.2.4
 	istio.io/api v0.0.0-20191120195622-f0abe0c81e59
 	istio.io/gogo-genproto v0.0.0-20191024203824-d079cc8b1d55
-	istio.io/operator v0.0.0-20191121175823-9f96fae01248
+	istio.io/operator v0.0.0-20191122214537-480abfe34a1e
 	istio.io/pkg v0.0.0-20191113122952-4f521de9c8ca
 	k8s.io/api v0.0.0
 	k8s.io/apiextensions-apiserver v0.0.0

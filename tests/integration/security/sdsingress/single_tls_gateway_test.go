@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package singletlsgateway
+package sdsingress
 
 import (
 	"testing"
@@ -21,12 +21,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/ingress"
-	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
-)
-
-var (
-	credName = []string{"bookinfo-credential-1"}
-	host     = "bookinfo1.example.com"
+	ingressutil "istio.io/istio/tests/integration/security/sdsingress/util"
 )
 
 // TestSingleTlsGateway_SecretRotation tests a single TLS ingress gateway with SDS enabled.
@@ -41,7 +36,7 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			// Add kubernetes secret to provision key/cert for ingress gateway.
-			ingressutil.CreateIngressKubeSecret(t, ctx, credName, ingress.TLS, ingressutil.IngressCredentialA)
+			ingressutil.CreateIngressKubeSecret(t, ctx, singleTLSCredName, ingress.TLS, ingressutil.IngressCredentialA)
 			ingressutil.DeployBookinfo(t, ctx, g, ingressutil.SingleTLSGateway)
 
 			ingA := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst})
@@ -55,33 +50,33 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 				t.Errorf("total active listener stats does not match: %v", err)
 			}
 			tlsContext := ingressutil.TLSContext{CaCert: ingressutil.CaCertA}
-			err = ingressutil.VisitProductPage(ingA, host, ingress.TLS, tlsContext, 30*time.Second,
+			err = ingressutil.VisitProductPage(ingA, singleTLSHost, ingress.TLS, tlsContext, 30*time.Second,
 				ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
 			if err != nil {
-				t.Errorf("unable to retrieve 200 from product page at host %s: %v", host, err)
+				t.Errorf("unable to retrieve 200 from product page at host %s: %v", singleTLSHost, err)
 			}
 
 			// key/cert rotation
-			ingressutil.RotateSecrets(t, ctx, credName, ingress.TLS, ingressutil.IngressCredentialB)
+			ingressutil.RotateSecrets(t, ctx, singleTLSCredName, ingress.TLS, ingressutil.IngressCredentialB)
 			err = ingressutil.WaitUntilGatewaySdsStatsGE(t, ingA, 2, 10*time.Second)
 			if err != nil {
 				t.Errorf("sds update stats does not match: %v", err)
 			}
 
 			// Client use old server CA cert to set up SSL connection would fail.
-			err = ingressutil.VisitProductPage(ingA, host, ingress.TLS, tlsContext, 30*time.Second,
+			err = ingressutil.VisitProductPage(ingA, singleTLSHost, ingress.TLS, tlsContext, 30*time.Second,
 				ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "certificate signed by unknown authority"}, t)
 			if err != nil {
-				t.Errorf("unable to retrieve 404 from product page at host %s: %v", host, err)
+				t.Errorf("unable to retrieve 404 from product page at host %s: %v", singleTLSHost, err)
 			}
 
 			// Client use new server CA cert to set up SSL connection.
 			tlsContext = ingressutil.TLSContext{CaCert: ingressutil.CaCertB}
 			ingB := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst})
-			err = ingressutil.VisitProductPage(ingB, host, ingress.TLS, tlsContext, 30*time.Second,
+			err = ingressutil.VisitProductPage(ingB, singleTLSHost, ingress.TLS, tlsContext, 30*time.Second,
 				ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
 			if err != nil {
-				t.Errorf("unable to retrieve 200 from product page at host %s: %v", host, err)
+				t.Errorf("unable to retrieve 200 from product page at host %s: %v", singleTLSHost, err)
 			}
 		})
 }

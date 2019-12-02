@@ -17,7 +17,6 @@ package util
 import (
 	"fmt"
 	"net"
-	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -525,26 +524,6 @@ func MergeAnyWithAny(dst *any.Any, src *any.Any) (*any.Any, error) {
 	}
 
 	return retVal, nil
-}
-
-// logPanic logs the caller tree when a panic occurs.
-func logPanic(r interface{}) {
-	// Same as stdlib http server code. Manually allocate stack trace buffer size
-	// to prevent excessively large logs
-	const size = 64 << 10
-	stacktrace := make([]byte, size)
-	stacktrace = stacktrace[:runtime.Stack(stacktrace, false)]
-	log.Errorf("Observed a panic: %#v (%v)\n%s", r, r, stacktrace)
-}
-
-// HandleCrash catches the crash and calls additional handlers.
-func HandleCrash(handlers ...func()) {
-	if r := recover(); r != nil {
-		logPanic(r)
-		for _, handler := range handlers {
-			handler()
-		}
-	}
 }
 
 // BuildLbEndpointMetadata adds metadata values to a lb endpoint
