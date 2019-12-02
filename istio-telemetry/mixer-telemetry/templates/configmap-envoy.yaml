@@ -128,9 +128,9 @@ data:
               generate_request_id: true
               http_filters:
               - config:
-                  default_destination_service: istio-telemetry.{{ .Release.Namespace }}.svc.cluster.local
+                  default_destination_service: istio-telemetry.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
                   service_configs:
-                    istio-telemetry.{{ .Release.Namespace }}.svc.cluster.local:
+                    istio-telemetry.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:
                       disable_check_calls: true
     {{"{{"}}- if .DisableReportCalls {{"}}"}}
                       disable_report_calls: true
@@ -138,7 +138,7 @@ data:
                       mixer_attributes:
                         attributes:
                           destination.service.host:
-                            string_value: istio-telemetry.{{ .Release.Namespace }}.svc.cluster.local
+                            string_value: istio-telemetry.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
                           destination.service.uid:
                             string_value: istio://{{ .Release.Namespace }}/services/istio-telemetry
                           destination.service.name:
@@ -167,7 +167,7 @@ data:
                 virtual_hosts:
                 - domains:
                   - '*'
-                  name: istio-telemetry.{{ .Release.Namespace }}.svc.cluster.local
+                  name: istio-telemetry.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
                   routes:
                   - decorator:
                       operation: Report
@@ -208,9 +208,9 @@ data:
               generate_request_id: true
               http_filters:
               - config:
-                  default_destination_service: istio-telemetry.{{ .Release.Namespace }}.svc.cluster.local
+                  default_destination_service: istio-telemetry.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
                   service_configs:
-                    istio-telemetry.{{ .Release.Namespace }}.svc.cluster.local:
+                    istio-telemetry.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:
                       disable_check_calls: true
     {{"{{"}}- if .DisableReportCalls {{"}}"}}
                       disable_report_calls: true
@@ -218,7 +218,7 @@ data:
                       mixer_attributes:
                         attributes:
                           destination.service.host:
-                            string_value: istio-telemetry.{{ .Release.Namespace }}.svc.cluster.local
+                            string_value: istio-telemetry.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
                           destination.service.uid:
                             string_value: istio://{{ .Release.Namespace }}/services/istio-telemetry
                           destination.service.name:
@@ -247,7 +247,7 @@ data:
                 virtual_hosts:
                 - domains:
                   - '*'
-                  name: istio-telemetry.{{ .Release.Namespace }}.svc.cluster.local
+                  name: istio-telemetry.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
                   routes:
                   - decorator:
                       operation: Report

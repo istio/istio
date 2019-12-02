@@ -46,15 +46,15 @@ data:
     {{- else }}
 
     {{- if .Values.global.controlPlaneSecurityEnabled }}
-    mixerCheckServer: istio-policy.{{ .Values.global.policyNamespace }}.svc.cluster.local:15004
+    mixerCheckServer: istio-policy.{{ .Values.global.policyNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:15004
     {{- else }}
-    mixerCheckServer: istio-policy.{{ .Values.global.policyNamespace }}.svc.cluster.local:9091
+    mixerCheckServer: istio-policy.{{ .Values.global.policyNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:9091
     {{- end }}
     {{- if .Values.telemetry.enabled }}
     {{- if .Values.global.controlPlaneSecurityEnabled }}
-    mixerReportServer: istio-telemetry.{{ .Values.global.telemetryNamespace }}.svc.cluster.local:15004
+    mixerReportServer: istio-telemetry.{{ .Values.global.telemetryNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:15004
     {{- else }}
-    mixerReportServer: istio-telemetry.{{ .Values.global.telemetryNamespace }}.svc.cluster.local:9091
+    mixerReportServer: istio-telemetry.{{ .Values.global.telemetryNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:9091
     {{- end }}
     {{- end }}
 
