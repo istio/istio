@@ -78,8 +78,8 @@ var (
 	// IstioBin is the location of the binary output directory
 	IstioBin = verifyFile(GOBIN, GOBIN.ValueOrDefaultFunc(getDefaultIstioBin))
 
-	// IstioOut is the location of the output directory ($TOP/out)
-	IstioOut = verifyFile(TARGET_OUT, TARGET_OUT.ValueOrDefaultFunc(getDefaultIstioOut))
+	// TargetOut is the location of the output directory ($TOP/out)
+	TargetOut = verifyFile(TARGET_OUT, TARGET_OUT.ValueOrDefaultFunc(getDefaultIstioOut))
 
 	// TODO: Some of these values are overlapping. We should re-align them.
 
