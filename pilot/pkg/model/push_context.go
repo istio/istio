@@ -103,7 +103,6 @@ type PushContext struct {
 	AuthnPolicies processedAuthnPolicies `json:"-"`
 
 	// (beta) Authn policies for each namespace.
-	// namepspaceAuthnBetaPolicies map[string]*processedAuthnBetaPolices
 	AuthnBetaPolicies *AuthenticationPolicies `json:"-"`
 
 	initDone bool
@@ -130,11 +129,6 @@ type authnPolicyByPort struct {
 	policy       *authn.Policy
 	// store the config metadata for debugging purposes.
 	configMeta *ConfigMeta
-}
-
-type processedAuthnBetaPolices struct {
-	mtlsPolicies []*Config
-	jwtPolicies  []*Config
 }
 
 // XDSUpdater is used for direct updates of the xDS model and incremental push.
