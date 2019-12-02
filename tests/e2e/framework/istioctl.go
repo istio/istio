@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"strings"
 
+        "istio.io/istio/pkg/test/env"
 	testUtil "istio.io/istio/pkg/test/util"
 	testsUtil "istio.io/istio/tests/util"
 	"istio.io/pkg/log"
@@ -90,8 +91,7 @@ func (i *Istioctl) Install() error {
 	if i.localPath == "" {
 		if i.remotePath == "" {
 			// If a remote URL or env variable is not set, default to the locally built istioctl
-			gopath := os.Getenv("GOPATH")
-			i.localPath = filepath.Join(gopath, "/bin/istioctl")
+			i.localPath = filepath.Join(env.TargetOut, "/bin/istioctl")
 			i.binaryPath = i.localPath
 			return nil
 		}
