@@ -17,9 +17,7 @@ package istiocontrolplane
 import (
 	"context"
 
-	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -30,7 +28,6 @@ import (
 
 	"istio.io/operator/pkg/apis/istio/v1alpha2"
 	"istio.io/operator/pkg/helmreconciler"
-	"istio.io/operator/pkg/util"
 	"istio.io/pkg/log"
 )
 
@@ -89,18 +86,15 @@ type ReconcileIstioControlPlane struct {
 
 // Reconcile reads that state of the cluster for a IstioControlPlane object and makes changes based on the state read
 // and what is in the IstioControlPlane.Spec
-// TODO(user): Modify this Reconcile function to implement your Controller logic.  This example creates
-// a Pod as an example
 // Note:
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileIstioControlPlane) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	log.Info("Reconciling IstioControlPlane")
-	// Workaroud for issue: https://github.com/istio/istio/issues/17883
-	// Using an unstructured object to get deletionTimestamp and finalizers fields.
-	u := &unstructured.Unstructured{}
-	u.SetGroupVersionKind(util.IstioOperatorGVK)
-	if err := r.client.Get(context.TODO(), request.NamespacedName, u); err != nil {
+
+	// declare read-only icp instance to create the reconciler
+	icp := &v1alpha2.IstioControlPlane{}
+	if err := r.client.Get(context.TODO(), request.NamespacedName, icp); err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
@@ -108,29 +102,13 @@ func (r *ReconcileIstioControlPlane) Reconcile(request reconcile.Request) (recon
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
-		return reconcile.Result{}, err
-	}
-	deleted := u.GetDeletionTimestamp() != nil
-	finalizers := u.GetFinalizers()
-	finalizerIndex := indexOf(finalizers, finalizer)
-
-	// declare read-only icp instance to create the reconciler
-	icp := &v1alpha2.IstioControlPlane{}
-	icp.SetGroupVersionKind(util.IstioOperatorGVK)
-	if err := r.client.Get(context.TODO(), request.NamespacedName, icp); err != nil {
 		log.Errorf("error getting IstioControlPlane icp: %s", err)
-	}
-	os, err := yaml.Marshal(u.Object["spec"])
-	if err != nil {
 		return reconcile.Result{}, err
 	}
-	err = util.UnmarshalWithJSONPB(string(os), icp.Spec)
-	if err != nil {
-		log.Errorf("Cannot unmarshal: %s", err)
-		return reconcile.Result{}, err
-	}
-	log.Infof("Got IstioControlPlaneSpec: \n\n%s\n", string(os))
 
+	deleted := icp.GetDeletionTimestamp() != nil
+	finalizers := icp.GetFinalizers()
+	finalizerIndex := indexOf(finalizers, finalizer)
 	if deleted {
 		if finalizerIndex < 0 {
 			log.Info("IstioControlPlane deleted")
@@ -146,18 +124,18 @@ func (r *ReconcileIstioControlPlane) Reconcile(request reconcile.Request) (recon
 		}
 		// TODO: for now, nuke the resources, regardless of errors
 		finalizers = append(finalizers[:finalizerIndex], finalizers[finalizerIndex+1:]...)
-		u.SetFinalizers(finalizers)
-		finalizerError := r.client.Update(context.TODO(), u)
+		icp.SetFinalizers(finalizers)
+		finalizerError := r.client.Update(context.TODO(), icp)
 		for retryCount := 0; errors.IsConflict(finalizerError) && retryCount < finalizerMaxRetries; retryCount++ {
 			// workaround for https://github.com/kubernetes/kubernetes/issues/73098 for k8s < 1.14
 			// TODO: make this error message more meaningful.
 			log.Info("conflict during finalizer removal, retrying")
-			_ = r.client.Get(context.TODO(), request.NamespacedName, u)
-			finalizers = u.GetFinalizers()
+			_ = r.client.Get(context.TODO(), request.NamespacedName, icp)
+			finalizers = icp.GetFinalizers()
 			finalizerIndex = indexOf(finalizers, finalizer)
 			finalizers = append(finalizers[:finalizerIndex], finalizers[finalizerIndex+1:]...)
-			u.SetFinalizers(finalizers)
-			finalizerError = r.client.Update(context.TODO(), u)
+			icp.SetFinalizers(finalizers)
+			finalizerError = r.client.Update(context.TODO(), icp)
 		}
 		if finalizerError != nil {
 			log.Errorf("error removing finalizer: %s", finalizerError)
@@ -168,8 +146,8 @@ func (r *ReconcileIstioControlPlane) Reconcile(request reconcile.Request) (recon
 		// TODO: make this error message more meaningful.
 		log.Infof("Adding finalizer %v", finalizer)
 		finalizers = append(finalizers, finalizer)
-		u.SetFinalizers(finalizers)
-		err = r.client.Update(context.TODO(), u)
+		icp.SetFinalizers(finalizers)
+		err := r.client.Update(context.TODO(), icp)
 		if err != nil {
 			log.Errorf("Failed to update IstioControlPlane with finalizer, %v", err)
 			return reconcile.Result{}, err
