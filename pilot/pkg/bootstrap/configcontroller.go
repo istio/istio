@@ -24,8 +24,6 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/pkg/env"
-
 	"github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
 
@@ -54,11 +52,6 @@ const (
 	fsScheme = "fs"
 
 	requiredMCPCertCheckFreq = 500 * time.Millisecond
-)
-
-var (
-	useExternalGalley = env.RegisterBoolVar("PILOT_EXTERNAL_GALLEY", true,
-		"Set to restore the use of a standalone galley, if istio-galley.istio-system is the source.")
 )
 
 // initConfigController creates the config controller in the pilotConfig.
@@ -152,12 +145,6 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 				configStores = append(configStores, configController)
 				continue
 			}
-		}
-
-		// Attempting to connect to galley - use pilot's own config (if operating in istiod mode)
-		if !useExternalGalley.Get() && strings.HasPrefix(configSource.Address, "istio-galley."+args.Namespace) {
-			configSource.Address = "127.0.0.1:15010"
-			configSource.TlsSettings = nil
 		}
 
 		conn, err := grpcDial(ctx, cancel, configSource, args)

@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pilot/pkg/features"
+
 	oidc "github.com/coreos/go-oidc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -124,6 +126,9 @@ type CAOptions struct {
 }
 
 // RunCA will start the cert signing GRPC service on an existing server.
+// Protected by installer options: the CA will be started only if the JWT token in /var/run/secrets
+// is mounted. If it is missing - for example old versions of K8S that don't support such tokens -
+// we will not start the cert-signing server, since pods will have no way to authenticate.
 func RunCA(grpc *grpc.Server, cs kubernetes.Interface, opts *CAOptions) {
 	if cs == nil {
 		// No k8s - no self-signed certs.
@@ -341,7 +346,7 @@ func createCA(client corev1.CoreV1Interface, opts *CAOptions) *ca.IstioCA {
 			selfSignedRootCertGracePeriodPercentile.Get(), selfSignedCACertTTL.Get(),
 			selfSignedRootCertCheckInterval.Get(), workloadCertTTL.Get(),
 			maxWorkloadCertTTL.Get(), opts.TrustDomain, true,
-			PodNamespaceVar.Get(), -1, client, rootCertFile,
+			features.PodNamespaceVar.Get(), -1, client, rootCertFile,
 			enableJitterForRootCertRotator.Get())
 		if err != nil {
 			log.Fatalf("Failed to create a self-signed Citadel (error: %v)", err)
@@ -356,7 +361,7 @@ func createCA(client corev1.CoreV1Interface, opts *CAOptions) *ca.IstioCA {
 		certChainFile := path.Join(localCertDir.Get(), "cert-chain.pem")
 
 		caOpts, err = ca.NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile,
-			rootCertFile, workloadCertTTL.Get(), maxWorkloadCertTTL.Get(), PodNamespaceVar.Get(), client)
+			rootCertFile, workloadCertTTL.Get(), maxWorkloadCertTTL.Get(), features.PodNamespaceVar.Get(), client)
 		if err != nil {
 			log.Fatalf("Failed to create an Citadel (error: %v)", err)
 		}

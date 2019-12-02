@@ -240,7 +240,6 @@ func (c *Controller) HasSynced() bool {
 	c.syncedMu.Unlock()
 
 	if len(notReady) > 0 {
-		time.Sleep(100 * time.Millisecond)
 		return false
 	}
 
