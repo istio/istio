@@ -25,8 +25,6 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/pilot/pkg/features"
-
 	oidc "github.com/coreos/go-oidc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -129,7 +127,7 @@ type CAOptions struct {
 // Protected by installer options: the CA will be started only if the JWT token in /var/run/secrets
 // is mounted. If it is missing - for example old versions of K8S that don't support such tokens -
 // we will not start the cert-signing server, since pods will have no way to authenticate.
-func RunCA(grpc *grpc.Server, cs kubernetes.Interface, opts *CAOptions) {
+func (s *Server) RunCA(grpc *grpc.Server, cs kubernetes.Interface, opts *CAOptions) {
 	if cs == nil {
 		// No k8s - no self-signed certs.
 		// TODO: implement it using a local directory, for non-k8s env.
@@ -159,7 +157,7 @@ func RunCA(grpc *grpc.Server, cs kubernetes.Interface, opts *CAOptions) {
 		}
 	}
 
-	ca := createCA(cs.CoreV1(), opts)
+	ca := s.createCA(cs.CoreV1(), opts)
 
 	// The CA API uses cert with the max workload cert TTL.
 	// 'hostlist' must be non-empty - but is not used since a grpc server is passed.
@@ -316,7 +314,7 @@ func (j jwtAuthenticator) AuthenticatorType() string {
 	return authenticate.IDTokenAuthenticatorType
 }
 
-func createCA(client corev1.CoreV1Interface, opts *CAOptions) *ca.IstioCA {
+func (s *Server) createCA(client corev1.CoreV1Interface, opts *CAOptions) *ca.IstioCA {
 	var caOpts *ca.IstioCAOptions
 	var err error
 
@@ -346,7 +344,7 @@ func createCA(client corev1.CoreV1Interface, opts *CAOptions) *ca.IstioCA {
 			selfSignedRootCertGracePeriodPercentile.Get(), selfSignedCACertTTL.Get(),
 			selfSignedRootCertCheckInterval.Get(), workloadCertTTL.Get(),
 			maxWorkloadCertTTL.Get(), opts.TrustDomain, true,
-			features.PodNamespaceVar.Get(), -1, client, rootCertFile,
+			s.Args.Namespace, -1, client, rootCertFile,
 			enableJitterForRootCertRotator.Get())
 		if err != nil {
 			log.Fatalf("Failed to create a self-signed Citadel (error: %v)", err)
@@ -361,7 +359,7 @@ func createCA(client corev1.CoreV1Interface, opts *CAOptions) *ca.IstioCA {
 		certChainFile := path.Join(localCertDir.Get(), "cert-chain.pem")
 
 		caOpts, err = ca.NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile,
-			rootCertFile, workloadCertTTL.Get(), maxWorkloadCertTTL.Get(), features.PodNamespaceVar.Get(), client)
+			rootCertFile, workloadCertTTL.Get(), maxWorkloadCertTTL.Get(), s.Args.Namespace, client)
 		if err != nil {
 			log.Fatalf("Failed to create an Citadel (error: %v)", err)
 		}

@@ -156,11 +156,6 @@ type Server struct {
 
 // NewServer creates a new Server instance based on the provided arguments.
 func NewServer(args PilotArgs) (*Server, error) {
-	// If the namespace isn't set, try looking it up from the environment.
-	// This reduces the config overhead.
-	if args.Namespace == "" {
-		args.Namespace = features.PodNamespaceVar.Get()
-	}
 	if args.KeepaliveOptions == nil {
 		args.KeepaliveOptions = istiokeepalive.DefaultOption()
 	}
@@ -719,7 +714,7 @@ func (s *Server) initSDSCA(args *PilotArgs) error {
 	// Options based on the current 'defaults' in istio.
 	// If adjustments are needed - env or mesh.config ( if of general interest ).
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		RunCA(s.secureGRPCServerDNS, s.kubeClient, &CAOptions{
+		s.RunCA(s.secureGRPCServerDNS, s.kubeClient, &CAOptions{
 			TrustDomain: s.mesh.TrustDomain,
 		})
 		return nil
