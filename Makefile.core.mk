@@ -109,11 +109,6 @@ GO_FILES_CMD := find . -name '*.go' | grep -v -E '$(GO_EXCLUDE)'
 # Environment for tests, the directory containing istio and deps binaries.
 # Typically same as GOPATH/bin, so tests work seemlessly with IDEs.
 
-#export TARGET_OUT=$(TARGET_OUT)/bin
-# Using same package structure as pkg/
-#export TARGET_OUT=$(GO_TOP)/out
-#export TARGET_OUT:=$(TARGET_OUT)/$(GOOS)_$(GOARCH)/$(BUILDTYPE_DIR)
-#export GOBIN:=$(TARGET_OUT)/linux_amd64/$(BUILDTYPE_DIR)
 export HELM=$(TARGET_OUT)/helm
 export ARTIFACTS ?= $(TARGET_OUT)
 export REPO_ROOT := $(shell git rev-parse --show-toplevel)
@@ -264,7 +259,7 @@ sync: init
 # lock file, but it caused the rule for that file to get run (which
 # seems to be about obtaining a new version of the 3rd party libraries).
 $(TARGET_OUT)/istio_is_init: bin/init.sh istio.deps
-	TARGET_OUT=$(TARGET_OUT) bash -c bin/init.sh
+	TARGET_OUT=$(TARGET_OUT) TARGET_OS=$(TARGET_OS) DEBUG_IMAGE=$(DEBUG_IMAGE) bash -c bin/init.sh
 	touch $(TARGET_OUT)/istio_is_init
 # | $(TARGET_OUT)
 # init.sh downloads envoy
@@ -279,10 +274,10 @@ depend: init | $(TARGET_OUT)
 
 OUTPUT_DIRS = $(TARGET_OUT) $(GOBIN)
 DIRS_TO_CLEAN+=${TARGET_OUT}
-ifneq ($(TARGET_OUT),$(GOBIN))
-  OUTPUT_DIRS += $(GOBIN)
-  DIRS_TO_CLEAN += $(GOBIN)
-endif
+#ifneq ($(TARGET_OUT),$(GOBIN))
+#  OUTPUT_DIRS += $(GOBIN)
+#  DIRS_TO_CLEAN += $(GOBIN)
+#endif
 
 $(OUTPUT_DIRS):
 	@mkdir -p $@
