@@ -62,8 +62,8 @@ var _ analysis.Analyzer = &MTLSAnalyzer{}
 // Metadata implements Analyzer
 func (s *MTLSAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name: "auth.MTLSAnalyzer",
-
+		Name:        "auth.MTLSAnalyzer",
+		Description: "Checks for misconfigurations of MTLS policy when autoMtls is disabled",
 		// Each analyzer should register the collections that it needs to use as input.
 		Inputs: collection.Names{
 			metadata.K8SCoreV1Pods,
