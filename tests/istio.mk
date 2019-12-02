@@ -5,7 +5,7 @@ E2E_TIMEOUT ?= 60m
 # If set outside, it appears it is not possible to modify the variable.
 E2E_ARGS ?=
 
-ISTIOCTL_BIN ?= ${ISTIO_OUT}/istioctl
+ISTIOCTL_BIN ?= ${TARGET_OUT}/istioctl
 
 DEFAULT_EXTRA_E2E_ARGS = ${MINIKUBE_FLAGS}
 DEFAULT_EXTRA_E2E_ARGS += --istioctl=${ISTIOCTL_BIN}
