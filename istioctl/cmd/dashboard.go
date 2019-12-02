@@ -293,7 +293,7 @@ func controlZDashCmd() *cobra.Command {
 				"http://localhost:%d", controlZport, client, c.OutOrStdout())
 		},
 	}
-	
+
 	return cmd
 }
 
