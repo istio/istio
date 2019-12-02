@@ -119,8 +119,10 @@ func (h *VFSRenderer) loadChart() error {
 		if err != nil {
 			return err
 		}
+		// Helm expects unix / separator, but on windows this will be \
+		name := strings.ReplaceAll(stripPrefix(fname, prefix), string(filepath.Separator), "/")
 		bf := &chartutil.BufferedFile{
-			Name: stripPrefix(fname, prefix),
+			Name: name,
 			Data: b,
 		}
 		bfs = append(bfs, bf)
