@@ -99,6 +99,8 @@ func (policy *AuthenticationPolicies) GetJwtPoliciesForWorkload(namespace string
 		for idx := range nsConfig {
 			cfg := &nsConfig[idx]
 			if namespace != cfg.Namespace {
+				// Should never come here. Log warning just in case.
+				log.Warnf("Seeing config %s with namespace %s in map entry for %s. Ignored", cfg.Name, cfg.Namespace, namespace)
 				continue
 			}
 			spec := cfg.Spec.(*v1beta1.RequestAuthentication)
