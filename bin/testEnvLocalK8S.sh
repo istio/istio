@@ -34,9 +34,8 @@ else
   export GOOS_LOCAL=${GOOS_LOCAL:-linux}
 fi
 
-export PATH=${GO_TOP}/bin:${PATH}
-export OUT=${GO_TOP}/out
-export ISTIO_OUT=${ISTIO_OUT:-${GO_TOP}/out/${GOOS_LOCAL}_amd64/release}
+export OUT="/work"
+export TARGET_OUT=${TARGET_OUT:-${OUT}/out/${GOOS_LOCAL}_amd64/release}
 
 # components used in the test
 export K8S_VER=${K8S_VER:-v1.9.2}
@@ -63,7 +62,7 @@ function ensureK8SCerts() {
     fi
 
     mkdir -p "${CERTDIR}"
-    pushd "$OUT"
+    pushd "$TARGET_OUT"
     curl -L -O https://storage.googleapis.com/kubernetes-release/easy-rsa/easy-rsa.tar.gz
     tar xzf easy-rsa.tar.gz
     cd easy-rsa-master/easyrsa3

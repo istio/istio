@@ -455,10 +455,10 @@ test: | $(JUNIT_REPORT)
 GOTEST_PARALLEL ?= '-test.parallel=1'
 
 localTestEnv: build
-	bin/testEnvLocalK8S.sh ensure
+	TARGET_OUT=$(TARGET_OUT) TARGET_OS=$(TARGET_OS) bin/testEnvLocalK8S.sh ensure
 
 localTestEnvCleanup: build
-	bin/testEnvLocalK8S.sh stop
+	TARGET_OUT=$(TARGET_OUT) TARGET_OS=$(TARGET_OS) bin/testEnvLocalK8S.sh stop
 
 .PHONY: pilot-test
 pilot-test:
