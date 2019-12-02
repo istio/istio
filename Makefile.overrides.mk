@@ -15,7 +15,7 @@
 .DEFAULT_GOAL := default
 
 # this repo is not yet on the container plan by default
-BUILD_WITH_CONTAINER ?= 0
+BUILD_WITH_CONTAINER ?= 1
 
 ifeq ($(BUILD_WITH_CONTAINER),1)
 # create phony targets for the top-level items in the repo
