@@ -146,7 +146,7 @@ type Server struct {
 	RootCA []byte
 	Galley *server.Server
 
-	HttpListener       net.Listener
+	HTTPListener       net.Listener
 	Environment        *model.Environment
 	SecureGrpcListener net.Listener
 
@@ -210,7 +210,7 @@ func NewServer(args PilotArgs) (*Server, error) {
 		return nil, fmt.Errorf("cluster registries: %v", err)
 	}
 
-	if err := s.initDNSListener(&args); err != nil {
+	if err := s.initDNSListener(); err != nil {
 		return nil, fmt.Errorf("istiod: %v", err)
 	}
 
@@ -220,7 +220,7 @@ func NewServer(args PilotArgs) (*Server, error) {
 		return nil, fmt.Errorf("sidecar injector: %v", err)
 	}
 
-	if err := s.initSDSCA(&args); err != nil {
+	if err := s.initSDSCA(); err != nil {
 		return nil, fmt.Errorf("istiod: %v", err)
 	}
 
@@ -253,12 +253,12 @@ func (s *Server) Start(stop <-chan struct{}) error {
 	if !s.waitForCacheSync(stop) {
 		return fmt.Errorf("failed to sync cache")
 	}
-	log.Infof("starting discovery service at http=%s grpc=%s", s.HttpListener.Addr(),
+	log.Infof("starting discovery service at http=%s grpc=%s", s.HTTPListener.Addr(),
 		s.grpcListener.Addr())
 
 	// At this point we are ready
 	go func() {
-		if err := s.httpServer.Serve(s.HttpListener); err != nil {
+		if err := s.httpServer.Serve(s.HTTPListener); err != nil {
 			log.Warna(err)
 		}
 	}()
@@ -349,7 +349,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		return err
 	}
 	s.HTTPListeningAddr = listener.Addr()
-	s.HttpListener = listener
+	s.HTTPListener = listener
 
 	// create grpc listener
 	grpcListener, err := net.Listen("tcp", args.DiscoveryOptions.GrpcAddr)
@@ -688,8 +688,8 @@ func (s *Server) initEventHandlers() error {
 }
 
 // add a GRPC listener using DNS-based certificates. Will be used for Galley, injection and CA signing.
-func (s *Server) initDNSListener(args *PilotArgs) error {
-	if features.IstiodService.Get() == "" {
+func (s *Server) initDNSListener() error {
+	if features.IstiodService.Get() == "" || s.kubeClient == nil {
 		// Feature disabled
 		return nil
 	}
@@ -697,7 +697,7 @@ func (s *Server) initDNSListener(args *PilotArgs) error {
 	// allows secure SDS connections to Istiod.
 	err := s.initDNSCerts(features.IstiodService.Get())
 	if err != nil {
-		log.Warna("Failed to generate DNS k8s-signed certs. Autoinjection will not be enabled ", err)
+		log.Fatala("Failed to generate DNS k8s-signed certs. Autoinjection will not be enabled ", err)
 	} else {
 		// run secure grpc server for Istiod - using DNS-based certs from K8S
 		err := s.initSecureGrpcServerDNS(features.IstiodService.Get())
@@ -710,7 +710,7 @@ func (s *Server) initDNSListener(args *PilotArgs) error {
 }
 
 // init the SDS signing server
-func (s *Server) initSDSCA(args *PilotArgs) error {
+func (s *Server) initSDSCA() error {
 	// Options based on the current 'defaults' in istio.
 	// If adjustments are needed - env or mesh.config ( if of general interest ).
 	s.addStartFunc(func(stop <-chan struct{}) error {

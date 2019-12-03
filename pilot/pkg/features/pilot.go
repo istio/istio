@@ -262,7 +262,7 @@ var (
 			"that do not have galley installed.",
 	)
 
-	// This is the main control for istiod address - used for injection and as default value injected into pods
+	// IstiodService controls the istiod address - used for injection and as default value injected into pods
 	// if istiod is used. The name must be part of the DNS certificate served by pilot/istiod. The '.svc' is
 	// imposed by K8S - that's how the names for webhooks are defined, based on webhook service (which will be
 	// istio-pilot or istiod) plus namespace and .svc.

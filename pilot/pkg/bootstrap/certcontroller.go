@@ -15,6 +15,7 @@
 package bootstrap
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -109,7 +110,7 @@ func (s *Server) initDNSCerts(discAddr string) error {
 
 	host, _, err := net.SplitHostPort(discAddr)
 	if err != nil {
-		log.Fatala("Invalid discovery address", discAddr, err)
+		return err
 	}
 
 	// Names in the Istiod cert - support the old service names as well.
@@ -132,28 +133,28 @@ func (s *Server) initDNSCerts(discAddr string) error {
 	log.Infoa("Generating K8S-signed cert for ", names)
 
 	if s.kubeClient == nil {
-		log.Fatal("k8s not found, cert signing disabled.")
+		return errors.New("k8s not found, cert signing by K8S disabled.")
 	}
 
 	// TODO: fallback to citadel (or custom CA) if K8S signing is broken
 	certChain, keyPEM, _, err := chiron.GenKeyCertK8sCA(s.kubeClient.CertificatesV1beta1().CertificateSigningRequests(),
 		strings.Join(names, ","), host+".csr.secret", s.Args.Namespace, defaultCACertPath)
 	if err != nil {
-		log.Fatal(err.Error())
+		return err
 	}
 
 	// Save the certificates to /var/run/secrets/istio-dns - this is needed since most of the code we currently
 	// use to start grpc and webhooks is based on files. This is a memory-mounted dir.
 	if err := os.MkdirAll(DNSCertDir, 0700); err != nil {
-		log.Fatalf("failed to create certs dir: %v", err)
+		return err
 	}
 	err = ioutil.WriteFile(DNSCertDir+"/key.pem", keyPEM, 0700)
 	if err != nil {
-		log.Fatalf("failed to write certs: %v", err)
+		return err
 	}
 	err = ioutil.WriteFile(DNSCertDir+"/cert-chain.pem", certChain, 0700)
 	if err != nil {
-		log.Fatalf("failed to write certs: %v", err)
+		return err
 	}
 	log.Infoa("Certificates created in ", DNSCertDir)
 	return nil
