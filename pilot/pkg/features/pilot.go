@@ -269,7 +269,6 @@ var (
 	// The 15010 port is used with plain text, 15011 with Spiffee certs - we need a different port for DNS cert.
 	IstiodService = env.RegisterStringVar("ISTIOD_ADDR", "",
 		"Service name of istiod. If empty the istiod listener, certs will be disabled.")
-
 )
 
 var (
