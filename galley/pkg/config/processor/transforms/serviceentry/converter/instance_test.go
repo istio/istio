@@ -345,6 +345,103 @@ func TestNoNamespaceShouldUseDefault(t *testing.T) {
 	g.Expect(actual).To(Equal(expected))
 }
 
+func TestServicePortValidation(t *testing.T) {
+	cases := []struct {
+		description   string
+		name          string
+		number        int32
+		proto         coreV1.Protocol
+		expectedPorts []*networking.Port
+	}{
+		{
+			description: "valid",
+			name:        "http",
+			number:      8080,
+			proto:       coreV1.ProtocolTCP,
+			expectedPorts: []*networking.Port{
+				{
+					Name:     "http",
+					Number:   uint32(8080),
+					Protocol: string(protocol.HTTP),
+				},
+			},
+		},
+		{
+			description:   "empty port name",
+			name:          "",
+			number:        8080,
+			proto:         coreV1.ProtocolTCP,
+			expectedPorts: []*networking.Port{},
+		},
+		{
+			description:   "invalid protocol",
+			name:          "http-test",
+			number:        8080,
+			proto:         coreV1.Protocol("XYZ"),
+			expectedPorts: []*networking.Port{},
+		},
+		{
+			description:   "unsupported Protocol",
+			name:          "http-tcp",
+			number:        8080,
+			proto:         coreV1.Protocol(protocol.Unsupported),
+			expectedPorts: []*networking.Port{},
+		},
+		{
+			description:   "invalid port number",
+			name:          "http-tcp",
+			number:        1111111,
+			proto:         coreV1.ProtocolTCP,
+			expectedPorts: []*networking.Port{},
+		},
+	}
+	ip := "10.0.0.1"
+	for _, c := range cases {
+		t.Run(c.description, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+
+			service := &resource.Entry{
+				Metadata: resource.Metadata{
+					Name:       fullName,
+					Version:    resource.Version("v1"),
+					CreateTime: tnow,
+				},
+				Item: &coreV1.ServiceSpec{
+					ClusterIP: ip,
+					Ports: []coreV1.ServicePort{
+						{
+							Name:     c.name,
+							Port:     c.number,
+							Protocol: c.proto,
+						},
+					},
+				},
+			}
+
+			expectedMeta := resource.Metadata{
+				Name:       service.Metadata.Name,
+				CreateTime: tnow,
+				Annotations: resource.StringMap{
+					annotation.AlphaNetworkingServiceVersion.Name: version,
+				},
+			}
+
+			expected := networking.ServiceEntry{
+				Hosts:      []string{hostForNamespace(namespace)},
+				Addresses:  []string{ip},
+				Resolution: networking.ServiceEntry_NONE,
+				Location:   networking.ServiceEntry_MESH_INTERNAL,
+				Ports:      c.expectedPorts,
+				Endpoints:  []*networking.ServiceEntry_Endpoint{},
+			}
+
+			actualMeta, actual := doConvert(t, service, nil, newPodCache())
+			g.Expect(actualMeta).To(Equal(expectedMeta))
+			g.Expect(actual).To(Equal(expected))
+		})
+	}
+}
+
 func TestServicePorts(t *testing.T) {
 	cases := []struct {
 		name  string
