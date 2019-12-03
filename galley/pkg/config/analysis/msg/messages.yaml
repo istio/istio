@@ -187,3 +187,25 @@ messages:
         type: string
       - name: host
         type: string
+
+  - name: "DeploymentAssociatedToMultipleServices"
+    code: IST0115
+    level: Warning
+    description: "The resulting pods of a Deployment can't be associated to multiple Services in the same port but different protocol"
+    template: "The following services are associated to deployment %s at port %d but different protocol: %v."
+    args:
+      - name: deployment
+        type: string
+      - name: port
+        type: int32
+      - name: services
+        type: "[]string"
+
+  - name: "DeploymentRequiresServiceAssociated"
+    code: IST0116
+    level: Warning
+    description: "The resulting pods of a Deployment must be associated to at least one service"
+    template: "Deployment %s doesn't have any service associated."
+    args:
+      - name: deployment
+        type: string

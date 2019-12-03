@@ -18,6 +18,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/annotations"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/auth"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/deployment"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/deprecation"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
@@ -44,6 +45,7 @@ func All() []analysis.Analyzer {
 		&virtualservice.DestinationHostAnalyzer{},
 		&virtualservice.DestinationRuleAnalyzer{},
 		&virtualservice.GatewayAnalyzer{},
+		&deployment.ServiceAssociationAnalyzer{},
 	}
 
 	analyzers = append(analyzers, schema.AllValidationAnalyzers()...)

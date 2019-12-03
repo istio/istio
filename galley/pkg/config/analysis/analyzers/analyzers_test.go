@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/annotations"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/auth"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/deployment"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/deprecation"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
@@ -301,6 +302,15 @@ var testGrid = []testCase{
 		analyzer:   &virtualservice.GatewayAnalyzer{},
 		expected: []message{
 			{msg.ReferencedResourceNotFound, "VirtualService httpbin-bogus"},
+		},
+	},
+	{
+		name:       "serviceMultipleDeployments",
+		inputFiles: []string{"testdata/deployment-multi-service.yaml"},
+		analyzer:   &deployment.ServiceAssociationAnalyzer{},
+		expected: []message{
+			{msg.DeploymentAssociatedToMultipleServices, "Deployment details-v1"},
+			{msg.DeploymentRequiresServiceAssociated, "Deployment ratings-v1"},
 		},
 	},
 }

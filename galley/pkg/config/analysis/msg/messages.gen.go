@@ -76,6 +76,14 @@ var (
 	// DestinationRuleUsesMTLSForWorkloadWithoutSidecar defines a diag.MessageType for message "DestinationRuleUsesMTLSForWorkloadWithoutSidecar".
 	// Description: A DestinationRule uses mTLS for a workload that has no sidecar.
 	DestinationRuleUsesMTLSForWorkloadWithoutSidecar = diag.NewMessageType(diag.Error, "IST0115", "DestinationRule %s uses mTLS for workload %s that has no sidecar. Traffic from enmeshed services will fail.")
+
+	// DeploymentAssociatedToMultipleServices defines a diag.MessageType for message "DeploymentAssociatedToMultipleServices".
+	// Description: The resulting pods of a Deployment can't be associated to multiple Services in the same port but different protocol
+	DeploymentAssociatedToMultipleServices = diag.NewMessageType(diag.Warning, "IST0115", "The following services are associated to deployment %s at port %d but different protocol: %v.")
+
+	// DeploymentRequiresServiceAssociated defines a diag.MessageType for message "DeploymentRequiresServiceAssociated".
+	// Description: The resulting pods of a Deployment must be associated to at least one service
+	DeploymentRequiresServiceAssociated = diag.NewMessageType(diag.Warning, "IST0116", "Deployment %s doesn't have any service associated.")
 )
 
 // NewInternalError returns a new diag.Message based on InternalError.
@@ -245,6 +253,26 @@ func NewDestinationRuleUsesMTLSForWorkloadWithoutSidecar(entry *resource.Entry, 
 		originOrNil(entry),
 		destinationRuleName,
 		host,
+	)
+}
+
+// NewDeploymentAssociatedToMultipleServices returns a new diag.Message based on DeploymentAssociatedToMultipleServices.
+func NewDeploymentAssociatedToMultipleServices(entry *resource.Entry, deployment string, port int32, services []string) diag.Message {
+	return diag.NewMessage(
+		DeploymentAssociatedToMultipleServices,
+		originOrNil(entry),
+		deployment,
+		port,
+		services,
+	)
+}
+
+// NewDeploymentRequiresServiceAssociated returns a new diag.Message based on DeploymentRequiresServiceAssociated.
+func NewDeploymentRequiresServiceAssociated(entry *resource.Entry, deployment string) diag.Message {
+	return diag.NewMessage(
+		DeploymentRequiresServiceAssociated,
+		originOrNil(entry),
+		deployment,
 	)
 }
 
