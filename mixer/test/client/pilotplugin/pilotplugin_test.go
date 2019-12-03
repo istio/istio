@@ -318,6 +318,7 @@ func (mock) ManagementPorts(_ string) model.PortList                        { re
 func (mock) Services() ([]*model.Service, error)                            { return nil, nil }
 func (mock) WorkloadHealthCheckInfo(_ string) model.ProbeList               { return nil }
 func (mock) GetIstioServiceAccounts(_ *model.Service, ports []int) []string { return nil }
+func (mock) Namespaces() ([]*model.Namespace, error)                        { return nil, nil }
 
 const (
 	id = "id"
