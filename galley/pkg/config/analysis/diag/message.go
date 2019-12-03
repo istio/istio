@@ -21,6 +21,7 @@ import (
 	"istio.io/istio/galley/pkg/config/resource"
 )
 
+// DocPrefix is the root URL for validation message docs
 const DocPrefix = "https://istio.io/docs/reference/config/analysis"
 
 // MessageType is a type of diagnostic message
@@ -53,6 +54,9 @@ type Message struct {
 
 	// Origin of the message
 	Origin resource.Origin
+
+	// DocRef is an optional reference tracker for the documentation URL
+	DocRef string
 }
 
 // Unstructured returns this message as a JSON-style unstructured map
@@ -65,7 +69,12 @@ func (m *Message) Unstructured(includeOrigin bool) map[string]interface{} {
 		result["origin"] = m.Origin.FriendlyName()
 	}
 	result["message"] = fmt.Sprintf(m.Type.Template(), m.Parameters...)
-	result["documentation_url"] = fmt.Sprintf("%s/%s", DocPrefix, m.Type.Code())
+
+	docQueryString := ""
+	if m.DocRef != "" {
+		docQueryString = fmt.Sprintf("?ref=%s", m.DocRef)
+	}
+	result["documentation_url"] = fmt.Sprintf("%s/%s%s", DocPrefix, m.Type.Code(), docQueryString)
 
 	return result
 }
