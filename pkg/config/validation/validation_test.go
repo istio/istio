@@ -2023,6 +2023,14 @@ func TestValidateDestination(t *testing.T) {
 			},
 			valid: true,
 		},
+		{name: "unnumbered-selector",
+			destination: &networking.Destination{
+				Host:   "foo.bar",
+				Subset: "shiny",
+				Port:   &networking.PortSelector{},
+			},
+			valid: false,
+		},
 	}
 
 	for _, tc := range testCases {
