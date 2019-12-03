@@ -105,19 +105,20 @@ func TestV1beta1_JWT(t *testing.T) {
 			g.ApplyConfigOrFail(t, ns, policies...)
 			defer g.DeleteConfigOrFail(t, ns, policies...)
 
-			var a, b echo.Instance
+			var a, b, c echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
 				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
 				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
+				With(&c, util.EchoConfig("b", ns, false, nil, g, p)).
 				BuildOrFail(t)
 
-			newTestCase := func(namePrefix string, jwt string, path string, expectAllowed bool) rbacUtil.TestCase {
+			newTestCase := func(target echo.Instance, namePrefix string, jwt string, path string, expectAllowed bool) rbacUtil.TestCase {
 				return rbacUtil.TestCase{
 					NamePrefix: namePrefix,
 					Request: connection.Checker{
 						From: a,
 						Options: echo.CallOptions{
-							Target:   b,
+							Target:   target,
 							PortName: "http",
 							Scheme:   scheme.HTTP,
 							Path:     path,
@@ -128,15 +129,16 @@ func TestV1beta1_JWT(t *testing.T) {
 				}
 			}
 			cases := []rbacUtil.TestCase{
-				newTestCase("[NoJWT]", "", "/token1", false),
-				newTestCase("[NoJWT]", "", "/token2", false),
-				newTestCase("[Token1]", jwt.TokenIssuer1, "/token1", true),
-				newTestCase("[Token1]", jwt.TokenIssuer1, "/token2", false),
-				newTestCase("[Token2]", jwt.TokenIssuer2, "/token1", false),
-				newTestCase("[Token2]", jwt.TokenIssuer2, "/token2", true),
-				newTestCase("[Token1]", jwt.TokenIssuer1, "/tokenAny", true),
-				newTestCase("[Token2]", jwt.TokenIssuer2, "/tokenAny", true),
-				newTestCase("[NoJWT]", "", "/tokenAny", false),
+				newTestCase(b, "[NoJWT]", "", "/token1", false),
+				newTestCase(b, "[NoJWT]", "", "/token2", false),
+				newTestCase(b, "[Token1]", jwt.TokenIssuer1, "/token1", true),
+				newTestCase(b, "[Token1]", jwt.TokenIssuer1, "/token2", false),
+				newTestCase(b, "[Token2]", jwt.TokenIssuer2, "/token1", false),
+				newTestCase(b, "[Token2]", jwt.TokenIssuer2, "/token2", true),
+				newTestCase(b, "[Token1]", jwt.TokenIssuer1, "/tokenAny", true),
+				newTestCase(b, "[Token2]", jwt.TokenIssuer2, "/tokenAny", true),
+				newTestCase(b, "[NoJWT]", "", "/tokenAny", false),
+				newTestCase(c, "[NoJWT]", "", "/somePath", true),
 			}
 
 			rbacUtil.RunRBACTest(t, cases)
