@@ -65,8 +65,20 @@ dashboard:
     #   ldap_user_id_key: "cn"
   secretName: kiali # You must create a secret with this name - one is not provided out-of-box.
   viewOnlyMode: false # Bind the service account to a role with only read access
+# Grafana External Service Settings
   grafanaURL:  # If you have Grafana installed and it is accessible to client browsers, then set this to its external URL. Kiali will redirect users to this URL when Grafana metrics are to be shown.
+  grafanaInClusterURL: "" # Internal URL for Grafana
+  grafanaAuth: "none" # none, basic, or bearer
+  grafanaUsername: "" # Used when auth type is basic
+  grafanaPassword: "" # Used when auth type is basic
+  grafanaToken: "" # Used when auth type is bearer
+# Jaeger External Service Settings  
   jaegerURL:  # If you have Jaeger installed and it is accessible to client browsers, then set this property to its external URL. Kiali will redirect users to this URL when Jaeger tracing is to be shown.
+  jaegerInClusterURL: "" # Internal URL for Jaeger
+  jaegerAuth: "none" # none, basic, or bearer
+  jaegerUsername: "" # Used when auth type is basic
+  jaegerPassword: "" # Used when auth type is basic
+  jaegerToken: "" # Used when auth type is bearer
 prometheusAddr: http://prometheus:9090
 
 # When true, a secret will be created with a default username and password. Useful for demos.
