@@ -98,7 +98,7 @@ func (i Instance) IsHTTP2() bool {
 // IsHTTP is true for protocols that use HTTP as transport protocol
 func (i Instance) IsHTTP() bool {
 	switch i {
-	case HTTP, HTTP2, GRPC, GRPCWeb:
+	case HTTP, HTTP2, HTTP_PROXY, GRPC, GRPCWeb:
 		return true
 	default:
 		return false
