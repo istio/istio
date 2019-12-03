@@ -136,12 +136,13 @@ func Test_proxyVersionToString(t *testing.T) {
 
 func TestOnOutboundListener(t *testing.T) {
 	mp := mixerplugin{}
+	meshConfig := &meshconfig.MeshConfig{
+		MixerReportServer: "mixer.istio-system",
+	}
 	inputParams := &plugin.InputParams{
 		ListenerProtocol: plugin.ListenerProtocolTCP,
-		Env: &model.Environment{
-			Mesh: &meshconfig.MeshConfig{
-				MixerReportServer: "mixer.istio-system",
-			},
+		Push: &model.PushContext{
+			Mesh: meshConfig,
 		},
 		Node: &model.Proxy{
 			ID:       "foo.bar",
@@ -248,7 +249,7 @@ func TestOnOutboundListenerSkipMixer(t *testing.T) {
 			mcfg.MixerReportServer = "mixer"
 			inputParams := &plugin.InputParams{
 				ListenerProtocol: plugin.ListenerProtocolHTTP,
-				Env: &model.Environment{
+				Push: &model.PushContext{
 					Mesh: v.meshconfig,
 				},
 				Node: &model.Proxy{
@@ -258,11 +259,31 @@ func TestOnOutboundListenerSkipMixer(t *testing.T) {
 				},
 			}
 			mutable := &plugin.MutableObjects{Listener: &xdsapi.Listener{}, FilterChains: []plugin.FilterChain{{}}}
-			mp.OnOutboundListener(inputParams, mutable)
+			_ = mp.OnOutboundListener(inputParams, mutable)
 			for _, chain := range mutable.FilterChains {
 				if got := len(chain.HTTP); got != v.wantFilters {
 					tt.Errorf("Got %d HTTP filters; wanted %d", got, v.wantFilters)
 				}
+			}
+		})
+	}
+}
+
+func Test_attrNamespace(t *testing.T) {
+	testcases := []struct {
+		name      string
+		nodeID    string
+		namespace string
+	}{
+		{"standard pod name", "foo.bar", "bar"},
+		{"pod name with dot", "foo.123.bar", "bar"},
+	}
+	for _, v := range testcases {
+		t.Run(v.name, func(t *testing.T) {
+			node := model.Proxy{ID: v.nodeID}
+			ns := attrNamespace(&node).GetStringValue()
+			if ns != v.namespace {
+				t.Errorf("%s: expecting %v but got %v", v.name, ns, v.namespace)
 			}
 		})
 	}
@@ -291,7 +312,7 @@ func TestOnInboundListenerSkipMixer(t *testing.T) {
 			mcfg.MixerReportServer = "mixer"
 			inputParams := &plugin.InputParams{
 				ListenerProtocol: plugin.ListenerProtocolHTTP,
-				Env: &model.Environment{
+				Push: &model.PushContext{
 					Mesh: v.meshconfig,
 				},
 				Node: &model.Proxy{
@@ -301,7 +322,7 @@ func TestOnInboundListenerSkipMixer(t *testing.T) {
 				},
 			}
 			mutable := &plugin.MutableObjects{Listener: &xdsapi.Listener{Address: testAddress()}, FilterChains: []plugin.FilterChain{{}}}
-			mp.OnInboundListener(inputParams, mutable)
+			_ = mp.OnInboundListener(inputParams, mutable)
 			for _, chain := range mutable.FilterChains {
 				if got := len(chain.HTTP); got != v.wantFilters {
 					tt.Errorf("Got %d HTTP filters; wanted %d", got, v.wantFilters)

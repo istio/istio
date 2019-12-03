@@ -254,6 +254,60 @@ func TestOutboundListenerConfig_WithSidecarV14(t *testing.T) {
 		buildService("test1.com", wildcardIP, protocol.HTTP, tnow.Add(1*time.Second)),
 		buildService("test2.com", wildcardIP, protocol.TCP, tnow),
 		buildService("test3.com", wildcardIP, "unknown", tnow.Add(2*time.Second))}
+	service4 := &model.Service{
+		CreationTime: tnow.Add(1 * time.Second),
+		Hostname:     host.Name("test4.com"),
+		Address:      wildcardIP,
+		ClusterVIPs:  make(map[string]string),
+		Ports: model.PortList{
+			&model.Port{
+				Name:     "udp",
+				Port:     9000,
+				Protocol: protocol.HTTP,
+			},
+		},
+		Resolution: model.Passthrough,
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
+	}
+	services = append(services, service4)
+	service5 := &model.Service{
+		CreationTime: tnow.Add(1 * time.Second),
+		Hostname:     host.Name("test5.com"),
+		Address:      "8.8.8.8",
+		ClusterVIPs:  make(map[string]string),
+		Ports: model.PortList{
+			&model.Port{
+				Name:     "MySQL",
+				Port:     3306,
+				Protocol: protocol.MySQL,
+			},
+		},
+		Resolution: model.Passthrough,
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
+	}
+	services = append(services, service5)
+	service6 := &model.Service{
+		CreationTime: tnow.Add(1 * time.Second),
+		Hostname:     host.Name("test6.com"),
+		Address:      "2.2.2.2",
+		ClusterVIPs:  make(map[string]string),
+		Ports: model.PortList{
+			&model.Port{
+				Name:     "unknown",
+				Port:     8888,
+				Protocol: "unknown",
+			},
+		},
+		Resolution: model.Passthrough,
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
+	}
+	services = append(services, service6)
 	testOutboundListenerConfigWithSidecarV14(t, services...)
 }
 
@@ -421,7 +475,7 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 	defer func() { _ = os.Unsetenv("PILOT_ENABLE_FALLTHROUGH_ROUTE") }()
 
 	svc := buildServiceWithPort("test.com", 9999, protocol.TCP, tnow)
-	svc.Attributes.ServiceRegistry = string(serviceregistry.KubernetesRegistry)
+	svc.Attributes.ServiceRegistry = string(serviceregistry.Kubernetes)
 	svc.Resolution = model.Passthrough
 	services := []*model.Service{svc}
 
@@ -459,7 +513,7 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 			proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 			proxy.ServiceInstances = proxyInstances
 
-			listeners := configgen.buildSidecarOutboundListeners(&env, &proxy, env.PushContext)
+			listeners := configgen.buildSidecarOutboundListeners(&proxy, env.PushContext)
 			listenersToCheck := make([]*xdsapi.Listener, 0)
 			for _, l := range listeners {
 				if l.Address.GetSocketAddress().GetPortValue() == 9999 {
@@ -492,7 +546,25 @@ func TestOutboundListenerConfig_WithSidecar(t *testing.T) {
 		buildService("test1.com", wildcardIP, protocol.HTTP, tnow.Add(1*time.Second)),
 		buildService("test2.com", wildcardIP, protocol.TCP, tnow),
 		buildService("test3.com", wildcardIP, protocol.HTTP, tnow.Add(2*time.Second))}
+	service4 := &model.Service{
+		CreationTime: tnow.Add(1 * time.Second),
+		Hostname:     host.Name("test4.com"),
+		Address:      wildcardIP,
+		ClusterVIPs:  make(map[string]string),
+		Ports: model.PortList{
+			&model.Port{
+				Name:     "default",
+				Port:     9090,
+				Protocol: protocol.HTTP,
+			},
+		},
+		Resolution: model.Passthrough,
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
+	}
 	testOutboundListenerConfigWithSidecar(t, services...)
+	services = append(services, service4)
 	testOutboundListenerConfigWithSidecarWithCaptureModeNone(t, services...)
 	testOutboundListenerConfigWithSidecarWithUseRemoteAddress(t, services...)
 }
@@ -821,7 +893,6 @@ func testOutboundListenerConfigWithSidecarV14(t *testing.T, services ...*model.S
 						Protocol: "HTTP",
 						Name:     "uds",
 					},
-					Bind:  "1.1.1.1",
 					Hosts: []string{"*/*"},
 				},
 				{
@@ -1055,31 +1126,12 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 	defer func() { _ = os.Unsetenv(features.EnableMysqlFilter.Name) }()
 
 	listeners := buildOutboundListeners(p, &proxy, sidecarConfig, nil, services...)
-	if len(listeners) != 3 {
-		t.Fatalf("expected %d listeners, found %d", 3, len(listeners))
+	if len(listeners) != 1 {
+		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
 	}
 
 	if l := findListenerByPort(listeners, 8080); isHTTPListener(l) {
 		t.Fatalf("expected TCP listener on port 8080, found HTTP: %v", l)
-	}
-
-	if l := findListenerByPort(listeners, 3306); !isMysqlListener(l) {
-		t.Fatalf("expected MySQL listener on port 3306, found %v", l)
-	}
-
-	if l := findListenerByPort(listeners, 9000); !isHTTPListener(l) {
-		t.Fatalf("expected HTTP listener on port 9000, found TCP\n%v", l)
-	} else {
-		f := l.FilterChains[0].Filters[0]
-		cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
-		if !strings.HasPrefix(cfg.Fields["stat_prefix"].GetStringValue(), "outbound_") {
-			t.Fatalf("expected stat prefix to have outbound, %s", cfg.Fields["stat_prefix"].GetStringValue())
-		}
-		if useRemoteAddress, exists := cfg.Fields["use_remote_address"]; exists {
-			if exists && useRemoteAddress.GetBoolValue() {
-				t.Fatalf("expected useRemoteAddress false, found true %v", l)
-			}
-		}
 	}
 }
 
@@ -1095,7 +1147,7 @@ func testOutboundListenerConfigWithSidecarWithUseRemoteAddress(t *testing.T, ser
 			Egress: []*networking.IstioEgressListener{
 				{
 					Port: &networking.Port{
-						Number:   9000,
+						Number:   9090,
 						Protocol: "HTTP",
 						Name:     "uds",
 					},
@@ -1113,8 +1165,8 @@ func testOutboundListenerConfigWithSidecarWithUseRemoteAddress(t *testing.T, ser
 
 	listeners := buildOutboundListeners(p, &proxy, sidecarConfig, nil, services...)
 
-	if l := findListenerByPort(listeners, 9000); !isHTTPListener(l) {
-		t.Fatalf("expected HTTP listener on port 9000, found TCP\n%v", l)
+	if l := findListenerByPort(listeners, 9090); !isHTTPListener(l) {
+		t.Fatalf("expected HTTP listener on port 9090, found TCP\n%v", l)
 	} else {
 		f := l.FilterChains[0].Filters[0]
 		cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
@@ -1196,6 +1248,18 @@ func testOutboundListenerConfigWithSidecarWithCaptureModeNone(t *testing.T, serv
 			t.Fatalf("expected HTTP listener %s, but found TCP", listenerName)
 		}
 	}
+
+	if l := findListenerByPort(listeners, 9090); !isHTTPListener(l) {
+		t.Fatalf("expected HTTP listener on port 9090, but not found\n%v", l)
+	} else {
+		f := l.FilterChains[0].Filters[0]
+		cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
+		if useRemoteAddress, exists := cfg.Fields["use_remote_address"]; exists {
+			if exists && useRemoteAddress.GetBoolValue() {
+				t.Fatalf("expected useRemoteAddress false, found true %v", l)
+			}
+		}
+	}
 }
 
 func TestOutboundListenerAccessLogs(t *testing.T) {
@@ -1227,7 +1291,7 @@ func TestHttpProxyListener(t *testing.T) {
 	proxy.ServiceInstances = nil
 	env.Mesh.ProxyHttpPort = 15007
 	proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
-	httpProxy := configgen.buildHTTPProxy(&env, &proxy, env.PushContext, nil)
+	httpProxy := configgen.buildHTTPProxy(&proxy, env.PushContext, nil)
 	f := httpProxy.FilterChains[0].Filters[0]
 	cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
 
@@ -1428,7 +1492,7 @@ func buildAllListeners(p plugin.Plugin, sidecarConfig *model.Config, services ..
 		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
 	}
 	builder := NewListenerBuilder(&proxy)
-	return configgen.buildSidecarListeners(&env, &proxy, env.PushContext, builder).getListeners()
+	return configgen.buildSidecarListeners(&proxy, env.PushContext, builder).getListeners()
 }
 
 func getFilterConfig(filter *listener.Filter, out proto.Message) error {
@@ -1468,7 +1532,7 @@ func buildOutboundListeners(p plugin.Plugin, proxy *model.Proxy, sidecarConfig *
 	}
 	proxy.ServiceInstances = proxyInstances
 
-	return configgen.buildSidecarOutboundListeners(&env, proxy, env.PushContext)
+	return configgen.buildSidecarOutboundListeners(proxy, env.PushContext)
 }
 
 func buildInboundListeners(p plugin.Plugin, proxy *model.Proxy, sidecarConfig *model.Config, services ...*model.Service) []*xdsapi.Listener {
@@ -1477,22 +1541,17 @@ func buildInboundListeners(p plugin.Plugin, proxy *model.Proxy, sidecarConfig *m
 	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		return nil
 	}
-	instances := make([]*model.ServiceInstance, len(services))
-	for i, s := range services {
-		instances[i] = &model.ServiceInstance{
-			Service:  s,
-			Endpoint: buildEndpoint(s),
-		}
+	if err := proxy.SetServiceInstances(&env); err != nil {
+		return nil
 	}
 
 	proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata.IstioVersion)
-	proxy.ServiceInstances = instances
 	if sidecarConfig == nil {
 		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 	} else {
 		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
 	}
-	return configgen.buildSidecarInboundListeners(&env, proxy, env.PushContext)
+	return configgen.buildSidecarInboundListeners(proxy, env.PushContext)
 }
 
 type fakePlugin struct {
@@ -1667,6 +1726,15 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 	serviceDiscovery := new(fakes.ServiceDiscovery)
 	serviceDiscovery.ServicesReturns(services, nil)
 
+	instances := make([]*model.ServiceInstance, len(services))
+	for i, s := range services {
+		instances[i] = &model.ServiceInstance{
+			Service:  s,
+			Endpoint: buildEndpoint(s),
+		}
+	}
+	serviceDiscovery.GetProxyServiceInstancesReturns(instances, nil)
+
 	configStore := &fakes.IstioConfigStore{
 		EnvoyFilterStub: func(workloadLabels labels.Collection) *model.Config {
 			return &model.Config{
@@ -1714,7 +1782,7 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 }
 
 func TestAppendListenerFallthroughRoute(t *testing.T) {
-	env := &model.Environment{
+	push := &model.PushContext{
 		Mesh: &meshconfig.MeshConfig{},
 	}
 	tests := []struct {
@@ -1725,9 +1793,11 @@ func TestAppendListenerFallthroughRoute(t *testing.T) {
 		hostname     string
 	}{
 		{
-			name:         "Registry_Only",
-			listener:     &xdsapi.Listener{},
-			listenerOpts: &buildListenerOpts{},
+			name:     "Registry_Only",
+			listener: &xdsapi.Listener{},
+			listenerOpts: &buildListenerOpts{
+				push: push,
+			},
 			node: &model.Proxy{
 				ID:       "foo.bar",
 				Metadata: &model.NodeMetadata{},
@@ -1740,9 +1810,11 @@ func TestAppendListenerFallthroughRoute(t *testing.T) {
 			hostname: util.BlackHoleCluster,
 		},
 		{
-			name:         "Allow_Any",
-			listener:     &xdsapi.Listener{},
-			listenerOpts: &buildListenerOpts{},
+			name:     "Allow_Any",
+			listener: &xdsapi.Listener{},
+			listenerOpts: &buildListenerOpts{
+				push: push,
+			},
 			node: &model.Proxy{
 				ID:       "foo.bar",
 				Metadata: &model.NodeMetadata{},
@@ -1758,7 +1830,7 @@ func TestAppendListenerFallthroughRoute(t *testing.T) {
 	for idx := range tests {
 		t.Run(tests[idx].name, func(t *testing.T) {
 			appendListenerFallthroughRoute(tests[idx].listener, tests[idx].listenerOpts,
-				tests[idx].node, env, nil)
+				tests[idx].node, nil)
 			if len(tests[idx].listenerOpts.filterChainOpts) != 1 {
 				t.Errorf("Expected exactly 1 filter chain options")
 			}

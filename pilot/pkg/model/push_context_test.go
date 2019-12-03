@@ -133,7 +133,8 @@ func TestAuthNPolicies(t *testing.T) {
 	const testNamespace string = "test-namespace"
 	ps := NewPushContext()
 	env := &Environment{Mesh: &meshconfig.MeshConfig{RootNamespace: "istio-system"}}
-	ps.Env = env
+	ps.Mesh = env.Mesh
+	ps.ServiceDiscovery = env
 	authNPolicies := map[string]*authn.Policy{
 		constants.DefaultAuthenticationPolicyName: {},
 
@@ -335,7 +336,8 @@ func TestJwtAuthNPolicy(t *testing.T) {
 
 	ps := NewPushContext()
 	env := &Environment{Mesh: &meshconfig.MeshConfig{RootNamespace: "istio-system"}}
-	ps.Env = env
+	ps.Mesh = env.Mesh
+	ps.ServiceDiscovery = env
 	authNPolicies := map[string]*authn.Policy{
 		constants.DefaultAuthenticationPolicyName: {},
 
@@ -437,10 +439,8 @@ func TestEnvoyFilters(t *testing.T) {
 	}
 
 	push := &PushContext{
-		Env: &Environment{
-			Mesh: &meshconfig.MeshConfig{
-				RootNamespace: "istio-system",
-			},
+		Mesh: &meshconfig.MeshConfig{
+			RootNamespace: "istio-system",
 		},
 		envoyFiltersByNamespace: map[string][]*EnvoyFilterWrapper{
 			"istio-system": envoyFilters,
@@ -491,7 +491,8 @@ func TestEnvoyFilters(t *testing.T) {
 func TestSidecarScope(t *testing.T) {
 	ps := NewPushContext()
 	env := &Environment{Mesh: &meshconfig.MeshConfig{RootNamespace: "istio-system"}}
-	ps.Env = env
+	ps.Mesh = env.Mesh
+	ps.ServiceDiscovery = env
 	ps.ServiceByHostnameAndNamespace[host.Name("svc1.default.cluster.local")] = map[string]*Service{"default": nil}
 	ps.ServiceByHostnameAndNamespace[host.Name("svc2.nosidecar.cluster.local")] = map[string]*Service{"nosidecar": nil}
 

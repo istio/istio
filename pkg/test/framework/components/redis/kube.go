@@ -17,12 +17,15 @@ package redis
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 
 	environ "istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/core/image"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/tmpl"
 )
 
 const (
@@ -74,8 +77,26 @@ func newKube(ctx resource.Context) (Instance, error) {
 	}
 
 	// apply redis YAML
-	if err := env.Apply(c.ns.Name(), environ.RedisInstallFilePath); err != nil {
-		return nil, fmt.Errorf("failed to apply %s, err: %v", environ.RedisInstallFilePath, err)
+	s, err := image.SettingsFromCommandLine()
+	if err != nil {
+		return nil, err
+	}
+
+	templateBytes, err := ioutil.ReadFile(environ.RedisInstallFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read %s, err: %v", environ.RedisInstallFilePath, err)
+	}
+
+	yamlContent, err := tmpl.Evaluate(string(templateBytes), map[string]interface{}{
+		"BitnamiHub":      s.BitnamiHub,
+		"ImagePullPolicy": s.PullPolicy,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to render %s, err: %v", environ.RedisInstallFilePath, err)
+	}
+
+	if err := env.ApplyContents(c.ns.Name(), yamlContent); err != nil {
+		return nil, fmt.Errorf("failed to apply rendered %s, err: %v", environ.RedisInstallFilePath, err)
 	}
 
 	fetchFn := c.env.NewPodFetch(c.ns.Name(), "app=redis")

@@ -17,7 +17,6 @@ package util
 import (
 	"fmt"
 	"net"
-	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -37,7 +36,6 @@ import (
 	pstruct "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 
@@ -296,31 +294,6 @@ func IsProtocolSniffingEnabledForOutboundPort(node *model.Proxy, port *model.Por
 	return IsProtocolSniffingEnabledForOutbound(node) && port.Protocol.IsUnsupported()
 }
 
-// ResolveHostsInNetworksConfig will go through the Gateways addresses for all
-// networks in the config and if it's not an IP address it will try to lookup
-// that hostname and replace it with the IP address in the config
-func ResolveHostsInNetworksConfig(config *meshconfig.MeshNetworks) {
-	if config == nil {
-		return
-	}
-	for _, n := range config.Networks {
-		for _, gw := range n.Gateways {
-			gwIP := net.ParseIP(gw.GetAddress())
-			if gwIP == nil {
-				addrs, err := net.LookupHost(gw.GetAddress())
-				if err != nil {
-					log.Warnf("error resolving host %#v: %v", gw.GetAddress(), err)
-				}
-				if err == nil && len(addrs) > 0 {
-					gw.Gw = &meshconfig.Network_IstioNetworkGateway_Address{
-						Address: addrs[0],
-					}
-				}
-			}
-		}
-	}
-}
-
 // ConvertLocality converts '/' separated locality string to Locality struct.
 func ConvertLocality(locality string) *core.Locality {
 	if locality == "" {
@@ -527,28 +500,13 @@ func MergeAnyWithAny(dst *any.Any, src *any.Any) (*any.Any, error) {
 	return retVal, nil
 }
 
-// logPanic logs the caller tree when a panic occurs.
-func logPanic(r interface{}) {
-	// Same as stdlib http server code. Manually allocate stack trace buffer size
-	// to prevent excessively large logs
-	const size = 64 << 10
-	stacktrace := make([]byte, size)
-	stacktrace = stacktrace[:runtime.Stack(stacktrace, false)]
-	log.Errorf("Observed a panic: %#v (%v)\n%s", r, r, stacktrace)
-}
-
-// HandleCrash catches the crash and calls additional handlers.
-func HandleCrash(handlers ...func()) {
-	if r := recover(); r != nil {
-		logPanic(r)
-		for _, handler := range handlers {
-			handler()
-		}
-	}
-}
-
 // BuildLbEndpointMetadata adds metadata values to a lb endpoint
-func BuildLbEndpointMetadata(uid string, network string, tlsMode string) *core.Metadata {
+func BuildLbEndpointMetadata(uid string, network string, tlsMode string, push *model.PushContext) *core.Metadata {
+	if !push.IsMixerEnabled() {
+		// Only use UIDs when Mixer is enabled.
+		uid = ""
+	}
+
 	if uid == "" && network == "" && tlsMode == model.DisabledTLSModeLabel {
 		return nil
 	}

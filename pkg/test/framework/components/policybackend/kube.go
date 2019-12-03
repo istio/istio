@@ -74,6 +74,8 @@ spec:
       - name: app
         image: "{{.Hub}}/test_policybackend:{{.Tag}}"
         imagePullPolicy: {{.ImagePullPolicy}}
+        securityContext:
+          runAsUser: 1
         ports:
         - name: grpc
           containerPort: {{.port}}

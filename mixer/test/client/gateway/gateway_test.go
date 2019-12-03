@@ -261,23 +261,20 @@ var (
 			UID:       "istio://ns3/services/svc",
 		},
 	}
-	mesh = &model.Environment{
-		Mesh: &meshconfig.MeshConfig{
-			MixerCheckServer:  "mixer_server:9091",
-			MixerReportServer: "mixer_server:9091",
-		},
-		ServiceDiscovery: mock{},
-	}
 	pushContext = model.PushContext{
 		ServiceByHostnameAndNamespace: map[host.Name]map[string]*model.Service{
 			host.Name("svc.ns3"): {
 				"ns3": &svc,
 			},
 		},
+		Mesh: &meshconfig.MeshConfig{
+			MixerCheckServer:  "mixer_server:9091",
+			MixerReportServer: "mixer_server:9091",
+		},
+		ServiceDiscovery: mock{},
 	}
 	clientParams = plugin.InputParams{
 		ListenerProtocol: plugin.ListenerProtocolHTTP,
-		Env:              mesh,
 		Node: &model.Proxy{
 			ID:       "pod.ns",
 			Type:     model.Router,

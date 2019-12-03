@@ -398,10 +398,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			routeName:             "9000",
 			sidecarConfig:         sidecarConfig,
 			virtualServiceConfigs: nil,
-			expectedHosts: map[string]map[string]bool{
-				"bookinfo.com:9999": {"bookinfo.com:9999": true, "*.bookinfo.com:9999": true},
-				"bookinfo.com:70":   {"bookinfo.com:70": true, "*.bookinfo.com:70": true},
-			},
+			expectedHosts:         map[string]map[string]bool{},
 		},
 		{
 			name:                  "sidecar config with unix domain socket listener",
@@ -639,9 +636,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			routeName:             "18888",
 			sidecarConfig:         sidecarConfigWithRegistryOnly,
 			virtualServiceConfigs: nil,
-			expectedHosts: map[string]map[string]bool{
-				"test-headless.com:8888": {"test-headless.com:8888": true, "*.test-headless.com:8888": true},
-			},
+			expectedHosts:         map[string]map[string]bool{},
 		},
 	}
 
@@ -679,7 +674,7 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 	}
 
 	vHostCache := make(map[int][]*route.VirtualHost)
-	route := configgen.buildSidecarOutboundHTTPRouteConfig(&env, &proxy, env.PushContext, routeName, vHostCache)
+	route := configgen.buildSidecarOutboundHTTPRouteConfig(&proxy, env.PushContext, routeName, vHostCache)
 	if route == nil {
 		t.Fatalf("got nil route for %s", routeName)
 	}
@@ -711,7 +706,7 @@ func buildHTTPService(hostname string, v visibility.Instance, ip, namespace stri
 		ClusterVIPs:  make(map[string]string),
 		Resolution:   model.DNSLB,
 		Attributes: model.ServiceAttributes{
-			ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+			ServiceRegistry: string(serviceregistry.Kubernetes),
 			Namespace:       namespace,
 			ExportTo:        map[visibility.Instance]bool{v: true},
 		},

@@ -5,11 +5,9 @@
 apiVersion: "authentication.istio.io/v1alpha1"
 kind: Policy
 metadata:
-  name: jwt-policy
+  name: default
   namespace: {{ .Namespace }}
 spec:
-  targets:
-  - name: b
   origins:
   - jwt:
       issuer: "test-issuer-1@istio.io"

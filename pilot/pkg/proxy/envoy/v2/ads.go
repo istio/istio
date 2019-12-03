@@ -498,7 +498,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		return err
 	}
 
-	if err := con.node.SetServiceInstances(pushEv.push.Env); err != nil {
+	if err := con.node.SetServiceInstances(pushEv.push.ServiceDiscovery); err != nil {
 		return err
 	}
 	if util.IsLocalityEmpty(con.node.Locality) {

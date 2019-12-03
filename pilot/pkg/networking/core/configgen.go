@@ -27,13 +27,13 @@ type ConfigGenerator interface {
 	// BuildListeners returns the list of inbound/outbound listeners for the given proxy. This is the LDS output
 	// Internally, the computation will be optimized to ensure that listeners are computed only
 	// once and shared across multiple invocations of this function.
-	BuildListeners(env *model.Environment, node *model.Proxy, push *model.PushContext) []*v2.Listener
+	BuildListeners(node *model.Proxy, push *model.PushContext) []*v2.Listener
 
 	// BuildClusters returns the list of clusters for the given proxy. This is the CDS output
-	BuildClusters(env *model.Environment, node *model.Proxy, push *model.PushContext) []*v2.Cluster
+	BuildClusters(node *model.Proxy, push *model.PushContext) []*v2.Cluster
 
 	// BuildHTTPRoutes returns the list of HTTP routes for the given proxy. This is the RDS output
-	BuildHTTPRoutes(env *model.Environment, node *model.Proxy, push *model.PushContext, routeNames []string) []*v2.RouteConfiguration
+	BuildHTTPRoutes(node *model.Proxy, push *model.PushContext, routeNames []string) []*v2.RouteConfiguration
 }
 
 // NewConfigGenerator creates a new instance of the dataplane configuration generator
