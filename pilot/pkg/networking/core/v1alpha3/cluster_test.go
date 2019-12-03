@@ -24,13 +24,13 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 
-	"istio.io/istio/pilot/pkg/networking/util"
-
 	apiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
+
+	"istio.io/istio/pilot/pkg/networking/util"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -418,7 +418,7 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 
 	proxy.ServiceInstances, _ = serviceDiscovery.GetProxyServiceInstances(proxy)
 
-	clusters := configgen.BuildClusters(env, proxy, env.PushContext)
+	clusters := configgen.BuildClusters(proxy, env.PushContext)
 	var err error
 	if len(env.PushContext.ProxyStatus[model.DuplicatedClusters.Name()]) > 0 {
 		err = fmt.Errorf("duplicate clusters detected %#v", env.PushContext.ProxyStatus[model.DuplicatedClusters.Name()])
@@ -493,11 +493,11 @@ func TestBuildGatewayClustersWithRingHashLbDefaultMinRingSize(t *testing.T) {
 	g.Expect(cluster.ConnectTimeout).To(Equal(ptypes.DurationProto(time.Duration(10000000001))))
 }
 
-func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, mesh meshconfig.MeshConfig, configStore model.IstioConfigStore) *model.Environment {
+func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, meshConfig meshconfig.MeshConfig, configStore model.IstioConfigStore) *model.Environment {
 	env := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
 		IstioConfigStore: configStore,
-		Mesh:             &mesh,
+		Mesh:             &meshConfig,
 	}
 
 	env.PushContext = model.NewPushContext()
@@ -1340,7 +1340,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 	configStore := &fakes.IstioConfigStore{}
 	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 
-	localityLbEndpoints := buildLocalityLbEndpoints(env, model.GetNetworkView(nil), service, 8080, nil)
+	localityLbEndpoints := buildLocalityLbEndpoints(env.PushContext, model.GetNetworkView(nil), service, 8080, nil)
 	g.Expect(len(localityLbEndpoints)).To(Equal(2))
 	for _, ep := range localityLbEndpoints {
 		if ep.Locality.Region == "region1" {
@@ -1434,7 +1434,7 @@ func TestBuildClustersDefaultCircuitBreakerThresholds(t *testing.T) {
 	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 	proxy := &model.Proxy{Metadata: &model.NodeMetadata{}}
 
-	clusters := configgen.BuildClusters(env, proxy, env.PushContext)
+	clusters := configgen.BuildClusters(proxy, env.PushContext)
 	g.Expect(len(clusters)).ShouldNot(Equal(0))
 
 	for _, cluster := range clusters {
@@ -1484,7 +1484,7 @@ func TestBuildInboundClustersDefaultCircuitBreakerThresholds(t *testing.T) {
 		},
 	}
 
-	clusters := configgen.buildInboundClusters(env, proxy, env.PushContext, instances, []*model.Port{servicePort})
+	clusters := configgen.buildInboundClusters(proxy, env.PushContext, instances, []*model.Port{servicePort})
 	g.Expect(len(clusters)).ShouldNot(Equal(0))
 
 	for _, cluster := range clusters {
@@ -1522,7 +1522,7 @@ func TestRedisProtocolWithPassThroughResolutionAtGateway(t *testing.T) {
 
 	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 
-	clusters := configgen.BuildClusters(env, proxy, env.PushContext)
+	clusters := configgen.BuildClusters(proxy, env.PushContext)
 	g.Expect(len(clusters)).ShouldNot(Equal(0))
 	for _, cluster := range clusters {
 		if cluster.Name == "outbound|6379||redis.com" {
@@ -1564,7 +1564,7 @@ func TestRedisProtocolClusterAtGateway(t *testing.T) {
 
 	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 
-	clusters := configgen.BuildClusters(env, proxy, env.PushContext)
+	clusters := configgen.BuildClusters(proxy, env.PushContext)
 	g.Expect(len(clusters)).ShouldNot(Equal(0))
 	for _, cluster := range clusters {
 		if cluster.Name == "outbound|6379||redis.com" {

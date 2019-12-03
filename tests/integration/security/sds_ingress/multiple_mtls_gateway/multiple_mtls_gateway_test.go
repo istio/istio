@@ -12,16 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package sdsingress
+package multiplemtlsgateway
 
 import (
-	"testing"
 	"time"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/ingress"
-	ingressutil "istio.io/istio/tests/integration/security/sdsingress/util"
+	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
+
+	"testing"
+)
+
+var (
+	credNames = []string{"bookinfo-credential-1", "bookinfo-credential-2", "bookinfo-credential-3",
+		"bookinfo-credential-4", "bookinfo-credential-5"}
+	hosts = []string{"bookinfo1.example.com", "bookinfo2.example.com", "bookinfo3.example.com",
+		"bookinfo4.example.com", "bookinfo5.example.com"}
 )
 
 // testMultiMtlsGateways deploys multiple mTLS gateways with SDS enabled, and creates kubernetes that store
@@ -30,14 +38,14 @@ import (
 func testMultiMtlsGateways(t *testing.T, ctx framework.TestContext) { // nolint:interfacer
 	t.Helper()
 
-	ingressutil.CreateIngressKubeSecret(t, ctx, multipleTLSCredNames, ingress.Mtls, ingressutil.IngressCredentialA)
+	ingressutil.CreateIngressKubeSecret(t, ctx, credNames, ingress.Mtls, ingressutil.IngressCredentialA)
 	ingressutil.DeployBookinfo(t, ctx, g, ingressutil.MultiMTLSGateway)
 
 	ing := ingress.NewOrFail(t, ctx, ingress.Config{
 		Istio: inst,
 	})
 	// Expect 2 SDS updates for each listener, one for server key/cert, and one for CA cert.
-	err := ingressutil.WaitUntilGatewaySdsStatsGE(t, ing, 2*len(multipleTLSCredNames), 30*time.Second)
+	err := ingressutil.WaitUntilGatewaySdsStatsGE(t, ing, 2*len(credNames), 30*time.Second)
 	if err != nil {
 		t.Errorf("sds update stats does not match: %v", err)
 	}
@@ -53,7 +61,7 @@ func testMultiMtlsGateways(t *testing.T, ctx framework.TestContext) { // nolint:
 	}
 	callType := ingress.Mtls
 
-	for _, h := range multipleTLSHosts {
+	for _, h := range hosts {
 		err := ingressutil.VisitProductPage(ing, h, callType, tlsContext, 30*time.Second,
 			ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, t)
 		if err != nil {

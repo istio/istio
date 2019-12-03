@@ -202,14 +202,16 @@ func (s *KubeSource) parseContent(r schema.KubeResources, name, yamlText string)
 
 	reader := bufio.NewReader(strings.NewReader(yamlText))
 	decoder := yaml.NewYAMLReader(reader)
+	chunkCount := -1
 
 	for {
+		chunkCount++
 		doc, err := decoder.Read()
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
-			e := fmt.Errorf("error reading documents in %s: %v", name, err)
+			e := fmt.Errorf("error reading documents in %s[%d]: %v", name, chunkCount, err)
 			scope.Source.Warnf("%v - skipping", e)
 			scope.Source.Debugf("Failed to parse yamlText chunk: %v", yamlText)
 			errs = multierror.Append(errs, e)
@@ -219,7 +221,7 @@ func (s *KubeSource) parseContent(r schema.KubeResources, name, yamlText string)
 		chunk := bytes.TrimSpace(doc)
 		r, err := s.parseChunk(r, chunk)
 		if err != nil {
-			e := fmt.Errorf("error processing %s: %v", name, err)
+			e := fmt.Errorf("error processing %s[%d]: %v", name, chunkCount, err)
 			scope.Source.Warnf("%v - skipping", e)
 			scope.Source.Debugf("Failed to parse yaml chunk: %v", string(chunk))
 			errs = multierror.Append(errs, e)

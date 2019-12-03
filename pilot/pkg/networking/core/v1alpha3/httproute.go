@@ -40,7 +40,7 @@ import (
 const wildcardDomainPrefix = "*."
 
 // BuildHTTPRoutes produces a list of routes for the proxy
-func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env *model.Environment, node *model.Proxy, push *model.PushContext,
+func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(node *model.Proxy, push *model.PushContext,
 	routeNames []string) []*xdsapi.RouteConfiguration {
 	routeConfigurations := make([]*xdsapi.RouteConfiguration, 0)
 
@@ -48,7 +48,7 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env *model.Environment, no
 	case model.SidecarProxy:
 		vHostCache := make(map[int][]*route.VirtualHost)
 		for _, routeName := range routeNames {
-			rc := configgen.buildSidecarOutboundHTTPRouteConfig(env, node, push, routeName, vHostCache)
+			rc := configgen.buildSidecarOutboundHTTPRouteConfig(node, push, routeName, vHostCache)
 			if rc != nil {
 				rc = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, node, push, rc)
 			} else {
@@ -62,7 +62,7 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env *model.Environment, no
 		}
 	case model.Router:
 		for _, routeName := range routeNames {
-			rc := configgen.buildGatewayHTTPRouteConfig(env, node, push, routeName)
+			rc := configgen.buildGatewayHTTPRouteConfig(node, push, routeName)
 			if rc != nil {
 				rc = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_GATEWAY, node, push, rc)
 			} else {
@@ -80,7 +80,7 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env *model.Environment, no
 
 // buildSidecarInboundHTTPRouteConfig builds the route config with a single wildcard virtual host on the inbound path
 // TODO: trace decorators, inbound timeouts
-func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env *model.Environment,
+func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(
 	node *model.Proxy, push *model.PushContext, instance *model.ServiceInstance, clusterName string) *xdsapi.RouteConfiguration {
 	traceOperation := fmt.Sprintf("%s:%d/*", instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
 	defaultRoute := istio_route.BuildDefaultHTTPInboundRoute(node, clusterName, traceOperation)
@@ -100,7 +100,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env *mo
 	in := &plugin.InputParams{
 		ListenerProtocol: plugin.ListenerProtocolHTTP,
 		ListenerCategory: networking.EnvoyFilter_SIDECAR_INBOUND,
-		Env:              env,
 		Node:             node,
 		ServiceInstance:  instance,
 		Service:          instance.Service,
@@ -123,7 +122,7 @@ func domainName(host string, port int) string {
 
 // buildSidecarOutboundHTTPRouteConfig builds an outbound HTTP Route for sidecar.
 // Based on port, will determine all virtual hosts that listen on the port.
-func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *model.Environment, node *model.Proxy, push *model.PushContext,
+func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(node *model.Proxy, push *model.PushContext,
 	routeName string, vHostCache map[int][]*route.VirtualHost) *xdsapi.RouteConfiguration {
 
 	var virtualHosts []*route.VirtualHost
@@ -164,7 +163,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 		}
 	}
 	if !cacheHit {
-		virtualHosts = configgen.buildSidecarOutboundVirtualHosts(env, node, push, routeName, listenerPort)
+		virtualHosts = configgen.buildSidecarOutboundVirtualHosts(node, push, routeName, listenerPort)
 		if listenerPort > 0 {
 			// only cache for tcp ports and not for uds
 			vHostCache[listenerPort] = virtualHosts
@@ -228,7 +227,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 	pluginParams := &plugin.InputParams{
 		ListenerProtocol: plugin.ListenerProtocolHTTP,
 		ListenerCategory: networking.EnvoyFilter_SIDECAR_OUTBOUND,
-		Env:              env,
 		Node:             node,
 		Push:             push,
 		Port: &model.Port{
@@ -246,7 +244,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 	return out
 }
 
-func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(_ *model.Environment, node *model.Proxy, push *model.PushContext,
+func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext,
 	routeName string, listenerPort int) []*route.VirtualHost {
 
 	var virtualServices []model.Config
