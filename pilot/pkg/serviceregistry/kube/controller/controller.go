@@ -178,6 +178,7 @@ func NewController(client kubernetes.Interface, options Options) *Controller {
 		XDSUpdater:                 options.XDSUpdater,
 		servicesMap:                make(map[host.Name]*model.Service),
 		externalNameSvcInstanceMap: make(map[host.Name][]*model.ServiceInstance),
+		namespacesMap:              make(map[string]*model.Namespace),
 	}
 
 	sharedInformers := informers.NewSharedInformerFactoryWithOptions(client, options.ResyncPeriod, informers.WithNamespace(options.WatchedNamespace))
@@ -968,8 +969,8 @@ func (c *Controller) AppendNamespaceHandler(f func(*model.Namespace, model.Event
 				return nil
 			}
 		}
-		nsConv := kube.ConvertNamespace(*ns)
 
+		nsConv := kube.ConvertNamespace(*ns)
 		switch event {
 		case model.EventDelete:
 			c.Lock()

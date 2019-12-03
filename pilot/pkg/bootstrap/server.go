@@ -516,6 +516,19 @@ func (s *Server) initEventHandlers() error {
 		return fmt.Errorf("append instance handler failed: %v", err)
 	}
 
+	namespaceHandler := func(ns *model.Namespace, _ model.Event) {
+		pushReq := &model.PushRequest{
+			Full:              true,
+			NamespacesUpdated: map[string]struct{}{ns.Name: {}},
+			// Need a namespace type?
+			ConfigTypesUpdated: map[string]struct{}{schemas.AuthenticationPolicy.Type: {}},
+		}
+		s.EnvoyXdsServer.ConfigUpdate(pushReq)
+	}
+	if err := s.ServiceController.AppendNamespaceHandler(namespaceHandler); err != nil {
+		return fmt.Errorf("append namespace handler failed: %v", err)
+	}
+
 	// TODO(Nino-k): remove this case once incrementalUpdate is default
 	if s.configController != nil {
 		// TODO: changes should not trigger a full recompute of LDS/RDS/CDS/EDS
