@@ -91,9 +91,9 @@ func (p Plugin) ExchangeToken(ctx context.Context, trustDomain, k8sSAjwt string)
 		// If resp is null, return a service unavailable status and try again.
 		if resp != nil {
 			statusCode = resp.StatusCode
-			errMsg = errMsg + fmt.Sprintf("HTTP status: %s. Error: %s", resp.Status, err.Error())
+			errMsg = errMsg + fmt.Sprintf("HTTP status: %s. Error: %v", resp.Status, err)
 		} else {
-			errMsg = errMsg + fmt.Sprintf("HTTP response empty. Error: %s", err.Error())
+			errMsg = errMsg + fmt.Sprintf("HTTP response empty. Error: %v", err)
 		}
 		return "", time.Now(), statusCode, errors.New(errMsg)
 	}
