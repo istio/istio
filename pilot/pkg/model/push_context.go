@@ -113,6 +113,9 @@ type PushContext struct {
 	// AuthNPolicies contains a map of hostname and port to authentication policy
 	AuthnPolicies processedAuthnPolicies `json:"-"`
 
+	// AuthnBetaPolicies contains (beta) Authn policies by namespace.
+	AuthnBetaPolicies *AuthenticationPolicies `json:"-"`
+
 	initDone bool
 
 	Version string
@@ -825,7 +828,8 @@ func (ps *PushContext) updateContext(
 			schemas.ClusterRbacConfig.Type, schemas.RbacConfig.Type,
 			schemas.AuthorizationPolicy.Type:
 			authzChanged = true
-		case schemas.AuthenticationPolicy.Type, schemas.AuthenticationMeshPolicy.Type:
+		case schemas.AuthenticationPolicy.Type, schemas.AuthenticationMeshPolicy.Type,
+			schemas.RequestAuthentication.Type:
 			authnChanged = true
 		}
 	}
@@ -867,6 +871,7 @@ func (ps *PushContext) updateContext(
 		}
 	} else {
 		ps.AuthnPolicies = oldPushContext.AuthnPolicies
+		ps.AuthnBetaPolicies = oldPushContext.AuthnBetaPolicies
 	}
 
 	if authzChanged {
@@ -968,6 +973,10 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 
 // Caches list of authentication policies
 func (ps *PushContext) initAuthnPolicies(env *Environment) error {
+	// Init beta policy.
+	ps.AuthnBetaPolicies = initAuthenticationPolicies(env)
+
+	// Processing alpha policy. This will be removed after beta API released.
 	authNPolicies, err := env.List(schemas.AuthenticationPolicy.Type, NamespaceAll)
 	if err != nil {
 		return err
