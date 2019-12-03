@@ -18,6 +18,8 @@ import (
 	"sort"
 	"testing"
 
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
+
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	structpb "github.com/golang/protobuf/ptypes/struct"
@@ -148,7 +150,7 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			push := model.NewPushContext()
-			push.InitMeshNetworks(tt.env)
+			push.InitContext(tt.env, nil, nil)
 			filtered := EndpointsByNetworkFilter(push, tt.conn.node.Metadata.Network, tt.endpoints)
 			if len(filtered) != len(tt.want) {
 				t.Errorf("Unexpected number of filtered endpoints: got %v, want %v", len(filtered), len(tt.want))
@@ -189,7 +191,6 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 }
 
 func TestEndpointsByNetworkFilter_RegistryServiceName(t *testing.T) {
-
 	//  - 1 gateway for network1
 	//  - 1 gateway for network2
 	//  - 1 gateway for network3
@@ -321,7 +322,7 @@ func TestEndpointsByNetworkFilter_RegistryServiceName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			push := model.NewPushContext()
-			push.InitMeshNetworks(tt.env)
+			push.InitContext(tt.env, nil, nil)
 			filtered := EndpointsByNetworkFilter(push, tt.conn.node.Metadata.Network, tt.endpoints)
 			if len(filtered) != len(tt.want) {
 				t.Errorf("Unexpected number of filtered endpoints: got %v, want %v", len(filtered), len(tt.want))
@@ -377,6 +378,8 @@ func xdsConnection(network string) *XdsConnection {
 func environment() *model.Environment {
 	return &model.Environment{
 		ServiceDiscovery: NewMemServiceDiscovery(nil, 0),
+		IstioConfigStore: &fakes.IstioConfigStore{},
+		Mesh:             &meshconfig.MeshConfig{},
 		MeshNetworks: &meshconfig.MeshNetworks{
 			Networks: map[string]*meshconfig.Network{
 				"network1": {
