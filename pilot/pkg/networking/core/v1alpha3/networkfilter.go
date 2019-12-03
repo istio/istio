@@ -77,7 +77,7 @@ func setAccessLog(push *model.PushContext, node *model.Proxy, config *tcp_proxy.
 		config.AccessLog = append(config.AccessLog, acc)
 	}
 
-	if env.Mesh.EnableEnvoyAccessLogService && util.IsIstioVersionGE14(node) {
+	if push.Mesh.EnableEnvoyAccessLogService && util.IsIstioVersionGE14(node) {
 		fl := &accesslogconfig.TcpGrpcAccessLogConfig{
 			CommonConfig: &accesslogconfig.CommonGrpcAccessLogConfig{
 				LogName: tcpEnvoyAccessLogFriendlyName,
