@@ -211,7 +211,7 @@ func NewServer(args PilotArgs) (*Server, error) {
 	}
 
 	if err := s.initDNSListener(); err != nil {
-		return nil, fmt.Errorf("istiod: %v", err)
+		return nil, fmt.Errorf("grpcDNS: %v", err)
 	}
 
 	// Will run the sidecar injector in pilot.
@@ -220,9 +220,7 @@ func NewServer(args PilotArgs) (*Server, error) {
 		return nil, fmt.Errorf("sidecar injector: %v", err)
 	}
 
-	if err := s.initSDSCA(); err != nil {
-		return nil, fmt.Errorf("istiod: %v", err)
-	}
+	s.initSDSCA()
 
 	// TODO: don't run this if galley is started, one ctlz is enough
 	if args.CtrlZOptions != nil {
@@ -569,19 +567,17 @@ func (s *Server) initSecureGrpcServerDNS(addr string) error {
 			// on a listener
 			err := s.secureHTTPServerDNS.ServeTLS(secureGrpcListener, "", "")
 			msg := fmt.Sprintf("Stoppped listening on %s %v", dnsGrpc, err)
-			select {
-			case <-stop:
-				log.Info(msg)
-				if s.Args.ForceStop {
-					s.secureGRPCServerDNS.Stop()
-				} else {
-					s.secureGRPCServerDNS.GracefulStop()
-				}
-				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-				defer cancel()
-				_ = s.secureHTTPServerDNS.Shutdown(ctx)
+			<-stop
+			log.Info(msg)
+			if s.Args.ForceStop {
 				s.secureGRPCServerDNS.Stop()
+			} else {
+				s.secureGRPCServerDNS.GracefulStop()
 			}
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			_ = s.secureHTTPServerDNS.Shutdown(ctx)
+			s.secureGRPCServerDNS.Stop()
 		}()
 		return nil
 	})
@@ -697,12 +693,12 @@ func (s *Server) initDNSListener() error {
 	// allows secure SDS connections to Istiod.
 	err := s.initDNSCerts(features.IstiodService.Get())
 	if err != nil {
-		log.Fatala("Failed to generate DNS k8s-signed certs. Autoinjection will not be enabled ", err)
+		return err
 	} else {
 		// run secure grpc server for Istiod - using DNS-based certs from K8S
 		err := s.initSecureGrpcServerDNS(features.IstiodService.Get())
 		if err != nil {
-			log.Fatala("Failed to init GRPC on 15012 ", err)
+			return err
 		}
 	}
 
@@ -710,7 +706,7 @@ func (s *Server) initDNSListener() error {
 }
 
 // init the SDS signing server
-func (s *Server) initSDSCA() error {
+func (s *Server) initSDSCA() {
 	// Options based on the current 'defaults' in istio.
 	// If adjustments are needed - env or mesh.config ( if of general interest ).
 	s.addStartFunc(func(stop <-chan struct{}) error {
@@ -719,8 +715,6 @@ func (s *Server) initSDSCA() error {
 		})
 		return nil
 	})
-
-	return nil
 }
 
 func grpcDial(ctx context.Context, cancel context.CancelFunc,

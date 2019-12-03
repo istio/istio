@@ -133,7 +133,7 @@ func (s *Server) initDNSCerts(discAddr string) error {
 	log.Infoa("Generating K8S-signed cert for ", names)
 
 	if s.kubeClient == nil {
-		return errors.New("k8s not found, cert signing by K8S disabled.")
+		return errors.New("k8s not found, cert signing by K8S disabled")
 	}
 
 	// TODO: fallback to citadel (or custom CA) if K8S signing is broken
