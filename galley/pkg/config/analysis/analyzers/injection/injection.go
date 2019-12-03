@@ -60,7 +60,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 	c.ForEach(metadata.K8SCoreV1Namespaces, func(r *resource.Entry) bool {
 
 		ns := r.Metadata.Name.String()
-		if isSystemNamespace(c, ns) {
+		if isSystemNamespace(ns) {
 			return true
 		}
 
