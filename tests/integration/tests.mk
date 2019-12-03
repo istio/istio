@@ -67,13 +67,21 @@ TEST_PACKAGES = $(shell go list ./tests/integration/... | grep -v /qualification
 # When running in operator mode, skip these tests, until these issues are resolved:
 # /mcp: https://github.com/istio/installer/pull/566
 # /sds_citadel_control_plane_auth_disabled: https://github.com/istio/istio/issues/19109
+# /sds_citadel_flow: https://github.com/istio/istio/issues/19109
 # /servertracing: https://github.com/istio/istio/issues/19177
+# /pilot/ingress: https://github.com/istio/istio/issues/19352
+# /telemetry/metrics: https://github.com/istio/istio/issues/19352
+# /istioio: These tests are tightly coupled to installation method
 OPERATOR_TEST_PACKAGES = $(shell go list ./tests/integration/... \
   | grep -v /qualification \
   | grep -v /examples \
   | grep -v /mcp \
   | grep -v /sds_citadel_control_plane_auth_disabled \
+  | grep -v /sds_citadel_flow \
   | grep -v /servertracing \
+  | grep -v /pilot/ingress \
+  | grep -v /telemetry/metrics \
+  | grep -v /istioio \
 )
 
 test.integration.operator: $(JUNIT_REPORT)
