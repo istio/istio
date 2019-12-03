@@ -315,3 +315,29 @@ func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []
 	}
 	return nil
 }
+
+// AppendNamespaceHandler implements namespace catalog operation
+func (c *Controller) AppendNamespaceHandler(f func(*model.Namespace, model.Event)) error {
+	for _, r := range c.GetRegistries() {
+		if err := r.AppendNamespaceHandler(f); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Namespaces list all namespace in the system
+func (c *Controller) Namespaces() ([]*model.Namespace, error) {
+	namespaces := make([]*model.Namespace, 0)
+	var errs error
+	for _, r := range c.GetRegistries() {
+		ns, err := r.Namespaces()
+		if err != nil {
+			errs = multierror.Append(errs, err)
+			continue
+		}
+		namespaces = append(namespaces, ns...)
+	}
+	return namespaces, errs
+
+}

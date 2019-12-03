@@ -121,11 +121,12 @@ var _ serviceregistry.Instance = &Controller{}
 type Controller struct {
 	domainSuffix string
 
-	client    kubernetes.Interface
-	queue     kube.Queue
-	services  cacheHandler
-	endpoints cacheHandler
-	nodes     cacheHandler
+	client     kubernetes.Interface
+	queue      kube.Queue
+	services   cacheHandler
+	endpoints  cacheHandler
+	nodes      cacheHandler
+	namespaces cacheHandler
 
 	pods *PodCache
 
@@ -152,6 +153,9 @@ type Controller struct {
 
 	// Network name for the registry as specified by the MeshNetworks configmap
 	networkForRegistry string
+
+	// namespacesMap stores namespace name ==> namespace.
+	namespacesMap map[string]*model.Namespace
 }
 
 type cacheHandler struct {
@@ -189,6 +193,9 @@ func NewController(client kubernetes.Interface, options Options) *Controller {
 
 	podInformer := sharedInformers.Core().V1().Pods().Informer()
 	out.pods = newPodCache(out.createCacheHandler(podInformer, "Pod"), out)
+
+	namespaceInformer := sharedInformers.Core().V1().Namespaces().Informer()
+	out.namespaces = out.createCacheHandler(namespaceInformer, "Namespaces")
 
 	return out
 }
@@ -300,7 +307,8 @@ func (c *Controller) HasSynced() bool {
 	if !c.services.informer.HasSynced() ||
 		!c.endpoints.informer.HasSynced() ||
 		!c.pods.informer.HasSynced() ||
-		!c.nodes.informer.HasSynced() {
+		!c.nodes.informer.HasSynced() ||
+		!c.namespaces.informer.HasSynced() {
 		return false
 	}
 	return true
@@ -316,10 +324,11 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	go c.services.informer.Run(stop)
 	go c.pods.informer.Run(stop)
 	go c.nodes.informer.Run(stop)
+	go c.namespaces.informer.Run(stop)
 
 	// To avoid endpoints without labels or ports, wait for sync.
 	cache.WaitForCacheSync(stop, c.nodes.informer.HasSynced, c.pods.informer.HasSynced,
-		c.services.informer.HasSynced)
+		c.services.informer.HasSynced, c.namespaces.informer.HasSynced)
 
 	go c.endpoints.informer.Run(stop)
 
@@ -942,6 +951,50 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 	})
 
 	return nil
+}
+
+func (c *Controller) AppendNamespaceHandler(f func(*model.Namespace, model.Event)) error {
+	c.namespaces.handler.Append(func(obj interface{}, event model.Event) error {
+		ns, ok := obj.(*v1.Namespace)
+		if !ok {
+			tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+			if !ok {
+				log.Errorf("Couldn't get object from tombstone %#v", obj)
+				return nil
+			}
+			ns, ok = tombstone.Obj.(*v1.Namespace)
+			if !ok {
+				log.Errorf("Tombstone contained an object that is not an namespace %#v", obj)
+				return nil
+			}
+		}
+		nsConv := kube.ConvertNamespace(*ns)
+
+		switch event {
+		case model.EventDelete:
+			c.Lock()
+			delete(c.namespacesMap, nsConv.Name)
+			c.Unlock()
+		default:
+			c.Lock()
+			c.namespacesMap[nsConv.Name] = nsConv
+			c.Unlock()
+		}
+		f(nsConv, event)
+		return nil
+	})
+	return nil
+}
+
+// Namespaces list all namespace in the system
+func (c *Controller) Namespaces() ([]*model.Namespace, error) {
+	c.RLock()
+	out := make([]*model.Namespace, 0, len(c.namespacesMap))
+	for _, ns := range c.namespacesMap {
+		out = append(out, ns)
+	}
+	c.RUnlock()
+	return out, nil
 }
 
 func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {

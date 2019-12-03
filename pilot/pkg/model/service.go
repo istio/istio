@@ -476,6 +476,9 @@ type ServiceDiscovery interface {
 	// the specified service hostname and ports.
 	// Deprecated - service account tracking moved to XdsServer, incremental.
 	GetIstioServiceAccounts(svc *Service, ports []int) []string
+
+	// Namespaces returns a list of namespace in the system.
+	Namespaces() ([]*Namespace, error)
 }
 
 // Match returns true if port matches with authentication port selector criteria.

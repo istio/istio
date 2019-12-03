@@ -36,6 +36,9 @@ type Controller interface {
 	// for a service.
 	AppendInstanceHandler(f func(*ServiceInstance, Event)) error
 
+	// AppendNamespaceHandler notifies about changes to the namespace
+	AppendNamespaceHandler(f func(*Namespace, Event)) error
+
 	// Run until a signal is received
 	Run(stop <-chan struct{})
 }

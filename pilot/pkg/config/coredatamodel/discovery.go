@@ -520,3 +520,15 @@ func (d *MCPDiscovery) AppendInstanceHandler(f func(*model.ServiceInstance, mode
 	log.Warnf("AppendInstanceHandler %s", errUnsupported)
 	return nil
 }
+
+// AppendNamespaceHandler Not Supported
+func (d *MCPDiscovery) AppendNamespaceHandler(f func(*model.Namespace, model.Event)) error {
+	log.Warnf("AppendNamespaceHandler %s", errUnsupported)
+	return nil
+}
+
+// Namespaces Not supported
+func (d *MCPDiscovery) Namespaces() ([]*model.Namespace, error) {
+	log.Warnf("Namespaces %s", errUnsupported)
+	return nil, nil
+}

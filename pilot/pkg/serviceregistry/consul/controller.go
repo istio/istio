@@ -15,6 +15,7 @@
 package consul
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 
@@ -237,6 +238,12 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 	return nil
 }
 
+// AppendNamespaceHandler implements a namespace catalog operation
+func (c *Controller) AppendNamespaceHandler(f func(*model.Namespace, model.Event)) error {
+	log.Warnf("AppendNamespaceHandler %s", errors.New("this operation is not supported by consul controller"))
+	return nil
+}
+
 // GetIstioServiceAccounts implements model.ServiceAccounts operation TODO
 func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
 	// Need to get service account of service registered with consul
@@ -323,4 +330,12 @@ func (c *Controller) InstanceChanged(instance *api.CatalogService, event model.E
 func (c *Controller) ServiceChanged(instances []*api.CatalogService, event model.Event) error {
 	c.refreshCache()
 	return nil
+}
+
+// Namespaces list all namespace in the system
+func (c *Controller) Namespaces() ([]*model.Namespace, error) {
+	// DONOTSUBMIT
+	// TODO(diemtvu): implement this
+	log.Warnf("Namespaces() is not supported on consul")
+	return nil, nil
 }

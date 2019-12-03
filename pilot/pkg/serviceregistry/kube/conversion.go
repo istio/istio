@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/kube"
+	configKube "istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/spiffe"
@@ -265,4 +266,12 @@ func ConvertProbesToPorts(t *coreV1.PodSpec) (model.PortList, error) {
 	sort.Slice(mgmtPorts, func(i, j int) bool { return mgmtPorts[i].Port < mgmtPorts[j].Port })
 
 	return mgmtPorts, errs
+}
+
+// ConvertNamespace returns Istio namespace for a K8s namespace
+func ConvertNamespace(ns coreV1.Namespace) *model.Namespace {
+	return &model.Namespace{
+		Name:   ns.Name,
+		Labels: map[string]string(configKube.ConvertLabels(ns.ObjectMeta)),
+	}
 }

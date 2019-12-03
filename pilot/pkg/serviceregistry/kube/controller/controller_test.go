@@ -63,6 +63,19 @@ func makeClient(t *testing.T) kubernetes.Interface {
 	return client
 }
 
+func makeNamespace(ns string, labels map[string]string, cl kubernetes.Interface, t *testing.T) {
+	_, err := cl.CoreV1().Namespaces().Create(&coreV1.Namespace{
+		ObjectMeta: metaV1.ObjectMeta{
+			Name:   ns,
+			Labels: labels,
+		},
+		Spec: coreV1.NamespaceSpec{},
+	})
+	if err != nil {
+		t.Log("Namespace already created (rerunning test)")
+	}
+}
+
 const (
 	testService  = "test"
 	resync       = 1 * time.Second
@@ -1612,4 +1625,18 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 	if ev := fx.Wait("eds"); ev == nil {
 		t.Errorf("Timeout incremental eds")
 	}
+}
+
+func TestNamespaces(t *testing.T) {
+	// Setup kube caches
+	controller, fx := newFakeController(t)
+	defer controller.Stop()
+	makeNamespace("ns-1", map[string]string{"foo": "bar"}, controller.client, t)
+	fx.Wait("xds")
+	namespaceList, _ := controller.Namespaces()
+	if len(namespaceList) != 1 {
+		t.Fatalf("Expecting %d namespace but got %d\r\n", 1, len(namespaceList))
+	}
+	t.Logf("%v", namespaceList)
+	// TODO(diemtvu): verify namespaces
 }

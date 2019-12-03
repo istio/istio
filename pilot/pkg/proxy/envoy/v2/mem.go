@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/pkg/log"
 )
 
 // memregistry is based on mock/discovery - it is used for testing and debugging v2.
@@ -31,8 +32,9 @@ import (
 
 // MemServiceController is a mock service controller
 type MemServiceController struct {
-	svcHandlers  []func(*model.Service, model.Event)
-	instHandlers []func(*model.ServiceInstance, model.Event)
+	svcHandlers       []func(*model.Service, model.Event)
+	instHandlers      []func(*model.ServiceInstance, model.Event)
+	namespaceHandlers []func(*model.Namespace, model.Event)
 
 	sync.RWMutex
 }
@@ -49,6 +51,14 @@ func (c *MemServiceController) AppendServiceHandler(f func(*model.Service, model
 func (c *MemServiceController) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
 	c.Lock()
 	c.instHandlers = append(c.instHandlers, f)
+	c.Unlock()
+	return nil
+}
+
+// AppendNamespaceHandler appends a namespace handler to the controller
+func (c *MemServiceController) AppendNamespaceHandler(f func(*model.Namespace, model.Event)) error {
+	c.Lock()
+	c.namespaceHandlers = append(c.namespaceHandlers, f)
 	c.Unlock()
 	return nil
 }
@@ -348,6 +358,12 @@ func (sd *MemServiceDiscovery) GetProxyWorkloadLabels(proxy *model.Proxy) (label
 		}
 	}
 	return out, nil
+}
+
+// Namespaces list all namespace in the system
+func (sd *MemServiceDiscovery) Namespaces() ([]*model.Namespace, error) {
+	log.Warnf("TODO(diemtvu) Implement this")
+	return nil, nil
 }
 
 // ManagementPorts implements discovery interface

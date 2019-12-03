@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schemas"
+	"istio.io/pkg/log"
 )
 
 // TODO: move this out of 'external' package. Either 'serviceentry' package or
@@ -33,12 +34,14 @@ var _ serviceregistry.Instance = &ServiceEntryStore{}
 
 type serviceHandler func(*model.Service, model.Event)
 type instanceHandler func(*model.ServiceInstance, model.Event)
+type namespaceHandler func(*model.Namespace, model.Event)
 
 // ServiceEntryStore communicates with ServiceEntry CRDs and monitors for changes
 type ServiceEntryStore struct {
-	serviceHandlers  []serviceHandler
-	instanceHandlers []instanceHandler
-	store            model.IstioConfigStore
+	serviceHandlers   []serviceHandler
+	instanceHandlers  []instanceHandler
+	namespaceHandlers []namespaceHandler
+	store             model.IstioConfigStore
 
 	storeMutex sync.RWMutex
 
@@ -54,12 +57,13 @@ type ServiceEntryStore struct {
 // NewServiceDiscovery creates a new ServiceEntry discovery service
 func NewServiceDiscovery(configController model.ConfigStoreCache, store model.IstioConfigStore) *ServiceEntryStore {
 	c := &ServiceEntryStore{
-		serviceHandlers:  make([]serviceHandler, 0),
-		instanceHandlers: make([]instanceHandler, 0),
-		store:            store,
-		ip2instance:      map[string][]*model.ServiceInstance{},
-		instances:        map[host.Name]map[string][]*model.ServiceInstance{},
-		updateNeeded:     true,
+		serviceHandlers:   make([]serviceHandler, 0),
+		instanceHandlers:  make([]instanceHandler, 0),
+		namespaceHandlers: make([]namespaceHandler, 0),
+		store:             store,
+		ip2instance:       map[string][]*model.ServiceInstance{},
+		instances:         map[host.Name]map[string][]*model.ServiceInstance{},
+		updateNeeded:      true,
 	}
 	if configController != nil {
 		configController.RegisterEventHandler(schemas.ServiceEntry.Type, func(config model.Config, event model.Event) {
@@ -105,6 +109,12 @@ func (d *ServiceEntryStore) AppendInstanceHandler(f func(*model.ServiceInstance,
 	return nil
 }
 
+// AppendNamespaceHandler adds namespace event handler.
+func (d *ServiceEntryStore) AppendNamespaceHandler(f func(*model.Namespace, model.Event)) error {
+	d.namespaceHandlers = append(d.namespaceHandlers, f)
+	return nil
+}
+
 // Run is used by some controllers to execute background jobs after init is done.
 func (d *ServiceEntryStore) Run(stop <-chan struct{}) {}
 
@@ -116,6 +126,14 @@ func (d *ServiceEntryStore) Services() ([]*model.Service, error) {
 	}
 
 	return services, nil
+}
+
+// Namespaces list all namespace in the system
+func (d *ServiceEntryStore) Namespaces() ([]*model.Namespace, error) {
+	// DONOTSUBMIT
+	// TODO(diemtvu): implement this
+	log.Warnf("Namespaces() is not supported on external")
+	return nil, nil
 }
 
 // GetService retrieves a service by host name if it exists

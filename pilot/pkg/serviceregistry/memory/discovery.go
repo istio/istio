@@ -234,6 +234,12 @@ func (sd *ServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) ([]*mode
 	return out, sd.GetProxyServiceInstancesError
 }
 
+// Namespaces list all namespace in the system
+func (sd *ServiceDiscovery) Namespaces() ([]*model.Namespace, error) {
+	// TODO(diemtvu): implement this
+	return nil, nil
+}
+
 func (sd *ServiceDiscovery) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.Collection, error) {
 	if sd.GetProxyServiceInstancesError != nil {
 		return nil, sd.GetProxyServiceInstancesError
@@ -278,6 +284,10 @@ func (c *MockController) AppendServiceHandler(f func(*model.Service, model.Event
 }
 
 func (c *MockController) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
+	return nil
+}
+
+func (c *MockController) AppendNamespaceHandler(f func(*model.Namespace, model.Event)) error {
 	return nil
 }
 
