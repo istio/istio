@@ -109,7 +109,7 @@ func TestV1beta1_JWT(t *testing.T) {
 			echoboot.NewBuilderOrFail(t, ctx).
 				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
 				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
-				With(&c, util.EchoConfig("b", ns, false, nil, g, p)).
+				With(&c, util.EchoConfig("c", ns, false, nil, g, p)).
 				BuildOrFail(t)
 
 			newTestCase := func(target echo.Instance, namePrefix string, jwt string, path string, expectAllowed bool) rbacUtil.TestCase {
