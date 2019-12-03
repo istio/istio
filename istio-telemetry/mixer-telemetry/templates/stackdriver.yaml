@@ -24,6 +24,7 @@ spec:
     {{- if .Values.mixer.adapters.stackdriver.auth.appCredentials }}
     appCredentials: {{ .Values.mixer.adapters.stackdriver.auth.appCredentials }}
     {{- end }}
+    {{- if .Values.mixer.adapters.stackdriver.metrics.enabled }}
     metricInfo:
       server-request-count.instance.{{ .Release.Namespace }}:
         # Due to a bug in gogoproto deserialization, Enums in maps must be
@@ -107,6 +108,8 @@ spec:
         kind: 3 # CUMULATIVE
         value: 2 # INT64
         metric_type: "istio.io/service/client/sent_bytes_count"
+    {{- end }}
+    {{- if .Values.mixer.adapters.stackdriver.logging.enabled }}
     logInfo:
       server-accesslog-stackdriver.instance.{{ .Release.Namespace }}:
         labelNames:
@@ -176,7 +179,9 @@ spec:
         - sent_bytes
         - total_received_bytes
         - total_sent_bytes
+      {{- end }}
 ---
+{{- if .Values.mixer.adapters.stackdriver.metrics.enabled }}
 #################################################
 ############## Metric Config ####################
 #################################################
@@ -705,7 +710,9 @@ spec:
       namespace_name: source.workload.namespace | "unknown"
       location: '""'
       pod_name: source.name | "unknown"
+{{- end }}
 ---
+{{- if .Values.mixer.adapters.stackdriver.logging.enabled }}
 apiVersion: "config.istio.io/v1alpha2"
 kind: instance
 metadata:
@@ -845,6 +852,7 @@ spec:
   - handler: stackdriver
     instances:
     - server-tcp-accesslog-stackdriver
+{{- end }}
 ---
 {{- if .Values.mixer.adapters.stackdriver.tracer.enabled }}
 apiVersion: "config.istio.io/v1alpha2"
