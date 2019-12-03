@@ -97,7 +97,7 @@ endif
 
 # Default proxy image.
 docker.proxyv2: BUILD_PRE=; chmod 755 envoy pilot-agent
-docker.proxyv2: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg BASE_VERSION=${BASE_VERSION}
+docker.proxyv2: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg BASE_VERSION=${BASE_VERSION} --build-arg ARCH=${LOCAL_ARCH}
 docker.proxyv2: tools/packaging/common/envoy_bootstrap_v2.json
 docker.proxyv2: install/gcp/bootstrap/gcp_envoy_bootstrap.json
 docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/envoy
@@ -171,7 +171,7 @@ docker.test_policybackend: mixer/docker/Dockerfile.test_policybackend
 docker.test_policybackend: $(ISTIO_OUT_LINUX)/policybackend
 	$(DOCKER_RULE)
 
-docker.kubectl: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
+docker.kubectl: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION} --build-arg ARCH=${TARGET_ARCH}
 docker.kubectl: docker/Dockerfile$$(suffix $$@)
 	$(DOCKER_RULE)
 

@@ -5,8 +5,11 @@ ARG BASE_VERSION=latest
 # The following section is used as base image if BASE_DISTRIBUTION=default
 FROM docker.io/istio/base:${BASE_VERSION} as default
 
+# Support Multi-arch
+ARG ARCH=amd64
+
 # This container should only contain kubectl.  Hard-coding to use Linux K8s 1.13.10 version.
-ADD https://storage.googleapis.com/kubernetes-release/release/v1.13.10/bin/linux/amd64/kubectl /usr/bin/kubectl
+ADD https://storage.googleapis.com/kubernetes-release/release/v1.13.10/bin/linux/${ARCH}/kubectl /usr/bin/kubectl
 RUN chmod +x /usr/bin/kubectl
 
 # Ensure a kubectl compatible with the container OS was used.  This is a safety

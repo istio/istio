@@ -19,10 +19,13 @@ COPY istio-iptables /usr/local/bin/istio-iptables
 # hadolint ignore=DL3007
 FROM gcr.io/distroless/cc:latest as distroless
 
+# The default value of arch is x86_64
+ARG ARCH=x86_64
+
 # TODO(https://github.com/istio/istio/issues/17656) clean up this hack
 COPY --from=default /sbin/xtables-multi /sbin/iptables* /sbin/ip6tables* /sbin/ip /sbin/
-COPY --from=default /usr/lib/x86_64-linux-gnu/xtables/ /usr/lib/x86_64-linux-gnu/xtables
-COPY --from=default /usr/lib/x86_64-linux-gnu/ /usr/lib/x86_64-linux-gnu
+COPY --from=default /usr/lib/${ARCH}-linux-gnu/xtables/ /usr/lib/${ARCH}-linux-gnu/xtables
+COPY --from=default /usr/lib/${ARCH}-linux-gnu/ /usr/lib/${ARCH}-linux-gnu
 COPY --from=default /etc/iproute2 /etc/iproute2
 
 COPY istio-iptables /usr/local/bin/istio-iptables
