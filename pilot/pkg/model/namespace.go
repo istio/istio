@@ -18,6 +18,7 @@ import "istio.io/istio/pkg/config/labels"
 
 // Namespace represents an Istio namespace.
 type Namespace struct {
-	Name   string          `json:"endpoint,omitempty"`
-	Labels labels.Instance `json:"labels,omitempty"`
+	Name        string          `json:"name,omitempty"`
+	Labels      labels.Instance `json:"labels,omitempty"`
+	Annotations labels.Instance `json:"annotations,omitempty"`
 }

@@ -24,6 +24,7 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/kube"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/spiffe"
 
@@ -522,5 +523,73 @@ func TestSecureNamingSAN(t *testing.T) {
 
 	if san != expectedSAN {
 		t.Fatalf("SAN match failed, SAN:%v  expectedSAN:%v", san, expectedSAN)
+	}
+}
+
+func TestConvertNamespace(t *testing.T) {
+	testCases := []struct {
+		name      string
+		namespace coreV1.Namespace
+		want      *model.Namespace
+	}{
+		{
+			name: "Plain",
+			namespace: coreV1.Namespace{
+				ObjectMeta: metaV1.ObjectMeta{
+					Name: "foo",
+				},
+			},
+			want: &model.Namespace{
+				Name:        "foo",
+				Labels:      labels.Instance{},
+				Annotations: labels.Instance{},
+			},
+		},
+		{
+			name: "With labels",
+			namespace: coreV1.Namespace{
+				ObjectMeta: metaV1.ObjectMeta{
+					Name: "foo",
+					Labels: map[string]string{
+						"foo":  "bar",
+						"frod": "fred",
+					},
+				},
+			},
+			want: &model.Namespace{
+				Name: "foo",
+				Labels: labels.Instance{
+					"foo": "bar", "frod": "fred",
+				},
+				Annotations: labels.Instance{},
+			},
+		},
+		{
+			name: "With annotation",
+			namespace: coreV1.Namespace{
+				ObjectMeta: metaV1.ObjectMeta{
+					Name: "foo",
+					Annotations: map[string]string{
+						"foo":  "bar",
+						"frod": "fred",
+					},
+				},
+			},
+			want: &model.Namespace{
+				Name:   "foo",
+				Labels: labels.Instance{},
+				Annotations: labels.Instance{
+					"foo": "bar", "frod": "fred",
+				},
+			},
+		},
+	}
+
+	for _, c := range testCases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := ConvertNamespace(c.namespace); !reflect.DeepEqual(c.want, got) {
+				t.Errorf("want %#v, got %#v", c.want, got)
+			}
+		})
 	}
 }

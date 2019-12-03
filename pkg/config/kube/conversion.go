@@ -50,6 +50,14 @@ func ConvertLabels(obj metaV1.ObjectMeta) labels.Instance {
 	return out
 }
 
+func ConvertAnnotations(obj metaV1.ObjectMeta) labels.Instance {
+	out := make(labels.Instance, len(obj.Annotations))
+	for k, v := range obj.Annotations {
+		out[k] = v
+	}
+	return out
+}
+
 var grpcWeb = string(protocol.GRPCWeb)
 var grpcWebLen = len(grpcWeb)
 

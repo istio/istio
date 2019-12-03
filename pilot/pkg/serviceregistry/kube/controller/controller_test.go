@@ -195,6 +195,8 @@ func newFakeController(_ *testing.T) (*Controller, *FakeXdsUpdater) {
 	})
 	_ = c.AppendInstanceHandler(func(instance *model.ServiceInstance, event model.Event) {})
 	_ = c.AppendServiceHandler(func(service *model.Service, event model.Event) {})
+	_ = c.AppendNamespaceHandler(func(service *model.Namespace, event model.Event) {})
+
 	c.Env = &model.Environment{
 		Mesh: &meshconfig.MeshConfig{
 			MixerCheckServer: "mixer",
@@ -1633,10 +1635,17 @@ func TestNamespaces(t *testing.T) {
 	defer controller.Stop()
 	makeNamespace("ns-1", map[string]string{"foo": "bar"}, controller.client, t)
 	fx.Wait("xds")
-	namespaceList, _ := controller.Namespaces()
-	if len(namespaceList) != 1 {
-		t.Fatalf("Expecting %d namespace but got %d\r\n", 1, len(namespaceList))
+	got, _ := controller.Namespaces()
+	want := []*model.Namespace{
+		{
+			Name: "ns-1",
+			Labels: labels.Instance{
+				"foo": "bar",
+			},
+			Annotations: labels.Instance{},
+		},
 	}
-	t.Logf("%v", namespaceList)
-	// TODO(diemtvu): verify namespaces
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %#v, want %#v", got, want)
+	}
 }

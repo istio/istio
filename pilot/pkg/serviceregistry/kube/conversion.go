@@ -271,7 +271,8 @@ func ConvertProbesToPorts(t *coreV1.PodSpec) (model.PortList, error) {
 // ConvertNamespace returns Istio namespace for a K8s namespace
 func ConvertNamespace(ns coreV1.Namespace) *model.Namespace {
 	return &model.Namespace{
-		Name:   ns.Name,
-		Labels: map[string]string(configKube.ConvertLabels(ns.ObjectMeta)),
+		Name:        ns.Name,
+		Labels:      map[string]string(configKube.ConvertLabels(ns.ObjectMeta)),
+		Annotations: map[string]string(configKube.ConvertAnnotations(ns.ObjectMeta)),
 	}
 }
