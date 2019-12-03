@@ -294,6 +294,11 @@ type combinedDestinationRule struct {
 	config *Config
 }
 
+// IsMixerEnabled returns true if mixer is enabled in the Mesh config.
+func (ps *PushContext) IsMixerEnabled() bool {
+	return ps != nil && ps.Mesh != nil && (ps.Mesh.MixerCheckServer != "" || ps.Mesh.MixerReportServer != "")
+}
+
 // Add will add an case to the metric.
 func (ps *PushContext) Add(metric monitoring.Metric, key string, proxy *Proxy, msg string) {
 	if ps == nil {
