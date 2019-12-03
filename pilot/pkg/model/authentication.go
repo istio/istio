@@ -62,7 +62,7 @@ type AuthenticationPolicies struct {
 	rootNamespace string
 }
 
-// initAuthenticationPolicies creates a new AuthenticationPolicies structand populates with the
+// initAuthenticationPolicies creates a new AuthenticationPolicies struct and populates with the
 // authentication policies in the mesh environment.
 func initAuthenticationPolicies(env *Environment) *AuthenticationPolicies {
 	policy := &AuthenticationPolicies{

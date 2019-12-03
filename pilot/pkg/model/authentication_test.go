@@ -103,7 +103,7 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 		{
 			name:              "Match workload labels in foo",
 			workloadNamespace: "foo",
-			workloadLabels:    labels.Collection{{"app": "httpbin", "version": "v1", "other": "lables"}},
+			workloadLabels:    labels.Collection{{"app": "httpbin", "version": "v1", "other": "labels"}},
 			want: []*Config{
 				&Config{
 					ConfigMeta: ConfigMeta{
