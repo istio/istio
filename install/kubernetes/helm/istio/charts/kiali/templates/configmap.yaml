@@ -29,8 +29,20 @@ data:
     external_services:
       tracing:
         url: {{ .Values.dashboard.jaegerURL }}
-      grafana:
+        in_cluster_url: {{ .Values.dashboard.jaegerInClusterURL }}
+        auth:
+          type: {{ .Values.dashboard.jaegerAuth }}
+          username: {{ .Values.dashboard.jaegerUsername }}
+          password: {{ .Values.dashboard.jaegerPassword }}
+          token: {{ .Values.dashboard.jaegerToken }}
+      grafana:  
         url: {{ .Values.dashboard.grafanaURL }}
+        in_cluster_url: {{ .Values.dashboard.grafanaInClusterURL }}
+        auth:
+          type: {{ .Values.dashboard.grafanaAuth }}
+          username: {{ .Values.dashboard.grafanaUsername }}
+          password: {{ .Values.dashboard.grafanaPassword }}
+          token: {{ .Values.dashboard.grafanaToken }}
       prometheus:
         url: {{ .Values.prometheusAddr }}
 {{- if .Values.security.enabled }}
