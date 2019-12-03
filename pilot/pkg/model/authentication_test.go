@@ -15,6 +15,8 @@
 package model
 
 import (
+	"fmt"
+	"reflect"
 	"testing"
 
 	mesh "istio.io/api/mesh/v1alpha1"
@@ -35,53 +37,159 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 		name              string
 		workloadNamespace string
 		workloadLabels    labels.Collection
-		want              int
+		want              []*Config
 	}{
 		{
 			name:              "Empty workload labels in foo",
 			workloadNamespace: "foo",
 			workloadLabels:    labels.Collection{},
-			want:              2,
+			want: []*Config{
+				&Config{
+					ConfigMeta: ConfigMeta{
+						Type:      "request-authentication",
+						Name:      "default",
+						Namespace: "foo",
+					},
+					Spec: &security_beta.RequestAuthentication{},
+				},
+				&Config{
+					ConfigMeta: ConfigMeta{
+						Type:      "request-authentication",
+						Name:      "default",
+						Namespace: "istio-config",
+					},
+					Spec: &security_beta.RequestAuthentication{},
+				},
+			},
 		},
 		{
 			name:              "Empty workload labels in bar",
 			workloadNamespace: "bar",
 			workloadLabels:    labels.Collection{},
-			want:              2,
+			want: []*Config{
+				&Config{
+					ConfigMeta: ConfigMeta{
+						Type:      "request-authentication",
+						Name:      "default",
+						Namespace: "bar",
+					},
+					Spec: &security_beta.RequestAuthentication{},
+				},
+				&Config{
+					ConfigMeta: ConfigMeta{
+						Type:      "request-authentication",
+						Name:      "default",
+						Namespace: "istio-config",
+					},
+					Spec: &security_beta.RequestAuthentication{},
+				},
+			},
 		},
 		{
 			name:              "Empty workload labels in baz",
 			workloadNamespace: "baz",
 			workloadLabels:    labels.Collection{},
-			want:              1,
+			want: []*Config{
+				&Config{
+					ConfigMeta: ConfigMeta{
+						Type:      "request-authentication",
+						Name:      "default",
+						Namespace: "istio-config",
+					},
+					Spec: &security_beta.RequestAuthentication{},
+				},
+			},
 		},
 		{
 			name:              "Match workload labels in foo",
 			workloadNamespace: "foo",
 			workloadLabels:    labels.Collection{{"app": "httpbin", "version": "v1", "other": "lables"}},
-			want:              3,
+			want: []*Config{
+				&Config{
+					ConfigMeta: ConfigMeta{
+						Type:      "request-authentication",
+						Name:      "default",
+						Namespace: "foo",
+					},
+					Spec: &security_beta.RequestAuthentication{},
+				},
+				&Config{
+					ConfigMeta: ConfigMeta{
+						Type:      "request-authentication",
+						Name:      "with-selector",
+						Namespace: "foo",
+					},
+					Spec: &security_beta.RequestAuthentication{
+						Selector: &selectorpb.WorkloadSelector{
+							MatchLabels: map[string]string{
+								"app":     "httpbin",
+								"version": "v1",
+							},
+						},
+					},
+				},
+				&Config{
+					ConfigMeta: ConfigMeta{
+						Type:      "request-authentication",
+						Name:      "default",
+						Namespace: "istio-config",
+					},
+					Spec: &security_beta.RequestAuthentication{},
+				},
+			},
 		},
 		{
 			name:              "Match workload labels in bar",
 			workloadNamespace: "bar",
 			workloadLabels:    labels.Collection{{"app": "httpbin", "version": "v1"}},
-			want:              2,
+			want: []*Config{
+				&Config{
+					ConfigMeta: ConfigMeta{
+						Type:      "request-authentication",
+						Name:      "default",
+						Namespace: "bar",
+					},
+					Spec: &security_beta.RequestAuthentication{},
+				},
+				&Config{
+					ConfigMeta: ConfigMeta{
+						Type:      "request-authentication",
+						Name:      "default",
+						Namespace: "istio-config",
+					},
+					Spec: &security_beta.RequestAuthentication{},
+				},
+			},
 		},
 		{
 			name:              "Paritial match workload labels in foo",
 			workloadNamespace: "foo",
 			workloadLabels:    labels.Collection{{"app": "httpbin"}},
-			want:              2,
+			want: []*Config{
+				&Config{
+					ConfigMeta: ConfigMeta{
+						Type:      "request-authentication",
+						Name:      "default",
+						Namespace: "foo",
+					},
+					Spec: &security_beta.RequestAuthentication{},
+				},
+				&Config{
+					ConfigMeta: ConfigMeta{
+						Type:      "request-authentication",
+						Name:      "default",
+						Namespace: "istio-config",
+					},
+					Spec: &security_beta.RequestAuthentication{},
+				},
+			},
 		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := policies.GetJwtPoliciesForWorkload(tc.workloadNamespace, tc.workloadLabels); len(got) != tc.want {
-				t.Errorf("Want %d, got %d policies:\n", tc.want, len(got))
-				for _, gotCfg := range got {
-					t.Errorf("%s/%s", gotCfg.Namespace, gotCfg.Name)
-				}
+			if got := policies.GetJwtPoliciesForWorkload(tc.workloadNamespace, tc.workloadLabels); !reflect.DeepEqual(tc.want, got) {
+				t.Errorf("want %+v\n, but got %+v\n", printConfigs(tc.want), printConfigs(got))
 			}
 		})
 	}
@@ -128,4 +236,12 @@ func createTestConfigs() []*Config {
 	configs = append(configs, createTestConfig("with-selector", "foo", selector))
 
 	return configs
+}
+
+func printConfigs(configs []*Config) string {
+	s := "[\n"
+	for _, c := range configs {
+		s += fmt.Sprintf("%+v\n", c)
+	}
+	return s + "]"
 }
