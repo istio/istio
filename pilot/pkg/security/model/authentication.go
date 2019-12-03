@@ -68,35 +68,6 @@ const (
 	AuthnFilterName = "istio_authn"
 )
 
-// MutualTLSMode is the mutule TLS mode specified by authentication policy.
-type MutualTLSMode int
-
-const (
-	// MTLSUnknown is used to indicate the variable hasn't been initialized correctly (with the authentication policy).
-	MTLSUnknown MutualTLSMode = iota
-
-	// MTLSDisable if authentication policy disable mTLS.
-	MTLSDisable
-
-	// MTLSPermissive if authentication policy enable mTLS in permissive mode.
-	MTLSPermissive
-
-	// MTLSStrict if authentication policy enable mTLS in strict mode.
-	MTLSStrict
-)
-
-// String converts MutualTLSMode to human readable string for debugging.
-func (mode MutualTLSMode) String() string {
-	// declare an array of strings
-	names := [...]string{
-		"UNKNOWN",
-		"DISABLE",
-		"PERMISSIVE",
-		"STRICT"}
-
-	return names[mode]
-}
-
 // ConstructSdsSecretConfigForGatewayListener constructs SDS secret configuration for ingress gateway.
 func ConstructSdsSecretConfigForGatewayListener(name, sdsUdsPath string) *auth.SdsSecretConfig {
 	if name == "" || sdsUdsPath == "" {
