@@ -191,19 +191,19 @@ func NewListenerBuilder(node *model.Proxy) *ListenerBuilder {
 }
 
 func (builder *ListenerBuilder) buildSidecarInboundListeners(configgen *ConfigGeneratorImpl,
-	env *model.Environment, node *model.Proxy, push *model.PushContext) *ListenerBuilder {
-	builder.inboundListeners = configgen.buildSidecarInboundListeners(env, node, push)
+	node *model.Proxy, push *model.PushContext) *ListenerBuilder {
+	builder.inboundListeners = configgen.buildSidecarInboundListeners(node, push)
 	return builder
 }
 
 func (builder *ListenerBuilder) buildSidecarOutboundListeners(configgen *ConfigGeneratorImpl,
-	env *model.Environment, node *model.Proxy, push *model.PushContext) *ListenerBuilder {
-	builder.outboundListeners = configgen.buildSidecarOutboundListeners(env, node, push)
+	node *model.Proxy, push *model.PushContext) *ListenerBuilder {
+	builder.outboundListeners = configgen.buildSidecarOutboundListeners(node, push)
 	return builder
 }
 
 func (builder *ListenerBuilder) buildManagementListeners(_ *ConfigGeneratorImpl,
-	env *model.Environment, node *model.Proxy, _ *model.PushContext) *ListenerBuilder {
+	node *model.Proxy, push *model.PushContext) *ListenerBuilder {
 
 	noneMode := node.GetInterceptionMode() == model.InterceptionNone
 
@@ -217,8 +217,8 @@ func (builder *ListenerBuilder) buildManagementListeners(_ *ConfigGeneratorImpl,
 	// there are multiple IPs
 	mgmtListeners := make([]*xdsapi.Listener, 0)
 	for _, ip := range node.IPAddresses {
-		managementPorts := env.ManagementPorts(ip)
-		management := buildSidecarInboundMgmtListeners(node, env, managementPorts, ip)
+		managementPorts := push.ManagementPorts(ip)
+		management := buildSidecarInboundMgmtListeners(node, push, managementPorts, ip)
 		mgmtListeners = append(mgmtListeners, management...)
 	}
 	addresses := make(map[string]*xdsapi.Listener)
@@ -256,14 +256,14 @@ func (builder *ListenerBuilder) buildManagementListeners(_ *ConfigGeneratorImpl,
 
 func (builder *ListenerBuilder) buildVirtualOutboundListener(
 	configgen *ConfigGeneratorImpl,
-	env *model.Environment, node *model.Proxy, push *model.PushContext) *ListenerBuilder {
+	node *model.Proxy, push *model.PushContext) *ListenerBuilder {
 
 	var isTransparentProxy *wrappers.BoolValue
 	if node.GetInterceptionMode() == model.InterceptionTproxy {
 		isTransparentProxy = proto.BoolTrue
 	}
 
-	tcpProxyFilter := newTCPProxyOutboundListenerFilter(env, node)
+	tcpProxyFilter := newTCPProxyOutboundListenerFilter(push, node)
 
 	filterChains := []*listener.FilterChain{
 		{
@@ -297,13 +297,13 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
 	ipTablesListener := &xdsapi.Listener{
 		Name:             VirtualOutboundListenerName,
-		Address:          util.BuildAddress(actualWildcard, uint32(env.Mesh.ProxyListenPort)),
+		Address:          util.BuildAddress(actualWildcard, uint32(push.Mesh.ProxyListenPort)),
 		Transparent:      isTransparentProxy,
 		UseOriginalDst:   proto.BoolTrue,
 		FilterChains:     filterChains,
 		TrafficDirection: core.TrafficDirection_OUTBOUND,
 	}
-	configgen.onVirtualOutboundListener(env, node, push, ipTablesListener)
+	configgen.onVirtualOutboundListener(node, push, ipTablesListener)
 	builder.virtualListener = ipTablesListener
 	return builder
 }
@@ -312,7 +312,7 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 // but we still ship the no-op virtual inbound listener, so that the code flow is same across REDIRECT and TPROXY.
 func (builder *ListenerBuilder) buildVirtualInboundListener(
 	configgen *ConfigGeneratorImpl,
-	env *model.Environment, node *model.Proxy, push *model.PushContext) *ListenerBuilder {
+	node *model.Proxy, push *model.PushContext) *ListenerBuilder {
 	var isTransparentProxy *wrappers.BoolValue
 	if node.GetInterceptionMode() == model.InterceptionTproxy {
 		isTransparentProxy = proto.BoolTrue
@@ -320,9 +320,9 @@ func (builder *ListenerBuilder) buildVirtualInboundListener(
 
 	actualWildcard, _ := getActualWildcardAndLocalHost(node)
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
-	filterChains := newInboundPassthroughFilterChains(configgen, env, node, push)
+	filterChains := newInboundPassthroughFilterChains(configgen, node, push)
 	if util.IsProtocolSniffingEnabledForInbound(node) {
-		filterChains = append(filterChains, newHTTPPassThroughFilterChain(configgen, env, node, push)...)
+		filterChains = append(filterChains, newHTTPPassThroughFilterChain(configgen, node, push)...)
 	}
 	builder.virtualInboundListener = &xdsapi.Listener{
 		Name:             VirtualInboundListenerName,
@@ -418,7 +418,7 @@ func newBlackholeFilter(enableAny bool) *listener.Filter {
 
 // Create pass through filter chains matching ipv4 address and ipv6 address independently.
 func newInboundPassthroughFilterChains(configgen *ConfigGeneratorImpl,
-	env *model.Environment, node *model.Proxy, push *model.PushContext) []*listener.FilterChain {
+	node *model.Proxy, push *model.PushContext) []*listener.FilterChain {
 	ipv4, ipv6 := ipv4AndIpv6Support(node)
 	// ipv4 and ipv6 feature detect
 	ipVersions := make([]string, 0, 2)
@@ -449,7 +449,7 @@ func newInboundPassthroughFilterChains(configgen *ConfigGeneratorImpl,
 				util.ConvertAddressToCidr(matchingIP),
 			},
 		}
-		setAccessLog(env, node, tcpProxy)
+		setAccessLog(push, node, tcpProxy)
 		tcpProxyFilter := &listener.Filter{
 			Name: xdsutil.TCPProxy,
 		}
@@ -461,7 +461,6 @@ func newInboundPassthroughFilterChains(configgen *ConfigGeneratorImpl,
 		}
 
 		in := &plugin.InputParams{
-			Env:              env,
 			Node:             node,
 			Push:             push,
 			ListenerProtocol: plugin.ListenerProtocolTCP,
@@ -490,7 +489,7 @@ func newInboundPassthroughFilterChains(configgen *ConfigGeneratorImpl,
 	return filterChains
 }
 
-func newHTTPPassThroughFilterChain(configgen *ConfigGeneratorImpl, env *model.Environment,
+func newHTTPPassThroughFilterChain(configgen *ConfigGeneratorImpl,
 	node *model.Proxy, push *model.PushContext) []*listener.FilterChain {
 	ipv4, ipv6 := ipv4AndIpv6Support(node)
 	// ipv4 and ipv6 feature detect
@@ -520,7 +519,6 @@ func newHTTPPassThroughFilterChain(configgen *ConfigGeneratorImpl, env *model.En
 		in := &plugin.InputParams{
 			ListenerProtocol:           plugin.ListenerProtocolHTTP,
 			DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_INBOUND,
-			Env:                        env,
 			Node:                       node,
 			ServiceInstance:            dummyServiceInstance,
 			Port:                       port,
@@ -542,7 +540,7 @@ func newHTTPPassThroughFilterChain(configgen *ConfigGeneratorImpl, env *model.En
 		}
 		httpOpts := configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, in)
 		httpOpts.statPrefix = clusterName
-		connectionManager := buildHTTPConnectionManager(in, env, httpOpts, mutable.FilterChains[0].HTTP)
+		connectionManager := buildHTTPConnectionManager(in, httpOpts, mutable.FilterChains[0].HTTP)
 
 		filter := &listener.Filter{
 			Name: xdsutil.HTTPConnectionManager,
@@ -575,7 +573,7 @@ func newHTTPPassThroughFilterChain(configgen *ConfigGeneratorImpl, env *model.En
 	return filterChains
 }
 
-func newTCPProxyOutboundListenerFilter(env *model.Environment, node *model.Proxy) *listener.Filter {
+func newTCPProxyOutboundListenerFilter(push *model.PushContext, node *model.Proxy) *listener.Filter {
 	tcpProxy := &tcp_proxy.TcpProxy{
 		StatPrefix:       util.BlackHoleCluster,
 		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
@@ -586,7 +584,7 @@ func newTCPProxyOutboundListenerFilter(env *model.Environment, node *model.Proxy
 			StatPrefix:       util.PassthroughCluster,
 			ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.PassthroughCluster},
 		}
-		setAccessLog(env, node, tcpProxy)
+		setAccessLog(push, node, tcpProxy)
 	}
 
 	filter := listener.Filter{

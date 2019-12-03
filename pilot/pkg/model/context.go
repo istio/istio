@@ -467,8 +467,8 @@ func (node *Proxy) SetGatewaysForProxy(ps *PushContext) {
 	node.MergedGateway = ps.mergeGateways(node)
 }
 
-func (node *Proxy) SetServiceInstances(env *Environment) error {
-	instances, err := env.GetProxyServiceInstances(node)
+func (node *Proxy) SetServiceInstances(serviceDiscovery ServiceDiscovery) error {
+	instances, err := serviceDiscovery.GetProxyServiceInstances(node)
 	if err != nil {
 		log.Errorf("failed to get service proxy service instances: %v", err)
 		return err

@@ -22,7 +22,7 @@ import (
 	"time"
 
 	authn "istio.io/api/authentication/v1alpha1"
-	"istio.io/api/mesh/v1alpha1"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -98,8 +98,17 @@ type PushContext struct {
 	// are no authorization policies in the cluster.
 	AuthzPolicies *AuthorizationPolicies `json:"-"`
 
-	// Env has a pointer to the shared environment used to create the snapshot.
-	Env *Environment `json:"-"`
+	// Mesh configuration for the mesh.
+	Mesh *meshconfig.MeshConfig `json:"-"`
+
+	// Networks configuration.
+	Networks *meshconfig.MeshNetworks `json:"-"`
+
+	// Discovery interface for listing services and instances.
+	ServiceDiscovery `json:"-"`
+
+	// Config interface for listing routing rules
+	IstioConfigStore `json:"-"`
 
 	// AuthNPolicies contains a map of hostname and port to authentication policy
 	AuthnPolicies processedAuthnPolicies `json:"-"`
@@ -641,7 +650,7 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 	// proxies like the istio-ingressgateway or istio-egressgateway.
 	// If there are no service specific dest rules, we will end up picking up the same
 	// rules anyway, later in the code
-	if proxy.ConfigNamespace != ps.Env.Mesh.RootNamespace {
+	if proxy.ConfigNamespace != ps.Mesh.RootNamespace {
 		// search through the DestinationRules in proxy's namespace first
 		if ps.namespaceLocalDestRules[proxy.ConfigNamespace] != nil {
 			if hostname, ok := MostSpecificHostMatch(service.Hostname,
@@ -677,10 +686,10 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 	// if no public/private rule in calling proxy's namespace matched, and no public rule in the
 	// target service's namespace matched, search for any public destination rule in the config root namespace
 	// NOTE: This does mean that we are effectively ignoring private dest rules in the config root namespace
-	if ps.namespaceExportedDestRules[ps.Env.Mesh.RootNamespace] != nil {
+	if ps.namespaceExportedDestRules[ps.Mesh.RootNamespace] != nil {
 		if hostname, ok := MostSpecificHostMatch(service.Hostname,
-			ps.namespaceExportedDestRules[ps.Env.Mesh.RootNamespace].hosts); ok {
-			return ps.namespaceExportedDestRules[ps.Env.Mesh.RootNamespace].destRule[hostname].config
+			ps.namespaceExportedDestRules[ps.Mesh.RootNamespace].hosts); ok {
+			return ps.namespaceExportedDestRules[ps.Mesh.RootNamespace].destRule[hostname].config
 		}
 	}
 
@@ -719,7 +728,10 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 		return nil
 	}
 
-	ps.Env = env
+	ps.Mesh = env.Mesh
+	ps.Networks = env.MeshNetworks
+	ps.ServiceDiscovery = env
+	ps.IstioConfigStore = env
 	ps.Version = env.Version()
 
 	// Must be initialized first
@@ -739,7 +751,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	}
 
 	// TODO: only do this when meshnetworks or gateway service changed
-	ps.initMeshNetworks(env)
+	ps.initMeshNetworks()
 
 	ps.initDone = true
 	return nil
@@ -1123,8 +1135,8 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 
 func (ps *PushContext) initDefaultExportMaps() {
 	ps.defaultDestinationRuleExportTo = make(map[visibility.Instance]bool)
-	if ps.Env.Mesh.DefaultDestinationRuleExportTo != nil {
-		for _, e := range ps.Env.Mesh.DefaultDestinationRuleExportTo {
+	if ps.Mesh.DefaultDestinationRuleExportTo != nil {
+		for _, e := range ps.Mesh.DefaultDestinationRuleExportTo {
 			ps.defaultDestinationRuleExportTo[visibility.Instance(e)] = true
 		}
 	} else {
@@ -1133,8 +1145,8 @@ func (ps *PushContext) initDefaultExportMaps() {
 	}
 
 	ps.defaultServiceExportTo = make(map[visibility.Instance]bool)
-	if ps.Env.Mesh.DefaultServiceExportTo != nil {
-		for _, e := range ps.Env.Mesh.DefaultServiceExportTo {
+	if ps.Mesh.DefaultServiceExportTo != nil {
+		for _, e := range ps.Mesh.DefaultServiceExportTo {
 			ps.defaultServiceExportTo[visibility.Instance(e)] = true
 		}
 	} else {
@@ -1142,8 +1154,8 @@ func (ps *PushContext) initDefaultExportMaps() {
 	}
 
 	ps.defaultVirtualServiceExportTo = make(map[visibility.Instance]bool)
-	if ps.Env.Mesh.DefaultVirtualServiceExportTo != nil {
-		for _, e := range ps.Env.Mesh.DefaultVirtualServiceExportTo {
+	if ps.Mesh.DefaultVirtualServiceExportTo != nil {
+		for _, e := range ps.Mesh.DefaultVirtualServiceExportTo {
 			ps.defaultVirtualServiceExportTo[visibility.Instance(e)] = true
 		}
 	} else {
@@ -1200,9 +1212,9 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 	// Root namespace can have only one sidecar config object
 	// Currently we expect that it has no workloadSelectors
 	var rootNSConfig *Config
-	if env.Mesh.RootNamespace != "" {
+	if ps.Mesh.RootNamespace != "" {
 		for _, sidecarConfig := range sidecarConfigs {
-			if sidecarConfig.Namespace == env.Mesh.RootNamespace &&
+			if sidecarConfig.Namespace == ps.Mesh.RootNamespace &&
 				sidecarConfig.Spec.(*networking.Sidecar).WorkloadSelector == nil {
 				rootNSConfig = &sidecarConfig
 				break
@@ -1405,10 +1417,10 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) []*EnvoyFilterWrapper {
 	// EnvoyFilters supports inheritance (global ones plus namespace local ones).
 	// First get all the filter configs from the config root namespace
 	// and then add the ones from proxy's own namespace
-	if ps.Env.Mesh.RootNamespace != "" {
+	if ps.Mesh.RootNamespace != "" {
 		// if there is no workload selector, the config applies to all workloads
 		// if there is a workload selector, check for matching workload labels
-		for _, efw := range ps.envoyFiltersByNamespace[ps.Env.Mesh.RootNamespace] {
+		for _, efw := range ps.envoyFiltersByNamespace[ps.Mesh.RootNamespace] {
 			if efw.workloadSelector == nil || proxy.WorkloadLabels.IsSupersetOf(efw.workloadSelector) {
 				out = append(out, efw)
 			}
@@ -1416,7 +1428,7 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) []*EnvoyFilterWrapper {
 	}
 
 	// To prevent duplicate envoyfilters in case root namespace equals proxy's namespace
-	if proxy.ConfigNamespace != ps.Env.Mesh.RootNamespace {
+	if proxy.ConfigNamespace != ps.Mesh.RootNamespace {
 		for _, efw := range ps.envoyFiltersByNamespace[proxy.ConfigNamespace] {
 			if efw.workloadSelector == nil || proxy.WorkloadLabels.IsSupersetOf(efw.workloadSelector) {
 				out = append(out, efw)
@@ -1480,19 +1492,14 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 	return MergeGateways(out...)
 }
 
-// Only used by test
-func (ps *PushContext) InitMeshNetworks(env *Environment) {
-	ps.initMeshNetworks(env)
-}
-
 // pre computes gateways for each network
-func (ps *PushContext) initMeshNetworks(env *Environment) {
-	if env.MeshNetworks == nil || len(env.MeshNetworks.Networks) == 0 {
+func (ps *PushContext) initMeshNetworks() {
+	if ps.Networks == nil || len(ps.Networks.Networks) == 0 {
 		return
 	}
 
 	ps.networkGateways = map[string][]*Gateway{}
-	for network, networkConf := range env.MeshNetworks.Networks {
+	for network, networkConf := range ps.Networks.Networks {
 		gws := networkConf.Gateways
 		if len(gws) == 0 {
 			log.Debugf("the endpoints within network %s will be ignored because of invalid MeshNetworks", network)
@@ -1502,7 +1509,7 @@ func (ps *PushContext) initMeshNetworks(env *Environment) {
 		registryName := getNetworkRegistry(networkConf)
 		gateways := []*Gateway{}
 		for _, gw := range gws {
-			gatewayAddresses := getGatewayAddresses(gw, registryName, env)
+			gatewayAddresses := getGatewayAddresses(gw, registryName, ps.ServiceDiscovery)
 			for _, addr := range gatewayAddresses {
 				gateways = append(gateways, &Gateway{addr, gw.Port})
 			}
@@ -1512,7 +1519,7 @@ func (ps *PushContext) initMeshNetworks(env *Environment) {
 	}
 }
 
-func getNetworkRegistry(network *v1alpha1.Network) string {
+func getNetworkRegistry(network *meshconfig.Network) string {
 	var registryName string
 	for _, eps := range network.Endpoints {
 		if eps != nil && len(eps.GetFromRegistry()) > 0 {
@@ -1524,7 +1531,7 @@ func getNetworkRegistry(network *v1alpha1.Network) string {
 	return registryName
 }
 
-func getGatewayAddresses(gw *v1alpha1.Network_IstioNetworkGateway, registryName string, env *Environment) []string {
+func getGatewayAddresses(gw *meshconfig.Network_IstioNetworkGateway, registryName string, discovery ServiceDiscovery) []string {
 	// First, if a gateway address is provided in the configuration use it. If the gateway address
 	// in the config was a hostname it got already resolved and replaced with an IP address
 	// when loading the config
@@ -1534,7 +1541,7 @@ func getGatewayAddresses(gw *v1alpha1.Network_IstioNetworkGateway, registryName 
 
 	// Second, try to find the gateway addresses by the provided service name
 	if gwSvcName := gw.GetRegistryServiceName(); len(gwSvcName) > 0 && len(registryName) > 0 {
-		svc, _ := env.GetService(host.Name(gwSvcName))
+		svc, _ := discovery.GetService(host.Name(gwSvcName))
 		if svc != nil {
 			return svc.Attributes.ClusterExternalAddresses[registryName]
 		}

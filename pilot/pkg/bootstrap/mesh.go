@@ -25,9 +25,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/pkg/log"
@@ -60,7 +58,7 @@ func (s *Server) initMeshConfiguration(args *PilotArgs) error {
 	var err error
 
 	if args.Mesh.ConfigFile != "" {
-		meshConfig, err = cmd.ReadMeshConfig(args.Mesh.ConfigFile)
+		meshConfig, err = mesh.ReadMeshConfig(args.Mesh.ConfigFile)
 		if err != nil {
 			log.Warnf("failed to read mesh configuration, using default: %v", err)
 		}
@@ -68,7 +66,7 @@ func (s *Server) initMeshConfiguration(args *PilotArgs) error {
 		// Watch the config file for changes and reload if it got modified
 		s.addFileWatcher(args.Mesh.ConfigFile, func() {
 			// Reload the config file
-			meshConfig, err = cmd.ReadMeshConfig(args.Mesh.ConfigFile)
+			meshConfig, err = mesh.ReadMeshConfig(args.Mesh.ConfigFile)
 			if err != nil {
 				log.Warnf("failed to read mesh configuration, using default: %v", err)
 				return
@@ -119,27 +117,27 @@ func (s *Server) initMeshNetworks(args *PilotArgs) error { //nolint: unparam
 		return nil
 	}
 
-	meshNetworks, err := cmd.ReadMeshNetworksConfig(args.NetworksConfigFile)
+	meshNetworks, err := mesh.ReadMeshNetworks(args.NetworksConfigFile)
 	if err != nil {
 		log.Warnf("failed to read mesh networks configuration from %q: %v", args.NetworksConfigFile, err)
 		return nil
 	}
 	log.Infof("mesh networks configuration %s", spew.Sdump(meshNetworks))
-	util.ResolveHostsInNetworksConfig(meshNetworks)
+	mesh.ResolveHostsInNetworksConfig(meshNetworks)
 	log.Infof("mesh networks configuration post-resolution %s", spew.Sdump(meshNetworks))
 	s.meshNetworks = meshNetworks
 
 	// Watch the networks config file for changes and reload if it got modified
 	s.addFileWatcher(args.NetworksConfigFile, func() {
 		// Reload the config file
-		meshNetworks, err := cmd.ReadMeshNetworksConfig(args.NetworksConfigFile)
+		meshNetworks, err := mesh.ReadMeshNetworks(args.NetworksConfigFile)
 		if err != nil {
 			log.Warnf("failed to read mesh networks configuration from %q", args.NetworksConfigFile)
 			return
 		}
 		if !reflect.DeepEqual(meshNetworks, s.meshNetworks) {
 			log.Infof("mesh networks configuration file updated to: %s", spew.Sdump(meshNetworks))
-			util.ResolveHostsInNetworksConfig(meshNetworks)
+			mesh.ResolveHostsInNetworksConfig(meshNetworks)
 			log.Infof("mesh networks configuration post-resolution %s", spew.Sdump(meshNetworks))
 			s.meshNetworks = meshNetworks
 			if s.kubeRegistry != nil {
