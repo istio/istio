@@ -106,14 +106,9 @@ func (p Plugin) ExchangeToken(ctx context.Context, trustDomain, k8sSAjwt string)
 			"failed to unmarshal response data. HTTP status: %s. Error: %s", resp.Status, err.Error())
 	}
 
-	if len(respData.AccessToken) == 0 {
-		return "", time.Now(), resp.StatusCode, fmt.Errorf(
-			"exchanged empty token. HTTP status: %s", resp.Status)
-	}
 	if respData.AccessToken == "" {
-		stsClientLog.Errora("Failed to exchange token", string(body))
-		stsClientLog.Infoa("Request", string(jsonStr))
-		return "", time.Now(), resp.StatusCode, errors.New("failed to exchange token " + string(body))
+		return "", time.Now(), resp.StatusCode, fmt.Errorf(
+			"exchanged empty token. HTTP status: %s. Response: %v", resp.Status, respData)
 	}
 
 	return respData.AccessToken, time.Now().Add(time.Second * time.Duration(respData.ExpiresIn)), resp.StatusCode, nil
