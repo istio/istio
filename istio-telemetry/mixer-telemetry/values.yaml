@@ -30,6 +30,12 @@ mixer:
       contextGraph:
         enabled: false
 
+      logging:
+        enabled: true
+
+      metrics:
+        enabled: true
+
     # Setting this to false sets the useAdapterCRDs mixer startup argument to false
     useAdapterCRDs: false
 
