@@ -1510,8 +1510,6 @@ func (ps *PushContext) initMeshNetworks(env *Environment) {
 
 		ps.networkGateways[network] = gateways
 	}
-
-	return
 }
 
 func getNetworkRegistry(network *v1alpha1.Network) string {
