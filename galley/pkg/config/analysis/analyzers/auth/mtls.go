@@ -84,7 +84,7 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 
 	// If autoMTLS is turned on, bail out early as the logic used below does not
 	// reason about its usage.
-	if mc.GetEnableAutoMtls().GetValue() == true {
+	if mc.GetEnableAutoMtls().GetValue() {
 		return
 	}
 

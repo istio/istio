@@ -112,6 +112,6 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 	})
 }
 
-func isSystemNamespace(ctx analysis.Context, ns string) bool {
+func isSystemNamespace(ns string) bool {
 	return (ns == "kube-system" || ns == "kube-public")
 }
