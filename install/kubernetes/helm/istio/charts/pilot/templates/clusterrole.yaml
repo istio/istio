@@ -35,6 +35,7 @@ rules:
 - apiGroups: [""]
   resources: ["endpoints", "pods", "services", "namespaces", "nodes"]
   verbs: ["get", "list", "watch"]
+{{- if .Values.global.certificates }}
 - apiGroups: [""]
   resources: ["secrets"]
   verbs: ["create", "get", "watch", "list", "update", "delete"]
@@ -44,3 +45,8 @@ rules:
     - "certificatesigningrequests/approval"
     - "certificatesigningrequests/status"
   verbs: ["update", "create", "get", "delete"]
+{{- else }}
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list", "watch"]
+{{- end }}
