@@ -39,7 +39,6 @@ var (
 
 // DiscoveryOptions stores the configurable attributes of a Control
 type DiscoveryOptions struct {
-	Env          *model.Environment
 	ClusterID    string
 	DomainSuffix string
 }

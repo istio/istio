@@ -23,21 +23,20 @@ import (
 	"os"
 	"strconv"
 
+	"istio.io/pkg/ctrlz"
+	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 
 	"google.golang.org/grpc"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/galley/pkg/server"
 	"istio.io/istio/galley/pkg/server/settings"
 	"istio.io/istio/pilot/pkg/model"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
-	"istio.io/pkg/ctrlz"
-	"istio.io/pkg/filewatcher"
 )
 
 // Server contains the runtime configuration for Istiod.
@@ -47,23 +46,13 @@ type Server struct {
 	SecureGRPCListeningAddr net.Addr
 	MonitorListeningAddr    net.Addr
 
-	EnvoyXdsServer    *envoyv2.DiscoveryServer
-	ServiceController *aggregate.Controller
-
-	// Mesh config - loaded and watched. Updated by watcher.
-	Mesh *meshconfig.MeshConfig
-
-	MeshNetworks *meshconfig.MeshNetworks
+	EnvoyXdsServer *envoyv2.DiscoveryServer
 
 	ConfigStores []model.ConfigStoreCache
 
 	// Underlying config stores. To simplify, this is a configaggregate instance, created just before
 	// start from the configStores
 	ConfigController model.ConfigStoreCache
-
-	// Interface abstracting all config operations, including the high-level objects
-	// and the low-level untyped model.ConfigStore
-	IstioConfigStore model.IstioConfigStore
 
 	startFuncs       []startFunc
 	httpServer       *http.Server
@@ -152,6 +141,10 @@ func NewIstiod(kconfig *rest.Config, kclient *kubernetes.Clientset, confDir stri
 
 	server := &Server{
 		Args: args,
+		Environment: &model.Environment{
+			ServiceDiscovery: aggregate.NewController(),
+			PushContext:      model.NewPushContext(),
+		},
 	}
 
 	server.fileWatcher = filewatcher.NewWatcher()
@@ -160,7 +153,7 @@ func NewIstiod(kconfig *rest.Config, kclient *kubernetes.Clientset, confDir stri
 		return nil, fmt.Errorf("mesh: %v", err)
 	}
 
-	pilotAddress := server.Mesh.DefaultConfig.DiscoveryAddress
+	pilotAddress := server.Environment.Mesh.DefaultConfig.DiscoveryAddress
 	_, port, _ := net.SplitHostPort(pilotAddress)
 
 	// TODO: this was added to allow some config of the base port for VMs to allow multiple instances of istiod,
@@ -241,7 +234,7 @@ func NewIstiod(kconfig *rest.Config, kclient *kubernetes.Clientset, confDir stri
 	// TODO: when the mesh.yaml is reloaded, replace the file watched by Galley as well.
 	if _, err := os.Stat(meshCfgFile); err != nil {
 		// Galley requires this file to exist. Create it in a writeable directory, override.
-		meshBytes, err := json.Marshal(server.Mesh)
+		meshBytes, err := json.Marshal(server.Environment.Mesh)
 		if err != nil {
 			return nil, fmt.Errorf("failed to serialize mesh %v", err)
 		}

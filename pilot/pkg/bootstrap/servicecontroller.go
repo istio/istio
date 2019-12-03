@@ -29,9 +29,13 @@ import (
 	"istio.io/istio/pkg/config/host"
 )
 
+func (s *Server) ServiceController() *aggregate.Controller {
+	return s.environment.ServiceDiscovery.(*aggregate.Controller)
+}
+
 // initServiceControllers creates and initializes the service controllers
 func (s *Server) initServiceControllers(args *PilotArgs) error {
-	serviceControllers := aggregate.NewController()
+	serviceControllers := s.ServiceController()
 	registered := make(map[serviceregistry.ProviderID]bool)
 	for _, r := range args.Service.Registries {
 		serviceRegistry := serviceregistry.ProviderID(r)
@@ -61,15 +65,12 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		}
 	}
 
-	serviceEntryStore := external.NewServiceDiscovery(s.configController, s.istioConfigStore, s.EnvoyXdsServer)
-	serviceControllers.AddRegistry(serviceEntryStore)
-
-	s.ServiceController = serviceControllers
-	s.serviceEntryStore = serviceEntryStore
+	s.serviceEntryStore = external.NewServiceDiscovery(s.configController, s.environment.IstioConfigStore, s.EnvoyXdsServer)
+	serviceControllers.AddRegistry(s.serviceEntryStore)
 
 	// Defer running of the service controllers.
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		go s.ServiceController.Run(stop)
+		go serviceControllers.Run(stop)
 		return nil
 	})
 
@@ -81,6 +82,7 @@ func (s *Server) initKubeRegistry(serviceControllers *aggregate.Controller, args
 	clusterID := string(serviceregistry.Kubernetes)
 	log.Infof("Primary Cluster name: %s", clusterID)
 	args.Config.ControllerOptions.ClusterID = clusterID
+	args.Config.ControllerOptions.Metrics = s.environment
 	kubectl := kubecontroller.NewController(s.kubeClient, args.Config.ControllerOptions)
 	s.kubeRegistry = kubectl
 	serviceControllers.AddRegistry(kubectl)
