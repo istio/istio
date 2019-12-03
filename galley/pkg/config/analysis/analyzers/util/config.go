@@ -34,17 +34,3 @@ func MeshConfig(ctx analysis.Context) *v1alpha1.MeshConfig {
 
 	return mc
 }
-
-// IstioNamespace returns the Istio control plane namespace
-// Analyzers that call this should include metadata.IstioMeshV1Alpha1MeshConfig as an input in their Metadata
-func IstioNamespace(ctx analysis.Context) string {
-	// This assumes that rootNamespace is an accurate proxy for the control plane namespace.
-	// If this is ever not the case, we will need to be a bit smarter about how we get this value.
-	return MeshConfig(ctx).GetRootNamespace()
-}
-
-// IsSystemNamespace returns true for namespaces that should be treated as "system" namespaces,
-// and should not be analyzed using the regular rules
-func IsSystemNamespace(ctx analysis.Context, ns string) bool {
-	return (ns == IstioNamespace(ctx) || ns == "kube-system" || ns == "kube-public")
-}

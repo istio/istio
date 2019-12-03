@@ -21,7 +21,6 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/istio/galley/pkg/config/analysis"
-	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/galley/pkg/config/meta/schema/collection"
@@ -48,7 +47,6 @@ func (a *Analyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name: "injection.Analyzer",
 		Inputs: collection.Names{
-			metadata.IstioMeshV1Alpha1MeshConfig,
 			metadata.K8SCoreV1Namespaces,
 			metadata.K8SCoreV1Pods,
 		},
@@ -61,9 +59,8 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 
 	c.ForEach(metadata.K8SCoreV1Namespaces, func(r *resource.Entry) bool {
 
-		// Ignore system namespaces
-		ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
-		if util.IsSystemNamespace(c, ns) {
+		ns := r.Metadata.Name.String()
+		if isSystemNamespace(c, ns) {
 			return true
 		}
 
@@ -113,4 +110,8 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 
 		return true
 	})
+}
+
+func isSystemNamespace(ctx analysis.Context, ns string) bool {
+	return (ns == "kube-system" || ns == "kube-public")
 }
