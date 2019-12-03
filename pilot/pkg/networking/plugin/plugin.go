@@ -98,8 +98,6 @@ type InputParams struct {
 	// TODO: Remove me when listener match is in place
 	DeprecatedListenerCategory networking.EnvoyFilter_DeprecatedListenerMatch_ListenerType
 
-	// Env is the model environment. Must be set.
-	Env *model.Environment
 	// Node is the node the response is for.
 	Node *model.Proxy
 	// ServiceInstance is the service instance colocated with the listener (applies to sidecar).
