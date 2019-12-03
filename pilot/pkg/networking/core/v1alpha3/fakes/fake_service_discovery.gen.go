@@ -87,6 +87,18 @@ type ServiceDiscovery struct {
 	managementPortsReturnsOnCall map[int]struct {
 		result1 model.PortList
 	}
+	NamespacesStub        func() ([]*model.Namespace, error)
+	namespacesMutex       sync.RWMutex
+	namespacesArgsForCall []struct {
+	}
+	namespacesReturns struct {
+		result1 []*model.Namespace
+		result2 error
+	}
+	namespacesReturnsOnCall map[int]struct {
+		result1 []*model.Namespace
+		result2 error
+	}
 	ServicesStub        func() ([]*model.Service, error)
 	servicesMutex       sync.RWMutex
 	servicesArgsForCall []struct {
@@ -494,6 +506,61 @@ func (fake *ServiceDiscovery) ManagementPortsReturnsOnCall(i int, result1 model.
 	}{result1}
 }
 
+func (fake *ServiceDiscovery) Namespaces() ([]*model.Namespace, error) {
+	fake.namespacesMutex.Lock()
+	ret, specificReturn := fake.namespacesReturnsOnCall[len(fake.namespacesArgsForCall)]
+	fake.namespacesArgsForCall = append(fake.namespacesArgsForCall, struct {
+	}{})
+	fake.recordInvocation("Namespaces", []interface{}{})
+	fake.namespacesMutex.Unlock()
+	if fake.NamespacesStub != nil {
+		return fake.NamespacesStub()
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	fakeReturns := fake.namespacesReturns
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *ServiceDiscovery) NamespacesCallCount() int {
+	fake.namespacesMutex.RLock()
+	defer fake.namespacesMutex.RUnlock()
+	return len(fake.namespacesArgsForCall)
+}
+
+func (fake *ServiceDiscovery) NamespacesCalls(stub func() ([]*model.Namespace, error)) {
+	fake.namespacesMutex.Lock()
+	defer fake.namespacesMutex.Unlock()
+	fake.NamespacesStub = stub
+}
+
+func (fake *ServiceDiscovery) NamespacesReturns(result1 []*model.Namespace, result2 error) {
+	fake.namespacesMutex.Lock()
+	defer fake.namespacesMutex.Unlock()
+	fake.NamespacesStub = nil
+	fake.namespacesReturns = struct {
+		result1 []*model.Namespace
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *ServiceDiscovery) NamespacesReturnsOnCall(i int, result1 []*model.Namespace, result2 error) {
+	fake.namespacesMutex.Lock()
+	defer fake.namespacesMutex.Unlock()
+	fake.NamespacesStub = nil
+	if fake.namespacesReturnsOnCall == nil {
+		fake.namespacesReturnsOnCall = make(map[int]struct {
+			result1 []*model.Namespace
+			result2 error
+		})
+	}
+	fake.namespacesReturnsOnCall[i] = struct {
+		result1 []*model.Namespace
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *ServiceDiscovery) Services() ([]*model.Service, error) {
 	fake.servicesMutex.Lock()
 	ret, specificReturn := fake.servicesReturnsOnCall[len(fake.servicesArgsForCall)]
@@ -624,6 +691,8 @@ func (fake *ServiceDiscovery) Invocations() map[string][][]interface{} {
 	defer fake.instancesByPortMutex.RUnlock()
 	fake.managementPortsMutex.RLock()
 	defer fake.managementPortsMutex.RUnlock()
+	fake.namespacesMutex.RLock()
+	defer fake.namespacesMutex.RUnlock()
 	fake.servicesMutex.RLock()
 	defer fake.servicesMutex.RUnlock()
 	fake.workloadHealthCheckInfoMutex.RLock()
