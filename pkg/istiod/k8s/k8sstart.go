@@ -26,6 +26,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/meta/schema"
 	"istio.io/istio/galley/pkg/config/source/kube"
@@ -40,7 +42,6 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/istiod"
-	"istio.io/pkg/log"
 )
 
 // Helpers to configure the k8s-dependent registries
@@ -67,6 +68,7 @@ func InitK8S(is *istiod.Server, clientset kubernetes.Interface, config *rest.Con
 		ControllerOptions: controller2.Options{
 			DomainSuffix: args.DomainSuffix,
 			TrustDomain:  args.MeshConfig.TrustDomain,
+			Metrics:      is.Environment,
 		},
 	}
 
@@ -83,7 +85,7 @@ func (s *Controllers) OnXDSStart(xds model.XDSUpdater) {
 }
 
 func (s *Controllers) InitK8SDiscovery(is *istiod.Server, config *rest.Config, args *istiod.PilotArgs) (*Controllers, error) {
-	s.createK8sServiceControllers(s.IstioServer.ServiceController)
+	s.createK8sServiceControllers(s.IstioServer.ServiceController())
 
 	if err := s.initClusterRegistries(args); err != nil {
 		return nil, fmt.Errorf("cluster registries: %v", err)
@@ -91,8 +93,7 @@ func (s *Controllers) InitK8SDiscovery(is *istiod.Server, config *rest.Config, a
 
 	// kubeRegistry may use the environment for push status reporting.
 	// TODO: maybe all registries should have this as an optional field ?
-	s.kubeRegistry.Env = s.IstioServer.Environment
-	s.kubeRegistry.InitNetworkLookup(s.IstioServer.MeshNetworks)
+	s.kubeRegistry.InitNetworkLookup(s.IstioServer.Environment.MeshNetworks)
 	// EnvoyXDSServer is not initialized yet - since initialization adds all 'service' handlers, which depends
 	// on this being done. Instead we use the callback.
 	//s.kubeRegistry.XDSUpdater = s.IstioServer.EnvoyXdsServer
@@ -120,9 +121,9 @@ func (s *Controllers) initClusterRegistries(args *istiod.PilotArgs) (err error) 
 		s.ControllerOptions.WatchedNamespace,
 		args.DomainSuffix,
 		s.ControllerOptions.ResyncPeriod,
-		s.IstioServer.ServiceController,
+		s.IstioServer.ServiceController(),
 		s.IstioServer.EnvoyXdsServer,
-		s.IstioServer.MeshNetworks)
+		s.IstioServer.Environment.MeshNetworks)
 
 	if err != nil {
 		log.Info("Unable to create new Multicluster object")
@@ -151,10 +152,11 @@ func (s *Controllers) initConfigController(args *istiod.PilotArgs) error {
 	})
 
 	// If running in ingress mode (requires k8s), wrap the config controller.
-	if s.IstioServer.Mesh.IngressControllerMode != meshconfig.MeshConfig_OFF {
-		s.IstioServer.ConfigStores = append(s.IstioServer.ConfigStores, ingress.NewController(s.kubeClient, s.IstioServer.Mesh, s.ControllerOptions))
+	if s.IstioServer.Environment.Mesh.IngressControllerMode != meshconfig.MeshConfig_OFF {
+		s.IstioServer.ConfigStores = append(s.IstioServer.ConfigStores, ingress.NewController(s.kubeClient,
+			s.IstioServer.Environment.Mesh, s.ControllerOptions))
 
-		if ingressSyncer, errSyncer := ingress.NewStatusSyncer(s.IstioServer.Mesh, s.kubeClient,
+		if ingressSyncer, errSyncer := ingress.NewStatusSyncer(s.IstioServer.Environment.Mesh, s.kubeClient,
 			args.Namespace, s.ControllerOptions); errSyncer != nil {
 			log.Warnf("Disabled ingress status syncer due to %v", errSyncer)
 		} else {

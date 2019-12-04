@@ -107,6 +107,9 @@ type Options struct {
 	// ClusterID identifies the remote cluster in a multicluster env.
 	ClusterID string
 
+	// Metrics for capturing node-based metrics.
+	Metrics model.Metrics
+
 	// XDSUpdater will push changes to the xDS server.
 	XDSUpdater model.XDSUpdater
 
@@ -126,12 +129,8 @@ type Controller struct {
 	services  cacheHandler
 	endpoints cacheHandler
 	nodes     cacheHandler
-
-	pods *PodCache
-
-	// Env is set by server to point to the environment, to allow the controller to
-	// use env data and push status. It may be null in tests.
-	Env *model.Environment
+	pods      *PodCache
+	metrics   model.Metrics
 
 	// clusterID identifies the remote cluster in a multicluster env.
 	clusterID string
@@ -598,14 +597,10 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 	}
 
 	if len(out) == 0 {
-		if c.Env != nil {
-			c.Env.PushContext.Add(model.ProxyStatusNoService, proxy.ID, proxy, "")
-			status := c.Env.PushContext
-			if status == nil {
-				log.Infof("Empty list of services for pod %s %v", proxy.ID, c.Env)
-			}
+		if c.metrics != nil {
+			c.metrics.AddMetric(model.ProxyStatusNoService, proxy.ID, proxy, "")
 		} else {
-			log.Infof("Missing env, empty list of services for pod %s", proxy.ID)
+			log.Infof("Missing metrics env, empty list of services for pod %s", proxy.ID)
 		}
 	}
 	return out, nil
@@ -726,8 +721,8 @@ func (c *Controller) getProxyServiceInstancesByEndpoint(endpoints v1.Endpoints, 
 
 					if hasProxyIP(ss.NotReadyAddresses, ip) {
 						out = append(out, c.getEndpoints(podIP, ip, port.Port, svcPort, svc))
-						if c.Env != nil {
-							c.Env.PushContext.Add(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
+						if c.metrics != nil {
+							c.metrics.AddMetric(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
 						}
 					}
 				}
@@ -958,21 +953,21 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 							// If pod is still not availalable, this an unuusual case.
 							endpointsWithNoPods.Increment()
 							log.Errorf("Endpoint without pod %s %s.%s", ea.IP, ep.Name, ep.Namespace)
-							if c.Env != nil {
-								c.Env.PushContext.Add(model.EndpointNoPod, string(hostname), nil, ea.IP)
+							if c.metrics != nil {
+								c.metrics.AddMetric(model.EndpointNoPod, string(hostname), nil, ea.IP)
 							}
 							continue
 						}
 					}
 				}
 
-				var labels map[string]string
+				var labelMap map[string]string
 				locality, sa, uid := "", "", ""
 				if pod != nil {
 					locality = c.GetPodLocality(pod)
 					sa = kube.SecureNamingSAN(pod)
 					uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
-					labels = map[string]string(configKube.ConvertLabels(pod.ObjectMeta))
+					labelMap = configKube.ConvertLabels(pod.ObjectMeta)
 				}
 
 				tlsMode := kube.PodTLSMode(pod)
@@ -984,7 +979,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 						Address:         ea.IP,
 						EndpointPort:    uint32(port.Port),
 						ServicePortName: port.Name,
-						Labels:          labels,
+						Labels:          labelMap,
 						UID:             uid,
 						ServiceAccount:  sa,
 						Network:         c.endpointNetwork(ea.IP),

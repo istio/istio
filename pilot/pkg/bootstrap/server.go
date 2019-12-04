@@ -104,13 +104,10 @@ type Server struct {
 	MonitorListeningAddr    net.Addr
 
 	// TODO(nmittler): Consider alternatives to exposing these directly
-	EnvoyXdsServer    *envoyv2.DiscoveryServer
-	ServiceController *aggregate.Controller
+	EnvoyXdsServer *envoyv2.DiscoveryServer
 
-	mesh             *meshconfig.MeshConfig
-	meshNetworks     *meshconfig.MeshNetworks
-	configController model.ConfigStoreCache
-
+	environment           *model.Environment
+	configController      model.ConfigStoreCache
 	kubeClient            kubernetes.Interface
 	startFuncs            []startFunc
 	multicluster          *clusterregistry.Multicluster
@@ -118,7 +115,6 @@ type Server struct {
 	grpcServer            *grpc.Server
 	secureHTTPServer      *http.Server
 	secureGRPCServer      *grpc.Server
-	istioConfigStore      model.IstioConfigStore
 	mux                   *http.ServeMux
 	kubeRegistry          *kubecontroller.Controller
 	fileWatcher           filewatcher.FileWatcher
@@ -150,6 +146,10 @@ func NewServer(args PilotArgs) (*Server, error) {
 	}
 
 	s := &Server{
+		environment: &model.Environment{
+			ServiceDiscovery: aggregate.NewController(),
+			PushContext:      model.NewPushContext(),
+		},
 		fileWatcher: filewatcher.NewWatcher(),
 	}
 
@@ -226,17 +226,9 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 }
 
 func (s *Server) initDiscoveryService(args *PilotArgs) error {
-	environment := &model.Environment{
-		Mesh:             s.mesh,
-		MeshNetworks:     s.meshNetworks,
-		IstioConfigStore: s.istioConfigStore,
-		ServiceDiscovery: s.ServiceController,
-		PushContext:      model.NewPushContext(),
-	}
-
-	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(environment, args.Plugins)
+	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(s.environment, args.Plugins)
 	s.mux = http.NewServeMux()
-	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController, args.DiscoveryOptions.EnableProfiling)
+	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController(), args.DiscoveryOptions.EnableProfiling)
 
 	if err := s.initEventHandlers(); err != nil {
 		return err
@@ -245,8 +237,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	if s.kubeRegistry != nil {
 		// kubeRegistry may use the environment for push status reporting.
 		// TODO: maybe all registries should have this as an optional field ?
-		s.kubeRegistry.Env = environment
-		s.kubeRegistry.InitNetworkLookup(s.meshNetworks)
+		s.kubeRegistry.InitNetworkLookup(s.environment.MeshNetworks)
 		s.kubeRegistry.XDSUpdater = s.EnvoyXdsServer
 	}
 
@@ -263,7 +254,6 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		clusterID := args.Config.ControllerOptions.ClusterID
 		s.incrementalMcpOptions.XDSUpdater = s.EnvoyXdsServer
 		s.incrementalMcpOptions.ClusterID = clusterID
-		s.discoveryOptions.Env = environment
 		s.discoveryOptions.ClusterID = clusterID
 	}
 
@@ -505,7 +495,7 @@ func (s *Server) initEventHandlers() error {
 		}
 		s.EnvoyXdsServer.ConfigUpdate(pushReq)
 	}
-	if err := s.ServiceController.AppendServiceHandler(serviceHandler); err != nil {
+	if err := s.ServiceController().AppendServiceHandler(serviceHandler); err != nil {
 		return fmt.Errorf("append service handler failed: %v", err)
 	}
 
@@ -520,7 +510,7 @@ func (s *Server) initEventHandlers() error {
 			ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
 		})
 	}
-	if err := s.ServiceController.AppendInstanceHandler(instanceHandler); err != nil {
+	if err := s.ServiceController().AppendInstanceHandler(instanceHandler); err != nil {
 		return fmt.Errorf("append instance handler failed: %v", err)
 	}
 

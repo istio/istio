@@ -241,7 +241,7 @@ func initRegistry(server *bootstrap.Server, clusterNum int, gatewaysIP []string,
 	id := fmt.Sprintf("network%d", clusterNum)
 	memRegistry := v2.NewMemServiceDiscovery(
 		map[host.Name]*model.Service{}, 2)
-	server.ServiceController.AddRegistry(serviceregistry.Simple{
+	server.ServiceController().AddRegistry(serviceregistry.Simple{
 		ClusterID:        id,
 		ProviderID:       "memAdapter",
 		ServiceDiscovery: memRegistry,
