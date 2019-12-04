@@ -15,6 +15,7 @@
 package client_test
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"testing"
@@ -146,7 +147,7 @@ func TestPilotPluginTCP(t *testing.T) {
 
 	snapshots := cache.NewSnapshotCache(true, mock{}, nil)
 	_ = snapshots.SetSnapshot(id, makeSnapshot(s, t, model.SidecarProxy))
-	server := xds.NewServer(snapshots, nil)
+	server := xds.NewServer(context.Background(), snapshots, nil)
 	discovery.RegisterAggregatedDiscoveryServiceServer(grpcServer, server)
 	go func() {
 		_ = grpcServer.Serve(lis)

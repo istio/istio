@@ -58,6 +58,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pilot/pkg/serviceregistry/external"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schemas"
@@ -108,18 +109,14 @@ type Server struct {
 	MonitorListeningAddr    net.Addr
 
 	// TODO(nmittler): Consider alternatives to exposing these directly
-	EnvoyXdsServer    *envoyv2.DiscoveryServer
-	ServiceController *aggregate.Controller
-
-	mesh             *meshconfig.MeshConfig
-	meshNetworks     *meshconfig.MeshNetworks
-	configController model.ConfigStoreCache
+	EnvoyXdsServer *envoyv2.DiscoveryServer
 
 	// Using Clientset because client is shared with other components - galley and few others expects Clientset.
 	// TODO: change everywhere to use Interface
 	kubeClientset *kubernetes.Clientset
-	kubeClient    kubernetes.Interface
-
+	environment           *model.Environment
+	configController      model.ConfigStoreCache
+	kubeClient            kubernetes.Interface
 	startFuncs            []startFunc
 	multicluster          *clusterregistry.Multicluster
 	httpServer            *http.Server
@@ -142,12 +139,12 @@ type Server struct {
 	ConfigStores []model.ConfigStoreCache
 
 	Args *PilotArgs
+	serviceEntryStore     *external.ServiceEntryStore
 
 	RootCA []byte
 	Galley *server.Server
 
 	HTTPListener       net.Listener
-	Environment        *model.Environment
 	SecureGrpcListener net.Listener
 
 	basePort     int
@@ -171,6 +168,10 @@ func NewServer(args PilotArgs) (*Server, error) {
 	}
 
 	s := &Server{
+		environment: &model.Environment{
+			ServiceDiscovery: aggregate.NewController(),
+			PushContext:      model.NewPushContext(),
+		},
 		fileWatcher: filewatcher.NewWatcher(),
 		Args:        &args,
 		basePort:    args.BasePort,
@@ -291,19 +292,9 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 }
 
 func (s *Server) initDiscoveryService(args *PilotArgs) error {
-	environment := &model.Environment{
-		Mesh:             s.mesh,
-		MeshNetworks:     s.meshNetworks,
-		IstioConfigStore: s.istioConfigStore,
-		ServiceDiscovery: s.ServiceController,
-		PushContext:      model.NewPushContext(),
-	}
-
-	s.Environment = environment
-
-	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(environment, args.Plugins)
+	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(s.environment, args.Plugins)
 	s.mux = http.NewServeMux()
-	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController, args.DiscoveryOptions.EnableProfiling)
+	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController(), args.DiscoveryOptions.EnableProfiling)
 
 	if err := s.initEventHandlers(); err != nil {
 		return err
@@ -312,9 +303,14 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	if s.kubeRegistry != nil {
 		// kubeRegistry may use the environment for push status reporting.
 		// TODO: maybe all registries should have this as an optional field ?
-		s.kubeRegistry.Env = environment
-		s.kubeRegistry.InitNetworkLookup(s.meshNetworks)
+		s.kubeRegistry.InitNetworkLookup(s.environment.MeshNetworks)
 		s.kubeRegistry.XDSUpdater = s.EnvoyXdsServer
+	}
+
+	// TODO: Split initDiscoveryService method in to createDiscoveryServer and initDiscoveryService so that, this special
+	// handling is not needed. Because of dependency ordering problem, we need to set this explicitly here.
+	if s.serviceEntryStore != nil {
+		s.serviceEntryStore.XdsUpdater = s.EnvoyXdsServer
 	}
 
 	if s.mcpOptions != nil {
@@ -324,7 +320,6 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		clusterID := args.Config.ControllerOptions.ClusterID
 		s.incrementalMcpOptions.XDSUpdater = s.EnvoyXdsServer
 		s.incrementalMcpOptions.ClusterID = clusterID
-		s.discoveryOptions.Env = environment
 		s.discoveryOptions.ClusterID = clusterID
 	}
 
@@ -645,12 +640,12 @@ func (s *Server) initEventHandlers() error {
 		}
 		s.EnvoyXdsServer.ConfigUpdate(pushReq)
 	}
-	if err := s.ServiceController.AppendServiceHandler(serviceHandler); err != nil {
+	if err := s.ServiceController().AppendServiceHandler(serviceHandler); err != nil {
 		return fmt.Errorf("append service handler failed: %v", err)
 	}
 
 	instanceHandler := func(si *model.ServiceInstance, _ model.Event) {
-		// TODO: This is an incomplete code. This code path is called for service entries, consul, etc.
+		// TODO: This is an incomplete code. This code path is called for consul, etc.
 		// In all cases, this is simply an instance update and not a config update. So, we need to update
 		// EDS in all proxies, and do a full config push for the instance that just changed (add/update only).
 		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{
@@ -660,7 +655,7 @@ func (s *Server) initEventHandlers() error {
 			ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
 		})
 	}
-	if err := s.ServiceController.AppendInstanceHandler(instanceHandler); err != nil {
+	if err := s.ServiceController().AppendInstanceHandler(instanceHandler); err != nil {
 		return fmt.Errorf("append instance handler failed: %v", err)
 	}
 
@@ -668,10 +663,10 @@ func (s *Server) initEventHandlers() error {
 	if s.configController != nil {
 		// TODO: changes should not trigger a full recompute of LDS/RDS/CDS/EDS
 		// (especially mixerclient HTTP and quota)
-		configHandler := func(c model.Config, _ model.Event) {
+		configHandler := func(old, curr model.Config, _ model.Event) {
 			pushReq := &model.PushRequest{
 				Full:               true,
-				ConfigTypesUpdated: map[string]struct{}{c.Type: {}},
+				ConfigTypesUpdated: map[string]struct{}{curr.Type: {}},
 			}
 			s.EnvoyXdsServer.ConfigUpdate(pushReq)
 		}
@@ -711,7 +706,7 @@ func (s *Server) initSDSCA() {
 	// If adjustments are needed - env or mesh.config ( if of general interest ).
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		s.RunCA(s.secureGRPCServerDNS, s.kubeClient, &CAOptions{
-			TrustDomain: s.mesh.TrustDomain,
+			TrustDomain: s.environment.Mesh.TrustDomain,
 		})
 		return nil
 	})

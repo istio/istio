@@ -16,16 +16,16 @@ package v1alpha1
 
 import (
 	authn "istio.io/api/authentication/v1alpha1"
-	authn_model "istio.io/istio/pilot/pkg/security/model"
+	"istio.io/istio/pilot/pkg/model"
 )
 
 // GetMutualTLSMode returns the mTLS mode for given. If the policy is nil, or doesn't define mTLS, it returns MTLSDisable.
-func GetMutualTLSMode(policy *authn.Policy) authn_model.MutualTLSMode {
+func GetMutualTLSMode(policy *authn.Policy) model.MutualTLSMode {
 	if mTLSSetting := GetMutualTLS(policy); mTLSSetting != nil {
 		if mTLSSetting.GetMode() == authn.MutualTls_STRICT {
-			return authn_model.MTLSStrict
+			return model.MTLSStrict
 		}
-		return authn_model.MTLSPermissive
+		return model.MTLSPermissive
 	}
-	return authn_model.MTLSDisable
+	return model.MTLSDisable
 }

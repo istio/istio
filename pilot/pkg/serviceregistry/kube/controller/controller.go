@@ -107,6 +107,9 @@ type Options struct {
 	// ClusterID identifies the remote cluster in a multicluster env.
 	ClusterID string
 
+	// Metrics for capturing node-based metrics.
+	Metrics model.Metrics
+
 	// XDSUpdater will push changes to the xDS server.
 	XDSUpdater model.XDSUpdater
 
@@ -126,12 +129,8 @@ type Controller struct {
 	services  cacheHandler
 	endpoints cacheHandler
 	nodes     cacheHandler
-
-	pods *PodCache
-
-	// Env is set by server to point to the environment, to allow the controller to
-	// use env data and push status. It may be null in tests.
-	Env *model.Environment
+	pods      *PodCache
+	metrics   model.Metrics
 
 	// clusterID identifies the remote cluster in a multicluster env.
 	clusterID string
@@ -203,7 +202,7 @@ func (c *Controller) Cluster() string {
 
 // notify is the first handler in the handler chain.
 // Returning an error causes repeated execution of the entire chain.
-func (c *Controller) notify(obj interface{}, event model.Event) error {
+func (c *Controller) notify(old, curr interface{}, event model.Event) error {
 	if !c.HasSynced() {
 		return errors.New("waiting till full synchronization")
 	}
@@ -224,19 +223,19 @@ func (c *Controller) createCacheHandler(informer cache.SharedIndexInformer, otyp
 			// TODO: filtering functions to skip over un-referenced resources (perf)
 			AddFunc: func(obj interface{}) {
 				incrementEvent(otype, "add")
-				c.queue.Push(kube.Task{Handler: handler.Apply, Obj: obj, Event: model.EventAdd})
+				c.queue.Push(kube.NewTask(handler.Apply, nil, obj, model.EventAdd))
 			},
 			UpdateFunc: func(old, cur interface{}) {
 				if !reflect.DeepEqual(old, cur) {
 					incrementEvent(otype, "update")
-					c.queue.Push(kube.Task{Handler: handler.Apply, Obj: cur, Event: model.EventUpdate})
+					c.queue.Push(kube.NewTask(handler.Apply, old, cur, model.EventUpdate))
 				} else {
 					incrementEvent(otype, "updatesame")
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
 				incrementEvent(otype, "delete")
-				c.queue.Push(kube.Task{Handler: handler.Apply, Obj: obj, Event: model.EventDelete})
+				c.queue.Push(kube.NewTask(handler.Apply, nil, obj, model.EventDelete))
 			},
 		})
 
@@ -268,7 +267,7 @@ func (c *Controller) createEDSCacheHandler(informer cache.SharedIndexInformer, o
 			// TODO: filtering functions to skip over un-referenced resources (perf)
 			AddFunc: func(obj interface{}) {
 				incrementEvent(otype, "add")
-				c.queue.Push(kube.Task{Handler: handler.Apply, Obj: obj, Event: model.EventAdd})
+				c.queue.Push(kube.NewTask(handler.Apply, nil, obj, model.EventAdd))
 			},
 			UpdateFunc: func(old, cur interface{}) {
 				// Avoid pushes if only resource version changed (kube-scheduller, cluster-autoscaller, etc)
@@ -277,7 +276,7 @@ func (c *Controller) createEDSCacheHandler(informer cache.SharedIndexInformer, o
 
 				if !compareEndpoints(oldE, curE) {
 					incrementEvent(otype, "update")
-					c.queue.Push(kube.Task{Handler: handler.Apply, Obj: cur, Event: model.EventUpdate})
+					c.queue.Push(kube.NewTask(handler.Apply, old, cur, model.EventUpdate))
 				} else {
 					incrementEvent(otype, "updatesame")
 				}
@@ -288,7 +287,7 @@ func (c *Controller) createEDSCacheHandler(informer cache.SharedIndexInformer, o
 				// deleting the service should delete the resources. The full sync replaces the
 				// maps.
 				// c.updateEDS(obj.(*v1.Endpoints))
-				c.queue.Push(kube.Task{Handler: handler.Apply, Obj: obj, Event: model.EventDelete})
+				c.queue.Push(kube.NewTask(handler.Apply, nil, obj, model.EventDelete))
 			},
 		})
 
@@ -598,14 +597,10 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 	}
 
 	if len(out) == 0 {
-		if c.Env != nil {
-			c.Env.PushContext.Add(model.ProxyStatusNoService, proxy.ID, proxy, "")
-			status := c.Env.PushContext
-			if status == nil {
-				log.Infof("Empty list of services for pod %s %v", proxy.ID, c.Env)
-			}
+		if c.metrics != nil {
+			c.metrics.AddMetric(model.ProxyStatusNoService, proxy.ID, proxy, "")
 		} else {
-			log.Infof("Missing env, empty list of services for pod %s", proxy.ID)
+			log.Infof("Missing metrics env, empty list of services for pod %s", proxy.ID)
 		}
 	}
 	return out, nil
@@ -726,8 +721,8 @@ func (c *Controller) getProxyServiceInstancesByEndpoint(endpoints v1.Endpoints, 
 
 					if hasProxyIP(ss.NotReadyAddresses, ip) {
 						out = append(out, c.getEndpoints(podIP, ip, port.Port, svcPort, svc))
-						if c.Env != nil {
-							c.Env.PushContext.Add(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
+						if c.metrics != nil {
+							c.metrics.AddMetric(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
 						}
 					}
 				}
@@ -847,17 +842,17 @@ func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []
 
 // AppendServiceHandler implements a service catalog operation
 func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) error {
-	c.services.handler.Append(func(obj interface{}, event model.Event) error {
-		svc, ok := obj.(*v1.Service)
+	c.services.handler.Append(func(old, curr interface{}, event model.Event) error {
+		svc, ok := curr.(*v1.Service)
 		if !ok {
-			tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+			tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
 			if !ok {
-				log.Errorf("Couldn't get object from tombstone %#v", obj)
+				log.Errorf("Couldn't get object from tombstone %#v", curr)
 				return nil
 			}
 			svc, ok = tombstone.Obj.(*v1.Service)
 			if !ok {
-				log.Errorf("Tombstone contained object that is not a service %#v", obj)
+				log.Errorf("Tombstone contained object that is not a service %#v", curr)
 				return nil
 			}
 		}
@@ -899,17 +894,17 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 	if c.endpoints.handler == nil {
 		return nil
 	}
-	c.endpoints.handler.Append(func(obj interface{}, event model.Event) error {
-		ep, ok := obj.(*v1.Endpoints)
+	c.endpoints.handler.Append(func(old, curr interface{}, event model.Event) error {
+		ep, ok := curr.(*v1.Endpoints)
 		if !ok {
-			tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+			tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
 			if !ok {
-				log.Errorf("Couldn't get object from tombstone %#v", obj)
+				log.Errorf("Couldn't get object from tombstone %#v", curr)
 				return nil
 			}
 			ep, ok = tombstone.Obj.(*v1.Endpoints)
 			if !ok {
-				log.Errorf("Tombstone contained an object that is not an endpoint %#v", obj)
+				log.Errorf("Tombstone contained an object that is not an endpoint %#v", curr)
 				return nil
 			}
 		}
@@ -958,21 +953,21 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 							// If pod is still not availalable, this an unuusual case.
 							endpointsWithNoPods.Increment()
 							log.Errorf("Endpoint without pod %s %s.%s", ea.IP, ep.Name, ep.Namespace)
-							if c.Env != nil {
-								c.Env.PushContext.Add(model.EndpointNoPod, string(hostname), nil, ea.IP)
+							if c.metrics != nil {
+								c.metrics.AddMetric(model.EndpointNoPod, string(hostname), nil, ea.IP)
 							}
 							continue
 						}
 					}
 				}
 
-				var labels map[string]string
+				var labelMap map[string]string
 				locality, sa, uid := "", "", ""
 				if pod != nil {
 					locality = c.GetPodLocality(pod)
 					sa = kube.SecureNamingSAN(pod)
 					uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
-					labels = map[string]string(configKube.ConvertLabels(pod.ObjectMeta))
+					labelMap = configKube.ConvertLabels(pod.ObjectMeta)
 				}
 
 				tlsMode := kube.PodTLSMode(pod)
@@ -984,7 +979,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 						Address:         ea.IP,
 						EndpointPort:    uint32(port.Port),
 						ServicePortName: port.Name,
-						Labels:          labels,
+						Labels:          labelMap,
 						UID:             uid,
 						ServiceAccount:  sa,
 						Network:         c.endpointNetwork(ea.IP),

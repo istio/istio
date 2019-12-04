@@ -35,6 +35,14 @@ import (
 	"istio.io/pkg/monitoring"
 )
 
+// Metrics is an interface for capturing metrics on a per-node basis.
+type Metrics interface {
+	// AddMetric will add an case to the metric for the given node.
+	AddMetric(metric monitoring.Metric, key string, proxy *Proxy, msg string)
+}
+
+var _ Metrics = &PushContext{}
+
 // PushContext tracks the status of a push - metrics and errors.
 // Metrics are reset after a push - at the beginning all
 // values are zero, and when push completes the status is reset.
@@ -112,6 +120,9 @@ type PushContext struct {
 
 	// AuthNPolicies contains a map of hostname and port to authentication policy
 	AuthnPolicies processedAuthnPolicies `json:"-"`
+
+	// AuthnBetaPolicies contains (beta) Authn policies by namespace.
+	AuthnBetaPolicies *AuthenticationPolicies `json:"-"`
 
 	initDone bool
 
@@ -299,8 +310,8 @@ func (ps *PushContext) IsMixerEnabled() bool {
 	return ps != nil && ps.Mesh != nil && (ps.Mesh.MixerCheckServer != "" || ps.Mesh.MixerReportServer != "")
 }
 
-// Add will add an case to the metric.
-func (ps *PushContext) Add(metric monitoring.Metric, key string, proxy *Proxy, msg string) {
+// AddMetric will add an case to the metric.
+func (ps *PushContext) AddMetric(metric monitoring.Metric, key string, proxy *Proxy, msg string) {
 	if ps == nil {
 		log.Infof("Metric without context %s %v %s", key, proxy, msg)
 		return
@@ -825,7 +836,8 @@ func (ps *PushContext) updateContext(
 			schemas.ClusterRbacConfig.Type, schemas.RbacConfig.Type,
 			schemas.AuthorizationPolicy.Type:
 			authzChanged = true
-		case schemas.AuthenticationPolicy.Type, schemas.AuthenticationMeshPolicy.Type:
+		case schemas.AuthenticationPolicy.Type, schemas.AuthenticationMeshPolicy.Type,
+			schemas.RequestAuthentication.Type:
 			authnChanged = true
 		}
 	}
@@ -867,6 +879,7 @@ func (ps *PushContext) updateContext(
 		}
 	} else {
 		ps.AuthnPolicies = oldPushContext.AuthnPolicies
+		ps.AuthnBetaPolicies = oldPushContext.AuthnBetaPolicies
 	}
 
 	if authzChanged {
@@ -968,6 +981,10 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 
 // Caches list of authentication policies
 func (ps *PushContext) initAuthnPolicies(env *Environment) error {
+	// Init beta policy.
+	ps.AuthnBetaPolicies = initAuthenticationPolicies(env)
+
+	// Processing alpha policy. This will be removed after beta API released.
 	authNPolicies, err := env.List(schemas.AuthenticationPolicy.Type, NamespaceAll)
 	if err != nil {
 		return err

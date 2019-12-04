@@ -15,8 +15,11 @@
 package external
 
 import (
+	"reflect"
 	"sync"
 	"time"
+
+	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -31,14 +34,10 @@ import (
 
 var _ serviceregistry.Instance = &ServiceEntryStore{}
 
-type serviceHandler func(*model.Service, model.Event)
-type instanceHandler func(*model.ServiceInstance, model.Event)
-
 // ServiceEntryStore communicates with ServiceEntry CRDs and monitors for changes
 type ServiceEntryStore struct {
-	serviceHandlers  []serviceHandler
-	instanceHandlers []instanceHandler
-	store            model.IstioConfigStore
+	XdsUpdater model.XDSUpdater
+	store      model.IstioConfigStore
 
 	storeMutex sync.RWMutex
 
@@ -52,36 +51,70 @@ type ServiceEntryStore struct {
 }
 
 // NewServiceDiscovery creates a new ServiceEntry discovery service
-func NewServiceDiscovery(configController model.ConfigStoreCache, store model.IstioConfigStore) *ServiceEntryStore {
+func NewServiceDiscovery(configController model.ConfigStoreCache, store model.IstioConfigStore, xdsUpdater model.XDSUpdater) *ServiceEntryStore {
 	c := &ServiceEntryStore{
-		serviceHandlers:  make([]serviceHandler, 0),
-		instanceHandlers: make([]instanceHandler, 0),
-		store:            store,
-		ip2instance:      map[string][]*model.ServiceInstance{},
-		instances:        map[host.Name]map[string][]*model.ServiceInstance{},
-		updateNeeded:     true,
+		XdsUpdater:   xdsUpdater,
+		store:        store,
+		ip2instance:  map[string][]*model.ServiceInstance{},
+		instances:    map[host.Name]map[string][]*model.ServiceInstance{},
+		updateNeeded: true,
 	}
 	if configController != nil {
-		configController.RegisterEventHandler(schemas.ServiceEntry.Type, func(config model.Config, event model.Event) {
+		configController.RegisterEventHandler(schemas.ServiceEntry.Type, func(old, curr model.Config, event model.Event) {
 			// Recomputing the index here is too expensive.
 			c.changeMutex.Lock()
 			c.lastChange = time.Now()
 			c.updateNeeded = true
 			c.changeMutex.Unlock()
 
-			// TODO : Currently any update to ServiceEntry triggers a full push. We need to identify what has actually
-			// changed and call appropriate handlers - for example call only service handler for the changed services
-			// and call instance handlers only when instance update happens. This requires us to rework the handlers to
-			// have both old and new objects so that they can compare and be smart.
-			services := convertServices(config)
-			for _, handler := range c.serviceHandlers {
-				for _, service := range services {
-					go handler(service, event)
+			cs := convertServices(curr)
+
+			// If it is add/delete event we should always do a full push. If it is update event, we should do full push,
+			// only when services have changed - otherwise, just push endpoint updates.
+			fp := true
+			if event == model.EventUpdate {
+				// This is not needed, update should always have old populated, but just in case.
+				if old.Spec != nil {
+					os := convertServices(old)
+					fp = servicesChanged(os, cs)
+				} else {
+					log.Warnf("Spec is not available in the old service entry during update, proceeding with full push %v", old)
 				}
+			}
+
+			if fp {
+				pushReq := &model.PushRequest{
+					Full:               true,
+					NamespacesUpdated:  map[string]struct{}{curr.Namespace: {}},
+					ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
+				}
+				c.XdsUpdater.ConfigUpdate(pushReq)
+			} else {
+				instances := convertInstances(curr, cs)
+				endpoints := make([]*model.IstioEndpoint, 0)
+				for _, instance := range instances {
+					for _, port := range instance.Service.Ports {
+						endpoints = append(endpoints, &model.IstioEndpoint{
+							Address:         instance.Endpoint.Address,
+							EndpointPort:    uint32(port.Port),
+							ServicePortName: port.Name,
+							Labels:          instance.Labels,
+							UID:             instance.Endpoint.UID,
+							ServiceAccount:  instance.ServiceAccount,
+							Network:         instance.Endpoint.Network,
+							Locality:        instance.Endpoint.Locality,
+							Attributes: model.ServiceAttributes{
+								Name:      instance.Service.Attributes.Name,
+								Namespace: instance.Service.Attributes.Namespace,
+							},
+							TLSMode: instance.TLSMode,
+						})
+					}
+				}
+				_ = c.XdsUpdater.EDSUpdate(c.Cluster(), curr.Name, curr.Namespace, endpoints)
 			}
 		})
 	}
-
 	return c
 }
 
@@ -93,15 +126,13 @@ func (d *ServiceEntryStore) Cluster() string {
 	return ""
 }
 
-// AppendServiceHandler adds service resource event handler
+// AppendServiceHandler adds service resource event handler. Service Entries does not use these handlers.
 func (d *ServiceEntryStore) AppendServiceHandler(f func(*model.Service, model.Event)) error {
-	d.serviceHandlers = append(d.serviceHandlers, f)
 	return nil
 }
 
-// AppendInstanceHandler adds instance event handler.
+// AppendInstanceHandler adds instance event handler. Service Entries does not use these handlers.
 func (d *ServiceEntryStore) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
-	d.instanceHandlers = append(d.instanceHandlers, f)
 	return nil
 }
 
@@ -271,4 +302,14 @@ func (d *ServiceEntryStore) GetIstioServiceAccounts(svc *model.Service, ports []
 	//for service entries, there is no istio auth, no service accounts, etc. It is just a
 	// service, with service instances, and dns.
 	return nil
+}
+
+// This method compares if services have changed, that needs full push.
+func servicesChanged(os []*model.Service, ns []*model.Service) bool {
+	// Length of services have changed, needs full push.
+	if len(os) != len(ns) {
+		return true
+	}
+	// TODO : check if any finer grained check is possible, rather than comparing entire object.
+	return !reflect.DeepEqual(os, ns)
 }

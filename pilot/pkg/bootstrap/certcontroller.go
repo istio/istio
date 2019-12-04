@@ -51,13 +51,13 @@ func (s *Server) initCertController(args *PilotArgs) error {
 	var err error
 	var secretNames, dnsNames, namespaces []string
 
-	if s.mesh.GetCertificates() == nil || len(s.mesh.GetCertificates()) == 0 {
+	if s.environment.Mesh.GetCertificates() == nil || len(s.environment.Mesh.GetCertificates()) == 0 {
 		log.Info("nil certificate config")
 		return nil
 	}
 
 	k8sClient := s.kubeClient
-	for _, c := range s.mesh.GetCertificates() {
+	for _, c := range s.environment.Mesh.GetCertificates() {
 		name := strings.Join(c.GetDnsNames(), ",")
 		if len(name) == 0 { // must have a DNS name
 			continue

@@ -37,11 +37,17 @@ import (
 // SetupDiscoveryServer creates a DiscoveryServer with the provided configs using the mem registry
 func SetupDiscoveryServer(t testing.TB, cfgs ...model.Config) *DiscoveryServer {
 	m := mesh.DefaultMeshConfig()
+	env := &model.Environment{
+		Mesh:         &m,
+		MeshNetworks: nil,
+		PushContext:  model.NewPushContext(),
+	}
+	s := NewDiscoveryServer(env, []string{})
 	store := memory.Make(schemas.Istio)
 	configController := memory.NewController(store)
 	istioConfigStore := model.MakeIstioStore(configController)
 	serviceControllers := aggregate.NewController()
-	serviceEntryStore := external.NewServiceDiscovery(configController, istioConfigStore)
+	serviceEntryStore := external.NewServiceDiscovery(configController, istioConfigStore, s)
 	go configController.Run(make(chan struct{}))
 	serviceEntryRegistry := serviceregistry.Simple{
 		ProviderID:       "ServiceEntries",
@@ -50,13 +56,9 @@ func SetupDiscoveryServer(t testing.TB, cfgs ...model.Config) *DiscoveryServer {
 	}
 	serviceControllers.AddRegistry(serviceEntryRegistry)
 
-	env := &model.Environment{
-		Mesh:             &m,
-		MeshNetworks:     nil,
-		IstioConfigStore: istioConfigStore,
-		ServiceDiscovery: serviceControllers,
-		PushContext:      model.NewPushContext(),
-	}
+	env.IstioConfigStore = istioConfigStore
+	env.ServiceDiscovery = serviceControllers
+
 	for _, cfg := range cfgs {
 		if _, err := configController.Create(cfg); err != nil {
 			t.Fatal(err)
@@ -65,7 +67,6 @@ func SetupDiscoveryServer(t testing.TB, cfgs ...model.Config) *DiscoveryServer {
 	if err := env.PushContext.InitContext(env, env.PushContext, nil); err != nil {
 		t.Fatal(err)
 	}
-	s := NewDiscoveryServer(env, []string{})
 	if err := s.updateServiceShards(s.globalPushContext()); err != nil {
 		t.Fatalf("Failed to update service shards: %v", err)
 	}

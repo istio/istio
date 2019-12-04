@@ -161,14 +161,14 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 
 // resolves cluster name conflicts. there can be duplicate cluster names if there are conflicting service definitions.
 // for any clusters that share the same name the first cluster is kept and the others are discarded.
-func normalizeClusters(push *model.PushContext, proxy *model.Proxy, clusters []*apiv2.Cluster) []*apiv2.Cluster {
+func normalizeClusters(metrics model.Metrics, proxy *model.Proxy, clusters []*apiv2.Cluster) []*apiv2.Cluster {
 	have := make(map[string]bool)
 	out := make([]*apiv2.Cluster, 0, len(clusters))
 	for _, cluster := range clusters {
 		if !have[cluster.Name] {
 			out = append(out, cluster)
 		} else {
-			push.Add(model.DuplicatedClusters, cluster.Name, proxy,
+			metrics.AddMetric(model.DuplicatedClusters, cluster.Name, proxy,
 				fmt.Sprintf("Duplicate cluster %s found while pushing CDS", cluster.Name))
 		}
 		have[cluster.Name] = true
@@ -217,7 +217,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(proxy *model.Proxy, 
 			}
 
 			setUpstreamProtocol(proxy, defaultCluster, port, model.TrafficDirectionOutbound)
-			serviceMTLSMode := authn_model.MTLSUnknown
+			serviceMTLSMode := model.MTLSUnknown
 			if !service.MeshExternal {
 				// Only need the authentication MTLS mode when service is not external.
 				policy, _ := push.AuthenticationPolicyForWorkload(service, port)
@@ -748,11 +748,11 @@ func conditionallyConvertToIstioMtls(
 	proxy *model.Proxy,
 	autoMTLSEnabled bool,
 	meshExternal bool,
-	serviceMTLSMode authn_model.MutualTLSMode,
+	serviceMTLSMode model.MutualTLSMode,
 ) (*networking.TLSSettings, mtlsContextType) {
 	mtlsCtx := userSupplied
 	if tls == nil {
-		if meshExternal || !autoMTLSEnabled || serviceMTLSMode == authn_model.MTLSUnknown || serviceMTLSMode == authn_model.MTLSDisable {
+		if meshExternal || !autoMTLSEnabled || serviceMTLSMode == model.MTLSUnknown || serviceMTLSMode == model.MTLSDisable {
 			return nil, mtlsCtx
 		}
 
@@ -851,7 +851,7 @@ type buildClusterOpts struct {
 	direction       model.TrafficDirection
 	proxy           *model.Proxy
 	meshExternal    bool
-	serviceMTLSMode authn_model.MutualTLSMode
+	serviceMTLSMode model.MutualTLSMode
 }
 
 func applyTrafficPolicy(opts buildClusterOpts, proxy *model.Proxy) {

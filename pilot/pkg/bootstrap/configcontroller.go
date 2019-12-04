@@ -56,7 +56,8 @@ const (
 
 // initConfigController creates the config controller in the pilotConfig.
 func (s *Server) initConfigController(args *PilotArgs) error {
-	if len(s.mesh.ConfigSources) > 0 {
+	if len(s.environment.Mesh.ConfigSources) > 0 {
+		// Using MCP for config.
 		if err := s.initMCPConfigController(args); err != nil {
 			return err
 		}
@@ -78,9 +79,12 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	}
 
 	// If running in ingress mode (requires k8s), wrap the config controller.
-	if hasKubeRegistry(args.Service.Registries) && s.mesh.IngressControllerMode != meshconfig.MeshConfig_OFF {
-		s.ConfigStores = append(s.ConfigStores, ingress.NewController(s.kubeClient, s.mesh, args.Config.ControllerOptions))
-		if ingressSyncer, errSyncer := ingress.NewStatusSyncer(s.mesh, s.kubeClient,
+	if hasKubeRegistry(args.Service.Registries) && s.environment.Mesh.IngressControllerMode != meshconfig.MeshConfig_OFF {
+		// Wrap the config controller with a cache.
+		s.ConfigStores = append(s.ConfigStores,
+			ingress.NewController(s.kubeClient, s.environment.Mesh, args.Config.ControllerOptions))
+
+		if ingressSyncer, errSyncer := ingress.NewStatusSyncer(s.environment.Mesh, s.kubeClient,
 			args.Namespace, args.Config.ControllerOptions); errSyncer != nil {
 			log.Warnf("Disabled ingress status syncer due to %v", errSyncer)
 		} else {
@@ -99,7 +103,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	s.configController = aggregateMcpController
 
 	// Create the config store.
-	s.istioConfigStore = model.MakeIstioStore(s.configController)
+	s.environment.IstioConfigStore = model.MakeIstioStore(s.configController)
 
 	// Defer starting the controller until after the service is created.
 	s.addStartFunc(func(stop <-chan struct{}) error {
@@ -122,7 +126,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	}
 	reporter := monitoring.NewStatsContext("pilot")
 
-	for _, configSource := range s.mesh.ConfigSources {
+	for _, configSource := range s.environment.Mesh.ConfigSources {
 		if strings.Contains(configSource.Address, fsScheme+"://") {
 			srcAddress, err := url.Parse(configSource.Address)
 			if err != nil {

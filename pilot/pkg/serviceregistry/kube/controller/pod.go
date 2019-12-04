@@ -55,20 +55,20 @@ func newPodCache(ch cacheHandler, c *Controller) *PodCache {
 }
 
 // event updates the IP-based index (pc.podsByIP).
-func (pc *PodCache) event(obj interface{}, ev model.Event) error {
+func (pc *PodCache) event(old, curr interface{}, ev model.Event) error {
 	pc.Lock()
 	defer pc.Unlock()
 
 	// When a pod is deleted obj could be an *v1.Pod or a DeletionFinalStateUnknown marker item.
-	pod, ok := obj.(*v1.Pod)
+	pod, ok := curr.(*v1.Pod)
 	if !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			return fmt.Errorf("couldn't get object from tombstone %+v", obj)
+			return fmt.Errorf("couldn't get object from tombstone %+v", curr)
 		}
 		pod, ok = tombstone.Obj.(*v1.Pod)
 		if !ok {
-			return fmt.Errorf("tombstone contained object that is not a pod %#v", obj)
+			return fmt.Errorf("tombstone contained object that is not a pod %#v", curr)
 		}
 	}
 
