@@ -25,9 +25,13 @@ import (
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/golang/protobuf/ptypes/empty"
 
+<<<<<<< HEAD
 	authn_alpha "istio.io/istio/security/proto/authentication/v1alpha1"
 	authn_filter "istio.io/istio/security/proto/envoy/config/filter/http/authn/v2alpha1"
 
+=======
+	authn_v1alpha1 "istio.io/api/authentication/v1alpha1"
+>>>>>>> Add fallback to alpha JWT policy if RequestAuthentication is not found
 	v1beta1 "istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
@@ -48,7 +52,16 @@ func TestJwtFilter(t *testing.T) {
 
 	jwksURI := ms.URL + "/oauth2/v3/certs"
 
+<<<<<<< HEAD
 	cases := []testCase{
+=======
+	cases := []struct {
+		name        string
+		in          []*model.Config
+		alphaPolicy *authn_v1alpha1.Policy
+		expected    *http_conn.HttpFilter
+	}{
+>>>>>>> Add fallback to alpha JWT policy if RequestAuthentication is not found
 		{
 			name:     "No policy",
 			in:       []*model.Config{},
@@ -62,6 +75,56 @@ func TestJwtFilter(t *testing.T) {
 				},
 			},
 			expected: nil,
+		},
+		{
+			name: "Fallback to alpha JWT",
+			alphaPolicy: &authn_v1alpha1.Policy{
+				Origins: []*authn_v1alpha1.OriginAuthenticationMethod{
+					{
+						Jwt: &authn_v1alpha1.Jwt{
+							Issuer:  "https://secret.foo.com",
+							JwksUri: jwksURI,
+						},
+					},
+				},
+			},
+			in: []*model.Config{},
+			expected: &http_conn.HttpFilter{
+				Name: "envoy.filters.http.jwt_authn",
+				ConfigType: &http_conn.HttpFilter_TypedConfig{
+					TypedConfig: pilotutil.MessageToAny(
+						&envoy_jwt.JwtAuthentication{
+							Rules: []*envoy_jwt.RequirementRule{
+								{
+									Match: &route.RouteMatch{
+										PathSpecifier: &route.RouteMatch_Prefix{
+											Prefix: "/",
+										},
+									},
+									Requires: &envoy_jwt.JwtRequirement{
+										RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
+											AllowMissingOrFailed: &empty.Empty{},
+										},
+									},
+								},
+							},
+							Providers: map[string]*envoy_jwt.JwtProvider{
+								"origins-0": {
+									Issuer: "https://secret.foo.com",
+									JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
+										LocalJwks: &core.DataSource{
+											Specifier: &core.DataSource_InlineString{
+												InlineString: test.JwtPubKey1,
+											},
+										},
+									},
+									Forward:           true,
+									PayloadInMetadata: "https://secret.foo.com",
+								},
+							},
+						}),
+				},
+			},
 		},
 		{
 			name: "Single JWT policy",
@@ -296,8 +359,8 @@ func TestJwtFilter(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := NewPolicyApplier(c.in).JwtFilter(true); !reflect.DeepEqual(c.expected, got) {
-				t.Errorf("got:\n%s\nwanted:\n%s\n", spew.Sdump(got), spew.Sdump(c.expected))
+			if got := NewPolicyApplier(c.in, c.alphaPolicy).JwtFilter(true); !reflect.DeepEqual(c.expected, got) {
+				t.Errorf("got:\n%s\nwanted:\n%s", spew.Sdump(got), spew.Sdump(c.expected))
 			}
 		})
 	}
