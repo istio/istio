@@ -215,6 +215,7 @@
 // ../../data/charts/security/nodeagent/values.yaml
 // ../../data/examples/multicluster/values-istio-multicluster-gateways.yaml
 // ../../data/examples/multicluster/values-istio-multicluster-primary.yaml
+// ../../data/examples/user-gateway/ingress-gateway-only.yaml
 // ../../data/examples/vm/values-istio-meshexpansion-gateways.yaml
 // ../../data/examples/vm/values-istio-meshexpansion.yaml
 // ../../data/operator/Chart.yaml
@@ -227,6 +228,7 @@
 // ../../data/operator/templates/service_account.yaml
 // ../../data/profiles/default.yaml
 // ../../data/profiles/demo.yaml
+// ../../data/profiles/empty.yaml
 // ../../data/profiles/minimal.yaml
 // ../../data/profiles/remote.yaml
 // ../../data/profiles/sds.yaml
@@ -37008,6 +37010,33 @@ func examplesMulticlusterValuesIstioMulticlusterPrimaryYaml() (*asset, error) {
 	return a, nil
 }
 
+var _examplesUserGatewayIngressGatewayOnlyYaml = []byte(`apiVersion: install.istio.io/v1alpha2
+kind: IstioControlPlane
+spec:
+  profile: empty
+  gateways:
+    enabled: true
+    components:
+      namespace: my-namespace
+      ingressGateway:
+        enabled: true
+`)
+
+func examplesUserGatewayIngressGatewayOnlyYamlBytes() ([]byte, error) {
+	return _examplesUserGatewayIngressGatewayOnlyYaml, nil
+}
+
+func examplesUserGatewayIngressGatewayOnlyYaml() (*asset, error) {
+	bytes, err := examplesUserGatewayIngressGatewayOnlyYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "examples/user-gateway/ingress-gateway-only.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _examplesVmValuesIstioMeshexpansionGatewaysYaml = []byte(`apiVersion: install.istio.io/v1alpha2
 kind: IstioControlPlane
 spec:
@@ -37475,6 +37504,13 @@ spec:
   hub: gcr.io/istio-testing
   tag: latest
   defaultNamespace: istio-system
+
+  # Base contains all CRDs, namespaces etc.
+  base:
+    enabled: true
+    components:
+      base:
+        enabled: true
 
   # Traffic management feature
   trafficManagement:
@@ -38337,6 +38373,73 @@ func profilesDemoYaml() (*asset, error) {
 	return a, nil
 }
 
+var _profilesEmptyYaml = []byte(`apiVersion: install.istio.io/v1alpha2
+kind: IstioControlPlane
+spec:
+  base:
+    enabled: false
+
+  trafficManagement:
+    enabled: false
+
+  policy:
+    enabled: false
+
+  telemetry:
+    enabled: false
+
+  security:
+    enabled: false
+
+  configManagement:
+    enabled: false
+
+  autoInjection:
+    enabled: false
+
+  gateways:
+    enabled: false
+    components:
+      ingressGateway:
+        enabled: false
+      egressGateway:
+        enabled: false
+
+  values:
+    global:
+      useMCP: false
+      controlPlaneSecurityEnabled: false
+      proxy:
+        envoyStatsd:
+          enabled: false
+          host:
+          port:
+      mtls:
+        auto: false
+
+    pilot:
+      sidecar: false
+      useMCP: false
+
+    prometheus:
+      enabled: false
+`)
+
+func profilesEmptyYamlBytes() ([]byte, error) {
+	return _profilesEmptyYaml, nil
+}
+
+func profilesEmptyYaml() (*asset, error) {
+	bytes, err := profilesEmptyYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "profiles/empty.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _profilesMinimalYaml = []byte(`apiVersion: install.istio.io/v1alpha2
 kind: IstioControlPlane
 spec:
@@ -38791,7 +38894,6 @@ globalNamespaces:
   Citadel:    "securityNamespace"
 featureMaps:
   Base:
-    alwaysEnabled: true
     Components:
       - Base
   TrafficManagement:
@@ -38836,7 +38938,6 @@ componentMaps:
   Base:
     ToHelmValuesTreeRoot: "global"
     HelmSubdir:           "base"
-    AlwaysEnabled:        true
   Pilot:
     ResourceType:         "Deployment"
     ResourceName:         "istio-pilot"
@@ -39255,6 +39356,7 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/security/nodeagent/values.yaml":                                               chartsSecurityNodeagentValuesYaml,
 	"examples/multicluster/values-istio-multicluster-gateways.yaml":                       examplesMulticlusterValuesIstioMulticlusterGatewaysYaml,
 	"examples/multicluster/values-istio-multicluster-primary.yaml":                        examplesMulticlusterValuesIstioMulticlusterPrimaryYaml,
+	"examples/user-gateway/ingress-gateway-only.yaml":                                     examplesUserGatewayIngressGatewayOnlyYaml,
 	"examples/vm/values-istio-meshexpansion-gateways.yaml":                                examplesVmValuesIstioMeshexpansionGatewaysYaml,
 	"examples/vm/values-istio-meshexpansion.yaml":                                         examplesVmValuesIstioMeshexpansionYaml,
 	"operator/Chart.yaml":                                                                 operatorChartYaml,
@@ -39267,6 +39369,7 @@ var _bindata = map[string]func() (*asset, error){
 	"operator/templates/service_account.yaml":                                             operatorTemplatesService_accountYaml,
 	"profiles/default.yaml":                                                               profilesDefaultYaml,
 	"profiles/demo.yaml":                                                                  profilesDemoYaml,
+	"profiles/empty.yaml":                                                                 profilesEmptyYaml,
 	"profiles/minimal.yaml":                                                               profilesMinimalYaml,
 	"profiles/remote.yaml":                                                                profilesRemoteYaml,
 	"profiles/sds.yaml":                                                                   profilesSdsYaml,
@@ -39626,6 +39729,9 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"values-istio-multicluster-gateways.yaml": &bintree{examplesMulticlusterValuesIstioMulticlusterGatewaysYaml, map[string]*bintree{}},
 			"values-istio-multicluster-primary.yaml":  &bintree{examplesMulticlusterValuesIstioMulticlusterPrimaryYaml, map[string]*bintree{}},
 		}},
+		"user-gateway": &bintree{nil, map[string]*bintree{
+			"ingress-gateway-only.yaml": &bintree{examplesUserGatewayIngressGatewayOnlyYaml, map[string]*bintree{}},
+		}},
 		"vm": &bintree{nil, map[string]*bintree{
 			"values-istio-meshexpansion-gateways.yaml": &bintree{examplesVmValuesIstioMeshexpansionGatewaysYaml, map[string]*bintree{}},
 			"values-istio-meshexpansion.yaml":          &bintree{examplesVmValuesIstioMeshexpansionYaml, map[string]*bintree{}},
@@ -39646,6 +39752,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 	"profiles": &bintree{nil, map[string]*bintree{
 		"default.yaml": &bintree{profilesDefaultYaml, map[string]*bintree{}},
 		"demo.yaml":    &bintree{profilesDemoYaml, map[string]*bintree{}},
+		"empty.yaml":   &bintree{profilesEmptyYaml, map[string]*bintree{}},
 		"minimal.yaml": &bintree{profilesMinimalYaml, map[string]*bintree{}},
 		"remote.yaml":  &bintree{profilesRemoteYaml, map[string]*bintree{}},
 		"sds.yaml":     &bintree{profilesSdsYaml, map[string]*bintree{}},

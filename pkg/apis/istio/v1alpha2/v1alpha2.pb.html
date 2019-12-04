@@ -5,7 +5,7 @@ location: https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb.htm
 layout: protoc-gen-docs
 generator: protoc-gen-docs
 weight: 10
-number_of_entries: 59
+number_of_entries: 62
 ---
 <p>IstioControlPlane is a schema for both defining and customizing Istio control plane installations.
 Running the operator with an empty user defined InstallSpec results in an control plane with default values, using the
@@ -199,6 +199,96 @@ No
 <tr id="AutoInjectionFeatureSpec-Components-injector">
 <td><code>injector</code></td>
 <td><code><a href="#SidecarInjectorComponentSpec">SidecarInjectorComponentSpec</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="BaseComponentSpec">BaseComponentSpec</h2>
+<section>
+<p>Configuration options for the base component.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="BaseComponentSpec-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="#TypeBoolValueForPB">TypeBoolValueForPB</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="BaseFeatureSpec">BaseFeatureSpec</h2>
+<section>
+<p>Base feature settings.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="BaseFeatureSpec-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="#TypeBoolValueForPB">TypeBoolValueForPB</a></code></td>
+<td>
+<p>Selects whether base feature is installed. Required for all Istio installs.
+Should only be disabled when generating partial Istio installation YAMLs.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="BaseFeatureSpec-components">
+<td><code>components</code></td>
+<td><code><a href="#BaseFeatureSpec-Components">Components</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="BaseFeatureSpec-Components">BaseFeatureSpec.Components</h2>
+<section>
+<p>Component specific config.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="BaseFeatureSpec-Components-base">
+<td><code>base</code></td>
+<td><code><a href="#BaseComponentSpec">BaseComponentSpec</a></code></td>
 <td>
 </td>
 <td>
@@ -1180,6 +1270,17 @@ Because the spec is a customization API, specifying an empty InstallSpec results
 <td><code>string</code></td>
 <td>
 <p>Default namespace if feature or component namespaces are not set.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="IstioControlPlaneSpec-base">
+<td><code>base</code></td>
+<td><code><a href="#BaseFeatureSpec">BaseFeatureSpec</a></code></td>
+<td>
+<p>Base feature containing resources like CRDs, namespaces etc.</p>
 
 </td>
 <td>
