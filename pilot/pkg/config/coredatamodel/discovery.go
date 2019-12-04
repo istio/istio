@@ -21,6 +21,7 @@ import (
 	"sync"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -30,7 +31,6 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/config/visibility"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -39,7 +39,6 @@ var (
 
 // DiscoveryOptions stores the configurable attributes of a Control
 type DiscoveryOptions struct {
-	Env          *model.Environment
 	ClusterID    string
 	DomainSuffix string
 }
@@ -66,7 +65,7 @@ func NewMCPDiscovery(controller CoreDataModel, options *DiscoveryOptions) *MCPDi
 		cacheByHostName:                 make(map[host.Name][]*model.ServiceInstance),
 		cacheServices:                   make(map[string]*model.Service),
 	}
-	discovery.RegisterEventHandler(schemas.SyntheticServiceEntry.Type, func(config model.Config, event model.Event) {
+	discovery.RegisterEventHandler(schemas.SyntheticServiceEntry.Type, func(_, config model.Config, event model.Event) {
 		discovery.HandleCacheEvents(config, event)
 	})
 	return discovery
@@ -171,18 +170,8 @@ func (d *MCPDiscovery) InstancesByPort(svc *model.Service, servicePort int, labe
 	return out, nil
 }
 
-// mixerEnabled checks to see if mixer is enabled in the environment
-// so we can set the UID on eds endpoints
-func (d *MCPDiscovery) mixerEnabled() bool {
-	return d.DiscoveryOptions.Env != nil && d.DiscoveryOptions.Env.Mesh != nil &&
-		(d.DiscoveryOptions.Env.Mesh.MixerCheckServer != "" || d.DiscoveryOptions.Env.Mesh.MixerReportServer != "")
-}
-
-func (d *MCPDiscovery) parseUID(cfg model.Config) string {
-	if d.mixerEnabled() {
-		return "kubernetes://" + cfg.Name + "." + cfg.Namespace
-	}
-	return ""
+func (d *MCPDiscovery) uid(cfg model.Config) string {
+	return "kubernetes://" + cfg.Name + "." + cfg.Namespace
 }
 
 // Considered running this in the Run func, however
@@ -207,8 +196,8 @@ func (d *MCPDiscovery) initializeCache() error {
 }
 
 func (d *MCPDiscovery) mergeCachedServices(newServices map[string]*model.Service) {
-	for host, newSvc := range newServices {
-		d.cacheServices[host] = newSvc
+	for hostname, newSvc := range newServices {
+		d.cacheServices[hostname] = newSvc
 	}
 }
 
@@ -219,8 +208,8 @@ func (d *MCPDiscovery) mergeCacheByEndpoint(newServicesInstances map[string][]*m
 }
 
 func (d *MCPDiscovery) mergeCacheByHostName(newServicesInstances map[host.Name][]*model.ServiceInstance) {
-	for host, svcInst := range newServicesInstances {
-		d.cacheByHostName[host] = svcInst
+	for hostname, svcInst := range newServicesInstances {
+		d.cacheByHostName[hostname] = svcInst
 	}
 }
 
@@ -243,7 +232,7 @@ func (d *MCPDiscovery) convertInstances(
 				// can not work on hostnames
 				svcInstance := &model.ServiceInstance{
 					Endpoint: model.NetworkEndpoint{
-						UID:         d.parseUID(cfg),
+						UID:         d.uid(cfg),
 						Address:     string(service.Hostname),
 						Port:        int(serviceEntryPort.Number),
 						ServicePort: convertPort(serviceEntryPort),
@@ -426,7 +415,7 @@ func (d *MCPDiscovery) convertEndpoint(cfg model.Config, service *model.Service,
 
 	return &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
-			UID:         d.parseUID(cfg),
+			UID:         d.uid(cfg),
 			Address:     addr,
 			Family:      family,
 			Port:        int(instancePort),

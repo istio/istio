@@ -39,6 +39,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -81,12 +82,12 @@ func buildPatchStruct(config string) *types.Struct {
 	return val
 }
 
-func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, mesh meshconfig.MeshConfig,
+func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, meshConfig meshconfig.MeshConfig,
 	configStore model.IstioConfigStore) *model.Environment {
 	env := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
 		IstioConfigStore: configStore,
-		Mesh:             &mesh,
+		Mesh:             &meshConfig,
 	}
 
 	env.PushContext = model.NewPushContext()

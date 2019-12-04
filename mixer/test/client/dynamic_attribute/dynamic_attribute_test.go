@@ -15,6 +15,7 @@
 package client_test
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"testing"
@@ -214,7 +215,7 @@ func TestDynamicAttribute(t *testing.T) {
 			},
 		}},
 	})
-	server := xds.NewServer(snapshots, nil)
+	server := xds.NewServer(context.Background(), snapshots, nil)
 	discovery.RegisterAggregatedDiscoveryServiceServer(grpcServer, server)
 
 	go func() {

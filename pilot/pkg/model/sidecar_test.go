@@ -713,9 +713,7 @@ func TestCreateSidecarScope(t *testing.T) {
 			var found bool
 			ps := NewPushContext()
 			meshConfig := mesh.DefaultMeshConfig()
-			ps.Env = &Environment{
-				Mesh: &meshConfig,
-			}
+			ps.Mesh = &meshConfig
 			if tt.services != nil {
 				ps.publicServices = append(ps.publicServices, tt.services...)
 			}
@@ -935,9 +933,7 @@ func TestContainsEgressNamespace(t *testing.T) {
 			}
 			ps := NewPushContext()
 			meshConfig := mesh.DefaultMeshConfig()
-			ps.Env = &Environment{
-				Mesh: &meshConfig,
-			}
+			ps.Mesh = &meshConfig
 
 			services := []*Service{
 				{Hostname: "nomatch", Attributes: ServiceAttributes{Namespace: "nomatch"}},
@@ -1072,9 +1068,7 @@ outboundTrafficPolicy:
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ps := NewPushContext()
-			ps.Env = &Environment{
-				Mesh: &test.meshConfig,
-			}
+			ps.Mesh = &test.meshConfig
 
 			var sidecarScope *SidecarScope
 			if test.sidecar == nil {

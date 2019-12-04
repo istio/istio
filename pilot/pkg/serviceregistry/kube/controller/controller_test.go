@@ -161,12 +161,8 @@ func newLocalController(t *testing.T) (*Controller, *FakeXdsUpdater) {
 		ResyncPeriod:     resync,
 		DomainSuffix:     domainSuffix,
 		XDSUpdater:       fx,
+		Metrics:          &model.Environment{},
 	})
-	ctl.Env = &model.Environment{
-		Mesh: &meshconfig.MeshConfig{
-			MixerCheckServer: "mixer",
-		},
-	}
 	go ctl.Run(ctl.stop)
 	return ctl, fx
 }
@@ -179,14 +175,10 @@ func newFakeController(_ *testing.T) (*Controller, *FakeXdsUpdater) {
 		ResyncPeriod:     resync,
 		DomainSuffix:     domainSuffix,
 		XDSUpdater:       fx,
+		Metrics:          &model.Environment{},
 	})
 	_ = c.AppendInstanceHandler(func(instance *model.ServiceInstance, event model.Event) {})
 	_ = c.AppendServiceHandler(func(service *model.Service, event model.Event) {})
-	c.Env = &model.Environment{
-		Mesh: &meshconfig.MeshConfig{
-			MixerCheckServer: "mixer",
-		},
-	}
 	go c.Run(c.stop)
 	return c, fx
 }
@@ -224,34 +216,28 @@ func TestServices(t *testing.T) {
 		return false
 	})
 
-	ctl.Env = &model.Environment{
-		Mesh: &meshconfig.MeshConfig{
-			MixerCheckServer: "mixer",
-		},
-		MeshNetworks: &meshconfig.MeshNetworks{
-			Networks: map[string]*meshconfig.Network{
-				"network1": {
-					Endpoints: []*meshconfig.Network_NetworkEndpoints{
-						{
-							Ne: &meshconfig.Network_NetworkEndpoints_FromCidr{
-								FromCidr: "10.10.1.1/24",
-							},
+	ctl.InitNetworkLookup(&meshconfig.MeshNetworks{
+		Networks: map[string]*meshconfig.Network{
+			"network1": {
+				Endpoints: []*meshconfig.Network_NetworkEndpoints{
+					{
+						Ne: &meshconfig.Network_NetworkEndpoints_FromCidr{
+							FromCidr: "10.10.1.1/24",
 						},
 					},
 				},
-				"network2": {
-					Endpoints: []*meshconfig.Network_NetworkEndpoints{
-						{
-							Ne: &meshconfig.Network_NetworkEndpoints_FromCidr{
-								FromCidr: "10.11.1.1/24",
-							},
+			},
+			"network2": {
+				Endpoints: []*meshconfig.Network_NetworkEndpoints{
+					{
+						Ne: &meshconfig.Network_NetworkEndpoints_FromCidr{
+							FromCidr: "10.11.1.1/24",
 						},
 					},
 				},
 			},
 		},
-	}
-	ctl.InitNetworkLookup(ctl.Env.MeshNetworks)
+	})
 
 	// 2 ports 1001, 2 IPs
 	createEndpoints(ctl, testService, ns, []string{"http-example", "foo"}, []string{"10.10.1.1", "10.11.1.2"}, t)
@@ -1603,7 +1589,7 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 
 	// Now delete pod2, from PodCache and send Endpoints. This simulates the case that endpoint comes
 	// when PodCache does not yet have entry for the pod.
-	controller.pods.event(pod2, model.EventDelete)
+	controller.pods.event(nil, pod2, model.EventDelete)
 
 	pod2Ips := []string{"172.0.1.2"}
 	createEndpoints(controller, "pod2", "nsA", portNames, pod2Ips, t)

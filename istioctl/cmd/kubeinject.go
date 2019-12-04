@@ -29,7 +29,6 @@ import (
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 
-	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
@@ -256,7 +255,7 @@ istioctl kube-inject -f samples/bookinfo/platform/kube/bookinfo.yaml \
 
 			var meshConfig *meshconfig.MeshConfig
 			if meshConfigFile != "" {
-				if meshConfig, err = cmd.ReadMeshConfig(meshConfigFile); err != nil {
+				if meshConfig, err = mesh.ReadMeshConfig(meshConfigFile); err != nil {
 					return err
 				}
 			} else {

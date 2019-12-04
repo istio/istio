@@ -726,9 +726,12 @@ func getInboundHTTPConnectionManager(cd *configdump.Wrapper, port int32) (*http_
 		return nil, err
 	}
 
-	for _, listener := range listeners.DynamicActiveListeners {
-		if filter.Verify(listener.Listener) {
-			sockAddr := listener.Listener.Address.GetSocketAddress()
+	for _, listener := range listeners.DynamicListeners {
+		if listener.ActiveState == nil {
+			continue
+		}
+		if filter.Verify(listener.ActiveState.Listener) {
+			sockAddr := listener.ActiveState.Listener.Address.GetSocketAddress()
 			if sockAddr != nil {
 				// Skip outbound listeners
 				if sockAddr.Address == "0.0.0.0" {
@@ -736,7 +739,7 @@ func getInboundHTTPConnectionManager(cd *configdump.Wrapper, port int32) (*http_
 				}
 			}
 
-			for _, filterChain := range listener.Listener.FilterChains {
+			for _, filterChain := range listener.ActiveState.Listener.FilterChains {
 				for _, filter := range filterChain.Filters {
 					hcm := &http_conn.HttpConnectionManager{}
 					if err := ptypes.UnmarshalAny(filter.GetTypedConfig(), hcm); err == nil {
@@ -1071,9 +1074,12 @@ func getIstioVirtualServicePathForSvcFromListener(cd *configdump.Wrapper, svc v1
 	}
 
 	// VirtualServices for TCP may appear in the listeners
-	for _, listener := range listeners.DynamicActiveListeners {
-		if filter.Verify(listener.Listener) {
-			for _, filterChain := range listener.Listener.FilterChains {
+	for _, listener := range listeners.DynamicListeners {
+		if listener.ActiveState == nil {
+			continue
+		}
+		if filter.Verify(listener.ActiveState.Listener) {
+			for _, filterChain := range listener.ActiveState.Listener.FilterChains {
 				for _, filter := range filterChain.Filters {
 					if filter.Name == "mixer" {
 						// nolint: staticcheck

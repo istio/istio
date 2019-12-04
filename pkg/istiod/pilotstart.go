@@ -42,13 +42,11 @@ import (
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 
-	"istio.io/istio/pilot/cmd"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/coredatamodel"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	"istio.io/istio/pilot/pkg/networking/util"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/external"
@@ -187,6 +185,10 @@ func (s *Server) InitConfig() error {
 	return nil
 }
 
+func (s *Server) ServiceController() *aggregate.Controller {
+	return s.Environment.ServiceDiscovery.(*aggregate.Controller)
+}
+
 // InitDiscovery is called after NewIstiod, will initialize the discovery services and
 // discovery server.
 func (s *Server) InitDiscovery() error {
@@ -199,22 +201,13 @@ func (s *Server) InitDiscovery() error {
 	// Update the config controller
 	s.ConfigController = configController
 	// Create the config store.
-	s.IstioConfigStore = model.MakeIstioStore(s.ConfigController)
+	s.Environment.IstioConfigStore = model.MakeIstioStore(s.ConfigController)
 
-	s.ServiceController = aggregate.NewController()
 	// Defer running of the service controllers until Start is called, init may add more.
 	s.AddStartFunc(func(stop <-chan struct{}) error {
-		go s.ServiceController.Run(stop)
+		go s.ServiceController().Run(stop)
 		return nil
 	})
-
-	s.Environment = &model.Environment{
-		Mesh:             s.Mesh,
-		MeshNetworks:     s.MeshNetworks,
-		IstioConfigStore: s.IstioConfigStore,
-		ServiceDiscovery: s.ServiceController,
-		PushContext:      model.NewPushContext(),
-	}
 
 	// ServiceEntry from config and aggregate discovery in s.ServiceController
 	// This will use the istioConfigStore and ConfigController.
@@ -339,7 +332,7 @@ func (s *Server) WatchMeshConfig(args string) error {
 	var err error
 
 	// Mesh config is required - this is the primary source of config.
-	meshConfig, err = cmd.ReadMeshConfig(args)
+	meshConfig, err = mesh.ReadMeshConfig(args)
 	if err != nil {
 		log.Infof("No local mesh config found, using defaults")
 		meshConfig = defaultMeshConfig()
@@ -348,18 +341,18 @@ func (s *Server) WatchMeshConfig(args string) error {
 	// Watch the config file for changes and reload if it got modified
 	s.addFileWatcher(args, func() {
 		// Reload the config file
-		meshConfig, err = cmd.ReadMeshConfig(args)
+		meshConfig, err = mesh.ReadMeshConfig(args)
 		if err != nil {
 			log.Warnf("failed to read mesh configuration, using default: %v", err)
 			return
 		}
-		if !reflect.DeepEqual(meshConfig, s.Mesh) {
+		if !reflect.DeepEqual(meshConfig, s.Environment.Mesh) {
 			log.Infof("mesh configuration updated to: %s", spew.Sdump(meshConfig))
-			if !reflect.DeepEqual(meshConfig.ConfigSources, s.Mesh.ConfigSources) {
+			if !reflect.DeepEqual(meshConfig.ConfigSources, s.Environment.Mesh.ConfigSources) {
 				log.Infof("mesh configuration sources have changed")
 				//TODO Need to re-create or reload initConfigController()
 			}
-			s.Mesh = meshConfig
+			s.Environment.Mesh = meshConfig
 			s.Args.MeshConfig = meshConfig
 			if s.EnvoyXdsServer != nil {
 				s.EnvoyXdsServer.Env.Mesh = meshConfig
@@ -371,7 +364,7 @@ func (s *Server) WatchMeshConfig(args string) error {
 	log.Infof("mesh configuration %s", spew.Sdump(meshConfig))
 	log.Infof("version %s", version.Info.String())
 
-	s.Mesh = meshConfig
+	s.Environment.Mesh = meshConfig
 	s.Args.MeshConfig = meshConfig
 	return nil
 }
@@ -387,29 +380,29 @@ func (s *Server) initMeshNetworks(args *PilotArgs) error { //nolint: unparam
 	var meshNetworks *meshconfig.MeshNetworks
 	var err error
 
-	meshNetworks, err = cmd.ReadMeshNetworksConfig(args.NetworksConfigFile)
+	meshNetworks, err = mesh.ReadMeshNetworks(args.NetworksConfigFile)
 	if err != nil {
 		log.Warnf("failed to read mesh networks configuration from %q. using default.", args.NetworksConfigFile)
 		return nil
 	}
 	log.Infof("mesh networks configuration %s", spew.Sdump(meshNetworks))
-	util.ResolveHostsInNetworksConfig(meshNetworks)
+	mesh.ResolveHostsInNetworksConfig(meshNetworks)
 	log.Infof("mesh networks configuration post-resolution %s", spew.Sdump(meshNetworks))
-	s.MeshNetworks = meshNetworks
+	s.Environment.MeshNetworks = meshNetworks
 
 	// Watch the networks config file for changes and reload if it got modified
 	s.addFileWatcher(args.NetworksConfigFile, func() {
 		// Reload the config file
-		meshNetworks, err := cmd.ReadMeshNetworksConfig(args.NetworksConfigFile)
+		meshNetworks, err := mesh.ReadMeshNetworks(args.NetworksConfigFile)
 		if err != nil {
 			log.Warnf("failed to read mesh networks configuration from %q", args.NetworksConfigFile)
 			return
 		}
-		if !reflect.DeepEqual(meshNetworks, s.MeshNetworks) {
+		if !reflect.DeepEqual(meshNetworks, s.Environment.MeshNetworks) {
 			log.Infof("mesh networks configuration file updated to: %s", spew.Sdump(meshNetworks))
-			util.ResolveHostsInNetworksConfig(meshNetworks)
+			mesh.ResolveHostsInNetworksConfig(meshNetworks)
 			log.Infof("mesh networks configuration post-resolution %s", spew.Sdump(meshNetworks))
-			s.MeshNetworks = meshNetworks
+			s.Environment.MeshNetworks = meshNetworks
 
 			// TODO
 			//if s.kubeRegistry != nil {
@@ -450,7 +443,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 
 	reporter := monitoring.NewStatsContext("pilot")
 
-	for _, configSource := range s.Mesh.ConfigSources {
+	for _, configSource := range s.Environment.Mesh.ConfigSources {
 		// Pilot connection to MCP is handled by the envoy sidecar if out of process, so we can use SDS
 		// and envoy features.
 		securityOption := grpc.WithInsecure()
@@ -528,7 +521,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 // initConfigController creates the config controller in the pilotConfig.
 func (s *Server) initConfigController(args *PilotArgs) error {
 
-	if len(s.Mesh.ConfigSources) > 0 {
+	if len(s.Environment.Mesh.ConfigSources) > 0 {
 		if err := s.initMCPConfigController(args); err != nil {
 			return err
 		}
@@ -541,7 +534,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	})
 
 	// Create the config store.
-	s.IstioConfigStore = model.MakeIstioStore(s.ConfigController)
+	s.Environment.IstioConfigStore = model.MakeIstioStore(s.ConfigController)
 
 	return nil
 }
@@ -549,8 +542,8 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 // addConfig2ServiceEntry creates and initializes the ServiceController used for translating
 // ServiceEntries from config store to discovery.
 func (s *Server) addConfig2ServiceEntry() {
-	serviceEntryStore := external.NewServiceDiscovery(s.ConfigController, s.IstioConfigStore)
-	s.ServiceController.AddRegistry(serviceEntryStore)
+	serviceEntryStore := external.NewServiceDiscovery(s.ConfigController, s.Environment.IstioConfigStore, s.EnvoyXdsServer)
+	s.ServiceController().AddRegistry(serviceEntryStore)
 }
 
 func (s *Server) initDiscoveryService(args *PilotArgs, onXDSStart func(model.XDSUpdater)) error {
@@ -567,7 +560,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs, onXDSStart func(model.XDS
 	}
 
 	s.mux = http.NewServeMux()
-	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController, args.DiscoveryOptions.EnableProfiling)
+	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController(), args.DiscoveryOptions.EnableProfiling)
 
 	// create grpc/http server
 	s.initGrpcServer(args.KeepaliveOptions)
@@ -674,7 +667,7 @@ func (s *Server) initEventHandlers() error {
 		}
 		s.EnvoyXdsServer.ConfigUpdate(pushReq)
 	}
-	if err := s.ServiceController.AppendServiceHandler(serviceHandler); err != nil {
+	if err := s.ServiceController().AppendServiceHandler(serviceHandler); err != nil {
 		return fmt.Errorf("append service handler failed: %v", err)
 	}
 
@@ -689,7 +682,7 @@ func (s *Server) initEventHandlers() error {
 			ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
 		})
 	}
-	if err := s.ServiceController.AppendInstanceHandler(instanceHandler); err != nil {
+	if err := s.ServiceController().AppendInstanceHandler(instanceHandler); err != nil {
 		return fmt.Errorf("append instance handler failed: %v", err)
 	}
 
@@ -697,7 +690,7 @@ func (s *Server) initEventHandlers() error {
 	if s.ConfigController != nil {
 		// TODO: changes should not trigger a full recompute of LDS/RDS/CDS/EDS
 		// (especially mixerclient HTTP and quota)
-		configHandler := func(c model.Config, _ model.Event) {
+		configHandler := func(_, c model.Config, _ model.Event) {
 			pushReq := &model.PushRequest{
 				Full:               true,
 				ConfigTypesUpdated: map[string]struct{}{c.Type: {}},

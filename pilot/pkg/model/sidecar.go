@@ -180,9 +180,9 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		out.namespaceDependencies[s.Attributes.Namespace] = struct{}{}
 	}
 
-	if ps.Env.Mesh.OutboundTrafficPolicy != nil {
+	if ps.Mesh.OutboundTrafficPolicy != nil {
 		out.OutboundTrafficPolicy = &networking.OutboundTrafficPolicy{
-			Mode: networking.OutboundTrafficPolicy_Mode(ps.Env.Mesh.OutboundTrafficPolicy.Mode),
+			Mode: networking.OutboundTrafficPolicy_Mode(ps.Mesh.OutboundTrafficPolicy.Mode),
 		}
 	}
 
@@ -249,9 +249,9 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 	}
 
 	if r.OutboundTrafficPolicy == nil {
-		if ps.Env.Mesh.OutboundTrafficPolicy != nil {
+		if ps.Mesh.OutboundTrafficPolicy != nil {
 			out.OutboundTrafficPolicy = &networking.OutboundTrafficPolicy{
-				Mode: networking.OutboundTrafficPolicy_Mode(ps.Env.Mesh.OutboundTrafficPolicy.Mode),
+				Mode: networking.OutboundTrafficPolicy_Mode(ps.Mesh.OutboundTrafficPolicy.Mode),
 			}
 		}
 	} else {

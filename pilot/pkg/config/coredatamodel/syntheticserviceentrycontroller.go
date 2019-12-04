@@ -45,7 +45,7 @@ type SyntheticServiceEntryController struct {
 	configStoreMu sync.RWMutex
 	// keys [namespace][name]
 	configStore  map[string]map[string]*model.Config
-	eventHandler func(model.Config, model.Event)
+	eventHandler func(model.Config, model.Config, model.Event)
 	synced       uint32
 	*Options
 }
@@ -126,16 +126,15 @@ func (c *SyntheticServiceEntryController) HasSynced() bool {
 
 func (c *SyntheticServiceEntryController) dispatch(config model.Config, event model.Event) {
 	if c.eventHandler != nil {
-		c.eventHandler(config, event)
+		c.eventHandler(model.Config{}, config, event)
 	}
 }
 
 // RegisterEventHandler registers a handler using the type as a key
-func (c *SyntheticServiceEntryController) RegisterEventHandler(typ string, handler func(model.Config, model.Event)) {
+func (c *SyntheticServiceEntryController) RegisterEventHandler(typ string, handler func(model.Config, model.Config, model.Event)) {
 	// TODO: investigate why it is called more than one
 	if c.eventHandler == nil {
 		c.eventHandler = handler
-
 	}
 }
 

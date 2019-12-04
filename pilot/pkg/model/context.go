@@ -29,6 +29,7 @@ import (
 	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/pkg/monitoring"
 
 	"istio.io/istio/pkg/config/labels"
 )
@@ -58,6 +59,12 @@ type Environment struct {
 	// routable L3 network. A single routable L3 network can have one or more
 	// service registries.
 	MeshNetworks *meshconfig.MeshNetworks
+}
+
+func (e *Environment) AddMetric(metric monitoring.Metric, key string, proxy *Proxy, msg string) {
+	if e != nil && e.PushContext != nil {
+		e.PushContext.AddMetric(metric, key, proxy, msg)
+	}
 }
 
 // Proxy contains information about an specific instance of a proxy (envoy sidecar, gateway,
@@ -467,8 +474,8 @@ func (node *Proxy) SetGatewaysForProxy(ps *PushContext) {
 	node.MergedGateway = ps.mergeGateways(node)
 }
 
-func (node *Proxy) SetServiceInstances(env *Environment) error {
-	instances, err := env.GetProxyServiceInstances(node)
+func (node *Proxy) SetServiceInstances(serviceDiscovery ServiceDiscovery) error {
+	instances, err := serviceDiscovery.GetProxyServiceInstances(node)
 	if err != nil {
 		log.Errorf("failed to get service proxy service instances: %v", err)
 		return err

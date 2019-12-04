@@ -15,10 +15,14 @@
 package mesh
 
 import (
+	"io/ioutil"
+	"net"
 	"time"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
+
+	"istio.io/pkg/log"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 
@@ -125,9 +129,9 @@ func EmptyMeshNetworks() meshconfig.MeshNetworks {
 	}
 }
 
-// LoadMeshNetworksConfig returns a new MeshNetworks decoded from the
+// ParseMeshNetworks returns a new MeshNetworks decoded from the
 // input YAML.
-func LoadMeshNetworksConfig(yaml string) (*meshconfig.MeshNetworks, error) {
+func ParseMeshNetworks(yaml string) (*meshconfig.MeshNetworks, error) {
 	out := EmptyMeshNetworks()
 	if err := gogoprotomarshal.ApplyYAML(yaml, &out); err != nil {
 		return nil, multierror.Prefix(err, "failed to convert to proto.")
@@ -138,4 +142,47 @@ func LoadMeshNetworksConfig(yaml string) (*meshconfig.MeshNetworks, error) {
 	// 	return nil, err
 	// }
 	return &out, nil
+}
+
+// ReadMeshNetworks gets mesh networks configuration from a config file
+func ReadMeshNetworks(filename string) (*meshconfig.MeshNetworks, error) {
+	yaml, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, multierror.Prefix(err, "cannot read networks config file")
+	}
+	return ParseMeshNetworks(string(yaml))
+}
+
+// ReadMeshConfig gets mesh configuration from a config file
+func ReadMeshConfig(filename string) (*meshconfig.MeshConfig, error) {
+	yaml, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, multierror.Prefix(err, "cannot read mesh config file")
+	}
+	return ApplyMeshConfigDefaults(string(yaml))
+}
+
+// ResolveHostsInNetworksConfig will go through the Gateways addresses for all
+// networks in the config and if it's not an IP address it will try to lookup
+// that hostname and replace it with the IP address in the config
+func ResolveHostsInNetworksConfig(config *meshconfig.MeshNetworks) {
+	if config == nil {
+		return
+	}
+	for _, n := range config.Networks {
+		for _, gw := range n.Gateways {
+			gwIP := net.ParseIP(gw.GetAddress())
+			if gwIP == nil {
+				addrs, err := net.LookupHost(gw.GetAddress())
+				if err != nil {
+					log.Warnf("error resolving host %#v: %v", gw.GetAddress(), err)
+				}
+				if err == nil && len(addrs) > 0 {
+					gw.Gw = &meshconfig.Network_IstioNetworkGateway_Address{
+						Address: addrs[0],
+					}
+				}
+			}
+		}
+	}
 }

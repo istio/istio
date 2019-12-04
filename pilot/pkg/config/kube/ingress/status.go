@@ -121,7 +121,7 @@ func NewStatusSyncer(mesh *meshconfig.MeshConfig,
 			log.Infof("I am the new status update leader")
 			go st.queue.Run(ctx.Done())
 			err := wait.PollUntil(updateInterval, func() (bool, error) {
-				st.queue.Push(kube.NewTask(st.handler.Apply, "Start leading", model.EventUpdate))
+				st.queue.Push(kube.NewTask(st.handler.Apply, "", "Start leading", model.EventUpdate))
 				return false, nil
 			}, ctx.Done())
 
@@ -171,7 +171,7 @@ func NewStatusSyncer(mesh *meshconfig.MeshConfig,
 	st.elector = le
 
 	// Register handler at the beginning
-	handler.Append(func(obj interface{}, event model.Event) error {
+	handler.Append(func(old, curr interface{}, event model.Event) error {
 		addrs, err := st.runningAddresses(ingressNamespace)
 		if err != nil {
 			return err

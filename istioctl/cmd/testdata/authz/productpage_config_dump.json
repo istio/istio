@@ -3193,8 +3193,8 @@
           "last_updated": "2019-04-02T19:54:30.628Z"
         }
       ],
-      "dynamic_active_listeners": [
-        {
+      "dynamic_listeners": [
+        {"active_state" :{
           "version_info": "2019-04-02T20:47:51Z/31",
           "listener": {
             "name": "10.52.2.21_9080",
@@ -3498,8 +3498,8 @@
             ]
           },
           "last_updated": "2019-04-02T20:47:51.639Z"
-        },
-        {
+        }},
+        {"active_state" :{
           "version_info": "2019-04-02T19:54:27Z/16",
           "listener": {
             "name": "10.0.8.160_31400",
@@ -3579,8 +3579,8 @@
             }
           },
           "last_updated": "2019-04-02T19:54:31.853Z"
-        },
-        {
+        }},
+        {"active_state" :{
           "version_info": "2019-04-02T19:54:27Z/16",
           "listener": {
             "name": "10.0.8.160_15031",
@@ -3660,8 +3660,8 @@
             }
           },
           "last_updated": "2019-04-02T19:54:31.854Z"
-        },
-        {
+        }},
+        {"active_state" :{
           "version_info": "2019-04-02T19:54:27Z/16",
           "listener": {
             "name": "10.0.8.160_15020",
@@ -3741,8 +3741,8 @@
             }
           },
           "last_updated": "2019-04-02T19:54:31.855Z"
-        },
-        {
+        }},
+        {"active_state" :{
           "version_info": "2019-04-02T19:54:27Z/16",
           "listener": {
             "name": "10.0.12.229_443",
@@ -3822,8 +3822,8 @@
             }
           },
           "last_updated": "2019-04-02T19:54:31.856Z"
-        },
-        {
+        }},
+        {"active_state" :{
           "version_info": "2019-04-02T19:54:27Z/16",
           "listener": {
             "name": "10.0.11.179_42422",
@@ -3903,8 +3903,8 @@
             }
           },
           "last_updated": "2019-04-02T19:54:31.857Z"
-        },
-        {
+        }},
+        {"active_state" :{
           "version_info": "2019-04-02T19:54:27Z/16",
           "listener": {
             "name": "10.0.14.38_14267",
@@ -3984,8 +3984,8 @@
             }
           },
           "last_updated": "2019-04-02T19:54:31.857Z"
-        },
-        {
+        }},
+        {"active_state" :{
           "version_info": "2019-04-02T19:54:27Z/16",
           "listener": {
             "name": "10.0.5.77_80",
@@ -4065,8 +4065,8 @@
             }
           },
           "last_updated": "2019-04-02T19:54:31.858Z"
-        },
-        {
+        }},
+        {"active_state" :{
           "version_info": "2019-04-02T19:54:27Z/16",
           "listener": {
             "name": "10.0.13.152_443",
@@ -4146,8 +4146,8 @@
             }
           },
           "last_updated": "2019-04-02T19:54:31.859Z"
-        },
-        {
+        }},
+        {"active_state" :{
           "version_info": "2019-04-02T19:54:27Z/16",
           "listener": {
             "name": "10.0.0.1_443",
@@ -4227,8 +4227,8 @@
             }
           },
           "last_updated": "2019-04-02T19:54:31.860Z"
-        },
-        {
+        }},
+        {"active_state" :{
           "version_info": "2019-04-02T19:54:27Z/16",
           "listener": {
             "name": "10.0.8.160_15030",
@@ -4308,8 +4308,8 @@
             }
           },
           "last_updated": "2019-04-02T19:54:31.861Z"
-        },
-        {
+        }},
+        {"active_state" :{
           "version_info": "2019-04-02T19:54:27Z/16",
           "listener": {
             "name": "10.0.8.160_15443",
@@ -4389,8 +4389,8 @@
             }
           },
           "last_updated": "2019-04-02T19:54:31.862Z"
-        },
-        {
+        }},
+        {"active_state" :{
           "version_info": "2019-04-02T19:54:27Z/16",
           "listener": {
             "name": "10.0.0.3_443",
@@ -4470,8 +4470,8 @@
             }
           },
           "last_updated": "2019-04-02T19:54:31.863Z"
-        },
-        {
+        }},
+        {"active_state" :{
           "version_info": "2019-04-02T19:54:27Z/16",
           "listener": {
             "name": "10.0.10.164_9000",
@@ -4551,8 +4551,8 @@
             }
           },
           "last_updated": "2019-04-02T19:54:31.863Z"
-        },
-        {
+        }},
+        {"active_state" :{
           "version_info": "2019-04-02T19:54:27Z/16",
           "listener": {
             "name": "10.0.2.103_443",
@@ -4632,8 +4632,8 @@
             }
           },
           "last_updated": "2019-04-02T19:54:31.864Z"
-        },
-        {
+        }},
+        {"active_state" :{
           "version_info": "2019-04-02T19:54:27Z/16",
           "listener": {
             "name": "10.0.8.160_15032",
@@ -4713,8 +4713,8 @@
             }
           },
           "last_updated": "2019-04-02T19:54:31.865Z"
-        },
-        {
+        }},
+        {"active_state" :{
           "version_info": "2019-04-02T19:54:27Z/16",
           "listener": {
             "name": "10.0.2.103_15443",
@@ -4794,8 +4794,8 @@
             }
           },
           "last_updated": "2019-04-02T19:54:31.866Z"
-        },
-        {
+        }},
+        {"active_state" :{
           "version_info": "2019-04-02T19:54:27Z/16",
           "listener": {
             "name": "10.0.8.160_443",
@@ -4875,8 +4875,8 @@
             }
           },
           "last_updated": "2019-04-02T19:54:31.867Z"
-        },
-        {
+        }},
+        {"active_state" :{
           "version_info": "2019-04-02T19:54:27Z/16",
           "listener": {
             "name": "10.0.14.169_16686",
@@ -4956,8 +4956,8 @@
             }
           },
           "last_updated": "2019-04-02T19:54:31.868Z"
-        },
-        {
+        }},
+        {"active_state" :{
           "version_info": "2019-04-02T19:54:27Z/16",
           "listener": {
             "name": "10.0.8.160_15029",
@@ -5037,8 +5037,8 @@
             }
           },
           "last_updated": "2019-04-02T19:54:31.868Z"
-        },
-        {
+        }},
+        {"active_state" :{
           "version_info": "2019-04-02T19:54:27Z/16",
           "listener": {
             "name": "10.0.0.10_53",
@@ -5118,8 +5118,8 @@
             }
           },
           "last_updated": "2019-04-02T19:54:31.869Z"
-        },
-        {
+        }},
+        {"active_state" :{
           "version_info": "2019-04-02T19:54:27Z/16",
           "listener": {
             "name": "10.0.9.240_15011",
@@ -5199,8 +5199,8 @@
             }
           },
           "last_updated": "2019-04-02T19:54:31.870Z"
-        },
-        {
+        }},
+        {"active_state" :{
           "version_info": "2019-04-02T19:54:27Z/16",
           "listener": {
             "name": "10.0.14.38_14268",
@@ -5280,8 +5280,8 @@
             }
           },
           "last_updated": "2019-04-02T19:54:31.871Z"
-        },
-        {
+        }},
+        {"active_state" :{
           "version_info": "2019-04-02T19:54:27Z/16",
           "listener": {
             "name": "0.0.0.0_9080",
@@ -5397,8 +5397,8 @@
             }
           },
           "last_updated": "2019-04-02T19:54:31.873Z"
-        },
-        {
+        }},
+        {"active_state" :{
           "version_info": "2019-04-02T19:54:27Z/16",
           "listener": {
             "name": "0.0.0.0_9901",
@@ -5514,8 +5514,8 @@
             }
           },
           "last_updated": "2019-04-02T19:54:31.874Z"
-        },
-        {
+        }},
+        {"active_state" :{
           "version_info": "2019-04-02T19:54:27Z/16",
           "listener": {
             "name": "0.0.0.0_9411",
@@ -5631,8 +5631,8 @@
             }
           },
           "last_updated": "2019-04-02T19:54:31.876Z"
-        },
-        {
+        }},
+        {"active_state" :{
           "version_info": "2019-04-02T19:54:27Z/16",
           "listener": {
             "name": "0.0.0.0_80",
@@ -5748,8 +5748,8 @@
             }
           },
           "last_updated": "2019-04-02T19:54:31.877Z"
-        },
-        {
+        }},
+        {"active_state" :{
           "version_info": "2019-04-02T19:54:27Z/16",
           "listener": {
             "name": "0.0.0.0_20001",
@@ -5865,8 +5865,8 @@
             }
           },
           "last_updated": "2019-04-02T19:54:31.878Z"
-        },
-        {
+        }},
+        {"active_state" :{
           "version_info": "2019-04-02T19:54:27Z/16",
           "listener": {
             "name": "0.0.0.0_8060",
@@ -5982,8 +5982,8 @@
             }
           },
           "last_updated": "2019-04-02T19:54:31.879Z"
-        },
-        {
+        }},
+        {"active_state" :{
           "version_info": "2019-04-02T19:54:27Z/16",
           "listener": {
             "name": "0.0.0.0_9090",
@@ -6099,8 +6099,8 @@
             }
           },
           "last_updated": "2019-04-02T19:54:31.881Z"
-        },
-        {
+        }},
+        {"active_state" :{
           "version_info": "2019-04-02T19:54:27Z/16",
           "listener": {
             "name": "0.0.0.0_8000",
@@ -6216,8 +6216,8 @@
             }
           },
           "last_updated": "2019-04-02T19:54:31.882Z"
-        },
-        {
+        }},
+        {"active_state" :{
           "version_info": "2019-04-02T19:54:27Z/16",
           "listener": {
             "name": "0.0.0.0_3000",
@@ -6333,8 +6333,8 @@
             }
           },
           "last_updated": "2019-04-02T19:54:31.883Z"
-        },
-        {
+        }},
+        {"active_state" :{
           "version_info": "2019-04-02T19:54:27Z/16",
           "listener": {
             "name": "0.0.0.0_15014",
@@ -6450,8 +6450,8 @@
             }
           },
           "last_updated": "2019-04-02T19:54:31.885Z"
-        },
-        {
+        }},
+        {"active_state" :{
           "version_info": "2019-04-02T19:54:27Z/16",
           "listener": {
             "name": "0.0.0.0_15004",
@@ -6567,8 +6567,8 @@
             }
           },
           "last_updated": "2019-04-02T19:54:31.886Z"
-        },
-        {
+        }},
+        {"active_state" :{
           "version_info": "2019-04-02T19:54:27Z/16",
           "listener": {
             "name": "0.0.0.0_9091",
@@ -6684,8 +6684,8 @@
             }
           },
           "last_updated": "2019-04-02T19:54:31.887Z"
-        },
-        {
+        }},
+        {"active_state" :{
           "version_info": "2019-04-02T19:54:27Z/16",
           "listener": {
             "name": "0.0.0.0_15010",
@@ -6801,8 +6801,8 @@
             }
           },
           "last_updated": "2019-04-02T19:54:31.888Z"
-        },
-        {
+        }},
+        {"active_state" :{
           "version_info": "2019-04-02T19:54:27Z/16",
           "listener": {
             "name": "0.0.0.0_8080",
@@ -6918,8 +6918,8 @@
             }
           },
           "last_updated": "2019-04-02T19:54:31.889Z"
-        },
-        {
+        }},
+        {"active_state" :{
           "version_info": "2019-04-02T19:54:27Z/16",
           "listener": {
             "name": "10.52.2.21_15020",
@@ -6956,8 +6956,8 @@
             }
           },
           "last_updated": "2019-04-02T19:54:31.890Z"
-        },
-        {
+        }},
+        {"active_state" :{
           "version_info": "2019-04-02T19:54:27Z/16",
           "listener": {
             "name": "virtual",
@@ -6983,7 +6983,7 @@
             "use_original_dst": true
           },
           "last_updated": "2019-04-02T19:54:31.890Z"
-        }
+        }}
       ]
     },
     {

@@ -226,10 +226,11 @@ istioctl experimental analyze -L
 				fmt.Fprintln(cmd.ErrOrStderr())
 			}
 
-			// Filter outputMessages by specified level
+			// Filter outputMessages by specified level, and append a ref arg to the doc URL
 			var outputMessages diag.Messages
 			for _, m := range result.Messages {
 				if m.Type.Level().IsWorseThanOrEqualTo(outputLevel.Level) {
+					m.DocRef = "istioctl-analyze"
 					outputMessages = append(outputMessages, m)
 				}
 			}

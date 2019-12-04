@@ -513,7 +513,7 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 			proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 			proxy.ServiceInstances = proxyInstances
 
-			listeners := configgen.buildSidecarOutboundListeners(&env, &proxy, env.PushContext)
+			listeners := configgen.buildSidecarOutboundListeners(&proxy, env.PushContext)
 			listenersToCheck := make([]*xdsapi.Listener, 0)
 			for _, l := range listeners {
 				if l.Address.GetSocketAddress().GetPortValue() == 9999 {
@@ -1291,7 +1291,7 @@ func TestHttpProxyListener(t *testing.T) {
 	proxy.ServiceInstances = nil
 	env.Mesh.ProxyHttpPort = 15007
 	proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
-	httpProxy := configgen.buildHTTPProxy(&env, &proxy, env.PushContext, nil)
+	httpProxy := configgen.buildHTTPProxy(&proxy, env.PushContext, nil)
 	f := httpProxy.FilterChains[0].Filters[0]
 	cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
 
@@ -1492,7 +1492,7 @@ func buildAllListeners(p plugin.Plugin, sidecarConfig *model.Config, services ..
 		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
 	}
 	builder := NewListenerBuilder(&proxy)
-	return configgen.buildSidecarListeners(&env, &proxy, env.PushContext, builder).getListeners()
+	return configgen.buildSidecarListeners(&proxy, env.PushContext, builder).getListeners()
 }
 
 func getFilterConfig(filter *listener.Filter, out proto.Message) error {
@@ -1532,7 +1532,7 @@ func buildOutboundListeners(p plugin.Plugin, proxy *model.Proxy, sidecarConfig *
 	}
 	proxy.ServiceInstances = proxyInstances
 
-	return configgen.buildSidecarOutboundListeners(&env, proxy, env.PushContext)
+	return configgen.buildSidecarOutboundListeners(proxy, env.PushContext)
 }
 
 func buildInboundListeners(p plugin.Plugin, proxy *model.Proxy, sidecarConfig *model.Config, services ...*model.Service) []*xdsapi.Listener {
@@ -1551,7 +1551,7 @@ func buildInboundListeners(p plugin.Plugin, proxy *model.Proxy, sidecarConfig *m
 	} else {
 		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
 	}
-	return configgen.buildSidecarInboundListeners(&env, proxy, env.PushContext)
+	return configgen.buildSidecarInboundListeners(proxy, env.PushContext)
 }
 
 type fakePlugin struct {
@@ -1782,7 +1782,7 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 }
 
 func TestAppendListenerFallthroughRoute(t *testing.T) {
-	env := &model.Environment{
+	push := &model.PushContext{
 		Mesh: &meshconfig.MeshConfig{},
 	}
 	tests := []struct {
@@ -1793,9 +1793,11 @@ func TestAppendListenerFallthroughRoute(t *testing.T) {
 		hostname     string
 	}{
 		{
-			name:         "Registry_Only",
-			listener:     &xdsapi.Listener{},
-			listenerOpts: &buildListenerOpts{},
+			name:     "Registry_Only",
+			listener: &xdsapi.Listener{},
+			listenerOpts: &buildListenerOpts{
+				push: push,
+			},
 			node: &model.Proxy{
 				ID:       "foo.bar",
 				Metadata: &model.NodeMetadata{},
@@ -1808,9 +1810,11 @@ func TestAppendListenerFallthroughRoute(t *testing.T) {
 			hostname: util.BlackHoleCluster,
 		},
 		{
-			name:         "Allow_Any",
-			listener:     &xdsapi.Listener{},
-			listenerOpts: &buildListenerOpts{},
+			name:     "Allow_Any",
+			listener: &xdsapi.Listener{},
+			listenerOpts: &buildListenerOpts{
+				push: push,
+			},
 			node: &model.Proxy{
 				ID:       "foo.bar",
 				Metadata: &model.NodeMetadata{},
@@ -1826,7 +1830,7 @@ func TestAppendListenerFallthroughRoute(t *testing.T) {
 	for idx := range tests {
 		t.Run(tests[idx].name, func(t *testing.T) {
 			appendListenerFallthroughRoute(tests[idx].listener, tests[idx].listenerOpts,
-				tests[idx].node, env, nil)
+				tests[idx].node, nil)
 			if len(tests[idx].listenerOpts.filterChainOpts) != 1 {
 				t.Errorf("Expected exactly 1 filter chain options")
 			}

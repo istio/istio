@@ -98,7 +98,7 @@ func main() {
 	// Options based on the current 'defaults' in istio.
 	// If adjustments are needed - env or mesh.config ( if of general interest ).
 	istiod.RunCA(istiods.SecureGRPCServer, client, &istiod.CAOptions{
-		TrustDomain: istiods.Mesh.TrustDomain,
+		TrustDomain: istiods.Environment.Mesh.TrustDomain,
 	})
 
 	istiods.Serve(stop)
@@ -111,7 +111,7 @@ func initCerts(server *istiod.Server, client *kubernetes.Clientset) {
 	// TODO: fallback to citadel (or custom CA) if K8S signing is broken
 
 	// discAddr configured in mesh config - this is what we'll inject into pods.
-	discAddr := server.Mesh.DefaultConfig.DiscoveryAddress
+	discAddr := server.Environment.Mesh.DefaultConfig.DiscoveryAddress
 	if istiodAddress.Get() != "" {
 		discAddr = istiodAddress.Get()
 	}
