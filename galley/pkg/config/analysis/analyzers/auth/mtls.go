@@ -107,6 +107,11 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 	c.ForEach(metadata.K8SCoreV1Services, func(r *resource.Entry) bool {
 		svcNs, svcName := r.Metadata.Name.InterpretAsNamespaceAndName()
 
+		// Skip system namespaces entirely
+		if util.IsSystemNamespace(svcNs) {
+			return true
+		}
+
 		// Skip the istio control plane, which doesn't obey Policy/MeshPolicy MTLS
 		// rules in general and instead is controlled by the mesh option
 		// 'controlPlaneSecurityEnabled'.

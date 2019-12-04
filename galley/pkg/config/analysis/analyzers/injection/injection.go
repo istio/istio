@@ -21,6 +21,7 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/istio/galley/pkg/config/analysis"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/galley/pkg/config/meta/schema/collection"
@@ -60,7 +61,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 	c.ForEach(metadata.K8SCoreV1Namespaces, func(r *resource.Entry) bool {
 
 		ns := r.Metadata.Name.String()
-		if isSystemNamespace(ns) {
+		if util.IsSystemNamespace(ns) {
 			return true
 		}
 
@@ -110,8 +111,4 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 
 		return true
 	})
-}
-
-func isSystemNamespace(ns string) bool {
-	return (ns == "kube-system" || ns == "kube-public")
 }
