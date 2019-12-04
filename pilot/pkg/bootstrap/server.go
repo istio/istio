@@ -52,6 +52,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pilot/pkg/serviceregistry/external"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schemas"
@@ -126,6 +127,7 @@ type Server struct {
 	incrementalMcpOptions *coredatamodel.Options
 	mcpOptions            *coredatamodel.Options
 	certController        *chiron.WebhookController
+	serviceEntryStore     *external.ServiceEntryStore
 }
 
 var podNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", "", "")
@@ -246,6 +248,12 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		s.kubeRegistry.Env = environment
 		s.kubeRegistry.InitNetworkLookup(s.meshNetworks)
 		s.kubeRegistry.XDSUpdater = s.EnvoyXdsServer
+	}
+
+	// TODO: Split initDiscoveryService method in to createDiscoveryServer and initDiscoveryService so that, this special
+	// handling is not needed. Because of dependency ordering problem, we need to set this explicitly here.
+	if s.serviceEntryStore != nil {
+		s.serviceEntryStore.XdsUpdater = s.EnvoyXdsServer
 	}
 
 	if s.mcpOptions != nil {
@@ -502,7 +510,7 @@ func (s *Server) initEventHandlers() error {
 	}
 
 	instanceHandler := func(si *model.ServiceInstance, _ model.Event) {
-		// TODO: This is an incomplete code. This code path is called for service entries, consul, etc.
+		// TODO: This is an incomplete code. This code path is called for consul, etc.
 		// In all cases, this is simply an instance update and not a config update. So, we need to update
 		// EDS in all proxies, and do a full config push for the instance that just changed (add/update only).
 		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{
@@ -520,10 +528,10 @@ func (s *Server) initEventHandlers() error {
 	if s.configController != nil {
 		// TODO: changes should not trigger a full recompute of LDS/RDS/CDS/EDS
 		// (especially mixerclient HTTP and quota)
-		configHandler := func(c model.Config, _ model.Event) {
+		configHandler := func(old, curr model.Config, _ model.Event) {
 			pushReq := &model.PushRequest{
 				Full:               true,
-				ConfigTypesUpdated: map[string]struct{}{c.Type: {}},
+				ConfigTypesUpdated: map[string]struct{}{curr.Type: {}},
 			}
 			s.EnvoyXdsServer.ConfigUpdate(pushReq)
 		}

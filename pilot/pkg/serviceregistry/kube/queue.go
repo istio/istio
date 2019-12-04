@@ -31,18 +31,19 @@ type Queue interface {
 }
 
 // Handler specifies a function to apply on an object for a given event type
-type Handler func(obj interface{}, event model.Event) error
+type Handler func(old, curr interface{}, event model.Event) error
 
 // Task object for the event watchers; processes until handler succeeds
 type Task struct {
 	Handler Handler
-	Obj     interface{}
+	Old     interface{}
+	Curr    interface{}
 	Event   model.Event
 }
 
 // NewTask creates a task from a work item
-func NewTask(handler Handler, obj interface{}, event model.Event) Task {
-	return Task{Handler: handler, Obj: obj, Event: event}
+func NewTask(handler Handler, old, curr interface{}, event model.Event) Task {
+	return Task{Handler: handler, Old: old, Curr: curr, Event: event}
 }
 
 type queueImpl struct {
@@ -95,7 +96,7 @@ func (q *queueImpl) Run(stop <-chan struct{}) {
 		item, q.queue = q.queue[0], q.queue[1:]
 		q.cond.L.Unlock()
 
-		if err := item.Handler(item.Obj, item.Event); err != nil {
+		if err := item.Handler(item.Old, item.Curr, item.Event); err != nil {
 			log.Infof("Work item handle failed (%v), retry after delay %v", err, q.delay)
 			time.AfterFunc(q.delay, func() {
 				q.Push(item)
@@ -111,9 +112,9 @@ type ChainHandler struct {
 }
 
 // Apply is the handler function
-func (ch *ChainHandler) Apply(obj interface{}, event model.Event) error {
+func (ch *ChainHandler) Apply(old, curr interface{}, event model.Event) error {
 	for _, f := range ch.Funcs {
-		if err := f(obj, event); err != nil {
+		if err := f(old, curr, event); err != nil {
 			return err
 		}
 	}
