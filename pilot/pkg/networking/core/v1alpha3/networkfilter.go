@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"time"
 
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	accesslogconfig "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2"
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
@@ -75,6 +76,38 @@ func setAccessLog(push *model.PushContext, node *model.Proxy, config *tcp_proxy.
 
 		config.AccessLog = append(config.AccessLog, acc)
 	}
+
+	if push.Mesh.EnableEnvoyAccessLogService && util.IsIstioVersionGE14(node) {
+		fl := &accesslogconfig.TcpGrpcAccessLogConfig{
+			CommonConfig: &accesslogconfig.CommonGrpcAccessLogConfig{
+				LogName: tcpEnvoyAccessLogFriendlyName,
+				GrpcService: &core.GrpcService{
+					TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+						EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+							ClusterName: EnvoyAccessLogCluster,
+						},
+					},
+				},
+			},
+		}
+
+		if util.IsIstioVersionGE14(node) {
+			fl.CommonConfig.FilterStateObjectsToLog = envoyWasmStateToLog
+		}
+
+		acc := &accesslog.AccessLog{
+			Name: tcpEnvoyALSName,
+		}
+
+		if util.IsXDSMarshalingToAnyEnabled(node) {
+			acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
+		} else {
+			acc.ConfigType = &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)}
+		}
+
+		config.AccessLog = append(config.AccessLog, acc)
+	}
+
 }
 
 // setAccessLogAndBuildTCPFilter sets the AccessLog configuration in the given

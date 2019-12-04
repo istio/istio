@@ -3863,8 +3863,8 @@
      "last_updated": "2019-09-20T20:10:15.875Z"
     }
    ],
-   "dynamic_active_listeners": [
-    {
+   "dynamic_listeners": [
+    {"active_state" :{
      "version_info": "2019-09-20T20:10:05Z/7",
      "listener": {
       "name": "0.0.0.0_80",
@@ -3940,8 +3940,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-20T20:10:16.267Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-20T20:10:05Z/7",
      "listener": {
       "name": "0.0.0.0_31400",
@@ -3970,7 +3970,7 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-20T20:10:16.268Z"
-    }
+    }}
    ]
   },
   {

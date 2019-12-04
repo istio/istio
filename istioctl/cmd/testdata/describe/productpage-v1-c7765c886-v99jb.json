@@ -1308,8 +1308,8 @@
      "last_updated": "2019-10-21T14:42:45.030Z"
     }
    ],
-   "dynamic_active_listeners": [
-    {
+   "dynamic_listeners": [
+    {"active_state" :{
      "version_info": "2019-10-21T14:42:37Z/10",
      "listener": {
       "name": "172.30.144.174_9080",
@@ -1518,8 +1518,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-10-21T14:42:45.463Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-10-21T14:42:37Z/10",
      "listener": {
       "name": "fe80::10e7:52ff:fecd:198b_9080",
@@ -1728,8 +1728,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-10-21T14:42:45.468Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-10-21T14:42:37Z/10",
      "listener": {
       "name": "172.30.144.174_15020",
@@ -1761,8 +1761,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-10-21T14:42:45.468Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-10-21T14:42:37Z/10",
      "listener": {
       "name": "0.0.0.0_9080",
@@ -1904,8 +1904,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-10-21T14:42:45.471Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-10-21T14:42:37Z/10",
      "listener": {
       "name": "virtualOutbound",
@@ -1996,8 +1996,8 @@
       "use_original_dst": true
      },
      "last_updated": "2019-10-21T14:42:45.474Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-10-21T14:42:37Z/10",
      "listener": {
       "name": "virtualInbound",
@@ -2503,7 +2503,7 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-10-21T14:42:45.479Z"
-    }
+    }}
    ]
   },
   {

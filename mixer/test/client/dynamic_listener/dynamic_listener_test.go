@@ -15,6 +15,7 @@
 package client_test
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net"
@@ -191,7 +192,7 @@ func TestDynamicListener(t *testing.T) {
 	snapshots := cache.NewSnapshotCache(false, hasher{}, nil)
 
 	count := 0
-	server := xds.NewServer(snapshots, nil)
+	server := xds.NewServer(context.Background(), snapshots, nil)
 	discovery.RegisterAggregatedDiscoveryServiceServer(grpcServer, server)
 	snapshots.SetSnapshot("", cache.Snapshot{
 		Listeners: cache.Resources{Version: strconv.Itoa(count), Items: map[string]cache.Resource{
