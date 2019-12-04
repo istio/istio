@@ -35,7 +35,6 @@ import (
 	networking_core "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_alpha1 "istio.io/istio/pilot/pkg/security/authn/v1alpha1"
-	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pkg/config/host"
@@ -535,7 +534,7 @@ func AnalyzeMTLSSettings(autoMTLSEnabled bool, hostname host.Name, port *model.P
 // - "AUTO": auto mTLS feature is enabled, client TLS (destination rule) is not set and pilot can auto detect client (m)TLS settings.
 // - "OK": both client and server TLS settings are set correctly.
 // - "CONFLICT": both client and server TLS settings are set, but could be incompatible.
-func EvaluateTLSState(autoMTLSEnabled bool, clientMode *networking.TLSSettings, serverMode authn_model.MutualTLSMode) string {
+func EvaluateTLSState(autoMTLSEnabled bool, clientMode *networking.TLSSettings, serverMode model.MutualTLSMode) string {
 	const okState string = "OK"
 	const conflictState string = "CONFLICT"
 	const autoState string = "AUTO"
@@ -549,9 +548,9 @@ func EvaluateTLSState(autoMTLSEnabled bool, clientMode *networking.TLSSettings, 
 		return okState
 	}
 
-	if (serverMode == authn_model.MTLSDisable && clientMode.GetMode() == networking.TLSSettings_DISABLE) ||
-		(serverMode == authn_model.MTLSStrict && clientMode.GetMode() == networking.TLSSettings_ISTIO_MUTUAL) ||
-		(serverMode == authn_model.MTLSPermissive &&
+	if (serverMode == model.MTLSDisable && clientMode.GetMode() == networking.TLSSettings_DISABLE) ||
+		(serverMode == model.MTLSStrict && clientMode.GetMode() == networking.TLSSettings_ISTIO_MUTUAL) ||
+		(serverMode == model.MTLSPermissive &&
 			(clientMode.GetMode() == networking.TLSSettings_ISTIO_MUTUAL || clientMode.GetMode() == networking.TLSSettings_DISABLE)) {
 		return okState
 	}
