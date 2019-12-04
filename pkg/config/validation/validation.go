@@ -1505,8 +1505,9 @@ func ValidateAuthorizationPolicy(_, _ string, msg proto.Message) error {
 		return fmt.Errorf("cannot cast to AuthorizationPolicy")
 	}
 
-	var errs error
-	errs = appendErrors(errs, validateWorkloadSelector(in.Selector))
+	if err := validateWorkloadSelector(in.Selector); err != nil {
+		return err
+	}
 
 	for _, rule := range in.GetRules() {
 		for _, condition := range rule.GetWhen() {
