@@ -121,7 +121,7 @@ istioctl experimental analyze -L
 			}
 
 			if listAnalyzers {
-				fmt.Printf(AnalyzersAsString(analyzers.All()))
+				fmt.Print(AnalyzersAsString(analyzers.All()))
 				return nil
 			}
 
