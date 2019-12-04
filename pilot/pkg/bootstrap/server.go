@@ -113,7 +113,7 @@ type Server struct {
 
 	// Using Clientset because client is shared with other components - galley and few others expects Clientset.
 	// TODO: change everywhere to use Interface
-	kubeClientset *kubernetes.Clientset
+	kubeClientset         *kubernetes.Clientset
 	environment           *model.Environment
 	configController      model.ConfigStoreCache
 	kubeClient            kubernetes.Interface
@@ -125,7 +125,6 @@ type Server struct {
 	secureGRPCServer      *grpc.Server
 	secureHTTPServerDNS   *http.Server
 	secureGRPCServerDNS   *grpc.Server
-	istioConfigStore      model.IstioConfigStore
 	mux                   *http.ServeMux
 	kubeRegistry          *kubecontroller.Controller
 	fileWatcher           filewatcher.FileWatcher
@@ -138,8 +137,8 @@ type Server struct {
 
 	ConfigStores []model.ConfigStoreCache
 
-	Args *PilotArgs
-	serviceEntryStore     *external.ServiceEntryStore
+	Args              *PilotArgs
+	serviceEntryStore *external.ServiceEntryStore
 
 	RootCA []byte
 	Galley *server.Server
