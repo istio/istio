@@ -968,7 +968,7 @@ func buildEnv(t *testing.T, gateways []pilot_model.Config, virtualServices []pil
 		PushContext:      pilot_model.NewPushContext(),
 		ServiceDiscovery: serviceDiscovery,
 		IstioConfigStore: configStore,
-		Mesh:             &m,
+		Watcher:          mesh.NewFixedWatcher(&m),
 	}
 
 	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {

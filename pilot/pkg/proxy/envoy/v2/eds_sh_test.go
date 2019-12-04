@@ -32,6 +32,7 @@ import (
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
@@ -251,10 +252,10 @@ func initRegistry(server *bootstrap.Server, clusterNum int, gatewaysIP []string,
 	gws := make([]*meshconfig.Network_IstioNetworkGateway, 0)
 	for _, gatewayIP := range gatewaysIP {
 		if gatewayIP != "" {
-			if server.EnvoyXdsServer.Env.MeshNetworks == nil {
-				server.EnvoyXdsServer.Env.MeshNetworks = &meshconfig.MeshNetworks{
+			if server.EnvoyXdsServer.Env.Networks() == nil {
+				server.EnvoyXdsServer.Env.NetworksWatcher = mesh.NewFixedNetworksWatcher(&meshconfig.MeshNetworks{
 					Networks: map[string]*meshconfig.Network{},
-				}
+				})
 			}
 			gw := &meshconfig.Network_IstioNetworkGateway{
 				Gw: &meshconfig.Network_IstioNetworkGateway_Address{
@@ -267,7 +268,7 @@ func initRegistry(server *bootstrap.Server, clusterNum int, gatewaysIP []string,
 	}
 
 	if len(gws) != 0 {
-		server.EnvoyXdsServer.Env.MeshNetworks.Networks[id] = &meshconfig.Network{
+		server.EnvoyXdsServer.Env.Networks().Networks[id] = &meshconfig.Network{
 			Gateways: gws,
 		}
 	}

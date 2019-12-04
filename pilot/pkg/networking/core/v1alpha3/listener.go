@@ -29,6 +29,7 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	accesslogconfig "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2"
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
+	grpc_stats "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/grpc_stats/v2alpha"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
@@ -1767,6 +1768,20 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 
 	if httpOpts.addGRPCWebFilter {
 		filters = append(filters, &http_conn.HttpFilter{Name: wellknown.GRPCWeb})
+	}
+
+	if util.IsIstioVersionGE14(pluginParams.Node) &&
+		pluginParams.ServiceInstance != nil &&
+		pluginParams.ServiceInstance.Endpoint.ServicePort != nil &&
+		pluginParams.ServiceInstance.Endpoint.ServicePort.Protocol == protocol.GRPC {
+		filters = append(filters, &http_conn.HttpFilter{
+			Name: "envoy.filters.http.grpc_stats",
+			ConfigType: &http_conn.HttpFilter_TypedConfig{
+				TypedConfig: util.MessageToAny(&grpc_stats.FilterConfig{
+					EmitFilterState: true,
+				}),
+			},
+		})
 	}
 
 	// append ALPN HTTP filter in HTTP connection manager for outbound listener only.

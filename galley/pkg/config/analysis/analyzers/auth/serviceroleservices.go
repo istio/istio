@@ -27,7 +27,7 @@ import (
 	"istio.io/istio/galley/pkg/config/resource"
 )
 
-// ServiceRoleServicesAnalyzer checks the validity of services referred in a Service Role
+// ServiceRoleServicesAnalyzer checks the validity of services referred in a service role
 type ServiceRoleServicesAnalyzer struct{}
 
 var _ analysis.Analyzer = &ServiceRoleServicesAnalyzer{}
@@ -35,7 +35,8 @@ var _ analysis.Analyzer = &ServiceRoleServicesAnalyzer{}
 // Metadata implements Analyzer
 func (s *ServiceRoleServicesAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name: "auth.ServiceRoleServicesAnalyzer",
+		Name:        "auth.ServiceRoleServicesAnalyzer",
+		Description: "Checks the validity of services referred in a service role",
 		Inputs: collection.Names{
 			metadata.IstioRbacV1Alpha1Serviceroles,
 			metadata.K8SCoreV1Services,

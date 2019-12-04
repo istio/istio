@@ -24,6 +24,7 @@ import (
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/monitoring"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/constants"
@@ -32,7 +33,6 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/config/visibility"
-	"istio.io/pkg/monitoring"
 )
 
 // Metrics is an interface for capturing metrics on a per-node basis.
@@ -744,8 +744,8 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 		return nil
 	}
 
-	ps.Mesh = env.Mesh
-	ps.Networks = env.MeshNetworks
+	ps.Mesh = env.Mesh()
+	ps.Networks = env.Networks()
 	ps.ServiceDiscovery = env
 	ps.IstioConfigStore = env
 	ps.Version = env.Version()
