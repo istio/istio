@@ -24,7 +24,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"istio.io/istio/istioctl/cmd/istioctl/gendeployment"
 	"istio.io/istio/istioctl/pkg/install"
 	"istio.io/istio/istioctl/pkg/multicluster"
 	"istio.io/istio/istioctl/pkg/validate"
@@ -115,7 +114,6 @@ debug and diagnose their Istio mesh.
 	cmd.AddFlags(rootCmd)
 
 	rootCmd.AddCommand(newVersionCommand())
-	rootCmd.AddCommand(gendeployment.Command(&istioNamespace))
 	rootCmd.AddCommand(AuthN())
 	rootCmd.AddCommand(register())
 	rootCmd.AddCommand(deregisterCmd)
