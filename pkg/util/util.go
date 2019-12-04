@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -145,4 +146,18 @@ func ConsolidateLog(logMessage string) string {
 		logCountMap[item] = 0
 	}
 	return sb.String()
+}
+
+// RenderTemplate is a helper method to render a template with the given values.
+func RenderTemplate(tmpl string, ts interface{}) (string, error) {
+	t, err := template.New("").Parse(tmpl)
+	if err != nil {
+		return "", err
+	}
+	buf := new(bytes.Buffer)
+	err = t.Execute(buf, ts)
+	if err != nil {
+		return "", err
+	}
+	return buf.String(), nil
 }

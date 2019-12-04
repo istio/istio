@@ -217,6 +217,14 @@
 // ../../data/examples/multicluster/values-istio-multicluster-primary.yaml
 // ../../data/examples/vm/values-istio-meshexpansion-gateways.yaml
 // ../../data/examples/vm/values-istio-meshexpansion.yaml
+// ../../data/operator/Chart.yaml
+// ../../data/operator/templates/clusterrole.yaml
+// ../../data/operator/templates/clusterrole_binding.yaml
+// ../../data/operator/templates/crd.yaml
+// ../../data/operator/templates/deployment.yaml
+// ../../data/operator/templates/namespace.yaml
+// ../../data/operator/templates/service.yaml
+// ../../data/operator/templates/service_account.yaml
 // ../../data/profiles/default.yaml
 // ../../data/profiles/demo.yaml
 // ../../data/profiles/minimal.yaml
@@ -37070,6 +37078,397 @@ func examplesVmValuesIstioMeshexpansionYaml() (*asset, error) {
 	return a, nil
 }
 
+var _operatorChartYaml = []byte(`apiVersion: v1
+name: operator
+version: 1.5.0
+tillerVersion: ">=2.7.2"
+description: Helm chart for deploying Istio operator
+keywords:
+  - istio
+  - operator
+sources:
+  - http://github.com/istio/operator
+engine: gotpl
+icon: https://istio.io/favicons/android-192x192.png
+`)
+
+func operatorChartYamlBytes() ([]byte, error) {
+	return _operatorChartYaml, nil
+}
+
+func operatorChartYaml() (*asset, error) {
+	bytes, err := operatorChartYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "operator/Chart.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _operatorTemplatesClusterroleYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: istio-operator
+rules:
+# istio groups
+- apiGroups:
+  - authentication.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - config.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - install.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - networking.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - rbac.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - security.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+# k8s groups
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - mutatingwebhookconfigurations
+  - validatingwebhookconfigurations
+  verbs:
+  - '*'
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions.apiextensions.k8s.io
+  - customresourcedefinitions
+  verbs:
+  - '*'
+- apiGroups:
+  - apps
+  - extensions
+  resources:
+  - daemonsets
+  - deployments
+  - deployments/finalizers
+  - ingresses
+  - replicasets
+  - statefulsets
+  verbs:
+  - '*'
+- apiGroups:
+  - autoscaling
+  resources:
+  - horizontalpodautoscalers
+  verbs:
+  - '*'
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - servicemonitors
+  verbs:
+  - get
+  - create
+- apiGroups:
+  - policy
+  resources:
+  - poddisruptionbudgets
+  verbs:
+  - '*'
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterrolebindings
+  - clusterroles
+  - roles
+  - rolebindings
+  verbs:
+  - '*'
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - endpoints
+  - events
+  - namespaces
+  - pods
+  - persistentvolumeclaims
+  - secrets
+  - services
+  - serviceaccounts
+  verbs:
+  - '*'
+---
+`)
+
+func operatorTemplatesClusterroleYamlBytes() ([]byte, error) {
+	return _operatorTemplatesClusterroleYaml, nil
+}
+
+func operatorTemplatesClusterroleYaml() (*asset, error) {
+	bytes, err := operatorTemplatesClusterroleYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "operator/templates/clusterrole.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _operatorTemplatesClusterrole_bindingYaml = []byte(`kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: istio-operator
+subjects:
+- kind: ServiceAccount
+  name: istio-operator
+  namespace: {{.Values.operatorNamespace}}
+roleRef:
+  kind: ClusterRole
+  name: istio-operator
+  apiGroup: rbac.authorization.k8s.io
+---
+`)
+
+func operatorTemplatesClusterrole_bindingYamlBytes() ([]byte, error) {
+	return _operatorTemplatesClusterrole_bindingYaml, nil
+}
+
+func operatorTemplatesClusterrole_bindingYaml() (*asset, error) {
+	bytes, err := operatorTemplatesClusterrole_bindingYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "operator/templates/clusterrole_binding.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _operatorTemplatesCrdYaml = []byte(`apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: istiocontrolplanes.install.istio.io
+spec:
+  group: install.istio.io
+  names:
+    kind: IstioControlPlane
+    listKind: IstioControlPlaneList
+    plural: istiocontrolplanes
+    singular: istiocontrolplane
+    shortNames:
+    - icp
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        spec:
+          description: 'Specification of the desired state of the istio control plane resource.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+          type: object
+        status:
+          description: 'Status describes each of istio control plane component status at the current time.
+            0 means NONE, 1 means UPDATING, 2 means HEALTHY, 3 means ERROR, 4 means RECONCILING.
+            More info: https://github.com/istio/operator/blob/master/pkg/apis/istio/v1alpha2/v1alpha2.pb.html &
+            https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+          type: object
+  versions:
+  - name: v1alpha2
+    served: true
+    storage: true
+---
+`)
+
+func operatorTemplatesCrdYamlBytes() ([]byte, error) {
+	return _operatorTemplatesCrdYaml, nil
+}
+
+func operatorTemplatesCrdYaml() (*asset, error) {
+	bytes, err := operatorTemplatesCrdYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "operator/templates/crd.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _operatorTemplatesDeploymentYaml = []byte(`apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: {{.Values.operatorNamespace}}
+  name: istio-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: istio-operator
+  template:
+    metadata:
+      labels:
+        name: istio-operator
+    spec:
+      serviceAccountName: istio-operator
+      containers:
+        - name: istio-operator
+          image: {{.Values.hub}}/operator:{{.Values.tag}}
+          command:
+          - istio-operator
+          - server
+          imagePullPolicy: IfNotPresent
+          resources:
+            limits:
+              cpu: 200m
+              memory: 256Mi
+            requests:
+              cpu: 50m
+              memory: 128Mi
+          env:
+            - name: WATCH_NAMESPACE
+              value: {{.Values.istioNamespace}}
+            - name: LEADER_ELECTION_NAMESPACE
+              value: {{.Values.operatorNamespace}}
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OPERATOR_NAME
+              value: {{.Values.operatorNamespace}}
+---
+`)
+
+func operatorTemplatesDeploymentYamlBytes() ([]byte, error) {
+	return _operatorTemplatesDeploymentYaml, nil
+}
+
+func operatorTemplatesDeploymentYaml() (*asset, error) {
+	bytes, err := operatorTemplatesDeploymentYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "operator/templates/deployment.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _operatorTemplatesNamespaceYaml = []byte(`apiVersion: v1
+kind: Namespace
+metadata:
+  name: istio-operator
+  labels:
+    istio-operator-managed: Reconcile
+    istio-injection: disabled
+---
+`)
+
+func operatorTemplatesNamespaceYamlBytes() ([]byte, error) {
+	return _operatorTemplatesNamespaceYaml, nil
+}
+
+func operatorTemplatesNamespaceYaml() (*asset, error) {
+	bytes, err := operatorTemplatesNamespaceYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "operator/templates/namespace.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _operatorTemplatesServiceYaml = []byte(`apiVersion: v1
+kind: Service
+metadata:
+  namespace: {{.Values.operatorNamespace}}
+  labels:
+    name: istio-operator
+  name: istio-operator
+spec:
+  ports:
+  - name: http-metrics
+    port: 8383
+    targetPort: 8383
+  selector:
+    name: istio-operator
+---
+`)
+
+func operatorTemplatesServiceYamlBytes() ([]byte, error) {
+	return _operatorTemplatesServiceYaml, nil
+}
+
+func operatorTemplatesServiceYaml() (*asset, error) {
+	bytes, err := operatorTemplatesServiceYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "operator/templates/service.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _operatorTemplatesService_accountYaml = []byte(`apiVersion: v1
+kind: ServiceAccount
+metadata:
+  namespace: {{.Values.operatorNamespace}}
+  name: istio-operator
+---
+`)
+
+func operatorTemplatesService_accountYamlBytes() ([]byte, error) {
+	return _operatorTemplatesService_accountYaml, nil
+}
+
+func operatorTemplatesService_accountYaml() (*asset, error) {
+	bytes, err := operatorTemplatesService_accountYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "operator/templates/service_account.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _profilesDefaultYaml = []byte(`apiVersion: install.istio.io/v1alpha2
 kind: IstioControlPlane
 spec:
@@ -38858,6 +39257,14 @@ var _bindata = map[string]func() (*asset, error){
 	"examples/multicluster/values-istio-multicluster-primary.yaml":                        examplesMulticlusterValuesIstioMulticlusterPrimaryYaml,
 	"examples/vm/values-istio-meshexpansion-gateways.yaml":                                examplesVmValuesIstioMeshexpansionGatewaysYaml,
 	"examples/vm/values-istio-meshexpansion.yaml":                                         examplesVmValuesIstioMeshexpansionYaml,
+	"operator/Chart.yaml":                                                                 operatorChartYaml,
+	"operator/templates/clusterrole.yaml":                                                 operatorTemplatesClusterroleYaml,
+	"operator/templates/clusterrole_binding.yaml":                                         operatorTemplatesClusterrole_bindingYaml,
+	"operator/templates/crd.yaml":                                                         operatorTemplatesCrdYaml,
+	"operator/templates/deployment.yaml":                                                  operatorTemplatesDeploymentYaml,
+	"operator/templates/namespace.yaml":                                                   operatorTemplatesNamespaceYaml,
+	"operator/templates/service.yaml":                                                     operatorTemplatesServiceYaml,
+	"operator/templates/service_account.yaml":                                             operatorTemplatesService_accountYaml,
 	"profiles/default.yaml":                                                               profilesDefaultYaml,
 	"profiles/demo.yaml":                                                                  profilesDemoYaml,
 	"profiles/minimal.yaml":                                                               profilesMinimalYaml,
@@ -39222,6 +39629,18 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"vm": &bintree{nil, map[string]*bintree{
 			"values-istio-meshexpansion-gateways.yaml": &bintree{examplesVmValuesIstioMeshexpansionGatewaysYaml, map[string]*bintree{}},
 			"values-istio-meshexpansion.yaml":          &bintree{examplesVmValuesIstioMeshexpansionYaml, map[string]*bintree{}},
+		}},
+	}},
+	"operator": &bintree{nil, map[string]*bintree{
+		"Chart.yaml": &bintree{operatorChartYaml, map[string]*bintree{}},
+		"templates": &bintree{nil, map[string]*bintree{
+			"clusterrole.yaml":         &bintree{operatorTemplatesClusterroleYaml, map[string]*bintree{}},
+			"clusterrole_binding.yaml": &bintree{operatorTemplatesClusterrole_bindingYaml, map[string]*bintree{}},
+			"crd.yaml":                 &bintree{operatorTemplatesCrdYaml, map[string]*bintree{}},
+			"deployment.yaml":          &bintree{operatorTemplatesDeploymentYaml, map[string]*bintree{}},
+			"namespace.yaml":           &bintree{operatorTemplatesNamespaceYaml, map[string]*bintree{}},
+			"service.yaml":             &bintree{operatorTemplatesServiceYaml, map[string]*bintree{}},
+			"service_account.yaml":     &bintree{operatorTemplatesService_accountYaml, map[string]*bintree{}},
 		}},
 	}},
 	"profiles": &bintree{nil, map[string]*bintree{
