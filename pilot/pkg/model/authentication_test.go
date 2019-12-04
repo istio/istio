@@ -44,7 +44,7 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 			workloadNamespace: "foo",
 			workloadLabels:    labels.Collection{},
 			want: []*Config{
-				&Config{
+				{
 					ConfigMeta: ConfigMeta{
 						Type:      "request-authentication",
 						Name:      "default",
@@ -52,7 +52,7 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 					},
 					Spec: &security_beta.RequestAuthentication{},
 				},
-				&Config{
+				{
 					ConfigMeta: ConfigMeta{
 						Type:      "request-authentication",
 						Name:      "default",
@@ -67,7 +67,7 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 			workloadNamespace: "bar",
 			workloadLabels:    labels.Collection{},
 			want: []*Config{
-				&Config{
+				{
 					ConfigMeta: ConfigMeta{
 						Type:      "request-authentication",
 						Name:      "default",
@@ -75,7 +75,7 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 					},
 					Spec: &security_beta.RequestAuthentication{},
 				},
-				&Config{
+				{
 					ConfigMeta: ConfigMeta{
 						Type:      "request-authentication",
 						Name:      "default",
@@ -90,7 +90,7 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 			workloadNamespace: "baz",
 			workloadLabels:    labels.Collection{},
 			want: []*Config{
-				&Config{
+				{
 					ConfigMeta: ConfigMeta{
 						Type:      "request-authentication",
 						Name:      "default",
@@ -105,7 +105,7 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 			workloadNamespace: "foo",
 			workloadLabels:    labels.Collection{{"app": "httpbin", "version": "v1", "other": "labels"}},
 			want: []*Config{
-				&Config{
+				{
 					ConfigMeta: ConfigMeta{
 						Type:      "request-authentication",
 						Name:      "default",
@@ -113,7 +113,7 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 					},
 					Spec: &security_beta.RequestAuthentication{},
 				},
-				&Config{
+				{
 					ConfigMeta: ConfigMeta{
 						Type:      "request-authentication",
 						Name:      "with-selector",
@@ -128,7 +128,7 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 						},
 					},
 				},
-				&Config{
+				{
 					ConfigMeta: ConfigMeta{
 						Type:      "request-authentication",
 						Name:      "default",
@@ -143,7 +143,7 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 			workloadNamespace: "bar",
 			workloadLabels:    labels.Collection{{"app": "httpbin", "version": "v1"}},
 			want: []*Config{
-				&Config{
+				{
 					ConfigMeta: ConfigMeta{
 						Type:      "request-authentication",
 						Name:      "default",
@@ -151,7 +151,7 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 					},
 					Spec: &security_beta.RequestAuthentication{},
 				},
-				&Config{
+				{
 					ConfigMeta: ConfigMeta{
 						Type:      "request-authentication",
 						Name:      "default",
@@ -166,7 +166,7 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 			workloadNamespace: "foo",
 			workloadLabels:    labels.Collection{{"app": "httpbin"}},
 			want: []*Config{
-				&Config{
+				{
 					ConfigMeta: ConfigMeta{
 						Type:      "request-authentication",
 						Name:      "default",
@@ -174,7 +174,7 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 					},
 					Spec: &security_beta.RequestAuthentication{},
 				},
-				&Config{
+				{
 					ConfigMeta: ConfigMeta{
 						Type:      "request-authentication",
 						Name:      "default",
@@ -229,11 +229,11 @@ func createTestConfigs() []*Config {
 			"version": "v1",
 		},
 	}
-	configs = append(configs, createTestConfig("default", rootNamespace, nil))
-	configs = append(configs, createTestConfig("should-be-ignored", rootNamespace, nil))
-	configs = append(configs, createTestConfig("default", "foo", nil))
-	configs = append(configs, createTestConfig("default", "bar", nil))
-	configs = append(configs, createTestConfig("with-selector", "foo", selector))
+	configs = append(configs, createTestConfig("default", rootNamespace, nil),
+		createTestConfig("should-be-ignored", rootNamespace, nil),
+		createTestConfig("default", "foo", nil),
+		createTestConfig("default", "bar", nil),
+		createTestConfig("with-selector", "foo", selector))
 
 	return configs
 }
