@@ -22,7 +22,6 @@ import (
 	"net"
 	"net/http"
 	"path"
-	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -39,6 +38,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/env"
+	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 
@@ -58,19 +58,10 @@ import (
 	"istio.io/istio/pkg/mcp/sink"
 )
 
-const (
-	// DefaultMCPMaxMsgSize is the default maximum message size
-	DefaultMCPMaxMsgSize = 1024 * 1024 * 4
-)
-
 var (
 	// DNSCertDir is the location to save generated DNS certificates.
 	// TODO: we can probably avoid saving, but will require deeper changes.
 	DNSCertDir = "./var/run/secrets/istio-dns"
-
-	// PilotCertDir is the default location for mTLS certificates used by pilot
-	// Visible for tests - at runtime can be set by PILOT_CERT_DIR environment variable.
-	PilotCertDir = "/etc/certs/"
 
 	// DefaultPlugins is the default list of plugins to enable, when no plugin(s)
 	// is specified through the command line
@@ -151,7 +142,8 @@ type PilotArgs struct {
 	Config                   ConfigArgs
 	Service                  ServiceArgs
 	DomainSuffix             string
-	MeshConfig               *meshconfig.MeshConfig
+	MeshWatcher              mesh.Watcher
+	NetworksWatcher          mesh.NetworksWatcher
 	NetworksConfigFile       string
 	CtrlZOptions             *ctrlz.Options
 	Plugins                  []string
@@ -172,10 +164,6 @@ var IstiodNamespace = env.RegisterStringVar("POD_NAMESPACE", "istio-system", "Is
 func (s *Server) InitConfig() error {
 	prometheus.EnableHandlingTimeHistogram()
 	args := s.Args
-
-	if err := s.initMeshNetworks(args); err != nil {
-		return fmt.Errorf("mesh networks: %v", err)
-	}
 
 	// MCP controllers - currently using localhost by default or configured addresses.
 	// This is used for config.
@@ -323,103 +311,53 @@ func defaultMeshConfig() *meshconfig.MeshConfig {
 	return meshConfig
 }
 
-// WatchMeshConfig creates the mesh in the pilotConfig from the input arguments.
+// newMeshWatcher creates the mesh in the pilotConfig from the input arguments.
 // Will set s.Mesh, and keep it updated.
 // On change, ConfigUpdate will be called.
 // TODO: merge with user-specified mesh config.
-func (s *Server) WatchMeshConfig(args string) error {
-	var meshConfig *meshconfig.MeshConfig
-	var err error
+func newMeshWatcher(args *PilotArgs, fileWatcher filewatcher.FileWatcher, filename string) mesh.Watcher {
+	if args.MeshWatcher != nil {
+		// User specified a watcher, just use it.
+		return args.MeshWatcher
+	}
 
-	// Mesh config is required - this is the primary source of config.
-	meshConfig, err = mesh.ReadMeshConfig(args)
+	var err error
+	args.MeshWatcher, err = mesh.NewWatcher(fileWatcher, filename)
 	if err != nil {
 		log.Infof("No local mesh config found, using defaults")
-		meshConfig = defaultMeshConfig()
+		args.MeshWatcher = mesh.NewFixedWatcher(defaultMeshConfig())
 	}
 
-	// Watch the config file for changes and reload if it got modified
-	s.addFileWatcher(args, func() {
-		// Reload the config file
-		meshConfig, err = mesh.ReadMeshConfig(args)
-		if err != nil {
-			log.Warnf("failed to read mesh configuration, using default: %v", err)
-			return
-		}
-		if !reflect.DeepEqual(meshConfig, s.Environment.Mesh) {
-			log.Infof("mesh configuration updated to: %s", spew.Sdump(meshConfig))
-			if !reflect.DeepEqual(meshConfig.ConfigSources, s.Environment.Mesh.ConfigSources) {
-				log.Infof("mesh configuration sources have changed")
-				//TODO Need to re-create or reload initConfigController()
-			}
-			s.Environment.Mesh = meshConfig
-			s.Args.MeshConfig = meshConfig
-			if s.EnvoyXdsServer != nil {
-				s.EnvoyXdsServer.Env.Mesh = meshConfig
-				s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
-			}
-		}
-	})
-
-	log.Infof("mesh configuration %s", spew.Sdump(meshConfig))
+	log.Infof("mesh configuration %s", spew.Sdump(args.MeshWatcher.Mesh()))
 	log.Infof("version %s", version.Info.String())
 
-	s.Environment.Mesh = meshConfig
-	s.Args.MeshConfig = meshConfig
-	return nil
+	return args.MeshWatcher
 }
 
-// initMeshNetworks loads the mesh networks configuration from the file provided
+// newNetworksWatcher loads the mesh networks configuration from the file provided
 // in the args and add a watcher for changes in this file.
-func (s *Server) initMeshNetworks(args *PilotArgs) error { //nolint: unparam
+func newNetworksWatcher(args *PilotArgs, fileWatcher filewatcher.FileWatcher) mesh.NetworksWatcher {
+	if args.NetworksWatcher != nil {
+		// User specified
+		return args.NetworksWatcher
+	}
+
 	if args.NetworksConfigFile == "" {
 		log.Info("mesh networks configuration not provided")
-		return nil
-	}
-
-	var meshNetworks *meshconfig.MeshNetworks
-	var err error
-
-	meshNetworks, err = mesh.ReadMeshNetworks(args.NetworksConfigFile)
-	if err != nil {
-		log.Warnf("failed to read mesh networks configuration from %q. using default.", args.NetworksConfigFile)
-		return nil
-	}
-	log.Infof("mesh networks configuration %s", spew.Sdump(meshNetworks))
-	mesh.ResolveHostsInNetworksConfig(meshNetworks)
-	log.Infof("mesh networks configuration post-resolution %s", spew.Sdump(meshNetworks))
-	s.Environment.MeshNetworks = meshNetworks
-
-	// Watch the networks config file for changes and reload if it got modified
-	s.addFileWatcher(args.NetworksConfigFile, func() {
-		// Reload the config file
-		meshNetworks, err := mesh.ReadMeshNetworks(args.NetworksConfigFile)
+	} else {
+		var err error
+		args.NetworksWatcher, err = mesh.NewNetworksWatcher(fileWatcher, args.NetworksConfigFile)
 		if err != nil {
-			log.Warnf("failed to read mesh networks configuration from %q", args.NetworksConfigFile)
-			return
+			log.Infoa(err)
 		}
-		if !reflect.DeepEqual(meshNetworks, s.Environment.MeshNetworks) {
-			log.Infof("mesh networks configuration file updated to: %s", spew.Sdump(meshNetworks))
-			mesh.ResolveHostsInNetworksConfig(meshNetworks)
-			log.Infof("mesh networks configuration post-resolution %s", spew.Sdump(meshNetworks))
-			s.Environment.MeshNetworks = meshNetworks
+	}
 
-			// TODO
-			//if s.kubeRegistry != nil {
-			//	s.kubeRegistry.InitNetworkLookup(meshNetworks)
-			//}
-			// TODO
-			//if s.Multicluster != nil {
-			//	s.multicluster.ReloadNetworkLookup(meshNetworks)
-			//}
-			if s.EnvoyXdsServer != nil {
-				s.EnvoyXdsServer.Env.MeshNetworks = meshNetworks
-				s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
-			}
-		}
-	})
+	if args.NetworksWatcher == nil {
+		log.Info("mesh networks configuration not provided")
+		args.NetworksWatcher = mesh.NewFixedNetworksWatcher(nil)
+	}
 
-	return nil
+	return args.NetworksWatcher
 }
 
 func (s *Server) initMCPConfigController(args *PilotArgs) error {
@@ -443,7 +381,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 
 	reporter := monitoring.NewStatsContext("pilot")
 
-	for _, configSource := range s.Environment.Mesh.ConfigSources {
+	for _, configSource := range s.Environment.Mesh().ConfigSources {
 		// Pilot connection to MCP is handled by the envoy sidecar if out of process, so we can use SDS
 		// and envoy features.
 		securityOption := grpc.WithInsecure()
@@ -520,8 +458,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 
 // initConfigController creates the config controller in the pilotConfig.
 func (s *Server) initConfigController(args *PilotArgs) error {
-
-	if len(s.Environment.Mesh.ConfigSources) > 0 {
+	if len(s.Environment.Mesh().ConfigSources) > 0 {
 		if err := s.initMCPConfigController(args); err != nil {
 			return err
 		}
@@ -550,6 +487,14 @@ func (s *Server) initDiscoveryService(args *PilotArgs, onXDSStart func(model.XDS
 
 	// This is  the XDSUpdater
 	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(s.Environment, args.Plugins)
+
+	// When the mesh config or networks change, do a full push.
+	s.Environment.AddMeshHandler(func() {
+		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
+	})
+	s.Environment.AddNetworksHandler(func() {
+		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
+	})
 
 	if err := s.initEventHandlers(); err != nil {
 		return err
@@ -731,29 +676,6 @@ func (s *Server) grpcServerOptions(options *istiokeepalive.Options) []grpc.Serve
 
 func (s *Server) AddStartFunc(fn startFunc) {
 	s.startFuncs = append(s.startFuncs, fn)
-}
-
-// Add to the FileWatcher the provided file and execute the provided function
-// on any change event for this file.
-// Using a debouncing mechanism to avoid calling the callback multiple times
-// per event.
-func (s *Server) addFileWatcher(file string, callback func()) {
-	_ = s.fileWatcher.Add(file)
-	go func() {
-		var timerC <-chan time.Time
-		for {
-			select {
-			case <-timerC:
-				timerC = nil
-				callback()
-			case <-s.fileWatcher.Events(file):
-				// Use a timer to debounce configuration updates
-				if timerC == nil {
-					timerC = time.After(100 * time.Millisecond)
-				}
-			}
-		}
-	}()
 }
 
 func (s *Server) waitForCacheSync() {

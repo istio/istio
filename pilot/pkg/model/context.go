@@ -32,7 +32,11 @@ import (
 	"istio.io/pkg/monitoring"
 
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/mesh"
 )
+
+var _ mesh.Holder = &Environment{}
+var _ mesh.NetworksHolder = &Environment{}
 
 // Environment provides an aggregate environmental API for Pilot
 type Environment struct {
@@ -42,8 +46,15 @@ type Environment struct {
 	// Config interface for listing routing rules
 	IstioConfigStore
 
-	// Mesh is the mesh config (to be merged into the config store)
-	Mesh *meshconfig.MeshConfig
+	// Watcher is the watcher for the mesh config (to be merged into the config store)
+	mesh.Watcher
+
+	// NetworksWatcher (loaded from a config map) provides information about the
+	// set of networks inside a mesh and how to route to endpoints in each
+	// network. Each network provides information about the endpoints in a
+	// routable L3 network. A single routable L3 network can have one or more
+	// service registries.
+	mesh.NetworksWatcher
 
 	// PushContext holds informations during push generation. It is reset on config change, at the beginning
 	// of the pushAll. It will hold all errors and stats and possibly caches needed during the entire cache computation.
@@ -52,13 +63,22 @@ type Environment struct {
 	// START OF THE PUSH, THE GLOBAL ONE MAY CHANGE AND REFLECT A DIFFERENT
 	// CONFIG AND PUSH
 	PushContext *PushContext
+}
 
-	// MeshNetworks (loaded from a config map) provides information about the
-	// set of networks inside a mesh and how to route to endpoints in each
-	// network. Each network provides information about the endpoints in a
-	// routable L3 network. A single routable L3 network can have one or more
-	// service registries.
-	MeshNetworks *meshconfig.MeshNetworks
+// Mesh is a utility method for retrieving the current mesh config.
+func (e *Environment) Mesh() *meshconfig.MeshConfig {
+	if e != nil && e.Watcher != nil {
+		return e.Watcher.Mesh()
+	}
+	return nil
+}
+
+// Networks is a utility method for retrieving the current mesh networks config.
+func (e *Environment) Networks() *meshconfig.MeshNetworks {
+	if e != nil && e.NetworksWatcher != nil {
+		return e.NetworksWatcher.Networks()
+	}
+	return nil
 }
 
 func (e *Environment) AddMetric(metric monitoring.Metric, key string, proxy *Proxy, msg string) {

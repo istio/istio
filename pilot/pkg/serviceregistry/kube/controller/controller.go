@@ -33,7 +33,6 @@ import (
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
 
@@ -45,6 +44,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	configKube "istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schemas"
 )
 
@@ -115,6 +115,9 @@ type Options struct {
 
 	// TrustDomain used in SPIFFE identity
 	TrustDomain string
+
+	// NetworksWatcher observes changes to the mesh networks config.
+	NetworksWatcher mesh.NetworksWatcher
 }
 
 var _ serviceregistry.Instance = &Controller{}
@@ -124,13 +127,14 @@ var _ serviceregistry.Instance = &Controller{}
 type Controller struct {
 	domainSuffix string
 
-	client    kubernetes.Interface
-	queue     kube.Queue
-	services  cacheHandler
-	endpoints cacheHandler
-	nodes     cacheHandler
-	pods      *PodCache
-	metrics   model.Metrics
+	client          kubernetes.Interface
+	queue           kube.Queue
+	services        cacheHandler
+	endpoints       cacheHandler
+	nodes           cacheHandler
+	pods            *PodCache
+	metrics         model.Metrics
+	networksWatcher mesh.NetworksWatcher
 
 	// clusterID identifies the remote cluster in a multicluster env.
 	clusterID string
@@ -173,6 +177,7 @@ func NewController(client kubernetes.Interface, options Options) *Controller {
 		XDSUpdater:                 options.XDSUpdater,
 		servicesMap:                make(map[host.Name]*model.Service),
 		externalNameSvcInstanceMap: make(map[host.Name][]*model.ServiceInstance),
+		networksWatcher:            options.NetworksWatcher,
 	}
 
 	sharedInformers := informers.NewSharedInformerFactoryWithOptions(client, options.ResyncPeriod, informers.WithNamespace(options.WatchedNamespace))
@@ -202,7 +207,7 @@ func (c *Controller) Cluster() string {
 
 // notify is the first handler in the handler chain.
 // Returning an error causes repeated execution of the entire chain.
-func (c *Controller) notify(old, curr interface{}, event model.Event) error {
+func (c *Controller) notify(_, _ interface{}, _ model.Event) error {
 	if !c.HasSynced() {
 		return errors.New("waiting till full synchronization")
 	}
@@ -307,6 +312,11 @@ func (c *Controller) HasSynced() bool {
 
 // Run all controllers until a signal is received
 func (c *Controller) Run(stop <-chan struct{}) {
+	if c.networksWatcher != nil {
+		c.networksWatcher.AddNetworksHandler(c.initNetworkLookup)
+		c.initNetworkLookup()
+	}
+
 	go func() {
 		cache.WaitForCacheSync(stop, c.HasSynced)
 		c.queue.Run(stop)
@@ -890,7 +900,7 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 }
 
 // AppendInstanceHandler implements a service catalog operation
-func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
+func (c *Controller) AppendInstanceHandler(_ func(*model.ServiceInstance, model.Event)) error {
 	if c.endpoints.handler == nil {
 		return nil
 	}
@@ -1014,9 +1024,10 @@ func (n namedRangerEntry) Network() net.IPNet {
 	return n.network
 }
 
-// InitNetworkLookup will read the mesh networks configuration from the environment
+// initNetworkLookup will read the mesh networks configuration from the environment
 // and initialize CIDR rangers for an efficient network lookup when needed
-func (c *Controller) InitNetworkLookup(meshNetworks *meshconfig.MeshNetworks) {
+func (c *Controller) initNetworkLookup() {
+	meshNetworks := c.networksWatcher.Networks()
 	if meshNetworks == nil || len(meshNetworks.Networks) == 0 {
 		return
 	}
