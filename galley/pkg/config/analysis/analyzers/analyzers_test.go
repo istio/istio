@@ -16,6 +16,8 @@ package analyzers
 
 import (
 	"fmt"
+	"io"
+	"os"
 	"regexp"
 	"testing"
 
@@ -334,7 +336,13 @@ func TestAnalyzers(t *testing.T) {
 
 			sa := local.NewSourceAnalyzer(metadata.MustGet(), analysis.Combine("testCombined", testCase.analyzer), "", "istio-system", cr, true)
 
-			err := sa.AddFileKubeSource(testCase.inputFiles)
+			var files []io.Reader
+			for _, f := range testCase.inputFiles {
+				of, _ := os.Open(f)
+				files = append(files, of)
+			}
+
+			err := sa.AddReaderKubeSource(files)
 			if err != nil {
 				t.Fatalf("Error setting up file kube source on testcase %s: %v", testCase.name, err)
 			}

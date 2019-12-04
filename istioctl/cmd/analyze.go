@@ -17,6 +17,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"sort"
 	"strings"
@@ -125,7 +126,7 @@ istioctl experimental analyze -L
 				return nil
 			}
 
-			files, err := gatherFiles(args)
+			readers, err := gatherFiles(args)
 			if err != nil {
 				return err
 			}
@@ -183,10 +184,9 @@ istioctl experimental analyze -L
 
 			// If files are provided, treat them (collectively) as a source.
 			parseErrors := 0
-			if len(files) > 0 {
-				if err = sa.AddFileKubeSource(files); err != nil {
-					// Partial success is possible, so don't return early, but do print.
-					fmt.Fprintf(cmd.ErrOrStderr(), "Error(s) reading files: %v", err)
+			if len(readers) > 0 {
+				if err = sa.AddReaderKubeSource(readers); err != nil {
+					fmt.Fprintf(cmd.ErrOrStderr(), "Error(s) adding files: %v", err)
 					parseErrors++
 				}
 			}
@@ -308,15 +308,25 @@ istioctl experimental analyze -L
 	return analysisCmd
 }
 
-func gatherFiles(args []string) ([]string, error) {
-	var result []string
-	for _, a := range args {
-		if _, err := os.Stat(a); err != nil {
-			return nil, fmt.Errorf("could not find file %q", a)
+func gatherFiles(args []string) ([]io.Reader, error) {
+	var readers []io.Reader
+	var r io.Reader
+	var err error
+	for _, f := range args {
+		if f == "-" {
+			if isatty.IsTerminal(os.Stdin.Fd()) {
+				return nil, fmt.Errorf("No content from stdin to read, but saw '-' arg")
+			}
+			r = os.Stdin
+		} else {
+			r, err = os.Open(f)
+			if err != nil {
+				return nil, err
+			}
 		}
-		result = append(result, a)
+		readers = append(readers, r)
 	}
-	return result, nil
+	return readers, nil
 }
 
 func colorPrefix(m diag.Message) string {

@@ -17,6 +17,7 @@ package local
 import (
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 
 	"github.com/hashicorp/go-multierror"
@@ -171,22 +172,22 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 	return result, errors.New("cancelled")
 }
 
-// AddFileKubeSource adds a source based on the specified k8s yaml files to the current SourceAnalyzer
-func (sa *SourceAnalyzer) AddFileKubeSource(files []string) error {
+// AddReaderKubeSource adds a source based on the specified k8s yaml files to the current SourceAnalyzer
+func (sa *SourceAnalyzer) AddReaderKubeSource(readers []io.Reader) error {
 	src := inmemory.NewKubeSource(sa.kubeResources)
 	src.SetDefaultNamespace(sa.namespace)
 
 	var errs error
 
 	// If we encounter any errors reading or applying files, track them but attempt to continue
-	for _, file := range files {
-		by, err := ioutil.ReadFile(file)
+	for i, r := range readers {
+		by, err := ioutil.ReadAll(r)
 		if err != nil {
 			errs = multierror.Append(errs, err)
 			continue
 		}
 
-		if err = src.ApplyContent(file, string(by)); err != nil {
+		if err = src.ApplyContent(string(i), string(by)); err != nil {
 			errs = multierror.Append(errs, err)
 		}
 	}
