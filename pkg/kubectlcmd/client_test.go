@@ -66,7 +66,11 @@ func TestKubectlApply(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			cs := collector{Error: test.err}
 			kubectl := &Client{cmdSite: &cs}
-			_, _, err := kubectl.Apply(false, false, "", "", test.namespace, test.manifest, test.args...)
+			opts := &Options{
+				Namespace: test.namespace,
+				ExtraArgs: test.args,
+			}
+			_, _, err := kubectl.Apply(test.manifest, opts)
 
 			if test.err != nil && err == nil {
 				t.Error("expected error to occur")
@@ -122,7 +126,11 @@ func TestKubectlDelete(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			cs := collector{Error: test.err}
 			kubectl := &Client{cmdSite: &cs}
-			_, _, err := kubectl.Delete(false, false, "", "", test.namespace, test.manifest, test.args...)
+			opts := &Options{
+				Namespace: test.namespace,
+				ExtraArgs: test.args,
+			}
+			_, _, err := kubectl.Delete(test.manifest, opts)
 
 			if test.err != nil && err == nil {
 				t.Error("expected error to occur")
@@ -174,7 +182,11 @@ func TestKubectlGetAll(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			cs := collector{Error: test.err}
 			kubectl := &Client{cmdSite: &cs}
-			_, _, err := kubectl.GetAll("", "", test.namespace, "", test.args...)
+			opts := &Options{
+				Namespace: test.namespace,
+				ExtraArgs: test.args,
+			}
+			_, _, err := kubectl.GetAll(opts)
 
 			if test.err != nil && err == nil {
 				t.Error("expected error to occur")
@@ -221,7 +233,11 @@ func TestKubectlGetConfig(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			cs := collector{Error: test.err}
 			kubectl := &Client{cmdSite: &cs}
-			_, _, err := kubectl.GetConfig("", "", test.cmname, test.namespace, "", test.args...)
+			opts := &Options{
+				Namespace: test.namespace,
+				ExtraArgs: test.args,
+			}
+			_, _, err := kubectl.GetConfigMap(test.cmname, opts)
 
 			if test.err != nil && err == nil {
 				t.Error("expected error to occur")

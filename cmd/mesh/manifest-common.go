@@ -21,6 +21,8 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/operator/pkg/kubectlcmd"
+
 	"github.com/ghodss/yaml"
 
 	"istio.io/operator/pkg/apis/istio/v1alpha2"
@@ -53,7 +55,7 @@ func genApplyManifests(setOverlay []string, inFilename string, force bool, dryRu
 	if err != nil {
 		return fmt.Errorf("failed to generate manifest: %v", err)
 	}
-	opts := &manifest.InstallOptions{
+	opts := &kubectlcmd.Options{
 		DryRun:      dryRun,
 		Verbose:     verbose,
 		WaitTimeout: waitTimeout,

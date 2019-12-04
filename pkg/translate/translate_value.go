@@ -563,5 +563,5 @@ func renderComponentName(tmpl string, componentName string) (string, error) {
 	type temp struct {
 		ValueComponentName string
 	}
-	return renderTemplate(tmpl, temp{componentName})
+	return util.RenderTemplate(tmpl, temp{componentName})
 }

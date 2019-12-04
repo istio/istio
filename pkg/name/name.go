@@ -74,6 +74,10 @@ const (
 	GrafanaComponentName            ComponentName = "Grafana"
 	KialiComponentName              ComponentName = "Kiali"
 	TracingComponentName            ComponentName = "Tracing"
+
+	// Operator components
+	IstioOperatorComponentName      ComponentName = "IstioOperator"
+	IstioOperatorCustomResourceName ComponentName = "IstioOperatorCustomResource"
 )
 
 var (

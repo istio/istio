@@ -24,17 +24,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ghodss/yaml"
-
-	"istio.io/operator/pkg/util"
-
-	"istio.io/operator/pkg/apis/istio/v1alpha2"
-
-	"istio.io/operator/pkg/object"
-
 	// For kubeclient GCP auth
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
+	"github.com/ghodss/yaml"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -49,12 +42,15 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-
 	kubectlutil "k8s.io/kubectl/pkg/util/deployment"
+	"k8s.io/utils/pointer"
 
+	"istio.io/operator/pkg/apis/istio/v1alpha2"
 	"istio.io/operator/pkg/kubectlcmd"
 	"istio.io/operator/pkg/name"
-	"istio.io/operator/pkg/version"
+	"istio.io/operator/pkg/object"
+	"istio.io/operator/pkg/util"
+	pkgversion "istio.io/operator/pkg/version"
 	"istio.io/pkg/log"
 )
 
@@ -126,7 +122,9 @@ var (
 	dependencyWaitCh = make(map[name.ComponentName]chan struct{})
 	kubectl          = kubectlcmd.New()
 
-	k8sRESTConfig *rest.Config
+	k8sRESTConfig     *rest.Config
+	currentKubeconfig string
+	currentContext    string
 )
 
 func init() {
@@ -204,37 +202,21 @@ func renderRecursive(manifests name.ManifestMap, installTree componentTree, outp
 	return nil
 }
 
-// InstallOptions contains the startup options for applying the manifest.
-type InstallOptions struct {
-	// DryRun performs all steps except actually applying the manifests or creating output dirs/files.
-	DryRun bool
-	// Verbose enables verbose debug output.
-	Verbose bool
-	// Wait for resources to be ready after install.
-	Wait bool
-	// Maximum amount of time to wait for resources to be ready after install when Wait=true.
-	WaitTimeout time.Duration
-	// Path to the kubeconfig file.
-	Kubeconfig string
-	// Name of the kubeconfig context to use.
-	Context string
-}
-
 // ApplyAll applies all given manifests using kubectl client.
-func ApplyAll(manifests name.ManifestMap, version version.Version, opts *InstallOptions) (CompositeOutput, error) {
+func ApplyAll(manifests name.ManifestMap, version pkgversion.Version, opts *kubectlcmd.Options) (CompositeOutput, error) {
 	logAndPrint("Preparing manifests for these components:")
 	for c := range manifests {
 		logAndPrint("- %s", c)
 	}
 	logAndPrint("")
 	log.Infof("Component dependencies tree: \n%s", installTreeString())
-	if err := initK8SRestClient(opts.Kubeconfig, opts.Context); err != nil {
+	if err := InitK8SRestClient(opts.Kubeconfig, opts.Context); err != nil {
 		return nil, err
 	}
 	return applyRecursive(manifests, version, opts)
 }
 
-func applyRecursive(manifests name.ManifestMap, version version.Version, opts *InstallOptions) (CompositeOutput, error) {
+func applyRecursive(manifests name.ManifestMap, version pkgversion.Version, opts *kubectlcmd.Options) (CompositeOutput, error) {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	out := CompositeOutput{}
@@ -249,7 +231,7 @@ func applyRecursive(manifests name.ManifestMap, version version.Version, opts *I
 				<-s
 				log.Infof("Prerequisite for %s has completed, proceeding with install.", c)
 			}
-			applyOut, appliedObjects := applyManifest(c, m, version, opts)
+			applyOut, appliedObjects := ApplyManifest(c, m, version.String(), opts)
 			mu.Lock()
 			out[c] = applyOut
 			allAppliedObjects = append(allAppliedObjects, appliedObjects...)
@@ -270,8 +252,8 @@ func applyRecursive(manifests name.ManifestMap, version version.Version, opts *I
 	return out, nil
 }
 
-func applyManifest(componentName name.ComponentName, manifestStr string, version version.Version,
-	opts *InstallOptions) (*ComponentApplyOutput, object.K8sObjects) {
+func ApplyManifest(componentName name.ComponentName, manifestStr, version string,
+	opts *kubectlcmd.Options) (*ComponentApplyOutput, object.K8sObjects) {
 	stdout, stderr := "", ""
 	appliedObjects := object.K8sObjects{}
 	objects, err := object.ParseK8sObjectsFromYAMLManifest(manifestStr)
@@ -284,8 +266,9 @@ func applyManifest(componentName name.ComponentName, manifestStr string, version
 	//  (https://github.com/kubernetes/kubernetes/issues/40635)
 	// Delete all resources for a disabled component
 	if len(objects) == 0 {
-		extraArgsGet := []string{"--all-namespaces", "--selector", componentLabel}
-		stdoutGet, stderrGet, err := kubectl.GetAll(opts.Kubeconfig, opts.Context, "", "yaml", extraArgsGet...)
+		newOpts := *opts
+		newOpts.ExtraArgs = []string{"--all-namespaces", "--selector", componentLabel}
+		stdoutGet, stderrGet, err := kubectl.GetAll(&newOpts)
 		if err != nil {
 			stdout += "\n" + stdoutGet
 			stderr += "\n" + stderrGet
@@ -303,8 +286,8 @@ func applyManifest(componentName name.ComponentName, manifestStr string, version
 		if err != nil {
 			return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 		}
-		extraArgsDel := []string{"--selector", componentLabel}
-		stdoutDel, stderrDel, err := kubectl.Delete(opts.DryRun, opts.Verbose, opts.Kubeconfig, opts.Context, "", stdoutGet, extraArgsDel...)
+		newOpts.ExtraArgs = []string{"--selector", componentLabel}
+		stdoutDel, stderrDel, err := kubectl.Delete(stdoutGet, &newOpts)
 		stdout += "\n" + stdoutDel
 		stderr += "\n" + stderrDel
 		if err != nil {
@@ -314,76 +297,61 @@ func applyManifest(componentName name.ComponentName, manifestStr string, version
 		return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 	}
 
-	namespace := ""
 	for _, o := range objects {
 		o.AddLabels(map[string]string{istioComponentLabelStr: string(componentName)})
 		o.AddLabels(map[string]string{operatorLabelStr: operatorReconcileStr})
-		o.AddLabels(map[string]string{istioVersionLabelStr: version.String()})
-		if o.Namespace != "" {
-			// All objects in a component have the same namespace.
-			namespace = o.Namespace
-		}
+		o.AddLabels(map[string]string{istioVersionLabelStr: version})
 	}
-	objects.Sort(defaultObjectOrder())
 
-	extraArgs := []string{"--force"}
+	opts.ExtraArgs = []string{"--force", "--selector", componentLabel}
 	// Base components include namespaces and CRDs, pruning them will remove user configs, which makes it hard to roll back.
-	if componentName != name.IstioBaseComponentName {
-		extraArgs = append(extraArgs, "--prune", "--selector", componentLabel)
+	if componentName != name.IstioBaseComponentName && opts.Prune == nil {
+		opts.Prune = pointer.BoolPtr(true)
 	}
 
-	logAndPrint("Applying manifest for component %s", componentName)
+	logAndPrint("Applying manifest for component %s...", componentName)
 
+	// Apply namespace resources first, then wait.
 	nsObjects := nsKindObjects(objects)
-	if len(nsObjects) > 0 {
-		mns, err := nsObjects.JSONManifest()
-		if err != nil {
-			return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
-		}
-
-		stdoutNs, stderrNs, err := kubectl.Apply(opts.DryRun, opts.Verbose, opts.Kubeconfig, opts.Context, namespace, mns, extraArgs...)
-		stdout += "\n" + stdoutNs
-		stderr += "\n" + stderrNs
-		if err != nil {
-			return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
-		}
-
-		if err := waitForResources(nsObjects, opts); err != nil {
-			return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
-		}
-	}
-	appliedObjects = append(appliedObjects, nsObjects...)
-
-	crdObjects := cRDKindObjects(objects)
-	if len(crdObjects) > 0 {
-		mcrd, err := crdObjects.JSONManifest()
-		if err != nil {
-			return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
-		}
-
-		stdoutCRD, stderrCRD, err := kubectl.Apply(opts.DryRun, opts.Verbose, opts.Kubeconfig, opts.Context, namespace, mcrd, extraArgs...)
-		stdout += "\n" + stdoutCRD
-		stderr += "\n" + stderrCRD
-		if err != nil {
-			return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
-		}
-		// Not all Istio components are robust to not yet created CRDs.
-		if err := waitForCRDs(objects, opts.DryRun); err != nil {
-			return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
-		}
-	}
-	appliedObjects = append(appliedObjects, crdObjects...)
-
-	nonNsCrdObjects := objectsNotInLists(objects, nsObjects, crdObjects)
-	m, err := nonNsCrdObjects.JSONManifest()
+	objectsToApply := nsObjects
+	stdout, stderr, err = applyObjects(objectsToApply, opts, stdout, stderr)
 	if err != nil {
 		return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 	}
-	stdoutNonNsCrd, stderrNonNsCrd, err := kubectl.Apply(opts.DryRun, opts.Verbose, opts.Kubeconfig, opts.Context, namespace, m, extraArgs...)
-	stdout += "\n" + stdoutNonNsCrd
-	stderr += "\n" + stderrNonNsCrd
-	logAndPrint("Finished applying manifest for component %s", componentName)
+	if err := waitForResources(objectsToApply, opts); err != nil {
+		return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
+	}
+	appliedObjects = append(appliedObjects, nsObjects...)
+
+	// Apply CRDs, then wait.
+	crdObjects := cRDKindObjects(objects)
+	objectsToApply = crdObjects
+	// If we prune, we need to reapply the same objects, otherwise they will be pruned.
+	if opts.Prune != nil && *opts.Prune {
+		objectsToApply = append(objectsToApply, appliedObjects...)
+	}
+	stdout, stderr, err = applyObjects(objectsToApply, opts, stdout, stderr)
+	if err != nil {
+		return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
+	}
+	if err := waitForCRDs(objectsToApply, opts.DryRun); err != nil {
+		return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
+	}
+	appliedObjects = append(appliedObjects, crdObjects...)
+
+	// Apply all remaining objects.
+	nonNsCrdObjects := objectsNotInLists(objects, nsObjects, crdObjects)
+	objectsToApply = nonNsCrdObjects
+	if opts.Prune != nil && *opts.Prune {
+		objectsToApply = append(objectsToApply, appliedObjects...)
+	}
+	stdout, stderr, err = applyObjects(objectsToApply, opts, stdout, stderr)
+	if err != nil {
+		return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
+	}
 	appliedObjects = append(appliedObjects, nonNsCrdObjects...)
+
+	logAndPrint("Finished applying manifest for component %s.", componentName)
 	return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 }
 
@@ -404,6 +372,42 @@ func GetKubectlGetItems(stdoutGet string) ([]interface{}, error) {
 		return items, nil
 	}
 	return nil, fmt.Errorf("`kubectl get` returned a yaml incorrecnt type 'items' in the root")
+}
+
+func DeploymentExists(kubeconfig, context, namespace, name string) (bool, error) {
+	if err := InitK8SRestClient(kubeconfig, context); err != nil {
+		return false, err
+	}
+
+	cs, err := kubernetes.NewForConfig(k8sRESTConfig)
+	if err != nil {
+		return false, fmt.Errorf("k8s client error: %s", err)
+	}
+
+	d, err := cs.AppsV1().Deployments(namespace).Get(name, metav1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+	return d != nil, nil
+}
+
+func applyObjects(objs object.K8sObjects, opts *kubectlcmd.Options, stdout, stderr string) (string, string, error) {
+	if len(objs) == 0 {
+		return stdout, stderr, nil
+	}
+
+	objs.Sort(defaultObjectOrder())
+
+	mns, err := objs.JSONManifest()
+	if err != nil {
+		return stdout, stderr, err
+	}
+
+	stdoutNs, stderrNs, err := kubectl.Apply(mns, opts)
+	stdout += "\n" + stdoutNs
+	stderr += "\n" + stderrNs
+
+	return stdout, stderr, err
 }
 
 func buildComponentApplyOutput(stdout string, stderr string, objects object.K8sObjects, err error) *ComponentApplyOutput {
@@ -545,7 +549,7 @@ func waitForCRDs(objects object.K8sObjects, dryRun bool) error {
 // waitForResources polls to get the current status of all pods, PVCs, and Services
 // until all are ready or a timeout is reached
 // TODO - plumb through k8s client and remove global `k8sRESTConfig`
-func waitForResources(objects object.K8sObjects, opts *InstallOptions) error {
+func waitForResources(objects object.K8sObjects, opts *kubectlcmd.Options) error {
 	if opts.DryRun {
 		logAndPrint("Not waiting for resources ready in dry run mode.")
 		return nil
@@ -752,11 +756,13 @@ func buildInstallTreeString(componentName name.ComponentName, prefix string, sb 
 	}
 }
 
-func initK8SRestClient(kubeconfig, context string) error {
+func InitK8SRestClient(kubeconfig, context string) error {
 	var err error
-	if k8sRESTConfig != nil {
+	if kubeconfig == currentKubeconfig && context == currentContext && k8sRESTConfig != nil {
 		return nil
 	}
+	currentKubeconfig, currentContext = kubeconfig, context
+
 	k8sRESTConfig, err = defaultRestConfig(kubeconfig, context)
 	if err != nil {
 		return err

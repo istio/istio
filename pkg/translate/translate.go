@@ -16,9 +16,7 @@
 package translate
 
 import (
-	"bytes"
 	"fmt"
-	"html/template"
 	"reflect"
 	"sort"
 	"strings"
@@ -482,7 +480,7 @@ func renderFeatureComponentPathTemplate(tmpl string, featureName name.FeatureNam
 		FeatureName:   featureName,
 		ComponentName: componentName,
 	}
-	return renderTemplate(tmpl, ts)
+	return util.RenderTemplate(tmpl, ts)
 }
 
 // renderResourceComponentPathTemplate renders a template of the form <path>{{.ResourceName}}<path>{{.ContainerName}}<path> with
@@ -497,21 +495,7 @@ func (t *Translator) renderResourceComponentPathTemplate(tmpl string, componentN
 		ResourceName:  t.ComponentMaps[componentName].ResourceName,
 		ContainerName: t.ComponentMaps[componentName].ContainerName,
 	}
-	return renderTemplate(tmpl, ts)
-}
-
-// helper method to render template
-func renderTemplate(tmpl string, ts interface{}) (string, error) {
-	t, err := template.New("").Parse(tmpl)
-	if err != nil {
-		return "", err
-	}
-	buf := new(bytes.Buffer)
-	err = t.Execute(buf, ts)
-	if err != nil {
-		return "", err
-	}
-	return buf.String(), nil
+	return util.RenderTemplate(tmpl, ts)
 }
 
 // defaultTranslationFunc is the default translation to values. It maps a Go data path into a YAML path.
