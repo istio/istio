@@ -229,11 +229,11 @@ func createTestConfigs() []*Config {
 			"version": "v1",
 		},
 	}
-	configs = append(configs, createTestConfig("default", rootNamespace, nil))
-	configs = append(configs, createTestConfig("should-be-ignored", rootNamespace, nil))
-	configs = append(configs, createTestConfig("default", "foo", nil))
-	configs = append(configs, createTestConfig("default", "bar", nil))
-	configs = append(configs, createTestConfig("with-selector", "foo", selector))
+	configs = append(configs, createTestConfig("default", rootNamespace, nil),
+		createTestConfig("should-be-ignored", rootNamespace, nil),
+		createTestConfig("default", "foo", nil),
+		createTestConfig("default", "bar", nil),
+		createTestConfig("with-selector", "foo", selector))
 
 	return configs
 }
