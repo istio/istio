@@ -19,7 +19,7 @@
 
 # Docker target will build the go binaries and package the docker for local testing.
 # It does not upload to a registry.
-docker: docker.all
+docker: build-linux docker.all
 
 # Add new docker targets to the end of the DOCKER_TARGETS list.
 
