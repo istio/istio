@@ -125,8 +125,6 @@ var _ serviceregistry.Instance = &Controller{}
 // Controller is a collection of synchronized resource watchers
 // Caches are thread-safe
 type Controller struct {
-	domainSuffix string
-
 	client          kubernetes.Interface
 	queue           kube.Queue
 	services        cacheHandler
@@ -135,12 +133,9 @@ type Controller struct {
 	pods            *PodCache
 	metrics         model.Metrics
 	networksWatcher mesh.NetworksWatcher
-
-	// clusterID identifies the remote cluster in a multicluster env.
-	clusterID string
-
-	// XDSUpdater will push EDS changes to the ADS model.
-	XDSUpdater model.XDSUpdater
+	xdsUpdater      model.XDSUpdater
+	domainSuffix    string
+	clusterID       string
 
 	stop chan struct{}
 
@@ -174,7 +169,7 @@ func NewController(client kubernetes.Interface, options Options) *Controller {
 		client:                     client,
 		queue:                      kube.NewQueue(1 * time.Second),
 		clusterID:                  options.ClusterID,
-		XDSUpdater:                 options.XDSUpdater,
+		xdsUpdater:                 options.XDSUpdater,
 		servicesMap:                make(map[host.Name]*model.Service),
 		externalNameSvcInstanceMap: make(map[host.Name][]*model.ServiceInstance),
 		networksWatcher:            options.NetworksWatcher,
@@ -877,7 +872,7 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 			delete(c.externalNameSvcInstanceMap, svcConv.Hostname)
 			c.Unlock()
 			// EDS needs to just know when service is deleted.
-			c.XDSUpdater.SvcUpdate(c.clusterID, svc.Name, svc.Namespace, event)
+			c.xdsUpdater.SvcUpdate(c.clusterID, svc.Name, svc.Namespace, event)
 		default:
 			// instance conversion is only required when service is added/updated.
 			instances := kube.ExternalNameServiceInstances(*svc, svcConv)
@@ -889,7 +884,7 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 				c.externalNameSvcInstanceMap[svcConv.Hostname] = instances
 			}
 			c.Unlock()
-			c.XDSUpdater.SvcUpdate(c.clusterID, svc.Name, svc.Namespace, event)
+			c.xdsUpdater.SvcUpdate(c.clusterID, svc.Name, svc.Namespace, event)
 		}
 
 		f(svcConv, event)
@@ -927,7 +922,7 @@ func (c *Controller) AppendInstanceHandler(_ func(*model.ServiceInstance, model.
 				svc := obj.(*v1.Service)
 				// if the service is headless service, trigger a full push.
 				if svc.Spec.ClusterIP == v1.ClusterIPNone {
-					c.XDSUpdater.ConfigUpdate(&model.PushRequest{
+					c.xdsUpdater.ConfigUpdate(&model.PushRequest{
 						Full:              true,
 						NamespacesUpdated: map[string]struct{}{ep.Namespace: {}},
 						// TODO: extend and set service instance type, so no need to re-init push context
@@ -1010,7 +1005,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 		log.Infof("Handle EDS endpoint %s in namespace %s -> %v", ep.Name, ep.Namespace, addresses)
 	}
 
-	_ = c.XDSUpdater.EDSUpdate(c.clusterID, string(hostname), ep.Namespace, endpoints)
+	_ = c.xdsUpdater.EDSUpdate(c.clusterID, string(hostname), ep.Namespace, endpoints)
 }
 
 // namedRangerEntry for holding network's CIDR and name
