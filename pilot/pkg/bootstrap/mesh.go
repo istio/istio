@@ -51,7 +51,7 @@ func (s *Server) initMesh(args *PilotArgs) error {
 func (s *Server) initMeshConfiguration(args *PilotArgs) error {
 	// If a config file was specified, use it.
 	if args.MeshConfig != nil {
-		s.mesh = args.MeshConfig
+		s.environment.Mesh = args.MeshConfig
 		return nil
 	}
 	var meshConfig *meshconfig.MeshConfig
@@ -71,13 +71,13 @@ func (s *Server) initMeshConfiguration(args *PilotArgs) error {
 				log.Warnf("failed to read mesh configuration, using default: %v", err)
 				return
 			}
-			if !reflect.DeepEqual(meshConfig, s.mesh) {
+			if !reflect.DeepEqual(meshConfig, s.environment.Mesh) {
 				log.Infof("mesh configuration updated to: %s", spew.Sdump(meshConfig))
-				if !reflect.DeepEqual(meshConfig.ConfigSources, s.mesh.ConfigSources) {
+				if !reflect.DeepEqual(meshConfig.ConfigSources, s.environment.Mesh.ConfigSources) {
 					log.Infof("mesh configuration sources have changed")
 					//TODO Need to re-create or reload initConfigController()
 				}
-				s.mesh = meshConfig
+				s.environment.Mesh = meshConfig
 				if s.EnvoyXdsServer != nil {
 					s.EnvoyXdsServer.Env.Mesh = meshConfig
 					s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
@@ -105,7 +105,7 @@ func (s *Server) initMeshConfiguration(args *PilotArgs) error {
 	log.Infof("version %s", version.Info.String())
 	log.Infof("flags %s", spew.Sdump(args))
 
-	s.mesh = meshConfig
+	s.environment.Mesh = meshConfig
 	return nil
 }
 
@@ -125,7 +125,7 @@ func (s *Server) initMeshNetworks(args *PilotArgs) error { //nolint: unparam
 	log.Infof("mesh networks configuration %s", spew.Sdump(meshNetworks))
 	mesh.ResolveHostsInNetworksConfig(meshNetworks)
 	log.Infof("mesh networks configuration post-resolution %s", spew.Sdump(meshNetworks))
-	s.meshNetworks = meshNetworks
+	s.environment.MeshNetworks = meshNetworks
 
 	// Watch the networks config file for changes and reload if it got modified
 	s.addFileWatcher(args.NetworksConfigFile, func() {
@@ -135,11 +135,11 @@ func (s *Server) initMeshNetworks(args *PilotArgs) error { //nolint: unparam
 			log.Warnf("failed to read mesh networks configuration from %q", args.NetworksConfigFile)
 			return
 		}
-		if !reflect.DeepEqual(meshNetworks, s.meshNetworks) {
+		if !reflect.DeepEqual(meshNetworks, s.environment.MeshNetworks) {
 			log.Infof("mesh networks configuration file updated to: %s", spew.Sdump(meshNetworks))
 			mesh.ResolveHostsInNetworksConfig(meshNetworks)
 			log.Infof("mesh networks configuration post-resolution %s", spew.Sdump(meshNetworks))
-			s.meshNetworks = meshNetworks
+			s.environment.MeshNetworks = meshNetworks
 			if s.kubeRegistry != nil {
 				s.kubeRegistry.InitNetworkLookup(meshNetworks)
 			}
