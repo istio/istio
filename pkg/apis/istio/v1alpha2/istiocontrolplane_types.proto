@@ -186,6 +186,9 @@ message IstioControlPlaneSpec {
     // Default namespace if feature or component namespaces are not set.
     string default_namespace = 5;
 
+    // Base feature containing resources like CRDs, namespaces etc.
+    BaseFeatureSpec base = 20;
+
     // Selection and configuration of core Istio features.
     TrafficManagementFeatureSpec traffic_management = 25;
     PolicyFeatureSpec policy = 26;
@@ -214,6 +217,20 @@ message IstioControlPlaneSpec {
     string hub = 110;
     // Version tag for docker images e.g. 1.0.6
     string tag = 111;
+}
+
+// Base feature settings.
+message BaseFeatureSpec {
+    // Selects whether base feature is installed. Required for all Istio installs.
+    // Should only be disabled when generating partial Istio installation YAMLs.
+    TypeBoolValueForPB enabled = 1;
+
+    // Component specific config.
+    message Components {
+        BaseComponentSpec base = 20;
+    }
+
+    Components components = 50;
 }
 
 // Configuration options for traffic management.
@@ -373,6 +390,11 @@ message CoreDNSFeatureSpec {
 
 // Kubernetes resource spec.
 // KubernetesResourcesSpec k8s = 80;
+
+// Configuration options for the base component.
+message BaseComponentSpec {
+    TypeBoolValueForPB enabled = 1;
+}
 
 // Configuration options for the pilot component.
 message PilotComponentSpec {

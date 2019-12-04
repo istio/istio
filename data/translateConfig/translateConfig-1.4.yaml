@@ -70,7 +70,6 @@ globalNamespaces:
   Citadel:    "securityNamespace"
 featureMaps:
   Base:
-    alwaysEnabled: true
     Components:
       - Base
   TrafficManagement:
@@ -115,7 +114,6 @@ componentMaps:
   Base:
     ToHelmValuesTreeRoot: "global"
     HelmSubdir:           "base"
-    AlwaysEnabled:        true
   Pilot:
     ResourceType:         "Deployment"
     ResourceName:         "istio-pilot"

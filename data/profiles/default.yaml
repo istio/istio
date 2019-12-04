@@ -5,6 +5,13 @@ spec:
   tag: latest
   defaultNamespace: istio-system
 
+  # Base contains all CRDs, namespaces etc.
+  base:
+    enabled: true
+    components:
+      base:
+        enabled: true
+
   # Traffic management feature
   trafficManagement:
     enabled: true

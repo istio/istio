@@ -79,8 +79,6 @@ type Translator struct {
 
 // FeatureMaps is a set of mappings for an Istio feature.
 type FeatureMap struct {
-	// AlwaysEnabled controls whether a feature can be turned off through IstioControlPlaneSpec.
-	AlwaysEnabled bool `yaml:"alwaysEnabled,omitempty"`
 	// Components contains list of components that belongs to the current feature.
 	Components []name.ComponentName
 }
@@ -97,8 +95,6 @@ type ComponentMaps struct {
 	HelmSubdir string
 	// ToHelmValuesTreeRoot is the tree root in values YAML files for the component.
 	ToHelmValuesTreeRoot string
-	// AlwaysEnabled controls whether a component can be turned off through IstioControlPlaneSpec.
-	AlwaysEnabled bool
 }
 
 // TranslationFunc maps a yamlStr API path into a YAML values tree.
@@ -394,9 +390,6 @@ func (t *Translator) setEnablementAndNamespaces(root map[string]interface{}, icp
 // IsFeatureEnabled reports whether the feature with name ft is enabled, according to the translations in t,
 // and the contents of icp.
 func (t *Translator) IsFeatureEnabled(ft name.FeatureName, icp *v1alpha2.IstioControlPlaneSpec) (bool, error) {
-	if t.FeatureMaps[ft].AlwaysEnabled {
-		return true, nil
-	}
 	return name.IsFeatureEnabledInSpec(ft, icp)
 }
 
@@ -405,9 +398,6 @@ func (t *Translator) IsFeatureEnabled(ft name.FeatureName, icp *v1alpha2.IstioCo
 func (t *Translator) IsComponentEnabled(cn name.ComponentName, icp *v1alpha2.IstioControlPlaneSpec) (bool, error) {
 	if t.ComponentMaps[cn] == nil {
 		return false, nil
-	}
-	if t.ComponentMaps[cn].AlwaysEnabled {
-		return true, nil
 	}
 	return name.IsComponentEnabledInSpec(t.ToFeature[cn], cn, icp)
 }

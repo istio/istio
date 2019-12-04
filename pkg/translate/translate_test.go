@@ -53,7 +53,7 @@ gateways:
     namespace: istio-system
 global:
   configNamespace: istio-system
-  enabled: true
+  enabled: false
   istioNamespace: istio-system
   namespace: istio-system
   policyNamespace: istio-system
@@ -120,7 +120,7 @@ gateways:
     namespace: istio-system
 global:
   configNamespace: istio-system
-  enabled: true
+  enabled: false
   hub: docker.io/istio
   istioNamespace: istio-system
   namespace: istio-system

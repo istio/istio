@@ -9,6 +9,11 @@ autoInjection:
             maxSurge: 100%
             maxUnavailable: 25%
   enabled: false
+base:
+  components:
+    base:
+      enabled: true
+  enabled: true
 cni:
   enabled: false
 configManagement:
