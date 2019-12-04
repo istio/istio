@@ -37,6 +37,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	rbac "istio.io/api/rbac/v1alpha1"
 	security_beta "istio.io/api/security/v1beta1"
+	type_beta "istio.io/api/type/v1beta1"
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pkg/config/constants"
@@ -1485,6 +1486,18 @@ func ValidateAuthenticationPolicy(name, namespace string, msg proto.Message) err
 	return errs
 }
 
+func validateWorkloadSelector(selector *type_beta.WorkloadSelector) error {
+	if selector != nil {
+		for k, v := range selector.MatchLabels {
+			if k == "" || v == "" {
+				return fmt.Errorf("selector has empty key or values")
+			}
+		}
+	}
+
+	return nil
+}
+
 // ValidateAuthorizationPolicy checks that AuthorizationPolicy is well-formed.
 func ValidateAuthorizationPolicy(_, _ string, msg proto.Message) error {
 	in, ok := msg.(*security_beta.AuthorizationPolicy)
@@ -1492,13 +1505,8 @@ func ValidateAuthorizationPolicy(_, _ string, msg proto.Message) error {
 		return fmt.Errorf("cannot cast to AuthorizationPolicy")
 	}
 
-	if in.Selector != nil {
-		for k, v := range in.Selector.MatchLabels {
-			if k == "" || v == "" {
-				return fmt.Errorf("selector has empty key or values")
-			}
-		}
-	}
+	var errs error
+	errs = appendErrors(errs, validateWorkloadSelector(in.Selector))
 
 	for _, rule := range in.GetRules() {
 		for _, condition := range rule.GetWhen() {
@@ -1514,19 +1522,53 @@ func ValidateAuthorizationPolicy(_, _ string, msg proto.Message) error {
 }
 
 // ValidateRequestAuthentication checks that request authentication spec is well-formed.
-func ValidateRequestAuthentication(_, _ string, msg proto.Message) error {
+func ValidateRequestAuthentication(name, namespace string, msg proto.Message) error {
 	in, ok := msg.(*security_beta.RequestAuthentication)
 	if !ok {
 		return errors.New("cannot cast to RequestAuthentication")
 	}
-	// TODO(diemtvu) add more details validation.
+
 	var errs error
+	errs = appendErrors(errs, validateWorkloadSelector(in.Selector))
+
 	for _, rule := range in.JwtRules {
-		if len(rule.Issuer) == 0 {
-			errs = appendErrors(errs, fmt.Errorf("issuer must be set"))
-		}
+		errs = appendErrors(errs, validateJwtRule(rule))
 	}
 	return errs
+}
+
+func validateJwtRule(rule *security_beta.JWT) (errs error) {
+	if rule == nil {
+		return nil
+	}
+	if rule.Issuer == "" {
+		errs = multierror.Append(errs, errors.New("issuer must be set"))
+	}
+	for _, audience := range rule.Audiences {
+		if audience == "" {
+			errs = multierror.Append(errs, errors.New("audience must be non-empty string"))
+		}
+	}
+
+	if len(rule.JwksUri) != 0 {
+		// TODO: do more extensive check (e.g try to fetch JwksUri)
+		if _, err := security.ParseJwksURI(rule.JwksUri); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+	}
+
+	for _, location := range rule.FromHeaders {
+		if len(location.Name) == 0 {
+			errs = multierror.Append(errs, errors.New("location header name must be non-empty string"))
+		}
+	}
+
+	for _, location := range rule.FromParams {
+		if location == "" {
+			errs = multierror.Append(errs, errors.New("location query must be non-empty string"))
+		}
+	}
+	return
 }
 
 // ValidateServiceRole checks that ServiceRole is well-formed.
@@ -1737,7 +1779,6 @@ func validateJwt(jwt *authn.Jwt) (errs error) {
 		}
 	}
 	if jwt.JwksUri != "" {
-		// TODO: do more extensive check (e.g try to fetch JwksUri)
 		if _, err := security.ParseJwksURI(jwt.JwksUri); err != nil {
 			errs = multierror.Append(errs, err)
 		}
