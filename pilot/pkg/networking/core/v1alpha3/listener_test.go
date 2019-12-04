@@ -368,7 +368,7 @@ func TestOutboundListenerConflict_HTTPoverHTTPS(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			p := &fakePlugin{}
 			listeners := buildOutboundListeners(p, &proxy, nil, nil, tt.service)
-			got := []string{}
+			got := make([]string, 0)
 			for _, l := range listeners {
 				got = append(got, l.Name)
 			}
@@ -1289,14 +1289,14 @@ func TestHttpProxyListener(t *testing.T) {
 	}
 
 	proxy.ServiceInstances = nil
-	env.Mesh.ProxyHttpPort = 15007
+	env.Mesh().ProxyHttpPort = 15007
 	proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 	httpProxy := configgen.buildHTTPProxy(&proxy, env.PushContext, nil)
 	f := httpProxy.FilterChains[0].Filters[0]
 	cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
 
 	if httpProxy.Address.GetSocketAddress().GetPortValue() != 15007 {
-		t.Fatalf("expected http proxy is not listening on %d, but on port %d", env.Mesh.ProxyHttpPort,
+		t.Fatalf("expected http proxy is not listening on %d, but on port %d", env.Mesh().ProxyHttpPort,
 			httpProxy.Address.GetSocketAddress().GetPortValue())
 	}
 	if !strings.HasPrefix(cfg.Fields["stat_prefix"].GetStringValue(), "outbound_") {
@@ -1775,7 +1775,7 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 		PushContext:      model.NewPushContext(),
 		ServiceDiscovery: serviceDiscovery,
 		IstioConfigStore: configStore,
-		Mesh:             &m,
+		Watcher:          mesh.NewFixedWatcher(&m),
 	}
 
 	return env
@@ -1843,7 +1843,7 @@ func TestAppendListenerFallthroughRoute(t *testing.T) {
 			filter := tests[idx].listenerOpts.filterChainOpts[0].networkFilters[0]
 			var tcpProxy tcp_proxy.TcpProxy
 			cfg := filter.GetTypedConfig()
-			ptypes.UnmarshalAny(cfg, &tcpProxy)
+			_ = ptypes.UnmarshalAny(cfg, &tcpProxy)
 			if tcpProxy.StatPrefix != tests[idx].hostname {
 				t.Errorf("Expected stat prefix %s but got %s\n", tests[idx].hostname, tcpProxy.StatPrefix)
 			}

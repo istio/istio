@@ -19,8 +19,10 @@ import (
 	"reflect"
 	"testing"
 
-	mesh "istio.io/api/mesh/v1alpha1"
-	security_beta "istio.io/api/security/v1beta1"
+	"istio.io/istio/pkg/config/mesh"
+
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	securityBeta "istio.io/api/security/v1beta1"
 	selectorpb "istio.io/api/type/v1beta1"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schemas"
@@ -50,7 +52,7 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 						Name:      "default",
 						Namespace: "foo",
 					},
-					Spec: &security_beta.RequestAuthentication{},
+					Spec: &securityBeta.RequestAuthentication{},
 				},
 				{
 					ConfigMeta: ConfigMeta{
@@ -58,7 +60,7 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 						Name:      "default",
 						Namespace: "istio-config",
 					},
-					Spec: &security_beta.RequestAuthentication{},
+					Spec: &securityBeta.RequestAuthentication{},
 				},
 			},
 		},
@@ -73,7 +75,7 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 						Name:      "default",
 						Namespace: "bar",
 					},
-					Spec: &security_beta.RequestAuthentication{},
+					Spec: &securityBeta.RequestAuthentication{},
 				},
 				{
 					ConfigMeta: ConfigMeta{
@@ -81,7 +83,7 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 						Name:      "default",
 						Namespace: "istio-config",
 					},
-					Spec: &security_beta.RequestAuthentication{},
+					Spec: &securityBeta.RequestAuthentication{},
 				},
 			},
 		},
@@ -96,7 +98,7 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 						Name:      "default",
 						Namespace: "istio-config",
 					},
-					Spec: &security_beta.RequestAuthentication{},
+					Spec: &securityBeta.RequestAuthentication{},
 				},
 			},
 		},
@@ -111,7 +113,7 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 						Name:      "default",
 						Namespace: "foo",
 					},
-					Spec: &security_beta.RequestAuthentication{},
+					Spec: &securityBeta.RequestAuthentication{},
 				},
 				{
 					ConfigMeta: ConfigMeta{
@@ -119,7 +121,7 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 						Name:      "with-selector",
 						Namespace: "foo",
 					},
-					Spec: &security_beta.RequestAuthentication{
+					Spec: &securityBeta.RequestAuthentication{
 						Selector: &selectorpb.WorkloadSelector{
 							MatchLabels: map[string]string{
 								"app":     "httpbin",
@@ -134,7 +136,7 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 						Name:      "default",
 						Namespace: "istio-config",
 					},
-					Spec: &security_beta.RequestAuthentication{},
+					Spec: &securityBeta.RequestAuthentication{},
 				},
 			},
 		},
@@ -149,7 +151,7 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 						Name:      "default",
 						Namespace: "bar",
 					},
-					Spec: &security_beta.RequestAuthentication{},
+					Spec: &securityBeta.RequestAuthentication{},
 				},
 				{
 					ConfigMeta: ConfigMeta{
@@ -157,7 +159,7 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 						Name:      "default",
 						Namespace: "istio-config",
 					},
-					Spec: &security_beta.RequestAuthentication{},
+					Spec: &securityBeta.RequestAuthentication{},
 				},
 			},
 		},
@@ -172,7 +174,7 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 						Name:      "default",
 						Namespace: "foo",
 					},
-					Spec: &security_beta.RequestAuthentication{},
+					Spec: &securityBeta.RequestAuthentication{},
 				},
 				{
 					ConfigMeta: ConfigMeta{
@@ -180,7 +182,7 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 						Name:      "default",
 						Namespace: "istio-config",
 					},
-					Spec: &security_beta.RequestAuthentication{},
+					Spec: &securityBeta.RequestAuthentication{},
 				},
 			},
 		},
@@ -205,7 +207,7 @@ func getTestAuthenticationPolicies(configs []*Config, t *testing.T) *Authenticat
 	}
 	environment := &Environment{
 		IstioConfigStore: MakeIstioStore(configStore),
-		Mesh:             &mesh.MeshConfig{RootNamespace: rootNamespace},
+		Watcher:          mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: rootNamespace}),
 	}
 	return initAuthenticationPolicies(environment)
 }
@@ -214,14 +216,14 @@ func createTestConfig(name string, namespace string, selector *selectorpb.Worklo
 	return &Config{
 		ConfigMeta: ConfigMeta{
 			Type: schemas.RequestAuthentication.Type, Name: name, Namespace: namespace},
-		Spec: &security_beta.RequestAuthentication{
+		Spec: &securityBeta.RequestAuthentication{
 			Selector: selector,
 		},
 	}
 }
 
 func createTestConfigs() []*Config {
-	configs := []*Config{}
+	configs := make([]*Config, 0)
 
 	selector := &selectorpb.WorkloadSelector{
 		MatchLabels: map[string]string{

@@ -16,8 +16,6 @@ package bootstrap
 
 import (
 	"fmt"
-	"reflect"
-	"time"
 
 	"github.com/davecgh/go-spew/spew"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -25,11 +23,12 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
-	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
-	"istio.io/istio/pkg/config/mesh"
+	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
+
+	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pkg/config/mesh"
 )
 
 const (
@@ -37,151 +36,66 @@ const (
 	configMapKey = "mesh"
 )
 
-func (s *Server) initMesh(args *PilotArgs) error {
-	if err := s.initMeshConfiguration(args); err != nil {
-		return fmt.Errorf("mesh config: %v", err)
-	}
-	if err := s.initMeshNetworks(args); err != nil {
-		return fmt.Errorf("mesh networks: %v", err)
-	}
-	return nil
-}
-
 // initMeshConfiguration creates the mesh in the pilotConfig from the input arguments.
-func (s *Server) initMeshConfiguration(args *PilotArgs) error {
+func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.FileWatcher) error {
+	defer func() {
+		if s.environment.Watcher != nil {
+			log.Infof("mesh configuration %s", spew.Sdump(s.environment.Mesh()))
+			log.Infof("version %s", version.Info.String())
+			log.Infof("flags %s", spew.Sdump(args))
+		}
+	}()
+
 	// If a config file was specified, use it.
 	if args.MeshConfig != nil {
-		s.environment.Mesh = args.MeshConfig
+		s.environment.Watcher = mesh.NewFixedWatcher(args.MeshConfig)
 		return nil
 	}
-	var meshConfig *meshconfig.MeshConfig
+
 	var err error
-
-	if args.Mesh.ConfigFile != "" {
-		meshConfig, err = mesh.ReadMeshConfig(args.Mesh.ConfigFile)
-		if err != nil {
-			log.Warnf("failed to read mesh configuration, using default: %v", err)
-		}
-
-		// Watch the config file for changes and reload if it got modified
-		s.addFileWatcher(args.Mesh.ConfigFile, func() {
-			// Reload the config file
-			meshConfig, err = mesh.ReadMeshConfig(args.Mesh.ConfigFile)
-			if err != nil {
-				log.Warnf("failed to read mesh configuration, using default: %v", err)
-				return
-			}
-			if !reflect.DeepEqual(meshConfig, s.environment.Mesh) {
-				log.Infof("mesh configuration updated to: %s", spew.Sdump(meshConfig))
-				if !reflect.DeepEqual(meshConfig.ConfigSources, s.environment.Mesh.ConfigSources) {
-					log.Infof("mesh configuration sources have changed")
-					//TODO Need to re-create or reload initConfigController()
-				}
-				s.environment.Mesh = meshConfig
-				if s.EnvoyXdsServer != nil {
-					s.EnvoyXdsServer.Env.Mesh = meshConfig
-					s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
-				}
-			}
-		})
+	s.environment.Watcher, err = mesh.NewWatcher(fileWatcher, args.Mesh.ConfigFile)
+	if err == nil {
+		return nil
 	}
 
-	if meshConfig == nil {
-		// Config file either wasn't specified or failed to load - use a default mesh.
-		if meshConfig, err = getMeshConfig(s.kubeClient, kubecontroller.IstioNamespace, kubecontroller.IstioConfigMap); err != nil {
-			log.Warnf("failed to read the default mesh configuration: %v, from the %s config map in the %s namespace",
-				err, kubecontroller.IstioConfigMap, kubecontroller.IstioNamespace)
-			return err
-		}
-
-		// Allow some overrides for testing purposes.
-		if args.Mesh.MixerAddress != "" {
-			meshConfig.MixerCheckServer = args.Mesh.MixerAddress
-			meshConfig.MixerReportServer = args.Mesh.MixerAddress
-		}
+	// Config file either wasn't specified or failed to load - use a default mesh.
+	meshConfig, err := getMeshConfig(s.kubeClient, kubecontroller.IstioNamespace, kubecontroller.IstioConfigMap)
+	if err != nil {
+		log.Warnf("failed to read the default mesh configuration: %v, from the %s config map in the %s namespace",
+			err, kubecontroller.IstioConfigMap, kubecontroller.IstioNamespace)
+		return err
 	}
 
-	log.Infof("mesh configuration %s", spew.Sdump(meshConfig))
-	log.Infof("version %s", version.Info.String())
-	log.Infof("flags %s", spew.Sdump(args))
-
-	s.environment.Mesh = meshConfig
+	// Allow some overrides for testing purposes.
+	if args.Mesh.MixerAddress != "" {
+		meshConfig.MixerCheckServer = args.Mesh.MixerAddress
+		meshConfig.MixerReportServer = args.Mesh.MixerAddress
+	}
+	s.environment.Watcher = mesh.NewFixedWatcher(meshConfig)
 	return nil
 }
 
 // initMeshNetworks loads the mesh networks configuration from the file provided
 // in the args and add a watcher for changes in this file.
-func (s *Server) initMeshNetworks(args *PilotArgs) error { //nolint: unparam
+func (s *Server) initMeshNetworks(args *PilotArgs, fileWatcher filewatcher.FileWatcher) {
 	if args.NetworksConfigFile == "" {
 		log.Info("mesh networks configuration not provided")
-		return nil
-	}
-
-	meshNetworks, err := mesh.ReadMeshNetworks(args.NetworksConfigFile)
-	if err != nil {
-		log.Warnf("failed to read mesh networks configuration from %q: %v", args.NetworksConfigFile, err)
-		return nil
-	}
-	log.Infof("mesh networks configuration %s", spew.Sdump(meshNetworks))
-	mesh.ResolveHostsInNetworksConfig(meshNetworks)
-	log.Infof("mesh networks configuration post-resolution %s", spew.Sdump(meshNetworks))
-	s.environment.MeshNetworks = meshNetworks
-
-	// Watch the networks config file for changes and reload if it got modified
-	s.addFileWatcher(args.NetworksConfigFile, func() {
-		// Reload the config file
-		meshNetworks, err := mesh.ReadMeshNetworks(args.NetworksConfigFile)
+	} else {
+		var err error
+		s.environment.NetworksWatcher, err = mesh.NewNetworksWatcher(fileWatcher, args.NetworksConfigFile)
 		if err != nil {
-			log.Warnf("failed to read mesh networks configuration from %q", args.NetworksConfigFile)
-			return
+			log.Infoa(err)
 		}
-		if !reflect.DeepEqual(meshNetworks, s.environment.MeshNetworks) {
-			log.Infof("mesh networks configuration file updated to: %s", spew.Sdump(meshNetworks))
-			mesh.ResolveHostsInNetworksConfig(meshNetworks)
-			log.Infof("mesh networks configuration post-resolution %s", spew.Sdump(meshNetworks))
-			s.environment.MeshNetworks = meshNetworks
-			if s.kubeRegistry != nil {
-				s.kubeRegistry.InitNetworkLookup(meshNetworks)
-			}
-			if s.multicluster != nil {
-				s.multicluster.ReloadNetworkLookup(meshNetworks)
-			}
-			if s.EnvoyXdsServer != nil {
-				s.EnvoyXdsServer.Env.MeshNetworks = meshNetworks
-				s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
-			}
-		}
-	})
+	}
 
-	return nil
-}
-
-// Add to the FileWatcher the provided file and execute the provided function
-// on any change event for this file.
-// Using a debouncing mechanism to avoid calling the callback multiple times
-// per event.
-func (s *Server) addFileWatcher(file string, callback func()) {
-	_ = s.fileWatcher.Add(file)
-	go func() {
-		var timerC <-chan time.Time
-		for {
-			select {
-			case <-timerC:
-				timerC = nil
-				callback()
-			case <-s.fileWatcher.Events(file):
-				// Use a timer to debounce configuration updates
-				if timerC == nil {
-					timerC = time.After(100 * time.Millisecond)
-				}
-			}
-		}
-	}()
+	if s.environment.NetworksWatcher == nil {
+		log.Info("mesh networks configuration not provided")
+		s.environment.NetworksWatcher = mesh.NewFixedNetworksWatcher(nil)
+	}
 }
 
 // getMeshConfig fetches the ProxyMesh configuration from Kubernetes ConfigMap.
 func getMeshConfig(kube kubernetes.Interface, namespace, name string) (*meshconfig.MeshConfig, error) {
-
 	if kube == nil {
 		defaultMesh := mesh.DefaultMeshConfig()
 		return &defaultMesh, nil

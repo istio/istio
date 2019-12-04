@@ -117,7 +117,6 @@ type Server struct {
 	secureGRPCServer      *grpc.Server
 	mux                   *http.ServeMux
 	kubeRegistry          *kubecontroller.Controller
-	fileWatcher           filewatcher.FileWatcher
 	mcpDiscovery          *coredatamodel.MCPDiscovery
 	discoveryOptions      *coredatamodel.DiscoveryOptions
 	incrementalMcpOptions *coredatamodel.Options
@@ -150,7 +149,6 @@ func NewServer(args PilotArgs) (*Server, error) {
 			ServiceDiscovery: aggregate.NewController(),
 			PushContext:      model.NewPushContext(),
 		},
-		fileWatcher: filewatcher.NewWatcher(),
 	}
 
 	prometheus.EnableHandlingTimeHistogram()
@@ -159,12 +157,11 @@ func NewServer(args PilotArgs) (*Server, error) {
 	if err := s.initKubeClient(&args); err != nil {
 		return nil, fmt.Errorf("kube client: %v", err)
 	}
-	if err := s.initMesh(&args); err != nil {
+	fileWatcher := filewatcher.NewWatcher()
+	if err := s.initMeshConfiguration(&args, fileWatcher); err != nil {
 		return nil, fmt.Errorf("mesh: %v", err)
 	}
-	if err := s.initMeshNetworks(&args); err != nil {
-		return nil, fmt.Errorf("mesh networks: %v", err)
-	}
+	s.initMeshNetworks(&args, fileWatcher)
 	// Certificate controller is created before MCP
 	// controller in case MCP server pod waits to mount a certificate
 	// to be provisioned by the certificate controller.
@@ -230,6 +227,14 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	s.mux = http.NewServeMux()
 	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController(), args.DiscoveryOptions.EnableProfiling)
 
+	// When the mesh config or networks change, do a full push.
+	s.environment.AddMeshHandler(func() {
+		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
+	})
+	s.environment.AddNetworksHandler(func() {
+		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
+	})
+
 	if err := s.initEventHandlers(); err != nil {
 		return err
 	}
@@ -237,7 +242,6 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	if s.kubeRegistry != nil {
 		// kubeRegistry may use the environment for push status reporting.
 		// TODO: maybe all registries should have this as an optional field ?
-		s.kubeRegistry.InitNetworkLookup(s.environment.MeshNetworks)
 		s.kubeRegistry.XDSUpdater = s.EnvoyXdsServer
 	}
 

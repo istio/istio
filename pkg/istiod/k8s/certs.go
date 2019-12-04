@@ -16,7 +16,6 @@ package k8s
 
 import (
 	"crypto/sha1"
-	"crypto/x509"
 	"encoding/base64"
 	"fmt"
 	"time"
@@ -30,9 +29,10 @@ import (
 	certclient "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
 	"k8s.io/client-go/rest"
 
+	"istio.io/pkg/log"
+
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/security/pkg/pki/util"
-	"istio.io/pkg/log"
 )
 
 // TODO:
@@ -51,9 +51,6 @@ const (
 	certReadInterval = 500 * time.Millisecond
 	// The number of tries for reading a certificate
 	maxNumCertRead = 20
-
-	// DefaultCA is the hardcoded location of K8S CA. If present, it should be able to check the K8S signed certs.
-	DefaultCA = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 )
 
 // CreateClientset is a helper function that builds a kubernetes Clienset from a kubeconfig
@@ -78,7 +75,7 @@ func CreateClientset(kubeconfig, context string) (*kubernetes.Clientset, *rest.C
 // 3. Approve a CSR
 // 4. Read the signed certificate
 // 5. Clean up the artifacts (e.g., delete CSR)
-func GenKeyCertK8sCA(certClient certclient.CertificateSigningRequestsGetter, ns, hosts string) (certChain []byte, keyPEM []byte, err error) {
+func GenKeyCertK8sCA(certClient certclient.CertificateSigningRequestsGetter, hosts string) (certChain []byte, keyPEM []byte, err error) {
 	// 1. Generate a CSR
 	// Construct the dns id from service name and name space.
 	// Example: istio-pilot.istio-system.svc, istio-pilot.istio-system
@@ -289,26 +286,8 @@ func readSignedCertificate(certClient certclient.CertificateSigningRequestsGette
 	}
 
 	certPEM := reqSigned.Status.Certificate
-	certChain := []byte{}
+	certChain := make([]byte, 0)
 	certChain = append(certChain, certPEM...)
 
 	return certChain, nil
-}
-
-func CheckCert(certPEM, caCert []byte) error {
-	roots := x509.NewCertPool()
-	if ok := roots.AppendCertsFromPEM(caCert); !ok {
-		return fmt.Errorf("failed to append CA certificate")
-	}
-	certParsed, err := util.ParsePemEncodedCertificate(certPEM)
-	if err != nil {
-		return fmt.Errorf("failed to parse the certificate: %v", err)
-	}
-	_, err = certParsed.Verify(x509.VerifyOptions{
-		Roots: roots,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to verify the certificate chain: %v", err)
-	}
-	return nil
 }

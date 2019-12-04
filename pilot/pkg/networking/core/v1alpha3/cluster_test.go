@@ -30,8 +30,6 @@ import (
 	"github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
 
-	"istio.io/istio/pilot/pkg/networking/util"
-
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -40,9 +38,11 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schemas"
 )
@@ -496,7 +496,7 @@ func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, meshConfig mesh
 	env := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
 		IstioConfigStore: configStore,
-		Mesh:             &meshConfig,
+		Watcher:          mesh.NewFixedWatcher(&meshConfig),
 	}
 
 	env.PushContext = model.NewPushContext()
@@ -680,9 +680,9 @@ func TestBuildSidecarClustersWithMeshWideTCPKeepalive(t *testing.T) {
 
 func buildTestClustersWithTCPKeepalive(configType ConfigType) ([]*apiv2.Cluster, error) {
 	// Set mesh wide defaults.
-	mesh := testMesh
+	m := testMesh
 	if configType != None {
-		mesh.TcpKeepalive = &networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive{
+		m.TcpKeepalive = &networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive{
 			Time: &types.Duration{
 				Seconds: MeshWideTCPKeepaliveSeconds,
 				Nanos:   0,
@@ -706,7 +706,7 @@ func buildTestClustersWithTCPKeepalive(configType ConfigType) ([]*apiv2.Cluster,
 		destinationRuleTCPKeepalive = &networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive{}
 	}
 
-	return buildTestClusters("foo.example.org", 0, model.SidecarProxy, nil, mesh,
+	return buildTestClusters("foo.example.org", 0, model.SidecarProxy, nil, m,
 		&networking.DestinationRule{
 			Host: "*.example.org",
 			Subsets: []*networking.Subset{

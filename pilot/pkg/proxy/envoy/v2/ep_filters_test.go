@@ -18,8 +18,6 @@ import (
 	"sort"
 	"testing"
 
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
-
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	structpb "github.com/golang/protobuf/ptypes/struct"
@@ -28,7 +26,9 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/mesh"
 )
 
 type LbEpInfo struct {
@@ -150,7 +150,7 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			push := model.NewPushContext()
-			push.InitContext(tt.env, nil, nil)
+			_ = push.InitContext(tt.env, nil, nil)
 			filtered := EndpointsByNetworkFilter(push, tt.conn.node.Metadata.Network, tt.endpoints)
 			if len(filtered) != len(tt.want) {
 				t.Errorf("Unexpected number of filtered endpoints: got %v, want %v", len(filtered), len(tt.want))
@@ -196,7 +196,7 @@ func TestEndpointsByNetworkFilter_RegistryServiceName(t *testing.T) {
 	//  - 1 gateway for network3
 	//  - 0 gateways for network4
 	env := environment()
-	env.MeshNetworks.Networks["network2"] = &meshconfig.Network{
+	env.Networks().Networks["network2"] = &meshconfig.Network{
 		Endpoints: []*meshconfig.Network_NetworkEndpoints{
 			{
 				Ne: &meshconfig.Network_NetworkEndpoints_FromRegistry{
@@ -322,7 +322,7 @@ func TestEndpointsByNetworkFilter_RegistryServiceName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			push := model.NewPushContext()
-			push.InitContext(tt.env, nil, nil)
+			_ = push.InitContext(tt.env, nil, nil)
 			filtered := EndpointsByNetworkFilter(push, tt.conn.node.Metadata.Network, tt.endpoints)
 			if len(filtered) != len(tt.want) {
 				t.Errorf("Unexpected number of filtered endpoints: got %v, want %v", len(filtered), len(tt.want))
@@ -379,8 +379,8 @@ func environment() *model.Environment {
 	return &model.Environment{
 		ServiceDiscovery: NewMemServiceDiscovery(nil, 0),
 		IstioConfigStore: &fakes.IstioConfigStore{},
-		Mesh:             &meshconfig.MeshConfig{},
-		MeshNetworks: &meshconfig.MeshNetworks{
+		Watcher:          mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
+		NetworksWatcher: mesh.NewFixedNetworksWatcher(&meshconfig.MeshNetworks{
 			Networks: map[string]*meshconfig.Network{
 				"network1": {
 					Gateways: []*meshconfig.Network_IstioNetworkGateway{
@@ -422,7 +422,7 @@ func environment() *model.Environment {
 					Gateways: []*meshconfig.Network_IstioNetworkGateway{},
 				},
 			},
-		},
+		}),
 	}
 }
 

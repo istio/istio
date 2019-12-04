@@ -22,6 +22,8 @@ import (
 	envoy_api_v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
@@ -31,16 +33,15 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/external"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schemas"
-	"istio.io/pkg/log"
 )
 
 // SetupDiscoveryServer creates a DiscoveryServer with the provided configs using the mem registry
 func SetupDiscoveryServer(t testing.TB, cfgs ...model.Config) *DiscoveryServer {
 	m := mesh.DefaultMeshConfig()
 	env := &model.Environment{
-		Mesh:         &m,
-		MeshNetworks: nil,
-		PushContext:  model.NewPushContext(),
+		Watcher:         mesh.NewFixedWatcher(&m),
+		NetworksWatcher: mesh.NewFixedNetworksWatcher(nil),
+		PushContext:     model.NewPushContext(),
 	}
 	s := NewDiscoveryServer(env, []string{})
 	store := memory.Make(schemas.Istio)
@@ -144,7 +145,7 @@ func BenchmarkEDS(b *testing.B) {
 					clonedCLA := util.CloneClusterLoadAssignment(l)
 					l = &clonedCLA
 
-					loadbalancer.ApplyLocalityLBSetting(proxy.Locality, l, s.Env.Mesh.LocalityLbSetting, true)
+					loadbalancer.ApplyLocalityLBSetting(proxy.Locality, l, s.Env.Mesh().LocalityLbSetting, true)
 					loadAssignments = append(loadAssignments, l)
 				}
 				response = endpointDiscoveryResponse(loadAssignments, version, push.Version)
