@@ -77,8 +77,16 @@ var testGrid = []testCase{
 		},
 	},
 	{
-		name:       "mtlsAnalyzerIgnoresIstioSystemNamespace",
-		inputFiles: []string{"testdata/mtls-ignores-istio-system.yaml"},
+		name:       "mtlsAnalyzerIgnoresIstioControlPlane",
+		inputFiles: []string{"testdata/mtls-ignores-istio-control-plane.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected:   []message{
+			// no messages, this test case verifies no false positives
+		},
+	},
+	{
+		name:       "mtlsAnalyzerIgnoresSystemNamespaces",
+		inputFiles: []string{"testdata/mtls-ignores-system-namespaces.yaml"},
 		analyzer:   &auth.MTLSAnalyzer{},
 		expected:   []message{
 			// no messages, this test case verifies no false positives
