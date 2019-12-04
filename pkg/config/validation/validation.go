@@ -2275,9 +2275,7 @@ func validatePortSelector(selector *networking.PortSelector) (errs error) {
 
 	// port must be a number
 	number := int(selector.GetNumber())
-	if number != 0 {
-		errs = appendErrors(errs, ValidatePort(number))
-	}
+	errs = appendErrors(errs, ValidatePort(number))
 	return
 }
 
