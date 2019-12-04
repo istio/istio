@@ -19,6 +19,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -107,10 +108,9 @@ func (r *ReconcileIstioControlPlane) Reconcile(request reconcile.Request) (recon
 	}
 
 	deleted := icp.GetDeletionTimestamp() != nil
-	finalizers := icp.GetFinalizers()
-	finalizerIndex := indexOf(finalizers, finalizer)
+	finalizers := sets.NewString(icp.GetFinalizers()...)
 	if deleted {
-		if finalizerIndex < 0 {
+		if !finalizers.Has(finalizer) {
 			log.Info("IstioControlPlane deleted")
 			return reconcile.Result{}, nil
 		}
@@ -123,18 +123,17 @@ func (r *ReconcileIstioControlPlane) Reconcile(request reconcile.Request) (recon
 			log.Errorf("failed to create reconciler: %s", err)
 		}
 		// TODO: for now, nuke the resources, regardless of errors
-		finalizers = append(finalizers[:finalizerIndex], finalizers[finalizerIndex+1:]...)
-		icp.SetFinalizers(finalizers)
+		finalizers.Delete(finalizer)
+		icp.SetFinalizers(finalizers.List())
 		finalizerError := r.client.Update(context.TODO(), icp)
 		for retryCount := 0; errors.IsConflict(finalizerError) && retryCount < finalizerMaxRetries; retryCount++ {
 			// workaround for https://github.com/kubernetes/kubernetes/issues/73098 for k8s < 1.14
 			// TODO: make this error message more meaningful.
 			log.Info("conflict during finalizer removal, retrying")
 			_ = r.client.Get(context.TODO(), request.NamespacedName, icp)
-			finalizers = icp.GetFinalizers()
-			finalizerIndex = indexOf(finalizers, finalizer)
-			finalizers = append(finalizers[:finalizerIndex], finalizers[finalizerIndex+1:]...)
-			icp.SetFinalizers(finalizers)
+			finalizers = sets.NewString(icp.GetFinalizers()...)
+			finalizers.Delete(finalizer)
+			icp.SetFinalizers(finalizers.List())
 			finalizerError = r.client.Update(context.TODO(), icp)
 		}
 		if finalizerError != nil {
@@ -142,11 +141,10 @@ func (r *ReconcileIstioControlPlane) Reconcile(request reconcile.Request) (recon
 			return reconcile.Result{}, finalizerError
 		}
 		return reconcile.Result{}, err
-	} else if finalizerIndex < 0 {
-		// TODO: make this error message more meaningful.
-		log.Infof("Adding finalizer %v", finalizer)
-		finalizers = append(finalizers, finalizer)
-		icp.SetFinalizers(finalizers)
+	} else if !finalizers.Has(finalizer) {
+		log.Infof("Adding finalizer %v to %v", finalizer, request)
+		finalizers.Insert(finalizer)
+		icp.SetFinalizers(finalizers.List())
 		err := r.client.Update(context.TODO(), icp)
 		if err != nil {
 			log.Errorf("Failed to update IstioControlPlane with finalizer, %v", err)
@@ -166,13 +164,4 @@ func (r *ReconcileIstioControlPlane) Reconcile(request reconcile.Request) (recon
 	}
 
 	return reconcile.Result{}, err
-}
-
-func indexOf(l []string, s string) int {
-	for i, elem := range l {
-		if elem == s {
-			return i
-		}
-	}
-	return -1
 }
