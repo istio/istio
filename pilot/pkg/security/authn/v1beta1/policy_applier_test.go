@@ -77,8 +77,21 @@ func TestJwtFilter(t *testing.T) {
 			expected: nil,
 		},
 		{
+			name: "Fallback to alpha with no JWT",
+			alphaPolicy: &authn_v1alpha1.Policy{
+				Peers: []*authn_v1alpha1.PeerAuthenticationMethod{{
+					Params: &authn_v1alpha1.PeerAuthenticationMethod_Mtls{&authn_v1alpha1.MutualTls{}},
+				}},
+			},
+			in:       []*model.Config{},
+			expected: nil,
+		},
+		{
 			name: "Fallback to alpha JWT",
 			alphaPolicy: &authn_v1alpha1.Policy{
+				Peers: []*authn_v1alpha1.PeerAuthenticationMethod{{
+					Params: &authn_v1alpha1.PeerAuthenticationMethod_Mtls{&authn_v1alpha1.MutualTls{}},
+				}},
 				Origins: []*authn_v1alpha1.OriginAuthenticationMethod{
 					{
 						Jwt: &authn_v1alpha1.Jwt{
