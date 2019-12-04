@@ -1603,7 +1603,7 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 
 	// Now delete pod2, from PodCache and send Endpoints. This simulates the case that endpoint comes
 	// when PodCache does not yet have entry for the pod.
-	controller.pods.event(pod2, model.EventDelete)
+	controller.pods.event(nil, pod2, model.EventDelete)
 
 	pod2Ips := []string{"172.0.1.2"}
 	createEndpoints(controller, "pod2", "nsA", portNames, pod2Ips, t)

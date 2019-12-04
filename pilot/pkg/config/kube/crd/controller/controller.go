@@ -162,11 +162,11 @@ func (c *controller) addInformer(schema schema.Instance, namespace string, resyn
 
 // notify is the first handler in the handler chain.
 // Returning an error causes repeated execution of the entire chain.
-func (c *controller) notify(obj interface{}, event model.Event) error {
+func (c *controller) notify(old, curr interface{}, event model.Event) error {
 	if !c.HasSynced() {
 		return errors.New("waiting till full synchronization")
 	}
-	_, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	_, err := cache.DeletionHandlingMetaNamespaceKeyFunc(curr)
 	if err != nil {
 		log.Infof("Error retrieving key: %v", err)
 	}
@@ -197,7 +197,7 @@ func (c *controller) createInformer(
 					return
 				}
 				incrementEvent(otype, "add")
-				c.queue.Push(kube.NewTask(handler.Apply, obj, model.EventAdd))
+				c.queue.Push(kube.NewTask(handler.Apply, nil, obj, model.EventAdd))
 			},
 			UpdateFunc: func(old, cur interface{}) {
 				if err := vf(cur); err != nil {
@@ -206,14 +206,14 @@ func (c *controller) createInformer(
 				}
 				if !reflect.DeepEqual(old, cur) {
 					incrementEvent(otype, "update")
-					c.queue.Push(kube.NewTask(handler.Apply, cur, model.EventUpdate))
+					c.queue.Push(kube.NewTask(handler.Apply, old, cur, model.EventUpdate))
 				} else {
 					incrementEvent(otype, "updatesame")
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
 				incrementEvent(otype, "delete")
-				c.queue.Push(kube.NewTask(handler.Apply, obj, model.EventDelete))
+				c.queue.Push(kube.NewTask(handler.Apply, nil, obj, model.EventDelete))
 			},
 		})
 
@@ -236,19 +236,27 @@ func incrementEvent(kind, event string) {
 	k8sEvents.With(typeTag.Value(kind), eventTag.Value(event)).Increment()
 }
 
-func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model.Event)) {
+func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model.Config, model.Event)) {
 	s, exists := c.ConfigDescriptor().GetByType(typ)
 	if !exists {
 		return
 	}
-	c.kinds[typ].handler.Append(func(object interface{}, ev model.Event) error {
-		item, ok := object.(crd.IstioObject)
+	c.kinds[typ].handler.Append(func(old, curr interface{}, ev model.Event) error {
+		curritem, ok := curr.(crd.IstioObject)
 		if ok {
-			config, err := crd.ConvertObject(s, item, c.client.domainSuffix)
+			config, err := crd.ConvertObject(s, curritem, c.client.domainSuffix)
 			if err != nil {
-				log.Warnf("error translating object for schema %#v : %v\n Object:\n%#v", s, err, object)
+				log.Warnf("error translating object for schema %#v : %v\n Object:\n%#v", s, err, curr)
 			} else {
-				f(*config, ev)
+				olditem, ok := old.(crd.IstioObject)
+				oldconfig := &model.Config{}
+				if ok {
+					oldconfig, err = crd.ConvertObject(s, olditem, c.client.domainSuffix)
+					if err != nil {
+						log.Warnf("error translating object for schema %#v : %v\n Object:\n%#v", s, err, old)
+					}
+				}
+				f(*oldconfig, *config, ev)
 			}
 		}
 		return nil

@@ -66,7 +66,7 @@ func NewMCPDiscovery(controller CoreDataModel, options *DiscoveryOptions) *MCPDi
 		cacheByHostName:                 make(map[host.Name][]*model.ServiceInstance),
 		cacheServices:                   make(map[string]*model.Service),
 	}
-	discovery.RegisterEventHandler(schemas.SyntheticServiceEntry.Type, func(config model.Config, event model.Event) {
+	discovery.RegisterEventHandler(schemas.SyntheticServiceEntry.Type, func(_, config model.Config, event model.Event) {
 		discovery.HandleCacheEvents(config, event)
 	})
 	return discovery

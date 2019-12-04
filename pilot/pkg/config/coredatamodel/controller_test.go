@@ -639,7 +639,7 @@ func TestEventHandler(t *testing.T) {
 		model.EventUpdate: {},
 		model.EventDelete: {},
 	}
-	controller.RegisterEventHandler(schemas.ServiceEntry.Type, func(m model.Config, e model.Event) {
+	controller.RegisterEventHandler(schemas.ServiceEntry.Type, func(_, m model.Config, e model.Event) {
 		gotEvents[e][makeName(m.Namespace, m.Name)] = m
 	})
 

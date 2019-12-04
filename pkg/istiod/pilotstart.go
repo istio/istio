@@ -547,7 +547,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 // addConfig2ServiceEntry creates and initializes the ServiceController used for translating
 // ServiceEntries from config store to discovery.
 func (s *Server) addConfig2ServiceEntry() {
-	serviceEntryStore := external.NewServiceDiscovery(s.ConfigController, s.IstioConfigStore)
+	serviceEntryStore := external.NewServiceDiscovery(s.ConfigController, s.IstioConfigStore, s.EnvoyXdsServer)
 	s.ServiceController.AddRegistry(serviceEntryStore)
 }
 
@@ -695,7 +695,7 @@ func (s *Server) initEventHandlers() error {
 	if s.ConfigController != nil {
 		// TODO: changes should not trigger a full recompute of LDS/RDS/CDS/EDS
 		// (especially mixerclient HTTP and quota)
-		configHandler := func(c model.Config, _ model.Event) {
+		configHandler := func(_, c model.Config, _ model.Event) {
 			pushReq := &model.PushRequest{
 				Full:               true,
 				ConfigTypesUpdated: map[string]struct{}{c.Type: {}},

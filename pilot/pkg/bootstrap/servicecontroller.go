@@ -61,10 +61,11 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		}
 	}
 
-	serviceEntryStore := external.NewServiceDiscovery(s.configController, s.istioConfigStore)
+	serviceEntryStore := external.NewServiceDiscovery(s.configController, s.istioConfigStore, s.EnvoyXdsServer)
 	serviceControllers.AddRegistry(serviceEntryStore)
 
 	s.ServiceController = serviceControllers
+	s.serviceEntryStore = serviceEntryStore
 
 	// Defer running of the service controllers.
 	s.addStartFunc(func(stop <-chan struct{}) error {

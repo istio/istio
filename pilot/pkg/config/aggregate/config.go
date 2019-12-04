@@ -171,7 +171,7 @@ func (cr *storeCache) HasSynced() bool {
 	return true
 }
 
-func (cr *storeCache) RegisterEventHandler(typ string, handler func(model.Config, model.Event)) {
+func (cr *storeCache) RegisterEventHandler(typ string, handler func(model.Config, model.Config, model.Event)) {
 	for _, cache := range cr.caches {
 		if _, exists := cache.ConfigDescriptor().GetByType(typ); exists {
 			cache.RegisterEventHandler(typ, handler)

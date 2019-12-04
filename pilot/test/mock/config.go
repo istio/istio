@@ -479,7 +479,7 @@ func CheckCacheEvents(store model.ConfigStore, cache model.ConfigStoreCache, nam
 	stop := make(chan struct{})
 	defer close(stop)
 	added, deleted := atomic.NewInt64(0), atomic.NewInt64(0)
-	cache.RegisterEventHandler(schemas.MockConfig.Type, func(_ model.Config, ev model.Event) {
+	cache.RegisterEventHandler(schemas.MockConfig.Type, func(_, _ model.Config, ev model.Event) {
 		switch ev {
 		case model.EventAdd:
 			if deleted.Load() != 0 {
@@ -512,7 +512,7 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *test
 	o := Make(namespace, 0)
 
 	// validate cache consistency
-	cache.RegisterEventHandler(schemas.MockConfig.Type, func(config model.Config, ev model.Event) {
+	cache.RegisterEventHandler(schemas.MockConfig.Type, func(_, config model.Config, ev model.Event) {
 		elts, _ := cache.List(schemas.MockConfig.Type, namespace)
 		elt := cache.Get(o.Type, o.Name, o.Namespace)
 		switch ev {
