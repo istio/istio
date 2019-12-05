@@ -45,9 +45,20 @@ func (ms *Messages) Sort() {
 	})
 }
 
-// Return a different sorted Messages struct
-func (ms *Messages) SortedCopy() Messages {
+// SortedDedupedCopy returns a different sorted (and deduped) Messages struct.
+func (ms *Messages) SortedDedupedCopy() Messages {
 	newMs := append((*ms)[:0:0], *ms...)
 	newMs.Sort()
-	return newMs
+
+	// Take advantage of the fact that the list is already sorted to dedupe
+	// messages (any duplicates should be adjacent).
+	var deduped Messages
+	for _, m := range newMs {
+		// Two messages are duplicates if they have the same string representation.
+		if len(deduped) != 0 && deduped[len(deduped)-1].String() == m.String() {
+			continue
+		}
+		deduped = append(deduped, m)
+	}
+	return deduped
 }
