@@ -82,7 +82,11 @@ func Deploy(ctx resource.Context, cfg *Config) (Instance, error) {
 	var i Instance
 	switch ctx.Environment().EnvironmentName() {
 	case environment.Kube:
-		i, err = deploy(ctx, ctx.Environment().(*kube.Environment), *cfg)
+		if cfg.Operator {
+			i, err = deployOperator(ctx, ctx.Environment().(*kube.Environment), *cfg)
+		} else {
+			i, err = deploy(ctx, ctx.Environment().(*kube.Environment), *cfg)
+		}
 	default:
 		err = resource.UnsupportedEnvironment(ctx.Environment())
 	}

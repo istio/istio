@@ -22,7 +22,7 @@ import (
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/runtime"
 	"istio.io/istio/pkg/config/host"
 )
 
@@ -32,7 +32,7 @@ func ApplyClusterPatches(
 	proxy *model.Proxy,
 	push *model.PushContext,
 	clusters []*xdsapi.Cluster) (out []*xdsapi.Cluster) {
-	defer util.HandleCrash(func() {
+	defer runtime.HandleCrash(func() {
 		log.Errorf("clusters patch caused panic, so the patches did not take effect")
 	})
 	// In case the patches cause panic, use the clusters generated before to reduce the influence.

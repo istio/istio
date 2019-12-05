@@ -134,9 +134,9 @@ func (c *ConfigWriter) retrieveSortedListenerSlice() ([]*xdsapi.Listener, error)
 		return nil, err
 	}
 	listeners := make([]*xdsapi.Listener, 0)
-	for _, listener := range listenerDump.DynamicActiveListeners {
-		if listener.Listener != nil {
-			listeners = append(listeners, listener.Listener)
+	for _, listener := range listenerDump.DynamicListeners {
+		if listener.ActiveState != nil && listener.ActiveState.Listener != nil {
+			listeners = append(listeners, listener.ActiveState.Listener)
 		}
 	}
 

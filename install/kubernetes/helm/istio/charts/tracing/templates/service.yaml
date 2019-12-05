@@ -21,7 +21,7 @@ items:
       release: {{ .Release.Name }}
   spec:
     ports:
-      - port: {{ .Values.service.externalPort }}
+      - port: {{ .Values.zipkin.queryPort }}
         targetPort: {{ .Values.zipkin.queryPort }}
         protocol: TCP
         name: {{ .Values.service.name }}

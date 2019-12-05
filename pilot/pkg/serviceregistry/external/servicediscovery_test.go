@@ -42,6 +42,23 @@ func createServiceEntries(configs []*model.Config, store model.IstioConfigStore,
 type channelTerminal struct {
 }
 
+// FakeXdsUpdater is used to test the event handlers.
+type FakeXdsUpdater struct {
+}
+
+func (fx *FakeXdsUpdater) EDSUpdate(shard, hostname string, namespace string, entry []*model.IstioEndpoint) error {
+	return nil
+}
+
+func (fx *FakeXdsUpdater) ConfigUpdate(*model.PushRequest) {
+}
+
+func (fx *FakeXdsUpdater) ProxyUpdate(clusterID, ip string) {
+}
+
+func (fx *FakeXdsUpdater) SvcUpdate(shard, hostname string, namespace string, event model.Event) {
+}
+
 func initServiceDiscovery() (model.IstioConfigStore, *ServiceEntryStore, func()) {
 	store := memory.Make(schemas.Istio)
 	configController := memory.NewController(store)
@@ -50,7 +67,8 @@ func initServiceDiscovery() (model.IstioConfigStore, *ServiceEntryStore, func())
 	go configController.Run(stop)
 
 	istioStore := model.MakeIstioStore(configController)
-	serviceController := NewServiceDiscovery(configController, istioStore)
+	xdsUpdater := &FakeXdsUpdater{}
+	serviceController := NewServiceDiscovery(configController, istioStore, xdsUpdater)
 	return istioStore, serviceController, func() {
 		stop <- channelTerminal{}
 	}
@@ -221,6 +239,172 @@ func TestNonServiceConfig(t *testing.T) {
 	sortServiceInstances(expectedInstances)
 	if err := compare(t, instances, expectedInstances); err != nil {
 		t.Error(err)
+	}
+}
+
+func TestServicesChanged(t *testing.T) {
+
+	var updatedHTTPDNS = &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:              schemas.ServiceEntry.Type,
+			Name:              "httpDNS",
+			Namespace:         "httpDNS",
+			CreationTimestamp: GlobalTime,
+			Labels:            map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
+		},
+		Spec: &networking.ServiceEntry{
+			Hosts: []string{"*.google.com", "*.mail.com"},
+			Ports: []*networking.Port{
+				{Number: 80, Name: "http-port", Protocol: "http"},
+				{Number: 8080, Name: "http-alt-port", Protocol: "http"},
+			},
+			Endpoints: []*networking.ServiceEntry_Endpoint{
+				{
+					Address: "us.google.com",
+					Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
+					Labels:  map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
+				},
+				{
+					Address: "uk.google.com",
+					Ports:   map[string]uint32{"http-port": 1080},
+					Labels:  map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
+				},
+				{
+					Address: "de.google.com",
+					Labels:  map[string]string{"foo": "bar", model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
+				},
+			},
+			Location:   networking.ServiceEntry_MESH_EXTERNAL,
+			Resolution: networking.ServiceEntry_DNS,
+		},
+	}
+
+	var updatedHTTPDNSPort = &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:              schemas.ServiceEntry.Type,
+			Name:              "httpDNS",
+			Namespace:         "httpDNS",
+			CreationTimestamp: GlobalTime,
+			Labels:            map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
+		},
+		Spec: &networking.ServiceEntry{
+			Hosts: []string{"*.google.com", "*.mail.com"},
+			Ports: []*networking.Port{
+				{Number: 80, Name: "http-port", Protocol: "http"},
+				{Number: 8080, Name: "http-alt-port", Protocol: "http"},
+				{Number: 9090, Name: "http-new-port", Protocol: "http"},
+			},
+			Endpoints: []*networking.ServiceEntry_Endpoint{
+				{
+					Address: "us.google.com",
+					Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
+					Labels:  map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
+				},
+				{
+					Address: "uk.google.com",
+					Ports:   map[string]uint32{"http-port": 1080},
+					Labels:  map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
+				},
+				{
+					Address: "de.google.com",
+					Labels:  map[string]string{"foo": "bar", model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
+				},
+			},
+			Location:   networking.ServiceEntry_MESH_EXTERNAL,
+			Resolution: networking.ServiceEntry_DNS,
+		},
+	}
+
+	var updatedEndpoint = &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:              schemas.ServiceEntry.Type,
+			Name:              "httpDNS",
+			Namespace:         "httpDNS",
+			CreationTimestamp: GlobalTime,
+			Labels:            map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
+		},
+		Spec: &networking.ServiceEntry{
+			Hosts: []string{"*.google.com", "*.mail.com"},
+			Ports: []*networking.Port{
+				{Number: 80, Name: "http-port", Protocol: "http"},
+				{Number: 8080, Name: "http-alt-port", Protocol: "http"},
+			},
+			Endpoints: []*networking.ServiceEntry_Endpoint{
+				{
+					Address: "us.google.com",
+					Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
+					Labels:  map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
+				},
+				{
+					Address: "uk.google.com",
+					Ports:   map[string]uint32{"http-port": 1080},
+					Labels:  map[string]string{model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
+				},
+				{
+					Address: "de.google.com",
+					Labels:  map[string]string{"foo": "bar", model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
+				},
+				{
+					Address: "in.google.com",
+					Labels:  map[string]string{"foo": "bar", model.TLSModeLabelName: model.IstioMutualTLSModeLabel},
+				},
+			},
+			Location:   networking.ServiceEntry_MESH_EXTERNAL,
+			Resolution: networking.ServiceEntry_DNS,
+		},
+	}
+	cases := []struct {
+		name string
+		a    *model.Config
+		b    *model.Config
+		want bool
+	}{
+		{
+			"same config",
+			httpDNS,
+			httpDNS,
+			false,
+		},
+		{
+			"different config",
+			httpDNS,
+			httpNoneInternal,
+			true,
+		},
+		{
+			"different resolution",
+			tcpDNS,
+			tcpStatic,
+			true,
+		},
+		{
+			"config modified with additional host",
+			httpDNS,
+			updatedHTTPDNS,
+			true,
+		},
+		{
+			"config modified with additional port",
+			updatedHTTPDNS,
+			updatedHTTPDNSPort,
+			true,
+		},
+		{
+			"same config with additional endpoint",
+			updatedHTTPDNS,
+			updatedEndpoint,
+			false,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			as := convertServices(*tt.a)
+			bs := convertServices(*tt.b)
+			got := servicesChanged(as, bs)
+			if got != tt.want {
+				t.Errorf("ServicesChanged got %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 

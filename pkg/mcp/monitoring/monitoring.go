@@ -25,12 +25,11 @@ import (
 )
 
 const (
-	collection   = "collection"
-	errorCode    = "code"
-	errorStr     = "error"
-	connectionID = "connectionID"
-	code         = "code"
-	component    = "component"
+	collection = "collection"
+	errorCode  = "code"
+	errorStr   = "error"
+	code       = "code"
+	component  = "component"
 )
 
 var (

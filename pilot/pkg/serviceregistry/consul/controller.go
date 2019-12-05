@@ -23,10 +23,13 @@ import (
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/spiffe"
 )
+
+var _ serviceregistry.Instance = &Controller{}
 
 // Controller communicates with Consul and monitors for changes
 type Controller struct {
@@ -37,24 +40,34 @@ type Controller struct {
 	serviceInstances map[string][]*model.ServiceInstance //key hostname value serviceInstance array
 	cacheMutex       sync.Mutex
 	initDone         bool
+	clusterID        string
 }
 
 // NewController creates a new Consul controller
-func NewController(addr string) (*Controller, error) {
+func NewController(addr string, clusterID string) (*Controller, error) {
 	conf := api.DefaultConfig()
 	conf.Address = addr
 
 	client, err := api.NewClient(conf)
 	monitor := NewConsulMonitor(client)
 	controller := Controller{
-		monitor: monitor,
-		client:  client,
+		monitor:   monitor,
+		client:    client,
+		clusterID: clusterID,
 	}
 
 	//Watch the change events to refresh local caches
 	monitor.AppendServiceHandler(controller.ServiceChanged)
 	monitor.AppendInstanceHandler(controller.InstanceChanged)
 	return &controller, err
+}
+
+func (c *Controller) Provider() serviceregistry.ProviderID {
+	return serviceregistry.Consul
+}
+
+func (c *Controller) Cluster() string {
+	return c.clusterID
 }
 
 // Services list declarations of all services in the system

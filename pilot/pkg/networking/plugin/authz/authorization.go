@@ -79,7 +79,7 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) {
 	// TODO: Get trust domain from MeshConfig instead.
 	// https://github.com/istio/istio/issues/17873
-	trustDomainBundle := trustdomain.NewTrustDomainBundle(spiffe.GetTrustDomain(), in.Env.Mesh.TrustDomainAliases)
+	trustDomainBundle := trustdomain.NewTrustDomainBundle(spiffe.GetTrustDomain(), in.Push.Mesh.TrustDomainAliases)
 	builder := authz_builder.NewBuilder(trustDomainBundle, in.ServiceInstance,
 		in.Node.WorkloadLabels, in.Node.ConfigNamespace, in.Push.AuthzPolicies, util.IsXDSMarshalingToAnyEnabled(in.Node))
 	if builder == nil {

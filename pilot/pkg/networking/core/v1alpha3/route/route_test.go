@@ -76,6 +76,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		g.Expect(routes[0].GetMatch().GetSafeRegex().GetRegex()).To(gomega.Equal("\\/(.?)\\/status"))
+		g.Expect(routes[0].GetMatch().GetSafeRegex().GetGoogleRe2().GetMaxProgramSize().GetValue()).To(gomega.Equal(uint32(1024)))
+
 	})
 
 	t.Run("for virtual service with unsafe regex matching on URI", func(t *testing.T) {
@@ -117,9 +119,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		ttl := time.Nanosecond * 100
 		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
-			Env: &model.Environment{
-				Mesh: &meshConfig,
-			},
+			Mesh: &meshConfig,
 		}
 		push.SetDestinationRules([]model.Config{
 			{
@@ -177,9 +177,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
-			Env: &model.Environment{
-				Mesh: &meshConfig,
-			},
+			Mesh: &meshConfig,
 		}
 		push.SetDestinationRules([]model.Config{
 			{
@@ -222,9 +220,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
-			Env: &model.Environment{
-				Mesh: &meshConfig,
-			},
+			Mesh: &meshConfig,
 		}
 
 		push.SetDestinationRules([]model.Config{
@@ -278,9 +274,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
-			Env: &model.Environment{
-				Mesh: &meshConfig,
-			},
+			Mesh: &meshConfig,
 		}
 
 		push.SetDestinationRules([]model.Config{
@@ -306,9 +300,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
-			Env: &model.Environment{
-				Mesh: &meshConfig,
-			},
+			Mesh: &meshConfig,
 		}
 
 		push.SetDestinationRules([]model.Config{
@@ -353,9 +345,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
-			Env: &model.Environment{
-				Mesh: &meshConfig,
-			},
+			Mesh: &meshConfig,
 		}
 		push.SetDestinationRules([]model.Config{
 			{
@@ -373,9 +363,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
-			Env: &model.Environment{
-				Mesh: &meshConfig,
-			},
+			Mesh: &meshConfig,
 		}
 		push.SetDestinationRules([]model.Config{
 			{

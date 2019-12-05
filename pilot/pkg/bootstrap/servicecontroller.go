@@ -29,12 +29,16 @@ import (
 	"istio.io/istio/pkg/config/host"
 )
 
+func (s *Server) ServiceController() *aggregate.Controller {
+	return s.environment.ServiceDiscovery.(*aggregate.Controller)
+}
+
 // initServiceControllers creates and initializes the service controllers
 func (s *Server) initServiceControllers(args *PilotArgs) error {
-	serviceControllers := aggregate.NewController()
-	registered := make(map[serviceregistry.ServiceRegistry]bool)
+	serviceControllers := s.ServiceController()
+	registered := make(map[serviceregistry.ProviderID]bool)
 	for _, r := range args.Service.Registries {
-		serviceRegistry := serviceregistry.ServiceRegistry(r)
+		serviceRegistry := serviceregistry.ProviderID(r)
 		if _, exists := registered[serviceRegistry]; exists {
 			log.Warnf("%s registry specified multiple times.", r)
 			continue
@@ -42,45 +46,31 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		registered[serviceRegistry] = true
 		log.Infof("Adding %s registry adapter", serviceRegistry)
 		switch serviceRegistry {
-		case serviceregistry.KubernetesRegistry:
+		case serviceregistry.Kubernetes:
 			if err := s.initKubeRegistry(serviceControllers, args); err != nil {
 				return err
 			}
-		case serviceregistry.MCPRegistry:
+		case serviceregistry.MCP:
 			if s.mcpDiscovery != nil {
-				serviceControllers.AddRegistry(
-					aggregate.Registry{
-						Name:             serviceregistry.MCPRegistry,
-						ServiceDiscovery: s.mcpDiscovery,
-						Controller:       s.mcpDiscovery,
-					})
+				serviceControllers.AddRegistry(s.mcpDiscovery)
 			}
-		case serviceregistry.ConsulRegistry:
+		case serviceregistry.Consul:
 			if err := s.initConsulRegistry(serviceControllers, args); err != nil {
 				return err
 			}
-		case serviceregistry.MockRegistry:
+		case serviceregistry.Mock:
 			s.initMemoryRegistry(serviceControllers)
 		default:
 			return fmt.Errorf("service registry %s is not supported", r)
 		}
 	}
 
-	serviceEntryStore := external.NewServiceDiscovery(s.configController, s.istioConfigStore)
-
-	// add service entry registry to aggregator by default
-	serviceEntryRegistry := aggregate.Registry{
-		Name:             "ServiceEntries",
-		Controller:       serviceEntryStore,
-		ServiceDiscovery: serviceEntryStore,
-	}
-	serviceControllers.AddRegistry(serviceEntryRegistry)
-
-	s.ServiceController = serviceControllers
+	s.serviceEntryStore = external.NewServiceDiscovery(s.configController, s.environment.IstioConfigStore, s.EnvoyXdsServer)
+	serviceControllers.AddRegistry(s.serviceEntryStore)
 
 	// Defer running of the service controllers.
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		go s.ServiceController.Run(stop)
+		go serviceControllers.Run(stop)
 		return nil
 	})
 
@@ -89,35 +79,23 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 
 // initKubeRegistry creates all the k8s service controllers under this pilot
 func (s *Server) initKubeRegistry(serviceControllers *aggregate.Controller, args *PilotArgs) (err error) {
-	clusterID := string(serviceregistry.KubernetesRegistry)
+	clusterID := string(serviceregistry.Kubernetes)
 	log.Infof("Primary Cluster name: %s", clusterID)
 	args.Config.ControllerOptions.ClusterID = clusterID
+	args.Config.ControllerOptions.Metrics = s.environment
 	kubectl := kubecontroller.NewController(s.kubeClient, args.Config.ControllerOptions)
 	s.kubeRegistry = kubectl
-	serviceControllers.AddRegistry(
-		aggregate.Registry{
-			Name:             serviceregistry.KubernetesRegistry,
-			ClusterID:        clusterID,
-			ServiceDiscovery: kubectl,
-			Controller:       kubectl,
-		})
-
+	serviceControllers.AddRegistry(kubectl)
 	return
 }
 
 func (s *Server) initConsulRegistry(serviceControllers *aggregate.Controller, args *PilotArgs) error {
 	log.Infof("Consul url: %v", args.Service.Consul.ServerURL)
-	conctl, conerr := consul.NewController(
-		args.Service.Consul.ServerURL)
+	conctl, conerr := consul.NewController(args.Service.Consul.ServerURL, "")
 	if conerr != nil {
 		return fmt.Errorf("failed to create Consul controller: %v", conerr)
 	}
-	serviceControllers.AddRegistry(
-		aggregate.Registry{
-			Name:             serviceregistry.ConsulRegistry,
-			ServiceDiscovery: conctl,
-			Controller:       conctl,
-		})
+	serviceControllers.AddRegistry(conctl)
 
 	return nil
 }
@@ -126,8 +104,8 @@ func (s *Server) initMemoryRegistry(serviceControllers *aggregate.Controller) {
 	// MemServiceDiscovery implementation
 	discovery := memory.NewDiscovery(map[host.Name]*model.Service{}, 2)
 
-	registry := aggregate.Registry{
-		Name:             serviceregistry.MockRegistry,
+	registry := serviceregistry.Simple{
+		ProviderID:       serviceregistry.Mock,
 		ServiceDiscovery: discovery,
 		Controller:       &memory.MockController{},
 	}

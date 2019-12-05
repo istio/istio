@@ -23,15 +23,14 @@ import (
 // clusters and initialize the multicluster structures.
 func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 	if hasKubeRegistry(args.Service.Registries) {
-
 		mc, err := clusterregistry.NewMulticluster(s.kubeClient,
 			args.Config.ClusterRegistriesNamespace,
 			args.Config.ControllerOptions.WatchedNamespace,
 			args.Config.ControllerOptions.DomainSuffix,
 			args.Config.ControllerOptions.ResyncPeriod,
-			s.ServiceController,
+			s.ServiceController(),
 			s.EnvoyXdsServer,
-			s.meshNetworks)
+			s.environment)
 
 		if err != nil {
 			log.Info("Unable to create new Multicluster object")

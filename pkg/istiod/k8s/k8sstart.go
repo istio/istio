@@ -18,14 +18,13 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/go-multierror"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/meta/schema"
 	"istio.io/istio/galley/pkg/config/source/kube"
@@ -37,10 +36,8 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
-	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/istiod"
-	"istio.io/pkg/log"
 )
 
 // Helpers to configure the k8s-dependent registries
@@ -66,7 +63,8 @@ func InitK8S(is *istiod.Server, clientset kubernetes.Interface, config *rest.Con
 		args:        args,
 		ControllerOptions: controller2.Options{
 			DomainSuffix: args.DomainSuffix,
-			TrustDomain:  args.MeshConfig.TrustDomain,
+			TrustDomain:  args.MeshWatcher.Mesh().TrustDomain,
+			Metrics:      is.Environment,
 		},
 	}
 
@@ -83,16 +81,12 @@ func (s *Controllers) OnXDSStart(xds model.XDSUpdater) {
 }
 
 func (s *Controllers) InitK8SDiscovery(is *istiod.Server, config *rest.Config, args *istiod.PilotArgs) (*Controllers, error) {
-	s.createK8sServiceControllers(s.IstioServer.ServiceController)
+	s.createK8sServiceControllers(s.IstioServer.ServiceController())
 
 	if err := s.initClusterRegistries(args); err != nil {
 		return nil, fmt.Errorf("cluster registries: %v", err)
 	}
 
-	// kubeRegistry may use the environment for push status reporting.
-	// TODO: maybe all registries should have this as an optional field ?
-	s.kubeRegistry.Env = s.IstioServer.Environment
-	s.kubeRegistry.InitNetworkLookup(s.IstioServer.MeshNetworks)
 	// EnvoyXDSServer is not initialized yet - since initialization adds all 'service' handlers, which depends
 	// on this being done. Instead we use the callback.
 	//s.kubeRegistry.XDSUpdater = s.IstioServer.EnvoyXdsServer
@@ -120,9 +114,9 @@ func (s *Controllers) initClusterRegistries(args *istiod.PilotArgs) (err error) 
 		s.ControllerOptions.WatchedNamespace,
 		args.DomainSuffix,
 		s.ControllerOptions.ResyncPeriod,
-		s.IstioServer.ServiceController,
+		s.IstioServer.ServiceController(),
 		s.IstioServer.EnvoyXdsServer,
-		s.IstioServer.MeshNetworks)
+		s.IstioServer.Environment)
 
 	if err != nil {
 		log.Info("Unable to create new Multicluster object")
@@ -151,10 +145,11 @@ func (s *Controllers) initConfigController(args *istiod.PilotArgs) error {
 	})
 
 	// If running in ingress mode (requires k8s), wrap the config controller.
-	if s.IstioServer.Mesh.IngressControllerMode != meshconfig.MeshConfig_OFF {
-		s.IstioServer.ConfigStores = append(s.IstioServer.ConfigStores, ingress.NewController(s.kubeClient, s.IstioServer.Mesh, s.ControllerOptions))
+	meshConfig := s.IstioServer.Environment.Mesh()
+	if meshConfig.IngressControllerMode != meshconfig.MeshConfig_OFF {
+		s.IstioServer.ConfigStores = append(s.IstioServer.ConfigStores, ingress.NewController(s.kubeClient, meshConfig, s.ControllerOptions))
 
-		if ingressSyncer, errSyncer := ingress.NewStatusSyncer(s.IstioServer.Mesh, s.kubeClient,
+		if ingressSyncer, errSyncer := ingress.NewStatusSyncer(meshConfig, s.kubeClient,
 			args.Namespace, s.ControllerOptions); errSyncer != nil {
 			log.Warnf("Disabled ingress status syncer due to %v", errSyncer)
 		} else {
@@ -170,18 +165,12 @@ func (s *Controllers) initConfigController(args *istiod.PilotArgs) error {
 
 // createK8sServiceControllers creates all the k8s service controllers under this pilot
 func (s *Controllers) createK8sServiceControllers(serviceControllers *aggregate.Controller) {
-	clusterID := string(serviceregistry.KubernetesRegistry)
+	clusterID := string(serviceregistry.Kubernetes)
 	log.Infof("Primary Cluster name: %s", clusterID)
 	s.ControllerOptions.ClusterID = clusterID
 	kubectl := controller2.NewController(s.kubeClient, s.ControllerOptions)
 	s.kubeRegistry = kubectl
-	serviceControllers.AddRegistry(
-		aggregate.Registry{
-			Name:             serviceregistry.KubernetesRegistry,
-			ClusterID:        clusterID,
-			ServiceDiscovery: kubectl,
-			Controller:       kubectl,
-		})
+	serviceControllers.AddRegistry(kubectl)
 }
 
 func (s *Controllers) makeKubeConfigController(args *istiod.PilotArgs) (model.ConfigStoreCache, error) {
@@ -198,42 +187,6 @@ func (s *Controllers) makeKubeConfigController(args *istiod.PilotArgs) (model.Co
 	}
 
 	return controller.NewController(configClient, s.ControllerOptions), nil
-}
-
-const (
-	// ConfigMapKey should match the expected MeshConfig file name
-	ConfigMapKey = "mesh"
-)
-
-// GetMeshConfig fetches the ProxyMesh configuration from Kubernetes ConfigMap.
-func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*v1.ConfigMap, *meshconfig.MeshConfig, error) {
-
-	if kube == nil {
-		defaultMesh := mesh.DefaultMeshConfig()
-		return nil, &defaultMesh, nil
-	}
-
-	cfg, err := kube.CoreV1().ConfigMaps(namespace).Get(name, meta_v1.GetOptions{})
-	if err != nil {
-		if errors.IsNotFound(err) {
-			defaultMesh := mesh.DefaultMeshConfig()
-			return nil, &defaultMesh, nil
-		}
-		return nil, nil, err
-	}
-
-	// values in the data are strings, while proto might use a different data type.
-	// therefore, we have to get a value by a key
-	cfgYaml, exists := cfg.Data[ConfigMapKey]
-	if !exists {
-		return nil, nil, fmt.Errorf("missing configuration map key %q", ConfigMapKey)
-	}
-
-	meshConfig, err := mesh.ApplyMeshConfigDefaults(cfgYaml)
-	if err != nil {
-		return nil, nil, err
-	}
-	return cfg, meshConfig, nil
 }
 
 type testHandler struct {

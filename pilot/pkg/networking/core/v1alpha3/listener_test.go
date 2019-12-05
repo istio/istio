@@ -368,7 +368,7 @@ func TestOutboundListenerConflict_HTTPoverHTTPS(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			p := &fakePlugin{}
 			listeners := buildOutboundListeners(p, &proxy, nil, nil, tt.service)
-			got := []string{}
+			got := make([]string, 0)
 			for _, l := range listeners {
 				got = append(got, l.Name)
 			}
@@ -475,7 +475,7 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 	defer func() { _ = os.Unsetenv("PILOT_ENABLE_FALLTHROUGH_ROUTE") }()
 
 	svc := buildServiceWithPort("test.com", 9999, protocol.TCP, tnow)
-	svc.Attributes.ServiceRegistry = string(serviceregistry.KubernetesRegistry)
+	svc.Attributes.ServiceRegistry = string(serviceregistry.Kubernetes)
 	svc.Resolution = model.Passthrough
 	services := []*model.Service{svc}
 
@@ -513,7 +513,7 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 			proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 			proxy.ServiceInstances = proxyInstances
 
-			listeners := configgen.buildSidecarOutboundListeners(&env, &proxy, env.PushContext)
+			listeners := configgen.buildSidecarOutboundListeners(&proxy, env.PushContext)
 			listenersToCheck := make([]*xdsapi.Listener, 0)
 			for _, l := range listeners {
 				if l.Address.GetSocketAddress().GetPortValue() == 9999 {
@@ -1289,14 +1289,14 @@ func TestHttpProxyListener(t *testing.T) {
 	}
 
 	proxy.ServiceInstances = nil
-	env.Mesh.ProxyHttpPort = 15007
+	env.Mesh().ProxyHttpPort = 15007
 	proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
-	httpProxy := configgen.buildHTTPProxy(&env, &proxy, env.PushContext, nil)
+	httpProxy := configgen.buildHTTPProxy(&proxy, env.PushContext, nil)
 	f := httpProxy.FilterChains[0].Filters[0]
 	cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
 
 	if httpProxy.Address.GetSocketAddress().GetPortValue() != 15007 {
-		t.Fatalf("expected http proxy is not listening on %d, but on port %d", env.Mesh.ProxyHttpPort,
+		t.Fatalf("expected http proxy is not listening on %d, but on port %d", env.Mesh().ProxyHttpPort,
 			httpProxy.Address.GetSocketAddress().GetPortValue())
 	}
 	if !strings.HasPrefix(cfg.Fields["stat_prefix"].GetStringValue(), "outbound_") {
@@ -1492,7 +1492,7 @@ func buildAllListeners(p plugin.Plugin, sidecarConfig *model.Config, services ..
 		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
 	}
 	builder := NewListenerBuilder(&proxy)
-	return configgen.buildSidecarListeners(&env, &proxy, env.PushContext, builder).getListeners()
+	return configgen.buildSidecarListeners(&proxy, env.PushContext, builder).getListeners()
 }
 
 func getFilterConfig(filter *listener.Filter, out proto.Message) error {
@@ -1532,7 +1532,7 @@ func buildOutboundListeners(p plugin.Plugin, proxy *model.Proxy, sidecarConfig *
 	}
 	proxy.ServiceInstances = proxyInstances
 
-	return configgen.buildSidecarOutboundListeners(&env, proxy, env.PushContext)
+	return configgen.buildSidecarOutboundListeners(proxy, env.PushContext)
 }
 
 func buildInboundListeners(p plugin.Plugin, proxy *model.Proxy, sidecarConfig *model.Config, services ...*model.Service) []*xdsapi.Listener {
@@ -1541,22 +1541,17 @@ func buildInboundListeners(p plugin.Plugin, proxy *model.Proxy, sidecarConfig *m
 	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
 		return nil
 	}
-	instances := make([]*model.ServiceInstance, len(services))
-	for i, s := range services {
-		instances[i] = &model.ServiceInstance{
-			Service:  s,
-			Endpoint: buildEndpoint(s),
-		}
+	if err := proxy.SetServiceInstances(&env); err != nil {
+		return nil
 	}
 
 	proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata.IstioVersion)
-	proxy.ServiceInstances = instances
 	if sidecarConfig == nil {
 		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 	} else {
 		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
 	}
-	return configgen.buildSidecarInboundListeners(&env, proxy, env.PushContext)
+	return configgen.buildSidecarInboundListeners(proxy, env.PushContext)
 }
 
 type fakePlugin struct {
@@ -1731,6 +1726,15 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 	serviceDiscovery := new(fakes.ServiceDiscovery)
 	serviceDiscovery.ServicesReturns(services, nil)
 
+	instances := make([]*model.ServiceInstance, len(services))
+	for i, s := range services {
+		instances[i] = &model.ServiceInstance{
+			Service:  s,
+			Endpoint: buildEndpoint(s),
+		}
+	}
+	serviceDiscovery.GetProxyServiceInstancesReturns(instances, nil)
+
 	configStore := &fakes.IstioConfigStore{
 		EnvoyFilterStub: func(workloadLabels labels.Collection) *model.Config {
 			return &model.Config{
@@ -1771,14 +1775,14 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 		PushContext:      model.NewPushContext(),
 		ServiceDiscovery: serviceDiscovery,
 		IstioConfigStore: configStore,
-		Mesh:             &m,
+		Watcher:          mesh.NewFixedWatcher(&m),
 	}
 
 	return env
 }
 
 func TestAppendListenerFallthroughRoute(t *testing.T) {
-	env := &model.Environment{
+	push := &model.PushContext{
 		Mesh: &meshconfig.MeshConfig{},
 	}
 	tests := []struct {
@@ -1789,9 +1793,11 @@ func TestAppendListenerFallthroughRoute(t *testing.T) {
 		hostname     string
 	}{
 		{
-			name:         "Registry_Only",
-			listener:     &xdsapi.Listener{},
-			listenerOpts: &buildListenerOpts{},
+			name:     "Registry_Only",
+			listener: &xdsapi.Listener{},
+			listenerOpts: &buildListenerOpts{
+				push: push,
+			},
 			node: &model.Proxy{
 				ID:       "foo.bar",
 				Metadata: &model.NodeMetadata{},
@@ -1804,9 +1810,11 @@ func TestAppendListenerFallthroughRoute(t *testing.T) {
 			hostname: util.BlackHoleCluster,
 		},
 		{
-			name:         "Allow_Any",
-			listener:     &xdsapi.Listener{},
-			listenerOpts: &buildListenerOpts{},
+			name:     "Allow_Any",
+			listener: &xdsapi.Listener{},
+			listenerOpts: &buildListenerOpts{
+				push: push,
+			},
 			node: &model.Proxy{
 				ID:       "foo.bar",
 				Metadata: &model.NodeMetadata{},
@@ -1822,7 +1830,7 @@ func TestAppendListenerFallthroughRoute(t *testing.T) {
 	for idx := range tests {
 		t.Run(tests[idx].name, func(t *testing.T) {
 			appendListenerFallthroughRoute(tests[idx].listener, tests[idx].listenerOpts,
-				tests[idx].node, env, nil)
+				tests[idx].node, nil)
 			if len(tests[idx].listenerOpts.filterChainOpts) != 1 {
 				t.Errorf("Expected exactly 1 filter chain options")
 			}
@@ -1835,7 +1843,7 @@ func TestAppendListenerFallthroughRoute(t *testing.T) {
 			filter := tests[idx].listenerOpts.filterChainOpts[0].networkFilters[0]
 			var tcpProxy tcp_proxy.TcpProxy
 			cfg := filter.GetTypedConfig()
-			ptypes.UnmarshalAny(cfg, &tcpProxy)
+			_ = ptypes.UnmarshalAny(cfg, &tcpProxy)
 			if tcpProxy.StatPrefix != tests[idx].hostname {
 				t.Errorf("Expected stat prefix %s but got %s\n", tests[idx].hostname, tcpProxy.StatPrefix)
 			}

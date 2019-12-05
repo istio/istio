@@ -23,11 +23,13 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 
-	mesh "istio.io/api/mesh/v1alpha1"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	authpb "istio.io/api/security/v1beta1"
 	selectorpb "istio.io/api/type/v1beta1"
+
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schemas"
 )
@@ -759,7 +761,7 @@ func createFakeAuthorizationPolicies(configs []Config, t *testing.T) *Authorizat
 	}
 	environment := &Environment{
 		IstioConfigStore: MakeIstioStore(store),
-		Mesh:             &mesh.MeshConfig{RootNamespace: "istio-config"},
+		Watcher:          mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-config"}),
 	}
 	authzPolicies, err := GetAuthorizationPolicies(environment)
 	if err != nil {

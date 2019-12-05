@@ -52,12 +52,21 @@ func TestMessage_Unstructured(t *testing.T) {
 	g.Expect(m.Unstructured(false)).To(Not(HaveKey("origin")))
 }
 
+func TestMessageWithDocRef(t *testing.T) {
+	g := NewGomegaWithT(t)
+	mt := NewMessageType(Error, "IST-0042", "Cheese type not found: %q")
+	m := NewMessage(mt, nil, "Feta")
+	m.DocRef = "test-ref"
+	g.Expect(m.Unstructured(false)["documentation_url"]).To(Equal("https://istio.io/docs/reference/config/analysis/IST-0042?ref=test-ref"))
+}
+
 func TestMessage_JSON(t *testing.T) {
 	g := NewGomegaWithT(t)
 	o := testOrigin("toppings/cheese")
 	mt := NewMessageType(Error, "IST-0042", "Cheese type not found: %q")
 	m := NewMessage(mt, o, "Feta")
 
-	json_bytes, _ := json.Marshal(&m)
-	g.Expect(string(json_bytes)).To(Equal(`{"code":"IST-0042","level":"Error","message":"Cheese type not found: \"Feta\"","origin":"toppings/cheese"}`))
+	j, _ := json.Marshal(&m)
+	g.Expect(string(j)).To(Equal(`{"code":"IST-0042","documentation_url":"https://istio.io/docs/reference/config/analysis/IST-0042"` +
+		`,"level":"Error","message":"Cheese type not found: \"Feta\"","origin":"toppings/cheese"}`))
 }

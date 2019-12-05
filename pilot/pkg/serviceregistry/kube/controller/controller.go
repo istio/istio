@@ -33,17 +33,18 @@ import (
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
 	configKube "istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schemas"
 )
 
@@ -56,6 +57,8 @@ const (
 	NodeRegionLabelGA = "topology.kubernetes.io/region"
 	// NodeZoneLabelGA is the well-known label for kubernetes node zone in ga
 	NodeZoneLabelGA = "topology.kubernetes.io/zone"
+	// IstioSubzoneLabel is custom subzone label for locality-based routing in Kubernetes see: https://github.com/istio/istio/issues/19114
+	IstioSubzoneLabel = "topology.istio.io/subzone"
 	// IstioNamespace used by default for Istio cluster-wide installation
 	IstioNamespace = "istio-system"
 	// IstioConfigMap is used by default
@@ -104,32 +107,37 @@ type Options struct {
 	// ClusterID identifies the remote cluster in a multicluster env.
 	ClusterID string
 
+	// Metrics for capturing node-based metrics.
+	Metrics model.Metrics
+
 	// XDSUpdater will push changes to the xDS server.
 	XDSUpdater model.XDSUpdater
 
 	// TrustDomain used in SPIFFE identity
 	TrustDomain string
+
+	// NetworksWatcher observes changes to the mesh networks config.
+	NetworksWatcher mesh.NetworksWatcher
 }
+
+var _ serviceregistry.Instance = &Controller{}
 
 // Controller is a collection of synchronized resource watchers
 // Caches are thread-safe
 type Controller struct {
 	domainSuffix string
 
-	client    kubernetes.Interface
-	queue     kube.Queue
-	services  cacheHandler
-	endpoints cacheHandler
-	nodes     cacheHandler
+	client          kubernetes.Interface
+	queue           kube.Queue
+	services        cacheHandler
+	endpoints       cacheHandler
+	nodes           cacheHandler
+	pods            *PodCache
+	metrics         model.Metrics
+	networksWatcher mesh.NetworksWatcher
 
-	pods *PodCache
-
-	// Env is set by server to point to the environment, to allow the controller to
-	// use env data and push status. It may be null in tests.
-	Env *model.Environment
-
-	// ClusterID identifies the remote cluster in a multicluster env.
-	ClusterID string
+	// clusterID identifies the remote cluster in a multicluster env.
+	clusterID string
 
 	// XDSUpdater will push EDS changes to the ADS model.
 	XDSUpdater model.XDSUpdater
@@ -165,10 +173,11 @@ func NewController(client kubernetes.Interface, options Options) *Controller {
 		domainSuffix:               options.DomainSuffix,
 		client:                     client,
 		queue:                      kube.NewQueue(1 * time.Second),
-		ClusterID:                  options.ClusterID,
+		clusterID:                  options.ClusterID,
 		XDSUpdater:                 options.XDSUpdater,
 		servicesMap:                make(map[host.Name]*model.Service),
 		externalNameSvcInstanceMap: make(map[host.Name][]*model.ServiceInstance),
+		networksWatcher:            options.NetworksWatcher,
 	}
 
 	sharedInformers := informers.NewSharedInformerFactoryWithOptions(client, options.ResyncPeriod, informers.WithNamespace(options.WatchedNamespace))
@@ -188,9 +197,17 @@ func NewController(client kubernetes.Interface, options Options) *Controller {
 	return out
 }
 
+func (c *Controller) Provider() serviceregistry.ProviderID {
+	return serviceregistry.Kubernetes
+}
+
+func (c *Controller) Cluster() string {
+	return c.clusterID
+}
+
 // notify is the first handler in the handler chain.
 // Returning an error causes repeated execution of the entire chain.
-func (c *Controller) notify(obj interface{}, event model.Event) error {
+func (c *Controller) notify(_, _ interface{}, _ model.Event) error {
 	if !c.HasSynced() {
 		return errors.New("waiting till full synchronization")
 	}
@@ -211,19 +228,19 @@ func (c *Controller) createCacheHandler(informer cache.SharedIndexInformer, otyp
 			// TODO: filtering functions to skip over un-referenced resources (perf)
 			AddFunc: func(obj interface{}) {
 				incrementEvent(otype, "add")
-				c.queue.Push(kube.Task{Handler: handler.Apply, Obj: obj, Event: model.EventAdd})
+				c.queue.Push(kube.NewTask(handler.Apply, nil, obj, model.EventAdd))
 			},
 			UpdateFunc: func(old, cur interface{}) {
 				if !reflect.DeepEqual(old, cur) {
 					incrementEvent(otype, "update")
-					c.queue.Push(kube.Task{Handler: handler.Apply, Obj: cur, Event: model.EventUpdate})
+					c.queue.Push(kube.NewTask(handler.Apply, old, cur, model.EventUpdate))
 				} else {
 					incrementEvent(otype, "updatesame")
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
 				incrementEvent(otype, "delete")
-				c.queue.Push(kube.Task{Handler: handler.Apply, Obj: obj, Event: model.EventDelete})
+				c.queue.Push(kube.NewTask(handler.Apply, nil, obj, model.EventDelete))
 			},
 		})
 
@@ -255,7 +272,7 @@ func (c *Controller) createEDSCacheHandler(informer cache.SharedIndexInformer, o
 			// TODO: filtering functions to skip over un-referenced resources (perf)
 			AddFunc: func(obj interface{}) {
 				incrementEvent(otype, "add")
-				c.queue.Push(kube.Task{Handler: handler.Apply, Obj: obj, Event: model.EventAdd})
+				c.queue.Push(kube.NewTask(handler.Apply, nil, obj, model.EventAdd))
 			},
 			UpdateFunc: func(old, cur interface{}) {
 				// Avoid pushes if only resource version changed (kube-scheduller, cluster-autoscaller, etc)
@@ -264,7 +281,7 @@ func (c *Controller) createEDSCacheHandler(informer cache.SharedIndexInformer, o
 
 				if !compareEndpoints(oldE, curE) {
 					incrementEvent(otype, "update")
-					c.queue.Push(kube.Task{Handler: handler.Apply, Obj: cur, Event: model.EventUpdate})
+					c.queue.Push(kube.NewTask(handler.Apply, old, cur, model.EventUpdate))
 				} else {
 					incrementEvent(otype, "updatesame")
 				}
@@ -275,7 +292,7 @@ func (c *Controller) createEDSCacheHandler(informer cache.SharedIndexInformer, o
 				// deleting the service should delete the resources. The full sync replaces the
 				// maps.
 				// c.updateEDS(obj.(*v1.Endpoints))
-				c.queue.Push(kube.Task{Handler: handler.Apply, Obj: obj, Event: model.EventDelete})
+				c.queue.Push(kube.NewTask(handler.Apply, nil, obj, model.EventDelete))
 			},
 		})
 
@@ -295,6 +312,11 @@ func (c *Controller) HasSynced() bool {
 
 // Run all controllers until a signal is received
 func (c *Controller) Run(stop <-chan struct{}) {
+	if c.networksWatcher != nil {
+		c.networksWatcher.AddNetworksHandler(c.initNetworkLookup)
+		c.initNetworkLookup()
+	}
+
 	go func() {
 		cache.WaitForCacheSync(stop, c.HasSynced)
 		c.queue.Run(stop)
@@ -358,12 +380,13 @@ func (c *Controller) GetPodLocality(pod *v1.Pod) string {
 
 	region := getLabelValue(node.(*v1.Node), NodeRegionLabel, NodeRegionLabelGA)
 	zone := getLabelValue(node.(*v1.Node), NodeZoneLabel, NodeZoneLabelGA)
+	subzone := getLabelValue(node.(*v1.Node), IstioSubzoneLabel, "")
 
-	if region == "" && zone == "" {
+	if region == "" && zone == "" && subzone == "" {
 		return ""
 	}
 
-	return fmt.Sprintf("%v/%v", region, zone)
+	return fmt.Sprintf("%s/%s/%s", region, zone, subzone)
 }
 
 // ManagementPorts implements a service catalog operation
@@ -469,7 +492,6 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 		return nil, nil
 	}
 
-	mixerEnabled := c.Env != nil && c.Env.Mesh != nil && (c.Env.Mesh.MixerCheckServer != "" || c.Env.Mesh.MixerReportServer != "")
 	// Locate all ports in the actual service
 	svcPortEntry, exists := svc.Ports.GetByPort(reqSvcPort)
 	if !exists {
@@ -493,9 +515,7 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 			if pod != nil {
 				az = c.GetPodLocality(pod)
 				sa = kube.SecureNamingSAN(pod)
-				if mixerEnabled {
-					uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
-				}
+				uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
 			}
 			tlsMode := kube.PodTLSMode(pod)
 
@@ -587,14 +607,10 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 	}
 
 	if len(out) == 0 {
-		if c.Env != nil {
-			c.Env.PushContext.Add(model.ProxyStatusNoService, proxy.ID, proxy, "")
-			status := c.Env.PushContext
-			if status == nil {
-				log.Infof("Empty list of services for pod %s %v", proxy.ID, c.Env)
-			}
+		if c.metrics != nil {
+			c.metrics.AddMetric(model.ProxyStatusNoService, proxy.ID, proxy, "")
 		} else {
-			log.Infof("Missing env, empty list of services for pod %s", proxy.ID)
+			log.Infof("Missing metrics env, empty list of services for pod %s", proxy.ID)
 		}
 	}
 	return out, nil
@@ -608,8 +624,8 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 		return nil, fmt.Errorf("no workload labels found")
 	}
 
-	if proxy.Metadata.ClusterID != c.ClusterID {
-		return nil, fmt.Errorf("proxy is in cluster %v, but controller is for cluster %v", proxy.Metadata.ClusterID, c.ClusterID)
+	if proxy.Metadata.ClusterID != c.clusterID {
+		return nil, fmt.Errorf("proxy is in cluster %v, but controller is for cluster %v", proxy.Metadata.ClusterID, c.clusterID)
 	}
 
 	// Create a pod with just the information needed to find the associated Services
@@ -715,8 +731,8 @@ func (c *Controller) getProxyServiceInstancesByEndpoint(endpoints v1.Endpoints, 
 
 					if hasProxyIP(ss.NotReadyAddresses, ip) {
 						out = append(out, c.getEndpoints(podIP, ip, port.Port, svcPort, svc))
-						if c.Env != nil {
-							c.Env.PushContext.Add(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
+						if c.metrics != nil {
+							c.metrics.AddMetric(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
 						}
 					}
 				}
@@ -836,24 +852,24 @@ func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []
 
 // AppendServiceHandler implements a service catalog operation
 func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) error {
-	c.services.handler.Append(func(obj interface{}, event model.Event) error {
-		svc, ok := obj.(*v1.Service)
+	c.services.handler.Append(func(old, curr interface{}, event model.Event) error {
+		svc, ok := curr.(*v1.Service)
 		if !ok {
-			tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+			tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
 			if !ok {
-				log.Errorf("Couldn't get object from tombstone %#v", obj)
+				log.Errorf("Couldn't get object from tombstone %#v", curr)
 				return nil
 			}
 			svc, ok = tombstone.Obj.(*v1.Service)
 			if !ok {
-				log.Errorf("Tombstone contained object that is not a service %#v", obj)
+				log.Errorf("Tombstone contained object that is not a service %#v", curr)
 				return nil
 			}
 		}
 
 		log.Debugf("Handle event %s for service %s in namespace %s", event, svc.Name, svc.Namespace)
 
-		svcConv := kube.ConvertService(*svc, c.domainSuffix, c.ClusterID)
+		svcConv := kube.ConvertService(*svc, c.domainSuffix, c.clusterID)
 		switch event {
 		case model.EventDelete:
 			c.Lock()
@@ -861,7 +877,7 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 			delete(c.externalNameSvcInstanceMap, svcConv.Hostname)
 			c.Unlock()
 			// EDS needs to just know when service is deleted.
-			c.XDSUpdater.SvcUpdate(c.ClusterID, svc.Name, svc.Namespace, event)
+			c.XDSUpdater.SvcUpdate(c.clusterID, svc.Name, svc.Namespace, event)
 		default:
 			// instance conversion is only required when service is added/updated.
 			instances := kube.ExternalNameServiceInstances(*svc, svcConv)
@@ -873,7 +889,7 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 				c.externalNameSvcInstanceMap[svcConv.Hostname] = instances
 			}
 			c.Unlock()
-			c.XDSUpdater.SvcUpdate(c.ClusterID, svc.Name, svc.Namespace, event)
+			c.XDSUpdater.SvcUpdate(c.clusterID, svc.Name, svc.Namespace, event)
 		}
 
 		f(svcConv, event)
@@ -884,21 +900,21 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 }
 
 // AppendInstanceHandler implements a service catalog operation
-func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
+func (c *Controller) AppendInstanceHandler(_ func(*model.ServiceInstance, model.Event)) error {
 	if c.endpoints.handler == nil {
 		return nil
 	}
-	c.endpoints.handler.Append(func(obj interface{}, event model.Event) error {
-		ep, ok := obj.(*v1.Endpoints)
+	c.endpoints.handler.Append(func(old, curr interface{}, event model.Event) error {
+		ep, ok := curr.(*v1.Endpoints)
 		if !ok {
-			tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+			tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
 			if !ok {
-				log.Errorf("Couldn't get object from tombstone %#v", obj)
+				log.Errorf("Couldn't get object from tombstone %#v", curr)
 				return nil
 			}
 			ep, ok = tombstone.Obj.(*v1.Endpoints)
 			if !ok {
-				log.Errorf("Tombstone contained an object that is not an endpoint %#v", obj)
+				log.Errorf("Tombstone contained an object that is not an endpoint %#v", curr)
 				return nil
 			}
 		}
@@ -932,7 +948,6 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 
 func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 	hostname := kube.ServiceHostname(ep.Name, ep.Namespace, c.domainSuffix)
-	mixerEnabled := c.Env != nil && c.Env.Mesh != nil && (c.Env.Mesh.MixerCheckServer != "" || c.Env.Mesh.MixerReportServer != "")
 
 	endpoints := make([]*model.IstioEndpoint, 0)
 	if event != model.EventDelete {
@@ -948,23 +963,21 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 							// If pod is still not availalable, this an unuusual case.
 							endpointsWithNoPods.Increment()
 							log.Errorf("Endpoint without pod %s %s.%s", ea.IP, ep.Name, ep.Namespace)
-							if c.Env != nil {
-								c.Env.PushContext.Add(model.EndpointNoPod, string(hostname), nil, ea.IP)
+							if c.metrics != nil {
+								c.metrics.AddMetric(model.EndpointNoPod, string(hostname), nil, ea.IP)
 							}
 							continue
 						}
 					}
 				}
 
-				var labels map[string]string
+				var labelMap map[string]string
 				locality, sa, uid := "", "", ""
 				if pod != nil {
 					locality = c.GetPodLocality(pod)
 					sa = kube.SecureNamingSAN(pod)
-					if mixerEnabled {
-						uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
-					}
-					labels = map[string]string(configKube.ConvertLabels(pod.ObjectMeta))
+					uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
+					labelMap = configKube.ConvertLabels(pod.ObjectMeta)
 				}
 
 				tlsMode := kube.PodTLSMode(pod)
@@ -976,7 +989,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 						Address:         ea.IP,
 						EndpointPort:    uint32(port.Port),
 						ServicePortName: port.Name,
-						Labels:          labels,
+						Labels:          labelMap,
 						UID:             uid,
 						ServiceAccount:  sa,
 						Network:         c.endpointNetwork(ea.IP),
@@ -997,7 +1010,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 		log.Infof("Handle EDS endpoint %s in namespace %s -> %v", ep.Name, ep.Namespace, addresses)
 	}
 
-	_ = c.XDSUpdater.EDSUpdate(c.ClusterID, string(hostname), ep.Namespace, endpoints)
+	_ = c.XDSUpdater.EDSUpdate(c.clusterID, string(hostname), ep.Namespace, endpoints)
 }
 
 // namedRangerEntry for holding network's CIDR and name
@@ -1011,9 +1024,10 @@ func (n namedRangerEntry) Network() net.IPNet {
 	return n.network
 }
 
-// InitNetworkLookup will read the mesh networks configuration from the environment
+// initNetworkLookup will read the mesh networks configuration from the environment
 // and initialize CIDR rangers for an efficient network lookup when needed
-func (c *Controller) InitNetworkLookup(meshNetworks *meshconfig.MeshNetworks) {
+func (c *Controller) initNetworkLookup() {
+	meshNetworks := c.networksWatcher.Networks()
 	if meshNetworks == nil || len(meshNetworks.Networks) == 0 {
 		return
 	}
@@ -1034,7 +1048,7 @@ func (c *Controller) InitNetworkLookup(meshNetworks *meshconfig.MeshNetworks) {
 				}
 				_ = c.ranger.Insert(rangerEntry)
 			}
-			if ep.GetFromRegistry() != "" && ep.GetFromRegistry() == c.ClusterID {
+			if ep.GetFromRegistry() != "" && ep.GetFromRegistry() == c.clusterID {
 				c.networkForRegistry = n
 			}
 		}

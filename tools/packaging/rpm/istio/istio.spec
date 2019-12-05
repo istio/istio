@@ -38,9 +38,8 @@ Source0:        istio.tar.gz
 #Source2:        buildinfo
 Source3:        istio-start.sh
 Source4:        istio-node-agent-start.sh
-Source5:        istio-iptables.sh
-Source6:        istio.service
-Source7:        istio-auth-node-agent.service
+Source5:        istio.service
+Source6:        istio-auth-node-agent.service
 
 # e.g. el6 has ppc64 arch without gcc-go, so EA tag is required
 ExclusiveArch:  %{?go_arches:%{go_arches}}%{!?go_arches:%{ix86} x86_64 aarch64 %{arm}}
@@ -218,7 +217,7 @@ cd ISTIO
 export GOPATH=$(pwd)
 
 pushd src/istio.io/istio
-make pilot-discovery pilot-agent istioctl sidecar-injector mixc mixs citadel galley node_agent
+make pilot-discovery pilot-agent istioctl sidecar-injector mixc mixs security galley node_agent istio-iptables istio-clean-iptables
 
 %if 0%{?with_test_binaries}
 make test-bins
@@ -233,12 +232,11 @@ install -d -m755 $RPM_BUILD_ROOT/%{_unitdir}
 
 install -m755 %{SOURCE3} $RPM_BUILD_ROOT/%{_bindir}/istio-start.sh
 install -m755 %{SOURCE4} $RPM_BUILD_ROOT/%{_bindir}/istio-node-agent-start.sh
-install -m755 %{SOURCE5} $RPM_BUILD_ROOT/%{_bindir}/istio-iptables.sh
 
-install -m644 %{SOURCE6} $RPM_BUILD_ROOT/%{_unitdir}/istio.service
-install -m644 %{SOURCE7} $RPM_BUILD_ROOT/%{_unitdir}/istio-auth-node-agent.service
+install -m644 %{SOURCE5} $RPM_BUILD_ROOT/%{_unitdir}/istio.service
+install -m644 %{SOURCE6} $RPM_BUILD_ROOT/%{_unitdir}/istio-auth-node-agent.service
 
-binaries=(pilot-discovery pilot-agent istioctl sidecar-injector mixs mixc istio_ca galley node_agent)
+binaries=(pilot-discovery pilot-agent istioctl sidecar-injector mixs mixc istio_ca galley node_agent istio-iptables istio-clean-iptables)
 pushd .
 cd ISTIO/out/linux_amd64/release
 %if 0%{?with_debug}
@@ -264,8 +262,7 @@ cp -pav ISTIO/out/linux_amd64/release/{pilot-test-server,pilot-test-client,pilot
 cd ISTIO
 export GOPATH=$(pwd):%{gopath}
 pushd src/istio.io/istio
-make localTestEnv test
-make localTestEnvCleanup
+make test
 popd
 
 %endif
@@ -316,7 +313,8 @@ ln -s -T /var/lib/istio /etc/istio 2> /dev/null || :
 %files pilot-agent
 %attr(2755,root,root) %{_bindir}/pilot-agent
 %attr(0755,root,root) %{_bindir}/istio-start.sh
-%attr(0755,root,root) %{_bindir}/istio-iptables.sh
+%attr(0755,root,root) %{_bindir}/istio-iptables
+%attr(0755,root,root) %{_bindir}/istio-clean-iptables
 %attr(0644,root,root) %{_unitdir}/istio.service
 
 %files istioctl
@@ -350,5 +348,7 @@ ln -s -T /var/lib/istio /etc/istio 2> /dev/null || :
 %endif
 
 %changelog
+* Tue Nov 19 2019 Idan Zach <zachidan@gmail.com>
+- Upgrade istio version
 * Thu Feb 7 2019 Jonh Wendell <jonh.wendell@redhat.com> - 1.1.0-1
 - First package

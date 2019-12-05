@@ -29,14 +29,14 @@ var (
 )
 
 func init() {
-	envoyBaseUrl := "https://storage.googleapis.com/istio-build/proxy"
+	envoyBaseURL := "https://storage.googleapis.com/istio-build/proxy"
 	if override, f := os.LookupEnv("ISTIO_ENVOY_BASE_URL"); f {
-		envoyBaseUrl = override
+		envoyBaseURL = override
 	}
 	for _, dep := range deps.Istio {
 		if dep.Name == "PROXY_REPO_SHA" {
 			LatestStableSHA = dep.LastStableSHA
-			LinuxReleaseURL = fmt.Sprintf("%s/envoy-alpha-%s.tar.gz", envoyBaseUrl, LatestStableSHA)
+			LinuxReleaseURL = fmt.Sprintf("%s/envoy-alpha-%s.tar.gz", envoyBaseURL, LatestStableSHA)
 			return
 		}
 	}

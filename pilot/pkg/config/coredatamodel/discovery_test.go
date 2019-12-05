@@ -22,8 +22,8 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/onsi/gomega"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/config/coredatamodel"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/host"
@@ -547,6 +547,7 @@ func buildProxy(proxyIP, ns string) *model.Proxy {
 	}
 }
 
+// nolint: interfacer
 func buildConfig(se *networking.ServiceEntry, name, ns string) model.Config {
 	return model.Config{
 		ConfigMeta: model.ConfigMeta{
@@ -573,11 +574,6 @@ func initDiscovery() {
 	options := &coredatamodel.DiscoveryOptions{
 		ClusterID:    "test",
 		DomainSuffix: "cluster.local",
-		Env: &model.Environment{
-			Mesh: &meshconfig.MeshConfig{
-				MixerCheckServer: "mixer",
-			},
-		},
 	}
 	d = coredatamodel.NewMCPDiscovery(controller, options)
 }

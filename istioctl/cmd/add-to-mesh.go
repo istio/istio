@@ -27,6 +27,7 @@ import (
 
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/kube"
 
@@ -36,7 +37,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/istioctl/pkg/util/handlers"
-	istiocmd "istio.io/istio/pilot/cmd"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/pkg/log"
 
@@ -182,7 +182,7 @@ func setupParameters(sidecarTemplate, valuesConfig *string) (*meshconfig.MeshCon
 	var meshConfig *meshconfig.MeshConfig
 	var err error
 	if meshConfigFile != "" {
-		if meshConfig, err = istiocmd.ReadMeshConfig(meshConfigFile); err != nil {
+		if meshConfig, err = mesh.ReadMeshConfig(meshConfigFile); err != nil {
 			return nil, err
 		}
 	} else {

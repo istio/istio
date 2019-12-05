@@ -66,10 +66,10 @@ func NewAnalyzer(envoyConfig *configdump.Wrapper) (*Analyzer, error) {
 
 func (a *Analyzer) getParsedListeners() []*ParsedListener {
 	ret := make([]*ParsedListener, 0)
-	for _, listener := range a.listenerDump.DynamicActiveListeners {
-		ip := listener.Listener.Address.GetSocketAddress().Address
+	for _, listener := range a.listenerDump.DynamicListeners {
+		ip := listener.ActiveState.Listener.Address.GetSocketAddress().Address
 		if ip == a.nodeIP || ip == "0.0.0.0" {
-			if ld := ParseListener(listener.Listener); ld != nil {
+			if ld := ParseListener(listener.ActiveState.Listener); ld != nil {
 				ret = append(ret, ld)
 			}
 		}
@@ -92,6 +92,6 @@ func (a *Analyzer) getParsedListeners() []*ParsedListener {
 func (a *Analyzer) Print(writer io.Writer, printAll bool) {
 	parsedListeners := a.getParsedListeners()
 	_, _ = fmt.Fprintf(writer, "Checked %d/%d listeners with node IP %s.\n",
-		len(parsedListeners), len(a.listenerDump.DynamicActiveListeners), a.nodeIP)
+		len(parsedListeners), len(a.listenerDump.DynamicListeners), a.nodeIP)
 	PrintParsedListeners(writer, parsedListeners, printAll)
 }

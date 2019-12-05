@@ -30,6 +30,8 @@ import (
 	mcpapi "istio.io/api/mcp/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networkingapi "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
+
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/coredatamodel"
 	"istio.io/istio/pilot/pkg/config/kube/crd/controller"
@@ -37,14 +39,12 @@ import (
 	"istio.io/istio/pilot/pkg/config/memory"
 	configmonitor "istio.io/istio/pilot/pkg/config/monitor"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schemas"
 	configz "istio.io/istio/pkg/mcp/configz/client"
 	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/mcp/monitoring"
 	"istio.io/istio/pkg/mcp/sink"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -57,7 +57,8 @@ const (
 
 // initConfigController creates the config controller in the pilotConfig.
 func (s *Server) initConfigController(args *PilotArgs) error {
-	if len(s.mesh.ConfigSources) > 0 {
+	meshConfig := s.environment.Mesh()
+	if len(meshConfig.ConfigSources) > 0 {
 		if err := s.initMCPConfigController(args); err != nil {
 			return err
 		}
@@ -81,11 +82,11 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	}
 
 	// If running in ingress mode (requires k8s), wrap the config controller.
-	if hasKubeRegistry(args.Service.Registries) && s.mesh.IngressControllerMode != meshconfig.MeshConfig_OFF {
+	if hasKubeRegistry(args.Service.Registries) && meshConfig.IngressControllerMode != meshconfig.MeshConfig_OFF {
 		// Wrap the config controller with a cache.
 		configController, err := configaggregate.MakeCache([]model.ConfigStoreCache{
 			s.configController,
-			ingress.NewController(s.kubeClient, s.mesh, args.Config.ControllerOptions),
+			ingress.NewController(s.kubeClient, meshConfig, args.Config.ControllerOptions),
 		})
 		if err != nil {
 			return err
@@ -94,7 +95,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 		// Update the config controller
 		s.configController = configController
 
-		if ingressSyncer, errSyncer := ingress.NewStatusSyncer(s.mesh, s.kubeClient,
+		if ingressSyncer, errSyncer := ingress.NewStatusSyncer(meshConfig, s.kubeClient,
 			args.Namespace, args.Config.ControllerOptions); errSyncer != nil {
 			log.Warnf("Disabled ingress status syncer due to %v", errSyncer)
 		} else {
@@ -106,7 +107,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	}
 
 	// Create the config store.
-	s.istioConfigStore = model.MakeIstioStore(s.configController)
+	s.environment.IstioConfigStore = model.MakeIstioStore(s.configController)
 
 	// Defer starting the controller until after the service is created.
 	s.addStartFunc(func(stop <-chan struct{}) error {
@@ -129,7 +130,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	}
 	reporter := monitoring.NewStatsContext("pilot")
 
-	for _, configSource := range s.mesh.ConfigSources {
+	for _, configSource := range s.environment.Mesh().ConfigSources {
 		if strings.Contains(configSource.Address, fsScheme+"://") {
 			srcAddress, err := url.Parse(configSource.Address)
 			if err != nil {
@@ -161,13 +162,10 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			return err
 		}
 		conns = append(conns, conn)
-		s.mcpController(args, conn, reporter, &clients, &configStores)
+		s.mcpController(conn, reporter, &clients, &configStores)
 
 		// create MCP SyntheticServiceEntryController
 		if resourceContains(configSource.SubscribedResources, meshconfig.Resource_SERVICE_REGISTRY) {
-
-			//TODO(Nino-K): https://github.com/istio/istio/issues/16976
-			args.Service.Registries = []string{string(serviceregistry.MCPRegistry)}
 			conn, err := grpcDial(ctx, cancel, configSource, args)
 			if err != nil {
 				log.Errorf("Unable to dial MCP Server %q: %v", configSource.Address, err)
@@ -289,7 +287,7 @@ func mcpSecurityOptions(ctx context.Context, cancel context.CancelFunc, configSo
 	return securityOption, nil
 }
 
-func (s *Server) mcpController(args *PilotArgs,
+func (s *Server) mcpController(
 	conn *grpc.ClientConn,
 	reporter monitoring.Reporter,
 	clients *[]*sink.Client,
@@ -328,11 +326,11 @@ func (s *Server) sseMCPController(args *PilotArgs,
 	s.incrementalMcpOptions = &coredatamodel.Options{
 		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
 	}
-	controller := coredatamodel.NewSyntheticServiceEntryController(s.incrementalMcpOptions)
+	ctl := coredatamodel.NewSyntheticServiceEntryController(s.incrementalMcpOptions)
 	s.discoveryOptions = &coredatamodel.DiscoveryOptions{
 		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
 	}
-	s.mcpDiscovery = coredatamodel.NewMCPDiscovery(controller, s.discoveryOptions)
+	s.mcpDiscovery = coredatamodel.NewMCPDiscovery(ctl, s.discoveryOptions)
 	incrementalSinkOptions := &sink.Options{
 		CollectionOptions: []sink.CollectionOptions{
 			{
@@ -340,7 +338,7 @@ func (s *Server) sseMCPController(args *PilotArgs,
 				Incremental: true,
 			},
 		},
-		Updater:  controller,
+		Updater:  ctl,
 		ID:       clientNodeID,
 		Reporter: reporter,
 	}
@@ -348,7 +346,7 @@ func (s *Server) sseMCPController(args *PilotArgs,
 	incMcpClient := sink.NewClient(incSrcClient, incrementalSinkOptions)
 	configz.Register(incMcpClient)
 	*clients = append(*clients, incMcpClient)
-	*configStores = append(*configStores, controller)
+	*configStores = append(*configStores, ctl)
 }
 
 func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCache, error) {

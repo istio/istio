@@ -31,6 +31,7 @@ func All() []analysis.Analyzer {
 	analyzers := []analysis.Analyzer{
 		// Please keep this list sorted alphabetically by pkg.name for convenience
 		&annotations.K8sAnalyzer{},
+		&auth.MTLSAnalyzer{},
 		&auth.ServiceRoleBindingAnalyzer{},
 		&auth.ServiceRoleServicesAnalyzer{},
 		&deprecation.FieldAnalyzer{},

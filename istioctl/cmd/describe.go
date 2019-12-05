@@ -726,9 +726,12 @@ func getInboundHTTPConnectionManager(cd *configdump.Wrapper, port int32) (*http_
 		return nil, err
 	}
 
-	for _, listener := range listeners.DynamicActiveListeners {
-		if filter.Verify(listener.Listener) {
-			sockAddr := listener.Listener.Address.GetSocketAddress()
+	for _, listener := range listeners.DynamicListeners {
+		if listener.ActiveState == nil {
+			continue
+		}
+		if filter.Verify(listener.ActiveState.Listener) {
+			sockAddr := listener.ActiveState.Listener.Address.GetSocketAddress()
 			if sockAddr != nil {
 				// Skip outbound listeners
 				if sockAddr.Address == "0.0.0.0" {
@@ -736,7 +739,7 @@ func getInboundHTTPConnectionManager(cd *configdump.Wrapper, port int32) (*http_
 				}
 			}
 
-			for _, filterChain := range listener.Listener.FilterChains {
+			for _, filterChain := range listener.ActiveState.Listener.FilterChains {
 				for _, filter := range filterChain.Filters {
 					hcm := &http_conn.HttpConnectionManager{}
 					if err := ptypes.UnmarshalAny(filter.GetTypedConfig(), hcm); err == nil {
@@ -823,6 +826,7 @@ func routeDestinationMatchesSvc(route *envoy_api_route.Route, svc v1.Service, vh
 
 	// If Istio was deployed with telemetry or policy we'll have the K8s Service
 	// nicely connected to the Envoy Route.
+	// nolint: staticcheck
 	if mixerConfigMatches(svc.ObjectMeta.Namespace, svc.ObjectMeta.Name,
 		route.GetPerFilterConfig()["mixer"], route.GetTypedPerFilterConfig()["mixer"]) {
 		return true
@@ -831,6 +835,7 @@ func routeDestinationMatchesSvc(route *envoy_api_route.Route, svc v1.Service, vh
 	if rte := route.GetRoute(); rte != nil {
 		if weightedClusters := rte.GetWeightedClusters(); weightedClusters != nil {
 			for _, weightedCluster := range weightedClusters.Clusters {
+				// nolint: staticcheck
 				if mixerConfigMatches(svc.ObjectMeta.Namespace, svc.ObjectMeta.Name,
 					weightedCluster.GetPerFilterConfig()["mixer"], weightedCluster.GetTypedPerFilterConfig()["mixer"]) {
 					return true
@@ -1069,11 +1074,15 @@ func getIstioVirtualServicePathForSvcFromListener(cd *configdump.Wrapper, svc v1
 	}
 
 	// VirtualServices for TCP may appear in the listeners
-	for _, listener := range listeners.DynamicActiveListeners {
-		if filter.Verify(listener.Listener) {
-			for _, filterChain := range listener.Listener.FilterChains {
+	for _, listener := range listeners.DynamicListeners {
+		if listener.ActiveState == nil {
+			continue
+		}
+		if filter.Verify(listener.ActiveState.Listener) {
+			for _, filterChain := range listener.ActiveState.Listener.FilterChains {
 				for _, filter := range filterChain.Filters {
 					if filter.Name == "mixer" {
+						// nolint: staticcheck
 						svcName, svcNamespace, err := getMixerDestinationSvc(filter.GetConfig())
 						if err == nil && svcName == svc.ObjectMeta.Name && svcNamespace == svc.ObjectMeta.Namespace {
 							return getIstioConfig(filterChain.Metadata)

@@ -21,6 +21,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: istio-egressgateway
+  namespace: istio-system
 spec:
   selector:
     istio: egressgateway

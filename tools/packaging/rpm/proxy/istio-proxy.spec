@@ -13,6 +13,8 @@
 %global _prefix /usr/local
 %global envoy_libdir /var/lib/istio/envoy
 
+%global debug_package   %{nil}
+
 Name:           istio-proxy
 Version:        %{package_version}
 Release:        %{package_release}%{?dist}
@@ -49,7 +51,7 @@ istio-proxy is the proxy required by the Istio Pilot Agent that talks to Istio p
 %build
 export CC=clang
 export CXX=clang++
-bazel --output_base=/builder/bazel_cache --output_user_root=/builder/bazel_cache/root  build //...
+bazel --output_base=/builder/bazel_cache --output_user_root=/builder/bazel_cache/root  build --config=release //...
 bazel shutdown
 
 %install
@@ -67,5 +69,7 @@ install -m644 %{SOURCE2} $RPM_BUILD_ROOT%{envoy_libdir}/envoy_bootstrap_tmpl.jso
 %attr(0644,root,root) %{envoy_libdir}/envoy_bootstrap_tmpl.json
 
 %changelog
+* Tue Nov 19 2019 Idan Zach <zachidan@gmail.com>
+- Upgrade envoy version
 * Fri Feb 15 2019 Jonh Wendell <jonh.wendell@redhat.com>
-  First release
+- First release

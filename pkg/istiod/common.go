@@ -23,21 +23,24 @@ import (
 	"os"
 	"strconv"
 
+	"istio.io/pkg/ctrlz"
+	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 
 	"google.golang.org/grpc"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/galley/pkg/server"
+	galleyServer "istio.io/istio/galley/pkg/server"
 	"istio.io/istio/galley/pkg/server/settings"
 	"istio.io/istio/pilot/pkg/model"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
-	"istio.io/pkg/ctrlz"
-	"istio.io/pkg/filewatcher"
+)
+
+const (
+	baseDir = "." // TODO: env ISTIO_HOME or HOME ?
 )
 
 // Server contains the runtime configuration for Istiod.
@@ -47,13 +50,7 @@ type Server struct {
 	SecureGRPCListeningAddr net.Addr
 	MonitorListeningAddr    net.Addr
 
-	EnvoyXdsServer    *envoyv2.DiscoveryServer
-	ServiceController *aggregate.Controller
-
-	// Mesh config - loaded and watched. Updated by watcher.
-	Mesh *meshconfig.MeshConfig
-
-	MeshNetworks *meshconfig.MeshNetworks
+	EnvoyXdsServer *envoyv2.DiscoveryServer
 
 	ConfigStores []model.ConfigStoreCache
 
@@ -61,24 +58,19 @@ type Server struct {
 	// start from the configStores
 	ConfigController model.ConfigStoreCache
 
-	// Interface abstracting all config operations, including the high-level objects
-	// and the low-level untyped model.ConfigStore
-	IstioConfigStore model.IstioConfigStore
-
 	startFuncs       []startFunc
 	httpServer       *http.Server
 	GrpcServer       *grpc.Server
 	SecureHTTPServer *http.Server
 	SecureGRPCServer *grpc.Server
 
-	mux         *http.ServeMux
-	fileWatcher filewatcher.FileWatcher
-	Args        *PilotArgs
+	mux  *http.ServeMux
+	Args *PilotArgs
 
 	CertKey      []byte
 	CertChain    []byte
 	RootCA       []byte
-	Galley       *server.Server
+	Galley       *galleyServer.Server
 	grpcListener net.Listener
 	httpListener net.Listener
 	Environment  *model.Environment
@@ -98,10 +90,24 @@ var (
 	GalleyOverride = "./var/lib/istio/galley/galley.json"
 )
 
+func newServer(args *PilotArgs, configDir string) *Server {
+	meshCfgFile := baseDir + configDir + "/mesh"
+	fileWatcher := filewatcher.NewWatcher()
+
+	return &Server{
+		Args: args,
+		Environment: &model.Environment{
+			Watcher:          newMeshWatcher(args, fileWatcher, meshCfgFile),
+			NetworksWatcher:  newNetworksWatcher(args, fileWatcher),
+			ServiceDiscovery: aggregate.NewController(),
+			PushContext:      model.NewPushContext(),
+		},
+	}
+}
+
 // InitCommon starts the common services - metrics. Ctrlz is currently started by Galley, will need
 // to be refactored and moved here.
 func (s *Server) InitCommon(args *PilotArgs) {
-
 	_, addr, err := startMonitor(args.DiscoveryOptions.MonitoringAddr, s.mux)
 	if err != nil {
 		return
@@ -119,8 +125,6 @@ func (s *Server) InitCommon(args *PilotArgs) {
 // - grpc on 15010
 //- config from $ISTIO_CONFIG or ./conf
 func NewIstiod(kconfig *rest.Config, kclient *kubernetes.Clientset, confDir string) (*Server, error) {
-	baseDir := "." // TODO: env ISTIO_HOME or HOME ?
-
 	// TODO: 15006 can't be configured currently
 	// TODO: 15090 (prometheus) can't be configured. It's in the bootstrap file, so easy to replace
 
@@ -150,17 +154,9 @@ func NewIstiod(kconfig *rest.Config, kclient *kubernetes.Clientset, confDir stri
 		args.Config.ClusterRegistriesNamespace = args.Namespace
 	}
 
-	server := &Server{
-		Args: args,
-	}
+	server := newServer(args, confDir)
 
-	server.fileWatcher = filewatcher.NewWatcher()
-
-	if err := server.WatchMeshConfig(meshCfgFile); err != nil {
-		return nil, fmt.Errorf("mesh: %v", err)
-	}
-
-	pilotAddress := server.Mesh.DefaultConfig.DiscoveryAddress
+	pilotAddress := server.Environment.Mesh().DefaultConfig.DiscoveryAddress
 	_, port, _ := net.SplitHostPort(pilotAddress)
 
 	// TODO: this was added to allow some config of the base port for VMs to allow multiple instances of istiod,
@@ -221,9 +217,11 @@ func NewIstiod(kconfig *rest.Config, kclient *kubernetes.Clientset, confDir stri
 	if _, err := os.Stat(GalleyOverride); err == nil {
 		overrideGalley, err := ioutil.ReadFile(GalleyOverride)
 		if err != nil {
-			log.Fatalf("Failed to read overrides %v", err)
+			log.Fatalf("Failed to read overrides: %v", err)
 		}
-		json.Unmarshal(overrideGalley, gargs)
+		if err := json.Unmarshal(overrideGalley, gargs); err != nil {
+			log.Fatalf("Failed to unmarshal galley override: %v", err)
+		}
 	}
 
 	// The file is loaded and watched by Galley using galley/pkg/meshconfig watcher/reader
@@ -239,7 +237,7 @@ func NewIstiod(kconfig *rest.Config, kclient *kubernetes.Clientset, confDir stri
 	// TODO: when the mesh.yaml is reloaded, replace the file watched by Galley as well.
 	if _, err := os.Stat(meshCfgFile); err != nil {
 		// Galley requires this file to exist. Create it in a writeable directory, override.
-		meshBytes, err := json.Marshal(server.Mesh)
+		meshBytes, err := json.Marshal(server.Environment.Mesh())
 		if err != nil {
 			return nil, fmt.Errorf("failed to serialize mesh %v", err)
 		}
