@@ -39,7 +39,6 @@ linters:
     - funlen
     - gochecknoglobals
     - gochecknoinits
-    - gocognit
     - goconst
     - gocyclo
     - godox
@@ -48,7 +47,6 @@ linters:
     - prealloc
     - scopelint
     - whitespace
-    - wsl
   fast: false
 
 linters-settings:
