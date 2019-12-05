@@ -5,4 +5,5 @@ metadata:
 spec:
   mode: 'ON_WITH_EXCLUSION'
   exclusion:
-    namespaces: ["ns1", "ns2"]
+    services: ["productpage.default.svc.cluster.local", "unknown.default.svc.cluster.local"]
+---
