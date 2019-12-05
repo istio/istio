@@ -173,8 +173,8 @@ func NewServer(args PilotArgs) (*Server, error) {
 	}
 
 	s := &Server{
-		basePort: args.BasePort,
-		Args:     &args,
+		basePort:       args.BasePort,
+		Args:           &args,
 		clusterID:      getClusterID(args),
 		environment:    e,
 		EnvoyXdsServer: envoyv2.NewDiscoveryServer(e, args.Plugins),
