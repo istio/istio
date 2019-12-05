@@ -31,6 +31,12 @@ import (
 	pilotutil "istio.io/istio/pilot/pkg/networking/util"
 )
 
+type testCase struct {
+	name     string
+	in       []*model.Config
+	expected *http_conn.HttpFilter
+}
+
 func TestJwtFilter(t *testing.T) {
 	ms, err := test.StartNewServer()
 	if err != nil {
@@ -39,11 +45,7 @@ func TestJwtFilter(t *testing.T) {
 
 	jwksURI := ms.URL + "/oauth2/v3/certs"
 
-	cases := []struct {
-		name     string
-		in       []*model.Config
-		expected *http_conn.HttpFilter
-	}{
+	cases := []testCase{
 		{
 			name:     "No policy",
 			in:       []*model.Config{},
@@ -492,6 +494,20 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			if got := convertToEnvoyJwtConfig(c.in); !reflect.DeepEqual(c.expected, got) {
+				t.Errorf("got:\n%s\nwanted:\n%s\n", spew.Sdump(got), spew.Sdump(c.expected))
+			}
+		})
+	}
+}
+
+func TestAuthnFilterConfig(t *testing.T) {
+	cases := []testCase{{
+		name: "abc",
+	}}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := NewPolicyApplier(c.in).AuthNFilter(model.SidecarProxy, false)
+			if !reflect.DeepEqual(c.expected, got) {
 				t.Errorf("got:\n%s\nwanted:\n%s\n", spew.Sdump(got), spew.Sdump(c.expected))
 			}
 		})
