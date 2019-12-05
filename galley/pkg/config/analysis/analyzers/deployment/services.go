@@ -30,7 +30,7 @@ type ServiceAssociationAnalyzer struct{}
 var _ analysis.Analyzer = &ServiceAssociationAnalyzer{}
 
 type PortMap map[int32]ProtocolMap
-type ProtocolMap map[core_v1.Protocol][]ServiceSpecWithName
+type ProtocolMap map[core_v1.Protocol]ServiceNames
 type ServiceNames []string
 type ServiceSpecWithName struct {
 	Name string
@@ -47,21 +47,72 @@ func (s *ServiceAssociationAnalyzer) Metadata() analysis.Metadata {
 	}
 }
 func (s *ServiceAssociationAnalyzer) Analyze(c analysis.Context) {
-	portMap := servicePortMap(c)
-
 	c.ForEach(metadata.K8SAppsV1Deployments, func(r *resource.Entry) bool {
-		s.analyzeDeployment(r, c, portMap)
+		s.analyzeDeployment(r, c)
 		return true
 	})
 }
 
+// analyzeDeployment analyzes the specific service mesh deployment
+func (s *ServiceAssociationAnalyzer) analyzeDeployment(r *resource.Entry, c analysis.Context) {
+	d := r.Item.(*apps_v1.Deployment)
+
+	// Find matching services with resulting pod from deployment
+	matchingSvcs := s.findMatchingServices(d, c)
+
+	// If there isn't any matching service, generate message: At least one service is needed.
+	if len(matchingSvcs) == 0 {
+		c.Report(metadata.K8SAppsV1Deployments, msg.NewDeploymentRequiresServiceAssociated(r, d.Name))
+		return
+	}
+
+	// Generate a port map from the matching services.
+	// It creates a structure that will allow us to detect
+	// if there are different protocols for the same port.
+	portMap := servicePortMap(matchingSvcs)
+
+	// Determining which ports use more than one protocol.
+	for port := range portMap {
+		// In case there are two protocols using same port number, generate a message
+		protMap := portMap[port]
+		if len(protMap) > 1 {
+			// Collect names from both protocols
+			svcNames := make(ServiceNames, 0)
+			for protocol := range protMap {
+				svcNames = append(svcNames, protMap[protocol]...)
+			}
+
+			// Reporting the message for the deployment, port and conflicting services.
+			c.Report(metadata.K8SAppsV1Deployments, msg.NewDeploymentAssociatedToMultipleServices(r, d.Name, port, svcNames))
+		}
+	}
+}
+
+// findMatchingServices returns an slice of Services that matches with deployment's pods.
+func (s *ServiceAssociationAnalyzer) findMatchingServices(d *apps_v1.Deployment, c analysis.Context) []ServiceSpecWithName {
+	matchingSvcs := make([]ServiceSpecWithName, 0)
+
+	c.ForEach(metadata.K8SCoreV1Services, func(r *resource.Entry) bool {
+		s := r.Item.(*core_v1.ServiceSpec)
+
+		sSelector := k8s_labels.SelectorFromSet(s.Selector)
+		pLabels := k8s_labels.Set(d.Spec.Template.Labels)
+		if sSelector.Matches(pLabels) {
+			matchingSvcs = append(matchingSvcs, ServiceSpecWithName{r.Metadata.Name.String(), s})
+		}
+
+		return true
+	})
+
+	return matchingSvcs
+}
+
 // servicePortMap build a map of ports and protocols for each Service. e.g. m[80]["TCP"] -> svcA, svcB, svcC
-func servicePortMap(c analysis.Context) PortMap {
+func servicePortMap(svcs []ServiceSpecWithName) PortMap {
 	portMap := PortMap{}
 
-	c.ForEach(metadata.K8SCoreV1Services, func(rs *resource.Entry) bool {
-		svc := rs.Item.(*core_v1.ServiceSpec)
-
+	for _, swn := range svcs {
+		svc := swn.Spec
 		for _, sPort := range svc.Ports {
 			// If it is the first occurrence of this port, create a ProtocolMap
 			if _, ok := portMap[sPort.Port]; !ok {
@@ -75,54 +126,9 @@ func servicePortMap(c analysis.Context) PortMap {
 			}
 
 			// Appending the service information for the Port/Protocol combination
-			portMap[sPort.Port][protocol] = append(portMap[sPort.Port][protocol], ServiceSpecWithName{
-				rs.Metadata.Name.String(),
-				svc,
-			})
-		}
-
-		return true
-	})
-
-	return portMap
-}
-
-// analyzeDeployment analyzes the specific deployment given the service port map
-func (s *ServiceAssociationAnalyzer) analyzeDeployment(r *resource.Entry, c analysis.Context, pm PortMap) {
-	d := r.Item.(*apps_v1.Deployment)
-	for _, cont := range d.Spec.Template.Spec.Containers {
-		for _, portSt := range cont.Ports {
-			port := portSt.ContainerPort
-
-			// Collect Service names for each protocol
-			protSvcs := map[core_v1.Protocol]ServiceNames{}
-			for protocol := range pm[port] {
-				for _, svc := range pm[port][protocol] {
-					sSelector := k8s_labels.SelectorFromSet(svc.Spec.Selector)
-					dLabels := k8s_labels.Set(d.Labels)
-
-					if sSelector.Matches(dLabels) {
-						protSvcs[protocol] = append(protSvcs[protocol], svc.Name)
-					}
-				}
-			}
-
-			if len(protSvcs) == 0 {
-				// If there isn't any matching service, generate message. At least one service is needed.
-				c.Report(metadata.K8SAppsV1Deployments, msg.NewDeploymentRequiresServiceAssociated(r, d.Name))
-			} else if len(protSvcs) > 1 {
-				// If there are services for more than one protocol, generate a message.
-				// The services cannot use the same port number for different protocols.
-
-				// Collecting conflicting service names
-				svcNames := make(ServiceNames, 0)
-				for protocol := range protSvcs {
-					svcNames = append(svcNames, protSvcs[protocol]...)
-				}
-
-				// Deployment `d` at port `port` is used by the following services in different protocols: `svcNames1
-				c.Report(metadata.K8SAppsV1Deployments, msg.NewDeploymentAssociatedToMultipleServices(r, d.Name, port, svcNames))
-			}
+			portMap[sPort.Port][protocol] = append(portMap[sPort.Port][protocol], swn.Name)
 		}
 	}
+
+	return portMap
 }

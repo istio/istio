@@ -35,6 +35,7 @@ func All() []analysis.Analyzer {
 		&auth.MTLSAnalyzer{},
 		&auth.ServiceRoleBindingAnalyzer{},
 		&auth.ServiceRoleServicesAnalyzer{},
+		&deployment.ServiceAssociationAnalyzer{},
 		&deprecation.FieldAnalyzer{},
 		&gateway.IngressGatewayPortAnalyzer{},
 		&injection.Analyzer{},
@@ -45,7 +46,6 @@ func All() []analysis.Analyzer {
 		&virtualservice.DestinationHostAnalyzer{},
 		&virtualservice.DestinationRuleAnalyzer{},
 		&virtualservice.GatewayAnalyzer{},
-		&deployment.ServiceAssociationAnalyzer{},
 	}
 
 	analyzers = append(analyzers, schema.AllValidationAnalyzers()...)

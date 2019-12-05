@@ -310,6 +310,7 @@ var testGrid = []testCase{
 		analyzer:   &deployment.ServiceAssociationAnalyzer{},
 		expected: []message{
 			{msg.DeploymentAssociatedToMultipleServices, "Deployment details-v1"},
+			{msg.DeploymentAssociatedToMultipleServices, "Deployment productpage-v1"},
 			{msg.DeploymentRequiresServiceAssociated, "Deployment ratings-v1"},
 		},
 	},
