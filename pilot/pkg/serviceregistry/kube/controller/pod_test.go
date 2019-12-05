@@ -101,12 +101,6 @@ func cleanup(ki kubernetes.Interface) {
 }
 
 func TestPodCache(t *testing.T) {
-	t.Run("localApiserver", func(t *testing.T) {
-		c, fx := newLocalController(t)
-		defer c.Stop()
-		defer cleanup(c.client)
-		testPodCache(t, c, fx)
-	})
 	t.Run("fakeApiserver", func(t *testing.T) {
 		t.Parallel()
 		c, fx := newFakeController()

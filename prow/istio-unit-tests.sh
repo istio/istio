@@ -33,4 +33,4 @@ cd "${ROOT}"
 # Unit tests are run against a local apiserver and etcd.
 # Integration/e2e tests in the other scripts are run against GKE or real clusters.
 export T="-v"
-make build localTestEnv test binaries-test
+make build test binaries-test

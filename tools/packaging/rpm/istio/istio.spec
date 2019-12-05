@@ -262,8 +262,7 @@ cp -pav ISTIO/out/linux_amd64/release/{pilot-test-server,pilot-test-client,pilot
 cd ISTIO
 export GOPATH=$(pwd):%{gopath}
 pushd src/istio.io/istio
-make localTestEnv test
-make localTestEnvCleanup
+make test
 popd
 
 %endif
