@@ -699,7 +699,6 @@ func (s *Server) initDNSListener() error {
 		return err
 	}
 
-
 	return nil
 }
 
