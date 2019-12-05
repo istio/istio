@@ -47,7 +47,6 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/external"
 	"istio.io/istio/pkg/config/constants"
@@ -226,10 +225,9 @@ func (s *Server) initMonitor(args *PilotArgs) error { //nolint: unparam
 // Start starts all components of the Pilot discovery service on the port specified in DiscoveryServiceOptions.
 // If Port == 0, a port number is automatically chosen. Content serving is started by this method,
 // but is executed asynchronously. Serving can be canceled at any time by closing the provided stop channel.
-func (s *Server) Start(stop <-chan struct{}, onXDSStart func(model.XDSUpdater)) error {
-
+func (s *Server) Start(stop <-chan struct{}) error {
 	// grpc, http listeners and XDS service added to grpc
-	if err := s.initDiscoveryService(s.Args, onXDSStart); err != nil {
+	if err := s.initDiscoveryService(s.Args); err != nil {
 		return fmt.Errorf("discovery service: %v", err)
 	}
 
@@ -278,7 +276,6 @@ func (s *Server) WaitStop(stop <-chan struct{}) {
 }
 
 func (s *Server) Serve(stop <-chan struct{}) {
-
 	go func() {
 		if err := s.httpServer.Serve(s.httpListener); err != nil {
 			log.Warna(err)
@@ -483,11 +480,7 @@ func (s *Server) addConfig2ServiceEntry() {
 	s.ServiceController().AddRegistry(serviceEntryStore)
 }
 
-func (s *Server) initDiscoveryService(args *PilotArgs, onXDSStart func(model.XDSUpdater)) error {
-
-	// This is  the XDSUpdater
-	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(s.Environment, args.Plugins)
-
+func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	// When the mesh config or networks change, do a full push.
 	s.Environment.AddMeshHandler(func() {
 		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
@@ -498,10 +491,6 @@ func (s *Server) initDiscoveryService(args *PilotArgs, onXDSStart func(model.XDS
 
 	if err := s.initEventHandlers(); err != nil {
 		return err
-	}
-
-	if onXDSStart != nil {
-		onXDSStart(s.EnvoyXdsServer)
 	}
 
 	s.mux = http.NewServeMux()

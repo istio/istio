@@ -24,9 +24,10 @@ import (
 
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pkg/istiod"
 	"istio.io/istio/pkg/istiod/k8s"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -82,7 +83,7 @@ func main() {
 		log.Fatalf("Failed to init Kubernetes discovery: %v", err)
 	}
 
-	err = istiods.Start(stop, k8sServer.OnXDSStart)
+	err = istiods.Start(stop)
 	if err != nil {
 		log.Fatalf("Failed on start XDS server: %v", err)
 	}
