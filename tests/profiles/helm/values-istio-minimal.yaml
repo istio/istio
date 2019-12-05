@@ -34,6 +34,7 @@ global:
   # Telemetry namespace, including tracing.
   telemetryNamespace: istio-system
   policyNamespace: istio-system
+  controlPlaneSecurityEnabled: false
 
   proxy:
     # Sets the destination Statsd in envoy (the value of the "--statsdUdpAddress" proxy argument
