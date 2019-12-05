@@ -65,7 +65,6 @@ type Environment struct {
 	PushContext *PushContext
 }
 
-// Mesh is a utility method for retrieving the current mesh config.
 func (e *Environment) Mesh() *meshconfig.MeshConfig {
 	if e != nil && e.Watcher != nil {
 		return e.Watcher.Mesh()
@@ -73,12 +72,23 @@ func (e *Environment) Mesh() *meshconfig.MeshConfig {
 	return nil
 }
 
-// Networks is a utility method for retrieving the current mesh networks config.
+func (e *Environment) AddMeshHandler(h func()) {
+	if e != nil && e.Watcher != nil {
+		e.Watcher.AddMeshHandler(h)
+	}
+}
+
 func (e *Environment) Networks() *meshconfig.MeshNetworks {
 	if e != nil && e.NetworksWatcher != nil {
 		return e.NetworksWatcher.Networks()
 	}
 	return nil
+}
+
+func (e *Environment) AddNetworksHandler(h func()) {
+	if e != nil && e.NetworksWatcher != nil {
+		e.NetworksWatcher.AddNetworksHandler(h)
+	}
 }
 
 func (e *Environment) AddMetric(metric monitoring.Metric, key string, proxy *Proxy, msg string) {

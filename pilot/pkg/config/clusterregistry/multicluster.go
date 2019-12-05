@@ -92,9 +92,7 @@ func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, clusterI
 		DomainSuffix:     m.DomainSuffix,
 		XDSUpdater:       m.XDSUpdater,
 		ClusterID:        clusterID,
-		NetworksWatcher: &model.Environment{
-			NetworksWatcher: m.networksWatcher,
-		},
+		NetworksWatcher:  m.networksWatcher,
 	})
 
 	remoteKubeController.rc = kubectl
