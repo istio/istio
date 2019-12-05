@@ -67,6 +67,18 @@ func (a *v1beta1PolicyApplier) JwtFilter(isXDSMarshalingToAnyEnabled bool) *http
 func convertToIstioAuthnFilterConfig(jwtRules []*v1beta1.JWT) *authn_filter.FilterConfig {
 	p := authn_alpha.Policy{
 		// Targets are not referenced in proxy repo.
+		// https://github.com/istio/istio/blob/d8eb9d3699ef8945aa4cc6a1001a5455683df3b5/pilot/pkg/security/authn/v1alpha1/policy_applier.go#L265
+
+		// Origin will be optional since we don't reject req.
+		// Add Peers since we need that to trigger identity extraction in Authn filter.
+		// https://github.com/istio/proxy/blob/24e971ff31c5cce22e9ab49f8478629f50664846/src/envoy/http/authn/peer_authenticator.cc#L41
+		Peers: []*authn_alpha.PeerAuthenticationMethod{
+			&authn_alpha.PeerAuthenticationMethod{
+				Params: &authn_alpha.PeerAuthenticationMethod_Mtls{
+					Mtls: &authn_alpha.MutualTls{},
+				},
+			},
+		},
 		// https://github.com/istio/proxy/search?q=targets&unscoped_q=targets
 		OriginIsOptional: true,
 		// Peers not really needed, always invoke the
@@ -76,7 +88,8 @@ func convertToIstioAuthnFilterConfig(jwtRules []*v1beta1.JWT) *authn_filter.Filt
 		// choose from instead, rather than in authn config.
 		PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
 	}
-	// TODO: does it matter if this is empty but not nil?
+
+	// TODO:(incfly): does it matter if this is empty but not nil?
 	jwtLocation := map[string]string{}
 	for _, jwt := range jwtRules {
 		p.Origins = append(p.Origins, &authn_alpha.OriginAuthenticationMethod{
@@ -102,6 +115,7 @@ func convertToIstioAuthnFilterConfig(jwtRules []*v1beta1.JWT) *authn_filter.Filt
 // AuthNFilter returns the Istio authn filter config for a given authn Beta policy:
 // istio.authentication.v1alpha1.Policy policy, we specially constructs the old filter config to
 // ensure Authn Filter won't reject the request, but still transform the attributes, e.g. request.auth.principal.
+// TODO: confirm the proxyType does not matter.
 func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
 	out := &http_conn.HttpFilter{
 		Name: authn_model.AuthnFilterName,

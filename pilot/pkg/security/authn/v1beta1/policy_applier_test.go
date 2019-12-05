@@ -517,6 +517,13 @@ func TestAuthnFilterConfig(t *testing.T) {
 			ConfigType: &http_conn.HttpFilter_Config{
 				Config: pilotutil.MessageToStruct(&authn_filter.FilterConfig{
 					Policy: &authn_alpha.Policy{
+						Peers: []*authn_alpha.PeerAuthenticationMethod{
+							&authn_alpha.PeerAuthenticationMethod{
+								Params: &authn_alpha.PeerAuthenticationMethod_Mtls{
+									Mtls: &authn_alpha.MutualTls{},
+								},
+							},
+						},
 						PeerIsOptional:   true,
 						OriginIsOptional: true,
 						PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
@@ -544,6 +551,13 @@ func TestAuthnFilterConfig(t *testing.T) {
 			ConfigType: &http_conn.HttpFilter_Config{
 				Config: pilotutil.MessageToStruct(&authn_filter.FilterConfig{
 					Policy: &authn_alpha.Policy{
+						Peers: []*authn_alpha.PeerAuthenticationMethod{
+							&authn_alpha.PeerAuthenticationMethod{
+								Params: &authn_alpha.PeerAuthenticationMethod_Mtls{
+									Mtls: &authn_alpha.MutualTls{},
+								},
+							},
+						},
 						Origins: []*authn_alpha.OriginAuthenticationMethod{
 							&authn_alpha.OriginAuthenticationMethod{
 								Jwt: &authn_alpha.Jwt{
@@ -593,6 +607,13 @@ func TestAuthnFilterConfig(t *testing.T) {
 			ConfigType: &http_conn.HttpFilter_Config{
 				Config: pilotutil.MessageToStruct(&authn_filter.FilterConfig{
 					Policy: &authn_alpha.Policy{
+						Peers: []*authn_alpha.PeerAuthenticationMethod{
+							&authn_alpha.PeerAuthenticationMethod{
+								Params: &authn_alpha.PeerAuthenticationMethod_Mtls{
+									Mtls: &authn_alpha.MutualTls{},
+								},
+							},
+						},
 						Origins: []*authn_alpha.OriginAuthenticationMethod{
 							&authn_alpha.OriginAuthenticationMethod{
 								Jwt: &authn_alpha.Jwt{
@@ -621,7 +642,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			got := NewPolicyApplier(c.in).AuthNFilter(model.SidecarProxy, false)
 			if !reflect.DeepEqual(c.expected, got) {
-				t.Logf("struct literal\n%#v\n", got.ConfigType)
+				// t.Logf("struct literal\n%#v\n", got.ConfigType)
 				t.Errorf("got:\n%s\nwanted:\n%s\n", spew.Sdump(got), spew.Sdump(c.expected))
 			}
 		})
