@@ -170,8 +170,8 @@ func NewServer(args PilotArgs) (*Server, error) {
 			ServiceDiscovery: aggregate.NewController(),
 			PushContext:      model.NewPushContext(),
 		},
-		basePort:    args.BasePort,
-		Args:        &args,
+		basePort: args.BasePort,
+		Args:     &args,
 	}
 
 	prometheus.EnableHandlingTimeHistogram()
