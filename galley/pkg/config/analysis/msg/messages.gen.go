@@ -78,12 +78,12 @@ var (
 	DestinationRuleUsesMTLSForWorkloadWithoutSidecar = diag.NewMessageType(diag.Error, "IST0115", "DestinationRule %s uses mTLS for workload %s that has no sidecar. Traffic from enmeshed services will fail.")
 
 	// DeploymentAssociatedToMultipleServices defines a diag.MessageType for message "DeploymentAssociatedToMultipleServices".
-	// Description: The resulting pods of a Deployment can't be associated to multiple Services in the same port but different protocol
-	DeploymentAssociatedToMultipleServices = diag.NewMessageType(diag.Warning, "IST0115", "The following services are associated to deployment %s at port %d but different protocol: %v.")
+	// Description: The resulting pods of a service mesh deployment can't be associated with multiple services using the same port but different protocols.
+	DeploymentAssociatedToMultipleServices = diag.NewMessageType(diag.Warning, "IST0116", "This deployment is associated with multiple services using port %d but different protocols: %v")
 
 	// DeploymentRequiresServiceAssociated defines a diag.MessageType for message "DeploymentRequiresServiceAssociated".
-	// Description: The resulting pods of a Deployment must be associated to at least one service
-	DeploymentRequiresServiceAssociated = diag.NewMessageType(diag.Warning, "IST0116", "Deployment %s doesn't have any service associated.")
+	// Description: The resulting pods of a service mesh deployment must be associated with at least one service.
+	DeploymentRequiresServiceAssociated = diag.NewMessageType(diag.Warning, "IST0117", "No service associated with this deployment. Service mesh deployments must be associated with a service.")
 )
 
 // NewInternalError returns a new diag.Message based on InternalError.

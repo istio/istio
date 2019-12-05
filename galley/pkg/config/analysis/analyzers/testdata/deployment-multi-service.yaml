@@ -1,7 +1,18 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: bookinfo
+  labels:
+    istio-injection: "enabled"
+spec: {}
+---
+# Deployment should generate a warning: two services using that deployment
+# using the same port but different protocol.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: details-v1
+  name: multiple-svc-multiple-prot
+  namespace: bookinfo
   labels:
     app: details
     version: v1
@@ -29,6 +40,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: details-tcp-v1
+  namespace: bookinfo
   labels:
     app: details
     service: details
@@ -44,6 +56,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: details-http-v1
+  namespace: bookinfo
   labels:
     app: details
     service: details
@@ -55,10 +68,13 @@ spec:
   selector:
     app: details
 ---
+# Deployment has two ports exposed, there are two services pointing to different ports.
+# It shouldn't generate a warning.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: reviews-v2
+  namespace: bookinfo
   labels:
     app: reviews
     version: v2
@@ -91,6 +107,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: reviews-http-9080
+  namespace: bookinfo
   labels:
     app: reviews
     service: reviews
@@ -106,6 +123,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: reviews-http-9090
+  namespace: bookinfo
   labels:
     app: reviews
     service: reviews
@@ -117,10 +135,12 @@ spec:
   selector:
     app: reviews
 ---
+# Deployment has no service attached. It should generate a warning.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ratings-v1
+  name: no-services
+  namespace: bookinfo
   labels:
     app: ratings
     version: v1
@@ -144,10 +164,13 @@ spec:
           ports:
             - containerPort: 9080
 ---
+# Deployment doesn't have any container port specified and has two services using same port but different protocol.
+# It should generate a warning.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: productpage-v1
+  name: multiple-without-port
+  namespace: bookinfo
   labels:
     app: productpage
     version: v1
@@ -173,6 +196,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: productpage-tcp-v1
+  namespace: bookinfo
   labels:
     app: productpage
     service: productpage
@@ -188,6 +212,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: productpage-http-v1
+  namespace: bookinfo
   labels:
     app: productpage
     service: productpage
@@ -198,3 +223,72 @@ spec:
       protocol: HTTP
   selector:
     app: productpage
+---
+# Deployment has no services attached but also is not in the service mesh.
+# It shouldn't generate a warning.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deployment-out-mesh
+  namespace: bookinfo
+  labels:
+    app: productpage
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: productpage
+      version: v1
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
+      labels:
+        app: productpage
+        version: v1
+    spec:
+      serviceAccountName: bookinfo-productpage
+      containers:
+        - name: productpage
+          image: docker.io/istio/examples-bookinfo-productpage-v1:1.15.0
+          imagePullPolicy: IfNotPresent
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: injection-disabled-ns
+spec: {}
+---
+# Deployment has multiple service attached but using same port but different protocol.
+# Sidecar is enabled although the namespaced doesn't have automatic injection.
+# It should generate a warning.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ann-enabled-ns-disabled
+  namespace: injection-disabled-ns
+  labels:
+    app: ratings
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ratings
+      version: v1
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "true"
+      labels:
+        app: ratings
+        version: v1
+    spec:
+      serviceAccountName: bookinfo-ratings
+      containers:
+        - name: ratings
+          image: docker.io/istio/examples-bookinfo-ratings-v1:1.15.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9080

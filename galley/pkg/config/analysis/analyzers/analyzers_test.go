@@ -309,9 +309,10 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/deployment-multi-service.yaml"},
 		analyzer:   &deployment.ServiceAssociationAnalyzer{},
 		expected: []message{
-			{msg.DeploymentAssociatedToMultipleServices, "Deployment details-v1"},
-			{msg.DeploymentAssociatedToMultipleServices, "Deployment productpage-v1"},
-			{msg.DeploymentRequiresServiceAssociated, "Deployment ratings-v1"},
+			{msg.DeploymentAssociatedToMultipleServices, "Deployment multiple-svc-multiple-prot.bookinfo"},
+			{msg.DeploymentAssociatedToMultipleServices, "Deployment multiple-without-port.bookinfo"},
+			{msg.DeploymentRequiresServiceAssociated, "Deployment no-services.bookinfo"},
+			{msg.DeploymentRequiresServiceAssociated, "Deployment ann-enabled-ns-disabled.injection-disabled-ns"},
 		},
 	},
 }

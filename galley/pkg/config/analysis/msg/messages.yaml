@@ -189,10 +189,10 @@ messages:
         type: string
 
   - name: "DeploymentAssociatedToMultipleServices"
-    code: IST0115
+    code: IST0116
     level: Warning
-    description: "The resulting pods of a Deployment can't be associated to multiple Services in the same port but different protocol"
-    template: "The following services are associated to deployment %s at port %d but different protocol: %v."
+    description: "The resulting pods of a service mesh deployment can't be associated with multiple services using the same port but different protocols."
+    template: "This deployment is associated with multiple services using port %d but different protocols: %v"
     args:
       - name: deployment
         type: string
@@ -202,10 +202,10 @@ messages:
         type: "[]string"
 
   - name: "DeploymentRequiresServiceAssociated"
-    code: IST0116
+    code: IST0117
     level: Warning
-    description: "The resulting pods of a Deployment must be associated to at least one service"
-    template: "Deployment %s doesn't have any service associated."
+    description: "The resulting pods of a service mesh deployment must be associated with at least one service."
+    template: "No service associated with this deployment. Service mesh deployments must be associated with a service."
     args:
       - name: deployment
         type: string
