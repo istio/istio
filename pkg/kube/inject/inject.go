@@ -572,6 +572,29 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *
 		"toLower":             strings.ToLower,
 	}
 
+	// Migrating from values.yaml to mesh or env (for istiod - set using fromEnv instead of values)
+	// This allows an optional config map with vendor-specific settings/overrides - alternative is creating
+	// vendor-specific injection templates or a huge mess.
+	funcMap["value"] = func(key string, def string) string {
+		fromEnv := os.Getenv(strings.ReplaceAll(key, ".", "_"))
+		if fromEnv != "" {
+			return fromEnv
+		}
+		// Special case for 'Values.global' - where most settings are
+		if !strings.Contains(key, ".") {
+			global := values["global"]
+			if globalM, ok := global.(map[string]interface{}); ok {
+				sval := globalM[key]
+				if sval != nil {
+					if val, ok := sval.(string); ok {
+						return val
+					}
+				}
+			}
+		}
+		return def
+	}
+
 	// Need to use FuncMap and SidecarTemplateData context
 	funcMap["render"] = func(template string) string {
 		bbuf, err := parseTemplate(template, funcMap, data)

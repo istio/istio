@@ -123,7 +123,7 @@ type sdsservice struct {
 	// skipToken indicates whether token is required.
 	skipToken bool
 
-	localJWT bool
+	istiodAgentMode bool
 }
 
 // ClientDebug represents a single SDS connection to the ndoe agent
@@ -145,17 +145,17 @@ type Debug struct {
 }
 
 // newSDSService creates Secret Discovery Service which implements envoy v2 SDS API.
-func newSDSService(st cache.SecretManager, skipTokenVerification, localJWT bool, recycleInterval time.Duration) *sdsservice {
+func newSDSService(st cache.SecretManager, skipTokenVerification, istiodAgentMode bool, recycleInterval time.Duration) *sdsservice {
 	if st == nil {
 		return nil
 	}
 
 	ret := &sdsservice{
-		st:             st,
-		skipToken:      skipTokenVerification,
-		tickerInterval: recycleInterval,
-		closing:        make(chan bool),
-		localJWT:       localJWT,
+		st:              st,
+		skipToken:       skipTokenVerification,
+		tickerInterval:  recycleInterval,
+		closing:         make(chan bool),
+		istiodAgentMode: istiodAgentMode,
 	}
 
 	go ret.clearStaledClientsJob()
@@ -266,10 +266,15 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			// Reset SDS push time for new SDS push.
 			con.sdsPushTime = time.Time{}
 			con.mutex.Unlock()
+
+			// TODO: for istiodAgentMode, don't cache - the agent serves a single process
+			// That also means we can avoid this memory leak (with too many defers for long connections)
+			// This doesn't recycle anything, despite the name - just add resourceName to the list of stalled
+			// clients.
 			defer recycleConnection(conID, resourceName)
 
 			conIDresourceNamePrefix := sdsLogPrefix(conID, resourceName)
-			if s.localJWT {
+			if s.istiodAgentMode {
 				// Running in-process, no need to pass the token from envoy to agent as in-context - use the file
 				tok, err := ioutil.ReadFile(JWTPath)
 				if err != nil {
@@ -328,6 +333,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 				return err
 			}
 
+			// TODO: in istiod, don't cache. There is only one client.
 			// Remove the secret from cache, otherwise refresh job will process this item(if envoy fails to reconnect)
 			// and cause some confusing logs like 'fails to notify because connection isn't found'.
 			defer s.st.DeleteSecret(conID, resourceName)
@@ -377,7 +383,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 // FetchSecrets generates and returns secret from SecretManager in response to DiscoveryRequest
 func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error) {
 	token := ""
-	if s.localJWT {
+	if s.istiodAgentMode {
 		// Running in-process, no need to pass the token from envoy to agent as in-context - use the file
 		tok, err := ioutil.ReadFile(JWTPath)
 		if err != nil {
