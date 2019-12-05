@@ -29,6 +29,7 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	accesslogconfig "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2"
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
+	grpc_stats "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/grpc_stats/v2alpha"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
@@ -121,7 +122,10 @@ const (
 	// EnvoyServerName for istio's envoy
 	EnvoyServerName = "istio-envoy"
 
-	httpEnvoyAccessLogName = "http_envoy_accesslog"
+	httpEnvoyAccessLogFriendlyName = "http_envoy_accesslog"
+	tcpEnvoyAccessLogFriendlyName  = "tcp_envoy_accesslog"
+
+	tcpEnvoyALSName = "envoy.tcp_grpc_access_log"
 
 	// EnvoyAccessLogCluster is the cluster name that has details for server implementing Envoy ALS.
 	// This cluster is created in bootstrap.
@@ -244,11 +248,12 @@ var (
 		},
 	}
 
-	// Headers added by the metadata exchange filter
+	// State logged by the metadata exchange filter about the upstream and downstream service instances
 	// We need to propagate these as part of access log service stream
 	// Logging them by default on the console may be an issue as the base64 encoded string is bound to be a big one.
-	// But end users can certainly configure it on their own via the meshConfig
-	envoyWasmHeadersToLog = []string{"x-envoy-peer-metadata", "x-envoy-peer-metadata-id"}
+	// But end users can certainly configure it on their own via the meshConfig using the %FILTERSTATE% macro.
+	envoyWasmStateToLog = []string{"envoy.wasm.metadata_exchange.upstream", "envoy.wasm.metadata_exchange.upstream_id",
+		"envoy.wasm.metadata_exchange.downstream", "envoy.wasm.metadata_exchange.downstream_id"}
 
 	// EnvoyJSONLogFormat12 map of values for envoy json based access logs for Istio 1.2
 	EnvoyJSONLogFormat12 = &structpb.Struct{
@@ -632,7 +637,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 	if old, exists := listenerMap[listenerMapKey]; exists {
 		// For sidecar specified listeners, the caller is expected to supply a dummy service instance
 		// with the right port and a hostname constructed from the sidecar config's name+namespace
-		pluginParams.Push.Add(model.ProxyStatusConflictInboundListener, pluginParams.Node.ID, pluginParams.Node,
+		pluginParams.Push.AddMetric(model.ProxyStatusConflictInboundListener, pluginParams.Node.ID, pluginParams.Node,
 			fmt.Sprintf("Conflicting inbound listener:%s. existing: %s, incoming: %s", listenerMapKey,
 				old.instanceHostname, pluginParams.ServiceInstance.Service.Hostname))
 
@@ -801,13 +806,13 @@ type outboundListenerConflict struct {
 	newProtocol     protocol.Instance
 }
 
-func (c outboundListenerConflict) addMetric(node *model.Proxy, push *model.PushContext) {
+func (c outboundListenerConflict) addMetric(node *model.Proxy, metrics model.Metrics) {
 	currentHostnames := make([]string, len(c.currentServices))
 	for i, s := range c.currentServices {
 		currentHostnames[i] = string(s.Hostname)
 	}
 	concatHostnames := strings.Join(currentHostnames, ",")
-	push.Add(c.metric,
+	metrics.AddMetric(c.metric,
 		c.listenerName,
 		c.node,
 		fmt.Sprintf("Listener=%s Accepted%s=%s Rejected%s=%s %sServices=%d",
@@ -1326,7 +1331,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 		if listenerOpts.port == CanonicalHTTPSPort && pluginParams.Port.Protocol == protocol.HTTP {
 			msg := fmt.Sprintf("listener conflict detected: service %v specifies an HTTP service on HTTPS only port %d.",
 				pluginParams.Service.Hostname, CanonicalHTTPSPort)
-			pluginParams.Push.Add(model.ProxyStatusConflictOutboundListenerHTTPoverHTTPS, string(pluginParams.Service.Hostname), node, msg)
+			pluginParams.Push.AddMetric(model.ProxyStatusConflictOutboundListenerHTTPoverHTTPS, string(pluginParams.Service.Hostname), node, msg)
 			return
 		}
 	}
@@ -1765,6 +1770,20 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 		filters = append(filters, &http_conn.HttpFilter{Name: wellknown.GRPCWeb})
 	}
 
+	if util.IsIstioVersionGE14(pluginParams.Node) &&
+		pluginParams.ServiceInstance != nil &&
+		pluginParams.ServiceInstance.Endpoint.ServicePort != nil &&
+		pluginParams.ServiceInstance.Endpoint.ServicePort.Protocol == protocol.GRPC {
+		filters = append(filters, &http_conn.HttpFilter{
+			Name: "envoy.filters.http.grpc_stats",
+			ConfigType: &http_conn.HttpFilter_TypedConfig{
+				TypedConfig: util.MessageToAny(&grpc_stats.FilterConfig{
+					EmitFilterState: true,
+				}),
+			},
+		})
+	}
+
 	// append ALPN HTTP filter in HTTP connection manager for outbound listener only.
 	if util.IsIstioVersionGE14(pluginParams.Node) &&
 		(pluginParams.ListenerCategory == networking.EnvoyFilter_SIDECAR_OUTBOUND ||
@@ -1866,7 +1885,7 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 	if pluginParams.Push.Mesh.EnableEnvoyAccessLogService {
 		fl := &accesslogconfig.HttpGrpcAccessLogConfig{
 			CommonConfig: &accesslogconfig.CommonGrpcAccessLogConfig{
-				LogName: httpEnvoyAccessLogName,
+				LogName: httpEnvoyAccessLogFriendlyName,
 				GrpcService: &core.GrpcService{
 					TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
 						EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
@@ -1875,8 +1894,10 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 					},
 				},
 			},
-			AdditionalRequestHeadersToLog:  envoyWasmHeadersToLog,
-			AdditionalResponseHeadersToLog: envoyWasmHeadersToLog,
+		}
+
+		if util.IsIstioVersionGE14(pluginParams.Node) {
+			fl.CommonConfig.FilterStateObjectsToLog = envoyWasmStateToLog
 		}
 
 		acc := &accesslog.AccessLog{

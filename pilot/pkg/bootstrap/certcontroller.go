@@ -48,13 +48,14 @@ func (s *Server) initCertController(args *PilotArgs) error {
 	// Whether a key and cert are generated for Pilot
 	var pilotCertGenerated bool
 
-	if s.mesh.GetCertificates() == nil || len(s.mesh.GetCertificates()) == 0 {
+	meshConfig := s.environment.Mesh()
+	if meshConfig.GetCertificates() == nil || len(meshConfig.GetCertificates()) == 0 {
 		log.Info("nil certificate config")
 		return nil
 	}
 
 	k8sClient := s.kubeClient
-	for _, c := range s.mesh.GetCertificates() {
+	for _, c := range meshConfig.GetCertificates() {
 		name := strings.Join(c.GetDnsNames(), ",")
 		if len(name) == 0 { // must have a DNS name
 			continue

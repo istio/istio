@@ -63,7 +63,7 @@ type Controller struct {
 	configStore             map[string]map[string]map[string]*model.Config
 	descriptorsByCollection map[string]schema.Instance
 	options                 *Options
-	eventHandlers           map[string][]func(model.Config, model.Event)
+	eventHandlers           map[string][]func(model.Config, model.Config, model.Event)
 	ledger                  ledger.Ledger
 	supportedConfig         schema.Set
 
@@ -93,7 +93,7 @@ func NewController(options *Options) CoreDataModel {
 		configStore:             make(map[string]map[string]map[string]*model.Config),
 		options:                 options,
 		descriptorsByCollection: descriptorsByMessageName,
-		eventHandlers:           make(map[string][]func(model.Config, model.Event)),
+		eventHandlers:           make(map[string][]func(model.Config, model.Config, model.Event)),
 		synced:                  synced,
 		ledger:                  options.ConfigLedger,
 		supportedConfig:         supportedCfg,
@@ -247,7 +247,7 @@ func (c *Controller) HasSynced() bool {
 }
 
 // RegisterEventHandler registers a handler using the type as a key
-func (c *Controller) RegisterEventHandler(typ string, handler func(model.Config, model.Event)) {
+func (c *Controller) RegisterEventHandler(typ string, handler func(model.Config, model.Config, model.Event)) {
 	c.eventHandlers[typ] = append(c.eventHandlers[typ], handler)
 }
 
@@ -296,10 +296,10 @@ func (c *Controller) sync(collection string) {
 func (c *Controller) serviceEntryEvents(currentStore, prevStore map[string]map[string]*model.Config) {
 	dispatch := func(model model.Config, event model.Event) {}
 	if handlers, ok := c.eventHandlers[schemas.ServiceEntry.Type]; ok {
-		dispatch = func(model model.Config, event model.Event) {
-			log.Debugf("MCP event dispatch: key=%v event=%v", model.Key(), event.String())
+		dispatch = func(config model.Config, event model.Event) {
+			log.Debugf("MCP event dispatch: key=%v event=%v", config.Key(), event.String())
 			for _, handler := range handlers {
-				handler(model, event)
+				handler(model.Config{}, config, event)
 			}
 		}
 	}

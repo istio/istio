@@ -24,6 +24,7 @@ import (
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/monitoring"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/constants"
@@ -32,8 +33,15 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/config/visibility"
-	"istio.io/pkg/monitoring"
 )
+
+// Metrics is an interface for capturing metrics on a per-node basis.
+type Metrics interface {
+	// AddMetric will add an case to the metric for the given node.
+	AddMetric(metric monitoring.Metric, key string, proxy *Proxy, msg string)
+}
+
+var _ Metrics = &PushContext{}
 
 // PushContext tracks the status of a push - metrics and errors.
 // Metrics are reset after a push - at the beginning all
@@ -112,6 +120,9 @@ type PushContext struct {
 
 	// AuthNPolicies contains a map of hostname and port to authentication policy
 	AuthnPolicies processedAuthnPolicies `json:"-"`
+
+	// AuthnBetaPolicies contains (beta) Authn policies by namespace.
+	AuthnBetaPolicies *AuthenticationPolicies `json:"-"`
 
 	initDone bool
 
@@ -294,8 +305,13 @@ type combinedDestinationRule struct {
 	config *Config
 }
 
-// Add will add an case to the metric.
-func (ps *PushContext) Add(metric monitoring.Metric, key string, proxy *Proxy, msg string) {
+// IsMixerEnabled returns true if mixer is enabled in the Mesh config.
+func (ps *PushContext) IsMixerEnabled() bool {
+	return ps != nil && ps.Mesh != nil && (ps.Mesh.MixerCheckServer != "" || ps.Mesh.MixerReportServer != "")
+}
+
+// AddMetric will add an case to the metric.
+func (ps *PushContext) AddMetric(metric monitoring.Metric, key string, proxy *Proxy, msg string) {
 	if ps == nil {
 		log.Infof("Metric without context %s %v %s", key, proxy, msg)
 		return
@@ -728,8 +744,8 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 		return nil
 	}
 
-	ps.Mesh = env.Mesh
-	ps.Networks = env.MeshNetworks
+	ps.Mesh = env.Mesh()
+	ps.Networks = env.Networks()
 	ps.ServiceDiscovery = env
 	ps.IstioConfigStore = env
 	ps.Version = env.Version()
@@ -820,7 +836,8 @@ func (ps *PushContext) updateContext(
 			schemas.ClusterRbacConfig.Type, schemas.RbacConfig.Type,
 			schemas.AuthorizationPolicy.Type:
 			authzChanged = true
-		case schemas.AuthenticationPolicy.Type, schemas.AuthenticationMeshPolicy.Type:
+		case schemas.AuthenticationPolicy.Type, schemas.AuthenticationMeshPolicy.Type,
+			schemas.RequestAuthentication.Type:
 			authnChanged = true
 		}
 	}
@@ -862,6 +879,7 @@ func (ps *PushContext) updateContext(
 		}
 	} else {
 		ps.AuthnPolicies = oldPushContext.AuthnPolicies
+		ps.AuthnBetaPolicies = oldPushContext.AuthnBetaPolicies
 	}
 
 	if authzChanged {
@@ -963,6 +981,10 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 
 // Caches list of authentication policies
 func (ps *PushContext) initAuthnPolicies(env *Environment) error {
+	// Init beta policy.
+	ps.AuthnBetaPolicies = initAuthenticationPolicies(env)
+
+	// Processing alpha policy. This will be removed after beta API released.
 	authNPolicies, err := env.List(schemas.AuthenticationPolicy.Type, NamespaceAll)
 	if err != nil {
 		return err

@@ -184,7 +184,7 @@ type ConfigStoreCache interface {
 
 	// RegisterEventHandler adds a handler to receive config update events for a
 	// configuration type
-	RegisterEventHandler(typ string, handler func(Config, Event))
+	RegisterEventHandler(typ string, handler func(Config, Config, Event))
 
 	// Run until a signal is received
 	Run(stop <-chan struct{})

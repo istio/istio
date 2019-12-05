@@ -452,7 +452,7 @@ istioctl-install:
 # Target: test
 #-----------------------------------------------------------------------------
 
-.PHONY: test localTestEnv
+.PHONY: test
 
 JUNIT_REPORT := $(shell which go-junit-report 2> /dev/null || echo "${ISTIO_BIN}/go-junit-report")
 
@@ -479,12 +479,6 @@ test: | $(JUNIT_REPORT)
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 GOTEST_PARALLEL ?= '-test.parallel=1'
-
-localTestEnv: build
-	bin/testEnvLocalK8S.sh ensure
-
-localTestEnvCleanup: build
-	bin/testEnvLocalK8S.sh stop
 
 .PHONY: pilot-test
 pilot-test:
@@ -690,6 +684,9 @@ show.goenv: ; $(info $(H) go environment...)
 # show makefile variables. Usage: make show.<variable-name>
 show.%: ; $(info $* $(H) $($*))
 	$(Q) true
+
+# Deprecated. This target exists only to satisify old CI tests that cannot be updated atomically, and can be removed.
+localTestEnv:
 
 #-----------------------------------------------------------------------------
 # Target: custom resource definitions

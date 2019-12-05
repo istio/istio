@@ -134,6 +134,11 @@ func (s *syntheticVirtualService) generateEntry(domainSuffix string) *resource.E
 				continue
 			}
 
+			// Skip over any rules that are specific to a host that don't match the current synthetic virtual service host
+			if rule.Host != "" && rule.Host != s.host {
+				continue
+			}
+
 			var httpRoutes []*v1alpha3.HTTPRoute
 			for _, path := range rule.HTTP.Paths {
 				httpMatch := &v1alpha3.HTTPMatchRequest{

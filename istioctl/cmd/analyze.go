@@ -18,7 +18,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
+
+	"istio.io/istio/galley/pkg/config/analysis"
 
 	"github.com/ghodss/yaml"
 	"github.com/mattn/go-isatty"
@@ -55,6 +58,7 @@ func (f FileParseError) Error() string {
 }
 
 var (
+	listAnalyzers   bool
 	useKube         bool
 	useDiscovery    bool
 	failureLevel    = messageThreshold{diag.Warning} // messages at least this level will generate an error exit code
@@ -103,6 +107,9 @@ istioctl experimental analyze -d true a.yaml b.yaml services.yaml
 
 # Analyze the current live cluster, overriding service discovery to disabled
 istioctl experimental analyze -k -d false
+
+# List available analyzers
+istioctl experimental analyze -L
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			msgOutputFormat = strings.ToLower(msgOutputFormat)
@@ -111,6 +118,11 @@ istioctl experimental analyze -k -d false
 				return CommandParseError{
 					fmt.Errorf("%s not a valid option for format. See istioctl x analyze --help", msgOutputFormat),
 				}
+			}
+
+			if listAnalyzers {
+				fmt.Print(AnalyzersAsString(analyzers.All()))
+				return nil
 			}
 
 			files, err := gatherFiles(args)
@@ -214,10 +226,11 @@ istioctl experimental analyze -k -d false
 				fmt.Fprintln(cmd.ErrOrStderr())
 			}
 
-			// Filter outputMessages by specified level
+			// Filter outputMessages by specified level, and append a ref arg to the doc URL
 			var outputMessages diag.Messages
 			for _, m := range result.Messages {
 				if m.Type.Level().IsWorseThanOrEqualTo(outputLevel.Level) {
+					m.DocRef = "istioctl-analyze"
 					outputMessages = append(outputMessages, m)
 				}
 			}
@@ -270,6 +283,8 @@ istioctl experimental analyze -k -d false
 		},
 	}
 
+	analysisCmd.PersistentFlags().BoolVarP(&listAnalyzers, "list-analyzers", "L", false,
+		"List the analyzers available to run. Suppresses normal execution.")
 	analysisCmd.PersistentFlags().BoolVarP(&useKube, "use-kube", "k", false,
 		"Use live Kubernetes cluster for analysis")
 	analysisCmd.PersistentFlags().BoolVarP(&useDiscovery, "discovery", "d", false, // Note that this default val gets overridden to match --use-kube
@@ -395,4 +410,24 @@ func LevelFromString(s string) (diag.Level, error) {
 	}
 
 	return val, nil
+}
+
+func AnalyzersAsString(analyzers []analysis.Analyzer) string {
+	nameToAnalyzer := make(map[string]analysis.Analyzer)
+	analyzerNames := make([]string, len(analyzers))
+	for i, a := range analyzers {
+		analyzerNames[i] = a.Metadata().Name
+		nameToAnalyzer[a.Metadata().Name] = a
+	}
+	sort.Strings(analyzerNames)
+
+	var b strings.Builder
+	for _, aName := range analyzerNames {
+		b.WriteString(fmt.Sprintf("* %s:\n", aName))
+		a := nameToAnalyzer[aName]
+		if a.Metadata().Description != "" {
+			b.WriteString(fmt.Sprintf("    %s\n", a.Metadata().Description))
+		}
+	}
+	return b.String()
 }

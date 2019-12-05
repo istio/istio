@@ -35,7 +35,6 @@ import (
 // Package controller tests the pilot controller using a k8s cluster or standalone apiserver.
 // It needs to be separate from pilot tests - it may interfere with the pilot tests by creating
 // test resources that may confuse other istio tests or it may be confused by other tests.
-// This test can be run in an IDE against local apiserver, if you have run bin/testEnvLocalK8S.sh
 
 // TODO: make changes to k8s ( endpoints in particular ) and verify the proper generation of events.
 // This test relies on mocks.
