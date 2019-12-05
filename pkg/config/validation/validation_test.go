@@ -5010,9 +5010,35 @@ func TestValidateRequestAuthentication(t *testing.T) {
 	}{
 		{
 			name:       "empty spec",
-			configName: someName,
+			configName: constants.DefaultAuthenticationPolicyName,
 			in:         &security_beta.RequestAuthentication{},
 			valid:      true,
+		},
+		{
+			name:       "another empty spec",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				Selector: &api.WorkloadSelector{},
+			},
+			valid: true,
+		},
+		{
+			name:       "empty spec with non default name",
+			configName: someName,
+			in:         &security_beta.RequestAuthentication{},
+			valid:      false,
+		},
+		{
+			name:       "default name with non empty selector",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+					},
+				},
+			},
+			valid: false,
 		},
 		{
 			name:       "empty jwt rule",

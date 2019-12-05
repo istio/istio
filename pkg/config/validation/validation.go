@@ -1530,6 +1530,14 @@ func ValidateRequestAuthentication(name, namespace string, msg proto.Message) er
 	}
 
 	var errs error
+	emptySelector := in.Selector == nil || len(in.Selector.MatchLabels) == 0
+	if name == constants.DefaultAuthenticationPolicyName && !emptySelector {
+		errs = appendErrors(errs, fmt.Errorf("default request authentication cannot have workload selector"))
+	} else if emptySelector && name != constants.DefaultAuthenticationPolicyName {
+		errs = appendErrors(errs,
+			fmt.Errorf("request authentication with empty workload selector must be named %q", constants.DefaultAuthenticationPolicyName))
+	}
+
 	errs = appendErrors(errs, validateWorkloadSelector(in.Selector))
 
 	for _, rule := range in.JwtRules {
