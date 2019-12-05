@@ -110,7 +110,7 @@ func convertToIstioAuthnFilterConfig(jwtRules []*v1beta1.JWT) *authn_filter.Filt
 // AuthNFilter returns the Istio authn filter config for a given authn Beta policy:
 // istio.authentication.v1alpha1.Policy policy, we specially constructs the old filter config to
 // ensure Authn Filter won't reject the request, but still transform the attributes, e.g. request.auth.principal.
-// TODO: confirm the proxyType does not matter.
+// proxyType does not matter here, exists only for legacy reason.
 func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
 	out := &http_conn.HttpFilter{
 		Name: authn_model.AuthnFilterName,
