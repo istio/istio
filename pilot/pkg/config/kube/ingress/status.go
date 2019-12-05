@@ -182,9 +182,8 @@ func (s *StatusSyncer) runUpdateStatus(ctx context.Context) {
 		err = wait.PollUntil(10*time.Second, func() (bool, error) {
 			if sa, err := s.runningAddresses(ingressNamespace); err != nil || len(sa) == 0 {
 				return false, nil
-			} else {
-				return true, nil
 			}
+			return true, nil
 		}, ctx.Done())
 		if err != nil {
 			log.Warna("Error waiting for ingress")

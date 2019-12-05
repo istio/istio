@@ -692,13 +692,13 @@ func (s *Server) initDNSListener() error {
 	err := s.initDNSCerts(features.IstiodService.Get())
 	if err != nil {
 		return err
-	} else {
-		// run secure grpc server for Istiod - using DNS-based certs from K8S
-		err := s.initSecureGrpcServerDNS(features.IstiodService.Get())
-		if err != nil {
-			return err
-		}
 	}
+	// run secure grpc server for Istiod - using DNS-based certs from K8S
+	err = s.initSecureGrpcServerDNS(features.IstiodService.Get())
+	if err != nil {
+		return err
+	}
+
 
 	return nil
 }
