@@ -168,8 +168,6 @@ type SecretCache struct {
 	// Source of random numbers. It is not concurrency safe, requires lock protected.
 	rand      *rand.Rand
 	randMutex *sync.Mutex
-
-	IstiodAgentMode bool
 }
 
 // NewSecretCache creates a new secret cache.
