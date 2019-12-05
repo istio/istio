@@ -47,7 +47,6 @@ import (
 type v1beta1PolicyApplier struct {
 	jwtPolicies []*model.Config
 	// TODO: add mTLS configs.
-	// TODO: add v1alpha1 fallback configs.
 
 	// processedJwtRules is the consolidate JWT rules from all jwtPolicies.
 	processedJwtRules []*v1beta1.JWT
@@ -135,7 +134,9 @@ func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, isXDSMarsha
 =======
 	if len(a.processedJwtRules) == 0 {
 		log.Infof("RequestAuthentication (beta policy) not found, fallback to alpha if available")
-		return a.alphaApplier.AuthNFilter(proxyType, isXDSMarshalingToAnyEnabled)
+		// TODO(diemtvu) Should also check *beta* mTLS policy before fallback to
+		// a.alphaApplier.AuthNFilter(proxyType, isXDSMarshalingToAnyEnabled)
+		return nil
 	}
 	// TODO(diemtvu) implement this.
 	log.Errorf("AuthNFilter(%v, %v) is not yet implemented", proxyType, isXDSMarshalingToAnyEnabled)
