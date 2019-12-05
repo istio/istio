@@ -62,16 +62,20 @@ func (a *v1beta1PolicyApplier) JwtFilter(isXDSMarshalingToAnyEnabled bool) *http
 	return out
 }
 
+// All explaining code link can be removed before merging.
 func convertToIstioAuthnFilterConfig(jwtRules []*v1beta1.JWT) *authn_filter.FilterConfig {
 	p := authn_alpha.Policy{
-		// to be figured out.
-		Targets:          nil,
+		// Targets are not referenced in proxy repo.
+		// https://github.com/istio/proxy/search?q=targets&unscoped_q=targets
 		OriginIsOptional: true,
-		PeerIsOptional:   true,
 		// Peers not really needed, always invoke the
 		// https://github.com/istio/proxy/blob/24e971ff31c5cce22e9ab49f8478629f50664846/src/envoy/http/authn/http_filter.cc#L84
-		// TODO: PrincipalBinding, how about this in new API?
+		PeerIsOptional: true,
+		// Always bind request.auth.principal from JWT origin. In v2 policy, authorization config specifies what principal to
+		// choose from instead, rather than in authn config.
+		PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
 	}
+	// TODO: does it matter if this is empty but not nil?
 	jwtLocation := map[string]string{}
 	for _, jwt := range jwtRules {
 		p.Origins = append(p.Origins, &authn_alpha.OriginAuthenticationMethod{
@@ -89,7 +93,8 @@ func convertToIstioAuthnFilterConfig(jwtRules []*v1beta1.JWT) *authn_filter.Filt
 	return &authn_filter.FilterConfig{
 		Policy:                    &p,
 		JwtOutputPayloadLocations: jwtLocation,
-		SkipValidateTrustDomain:   features.SkipValidateTrustDomain.Get(),
+		// Same as before.
+		SkipValidateTrustDomain: features.SkipValidateTrustDomain.Get(),
 	}
 }
 

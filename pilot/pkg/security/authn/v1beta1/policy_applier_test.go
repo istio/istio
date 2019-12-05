@@ -24,6 +24,8 @@ import (
 	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/jwt_authn/v2alpha"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/golang/protobuf/ptypes/empty"
+	authn_alpha "istio.io/istio/security/proto/authentication/v1alpha1"
+	authn_filter "istio.io/istio/security/proto/envoy/config/filter/http/authn/v2alpha1"
 
 	v1beta1 "istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/model"
@@ -501,13 +503,124 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 }
 
 func TestAuthnFilterConfig(t *testing.T) {
+	ms, err := test.StartNewServer()
+	if err != nil {
+		t.Fatal("failed to start a mock server")
+	}
+	jwksURI := ms.URL + "/oauth2/v3/certs"
+
 	cases := []testCase{{
-		name: "abc",
+		name: "no-request-authn-rule",
+		expected: &http_conn.HttpFilter{
+			Name: "istio_authn",
+			ConfigType: &http_conn.HttpFilter_Config{
+				Config: pilotutil.MessageToStruct(&authn_filter.FilterConfig{
+					Policy: &authn_alpha.Policy{
+						PeerIsOptional:   true,
+						OriginIsOptional: true,
+						PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
+					},
+					JwtOutputPayloadLocations: map[string]string{},
+				}),
+			},
+		},
+	}, {
+		name: "single-request-authn-rule",
+		in: []*model.Config{
+			{
+				Spec: &v1beta1.RequestAuthentication{
+					JwtRules: []*v1beta1.JWT{
+						{
+							Issuer:  "https://secret.foo.com",
+							JwksUri: jwksURI,
+						},
+					},
+				},
+			},
+		},
+		expected: &http_conn.HttpFilter{
+			Name: "istio_authn",
+			ConfigType: &http_conn.HttpFilter_Config{
+				Config: pilotutil.MessageToStruct(&authn_filter.FilterConfig{
+					Policy: &authn_alpha.Policy{
+						Origins: []*authn_alpha.OriginAuthenticationMethod{
+							&authn_alpha.OriginAuthenticationMethod{
+								Jwt: &authn_alpha.Jwt{
+									Issuer: "https://secret.foo.com",
+								},
+							},
+						},
+						PeerIsOptional:   true,
+						OriginIsOptional: true,
+						PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
+					},
+					JwtOutputPayloadLocations: map[string]string{
+						"https://secret.foo.com": "https://secret.foo.com",
+					},
+				}),
+			},
+		},
+	}, {
+		name: "multi-request-authn-rules",
+		in: []*model.Config{
+			{
+				Spec: &v1beta1.RequestAuthentication{
+					JwtRules: []*v1beta1.JWT{
+						{
+							Issuer:  "https://secret.foo.com",
+							JwksUri: jwksURI,
+						},
+					},
+				},
+			},
+			{
+				Spec: &v1beta1.RequestAuthentication{},
+			},
+			{
+				Spec: &v1beta1.RequestAuthentication{
+					JwtRules: []*v1beta1.JWT{
+						{
+							Issuer: "https://secret.bar.com",
+							Jwks:   "jwks-inline-data",
+						},
+					},
+				},
+			},
+		},
+		expected: &http_conn.HttpFilter{
+			Name: "istio_authn",
+			ConfigType: &http_conn.HttpFilter_Config{
+				Config: pilotutil.MessageToStruct(&authn_filter.FilterConfig{
+					Policy: &authn_alpha.Policy{
+						Origins: []*authn_alpha.OriginAuthenticationMethod{
+							&authn_alpha.OriginAuthenticationMethod{
+								Jwt: &authn_alpha.Jwt{
+									Issuer: "https://secret.foo.com",
+								},
+							},
+							&authn_alpha.OriginAuthenticationMethod{
+								Jwt: &authn_alpha.Jwt{
+									Issuer: "https://secret.bar.com",
+								},
+							},
+						},
+						PeerIsOptional:   true,
+						OriginIsOptional: true,
+						PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
+					},
+					JwtOutputPayloadLocations: map[string]string{
+						"https://secret.foo.com": "https://secret.foo.com",
+						"https://secret.bar.com": "https://secret.bar.com",
+					},
+				}),
+			},
+		},
 	}}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			got := NewPolicyApplier(c.in).AuthNFilter(model.SidecarProxy, false)
 			if !reflect.DeepEqual(c.expected, got) {
+				t.Logf("struct literal\n%#v\n", got.ConfigType)
 				t.Errorf("got:\n%s\nwanted:\n%s\n", spew.Sdump(got), spew.Sdump(c.expected))
 			}
 		})
