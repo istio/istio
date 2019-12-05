@@ -528,7 +528,6 @@ func TestAuthnFilterConfig(t *testing.T) {
 						OriginIsOptional: true,
 						PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
 					},
-					JwtOutputPayloadLocations: map[string]string{},
 				}),
 			},
 		},
@@ -568,9 +567,6 @@ func TestAuthnFilterConfig(t *testing.T) {
 						PeerIsOptional:   true,
 						OriginIsOptional: true,
 						PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
-					},
-					JwtOutputPayloadLocations: map[string]string{
-						"https://secret.foo.com": "https://secret.foo.com",
 					},
 				}),
 			},
@@ -630,10 +626,6 @@ func TestAuthnFilterConfig(t *testing.T) {
 						OriginIsOptional: true,
 						PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
 					},
-					JwtOutputPayloadLocations: map[string]string{
-						"https://secret.foo.com": "https://secret.foo.com",
-						"https://secret.bar.com": "https://secret.bar.com",
-					},
 				}),
 			},
 		},
@@ -642,7 +634,6 @@ func TestAuthnFilterConfig(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			got := NewPolicyApplier(c.in).AuthNFilter(model.SidecarProxy, false)
 			if !reflect.DeepEqual(c.expected, got) {
-				// t.Logf("struct literal\n%#v\n", got.ConfigType)
 				t.Errorf("got:\n%s\nwanted:\n%s\n", spew.Sdump(got), spew.Sdump(c.expected))
 			}
 		})

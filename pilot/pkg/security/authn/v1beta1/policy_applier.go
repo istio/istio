@@ -88,9 +88,6 @@ func convertToIstioAuthnFilterConfig(jwtRules []*v1beta1.JWT) *authn_filter.Filt
 		// choose from instead, rather than in authn config.
 		PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
 	}
-
-	// TODO:(incfly): does it matter if this is empty but not nil?
-	jwtLocation := map[string]string{}
 	for _, jwt := range jwtRules {
 		p.Origins = append(p.Origins, &authn_alpha.OriginAuthenticationMethod{
 			Jwt: &authn_alpha.Jwt{
@@ -100,14 +97,12 @@ func convertToIstioAuthnFilterConfig(jwtRules []*v1beta1.JWT) *authn_filter.Filt
 				Issuer: jwt.GetIssuer(),
 			},
 		})
-		// Map to the same location.
-		jwtLocation[jwt.Issuer] = jwt.Issuer
 	}
 
 	return &authn_filter.FilterConfig{
-		Policy:                    &p,
-		JwtOutputPayloadLocations: jwtLocation,
-		// Same as before.
+		Policy: &p,
+		// JwtOutputPayloadLocations is nil because now authn filter uses the issuer use the issuer as
+		// key in the jwt filter metadata to find the output.
 		SkipValidateTrustDomain: features.SkipValidateTrustDomain.Get(),
 	}
 }
