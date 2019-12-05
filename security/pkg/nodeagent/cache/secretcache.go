@@ -60,8 +60,8 @@ const (
 	// identityTemplate is the format template of identity in the CSR request.
 	identityTemplate = "spiffe://%s/ns/%s/sa/%s"
 
-	// For REST APIs between envoy->nodeagent, default value of 1s is used.
-	envoyDefaultTimeoutInMilliSec = 1000
+	// 10s timeout to align with the SLO of remote CAs such as Google CA.
+	envoyDefaultTimeoutInMilliSec = 10000
 
 	// initialBackOffIntervalInMilliSec is the initial backoff time interval when hitting non-retryable error in CSR request.
 	initialBackOffIntervalInMilliSec = 50
@@ -271,7 +271,7 @@ func (sc *SecretCache) SecretExist(connectionID, resourceName, token, version st
 	return e.ResourceName == resourceName && e.Token == token && e.Version == version
 }
 
-// IsIngressGatewaySecretReady returns true if node agent is working in ingress gateway agent mode
+// ShouldWaitForIngressGatewaySecret returns true if node agent is working in ingress gateway agent mode
 // and needs to wait for ingress gateway secret to be ready.
 func (sc *SecretCache) ShouldWaitForIngressGatewaySecret(connectionID, resourceName, token string) bool {
 	// If node agent works as workload agent, node agent does not expect any ingress gateway secret.

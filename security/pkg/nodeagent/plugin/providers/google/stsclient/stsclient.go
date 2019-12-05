@@ -84,7 +84,7 @@ func (p Plugin) ExchangeToken(ctx context.Context, trustDomain, k8sSAjwt string)
 	req.Header.Set("Content-Type", contentType)
 
 	resp, err := p.hTTPClient.Do(req)
-	errMsg := "failed to call getfederatedtoken. "
+	errMsg := "failed to call token exchange service. "
 	if err != nil || resp == nil {
 		statusCode := http.StatusServiceUnavailable
 		// If resp is not null, return the actually status code returned from the token service.
@@ -103,7 +103,7 @@ func (p Plugin) ExchangeToken(ctx context.Context, trustDomain, k8sSAjwt string)
 	respData := &federatedTokenResponse{}
 	if err := json.Unmarshal(body, respData); err != nil {
 		return "", time.Now(), resp.StatusCode, fmt.Errorf(
-			"failed to unmarshal response data. HTTP status: %s. Error: %s", resp.Status, err.Error())
+			"failed to unmarshal response data. HTTP status: %s. Error: %v", resp.Status, err)
 	}
 
 	if respData.AccessToken == "" {
