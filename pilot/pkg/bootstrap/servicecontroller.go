@@ -79,10 +79,9 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 
 // initKubeRegistry creates all the k8s service controllers under this pilot
 func (s *Server) initKubeRegistry(serviceControllers *aggregate.Controller, args *PilotArgs) (err error) {
-	clusterID := string(serviceregistry.Kubernetes)
-	log.Infof("Primary Cluster name: %s", clusterID)
-	args.Config.ControllerOptions.ClusterID = clusterID
+	args.Config.ControllerOptions.ClusterID = s.clusterID
 	args.Config.ControllerOptions.Metrics = s.environment
+	args.Config.ControllerOptions.XDSUpdater = s.EnvoyXdsServer
 	kubectl := kubecontroller.NewController(s.kubeClient, args.Config.ControllerOptions)
 	s.kubeRegistry = kubectl
 	serviceControllers.AddRegistry(kubectl)

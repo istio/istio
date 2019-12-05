@@ -55,7 +55,7 @@ func newPodCache(ch cacheHandler, c *Controller) *PodCache {
 }
 
 // event updates the IP-based index (pc.podsByIP).
-func (pc *PodCache) event(old, curr interface{}, ev model.Event) error {
+func (pc *PodCache) event(_, curr interface{}, ev model.Event) error {
 	pc.Lock()
 	defer pc.Unlock()
 
@@ -122,8 +122,8 @@ func (pc *PodCache) event(old, curr interface{}, ev model.Event) error {
 }
 
 func (pc *PodCache) proxyUpdates(ip string) {
-	if pc.c != nil && pc.c.XDSUpdater != nil {
-		pc.c.XDSUpdater.ProxyUpdate(pc.c.clusterID, ip)
+	if pc.c != nil && pc.c.xdsUpdater != nil {
+		pc.c.xdsUpdater.ProxyUpdate(pc.c.clusterID, ip)
 	}
 }
 

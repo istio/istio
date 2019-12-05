@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"istio.io/istio/galley/pkg/server"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
@@ -114,6 +115,7 @@ type Server struct {
 	// Using Clientset because client is shared with other components - galley and few others expects Clientset.
 	// TODO: change everywhere to use Interface
 	kubeClientset         *kubernetes.Clientset
+	clusterID             string
 	environment           *model.Environment
 	configController      model.ConfigStoreCache
 	kubeClient            kubernetes.Interface
@@ -165,14 +167,20 @@ func NewServer(args PilotArgs) (*Server, error) {
 		args.BasePort = 15000
 	}
 
+	e := &model.Environment{
+		ServiceDiscovery: aggregate.NewController(),
+		PushContext:      model.NewPushContext(),
+	}
+
 	s := &Server{
-		environment: &model.Environment{
-			ServiceDiscovery: aggregate.NewController(),
-			PushContext:      model.NewPushContext(),
-		},
 		basePort: args.BasePort,
 		Args:     &args,
+		clusterID:      getClusterID(args),
+		environment:    e,
+		EnvoyXdsServer: envoyv2.NewDiscoveryServer(e, args.Plugins),
 	}
+
+	log.Infof("Primary Cluster name: %s", s.clusterID)
 
 	prometheus.EnableHandlingTimeHistogram()
 
@@ -225,6 +233,20 @@ func NewServer(args PilotArgs) (*Server, error) {
 	}
 
 	return s, nil
+}
+
+func getClusterID(args PilotArgs) string {
+	clusterID := args.Config.ControllerOptions.ClusterID
+	if clusterID == "" {
+		for _, registry := range args.Service.Registries {
+			if registry == string(serviceregistry.Kubernetes) {
+				clusterID = string(serviceregistry.Kubernetes)
+				break
+			}
+		}
+	}
+
+	return clusterID
 }
 
 // Start starts all components of the Pilot discovery service on the port specified in DiscoveryServiceOptions.
@@ -288,7 +310,6 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 }
 
 func (s *Server) initDiscoveryService(args *PilotArgs) error {
-	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(s.environment, args.Plugins)
 	s.mux = http.NewServeMux()
 	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController(), args.DiscoveryOptions.EnableProfiling)
 
@@ -302,28 +323,6 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 	if err := s.initEventHandlers(); err != nil {
 		return err
-	}
-
-	if s.kubeRegistry != nil {
-		// kubeRegistry may use the environment for push status reporting.
-		// TODO: maybe all registries should have this as an optional field ?
-		s.kubeRegistry.XDSUpdater = s.EnvoyXdsServer
-	}
-
-	// TODO: Split initDiscoveryService method in to createDiscoveryServer and initDiscoveryService so that, this special
-	// handling is not needed. Because of dependency ordering problem, we need to set this explicitly here.
-	if s.serviceEntryStore != nil {
-		s.serviceEntryStore.XdsUpdater = s.EnvoyXdsServer
-	}
-
-	if s.mcpOptions != nil {
-		s.mcpOptions.XDSUpdater = s.EnvoyXdsServer
-	}
-	if s.incrementalMcpOptions != nil {
-		clusterID := args.Config.ControllerOptions.ClusterID
-		s.incrementalMcpOptions.XDSUpdater = s.EnvoyXdsServer
-		s.incrementalMcpOptions.ClusterID = clusterID
-		s.discoveryOptions.ClusterID = clusterID
 	}
 
 	// Implement EnvoyXdsServer grace shutdown

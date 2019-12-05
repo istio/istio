@@ -125,6 +125,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	s.mcpOptions = &coredatamodel.Options{
 		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
 		ConfigLedger: buildLedger(args.Config),
+		XDSUpdater:   s.EnvoyXdsServer,
 	}
 	reporter := monitoring.NewStatsContext("pilot")
 
@@ -317,10 +318,13 @@ func (s *Server) sseMCPController(args *PilotArgs,
 	configStores *[]model.ConfigStoreCache) {
 	clientNodeID := "SSEMCP"
 	s.incrementalMcpOptions = &coredatamodel.Options{
+		ClusterID:    s.clusterID,
 		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
+		XDSUpdater:   s.EnvoyXdsServer,
 	}
 	ctl := coredatamodel.NewSyntheticServiceEntryController(s.incrementalMcpOptions)
 	s.discoveryOptions = &coredatamodel.DiscoveryOptions{
+		ClusterID:    s.clusterID,
 		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
 	}
 	s.mcpDiscovery = coredatamodel.NewMCPDiscovery(ctl, s.discoveryOptions)
