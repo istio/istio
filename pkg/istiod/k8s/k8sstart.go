@@ -55,7 +55,8 @@ type Controllers struct {
 	args         *istiod.PilotArgs
 }
 
-func InitK8S(is *istiod.Server, clientset kubernetes.Interface, config *rest.Config, args *istiod.PilotArgs) (*Controllers, error) {
+func InitK8S(is *istiod.Server, clientset kubernetes.Interface, config *rest.Config,
+	args *istiod.PilotArgs) (*Controllers, error) {
 	s := &Controllers{
 		IstioServer: is,
 		kubeCfg:     config,
@@ -65,6 +66,7 @@ func InitK8S(is *istiod.Server, clientset kubernetes.Interface, config *rest.Con
 			DomainSuffix: args.DomainSuffix,
 			TrustDomain:  args.MeshWatcher.Mesh().TrustDomain,
 			Metrics:      is.Environment,
+			XDSUpdater:   is.EnvoyXdsServer,
 		},
 	}
 
@@ -76,21 +78,12 @@ func InitK8S(is *istiod.Server, clientset kubernetes.Interface, config *rest.Con
 	return s, nil
 }
 
-func (s *Controllers) OnXDSStart(xds model.XDSUpdater) {
-	s.kubeRegistry.XDSUpdater = xds
-}
-
-func (s *Controllers) InitK8SDiscovery(is *istiod.Server, config *rest.Config, args *istiod.PilotArgs) (*Controllers, error) {
+func (s *Controllers) InitK8SDiscovery(_ *istiod.Server, _ *rest.Config, args *istiod.PilotArgs) (*Controllers, error) {
 	s.createK8sServiceControllers(s.IstioServer.ServiceController())
 
 	if err := s.initClusterRegistries(args); err != nil {
 		return nil, fmt.Errorf("cluster registries: %v", err)
 	}
-
-	// EnvoyXDSServer is not initialized yet - since initialization adds all 'service' handlers, which depends
-	// on this being done. Instead we use the callback.
-	//s.kubeRegistry.XDSUpdater = s.IstioServer.EnvoyXdsServer
-
 	return s, nil
 }
 

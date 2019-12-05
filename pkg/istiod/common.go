@@ -93,15 +93,17 @@ var (
 func newServer(args *PilotArgs, configDir string) *Server {
 	meshCfgFile := baseDir + configDir + "/mesh"
 	fileWatcher := filewatcher.NewWatcher()
+	e := &model.Environment{
+		Watcher:          newMeshWatcher(args, fileWatcher, meshCfgFile),
+		NetworksWatcher:  newNetworksWatcher(args, fileWatcher),
+		ServiceDiscovery: aggregate.NewController(),
+		PushContext:      model.NewPushContext(),
+	}
 
 	return &Server{
-		Args: args,
-		Environment: &model.Environment{
-			Watcher:          newMeshWatcher(args, fileWatcher, meshCfgFile),
-			NetworksWatcher:  newNetworksWatcher(args, fileWatcher),
-			ServiceDiscovery: aggregate.NewController(),
-			PushContext:      model.NewPushContext(),
-		},
+		Args:           args,
+		Environment:    e,
+		EnvoyXdsServer: envoyv2.NewDiscoveryServer(e, args.Plugins),
 	}
 }
 
