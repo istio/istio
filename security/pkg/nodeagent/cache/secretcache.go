@@ -590,7 +590,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 	csrHostName, err := constructCSRHostName(sc.configOptions.TrustDomain, token)
 	if err != nil {
 		cacheLog.Warnf("%s failed to extract host name from jwt: %v, fallback to SDS request"+
-			" resource name. The failed jwt above is: %s", conIDresourceNamePrefix, err, token)
+			" resource name.", conIDresourceNamePrefix, err)
 		csrHostName = connKey.ResourceName
 	}
 	options := util.CertOptions{
