@@ -33,8 +33,9 @@ import (
 )
 
 var (
-	secureTokenEndpoint = "https://securetoken.googleapis.com/v1/identitybindingtoken"
+	// GKEClusterURL is the URL to send requests to the token exchange service.
 	GKEClusterURL       = env.RegisterStringVar("GKE_CLUSTER_URL", "", "The url of GKE cluster").Get()
+	secureTokenEndpoint = "https://securetoken.googleapis.com/v1/identitybindingtoken"
 	stsClientLog        = log.RegisterScope("stsClientLog", "STS client debugging", 0)
 )
 

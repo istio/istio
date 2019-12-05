@@ -60,8 +60,8 @@ const (
 	// identityTemplate is the format template of identity in the CSR request.
 	identityTemplate = "spiffe://%s/ns/%s/sa/%s"
 
-	// 10s timeout to align with the SLO of remote CAs such as Google CA.
-	envoyDefaultTimeoutInMilliSec = 10000
+	// For REST APIs between envoy->nodeagent, default value of 1s is used.
+	envoyDefaultTimeoutInMilliSec = 1000
 
 	// initialBackOffIntervalInMilliSec is the initial backoff time interval when hitting non-retryable error in CSR request.
 	initialBackOffIntervalInMilliSec = 50
