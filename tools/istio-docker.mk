@@ -73,8 +73,6 @@ $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
 # 	cp $(ISTIO_BIN)/kubectl $(ISTIO_DOCKER)/kubectl
 DOCKER_FILES_FROM_ISTIO_BIN:=kubectl
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_BIN), \
-        $(eval $(ISTIO_BIN)/$(FILE): ; bin/testEnvLocalK8S.sh getDeps))
-$(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_BIN), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_BIN)/$(FILE) | $(ISTIO_DOCKER); cp $(ISTIO_BIN)/$(FILE) $(ISTIO_DOCKER)/$(FILE)))
 
 docker.sidecar_injector: BUILD_PRE=; chmod 755 sidecar-injector

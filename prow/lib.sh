@@ -66,7 +66,7 @@ function build_images() {
   targets="docker.pilot docker.proxyv2 "
   targets+="docker.app docker.test_policybackend docker.kubectl "
   targets+="docker.mixer docker.citadel docker.galley docker.sidecar_injector docker.node-agent-k8s"
-  DOCKER_BUILD_VARIANTS="${VARIANT:-default}" DOCKER_TARGETS="${targets}" make dockerx
+  DOCKER_BUILD_VARIANTS="${VARIANT:-default}" DOCKER_TARGETS="${targets}" make docker
 }
 
 function kind_load_images() {
@@ -92,45 +92,6 @@ function kind_load_images() {
       sleep 1
     done
   fi
-}
-
-# Cleanup e2e resources.
-function cleanup() {
-  if [[ "${CLEAN_CLUSTERS}" == "True" ]]; then
-    unsetup_clusters
-  fi
-  if [[ "${USE_MASON_RESOURCE}" == "True" ]]; then
-    mason_cleanup
-    cat "${FILE_LOG}"
-  fi
-}
-
-# Set up a GKE cluster for testing.
-function setup_e2e_cluster() {
-  WD=$(dirname "$0")
-  WD=$(cd "$WD" || exit; pwd)
-  ROOT=$(dirname "$WD")
-
-  # shellcheck source=prow/mason_lib.sh
-  source "${ROOT}/prow/mason_lib.sh"
-  # shellcheck source=prow/cluster_lib.sh
-  source "${ROOT}/prow/cluster_lib.sh"
-
-  trap cleanup EXIT
-
-  if [[ "${USE_MASON_RESOURCE}" == "True" ]]; then
-    INFO_PATH="$(mktemp /tmp/XXXXX.boskos.info)"
-    FILE_LOG="$(mktemp /tmp/XXXXX.boskos.log)"
-    OWNER=${OWNER:-"e2e"}
-    E2E_ARGS+=("--mason_info=${INFO_PATH}")
-
-    setup_and_export_git_sha
-
-    get_resource "${RESOURCE_TYPE}" "${OWNER}" "${INFO_PATH}" "${FILE_LOG}"
-  else
-    export GIT_SHA="${GIT_SHA:-$TAG}"
-  fi
-  setup_cluster
 }
 
 function clone_cni() {

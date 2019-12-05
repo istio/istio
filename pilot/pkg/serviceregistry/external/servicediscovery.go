@@ -310,6 +310,19 @@ func servicesChanged(os []*model.Service, ns []*model.Service) bool {
 	if len(os) != len(ns) {
 		return true
 	}
-	// TODO : check if any finer grained check is possible, rather than comparing entire object.
-	return !reflect.DeepEqual(os, ns)
+	oldservicehosts := make(map[string]*model.Service, len(os))
+	newservicehosts := make(map[string]*model.Service, len(ns))
+
+	for _, s := range os {
+		oldservicehosts[string(s.Hostname)] = s
+	}
+	for _, s := range ns {
+		newservicehosts[string(s.Hostname)] = s
+	}
+	for host, service := range oldservicehosts {
+		if !reflect.DeepEqual(service, newservicehosts[host]) {
+			return true
+		}
+	}
+	return false
 }
