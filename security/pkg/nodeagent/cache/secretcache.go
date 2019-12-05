@@ -271,7 +271,7 @@ func (sc *SecretCache) SecretExist(connectionID, resourceName, token, version st
 	return e.ResourceName == resourceName && e.Token == token && e.Version == version
 }
 
-// IsIngressGatewaySecretReady returns true if node agent is working in ingress gateway agent mode
+// ShouldWaitForIngressGatewaySecret returns true if node agent is working in ingress gateway agent mode
 // and needs to wait for ingress gateway secret to be ready.
 func (sc *SecretCache) ShouldWaitForIngressGatewaySecret(connectionID, resourceName, token string) bool {
 	// If node agent works as workload agent, node agent does not expect any ingress gateway secret.
