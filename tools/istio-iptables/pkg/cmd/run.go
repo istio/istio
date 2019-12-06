@@ -442,6 +442,8 @@ func (iptConfigurator *IptablesConfigurator) run() {
 
 func (iptConfigurator *IptablesConfigurator) createRulesFile(f *os.File, contents string) error {
 	defer f.Close()
+	fmt.Println("Writing following contents to rules file: ", f.Name())
+	fmt.Println(contents)
 	writer := bufio.NewWriter(f)
 	_, err := writer.WriteString(contents)
 	if err != nil {
