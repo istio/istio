@@ -59,6 +59,7 @@ const (
 func (s *Server) initConfigController(args *PilotArgs) error {
 	meshConfig := s.environment.Mesh()
 	if len(meshConfig.ConfigSources) > 0 {
+		// Using MCP for config.
 		if err := s.initMCPConfigController(args); err != nil {
 			return err
 		}
@@ -70,30 +71,20 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 		if err != nil {
 			return err
 		}
-
-		s.configController = configController
+		s.ConfigStores = append(s.ConfigStores, configController)
 	} else {
 		configController, err := s.makeKubeConfigController(args)
 		if err != nil {
 			return err
 		}
-
-		s.configController = configController
+		s.ConfigStores = append(s.ConfigStores, configController)
 	}
 
 	// If running in ingress mode (requires k8s), wrap the config controller.
 	if hasKubeRegistry(args.Service.Registries) && meshConfig.IngressControllerMode != meshconfig.MeshConfig_OFF {
 		// Wrap the config controller with a cache.
-		configController, err := configaggregate.MakeCache([]model.ConfigStoreCache{
-			s.configController,
-			ingress.NewController(s.kubeClient, meshConfig, args.Config.ControllerOptions),
-		})
-		if err != nil {
-			return err
-		}
-
-		// Update the config controller
-		s.configController = configController
+		s.ConfigStores = append(s.ConfigStores,
+			ingress.NewController(s.kubeClient, meshConfig, args.Config.ControllerOptions))
 
 		if ingressSyncer, errSyncer := ingress.NewStatusSyncer(meshConfig, s.kubeClient,
 			args.Namespace, args.Config.ControllerOptions); errSyncer != nil {
@@ -105,6 +96,13 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 			})
 		}
 	}
+
+	// Wrap the config controller with a cache.
+	aggregateMcpController, err := configaggregate.MakeCache(s.ConfigStores)
+	if err != nil {
+		return err
+	}
+	s.configController = aggregateMcpController
 
 	// Create the config store.
 	s.environment.IstioConfigStore = model.MakeIstioStore(s.configController)
@@ -209,12 +207,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 		return nil
 	})
 
-	// Wrap the config controller with a cache.
-	aggregateMcpController, err := configaggregate.MakeCache(configStores)
-	if err != nil {
-		return err
-	}
-	s.configController = aggregateMcpController
+	s.ConfigStores = append(s.ConfigStores, configStores...)
 	return nil
 }
 
