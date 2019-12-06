@@ -32,7 +32,7 @@ type Environment interface {
 	Locality() *core.Locality
 }
 
-// Unknown provides a default platform environment for cases in wich the platform
+// Unknown provides a default platform environment for cases in which the platform
 // on which the bootstrapping is taking place cannot be determined.
 type Unknown struct{}
 
