@@ -104,8 +104,8 @@ var testGrid = []testCase{
 		name:       "mtlsAnalyzerNoSidecar",
 		inputFiles: []string{"testdata/mtls-no-sidecar.yaml"},
 		analyzer:   &auth.MTLSAnalyzer{},
-		expected:   []message{
-			// no messages, this test case verifies no false positives
+		expected: []message{
+			{msg.DestinationRuleUsesMTLSForWorkloadWithoutSidecar, "DestinationRule default.istio-system"},
 		},
 	},
 	{

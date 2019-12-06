@@ -97,6 +97,7 @@ var (
 	disableInternalTelemetry bool
 	tlsCertsToWatch          []string
 	loggingOptions           = log.DefaultOptions()
+	outlierLogPath           string
 
 	wg sync.WaitGroup
 
@@ -494,6 +495,7 @@ var (
 				SDSTokenPath:        sdsTokenPath,
 				ControlPlaneAuth:    controlPlaneAuthEnabled,
 				DisableReportCalls:  disableInternalTelemetry,
+				OutlierLogPath:      outlierLogPath,
 			})
 
 			agent := envoy.NewAgent(envoyProxy, features.TerminationDrainDuration())
@@ -740,6 +742,8 @@ func init() {
 		"Disable internal telemetry")
 	proxyCmd.PersistentFlags().BoolVar(&controlPlaneBootstrap, "controlPlaneBootstrap", true,
 		"Process bootstrap provided via templateFile to be used by control plane components.")
+	proxyCmd.PersistentFlags().StringVar(&outlierLogPath, "outlierLogPath", "",
+		"The log path for outlier detection")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
