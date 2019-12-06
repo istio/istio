@@ -218,7 +218,7 @@ func ParseK8sObjectsFromYAMLManifest(manifest string) (K8sObjects, error) {
 	scanner := bufio.NewScanner(strings.NewReader(manifest))
 	for scanner.Scan() {
 		line := scanner.Text()
-		if line == "---" {
+		if strings.TrimSpace(line) == "---" {
 			// yaml separator
 			yamls = append(yamls, b.String())
 			b.Reset()
