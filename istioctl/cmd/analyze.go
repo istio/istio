@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"sort"
 	"strings"
 
@@ -310,12 +311,12 @@ istioctl experimental analyze -L
 
 func gatherFiles(args []string) ([]io.Reader, error) {
 	var readers []io.Reader
-	var r io.Reader
+	var r *os.File
 	var err error
 	for _, f := range args {
 		if f == "-" {
 			if isatty.IsTerminal(os.Stdin.Fd()) {
-				return nil, fmt.Errorf("No content from stdin to read, but saw '-' arg")
+				return nil, fmt.Errorf("no content from stdin to read, but saw '-' arg")
 			}
 			r = os.Stdin
 		} else {
@@ -323,6 +324,7 @@ func gatherFiles(args []string) ([]io.Reader, error) {
 			if err != nil {
 				return nil, err
 			}
+			runtime.SetFinalizer(r, func(x *os.File) { x.Close() })
 		}
 		readers = append(readers, r)
 	}
