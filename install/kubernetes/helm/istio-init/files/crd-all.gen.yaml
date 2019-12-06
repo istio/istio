@@ -97,6 +97,7 @@ spec:
     plural: authorizationpolicies
     singular: authorizationpolicy
     shortNames:
+    - authz
     - authzpol
   scope: Namespaced
   subresources:
