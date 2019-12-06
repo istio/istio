@@ -113,7 +113,8 @@ the value of the root namespace and the Kubernetes services that provide the map
 service name to workload selector.
 
 The tool can also be used in an offline mode when specified with flag -f. In this mode,
-all needed information is provided through the command line.
+the tool doesn't access the network and all needed information is provided
+through the command line.
 
 Note: The converter tool makes a best effort attempt to keep the syntax unchanged during
 the conversion. However, in some cases, strict mapping with equivalent syntax is not
