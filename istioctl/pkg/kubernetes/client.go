@@ -185,7 +185,7 @@ func (client *Client) EnvoyDo(podName, podNamespace, method, path string, body [
 func (client *Client) ExtractExecResult(podName, podNamespace, container string, cmd []string) ([]byte, error) {
 	stdout, stderr, err := client.PodExec(podName, podNamespace, container, cmd)
 	if err != nil {
-		if stderr.String() != "" {
+		if stderr != nil && stderr.String() != "" {
 			return nil, fmt.Errorf("error execing into %v/%v %v container: %v\n%s", podName, podNamespace, container, err, stderr.String())
 		}
 		return nil, fmt.Errorf("error execing into %v/%v %v container: %v", podName, podNamespace, container, err)
