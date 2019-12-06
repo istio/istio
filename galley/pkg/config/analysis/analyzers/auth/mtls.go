@@ -259,7 +259,6 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 			msg.NewMTLSPolicyConflict(
 				mpr.Resource,
 				anyK8sServiceHost,
-				rootNamespace,
 				globalDRName,
 				globalMtls,
 				mpr.Resource.Metadata.Name.String(),
@@ -281,7 +280,6 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 			msg.NewMTLSPolicyConflict(
 				globalDR,
 				anyK8sServiceHost,
-				rootNamespace,
 				globalDR.Metadata.Name.String(),
 				globalMtls,
 				globalPolicyName,
@@ -347,7 +345,6 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 						msg.NewMTLSPolicyConflict(
 							tsPolicy.Resource,
 							ts.String(),
-							ns,
 							matchingDRName,
 							mtlsUsed,
 							tsPolicy.Resource.Metadata.Name.String(),
@@ -365,7 +362,6 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 						msg.NewMTLSPolicyConflict(
 							matchingDR,
 							ts.String(),
-							ns,
 							matchingDR.Metadata.Name.String(),
 							mtlsUsed,
 							policyName,
