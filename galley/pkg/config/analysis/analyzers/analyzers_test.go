@@ -338,7 +338,10 @@ func TestAnalyzers(t *testing.T) {
 
 			var files []io.Reader
 			for _, f := range testCase.inputFiles {
-				of, _ := os.Open(f)
+				of, err := os.Open(f)
+				if err != nil {
+					t.Fatalf("Error opening test file: %q", f)
+				}
 				files = append(files, of)
 			}
 

@@ -316,7 +316,7 @@ func gatherFiles(args []string) ([]io.Reader, error) {
 	for _, f := range args {
 		if f == "-" {
 			if isatty.IsTerminal(os.Stdin.Fd()) {
-				return nil, fmt.Errorf("no content from stdin to read, but saw '-' arg")
+				fmt.Fprint(os.Stderr, "Reading from stdin:\n")
 			}
 			r = os.Stdin
 		} else {
