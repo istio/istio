@@ -17,7 +17,7 @@ policy:
   cpu:
     targetAverageUtilization: 80
   memory:
-    targetAverageUtilization: 80
+    targetAverageValue: 100Mi
   rollingMaxSurge: 100%
   rollingMaxUnavailable: 25%
 
@@ -30,7 +30,7 @@ telemetry:
   cpu:
     targetAverageUtilization: 80
   memory:
-    targetAverageUtilization: 80
+    targetAverageValue: 100Mi
   rollingMaxSurge: 100%
   rollingMaxUnavailable: 25%
   sessionAffinityEnabled: false

@@ -1,7 +1,7 @@
 {{- range $key, $spec := .Values }}
 {{- if ne $key "enabled" }}
 {{- if and $spec.enabled $spec.autoscaleEnabled $spec.autoscaleMin $spec.autoscaleMax }}
-apiVersion: autoscaling/v2beta2
+apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
   name: {{ $key }}
@@ -21,17 +21,14 @@ spec:
     kind: Deployment
     name: {{ $key }}
   metrics:
-  - resource:
+  - type: Resource
+    resource:
       name: cpu
-      target: 
-        averageUtilization: {{ $spec.cpu.targetAverageUtilization }}
-        type: Utilization
-  - resource:
+      targetAverageUtilization: {{ $spec.cpu.targetAverageUtilization }}
+  - type: Resource
+    resource:
       name: memory
-      target:
-         averageUtilization: {{ $spec.memory.targetAverageUtilization }}
-         type: Utilization
-  type: Resource
+      targetAverageValue: {{ $spec.memory.targetAverageValue }}
 ---
 {{- end }}
 {{- end }}
