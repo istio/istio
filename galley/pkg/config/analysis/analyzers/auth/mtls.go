@@ -323,6 +323,18 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 				if globalMTLSMisconfigured && (tsPolicy.Resource == nil || matchingDR == nil) {
 					continue
 				}
+
+				// Check to see if our mismatch is due to a missing sidecar. If
+				// so, use a different analyzer message.
+				if _, ok := fqdnsWithoutSidecars[ts.FQDN()]; ok {
+					c.Report(metadata.IstioNetworkingV1Alpha3Destinationrules,
+						msg.NewDestinationRuleUsesMTLSForWorkloadWithoutSidecar(
+							matchingDR,
+							matchingDR.Metadata.Name.String(),
+							ts.String()))
+					continue
+				}
+
 				if tsPolicy.Resource != nil {
 					// We may or may not have a matching DR. If we don't, use
 					// the special missing resource string
