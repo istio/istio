@@ -40,7 +40,7 @@ func NewScopedFqdn(scope, namespace, host string) ScopedFqdn {
 func GetResourceNameFromHost(defaultNamespace, host string) resource.Name {
 
 	// First, try to parse as FQDN (which can be cross-namespace)
-	namespace, name := getNamespaceAndNameFromFQDN(host)
+	namespace, name := GetNamespaceAndNameFromFQDN(host)
 
 	//Otherwise, treat this as a short name and use the assumed namespace
 	if namespace == "" {
@@ -50,7 +50,9 @@ func GetResourceNameFromHost(defaultNamespace, host string) resource.Name {
 	return resource.NewName(namespace, name)
 }
 
-func getNamespaceAndNameFromFQDN(fqdn string) (string, string) {
+// GetNamespaceAndNameFromFQDN tries to parse namespace and name from a fqdn.
+// Empty strings are returned if either namespace or name cannot be parsed.
+func GetNamespaceAndNameFromFQDN(fqdn string) (string, string) {
 	result := fqdnPattern.FindAllStringSubmatch(fqdn, -1)
 	if len(result) == 0 {
 		return "", ""

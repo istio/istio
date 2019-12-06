@@ -161,6 +161,7 @@ func TestGolden(t *testing.T) {
 				_ = os.Remove(credPath)
 			},
 			check: func(got *v2.Bootstrap, t *testing.T) {
+				// nolint: staticcheck
 				cfg := got.Tracing.Http.GetConfig()
 				sdMsg := tracev2.OpenCensusConfig{}
 				if err := conversion.StructToMessage(cfg, &sdMsg); err != nil {
@@ -264,10 +265,11 @@ func TestGolden(t *testing.T) {
 				PlatEnv:        &fakePlatform{},
 				PilotSubjectAltName: []string{
 					"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"},
-				LocalEnv:     localEnv,
-				NodeIPs:      []string{"10.3.3.3", "10.4.4.4", "10.5.5.5", "10.6.6.6", "10.4.4.4"},
-				SDSUDSPath:   c.sdsUDSPath,
-				SDSTokenPath: c.sdsTokenPath,
+				LocalEnv:       localEnv,
+				NodeIPs:        []string{"10.3.3.3", "10.4.4.4", "10.5.5.5", "10.6.6.6", "10.4.4.4"},
+				SDSUDSPath:     c.sdsUDSPath,
+				SDSTokenPath:   c.sdsTokenPath,
+				OutlierLogPath: "/dev/stdout",
 			}).CreateFileForEpoch(0)
 			if err != nil {
 				t.Fatal(err)

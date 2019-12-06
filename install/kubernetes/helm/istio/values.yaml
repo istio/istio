@@ -206,6 +206,9 @@ global:
     # This must be given it terms of seconds. For example, 300s is valid but 5m is invalid.
     dnsRefreshRate: 300s
 
+    # Specifies the path to the outlier event log.
+    outlierLogPath: # example: /dev/stdout
+
     # Automatic protocol detection uses a set of heuristics to
     # determine whether the connection is using TLS or not (on the
     # server side), as well as the application protocol being used

@@ -30,8 +30,9 @@ import (
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
-	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
@@ -63,7 +64,7 @@ func TestSplitHorizonEds(t *testing.T) {
 	// Network has 2 gateways
 	initRegistry(server, 3, []string{"159.122.219.3", "179.114.119.3"}, 3)
 	// Set up a cluster registry for network 4 with 4 instances for the service 'service5'
-	// but without any gateway
+	// but without any gateway, which is treated as accessible directly.
 	initRegistry(server, 4, []string{}, 4)
 
 	// Push contexts needs to be updated
@@ -86,6 +87,10 @@ func TestSplitHorizonEds(t *testing.T) {
 					"159.122.219.2": 4,
 					"159.122.219.3": 3,
 					"179.114.119.3": 3,
+					"10.4.0.1":      2,
+					"10.4.0.2":      2,
+					"10.4.0.3":      2,
+					"10.4.0.4":      2,
 				},
 			},
 		},
@@ -101,6 +106,10 @@ func TestSplitHorizonEds(t *testing.T) {
 					"159.122.219.1": 2,
 					"159.122.219.3": 3,
 					"179.114.119.3": 3,
+					"10.4.0.1":      2,
+					"10.4.0.2":      2,
+					"10.4.0.3":      2,
+					"10.4.0.4":      2,
 				},
 			},
 		},
@@ -116,6 +125,10 @@ func TestSplitHorizonEds(t *testing.T) {
 					"10.3.0.1":      2,
 					"10.3.0.2":      2,
 					"10.3.0.3":      2,
+					"10.4.0.1":      2,
+					"10.4.0.2":      2,
+					"10.4.0.3":      2,
+					"10.4.0.4":      2,
 				},
 			},
 		},
@@ -229,9 +242,9 @@ func initRegistry(server *bootstrap.Server, clusterNum int, gatewaysIP []string,
 	id := fmt.Sprintf("network%d", clusterNum)
 	memRegistry := v2.NewMemServiceDiscovery(
 		map[host.Name]*model.Service{}, 2)
-	server.ServiceController.AddRegistry(aggregate.Registry{
+	server.ServiceController().AddRegistry(serviceregistry.Simple{
 		ClusterID:        id,
-		Name:             "memAdapter",
+		ProviderID:       "memAdapter",
 		ServiceDiscovery: memRegistry,
 		Controller:       &v2.MemServiceController{},
 	})
@@ -239,10 +252,10 @@ func initRegistry(server *bootstrap.Server, clusterNum int, gatewaysIP []string,
 	gws := make([]*meshconfig.Network_IstioNetworkGateway, 0)
 	for _, gatewayIP := range gatewaysIP {
 		if gatewayIP != "" {
-			if server.EnvoyXdsServer.Env.MeshNetworks == nil {
-				server.EnvoyXdsServer.Env.MeshNetworks = &meshconfig.MeshNetworks{
+			if server.EnvoyXdsServer.Env.Networks() == nil {
+				server.EnvoyXdsServer.Env.NetworksWatcher = mesh.NewFixedNetworksWatcher(&meshconfig.MeshNetworks{
 					Networks: map[string]*meshconfig.Network{},
-				}
+				})
 			}
 			gw := &meshconfig.Network_IstioNetworkGateway{
 				Gw: &meshconfig.Network_IstioNetworkGateway_Address{
@@ -255,7 +268,7 @@ func initRegistry(server *bootstrap.Server, clusterNum int, gatewaysIP []string,
 	}
 
 	if len(gws) != 0 {
-		server.EnvoyXdsServer.Env.MeshNetworks.Networks[id] = &meshconfig.Network{
+		server.EnvoyXdsServer.Env.Networks().Networks[id] = &meshconfig.Network{
 			Gateways: gws,
 		}
 	}

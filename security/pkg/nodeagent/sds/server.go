@@ -40,6 +40,9 @@ const (
 
 // Options provides all of the configuration parameters for secret discovery service.
 type Options struct {
+	// PluginNames is plugins' name for certain authentication provider.
+	PluginNames []string
+
 	// WorkloadUDSPath is the unix domain socket through which SDS server communicates with workload proxies.
 	WorkloadUDSPath string
 
@@ -63,9 +66,6 @@ type Options struct {
 	// https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
 	TrustDomain string
 
-	// PluginNames is plugins' name for certain authentication provider.
-	PluginNames []string
-
 	// The Vault CA address.
 	VaultAddress string
 
@@ -81,13 +81,8 @@ type Options struct {
 	// The Vault TLS root certificate.
 	VaultTLSRootCert string
 
-	// EnableWorkloadSDS indicates whether node agent works as SDS server for workload proxies.
-	EnableWorkloadSDS bool
-
-	// EnableIngressGatewaySDS indicates whether node agent works as ingress gateway agent.
-	EnableIngressGatewaySDS bool
-	// AlwaysValidTokenFlag is set to true for if token used is always valid(ex, normal k8s JWT)
-	AlwaysValidTokenFlag bool
+	// GrpcServer is an already configured (shared) grpc server. If set, the agent will just register on the server.
+	GrpcServer *grpc.Server
 
 	// Recycle job running interval (to clean up staled sds client connections).
 	RecycleInterval time.Duration
@@ -95,8 +90,14 @@ type Options struct {
 	// Debug server port from which node_agent serves SDS configuration dumps
 	DebugPort int
 
-	// GrpcServer is an already configured (shared) grpc server. If set, the agent will just register on the server.
-	GrpcServer *grpc.Server
+	// EnableWorkloadSDS indicates whether node agent works as SDS server for workload proxies.
+	EnableWorkloadSDS bool
+
+	// EnableIngressGatewaySDS indicates whether node agent works as ingress gateway agent.
+	EnableIngressGatewaySDS bool
+
+	// AlwaysValidTokenFlag is set to true for if token used is always valid(ex, normal k8s JWT)
+	AlwaysValidTokenFlag bool
 
 	// UseLocalJWT is set when the sds server should use its own local JWT, and not expect one
 	// from the UDS caller. Used when it runs in the same container with Envoy.

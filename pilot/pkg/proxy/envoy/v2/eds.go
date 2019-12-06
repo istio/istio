@@ -98,7 +98,7 @@ func loadAssignment(c *EdsCluster) *xdsapi.ClusterLoadAssignment {
 
 // buildEnvoyLbEndpoint packs the endpoint based on istio info.
 func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string, port uint32,
-	network string, weight uint32, tlsMode string) *endpoint.LbEndpoint {
+	network string, weight uint32, tlsMode string, push *model.PushContext) *endpoint.LbEndpoint {
 
 	var addr core.Address
 	switch family {
@@ -135,12 +135,12 @@ func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
 	// Istio endpoint level tls transport socket configuation depends on this logic
 	// Do not remove
-	ep.Metadata = util.BuildLbEndpointMetadata(uid, network, tlsMode)
+	ep.Metadata = util.BuildLbEndpointMetadata(uid, network, tlsMode, push)
 
 	return ep
 }
 
-func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint, tlsMode string) (*endpoint.LbEndpoint, error) {
+func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint, tlsMode string, push *model.PushContext) (*endpoint.LbEndpoint, error) {
 	err := model.ValidateNetworkEndpointAddress(e)
 	if err != nil {
 		return nil, err
@@ -166,7 +166,7 @@ func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint, tlsMode string) (*
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
 	// Istio endpoint level tls transport socket configuation depends on this logic
 	// Do not remove
-	ep.Metadata = util.BuildLbEndpointMetadata(e.UID, e.Network, tlsMode)
+	ep.Metadata = util.BuildLbEndpointMetadata(e.UID, e.Network, tlsMode, push)
 
 	return ep, nil
 }
@@ -248,20 +248,20 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 
 	// TODO: if ServiceDiscovery is aggregate, and all members support direct, use
 	// the direct interface.
-	var registries []aggregate.Registry
-	var nonK8sRegistries []aggregate.Registry
+	var registries []serviceregistry.Instance
+	var nonK8sRegistries []serviceregistry.Instance
 	if agg, ok := s.Env.ServiceDiscovery.(*aggregate.Controller); ok {
 		registries = agg.GetRegistries()
 	} else {
-		registries = []aggregate.Registry{
-			{
+		registries = []serviceregistry.Instance{
+			serviceregistry.Simple{
 				ServiceDiscovery: s.Env.ServiceDiscovery,
 			},
 		}
 	}
 
 	for _, registry := range registries {
-		if registry.Name != serviceregistry.KubernetesRegistry {
+		if registry.Provider() != serviceregistry.Kubernetes {
 			nonK8sRegistries = append(nonK8sRegistries, registry)
 		}
 	}
@@ -305,7 +305,7 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 				}
 			}
 
-			s.edsUpdate(registry.ClusterID, string(svc.Hostname), svc.Attributes.Namespace, entries, true)
+			s.edsUpdate(registry.Cluster(), string(svc.Hostname), svc.Attributes.Namespace, entries, true)
 		}
 	}
 
@@ -337,10 +337,10 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 		}
 
 		if len(instances) == 0 {
-			push.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
+			push.AddMetric(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
 			adsLog.Debugf("EDS: Cluster %q (host:%s ports:%v labels:%v) has no instances", clusterName, hostname, port, subsetLabels)
 		}
-		locEps = localityLbEndpointsFromInstances(instances)
+		locEps = localityLbEndpointsFromInstances(instances, push)
 		updateEdsStats(locEps, clusterName)
 	}
 
@@ -551,10 +551,10 @@ func (s *DiscoveryServer) deleteService(cluster, serviceName, namespace string) 
 // Envoy v2 Endpoints are constructed from Pilot's older data structure involving
 // model.ServiceInstance objects. Envoy expects the endpoints grouped by zone, so
 // a map is created - in new data structures this should be part of the model.
-func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []*endpoint.LocalityLbEndpoints {
+func localityLbEndpointsFromInstances(instances []*model.ServiceInstance, push *model.PushContext) []*endpoint.LocalityLbEndpoints {
 	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
 	for _, instance := range instances {
-		lbEp, err := networkEndpointToEnvoyEndpoint(&instance.Endpoint, instance.TLSMode)
+		lbEp, err := networkEndpointToEnvoyEndpoint(&instance.Endpoint, instance.TLSMode, push)
 		if err != nil {
 			adsLog.Errorf("EDS: Unexpected pilot model endpoint v1 to v2 conversion: %v", err)
 			totalXDSInternalErrors.Increment()
@@ -698,8 +698,8 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 
 		// If networks are set (by default they aren't) apply the Split Horizon
 		// EDS filter on the endpoints
-		if s.Env.MeshNetworks != nil && len(s.Env.MeshNetworks.Networks) > 0 {
-			endpoints := EndpointsByNetworkFilter(l.Endpoints, con, s.Env)
+		if push.Networks != nil && len(push.Networks.Networks) > 0 {
+			endpoints := EndpointsByNetworkFilter(push, con.node.Metadata.Network, l.Endpoints)
 			filteredCLA := &xdsapi.ClusterLoadAssignment{
 				ClusterName: l.ClusterName,
 				Endpoints:   endpoints,
@@ -709,7 +709,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 		}
 
 		// If locality aware routing is enabled, prioritize endpoints or set their lb weight.
-		if s.Env.Mesh.LocalityLbSetting != nil {
+		if push.Mesh.LocalityLbSetting != nil {
 			// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
 			clonedCLA := util.CloneClusterLoadAssignment(l)
 			l = &clonedCLA
@@ -717,7 +717,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 			// Failover should only be enabled when there is an outlier detection, otherwise Envoy
 			// will never detect the hosts are unhealthy and redirect traffic.
 			enableFailover, loadBalancerSettings := getOutlierDetectionAndLoadBalancerSettings(push, con.node, clusterName)
-			var localityLbSettings = s.Env.Mesh.LocalityLbSetting
+			var localityLbSettings = push.Mesh.LocalityLbSetting
 			if loadBalancerSettings != nil && loadBalancerSettings.LocalityLbSetting != nil {
 				localityLbSettings = loadBalancerSettings.LocalityLbSetting
 			}
@@ -920,7 +920,8 @@ func buildLocalityLbEndpointsFromShards(
 				localityEpMap[ep.Locality] = locLbEps
 			}
 			if ep.EnvoyEndpoint == nil {
-				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep.UID, ep.Family, ep.Address, ep.EndpointPort, ep.Network, ep.LbWeight, ep.TLSMode)
+				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep.UID, ep.Family, ep.Address, ep.EndpointPort, ep.Network,
+					ep.LbWeight, ep.TLSMode, push)
 			}
 			locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, ep.EnvoyEndpoint)
 
@@ -941,7 +942,7 @@ func buildLocalityLbEndpointsFromShards(
 	}
 
 	if len(locEps) == 0 {
-		push.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
+		push.AddMetric(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
 	}
 
 	updateEdsStats(locEps, clusterName)

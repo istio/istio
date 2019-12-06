@@ -15,8 +15,6 @@
 package external_test
 
 import (
-	"fmt"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -27,9 +25,36 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/external"
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schemas"
-	"istio.io/istio/pkg/test/util/retry"
 )
 
+type FakeXdsUpdater struct {
+	// Events tracks notifications received by the updater
+	Events chan string
+}
+
+func (fx *FakeXdsUpdater) EDSUpdate(shard, hostname string, namespace string, entry []*model.IstioEndpoint) error {
+	if len(entry) > 0 {
+		select {
+		case fx.Events <- "eds":
+		default:
+		}
+
+	}
+	return nil
+}
+
+func (fx *FakeXdsUpdater) ConfigUpdate(*model.PushRequest) {
+	select {
+	case fx.Events <- "xds":
+	default:
+	}
+}
+
+func (fx *FakeXdsUpdater) ProxyUpdate(clusterID, ip string) {
+}
+
+func (fx *FakeXdsUpdater) SvcUpdate(shard, hostname string, namespace string, event model.Event) {
+}
 func TestController(t *testing.T) {
 	configDescriptor := schema.Set{
 		schemas.ServiceEntry,
@@ -37,18 +62,12 @@ func TestController(t *testing.T) {
 	store := memory.Make(configDescriptor)
 	configController := memory.NewController(store)
 
-	count := int64(0)
-
-	ctl := external.NewServiceDiscovery(configController, model.MakeIstioStore(configController))
-	err := ctl.AppendInstanceHandler(func(instance *model.ServiceInstance, event model.Event) { atomic.AddInt64(&count, 1) })
-	if err != nil {
-		t.Fatalf("AppendInstanceHandler() => %q", err)
+	eventch := make(chan string)
+	xdsUpdater := &FakeXdsUpdater{
+		Events: eventch,
 	}
 
-	err = ctl.AppendServiceHandler(func(service *model.Service, event model.Event) { atomic.AddInt64(&count, 1) })
-	if err != nil {
-		t.Fatalf("AppendServiceHandler() => %q", err)
-	}
+	external.NewServiceDiscovery(configController, model.MakeIstioStore(configController), xdsUpdater)
 
 	stop := make(chan struct{})
 	go configController.Run(stop)
@@ -86,19 +105,178 @@ func TestController(t *testing.T) {
 			Resolution: networking.ServiceEntry_STATIC,
 		},
 	}
-	expectedCount := int64(1) // 1 service - We do not call instance handlers any more.
 
-	_, err = configController.Create(cfg)
+	_, err := configController.Create(cfg)
+
 	if err != nil {
-		t.Fatalf("error occurred crearting ServiceEntry config: %v", err)
+		t.Fatalf("Error in creating service entry %v", err)
 	}
 
-	if err := retry.UntilSuccess(func() error {
-		if gotcount := atomic.AddInt64(&count, 0); gotcount != expectedCount {
-			return fmt.Errorf("got %d notifications from controller, want %d", gotcount, expectedCount)
-		}
-		return nil
-	}, retry.Delay(50*time.Millisecond), retry.Timeout(5*time.Second)); err != nil {
-		t.Fatal(err)
+	handler := <-eventch
+	if handler != "xds" {
+		t.Fatalf("Expected config update to be called, but got %s", handler)
+	}
+}
+
+// Validate that Service Entry changes trigger appropriate handlers.
+func TestServiceEntryChanges(t *testing.T) {
+	configDescriptor := schema.Set{
+		schemas.ServiceEntry,
+	}
+	store := memory.Make(configDescriptor)
+	configController := memory.NewController(store)
+
+	eventch := make(chan string)
+
+	xdsUpdater := &FakeXdsUpdater{
+		Events: eventch,
+	}
+
+	external.NewServiceDiscovery(configController, model.MakeIstioStore(configController), xdsUpdater)
+
+	stop := make(chan struct{})
+	go configController.Run(stop)
+	defer close(stop)
+
+	cfg := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:      schemas.ServiceEntry.Type,
+			Name:      "fake",
+			Namespace: "fake-ns",
+		},
+		Spec: &networking.ServiceEntry{
+			Hosts: []string{"*.google.com"},
+			Ports: []*networking.Port{
+				{Number: 80, Name: "http-port", Protocol: "http"},
+				{Number: 8080, Name: "http-alt-port", Protocol: "http"},
+			},
+			Endpoints: []*networking.ServiceEntry_Endpoint{
+				{
+					Address: "2.2.2.2",
+					Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
+				},
+				{
+					Address: "3.3.3.3",
+					Ports:   map[string]uint32{"http-port": 1080},
+				},
+				{
+					Address: "4.4.4.4",
+					Ports:   map[string]uint32{"http-port": 1080},
+					Labels:  map[string]string{"foo": "bar"},
+				},
+			},
+			Location:   networking.ServiceEntry_MESH_EXTERNAL,
+			Resolution: networking.ServiceEntry_STATIC,
+		},
+	}
+
+	revision, err := configController.Create(cfg)
+
+	if err != nil {
+		t.Fatalf("Error in creating service entry %v", err)
+	}
+
+	handler := <-eventch
+	if handler != "xds" {
+		t.Fatalf("Expected config update to be called, but got %s", handler)
+	}
+
+	// Update service entry with Host changes
+	updatecfg := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:            schemas.ServiceEntry.Type,
+			Name:            "fake",
+			Namespace:       "fake-ns",
+			ResourceVersion: revision,
+		},
+		Spec: &networking.ServiceEntry{
+			Hosts: []string{"*.google.com", "test.com"},
+			Ports: []*networking.Port{
+				{Number: 80, Name: "http-port", Protocol: "http"},
+				{Number: 8080, Name: "http-alt-port", Protocol: "http"},
+			},
+			Endpoints: []*networking.ServiceEntry_Endpoint{
+				{
+					Address: "2.2.2.2",
+					Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
+				},
+				{
+					Address: "3.3.3.3",
+					Ports:   map[string]uint32{"http-port": 1080},
+				},
+				{
+					Address: "4.4.4.4",
+					Ports:   map[string]uint32{"http-port": 1080},
+					Labels:  map[string]string{"foo": "bar"},
+				},
+			},
+			Location:   networking.ServiceEntry_MESH_EXTERNAL,
+			Resolution: networking.ServiceEntry_STATIC,
+		},
+	}
+
+	revision, err = configController.Update(updatecfg)
+
+	if err != nil {
+		t.Fatalf("Error in creating service entry %v", err)
+	}
+
+	handler = <-eventch
+	if handler != "xds" {
+		t.Fatalf("Expected config update to be called, but got %s", handler)
+	}
+
+	// Update Service Entry with Endpoint changes
+	updatecfg = model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:            schemas.ServiceEntry.Type,
+			Name:            "fake",
+			Namespace:       "fake-ns",
+			ResourceVersion: revision,
+		},
+		Spec: &networking.ServiceEntry{
+			Hosts: []string{"*.google.com", "test.com"},
+			Ports: []*networking.Port{
+				{Number: 80, Name: "http-port", Protocol: "http"},
+				{Number: 8080, Name: "http-alt-port", Protocol: "http"},
+			},
+			Endpoints: []*networking.ServiceEntry_Endpoint{
+				{
+					Address: "2.2.2.2",
+					Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
+				},
+				{
+					Address: "3.3.3.3",
+					Ports:   map[string]uint32{"http-port": 1080},
+				},
+				{
+					Address: "5.5.5.5",
+					Ports:   map[string]uint32{"http-port": 1080},
+				},
+				{
+					Address: "6.6.6.6",
+					Ports:   map[string]uint32{"http-port": 1080},
+				},
+				{
+					Address: "4.4.4.4",
+					Ports:   map[string]uint32{"http-port": 1080},
+					Labels:  map[string]string{"foo": "bar"},
+				},
+			},
+			Location:   networking.ServiceEntry_MESH_EXTERNAL,
+			Resolution: networking.ServiceEntry_STATIC,
+		},
+	}
+
+	_, err = configController.Update(updatecfg)
+
+	if err != nil {
+		t.Fatalf("Error in creating service entry %v", err)
+	}
+
+	// Here we expect only eds update to be called.
+	handler = <-eventch
+	if handler != "eds" {
+		t.Fatalf("Expected eds update to be called, but got %s", handler)
 	}
 }

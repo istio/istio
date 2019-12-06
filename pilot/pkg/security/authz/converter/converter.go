@@ -34,14 +34,14 @@ import (
 	rbac_v1alpha1 "istio.io/api/rbac/v1alpha1"
 	rbac_v1beta1 "istio.io/api/security/v1beta1"
 	"istio.io/api/type/v1beta1"
-	"istio.io/istio/pilot/cmd"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schemas"
-	"istio.io/pkg/log"
 )
 
 // WorkloadLabels is the workload labels, for example, app: productpage.
@@ -129,7 +129,7 @@ func getRootNamespace(k8sClient *kubernetes.Clientset, meshConfigFile, meshConfi
 	var meshConfig *v1alpha1.MeshConfig
 	var err error
 	if meshConfigFile != "" {
-		if meshConfig, err = cmd.ReadMeshConfig(meshConfigFile); err != nil {
+		if meshConfig, err = mesh.ReadMeshConfig(meshConfigFile); err != nil {
 			return "", fmt.Errorf("failed to read the provided ConfigMap %s: %s", meshConfigFile, err)
 		}
 	} else {
@@ -433,7 +433,7 @@ func convertAccessRuleToOperation(rule *authz_model.Permission) (*rbac_v1beta1.O
 		return nil, fmt.Errorf("invalid input: No rule found in ServiceRole")
 	}
 	if len(rule.Constraints) > 0 && len(rule.Constraints[0]) > 0 {
-		// nolint: gas
+		// nolint: golint
 		return nil, fmt.Errorf("ServiceRole with constraints is not supported")
 	}
 	operation := rbac_v1beta1.Operation{}
@@ -450,7 +450,7 @@ func convertBindingToSources(principals []authz_model.Principal) ([]*rbac_v1beta
 	for _, subject := range principals {
 		// TODO(pitlv2109): Handle group
 		if subject.Group != "" {
-			// nolint: gas
+			// nolint: golint
 			return nil, fmt.Errorf("ServiceRoleBinding with group is not supported")
 		}
 		from := rbac_v1beta1.Rule_From{

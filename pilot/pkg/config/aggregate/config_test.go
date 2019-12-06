@@ -242,7 +242,7 @@ func TestAggregateStoreCache(t *testing.T) {
 	t.Run("it registers an event handler", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
-		cacheStore.RegisterEventHandler("some-config", func(model.Config, model.Event) {})
+		cacheStore.RegisterEventHandler("some-config", func(model.Config, model.Config, model.Event) {})
 
 		typ, h := storeOne.RegisterEventHandlerArgsForCall(0)
 		g.Expect(typ).To(gomega.Equal("some-config"))

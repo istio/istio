@@ -34,8 +34,7 @@ import (
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 
-// ConvertObject converts an IstioObject k8s-style object to the
-// internal configuration model.
+// ConvertObject converts an IstioObject k8s-style object to the internal configuration model.
 func ConvertObject(schema schema.Instance, object IstioObject, domain string) (*model.Config, error) {
 	data, err := schema.FromJSONMap(object.GetSpec())
 	if err != nil {

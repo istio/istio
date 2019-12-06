@@ -100,7 +100,7 @@ func convertService(endpoints []*api.CatalogService) *model.Service {
 		MeshExternal: meshExternal,
 		Resolution:   resolution,
 		Attributes: model.ServiceAttributes{
-			ServiceRegistry: string(serviceregistry.ConsulRegistry),
+			ServiceRegistry: string(serviceregistry.Consul),
 			Name:            string(hostname),
 			Namespace:       model.IstioDefaultConfigNamespace,
 		},

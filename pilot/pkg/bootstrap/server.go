@@ -26,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pilot/pkg/serviceregistry"
+
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/hashicorp/go-multierror"
@@ -52,6 +54,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pilot/pkg/serviceregistry/external"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schemas"
@@ -103,13 +106,11 @@ type Server struct {
 	MonitorListeningAddr    net.Addr
 
 	// TODO(nmittler): Consider alternatives to exposing these directly
-	EnvoyXdsServer    *envoyv2.DiscoveryServer
-	ServiceController *aggregate.Controller
+	EnvoyXdsServer *envoyv2.DiscoveryServer
 
-	mesh             *meshconfig.MeshConfig
-	meshNetworks     *meshconfig.MeshNetworks
-	configController model.ConfigStoreCache
-
+	clusterID             string
+	environment           *model.Environment
+	configController      model.ConfigStoreCache
 	kubeClient            kubernetes.Interface
 	startFuncs            []startFunc
 	multicluster          *clusterregistry.Multicluster
@@ -117,15 +118,14 @@ type Server struct {
 	grpcServer            *grpc.Server
 	secureHTTPServer      *http.Server
 	secureGRPCServer      *grpc.Server
-	istioConfigStore      model.IstioConfigStore
 	mux                   *http.ServeMux
 	kubeRegistry          *kubecontroller.Controller
-	fileWatcher           filewatcher.FileWatcher
 	mcpDiscovery          *coredatamodel.MCPDiscovery
 	discoveryOptions      *coredatamodel.DiscoveryOptions
 	incrementalMcpOptions *coredatamodel.Options
 	mcpOptions            *coredatamodel.Options
 	certController        *chiron.WebhookController
+	serviceEntryStore     *external.ServiceEntryStore
 }
 
 var podNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", "", "")
@@ -147,9 +147,18 @@ func NewServer(args PilotArgs) (*Server, error) {
 		}
 	}
 
-	s := &Server{
-		fileWatcher: filewatcher.NewWatcher(),
+	e := &model.Environment{
+		ServiceDiscovery: aggregate.NewController(),
+		PushContext:      model.NewPushContext(),
 	}
+
+	s := &Server{
+		clusterID:      getClusterID(args),
+		environment:    e,
+		EnvoyXdsServer: envoyv2.NewDiscoveryServer(e, args.Plugins),
+	}
+
+	log.Infof("Primary Cluster name: %s", s.clusterID)
 
 	prometheus.EnableHandlingTimeHistogram()
 
@@ -157,12 +166,11 @@ func NewServer(args PilotArgs) (*Server, error) {
 	if err := s.initKubeClient(&args); err != nil {
 		return nil, fmt.Errorf("kube client: %v", err)
 	}
-	if err := s.initMesh(&args); err != nil {
+	fileWatcher := filewatcher.NewWatcher()
+	if err := s.initMeshConfiguration(&args, fileWatcher); err != nil {
 		return nil, fmt.Errorf("mesh: %v", err)
 	}
-	if err := s.initMeshNetworks(&args); err != nil {
-		return nil, fmt.Errorf("mesh networks: %v", err)
-	}
+	s.initMeshNetworks(&args, fileWatcher)
 	// Certificate controller is created before MCP
 	// controller in case MCP server pod waits to mount a certificate
 	// to be provisioned by the certificate controller.
@@ -195,6 +203,20 @@ func NewServer(args PilotArgs) (*Server, error) {
 	return s, nil
 }
 
+func getClusterID(args PilotArgs) string {
+	clusterID := args.Config.ControllerOptions.ClusterID
+	if clusterID == "" {
+		for _, registry := range args.Service.Registries {
+			if registry == string(serviceregistry.Kubernetes) {
+				clusterID = string(serviceregistry.Kubernetes)
+				break
+			}
+		}
+	}
+
+	return clusterID
+}
+
 // Start starts all components of the Pilot discovery service on the port specified in DiscoveryServiceOptions.
 // If Port == 0, a port number is automatically chosen. Content serving is started by this method,
 // but is executed asynchronously. Serving can be canceled at any time by closing the provided stop channel.
@@ -224,39 +246,19 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 }
 
 func (s *Server) initDiscoveryService(args *PilotArgs) error {
-	environment := &model.Environment{
-		Mesh:             s.mesh,
-		MeshNetworks:     s.meshNetworks,
-		IstioConfigStore: s.istioConfigStore,
-		ServiceDiscovery: s.ServiceController,
-		PushContext:      model.NewPushContext(),
-	}
-
-	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(environment, args.Plugins)
 	s.mux = http.NewServeMux()
-	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController, args.DiscoveryOptions.EnableProfiling)
+	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController(), args.DiscoveryOptions.EnableProfiling)
+
+	// When the mesh config or networks change, do a full push.
+	s.environment.AddMeshHandler(func() {
+		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
+	})
+	s.environment.AddNetworksHandler(func() {
+		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
+	})
 
 	if err := s.initEventHandlers(); err != nil {
 		return err
-	}
-
-	if s.kubeRegistry != nil {
-		// kubeRegistry may use the environment for push status reporting.
-		// TODO: maybe all registries should have this as an optional field ?
-		s.kubeRegistry.Env = environment
-		s.kubeRegistry.InitNetworkLookup(s.meshNetworks)
-		s.kubeRegistry.XDSUpdater = s.EnvoyXdsServer
-	}
-
-	if s.mcpOptions != nil {
-		s.mcpOptions.XDSUpdater = s.EnvoyXdsServer
-	}
-	if s.incrementalMcpOptions != nil {
-		clusterID := args.Config.ControllerOptions.ClusterID
-		s.incrementalMcpOptions.XDSUpdater = s.EnvoyXdsServer
-		s.incrementalMcpOptions.ClusterID = clusterID
-		s.discoveryOptions.Env = environment
-		s.discoveryOptions.ClusterID = clusterID
 	}
 
 	// Implement EnvoyXdsServer grace shutdown
@@ -497,12 +499,12 @@ func (s *Server) initEventHandlers() error {
 		}
 		s.EnvoyXdsServer.ConfigUpdate(pushReq)
 	}
-	if err := s.ServiceController.AppendServiceHandler(serviceHandler); err != nil {
+	if err := s.ServiceController().AppendServiceHandler(serviceHandler); err != nil {
 		return fmt.Errorf("append service handler failed: %v", err)
 	}
 
 	instanceHandler := func(si *model.ServiceInstance, _ model.Event) {
-		// TODO: This is an incomplete code. This code path is called for service entries, consul, etc.
+		// TODO: This is an incomplete code. This code path is called for consul, etc.
 		// In all cases, this is simply an instance update and not a config update. So, we need to update
 		// EDS in all proxies, and do a full config push for the instance that just changed (add/update only).
 		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{
@@ -512,7 +514,7 @@ func (s *Server) initEventHandlers() error {
 			ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
 		})
 	}
-	if err := s.ServiceController.AppendInstanceHandler(instanceHandler); err != nil {
+	if err := s.ServiceController().AppendInstanceHandler(instanceHandler); err != nil {
 		return fmt.Errorf("append instance handler failed: %v", err)
 	}
 
@@ -520,10 +522,10 @@ func (s *Server) initEventHandlers() error {
 	if s.configController != nil {
 		// TODO: changes should not trigger a full recompute of LDS/RDS/CDS/EDS
 		// (especially mixerclient HTTP and quota)
-		configHandler := func(c model.Config, _ model.Event) {
+		configHandler := func(old, curr model.Config, _ model.Event) {
 			pushReq := &model.PushRequest{
 				Full:               true,
-				ConfigTypesUpdated: map[string]struct{}{c.Type: {}},
+				ConfigTypesUpdated: map[string]struct{}{curr.Type: {}},
 			}
 			s.EnvoyXdsServer.ConfigUpdate(pushReq)
 		}

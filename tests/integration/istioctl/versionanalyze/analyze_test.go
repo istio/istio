@@ -20,6 +20,7 @@ import (
 
 	. "github.com/onsi/gomega"
 
+	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/istioctl/cmd"
 	"istio.io/istio/pkg/test/framework"
@@ -74,9 +75,7 @@ func TestFileOnly(t *testing.T) {
 
 			// Validation error if we have a service role binding without a service role
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), serviceRoleBindingFile)
-			g.Expect(output).To(HaveLen(2))
-			g.Expect(output[0]).To(ContainSubstring(msg.ReferencedResourceNotFound.Code()))
-			g.Expect(output[1]).To(ContainSubstring(analyzerFoundIssuesError.Error()))
+			expectMessages(t, g, output, msg.ReferencedResourceNotFound)
 			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
 
 			// Error goes away if we include both the binding and its role
@@ -104,9 +103,7 @@ func TestKubeOnly(t *testing.T) {
 
 			// Validation error if we have a service role binding without a service role
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), "--use-kube")
-			g.Expect(output).To(HaveLen(2))
-			g.Expect(output[0]).To(ContainSubstring(msg.ReferencedResourceNotFound.Code()))
-			g.Expect(output[1]).To(ContainSubstring(analyzerFoundIssuesError.Error()))
+			expectMessages(t, g, output, msg.ReferencedResourceNotFound)
 			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
 
 			// Error goes away if we include both the binding and its role
@@ -162,8 +159,7 @@ func TestServiceDiscovery(t *testing.T) {
 
 			// With service discovery on, do expect an error
 			output, err = istioctlSafe(t, istioCtl, ns.Name(), "--discovery=true", reviewsVsAndDrFile)
-			g.Expect(output[0]).To(ContainSubstring(msg.ReferencedResourceNotFound.Code()))
-			g.Expect(output[1]).To(ContainSubstring(analyzerFoundIssuesError.Error()))
+			expectMessages(t, g, output, msg.ReferencedResourceNotFound)
 			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
 
 			// Error goes away if we include the service definition in the resources being analyzed
@@ -173,15 +169,79 @@ func TestServiceDiscovery(t *testing.T) {
 		})
 }
 
+func TestAllNamespaces(t *testing.T) {
+	framework.
+		NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		Run(func(ctx framework.TestContext) {
+			g := NewGomegaWithT(t)
+
+			ns1 := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "istioctl-analyze-1",
+				Inject: true,
+			})
+			ns2 := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "istioctl-analyze-2",
+				Inject: true,
+			})
+
+			applyFileOrFail(t, ns1.Name(), serviceRoleBindingFile)
+			applyFileOrFail(t, ns2.Name(), serviceRoleBindingFile)
+
+			istioCtl := istioctl.NewOrFail(t, ctx, istioctl.Config{})
+
+			// If we look at one namespace, we should successfully run and see one message (and not anything from any other namespace)
+			output, _ := istioctlSafe(t, istioCtl, ns1.Name(), "--use-kube")
+			expectMessages(t, g, output, msg.ReferencedResourceNotFound)
+
+			// If we use --all-namespaces, we should successfully run and see a message from each namespace
+			output, _ = istioctlSafe(t, istioCtl, "", "--use-kube", "--all-namespaces")
+			// Since this test runs in a cluster with lots of other namespaces we don't actually care about, only look for ns1 and ns2
+			foundCount := 0
+			for _, line := range output {
+				if strings.Contains(line, ns1.Name()) {
+					g.Expect(line).To(ContainSubstring(msg.ReferencedResourceNotFound.Code()))
+					foundCount++
+				}
+				if strings.Contains(line, ns2.Name()) {
+					g.Expect(line).To(ContainSubstring(msg.ReferencedResourceNotFound.Code()))
+					foundCount++
+				}
+			}
+			g.Expect(foundCount).To(Equal(2))
+		})
+}
+
+// Verify the output contains messages of the expected type, in order, followed by boilerplate lines
+func expectMessages(t *testing.T, g *GomegaWithT, outputLines []string, expected ...*diag.MessageType) {
+	t.Helper()
+
+	// The boilerplate lines that appear if any issues are found
+	boilerplateLines := strings.Split(analyzerFoundIssuesError.Error(), "\n")
+
+	g.Expect(outputLines).To(HaveLen(len(expected) + len(boilerplateLines)))
+
+	for i, line := range outputLines {
+		if i < len(expected) {
+			g.Expect(line).To(ContainSubstring(expected[i].Code()))
+		} else {
+			g.Expect(line).To(ContainSubstring(boilerplateLines[i-len(expected)]))
+		}
+	}
+}
+
 func expectNoMessages(t *testing.T, g *GomegaWithT, output []string) {
 	t.Helper()
 	g.Expect(output).To(HaveLen(1))
-	g.Expect(output[0]).To(ContainSubstring("No validation issues found"))
+	g.Expect(output[0]).To(ContainSubstring(cmd.NoIssuesString))
 }
 
 func istioctlSafe(t *testing.T, i istioctl.Instance, ns string, extraArgs ...string) ([]string, error) {
 	t.Helper()
-	args := []string{"experimental", "analyze", "--namespace", ns}
+	args := []string{"experimental", "analyze"}
+	if ns != "" {
+		args = append(args, "--namespace", ns)
+	}
 	output, err := i.Invoke(append(args, extraArgs...))
 	if output == "" {
 		return []string{}, err

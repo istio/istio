@@ -30,7 +30,6 @@ import (
 	"istio.io/api/mesh/v1alpha1"
 	operatorV1alpha1 "istio.io/operator/pkg/apis/istio/v1alpha1"
 	operatorV1alpha2 "istio.io/operator/pkg/apis/istio/v1alpha2"
-	"istio.io/operator/pkg/helm"
 	"istio.io/operator/pkg/util"
 	"istio.io/operator/pkg/validate"
 
@@ -151,7 +150,7 @@ func generateIstioControlPlane(mesh *Mesh, current *Cluster, meshNetworks *v1alp
 	if err != nil {
 		return "", err
 	}
-	mergedYAML, err := helm.OverlayYAML(baseYAML, overlayYAML)
+	mergedYAML, err := util.OverlayYAML(baseYAML, overlayYAML)
 	if err != nil {
 		return "", err
 	}
@@ -272,7 +271,7 @@ func meshNetworkForCluster(env Environment, mesh *Mesh, current *Cluster) (*v1al
 		// uses a special name for the local cluster against which it is running.
 		registry := string(cluster.uid)
 		if context == current.Context {
-			registry = string(serviceregistry.KubernetesRegistry)
+			registry = string(serviceregistry.Kubernetes)
 		}
 
 		mn.Networks[network].Endpoints = append(mn.Networks[network].Endpoints,

@@ -2023,6 +2023,14 @@ func TestValidateDestination(t *testing.T) {
 			},
 			valid: true,
 		},
+		{name: "unnumbered-selector",
+			destination: &networking.Destination{
+				Host:   "foo.bar",
+				Subset: "shiny",
+				Port:   &networking.PortSelector{},
+			},
+			valid: false,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -2240,36 +2248,6 @@ func TestValidateHTTPRoute(t *testing.T) {
 			}},
 			Match: []*networking.HTTPMatchRequest{nil},
 		}, valid: true},
-		{name: "valid regex", route: &networking.HTTPRoute{
-			Route: []*networking.HTTPRouteDestination{{
-				Destination: &networking.Destination{Host: "foo.bar"},
-			}},
-			Match: []*networking.HTTPMatchRequest{{
-				Uri: &networking.StringMatch{
-					MatchType: &networking.StringMatch_Regex{Regex: "foo"},
-				},
-			}},
-		}, valid: true},
-		{name: "too large regex", route: &networking.HTTPRoute{
-			Route: []*networking.HTTPRouteDestination{{
-				Destination: &networking.Destination{Host: "foo.bar"},
-			}},
-			Match: []*networking.HTTPMatchRequest{{
-				Uri: &networking.StringMatch{
-					MatchType: &networking.StringMatch_Regex{Regex: strings.Repeat("a", 101)},
-				},
-			}},
-		}, valid: false},
-		{name: "too large regex with unsafe enabled", route: &networking.HTTPRoute{
-			Route: []*networking.HTTPRouteDestination{{
-				Destination: &networking.Destination{Host: "foo.bar"},
-			}},
-			Match: []*networking.HTTPMatchRequest{{
-				Uri: &networking.StringMatch{
-					MatchType: &networking.StringMatch_Regex{Regex: strings.Repeat("a", 101)},
-				},
-			}},
-		}, unsaferegex: true, valid: true},
 	}
 
 	for _, tc := range testCases {
@@ -2390,6 +2368,20 @@ func TestValidateVirtualService(t *testing.T) {
 			Http: []*networking.HTTPRoute{{
 				Route: []*networking.HTTPRouteDestination{{
 					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: false},
+		{name: "with no destination", in: &networking.VirtualService{
+			Hosts: []string{"*.foo.bar", "*.bar"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{}},
+			}},
+		}, valid: false},
+		{name: "destination with out hosts", in: &networking.VirtualService{
+			Hosts: []string{"*.foo.bar", "*.bar"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{},
 				}},
 			}},
 		}, valid: false},

@@ -31,7 +31,7 @@ func (s *Server) initSidecarInjector(args *PilotArgs) error {
 	}
 	// If the injection path exists, we will set up injection
 	if _, err := os.Stat(injectPath); !os.IsNotExist(err) {
-		dir, err := pilotDnsCertDir()
+		dir, err := pilotDNSCertDir()
 		if err != nil {
 			return err
 		}

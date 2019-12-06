@@ -27,7 +27,7 @@ import (
 	"istio.io/istio/galley/pkg/config/resource"
 )
 
-// Analyzer checks conditions related to Istio injection
+// Analyzer checks conditions related to Istio sidecar injection.
 type Analyzer struct{}
 
 var _ analysis.Analyzer = &Analyzer{}
@@ -45,7 +45,8 @@ const (
 // Metadata implements Analyzer
 func (a *Analyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name: "injection.Analyzer",
+		Name:        "injection.Analyzer",
+		Description: "Checks conditions related to Istio sidecar injection",
 		Inputs: collection.Names{
 			metadata.K8SCoreV1Namespaces,
 			metadata.K8SCoreV1Pods,
@@ -93,7 +94,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 		}
 
 		// If a pod has injection explicitly disabled, no need to check further
-		if val := pod.GetAnnotations()[annotation.SidecarInject.Name]; strings.ToLower(val) == "false" {
+		if val := pod.GetAnnotations()[annotation.SidecarInject.Name]; strings.EqualFold(val, "false") {
 			return true
 		}
 
