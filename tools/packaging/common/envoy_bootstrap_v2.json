@@ -649,4 +649,12 @@
     {{ end }}
   ]
   {{ end }}
+  {{ if .outlier_log_path }}
+  ,
+  "cluster_manager": {
+    "outlier_detection": {
+      "event_log_path": {{ .outlier_log_path }}
+    }
+  }
+  {{ end }}
 }
