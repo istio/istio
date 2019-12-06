@@ -95,6 +95,7 @@ func (s *Server) initMeshNetworks(args *PilotArgs, fileWatcher filewatcher.FileW
 }
 
 // getMeshConfig fetches the ProxyMesh configuration from Kubernetes ConfigMap.
+// Deprecated - does not watch !
 func getMeshConfig(kube kubernetes.Interface, namespace, name string) (*meshconfig.MeshConfig, error) {
 	if kube == nil {
 		defaultMesh := mesh.DefaultMeshConfig()
@@ -121,5 +122,7 @@ func getMeshConfig(kube kubernetes.Interface, namespace, name string) (*meshconf
 	if err != nil {
 		return nil, err
 	}
+
+	log.Warn("Loading default mesh config from K8S, no reload support.")
 	return meshConfig, nil
 }
