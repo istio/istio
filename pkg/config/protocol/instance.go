@@ -29,6 +29,7 @@ const (
 	HTTP Instance = "HTTP"
 	// HTTP_PROXY declares that the port is a generic outbound proxy port.
 	// Note that this is currently applicable only for defining sidecar egress listeners.
+	// nolint: naming
 	HTTP_PROXY Instance = "HTTP_PROXY"
 	// HTTP2 declares that the port carries HTTP/2 traffic.
 	HTTP2 Instance = "HTTP2"
