@@ -1,7 +1,7 @@
 {{- range $key, $spec := .Values }}
 {{- if or (eq $key "policy") (eq $key "telemetry") }}
 {{- if and $spec.enabled $spec.autoscaleEnabled $spec.autoscaleMin $spec.autoscaleMax }}
-apiVersion: autoscaling/v2beta1
+apiVersion: autoscaling/v2beta2
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-{{ $key }}
@@ -19,10 +19,17 @@ spec:
       kind: Deployment
       name: istio-{{ $key }}
     metrics:
-    - type: Resource
-      resource:
+    - resource:
         name: cpu
-        targetAverageUtilization: {{ $spec.cpu.targetAverageUtilization }}
+        target: 
+           averageUtilization: {{ $spec.cpu.targetAverageUtilization }}
+           type: Utilization
+    - resource:
+        name: memory
+        target:
+          averageUtilization: {{ $spec.memory.targetAverageUtilization }}
+          type: Utilization
+    type: Resource
 ---
 {{- end }}
 {{- end }}

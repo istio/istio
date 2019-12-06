@@ -25,6 +25,8 @@ env:
   PILOT_PUSH_THROTTLE: 100
 cpu:
   targetAverageUtilization: 80
+memory:
+  targetAverageUtilization: 80
 nodeSelector: {}
 tolerations: []
 podAnnotations: {}

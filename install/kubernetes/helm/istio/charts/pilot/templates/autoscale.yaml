@@ -1,5 +1,5 @@
 {{- if and .Values.autoscaleEnabled .Values.autoscaleMin .Values.autoscaleMax }}
-apiVersion: autoscaling/v2beta1
+apiVersion: autoscaling/v2beta2
 kind: HorizontalPodAutoscaler
 metadata:
   name: istio-pilot
@@ -17,9 +17,16 @@ spec:
     kind: Deployment
     name: istio-pilot
   metrics:
-  - type: Resource
-    resource:
+  - resource:
       name: cpu
-      targetAverageUtilization: {{ .Values.cpu.targetAverageUtilization }}
+      target:
+        averageUtilization: {{ .Values.cpu.targetAverageUtilization }}
+        type: Utilization
+  - resource:
+      name: memory
+      target:
+        averageUtilization: {{ .Values.memory.targetAverageUtilization }}
+        type: Utilization
+    type: Resource
 ---
 {{- end }}

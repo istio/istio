@@ -16,6 +16,8 @@ policy:
   autoscaleMax: 5
   cpu:
     targetAverageUtilization: 80
+  memory:
+    targetAverageUtilization: 80
   rollingMaxSurge: 100%
   rollingMaxUnavailable: 25%
 
@@ -26,6 +28,8 @@ telemetry:
   autoscaleMin: 1
   autoscaleMax: 5
   cpu:
+    targetAverageUtilization: 80
+  memory:
     targetAverageUtilization: 80
   rollingMaxSurge: 100%
   rollingMaxUnavailable: 25%

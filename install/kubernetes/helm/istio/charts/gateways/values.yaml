@@ -45,6 +45,8 @@ istio-ingressgateway:
       memory: 1024Mi
   cpu:
     targetAverageUtilization: 80
+  memory:
+    targetAverageUtilization: 80
   loadBalancerIP: ""
   loadBalancerSourceRanges: []
   externalIPs: []
