@@ -34,20 +34,13 @@ type FakeXdsUpdater struct {
 
 func (fx *FakeXdsUpdater) EDSUpdate(shard, hostname string, namespace string, entry []*model.IstioEndpoint) error {
 	if len(entry) > 0 {
-		select {
-		case fx.Events <- "eds":
-		default:
-		}
-
+		fx.Events <- "eds"
 	}
 	return nil
 }
 
 func (fx *FakeXdsUpdater) ConfigUpdate(*model.PushRequest) {
-	select {
-	case fx.Events <- "xds":
-	default:
-	}
+	fx.Events <- "xds"
 }
 
 func (fx *FakeXdsUpdater) ProxyUpdate(clusterID, ip string) {
