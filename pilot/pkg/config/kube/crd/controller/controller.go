@@ -131,32 +131,6 @@ func (c *controller) addInformer(schema schema.Instance, namespace string, resyn
 				req = req.Namespace(namespace)
 			}
 			return req.Watch()
-		},
-		func(obj interface{}) error {
-			rc, ok := c.client.clientset[crd.APIVersion(&schema)]
-			if !ok {
-				return fmt.Errorf("client not initialized %s", schema.Type)
-			}
-			s, exists := rc.descriptor.GetByType(schema.Type)
-			if !exists {
-				return fmt.Errorf("unrecognized type %q", schema.Type)
-			}
-
-			item, ok := obj.(crd.IstioObject)
-			if !ok {
-				return fmt.Errorf("error convert %v to istio CRD", obj)
-			}
-
-			config, err := crd.ConvertObject(s, item, c.client.domainSuffix)
-			if err != nil {
-				return fmt.Errorf("error translating object for schema %#v : %v\n Object:\n%#v", s, err, obj)
-			}
-
-			if err := s.Validate(config.Name, config.Namespace, config.Spec); err != nil {
-				return fmt.Errorf("failed to validate CRD %v, error: %v", config, err)
-			}
-
-			return nil
 		})
 }
 
@@ -178,8 +152,7 @@ func (c *controller) createInformer(
 	otype string,
 	resyncPeriod time.Duration,
 	lf cache.ListFunc,
-	wf cache.WatchFunc,
-	vf ValidateFunc) cacheHandler {
+	wf cache.WatchFunc) cacheHandler {
 	handler := &kube.ChainHandler{}
 	handler.Append(c.notify)
 
@@ -192,18 +165,10 @@ func (c *controller) createInformer(
 		cache.ResourceEventHandlerFuncs{
 			// TODO: filtering functions to skip over un-referenced resources (perf)
 			AddFunc: func(obj interface{}) {
-				if err := vf(obj); err != nil {
-					handleValidationFailure(obj, err)
-					return
-				}
 				incrementEvent(otype, "add")
 				c.queue.Push(kube.NewTask(handler.Apply, nil, obj, model.EventAdd))
 			},
 			UpdateFunc: func(old, cur interface{}) {
-				if err := vf(cur); err != nil {
-					handleValidationFailure(cur, err)
-					return
-				}
 				if !reflect.DeepEqual(old, cur) {
 					incrementEvent(otype, "update")
 					c.queue.Push(kube.NewTask(handler.Apply, old, cur, model.EventUpdate))
@@ -322,12 +287,16 @@ func (c *controller) Get(typ, name, namespace string) *model.Config {
 	}
 
 	config, err := crd.ConvertObject(s, obj, c.client.domainSuffix)
-	if err == nil && features.EnableCRDValidation.Get() {
-		err = s.Validate(config.Name, config.Namespace, config.Spec)
-	}
-
 	if err != nil {
 		return nil
+	}
+
+	if features.EnableCRDValidation.Get() {
+		if err = s.Validate(config.Name, config.Namespace, config.Spec); err != nil {
+			// This is to prevent too verbose
+			log.Debugf("%s [%s/%s] is invalid: %v", typ, config.Namespace, config.Name, err)
+			return nil
+		}
 	}
 
 	return config
