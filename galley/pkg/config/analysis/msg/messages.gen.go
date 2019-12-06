@@ -72,6 +72,10 @@ var (
 	// PolicySpecifiesPortNameThatDoesntExist defines a diag.MessageType for message "PolicySpecifiesPortNameThatDoesntExist".
 	// Description: A Policy targets a port name that cannot be found.
 	PolicySpecifiesPortNameThatDoesntExist = diag.NewMessageType(diag.Warning, "IST0114", "Port name %s could not be found for host %s, which means the Policy won't be enforced.")
+
+	// DestinationRuleUsesMTLSForWorkloadWithoutSidecar defines a diag.MessageType for message "DestinationRuleUsesMTLSForWorkloadWithoutSidecar".
+	// Description: A DestinationRule uses mTLS for a workload that has no sidecar.
+	DestinationRuleUsesMTLSForWorkloadWithoutSidecar = diag.NewMessageType(diag.Error, "IST0115", "DestinationRule %s uses mTLS for workload %s that has no sidecar. Traffic from enmeshed services will fail.")
 )
 
 // NewInternalError returns a new diag.Message based on InternalError.
@@ -231,6 +235,16 @@ func NewPolicySpecifiesPortNameThatDoesntExist(entry *resource.Entry, portName s
 		PolicySpecifiesPortNameThatDoesntExist,
 		originOrNil(entry),
 		portName,
+		host,
+	)
+}
+
+// NewDestinationRuleUsesMTLSForWorkloadWithoutSidecar returns a new diag.Message based on DestinationRuleUsesMTLSForWorkloadWithoutSidecar.
+func NewDestinationRuleUsesMTLSForWorkloadWithoutSidecar(entry *resource.Entry, destinationRuleName string, host string) diag.Message {
+	return diag.NewMessage(
+		DestinationRuleUsesMTLSForWorkloadWithoutSidecar,
+		originOrNil(entry),
+		destinationRuleName,
 		host,
 	)
 }
