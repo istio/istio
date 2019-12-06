@@ -322,5 +322,10 @@
     ]
   }
   
-  
+  ,
+  "cluster_manager": {
+    "outlier_detection": {
+      "event_log_path": "/dev/stdout"
+    }
+  }
 }
