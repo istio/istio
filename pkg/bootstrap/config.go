@@ -48,7 +48,8 @@ const (
 
 	// required stats are used by readiness checks.
 	requiredEnvoyStatsMatcherInclusionPrefixes = "cluster_manager,listener_manager,http_mixer_filter,tcp_mixer_filter,server,cluster.xds-grpc"
-	requiredEnvoyStatsMatcherInclusionSuffix   = "ssl_context_update_by_sds"
+	requiredEnvoyStatsMatcherInclusionSuffix   = "ssl_context_update_by_sds,outlier_detection.ejections_enforced_total," +
+		"outlier_detection.ejections_active,outlier_detection.ejections_overflow,consecutive_5xx,consecutive_gateway_failure"
 
 	// Prefixes of V2 metrics.
 	// "reporter" prefix is for istio standard metrics.
