@@ -1550,17 +1550,16 @@ func validateJwtRule(rule *security_beta.JWT) (errs error) {
 	if rule == nil {
 		return nil
 	}
-	if rule.Issuer == "" {
+	if len(rule.Issuer) == 0 {
 		errs = multierror.Append(errs, errors.New("issuer must be set"))
 	}
 	for _, audience := range rule.Audiences {
-		if audience == "" {
+		if len(audience) == 0 {
 			errs = multierror.Append(errs, errors.New("audience must be non-empty string"))
 		}
 	}
 
 	if len(rule.JwksUri) != 0 {
-		// TODO: do more extensive check (e.g try to fetch JwksUri)
 		if _, err := security.ParseJwksURI(rule.JwksUri); err != nil {
 			errs = multierror.Append(errs, err)
 		}
@@ -1573,7 +1572,7 @@ func validateJwtRule(rule *security_beta.JWT) (errs error) {
 	}
 
 	for _, location := range rule.FromParams {
-		if location == "" {
+		if len(location) == 0 {
 			errs = multierror.Append(errs, errors.New("location query must be non-empty string"))
 		}
 	}
