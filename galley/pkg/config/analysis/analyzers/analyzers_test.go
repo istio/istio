@@ -241,14 +241,20 @@ var testGrid = []testCase{
 		},
 	},
 	{
-		name:       "portName",
+		name:       "portNameNotFollowConvention",
 		inputFiles: []string{"testdata/service-no-port-name.yaml"},
 		analyzer:   &service.PortNameAnalyzer{},
 		expected: []message{
 			{msg.PortNameIsNotUnderNamingConvention, "Service my-service1.my-namespace1"},
 			{msg.PortNameIsNotUnderNamingConvention, "Service my-service1.my-namespace1"},
-			{msg.PortNameIsNotUnderNamingConvention, "Service my-service3.my-namespace3"},
+			{msg.PortNameIsNotUnderNamingConvention, "Service my-service2.my-namespace2"},
 		},
+	},
+	{
+		name:       "namedPort",
+		inputFiles: []string{"testdata/service-port-name.yaml"},
+		analyzer:   &service.PortNameAnalyzer{},
+		expected:   []message{},
 	},
 	{
 		name:       "sidecarDefaultSelector",
