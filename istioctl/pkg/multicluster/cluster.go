@@ -191,7 +191,7 @@ func (c *Cluster) readIngressGateways() []*Gateway {
 }
 
 func gatewaysFromServiceStatus(status *v1.ServiceStatus, c *Cluster) []*Gateway {
-	gateways := []*Gateway{}
+	var gateways []*Gateway
 	for _, ip := range status.LoadBalancer.Ingress {
 		gateway := &Gateway{
 			Port:    443,
