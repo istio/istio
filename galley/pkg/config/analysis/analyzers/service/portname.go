@@ -12,17 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package virtualservice
+package service
 
 import (
-	"istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/galley/pkg/config/analysis"
-	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
+	configKube "istio.io/istio/pkg/config/kube"
+
+	v1 "k8s.io/api/core/v1"
 )
 
 // PortNameAnalyzer checks the port name of the service
@@ -49,5 +49,12 @@ func (s *PortNameAnalyzer) Analyze(c analysis.Context) {
 	})
 }
 
-func (s *PortAnalyzer) analyzeService(r *resource.Entry, c analysis.Context) {
+func (s *PortNameAnalyzer) analyzeService(r *resource.Entry, c analysis.Context) {
+	svc := r.Item.(*v1.ServiceSpec)
+	for _, port := range svc.Ports {
+		if instance := configKube.ConvertProtocol(port.Port, port.Name, port.Protocol); instance.IsUnsupported() {
+			c.Report(metadata.K8SCoreV1Services, msg.NewPortNameIsNotUnderNamingConvention(
+				r, port.Name, int(port.Port), port.TargetPort.String()))
+		}
+	}
 }

@@ -19,6 +19,8 @@ import (
 	"regexp"
 	"testing"
 
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/service"
+
 	. "github.com/onsi/gomega"
 
 	"istio.io/istio/galley/pkg/config/analysis"
@@ -237,6 +239,16 @@ var testGrid = []testCase{
 		analyzer:   &injection.VersionAnalyzer{},
 		expected: []message{
 			{msg.IstioProxyVersionMismatch, "Pod details-v1-pod-old.enabled-namespace"},
+		},
+	},
+	{
+		name:       "portName",
+		inputFiles: []string{"testdata/service-no-port-name.yaml"},
+		analyzer:   &service.PortNameAnalyzer{},
+		expected: []message{
+			{msg.PortNameIsNotUnderNamingConvention, "Service my-service1.my-namespace1"},
+			{msg.PortNameIsNotUnderNamingConvention, "Service my-service1.my-namespace1"},
+			{msg.PortNameIsNotUnderNamingConvention, "Service my-service3.my-namespace3"},
 		},
 	},
 	{

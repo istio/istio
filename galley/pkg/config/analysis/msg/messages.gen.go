@@ -76,6 +76,10 @@ var (
 	// DestinationRuleUsesMTLSForWorkloadWithoutSidecar defines a diag.MessageType for message "DestinationRuleUsesMTLSForWorkloadWithoutSidecar".
 	// Description: A DestinationRule uses mTLS for a workload that has no sidecar.
 	DestinationRuleUsesMTLSForWorkloadWithoutSidecar = diag.NewMessageType(diag.Error, "IST0115", "DestinationRule %s uses mTLS for workload %s that has no sidecar. Traffic from enmeshed services will fail.")
+
+	// PortNameIsNotUnderNamingConvention defines a diag.MessageType for message "PortNameIsNotUnderNamingConvention".
+	// Description: Port name is not under naming convention. Protocol detection is applied to the port.
+	PortNameIsNotUnderNamingConvention = diag.NewMessageType(diag.Warning, "IST0116", "Port name %s (port: %d, targetPort: %s) doesn't follow the naming convention of Istio port.")
 )
 
 // NewInternalError returns a new diag.Message based on InternalError.
@@ -246,6 +250,17 @@ func NewDestinationRuleUsesMTLSForWorkloadWithoutSidecar(entry *resource.Entry, 
 		originOrNil(entry),
 		destinationRuleName,
 		host,
+	)
+}
+
+// NewPortNameIsNotUnderNamingConvention returns a new diag.Message based on PortNameIsNotUnderNamingConvention.
+func NewPortNameIsNotUnderNamingConvention(entry *resource.Entry, portName string, port int, targetPort string) diag.Message {
+	return diag.NewMessage(
+		PortNameIsNotUnderNamingConvention,
+		originOrNil(entry),
+		portName,
+		port,
+		targetPort,
 	)
 }
 
