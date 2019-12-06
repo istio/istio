@@ -19,8 +19,6 @@ import (
 	"regexp"
 	"testing"
 
-	"istio.io/istio/galley/pkg/config/analysis/analyzers/service"
-
 	. "github.com/onsi/gomega"
 
 	"istio.io/istio/galley/pkg/config/analysis"
@@ -29,6 +27,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/deprecation"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/service"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/sidecar"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/virtualservice"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
