@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/pkg/env"
+
 	"k8s.io/client-go/rest"
 
 	"istio.io/istio/galley/pkg/server"
@@ -151,8 +153,15 @@ type Server struct {
 	grpcListener net.Listener
 }
 
+var podNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", "", "")
+
 // NewServer creates a new Server instance based on the provided arguments.
 func NewServer(args PilotArgs) (*Server, error) {
+	// If the namespace isn't set, try looking it up from the environment.
+	if args.Namespace == "" {
+		args.Namespace = podNamespaceVar.Get()
+	}
+
 	if args.KeepaliveOptions == nil {
 		args.KeepaliveOptions = istiokeepalive.DefaultOption()
 	}
