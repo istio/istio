@@ -14,7 +14,6 @@ spec:
   selector:
     matchLabels:
       app: policy
-      release: {{ .Release.Name }}
       istio: mixer
       istio-mixer-type: policy
 ---
