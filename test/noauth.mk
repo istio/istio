@@ -63,7 +63,7 @@ run-test-knative: run-build-cluster run-build-minimal run-build-ingress
 	# Install pilot, ingress - using a kustomization that installs them in istio-micro instead of istio-system
 	# The kustomization installs a modified istio-ingress+istio-pilot, using separate namespace
 	kubectl apply -k test/knative
-	kubectl wait deployments istio-ingressgateway istio-pilot -n istio-micro --for=condition=available --timeout=${WAIT_TIMEOUT}
+	kubectl wait deployments istio-ingressgateway istio-pilot -n istio-micro --for=condition=available --timeout=360s
 
 	# Set host port 30090, for the ingressateway in istio-micro
 	kubectl apply -f test/kind/ingress-service-micro.yaml
