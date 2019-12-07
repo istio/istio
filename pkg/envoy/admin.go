@@ -38,7 +38,9 @@ func Shutdown(adminPort uint32) error {
 // can gracefully finish and even continue making outbound calls as needed.
 func DrainListeners(adminPort uint32) error {
 	res, err := doEnvoyPost("drain_listeners?inboundonly", "", "", adminPort)
-	log.Debugf("Drain listener endpoint response : %s", res.String())
+	if res != nil {
+		log.Debugf("Drain listener endpoint response : %s", res.String())
+	}
 	return err
 }
 
