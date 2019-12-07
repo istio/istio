@@ -14,7 +14,6 @@ spec:
   selector:
     matchLabels:
       app: telemetry
-      release: {{ .Release.Name }}
       istio: mixer
       istio-mixer-type: telemetry
 ---
