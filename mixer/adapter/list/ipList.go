@@ -88,7 +88,7 @@ func (ls *ipList) checkList(symbol string) (bool, error) {
 	}
 
 	// not found in the list
-	return false, nil
+	return false, fmt.Errorf("%s is not found in the list", symbol)
 }
 
 func (ls *ipList) numEntries() int {
