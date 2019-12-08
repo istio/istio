@@ -16,6 +16,8 @@ package v1beta1
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
@@ -143,6 +145,13 @@ func NewPolicyApplier(jwtPolicies []*model.Config) authn.PolicyApplier {
 		spec := jwtPolicies[idx].Spec.(*v1beta1.RequestAuthentication)
 		processedJwtRules = append(processedJwtRules, spec.JwtRules...)
 	}
+
+	// Sort the jwt rules by the issuer alphabetically to make the later-on generated filter
+	// config deteministic.
+	sort.Slice(processedJwtRules, func(i, j int) bool {
+		return strings.Compare(
+			processedJwtRules[i].GetIssuer(), processedJwtRules[j].GetIssuer()) < 0
+	})
 
 	return &v1beta1PolicyApplier{
 		jwtPolicies:       jwtPolicies,

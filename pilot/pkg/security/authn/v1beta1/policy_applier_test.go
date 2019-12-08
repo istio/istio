@@ -571,65 +571,126 @@ func TestAuthnFilterConfig(t *testing.T) {
 				}),
 			},
 		},
-	}, {
-		name: "multi-request-authn-rules",
-		in: []*model.Config{
-			{
-				Spec: &v1beta1.RequestAuthentication{
-					JwtRules: []*v1beta1.JWT{
-						{
-							Issuer:  "https://secret.foo.com",
-							JwksUri: jwksURI,
+	},
+		{
+			name: "multi-rules",
+			in: []*model.Config{
+				{
+					Spec: &v1beta1.RequestAuthentication{
+						JwtRules: []*v1beta1.JWT{
+							{
+								Issuer:  "https://secret.bar.com",
+								JwksUri: jwksURI,
+							},
+						},
+					},
+				},
+				{
+					Spec: &v1beta1.RequestAuthentication{},
+				},
+				{
+					Spec: &v1beta1.RequestAuthentication{
+						JwtRules: []*v1beta1.JWT{
+							{
+								Issuer: "https://secret.foo.com",
+								Jwks:   "jwks-inline-data",
+							},
 						},
 					},
 				},
 			},
-			{
-				Spec: &v1beta1.RequestAuthentication{},
+			expected: &http_conn.HttpFilter{
+				Name: "istio_authn",
+				ConfigType: &http_conn.HttpFilter_Config{
+					Config: pilotutil.MessageToStruct(&authn_filter.FilterConfig{
+						Policy: &authn_alpha.Policy{
+							Peers: []*authn_alpha.PeerAuthenticationMethod{
+								&authn_alpha.PeerAuthenticationMethod{
+									Params: &authn_alpha.PeerAuthenticationMethod_Mtls{
+										Mtls: &authn_alpha.MutualTls{},
+									},
+								},
+							},
+							Origins: []*authn_alpha.OriginAuthenticationMethod{
+								&authn_alpha.OriginAuthenticationMethod{
+									Jwt: &authn_alpha.Jwt{
+										Issuer: "https://secret.bar.com",
+									},
+								},
+								&authn_alpha.OriginAuthenticationMethod{
+									Jwt: &authn_alpha.Jwt{
+										Issuer: "https://secret.foo.com",
+									},
+								},
+							},
+							PeerIsOptional:   true,
+							OriginIsOptional: true,
+							PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
+						},
+					}),
+				},
 			},
-			{
-				Spec: &v1beta1.RequestAuthentication{
-					JwtRules: []*v1beta1.JWT{
-						{
-							Issuer: "https://secret.bar.com",
-							Jwks:   "jwks-inline-data",
+		},
+		{
+			name: "multi-rules-sort-by-issuer-again",
+			in: []*model.Config{
+				{
+					Spec: &v1beta1.RequestAuthentication{
+						JwtRules: []*v1beta1.JWT{
+							{
+								Issuer:  "https://secret.foo.com",
+								JwksUri: jwksURI,
+							},
+						},
+					},
+				},
+				{
+					Spec: &v1beta1.RequestAuthentication{},
+				},
+				{
+					Spec: &v1beta1.RequestAuthentication{
+						JwtRules: []*v1beta1.JWT{
+							{
+								Issuer: "https://secret.bar.com",
+								Jwks:   "jwks-inline-data",
+							},
 						},
 					},
 				},
 			},
-		},
-		expected: &http_conn.HttpFilter{
-			Name: "istio_authn",
-			ConfigType: &http_conn.HttpFilter_Config{
-				Config: pilotutil.MessageToStruct(&authn_filter.FilterConfig{
-					Policy: &authn_alpha.Policy{
-						Peers: []*authn_alpha.PeerAuthenticationMethod{
-							&authn_alpha.PeerAuthenticationMethod{
-								Params: &authn_alpha.PeerAuthenticationMethod_Mtls{
-									Mtls: &authn_alpha.MutualTls{},
+			expected: &http_conn.HttpFilter{
+				Name: "istio_authn",
+				ConfigType: &http_conn.HttpFilter_Config{
+					Config: pilotutil.MessageToStruct(&authn_filter.FilterConfig{
+						Policy: &authn_alpha.Policy{
+							Peers: []*authn_alpha.PeerAuthenticationMethod{
+								&authn_alpha.PeerAuthenticationMethod{
+									Params: &authn_alpha.PeerAuthenticationMethod_Mtls{
+										Mtls: &authn_alpha.MutualTls{},
+									},
 								},
 							},
+							Origins: []*authn_alpha.OriginAuthenticationMethod{
+								&authn_alpha.OriginAuthenticationMethod{
+									Jwt: &authn_alpha.Jwt{
+										Issuer: "https://secret.bar.com",
+									},
+								},
+								&authn_alpha.OriginAuthenticationMethod{
+									Jwt: &authn_alpha.Jwt{
+										Issuer: "https://secret.foo.com",
+									},
+								},
+							},
+							PeerIsOptional:   true,
+							OriginIsOptional: true,
+							PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
 						},
-						Origins: []*authn_alpha.OriginAuthenticationMethod{
-							&authn_alpha.OriginAuthenticationMethod{
-								Jwt: &authn_alpha.Jwt{
-									Issuer: "https://secret.foo.com",
-								},
-							},
-							&authn_alpha.OriginAuthenticationMethod{
-								Jwt: &authn_alpha.Jwt{
-									Issuer: "https://secret.bar.com",
-								},
-							},
-						},
-						PeerIsOptional:   true,
-						OriginIsOptional: true,
-						PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
-					},
-				}),
+					}),
+				},
 			},
 		},
-	}}
+	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			got := NewPolicyApplier(c.in).AuthNFilter(model.SidecarProxy, false)
