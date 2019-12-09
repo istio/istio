@@ -27,7 +27,7 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/onsi/gomega"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
-	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
@@ -103,9 +103,9 @@ func createTestWebhookConfigController(
 		CACertFile:                    caFile,
 		Clientset:                     cl,
 		WebhookName:                   config.Name,
-		DeploymentName:                dummyNamespace.Name,
-		ServiceName:                   dummyNamespace.Name,
-		DeploymentAndServiceNamespace: dummyNamespace.Namespace,
+		DeploymentName:                dummyClusterRole.Name,
+		ServiceName:                   dummyClusterRole.Name,
+		DeploymentAndServiceNamespace: dummyNamespace,
 	}
 	whc, err := NewWebhookConfigController(options)
 	if err != nil {
@@ -239,7 +239,7 @@ func TestValidatingWebhookConfig(t *testing.T) {
 	for _, tc := range ts {
 		t.Run(tc.name, func(t *testing.T) {
 			whc, cancel := createTestWebhookConfigController(t,
-				fake.NewSimpleClientset(dummyNamespace, tc.configs.DeepCopyObject()),
+				fake.NewSimpleClientset(dummyClusterRole, tc.configs.DeepCopyObject()),
 				createFakeWebhookSource(), want)
 			defer cancel()
 
@@ -295,8 +295,8 @@ func initValidatingWebhookConfiguration() *admissionregistrationv1beta1.Validati
 			Name: "config1",
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(
-					dummyNamespace,
-					corev1.SchemeGroupVersion.WithKind("Namespace"),
+					dummyClusterRole,
+					rbacv1.SchemeGroupVersion.WithKind("ClusterRole"),
 				),
 			},
 		},
