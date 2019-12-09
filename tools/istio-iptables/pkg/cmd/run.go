@@ -45,11 +45,13 @@ func NewIptablesConfigurator(cfg *config.Config) *IptablesConfigurator {
 	} else {
 		ext = &dep.RealDependencies{}
 	}
-	return &IptablesConfigurator{
+	configurator := &IptablesConfigurator{
 		iptables: builder.NewIptablesBuilder(),
 		ext:      ext,
 		cfg:      cfg,
 	}
+	configurator.cfg.HostIp, _ = configurator.ext.GetLocalIP()
+	return configurator
 }
 
 type NetworkRange struct {
@@ -340,6 +342,9 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	if err != nil {
 		panic(err)
 	}
+	// HostIp is used by iptables failure detection
+	iptConfigurator.cfg.HostIp = podIP
+
 	// Check if pod's ip is ipv4 or ipv6, in case of ipv6 set variable
 	// to program ip6tablesOrFail
 	if podIP.To4() == nil {

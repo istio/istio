@@ -78,10 +78,22 @@ const (
 	DryRun                    = "dry-run"
 	Clean                     = "clean"
 	RestoreFormat             = "restore-format"
+	SkipRuleSet               = "skip-rule-set"
+	SkipValidate              = "skip-validate"
 )
 
 // Constants for iptables commands
 const (
 	IPTABLESRESTORE  = "iptables-restore"
 	IP6TABLESRESTORE = "ip6tables-restore"
+)
+
+// Constants for syscall
+const (
+	// sys/socket.h
+	SO_ORIGINAL_DST = 80
+)
+
+const (
+	IPTABLES_PROBE_PORT = 15002
 )

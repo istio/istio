@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"istio.io/istio/tools/istio-iptables/pkg/validation"
 	"os"
 	"strings"
 
@@ -30,10 +31,18 @@ import (
 var rootCmd = &cobra.Command{
 	Use:  "istio-iptables",
 	Long: "Script responsible for setting up port forwarding for Istio sidecar.",
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		config := constructConfig()
 		iptConfigurator := NewIptablesConfigurator(config)
-		iptConfigurator.run()
+		if !config.SkipRuleSet {
+			iptConfigurator.run()
+		}
+		// Validation cannot work with DryRun because it need
+		if !config.DryRun && !config.SkipValidate {
+			validator := validation.NewValidator(config)
+			return validator.Run()
+		}
+		return nil
 	},
 }
 
@@ -55,6 +64,8 @@ func constructConfig() *config.Config {
 		DryRun:                  viper.GetBool(constants.DryRun),
 		EnableInboundIPv6s:      nil,
 		RestoreFormat:           viper.GetBool(constants.RestoreFormat),
+		SkipRuleSet:             viper.GetBool(constants.SkipRuleSet),
+		SkipValidate:            viper.GetBool(constants.SkipValidate),
 	}
 }
 
@@ -175,6 +186,18 @@ func init() {
 		handleError(err)
 	}
 	viper.SetDefault(constants.RestoreFormat, true)
+
+	rootCmd.Flags().Bool(constants.SkipRuleSet, false, "Skip iptables setup")
+	if err := viper.BindPFlag(constants.SkipRuleSet, rootCmd.Flags().Lookup(constants.SkipRuleSet)); err != nil {
+		handleError(err)
+	}
+	viper.SetDefault(constants.SkipRuleSet, true)
+
+	rootCmd.Flags().Bool(constants.SkipValidate, true, "Skip validate iptables")
+	if err := viper.BindPFlag(constants.SkipValidate, rootCmd.Flags().Lookup(constants.SkipValidate)); err != nil {
+		handleError(err)
+	}
+	viper.SetDefault(constants.SkipValidate, true)
 }
 
 func Execute() {
