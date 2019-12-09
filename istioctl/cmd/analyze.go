@@ -80,8 +80,6 @@ var (
 )
 
 // Analyze command
-// Once we're ready to move this functionality out of the "experimental" subtree, we should merge
-// with `istioctl validate`. https://github.com/istio/istio/issues/16777
 func Analyze() *cobra.Command {
 	// Validate the output format before doing potentially expensive work to fail earlier
 	msgOutputFormats := map[string]bool{LogOutput: true, JSONOutput: true, YamlOutput: true}
@@ -96,29 +94,29 @@ func Analyze() *cobra.Command {
 		Short: "Analyze Istio configuration and print validation messages",
 		Example: `
 # Analyze yaml files
-istioctl experimental analyze a.yaml b.yaml
+istioctl analyze a.yaml b.yaml
 
 # Analyze the current live cluster
-istioctl experimental analyze -k
+istioctl analyze -k
 
 # Analyze the current live cluster, simulating the effect of applying additional yaml files
-istioctl experimental analyze -k a.yaml b.yaml
+istioctl analyze -k a.yaml b.yaml
 
 # Analyze yaml files, overriding service discovery to enabled
-istioctl experimental analyze -d true a.yaml b.yaml services.yaml
+istioctl analyze -d true a.yaml b.yaml services.yaml
 
 # Analyze the current live cluster, overriding service discovery to disabled
-istioctl experimental analyze -k -d false
+istioctl analyze -k -d false
 
 # List available analyzers
-istioctl experimental analyze -L
+istioctl analyze -L
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			msgOutputFormat = strings.ToLower(msgOutputFormat)
 			_, ok := msgOutputFormats[msgOutputFormat]
 			if !ok {
 				return CommandParseError{
-					fmt.Errorf("%s not a valid option for format. See istioctl x analyze --help", msgOutputFormat),
+					fmt.Errorf("%s not a valid option for format. See istioctl analyze --help", msgOutputFormat),
 				}
 			}
 
@@ -144,6 +142,7 @@ istioctl experimental analyze -L
 			// below since for the time being we want to keep changes isolated to experimental code. When we merge this into
 			// istioctl validate (see https://github.com/istio/istio/issues/16777) we should look into fixing getDefaultNamespace in root
 			// so it properly handles the --context option.
+			// TODO
 			selectedNamespace := namespace
 
 			var k cfgKube.Interfaces
