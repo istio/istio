@@ -62,13 +62,32 @@ func (tp TestProxy) Cleanup(epoch int) {
 func TestStartExit(t *testing.T) {
 	ctx := context.Background()
 	done := make(chan struct{})
-	a := NewAgent(TestProxy{}, 0)
+	a := NewAgent(TestProxy{}, 0, false)
 	go func() {
 		_ = a.Run(ctx)
 		done <- struct{}{}
 	}()
 	a.Restart("config")
 	<-done
+}
+
+// TestKeepAliveOverride starts a proxy and check that the agent would not exit when the proxy exits
+func TestKeepAliveOverride(t *testing.T) {
+	ctx := context.Background()
+	done := make(chan struct{})
+	a := NewAgent(TestProxy{}, 0, true)
+	go func() {
+		_ = a.Run(ctx)
+		done <- struct{}{}
+	}()
+	a.Restart("config")
+	time.Sleep(500 * time.Millisecond)
+	select {
+	case _ = <-done:
+		t.Fatal("agent is expected to alive")
+	default:
+		return
+	}
 }
 
 // TestStartDrain tests basic start, termination sequence
@@ -99,7 +118,7 @@ func TestStartDrain(t *testing.T) {
 		}
 		return nil
 	}
-	a := NewAgent(TestProxy{run: start, blockChannel: blockChan}, -10*time.Second)
+	a := NewAgent(TestProxy{run: start, blockChannel: blockChan}, -10*time.Second, false)
 	go func() { _ = a.Run(ctx) }()
 	a.Restart(startConfig)
 	<-blockChan
@@ -149,7 +168,7 @@ func TestWaitForLive(t *testing.T) {
 	isLive := func() bool {
 		return atomic.LoadUint32(&live) > 0
 	}
-	a := NewAgent(TestProxy{run: start, live: isLive}, -10*time.Second)
+	a := NewAgent(TestProxy{run: start, live: isLive}, -10*time.Second, false)
 	go func() { _ = a.Run(ctx) }()
 
 	// Start the first epoch.
@@ -192,7 +211,7 @@ func TestExitDuringWaitForLive(t *testing.T) {
 		// Never go live.
 		return false
 	}
-	a := NewAgent(TestProxy{run: start, live: neverLive}, -10*time.Second)
+	a := NewAgent(TestProxy{run: start, live: neverLive}, -10*time.Second, false)
 	go func() { _ = a.Run(ctx) }()
 
 	// Start the first epoch.
@@ -234,7 +253,7 @@ func TestApplyTwice(t *testing.T) {
 		<-ctx.Done()
 		return nil
 	}
-	a := NewAgent(TestProxy{run: start}, -10*time.Second)
+	a := NewAgent(TestProxy{run: start}, -10*time.Second, false)
 	go func() { _ = a.Run(ctx) }()
 	a.Restart(desired)
 	applyCount++
@@ -290,7 +309,7 @@ func TestStartTwiceStop(t *testing.T) {
 			cancel()
 		}
 	}
-	a := NewAgent(TestProxy{run: start, cleanup: cleanup}, 0)
+	a := NewAgent(TestProxy{run: start, cleanup: cleanup}, 0, false)
 	go func() { _ = a.Run(ctx) }()
 	a.Restart(desired0)
 	a.Restart(desired1)
@@ -314,7 +333,7 @@ func TestRecovery(t *testing.T) {
 		<-ctx.Done()
 		return nil
 	}
-	a := NewAgent(TestProxy{run: start}, 0)
+	a := NewAgent(TestProxy{run: start}, 0, false)
 	go func() { _ = a.Run(ctx) }()
 	a.Restart(desired)
 

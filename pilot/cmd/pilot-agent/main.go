@@ -121,6 +121,8 @@ var (
 	stackdriverTracingMaxNumberOfMessageEvents = env.RegisterIntVar("STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS", 200, "Sets the "+
 		"max number of message events for stackdriver")
 
+	keepAlive = env.RegisterBoolVar("AGENT_KEEP_ALIVE", false, "If true, pilot agent would not exit when envoy exit")
+
 	sdsUdsWaitTimeout = time.Minute
 
 	// Indicates if any the remote services like AccessLogService, MetricsService have enabled tls.
@@ -498,7 +500,7 @@ var (
 				OutlierLogPath:      outlierLogPath,
 			})
 
-			agent := envoy.NewAgent(envoyProxy, features.TerminationDrainDuration())
+			agent := envoy.NewAgent(envoyProxy, features.TerminationDrainDuration(), keepAlive.Get())
 
 			if nodeAgentSDSEnabled && role.Type == model.SidecarProxy {
 				tlsCertsToWatch = []string{}

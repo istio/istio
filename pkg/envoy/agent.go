@@ -70,13 +70,14 @@ var errAbort = errors.New("epoch aborted")
 const errOutOfMemory = "signal: killed"
 
 // NewAgent creates a new proxy agent for the proxy start-up and clean-up functions.
-func NewAgent(proxy Proxy, terminationDrainDuration time.Duration) Agent {
+func NewAgent(proxy Proxy, terminationDrainDuration time.Duration, keepAlive bool) Agent {
 	return &agent{
 		proxy:                    proxy,
 		statusCh:                 make(chan exitStatus),
 		activeEpochs:             map[int]chan error{},
 		terminationDrainDuration: terminationDrainDuration,
 		currentEpoch:             -1,
+		keepAlive:                keepAlive,
 	}
 }
 
@@ -105,6 +106,9 @@ type agent struct {
 
 	// currentEpoch represents the epoch of the most recent proxy. When a new proxy is created this should be incremented
 	currentEpoch int
+
+	// agent would not quit when no active epochs if keepAlive is set to true.
+	keepAlive bool
 
 	// current configuration is the highest epoch configuration
 	currentConfig interface{}
@@ -227,7 +231,7 @@ func (a *agent) Run(ctx context.Context) error {
 			active := len(a.activeEpochs)
 			a.mutex.Unlock()
 
-			if active == 0 {
+			if active == 0 && !a.keepAlive {
 				log.Infof("No more active epochs, terminating")
 				return nil
 			}
