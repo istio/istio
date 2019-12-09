@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"istio.io/istio/galley/pkg/config/analysis"
+	"istio.io/istio/istioctl/pkg/util/handlers"
 
 	"github.com/ghodss/yaml"
 	"github.com/mattn/go-isatty"
@@ -138,12 +139,7 @@ istioctl analyze -L
 
 			// We use the "namespace" arg that's provided as part of root istioctl as a flag for specifying what namespace to use
 			// for file resources that don't have one specified.
-			// Note that the current implementation (in root.go) doesn't correctly default this value based on --context, so we do that ourselves
-			// below since for the time being we want to keep changes isolated to experimental code. When we merge this into
-			// istioctl validate (see https://github.com/istio/istio/issues/16777) we should look into fixing getDefaultNamespace in root
-			// so it properly handles the --context option.
-			// TODO
-			selectedNamespace := namespace
+			selectedNamespace := handlers.HandleNamespace(namespace, defaultNamespace)
 
 			var k cfgKube.Interfaces
 			if useKube {
@@ -155,19 +151,6 @@ istioctl analyze -L
 				}
 				k = cfgKube.NewInterfaces(restConfig)
 
-				// If a default namespace to inject in files hasn't been explicitly defined already, use whatever is specified in the kube context
-				if selectedNamespace == "" {
-					ns, _, err := config.Namespace()
-					if err != nil {
-						return err
-					}
-					selectedNamespace = ns
-				}
-			}
-
-			// If default namespace to inject wasn't specified by the user or derived from the k8s context, just use the default.
-			if selectedNamespace == "" {
-				selectedNamespace = defaultNamespace
 			}
 
 			// If we've explicitly asked for all namespaces, blank the selectedNamespace var out

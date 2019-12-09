@@ -240,7 +240,14 @@ func getDefaultNamespace(kubeconfig string) string {
 		return v1.NamespaceDefault
 	}
 
-	context, ok := config.Contexts[config.CurrentContext]
+	// If a specific context was specified, use that. Otherwise, just use the current context from the kube config.
+	selectedContext := config.CurrentContext
+	if configContext != "" {
+		selectedContext = configContext
+	}
+
+	// Use the namespace associated with the selected context as default, if the context has one
+	context, ok := config.Contexts[selectedContext]
 	if !ok {
 		return v1.NamespaceDefault
 	}
