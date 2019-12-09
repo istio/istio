@@ -518,7 +518,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 				Config: pilotutil.MessageToStruct(&authn_filter.FilterConfig{
 					Policy: &authn_alpha.Policy{
 						Peers: []*authn_alpha.PeerAuthenticationMethod{
-							&authn_alpha.PeerAuthenticationMethod{
+							{
 								Params: &authn_alpha.PeerAuthenticationMethod_Mtls{
 									Mtls: &authn_alpha.MutualTls{},
 								},
@@ -551,14 +551,14 @@ func TestAuthnFilterConfig(t *testing.T) {
 				Config: pilotutil.MessageToStruct(&authn_filter.FilterConfig{
 					Policy: &authn_alpha.Policy{
 						Peers: []*authn_alpha.PeerAuthenticationMethod{
-							&authn_alpha.PeerAuthenticationMethod{
+							{
 								Params: &authn_alpha.PeerAuthenticationMethod_Mtls{
 									Mtls: &authn_alpha.MutualTls{},
 								},
 							},
 						},
 						Origins: []*authn_alpha.OriginAuthenticationMethod{
-							&authn_alpha.OriginAuthenticationMethod{
+							{
 								Jwt: &authn_alpha.Jwt{
 									Issuer: "https://secret.foo.com",
 								},
@@ -605,19 +605,19 @@ func TestAuthnFilterConfig(t *testing.T) {
 					Config: pilotutil.MessageToStruct(&authn_filter.FilterConfig{
 						Policy: &authn_alpha.Policy{
 							Peers: []*authn_alpha.PeerAuthenticationMethod{
-								&authn_alpha.PeerAuthenticationMethod{
+								{
 									Params: &authn_alpha.PeerAuthenticationMethod_Mtls{
 										Mtls: &authn_alpha.MutualTls{},
 									},
 								},
 							},
 							Origins: []*authn_alpha.OriginAuthenticationMethod{
-								&authn_alpha.OriginAuthenticationMethod{
+								{
 									Jwt: &authn_alpha.Jwt{
 										Issuer: "https://secret.bar.com",
 									},
 								},
-								&authn_alpha.OriginAuthenticationMethod{
+								{
 									Jwt: &authn_alpha.Jwt{
 										Issuer: "https://secret.foo.com",
 									},
@@ -664,19 +664,19 @@ func TestAuthnFilterConfig(t *testing.T) {
 					Config: pilotutil.MessageToStruct(&authn_filter.FilterConfig{
 						Policy: &authn_alpha.Policy{
 							Peers: []*authn_alpha.PeerAuthenticationMethod{
-								&authn_alpha.PeerAuthenticationMethod{
+								{
 									Params: &authn_alpha.PeerAuthenticationMethod_Mtls{
 										Mtls: &authn_alpha.MutualTls{},
 									},
 								},
 							},
 							Origins: []*authn_alpha.OriginAuthenticationMethod{
-								&authn_alpha.OriginAuthenticationMethod{
+								{
 									Jwt: &authn_alpha.Jwt{
 										Issuer: "https://secret.bar.com",
 									},
 								},
-								&authn_alpha.OriginAuthenticationMethod{
+								{
 									Jwt: &authn_alpha.Jwt{
 										Issuer: "https://secret.foo.com",
 									},
