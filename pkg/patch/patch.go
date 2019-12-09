@@ -40,7 +40,7 @@ MODIFY
 1. set v1 to v1new
 
   path: a.b.[name:n1].value
-  value: v1
+  value: v1new
 
 2. set vv1 to vv3
 
