@@ -21,19 +21,28 @@ import (
 	"github.com/kr/pretty"
 )
 
+// kindOf returns the reflection Kind that represents the dynamic type of value.
+// If value is a nil interface value, kindOf returns reflect.Invalid.
+func kindOf(value interface{}) reflect.Kind {
+	if value == nil {
+		return reflect.Invalid
+	}
+	return reflect.TypeOf(value).Kind()
+}
+
 // IsString reports whether value is a string type.
 func IsString(value interface{}) bool {
-	return reflect.TypeOf(value).Kind() == reflect.String
+	return kindOf(value) == reflect.String
 }
 
 // IsPtr reports whether value is a ptr type.
 func IsPtr(value interface{}) bool {
-	return reflect.TypeOf(value).Kind() == reflect.Ptr
+	return kindOf(value) == reflect.Ptr
 }
 
 // IsMap reports whether value is a map type.
 func IsMap(value interface{}) bool {
-	return reflect.TypeOf(value).Kind() == reflect.Map
+	return kindOf(value) == reflect.Map
 }
 
 // IsMapPtr reports whether v is a map ptr type.
@@ -44,17 +53,16 @@ func IsMapPtr(v interface{}) bool {
 
 // IsSlice reports whether value is a slice type.
 func IsSlice(value interface{}) bool {
-	return reflect.TypeOf(value).Kind() == reflect.Slice
+	return kindOf(value) == reflect.Slice
 }
 
 func IsStruct(value interface{}) bool {
-	return reflect.TypeOf(value).Kind() == reflect.Struct
+	return kindOf(value) == reflect.Struct
 }
 
 // IsSlicePtr reports whether v is a slice ptr type.
 func IsSlicePtr(v interface{}) bool {
-	t := reflect.TypeOf(v)
-	return t.Kind() == reflect.Ptr && t.Elem().Kind() == reflect.Slice
+	return kindOf(v) == reflect.Ptr && reflect.TypeOf(v).Elem().Kind() == reflect.Slice
 }
 
 // IsSliceInterfacePtr reports whether v is a slice ptr type.
@@ -131,7 +139,7 @@ func IsValueNil(value interface{}) bool {
 	if value == nil {
 		return true
 	}
-	switch reflect.TypeOf(value).Kind() {
+	switch kindOf(value) {
 	case reflect.Slice, reflect.Ptr, reflect.Map:
 		return reflect.ValueOf(value).IsNil()
 	}
@@ -206,7 +214,7 @@ func IsEmptyString(value interface{}) bool {
 	if value == nil {
 		return true
 	}
-	switch reflect.TypeOf(value).Kind() {
+	switch kindOf(value) {
 	case reflect.String:
 		if _, ok := value.(string); ok {
 			return value.(string) == ""

@@ -38,6 +38,7 @@ a:
     - v1
     - v2
     - v3_regex
+  c:
 `
 	tests := []struct {
 		desc    string
@@ -65,6 +66,7 @@ a:
     - v2
     - v3_regex
     name: n2
+  c:
 `,
 		},
 		{
@@ -86,6 +88,7 @@ a:
     - v2
     - v3_regex
     name: n2
+  c:
 `,
 		},
 		{
@@ -107,6 +110,7 @@ a:
     - v3
     - v3_regex
     name: n2
+  c:
 `,
 		},
 		{
@@ -125,6 +129,7 @@ a:
     - v2
     - v3_regex
     name: n2
+  c:
 `,
 		},
 		{
@@ -144,6 +149,7 @@ a:
     - v1
     - v3_regex
     name: n2
+  c:
 `,
 		},
 		{
@@ -163,8 +169,34 @@ a:
     - v1
     - v2
     name: n2
+  c:
 `,
-		}}
+		},
+		{
+			desc: "UpdateNullNode",
+			path: `a.c`,
+			value: `
+      d: n3`,
+			want: `
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-citadel
+  namespace: istio-system
+a:
+  b:
+  - name: n1
+    value: v1
+  - name: n2
+    list: 
+    - v1
+    - v2
+    - v3_regex
+  c:
+    d: n3
+`,
+		},
+	}
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			rc := &v1alpha2.KubernetesResourcesSpec{}
@@ -355,7 +387,7 @@ spec:
 `,
 		},
 		{
-			desc: "DeleteLeafListentry",
+			desc: "DeleteLeafListEntry",
 			path: `spec.template.spec.containers.[name:galley].command.[--validation-webhook-config-file]`,
 			want: `
 apiVersion: extensions/v1beta1
