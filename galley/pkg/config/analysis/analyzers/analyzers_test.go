@@ -16,6 +16,8 @@ package analyzers
 
 import (
 	"fmt"
+	"io"
+	"os"
 	"regexp"
 	"testing"
 
@@ -24,6 +26,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/annotations"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/auth"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/deployment"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/deprecation"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
@@ -78,8 +81,16 @@ var testGrid = []testCase{
 		},
 	},
 	{
-		name:       "mtlsAnalyzerIgnoresIstioSystemNamespace",
-		inputFiles: []string{"testdata/mtls-ignores-istio-system.yaml"},
+		name:       "mtlsAnalyzerIgnoresIstioControlPlane",
+		inputFiles: []string{"testdata/mtls-ignores-istio-control-plane.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected:   []message{
+			// no messages, this test case verifies no false positives
+		},
+	},
+	{
+		name:       "mtlsAnalyzerIgnoresSystemNamespaces",
+		inputFiles: []string{"testdata/mtls-ignores-system-namespaces.yaml"},
 		analyzer:   &auth.MTLSAnalyzer{},
 		expected:   []message{
 			// no messages, this test case verifies no false positives
@@ -320,6 +331,17 @@ var testGrid = []testCase{
 			{msg.ReferencedResourceNotFound, "VirtualService httpbin-bogus"},
 		},
 	},
+	{
+		name:       "serviceMultipleDeployments",
+		inputFiles: []string{"testdata/deployment-multi-service.yaml"},
+		analyzer:   &deployment.ServiceAssociationAnalyzer{},
+		expected: []message{
+			{msg.DeploymentAssociatedToMultipleServices, "Deployment multiple-svc-multiple-prot.bookinfo"},
+			{msg.DeploymentAssociatedToMultipleServices, "Deployment multiple-without-port.bookinfo"},
+			{msg.DeploymentRequiresServiceAssociated, "Deployment no-services.bookinfo"},
+			{msg.DeploymentRequiresServiceAssociated, "Deployment ann-enabled-ns-disabled.injection-disabled-ns"},
+		},
+	},
 }
 
 // regex patterns for analyzer names that should be explicitly ignored for testing
@@ -351,7 +373,16 @@ func TestAnalyzers(t *testing.T) {
 
 			sa := local.NewSourceAnalyzer(metadata.MustGet(), analysis.Combine("testCombined", testCase.analyzer), "", "istio-system", cr, true)
 
-			err := sa.AddFileKubeSource(testCase.inputFiles)
+			var files []io.Reader
+			for _, f := range testCase.inputFiles {
+				of, err := os.Open(f)
+				if err != nil {
+					t.Fatalf("Error opening test file: %q", f)
+				}
+				files = append(files, of)
+			}
+
+			err := sa.AddReaderKubeSource(files)
 			if err != nil {
 				t.Fatalf("Error setting up file kube source on testcase %s: %v", testCase.name, err)
 			}

@@ -1,5 +1,5 @@
 # Within the istio-system namespace, we have a control plane component with a DR
-# that would normally violate policy. However the istio-system namespace is
+# that would normally violate policy. However the istio control plane is
 # not controlled via Policy declarations, and is therefore exempt. We don't
 # expect the validator to complain about this either.
 apiVersion: authentication.istio.io/v1alpha1
@@ -8,7 +8,7 @@ metadata:
   name: default
 spec:
   peers:
-  - mtls:
+  - mtls: {}
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
@@ -26,6 +26,9 @@ kind: Service
 metadata:
   name: istio-telemetry
   namespace: istio-system
+  labels:
+    app: mixer
+    istio: mixer
 spec:
   selector:
     app: istio-telemetry
@@ -53,10 +56,10 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: istio-policy
+  name: istio-telemetry
   namespace: istio-system
 spec:
-  host: istio-policy.istio-system.svc.cluster.local
+  host: istio-telemetry.istio-system.svc.cluster.local
   trafficPolicy:
     connectionPool:
       http:

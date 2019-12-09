@@ -99,13 +99,13 @@ func RunValidation(ready chan<- struct{}, stopCh chan struct{}, vc *WebhookParam
 		log.Fatalf("cannot create validation webhook service: %v", err)
 	}
 	validationLivenessProbe := probe.NewProbe()
-	if livenessProbeController != nil {
+	if vc.Mux == nil && livenessProbeController != nil {
 		validationLivenessProbe.SetAvailable(nil)
 		validationLivenessProbe.RegisterProbe(livenessProbeController, "validationLiveness")
 	}
 
 	validationReadinessProbe := probe.NewProbe()
-	if readinessProbeController != nil {
+	if vc.Mux == nil && readinessProbeController != nil {
 		validationReadinessProbe.SetAvailable(errors.New("init"))
 		validationReadinessProbe.RegisterProbe(readinessProbeController, "validationReadiness")
 

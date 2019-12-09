@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"time"
 
+	"google.golang.org/grpc"
+
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -50,6 +52,12 @@ type Args struct { // nolint:maligned
 
 	// KubeInterface has an already created K8S interface, will be reused instead of creating a new one
 	KubeInterface *kubernetes.Clientset
+
+	// InsecureGRPC is an existing GRPC server, will be used by Galley instead of creating its own
+	InsecureGRPC *grpc.Server
+
+	// SecureGRPC is an existing GRPC server, will be used by Galley instead of creating its own
+	SecureGRPC *grpc.Server
 
 	// KubeRestConfig has a rest config, common with other components
 	KubeRestConfig *rest.Config

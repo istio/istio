@@ -240,9 +240,10 @@ func (c *Controller) HasSynced() bool {
 	c.syncedMu.Unlock()
 
 	if len(notReady) > 0 {
-		log.Infof("Configuration not synced: first push for %v not received", notReady)
 		return false
 	}
+
+	log.Infof("Configuration synced")
 	return true
 }
 
