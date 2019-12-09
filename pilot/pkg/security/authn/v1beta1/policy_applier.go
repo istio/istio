@@ -16,12 +16,18 @@ package v1beta1
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/jwt_authn/v2alpha"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/golang/protobuf/ptypes/empty"
+
+	"istio.io/istio/pilot/pkg/features"
+	authn_alpha "istio.io/istio/security/proto/authentication/v1alpha1"
+	authn_filter "istio.io/istio/security/proto/envoy/config/filter/http/authn/v2alpha1"
 
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/model"
@@ -59,10 +65,60 @@ func (a *v1beta1PolicyApplier) JwtFilter(isXDSMarshalingToAnyEnabled bool) *http
 	return out
 }
 
+// All explaining code link can be removed before merging.
+func convertToIstioAuthnFilterConfig(jwtRules []*v1beta1.JWT) *authn_filter.FilterConfig {
+	p := authn_alpha.Policy{
+		// Targets are not used in the authn filter.
+		// Origin will be optional since we don't reject req.
+		// Add Peers since we need that to trigger identity extraction in Authn filter.
+		Peers: []*authn_alpha.PeerAuthenticationMethod{
+			{
+				Params: &authn_alpha.PeerAuthenticationMethod_Mtls{
+					Mtls: &authn_alpha.MutualTls{},
+				},
+			},
+		},
+		OriginIsOptional: true,
+		PeerIsOptional:   true,
+		// Always bind request.auth.principal from JWT origin. In v2 policy, authorization config specifies what principal to
+		// choose from instead, rather than in authn config.
+		PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
+	}
+	for _, jwt := range jwtRules {
+		p.Origins = append(p.Origins, &authn_alpha.OriginAuthenticationMethod{
+			Jwt: &authn_alpha.Jwt{
+				// used for getting the filter data, and all other fields are irrelevant.
+				Issuer: jwt.GetIssuer(),
+			},
+		})
+	}
+
+	return &authn_filter.FilterConfig{
+		Policy: &p,
+		// JwtOutputPayloadLocations is nil because now authn filter uses the issuer use the issuer as
+		// key in the jwt filter metadata to find the output.
+		SkipValidateTrustDomain: features.SkipValidateTrustDomain.Get(),
+	}
+}
+
+// AuthNFilter returns the Istio authn filter config for a given authn Beta policy:
+// istio.authentication.v1alpha1.Policy policy, we specially constructs the old filter config to
+// ensure Authn Filter won't reject the request, but still transform the attributes, e.g. request.auth.principal.
+// proxyType does not matter here, exists only for legacy reason.
 func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
-	// TODO(diemtvu) implement this.
-	log.Errorf("AuthNFilter(%v, %v) is not yet implemented", proxyType, isXDSMarshalingToAnyEnabled)
-	return nil
+	out := &http_conn.HttpFilter{
+		Name: authn_model.AuthnFilterName,
+	}
+	filterConfigProto := convertToIstioAuthnFilterConfig(a.processedJwtRules)
+	if filterConfigProto == nil {
+		return nil
+	}
+	if isXDSMarshalingToAnyEnabled {
+		out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(filterConfigProto)}
+	} else {
+		out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(filterConfigProto)}
+	}
+	return out
 }
 
 func (a *v1beta1PolicyApplier) InboundFilterChain(sdsUdsPath string, meta *model.NodeMetadata) []plugin.FilterChain {
@@ -81,6 +137,13 @@ func NewPolicyApplier(jwtPolicies []*model.Config) authn.PolicyApplier {
 		spec := jwtPolicies[idx].Spec.(*v1beta1.RequestAuthentication)
 		processedJwtRules = append(processedJwtRules, spec.JwtRules...)
 	}
+
+	// Sort the jwt rules by the issuer alphabetically to make the later-on generated filter
+	// config deteministic.
+	sort.Slice(processedJwtRules, func(i, j int) bool {
+		return strings.Compare(
+			processedJwtRules[i].GetIssuer(), processedJwtRules[j].GetIssuer()) < 0
+	})
 
 	return &v1beta1PolicyApplier{
 		jwtPolicies:       jwtPolicies,

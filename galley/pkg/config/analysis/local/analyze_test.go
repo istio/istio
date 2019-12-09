@@ -15,6 +15,7 @@ package local
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -94,7 +95,7 @@ func TestAnalyzersRun(t *testing.T) {
 	}
 
 	sa := NewSourceAnalyzer(metadata.MustGet(), analysis.Combine("a", a), "", "", cr, false)
-	err := sa.AddFileKubeSource([]string{})
+	err := sa.AddReaderKubeSource(nil)
 	g.Expect(err).To(BeNil())
 
 	result, err := sa.Analyze(cancel)
@@ -121,7 +122,7 @@ func TestFilterOutputByNamespace(t *testing.T) {
 	}
 
 	sa := NewSourceAnalyzer(metadata.MustGet(), analysis.Combine("a", a), "ns1", "", nil, false)
-	err := sa.AddFileKubeSource([]string{})
+	err := sa.AddReaderKubeSource(nil)
 	g.Expect(err).To(BeNil())
 
 	result, err := sa.Analyze(cancel)
@@ -174,15 +175,15 @@ func TestAddRunningKubeSourceWithMeshCfg(t *testing.T) {
 	g.Expect(sa.sources[2].src).To(BeAssignableToTypeOf(&apiserver.Source{}))       // All other resources via api server
 }
 
-func TestAddFileKubeSource(t *testing.T) {
+func TestAddReaderKubeSource(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	sa := NewSourceAnalyzer(basicmeta.MustGet(), blankCombinedAnalyzer, "", "", nil, false)
 
 	tmpfile := tempFileFromString(t, data.YamlN1I1V1)
-	defer func() { _ = os.Remove(tmpfile.Name()) }()
+	defer os.Remove(tmpfile.Name())
 
-	err := sa.AddFileKubeSource([]string{tmpfile.Name()})
+	err := sa.AddReaderKubeSource([]io.Reader{tmpfile})
 	g.Expect(err).To(BeNil())
 	g.Expect(sa.sources).To(HaveLen(2))
 	g.Expect(sa.sources[0].src).To(BeAssignableToTypeOf(&meshcfg.InMemorySource{})) // Base default meshcfg
@@ -198,7 +199,7 @@ func TestAddFileKubeSource(t *testing.T) {
 	g.Expect(sa.sources[2].src).To(BeAssignableToTypeOf(&meshcfg.InMemorySource{})) // meshcfg read from a file
 }
 
-func TestAddFileKubeSourceSkipsBadEntries(t *testing.T) {
+func TestAddReaderKubeSourceSkipsBadEntries(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	sa := NewSourceAnalyzer(basicmeta.MustGet(), blankCombinedAnalyzer, "", "", nil, false)
@@ -206,20 +207,7 @@ func TestAddFileKubeSourceSkipsBadEntries(t *testing.T) {
 	tmpfile := tempFileFromString(t, kubeyaml.JoinString(data.YamlN1I1V1, "bogus resource entry\n"))
 	defer func() { _ = os.Remove(tmpfile.Name()) }()
 
-	err := sa.AddFileKubeSource([]string{tmpfile.Name()})
-	g.Expect(err).To(Not(BeNil()))
-	g.Expect(sa.sources).To(HaveLen(2))
-}
-
-func TestAddFileKubeSourceSkipsBadFiles(t *testing.T) {
-	g := NewGomegaWithT(t)
-
-	sa := NewSourceAnalyzer(basicmeta.MustGet(), blankCombinedAnalyzer, "", "", nil, false)
-
-	tmpfile := tempFileFromString(t, data.YamlN1I1V1)
-	defer func() { _ = os.Remove(tmpfile.Name()) }()
-
-	err := sa.AddFileKubeSource([]string{tmpfile.Name(), "nonexistent-file.yaml"})
+	err := sa.AddReaderKubeSource([]io.Reader{tmpfile})
 	g.Expect(err).To(Not(BeNil()))
 	g.Expect(sa.sources).To(HaveLen(2))
 }
@@ -266,7 +254,12 @@ func tempFileFromString(t *testing.T, content string) *os.File {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = tmpfile.Close(); err != nil {
+	err = tmpfile.Sync()
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = tmpfile.Seek(0, 0)
+	if err != nil {
 		t.Fatal(err)
 	}
 	return tmpfile

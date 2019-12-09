@@ -23,42 +23,12 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	"istio.io/api/networking/v1alpha3"
-	"istio.io/istio/galley/pkg/config/analysis"
-	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
+	"istio.io/istio/galley/pkg/config/analysis/testing/fixtures"
 	"istio.io/istio/galley/pkg/config/meta/metadata"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema"
 )
-
-type testContext struct {
-	entries []*resource.Entry
-	reports []diag.Message
-}
-
-var _ analysis.Context = &testContext{}
-
-// Report implements analysis.Context
-func (ctx *testContext) Report(c collection.Name, t diag.Message) {
-	ctx.reports = append(ctx.reports, t)
-}
-
-// Find implements analysis.Context
-func (ctx *testContext) Find(c collection.Name, name resource.Name) *resource.Entry { return nil }
-
-// Exists implements analysis.Context
-func (ctx *testContext) Exists(c collection.Name, name resource.Name) bool { return false }
-
-// ForEach implements analysis.Context
-func (ctx *testContext) ForEach(c collection.Name, fn analysis.IteratorFn) {
-	for _, r := range ctx.entries {
-		fn(r)
-	}
-}
-
-// Canceled implements analysis.Context
-func (ctx *testContext) Canceled() bool { return false }
 
 func TestCorrectArgs(t *testing.T) {
 	g := NewGomegaWithT(t)
@@ -75,8 +45,8 @@ func TestCorrectArgs(t *testing.T) {
 			return nil
 		},
 	}
-	ctx := &testContext{
-		entries: []*resource.Entry{
+	ctx := &fixtures.Context{
+		Entries: []*resource.Entry{
 			{
 				Item: &v1alpha3.VirtualService{},
 				Metadata: resource.Metadata{
@@ -121,44 +91,44 @@ func TestSchemaValidationWrapper(t *testing.T) {
 
 	t.Run("NoErrors", func(t *testing.T) {
 		g := NewGomegaWithT(t)
-		ctx := &testContext{
-			entries: []*resource.Entry{
+		ctx := &fixtures.Context{
+			Entries: []*resource.Entry{
 				{
 					Item: m1,
 				},
 			},
 		}
 		a.Analyze(ctx)
-		g.Expect(ctx.reports).To(BeEmpty())
+		g.Expect(ctx.Reports).To(BeEmpty())
 	})
 
 	t.Run("SingleError", func(t *testing.T) {
 		g := NewGomegaWithT(t)
 
-		ctx := &testContext{
-			entries: []*resource.Entry{
+		ctx := &fixtures.Context{
+			Entries: []*resource.Entry{
 				{
 					Item: m2,
 				},
 			},
 		}
 		a.Analyze(ctx)
-		g.Expect(ctx.reports).To(HaveLen(1))
-		g.Expect(ctx.reports[0].Type).To(Equal(msg.SchemaValidationError))
+		g.Expect(ctx.Reports).To(HaveLen(1))
+		g.Expect(ctx.Reports[0].Type).To(Equal(msg.SchemaValidationError))
 	})
 
 	t.Run("MultiError", func(t *testing.T) {
 		g := NewGomegaWithT(t)
-		ctx := &testContext{
-			entries: []*resource.Entry{
+		ctx := &fixtures.Context{
+			Entries: []*resource.Entry{
 				{
 					Item: m3,
 				},
 			},
 		}
 		a.Analyze(ctx)
-		g.Expect(ctx.reports).To(HaveLen(2))
-		g.Expect(ctx.reports[0].Type).To(Equal(msg.SchemaValidationError))
-		g.Expect(ctx.reports[1].Type).To(Equal(msg.SchemaValidationError))
+		g.Expect(ctx.Reports).To(HaveLen(2))
+		g.Expect(ctx.Reports[0].Type).To(Equal(msg.SchemaValidationError))
+		g.Expect(ctx.Reports[1].Type).To(Equal(msg.SchemaValidationError))
 	})
 }

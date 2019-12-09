@@ -16,6 +16,8 @@ package analyzers
 
 import (
 	"fmt"
+	"io"
+	"os"
 	"regexp"
 	"testing"
 
@@ -77,8 +79,16 @@ var testGrid = []testCase{
 		},
 	},
 	{
-		name:       "mtlsAnalyzerIgnoresIstioSystemNamespace",
-		inputFiles: []string{"testdata/mtls-ignores-istio-system.yaml"},
+		name:       "mtlsAnalyzerIgnoresIstioControlPlane",
+		inputFiles: []string{"testdata/mtls-ignores-istio-control-plane.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected:   []message{
+			// no messages, this test case verifies no false positives
+		},
+	},
+	{
+		name:       "mtlsAnalyzerIgnoresSystemNamespaces",
+		inputFiles: []string{"testdata/mtls-ignores-system-namespaces.yaml"},
 		analyzer:   &auth.MTLSAnalyzer{},
 		expected:   []message{
 			// no messages, this test case verifies no false positives
@@ -334,7 +344,16 @@ func TestAnalyzers(t *testing.T) {
 
 			sa := local.NewSourceAnalyzer(metadata.MustGet(), analysis.Combine("testCombined", testCase.analyzer), "", "istio-system", cr, true)
 
-			err := sa.AddFileKubeSource(testCase.inputFiles)
+			var files []io.Reader
+			for _, f := range testCase.inputFiles {
+				of, err := os.Open(f)
+				if err != nil {
+					t.Fatalf("Error opening test file: %q", f)
+				}
+				files = append(files, of)
+			}
+
+			err := sa.AddReaderKubeSource(files)
 			if err != nil {
 				t.Fatalf("Error setting up file kube source on testcase %s: %v", testCase.name, err)
 			}
