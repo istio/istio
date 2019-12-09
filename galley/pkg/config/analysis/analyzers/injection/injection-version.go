@@ -59,7 +59,7 @@ func (a *VersionAnalyzer) Analyze(c analysis.Context) {
 
 	// Collect the list of namespaces that have istio injection enabled.
 	c.ForEach(metadata.K8SCoreV1Namespaces, func(r *resource.Entry) bool {
-		if r.Metadata.Labels[injectionLabelName] == injectionLabelEnableValue {
+		if r.Metadata.Labels[InjectionLabelName] == InjectionLabelEnableValue {
 			injectedNamespaces[r.Metadata.Name.String()] = struct{}{}
 		}
 
