@@ -72,7 +72,7 @@ func convertToIstioAuthnFilterConfig(jwtRules []*v1beta1.JWT) *authn_filter.Filt
 		// Origin will be optional since we don't reject req.
 		// Add Peers since we need that to trigger identity extraction in Authn filter.
 		Peers: []*authn_alpha.PeerAuthenticationMethod{
-			&authn_alpha.PeerAuthenticationMethod{
+			{
 				Params: &authn_alpha.PeerAuthenticationMethod_Mtls{
 					Mtls: &authn_alpha.MutualTls{},
 				},
