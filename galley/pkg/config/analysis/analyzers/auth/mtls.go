@@ -124,6 +124,11 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 		svcSelector := k8s_labels.SelectorFromSet(svc.Selector)
 		fqdn := util.ConvertHostToFQDN(svcNs, svcName)
 		for _, port := range svc.Ports {
+			// Ignore non-TCP protocols (UDP and others). Can be revisited once
+			// https://github.com/istio/istio/issues/1430 is closed.
+			if port.Protocol != "TCP" && port.Protocol != "" {
+				continue
+			}
 			portNumber := uint32(port.Port)
 			// portName is optional, but we note it so we can translate later.
 			if port.Name != "" {
