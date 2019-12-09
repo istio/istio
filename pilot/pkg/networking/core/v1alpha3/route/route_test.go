@@ -69,6 +69,14 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(len(routes)).To(gomega.Equal(1))
 	})
 
+	t.Run("for virtual service with catch all route", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithCatchAllRoute, serviceRegistry, 8080, gatewayNames)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+	})
+
 	t.Run("for virtual service with regex matching on URI", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
@@ -453,6 +461,51 @@ var virtualServicePlain = model.Config{
 		Gateways: []string{"some-gateway"},
 		Http: []*networking.HTTPRoute{
 			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "*.example.org",
+							Port: &networking.PortSelector{
+								Number: 8484,
+							},
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithCatchAllRoute = model.Config{
+	ConfigMeta: model.ConfigMeta{
+		Type:    schemas.VirtualService.Type,
+		Version: schemas.VirtualService.Version,
+		Name:    "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "non-catch-all",
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Prefix{
+								Prefix: "/route/v1",
+							},
+						},
+					},
+					{
+						Name: "catch-all",
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Prefix{
+								Prefix: "/",
+							},
+						},
+					},
+				},
 				Route: []*networking.HTTPRouteDestination{
 					{
 						Destination: &networking.Destination{

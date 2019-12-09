@@ -274,16 +274,21 @@ allroutes:
 			}
 			break allroutes // we have a rule with catch all match prefix: /. Other rules are of no use
 		} else {
+			matchroutes := make([]*route.Route, 0, len(http.Match))
 			for _, match := range http.Match {
 				if r := translateRoute(push, node, http, match, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
-					out = append(out, r)
 					rType, _ := getEnvoyRouteTypeAndVal(r)
 					if rType == envoyCatchAll {
 						// We have a catch all route. No point building other routes, with match conditions
+						out = append(out, r)
 						break allroutes
+					} else {
+						matchroutes = append(matchroutes, r)
 					}
 				}
 			}
+			// This will add all matchroutes and used when we do not have a catch all route.
+			out = append(out, matchroutes...)
 		}
 	}
 
