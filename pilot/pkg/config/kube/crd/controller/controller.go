@@ -18,8 +18,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"sync"
-	"sync/atomic"
 	"time"
 
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -70,10 +68,6 @@ var (
 		"Errors converting k8s CRDs",
 		monitoring.WithLabels(nameTag),
 	)
-
-	// InvalidCRDs contains a sync.Map keyed by the namespace/name of the entry, and has the error as value.
-	// It can be used by tools like ctrlz to display the errors.
-	InvalidCRDs atomic.Value
 )
 
 func init() {
@@ -287,14 +281,9 @@ func (c *controller) Get(typ, name, namespace string) *model.Config {
 	}
 
 	config, err := crd.ConvertObject(s, obj, c.client.domainSuffix)
-	if err != nil {
-		return nil
-	}
-
-	if features.EnableCRDValidation.Get() {
+	if err == nil && features.EnableCRDValidation.Get() {
 		if err = s.Validate(config.Name, config.Namespace, config.Spec); err != nil {
-			// This is to prevent too verbose
-			log.Debugf("%s [%s/%s] is invalid: %v", typ, config.Namespace, config.Name, err)
+			handleValidationFailure(obj, err)
 			return nil
 		}
 	}
@@ -320,16 +309,7 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 		return nil, fmt.Errorf("missing type %q", typ)
 	}
 
-	var newErrors sync.Map
-	var errs error
 	out := make([]model.Config, 0)
-	oldMap := InvalidCRDs.Load()
-	if oldMap != nil {
-		oldMap.(*sync.Map).Range(func(key, value interface{}) bool {
-			k8sErrors.With(nameTag.Value(key.(string))).Record(1)
-			return true
-		})
-	}
 	for _, data := range c.kinds[typ].informer.GetStore().List() {
 		item, ok := data.(crd.IstioObject)
 		if !ok {
@@ -347,16 +327,12 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 		}
 
 		if err != nil {
-			key := item.GetObjectMeta().Namespace + "/" + item.GetObjectMeta().Name
 			// DO NOT RETURN ERROR: if a single object is bad, it'll be ignored (with a log message), but
 			// the rest should still be processed.
-			// TODO: find a way to reset and represent the error !!
-			newErrors.Store(key, err)
 			handleValidationFailure(item, err)
 		} else {
 			out = append(out, *config)
 		}
 	}
-	InvalidCRDs.Store(&newErrors)
-	return out, errs
+	return out, nil
 }
