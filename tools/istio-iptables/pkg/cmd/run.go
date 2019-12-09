@@ -108,8 +108,8 @@ func (iptConfigurator *IptablesConfigurator) logConfig() {
 func (iptConfigurator *IptablesConfigurator) handleInboundPortsInclude() {
 	// Handling of inbound ports. Traffic will be redirected to Envoy, which will process and forward
 	// to the local service. If not set, no inbound port will be intercepted by istio iptablesOrFail.
-	var table string
 	if iptConfigurator.cfg.InboundPortsInclude != "" {
+		var table string = constants.NAT
 		if iptConfigurator.cfg.InboundInterceptionMode == constants.TPROXY {
 			// When using TPROXY, create a new chain for routing all inbound traffic to
 			// Envoy. Any packet entering this chain gets marked with the ${INBOUND_TPROXY_MARK} mark,
@@ -138,8 +138,6 @@ func (iptConfigurator *IptablesConfigurator) handleInboundPortsInclude() {
 			iptConfigurator.iptables.AppendRuleV4(constants.ISTIOTPROXY, constants.MANGLE, "!", "-d", "127.0.0.1/32", "-p", constants.TCP, "-j", constants.TPROXY,
 				"--tproxy-mark", iptConfigurator.cfg.InboundTProxyMark+"/0xffffffff", "--on-port", iptConfigurator.cfg.ProxyPort)
 			table = constants.MANGLE
-		} else {
-			table = constants.NAT
 		}
 		iptConfigurator.iptables.AppendRuleV4(constants.PREROUTING, table, "-p", constants.TCP, "-j", constants.ISTIOINBOUND)
 
@@ -479,7 +477,7 @@ func (iptConfigurator *IptablesConfigurator) executeIptablesRestoreCommand(isIpv
 	if err != nil {
 		return fmt.Errorf("unable to create iptables-restore file: %v", err)
 	}
-	if err := iptConfigurator.createRulesFile(rulesFile, data); err != nil {
+	if err = iptConfigurator.createRulesFile(rulesFile, data); err != nil {
 		return err
 	}
 	// --noflush to prevent flushing/deleting previous contents from table
@@ -506,6 +504,5 @@ func (iptConfigurator *IptablesConfigurator) executeCommands() {
 		iptConfigurator.executeIptablesCommands(iptConfigurator.iptables.BuildV4())
 		// Execute ip6tables commands
 		iptConfigurator.executeIptablesCommands(iptConfigurator.iptables.BuildV6())
-
 	}
 }
