@@ -274,21 +274,19 @@ allroutes:
 			}
 			break allroutes // we have a rule with catch all match prefix: /. Other rules are of no use
 		} else {
-			matchroutes := make([]*route.Route, 0, len(http.Match))
-			for _, match := range http.Match {
+			if match := catchAllMatch(http); match != nil {
+				// We have a catch all route. No point building other routes, with match conditions
 				if r := translateRoute(push, node, http, match, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
-					rType, _ := getEnvoyRouteTypeAndVal(r)
-					if rType == envoyCatchAll {
-						// We have a catch all route. No point building other routes, with match conditions
+					out = append(out, r)
+				}
+			} else {
+				// Add all matchroutes as we do not have a catch all route.
+				for _, match := range http.Match {
+					if r := translateRoute(push, node, http, match, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
 						out = append(out, r)
-						break allroutes
-					} else {
-						matchroutes = append(matchroutes, r)
 					}
 				}
 			}
-			// This will add all matchroutes and used when we do not have a catch all route.
-			out = append(out, matchroutes...)
 		}
 	}
 
@@ -1001,6 +999,30 @@ func getEnvoyRouteTypeAndVal(r *route.Route) (envoyRouteType, string) {
 		}
 	}
 	return iType, iVal
+}
+
+func catchAllMatch(http *networking.HTTPRoute) *networking.HTTPMatchRequest {
+	// A Match is catch all if and only if it has no header/query param match
+	// and URI has a prefix / or regex *.
+	for _, match := range http.Match {
+		catchalluri := false
+		if match.Uri != nil {
+			switch m := match.Uri.MatchType.(type) {
+			case *networking.StringMatch_Prefix:
+				if m.Prefix == "/" {
+					catchalluri = true
+				}
+			case *networking.StringMatch_Regex:
+				if m.Regex == "*" {
+					catchalluri = true
+				}
+			}
+		}
+		if catchalluri && len(match.Headers) == 0 && len(match.QueryParams) == 0 {
+			return match
+		}
+	}
+	return nil
 }
 
 // CombineVHostRoutes semi concatenates two Vhost's routes into a single route set.
