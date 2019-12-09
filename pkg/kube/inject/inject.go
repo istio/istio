@@ -1,3 +1,4 @@
+
 // Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -572,27 +573,11 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *
 		"toLower":             strings.ToLower,
 	}
 
-	// Migrating from values.yaml to mesh or env (for istiod - set using fromEnv instead of values)
-	// This allows an optional config map with vendor-specific settings/overrides - alternative is creating
-	// vendor-specific injection templates or a huge mess.
-	funcMap["value"] = func(key string, def string) string {
-		fromEnv := os.Getenv(strings.ReplaceAll(key, ".", "_"))
-		if fromEnv != "" {
-			return fromEnv
-		}
-		// Special case for 'Values.global' - where most settings are
-		if !strings.Contains(key, ".") {
-			global := values["global"]
-			if globalM, ok := global.(map[string]interface{}); ok {
-				sval := globalM[key]
-				if sval != nil {
-					if val, ok := sval.(string); ok {
-						return val
-					}
-				}
-			}
-		}
-		return def
+	// Allows the template to use env variables from istiod.
+	// Istiod will use a custom template, without 'values.yaml', and the pod will have
+	// an optional 'vendor' configmap where additional settings can be defined.
+	funcMap["env"] = func(key string, def string) string {
+		return os.Getenv(key)
 	}
 
 	// Need to use FuncMap and SidecarTemplateData context
