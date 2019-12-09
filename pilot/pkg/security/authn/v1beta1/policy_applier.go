@@ -56,7 +56,7 @@ type v1beta1PolicyApplier struct {
 
 func (a *v1beta1PolicyApplier) JwtFilter(isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
 	if len(a.processedJwtRules) == 0 {
-		log.Infof("RequestAuthentication (beta policy) not found, fallback to alpha if available")
+		log.Debugf("RequestAuthentication (beta policy) not found, fallback to alpha if available")
 		return a.alphaApplier.JwtFilter(isXDSMarshalingToAnyEnabled)
 	}
 
