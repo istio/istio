@@ -21,6 +21,7 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/istio/galley/pkg/config/analysis"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/galley/pkg/config/meta/schema/collection"
@@ -60,9 +61,8 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 
 	c.ForEach(metadata.K8SCoreV1Namespaces, func(r *resource.Entry) bool {
 
-		// Ignore system namespaces
-		// TODO: namespaces can in theory be anything, so we need to make this more configurable
-		if strings.HasPrefix(r.Metadata.Name.String(), "kube-") || strings.HasPrefix(r.Metadata.Name.String(), "istio-") {
+		ns := r.Metadata.Name.String()
+		if util.IsSystemNamespace(ns) {
 			return true
 		}
 

@@ -45,7 +45,7 @@ spec:
   targets:
   - name: myservice
   peers:
-  - mtls:
+  - mtls: {}
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
@@ -93,7 +93,7 @@ spec:
   targets:
   - name: myotherservice
   peers:
-  - mtls:
+  - mtls: {}
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
