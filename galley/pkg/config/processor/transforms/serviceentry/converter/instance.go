@@ -24,10 +24,10 @@ import (
 
 	"istio.io/api/annotation"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/log"
 
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/pod"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/pkg/config/constants"
 	configKube "istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/labels"
@@ -107,7 +107,7 @@ func (i *Instance) convertService(service *resource.Entry, outMeta *resource.Met
 	for _, port := range spec.Ports {
 		p, err := convertPort(port)
 		if err != nil {
-			log.Errorf("convertService: %s", err)
+			scope.Processing.Warnf("convertService: failed to convert port %v for service %s (skipping): %v", port, service.Metadata.Name, err)
 			continue
 		}
 		ports = append(ports, p)
@@ -298,7 +298,7 @@ func convertPort(port coreV1.ServicePort) (*networking.Port, error) {
 
 func validatePortName(name string) error {
 	if !labels.IsDNS1123Label(name) {
-		return fmt.Errorf("invalid port name: %s", name)
+		return fmt.Errorf("invalid port name: %q", name)
 	}
 	return nil
 }
@@ -306,7 +306,7 @@ func validatePortName(name string) error {
 func validateProtocol(protocolStr string) error {
 	// Empty string is used for protocol sniffing.
 	if protocolStr != "" && protocol.Parse(protocolStr) == protocol.Unsupported {
-		return fmt.Errorf("unsupported protocol: %s", protocolStr)
+		return fmt.Errorf("unsupported protocol: %q", protocolStr)
 	}
 	return nil
 }
