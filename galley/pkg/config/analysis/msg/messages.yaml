@@ -181,7 +181,7 @@ messages:
     code: IST0115
     level: Error
     description: "A DestinationRule uses mTLS for a workload that has no sidecar."
-    template: "DestinationRule %s uses mTLS for workload %s that has no sidecar. Traffic from enmeshed services will fail."
+    template: "DestinationRule %s uses mTLS for workload %s that has no sidecar. Traffic from workloads with sidecars will fail."
     args:
       - name: destinationRuleName
         type: string
