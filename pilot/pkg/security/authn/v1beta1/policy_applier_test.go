@@ -162,18 +162,6 @@ func TestJwtFilter(t *testing.T) {
 							},
 							Providers: map[string]*envoy_jwt.JwtProvider{
 								"origins-0": {
-									Issuer: "https://secret.foo.com",
-									JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
-										LocalJwks: &core.DataSource{
-											Specifier: &core.DataSource_InlineString{
-												InlineString: test.JwtPubKey1,
-											},
-										},
-									},
-									Forward:           false,
-									PayloadInMetadata: "https://secret.foo.com",
-								},
-								"origins-1": {
 									Issuer: "https://secret.bar.com",
 									JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 										LocalJwks: &core.DataSource{
@@ -184,6 +172,18 @@ func TestJwtFilter(t *testing.T) {
 									},
 									Forward:           false,
 									PayloadInMetadata: "https://secret.bar.com",
+								},
+								"origins-1": {
+									Issuer: "https://secret.foo.com",
+									JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
+										LocalJwks: &core.DataSource{
+											Specifier: &core.DataSource_InlineString{
+												InlineString: test.JwtPubKey1,
+											},
+										},
+									},
+									Forward:           false,
+									PayloadInMetadata: "https://secret.foo.com",
 								},
 							},
 						}),
