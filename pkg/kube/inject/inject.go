@@ -577,7 +577,11 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *
 	// Istiod will use a custom template, without 'values.yaml', and the pod will have
 	// an optional 'vendor' configmap where additional settings can be defined.
 	funcMap["env"] = func(key string, def string) string {
-		return os.Getenv(key)
+		val := os.Getenv(key)
+		if val == "" {
+			return def
+		}
+		return val
 	}
 
 	// Need to use FuncMap and SidecarTemplateData context
