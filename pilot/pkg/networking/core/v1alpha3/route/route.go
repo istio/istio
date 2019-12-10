@@ -266,13 +266,14 @@ func BuildHTTPRoutesForVirtualService(
 	}
 
 	out := make([]*route.Route, 0, len(vs.Http))
-	// If there is rule with catch all match, Other rules are of no use.
-	if route := catchAllRoute(vs.Http); route != nil {
-		if r := translateRoute(push, node, route, nil, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
-			out = append(out, r)
-		}
-	} else {
-		for _, http := range vs.Http {
+allroutes:
+	for _, http := range vs.Http {
+		if len(http.Match) == 0 {
+			if r := translateRoute(push, node, http, nil, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
+				out = append(out, r)
+			}
+			break allroutes // we have a rule with catch all match prefix: /. Other rules are of no use
+		} else {
 			catchall := false
 			if match := catchAllMatch(http); match != nil {
 				// We have a catch all route - see if it is valid and if yes, do not build other routes.
@@ -1002,15 +1003,6 @@ func getEnvoyRouteTypeAndVal(r *route.Route) (envoyRouteType, string) {
 		}
 	}
 	return iType, iVal
-}
-
-func catchAllRoute(routes []*networking.HTTPRoute) *networking.HTTPRoute {
-	for _, http := range routes {
-		if len(http.Match) == 0 {
-			return http
-		}
-	}
-	return nil
 }
 
 func catchAllMatch(http *networking.HTTPRoute) *networking.HTTPMatchRequest {
