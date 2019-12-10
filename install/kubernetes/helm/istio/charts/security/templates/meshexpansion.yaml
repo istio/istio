@@ -53,4 +53,27 @@ spec:
           number: 8060
 ---
 {{- end }}
+
+{{- if .Values.global.controlPlaneSecurityEnabled }}
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: meshexpansion-dr-citadel
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "security.name" . }}
+    chart: {{ template "security.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+    istio: citadel
+spec:
+  host: istio-citadel.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
+  trafficPolicy:
+    portLevelSettings:
+    - port:
+        number: 8060
+      tls:
+        mode: DISABLE
+---
+{{- end }}
 {{- end }}
