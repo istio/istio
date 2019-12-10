@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"istio.io/istio/pilot/cmd/pilot-agent/stsservice"
+	"istio.io/istio/security/pkg/tokenmanagers/google"
 	"net"
 	"os"
 	"strings"
@@ -54,7 +55,6 @@ import (
 	istio_agent "istio.io/istio/pkg/istio-agent"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
-	"istio.io/istio/security/pkg/tokenmanager"
 )
 
 const trustworthyJWTPath = "/var/run/secrets/tokens/istio-token"
@@ -489,7 +489,7 @@ var (
 				if proxyIPv6 {
 					localHostAddr = "[::1]"
 				}
-				tokenManager, err := tokenmanager.CreateTokenManager(trustDomain)
+				tokenManager, err := google.CreateTokenManager(trustDomain)
 				if err != nil {
 					cancel()
 					return err

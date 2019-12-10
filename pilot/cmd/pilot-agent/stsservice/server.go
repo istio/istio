@@ -82,7 +82,7 @@ const (
 // TokenManager contains methods for fetching token.
 type TokenManager interface {
 	// GenerateToken takes STS request parameters and fetches token, returns StsResponseParameters in JSON.
-	GenerateToken(attributes StsRequestParameters) ([]byte, error)
+	GenerateToken(parameters StsRequestParameters) ([]byte, error)
 	// DumpTokenStatus dumps all token status in JSON
 	DumpTokenStatus() ([]byte, error)
 }

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package tokenmanager
+package google
 
 import (
 	"bytes"
@@ -62,13 +62,26 @@ type StsRequestParameters struct {
 	actorTokenType       string
 }
 
-// TokenManager contains methods for fetching token. It implements the interface declared at
-//
+// TokenManager supports token exchange with Google OAuth 2.0 authorization server.
 type TokenManager struct {
 	hTTPClient  *http.Client
 	trustDomain string
+	// tokens is the cache for fetched tokens.
+	// map key is timestamp of token, map value is tokenInfo.
+	tokens        sync.Map
 }
 
+type tokenInfo struct {
+	tokenType  string `json:"token_type"`
+	issueTime  string `json:"issue_time"`
+	expireTime string `json:"expire_time"`
+}
+
+type tokensDump struct {
+	tokens []tokenInfo `json:"tokens"`
+}
+
+// CreateTokenManager creates a token manager that fetches token from a Google OAuth 2.0 authorization server.
 func CreateTokenManager(trustDomain string) (*TokenManager, error) {
 	caCertPool, err := x509.SystemCertPool()
 	if err != nil {
@@ -96,23 +109,28 @@ type federatedTokenResponse struct {
 	ExpiresIn       int64  `json:"expires_in"` // Expiration time in seconds
 }
 
-func (tm *TokenManager) constructFederatedTokenRequest(attributes StsRequestParameters) []byte {
-	values := map[string]string{
-		"audience":           tm.trustDomain,
-		"grantType":          attributes.grantType,
-		"requestedTokenType": federatedTokenType,
-		"subjectTokenType":   attributes.subjectTokenType,
-		"subjectToken":       attributes.subjectToken,
-		"scope":              attributes.scope,
+// constructFederatedTokenRequest returns a query in JSON concatenating all request parameters.
+func (tm *TokenManager) constructFederatedTokenRequest(parameters StsRequestParameters) []byte {
+	reqScope := scope
+	if len(parameters.scope) != 0 {
+		reqScope = parameters.scope
 	}
-	jsonValue, _ := json.Marshal(values)
-	return jsonValue
+	query := map[string]string{
+		"audience":           tm.trustDomain,
+		"grantType":          parameters.grantType,
+		"requestedTokenType": federatedTokenType,
+		"subjectTokenType":   parameters.subjectTokenType,
+		"subjectToken":       parameters.subjectToken,
+		"scope":              reqScope,
+	}
+	jsonQuery, _ := json.Marshal(query)
+	return jsonQuery
 }
 
 // GenerateToken takes STS request parameters and fetches token, returns StsResponseParameters in JSON.
-func (tm *TokenManager) GenerateToken(attributes StsRequestParameters) ([]byte, error) {
-	tokenManagerLog.Debugf("Start to fetch token with STS request parameters: %v", attributes)
-	ftResp, err := tm.fetchFederatedToken(attributes)
+func (tm *TokenManager) GenerateToken(parameters StsRequestParameters) ([]byte, error) {
+	tokenManagerLog.Debugf("Start to fetch token with STS request parameters: %v", parameters)
+	ftResp, err := tm.fetchFederatedToken(parameters)
 	if err != nil {
 		return nil, err
 	}
@@ -123,17 +141,19 @@ func (tm *TokenManager) GenerateToken(attributes StsRequestParameters) ([]byte, 
 	return tm.generateSTSResp(atResp), nil
 }
 
-func (tm *TokenManager) fetchFederatedToken(attributes StsRequestParameters) (federatedTokenResponse, error) {
+// fetchFederatedToken exchanges a third-party issued Json Web Token for an OAuth2.0 access token
+// which asserts a third-party identity within an identity namespace.
+func (tm *TokenManager) fetchFederatedToken(parameters StsRequestParameters) (federatedTokenResponse, error) {
 	respData := federatedTokenResponse{}
 
-	federatedTokenReqJSON := tm.constructFederatedTokenRequest(attributes)
-	req, _ := http.NewRequest("POST", secureTokenEndpoint, bytes.NewBuffer(federatedTokenReqJSON))
+	jsonQuery := tm.constructFederatedTokenRequest(parameters)
+	req, _ := http.NewRequest("POST", secureTokenEndpoint, bytes.NewBuffer(jsonQuery))
 	req.Header.Set("Content-Type", contentType)
 	resp, err := tm.hTTPClient.Do(req)
 	if err != nil {
-		tokenManagerLog.Errorf("Failed to get federated token (HTTP status %d): %s", resp.Status,
+		tokenManagerLog.Errorf("Failed to exchange federated token (HTTP status %d): %s", resp.Status,
 			err.Error())
-		return respData, fmt.Errorf("failed to get federated token (HTTP status %d): %s", resp.Status,
+		return respData, fmt.Errorf("failed to exchange federated token (HTTP status %d): %s", resp.Status,
 			err.Error())
 	}
 	defer resp.Body.Close()
@@ -144,14 +164,42 @@ func (tm *TokenManager) fetchFederatedToken(attributes StsRequestParameters) (fe
 		return respData, fmt.Errorf("failed to unmarshal federated token response data: %s", err.Error())
 	}
 	if respData.AccessToken == "" {
-		tokenManagerLog.Errora("Failed to exchange federated token", string(body))
-		return respData, errors.New("failed to exchange federated token " + string(body))
+		tokenManagerLog.Errora("federated token response does not have access token", string(body))
+		return respData, errors.New("federated token response does not have access token. " + string(body))
 	}
+	tokenManagerLog.Debug("successfully exchanged a federated token")
+	tokenReceivedTime := time.Now()
+	tm.tokens.Store(tokenReceivedTime.String(), tokenInfo{
+		tokenType:  respData.IssuedTokenType,
+		issueTime:  tokenReceivedTime.String(),
+		expireTime: tokenReceivedTime.Add(time.Duration(respData.ExpiresIn) * time.Second).String()})
 	return respData, nil
+}
+
+type accessTokenResponse struct {
+	AccessToken     string `json:"access_token"`
+	IssuedTokenType string `json:"issued_token_type"`
+	TokenType       string `json:"token_type"`
+	ExpiresIn       int64  `json:"expires_in"` // Expiration time in seconds
+}
+
+func (tm *TokenManager) fetchAccessToken(federatedToken federatedTokenResponse) (accessTokenResponse, error) {
+
 }
 
 // DumpTokenStatus dumps all token status in JSON
 func (tm *TokenManager) DumpTokenStatus() ([]byte, error) {
+	tokenStatus := make([]tokenInfo, 0)
+	tm.tokens.Range(func(k interface{}, v interface{}) bool {
+		token := v.(tokenInfo)
+		tokenStatus = append(tokenStatus, token)
+		return true
+	})
+	td := tokensDump{
+		tokens: tokenStatus,
+	}
+	statusJSON, err := json.MarshalIndent(td, "", " ")
+	return statusJSON, err
 }
 
 
