@@ -73,7 +73,8 @@ type (
 		sync.Mutex
 		controllers map[string]cacheController
 
-		kubeHandler *handler
+		kubeHandler             *handler
+		multiClusterWatcherInit sync.Once
 	}
 
 	handler struct {
@@ -156,8 +157,16 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 	b.kubeHandler = &kubeHandler
 
 	if !found {
-		if err := initMultiClusterSecretController(b, path, env); err != nil {
-			return nil, fmt.Errorf("could not create remote controllers: %v", err)
+		// only init a single watcher for multicluster secrets for a given Builder.
+		// if init fails, try again on next Build().
+		// This should prevent an ever-growing number of watchers for a Builder.
+		var initErr error
+		b.multiClusterWatcherInit.Do(func() {
+			initErr = initMultiClusterSecretController(b, path, env)
+		})
+		if initErr != nil {
+			b.multiClusterWatcherInit = sync.Once{}
+			return nil, fmt.Errorf("could not create remote controllers: %v", initErr)
 		}
 	}
 
@@ -186,9 +195,10 @@ func runNewController(b *builder, clientset k8s.Interface, env adapter.Env) (cac
 
 func newBuilder(clientFactory clientFactoryFn) *builder {
 	return &builder{
-		newClientFn:   clientFactory,
-		controllers:   make(map[string]cacheController),
-		adapterConfig: conf,
+		newClientFn:             clientFactory,
+		controllers:             make(map[string]cacheController),
+		adapterConfig:           conf,
+		multiClusterWatcherInit: sync.Once{},
 	}
 }
 
