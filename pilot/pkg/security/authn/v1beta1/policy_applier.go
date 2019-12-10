@@ -25,14 +25,10 @@ import (
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/golang/protobuf/ptypes/empty"
 
-<<<<<<< HEAD
 	"istio.io/istio/pilot/pkg/features"
 	authn_alpha "istio.io/istio/security/proto/authentication/v1alpha1"
 	authn_filter "istio.io/istio/security/proto/envoy/config/filter/http/authn/v2alpha1"
-
-=======
-	authn_v1alpha1 "istio.io/api/authentication/v1alpha1"
->>>>>>> Add fallback to alpha JWT policy if RequestAuthentication is not found
+	authn_alpha_api "istio.io/api/authentication/v1alpha1"
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
@@ -117,7 +113,6 @@ func convertToIstioAuthnFilterConfig(jwtRules []*v1beta1.JWT) *authn_filter.Filt
 // ensure Authn Filter won't reject the request, but still transform the attributes, e.g. request.auth.principal.
 // proxyType does not matter here, exists only for legacy reason.
 func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
-<<<<<<< HEAD
 	out := &http_conn.HttpFilter{
 		Name: authn_model.AuthnFilterName,
 	}
@@ -131,17 +126,6 @@ func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, isXDSMarsha
 		out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(filterConfigProto)}
 	}
 	return out
-=======
-	if len(a.processedJwtRules) == 0 {
-		log.Infof("RequestAuthentication (beta policy) not found, fallback to alpha if available")
-		// TODO(diemtvu) Should also check *beta* mTLS policy before fallback to
-		// a.alphaApplier.AuthNFilter(proxyType, isXDSMarshalingToAnyEnabled)
-		return nil
-	}
-	// TODO(diemtvu) implement this.
-	log.Errorf("AuthNFilter(%v, %v) is not yet implemented", proxyType, isXDSMarshalingToAnyEnabled)
-	return nil
->>>>>>> Add fallback to alpha JWT policy if RequestAuthentication is not found
 }
 
 func (a *v1beta1PolicyApplier) InboundFilterChain(sdsUdsPath string, meta *model.NodeMetadata) []plugin.FilterChain {
@@ -151,7 +135,7 @@ func (a *v1beta1PolicyApplier) InboundFilterChain(sdsUdsPath string, meta *model
 }
 
 // NewPolicyApplier returns new applier for v1beta1 authentication policies.
-func NewPolicyApplier(jwtPolicies []*model.Config, policy *authn_v1alpha1.Policy) authn.PolicyApplier {
+func NewPolicyApplier(jwtPolicies []*model.Config, policy *authn_alpha_api.Policy) authn.PolicyApplier {
 	processedJwtRules := []*v1beta1.JWT{}
 
 	// TODO(diemtvu) should we need to deduplicate JWT with the same issuer.

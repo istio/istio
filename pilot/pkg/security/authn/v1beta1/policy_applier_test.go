@@ -25,13 +25,9 @@ import (
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/golang/protobuf/ptypes/empty"
 
-<<<<<<< HEAD
 	authn_alpha "istio.io/istio/security/proto/authentication/v1alpha1"
 	authn_filter "istio.io/istio/security/proto/envoy/config/filter/http/authn/v2alpha1"
-
-=======
-	authn_v1alpha1 "istio.io/api/authentication/v1alpha1"
->>>>>>> Add fallback to alpha JWT policy if RequestAuthentication is not found
+	authn_alpha_api "istio.io/api/authentication/v1alpha1"
 	v1beta1 "istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
@@ -41,6 +37,7 @@ import (
 type testCase struct {
 	name     string
 	in       []*model.Config
+	alphaPolicyIn *authn_alpha_api.Policy
 	expected *http_conn.HttpFilter
 }
 
@@ -52,16 +49,7 @@ func TestJwtFilter(t *testing.T) {
 
 	jwksURI := ms.URL + "/oauth2/v3/certs"
 
-<<<<<<< HEAD
 	cases := []testCase{
-=======
-	cases := []struct {
-		name        string
-		in          []*model.Config
-		alphaPolicy *authn_v1alpha1.Policy
-		expected    *http_conn.HttpFilter
-	}{
->>>>>>> Add fallback to alpha JWT policy if RequestAuthentication is not found
 		{
 			name:     "No policy",
 			in:       []*model.Config{},
@@ -78,9 +66,9 @@ func TestJwtFilter(t *testing.T) {
 		},
 		{
 			name: "Fallback to alpha with no JWT",
-			alphaPolicy: &authn_v1alpha1.Policy{
-				Peers: []*authn_v1alpha1.PeerAuthenticationMethod{{
-					Params: &authn_v1alpha1.PeerAuthenticationMethod_Mtls{&authn_v1alpha1.MutualTls{}},
+			alphaPolicyIn: &authn_alpha_api.Policy{
+				Peers: []*authn_alpha_api.PeerAuthenticationMethod{{
+					Params: &authn_alpha_api.PeerAuthenticationMethod_Mtls{&authn_alpha_api.MutualTls{}},
 				}},
 			},
 			in:       []*model.Config{},
@@ -88,13 +76,13 @@ func TestJwtFilter(t *testing.T) {
 		},
 		{
 			name: "Fallback to alpha JWT",
-			alphaPolicy: &authn_v1alpha1.Policy{
-				Peers: []*authn_v1alpha1.PeerAuthenticationMethod{{
-					Params: &authn_v1alpha1.PeerAuthenticationMethod_Mtls{&authn_v1alpha1.MutualTls{}},
+			alphaPolicyIn: &authn_alpha_api.Policy{
+				Peers: []*authn_alpha_api.PeerAuthenticationMethod{{
+					Params: &authn_alpha_api.PeerAuthenticationMethod_Mtls{&authn_alpha_api.MutualTls{}},
 				}},
-				Origins: []*authn_v1alpha1.OriginAuthenticationMethod{
+				Origins: []*authn_alpha_api.OriginAuthenticationMethod{
 					{
-						Jwt: &authn_v1alpha1.Jwt{
+						Jwt: &authn_alpha_api.Jwt{
 							Issuer:  "https://secret.foo.com",
 							JwksUri: jwksURI,
 						},
@@ -372,7 +360,7 @@ func TestJwtFilter(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := NewPolicyApplier(c.in, c.alphaPolicy).JwtFilter(true); !reflect.DeepEqual(c.expected, got) {
+			if got := NewPolicyApplier(c.in, c.alphaPolicyIn).JwtFilter(true); !reflect.DeepEqual(c.expected, got) {
 				t.Errorf("got:\n%s\nwanted:\n%s", spew.Sdump(got), spew.Sdump(c.expected))
 			}
 		})
@@ -769,7 +757,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			got := NewPolicyApplier(c.in).AuthNFilter(model.SidecarProxy, false)
+			got := NewPolicyApplier(c.in, c.alphaPolicyIn).AuthNFilter(model.SidecarProxy, false)
 			if !reflect.DeepEqual(c.expected, got) {
 				t.Errorf("got:\n%s\nwanted:\n%s\n", spew.Sdump(got), spew.Sdump(c.expected))
 			}
