@@ -230,7 +230,7 @@ func applyRecursive(manifests name.ManifestMap, version pkgversion.Version, opts
 				<-s
 				log.Infof("Prerequisite for %s has completed, proceeding with install.", c)
 			}
-			applyOut, appliedObjects := ApplyManifest(c, m, version.String(), opts)
+			applyOut, appliedObjects := ApplyManifest(c, m, version.String(), *opts)
 			mu.Lock()
 			out[c] = applyOut
 			allAppliedObjects = append(allAppliedObjects, appliedObjects...)
@@ -252,7 +252,7 @@ func applyRecursive(manifests name.ManifestMap, version pkgversion.Version, opts
 }
 
 func ApplyManifest(componentName name.ComponentName, manifestStr, version string,
-	opts *kubectlcmd.Options) (*ComponentApplyOutput, object.K8sObjects) {
+	opts kubectlcmd.Options) (*ComponentApplyOutput, object.K8sObjects) {
 	stdout, stderr := "", ""
 	appliedObjects := object.K8sObjects{}
 	objects, err := object.ParseK8sObjectsFromYAMLManifest(manifestStr)
@@ -265,9 +265,10 @@ func ApplyManifest(componentName name.ComponentName, manifestStr, version string
 	//  (https://github.com/kubernetes/kubernetes/issues/40635)
 	// Delete all resources for a disabled component
 	if len(objects) == 0 {
-		newOpts := *opts
-		newOpts.ExtraArgs = []string{"--all-namespaces", "--selector", componentLabel}
-		stdoutGet, stderrGet, err := kubectl.GetAll(&newOpts)
+		getOpts := opts
+		getOpts.Output = "yaml"
+		getOpts.ExtraArgs = []string{"--all-namespaces", "--selector", componentLabel}
+		stdoutGet, stderrGet, err := kubectl.GetAll(&getOpts)
 		if err != nil {
 			stdout += "\n" + stdoutGet
 			stderr += "\n" + stderrGet
@@ -285,8 +286,9 @@ func ApplyManifest(componentName name.ComponentName, manifestStr, version string
 		if err != nil {
 			return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 		}
-		newOpts.ExtraArgs = []string{"--selector", componentLabel}
-		stdoutDel, stderrDel, err := kubectl.Delete(stdoutGet, &newOpts)
+		delOpts := opts
+		delOpts.ExtraArgs = []string{"--selector", componentLabel}
+		stdoutDel, stderrDel, err := kubectl.Delete(stdoutGet, &delOpts)
 		stdout += "\n" + stdoutDel
 		stderr += "\n" + stderrDel
 		if err != nil {
@@ -312,39 +314,29 @@ func ApplyManifest(componentName name.ComponentName, manifestStr, version string
 
 	// Apply namespace resources first, then wait.
 	nsObjects := nsKindObjects(objects)
-	objectsToApply := nsObjects
-	stdout, stderr, err = applyObjects(objectsToApply, opts, stdout, stderr)
+	stdout, stderr, err = applyObjects(nsObjects, &opts, stdout, stderr)
 	if err != nil {
 		return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 	}
-	if err := waitForResources(objectsToApply, opts); err != nil {
+	if err := waitForResources(nsObjects, &opts); err != nil {
 		return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 	}
 	appliedObjects = append(appliedObjects, nsObjects...)
 
 	// Apply CRDs, then wait.
 	crdObjects := cRDKindObjects(objects)
-	objectsToApply = crdObjects
-	// If we prune, we need to reapply the same objects, otherwise they will be pruned.
-	if opts.Prune != nil && *opts.Prune {
-		objectsToApply = append(objectsToApply, appliedObjects...)
-	}
-	stdout, stderr, err = applyObjects(objectsToApply, opts, stdout, stderr)
+	stdout, stderr, err = applyObjects(crdObjects, &opts, stdout, stderr)
 	if err != nil {
 		return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 	}
-	if err := waitForCRDs(objectsToApply, opts.DryRun); err != nil {
+	if err := waitForCRDs(crdObjects, opts.DryRun); err != nil {
 		return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 	}
 	appliedObjects = append(appliedObjects, crdObjects...)
 
 	// Apply all remaining objects.
 	nonNsCrdObjects := objectsNotInLists(objects, nsObjects, crdObjects)
-	objectsToApply = nonNsCrdObjects
-	if opts.Prune != nil && *opts.Prune {
-		objectsToApply = append(objectsToApply, appliedObjects...)
-	}
-	stdout, stderr, err = applyObjects(objectsToApply, opts, stdout, stderr)
+	stdout, stderr, err = applyObjects(nonNsCrdObjects, &opts, stdout, stderr)
 	mark := "✔"
 	if err != nil {
 		mark = "✘"
@@ -405,9 +397,9 @@ func applyObjects(objs object.K8sObjects, opts *kubectlcmd.Options, stdout, stde
 		return stdout, stderr, err
 	}
 
-	stdoutNs, stderrNs, err := kubectl.Apply(mns, opts)
-	stdout += "\n" + stdoutNs
-	stderr += "\n" + stderrNs
+	stdoutApply, stderrApply, err := kubectl.Apply(mns, opts)
+	stdout += "\n" + stdoutApply
+	stderr += "\n" + stderrApply
 
 	return stdout, stderr, err
 }
