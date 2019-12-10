@@ -49,9 +49,6 @@ func genICPS(inFilename, profile, setOverlayYAML string, force bool, l *Logger) 
 	if err != nil {
 		return "", nil, fmt.Errorf("could not Unmarshal overlay Set%s: %s", setOverlayYAML, err)
 	}
-	if setProfile, ok := set["profile"]; ok {
-		profile = setProfile.(string)
-	}
 	if inFilename != "" {
 		b, err := ioutil.ReadFile(inFilename)
 		if err != nil {
@@ -62,6 +59,9 @@ func genICPS(inFilename, profile, setOverlayYAML string, force bool, l *Logger) 
 			return "", nil, err
 		}
 		profile = overlayICPS.Profile
+	}
+	if setProfile, ok := set["profile"]; ok {
+		profile = setProfile.(string)
 	}
 
 	// This contains the IstioControlPlane CR.
