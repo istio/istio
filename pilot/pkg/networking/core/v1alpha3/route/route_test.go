@@ -77,6 +77,14 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(len(routes)).To(gomega.Equal(1))
 	})
 
+	t.Run("for virtual service with top level catch all route", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithCatchAllRouteWeightedDestination, serviceRegistry, 8080, gatewayNames)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+	})
+
 	t.Run("for virtual service with multi prefix catch all route", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
@@ -569,6 +577,57 @@ var virtualServiceWithCatchAllMultiPrefixRoute = model.Config{
 							Port: &networking.PortSelector{
 								Number: 8484,
 							},
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithCatchAllRouteWeightedDestination = model.Config{
+	ConfigMeta: model.ConfigMeta{
+		Type:    schemas.VirtualService.Type,
+		Version: schemas.VirtualService.Version,
+		Name:    "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{"headers.test.istio.io"},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "headers-only",
+						Headers: map[string]*networking.StringMatch{
+							"version": {
+								MatchType: &networking.StringMatch_Exact{
+									Exact: "v2",
+								},
+							},
+						},
+						SourceLabels: map[string]string{
+							"version": "v1",
+						},
+					},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host:   "c-weighted.extsvc.com",
+							Subset: "v2",
+						},
+						Weight: 100,
+					},
+				},
+			},
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host:   "c-weighted.extsvc.com",
+							Subset: "v1",
 						},
 						Weight: 100,
 					},

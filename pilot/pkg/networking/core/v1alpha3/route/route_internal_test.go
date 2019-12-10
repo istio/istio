@@ -106,7 +106,7 @@ func TestCatchAllMatch(t *testing.T) {
 			match: true,
 		},
 		{
-			name: "uri regex with headers",
+			name: "uri regex with query params",
 			http: &networking.HTTPRoute{
 				Match: []*networking.HTTPMatchRequest{
 					{
