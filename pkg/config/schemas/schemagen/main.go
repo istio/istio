@@ -62,7 +62,9 @@ var (
     // Istio lists all Istio schemas.
     Istio = schema.Set{
     {{ range .Schemas -}}
-      {{ .VariableName }},
+	  {{ if (ne .Type "synthetic-service-entry") -}}
+          {{ .VariableName }},
+	  {{ end -}}
     {{ end -}}
     }
 )
