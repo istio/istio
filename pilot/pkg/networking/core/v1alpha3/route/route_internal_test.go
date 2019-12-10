@@ -140,6 +140,44 @@ func TestCatchAllMatch(t *testing.T) {
 			match: false,
 		},
 		{
+			name: "multiple prefix matches with one catch all match and one specific match",
+			http: &networking.HTTPRoute{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "catch-all",
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Prefix{
+								Prefix: "/",
+							},
+						},
+						SourceLabels: map[string]string{
+							"matchingNoSrc": "xxx",
+						},
+					},
+					{
+						Name: "specific match",
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Prefix{
+								Prefix: "/a",
+							},
+						},
+					},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "*.example.org",
+							Port: &networking.PortSelector{
+								Number: 8484,
+							},
+						},
+						Weight: 100,
+					},
+				},
+			},
+			match: true,
+		},
+		{
 			name: "uri regex with query params",
 			http: &networking.HTTPRoute{
 				Match: []*networking.HTTPMatchRequest{
