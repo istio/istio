@@ -162,7 +162,7 @@ func applyManifest(manifestStr, componentName string, opts *kubectlcmd.Options, 
 	l.logAndPrint("")
 	// Specifically don't prune operator installation since it leads to a lot of resources being reapplied.
 	opts.Prune = pointer.BoolPtr(false)
-	out, objs := manifest.ApplyManifest(name.ComponentName(componentName), manifestStr, version.OperatorBinaryVersion.String(), opts)
+	out, objs := manifest.ApplyManifest(name.ComponentName(componentName), manifestStr, version.OperatorBinaryVersion.String(), *opts)
 
 	success := true
 	if out.Err != nil {
