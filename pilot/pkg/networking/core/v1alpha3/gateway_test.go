@@ -602,7 +602,6 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 				httpOpts: &httpListenerOpts{
 					rds:              "some-route",
 					useRemoteAddress: true,
-					direction:        http_conn.HttpConnectionManager_Tracing_EGRESS,
 					connectionManager: &http_conn.HttpConnectionManager{
 						ForwardClientCertDetails: http_conn.HttpConnectionManager_SANITIZE_SET,
 						SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
@@ -666,7 +665,6 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 				httpOpts: &httpListenerOpts{
 					rds:              "some-route",
 					useRemoteAddress: true,
-					direction:        http_conn.HttpConnectionManager_Tracing_EGRESS,
 					connectionManager: &http_conn.HttpConnectionManager{
 						ForwardClientCertDetails: http_conn.HttpConnectionManager_SANITIZE_SET,
 						SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
@@ -728,7 +726,6 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 				httpOpts: &httpListenerOpts{
 					rds:              "some-route",
 					useRemoteAddress: true,
-					direction:        http_conn.HttpConnectionManager_Tracing_EGRESS,
 					connectionManager: &http_conn.HttpConnectionManager{
 						ForwardClientCertDetails: http_conn.HttpConnectionManager_SANITIZE_SET,
 						SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
@@ -790,7 +787,6 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 				httpOpts: &httpListenerOpts{
 					rds:              "some-route",
 					useRemoteAddress: true,
-					direction:        http_conn.HttpConnectionManager_Tracing_EGRESS,
 					connectionManager: &http_conn.HttpConnectionManager{
 						ForwardClientCertDetails: http_conn.HttpConnectionManager_SANITIZE_SET,
 						SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{

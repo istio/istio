@@ -353,7 +353,6 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 			httpOpts: &httpListenerOpts{
 				rds:              routeName,
 				useRemoteAddress: true,
-				direction:        http_conn.HttpConnectionManager_Tracing_EGRESS, // viewed as from gateway to internal
 				connectionManager: &http_conn.HttpConnectionManager{
 					// Forward client cert if connection is mTLS
 					ForwardClientCertDetails: http_conn.HttpConnectionManager_SANITIZE_SET,
@@ -388,7 +387,6 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 		httpOpts: &httpListenerOpts{
 			rds:              routeName,
 			useRemoteAddress: true,
-			direction:        http_conn.HttpConnectionManager_Tracing_EGRESS, // viewed as from gateway to internal
 			connectionManager: &http_conn.HttpConnectionManager{
 				// Forward client cert if connection is mTLS
 				ForwardClientCertDetails: http_conn.HttpConnectionManager_SANITIZE_SET,
