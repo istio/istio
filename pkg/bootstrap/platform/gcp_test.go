@@ -21,7 +21,7 @@ import (
 	"testing"
 )
 
-func TestMetadata(t *testing.T) {
+func TestGCPMetadata(t *testing.T) {
 	tests := []struct {
 		name          string
 		shouldFill    shouldFillFn
@@ -93,7 +93,7 @@ func TestMetadata(t *testing.T) {
 			mg := gcpEnv{tt.shouldFill, tt.projectIDFn, tt.locationFn, tt.clusterNameFn, tt.instanceIDFn}
 			got := mg.Metadata()
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Unexpected generated metadata: want %v got %v", tt.want, got)
+				t.Errorf("gcpEnv.Metadata() => '%v'; want '%v'", got, tt.want)
 			}
 		})
 	}

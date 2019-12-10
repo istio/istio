@@ -76,6 +76,14 @@ var (
 	// DestinationRuleUsesMTLSForWorkloadWithoutSidecar defines a diag.MessageType for message "DestinationRuleUsesMTLSForWorkloadWithoutSidecar".
 	// Description: A DestinationRule uses mTLS for a workload that has no sidecar.
 	DestinationRuleUsesMTLSForWorkloadWithoutSidecar = diag.NewMessageType(diag.Error, "IST0115", "DestinationRule %s uses mTLS for workload %s that has no sidecar. Traffic from workloads with sidecars will fail.")
+
+	// DeploymentAssociatedToMultipleServices defines a diag.MessageType for message "DeploymentAssociatedToMultipleServices".
+	// Description: The resulting pods of a service mesh deployment can't be associated with multiple services using the same port but different protocols.
+	DeploymentAssociatedToMultipleServices = diag.NewMessageType(diag.Warning, "IST0116", "This deployment is associated with multiple services using port %d but different protocols: %v")
+
+	// DeploymentRequiresServiceAssociated defines a diag.MessageType for message "DeploymentRequiresServiceAssociated".
+	// Description: The resulting pods of a service mesh deployment must be associated with at least one service.
+	DeploymentRequiresServiceAssociated = diag.NewMessageType(diag.Warning, "IST0117", "No service associated with this deployment. Service mesh deployments must be associated with a service.")
 )
 
 // NewInternalError returns a new diag.Message based on InternalError.
@@ -245,6 +253,26 @@ func NewDestinationRuleUsesMTLSForWorkloadWithoutSidecar(entry *resource.Entry, 
 		originOrNil(entry),
 		destinationRuleName,
 		host,
+	)
+}
+
+// NewDeploymentAssociatedToMultipleServices returns a new diag.Message based on DeploymentAssociatedToMultipleServices.
+func NewDeploymentAssociatedToMultipleServices(entry *resource.Entry, deployment string, port int32, services []string) diag.Message {
+	return diag.NewMessage(
+		DeploymentAssociatedToMultipleServices,
+		originOrNil(entry),
+		deployment,
+		port,
+		services,
+	)
+}
+
+// NewDeploymentRequiresServiceAssociated returns a new diag.Message based on DeploymentRequiresServiceAssociated.
+func NewDeploymentRequiresServiceAssociated(entry *resource.Entry, deployment string) diag.Message {
+	return diag.NewMessage(
+		DeploymentRequiresServiceAssociated,
+		originOrNil(entry),
+		deployment,
 	)
 }
 
