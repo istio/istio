@@ -45,12 +45,15 @@ data:
 
     {{- else }}
 
+    {{- if .Values.mixer.policy.enabled }}
     {{- if .Values.global.controlPlaneSecurityEnabled }}
     mixerCheckServer: istio-policy.{{ .Values.global.policyNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:15004
     {{- else }}
     mixerCheckServer: istio-policy.{{ .Values.global.policyNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:9091
     {{- end }}
-    {{- if .Values.telemetry.enabled }}
+    {{- end }}
+
+    {{- if and .Values.telemetry.v1.enabled .Values.telemetry.enabled }}
     {{- if .Values.global.controlPlaneSecurityEnabled }}
     mixerReportServer: istio-telemetry.{{ .Values.global.telemetryNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:15004
     {{- else }}
