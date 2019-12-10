@@ -440,13 +440,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 		// by the service port protocol. If user doesn't specify the service port protocol, the listener will
 		// be generated using protocol sniffing.
 		// For example, the set of service instances
-		//      --> NetworkEndpoint
+		//      --> Endpoint
 		//              Address:Port 172.16.0.1:1111
 		//              ServicePort  80|HTTP
-		//      --> NetworkEndpoint
+		//      --> Endpoint
 		//              Address:Port 172.16.0.1:2222
 		//              ServicePort  8888|TCP
-		//      --> NetworkEndpoint
+		//      --> Endpoint
 		//              Address:Port 172.16.0.1:3333
 		//              ServicePort 9999|Unknown
 		//
@@ -469,17 +469,17 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 				proxyInstances: node.ServiceInstances,
 				proxyLabels:    node.WorkloadLabels,
 				bind:           bind,
-				port:           endpoint.Port,
+				port:           int(endpoint.EndpointPort),
 				bindToPort:     false,
 			}
 
 			pluginParams := &plugin.InputParams{
-				ListenerProtocol: plugin.ModelProtocolToListenerProtocol(node, endpoint.ServicePort.Protocol,
+				ListenerProtocol: plugin.ModelProtocolToListenerProtocol(node, instance.ServicePort.Protocol,
 					core.TrafficDirection_INBOUND),
 				DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_SIDECAR_INBOUND,
 				Node:                       node,
 				ServiceInstance:            instance,
-				Port:                       endpoint.ServicePort,
+				Port:                       instance.ServicePort,
 				Push:                       push,
 				Bind:                       bind,
 			}
@@ -526,15 +526,18 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 				// We didn't find a matching instance. Create a dummy one because we need the right
 				// params to generate the right cluster name. CDS would have setup the cluster as
 				// as inbound|portNumber|portName|SidecarScopeID
+				attrs := model.ServiceAttributes{
+					Name: sidecarScope.Config.Name,
+					// This will ensure that the right AuthN policies are selected
+					Namespace: sidecarScope.Config.Namespace,
+				}
 				instance = &model.ServiceInstance{
-					Endpoint: model.NetworkEndpoint{},
 					Service: &model.Service{
-						Hostname: host.Name(sidecarScopeID),
-						Attributes: model.ServiceAttributes{
-							Name: sidecarScope.Config.Name,
-							// This will ensure that the right AuthN policies are selected
-							Namespace: sidecarScope.Config.Namespace,
-						},
+						Hostname:   host.Name(sidecarScopeID),
+						Attributes: attrs,
+					},
+					Endpoint: &model.IstioEndpoint{
+						Attributes: attrs,
 					},
 				}
 			}
@@ -552,7 +555,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 			// we don't need to set other fields of the endpoint here as
 			// the consumers of this service instance (listener/filter chain constructors)
 			// are simply looking for the service port and the service associated with the instance.
-			instance.Endpoint.ServicePort = listenPort
+			instance.ServicePort = listenPort
 
 			// Validation ensures that the protocol specified in Sidecar.ingress
 			// is always a valid known protocol
@@ -584,8 +587,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPort
 		// We use the port name as the subset in the inbound cluster for differentiation. Its fine to use port
 		// names here because the inbound clusters are not referred to anywhere in the API, unlike the outbound
 		// clusters and these are static endpoint clusters used only for sidecar (proxy -> app)
-		clusterName = model.BuildSubsetKey(model.TrafficDirectionInbound, pluginParams.ServiceInstance.Endpoint.ServicePort.Name,
-			pluginParams.ServiceInstance.Service.Hostname, pluginParams.ServiceInstance.Endpoint.ServicePort.Port)
+		clusterName = model.BuildSubsetKey(model.TrafficDirectionInbound, pluginParams.ServiceInstance.ServicePort.Name,
+			pluginParams.ServiceInstance.Service.Hostname, pluginParams.ServiceInstance.ServicePort.Port)
 	}
 
 	httpOpts := &httpListenerOpts{
@@ -605,9 +608,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPort
 		},
 	}
 	// See https://github.com/grpc/grpc-web/tree/master/net/grpc/gateway/examples/helloworld#configure-the-proxy
-	if pluginParams.ServiceInstance.Endpoint.ServicePort.Protocol.IsHTTP2() {
+	if pluginParams.ServiceInstance.ServicePort.Protocol.IsHTTP2() {
 		httpOpts.connectionManager.Http2ProtocolOptions = &core.Http2ProtocolOptions{}
-		if pluginParams.ServiceInstance.Endpoint.ServicePort.Protocol == protocol.GRPCWeb {
+		if pluginParams.ServiceInstance.ServicePort.Protocol == protocol.GRPCWeb {
 			httpOpts.addGRPCWebFilter = true
 		}
 	}
@@ -731,7 +734,7 @@ allChainsLabel:
 			filterChainMatch = &fcm
 		default:
 			log.Warnf("Unsupported inbound protocol %v for port %#v", pluginParams.ListenerProtocol,
-				pluginParams.ServiceInstance.Endpoint.ServicePort)
+				pluginParams.ServiceInstance.ServicePort)
 			return nil
 		}
 
@@ -1663,13 +1666,13 @@ func buildSidecarInboundMgmtListeners(node *model.Proxy, push *model.PushContext
 			protocol.HTTPS, protocol.TLS, protocol.Mongo, protocol.Redis, protocol.MySQL:
 
 			instance := &model.ServiceInstance{
-				Endpoint: model.NetworkEndpoint{
-					Address:     managementIP,
-					Port:        mPort.Port,
-					ServicePort: mPort,
-				},
 				Service: &model.Service{
 					Hostname: ManagementClusterHostname,
+				},
+				ServicePort: mPort,
+				Endpoint: &model.IstioEndpoint{
+					Address:      managementIP,
+					EndpointPort: uint32(mPort.Port),
 				},
 			}
 			listenerOpts := buildListenerOpts{
@@ -1767,8 +1770,8 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 
 	if util.IsIstioVersionGE14(pluginParams.Node) &&
 		pluginParams.ServiceInstance != nil &&
-		pluginParams.ServiceInstance.Endpoint.ServicePort != nil &&
-		pluginParams.ServiceInstance.Endpoint.ServicePort.Protocol == protocol.GRPC {
+		pluginParams.ServiceInstance.ServicePort != nil &&
+		pluginParams.ServiceInstance.ServicePort.Protocol == protocol.GRPC {
 		filters = append(filters, &http_conn.HttpFilter{
 			Name: "envoy.filters.http.grpc_stats",
 			ConfigType: &http_conn.HttpFilter_TypedConfig{

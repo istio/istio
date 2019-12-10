@@ -488,11 +488,6 @@ func TestGetProxyServiceInstances(t *testing.T) {
 	}
 
 	expected := &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{Family: 0,
-			Address:     "1.1.1.1",
-			ServicePort: &model.Port{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP},
-			Locality:    "r/z",
-		},
 		Service: &model.Service{
 			Hostname:        "svc1.nsa.svc.company.com",
 			Address:         "10.0.0.1",
@@ -504,8 +499,20 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				Namespace:       "nsa",
 				UID:             "istio://nsa/services/svc1"},
 		},
-		Labels:         labels.Instance{"app": "prod-app"},
-		ServiceAccount: "account",
+		ServicePort: &model.Port{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP},
+		Endpoint: &model.IstioEndpoint{
+			Labels:          labels.Instance{"app": "prod-app"},
+			ServiceAccount:  "account",
+			Family:          0,
+			Address:         "1.1.1.1",
+			EndpointPort:    0,
+			ServicePortName: "tcp-port",
+			Locality:        "r/z",
+			Attributes: model.ServiceAttributes{
+				Name:      "svc1",
+				Namespace: "nsa",
+			},
+		},
 	}
 	if len(metaServices) != 1 {
 		t.Fatalf("expected 1 instance, got %v", len(metaServices))
@@ -540,12 +547,6 @@ func TestGetProxyServiceInstances(t *testing.T) {
 	}
 
 	expected = &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
-			Family:      0,
-			Address:     "129.0.0.1",
-			ServicePort: &model.Port{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP},
-			Locality:    "region1/zone1/subzone1",
-		},
 		Service: &model.Service{
 			Hostname:        "svc1.nsa.svc.company.com",
 			Address:         "10.0.0.1",
@@ -557,9 +558,22 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				Namespace:       "nsa",
 				UID:             "istio://nsa/services/svc1"},
 		},
-		Labels:         labels.Instance{"app": "prod-app"},
-		ServiceAccount: "spiffe://cluster.local/ns/nsa/sa/svcaccount",
-		TLSMode:        model.DisabledTLSModeLabel,
+		ServicePort: &model.Port{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP},
+		Endpoint: &model.IstioEndpoint{
+			Family:          0,
+			Address:         "129.0.0.1",
+			EndpointPort:    0,
+			ServicePortName: "tcp-port",
+			Locality:        "region1/zone1/subzone1",
+			Labels:          labels.Instance{"app": "prod-app"},
+			ServiceAccount:  "spiffe://cluster.local/ns/nsa/sa/svcaccount",
+			TLSMode:         model.DisabledTLSModeLabel,
+			UID:             "kubernetes://pod2.nsa",
+			Attributes: model.ServiceAttributes{
+				Name:      "svc1",
+				Namespace: "nsa",
+			},
+		},
 	}
 	if len(podServices) != 1 {
 		t.Fatalf("expected 1 instance, got %v", len(podServices))
@@ -589,12 +603,6 @@ func TestGetProxyServiceInstances(t *testing.T) {
 	}
 
 	expected = &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
-			Family:      0,
-			Address:     "129.0.0.2",
-			ServicePort: &model.Port{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP},
-			Locality:    "region/zone",
-		},
 		Service: &model.Service{
 			Hostname:        "svc1.nsa.svc.company.com",
 			Address:         "10.0.0.1",
@@ -606,9 +614,22 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				Namespace:       "nsa",
 				UID:             "istio://nsa/services/svc1"},
 		},
-		Labels:         labels.Instance{"app": "prod-app", "istio-locality": "region.zone"},
-		ServiceAccount: "spiffe://cluster.local/ns/nsa/sa/svcaccount",
-		TLSMode:        model.DisabledTLSModeLabel,
+		ServicePort: &model.Port{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP},
+		Endpoint: &model.IstioEndpoint{
+			Family:          0,
+			Address:         "129.0.0.2",
+			EndpointPort:    0,
+			ServicePortName: "tcp-port",
+			Locality:        "region/zone",
+			Labels:          labels.Instance{"app": "prod-app", "istio-locality": "region.zone"},
+			ServiceAccount:  "spiffe://cluster.local/ns/nsa/sa/svcaccount",
+			TLSMode:         model.DisabledTLSModeLabel,
+			UID:             "kubernetes://pod3.nsa",
+			Attributes: model.ServiceAttributes{
+				Name:      "svc1",
+				Namespace: "nsa",
+			},
+		},
 	}
 	if len(podServices) != 1 {
 		t.Fatalf("expected 1 instance, got %v", len(podServices))

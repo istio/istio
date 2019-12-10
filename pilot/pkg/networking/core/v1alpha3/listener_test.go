@@ -127,7 +127,7 @@ var (
 					Namespace: "not-default",
 				},
 			},
-			Labels: nil,
+			Endpoint: &model.IstioEndpoint{},
 		},
 	}
 	virtualServiceSpec = &networking.VirtualService{
@@ -1702,16 +1702,9 @@ func buildServiceWithPort(hostname string, port int, protocol protocol.Instance,
 	}
 }
 
-func buildEndpoint(service *model.Service) model.NetworkEndpoint {
-	return model.NetworkEndpoint{
-		ServicePort: service.Ports[0],
-		Port:        8080,
-	}
-}
-
 func buildServiceInstance(service *model.Service, instanceIP string) *model.ServiceInstance {
 	return &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
+		Endpoint: &model.IstioEndpoint{
 			Address: instanceIP,
 		},
 		Service: service,
@@ -1729,8 +1722,11 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 	instances := make([]*model.ServiceInstance, len(services))
 	for i, s := range services {
 		instances[i] = &model.ServiceInstance{
-			Service:  s,
-			Endpoint: buildEndpoint(s),
+			Service: s,
+			Endpoint: &model.IstioEndpoint{
+				EndpointPort: 8080,
+			},
+			ServicePort: s.Ports[0],
 		}
 	}
 	serviceDiscovery.GetProxyServiceInstancesReturns(instances, nil)

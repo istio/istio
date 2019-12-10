@@ -286,18 +286,19 @@ func (e *endpointSliceController) InstancesByPort(c *Controller, svc *model.Serv
 						svcPortEntry.Name == *port.Name {
 
 						out = append(out, &model.ServiceInstance{
-							Endpoint: model.NetworkEndpoint{
-								Address:     a,
-								Port:        int(portNum),
-								ServicePort: svcPortEntry,
-								UID:         uid,
-								Network:     c.endpointNetwork(a),
-								Locality:    az,
+							Endpoint: &model.IstioEndpoint{
+								Address:         a,
+								EndpointPort:    portNum,
+								ServicePortName: svcPortEntry.Name,
+								UID:             uid,
+								Network:         c.endpointNetwork(a),
+								Locality:        az,
+								Labels:          podLabels,
+								ServiceAccount:  sa,
+								TLSMode:         tlsMode,
 							},
-							Service:        svc,
-							Labels:         podLabels,
-							ServiceAccount: sa,
-							TLSMode:        tlsMode,
+							ServicePort: svcPortEntry,
+							Service:     svc,
 						})
 					}
 				}

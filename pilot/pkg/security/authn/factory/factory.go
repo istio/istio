@@ -26,7 +26,7 @@ import (
 func NewPolicyApplier(push *model.PushContext,
 	serviceInstance *model.ServiceInstance, namespace string, labels labels.Collection) authn.PolicyApplier {
 	service := serviceInstance.Service
-	port := serviceInstance.Endpoint.ServicePort
+	port := serviceInstance.ServicePort
 	authnPolicy, _ := push.AuthenticationPolicyForWorkload(service, port)
 	return v1beta1.NewPolicyApplier(push.AuthnBetaPolicies.GetJwtPoliciesForWorkload(
 		namespace, labels), authnPolicy)
