@@ -259,7 +259,7 @@ func (conf *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, e
 				log.Warna("Failed to get certificate from CA", err)
 			}
 		} else {
-			log.Infoa("Got initial certificate ", si)
+			log.Infoa("Got initial certificate valid until ", si.ExpireTime)
 		}
 		if si != nil {
 			// For debugging and backward compat - we may not need it long term
