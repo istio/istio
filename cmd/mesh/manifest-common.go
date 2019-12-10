@@ -83,29 +83,23 @@ func genApplyManifests(setOverlay []string, inFilename string, force bool, dryRu
 	for cn := range manifests {
 		if out[cn].Err != nil {
 			cs := fmt.Sprintf("Component %s - manifest apply returned the following errors:", cn)
-			l.logAndPrintf("\n%s\n%s", cs, strings.Repeat("=", len(cs)))
+			l.logAndPrintf("\n%s", cs)
 			l.logAndPrint("Error: ", out[cn].Err, "\n")
 			gotError = true
 		} else if skippedComponentMap[cn] {
 			continue
-		} else {
-			cs := fmt.Sprintf("Component %s - manifest apply finished successfully:", cn)
-			l.logAndPrintf("\n%s\n%s", cs, strings.Repeat("=", len(cs)))
 		}
 
 		if !ignoreError(out[cn].Stderr) {
-			l.logAndPrint("Error detail:\n", out[cn].Stderr, "\n")
+			l.logAndPrint("Error detail:\n", out[cn].Stderr, "\n", out[cn].Stdout, "\n")
 			gotError = true
-		}
-		if !ignoreError(out[cn].Stderr) {
-			l.logAndPrint(out[cn].Stdout, "\n")
 		}
 	}
 
 	if gotError {
-		l.logAndPrint("\n\n*** Errors were logged during apply operation. Please check component installation logs above. ***\n")
+		l.logAndPrint("\n\n✘ Errors were logged during apply operation. Please check component installation logs above.\n")
 	} else {
-		l.logAndPrint("\n\n*** Success ***\n")
+		l.logAndPrint("\n\n✔ Installation complete\n")
 	}
 
 	return nil
