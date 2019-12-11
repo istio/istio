@@ -276,7 +276,7 @@ allroutes:
 		} else {
 			catchall := false
 			if match := catchAllMatch(http); match != nil {
-				// We have a catch all route - see if it is valid and if yes, do not build other routes.
+				// We have a catch all match block in a route. If it is valid, skip building routes for other matches in this rule element
 				if r := translateRoute(push, node, http, match, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
 					catchall = true
 					out = append(out, r)
