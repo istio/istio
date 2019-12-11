@@ -4,121 +4,121 @@ metadata:
   creationTimestamp: null
   name: istio-operator
 rules:
-  # istio groups
-  - apiGroups:
-      - authentication.istio.io
-    resources:
-      - '*'
-    verbs:
-      - '*'
-  - apiGroups:
-      - config.istio.io
-    resources:
-      - '*'
-    verbs:
-      - '*'
-  - apiGroups:
-      - install.istio.io
-    resources:
-      - '*'
-    verbs:
-      - '*'
-  - apiGroups:
-      - networking.istio.io
-    resources:
-      - '*'
-    verbs:
-      - '*'
-  - apiGroups:
-      - rbac.istio.io
-    resources:
-      - '*'
-    verbs:
-      - '*'
-  - apiGroups:
-      - security.istio.io
-    resources:
-      - '*'
-    verbs:
-      - '*'
-  # k8s groups
-  - apiGroups:
-      - admissionregistration.k8s.io
-    resources:
-      - mutatingwebhookconfigurations
-      - validatingwebhookconfigurations
-    verbs:
-      - '*'
-  - apiGroups:
-      - apiextensions.k8s.io
-    resources:
-      - customresourcedefinitions.apiextensions.k8s.io
-      - customresourcedefinitions
-    verbs:
-      - '*'
-  - apiGroups:
-      - apps
-      - extensions
-    resources:
-      - daemonsets
-      - deployments
-      - deployments/finalizers
-      - ingresses
-      - replicasets
-      - statefulsets
-    verbs:
-      - '*'
-  - apiGroups:
-      - autoscaling
-    resources:
-      - horizontalpodautoscalers
-    verbs:
-      - '*'
-  - apiGroups:
-      - monitoring.coreos.com
-    resources:
-      - servicemonitors
-    verbs:
-      - get
-      - create
-  - apiGroups:
-      - policy
-    resources:
-      - poddisruptionbudgets
-    verbs:
-      - '*'
-  - apiGroups:
-      - rbac.authorization.k8s.io
-    resources:
-      - clusterrolebindings
-      - clusterroles
-      - roles
-      - rolebindings
-    verbs:
-      - '*'
-  - apiGroups:
-      - ""
-    resources:
-      - configmaps
-      - endpoints
-      - events
-      - namespaces
-      - pods
-      - persistentvolumeclaims
-      - secrets
-      - services
-      - serviceaccounts
-    verbs:
-      - '*'
+# istio groups
+- apiGroups:
+  - authentication.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - config.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - install.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - networking.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - rbac.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - security.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+# k8s groups
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - mutatingwebhookconfigurations
+  - validatingwebhookconfigurations
+  verbs:
+  - '*'
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions.apiextensions.k8s.io
+  - customresourcedefinitions
+  verbs:
+  - '*'
+- apiGroups:
+  - apps
+  - extensions
+  resources:
+  - daemonsets
+  - deployments
+  - deployments/finalizers
+  - ingresses
+  - replicasets
+  - statefulsets
+  verbs:
+  - '*'
+- apiGroups:
+  - autoscaling
+  resources:
+  - horizontalpodautoscalers
+  verbs:
+  - '*'
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - servicemonitors
+  verbs:
+  - get
+  - create
+- apiGroups:
+  - policy
+  resources:
+  - poddisruptionbudgets
+  verbs:
+  - '*'
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterrolebindings
+  - clusterroles
+  - roles
+  - rolebindings
+  verbs:
+  - '*'
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - endpoints
+  - events
+  - namespaces
+  - pods
+  - persistentvolumeclaims
+  - secrets
+  - services
+  - serviceaccounts
+  verbs:
+  - '*'
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: istio-operator
 subjects:
-  - kind: ServiceAccount
-    name: istio-operator
-    namespace: istio-operator
+- kind: ServiceAccount
+  name: istio-operator
+  namespace: operator-test-namespace
 roleRef:
   kind: ClusterRole
   name: istio-operator
@@ -136,7 +136,7 @@ spec:
     plural: istiocontrolplanes
     singular: istiocontrolplane
     shortNames:
-      - icp
+    - icp
   scope: Namespaced
   subresources:
     status: {}
@@ -166,9 +166,9 @@ spec:
             https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
           type: object
   versions:
-    - name: v1alpha2
-      served: true
-      storage: true
+  - name: v1alpha2
+    served: true
+    storage: true
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -190,8 +190,8 @@ spec:
         - name: istio-operator
           image: foo.io/istio/operator:1.2.3
           command:
-            - istio-operator
-            - server
+          - istio-operator
+          - server
           imagePullPolicy: IfNotPresent
           resources:
             limits:
@@ -229,9 +229,9 @@ metadata:
   name: istio-operator
 spec:
   ports:
-    - name: http-metrics
-      port: 8383
-      targetPort: 8383
+  - name: http-metrics
+    port: 8383
+    targetPort: 8383
   selector:
     name: istio-operator
 ---

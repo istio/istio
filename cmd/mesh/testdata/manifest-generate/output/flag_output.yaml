@@ -5590,6 +5590,19 @@ data:
         action: keep
         regex: istio-citadel;http-monitoring
 
+    - job_name: 'sidecar-injector'
+
+      kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names:
+          - cp
+
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: istio-sidecar-injector;http-monitoring
+
     # scrape config for API servers
     - job_name: 'kubernetes-apiservers'
       kubernetes_sd_configs:

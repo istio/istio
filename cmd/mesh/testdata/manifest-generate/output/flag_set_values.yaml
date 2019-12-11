@@ -5646,6 +5646,9 @@ rules:
   - apiGroups: ["apiextensions.k8s.io"]
     resources: ["customresourcedefinitions"]
     verbs: ["get", "list", "watch"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["clusterroles"]
+    verbs: ["get", "list", "watch"]
 ---
 
 
@@ -6296,7 +6299,7 @@ spec:
         - name: ISTIO_META_WORKLOAD_NAME
           value: istio-ingressgateway
         - name: ISTIO_META_OWNER
-          value: kubernetes://api/apps/v1/namespaces/istio-system/deployments/istio-ingressgateway
+          value: kubernetes://apis/apps/v1/namespaces/istio-system/deployments/istio-ingressgateway
         - name: ISTIO_META_MESH_ID
           value: cluster.local
         - name: ISTIO_META_POD_NAME
@@ -7020,9 +7023,13 @@ data:
         - name: ISTIO_META_POD_PORTS
           value: |-
             [
+            {{- $first := true }}
             {{- range $index1, $c := .Spec.Containers }}
               {{- range $index2, $p := $c.Ports }}
-                {{if or (ne $index1 0) (ne $index2 0)}},{{end}}{{ structToJSON $p }}
+                {{- if (structToJSON $p) }}
+                {{if not $first}},{{end}}{{ structToJSON $p }}
+                {{- $first = false }}
+                {{- end }}
               {{- end}}
             {{- end}}
             ]
@@ -7060,7 +7067,7 @@ data:
         {{ end }}
         {{- if and .TypeMeta.APIVersion .DeploymentMeta.Name }}
         - name: ISTIO_META_OWNER
-          value: kubernetes://api/{{ .TypeMeta.APIVersion }}/namespaces/{{ valueOrDefault .DeploymentMeta.Namespace `default` }}/{{ toLower .TypeMeta.Kind}}s/{{ .DeploymentMeta.Name }}
+          value: kubernetes://apis/{{ .TypeMeta.APIVersion }}/namespaces/{{ valueOrDefault .DeploymentMeta.Namespace `default` }}/{{ toLower .TypeMeta.Kind}}s/{{ .DeploymentMeta.Name }}
         {{- end}}
         {{- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
         - name: ISTIO_BOOTSTRAP_OVERRIDE
@@ -7564,6 +7571,16 @@ data:
 
     disablePolicyChecks: true
 
+    # Automatic protocol detection uses a set of heuristics to
+    # determine whether the connection is using TLS or not (on the
+    # server side), as well as the application protocol being used
+    # (e.g., http vs tcp). These heuristics rely on the client sending
+    # the first bits of data. For server first protocols like MySQL,
+    # MongoDB, etc., Envoy will timeout on the protocol detection after
+    # the specified period, defaulting to non mTLS plain TCP
+    # traffic. Set this field to tweak the period that Envoy will wait
+    # for the client to send the first bits of data. (MUST BE >=1ms)
+    protocolDetectionTimeout: 100ms
 
     # This is the k8s ingress service name, update if you used a different name
     ingressService: "istio-ingressgateway"
@@ -8177,7 +8194,6 @@ spec:
   selector:
     matchLabels:
       app: policy
-      release: istio
       istio: mixer
       istio-mixer-type: policy
 ---
@@ -8372,6 +8388,19 @@ data:
       - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep
         regex: istio-citadel;http-monitoring
+
+    - job_name: 'sidecar-injector'
+
+      kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names:
+          - istio-system
+
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: istio-sidecar-injector;http-monitoring
 
     # scrape config for API servers
     - job_name: 'kubernetes-apiservers'
@@ -10114,7 +10143,6 @@ spec:
   selector:
     matchLabels:
       app: telemetry
-      release: istio
       istio: mixer
       istio-mixer-type: telemetry
 ---
