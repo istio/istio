@@ -87,7 +87,7 @@ var (
 
 	// PortNameIsNotUnderNamingConvention defines a diag.MessageType for message "PortNameIsNotUnderNamingConvention".
 	// Description: Port name is not under naming convention. Protocol detection is applied to the port.
-	PortNameIsNotUnderNamingConvention = diag.NewMessageType(diag.Warning, "IST0118", "Port name %s (port: %d, targetPort: %s) doesn't follow the naming convention of Istio port.")
+	PortNameIsNotUnderNamingConvention = diag.NewMessageType(diag.Info, "IST0118", "Port name %s (port: %d, targetPort: %s) doesn't follow the naming convention of Istio port.")
 )
 
 // NewInternalError returns a new diag.Message based on InternalError.
