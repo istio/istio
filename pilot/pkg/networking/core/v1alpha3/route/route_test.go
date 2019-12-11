@@ -15,8 +15,6 @@
 package route_test
 
 import (
-	"encoding/json"
-	"fmt"
 	"os"
 	"reflect"
 	"testing"
@@ -73,10 +71,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 	t.Run("for virtual service with catch all route", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
-
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithCatchAllRoute, serviceRegistry, 8080, gatewayNames)
-		res2B, _ := json.MarshalIndent(routes, "", "\t")
-		fmt.Println(string(res2B))
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 	})

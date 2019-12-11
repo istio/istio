@@ -266,32 +266,21 @@ func BuildHTTPRoutesForVirtualService(
 	}
 
 	out := make([]*route.Route, 0, len(vs.Http))
-allroutes:
-	for _, http := range vs.Http {
-		if len(http.Match) == 0 {
-			if r := translateRoute(push, node, http, nil, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
-				out = append(out, r)
-			}
-			break allroutes // we have a rule with catch all match prefix: /. Other rules are of no use
-		} else {
-			catchall := false
-			if match := catchAllMatch(http); match != nil {
-				// We have a catch all match block in a route. If it is valid, skip building routes for other matches in this rule element
-				if r := translateRoute(push, node, http, match, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
-					catchall = true
-					out = append(out, r)
-				}
-			}
+	// First check if there is a top level catch all route or a catch all match block with in a route.
+	if route, match, catchall := catchAllRoute(vs.Http); catchall {
+		// We have a catch all route, check if it is valid. A catch all route can not be used if source match fails or port matching fails.
+		if r := translateRoute(push, node, route, match, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
+			// We have a valid catch all route, so skip building other routes and return catch all route.
+			out = append(out, r)
+			return out, nil
+		}
+	}
 
-			if catchall {
-				break allroutes
-			} else {
-				// Add all matchroutes as we do not have a valid catch all route.
-				for _, match := range http.Match {
-					if r := translateRoute(push, node, http, match, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
-						out = append(out, r)
-					}
-				}
+	// We do not have any catch all routes - loop through all the routes and build complete route table.
+	for _, http := range vs.Http {
+		for _, match := range http.Match {
+			if r := translateRoute(push, node, http, match, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
+				out = append(out, r)
 			}
 		}
 	}
@@ -1007,28 +996,41 @@ func getEnvoyRouteTypeAndVal(r *route.Route) (envoyRouteType, string) {
 	return iType, iVal
 }
 
-func catchAllMatch(http *networking.HTTPRoute) *networking.HTTPMatchRequest {
-	// A Match is catch all if and only if it has no header/query param match
-	// and URI has a prefix / or regex *.
-	for _, match := range http.Match {
-		catchalluri := false
-		if match.Uri != nil {
-			switch m := match.Uri.MatchType.(type) {
-			case *networking.StringMatch_Prefix:
-				if m.Prefix == "/" {
-					catchalluri = true
-				}
-			case *networking.StringMatch_Regex:
-				if m.Regex == "*" {
-					catchalluri = true
+func catchAllRoute(routes []*networking.HTTPRoute) (*networking.HTTPRoute, *networking.HTTPMatchRequest, bool) {
+	for _, http := range routes {
+		if len(http.Match) == 0 {
+			return http, nil, true
+		} else {
+			for _, match := range http.Match {
+				if catchAllMatch(match) {
+					return http, match, true
 				}
 			}
 		}
-		if catchalluri && len(match.Headers) == 0 && len(match.QueryParams) == 0 {
-			return match
+	}
+	return nil, nil, false
+}
+
+func catchAllMatch(match *networking.HTTPMatchRequest) bool {
+	// A Match is catch all if and only if it has no header/query param match
+	// and URI has a prefix / or regex *.
+	catchalluri := false
+	if match.Uri != nil {
+		switch m := match.Uri.MatchType.(type) {
+		case *networking.StringMatch_Prefix:
+			if m.Prefix == "/" {
+				catchalluri = true
+			}
+		case *networking.StringMatch_Regex:
+			if m.Regex == "*" {
+				catchalluri = true
+			}
 		}
 	}
-	return nil
+	if catchalluri && len(match.Headers) == 0 && len(match.QueryParams) == 0 {
+		return true
+	}
+	return false
 }
 
 // CombineVHostRoutes semi concatenates two Vhost's routes into a single route set.
