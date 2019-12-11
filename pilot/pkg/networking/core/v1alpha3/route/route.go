@@ -276,8 +276,8 @@ func BuildHTTPRoutesForVirtualService(
 			break
 		} else {
 			if match := catchAllMatch(http); match != nil {
-				// We have a catch all match block in the route, check if it valid - A catch all match block is not valid
-				// (translateRoute returns nil), if source match fails or port match fails.
+				// We have a catch all match block in the route, check if it is valid - A catch all match block is not valid
+				// (translateRoute returns nil), if source or port match fails.
 				if r := translateRoute(push, node, http, match, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
 					// We have a valid catch all route. No point building other routes, with match conditions.
 					out = append(out, r)
