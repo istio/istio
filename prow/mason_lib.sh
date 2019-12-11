@@ -24,7 +24,7 @@ function mason_cleanup() {
 }
 
 function get_resource() {
-  (cd /tmp; go get istio.io/test-infra/boskos/cmd/mason_client)
+  (cd /tmp && GO111MODULE=on go get istio.io/test-infra/boskos/cmd/mason_client)
   # TODO: Remove once submitted
   local type="${1}"
   local owner="${2}"
