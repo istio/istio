@@ -83,7 +83,7 @@ metadata:
   name: reviews-unlucky
   namespace: default
 spec:
-  host: reviews-buggy 
+  host: reviews-buggy.default.svc.cluster.local
   subsets:
   - labels:
       version: v1 # Duplicate hostname+subset, should generate an error

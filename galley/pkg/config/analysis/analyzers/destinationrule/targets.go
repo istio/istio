@@ -51,6 +51,7 @@ func (d *TargetAnalyzer) Metadata() analysis.Metadata {
 			metadata.K8SCoreV1Services,
 			metadata.K8SCoreV1Pods,
 		},
+		Description: "Checks for missing DestinationRule hosts as well as duplicate destinations (including subsets)",
 	}
 }
 
@@ -80,13 +81,15 @@ func (d *TargetAnalyzer) Analyze(ctx analysis.Context) {
 			// Create Report for duplicate host + subset combination
 			errorEntries := combineResourceEntryNames(append(resources, wildCardEntries...))
 			for _, r := range resources {
+				dr := r.Item.(*v1alpha3.DestinationRule)
 				ctx.Report(metadata.IstioNetworkingV1Alpha3Destinationrules,
-					msg.NewConflictingDestinationRulesHost(r, errorEntries, drHost, hs.subset))
+					msg.NewConflictingDestinationRulesHost(r, errorEntries, dr.GetHost(), hs.subset))
 			}
 			for _, r := range wildCardEntries {
+				dr := r.Item.(*v1alpha3.DestinationRule)
 				// We need to create the duplicate report here of wildcard subsets since searching the other way isn't possible
 				ctx.Report(metadata.IstioNetworkingV1Alpha3Destinationrules,
-					msg.NewConflictingDestinationRulesHost(r, errorEntries, drHost, util.AllSubsets))
+					msg.NewConflictingDestinationRulesHost(r, errorEntries, dr.GetHost(), util.AllSubsets))
 			}
 		}
 
@@ -100,8 +103,9 @@ func (d *TargetAnalyzer) Analyze(ctx analysis.Context) {
 		if !nsFound && !allFound && !serviceFound {
 			// DestinationRule host does not match any ServiceEntry or platform Service
 			for _, r := range resources {
+				dr := r.Item.(*v1alpha3.DestinationRule)
 				ctx.Report(metadata.IstioNetworkingV1Alpha3Destinationrules,
-					msg.NewReferencedResourceNotFound(r, "host", drHost))
+					msg.NewReferencedResourceNotFound(r, "host", dr.GetHost()))
 			}
 		}
 
@@ -121,7 +125,7 @@ func (d *TargetAnalyzer) Analyze(ctx analysis.Context) {
 						}
 					}
 					// No target pods found
-					errDest := fmt.Sprintf("%s/subset:%s", drHost, ss.Name)
+					errDest := fmt.Sprintf("%s/subset:%s", dr.GetHost(), ss.Name)
 					ctx.Report(metadata.IstioNetworkingV1Alpha3Destinationrules,
 						msg.NewReferencedResourceNotFound(r, "subset", errDest))
 				}
