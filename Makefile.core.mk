@@ -92,6 +92,9 @@ export REPO_ROOT := $(shell git rev-parse --show-toplevel)
 
 # scratch dir: this shouldn't be simply 'docker' since that's used for docker.save to store tar.gz files
 ISTIO_DOCKER:=${ISTIO_OUT_LINUX}/docker_temp
+ISTIO_DOCKER:=${ISTIO_OUT}/docker_temp
+# Config file used for building istio:proxy container.
+DOCKER_PROXY_CFG?=Dockerfile.proxy
 
 # scratch dir for building isolated images. Please don't remove it again - using
 # ISTIO_DOCKER results in slowdown, all files (including multiple copies of envoy) will be
@@ -101,7 +104,7 @@ DOCKER_BUILD_TOP:=${ISTIO_OUT_LINUX}/docker_build
 DOCKERX_BUILD_TOP:=${ISTIO_OUT_LINUX}/dockerx_build
 
 # dir where tar.gz files from docker.save are stored
-ISTIO_DOCKER_TAR:=${ISTIO_OUT_LINUX}/docker
+ISTIO_DOCKER_TAR:=${ISTIO_OUT}/docker
 
 # Populate the git version for istio/proxy (i.e. Envoy)
 ifeq ($(PROXY_REPO_SHA),)
@@ -264,9 +267,13 @@ BINARIES:=./istioctl/cmd/istioctl \
 RELEASE_BINARIES:=pilot-discovery pilot-agent sidecar-injector mixc mixs mixgen node_agent node_agent_k8s istio_ca istioctl galley sdsclient
 
 .PHONY: build
-build: depend
-	STATIC=0 GOOS=$(GOOS) GOARCH=$(GOARCH) LDFLAGS='-extldflags -static -s -w' common/scripts/gobuild.sh $(ISTIO_OUT)/ $(BINARIES)
+build: depend build-linux
+	STATIC=0 GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS='-extldflags -static -s -w' common/scripts/gobuild.sh $(ISTIO_OUT)/ $(BINARIES)
 
+# The build-linux target is responsible for building binaries used within containers.
+# This target should be expanded upon as we add more Linux architectures: i.e. buld-arm64.
+# Then a new build target can be created such as build-container-bin that builds these
+# various platform images.
 .PHONY: build-linux
 build-linux: depend
 	STATIC=0 GOOS=linux GOARCH=amd64 LDFLAGS='-extldflags -static -s -w' common/scripts/gobuild.sh $(ISTIO_OUT_LINUX)/ $(BINARIES)
@@ -514,15 +521,11 @@ common-racetest:
 #-----------------------------------------------------------------------------
 # Target: clean
 #-----------------------------------------------------------------------------
-.PHONY: clean clean.go
+.PHONY: clean
 
-clean: clean.go
+clean:
 	rm -rf $(DIRS_TO_CLEAN)
 	rm -f $(FILES_TO_CLEAN)
-
-clean.go: ; $(info $(H) cleaning...)
-	$(eval GO_CLEAN_FLAGS := -i -r)
-	$(Q) strace $(GO) clean $(GO_CLEAN_FLAGS)
 
 #-----------------------------------------------------------------------------
 # Target: docker
