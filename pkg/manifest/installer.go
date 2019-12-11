@@ -282,6 +282,7 @@ func ApplyManifest(componentName name.ComponentName, manifestStr, version string
 			return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 		}
 
+		logAndPrint("- Pruning objects for disabled component %s...", componentName)
 		delObjects, err := object.ParseK8sObjectsFromYAMLManifest(stdoutGet)
 		if err != nil {
 			return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
@@ -292,9 +293,11 @@ func ApplyManifest(componentName name.ComponentName, manifestStr, version string
 		stdout += "\n" + stdoutDel
 		stderr += "\n" + stderrDel
 		if err != nil {
+			logAndPrint("✘ Finished pruning objects for disabled component %s.", componentName)
 			return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 		}
 		appliedObjects = append(appliedObjects, delObjects...)
+		logAndPrint("✔ Finished pruning objects for disabled component %s.", componentName)
 		return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 	}
 
