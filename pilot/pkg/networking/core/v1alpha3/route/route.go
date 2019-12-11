@@ -266,21 +266,28 @@ func BuildHTTPRoutesForVirtualService(
 	}
 
 	out := make([]*route.Route, 0, len(vs.Http))
-	// First check if there is a top level catch all route or a catch all match block with in a route.
-	if route, match, catchall := catchAllRoute(vs.Http); catchall {
-		// We have a catch all route, check if it is valid. A catch all route can not be used if source match fails or port matching fails.
-		if r := translateRoute(push, node, route, match, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
-			// We have a valid catch all route, so skip building other routes and return catch all route.
-			out = append(out, r)
-			return out, nil
-		}
-	}
 
-	// We do not have any catch all routes - loop through all the routes and build complete route table.
 	for _, http := range vs.Http {
-		for _, match := range http.Match {
-			if r := translateRoute(push, node, http, match, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
+		if len(http.Match) == 0 {
+			if r := translateRoute(push, node, http, nil, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
 				out = append(out, r)
+			}
+			// We have a rule with catch all match prefix: /. Other rules are of no use.
+			break
+		} else {
+			if match := catchAllMatch(http); match != nil {
+				// We have a catch all match block in the route, check if it valid - A catch all match block is not valid
+				// (translateRoute returns nil), if source match fails or port match fails.
+				if r := translateRoute(push, node, http, match, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
+					// We have a valid catch all route. No point building other routes, with match conditions.
+					out = append(out, r)
+					break
+				}
+			}
+			for _, match := range http.Match {
+				if r := translateRoute(push, node, http, match, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
+					out = append(out, r)
+				}
 			}
 		}
 	}
@@ -996,22 +1003,18 @@ func getEnvoyRouteTypeAndVal(r *route.Route) (envoyRouteType, string) {
 	return iType, iVal
 }
 
-func catchAllRoute(routes []*networking.HTTPRoute) (*networking.HTTPRoute, *networking.HTTPMatchRequest, bool) {
-	for _, http := range routes {
-		// If there are no match conditions - it is a catch all route.
-		if len(http.Match) == 0 {
-			return http, nil, true
-		}
-		for _, match := range http.Match {
-			if catchAllMatch(match) {
-				return http, match, true
-			}
+// catchAllMatch returns a catch all match block if available in the route, otherwise returns nil.
+func catchAllMatch(http *networking.HTTPRoute) *networking.HTTPMatchRequest {
+	for _, match := range http.Match {
+		if isCatchAll(match) {
+			return match
 		}
 	}
-	return nil, nil, false
+	return nil
 }
 
-func catchAllMatch(match *networking.HTTPMatchRequest) bool {
+// isCatchAll returns true, if the match is a catch all match, otherwise returns false.
+func isCatchAll(match *networking.HTTPMatchRequest) bool {
 	// A Match is catch all if and only if it has no header/query param match
 	// and URI has a prefix / or regex *.
 	catchalluri := false

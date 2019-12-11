@@ -20,7 +20,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 )
 
-func TestCatchAllMatch(t *testing.T) {
+func TestIsCatchAll(t *testing.T) {
 	cases := []struct {
 		name  string
 		match *networking.HTTPMatchRequest
@@ -105,7 +105,7 @@ func TestCatchAllMatch(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			match := catchAllMatch(tt.match)
+			match := isCatchAll(tt.match)
 			if match != tt.want {
 				t.Errorf("Unexpected catchAllMatch want %v, got %v", tt.want, match)
 			}
@@ -113,44 +113,42 @@ func TestCatchAllMatch(t *testing.T) {
 	}
 }
 
-func TestCatchAllRoute(t *testing.T) {
+func TestCatchAllMatch(t *testing.T) {
 	cases := []struct {
 		name  string
-		http  []*networking.HTTPRoute
+		http  *networking.HTTPRoute
 		match bool
 	}{
 		{
 			name: "catch all virtual service",
-			http: []*networking.HTTPRoute{
-				{
-					Match: []*networking.HTTPMatchRequest{
-						{
-							Name: "non-catch-all",
-							Uri: &networking.StringMatch{
-								MatchType: &networking.StringMatch_Prefix{
-									Prefix: "/route/v1",
-								},
-							},
-						},
-						{
-							Name: "catch-all",
-							Uri: &networking.StringMatch{
-								MatchType: &networking.StringMatch_Prefix{
-									Prefix: "/",
-								},
+			http: &networking.HTTPRoute{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "non-catch-all",
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Prefix{
+								Prefix: "/route/v1",
 							},
 						},
 					},
-					Route: []*networking.HTTPRouteDestination{
-						{
-							Destination: &networking.Destination{
-								Host: "*.example.org",
-								Port: &networking.PortSelector{
-									Number: 8484,
-								},
+					{
+						Name: "catch-all",
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Prefix{
+								Prefix: "/",
 							},
-							Weight: 100,
 						},
+					},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "*.example.org",
+							Port: &networking.PortSelector{
+								Number: 8484,
+							},
+						},
+						Weight: 100,
 					},
 				},
 			},
@@ -158,47 +156,43 @@ func TestCatchAllRoute(t *testing.T) {
 		},
 		{
 			name: "virtual service with no matches",
-			http: []*networking.HTTPRoute{
-				{
-					Route: []*networking.HTTPRouteDestination{
-						{
-							Destination: &networking.Destination{
-								Host: "*.example.org",
-								Port: &networking.PortSelector{
-									Number: 8484,
-								},
+			http: &networking.HTTPRoute{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "*.example.org",
+							Port: &networking.PortSelector{
+								Number: 8484,
 							},
-							Weight: 100,
 						},
+						Weight: 100,
 					},
 				},
 			},
-			match: true,
+			match: false,
 		},
 		{
 			name: "uri regex",
-			http: []*networking.HTTPRoute{
-				{
-					Match: []*networking.HTTPMatchRequest{
-						{
-							Name: "regex-catch-all",
-							Uri: &networking.StringMatch{
-								MatchType: &networking.StringMatch_Regex{
-									Regex: "*",
-								},
+			http: &networking.HTTPRoute{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "regex-catch-all",
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Regex{
+								Regex: "*",
 							},
 						},
 					},
-					Route: []*networking.HTTPRouteDestination{
-						{
-							Destination: &networking.Destination{
-								Host: "*.example.org",
-								Port: &networking.PortSelector{
-									Number: 8484,
-								},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "*.example.org",
+							Port: &networking.PortSelector{
+								Number: 8484,
 							},
-							Weight: 100,
 						},
+						Weight: 100,
 					},
 				},
 			},
@@ -206,35 +200,33 @@ func TestCatchAllRoute(t *testing.T) {
 		},
 		{
 			name: "uri regex with query params",
-			http: []*networking.HTTPRoute{
-				{
-					Match: []*networking.HTTPMatchRequest{
-						{
-							Name: "regex-catch-all",
-							QueryParams: map[string]*networking.StringMatch{
-								"Authentication": {
-									MatchType: &networking.StringMatch_Regex{
-										Regex: "Bearer .+?\\..+?\\..+?",
-									},
+			http: &networking.HTTPRoute{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "regex-catch-all",
+						QueryParams: map[string]*networking.StringMatch{
+							"Authentication": {
+								MatchType: &networking.StringMatch_Regex{
+									Regex: "Bearer .+?\\..+?\\..+?",
 								},
 							},
-							Uri: &networking.StringMatch{
-								MatchType: &networking.StringMatch_Regex{
-									Regex: "*",
-								},
+						},
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Regex{
+								Regex: "*",
 							},
 						},
 					},
-					Route: []*networking.HTTPRouteDestination{
-						{
-							Destination: &networking.Destination{
-								Host: "*.example.org",
-								Port: &networking.PortSelector{
-									Number: 8484,
-								},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "*.example.org",
+							Port: &networking.PortSelector{
+								Number: 8484,
 							},
-							Weight: 100,
 						},
+						Weight: 100,
 					},
 				},
 			},
@@ -242,39 +234,37 @@ func TestCatchAllRoute(t *testing.T) {
 		},
 		{
 			name: "multiple prefix matches with one catch all match and one specific match",
-			http: []*networking.HTTPRoute{
-				{
-					Match: []*networking.HTTPMatchRequest{
-						{
-							Name: "catch-all",
-							Uri: &networking.StringMatch{
-								MatchType: &networking.StringMatch_Prefix{
-									Prefix: "/",
-								},
-							},
-							SourceLabels: map[string]string{
-								"matchingNoSrc": "xxx",
+			http: &networking.HTTPRoute{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "catch-all",
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Prefix{
+								Prefix: "/",
 							},
 						},
-						{
-							Name: "specific match",
-							Uri: &networking.StringMatch{
-								MatchType: &networking.StringMatch_Prefix{
-									Prefix: "/a",
-								},
+						SourceLabels: map[string]string{
+							"matchingNoSrc": "xxx",
+						},
+					},
+					{
+						Name: "specific match",
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Prefix{
+								Prefix: "/a",
 							},
 						},
 					},
-					Route: []*networking.HTTPRouteDestination{
-						{
-							Destination: &networking.Destination{
-								Host: "*.example.org",
-								Port: &networking.PortSelector{
-									Number: 8484,
-								},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "*.example.org",
+							Port: &networking.PortSelector{
+								Number: 8484,
 							},
-							Weight: 100,
 						},
+						Weight: 100,
 					},
 				},
 			},
@@ -282,35 +272,33 @@ func TestCatchAllRoute(t *testing.T) {
 		},
 		{
 			name: "uri regex with query params",
-			http: []*networking.HTTPRoute{
-				{
-					Match: []*networking.HTTPMatchRequest{
-						{
-							Name: "regex-catch-all",
-							QueryParams: map[string]*networking.StringMatch{
-								"Authentication": {
-									MatchType: &networking.StringMatch_Regex{
-										Regex: "Bearer .+?\\..+?\\..+?",
-									},
+			http: &networking.HTTPRoute{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "regex-catch-all",
+						QueryParams: map[string]*networking.StringMatch{
+							"Authentication": {
+								MatchType: &networking.StringMatch_Regex{
+									Regex: "Bearer .+?\\..+?\\..+?",
 								},
 							},
-							Uri: &networking.StringMatch{
-								MatchType: &networking.StringMatch_Regex{
-									Regex: "*",
-								},
+						},
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Regex{
+								Regex: "*",
 							},
 						},
 					},
-					Route: []*networking.HTTPRouteDestination{
-						{
-							Destination: &networking.Destination{
-								Host: "*.example.org",
-								Port: &networking.PortSelector{
-									Number: 8484,
-								},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "*.example.org",
+							Port: &networking.PortSelector{
+								Number: 8484,
 							},
-							Weight: 100,
 						},
+						Weight: 100,
 					},
 				},
 			},
@@ -320,9 +308,9 @@ func TestCatchAllRoute(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			_, _, catchall := catchAllRoute(tt.http)
-			if tt.match != catchall {
-				t.Errorf("Unexpected CatchAllRoute want %v got %v", tt.match, catchall)
+			match := catchAllMatch(tt.http)
+			if tt.match && match == nil {
+				t.Errorf("Expected a catch all match but got nil")
 			}
 		})
 	}
