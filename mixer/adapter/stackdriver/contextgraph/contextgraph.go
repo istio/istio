@@ -73,13 +73,16 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 	env.Logger().Debugf("Proj, zone, cluster, opts: %s,%s,%s,%s",
 		b.projectID, b.zone, b.cluster, opts)
 
-	// TODO: meshUID should come from an attribute when
-	// multi-cluster Istio is supported. Currently we assume each
-	// cluster is its own mesh.
+	meshUID := b.cfg.MeshUid
+	if len(meshUID) == 0 {
+		// must be a fallback here
+		meshUID = fmt.Sprintf("%s/%s/%s", b.projectID, b.zone, b.cluster)
+	}
+
 	h := &handler{
 		env:            env,
 		projectID:      b.projectID,
-		meshUID:        fmt.Sprintf("%s/%s/%s", b.projectID, b.zone, b.cluster),
+		meshUID:        meshUID,
 		zone:           b.zone,
 		cluster:        b.cluster,
 		entityCache:    newEntityCache(env.Logger()),
