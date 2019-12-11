@@ -998,13 +998,13 @@ func getEnvoyRouteTypeAndVal(r *route.Route) (envoyRouteType, string) {
 
 func catchAllRoute(routes []*networking.HTTPRoute) (*networking.HTTPRoute, *networking.HTTPMatchRequest, bool) {
 	for _, http := range routes {
+		// If there are no match conditions - it is a catch all route.
 		if len(http.Match) == 0 {
 			return http, nil, true
-		} else {
-			for _, match := range http.Match {
-				if catchAllMatch(match) {
-					return http, match, true
-				}
+		}
+		for _, match := range http.Match {
+			if catchAllMatch(match) {
+				return http, match, true
 			}
 		}
 	}
