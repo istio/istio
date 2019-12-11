@@ -90,8 +90,8 @@ const (
 	kubernetesReadinessTimeout        = time.Second * 180
 	kubernetesReadinessInterval       = 200 * time.Millisecond
 	validationWebhookReadinessTimeout = time.Minute
-	istioOperatorTimeout = time.Second * 300
-	istioOperatorFreq    =  time.Minute
+	istioOperatorTimeout              = time.Second * 300
+	istioOperatorFreq                 = time.Minute
 	validationWebhookReadinessFreq    = 100 * time.Millisecond
 )
 
@@ -1054,7 +1054,6 @@ EOF`, k.KubeConfig)
 	log.Info("istio operator succeeds to deploy Istio")
 	return nil
 }
-
 
 func (k *KubeInfo) deployCRDs(kubernetesCRD string) error {
 	yamlFileName := filepath.Join(istioInstallDir, helmInstallerName, "istio-init", "files", kubernetesCRD)
