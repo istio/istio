@@ -532,26 +532,25 @@ include tools/istio-docker.mk
 
 push: docker.push
 
-$(HELM):
-	bin/init_helm.sh
-
 $(HOME)/.helm:
 	$(HELM) init --client-only
 
 # create istio-init.yaml
-istio-init.yaml: $(HELM) $(HOME)/.helm
-	cat $(ISTIO_OUT)/install/kubernetes/namespace.yaml > $(ISTIO_OUT)/install/kubernetes/$@
-	cat $(ISTIO_OUT)/install/kubernetes/helm/istio-init/files/crd-* >> $(ISTIO_OUT)/install/kubernetes/$@
+istio-init.yaml: $(HOME)/.helm
+	mkdir -p $(ISTIO_OUT)/install/kubernetes
+	cat install/kubernetes/namespace.yaml > $(ISTIO_OUT)/install/kubernetes/$@
+	cat install/kubernetes/helm/istio-init/files/crd-* >> $(ISTIO_OUT)/install/kubernetes/$@
 	$(HELM) template --name=istio --namespace=istio-system \
 		--set-string global.tag=${TAG_VARIANT} \
 		--set-string global.hub=${HUB} \
-		$(ISTIO_OUT)/install/kubernetes/helm/istio-init >> $(ISTIO_OUT)/install/kubernetes/$@
+		install/kubernetes/helm/istio-init >> $(ISTIO_OUT)/install/kubernetes/$@
 
 # creates istio-demo.yaml istio-remote.yaml
 # Ensure that values-$filename is present in $(ISTIO_OUT)/install/kubernetes/helm/istio
-istio-demo.yaml istio-remote.yaml istio-minimal.yaml: $(HELM) $(HOME)/.helm
-	cat $(ISTIO_OUT)/install/kubernetes/namespace.yaml > $(ISTIO_OUT)/install/kubernetes/$@
-	cat $(ISTIO_OUT)/install/kubernetes/helm/istio-init/files/crd-* >> $(ISTIO_OUT)/install/kubernetes/$@
+istio-demo.yaml istio-remote.yaml istio-minimal.yaml: $(HOME)/.helm
+	mkdir -p $(ISTIO_OUT)/install/kubernetes
+	cat install/kubernetes/namespace.yaml > $(ISTIO_OUT)/install/kubernetes/$@
+	cat install/kubernetes/helm/istio-init/files/crd-* >> $(ISTIO_OUT)/install/kubernetes/$@
 	$(HELM) template \
 		--name=istio \
 		--namespace=istio-system \
@@ -561,8 +560,8 @@ istio-demo.yaml istio-remote.yaml istio-minimal.yaml: $(HELM) $(HOME)/.helm
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
 		--set istio_cni.enabled=${ENABLE_ISTIO_CNI} \
 		${EXTRA_HELM_SETTINGS} \
-		--values $(ISTIO_OUT)/install/kubernetes/helm/istio/values-$@ \
-		$(ISTIO_OUT)/install/kubernetes/helm/istio >> $(ISTIO_OUT)/install/kubernetes/$@
+		--values install/kubernetes/helm/istio/values-$@ \
+		install/kubernetes/helm/istio >> $(ISTIO_OUT)/install/kubernetes/$@
 
 e2e_files = istio-auth-non-mcp.yaml \
 			istio-auth-sds.yaml \
