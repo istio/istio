@@ -283,8 +283,10 @@ allroutes:
 				}
 			}
 
-			// Add all matchroutes as we do not have a valid catch all route.
-			if !catchall {
+			if catchall {
+				break allroutes
+			} else {
+				// Add all matchroutes as we do not have a valid catch all route.
 				for _, match := range http.Match {
 					if r := translateRoute(push, node, http, match, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
 						out = append(out, r)
