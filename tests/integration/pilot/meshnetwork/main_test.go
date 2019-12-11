@@ -146,11 +146,11 @@ func TestAsymmetricMeshNetworkWithGatewayIP(t *testing.T) {
 			}
 
 			// Now get the EDS from the k8s pod to see if the VM IP is there.
-			if err := checkEDSInPod(instance, "httpbin.com", "1.1.1.1"); err != nil {
+			if err := checkEDSInPod(t, instance, "httpbin.com", "1.1.1.1"); err != nil {
 				t.Fatal(err)
 			}
 			// Now get the EDS from the fake VM sidecar to see if the gateway IP is there for the echo service.
-			if err := checkEDSInVM(ns.Name(),
+			if err := checkEDSInVM(t, ns.Name(),
 				fmt.Sprintf("%s.%s.svc.cluster.local", echoConfig.Service, echoConfig.Namespace),
 				"1.1.1.1", "2.2.2.2", 15443); err != nil {
 				t.Fatal(err)
@@ -158,7 +158,7 @@ func TestAsymmetricMeshNetworkWithGatewayIP(t *testing.T) {
 		})
 }
 
-func checkEDSInPod(c echo.Instance, service string, endpointIP string) error {
+func checkEDSInPod(t *testing.T, c echo.Instance, service string, endpointIP string) error {
 	clusterName := fmt.Sprintf("outbound|%d||%s", 80, service)
 	accept := func(cfg *envoyAdmin.ConfigDump) (bool, error) {
 		validator := structpath.ForProto(cfg)
@@ -187,6 +187,7 @@ func checkEDSInPod(c echo.Instance, service string, endpointIP string) error {
 						for _, host := range clusterStatus.HostStatuses {
 							if host.Address != nil && host.Address.GetSocketAddress() != nil &&
 								host.Address.GetSocketAddress().Address == endpointIP {
+								t.Logf("found VM IP %s in envoy cluster %s", endpointIP, clusterName)
 								return nil
 							}
 						}
@@ -199,7 +200,7 @@ func checkEDSInPod(c echo.Instance, service string, endpointIP string) error {
 	return fmt.Errorf("could not find cluster %s on %s or cluster did not have VM IP %s", c.ID(), clusterName, endpointIP)
 }
 
-func checkEDSInVM(ns, service, endpointIP, gatewayIP string, gatewayPort uint32) error {
+func checkEDSInVM(t *testing.T, ns, service, endpointIP, gatewayIP string, gatewayPort uint32) error {
 	clusterName := fmt.Sprintf("outbound|%d||%s", 80, service)
 
 	node := &model.Proxy{
@@ -215,7 +216,7 @@ func checkEDSInVM(ns, service, endpointIP, gatewayIP string, gatewayPort uint32)
 			Network:          "vm",
 		},
 	}
-	if resp, err := p.CallDiscovery(pilot.NewDiscoveryRequest(node.ID, pilot.ClusterLoadAssignment)); err != nil {
+	if resp, err := p.CallDiscovery(pilot.NewDiscoveryRequest(node.ServiceNode(), pilot.ClusterLoadAssignment)); err != nil {
 		return err
 	} else {
 		for _, res := range resp.Resources {
@@ -232,6 +233,7 @@ func checkEDSInVM(ns, service, endpointIP, gatewayIP string, gatewayPort uint32)
 					return fmt.Errorf("eds for VM does not have the expected IP:port (want %s:%d, got %s:%d)",
 						gatewayIP, gatewayPort, sockAddress.Address, sockAddress.GetPortValue())
 				}
+				t.Logf("found gateway IP %s in envoy cluster %s", gatewayIP, clusterName)
 				return nil
 			}
 		}
