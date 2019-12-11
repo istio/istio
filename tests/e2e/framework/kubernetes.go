@@ -90,6 +90,8 @@ const (
 	kubernetesReadinessTimeout        = time.Second * 180
 	kubernetesReadinessInterval       = 200 * time.Millisecond
 	validationWebhookReadinessTimeout = time.Minute
+	istioOperatorTimeout = time.Second * 300
+	istioOperatorFreq    =  time.Minute
 	validationWebhookReadinessFreq    = 100 * time.Millisecond
 )
 
@@ -819,6 +821,10 @@ func (k *KubeInfo) deployIstio() error {
 			log.Errorf("Istio operator %s deployment failed", testIstioYaml)
 			return err
 		}
+		if err := k.waitForIstioOperator(); err != nil {
+			log.Errorf("istio operator fails to deploy Istio: %v", err)
+			return err
+		}
 	} else {
 		// Create istio-system namespace
 		if err := util.CreateNamespace(k.Namespace, k.KubeConfig); err != nil {
@@ -1024,6 +1030,31 @@ EOF`, k.KubeConfig, dummyValidationRule)
 	log.Info("Validation webhook is ready")
 	return nil
 }
+
+func (k *KubeInfo) waitForIstioOperator() error {
+
+	get := fmt.Sprintf(`cat << EOF | kubectl --kubeconfig=%s get icp example-istiocontrolplane -n istio-operator
+-o yaml
+EOF`, k.KubeConfig)
+	timeout := time.Now().Add(istioOperatorTimeout)
+	for {
+		if time.Now().After(timeout) {
+			return errors.New("timeout waiting for istio operator to deploy Istio")
+		}
+
+		out, err := util.ShellSilent(get)
+		if err == nil && strings.Contains(out, "Status") {
+			break
+		}
+
+		log.Errorf("istio-operator is still deploying Istio: %v", err)
+		time.Sleep(istioOperatorFreq)
+
+	}
+	log.Info("istio operator succeeds to deploy Istio")
+	return nil
+}
+
 
 func (k *KubeInfo) deployCRDs(kubernetesCRD string) error {
 	yamlFileName := filepath.Join(istioInstallDir, helmInstallerName, "istio-init", "files", kubernetesCRD)
