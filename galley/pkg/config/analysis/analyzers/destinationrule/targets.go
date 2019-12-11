@@ -51,7 +51,6 @@ func (d *TargetAnalyzer) Metadata() analysis.Metadata {
 			metadata.K8SCoreV1Services,
 			metadata.K8SCoreV1Pods,
 		},
-		Description: "Checks for missing DestinationRule hosts as well as duplicate destinations (including subsets)",
 	}
 }
 
@@ -64,7 +63,6 @@ func (d *TargetAnalyzer) Analyze(ctx analysis.Context) {
 	for hs, resources := range subsets {
 		hostResourceName := hs.host
 		drNamespace, drHost := hostResourceName.InterpretAsNamespaceAndName()
-		fqdnName := util.ConvertHostToFQDN(drNamespace, drHost)
 
 		wildCardEntries := []*resource.Entry{}
 
@@ -83,12 +81,12 @@ func (d *TargetAnalyzer) Analyze(ctx analysis.Context) {
 			errorEntries := combineResourceEntryNames(append(resources, wildCardEntries...))
 			for _, r := range resources {
 				ctx.Report(metadata.IstioNetworkingV1Alpha3Destinationrules,
-					msg.NewConflictingDestinationRulesHost(r, errorEntries, fqdnName, hs.subset))
+					msg.NewConflictingDestinationRulesHost(r, errorEntries, drHost, hs.subset))
 			}
 			for _, r := range wildCardEntries {
 				// We need to create the duplicate report here of wildcard subsets since searching the other way isn't possible
 				ctx.Report(metadata.IstioNetworkingV1Alpha3Destinationrules,
-					msg.NewConflictingDestinationRulesHost(r, errorEntries, fqdnName, util.AllSubsets))
+					msg.NewConflictingDestinationRulesHost(r, errorEntries, drHost, util.AllSubsets))
 			}
 		}
 
@@ -103,7 +101,7 @@ func (d *TargetAnalyzer) Analyze(ctx analysis.Context) {
 			// DestinationRule host does not match any ServiceEntry or platform Service
 			for _, r := range resources {
 				ctx.Report(metadata.IstioNetworkingV1Alpha3Destinationrules,
-					msg.NewReferencedResourceNotFound(r, "host", fqdnName))
+					msg.NewReferencedResourceNotFound(r, "host", drHost))
 			}
 		}
 
@@ -123,7 +121,7 @@ func (d *TargetAnalyzer) Analyze(ctx analysis.Context) {
 						}
 					}
 					// No target pods found
-					errDest := fmt.Sprintf("%s/subset:%s", fqdnName, ss.Name)
+					errDest := fmt.Sprintf("%s/subset:%s", drHost, ss.Name)
 					ctx.Report(metadata.IstioNetworkingV1Alpha3Destinationrules,
 						msg.NewReferencedResourceNotFound(r, "subset", errDest))
 				}
