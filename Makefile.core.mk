@@ -395,7 +395,7 @@ ifeq ($(WHAT),)
 else
        TEST_OBJ = selected-pkg-test
 endif
-test: | $(JUNIT_REPORT)
+test: | $(JUNIT_OUT) $(JUNIT_REPORT)
 	KUBECONFIG="$${KUBECONFIG:-$${REPO_ROOT}/tests/util/kubeconfig}" \
 	$(MAKE) -f Makefile.core.mk --keep-going $(TEST_OBJ) \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
