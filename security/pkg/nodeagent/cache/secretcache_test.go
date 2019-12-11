@@ -186,6 +186,7 @@ FWy1
 )
 
 func TestWorkloadAgentGenerateSecret(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/17568")
 	testWorkloadAgentGenerateSecret(t, false)
 }
 

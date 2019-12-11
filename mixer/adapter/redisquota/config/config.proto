@@ -109,7 +109,7 @@ message Params {
   // The set of known quotas. At least one quota configuration is required
   repeated Quota quotas = 1 [(gogoproto.nullable) = false];
 
-  // Redis connection string <hostname>:<port number>
+  // Redis connection string `<hostname>:<port number>`
   // ex) localhost:6379
   string redis_server_url = 2;
 

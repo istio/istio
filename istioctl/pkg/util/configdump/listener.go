@@ -15,11 +15,10 @@
 package configdump
 
 import (
-	"fmt"
 	"sort"
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
-	proto "github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes"
 )
 
 // GetDynamicListenerDump retrieves a listener dump with just dynamic active listeners in it
@@ -28,29 +27,34 @@ func (w *Wrapper) GetDynamicListenerDump(stripVersions bool) (*adminapi.Listener
 	if err != nil {
 		return nil, err
 	}
-	dal := listenerDump.GetDynamicActiveListeners()
+
+	dal := make([]*adminapi.ListenersConfigDump_DynamicListener, 0)
+	for _, l := range listenerDump.DynamicListeners {
+		if l.ActiveState != nil {
+			dal = append(dal, l)
+		}
+	}
+
 	sort.Slice(dal, func(i, j int) bool {
-		return dal[i].Listener.Name < dal[j].Listener.Name
+		return dal[i].ActiveState.Listener.Name < dal[j].ActiveState.Listener.Name
 	})
 	if stripVersions {
 		for i := range dal {
-			dal[i].VersionInfo = ""
-			dal[i].LastUpdated = nil
+			dal[i].ActiveState.VersionInfo = ""
+			dal[i].ActiveState.LastUpdated = nil
 		}
 	}
-	return &adminapi.ListenersConfigDump{DynamicActiveListeners: dal}, nil
+	return &adminapi.ListenersConfigDump{DynamicListeners: dal}, nil
 }
 
 // GetListenerConfigDump retrieves the listener config dump from the ConfigDump
 func (w *Wrapper) GetListenerConfigDump() (*adminapi.ListenersConfigDump, error) {
-	// The listener dump is the third one in the list.
-	// See https://www.envoyproxy.io/docs/envoy/latest/api-v2/admin/v2alpha/config_dump.proto
-	if len(w.Configs) < 3 {
-		return nil, fmt.Errorf("config dump has no listener dump")
+	listenerDumpAny, err := w.getSection(listeners)
+	if err != nil {
+		return nil, err
 	}
-	listenerDumpAny := w.Configs[2]
 	listenerDump := &adminapi.ListenersConfigDump{}
-	err := proto.UnmarshalAny(listenerDumpAny, listenerDump)
+	err = ptypes.UnmarshalAny(&listenerDumpAny, listenerDump)
 	if err != nil {
 		return nil, err
 	}

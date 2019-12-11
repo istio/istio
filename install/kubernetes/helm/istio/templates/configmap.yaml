@@ -11,13 +11,15 @@ metadata:
     release: {{ .Release.Name }}
 data:
   mesh: |-
-    # Set the following variable to true to disable policy checks by the Mixer.
-    # Note that metrics will still be reported to the Mixer.
+    # Set the following variable to true to disable policy checks by Mixer.
+    # Note that metrics will still be reported to Mixer.
     {{- if .Values.mixer.policy.enabled }}
     disablePolicyChecks: {{ .Values.global.disablePolicyChecks }}
     {{- else }}
     disablePolicyChecks: true
     {{- end }}
+
+    disableMixerHttpReports: false
 
     {{- if .Values.mixer.telemetry.reportBatchMaxEntries }}
     # reportBatchMaxEntries is the number of requests that are batched before telemetry data is sent to the mixer server
@@ -27,6 +29,11 @@ data:
     {{- if .Values.mixer.telemetry.reportBatchMaxTime }}
     # reportBatchMaxTime is the max waiting time before the telemetry data of a request is sent to the mixer server
     reportBatchMaxTime: {{ .Values.mixer.telemetry.reportBatchMaxTime }}
+    {{- end }}
+
+    {{- if .Values.mixer.telemetry.sessionAffinityEnabled }}
+    # sidecarToTelemetrySessionAffinity will create a STRICT_DNS type cluster for istio-telemetry.
+    sidecarToTelemetrySessionAffinity: {{ .Values.mixer.telemetry.sessionAffinityEnabled }}
     {{- end }}
 
     # Set enableTracing to false to disable request tracing.
@@ -48,7 +55,7 @@ data:
     enableEnvoyAccessLogService: {{ .Values.global.proxy.envoyAccessLogService.enabled }}
 
     {{- if .Values.global.istioRemote }}
-    
+
     {{- if .Values.global.remotePolicyAddress }}
     {{- if .Values.global.createRemoteSvcEndpoints }}
     mixerCheckServer: istio-policy.{{ .Release.Namespace }}:15004
@@ -63,7 +70,7 @@ data:
     mixerReportServer: {{ .Values.global.remoteTelemetryAddress }}:15004
     {{- end }}
     {{- end }}
-    
+
     {{- else }}
 
     {{- if .Values.mixer.policy.enabled }}
@@ -80,7 +87,7 @@ data:
     mixerReportServer: istio-telemetry.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:9091
     {{- end }}
     {{- end }}
-    
+
     {{- end }}
 
     {{- if or .Values.mixer.policy.enabled (and .Values.global.istioRemote .Values.global.remotePolicyAddress) }}
@@ -107,37 +114,57 @@ data:
     # traffic. Set this field to tweak the period that Envoy will wait
     # for the client to send the first bits of data. (MUST BE >=1ms)
     protocolDetectionTimeout: {{ .Values.global.proxy.protocolDetectionTimeout }}
-    
+
     # DNS refresh rate for Envoy clusters of type STRICT_DNS
     dnsRefreshRate: {{ .Values.global.proxy.dnsRefreshRate }}
 
     # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
-    # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty. 
-    sdsUdsPath: {{ .Values.global.sds.udsPath }}
+    # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty.
+    sdsUdsPath: {{ .Values.global.sds.udsPath | quote }}
 
     # The trust domain corresponds to the trust root of a system.
     # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
-    trustDomain: {{ .Values.global.trustDomain }}
+    trustDomain: {{ .Values.global.trustDomain | quote }}
+
+    #  The trust domain aliases represent the aliases of trust_domain.
+    #  For example, if we have
+    #  trustDomain: td1
+    #  trustDomainAliases: [“td2”, "td3"]
+    #  Any service with the identity "td1/ns/foo/sa/a-service-account", "td2/ns/foo/sa/a-service-account",
+    #  or "td3/ns/foo/sa/a-service-account" will be treated the same in the Istio mesh.
+    trustDomainAliases:
+      {{- range .Values.global.trustDomainAliases }}
+      - {{ . | quote }}
+      {{- end }}
+
+    # If true, automatically configure client side mTLS settings to match the corresponding service's
+    # server side mTLS authentication policy, when destination rule for that service does not specify
+    # TLS settings.
+    enableAutoMtls: {{ .Values.global.mtls.auto }}
 
     # Set the default behavior of the sidecar for handling outbound traffic from the application:
     # ALLOW_ANY - outbound traffic to unknown destinations will be allowed, in case there are no
     #   services or ServiceEntries for the destination port
     # REGISTRY_ONLY - restrict outbound traffic to services defined in the service registry as well
-    #   as those defined through ServiceEntries  
+    #   as those defined through ServiceEntries
     outboundTrafficPolicy:
       mode: {{ .Values.global.outboundTrafficPolicy.mode }}
 
     {{- if  .Values.global.localityLbSetting.enabled }}
     localityLbSetting:
-{{ toYaml .Values.global.localityLbSetting | indent 6 }}
+{{ toYaml .Values.global.localityLbSetting | trim | indent 6 }}
     {{- end }}
     # The namespace to treat as the administrative root namespace for istio
     # configuration.
-    {{- if .Values.global.configRootNamespace }}
+{{- if .Values.global.configRootNamespace }}
     rootNamespace: {{ .Values.global.configRootNamespace }}
-    {{- else }}    
+{{- else }}
     rootNamespace: {{ .Release.Namespace }}
-    {{- end }}
+{{- end }}
+
+    # Configures DNS certificates provisioned through Chiron linked into Pilot.
+    certificates:
+{{ toYaml .Values.global.certificates | trim | indent 6 }}
 
     {{- if .Values.global.defaultConfigVisibilitySettings }}
     defaultServiceExportTo:
@@ -157,6 +184,12 @@ data:
     {{- if $.Values.global.useMCP }}
     configSources:
     - address: istio-galley.{{ $.Release.Namespace }}.svc:9901
+      {{- if .Values.pilot.configSource.subscribedResources }}
+      subscribedResources:
+        {{- range .Values.pilot.configSource.subscribedResources }}
+        - {{ . }}
+        {{- end }}
+      {{- end}}
     {{- if $.Values.global.controlPlaneSecurityEnabled}}
       tlsSettings:
         mode: ISTIO_MUTUAL
@@ -248,20 +281,28 @@ data:
       # Envoy's Metrics Service stats sink pushes Envoy metrics to a remote collector via the Metrics Service gRPC API.
       envoyMetricsService:
         address: {{ .Values.global.proxy.envoyMetricsService.host }}:{{ .Values.global.proxy.envoyMetricsService.port }}
+    {{- if .Values.global.proxy.envoyMetricsService.tlsSettings }}
+        tlsSettings:
+{{ toYaml .Values.global.proxy.envoyMetricsService.tlsSettings | trim | indent 10 }}
     {{- end}}
-
+    {{- if .Values.global.proxy.envoyMetricsService.tcpKeepalive }}
+        tcpKeepalive:
+{{ toYaml .Values.global.proxy.envoyMetricsService.tcpKeepalive | trim | indent 10 }}
+    {{- end}}
+    {{- end}}
+    
     {{- if .Values.global.proxy.envoyAccessLogService.enabled }}
       #
       # Envoy's AccessLog Service pushes access logs to a remote collector via the Access Log Service gRPC API.
       envoyAccessLogService:
         address: {{ .Values.global.proxy.envoyAccessLogService.host }}:{{ .Values.global.proxy.envoyAccessLogService.port }}
     {{- if .Values.global.proxy.envoyAccessLogService.tlsSettings }}
-        tlsSettings:  
-{{ toYaml .Values.global.proxy.envoyAccessLogService.tlsSettings | indent 10 }}
+        tlsSettings:
+{{ toYaml .Values.global.proxy.envoyAccessLogService.tlsSettings | trim | indent 10 }}
     {{- end}}
     {{- if .Values.global.proxy.envoyAccessLogService.tcpKeepalive }}
         tcpKeepalive:
-{{ toYaml .Values.global.proxy.envoyAccessLogService.tcpKeepalive | indent 10 }}
+{{ toYaml .Values.global.proxy.envoyAccessLogService.tcpKeepalive | trim | indent 10 }}
     {{- end}}
     {{- end}}
 
@@ -290,12 +331,12 @@ data:
       discoveryAddress: {{ $pilotAddress }}:15010
       {{- end }}
     {{- end }}
-  
+
   # Configuration file for the mesh networks to be used by the Split Horizon EDS.
   meshNetworks: |-
   {{- if .Values.global.meshNetworks }}
     networks:
-{{ toYaml .Values.global.meshNetworks | indent 6 }}
+{{ toYaml .Values.global.meshNetworks | trim | indent 6 }}
   {{- else }}
     networks: {}
   {{- end }}

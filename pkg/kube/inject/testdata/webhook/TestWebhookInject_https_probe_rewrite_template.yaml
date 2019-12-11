@@ -1,0 +1,24 @@
+policy: enabled
+alwaysInjectSelector: []
+neverInjectSelector: []
+injectedAnnotations: {}
+template: |-
+  rewriteAppHTTPProbe: true
+  initContainers:
+  - name: istio-init
+    image: example.com/init:latest
+  containers:
+  - name: istio-proxy
+    image: example.com/proxy:latest
+    args:
+      - --statusPort
+      - 15020
+  imagePullSecrets:
+  - name: istio-image-pull-secrets
+  volumes:
+  - emptyDir:
+      medium: Memory
+    name: istio-envoy
+  - name: istio-certs
+    secret:
+      secretName: istio.default

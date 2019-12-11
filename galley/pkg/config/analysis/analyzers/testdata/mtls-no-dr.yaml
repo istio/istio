@@ -1,0 +1,97 @@
+# A service exists called missing-dr-service
+apiVersion: v1
+kind: Service
+metadata:
+  name: missing-dr-service
+  namespace: missing-dr
+spec:
+  selector:
+    app: missing-dr-service
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: missing-dr-service-pod
+  namespace: missing-dr
+  labels:
+    app: missing-dr-service
+spec:
+  containers:
+  - name: istio-proxy
+---
+# Require mTLS for our service
+apiVersion: authentication.istio.io/v1alpha1
+kind: Policy
+metadata:
+  name: default
+  namespace: missing-dr
+spec:
+  targets:
+  - name: missing-dr-service
+  peers:
+  - mtls: {}
+# Without a DR, this will fail.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: has-dr-service
+  namespace: has-dr
+spec:
+  selector:
+    app: has-dr-service
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: has-dr-service-pod
+  namespace: has-dr
+  labels:
+    app: has-dr-service
+spec:
+  containers:
+  - name: istio-proxy
+---
+# We also specify another mtls for another service, but this one has a DR.
+apiVersion: authentication.istio.io/v1alpha1
+kind: Policy
+metadata:
+  name: default
+  namespace: has-dr
+spec:
+  targets:
+  - name: has-dr-service
+  peers:
+  - mtls: {}
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: default
+  namespace: has-dr
+spec:
+  host: has-dr-service.has-dr.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+---
+# We also add a DR explicitly in here for missing-dr-service to ensure we only
+# see one error message.
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: missing-dr-service-dr
+  namespace: has-dr
+spec:
+  host: missing-dr-service.missing-dr.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL

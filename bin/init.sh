@@ -23,11 +23,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-# TODO(nmittler): Remove these variables and require that this script be run from the Makefile
-
-# Set GOPATH to match the expected layout
-GO_TOP=$(cd "$(dirname "$0")"/../../../..; pwd)
-
+export GO_TOP=${GO_TOP:-$(echo "${GOPATH}" | cut -d ':' -f1)}
 export OUT_DIR=${OUT_DIR:-${GO_TOP}/out}
 
 export GOPATH=${GOPATH:-$GO_TOP}
@@ -56,7 +52,7 @@ esac
 export ISTIO_OUT=${ISTIO_OUT:-${ISTIO_BIN}}
 
 # Download Envoy debug and release binaries for Linux x86_64. They will be included in the
-# docker images created by Dockerfile.proxy and Dockerfile.proxy_debug.
+# docker images created by Dockerfile.proxyv2 and Dockerfile.proxytproxy.
 
 # Gets the download command supported by the system (currently either curl or wget)
 DOWNLOAD_COMMAND=""
@@ -96,7 +92,7 @@ function download_envoy_if_necessary () {
 
     # Download and extract the binary to the output directory.
     echo "Downloading Envoy: ${DOWNLOAD_COMMAND} $1 to $2"
-    time ${DOWNLOAD_COMMAND} "$1" | tar xz
+    time ${DOWNLOAD_COMMAND} --header "${AUTH_HEADER:-}" "$1" | tar xz
 
     # Copy the extracted binary to the output location
     cp usr/local/bin/envoy "$2"
@@ -121,11 +117,14 @@ if [[ -z "${PROXY_REPO_SHA:-}" ]] ; then
   export PROXY_REPO_SHA
 fi
 
+# Defines the base URL to download envoy from
+ISTIO_ENVOY_BASE_URL=${ISTIO_ENVOY_BASE_URL:-https://storage.googleapis.com/istio-build/proxy}
+
 # These variables are normally set by the Makefile.
 # OS-neutral vars. These currently only work for linux.
 ISTIO_ENVOY_VERSION=${ISTIO_ENVOY_VERSION:-${PROXY_REPO_SHA}}
-ISTIO_ENVOY_DEBUG_URL=${ISTIO_ENVOY_DEBUG_URL:-https://storage.googleapis.com/istio-build/proxy/envoy-debug-${ISTIO_ENVOY_LINUX_VERSION}.tar.gz}
-ISTIO_ENVOY_RELEASE_URL=${ISTIO_ENVOY_RELEASE_URL:-https://storage.googleapis.com/istio-build/proxy/envoy-alpha-${ISTIO_ENVOY_LINUX_VERSION}.tar.gz}
+ISTIO_ENVOY_DEBUG_URL=${ISTIO_ENVOY_DEBUG_URL:-${ISTIO_ENVOY_BASE_URL}/envoy-debug-${ISTIO_ENVOY_LINUX_VERSION}.tar.gz}
+ISTIO_ENVOY_RELEASE_URL=${ISTIO_ENVOY_RELEASE_URL:-${ISTIO_ENVOY_BASE_URL}/envoy-alpha-${ISTIO_ENVOY_LINUX_VERSION}.tar.gz}
 
 # Envoy Linux vars. Normally set by the Makefile.
 ISTIO_ENVOY_LINUX_VERSION=${ISTIO_ENVOY_LINUX_VERSION:-${ISTIO_ENVOY_VERSION}}
@@ -181,8 +180,12 @@ mkdir -p "${ISTIO_BIN}"
 # Set the value of DOWNLOAD_COMMAND (either curl or wget)
 set_download_command
 
-# Download and extract the Envoy linux debug binary.
-download_envoy_if_necessary "${ISTIO_ENVOY_LINUX_DEBUG_URL}" "$ISTIO_ENVOY_LINUX_DEBUG_PATH"
+if [[ -n "${DEBUG_IMAGE:-}" ]]; then
+  # Download and extract the Envoy linux debug binary.
+  download_envoy_if_necessary "${ISTIO_ENVOY_LINUX_DEBUG_URL}" "$ISTIO_ENVOY_LINUX_DEBUG_PATH"
+else
+  echo "Skipping envoy debug. Set DEBUG_IMAGE to download."
+fi
 
 # Download and extract the Envoy linux release binary.
 download_envoy_if_necessary "${ISTIO_ENVOY_LINUX_RELEASE_URL}" "$ISTIO_ENVOY_LINUX_RELEASE_PATH"
@@ -192,7 +195,7 @@ if [[ "$LOCAL_OS" == "Darwin" ]]; then
   download_envoy_if_necessary "${ISTIO_ENVOY_MACOS_RELEASE_URL}" "$ISTIO_ENVOY_MACOS_RELEASE_PATH"
   ISTIO_ENVOY_NATIVE_PATH=${ISTIO_ENVOY_MACOS_RELEASE_PATH}
 else
-  ISTIO_ENVOY_NATIVE_PATH=${ISTIO_ENVOY_LINUX_DEBUG_PATH}
+  ISTIO_ENVOY_NATIVE_PATH=${ISTIO_ENVOY_LINUX_RELEASE_PATH}
 fi
 
 # Copy native envoy binary to ISTIO_OUT
@@ -204,16 +207,5 @@ cp -f "${ISTIO_ENVOY_NATIVE_PATH}" "${ISTIO_OUT}/envoy"
 # Make sure the envoy binary exists. This is only used for tests, so use the debug binary.
 echo "Copying ${ISTIO_OUT}/envoy to ${ISTIO_BIN}/envoy"
 cp -f "${ISTIO_OUT}/envoy" "${ISTIO_BIN}/envoy"
-
-# Download istio.deps from the istio/proxy repository so it can be referenced, if needed
-ISTIO_PROXY_DEPS_URL="https://raw.githubusercontent.com/istio/proxy/${PROXY_REPO_SHA}/istio.deps"
-ISTIO_PROXY_DEPS_FILE="${ISTIO_OUT}/istio_proxy.deps"
-echo "Downloading istio.deps from ${ISTIO_PROXY_DEPS_URL} to ${ISTIO_PROXY_DEPS_FILE}"
-${DOWNLOAD_COMMAND} "${ISTIO_PROXY_DEPS_URL}" | sed -n '/name/,/lastStableSHA/{ //p; }' \
-    | cut -d: -f2 | sed 'N;s/\n/ /' | sed 's/[" ]//g' | sed 's/,/=/' > "${ISTIO_PROXY_DEPS_FILE}"
-ISTIO_PROXY_ISTIO_API_SHA_LABEL=$(grep ISTIO_API "${ISTIO_PROXY_DEPS_FILE}" | cut -d= -f2)
-export ISTIO_PROXY_ISTIO_API_SHA_LABEL
-ISTIO_PROXY_ENVOY_SHA_LABEL=$(grep ENVOY_SHA "${ISTIO_PROXY_DEPS_FILE}" | cut -d= -f2)
-export ISTIO_PROXY_ENVOY_SHA_LABEL
 
 "${ROOTDIR}/bin/init_helm.sh"

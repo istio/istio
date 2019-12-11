@@ -3,7 +3,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   namespace: {{ .Release.Namespace }}
-  name: istio-init-crd-certmanager-11-{{ .Values.global.tag | printf "%v" | trunc 32 }}
+  name: istio-init-crd-certmanager-11-{{ .Values.global.tag | printf "%v" | trunc 32 | trimSuffix "-" }}
 spec:
   template:
     metadata:
@@ -15,6 +15,10 @@ spec:
       - name: istio-init-crd-certmanager-11
         image: "{{ .Values.global.hub }}/kubectl:{{ .Values.global.tag }}"
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+{{- if .Values.job.resources }}
+        resources:
+{{ toYaml .Values.job.resources | indent 10 }}
+{{- end }}
         volumeMounts:
         - name: crd-certmanager-11
           mountPath: /etc/istio/crd-certmanager-11

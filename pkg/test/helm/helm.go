@@ -16,6 +16,7 @@ package helm
 
 import (
 	"fmt"
+	"strings"
 
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/shell"
@@ -49,7 +50,14 @@ func Template(homeDir, template, name, namespace string, valuesFile string, valu
 		if k == "" {
 			continue
 		}
-		p = append(p, "--set", fmt.Sprintf("%s=%s", k, v))
+
+		setCmd := "--set"
+		if strings.Contains(k, "tag") {
+			// Use --set-string for tag so that tags like '20190826' are not interpreted as 2.0190826e+07 (float) by helm
+			setCmd = "--set-string"
+		}
+
+		p = append(p, setCmd, fmt.Sprintf("%s=%s", k, v))
 	}
 	out, err := shell.ExecuteArgs(nil, true, "helm", p[1:]...)
 	if err != nil {

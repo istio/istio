@@ -15,22 +15,26 @@
 package inmemory
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/sha1"
 	"fmt"
+	"io"
+	"strings"
 	"sync"
 
-	"github.com/ghodss/yaml"
+	"k8s.io/apimachinery/pkg/util/yaml"
+
+	"github.com/hashicorp/go-multierror"
 	kubeJson "k8s.io/apimachinery/pkg/runtime/serializer/json"
 
-	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/galley/pkg/config/meta/schema"
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
-	"istio.io/istio/galley/pkg/config/schema"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/inmemory"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
-	"istio.io/istio/galley/pkg/config/util/kubeyaml"
 )
 
 var inMemoryKubeNameDiscriminator int64
@@ -42,6 +46,7 @@ type KubeSource struct {
 	name      string
 	resources schema.KubeResources
 	source    *inmemory.Source
+	defaultNs string
 
 	versionCtr int64
 	shas       map[kubeResourceKey]resourceSha
@@ -84,6 +89,11 @@ func NewKubeSource(resources schema.KubeResources) *KubeSource {
 		shas:      make(map[kubeResourceKey]resourceSha),
 		byFile:    make(map[string]map[kubeResourceKey]collection.Name),
 	}
+}
+
+// SetDefaultNamespace enables injecting a default namespace for resources where none is already specified
+func (s *KubeSource) SetDefaultNamespace(defaultNs string) {
+	s.defaultNs = defaultNs
 }
 
 // Start implements processor.Source
@@ -130,11 +140,13 @@ func (s *KubeSource) ContentNames() map[string]struct{} {
 // ApplyContent applies the given yamltext to this source. The content is tracked with the given name. If ApplyContent
 // gets called multiple times with the same name, the contents applied by the previous incarnation will be overwritten
 // or removed, depending on the new content.
+// Returns an error if any were encountered, but that still may represent a partial success
 func (s *KubeSource) ApplyContent(name, yamlText string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	resources := parseContent(s.resources, name, yamlText)
+	// We hold off on dealing with parseErr until the end, since partial success is possible
+	resources, parseErrs := s.parseContent(s.resources, name, yamlText)
 
 	oldKeys := s.byFile[name]
 	newKeys := make(map[kubeResourceKey]collection.Name)
@@ -162,6 +174,9 @@ func (s *KubeSource) ApplyContent(name, yamlText string) error {
 	}
 	s.byFile[name] = newKeys
 
+	if parseErrs != nil {
+		return fmt.Errorf("errors parsing content %q: %v", name, parseErrs)
+	}
 	return nil
 }
 
@@ -181,28 +196,48 @@ func (s *KubeSource) RemoveContent(name string) {
 	}
 }
 
-func parseContent(r schema.KubeResources, name, yamlText string) []kubeResource {
+func (s *KubeSource) parseContent(r schema.KubeResources, name, yamlText string) ([]kubeResource, error) {
 	var resources []kubeResource
-	for i, chunk := range kubeyaml.Split([]byte(yamlText)) {
-		chunk = bytes.TrimSpace(chunk)
+	var errs error
 
-		r, err := parseChunk(r, chunk)
+	reader := bufio.NewReader(strings.NewReader(yamlText))
+	decoder := yaml.NewYAMLReader(reader)
+	chunkCount := -1
+
+	for {
+		chunkCount++
+		doc, err := decoder.Read()
+		if err == io.EOF {
+			break
+		}
 		if err != nil {
-			scope.Source.Errorf("Error processing %s[%d]: %v", name, i, err)
-			scope.Source.Debugf("Offending Yaml chunk: %v", string(chunk))
-			continue
+			e := fmt.Errorf("error reading documents in %s[%d]: %v", name, chunkCount, err)
+			scope.Source.Warnf("%v - skipping", e)
+			scope.Source.Debugf("Failed to parse yamlText chunk: %v", yamlText)
+			errs = multierror.Append(errs, e)
+			break
 		}
 
+		chunk := bytes.TrimSpace(doc)
+		r, err := s.parseChunk(r, chunk)
+		if err != nil {
+			e := fmt.Errorf("error processing %s[%d]: %v", name, chunkCount, err)
+			scope.Source.Warnf("%v - skipping", e)
+			scope.Source.Debugf("Failed to parse yaml chunk: %v", string(chunk))
+			errs = multierror.Append(errs, e)
+			continue
+		}
 		resources = append(resources, r)
 	}
-	return resources
+
+	return resources, errs
 }
 
-func parseChunk(r schema.KubeResources, yamlChunk []byte) (kubeResource, error) {
+func (s *KubeSource) parseChunk(r schema.KubeResources, yamlChunk []byte) (kubeResource, error) {
 	// Convert to JSON
-	jsonChunk, err := yaml.YAMLToJSON(yamlChunk)
+	jsonChunk, err := yaml.ToJSON(yamlChunk)
 	if err != nil {
-		return kubeResource{}, fmt.Errorf("failed converting YAML to JSON")
+		return kubeResource{}, fmt.Errorf("failed converting YAML to JSON: %v", err)
 	}
 
 	// Peek at the beginning of the JSON to
@@ -223,6 +258,19 @@ func parseChunk(r schema.KubeResources, yamlChunk []byte) (kubeResource, error) 
 	}
 	objMeta := t.ExtractObject(obj)
 
+	// If namespace is blank and we have a default set, fill in the default
+	// (This mirrors the behavior if you kubectl apply a resource without a namespace defined)
+	// Don't do this for cluster scoped resources
+	if !resourceSpec.ClusterScoped {
+		if objMeta.GetNamespace() == "" && s.defaultNs != "" {
+			scope.Source.Debugf("KubeSource.parseChunk: namespace not specified for %q, using %q", objMeta.GetName(), s.defaultNs)
+			objMeta.SetNamespace(s.defaultNs)
+		}
+	} else {
+		// Clear the namespace if there is any specified.
+		objMeta.SetNamespace("")
+	}
+
 	item, err := t.ExtractResource(obj)
 	if err != nil {
 		return kubeResource{}, err
@@ -231,6 +279,6 @@ func parseChunk(r schema.KubeResources, yamlChunk []byte) (kubeResource, error) 
 	return kubeResource{
 		spec:  resourceSpec,
 		sha:   sha1.Sum(yamlChunk),
-		entry: rt.ToResourceEntry(objMeta, item),
+		entry: rt.ToResourceEntry(objMeta, &resourceSpec, item),
 	}, nil
 }

@@ -4,33 +4,13 @@ constraints:
       - exactlyOne:
           - equals: {
             "Body": {
-              "compiled_adapter": "listchecker",
+              "compiledAdapter": "listchecker",
               "params": {
-                "fields": {
-                  "blacklist": {
-                    "Kind": {
-                      "BoolValue": false
-                    }
-                  },
-                  "overrides": {
-                    "Kind": {
-                      "ListValue": {
-                        "values": [
-                        {
-                          "Kind": {
-                            "StringValue": "v1"
-                          }
-                        },
-                        {
-                          "Kind": {
-                            "StringValue": "v2"
-                          }
-                        }
-                        ]
-                      }
-                    }
-                  }
-                }
+                "blacklist": false,
+                "overrides": [
+                  "v1",
+                  "v2"
+                ]
               }
             },
             "Metadata": {

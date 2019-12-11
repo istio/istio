@@ -33,12 +33,12 @@ func TestGenSpiffeURI(t *testing.T) {
 		{
 			serviceAccount: "sa",
 			trustDomain:    defaultTrustDomain,
-			expectedError:  "namespace or service account empty for SPIFFEE uri",
+			expectedError:  "namespace or service account empty for SPIFFE uri",
 		},
 		{
 			namespace:     "ns",
 			trustDomain:   defaultTrustDomain,
-			expectedError: "namespace or service account empty for SPIFFEE uri",
+			expectedError: "namespace or service account empty for SPIFFE uri",
 		},
 		{
 			namespace:      "namespace-foo",

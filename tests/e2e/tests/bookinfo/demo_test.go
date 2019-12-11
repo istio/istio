@@ -247,7 +247,7 @@ func doTestDbRoutingMongo(t *testing.T, configVersion string, rules []string) {
 
 	respExpr := "glyphicon-star" // not great test for v2 or v3 being alive
 
-	_, err = checkHTTPResponse(getIngressOrFail(t), respExpr, 10)
+	err = checkHTTPResponse(getIngressOrFail(t), respExpr, 10)
 	inspect(
 		err, fmt.Sprintf("Failed database routing! %s in v1", normalUser.username),
 		fmt.Sprintf("Success! Response matches with expected! %s", respExpr), t)
@@ -271,7 +271,7 @@ func doTestDbRoutingMysql(t *testing.T, configVersion string, rules []string) {
 
 	respExpr := "glyphicon-star" // not great test for v2 or v3 being alive
 
-	_, err = checkHTTPResponse(getIngressOrFail(t), respExpr, 10)
+	err = checkHTTPResponse(getIngressOrFail(t), respExpr, 10)
 	inspect(
 		err, fmt.Sprintf("Failed database routing! %s in v1", normalUser.username),
 		fmt.Sprintf("Success! Response matches with expected! %s", respExpr), t)
@@ -279,7 +279,7 @@ func doTestDbRoutingMysql(t *testing.T, configVersion string, rules []string) {
 
 func TestVMExtendsIstio(t *testing.T) {
 	if *framework.TestVM {
-		// TODO (chx) vm_provider flag to select venders
+		// TODO (chx) vm_provider flag to select vendors
 		vm, err := framework.NewGCPRawVM(tc.CommonConfig.Kube.Namespace)
 		inspect(err, "unable to configure VM", "VM configured correctly", t)
 		// VM setup and teardown is manual for now
@@ -316,7 +316,7 @@ func doTestExternalDetailsService(t *testing.T, configVersion string, rules []st
 
 	isbnFetchedFromExternalService := "0486424618"
 
-	_, err = checkHTTPResponse(getIngressOrFail(t), isbnFetchedFromExternalService, 1)
+	err = checkHTTPResponse(getIngressOrFail(t), isbnFetchedFromExternalService, 1)
 	inspect(
 		err, fmt.Sprintf("Failed external details routing! %s in v1", normalUser.username),
 		fmt.Sprintf("Success! Response matches with expected! %s", isbnFetchedFromExternalService), t)

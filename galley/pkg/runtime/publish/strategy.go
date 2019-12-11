@@ -19,8 +19,8 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/galley/pkg/config/monitoring"
 	"istio.io/istio/galley/pkg/runtime/log"
-	"istio.io/istio/galley/pkg/runtime/monitoring"
 	"istio.io/istio/galley/pkg/util"
 )
 
@@ -140,6 +140,13 @@ func (s *Strategy) startTimer() {
 					s.timer.Reset(s.timerFrequency)
 				}
 			case <-s.resetChan:
+				// Reset should be invoked only on stopped or expired timers with drained channels.
+				if !s.timer.Stop() {
+					select {
+					case <-s.timer.C:
+					default:
+					}
+				}
 				s.timer.Reset(s.timerFrequency)
 			case <-ctx.Done():
 				// User requested to stop the timer.

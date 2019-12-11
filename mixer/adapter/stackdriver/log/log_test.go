@@ -192,6 +192,25 @@ func TestHandleLogEntry(t *testing.T) {
 					},
 				},
 			}},
+		{"labels with bad utf8",
+			map[string]info{"labels": {tmpl: template.Must(template.New("").Parse("literal")), labels: []string{"foo", "time"}, log: log}},
+			[]*logentry.Instance{{Name: "labels", Variables: map[string]interface{}{"foo": "bar\xed\xa0\x80", "time": now}}},
+			[]logging.Entry{
+				{
+					Timestamp: now,
+					Severity:  logging.Default,
+					Labels:    map[string]string{"foo": "bar", "time": fmt.Sprintf("%v", now)},
+					Payload:   "literal",
+				},
+			},
+			map[string]*logentry.Type{
+				"labels": {
+					Variables: map[string]descriptor.ValueType{
+						"foo":  descriptor.STRING,
+						"time": descriptor.TIMESTAMP,
+					},
+				},
+			}},
 		{"labels only one",
 			map[string]info{"labels": {tmpl: template.Must(template.New("").Parse("literal")), labels: []string{"foo"}, log: log}},
 			[]*logentry.Instance{{Name: "labels", Variables: map[string]interface{}{"foo": "bar", "time": fmt.Sprintf("%v", now)}}},

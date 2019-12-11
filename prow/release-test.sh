@@ -18,38 +18,6 @@ WD=$(dirname "$0")
 WD=$(cd "$WD"; pwd)
 ROOT=$(dirname "$WD")
 
-# Runs after a submit is merged to master:
-# - run the unit tests, in local environment
-# - push the docker images to gcr.io
+set -eux
 
-# Exit immediately for non zero status
-set -e
-# Check unset variables
-set -u
-# Print commands
-set -x
-
-# shellcheck source=prow/lib.sh
-source "${ROOT}/prow/lib.sh"
-setup_and_export_git_sha
-
-cd "$ROOT"
-
-function create_gcb_env() {
-  mkdir /workspace
-  mkdir /output
-  mkdir "$ROOT/../../../../src"
-  touch /workspace/manifest.txt
-
-cat << EOF > "/workspace/gcb_env.sh"
-export CB_BRANCH="${GIT_BRANCH}"
-export CB_VERSION="${GIT_SHA}"
-export CB_ISTIOCTL_DOCKER_HUB="docker.io/istio"
-export CB_PIPELINE_TYPE=daily
-EOF
-}
-
-create_gcb_env
-clone_cni
-
-time ./release/gcb/cloud_builder.sh
+DRY_RUN=true "${ROOT}"/prow/release-commit.sh

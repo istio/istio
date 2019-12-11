@@ -1,4 +1,8 @@
-FROM ubuntu:xenial
+# Version is the base image version from the TLD Makefile
+ARG BASE_VERSION=latest
+
+# The following section is used as base image if BASE_DISTRIBUTION=default
+FROM docker.io/istio/base:${BASE_VERSION} as default
 
 COPY node_agent /usr/local/bin/node_agent
 

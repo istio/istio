@@ -41,7 +41,7 @@ func TestToOpts(t *testing.T) {
 		out  []gapiopts.ClientOption // we only assert that the types match, so contents of the option don't matter
 	}{
 		{"empty", &config.Params{}, []gapiopts.ClientOption{}},
-		{"api key", &config.Params{Creds: &config.Params_ApiKey{}}, []gapiopts.ClientOption{gapiopts.WithAPIKey("")}},
+		{"api key", &config.Params{Creds: &config.Params_ApiKey{}}, []gapiopts.ClientOption{}},
 		{"app creds", &config.Params{Creds: &config.Params_AppCredentials{}}, []gapiopts.ClientOption{}},
 		{"service account",
 			&config.Params{Creds: &config.Params_ServiceAccountPath{ServiceAccountPath: svcAcctFilePath}},
@@ -92,6 +92,7 @@ func TestMetadata(t *testing.T) {
 		projectIDFn   metadataFn
 		locationFn    metadataFn
 		clusterNameFn metadataFn
+		meshIDFn      metadataFn
 		want          Metadata
 	}{
 		{
@@ -100,6 +101,7 @@ func TestMetadata(t *testing.T) {
 			func() (string, error) { return "pid", nil },
 			func() (string, error) { return "location", nil },
 			func() (string, error) { return "cluster", nil },
+			func() (string, error) { return "mesh-id", nil },
 			Metadata{ProjectID: "", Location: "", ClusterName: ""},
 		},
 		{
@@ -108,6 +110,7 @@ func TestMetadata(t *testing.T) {
 			func() (string, error) { return "pid", nil },
 			func() (string, error) { return "location", nil },
 			func() (string, error) { return "cluster", nil },
+			func() (string, error) { return "mesh-id", nil },
 			Metadata{ProjectID: "pid", Location: "location", ClusterName: "cluster"},
 		},
 		{
@@ -116,6 +119,7 @@ func TestMetadata(t *testing.T) {
 			func() (string, error) { return "", errors.New("error") },
 			func() (string, error) { return "location", nil },
 			func() (string, error) { return "cluster", nil },
+			func() (string, error) { return "mesh-id", nil },
 			Metadata{ProjectID: "", Location: "location", ClusterName: "cluster"},
 		},
 		{
@@ -124,6 +128,7 @@ func TestMetadata(t *testing.T) {
 			func() (string, error) { return "pid", nil },
 			func() (string, error) { return "location", errors.New("error") },
 			func() (string, error) { return "cluster", nil },
+			func() (string, error) { return "mesh-id", nil },
 			Metadata{ProjectID: "pid", Location: "", ClusterName: "cluster"},
 		},
 		{
@@ -132,6 +137,7 @@ func TestMetadata(t *testing.T) {
 			func() (string, error) { return "pid", nil },
 			func() (string, error) { return "location", nil },
 			func() (string, error) { return "cluster", errors.New("error") },
+			func() (string, error) { return "mesh-id", nil },
 			Metadata{ProjectID: "pid", Location: "location", ClusterName: ""},
 		},
 	}

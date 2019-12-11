@@ -15,6 +15,7 @@
 package test
 
 import (
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
@@ -61,6 +62,10 @@ type MockOpenIDDiscoveryServer struct {
 	// The mock server will start to return an error after the first number of hits for public key,
 	// this is used to simulate network errors and test the refresh logic in jwks resolver.
 	ReturnErrorAfterFirstNumHits uint64
+
+	// If both TLSKeyFile and TLSCertFile are set, Start() will attempt to start a HTTPS server.
+	TLSKeyFile  string
+	TLSCertFile string
 }
 
 // StartNewServer creates a mock openID discovery server and starts it
@@ -72,6 +77,23 @@ func StartNewServer() (*MockOpenIDDiscoveryServer, error) {
 		// 0 means the mock server always return the success result.
 		ReturnErrorForFirstNumHits:   0,
 		ReturnErrorAfterFirstNumHits: 0,
+	}
+
+	return server, server.Start()
+}
+
+// StartNewTLSServer creates a mock openID discovery server that serves HTTPS and starts it
+func StartNewTLSServer(tlsCert, tlsKey string) (*MockOpenIDDiscoveryServer, error) {
+	serverMutex.Lock()
+	defer serverMutex.Unlock()
+
+	server := &MockOpenIDDiscoveryServer{
+		// 0 means the mock server always return the success result.
+		ReturnErrorForFirstNumHits:   0,
+		ReturnErrorAfterFirstNumHits: 0,
+
+		TLSCertFile: tlsCert,
+		TLSKeyFile:  tlsKey,
 	}
 
 	return server, server.Start()
@@ -93,24 +115,39 @@ func (ms *MockOpenIDDiscoveryServer) Start() error {
 		return err
 	}
 
+	scheme := "http"
+	if ms.TLSCertFile != "" && ms.TLSKeyFile != "" {
+		scheme = "https"
+	}
+
 	port := ln.Addr().(*net.TCPAddr).Port
-	ms.Port = port
-	ms.URL = fmt.Sprintf("http://localhost:%d", port)
+	ms.URL = fmt.Sprintf("%s://localhost:%d", scheme, port)
 	server.Addr = ":" + strconv.Itoa(port)
 
 	// Starts the HTTP and waits for it to begin receiving requests.
 	// Returns an error if the server doesn't serve traffic within about 2 seconds.
 	go func() {
+		if scheme == "https" {
+			if err := server.ServeTLS(ln, ms.TLSCertFile, ms.TLSKeyFile); err != nil {
+				log.Errorf("Server failed to serve TLS in %q: %v", ms.URL, err)
+			}
+			return
+		}
 		if err := server.Serve(ln); err != nil {
 			log.Errorf("Server failed to serve in %q: %v", ms.URL, err)
 		}
 	}()
 
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
 	wait := 300 * time.Millisecond
 	for try := 0; try < 5; try++ {
 		time.Sleep(wait)
 		// Try to call the server
-		if _, err := http.Get(fmt.Sprintf("%s/.well-known/openid-configuration", ms.URL)); err != nil {
+		if _, err := httpClient.Get(fmt.Sprintf("%s/.well-known/openid-configuration", ms.URL)); err != nil {
 			log.Infof("Server not yet serving: %v", err)
 			// Retry after some sleep.
 			wait *= 2

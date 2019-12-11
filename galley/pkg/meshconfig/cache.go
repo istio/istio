@@ -19,11 +19,8 @@ import (
 	"io/ioutil"
 	"sync"
 
-	"github.com/ghodss/yaml"
-
-	"github.com/gogo/protobuf/jsonpb"
-
 	"istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 )
@@ -48,6 +45,13 @@ type FsCache struct {
 var _ Cache = &FsCache{}
 var _ io.Closer = &FsCache{}
 
+var DefaultMeshConfig = func() v1alpha1.MeshConfig {
+	meshconfig := mesh.DefaultMeshConfig()
+	meshconfig.IngressClass = "istio"
+	meshconfig.IngressControllerMode = v1alpha1.MeshConfig_STRICT
+	return meshconfig
+}()
+
 // NewCacheFromFile returns a new mesh cache, based on watching a file.
 func NewCacheFromFile(path string) (*FsCache, error) {
 	fw := filewatcher.NewWatcher()
@@ -60,7 +64,7 @@ func NewCacheFromFile(path string) (*FsCache, error) {
 	c := &FsCache{
 		path:   path,
 		fw:     fw,
-		cached: Default(),
+		cached: DefaultMeshConfig,
 	}
 
 	c.reload()
@@ -88,21 +92,15 @@ func (c *FsCache) reload() {
 		return
 	}
 
-	js, err := yaml.YAMLToJSON(by)
+	cfg, err := mesh.ApplyMeshConfig(string(by), DefaultMeshConfig)
 	if err != nil {
-		scope.Errorf("Error converting mesh config Yaml to JSON: %v", err)
-		return
-	}
-
-	cfg := Default()
-	if err = jsonpb.UnmarshalString(string(js), &cfg); err != nil {
 		scope.Errorf("Error reading mesh config as json: %v", err)
 		return
 	}
 
 	c.cachedMutex.Lock()
 	defer c.cachedMutex.Unlock()
-	c.cached = cfg
+	c.cached = *cfg
 	scope.Infof("Reloaded mesh config: \n%s\n", string(by))
 }
 

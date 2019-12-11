@@ -133,6 +133,14 @@ func (sd *MemServiceDiscovery) AddService(name host.Name, svc *model.Service) {
 	// TODO: notify listeners
 }
 
+// RemoveService removes an in-memory service.
+func (sd *MemServiceDiscovery) RemoveService(name host.Name) {
+	sd.mutex.Lock()
+	delete(sd.services, name)
+	sd.mutex.Unlock()
+	sd.EDSUpdater.SvcUpdate(sd.ClusterID, string(name), "", model.EventDelete)
+}
+
 // AddInstance adds an in-memory instance.
 func (sd *MemServiceDiscovery) AddInstance(service host.Name, instance *model.ServiceInstance) {
 	// WIP: add enough code to allow tests and load tests to work
@@ -233,6 +241,11 @@ func (sd *MemServiceDiscovery) SetEndpoints(service string, namespace string, en
 	}
 
 	_ = sd.EDSUpdater.EDSUpdate(sd.ClusterID, service, namespace, endpoints)
+}
+
+// UpdateWorkloadLabels updates the workload labels, similar with K8S controller.
+func (sd *MemServiceDiscovery) UpdateWorkloadLabels(ip string, labels labels.Instance) {
+	sd.AddWorkload(ip, labels)
 }
 
 // Services implements discovery interface

@@ -25,9 +25,7 @@ constraints:
                   "destination": {
                     "host": "c",
                     "port": {
-                      "Port": {
-                        "Number": 80
-                      }
+                      "number": 80
                     },
                     "subset": "v2"
                   }
@@ -47,9 +45,7 @@ constraints:
                   "destination": {
                     "host": "c",
                     "port": {
-                      "Port": {
-                        "Number": 90
-                      }
+                      "number": 90
                     },
                     "subset": "v1"
                   }

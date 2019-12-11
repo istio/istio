@@ -16,6 +16,7 @@ package validation
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -30,6 +31,8 @@ import (
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	rbac "istio.io/api/rbac/v1alpha1"
+	security_beta "istio.io/api/security/v1beta1"
+	api "istio.io/api/type/v1beta1"
 
 	"istio.io/istio/pkg/config/constants"
 )
@@ -1448,6 +1451,30 @@ func TestValidateTlsOptions(t *testing.T) {
 				CaCertificates:    "",
 				CredentialName:    "sds-name"},
 			""},
+		{"istio_mutual no certs",
+			&networking.Server_TLSOptions{
+				Mode:              networking.Server_TLSOptions_ISTIO_MUTUAL,
+				ServerCertificate: "",
+				PrivateKey:        "",
+				CaCertificates:    ""},
+			""},
+		{"istio_mutual with server cert",
+			&networking.Server_TLSOptions{
+				Mode:              networking.Server_TLSOptions_ISTIO_MUTUAL,
+				ServerCertificate: "Captain Jean-Luc Picard"},
+			"cannot have associated server cert"},
+		{"istio_mutual with client bundle",
+			&networking.Server_TLSOptions{
+				Mode:              networking.Server_TLSOptions_ISTIO_MUTUAL,
+				ServerCertificate: "Captain Jean-Luc Picard",
+				PrivateKey:        "Khan Noonien Singh",
+				CaCertificates:    "Commander William T. Riker"},
+			"cannot have associated"},
+		{"istio_mutual with private key",
+			&networking.Server_TLSOptions{
+				Mode:       networking.Server_TLSOptions_ISTIO_MUTUAL,
+				PrivateKey: "Khan Noonien Singh"},
+			"cannot have associated private key"},
 	}
 
 	for _, tt := range tests {
@@ -1991,12 +2018,18 @@ func TestValidateDestination(t *testing.T) {
 				Host:   "foo.bar",
 				Subset: "shiny",
 				Port: &networking.PortSelector{
-					Port: &networking.PortSelector_Number{
-						Number: 5000,
-					},
+					Number: 5000,
 				},
 			},
 			valid: true,
+		},
+		{name: "unnumbered-selector",
+			destination: &networking.Destination{
+				Host:   "foo.bar",
+				Subset: "shiny",
+				Port:   &networking.PortSelector{},
+			},
+			valid: false,
 		},
 	}
 
@@ -2011,9 +2044,10 @@ func TestValidateDestination(t *testing.T) {
 
 func TestValidateHTTPRoute(t *testing.T) {
 	testCases := []struct {
-		name  string
-		route *networking.HTTPRoute
-		valid bool
+		name        string
+		route       *networking.HTTPRoute
+		unsaferegex bool
+		valid       bool
 	}{
 		{name: "empty", route: &networking.HTTPRoute{ // nothing
 		}, valid:                                     false},
@@ -2217,6 +2251,11 @@ func TestValidateHTTPRoute(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
+		if tc.unsaferegex {
+			_ = os.Setenv("PILOT_ENABLE_UNSAFE_REGEX", "true")
+
+			defer func() { _ = os.Unsetenv("PILOT_ENABLE_UNSAFE_REGEX") }()
+		}
 		t.Run(tc.name, func(t *testing.T) {
 			if err := validateHTTPRoute(tc.route); (err == nil) != tc.valid {
 				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
@@ -2329,6 +2368,20 @@ func TestValidateVirtualService(t *testing.T) {
 			Http: []*networking.HTTPRoute{{
 				Route: []*networking.HTTPRouteDestination{{
 					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: false},
+		{name: "with no destination", in: &networking.VirtualService{
+			Hosts: []string{"*.foo.bar", "*.bar"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{}},
+			}},
+		}, valid: false},
+		{name: "destination with out hosts", in: &networking.VirtualService{
+			Hosts: []string{"*.foo.bar", "*.bar"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{},
 				}},
 			}},
 		}, valid: false},
@@ -2977,7 +3030,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					ApplyTo: 0,
 				},
 			},
-		}, error: "envoy filter: missing applyTo"},
+		}, error: "Envoy filter: missing applyTo"},
 		{name: "nil patch", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
@@ -2985,7 +3038,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					Patch:   nil,
 				},
 			},
-		}, error: "envoy filter: missing patch"},
+		}, error: "Envoy filter: missing patch"},
 		{name: "invalid patch operation", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
@@ -2993,7 +3046,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					Patch:   &networking.EnvoyFilter_Patch{},
 				},
 			},
-		}, error: "envoy filter: missing patch operation"},
+		}, error: "Envoy filter: missing patch operation"},
 		{name: "nil patch value", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
@@ -3003,7 +3056,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: "envoy filter: missing patch value for non-remove operation"},
+		}, error: "Envoy filter: missing patch value for non-remove operation"},
 		{name: "match with invalid regex", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
@@ -3018,7 +3071,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: "envoy filter: invalid regex for proxy version, [error parsing regexp: invalid nested repetition operator: `++`]"},
+		}, error: "Envoy filter: invalid regex for proxy version, [error parsing regexp: invalid nested repetition operator: `++`]"},
 		{name: "match with valid regex", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
@@ -3048,7 +3101,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: "envoy filter: applyTo for listener class objects cannot have non listener match"},
+		}, error: "Envoy filter: applyTo for listener class objects cannot have non listener match"},
 		{name: "listener with invalid filter match", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
@@ -3068,7 +3121,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: "envoy filter: filter match has no name to match on"},
+		}, error: "Envoy filter: filter match has no name to match on"},
 		{name: "listener with sub filter match and invalid applyTo", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
@@ -3090,7 +3143,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: "envoy filter: subfilter match can be used with applyTo HTTP_FILTER only"},
+		}, error: "Envoy filter: subfilter match can be used with applyTo HTTP_FILTER only"},
 		{name: "listener with sub filter match and invalid filter name", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
@@ -3112,7 +3165,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: "envoy filter: subfilter match requires filter match with envoy.http_connection_manager"},
+		}, error: "Envoy filter: subfilter match requires filter match with envoy.http_connection_manager"},
 		{name: "listener with sub filter match and no sub filter name", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
@@ -3134,7 +3187,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: "envoy filter: subfilter match has no name to match on"},
+		}, error: "Envoy filter: subfilter match has no name to match on"},
 		{name: "route configuration with invalid match", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
@@ -3149,7 +3202,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: "envoy filter: applyTo for http route class objects cannot have non route configuration match"},
+		}, error: "Envoy filter: applyTo for http route class objects cannot have non route configuration match"},
 		{name: "cluster with invalid match", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
@@ -3164,7 +3217,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: "envoy filter: applyTo for cluster class objects cannot have non cluster match"},
+		}, error: "Envoy filter: applyTo for cluster class objects cannot have non cluster match"},
 		{name: "invalid patch value", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
@@ -3186,7 +3239,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: `envoy filter: unknown field "foo" in v2.Cluster`},
+		}, error: `Envoy filter: unknown field "foo" in envoy_api_v2.Cluster`},
 		{name: "happy config", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
@@ -3239,6 +3292,20 @@ func TestValidateServiceEntries(t *testing.T) {
 			Endpoints: []*networking.ServiceEntry_Endpoint{
 				{Address: "lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}},
 				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
+			},
+			Resolution: networking.ServiceEntry_DNS,
+		},
+			valid: true},
+
+		{name: "discovery type DNS, label tlsMode: istio", in: networking.ServiceEntry{
+			Hosts: []string{"*.google.com"},
+			Ports: []*networking.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+				{Number: 8080, Protocol: "http", Name: "http-valid2"},
+			},
+			Endpoints: []*networking.ServiceEntry_Endpoint{
+				{Address: "lon.google.com", Ports: map[string]uint32{"http-valid1": 8080}, Labels: map[string]string{"security.istio.io/tlsMode": "istio"}},
+				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}, Labels: map[string]string{"security.istio.io/tlsMode": "istio"}},
 			},
 			Resolution: networking.ServiceEntry_DNS,
 		},
@@ -3452,7 +3519,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 			Resolution: networking.ServiceEntry_STATIC,
 		},
-			valid: false},
+			valid: true},
 
 		{name: "discovery type static, bad endpoint port name", in: networking.ServiceEntry{
 			Hosts:     []string{"google.com"},
@@ -3537,6 +3604,16 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 		},
 			valid: false},
+		{name: "empty protocol", in: networking.ServiceEntry{
+			Hosts:     []string{"google.com"},
+			Addresses: []string{"172.1.2.16/16"},
+			Ports: []*networking.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+				{Number: 8080, Name: "http-valid2"},
+			},
+			Resolution: networking.ServiceEntry_NONE,
+		},
+			valid: true},
 	}
 
 	for _, c := range cases {
@@ -3786,6 +3863,151 @@ func TestValidateAuthenticationMeshPolicy(t *testing.T) {
 	for _, c := range cases {
 		if got := ValidateAuthenticationPolicy(c.configName, "", c.in); (got == nil) != c.valid {
 			t.Errorf("ValidateAuthenticationPolicy(%v): got(%v) != want(%v): %v\n", c.name, got == nil, c.valid, got)
+		}
+	}
+}
+
+func TestValidateAuthorizationPolicy(t *testing.T) {
+	cases := []struct {
+		name  string
+		in    proto.Message
+		valid bool
+	}{
+		{
+			name: "good",
+			in: &security_beta.AuthorizationPolicy{
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app":     "httpbin",
+						"version": "v1",
+					},
+				},
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{
+									Principals: []string{"sa1"},
+								},
+							},
+							{
+								Source: &security_beta.Source{
+									Principals: []string{"sa2"},
+								},
+							},
+						},
+						To: []*security_beta.Rule_To{
+							{
+								Operation: &security_beta.Operation{
+									Methods: []string{"GET"},
+								},
+							},
+							{
+								Operation: &security_beta.Operation{
+									Methods: []string{"POST"},
+								},
+							},
+						},
+						When: []*security_beta.Condition{
+							{
+								Key:    "source.ip",
+								Values: []string{"1.2.3.4", "5.6.7.0/24"},
+							},
+							{
+								Key:    "request.headers[:authority]",
+								Values: []string{"v1", "v2"},
+							},
+						},
+					},
+				},
+			},
+			valid: true,
+		},
+		{
+			name: "key missing",
+			in: &security_beta.AuthorizationPolicy{
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app":     "httpbin",
+						"version": "v1",
+					},
+				},
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{
+									Principals: []string{"sa1"},
+								},
+							},
+						},
+						To: []*security_beta.Rule_To{
+							{
+								Operation: &security_beta.Operation{
+									Methods: []string{"GET"},
+								},
+							},
+						},
+						When: []*security_beta.Condition{
+							{
+								Values: []string{"v1", "v2"},
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "empty selector: key",
+			in: &security_beta.AuthorizationPolicy{
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app":     "",
+						"version": "v1",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "empty selector: value",
+			in: &security_beta.AuthorizationPolicy{
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+						"":    "v1",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid attribute",
+			in: &security_beta.AuthorizationPolicy{
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+					},
+				},
+				Rules: []*security_beta.Rule{
+					{
+						When: []*security_beta.Condition{
+							{
+								Key:    "key1",
+								Values: []string{"v1"},
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+	}
+
+	for _, c := range cases {
+		if got := ValidateAuthorizationPolicy("", "", c.in); (got == nil) != c.valid {
+			t.Errorf("ValidateAuthorizationPolicy(%v): got(%v) != want(%v): %v\n", c.name, got == nil, c.valid, got)
 		}
 	}
 }
@@ -4114,7 +4336,7 @@ func TestValidateMixerService(t *testing.T) {
 			in:   &mccpb.IstioService{Name: "test-service-name", Namespace: strings.Repeat("x", 64)},
 		},
 		{
-			name: "invalid domian or labels",
+			name: "invalid domain or labels",
 			in:   &mccpb.IstioService{Name: "test-service-name", Domain: strings.Repeat("x", 256)},
 		},
 		{
@@ -4249,7 +4471,7 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, true},
-		{"UDS bind", &networking.Sidecar{
+		{"UDS bind in outbound", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
 					Port: &networking.Port{
@@ -4264,7 +4486,20 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, true},
-		{"UDS bind 2", &networking.Sidecar{
+		{"UDS bind in inbound", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   0,
+						Name:     "uds",
+					},
+					Bind:            "unix:///@foo/bar/com",
+					DefaultEndpoint: "127.0.0.1:9999",
+				},
+			},
+		}, false},
+		{"UDS bind in outbound 2", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
 					Port: &networking.Port{
@@ -4488,6 +4723,22 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, false},
+		{"empty protocol", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Number: 90,
+						Name:   "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:9999",
+				},
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, true},
 	}
 
 	for _, tt := range tests {
@@ -4505,7 +4756,7 @@ func TestValidateSidecar(t *testing.T) {
 func TestValidateLocalityLbSetting(t *testing.T) {
 	cases := []struct {
 		name  string
-		in    *meshconfig.LocalityLoadBalancerSetting
+		in    *networking.LocalityLoadBalancerSetting
 		valid bool
 	}{
 		{
@@ -4516,8 +4767,8 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 
 		{
 			name: "invalid LocalityLoadBalancerSetting_Distribute total weight > 100",
-			in: &meshconfig.LocalityLoadBalancerSetting{
-				Distribute: []*meshconfig.LocalityLoadBalancerSetting_Distribute{
+			in: &networking.LocalityLoadBalancerSetting{
+				Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
 					{
 						From: "a/b/c",
 						To: map[string]uint32{
@@ -4531,8 +4782,8 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 		},
 		{
 			name: "invalid LocalityLoadBalancerSetting_Distribute total weight < 100",
-			in: &meshconfig.LocalityLoadBalancerSetting{
-				Distribute: []*meshconfig.LocalityLoadBalancerSetting_Distribute{
+			in: &networking.LocalityLoadBalancerSetting{
+				Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
 					{
 						From: "a/b/c",
 						To: map[string]uint32{
@@ -4546,8 +4797,8 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 		},
 		{
 			name: "invalid LocalityLoadBalancerSetting_Distribute weight = 0",
-			in: &meshconfig.LocalityLoadBalancerSetting{
-				Distribute: []*meshconfig.LocalityLoadBalancerSetting_Distribute{
+			in: &networking.LocalityLoadBalancerSetting{
+				Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
 					{
 						From: "a/b/c",
 						To: map[string]uint32{
@@ -4561,8 +4812,8 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 		},
 		{
 			name: "invalid LocalityLoadBalancerSetting specify both distribute and failover",
-			in: &meshconfig.LocalityLoadBalancerSetting{
-				Distribute: []*meshconfig.LocalityLoadBalancerSetting_Distribute{
+			in: &networking.LocalityLoadBalancerSetting{
+				Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
 					{
 						From: "a/b/c",
 						To: map[string]uint32{
@@ -4571,7 +4822,7 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 						},
 					},
 				},
-				Failover: []*meshconfig.LocalityLoadBalancerSetting_Failover{
+				Failover: []*networking.LocalityLoadBalancerSetting_Failover{
 					{
 						From: "region1",
 						To:   "region2",
@@ -4583,8 +4834,8 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 
 		{
 			name: "invalid failover src and dst have same region",
-			in: &meshconfig.LocalityLoadBalancerSetting{
-				Failover: []*meshconfig.LocalityLoadBalancerSetting_Failover{
+			in: &networking.LocalityLoadBalancerSetting{
+				Failover: []*networking.LocalityLoadBalancerSetting_Failover{
 					{
 						From: "region1",
 						To:   "region1",
@@ -4664,6 +4915,275 @@ func TestValidateLocalities(t *testing.T) {
 
 			if c.valid && err != nil {
 				t.Errorf("expect valid localities. but got err %v", err)
+			}
+		})
+	}
+}
+
+func TestValidationIPAddress(t *testing.T) {
+	tests := []struct {
+		name string
+		addr string
+		ok   bool
+	}{
+		{
+			name: "valid ipv4 address",
+			addr: "1.1.1.1",
+			ok:   true,
+		},
+		{
+			name: "invalid ipv4 address",
+			addr: "1.1.A.1",
+			ok:   false,
+		},
+		{
+			name: "valid ipv6 subnet",
+			addr: "2001:1::1",
+			ok:   true,
+		},
+		{
+			name: "invalid ipv6 address",
+			addr: "2001:1:G::1",
+			ok:   false,
+		},
+	}
+	for _, tt := range tests {
+		if err := ValidateIPAddress(tt.addr); err != nil {
+			if tt.ok {
+				t.Errorf("test: \"%s\" expected to succeed but failed with error: %+v", tt.name, err)
+			}
+		} else {
+			if !tt.ok {
+				t.Errorf("test: \"%s\" expected to fail but succeeded", tt.name)
+			}
+		}
+	}
+}
+
+func TestValidationIPSubnet(t *testing.T) {
+	tests := []struct {
+		name   string
+		subnet string
+		ok     bool
+	}{
+		{
+			name:   "valid ipv4 subnet",
+			subnet: "1.1.1.1/24",
+			ok:     true,
+		},
+		{
+			name:   "invalid ipv4 subnet",
+			subnet: "1.1.1.1/48",
+			ok:     false,
+		},
+		{
+			name:   "valid ipv6 subnet",
+			subnet: "2001:1::1/64",
+			ok:     true,
+		},
+		{
+			name:   "invalid ipv6 subnet",
+			subnet: "2001:1::1/132",
+			ok:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		if err := ValidateIPSubnet(tt.subnet); err != nil {
+			if tt.ok {
+				t.Errorf("test: \"%s\" expected to succeed but failed with error: %+v", tt.name, err)
+			}
+		} else {
+			if !tt.ok {
+				t.Errorf("test: \"%s\" expected to fail but succeeded", tt.name)
+			}
+		}
+	}
+}
+
+func TestValidateRequestAuthentication(t *testing.T) {
+	cases := []struct {
+		name       string
+		configName string
+		in         proto.Message
+		valid      bool
+	}{
+		{
+			name:       "empty spec",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in:         &security_beta.RequestAuthentication{},
+			valid:      true,
+		},
+		{
+			name:       "another empty spec",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				Selector: &api.WorkloadSelector{},
+			},
+			valid: true,
+		},
+		{
+			name:       "empty spec with non default name",
+			configName: someName,
+			in:         &security_beta.RequestAuthentication{},
+			valid:      false,
+		},
+		{
+			name:       "default name with non empty selector",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name:       "empty jwt rule",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				JwtRules: []*security_beta.JWT{
+					{},
+				},
+			},
+			valid: false,
+		},
+		{
+			name:       "empty issuer",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				JwtRules: []*security_beta.JWT{
+					{
+						Issuer: "",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name:       "bad JwksUri - no protocol",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				JwtRules: []*security_beta.JWT{
+					{
+						Issuer:  "foo.com",
+						JwksUri: "foo.com",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name:       "bad JwksUri - invalid port",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				JwtRules: []*security_beta.JWT{
+					{
+						Issuer:  "foo.com",
+						JwksUri: "https://foo.com:not-a-number",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name:       "bad selector - empy value",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app":     "httpbin",
+						"version": "",
+					},
+				},
+				JwtRules: []*security_beta.JWT{
+					{
+						Issuer:  "foo.com",
+						JwksUri: "https://foo.com/cert",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name:       "bad selector - empy key",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+						"":    "v1",
+					},
+				},
+				JwtRules: []*security_beta.JWT{
+					{
+						Issuer:  "foo.com",
+						JwksUri: "https://foo.com/cert",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name:       "bad header location",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				JwtRules: []*security_beta.JWT{
+					{
+						Issuer:  "foo.com",
+						JwksUri: "https://foo.com",
+						FromHeaders: []*security_beta.JWTHeader{
+							{
+								Name:   "",
+								Prefix: "Bearer ",
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name:       "bad param location",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				JwtRules: []*security_beta.JWT{
+					{
+						Issuer:     "foo.com",
+						JwksUri:    "https://foo.com",
+						FromParams: []string{""},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name:       "good",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				JwtRules: []*security_beta.JWT{
+					{
+						Issuer:  "foo.com",
+						JwksUri: "https://foo.com",
+						FromHeaders: []*security_beta.JWTHeader{
+							{
+								Name:   "x-foo",
+								Prefix: "Bearer ",
+							},
+						},
+					},
+				},
+			},
+			valid: true,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := ValidateRequestAuthentication(c.configName, someNamespace, c.in); (got == nil) != c.valid {
+				t.Errorf("got(%v) != want(%v)\n", got, c.valid)
 			}
 		})
 	}

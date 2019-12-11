@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package crd provides an implementation of the config store and cache
+// Package controller provides an implementation of the config store and cache
 // using Kubernetes Custom Resources and the informer framework from Kubernetes
 package controller
 
@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"istio.io/pkg/ledger"
 
 	"github.com/golang/sync/errgroup"
 	"github.com/hashicorp/go-multierror"
@@ -50,6 +52,9 @@ type Client struct {
 
 	// domainSuffix for the config metadata
 	domainSuffix string
+
+	// Ledger for tracking config distribution
+	configLedger ledger.Ledger
 }
 
 type restClient struct {
@@ -126,13 +131,13 @@ func (rc *restClient) updateRESTConfig(cfg *rest.Config) (config *rest.Config, e
 			return nil
 		})
 	err = schemeBuilder.AddToScheme(types)
-	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: serializer.NewCodecFactory(types)}
+	config.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: serializer.NewCodecFactory(types)}
 
 	return
 }
 
 // NewForConfig creates a client to the Kubernetes API using a rest config.
-func NewForConfig(cfg *rest.Config, descriptor schema.Set, domainSuffix string) (*Client, error) {
+func NewForConfig(cfg *rest.Config, descriptor schema.Set, domainSuffix string, configLedger ledger.Ledger) (*Client, error) {
 	cs, err := newClientSet(descriptor)
 	if err != nil {
 		return nil, err
@@ -141,6 +146,7 @@ func NewForConfig(cfg *rest.Config, descriptor schema.Set, domainSuffix string) 
 	out := &Client{
 		clientset:    cs,
 		domainSuffix: domainSuffix,
+		configLedger: configLedger,
 	}
 
 	for _, v := range out.clientset {
@@ -156,13 +162,13 @@ func NewForConfig(cfg *rest.Config, descriptor schema.Set, domainSuffix string) 
 // Use an empty value for `kubeconfig` to use the in-cluster config.
 // If the kubeconfig file is empty, defaults to in-cluster config as well.
 // You can also choose a config context by providing the desired context name.
-func NewClient(config string, context string, descriptor schema.Set, domainSuffix string) (*Client, error) {
+func NewClient(config string, context string, descriptor schema.Set, domainSuffix string, configLedger ledger.Ledger) (*Client, error) {
 	cfg, err := kubecfg.BuildClientConfig(config, context)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewForConfig(cfg, descriptor, domainSuffix)
+	return NewForConfig(cfg, descriptor, domainSuffix, configLedger)
 }
 
 // RegisterResources sends a request to create CRDs and waits for them to initialize
@@ -333,7 +339,7 @@ func (cl *Client) Get(typ, name, namespace string) *model.Config {
 
 	config := t.Object.DeepCopyObject().(crd.IstioObject)
 	err := rc.dynamic.Get().
-		Namespace(namespace).
+		NamespaceIfScoped(namespace, !s.ClusterScoped).
 		Resource(crd.ResourceName(s.Plural)).
 		Name(name).
 		Do().Into(config)
@@ -374,7 +380,7 @@ func (cl *Client) Create(config model.Config) (string, error) {
 
 	obj := crd.KnownTypes[s.Type].Object.DeepCopyObject().(crd.IstioObject)
 	err = rc.dynamic.Post().
-		Namespace(out.GetObjectMeta().Namespace).
+		NamespaceIfScoped(out.GetObjectMeta().Namespace, !s.ClusterScoped).
 		Resource(crd.ResourceName(s.Plural)).
 		Body(out).
 		Do().Into(obj)
@@ -411,7 +417,7 @@ func (cl *Client) Update(config model.Config) (string, error) {
 
 	obj := crd.KnownTypes[s.Type].Object.DeepCopyObject().(crd.IstioObject)
 	err = rc.dynamic.Put().
-		Namespace(out.GetObjectMeta().Namespace).
+		NamespaceIfScoped(out.GetObjectMeta().Namespace, !s.ClusterScoped).
 		Resource(crd.ResourceName(s.Plural)).
 		Name(out.GetObjectMeta().Name).
 		Body(out).
@@ -439,10 +445,18 @@ func (cl *Client) Delete(typ, name, namespace string) error {
 	}
 
 	return rc.dynamic.Delete().
-		Namespace(namespace).
+		NamespaceIfScoped(namespace, !s.ClusterScoped).
 		Resource(crd.ResourceName(s.Plural)).
 		Name(name).
 		Do().Error()
+}
+
+func (cl *Client) Version() string {
+	return cl.configLedger.RootHash()
+}
+
+func (cl *Client) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
+	return cl.configLedger.GetPreviousValue(version, key)
 }
 
 // List implements store interface
@@ -462,7 +476,7 @@ func (cl *Client) List(typ, namespace string) ([]model.Config, error) {
 
 	list := crd.KnownTypes[s.Type].Collection.DeepCopyObject().(crd.IstioObjectList)
 	errs := rc.dynamic.Get().
-		Namespace(namespace).
+		NamespaceIfScoped(namespace, !s.ClusterScoped).
 		Resource(crd.ResourceName(s.Plural)).
 		Do().Into(list)
 

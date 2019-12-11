@@ -29,6 +29,8 @@ import (
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	rbac "istio.io/api/rbac/v1alpha1"
+	authz "istio.io/api/security/v1beta1"
+	api "istio.io/api/type/v1beta1"
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -170,7 +172,9 @@ var (
 			Name: "hello",
 		}},
 		Peers: []*authn.PeerAuthenticationMethod{{
-			Params: &authn.PeerAuthenticationMethod_Mtls{},
+			Params: &authn.PeerAuthenticationMethod_Mtls{
+				Mtls: &authn.MutualTls{},
+			},
 		}},
 	}
 
@@ -206,6 +210,16 @@ var (
 	// ExampleRbacConfig is an example rbac config
 	ExampleRbacConfig = &rbac.RbacConfig{
 		Mode: rbac.RbacConfig_ON,
+	}
+
+	// ExampleAuthorizationPolicy is an example AuthorizationPolicy
+	ExampleAuthorizationPolicy = &authz.AuthorizationPolicy{
+		Selector: &api.WorkloadSelector{
+			MatchLabels: map[string]string{
+				"app":     "httpbin",
+				"version": "v1",
+			},
+		},
 	}
 )
 
@@ -436,6 +450,7 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 		{"ServiceRoleBinding", configName, schemas.ServiceRoleBinding, ExampleServiceRoleBinding},
 		{"RbacConfig", constants.DefaultRbacConfigName, schemas.RbacConfig, ExampleRbacConfig},
 		{"ClusterRbacConfig", constants.DefaultRbacConfigName, schemas.ClusterRbacConfig, ExampleRbacConfig},
+		{"AuthorizationPolicy", configName, schemas.AuthorizationPolicy, ExampleAuthorizationPolicy},
 	}
 
 	for _, c := range cases {
@@ -464,7 +479,7 @@ func CheckCacheEvents(store model.ConfigStore, cache model.ConfigStoreCache, nam
 	stop := make(chan struct{})
 	defer close(stop)
 	added, deleted := atomic.NewInt64(0), atomic.NewInt64(0)
-	cache.RegisterEventHandler(schemas.MockConfig.Type, func(_ model.Config, ev model.Event) {
+	cache.RegisterEventHandler(schemas.MockConfig.Type, func(_, _ model.Config, ev model.Event) {
 		switch ev {
 		case model.EventAdd:
 			if deleted.Load() != 0 {
@@ -497,7 +512,7 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *test
 	o := Make(namespace, 0)
 
 	// validate cache consistency
-	cache.RegisterEventHandler(schemas.MockConfig.Type, func(config model.Config, ev model.Event) {
+	cache.RegisterEventHandler(schemas.MockConfig.Type, func(_, config model.Config, ev model.Event) {
 		elts, _ := cache.List(schemas.MockConfig.Type, namespace)
 		elt := cache.Get(o.Type, o.Name, o.Namespace)
 		switch ev {

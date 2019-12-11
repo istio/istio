@@ -107,6 +107,11 @@ type Workload interface {
 
 	// ForwardEcho executes specific call from this workload.
 	ForwardEcho(context.Context, *proto.ForwardEchoRequest) (client.ParsedResponses, error)
+
+	// Logs returns the logs for the app container
+	Logs() (string, error)
+	// LogsOrFail returns the logs for the app container, or aborts if an error is found
+	LogsOrFail(t test.Failer) string
 }
 
 // Sidecar provides an interface to execute queries against a single Envoy sidecar.
@@ -135,4 +140,9 @@ type Sidecar interface {
 	// Listeners for the Envoy instance
 	Listeners() (*envoyAdmin.Listeners, error)
 	ListenersOrFail(t test.Failer) *envoyAdmin.Listeners
+
+	// Logs returns the logs for the sidecar container
+	Logs() (string, error)
+	// LogsOrFail returns the logs for the sidecar container, or aborts if an error is found
+	LogsOrFail(t test.Failer) string
 }

@@ -124,7 +124,6 @@ func (d *InMemoryDistributor) deleteListener(l *listenerEntry) {
 	for i := len(d.listeners) - 1; i >= 0; i-- {
 		if d.listeners[i] == l {
 			d.listeners = append(d.listeners[:i], d.listeners[i+1:]...)
-			l = nil
 			return
 		}
 	}

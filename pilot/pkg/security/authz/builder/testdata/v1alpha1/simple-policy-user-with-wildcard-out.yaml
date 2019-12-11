@@ -1,0 +1,46 @@
+rules:
+  policies:
+    httpbin-viewer:
+      permissions:
+        - andRules:
+            rules:
+              - orRules:
+                  rules:
+                    - header:
+                        exactMatch: GET
+                        name: :method
+      principals:
+        - andIds:
+            ids:
+              - orIds:
+                  ids:
+                    - any: true
+        - andIds:
+            ids:
+              - orIds:
+                  ids:
+                    - metadata:
+                        filter: istio_authn
+                        path:
+                          - key: source.principal
+                        value:
+                          stringMatch:
+                            suffix: /ns/foo/sa/bar
+        - andIds:
+            ids:
+              - orIds:
+                  ids:
+                    - metadata:
+                        filter: istio_authn
+                        path:
+                          - key: source.principal
+                        value:
+                          stringMatch:
+                            exact: td1/ns/foo/sa/bar
+                    - metadata:
+                        filter: istio_authn
+                        path:
+                          - key: source.principal
+                        value:
+                          stringMatch:
+                            suffix: bar/ns/foo/sa/bar

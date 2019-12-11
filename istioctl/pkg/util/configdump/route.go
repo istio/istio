@@ -15,12 +15,11 @@
 package configdump
 
 import (
-	"fmt"
 	"sort"
 	"time"
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
-	proto "github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes"
 )
 
 // GetLastUpdatedDynamicRouteTime retrieves the LastUpdated timestamp of the
@@ -35,7 +34,7 @@ func (w *Wrapper) GetLastUpdatedDynamicRouteTime() (*time.Time, error) {
 	lastUpdated := time.Unix(0, 0) // get the oldest possible timestamp
 	for i := range drc {
 		if drc[i].LastUpdated != nil {
-			if drLastUpdated, err := proto.TimestampFromProto(drc[i].LastUpdated); err != nil {
+			if drLastUpdated, err := ptypes.Timestamp(drc[i].LastUpdated); err != nil {
 				return nil, err
 			} else if drLastUpdated.After(lastUpdated) {
 				lastUpdated = drLastUpdated
@@ -69,19 +68,12 @@ func (w *Wrapper) GetDynamicRouteDump(stripVersions bool) (*adminapi.RoutesConfi
 
 // GetRouteConfigDump retrieves the route config dump from the ConfigDump
 func (w *Wrapper) GetRouteConfigDump() (*adminapi.RoutesConfigDump, error) {
-	// The route dump is no longer the 4th one;
-	// now envoy.admin.v2alpha.ScopedRoutesConfigDump may be 4th.
-	var routeDumpAny proto.Any
-	for _, conf := range w.Configs {
-		if conf.TypeUrl == "type.googleapis.com/envoy.admin.v2alpha.RoutesConfigDump" {
-			routeDumpAny = *conf
-		}
-	}
-	if routeDumpAny.TypeUrl == "" {
-		return nil, fmt.Errorf("config dump has no route dump")
+	routeDumpAny, err := w.getSection(routes)
+	if err != nil {
+		return nil, err
 	}
 	routeDump := &adminapi.RoutesConfigDump{}
-	err := proto.UnmarshalAny(&routeDumpAny, routeDump)
+	err = ptypes.UnmarshalAny(&routeDumpAny, routeDump)
 	if err != nil {
 		return nil, err
 	}

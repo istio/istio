@@ -37,13 +37,21 @@ func NewController(cs model.ConfigStore) model.ConfigStoreCache {
 	return out
 }
 
-func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model.Event)) {
+func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model.Config, model.Event)) {
 	c.monitor.AppendEventHandler(typ, f)
 }
 
 // Memory implementation is always synchronized with cache
 func (c *controller) HasSynced() bool {
 	return true
+}
+
+func (c *controller) Version() string {
+	return c.configStore.Version()
+}
+
+func (c *controller) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
+	return c.configStore.GetResourceAtVersion(version, key)
 }
 
 func (c *controller) Run(stop <-chan struct{}) {
@@ -69,8 +77,10 @@ func (c *controller) Create(config model.Config) (revision string, err error) {
 }
 
 func (c *controller) Update(config model.Config) (newRevision string, err error) {
+	oldconfig := c.configStore.Get(config.Type, config.Name, config.Namespace)
 	if newRevision, err = c.configStore.Update(config); err == nil {
 		c.monitor.ScheduleProcessEvent(ConfigEvent{
+			old:    *oldconfig,
 			config: config,
 			event:  model.EventUpdate,
 		})

@@ -26,6 +26,7 @@ IP addresses, or regex patterns.</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -36,19 +37,25 @@ IP addresses, or regex patterns.</p>
 <p>Where to find the list to check against. This may be omitted for a completely local list.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-refresh_interval">
 <td><code>refreshInterval</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">Duration</a></code></td>
 <td>
 <p>Determines how often the provider is polled for
 an updated list</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-ttl">
 <td><code>ttl</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">Duration</a></code></td>
 <td>
 <p>Indicates how long to keep a list before discarding it.
 Typically, the TTL value should be set to noticeably longer (&gt; 2x) than the
@@ -56,14 +63,20 @@ refresh interval to ensure continued operation in the face of transient
 server outages.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-caching_interval">
 <td><code>cachingInterval</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">Duration</a></code></td>
 <td>
 <p>Indicates the amount of time a caller of this adapter can cache an answer
 before it should ask the adapter again.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Params-caching_use_count">
@@ -74,6 +87,9 @@ before it should ask the adapter again.</p>
 before it should ask the adapter again.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-overrides">
 <td><code>overrides</code></td>
@@ -82,13 +98,19 @@ before it should ask the adapter again.</p>
 <p>List entries that are consulted first, before the list from the server</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-entry_type">
 <td><code>entryType</code></td>
-<td><code><a href="#Params-ListEntryType">Params.ListEntryType</a></code></td>
+<td><code><a href="#Params-ListEntryType">ListEntryType</a></code></td>
 <td>
 <p>Determines the kind of list entry and overrides.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Params-blacklist">
@@ -97,6 +119,9 @@ before it should ask the adapter again.</p>
 <td>
 <p>Whether the list operates as a blacklist or a whitelist.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>

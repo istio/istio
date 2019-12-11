@@ -50,7 +50,7 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 				t.Errorf("sds update stats does not match: %v", err)
 			}
 			// Expect 2 active listeners, one listens on 443 and the other listens on 15090
-			err = ingressutil.WaitUntilGatewayActiveListenerStatsGE(t, ingA, 2, 20*time.Second)
+			err = ingressutil.WaitUntilGatewayActiveListenerStatsGE(t, ingA, 2, 60*time.Second)
 			if err != nil {
 				t.Errorf("total active listener stats does not match: %v", err)
 			}

@@ -9,6 +9,7 @@ image: sidecar_injector
 enableNamespacesByDefault: false
 nodeSelector: {}
 tolerations: []
+podAnnotations: {}
 
 # Specify the pod anti-affinity that allows you to constrain which nodes
 # your pod is eligible to be scheduled based on labels on pods that are
@@ -42,3 +43,17 @@ rewriteAppHTTPProbe: false
 neverInjectSelector: []
 
 alwaysInjectSelector: []
+
+# injectedAnnotations are additional annotations that will be added to the pod spec after injection
+# This is primarily to support PSP annotations. For example, if you defined a PSP with the annotations:
+#
+# annotations:
+#   apparmor.security.beta.kubernetes.io/allowedProfileNames: runtime/default
+#   apparmor.security.beta.kubernetes.io/defaultProfileName: runtime/default
+#
+# The PSP controller would add corresponding annotations to the pod spec for each container. However, this happens before
+# the inject adds additional containers, so we must specify them explicitly here. With the above example, we could specify:
+# injectedAnnotations:
+#   container.apparmor.security.beta.kubernetes.io/istio-init: runtime/default
+#   container.apparmor.security.beta.kubernetes.io/istio-proxy: runtime/default
+injectedAnnotations: {}

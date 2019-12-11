@@ -22,6 +22,8 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 
+	"istio.io/istio/pkg/test/framework/label"
+
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -49,10 +51,9 @@ func TestClientTracing(t *testing.T) {
 			addr := ingress.HTTPAddress()
 			url := fmt.Sprintf("http://%s/productpage", addr.String())
 			extraHeader := fmt.Sprintf("%s: %s", traceHeader, id)
-			// Send test traffic. QPS is restricted to 10, so this will send ~20secs worth of traffic.
-			// We want a multiple of 5secs worth of traffic, given default envoy flush times on the zipkin driver.
-			util.SendTraffic(ingress, t, "Sending traffic", url, extraHeader, 200)
+
 			retry.UntilSuccessOrFail(t, func() error {
+				util.SendTraffic(ingress, t, "Sending traffic", url, extraHeader, 1)
 				traces, err := tracing.GetZipkinInstance().QueryTraces(100,
 					fmt.Sprintf("productpage.%s.svc.cluster.local:9080/productpage", bookinfoNsInst.Name()), fmt.Sprintf("guid:x-client-trace-id=%s", id))
 				if err != nil {
@@ -69,6 +70,7 @@ func TestClientTracing(t *testing.T) {
 func TestMain(m *testing.M) {
 	framework.NewSuite("client_tracing_test", m).
 		RequireEnvironment(environment.Kube).
+		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(tracing.GetIstioInstance(), setupConfig)).
 		Setup(tracing.TestSetup).
 		Run()

@@ -1,31 +1,34 @@
 # BASE_DISTRIBUTION is used to switch between the old base distribution and distroless base images
 ARG BASE_DISTRIBUTION=default
 
-# The following section is used as base image if BASE_DISTRIBUTION=default
-# hadolint ignore=DL3006
-FROM istionightly/base_debug as default
+# Version is the base image version from the TLD Makefile
+ARG BASE_VERSION=latest
 
-# Add CA certificates for SSL connections.
-# obtained from debian ca-certs deb using fetch_cacerts.sh
-ADD ca-certificates.tgz /
+# The following section is used as base image if BASE_DISTRIBUTION=default
+FROM docker.io/istio/base:${BASE_VERSION} as default
 
 # Copy Envoy bootstrap templates used by pilot-agent
 COPY envoy_bootstrap_v2.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
-COPY envoy_bootstrap_drain.json /var/lib/istio/envoy/envoy_bootstrap_drain.json
 COPY gcp_envoy_bootstrap.json /var/lib/istio/envoy/gcp_envoy_bootstrap_tmpl.json
 
-# Sudoers used to allow tcpdump and other debug utilities.
-RUN useradd -m --uid 1337 istio-proxy && \
-    echo "istio-proxy ALL=NOPASSWD: ALL" >> /etc/sudoers && \
-    chown -R istio-proxy /var/lib/istio
+RUN chown -R istio-proxy /var/lib/istio
+
+COPY istio-iptables /usr/local/bin/istio-iptables
 
 # The following section is used as base image if BASE_DISTRIBUTION=distroless
 # hadolint ignore=DL3007
 FROM gcr.io/distroless/cc:latest as distroless
 
+# TODO(https://github.com/istio/istio/issues/17656) clean up this hack
+COPY --from=default /sbin/xtables-multi /sbin/iptables* /sbin/ip6tables* /sbin/ip /sbin/
+COPY --from=default /usr/lib/x86_64-linux-gnu/xtables/ /usr/lib/x86_64-linux-gnu/xtables
+COPY --from=default /usr/lib/x86_64-linux-gnu/ /usr/lib/x86_64-linux-gnu
+COPY --from=default /etc/iproute2 /etc/iproute2
+
+COPY istio-iptables /usr/local/bin/istio-iptables
+
 # Copy Envoy bootstrap templates used by pilot-agent
 COPY envoy_bootstrap_v2.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
-COPY envoy_bootstrap_drain.json /var/lib/istio/envoy/envoy_bootstrap_drain.json
 COPY gcp_envoy_bootstrap.json /var/lib/istio/envoy/gcp_envoy_bootstrap_tmpl.json
 
 # This will build the final image based on either default or distroless from above
@@ -34,11 +37,6 @@ FROM ${BASE_DISTRIBUTION}
 
 ARG proxy_version
 ARG istio_version
-
-ARG ISTIO_API_SHA=unknown
-ARG ENVOY_SHA=unknown
-LABEL istio-api-vcs-ref=$ISTIO_API_SHA \
-    envoy-vcs-ref=$ENVOY_SHA
 
 # Install Envoy.
 COPY envoy /usr/local/bin/envoy
@@ -53,7 +51,6 @@ COPY pilot-agent /usr/local/bin/pilot-agent
 COPY envoy_pilot.yaml.tmpl /etc/istio/proxy/envoy_pilot.yaml.tmpl
 COPY envoy_policy.yaml.tmpl /etc/istio/proxy/envoy_policy.yaml.tmpl
 COPY envoy_telemetry.yaml.tmpl /etc/istio/proxy/envoy_telemetry.yaml.tmpl
-COPY istio-iptables.sh /usr/local/bin/istio-iptables.sh
 
 # The pilot-agent will bootstrap Envoy.
 ENTRYPOINT ["/usr/local/bin/pilot-agent"]

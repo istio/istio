@@ -22,18 +22,19 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/api/extensions/v1beta1"
 
+	appsV1 "k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
-	"istio.io/istio/galley/pkg/config/testing/data/builtin"
+	"istio.io/istio/galley/pkg/config/testing/data"
 	"istio.io/istio/galley/pkg/config/testing/k8smeta"
 )
 
 func TestParse(t *testing.T) {
 	t.Run("Endpoints", func(t *testing.T) {
 		g := NewGomegaWithT(t)
-		input := builtin.GetEndpoints()
+		input := data.GetEndpoints()
 
 		objMeta, objResource := parse(t, []byte(input), "", "Endpoints")
 
@@ -47,7 +48,7 @@ func TestParse(t *testing.T) {
 
 	t.Run("Namespace", func(t *testing.T) {
 		g := NewGomegaWithT(t)
-		input := builtin.GetNamespace()
+		input := data.GetNamespace()
 
 		objMeta, objResource := parse(t, []byte(input), "", "Namespace")
 
@@ -61,7 +62,7 @@ func TestParse(t *testing.T) {
 
 	t.Run("Ingress", func(t *testing.T) {
 		g := NewGomegaWithT(t)
-		input := builtin.GetIngress()
+		input := data.GetIngress()
 
 		objMeta, objResource := parse(t, []byte(input), "extensions", "Ingress")
 
@@ -75,7 +76,7 @@ func TestParse(t *testing.T) {
 
 	t.Run("Node", func(t *testing.T) {
 		g := NewGomegaWithT(t)
-		input := builtin.GetNode()
+		input := data.GetNode()
 
 		objMeta, objResource := parse(t, []byte(input), "", "Node")
 
@@ -89,7 +90,7 @@ func TestParse(t *testing.T) {
 
 	t.Run("Pod", func(t *testing.T) {
 		g := NewGomegaWithT(t)
-		input := builtin.GetPod()
+		input := data.GetPod()
 
 		objMeta, objResource := parse(t, []byte(input), "", "Pod")
 
@@ -103,7 +104,7 @@ func TestParse(t *testing.T) {
 
 	t.Run("Service", func(t *testing.T) {
 		g := NewGomegaWithT(t)
-		input := builtin.GetService()
+		input := data.GetService()
 
 		objMeta, objResource := parse(t, []byte(input), "", "Service")
 
@@ -114,6 +115,21 @@ func TestParse(t *testing.T) {
 		}
 		g.Expect(objMeta.GetName()).To(Equal("kube-dns"))
 	})
+
+	t.Run("Deployment", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		input := data.GetDeployment()
+
+		objMeta, objResource := parse(t, []byte(input), "apps", "Deployment")
+
+		// Just validate a couple of things...
+		_, ok := objResource.(*appsV1.Deployment)
+		if !ok {
+			t.Fatal("failed casting item to Deployment")
+		}
+		g.Expect(objMeta.GetName()).To(Equal("httpbin"))
+	})
+
 }
 
 func TestExtractObject(t *testing.T) {
@@ -186,6 +202,8 @@ func empty(kind string) metaV1.Object {
 		return &coreV1.Namespace{}
 	case "Ingress":
 		return &v1beta1.Ingress{}
+	case "Deployment":
+		return &appsV1.Deployment{}
 	default:
 		panic(fmt.Sprintf("unsupported kind: %v", kind))
 	}

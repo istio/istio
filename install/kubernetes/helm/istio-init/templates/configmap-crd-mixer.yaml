@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: {{ .Release.Namespace }}
+  name: istio-crd-mixer
+data:
+  crd-mixer.yaml: |-
+{{.Files.Get "files/crd-mixer.yaml" | printf "%s" | indent 4}}

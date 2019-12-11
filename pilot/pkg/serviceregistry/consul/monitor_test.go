@@ -23,16 +23,13 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
-const (
-	resync          = 5 * time.Millisecond
-	notifyThreshold = resync * 100
-)
+const notifyThreshold = 10 * time.Second
 
 func TestController(t *testing.T) {
 	ts := newServer()
-	defer ts.Server.Close()
+	defer ts.server.Close()
 	conf := api.DefaultConfig()
-	conf.Address = ts.Server.URL
+	conf.Address = ts.server.URL
 
 	cl, err := api.NewClient(conf)
 	if err != nil {
@@ -41,7 +38,7 @@ func TestController(t *testing.T) {
 
 	updateChannel := make(chan struct{}, 10)
 
-	ctl := NewConsulMonitor(cl, resync)
+	ctl := NewConsulMonitor(cl)
 	ctl.AppendInstanceHandler(func(instance *api.CatalogService, event model.Event) error {
 		updateChannel <- struct{}{}
 		return nil
@@ -56,17 +53,6 @@ func TestController(t *testing.T) {
 	go ctl.Start(stop)
 	defer close(stop)
 
-	drain := func(c chan struct{}) int {
-		found := 0
-		for {
-			select {
-			case <-c:
-				found++
-			case <-time.After(notifyThreshold):
-				return found
-			}
-		}
-	}
 	expectNotify := func(t *testing.T, times int) {
 		t.Helper()
 		for i := 0; i < times; i++ {
@@ -77,37 +63,17 @@ func TestController(t *testing.T) {
 				t.Fatalf("got %d notifications from controller, want %d", i, times)
 			}
 		}
-		if left := drain(updateChannel); left != 0 {
-			t.Fatalf("got %d notifications, want %d", times+left, times)
-		}
 	}
 
-	// Ignore initial updates
-	drain(updateChannel)
+	//The first query from monitor to Consul always doesn't block because the index is 0
+	expectNotify(t, 2)
 
+	//There won't be any notifications if X-Consul-Index doesn't change
 	expectNotify(t, 0)
 
-	// re-ordering of service instances -> does not trigger update
-	ts.Lock.Lock()
-	reviews[0], reviews[len(reviews)-1] = reviews[len(reviews)-1], reviews[0]
-	ts.Lock.Unlock()
-	expectNotify(t, 0)
-
-	// same service, new tag -> triggers instance update
-	ts.Lock.Lock()
-	ts.Productpage[0].ServiceTags = append(ts.Productpage[0].ServiceTags, "new|tag")
-	ts.Lock.Unlock()
-	expectNotify(t, 1)
-
-	// delete a service instance -> trigger instance update
-	ts.Lock.Lock()
-	ts.Reviews = reviews[0:1]
-	ts.Lock.Unlock()
-	expectNotify(t, 1)
-
-	// delete a service -> trigger service and instance update
-	ts.Lock.Lock()
-	delete(ts.Services, "productpage")
-	ts.Lock.Unlock()
+	//X-Consul-Index change means that the Consul Catalog changes, so there will be notifications
+	ts.lock.Lock()
+	ts.consulIndex++
+	ts.lock.Unlock()
 	expectNotify(t, 2)
 }

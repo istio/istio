@@ -24,7 +24,7 @@ spec:
   tls:
   - match:
     - port: 443
-      sni_hosts:
+      sniHosts:
       - en.wikipedia.org
     route:
     - destination:
@@ -43,7 +43,7 @@ spec:
   tls:
   - match:
     - port: 443
-      sni_hosts:
+      sniHosts:
       - de.wikipedia.org
     route:
     - destination:

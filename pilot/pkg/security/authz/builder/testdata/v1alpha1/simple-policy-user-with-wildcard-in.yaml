@@ -1,0 +1,32 @@
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ClusterRbacConfig
+metadata:
+  name: default
+spec:
+  mode: 'ON_WITH_INCLUSION'
+  inclusion:
+    namespaces: ["foo"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: httpbin-viewer
+  namespace: foo
+spec:
+  rules:
+    - services: ["httpbin.foo.svc.cluster.local"]
+      methods: ["GET"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRoleBinding
+metadata:
+  name: bind-httpbin-viewer
+  namespace: foo
+spec:
+  subjects:
+    - user: "*"
+    - user: "*/ns/foo/sa/bar"
+    - user: "*bar/ns/foo/sa/bar"
+  roleRef:
+    kind: ServiceRole
+    name: httpbin-viewer

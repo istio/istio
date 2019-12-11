@@ -149,7 +149,7 @@ func (s *ClientServer) InitializeClient(params ClientServerInitParams, _ *struct
 	_ = log.Sync()
 
 	var load Load
-	if err := unmarshallLoad(params.Load, &load); err != nil {
+	if err := unmarshalLoad(params.Load, &load); err != nil {
 		return err
 	}
 	return s.client.initialize(params.Address, &load)

@@ -465,7 +465,7 @@ func createMultiClusterSecret(k8s *fake.Clientset) error {
 			Name:      testSecretName,
 			Namespace: testSecretNameSpace,
 			Labels: map[string]string{
-				"istio/multiCluster": "true",
+				secretcontroller.MultiClusterSecretLabel: "true",
 			},
 		},
 		Data: map[string][]byte{},

@@ -17,7 +17,7 @@ package configdump
 import (
 	"testing"
 
-	proto "github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes/any"
 )
 
 func TestWrapper_GetListenerConfigDump(t *testing.T) {
@@ -50,7 +50,7 @@ func TestWrapper_GetListenerConfigDump(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			w := setupWrapper(t)
 			if tt.noListener {
-				w.Configs = []*proto.Any{}
+				w.Configs = []*any.Any{}
 			}
 			if tt.noConfigs {
 				w.Configs = nil
@@ -68,8 +68,8 @@ func TestWrapper_GetListenerConfigDump(t *testing.T) {
 			if tt.wantStatic != len(got.StaticListeners) {
 				t.Errorf("wanted static len %v, got %v", tt.wantStatic, len(got.StaticListeners))
 			}
-			if tt.wantDynamic != len(got.DynamicActiveListeners) {
-				t.Errorf("wanted dynamic len %v, got %v", tt.wantDynamic, len(got.DynamicActiveListeners))
+			if tt.wantDynamic != len(got.DynamicListeners) {
+				t.Errorf("wanted dynamic len %v, got %v", tt.wantDynamic, len(got.DynamicListeners))
 			}
 
 		})
@@ -110,7 +110,7 @@ func TestWrapper_GetDynamicListenerDump(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			w := setupWrapper(t)
 			if tt.noListener {
-				w.Configs = []*proto.Any{}
+				w.Configs = []*any.Any{}
 			}
 			got, err := w.GetDynamicListenerDump(tt.stripVersion)
 			if (err != nil) != tt.wantErr {
@@ -119,19 +119,19 @@ func TestWrapper_GetDynamicListenerDump(t *testing.T) {
 			if got == nil && tt.wantErr {
 				return
 			}
-			for _, c := range got.DynamicActiveListeners {
-				if tt.wantVersion != (c.VersionInfo != "") {
-					t.Errorf("wanted listener version %v, got %v", tt.wantVersion, c.VersionInfo)
+			for _, c := range got.DynamicListeners {
+				if tt.wantVersion != (c.ActiveState.VersionInfo != "") {
+					t.Errorf("wanted listener version %v, got %v", tt.wantVersion, c.ActiveState.VersionInfo)
 				}
-				if tt.wantLast != (c.LastUpdated != nil) {
-					t.Errorf("wanted listener last updated %v, got %v", tt.wantLast, c.LastUpdated)
+				if tt.wantLast != (c.ActiveState.LastUpdated != nil) {
+					t.Errorf("wanted listener last updated %v, got %v", tt.wantLast, c.ActiveState.LastUpdated)
 				}
 			}
 			if tt.wantStatic != len(got.StaticListeners) {
 				t.Errorf("wanted static len %v, got %v", tt.wantStatic, len(got.StaticListeners))
 			}
-			if tt.wantDynamic != len(got.DynamicActiveListeners) {
-				t.Errorf("wanted dynamic len %v, got %v", tt.wantDynamic, len(got.DynamicActiveListeners))
+			if tt.wantDynamic != len(got.DynamicListeners) {
+				t.Errorf("wanted dynamic len %v, got %v", tt.wantDynamic, len(got.DynamicListeners))
 			}
 
 		})

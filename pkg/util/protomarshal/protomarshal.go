@@ -20,8 +20,8 @@ import (
 	"strings"
 
 	"github.com/ghodss/yaml"
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
 
 	"istio.io/pkg/log"
 )

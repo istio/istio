@@ -1,0 +1,91 @@
+# Sidecar injector specifying 1.3.1 for image.
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: sidecarInjectorWebhook
+  name: istio-sidecar-injector-pod
+  namespace: istio-system
+spec:
+  containers:
+  - image: docker.io/istio/sidecar_injector:1.3.1
+    name: sidecar-injector-webhook
+---
+# Namespace 'enabled-namespace' has istio injection enabled, so will be enforced.
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    istio-injection: enabled
+  name: enabled-namespace
+---
+# Details-v1-pod-old is out of date and should get a warning.
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: details
+  name: details-v1-pod-old
+  namespace: enabled-namespace
+spec:
+  containers:
+  - image: docker.io/istio/examples-bookinfo-details-v1:1.15.0
+    name: details
+  - image: docker.io/istio/proxyv2:1.3.0
+    name: istio-proxy
+---
+# Details-v1-pod-new is up to date, and should be ignored.
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: details
+  name: details-v1-pod-new
+  namespace: enabled-namespace
+spec:
+  containers:
+  - image: docker.io/istio/examples-bookinfo-details-v1:1.15.0
+    name: details
+  - image: docker.io/istio/proxyv2:1.3.1
+    name: istio-proxy
+---
+# details-v1-pod-overwritten-sidecar has a custom sidecar version injected and
+# therefore should not match the injector version.
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: details
+  annotations:
+    sidecar.istio.io/proxyImage: docker.io/istio/proxyv2:1.3.0-prerelease
+  name: details-v1-pod-overwritten-sidecar
+  namespace: enabled-namespace
+spec:
+  containers:
+  - image: docker.io/istio/examples-bookinfo-details-v2:1.15.0
+    name: details
+  - image: docker.io/istio/proxyv2:1.3.0-prerelease
+    name: istio-proxy
+---
+# Namespace 'default' does not have an explicit label, so no version checking should happen.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: default
+---
+# Details-v2-pod-old is out of date, but since istio-injection is not enabled on the namespace, 
+# no warning occurs.
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: details
+  name: details-v2-pod-old
+  namespace: default
+spec:
+  containers:
+  - image: docker.io/istio/examples-bookinfo-details-v2:1.15.0
+    name: details
+  - image: docker.io/istio/proxyv2:1.3.0
+    name: istio-proxy
+---

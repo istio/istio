@@ -19,31 +19,15 @@ if [[ $# -le 0 ]]; then
     exit 1
 fi
 
-SCRIPTPATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-ROOTDIR="$(dirname "$SCRIPTPATH")"
-
-# Ensure expected GOPATH setup
-if [ "$ROOTDIR" != "${GOPATH-$HOME/go}/src/istio.io/istio" ]; then
-  die "Istio not found in GOPATH/src/istio.io/"
-fi
+RETRY_COUNT=3
 
 api=$(go list -m -f "{{.Dir}}" istio.io/api)
-protobuf=$(go list -m -f "{{.Dir}}" github.com/gogo/protobuf)
-gogo_genproto=$(go list -m -f "{{.Dir}}" istio.io/gogo-genproto)
 
-gen_img=gcr.io/istio-testing/api-build-tools:2019-07-31
+# This occasionally flakes out, so have a simple retry loop
+for (( i=1; i <= RETRY_COUNT; i++ )); do
+  protoc -I"${REPO_ROOT}"/common-protos -I"${api}" "$@" && break
 
-docker run \
-  -i \
-  --rm \
-  -v "$ROOTDIR:$ROOTDIR" \
-  -v "${api}:/protos/istio.io/api" \
-  -v "${protobuf}:/protos/github.com/gogo/protobuf" \
-  -v "${gogo_genproto}:/protos/istio.io/gogo-genproto" \
-  -w "$(pwd)" \
-  --entrypoint /usr/bin/protoc \
-  $gen_img \
-  -I/protos/istio.io/api \
-  -I/protos/github.com/gogo/protobuf \
-  -I/protos/istio.io/gogo-genproto/googleapis \
-  "$@"
+  ret=$?
+  echo "Attempt ${i}/${RETRY_COUNT} to run protoc failed with exit code ${ret}" >&2
+  (( i == RETRY_COUNT )) && exit $ret
+done

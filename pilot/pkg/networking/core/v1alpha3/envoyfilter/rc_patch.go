@@ -19,16 +19,25 @@ import (
 	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	"github.com/gogo/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/util/runtime"
+	"istio.io/pkg/log"
 )
 
-func ApplyRouteConfigurationPatches(patchContext networking.EnvoyFilter_PatchContext,
-	proxy *model.Proxy, push *model.PushContext,
-	routeConfiguration *xdsapi.RouteConfiguration) *xdsapi.RouteConfiguration {
+func ApplyRouteConfigurationPatches(
+	patchContext networking.EnvoyFilter_PatchContext,
+	proxy *model.Proxy,
+	push *model.PushContext,
+	routeConfiguration *xdsapi.RouteConfiguration) (out *xdsapi.RouteConfiguration) {
+	defer runtime.HandleCrash(func() {
+		log.Errorf("listeners patch caused panic, so the patches did not take effect")
+	})
+	// In case the patches cause panic, use the route generated before to reduce the influence.
+	out = routeConfiguration
 
 	envoyFilterWrappers := push.EnvoyFilters(proxy)
 	for _, efw := range envoyFilterWrappers {
@@ -147,6 +156,8 @@ func doHTTPRouteOperation(proxy *model.Proxy, patchContext networking.EnvoyFilte
 			virtualHostMatch(virtualHost, cp) &&
 			routeMatch(virtualHost.Routes[routeIndex], cp) {
 
+			// different virtualHosts may share same routes pointer
+			virtualHost.Routes = cloneVhostRoutes(virtualHost.Routes)
 			if cp.Operation == networking.EnvoyFilter_Patch_REMOVE {
 				virtualHost.Routes[routeIndex] = nil
 				*routesRemoved = true
@@ -220,7 +231,7 @@ func virtualHostMatch(vh *route.VirtualHost, cp *model.EnvoyFilterConfigPatchWra
 	}
 	if vh == nil {
 		// route configuration has a specific match for a virtual host but
-		// we dont have a virtual host to match.
+		// we do not have a virtual host to match.
 		return false
 	}
 	// check if virtual host names match
@@ -247,7 +258,7 @@ func routeMatch(httpRoute *route.Route, cp *model.EnvoyFilterConfigPatchWrapper)
 
 	if httpRoute == nil {
 		// we have a specific match for particular httpRoute but
-		// we dont have a httpRoute to match.
+		// we do not have a httpRoute to match.
 		return false
 	}
 
@@ -267,4 +278,13 @@ func routeMatch(httpRoute *route.Route, cp *model.EnvoyFilterConfigPatchWrapper)
 		}
 	}
 	return true
+}
+
+func cloneVhostRoutes(routes []*route.Route) []*route.Route {
+	out := make([]*route.Route, len(routes))
+	for i := 0; i < len(routes); i++ {
+		clone := proto.Clone(routes[i]).(*route.Route)
+		out[i] = clone
+	}
+	return out
 }

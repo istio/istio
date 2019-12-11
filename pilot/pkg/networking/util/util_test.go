@@ -20,18 +20,23 @@ import (
 	"time"
 
 	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
+	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/any"
+	structpb "github.com/golang/protobuf/ptypes/struct"
+	"github.com/golang/protobuf/ptypes/wrappers"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/proto"
 	"gopkg.in/d4l3k/messagediff.v1"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/model"
+	proto2 "istio.io/istio/pkg/proto"
 )
 
 func TestConvertAddressToCidr(t *testing.T) {
@@ -50,7 +55,7 @@ func TestConvertAddressToCidr(t *testing.T) {
 			"1.2.3.4",
 			&core.CidrRange{
 				AddressPrefix: "1.2.3.4",
-				PrefixLen: &types.UInt32Value{
+				PrefixLen: &wrappers.UInt32Value{
 					Value: 32,
 				},
 			},
@@ -60,7 +65,7 @@ func TestConvertAddressToCidr(t *testing.T) {
 			"1.2.3.4/16",
 			&core.CidrRange{
 				AddressPrefix: "1.2.3.4",
-				PrefixLen: &types.UInt32Value{
+				PrefixLen: &wrappers.UInt32Value{
 					Value: 16,
 				},
 			},
@@ -70,7 +75,7 @@ func TestConvertAddressToCidr(t *testing.T) {
 			"2001:db8::",
 			&core.CidrRange{
 				AddressPrefix: "2001:db8::",
-				PrefixLen: &types.UInt32Value{
+				PrefixLen: &wrappers.UInt32Value{
 					Value: 128,
 				},
 			},
@@ -80,7 +85,7 @@ func TestConvertAddressToCidr(t *testing.T) {
 			"2001:db8::/64",
 			&core.CidrRange{
 				AddressPrefix: "2001:db8::",
-				PrefixLen: &types.UInt32Value{
+				PrefixLen: &wrappers.UInt32Value{
 					Value: 64,
 				},
 			},
@@ -126,98 +131,51 @@ func TestGetNetworkEndpointAddress(t *testing.T) {
 	}
 }
 
-func TestResolveHostsInNetworksConfig(t *testing.T) {
-	tests := []struct {
-		name     string
-		address  string
-		modified bool
-	}{
-		{
-			"Gateway with IP address",
-			"9.142.3.1",
-			false,
-		},
-		{
-			"Gateway with localhost address",
-			"localhost",
-			true,
-		},
-		{
-			"Gateway with empty address",
-			"",
-			false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			config := &meshconfig.MeshNetworks{
-				Networks: map[string]*meshconfig.Network{
-					"network": {
-						Gateways: []*meshconfig.Network_IstioNetworkGateway{
-							{
-								Gw: &meshconfig.Network_IstioNetworkGateway_Address{
-									Address: tt.address,
-								},
-							},
-						},
-					},
-				},
-			}
-			ResolveHostsInNetworksConfig(config)
-			addrAfter := config.Networks["network"].Gateways[0].GetAddress()
-			if addrAfter == tt.address && tt.modified {
-				t.Fatalf("Expected network address to be modified but it's the same as before calling the function")
-			}
-			if addrAfter != tt.address && !tt.modified {
-				t.Fatalf("Expected network address not to be modified after calling the function")
-			}
-		})
-	}
-}
-
 func TestConvertLocality(t *testing.T) {
 	tests := []struct {
 		name     string
 		locality string
 		want     *core.Locality
+		reverse  string
 	}{
 		{
-			"nil locality",
-			"",
-			nil,
+			name:     "nil locality",
+			locality: "",
+			want:     nil,
 		},
 		{
-			"locality with only region",
-			"region",
-			&core.Locality{
+			name:     "locality with only region",
+			locality: "region",
+			want: &core.Locality{
 				Region: "region",
 			},
 		},
 		{
-			"locality with region and zone",
-			"region/zone",
-			&core.Locality{
+			name:     "locality with region and zone",
+			locality: "region/zone",
+			want: &core.Locality{
 				Region: "region",
 				Zone:   "zone",
 			},
 		},
 		{
-			"locality with region zone and subzone",
-			"region/zone/subzone",
-			&core.Locality{
+			name:     "locality with region zone and subzone",
+			locality: "region/zone/subzone",
+			want: &core.Locality{
 				Region:  "region",
 				Zone:    "zone",
 				SubZone: "subzone",
 			},
 		},
 		{
-			"locality with region zone subzone and rack",
-			"region/zone/subzone/rack",
-			&core.Locality{
+			name:     "locality with region zone subzone and rack",
+			locality: "region/zone/subzone/rack",
+			want: &core.Locality{
 				Region:  "region",
 				Zone:    "zone",
 				SubZone: "subzone",
 			},
+			reverse: "region/zone/subzone",
 		},
 	}
 
@@ -226,6 +184,16 @@ func TestConvertLocality(t *testing.T) {
 			got := ConvertLocality(tt.locality)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Expected locality %#v, but got %#v", tt.want, got)
+			}
+			// Verify we can reverse the conversion back to the original input
+			reverse := LocalityToString(got)
+			if tt.reverse != "" {
+				// Special case, reverse lookup is different than original input
+				if tt.reverse != reverse {
+					t.Errorf("Expected locality string %s, got %v", tt.reverse, reverse)
+				}
+			} else if tt.locality != reverse {
+				t.Errorf("Expected locality string %s, got %v", tt.locality, reverse)
 			}
 		})
 	}
@@ -382,11 +350,11 @@ func TestBuildConfigInfoMetadata(t *testing.T) {
 				Type:      "destination-rule",
 			},
 			&core.Metadata{
-				FilterMetadata: map[string]*types.Struct{
+				FilterMetadata: map[string]*structpb.Struct{
 					IstioMetadataKey: {
-						Fields: map[string]*types.Value{
+						Fields: map[string]*structpb.Value{
 							"config": {
-								Kind: &types.Value_StringValue{
+								Kind: &structpb.Value_StringValue{
 									StringValue: "/apis/networking.istio.io/v1alpha3/namespaces/default/destination-rule/svcA",
 								},
 							},
@@ -438,7 +406,7 @@ func buildFakeCluster() *v2.Cluster {
 						SubZone: "subzone1",
 					},
 					LbEndpoints: []*endpoint.LbEndpoint{},
-					LoadBalancingWeight: &types.UInt32Value{
+					LoadBalancingWeight: &wrappers.UInt32Value{
 						Value: 1,
 					},
 					Priority: 0,
@@ -450,7 +418,7 @@ func buildFakeCluster() *v2.Cluster {
 						SubZone: "subzone2",
 					},
 					LbEndpoints: []*endpoint.LbEndpoint{},
-					LoadBalancingWeight: &types.UInt32Value{
+					LoadBalancingWeight: &wrappers.UInt32Value{
 						Value: 1,
 					},
 					Priority: 0,
@@ -547,13 +515,13 @@ func TestGetByAddress(t *testing.T) {
 
 func TestMergeAnyWithStruct(t *testing.T) {
 	inHCM := &http_conn.HttpConnectionManager{
-		CodecType:  http_conn.HTTP1,
+		CodecType:  http_conn.HttpConnectionManager_HTTP1,
 		StatPrefix: "123",
 		HttpFilters: []*http_conn.HttpFilter{
 			{
 				Name: "filter1",
 				ConfigType: &http_conn.HttpFilter_TypedConfig{
-					TypedConfig: &types.Any{},
+					TypedConfig: &any.Any{},
 				},
 			},
 		},
@@ -563,12 +531,12 @@ func TestMergeAnyWithStruct(t *testing.T) {
 	inAny := MessageToAny(inHCM)
 
 	// listener.go sets this to 0
-	newTimeout := 5 * time.Minute
+	newTimeout := ptypes.DurationProto(5 * time.Minute)
 	userHCM := &http_conn.HttpConnectionManager{
-		AddUserAgent:      &types.BoolValue{Value: true},
-		IdleTimeout:       &newTimeout,
-		StreamIdleTimeout: &newTimeout,
-		UseRemoteAddress:  &types.BoolValue{Value: true},
+		AddUserAgent:      proto2.BoolTrue,
+		IdleTimeout:       newTimeout,
+		StreamIdleTimeout: newTimeout,
+		UseRemoteAddress:  proto2.BoolTrue,
 		XffNumTrustedHops: 5,
 		ServerName:        "foobar",
 		HttpFilters: []*http_conn.HttpFilter{
@@ -595,11 +563,62 @@ func TestMergeAnyWithStruct(t *testing.T) {
 	}
 
 	outHCM := http_conn.HttpConnectionManager{}
-	if err = types.UnmarshalAny(outAny, &outHCM); err != nil {
+	if err = ptypes.UnmarshalAny(outAny, &outHCM); err != nil {
 		t.Errorf("Failed to unmarshall outAny to outHCM: %v", err)
 	}
 
 	if !reflect.DeepEqual(expectedHCM, &outHCM) {
 		t.Errorf("Merged HCM does not match the expected output")
+	}
+}
+
+func TestIsAllowAnyOutbound(t *testing.T) {
+	tests := []struct {
+		name   string
+		node   *model.Proxy
+		result bool
+	}{
+		{
+			name:   "NilSidecarScope",
+			node:   &model.Proxy{},
+			result: false,
+		},
+		{
+			name: "NilOutboundTrafficPolicy",
+			node: &model.Proxy{
+				SidecarScope: &model.SidecarScope{},
+			},
+			result: false,
+		},
+		{
+			name: "OutboundTrafficPolicyRegistryOnly",
+			node: &model.Proxy{
+				SidecarScope: &model.SidecarScope{
+					OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+						Mode: networking.OutboundTrafficPolicy_REGISTRY_ONLY,
+					},
+				},
+			},
+			result: false,
+		},
+		{
+			name: "OutboundTrafficPolicyAllowAny",
+			node: &model.Proxy{
+				SidecarScope: &model.SidecarScope{
+					OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+						Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
+					},
+				},
+			},
+			result: true,
+		},
+	}
+	for i := range tests {
+		t.Run(tests[i].name, func(t *testing.T) {
+			out := IsAllowAnyOutbound(tests[i].node)
+			if out != tests[i].result {
+				t.Errorf("Expected %t but got %t for test case: %v\n", tests[i].result, out, tests[i].node)
+			}
+		})
 	}
 }

@@ -26,8 +26,8 @@ spec:
       name: https-default
     tls:
       mode: SIMPLE
-      serverCertificate: /etc/istio/ingress-certs/tls.crt
-      privateKey: /etc/istio/ingress-certs/tls.key
+      serverCertificate: /etc/istio/ingressgateway-certs/tls.crt
+      privateKey: /etc/istio/ingressgateway-certs/tls.key
     hosts:
     - "*"
 {{ end }}    
@@ -119,6 +119,7 @@ spec:
 {{- end }}
 
 {{- if .Values.global.multiCluster.enabled }}
+{{- if (index .Values "istio-egressgateway" "enabled") }}
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
@@ -149,6 +150,7 @@ spec:
       protocol: TLS
     tls:
       mode: AUTO_PASSTHROUGH
+{{- end }}
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway

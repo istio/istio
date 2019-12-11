@@ -1,0 +1,9 @@
+# Gateway with bad selector
+#
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: httpbin-gateway
+spec:
+  selector:
+    istio: ingresstypo

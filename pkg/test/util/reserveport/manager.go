@@ -17,6 +17,7 @@ package reserveport
 import (
 	"fmt"
 	"sync"
+	"testing"
 )
 
 type managerImpl struct {
@@ -49,6 +50,15 @@ func (m *managerImpl) ReservePort() (ReservedPort, error) {
 	return p, nil
 }
 
+func (m *managerImpl) ReservePortOrFail(t *testing.T) ReservedPort {
+	t.Helper()
+	p, err := m.ReservePort()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
 func (m *managerImpl) ReservePortNumber() (uint16, error) {
 	p, err := m.ReservePort()
 	if err != nil {
@@ -61,6 +71,15 @@ func (m *managerImpl) ReservePortNumber() (uint16, error) {
 	return n, nil
 }
 
+func (m *managerImpl) ReservePortNumberOrFail(t *testing.T) uint16 {
+	t.Helper()
+	p, err := m.ReservePortNumber()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
 func (m *managerImpl) Close() (err error) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
@@ -69,4 +88,8 @@ func (m *managerImpl) Close() (err error) {
 	m.pool = nil
 	m.index = 0
 	return freePool(pool)
+}
+
+func (m *managerImpl) CloseSilently() {
+	_ = m.Close()
 }

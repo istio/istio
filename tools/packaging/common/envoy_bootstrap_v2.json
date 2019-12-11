@@ -27,8 +27,8 @@
         "regex": "^tcp\\.((.*?)\\.)\\w+?$"
       },
       {
-        "tag_name": "response_code",
-        "regex": "_rq(_(\\d{3}))$"
+          "regex": "(response_code=\\.=(.+?);\\.;)|_rq(_(\\.d{3}))$",
+          "tag_name": "response_code"
       },
       {
         "tag_name": "response_code_class",
@@ -49,11 +49,113 @@
       {
         "tag_name": "mongo_prefix",
         "regex": "^mongo\\.(.+?)\\.(collection|cmd|cx_|op_|delays_|decoding_)(.*?)$"
+      },
+      {
+          "regex": "(reporter=\\.=(.+?);\\.;)",
+          "tag_name": "reporter"
+      },
+      {
+          "regex": "(source_namespace=\\.=(.+?);\\.;)",
+          "tag_name": "source_namespace"
+      },
+      {
+          "regex": "(source_workload=\\.=(.+?);\\.;)",
+          "tag_name": "source_workload"
+      },
+      {
+          "regex": "(source_workload_namespace=\\.=(.+?);\\.;)",
+          "tag_name": "source_workload_namespace"
+      },
+      {
+          "regex": "(source_principal=\\.=(.+?);\\.;)",
+          "tag_name": "source_principal"
+      },
+      {
+          "regex": "(source_app=\\.=(.+?);\\.;)",
+          "tag_name": "source_app"
+      },
+      {
+          "regex": "(source_version=\\.=(.+?);\\.;)",
+          "tag_name": "source_version"
+      },
+      {
+          "regex": "(destination_namespace=\\.=(.+?);\\.;)",
+          "tag_name": "destination_namespace"
+      },
+      {
+          "regex": "(destination_workload=\\.=(.+?);\\.;)",
+          "tag_name": "destination_workload"
+      },
+      {
+          "regex": "(destination_workload_namespace=\\.=(.+?);\\.;)",
+          "tag_name": "destination_workload_namespace"
+      },
+      {
+          "regex": "(destination_principal=\\.=(.+?);\\.;)",
+          "tag_name": "destination_principal"
+      },
+      {
+          "regex": "(destination_app=\\.=(.+?);\\.;)",
+          "tag_name": "destination_app"
+      },
+      {
+          "regex": "(destination_version=\\.=(.+?);\\.;)",
+          "tag_name": "destination_version"
+      },
+      {
+          "regex": "(destination_service=\\.=(.+?);\\.;)",
+          "tag_name": "destination_service"
+      },
+      {
+          "regex": "(destination_service_name=\\.=(.+?);\\.;)",
+          "tag_name": "destination_service_name"
+      },
+      {
+          "regex": "(destination_service_namespace=\\.=(.+?);\\.;)",
+          "tag_name": "destination_service_namespace"
+      },
+      {
+          "regex": "(request_protocol=\\.=(.+?);\\.;)",
+          "tag_name": "request_protocol"
+      },
+      {
+          "regex": "(response_flags=\\.=(.+?);\\.;)",
+          "tag_name": "response_flags"
+      },
+      {
+          "regex": "(connection_security_policy=\\.=(.+?);\\.;)",
+          "tag_name": "connection_security_policy"
+      },
+      {
+          "regex": "(permissive_response_code=\\.=(.+?);\\.;)",
+          "tag_name": "permissive_response_code"
+      },
+      {
+          "regex": "(permissive_response_policyid=\\.=(.+?);\\.;)",
+          "tag_name": "permissive_response_policyid"
+      },
+      {
+          "regex": "(cache\\.(.+?)\\.)",
+          "tag_name": "cache"
+      },
+      {
+          "regex": "(component\\.(.+?)\\.)",
+          "tag_name": "component"
+      },
+      {
+          "regex": "(tag\\.(.+?)\\.)",
+          "tag_name": "tag"
       }
     ],
     "stats_matcher": {
       "inclusion_list": {
         "patterns": [
+          {
+          "prefix": "reporter="
+          },
+          {
+          "prefix": "component"
+          },
           {{- range $a, $s := .inclusionPrefix }}
           {
           "prefix": "{{$s}}"
@@ -125,6 +227,129 @@
         "connect_timeout": "{{ .connect_timeout }}",
         "lb_policy": "ROUND_ROBIN",
         {{ if eq .config.ControlPlaneAuthPolicy 1 }}
+        {{ if .sds_uds_path }}
+        "tls_context": {
+          "common_tls_context": {
+            "alpn_protocols": [
+              "h2"
+            ],
+            {{ if eq .sds_uds_path "unix:/etc/istio/proxy/SDS" }}
+             "tls_certificate_sds_secret_configs":[
+              {
+                "name":"default",
+                "sds_config":{
+                  "api_config_source":{
+                    "api_type":"GRPC",
+                    "grpc_services":[
+                      {
+                        "google_grpc":{
+                          "target_uri": "{{ .sds_uds_path }}",
+                          "channel_credentials":{
+                            "local_credentials":{
+                            }
+                          },
+                          "stat_prefix":"sdsstat"
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            ],
+            "validation_context": {
+              "trusted_ca": {
+                "filename": "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+              },
+              "verify_subject_alt_name": [
+                {{- range $a, $s := .pilot_SAN }}
+                "{{$s}}"
+                {{- end}}
+              ]
+            }
+            {{ else }}
+            "tls_certificate_sds_secret_configs":[
+              {
+                "name":"default",
+                "sds_config":{
+                  "api_config_source":{
+                    "api_type":"GRPC",
+                    "grpc_services":[
+                      {
+                        "google_grpc":{
+                          "target_uri": "{{ .sds_uds_path }}",
+                          "channel_credentials":{
+                            "local_credentials":{
+                            }
+                          },
+                          "call_credentials":[
+                            {
+                              "from_plugin":{
+                                "name":"envoy.grpc_credentials.file_based_metadata",
+                                "config":{
+                                  "secret_data":{
+                                    "filename": "{{ .sds_token_path }}"
+                                  },
+                                  "header_key":"istio_sds_credentials_header-bin"
+                                }
+                              }
+                            }
+                          ],
+                          "credentials_factory_name":"envoy.grpc_credentials.file_based_metadata",
+                          "stat_prefix":"sdsstat"
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            ],
+            "combined_validation_context":{
+              "default_validation_context":{
+                "verify_subject_alt_name":[
+                  {{- range $a, $s := .pilot_SAN }}
+                  "{{$s}}"
+                  {{- end}}
+                ]
+              },
+              "validation_context_sds_secret_config":{
+                "name":"ROOTCA",
+                "sds_config":{
+                  "api_config_source":{
+                    "api_type":"GRPC",
+                    "grpc_services":[
+                      {
+                        "google_grpc":{
+                          "target_uri": "{{ .sds_uds_path }}",
+                          "channel_credentials":{
+                            "local_credentials":{
+                            }
+                          },
+                          "call_credentials":[
+                            {
+                              "from_plugin":{
+                                "name":"envoy.grpc_credentials.file_based_metadata",
+                                "config":{
+                                  "secret_data":{
+                                    "filename": "{{ .sds_token_path }}"
+                                  },
+                                  "header_key":"istio_sds_credentials_header-bin"
+                                }
+                              }
+                            }
+                          ],
+                          "credentials_factory_name":"envoy.grpc_credentials.file_based_metadata",
+                          "stat_prefix":"sdsstat"
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+            {{ end }}
+          },
+        },
+        {{ else }}
         "tls_context": {
           "common_tls_context": {
             "alpn_protocols": [
@@ -152,6 +377,7 @@
             }
           }
         },
+        {{ end }}
         {{ end }}
         "hosts": [
           {
@@ -242,11 +468,17 @@
         ]
       }
       {{ end }}
-      {{ if .envoy_metrics_service }}
+      {{ if .envoy_metrics_service_address }}
       ,
       {
         "name": "envoy_metrics_service",
         "type": "STRICT_DNS",
+      {{ if .envoy_metrics_service_tls }}
+        "tls_context": {{ .envoy_metrics_service_tls }},
+      {{ end }}
+      {{ if .envoy_metrics_service_tcp_keepalive }}
+        "upstream_connection_options": {{ .envoy_metrics_service_tcp_keepalive }},
+      {{ end }}
         "dns_refresh_rate": "{{ .dns_refresh_rate }}",
         "dns_lookup_family": "{{ .dns_lookup_family }}",
         "connect_timeout": "1s",
@@ -254,7 +486,7 @@
         "http2_protocol_options": {},
         "hosts": [
           {
-            "socket_address": {{ .envoy_metrics_service }}
+            "socket_address": {{ .envoy_metrics_service_address }}
           }
         ]
       }
@@ -338,7 +570,8 @@
       "name": "envoy.zipkin",
       "config": {
         "collector_cluster": "zipkin",
-        "collector_endpoint": "/api/v1/spans",
+        "collector_endpoint": "/api/v2/spans",
+        "collector_endpoint_version": "HTTP_JSON",
         "trace_id_128bit": "true",
         "shared_span_context": "false"
       }
@@ -375,8 +608,8 @@
       "stackdriver_exporter_enabled": true,
       "stackdriver_project_id": "{{ .stackdriverProjectID }}",
       "stdout_exporter_enabled": {{ .stackdriverDebug }},
-      "incoming_trace_context": ["CLOUD_TRACE_CONTEXT", "TRACE_CONTEXT", "GRPC_TRACE_BIN"],
-      "outgoing_trace_context": ["CLOUD_TRACE_CONTEXT", "TRACE_CONTEXT", "GRPC_TRACE_BIN"],
+      "incoming_trace_context": ["CLOUD_TRACE_CONTEXT", "TRACE_CONTEXT", "GRPC_TRACE_BIN", "B3"],
+      "outgoing_trace_context": ["CLOUD_TRACE_CONTEXT", "TRACE_CONTEXT", "GRPC_TRACE_BIN", "B3"],
       "trace_config":{
         "constant_sampler":{
           "decision": "ALWAYS_PARENT"
@@ -389,10 +622,10 @@
      }
   }}
   {{ end }}
-  {{ if or .envoy_metrics_service .statsd }}
+  {{ if or .envoy_metrics_service_address .statsd }}
   ,
   "stats_sinks": [
-    {{ if .envoy_metrics_service }}
+    {{ if .envoy_metrics_service_address }}
     {
       "name": "envoy.metrics_service",
       "config": {
@@ -415,5 +648,13 @@
     },
     {{ end }}
   ]
+  {{ end }}
+  {{ if .outlier_log_path }}
+  ,
+  "cluster_manager": {
+    "outlier_detection": {
+      "event_log_path": {{ .outlier_log_path }}
+    }
+  }
   {{ end }}
 }

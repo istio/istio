@@ -16,6 +16,7 @@ package echo
 
 import (
 	"fmt"
+	"time"
 
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -63,6 +64,10 @@ type Config struct {
 	// IncludeInboundPorts provides the ports that inbound listener should capture
 	// "*" means capture all.
 	IncludeInboundPorts string
+
+	// ReadinessTimeout specifies the timeout that we wait the application to
+	// become ready.
+	ReadinessTimeout time.Duration
 }
 
 // String implements the Configuration interface (which implements fmt.Stringer)

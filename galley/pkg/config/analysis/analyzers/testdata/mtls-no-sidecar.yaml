@@ -1,0 +1,108 @@
+# We have a global mesh policy, and a global DR to use mTLS. We also have a DR
+# to override that for a specific service with no sidecar. This shouldn't cause
+# any errors. 
+apiVersion: authentication.istio.io/v1alpha1
+kind: MeshPolicy
+metadata:
+  name: default
+spec:
+  peers:
+  - mtls: {}
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: default
+  namespace: istio-system
+spec:
+  host: "*.local"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: missing-sidecar-service
+  namespace: no-sidecar
+spec:
+  selector:
+    app: missing-sidecar-service
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: missing-sidecar-service-pod
+  namespace: no-sidecar
+  labels:
+    app: missing-sidecar-service
+spec:
+  containers:
+  - name: some-other-container-not-the-proxy
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: no-sidecar-service-dr
+  namespace: istio-system
+spec:
+  host: missing-sidecar-service.no-sidecar.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+---
+# Also handle the case where a service exists with no pods. Assume it has no
+# sidecar.
+apiVersion: v1
+kind: Service
+metadata:
+  name: missing-pod-service
+  namespace: no-sidecar
+spec:
+  selector:
+    app: missing-pod-service
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: missing-pod-service-dr
+  namespace: istio-system
+spec:
+  host: missing-pod-service.no-sidecar.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+---
+# Finally, include a service with no sidecar and no policy disabling mTLS. We
+# should generate a warning for that.
+apiVersion: v1
+kind: Service
+metadata:
+  name: no-sidecar-or-dr-service
+  namespace: no-sidecar
+spec:
+  selector:
+    app: no-sidecar-or-dr-service
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: no-sidecar-or-dr-service-pod
+  namespace: no-sidecar
+  labels:
+    app: no-sidecar-or-dr-service
+spec:
+  containers:
+  - name: some-other-container-not-the-proxy

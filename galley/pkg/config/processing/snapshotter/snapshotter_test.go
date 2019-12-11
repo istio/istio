@@ -19,8 +19,8 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter/strategy"
 	"istio.io/istio/galley/pkg/config/testing/data"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
@@ -114,4 +114,41 @@ func TestSnapshotter_SnapshotMismatch(t *testing.T) {
 
 	_, err := NewSnapshotter([]event.Transformer{tr}, options)
 	g.Expect(err).NotTo(BeNil())
+}
+
+// All collections should be synced before any snapshots are made available
+func TestSnapshotterWaitForAllSync(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	tr := fixtures.NewTransformer(
+		[]collection.Name{data.Collection1, data.Collection2},
+		[]collection.Name{data.Collection1, data.Collection2},
+		func(tr *fixtures.Transformer, e event.Event) {
+			tr.Publish(e.Source, e)
+		})
+
+	d := NewInMemoryDistributor()
+
+	options := []SnapshotOptions{
+		{
+			Collections: []collection.Name{data.Collection1, data.Collection2},
+			Strategy:    strategy.NewImmediate(),
+			Group:       "default",
+			Distributor: d,
+		},
+	}
+
+	s, err := NewSnapshotter([]event.Transformer{tr}, options)
+	g.Expect(err).To(BeNil())
+	s.Start()
+
+	s.Handle(data.Event1Col1Synced)
+
+	sn := d.GetSnapshot("default")
+	g.Expect(sn).To(BeNil())
+
+	s.Handle(data.Event1Col2Synced)
+
+	sn = d.GetSnapshot("default")
+	g.Expect(sn).NotTo(BeNil())
 }

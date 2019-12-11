@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // nolint: lll
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -a mixer/adapter/prometheus/config/config.proto -x "-n prometheus -t metric"
+//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/adapter/prometheus/config/config.proto -x "-n prometheus -t metric"
 
 // Package prometheus publishes metric values collected by Mixer for
 // ingestion by prometheus.
@@ -210,7 +210,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		ErrorLog:      &promLogger{logger: env.Logger()},
 	}
 
-	if err := b.srv.Start(env, promhttp.HandlerFor(b.registry, opts)); err != nil {
+	if err = b.srv.Start(env, promhttp.HandlerFor(b.registry, opts)); err != nil {
 		return nil, err
 	}
 

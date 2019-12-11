@@ -9,10 +9,10 @@ number_of_entries: 1
 model.</p>
 
 <p>This adapter supports the following templates:
-<a href="https://istio.io/docs/reference/config/template/metric/">metric</a>.
-<a href="https://istio.io/docs/reference/config/template/checknothing/">checknothing</a>.
-<a href="https://istio.io/docs/reference/config/template/reportnothing/">reportnothing</a>.
-<a href="https://istio.io/docs/reference/config/template/quota/">quota</a>.</p>
+<a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric/">metric</a>.
+<a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/checknothing/">checknothing</a>.
+<a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/reportnothing/">reportnothing</a>.
+<a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/quota/">quota</a>.</p>
 
 <p>Example configuration:</p>
 
@@ -38,6 +38,7 @@ params: RGFuJ3MgVG9vbHMgYXJlIGNvb2wh...
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -48,13 +49,19 @@ params: RGFuJ3MgVG9vbHMgYXJlIGNvb2wh...
 <p>The backend address for the remote policy backend.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-params">
 <td><code>params</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#any">google.protobuf.Any</a></code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#any">Any</a></code></td>
 <td>
 <p>The actual config parameters to send to the remote backend.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Params-session_based">
@@ -63,6 +70,9 @@ params: RGFuJ3MgVG9vbHMgYXJlIGNvb2wh...
 <td>
 <p>Indicates whether the protocol is session based or not.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>

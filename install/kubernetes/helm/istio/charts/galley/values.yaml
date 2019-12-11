@@ -8,6 +8,7 @@ rollingMaxUnavailable: 25%
 image: galley
 nodeSelector: {}
 tolerations: []
+podAnnotations: {}
 
 # Specify the pod anti-affinity that allows you to constrain which nodes
 # your pod is eligible to be scheduled based on labels on pods that are
@@ -29,3 +30,9 @@ tolerations: []
 # "security" and value "S1".
 podAntiAffinityLabelSelector: []
 podAntiAffinityTermLabelSelector: []
+
+# Enable service discovery processing in Galley
+enableServiceDiscovery: false
+
+# Enable analysis and status update in Galley
+enableAnalysis: false

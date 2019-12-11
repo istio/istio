@@ -32,11 +32,8 @@ var (
 	tc *testConfig
 )
 
-func init() {
-	flag.Parse()
-}
-
 func TestMain(m *testing.M) {
+	flag.Parse()
 	if err := framework.InitLogging(); err != nil {
 		panic("cannot setup logging")
 	}

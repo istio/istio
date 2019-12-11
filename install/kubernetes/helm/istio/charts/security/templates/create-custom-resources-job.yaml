@@ -16,7 +16,7 @@ metadata:
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: istio-security-post-install-{{ .Release.Namespace }}
@@ -39,7 +39,7 @@ rules:
   resources: ["deployments", "replicasets"]
   verbs: ["get", "list", "watch"]
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: istio-security-post-install-role-binding-{{ .Release.Namespace }}
@@ -60,10 +60,10 @@ subjects:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: istio-security-post-install-{{ .Values.global.tag | printf "%v" | trunc 32  }}
+  name: istio-security-post-install-{{ .Values.global.tag | printf "%v" | trunc 32 | trimSuffix "-" }}
   namespace: {{ .Release.Namespace }}
   annotations:
-    "helm.sh/hook": post-install
+    "helm.sh/hook": post-install,post-upgrade
     "helm.sh/hook-delete-policy": hook-succeeded
   labels:
     app: {{ template "security.name" . }}
@@ -79,6 +79,8 @@ spec:
         chart: {{ template "security.chart" . }}
         heritage: {{ .Release.Service }}
         release: {{ .Release.Name }}
+      annotations:
+        sidecar.istio.io/inject: "false"
     spec:
       serviceAccountName: istio-security-post-install-account
       containers:

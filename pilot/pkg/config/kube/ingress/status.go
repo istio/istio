@@ -120,14 +120,7 @@ func NewStatusSyncer(mesh *meshconfig.MeshConfig,
 		OnStartedLeading: func(ctx context.Context) {
 			log.Infof("I am the new status update leader")
 			go st.queue.Run(ctx.Done())
-			err := wait.PollUntil(updateInterval, func() (bool, error) {
-				st.queue.Push(kube.NewTask(st.handler.Apply, "Start leading", model.EventUpdate))
-				return false, nil
-			}, ctx.Done())
-
-			if err != nil {
-				log.Errorf("Stop requested")
-			}
+			go st.runUpdateStatus(ctx)
 		},
 		OnStoppedLeading: func() {
 			log.Infof("I am not status update leader anymore")
@@ -171,7 +164,7 @@ func NewStatusSyncer(mesh *meshconfig.MeshConfig,
 	st.elector = le
 
 	// Register handler at the beginning
-	handler.Append(func(obj interface{}, event model.Event) error {
+	handler.Append(func(old, curr interface{}, event model.Event) error {
 		addrs, err := st.runningAddresses(ingressNamespace)
 		if err != nil {
 			return err
@@ -181,6 +174,30 @@ func NewStatusSyncer(mesh *meshconfig.MeshConfig,
 	})
 
 	return &st, nil
+}
+
+func (s *StatusSyncer) runUpdateStatus(ctx context.Context) {
+	if _, err := s.runningAddresses(ingressNamespace); err != nil {
+		log.Warna("Missing ingress, skip status updates")
+		err = wait.PollUntil(10*time.Second, func() (bool, error) {
+			if sa, err := s.runningAddresses(ingressNamespace); err != nil || len(sa) == 0 {
+				return false, nil
+			}
+			return true, nil
+		}, ctx.Done())
+		if err != nil {
+			log.Warna("Error waiting for ingress")
+			return
+		}
+	}
+	err := wait.PollUntil(updateInterval, func() (bool, error) {
+		s.queue.Push(kube.NewTask(s.handler.Apply, "", "Start leading", model.EventUpdate))
+		return false, nil
+	}, ctx.Done())
+
+	if err != nil {
+		log.Errorf("Stop requested")
+	}
 }
 
 // updateStatus updates ingress status with the list of IP

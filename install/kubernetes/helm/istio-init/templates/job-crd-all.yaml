@@ -1,0 +1,30 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  namespace: {{ .Release.Namespace }}
+  name: istio-init-crd-all-{{ .Values.global.tag | printf "%v" | trunc 32 | trimSuffix "-" }}
+spec:
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: istio-init-service-account
+      containers:
+      - name: istio-init-crd-all
+        image: "{{ .Values.global.hub }}/kubectl:{{ .Values.global.tag }}"
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+{{- if .Values.job.resources }}
+        resources:
+{{ toYaml .Values.job.resources | indent 10 }}
+{{- end }}
+        volumeMounts:
+        - name: crd-all
+          mountPath: /etc/istio/crd-all
+          readOnly: true
+        command: ["kubectl",  "apply", "-f", "/etc/istio/crd-all/crd-all.gen.yaml"]
+      volumes:
+      - name: crd-all
+        configMap:
+          name: istio-crd-all
+      restartPolicy: OnFailure

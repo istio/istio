@@ -27,9 +27,9 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
-// Config for policy backend, which could be used as a fake adpater for integration test,
+// Config for policy backend, which could be used as a fake adapter for integration test,
 // supports checknothing and keyval template.
 type Params struct {
 	// Specify check related params.

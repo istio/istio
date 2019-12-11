@@ -38,7 +38,6 @@ func setupConfig(cfg *istio.Config) {
 		return
 	}
 	cfg.Values["global.outboundTrafficPolicy.mode"] = "REGISTRY_ONLY"
-	cfg.Values["pilot.env.PILOT_ENABLE_FALLTHROUGH_ROUTE"] = "true"
 }
 
 func TestOutboundTrafficPolicyRegistryOnly(t *testing.T) {

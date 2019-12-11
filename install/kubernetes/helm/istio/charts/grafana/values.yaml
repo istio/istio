@@ -5,16 +5,16 @@ enabled: false
 replicaCount: 1
 image:
   repository: grafana/grafana
-  tag: 6.1.6
+  tag: 6.4.3
 ingress:
   enabled: false
   ## Used to create an Ingress record.
   hosts:
     - grafana.local
-  annotations:
+  annotations: {}
     # kubernetes.io/ingress.class: nginx
     # kubernetes.io/tls-acme: "true"
-  tls:
+  tls: []
     # Secrets must be manually created in the namespace.
     # - secretName: grafana-tls
     #   hosts:
@@ -88,7 +88,7 @@ service:
   type: ClusterIP
   externalPort: 3000
   loadBalancerIP:
-  loadBalancerSourceRanges:
+  loadBalancerSourceRanges: []
 
 datasources:
   datasources.yaml:

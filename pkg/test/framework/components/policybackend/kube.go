@@ -74,6 +74,8 @@ spec:
       - name: app
         image: "{{.Hub}}/test_policybackend:{{.Tag}}"
         imagePullPolicy: {{.ImagePullPolicy}}
+        securityContext:
+          runAsUser: 1
         ports:
         - name: grpc
           containerPort: {{.port}}
@@ -178,7 +180,9 @@ func newKube(ctx resource.Context) (Instance, error) {
 		}
 	}()
 
-	c.namespace, err = namespace.New(ctx, "policybackend", false)
+	c.namespace, err = namespace.New(ctx, namespace.Config{
+		Prefix: "policybackend",
+	})
 	if err != nil {
 		return nil, err
 	}

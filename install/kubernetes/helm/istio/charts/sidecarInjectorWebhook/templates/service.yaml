@@ -13,6 +13,7 @@ spec:
   ports:
   - port: 443
     name: https-inject
+    targetPort: 9443
   - port: {{ .Values.global.monitoringPort }}
     name: http-monitoring
   selector:

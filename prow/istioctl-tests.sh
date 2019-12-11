@@ -39,12 +39,9 @@ source "${ROOT}/prow/lib.sh"
 
 function test_istioctl_version() {
   local istioctl_bin=${1}
-  local expected_hub=${2}
-  local expected_tag=${3}
+  local expected_tag=${2}
 
-  hub=$(${istioctl_bin} version --remote=false --short=false | grep -oP 'Hub:"\K.*?(?=")')
   tag=$(${istioctl_bin} version --remote=false --short=false | grep -oP '{Version:"\K.*?(?=")')
-  [ "${hub}" == "${expected_hub}" ]
   [ "${tag}" == "${expected_tag}" ]
 }
 
@@ -63,6 +60,6 @@ function test_helm_files() {
 # Assert HUB and TAG are matching from all istioctl binaries.
 
 download_untar_istio_release "${ISTIO_REL_URL}" "${TAG}"
-test_istioctl_version "istio-${TAG}/bin/istioctl" "${HUB}" "${TAG}"
+test_istioctl_version "istio-${TAG}/bin/istioctl" "${TAG}"
 test_helm_files "istio-${TAG}" "${HUB}" "${TAG}"
 

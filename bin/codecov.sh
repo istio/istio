@@ -40,15 +40,9 @@ fi
 COVERAGEDIR="$(mktemp -d /tmp/istio_coverage.XXXXXXXXXX)"
 mkdir -p "$COVERAGEDIR"
 
-function cleanup() {
-  make localTestEnvCleanup
-}
-
-trap cleanup EXIT
 
 # Setup environment needed by some tests.
-make sync
-make localTestEnv
+make -f Makefile.core.mk sync
 
 # coverage test needs to run one package per command.
 # This script runs nproc/2 in parallel.
@@ -118,7 +112,7 @@ parse_skipped_tests
 go get github.com/jstemmer/go-junit-report
 
 echo "Code coverage test (concurrency ${MAXPROCS})"
-for P in $(go list "${DIR}" | grep -v vendor); do
+for P in $(go list "${DIR}" | grep -v vendor | grep -v integration | grep -v e2e); do
   if echo "${P}" | grep -q "${SKIPPED_TESTS_GREP_ARGS}"; then
     echo "Skipped ${P}"
     continue
@@ -137,10 +131,9 @@ pushd "${OUT_DIR}"
 go get github.com/wadey/gocovmerge
 gocovmerge "${COVERAGEDIR}"/*.cov > coverage.cov
 cat "${COVERAGEDIR}"/*.report > report.out
-go tool cover -html=coverage.cov -o coverage.html
 
 # Build the combined junit.xml
-go get github.com/imsky/junit-merger/...
+go get github.com/imsky/junit-merger/src/junit-merger
 junit-merger "${COVERAGEDIR}"/*-junit.xml > junit.xml
 
 popd
@@ -150,7 +143,7 @@ echo "Final reports are stored in ${OUT_DIR}"
 
 if ls "${COVERAGEDIR}"/*.err 1> /dev/null 2>&1; then
   echo "The following tests had failed:"
-  cat "${COVERAGEDIR}"/*.err 
+  cat "${COVERAGEDIR}"/*.err
   exit 1
 fi
 

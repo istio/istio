@@ -6,10 +6,8 @@ constraints:
         "Body": {
           "peers": [
           {
-            "Params": {
-              "Mtls": {
-                "mode": 1 # PERMISSIVE
-              }
+            "mtls": {
+              "mode": "PERMISSIVE"
             }
           }
           ]

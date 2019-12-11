@@ -20,7 +20,7 @@ import (
 
 	apiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	envoycore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
 
@@ -29,6 +29,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schemas"
 )
@@ -43,12 +44,12 @@ func TestApplyLocalitySetting(t *testing.T) {
 	t.Run("Distribute", func(t *testing.T) {
 		tests := []struct {
 			name       string
-			distribute []*meshconfig.LocalityLoadBalancerSetting_Distribute
+			distribute []*networking.LocalityLoadBalancerSetting_Distribute
 			expected   []int
 		}{
 			{
 				name: "distribution between subzones",
-				distribute: []*meshconfig.LocalityLoadBalancerSetting_Distribute{
+				distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
 					{
 						From: "region1/zone1/subzone1",
 						To: map[string]uint32{
@@ -65,7 +66,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				env := buildEnvForClustersWithDistribute(tt.distribute)
 				cluster := buildFakeCluster()
-				ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh.LocalityLbSetting, true)
+				ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh().LocalityLbSetting, true)
 				weights := make([]int, 0)
 				for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
 					weights = append(weights, int(localityEndpoint.LoadBalancingWeight.GetValue()))
@@ -81,7 +82,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 		g := NewGomegaWithT(t)
 		env := buildEnvForClustersWithFailover()
 		cluster := buildFakeCluster()
-		ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh.LocalityLbSetting, true)
+		ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh().LocalityLbSetting, true)
 		for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
 			if localityEndpoint.Locality.Region == locality.Region {
 				if localityEndpoint.Locality.Zone == locality.Zone {
@@ -107,7 +108,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 		g := NewGomegaWithT(t)
 		env := buildEnvForClustersWithFailover()
 		cluster := buildSmallCluster()
-		ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh.LocalityLbSetting, true)
+		ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh().LocalityLbSetting, true)
 		for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
 			if localityEndpoint.Locality.Region == locality.Region {
 				if localityEndpoint.Locality.Zone == locality.Zone {
@@ -133,7 +134,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 		g := NewGomegaWithT(t)
 		env := buildEnvForClustersWithFailover()
 		cluster := buildSmallClusterWithNilLocalities()
-		ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh.LocalityLbSetting, true)
+		ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh().LocalityLbSetting, true)
 		for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
 			if localityEndpoint.Locality == nil {
 				g.Expect(localityEndpoint.Priority).To(Equal(uint32(2)))
@@ -157,7 +158,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 	})
 }
 
-func buildEnvForClustersWithDistribute(distribute []*meshconfig.LocalityLoadBalancerSetting_Distribute) *model.Environment {
+func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBalancerSetting_Distribute) *model.Environment {
 	serviceDiscovery := &fakes.ServiceDiscovery{}
 
 	serviceDiscovery.ServicesReturns([]*model.Service{
@@ -180,7 +181,7 @@ func buildEnvForClustersWithDistribute(distribute []*meshconfig.LocalityLoadBala
 			Seconds: 10,
 			Nanos:   1,
 		},
-		LocalityLbSetting: &meshconfig.LocalityLoadBalancerSetting{
+		LocalityLbSetting: &networking.LocalityLoadBalancerSetting{
 			Distribute: distribute,
 		},
 	}
@@ -190,12 +191,11 @@ func buildEnvForClustersWithDistribute(distribute []*meshconfig.LocalityLoadBala
 	env := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
 		IstioConfigStore: configStore,
-		Mesh:             meshConfig,
-		MixerSAN:         []string{},
+		Watcher:          mesh.NewFixedWatcher(meshConfig),
 	}
 
 	env.PushContext = model.NewPushContext()
-	_ = env.PushContext.InitContext(env)
+	_ = env.PushContext.InitContext(env, nil, nil)
 	env.PushContext.SetDestinationRules([]model.Config{
 		{ConfigMeta: model.ConfigMeta{
 			Type:    schemas.DestinationRule.Type,
@@ -238,8 +238,8 @@ func buildEnvForClustersWithFailover() *model.Environment {
 			Seconds: 10,
 			Nanos:   1,
 		},
-		LocalityLbSetting: &meshconfig.LocalityLoadBalancerSetting{
-			Failover: []*meshconfig.LocalityLoadBalancerSetting_Failover{
+		LocalityLbSetting: &networking.LocalityLoadBalancerSetting{
+			Failover: []*networking.LocalityLoadBalancerSetting_Failover{
 				{
 					From: "region1",
 					To:   "region2",
@@ -253,12 +253,11 @@ func buildEnvForClustersWithFailover() *model.Environment {
 	env := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
 		IstioConfigStore: configStore,
-		Mesh:             meshConfig,
-		MixerSAN:         []string{},
+		Watcher:          mesh.NewFixedWatcher(meshConfig),
 	}
 
 	env.PushContext = model.NewPushContext()
-	_ = env.PushContext.InitContext(env)
+	_ = env.PushContext.InitContext(env, nil, nil)
 	env.PushContext.SetDestinationRules([]model.Config{
 		{ConfigMeta: model.ConfigMeta{
 			Type:    schemas.DestinationRule.Type,

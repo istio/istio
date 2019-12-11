@@ -18,12 +18,16 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/api"
 	v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 
 	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/pkg/version"
@@ -48,7 +52,7 @@ func TestMetricsNoPrometheus(t *testing.T) {
 	cases := []testCase{
 		{ // case 0
 			args:           strings.Split("experimental metrics", " "),
-			expectedOutput: "Error: requires at least 1 arg(s), only received 0\n",
+			expectedRegexp: regexp.MustCompile("Error: metrics requires workload name\n"),
 			wantException:  true,
 		},
 		{ // case 1
@@ -70,8 +74,9 @@ func TestMetrics(t *testing.T) {
 
 	cases := []testCase{
 		{ // case 0
-			args:          strings.Split("experimental metrics details", " "),
-			wantException: true,
+			args:           strings.Split("experimental metrics details", " "),
+			expectedRegexp: regexp.MustCompile("Error: could not build port forwarder for prometheus"),
+			wantException:  true,
 		},
 	}
 
@@ -141,6 +146,8 @@ func TestAPI(t *testing.T) {
 	_, _ = prometheusAPI(1234)
 }
 
+var _ promv1.API = mockPromAPI{}
+
 func TestPrintMetrics(t *testing.T) {
 	mockProm := mockPromAPI{
 		cannedResponse: map[string]prometheus_model.Value{
@@ -179,6 +186,10 @@ func TestPrintMetrics(t *testing.T) {
 	}
 }
 
+func (client mockPromAPI) Alerts(ctx context.Context) (prometheus_v1.AlertsResult, error) {
+	return prometheus_v1.AlertsResult{}, fmt.Errorf("TODO mockPromAPI doesn't mock Alerts")
+}
+
 func (client mockPromAPI) AlertManagers(ctx context.Context) (prometheus_v1.AlertManagersResult, error) {
 	return prometheus_v1.AlertManagersResult{}, fmt.Errorf("TODO mockPromAPI doesn't mock AlertManagers")
 }
@@ -199,24 +210,29 @@ func (client mockPromAPI) Flags(ctx context.Context) (prometheus_v1.FlagsResult,
 	return nil, nil
 }
 
-func (client mockPromAPI) LabelValues(ctx context.Context, label string) (prometheus_model.LabelValues, error) {
-	return nil, nil
+func (client mockPromAPI) LabelValues(ctx context.Context, label string) (prometheus_model.LabelValues, api.Warnings, error) {
+	return nil, nil, nil
 }
 
-func (client mockPromAPI) Query(ctx context.Context, query string, ts time.Time) (prometheus_model.Value, error) {
+func (client mockPromAPI) Query(ctx context.Context, query string, ts time.Time) (prometheus_model.Value, api.Warnings, error) {
 	canned, ok := client.cannedResponse[query]
 	if !ok {
-		return prometheus_model.Vector{}, nil
+		return prometheus_model.Vector{}, nil, nil
 	}
-	return canned, nil
+	return canned, nil, nil
 }
 
-func (client mockPromAPI) QueryRange(ctx context.Context, query string, r prometheus_v1.Range) (prometheus_model.Value, error) {
-	return nil, nil
+func (client mockPromAPI) QueryRange(ctx context.Context, query string, r prometheus_v1.Range) (prometheus_model.Value, api.Warnings, error) {
+	canned, ok := client.cannedResponse[query]
+	if !ok {
+		return prometheus_model.Vector{}, nil, nil
+	}
+	return canned, nil, nil
 }
 
-func (client mockPromAPI) Series(ctx context.Context, matches []string, startTime time.Time, endTime time.Time) ([]prometheus_model.LabelSet, error) {
-	return nil, nil
+func (client mockPromAPI) Series(ctx context.Context, matches []string,
+	startTime time.Time, endTime time.Time) ([]prometheus_model.LabelSet, api.Warnings, error) {
+	return nil, nil, nil
 }
 
 func (client mockPromAPI) Snapshot(ctx context.Context, skipHead bool) (prometheus_v1.SnapshotResult, error) {
@@ -229,4 +245,12 @@ func (client mockPromAPI) Rules(ctx context.Context) (prometheus_v1.RulesResult,
 
 func (client mockPromAPI) Targets(ctx context.Context) (prometheus_v1.TargetsResult, error) {
 	return prometheus_v1.TargetsResult{}, nil
+}
+
+func (client mockPromAPI) LabelNames(ctx context.Context) ([]string, api.Warnings, error) {
+	return nil, nil, nil
+}
+
+func (client mockPromAPI) TargetsMetadata(ctx context.Context, matchTarget string, metric string, limit string) ([]prometheus_v1.MetricMetadata, error) {
+	return nil, nil
 }

@@ -16,7 +16,7 @@
 #
 ################################################################################
 
-set -euf
+set -uf
 
 function show_difference() {
     local ACTUAL=$1
@@ -29,10 +29,11 @@ function show_difference() {
 }
 
 function refresh_reference() {
-    local NAME=$1
-    local ACTUAL=$2
+    local TESTMODE=$1
+    local NAME=$2
+    local ACTUAL=$3
 
-    echo "${ACTUAL}" > "${SCRIPT_DIR}/testdata/${NAME}_golden.txt"
+    echo "${ACTUAL}" > "${SCRIPT_DIR}/testdata/${TESTMODE}/${NAME}_golden.txt"
     echo "golden file for test ${NAME} updated"
 }
 
@@ -51,7 +52,7 @@ function assert_equals() {
 function compareWithGolden() {
   local TEST_NAME="$1"
   local TEST_MODE="$2"
-  local PARAMS="$3"
+  local PARAMS="${3:-}"
   local ACTUAL_OUTPUT
   local FILE_UNDER_TEST
 
@@ -60,17 +61,27 @@ function compareWithGolden() {
     FILE_UNDER_TEST="${SCRIPT_DIR}/../../tools/packaging/common/istio-iptables.sh"
    ;;
    "golang")
-    FILE_UNDER_TEST="${ISTIO_OUT}/istio-iptables --dryRun"
+    FILE_UNDER_TEST="${ISTIO_OUT}/istio-iptables --dry-run"
+   ;;
+   "script_clean")
+    FILE_UNDER_TEST="${SCRIPT_DIR}/../../tools/packaging/common/istio-clean-iptables.sh"
+   ;;
+   "golang_clean")
+    FILE_UNDER_TEST="${ISTIO_OUT}/istio-clean-iptables --dry-run"
    ;;
   esac
+
+  if [[ ${TEST_NAME} == "clean" && ${TEST_MODE} == "golang" ]]; then
+    PARAMS="--clean"
+  fi
 
   # shellcheck disable=SC2086
   ACTUAL_OUTPUT="$(${FILE_UNDER_TEST} ${PARAMS} 2>/dev/null)"
 
   if [[ "x${REFRESH_GOLDEN:-false}x" = "xtruex" ]] ; then
-    refresh_reference "${TEST_NAME}" "${ACTUAL_OUTPUT}"
+    refresh_reference "${TEST_MODE}" "${TEST_NAME}" "${ACTUAL_OUTPUT}"
   else
-    EXPECTED_OUTPUT=$(cat "${SCRIPT_DIR}/testdata/${TEST_NAME}_golden.txt")
+    EXPECTED_OUTPUT=$(cat "${SCRIPT_DIR}/testdata/${TEST_MODE}/${TEST_NAME}_golden.txt")
     if assert_equals "${TEST_NAME}" "${ACTUAL_OUTPUT}" "${EXPECTED_OUTPUT}"; then
       echo -e "ok\tistio.io/$0/${TEST_NAME} (${TEST_MODE})\t0.000s"
     else
@@ -100,15 +111,21 @@ FAILED=()
 for TEST_MODE in "${TEST_MODES[@]}"; do
 
     compareWithGolden mode_redirect "${TEST_MODE}" "-p 12345 -u 4321 -g 4444 -m REDIRECT -b 5555,6666 -d 7777,8888 -i 1.1.0.0/16 -x 9.9.0.0/16 -k eth1,eth2"
+    compareWithGolden clean "${TEST_MODE}_clean"
     compareWithGolden mode_tproxy "${TEST_MODE}" "-p 12345 -u 4321 -g 4444 -m TPROXY -b 5555,6666 -d 7777,8888 -i 1.1.0.0/16 -x 9.9.0.0/16 -k eth1,eth2"
+    compareWithGolden clean "${TEST_MODE}_clean"
     export STUB_IP="2001:db8:1::1"
     compareWithGolden mode_tproxy_and_ipv6 "${TEST_MODE}" "-p 12345 -u 4321 -g 4444 -m TPROXY -b * -d 7777,8888 -i 2001:db8::/32 -x 2019:db8::/32 -k eth1,eth2"
     unset STUB_IP
+    compareWithGolden clean "${TEST_MODE}_clean"
     compareWithGolden mode_tproxy_and_wildcard_port "${TEST_MODE}" "-p 12345 -u 4321 -g 4444 -m TPROXY -b * -d 7777,8888 -i 1.1.0.0/16 -x 9.9.0.0/16 -k eth1,eth2"
+    compareWithGolden clean "${TEST_MODE}_clean"
     compareWithGolden empty_parameter "${TEST_MODE}" ""
+    compareWithGolden clean "${TEST_MODE}_clean"
     compareWithGolden outbound_port_exclude "${TEST_MODE}" "-p 12345 -u 4321 -g 4444 -o 1024,21 -m REDIRECT -b 5555,6666 -d 7777,8888 -i 1.1.0.0/16 -x 9.9.0.0/16 -k eth1,eth2"
+    compareWithGolden clean "${TEST_MODE}_clean"
     compareWithGolden wildcard_include_ip_range "${TEST_MODE}" "-p 12345 -u 4321 -g 4444 -m REDIRECT -b 5555,6666 -d 7777,8888 -i * -x 9.9.0.0/16 -k eth1,eth2"
-    compareWithGolden clean "${TEST_MODE}" "clean"
+    compareWithGolden clean "${TEST_MODE}_clean"
 
 done
 

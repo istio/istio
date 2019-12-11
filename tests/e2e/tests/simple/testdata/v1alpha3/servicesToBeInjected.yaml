@@ -73,6 +73,8 @@ spec:
       containers:
       - name: echosrv
         image: {{.FortioImage}}
+        securityContext:
+          runAsUser: 0
         ports:
          - containerPort: 8080
          - containerPort: 8079
@@ -107,6 +109,8 @@ spec:
       containers:
       - name: echosrv
         image: {{.FortioImage}}
+        securityContext:
+          runAsUser: 0
         ports:
          - containerPort: 8080
          - containerPort: 8079

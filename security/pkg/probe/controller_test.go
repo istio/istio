@@ -43,6 +43,10 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 		CertTTL:       time.Minute * time.Duration(2),
 		MaxCertTTL:    time.Minute * time.Duration(4),
 		KeyCertBundle: bundle,
+		RotatorConfig: &ca.SelfSignedCARootCertRotatorConfig{
+			// Disable root cert rotator by setting check interval to 0ns.
+			CheckInterval: time.Duration(0),
+		},
 	})
 	if err != nil {
 		t.Fatalf("Failed to create a CA instances: %v", err)

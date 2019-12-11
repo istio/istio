@@ -94,7 +94,7 @@ func (c *KeyCertBundleRotator) Start(errCh chan<- error) {
 	for {
 		certBytes, _, _, _ := c.keycert.GetAllPem()
 		if len(certBytes) != 0 {
-			waitTime, ttlErr := c.certUtil.GetWaitTime(certBytes, time.Now())
+			waitTime, ttlErr := c.certUtil.GetWaitTime(certBytes, time.Now(), time.Duration(0))
 			if ttlErr != nil {
 				log.Errorf("Error getting TTL from cert: %v. Rotate immediately.", ttlErr)
 			} else {
@@ -110,7 +110,7 @@ func (c *KeyCertBundleRotator) Start(errCh chan<- error) {
 		}
 		co, coErr := c.keycert.CertOptions()
 		if coErr != nil {
-			err := fmt.Errorf("failed to extact CertOptions from bundle: %v, abort auto rotation", coErr)
+			err := fmt.Errorf("failed to extract CertOptions from bundle: %v, abort auto rotation", coErr)
 			log.Errora(err)
 			errCh <- err
 			return

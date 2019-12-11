@@ -22,12 +22,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gogo/protobuf/types"
-
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
-	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/keepalive"
@@ -83,17 +80,15 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 	// Create a test pilot discovery service configured to watch the tempDir.
 	args := bootstrap.PilotArgs{
 		Namespace: "testing",
-		DiscoveryOptions: envoy.DiscoveryServiceOptions{
+		DiscoveryOptions: bootstrap.DiscoveryServiceOptions{
 			HTTPAddr:        httpAddr,
 			GrpcAddr:        ":0",
 			SecureGrpcAddr:  ":0",
-			EnableCaching:   true,
 			EnableProfiling: true,
 		},
 		//TODO: start mixer first, get its address
 		Mesh: bootstrap.MeshArgs{
-			MixerAddress:    "istio-mixer.istio-system:9091",
-			RdsRefreshDelay: types.DurationProto(10 * time.Millisecond),
+			MixerAddress: "istio-mixer.istio-system:9091",
 		},
 		Config: bootstrap.ConfigArgs{
 			KubeConfig: env.IstioSrc + "/tests/util/kubeconfig",
@@ -101,10 +96,10 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 		Service: bootstrap.ServiceArgs{
 			// Using the Mock service registry, which provides the hello and world services.
 			Registries: []string{
-				string(serviceregistry.MockRegistry)},
+				string(serviceregistry.Mock)},
 		},
 		MeshConfig:        &meshConfig,
-		MCPMaxMessageSize: bootstrap.DefaultMCPMaxMsgSize,
+		MCPMaxMessageSize: 1024 * 1024 * 4,
 		KeepaliveOptions:  keepalive.DefaultOption(),
 		ForceStop:         true,
 		// TODO: add the plugins, so local tests are closer to reality and test full generation

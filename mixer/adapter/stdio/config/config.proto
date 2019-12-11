@@ -59,7 +59,7 @@ message Params {
     // Importance level for individual items output by this adapter.
     enum Level {
         INFO = 0;       // informational, warning, and error log messages are included
-        WARNING = 1;    // warning and error log messges are included
+        WARNING = 1;    // warning and error log messages are included
         ERROR = 2;      // only error log messages are included
     }
 

@@ -38,6 +38,14 @@ metadata:
   name: sidecar
   namespace:  {{.AppNamespace}}
 spec:
+{{- if .IngressListener }}
+  ingress:
+    - port:
+        number: 9080
+        protocol: HTTP
+        name: custom-http
+      defaultEndpoint: unix:///var/run/someuds.sock
+{{- end }}
   egress:
     - hosts:
 {{ range $i, $ns := .ImportedNamespaces }}
@@ -188,15 +196,25 @@ type Config struct {
 	ExcludedNamespace  string
 	AppNamespace       string
 	Resolution         string
+	IngressListener    bool
 }
 
 func setupTest(t *testing.T, ctx resource.Context, modifyConfig func(c Config) Config) (pilot.Instance, *model.Proxy) {
 	g := galley.NewOrFail(t, ctx, galley.Config{})
 	p := pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
 
-	includedNamespace := namespace.NewOrFail(t, ctx, "included", true)
-	excludedNamespace := namespace.NewOrFail(t, ctx, "excluded", true)
-	appNamespace := namespace.NewOrFail(t, ctx, "app", true)
+	includedNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
+		Prefix: "included",
+		Inject: true,
+	})
+	excludedNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
+		Prefix: "excluded",
+		Inject: true,
+	})
+	appNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
+		Prefix: "app",
+		Inject: true,
+	})
 
 	config := modifyConfig(Config{
 		IncludedNamespace:  includedNamespace.Name(),

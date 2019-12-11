@@ -223,7 +223,7 @@ func TestLogs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get logs: %v", err)
 	}
-	t.Logf("Got a log, dest: %v", entry.Labels["destination_service_host"])
+	t.Logf("Got a log, dest: %v", entry.Labels["destination_service"])
 }
 
 func createTraceService(ctx context.Context) (*cloudtrace.Service, error) {

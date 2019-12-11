@@ -19,7 +19,7 @@ constraints:
                 "protocol": "HTTPS"
               }
               ],
-              "resolution": 2
+              "resolution": "DNS"
             },
             "Metadata": {
               "name": "{{.Namespace}}/googleapis"

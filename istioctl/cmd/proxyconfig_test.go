@@ -24,6 +24,7 @@ import (
 
 	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/security/pkg/nodeagent/sds"
 	"istio.io/pkg/version"
 )
 
@@ -52,36 +53,73 @@ func TestProxyConfig(t *testing.T) {
 	endpointConfig := map[string][]byte{
 		"details-v1-5b7f94f9bc-wp5tb": util.ReadFile("../pkg/writer/envoy/clusters/testdata/clusters.json", t),
 	}
+	loggingConfig := map[string][]byte{
+		"details-v1-5b7f94f9bc-wp5tb": util.ReadFile("../pkg/writer/envoy/logging/testdata/logging.txt", t),
+	}
 	cases := []execTestCase{
-		{ // case 0
+		{
 			args:           strings.Split("proxy-config", " "),
 			expectedString: "A group of commands used to retrieve information about",
 		},
-		{ // case 1 short name 'pc'
+		{ // short name 'pc'
 			args:           strings.Split("pc", " "),
 			expectedString: "A group of commands used to retrieve information about",
 		},
-		{ // case 2 clusters invalid
+		{ // clusters invalid
 			args:           strings.Split("proxy-config clusters invalid", " "),
 			expectedString: "unable to retrieve Pod: pods \"invalid\" not found",
 			wantException:  true, // "istioctl proxy-config clusters invalid" should fail
 		},
-		{ // case 3 listeners invalid
+		{ // listeners invalid
 			args:           strings.Split("proxy-config listeners invalid", " "),
 			expectedString: "unable to retrieve Pod: pods \"invalid\" not found",
 			wantException:  true, // "istioctl proxy-config listeners invalid" should fail
 		},
-		{ // case 4 routes invalid
+		{ // logging invalid
+			args:           strings.Split("proxy-config log invalid", " "),
+			expectedString: "unable to retrieve Pod: pods \"invalid\" not found",
+			wantException:  true, // "istioctl proxy-config logging invalid" should fail
+		},
+		{ // logging level invalid
+			execClientConfig: loggingConfig,
+			args:             strings.Split("proxy-config log details-v1-5b7f94f9bc-wp5tb --level xxx", " "),
+			expectedString:   "unrecognized logging level: xxx",
+			wantException:    true,
+		},
+		{ // logger name invalid
+			execClientConfig: loggingConfig,
+			args:             strings.Split("proxy-config log details-v1-5b7f94f9bc-wp5tb --level xxx:debug", " "),
+			expectedString:   "unrecognized logger name: xxx",
+			wantException:    true,
+		},
+		{ // logger name valid, but logging level invalid
+			execClientConfig: loggingConfig,
+			args:             strings.Split("proxy-config log details-v1-5b7f94f9bc-wp5tb --level http:yyy", " "),
+			expectedString:   "unrecognized logging level: yyy",
+			wantException:    true,
+		},
+		{ // both logger name and logging level invalid
+			execClientConfig: loggingConfig,
+			args:             strings.Split("proxy-config log details-v1-5b7f94f9bc-wp5tb --level xxx:yyy", " "),
+			expectedString:   "unrecognized logger name: xxx",
+			wantException:    true,
+		},
+		{ // routes invalid
 			args:           strings.Split("proxy-config routes invalid", " "),
 			expectedString: "unable to retrieve Pod: pods \"invalid\" not found",
 			wantException:  true, // "istioctl proxy-config routes invalid" should fail
 		},
-		{ // case 5 bootstrap invalid
+		{ // bootstrap invalid
 			args:           strings.Split("proxy-config bootstrap invalid", " "),
 			expectedString: "unable to retrieve Pod: pods \"invalid\" not found",
 			wantException:  true, // "istioctl proxy-config bootstrap invalid" should fail
 		},
-		{ // case 6 clusters valid
+		{ // secret invalid
+			args:           strings.Split("proxy-config secret invalid", " "),
+			expectedString: "unable to retrieve Pod: pods \"invalid\" not found",
+			wantException:  true, // "istioctl proxy-config secret invalid" should fail
+		},
+		{ // clusters valid
 			execClientConfig: cannedConfig,
 			args:             strings.Split("proxy-config clusters details-v1-5b7f94f9bc-wp5tb", " "),
 			expectedOutput: `SERVICE FQDN                                    PORT      SUBSET     DIRECTION     TYPE
@@ -89,7 +127,7 @@ istio-policy.istio-system.svc.cluster.local     15004     -          outbound   
 xds-grpc                                        -         -          -             STRICT_DNS
 `,
 		},
-		{ // case 7 listeners valid
+		{ // listeners valid
 			execClientConfig: cannedConfig,
 			args:             strings.Split("proxy-config listeners details-v1-5b7f94f9bc-wp5tb", " "),
 			expectedOutput: `ADDRESS            PORT     TYPE
@@ -97,7 +135,7 @@ xds-grpc                                        -         -          -          
 0.0.0.0            8080     HTTP
 `,
 		},
-		{ // case 8 routes valid
+		{ // routes valid
 			execClientConfig: cannedConfig,
 			args:             strings.Split("proxy-config routes details-v1-5b7f94f9bc-wp5tb", " "),
 			expectedOutput: `NOTE: This output only contains routes loaded via RDS.
@@ -106,21 +144,106 @@ NAME                                                    VIRTUAL HOSTS
 inbound|9080||productpage.default.svc.cluster.local     1
 `,
 		},
-		{ // case 9 endpoint invalid
+		{ // secret valid
+			execClientConfig: cannedConfig,
+			args:             strings.Split("proxy-config secret details-v1-5b7f94f9bc-wp5tb", " "),
+			expectedOutput: `RESOURCE NAME     TYPE           STATUS      VALID CERT     SERIAL NUMBER                               NOT AFTER                NOT BEFORE
+default           Cert Chain     WARMING     true           102248101821513494474081488414108563796     2019-09-05T21:18:20Z     2019-09-04T21:18:20Z
+default           Cert Chain     ACTIVE      true           172326788211665918318952701714288464978     2019-08-28T17:19:57Z     2019-08-27T17:19:57Z
+`,
+		},
+		{ // endpoint invalid
 			args:           strings.Split("proxy-config endpoint invalid", " "),
 			expectedString: "unable to retrieve Pod: pods \"invalid\" not found",
 			wantException:  true, // "istioctl proxy-config endpoint invalid" should fail
 		},
-		{ // case 10 endpoint valid
+		{ // endpoint valid
 			execClientConfig: endpointConfig,
 			args:             strings.Split("proxy-config endpoint details-v1-5b7f94f9bc-wp5tb --port=15014", " "),
 			expectedOutput: `ENDPOINT              STATUS        OUTLIER CHECK     CLUSTER
 172.17.0.14:15014     UNHEALTHY     OK                outbound|15014||istio-policy.istio-system.svc.cluster.local
 `,
 		},
-		{ // case 11 endpoint status filter
+		{ // endpoint status filter
 			execClientConfig: endpointConfig,
 			args:             strings.Split("proxy-config endpoint details-v1-5b7f94f9bc-wp5tb --status=unhealthy", " "),
+			expectedOutput: `ENDPOINT              STATUS        OUTLIER CHECK     CLUSTER
+172.17.0.14:15014     UNHEALTHY     OK                outbound|15014||istio-policy.istio-system.svc.cluster.local
+`,
+		},
+		{ // bootstrap no args
+			execClientConfig: endpointConfig,
+			args:             strings.Split("proxy-config bootstrap", " "),
+			expectedString:   `Error: bootstrap requires pod name or --file parameter`,
+			wantException:    true,
+		},
+		{ // cluster no args
+			execClientConfig: endpointConfig,
+			args:             strings.Split("proxy-config cluster", " "),
+			expectedString:   `Error: cluster requires pod name or --file parameter`,
+			wantException:    true,
+		},
+		{ // endpoint no args
+			execClientConfig: endpointConfig,
+			args:             strings.Split("proxy-config endpoint", " "),
+			expectedString:   `Error: endpoints requires pod name or --file parameter`,
+			wantException:    true,
+		},
+		{ // listener no args
+			execClientConfig: endpointConfig,
+			args:             strings.Split("proxy-config listener", " "),
+			expectedString:   `Error: listener requires pod name or --file parameter`,
+			wantException:    true,
+		},
+		{ // logging no args
+			execClientConfig: endpointConfig,
+			args:             strings.Split("proxy-config log", " "),
+			expectedString:   `Error: log requires pod name`,
+			wantException:    true,
+		},
+		{ // route no args
+			execClientConfig: endpointConfig,
+			args:             strings.Split("proxy-config route", " "),
+			expectedString:   `Error: route requires pod name or --file parameter`,
+			wantException:    true,
+		},
+		{ // secret no args
+			execClientConfig: endpointConfig,
+			args:             strings.Split("proxy-config secret", " "),
+			expectedString:   `Error: secret requires pod name or --file parameter`,
+			wantException:    true,
+		},
+		{ // clusters using --file
+			args: strings.Split("proxy-config clusters --file ../pkg/writer/compare/testdata/envoyconfigdump.json", " "),
+			expectedOutput: `SERVICE FQDN                                    PORT      SUBSET     DIRECTION     TYPE
+istio-policy.istio-system.svc.cluster.local     15004     -          outbound      EDS
+xds-grpc                                        -         -          -             STRICT_DNS
+`,
+		},
+		{ // listeners using --file
+			args: strings.Split("proxy-config listeners --file ../pkg/writer/compare/testdata/envoyconfigdump.json", " "),
+			expectedOutput: `ADDRESS            PORT     TYPE
+172.21.134.116     443      TCP
+0.0.0.0            8080     HTTP
+`,
+		},
+		{ // routes using --file
+			args: strings.Split("proxy-config routes --file ../pkg/writer/compare/testdata/envoyconfigdump.json", " "),
+			expectedOutput: `NOTE: This output only contains routes loaded via RDS.
+NAME                                                    VIRTUAL HOSTS
+15004                                                   2
+inbound|9080||productpage.default.svc.cluster.local     1
+`,
+		},
+		{ // secret using --file
+			args: strings.Split("proxy-config secret --file ../pkg/writer/compare/testdata/envoyconfigdump.json", " "),
+			expectedOutput: `RESOURCE NAME     TYPE           STATUS      VALID CERT     SERIAL NUMBER                               NOT AFTER                NOT BEFORE
+default           Cert Chain     WARMING     true           102248101821513494474081488414108563796     2019-09-05T21:18:20Z     2019-09-04T21:18:20Z
+default           Cert Chain     ACTIVE      true           172326788211665918318952701714288464978     2019-08-28T17:19:57Z     2019-08-27T17:19:57Z
+`,
+		},
+		{ // endpoint using --file
+			args: strings.Split("proxy-config endpoint --file ../pkg/writer/envoy/clusters/testdata/clusters.json --port=15014", " "),
 			expectedOutput: `ENDPOINT              STATUS        OUTLIER CHECK     CLUSTER
 172.17.0.14:15014     UNHEALTHY     OK                outbound|15014||istio-policy.istio-system.svc.cluster.local
 `,
@@ -143,7 +266,6 @@ func verifyExecTestOutput(t *testing.T, c execTestCase) {
 	var out bytes.Buffer
 	rootCmd := GetRootCmd(c.args)
 	rootCmd.SetOutput(&out)
-
 	file = "" // Clear, because we re-use
 
 	fErr := rootCmd.Execute()
@@ -217,4 +339,12 @@ func (client mockExecConfig) PodsForSelector(namespace, labelSelector string) (*
 
 func (client mockExecConfig) BuildPortForwarder(podName string, ns string, localPort int, podPort int) (*kubernetes.PortForward, error) {
 	return nil, fmt.Errorf("mock k8s does not forward")
+}
+
+func (client mockExecConfig) GetPodNodeAgentSecrets(podName, ns, istioNamespace string) (map[string]sds.Debug, error) {
+	return map[string]sds.Debug{}, nil
+}
+
+func (client mockExecConfig) NodeAgentDebugEndpointOutput(podName, ns, secretType, container string) (sds.Debug, error) {
+	return sds.Debug{}, nil
 }

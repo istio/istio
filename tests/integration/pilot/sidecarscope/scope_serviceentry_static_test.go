@@ -17,6 +17,7 @@ package sidecarscope
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -70,6 +71,83 @@ func TestServiceEntryStatic(t *testing.T) {
 	})
 }
 
+func TestSidecarScopeIngressListener(t *testing.T) {
+	framework.Run(t, func(ctx framework.TestContext) {
+		configFn := func(c Config) Config {
+			c.Resolution = "STATIC"
+			c.IngressListener = true
+			return c
+		}
+		p, nodeID := setupTest(t, ctx, configFn)
+		// Change the node's IP so that it does not match with any service entry
+		nodeID.IPAddresses = []string{"100.100.100.100"}
+
+		req := &xdsapi.DiscoveryRequest{
+			Node: &xdscore.Node{
+				Id: nodeID.ServiceNode(),
+			},
+			TypeUrl: v2.ClusterType,
+		}
+
+		if err := p.StartDiscovery(req); err != nil {
+			t.Fatal(err)
+		}
+		if err := p.WatchDiscovery(time.Second*5, checkSidecarIngressCluster); err != nil {
+			t.Fatal(err)
+		}
+
+		listenerReq := &xdsapi.DiscoveryRequest{
+			Node: &xdscore.Node{
+				Id: nodeID.ServiceNode(),
+			},
+			TypeUrl: v2.ListenerType,
+		}
+
+		if err := p.StartDiscovery(listenerReq); err != nil {
+			t.Fatal(err)
+		}
+		if err := p.WatchDiscovery(time.Second*500, checkSidecarIngressListener); err != nil {
+			t.Error(err)
+		}
+	})
+}
+
+func checkSidecarIngressCluster(resp *xdsapi.DiscoveryResponse) (success bool, e error) {
+	expectedClusterNamePrefix := "inbound|9080|custom-http|sidecar."
+	expectedEndpoints := map[string]int{
+		"unix:///var/run/someuds.sock": 1,
+	}
+	if len(resp.Resources) == 0 {
+		return true, nil
+	}
+
+	for _, res := range resp.Resources {
+		c := &xdsapi.Cluster{}
+		if err := proto.Unmarshal(res.Value, c); err != nil {
+			return false, err
+		}
+		if !strings.HasPrefix(c.Name, expectedClusterNamePrefix) {
+			continue
+		}
+
+		got := map[string]int{}
+		for _, ep := range c.LoadAssignment.Endpoints {
+			for _, lb := range ep.LbEndpoints {
+				if lb.GetEndpoint().Address.GetSocketAddress() != nil {
+					got[lb.GetEndpoint().Address.GetSocketAddress().Address]++
+				} else {
+					got[lb.GetEndpoint().Address.GetPipe().Path]++
+				}
+			}
+		}
+		if !reflect.DeepEqual(expectedEndpoints, got) {
+			return false, fmt.Errorf("excepted load assignments %+v, got %+v", expectedEndpoints, got)
+		}
+		return true, nil
+	}
+	return false, fmt.Errorf("did not find expected cluster %s", expectedClusterNamePrefix)
+}
+
 func checkResultStatic(resp *xdsapi.DiscoveryResponse) (success bool, e error) {
 	expected := map[string]int{
 		"1.1.1.1": 1,
@@ -117,5 +195,29 @@ func checkResultStaticListener(resp *xdsapi.DiscoveryResponse) (success bool, e 
 	if !reflect.DeepEqual(expected, got) {
 		return false, fmt.Errorf("excepted listeners %+v, got %+v", expected, got)
 	}
+	return true, nil
+}
+
+func checkSidecarIngressListener(resp *xdsapi.DiscoveryResponse) (success bool, e error) {
+	expected := map[string]struct{}{
+		"100.100.100.100_9080": {}, // corresponds to the proxy IP
+		"0.0.0.0_80":           {},
+		"5.5.5.5_443":          {},
+		"virtualInbound":       {},
+		"virtualOutbound":      {},
+	}
+
+	got := map[string]struct{}{}
+	for _, res := range resp.Resources {
+		c := &xdsapi.Listener{}
+		if err := proto.Unmarshal(res.Value, c); err != nil {
+			return false, err
+		}
+		got[c.Name] = struct{}{}
+	}
+	if !reflect.DeepEqual(expected, got) {
+		return false, fmt.Errorf("excepted listeners %+v, got %+v", expected, got)
+	}
+
 	return true, nil
 }

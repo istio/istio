@@ -19,8 +19,6 @@ import (
 	"os/user"
 )
 
-type Cmd string
-
 const (
 	IPTABLES      = "iptables"
 	IPTABLESSAVE  = "iptables-save"
@@ -36,9 +34,9 @@ type Dependencies interface {
 	// LookupUser returns user, which runs this executable
 	LookupUser() (*user.User, error)
 	// RunOrFail runs a command and panics, if it fails
-	RunOrFail(cmd Cmd, args ...string)
+	RunOrFail(cmd string, args ...string)
 	// Run runs a command
-	Run(cmd Cmd, args ...string) error
+	Run(cmd string, args ...string) error
 	// RunQuietlyAndIgnore runs a command quietly and ignores errors
-	RunQuietlyAndIgnore(cmd Cmd, args ...string)
+	RunQuietlyAndIgnore(cmd string, args ...string)
 }

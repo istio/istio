@@ -17,7 +17,7 @@
 //
 //
 // nolint: lll
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -a mixer/adapter/redisquota/config/config.proto -x "-n redisquota -t quota"
+//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/adapter/redisquota/config/config.proto -x "-n redisquota -t quota"
 package redisquota // import "istio.io/istio/mixer/adapter/redisquota"
 
 import (
@@ -321,7 +321,9 @@ func (h *handler) HandleQuota(context context.Context, instance *quota.Instance,
 			key, maxAmount, err := h.getKeyAndQuotaAmount(instance, limit)
 			if err != nil {
 				_ = h.logger.Errorf("%v", err.Error())
-				return adapter.QuotaResult{}, nil
+				return adapter.QuotaResult{
+					Status: status.WithInternal("redisquota: Internal Error"),
+				}, nil
 			}
 
 			h.logger.Debugf("key: %v maxAmount: %v", key, maxAmount)
@@ -344,13 +346,17 @@ func (h *handler) HandleQuota(context context.Context, instance *quota.Instance,
 
 			if err != nil {
 				_ = h.logger.Errorf("failed to run quota script: %v", err)
-				return adapter.QuotaResult{}, nil
+				return adapter.QuotaResult{
+					Status: status.WithUnavailable("redisquota: Service Unavailable"),
+				}, nil
 			}
 
 			allocated, expiration, err := getAllocatedTokenFromResult(&result)
 			if err != nil {
 				_ = h.logger.Errorf("%v", err)
-				return adapter.QuotaResult{}, nil
+				return adapter.QuotaResult{
+					Status: status.WithInternal("redisquota: Internal Error"),
+				}, nil
 			}
 
 			if allocated <= 0 {
@@ -365,7 +371,9 @@ func (h *handler) HandleQuota(context context.Context, instance *quota.Instance,
 		}
 	}
 
-	return adapter.QuotaResult{}, nil
+	return adapter.QuotaResult{
+		Status: status.OK,
+	}, nil
 }
 
 func (h handler) Close() error {

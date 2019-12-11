@@ -1,0 +1,41 @@
+# Gateway with non-standard IngressGateway
+#
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: httpbin-gateway
+spec:
+  selector:
+    myapp: private-ingressgateway
+  servers:
+  - port:
+      number: 8003
+      name: http2
+      protocol: HTTP
+    hosts:
+    - "*"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    myapp: private-ingressgateway
+  name: my-ingressgateway-1234
+spec:
+  containers:
+    - args:
+      name: istio-proxy
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-ingressgateway
+spec:
+  ports:
+  - name: http2
+    nodePort: 31380
+    port: 8003
+    protocol: TCP
+    targetPort: 80
+  selector:
+    myapp: private-ingressgateway

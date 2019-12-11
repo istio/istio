@@ -1,8 +1,0 @@
-Package: github.com/signalfx/com_signalfx_metrics_protobuf
-License URL: https://github.com/istio/istio/blob/release-1.0/vendor/github.com/signalfx/com_signalfx_metrics_protobuf
-License text:
-## License
-
-Apache Software License v2. Copyright © 2015-2017 SignalFx
-
------------------------------------------------------------

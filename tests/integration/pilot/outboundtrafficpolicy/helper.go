@@ -65,6 +65,20 @@ spec:
     number: 80
     protocol: HTTP
   resolution: DNS
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: http-on-443
+spec:
+  hosts:
+  - c.istio.io
+  location: MESH_EXTERNAL
+  ports:
+  - name: http
+    number: 443
+    protocol: HTTP
+  resolution: DNS
 `
 	SidecarScope = `
 apiVersion: networking.istio.io/v1alpha3
@@ -107,8 +121,14 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 			g := galley.NewOrFail(t, ctx, galley.Config{})
 			p := pilot.NewOrFail(t, ctx, pilot.Config{Galley: g})
 
-			appsNamespace := namespace.NewOrFail(t, ctx, "app", true)
-			serviceNamespace := namespace.NewOrFail(t, ctx, "service", true)
+			appsNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "app",
+				Inject: true,
+			})
+			serviceNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "service",
+				Inject: true,
+			})
 
 			var client, dest echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
@@ -127,10 +147,14 @@ func RunExternalRequestTest(expected map[string][]string, t *testing.T) {
 						{
 							Name:     "http",
 							Protocol: protocol.HTTP,
+							// We use a port > 1024 to not require root
+							InstancePort: 8090,
 						},
 						{
 							Name:     "https",
 							Protocol: protocol.HTTPS,
+							// We use a port > 1024 to not require root
+							InstancePort: 8091,
 						},
 					},
 				}).BuildOrFail(t)

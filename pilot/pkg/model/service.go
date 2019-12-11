@@ -31,7 +31,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	"github.com/mitchellh/copystructure"
 
 	authn "istio.io/api/authentication/v1alpha1"
 
@@ -52,17 +53,10 @@ import (
 // foo.default.svc.cluster.local hostname, has a virtual IP of 10.0.1.1 and
 // listens on ports 80, 8080
 type Service struct {
-	// Name of the service, e.g. "catalog.mystore.com"
-	Hostname host.Name `json:"hostname"`
+	// Attributes contains additional attributes associated with the service
+	// used mostly by mixer and RBAC for policy enforcement purposes.
+	Attributes ServiceAttributes
 
-	// Address specifies the service IPv4 address of the load balancer
-	Address string `json:"address,omitempty"`
-
-	// Protect concurrent ClusterVIPs read/write
-	Mutex sync.RWMutex
-	// ClusterVIPs specifies the service address of the load balancer
-	// in each of the clusters where the service resides
-	ClusterVIPs map[string]string `json:"cluster-vips,omitempty"`
 	// Ports is the set of network ports where the service is listening for
 	// connections
 	Ports PortList `json:"ports,omitempty"`
@@ -70,9 +64,18 @@ type Service struct {
 	// ServiceAccounts specifies the service accounts that run the service.
 	ServiceAccounts []string `json:"serviceAccounts,omitempty"`
 
-	// MeshExternal (if true) indicates that the service is external to the mesh.
-	// These services are defined using Istio's ServiceEntry spec.
-	MeshExternal bool
+	// CreationTime records the time this service was created, if available.
+	CreationTime time.Time `json:"creationTime,omitempty"`
+
+	// Name of the service, e.g. "catalog.mystore.com"
+	Hostname host.Name `json:"hostname"`
+
+	// Address specifies the service IPv4 address of the load balancer
+	Address string `json:"address,omitempty"`
+
+	// ClusterVIPs specifies the service address of the load balancer
+	// in each of the clusters where the service resides
+	ClusterVIPs map[string]string `json:"cluster-vips,omitempty"`
 
 	// Resolution indicates how the service instances need to be resolved before routing
 	// traffic. Most services in the service registry will use static load balancing wherein
@@ -82,12 +85,12 @@ type Service struct {
 	// by the caller)
 	Resolution Resolution
 
-	// CreationTime records the time this service was created, if available.
-	CreationTime time.Time `json:"creationTime,omitempty"`
+	// Protect concurrent ClusterVIPs read/write
+	Mutex sync.RWMutex
 
-	// Attributes contains additional attributes associated with the service
-	// used mostly by mixer and RBAC for policy enforcement purposes.
-	Attributes ServiceAttributes
+	// MeshExternal (if true) indicates that the service is external to the mesh.
+	// These services are defined using Istio's ServiceEntry spec.
+	MeshExternal bool
 }
 
 // Resolution indicates how the service instances need to be resolved before routing
@@ -103,6 +106,20 @@ const (
 	Passthrough
 )
 
+// String converts Resolution in to String.
+func (resolution Resolution) String() string {
+	switch resolution {
+	case ClientSideLB:
+		return "ClientSide"
+	case DNSLB:
+		return "DNS"
+	case Passthrough:
+		return "Passthrough"
+	default:
+		return fmt.Sprintf("%d", int(resolution))
+	}
+}
+
 const (
 	// IstioDefaultConfigNamespace constant for default namespace
 	IstioDefaultConfigNamespace = "default"
@@ -114,6 +131,21 @@ const (
 	LocalityLabel = "istio-locality"
 	// k8s istio-locality label separator
 	k8sSeparator = "."
+)
+
+const (
+	// TLSModeLabelShortname name used for determining endpoint level tls transport socket configuration
+	TLSModeLabelShortname = "tlsMode"
+
+	// TLSModeLabelName is the name of label given to service instances to determine whether to use mTLS or
+	// fallback to plaintext/tls
+	TLSModeLabelName = "security.istio.io/" + TLSModeLabelShortname
+
+	// DisabledTLSModeLabel implies that this endpoint should receive traffic as is (mostly plaintext)
+	DisabledTLSModeLabel = "disabled"
+
+	// IstioMutualTLSModeLabel implies that the endpoint is ready to receive Istio mTLS connections.
+	IstioMutualTLSModeLabel = "istio"
 )
 
 // Port represents a network port where a service is listening for
@@ -256,6 +288,7 @@ type ServiceInstance struct {
 	Service        *Service        `json:"service,omitempty"`
 	Labels         labels.Instance `json:"labels,omitempty"`
 	ServiceAccount string          `json:"serviceaccount,omitempty"`
+	TLSMode        string          `json:"tlsMode,omitempty"`
 }
 
 // GetLocality returns the availability zone from an instance. If service instance label for locality
@@ -264,8 +297,8 @@ type ServiceInstance struct {
 // 	 - consul: defaults to 'instance.Datacenter'
 //
 // This is used by CDS/EDS to group the endpoints by locality.
-func (si *ServiceInstance) GetLocality() string {
-	return GetLocalityOrDefault(si.Labels[LocalityLabel], si.Endpoint.Locality)
+func (instance *ServiceInstance) GetLocality() string {
+	return GetLocalityOrDefault(instance.Labels[LocalityLabel], instance.Endpoint.Locality)
 }
 
 // GetLocalityOrDefault returns the locality from the supplied label, or falls back to
@@ -340,10 +373,17 @@ type IstioEndpoint struct {
 	// Attributes contains additional attributes associated with the service
 	// used mostly by mixer and RBAC for policy enforcement purposes.
 	Attributes ServiceAttributes
+
+	// TLSMode endpoint is injected with istio sidecar and ready to configure Istio mTLS
+	TLSMode string
 }
 
 // ServiceAttributes represents a group of custom attributes of the service.
 type ServiceAttributes struct {
+	// ServiceRegistry indicates the backing service registry system where this service
+	// was sourced from.
+	// TODO: move the ServiceRegistry type from platform.go to model
+	ServiceRegistry string
 	// Name is "destination.service.name" attribute
 	Name string
 	// Namespace is "destination.service.namespace" attribute
@@ -365,7 +405,7 @@ type ServiceAttributes struct {
 
 // ServiceDiscovery enumerates Istio service instances.
 // nolint: lll
-//go:generate $GOPATH/src/istio.io/istio/bin/counterfeiter.sh -o $GOPATH/src/istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes/fake_service_discovery.go --fake-name ServiceDiscovery . ServiceDiscovery
+//go:generate counterfeiter -o ../networking/core/v1alpha3/fakes/fake_service_discovery.gen.go --fake-name ServiceDiscovery . ServiceDiscovery
 type ServiceDiscovery interface {
 	// Services list declarations of all services in the system
 	Services() ([]*Service, error)
@@ -600,7 +640,7 @@ func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, ho
 	var parts []string
 	dnsSrvMode := false
 	// This could be the DNS srv form of the cluster that uses outbound_.port_.subset_.hostname
-	// Since we dont want every callsite to implement the logic to differentiate between the two forms
+	// Since we do not want every callsite to implement the logic to differentiate between the two forms
 	// we add an alternate parser here.
 	if strings.HasPrefix(s, trafficDirectionOutboundSrvPrefix) ||
 		strings.HasPrefix(s, trafficDirectionInboundSrvPrefix) {
@@ -634,4 +674,51 @@ func (s *Service) GetServiceAddressForProxy(node *Proxy) string {
 		return s.ClusterVIPs[node.ClusterID]
 	}
 	return s.Address
+}
+
+// GetTLSModeFromEndpointLabels returns the value of the label
+// security.istio.io/tlsMode if set. Do not return Enums or constants
+// from this function as users could provide values other than istio/disabled
+// and apply custom transport socket matchers here.
+func GetTLSModeFromEndpointLabels(labels map[string]string) string {
+	if labels != nil {
+		if val, exists := labels[TLSModeLabelName]; exists {
+			return val
+		}
+	}
+	return DisabledTLSModeLabel
+}
+
+// DeepCopy creates a clone of Service.
+// TODO : See if there is any efficient alternative to this function - copystructure can not be used as is because
+// Service has sync.RWMutex that can not be copied.
+func (s *Service) DeepCopy() *Service {
+	attrs := copyInternal(s.Attributes)
+	ports := copyInternal(s.Ports)
+	accounts := copyInternal(s.ServiceAccounts)
+	clusterVIPs := copyInternal(s.ClusterVIPs)
+
+	return &Service{
+		Attributes:      attrs.(ServiceAttributes),
+		Ports:           ports.(PortList),
+		ServiceAccounts: accounts.([]string),
+		CreationTime:    s.CreationTime,
+		Hostname:        s.Hostname,
+		Address:         s.Address,
+		ClusterVIPs:     clusterVIPs.(map[string]string),
+		Resolution:      s.Resolution,
+		MeshExternal:    s.MeshExternal,
+	}
+}
+
+func copyInternal(v interface{}) interface{} {
+	copied, err := copystructure.Copy(v)
+	if err != nil {
+		// There are 2 locations where errors are generated in copystructure.Copy:
+		//  * The reflection walk over the structure fails, which should never happen
+		//  * A configurable copy function returns an error. This is only used for copying times, which never returns an error.
+		// Therefore, this should never happen
+		panic(err)
+	}
+	return copied
 }

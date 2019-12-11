@@ -17,7 +17,8 @@ package features
 import (
 	"time"
 
-	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/duration"
 
 	"istio.io/pkg/env"
 )
@@ -51,11 +52,6 @@ var (
 	// Defaults to false, can be enabled with PILOT_DEBUG_ADSZ_CONFIG=1
 	// For larger clusters it can increase memory use and GC - useful for small tests.
 	DebugConfigs = env.RegisterBoolVar("PILOT_DEBUG_ADSZ_CONFIG", false, "").Get()
-
-	// RefreshDuration is the duration of periodic refresh, in case events or cache invalidation fail.
-	// Example: "300ms", "10s" or "2h45m".
-	// Default is 0 (disabled).
-	RefreshDuration = env.RegisterDurationVar("V2_REFRESH", 0, "").Get()
 
 	DebounceAfter = env.RegisterDurationVar(
 		"PILOT_DEBOUNCE_AFTER",
@@ -101,7 +97,13 @@ var (
 			"a response to the config requested by Envoy, the Envoy will move on with the init phase. "+
 			"This prevents envoy from getting stuck waiting on config during startup.",
 	)
-	InitialFetchTimeout = types.DurationProto(initialFetchTimeoutVar.Get())
+	InitialFetchTimeout = func() *duration.Duration {
+		timeout, f := initialFetchTimeoutVar.Lookup()
+		if !f {
+			return nil
+		}
+		return ptypes.DurationProto(timeout)
+	}()
 
 	terminationDrainDurationVar = env.RegisterIntVar(
 		"TERMINATION_DRAIN_DURATION_SECONDS",
@@ -162,6 +164,13 @@ var (
 		false,
 		"Use the Istio JWT filter for JWT token verification.")
 
+	// SkipValidateTrustDomain tells the server proxy to not to check the peer's trust domain when
+	// mTLS is enabled in authentication policy.
+	SkipValidateTrustDomain = env.RegisterBoolVar(
+		"PILOT_SKIP_VALIDATE_TRUST_DOMAIN",
+		false,
+		"Skip validating the peer is from the same trust domain when mTLS is enabled in authentication policy")
+
 	RestrictPodIPTrafficLoops = env.RegisterBoolVar(
 		"PILOT_RESTRICT_POD_UP_TRAFFIC_LOOP",
 		true,
@@ -170,10 +179,16 @@ var (
 			"and will be removed in the near future.",
 	)
 
-	EnableProtocolSniffing = env.RegisterBoolVar(
-		"PILOT_ENABLE_PROTOCOL_SNIFFING",
-		false,
-		"If enabled, protocol sniffing will be used on ports whose port protocol is not specified or unsupported",
+	EnableProtocolSniffingForOutbound = env.RegisterBoolVar(
+		"PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND",
+		true,
+		"If enabled, protocol sniffing will be used for outbound listeners whose port protocol is not specified or unsupported",
+	)
+
+	EnableProtocolSniffingForInbound = env.RegisterBoolVar(
+		"PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND",
+		true,
+		"If enabled, protocol sniffing will be used for inbound listeners whose port protocol is not specified or unsupported",
 	)
 
 	ScopePushes = env.RegisterBoolVar(
@@ -196,6 +211,64 @@ var (
 		"If enabled, DNS based clusters will respect the TTL of the DNS, rather than polling at a fixed rate. "+
 			"This option is only provided for backward compatibility purposes and will be removed in the near future.",
 	)
+
+	InboundProtocolDetectionTimeout = env.RegisterDurationVar(
+		"PILOT_INBOUND_PROTOCOL_DETECTION_TIMEOUT",
+		1*time.Second,
+		"Protocol detection timeout for inbound listener",
+	).Get()
+
+	EnableHeadlessService = env.RegisterBoolVar(
+		"PILOT_ENABLE_HEADLESS_SERVICE_POD_LISTENERS",
+		true,
+		"If enabled, for a headless service/stateful set in Kubernetes, pilot will generate an "+
+			"outbound listener for each pod in a headless service. This feature should be disabled "+
+			"if headless services have a large number of pods.",
+	)
+
+	BlockHTTPonHTTPSPort = env.RegisterBoolVar(
+		"PILOT_BLOCK_HTTP_ON_443",
+		true,
+		"If enabled, any HTTP services will be blocked on HTTPS port (443). If this is disabled, any "+
+			"HTTP service on port 443 could block all external traffic",
+	).Get()
+
+	EnableDistributionTracking = env.RegisterBoolVar(
+		"PILOT_ENABLE_CONFIG_DISTRIBUTION_TRACKING",
+		true,
+		"If enabled, Pilot will assign meaningful nonces to each Envoy configuration message, and allow "+
+			"users to interrogate which envoy has which config from the debug interface.",
+	).Get()
+
+	DistributionHistoryRetention = env.RegisterDurationVar(
+		"PILOT_DISTRIBUTION_HISTORY_RETENTION",
+		time.Minute*1,
+		"If enabled, Pilot will keep track of old versions of distributed config for this duration.",
+	).Get()
+
+	EnableUnsafeRegex = env.RegisterBoolVar(
+		"PILOT_ENABLE_UNSAFE_REGEX",
+		false,
+		"If enabled, pilot will generate Envoy configuration that does not use safe_regex "+
+			"but the older, deprecated regex field. This should only be enabled to support "+
+			"legacy deployments that have not yet been migrated to the new safe regular expressions.",
+	)
+
+	EnableCRDValidation = env.RegisterBoolVar(
+		"PILOT_ENABLE_CRD_VALIDATION",
+		false,
+		"If enabled, pilot will validate CRDs while retrieving CRDs from kubernetes cache."+
+			"Use this flag to enable validation of CRDs in Pilot, especially in deployments "+
+			"that do not have galley installed.",
+	)
+
+	// IstiodService controls the istiod address - used for injection and as default value injected into pods
+	// if istiod is used. The name must be part of the DNS certificate served by pilot/istiod. The '.svc' is
+	// imposed by K8S - that's how the names for webhooks are defined, based on webhook service (which will be
+	// istio-pilot or istiod) plus namespace and .svc.
+	// The 15010 port is used with plain text, 15011 with Spiffee certs - we need a different port for DNS cert.
+	IstiodService = env.RegisterStringVar("ISTIOD_ADDR", "",
+		"Service name of istiod. If empty the istiod listener, certs will be disabled.")
 )
 
 var (

@@ -20,8 +20,9 @@ import (
 )
 
 var (
-	StatusCodeOK        = strconv.Itoa(http.StatusOK)
-	StatusCodeForbidden = strconv.Itoa(http.StatusForbidden)
+	StatusCodeOK          = strconv.Itoa(http.StatusOK)
+	StatusCodeForbidden   = strconv.Itoa(http.StatusForbidden)
+	StatusCodeUnavailable = strconv.Itoa(http.StatusServiceUnavailable)
 )
 
 // Field is a list of fields returned in responses from the Echo server.

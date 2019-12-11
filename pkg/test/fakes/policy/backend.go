@@ -15,7 +15,7 @@
 package policy
 
 //nolint: lll
-//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh --gogoslick_out=plugins=grpc,Mgoogle/protobuf/any.proto=github.com/gogo/protobuf/types:. -I. controller.proto
+//go:generate $REPO_ROOT/bin/protoc.sh --gogoslick_out=plugins=grpc,Mgoogle/protobuf/any.proto=github.com/gogo/protobuf/types:. -I. controller.proto
 
 import (
 	"context"

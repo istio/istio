@@ -25,7 +25,7 @@ const (
 )
 
 // Handler specifies a function to apply on a Config for a given event type
-type Handler func(model.Config, model.Event)
+type Handler func(model.Config, model.Config, model.Event)
 
 // Monitor provides methods of manipulating changes in the config store
 type Monitor interface {
@@ -37,6 +37,7 @@ type Monitor interface {
 // ConfigEvent defines the event to be processed
 type ConfigEvent struct {
 	config model.Config
+	old    model.Config
 	event  model.Event
 }
 
@@ -91,15 +92,15 @@ func (m *configstoreMonitor) processConfigEvent(ce ConfigEvent) {
 		log.Warnf("Config Type %s does not exist in config store", ce.config.Type)
 		return
 	}
-	m.applyHandlers(ce.config, ce.event)
+	m.applyHandlers(ce.old, ce.config, ce.event)
 }
 
 func (m *configstoreMonitor) AppendEventHandler(typ string, h Handler) {
 	m.handlers[typ] = append(m.handlers[typ], h)
 }
 
-func (m *configstoreMonitor) applyHandlers(config model.Config, e model.Event) {
+func (m *configstoreMonitor) applyHandlers(old model.Config, config model.Config, e model.Event) {
 	for _, f := range m.handlers[config.Type] {
-		f(config, e)
+		f(old, config, e)
 	}
 }

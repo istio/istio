@@ -21,15 +21,16 @@ import (
 	"sync"
 	"testing"
 
+	"istio.io/istio/pkg/test/framework/components/environment"
+
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/structpath"
@@ -87,7 +88,10 @@ func TestTrafficShifting(t *testing.T) {
 		NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			ns := namespace.NewOrFail(t, ctx, "traffic-shifting", true)
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "traffic-shifting",
+				Inject: true,
+			})
 
 			var instances [5]echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
@@ -173,6 +177,8 @@ func echoConfig(ns namespace.Instance, name string) echo.Config {
 			{
 				Name:     "http",
 				Protocol: protocol.HTTP,
+				// We use a port > 1024 to not require root
+				InstancePort: 8090,
 			},
 		},
 		Galley: g,

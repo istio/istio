@@ -51,7 +51,7 @@ spec:
       - headers:
           foo:
             regex: "b.*"
-        source_labels:
+        sourceLabels:
           version: v1
       route:
       - destination:

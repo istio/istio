@@ -25,7 +25,7 @@ func TestGetOpcodeSuccess(t *testing.T) {
 			t.Fatal("Should have found the opcode")
 		}
 		if e != v {
-			t.Fatalf("Value mimatch: E:%v, A:%v", e, v)
+			t.Fatalf("Value mismatch: E:%v, A:%v", e, v)
 		}
 	}
 }

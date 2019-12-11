@@ -27,14 +27,25 @@ import (
 	grpcMetadata "google.golang.org/grpc/metadata"
 
 	mcp "istio.io/api/mcp/v1alpha1"
+
+	"istio.io/pkg/ctrlz/fw"
+	"istio.io/pkg/log"
+	"istio.io/pkg/version"
+
+	"istio.io/istio/galley/pkg/config/analysis/analyzers"
 	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/galley/pkg/config/meta/metadata"
+	"istio.io/istio/galley/pkg/config/meta/schema"
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/processing"
-	"istio.io/istio/galley/pkg/config/processor/metadata"
-	"istio.io/istio/galley/pkg/config/schema"
+	"istio.io/istio/galley/pkg/config/processing/snapshotter"
+	"istio.io/istio/galley/pkg/config/processor"
+	"istio.io/istio/galley/pkg/config/processor/groups"
+	"istio.io/istio/galley/pkg/config/processor/transforms"
 	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
-	"istio.io/istio/galley/pkg/config/source/kube/rt"
-	"istio.io/istio/galley/pkg/runtime/groups"
+	"istio.io/istio/galley/pkg/config/source/kube/apiserver/status"
+	"istio.io/istio/galley/pkg/config/util/kuberesource"
 	"istio.io/istio/galley/pkg/server/process"
 	"istio.io/istio/galley/pkg/server/settings"
 	configz "istio.io/istio/pkg/mcp/configz/server"
@@ -44,18 +55,19 @@ import (
 	"istio.io/istio/pkg/mcp/server"
 	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/mcp/source"
-	"istio.io/pkg/ctrlz/fw"
-	"istio.io/pkg/log"
-	"istio.io/pkg/version"
 )
+
+const versionMetadataKey = "config.source.version"
 
 // Processing2 component is the main config processing component that will listen to a config source and publish
 // resources through an MCP server, or a dialout connection.
 type Processing2 struct {
 	args *settings.Args
 
-	distributor  *snapshot.Cache
+	mcpCache     *snapshot.Cache
 	configzTopic fw.Topic
+
+	k kube.Interfaces
 
 	serveWG       sync.WaitGroup
 	grpcServer    *grpc.Server
@@ -72,11 +84,11 @@ var _ process.Component = &Processing2{}
 
 // NewProcessing2 returns a new processing component.
 func NewProcessing2(a *settings.Args) *Processing2 {
-	d := snapshot.New(groups.IndexFunction)
+	mcpCache := snapshot.New(groups.IndexFunction)
 	return &Processing2{
 		args:         a,
-		distributor:  d,
-		configzTopic: configz.CreateTopic(d),
+		mcpCache:     mcpCache,
+		configzTopic: configz.CreateTopic(mcpCache),
 	}
 }
 
@@ -84,6 +96,7 @@ func NewProcessing2(a *settings.Args) *Processing2 {
 func (p *Processing2) Start() (err error) {
 	var mesh event.Source
 	var src event.Source
+	var updater snapshotter.StatusUpdater
 
 	if mesh, err = meshcfgNewFS(p.args.MeshConfigFile); err != nil {
 		return
@@ -91,13 +104,46 @@ func (p *Processing2) Start() (err error) {
 
 	m := metadata.MustGet()
 
-	kubeResources := p.disableExcludedKubeResources(m)
+	transformProviders := transforms.Providers(m)
 
-	if src, err = p.createSource(kubeResources); err != nil {
+	// Disable any unnecessary resources, including resources not in configured snapshots
+	var colsInSnapshots collection.Names
+	for _, c := range m.AllCollectionsInSnapshots(p.args.Snapshots) {
+		colsInSnapshots = append(colsInSnapshots, collection.NewName(c))
+	}
+	kubeResources := kuberesource.DisableExcludedKubeResources(m.KubeSource().Resources(), transformProviders,
+		colsInSnapshots, p.args.ExcludedResourceKinds, p.args.EnableServiceDiscovery)
+
+	if src, updater, err = p.createSourceAndStatusUpdater(kubeResources); err != nil {
 		return
 	}
 
-	if p.runtime, err = processorInitialize(m, p.args.DomainSuffix, event.CombineSources(mesh, src), p.distributor); err != nil {
+	var distributor snapshotter.Distributor = snapshotter.NewMCPDistributor(p.mcpCache)
+
+	if p.args.EnableConfigAnalysis {
+		combinedAnalyzer := analyzers.AllCombined()
+		combinedAnalyzer.RemoveSkipped(colsInSnapshots, kubeResources.DisabledCollections(), transformProviders)
+
+		settings := snapshotter.AnalyzingDistributorSettings{
+			StatusUpdater:     updater,
+			Analyzer:          combinedAnalyzer,
+			Distributor:       distributor,
+			AnalysisSnapshots: p.args.Snapshots,
+			TriggerSnapshot:   p.args.TriggerSnapshot,
+		}
+
+		distributor = snapshotter.NewAnalyzingDistributor(settings)
+	}
+
+	processorSettings := processor.Settings{
+		Metadata:           m,
+		DomainSuffix:       p.args.DomainSuffix,
+		Source:             event.CombineSources(mesh, src),
+		TransformProviders: transformProviders,
+		Distributor:        distributor,
+		EnabledSnapshots:   p.args.Snapshots,
+	}
+	if p.runtime, err = processorInitialize(processorSettings); err != nil {
 		return
 	}
 
@@ -121,20 +167,20 @@ func (p *Processing2) Start() (err error) {
 	grpc.EnableTracing = p.args.EnableGRPCTracing
 	p.grpcServer = grpc.NewServer(grpcOptions...)
 
-	p.reporter = mcpMetricReporter("galley/mcp/source")
+	p.reporter = mcpMetricReporter("galley")
 
 	options := &source.Options{
-		Watcher:            p.distributor,
+		Watcher:            p.mcpCache,
 		Reporter:           p.reporter,
-		CollectionsOptions: source.CollectionOptionsFromSlice(m.AllCollectionsInSnapshots()),
+		CollectionsOptions: source.CollectionOptionsFromSlice(m.AllCollectionsInSnapshots(metadata.SnapshotNames())),
 		ConnRateLimiter:    mcprate.NewRateLimiter(time.Second, 100), // TODO(Nino-K): https://github.com/istio/istio/issues/12074
 	}
 
 	md := grpcMetadata.MD{
 		versionMetadataKey: []string{version.Info.Version},
 	}
-	if err := parseSinkMeta(p.args.SinkMeta, md); err != nil {
-		return err
+	if err = parseSinkMeta(p.args.SinkMeta, md); err != nil {
+		return
 	}
 
 	if p.args.SinkAddress != "" {
@@ -205,36 +251,6 @@ func (p *Processing2) Start() (err error) {
 	return nil
 }
 
-func (p *Processing2) disableExcludedKubeResources(m *schema.Metadata) schema.KubeResources {
-
-	// Behave in the same way as existing logic:
-	// - Builtin types are excluded by default.
-	// - If ServiceDiscovery is enabled, any built-in type should be readded.
-
-	var result schema.KubeResources
-	for _, r := range m.KubeSource().Resources() {
-
-		if p.isKindExcluded(r.Kind) {
-			// Found a matching exclude directive for this KubeResource. Disable the resource.
-			r.Disabled = true
-
-			// Check and see if this is needed for Service Discovery. If needed, we will need to re-enable.
-			if p.args.EnableServiceDiscovery {
-				// IsBuiltIn is a proxy for types needed for service discovery
-				a := rt.DefaultProvider().GetAdapter(r)
-				if a.IsBuiltIn() {
-					// This is needed for service discovery. Re-enable.
-					r.Disabled = false
-				}
-			}
-		}
-
-		result = append(result, r)
-	}
-
-	return result
-}
-
 // ConfigZTopic returns the ConfigZTopic for the processor.
 func (p *Processing2) ConfigZTopic() fw.Topic {
 	return p.configzTopic
@@ -263,40 +279,47 @@ func (p *Processing2) getServerGrpcOptions() []grpc.ServerOption {
 	return grpcOptions
 }
 
-func (p *Processing2) createSource(resources schema.KubeResources) (src event.Source, err error) {
-	if p.args.ConfigPath != "" {
-		if src, err = fsNew2(p.args.ConfigPath, resources); err != nil {
-			return
-		}
-	} else {
-		var k kube.Interfaces
-		if k, err = newKubeFromConfigFile(p.args.KubeConfig); err != nil {
-			return
-		}
-		if !p.args.DisableResourceReadyCheck {
-			if err = checkResourceTypesPresence(k, resources); err != nil {
-				return
-			}
-		}
-
-		o := apiserver.Options{
-			Client:       k,
-			ResyncPeriod: p.args.ResyncPeriod,
-			Resources:    resources,
-		}
-		src = apiserver.New(o)
+func (p *Processing2) getKubeInterfaces() (k kube.Interfaces, err error) {
+	if p.args.KubeRestConfig != nil {
+		return kube.NewInterfaces(p.args.KubeRestConfig), nil
 	}
+	if p.k == nil {
+		p.k, err = newInterfaces(p.args.KubeConfig)
+	}
+	k = p.k
 	return
 }
 
-func (p *Processing2) isKindExcluded(kind string) bool {
-	for _, excludedKind := range p.args.ExcludedResourceKinds {
-		if kind == excludedKind {
-			return true
-		}
-	}
+func (p *Processing2) createSourceAndStatusUpdater(resources schema.KubeResources) (
+	src event.Source, updater snapshotter.StatusUpdater, err error) {
 
-	return false
+	if p.args.ConfigPath != "" {
+		if src, err = fsNew2(p.args.ConfigPath, resources, p.args.WatchConfigFiles); err != nil {
+			return
+		}
+		updater = &snapshotter.InMemoryStatusUpdater{}
+	} else {
+		var k kube.Interfaces
+		if k, err = p.getKubeInterfaces(); err != nil {
+			return
+		}
+
+		var statusCtl status.Controller
+		if p.args.EnableConfigAnalysis {
+			statusCtl = status.NewController("validationMessages")
+		}
+
+		o := apiserver.Options{
+			Client:           k,
+			ResyncPeriod:     p.args.ResyncPeriod,
+			Resources:        resources,
+			StatusController: statusCtl,
+		}
+		s := apiserver.New(o)
+		src = s
+		updater = s
+	}
+	return
 }
 
 // Stop implements process.Component
@@ -354,4 +377,15 @@ func (p *Processing2) Address() net.Addr {
 		return nil
 	}
 	return l.Addr()
+}
+
+func parseSinkMeta(pairs []string, md grpcMetadata.MD) error {
+	for _, p := range pairs {
+		kv := strings.Split(p, "=")
+		if len(kv) != 2 || kv[0] == "" || kv[1] == "" {
+			return fmt.Errorf("sinkMeta not in key=value format: %v", p)
+		}
+		md[kv[0]] = append(md[kv[0]], kv[1])
+	}
+	return nil
 }

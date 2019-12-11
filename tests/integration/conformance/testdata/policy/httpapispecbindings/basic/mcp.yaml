@@ -4,7 +4,7 @@ constraints:
       - exactlyOne:
           - equals: {
             "Body": {
-              "api_specs": [
+              "apiSpecs": [
               {
                 "name": "productpage",
                 "namespace": "default"

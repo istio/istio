@@ -14,12 +14,12 @@
 
 
 collections:
-  - name:         "collection1"
-    proto:        "google.protobuf.Struct"
+  - name: "collection1"
+    proto: "google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
 
-  - name:         "collection2"
-    proto:        "google.protobuf.Struct"
+  - name: "collection2"
+    proto: "google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
 
 # Configuration for input sources
@@ -28,11 +28,11 @@ sources:
   - type: kubernetes
     resources:
       # Test data sources
-      - collection:   "collection1"
-        kind:         "Kind1"
-        plural:       "Kind1s"
-        group:        "testdata.istio.io"
-        version:      "v1alpha1"
+      - collection: "collection1"
+        kind: "Kind1"
+        plural: "Kind1s"
+        group: "testdata.istio.io"
+        version: "v1alpha1"
 
 # Transform specific configurations
 transforms:

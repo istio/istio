@@ -26,12 +26,12 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
+	"github.com/envoyproxy/go-control-plane/pkg/conversion"
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
+	pstruct "github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
@@ -47,7 +47,7 @@ type Config struct {
 	Workload string
 
 	// Meta includes additional metadata for the node
-	Meta map[string]string
+	Meta *pstruct.Struct
 
 	// NodeType defaults to sidecar. "ingress" and "router" are also supported.
 	NodeType string
@@ -68,8 +68,6 @@ type ADSC struct {
 
 	// NodeID is the node identity sent to Pilot.
 	nodeID string
-
-	done chan error
 
 	certDir string
 	url     string
@@ -99,7 +97,7 @@ type ADSC struct {
 
 	// Metadata has the node metadata to send to pilot.
 	// If nil, the defaults will be used.
-	Metadata map[string]string
+	Metadata *pstruct.Struct
 
 	// Updates includes the type of the last update received from the server.
 	Updates     chan string
@@ -130,7 +128,6 @@ var (
 // Dial connects to a ADS server, with optional MTLS authentication if a cert dir is specified.
 func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 	adsc := &ADSC{
-		done:        make(chan error),
 		Updates:     make(chan string, 100),
 		VersionInfo: map[string]string{},
 		certDir:     certDir,
@@ -314,7 +311,7 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 	ldsSize := 0
 
 	for _, l := range ll {
-		ldsSize += l.Size()
+		ldsSize += proto.Size(l)
 		// The last filter will be the actual destination we care about
 		filter := l.FilterChains[len(l.FilterChains)-1].Filters[0]
 		if filter.Name == "mixer" {
@@ -324,7 +321,7 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 			lt[l.Name] = l
 			config := filter.GetConfig()
 			if config == nil {
-				config, _ = xdsutil.MessageToStruct(filter.GetTypedConfig())
+				config, _ = conversion.MessageToStruct(filter.GetTypedConfig())
 			}
 			c := config.Fields["cluster"].GetStringValue()
 			adscLog.Debugf("TCP: %s -> %s", l.Name, c)
@@ -460,7 +457,7 @@ func (a *ADSC) handleCDS(ll []*xdsapi.Cluster) {
 	edscds := map[string]*xdsapi.Cluster{}
 	cds := map[string]*xdsapi.Cluster{}
 	for _, c := range ll {
-		cdsSize += c.Size()
+		cdsSize += proto.Size(c)
 		switch v := c.ClusterDiscoveryType.(type) {
 		case *xdsapi.Cluster_Type:
 			if v.Type != xdsapi.Cluster_EDS {
@@ -498,19 +495,12 @@ func (a *ADSC) node() *core.Node {
 		Id: a.nodeID,
 	}
 	if a.Metadata == nil {
-		n.Metadata = &types.Struct{
-			Fields: map[string]*types.Value{
-				"ISTIO_VERSION": {Kind: &types.Value_StringValue{StringValue: "65536.65536.65536"}},
+		n.Metadata = &pstruct.Struct{
+			Fields: map[string]*pstruct.Value{
+				"ISTIO_VERSION": {Kind: &pstruct.Value_StringValue{StringValue: "65536.65536.65536"}},
 			}}
 	} else {
-		f := map[string]*types.Value{}
-
-		for k, v := range a.Metadata {
-			f[k] = &types.Value{Kind: &types.Value_StringValue{StringValue: v}}
-		}
-		n.Metadata = &types.Struct{
-			Fields: f,
-		}
+		n.Metadata = a.Metadata
 	}
 	return n
 }
@@ -526,7 +516,7 @@ func (a *ADSC) handleEDS(eds []*xdsapi.ClusterLoadAssignment) {
 	edsSize := 0
 	ep := 0
 	for _, cla := range eds {
-		edsSize += cla.Size()
+		edsSize += proto.Size(cla)
 		la[cla.ClusterName] = cla
 		ep += len(cla.Endpoints)
 	}
@@ -573,7 +563,7 @@ func (a *ADSC) handleRDS(configurations []*xdsapi.RouteConfiguration) {
 			}
 		}
 		rds[r.Name] = r
-		size += r.Size()
+		size += proto.Size(r)
 	}
 	if a.InitialLoad == 0 {
 		a.InitialLoad = time.Since(a.watchTime)

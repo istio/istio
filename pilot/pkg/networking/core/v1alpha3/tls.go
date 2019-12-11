@@ -89,8 +89,8 @@ func hashRuntimeTLSMatchPredicates(match *v1alpha3.TLSMatchAttributes) string {
 	return strings.Join(match.SniHosts, ",") + "|" + strings.Join(match.DestinationSubnets, ",")
 }
 
-func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.Proxy, push *model.PushContext, destinationCIDR string,
-	service *model.Service, listenPort *model.Port, proxyLabels labels.Collection,
+func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushContext, destinationCIDR string,
+	service *model.Service, listenPort *model.Port,
 	gateways map[string]bool, configs []model.Config) []*filterChainOpts {
 
 	if !listenPort.Protocol.IsTLS() {
@@ -126,7 +126,7 @@ func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.
 		virtualService := cfg.Spec.(*v1alpha3.VirtualService)
 		for _, tls := range virtualService.Tls {
 			for _, match := range tls.Match {
-				if matchTLS(match, proxyLabels, gateways, listenPort.Port) {
+				if matchTLS(match, node.WorkloadLabels, gateways, listenPort.Port) {
 					// Use the service's CIDRs.
 					// But if a virtual service overrides it with its own destination subnet match
 					// give preference to the user provided one
@@ -144,7 +144,7 @@ func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.
 							metadata:         util.BuildConfigInfoMetadata(cfg.ConfigMeta),
 							sniHosts:         match.SniHosts,
 							destinationCIDRs: destinationCIDRs,
-							networkFilters:   buildOutboundNetworkFilters(env, node, tls.Route, push, listenPort, cfg.ConfigMeta),
+							networkFilters:   buildOutboundNetworkFilters(node, tls.Route, push, listenPort, cfg.ConfigMeta),
 						})
 						hasTLSMatch = true
 					}
@@ -168,7 +168,7 @@ func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.
 		}
 
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port)
-		// Use the hostname as the SNI value if and only if we dont have a destination VIP or if the destination is a CIDR.
+		// Use the hostname as the SNI value if and only if we do not have a destination VIP or if the destination is a CIDR.
 		// In both cases, the listener will be bound to 0.0.0.0. So SNI match is the only way to distinguish different
 		// target services. If we have a VIP, then we know the destination. There is no need to do a SNI match. It saves us from
 		// having to generate expensive permutations of the host name just like RDS does..
@@ -187,15 +187,15 @@ func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.
 		out = append(out, &filterChainOpts{
 			sniHosts:         sniHosts,
 			destinationCIDRs: []string{destinationCIDR},
-			networkFilters:   buildOutboundNetworkFiltersWithSingleDestination(env, node, clusterName, listenPort),
+			networkFilters:   buildOutboundNetworkFiltersWithSingleDestination(push, node, clusterName, listenPort),
 		})
 	}
 
 	return out
 }
 
-func buildSidecarOutboundTCPFilterChainOpts(env *model.Environment, node *model.Proxy, push *model.PushContext, destinationCIDR string,
-	service *model.Service, listenPort *model.Port, proxyLabels labels.Collection,
+func buildSidecarOutboundTCPFilterChainOpts(node *model.Proxy, push *model.PushContext, destinationCIDR string,
+	service *model.Service, listenPort *model.Port,
 	gateways map[string]bool, configs []model.Config) []*filterChainOpts {
 
 	if listenPort.Protocol.IsTLS() {
@@ -218,7 +218,7 @@ TcpLoop:
 				out = append(out, &filterChainOpts{
 					metadata:         util.BuildConfigInfoMetadata(cfg.ConfigMeta),
 					destinationCIDRs: destinationCIDRs,
-					networkFilters:   buildOutboundNetworkFilters(env, node, tcp.Route, push, listenPort, cfg.ConfigMeta),
+					networkFilters:   buildOutboundNetworkFilters(node, tcp.Route, push, listenPort, cfg.ConfigMeta),
 				})
 				defaultRouteAdded = true
 				break TcpLoop
@@ -230,7 +230,7 @@ TcpLoop:
 			virtualServiceDestinationSubnets := make([]string, 0)
 
 			for _, match := range tcp.Match {
-				if matchTCP(match, proxyLabels, gateways, listenPort.Port) {
+				if matchTCP(match, node.WorkloadLabels, gateways, listenPort.Port) {
 					// Scan all the match blocks
 					// if we find any match block without a runtime destination subnet match
 					// i.e. match any destination address, then we treat it as the terminal match/catch all match
@@ -242,7 +242,7 @@ TcpLoop:
 						out = append(out, &filterChainOpts{
 							metadata:         util.BuildConfigInfoMetadata(cfg.ConfigMeta),
 							destinationCIDRs: destinationCIDRs,
-							networkFilters:   buildOutboundNetworkFilters(env, node, tcp.Route, push, listenPort, cfg.ConfigMeta),
+							networkFilters:   buildOutboundNetworkFilters(node, tcp.Route, push, listenPort, cfg.ConfigMeta),
 						})
 						defaultRouteAdded = true
 						break TcpLoop
@@ -255,7 +255,7 @@ TcpLoop:
 			if len(virtualServiceDestinationSubnets) > 0 {
 				out = append(out, &filterChainOpts{
 					destinationCIDRs: virtualServiceDestinationSubnets,
-					networkFilters:   buildOutboundNetworkFilters(env, node, tcp.Route, push, listenPort, cfg.ConfigMeta),
+					networkFilters:   buildOutboundNetworkFilters(node, tcp.Route, push, listenPort, cfg.ConfigMeta),
 				})
 
 				// If at this point there is a filter chain generated with the same CIDR match as the
@@ -285,7 +285,7 @@ TcpLoop:
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port)
 		out = append(out, &filterChainOpts{
 			destinationCIDRs: []string{destinationCIDR},
-			networkFilters:   buildOutboundNetworkFiltersWithSingleDestination(env, node, clusterName, listenPort),
+			networkFilters:   buildOutboundNetworkFiltersWithSingleDestination(push, node, clusterName, listenPort),
 		})
 	}
 
@@ -296,9 +296,9 @@ TcpLoop:
 // OR, it could be called in the context of an egress listener with specific TCP port on a sidecar config.
 // In the latter case, there is no service associated with this listen port. So we have to account for this
 // missing service throughout this file
-func buildSidecarOutboundTCPTLSFilterChainOpts(env *model.Environment, node *model.Proxy, push *model.PushContext,
+func buildSidecarOutboundTCPTLSFilterChainOpts(node *model.Proxy, push *model.PushContext,
 	configs []model.Config, destinationCIDR string, service *model.Service, listenPort *model.Port,
-	proxyLabels labels.Collection, gateways map[string]bool) []*filterChainOpts {
+	gateways map[string]bool) []*filterChainOpts {
 
 	out := make([]*filterChainOpts, 0)
 	var svcConfigs []model.Config
@@ -308,9 +308,9 @@ func buildSidecarOutboundTCPTLSFilterChainOpts(env *model.Environment, node *mod
 		svcConfigs = configs
 	}
 
-	out = append(out, buildSidecarOutboundTLSFilterChainOpts(env, node, push, destinationCIDR, service, listenPort,
-		proxyLabels, gateways, svcConfigs)...)
-	out = append(out, buildSidecarOutboundTCPFilterChainOpts(env, node, push, destinationCIDR, service, listenPort,
-		proxyLabels, gateways, svcConfigs)...)
+	out = append(out, buildSidecarOutboundTLSFilterChainOpts(node, push, destinationCIDR, service,
+		listenPort, gateways, svcConfigs)...)
+	out = append(out, buildSidecarOutboundTCPFilterChainOpts(node, push, destinationCIDR, service,
+		listenPort, gateways, svcConfigs)...)
 	return out
 }

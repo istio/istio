@@ -20,6 +20,10 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/pkg/log"
+
+	"istio.io/pkg/ledger"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema"
 )
@@ -29,11 +33,18 @@ var (
 	errAlreadyExists = errors.New("item already exists")
 )
 
+const ledgerLogf = "error tracking pilot config memory versions for distribution: %v"
+
 // Make creates an in-memory config store from a config descriptor
 func Make(descriptor schema.Set) model.ConfigStore {
+	return MakeWithLedger(descriptor, ledger.Make(time.Minute))
+}
+
+func MakeWithLedger(descriptor schema.Set, configLedger ledger.Ledger) model.ConfigStore {
 	out := store{
 		descriptor: descriptor,
 		data:       make(map[string]map[string]*sync.Map),
+		ledger:     configLedger,
 	}
 	for _, typ := range descriptor.Types() {
 		out.data[typ] = make(map[string]*sync.Map)
@@ -44,10 +55,19 @@ func Make(descriptor schema.Set) model.ConfigStore {
 type store struct {
 	descriptor schema.Set
 	data       map[string]map[string]*sync.Map
+	ledger     ledger.Ledger
+}
+
+func (cr *store) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
+	return cr.ledger.GetPreviousValue(version, key)
 }
 
 func (cr *store) ConfigDescriptor() schema.Set {
 	return cr.descriptor
+}
+
+func (cr *store) Version() string {
+	return cr.ledger.RootHash()
 }
 
 func (cr *store) Get(typ, name, namespace string) *model.Config {
@@ -111,6 +131,10 @@ func (cr *store) Delete(typ, name, namespace string) error {
 		return errNotFound
 	}
 
+	err := cr.ledger.Delete(model.Key(typ, name, namespace))
+	if err != nil {
+		log.Warnf(ledgerLogf, err)
+	}
 	ns.Delete(name)
 	return nil
 }
@@ -141,6 +165,10 @@ func (cr *store) Create(config model.Config) (string, error) {
 			config.CreationTimestamp = tnow
 		}
 
+		_, err := cr.ledger.Put(model.Key(typ, config.Namespace, config.Name), config.Version)
+		if err != nil {
+			log.Warnf(ledgerLogf, err)
+		}
 		ns.Store(config.Name, config)
 		return config.ResourceVersion, nil
 	}
@@ -173,6 +201,10 @@ func (cr *store) Update(config model.Config) (string, error) {
 
 	rev := time.Now().String()
 	config.ResourceVersion = rev
+	_, err := cr.ledger.Put(model.Key(typ, config.Namespace, config.Name), config.Version)
+	if err != nil {
+		log.Warnf(ledgerLogf, err)
+	}
 	ns.Store(config.Name, config)
 	return rev, nil
 }

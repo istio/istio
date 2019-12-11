@@ -164,6 +164,10 @@ type SecretCache struct {
 	rootCertMutex      *sync.Mutex
 	rootCert           []byte
 	rootCertExpireTime time.Time
+
+	// Source of random numbers. It is not concurrency safe, requires lock protected.
+	rand      *rand.Rand
+	randMutex *sync.Mutex
 }
 
 // NewSecretCache creates a new secret cache.
@@ -174,7 +178,10 @@ func NewSecretCache(fetcher *secretfetcher.SecretFetcher, notifyCb func(ConnKey,
 		notifyCallback: notifyCb,
 		rootCertMutex:  &sync.Mutex{},
 		configOptions:  options,
+		randMutex:      &sync.Mutex{},
 	}
+	randSource := rand.NewSource(time.Now().UnixNano())
+	ret.rand = rand.New(randSource)
 
 	fetcher.AddCache = ret.UpdateK8sSecret
 	fetcher.DeleteCache = ret.DeleteK8sSecret
@@ -264,7 +271,7 @@ func (sc *SecretCache) SecretExist(connectionID, resourceName, token, version st
 	return e.ResourceName == resourceName && e.Token == token && e.Version == version
 }
 
-// IsIngressGatewaySecretReady returns true if node agent is working in ingress gateway agent mode
+// ShouldWaitForIngressGatewaySecret returns true if node agent is working in ingress gateway agent mode
 // and needs to wait for ingress gateway secret to be ready.
 func (sc *SecretCache) ShouldWaitForIngressGatewaySecret(connectionID, resourceName, token string) bool {
 	// If node agent works as workload agent, node agent does not expect any ingress gateway secret.
@@ -570,7 +577,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 	// call authentication provider specific plugins to exchange token if necessary.
 	numOutgoingRequests.With(RequestType.Value(TokenExchange)).Increment()
 	timeBeforeTokenExchange := time.Now()
-	exchangedToken, err := sc.getExchangedToken(ctx, token)
+	exchangedToken, err := sc.getExchangedToken(ctx, token, connKey)
 	tokenExchangeLatency := float64(time.Since(timeBeforeTokenExchange).Nanoseconds()) / float64(time.Millisecond)
 	outgoingLatency.With(RequestType.Value(TokenExchange)).Record(tokenExchangeLatency)
 	if err != nil {
@@ -582,8 +589,8 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 	// otherwise just use sdsrequest.resourceName as csr host name.
 	csrHostName, err := constructCSRHostName(sc.configOptions.TrustDomain, token)
 	if err != nil {
-		cacheLog.Warnf("%s failed to extract host name from jwt: %v, fallback to SDS request resource name",
-			conIDresourceNamePrefix, err)
+		cacheLog.Warnf("%s failed to extract host name from jwt: %v, fallback to SDS request"+
+			" resource name. The failed jwt above is: %s", conIDresourceNamePrefix, err, token)
 		csrHostName = connKey.ResourceName
 	}
 	options := util.CertOptions{
@@ -682,7 +689,9 @@ func (sc *SecretCache) isTokenExpired() bool {
 // Prior to sending the request, it also sleep random millisecond to avoid thundering herd problem.
 func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,
 	providedExchangedToken string, connKey ConnKey, isCSR bool) ([]string, error) {
-	backOffInMilliSec := rand.Int63n(sc.configOptions.InitialBackoff)
+	sc.randMutex.Lock()
+	backOffInMilliSec := sc.rand.Int63n(sc.configOptions.InitialBackoff)
+	sc.randMutex.Unlock()
 	cacheLog.Debugf("Wait for %d millisec", backOffInMilliSec)
 	// Add a jitter to initial CSR to avoid thundering herd problem.
 	time.Sleep(time.Duration(backOffInMilliSec) * time.Millisecond)
@@ -714,16 +723,15 @@ func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,
 
 		// If non-retryable error, fail the request by returning err
 		if !isRetryableErr(status.Code(err), httpRespCode, isCSR) {
-			cacheLog.Errorf("%s hit non-retryable error %v", requestErrorString, err)
+			cacheLog.Errorf("%s hit non-retryable error (HTTP code: %d). Error: %v", requestErrorString, httpRespCode, err)
 			return nil, err
 		}
 
 		// If reach envoy timeout, fail the request by returning err
 		if startTime.Add(time.Millisecond * envoyDefaultTimeoutInMilliSec).Before(time.Now()) {
-			cacheLog.Errorf("%s retry timed out %v", requestErrorString, err)
+			cacheLog.Errorf("%s retrial timed out: %v", requestErrorString, err)
 			return nil, err
 		}
-
 		retry++
 		backOffInMilliSec = rand.Int63n(retry * initialBackOffIntervalInMilliSec)
 		time.Sleep(time.Duration(backOffInMilliSec) * time.Millisecond)
@@ -745,19 +753,23 @@ func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,
 
 // getExchangedToken gets the exchanged token for the CSR. The token is either the k8s jwt token of the
 // workload or another token from a plug in provider.
-func (sc *SecretCache) getExchangedToken(ctx context.Context, k8sJwtToken string) (string, error) {
+func (sc *SecretCache) getExchangedToken(ctx context.Context, k8sJwtToken string, connKey ConnKey) (string, error) {
+	conIDresourceNamePrefix := cacheLogPrefix(connKey.ConnectionID, connKey.ResourceName)
+	cacheLog.Debugf("Start token exchange process for %s", conIDresourceNamePrefix)
 	if sc.configOptions.Plugins == nil || len(sc.configOptions.Plugins) == 0 {
+		cacheLog.Debugf("Return k8s token for %s", conIDresourceNamePrefix)
 		return k8sJwtToken, nil
 	}
 	if len(sc.configOptions.Plugins) > 1 {
-		cacheLog.Error("found more than one plugin")
+		cacheLog.Errorf("Found more than one plugin for %s", conIDresourceNamePrefix)
 		return "", fmt.Errorf("found more than one plugin")
 	}
 	exchangedTokens, err := sc.sendRetriableRequest(ctx, nil, k8sJwtToken,
 		ConnKey{ConnectionID: "", ResourceName: ""}, false)
 	if err != nil || len(exchangedTokens) == 0 {
-		cacheLog.Errorf("failed to exchange token: %v", err)
+		cacheLog.Errorf("Failed to exchange token for %s: %v", conIDresourceNamePrefix, err)
 		return "", err
 	}
+	cacheLog.Debugf("Token exchange succeeded for %s", conIDresourceNamePrefix)
 	return exchangedTokens[0], nil
 }

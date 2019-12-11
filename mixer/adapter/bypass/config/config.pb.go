@@ -5,10 +5,10 @@
 // model.
 //
 // This adapter supports the following templates:
-// [metric](https://istio.io/docs/reference/config/template/metric/).
-// [checknothing](https://istio.io/docs/reference/config/template/checknothing/).
-// [reportnothing](https://istio.io/docs/reference/config/template/reportnothing/).
-// [quota](https://istio.io/docs/reference/config/template/quota/).
+// [metric](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric/).
+// [checknothing](https://istio.io/docs/reference/config/policy-and-telemetry/templates/checknothing/).
+// [reportnothing](https://istio.io/docs/reference/config/policy-and-telemetry/templates/reportnothing/).
+// [quota](https://istio.io/docs/reference/config/policy-and-telemetry/templates/quota/).
 //
 // Example configuration:
 // ```
@@ -48,7 +48,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 // Configuration format for the Bypass adapter.
 type Params struct {

@@ -22,18 +22,16 @@ import (
 	"os"
 
 	"github.com/ghodss/yaml"
+	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-
-	"go.uber.org/multierr"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 
-	"istio.io/istio/pilot/cmd"
-	"istio.io/istio/pilot/pkg/kube/inject"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/inject"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -54,7 +52,7 @@ func createInterface(kubeconfig string) (kubernetes.Interface, error) {
 	return kubernetes.NewForConfig(restConfig)
 }
 
-func getMeshConfigFromConfigMap(kubeconfig string) (*meshconfig.MeshConfig, error) {
+func getMeshConfigFromConfigMap(kubeconfig, command string) (*meshconfig.MeshConfig, error) {
 	client, err := createInterface(kubeconfig)
 	if err != nil {
 		return nil, err
@@ -62,8 +60,8 @@ func getMeshConfigFromConfigMap(kubeconfig string) (*meshconfig.MeshConfig, erro
 
 	meshConfigMap, err := client.CoreV1().ConfigMaps(istioNamespace).Get(meshConfigMapName, metav1.GetOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("could not read valid configmap %q from namespace  %q: %v - "+
-			"Use --meshConfigFile or re-run kube-inject with `-i <istioSystemNamespace> and ensure valid MeshConfig exists",
+		return nil, fmt.Errorf("could not read valid configmap %q from namespace %q: %v - "+
+			"Use --meshConfigFile or re-run "+command+" with `-i <istioSystemNamespace> and ensure valid MeshConfig exists",
 			meshConfigMapName, istioNamespace, err)
 	}
 	// values in the data are strings, while proto might use a
@@ -75,8 +73,8 @@ func getMeshConfigFromConfigMap(kubeconfig string) (*meshconfig.MeshConfig, erro
 	}
 	cfg, err := mesh.ApplyMeshConfigDefaults(configYaml)
 	if err != nil {
-		err = multierr.Append(fmt.Errorf("istioctl version %s cannot parse mesh config.  Install istioctl from the latest Istio release",
-			version.Info.Version), err)
+		err = multierror.Append(err, fmt.Errorf("istioctl version %s cannot parse mesh config.  Install istioctl from the latest Istio release",
+			version.Info.Version))
 	}
 	return cfg, err
 }
@@ -136,13 +134,13 @@ func getInjectConfigFromConfigMap(kubeconfig string) (string, error) {
 func validateFlags() error {
 	var err error
 	if inFilename != "" && emitTemplate {
-		err = multierr.Append(err, errors.New("--filename and --emitTemplate are mutually exclusive"))
+		err = multierror.Append(err, errors.New("--filename and --emitTemplate are mutually exclusive"))
 	}
 	if inFilename == "" && !emitTemplate {
-		err = multierr.Append(err, errors.New("filename not specified (see --filename or -f)"))
+		err = multierror.Append(err, errors.New("filename not specified (see --filename or -f)"))
 	}
 	if meshConfigFile == "" && meshConfigMapName == "" {
-		err = multierr.Append(err, errors.New("--meshConfigFile or --meshConfigMapName must be set"))
+		err = multierror.Append(err, errors.New("--meshConfigFile or --meshConfigMapName must be set"))
 	}
 	return err
 }
@@ -257,11 +255,11 @@ istioctl kube-inject -f samples/bookinfo/platform/kube/bookinfo.yaml \
 
 			var meshConfig *meshconfig.MeshConfig
 			if meshConfigFile != "" {
-				if meshConfig, err = cmd.ReadMeshConfig(meshConfigFile); err != nil {
+				if meshConfig, err = mesh.ReadMeshConfig(meshConfigFile); err != nil {
 					return err
 				}
 			} else {
-				if meshConfig, err = getMeshConfigFromConfigMap(kubeconfig); err != nil {
+				if meshConfig, err = getMeshConfigFromConfigMap(kubeconfig, "kube-inject"); err != nil {
 					return err
 				}
 			}
@@ -274,7 +272,7 @@ istioctl kube-inject -f samples/bookinfo/platform/kube/bookinfo.yaml \
 				}
 				var injectConfig inject.Config
 				if err := yaml.Unmarshal(injectionConfig, &injectConfig); err != nil {
-					return multierr.Append(fmt.Errorf("loading --injectConfigFile"), err)
+					return multierror.Append(err, fmt.Errorf("loading --injectConfigFile"))
 				}
 				sidecarTemplate = injectConfig.Template
 			} else if sidecarTemplate, err = getInjectConfigFromConfigMap(kubeconfig); err != nil {

@@ -13,11 +13,19 @@ data:
     .:53 {
           errors
           health
+          {{ if eq -1 (semver  .Values.coreDNSTag  | (semver "1.4.0").Compare) }}
+          # Removed support for the proxy plugin: https://coredns.io/2019/03/03/coredns-1.4.0-release/
+          grpc global 127.0.0.1:8053
+          forward . /etc/resolv.conf {
+            except global
+          }
+          {{ else }}
           proxy global 127.0.0.1:8053 {
             protocol grpc insecure
           }
-          prometheus :9153
           proxy . /etc/resolv.conf
+          {{ end }}
+          prometheus :9153
           cache 30
           reload
         }

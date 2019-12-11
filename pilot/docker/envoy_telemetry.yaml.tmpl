@@ -2,7 +2,7 @@ admin:
   access_log_path: /dev/null
   address:
     socket_address:
-      address: 127.0.0.1
+      address: "{{ .localhost }}"
       port_value: 15000
 stats_config:
   use_all_default_tags: false
@@ -30,7 +30,7 @@ static_resources:
     hosts:
     - socket_address:
         protocol: TCP
-        address: 127.0.0.1
+        address: "{{ .localhost }}"
         port_value: 15000
   - circuit_breakers:
       thresholds:
@@ -48,7 +48,7 @@ static_resources:
   - address:
       socket_address:
         protocol: TCP
-        address: 0.0.0.0
+        address: "{{ .wildcard }}"
         port_value: 15090
     filter_chains:
     - filters:
@@ -70,7 +70,7 @@ static_resources:
           - name: envoy.router
   - address:
       socket_address:
-        address: 0.0.0.0
+        address: "{{ .wildcard }}"
         port_value: 15004
     filter_chains:
     - filters:
@@ -132,6 +132,54 @@ static_resources:
           stat_prefix: "15004"
         name: envoy.http_connection_manager
 {{- if .ControlPlaneAuth }}
+{{- if .sds_uds_path }}
+      tls_context:
+        common_tls_context:
+          alpn_protocols:
+          - h2
+          tls_certificate_sds_secret_configs:
+          - name: default
+            sds_config:
+              api_config_source:
+                api_type: GRPC
+                grpc_services:
+                - google_grpc:
+                    target_uri: {{ .sds_uds_path }}
+                    channel_credentials:
+                      local_credentials: {}
+                    call_credentials:
+                    - from_plugin:
+                        name: envoy.grpc_credentials.file_based_metadata
+                        config:
+                          header_key: istio_sds_credentials_header-bin
+                          secret_data:
+                            filename: {{ .sds_token_path }}
+                    credentials_factory_name: envoy.grpc_credentials.file_based_metadata
+                    stat_prefix: sdsstat
+          combined_validation_context:
+            default_validation_context:
+              verify_subject_alt_name: []
+            validation_context_sds_secret_config:
+              name: ROOTCA
+              sds_config:
+                api_config_source:
+                  api_type: GRPC
+                  grpc_services:
+                  - google_grpc:
+                      target_uri: {{ .sds_uds_path }}
+                      channel_credentials:
+                        local_credentials: {}
+                      call_credentials:
+                      - from_plugin:
+                          name: envoy.grpc_credentials.file_based_metadata
+                          config:
+                            header_key: istio_sds_credentials_header-bin
+                            secret_data:
+                              filename: {{ .sds_token_path }}
+                      credentials_factory_name: envoy.grpc_credentials.file_based_metadata
+                      stat_prefix: sdsstat
+        require_client_certificate: true
+{{- else }}
       tls_context:
         common_tls_context:
           alpn_protocols:
@@ -146,10 +194,11 @@ static_resources:
               filename: /etc/certs/root-cert.pem
         require_client_certificate: true
 {{- end }}
+{{- end }}
     name: "15004"
   - address:
       socket_address:
-        address: 0.0.0.0
+        address: "{{ .wildcard }}"
         port_value: 9091
     filter_chains:
     - filters:

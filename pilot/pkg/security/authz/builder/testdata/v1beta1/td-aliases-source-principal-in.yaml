@@ -1,0 +1,17 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: httpbin
+  namespace: foo
+spec:
+  selector:
+    matchLabels:
+      app: httpbin
+      version: v1
+  rules:
+    - from:
+        - source:
+            namespaces: ["istio-system"]
+      when:
+        - key: "source.principal"
+          values: ["*", "*/ns/foo/sa/all-td", "*-td/ns/foo/sa/prefix-td"]

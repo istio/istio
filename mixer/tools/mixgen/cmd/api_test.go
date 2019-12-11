@@ -13,11 +13,11 @@
 // limitations under the License.
 
 // nolint
-//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh --include_imports --include_source_info testdata/apa/template.proto -otestdata/apa/template.descriptor -I.
-//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh --include_imports --include_source_info testdata/check/template.proto -otestdata/check/template.descriptor -I.
-//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh --include_imports --include_source_info testdata/report/template.proto -otestdata/report/template.descriptor -I.
-//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh --include_imports --include_source_info testdata/quota/template.proto -otestdata/quota/template.descriptor -I.
-//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh --include_imports --include_source_info testdata/error/template.proto -otestdata/error/template.descriptor -I.
+//go:generate $REPO_ROOT/bin/protoc.sh --include_imports --include_source_info testdata/apa/template.proto -otestdata/apa/template.descriptor -I.
+//go:generate $REPO_ROOT/bin/protoc.sh --include_imports --include_source_info testdata/check/template.proto -otestdata/check/template.descriptor -I.
+//go:generate $REPO_ROOT/bin/protoc.sh --include_imports --include_source_info testdata/report/template.proto -otestdata/report/template.descriptor -I.
+//go:generate $REPO_ROOT/bin/protoc.sh --include_imports --include_source_info testdata/quota/template.proto -otestdata/quota/template.descriptor -I.
+//go:generate $REPO_ROOT/bin/protoc.sh --include_imports --include_source_info testdata/error/template.proto -otestdata/error/template.descriptor -I.
 package cmd
 
 import (

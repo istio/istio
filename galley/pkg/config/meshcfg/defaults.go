@@ -15,27 +15,15 @@
 package meshcfg
 
 import (
-	"time"
-
-	"github.com/gogo/protobuf/types"
+	"istio.io/istio/pkg/config/mesh"
 
 	"istio.io/api/mesh/v1alpha1"
 )
 
 // Default mesh configuration
 func Default() *v1alpha1.MeshConfig {
-	return &v1alpha1.MeshConfig{
-		MixerCheckServer:      "",
-		MixerReportServer:     "",
-		DisablePolicyChecks:   false,
-		PolicyCheckFailOpen:   false,
-		ProxyListenPort:       15001,
-		ConnectTimeout:        types.DurationProto(1 * time.Second),
-		IngressClass:          "istio",
-		IngressControllerMode: v1alpha1.MeshConfig_STRICT,
-		EnableTracing:         true,
-		AccessLogFile:         "/dev/stdout",
-		SdsUdsPath:            "",
-		OutboundTrafficPolicy: &v1alpha1.MeshConfig_OutboundTrafficPolicy{Mode: v1alpha1.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY},
-	}
+	meshconfig := mesh.DefaultMeshConfig()
+	meshconfig.IngressClass = "istio"
+	meshconfig.IngressControllerMode = v1alpha1.MeshConfig_STRICT
+	return &meshconfig
 }

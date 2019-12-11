@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	kubeEnv "istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/util/retry"
 
 	kubeCore "k8s.io/api/core/v1"
 )
@@ -101,13 +102,15 @@ func (b *builder) initializeInstances(instances []echo.Instance) error {
 		instanceIndex := i
 		serviceName := inst.Config().Service
 		serviceNamespace := inst.Config().Namespace.Name()
+		timeout := inst.Config().ReadinessTimeout
 
 		// Run the waits in parallel.
 		go func() {
 			defer wg.Done()
 
 			// Wait until all the endpoints are ready for this service
-			_, endpoints, err := env.WaitUntilServiceEndpointsAreReady(serviceNamespace, serviceName)
+			_, endpoints, err := env.WaitUntilServiceEndpointsAreReady(
+				serviceNamespace, serviceName, retry.Timeout(timeout))
 			if err != nil {
 				aggregateErrMux.Lock()
 				aggregateErr = multierror.Append(aggregateErr, err)

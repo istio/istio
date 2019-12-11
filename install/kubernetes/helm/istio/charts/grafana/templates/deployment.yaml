@@ -44,7 +44,7 @@ spec:
           - containerPort: 3000
           readinessProbe:
             httpGet:
-              path: /login
+              path: /api/health
               port: 3000
           env:
           - name: GRAFANA_PORT

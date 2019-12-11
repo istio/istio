@@ -1,0 +1,169 @@
+#!/usr/bin/env bash
+
+# Copyright 2019 Istio Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+set -e
+set -u
+set -o pipefail
+
+REPEAT=${REPEAT:-100}
+THRESHOLD=${THRESHOLD:-20}
+
+# verify calls curl to send requests to productpage via ingressgateway.
+# - The 1st argument is the expected http response code
+# - The remaining arguments are the expected text in the http response
+# Return 0 if both the code and text is found in the response for continuously $THRESHOLD times,
+# otherwise return 1.
+#
+# Examples:
+# 1) Expect http code 200 and "reviews", "ratings" in the body: verify 200 "reviews" "ratings"
+# 2) Expect http code 403 and "RBAC: access denied" in the body: verify 200 "RBAC: access denied"
+# 3) Expect http code 200 only: verify 200
+function verify {
+  lastResponse=""
+  wantCode=$1
+  shift
+  wantText=("$@")
+  goodResponse=0
+
+  ingress_url="http://istio-ingressgateway.istio-system/productpage"
+  sleep_pod=$(kubectl get pod -l app=sleep -n default -o 'jsonpath={.items..metadata.name}')
+
+  for ((i=1; i<="$REPEAT"; i++)); do
+    set +e
+    response=$(kubectl exec "${sleep_pod}" -c sleep -n "default" -- curl "${ingress_url}" -s -w "\n%{http_code}\n")
+    set -e
+    mapfile -t respArray <<< "$response"
+    code=${respArray[-1]}
+    body=${response}
+
+    matchedText=0
+    if [ "$code" == "$wantCode" ]; then
+      for want in "${wantText[@]}"; do
+        if [[ "$body" = *$want* ]]; then
+          matchedText=$((matchedText + 1))
+        else
+          lastResponse="$code\n$body"
+        fi
+      done
+    else
+      lastResponse="$code\n$body"
+    fi
+
+    if [[ "$matchedText" == "$#" ]]; then
+      goodResponse=$((goodResponse + 1))
+    else
+      goodResponse=0
+    fi
+
+    if (( "$goodResponse">="$THRESHOLD" )); then
+      return 0
+    fi
+  done
+
+
+  echo -e "want code ${wantCode} and text: $(printf "%s, " "${wantText[@]}")\ngot: ${lastResponse}\n"
+  return 1
+}
+
+kubectl label namespace default istio-injection=enabled || true
+
+cat <<EOF | kubectl apply -f -
+apiVersion: authentication.istio.io/v1alpha1
+kind: Policy
+metadata:
+  name: "default"
+spec:
+  peers:
+  - mtls: {}
+---
+apiVersion: "networking.istio.io/v1alpha3"
+kind: "DestinationRule"
+metadata:
+  name: "default"
+spec:
+  host: "*.default.svc.cluster.local"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+EOF
+
+kubectl apply -f samples/bookinfo/platform/kube/bookinfo.yaml
+kubectl apply -f samples/bookinfo/networking/bookinfo-gateway.yaml
+kubectl apply -f samples/sleep/sleep.yaml
+
+# Wait for the deployments to roll out.
+for deploy in "productpage-v1" "details-v1" "ratings-v1" "reviews-v1" "reviews-v2" "reviews-v3" "sleep"; do
+  if ! kubectl rollout status deployment "$deploy" --timeout 5m
+  then
+    echo "$deploy deployment rollout status check failed"
+    exit 1
+  fi
+done
+
+# $snippet enabling_istio_authorization syntax="bash"
+$ kubectl apply -f @samples/bookinfo/platform/kube/rbac/rbac-config-ON.yaml@
+# $endsnippet
+
+# Verify we don't have access.
+verify 403 "RBAC: access denied"
+
+# $snippet enforcing_namespace_level_access_control_apply syntax="bash" outputis="text" outputsnippet="true"
+$ kubectl apply -f @samples/bookinfo/platform/kube/rbac/namespace-policy.yaml@
+# $verify
+servicerole.rbac.istio.io/service-viewer created
+servicerolebinding.rbac.istio.io/bind-service-viewer created
+# $endsnippet
+
+# Verify we now have access.
+verify 200 "William Shakespeare" "Book Details" "Book Reviews"
+
+# $snippet enforcing_namespace_level_access_control_delete syntax="bash"
+$ kubectl delete -f @samples/bookinfo/platform/kube/rbac/namespace-policy.yaml@
+# $endsnippet
+
+# Verify that we're back to no access.
+verify 403 "RBAC: access denied"
+
+# $snippet enforcing_service_level_access_control_step1_apply syntax="bash"
+$ kubectl apply -f @samples/bookinfo/platform/kube/rbac/productpage-policy.yaml@
+# $endsnippet
+
+verify 200 "William Shakespeare" "Error fetching product details" "Error fetching product reviews"
+
+# $snippet enforcing_service_level_access_control_step2_apply syntax="bash"
+$ kubectl apply -f @samples/bookinfo/platform/kube/rbac/details-reviews-policy.yaml@
+# $endsnippet
+
+verify 200 "William Shakespeare" "Book Details" "Book Reviews"
+
+# $snippet enforcing_service_level_access_control_step3_apply syntax="bash"
+$ kubectl apply -f @samples/bookinfo/platform/kube/rbac/ratings-policy.yaml@
+# $endsnippet
+
+# $snippet remove_istio_authorization_policy syntax="bash"
+$ kubectl delete -f @samples/bookinfo/platform/kube/rbac/ratings-policy.yaml@
+$ kubectl delete -f @samples/bookinfo/platform/kube/rbac/details-reviews-policy.yaml@
+$ kubectl delete -f @samples/bookinfo/platform/kube/rbac/productpage-policy.yaml@
+# $endsnippet
+
+# $snippet remove_istio_authorization_policy_alternative syntax="bash"
+$ kubectl delete servicerole --all
+$ kubectl delete servicerolebinding --all
+# $endsnippet
+
+# $snippet disabling_istio_authorization syntax="bash"
+$ kubectl delete -f @samples/bookinfo/platform/kube/rbac/rbac-config-ON.yaml@
+# $endsnippet

@@ -35,8 +35,8 @@ func NewPlugin() plugin.Plugin {
 
 // OnInboundFilterChains setups filter chains based on the authentication policy.
 func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
-	return factory.NewPolicyApplier(in.Env.IstioConfigStore,
-		in.ServiceInstance).InboundFilterChain(in.Env.Mesh.SdsUdsPath, in.Node.Metadata)
+	return factory.NewPolicyApplier(in.Push,
+		in.ServiceInstance).InboundFilterChain(in.Push.Mesh.SdsUdsPath, in.Node.Metadata)
 }
 
 // OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service
@@ -63,7 +63,7 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 }
 
 func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
-	applier := factory.NewPolicyApplier(in.Env.IstioConfigStore, in.ServiceInstance)
+	applier := factory.NewPolicyApplier(in.Push, in.ServiceInstance)
 	if mutable.Listener == nil || (len(mutable.Listener.FilterChains) != len(mutable.FilterChains)) {
 		return fmt.Errorf("expected same number of filter chains in listener (%d) and mutable (%d)", len(mutable.Listener.FilterChains), len(mutable.FilterChains))
 	}
@@ -101,4 +101,9 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, route *xdsapi.
 
 // OnOutboundCluster implements the Plugin interface method.
 func (Plugin) OnOutboundCluster(in *plugin.InputParams, cluster *xdsapi.Cluster) {
+}
+
+// OnInboundPassthrough is called whenever a new passthrough filter chain is added to the LDS output.
+func (Plugin) OnInboundPassthrough(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+	return nil
 }

@@ -16,9 +16,7 @@ metadata:
     istio: mixer
     istio-mixer-type: {{ $key }}
 spec:
-{{- if $.Values.global.defaultPodDisruptionBudget.enabled }}
 {{ include "podDisruptionBudget.spec" $.Values.global.defaultPodDisruptionBudget }}
-{{- end }}
   selector:
     matchLabels:
       app: {{ $key }}

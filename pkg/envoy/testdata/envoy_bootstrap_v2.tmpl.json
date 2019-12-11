@@ -1,0 +1,81 @@
+{
+  "node": {
+    "id": "{{ .nodeID }}",
+    "cluster": "{{ .cluster }}"
+  },
+  "admin": {
+    "access_log_path": "/dev/null",
+    "address": {
+      "socket_address": {
+        "address": "{{ .localhost }}",
+        "port_value": {{ .adminPort }}
+      }
+    }
+  },
+  "static_resources": {
+    "clusters": [
+      {
+        "name": "prometheus_stats",
+        "type": "STATIC",
+        "connect_timeout": "0.250s",
+        "lb_policy": "ROUND_ROBIN",
+        "hosts": [
+          {
+            "socket_address": {
+              "protocol": "TCP",
+              "address": "{{ .localhost }}",
+              "port_value": {{ .adminPort }}
+            }
+          }
+        ]
+      }
+    ],
+    "listeners":[
+      {
+        "address": {
+          "socket_address": {
+            "protocol": "TCP",
+            "address": "0.0.0.0",
+            "port_value": {{ .listenerPort }}
+          }
+        },
+        "filter_chains": [
+          {
+            "filters": [
+              {
+                "name": "envoy.http_connection_manager",
+                "config": {
+                  "codec_type": "AUTO",
+                  "stat_prefix": "stats",
+                  "route_config": {
+                    "virtual_hosts": [
+                      {
+                        "name": "backend",
+                        "domains": [
+                          "*"
+                        ],
+                        "routes": [
+                          {
+                            "match": {
+                              "prefix": "/stats/prometheus"
+                            },
+                            "route": {
+                              "cluster": "prometheus_stats"
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  "http_filters": {
+                    "name": "envoy.router"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

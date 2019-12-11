@@ -35,6 +35,9 @@ import (
 	"golang.org/x/net/context/ctxhttp"
 
 	"istio.io/pkg/log"
+
+	"istio.io/istio/istioctl/pkg/multicluster"
+	"istio.io/istio/pkg/kube/secretcontroller"
 )
 
 const (
@@ -597,8 +600,6 @@ func PodExec(n, pod, container, command string, muteOutput bool, kubeconfig stri
 
 // CreateTLSSecret creates a secret from the provided cert and key files
 func CreateTLSSecret(secretName, n, keyFile, certFile string, kubeconfig string) (string, error) {
-	//cmd := fmt.Sprintf("kubectl create secret tls %s -n %s --key %s --cert %s", secretName, n, keyFile, certFile)
-	//return Shell(cmd)
 	return Shell("kubectl create secret tls %s -n %s --key %s --cert %s --kubeconfig=%s", secretName, n, keyFile, certFile, kubeconfig)
 }
 
@@ -625,7 +626,7 @@ func CheckDeployment(ctx context.Context, namespace, deployment string, kubeconf
 		// This can be deployed by previous tests, but doesn't complete currently, blocking the test.
 		return nil
 	}
-	errc := make(chan error)
+	errc := make(chan error, 1)
 	go func() {
 		if _, err := ShellMuteOutput("kubectl -n %s rollout status %s --kubeconfig=%s", namespace, deployment, kubeconfig); err != nil {
 			errc <- fmt.Errorf("%s in namespace %s failed", deployment, namespace)
@@ -916,34 +917,56 @@ func CheckPodRunning(n, name string, kubeconfig string) error {
 
 // CreateMultiClusterSecret will create the secret associated with the remote cluster
 func CreateMultiClusterSecret(namespace string, remoteKubeConfig string, localKubeConfig string) error {
-	const (
-		secretLabel = "istio/multiCluster"
-		labelValue  = "true"
-	)
-	secretName := filepath.Base(remoteKubeConfig)
-
-	_, err := ShellMuteOutput("kubectl create secret generic %s --from-file %s -n %s --kubeconfig=%s", secretName, remoteKubeConfig, namespace, localKubeConfig)
-	if err != nil {
-		log.Infof("Failed to create secret %s\n", secretName)
-		return err
-	}
-	log.Infof("Secret %s created\n", secretName)
-
-	// label the secret for use as istio/multiCluster config
-	_, err = ShellMuteOutput("kubectl label secret %s %s=%s -n %s --kubeconfig=%s",
-		secretName, secretLabel, labelValue, namespace, localKubeConfig)
+	currentContext, err := ShellMuteOutput("kubectl --kubeconfig=%s config current-context", remoteKubeConfig)
 	if err != nil {
 		return err
 	}
 
-	log.Infof("Secret %s labeled with %s=%s\n", secretName, secretLabel, labelValue)
+	currentContext = strings.Trim(currentContext, "\n")
+
+	env, err := multicluster.NewEnvironment(remoteKubeConfig, currentContext, os.Stdout, os.Stderr)
+	if err != nil {
+		return err
+	}
+
+	opts := multicluster.RemoteSecretOptions{
+		ServiceAccountName: "istio-multi",
+		AuthType:           multicluster.RemoteSecretAuthTypeBearerToken,
+		KubeOptions: multicluster.KubeOptions{
+			Namespace:  namespace,
+			Context:    currentContext,
+			Kubeconfig: remoteKubeConfig,
+		},
+	}
+	config, err := multicluster.CreateRemoteSecret(opts, env)
+	if err != nil {
+		return err
+	}
+	secret, err := ioutil.TempFile("", "")
+	if err != nil {
+		return err
+	}
+	if _, err = secret.WriteString(config); err != nil {
+		return err
+	}
+	if err := secret.Close(); err != nil {
+		return err
+	}
+	log.Infof("Created multi-cluster secret %q for cluster %v", secret.Name(), remoteKubeConfig)
+
+	if _, err := ShellMuteOutput("kubectl --kubeconfig=%v -n %v apply -f %v", localKubeConfig, namespace, secret.Name()); err != nil {
+		return err
+	}
+
+	log.Infof("Secret for cluster %v created in cluster %v\n", remoteKubeConfig, localKubeConfig)
 	return nil
 }
 
 // DeleteMultiClusterSecret delete the remote cluster secret
 func DeleteMultiClusterSecret(namespace string, remoteKubeConfig string, localKubeConfig string) error {
 	secretName := filepath.Base(remoteKubeConfig)
-	_, err := ShellMuteOutput("kubectl delete secret %s -n %s --kubeconfig=%s", secretName, namespace, localKubeConfig)
+	_, err := ShellMuteOutput("kubectl delete secret -n %s --kubeconfig=%s -l %v=true",
+		namespace, localKubeConfig, secretcontroller.MultiClusterSecretLabel)
 	if err != nil {
 		log.Errorf("Failed to delete secret %s: %v", secretName, err)
 	} else {

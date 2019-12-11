@@ -1,0 +1,22 @@
+apiVersion: "security.istio.io/v1beta1"
+kind: AuthorizationPolicy
+metadata:
+  name: allow-server-1
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      app: server-1
+  rules:
+  - to:
+    - operation:
+        ports: ["8081"]
+---
+apiVersion: "security.istio.io/v1beta1"
+kind: AuthorizationPolicy
+metadata:
+  name: deny-all
+  namespace: "{{ .Namespace }}"
+spec:
+  {}
+---

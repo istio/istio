@@ -20,17 +20,17 @@ import (
 	"sort"
 
 	apiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/gogo/protobuf/types"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/golang/protobuf/ptypes/wrappers"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/util"
 )
 
 func ApplyLocalityLBSetting(
 	locality *core.Locality,
 	loadAssignment *apiv2.ClusterLoadAssignment,
-	localityLB *meshconfig.LocalityLoadBalancerSetting,
+	localityLB *v1alpha3.LocalityLoadBalancerSetting,
 	enableFailover bool,
 ) {
 	if locality == nil || loadAssignment == nil {
@@ -50,7 +50,7 @@ func ApplyLocalityLBSetting(
 func applyLocalityWeight(
 	locality *core.Locality,
 	loadAssignment *apiv2.ClusterLoadAssignment,
-	distribute []*meshconfig.LocalityLoadBalancerSetting_Distribute) {
+	distribute []*v1alpha3.LocalityLoadBalancerSetting_Distribute) {
 	if distribute == nil {
 		return
 	}
@@ -88,7 +88,7 @@ func applyLocalityWeight(
 				// the load balancing weight for a locality is divided by the sum of the weights of all localities
 				for index, originalWeight := range destLocMap {
 					weight := float64(originalWeight*weight) / float64(totalWeight)
-					loadAssignment.Endpoints[index].LoadBalancingWeight = &types.UInt32Value{
+					loadAssignment.Endpoints[index].LoadBalancingWeight = &wrappers.UInt32Value{
 						Value: uint32(math.Ceil(weight)),
 					}
 				}
@@ -107,7 +107,7 @@ func applyLocalityWeight(
 func applyLocalityFailover(
 	locality *core.Locality,
 	loadAssignment *apiv2.ClusterLoadAssignment,
-	failover []*meshconfig.LocalityLoadBalancerSetting_Failover) {
+	failover []*v1alpha3.LocalityLoadBalancerSetting_Failover) {
 	// key is priority, value is the index of the LocalityLbEndpoints in ClusterLoadAssignment
 	priorityMap := map[int][]int{}
 

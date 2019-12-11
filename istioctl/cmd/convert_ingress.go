@@ -194,7 +194,7 @@ func convertIngress() *cobra.Command {
 			"Warnings will be generated where configs cannot be converted perfectly. " +
 			"The input must be a Kubernetes Ingress. " +
 			"The conversion of v1alpha1 Istio rules has been removed from istioctl.",
-		Example: "istioctl experimental convert-ingress -f samples/bookinfo/platform/kube/bookinfo-ingress.yaml",
+		Example: "istioctl convert-ingress -f samples/bookinfo/platform/kube/bookinfo-ingress.yaml",
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(inFilenames) == 0 {
 				return fmt.Errorf("no input files provided")

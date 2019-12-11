@@ -20,8 +20,11 @@ import (
 	envoy_rbac "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
 
 	istio_rbac "istio.io/api/rbac/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
+	security "istio.io/api/security/v1beta1"
 	istiolog "istio.io/pkg/log"
+
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/security/trustdomain"
 )
 
 const (
@@ -108,9 +111,9 @@ type Model struct {
 
 type KeyValues map[string][]string
 
-// NewModel constructs a Model from a single ServiceRole and a list of ServiceRoleBinding. The ServiceRole
+// NewModelV1alpha1 constructs a Model from a single ServiceRole and a list of ServiceRoleBinding. The ServiceRole
 // is converted to the permission and the ServiceRoleBinding is converted to the principal.
-func NewModel(role *istio_rbac.ServiceRole, bindings []*istio_rbac.ServiceRoleBinding) *Model {
+func NewModelV1alpha1(trustDomainBundle trustdomain.Bundle, role *istio_rbac.ServiceRole, bindings []*istio_rbac.ServiceRoleBinding) *Model {
 	m := &Model{}
 	for _, accessRule := range role.Rules {
 		var permission Permission
@@ -121,8 +124,8 @@ func NewModel(role *istio_rbac.ServiceRole, bindings []*istio_rbac.ServiceRoleBi
 		permission.NotPaths = accessRule.NotPaths
 		permission.Methods = accessRule.Methods
 		permission.NotMethods = accessRule.NotMethods
-		permission.Ports = accessRule.Ports
-		permission.NotPorts = accessRule.NotPorts
+		permission.Ports = convertPortsToString(accessRule.Ports)
+		permission.NotPorts = convertPortsToString(accessRule.NotPorts)
 
 		constraints := KeyValues{}
 		for _, constraint := range accessRule.Constraints {
@@ -135,25 +138,114 @@ func NewModel(role *istio_rbac.ServiceRole, bindings []*istio_rbac.ServiceRoleBi
 
 	for _, binding := range bindings {
 		for _, subject := range binding.Subjects {
-			var principal Principal
-			principal.User = subject.User
-			principal.Names = subject.Names
-			principal.NotNames = subject.NotNames
-			principal.Groups = subject.Groups
-			principal.Group = subject.Group
-			principal.NotGroups = subject.NotGroups
-			principal.Namespaces = subject.Namespaces
-			principal.NotNamespaces = subject.NotNamespaces
-			principal.IPs = subject.Ips
-			principal.NotIPs = subject.NotIps
+			users := []string{}
+			if subject.User != "" {
+				users = trustDomainBundle.ReplaceTrustDomainAliases([]string{subject.User})
+			}
+			principal := Principal{
+				Users:         users,
+				Names:         subject.Names,
+				NotNames:      subject.NotNames,
+				Groups:        subject.Groups,
+				Group:         subject.Group,
+				NotGroups:     subject.NotGroups,
+				Namespaces:    subject.Namespaces,
+				NotNamespaces: subject.NotNamespaces,
+				IPs:           subject.Ips,
+				NotIPs:        subject.NotIps,
+			}
 
 			property := KeyValues{}
 			for k, v := range subject.Properties {
-				property[k] = []string{v}
+				values := []string{v}
+				if k == attrSrcPrincipal {
+					// TODO(pitlv2109): Refactor this by creating a method for Principal
+					// that searches and replaces all trust domains in both v1alpha1 and v1beta1.
+					values = trustDomainBundle.ReplaceTrustDomainAliases([]string{v})
+				}
+				property[k] = values
 			}
 			principal.Properties = []KeyValues{property}
 
 			m.Principals = append(m.Principals, principal)
+		}
+	}
+
+	return m
+}
+
+// NewModelV1beta1 constructs a Model from v1beta1 Rule.
+func NewModelV1beta1(trustDomainBundle trustdomain.Bundle, rule *security.Rule) *Model {
+	m := &Model{}
+
+	conditionsForPrincipal := make([]KeyValues, 0)
+	conditionsForPermission := make([]KeyValues, 0)
+	for _, when := range rule.When {
+		if isSupportedPrincipal(when.Key) {
+			values := when.Values
+			if when.Key == attrSrcPrincipal {
+				values = trustDomainBundle.ReplaceTrustDomainAliases(when.Values)
+			}
+			conditionsForPrincipal = append(conditionsForPrincipal, KeyValues{when.Key: values})
+		} else if isSupportedPermission(when.Key) {
+			conditionsForPermission = append(conditionsForPermission, KeyValues{when.Key: when.Values})
+		} else {
+			rbacLog.Errorf("ignored unsupported condition: %v", when)
+		}
+	}
+
+	for _, from := range rule.From {
+		if source := from.Source; source != nil {
+			names := trustDomainBundle.ReplaceTrustDomainAliases(source.Principals)
+			principal := Principal{
+				IPs:               source.IpBlocks,
+				Names:             names,
+				Namespaces:        source.Namespaces,
+				RequestPrincipals: source.RequestPrincipals,
+				Properties:        conditionsForPrincipal,
+				v1beta1:           true,
+			}
+			m.Principals = append(m.Principals, principal)
+		}
+	}
+	if len(rule.From) == 0 {
+		if len(conditionsForPrincipal) != 0 {
+			m.Principals = []Principal{{
+				Properties: conditionsForPrincipal,
+				v1beta1:    true,
+			}}
+		} else {
+			m.Principals = []Principal{{
+				AllowAll: true,
+				v1beta1:  true,
+			}}
+		}
+	}
+
+	for _, to := range rule.To {
+		if operation := to.Operation; operation != nil {
+			permission := Permission{
+				Methods:     operation.Methods,
+				Hosts:       operation.Hosts,
+				Ports:       operation.Ports,
+				Paths:       operation.Paths,
+				Constraints: conditionsForPermission,
+				v1beta1:     true,
+			}
+			m.Permissions = append(m.Permissions, permission)
+		}
+	}
+	if len(rule.To) == 0 {
+		if len(conditionsForPermission) != 0 {
+			m.Permissions = []Permission{{
+				Constraints: conditionsForPermission,
+				v1beta1:     true,
+			}}
+		} else {
+			m.Permissions = []Permission{{
+				AllowAll: true,
+				v1beta1:  true,
+			}}
 		}
 	}
 
@@ -167,7 +259,7 @@ func NewModel(role *istio_rbac.ServiceRole, bindings []*istio_rbac.ServiceRoleBi
 func (m *Model) Generate(service *ServiceMetadata, forTCPFilter bool) *envoy_rbac.Policy {
 	policy := &envoy_rbac.Policy{}
 	for _, permission := range m.Permissions {
-		if permission.Match(service) {
+		if service == nil || permission.Match(service) {
 			p, err := permission.Generate(forTCPFilter)
 			if err != nil {
 				rbacLog.Debugf("ignored HTTP permission for TCP service: %v", err)

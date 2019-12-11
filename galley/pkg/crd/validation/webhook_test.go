@@ -16,6 +16,7 @@ package validation
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -29,10 +30,11 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
+	"github.com/onsi/gomega"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
-	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -71,7 +73,7 @@ var (
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "config1",
 		},
-		Webhooks: []admissionregistrationv1beta1.Webhook{
+		Webhooks: []admissionregistrationv1beta1.ValidatingWebhook{
 			{
 				Name: "hook-foo",
 				ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
@@ -100,23 +102,23 @@ var (
 		},
 	}
 
-	dummyDeployment = &appsv1.Deployment{
+	dummyNamespace   = "istio-system"
+	dummyClusterRole = &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "istio-galley",
-			Namespace: "istio-system",
-			UID:       "deadbeef",
+			Name: "istio-galley-istio-system",
+			UID:  "deadbeef",
 		},
 	}
 
-	dummyClient = fake.NewSimpleClientset(dummyDeployment)
+	dummyClient = fake.NewSimpleClientset(dummyClusterRole)
 
 	createFakeWebhookSource   = fcache.NewFakeControllerSource
 	createFakeEndpointsSource = func() cache.ListerWatcher {
 		source := fcache.NewFakeControllerSource()
 		source.Add(&v1.Endpoints{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      dummyDeployment.Name,
-				Namespace: dummyDeployment.Namespace,
+				Name:      dummyClusterRole.Name,
+				Namespace: dummyNamespace,
 			},
 			Subsets: []v1.EndpointSubset{{
 				Addresses: []v1.EndpointAddress{{
@@ -194,9 +196,9 @@ func createTestWebhook(
 		CACertFile:                    caFile,
 		Clientset:                     cl,
 		WebhookName:                   config.Name,
-		DeploymentName:                dummyDeployment.Name,
-		ServiceName:                   dummyDeployment.Name,
-		DeploymentAndServiceNamespace: dummyDeployment.Namespace,
+		DeploymentName:                dummyClusterRole.Name,
+		ServiceName:                   dummyClusterRole.Name,
+		DeploymentAndServiceNamespace: dummyNamespace,
 	}
 	wh, err := NewWebhook(options)
 	if err != nil {
@@ -556,9 +558,9 @@ func TestServe(t *testing.T) {
 	ready := make(chan struct{})
 	defer func() {
 		close(stop)
-		close(ready)
 	}()
 	go wh.Run(ready, stop)
+	<-ready
 
 	validReview := makeTestReview(t, true)
 	invalidReview := makeTestReview(t, false)
@@ -643,4 +645,44 @@ func TestServe(t *testing.T) {
 			}
 		})
 	}
+}
+
+func checkCert(t *testing.T, whc *Webhook, cert, key []byte) bool {
+	t.Helper()
+	actual := whc.cert
+	expected, err := tls.X509KeyPair(cert, key)
+	if err != nil {
+		t.Fatalf("fail to load test certs.")
+	}
+	return bytes.Equal(actual.Certificate[0], expected.Certificate[0])
+}
+
+func TestReloadCert(t *testing.T) {
+	wh, cleanup := createTestWebhook(t,
+		fake.NewSimpleClientset(),
+		createFakeEndpointsSource(),
+		dummyConfig)
+	defer cleanup()
+	stop := make(chan struct{})
+	ready := make(chan struct{})
+	defer func() {
+		close(stop)
+	}()
+	go wh.Run(ready, stop)
+	<-ready
+
+	checkCert(t, wh, testcerts.ServerCert, testcerts.ServerKey)
+	// Update cert/key files.
+	if err := ioutil.WriteFile(wh.certFile, testcerts.RotatedCert, 0644); err != nil { // nolint: vetshadow
+		cleanup()
+		t.Fatalf("WriteFile(%v) failed: %v", wh.certFile, err)
+	}
+	if err := ioutil.WriteFile(wh.keyFile, testcerts.RotatedKey, 0644); err != nil { // nolint: vetshadow
+		cleanup()
+		t.Fatalf("WriteFile(%v) failed: %v", wh.keyFile, err)
+	}
+	g := gomega.NewGomegaWithT(t)
+	g.Eventually(func() bool {
+		return checkCert(t, wh, testcerts.RotatedCert, testcerts.RotatedKey)
+	}, "10s", "100ms").Should(gomega.BeTrue())
 }

@@ -26,11 +26,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/genproto/googleapis/rpc/status"
+
 	api "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	authapi "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
-	"github.com/gogo/protobuf/types"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -473,7 +475,7 @@ func TestStreamSecretsPush(t *testing.T) {
 	// Test push new secret to proxy.
 	if err := NotifyProxy(cache.ConnKey{ConnectionID: conID, ResourceName: testResourceName},
 		pushSecret); err != nil {
-		t.Fatalf("failed to send push notificiation to proxy %q: %v", conID, err)
+		t.Fatalf("failed to send push notification to proxy %q: %v", conID, err)
 	}
 	// load pushed secret into cache, this is needed to detect an ACK request.
 	st.secrets.Store(cache.ConnKey{ConnectionID: conID, ResourceName: testResourceName}, pushSecret)
@@ -494,7 +496,7 @@ func TestStreamSecretsPush(t *testing.T) {
 
 	// Test push nil secret(indicates close the streaming connection) to proxy.
 	if err := NotifyProxy(cache.ConnKey{ConnectionID: conID, ResourceName: testResourceName}, nil); err != nil {
-		t.Fatalf("failed to send push notificiation to proxy %q", conID)
+		t.Fatalf("failed to send push notification to proxy %q", conID)
 	}
 	notifyChanOne <- notifyMsg{Err: nil, Message: "receive nil secret"}
 
@@ -603,7 +605,7 @@ func TestStreamSecretsMultiplePush(t *testing.T) {
 	// Test push new secret to proxy.
 	if err := NotifyProxy(cache.ConnKey{ConnectionID: conID, ResourceName: testResourceName},
 		pushSecret); err != nil {
-		t.Fatalf("failed to send push notificiation to proxy %q", conID)
+		t.Fatalf("failed to send push notification to proxy %q", conID)
 	}
 
 	notifyChan <- notifyMsg{Err: nil, Message: "receive secret"}
@@ -665,7 +667,7 @@ func testSDSStreamUpdateFailures(stream sds.SecretDiscoveryService_StreamSecrets
 
 	// Send third request and simulate the scenario that the second push causes secret update failure.
 	// The version info and response nonce in the third request should match the second request.
-	req.ErrorDetail = &rpc.Status{
+	req.ErrorDetail = &status.Status{
 		Code:    int32(rpc.INTERNAL),
 		Message: "fake error",
 	}
@@ -725,7 +727,7 @@ func TestStreamSecretsUpdateFailures(t *testing.T) {
 	// Test push new secret to proxy.
 	if err := NotifyProxy(cache.ConnKey{ConnectionID: conID, ResourceName: testResourceName},
 		pushSecret); err != nil {
-		t.Fatalf("failed to send push notificiation to proxy %q: %v", conID, err)
+		t.Fatalf("failed to send push notification to proxy %q: %v", conID, err)
 	}
 	// load pushed secret into cache, this is needed to detect an ACK request.
 	st.secrets.Store(cache.ConnKey{ConnectionID: conID, ResourceName: testResourceName}, pushSecret)
@@ -759,7 +761,7 @@ func TestStreamSecretsUpdateFailures(t *testing.T) {
 
 func verifySDSSResponse(resp *api.DiscoveryResponse, expectedPrivateKey []byte, expectedCertChain []byte) error {
 	var pb authapi.Secret
-	if err := types.UnmarshalAny(resp.Resources[0], &pb); err != nil {
+	if err := ptypes.UnmarshalAny(resp.Resources[0], &pb); err != nil {
 		return fmt.Errorf("unmarshalAny SDS response failed: %v", err)
 	}
 
@@ -789,7 +791,7 @@ func verifySDSSResponse(resp *api.DiscoveryResponse, expectedPrivateKey []byte, 
 
 func verifySDSSResponseForRootCert(t *testing.T, resp *api.DiscoveryResponse, expectedRootCert []byte) {
 	var pb authapi.Secret
-	if err := types.UnmarshalAny(resp.Resources[0], &pb); err != nil {
+	if err := ptypes.UnmarshalAny(resp.Resources[0], &pb); err != nil {
 		t.Fatalf("UnmarshalAny SDS response failed: %v", err)
 	}
 
@@ -993,7 +995,7 @@ func TestDebugEndpoints(t *testing.T) {
 		response := httptest.NewRecorder()
 
 		server.workloadSds.debugHTTPHandler(response, workloadRequest)
-		workloadDebugResponse := &sdsdebug{}
+		workloadDebugResponse := &Debug{}
 		if err := json.Unmarshal(response.Body.Bytes(), workloadDebugResponse); err != nil {
 			t.Fatalf("debug JSON unmarshalling failed: %v", err)
 		}
@@ -1008,6 +1010,11 @@ func TestDebugEndpoints(t *testing.T) {
 			found := false
 			for _, c := range workloadDebugResponse.Clients {
 				if p == c.ProxyID {
+					// retrieved cert chain from debug endpoint should match the mock cert chain
+					if c.CertificateChain != string(fakeCertificateChain) {
+						t.Errorf("expected cert chain: %s, but got %s",
+							string(fakeCertificateChain), c.CertificateChain)
+					}
 					found = true
 					break
 				}

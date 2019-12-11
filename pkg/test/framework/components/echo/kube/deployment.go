@@ -97,6 +97,8 @@ spec:
       - name: app
         image: {{ .Hub }}/app:{{ .Tag }}
         imagePullPolicy: {{ .PullPolicy }}
+        securityContext:
+          runAsUser: 1
         args:
 {{- range $i, $p := .ContainerPorts }}
 {{- if eq .Protocol "GRPC" }}
@@ -106,6 +108,8 @@ spec:
 {{- end }}
           - "{{ $p.Port }}"
 {{- end }}
+          - --port
+          - "8081"
           - --version
           - "{{ .Version }}"
         ports:

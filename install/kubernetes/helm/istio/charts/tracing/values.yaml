@@ -31,7 +31,8 @@ podAntiAffinityTermLabelSelector: []
 jaeger:
   hub: docker.io/jaegertracing
   image: all-in-one
-  tag: 1.12
+  tag: 1.14
+  podAnnotations: {}
   memory:
     max_traces: 50000
   # spanStorageType value can be "memory" and "badger" for all-in-one image
@@ -40,10 +41,12 @@ jaeger:
   storageClassName: ""
   accessMode: ReadWriteMany
 
+
 zipkin:
   hub: docker.io/openzipkin
   image: zipkin
   tag: 2.14.2
+  podAnnotations: {}
   probeStartupDelay: 200
   queryPort: 9411
   resources:
@@ -66,7 +69,7 @@ service:
   annotations: {}
   name: http
   type: ClusterIP
-  externalPort: 9411
+  externalPort: 80
 
 ingress:
   enabled: false

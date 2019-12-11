@@ -1,32 +1,44 @@
-*                                                                @costinm @geeknoid @howardjohn @linsun @rshriram @nmittler @ozevren
-/bin/                                                            @costinm @douglas-reid @mandarjog @sdake
-/galley/                                                         @geeknoid @ozevren
-/install/                                                        @costinm @sdake @linsun @rshriram @howardjohn @mandarjog @morvencao @ostromart
-/install/kubernetes/helm/istio/charts/galley/                    @costinm @sdake @linsun @rshriram @howardjohn @mandarjog @morvencao @ostromart @cmluciano @geeknoid @ozevren @ayj
-/install/kubernetes/helm/istio/charts/sidecarInjectorWebhook/    @costinm @sdake @linsun @rshriram @howardjohn @mandarjog @morvencao @ostromart
-/istioctl/                                                       @ozevren @liamawhite @nmittler @esnible @fisherxu @irisdingbj
-/mixer/                                                          @douglas-reid @geeknoid @kyessenov @mandarjog
-/mixer/test/client/                                              @douglas-reid @geeknoid @kyessenov @mandarjog @qiwzhang @JimmyCYJ @kyessenov @lizan
-/pilot/                                                          @andraxylia @costinm @diemtvu @GregHanson @hzxuzhonghu @nmittler @rshriram @vadimeisenbergibm @howardjohn @zackbutcher
-/pilot/pkg/networking/                                           @andraxylia @costinm @diemtvu @GregHanson @hzxuzhonghu @nmittler @rshriram @vadimeisenbergibm @howardjohn @zackbutcher @costinm @GregHanson @rshriram @zackbutcher @ostromart
-/pilot/pkg/networking/plugin/authn/                              @andraxylia @costinm @diemtvu @GregHanson @hzxuzhonghu @nmittler @rshriram @vadimeisenbergibm @howardjohn @zackbutcher @costinm @GregHanson @rshriram @zackbutcher @ostromart @diemtvu @yangminzhu
-/pilot/pkg/networking/plugin/authz/                              @andraxylia @costinm @diemtvu @GregHanson @hzxuzhonghu @nmittler @rshriram @vadimeisenbergibm @howardjohn @zackbutcher @costinm @GregHanson @rshriram @zackbutcher @ostromart @diemtvu @yangminzhu
-/pilot/pkg/networking/plugin/mixer/                              @andraxylia @costinm @diemtvu @GregHanson @hzxuzhonghu @nmittler @rshriram @vadimeisenbergibm @howardjohn @zackbutcher @costinm @GregHanson @rshriram @zackbutcher @ostromart @kyessenov @douglas-reid @mandarjog
-/pilot/pkg/security/                                             @andraxylia @costinm @diemtvu @GregHanson @hzxuzhonghu @nmittler @rshriram @vadimeisenbergibm @howardjohn @zackbutcher @diemtvu @yangminzhu @quanjielin
-/pkg/bootstrap/                                                  @mandarjog @costinm
-/pkg/mcp/                                                        @ozevren @ayj @nmittler
-/prow/                                                           @geeknoid @howardjohn @duderino @linsun
-/release/                                                        @duderino @linsun
-/samples/                                                        @frankbu @kyessenov @rshriram @vadimeisenbergibm @venilnoronha
-/security/                                                       @diemtvu @incfly @myidpt @quanjielin @JimmyCYJ
-/tests/e2e/local/                                                @costinm @nmittler @gargnupur @kimikowang @JimmyCYJ @m1093782566
-/tests/e2e/tests/pilot/                                          @costinm @nmittler @andraxylia @GregHanson @hzxuzhonghu @rshriram @vadimeisenbergibm @zackbutcher
-/tests/integration/conformance/                                  @costinm @nmittler @ozevren
-/tests/integration/framework/                                    @costinm @nmittler @ozevren
-/tests/integration/galley/                                       @costinm @nmittler @ozevren @geeknoid
-/tests/integration/mixer/                                        @costinm @nmittler @ozevren @bianpengyuan @douglas-reid @gargnupur @geeknoid @kyessenov @mandarjog
-/tests/integration/pilot/                                        @costinm @nmittler @ozevren @andraxylia @costinm @nmittler @rshriram
-/tests/integration/qualification/                                @costinm @nmittler @ozevren
-/tests/integration/security/                                     @costinm @nmittler @ozevren @diemtvu @incfly @myidpt @quanjielin @wattli @yangminzhu @JimmyCYJ
-/tests/integration/security/rbac/                                @costinm @nmittler @ozevren @diemtvu @incfly @myidpt @quanjielin @wattli @yangminzhu @JimmyCYJ @yangminzhu @liminw
-/tools/                                                          @sdake @mandarjog @nmittler
+*                                                                @costinm @linsun @rshriram @howardjohn
+/bin/                                                            @istio/wg-test-and-release-maintainers
+/cmd/istiod/                                                     @istio/wg-environments-maintainers
+/galley/                                                         @istio/wg-config-maintainers
+/install/                                                        @istio/wg-environments-maintainers
+/istioctl/                                                       @istio/wg-user-experience-maintainers
+/mixer/                                                          @istio/wg-policies-and-telemetry-maintainers
+/pilot/                                                          @istio/wg-networking-maintainers
+/pilot/pkg/security/                                             @istio/wg-security-maintainers
+/pilot/pkg/config/                                               @istio/wg-config-maintainers @istio/wg-networking-maintainers
+/pilot/pkg/networking/plugin/authn/                              @istio/wg-security-maintainers
+/pilot/pkg/networking/plugin/authz/                              @istio/wg-security-maintainers
+/pilot/pkg/networking/plugin/mixer/                              @istio/wg-policies-and-telemetry-maintainers
+/pilot/pkg/config/                                               @istio/wg-networking-maintainers-pilot
+/pilot/pkg/serviceregistry/                                      @istio/wg-networking-maintainers-pilot
+/pilot/pkg/model/                                                @istio/wg-networking-maintainers-pilot
+/pilot/pkg/networking/core                                       @istio/wg-networking-maintainers-pilot
+/pilot/pkg/proxy                                                 @istio/wg-networking-maintainers-pilot
+/pkg/bootstrap/                                                  @istio/wg-environments-maintainers
+/pkg/mcp/                                                        @istio/wg-config-maintainers
+/pkg/test/                                                       @istio/wg-test-and-release-maintainers
+/prow/                                                           @istio/wg-test-and-release-maintainers
+/release/                                                        @istio/wg-test-and-release-maintainers
+/samples/                                                        @istio/wg-docs-maintainers
+/security/                                                       @istio/wg-security-maintainers
+/tests/                                                          @istio/wg-test-and-release-maintainers
+/tests/e2e/local/                                                @istio/wg-test-and-release-maintainers
+/tests/e2e/tests/mixer/                                          @istio/wg-policies-and-telemetry-maintainers
+/tests/e2e/tests/pilot/                                          @istio/wg-networking-maintainers
+/tests/integration/conformance/                                  @istio/wg-test-and-release-maintainers
+/tests/integration/framework/                                    @istio/wg-test-and-release-maintainers
+/tests/integration/galley/                                       @istio/wg-config-maintainers
+/tests/integration/mixer/                                        @istio/wg-policies-and-telemetry-maintainers
+/tests/integration/telemetry/                                    @istio/wg-policies-and-telemetry-maintainers
+/tests/integration/pilot/                                        @istio/wg-networking-maintainers
+/tests/integration/qualification/                                @istio/wg-test-and-release-maintainers
+/tests/integration/security/                                     @istio/wg-security-maintainers
+/tests/integration/istioio/                                      @istio/wg-docs-maintainers @istio/wg-test-and-release-maintainers
+/tests/integration/istioctl/                                     @istio/wg-user-experience-maintainers
+/tools/                                                          @istio/wg-test-and-release-maintainers
+/tools/istio-iptables/                                           @istio/wg-networking-maintainers
+/tools/istio-clean-iptables/                                     @istio/wg-networking-maintainers
+/tools/packaging/common/istio-iptables.sh                        @istio/wg-networking-maintainers
+/tools/packaging/common/istio-clean-iptables.sh                  @istio/wg-networking-maintainers

@@ -66,7 +66,7 @@ func removeIPFromEndpoint(eps *v1.Endpoints, ip string) bool {
 // already exists) from Kubernetes. It creates or updates as needed.
 func DeRegisterEndpoint(client kubernetes.Interface, namespace string, svcName string,
 	ip string) error {
-	getOpt := meta_v1.GetOptions{IncludeUninitialized: true}
+	getOpt := meta_v1.GetOptions{}
 	var match bool
 	eps, err := client.CoreV1().Endpoints(namespace).Get(svcName, getOpt)
 	if err != nil {

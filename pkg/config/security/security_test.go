@@ -12,14 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// This file describes the abstract model of services (and their instances) as
-// represented in Istio. This model is independent of the underlying platform
-// (Kubernetes, Mesos, etc.). Platform specific adapters found populate the
-// model object with various fields, from the metadata found in the platform.
-// The platform independent proxy code uses the representation in the model to
-// generate the configuration files for the Layer 7 proxy sidecar. The proxy
-// code is specific to individual proxy implementations
-
 package security_test
 
 import (
@@ -31,21 +23,21 @@ import (
 
 func TestParseJwksURI(t *testing.T) {
 	cases := []struct {
-		in                   string
-		expected             security.JwksInfo
-		expectedErrorMessage string
+		in            string
+		expected      security.JwksInfo
+		expectedError bool
 	}{
 		{
-			in:                   "foo.bar.com",
-			expectedErrorMessage: `URI scheme "" is not supported`,
+			in:            "foo.bar.com",
+			expectedError: true,
 		},
 		{
-			in:                   "tcp://foo.bar.com:abc",
-			expectedErrorMessage: `URI scheme "tcp" is not supported`,
+			in:            "tcp://foo.bar.com:abc",
+			expectedError: true,
 		},
 		{
-			in:                   "http://foo.bar.com:abc",
-			expectedErrorMessage: `strconv.Atoi: parsing "abc": invalid syntax`,
+			in:            "http://foo.bar.com:abc",
+			expectedError: true,
 		},
 		{
 			in: "http://foo.bar.com",
@@ -86,17 +78,110 @@ func TestParseJwksURI(t *testing.T) {
 	}
 	for _, c := range cases {
 		actual, err := security.ParseJwksURI(c.in)
-		if err != nil {
-			if c.expectedErrorMessage != err.Error() {
-				t.Errorf("ParseJwksURI(%s): expected error (%s), got (%v)", c.in, c.expectedErrorMessage, err)
-			}
-		} else {
-			if c.expectedErrorMessage != "" {
-				t.Errorf("ParseJwksURI(%s): expected error (%s), got no error", c.in, c.expectedErrorMessage)
-			}
-			if !reflect.DeepEqual(c.expected, actual) {
-				t.Errorf("expected %+v, got %+v", c.expected, actual)
-			}
+		if c.expectedError == (err == nil) {
+			t.Fatalf("ParseJwksURI(%s): expected error (%v), got (%v)", c.in, c.expectedError, err)
+		}
+		if !reflect.DeepEqual(c.expected, actual) {
+			t.Fatalf("expected %+v, got %+v", c.expected, actual)
+		}
+	}
+}
+
+func TestValidateCondition(t *testing.T) {
+	cases := []struct {
+		key       string
+		values    []string
+		wantError bool
+	}{
+		{
+			key:    "request.headers[:authority]",
+			values: []string{"productpage"},
+		},
+		{
+			key:       "request.headers[]",
+			values:    []string{"productpage"},
+			wantError: true,
+		},
+		{
+			key:    "source.ip",
+			values: []string{"1.2.3.4", "5.6.7.0/24"},
+		},
+		{
+			key:       "source.ip",
+			values:    []string{"a.b.c.d"},
+			wantError: true,
+		},
+		{
+			key: "source.namespace",
+		},
+		{
+			key: "source.user",
+		},
+		{
+			key: "source.principal",
+		},
+		{
+			key: "request.auth.principal",
+		},
+		{
+			key: "request.auth.audiences",
+		},
+		{
+			key: "request.auth.presenter",
+		},
+		{
+			key:    "request.auth.claims[id]",
+			values: []string{"123"},
+		},
+		{
+			key:       "request.auth.claims[]",
+			wantError: true,
+		},
+		{
+			key:    "destination.ip",
+			values: []string{"1.2.3.4", "5.6.7.0/24"},
+		},
+		{
+			key:       "destination.ip",
+			values:    []string{"a.b.c.d"},
+			wantError: true,
+		},
+		{
+			key:    "destination.port",
+			values: []string{"80", "90"},
+		},
+		{
+			key:       "destination.port",
+			values:    []string{"80", "x"},
+			wantError: true,
+		},
+		{
+			key:       "destination.labels[app]",
+			wantError: true,
+		},
+		{
+			key:       "destination.name",
+			wantError: true,
+		},
+		{
+			key:       "destination.namespace",
+			wantError: true,
+		},
+		{
+			key:       "destination.use",
+			wantError: true,
+		},
+		{
+			key: "connection.sni",
+		},
+		{
+			key: "experimental.envoy.filters.a.b[c]",
+		},
+	}
+	for _, c := range cases {
+		err := security.ValidateAttribute(c.key, c.values)
+		if c.wantError == (err == nil) {
+			t.Fatalf("ValidateAttribute(%s): want error (%v) but got (%v)", c.key, c.wantError, err)
 		}
 	}
 }

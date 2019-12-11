@@ -46,6 +46,22 @@ func TestToProto_Success(t *testing.T) {
 	g.Expect(p).To(Equal(expected))
 }
 
+func TestToProto_UnknownFields(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	data := map[string]interface{}{
+		"foo": "bar",
+		"boo": "baz",
+	}
+
+	p := &gogoTypes.Empty{}
+	err := UnmarshalData(p, data)
+	g.Expect(err).To(BeNil())
+	expected := &gogoTypes.Empty{}
+
+	g.Expect(p).To(Equal(expected))
+}
+
 func TestToProto_Error(t *testing.T) {
 	g := NewGomegaWithT(t)
 

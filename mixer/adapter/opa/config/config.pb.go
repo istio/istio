@@ -28,7 +28,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 // Configuration format for the `opa` adapter.
 //
@@ -64,7 +64,7 @@ type Params struct {
 	// List of OPA policies
 	Policy []string `protobuf:"bytes,1,rep,name=policy,proto3" json:"policy,omitempty"`
 	// Query method to check.
-	// Format: data.<package name>.<method name>
+	// Format: `data.<package name>.<method name>`
 	CheckMethod string `protobuf:"bytes,2,opt,name=check_method,json=checkMethod,proto3" json:"check_method,omitempty"`
 	// Close the client request when adapter has a issue.
 	// If failClose is set to true and there is a runtime error,

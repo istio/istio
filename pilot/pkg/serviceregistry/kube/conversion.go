@@ -29,6 +29,7 @@ import (
 	"istio.io/api/annotation"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/kube"
@@ -106,10 +107,11 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 		Resolution:      resolution,
 		CreationTime:    svc.CreationTimestamp.Time,
 		Attributes: model.ServiceAttributes{
-			Name:      svc.Name,
-			Namespace: svc.Namespace,
-			UID:       fmt.Sprintf("istio://%s/services/%s", svc.Namespace, svc.Name),
-			ExportTo:  exportTo,
+			ServiceRegistry: string(serviceregistry.Kubernetes),
+			Name:            svc.Name,
+			Namespace:       svc.Namespace,
+			UID:             fmt.Sprintf("istio://%s/services/%s", svc.Namespace, svc.Name),
+			ExportTo:        exportTo,
 		},
 	}
 
@@ -120,7 +122,7 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 				lbAddrs = append(lbAddrs, ingress.IP)
 			} else if len(ingress.Hostname) > 0 {
 				addrs, err := net.DefaultResolver.LookupHost(context.TODO(), ingress.Hostname)
-				if err != nil {
+				if err == nil {
 					lbAddrs = append(lbAddrs, addrs...)
 				}
 			}
@@ -171,6 +173,14 @@ func SecureNamingSAN(pod *coreV1.Pod) string {
 	}
 
 	return spiffe.MustGenSpiffeURI(pod.Namespace, pod.Spec.ServiceAccountName)
+}
+
+// PodTLSMode returns the tls mode associated with the pod if pod has been injected with sidecar
+func PodTLSMode(pod *coreV1.Pod) string {
+	if pod == nil {
+		return model.DisabledTLSModeLabel
+	}
+	return model.GetTLSModeFromEndpointLabels(pod.Labels)
 }
 
 // KeyFunc is the internal API key function that returns "namespace"/"name" or

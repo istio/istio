@@ -15,6 +15,7 @@
 package converter
 
 import (
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -24,11 +25,13 @@ import (
 	"istio.io/api/annotation"
 	networking "istio.io/api/networking/v1alpha3"
 
-	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/annotations"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/pod"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/pkg/config/constants"
 	configKube "istio.io/istio/pkg/config/kube"
+	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 // Instance of the converter.
@@ -49,8 +52,12 @@ func New(domain string, pods pod.Cache) *Instance {
 // ServiceEntry is passed as an argument (out) in order to enable object reuse in the future.
 func (i *Instance) Convert(service *resource.Entry, endpoints *resource.Entry, outMeta *resource.Metadata,
 	out *networking.ServiceEntry) error {
-	i.convertService(service, outMeta, out)
+	// we want to build the endpoints and then services
+	// as availability of endpoints can impact determining
+	// service resolution e.g STATIC service resolution
+	// must have endpoints
 	i.convertEndpoints(endpoints, outMeta, out)
+	i.convertService(service, outMeta, out)
 	return nil
 }
 
@@ -62,10 +69,17 @@ func (i *Instance) convertService(service *resource.Entry, outMeta *resource.Met
 	}
 
 	spec := service.Item.(*coreV1.ServiceSpec)
-
-	resolution := networking.ServiceEntry_STATIC
 	location := networking.ServiceEntry_MESH_INTERNAL
-	endpoints := convertExternalServiceEndpoints(spec, service.Metadata)
+	endpoints := out.Endpoints
+	if len(endpoints) == 0 {
+		endpoints = convertExternalServiceEndpoints(spec, service.Metadata)
+	}
+
+	var resolution networking.ServiceEntry_Resolution
+	// Resolution STATIC must have endpoints
+	if len(endpoints) != 0 {
+		resolution = networking.ServiceEntry_STATIC
+	}
 
 	// Check for an external service
 	externalName := ""
@@ -84,17 +98,31 @@ func (i *Instance) convertService(service *resource.Entry, outMeta *resource.Met
 		// Headless services should not be load balanced
 		resolution = networking.ServiceEntry_NONE
 	}
+	// Resolution NONE must not have endpoints
+	if resolution == networking.ServiceEntry_NONE && len(endpoints) != 0 {
+		resolution = networking.ServiceEntry_STATIC
+	}
 
 	ports := make([]*networking.Port, 0, len(spec.Ports))
 	for _, port := range spec.Ports {
-		ports = append(ports, convertPort(port))
+		p, err := convertPort(port)
+		if err != nil {
+			scope.Processing.Warnf("convertService: failed to convert port %v for service %s (skipping): %v", port, service.Metadata.Name, err)
+			continue
+		}
+		ports = append(ports, p)
 	}
 
 	host := serviceHostname(service.Metadata.Name, i.domain)
 
 	// Store everything in the ServiceEntry.
 	out.Hosts = []string{host}
-	out.Addresses = []string{addr}
+	// CIDR addrs are only allowed for NONE/STATIC resolution types
+	if resolution != networking.ServiceEntry_DNS {
+		out.Addresses = []string{addr}
+	} else {
+		out.Addresses = []string{constants.UnspecifiedIP}
+	}
 	out.Resolution = resolution
 	out.Location = location
 	out.Ports = ports
@@ -109,10 +137,13 @@ func (i *Instance) convertService(service *resource.Entry, outMeta *resource.Met
 	outMeta.CreateTime = service.Metadata.CreateTime
 
 	// Update the annotations.
-	outMeta.Annotations = service.Metadata.Annotations.CloneOrCreate()
+	outMeta.Annotations = outMeta.Annotations.CloneOrCreate()
+	for k, v := range service.Metadata.Annotations {
+		outMeta.Annotations[k] = v
+	}
 
 	// Add an annotation for the version of the service resource.
-	outMeta.Annotations[annotations.ServiceVersion] = string(service.Metadata.Version)
+	outMeta.Annotations[annotation.AlphaNetworkingServiceVersion.Name] = string(service.Metadata.Version)
 }
 
 func convertExportTo(annotations resource.StringMap) []string {
@@ -209,11 +240,11 @@ func (i *Instance) convertEndpoints(endpoints *resource.Entry, outMeta *resource
 
 	// Add an annotation for the version of the Endpoints resource.
 	outMeta.Annotations = outMeta.Annotations.CloneOrCreate()
-	outMeta.Annotations[annotations.EndpointsVersion] = string(endpoints.Metadata.Version)
+	outMeta.Annotations[annotation.AlphaNetworkingEndpointsVersion.Name] = string(endpoints.Metadata.Version)
 
 	// Add an annotation for any "not ready" endpoints.
 	if notReadyBuilder.Len() > 0 {
-		outMeta.Annotations[annotations.NotReadyEndpoints] = notReadyBuilder.String()
+		outMeta.Annotations[annotation.AlphaNetworkingNotReadyEndpoints.Name] = notReadyBuilder.String()
 	}
 }
 
@@ -247,10 +278,43 @@ func serviceHostname(fullName resource.Name, domainSuffix string) string {
 	return name + "." + namespace + ".svc." + domainSuffix
 }
 
-func convertPort(port coreV1.ServicePort) *networking.Port {
+func convertPort(port coreV1.ServicePort) (*networking.Port, error) {
+	if err := validatePortName(port.Name); err != nil {
+		return nil, err
+	}
+	if err := validateProtocol(string(port.Protocol)); err != nil {
+		return nil, err
+	}
+	if err := validatePort(port.Port); err != nil {
+		return nil, err
+	}
+
 	return &networking.Port{
 		Name:     port.Name,
 		Number:   uint32(port.Port),
 		Protocol: string(configKube.ConvertProtocol(port.Port, port.Name, port.Protocol)),
+	}, nil
+}
+
+func validatePortName(name string) error {
+	if !labels.IsDNS1123Label(name) {
+		return fmt.Errorf("invalid port name: %q", name)
 	}
+	return nil
+}
+
+func validateProtocol(protocolStr string) error {
+	// Empty string is used for protocol sniffing.
+	if protocolStr != "" && protocol.Parse(protocolStr) == protocol.Unsupported {
+		return fmt.Errorf("unsupported protocol: %q", protocolStr)
+	}
+	return nil
+}
+
+// ValidatePort checks that the network port is in range
+func validatePort(port int32) error {
+	if 1 <= port && port <= 65535 {
+		return nil
+	}
+	return fmt.Errorf("port number %d must be in the range 1..65535", port)
 }

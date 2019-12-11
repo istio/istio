@@ -37,10 +37,3 @@ Create a fully qualified configmap name.
 {{- define "istio.configmap.fullname" -}}
 {{- printf "%s-%s" .Release.Name "istio-mesh-config" | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
-
-{{/*
-Configmap checksum.
-*/}}
-{{- define "istio.configmap.checksum" -}}
-{{- print $.Template.BasePath "/configmap.yaml" | sha256sum -}}
-{{- end -}}

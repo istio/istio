@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/user"
 	"testing"
 	"time"
 
@@ -36,7 +35,6 @@ import (
 // Package controller tests the pilot controller using a k8s cluster or standalone apiserver.
 // It needs to be separate from pilot tests - it may interfere with the pilot tests by creating
 // test resources that may confuse other istio tests or it may be confused by other tests.
-// This test can be run in an IDE against local apiserver, if you have run bin/testEnvLocalK8S.sh
 
 // TODO: make changes to k8s ( endpoints in particular ) and verify the proper generation of events.
 // This test relies on mocks.
@@ -46,7 +44,7 @@ const (
 )
 
 func makeClient(desc schema.Set) (*crd.Client, error) {
-	cl, err := crd.NewClient("", "", desc, "")
+	cl, err := crd.NewClient("", "", desc, "", &model.DisabledLedger{})
 	if err != nil {
 		return nil, err
 	}
@@ -70,13 +68,11 @@ func resolveConfig(kubeconfig string) (string, error) {
 		kubeconfig = os.Getenv("KUBECONFIG")
 	}
 	if kubeconfig == "" {
-		usr, err := user.Current()
-		if err == nil {
-			defaultCfg := usr.HomeDir + "/.kube/config"
-			_, err := os.Stat(kubeconfig)
-			if err != nil {
-				kubeconfig = defaultCfg
-			}
+		home := os.Getenv("HOME")
+		defaultCfg := home + "/.kube/config"
+		_, err := os.Stat(kubeconfig)
+		if err != nil {
+			kubeconfig = defaultCfg
 		}
 	}
 	if kubeconfig != "" {

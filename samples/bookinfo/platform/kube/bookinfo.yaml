@@ -13,6 +13,20 @@
 #   limitations under the License.
 
 ##################################################################################################
+# This file defines the services, service accounts, and deployments for the Bookinfo sample.
+#
+# To apply all 4 Bookinfo services, their corresponding service accounts, and deployments:
+#
+#   kubectl apply -f samples/bookinfo/platform/kube/bookinfo.yaml
+#
+# Alternatively, you can deploy any resource separately:
+#
+#   kubectl apply -f samples/bookinfo/platform/kube/bookinfo.yaml -l service=reviews # reviews Service
+#   kubectl apply -f samples/bookinfo/platform/kube/bookinfo.yaml -l account=reviews # reviews ServiceAccount
+#   kubectl apply -f samples/bookinfo/platform/kube/bookinfo.yaml -l app=reviews,version=v3 # reviews-v3 Deployment
+##################################################################################################
+
+##################################################################################################
 # Details service
 ##################################################################################################
 apiVersion: v1
@@ -33,6 +47,8 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: bookinfo-details
+  labels:
+    account: details
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -82,6 +98,8 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: bookinfo-ratings
+  labels:
+    account: ratings
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -131,6 +149,8 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: bookinfo-reviews
+  labels:
+    account: reviews
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -156,8 +176,21 @@ spec:
       - name: reviews
         image: docker.io/istio/examples-bookinfo-reviews-v1:1.15.0
         imagePullPolicy: IfNotPresent
+        env:
+        - name: LOG_DIR
+          value: "/tmp/logs"
         ports:
         - containerPort: 9080
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: wlp-output
+          mountPath: /opt/ibm/wlp/output
+      volumes:
+      - name: wlp-output
+        emptyDir: {}
+      - name: tmp
+        emptyDir: {}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -183,8 +216,21 @@ spec:
       - name: reviews
         image: docker.io/istio/examples-bookinfo-reviews-v2:1.15.0
         imagePullPolicy: IfNotPresent
+        env:
+        - name: LOG_DIR
+          value: "/tmp/logs"
         ports:
         - containerPort: 9080
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: wlp-output
+          mountPath: /opt/ibm/wlp/output
+      volumes:
+      - name: wlp-output
+        emptyDir: {}
+      - name: tmp
+        emptyDir: {}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -210,8 +256,21 @@ spec:
       - name: reviews
         image: docker.io/istio/examples-bookinfo-reviews-v3:1.15.0
         imagePullPolicy: IfNotPresent
+        env:
+        - name: LOG_DIR
+          value: "/tmp/logs"
         ports:
         - containerPort: 9080
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: wlp-output
+          mountPath: /opt/ibm/wlp/output
+      volumes:
+      - name: wlp-output
+        emptyDir: {}
+      - name: tmp
+        emptyDir: {}
 ---
 ##################################################################################################
 # Productpage services
@@ -234,6 +293,8 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: bookinfo-productpage
+  labels:
+    account: productpage
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -261,4 +322,10 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+      - name: tmp
+        emptyDir: {}
 ---

@@ -25,10 +25,10 @@ import (
 	"strings"
 	"time"
 
-	xdsUtil "github.com/envoyproxy/go-control-plane/pkg/util"
+	xdsUtil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -36,6 +36,8 @@ import (
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	rbac "istio.io/api/rbac/v1alpha1"
+	security_beta "istio.io/api/security/v1beta1"
+	type_beta "istio.io/api/type/v1beta1"
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pkg/config/constants"
@@ -64,16 +66,17 @@ const UnixAddressPrefix = "unix://"
 // envoy supported retry on header values
 var supportedRetryOnPolicies = map[string]bool{
 	// 'x-envoy-retry-on' supported policies:
-	// https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-on
+	// https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/router_filter.html#x-envoy-retry-on
 	"5xx":                    true,
 	"gateway-error":          true,
+	"reset":                  true,
 	"connect-failure":        true,
 	"retriable-4xx":          true,
 	"refused-stream":         true,
 	"retriable-status-codes": true,
 
 	// 'x-envoy-retry-grpc-on' supported policies:
-	// https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-grpc-on
+	// https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/router_filter#x-envoy-retry-grpc-on
 	"cancelled":          true,
 	"deadline-exceeded":  true,
 	"internal":           true,
@@ -93,6 +96,8 @@ var supportedMethods = map[string]bool{
 	http.MethodOptions: true,
 	http.MethodTrace:   true,
 }
+
+var scope = log.RegisterScope("validation", "CRD validation debugging", 0)
 
 // ValidateFunc defines a validation func for an API proto.
 type ValidateFunc func(name, namespace string, config proto.Message) error
@@ -232,35 +237,29 @@ func validatePercentageOrDefault(percentage *networking.Percent, defaultPercent 
 	return ValidatePercent(defaultPercent)
 }
 
-// ValidateIPv4Subnet checks that a string is in "CIDR notation" or "Dot-decimal notation"
-func ValidateIPv4Subnet(subnet string) error {
+// ValidateIPSubnet checks that a string is in "CIDR notation" or "Dot-decimal notation"
+func ValidateIPSubnet(subnet string) error {
 	// We expect a string in "CIDR notation" or "Dot-decimal notation"
-	// E.g., a.b.c.d/xx form or just a.b.c.d
+	// E.g., a.b.c.d/xx form or just a.b.c.d or 2001:1::1/64
 	if strings.Count(subnet, "/") == 1 {
-		// We expect a string in "CIDR notation", i.e. a.b.c.d/xx form
+		// We expect a string in "CIDR notation", i.e. a.b.c.d/xx or 2001:1::1/64 form
 		ip, _, err := net.ParseCIDR(subnet)
 		if err != nil {
 			return fmt.Errorf("%v is not a valid CIDR block", subnet)
 		}
-		// The current implementation only supports IP v4 addresses
-		if ip.To4() == nil {
-			return fmt.Errorf("%v is not a valid IPv4 address", subnet)
+		if ip.To4() == nil && ip.To16() == nil {
+			return fmt.Errorf("%v is not a valid IPv4 or IPv6 address", subnet)
 		}
 		return nil
 	}
-	return ValidateIPv4Address(subnet)
+	return ValidateIPAddress(subnet)
 }
 
-// ValidateIPv4Address validates that a string in "CIDR notation" or "Dot-decimal notation"
-func ValidateIPv4Address(addr string) error {
+// ValidateIPAddress validates that a string in "CIDR notation" or "Dot-decimal notation"
+func ValidateIPAddress(addr string) error {
 	ip := net.ParseIP(addr)
 	if ip == nil {
 		return fmt.Errorf("%v is not a valid IP", addr)
-	}
-
-	// The current implementation only supports IP v4 addresses
-	if ip.To4() == nil {
-		return fmt.Errorf("%v is not a valid IPv4 address", addr)
 	}
 
 	return nil
@@ -377,6 +376,22 @@ func validateTLSOptions(tls *networking.Server_TLSOptions) (errs error) {
 		return
 	}
 
+	if tls.Mode == networking.Server_TLSOptions_ISTIO_MUTUAL {
+		// ISTIO_MUTUAL TLS mode uses either SDS or default certificate mount paths
+		// therefore, we should fail validation if other TLS fields are set
+		if tls.ServerCertificate != "" {
+			errs = appendErrors(errs, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated server certificate"))
+		}
+		if tls.PrivateKey != "" {
+			errs = appendErrors(errs, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated private key"))
+		}
+		if tls.CaCertificates != "" {
+			errs = appendErrors(errs, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated CA bundle"))
+		}
+
+		return
+	}
+
 	if (tls.Mode == networking.Server_TLSOptions_SIMPLE || tls.Mode == networking.Server_TLSOptions_MUTUAL) && tls.CredentialName != "" {
 		// If tls mode is SIMPLE or MUTUAL, and CredentialName is specified, credentials are fetched
 		// remotely. ServerCertificate and CaCertificates fields are not required.
@@ -438,20 +453,20 @@ func validateExportTo(exportTo []string) (errs error) {
 func ValidateEnvoyFilter(_, _ string, msg proto.Message) (errs error) {
 	rule, ok := msg.(*networking.EnvoyFilter)
 	if !ok {
-		return fmt.Errorf("cannot cast to envoy filter")
+		return fmt.Errorf("cannot cast to Envoy filter")
 	}
 
 	if len(rule.Filters) > 0 {
-		log.Warn("envoy filter: Filters is deprecated. use configPatches instead")
+		scope.Warn("Envoy filter: Filters is deprecated. use configPatches instead") // nolint: golint,stylecheck
 	}
 
 	if rule.WorkloadLabels != nil {
-		log.Warn("envoy filter: workloadLabels is deprecated. use workloadSelector instead")
+		scope.Warn("Envoy filter: workloadLabels is deprecated. use workloadSelector instead") // nolint: golint,stylecheck
 	}
 
 	if rule.WorkloadSelector != nil {
 		if rule.WorkloadSelector.GetLabels() == nil {
-			errs = appendErrors(errs, fmt.Errorf("envoy filter: workloadSelector cannot have empty labels"))
+			errs = appendErrors(errs, fmt.Errorf("Envoy filter: workloadSelector cannot have empty labels")) // nolint: golint,stylecheck
 		}
 	}
 
@@ -460,44 +475,44 @@ func ValidateEnvoyFilter(_, _ string, msg proto.Message) (errs error) {
 			if f.InsertPosition.Index == networking.EnvoyFilter_InsertPosition_BEFORE ||
 				f.InsertPosition.Index == networking.EnvoyFilter_InsertPosition_AFTER {
 				if f.InsertPosition.RelativeTo == "" {
-					errs = appendErrors(errs, fmt.Errorf("envoy filter: missing relativeTo filter with BEFORE/AFTER index"))
+					errs = appendErrors(errs, fmt.Errorf("Envoy filter: missing relativeTo filter with BEFORE/AFTER index")) // nolint: golint,stylecheck
 				}
 			}
 		}
 		if f.FilterType == networking.EnvoyFilter_Filter_INVALID {
-			errs = appendErrors(errs, fmt.Errorf("envoy filter: missing filter type"))
+			errs = appendErrors(errs, fmt.Errorf("Envoy filter: missing filter type")) // nolint: golint,stylecheck
 		}
 		if len(f.FilterName) == 0 {
-			errs = appendErrors(errs, fmt.Errorf("envoy filter: missing filter name"))
+			errs = appendErrors(errs, fmt.Errorf("Envoy filter: missing filter name")) // nolint: golint,stylecheck
 		}
 
 		if f.FilterConfig == nil {
-			errs = appendErrors(errs, fmt.Errorf("envoy filter: missing filter config"))
+			errs = appendErrors(errs, fmt.Errorf("Envoy filter: missing filter config")) // nolint: golint,stylecheck
 		}
 	}
 
 	for _, cp := range rule.ConfigPatches {
 		if cp.ApplyTo == networking.EnvoyFilter_INVALID {
-			errs = appendErrors(errs, fmt.Errorf("envoy filter: missing applyTo"))
+			errs = appendErrors(errs, fmt.Errorf("Envoy filter: missing applyTo")) // nolint: golint,stylecheck
 			continue
 		}
 		if cp.Patch == nil {
-			errs = appendErrors(errs, fmt.Errorf("envoy filter: missing patch"))
+			errs = appendErrors(errs, fmt.Errorf("Envoy filter: missing patch")) // nolint: golint,stylecheck
 			continue
 		}
 		if cp.Patch.Operation == networking.EnvoyFilter_Patch_INVALID {
-			errs = appendErrors(errs, fmt.Errorf("envoy filter: missing patch operation"))
+			errs = appendErrors(errs, fmt.Errorf("Envoy filter: missing patch operation")) // nolint: golint,stylecheck
 			continue
 		}
 		if cp.Patch.Operation != networking.EnvoyFilter_Patch_REMOVE && cp.Patch.Value == nil {
-			errs = appendErrors(errs, fmt.Errorf("envoy filter: missing patch value for non-remove operation"))
+			errs = appendErrors(errs, fmt.Errorf("Envoy filter: missing patch value for non-remove operation")) // nolint: golint,stylecheck
 			continue
 		}
 
 		// ensure that the supplied regex for proxy version compiles
 		if cp.Match != nil && cp.Match.Proxy != nil && cp.Match.Proxy.ProxyVersion != "" {
 			if _, err := regexp.Compile(cp.Match.Proxy.ProxyVersion); err != nil {
-				errs = appendErrors(errs, fmt.Errorf("envoy filter: invalid regex for proxy version, [%v]", err))
+				errs = appendErrors(errs, fmt.Errorf("Envoy filter: invalid regex for proxy version, [%v]", err)) // nolint: golint,stylecheck
 				continue
 			}
 		}
@@ -509,7 +524,7 @@ func ValidateEnvoyFilter(_, _ string, msg proto.Message) (errs error) {
 			networking.EnvoyFilter_HTTP_FILTER:
 			if cp.Match != nil && cp.Match.ObjectTypes != nil {
 				if cp.Match.GetListener() == nil {
-					errs = appendErrors(errs, fmt.Errorf("envoy filter: applyTo for listener class objects cannot have non listener match"))
+					errs = appendErrors(errs, fmt.Errorf("Envoy filter: applyTo for listener class objects cannot have non listener match")) // nolint: golint,stylecheck
 					continue
 				}
 				listenerMatch := cp.Match.GetListener()
@@ -517,22 +532,22 @@ func ValidateEnvoyFilter(_, _ string, msg proto.Message) (errs error) {
 					if listenerMatch.FilterChain.Filter != nil {
 						// filter names are required if network filter matches are being made
 						if listenerMatch.FilterChain.Filter.Name == "" {
-							errs = appendErrors(errs, fmt.Errorf("envoy filter: filter match has no name to match on"))
+							errs = appendErrors(errs, fmt.Errorf("Envoy filter: filter match has no name to match on")) // nolint: golint,stylecheck
 							continue
 						} else if listenerMatch.FilterChain.Filter.SubFilter != nil {
 							// sub filter match is supported only for applyTo HTTP_FILTER
 							if cp.ApplyTo != networking.EnvoyFilter_HTTP_FILTER {
-								errs = appendErrors(errs, fmt.Errorf("envoy filter: subfilter match can be used with applyTo HTTP_FILTER only"))
+								errs = appendErrors(errs, fmt.Errorf("Envoy filter: subfilter match can be used with applyTo HTTP_FILTER only")) // nolint: golint,stylecheck
 								continue
 							}
 							// sub filter match requires the network filter to match to envoy http connection manager
 							if listenerMatch.FilterChain.Filter.Name != xdsUtil.HTTPConnectionManager {
-								errs = appendErrors(errs, fmt.Errorf("envoy filter: subfilter match requires filter match with %s",
+								errs = appendErrors(errs, fmt.Errorf("Envoy filter: subfilter match requires filter match with %s", // nolint: golint,stylecheck
 									xdsUtil.HTTPConnectionManager))
 								continue
 							}
 							if listenerMatch.FilterChain.Filter.SubFilter.Name == "" {
-								errs = appendErrors(errs, fmt.Errorf("envoy filter: subfilter match has no name to match on"))
+								errs = appendErrors(errs, fmt.Errorf("Envoy filter: subfilter match has no name to match on")) // nolint: golint,stylecheck
 								continue
 							}
 						}
@@ -542,14 +557,15 @@ func ValidateEnvoyFilter(_, _ string, msg proto.Message) (errs error) {
 		case networking.EnvoyFilter_ROUTE_CONFIGURATION, networking.EnvoyFilter_VIRTUAL_HOST, networking.EnvoyFilter_HTTP_ROUTE:
 			if cp.Match != nil && cp.Match.ObjectTypes != nil {
 				if cp.Match.GetRouteConfiguration() == nil {
-					errs = appendErrors(errs, fmt.Errorf("envoy filter: applyTo for http route class objects cannot have non route configuration match"))
+					errs = appendErrors(errs,
+						fmt.Errorf("Envoy filter: applyTo for http route class objects cannot have non route configuration match")) // nolint: golint,stylecheck
 				}
 			}
 
 		case networking.EnvoyFilter_CLUSTER:
 			if cp.Match != nil && cp.Match.ObjectTypes != nil {
 				if cp.Match.GetCluster() == nil {
-					errs = appendErrors(errs, fmt.Errorf("envoy filter: applyTo for cluster class objects cannot have non cluster match"))
+					errs = appendErrors(errs, fmt.Errorf("Envoy filter: applyTo for cluster class objects cannot have non cluster match")) // nolint: golint,stylecheck
 				}
 			}
 		}
@@ -636,7 +652,6 @@ func ValidateSidecar(_, _ string, msg proto.Message) (errs error) {
 	}
 
 	portMap := make(map[uint32]struct{})
-	udsMap := make(map[string]struct{})
 	for _, i := range rule.Ingress {
 		if i.Port == nil {
 			errs = appendErrors(errs, fmt.Errorf("sidecar: port is required for ingress listeners"))
@@ -644,20 +659,12 @@ func ValidateSidecar(_, _ string, msg proto.Message) (errs error) {
 		}
 
 		bind := i.GetBind()
-		captureMode := i.GetCaptureMode()
-		errs = appendErrors(errs, validateSidecarPortBindAndCaptureMode(i.Port, bind, captureMode))
+		errs = appendErrors(errs, validateSidecarIngressPortAndBind(i.Port, bind))
 
-		if i.Port.Number == 0 {
-			if _, found := udsMap[bind]; found {
-				errs = appendErrors(errs, fmt.Errorf("sidecar: unix domain socket values for listeners must be unique"))
-			}
-			udsMap[bind] = struct{}{}
-		} else {
-			if _, found := portMap[i.Port.Number]; found {
-				errs = appendErrors(errs, fmt.Errorf("sidecar: ports on IP bound listeners must be unique"))
-			}
-			portMap[i.Port.Number] = struct{}{}
+		if _, found := portMap[i.Port.Number]; found {
+			errs = appendErrors(errs, fmt.Errorf("sidecar: ports on IP bound listeners must be unique"))
 		}
+		portMap[i.Port.Number] = struct{}{}
 
 		if len(i.DefaultEndpoint) == 0 {
 			errs = appendErrors(errs, fmt.Errorf("sidecar: default endpoint must be set for all ingress listeners"))
@@ -686,7 +693,7 @@ func ValidateSidecar(_, _ string, msg proto.Message) (errs error) {
 	}
 
 	portMap = make(map[uint32]struct{})
-	udsMap = make(map[string]struct{})
+	udsMap := make(map[string]struct{})
 	catchAllEgressListenerFound := false
 	for index, i := range rule.Egress {
 		// there can be only one catch all egress listener with empty port, and it should be the last listener.
@@ -704,7 +711,7 @@ func ValidateSidecar(_, _ string, msg proto.Message) (errs error) {
 		} else {
 			bind := i.GetBind()
 			captureMode := i.GetCaptureMode()
-			errs = appendErrors(errs, validateSidecarPortBindAndCaptureMode(i.Port, bind, captureMode))
+			errs = appendErrors(errs, validateSidecarEgressPortBindAndCaptureMode(i.Port, bind, captureMode))
 
 			if i.Port.Number == 0 {
 				if _, found := udsMap[bind]; found {
@@ -733,7 +740,7 @@ func ValidateSidecar(_, _ string, msg proto.Message) (errs error) {
 	return
 }
 
-func validateSidecarPortBindAndCaptureMode(port *networking.Port, bind string,
+func validateSidecarEgressPortBindAndCaptureMode(port *networking.Port, bind string,
 	captureMode networking.CaptureMode) (errs error) {
 
 	// Port name is optional. Validate if exists.
@@ -762,8 +769,26 @@ func validateSidecarPortBindAndCaptureMode(port *networking.Port, bind string,
 			ValidatePort(int(port.Number)))
 
 		if len(bind) != 0 {
-			errs = appendErrors(errs, ValidateIPv4Address(bind))
+			errs = appendErrors(errs, ValidateIPAddress(bind))
 		}
+	}
+
+	return
+}
+
+func validateSidecarIngressPortAndBind(port *networking.Port, bind string) (errs error) {
+
+	// Port name is optional. Validate if exists.
+	if len(port.Name) > 0 {
+		errs = appendErrors(errs, validatePortName(port.Name))
+	}
+
+	errs = appendErrors(errs,
+		validateProtocol(port.Protocol),
+		ValidatePort(int(port.Number)))
+
+	if len(bind) != 0 {
+		errs = appendErrors(errs, ValidateIPAddress(bind))
 	}
 
 	return
@@ -859,6 +884,9 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings) (errs error
 				errs = appendErrors(errs, fmt.Errorf("ttl required for HttpCookie"))
 			}
 		}
+	}
+	if err := validateLocalityLbSetting(settings.LocalityLbSetting); err != nil {
+		errs = multierror.Append(errs, err)
 	}
 	return
 }
@@ -1151,7 +1179,7 @@ func ValidateProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
 		if err := ValidateProxyAddress(config.EnvoyMetricsServiceAddress); err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid envoy metrics service address %q:", config.EnvoyMetricsServiceAddress)))
 		} else {
-			log.Warnf("EnvoyMetricsServiceAddress is deprecated, use EnvoyMetricsService instead.")
+			scope.Warnf("EnvoyMetricsServiceAddress is deprecated, use EnvoyMetricsService instead.") // nolint: golint,stylecheck
 		}
 	}
 
@@ -1458,6 +1486,99 @@ func ValidateAuthenticationPolicy(name, namespace string, msg proto.Message) err
 	return errs
 }
 
+func validateWorkloadSelector(selector *type_beta.WorkloadSelector) error {
+	if selector != nil {
+		for k, v := range selector.MatchLabels {
+			if k == "" || v == "" {
+				return fmt.Errorf("selector has empty key or values")
+			}
+		}
+	}
+
+	return nil
+}
+
+// ValidateAuthorizationPolicy checks that AuthorizationPolicy is well-formed.
+func ValidateAuthorizationPolicy(_, _ string, msg proto.Message) error {
+	in, ok := msg.(*security_beta.AuthorizationPolicy)
+	if !ok {
+		return fmt.Errorf("cannot cast to AuthorizationPolicy")
+	}
+
+	if err := validateWorkloadSelector(in.Selector); err != nil {
+		return err
+	}
+
+	for _, rule := range in.GetRules() {
+		for _, condition := range rule.GetWhen() {
+			if condition.GetKey() == "" || len(condition.GetValues()) == 0 {
+				return fmt.Errorf("condition has empty key or values")
+			}
+			if err := security.ValidateAttribute(condition.GetKey(), condition.GetValues()); err != nil {
+				return fmt.Errorf("invalid condition: %v", err)
+			}
+		}
+	}
+	return nil
+}
+
+// ValidateRequestAuthentication checks that request authentication spec is well-formed.
+func ValidateRequestAuthentication(name, namespace string, msg proto.Message) error {
+	in, ok := msg.(*security_beta.RequestAuthentication)
+	if !ok {
+		return errors.New("cannot cast to RequestAuthentication")
+	}
+
+	var errs error
+	emptySelector := in.Selector == nil || len(in.Selector.MatchLabels) == 0
+	if name == constants.DefaultAuthenticationPolicyName && !emptySelector {
+		errs = appendErrors(errs, fmt.Errorf("default request authentication cannot have workload selector"))
+	} else if emptySelector && name != constants.DefaultAuthenticationPolicyName {
+		errs = appendErrors(errs,
+			fmt.Errorf("request authentication with empty workload selector must be named %q", constants.DefaultAuthenticationPolicyName))
+	}
+
+	errs = appendErrors(errs, validateWorkloadSelector(in.Selector))
+
+	for _, rule := range in.JwtRules {
+		errs = appendErrors(errs, validateJwtRule(rule))
+	}
+	return errs
+}
+
+func validateJwtRule(rule *security_beta.JWT) (errs error) {
+	if rule == nil {
+		return nil
+	}
+	if len(rule.Issuer) == 0 {
+		errs = multierror.Append(errs, errors.New("issuer must be set"))
+	}
+	for _, audience := range rule.Audiences {
+		if len(audience) == 0 {
+			errs = multierror.Append(errs, errors.New("audience must be non-empty string"))
+		}
+	}
+
+	if len(rule.JwksUri) != 0 {
+		if _, err := security.ParseJwksURI(rule.JwksUri); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+	}
+
+	for _, location := range rule.FromHeaders {
+		if len(location.Name) == 0 {
+			errs = multierror.Append(errs, errors.New("location header name must be non-empty string"))
+		}
+	}
+
+	for _, location := range rule.FromParams {
+		if len(location) == 0 {
+			errs = multierror.Append(errs, errors.New("location query must be non-empty string"))
+		}
+	}
+	return
+}
+
 // ValidateServiceRole checks that ServiceRole is well-formed.
 func ValidateServiceRole(_, _ string, msg proto.Message) error {
 	in, ok := msg.(*rbac.ServiceRole)
@@ -1649,7 +1770,7 @@ func ValidateClusterRbacConfig(name, _ string, msg proto.Message) error {
 
 // ValidateRbacConfig checks that RbacConfig is well-formed.
 func ValidateRbacConfig(name, _ string, msg proto.Message) error {
-	log.Warnf("RbacConfig is deprecated, use ClusterRbacConfig instead.")
+	scope.Warnf("RbacConfig is deprecated, use ClusterRbacConfig instead.")
 	return checkRbacConfig(name, "RbacConfig", msg)
 }
 
@@ -1666,7 +1787,6 @@ func validateJwt(jwt *authn.Jwt) (errs error) {
 		}
 	}
 	if jwt.JwksUri != "" {
-		// TODO: do more extensive check (e.g try to fetch JwksUri)
 		if _, err := security.ParseJwksURI(jwt.JwksUri); err != nil {
 			errs = multierror.Append(errs, err)
 		}
@@ -1803,7 +1923,7 @@ func validateTLSMatch(match *networking.TLSMatchAttributes, context *networking.
 	}
 
 	for _, destinationSubnet := range match.DestinationSubnets {
-		errs = appendErrors(errs, ValidateIPv4Subnet(destinationSubnet))
+		errs = appendErrors(errs, ValidateIPSubnet(destinationSubnet))
 	}
 
 	if match.Port != 0 {
@@ -1847,10 +1967,10 @@ func validateTCPRoute(tcp *networking.TCPRoute) (errs error) {
 
 func validateTCPMatch(match *networking.L4MatchAttributes) (errs error) {
 	for _, destinationSubnet := range match.DestinationSubnets {
-		errs = appendErrors(errs, ValidateIPv4Subnet(destinationSubnet))
+		errs = appendErrors(errs, ValidateIPSubnet(destinationSubnet))
 	}
 	if len(match.SourceSubnet) > 0 {
-		errs = appendErrors(errs, ValidateIPv4Subnet(match.SourceSubnet))
+		errs = appendErrors(errs, ValidateIPSubnet(match.SourceSubnet))
 	}
 	if match.Port != 0 {
 		errs = appendErrors(errs, ValidatePort(int(match.Port)))
@@ -1936,6 +2056,12 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 			}
 			errs = appendErrors(errs, labels.Instance(match.SourceLabels).Validate())
 			errs = appendErrors(errs, validateGatewayNames(match.Gateways))
+		}
+	}
+
+	if http.MirrorPercent != nil {
+		if value := http.MirrorPercent.GetValue(); value > 100 {
+			errs = appendErrors(errs, fmt.Errorf("mirror_percent must have a max value of 100 (it has %d)", value))
 		}
 	}
 
@@ -2197,14 +2323,8 @@ func validatePortSelector(selector *networking.PortSelector) (errs error) {
 	}
 
 	// port must be a number
-	name := selector.GetName()
 	number := int(selector.GetNumber())
-	if name != "" {
-		errs = appendErrors(errs, fmt.Errorf("port.name %s is no longer supported for destination", name))
-	}
-	if number != 0 {
-		errs = appendErrors(errs, ValidatePort(number))
-	}
+	errs = appendErrors(errs, ValidatePort(number))
 	return
 }
 
@@ -2276,6 +2396,11 @@ func validateHTTPRewrite(rewrite *networking.HTTPRewrite) error {
 	return nil
 }
 
+// ValidateSyntheticServiceEntry validates a synthetic service entry.
+func ValidateSyntheticServiceEntry(_, _ string, config proto.Message) (errs error) {
+	return ValidateServiceEntry("", "", config)
+}
+
 // ValidateServiceEntry validates a service entry.
 func ValidateServiceEntry(_, _ string, config proto.Message) (errs error) {
 	serviceEntry, ok := config.(*networking.ServiceEntry)
@@ -2298,7 +2423,7 @@ func ValidateServiceEntry(_, _ string, config proto.Message) (errs error) {
 	cidrFound := false
 	for _, address := range serviceEntry.Addresses {
 		cidrFound = cidrFound || strings.Contains(address, "/")
-		errs = appendErrors(errs, ValidateIPv4Subnet(address))
+		errs = appendErrors(errs, ValidateIPSubnet(address))
 	}
 
 	if cidrFound {
@@ -2326,11 +2451,6 @@ func ValidateServiceEntry(_, _ string, config proto.Message) (errs error) {
 			errs = appendErrors(errs, fmt.Errorf("no endpoints should be provided for resolution type none"))
 		}
 	case networking.ServiceEntry_STATIC:
-		if len(serviceEntry.Endpoints) == 0 {
-			errs = appendErrors(errs,
-				fmt.Errorf("endpoints must be provided if service entry resolution mode is static"))
-		}
-
 		unixEndpoint := false
 		for _, endpoint := range serviceEntry.Endpoints {
 			addr := endpoint.GetAddress()
@@ -2341,7 +2461,7 @@ func ValidateServiceEntry(_, _ string, config proto.Message) (errs error) {
 					errs = appendErrors(errs, fmt.Errorf("unix endpoint %s must not include ports", addr))
 				}
 			} else {
-				errs = appendErrors(errs, ValidateIPv4Address(addr))
+				errs = appendErrors(errs, ValidateIPAddress(addr))
 
 				for name, port := range endpoint.Ports {
 					if !servicePorts[name] {
@@ -2430,7 +2550,8 @@ func validatePortName(name string) error {
 }
 
 func validateProtocol(protocolStr string) error {
-	if protocol.Parse(protocolStr) == protocol.Unsupported {
+	// Empty string is used for protocol sniffing.
+	if protocolStr != "" && protocol.Parse(protocolStr) == protocol.Unsupported {
 		return fmt.Errorf("unsupported protocol: %s", protocolStr)
 	}
 	return nil
@@ -2455,7 +2576,7 @@ func appendErrors(err error, errs ...error) error {
 }
 
 // validateLocalityLbSetting checks the LocalityLbSetting of MeshConfig
-func validateLocalityLbSetting(lb *meshconfig.LocalityLoadBalancerSetting) error {
+func validateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting) error {
 	if lb == nil {
 		return nil
 	}

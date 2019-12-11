@@ -23,7 +23,6 @@ import (
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/testing/basicmeta"
 	"istio.io/istio/galley/pkg/config/testing/data"
-	"istio.io/istio/galley/pkg/config/testing/data/builtin"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
 	"istio.io/istio/galley/pkg/config/testing/k8smeta"
 	"istio.io/istio/galley/pkg/config/util/kubeyaml"
@@ -100,18 +99,19 @@ func TestKubeSource_ApplyContent_Unchanged0Add1(t *testing.T) {
 	g.Expect(actual[0].Metadata.Name).To(Equal(data.EntryN2I2V2.Metadata.Name))
 	g.Expect(actual[1].Metadata.Name).To(Equal(data.EntryN3I3V1.Metadata.Name))
 
-	g.Expect(acc.Events()).To(HaveLen(6))
-	g.Expect(acc.Events()[0].Kind).To(Equal(event.FullSync))
-	g.Expect(acc.Events()[1].Kind).To(Equal(event.Added))
-	g.Expect(acc.Events()[1].Entry).To(Equal(data.EntryN1I1V1))
-	g.Expect(acc.Events()[2].Kind).To(Equal(event.Added))
-	g.Expect(acc.Events()[2].Entry).To(Equal(withVersion(data.EntryN2I2V1, "v2")))
-	g.Expect(acc.Events()[3].Kind).To(Equal(event.Updated))
-	g.Expect(acc.Events()[3].Entry).To(Equal(withVersion(data.EntryN2I2V2, "v3")))
-	g.Expect(acc.Events()[4].Kind).To(Equal(event.Added))
-	g.Expect(acc.Events()[4].Entry).To(Equal(withVersion(data.EntryN3I3V1, "v4")))
-	g.Expect(acc.Events()[5].Kind).To(Equal(event.Deleted))
-	g.Expect(acc.Events()[5].Entry.Metadata.Name).To(Equal(data.EntryN1I1V1.Metadata.Name))
+	events := acc.EventsWithoutOrigins()
+	g.Expect(events).To(HaveLen(6))
+	g.Expect(events[0].Kind).To(Equal(event.FullSync))
+	g.Expect(events[1].Kind).To(Equal(event.Added))
+	g.Expect(events[1].Entry).To(Equal(data.EntryN1I1V1))
+	g.Expect(events[2].Kind).To(Equal(event.Added))
+	g.Expect(events[2].Entry).To(Equal(withVersion(data.EntryN2I2V1, "v2")))
+	g.Expect(events[3].Kind).To(Equal(event.Updated))
+	g.Expect(events[3].Entry).To(Equal(withVersion(data.EntryN2I2V2, "v3")))
+	g.Expect(events[4].Kind).To(Equal(event.Added))
+	g.Expect(events[4].Entry).To(Equal(withVersion(data.EntryN3I3V1, "v4")))
+	g.Expect(events[5].Kind).To(Equal(event.Deleted))
+	g.Expect(events[5].Entry.Metadata.Name).To(Equal(data.EntryN1I1V1.Metadata.Name))
 }
 
 func TestKubeSource_RemoveContent(t *testing.T) {
@@ -134,23 +134,24 @@ func TestKubeSource_RemoveContent(t *testing.T) {
 	actual := s.Get(data.Collection1).AllSorted()
 	g.Expect(actual).To(HaveLen(1))
 
-	g.Expect(acc.Events()).To(HaveLen(6))
-	g.Expect(acc.Events()[0:4]).To(ConsistOf(
+	events := acc.EventsWithoutOrigins()
+	g.Expect(events).To(HaveLen(6))
+	g.Expect(events[0:4]).To(ConsistOf(
 		event.FullSyncFor(data.Collection1),
 		event.AddFor(data.Collection1, data.EntryN1I1V1),
 		event.AddFor(data.Collection1, withVersion(data.EntryN2I2V1, "v2")),
 		event.AddFor(data.Collection1, withVersion(data.EntryN3I3V1, "v3"))))
 
 	//  Delete events can appear out of order.
-	g.Expect(acc.Events()[4].Kind).To(Equal(event.Deleted))
-	g.Expect(acc.Events()[5].Kind).To(Equal(event.Deleted))
+	g.Expect(events[4].Kind).To(Equal(event.Deleted))
+	g.Expect(events[5].Kind).To(Equal(event.Deleted))
 
-	if acc.Events()[4].Entry.Metadata.Name == data.EntryN1I1V1.Metadata.Name {
-		g.Expect(acc.Events()[4:]).To(ConsistOf(
+	if events[4].Entry.Metadata.Name == data.EntryN1I1V1.Metadata.Name {
+		g.Expect(events[4:]).To(ConsistOf(
 			event.DeleteForResource(data.Collection1, data.EntryN1I1V1),
 			event.DeleteForResource(data.Collection1, withVersion(data.EntryN2I2V1, "v2"))))
 	} else {
-		g.Expect(acc.Events()[4:]).To(ConsistOf(
+		g.Expect(events[4:]).To(ConsistOf(
 			event.DeleteForResource(data.Collection1, withVersion(data.EntryN2I2V1, "v2")),
 			event.DeleteForResource(data.Collection1, data.EntryN1I1V1)))
 	}
@@ -171,22 +172,23 @@ func TestKubeSource_Clear(t *testing.T) {
 	actual := s.Get(data.Collection1).AllSorted()
 	g.Expect(actual).To(HaveLen(0))
 
-	g.Expect(acc.Events()).To(HaveLen(5))
-	g.Expect(acc.Events()[0].Kind).To(Equal(event.FullSync))
-	g.Expect(acc.Events()[1].Kind).To(Equal(event.Added))
-	g.Expect(acc.Events()[1].Entry).To(Equal(data.EntryN1I1V1))
-	g.Expect(acc.Events()[2].Kind).To(Equal(event.Added))
-	g.Expect(acc.Events()[2].Entry).To(Equal(withVersion(data.EntryN2I2V1, "v2")))
+	events := acc.EventsWithoutOrigins()
+	g.Expect(events).To(HaveLen(5))
+	g.Expect(events[0].Kind).To(Equal(event.FullSync))
+	g.Expect(events[1].Kind).To(Equal(event.Added))
+	g.Expect(events[1].Entry).To(Equal(data.EntryN1I1V1))
+	g.Expect(events[2].Kind).To(Equal(event.Added))
+	g.Expect(events[2].Entry).To(Equal(withVersion(data.EntryN2I2V1, "v2")))
 
-	g.Expect(acc.Events()[3].Kind).To(Equal(event.Deleted))
-	g.Expect(acc.Events()[4].Kind).To(Equal(event.Deleted))
+	g.Expect(events[3].Kind).To(Equal(event.Deleted))
+	g.Expect(events[4].Kind).To(Equal(event.Deleted))
 
-	if acc.Events()[3].Entry.Metadata.Name == data.EntryN1I1V1.Metadata.Name {
-		g.Expect(acc.Events()[3].Entry.Metadata.Name).To(Equal(data.EntryN1I1V1.Metadata.Name))
-		g.Expect(acc.Events()[4].Entry.Metadata.Name).To(Equal(data.EntryN2I2V1.Metadata.Name))
+	if events[3].Entry.Metadata.Name == data.EntryN1I1V1.Metadata.Name {
+		g.Expect(events[3].Entry.Metadata.Name).To(Equal(data.EntryN1I1V1.Metadata.Name))
+		g.Expect(events[4].Entry.Metadata.Name).To(Equal(data.EntryN2I2V1.Metadata.Name))
 	} else {
-		g.Expect(acc.Events()[3].Entry.Metadata.Name).To(Equal(data.EntryN2I2V1.Metadata.Name))
-		g.Expect(acc.Events()[4].Entry.Metadata.Name).To(Equal(data.EntryN1I1V1.Metadata.Name))
+		g.Expect(events[3].Entry.Metadata.Name).To(Equal(data.EntryN2I2V1.Metadata.Name))
+		g.Expect(events[4].Entry.Metadata.Name).To(Equal(data.EntryN1I1V1.Metadata.Name))
 	}
 }
 
@@ -198,9 +200,9 @@ func TestKubeSource_UnparseableSegment(t *testing.T) {
 	defer s.Stop()
 
 	err := s.ApplyContent("foo", kubeyaml.JoinString(data.YamlN1I1V1, "	\n", data.YamlN2I2V1))
-	g.Expect(err).To(BeNil())
+	g.Expect(err).To(Not(BeNil()))
 
-	actual := s.Get(data.Collection1).AllSorted()
+	actual := removeEntryOrigins(s.Get(data.Collection1).AllSorted())
 	g.Expect(actual).To(HaveLen(2))
 	g.Expect(actual[0]).To(Equal(data.EntryN1I1V1))
 	g.Expect(actual[1]).To(Equal(withVersion(data.EntryN2I2V1, "v2")))
@@ -214,9 +216,9 @@ func TestKubeSource_Unrecognized(t *testing.T) {
 	defer s.Stop()
 
 	err := s.ApplyContent("foo", kubeyaml.JoinString(data.YamlN1I1V1, data.YamlUnrecognized))
-	g.Expect(err).To(BeNil())
+	g.Expect(err).To(Not(BeNil()))
 
-	actual := s.Get(data.Collection1).AllSorted()
+	actual := removeEntryOrigins(s.Get(data.Collection1).AllSorted())
 	g.Expect(actual).To(HaveLen(1))
 	g.Expect(actual[0]).To(Equal(data.EntryN1I1V1))
 }
@@ -229,9 +231,9 @@ func TestKubeSource_UnparseableResource(t *testing.T) {
 	defer s.Stop()
 
 	err := s.ApplyContent("foo", kubeyaml.JoinString(data.YamlN1I1V1, data.YamlUnparseableResource))
-	g.Expect(err).To(BeNil())
+	g.Expect(err).To(Not(BeNil()))
 
-	actual := s.Get(data.Collection1).AllSorted()
+	actual := removeEntryOrigins(s.Get(data.Collection1).AllSorted())
 	g.Expect(actual).To(HaveLen(1))
 	g.Expect(actual[0]).To(Equal(data.EntryN1I1V1))
 }
@@ -244,9 +246,9 @@ func TestKubeSource_NonStringKey(t *testing.T) {
 	defer s.Stop()
 
 	err := s.ApplyContent("foo", kubeyaml.JoinString(data.YamlN1I1V1, data.YamlNonStringKey))
-	g.Expect(err).To(BeNil())
+	g.Expect(err).To(Not(BeNil()))
 
-	actual := s.Get(data.Collection1).AllSorted()
+	actual := removeEntryOrigins(s.Get(data.Collection1).AllSorted())
 	g.Expect(actual).To(HaveLen(1))
 	g.Expect(actual[0]).To(Equal(data.EntryN1I1V1))
 }
@@ -258,7 +260,7 @@ func TestKubeSource_Service(t *testing.T) {
 	s.Start()
 	defer s.Stop()
 
-	err := s.ApplyContent("foo", builtin.GetService())
+	err := s.ApplyContent("foo", data.GetService())
 	g.Expect(err).To(BeNil())
 
 	actual := s.Get(k8smeta.K8SCoreV1Services).AllSorted()
@@ -278,12 +280,67 @@ func TestSameNameDifferentKind(t *testing.T) {
 	err := s.ApplyContent("foo", kubeyaml.JoinString(data.YamlN1I1V1, data.YamlN1I1V1Kind2))
 	g.Expect(err).To(BeNil())
 
-	g.Expect(acc.Events()).To(HaveLen(4))
-	g.Expect(acc.Events()).To(ConsistOf(
+	events := acc.EventsWithoutOrigins()
+	g.Expect(events).To(HaveLen(4))
+	g.Expect(events).To(ConsistOf(
 		event.FullSyncFor(basicmeta.Collection1),
 		event.FullSyncFor(basicmeta.Collection2),
 		event.AddFor(basicmeta.Collection1, data.EntryN1I1V1),
-		event.AddFor(basicmeta.Collection2, withVersion(data.EntryN1I1V1, "v2"))))
+		event.AddFor(basicmeta.Collection2, withVersion(data.EntryN1I1V1ClusterScoped, "v2"))))
+}
+
+func TestKubeSource_DefaultNamespace(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	s, _ := setupKubeSource()
+	s.Start()
+	defer s.Stop()
+
+	defaultNs := "default"
+	s.SetDefaultNamespace(defaultNs)
+
+	err := s.ApplyContent("foo", data.YamlI1V1NoNamespace)
+	g.Expect(err).To(BeNil())
+
+	_, expectedName := data.EntryI1V1NoNamespace.Metadata.Name.InterpretAsNamespaceAndName()
+
+	actual := s.Get(data.Collection1).AllSorted()
+	g.Expect(actual).To(HaveLen(1))
+	g.Expect(actual[0].Metadata.Name).To(Equal(resource.NewName(defaultNs, expectedName)))
+}
+
+func TestKubeSource_DefaultNamespaceSkipClusterScoped(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	s := NewKubeSource(basicmeta.MustGet2().KubeSource().Resources())
+	acc := &fixtures.Accumulator{}
+	s.Dispatch(acc)
+	s.Start()
+	defer s.Stop()
+
+	defaultNs := "default"
+	s.SetDefaultNamespace(defaultNs)
+
+	err := s.ApplyContent("foo", data.YamlI1V1NoNamespaceKind2)
+	g.Expect(err).To(BeNil())
+
+	actual := s.Get(data.Collection2).AllSorted()
+	g.Expect(actual).To(HaveLen(1))
+	g.Expect(actual[0].Metadata.Name).To(Equal(data.EntryI1V1NoNamespace.Metadata.Name))
+}
+
+func TestKubeSource_CanHandleDocumentSeparatorInComments(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	s, _ := setupKubeSource()
+	s.Start()
+	defer s.Stop()
+
+	s.SetDefaultNamespace("default")
+
+	err := s.ApplyContent("foo", data.YamlI1V1WithCommentContainingDocumentSeparator)
+	g.Expect(err).To(BeNil())
+	g.Expect(s.ContentNames()).To(Equal(map[string]struct{}{"foo": {}}))
 }
 
 func setupKubeSource() (*KubeSource, *fixtures.Accumulator) {
@@ -309,4 +366,14 @@ func withVersion(r *resource.Entry, v string) *resource.Entry {
 	r = r.Clone()
 	r.Metadata.Version = resource.Version(v)
 	return r
+}
+
+func removeEntryOrigins(resources []*resource.Entry) []*resource.Entry {
+	result := make([]*resource.Entry, len(resources))
+	for i, r := range resources {
+		r = r.Clone()
+		r.Origin = nil
+		result[i] = r
+	}
+	return result
 }

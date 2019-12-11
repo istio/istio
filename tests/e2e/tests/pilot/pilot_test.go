@@ -27,10 +27,10 @@ import (
 	"testing"
 	"time"
 
-	"go.uber.org/multierr"
+	"github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/pilot/pkg/kube/inject"
 	util2 "istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/util"
 	"istio.io/pkg/log"
@@ -285,16 +285,16 @@ func (c *deployableConfig) Teardown() error {
 
 // Teardown deletes the deployed configuration.
 func (c *deployableConfig) TeardownNoDelay() error {
-	var err error
+	var err *multierror.Error
 	for _, yamlFile := range c.applied {
-		err = multierr.Append(err, util.KubeDelete(c.Namespace, yamlFile, c.kubeconfig))
+		err = multierror.Append(err, util.KubeDelete(c.Namespace, yamlFile, c.kubeconfig))
 	}
 	// Restore configs that was removed
 	for _, yaml := range c.removed {
-		err = multierr.Append(err, util.KubeApplyContents(c.Namespace, yaml, c.kubeconfig))
+		err = multierror.Append(err, util.KubeApplyContents(c.Namespace, yaml, c.kubeconfig))
 	}
 	c.applied = []string{}
-	return err
+	return err.ErrorOrNil()
 }
 
 func (c *deployableConfig) propagationDelay() time.Duration {
@@ -346,7 +346,7 @@ func (t *testConfig) Teardown() (err error) {
 	for _, ec := range t.extraConfig {
 		e := ec.Teardown()
 		if e != nil {
-			err = multierr.Append(err, e)
+			err = multierror.Append(err, e)
 		}
 	}
 	return
@@ -407,8 +407,8 @@ func getStatefulSet(service string, port int, injectProxy bool) framework.App {
 	return framework.App{
 		AppYamlTemplate: "testdata/statefulset.yaml.tmpl",
 		Template: map[string]string{
-			"Hub":             tc.Kube.PilotHub(),
-			"Tag":             tc.Kube.PilotTag(),
+			"Hub":             tc.Kube.AppHub(),
+			"Tag":             tc.Kube.AppTag(),
 			"service":         service,
 			"port":            strconv.Itoa(port),
 			"istioNamespace":  tc.Kube.Namespace,

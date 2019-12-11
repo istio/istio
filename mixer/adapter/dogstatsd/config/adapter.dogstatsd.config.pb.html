@@ -27,6 +27,7 @@ Any dimension that is a part of the metric is converted to a tag automatically. 
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -38,6 +39,9 @@ Any dimension that is a part of the metric is converted to a tag automatically. 
 Default: localhost:8125</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-prefix">
 <td><code>prefix</code></td>
@@ -46,6 +50,9 @@ Default: localhost:8125</p>
 <p>Prefix to prepend to all metrics handled by the adapter. Metric &ldquo;bar&rdquo; with prefix &ldquo;foo.&rdquo; becomes &ldquo;foo.bar&rdquo; in DataDog. In order to make sure the metrics get populated into Datadog properly and avoid any billing issues, it&rsquo;s important to leave the metric prefix to its default value of &lsquo;istio.&rsquo;
 Default: &ldquo;istio.&rdquo;</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Params-buffer_length">
@@ -57,6 +64,9 @@ When buffer is 0, metrics are not buffered.
 Default: 0</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-global_tags">
 <td><code>globalTags</code></td>
@@ -65,6 +75,9 @@ Default: 0</p>
 <p>Tags to add to every metric. &ldquo;global&rdquo;: &ldquo;tag&rdquo; becomes &ldquo;global:tag&rdquo; in DataDog
 Default: []</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Params-sample_rate">
@@ -75,13 +88,19 @@ Default: []</p>
 Default: 1</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-metrics">
 <td><code>metrics</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#Params-MetricInfo">Params.MetricInfo</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#Params-MetricInfo">MetricInfo</a>&gt;</code></td>
 <td>
 <p>Map of a specific metric instance name -&gt; info. If a metric&rsquo;s instance name is not in the map then the metric will not be exported to DataDog.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -97,6 +116,7 @@ Default: 1</p>
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -107,13 +127,19 @@ Default: 1</p>
 <p>Name of the metric in DataDog</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-MetricInfo-type">
 <td><code>type</code></td>
-<td><code><a href="#Params-MetricInfo-Type">Params.MetricInfo.Type</a></code></td>
+<td><code><a href="#Params-MetricInfo-Type">Type</a></code></td>
 <td>
 <p>The type of metric</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Params-MetricInfo-tags">
@@ -123,6 +149,9 @@ Default: 1</p>
 <p>Tags to add to the metric in addition to the dimensions. &ldquo;tag&rdquo;: &ldquo;val&rdquo; becomes &ldquo;tag:val&rdquo; in DataDog
 Default: []</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>

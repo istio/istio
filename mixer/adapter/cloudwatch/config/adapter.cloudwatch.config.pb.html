@@ -33,6 +33,7 @@ The metrics specified in both instance and handler configurations will be sent t
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -43,13 +44,19 @@ The metrics specified in both instance and handler configurations will be sent t
 <p>CloudWatch metric namespace.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-metric_info">
 <td><code>metricInfo</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#Params-MetricDatum">Params.MetricDatum</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#Params-MetricDatum">MetricDatum</a>&gt;</code></td>
 <td>
 <p>A map of Istio metric name to CloudWatch metric info.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 <tr id="Params-log_group_name">
@@ -59,6 +66,9 @@ The metrics specified in both instance and handler configurations will be sent t
 <p>The name of the log group in cloudwatchlogs.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-log_stream_name">
 <td><code>logStreamName</code></td>
@@ -67,13 +77,19 @@ The metrics specified in both instance and handler configurations will be sent t
 <p>The name of the log stream in cloudwatchlogs.</p>
 
 </td>
+<td>
+No
+</td>
 </tr>
 <tr id="Params-logs">
 <td><code>logs</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#Params-LogInfo">Params.LogInfo</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#Params-LogInfo">LogInfo</a>&gt;</code></td>
 <td>
 <p>A map of Istio logentry name to CloudWatch logentry info.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -87,6 +103,7 @@ The metrics specified in both instance and handler configurations will be sent t
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
@@ -97,6 +114,9 @@ The metrics specified in both instance and handler configurations will be sent t
 <p>A golang text/template template that will be executed to construct the payload for this log entry.
 It will be given the full set of variables for the log to use to construct its result.</p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>
@@ -112,16 +132,20 @@ It will be given the full set of variables for the log to use to construct its r
 <th>Field</th>
 <th>Type</th>
 <th>Description</th>
+<th>Required</th>
 </tr>
 </thead>
 <tbody>
 <tr id="Params-MetricDatum-unit">
 <td><code>unit</code></td>
-<td><code><a href="#Params-MetricDatum-Unit">Params.MetricDatum.Unit</a></code></td>
+<td><code><a href="#Params-MetricDatum-Unit">Unit</a></code></td>
 <td>
 <p>The unit of the metric. Must be valid cloudwatch unit value.
 <a href="https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_MetricDatum.html">CloudWatch docs</a></p>
 
+</td>
+<td>
+No
 </td>
 </tr>
 </tbody>

@@ -69,12 +69,9 @@ var (
 	versionSubdir = v1alpha3Subdir
 )
 
-func init() {
+func TestMain(m *testing.M) {
 	testFlags.Init()
 	flag.Parse()
-}
-
-func TestMain(m *testing.M) {
 	if err := framework.InitLogging(); err != nil {
 		panic("cannot setup logging")
 	}

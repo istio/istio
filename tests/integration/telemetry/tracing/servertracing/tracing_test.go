@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/mixer"
 	"istio.io/istio/tests/integration/telemetry/tracing"
@@ -40,9 +41,7 @@ func TestProxyTracing(t *testing.T) {
 			bookinfoNsInst := tracing.GetBookinfoNamespaceInstance()
 
 			retry.UntilSuccessOrFail(t, func() error {
-				// Send test traffic. QPS is restricted to 10, so this will send ~20secs worth of traffic.
-				// We want a multiple of 5secs worth of traffic, given default envoy flush times on the zipkin driver.
-				util.SendTraffic(tracing.GetIngressInstance(), t, "Sending traffic", "", "", 200)
+				util.SendTraffic(tracing.GetIngressInstance(), t, "Sending traffic", "", "", 1)
 				traces, err := tracing.GetZipkinInstance().QueryTraces(100,
 					fmt.Sprintf("productpage.%s.svc.cluster.local:9080/productpage", bookinfoNsInst.Name()), "")
 				if err != nil {
@@ -59,6 +58,7 @@ func TestProxyTracing(t *testing.T) {
 func TestMain(m *testing.M) {
 	framework.NewSuite("tracing_test", m).
 		RequireEnvironment(environment.Kube).
+		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(tracing.GetIstioInstance(), setupConfig)).
 		Setup(tracing.TestSetup).
 		Run()

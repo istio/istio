@@ -75,13 +75,13 @@ func TestRoundtrip(t *testing.T) {
 	for i, test := range tests {
 		name := fmt.Sprintf("%d", i)
 		t.Run(name, func(tt *testing.T) {
-			loadBytes, err := marshallLoad(&test.load)
+			loadBytes, err := marshalLoad(&test.load)
 			if err != nil {
 				tt.Fatalf("Unexpected error: %v", err)
 			}
 
 			var loadCmp Load
-			if err := unmarshallLoad(loadBytes, &loadCmp); err != nil {
+			if err := unmarshalLoad(loadBytes, &loadCmp); err != nil {
 				tt.Fatalf("Unexpected error: %v", err)
 			}
 
@@ -132,7 +132,7 @@ requests:
 	for i, config := range configs {
 		var load Load
 		t.Run(fmt.Sprintf("%d", i), func(tt *testing.T) {
-			if err := unmarshallLoad([]byte(config), &load); err == nil {
+			if err := unmarshalLoad([]byte(config), &load); err == nil {
 				tt.Fatal("expected error was not thrown")
 			}
 		})

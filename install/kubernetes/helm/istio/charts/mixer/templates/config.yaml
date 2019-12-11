@@ -248,7 +248,7 @@ spec:
       sourceOwner: source.owner | ""
       destinationApp: destination.labels["app"] | ""
       destinationIp: destination.ip | ip("0.0.0.0")
-      destinationServiceHost: destination.service.host | ""
+      destinationServiceHost: destination.service.host | request.host | ""
       destinationWorkload: destination.workload.name | ""
       destinationName: destination.name | ""
       destinationNamespace: destination.namespace | ""
@@ -388,7 +388,7 @@ spec:
       destination_principal: destination.principal | "unknown"
       destination_app: destination.labels["app"] | "unknown"
       destination_version: destination.labels["version"] | "unknown"
-      destination_service: destination.service.host | "unknown"
+      destination_service: destination.service.host | conditional((destination.service.name | "unknown") == "unknown", "unknown", request.host)
       destination_service_name: destination.service.name | "unknown"
       destination_service_namespace: destination.service.namespace | "unknown"
       request_protocol: api.protocol | context.protocol | "unknown"
@@ -425,13 +425,13 @@ spec:
       destination_principal: destination.principal | "unknown"
       destination_app: destination.labels["app"] | "unknown"
       destination_version: destination.labels["version"] | "unknown"
-      destination_service: destination.service.host | "unknown"
+      destination_service: destination.service.host | conditional((destination.service.name | "unknown") == "unknown", "unknown", request.host)
       destination_service_name: destination.service.name | "unknown"
       destination_service_namespace: destination.service.namespace | "unknown"
       request_protocol: api.protocol | context.protocol | "unknown"
       response_code: response.code | 200
       response_flags: context.proxy_error_code | "-"
-      permissive_response_code: rbac.permissive.response_code | "none" 
+      permissive_response_code: rbac.permissive.response_code | "none"
       permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
       connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
     monitored_resource_type: '"UNSPECIFIED"'
@@ -462,13 +462,13 @@ spec:
       destination_principal: destination.principal | "unknown"
       destination_app: destination.labels["app"] | "unknown"
       destination_version: destination.labels["version"] | "unknown"
-      destination_service: destination.service.host | "unknown"
+      destination_service: destination.service.host | conditional((destination.service.name | "unknown") == "unknown", "unknown", request.host)
       destination_service_name: destination.service.name | "unknown"
       destination_service_namespace: destination.service.namespace | "unknown"
       request_protocol: api.protocol | context.protocol | "unknown"
       response_code: response.code | 200
       response_flags: context.proxy_error_code | "-"
-      permissive_response_code: rbac.permissive.response_code | "none" 
+      permissive_response_code: rbac.permissive.response_code | "none"
       permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
       connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
     monitored_resource_type: '"UNSPECIFIED"'
@@ -499,13 +499,13 @@ spec:
       destination_principal: destination.principal | "unknown"
       destination_app: destination.labels["app"] | "unknown"
       destination_version: destination.labels["version"] | "unknown"
-      destination_service: destination.service.host | "unknown"
+      destination_service: destination.service.host | conditional((destination.service.name | "unknown") == "unknown", "unknown", request.host)
       destination_service_name: destination.service.name | "unknown"
       destination_service_namespace: destination.service.namespace | "unknown"
       request_protocol: api.protocol | context.protocol | "unknown"
       response_code: response.code | 200
       response_flags: context.proxy_error_code | "-"
-      permissive_response_code: rbac.permissive.response_code | "none" 
+      permissive_response_code: rbac.permissive.response_code | "none"
       permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
       connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
     monitored_resource_type: '"UNSPECIFIED"'
@@ -602,7 +602,7 @@ spec:
       destination_principal: destination.principal | "unknown"
       destination_app: destination.labels["app"] | "unknown"
       destination_version: destination.labels["version"] | "unknown"
-      destination_service: destination.service.name | "unknown"
+      destination_service: destination.service.host | "unknown"
       destination_service_name: destination.service.name | "unknown"
       destination_service_namespace: destination.service.namespace | "unknown"
       connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
@@ -635,7 +635,7 @@ spec:
       destination_principal: destination.principal | "unknown"
       destination_app: destination.labels["app"] | "unknown"
       destination_version: destination.labels["version"] | "unknown"
-      destination_service: destination.service.name | "unknown"
+      destination_service: destination.service.host | "unknown"
       destination_service_name: destination.service.name | "unknown"
       destination_service_namespace: destination.service.namespace | "unknown"
       connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
@@ -1041,13 +1041,15 @@ spec:
   - '*'
   {{- end }}
   trafficPolicy:
-    {{- if .Values.global.controlPlaneSecurityEnabled }}
     portLevelSettings:
     - port:
-        number: 15004
+        number: 15004 # grpc-mixer-mtls
       tls:
         mode: ISTIO_MUTUAL
-    {{- end}}
+    - port:
+        number: 9091 # grpc-mixer
+      tls:
+        mode: DISABLE
     connectionPool:
       http:
         http2MaxRequests: 10000
@@ -1072,13 +1074,15 @@ spec:
   - '*'
   {{- end }}
   trafficPolicy:
-    {{- if .Values.global.controlPlaneSecurityEnabled }}
     portLevelSettings:
     - port:
-        number: 15004
+        number: 15004 # grpc-mixer-mtls
       tls:
         mode: ISTIO_MUTUAL
-    {{- end}}
+    - port:
+        number: 9091 # grpc-mixer
+      tls:
+        mode: DISABLE
     connectionPool:
       http:
         http2MaxRequests: 10000

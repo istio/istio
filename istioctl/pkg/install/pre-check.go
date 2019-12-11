@@ -27,12 +27,12 @@ import (
 	v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/version"
-	"k8s.io/cli-runtime/pkg/genericclioptions/resource"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/kubernetes"
 )
 
 const (
-	minK8SVersion = "1.11"
+	minK8SVersion = "1.13"
 )
 
 var (
@@ -49,7 +49,7 @@ type preCheckExecClient interface {
 	checkMutatingWebhook() error
 }
 
-func installPreCheck(istioNamespaceFlag string, restClientGetter resource.RESTClientGetter, writer io.Writer) error {
+func installPreCheck(istioNamespaceFlag string, restClientGetter genericclioptions.RESTClientGetter, writer io.Writer) error {
 	fmt.Fprintf(writer, "\n")
 	fmt.Fprintf(writer, "Checking the cluster to make sure it is ready for Istio installation...\n")
 	fmt.Fprintf(writer, "\n")
@@ -59,17 +59,19 @@ func installPreCheck(istioNamespaceFlag string, restClientGetter resource.RESTCl
 	c, err := clientExecFactory(restClientGetter)
 	if err != nil {
 		errs = multierror.Append(errs, fmt.Errorf("failed to initialize the Kubernetes client: %v", err))
-		fmt.Fprintf(writer, fmt.Sprintf("Failed to initialize the Kubernetes client: %v.\n", err))
+		fmt.Fprintf(writer, "Failed to initialize the Kubernetes client: %v.\n", err)
 	} else {
 		fmt.Fprintf(writer, "Can initialize the Kubernetes client.\n")
 	}
 	v, err := c.serverVersion()
 	if err != nil {
 		errs = multierror.Append(errs, fmt.Errorf("failed to query the Kubernetes API Server: %v", err))
-		fmt.Fprintf(writer, fmt.Sprintf("Failed to query the Kubernetes API Server: %v.\n", err))
-	} else {
-		fmt.Fprintf(writer, "Can query the Kubernetes API Server.\n")
+		fmt.Fprintf(writer, "Failed to query the Kubernetes API Server: %v.\n", err)
+		fmt.Fprintf(writer, "Istio install NOT verified because the cluster is unreachable.\n")
+		return errs
 	}
+	fmt.Fprintf(writer, "Can query the Kubernetes API Server.\n")
+
 	fmt.Fprintf(writer, "\n")
 	fmt.Fprintf(writer, "#2. Kubernetes-version\n")
 	fmt.Fprintf(writer, "-----------------------\n")
@@ -205,7 +207,7 @@ func checkKubernetesVersion(versionInfo *version.Info) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return parseVersion(minK8SVersion, 4) < parseVersion(v, 4), nil
+	return parseVersion(minK8SVersion, 4) <= parseVersion(v, 4), nil
 }
 func extractKubernetesVersion(versionInfo *version.Info) (string, error) {
 	versionMatchRE := regexp.MustCompile(`^\s*v?([0-9]+(?:\.[0-9]+)*)(.*)*$`)
@@ -265,7 +267,7 @@ func checkCanCreateResources(c preCheckExecClient, namespace, group, version, na
 	return nil
 }
 
-func createKubeClient(restClientGetter resource.RESTClientGetter) (preCheckExecClient, error) {
+func createKubeClient(restClientGetter genericclioptions.RESTClientGetter) (preCheckExecClient, error) {
 	restConfig, err := restClientGetter.ToRESTConfig()
 
 	if err != nil {

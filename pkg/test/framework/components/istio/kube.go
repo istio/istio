@@ -21,10 +21,13 @@ import (
 	"os"
 	"path"
 
+	"github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/pkg/test/util/retry"
 
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/errors"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 )
@@ -36,6 +39,11 @@ type kubeComponent struct {
 	environment *kube.Environment
 	deployment  *deployment.Instance
 }
+
+const (
+	DefaultValidatingWebhookConfigurationName = "istio-galley"
+	DefaultMutatingWebhookConfigurationName   = "istio-sidecar-injector"
+)
 
 var _ io.Closer = &kubeComponent{}
 var _ Instance = &kubeComponent{}
@@ -113,6 +121,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	// Deploy Istio.
 	i.deployment = deployment.NewYamlDeployment(cfg.SystemNamespace, istioInstallFile)
 	if err = i.deployment.Deploy(env.Accessor, true, retry.Timeout(cfg.DeployTimeout)); err != nil {
+		i.Dump()
 		return nil, err
 	}
 
@@ -122,18 +131,21 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		if _, _, err = env.WaitUntilServiceEndpointsAreReady(cfg.SystemNamespace, "istio-galley"); err != nil {
 			err = fmt.Errorf("error waiting %s/istio-galley service endpoints: %v", cfg.SystemNamespace, err)
 			scopes.CI.Info(err.Error())
+			i.Dump()
 			return nil, err
 		}
 
 		// Wait for webhook to come online. The only reliable way to do that is to see if we can submit invalid config.
 		err = waitForValidationWebhook(env.Accessor)
 		if err != nil {
+			i.Dump()
 			return nil, err
 		}
 	}
 
 	// Then, apply Istio configuration.
 	if err = env.Accessor.Apply("", istioConfigFile); err != nil {
+		i.Dump()
 		return nil, err
 	}
 
@@ -149,18 +161,55 @@ func (i *kubeComponent) Settings() Config {
 	return i.settings
 }
 
-func (i *kubeComponent) Close() (err error) {
+func (i *kubeComponent) Close() error {
+	var err *multierror.Error
+
 	if i.settings.DeployIstio {
 		// TODO: There is a problem with  orderly cleanup. Re-enable this once it is fixed. Delete the system namespace
 		// instead
-		//return i.deployment.Delete(i.environment.Accessor, true, retry.Timeout(s.DeployTimeout))
-		err = i.environment.Accessor.DeleteNamespace(i.settings.SystemNamespace)
-		if err == nil {
-			err = i.environment.Accessor.WaitForNamespaceDeletion(i.settings.SystemNamespace)
+		// return i.deployment.Delete(i.environment.Accessor, true, retry.Timeout(s.DeployTimeout))
+		if i.ctx.Settings().FailOnDeprecation {
+			err = multierror.Append(err, i.checkDeprecation())
+		}
+		err2 := i.environment.Accessor.DeleteNamespace(i.settings.SystemNamespace)
+		err = multierror.Append(err, err2)
+		if err2 == nil {
+			err = multierror.Append(err, i.environment.Accessor.WaitForNamespaceDeletion(i.settings.SystemNamespace))
+		}
+		// Note: when cleaning up an Istio deployment, ValidatingWebhookConfiguration
+		// and MutatingWebhookConfiguration must be cleaned up. Otherwise, next
+		// Istio deployment in the cluster will be impacted, causing flaky test results.
+		// Clean up ValidatingWebhookConfiguration, if any
+		_ = i.environment.DeleteValidatingWebhook(DefaultValidatingWebhookConfigurationName)
+		// Clean up MutatingWebhookConfiguration, if any
+		_ = i.environment.DeleteMutatingWebhook(DefaultMutatingWebhookConfigurationName)
+	}
+
+	return err.ErrorOrNil()
+}
+
+func (i *kubeComponent) checkDeprecation() error {
+	pods, err := i.environment.GetPods(i.settings.SystemNamespace)
+	if err != nil {
+		return fmt.Errorf("could not get pods to inspect for deprecation messages: %v", err)
+	}
+
+	var result error
+	for _, pod := range pods {
+		for _, c := range pod.Spec.Containers {
+			if c.Name == "istio-proxy" {
+				info := fmt.Sprintf("pod: %s/%s", i.settings.SystemNamespace, pod.Name)
+				logs, err := i.environment.Logs(i.settings.SystemNamespace, pod.Name, "istio-proxy", false)
+				if err != nil {
+					result = multierror.Append(result, fmt.Errorf("could not get proxy logs (%s) to inspect for deprecation messages: %v", info, err))
+				} else {
+					result = multierror.Append(result, errors.FindDeprecatedMessagesInEnvoyLog(logs, info))
+				}
+			}
 		}
 	}
 
-	return
+	return result
 }
 
 func (i *kubeComponent) Dump() {

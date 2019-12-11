@@ -19,6 +19,7 @@ import (
 	"sync"
 
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -34,10 +35,10 @@ type PodCache struct {
 	cacheHandler
 
 	sync.RWMutex
-	// keys maintains stable pod IP to name key mapping
+	// podsByIP maintains stable pod IP to name key mapping
 	// this allows us to retrieve the latest status by pod IP.
 	// This should only contain RUNNING or PENDING pods with an allocated IP.
-	keys map[string]string
+	podsByIP map[string]string
 
 	c *Controller
 }
@@ -46,28 +47,28 @@ func newPodCache(ch cacheHandler, c *Controller) *PodCache {
 	out := &PodCache{
 		cacheHandler: ch,
 		c:            c,
-		keys:         make(map[string]string),
+		podsByIP:     make(map[string]string),
 	}
 
 	ch.handler.Append(out.event)
 	return out
 }
 
-// event updates the IP-based index (pc.keys).
-func (pc *PodCache) event(obj interface{}, ev model.Event) error {
+// event updates the IP-based index (pc.podsByIP).
+func (pc *PodCache) event(_, curr interface{}, ev model.Event) error {
 	pc.Lock()
 	defer pc.Unlock()
 
 	// When a pod is deleted obj could be an *v1.Pod or a DeletionFinalStateUnknown marker item.
-	pod, ok := obj.(*v1.Pod)
+	pod, ok := curr.(*v1.Pod)
 	if !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			return fmt.Errorf("couldn't get object from tombstone %+v", obj)
+			return fmt.Errorf("couldn't get object from tombstone %+v", curr)
 		}
 		pod, ok = tombstone.Obj.(*v1.Pod)
 		if !ok {
-			return fmt.Errorf("tombstone contained object that is not a pod %#v", obj)
+			return fmt.Errorf("tombstone contained object that is not a pod %#v", curr)
 		}
 	}
 
@@ -82,57 +83,55 @@ func (pc *PodCache) event(obj interface{}, ev model.Event) error {
 		case model.EventAdd:
 			switch pod.Status.Phase {
 			case v1.PodPending, v1.PodRunning:
-				// add to cache if the pod is running or pending
-				pc.keys[ip] = key
-				if pc.c != nil && pc.c.XDSUpdater != nil {
-					pc.c.XDSUpdater.WorkloadUpdate(ip, pod.ObjectMeta.Labels, pod.ObjectMeta.Annotations)
+				if _, ok := pc.podsByIP[ip]; !ok {
+					// add to cache if the pod is running or pending
+					pc.podsByIP[ip] = key
+					pc.proxyUpdates(ip)
 				}
 			}
 		case model.EventUpdate:
 			if pod.DeletionTimestamp != nil {
 				// delete only if this pod was in the cache
-				if pc.keys[ip] == key {
-					delete(pc.keys, ip)
-					if pc.c != nil && pc.c.XDSUpdater != nil {
-						pc.c.XDSUpdater.WorkloadUpdate(ip, nil, nil)
-					}
+				if pc.podsByIP[ip] == key {
+					delete(pc.podsByIP, ip)
 				}
 				return nil
 			}
 			switch pod.Status.Phase {
 			case v1.PodPending, v1.PodRunning:
-				// add to cache if the pod is running or pending
-				pc.keys[ip] = key
-				if pc.c != nil && pc.c.XDSUpdater != nil {
-					pc.c.XDSUpdater.WorkloadUpdate(ip, pod.ObjectMeta.Labels, pod.ObjectMeta.Annotations)
+				if _, ok := pc.podsByIP[ip]; !ok {
+					// add to cache if the pod is running or pending
+					pc.podsByIP[ip] = key
+					pc.proxyUpdates(ip)
 				}
+
 			default:
 				// delete if the pod switched to other states and is in the cache
-				if pc.keys[ip] == key {
-					delete(pc.keys, ip)
-					if pc.c != nil && pc.c.XDSUpdater != nil {
-						pc.c.XDSUpdater.WorkloadUpdate(ip, nil, nil)
-					}
+				if pc.podsByIP[ip] == key {
+					delete(pc.podsByIP, ip)
 				}
 			}
 		case model.EventDelete:
 			// delete only if this pod was in the cache
-			if pc.keys[ip] == key {
-				delete(pc.keys, ip)
-				if pc.c != nil && pc.c.XDSUpdater != nil {
-					pc.c.XDSUpdater.WorkloadUpdate(ip, nil, nil)
-				}
+			if pc.podsByIP[ip] == key {
+				delete(pc.podsByIP, ip)
 			}
 		}
 	}
 	return nil
 }
 
+func (pc *PodCache) proxyUpdates(ip string) {
+	if pc.c != nil && pc.c.xdsUpdater != nil {
+		pc.c.xdsUpdater.ProxyUpdate(pc.c.clusterID, ip)
+	}
+}
+
 // nolint: unparam
 func (pc *PodCache) getPodKey(addr string) (string, bool) {
 	pc.RLock()
 	defer pc.RUnlock()
-	key, exists := pc.keys[addr]
+	key, exists := pc.podsByIP[addr]
 	return key, exists
 }
 
@@ -147,6 +146,16 @@ func (pc *PodCache) getPodByIP(addr string) *v1.Pod {
 		return nil
 	}
 	return item.(*v1.Pod)
+}
+
+// getPod loads the pod from k8s.
+func (pc *PodCache) getPod(name string, namespace string) *v1.Pod {
+	pod, err := pc.c.client.CoreV1().Pods(namespace).Get(name, metav1.GetOptions{})
+	if err != nil {
+		log.Warnf("failed to get pod %s/%s from kube-apiserver: %v", namespace, name, err)
+		return nil
+	}
+	return pod
 }
 
 // labelsByIP returns pod labels or nil if pod not found or an error occurred

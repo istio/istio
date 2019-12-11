@@ -181,7 +181,7 @@ func TestKeyCertBundleRotator(t *testing.T) {
 				CertOptionsErr: fmt.Errorf("cert options error"),
 			},
 			updated:     false,
-			expectedErr: "failed to extact CertOptions from bundle: cert options error, abort auto rotation",
+			expectedErr: "failed to extract CertOptions from bundle: cert options error, abort auto rotation",
 		},
 		"Key/cert verification error": {
 			retriever: &fakeKeyCertRetriever{

@@ -14,6 +14,9 @@ rules:
 - apiGroups: ["rbac.istio.io"]
   resources: ["*"]
   verbs: ["get", "watch", "list"]
+- apiGroups: ["security.istio.io"]
+  resources: ["*"]
+  verbs: ["get", "watch", "list"]
 - apiGroups: ["networking.istio.io"]
   resources: ["*"]
   verbs: ["*"]
@@ -30,5 +33,14 @@ rules:
   resources: ["configmaps"]
   verbs: ["create", "get", "list", "watch", "update"]
 - apiGroups: [""]
-  resources: ["endpoints", "pods", "services", "namespaces", "nodes", "secrets"]
+  resources: ["endpoints", "pods", "services", "namespaces", "nodes"]
   verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["create", "get", "watch", "list", "update", "delete"]
+- apiGroups: ["certificates.k8s.io"]
+  resources:
+    - "certificatesigningrequests"
+    - "certificatesigningrequests/approval"
+    - "certificatesigningrequests/status"
+  verbs: ["update", "create", "get", "delete"]

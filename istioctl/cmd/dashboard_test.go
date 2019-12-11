@@ -28,57 +28,82 @@ func TestDashboard(t *testing.T) {
 
 	cases := []testCase{
 		{ // case 0
-			args:           strings.Split("experimental dashboard", " "),
+			args:           strings.Split("dashboard", " "),
 			expectedRegexp: regexp.MustCompile("Access to Istio web UIs"),
 		},
 		{ // case 1
-			args:           strings.Split("experimental dashboard invalid", " "),
+			args:           strings.Split("dashboard invalid", " "),
 			expectedRegexp: regexp.MustCompile(`unknown dashboard "invalid"`),
 			wantException:  true,
 		},
 		{ // case 2
-			args:           strings.Split("experimental dashboard controlz", " "),
-			expectedRegexp: regexp.MustCompile(".*Error: specify a pod"),
+			args:           strings.Split("dashboard controlz", " "),
+			expectedRegexp: regexp.MustCompile(".*Error: specify a pod or --selector"),
 			wantException:  true,
 		},
 		{ // case 3
-			args:           strings.Split("experimental dashboard controlz pod-123456-7890", " "),
+			args:           strings.Split("dashboard controlz pod-123456-7890", " "),
 			expectedRegexp: regexp.MustCompile(".*mock k8s does not forward"),
 			wantException:  true,
 		},
 		{ // case 4
-			args:           strings.Split("experimental dashboard envoy", " "),
-			expectedRegexp: regexp.MustCompile(".*Error: specify a pod"),
+			args:           strings.Split("dashboard envoy", " "),
+			expectedRegexp: regexp.MustCompile(".*Error: specify a pod or --selector"),
 			wantException:  true,
 		},
 		{ // case 5
-			args:           strings.Split("experimental dashboard envoy pod-123456-7890", " "),
+			args:           strings.Split("dashboard envoy pod-123456-7890", " "),
 			expectedRegexp: regexp.MustCompile(".*mock k8s does not forward"),
 			wantException:  true,
 		},
 		{ // case 6
-			args:           strings.Split("experimental dashboard grafana", " "),
+			args:           strings.Split("dashboard grafana", " "),
 			expectedOutput: "Error: no Grafana pods found\n",
 			wantException:  true,
 		},
 		{ // case 7
-			args:           strings.Split("experimental dashboard jaeger", " "),
+			args:           strings.Split("dashboard jaeger", " "),
 			expectedOutput: "Error: no Jaeger pods found\n",
 			wantException:  true,
 		},
 		{ // case 8
-			args:           strings.Split("experimental dashboard kiali", " "),
+			args:           strings.Split("dashboard kiali", " "),
 			expectedOutput: "Error: no Kiali pods found\n",
 			wantException:  true,
 		},
 		{ // case 9
-			args:           strings.Split("experimental dashboard prometheus", " "),
+			args:           strings.Split("dashboard prometheus", " "),
 			expectedOutput: "Error: no Prometheus pods found\n",
 			wantException:  true,
 		},
 		{ // case 10
-			args:           strings.Split("experimental dashboard zipkin", " "),
+			args:           strings.Split("dashboard zipkin", " "),
 			expectedOutput: "Error: no Zipkin pods found\n",
+			wantException:  true,
+		},
+		{ // case 11
+			args:           strings.Split("experimental dashboard", " "),
+			expectedOutput: "Error: (dashboard has graduated. Use `istioctl dashboard`)\n",
+			wantException:  true,
+		},
+		{ // case 12
+			args:           strings.Split("dashboard envoy --selector app=example", " "),
+			expectedRegexp: regexp.MustCompile(".*no pods found"),
+			wantException:  true,
+		},
+		{ // case 13
+			args:           strings.Split("dashboard envoy --selector app=example pod-123456-7890", " "),
+			expectedRegexp: regexp.MustCompile(".*Error: name cannot be provided when a selector is specified"),
+			wantException:  true,
+		},
+		{ // case 14
+			args:           strings.Split("dashboard controlz --selector app=example", " "),
+			expectedRegexp: regexp.MustCompile(".*no pods found"),
+			wantException:  true,
+		},
+		{ // case 15
+			args:           strings.Split("dashboard controlz --selector app=example pod-123456-7890", " "),
+			expectedRegexp: regexp.MustCompile(".*Error: name cannot be provided when a selector is specified"),
 			wantException:  true,
 		},
 	}

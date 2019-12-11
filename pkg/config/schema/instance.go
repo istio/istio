@@ -23,7 +23,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"istio.io/istio/pkg/config/validation"
-	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 
 // Instance provides description of the configuration schema and its key function
@@ -74,7 +74,7 @@ func (i *Instance) FromJSON(js string) (proto.Message, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err = protomarshal.ApplyJSON(js, pb); err != nil {
+	if err = gogoprotomarshal.ApplyJSON(js, pb); err != nil {
 		return nil, err
 	}
 	return pb, nil
@@ -86,7 +86,7 @@ func (i *Instance) FromYAML(yml string) (proto.Message, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err = protomarshal.ApplyYAML(yml, pb); err != nil {
+	if err = gogoprotomarshal.ApplyYAML(yml, pb); err != nil {
 		return nil, err
 	}
 	return pb, nil

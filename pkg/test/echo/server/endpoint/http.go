@@ -167,7 +167,7 @@ type codeAndSlices struct {
 }
 
 func (h *httpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	log.Infof("HTTP Request:\n  Method: %s\n  URL: %v,\n  Host: %s\n  Headers: %v}",
+	log.Infof("HTTP Request:\n  Method: %s\n  URL: %v,\n  Host: %s\n  Headers: %v",
 		r.Method, r.URL, r.Host, r.Header)
 
 	if !h.IsServerReady() {

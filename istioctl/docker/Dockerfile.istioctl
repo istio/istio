@@ -1,0 +1,6 @@
+# Version is the base image version from the TLD Makefile
+ARG BASE_VERSION=latest
+FROM docker.io/istio/base:${BASE_VERSION}
+USER 1000:1000
+COPY istioctl /usr/local/bin/
+ENTRYPOINT ["/usr/local/bin/istioctl"]

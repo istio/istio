@@ -23,12 +23,21 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
-// BuildClientConfig is a helper function that builds client config from a kubeconfig filepath.
+// BuildClientConfig builds a client rest config from a kubeconfig filepath and context.
 // It overrides the current context with the one provided (empty to use default).
 //
 // This is a modified version of k8s.io/client-go/tools/clientcmd/BuildConfigFromFlags with the
 // difference that it loads default configs if not running in-cluster.
 func BuildClientConfig(kubeconfig, context string) (*rest.Config, error) {
+	return BuildClientCmd(kubeconfig, context).ClientConfig()
+}
+
+// BuildClientCmd builds a client cmd config from a kubeconfig filepath and context.
+// It overrides the current context with the one provided (empty to use default).
+//
+// This is a modified version of k8s.io/client-go/tools/clientcmd/BuildConfigFromFlags with the
+// difference that it loads default configs if not running in-cluster.
+func BuildClientCmd(kubeconfig, context string) clientcmd.ClientConfig {
 	if kubeconfig != "" {
 		info, err := os.Stat(kubeconfig)
 		if err != nil || info.Size() == 0 {
@@ -51,7 +60,7 @@ func BuildClientConfig(kubeconfig, context string) (*rest.Config, error) {
 		CurrentContext:  context,
 	}
 
-	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides).ClientConfig()
+	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
 }
 
 // CreateClientset is a helper function that builds a kubernetes Clienset from a kubeconfig

@@ -46,84 +46,13 @@ rules:
   - get
   - list
   - watch
-- apiGroups: ["config.istio.io"]
-  resources:
-  - adapters
-  - apikeys
-  - bypasses
-  - authorizations
-  - checknothings
-  - circonuses
-  - cloudwatches
-  - deniers
-  - dogstatsds
-  - edges
-  - fluentds
-  - handlers
-  - instances
-  - kubernetesenvs
-  - kuberneteses
-  - listcheckers
-  - listentries
-  - logentries
-  - memquotas
-  - metrics
-  - noops
-  - opas
-  - prometheuses
-  - quotas
-  - quotaspecbindings
-  - quotaspecs
-  - rbacs
-  - redisquotas
-  - reportnothings
-  - rules
-  - signalfxs
-  - solarwindses
-  - stackdrivers
-  - statsds
-  - stdios
-  - templates
-  - tracespans
-  - zipkins
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - watch
-- apiGroups: ["networking.istio.io"]
-  resources:
-  - destinationrules
-  - gateways
-  - serviceentries
-  - sidecars
-  - virtualservices
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - watch
-- apiGroups: ["authentication.istio.io"]
-  resources:
-  - meshpolicies
-  - policies
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - watch
-- apiGroups: ["rbac.istio.io"]
-  resources:
-  - clusterrbacconfigs
-  - rbacconfigs
-  - servicerolebindings
-  - serviceroles
+- apiGroups:
+  - config.istio.io
+  - networking.istio.io
+  - authentication.istio.io
+  - rbac.istio.io
+  - security.istio.io
+  resources: ["*"]
   verbs:
   - create
   - delete
@@ -186,75 +115,13 @@ rules:
   - get
   - list
   - watch
-- apiGroups: ["config.istio.io"]
-  resources:
-  - adapters
-  - apikeys
-  - bypasses
-  - authorizations
-  - checknothings
-  - circonuses
-  - cloudwatches
-  - deniers
-  - dogstatsds
-  - edges
-  - fluentds
-  - handlers
-  - instances
-  - kubernetesenvs
-  - kuberneteses
-  - listcheckers
-  - listentries
-  - logentries
-  - memquotas
-  - metrics
-  - noops
-  - opas
-  - prometheuses
-  - quotas
-  - quotaspecbindings
-  - quotaspecs
-  - rbacs
-  - redisquotas
-  - reportnothings
-  - rules
-  - signalfxs
-  - solarwindses
-  - stackdrivers
-  - statsds
-  - stdios
-  - templates
-  - tracespans
-  - zipkins
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups: ["networking.istio.io"]
-  resources:
-  - destinationrules
-  - gateways
-  - serviceentries
-  - sidecars
-  - virtualservices
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups: ["authentication.istio.io"]
-  resources:
-  - meshpolicies
-  - policies
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups: ["rbac.istio.io"]
-  resources:
-  - clusterrbacconfigs
-  - rbacconfigs
-  - servicerolebindings
-  - serviceroles
+- apiGroups:
+  - config.istio.io
+  - networking.istio.io
+  - authentication.istio.io
+  - rbac.istio.io
+  - security.istio.io
+  resources: ["*"]
   verbs:
   - get
   - list

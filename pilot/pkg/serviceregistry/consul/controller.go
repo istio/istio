@@ -17,17 +17,19 @@ package consul
 import (
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/hashicorp/consul/api"
 
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/spiffe"
 )
+
+var _ serviceregistry.Instance = &Controller{}
 
 // Controller communicates with Consul and monitors for changes
 type Controller struct {
@@ -38,24 +40,34 @@ type Controller struct {
 	serviceInstances map[string][]*model.ServiceInstance //key hostname value serviceInstance array
 	cacheMutex       sync.Mutex
 	initDone         bool
+	clusterID        string
 }
 
 // NewController creates a new Consul controller
-func NewController(addr string, interval time.Duration) (*Controller, error) {
+func NewController(addr string, clusterID string) (*Controller, error) {
 	conf := api.DefaultConfig()
 	conf.Address = addr
 
 	client, err := api.NewClient(conf)
-	monitor := NewConsulMonitor(client, interval)
+	monitor := NewConsulMonitor(client)
 	controller := Controller{
-		monitor: monitor,
-		client:  client,
+		monitor:   monitor,
+		client:    client,
+		clusterID: clusterID,
 	}
 
 	//Watch the change events to refresh local caches
 	monitor.AppendServiceHandler(controller.ServiceChanged)
 	monitor.AppendInstanceHandler(controller.InstanceChanged)
 	return &controller, err
+}
+
+func (c *Controller) Provider() serviceregistry.ProviderID {
+	return serviceregistry.Consul
+}
+
+func (c *Controller) Cluster() string {
+	return c.clusterID
 }
 
 // Services list declarations of all services in the system
@@ -290,7 +302,7 @@ func (c *Controller) getServices() (map[string][]string, error) {
 func (c *Controller) getCatalogService(name string, q *api.QueryOptions) ([]*api.CatalogService, error) {
 	endpoints, _, err := c.client.Catalog().Service(name, "", q)
 	if err != nil {
-		log.Warnf("Could not retrieve service catalogue from consul: %v", err)
+		log.Warnf("Could not retrieve service catalog from consul: %v", err)
 		return nil, err
 	}
 

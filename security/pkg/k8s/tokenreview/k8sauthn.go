@@ -28,6 +28,12 @@ import (
 	k8sauth "k8s.io/api/authentication/v1"
 )
 
+const (
+	// The default audience for SDS trustworthy JWT. This is to make sure that the CSR requests
+	// contain the JWTs intended for Citadel.
+	defaultAudience = "istio-ca"
+)
+
 type specForSaValidationRequest struct {
 	Token     string   `json:"token"`
 	Audiences []string `json:"audiences"`
@@ -83,10 +89,10 @@ func (authn *K8sSvcAcctAuthn) reviewServiceAccountAtK8sAPIServer(targetToken str
 		Kind:       "TokenReview",
 		Spec: specForSaValidationRequest{
 			Token: targetToken,
-			// TODO: Also check for the JWT audiences. This feature is only available on Kubernetes from
-			//  v1.13 and above.
 			// If the audiences are not specified, the api server will use the audience of api server,
 			// which is also the issuer of the jwt.
+			// This feature is only available on Kubernetes v1.13 and above.
+			Audiences: []string{defaultAudience},
 		},
 	}
 	saReqJSON, err := json.Marshal(saReq)

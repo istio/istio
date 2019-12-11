@@ -54,7 +54,10 @@ func TestDialout_Basic(t *testing.T) {
 
 			g := galley.NewOrFail(t, ctx, galley.Config{SinkAddress: srv.Address()})
 
-			ns := namespace.NewOrFail(t, ctx, "dialout", true)
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "dialout",
+				Inject: true,
+			})
 
 			g.ApplyConfigOrFail(t, ns, yamlCfg)
 

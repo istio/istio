@@ -1,0 +1,10 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-all
+  namespace: foo
+spec:
+  selector:
+    matchLabels:
+      app: httpbin
+      version: v1

@@ -15,17 +15,18 @@
 package client_test
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"testing"
 
 	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/cache"
 	xds "github.com/envoyproxy/go-control-plane/pkg/server"
-	"github.com/gogo/protobuf/types"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/grpc"
 
 	"istio.io/istio/mixer/test/client/env"
@@ -191,10 +192,10 @@ func TestDynamicAttribute(t *testing.T) {
 				Endpoints: []*endpoint.LocalityLbEndpoints{{
 					LbEndpoints: []*endpoint.LbEndpoint{{
 						Metadata: &core.Metadata{
-							FilterMetadata: map[string]*types.Struct{
+							FilterMetadata: map[string]*structpb.Struct{
 								"istio": {
-									Fields: map[string]*types.Value{
-										"uid": {Kind: &types.Value_StringValue{StringValue: "pod1.ns2"}},
+									Fields: map[string]*structpb.Value{
+										"uid": {Kind: &structpb.Value_StringValue{StringValue: "pod1.ns2"}},
 									},
 								},
 							},
@@ -214,7 +215,7 @@ func TestDynamicAttribute(t *testing.T) {
 			},
 		}},
 	})
-	server := xds.NewServer(snapshots, nil)
+	server := xds.NewServer(context.Background(), snapshots, nil)
 	discovery.RegisterAggregatedDiscoveryServiceServer(grpcServer, server)
 
 	go func() {

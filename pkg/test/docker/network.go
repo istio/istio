@@ -67,7 +67,7 @@ func NewNetwork(dockerClient *client.Client, cfg NetworkConfig) (out *Network, e
 	}()
 
 	// Retrieve the subnet for the network.
-	iresp, err := dockerClient.NetworkInspect(context.Background(), resp.ID)
+	iresp, err := dockerClient.NetworkInspect(context.Background(), resp.ID, types.NetworkInspectOptions{})
 	if err != nil {
 		return nil, err
 	}

@@ -19,10 +19,12 @@ import (
 	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	xdslistener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
+	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+
+	"istio.io/istio/pkg/util/gogo"
 
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -44,7 +46,7 @@ import (
 // filter chain (which is the http connection manager) with the updated object.
 func DeprecatedInsertUserFilters(in *plugin.InputParams, listener *xdsapi.Listener,
 	httpConnectionManagers []*http_conn.HttpConnectionManager) error { //nolint: unparam
-	filterCRD := getUserFiltersForWorkload(in.Env, in.Node.WorkloadLabels)
+	filterCRD := getUserFiltersForWorkload(in.Push, in.Node.WorkloadLabels)
 	if filterCRD == nil {
 		return nil
 	}
@@ -117,8 +119,8 @@ func DeprecatedInsertUserFilters(in *plugin.InputParams, listener *xdsapi.Listen
 
 // NOTE: There can be only one filter for a workload. If multiple filters are defined, the behavior
 // is undefined.
-func getUserFiltersForWorkload(env *model.Environment, labels labels.Collection) *networking.EnvoyFilter {
-	f := env.EnvoyFilter(labels)
+func getUserFiltersForWorkload(push *model.PushContext, labels labels.Collection) *networking.EnvoyFilter {
+	f := push.EnvoyFilter(labels)
 	if f != nil {
 		return f.Spec.(*networking.EnvoyFilter)
 	}
@@ -212,7 +214,7 @@ func deprecatedInsertHTTPFilter(listenerName string, filterChain *xdslistener.Fi
 	envoyFilter *networking.EnvoyFilter_Filter, isXDSMarshalingToAnyEnabled bool) {
 	filter := &http_conn.HttpFilter{
 		Name:       envoyFilter.FilterName,
-		ConfigType: &http_conn.HttpFilter_Config{Config: envoyFilter.FilterConfig},
+		ConfigType: &http_conn.HttpFilter_Config{Config: gogo.StructToProtoStruct(envoyFilter.FilterConfig)},
 	}
 
 	position := networking.EnvoyFilter_InsertPosition_FIRST
@@ -259,7 +261,7 @@ func deprecatedInsertHTTPFilter(listenerName string, filterChain *xdslistener.Fi
 		filterStruct.ConfigType = &xdslistener.Filter_Config{Config: util.MessageToStruct(hcm)}
 	}
 	filterChain.Filters[len(filterChain.Filters)-1] = &filterStruct
-	log.Infof("EnvoyFilters: Rebuilt HTTP Connection Manager %s (from %d filters to %d filters)",
+	log.Debugf("EnvoyFilters: Rebuilt HTTP Connection Manager %s (from %d filters to %d filters)",
 		listenerName, oldLen, len(hcm.HttpFilters))
 }
 
@@ -267,7 +269,7 @@ func deprecatedInsertNetworkFilter(listenerName string, filterChain *xdslistener
 	envoyFilter *networking.EnvoyFilter_Filter) {
 	filter := &xdslistener.Filter{
 		Name:       envoyFilter.FilterName,
-		ConfigType: &xdslistener.Filter_Config{Config: envoyFilter.FilterConfig},
+		ConfigType: &xdslistener.Filter_Config{Config: gogo.StructToProtoStruct(envoyFilter.FilterConfig)},
 	}
 
 	position := networking.EnvoyFilter_InsertPosition_FIRST
@@ -300,6 +302,6 @@ func deprecatedInsertNetworkFilter(listenerName string, filterChain *xdslistener
 			}
 		}
 	}
-	log.Infof("EnvoyFilters: Rebuilt network filter stack for listener %s (from %d filters to %d filters)",
+	log.Debugf("EnvoyFilters: Rebuilt network filter stack for listener %s (from %d filters to %d filters)",
 		listenerName, oldLen, len(filterChain.Filters))
 }

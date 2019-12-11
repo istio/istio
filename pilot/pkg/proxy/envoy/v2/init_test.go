@@ -24,23 +24,27 @@ import (
 	"net"
 	"time"
 
+	"github.com/golang/protobuf/ptypes"
+	structpb "github.com/golang/protobuf/ptypes/struct"
+
+	"istio.io/istio/pilot/pkg/model"
+
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
-	proto "github.com/gogo/protobuf/types"
+	"google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
-
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
 )
 
-var nodeMetadata = &proto.Struct{Fields: map[string]*proto.Value{
-	"ISTIO_VERSION": {Kind: &proto.Value_StringValue{StringValue: "1.3"}}, // actual value doesn't matter
+var nodeMetadata = &structpb.Struct{Fields: map[string]*structpb.Value{
+	"ISTIO_VERSION": {Kind: &structpb.Value_StringValue{StringValue: "1.3"}}, // actual value doesn't matter
 }}
 
 // Extract cluster load assignment from a discovery response.
@@ -52,7 +56,7 @@ func getLoadAssignment(res1 *xdsapi.DiscoveryResponse) (*xdsapi.ClusterLoadAssig
 		return nil, errors.New("Invalid resource typeURL" + res1.Resources[0].TypeUrl)
 	}
 	cla := &xdsapi.ClusterLoadAssignment{}
-	err := cla.Unmarshal(res1.Resources[0].Value)
+	err := ptypes.UnmarshalAny(res1.Resources[0], cla)
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +174,7 @@ func sendEDSNack(_ []string, node string, edsstr ads.AggregatedDiscoveryService_
 			Metadata: nodeMetadata,
 		},
 		TypeUrl:     v2.EndpointType,
-		ErrorDetail: &rpc.Status{Message: "NOPE!"},
+		ErrorDetail: &status.Status{Message: "NOPE!"},
 	})
 	if err != nil {
 		return fmt.Errorf("EDS NACK failed: %s", err)
@@ -214,6 +218,21 @@ func sendLDSReq(node string, ldsstr ads.AggregatedDiscoveryService_StreamAggrega
 	return nil
 }
 
+func sendLDSReqWithLabels(node string, ldsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, labels map[string]string) error {
+	err := ldsstr.Send(&xdsapi.DiscoveryRequest{
+		ResponseNonce: time.Now().String(),
+		Node: &core.Node{
+			Id:       node,
+			Metadata: model.NodeMetadata{Labels: labels}.ToStruct(),
+		},
+		TypeUrl: v2.ListenerType})
+	if err != nil {
+		return fmt.Errorf("LDS request failed: %s", err)
+	}
+
+	return nil
+}
+
 func sendLDSNack(node string, ldsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
 	err := ldsstr.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
@@ -222,7 +241,7 @@ func sendLDSNack(node string, ldsstr ads.AggregatedDiscoveryService_StreamAggreg
 			Metadata: nodeMetadata,
 		},
 		TypeUrl:     v2.ListenerType,
-		ErrorDetail: &rpc.Status{Message: "NOPE!"}})
+		ErrorDetail: &status.Status{Message: "NOPE!"}})
 	if err != nil {
 		return fmt.Errorf("LDS NACK failed: %s", err)
 	}
@@ -254,7 +273,7 @@ func sendRDSNack(node string, _ []string, nonce string, rdsstr ads.AggregatedDis
 			Metadata: nodeMetadata,
 		},
 		TypeUrl:     v2.RouteType,
-		ErrorDetail: &rpc.Status{Message: "NOPE!"}})
+		ErrorDetail: &status.Status{Message: "NOPE!"}})
 	if err != nil {
 		return fmt.Errorf("RDS NACK failed: %s", err)
 	}
@@ -284,7 +303,7 @@ func sendCDSNack(node string, edsstr ads.AggregatedDiscoveryService_StreamAggreg
 			Id:       node,
 			Metadata: nodeMetadata,
 		},
-		ErrorDetail: &rpc.Status{Message: "NOPE!"},
+		ErrorDetail: &status.Status{Message: "NOPE!"},
 		TypeUrl:     v2.ClusterType})
 	if err != nil {
 		return fmt.Errorf("CDS NACK failed: %s", err)

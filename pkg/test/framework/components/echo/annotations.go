@@ -45,7 +45,6 @@ var (
 	SidecarReadinessInitialDelaySeconds   = workloadAnnotation(annotation.SidecarStatusReadinessInitialDelaySeconds.Name, "")
 	SidecarReadinessPeriodSeconds         = workloadAnnotation(annotation.SidecarStatusReadinessPeriodSeconds.Name, "")
 	SidecarReadinessFailoverThreshold     = workloadAnnotation(annotation.SidecarStatusReadinessFailureThreshold.Name, "")
-	SidecarApplicationPorts               = workloadAnnotation(annotation.SidecarStatusReadinessApplicationPorts.Name, "")
 	SidecarTrafficIncludeOutboundIPRanges = workloadAnnotation(annotation.SidecarTrafficIncludeOutboundIPRanges.Name, "")
 	SidecarTrafficExcludeOutboundIPRanges = workloadAnnotation(annotation.SidecarTrafficExcludeOutboundIPRanges.Name, "")
 	SidecarTrafficIncludeInboundPorts     = workloadAnnotation(annotation.SidecarTrafficIncludeInboundPorts.Name, "")

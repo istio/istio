@@ -43,3 +43,8 @@ func (s *Source) Stop() {
 func (s *Source) Running() bool {
 	return s.running
 }
+
+// Handle has the source send the specified event to its handler
+func (s *Source) Handle(e event.Event) {
+	s.Handlers.Handle(e)
+}

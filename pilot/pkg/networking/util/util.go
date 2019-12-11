@@ -16,28 +16,32 @@ package util
 
 import (
 	"fmt"
-	"math"
 	"net"
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	"github.com/envoyproxy/go-control-plane/pkg/util"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
-	"github.com/gogo/protobuf/proto"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	"github.com/envoyproxy/go-control-plane/pkg/conversion"
+	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/any"
+	"github.com/golang/protobuf/ptypes/duration"
+	pstruct "github.com/golang/protobuf/ptypes/struct"
+	"github.com/golang/protobuf/ptypes/wrappers"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/host"
 )
 
 const (
@@ -64,8 +68,18 @@ const (
 	// IstioMetadataKey is the key under which metadata is added to a route or cluster
 	// regarding the virtual service or destination rule used for each
 	IstioMetadataKey = "istio"
-	// The range of LoadBalancingWeight is [1, 128]
-	maxLoadBalancingWeight = 128
+
+	// EnvoyTransportSocketMetadataKey is the key under which metadata is added to an endpoint
+	// which determines the endpoint level transport socket configuration.
+	EnvoyTransportSocketMetadataKey = "envoy.transport_socket_match"
+
+	// EnvoyRawBufferSocketName matched with hardcoded built-in Envoy transport name which determines
+	// endpoint level plantext transport socket configuration
+	EnvoyRawBufferSocketName = "raw_buffer"
+
+	// EnvoyTLSSocketName matched with hardcoded built-in Envoy transport name which determines endpoint
+	// level tls transport socket configuration
+	EnvoyTLSSocketName = "tls"
 )
 
 // ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
@@ -82,6 +96,23 @@ var ALPNInMesh = []string{"istio"}
 
 // ALPNHttp advertises that Proxy is going to talking either http2 or http 1.1.
 var ALPNHttp = []string{"h2", "http/1.1"}
+
+// FallThroughFilterChainBlackHoleService is the blackhole service used for fall though
+// filter chain
+var FallThroughFilterChainBlackHoleService = &model.Service{
+	Hostname: host.Name(BlackHoleCluster),
+	Attributes: model.ServiceAttributes{
+		Name: BlackHoleCluster,
+	},
+}
+
+// FallThroughFilterChainPassthroughService is the passthrough service used for fall though
+var FallThroughFilterChainPassthroughService = &model.Service{
+	Hostname: host.Name(PassthroughCluster),
+	Attributes: model.ServiceAttributes{
+		Name: PassthroughCluster,
+	},
+}
 
 func getMaxCidrPrefix(addr string) uint32 {
 	ip := net.ParseIP(addr)
@@ -101,7 +132,7 @@ func ConvertAddressToCidr(addr string) *core.CidrRange {
 
 	cidr := &core.CidrRange{
 		AddressPrefix: addr,
-		PrefixLen: &types.UInt32Value{
+		PrefixLen: &wrappers.UInt32Value{
 			Value: getMaxCidrPrefix(addr),
 		},
 	}
@@ -151,94 +182,53 @@ func GetNetworkEndpointAddress(n *model.NetworkEndpoint) *core.Address {
 	}
 }
 
-// lbWeightNormalize set LbEndpoints within a locality with a valid LoadBalancingWeight.
-func lbWeightNormalize(endpoints []*endpoint.LbEndpoint) []*endpoint.LbEndpoint {
-	var totalLbEndpointsNum uint32
-	var needNormalize bool
-
-	for _, ep := range endpoints {
-		if ep.GetLoadBalancingWeight().GetValue() > maxLoadBalancingWeight {
-			needNormalize = true
-		}
-		totalLbEndpointsNum += ep.GetLoadBalancingWeight().GetValue()
-	}
-	if !needNormalize {
-		return endpoints
-	}
-
-	out := make([]*endpoint.LbEndpoint, len(endpoints))
-	for i, ep := range endpoints {
-		weight := float64(ep.GetLoadBalancingWeight().GetValue()*maxLoadBalancingWeight) / float64(totalLbEndpointsNum)
-		ep.LoadBalancingWeight = &types.UInt32Value{
-			Value: uint32(math.Ceil(weight)),
-		}
-		out[i] = ep
-	}
-
-	return out
-}
-
-// LocalityLbWeightNormalize set LocalityLbEndpoints within a cluster with a valid LoadBalancingWeight.
-func LocalityLbWeightNormalize(endpoints []*endpoint.LocalityLbEndpoints) []*endpoint.LocalityLbEndpoints {
-	var totalLbEndpointsNum uint32
-	var needNormalize bool
-
-	for i, localityLbEndpoint := range endpoints {
-		if localityLbEndpoint.GetLoadBalancingWeight().GetValue() > maxLoadBalancingWeight {
-			needNormalize = true
-		}
-		totalLbEndpointsNum += localityLbEndpoint.GetLoadBalancingWeight().GetValue()
-		endpoints[i].LbEndpoints = lbWeightNormalize(localityLbEndpoint.LbEndpoints)
-	}
-	if !needNormalize {
-		return endpoints
-	}
-
-	out := make([]*endpoint.LocalityLbEndpoints, len(endpoints))
-	for i, localityLbEndpoint := range endpoints {
-		weight := float64(localityLbEndpoint.GetLoadBalancingWeight().GetValue()*maxLoadBalancingWeight) / float64(totalLbEndpointsNum)
-		localityLbEndpoint.LoadBalancingWeight = &types.UInt32Value{
-			Value: uint32(math.Ceil(weight)),
-		}
-		out[i] = localityLbEndpoint
-	}
-
-	return out
-}
-
 // GetByAddress returns a listener by its address
 // TODO(mostrowski): consider passing map around to save iteration.
 func GetByAddress(listeners []*xdsapi.Listener, addr core.Address) *xdsapi.Listener {
-	for _, listener := range listeners {
-		if listener != nil && listener.Address.Equal(addr) {
-			return listener
+	for _, l := range listeners {
+		if l != nil && proto.Equal(l.Address, &addr) {
+			return l
 		}
 	}
 	return nil
 }
 
-// MessageToAny converts from proto message to proto Any
-func MessageToAny(msg proto.Message) *types.Any {
-	s, err := types.MarshalAny(msg)
+// MessageToAnyWithError converts from proto message to proto Any
+func MessageToAnyWithError(msg proto.Message) (*any.Any, error) {
+	b := proto.NewBuffer(nil)
+	b.SetDeterministic(true)
+	err := b.Marshal(msg)
 	if err != nil {
-		log.Error(err.Error())
+		return nil, err
+	}
+	return &any.Any{
+		TypeUrl: "type.googleapis.com/" + proto.MessageName(msg),
+		Value:   b.Bytes(),
+	}, nil
+}
+
+// MessageToAny converts from proto message to proto Any
+func MessageToAny(msg proto.Message) *any.Any {
+	out, err := MessageToAnyWithError(msg)
+	if err != nil {
+		log.Error(fmt.Sprintf("error marshaling Any %s: %v", msg.String(), err))
 		return nil
 	}
-	return s
+	return out
 }
 
 // MessageToStruct converts from proto message to proto Struct
-func MessageToStruct(msg proto.Message) *types.Struct {
-	s, err := util.MessageToStruct(msg)
+func MessageToStruct(msg proto.Message) *pstruct.Struct {
+	s, err := conversion.MessageToStruct(msg)
 	if err != nil {
 		log.Error(err.Error())
-		return &types.Struct{}
+		return &pstruct.Struct{}
 	}
 	return s
 }
 
 // GogoDurationToDuration converts from gogo proto duration to time.duration
-func GogoDurationToDuration(d *types.Duration) *time.Duration {
+func GogoDurationToDuration(d *types.Duration) *duration.Duration {
 	if d == nil {
 		return nil
 	}
@@ -248,7 +238,7 @@ func GogoDurationToDuration(d *types.Duration) *time.Duration {
 		log.Warnf("error converting duration %#v, using 0: %v", d, err)
 		return nil
 	}
-	return &dur
+	return ptypes.DurationProto(dur)
 }
 
 // SortVirtualHosts sorts a slice of virtual hosts by name.
@@ -261,15 +251,16 @@ func SortVirtualHosts(hosts []*route.VirtualHost) {
 	})
 }
 
-// IsIstioVersionGE12 checks whether the given Istio version is greater than or equals 1.2.
-func IsIstioVersionGE12(node *model.Proxy) bool {
-	return node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 2, Patch: -1}) >= 0
-}
-
 // IsIstioVersionGE13 checks whether the given Istio version is greater than or equals 1.3.
 func IsIstioVersionGE13(node *model.Proxy) bool {
 	return node.IstioVersion == nil ||
 		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 3, Patch: -1}) >= 0
+}
+
+// IsIstioVersionGE14 checks whether the given Istio version is greater than or equals 1.4.
+func IsIstioVersionGE14(node *model.Proxy) bool {
+	return node.IstioVersion == nil ||
+		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 4, Patch: -1}) >= 0
 }
 
 // IsXDSMarshalingToAnyEnabled controls whether "marshaling to Any" feature is enabled.
@@ -278,37 +269,24 @@ func IsXDSMarshalingToAnyEnabled(node *model.Proxy) bool {
 }
 
 // IsProtocolSniffingEnabled checks whether protocol sniffing is enabled.
-func IsProtocolSniffingEnabledForNode(node *model.Proxy) bool {
-	return features.EnableProtocolSniffing.Get() && IsIstioVersionGE13(node)
+func IsProtocolSniffingEnabledForOutbound(node *model.Proxy) bool {
+	return features.EnableProtocolSniffingForOutbound.Get() && IsIstioVersionGE13(node)
+}
+
+func IsProtocolSniffingEnabledForInbound(node *model.Proxy) bool {
+	return features.EnableProtocolSniffingForInbound.Get() && IsIstioVersionGE14(node)
 }
 
 func IsProtocolSniffingEnabledForPort(node *model.Proxy, port *model.Port) bool {
-	return IsProtocolSniffingEnabledForNode(node) && port.Protocol.IsUnsupported()
+	return IsProtocolSniffingEnabledForOutbound(node) && port.Protocol.IsUnsupported()
 }
 
-// ResolveHostsInNetworksConfig will go through the Gateways addresses for all
-// networks in the config and if it's not an IP address it will try to lookup
-// that hostname and replace it with the IP address in the config
-func ResolveHostsInNetworksConfig(config *meshconfig.MeshNetworks) {
-	if config == nil {
-		return
-	}
-	for _, n := range config.Networks {
-		for _, gw := range n.Gateways {
-			gwIP := net.ParseIP(gw.GetAddress())
-			if gwIP == nil {
-				addrs, err := net.LookupHost(gw.GetAddress())
-				if err != nil {
-					log.Warnf("error resolving host %#v: %v", gw.GetAddress(), err)
-				}
-				if err == nil && len(addrs) > 0 {
-					gw.Gw = &meshconfig.Network_IstioNetworkGateway_Address{
-						Address: addrs[0],
-					}
-				}
-			}
-		}
-	}
+func IsProtocolSniffingEnabledForInboundPort(node *model.Proxy, port *model.Port) bool {
+	return IsProtocolSniffingEnabledForInbound(node) && port.Protocol.IsUnsupported()
+}
+
+func IsProtocolSniffingEnabledForOutboundPort(node *model.Proxy, port *model.Port) bool {
+	return IsProtocolSniffingEnabledForOutbound(node) && port.Protocol.IsUnsupported()
 }
 
 // ConvertLocality converts '/' separated locality string to Locality struct.
@@ -323,6 +301,23 @@ func ConvertLocality(locality string) *core.Locality {
 		Zone:    zone,
 		SubZone: subzone,
 	}
+}
+
+// ConvertLocality converts '/' separated locality string to Locality struct.
+func LocalityToString(l *core.Locality) string {
+	if l == nil {
+		return ""
+	}
+	resp := l.Region
+	if l.Zone == "" {
+		return resp
+	}
+	resp += "/" + l.Zone
+	if l.SubZone == "" {
+		return resp
+	}
+	resp += "/" + l.SubZone
+	return resp
 }
 
 // IsLocalityEmpty checks if a locality is empty (checking region is good enough, based on how its initialized)
@@ -403,7 +398,7 @@ func cloneLocalityLbEndpoints(endpoints []*endpoint.LocalityLbEndpoints) []*endp
 	for _, ep := range endpoints {
 		clone := *ep
 		if ep.LoadBalancingWeight != nil {
-			clone.LoadBalancingWeight = &types.UInt32Value{
+			clone.LoadBalancingWeight = &wrappers.UInt32Value{
 				Value: ep.GetLoadBalancingWeight().GetValue(),
 			}
 		}
@@ -417,11 +412,11 @@ func cloneLocalityLbEndpoints(endpoints []*endpoint.LocalityLbEndpoints) []*endp
 // to generate attributes for policy and telemetry.
 func BuildConfigInfoMetadata(config model.ConfigMeta) *core.Metadata {
 	return &core.Metadata{
-		FilterMetadata: map[string]*types.Struct{
+		FilterMetadata: map[string]*pstruct.Struct{
 			IstioMetadataKey: {
-				Fields: map[string]*types.Value{
+				Fields: map[string]*pstruct.Value{
 					"config": {
-						Kind: &types.Value_StringValue{
+						Kind: &pstruct.Value_StringValue{
 							StringValue: fmt.Sprintf("/apis/%s/%s/namespaces/%s/%s/%s", config.Group, config.Version, config.Namespace, config.Type, config.Name),
 						},
 					},
@@ -444,30 +439,105 @@ func IsHTTPFilterChain(filterChain *listener.FilterChain) bool {
 // MergeAnyWithStruct merges a given struct into the given Any typed message by dynamically inferring the
 // type of Any, converting the struct into the inferred type, merging the two messages, and then
 // marshaling the merged message back into Any.
-func MergeAnyWithStruct(any *types.Any, pbStruct *types.Struct) (*types.Any, error) {
+func MergeAnyWithStruct(a *any.Any, pbStruct *pstruct.Struct) (*any.Any, error) {
 	// Assuming that Pilot is compiled with this type [which should always be the case]
 	var err error
-	var x types.DynamicAny
+	var x ptypes.DynamicAny
 
 	// First get an object of type used by this message
-	if err = types.UnmarshalAny(any, &x); err != nil {
+	if err = ptypes.UnmarshalAny(a, &x); err != nil {
 		return nil, err
 	}
 
 	// Create a typed copy. We will convert the user's struct to this type
 	temp := proto.Clone(x.Message)
 	temp.Reset()
-	if err = xdsutil.StructToMessage(pbStruct, temp); err != nil {
+	if err = conversion.StructToMessage(pbStruct, temp); err != nil {
 		return nil, err
 	}
 
 	// Merge the two typed protos
 	proto.Merge(x.Message, temp)
-	var retVal *types.Any
+	var retVal *any.Any
 	// Convert the merged proto back to any
-	if retVal, err = types.MarshalAny(x.Message); err != nil {
+	if retVal, err = ptypes.MarshalAny(x.Message); err != nil {
 		return nil, err
 	}
 
 	return retVal, nil
+}
+
+// MergeAnyWithAny merges a given any typed message into the given Any typed message by dynamically inferring the
+// type of Any
+func MergeAnyWithAny(dst *any.Any, src *any.Any) (*any.Any, error) {
+	// Assuming that Pilot is compiled with this type [which should always be the case]
+	var err error
+	var dstX, srcX ptypes.DynamicAny
+
+	// get an object of type used by this message
+	if err = ptypes.UnmarshalAny(dst, &dstX); err != nil {
+		return nil, err
+	}
+
+	// get an object of type used by this message
+	if err = ptypes.UnmarshalAny(src, &srcX); err != nil {
+		return nil, err
+	}
+
+	// Merge the two typed protos
+	proto.Merge(dstX.Message, srcX.Message)
+	var retVal *any.Any
+	// Convert the merged proto back to dst
+	if retVal, err = ptypes.MarshalAny(dstX.Message); err != nil {
+		return nil, err
+	}
+
+	return retVal, nil
+}
+
+// BuildLbEndpointMetadata adds metadata values to a lb endpoint
+func BuildLbEndpointMetadata(uid string, network string, tlsMode string, push *model.PushContext) *core.Metadata {
+	if !push.IsMixerEnabled() {
+		// Only use UIDs when Mixer is enabled.
+		uid = ""
+	}
+
+	if uid == "" && network == "" && tlsMode == model.DisabledTLSModeLabel {
+		return nil
+	}
+
+	metadata := &core.Metadata{
+		FilterMetadata: map[string]*pstruct.Struct{},
+	}
+
+	if uid != "" || network != "" {
+		metadata.FilterMetadata[IstioMetadataKey] = &pstruct.Struct{
+			Fields: map[string]*pstruct.Value{},
+		}
+
+		if uid != "" {
+			metadata.FilterMetadata[IstioMetadataKey].Fields["uid"] = &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: uid}}
+		}
+
+		if network != "" {
+			metadata.FilterMetadata[IstioMetadataKey].Fields["network"] = &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: network}}
+		}
+	}
+
+	if tlsMode != "" {
+		metadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = &pstruct.Struct{
+			Fields: map[string]*pstruct.Value{
+				model.TLSModeLabelShortname: {Kind: &pstruct.Value_StringValue{StringValue: tlsMode}},
+			},
+		}
+	}
+
+	return metadata
+}
+
+// IsAllowAnyOutbound checks if allow_any is enabled for outbound traffic
+func IsAllowAnyOutbound(node *model.Proxy) bool {
+	return node.SidecarScope != nil &&
+		node.SidecarScope.OutboundTrafficPolicy != nil &&
+		node.SidecarScope.OutboundTrafficPolicy.Mode == networking.OutboundTrafficPolicy_ALLOW_ANY
 }

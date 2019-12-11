@@ -40,7 +40,7 @@ type Extern struct {
 //   - none                                 (i.e. func (...) {...})
 //   - a supported type                     (i.e. func (...) string {...})
 //   - error                                (i.e. func (...) error {...})
-//   - suported type and error              (i.e. func (...) string, error {...})
+//   - supported type and error              (i.e. func (...) string, error {...})
 //
 func ExternFromFn(name string, fn interface{}) Extern {
 	t := reflect.TypeOf(fn)

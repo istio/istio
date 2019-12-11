@@ -78,7 +78,7 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 	}
 
 	var dumpDir string
-	dumpDir, err = ctx.CreateDirectory(cfg.FQDN())
+	dumpDir, err = ctx.CreateTmpDirectory(cfg.FQDN())
 	if err != nil {
 		scopes.CI.Errorf("Unable to create output directory for %s: %v", cfg.FQDN(), err)
 		return

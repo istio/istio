@@ -62,7 +62,10 @@ func TestIngressLoadBalancing(t *testing.T) {
 
 	g := galley.NewOrFail(t, ctx, galley.Config{})
 
-	bookinfoNs, err := namespace.New(ctx, "istio-bookinfo", true)
+	bookinfoNs, err := namespace.New(ctx, namespace.Config{
+		Prefix: "istio-bookinfo",
+		Inject: true,
+	})
 	if err != nil {
 		t.Fatalf("Could not create istio-bookinfo Namespace; err:%v", err)
 	}
@@ -96,8 +99,8 @@ func TestIngressLoadBalancing(t *testing.T) {
 	rangeEnd := time.Now()
 
 	// Gather the CPU usage across all of the ingress gateways.
-	query := `sum(rate(container_cpu_usage_seconds_total{job='kubernetes-cadvisor', pod_name=~'istio-ingressgateway-.*'}[1m])) by (pod_name)`
-	v, err := prom.API().QueryRange(context.Background(), query, v1.Range{
+	query := `sum(rate(container_cpu_usage_seconds_total{job='kubernetes-cadvisor', pod=~'istio-ingressgateway-.*'}[1m])) by (pod_name)`
+	v, _, err := prom.API().QueryRange(context.Background(), query, v1.Range{
 		Start: rangeStart,
 		End:   rangeEnd,
 		Step:  step,

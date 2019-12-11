@@ -16,21 +16,25 @@ package snapshotter
 
 import (
 	"fmt"
+	"sync/atomic"
 	"time"
 
-	"istio.io/istio/galley/pkg/config/collection"
+	coll "istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
+	"istio.io/istio/galley/pkg/config/monitoring"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter/strategy"
+	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/scope"
-	"istio.io/istio/galley/pkg/runtime/monitoring"
 )
 
 // Snapshotter is a processor that handles input events and creates snapshotImpl collections.
 type Snapshotter struct {
-	accumulators map[collection.Name]*accumulator
-	selector     event.Router
-	xforms       []event.Transformer
-	settings     []SnapshotOptions
+	accumulators   map[collection.Name]*accumulator
+	selector       event.Router
+	xforms         []event.Transformer
+	settings       []SnapshotOptions
+	snapshotGroups []*snapshotGroup
 
 	// lastEventTime records the last time an event was received.
 	lastEventTime time.Time
@@ -39,46 +43,76 @@ type Snapshotter struct {
 	pendingEvents int64
 
 	// lastSnapshotTime records the last time a snapshotImpl was published.
-	lastSnapshotTime time.Time
+	lastSnapshotTime atomic.Value
 }
 
 var _ event.Processor = &Snapshotter{}
 
 // HandlerFn handles generated snapshots
-type HandlerFn func(*collection.Set)
+type HandlerFn func(*coll.Set)
 
 type accumulator struct {
-	reqSyncCount int
-	syncCount    int
-	collection   *collection.Instance
-	strategies   []strategy.Instance
+	reqSyncCount   int32
+	syncCount      int32
+	collection     *coll.Instance
+	snapshotGroups []*snapshotGroup
+}
+
+// snapshotGroup represents a group of collections that all need to be synced before any of them publish events,
+// and also share a set of strategies.
+// Members of a snapshot group are defined via the per-collection accumulators that point to a group.
+type snapshotGroup struct {
+	// How many collections in the current group still need to receive a FullSync before we start publishing.
+	remaining int32
+	// Set of collections that have already received a FullSync. If we get a duplicate, it will be ignored.
+	synced atomic.Value
+	// Strategy to execute on handled events only after all collections in the group have been synced.
+	strategy strategy.Instance
 }
 
 // Handle implements event.Handler
 func (a *accumulator) Handle(e event.Event) {
 	switch e.Kind {
-	case event.Added, event.Updated:
+	case event.Added:
 		a.collection.Set(e.Entry)
 		monitoring.RecordStateTypeCount(e.Source.String(), a.collection.Size())
+		monitorEntry(e.Source, e.Entry.Metadata.Name, true)
+
+	case event.Updated:
+		a.collection.Set(e.Entry)
+
 	case event.Deleted:
 		a.collection.Remove(e.Entry.Metadata.Name)
 		monitoring.RecordStateTypeCount(e.Source.String(), a.collection.Size())
+		monitorEntry(e.Source, e.Entry.Metadata.Name, false)
+
 	case event.FullSync:
-		a.syncCount++
+		atomic.AddInt32(&a.syncCount, 1)
+
 	default:
 		panic(fmt.Errorf("accumulator.Handle: unhandled event type: %v", e.Kind))
 	}
 
-	if a.syncCount >= a.reqSyncCount {
-		for _, s := range a.strategies {
-			s.OnChange()
+	// Update the group sync counter if we received all required FullSync events for a collection
+	for _, sg := range a.snapshotGroups {
+		if atomic.LoadInt32(&a.syncCount) >= a.reqSyncCount {
+			sg.onSync(a.collection)
 		}
 	}
 }
 
 func (a *accumulator) reset() {
-	a.syncCount = 0
+	atomic.StoreInt32(&a.syncCount, 0)
 	a.collection.Clear()
+}
+
+func monitorEntry(col collection.Name, resourceName resource.Name, added bool) {
+	namespace, name := resourceName.InterpretAsNamespaceAndName()
+	value := 1
+	if !added {
+		value = 0
+	}
+	monitoring.RecordDetailedStateType(namespace, name, col, value)
 }
 
 // NewSnapshotter returns a new Snapshotter.
@@ -100,7 +134,7 @@ func NewSnapshotter(xforms []event.Transformer, settings []SnapshotOptions) (*Sn
 			a, found := s.accumulators[o]
 			if !found {
 				a = &accumulator{
-					collection: collection.New(o),
+					collection: coll.New(o),
 				}
 				s.accumulators[o] = a
 			}
@@ -110,17 +144,47 @@ func NewSnapshotter(xforms []event.Transformer, settings []SnapshotOptions) (*Sn
 	}
 
 	for _, o := range settings {
+		sg := newSnapshotGroup(len(o.Collections), o.Strategy)
+		s.snapshotGroups = append(s.snapshotGroups, sg)
 		for _, c := range o.Collections {
 			a := s.accumulators[c]
 			if a == nil {
 				return nil, fmt.Errorf("unrecognized collection in SnapshotOptions: %v (Group: %s)", c, o.Group)
 			}
 
-			a.strategies = append(a.strategies, o.Strategy)
+			a.snapshotGroups = append(a.snapshotGroups, sg)
 		}
 	}
 
 	return s, nil
+}
+
+func newSnapshotGroup(size int, strategy strategy.Instance) *snapshotGroup {
+	sg := &snapshotGroup{
+		strategy: strategy,
+	}
+	sg.reset(size)
+	return sg
+}
+
+func (sg *snapshotGroup) onSync(c *coll.Instance) {
+	synced := sg.synced.Load().(map[*coll.Instance]bool)
+	if !synced[c] {
+		atomic.AddInt32(&sg.remaining, -1)
+		synced[c] = true
+		scope.Processing.Debugf("sg.onSync: %v fully synced, %d remaining", c.Name(), sg.remaining)
+	}
+
+	// proceed with triggering the strategy OnChange only after we've full synced every collection in a group.
+	if atomic.LoadInt32(&sg.remaining) <= 0 {
+		scope.Processing.Debugf("sg.onSync: all collections synced, proceeding with strategy.OnChange()")
+		sg.strategy.OnChange()
+	}
+}
+
+func (sg *snapshotGroup) reset(size int) {
+	atomic.StoreInt32(&sg.remaining, int32(size))
+	sg.synced.Store(make(map[*coll.Instance]bool))
 }
 
 // Start implements Processor
@@ -139,23 +203,21 @@ func (s *Snapshotter) Start() {
 }
 
 func (s *Snapshotter) publish(o SnapshotOptions) {
-	var collections []*collection.Instance
+	var collections []*coll.Instance
 
 	for _, n := range o.Collections {
 		col := s.accumulators[n].collection.Clone()
 		collections = append(collections, col)
 	}
 
-	set := collection.NewSetFromCollections(collections)
-	sn := &snapshotImpl{set: set}
+	set := coll.NewSetFromCollections(collections)
+	sn := &Snapshot{set: set}
 
-	now := time.Now()
-	monitoring.RecordProcessorSnapshotPublished(s.pendingEvents, now.Sub(s.lastSnapshotTime))
-	s.lastSnapshotTime = now
-	s.pendingEvents = 0
+	s.markSnapshotTime()
+	atomic.StoreInt64(&s.pendingEvents, 0)
 	scope.Processing.Infoa("Publishing snapshot for group: ", o.Group)
 	scope.Processing.Debuga(sn)
-	o.Distributor.SetSnapshot(o.Group, sn)
+	o.Distributor.Distribute(o.Group, sn)
 }
 
 // Stop implements Processor
@@ -171,6 +233,10 @@ func (s *Snapshotter) Stop() {
 	for _, a := range s.accumulators {
 		a.reset()
 	}
+
+	for i, o := range s.settings {
+		s.snapshotGroups[i].reset(len(o.Collections))
+	}
 }
 
 // Handle implements Processor
@@ -178,6 +244,20 @@ func (s *Snapshotter) Handle(e event.Event) {
 	now := time.Now()
 	monitoring.RecordProcessorEventProcessed(now.Sub(s.lastEventTime))
 	s.lastEventTime = now
-	s.pendingEvents++
+	atomic.AddInt64(&s.pendingEvents, 1)
 	s.selector.Handle(e)
+}
+
+func (s *Snapshotter) markSnapshotTime() {
+	now := time.Now()
+	lst := s.lastSnapshotTime.Load()
+	if lst == nil {
+		lst = time.Time{}
+	}
+	lastSnapshotTime := lst.(time.Time)
+
+	pe := atomic.SwapInt64(&s.pendingEvents, 0)
+
+	monitoring.RecordProcessorSnapshotPublished(pe, now.Sub(lastSnapshotTime))
+	s.lastSnapshotTime.Store(lastSnapshotTime)
 }

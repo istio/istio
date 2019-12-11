@@ -19,8 +19,14 @@ import (
 	"fmt"
 	"time"
 
+	"google.golang.org/grpc"
+
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+
+	"istio.io/istio/galley/pkg/config/meta/metadata"
+	"istio.io/istio/galley/pkg/config/util/kuberesource"
 	"istio.io/istio/galley/pkg/crd/validation"
-	"istio.io/istio/galley/pkg/source/kube/builtin"
 	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/pkg/ctrlz"
@@ -43,6 +49,18 @@ const (
 type Args struct { // nolint:maligned
 	// The path to kube configuration file.
 	KubeConfig string
+
+	// KubeInterface has an already created K8S interface, will be reused instead of creating a new one
+	KubeInterface *kubernetes.Clientset
+
+	// InsecureGRPC is an existing GRPC server, will be used by Galley instead of creating its own
+	InsecureGRPC *grpc.Server
+
+	// SecureGRPC is an existing GRPC server, will be used by Galley instead of creating its own
+	SecureGRPC *grpc.Server
+
+	// KubeRestConfig has a rest config, common with other components
+	KubeRestConfig *rest.Config
 
 	// resync period to be passed to the K8s machinery.
 	ResyncPeriod time.Duration
@@ -75,6 +93,7 @@ type Args struct { // nolint:maligned
 	ConfigPath string
 
 	// ExcludedResourceKinds is a list of resource kinds for which no source events will be triggered.
+	// DEPRECATED
 	ExcludedResourceKinds []string
 
 	// MeshConfigFile is the path for mesh config
@@ -108,10 +127,18 @@ type Args struct { // nolint:maligned
 	// Enable service discovery / endpoint processing.
 	EnableServiceDiscovery bool
 
+	// Enable Config Analysis service, that will analyze and update CRD status. UseOldProcessor must be set to false.
+	EnableConfigAnalysis bool
+
 	// DisableResourceReadyCheck disables the CRD readiness check. This
 	// allows Galley to start when not all supported CRD are
 	// registered with the kube-apiserver.
+	// DEPRECATED
 	DisableResourceReadyCheck bool
+
+	// WatchConfigFiles if set to true, enables Fsnotify watcher for watching and signaling config file changes.
+	// Default is false
+	WatchConfigFiles bool
 
 	// keep-alive options for the MCP gRPC Server.
 	KeepAlive *keepalive.Options
@@ -125,6 +152,9 @@ type Args struct { // nolint:maligned
 	PprofPort       uint
 
 	UseOldProcessor bool
+
+	Snapshots       []string
+	TriggerSnapshot string
 }
 
 // DefaultArgs allocates an Args struct initialized with Galley's default configuration.
@@ -146,14 +176,16 @@ func DefaultArgs() *Args {
 		ConfigPath:                  "",
 		DomainSuffix:                defaultDomainSuffix,
 		DisableResourceReadyCheck:   false,
-		ExcludedResourceKinds:       defaultExcludedResourceKinds(),
+		ExcludedResourceKinds:       kuberesource.DefaultExcludedResourceKinds(),
 		SinkMeta:                    make([]string, 0),
 		KeepAlive:                   keepalive.DefaultOption(),
 		ValidationArgs:              validation.DefaultArgs(),
 		MonitoringPort:              15014,
 		EnableProfiling:             false,
 		PprofPort:                   9094,
-		UseOldProcessor:             true,
+		UseOldProcessor:             false,
+		WatchConfigFiles:            false,
+		EnableConfigAnalysis:        false,
 		Liveness: probe.Options{
 			Path:           defaultLivenessProbeFilePath,
 			UpdateInterval: defaultProbeCheckInterval,
@@ -162,15 +194,9 @@ func DefaultArgs() *Args {
 			Path:           defaultReadinessProbeFilePath,
 			UpdateInterval: defaultProbeCheckInterval,
 		},
+		Snapshots:       []string{metadata.Default, metadata.SyntheticServiceEntry},
+		TriggerSnapshot: metadata.Default,
 	}
-}
-
-func defaultExcludedResourceKinds() []string {
-	resources := make([]string, 0)
-	for _, spec := range builtin.GetSchema().All() {
-		resources = append(resources, spec.Kind)
-	}
-	return resources
 }
 
 // String produces a stringified version of the arguments for debugging.

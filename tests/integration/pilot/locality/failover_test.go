@@ -76,7 +76,10 @@ func TestFailover(t *testing.T) {
 			ctx.NewSubTest("CDS").
 				RequiresEnvironment(environment.Kube).
 				RunParallel(func(ctx framework.TestContext) {
-					ns := namespace.NewOrFail(ctx, ctx, "locality-failover-cds", true)
+					ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
+						Prefix: "locality-failover-cds",
+						Inject: true,
+					})
 
 					var a, b, c echo.Instance
 					echoboot.NewBuilderOrFail(ctx, ctx).
@@ -112,7 +115,10 @@ func TestFailover(t *testing.T) {
 			ctx.NewSubTest("EDS").
 				RequiresEnvironment(environment.Kube).
 				RunParallel(func(ctx framework.TestContext) {
-					ns := namespace.NewOrFail(ctx, ctx, "locality-failover-eds", true)
+					ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
+						Prefix: "locality-failover-eds",
+						Inject: true,
+					})
 
 					var a, b, c echo.Instance
 					echoboot.NewBuilderOrFail(ctx, ctx).
@@ -127,9 +133,9 @@ func TestFailover(t *testing.T) {
 						Host:                       fakeHostname,
 						Namespace:                  ns.Name(),
 						Resolution:                 "STATIC",
-						ServiceBAddress:            b.WorkloadsOrFail(ctx)[0].Address(),
+						ServiceBAddress:            b.Address(),
 						ServiceBLocality:           "closeregion/zone/subzone",
-						ServiceCAddress:            c.WorkloadsOrFail(ctx)[0].Address(),
+						ServiceCAddress:            c.Address(),
 						ServiceCLocality:           "notcloseregion/zone/subzone",
 						NonExistantService:         "10.10.10.10",
 						NonExistantServiceLocality: "region/zone/subzone",

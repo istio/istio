@@ -27,7 +27,9 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	"istio.io/api/policy/v1beta1"
-	"istio.io/istio/galley/pkg/metadata/kube"
+
+	"istio.io/istio/galley/pkg/config/meta/metadata"
+	"istio.io/istio/galley/pkg/config/meta/schema"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/runtime/config/constant"
 	"istio.io/istio/pkg/mcp/snapshot"
@@ -71,10 +73,10 @@ func init() {
 	}
 }
 
-func collectionOf(nonLegacyKind string) string { //nolint: unparam
-	for _, u := range kube.Types.All() {
-		if u.Kind == nonLegacyKind {
-			return u.Target.Collection.String()
+func collectionOf(nonLegacyKind string) string { // nolint: unparam
+	for _, r := range metadata.MustGet().KubeSource().Resources() {
+		if r.Kind == nonLegacyKind {
+			return metadata.MustGet().DirectTransformSettings().Mapping()[r.Collection.Name].String()
 		}
 	}
 
@@ -82,7 +84,7 @@ func collectionOf(nonLegacyKind string) string { //nolint: unparam
 }
 
 type testState struct {
-	mapping *mapping
+	mapping *schema.Mapping
 	server  *mcptest.Server
 	backend store.Backend
 
@@ -97,14 +99,14 @@ func createState(t *testing.T) *testState {
 
 	var collections []source.CollectionOptions
 	var kinds []string
-	m, err := constructMapping(mixerKinds, kube.Types)
+	m, err := schema.ConstructKindMapping(mixerKinds, metadata.MustGet())
 	if err != nil {
 		t.Fatal(err)
 	}
 	st.mapping = m
-	for t, k := range st.mapping.collectionsToKinds {
+	for col, k := range st.mapping.CollectionsToKinds {
 		collections = append(collections, source.CollectionOptions{
-			Name: t,
+			Name: col,
 		})
 		kinds = append(kinds, k)
 	}
@@ -148,13 +150,13 @@ func TestBackend_HasSynced(t *testing.T) {
 	}
 
 	b := snapshot.NewInMemoryBuilder()
-	for typeURL := range st.mapping.collectionsToKinds {
+	for typeURL := range st.mapping.CollectionsToKinds {
 		b.SetVersion(typeURL, "0")
 
 	}
 	sn := b.Build()
 
-	st.updateWg.Add(len(st.mapping.collectionsToKinds))
+	st.updateWg.Add(len(st.mapping.CollectionsToKinds))
 	st.server.Cache.SetSnapshot(mixerNodeID, sn)
 	st.updateWg.Wait()
 

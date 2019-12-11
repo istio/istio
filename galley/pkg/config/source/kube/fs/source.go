@@ -25,7 +25,7 @@ import (
 	"istio.io/pkg/appsignals"
 
 	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/schema"
+	"istio.io/istio/galley/pkg/config/meta/schema"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/kube/inmemory"
 )
@@ -40,25 +40,27 @@ var (
 var nameDiscriminator int64
 
 type source struct {
-	mu   sync.Mutex
-	name string
-	s    *inmemory.KubeSource
-	root string
-	done chan struct{}
+	mu               sync.Mutex
+	name             string
+	s                *inmemory.KubeSource
+	root             string
+	done             chan struct{}
+	watchConfigFiles bool
 }
 
 var _ event.Source = &source{}
 
 // New returns a new filesystem based processor.Source.
-func New(root string, resources schema.KubeResources) (event.Source, error) {
+func New(root string, resources schema.KubeResources, watchConfigFiles bool) (event.Source, error) {
 	src := inmemory.NewKubeSource(resources)
 	name := fmt.Sprintf("fs-%d", nameDiscriminator)
 	nameDiscriminator++
 
 	s := &source{
-		name: name,
-		root: root,
-		s:    src,
+		name:             name,
+		root:             root,
+		s:                src,
+		watchConfigFiles: watchConfigFiles,
 	}
 
 	return s, nil
@@ -72,10 +74,17 @@ func (s *source) Start() {
 	if s.done != nil {
 		return
 	}
-	s.done = make(chan struct{})
+	done := make(chan struct{})
+	s.done = done
 
 	c := make(chan appsignals.Signal, 1)
 	appsignals.Watch(c)
+	shut := make(chan os.Signal, 1)
+	if s.watchConfigFiles {
+		if err := appsignals.FileTrigger(s.root, syscall.SIGUSR1, shut); err != nil {
+			scope.Source.Errorf("Unable to setup FileTrigger for %s: %v", s.root, err)
+		}
+	}
 	go func() {
 		s.reload()
 		s.s.Start()
@@ -86,7 +95,10 @@ func (s *source) Start() {
 					scope.Source.Infof("[%s] Triggering reload in response to: %v", s.name, trigger.Source)
 					s.reload()
 				}
-			case <-s.done:
+			case <-done:
+				if s.watchConfigFiles {
+					shut <- syscall.SIGTERM
+				}
 				return
 			}
 		}

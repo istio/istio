@@ -1,8 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  namespace: {{ .Release.Namespace }}
-  name: istio-crd-12
-data:
-  crd-12.yaml: |-
-{{.Files.Get "files/crd-12.yaml" | printf "%s" | indent 4}}

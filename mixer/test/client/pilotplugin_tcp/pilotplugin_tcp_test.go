@@ -15,18 +15,19 @@
 package client_test
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"testing"
 
 	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/cache"
 	xds "github.com/envoyproxy/go-control-plane/pkg/server"
-	"github.com/envoyproxy/go-control-plane/pkg/util"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 
 	"google.golang.org/grpc"
 
@@ -146,7 +147,7 @@ func TestPilotPluginTCP(t *testing.T) {
 
 	snapshots := cache.NewSnapshotCache(true, mock{}, nil)
 	_ = snapshots.SetSnapshot(id, makeSnapshot(s, t, model.SidecarProxy))
-	server := xds.NewServer(snapshots, nil)
+	server := xds.NewServer(context.Background(), snapshots, nil)
 	discovery.RegisterAggregatedDiscoveryServiceServer(grpcServer, server)
 	go func() {
 		_ = grpcServer.Serve(lis)
@@ -211,19 +212,17 @@ var (
 			UID:       "istio://ns3/services/svc",
 		},
 	}
-	mesh = &model.Environment{
-		Mesh: &meshconfig.MeshConfig{
-			MixerCheckServer:  "mixer_server:9091",
-			MixerReportServer: "mixer_server:9091",
-		},
-		ServiceDiscovery: mock{},
-	}
 	pushContext = model.PushContext{
 		ServiceByHostnameAndNamespace: map[host.Name]map[string]*model.Service{
 			host.Name("svc.ns3"): {
 				"ns3": &svc,
 			},
 		},
+		Mesh: &meshconfig.MeshConfig{
+			MixerCheckServer:  "mixer_server:9091",
+			MixerReportServer: "mixer_server:9091",
+		},
+		ServiceDiscovery: mock{},
 	}
 )
 
@@ -234,7 +233,7 @@ func makeListener(port uint16, cluster string) *v2.Listener {
 			Address:       "127.0.0.1",
 			PortSpecifier: &core.SocketAddress_PortValue{PortValue: uint32(port)}}}},
 		FilterChains: []*listener.FilterChain{{Filters: []*listener.Filter{{
-			Name: util.TCPProxy,
+			Name: wellknown.TCPProxy,
 			ConfigType: &listener.Filter_TypedConfig{
 				TypedConfig: pilotutil.MessageToAny(&tcp_proxy.TcpProxy{
 					StatPrefix:       "tcp",
@@ -253,22 +252,22 @@ func makeSnapshot(s *env.TestSetup, t *testing.T, node model.NodeType) cache.Sna
 
 	serverParams := plugin.InputParams{
 		ListenerProtocol: plugin.ListenerProtocolTCP,
-		Env:              mesh,
 		Node: &model.Proxy{
 			ID:           "pod1.ns1",
 			Type:         node,
 			IstioVersion: &model.IstioVersion{Major: 1, Minor: 1, Patch: 1},
+			Metadata:     &model.NodeMetadata{},
 		},
 		ServiceInstance: &model.ServiceInstance{Service: &svc},
 		Push:            &pushContext,
 	}
 	clientParams := plugin.InputParams{
 		ListenerProtocol: plugin.ListenerProtocolTCP,
-		Env:              mesh,
 		Node: &model.Proxy{
 			ID:           "pod2.ns2",
 			Type:         node,
 			IstioVersion: &model.IstioVersion{Major: 1, Minor: 1, Patch: 1},
+			Metadata:     &model.NodeMetadata{},
 		},
 		Service: &svc,
 		Push:    &pushContext,

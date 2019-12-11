@@ -366,36 +366,6 @@ func TestRouteRedirectInjection(t *testing.T) {
 	}
 }
 
-func TestRouteMirroring(t *testing.T) {
-	logs := newAccessLogs()
-	cfgs := &deployableConfig{
-		Namespace:  tc.Kube.Namespace,
-		YamlFiles:  []string{"testdata/networking/v1alpha3/rule-default-route-mirrored.yaml"},
-		kubeconfig: tc.Kube.KubeConfig,
-	}
-	if err := cfgs.Setup(); err != nil {
-		t.Fatal(err)
-	}
-	defer cfgs.Teardown()
-
-	reqURL := "http://c/a"
-	for cluster := range tc.Kube.Clusters {
-		for i := 1; i <= 100; i++ {
-			resp := ClientRequest(cluster, "a", reqURL, 1, fmt.Sprintf("--key X-Request-Id --val %d", i))
-			logEntry := fmt.Sprintf("HTTP request from a in %s cluster to c.istio-system.svc.cluster.local:80", cluster)
-			if len(resp.ID) > 0 {
-				id := resp.ID[0]
-				logs.add(cluster, "c", id, logEntry)
-				logs.add(cluster, "b", id, logEntry) // Request should also be mirrored here
-			}
-		}
-	}
-
-	t.Run("check", func(t *testing.T) {
-		logs.checkLogs(t)
-	})
-}
-
 // Inject a fault filter in a normal path and check if the filters are triggered
 func TestEnvoyFilterConfigViaCRD(t *testing.T) {
 	cfgs := &deployableConfig{
@@ -863,21 +833,24 @@ func TestSidecarScope(t *testing.T) {
 			reachable: false,
 		},
 		{
-			testName:    "ns1: http://bookinfo.com:9999 reachable",
-			reqURL:      "http://127.255.0.1:9999/a",
+			testName: "ns1: http://bookinfo.com:9999 reachable",
+			// Assume bookinfo.com is resolved to 192.0.2.1
+			reqURL:      "http://192.0.2.1:9999/a",
 			host:        "bookinfo.com:9999",
 			expectedHdr: regexp.MustCompile("(?i) scope=public"),
 			reachable:   true,
 		},
 		{
-			testName:  "ns1: http://private.com:9999 not reachable",
-			reqURL:    "http://127.255.0.1:9999/a",
+			testName: "ns1: http://private.com:9999 not reachable",
+			// Assume private.com is resolved to 192.0.2.2
+			reqURL:    "http://192.0.2.2:9999/a",
 			host:      "private.com:9999",
 			reachable: false,
 		},
 		{
-			testName:  "ns2: service.tcp.com:8888 reachable",
-			reqURL:    "http://127.255.255.11:8888/a",
+			testName: "ns2: service.tcp.com:8888 reachable",
+			// Assume tcp.com is resolved to 192.0.2.255 which is defined in service-entry-tcp-scope-public.yaml
+			reqURL:    "http://192.0.2.255:8888/a",
 			host:      "tcp.com",
 			reachable: true,
 		},

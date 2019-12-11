@@ -68,7 +68,10 @@ func TestPrioritized(t *testing.T) {
 			ctx.NewSubTest("CDS").
 				RequiresEnvironment(environment.Kube).
 				RunParallel(func(ctx framework.TestContext) {
-					ns := namespace.NewOrFail(ctx, ctx, "locality-prioritized-cds", true)
+					ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
+						Prefix: "locality-prioritized-cds",
+						Inject: true,
+					})
 
 					var a, b, c echo.Instance
 					echoboot.NewBuilderOrFail(ctx, ctx).
@@ -102,7 +105,10 @@ func TestPrioritized(t *testing.T) {
 				RequiresEnvironment(environment.Kube).
 				RunParallel(func(ctx framework.TestContext) {
 
-					ns := namespace.NewOrFail(ctx, ctx, "locality-prioritized-eds", true)
+					ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
+						Prefix: "locality-prioritized-eds",
+						Inject: true,
+					})
 
 					var a, b, c echo.Instance
 					echoboot.NewBuilderOrFail(ctx, ctx).
@@ -112,14 +118,15 @@ func TestPrioritized(t *testing.T) {
 						BuildOrFail(ctx)
 
 					fakeHostname := fmt.Sprintf("fake-eds-external-service-%v.com", r.Int())
+
 					deploy(ctx, ns, serviceConfig{
 						Name:             "prioritized-eds",
 						Host:             fakeHostname,
 						Namespace:        ns.Name(),
 						Resolution:       "STATIC",
-						ServiceBAddress:  b.WorkloadsOrFail(ctx)[0].Address(),
+						ServiceBAddress:  b.Address(),
 						ServiceBLocality: "region/zone/subzone",
-						ServiceCAddress:  c.WorkloadsOrFail(ctx)[0].Address(),
+						ServiceCAddress:  c.Address(),
 						ServiceCLocality: "notregion/notzone/notsubzone",
 					}, a)
 

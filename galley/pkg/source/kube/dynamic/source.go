@@ -116,14 +116,12 @@ func (s *source) Start(handler resource.EventHandler) error {
 			DeleteFunc: func(obj interface{}) { s.handleEvent(resource.Deleted, obj) },
 		})
 
-		// Send the an event after the cache syncs.
-		go func() {
-			_ = cache.WaitForCacheSync(ctx.Done(), s.informer.HasSynced)
-			handler(resource.FullSyncEvent)
-		}()
-
 		// Start CRD shared informer and wait for it to exit.
-		s.informer.Run(ctx.Done())
+		go s.informer.Run(ctx.Done())
+		// Send the an event after the cache syncs.
+		if cache.WaitForCacheSync(ctx.Done(), s.informer.HasSynced) {
+			go handler(resource.FullSyncEvent)
+		}
 	})
 }
 

@@ -47,12 +47,12 @@ const (
 	caEndpointFlag = "caEndpoint"
 
 	// names of authentication provider's plugins.
-	pluginNames     = "Plugins"
+	pluginNames     = "PLUGINS"
 	pluginNamesFlag = "pluginNames"
 
 	// The trust domain corresponds to the trust root of a system.
 	// Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
-	trustDomain     = "Trust_Domain"
+	trustDomain     = "TRUST_DOMAIN"
 	trustDomainFlag = "trustDomain"
 
 	// The workload SDS mode allows node agent to provision credentials to workload proxy by sending
@@ -160,11 +160,11 @@ var (
 			}
 
 			server, err := sds.NewServer(serverOptions, workloadSecretCache, gatewaySecretCache)
-			defer server.Stop()
 			if err != nil {
 				log.Errorf("failed to create sds service: %v", err)
 				return fmt.Errorf("failed to create sds service")
 			}
+			defer server.Stop()
 
 			monitorErrCh := make(chan error)
 			// Start the monitoring server.

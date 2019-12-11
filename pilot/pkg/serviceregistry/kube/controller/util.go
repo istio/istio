@@ -26,3 +26,12 @@ func hasProxyIP(addresses []v1.EndpointAddress, proxyIP string) bool {
 	}
 	return false
 }
+
+func getLabelValue(node *v1.Node, label string, fallBackLabel string) string {
+	val := node.Labels[label]
+	if val != "" {
+		return val
+	}
+
+	return node.Labels[fallBackLabel]
+}

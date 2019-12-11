@@ -14,5 +14,5 @@
 
 package validation
 
-//go:generate $GOPATH/src/istio.io/istio/scripts/run_gobindata.sh --nocompress --nometadata --pkg validation -o dataset.gen.go dataset/...
+//go:generate go-bindata --nocompress --nometadata --pkg validation -o dataset.gen.go dataset/...
 //go:generate goimports -w dataset.gen.go

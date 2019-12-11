@@ -1,0 +1,214 @@
+#!/usr/bin/env bash
+
+# Copyright Istio Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+set -e
+set -u
+set -o pipefail
+
+echo "Deploying httpbin"
+
+# $snippet httpbin_deploy syntax="bash"
+$ cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: Service
+metadata:
+  name: httpbin
+  labels:
+    app: httpbin
+spec:
+  ports:
+  - name: http
+    port: 8000
+  selector:
+    app: httpbin
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: httpbin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: httpbin
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: httpbin
+        version: v1
+    spec:
+      containers:
+      - image: docker.io/citizenstig/httpbin
+        imagePullPolicy: IfNotPresent
+        name: httpbin
+        ports:
+        - containerPort: 8000
+EOF
+# $endsnippet
+
+echo "Creating httpbin gateway secrets"
+
+# $snippet create_httpbin_secrets syntax="bash"
+$ kubectl create -n istio-system secret generic httpbin-credential \
+--from-file=key=httpbin.example.com/3_application/private/httpbin.example.com.key.pem \
+--from-file=cert=httpbin.example.com/3_application/certs/httpbin.example.com.cert.pem
+# $endsnippet
+
+echo "Deploying httpbin gateway"
+
+# $snippet httpbin_gateway_deploy syntax="bash"
+$ cat <<EOF | kubectl apply -f -
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: mygateway
+spec:
+  selector:
+    istio: ingressgateway # use istio default ingress gateway
+  servers:
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: "httpbin-credential" # must be the same as secret
+    hosts:
+    - "httpbin.example.com"
+EOF
+# $endsnippet
+
+echo "Deploying httpbin virtual service"
+
+# $snippet httpbin_virtualservice_deploy syntax="bash"
+$ cat <<EOF | kubectl apply -f -
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: httpbin
+spec:
+  hosts:
+  - "httpbin.example.com"
+  gateways:
+  - mygateway
+  http:
+  - match:
+    - uri:
+        prefix: /status
+    - uri:
+        prefix: /delay
+    route:
+    - destination:
+        port:
+          number: 8000
+        host: httpbin
+EOF
+# $endsnippet
+
+echo "Waiting for httpbin deployment to start"
+
+kubectl wait --for=condition=available deployment --all --timeout=60s
+kubectl wait --for=condition=Ready pod --all --timeout=60s
+
+echo "Verifying httpbin deployment"
+
+# $snippet ingress_vars syntax="bash"
+$ export SECURE_INGRESS_PORT={{ .secureIngressPortCommand }}
+$ export INGRESS_HOST={{ .ingressHostCommand }}
+# $endsnippet
+
+# $snippet httpbin_deploy_verify syntax="bash"
+$ curl -v {{ .curlOptions }}-HHost:httpbin.example.com \
+--resolve httpbin.example.com:"$SECURE_INGRESS_PORT":"$INGRESS_HOST" \
+--cacert httpbin.example.com/2_intermediate/certs/ca-chain.cert.pem \
+https://httpbin.example.com:"$SECURE_INGRESS_PORT"/status/418
+# $verify verifier="contains" source="stderr"
+HTTP/2 418
+# $verify verifier="contains" source="stdout"
+-=[ teapot ]=-
+# $endsnippet
+
+echo "Deleting httpbin secret and re-creating"
+
+# $snippet delete_httpbin_cred syntax="bash"
+$ kubectl -n istio-system delete secret httpbin-credential
+# $endsnippet
+
+# $snippet update_httpbin_cred syntax="bash"
+$ pushd mtls-go-example
+$ ./generate.sh httpbin.example.com {{ .password }}
+$ mkdir ../httpbin.new.example.com && mv 1_root 2_intermediate 3_application 4_client ../httpbin.new.example.com
+$ popd
+$ kubectl create -n istio-system secret generic httpbin-credential \
+--from-file=key=httpbin.new.example.com/3_application/private/httpbin.example.com.key.pem \
+--from-file=cert=httpbin.new.example.com/3_application/certs/httpbin.example.com.cert.pem
+# $endsnippet
+
+# Wait for the change to propagate
+sleep 5s
+
+echo "Verifying new httpbin credentials"
+
+# $snippet curl_httpbin_new_creds syntax="bash" outputis="text"
+$ curl -v {{ .curlOptions }}-HHost:httpbin.example.com \
+--resolve httpbin.example.com:$SECURE_INGRESS_PORT:$INGRESS_HOST \
+--cacert httpbin.new.example.com/2_intermediate/certs/ca-chain.cert.pem \
+https://httpbin.example.com:$SECURE_INGRESS_PORT/status/418
+# $verify verifier="contains" source="stderr"
+HTTP/2 418
+# $verify verifier="contains" source="stdout"
+-=[ teapot ]=-
+# $snippetoutput
+...
+HTTP/2 418
+...
+-=[ teapot ]=-
+
+   _...._
+ .'  _ _ `.
+| ."` ^ `". _,
+\_;`"---"`|//
+  |       ;/
+  \_     _/
+    `"""`
+# $endsnippet
+
+# The next command is expected to fail, but don't error the script.
+set +e
+set +o pipefail
+
+echo "Verifying old httpbin credentials no longer work"
+
+# $snippet curl_httpbin_old_creds syntax="bash" outputis="text"
+$ curl -v -HHost:httpbin.example.com \
+--resolve httpbin.example.com:$SECURE_INGRESS_PORT:$INGRESS_HOST \
+--cacert httpbin.example.com/2_intermediate/certs/ca-chain.cert.pem \
+https://httpbin.example.com:$SECURE_INGRESS_PORT/status/418
+# $verify verifier="contains" source="stderr"
+SSL certificate problem: unable to get local issuer certificate
+# $snippetoutput
+...
+* TLSv1.2 (OUT), TLS handshake, Client hello (1):
+* TLSv1.2 (IN), TLS handshake, Server hello (2):
+* TLSv1.2 (IN), TLS handshake, Certificate (11):
+* TLSv1.2 (OUT), TLS alert, Server hello (2):
+* SSL certificate problem: unable to get local issuer certificate
+# $endsnippet
+
+# Restore error handling
+set -e
+set -o pipefail

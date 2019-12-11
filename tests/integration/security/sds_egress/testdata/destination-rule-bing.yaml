@@ -1,0 +1,17 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: egressgateway-for-bing
+spec:
+  host: istio-egressgateway.istio-system.svc.cluster.local
+  subsets:
+    - name: bing
+      trafficPolicy:
+        loadBalancer:
+          simple: ROUND_ROBIN
+        portLevelSettings:
+          - port:
+              number: 80
+            tls:
+              mode: ISTIO_MUTUAL
+              sni: bing.com

@@ -46,7 +46,7 @@ spec:
           value: "{{ $val }}"
         {{- end }}
         {{- end }}
-        - name: "Trust_Domain"
+        - name: "TRUST_DOMAIN"
           value: "{{ .Values.global.trustDomain }}"
         - name: NAMESPACE
           valueFrom:

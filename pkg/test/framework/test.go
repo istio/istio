@@ -154,6 +154,10 @@ func (t *Test) runInternal(fn func(ctx TestContext), parallel bool) {
 }
 
 func (t *Test) doRun(ctx *testContext, fn func(ctx TestContext), parallel bool) {
+	if fn == nil {
+		panic("attempting to run test with nil function")
+	}
+
 	// Initial setup if we're running in Parallel.
 	if parallel {
 		// Inform the parent, who will need to call ctx.Done asynchronously.

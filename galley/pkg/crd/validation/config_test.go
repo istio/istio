@@ -16,7 +16,6 @@ package validation
 
 import (
 	"bytes"
-	"crypto/tls"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -28,7 +27,7 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/onsi/gomega"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
-	appsv1 "k8s.io/api/apps/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
@@ -41,6 +40,9 @@ import (
 var (
 	failurePolicyFailVal = admissionregistrationv1beta1.Fail
 	failurePolicyFail    = &failurePolicyFailVal
+
+	failurePolicyIgnoreVal = admissionregistrationv1beta1.Ignore
+	failurePolicyIgnore    = &failurePolicyIgnoreVal
 )
 
 func createTestWebhookConfigController(
@@ -101,9 +103,9 @@ func createTestWebhookConfigController(
 		CACertFile:                    caFile,
 		Clientset:                     cl,
 		WebhookName:                   config.Name,
-		DeploymentName:                dummyDeployment.Name,
-		ServiceName:                   dummyDeployment.Name,
-		DeploymentAndServiceNamespace: dummyDeployment.Namespace,
+		DeploymentName:                dummyClusterRole.Name,
+		ServiceName:                   dummyClusterRole.Name,
+		DeploymentAndServiceNamespace: dummyNamespace,
 	}
 	whc, err := NewWebhookConfigController(options)
 	if err != nil {
@@ -160,7 +162,7 @@ func TestValidatingWebhookConfig(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "config1",
 						},
-						Webhooks: []admissionregistrationv1beta1.Webhook{
+						Webhooks: []admissionregistrationv1beta1.ValidatingWebhook{
 							{
 								Name:         "webhook1",
 								ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{},
@@ -180,7 +182,7 @@ func TestValidatingWebhookConfig(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "config1",
 						},
-						Webhooks: []admissionregistrationv1beta1.Webhook{
+						Webhooks: []admissionregistrationv1beta1.ValidatingWebhook{
 							{
 								Name:         "webhook1",
 								ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{},
@@ -200,7 +202,7 @@ func TestValidatingWebhookConfig(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "config1",
 						},
-						Webhooks: []admissionregistrationv1beta1.Webhook{
+						Webhooks: []admissionregistrationv1beta1.ValidatingWebhook{
 							{
 								Name:         "webhook1",
 								ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{},
@@ -237,7 +239,7 @@ func TestValidatingWebhookConfig(t *testing.T) {
 	for _, tc := range ts {
 		t.Run(tc.name, func(t *testing.T) {
 			whc, cancel := createTestWebhookConfigController(t,
-				fake.NewSimpleClientset(dummyDeployment, tc.configs.DeepCopyObject()),
+				fake.NewSimpleClientset(dummyClusterRole, tc.configs.DeepCopyObject()),
 				createFakeWebhookSource(), want)
 			defer cancel()
 
@@ -293,12 +295,12 @@ func initValidatingWebhookConfiguration() *admissionregistrationv1beta1.Validati
 			Name: "config1",
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(
-					dummyDeployment,
-					appsv1.SchemeGroupVersion.WithKind("Deployment"),
+					dummyClusterRole,
+					rbacv1.SchemeGroupVersion.WithKind("ClusterRole"),
 				),
 			},
 		},
-		Webhooks: []admissionregistrationv1beta1.Webhook{
+		Webhooks: []admissionregistrationv1beta1.ValidatingWebhook{
 			{
 				Name: "hook-foo",
 				ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
@@ -316,7 +318,7 @@ func initValidatingWebhookConfiguration() *admissionregistrationv1beta1.Validati
 						},
 						Rule: admissionregistrationv1beta1.Rule{
 							APIGroups:   []string{"g1"},
-							APIVersions: []string{"v1"},
+							APIVersions: []string{"corev1"},
 							Resources:   []string{"r1"},
 						},
 					},
@@ -375,16 +377,6 @@ func initValidatingWebhookConfiguration() *admissionregistrationv1beta1.Validati
 	}
 }
 
-func checkCert(t *testing.T, whc *WebhookConfigController, cert, key []byte) bool {
-	t.Helper()
-	actual := whc.cert
-	expected, err := tls.X509KeyPair(cert, key)
-	if err != nil {
-		t.Fatalf("fail to load test certs.")
-	}
-	return bytes.Equal(actual.Certificate[0], expected.Certificate[0])
-}
-
 func TestDeleteValidatingWebhookConfig(t *testing.T) {
 
 	initConfig := initValidatingWebhookConfiguration()
@@ -418,7 +410,7 @@ func TestDeleteValidatingWebhookConfig(t *testing.T) {
 	})
 }
 
-func TestReloadCert(t *testing.T) {
+func TestReloadConfig(t *testing.T) {
 	whc, cleanup := createTestWebhookConfigController(t,
 		fake.NewSimpleClientset(),
 		createFakeWebhookSource(),
@@ -427,19 +419,36 @@ func TestReloadCert(t *testing.T) {
 	stop := make(chan struct{})
 	defer func() { close(stop) }()
 	go whc.reconcile(stop)
-	checkCert(t, whc, testcerts.ServerCert, testcerts.ServerKey)
+
+	g := gomega.NewGomegaWithT(t)
+
+	g.Eventually(func() bool {
+		if whc.webhookConfiguration == nil {
+			return false
+		}
+		return *whc.webhookConfiguration.Webhooks[0].FailurePolicy == failurePolicyFailVal
+	}, "10s", "100ms").Should(gomega.BeTrue())
+
+	updatedConfig := dummyConfig.DeepCopy()
+	updatedConfig.Webhooks[0].FailurePolicy = failurePolicyIgnore
+	updatedConfigBytes, err := yaml.Marshal(&updatedConfig)
+	if err != nil {
+		t.Fatalf("failed to create updated webhook config: %v", err)
+	}
+
 	// Update cert/key files.
-	if err := ioutil.WriteFile(whc.webhookParameters.CertFile, testcerts.RotatedCert, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(whc.webhookParameters.CACertFile, testcerts.RotatedCert, 0644); err != nil { // nolint: vetshadow
 		cleanup()
 		t.Fatalf("WriteFile(%v) failed: %v", whc.webhookParameters.CertFile, err)
 	}
-	if err := ioutil.WriteFile(whc.webhookParameters.KeyFile, testcerts.RotatedKey, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(whc.webhookParameters.WebhookConfigFile, updatedConfigBytes, 0644); err != nil { // nolint: vetshadow
 		cleanup()
 		t.Fatalf("WriteFile(%v) failed: %v", whc.webhookParameters.KeyFile, err)
 	}
-	g := gomega.NewGomegaWithT(t)
+
+	// wait for config to update
 	g.Eventually(func() bool {
-		return checkCert(t, whc, testcerts.RotatedCert, testcerts.RotatedKey)
+		return *whc.webhookConfiguration.Webhooks[0].FailurePolicy == failurePolicyIgnoreVal
 	}, "10s", "100ms").Should(gomega.BeTrue())
 }
 

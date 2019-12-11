@@ -47,7 +47,6 @@ func compatTest(test ilt.TestInfo, mutex sync.Locker) func(t *testing.T) {
 
 		if err != nil {
 			if test.CompileErr != "" {
-				t.Logf("expected compile error %q, got %v", test.CompileErr, err)
 				return
 			}
 			t.Fatalf("unexpected compile error %v for %s", err, ex)
@@ -56,7 +55,6 @@ func compatTest(test ilt.TestInfo, mutex sync.Locker) func(t *testing.T) {
 		// timestamp(2) is not a compile error in CEL
 		// division is also supported by CEL
 		if test.CompileErr != "" {
-			t.Logf("expected compile error %q", test.CompileErr)
 			return
 		}
 
@@ -69,12 +67,10 @@ func compatTest(test ilt.TestInfo, mutex sync.Locker) func(t *testing.T) {
 		out, err := ex.Evaluate(b)
 		if err != nil {
 			if test.Err != "" {
-				t.Logf("expected evaluation error %q, got %v", test.Err, err)
 				return
 			}
 			if test.CEL != nil {
 				if expectedErr, ok := test.CEL.(error); ok && strings.Contains(err.Error(), expectedErr.Error()) {
-					t.Logf("expected evaluation error (override) %q, got %v", expectedErr, err)
 					return
 				}
 			}

@@ -111,7 +111,7 @@ func TestFsSource_NoInitialFile_UpdateAfterStart(t *testing.T) {
 			Source: IstioMeshconfig,
 		},
 	}
-	g.Eventually(acc.Events).Should(Equal(expected))
+	g.Eventually(acc.Events).Should(ContainElement(expected[0]))
 }
 
 func TestFsSource_InitialFile_UpdateAfterStart(t *testing.T) {
@@ -161,7 +161,7 @@ func TestFsSource_InitialFile_UpdateAfterStart(t *testing.T) {
 			Source: IstioMeshconfig,
 		},
 	}
-	g.Eventually(acc.Events).Should(Equal(expected))
+	g.Eventually(acc.Events).Should(ContainElement(expected[0]))
 }
 
 func TestFsSource_InitialFile(t *testing.T) {
@@ -287,6 +287,7 @@ func TestFsSource_FileRemoved_NoChange(t *testing.T) {
 }
 
 func TestFsSource_BogusFile_NoChange(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/15987")
 	g := NewGomegaWithT(t)
 
 	mcfg := Default()
@@ -326,7 +327,7 @@ func TestFsSource_BogusFile_NoChange(t *testing.T) {
 	g.Expect(err).To(BeNil())
 
 	time.Sleep(time.Millisecond * 100)
-	g.Consistently(acc.Events()).Should(HaveLen(0))
+	g.Consistently(acc.Events).Should(HaveLen(0))
 }
 
 func setupDir(t *testing.T, m *v1alpha1.MeshConfig) string {
@@ -363,19 +364,15 @@ func TestFsSource_InvalidPath(t *testing.T) {
 
 func TestFsSource_YamlToJSONError(t *testing.T) {
 	g := NewGomegaWithT(t)
-	old := yamlToJSON
-	yamlToJSON = func([]byte) ([]byte, error) {
-		return nil, fmt.Errorf("horror")
-	}
-	defer func() {
-		yamlToJSON = old
-	}()
 
 	mcfg := Default()
 	mcfg.IngressClass = "foo"
 	file := setupDir(t, mcfg)
 
-	fs, err := NewFS(file)
+	fs, err := newFS(file, func([]byte) ([]byte, error) {
+		return nil, fmt.Errorf("horror")
+	})
+
 	g.Expect(err).To(BeNil())
 	defer func() {
 		err = fs.Close()

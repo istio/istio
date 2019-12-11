@@ -12,6 +12,8 @@ mixer:
 
 pilot:
   enabled: false
+  configSource:
+    subscribedResources:
 
 security:
   enabled: true

@@ -180,6 +180,8 @@ spec:
         # 1. It serves a 404 page at /
         # 2. It serves 200 on a /healthz endpoint
         image: gcr.io/google_containers/defaultbackend:1.4
+        securityContext:
+          runAsUser: 0
         ports:
         - name: http
           containerPort: 8080
@@ -243,6 +245,8 @@ spec:
       containers:
         - name: nginx
           image: quay.io/kubernetes-ingress-controller/nginx-ingress-controller:0.12.0
+          securityContext:
+            runAsUser: 0
           args:
             - /nginx-ingress-controller
             - --default-backend-service=$(POD_NAMESPACE)/nginx-default-http-backend

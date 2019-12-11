@@ -4,7 +4,7 @@ constraints:
       - exactlyOne:
           - equals: {
             "Body": {
-              "quota_specs": [
+              "quotaSpecs": [
               {
                 "name": "bookinfo",
                 "namespace": "default"

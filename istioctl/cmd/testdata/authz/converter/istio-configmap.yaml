@@ -1,0 +1,3 @@
+# The namespace to treat as the administrative root namespace for istio
+# configuration.
+rootNamespace: my-root-namespace

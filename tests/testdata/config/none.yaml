@@ -46,23 +46,23 @@ spec:
         number: 7071
         protocol: HTTP
         name: httplocal
-      default_endpoint: 127.0.0.1:17071
+      defaultEndpoint: 127.0.0.1:17071
     - port:
         number: 7070
         protocol: TCP
         name: tcplocal
-      default_endpoint: 127.0.0.1:17070
+      defaultEndpoint: 127.0.0.1:17070
     # Fortio ports
     - port:
         number: 18080
         protocol: HTTP
         name: http-echo
-      default_endpoint: 127.0.0.1:28080
+      defaultEndpoint: 127.0.0.1:28080
     - port:
         number: 18079
         protocol: TCP
         name: grpc-ping
-      default_endpoint: 127.0.0.1:28079
+      defaultEndpoint: 127.0.0.1:28079
 ---
 
 apiVersion: v1

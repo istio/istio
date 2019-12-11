@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -27,9 +28,9 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	authapi "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
-	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -52,6 +53,11 @@ const (
 	// Binary header name must has suffix "-bin", according to https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md.
 	// Same value defined in pilot pkg(k8sSAJwtTokenHeaderKey)
 	k8sSAJwtTokenHeaderKey = "istio_sds_credentials_header-bin"
+
+	// JWTPath is the path to the JWT token used for authentication.
+	// Note the use of "./", meaning on tests and VMs it is possible to use without root access.
+	// Pilot-agent runs with PWD=/
+	JWTPath = "./var/run/secrets/tokens/istio-token"
 )
 
 var (
@@ -108,17 +114,20 @@ type sdsConnection struct {
 type sdsservice struct {
 	st cache.SecretManager
 
-	// skipToken indicates whether token is required.
-	skipToken bool
-
 	ticker         *time.Ticker
 	tickerInterval time.Duration
 
 	// close channel.
 	closing chan bool
+
+	// skipToken indicates whether token is required.
+	skipToken bool
+
+	localJWT bool
 }
 
-type sdsclientdebug struct {
+// ClientDebug represents a single SDS connection to the ndoe agent
+type ClientDebug struct {
 	ConnectionID string `json:"connection_id"`
 	ProxyID      string `json:"proxy"`
 	ResourceName string `json:"resource_name"`
@@ -129,12 +138,14 @@ type sdsclientdebug struct {
 	CreatedTime      string `json:"created_time"`
 	ExpireTime       string `json:"expire_time"`
 }
-type sdsdebug struct {
-	Clients []sdsclientdebug `json:"clients"`
+
+// Debug represents all clients connected to this node agent endpoint and their supplied secrets
+type Debug struct {
+	Clients []ClientDebug `json:"clients"`
 }
 
 // newSDSService creates Secret Discovery Service which implements envoy v2 SDS API.
-func newSDSService(st cache.SecretManager, skipTokenVerification bool, recycleInterval time.Duration) *sdsservice {
+func newSDSService(st cache.SecretManager, skipTokenVerification, localJWT bool, recycleInterval time.Duration) *sdsservice {
 	if st == nil {
 		return nil
 	}
@@ -144,6 +155,7 @@ func newSDSService(st cache.SecretManager, skipTokenVerification bool, recycleIn
 		skipToken:      skipTokenVerification,
 		tickerInterval: recycleInterval,
 		closing:        make(chan bool),
+		localJWT:       localJWT,
 	}
 
 	go ret.clearStaledClientsJob()
@@ -160,11 +172,15 @@ func (s *sdsservice) register(rpcs *grpc.Server) {
 func (s *sdsservice) DebugInfo() (string, error) {
 	sdsClientsMutex.RLock()
 	defer sdsClientsMutex.RUnlock()
-
-	clientDebug := make([]sdsclientdebug, 0)
+	clientDebug := make([]ClientDebug, 0)
 	for connKey, conn := range sdsClients {
+		// it's possible for the connection to be established without an instantiated secret
+		if conn.secret == nil {
+			continue
+		}
+
 		conn.mutex.RLock()
-		c := sdsclientdebug{
+		c := ClientDebug{
 			ConnectionID:     connKey.ConnectionID,
 			ProxyID:          conn.proxyID,
 			ResourceName:     conn.ResourceName,
@@ -177,7 +193,7 @@ func (s *sdsservice) DebugInfo() (string, error) {
 		conn.mutex.RUnlock()
 	}
 
-	debug := sdsdebug{
+	debug := Debug{
 		Clients: clientDebug,
 	}
 	debugJSON, err := json.MarshalIndent(debug, " ", "	")
@@ -195,7 +211,7 @@ func (s *sdsservice) DeltaSecrets(stream sds.SecretDiscoveryService_DeltaSecrets
 // StreamSecrets serves SDS discovery requests and SDS push requests
 func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecretsServer) error {
 	token := ""
-	var ctx context.Context
+	ctx := context.Background()
 
 	var receiveError error
 	reqChannel := make(chan *xdsapi.DiscoveryRequest, 1)
@@ -203,6 +219,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 
 	go receiveThread(con, reqChannel, &receiveError)
 
+	var node *core.Node
 	for {
 		// Block until a request is received.
 		select {
@@ -214,8 +231,9 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			}
 
 			if discReq.Node == nil {
-				sdsServiceLog.Errorf("Close connection. Invalid discovery request with no node")
-				return fmt.Errorf("invalid discovery request with no node")
+				discReq.Node = node
+			} else {
+				node = discReq.Node
 			}
 
 			resourceName, err := parseDiscoveryRequest(discReq)
@@ -251,7 +269,15 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			defer recycleConnection(conID, resourceName)
 
 			conIDresourceNamePrefix := sdsLogPrefix(conID, resourceName)
-			if !s.skipToken {
+			if s.localJWT {
+				// Running in-process, no need to pass the token from envoy to agent as in-context - use the file
+				tok, err := ioutil.ReadFile(JWTPath)
+				if err != nil {
+					sdsServiceLog.Errorf("Failed to get credential token: %v", err)
+					return err
+				}
+				token = string(tok)
+			} else if !s.skipToken {
 				ctx = stream.Context()
 				t, err := getCredentialToken(ctx)
 				if err != nil {
@@ -273,18 +299,18 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			if discReq.VersionInfo != "" && s.st.SecretExist(conID, resourceName, token, discReq.VersionInfo) {
 				sdsServiceLog.Debugf("%s received SDS ACK from proxy %q, version info %q, "+
 					"error details %s\n", conIDresourceNamePrefix, discReq.Node.Id, discReq.VersionInfo,
-					discReq.ErrorDetail.GoString())
+					discReq.ErrorDetail)
 				continue
 			}
 
 			if firstRequestFlag {
 				sdsServiceLog.Debugf("%s received first SDS request from proxy %q, version info "+
 					"%q, error details %s\n", conIDresourceNamePrefix, discReq.Node.Id, discReq.VersionInfo,
-					discReq.ErrorDetail.GoString())
+					discReq.ErrorDetail)
 			} else {
 				sdsServiceLog.Debugf("%s received SDS request from proxy %q, version info %q, "+
 					"error details %s\n", conIDresourceNamePrefix, discReq.Node.Id, discReq.VersionInfo,
-					discReq.ErrorDetail.GoString())
+					discReq.ErrorDetail)
 			}
 
 			// In ingress gateway agent mode, if the first SDS request is received but kubernetes secret is not ready,
@@ -351,7 +377,15 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 // FetchSecrets generates and returns secret from SecretManager in response to DiscoveryRequest
 func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error) {
 	token := ""
-	if !s.skipToken {
+	if s.localJWT {
+		// Running in-process, no need to pass the token from envoy to agent as in-context - use the file
+		tok, err := ioutil.ReadFile(JWTPath)
+		if err != nil {
+			sdsServiceLog.Errorf("Failed to get credential token: %v", err)
+			return nil, err
+		}
+		token = string(tok)
+	} else if !s.skipToken {
 		t, err := getCredentialToken(ctx)
 		if err != nil {
 			sdsServiceLog.Errorf("Failed to get credential token: %v", err)
@@ -451,6 +485,9 @@ func recycleConnection(conID, resourceName string) {
 }
 
 func parseDiscoveryRequest(discReq *xdsapi.DiscoveryRequest) (string /*resourceName*/, error) {
+	if discReq.Node == nil {
+		return "", fmt.Errorf("discovery request %+v missing node", discReq)
+	}
 	if discReq.Node.Id == "" {
 		return "", fmt.Errorf("discovery request %+v missing node id", discReq)
 	}
@@ -592,7 +629,7 @@ func sdsDiscoveryResponse(s *model.SecretItem, conID, resourceName string) (*xds
 		}
 	}
 
-	ms, err := types.MarshalAny(secret)
+	ms, err := ptypes.MarshalAny(secret)
 	if err != nil {
 		sdsServiceLog.Errorf("%s failed to mashal secret for proxy: %v", conIDresourceNamePrefix, err)
 		return nil, err

@@ -6,27 +6,30 @@ by a Google service account.
 ## Before you start
 
 - Run the following command to install python dependences.
-```
-  pip install google-auth
-```
+
+    ```
+    pip install google-auth
+    ```
 
 - Create a service account or use an existing service account, and download the service account private key.
 
-  - In the [Service Accounts page](https://console.cloud.google.com/iam-admin/serviceaccounts),
-  click CREATE SERVICE ACCOUNT, or select one of the existing service accounts.
-  - Click "Create Key" from the drop-down menu, and select the default JSON key type. The key file
+    - In the [Service Accounts page](https://console.cloud.google.com/iam-admin/serviceaccounts),
+    click CREATE SERVICE ACCOUNT, or select one of the existing service accounts.
+
+    - Click "Create Key" from the drop-down menu, and select the default JSON key type. The key file
     will automatically downloads to your computer.
 
 ## Usage
 
 Type the following command to see the help message.
 
-```
-  python sa-jwt.py -h
+```bash
+python sa-jwt.py -h
 ```
 
 It outputs the following:
-```
+
+```plain
 usage: ./sa-jwt.py [-h] [-iss ISS] [-aud AUD] [-sub SUB] [-claims CLAIMS] service_account_file
 
 Python script generates a JWT signed by a Google service account
@@ -49,10 +52,8 @@ optional arguments:
 ## Example
 
 Here is an example of using sa-jwt.py to generate a JWT token.
-```
-  ./sa-jwt.py /path/to/service_account.json -iss frod@gserviceaccount.com -aud foo,bar
-```
 
-```
-  ./sa-jwt.py /path/to/service_account.json -iss frod@gserviceaccount.com -aud foo,bar -claims key1:value1,key2:value2
+```bash
+./sa-jwt.py /path/to/service_account.json -iss frod@gserviceaccount.com -aud foo,bar
+./sa-jwt.py /path/to/service_account.json -iss frod@gserviceaccount.com -aud foo,bar -claims key1:value1,key2:value2
 ```

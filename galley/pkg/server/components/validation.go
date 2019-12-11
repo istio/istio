@@ -15,14 +15,17 @@
 package components
 
 import (
-	"istio.io/pkg/probe"
+	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/galley/pkg/crd/validation"
 	"istio.io/istio/galley/pkg/server/process"
+	"istio.io/istio/pkg/cmd"
+	"istio.io/pkg/probe"
 )
 
 // NewValidation returns a new validation component.
-func NewValidation(kubeConfig string, params *validation.WebhookParameters, liveness, readiness probe.Controller) process.Component {
+func NewValidation(kubeInterface kubernetes.Interface, kubeConfig string,
+	params *validation.WebhookParameters, liveness, readiness probe.Controller) process.Component {
 
 	return process.ComponentFromFns(
 		// start
@@ -30,10 +33,13 @@ func NewValidation(kubeConfig string, params *validation.WebhookParameters, live
 			webhookServerReady := make(chan struct{})
 			stopCh := make(chan struct{})
 			if params.EnableValidation {
-				go validation.RunValidation(webhookServerReady, stopCh, params, kubeConfig, liveness, readiness)
+				go validation.RunValidation(webhookServerReady, stopCh, params, kubeInterface, kubeConfig, liveness, readiness)
 			}
 			if params.EnableReconcileWebhookConfiguration {
 				go validation.ReconcileWebhookConfiguration(webhookServerReady, stopCh, params, kubeConfig)
+			}
+			if params.EnableValidation || params.EnableReconcileWebhookConfiguration {
+				go cmd.WaitSignal(stopCh)
 			}
 			return nil
 		},

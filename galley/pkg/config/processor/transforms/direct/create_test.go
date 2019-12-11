@@ -19,8 +19,9 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	"istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
+	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/testing/basicmeta"
 	"istio.io/istio/galley/pkg/config/testing/data"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
@@ -126,7 +127,7 @@ func TestDirect_InvalidEventKind(t *testing.T) {
 func TestDirect_NoListeners(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	xforms := Create(basicmeta.MustGet().DirectTransform().Mapping())
+	xforms := GetProviders(basicmeta.MustGet()).Create(processing.ProcessorOptions{})
 	g.Expect(xforms).To(HaveLen(1))
 
 	src := &fixtures.Source{}
@@ -233,7 +234,7 @@ func TestDirect_InvalidEvent(t *testing.T) {
 }
 
 func setup(g *GomegaWithT) (event.Transformer, *fixtures.Source, *fixtures.Accumulator) {
-	xforms := Create(basicmeta.MustGet().DirectTransform().Mapping())
+	xforms := GetProviders(basicmeta.MustGet()).Create(processing.ProcessorOptions{})
 	g.Expect(xforms).To(HaveLen(1))
 
 	src := &fixtures.Source{}

@@ -17,39 +17,29 @@ constraints:
               "version":"v2"
             },
             "name":"v2",
-            "traffic_policy":{
-              "load_balancer":{
-                "LbPolicy":{
-                  "Simple":0
-                }
+            "trafficPolicy":{
+              "loadBalancer":{
+                "simple":"ROUND_ROBIN"
               }
             }
           }
           ],
-          "traffic_policy":{
-            "port_level_settings":[
+          "trafficPolicy":{
+            "portLevelSettings":[
             {
-              "load_balancer":{
-                "LbPolicy":{
-                  "Simple":1
-                }
+              "loadBalancer":{
+                "simple":"LEAST_CONN"
               },
               "port":{
-                "Port":{
-                  "Number":80
-                }
+                "number":80
               }
             },
             {
-              "load_balancer":{
-                "LbPolicy":{
-                  "Simple":0
-                }
+              "loadBalancer":{
+                "simple":"ROUND_ROBIN"
               },
               "port":{
-                "Port":{
-                  "Number":9080
-                }
+                "number":9080
               }
             }
             ]

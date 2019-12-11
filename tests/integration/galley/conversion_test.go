@@ -24,7 +24,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 
-	"istio.io/istio/galley/pkg/metadata"
+	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/util/structpath"
@@ -57,9 +57,9 @@ func TestConversion(t *testing.T) {
 						// Do init for the first set. Use Meshconfig file in this set.
 						if i == 0 {
 							if fset.HasMeshConfigFile() {
-								mc, err := fset.LoadMeshConfigFile()
-								if err != nil {
-									t.Fatalf("Error loading Mesh config file: %v", err)
+								mc, er := fset.LoadMeshConfigFile()
+								if er != nil {
+									t.Fatalf("Error loading Mesh config file: %v", er)
 								}
 
 								cfg.MeshConfig = string(mc)
@@ -89,7 +89,10 @@ func runTest(t *testing.T, ctx resource.Context, fset *conversion.FileSet, gal g
 		t.Fatalf("Unable to load input test data: %v", err)
 	}
 
-	ns := namespace.NewOrFail(t, ctx, "conv", true)
+	ns := namespace.NewOrFail(t, ctx, namespace.Config{
+		Prefix: "conv",
+		Inject: true,
+	})
 
 	expected, err := fset.LoadExpectedResources(ns.Name())
 	if err != nil {
@@ -112,7 +115,7 @@ func runTest(t *testing.T, ctx resource.Context, fset *conversion.FileSet, gal g
 		var validator galley.SnapshotValidatorFunc
 
 		switch collection {
-		case metadata.IstioNetworkingV1alpha3SyntheticServiceentries.Collection.String():
+		case metadata.IstioNetworkingV1Alpha3SyntheticServiceentries.String():
 			// The synthetic service entry includes the resource versions for service and
 			// endpoints as annotations, which are volatile. This prevents us from using
 			// golden files for validation. Instead, we use the structpath library to
@@ -132,7 +135,9 @@ func runTest(t *testing.T, ctx resource.Context, fset *conversion.FileSet, gal g
 func syntheticServiceEntryValidator(ns string) galley.SnapshotValidatorFunc {
 	return galley.NewSingleObjectSnapshotValidator(ns, func(ns string, actual *galley.SnapshotObject) error {
 		v := structpath.ForProto(actual)
-		if err := v.Equals(metadata.IstioNetworkingV1alpha3SyntheticServiceentries.TypeURL.String(), "{.TypeURL}").
+		sp := metadata.MustGet().AllCollections().Get(metadata.IstioNetworkingV1Alpha3SyntheticServiceentries.String())
+		typeURL := "type.googleapis.com/" + sp.MessageName
+		if err := v.Equals(typeURL, "{.TypeURL}").
 			Equals(fmt.Sprintf("%s/kube-dns", ns), "{.Metadata.name}").
 			Check(); err != nil {
 			return err
@@ -149,9 +154,9 @@ func syntheticServiceEntryValidator(ns string) galley.SnapshotValidatorFunc {
 		if err := v.Select("{.Body}").
 			Equals("10.43.240.10", "{.addresses[0]}").
 			Equals(fmt.Sprintf("kube-dns.%s.svc.cluster.local", ns), "{.hosts[0]}").
-			Equals(1, "{.location}").
-			Equals(1, "{.resolution}").
-			Equals(fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/kube-dns", ns), "{.subject_alt_names[0]}").
+			Equals("MESH_INTERNAL", "{.location}").
+			Equals("STATIC", "{.resolution}").
+			Equals(fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/kube-dns", ns), "{.subjectAltNames[0]}").
 			Check(); err != nil {
 			return err
 		}

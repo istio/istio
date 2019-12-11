@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+
+# Copyright 2019 Istio Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+set -e
+set -u
+set -o pipefail
+
+# $snippet generate_traffic_1.sh syntax="bash"
+$ export SLEEP_POD=$(kubectl -n istio-io-mirror get pod -l app=sleep -o jsonpath={.items..metadata.name})
+$ kubectl -n istio-io-mirror exec ${SLEEP_POD} -c sleep -- curl -o /dev/null -s -w "%{http_code}\n" http://httpbin:8000/ISTIO_IO_MIRROR_TEST_1
+# $endsnippet
+
+# $snippet check_logs_v1_1.sh syntax="bash" outputis="text"
+$ export V1_POD=$(kubectl -n istio-io-mirror get pod -l app=httpbin,version=v1 -o jsonpath={.items..metadata.name})
+$ kubectl -n istio-io-mirror logs ${V1_POD} -c httpbin
+# $verify verifier="contains"
+ISTIO_IO_MIRROR_TEST_1
+# $endsnippet
+
+# $snippet check_logs_v2_1.sh syntax="bash" outputis="text"
+$ export V2_POD=$(kubectl -n istio-io-mirror get pod -l app=httpbin,version=v2 -o jsonpath={.items..metadata.name})
+$ kubectl -n istio-io-mirror logs ${V2_POD} -c httpbin
+# $verify verifier="notContains"
+ISTIO_IO_MIRROR_TEST_1
+# $endsnippet
+
+# $snippet mirror_vs.sh syntax="bash"
+$ kubectl -n istio-io-mirror apply -f - <<EOF
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: httpbin
+spec:
+  hosts:
+    - httpbin
+  http:
+  - route:
+    - destination:
+        host: httpbin
+        subset: v1
+      weight: 100
+    mirror:
+      host: httpbin
+      subset: v2
+    mirror_percent: 100
+EOF
+# $endsnippet
+
+# Wait a bit
+sleep 10
+
+# $snippet generate_traffic_2.sh syntax="bash"
+$ export SLEEP_POD=$(kubectl -n istio-io-mirror get pod -l app=sleep -o jsonpath={.items..metadata.name})
+$ kubectl -n istio-io-mirror exec ${SLEEP_POD} -c sleep -- curl --retry 3 -o /dev/null -s -w "%{http_code}\n" http://httpbin:8000/ISTIO_IO_MIRROR_TEST_2
+# $endsnippet
+
+# $snippet check_logs_v1_2.sh syntax="bash" outputis="text"
+$ export V1_POD=$(kubectl -n istio-io-mirror get pod -l app=httpbin,version=v1 -o jsonpath={.items..metadata.name})
+$ kubectl -n istio-io-mirror logs ${V1_POD} -c httpbin
+# $verify verifier="contains"
+ISTIO_IO_MIRROR_TEST_2
+# $endsnippet
+
+# $snippet check_logs_v2_2.sh syntax="bash" outputis="text"
+$ export V2_POD=$(kubectl -n istio-io-mirror get pod -l app=httpbin,version=v2 -o jsonpath={.items..metadata.name})
+$ kubectl -n istio-io-mirror logs ${V2_POD} -c httpbin
+# $verify verifier="contains"
+ISTIO_IO_MIRROR_TEST_2
+# $endsnippet

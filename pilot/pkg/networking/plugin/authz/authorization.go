@@ -24,11 +24,14 @@ package authz
 import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 
+	istiolog "istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authz_builder "istio.io/istio/pilot/pkg/security/authz/builder"
-	istiolog "istio.io/pkg/log"
+	"istio.io/istio/pilot/pkg/security/trustdomain"
+	"istio.io/istio/pkg/spiffe"
 )
 
 var (
@@ -74,12 +77,11 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 }
 
 func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) {
-	if in.ServiceInstance == nil {
-		rbacLog.Errorf("nil service instance")
-		return
-	}
-
-	builder := authz_builder.NewBuilder(in.ServiceInstance, in.Push.AuthzPolicies, util.IsXDSMarshalingToAnyEnabled(in.Node))
+	// TODO: Get trust domain from MeshConfig instead.
+	// https://github.com/istio/istio/issues/17873
+	trustDomainBundle := trustdomain.NewTrustDomainBundle(spiffe.GetTrustDomain(), in.Push.Mesh.TrustDomainAliases)
+	builder := authz_builder.NewBuilder(trustDomainBundle, in.ServiceInstance,
+		in.Node.WorkloadLabels, in.Node.ConfigNamespace, in.Push.AuthzPolicies, util.IsXDSMarshalingToAnyEnabled(in.Node))
 	if builder == nil {
 		return
 	}
@@ -95,16 +97,20 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) {
 			httpFilter := builder.BuildHTTPFilter()
 			for cnum := range mutable.FilterChains {
 				if mutable.FilterChains[cnum].ListenerProtocol == plugin.ListenerProtocolHTTP {
-					rbacLog.Infof("added HTTP filter to gateway filter chain %d", cnum)
-					mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
+					if httpFilter != nil {
+						rbacLog.Debugf("added HTTP filter to gateway filter chain %d", cnum)
+						mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
+					}
 				} else {
-					rbacLog.Infof("added TCP filter to gateway filter chain %d", cnum)
-					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
+					if tcpFilter != nil {
+						rbacLog.Debugf("added TCP filter to gateway filter chain %d", cnum)
+						mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
+					}
 				}
 			}
 		} else {
 			for cnum := range mutable.FilterChains {
-				rbacLog.Infof("added TCP filter to filter chain %d", cnum)
+				rbacLog.Debugf("added TCP filter to filter chain %d", cnum)
 				mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
 			}
 		}
@@ -113,7 +119,7 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) {
 		filter := builder.BuildHTTPFilter()
 		if filter != nil {
 			for cnum := range mutable.FilterChains {
-				rbacLog.Infof("added HTTP filter to filter chain %d", cnum)
+				rbacLog.Debugf("added HTTP filter to filter chain %d", cnum)
 				mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, filter)
 			}
 		}
@@ -126,12 +132,12 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) {
 			switch mutable.FilterChains[cnum].ListenerProtocol {
 			case plugin.ListenerProtocolTCP:
 				if tcpFilter != nil {
-					rbacLog.Infof("added TCP filter to filter chain %d", cnum)
+					rbacLog.Debugf("added TCP filter to filter chain %d", cnum)
 					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
 				}
 			case plugin.ListenerProtocolHTTP:
 				if httpFilter != nil {
-					rbacLog.Infof("added HTTP filter to filter chain %d", cnum)
+					rbacLog.Debugf("added HTTP filter to filter chain %d", cnum)
 					mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, httpFilter)
 				}
 			}
@@ -139,7 +145,7 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) {
 	}
 }
 
-// OnVirtualListener implments the Plugin interface method.
+// OnVirtualListener implements the Plugin interface method.
 func (Plugin) OnVirtualListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 	return nil
 }
@@ -158,4 +164,15 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, route *xdsapi.
 
 // OnOutboundCluster implements the Plugin interface method.
 func (Plugin) OnOutboundCluster(in *plugin.InputParams, cluster *xdsapi.Cluster) {
+}
+
+// OnInboundPassthrough is called whenever a new passthrough filter chain is added to the LDS output.
+func (Plugin) OnInboundPassthrough(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+	if in.Node.Type != model.SidecarProxy {
+		// Only care about sidecar.
+		return nil
+	}
+
+	buildFilter(in, mutable)
+	return nil
 }

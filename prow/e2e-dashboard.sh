@@ -29,4 +29,4 @@ set -x
 
 # Run tests with auth disabled
 #echo 'Running dashboard e2e tests'
-./prow/e2e-suite.sh --single_test e2e_dashboard
+prow/e2e-kind-suite.sh --single_test e2e_dashboard

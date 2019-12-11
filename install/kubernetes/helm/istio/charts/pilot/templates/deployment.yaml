@@ -10,8 +10,6 @@ metadata:
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
     istio: pilot
-  annotations:
-    checksum/config-volume: {{ template "istio.configmap.checksum" . }}
 spec:
 {{- if not .Values.autoscaleEnabled }}
 {{- if .Values.replicaCount }}
@@ -37,6 +35,9 @@ spec:
         istio: pilot
       annotations:
         sidecar.istio.io/inject: "false"
+         {{- if .Values.podAnnotations }}
+{{ toYaml .Values.podAnnotations | indent 8 }}
+        {{- end }}
     spec:
       serviceAccountName: istio-pilot-service-account
 {{- if .Values.global.priorityClassName }}
@@ -62,11 +63,9 @@ spec:
           - "-a"
           - {{ .Release.Namespace }}
 {{- end }}
-{{- if $.Values.global.controlPlaneSecurityEnabled}}
-    {{- if not .Values.sidecar }}
+{{- if and $.Values.global.controlPlaneSecurityEnabled (not .Values.sidecar)}}
           - --secureGrpcAddr
           - ":15011"
-    {{- end }}
 {{- else }}
           - --secureGrpcAddr
           - ""
@@ -87,7 +86,7 @@ spec:
               path: /ready
               port: 8080
             initialDelaySeconds: 5
-            periodSeconds: 30
+            periodSeconds: 5
             timeoutSeconds: 5
           env:
           - name: POD_NAME
@@ -110,10 +109,10 @@ spec:
           - name: PILOT_TRACE_SAMPLING
             value: "{{ .Values.traceSampling }}"
 {{- end }}
-{{- if .Values.enableProtocolSniffing }}
-          - name: PILOT_ENABLE_PROTOCOL_SNIFFING
-            value: "{{ .Values.enableProtocolSniffing }}"
-{{- end }}
+          - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
+            value: "{{ .Values.enableProtocolSniffingForOutbound }}"
+          - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
+            value: "{{ .Values.enableProtocolSniffingForInbound }}"
           resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
@@ -126,6 +125,10 @@ spec:
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
+{{- if .Values.jwksResolverExtraRootCA }}
+          - name: extracacerts
+            mountPath: /cacerts
+{{- end }}
 {{- if .Values.sidecar }}
         - name: istio-proxy
 {{- if contains "/" .Values.global.proxy.image }}
@@ -157,6 +160,15 @@ spec:
         {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
         {{- end }}
+        {{- if $.Values.global.proxy.logLevel }}
+          - --proxyLogLevel={{ $.Values.global.proxy.logLevel }}
+        {{- end}}
+        {{- if $.Values.global.proxy.componentLogLevel }}
+          - --proxyComponentLogLevel={{ $.Values.global.proxy.componentLogLevel }}
+        {{- end}}
+        {{- if $.Values.global.logging.level }}
+          - --log_output_level={{ $.Values.global.logging.level }}
+        {{- end}}
           env:
           - name: POD_NAME
             valueFrom:
@@ -173,6 +185,8 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: status.podIP
+          - name: SDS_ENABLED
+            value: "{{ $.Values.global.sds.enabled }}"
           resources:
 {{- if .Values.global.proxy.resources }}
 {{ toYaml .Values.global.proxy.resources | indent 12 }}
@@ -200,7 +214,7 @@ spec:
         projected:
           sources:
           - serviceAccountToken:
-              audience: {{ $.Values.global.trustDomain }}
+              audience: {{ $.Values.global.sds.token.aud }}
               expirationSeconds: 43200
               path: istio-token
       {{- end }}
@@ -211,6 +225,11 @@ spec:
         secret:
           secretName: istio.istio-pilot-service-account
           optional: true
+{{- if .Values.jwksResolverExtraRootCA }}
+      - name: extracacerts
+        configMap:
+          name: istio-jwks-extra-cacerts
+{{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}

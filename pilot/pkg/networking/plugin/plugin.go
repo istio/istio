@@ -16,8 +16,9 @@ package plugin
 
 import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -51,10 +52,22 @@ const (
 )
 
 // ModelProtocolToListenerProtocol converts from a config.Protocol to its corresponding plugin.ListenerProtocol
-func ModelProtocolToListenerProtocol(node *model.Proxy, p protocol.Instance) ListenerProtocol {
+func ModelProtocolToListenerProtocol(node *model.Proxy, p protocol.Instance,
+	trafficDirection core.TrafficDirection) ListenerProtocol {
 	// If protocol sniffing is not enabled, the default value is TCP
-	if !util.IsProtocolSniffingEnabledForNode(node) && p == protocol.Unsupported {
-		p = protocol.TCP
+	if p == protocol.Unsupported {
+		switch trafficDirection {
+		case core.TrafficDirection_INBOUND:
+			if !util.IsProtocolSniffingEnabledForInbound(node) {
+				p = protocol.TCP
+			}
+		case core.TrafficDirection_OUTBOUND:
+			if !util.IsProtocolSniffingEnabledForOutbound(node) {
+				p = protocol.TCP
+			}
+		default:
+			// should not reach here
+		}
 	}
 
 	switch p {
@@ -66,11 +79,7 @@ func ModelProtocolToListenerProtocol(node *model.Proxy, p protocol.Instance) Lis
 	case protocol.UDP:
 		return ListenerProtocolUnknown
 	default:
-		if util.IsProtocolSniffingEnabledForNode(node) {
-			return ListenerProtocolAuto
-		}
-
-		return ListenerProtocolUnknown
+		return ListenerProtocolAuto
 	}
 }
 
@@ -89,8 +98,6 @@ type InputParams struct {
 	// TODO: Remove me when listener match is in place
 	DeprecatedListenerCategory networking.EnvoyFilter_DeprecatedListenerMatch_ListenerType
 
-	// Env is the model environment. Must be set.
-	Env *model.Environment
 	// Node is the node the response is for.
 	Node *model.Proxy
 	// ServiceInstance is the service instance colocated with the listener (applies to sidecar).
@@ -110,6 +117,10 @@ type InputParams struct {
 
 	// Push holds stats and other information about the current push.
 	Push *model.PushContext
+
+	// Inbound cluster name. It's only used by newHTTPPassThroughFilterChain.
+	// For other scenarios, the field is empty.
+	InboundClusterName string
 }
 
 // FilterChain describes a set of filters (HTTP or TCP) with a shared TLS context.
@@ -128,6 +139,8 @@ type FilterChain struct {
 	HTTP []*http_conn.HttpFilter
 	// TCP is the set of network (TCP) filters for this filter chain.
 	TCP []*listener.Filter
+	// IsFallthrough indicates if the filter chain is fallthrough.
+	IsFallThrough bool
 }
 
 // MutableObjects is a set of objects passed to On*Listener callbacks. Fields may be nil or empty.
@@ -178,4 +191,8 @@ type Plugin interface {
 	// OnInboundFilterChains is called whenever a plugin needs to setup the filter chains, including relevant filter chain
 	// configuration, like FilterChainMatch and TLSContext.
 	OnInboundFilterChains(in *InputParams) []FilterChain
+
+	// OnInboundPassthrough is called whenever a new passthrough filter chain is added to the LDS output.
+	// Can be used to add additional filters.
+	OnInboundPassthrough(in *InputParams, mutable *MutableObjects) error
 }

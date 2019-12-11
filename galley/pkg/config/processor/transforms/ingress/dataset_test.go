@@ -24,6 +24,7 @@ import (
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/config/meshcfg"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/source/kube/rt"
 )
 
 func ingress1() *resource.Entry {
@@ -96,6 +97,7 @@ func gw1() *resource.Entry {
         ]
       },
 `),
+		Origin: (*rt.Origin)(nil),
 	}
 }
 
@@ -125,6 +127,7 @@ func gw1v2() *resource.Entry {
         ]
       },
 `),
+		Origin: (*rt.Origin)(nil),
 	}
 }
 
@@ -157,9 +160,7 @@ func vs1() *resource.Entry {
 							Destination: &v1alpha3.Destination{
 								Host: "service1.ns.svc.cluster.local",
 								Port: &v1alpha3.PortSelector{
-									Port: &v1alpha3.PortSelector_Number{
-										Number: 4200,
-									},
+									Number: 4200,
 								},
 							},
 							Weight: 100,
@@ -168,6 +169,8 @@ func vs1() *resource.Entry {
 				},
 			},
 		},
+		// Rationale: Gomega will insist on typed nil, but output only 'nil' on failure.
+		Origin: (*rt.Origin)(nil),
 	}
 }
 
@@ -200,9 +203,7 @@ func vs1v2() *resource.Entry {
 							Destination: &v1alpha3.Destination{
 								Host: "service2.ns.svc.cluster.local",
 								Port: &v1alpha3.PortSelector{
-									Port: &v1alpha3.PortSelector_Number{
-										Number: 2400,
-									},
+									Number: 2400,
 								},
 							},
 							Weight: 100,
@@ -211,6 +212,7 @@ func vs1v2() *resource.Entry {
 				},
 			},
 		},
+		Origin: (*rt.Origin)(nil),
 	}
 }
 

@@ -32,7 +32,7 @@ var _ = time.Kitchen
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 // Configuration parameters for the kubernetes adapter. These params
 // control the manner in which the kubernetes adapter discovers and
@@ -67,7 +67,7 @@ type Params struct {
 	//
 	// Details on multicluster and the Kubernetes secret required to
 	// access the remote cluster's credentials can be found in
-	// [multicluster install](https://istio.io/docs/setup/kubernetes/install/multicluster/).
+	// [multicluster install](https://istio.io/docs/setup/install/multicluster/).
 	//
 	// NOTE: If `cluster_registries_namespace` is not set then the environment
 	// variable `POD_NAMESPACE` is checked/used. If `POD_NAMESPACE` is not

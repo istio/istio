@@ -5,13 +5,15 @@ enabled: false
 replicaCount: 1
 rollingMaxSurge: 100%
 rollingMaxUnavailable: 25%
-coreDNSImage: coredns/coredns:1.1.2
+coreDNSImage: coredns/coredns
+coreDNSTag: 1.6.2
 # Source code for the plugin can be found at
 # https://github.com/istio-ecosystem/istio-coredns-plugin
 # The plugin listens for DNS requests from coredns server at 127.0.0.1:8053
 coreDNSPluginImage: istio/coredns-plugin:0.2-istio-1.1
 nodeSelector: {}
 tolerations: []
+podAnnotations: {}
 
 # Specify the pod anti-affinity that allows you to constrain which nodes
 # your pod is eligible to be scheduled based on labels on pods that are

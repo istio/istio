@@ -20,20 +20,21 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/processor"
-	"istio.io/istio/galley/pkg/config/processor/metadata"
-	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/pod"
-	"istio.io/istio/galley/pkg/config/resource"
-	"istio.io/istio/galley/pkg/config/schema"
-	"istio.io/istio/galley/pkg/config/source/kube"
-	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
-	"istio.io/istio/galley/pkg/testing/mock"
-	"istio.io/istio/pkg/mcp/snapshot"
-
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+
+	"istio.io/istio/galley/pkg/config/event"
+	"istio.io/istio/galley/pkg/config/meta/metadata"
+	"istio.io/istio/galley/pkg/config/meta/schema"
+	"istio.io/istio/galley/pkg/config/processing/snapshotter"
+	"istio.io/istio/galley/pkg/config/processor"
+	"istio.io/istio/galley/pkg/config/processor/transforms"
+	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/pod"
+	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/source/kube"
+	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
+	"istio.io/istio/galley/pkg/testing/mock"
 )
 
 const (
@@ -114,7 +115,17 @@ func BenchmarkEndpointChurn(b *testing.B) {
 	m := metadata.MustGet()
 	src := newSource(b, ki, m.KubeSource().Resources())
 	distributor := newFakeDistributor(b.N)
-	processor, err := processor.Initialize(m, domainSuffix, src, distributor)
+	transformProviders := transforms.Providers(metadata.MustGet())
+
+	processorSettings := processor.Settings{
+		Metadata:           m,
+		DomainSuffix:       domainSuffix,
+		Source:             src,
+		TransformProviders: transformProviders,
+		Distributor:        distributor,
+		EnabledSnapshots:   []string{metadata.SyntheticServiceEntry},
+	}
+	processor, err := processor.Initialize(processorSettings)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -140,7 +151,7 @@ func BenchmarkEndpointChurn(b *testing.B) {
 	b.StartTimer()
 
 	for _, eps := range endpoints {
-		if _, err := kubeClient.CoreV1().Endpoints(namespace).Update(eps); err != nil {
+		if _, err = kubeClient.CoreV1().Endpoints(namespace).Update(eps); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -266,6 +277,8 @@ type fakeDistributor struct {
 	snapshotCond *sync.Cond
 }
 
+var _ snapshotter.Distributor = &fakeDistributor{}
+
 func newFakeDistributor(numUpdates int) *fakeDistributor {
 	return &fakeDistributor{
 		serviceCreation:   1,
@@ -282,7 +295,7 @@ func (d *fakeDistributor) waitForSnapshot() {
 	d.snapshotCond.L.Unlock()
 }
 
-func (d *fakeDistributor) SetSnapshot(name string, s snapshot.Snapshot) {
+func (d *fakeDistributor) Distribute(name string, s *snapshotter.Snapshot) {
 	d.cond.Broadcast()
 
 	d.counter++

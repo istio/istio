@@ -17,6 +17,7 @@ package collection
 import (
 	"sync"
 
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
 )
 
@@ -26,18 +27,30 @@ type ChangeNotifierFn func()
 // Instance is collection of resources, indexed by name.
 type Instance struct {
 	mu          sync.RWMutex // TODO: This lock will most likely cause contention. We should investigate whether removing it would help.
-	collection  Name
+	collection  collection.Name
 	generation  int64
 	entries     map[resource.Name]*resource.Entry
 	copyOnWrite bool
 }
 
 // New returns a new collection.Instance
-func New(collection Name) *Instance {
+func New(collection collection.Name) *Instance {
 	return &Instance{
 		collection: collection,
 		entries:    make(map[resource.Name]*resource.Entry),
 	}
+}
+
+// Name of the collection
+func (c *Instance) Name() collection.Name {
+	return c.collection
+}
+
+// Get the instance with the given name
+func (c *Instance) Get(name resource.Name) *resource.Entry {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.entries[name]
 }
 
 // Generation of the current state of the collection.Instance
@@ -55,11 +68,13 @@ func (c *Instance) Size() int {
 }
 
 // ForEach executes the given function for each entry
-func (c *Instance) ForEach(fn func(e *resource.Entry)) {
+func (c *Instance) ForEach(fn func(e *resource.Entry) bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	for _, e := range c.entries {
-		fn(e)
+		if !fn(e) {
+			break
+		}
 	}
 }
 

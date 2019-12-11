@@ -18,7 +18,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/istio/tests/util"
 )
 
@@ -42,7 +42,7 @@ func TestCDS(t *testing.T) {
 		return
 	}
 
-	strResponse, _ := protomarshal.ToJSONWithIndent(res, " ")
+	strResponse, _ := gogoprotomarshal.ToJSONWithIndent(res, " ")
 	_ = ioutil.WriteFile(env.IstioOut+"/cdsv2_sidecar.json", []byte(strResponse), 0644)
 
 	t.Log("CDS response", strResponse)

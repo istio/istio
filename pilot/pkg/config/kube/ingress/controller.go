@@ -100,21 +100,21 @@ func NewController(client kubernetes.Interface, mesh *meshconfig.MeshConfig,
 	informer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				queue.Push(kube.NewTask(handler.Apply, obj, model.EventAdd))
+				queue.Push(kube.NewTask(handler.Apply, nil, obj, model.EventAdd))
 			},
 			UpdateFunc: func(old, cur interface{}) {
 				if !reflect.DeepEqual(old, cur) {
-					queue.Push(kube.NewTask(handler.Apply, cur, model.EventUpdate))
+					queue.Push(kube.NewTask(handler.Apply, old, cur, model.EventUpdate))
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
-				queue.Push(kube.NewTask(handler.Apply, obj, model.EventDelete))
+				queue.Push(kube.NewTask(handler.Apply, nil, obj, model.EventDelete))
 			},
 		})
 
 	// first handler in the chain blocks until the cache is fully synchronized
 	// it does this by returning an error to the chain handler
-	handler.Append(func(obj interface{}, event model.Event) error {
+	handler.Append(func(_, obj interface{}, event model.Event) error {
 		if !informer.HasSynced() {
 			return errors.New("waiting till full synchronization")
 		}
@@ -134,9 +134,9 @@ func NewController(client kubernetes.Interface, mesh *meshconfig.MeshConfig,
 	}
 }
 
-func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model.Event)) {
-	c.handler.Append(func(obj interface{}, event model.Event) error {
-		ingress, ok := obj.(*extensionsv1beta1.Ingress)
+func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model.Config, model.Event)) {
+	c.handler.Append(func(_, curr interface{}, event model.Event) error {
+		ingress, ok := curr.(*extensionsv1beta1.Ingress)
 		if !ok || !shouldProcessIngress(c.mesh, ingress) {
 			return nil
 		}
@@ -150,15 +150,24 @@ func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model
 		// TODO: This works well for Add and Delete events, but not so for Update:
 		// An updated ingress may also trigger an Add or Delete for one of its constituent sub-rules.
 		switch typ {
-		case schemas.Gateway.Type:
-			//config, _ := ConvertIngressV1alpha3(*ingress, c.domainSuffix)
-			//f(config, event)
 		case schemas.VirtualService.Type:
-			f(model.Config{}, event)
+			f(model.Config{}, model.Config{
+				ConfigMeta: model.ConfigMeta{
+					Type: typ,
+				},
+			}, event)
 		}
 
 		return nil
 	})
+}
+
+func (c *controller) Version() string {
+	panic("implement me")
+}
+
+func (c *controller) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
+	panic("implement me")
 }
 
 func (c *controller) HasSynced() bool {

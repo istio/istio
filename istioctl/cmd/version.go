@@ -15,17 +15,29 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+
 	istioVersion "istio.io/pkg/version"
 )
 
+type sidecarSyncStatus struct {
+	// nolint: structcheck, unused
+	pilot string
+	v2.SyncStatus
+}
+
 func newVersionCommand() *cobra.Command {
-	versionCmd := istioVersion.CobraCommandWithOptions(istioVersion.CobraOptions{GetRemoteVersion: getRemoteInfo})
+	versionCmd := istioVersion.CobraCommandWithOptions(istioVersion.CobraOptions{
+		GetRemoteVersion: getRemoteInfo,
+		GetProxyVersions: getProxyInfo,
+	})
 	versionCmd.Flags().VisitAll(func(flag *pflag.Flag) {
 		if flag.Name == "short" {
 			err := flag.Value.Set("true")
@@ -50,4 +62,35 @@ func getRemoteInfo() (*istioVersion.MeshInfo, error) {
 	}
 
 	return kubeClient.GetIstioVersions(istioNamespace)
+}
+
+func getProxyInfo() (*[]istioVersion.ProxyInfo, error) {
+	kubeClient, err := clientExecFactory(kubeconfig, configContext)
+	if err != nil {
+		return nil, err
+	}
+
+	// Ask Pilot for the Envoy sidecar sync status, which includes the sidecar version info
+	allSyncz, err := kubeClient.AllPilotsDiscoveryDo(istioNamespace, "GET", "/debug/syncz", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	pi := []istioVersion.ProxyInfo{}
+	for _, syncz := range allSyncz {
+		var sss []*sidecarSyncStatus
+		err = json.Unmarshal(syncz, &sss)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, ss := range sss {
+			pi = append(pi, istioVersion.ProxyInfo{
+				ID:           ss.ProxyID,
+				IstioVersion: ss.SyncStatus.IstioVersion,
+			})
+		}
+	}
+
+	return &pi, nil
 }

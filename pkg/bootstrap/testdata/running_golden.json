@@ -8,27 +8,22 @@
       "sub_zone": "sub_zoneC"
     },
     "metadata": {
-      "app": "test",
-      "version": "v1alpha1",
       "INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6",
       "INTERCEPTION_MODE":"REDIRECT",
-      "ISTIO_PROXY_SHA":"istio-proxy:sha",
       "ISTIO_VERSION":"release-3.1",
-      "POD_NAME":"svc-0-0-0-6944fb884d-4pgx8",
-      "ISTIO_META_SDS": "1",
-      "ISTIO_META_TRUSTJWT": "1",
-      "istio":"sidecar",
       "istio.io/insecurepath":"{\"paths\":[\"/metrics\",\"/live\"]}",
       "istio-locality": "regionA.zoneB.sub_zoneC",
-      "istio.io/metadata": {
-        "ip": "10.10.10.1",
-        "name" : "svc-0-0-0-6944fb884d-4pgx8",
-        "namespace": "test",
-        "labels": {
+      "EXCHANGE_KEYS":"NAME,NAMESPACE,INSTANCE_IPS,LABELS,OWNER,PLATFORM_METADATA,WORKLOAD_NAME,CANONICAL_TELEMETRY_SERVICE,MESH_ID,SERVICE_ACCOUNT",
+      "NAME": "svc-0-0-0-6944fb884d-4pgx8",
+      "NAMESPACE": "test",
+      "POD_NAME": "svc-0-0-0-6944fb884d-4pgx8",
+      "app": "test",
+      "ISTIO_PROXY_SHA": "istio-proxy:sha",
+      "version": "v1alpha1",
+      "LABELS": {
           "version": "v1alpha1",
           "app": "test",
           "istio-locality": "regionA.zoneB.sub_zoneC"
-        }
       }
     }
   },
@@ -45,7 +40,7 @@
       },
       {
         "tag_name": "response_code",
-        "regex": "_rq(_(\\d{3}))$"
+        "regex": "(response_code=\\.=(.+?);\\.;)|_rq(_(\\.d{3}))$",
       },
       {
         "tag_name": "response_code_class",
@@ -66,11 +61,107 @@
       {
         "tag_name": "mongo_prefix",
         "regex": "^mongo\\.(.+?)\\.(collection|cmd|cx_|op_|delays_|decoding_)(.*?)$"
+      },
+      {
+        "regex": "(reporter=\\.=(.+?);\\.;)",
+        "tag_name": "reporter"
+      },
+      {
+        "regex": "(source_namespace=\\.=(.+?);\\.;)",
+        "tag_name": "source_namespace"
+      },
+      {
+        "regex": "(source_workload=\\.=(.+?);\\.;)",
+        "tag_name": "source_workload"
+      },
+      {
+        "regex": "(source_workload_namespace=\\.=(.+?);\\.;)",
+        "tag_name": "source_workload_namespace"
+      },
+      {
+        "regex": "(source_principal=\\.=(.+?);\\.;)",
+        "tag_name": "source_principal"
+      },
+      {
+        "regex": "(source_app=\\.=(.+?);\\.;)",
+        "tag_name": "source_app"
+      },
+      {
+        "regex": "(source_version=\\.=(.+?);\\.;)",
+        "tag_name": "source_version"
+      },
+      {
+        "regex": "(destination_namespace=\\.=(.+?);\\.;)",
+        "tag_name": "destination_namespace"
+      },
+      {
+        "regex": "(destination_workload=\\.=(.+?);\\.;)",
+        "tag_name": "destination_workload"
+      },
+      {
+        "regex": "(destination_workload_namespace=\\.=(.+?);\\.;)",
+        "tag_name": "destination_workload_namespace"
+      },
+      {
+        "regex": "(destination_principal=\\.=(.+?);\\.;)",
+        "tag_name": "destination_principal"
+      },
+      {
+        "regex": "(destination_app=\\.=(.+?);\\.;)",
+        "tag_name": "destination_app"
+      },
+      {
+        "regex": "(destination_version=\\.=(.+?);\\.;)",
+        "tag_name": "destination_version"
+      },
+      {
+        "regex": "(destination_service=\\.=(.+?);\\.;)",
+        "tag_name": "destination_service"
+      },
+      {
+        "regex": "(destination_service_name=\\.=(.+?);\\.;)",
+        "tag_name": "destination_service_name"
+      },
+      {
+        "regex": "(destination_service_namespace=\\.=(.+?);\\.;)",
+        "tag_name": "destination_service_namespace"
+      },
+      {
+        "regex": "(request_protocol=\\.=(.+?);\\.;)",
+        "tag_name": "request_protocol"
+      },
+      {
+        "regex": "(response_flags=\\.=(.+?);\\.;)",
+        "tag_name": "response_flags"
+      },
+      {
+        "regex": "(connection_security_policy=\\.=(.+?);\\.;)",
+        "tag_name": "connection_security_policy"
+      },
+      {
+        "regex": "(permissive_response_code=\\.=(.+?);\\.;)",
+        "tag_name": "permissive_response_code"
+      },
+      {
+        "regex": "(permissive_response_policyid=\\.=(.+?);\\.;)",
+        "tag_name": "permissive_response_policyid"
+      },
+      {
+        "regex": "(cache\\.(.+?)\\.)",
+        "tag_name": "cache"
+      },
+      {
+        "regex": "(component\\.(.+?)\\.)",
+        "tag_name": "component"
+      },
+      {
+        "regex": "(tag\\.(.+?)\\.)",
+        "tag_name": "tag"
       }
     ],
     "stats_matcher": {
       "inclusion_list": {
-        "patterns": [{
+        "patterns": [{"prefix": "reporter="},{
             "prefix": "cluster_manager"
           },
           {
@@ -273,7 +364,8 @@
       "name": "envoy.zipkin",
       "config": {
         "collector_cluster": "zipkin",
-        "collector_endpoint": "/api/v1/spans",
+        "collector_endpoint": "/api/v2/spans",
+        "collector_endpoint_version": "HTTP_JSON",
         "trace_id_128bit":"true",
         "shared_span_context":"false"
       }
@@ -293,4 +385,10 @@
     }
   ]
   
+  ,
+  "cluster_manager": {
+    "outlier_detection": {
+      "event_log_path": "/dev/stdout"
+    }
+  }
 }

@@ -5,16 +5,16 @@ metadata:
 spec:
   attributes:
     source.name:
-      value_type: STRING
+      valueType: STRING
     destination.name:
-      value_type: STRING
+      valueType: STRING
     response.count:
-      value_type: INT64
+      valueType: INT64
     attr.bool:
-      value_type: BOOL
+      valueType: BOOL
     attr.string:
-      value_type: STRING
+      valueType: STRING
     attr.double:
-      value_type: DOUBLE
+      valueType: DOUBLE
     attr.int64:
-      value_type: INT64
+      valueType: INT64
