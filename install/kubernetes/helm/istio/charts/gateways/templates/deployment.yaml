@@ -257,7 +257,7 @@ spec:
           - name: ISTIO_META_WORKLOAD_NAME
             value: {{ $key }}
           - name: ISTIO_META_OWNER
-            value: kubernetes://api/apps/v1/namespaces/{{ $spec.namespace | default $.Release.Namespace }}/deployments/{{ $key }}
+            value: kubernetes://apis/apps/v1/namespaces/{{ $spec.namespace | default $.Release.Namespace }}/deployments/{{ $key }}
           {{- if $.Values.global.meshID }}
           - name: ISTIO_META_MESH_ID
             value: "{{ $.Values.global.meshID }}"
