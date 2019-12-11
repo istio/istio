@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn/factory"
+	beta_applier "istio.io/istio/pilot/pkg/security/authn/v1beta1"
 )
 
 // Plugin implements Istio mTLS auth
@@ -63,7 +64,8 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 }
 
 func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
-	applier := factory.NewPolicyApplier(in.Push, in.ServiceInstance)
+	applier := beta_applier.NewPolicyApplier(in.Push.AuthnBetaPolicies.GetJwtPoliciesForWorkload(
+		in.SidecarConfig.Namespace, in.Node.WorkloadLabels))
 	if mutable.Listener == nil || (len(mutable.Listener.FilterChains) != len(mutable.FilterChains)) {
 		return fmt.Errorf("expected same number of filter chains in listener (%d) and mutable (%d)", len(mutable.Listener.FilterChains), len(mutable.FilterChains))
 	}
