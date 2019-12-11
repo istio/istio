@@ -23,7 +23,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn/factory"
-	beta_applier "istio.io/istio/pilot/pkg/security/authn/v1beta1"
 )
 
 // Plugin implements Istio mTLS auth
@@ -37,7 +36,8 @@ func NewPlugin() plugin.Plugin {
 // OnInboundFilterChains setups filter chains based on the authentication policy.
 func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
 	return factory.NewPolicyApplier(in.Push,
-		in.ServiceInstance).InboundFilterChain(in.Push.Mesh.SdsUdsPath, in.Node.Metadata)
+		in.ServiceInstance, in.SidecarConfig.Namespace, in.Node.WorkloadLabels).InboundFilterChain(
+		in.Push.Mesh.SdsUdsPath, in.Node.Metadata)
 }
 
 // OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service
@@ -64,8 +64,7 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 }
 
 func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
-	applier := beta_applier.NewPolicyApplier(in.Push.AuthnBetaPolicies.GetJwtPoliciesForWorkload(
-		in.SidecarConfig.Namespace, in.Node.WorkloadLabels))
+	applier := factory.NewPolicyApplier(in.Push, in.ServiceInstance, in.SidecarConfig.Namespace, in.Node.WorkloadLabels)
 	if mutable.Listener == nil || (len(mutable.Listener.FilterChains) != len(mutable.FilterChains)) {
 		return fmt.Errorf("expected same number of filter chains in listener (%d) and mutable (%d)", len(mutable.Listener.FilterChains), len(mutable.FilterChains))
 	}
