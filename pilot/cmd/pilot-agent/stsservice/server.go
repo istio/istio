@@ -15,13 +15,15 @@
 package stsservice
 
 import (
-	"fmt"
 	"encoding/json"
 	"errors"
-	"istio.io/pkg/log"
+	"fmt"
 	"net/http"
+	"net/http/httputil"
 	"os"
-	"istio.io/istio/pilot/pkg/model"
+	"syscall"
+
+	"istio.io/pkg/log"
 )
 
 const (
@@ -40,14 +42,31 @@ var stsServiceLog = log.RegisterScope("stsServiceLog", "STS service debugging", 
 // StsRequestParameters stores all STS request attributes defined in
 // https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16#section-2.1
 type StsRequestParameters struct {
-	grantType            string  // Required
+	// REQUIRED. The value "urn:ietf:params:oauth:grant-type:token- exchange"
+	// indicates that a token exchange is being performed.
+	grantType            string
+	// OPTIONAL. Indicates the location of the target service or resource where
+	// the client intends to use the requested security token.
 	resource             string
+	// OPTIONAL. The logical name of the target service where the client intends
+	// to use the requested security token.
 	audience             string
+	// OPTIONAL. A list of space-delimited, case-sensitive strings, that allow
+	// the client to specify the desired scope of the requested security token in the
+	// context of the service or resource where the token will be used.
 	scope                string
+	// OPTIONAL. An identifier, for the type of the requested security token.
 	requestedTokenType   string
-	subjectToken         string  // Required
-	subjectTokenType     string  // Required
+	// REQUIRED. A security token that represents the identity of the party on
+	// behalf of whom the request is being made.
+	subjectToken         string
+	// REQUIRED. An identifier, that indicates the type of the security token in
+	// the "subject_token" parameter.
+	subjectTokenType     string
+	// OPTIONAL. A security token that represents the identity of the acting party.
 	actorToken           string
+	// An identifier, that indicates the type of the security token in the
+	// "actor_token" parameter.
 	actorTokenType       string
 }
 
@@ -55,40 +74,66 @@ type StsRequestParameters struct {
 // response. These attributes are defined in
 // https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16#section-2.2.1
 type StsResponseParameters struct {
-	accessToken 		string `json:"access_token"`      // Required
-	issuedTokenType     string `json:"issued_token_type"` // Required
-	tokenType           string `json:"token_type"`        // Required
+	// REQUIRED. The security token issued by the authorization server
+	// in response to the token exchange request.
+	accessToken 		    string `json:"access_token"`
+	// REQUIRED. An identifier, representation of the issued security token.
+	issuedTokenType     string `json:"issued_token_type"`
+	// REQUIRED. A case-insensitive value specifying the method of using the access
+	// token issued. It provides the client with information about how to utilize the
+	// access token to access protected resources.
+	tokenType           string `json:"token_type"`
+	// RECOMMENDED. The validity lifetime, in seconds, of the token issued by the
+	// authorization server.
 	expiresIn           string `json:"expires_in"`
+	// OPTIONAL, if the scope of the issued security token is identical to the
+	// scope requested by the client; otherwise, REQUIRED.
 	scope               string `json:"scope"`
-    refreshToken        string `json:"refresh_token"`
+	// OPTIONAL. A refresh token will typically not be issued when the exchange is
+	// of one temporary credential (the subject_token) for a different temporary
+	// credential (the issued token) for use in some other context.
+	refreshToken        string `json:"refresh_token"`
 }
 
 // StsErrorResponse stores all error parameters sent as JSON in a STS error response.
 // The error parameters are defined in
-// https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16#section-2.2.2
+// https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16#section-2.2.2.
 type StsErrorResponse struct {
-    error               string `json:"error"`
+	// REQUIRED. A single ASCII error code.
+	error               string `json:"error"`
+	// OPTIONAL. Human-readable ASCII [USASCII] text providing additional information.
 	errorDescription    string `json:"error_description"`
+	// OPTIONAL. A URI identifying a human-readable web page with information
+	// about the error.
 	errorUri            string `json:"error_uri"`
 }
 
-// error code sent in a STS error response.
-// https://tools.ietf.org/html/rfc6749#section-5.2
+// error code sent in a STS error response. A full list of error code is
+// defined in https://tools.ietf.org/html/rfc6749#section-5.2.
 const (
+	// If the request itself is not valid or if either the "subject_token" or
+	// "actor_token" are invalid or unacceptable, the STS server must set
+	// error code to "invalid_request".
 	invalidRequest       = "invalid_request"
+	// If the authorization server is unwilling or unable to issue a token, the
+	// STS server should set error code to "invalid_target".
 	invalidTarget        = "invalid_target"
 )
 
 // TokenManager contains methods for fetching token.
 type TokenManager interface {
-	// GenerateToken takes STS request parameters and fetches token, returns StsResponseParameters in JSON.
-	GenerateToken(attributes StsRequestParameters) ([]byte, error)
-	// DumpTokenStatus dumps all token status in JSON
+	// GenerateToken takes STS request parameters and generates token. Returns
+	// StsResponseParameters in JSON.
+	GenerateToken(parameters StsRequestParameters) ([]byte, error)
+	// DumpTokenStatus dumps status of all generated tokens and returns status in JSON.
 	DumpTokenStatus() ([]byte, error)
 }
 
-// Server provides an endpoint for handling security token service (STS) requests.
+// Server watches HTTP requests for security token service (STS), and returns
+// token in response.
 type Server struct {
+	// tokenManager takes STS request parameters and generates tokens, and returns
+	// generated token to the STS server.
 	tokenManager TokenManager
 	stsServer    *http.Server
 }
@@ -99,27 +144,49 @@ type Config struct {
 	LocalPort 	  uint16
 }
 
+// NewServer creates a new STS server.
+func NewServer(config Config, tokenManager TokenManager) (*Server, error) {
+	s := &Server{
+		tokenManager: tokenManager,
+	}
+	mux := http.NewServeMux()
+	mux.HandleFunc(tokenPath, s.ServeStsRequests)
+	mux.HandleFunc(stsStatusPath, s.DumpStsStatus)
+	s.stsServer = &http.Server{
+		Addr:    fmt.Sprintf("%s:%d", config.LocalHostAddr, config.LocalPort),
+		Handler: mux,
+	}
+	go func() {
+		err := s.stsServer.ListenAndServe()
+		// ListenAndServe always returns a non-nil error.
+		stsServiceLog.Errora(err)
+		notifyExit()
+	}()
+	return s, nil
+}
+
 // ServeStsRequests handles STS requests and sends exchanged token in responses.
 func (s *Server) ServeStsRequests(w http.ResponseWriter, req *http.Request) {
 	reqParam, validationError := s.validateStsRequest(req)
 	if validationError != nil {
-		stsServiceLog.Warnf("failed to validate STS request: %s", validationError.Error())
-		// If request is invalid, the value of the "error" parameter in the error response must be
-		// "invalid_request".
+		stsServiceLog.Warnf("STS request is invalid: %s", validationError.Error())
+		// If request is invalid, the error code must be "invalid_request".
 		// https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16#section-2.2.2.
 		if sendErr := s.sendErrorResponse(w, invalidRequest, validationError); sendErr != nil {
 			stsServiceLog.Errorf("failed to write STS error response: %s", sendErr.Error())
 		}
+		return
 	}
-	tokenDataJSON, fetchError := s.tokenManager.GenerateToken(reqParam)
-	if fetchError != nil {
-		stsServiceLog.Warnf("failed to exchange token for STS request: %s", fetchError.Error())
+	tokenDataJSON, genError := s.tokenManager.GenerateToken(reqParam)
+	if genError != nil {
+		stsServiceLog.Warnf("token manager fails to generate token: %s", genError.Error())
 		// If the authorization server is unable to issue a token, the "invalid_target" error code
 		// should be used in the error response.
 		// https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16#section-2.2.2.
-		if sendErr := s.sendErrorResponse(w, invalidTarget, fetchError); sendErr != nil {
+		if sendErr := s.sendErrorResponse(w, invalidTarget, genError); sendErr != nil {
 			stsServiceLog.Errorf("failed to write STS error response: %s", sendErr.Error())
 		}
+		return
 	}
 	if sendErr := s.sendSuccessfulResponse(w, tokenDataJSON); sendErr != nil {
 		stsServiceLog.Errorf("failed to write STS successful response: %s", sendErr.Error())
@@ -132,6 +199,8 @@ func (s *Server) validateStsRequest(req *http.Request) (StsRequestParameters, er
 	if req == nil {
 		return reqParam, errors.New("request is nil")
 	}
+
+	stsServiceLog.Debugf("Received STS request: %s", httputil.DumpRequest(req, true))
 	if req.Method != "POST" {
 		return reqParam, fmt.Errorf("request method should be POST but get %s", req.Method)
 	}
@@ -177,6 +246,9 @@ func (s *Server) sendErrorResponse(w http.ResponseWriter, errorType string, errD
 		if _, err := w.Write(errRespJSON); err != nil {
 			return err
 		}
+	} else {
+		stsServiceLog.Errorf("failed to marshal error response into JSON: %s", err.Error())
+		return err
 	}
 	return nil
 }
@@ -188,14 +260,18 @@ func (s *Server) sendSuccessfulResponse(w http.ResponseWriter, tokenData []byte)
 	if _, err := w.Write(tokenData); err != nil {
 		return err
 	}
+	stsServiceLog.Debug("Successfully sent out STS response")
 	return nil
 }
 
 // DumpStsStatus handles requests for dumping STS status, including STS requests being served,
 // tokens being fetched.
-func (s *Server) DumpStsStatus(w http.ResponseWriter, _ *http.Request) {
+func (s *Server) DumpStsStatus(w http.ResponseWriter, req *http.Request) {
+	stsServiceLog.Debugf("Received STS request: %s", httputil.DumpRequest(req, true))
+
 	stsStatusJSON, err := s.tokenManager.DumpTokenStatus()
 	if err != nil {
+		stsServiceLog.Errorf("token manager failed to dump token status: %s", err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		failureMessage := fmt.Sprintf("failed to dump STS server status: %s", err)
 		if _, err := w.Write([]byte(failureMessage)); err != nil {
@@ -206,26 +282,6 @@ func (s *Server) DumpStsStatus(w http.ResponseWriter, _ *http.Request) {
 	if _, err := w.Write(stsStatusJSON); err != nil {
 		stsServiceLog.Errorf("failed to write STS response: %s", err)
 	}
-}
-
-// NewServer creates a new status server.
-func NewServer(config Config, tokenManager TokenManager) (*Server, error) {
-	s := &Server{
-		tokenManager: tokenManager,
-	}
-	mux := http.NewServeMux()
-	mux.HandleFunc(tokenPath, s.ServeStsRequests)
-	mux.HandleFunc(stsStatusPath, s.DumpStsStatus)
-	s.stsServer = &http.Server{
-		Addr:    fmt.Sprintf("%s:%d", config.LocalHostAddr, config.LocalPort),
-		Handler: mux,
-	}
-	go func() {
-		err := s.stsServer.ListenAndServe()
-		// ListenAndServe always returns a non-nil error.
-		stsServiceLog.Errora(err)
-		notifyExit()
-	}()
 }
 
 // notifyExit sends SIGTERM to itself
