@@ -47,7 +47,7 @@ ifneq ($(KUBECONFIG),)
 endif
 
 # Generate integration test targets for kubernetes environment.
-test.integration.%.kube: | $(JUNIT_REPORT)
+test.integration.%.kube: | $(JUNIT_REPORT) $(JUNIT_OUT)
 	$(GO) test -p 1 ${T} ./tests/integration/$(subst .,/,$*)/... ${_INTEGRATION_TEST_WORKDIR_FLAG} ${_INTEGRATION_TEST_CIMODE_FLAG} -timeout 30m \
 	--istio.test.env kube \
 	--istio.test.kube.config ${INTEGRATION_TEST_KUBECONFIG} \
