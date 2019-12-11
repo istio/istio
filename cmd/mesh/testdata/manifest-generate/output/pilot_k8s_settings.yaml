@@ -5762,7 +5762,6 @@ data:
     accessLogFile: ""
 
     enableEnvoyAccessLogService: false
-    mixerCheckServer: istio-policy.istio-control.svc.cluster.local:15004
     mixerReportServer: istio-telemetry.istio-control.svc.cluster.local:15004
     # reportBatchMaxEntries is the number of requests that are batched before telemetry data is sent to the mixer server
     reportBatchMaxEntries: 100
@@ -5772,6 +5771,16 @@ data:
 
     disablePolicyChecks: true
 
+    # Automatic protocol detection uses a set of heuristics to
+    # determine whether the connection is using TLS or not (on the
+    # server side), as well as the application protocol being used
+    # (e.g., http vs tcp). These heuristics rely on the client sending
+    # the first bits of data. For server first protocols like MySQL,
+    # MongoDB, etc., Envoy will timeout on the protocol detection after
+    # the specified period, defaulting to non mTLS plain TCP
+    # traffic. Set this field to tweak the period that Envoy will wait
+    # for the client to send the first bits of data. (MUST BE >=1ms)
+    protocolDetectionTimeout: 100ms
 
     # This is the k8s ingress service name, update if you used a different name
     ingressService: "istio-ingressgateway"
@@ -6275,6 +6284,19 @@ data:
       - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep
         regex: istio-citadel;http-monitoring
+
+    - job_name: 'sidecar-injector'
+
+      kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names:
+          - istio-control
+
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: istio-sidecar-injector;http-monitoring
 
     # scrape config for API servers
     - job_name: 'kubernetes-apiservers'
