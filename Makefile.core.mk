@@ -211,12 +211,7 @@ ${ISTIO_ENVOY_MACOS_RELEASE_PATH}: init
 # Developers must manually run `dep ensure` if adding new deps
 depend: init | $(ISTIO_OUT)
 
-OUTPUT_DIRS = $(ISTIO_OUT)
-DIRS_TO_CLEAN+=${ISTIO_OUT}
-ifneq ($(ISTIO_OUT),$(ISTIO_OUT_LINUX))
-  OUTPUT_DIRS += $(ISTIO_OUT_LINUX)
-  DIRS_TO_CLEAN += $(ISTIO_OUT_LINUX)
-endif
+DIRS_TO_CLEAN := $(ISTIO_OUT)
 
 $(OUTPUT_DIRS):
 	@mkdir -p $@
@@ -537,7 +532,7 @@ include tools/istio-docker.mk
 
 push: docker.push
 
-$(HELM): $(ISTIO_OUT)
+$(HELM):
 	bin/init_helm.sh
 
 $(HOME)/.helm:
@@ -545,18 +540,18 @@ $(HOME)/.helm:
 
 # create istio-init.yaml
 istio-init.yaml: $(HELM) $(HOME)/.helm
-	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
-	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/$@
+	cat $(ISTIO_OUT)/install/kubernetes/namespace.yaml > $(ISTIO_OUT)/install/kubernetes/$@
+	cat $(ISTIO_OUT)/install/kubernetes/helm/istio-init/files/crd-* >> $(ISTIO_OUT)/install/kubernetes/$@
 	$(HELM) template --name=istio --namespace=istio-system \
 		--set-string global.tag=${TAG_VARIANT} \
 		--set-string global.hub=${HUB} \
-		install/kubernetes/helm/istio-init >> install/kubernetes/$@
+		$(ISTIO_OUT)/install/kubernetes/helm/istio-init >> $(ISTIO_OUT)/install/kubernetes/$@
 
 # creates istio-demo.yaml istio-remote.yaml
-# Ensure that values-$filename is present in install/kubernetes/helm/istio
+# Ensure that values-$filename is present in $(ISTIO_OUT)/install/kubernetes/helm/istio
 istio-demo.yaml istio-remote.yaml istio-minimal.yaml: $(HELM) $(HOME)/.helm
-	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
-	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/$@
+	cat $(ISTIO_OUT)/install/kubernetes/namespace.yaml > $(ISTIO_OUT)/install/kubernetes/$@
+	cat $(ISTIO_OUT)/install/kubernetes/helm/istio-init/files/crd-* >> $(ISTIO_OUT)/install/kubernetes/$@
 	$(HELM) template \
 		--name=istio \
 		--namespace=istio-system \
@@ -566,8 +561,8 @@ istio-demo.yaml istio-remote.yaml istio-minimal.yaml: $(HELM) $(HOME)/.helm
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
 		--set istio_cni.enabled=${ENABLE_ISTIO_CNI} \
 		${EXTRA_HELM_SETTINGS} \
-		--values install/kubernetes/helm/istio/values-$@ \
-		install/kubernetes/helm/istio >> install/kubernetes/$@
+		--values $(ISTIO_OUT)/install/kubernetes/helm/istio/values-$@ \
+		$(ISTIO_OUT)/install/kubernetes/helm/istio >> $(ISTIO_OUT)/install/kubernetes/$@
 
 e2e_files = istio-auth-non-mcp.yaml \
 			istio-auth-sds.yaml \
@@ -581,17 +576,17 @@ e2e_files = istio-auth-non-mcp.yaml \
 			istio-one-namespace-auth.yaml \
 			istio-one-namespace-trust-domain.yaml \
 			istio-multicluster.yaml \
-			istio-multicluster-split-horizon.yaml \
+			istio-multicluster-split-horizon.yaml
 
-FILES_TO_CLEAN+=install/consul/istio.yaml \
-                install/kubernetes/istio-auth.yaml \
-                install/kubernetes/istio-citadel-plugin-certs.yaml \
-                install/kubernetes/istio-citadel-with-health-check.yaml \
-                install/kubernetes/istio-one-namespace-auth.yaml \
-                install/kubernetes/istio-one-namespace-trust-domain.yaml \
-                install/kubernetes/istio-one-namespace.yaml \
-                install/kubernetes/istio.yaml \
-                samples/bookinfo/platform/consul/bookinfo.sidecars.yaml \
+FILES_TO_CLEAN+=$(ISTIO_OUT)/install/consul/istio.yaml \
+                $(ISTIO_OUT)/install/kubernetes/istio-auth.yaml \
+                $(ISTIO_OUT)/install/kubernetes/istio-citadel-plugin-certs.yaml \
+                $(ISTIO_OUT)/install/kubernetes/istio-citadel-with-health-check.yaml \
+                $(ISTIO_OUT)/install/kubernetes/istio-one-namespace-auth.yaml \
+                $(ISTIO_OUT)/install/kubernetes/istio-one-namespace-trust-domain.yaml \
+                $(ISTIO_OUT)/install/kubernetes/istio-one-namespace.yaml \
+                $(ISTIO_OUT)/install/kubernetes/istio.yaml \
+                $(ISTIO_OUT)/samples/bookinfo/platform/consul/bookinfo.sidecars.yaml 
 
 #-----------------------------------------------------------------------------
 # Target: environment and tools
