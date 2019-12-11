@@ -441,6 +441,11 @@ func IsApplicationNodeType(nType NodeType) bool {
 	}
 }
 
+// IsEgressGateway checks that the proxy is an egress gateway.
+func IsEgressGateway(node *Proxy) bool {
+	return node.Type == Router && node.Metadata.Labels["istio"] == "egressgateway"
+}
+
 // ServiceNode encodes the proxy node attributes into a URI-acceptable string
 func (node *Proxy) ServiceNode() string {
 	ip := ""

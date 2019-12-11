@@ -72,7 +72,11 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 		}
 
 		p := protocol.Parse(servers[0].Port.Protocol)
-		listenerProtocol := plugin.ModelProtocolToListenerProtocol(node, p, core.TrafficDirection_OUTBOUND)
+		trafficDirection := core.TrafficDirection_OUTBOUND
+		if model.IsEgressGateway(node) {
+			trafficDirection = core.TrafficDirection_INBOUND
+		}
+		listenerProtocol := plugin.ModelProtocolToListenerProtocol(node, p, trafficDirection)
 		if p.IsHTTP() {
 			// We have a list of HTTP servers on this port. Build a single listener for the server port.
 			// We only need to look at the first server in the list as the merge logic
@@ -102,7 +106,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 		}
 
 		l := buildListener(opts)
-		l.TrafficDirection = core.TrafficDirection_OUTBOUND
+		l.TrafficDirection = trafficDirection
 
 		mutable := &plugin.MutableObjects{
 			Listener: l,
