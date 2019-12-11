@@ -46,11 +46,7 @@ func TestMtlsStrict(t *testing.T) {
 						// Exclude calls to the headless service.
 						// Auto mtls does not apply to headless service, because for headless service
 						// the cluster discovery type is ORIGINAL_DST, and it will not apply upstream tls setting
-						if opts.Target == rctx.Headless {
-							return false
-						}
-
-						return true
+						return opts.Target != rctx.Headless
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						// When mTLS is in STRICT mode, DR's TLS settings are default to mTLS so the result would
