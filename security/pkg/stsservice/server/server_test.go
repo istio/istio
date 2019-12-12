@@ -38,7 +38,7 @@ const (
 
 type stsRespType int
 const (
-	successStsResp					stsRespType = 0
+	successStsResp			stsRespType = 0
 	invalidGrantType        stsRespType = 1
 	invalidSubjectToken     stsRespType = 2
 	invalidRequestMethod    stsRespType = 3
@@ -58,11 +58,11 @@ func TestStsService(t *testing.T) {
 		genTokenError  				error
 		dumpTokenError 				error
 		stsRequest     				*http.Request
-		expectedStsResponse   *http.Response
+		expectedStsResponse   		*http.Response
 	}{
 		"Send a valid STS request and get STS success response": {
 			stsRequest: genStsRequest(validStsReq, addr.String() + tokenPath),
-			expectedStsResponse: genStsResponse(successStsResp),
+			expectedStsResponse: genStsResponse(successStsResp, genSuccessStsRespParam()),
 		},
 		"Send an invalid STS request and get STS error response": {},
 		"Send a valid STS request and get STS error response": {},
@@ -116,9 +116,19 @@ func genStsRequest(reqType stsReqType, serverAddr string) (req *http.Request) {
 	return nil
 }
 
-func genStsResponse(respType stsRespType) (resp *http.Response) {
+func genStsResponse(respType stsRespType, param stsservice.StsResponseParameters) (resp *http.Response) {
 	if respType == successStsResp {
 
 	}
 	return resp
+}
+
+func genSuccessStsRespParam() (p stsservice.StsResponseParameters) {
+	return stsservice.StsResponseParameters{
+		AccessToken: "accesstoken",
+		IssuedTokenType: "urn:ietf:params:oauth:token-type:access_token",
+		TokenType: "Bearer",
+		ExpiresIn: 60,
+		Scope: "example.com",
+	}
 }

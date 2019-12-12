@@ -25,7 +25,8 @@ type fakeTokenManager struct {
 	mutex sync.RWMutex
 	generateTokenError error
 	dumpTokenError     error
-	tokens        		 sync.Map
+	tokens        	   sync.Map
+	stsRespParam       stsservice.StsResponseParameters
 }
 
 type tokenInfo struct {
@@ -43,6 +44,7 @@ func CreateFakeTokenManager() (*fakeTokenManager) {
 		generateTokenError: nil,
 		dumpTokenError:     nil,
 		tokens:             sync.Map{},
+		stsRespParam:       stsservice.StsResponseParameters{},
 	}
 	return tm
 }
@@ -59,6 +61,12 @@ func (tm *fakeTokenManager) SetDumpTokenError (err error) {
 	tm.dumpTokenError = err
 }
 
+func (tm *fakeTokenManager) SetRespStsParam(p stsservice.StsResponseParameters) {
+	tm.mutex.Lock()
+	defer tm.mutex.Unlock()
+	tm.stsRespParam = p
+}
+
 // GenerateToken returns a fake token, or error if generateTokenError is set.
 func (tm *fakeTokenManager) GenerateToken(_ stsservice.StsRequestParameters) ([]byte, error) {
 	var expErr error
@@ -68,13 +76,10 @@ func (tm *fakeTokenManager) GenerateToken(_ stsservice.StsRequestParameters) ([]
 	if expErr != nil {
 		return nil, expErr
 	}
-	stsResp := stsservice.StsResponseParameters{
-		AccessToken:     "fakeaccesstoken",
-		IssuedTokenType: "urn:ietf:params:oauth:token-type:access_token",
-		TokenType:       "Bearer",
-		ExpiresIn:       60,
-		Scope:           "example.com",
-	}
+	var stsResp stsservice.StsResponseParameters
+	tm.mutex.Lock()
+	stsResp = tm.stsRespParam
+	tm.mutex.Unlock()
 	t := time.Now()
 	tm.tokens.Store(t.String(), tokenInfo{
 		tokenType:  stsResp.TokenType,
