@@ -24,6 +24,8 @@ import (
 	"sync"
 	"time"
 
+	"google.golang.org/grpc/keepalive"
+
 	"github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
 
@@ -373,4 +375,30 @@ func (s *Server) makeFileMonitor(fileDir string, configController model.ConfigSt
 	})
 
 	return nil
+}
+
+func grpcDial(ctx context.Context, cancel context.CancelFunc,
+	configSource *meshconfig.ConfigSource, args *PilotArgs) (conn *grpc.ClientConn, err error) {
+	securityOption, err := mcpSecurityOptions(ctx, cancel, configSource)
+	if err != nil {
+		return nil, err
+	}
+
+	keepaliveOption := grpc.WithKeepaliveParams(keepalive.ClientParameters{
+		Time:    args.KeepaliveOptions.Time,
+		Timeout: args.KeepaliveOptions.Timeout,
+	})
+
+	initialWindowSizeOption := grpc.WithInitialWindowSize(int32(args.MCPInitialWindowSize))
+	initialConnWindowSizeOption := grpc.WithInitialConnWindowSize(int32(args.MCPInitialConnWindowSize))
+	msgSizeOption := grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(args.MCPMaxMessageSize))
+
+	return grpc.DialContext(
+		ctx,
+		configSource.Address,
+		securityOption,
+		msgSizeOption,
+		keepaliveOption,
+		initialWindowSizeOption,
+		initialConnWindowSizeOption)
 }
