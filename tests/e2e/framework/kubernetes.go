@@ -91,7 +91,7 @@ const (
 	kubernetesReadinessInterval       = 200 * time.Millisecond
 	validationWebhookReadinessTimeout = time.Minute
 	istioOperatorTimeout              = time.Second * 300
-	istioOperatorFreq                 = time.Minute
+	istioOperatorFreq                 = time.Second * 10
 	validationWebhookReadinessFreq    = 100 * time.Millisecond
 )
 
@@ -1033,9 +1033,7 @@ EOF`, k.KubeConfig, dummyValidationRule)
 
 func (k *KubeInfo) waitForIstioOperator() error {
 
-	get := fmt.Sprintf(`cat << EOF | kubectl --kubeconfig=%s get icp example-istiocontrolplane -n istio-operator
--o yaml
-EOF`, k.KubeConfig)
+	get := fmt.Sprintf(`kubectl --kubeconfig=%s get icp example-istiocontrolplane -n istio-operator -o yaml`, k.KubeConfig)
 	timeout := time.Now().Add(istioOperatorTimeout)
 	for {
 		if time.Now().After(timeout) {
@@ -1047,7 +1045,7 @@ EOF`, k.KubeConfig)
 			break
 		}
 
-		log.Errorf("istio-operator is still deploying Istio: %v", err)
+		log.Warnf("istio-operator is still deploying Istio: %v", err)
 		time.Sleep(istioOperatorFreq)
 
 	}
