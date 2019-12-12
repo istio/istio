@@ -544,19 +544,19 @@ $(HOME)/.helm:
 # create istio-init.yaml
 istio-init.yaml: $(HOME)/.helm
 	mkdir -p $(ISTIO_OUT)/install/kubernetes
-	cat install/kubernetes/namespace.yaml > $(ISTIO_OUT)/install/kubernetes/$@
-	cat install/kubernetes/helm/istio-init/files/crd-* >> $(ISTIO_OUT)/install/kubernetes/$@
+	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
+	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/$@
 	$(HELM) template --name=istio --namespace=istio-system \
 		--set-string global.tag=${TAG_VARIANT} \
 		--set-string global.hub=${HUB} \
-		install/kubernetes/helm/istio-init >> $(ISTIO_OUT)/install/kubernetes/$@
+		install/kubernetes/helm/istio-init >> install/kubernetes/$@
 
 # creates istio-demo.yaml istio-remote.yaml
 # Ensure that values-$filename is present in $(ISTIO_OUT)/install/kubernetes/helm/istio
 istio-demo.yaml istio-remote.yaml istio-minimal.yaml: $(HOME)/.helm
 	mkdir -p $(ISTIO_OUT)/install/kubernetes
-	cat install/kubernetes/namespace.yaml > $(ISTIO_OUT)/install/kubernetes/$@
-	cat install/kubernetes/helm/istio-init/files/crd-* >> $(ISTIO_OUT)/install/kubernetes/$@
+	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
+	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/$@
 	$(HELM) template \
 		--name=istio \
 		--namespace=istio-system \
@@ -567,31 +567,31 @@ istio-demo.yaml istio-remote.yaml istio-minimal.yaml: $(HOME)/.helm
 		--set istio_cni.enabled=${ENABLE_ISTIO_CNI} \
 		${EXTRA_HELM_SETTINGS} \
 		--values install/kubernetes/helm/istio/values-$@ \
-		install/kubernetes/helm/istio >> $(ISTIO_OUT)/install/kubernetes/$@
+		install/kubernetes/helm/istio >> install/kubernetes/$@
 
 e2e_files = istio-auth-non-mcp.yaml \
-			istio-auth-sds.yaml \
-			istio-non-mcp.yaml \
-			istio.yaml \
-			istio-auth.yaml \
-			istio-auth-mcp.yaml \
-			istio-auth-multicluster.yaml \
-			istio-mcp.yaml \
-			istio-one-namespace.yaml \
-			istio-one-namespace-auth.yaml \
-			istio-one-namespace-trust-domain.yaml \
-			istio-multicluster.yaml \
-			istio-multicluster-split-horizon.yaml
+		istio-auth-sds.yaml \
+		istio-non-mcp.yaml \
+		istio.yaml \
+		istio-auth.yaml \
+		istio-auth-mcp.yaml \
+		istio-auth-multicluster.yaml \
+		istio-mcp.yaml \
+		istio-one-namespace.yaml \
+		istio-one-namespace-auth.yaml \
+		istio-one-namespace-trust-domain.yaml \
+		istio-multicluster.yaml \
+		istio-multicluster-split-horizon.yaml
 
-FILES_TO_CLEAN+=$(ISTIO_OUT)/install/consul/istio.yaml \
-                $(ISTIO_OUT)/install/kubernetes/istio-auth.yaml \
-                $(ISTIO_OUT)/install/kubernetes/istio-citadel-plugin-certs.yaml \
-                $(ISTIO_OUT)/install/kubernetes/istio-citadel-with-health-check.yaml \
-                $(ISTIO_OUT)/install/kubernetes/istio-one-namespace-auth.yaml \
-                $(ISTIO_OUT)/install/kubernetes/istio-one-namespace-trust-domain.yaml \
-                $(ISTIO_OUT)/install/kubernetes/istio-one-namespace.yaml \
-                $(ISTIO_OUT)/install/kubernetes/istio.yaml \
-                $(ISTIO_OUT)/samples/bookinfo/platform/consul/bookinfo.sidecars.yaml 
+FILES_TO_CLEAN+=install/consul/istio.yaml \
+                install/kubernetes/istio-auth.yaml \
+                install/kubernetes/istio-citadel-plugin-certs.yaml \
+                install/kubernetes/istio-citadel-with-health-check.yaml \
+                install/kubernetes/istio-one-namespace-auth.yaml \
+                install/kubernetes/istio-one-namespace-trust-domain.yaml \
+                install/kubernetes/istio-one-namespace.yaml \
+                install/kubernetes/istio.yaml \
+                samples/bookinfo/platform/consul/bookinfo.sidecars.yaml 
 
 #-----------------------------------------------------------------------------
 # Target: environment and tools
