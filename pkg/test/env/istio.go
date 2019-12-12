@@ -73,8 +73,8 @@ var (
 	IstioTop = TOP.ValueOrDefaultFunc(getDefaultIstioTop)
 
 	// IstioSrc is the location if istio source ($TOP/src/istio.io/istio
-//	IstioSrc = path.Join(IstioTop, "src/istio.io/istio")
-	IstioSrc = path.Join("/work")
+	IstioSrc = path.Join(IstioTop, "src/istio.io/istio")
+//	IstioSrc = path.Join("/work")
 
 	// IstioBin is the location of the binary output directory
 	IstioBin = verifyFile(ISTIO_BIN, ISTIO_BIN.ValueOrDefaultFunc(getDefaultIstioBin))
