@@ -85,17 +85,19 @@ export ISTIO_BIN=$(GOBIN)
 # Using same package structure as pkg/
 
 export ISTIO_OUT:=$(TARGET_OUT)
-export ISTIO_OUT_LINUX:=$(GOBIN)
+export ISTIO_OUT_LINUX:=$(TARGET_OUT_LINUX)
 export HELM=helm
 export ARTIFACTS ?= $(ISTIO_OUT)
 export REPO_ROOT := $(shell git rev-parse --show-toplevel)
 
 # Make directories needed by the build system
 $(shell mkdir -p $(ISTIO_OUT))
+$(shell mkdir -p $(ISTIO_OUT_LINUX))
+$(shell mkdir -p $(ISTIO_OUT_LINUX)/logs)
+$(shell mkdir -p $(dir $(JUNIT_OUT)))
 
 # scratch dir: this shouldn't be simply 'docker' since that's used for docker.save to store tar.gz files
 ISTIO_DOCKER:=${ISTIO_OUT_LINUX}/docker_temp
-ISTIO_DOCKER:=${ISTIO_OUT}/docker_temp
 # Config file used for building istio:proxy container.
 DOCKER_PROXY_CFG?=Dockerfile.proxy
 
@@ -107,7 +109,7 @@ DOCKER_BUILD_TOP:=${ISTIO_OUT_LINUX}/docker_build
 DOCKERX_BUILD_TOP:=${ISTIO_OUT_LINUX}/dockerx_build
 
 # dir where tar.gz files from docker.save are stored
-ISTIO_DOCKER_TAR:=${ISTIO_OUT}/docker
+ISTIO_DOCKER_TAR:=${ISTIO_OUT_LINUX}/docker
 
 # Populate the git version for istio/proxy (i.e. Envoy)
 ifeq ($(PROXY_REPO_SHA),)
@@ -194,8 +196,12 @@ default: init build test
 
 .PHONY: init
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
+<<<<<<< HEAD
 init: $(ISTIO_OUT)/istio_is_init
 	mkdir -p ${TARGET_OUT}/logs
+=======
+init: check-go-version $(ISTIO_OUT)/istio_is_init | $(ISTIO_OUT)
+>>>>>>> Clean up directory creation
 
 # Sync is the same as init in release branch. In master this pulls from master.
 sync: init
@@ -393,15 +399,13 @@ with_junit_report: | $(JUNIT_REPORT)
 
 # Run coverage tests
 JUNIT_OUT ?= $(ARTIFACTS)/junit.xml
-$(JUNIT_OUT):
-	mkdir -p $(dir $(JUNIT_OUT))
 
 ifeq ($(WHAT),)
        TEST_OBJ = common-test pilot-test mixer-test security-test galley-test istioctl-test
 else
        TEST_OBJ = selected-pkg-test
 endif
-test: | $(JUNIT_OUT) $(JUNIT_REPORT)
+test: | $(JUNIT_REPORT)
 	KUBECONFIG="$${KUBECONFIG:-$${REPO_ROOT}/tests/util/kubeconfig}" \
 	$(MAKE) -f Makefile.core.mk --keep-going $(TEST_OBJ) \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
@@ -488,7 +492,6 @@ common-coverage:
 
 RACE_TESTS ?= pilot-racetest mixer-racetest security-racetest galley-test common-racetest istioctl-racetest
 racetest: $(JUNIT_REPORT)
-	mkdir -p $(dir $(JUNIT_OUT))
 	$(MAKE) -f Makefile.core.mk --keep-going $(RACE_TESTS) \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
