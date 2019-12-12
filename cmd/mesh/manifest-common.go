@@ -150,20 +150,29 @@ func ignoreError(stderr string) bool {
 // fetchInstallPackageFromURL downloads installation packages from specified URL.
 func fetchInstallPackageFromURL(mergedICPS *v1alpha2.IstioControlPlaneSpec) error {
 	if util.IsHTTPURL(mergedICPS.InstallPackagePath) {
-		uf, err := helm.NewURLFetcher(mergedICPS.InstallPackagePath, "")
+		pkgPath, err := fetchInstallPackage(mergedICPS.InstallPackagePath)
 		if err != nil {
 			return err
 		}
-		if err := uf.FetchBundles().ToError(); err != nil {
-			return err
-		}
-		isp := path.Base(mergedICPS.InstallPackagePath)
-		// get rid of the suffix, installation package is untared to folder name istio-{version}, e.g. istio-1.3.0
-		idx := strings.LastIndex(isp, "-")
 		// TODO: replace with more robust logic to set local file path
-		mergedICPS.InstallPackagePath = filepath.Join(uf.DestDir(), isp[:idx], helm.ChartsFilePath)
+		mergedICPS.InstallPackagePath = filepath.Join(pkgPath, helm.ChartsFilePath)
 	}
 	return nil
+}
+
+// fetchInstallPackage downloads installation packages from the given url.
+func fetchInstallPackage(url string) (string, error) {
+	uf, err := helm.NewURLFetcher(url, "")
+	if err != nil {
+		return "", err
+	}
+	if err := uf.FetchBundles().ToError(); err != nil {
+		return "", err
+	}
+	isp := path.Base(url)
+	// get rid of the suffix, installation package is untared to folder name istio-{version}, e.g. istio-1.3.0
+	idx := strings.LastIndex(isp, "-")
+	return filepath.Join(uf.DestDir(), isp[:idx]), nil
 }
 
 // MakeTreeFromSetList creates a YAML tree from a string slice containing key-value pairs in the format key=value.

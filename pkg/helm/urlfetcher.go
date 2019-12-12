@@ -40,6 +40,8 @@ const (
 	InstallationDirectory = "istio-install-packages"
 	// ChartsFilePath is file path of installation packages to helm charts.
 	ChartsFilePath = "install/kubernetes/operator/charts"
+	// ProfilesFilePath is file path of installation packages to profiles.
+	ProfilesFilePath = "install/kubernetes/operator/profiles"
 	// SHAFileSuffix is the default SHA file suffix
 	SHAFileSuffix = ".sha256"
 )
