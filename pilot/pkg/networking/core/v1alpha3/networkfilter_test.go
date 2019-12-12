@@ -24,7 +24,7 @@ import (
 )
 
 func TestBuildRedisFilter(t *testing.T) {
-	redisFilter := buildRedisFilter("redis", "redis-cluster", true)
+	redisFilter := buildRedisFilter("redis", "redis-cluster")
 	if redisFilter.Name != xdsutil.RedisProxy {
 		t.Errorf("redis filter name is %s not %s", redisFilter.Name, xdsutil.RedisProxy)
 	}
@@ -44,13 +44,5 @@ func TestBuildRedisFilter(t *testing.T) {
 		}
 	} else {
 		t.Errorf("redis filter type is %T not listener.Filter_TypedConfig ", redisFilter.ConfigType)
-	}
-
-	redisFilter = buildRedisFilter("redis", "redis-cluster", false)
-	if redisFilter.Name != xdsutil.RedisProxy {
-		t.Errorf("redis filter name is %s not %s", redisFilter.Name, xdsutil.RedisProxy)
-	}
-	if _, ok := redisFilter.ConfigType.(*listener.Filter_Config); !ok {
-		t.Errorf("redis filter type is %T not listener.Filter_Config ", redisFilter.ConfigType)
 	}
 }

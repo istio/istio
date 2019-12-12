@@ -180,10 +180,10 @@ inputs in the analyzer metadata. This should help you find any unused inputs and
 
 ### 5. Testing via istioctl
 
-You can use `istioctl experimental analyze` to run all analyzers, including your new one. e.g.
+You can use `istioctl analyze` to run all analyzers, including your new one. e.g.
 
 ```sh
-make istioctl && $GOPATH/out/linux_amd64/release/istioctl experimental analyze
+make istioctl && $GOPATH/out/linux_amd64/release/istioctl analyze
 ```
 
 ### 6. Write a user-facing documentation page

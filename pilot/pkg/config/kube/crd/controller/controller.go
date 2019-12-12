@@ -223,11 +223,11 @@ func (c *controller) createInformer(
 func handleValidationFailure(obj interface{}, err error) {
 	if obj, ok := obj.(crd.IstioObject); ok {
 		key := obj.GetObjectMeta().Namespace + "/" + obj.GetObjectMeta().Name
-		log.Errorf("CRD validation failed: %s %s %v", obj.GetObjectKind().GroupVersionKind().GroupKind().Kind,
+		log.Debugf("CRD validation failed: %s %s %v", obj.GetObjectKind().GroupVersionKind().GroupKind().Kind,
 			key, err)
 		k8sErrors.With(nameTag.Value(key)).Record(1)
 	} else {
-		log.Errorf("CRD validation failed for unknown Kind: %s", err)
+		log.Debugf("CRD validation failed for unknown Kind: %s", err)
 		k8sErrors.With(nameTag.Value("unknown")).Record(1)
 	}
 }

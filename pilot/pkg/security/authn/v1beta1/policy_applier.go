@@ -25,16 +25,17 @@ import (
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/golang/protobuf/ptypes/empty"
 
-	"istio.io/istio/pilot/pkg/features"
-	authn_alpha "istio.io/istio/security/proto/authentication/v1alpha1"
-	authn_filter "istio.io/istio/security/proto/envoy/config/filter/http/authn/v2alpha1"
-
+	authn_alpha_api "istio.io/api/authentication/v1alpha1"
 	"istio.io/api/security/v1beta1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn"
+	alpha_applier "istio.io/istio/pilot/pkg/security/authn/v1alpha1"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
+	authn_alpha "istio.io/istio/security/proto/authentication/v1alpha1"
+	authn_filter "istio.io/istio/security/proto/envoy/config/filter/http/authn/v2alpha1"
 	"istio.io/pkg/log"
 )
 
@@ -42,13 +43,19 @@ import (
 type v1beta1PolicyApplier struct {
 	jwtPolicies []*model.Config
 	// TODO: add mTLS configs.
-	// TODO: add v1alpha1 fallback configs.
 
 	// processedJwtRules is the consolidate JWT rules from all jwtPolicies.
 	processedJwtRules []*v1beta1.JWT
+
+	alphaApplier authn.PolicyApplier
 }
 
 func (a *v1beta1PolicyApplier) JwtFilter(isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
+	if len(a.processedJwtRules) == 0 {
+		log.Debugf("RequestAuthentication (beta policy) not found, fallback to alpha if available")
+		return a.alphaApplier.JwtFilter(isXDSMarshalingToAnyEnabled)
+	}
+
 	filterConfigProto := convertToEnvoyJwtConfig(a.processedJwtRules)
 
 	if filterConfigProto == nil {
@@ -128,7 +135,7 @@ func (a *v1beta1PolicyApplier) InboundFilterChain(sdsUdsPath string, meta *model
 }
 
 // NewPolicyApplier returns new applier for v1beta1 authentication policies.
-func NewPolicyApplier(jwtPolicies []*model.Config) authn.PolicyApplier {
+func NewPolicyApplier(jwtPolicies []*model.Config, policy *authn_alpha_api.Policy) authn.PolicyApplier {
 	processedJwtRules := []*v1beta1.JWT{}
 
 	// TODO(diemtvu) should we need to deduplicate JWT with the same issuer.
@@ -148,6 +155,7 @@ func NewPolicyApplier(jwtPolicies []*model.Config) authn.PolicyApplier {
 	return &v1beta1PolicyApplier{
 		jwtPolicies:       jwtPolicies,
 		processedJwtRules: processedJwtRules,
+		alphaApplier:      alpha_applier.NewPolicyApplier(policy),
 	}
 }
 

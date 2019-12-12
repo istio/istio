@@ -238,7 +238,7 @@ func expectNoMessages(t *testing.T, g *GomegaWithT, output []string) {
 
 func istioctlSafe(t *testing.T, i istioctl.Instance, ns string, extraArgs ...string) ([]string, error) {
 	t.Helper()
-	args := []string{"experimental", "analyze"}
+	args := []string{"analyze"}
 	if ns != "" {
 		args = append(args, "--namespace", ns)
 	}
