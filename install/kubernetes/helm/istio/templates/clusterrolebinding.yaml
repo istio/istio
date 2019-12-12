@@ -1,7 +1,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istio-multi
+  name: istio-reader
   labels:
     chart: {{ .Chart.Name }}-{{ .Chart.Version }}
 roleRef:
@@ -10,5 +10,5 @@ roleRef:
   name: istio-reader
 subjects:
 - kind: ServiceAccount
-  name: istio-multi
+  name: istio-reader
   namespace: {{ .Release.Namespace }}
