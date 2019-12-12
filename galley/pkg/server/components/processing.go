@@ -59,9 +59,9 @@ import (
 
 const versionMetadataKey = "config.source.version"
 
-// Processing2 component is the main config processing component that will listen to a config source and publish
+// Processing component is the main config processing component that will listen to a config source and publish
 // resources through an MCP server, or a dialout connection.
-type Processing2 struct {
+type Processing struct {
 	args *settings.Args
 
 	mcpCache     *snapshot.Cache
@@ -80,12 +80,12 @@ type Processing2 struct {
 	stopCh        chan struct{}
 }
 
-var _ process.Component = &Processing2{}
+var _ process.Component = &Processing{}
 
-// NewProcessing2 returns a new processing component.
-func NewProcessing2(a *settings.Args) *Processing2 {
+// NewProcessing returns a new processing component.
+func NewProcessing(a *settings.Args) *Processing {
 	mcpCache := snapshot.New(groups.IndexFunction)
-	return &Processing2{
+	return &Processing{
 		args:         a,
 		mcpCache:     mcpCache,
 		configzTopic: configz.CreateTopic(mcpCache),
@@ -93,7 +93,7 @@ func NewProcessing2(a *settings.Args) *Processing2 {
 }
 
 // Start implements process.Component
-func (p *Processing2) Start() (err error) {
+func (p *Processing) Start() (err error) {
 	var mesh event.Source
 	var src event.Source
 	var updater snapshotter.StatusUpdater
@@ -252,11 +252,11 @@ func (p *Processing2) Start() (err error) {
 }
 
 // ConfigZTopic returns the ConfigZTopic for the processor.
-func (p *Processing2) ConfigZTopic() fw.Topic {
+func (p *Processing) ConfigZTopic() fw.Topic {
 	return p.configzTopic
 }
 
-func (p *Processing2) getServerGrpcOptions() []grpc.ServerOption {
+func (p *Processing) getServerGrpcOptions() []grpc.ServerOption {
 	var grpcOptions []grpc.ServerOption
 	grpcOptions = append(grpcOptions,
 		grpc.MaxConcurrentStreams(uint32(p.args.MaxConcurrentStreams)),
@@ -279,7 +279,7 @@ func (p *Processing2) getServerGrpcOptions() []grpc.ServerOption {
 	return grpcOptions
 }
 
-func (p *Processing2) getKubeInterfaces() (k kube.Interfaces, err error) {
+func (p *Processing) getKubeInterfaces() (k kube.Interfaces, err error) {
 	if p.args.KubeRestConfig != nil {
 		return kube.NewInterfaces(p.args.KubeRestConfig), nil
 	}
@@ -290,7 +290,7 @@ func (p *Processing2) getKubeInterfaces() (k kube.Interfaces, err error) {
 	return
 }
 
-func (p *Processing2) createSourceAndStatusUpdater(resources schema.KubeResources) (
+func (p *Processing) createSourceAndStatusUpdater(resources schema.KubeResources) (
 	src event.Source, updater snapshotter.StatusUpdater, err error) {
 
 	if p.args.ConfigPath != "" {
@@ -323,7 +323,7 @@ func (p *Processing2) createSourceAndStatusUpdater(resources schema.KubeResource
 }
 
 // Stop implements process.Component
-func (p *Processing2) Stop() {
+func (p *Processing) Stop() {
 	if p.stopCh != nil {
 		close(p.stopCh)
 		p.stopCh = nil
@@ -364,14 +364,14 @@ func (p *Processing2) Stop() {
 	_ = log.Sync()
 }
 
-func (p *Processing2) getListener() net.Listener {
+func (p *Processing) getListener() net.Listener {
 	p.listenerMutex.Lock()
 	defer p.listenerMutex.Unlock()
 	return p.listener
 }
 
 // Address returns the Address of the MCP service.
-func (p *Processing2) Address() net.Addr {
+func (p *Processing) Address() net.Addr {
 	l := p.getListener()
 	if l == nil {
 		return nil

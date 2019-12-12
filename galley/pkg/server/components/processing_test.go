@@ -38,7 +38,7 @@ import (
 	mcptestmon "istio.io/istio/pkg/mcp/testing/monitoring"
 )
 
-func TestProcessing2_StartErrors(t *testing.T) {
+func TestProcessing_StartErrors(t *testing.T) {
 	g := NewGomegaWithT(t)
 	defer resetPatchTable()
 loop:
@@ -93,7 +93,7 @@ loop:
 
 		}
 
-		p := NewProcessing2(args)
+		p := NewProcessing(args)
 		err = p.Start()
 		g.Expect(err).NotTo(BeNil())
 		t.Logf("%d) err: %v", i, err)
@@ -101,7 +101,7 @@ loop:
 	}
 }
 
-func TestProcessing2_Basic(t *testing.T) {
+func TestProcessing_Basic(t *testing.T) {
 	g := NewGomegaWithT(t)
 	resetPatchTable()
 	defer resetPatchTable()
@@ -120,7 +120,7 @@ func TestProcessing2_Basic(t *testing.T) {
 	args.APIAddress = "tcp://0.0.0.0:0"
 	args.Insecure = true
 
-	p := NewProcessing2(args)
+	p := NewProcessing(args)
 	err := p.Start()
 	g.Expect(err).To(BeNil())
 

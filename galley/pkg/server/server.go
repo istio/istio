@@ -28,7 +28,7 @@ import (
 type Server struct {
 	host process.Host
 
-	p *components.Processing2
+	p *components.Processing
 }
 
 // New returns a new instance of a Server.
@@ -49,7 +49,7 @@ func New(a *settings.Args) *Server {
 	}
 
 	if a.EnableServer {
-		s.p = components.NewProcessing2(a)
+		s.p = components.NewProcessing(a)
 		s.host.Add(s.p)
 		t := s.p.ConfigZTopic()
 		topics = append(topics, t)
