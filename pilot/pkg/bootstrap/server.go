@@ -31,7 +31,6 @@ import (
 
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
-	"github.com/hashicorp/go-multierror"
 	prom "github.com/prometheus/client_golang/prometheus"
 
 	"google.golang.org/grpc"
@@ -264,17 +263,11 @@ func (s *Server) Start(stop <-chan struct{}) error {
 // initKubeClient creates the k8s client if running in an k8s environment.
 func (s *Server) initKubeClient(args *PilotArgs) error {
 	if hasKubeRegistry(args.Service.Registries) {
-		// We will also need the rest config - where the public key of k8s is stored - use the new method.
-		kc := args.Config.KubeConfig
-		kcfg, kuberr := kubelib.BuildClientConfig(kc, "")
-		if kuberr != nil {
-			return multierror.Prefix(kuberr, "failed to connect to Kubernetes API.")
+		var err error
+		s.kubeClient, err = kubelib.CreateClientset(args.Config.KubeConfig, "")
+		if err != nil {
+			return fmt.Errorf("failed create kube client %v", err)
 		}
-		client, kuberr := kubernetes.NewForConfig(kcfg)
-		if kuberr != nil {
-			return multierror.Prefix(kuberr, "failed to connect to Kubernetes API.")
-		}
-		s.kubeClient = client
 	}
 
 	return nil
