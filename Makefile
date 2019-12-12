@@ -92,6 +92,11 @@ $(info Using local Kubernetes configuration $(HOME)/.kube)
 CONDITIONAL_HOST_MOUNTS+=--mount type=bind,source="$(HOME)/.kube",destination="/home/.kube",readonly
 endif
 
+ifneq (,$(wildcard $(HOME)/.kube))
+$(info Using local Kubernetes configuration $(HOME)/.kube)
+DOCKER_CREDS_MOUNT+=--mount type=bind,source="$(HOME)/.kube",destination="/home/.kube",readonly
+endif
+
 ENV_VARS:=
 ifdef HUB
 ENV_VARS+=-e HUB="$(HUB)"
