@@ -36,6 +36,5 @@ export TAG="${TAG:-"istio-testing"}"
 
 make docker.app_sidecar docker.app
 
-export JUNIT_UNIT_TEST_XML="${ARTIFACTS}/junit_unit-tests.xml"
 export T="-v"
 make "$@"

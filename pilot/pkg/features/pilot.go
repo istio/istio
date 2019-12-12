@@ -253,6 +253,22 @@ var (
 			"but the older, deprecated regex field. This should only be enabled to support "+
 			"legacy deployments that have not yet been migrated to the new safe regular expressions.",
 	)
+
+	EnableCRDValidation = env.RegisterBoolVar(
+		"PILOT_ENABLE_CRD_VALIDATION",
+		false,
+		"If enabled, pilot will validate CRDs while retrieving CRDs from kubernetes cache."+
+			"Use this flag to enable validation of CRDs in Pilot, especially in deployments "+
+			"that do not have galley installed.",
+	)
+
+	// IstiodService controls the istiod address - used for injection and as default value injected into pods
+	// if istiod is used. The name must be part of the DNS certificate served by pilot/istiod. The '.svc' is
+	// imposed by K8S - that's how the names for webhooks are defined, based on webhook service (which will be
+	// istio-pilot or istiod) plus namespace and .svc.
+	// The 15010 port is used with plain text, 15011 with Spiffee certs - we need a different port for DNS cert.
+	IstiodService = env.RegisterStringVar("ISTIOD_ADDR", "",
+		"Service name of istiod. If empty the istiod listener, certs will be disabled.")
 )
 
 var (

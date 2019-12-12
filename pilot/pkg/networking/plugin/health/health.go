@@ -121,7 +121,7 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 	for i := range mutable.Listener.FilterChains {
 		if mutable.FilterChains[i].ListenerProtocol == plugin.ListenerProtocolHTTP {
 			for _, ip := range in.Node.IPAddresses {
-				buildHealthCheckFilters(&mutable.FilterChains[i], in.Env.WorkloadHealthCheckInfo(ip),
+				buildHealthCheckFilters(&mutable.FilterChains[i], in.Push.WorkloadHealthCheckInfo(ip),
 					&in.ServiceInstance.Endpoint, isXDSMarshalingToAnyEnabled)
 			}
 		}

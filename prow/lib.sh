@@ -63,9 +63,10 @@ function download_untar_istio_release() {
 
 function build_images() {
   # Build just the images needed for tests
-  for image in pilot proxyv2 app test_policybackend mixer citadel galley sidecar_injector kubectl node-agent-k8s; do
-     DOCKER_BUILD_VARIANTS="${VARIANT:-default}" make docker.${image}
-  done
+  targets="docker.pilot docker.proxyv2 "
+  targets+="docker.app docker.test_policybackend docker.kubectl "
+  targets+="docker.mixer docker.citadel docker.galley docker.sidecar_injector docker.node-agent-k8s"
+  DOCKER_BUILD_VARIANTS="${VARIANT:-default}" DOCKER_TARGETS="${targets}" make docker
 }
 
 function kind_load_images() {
@@ -78,8 +79,8 @@ function kind_load_images() {
     # Archived local images and load it into KinD's docker daemon
     # Kubernetes in KinD can only access local images from its docker daemon.
     docker images "${hub}/*:${TAG}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 kind -v9 --name "${NAME}" load docker-image && break
-    echo "Attempt ${i} to load images failed, retrying in 5s..."
-    sleep 5
+    echo "Attempt ${i} to load images failed, retrying in 1s..."
+    sleep 1
 	done
 
   # If a variant is specified, load those images as well.
@@ -87,49 +88,10 @@ function kind_load_images() {
   if [[ "${VARIANT:-}" != "" ]]; then
     for i in {1..3}; do
       docker images "${hub}/*:${TAG}-${VARIANT}" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 kind -v9 --name "${NAME}" load docker-image && break
-      echo "Attempt ${i} to load images failed, retrying in 5s..."
-      sleep 5
+      echo "Attempt ${i} to load images failed, retrying in 1s..."
+      sleep 1
     done
   fi
-}
-
-# Cleanup e2e resources.
-function cleanup() {
-  if [[ "${CLEAN_CLUSTERS}" == "True" ]]; then
-    unsetup_clusters
-  fi
-  if [[ "${USE_MASON_RESOURCE}" == "True" ]]; then
-    mason_cleanup
-    cat "${FILE_LOG}"
-  fi
-}
-
-# Set up a GKE cluster for testing.
-function setup_e2e_cluster() {
-  WD=$(dirname "$0")
-  WD=$(cd "$WD" || exit; pwd)
-  ROOT=$(dirname "$WD")
-
-  # shellcheck source=prow/mason_lib.sh
-  source "${ROOT}/prow/mason_lib.sh"
-  # shellcheck source=prow/cluster_lib.sh
-  source "${ROOT}/prow/cluster_lib.sh"
-
-  trap cleanup EXIT
-
-  if [[ "${USE_MASON_RESOURCE}" == "True" ]]; then
-    INFO_PATH="$(mktemp /tmp/XXXXX.boskos.info)"
-    FILE_LOG="$(mktemp /tmp/XXXXX.boskos.log)"
-    OWNER=${OWNER:-"e2e"}
-    E2E_ARGS+=("--mason_info=${INFO_PATH}")
-
-    setup_and_export_git_sha
-
-    get_resource "${RESOURCE_TYPE}" "${OWNER}" "${INFO_PATH}" "${FILE_LOG}"
-  else
-    export GIT_SHA="${GIT_SHA:-$TAG}"
-  fi
-  setup_cluster
 }
 
 function clone_cni() {

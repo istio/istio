@@ -22,6 +22,8 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 
+	"istio.io/istio/pkg/test/framework/label"
+
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -68,6 +70,7 @@ func TestClientTracing(t *testing.T) {
 func TestMain(m *testing.M) {
 	framework.NewSuite("client_tracing_test", m).
 		RequireEnvironment(environment.Kube).
+		Label(label.CustomSetup).
 		SetupOnEnv(environment.Kube, istio.Setup(tracing.GetIstioInstance(), setupConfig)).
 		Setup(tracing.TestSetup).
 		Run()

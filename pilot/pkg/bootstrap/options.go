@@ -78,6 +78,7 @@ type PilotArgs struct {
 	KeepaliveOptions         *istiokeepalive.Options
 	// ForceStop is set as true when used for testing to make the server stop quickly
 	ForceStop bool
+	BasePort  int
 }
 
 // DiscoveryServiceOptions contains options for create a new discovery
@@ -95,6 +96,10 @@ type DiscoveryServiceOptions struct {
 	// a port number is automatically chosen.
 	// "" means disabling secure GRPC, used in test.
 	SecureGrpcAddr string
+
+	// The listening address for secure GRPC with DNS-based certificates. Default is :15012, if certificates are available.
+	// Will not start otherwise.
+	SecureGrpcDNSAddr string
 
 	// The listening address for the monitoring port. If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
 	// a port number is automatically chosen.

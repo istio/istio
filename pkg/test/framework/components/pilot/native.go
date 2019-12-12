@@ -90,6 +90,13 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 		m = cfg.MeshConfig
 	}
 
+	if cfg.ServiceArgs.Registries == nil {
+		cfg.ServiceArgs = bootstrap.ServiceArgs{
+			// A ServiceEntry registry is added by default, which is what we want. Don't include any other registries.
+			Registries: []string{},
+		}
+	}
+
 	bootstrapArgs := bootstrap.PilotArgs{
 		Namespace:        e.SystemNamespace,
 		DiscoveryOptions: options,
@@ -100,10 +107,7 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 		},
 		MeshConfig: m,
 		// Use the config store for service entries as well.
-		Service: bootstrap.ServiceArgs{
-			// A ServiceEntry registry is added by default, which is what we want. Don't include any other registries.
-			Registries: []string{},
-		},
+		Service: cfg.ServiceArgs,
 		// Include all of the default plugins for integration with Mixer, etc.
 		Plugins:   bootstrap.DefaultPlugins,
 		ForceStop: true,

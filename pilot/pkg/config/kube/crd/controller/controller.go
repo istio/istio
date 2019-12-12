@@ -30,6 +30,7 @@ import (
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
@@ -161,11 +162,11 @@ func (c *controller) addInformer(schema schema.Instance, namespace string, resyn
 
 // notify is the first handler in the handler chain.
 // Returning an error causes repeated execution of the entire chain.
-func (c *controller) notify(obj interface{}, event model.Event) error {
+func (c *controller) notify(old, curr interface{}, event model.Event) error {
 	if !c.HasSynced() {
 		return errors.New("waiting till full synchronization")
 	}
-	_, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	_, err := cache.DeletionHandlingMetaNamespaceKeyFunc(curr)
 	if err != nil {
 		log.Infof("Error retrieving key: %v", err)
 	}
@@ -192,52 +193,70 @@ func (c *controller) createInformer(
 			// TODO: filtering functions to skip over un-referenced resources (perf)
 			AddFunc: func(obj interface{}) {
 				if err := vf(obj); err != nil {
-					log.Errorf("failed to add CRD. New value: %v, error: %v", obj, err)
-					incrementEvent(otype, "addfailure")
+					handleValidationFailure(obj, err)
 					return
 				}
 				incrementEvent(otype, "add")
-				c.queue.Push(kube.NewTask(handler.Apply, obj, model.EventAdd))
+				c.queue.Push(kube.NewTask(handler.Apply, nil, obj, model.EventAdd))
 			},
 			UpdateFunc: func(old, cur interface{}) {
 				if err := vf(cur); err != nil {
-					incrementEvent(otype, "updatefailure")
-					log.Errorf("failed to update CRD. New value: %v, error: %v", cur, err)
+					handleValidationFailure(cur, err)
 					return
 				}
 				if !reflect.DeepEqual(old, cur) {
 					incrementEvent(otype, "update")
-					c.queue.Push(kube.NewTask(handler.Apply, cur, model.EventUpdate))
+					c.queue.Push(kube.NewTask(handler.Apply, old, cur, model.EventUpdate))
 				} else {
 					incrementEvent(otype, "updatesame")
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
 				incrementEvent(otype, "delete")
-				c.queue.Push(kube.NewTask(handler.Apply, obj, model.EventDelete))
+				c.queue.Push(kube.NewTask(handler.Apply, nil, obj, model.EventDelete))
 			},
 		})
 
 	return cacheHandler{informer: informer, handler: handler}
 }
 
+func handleValidationFailure(obj interface{}, err error) {
+	if obj, ok := obj.(crd.IstioObject); ok {
+		key := obj.GetObjectMeta().Namespace + "/" + obj.GetObjectMeta().Name
+		log.Errorf("CRD validation failed: %s %s %v", obj.GetObjectKind().GroupVersionKind().GroupKind().Kind,
+			key, err)
+		k8sErrors.With(nameTag.Value(key)).Record(1)
+	} else {
+		log.Errorf("CRD validation failed for unknown Kind: %s", err)
+		k8sErrors.With(nameTag.Value("unknown")).Record(1)
+	}
+}
+
 func incrementEvent(kind, event string) {
 	k8sEvents.With(typeTag.Value(kind), eventTag.Value(event)).Increment()
 }
 
-func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model.Event)) {
+func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model.Config, model.Event)) {
 	s, exists := c.ConfigDescriptor().GetByType(typ)
 	if !exists {
 		return
 	}
-	c.kinds[typ].handler.Append(func(object interface{}, ev model.Event) error {
-		item, ok := object.(crd.IstioObject)
+	c.kinds[typ].handler.Append(func(old, curr interface{}, ev model.Event) error {
+		curritem, ok := curr.(crd.IstioObject)
 		if ok {
-			config, err := crd.ConvertObject(s, item, c.client.domainSuffix)
+			config, err := crd.ConvertObject(s, curritem, c.client.domainSuffix)
 			if err != nil {
-				log.Warnf("error translating object for schema %#v : %v\n Object:\n%#v", s, err, object)
+				log.Warnf("error translating object for schema %#v : %v\n Object:\n%#v", s, err, curr)
 			} else {
-				f(*config, ev)
+				olditem, ok := old.(crd.IstioObject)
+				oldconfig := &model.Config{}
+				if ok {
+					oldconfig, err = crd.ConvertObject(s, olditem, c.client.domainSuffix)
+					if err != nil {
+						log.Warnf("error translating object for schema %#v : %v\n Object:\n%#v", s, err, old)
+					}
+				}
+				f(*oldconfig, *config, ev)
 			}
 		}
 		return nil
@@ -263,6 +282,7 @@ func (c *controller) HasSynced() bool {
 }
 
 func (c *controller) Run(stop <-chan struct{}) {
+	log.Infoa("Starting Pilot K8S CRD controller")
 	go func() {
 		cache.WaitForCacheSync(stop, c.HasSynced)
 		c.queue.Run(stop)
@@ -303,6 +323,10 @@ func (c *controller) Get(typ, name, namespace string) *model.Config {
 	}
 
 	config, err := crd.ConvertObject(s, obj, c.client.domainSuffix)
+	if err == nil && features.EnableCRDValidation.Get() {
+		err = s.Validate(config.Name, config.Namespace, config.Spec)
+	}
+
 	if err != nil {
 		return nil
 	}
@@ -349,14 +373,18 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 		}
 
 		config, err := crd.ConvertObject(s, item, c.client.domainSuffix)
+
+		if err == nil && features.EnableCRDValidation.Get() {
+			err = s.Validate(config.Name, config.Namespace, config.Spec)
+		}
+
 		if err != nil {
 			key := item.GetObjectMeta().Namespace + "/" + item.GetObjectMeta().Name
-			log.Errorf("Failed to convert %s object, ignoring: %s %v %v", typ, key, err, item.GetSpec())
 			// DO NOT RETURN ERROR: if a single object is bad, it'll be ignored (with a log message), but
 			// the rest should still be processed.
 			// TODO: find a way to reset and represent the error !!
 			newErrors.Store(key, err)
-			k8sErrors.With(nameTag.Value(key)).Record(1)
+			handleValidationFailure(item, err)
 		} else {
 			out = append(out, *config)
 		}

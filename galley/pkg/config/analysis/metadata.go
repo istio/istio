@@ -20,6 +20,9 @@ import (
 
 // Metadata represents metadata for an analyzer
 type Metadata struct {
-	Name   string
-	Inputs collection.Names
+	Name string
+	// Description is a short explanation of what the analyzer checks. This
+	// field is displayed to users when --list-analyzers is called.
+	Description string
+	Inputs      collection.Names
 }

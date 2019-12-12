@@ -21,9 +21,6 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pkg/test/env"
-
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -39,9 +36,13 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+
+	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/test/env"
 )
 
 var (
@@ -77,22 +78,22 @@ func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyCo
 
 func buildPatchStruct(config string) *types.Struct {
 	val := &types.Struct{}
-	jsonpb.Unmarshal(strings.NewReader(config), val)
+	_ = jsonpb.Unmarshal(strings.NewReader(config), val)
 	return val
 }
 
-func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, mesh meshconfig.MeshConfig,
+func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, meshConfig meshconfig.MeshConfig,
 	configStore model.IstioConfigStore) *model.Environment {
-	env := &model.Environment{
+	e := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
 		IstioConfigStore: configStore,
-		Mesh:             &mesh,
+		Watcher:          mesh.NewFixedWatcher(&meshConfig),
 	}
 
-	env.PushContext = model.NewPushContext()
-	_ = env.PushContext.InitContext(env, nil, nil)
+	e.PushContext = model.NewPushContext()
+	_ = e.PushContext.InitContext(e, nil, nil)
 
-	return env
+	return e
 }
 
 func TestApplyListenerPatches(t *testing.T) {
@@ -648,9 +649,9 @@ func TestApplyListenerPatches(t *testing.T) {
 	}
 	gatewayProxy := &model.Proxy{Type: model.Router, ConfigNamespace: "not-default"}
 	serviceDiscovery := &fakes.ServiceDiscovery{}
-	env := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
+	e := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
 	push := model.NewPushContext()
-	push.InitContext(env, nil, nil)
+	_ = push.InitContext(e, nil, nil)
 
 	type args struct {
 		patchContext networking.EnvoyFilter_PatchContext
@@ -723,7 +724,7 @@ func TestApplyListenerPatches(t *testing.T) {
 // This benchmark measures the performance of Telemetry V2 EnvoyFilter patches. The intent here is to
 // measure overhead of using EnvoyFilters rather than native code.
 func BenchmarkTelemetryV2Filters(b *testing.B) {
-	listener := []*xdsapi.Listener{
+	l := []*xdsapi.Listener{
 		{
 			Name: "another-listener",
 			Address: &core.Address{
@@ -794,15 +795,15 @@ func BenchmarkTelemetryV2Filters(b *testing.B) {
 		},
 	}
 	serviceDiscovery := &fakes.ServiceDiscovery{}
-	env := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
+	e := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
 	push := model.NewPushContext()
-	push.InitContext(env, nil, nil)
+	_ = push.InitContext(e, nil, nil)
 
 	var got interface{}
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		got = ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, sidecarProxy, push,
-			listener, false)
+			l, false)
 	}
 	_ = got
 }

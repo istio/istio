@@ -28,7 +28,7 @@ var (
 
 	cdsReject = monitoring.NewGauge(
 		"pilot_xds_cds_reject",
-		"Pilot rejected CSD configs.",
+		"Pilot rejected CDS configs.",
 		monitoring.WithLabels(nodeTag, errTag),
 	)
 

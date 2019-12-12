@@ -15,6 +15,7 @@
 package client_test
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"net"
@@ -182,7 +183,7 @@ func TestGateway(t *testing.T) {
 
 	snapshots := cache.NewSnapshotCache(true, mock{}, nil)
 	_ = snapshots.SetSnapshot(id, makeSnapshot(s, t))
-	server := xds.NewServer(snapshots, nil)
+	server := xds.NewServer(context.Background(), snapshots, nil)
 	discovery.RegisterAggregatedDiscoveryServiceServer(grpcServer, server)
 	go func() {
 		_ = grpcServer.Serve(lis)
@@ -260,23 +261,20 @@ var (
 			UID:       "istio://ns3/services/svc",
 		},
 	}
-	mesh = &model.Environment{
-		Mesh: &meshconfig.MeshConfig{
-			MixerCheckServer:  "mixer_server:9091",
-			MixerReportServer: "mixer_server:9091",
-		},
-		ServiceDiscovery: mock{},
-	}
 	pushContext = model.PushContext{
 		ServiceByHostnameAndNamespace: map[host.Name]map[string]*model.Service{
 			host.Name("svc.ns3"): {
 				"ns3": &svc,
 			},
 		},
+		Mesh: &meshconfig.MeshConfig{
+			MixerCheckServer:  "mixer_server:9091",
+			MixerReportServer: "mixer_server:9091",
+		},
+		ServiceDiscovery: mock{},
 	}
 	clientParams = plugin.InputParams{
 		ListenerProtocol: plugin.ListenerProtocolHTTP,
-		Env:              mesh,
 		Node: &model.Proxy{
 			ID:       "pod.ns",
 			Type:     model.Router,

@@ -70,7 +70,7 @@ func GetAuthorizationPolicies(env *Environment) (*AuthorizationPolicies, error) 
 	policy := &AuthorizationPolicies{
 		NamespaceToV1alpha1Policies: map[string]*RolesAndBindings{},
 		NamespaceToV1beta1Policies:  map[string][]AuthorizationPolicyConfig{},
-		RootNamespace:               env.Mesh.GetRootNamespace(),
+		RootNamespace:               env.Mesh().GetRootNamespace(),
 	}
 
 	rbacConfig := env.IstioConfigStore.ClusterRbacConfig()

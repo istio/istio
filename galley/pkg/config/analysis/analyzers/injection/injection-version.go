@@ -44,7 +44,8 @@ type podVersion struct {
 // Metadata implements Analyzer.
 func (a *VersionAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name: "injection.VersionAnalyzer",
+		Name:        "injection.VersionAnalyzer",
+		Description: "Checks the version of auto-injection configured with the running proxies on pods",
 		Inputs: collection.Names{
 			metadata.K8SCoreV1Namespaces,
 			metadata.K8SCoreV1Pods,
@@ -58,7 +59,7 @@ func (a *VersionAnalyzer) Analyze(c analysis.Context) {
 
 	// Collect the list of namespaces that have istio injection enabled.
 	c.ForEach(metadata.K8SCoreV1Namespaces, func(r *resource.Entry) bool {
-		if r.Metadata.Labels[injectionLabelName] == injectionLabelEnableValue {
+		if r.Metadata.Labels[InjectionLabelName] == InjectionLabelEnableValue {
 			injectedNamespaces[r.Metadata.Name.String()] = struct{}{}
 		}
 

@@ -2023,6 +2023,14 @@ func TestValidateDestination(t *testing.T) {
 			},
 			valid: true,
 		},
+		{name: "unnumbered-selector",
+			destination: &networking.Destination{
+				Host:   "foo.bar",
+				Subset: "shiny",
+				Port:   &networking.PortSelector{},
+			},
+			valid: false,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -2360,6 +2368,20 @@ func TestValidateVirtualService(t *testing.T) {
 			Http: []*networking.HTTPRoute{{
 				Route: []*networking.HTTPRouteDestination{{
 					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: false},
+		{name: "with no destination", in: &networking.VirtualService{
+			Hosts: []string{"*.foo.bar", "*.bar"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{}},
+			}},
+		}, valid: false},
+		{name: "destination with out hosts", in: &networking.VirtualService{
+			Hosts: []string{"*.foo.bar", "*.bar"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{},
 				}},
 			}},
 		}, valid: false},
@@ -4988,9 +5010,35 @@ func TestValidateRequestAuthentication(t *testing.T) {
 	}{
 		{
 			name:       "empty spec",
-			configName: someName,
+			configName: constants.DefaultAuthenticationPolicyName,
 			in:         &security_beta.RequestAuthentication{},
 			valid:      true,
+		},
+		{
+			name:       "another empty spec",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				Selector: &api.WorkloadSelector{},
+			},
+			valid: true,
+		},
+		{
+			name:       "empty spec with non default name",
+			configName: someName,
+			in:         &security_beta.RequestAuthentication{},
+			valid:      false,
+		},
+		{
+			name:       "default name with non empty selector",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+					},
+				},
+			},
+			valid: false,
 		},
 		{
 			name:       "empty jwt rule",
@@ -5014,12 +5062,128 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			},
 			valid: false,
 		},
+		{
+			name:       "bad JwksUri - no protocol",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				JwtRules: []*security_beta.JWT{
+					{
+						Issuer:  "foo.com",
+						JwksUri: "foo.com",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name:       "bad JwksUri - invalid port",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				JwtRules: []*security_beta.JWT{
+					{
+						Issuer:  "foo.com",
+						JwksUri: "https://foo.com:not-a-number",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name:       "bad selector - empy value",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app":     "httpbin",
+						"version": "",
+					},
+				},
+				JwtRules: []*security_beta.JWT{
+					{
+						Issuer:  "foo.com",
+						JwksUri: "https://foo.com/cert",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name:       "bad selector - empy key",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+						"":    "v1",
+					},
+				},
+				JwtRules: []*security_beta.JWT{
+					{
+						Issuer:  "foo.com",
+						JwksUri: "https://foo.com/cert",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name:       "bad header location",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				JwtRules: []*security_beta.JWT{
+					{
+						Issuer:  "foo.com",
+						JwksUri: "https://foo.com",
+						FromHeaders: []*security_beta.JWTHeader{
+							{
+								Name:   "",
+								Prefix: "Bearer ",
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name:       "bad param location",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				JwtRules: []*security_beta.JWT{
+					{
+						Issuer:     "foo.com",
+						JwksUri:    "https://foo.com",
+						FromParams: []string{""},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name:       "good",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				JwtRules: []*security_beta.JWT{
+					{
+						Issuer:  "foo.com",
+						JwksUri: "https://foo.com",
+						FromHeaders: []*security_beta.JWTHeader{
+							{
+								Name:   "x-foo",
+								Prefix: "Bearer ",
+							},
+						},
+					},
+				},
+			},
+			valid: true,
+		},
 	}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			if got := ValidateRequestAuthentication(c.configName, someNamespace, c.in); (got == nil) != c.valid {
-				t.Errorf("got(%v) != want(%v)\n", c.valid, got)
+				t.Errorf("got(%v) != want(%v)\n", got, c.valid)
 			}
 		})
 	}

@@ -25,7 +25,10 @@ func (s *GatewayAnalyzer) Metadata() analysis.Metadata {
     return analysis.Metadata{
         // Each analyzer should have a unique name. Use <top-level-pkg>.<struct type>
         Name: "virtualservice.GatewayAnalyzer",
-
+        // Each analyzer should have a short, one line description of what they
+        // do. This description is shown when --list-analyzers is called via
+        // the command line.
+        Description: "Checks that VirtualService resources reference Gateways that exist"
         // Each analyzer should register the collections that it needs to use as input.
         Inputs: collection.Names{
             metadata.IstioNetworkingV1Alpha3Gateways,
@@ -177,10 +180,10 @@ inputs in the analyzer metadata. This should help you find any unused inputs and
 
 ### 5. Testing via istioctl
 
-You can use `istioctl experimental analyze` to run all analyzers, including your new one. e.g.
+You can use `istioctl analyze` to run all analyzers, including your new one. e.g.
 
 ```sh
-make istioctl && $GOPATH/out/linux_amd64/release/istioctl experimental analyze
+make istioctl && $GOPATH/out/linux_amd64/release/istioctl analyze
 ```
 
 ### 6. Write a user-facing documentation page

@@ -264,7 +264,6 @@ var (
 		VirtualService,
 		Gateway,
 		ServiceEntry,
-		SyntheticServiceEntry,
 		DestinationRule,
 		EnvoyFilter,
 		Sidecar,

@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	udpa "github.com/cncf/udpa/go/udpa/type/v1"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/google/uuid"
 	"go.uber.org/atomic"
@@ -50,6 +51,9 @@ var (
 	// while debouncing. Defaults to 10 seconds. If events keep
 	// showing up with no break for this time, we'll trigger a push.
 	DebounceMax time.Duration
+
+	// Statically link protobuf descriptors from UDPA
+	_ = udpa.TypedStruct{}
 )
 
 const (
