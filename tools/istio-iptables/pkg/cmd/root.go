@@ -37,8 +37,7 @@ var rootCmd = &cobra.Command{
 		if !config.SkipRuleSet {
 			iptConfigurator.run()
 		}
-		// Validation cannot work with DryRun because it need
-		if !config.DryRun && !config.SkipValidate {
+		if !config.SkipValidate {
 			validator := validation.NewValidator(config)
 			return validator.Run()
 		}
@@ -187,11 +186,11 @@ func init() {
 	}
 	viper.SetDefault(constants.RestoreFormat, true)
 
-	rootCmd.Flags().Bool(constants.SkipRuleSet, false, "Skip iptables setup")
+	rootCmd.Flags().Bool(constants.SkipRuleSet, false, "Skip iptables apply")
 	if err := viper.BindPFlag(constants.SkipRuleSet, rootCmd.Flags().Lookup(constants.SkipRuleSet)); err != nil {
 		handleError(err)
 	}
-	viper.SetDefault(constants.SkipRuleSet, true)
+	viper.SetDefault(constants.SkipRuleSet, false)
 
 	rootCmd.Flags().Bool(constants.SkipValidate, true, "Skip validate iptables")
 	if err := viper.BindPFlag(constants.SkipValidate, rootCmd.Flags().Lookup(constants.SkipValidate)); err != nil {
