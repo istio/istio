@@ -1869,17 +1869,11 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 		}
 
 		acc := &accesslog.AccessLog{
-			Name: wellknown.FileAccessLog,
+			Name:       wellknown.FileAccessLog,
+			ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)},
 		}
 
 		buildAccessLog(pluginParams.Node, fl, pluginParams.Push)
-
-		if util.IsXDSMarshalingToAnyEnabled(pluginParams.Node) {
-			acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
-		} else {
-			acc.ConfigType = &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)}
-		}
-
 		connectionManager.AccessLog = append(connectionManager.AccessLog, acc)
 	}
 
@@ -1902,13 +1896,8 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 		}
 
 		acc := &accesslog.AccessLog{
-			Name: wellknown.HTTPGRPCAccessLog,
-		}
-
-		if util.IsXDSMarshalingToAnyEnabled(pluginParams.Node) {
-			acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
-		} else {
-			acc.ConfigType = &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)}
+			Name:       wellknown.HTTPGRPCAccessLog,
+			ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)},
 		}
 
 		connectionManager.AccessLog = append(connectionManager.AccessLog, acc)
@@ -2117,12 +2106,8 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *plugin.
 			opt.httpOpts.statPrefix = strings.ToLower(mutable.Listener.TrafficDirection.String()) + "_" + mutable.Listener.Name
 			httpConnectionManagers[i] = buildHTTPConnectionManager(pluginParams, opt.httpOpts, chain.HTTP)
 			filter := &listener.Filter{
-				Name: wellknown.HTTPConnectionManager,
-			}
-			if util.IsXDSMarshalingToAnyEnabled(pluginParams.Node) {
-				filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(httpConnectionManagers[i])}
-			} else {
-				filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(httpConnectionManagers[i])}
+				Name:       wellknown.HTTPConnectionManager,
+				ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(httpConnectionManagers[i])},
 			}
 			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, filter)
 			log.Debugf("attached HTTP filter with %d http_filter options to listener %q filter chain %d",
