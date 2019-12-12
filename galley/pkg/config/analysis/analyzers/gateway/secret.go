@@ -15,7 +15,9 @@
 package gateway
 
 import (
+	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/config/analysis"
+	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
@@ -27,7 +29,7 @@ type SecretAnalyzer struct{}
 var _ analysis.Analyzer = &SecretAnalyzer{}
 
 // Metadata implements analysis.Analyzer
-func (*SecretAnalyzer) Metadata() analysis.Metadata {
+func (a *SecretAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "gateway.SecretAnalyzer",
 		Description: "Checks a gateway's referenced secrets for correctness",
@@ -39,9 +41,23 @@ func (*SecretAnalyzer) Metadata() analysis.Metadata {
 }
 
 // Analyze implements analysis.Analyzer
-func (s *SecretAnalyzer) Analyze(c analysis.Context) {
-	c.ForEach(metadata.IstioNetworkingV1Alpha3Gateways, func(r *resource.Entry) bool {
-		//TODO
+func (a *SecretAnalyzer) Analyze(ctx analysis.Context) {
+	ctx.ForEach(metadata.IstioNetworkingV1Alpha3Gateways, func(r *resource.Entry) bool {
+		gw := r.Item.(*v1alpha3.Gateway)
+
+		gwNs, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
+
+		for _, srv := range gw.GetServers() {
+			tls := srv.GetTls()
+			if tls == nil {
+				continue
+			}
+			//TODO: Is cross-namespace even allowed? Does it require ns/name syntax?
+			cn := tls.GetCredentialName()
+			if !ctx.Exists(metadata.K8SCoreV1Secrets, resource.NewShortOrFullName(gwNs, cn)) {
+				ctx.Report(metadata.IstioNetworkingV1Alpha3Gateways, msg.NewReferencedResourceNotFound(r, "credentialName", cn))
+			}
+		}
 		return true
 	})
 }
