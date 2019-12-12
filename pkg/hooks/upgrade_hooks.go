@@ -31,7 +31,7 @@ import (
 
 // hook is a callout function that may be called during an upgrade to check state or modify the cluster.
 // hooks should only be used for version-specific actions.
-type hook func(kubeClient manifest.ExecClient, sourceValues, targetValues *v1alpha2.IstioControlPlaneSpec) util.Errors
+type hook func(kubeClient manifest.ExecClient, sourceICPS, targetICPS *v1alpha2.IstioControlPlaneSpec) util.Errors
 type hooks []hook
 
 // hookVersionMapping is a mapping between a hashicorp/go-version formatted constraints for the source and target
@@ -44,10 +44,10 @@ type hookVersionMapping struct {
 
 // HookCommonParams is a set of common params passed to all hooks.
 type HookCommonParams struct {
-	SourceVer    string
-	TargetVer    string
-	SourceValues *v1alpha2.IstioControlPlaneSpec
-	TargetValues *v1alpha2.IstioControlPlaneSpec
+	SourceVer  string
+	TargetVer  string
+	SourceICPS *v1alpha2.IstioControlPlaneSpec
+	TargetICPS *v1alpha2.IstioControlPlaneSpec
 }
 
 var (
@@ -102,7 +102,7 @@ func runUpgradeHooks(hml []hookVersionMapping, kubeClient manifest.ExecClient, h
 		}
 		for _, hf := range h.hooks {
 			log.Infof("Running hook %s", hf)
-			errs = util.AppendErrs(errs, hf(kubeClient, hc.SourceValues, hc.TargetValues))
+			errs = util.AppendErrs(errs, hf(kubeClient, hc.SourceICPS, hc.TargetICPS))
 		}
 	}
 	return errs
@@ -145,8 +145,8 @@ func checkConstraint(verStr, constraintStr string) (bool, error) {
 	return constraint.Check(ver), nil
 }
 
-func checkInitCrdJobs(kubeClient manifest.ExecClient, currentValues, _ *v1alpha2.IstioControlPlaneSpec) util.Errors {
-	pl, err := kubeClient.PodsForSelector(currentValues.DefaultNamespace, "")
+func checkInitCrdJobs(kubeClient manifest.ExecClient, currentICPS, _ *v1alpha2.IstioControlPlaneSpec) util.Errors {
+	pl, err := kubeClient.PodsForSelector(currentICPS.DefaultNamespace, "")
 	if err != nil {
 		return util.NewErrs(fmt.Errorf("failed to list pods: %v", err))
 	}

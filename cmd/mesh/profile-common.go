@@ -17,6 +17,7 @@ package mesh
 import (
 	"fmt"
 	"io/ioutil"
+	"path/filepath"
 
 	"github.com/ghodss/yaml"
 
@@ -41,7 +42,7 @@ import (
 // ones that are compiled in. If it does, the starting point will be the base and profile YAMLs at that file path.
 // Otherwise it will be the compiled in profile YAMLs.
 // In step 3, the remaining fields in the same user overlay are applied on the resulting profile base.
-func genICPS(inFilename, profile, setOverlayYAML string, force bool, l *Logger) (string, *v1alpha2.IstioControlPlaneSpec, error) {
+func genICPS(inFilename, profile, setOverlayYAML, ver string, force bool, l *Logger) (string, *v1alpha2.IstioControlPlaneSpec, error) {
 	overlayYAML := ""
 	var overlayICPS *v1alpha2.IstioControlPlaneSpec
 	set := make(map[string]interface{})
@@ -62,6 +63,18 @@ func genICPS(inFilename, profile, setOverlayYAML string, force bool, l *Logger) 
 	}
 	if setProfile, ok := set["profile"]; ok {
 		profile = setProfile.(string)
+	}
+
+	if ver != "" && !util.IsFilePath(profile) {
+		pkgPath, err := fetchInstallPackage(helm.InstallURLFromVersion(ver))
+		if err != nil {
+			return "", nil, err
+		}
+		if helm.IsDefaultProfile(profile) {
+			profile = filepath.Join(pkgPath, helm.ProfilesFilePath, helm.DefaultProfileFilename)
+		} else {
+			profile = filepath.Join(pkgPath, helm.ProfilesFilePath, profile+YAMLSuffix)
+		}
 	}
 
 	// This contains the IstioControlPlane CR.
@@ -129,7 +142,7 @@ func genICPS(inFilename, profile, setOverlayYAML string, force bool, l *Logger) 
 }
 
 func genProfile(helmValues bool, inFilename, profile, setOverlayYAML, configPath string, force bool, l *Logger) (string, error) {
-	finalYAML, finalICPS, err := genICPS(inFilename, profile, setOverlayYAML, force, l)
+	finalYAML, finalICPS, err := genICPS(inFilename, profile, setOverlayYAML, "", force, l)
 	if err != nil {
 		return "", err
 	}
