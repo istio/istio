@@ -87,7 +87,7 @@ export ISTIO_BIN=$(GOBIN)
 export ISTIO_OUT:=$(TARGET_OUT)
 export ISTIO_OUT_LINUX:=$(TARGET_OUT_LINUX)
 export HELM=helm
-export ARTIFACTS ?= $(ISTIO_OUT_LINUX)
+export ARTIFACTS ?= $(ISTIO_OUT)
 export JUNIT_OUT ?= $(ARTIFACTS)/junit.xml
 export REPO_ROOT := $(shell git rev-parse --show-toplevel)
 
