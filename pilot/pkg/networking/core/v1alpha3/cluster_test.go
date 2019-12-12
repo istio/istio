@@ -1339,7 +1339,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 	configStore := &fakes.IstioConfigStore{}
 	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 
-	localityLbEndpoints := buildLocalityLbEndpoints(env.PushContext, model.GetNetworkView(nil), service, 8080, nil)
+	localityLbEndpoints := buildLocalityLbEndpoints(env.PushContext, service, 8080, nil)
 	g.Expect(len(localityLbEndpoints)).To(Equal(2))
 	for _, ep := range localityLbEndpoints {
 		if ep.Locality.Region == "region1" {

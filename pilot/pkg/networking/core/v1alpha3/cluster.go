@@ -193,7 +193,6 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(proxy *model.Proxy, 
 		Push: push,
 		Node: proxy,
 	}
-	networkView := model.GetNetworkView(proxy)
 
 	for _, service := range push.Services(proxy) {
 		destRule := push.DestinationRule(proxy, service)
@@ -204,7 +203,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(proxy *model.Proxy, 
 			inputParams.Service = service
 			inputParams.Port = port
 
-			lbEndpoints := buildLocalityLbEndpoints(push, networkView, service, port.Port, nil)
+			lbEndpoints := buildLocalityLbEndpoints(push, service, port.Port, nil)
 
 			// create default cluster
 			discoveryType := convertResolution(proxy, service.Resolution)
@@ -256,7 +255,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(proxy *model.Proxy, 
 				// clusters with discovery type STATIC, STRICT_DNS rely on cluster.hosts field
 				// ServiceEntry's need to filter hosts based on subset.labels in order to perform weighted routing
 				if discoveryType != apiv2.Cluster_EDS && len(subset.Labels) != 0 {
-					lbEndpoints = buildLocalityLbEndpoints(push, networkView, service, port.Port, []labels.Instance{subset.Labels})
+					lbEndpoints = buildLocalityLbEndpoints(push, service, port.Port, []labels.Instance{subset.Labels})
 				}
 				subsetCluster := buildDefaultCluster(push, subsetClusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, nil, service.MeshExternal)
 				if len(push.Mesh.OutboundClusterStatName) != 0 {
@@ -323,8 +322,6 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(proxy *model.Proxy, 
 func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.Proxy, push *model.PushContext) []*apiv2.Cluster {
 	clusters := make([]*apiv2.Cluster, 0)
 
-	networkView := model.GetNetworkView(proxy)
-
 	for _, service := range push.Services(proxy) {
 		if service.MeshExternal {
 			continue
@@ -334,7 +331,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 			if port.Protocol == protocol.UDP {
 				continue
 			}
-			lbEndpoints := buildLocalityLbEndpoints(push, networkView, service, port.Port, nil)
+			lbEndpoints := buildLocalityLbEndpoints(push, service, port.Port, nil)
 
 			// create default cluster
 			discoveryType := convertResolution(proxy, service.Resolution)
@@ -362,7 +359,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 					// clusters with discovery type STATIC, STRICT_DNS rely on cluster.hosts field
 					// ServiceEntry's need to filter hosts based on subset.labels in order to perform weighted routing
 					if discoveryType != apiv2.Cluster_EDS && len(subset.Labels) != 0 {
-						lbEndpoints = buildLocalityLbEndpoints(push, networkView, service, port.Port, []labels.Instance{subset.Labels})
+						lbEndpoints = buildLocalityLbEndpoints(push, service, port.Port, []labels.Instance{subset.Labels})
 					}
 					subsetCluster := buildDefaultCluster(push, subsetClusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, proxy, nil, service.MeshExternal)
 					subsetCluster.TlsContext = nil
@@ -421,7 +418,7 @@ func updateEds(cluster *apiv2.Cluster) {
 	}
 }
 
-func buildLocalityLbEndpoints(push *model.PushContext, proxyNetworkView map[string]bool, service *model.Service,
+func buildLocalityLbEndpoints(push *model.PushContext, service *model.Service,
 	port int, labels labels.Collection) []*endpoint.LocalityLbEndpoints {
 
 	if service.Resolution != model.DNSLB {
@@ -436,13 +433,6 @@ func buildLocalityLbEndpoints(push *model.PushContext, proxyNetworkView map[stri
 
 	lbEndpoints := make(map[string][]*endpoint.LbEndpoint)
 	for _, instance := range instances {
-		// Only send endpoints from the networks in the network view requested by the proxy.
-		// The default network view assigned to the Proxy is the UnnamedNetwork (""), which matches
-		// the default network assigned to endpoints that don't have an explicit network
-		if !proxyNetworkView[instance.Endpoint.Network] {
-			// Endpoint's network doesn't match the set of networks that the proxy wants to see.
-			continue
-		}
 		host := util.BuildAddress(instance.Endpoint.Address, uint32(instance.Endpoint.Port))
 		ep := &endpoint.LbEndpoint{
 			HostIdentifier: &endpoint.LbEndpoint_Endpoint{
