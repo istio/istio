@@ -30,11 +30,11 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/cache"
-	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	xds "github.com/envoyproxy/go-control-plane/pkg/server"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	structpb "github.com/golang/protobuf/ptypes/struct"
+	"github.com/golang/protobuf/ptypes/any"
 	"google.golang.org/grpc"
+	conversion "istio.io/istio/pilot/pkg/networking/util"
 
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
@@ -122,19 +122,13 @@ func (hasher) ID(*core.Node) string {
 }
 
 func makeListener(s *env.TestSetup, key string) *v2.Listener {
-	mxServiceConfig, err := conversion.MessageToStruct(&mccpb.ServiceConfig{
+	mxServiceConfig := conversion.MessageToAny(&mccpb.ServiceConfig{
 		MixerAttributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
 				"key": {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: key}},
 			},
 		}})
-	if err != nil {
-		panic(err)
-	}
-	mxConf, err := conversion.MessageToStruct(env.GetDefaultHTTPServerConf())
-	if err != nil {
-		panic(err)
-	}
+	mxConf := conversion.MessageToAny(env.GetDefaultHTTPServerConf())
 
 	manager := &hcm.HttpConnectionManager{
 		CodecType:  hcm.HttpConnectionManager_AUTO,
@@ -150,21 +144,18 @@ func makeListener(s *env.TestSetup, key string) *v2.Listener {
 						Action: &route.Route_Route{Route: &route.RouteAction{
 							ClusterSpecifier: &route.RouteAction_Cluster{Cluster: "backend"},
 						}},
-						PerFilterConfig: map[string]*structpb.Struct{
+						TypedPerFilterConfig: map[string]*any.Any{
 							"mixer": mxServiceConfig,
 						}}}}}}},
 		HttpFilters: []*hcm.HttpFilter{{
 			Name:       "mixer",
-			ConfigType: &hcm.HttpFilter_Config{mxConf},
+			ConfigType: &hcm.HttpFilter_TypedConfig{mxConf},
 		}, {
 			Name: wellknown.Router,
 		}},
 	}
 
-	pbst, err := conversion.MessageToStruct(manager)
-	if err != nil {
-		panic(err)
-	}
+	pbst := conversion.MessageToAny(manager)
 
 	return &v2.Listener{
 		Name: strconv.Itoa(int(s.Ports().ServerProxyPort)),
@@ -174,7 +165,7 @@ func makeListener(s *env.TestSetup, key string) *v2.Listener {
 		FilterChains: []*listener.FilterChain{{
 			Filters: []*listener.Filter{{
 				Name:       wellknown.HTTPConnectionManager,
-				ConfigType: &listener.Filter_Config{pbst},
+				ConfigType: &listener.Filter_TypedConfig{pbst},
 			}},
 		}},
 	}
