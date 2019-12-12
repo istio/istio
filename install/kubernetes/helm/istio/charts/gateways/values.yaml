@@ -191,16 +191,7 @@ istio-egressgateway:
     mountPath: /etc/istio/egressgateway-ca-certs
   #### Advanced options ########
   env:
-    # Set this to "external" if and only if you want the egress gateway to
-    # act as a transparent SNI gateway that routes mTLS/TLS traffic to
-    # external services defined using service entries, where the service
-    # entry has resolution set to DNS, has one or more endpoints with
-    # network field set to "external". By default its set to "" so that
-    # the egress gateway sees the same set of endpoints as the sidecars
-    # preserving backward compatibility
-    # ISTIO_META_REQUESTED_NETWORK_VIEW: ""
-
-    # By default, a gateway is in "standard" mode. If the mode is set to "sni-dnat", 
+    # By default, a gateway is in "standard" mode. If the mode is set to "sni-dnat",
     # pilot generates an additional 
     # set of clusters for internal services but without Istio mTLS, to
     # enable cross cluster routing.

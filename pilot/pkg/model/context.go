@@ -266,9 +266,6 @@ type NodeMetadata struct {
 	// will be replaced with the gateway defined in the settings.
 	Network string `json:"NETWORK,omitempty"`
 
-	// RequestedNetworkView specifies the networks that the proxy wants to see
-	RequestedNetworkView StringList `json:"REQUESTED_NETWORK_VIEW,omitempty"`
-
 	// ExchangeKeys specifies a list of metadata keys that should be used for Node Metadata Exchange.
 	ExchangeKeys StringList `json:"EXCHANGE_KEYS,omitempty"`
 
@@ -551,32 +548,6 @@ func (node *Proxy) SetWorkloadLabels(env *Environment) error {
 
 	node.WorkloadLabels = l
 	return nil
-}
-
-// UnnamedNetwork is the default network that proxies in the mesh
-// get when they don't request a specific network view.
-const UnnamedNetwork = ""
-
-// GetNetworkView returns the networks that the proxy requested.
-// When sending EDS/CDS-with-dns-endpoints, Pilot will only send
-// endpoints corresponding to the networks that the proxy wants to see.
-// If not set, we assume that the proxy wants to see endpoints from the default
-// unnamed network.
-func GetNetworkView(node *Proxy) map[string]bool {
-	if node == nil {
-		return map[string]bool{UnnamedNetwork: true}
-	}
-
-	nmap := make(map[string]bool)
-	for _, n := range node.Metadata.RequestedNetworkView {
-		nmap[n] = true
-	}
-
-	if len(nmap) == 0 {
-		// Proxy sees endpoints from the default unnamed network only
-		nmap[UnnamedNetwork] = true
-	}
-	return nmap
 }
 
 // ParseMetadata parses the opaque Metadata from an Envoy Node into string key-value pairs.
