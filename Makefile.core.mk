@@ -87,7 +87,8 @@ export ISTIO_BIN=$(GOBIN)
 export ISTIO_OUT:=$(TARGET_OUT)
 export ISTIO_OUT_LINUX:=$(TARGET_OUT_LINUX)
 export HELM=helm
-export ARTIFACTS ?= $(ISTIO_OUT)
+export ARTIFACTS ?= $(ISTIO_OUT_LINUX)
+export JUNIT_OUT ?= $(ARTIFACTS)/junit.xml
 export REPO_ROOT := $(shell git rev-parse --show-toplevel)
 
 # Make directories needed by the build system
@@ -398,8 +399,6 @@ with_junit_report: | $(JUNIT_REPORT)
 	$(MAKE) $(TARGET) 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 # Run coverage tests
-JUNIT_OUT ?= $(ARTIFACTS)/junit.xml
-
 ifeq ($(WHAT),)
        TEST_OBJ = common-test pilot-test mixer-test security-test galley-test istioctl-test
 else
