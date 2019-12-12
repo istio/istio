@@ -198,6 +198,7 @@ func (s *Source) startWatchers() {
 		scope.Source.Infof("  Source:       %s", r.CanonicalResourceName())
 		scope.Source.Infof("  Name:  		 %s", r.Collection)
 		scope.Source.Infof("  Built-in:     %v", a.IsBuiltIn())
+		scope.Source.Infof("  Disabled:     %v", r.Disabled)
 		if !a.IsBuiltIn() {
 			scope.Source.Infof("  Found:  %v", found)
 		}
