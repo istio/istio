@@ -88,7 +88,8 @@ var (
 	IstioRoot = path.Join(GOPATH.ValueOrDefault(build.Default.GOPATH), "/src/istio.io/istio")
 
 	// ChartsDir is the Kubernetes Helm chart directory in the repository
-	ChartsDir = path.Join(IstioRoot, "install/kubernetes/helm")
+//	ChartsDir = path.Join(IstioRoot, "install/kubernetes/helm")
+	ChartsDir = path.Join("/work/install/kubernetes/helm")
 
 	// IstioChartDir is the Kubernetes Helm chart directory in the repository
 	IstioChartDir = path.Join(ChartsDir, "istio")
