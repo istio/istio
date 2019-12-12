@@ -192,7 +192,10 @@ default: init build test
 .PHONY: init
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
 init: $(ISTIO_OUT)/istio_is_init
-	mkdir -p ${OUT_DIR}/logs
+	mkdir -p ${TARGET_OUT}/logs
+
+# Sync is the same as init in release branch. In master this pulls from master.
+sync: init
 
 # I tried to make this dependent on what I thought was the appropriate
 # lock file, but it caused the rule for that file to get run (which
