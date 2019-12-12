@@ -33,5 +33,4 @@ func NewPolicyApplier(push *model.PushContext,
 	authnPolicy, _ := push.AuthenticationPolicyForWorkload(service, port)
 	return v1beta1.NewPolicyApplier(push.AuthnBetaPolicies.GetJwtPoliciesForWorkload(
 		namespace, labels), authnPolicy)
-	// return v1alpha1.NewPolicyApplier(authnPolicy)
 }

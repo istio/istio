@@ -64,7 +64,8 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 }
 
 func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
-	applier := factory.NewPolicyApplier(in.Push, in.ServiceInstance, in.SidecarConfig.Namespace, in.Node.WorkloadLabels)
+	ns := in.Node.Metadata.Namespace
+	applier := factory.NewPolicyApplier(in.Push, in.ServiceInstance, ns, in.Node.WorkloadLabels)
 	if mutable.Listener == nil || (len(mutable.Listener.FilterChains) != len(mutable.FilterChains)) {
 		return fmt.Errorf("expected same number of filter chains in listener (%d) and mutable (%d)", len(mutable.Listener.FilterChains), len(mutable.FilterChains))
 	}

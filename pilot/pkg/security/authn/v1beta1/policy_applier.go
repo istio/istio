@@ -129,9 +129,7 @@ func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, isXDSMarsha
 }
 
 func (a *v1beta1PolicyApplier) InboundFilterChain(sdsUdsPath string, meta *model.NodeMetadata) []plugin.FilterChain {
-	// TODO(diemtvu) implement this.
-	log.Errorf("InboundFilterChain is not yet implemented")
-	return nil
+	return a.alphaApplier.InboundFilterChain(sdsUdsPath, meta)
 }
 
 // NewPolicyApplier returns new applier for v1beta1 authentication policies.
