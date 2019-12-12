@@ -100,7 +100,7 @@ Kubernetes:
   gateways:
   - address: 2.2.2.2
     port: 15443
-  vm: {}
+vm: {}
 `
 	// This will cause ISTIO_META_NETWORK to be set on the pods and the
 	// kube controller code to match endpoints from kubernetes with the default
