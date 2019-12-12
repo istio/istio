@@ -179,17 +179,17 @@ func checkEDSInPod(t *testing.T, c echo.Instance, service string, endpointIP str
 				return err
 			}
 			// Now that we have the desired cluster, get the cluster status to see if the VM IP made it to envoy
-			if clusters, err := w.Sidecar().Clusters(); err != nil {
+			clusters, err := w.Sidecar().Clusters()
+			if err != nil {
 				return err
-			} else {
-				for _, clusterStatus := range clusters.ClusterStatuses {
-					if clusterStatus.Name == clusterName {
-						for _, host := range clusterStatus.HostStatuses {
-							if host.Address != nil && host.Address.GetSocketAddress() != nil &&
-								host.Address.GetSocketAddress().Address == endpointIP {
-								t.Logf("found VM IP %s in envoy cluster %s", endpointIP, clusterName)
-								return nil
-							}
+			}
+			for _, clusterStatus := range clusters.ClusterStatuses {
+				if clusterStatus.Name == clusterName {
+					for _, host := range clusterStatus.HostStatuses {
+						if host.Address != nil && host.Address.GetSocketAddress() != nil &&
+							host.Address.GetSocketAddress().Address == endpointIP {
+							t.Logf("found VM IP %s in envoy cluster %s", endpointIP, clusterName)
+							return nil
 						}
 					}
 				}
@@ -216,26 +216,27 @@ func checkEDSInVM(t *testing.T, ns, service, endpointIP, gatewayIP string, gatew
 			Network:          "vm",
 		},
 	}
-	if resp, err := p.CallDiscovery(pilot.NewDiscoveryRequest(node.ServiceNode(), pilot.ClusterLoadAssignment)); err != nil {
+
+	resp, err := p.CallDiscovery(pilot.NewDiscoveryRequest(node.ServiceNode(), pilot.ClusterLoadAssignment))
+	if err != nil {
 		return err
-	} else {
-		for _, res := range resp.Resources {
-			c := &xdsapi.ClusterLoadAssignment{}
-			if err := proto.Unmarshal(res.Value, c); err != nil {
-				return err
+	}
+	for _, res := range resp.Resources {
+		c := &xdsapi.ClusterLoadAssignment{}
+		if err := proto.Unmarshal(res.Value, c); err != nil {
+			return err
+		}
+		if c.ClusterName == clusterName {
+			if len(c.Endpoints) != 1 || len(c.Endpoints[0].LbEndpoints) != 1 {
+				return fmt.Errorf("more than one endpoint and LB endpoint in cluster load assignment")
 			}
-			if c.ClusterName == clusterName {
-				if len(c.Endpoints) != 1 || len(c.Endpoints[0].LbEndpoints) != 1 {
-					return fmt.Errorf("more than one endpoint and LB endpoint in cluster load assignment")
-				}
-				sockAddress := c.Endpoints[0].LbEndpoints[0].GetEndpoint().Address.GetSocketAddress()
-				if sockAddress.Address != gatewayIP && sockAddress.GetPortValue() != gatewayPort {
-					return fmt.Errorf("eds for VM does not have the expected IP:port (want %s:%d, got %s:%d)",
-						gatewayIP, gatewayPort, sockAddress.Address, sockAddress.GetPortValue())
-				}
-				t.Logf("found gateway IP %s in envoy cluster %s", gatewayIP, clusterName)
-				return nil
+			sockAddress := c.Endpoints[0].LbEndpoints[0].GetEndpoint().Address.GetSocketAddress()
+			if sockAddress.Address != gatewayIP && sockAddress.GetPortValue() != gatewayPort {
+				return fmt.Errorf("eds for VM does not have the expected IP:port (want %s:%d, got %s:%d)",
+					gatewayIP, gatewayPort, sockAddress.Address, sockAddress.GetPortValue())
 			}
+			t.Logf("found gateway IP %s in envoy cluster %s", gatewayIP, clusterName)
+			return nil
 		}
 	}
 	return fmt.Errorf("did not find the expected gateway IP/port in VM eds response")
