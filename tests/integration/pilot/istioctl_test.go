@@ -23,31 +23,15 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/galley"
-	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/pilot"
-	"istio.io/istio/pkg/test/framework/resource"
 )
 
 var (
-	i   istio.Instance
 	env *kube.Environment
 )
 
 // This test requires `--istio.test.env=kube` because it tests istioctl doing PodExec
-func TestMain(m *testing.M) {
-	framework.
-		NewSuite("istioctl_integration_test", m).
-
-		// Deploy Istio
-		SetupOnEnv(environment.Kube, istio.Setup(&i, nil)).
-		SetupOnEnv(environment.Kube, func(ctx resource.Context) error {
-			env = ctx.Environment().(*kube.Environment)
-			return nil
-		}).
-		Run()
-}
-
 // TestVersion does "istioctl version --remote=true" to verify the CLI understands the data plane version data
 func TestVersion(t *testing.T) {
 	framework.
