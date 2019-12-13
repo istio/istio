@@ -210,7 +210,7 @@ func checkEDSInVM(t *testing.T, ns, service, endpointIP, gatewayIP string, gatew
 		ID:              fmt.Sprintf("httpbin.com"),
 		ConfigNamespace: ns,
 		Metadata: &model.NodeMetadata{
-			InstanceIPs:      nil,
+			InstanceIPs:      []string{endpointIP},
 			ConfigNamespace:  ns,
 			Namespace:        ns,
 			InterceptionMode: "NONE",
@@ -218,7 +218,10 @@ func checkEDSInVM(t *testing.T, ns, service, endpointIP, gatewayIP string, gatew
 		},
 	}
 
-	if err := p.StartDiscovery(pilot.NewDiscoveryRequest(node.ServiceNode(), pilot.ClusterLoadAssignment)); err != nil {
+	// make an eds request, simulating a VM, asking for a cluster on k8s
+	request := pilot.NewDiscoveryRequest(node.ServiceNode(), pilot.ClusterLoadAssignment)
+	request.ResourceNames = []string{clusterName}
+	if err := p.StartDiscovery(request); err != nil {
 		return err
 	}
 
