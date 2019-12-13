@@ -92,21 +92,8 @@ func setupConfig(cfg *istio.Config) {
 		return
 	}
 
-	cfg.Values["global.meshNetworks"] = `
-networks:
-  Kubernetes:
-    endpoints:
-    # NOTE: Voodoo value. DO NOT CHANGE THIS! Its hardcoded in Pilot in different areas
-    - fromRegistry: Kubernetes
-    gateways:
-    - port: 15443
-      address: 2.2.2.2
-  vm: {}
-`
-	// This will cause ISTIO_META_NETWORK to be set on the pods and the
-	// kube controller code to match endpoints from kubernetes with the default
-	// cluster ID of "Kubernetes". Need to fix this code
-	cfg.Values["global.network"] = "Kubernetes"
+	// Helm values from install/kubernetes/helm/istio/test-values/values-istio-mesh-networks.yaml
+	cfg.ValuesFile = "test-values/values-istio-mesh-networks.yaml"
 }
 
 func TestAsymmetricMeshNetworkWithGatewayIP(t *testing.T) {
@@ -151,6 +138,7 @@ func TestAsymmetricMeshNetworkWithGatewayIP(t *testing.T) {
 				t.Fatal(err)
 			}
 			// Now get the EDS from the fake VM sidecar to see if the gateway IP is there for the echo service.
+			// the Gateway IP:Port is set in the test-values/values-istio-mesh-networks.yaml
 			if err := checkEDSInVM(t, ns.Name(),
 				fmt.Sprintf("%s.%s.svc.cluster.local", echoConfig.Service, echoConfig.Namespace),
 				"1.1.1.1", "2.2.2.2", 15443); err != nil {
@@ -234,7 +222,7 @@ func checkEDSInVM(t *testing.T, ns, service, endpointIP, gatewayIP string, gatew
 			}
 			if c.ClusterName == clusterName {
 				if len(c.Endpoints) != 1 || len(c.Endpoints[0].LbEndpoints) != 1 {
-					return false, fmt.Errorf("more than one endpoint and LB endpoint in cluster load assignment")
+					return false, fmt.Errorf("more than one LB endpoint in EDS: %s", c.String())
 				}
 				sockAddress := c.Endpoints[0].LbEndpoints[0].GetEndpoint().Address.GetSocketAddress()
 				if sockAddress.Address != gatewayIP && sockAddress.GetPortValue() != gatewayPort {
