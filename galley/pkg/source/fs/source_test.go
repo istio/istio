@@ -48,19 +48,22 @@ import (
 var (
 	mixerYAML = `
 apiVersion: "config.istio.io/v1alpha2"
-kind: denier
+kind: handler
 metadata:
   name: some.mixer.denier
 spec:
-  status:
-    code: 7
-    message: Not allowed
+  compiledAdapter: denier
+  params:
+    status:
+      code: 7
+      message: Not allowed
 ---
 apiVersion: "config.istio.io/v1alpha2"
-kind: checknothing
+kind: instance
 metadata:
   name: some.mixer.checknothing
 spec:
+  compiledTemplate: checknothing
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
@@ -75,19 +78,22 @@ spec:
 
 	mixerPartYAML = `
 apiVersion: "config.istio.io/v1alpha2"
-kind: denier
+kind: handler
 metadata:
   name: some.mixer.denier
 spec:
-  status:
-    code: 7
-    message: Not allowed
+  compiledAdapter: denier
+  params:
+    status:
+      code: 7
+      message: Not allowed
 ---
 apiVersion: "config.istio.io/v1alpha2"
-kind: checknothing
+kind: instance
 metadata:
   name: some.mixer.checknothing
 spec:
+  compiledTemplate: checknothing
 `
 
 	virtualServiceYAML = `
@@ -689,6 +695,7 @@ func expectFullSync(t *testing.T, ch chan resource.Event) {
 }
 
 func parseYaml(t *testing.T, yamlContent string, out k8sRuntime.Object) {
+	t.Helper()
 	if _, _, err := deserializer.Decode([]byte(yamlContent), nil, out); err != nil {
 		t.Fatal(err)
 	}
