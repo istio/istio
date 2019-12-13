@@ -267,6 +267,7 @@
           {{- else }}
           - --useAdapterCRDs=false
           {{- end }}
+          - --useTemplateCRDs=false
           {{- if $.Values.global.tracer.zipkin.address }}
           - --trace_zipkin_url=http://{{- $.Values.global.tracer.zipkin.address }}/api/v1/spans
           {{- else }}
