@@ -1123,6 +1123,34 @@ func TestValidateGateway(t *testing.T) {
 					}},
 			},
 			""},
+		{"https with out tls settings",
+			&networking.Gateway{
+				Servers: []*networking.Server{{
+					Hosts: []string{"foo.bar.com"},
+					Port:  &networking.Port{Name: "name1", Number: 7, Protocol: "https"},
+				}},
+			},
+			"server must have TLS settings for HTTPS/TLS protocols"},
+		{"tls with out tls settings",
+			&networking.Gateway{
+				Servers: []*networking.Server{{
+					Hosts: []string{"foo.bar.com"},
+					Port:  &networking.Port{Name: "name1", Number: 7, Protocol: "tls"},
+				}},
+			},
+			"server must have TLS settings for HTTPS/TLS protocols"},
+		{"tcp with tls",
+			&networking.Gateway{
+				Servers: []*networking.Server{{
+					Hosts: []string{"foo.bar.com"},
+					Port:  &networking.Port{Name: "name1", Number: 7, Protocol: "tcp"},
+					Tls: &networking.Server_TLSOptions{Mode: networking.Server_TLSOptions_SIMPLE,
+						ServerCertificate: "/server_cert.cer",
+						PrivateKey:        "/private_key.key",
+					},
+				}},
+			},
+			""},
 		{"invalid port",
 			&networking.Gateway{
 				Servers: []*networking.Server{
