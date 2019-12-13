@@ -49,7 +49,7 @@ spec:
   hosts:
   - httpbin.com
   ports:
-  - number: 80
+  - number: 7070
     name: http
     protocol: HTTP
   resolution: STATIC
@@ -119,10 +119,11 @@ func TestAsymmetricMeshNetworkWithGatewayIP(t *testing.T) {
 				Galley:    g,
 				Ports: []echo.Port{
 					{
-						Name:     "http",
-						Protocol: protocol.HTTP,
+						Name:        "http",
+						Protocol:    protocol.HTTP,
+						ServicePort: 8080,
 						// We use a port > 1024 to not require root
-						InstancePort: 8090,
+						InstancePort: 8080,
 					},
 				},
 			}
@@ -133,27 +134,29 @@ func TestAsymmetricMeshNetworkWithGatewayIP(t *testing.T) {
 				t.Fatal(err)
 			}
 
+			vmSvcClusterName := "outbound|7070||httpbin.com"
+			k8sSvcClusterName := fmt.Sprintf("outbound|%d||%s.%s.svc.cluster.local",
+				echoConfig.Ports[0].ServicePort,
+				echoConfig.Service, echoConfig.Namespace.Name())
 			// Now get the EDS from the k8s pod to see if the VM IP is there.
-			if err := checkEDSInPod(t, instance, "httpbin.com", "1.1.1.1"); err != nil {
+			if err := checkEDSInPod(t, instance, vmSvcClusterName, "1.1.1.1"); err != nil {
 				t.Fatal(err)
 			}
 			// Now get the EDS from the fake VM sidecar to see if the gateway IP is there for the echo service.
 			// the Gateway IP:Port is set in the test-values/values-istio-mesh-networks.yaml
-			if err := checkEDSInVM(t, ns.Name(),
-				fmt.Sprintf("%s.%s.svc.cluster.local", echoConfig.Service, echoConfig.Namespace),
+			if err := checkEDSInVM(t, ns.Name(), k8sSvcClusterName,
 				"1.1.1.1", "2.2.2.2", 15443); err != nil {
 				t.Fatal(err)
 			}
 		})
 }
 
-func checkEDSInPod(t *testing.T, c echo.Instance, service string, endpointIP string) error {
-	clusterName := fmt.Sprintf("outbound|%d||%s", 80, service)
+func checkEDSInPod(t *testing.T, c echo.Instance, vmSvcClusterName string, endpointIP string) error {
 	accept := func(cfg *envoyAdmin.ConfigDump) (bool, error) {
 		validator := structpath.ForProto(cfg)
 
 		if err := validator.
-			Exists("{.configs[*].dynamicActiveClusters[?(@.cluster.name == '%s')]}", clusterName).
+			Exists("{.configs[*].dynamicActiveClusters[?(@.cluster.name == '%s')]}", vmSvcClusterName).
 			Check(); err != nil {
 			return false, err
 		}
@@ -173,11 +176,11 @@ func checkEDSInPod(t *testing.T, c echo.Instance, service string, endpointIP str
 				return err
 			}
 			for _, clusterStatus := range clusters.ClusterStatuses {
-				if clusterStatus.Name == clusterName {
+				if clusterStatus.Name == vmSvcClusterName {
 					for _, host := range clusterStatus.HostStatuses {
 						if host.Address != nil && host.Address.GetSocketAddress() != nil &&
 							host.Address.GetSocketAddress().Address == endpointIP {
-							t.Logf("found VM IP %s in envoy cluster %s", endpointIP, clusterName)
+							t.Logf("found VM IP %s in envoy cluster %s", endpointIP, vmSvcClusterName)
 							return nil
 						}
 					}
@@ -187,12 +190,10 @@ func checkEDSInPod(t *testing.T, c echo.Instance, service string, endpointIP str
 	}
 
 	return fmt.Errorf("could not find cluster %s on %s or cluster did not have VM IP %s",
-		c.ID(), clusterName, endpointIP)
+		c.ID(), vmSvcClusterName, endpointIP)
 }
 
-func checkEDSInVM(t *testing.T, ns, service, endpointIP, gatewayIP string, gatewayPort uint32) error {
-	clusterName := fmt.Sprintf("outbound|%d||%s", 80, service)
-
+func checkEDSInVM(t *testing.T, ns, k8sSvcClusterName, endpointIP, gatewayIP string, gatewayPort uint32) error {
 	node := &model.Proxy{
 		Type:            model.SidecarProxy,
 		IPAddresses:     []string{endpointIP},
@@ -209,7 +210,7 @@ func checkEDSInVM(t *testing.T, ns, service, endpointIP, gatewayIP string, gatew
 
 	// make an eds request, simulating a VM, asking for a cluster on k8s
 	request := pilot.NewDiscoveryRequest(node.ServiceNode(), pilot.ClusterLoadAssignment)
-	request.ResourceNames = []string{clusterName}
+	request.ResourceNames = []string{k8sSvcClusterName}
 	if err := p.StartDiscovery(request); err != nil {
 		return err
 	}
@@ -220,16 +221,16 @@ func checkEDSInVM(t *testing.T, ns, service, endpointIP, gatewayIP string, gatew
 			if err := proto.Unmarshal(res.Value, c); err != nil {
 				return false, err
 			}
-			if c.ClusterName == clusterName {
+			if c.ClusterName == k8sSvcClusterName {
 				if len(c.Endpoints) != 1 || len(c.Endpoints[0].LbEndpoints) != 1 {
-					return false, fmt.Errorf("more than one LB endpoint in EDS: %s", c.String())
+					return false, fmt.Errorf("unexpected EDS response: %s", c.String())
 				}
 				sockAddress := c.Endpoints[0].LbEndpoints[0].GetEndpoint().Address.GetSocketAddress()
 				if sockAddress.Address != gatewayIP && sockAddress.GetPortValue() != gatewayPort {
 					return false, fmt.Errorf("eds for VM does not have the expected IP:port (want %s:%d, got %s:%d)",
 						gatewayIP, gatewayPort, sockAddress.Address, sockAddress.GetPortValue())
 				}
-				t.Logf("found gateway IP %s in envoy cluster %s", gatewayIP, clusterName)
+				t.Logf("found gateway IP %s in envoy cluster %s", gatewayIP, k8sSvcClusterName)
 				return true, nil
 			}
 		}
