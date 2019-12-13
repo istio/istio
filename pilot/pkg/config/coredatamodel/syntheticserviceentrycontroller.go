@@ -195,7 +195,7 @@ func (c *SyntheticServiceEntryController) removeConfig(configName []string) {
 			}
 			// clear parent map also
 			if len(byNamespace) == 0 {
-				delete(byNamespace, namespace)
+				delete(c.configStore, namespace)
 			}
 		}
 	}
