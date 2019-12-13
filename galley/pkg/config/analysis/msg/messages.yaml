@@ -45,12 +45,8 @@ messages:
     code: IST0103
     level: Warning
     description: "A pod is missing the Istio proxy."
-    template: "The pod is missing its Istio proxy. Run 'kubectl delete pod %s -n %s' to restart it"
+    template: "The pod is missing the Istio proxy. This can often be resolved by restarting or redeploying the workload."
     args:
-      - name: pod
-        type: string
-      - name: namespace
-        type: string
 
   - name: "GatewayPortNotOnWorkload"
     code: IST0104

@@ -107,7 +107,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 		}
 
 		if proxyImage == "" {
-			c.Report(metadata.K8SCoreV1Pods, msg.NewPodMissingProxy(r, pod.Name, pod.GetNamespace()))
+			c.Report(metadata.K8SCoreV1Pods, msg.NewPodMissingProxy(r))
 		}
 
 		return true

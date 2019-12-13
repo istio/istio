@@ -27,7 +27,7 @@ var (
 
 	// PodMissingProxy defines a diag.MessageType for message "PodMissingProxy".
 	// Description: A pod is missing the Istio proxy.
-	PodMissingProxy = diag.NewMessageType(diag.Warning, "IST0103", "The pod is missing its Istio proxy. Run 'kubectl delete pod %s -n %s' to restart it")
+	PodMissingProxy = diag.NewMessageType(diag.Warning, "IST0103", "The pod is missing the Istio proxy. This can often be resolved by restarting or redeploying the workload.")
 
 	// GatewayPortNotOnWorkload defines a diag.MessageType for message "GatewayPortNotOnWorkload".
 	// Description: Unhandled gateway port
@@ -125,12 +125,10 @@ func NewNamespaceNotInjected(entry *resource.Entry, namespace string, namespace2
 }
 
 // NewPodMissingProxy returns a new diag.Message based on PodMissingProxy.
-func NewPodMissingProxy(entry *resource.Entry, pod string, namespace string) diag.Message {
+func NewPodMissingProxy(entry *resource.Entry) diag.Message {
 	return diag.NewMessage(
 		PodMissingProxy,
 		originOrNil(entry),
-		pod,
-		namespace,
 	)
 }
 
