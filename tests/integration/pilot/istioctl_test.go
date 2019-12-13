@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/pilot"
 )
 
-
 // This test requires `--istio.test.env=kube` because it tests istioctl doing PodExec
 // TestVersion does "istioctl version --remote=true" to verify the CLI understands the data plane version data
 func TestVersion(t *testing.T) {
