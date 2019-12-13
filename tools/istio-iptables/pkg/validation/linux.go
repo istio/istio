@@ -4,10 +4,11 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/coreos/etcd/pkg/cpuutil"
-	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	"net"
 	"syscall"
+
+	"github.com/coreos/etcd/pkg/cpuutil"
+	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
 // <arpa/inet.h>

@@ -2,8 +2,9 @@ package validation
 
 import (
 	"encoding/binary"
-	"github.com/coreos/etcd/pkg/cpuutil"
 	"testing"
+
+	"github.com/coreos/etcd/pkg/cpuutil"
 )
 
 func TestNtohs(t *testing.T) {

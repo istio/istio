@@ -3,11 +3,12 @@ package validation
 import (
 	"errors"
 	"fmt"
-	"istio.io/istio/tools/istio-iptables/pkg/config"
-	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	"net"
 	"strconv"
 	"time"
+
+	"istio.io/istio/tools/istio-iptables/pkg/config"
+	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
 type Validator struct {

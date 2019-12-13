@@ -15,9 +15,10 @@
 package cmd
 
 import (
-	"istio.io/istio/tools/istio-iptables/pkg/validation"
 	"os"
 	"strings"
+
+	"istio.io/istio/tools/istio-iptables/pkg/validation"
 
 	"istio.io/istio/tools/istio-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
