@@ -1,8 +1,0 @@
-apiVersion: "config.istio.io/v1alpha2"
-kind: rule
-metadata:
-  name: valid-rule
-spec:
-  actions:
-  - handler: my-handler
-    instances: [ my-instance ]
