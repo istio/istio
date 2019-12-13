@@ -266,7 +266,7 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 		var err error
 		s.kubeClient, err = kubelib.CreateClientset(args.Config.KubeConfig, "")
 		if err != nil {
-			return fmt.Errorf("failed create kube client %v", err)
+			return fmt.Errorf("failed creating kube client: %v", err)
 		}
 	}
 
@@ -651,14 +651,13 @@ func (s *Server) initDNSListener(args *PilotArgs) error {
 	if err != nil {
 		return fmt.Errorf("invalid ISTIOD_ADDR(%s): %v", istiodAddr, err)
 	}
-	_, err = strconv.Atoi(port)
-	if err != nil {
+	if _, err := strconv.Atoi(port); err != nil {
 		return fmt.Errorf("invalid ISTIOD_ADDR(%s): %v", istiodAddr, err)
 	}
 
 	// Create k8s-signed certificates. This allows injector, validation to work without Citadel, and
 	// allows secure SDS connections to Istiod.
-	err = s.initDNSCerts(host, args.Namespace)
+	err = s.initDNSCerts(host)
 	if err != nil {
 		return err
 	}

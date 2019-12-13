@@ -102,7 +102,7 @@ func (s *Server) initCertController(args *PilotArgs) error {
 //
 // TODO: If the discovery address in mesh.yaml is set to port 15012 (XDS-with-DNS-certs) and the name
 // matches the k8s namespace, failure to start DNS server is a fatal error.
-func (s *Server) initDNSCerts(host, namespace string) error {
+func (s *Server) initDNSCerts(hostname string) error {
 	if _, err := os.Stat(dnsKeyFile); err == nil {
 		// Existing certificate mounted by user. Skip self-signed certificate generation.
 		// Use this with an existing CA - the expectation is that the cert will match the
@@ -110,18 +110,24 @@ func (s *Server) initDNSCerts(host, namespace string) error {
 		return nil
 	}
 
+	parts := strings.Split(hostname, ".")
+	if len(parts) < 2 {
+		return fmt.Errorf("invalid hostname %s, should contain at least service name and namespace", hostname)
+	}
 	// Names in the Istiod cert - support the old service names as well.
 	// The first is the recommended one, also used by Apiserver for webhooks.
-	names := []string{host}
+	names := []string{hostname}
+
+	// TODO:
 
 	// Default value, matching old installs. For migration we also add the new SAN, so workloads
 	// can switch between the names.
-	if host == "istio-pilot.istio-system.svc" {
+	if hostname == "istio-pilot.istio-system.svc" {
 		names = append(names, "istiod.istio-system.svc")
 	}
 	// New name - while migrating we need to support the old name.
 	// Both cases will be removed after 1 release, when the move to the new name is completed.
-	if host == "istiod.istio-system.svc" {
+	if hostname == "istiod.istio-system.svc" {
 		names = append(names, "istio-pilot.istio-system.svc")
 	}
 
@@ -129,7 +135,7 @@ func (s *Server) initDNSCerts(host, namespace string) error {
 
 	// TODO: fallback to citadel (or custom CA) if K8S signing is broken
 	certChain, keyPEM, _, err := chiron.GenKeyCertK8sCA(s.kubeClient.CertificatesV1beta1().CertificateSigningRequests(),
-		strings.Join(names, ","), host+".csr.secret", namespace, defaultCACertPath)
+		strings.Join(names, ","), parts[0]+".csr.secret", parts[1], defaultCACertPath)
 	if err != nil {
 		return err
 	}
