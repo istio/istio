@@ -15,11 +15,11 @@
 package kuberesource
 
 import (
+	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/galley/pkg/config/meta/schema"
 	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/processing/transformer"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
-	"istio.io/istio/galley/pkg/source/kube/builtin"
 )
 
 // DisableExcludedKubeResources is a helper that filters a KubeResources list to disable some resources
@@ -65,8 +65,8 @@ func DisableExcludedKubeResources(resources schema.KubeResources, providers tran
 // DefaultExcludedResourceKinds returns the default list of resource kinds to exclude, which is the builtin types.
 func DefaultExcludedResourceKinds() []string {
 	resources := make([]string, 0)
-	for _, spec := range builtin.GetSchema().All() {
-		resources = append(resources, spec.Kind)
+	for _, r := range metadata.MustGet().KubeSource().Resources() {
+		resources = append(resources, r.Kind)
 	}
 	return resources
 }
