@@ -1530,7 +1530,7 @@ func (ps *PushContext) initMeshNetworks() {
 	for network, networkConf := range ps.Networks.Networks {
 		gws := networkConf.Gateways
 		if len(gws) == 0 {
-			log.Debugf("the endpoints within network %s will be ignored because of invalid MeshNetworks", network)
+			// all endpoints in this network are reachable directly from others. nothing to do.
 			continue
 		}
 

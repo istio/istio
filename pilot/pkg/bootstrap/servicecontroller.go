@@ -82,6 +82,7 @@ func (s *Server) initKubeRegistry(serviceControllers *aggregate.Controller, args
 	args.Config.ControllerOptions.ClusterID = s.clusterID
 	args.Config.ControllerOptions.Metrics = s.environment
 	args.Config.ControllerOptions.XDSUpdater = s.EnvoyXdsServer
+	args.Config.ControllerOptions.NetworksWatcher = s.environment.NetworksWatcher
 	kubectl := kubecontroller.NewController(s.kubeClient, args.Config.ControllerOptions)
 	s.kubeRegistry = kubectl
 	serviceControllers.AddRegistry(kubectl)
