@@ -27,7 +27,7 @@ $(foreach DEP,$(ISTIO_DEB_DEPS),\
         $(eval ${ISTIO_OUT}/istio.deb: $(ISTIO_OUT)/$(DEP)) \
         $(eval ISTIO_FILES+=$(subst $(GO_TOP)/,,$(ISTIO_OUT))/$(DEP)=$(ISTIO_DEB_BIN)/$(DEP)) )
 
-SIDECAR_DEB_DEPS:=envoy pilot-agent node_agent
+SIDECAR_DEB_DEPS:=envoy pilot-agent node_agent istio-iptables istio-clean-iptables
 SIDECAR_FILES:=
 # subst is used to turn an absolute path into the relative path that fpm seems to expect
 $(foreach DEP,$(SIDECAR_DEB_DEPS),\
@@ -36,8 +36,6 @@ $(foreach DEP,$(SIDECAR_DEB_DEPS),\
 
 ISTIO_DEB_DEST:=${ISTIO_DEB_BIN}/istio-start.sh \
 		${ISTIO_DEB_BIN}/istio-node-agent-start.sh \
-		${ISTIO_DEB_BIN}/istio-iptables \
-		${ISTIO_DEB_BIN}/istio-clean-iptables \
 		/lib/systemd/system/istio.service \
 		/lib/systemd/system/istio-auth-node-agent.service \
 		/var/lib/istio/envoy/sidecar.env
