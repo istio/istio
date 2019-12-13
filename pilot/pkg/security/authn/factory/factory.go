@@ -17,9 +17,8 @@ package factory
 import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/security/authn"
-	"istio.io/istio/pkg/config/labels"
-	// "istio.io/istio/pilot/pkg/security/authn/v1alpha1"
 	"istio.io/istio/pilot/pkg/security/authn/v1beta1"
+	"istio.io/istio/pkg/config/labels"
 )
 
 // NewPolicyApplier returns the appropriate (policy) applier, depends on the versions of the policy exists

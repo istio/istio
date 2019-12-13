@@ -19,17 +19,23 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
+	envoy_auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/jwt_authn/v2alpha"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/golang/protobuf/ptypes/empty"
 
+	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	structpb "github.com/golang/protobuf/ptypes/struct"
+
 	authn_alpha_api "istio.io/api/authentication/v1alpha1"
 	v1beta1 "istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
+	"istio.io/istio/pilot/pkg/networking/plugin"
 	pilotutil "istio.io/istio/pilot/pkg/networking/util"
+	protovalue "istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 	authn_alpha "istio.io/istio/security/proto/authentication/v1alpha1"
 	authn_filter "istio.io/istio/security/proto/envoy/config/filter/http/authn/v2alpha1"
@@ -362,7 +368,6 @@ func TestJwtFilter(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			if got := NewPolicyApplier(c.in, c.alphaPolicyIn).JwtFilter(true); !reflect.DeepEqual(c.expected, got) {
-
 				t.Errorf("got:\n%s\nwanted:\n%s", spew.Sdump(got), spew.Sdump(c.expected))
 			}
 		})
@@ -791,5 +796,86 @@ func TestAuthnFilterConfig(t *testing.T) {
 				t.Errorf("got:\n%s\nwanted:\n%s\n", gotYaml, expectedYaml)
 			}
 		})
+	}
+}
+
+// Just one test case to ensure mTLS context is correctly setup, since we just invoke
+// alpha implementation.
+func TestOnInboundFilterChain(t *testing.T) {
+	tlsContext := &envoy_auth.DownstreamTlsContext{
+		CommonTlsContext: &envoy_auth.CommonTlsContext{
+			TlsCertificates: []*envoy_auth.TlsCertificate{
+				{
+					CertificateChain: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: "/etc/certs/cert-chain.pem",
+						},
+					},
+					PrivateKey: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: "/etc/certs/key.pem",
+						},
+					},
+				},
+			},
+			ValidationContextType: &envoy_auth.CommonTlsContext_ValidationContext{
+				ValidationContext: &envoy_auth.CertificateValidationContext{
+					TrustedCa: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: "/etc/certs/root-cert.pem",
+						},
+					},
+				},
+			},
+			AlpnProtocols: []string{"h2", "http/1.1"},
+		},
+		RequireClientCertificate: protovalue.BoolTrue,
+	}
+
+	tc := struct {
+		name       string
+		in         *authn_alpha_api.Policy
+		sdsUdsPath string
+		expected   []plugin.FilterChain
+		meta       *model.NodeMetadata
+	}{
+		name: "PermissiveMTLS",
+		in: &authn_alpha_api.Policy{
+			Peers: []*authn_alpha_api.PeerAuthenticationMethod{
+				{
+					Params: &authn_alpha_api.PeerAuthenticationMethod_Mtls{
+						Mtls: &authn_alpha_api.MutualTls{
+							Mode: authn_alpha_api.MutualTls_PERMISSIVE,
+						},
+					},
+				},
+			},
+		},
+		meta: &model.NodeMetadata{},
+		// Two filter chains, one for mtls traffic within the mesh, one for plain text traffic.
+		expected: []plugin.FilterChain{
+			{
+				TLSContext: tlsContext,
+				FilterChainMatch: &listener.FilterChainMatch{
+					ApplicationProtocols: []string{"istio"},
+				},
+				ListenerFilters: []*listener.ListenerFilter{
+					{
+						Name:       "envoy.listener.tls_inspector",
+						ConfigType: &listener.ListenerFilter_Config{&structpb.Struct{}},
+					},
+				},
+			},
+			{
+				FilterChainMatch: &listener.FilterChainMatch{},
+			},
+		},
+	}
+	got := NewPolicyApplier(nil, tc.in).InboundFilterChain(
+		tc.sdsUdsPath,
+		tc.meta,
+	)
+	if !reflect.DeepEqual(got, tc.expected) {
+		t.Errorf("[%v] unexpected filter chains, got %v, want %v", tc.name, got, tc.expected)
 	}
 }
