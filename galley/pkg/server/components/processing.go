@@ -294,7 +294,7 @@ func (p *Processing) createSourceAndStatusUpdater(resources schema.KubeResources
 	src event.Source, updater snapshotter.StatusUpdater, err error) {
 
 	if p.args.ConfigPath != "" {
-		if src, err = fsNew2(p.args.ConfigPath, resources, p.args.WatchConfigFiles); err != nil {
+		if src, err = fsNew(p.args.ConfigPath, resources, p.args.WatchConfigFiles); err != nil {
 			return
 		}
 		updater = &snapshotter.InMemoryStatusUpdater{}
