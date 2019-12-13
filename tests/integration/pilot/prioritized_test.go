@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package locality
+package pilot
 
 import (
 	"fmt"
@@ -95,7 +95,7 @@ func TestPrioritized(t *testing.T) {
 					// Send traffic to service B via a service entry.
 					log.Infof("Sending traffic to local service (CDS) via %v", fakeHostname)
 					if err := retry.UntilSuccess(func() error {
-						return sendTraffic(a, fakeHostname)
+						return sendLocalityTraffic(a, fakeHostname)
 					}); err != nil {
 						ctx.Fatal(err)
 					}
@@ -133,7 +133,7 @@ func TestPrioritized(t *testing.T) {
 					// Send traffic to service B via a service entry.
 					log.Infof("Sending traffic to local service (EDS) via %v", fakeHostname)
 					if err := retry.UntilSuccess(func() error {
-						return sendTraffic(a, fakeHostname)
+						return sendLocalityTraffic(a, fakeHostname)
 					}); err != nil {
 						ctx.Fatal(err)
 					}
