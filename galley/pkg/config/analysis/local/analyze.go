@@ -60,8 +60,12 @@ type SourceAnalyzer struct {
 	sources              []precedenceSourceInput
 	analyzer             *analysis.CombinedAnalyzer
 	transformerProviders transformer.Providers
-	namespace            string
-	istioNamespace       string
+
+	// List of code and resource suppressions to exclude messages on
+	suppressions []snapshotter.AnalysisSuppression
+
+	namespace      string
+	istioNamespace string
 
 	// Which kube resources are used by this analyzer
 	// Derived from metadata and the specified analyzer and transformer providers
@@ -145,6 +149,7 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 		TriggerSnapshot:    metadata.LocalAnalysis,
 		CollectionReporter: sa.collectionReporter,
 		AnalysisNamespaces: namespaces,
+		Suppressions:       sa.suppressions,
 	}
 	distributor := snapshotter.NewAnalyzingDistributor(distributorSettings)
 
@@ -170,6 +175,13 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 	}
 
 	return result, errors.New("cancelled")
+}
+
+// SetSuppressions will set the list of suppressions for the analyzer. Any
+// resource that matches the provided suppression will not be included in the
+// final message output.
+func (sa *SourceAnalyzer) SetSuppressions(suppressions []snapshotter.AnalysisSuppression) {
+	sa.suppressions = suppressions
 }
 
 // AddReaderKubeSource adds a source based on the specified k8s yaml files to the current SourceAnalyzer

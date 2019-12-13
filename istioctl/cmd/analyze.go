@@ -23,6 +23,8 @@ import (
 	"sort"
 	"strings"
 
+	"istio.io/istio/galley/pkg/config/processing/snapshotter"
+
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 
@@ -70,6 +72,7 @@ var (
 	msgOutputFormat string
 	meshCfgFile     string
 	allNamespaces   bool
+	suppress        []string
 
 	termEnvVar = env.RegisterStringVar("TERM", "", "Specifies terminal type.  Use 'dumb' to suppress color output")
 
@@ -108,6 +111,9 @@ istioctl analyze -d true a.yaml b.yaml services.yaml
 
 # Analyze the current live cluster, overriding service discovery to disabled
 istioctl analyze -k -d false
+
+# Analyze the current live cluster and suppress PodMissingProxy for pod mypod in namespace 'testing'.
+istioctl analyze -k --suppress "IST0103=Pod mypod.testing"
 
 # List available analyzers
 istioctl analyze -L
@@ -160,6 +166,18 @@ istioctl analyze -L
 
 			sa := local.NewSourceAnalyzer(metadata.MustGet(), analyzers.AllCombined(), selectedNamespace, istioNamespace, nil, useDiscovery)
 
+			var suppressions []snapshotter.AnalysisSuppression
+			for _, s := range suppress {
+				parts := strings.Split(s, "=")
+				if len(parts) != 2 {
+					return fmt.Errorf("%s is not a valid suppression value. See istioctl analyze --help", s)
+				}
+				suppressions = append(suppressions, snapshotter.AnalysisSuppression{
+					Code:         parts[0],
+					ResourceName: parts[1],
+				})
+			}
+			sa.SetSuppressions(suppressions)
 			// If we're using kube, use that as a base source.
 			if k != nil {
 				sa.AddRunningKubeSource(k)
@@ -288,6 +306,9 @@ istioctl analyze -L
 		"Overrides the mesh config values to use for analysis.")
 	analysisCmd.PersistentFlags().BoolVar(&allNamespaces, "all-namespaces", false,
 		"Analyze all namespaces")
+	analysisCmd.PersistentFlags().StringArrayVar(&suppress, "suppress", []string{},
+		"Suppress reporting a message code on a specific resource. Values are supplied in the form "+
+			"<code>=<resource> (e.g. '--suppress \"IST0102=namespace default\"'). Can be repeated.")
 	return analysisCmd
 }
 

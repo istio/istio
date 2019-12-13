@@ -241,6 +241,54 @@ func TestAnalyzeSortsMessages(t *testing.T) {
 	g.Expect(u.messages[1].Origin).To(Equal(o1))
 }
 
+func TestAnalyzeSuppressesMessages(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	u := &updaterMock{}
+	o1 := &rt.Origin{
+		Collection: data.Collection1,
+		Kind:       "foobar",
+		Name:       resource.NewName("includedNamespace", "r2"),
+	}
+	o2 := &rt.Origin{
+		Collection: data.Collection1,
+		Kind:       "foobar",
+		Name:       resource.NewName("includedNamespace", "r1"),
+	}
+	a := &analyzerMock{
+		collectionToAccess: data.Collection1,
+		entriesToReport: []*resource.Entry{
+			{Origin: o1},
+			{Origin: o2},
+		},
+	}
+	s := AnalysisSuppression{
+		Code:         "IST0001", // InternalError, reported by analyzerMock
+		ResourceName: "foobar r2.includedNamespace",
+	}
+	d := NewInMemoryDistributor()
+
+	settings := AnalyzingDistributorSettings{
+		StatusUpdater:      u,
+		Analyzer:           analysis.Combine("testCombined", a),
+		Distributor:        d,
+		AnalysisSnapshots:  []string{metadata.Default},
+		TriggerSnapshot:    metadata.Default,
+		CollectionReporter: nil,
+		AnalysisNamespaces: []string{"includedNamespace"},
+		Suppressions:       []AnalysisSuppression{s},
+	}
+	ad := NewAnalyzingDistributor(settings)
+
+	sDefault := getTestSnapshot()
+
+	ad.Distribute(metadata.Default, sDefault)
+
+	g.Eventually(func() []*Snapshot { return a.analyzeCalls }).Should(ConsistOf(sDefault))
+	g.Expect(u.messages).To(HaveLen(1))
+	g.Expect(u.messages[0].Origin).To(Equal(o2))
+}
+
 func getTestSnapshot(names ...string) *Snapshot {
 	c := make([]*coll.Instance, 0)
 	for _, name := range names {

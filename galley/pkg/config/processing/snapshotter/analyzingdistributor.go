@@ -66,6 +66,22 @@ type AnalyzingDistributorSettings struct {
 
 	// Namespaces that should be analyzed
 	AnalysisNamespaces []string
+
+	// Suppressions that suppress a set of matching messages.
+	Suppressions []AnalysisSuppression
+}
+
+// AnalysisSuppression describes a resource and analysis code to be suppressed
+// (e.g. ignored) during analysis. Used when a particular message code is to be
+// ignored for a specific resource.
+type AnalysisSuppression struct {
+	// Code is the analysis code to suppress (e.g. "IST0104").
+	Code string
+
+	// ResourceName is the name of the resource to suppress the message for. For
+	// K8s resources it has the same form as used by istioctl (e.g.
+	// "DestinationRule default.istio-system").
+	ResourceName string
 }
 
 // NewAnalyzingDistributor returns a new instance of AnalyzingDistributor.
@@ -148,15 +164,10 @@ func (d *AnalyzingDistributor) analyzeAndDistribute(cancelCh chan struct{}, name
 	if len(namespaces) == 0 {
 		msgs = ctx.messages
 	} else {
-		for _, m := range ctx.messages {
-			if m.Origin != nil && m.Origin.Namespace() != "" {
-				if _, ok := namespaces[m.Origin.Namespace()]; !ok {
-					continue
-				}
-			}
-			msgs = append(msgs, m)
-		}
+		msgs = filterByNamespaces(namespaces, ctx.messages)
 	}
+	// Filter out any messages that match our suppressions
+	msgs = filterBySuppressions(d.s.Suppressions, msgs)
 
 	if !ctx.Canceled() {
 		d.s.StatusUpdater.Update(msgs.SortedDedupedCopy())
@@ -225,4 +236,36 @@ func (c *context) Canceled() bool {
 	default:
 		return false
 	}
+}
+
+func filterByNamespaces(namespaces map[string]struct{}, messages diag.Messages) diag.Messages {
+	var msgs diag.Messages
+	for _, m := range messages {
+		if m.Origin != nil && m.Origin.Namespace() != "" {
+			if _, ok := namespaces[m.Origin.Namespace()]; !ok {
+				continue
+			}
+		}
+		msgs = append(msgs, m)
+	}
+
+	return msgs
+}
+
+func filterBySuppressions(suppressions []AnalysisSuppression, messages diag.Messages) diag.Messages {
+	var msgs diag.Messages
+	for _, m := range messages {
+		suppress := false
+		for _, s := range suppressions {
+			if m.Origin != nil && s.Code == m.Type.Code() && s.ResourceName == m.Origin.FriendlyName() {
+				scope.Analysis.Debugf("Suppressing code %s on resource %s due to suppressions list", m.Type.Code(), m.Origin.FriendlyName())
+				suppress = true
+			}
+		}
+		if !suppress {
+			msgs = append(msgs, m)
+		}
+	}
+
+	return msgs
 }
