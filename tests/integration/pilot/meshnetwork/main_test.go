@@ -93,14 +93,15 @@ func setupConfig(cfg *istio.Config) {
 	}
 
 	cfg.Values["global.meshNetworks"] = `
-Kubernetes:
-  endpoints:
+networks:
+  Kubernetes:
+    endpoints:
     # NOTE: Voodoo value. DO NOT CHANGE THIS! Its hardcoded in Pilot in different areas
-  - fromRegistry: Kubernetes
-  gateways:
-  - address: 2.2.2.2
-    port: 15443
-vm: {}
+    - fromRegistry: Kubernetes
+    gateways:
+    - port: 15443
+      address: 2.2.2.2
+  vm: {}
 `
 	// This will cause ISTIO_META_NETWORK to be set on the pods and the
 	// kube controller code to match endpoints from kubernetes with the default
