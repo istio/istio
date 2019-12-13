@@ -241,6 +241,7 @@ var testGrid = []testCase{
 		expected: []message{
 			{msg.ReferencedResourceNotFound, "Gateway defaultgateway-bogusCredentialName"},
 			{msg.ReferencedResourceNotFound, "Gateway customgateway-wrongnamespace"},
+			{msg.ReferencedResourceNotFound, "Gateway bogusgateway"},
 		},
 	},
 	{

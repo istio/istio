@@ -52,6 +52,13 @@ func (a *SecretAnalyzer) Analyze(ctx analysis.Context) {
 
 		gwNs := getGatewayNamespace(ctx, gw)
 
+		// If we can't find a namespace for the gateway, it's because there's no matching selector. Exit early with a different message.
+		if gwNs == "" {
+			ctx.Report(metadata.IstioNetworkingV1Alpha3Gateways,
+				msg.NewReferencedResourceNotFound(r, "selector", labels.SelectorFromSet(gw.Selector).String()))
+			return true
+		}
+
 		for _, srv := range gw.GetServers() {
 			tls := srv.GetTls()
 			if tls == nil {
