@@ -374,16 +374,18 @@ func (s *Server) cleanupOnStop(stop <-chan struct{}) {
 	go func() {
 		<-stop
 		model.JwtKeyResolver.Close()
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		err := s.httpServer.Shutdown(ctx)
-		if err != nil {
-			log.Warna(err)
-		}
+
 		if s.forceStop {
 			s.grpcServer.Stop()
+			_ = s.httpServer.Close()
 		} else {
 			s.grpcServer.GracefulStop()
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			err := s.httpServer.Shutdown(ctx)
+			if err != nil {
+				log.Warna(err)
+			}
 		}
 	}()
 }
@@ -524,15 +526,19 @@ func (s *Server) initSecureGrpcServerDNS(port string, keepalive *istiokeepalive.
 			default:
 				panic(fmt.Sprintf("%s due to error: %v", msg, err))
 			}
+		}()
+
+		go func() {
+			<-stop
 			if s.forceStop {
 				s.secureGRPCServerDNS.Stop()
+				_ = s.secureHTTPServerDNS.Close()
 			} else {
 				s.secureGRPCServerDNS.GracefulStop()
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+				_ = s.secureHTTPServerDNS.Shutdown(ctx)
 			}
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancel()
-			_ = s.secureHTTPServerDNS.Shutdown(ctx)
-			s.secureGRPCServerDNS.Stop()
 		}()
 		return nil
 	})
