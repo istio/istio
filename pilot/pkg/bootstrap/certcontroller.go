@@ -118,8 +118,6 @@ func (s *Server) initDNSCerts(hostname string) error {
 	// The first is the recommended one, also used by Apiserver for webhooks.
 	names := []string{hostname}
 
-	// TODO:
-
 	// Default value, matching old installs. For migration we also add the new SAN, so workloads
 	// can switch between the names.
 	if hostname == "istio-pilot.istio-system.svc" {
