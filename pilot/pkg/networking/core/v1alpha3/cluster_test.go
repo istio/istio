@@ -1999,3 +1999,51 @@ func TestAutoMTLSClusterPerPortStrictMode(t *testing.T) {
 		g.Expect(cluster.TlsContext).To(BeNil())
 	}
 }
+
+func TestApplyLoadBalancer(t *testing.T) {
+	testcases := []struct {
+		name             string
+		lbSettings       *networking.LoadBalancerSettings
+		discoveryType    apiv2.Cluster_DiscoveryType
+		port             *model.Port
+		expectedLbPolicy apiv2.Cluster_LbPolicy
+	}{
+		{
+			name:             "lb = nil ORIGINAL_DST discovery type",
+			discoveryType:    apiv2.Cluster_ORIGINAL_DST,
+			expectedLbPolicy: apiv2.Cluster_CLUSTER_PROVIDED,
+		},
+		{
+			name:             "lb = nil redis protocol",
+			discoveryType:    apiv2.Cluster_EDS,
+			port:             &model.Port{Protocol: protocol.Redis},
+			expectedLbPolicy: apiv2.Cluster_MAGLEV,
+		},
+		// TODO: add more to cover all cases
+	}
+
+	proxy := model.Proxy{
+		Type:         model.SidecarProxy,
+		IstioVersion: &model.IstioVersion{Major: 1, Minor: 5},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			cluster := &apiv2.Cluster{
+				ClusterDiscoveryType: &apiv2.Cluster_Type{Type: test.discoveryType},
+			}
+
+			if test.port != nil && test.port.Protocol == protocol.Redis {
+				os.Setenv("PILOT_ENABLE_REDIS_FILTER", "true")
+				defer os.Unsetenv("PILOT_ENABLE_REDIS_FILTER")
+			}
+
+			applyLoadBalancer(cluster, test.lbSettings, test.port, &proxy, &meshconfig.MeshConfig{})
+
+			if cluster.LbPolicy != test.expectedLbPolicy {
+				t.Errorf("cluster LbPolicy %s != expected %s", cluster.LbPolicy, test.expectedLbPolicy)
+			}
+		})
+	}
+
+}
