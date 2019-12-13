@@ -111,7 +111,7 @@ Messages are prefixed with EDS/LDS/CDS.
 
 What we log and how to use it:
 
-- sidecar connecting to pilot: "EDS/CSD/LDS: REQ ...". This includes the node, IP and the discovery
+- sidecar connecting to pilot: "EDS/CDS/LDS: REQ ...". This includes the node, IP and the discovery
 request proto. Should show up when the sidecar starts up.
 
 - sidecar disconnecting from pilot: xDS: close. This happens when a pod is stopped.

@@ -74,18 +74,7 @@ var (
 )
 
 func TestHTTPCircuitBreakerThresholds(t *testing.T) {
-	directionInfos := []struct {
-		direction    model.TrafficDirection
-		clusterIndex int
-	}{
-		{
-			direction:    model.TrafficDirectionOutbound,
-			clusterIndex: 0,
-		}, {
-			direction:    model.TrafficDirectionInbound,
-			clusterIndex: 4,
-		},
-	}
+	clusterIndexes := []int{0, 4}
 	settings := []*networking.ConnectionPoolSettings{
 		nil,
 		{
@@ -97,31 +86,30 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 			},
 		}}
 
-	for _, directionInfo := range directionInfos {
-		for _, s := range settings {
-			settingsName := "default"
-			if s != nil {
-				settingsName = "override"
-			}
-			testName := fmt.Sprintf("%s-%s", directionInfo.direction, settingsName)
-			t.Run(testName, func(t *testing.T) {
-				g := NewGomegaWithT(t)
-				clusters, err := buildTestClusters("*.example.org", 0, model.SidecarProxy, nil, testMesh,
-					&networking.DestinationRule{
-						Host: "*.example.org",
-						TrafficPolicy: &networking.TrafficPolicy{
-							ConnectionPool: s,
-						},
-					})
-				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(len(clusters)).To(Equal(8))
-				cluster := clusters[directionInfo.clusterIndex]
+	for _, s := range settings {
+		testName := "default"
+		if s != nil {
+			testName = "override"
+		}
+		t.Run(testName, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			clusters, err := buildTestClusters("*.example.org", 0, model.SidecarProxy, nil, testMesh,
+				&networking.DestinationRule{
+					Host: "*.example.org",
+					TrafficPolicy: &networking.TrafficPolicy{
+						ConnectionPool: s,
+					},
+				})
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(len(clusters)).To(Equal(8))
+			for _, index := range clusterIndexes {
+				cluster := clusters[index]
 				g.Expect(len(cluster.CircuitBreakers.Thresholds)).To(Equal(1))
 				thresholds := cluster.CircuitBreakers.Thresholds[0]
 
 				if s == nil {
 					// Assume the correct defaults for this direction.
-					g.Expect(thresholds).To(Equal(getDefaultCircuitBreakerThresholds(directionInfo.direction)))
+					g.Expect(thresholds).To(Equal(getDefaultCircuitBreakerThresholds()))
 				} else {
 					// Verify that the values were set correctly.
 					g.Expect(thresholds.MaxPendingRequests).To(Not(BeNil()))
@@ -133,8 +121,8 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 					g.Expect(thresholds.MaxRetries).To(Not(BeNil()))
 					g.Expect(thresholds.MaxRetries.Value).To(Equal(uint32(s.Http.MaxRetries)))
 				}
-			})
-		}
+			}
+		})
 	}
 }
 
@@ -1440,7 +1428,7 @@ func TestBuildClustersDefaultCircuitBreakerThresholds(t *testing.T) {
 		if cluster.Name != "BlackHoleCluster" {
 			fmt.Println(cluster.CircuitBreakers)
 			g.Expect(cluster.CircuitBreakers).NotTo(BeNil())
-			g.Expect(cluster.CircuitBreakers.Thresholds[0]).To(Equal(getDefaultCircuitBreakerThresholds(model.TrafficDirectionOutbound)))
+			g.Expect(cluster.CircuitBreakers.Thresholds[0]).To(Equal(getDefaultCircuitBreakerThresholds()))
 		}
 	}
 }
@@ -1489,7 +1477,7 @@ func TestBuildInboundClustersDefaultCircuitBreakerThresholds(t *testing.T) {
 	for _, cluster := range clusters {
 		fmt.Println(cluster.CircuitBreakers)
 		g.Expect(cluster.CircuitBreakers).NotTo(BeNil())
-		g.Expect(cluster.CircuitBreakers.Thresholds[0]).To(Equal(getDefaultCircuitBreakerThresholds(model.TrafficDirectionInbound)))
+		g.Expect(cluster.CircuitBreakers.Thresholds[0]).To(Equal(getDefaultCircuitBreakerThresholds()))
 	}
 }
 
@@ -2010,4 +1998,52 @@ func TestAutoMTLSClusterPerPortStrictMode(t *testing.T) {
 		cluster := clusters[i]
 		g.Expect(cluster.TlsContext).To(BeNil())
 	}
+}
+
+func TestApplyLoadBalancer(t *testing.T) {
+	testcases := []struct {
+		name             string
+		lbSettings       *networking.LoadBalancerSettings
+		discoveryType    apiv2.Cluster_DiscoveryType
+		port             *model.Port
+		expectedLbPolicy apiv2.Cluster_LbPolicy
+	}{
+		{
+			name:             "lb = nil ORIGINAL_DST discovery type",
+			discoveryType:    apiv2.Cluster_ORIGINAL_DST,
+			expectedLbPolicy: apiv2.Cluster_CLUSTER_PROVIDED,
+		},
+		{
+			name:             "lb = nil redis protocol",
+			discoveryType:    apiv2.Cluster_EDS,
+			port:             &model.Port{Protocol: protocol.Redis},
+			expectedLbPolicy: apiv2.Cluster_MAGLEV,
+		},
+		// TODO: add more to cover all cases
+	}
+
+	proxy := model.Proxy{
+		Type:         model.SidecarProxy,
+		IstioVersion: &model.IstioVersion{Major: 1, Minor: 5},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			cluster := &apiv2.Cluster{
+				ClusterDiscoveryType: &apiv2.Cluster_Type{Type: test.discoveryType},
+			}
+
+			if test.port != nil && test.port.Protocol == protocol.Redis {
+				os.Setenv("PILOT_ENABLE_REDIS_FILTER", "true")
+				defer os.Unsetenv("PILOT_ENABLE_REDIS_FILTER")
+			}
+
+			applyLoadBalancer(cluster, test.lbSettings, test.port, &proxy, &meshconfig.MeshConfig{})
+
+			if cluster.LbPolicy != test.expectedLbPolicy {
+				t.Errorf("cluster LbPolicy %s != expected %s", cluster.LbPolicy, test.expectedLbPolicy)
+			}
+		})
+	}
+
 }

@@ -17,11 +17,14 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
+	"runtime"
 	"sort"
 	"strings"
 
 	"istio.io/istio/galley/pkg/config/analysis"
+	"istio.io/istio/istioctl/pkg/util/handlers"
 
 	"github.com/ghodss/yaml"
 	"github.com/mattn/go-isatty"
@@ -78,8 +81,6 @@ var (
 )
 
 // Analyze command
-// Once we're ready to move this functionality out of the "experimental" subtree, we should merge
-// with `istioctl validate`. https://github.com/istio/istio/issues/16777
 func Analyze() *cobra.Command {
 	// Validate the output format before doing potentially expensive work to fail earlier
 	msgOutputFormats := map[string]bool{LogOutput: true, JSONOutput: true, YamlOutput: true}
@@ -94,29 +95,29 @@ func Analyze() *cobra.Command {
 		Short: "Analyze Istio configuration and print validation messages",
 		Example: `
 # Analyze yaml files
-istioctl experimental analyze a.yaml b.yaml
+istioctl analyze a.yaml b.yaml
 
 # Analyze the current live cluster
-istioctl experimental analyze -k
+istioctl analyze -k
 
 # Analyze the current live cluster, simulating the effect of applying additional yaml files
-istioctl experimental analyze -k a.yaml b.yaml
+istioctl analyze -k a.yaml b.yaml
 
 # Analyze yaml files, overriding service discovery to enabled
-istioctl experimental analyze -d true a.yaml b.yaml services.yaml
+istioctl analyze -d true a.yaml b.yaml services.yaml
 
 # Analyze the current live cluster, overriding service discovery to disabled
-istioctl experimental analyze -k -d false
+istioctl analyze -k -d false
 
 # List available analyzers
-istioctl experimental analyze -L
+istioctl analyze -L
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			msgOutputFormat = strings.ToLower(msgOutputFormat)
 			_, ok := msgOutputFormats[msgOutputFormat]
 			if !ok {
 				return CommandParseError{
-					fmt.Errorf("%s not a valid option for format. See istioctl x analyze --help", msgOutputFormat),
+					fmt.Errorf("%s not a valid option for format. See istioctl analyze --help", msgOutputFormat),
 				}
 			}
 
@@ -125,7 +126,7 @@ istioctl experimental analyze -L
 				return nil
 			}
 
-			files, err := gatherFiles(args)
+			readers, err := gatherFiles(args)
 			if err != nil {
 				return err
 			}
@@ -138,11 +139,7 @@ istioctl experimental analyze -L
 
 			// We use the "namespace" arg that's provided as part of root istioctl as a flag for specifying what namespace to use
 			// for file resources that don't have one specified.
-			// Note that the current implementation (in root.go) doesn't correctly default this value based on --context, so we do that ourselves
-			// below since for the time being we want to keep changes isolated to experimental code. When we merge this into
-			// istioctl validate (see https://github.com/istio/istio/issues/16777) we should look into fixing getDefaultNamespace in root
-			// so it properly handles the --context option.
-			selectedNamespace := namespace
+			selectedNamespace := handlers.HandleNamespace(namespace, defaultNamespace)
 
 			var k cfgKube.Interfaces
 			if useKube {
@@ -154,19 +151,6 @@ istioctl experimental analyze -L
 				}
 				k = cfgKube.NewInterfaces(restConfig)
 
-				// If a default namespace to inject in files hasn't been explicitly defined already, use whatever is specified in the kube context
-				if selectedNamespace == "" {
-					ns, _, err := config.Namespace()
-					if err != nil {
-						return err
-					}
-					selectedNamespace = ns
-				}
-			}
-
-			// If default namespace to inject wasn't specified by the user or derived from the k8s context, just use the default.
-			if selectedNamespace == "" {
-				selectedNamespace = defaultNamespace
 			}
 
 			// If we've explicitly asked for all namespaces, blank the selectedNamespace var out
@@ -183,10 +167,9 @@ istioctl experimental analyze -L
 
 			// If files are provided, treat them (collectively) as a source.
 			parseErrors := 0
-			if len(files) > 0 {
-				if err = sa.AddFileKubeSource(files); err != nil {
-					// Partial success is possible, so don't return early, but do print.
-					fmt.Fprintf(cmd.ErrOrStderr(), "Error(s) reading files: %v", err)
+			if len(readers) > 0 {
+				if err = sa.AddReaderKubeSource(readers); err != nil {
+					fmt.Fprintf(cmd.ErrOrStderr(), "Error(s) adding files: %v", err)
 					parseErrors++
 				}
 			}
@@ -308,15 +291,26 @@ istioctl experimental analyze -L
 	return analysisCmd
 }
 
-func gatherFiles(args []string) ([]string, error) {
-	var result []string
-	for _, a := range args {
-		if _, err := os.Stat(a); err != nil {
-			return nil, fmt.Errorf("could not find file %q", a)
+func gatherFiles(args []string) ([]io.Reader, error) {
+	var readers []io.Reader
+	var r *os.File
+	var err error
+	for _, f := range args {
+		if f == "-" {
+			if isatty.IsTerminal(os.Stdin.Fd()) {
+				fmt.Fprint(os.Stderr, "Reading from stdin:\n")
+			}
+			r = os.Stdin
+		} else {
+			r, err = os.Open(f)
+			if err != nil {
+				return nil, err
+			}
+			runtime.SetFinalizer(r, func(x *os.File) { x.Close() })
 		}
-		result = append(result, a)
+		readers = append(readers, r)
 	}
-	return result, nil
+	return readers, nil
 }
 
 func colorPrefix(m diag.Message) string {

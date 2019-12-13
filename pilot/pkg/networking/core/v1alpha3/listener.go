@@ -593,7 +593,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPort
 			pluginParams.Push, pluginParams.ServiceInstance, clusterName),
 		rds:              "", // no RDS for inbound traffic
 		useRemoteAddress: false,
-		direction:        http_conn.HttpConnectionManager_Tracing_INGRESS,
 		connectionManager: &http_conn.HttpConnectionManager{
 			// Append and forward client cert to backend.
 			ForwardClientCertDetails: http_conn.HttpConnectionManager_APPEND_FORWARD,
@@ -1066,7 +1065,6 @@ func (configgen *ConfigGeneratorImpl) buildHTTPProxy(node *model.Proxy,
 		return nil
 	}
 
-	traceOperation := http_conn.HttpConnectionManager_Tracing_EGRESS
 	listenAddress := actualLocalHostAddress
 
 	httpOpts := &core.Http1ProtocolOptions{
@@ -1086,7 +1084,6 @@ func (configgen *ConfigGeneratorImpl) buildHTTPProxy(node *model.Proxy,
 			httpOpts: &httpListenerOpts{
 				rds:              RDSHttpProxy,
 				useRemoteAddress: false,
-				direction:        traceOperation,
 				connectionManager: &http_conn.HttpConnectionManager{
 					HttpProtocolOptions: httpOpts,
 				},
@@ -1194,7 +1191,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 		// which is an internal address, so that trusted headers are not sanitized. This helps to retain the timeout headers
 		// such as "x-envoy-upstream-rq-timeout-ms" set by the calling application.
 		useRemoteAddress: features.UseRemoteAddress.Get(),
-		direction:        http_conn.HttpConnectionManager_Tracing_EGRESS,
 		rds:              rdsName,
 	}
 
@@ -1724,7 +1720,6 @@ type httpListenerOpts struct {
 	// stat prefix for the http connection manager
 	// DO not set this field. Will be overridden by buildCompleteFilterChain
 	statPrefix string
-	direction  http_conn.HttpConnectionManager_Tracing_OperationName
 	// addGRPCWebFilter specifies whether the envoy.grpc_web HTTP filter
 	// should be added.
 	addGRPCWebFilter bool
@@ -1839,7 +1834,13 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 
 	idleTimeout, err := time.ParseDuration(pluginParams.Node.Metadata.IdleTimeout)
 	if idleTimeout > 0 && err == nil {
-		connectionManager.IdleTimeout = ptypes.DurationProto(idleTimeout)
+		if util.IsIstioVersionGE14(pluginParams.Node) {
+			connectionManager.CommonHttpProtocolOptions = &core.HttpProtocolOptions{
+				IdleTimeout: ptypes.DurationProto(idleTimeout),
+			}
+		} else {
+			connectionManager.IdleTimeout = ptypes.DurationProto(idleTimeout)
+		}
 	}
 
 	notimeout := ptypes.DurationProto(0 * time.Second)
@@ -1868,17 +1869,11 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 		}
 
 		acc := &accesslog.AccessLog{
-			Name: wellknown.FileAccessLog,
+			Name:       wellknown.FileAccessLog,
+			ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)},
 		}
 
 		buildAccessLog(pluginParams.Node, fl, pluginParams.Push)
-
-		if util.IsXDSMarshalingToAnyEnabled(pluginParams.Node) {
-			acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
-		} else {
-			acc.ConfigType = &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)}
-		}
-
 		connectionManager.AccessLog = append(connectionManager.AccessLog, acc)
 	}
 
@@ -1901,13 +1896,8 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 		}
 
 		acc := &accesslog.AccessLog{
-			Name: wellknown.HTTPGRPCAccessLog,
-		}
-
-		if util.IsXDSMarshalingToAnyEnabled(pluginParams.Node) {
-			acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
-		} else {
-			acc.ConfigType = &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)}
+			Name:       wellknown.HTTPGRPCAccessLog,
+			ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)},
 		}
 
 		connectionManager.AccessLog = append(connectionManager.AccessLog, acc)
@@ -1916,7 +1906,6 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 	if pluginParams.Push.Mesh.EnableTracing {
 		tc := authn_model.GetTraceConfig()
 		connectionManager.Tracing = &http_conn.HttpConnectionManager_Tracing{
-			OperationName: httpOpts.direction,
 			ClientSampling: &envoy_type.Percent{
 				Value: tc.ClientSampling,
 			},
@@ -2117,12 +2106,8 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *plugin.
 			opt.httpOpts.statPrefix = strings.ToLower(mutable.Listener.TrafficDirection.String()) + "_" + mutable.Listener.Name
 			httpConnectionManagers[i] = buildHTTPConnectionManager(pluginParams, opt.httpOpts, chain.HTTP)
 			filter := &listener.Filter{
-				Name: wellknown.HTTPConnectionManager,
-			}
-			if util.IsXDSMarshalingToAnyEnabled(pluginParams.Node) {
-				filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(httpConnectionManagers[i])}
-			} else {
-				filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(httpConnectionManagers[i])}
+				Name:       wellknown.HTTPConnectionManager,
+				ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(httpConnectionManagers[i])},
 			}
 			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, filter)
 			log.Debugf("attached HTTP filter with %d http_filter options to listener %q filter chain %d",

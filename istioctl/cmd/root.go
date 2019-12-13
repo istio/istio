@@ -136,6 +136,7 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(convertIngress())
 	rootCmd.AddCommand(dashboard())
 	rootCmd.AddCommand(statusCommand())
+	rootCmd.AddCommand(Analyze())
 
 	rootCmd.AddCommand(install.NewVerifyCommand())
 	experimentalCmd.AddCommand(AuthZ())
@@ -147,7 +148,7 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(describe())
 	experimentalCmd.AddCommand(addToMeshCmd())
 	experimentalCmd.AddCommand(removeFromMeshCmd())
-	experimentalCmd.AddCommand(Analyze())
+	experimentalCmd.AddCommand(softGraduatedCmd(Analyze()))
 	experimentalCmd.AddCommand(waitCmd())
 
 	postInstallCmd.AddCommand(Webhook())
@@ -239,7 +240,14 @@ func getDefaultNamespace(kubeconfig string) string {
 		return v1.NamespaceDefault
 	}
 
-	context, ok := config.Contexts[config.CurrentContext]
+	// If a specific context was specified, use that. Otherwise, just use the current context from the kube config.
+	selectedContext := config.CurrentContext
+	if configContext != "" {
+		selectedContext = configContext
+	}
+
+	// Use the namespace associated with the selected context as default, if the context has one
+	context, ok := config.Contexts[selectedContext]
 	if !ok {
 		return v1.NamespaceDefault
 	}
@@ -249,9 +257,23 @@ func getDefaultNamespace(kubeconfig string) string {
 	return context.Namespace
 }
 
-// graduatedCmd is used for commands that have graduated
+// softGraduatedCmd is used for commands that have graduated, but we still want the old invocation to work.
+func softGraduatedCmd(cmd *cobra.Command) *cobra.Command {
+	msg := fmt.Sprintf("(%s has graduated. Use `istioctl %s`)", cmd.Name(), cmd.Name())
+
+	newCmd := *cmd
+	newCmd.Short = fmt.Sprintf("%s %s", cmd.Short, msg)
+	newCmd.RunE = func(c *cobra.Command, args []string) error {
+		fmt.Fprintln(cmd.ErrOrStderr(), msg)
+		return cmd.RunE(c, args)
+	}
+
+	return &newCmd
+}
+
+// graduatedCmd is used for commands that have graduated and should not work if invoked the old way.
 func graduatedCmd(name string) *cobra.Command {
-	msg := fmt.Sprintf("(%s has graduated.  Use `istioctl %s`)", name, name)
+	msg := fmt.Sprintf("(%s has graduated. Use `istioctl %s`)", name, name)
 	return &cobra.Command{
 		Use:   name,
 		Short: msg,
@@ -263,7 +285,7 @@ func graduatedCmd(name string) *cobra.Command {
 
 // seeExperimentalCmd is used for commands that have been around for a release but not graduated
 func seeExperimentalCmd(name string) *cobra.Command {
-	msg := fmt.Sprintf("(%s is experimental.  Use `istioctl experimental %s`)", name, name)
+	msg := fmt.Sprintf("(%s is experimental. Use `istioctl experimental %s`)", name, name)
 	return &cobra.Command{
 		Use:   name,
 		Short: msg,

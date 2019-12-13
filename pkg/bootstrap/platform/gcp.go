@@ -59,6 +59,11 @@ type gcpEnv struct {
 	instanceIDFn       metadataFn
 }
 
+// IsGCP returns whether or not the platform for bootstrapping is Google Cloud Platform.
+func IsGCP() bool {
+	return metadata.OnGCE()
+}
+
 // NewGCP returns a platform environment customized for Google Cloud Platform.
 // Metadata returned by the GCP Environment is taken from the GCE metadata
 // service.

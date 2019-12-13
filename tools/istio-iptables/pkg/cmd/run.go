@@ -312,8 +312,9 @@ func (iptConfigurator *IptablesConfigurator) handleInboundIpv4Rules(ipv4RangesIn
 
 func (iptConfigurator *IptablesConfigurator) run() {
 	defer func() {
-		iptConfigurator.ext.RunOrFail(dep.IPTABLESSAVE)
-		iptConfigurator.ext.RunOrFail(dep.IP6TABLESSAVE)
+		// Best effort since we don't know if the commands exist
+		_ = iptConfigurator.ext.Run(dep.IPTABLESSAVE)
+		_ = iptConfigurator.ext.Run(dep.IP6TABLESSAVE)
 	}()
 
 	// TODO: more flexibility - maybe a whitelist of users to be captured for output instead of a blacklist.
@@ -442,6 +443,8 @@ func (iptConfigurator *IptablesConfigurator) run() {
 
 func (iptConfigurator *IptablesConfigurator) createRulesFile(f *os.File, contents string) error {
 	defer f.Close()
+	fmt.Println("Writing following contents to rules file: ", f.Name())
+	fmt.Println(contents)
 	writer := bufio.NewWriter(f)
 	_, err := writer.WriteString(contents)
 	if err != nil {

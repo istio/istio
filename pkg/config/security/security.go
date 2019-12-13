@@ -36,7 +36,6 @@ const (
 	attrRequestHeader    = "request.headers"        // header name is surrounded by brackets, e.g. "request.headers[User-Agent]".
 	attrSrcIP            = "source.ip"              // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
 	attrSrcNamespace     = "source.namespace"       // e.g. "default".
-	attrSrcUser          = "source.user"            // source identity, e.g. "cluster.local/ns/default/sa/productpage".
 	attrSrcPrincipal     = "source.principal"       // source identity, e,g, "cluster.local/ns/default/sa/productpage".
 	attrRequestPrincipal = "request.auth.principal" // authenticated principal of the request.
 	attrRequestAudiences = "request.auth.audiences" // intended audience(s) for this authentication information.
@@ -94,9 +93,8 @@ func ValidateAttribute(key string, values []string) error {
 	case hasPrefix(key, attrRequestHeader):
 		return validateMapKey(key)
 	case isEqual(key, attrSrcIP):
-		return validateIPs(values)
+		return ValidateIPs(values)
 	case isEqual(key, attrSrcNamespace):
-	case isEqual(key, attrSrcUser):
 	case isEqual(key, attrSrcPrincipal):
 	case isEqual(key, attrRequestPrincipal):
 	case isEqual(key, attrRequestAudiences):
@@ -104,15 +102,20 @@ func ValidateAttribute(key string, values []string) error {
 	case hasPrefix(key, attrRequestClaims):
 		return validateMapKey(key)
 	case isEqual(key, attrDestIP):
-		return validateIPs(values)
+		return ValidateIPs(values)
 	case isEqual(key, attrDestPort):
-		return validatePorts(values)
-	case hasPrefix(key, attrDestLabel) || isEqual(key, attrDestName, attrDestNamespace, attrDestUser):
-		return fmt.Errorf("deprecated attribute (%s): only supported in v1alpha1", key)
+		return ValidatePorts(values)
 	case isEqual(key, attrConnSNI):
 	case hasPrefix(key, attrExperimental):
+		return validateMapKey(key)
+	case isEqual(key, attrDestNamespace):
+		return fmt.Errorf("attribute %s is replaced by the metadata.namespace", key)
+	case hasPrefix(key, attrDestLabel):
+		return fmt.Errorf("attribute %s is replaced by the workload selector", key)
+	case isEqual(key, attrDestName, attrDestUser):
+		return fmt.Errorf("deprecated attribute %s: only supported in v1alpha1", key)
 	default:
-		return fmt.Errorf("unknown attribute (%s)", key)
+		return fmt.Errorf("unknown attribute: %s", key)
 	}
 	return nil
 }
@@ -130,7 +133,7 @@ func hasPrefix(key string, prefix string) bool {
 	return strings.HasPrefix(key, prefix)
 }
 
-func validateIPs(ips []string) error {
+func ValidateIPs(ips []string) error {
 	for _, v := range ips {
 		if strings.Contains(v, "/") {
 			if _, _, err := net.ParseCIDR(v); err != nil {
@@ -145,7 +148,7 @@ func validateIPs(ips []string) error {
 	return nil
 }
 
-func validatePorts(ports []string) error {
+func ValidatePorts(ports []string) error {
 	for _, port := range ports {
 		p, err := strconv.ParseUint(port, 10, 32)
 		if err != nil || p > 65535 {
