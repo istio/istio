@@ -131,14 +131,28 @@ var (
 func TestRemoveFromMesh(t *testing.T) {
 	cases := []testcase{
 		{
-			description:       "Invalid command args",
+			description:       "Invalid command args - missing service name",
 			args:              strings.Split("experimental remove-from-mesh service", " "),
 			expectedException: true,
 			expectedOutput:    "Error: expecting service name\n",
 		},
 		{
-			description:       "valid case",
+			description:       "Invalid command args - missing deployment name",
+			args:              strings.Split("experimental remove-from-mesh deployment", " "),
+			expectedException: true,
+			expectedOutput:    "Error: expecting deployment name\n",
+		},
+		{
+			description:       "valid case - remove service from mesh",
 			args:              strings.Split("experimental remove-from-mesh service details", " "),
+			expectedException: false,
+			k8sConfigs:        cannedK8sConfig,
+			namespace:         "default",
+			expectedOutput:    "deployment \"details-v1.default\" updated successfully with Istio sidecar un-injected.\n",
+		},
+		{
+			description:       "valid case - remove deployment from mesh",
+			args:              strings.Split("experimental remove-from-mesh deployment details-v1", " "),
 			expectedException: false,
 			k8sConfigs:        cannedK8sConfig,
 			namespace:         "default",
@@ -150,6 +164,13 @@ func TestRemoveFromMesh(t *testing.T) {
 			expectedException: true,
 			k8sConfigs:        cannedK8sConfig,
 			expectedOutput:    "Error: service \"test\" does not exist, skip\n",
+		},
+		{
+			description:       "deployment not exists",
+			args:              strings.Split("experimental remove-from-mesh deployment test", " "),
+			expectedException: true,
+			k8sConfigs:        cannedK8sConfig,
+			expectedOutput:    "Error: deployment \"test\" does not exist\n",
 		},
 		{
 			description:       "service without deployment",

@@ -126,14 +126,32 @@ var (
 func TestAddToMesh(t *testing.T) {
 	cases := []testcase{
 		{
-			description:       "Invalid command args",
+			description:       "Invalid command args -missing service name",
 			args:              strings.Split("experimental add-to-mesh service", " "),
 			expectedException: true,
 			expectedOutput:    "Error: expecting service name\n",
 		},
 		{
-			description: "valid case",
+			description:       "Invalid command args - missing deployment name",
+			args:              strings.Split("experimental add-to-mesh deployment", " "),
+			expectedException: true,
+			expectedOutput:    "Error: expecting deployment name\n",
+		},
+		{
+			description: "valid case - add service into mesh",
 			args: strings.Split("experimental add-to-mesh service details --meshConfigFile testdata/mesh-config.yaml"+
+				" --injectConfigFile testdata/inject-config.yaml"+
+				" --valuesFile testdata/inject-values.yaml", " "),
+			expectedException: false,
+			k8sConfigs:        cannedK8sConfigs,
+			expectedOutput: "deployment details-v1.default updated successfully with Istio sidecar injected.\n" +
+				"Next Step: Add related labels to the deployment to align with Istio's requirement: " +
+				"https://istio.io/docs/setup/kubernetes/additional-setup/requirements/\n",
+			namespace: "default",
+		},
+		{
+			description: "valid case - add deployment into mesh",
+			args: strings.Split("experimental add-to-mesh deployment details-v1 --meshConfigFile testdata/mesh-config.yaml"+
 				" --injectConfigFile testdata/inject-config.yaml"+
 				" --valuesFile testdata/inject-values.yaml", " "),
 			expectedException: false,
@@ -151,6 +169,15 @@ func TestAddToMesh(t *testing.T) {
 			expectedException: true,
 			k8sConfigs:        cannedK8sConfigs,
 			expectedOutput:    "Error: services \"test\" not found\n",
+		},
+		{
+			description: "deployment not exists",
+			args: strings.Split("experimental add-to-mesh deployment test --meshConfigFile testdata/mesh-config.yaml"+
+				" --injectConfigFile testdata/inject-config.yaml"+
+				" --valuesFile testdata/inject-values.yaml", " "),
+			expectedException: true,
+			k8sConfigs:        cannedK8sConfigs,
+			expectedOutput:    "Error: deployment \"test\" does not exist\n",
 		},
 		{
 			description: "service without deployment",
