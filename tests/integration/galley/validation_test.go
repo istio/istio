@@ -23,7 +23,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/galley/pkg/config/meta/metadata"
-	"istio.io/istio/galley/testdata/validation"
+	"istio.io/istio/galley/testdatasets/validation"
 	"istio.io/istio/pkg/test/util/yml"
 
 	"istio.io/istio/pkg/test/framework"
