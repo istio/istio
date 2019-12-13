@@ -113,6 +113,11 @@ func convertToIstioAuthnFilterConfig(jwtRules []*v1beta1.JWT) *authn_filter.Filt
 // ensure Authn Filter won't reject the request, but still transform the attributes, e.g. request.auth.principal.
 // proxyType does not matter here, exists only for legacy reason.
 func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
+	if len(a.processedJwtRules) == 0 {
+		log.Infof("incfly debug RequestAuthentication (beta policy) not found, fallback to alpha if available")
+		return a.alphaApplier.AuthNFilter(proxyType, isXDSMarshalingToAnyEnabled)
+	}
+	log.Infof("incfly debug RequestAuthentication found normal pass %v", len(a.processedJwtRules))
 	out := &http_conn.HttpFilter{
 		Name: authn_model.AuthnFilterName,
 	}

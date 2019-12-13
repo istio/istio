@@ -322,6 +322,10 @@ func TestAuthnJwt(t *testing.T) {
 					retry.UntilSuccessOrFail(t, c.CheckAuthn,
 						retry.Delay(250*time.Millisecond), retry.Timeout(30*time.Second))
 				})
+				if c.Name == "jwt-simple-expired-token" {
+					t.Logf("incfly debugging, sleeping")
+					time.Sleep(3600. * time.Second)
+				}
 			}
 		})
 }
