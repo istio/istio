@@ -233,7 +233,7 @@ func injectSideCarIntoDeployment(client kubernetes.Interface, deps []appsv1.Depl
 				dep.Name, dep.Namespace, svcName, svcNamespace))
 			continue
 		}
-		if _, err :=
+		if _, err =
 			client.AppsV1().Deployments(svcNamespace).Update(res); err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("failed to update deployment %s.%s for service %s.%s due to %v",
 				dep.Name, dep.Namespace, svcName, svcNamespace, err))

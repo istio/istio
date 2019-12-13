@@ -521,11 +521,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		Operation: getRouteOperation(out, virtualService.Name, port),
 	}
 	if fault := in.Fault; fault != nil {
-		if util.IsXDSMarshalingToAnyEnabled(node) {
-			out.TypedPerFilterConfig[xdsutil.Fault] = util.MessageToAny(translateFault(in.Fault))
-		} else {
-			out.PerFilterConfig[xdsutil.Fault] = util.MessageToStruct(translateFault(in.Fault))
-		}
+		out.TypedPerFilterConfig[xdsutil.Fault] = util.MessageToAny(translateFault(in.Fault))
 	}
 
 	return out

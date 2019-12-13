@@ -31,7 +31,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
-	pstruct "github.com/golang/protobuf/ptypes/struct"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/log"
@@ -327,7 +326,6 @@ func (mixerplugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConf
 	if in.Push.Mesh.MixerCheckServer == "" && in.Push.Mesh.MixerReportServer == "" {
 		return
 	}
-	isXDSMarshalingToAnyEnabled := util.IsXDSMarshalingToAnyEnabled(in.Node)
 	switch in.ListenerProtocol {
 	case plugin.ListenerProtocolHTTP:
 		// copy structs in place
@@ -335,11 +333,7 @@ func (mixerplugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConf
 			virtualHost := routeConfiguration.VirtualHosts[i]
 			for j := 0; j < len(virtualHost.Routes); j++ {
 				r := virtualHost.Routes[j]
-				if isXDSMarshalingToAnyEnabled {
-					r.TypedPerFilterConfig = addTypedServiceConfig(r.TypedPerFilterConfig, buildInboundRouteConfig(in, in.ServiceInstance))
-				} else {
-					r.PerFilterConfig = addServiceConfig(r.PerFilterConfig, buildInboundRouteConfig(in, in.ServiceInstance))
-				}
+				r.TypedPerFilterConfig = addTypedServiceConfig(r.TypedPerFilterConfig, buildInboundRouteConfig(in, in.ServiceInstance))
 				virtualHost.Routes[j] = r
 			}
 			routeConfiguration.VirtualHosts[i] = virtualHost
@@ -448,13 +442,8 @@ func buildOutboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node
 	}
 
 	out := &http_conn.HttpFilter{
-		Name: mixer,
-	}
-
-	if util.IsXDSMarshalingToAnyEnabled(node) {
-		out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(cfg)}
-	} else {
-		out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(cfg)}
+		Name:       mixer,
+		ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(cfg)},
 	}
 
 	return out
@@ -474,51 +463,28 @@ func buildInboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node 
 		IgnoreForwardedAttributes: node.Type == model.Router,
 	}
 	out := &http_conn.HttpFilter{
-		Name: mixer,
-	}
-
-	if util.IsXDSMarshalingToAnyEnabled(node) {
-		out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(cfg)}
-	} else {
-		out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(cfg)}
+		Name:       mixer,
+		ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(cfg)},
 	}
 
 	return out
 }
 
-func addFilterConfigToRoute(in *plugin.InputParams, httpRoute *route.Route, attrs attributes, isXDSMarshalingToAnyEnabled bool) {
-	if isXDSMarshalingToAnyEnabled {
-		httpRoute.TypedPerFilterConfig = addTypedServiceConfig(httpRoute.TypedPerFilterConfig, &mccpb.ServiceConfig{
-			DisableCheckCalls:  disablePolicyChecks(outbound, in.Push.Mesh, in.Node),
-			DisableReportCalls: in.Push.Mesh.GetDisableMixerHttpReports(),
-			MixerAttributes:    &mpb.Attributes{Attributes: attrs},
-			ForwardAttributes:  &mpb.Attributes{Attributes: attrs},
-		})
-	} else {
-		httpRoute.PerFilterConfig = addServiceConfig(httpRoute.PerFilterConfig, &mccpb.ServiceConfig{
-			DisableCheckCalls:  disablePolicyChecks(outbound, in.Push.Mesh, in.Node),
-			DisableReportCalls: in.Push.Mesh.GetDisableMixerHttpReports(),
-			MixerAttributes:    &mpb.Attributes{Attributes: attrs},
-			ForwardAttributes:  &mpb.Attributes{Attributes: attrs},
-		})
-	}
+func addFilterConfigToRoute(in *plugin.InputParams, httpRoute *route.Route, attrs attributes) {
+	httpRoute.TypedPerFilterConfig = addTypedServiceConfig(httpRoute.TypedPerFilterConfig, &mccpb.ServiceConfig{
+		DisableCheckCalls:  disablePolicyChecks(outbound, in.Push.Mesh, in.Node),
+		DisableReportCalls: in.Push.Mesh.GetDisableMixerHttpReports(),
+		MixerAttributes:    &mpb.Attributes{Attributes: attrs},
+		ForwardAttributes:  &mpb.Attributes{Attributes: attrs},
+	})
 }
 
 func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, virtualHostname string, httpRoute *route.Route) *route.Route {
-	isXDSMarshalingToAnyEnabled := util.IsXDSMarshalingToAnyEnabled(in.Node)
-
 	// default config, to be overridden by per-weighted cluster
-	if isXDSMarshalingToAnyEnabled {
-		httpRoute.TypedPerFilterConfig = addTypedServiceConfig(httpRoute.TypedPerFilterConfig, &mccpb.ServiceConfig{
-			DisableCheckCalls:  disablePolicyChecks(outbound, in.Push.Mesh, in.Node),
-			DisableReportCalls: in.Push.Mesh.GetDisableMixerHttpReports(),
-		})
-	} else {
-		httpRoute.PerFilterConfig = addServiceConfig(httpRoute.PerFilterConfig, &mccpb.ServiceConfig{
-			DisableCheckCalls:  disablePolicyChecks(outbound, in.Push.Mesh, in.Node),
-			DisableReportCalls: in.Push.Mesh.GetDisableMixerHttpReports(),
-		})
-	}
+	httpRoute.TypedPerFilterConfig = addTypedServiceConfig(httpRoute.TypedPerFilterConfig, &mccpb.ServiceConfig{
+		DisableCheckCalls:  disablePolicyChecks(outbound, in.Push.Mesh, in.Node),
+		DisableReportCalls: in.Push.Mesh.GetDisableMixerHttpReports(),
+	})
 	switch action := httpRoute.Action.(type) {
 	case *route.Route_Route:
 		switch upstreams := action.Route.ClusterSpecifier.(type) {
@@ -531,28 +497,19 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 				svc := in.Node.SidecarScope.ServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
 				attrs = addDestinationServiceAttributes(make(attributes), svc)
 			}
-			addFilterConfigToRoute(in, httpRoute, attrs, isXDSMarshalingToAnyEnabled)
+			addFilterConfigToRoute(in, httpRoute, attrs)
 
 		case *route.RouteAction_WeightedClusters:
 			for _, weighted := range upstreams.WeightedClusters.Clusters {
 				_, _, hostname, _ := model.ParseSubsetKey(weighted.Name)
 				svc := in.Node.SidecarScope.ServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
 				attrs := addDestinationServiceAttributes(make(attributes), svc)
-				if isXDSMarshalingToAnyEnabled {
-					weighted.TypedPerFilterConfig = addTypedServiceConfig(weighted.TypedPerFilterConfig, &mccpb.ServiceConfig{
-						DisableCheckCalls:  disablePolicyChecks(outbound, in.Push.Mesh, in.Node),
-						DisableReportCalls: in.Push.Mesh.GetDisableMixerHttpReports(),
-						MixerAttributes:    &mpb.Attributes{Attributes: attrs},
-						ForwardAttributes:  &mpb.Attributes{Attributes: attrs},
-					})
-				} else {
-					weighted.PerFilterConfig = addServiceConfig(weighted.PerFilterConfig, &mccpb.ServiceConfig{
-						DisableCheckCalls:  disablePolicyChecks(outbound, in.Push.Mesh, in.Node),
-						DisableReportCalls: in.Push.Mesh.GetDisableMixerHttpReports(),
-						MixerAttributes:    &mpb.Attributes{Attributes: attrs},
-						ForwardAttributes:  &mpb.Attributes{Attributes: attrs},
-					})
-				}
+				weighted.TypedPerFilterConfig = addTypedServiceConfig(weighted.TypedPerFilterConfig, &mccpb.ServiceConfig{
+					DisableCheckCalls:  disablePolicyChecks(outbound, in.Push.Mesh, in.Node),
+					DisableReportCalls: in.Push.Mesh.GetDisableMixerHttpReports(),
+					MixerAttributes:    &mpb.Attributes{Attributes: attrs},
+					ForwardAttributes:  &mpb.Attributes{Attributes: attrs},
+				})
 			}
 		case *route.RouteAction_ClusterHeader:
 		default:
@@ -564,7 +521,7 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 		if virtualHostname == util.BlackHoleRouteName {
 			hostname := host.Name(util.BlackHoleCluster)
 			attrs := addVirtualDestinationServiceAttributes(make(attributes), hostname)
-			addFilterConfigToRoute(in, httpRoute, attrs, isXDSMarshalingToAnyEnabled)
+			addFilterConfigToRoute(in, httpRoute, attrs)
 		}
 	// route.Route_Redirect is not used currently, so no attributes are added here
 	case *route.Route_Redirect:
@@ -612,14 +569,10 @@ func buildOutboundTCPFilter(mesh *meshconfig.MeshConfig, attrsIn attributes, nod
 		MixerAttributes:   &mpb.Attributes{Attributes: attrs},
 		Transport:         buildTransport(mesh, node),
 	}
-	out := &listener.Filter{
-		Name: mixer,
-	}
 
-	if util.IsXDSMarshalingToAnyEnabled(node) {
-		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(cfg)}
-	} else {
-		out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(cfg)}
+	out := &listener.Filter{
+		Name:       mixer,
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(cfg)},
 	}
 
 	return out
@@ -632,24 +585,11 @@ func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *
 		Transport:         buildTransport(mesh, node),
 	}
 	out := &listener.Filter{
-		Name: mixer,
-	}
-
-	if util.IsXDSMarshalingToAnyEnabled(node) {
-		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(cfg)}
-	} else {
-		out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(cfg)}
+		Name:       mixer,
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(cfg)},
 	}
 
 	return out
-}
-
-func addServiceConfig(filterConfigs map[string]*pstruct.Struct, config *mccpb.ServiceConfig) map[string]*pstruct.Struct {
-	if filterConfigs == nil {
-		filterConfigs = make(map[string]*pstruct.Struct)
-	}
-	filterConfigs[mixer] = util.MessageToStruct(config)
-	return filterConfigs
 }
 
 func addTypedServiceConfig(filterConfigs map[string]*any.Any, config *mccpb.ServiceConfig) map[string]*any.Any {

@@ -258,6 +258,8 @@ func (conf *SDSAgent) Start(isSidecar bool, podNamespace string) (*sds.Server, e
 			} else {
 				log.Warna("Failed to get certificate from CA", err)
 			}
+		} else {
+			log.Infoa("Got initial certificate valid until ", si.ExpireTime)
 		}
 		if si != nil {
 			// For debugging and backward compat - we may not need it long term
@@ -352,10 +354,10 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.Secre
 				rootCert, err = ioutil.ReadFile(k8sCAPath)
 				if err != nil {
 					log.Warna("Failed to load K8S cert, assume IP secure network ", err)
-					serverOptions.CAEndpoint = "istiod.istio-system:15010"
+					serverOptions.CAEndpoint = "istiod.istio-system.svc:15010"
 				} else {
 					log.Info("Using default istiod CA, with K8S certificates for SDS")
-					serverOptions.CAEndpoint = "istiod.istio-system:15012"
+					serverOptions.CAEndpoint = "istiod.istio-system.svc:15012"
 				}
 			}
 		} else {

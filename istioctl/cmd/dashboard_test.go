@@ -83,7 +83,7 @@ func TestDashboard(t *testing.T) {
 		},
 		{ // case 11
 			args:           strings.Split("experimental dashboard", " "),
-			expectedOutput: "Error: (dashboard has graduated.  Use `istioctl dashboard`)\n",
+			expectedOutput: "Error: (dashboard has graduated. Use `istioctl dashboard`)\n",
 			wantException:  true,
 		},
 		{ // case 12

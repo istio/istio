@@ -37,6 +37,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	rbac "istio.io/api/rbac/v1alpha1"
 	security_beta "istio.io/api/security/v1beta1"
+	type_beta "istio.io/api/type/v1beta1"
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pkg/config/constants"
@@ -1485,48 +1486,132 @@ func ValidateAuthenticationPolicy(name, namespace string, msg proto.Message) err
 	return errs
 }
 
+func validateWorkloadSelector(selector *type_beta.WorkloadSelector) error {
+	var errs error
+	if selector != nil {
+		for k, v := range selector.MatchLabels {
+			if k == "" {
+				errs = appendErrors(errs,
+					fmt.Errorf("empty key is not supported in selector: %q", fmt.Sprintf("%s=%s", k, v)))
+			}
+			if strings.Contains(k, "*") || strings.Contains(v, "*") {
+				errs = appendErrors(errs,
+					fmt.Errorf("wildcard is not supported in selector: %q", fmt.Sprintf("%s=%s", k, v)))
+			}
+		}
+	}
+
+	return errs
+}
+
 // ValidateAuthorizationPolicy checks that AuthorizationPolicy is well-formed.
-func ValidateAuthorizationPolicy(_, _ string, msg proto.Message) error {
+func ValidateAuthorizationPolicy(name, namespace string, msg proto.Message) error {
 	in, ok := msg.(*security_beta.AuthorizationPolicy)
 	if !ok {
 		return fmt.Errorf("cannot cast to AuthorizationPolicy")
 	}
 
-	if in.Selector != nil {
-		for k, v := range in.Selector.MatchLabels {
-			if k == "" || v == "" {
-				return fmt.Errorf("selector has empty key or values")
-			}
-		}
+	if err := validateWorkloadSelector(in.Selector); err != nil {
+		return err
 	}
 
-	for _, rule := range in.GetRules() {
+	var errs error
+	for i, rule := range in.GetRules() {
+		if rule.From != nil && len(rule.From) == 0 {
+			errs = appendErrors(errs, fmt.Errorf("`from` must not be empty, found at rule %d in %s.%s", i, name, namespace))
+		}
+		for _, from := range rule.From {
+			if from.Source == nil {
+				errs = appendErrors(errs, fmt.Errorf("`from.source` must not be nil, found at rule %d in %s.%s", i, name, namespace))
+			} else {
+				src := from.Source
+				if len(src.Principals) == 0 && len(src.RequestPrincipals) == 0 && len(src.Namespaces) == 0 && len(src.IpBlocks) == 0 {
+					errs = appendErrors(errs, fmt.Errorf("`from.source` must not be empty, found at rule %d in %s.%s", i, name, namespace))
+				}
+				errs = appendErrors(errs, security.ValidateIPs(from.Source.GetIpBlocks()))
+			}
+		}
+		if rule.To != nil && len(rule.To) == 0 {
+			errs = appendErrors(errs, fmt.Errorf("`to` must not be empty, found at rule %d in %s.%s", i, name, namespace))
+		}
+		for _, to := range rule.To {
+			if to.Operation == nil {
+				errs = appendErrors(errs, fmt.Errorf("`to.operation` must not be nil, found at rule %d in %s.%s", i, name, namespace))
+			} else {
+				op := to.Operation
+				if len(op.Ports) == 0 && len(op.Methods) == 0 && len(op.Paths) == 0 && len(op.Hosts) == 0 {
+					errs = appendErrors(errs, fmt.Errorf("`to.operation` must not be empty, found at rule %d in %s.%s", i, name, namespace))
+				}
+				errs = appendErrors(errs, security.ValidatePorts(to.Operation.GetPorts()))
+			}
+		}
 		for _, condition := range rule.GetWhen() {
 			if condition.GetKey() == "" || len(condition.GetValues()) == 0 {
-				return fmt.Errorf("condition has empty key or values")
+				errs = appendErrors(errs, fmt.Errorf("`condition` must not have empty key or values, found at %q in %s.%s", condition, name, namespace))
 			}
 			if err := security.ValidateAttribute(condition.GetKey(), condition.GetValues()); err != nil {
-				return fmt.Errorf("invalid condition: %v", err)
+				errs = appendErrors(errs, fmt.Errorf("invalid condition in %s.%s: %v", name, namespace, err))
 			}
 		}
 	}
-	return nil
+	return errs
 }
 
 // ValidateRequestAuthentication checks that request authentication spec is well-formed.
-func ValidateRequestAuthentication(_, _ string, msg proto.Message) error {
+func ValidateRequestAuthentication(name, namespace string, msg proto.Message) error {
 	in, ok := msg.(*security_beta.RequestAuthentication)
 	if !ok {
 		return errors.New("cannot cast to RequestAuthentication")
 	}
-	// TODO(diemtvu) add more details validation.
+
 	var errs error
+	emptySelector := in.Selector == nil || len(in.Selector.MatchLabels) == 0
+	if name == constants.DefaultAuthenticationPolicyName && !emptySelector {
+		errs = appendErrors(errs, fmt.Errorf("default request authentication cannot have workload selector"))
+	} else if emptySelector && name != constants.DefaultAuthenticationPolicyName {
+		errs = appendErrors(errs,
+			fmt.Errorf("request authentication with empty workload selector must be named %q", constants.DefaultAuthenticationPolicyName))
+	}
+
+	errs = appendErrors(errs, validateWorkloadSelector(in.Selector))
+
 	for _, rule := range in.JwtRules {
-		if len(rule.Issuer) == 0 {
-			errs = appendErrors(errs, fmt.Errorf("issuer must be set"))
-		}
+		errs = appendErrors(errs, validateJwtRule(rule))
 	}
 	return errs
+}
+
+func validateJwtRule(rule *security_beta.JWT) (errs error) {
+	if rule == nil {
+		return nil
+	}
+	if len(rule.Issuer) == 0 {
+		errs = multierror.Append(errs, errors.New("issuer must be set"))
+	}
+	for _, audience := range rule.Audiences {
+		if len(audience) == 0 {
+			errs = multierror.Append(errs, errors.New("audience must be non-empty string"))
+		}
+	}
+
+	if len(rule.JwksUri) != 0 {
+		if _, err := security.ParseJwksURI(rule.JwksUri); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+	}
+
+	for _, location := range rule.FromHeaders {
+		if len(location.Name) == 0 {
+			errs = multierror.Append(errs, errors.New("location header name must be non-empty string"))
+		}
+	}
+
+	for _, location := range rule.FromParams {
+		if len(location) == 0 {
+			errs = multierror.Append(errs, errors.New("location query must be non-empty string"))
+		}
+	}
+	return
 }
 
 // ValidateServiceRole checks that ServiceRole is well-formed.
@@ -1737,7 +1822,6 @@ func validateJwt(jwt *authn.Jwt) (errs error) {
 		}
 	}
 	if jwt.JwksUri != "" {
-		// TODO: do more extensive check (e.g try to fetch JwksUri)
 		if _, err := security.ParseJwksURI(jwt.JwksUri); err != nil {
 			errs = multierror.Append(errs, err)
 		}

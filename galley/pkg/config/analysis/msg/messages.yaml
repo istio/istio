@@ -153,11 +153,9 @@ messages:
     code: IST0113
     level: Error
     description: "A DestinationRule and Policy are in conflict with regards to mTLS."
-    template: "A DestinationRule and Policy are in conflict with regards to mTLS for host %s in namespace %s. The DestinationRule %q specifies that mTLS must be %t but the Policy object %q specifies %s."
+    template: "A DestinationRule and Policy are in conflict with regards to mTLS for host %s. The DestinationRule %q specifies that mTLS must be %t but the Policy object %q specifies %s."
     args:
       - name: host
-        type: string
-      - name: namespace
         type: string
       - name: destinationRuleName
         type: string
@@ -177,4 +175,37 @@ messages:
       - name: portName
         type: string
       - name: host
+        type: string
+
+  - name: "DestinationRuleUsesMTLSForWorkloadWithoutSidecar"
+    code: IST0115
+    level: Error
+    description: "A DestinationRule uses mTLS for a workload that has no sidecar."
+    template: "DestinationRule %s uses mTLS for workload %s that has no sidecar. Traffic from workloads with sidecars will fail."
+    args:
+      - name: destinationRuleName
+        type: string
+      - name: host
+        type: string
+
+  - name: "DeploymentAssociatedToMultipleServices"
+    code: IST0116
+    level: Warning
+    description: "The resulting pods of a service mesh deployment can't be associated with multiple services using the same port but different protocols."
+    template: "This deployment is associated with multiple services using port %d but different protocols: %v"
+    args:
+      - name: deployment
+        type: string
+      - name: port
+        type: int32
+      - name: services
+        type: "[]string"
+
+  - name: "DeploymentRequiresServiceAssociated"
+    code: IST0117
+    level: Warning
+    description: "The resulting pods of a service mesh deployment must be associated with at least one service."
+    template: "No service associated with this deployment. Service mesh deployments must be associated with a service."
+    args:
+      - name: deployment
         type: string

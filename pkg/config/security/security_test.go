@@ -115,7 +115,8 @@ func TestValidateCondition(t *testing.T) {
 			key: "source.namespace",
 		},
 		{
-			key: "source.user",
+			key:       "source.user",
+			wantError: true,
 		},
 		{
 			key: "source.principal",
@@ -168,7 +169,7 @@ func TestValidateCondition(t *testing.T) {
 			wantError: true,
 		},
 		{
-			key:       "destination.use",
+			key:       "destination.user",
 			wantError: true,
 		},
 		{
@@ -176,6 +177,10 @@ func TestValidateCondition(t *testing.T) {
 		},
 		{
 			key: "experimental.envoy.filters.a.b[c]",
+		},
+		{
+			key:       "experimental.envoy.filters.a.b.x",
+			wantError: true,
 		},
 	}
 	for _, c := range cases {

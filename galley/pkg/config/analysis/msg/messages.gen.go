@@ -67,11 +67,23 @@ var (
 
 	// MTLSPolicyConflict defines a diag.MessageType for message "MTLSPolicyConflict".
 	// Description: A DestinationRule and Policy are in conflict with regards to mTLS.
-	MTLSPolicyConflict = diag.NewMessageType(diag.Error, "IST0113", "A DestinationRule and Policy are in conflict with regards to mTLS for host %s in namespace %s. The DestinationRule %q specifies that mTLS must be %t but the Policy object %q specifies %s.")
+	MTLSPolicyConflict = diag.NewMessageType(diag.Error, "IST0113", "A DestinationRule and Policy are in conflict with regards to mTLS for host %s. The DestinationRule %q specifies that mTLS must be %t but the Policy object %q specifies %s.")
 
 	// PolicySpecifiesPortNameThatDoesntExist defines a diag.MessageType for message "PolicySpecifiesPortNameThatDoesntExist".
 	// Description: A Policy targets a port name that cannot be found.
 	PolicySpecifiesPortNameThatDoesntExist = diag.NewMessageType(diag.Warning, "IST0114", "Port name %s could not be found for host %s, which means the Policy won't be enforced.")
+
+	// DestinationRuleUsesMTLSForWorkloadWithoutSidecar defines a diag.MessageType for message "DestinationRuleUsesMTLSForWorkloadWithoutSidecar".
+	// Description: A DestinationRule uses mTLS for a workload that has no sidecar.
+	DestinationRuleUsesMTLSForWorkloadWithoutSidecar = diag.NewMessageType(diag.Error, "IST0115", "DestinationRule %s uses mTLS for workload %s that has no sidecar. Traffic from workloads with sidecars will fail.")
+
+	// DeploymentAssociatedToMultipleServices defines a diag.MessageType for message "DeploymentAssociatedToMultipleServices".
+	// Description: The resulting pods of a service mesh deployment can't be associated with multiple services using the same port but different protocols.
+	DeploymentAssociatedToMultipleServices = diag.NewMessageType(diag.Warning, "IST0116", "This deployment is associated with multiple services using port %d but different protocols: %v")
+
+	// DeploymentRequiresServiceAssociated defines a diag.MessageType for message "DeploymentRequiresServiceAssociated".
+	// Description: The resulting pods of a service mesh deployment must be associated with at least one service.
+	DeploymentRequiresServiceAssociated = diag.NewMessageType(diag.Warning, "IST0117", "No service associated with this deployment. Service mesh deployments must be associated with a service.")
 )
 
 // NewInternalError returns a new diag.Message based on InternalError.
@@ -212,12 +224,11 @@ func NewVirtualServiceDestinationPortSelectorRequired(entry *resource.Entry, des
 }
 
 // NewMTLSPolicyConflict returns a new diag.Message based on MTLSPolicyConflict.
-func NewMTLSPolicyConflict(entry *resource.Entry, host string, namespace string, destinationRuleName string, destinationRuleMTLSMode bool, policyName string, policyMTLSMode string) diag.Message {
+func NewMTLSPolicyConflict(entry *resource.Entry, host string, destinationRuleName string, destinationRuleMTLSMode bool, policyName string, policyMTLSMode string) diag.Message {
 	return diag.NewMessage(
 		MTLSPolicyConflict,
 		originOrNil(entry),
 		host,
-		namespace,
 		destinationRuleName,
 		destinationRuleMTLSMode,
 		policyName,
@@ -232,6 +243,36 @@ func NewPolicySpecifiesPortNameThatDoesntExist(entry *resource.Entry, portName s
 		originOrNil(entry),
 		portName,
 		host,
+	)
+}
+
+// NewDestinationRuleUsesMTLSForWorkloadWithoutSidecar returns a new diag.Message based on DestinationRuleUsesMTLSForWorkloadWithoutSidecar.
+func NewDestinationRuleUsesMTLSForWorkloadWithoutSidecar(entry *resource.Entry, destinationRuleName string, host string) diag.Message {
+	return diag.NewMessage(
+		DestinationRuleUsesMTLSForWorkloadWithoutSidecar,
+		originOrNil(entry),
+		destinationRuleName,
+		host,
+	)
+}
+
+// NewDeploymentAssociatedToMultipleServices returns a new diag.Message based on DeploymentAssociatedToMultipleServices.
+func NewDeploymentAssociatedToMultipleServices(entry *resource.Entry, deployment string, port int32, services []string) diag.Message {
+	return diag.NewMessage(
+		DeploymentAssociatedToMultipleServices,
+		originOrNil(entry),
+		deployment,
+		port,
+		services,
+	)
+}
+
+// NewDeploymentRequiresServiceAssociated returns a new diag.Message based on DeploymentRequiresServiceAssociated.
+func NewDeploymentRequiresServiceAssociated(entry *resource.Entry, deployment string) diag.Message {
+	return diag.NewMessage(
+		DeploymentRequiresServiceAssociated,
+		originOrNil(entry),
+		deployment,
 	)
 }
 

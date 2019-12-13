@@ -33,7 +33,7 @@ spec:
   targets:
   - name: missing-dr-service
   peers:
-  - mtls:
+  - mtls: {}
 # Without a DR, this will fail.
 ---
 apiVersion: v1
@@ -70,7 +70,7 @@ spec:
   targets:
   - name: has-dr-service
   peers:
-  - mtls:
+  - mtls: {}
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
