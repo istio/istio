@@ -236,17 +236,19 @@ func (h *HelmReconciler) ProcessObject(chartName string, obj *unstructured.Unstr
 				}
 			}
 		}
-	} else if patch, err = h.CreatePatch(receiver, mutatedObj); err == nil && patch != nil {
-		log.Info("updating existing resource")
-		mutatedObj, err = patch.Apply()
-		if err == nil {
-			if err = h.customizer.Listener().ResourceUpdated(mutatedObj, receiver); err != nil {
-				log.Errorf("unexpected error occurred during postprocessing of updated resource: %s", err)
-			}
-		} else {
-			listenerErr := h.customizer.Listener().ResourceError(obj, err)
-			if listenerErr != nil {
-				log.Errorf("unexpected error occurred invoking ResourceError on listener: %s", listenerErr)
+	} else if h.needUpdateAndPrune {
+		if patch, err = h.CreatePatch(receiver, mutatedObj); err == nil && patch != nil {
+			log.Info("updating existing resource")
+			mutatedObj, err = patch.Apply()
+			if err == nil {
+				if err = h.customizer.Listener().ResourceUpdated(mutatedObj, receiver); err != nil {
+					log.Errorf("unexpected error occurred during postprocessing of updated resource: %s", err)
+				}
+			} else {
+				listenerErr := h.customizer.Listener().ResourceError(obj, err)
+				if listenerErr != nil {
+					log.Errorf("unexpected error occurred invoking ResourceError on listener: %s", listenerErr)
+				}
 			}
 		}
 	}
