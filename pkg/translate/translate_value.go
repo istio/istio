@@ -49,10 +49,6 @@ var (
 		version.NewMinorVersion(1, 4): {
 			APIMapping: map[string]*Translation{},
 			KubernetesPatternMapping: map[string]string{
-				"{{.ValueComponentName}}.podAntiAffinityLabelSelector": "{{.FeatureName}}.Components.{{.ComponentName}}.K8s." +
-					"Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution",
-				"{{.ValueComponentName}}.podAntiAffinityTermLabelSelector": "{{.FeatureName}}.Components.{{.ComponentName}}.K8s." +
-					"Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution",
 				"{{.ValueComponentName}}.env":                   "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.Env",
 				"{{.ValueComponentName}}.autoscaleEnabled":      "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.HpaSpec",
 				"{{.ValueComponentName}}.imagePullPolicy":       "{{.FeatureName}}.Components.{{.ComponentName}}.K8s.ImagePullPolicy",
@@ -387,19 +383,6 @@ func translateEnv(outPath string, value interface{}, cpSpecTree map[string]inter
 	return nil
 }
 
-// translateAffinity translates Affinity related configurations from helm values.yaml tree
-func translateAffinity(outPath string, value interface{}, cpSpecTree map[string]interface{}) error {
-	affinityNode, ok := value.([]interface{})
-	if !ok {
-		return fmt.Errorf("expect affinity node type to be []interface{} but got: %T", affinityNode)
-	}
-	log.Infof("path has value in helm Value.yaml tree, mapping to output path %s", affinityNode)
-	if err := tpath.WriteNode(cpSpecTree, util.ToYAMLPath(outPath), affinityNode); err != nil {
-		return err
-	}
-	return nil
-}
-
 // translateK8sTree is internal method for translating K8s configurations from value.yaml tree.
 func (t *ReverseTranslator) translateK8sTree(valueTree map[string]interface{},
 	cpSpecTree map[string]interface{}) error {
@@ -442,12 +425,6 @@ func (t *ReverseTranslator) translateK8sTree(valueTree map[string]interface{},
 			err := translateEnv(v.OutPath, m, cpSpecTree)
 			if err != nil {
 				return fmt.Errorf("error in translating k8s Env: %s", err)
-			}
-
-		case "podAntiAffinityLabelSelector", "podAntiAffinityTermLabelSelector":
-			err := translateAffinity(v.OutPath, m, cpSpecTree)
-			if err != nil {
-				return fmt.Errorf("error in translating k8s Affinity: %s", err)
 			}
 
 		case "rollingMaxSurge", "rollingMaxUnavailable":

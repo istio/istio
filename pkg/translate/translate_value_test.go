@@ -65,9 +65,10 @@ pilot:
   env:
     GODEBUG: gctrace=1
   podAntiAffinityLabelSelector:
-    - labelSelector:
-        matchLabels:
-          testK1: testV1
+  - key: istio
+    operator: In
+    values: pilot
+    topologyKey: "kubernetes.io/hostname"
 global:
   hub: docker.io/istio
   istioNamespace: istio-system
@@ -143,12 +144,6 @@ trafficManagement:
    pilot:
      enabled: true
      k8s:
-       affinity:
-         podAntiAffinity:
-           requiredDuringSchedulingIgnoredDuringExecution:
-           - labelSelector:
-                 matchLabels:
-                   testK1: testV1
        replicaCount: 1
        env:
        - name: GODEBUG
@@ -197,6 +192,11 @@ values:
   pilot:
     image: pilot
     traceSampling: 1
+    podAntiAffinityLabelSelector:
+    - key: istio
+      operator: In
+      values: pilot
+      topologyKey: "kubernetes.io/hostname"
   mixer:
     policy:
       image: mixer
