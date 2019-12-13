@@ -66,7 +66,10 @@ func DisableExcludedKubeResources(resources schema.KubeResources, providers tran
 func DefaultExcludedResourceKinds() []string {
 	resources := make([]string, 0)
 	for _, r := range metadata.MustGet().KubeSource().Resources() {
-		resources = append(resources, r.Kind)
+		a := rt.DefaultProvider().GetAdapter(r)
+		if a.IsBuiltIn() {
+			resources = append(resources, r.Kind)
+		}
 	}
 	return resources
 }
