@@ -140,13 +140,14 @@ func TestValidation(t *testing.T) {
 
 var ignoredCRDs = []string{
 	// We don't validate K8s resources
+	"/v1/Endpoints",
 	"/v1/Namespace",
 	"/v1/Node",
 	"/v1/Pod",
-	"/v1/Endpoints",
+	"/v1/Secret",
 	"/v1/Service",
-	"extensions/v1beta1/Ingress",
 	"apps/v1/Deployment",
+	"extensions/v1beta1/Ingress",
 	"networking.istio.io/v1alpha3/SyntheticServiceEntry",
 }
 
