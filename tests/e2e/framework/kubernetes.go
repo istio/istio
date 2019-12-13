@@ -1041,7 +1041,7 @@ func (k *KubeInfo) waitForIstioOperator() error {
 		}
 
 		out, err := util.ShellSilent(get)
-		if err == nil && strings.Contains(out, "Status") {
+		if err == nil && strings.Contains(out, "HEALTHY") {
 			break
 		}
 

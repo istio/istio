@@ -24,6 +24,9 @@ DEFAULT_EXTRA_E2E_ARGS += --galley_hub=${HUB}
 DEFAULT_EXTRA_E2E_ARGS += --sidecar_injector_hub=${HUB}
 DEFAULT_EXTRA_E2E_ARGS += --app_hub=${HUB}
 
+# Enable Istio CNI in helm template commands
+export ENABLE_ISTIO_CNI ?= false
+
 EXTRA_E2E_ARGS ?= ${DEFAULT_EXTRA_E2E_ARGS}
 
 e2e_simple: build generate_e2e_yaml e2e_simple_run

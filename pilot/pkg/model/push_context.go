@@ -1092,13 +1092,15 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 				}
 			}
 			for _, w := range d.Route {
-				w.Destination.Host = string(ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta))
+				if w.Destination != nil {
+					w.Destination.Host = string(ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta))
+				}
 			}
 			if d.Mirror != nil {
 				d.Mirror.Host = string(ResolveShortnameToFQDN(d.Mirror.Host, r.ConfigMeta))
 			}
 		}
-		//resolve host in tcp route.destination
+		// resolve host in tcp route.destination
 		for _, d := range rule.Tcp {
 			for _, m := range d.Match {
 				for i, g := range m.Gateways {
@@ -1108,7 +1110,9 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 				}
 			}
 			for _, w := range d.Route {
-				w.Destination.Host = string(ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta))
+				if w.Destination != nil {
+					w.Destination.Host = string(ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta))
+				}
 			}
 		}
 		//resolve host in tls route.destination
@@ -1121,7 +1125,9 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 				}
 			}
 			for _, w := range tls.Route {
-				w.Destination.Host = string(ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta))
+				if w.Destination != nil {
+					w.Destination.Host = string(ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta))
+				}
 			}
 		}
 	}
@@ -1524,7 +1530,7 @@ func (ps *PushContext) initMeshNetworks() {
 	for network, networkConf := range ps.Networks.Networks {
 		gws := networkConf.Gateways
 		if len(gws) == 0 {
-			log.Debugf("the endpoints within network %s will be ignored because of invalid MeshNetworks", network)
+			// all endpoints in this network are reachable directly from others. nothing to do.
 			continue
 		}
 

@@ -18,8 +18,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"sync"
-	"sync/atomic"
 	"time"
 
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -70,10 +68,6 @@ var (
 		"Errors converting k8s CRDs",
 		monitoring.WithLabels(nameTag),
 	)
-
-	// InvalidCRDs contains a sync.Map keyed by the namespace/name of the entry, and has the error as value.
-	// It can be used by tools like ctrlz to display the errors.
-	InvalidCRDs atomic.Value
 )
 
 func init() {
@@ -131,32 +125,6 @@ func (c *controller) addInformer(schema schema.Instance, namespace string, resyn
 				req = req.Namespace(namespace)
 			}
 			return req.Watch()
-		},
-		func(obj interface{}) error {
-			rc, ok := c.client.clientset[crd.APIVersion(&schema)]
-			if !ok {
-				return fmt.Errorf("client not initialized %s", schema.Type)
-			}
-			s, exists := rc.descriptor.GetByType(schema.Type)
-			if !exists {
-				return fmt.Errorf("unrecognized type %q", schema.Type)
-			}
-
-			item, ok := obj.(crd.IstioObject)
-			if !ok {
-				return fmt.Errorf("error convert %v to istio CRD", obj)
-			}
-
-			config, err := crd.ConvertObject(s, item, c.client.domainSuffix)
-			if err != nil {
-				return fmt.Errorf("error translating object for schema %#v : %v\n Object:\n%#v", s, err, obj)
-			}
-
-			if err := s.Validate(config.Name, config.Namespace, config.Spec); err != nil {
-				return fmt.Errorf("failed to validate CRD %v, error: %v", config, err)
-			}
-
-			return nil
 		})
 }
 
@@ -178,8 +146,7 @@ func (c *controller) createInformer(
 	otype string,
 	resyncPeriod time.Duration,
 	lf cache.ListFunc,
-	wf cache.WatchFunc,
-	vf ValidateFunc) cacheHandler {
+	wf cache.WatchFunc) cacheHandler {
 	handler := &kube.ChainHandler{}
 	handler.Append(c.notify)
 
@@ -192,18 +159,10 @@ func (c *controller) createInformer(
 		cache.ResourceEventHandlerFuncs{
 			// TODO: filtering functions to skip over un-referenced resources (perf)
 			AddFunc: func(obj interface{}) {
-				if err := vf(obj); err != nil {
-					handleValidationFailure(obj, err)
-					return
-				}
 				incrementEvent(otype, "add")
 				c.queue.Push(kube.NewTask(handler.Apply, nil, obj, model.EventAdd))
 			},
 			UpdateFunc: func(old, cur interface{}) {
-				if err := vf(cur); err != nil {
-					handleValidationFailure(cur, err)
-					return
-				}
 				if !reflect.DeepEqual(old, cur) {
 					incrementEvent(otype, "update")
 					c.queue.Push(kube.NewTask(handler.Apply, old, cur, model.EventUpdate))
@@ -324,11 +283,10 @@ func (c *controller) Get(typ, name, namespace string) *model.Config {
 
 	config, err := crd.ConvertObject(s, obj, c.client.domainSuffix)
 	if err == nil && features.EnableCRDValidation.Get() {
-		err = s.Validate(config.Name, config.Namespace, config.Spec)
-	}
-
-	if err != nil {
-		return nil
+		if err = s.Validate(config.Name, config.Namespace, config.Spec); err != nil {
+			handleValidationFailure(obj, err)
+			return nil
+		}
 	}
 
 	return config
@@ -352,16 +310,7 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 		return nil, fmt.Errorf("missing type %q", typ)
 	}
 
-	var newErrors sync.Map
-	var errs error
 	out := make([]model.Config, 0)
-	oldMap := InvalidCRDs.Load()
-	if oldMap != nil {
-		oldMap.(*sync.Map).Range(func(key, value interface{}) bool {
-			k8sErrors.With(nameTag.Value(key.(string))).Record(1)
-			return true
-		})
-	}
 	for _, data := range c.kinds[typ].informer.GetStore().List() {
 		item, ok := data.(crd.IstioObject)
 		if !ok {
@@ -379,16 +328,12 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 		}
 
 		if err != nil {
-			key := item.GetObjectMeta().Namespace + "/" + item.GetObjectMeta().Name
 			// DO NOT RETURN ERROR: if a single object is bad, it'll be ignored (with a log message), but
 			// the rest should still be processed.
-			// TODO: find a way to reset and represent the error !!
-			newErrors.Store(key, err)
 			handleValidationFailure(item, err)
 		} else {
 			out = append(out, *config)
 		}
 	}
-	InvalidCRDs.Store(&newErrors)
-	return out, errs
+	return out, nil
 }
