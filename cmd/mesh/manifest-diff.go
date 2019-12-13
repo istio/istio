@@ -17,6 +17,7 @@ package mesh
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"istio.io/operator/pkg/compare"
@@ -75,43 +76,59 @@ func manifestDiffCmd(rootArgs *rootArgs, diffArgs *manifestDiffArgs) *cobra.Comm
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			var err error
+			var equal bool
 			if diffArgs.compareDir {
-				return compareManifestsFromDirs(rootArgs, args[0], args[1], diffArgs.renameResources,
+				equal, err = compareManifestsFromDirs(rootArgs, args[0], args[1], diffArgs.renameResources,
 					diffArgs.selectResources, diffArgs.ignoreResources)
+				if err != nil {
+					return err
+				}
+				if !equal {
+					os.Exit(1)
+				}
+				return nil
 			}
 
-			return compareManifestsFromFiles(rootArgs, args, diffArgs.renameResources,
+			equal, err = compareManifestsFromFiles(rootArgs, args, diffArgs.renameResources,
 				diffArgs.selectResources, diffArgs.ignoreResources)
+			if err != nil {
+				return err
+			}
+			if !equal {
+				os.Exit(1)
+			}
+			return nil
 		}}
 	return cmd
 }
 
 //compareManifestsFromFiles compares two manifest files
 func compareManifestsFromFiles(rootArgs *rootArgs, args []string,
-	renameResources, selectResources, ignoreResources string) error {
+	renameResources, selectResources, ignoreResources string) (bool, error) {
 	initLogsOrExit(rootArgs)
 
 	a, err := ioutil.ReadFile(args[0])
 	if err != nil {
-		return fmt.Errorf("could not read %q: %v", args[0], err)
+		return false, fmt.Errorf("could not read %q: %v", args[0], err)
 	}
 	b, err := ioutil.ReadFile(args[1])
 	if err != nil {
-		return fmt.Errorf("could not read %q: %v", args[1], err)
+		return false, fmt.Errorf("could not read %q: %v", args[1], err)
 	}
 
 	diff, err := compare.ManifestDiffWithRenameSelectIgnore(string(a), string(b), renameResources, selectResources,
 		ignoreResources, rootArgs.verbose)
 	if err != nil {
-		return err
+		return false, err
 	}
-	if diff == "" {
-		fmt.Println("Manifests are identical")
-	} else {
-		return fmt.Errorf("differences of manifests are:\n%s", diff)
+	if diff != "" {
+		fmt.Printf("Differences in manifests are:\n%s\n", diff)
+		return false, nil
 	}
 
-	return nil
+	fmt.Println("Manifests are identical")
+	return true, nil
 }
 
 func yamlFileFilter(path string) bool {
@@ -120,28 +137,28 @@ func yamlFileFilter(path string) bool {
 
 //compareManifestsFromDirs compares manifests from two directories
 func compareManifestsFromDirs(rootArgs *rootArgs, dirName1, dirName2,
-	renameResources, selectResources, ignoreResources string) error {
+	renameResources, selectResources, ignoreResources string) (bool, error) {
 	initLogsOrExit(rootArgs)
 
 	mf1, err := util.ReadFilesWithFilter(dirName1, yamlFileFilter)
 	if err != nil {
-		return err
+		return false, err
 	}
 	mf2, err := util.ReadFilesWithFilter(dirName2, yamlFileFilter)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	diff, err := compare.ManifestDiffWithRenameSelectIgnore(mf1, mf2, renameResources, selectResources,
 		ignoreResources, rootArgs.verbose)
 	if err != nil {
-		return err
+		return false, err
 	}
-	if diff == "" {
-		fmt.Println("Manifests are identical")
-	} else {
-		return fmt.Errorf("differences of manifests are:\n%s", diff)
+	if diff != "" {
+		fmt.Printf("Differences in manifests are:\n%s\n", diff)
+		return false, nil
 	}
 
-	return nil
+	fmt.Println("Manifests are identical")
+	return true, nil
 }
