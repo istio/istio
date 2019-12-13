@@ -239,7 +239,8 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/gateway-secrets.yaml"},
 		analyzer:   &gateway.SecretAnalyzer{},
 		expected: []message{
-			{msg.ReferencedResourceNotFound, "Gateway mygateway-bogusCredentialName"},
+			{msg.ReferencedResourceNotFound, "Gateway defaultgateway-bogusCredentialName"},
+			{msg.ReferencedResourceNotFound, "Gateway customgateway-wrongnamespace"},
 		},
 	},
 	{

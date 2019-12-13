@@ -111,6 +111,7 @@ func (*IngressGatewayPortAnalyzer) analyzeGateway(r *resource.Entry, c analysis.
 		// the Istio system ingress gateway complain about a missing referenced resource.  (We
 		// don't want to complain about missing system resources, because a user may want to analyze
 		// only his own application files.)
+		// https://github.com/istio/istio/issues/19579 should make this unnecessary
 		if len(gw.Selector) != 1 || gw.Selector["istio"] != "ingressgateway" {
 			c.Report(metadata.IstioNetworkingV1Alpha3Gateways, msg.NewReferencedResourceNotFound(r, "selector", gwSelector.String()))
 			return
