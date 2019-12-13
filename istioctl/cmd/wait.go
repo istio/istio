@@ -62,7 +62,7 @@ func waitCmd() *cobra.Command {
 # Wait until the bookinfo virtual service has been distributed to all proxies in the mesh
 istioctl experimental wait --for=distribution virtualservice bookinfo.default
 
-# Wait until a percentage of the proxies receive the distribution, timing out after 5 minutes
+# Wait until 99% of the proxies receive the distribution, timing out after 5 minutes
 istioctl experimental wait --for=distribution --threshold=.99 --timeout=300 virtualservice bookinfo.default
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
