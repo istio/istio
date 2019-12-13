@@ -18,15 +18,12 @@
 set -o errexit
 set -o pipefail
 
-TEMP_DIR_DEFAULT="/tmp"
 INSTALLER_CHARTS=(base gateways istio-cni istiocoredns istio-telemetry istio-control istio-policy security)
-INSTALLER_REPO="installer"
 
 function usage() {
   echo "$0
     -o <path> path where output/artifacts are stored  (required)
-    -v <ver>  version for istio/installer branch      (optional)
-    -d <path> path to use for temp directory          (optional, randomized default is under ${TEMP_DIR_DEFAULT} )"
+    -v <ver>  version for istio/installer branch      (optional)"
   exit 1
 }
 
@@ -38,7 +35,6 @@ while getopts o:v:d: arg ; do
   case "${arg}" in
     o) OUTPUT_DIR="${OPTARG}";;
     v) INSTALLER_VERSION="${OPTARG}";;
-    d) TEMP_DIR="${OPTARG}";;
     *) usage;;
   esac
 done
@@ -49,7 +45,6 @@ set -x
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 OPERATOR_BASE_DIR="${SCRIPT_DIR}/.."
-TEMP_DIR=${TEMP_DIR:-"$(mktemp -d ${TEMP_DIR_DEFAULT}/istio.operator.XXXXXXXX)"}
 
 INSTALLER_SHA=$(cat "${OPERATOR_BASE_DIR}/installer.sha")
 INSTALLER_VERSION=${INSTALLER_VERSION:-"${INSTALLER_SHA}"}
@@ -57,17 +52,24 @@ INSTALLER_VERSION=${INSTALLER_VERSION:-"${INSTALLER_SHA}"}
 mkdir -p "${OUTPUT_DIR}"
 
 function copy_installer_charts() {
-    cd "${TEMP_DIR}"
-    git clone https://github.com/istio/${INSTALLER_REPO} || die "Could not clone installer repo"
-    pushd ${INSTALLER_REPO}
+    if [[ -z "${INSTALLER_DIR:-}" ]]; then
+      # installer dir not specified, clone from github
+      INSTALLER_DIR=$(mktemp -d)
+
+      git clone https://github.com/istio/installer.git "${INSTALLER_DIR}"
+
+      pushd .
+      cd "${INSTALLER_DIR}"
+      git fetch
       git checkout "${INSTALLER_VERSION}"
-    popd
+      popd
+    fi
     local OUTPUT_CHARTS_DIR="${OUTPUT_DIR}/charts"
     mkdir -p "${OUTPUT_CHARTS_DIR}"
 
     for chart in "${INSTALLER_CHARTS[@]}"
     do
-	    cp -R "${INSTALLER_REPO}/${chart}" "${OUTPUT_CHARTS_DIR}"
+	    cp -R "${INSTALLER_DIR}/${chart}" "${OUTPUT_CHARTS_DIR}"
     done
 }
 

@@ -24,23 +24,25 @@ SCRIPTPATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ROOTDIR=$(dirname "${SCRIPTPATH}")
 
 OPERATOR_DIR="${ROOTDIR}"
-INSTALLER_DIR=$(mktemp -d)
 OUT_DIR="${OPERATOR_DIR}/data/charts"
-SHA="$(cat "${OPERATOR_DIR}"/installer.sha)"
 
-if [[ "$#" -eq 1 ]]; then
-    SHA="${1}"
+if [[ -z "${INSTALLER_DIR:-}" ]]; then
+  # installer dir not specified, clone from github
+  INSTALLER_DIR=$(mktemp -d)
+  SHA="$(cat "${OPERATOR_DIR}"/installer.sha)"
+
+  if [[ "$#" -eq 1 ]]; then
+      SHA="${1}"
+  fi
+
+  git clone https://github.com/istio/installer.git "${INSTALLER_DIR}"
+
+  pushd .
+  cd "${INSTALLER_DIR}"
+  git fetch
+  git checkout "${SHA}"
+  popd
 fi
-
-if [[ ! -d "${INSTALLER_DIR}/installer" ]] ; then
-    git clone https://github.com/istio/installer.git "${INSTALLER_DIR}"
-fi
-
-pushd .
-cd "${INSTALLER_DIR}"
-git fetch
-git checkout "${SHA}"
-popd
 
 # create charts directory if it doesn't exist.
 mkdir -p "${OUT_DIR}"
