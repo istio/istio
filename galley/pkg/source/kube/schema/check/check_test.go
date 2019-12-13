@@ -79,12 +79,6 @@ func TestCheckCRDPresence(t *testing.T) {
 			missing: map[string]bool{"virtualservices": true},
 			wantErr: true,
 		},
-		{
-			name:    "optional not ready",
-			missing: map[string]bool{"circonuses": true},
-			wantErr: false,
-			count:   len(specs) - 1,
-		},
 	}
 
 	for i, c := range cases {
