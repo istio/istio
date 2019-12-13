@@ -312,8 +312,9 @@ func (iptConfigurator *IptablesConfigurator) handleInboundIpv4Rules(ipv4RangesIn
 
 func (iptConfigurator *IptablesConfigurator) run() {
 	defer func() {
-		iptConfigurator.ext.RunOrFail(dep.IPTABLESSAVE)
-		iptConfigurator.ext.RunOrFail(dep.IP6TABLESSAVE)
+		// Best effort since we don't know if the commands exist
+		_ = iptConfigurator.ext.Run(dep.IPTABLESSAVE)
+		_ = iptConfigurator.ext.Run(dep.IP6TABLESSAVE)
 	}()
 
 	// TODO: more flexibility - maybe a whitelist of users to be captured for output instead of a blacklist.
