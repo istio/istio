@@ -96,8 +96,9 @@ var _ ktmpl.HandlerBuilder = &builder{}
 
 // GetInfo returns the Info associated with this adapter implementation.
 func GetInfo() adapter.Info {
+	singletonBuilder := newBuilder(newKubernetesClient)
 	info := metadata.GetInfo("kubernetesenv")
-	info.NewBuilder = func() adapter.HandlerBuilder { return newBuilder(newKubernetesClient) }
+	info.NewBuilder = func() adapter.HandlerBuilder { return singletonBuilder }
 	return info
 }
 
