@@ -1,0 +1,20 @@
+{
+  "istio/config/v1beta1/rule": [
+    {
+      "Metadata": {
+        "name": "{{.Namespace}}/valid-rule"
+      },
+      "Body": {
+        "actions": [
+          {
+            "handler": "my-handler",
+            "instances": [
+              "my-instance"
+            ]
+          }
+        ]
+      },
+      "TypeURL": "type.googleapis.com/istio.policy.v1beta1.Rule"
+    }
+  ]
+}
