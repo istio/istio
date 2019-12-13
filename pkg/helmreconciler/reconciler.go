@@ -30,9 +30,10 @@ import (
 // HelmReconciler reconciles resources rendered by a set of helm charts for a specific instances of a custom resource,
 // or deletes all resources associated with a specific instance of a custom resource.
 type HelmReconciler struct {
-	client     client.Client
-	customizer RenderingCustomizer
-	instance   runtime.Object
+	client             client.Client
+	customizer         RenderingCustomizer
+	instance           *v1alpha2.IstioControlPlane
+	needUpdateAndPrune bool
 }
 
 // Factory is a factory for creating HelmReconciler objects using the specified CustomizerFactory.
@@ -45,7 +46,7 @@ type Factory struct {
 // instance is the custom resource to be reconciled/deleted.
 // client is the kubernetes client
 // logger is the logger
-func (f *Factory) New(instance runtime.Object, client client.Client) (*HelmReconciler, error) {
+func (f *Factory) New(instance *v1alpha2.IstioControlPlane, client client.Client) (*HelmReconciler, error) {
 	delegate, err := f.CustomizerFactory.NewCustomizer(instance)
 	if err != nil {
 		return nil, err
@@ -54,7 +55,7 @@ func (f *Factory) New(instance runtime.Object, client client.Client) (*HelmRecon
 	if err != nil {
 		return nil, err
 	}
-	reconciler := &HelmReconciler{client: client, customizer: wrappedcustomizer, instance: instance}
+	reconciler := &HelmReconciler{client: client, customizer: wrappedcustomizer, instance: instance, needUpdateAndPrune: true}
 	wrappedcustomizer.RegisterReconciler(reconciler)
 	return reconciler, nil
 }
@@ -110,12 +111,12 @@ func (h *HelmReconciler) Reconcile() error {
 
 	// Delete any resources not in the manifest but managed by operator.
 	var errs util.Errors
-	errs = util.AppendErr(errs, h.customizer.Listener().BeginPrune(false))
-	errs = util.AppendErr(errs, h.Prune(false))
-	errs = util.AppendErr(errs, h.customizer.Listener().EndPrune())
-
+	if h.needUpdateAndPrune {
+		errs = util.AppendErr(errs, h.customizer.Listener().BeginPrune(false))
+		errs = util.AppendErr(errs, h.Prune(false))
+		errs = util.AppendErr(errs, h.customizer.Listener().EndPrune())
+	}
 	errs = util.AppendErr(errs, h.customizer.Listener().EndReconcile(h.instance, status))
-
 	return errs.ToError()
 }
 
@@ -192,6 +193,7 @@ func (h *HelmReconciler) processRecursive(manifests ChartManifestsMap) *v1alpha2
 
 // Delete resources associated with the custom resource instance
 func (h *HelmReconciler) Delete() error {
+	h.needUpdateAndPrune = true
 	allErrors := []error{}
 
 	// any processing required before processing the charts
@@ -234,6 +236,16 @@ func (h *HelmReconciler) GetCustomizer() RenderingCustomizer {
 }
 
 // GetInstance returns the instance associated with this HelmReconciler
-func (h *HelmReconciler) GetInstance() runtime.Object {
+func (h *HelmReconciler) GetInstance() *v1alpha2.IstioControlPlane {
 	return h.instance
+}
+
+// SetInstance set the instance associated with this HelmReconciler
+func (h *HelmReconciler) SetInstance(instance *v1alpha2.IstioControlPlane) {
+	h.instance = instance
+}
+
+// SetNeedUpdateAndPrune set the needUpdateAndPrune flag associated with this HelmReconciler
+func (h *HelmReconciler) SetNeedUpdateAndPrune(u bool) {
+	h.needUpdateAndPrune = u
 }

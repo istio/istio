@@ -257,6 +257,8 @@ func switchIstioControlPlaneProfile(cl client.Client, key client.ObjectKey, prof
 		return err
 	}
 	instance.Spec.Profile = profile
+	generation := instance.GetGeneration()
+	instance.SetGeneration(generation + 1)
 	err = cl.Update(context.TODO(), instance)
 	if err != nil {
 		return err

@@ -16,14 +16,22 @@ package istiocontrolplane
 
 import (
 	"context"
+	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
@@ -69,7 +77,11 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	if err != nil {
 		return err
 	}
-
+	//watch for changes to Istio resources
+	err = watchIstioResources(c)
+	if err != nil {
+		return err
+	}
 	log.Info("Controller added")
 	return nil
 }
@@ -93,9 +105,19 @@ type ReconcileIstioControlPlane struct {
 func (r *ReconcileIstioControlPlane) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	log.Info("Reconciling IstioControlPlane")
 
+	ns := request.Namespace
+	if ns == "" {
+		ns = defaultNs
+	} else {
+		defaultNs = ns
+	}
+	reqNamespacedName := types.NamespacedName{
+		Name:      request.Name,
+		Namespace: ns,
+	}
 	// declare read-only icp instance to create the reconciler
 	icp := &v1alpha2.IstioControlPlane{}
-	if err := r.client.Get(context.TODO(), request.NamespacedName, icp); err != nil {
+	if err := r.client.Get(context.TODO(), reqNamespacedName, icp); err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
@@ -153,7 +175,7 @@ func (r *ReconcileIstioControlPlane) Reconcile(request reconcile.Request) (recon
 	}
 
 	log.Info("Updating IstioControlPlane")
-	reconciler, err := r.factory.New(icp, r.client)
+	reconciler, err := r.getOrCreateReconciler(icp)
 	if err == nil {
 		err = reconciler.Reconcile()
 		if err != nil {
@@ -164,4 +186,88 @@ func (r *ReconcileIstioControlPlane) Reconcile(request reconcile.Request) (recon
 	}
 
 	return reconcile.Result{}, err
+}
+
+var (
+	defaultNs   string
+	reconcilers = map[string]*helmreconciler.HelmReconciler{}
+)
+
+func reconcilersMapKey(icp *v1alpha2.IstioControlPlane) string {
+	return fmt.Sprintf("%s/%s", icp.Namespace, icp.Name)
+}
+
+var ownedResourcePredicates = predicate.Funcs{
+	CreateFunc: func(_ event.CreateEvent) bool {
+		// no action
+		return false
+	},
+	GenericFunc: func(_ event.GenericEvent) bool {
+		// no action
+		return false
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		object, err := meta.Accessor(e.Object)
+		log.Debugf("got delete event for %s.%s", object.GetName(), object.GetNamespace())
+		if err != nil {
+			return false
+		}
+		if object.GetLabels()[OwnerNameKey] != "" {
+			return true
+		}
+		return false
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		// no action
+		return false
+	},
+}
+
+func (r *ReconcileIstioControlPlane) getOrCreateReconciler(icp *v1alpha2.IstioControlPlane) (*helmreconciler.HelmReconciler, error) {
+	key := reconcilersMapKey(icp)
+	var err error
+	var reconciler *helmreconciler.HelmReconciler
+	if reconciler, ok := reconcilers[key]; ok {
+		reconciler.SetNeedUpdateAndPrune(false)
+		oldInstance := reconciler.GetInstance()
+		reconciler.SetInstance(icp)
+		if reconciler.GetInstance().GetGeneration() != oldInstance.GetGeneration() {
+			//regenerate the reconciler
+			if reconciler, err = r.factory.New(icp, r.client); err == nil {
+				reconcilers[key] = reconciler
+			}
+		}
+		return reconciler, err
+	}
+	//not found - generate the reconciler
+	if reconciler, err = r.factory.New(icp, r.client); err == nil {
+		reconcilers[key] = reconciler
+	}
+	return reconciler, err
+}
+
+// Watch changes for Istio resources managed by the operator
+func watchIstioResources(c controller.Controller) error {
+	for _, t := range append(namespacedResources, nonNamespacedResources...) {
+		u := &unstructured.Unstructured{}
+		u.SetGroupVersionKind(schema.GroupVersionKind{
+			Kind:    t.Kind,
+			Group:   t.Group,
+			Version: t.Version,
+		})
+		err := c.Watch(&source.Kind{Type: u}, &handler.EnqueueRequestsFromMapFunc{
+			ToRequests: handler.ToRequestsFunc(func(a handler.MapObject) []reconcile.Request {
+				log.Debugf("watch a change for istio resource: %s.%s", a.Meta.GetName(), a.Meta.GetNamespace())
+				return []reconcile.Request{
+					{NamespacedName: types.NamespacedName{
+						Name: a.Meta.GetLabels()[OwnerNameKey],
+					}},
+				}
+			}),
+		}, ownedResourcePredicates)
+		if err != nil {
+			log.Warnf("can not create watch for resources %s.%s.%s due to %q", t.Kind, t.Group, t.Version, err)
+		}
+	}
+	return nil
 }
