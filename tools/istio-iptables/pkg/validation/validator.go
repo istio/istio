@@ -11,23 +11,23 @@ import (
 )
 
 type Validator struct {
-	Config *ValidationConfig
+	Config *Config
 }
 
-type ValidationConfig struct {
+type Config struct {
 	ServerListenAddress string
 	ServerOriginalPort  uint16
-	ServerOriginalIp    net.IP
+	ServerOriginalIP    net.IP
 }
-type ValidationService struct {
-	Config *ValidationConfig
+type Service struct {
+	Config *Config
 }
-type ValidationClient struct {
-	Config *ValidationConfig
+type Client struct {
+	Config *Config
 }
 
 func (validator *Validator) Run() error {
-	s := ValidationService{
+	s := Service{
 		validator.Config,
 	}
 	sError := make(chan error, 1)
@@ -38,9 +38,9 @@ func (validator *Validator) Run() error {
 
 	// infinite loop
 	go func() {
-		c := ValidationClient{Config: validator.Config}
+		c := Client{Config: validator.Config}
 		for {
-			c.Run()
+			_ = c.Run()
 			// Avoid spamming the request to the validation server.
 			// Since the TIMEWAIT socket is cleaned up in 60 second,
 			// it's maintaining 60 TIMEWAIT sockets. Not big deal.
@@ -62,21 +62,21 @@ func (validator *Validator) Run() error {
 
 func NewValidator(config *config.Config) *Validator {
 	return &Validator{
-		Config: &ValidationConfig{
+		Config: &Config{
 			ServerListenAddress: ":" + config.InboundCapturePort,
 			ServerOriginalPort:  constants.IPTABLES_PROBE_PORT,
-			ServerOriginalIp:    config.HostIp,
+			ServerOriginalIP:    config.HostIp,
 		},
 	}
 }
 
 // Write human readable response
 func echo(conn net.Conn, echo []byte) {
-	conn.Write(echo)
-	conn.Close()
+	_, _ = conn.Write(echo)
+	_ = conn.Close()
 }
 
-func (s *ValidationService) Run() error {
+func (s *Service) Run() error {
 	l, err := net.Listen("tcp", s.Config.ServerListenAddress)
 	if err != nil {
 		fmt.Println("Error on listening:", err.Error())
@@ -112,8 +112,8 @@ func (s *ValidationService) Run() error {
 	}
 }
 
-func (c *ValidationClient) Run() error {
-	serverOriginalAddress := c.Config.ServerOriginalIp.String() + ":" + strconv.Itoa(int(c.Config.ServerOriginalPort))
+func (c *Client) Run() error {
+	serverOriginalAddress := c.Config.ServerOriginalIP.String() + ":" + strconv.Itoa(int(c.Config.ServerOriginalPort))
 	conn, err := net.Dial("tcp", serverOriginalAddress)
 	if err != nil {
 		fmt.Printf("Error connecting to %s: %s\n", serverOriginalAddress, err.Error())

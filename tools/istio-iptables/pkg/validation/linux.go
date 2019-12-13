@@ -34,7 +34,7 @@ func GetOriginalDestination(conn net.Conn) (daddr net.IP, dport uint16, err erro
 
 	// Detect underlying ip is v4 or v6
 	ip := conn.RemoteAddr().(*net.TCPAddr).IP
-	isIpv4 := true
+	isIpv4 := false
 	if ip.To4() != nil {
 		isIpv4 = true
 	} else if ip.To16() != nil {

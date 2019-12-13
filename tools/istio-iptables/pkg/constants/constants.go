@@ -78,8 +78,8 @@ const (
 	DryRun                    = "dry-run"
 	Clean                     = "clean"
 	RestoreFormat             = "restore-format"
-	SkipRuleSet               = "skip-rule-set"
-	SkipValidate              = "skip-validate"
+	SkipRuleApply             = "skip-rule-apply"
+	SkipValidation            = "skip-validation"
 )
 
 // Constants for iptables commands

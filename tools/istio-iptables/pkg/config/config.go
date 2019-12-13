@@ -41,8 +41,8 @@ type Config struct {
 	KubevirtInterfaces      string `json:"KUBEVIRT_INTERFACES"`
 	EnableInboundIPv6s      net.IP `json:"ENABLE_INBOUND_IPV6"`
 	HostIp                  net.IP `json:"HOST_IP"`
-	SkipRuleSet             bool   `json:"SkipRuleSet"`
-	SkipValidate            bool   `json:"SkipValidation"`
+	SkipRuleApply           bool   `json:"SKIP_RULE_APPLY"`
+	SkipValidation          bool   `json:"SKIP_VALIDATION"`
 }
 
 func (c *Config) String() string {

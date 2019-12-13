@@ -34,10 +34,10 @@ var rootCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		config := constructConfig()
 		iptConfigurator := NewIptablesConfigurator(config)
-		if !config.SkipRuleSet {
+		if !config.SkipRuleApply {
 			iptConfigurator.run()
 		}
-		if !config.SkipValidate {
+		if !config.SkipValidation {
 			validator := validation.NewValidator(config)
 			return validator.Run()
 		}
@@ -63,8 +63,8 @@ func constructConfig() *config.Config {
 		DryRun:                  viper.GetBool(constants.DryRun),
 		EnableInboundIPv6s:      nil,
 		RestoreFormat:           viper.GetBool(constants.RestoreFormat),
-		SkipRuleSet:             viper.GetBool(constants.SkipRuleSet),
-		SkipValidate:            viper.GetBool(constants.SkipValidate),
+		SkipRuleApply:           viper.GetBool(constants.SkipRuleApply),
+		SkipValidation:          viper.GetBool(constants.SkipValidation),
 	}
 }
 
@@ -186,17 +186,17 @@ func init() {
 	}
 	viper.SetDefault(constants.RestoreFormat, true)
 
-	rootCmd.Flags().Bool(constants.SkipRuleSet, false, "Skip iptables apply")
-	if err := viper.BindPFlag(constants.SkipRuleSet, rootCmd.Flags().Lookup(constants.SkipRuleSet)); err != nil {
+	rootCmd.Flags().Bool(constants.SkipRuleApply, false, "Skip iptables apply")
+	if err := viper.BindPFlag(constants.SkipRuleApply, rootCmd.Flags().Lookup(constants.SkipRuleApply)); err != nil {
 		handleError(err)
 	}
-	viper.SetDefault(constants.SkipRuleSet, false)
+	viper.SetDefault(constants.SkipRuleApply, false)
 
-	rootCmd.Flags().Bool(constants.SkipValidate, true, "Skip validate iptables")
-	if err := viper.BindPFlag(constants.SkipValidate, rootCmd.Flags().Lookup(constants.SkipValidate)); err != nil {
+	rootCmd.Flags().Bool(constants.SkipValidation, true, "Skip validate iptables")
+	if err := viper.BindPFlag(constants.SkipValidation, rootCmd.Flags().Lookup(constants.SkipValidation)); err != nil {
 		handleError(err)
 	}
-	viper.SetDefault(constants.SkipValidate, true)
+	viper.SetDefault(constants.SkipValidation, true)
 }
 
 func Execute() {
