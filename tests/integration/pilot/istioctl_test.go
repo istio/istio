@@ -21,15 +21,11 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 )
 
-var (
-	env *kube.Environment
-)
 
 // This test requires `--istio.test.env=kube` because it tests istioctl doing PodExec
 // TestVersion does "istioctl version --remote=true" to verify the CLI understands the data plane version data
