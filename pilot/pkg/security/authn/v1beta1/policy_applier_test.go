@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
 	pilotutil "istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
 	authn_alpha "istio.io/istio/security/proto/authentication/v1alpha1"
 	authn_filter "istio.io/istio/security/proto/envoy/config/filter/http/authn/v2alpha1"
 )
@@ -361,6 +362,7 @@ func TestJwtFilter(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			if got := NewPolicyApplier(c.in, c.alphaPolicyIn).JwtFilter(true); !reflect.DeepEqual(c.expected, got) {
+
 				t.Errorf("got:\n%s\nwanted:\n%s", spew.Sdump(got), spew.Sdump(c.expected))
 			}
 		})
@@ -575,36 +577,19 @@ func TestAuthnFilterConfig(t *testing.T) {
 	jwksURI := ms.URL + "/oauth2/v3/certs"
 
 	cases := []testCase{{
-		name: "no-request-authn-rule",
-		expected: &http_conn.HttpFilter{
-			Name: "istio_authn",
-			ConfigType: &http_conn.HttpFilter_Config{
-				Config: pilotutil.MessageToStruct(&authn_filter.FilterConfig{
-					Policy: &authn_alpha.Policy{
-						Peers: []*authn_alpha.PeerAuthenticationMethod{
-							{
-								Params: &authn_alpha.PeerAuthenticationMethod_Mtls{
-									Mtls: &authn_alpha.MutualTls{},
-								},
-							},
-						},
-						PeerIsOptional:   true,
-						OriginIsOptional: true,
-						PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
-					},
-				}),
-			},
-		},
+		name:     "no-request-authn-rule",
+		expected: nil,
 	}, {
-		name: "single-request-authn-rule",
-		in: []*model.Config{
-			{
-				Spec: &v1beta1.RequestAuthentication{
-					JwtRules: []*v1beta1.JWT{
-						{
-							Issuer:  "https://secret.foo.com",
-							JwksUri: jwksURI,
-						},
+		name: "no-request-authn-rule-alphafallback",
+		alphaPolicyIn: &authn_alpha_api.Policy{
+			Peers: []*authn_alpha_api.PeerAuthenticationMethod{{
+				Params: &authn_alpha_api.PeerAuthenticationMethod_Mtls{&authn_alpha_api.MutualTls{}},
+			}},
+			Origins: []*authn_alpha_api.OriginAuthenticationMethod{
+				{
+					Jwt: &authn_alpha_api.Jwt{
+						Issuer:  "https://secret.foo.com",
+						JwksUri: jwksURI,
 					},
 				},
 			},
@@ -613,6 +598,9 @@ func TestAuthnFilterConfig(t *testing.T) {
 			Name: "istio_authn",
 			ConfigType: &http_conn.HttpFilter_Config{
 				Config: pilotutil.MessageToStruct(&authn_filter.FilterConfig{
+					JwtOutputPayloadLocations: map[string]string{
+						"https://secret.foo.com": "istio-sec-bb4594e42ba8128d87988eea9e4a8f2eaf874856",
+					},
 					Policy: &authn_alpha.Policy{
 						Peers: []*authn_alpha.PeerAuthenticationMethod{
 							{
@@ -624,18 +612,57 @@ func TestAuthnFilterConfig(t *testing.T) {
 						Origins: []*authn_alpha.OriginAuthenticationMethod{
 							{
 								Jwt: &authn_alpha.Jwt{
-									Issuer: "https://secret.foo.com",
+									Issuer:  "https://secret.foo.com",
+									JwksUri: jwksURI,
 								},
 							},
 						},
-						PeerIsOptional:   true,
-						OriginIsOptional: true,
-						PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
 					},
 				}),
 			},
 		},
 	},
+		{
+			name: "single-request-authn-rule",
+			in: []*model.Config{
+				{
+					Spec: &v1beta1.RequestAuthentication{
+						JwtRules: []*v1beta1.JWT{
+							{
+								Issuer:  "https://secret.foo.com",
+								JwksUri: jwksURI,
+							},
+						},
+					},
+				},
+			},
+			expected: &http_conn.HttpFilter{
+				Name: "istio_authn",
+				ConfigType: &http_conn.HttpFilter_Config{
+					Config: pilotutil.MessageToStruct(&authn_filter.FilterConfig{
+						Policy: &authn_alpha.Policy{
+							Peers: []*authn_alpha.PeerAuthenticationMethod{
+								{
+									Params: &authn_alpha.PeerAuthenticationMethod_Mtls{
+										Mtls: &authn_alpha.MutualTls{},
+									},
+								},
+							},
+							Origins: []*authn_alpha.OriginAuthenticationMethod{
+								{
+									Jwt: &authn_alpha.Jwt{
+										Issuer: "https://secret.foo.com",
+									},
+								},
+							},
+							PeerIsOptional:   true,
+							OriginIsOptional: true,
+							PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
+						},
+					}),
+				},
+			},
+		},
 		{
 			name: "multi-rules",
 			in: []*model.Config{
@@ -759,7 +786,9 @@ func TestAuthnFilterConfig(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			got := NewPolicyApplier(c.in, c.alphaPolicyIn).AuthNFilter(model.SidecarProxy, false)
 			if !reflect.DeepEqual(c.expected, got) {
-				t.Errorf("got:\n%s\nwanted:\n%s\n", spew.Sdump(got), spew.Sdump(c.expected))
+				gotYaml, _ := gogoprotomarshal.ToYAML(got)
+				expectedYaml, _ := gogoprotomarshal.ToYAML(c.expected)
+				t.Errorf("got:\n%s\nwanted:\n%s\n", gotYaml, expectedYaml)
 			}
 		})
 	}
