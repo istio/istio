@@ -266,22 +266,27 @@ func BuildHTTPRoutesForVirtualService(
 	}
 
 	out := make([]*route.Route, 0, len(vs.Http))
-allroutes:
+
 	for _, http := range vs.Http {
 		if len(http.Match) == 0 {
 			if r := translateRoute(push, node, http, nil, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
 				out = append(out, r)
 			}
-			break allroutes // we have a rule with catch all match prefix: /. Other rules are of no use
+			// We have a rule with catch all match prefix: /. Other rules are of no use.
+			break
 		} else {
+			if match := catchAllMatch(http); match != nil {
+				// We have a catch all match block in the route, check if it is valid - A catch all match block is not valid
+				// (translateRoute returns nil), if source or port match fails.
+				if r := translateRoute(push, node, http, match, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
+					// We have a valid catch all route. No point building other routes, with match conditions.
+					out = append(out, r)
+					break
+				}
+			}
 			for _, match := range http.Match {
 				if r := translateRoute(push, node, http, match, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
 					out = append(out, r)
-					rType, _ := getEnvoyRouteTypeAndVal(r)
-					if rType == envoyCatchAll {
-						// We have a catch all route. No point building other routes, with match conditions
-						break allroutes
-					}
 				}
 			}
 		}
@@ -516,11 +521,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		Operation: getRouteOperation(out, virtualService.Name, port),
 	}
 	if fault := in.Fault; fault != nil {
-		if util.IsXDSMarshalingToAnyEnabled(node) {
-			out.TypedPerFilterConfig[xdsutil.Fault] = util.MessageToAny(translateFault(in.Fault))
-		} else {
-			out.PerFilterConfig[xdsutil.Fault] = util.MessageToStruct(translateFault(in.Fault))
-		}
+		out.TypedPerFilterConfig[xdsutil.Fault] = util.MessageToAny(translateFault(in.Fault))
 	}
 
 	return out
@@ -996,6 +997,39 @@ func getEnvoyRouteTypeAndVal(r *route.Route) (envoyRouteType, string) {
 		}
 	}
 	return iType, iVal
+}
+
+// catchAllMatch returns a catch all match block if available in the route, otherwise returns nil.
+func catchAllMatch(http *networking.HTTPRoute) *networking.HTTPMatchRequest {
+	for _, match := range http.Match {
+		if isCatchAll(match) {
+			return match
+		}
+	}
+	return nil
+}
+
+// isCatchAll returns true, if the match is a catch all match, otherwise returns false.
+func isCatchAll(match *networking.HTTPMatchRequest) bool {
+	// A Match is catch all if and only if it has no header/query param match
+	// and URI has a prefix / or regex *.
+	catchalluri := false
+	if match.Uri != nil {
+		switch m := match.Uri.MatchType.(type) {
+		case *networking.StringMatch_Prefix:
+			if m.Prefix == "/" {
+				catchalluri = true
+			}
+		case *networking.StringMatch_Regex:
+			if m.Regex == "*" {
+				catchalluri = true
+			}
+		}
+	}
+	if catchalluri && len(match.Headers) == 0 && len(match.QueryParams) == 0 {
+		return true
+	}
+	return false
 }
 
 // CombineVHostRoutes semi concatenates two Vhost's routes into a single route set.

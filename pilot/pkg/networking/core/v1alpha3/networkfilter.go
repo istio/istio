@@ -26,7 +26,6 @@ import (
 	mysql_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mysql_proxy/v1alpha1"
 	redis_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/redis_proxy/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
-	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/ptypes"
 
@@ -67,12 +66,7 @@ func setAccessLog(push *model.PushContext, node *model.Proxy, config *tcp_proxy.
 		}
 		buildAccessLog(node, fl, push)
 
-		if util.IsXDSMarshalingToAnyEnabled(node) {
-			acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
-		} else {
-			c, _ := conversion.MessageToStruct(fl)
-			acc.ConfigType = &accesslog.AccessLog_Config{Config: c}
-		}
+		acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
 
 		config.AccessLog = append(config.AccessLog, acc)
 	}
@@ -96,13 +90,8 @@ func setAccessLog(push *model.PushContext, node *model.Proxy, config *tcp_proxy.
 		}
 
 		acc := &accesslog.AccessLog{
-			Name: tcpEnvoyALSName,
-		}
-
-		if util.IsXDSMarshalingToAnyEnabled(node) {
-			acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
-		} else {
-			acc.ConfigType = &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)}
+			Name:       tcpEnvoyALSName,
+			ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)},
 		}
 
 		config.AccessLog = append(config.AccessLog, acc)
@@ -116,12 +105,8 @@ func setAccessLogAndBuildTCPFilter(push *model.PushContext, node *model.Proxy, c
 	setAccessLog(push, node, config)
 
 	tcpFilter := &listener.Filter{
-		Name: wellknown.TCPProxy,
-	}
-	if util.IsXDSMarshalingToAnyEnabled(node) {
-		tcpFilter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)}
-	} else {
-		tcpFilter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(config)}
+		Name:       wellknown.TCPProxy,
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)},
 	}
 	return tcpFilter
 }
@@ -186,21 +171,21 @@ func buildOutboundNetworkFiltersWithWeightedClusters(node *model.Proxy, routes [
 
 // buildNetworkFiltersStack builds a slice of network filters based on
 // the protocol in use and the given TCP filter instance.
-func buildNetworkFiltersStack(node *model.Proxy, port *model.Port, tcpFilter *listener.Filter, statPrefix string, clusterName string) []*listener.Filter {
+func buildNetworkFiltersStack(_ *model.Proxy, port *model.Port, tcpFilter *listener.Filter, statPrefix string, clusterName string) []*listener.Filter {
 	filterstack := make([]*listener.Filter, 0)
 	switch port.Protocol {
 	case protocol.Mongo:
-		filterstack = append(filterstack, buildMongoFilter(statPrefix, util.IsXDSMarshalingToAnyEnabled(node)), tcpFilter)
+		filterstack = append(filterstack, buildMongoFilter(statPrefix), tcpFilter)
 	case protocol.Redis:
 		if features.EnableRedisFilter.Get() {
 			// redis filter has route config, it is a terminating filter, no need append tcp filter.
-			filterstack = append(filterstack, buildRedisFilter(statPrefix, clusterName, util.IsXDSMarshalingToAnyEnabled(node)))
+			filterstack = append(filterstack, buildRedisFilter(statPrefix, clusterName))
 		} else {
 			filterstack = append(filterstack, tcpFilter)
 		}
 	case protocol.MySQL:
 		if features.EnableMysqlFilter.Get() {
-			filterstack = append(filterstack, buildMySQLFilter(statPrefix, util.IsXDSMarshalingToAnyEnabled(node)))
+			filterstack = append(filterstack, buildMySQLFilter(statPrefix))
 		}
 		filterstack = append(filterstack, tcpFilter)
 	default:
@@ -226,7 +211,7 @@ func buildOutboundNetworkFilters(node *model.Proxy,
 }
 
 // buildMongoFilter builds an outbound Envoy MongoProxy filter.
-func buildMongoFilter(statPrefix string, isXDSMarshalingToAnyEnabled bool) *listener.Filter {
+func buildMongoFilter(statPrefix string) *listener.Filter {
 	// TODO: add a watcher for /var/lib/istio/mongo/certs
 	// if certs are found use, TLS or mTLS clusters for talking to MongoDB.
 	// User is responsible for mounting those certs in the pod.
@@ -236,12 +221,8 @@ func buildMongoFilter(statPrefix string, isXDSMarshalingToAnyEnabled bool) *list
 	}
 
 	out := &listener.Filter{
-		Name: wellknown.MongoProxy,
-	}
-	if isXDSMarshalingToAnyEnabled {
-		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(mongoProxy)}
-	} else {
-		out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(mongoProxy)}
+		Name:       wellknown.MongoProxy,
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(mongoProxy)},
 	}
 
 	return out
@@ -265,7 +246,7 @@ func buildOutboundAutoPassthroughFilterStack(push *model.PushContext, node *mode
 // buildRedisFilter builds an outbound Envoy RedisProxy filter.
 // Currently, if multiple clusters are defined, one of them will be picked for
 // configuring the Redis proxy.
-func buildRedisFilter(statPrefix, clusterName string, isXDSMarshalingToAnyEnabled bool) *listener.Filter {
+func buildRedisFilter(statPrefix, clusterName string) *listener.Filter {
 	redisProxy := &redis_proxy.RedisProxy{
 		LatencyInMicros: true,       // redis latency stats are captured in micro seconds which is typically the case.
 		StatPrefix:      statPrefix, // redis stats are prefixed with redis.<statPrefix> by Envoy
@@ -280,31 +261,22 @@ func buildRedisFilter(statPrefix, clusterName string, isXDSMarshalingToAnyEnable
 	}
 
 	out := &listener.Filter{
-		Name: wellknown.RedisProxy,
-	}
-	if isXDSMarshalingToAnyEnabled {
-		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(redisProxy)}
-	} else {
-		out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(redisProxy)}
+		Name:       wellknown.RedisProxy,
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(redisProxy)},
 	}
 
 	return out
 }
 
 // buildMySQLFilter builds an outbound Envoy MySQLProxy filter.
-func buildMySQLFilter(statPrefix string, isXDSMarshalingToAnyEnabled bool) *listener.Filter {
+func buildMySQLFilter(statPrefix string) *listener.Filter {
 	mySQLProxy := &mysql_proxy.MySQLProxy{
 		StatPrefix: statPrefix, // MySQL stats are prefixed with mysql.<statPrefix> by Envoy.
 	}
 
 	out := &listener.Filter{
-		Name: wellknown.MySQLProxy,
-	}
-
-	if isXDSMarshalingToAnyEnabled {
-		out.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(mySQLProxy)}
-	} else {
-		out.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(mySQLProxy)}
+		Name:       wellknown.MySQLProxy,
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(mySQLProxy)},
 	}
 
 	return out
