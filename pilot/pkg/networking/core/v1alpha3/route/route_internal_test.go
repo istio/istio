@@ -17,8 +17,9 @@ package route
 import (
 	"testing"
 
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	networking "istio.io/api/networking/v1alpha3"
+
+	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 )
 
 func TestIsCatchAll(t *testing.T) {
