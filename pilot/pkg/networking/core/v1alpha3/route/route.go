@@ -960,45 +960,6 @@ func getHashPolicy(push *model.PushContext, node *model.Proxy, dst *networking.H
 	return consistentHashToHashPolicy(consistentHash)
 }
 
-type envoyRouteType int
-
-const (
-	envoyPath envoyRouteType = iota
-	envoyPrefix
-	envoyRegex
-	envoyCatchAll
-)
-
-// nolint: unparam
-func getEnvoyRouteTypeAndVal(r *route.Route) (envoyRouteType, string) {
-	var iType envoyRouteType
-	var iVal string
-
-	switch iR := r.Match.PathSpecifier.(type) {
-	case *route.RouteMatch_Path:
-		iVal = iR.Path
-		iType = envoyPath
-	case *route.RouteMatch_Prefix:
-		iVal = iR.Prefix
-		iType = envoyPrefix
-	case *route.RouteMatch_Regex:
-		iVal = iR.Regex
-		iType = envoyRegex
-	case *route.RouteMatch_SafeRegex:
-		iVal = iR.SafeRegex.Regex
-		iType = envoyRegex
-	}
-
-	// A route is catch all if and only if it has no header/query param match
-	// and has a prefix / or regex *.
-	if (iVal == "/" && iType == envoyPrefix) || (iVal == "*" && iType == envoyRegex) {
-		if len(r.Match.Headers) == 0 && len(r.Match.QueryParameters) == 0 {
-			iType = envoyCatchAll
-		}
-	}
-	return iType, iVal
-}
-
 // catchAllMatch returns a catch all match block if available in the route, otherwise returns nil.
 func catchAllMatch(http *networking.HTTPRoute) *networking.HTTPMatchRequest {
 	for _, match := range http.Match {
@@ -1009,27 +970,35 @@ func catchAllMatch(http *networking.HTTPRoute) *networking.HTTPMatchRequest {
 	return nil
 }
 
-// isCatchAll returns true, if the match is a catch all match, otherwise returns false.
-func isCatchAll(match *networking.HTTPMatchRequest) bool {
-	// A Match is catch all if and only if it has no header/query param match
-	// and URI has a prefix / or regex *.
-	catchalluri := false
-	if match.Uri != nil {
-		switch m := match.Uri.MatchType.(type) {
-		case *networking.StringMatch_Prefix:
-			if m.Prefix == "/" {
-				catchalluri = true
-			}
-		case *networking.StringMatch_Regex:
-			if m.Regex == "*" {
-				catchalluri = true
+// isCatchAll returns true if an Envoy route or Istio Match is a catchall case otherwise false.
+func isCatchAll(v interface{}) bool {
+	var prefix, regex string
+	var hlen, qlen int
+	switch m := v.(type) {
+	case *route.Route:
+		switch ir := m.Match.PathSpecifier.(type) {
+		case *route.RouteMatch_Prefix:
+			prefix = ir.Prefix
+		case *route.RouteMatch_Regex:
+			regex = ir.Regex
+		}
+		hlen = len(m.Match.Headers)
+		qlen = len(m.Match.QueryParameters)
+	case *networking.HTTPMatchRequest:
+		if m.Uri != nil {
+			switch m := m.Uri.MatchType.(type) {
+			case *networking.StringMatch_Prefix:
+				prefix = m.Prefix
+			case *networking.StringMatch_Regex:
+				regex = m.Regex
 			}
 		}
+		hlen = len(m.Headers)
+		qlen = len(m.QueryParams)
 	}
-	if catchalluri && len(match.Headers) == 0 && len(match.QueryParams) == 0 {
-		return true
-	}
-	return false
+	// A Match is catch all if and only if it has no header/query param match
+	// and URI has a prefix / or regex *.
+	return (prefix == "/" || regex == "*") && hlen == 0 && qlen == 0
 }
 
 // CombineVHostRoutes semi concatenates two Vhost's routes into a single route set.
@@ -1042,21 +1011,17 @@ func CombineVHostRoutes(first []*route.Route, second []*route.Route) []*route.Ro
 	catchAllRoutes := make([]*route.Route, 0)
 
 	for _, f := range first {
-		rType, _ := getEnvoyRouteTypeAndVal(f)
-		switch rType {
-		case envoyCatchAll:
+		if isCatchAll(f) {
 			catchAllRoutes = append(catchAllRoutes, f)
-		default:
+		} else {
 			allroutes = append(allroutes, f)
 		}
 	}
 
 	for _, s := range second {
-		rType, _ := getEnvoyRouteTypeAndVal(s)
-		switch rType {
-		case envoyCatchAll:
+		if isCatchAll(s) {
 			catchAllRoutes = append(catchAllRoutes, s)
-		default:
+		} else {
 			allroutes = append(allroutes, s)
 		}
 	}

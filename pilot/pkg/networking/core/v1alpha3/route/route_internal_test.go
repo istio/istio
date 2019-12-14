@@ -17,13 +17,14 @@ package route
 import (
 	"testing"
 
+	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	networking "istio.io/api/networking/v1alpha3"
 )
 
 func TestIsCatchAll(t *testing.T) {
 	cases := []struct {
 		name  string
-		match *networking.HTTPMatchRequest
+		match interface{}
 		want  bool
 	}{
 		{
@@ -33,6 +34,30 @@ func TestIsCatchAll(t *testing.T) {
 				Uri: &networking.StringMatch{
 					MatchType: &networking.StringMatch_Prefix{
 						Prefix: "/",
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "catch all prefix, route",
+			match: &route.Route{
+				Name: "catch-all",
+				Match: &route.RouteMatch{
+					PathSpecifier: &route.RouteMatch_Prefix{
+						Prefix: "/",
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "catch all regex, route",
+			match: &route.Route{
+				Name: "catch-all",
+				Match: &route.RouteMatch{
+					PathSpecifier: &route.RouteMatch_Regex{
+						Regex: "*",
 					},
 				},
 			},
