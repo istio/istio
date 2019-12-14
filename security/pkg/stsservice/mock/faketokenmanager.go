@@ -21,7 +21,7 @@ import (
 	"istio.io/istio/security/pkg/stsservice"
 )
 
-type fakeTokenManager struct {
+type FakeTokenManager struct {
 	mutex sync.RWMutex
 	generateTokenError error
 	dumpTokenError     error
@@ -29,18 +29,10 @@ type fakeTokenManager struct {
 	stsRespParam       stsservice.StsResponseParameters
 }
 
-type tokenInfo struct {
-	tokenType  string `json:"token_type"`
-	issueTime  string `json:"issue_time"`
-	expireTime string `json:"expire_time"`
-}
 
-type tokensDump struct {
-	tokens []tokenInfo `json:"tokens"`
-}
 
-func CreateFakeTokenManager() (*fakeTokenManager) {
-	tm := &fakeTokenManager{
+func CreateFakeTokenManager() (*FakeTokenManager) {
+	tm := &FakeTokenManager{
 		generateTokenError: nil,
 		dumpTokenError:     nil,
 		tokens:             sync.Map{},
@@ -49,26 +41,35 @@ func CreateFakeTokenManager() (*fakeTokenManager) {
 	return tm
 }
 
-func (tm *fakeTokenManager) SetGenerateTokenError (err error) {
+func (tm *FakeTokenManager) SetGenerateTokenError (err error) {
 	tm.mutex.Lock()
 	defer tm.mutex.Unlock()
 	tm.generateTokenError = err
 }
 
-func (tm *fakeTokenManager) SetDumpTokenError (err error) {
+func (tm *FakeTokenManager) SetDumpTokenError (err error) {
 	tm.mutex.Lock()
 	defer tm.mutex.Unlock()
 	tm.dumpTokenError = err
 }
 
-func (tm *fakeTokenManager) SetRespStsParam(p stsservice.StsResponseParameters) {
+func (tm *FakeTokenManager) SetRespStsParam(p stsservice.StsResponseParameters) {
 	tm.mutex.Lock()
 	defer tm.mutex.Unlock()
 	tm.stsRespParam = p
 }
 
+func (tm *FakeTokenManager) SetToken(t stsservice.TokenInfo) {
+	//erase map
+	tm.tokens.Range(func(key interface{}, value interface{}) bool {
+		tm.tokens.Delete(key)
+		return true
+	})
+	tm.tokens.Store(t.IssueTime, t)
+}
+
 // GenerateToken returns a fake token, or error if generateTokenError is set.
-func (tm *fakeTokenManager) GenerateToken(_ stsservice.StsRequestParameters) ([]byte, error) {
+func (tm *FakeTokenManager) GenerateToken(_ stsservice.StsRequestParameters) ([]byte, error) {
 	var expErr error
 	tm.mutex.Lock()
 		expErr = tm.generateTokenError
@@ -81,17 +82,17 @@ func (tm *fakeTokenManager) GenerateToken(_ stsservice.StsRequestParameters) ([]
 	stsResp = tm.stsRespParam
 	tm.mutex.Unlock()
 	t := time.Now()
-	tm.tokens.Store(t.String(), tokenInfo{
-		tokenType:  stsResp.TokenType,
-		issueTime:  t.String(),
-		expireTime: t.Add(time.Duration(stsResp.ExpiresIn) * time.Second).String(),
+	tm.tokens.Store(t.String(), stsservice.TokenInfo{
+		TokenType:  stsResp.TokenType,
+		IssueTime:  t.String(),
+		ExpireTime: t.Add(time.Duration(stsResp.ExpiresIn) * time.Second).String(),
 	})
 	statusJSON, _ := json.MarshalIndent(stsResp, "", " ")
 	return statusJSON, nil
 }
 
 // DumpTokenStatus returns fake token status, or error if dumpTokenError is set.
-func (tm *fakeTokenManager) DumpTokenStatus() ([]byte, error) {
+func (tm *FakeTokenManager) DumpTokenStatus() ([]byte, error) {
 	var expErr error
 	tm.mutex.Lock()
 	expErr = tm.dumpTokenError
@@ -100,14 +101,14 @@ func (tm *fakeTokenManager) DumpTokenStatus() ([]byte, error) {
 		return nil, expErr
 	}
 
-	tokenStatus := make([]tokenInfo, 0)
+	tokenStatus := make([]stsservice.TokenInfo, 0)
 	tm.tokens.Range(func(k interface{}, v interface{}) bool {
-		token := v.(tokenInfo)
+		token := v.(stsservice.TokenInfo)
 		tokenStatus = append(tokenStatus, token)
 		return true
 	})
-	td := tokensDump{
-		tokens: tokenStatus,
+	td := stsservice.TokensDump{
+		Tokens: tokenStatus,
 	}
 	statusJSON, err := json.MarshalIndent(td, "", " ")
 	return statusJSON, err

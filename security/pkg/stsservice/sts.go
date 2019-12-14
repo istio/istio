@@ -91,3 +91,15 @@ type TokenManager interface {
 	// DumpTokenStatus dumps status of all generated tokens and returns status in JSON.
 	DumpTokenStatus() ([]byte, error)
 }
+
+// TokenInfo stores token information maintained at TokenManager.
+type TokenInfo struct {
+	TokenType  string `json:"token_type"`
+	IssueTime  string `json:"issue_time"`
+	ExpireTime string `json:"expire_time"`
+}
+
+// TokensDump stores information about all generated tokens.
+type TokensDump struct {
+	Tokens []TokenInfo `json:"tokens"`
+}

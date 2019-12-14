@@ -15,6 +15,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -81,6 +82,7 @@ func NewServer(config Config, tokenManager stsservice.TokenManager) (*Server, er
 		Handler: mux,
 	}
 	go func() {
+		stsServerLog.Infof("Start listening on %s:%d", config.LocalHostAddr, config.LocalPort)
 		err := s.stsServer.ListenAndServe()
 		// ListenAndServe always returns a non-nil error.
 		stsServerLog.Errora(err)
@@ -96,9 +98,7 @@ func (s *Server) ServeStsRequests(w http.ResponseWriter, req *http.Request) {
 		stsServerLog.Warnf("STS request is invalid: %v", validationError)
 		// If request is invalid, the error code must be "invalid_request".
 		// https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16#section-2.2.2.
-		if sendErr := s.sendErrorResponse(w, invalidRequest, validationError); sendErr != nil {
-			stsServerLog.Errorf("failed to write STS error response: %v", sendErr)
-		}
+		s.sendErrorResponse(w, invalidRequest, validationError)
 		return
 	}
 	tokenDataJSON, genError := s.tokenManager.GenerateToken(reqParam)
@@ -107,14 +107,10 @@ func (s *Server) ServeStsRequests(w http.ResponseWriter, req *http.Request) {
 		// If the authorization server is unable to issue a token, the "invalid_target" error code
 		// should be used in the error response.
 		// https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16#section-2.2.2.
-		if sendErr := s.sendErrorResponse(w, invalidTarget, genError); sendErr != nil {
-			stsServerLog.Errorf("failed to write STS error response: %v", sendErr)
-		}
+		s.sendErrorResponse(w, invalidTarget, genError)
 		return
 	}
-	if sendErr := s.sendSuccessfulResponse(w, tokenDataJSON); sendErr != nil {
-		stsServerLog.Errorf("failed to write STS successful response: %v", sendErr)
-	}
+	s.sendSuccessfulResponse(w, tokenDataJSON)
 }
 
 // validateStsRequest validates a STS request, and extracts STS parameters from the request.
@@ -124,24 +120,29 @@ func (s *Server) validateStsRequest(req *http.Request) (stsservice.StsRequestPar
 		return reqParam, errors.New("request is nil")
 	}
 
-	stsServerLog.Debugf("Received STS request: %s", httputil.DumpRequest(req, true))
+	reqDump, _ := httputil.DumpRequest(req, true)
+	stsServerLog.Debugf("Received STS request: %s", string(reqDump))
 	if req.Method != "POST" {
-		return reqParam, fmt.Errorf("request method should be POST but get %s", req.Method)
+		return reqParam, fmt.Errorf("request method is invalid, should be POST but get %s", req.Method)
 	}
 	if req.Header.Get("Content-Type") != urlEncodedForm {
-		return reqParam, fmt.Errorf("request content type should be %s but get %s", urlEncodedForm,
+		return reqParam, fmt.Errorf("request content type is invalid, should be %s but get %s", urlEncodedForm,
 			req.Header.Get("Content-type"))
 	}
 	if parseErr := req.ParseForm(); parseErr != nil {
 		return reqParam, fmt.Errorf("failed to parse query from STS request: %v", parseErr)
 	}
 	if req.PostForm.Get("grant_type") != tokenExchangeGrantType {
-		return reqParam, fmt.Errorf("request query grant_type should be %s but get %s",
+		return reqParam, fmt.Errorf("request query grant_type is invalid, should be %s but get %s",
 			tokenExchangeGrantType, req.PostForm.Get("grant_type"))
 	}
 	// Only a JWT token is accepted.
-	if req.PostForm.Get("subject_token") == "" || req.PostForm.Get("subject_token_type") != subjectTokenType {
-		return reqParam, errors.New("request query does not have subject_token or subject_token_type")
+	if req.PostForm.Get("subject_token") == "" {
+		return reqParam, errors.New("subject_token is empty")
+	}
+	if req.PostForm.Get("subject_token_type") != subjectTokenType {
+		return reqParam, fmt.Errorf("subject_token_type is invalid, should be %s but get %s",
+			subjectTokenType, req.PostForm.Get("subject_token_type"))
 	}
 	reqParam.GrantType          = req.PostForm.Get("grant_type")
 	reqParam.Resource           = req.PostForm.Get("resource")
@@ -156,7 +157,7 @@ func (s *Server) validateStsRequest(req *http.Request) (stsservice.StsRequestPar
 }
 
 // sendErrorResponse takes error type and error details, generates an error response and sends out.
-func (s *Server) sendErrorResponse(w http.ResponseWriter, errorType string, errDetail error) error {
+func (s *Server) sendErrorResponse(w http.ResponseWriter, errorType string, errDetail error) {
 	w.Header().Add("Content-Type", "application/json")
 	if errorType == invalidRequest {
 		w.WriteHeader(http.StatusBadRequest)
@@ -169,43 +170,53 @@ func (s *Server) sendErrorResponse(w http.ResponseWriter, errorType string, errD
 	}
 	if errRespJSON, err := json.MarshalIndent(errResp, "", "  "); err == nil {
 		if _, err := w.Write(errRespJSON); err != nil {
-			return err
+			stsServerLog.Errorf("failure in sending STS error response (%v): %v", errResp, err)
+			return
 		}
+		stsServerLog.Debugf("sent out STS error response: %v", errResp)
 	} else {
-		stsServerLog.Errorf("failed to marshal error response into JSON: %v", err)
-		return err
+		stsServerLog.Errorf("failure in marshaling error response (%v) into JSON: %v", errResp, err)
 	}
-	return nil
 }
 
 // sendSuccessfulResponse takes token data and generates a successful STS response, and sends out the STS response.
-func (s *Server) sendSuccessfulResponse(w http.ResponseWriter, tokenData []byte) error {
+func (s *Server) sendSuccessfulResponse(w http.ResponseWriter, tokenData []byte) {
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if _, err := w.Write(tokenData); err != nil {
-		return err
+		stsServerLog.Errorf("failure in sending STS success response: %v", err)
 	}
-	stsServerLog.Debug("Successfully sent out STS response")
-	return nil
+	stsServerLog.Debugf("sent out STS success response: %v", tokenData)
 }
 
 // DumpStsStatus handles requests for dumping STS status, including STS requests being served,
 // tokens being fetched.
 func (s *Server) DumpStsStatus(w http.ResponseWriter, req *http.Request) {
-	stsServerLog.Debugf("Received STS request: %s", httputil.DumpRequest(req, true))
+	reqDump, _ := httputil.DumpRequest(req, true)
+	stsServerLog.Debugf("Received STS request: %s", string(reqDump))
 
 	stsStatusJSON, err := s.tokenManager.DumpTokenStatus()
 	if err != nil {
-		stsServerLog.Errorf("token manager failed to dump token status: %v", err)
+		stsServerLog.Errorf("token manager failed at dumping token status: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
-		failureMessage := fmt.Sprintf("failed to dump STS server status: %v", err)
+		failureMessage := fmt.Sprintf("failure in dumping STS server status: %v", err)
 		if _, err := w.Write([]byte(failureMessage)); err != nil {
-			stsServerLog.Errorf("failed to write error response: %v", err)
+			stsServerLog.Errorf("failure in sending error response to a STS dump request: %v", err)
 		}
 		return
 	}
+	w.Header().Add("Content-Type", "application/json")
 	if _, err := w.Write(stsStatusJSON); err != nil {
-		stsServerLog.Errorf("failed to write STS response: %v", err)
+		stsServerLog.Errorf("failure in sending STS status dump: %v", err)
+		return
+	}
+	stsServerLog.Debug("sent out STS status dump")
+}
+
+// Stop closes the server
+func (s *Server) Stop() {
+	if err := s.stsServer.Shutdown(context.TODO()); err != nil {
+		stsServerLog.Errorf("failed to shut down STS server: %v", err)
 	}
 }
 
