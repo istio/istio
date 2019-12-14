@@ -15,23 +15,22 @@
 package mock
 
 import (
+	"encoding/json"
 	"sync"
 	"time"
-	"encoding/json"
+
 	"istio.io/istio/security/pkg/stsservice"
 )
 
 type FakeTokenManager struct {
-	mutex sync.RWMutex
+	mutex              sync.RWMutex
 	generateTokenError error
 	dumpTokenError     error
-	tokens        	   sync.Map
+	tokens             sync.Map
 	stsRespParam       stsservice.StsResponseParameters
 }
 
-
-
-func CreateFakeTokenManager() (*FakeTokenManager) {
+func CreateFakeTokenManager() *FakeTokenManager {
 	tm := &FakeTokenManager{
 		generateTokenError: nil,
 		dumpTokenError:     nil,
@@ -41,13 +40,13 @@ func CreateFakeTokenManager() (*FakeTokenManager) {
 	return tm
 }
 
-func (tm *FakeTokenManager) SetGenerateTokenError (err error) {
+func (tm *FakeTokenManager) SetGenerateTokenError(err error) {
 	tm.mutex.Lock()
 	defer tm.mutex.Unlock()
 	tm.generateTokenError = err
 }
 
-func (tm *FakeTokenManager) SetDumpTokenError (err error) {
+func (tm *FakeTokenManager) SetDumpTokenError(err error) {
 	tm.mutex.Lock()
 	defer tm.mutex.Unlock()
 	tm.dumpTokenError = err
@@ -72,7 +71,7 @@ func (tm *FakeTokenManager) SetToken(t stsservice.TokenInfo) {
 func (tm *FakeTokenManager) GenerateToken(_ stsservice.StsRequestParameters) ([]byte, error) {
 	var expErr error
 	tm.mutex.Lock()
-		expErr = tm.generateTokenError
+	expErr = tm.generateTokenError
 	tm.mutex.Unlock()
 	if expErr != nil {
 		return nil, expErr

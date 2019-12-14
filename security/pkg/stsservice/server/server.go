@@ -23,6 +23,7 @@ import (
 	"net/http/httputil"
 	"os"
 	"syscall"
+
 	"istio.io/istio/security/pkg/stsservice"
 	"istio.io/pkg/log"
 )
@@ -48,10 +49,10 @@ const (
 	// If the request itself is not valid or if either the "subject_token" or
 	// "actor_token" are invalid or unacceptable, the STS server must set
 	// error code to "invalid_request".
-	invalidRequest       = "invalid_request"
+	invalidRequest = "invalid_request"
 	// If the authorization server is unwilling or unable to issue a token, the
 	// STS server should set error code to "invalid_target".
-	invalidTarget        = "invalid_target"
+	invalidTarget = "invalid_target"
 )
 
 // Server watches HTTP requests for security token service (STS), and returns
@@ -66,7 +67,7 @@ type Server struct {
 // Config for the STS server.
 type Config struct {
 	LocalHostAddr string
-	LocalPort 	  int
+	LocalPort     int
 }
 
 // NewServer creates a new STS server.
@@ -144,15 +145,15 @@ func (s *Server) validateStsRequest(req *http.Request) (stsservice.StsRequestPar
 		return reqParam, fmt.Errorf("subject_token_type is invalid, should be %s but get %s",
 			subjectTokenType, req.PostForm.Get("subject_token_type"))
 	}
-	reqParam.GrantType          = req.PostForm.Get("grant_type")
-	reqParam.Resource           = req.PostForm.Get("resource")
-	reqParam.Audience           = req.PostForm.Get("audience")
-	reqParam.Scope              = req.PostForm.Get("scope")
+	reqParam.GrantType = req.PostForm.Get("grant_type")
+	reqParam.Resource = req.PostForm.Get("resource")
+	reqParam.Audience = req.PostForm.Get("audience")
+	reqParam.Scope = req.PostForm.Get("scope")
 	reqParam.RequestedTokenType = req.PostForm.Get("requested_token_type")
-	reqParam.SubjectToken       = req.PostForm.Get("subject_token")
-	reqParam.SubjectTokenType   = req.PostForm.Get("subject_token_type")
-	reqParam.ActorToken         = req.PostForm.Get("actor_token")
-	reqParam.ActorTokenType     = req.PostForm.Get("actor_token_type")
+	reqParam.SubjectToken = req.PostForm.Get("subject_token")
+	reqParam.SubjectTokenType = req.PostForm.Get("subject_token_type")
+	reqParam.ActorToken = req.PostForm.Get("actor_token")
+	reqParam.ActorTokenType = req.PostForm.Get("actor_token_type")
 	return reqParam, nil
 }
 
@@ -165,7 +166,7 @@ func (s *Server) sendErrorResponse(w http.ResponseWriter, errorType string, errD
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 	errResp := stsservice.StsErrorResponse{
-		Error: errorType,
+		Error:            errorType,
 		ErrorDescription: errDetail.Error(),
 	}
 	if errRespJSON, err := json.MarshalIndent(errResp, "", "  "); err == nil {
