@@ -42,9 +42,8 @@ func DisableExcludedKubeResources(resources schema.KubeResources, providers tran
 
 			// Check and see if this is needed for Service Discovery. If needed, we will need to re-enable.
 			if enableServiceDiscovery {
-				// IsBuiltIn is a proxy for types needed for service discovery
 				a := rt.DefaultProvider().GetAdapter(r)
-				if a.IsBuiltIn() {
+				if a.IsRequiredForServiceDiscovery() {
 					// This is needed for service discovery. Re-enable.
 					r.Disabled = false
 				}
@@ -62,12 +61,12 @@ func DisableExcludedKubeResources(resources schema.KubeResources, providers tran
 	return result
 }
 
-// DefaultExcludedResourceKinds returns the default list of resource kinds to exclude, which is the builtin types.
+// DefaultExcludedResourceKinds returns the default list of resource kinds to exclude.
 func DefaultExcludedResourceKinds() []string {
 	resources := make([]string, 0)
 	for _, r := range metadata.MustGet().KubeSource().Resources() {
 		a := rt.DefaultProvider().GetAdapter(r)
-		if a.IsBuiltIn() {
+		if a.IsDefaultExcluded() {
 			resources = append(resources, r.Kind)
 		}
 	}
