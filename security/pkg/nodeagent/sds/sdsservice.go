@@ -259,6 +259,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 				key.ConnectionID = con.conID
 				addConn(key, con)
 				firstRequestFlag = true
+				sdsServiceLog.Infoa("New connection ", discReq)
 			}
 			conID := con.conID
 			con.proxyID = discReq.Node.Id
@@ -341,6 +342,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 					conIDresourceNamePrefix, discReq.Node.Id, err)
 				return err
 			}
+			sdsServiceLog.Infoa("Pushed secret for ", discReq)
 		case <-con.pushChannel:
 			con.mutex.RLock()
 			proxyID := con.proxyID
@@ -370,6 +372,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 					conIDresourceNamePrefix, proxyID, err)
 				return err
 			}
+			sdsServiceLog.Infoa("Dynamic push for secret ", resourceName)
 		}
 	}
 }
