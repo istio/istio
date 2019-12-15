@@ -40,6 +40,7 @@ sidecarInjectorWebhook:
   #   container.apparmor.security.beta.kubernetes.io/istio-init: runtime/default
   #   container.apparmor.security.beta.kubernetes.io/istio-proxy: runtime/default
   injectedAnnotations: {}
+  lifecycle: {}
 
   # If set, will use the value as injection label. The value must match the 'release' label of the injector,
   # except when 1.2 istio-injection label is used, which must be set to "enabled".
