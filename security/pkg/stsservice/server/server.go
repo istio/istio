@@ -19,13 +19,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
-	"net/http/httputil"
-	"os"
-	"syscall"
-
 	"istio.io/istio/security/pkg/stsservice"
 	"istio.io/pkg/log"
+	"net/http"
+	"net/http/httputil"
 )
 
 const (
@@ -87,7 +84,6 @@ func NewServer(config Config, tokenManager stsservice.TokenManager) (*Server, er
 		err := s.stsServer.ListenAndServe()
 		// ListenAndServe always returns a non-nil error.
 		stsServerLog.Errora(err)
-		notifyExit()
 	}()
 	return s, nil
 }
@@ -221,13 +217,3 @@ func (s *Server) Stop() {
 	}
 }
 
-// notifyExit sends SIGTERM to itself
-func notifyExit() {
-	p, err := os.FindProcess(os.Getpid())
-	if err != nil {
-		log.Errora(err)
-	}
-	if err := p.Signal(syscall.SIGTERM); err != nil {
-		stsServerLog.Errorf("failed to send SIGTERM to self: %v", err)
-	}
-}
