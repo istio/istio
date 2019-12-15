@@ -22,6 +22,7 @@ import (
 	"istio.io/pkg/log"
 	"net/http"
 	"os"
+	"syscall"
 )
 
 const (
@@ -89,7 +90,7 @@ type TokenManager interface {
 
 // Server provides an endpoint for handling security token service (STS) requests.
 type Server struct {
-	tokenManager *TokenManager
+	tokenManager TokenManager
 	stsServer    *http.Server
 }
 
@@ -215,7 +216,7 @@ func (s *Server) Stop() {
 }
 
 // NewServer creates a new status server.
-func NewServer(config Config, tokenManager *TokenManager) (*Server, error) {
+func NewServer(config Config, tokenManager TokenManager) (*Server, error) {
 	s := &Server{
 		tokenManager: tokenManager,
 	}

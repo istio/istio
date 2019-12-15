@@ -19,8 +19,6 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"istio.io/istio/pilot/cmd/pilot-agent/stsservice"
-	"istio.io/istio/security/pkg/tokenmanagers/google"
 	"net"
 	"os"
 	"strings"
@@ -121,9 +119,6 @@ var (
 		"number of attributes for stackdriver")
 	stackdriverTracingMaxNumberOfMessageEvents = env.RegisterIntVar("STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS", 200, "Sets the "+
 		"max number of message events for stackdriver")
-	stsPort = env.RegisterIntVar("stsPort", 0, "HTTP Port on which to serve security token service (STS). If zero, STS will not be provided.")
-	stsServer = env.RegisterStringVar("stsServer", "",
-"Name of a remote STS server which runs behind and serves the token exchange service. If this is set, pilot agent serves as a STS proxy.")
 
 	sdsUdsWaitTimeout = time.Minute
 
@@ -481,29 +476,29 @@ var (
 				go waitForCompletion(ctx, statusServer.Run)
 			}
 
-			// If security token service (STS) port is not zero, start STS server and
-			// listens on that port for STS requests.
-			// For STS, see https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16.
-			if stsPort.Get() > 0 {
-				localHostAddr := "127.0.0.1"
-				if proxyIPv6 {
-					localHostAddr = "[::1]"
-				}
-				tokenManager, err := google.CreateTokenManager(trustDomain)
-				if err != nil {
-					cancel()
-					return err
-				}
-				stsServer, err := stsservice.NewServer(stsservice.Config{
-					LocalHostAddr:      localHostAddr,
-					LocalPort:          stsPort.Get(),
-				}, tokenManager)
-				if err != nil {
-					cancel()
-					return err
-				}
-				defer stsServer.Stop()
-			}
+			//// If security token service (STS) port is not zero, start STS server and
+			//// listens on that port for STS requests.
+			//// For STS, see https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16.
+			//if stsPort.Get() > 0 {
+			//	localHostAddr := "127.0.0.1"
+			//	if proxyIPv6 {
+			//		localHostAddr = "[::1]"
+			//	}
+			//	tokenManager, err := google.CreateTokenManager(trustDomain)
+			//	if err != nil {
+			//		cancel()
+			//		return err
+			//	}
+			//	stsServer, err := stsservice.NewServer(stsservice.Config{
+			//		LocalHostAddr:      localHostAddr,
+			//		LocalPort:          stsPort.Get(),
+			//	}, tokenManager)
+			//	if err != nil {
+			//		cancel()
+			//		return err
+			//	}
+			//	defer stsServer.Stop()
+			//}
 
 			log.Infof("PilotSAN %#v", pilotSAN)
 
