@@ -112,35 +112,36 @@ func TestEds(t *testing.T) {
 		_ = ioutil.WriteFile(env.IstioOut+"/cdsv2_sidecar.json", strResponse, 0644)
 
 	})
-	t.Run("WeightedServiceEntry", func(t *testing.T) {
-		_, tearDown := initLocalPilotTestEnv(t)
-		defer tearDown()
+}
 
-		adscConn := adsConnectAndWait(t, 0x0a0a0a0a)
-		defer adscConn.Close()
-		endpoints := adscConn.GetEndpoints()
-		lbe, f := endpoints["outbound|80||weighted.static.svc.cluster.local"]
-		if !f || len(lbe.Endpoints) == 0 {
-			t.Fatalf("No lb endpoints for %v, %v", "outbound|80||weighted.static.svc.cluster.local", adscConn.EndpointsJSON())
+func TestEdsWeightedServiceEntry(t *testing.T) {
+	_, tearDown := initLocalPilotTestEnv(t)
+	defer tearDown()
+
+	adscConn := adsConnectAndWait(t, 0x0a0a0a0a)
+	defer adscConn.Close()
+	endpoints := adscConn.GetEndpoints()
+	lbe, f := endpoints["outbound|80||weighted.static.svc.cluster.local"]
+	if !f || len(lbe.Endpoints) == 0 {
+		t.Fatalf("No lb endpoints for %v, %v", "outbound|80||weighted.static.svc.cluster.local", adscConn.EndpointsJSON())
+	}
+	expected := map[string]uint32{
+		"a":       9, // sum of 1 and 8
+		"b":       3,
+		"3.3.3.3": 1, // no weight provided is normalized to 1
+		"2.2.2.2": 8,
+		"1.1.1.1": 3,
+	}
+	got := make(map[string]uint32)
+	for _, lbe := range lbe.Endpoints {
+		got[lbe.Locality.Region] = lbe.LoadBalancingWeight.Value
+		for _, e := range lbe.LbEndpoints {
+			got[e.GetEndpoint().Address.GetSocketAddress().Address] = e.LoadBalancingWeight.Value
 		}
-		expected := map[string]uint32{
-			"a":       9, // sum of 1 and 8
-			"b":       3,
-			"3.3.3.3": 1, // no weight provided is normalized to 1
-			"2.2.2.2": 8,
-			"1.1.1.1": 3,
-		}
-		got := make(map[string]uint32)
-		for _, lbe := range lbe.Endpoints {
-			got[lbe.Locality.Region] = lbe.LoadBalancingWeight.Value
-			for _, e := range lbe.LbEndpoints {
-				got[e.GetEndpoint().Address.GetSocketAddress().Address] = e.LoadBalancingWeight.Value
-			}
-		}
-		if !reflect.DeepEqual(expected, got) {
-			t.Errorf("Expected LB weights %v got %v", expected, got)
-		}
-	})
+	}
+	if !reflect.DeepEqual(expected, got) {
+		t.Errorf("Expected LB weights %v got %v", expected, got)
+	}
 }
 
 func TestEDSOverlapping(t *testing.T) {
