@@ -222,6 +222,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				if err != nil {
 					return err
 				}
+			} else {
+				adsLog.Warnf("ADS: request node or Id is null")
+				continue
 			}
 
 			switch discReq.TypeUrl {
