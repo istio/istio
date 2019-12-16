@@ -58,7 +58,7 @@ function compareWithGolden() {
 
   case "${TEST_MODE}" in
    "golang")
-    FILE_UNDER_TEST="${ISTIO_OUT}/istio-iptables --dry-run"
+    FILE_UNDER_TEST="${ISTIO_OUT}/istio-iptables --dry-run --restore-format=false"
    ;;
    "golang_clean")
     FILE_UNDER_TEST="${ISTIO_OUT}/istio-clean-iptables --dry-run"
