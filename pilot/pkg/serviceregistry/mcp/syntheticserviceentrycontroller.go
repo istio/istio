@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package coredatamodel
+package mcp
 
 import (
 	"errors"
@@ -50,8 +50,8 @@ type SyntheticServiceEntryController struct {
 	*Options
 }
 
-// NewSyntheticServiceEntryController provides a new incremental CoreDataModel controller
-func NewSyntheticServiceEntryController(options *Options) CoreDataModel {
+// NewSyntheticServiceEntryController provides a new incremental Controller controller
+func NewSyntheticServiceEntryController(options *Options) Controller {
 	return &SyntheticServiceEntryController{
 		configStore: make(map[string]map[string]*model.Config),
 		Options:     options,

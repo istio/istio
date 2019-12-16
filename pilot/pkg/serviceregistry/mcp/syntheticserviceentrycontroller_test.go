@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package coredatamodel_test
+package mcp_test
 
 import (
 	"fmt"
@@ -25,8 +25,8 @@ import (
 	"istio.io/api/annotation"
 	networking "istio.io/api/networking/v1alpha3"
 
-	"istio.io/istio/pilot/pkg/config/coredatamodel"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/mcp"
 	"istio.io/istio/pkg/config/schemas"
 )
 
@@ -65,7 +65,7 @@ func (f *FakeXdsUpdater) ProxyUpdate(clusterID, ip string) {
 
 func TestIncrementalControllerHasSynced(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
+	controller := mcp.NewSyntheticServiceEntryController(testControllerOptions)
 	g.Expect(controller.HasSynced()).To(gomega.BeFalse())
 
 	for i, se := range []*networking.ServiceEntry{syntheticServiceEntry0, syntheticServiceEntry1} {
@@ -84,7 +84,7 @@ func TestIncrementalControllerHasSynced(t *testing.T) {
 
 func TestIncrementalControllerConfigDescriptor(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
+	controller := mcp.NewSyntheticServiceEntryController(testControllerOptions)
 
 	descriptor := controller.ConfigDescriptor()
 	g.Expect(descriptor.Types()).To(gomega.HaveLen(1))
@@ -93,7 +93,7 @@ func TestIncrementalControllerConfigDescriptor(t *testing.T) {
 
 func TestIncrementalControllerListInvalidType(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
+	controller := mcp.NewSyntheticServiceEntryController(testControllerOptions)
 
 	c, err := controller.List("gateway", "some-phony-name-space")
 	g.Expect(c).To(gomega.BeNil())
@@ -103,7 +103,7 @@ func TestIncrementalControllerListInvalidType(t *testing.T) {
 
 func TestIncrementalControllerListCorrectTypeNoData(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
+	controller := mcp.NewSyntheticServiceEntryController(testControllerOptions)
 
 	c, err := controller.List(schemas.SyntheticServiceEntry.Type, "some-phony-name-space")
 	g.Expect(c).To(gomega.BeNil())
@@ -112,7 +112,7 @@ func TestIncrementalControllerListCorrectTypeNoData(t *testing.T) {
 
 func TestIncrementalControllerListAllNameSpace(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
+	controller := mcp.NewSyntheticServiceEntryController(testControllerOptions)
 
 	syntheticServiceEntry2 := proto.Clone(syntheticServiceEntry1).(*networking.ServiceEntry)
 	syntheticServiceEntry2.Ports = serviceEntry.Ports
@@ -154,7 +154,7 @@ func TestIncrementalControllerListAllNameSpace(t *testing.T) {
 
 func TestIncrementalControllerListSpecificNameSpace(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
+	controller := mcp.NewSyntheticServiceEntryController(testControllerOptions)
 
 	syntheticServiceEntry2 := proto.Clone(syntheticServiceEntry1).(*networking.ServiceEntry)
 	syntheticServiceEntry2.Ports = serviceEntry.Ports
@@ -199,7 +199,7 @@ func TestIncrementalControllerListSpecificNameSpace(t *testing.T) {
 
 func TestIncrementalControllerApplyInvalidType(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
+	controller := mcp.NewSyntheticServiceEntryController(testControllerOptions)
 
 	message := convertToResource(g,
 		schemas.Gateway.MessageName,
@@ -218,7 +218,7 @@ func TestIncrementalControllerApplyInvalidType(t *testing.T) {
 
 func TestIncrementalControllerApplyMetadataNameIncludesNamespace(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
+	controller := mcp.NewSyntheticServiceEntryController(testControllerOptions)
 
 	message := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
 
@@ -244,7 +244,7 @@ func TestIncrementalControllerApplyMetadataNameWithoutNamespace(t *testing.T) {
 	fx := NewFakeXDS()
 	fx.EDSErr <- nil
 	testControllerOptions.XDSUpdater = fx
-	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
+	controller := mcp.NewSyntheticServiceEntryController(testControllerOptions)
 
 	message0 := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
 	change0 := convertToChange([]proto.Message{message0},
@@ -282,7 +282,7 @@ func TestIncrementalControllerApplyMetadataNameWithoutNamespace(t *testing.T) {
 
 func TestIncrementalControllerApplyChangeNoObjects(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
+	controller := mcp.NewSyntheticServiceEntryController(testControllerOptions)
 
 	message := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
 	change := convertToChange([]proto.Message{message},
@@ -317,7 +317,7 @@ func TestIncrementalControllerApplyChangeNoObjects(t *testing.T) {
 
 func TestIncrementalControllerApplyInvalidResource(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
+	controller := mcp.NewSyntheticServiceEntryController(testControllerOptions)
 
 	se := proto.Clone(syntheticServiceEntry1).(*networking.ServiceEntry)
 	se.Hosts = nil
@@ -340,7 +340,7 @@ func TestIncrementalControllerApplyInvalidResource(t *testing.T) {
 
 func TestIncrementalControllerApplyInvalidResource_BadTimestamp(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
+	controller := mcp.NewSyntheticServiceEntryController(testControllerOptions)
 
 	message0 := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
 	change := convertToChange(
@@ -366,7 +366,7 @@ func TestApplyNonIncrementalChange(t *testing.T) {
 
 	fx := NewFakeXDS()
 	testControllerOptions.XDSUpdater = fx
-	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
+	controller := mcp.NewSyntheticServiceEntryController(testControllerOptions)
 
 	message := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
 
@@ -409,7 +409,7 @@ func TestApplyNonIncrementalAnnotations(t *testing.T) {
 	fx := NewFakeXDS()
 	fx.EDSErr <- nil
 	testControllerOptions.XDSUpdater = fx
-	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
+	controller := mcp.NewSyntheticServiceEntryController(testControllerOptions)
 	message := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
 
 	steps := []struct {
@@ -477,7 +477,7 @@ func TestApplyIncrementalChangeRemove(t *testing.T) {
 
 	fx := NewFakeXDS()
 	testControllerOptions.XDSUpdater = fx
-	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
+	controller := mcp.NewSyntheticServiceEntryController(testControllerOptions)
 
 	message0 := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
 
@@ -560,7 +560,7 @@ func TestApplyIncrementalChange(t *testing.T) {
 
 	fx := NewFakeXDS()
 	testControllerOptions.XDSUpdater = fx
-	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
+	controller := mcp.NewSyntheticServiceEntryController(testControllerOptions)
 
 	message0 := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
 
@@ -614,7 +614,7 @@ func TestApplyIncrementalChangeEndpiontVersionWithoutServiceVersion(t *testing.T
 
 	fx := NewFakeXDS()
 	testControllerOptions.XDSUpdater = fx
-	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
+	controller := mcp.NewSyntheticServiceEntryController(testControllerOptions)
 
 	message0 := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
 
@@ -664,7 +664,7 @@ func TestApplyIncrementalChangesAnnotations(t *testing.T) {
 	fx := NewFakeXDS()
 	fx.EDSErr <- nil
 	testControllerOptions.XDSUpdater = fx
-	controller := coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
+	controller := mcp.NewSyntheticServiceEntryController(testControllerOptions)
 
 	message := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
 
