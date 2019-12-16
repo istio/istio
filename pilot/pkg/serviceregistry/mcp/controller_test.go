@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package coredatamodel_test
+package mcp_test
 
 import (
 	"fmt"
@@ -28,8 +28,8 @@ import (
 	mcpapi "istio.io/api/mcp/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 
-	"istio.io/istio/pilot/pkg/config/coredatamodel"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/mcp"
 	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/mcp/sink"
 )
@@ -178,7 +178,7 @@ var (
 		},
 	}
 
-	testControllerOptions = &coredatamodel.Options{
+	testControllerOptions = &mcp.Options{
 		DomainSuffix: "cluster.local",
 		ConfigLedger: &model.DisabledLedger{},
 	}
@@ -187,7 +187,7 @@ var (
 func TestOptions(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
-	controller := coredatamodel.NewController(testControllerOptions)
+	controller := mcp.NewController(testControllerOptions)
 
 	message := convertToResource(g,
 		schemas.ServiceEntry.MessageName,
@@ -210,14 +210,14 @@ func TestOptions(t *testing.T) {
 
 func TestHasSynced(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := coredatamodel.NewController(testControllerOptions)
+	controller := mcp.NewController(testControllerOptions)
 
 	g.Expect(controller.HasSynced()).To(gomega.BeFalse())
 }
 
 func TestConfigDescriptor(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := coredatamodel.NewController(testControllerOptions)
+	controller := mcp.NewController(testControllerOptions)
 	descriptors := controller.ConfigDescriptor()
 	for _, descriptor := range descriptors {
 		g.Expect(descriptor.Collection).ToNot(gomega.Equal(schemas.SyntheticServiceEntry.Collection))
@@ -226,7 +226,7 @@ func TestConfigDescriptor(t *testing.T) {
 
 func TestListInvalidType(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := coredatamodel.NewController(testControllerOptions)
+	controller := mcp.NewController(testControllerOptions)
 
 	c, err := controller.List("bad-type", "some-phony-name-space.com")
 	g.Expect(c).To(gomega.BeNil())
@@ -236,7 +236,7 @@ func TestListInvalidType(t *testing.T) {
 
 func TestListCorrectTypeNoData(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := coredatamodel.NewController(testControllerOptions)
+	controller := mcp.NewController(testControllerOptions)
 
 	c, err := controller.List("virtual-service", "some-phony-name-space.com")
 	g.Expect(c).To(gomega.BeNil())
@@ -248,7 +248,7 @@ func TestListAllNameSpace(t *testing.T) {
 
 	fx := NewFakeXDS()
 	testControllerOptions.XDSUpdater = fx
-	controller := coredatamodel.NewController(testControllerOptions)
+	controller := mcp.NewController(testControllerOptions)
 
 	messages := convertToResources(g,
 		schemas.Gateway.MessageName,
@@ -286,7 +286,7 @@ func TestListAllNameSpace(t *testing.T) {
 
 func TestListSpecificNameSpace(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := coredatamodel.NewController(testControllerOptions)
+	controller := mcp.NewController(testControllerOptions)
 
 	messages := convertToResources(g,
 		schemas.Gateway.MessageName,
@@ -321,7 +321,7 @@ func TestListSpecificNameSpace(t *testing.T) {
 
 func TestApplyInvalidType(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := coredatamodel.NewController(testControllerOptions)
+	controller := mcp.NewController(testControllerOptions)
 
 	message := convertToResource(g,
 		schemas.Gateway.MessageName,
@@ -339,9 +339,9 @@ func TestApplyInvalidType(t *testing.T) {
 
 func TestApplyValidTypeWithNoNamespace(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := coredatamodel.NewController(testControllerOptions)
+	controller := mcp.NewController(testControllerOptions)
 
-	var createAndCheckGateway = func(g *gomega.GomegaWithT, controller coredatamodel.CoreDataModel, port uint32) {
+	var createAndCheckGateway = func(g *gomega.GomegaWithT, controller mcp.Controller, port uint32) {
 		gateway := &networking.Gateway{
 			Servers: []*networking.Server{
 				{
@@ -382,7 +382,7 @@ func TestApplyValidTypeWithNoNamespace(t *testing.T) {
 
 func TestApplyMetadataNameIncludesNamespace(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := coredatamodel.NewController(testControllerOptions)
+	controller := mcp.NewController(testControllerOptions)
 
 	message := convertToResource(g,
 		schemas.Gateway.MessageName,
@@ -406,7 +406,7 @@ func TestApplyMetadataNameIncludesNamespace(t *testing.T) {
 
 func TestApplyMetadataNameWithoutNamespace(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := coredatamodel.NewController(testControllerOptions)
+	controller := mcp.NewController(testControllerOptions)
 
 	message := convertToResource(g,
 		schemas.Gateway.MessageName,
@@ -433,7 +433,7 @@ func TestApplyChangeNoObjects(t *testing.T) {
 
 	fx := NewFakeXDS()
 	testControllerOptions.XDSUpdater = fx
-	controller := coredatamodel.NewController(testControllerOptions)
+	controller := mcp.NewController(testControllerOptions)
 
 	message := convertToResource(g,
 		schemas.Gateway.MessageName,
@@ -470,7 +470,7 @@ func TestApplyConfigUpdate(t *testing.T) {
 
 	fx := NewFakeXDS()
 	testControllerOptions.XDSUpdater = fx
-	controller := coredatamodel.NewController(testControllerOptions)
+	controller := mcp.NewController(testControllerOptions)
 
 	message := convertToResource(g,
 		schemas.Gateway.MessageName,
@@ -490,7 +490,7 @@ func TestApplyConfigUpdate(t *testing.T) {
 
 func TestApplyClusterScopedAuthPolicy(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := coredatamodel.NewController(testControllerOptions)
+	controller := mcp.NewController(testControllerOptions)
 
 	message0 := convertToResource(g,
 		schemas.AuthenticationPolicy.MessageName,
@@ -582,7 +582,7 @@ func TestApplyClusterScopedAuthPolicy(t *testing.T) {
 
 func TestInvalidResource(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := coredatamodel.NewController(testControllerOptions)
+	controller := mcp.NewController(testControllerOptions)
 
 	gw := proto.Clone(gateway).(*networking.Gateway)
 	gw.Servers[0].Hosts = nil
@@ -605,7 +605,7 @@ func TestInvalidResource(t *testing.T) {
 
 func TestInvalidResource_BadTimestamp(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := coredatamodel.NewController(testControllerOptions)
+	controller := mcp.NewController(testControllerOptions)
 
 	message := convertToResource(g, schemas.Gateway.MessageName, gateway)
 	change := convertToChange(
@@ -628,7 +628,7 @@ func TestInvalidResource_BadTimestamp(t *testing.T) {
 }
 
 func TestEventHandler(t *testing.T) {
-	controller := coredatamodel.NewController(testControllerOptions)
+	controller := mcp.NewController(testControllerOptions)
 
 	makeName := func(namespace, name string) string {
 		return namespace + "/" + name

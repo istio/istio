@@ -33,6 +33,7 @@ import (
 
 	"istio.io/istio/galley/pkg/server"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/mcp"
 
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
@@ -54,8 +55,6 @@ import (
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 
-	"istio.io/istio/pilot/pkg/config/clusterregistry"
-	"istio.io/istio/pilot/pkg/config/coredatamodel"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
@@ -122,7 +121,7 @@ type Server struct {
 	configController      model.ConfigStoreCache
 	kubeClient            kubernetes.Interface
 	startFuncs            []startFunc
-	multicluster          *clusterregistry.Multicluster
+	multicluster          *kubecontroller.Multicluster
 	httpServer            *http.Server
 	grpcServer            *grpc.Server
 	secureHTTPServer      *http.Server
@@ -131,10 +130,10 @@ type Server struct {
 	secureGRPCServerDNS   *grpc.Server
 	mux                   *http.ServeMux
 	kubeRegistry          *kubecontroller.Controller
-	mcpDiscovery          *coredatamodel.MCPDiscovery
-	discoveryOptions      *coredatamodel.DiscoveryOptions
-	incrementalMcpOptions *coredatamodel.Options
-	mcpOptions            *coredatamodel.Options
+	mcpDiscovery          *mcp.Discovery
+	discoveryOptions      *mcp.DiscoveryOptions
+	incrementalMcpOptions *mcp.Options
+	mcpOptions            *mcp.Options
 	certController        *chiron.WebhookController
 	kubeRestConfig        *rest.Config
 

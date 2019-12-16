@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package coredatamodel
+package mcp
 
 import (
 	"net"
@@ -34,7 +34,7 @@ import (
 )
 
 var (
-	_ serviceregistry.Instance = &MCPDiscovery{}
+	_ serviceregistry.Instance = &Discovery{}
 )
 
 // DiscoveryOptions stores the configurable attributes of a Control
@@ -43,8 +43,8 @@ type DiscoveryOptions struct {
 	DomainSuffix string
 }
 
-// MCPDiscovery provides discovery interface for SyntheticServiceEntries
-type MCPDiscovery struct {
+// Discovery provides discovery interface for SyntheticServiceEntries
+type Discovery struct {
 	*SyntheticServiceEntryController
 	*DiscoveryOptions
 	cacheMutex sync.RWMutex
@@ -56,9 +56,9 @@ type MCPDiscovery struct {
 	cacheServices map[string]*model.Service
 }
 
-// NewMCPDiscovery provides a new instance of Discovery
-func NewMCPDiscovery(controller CoreDataModel, options *DiscoveryOptions) *MCPDiscovery {
-	discovery := &MCPDiscovery{
+// NewDiscovery provides a new instance of Discovery
+func NewDiscovery(controller Controller, options *DiscoveryOptions) *Discovery {
+	discovery := &Discovery{
 		SyntheticServiceEntryController: controller.(*SyntheticServiceEntryController),
 		DiscoveryOptions:                options,
 		cacheByEndpointIP:               make(map[string][]*model.ServiceInstance),
@@ -73,7 +73,7 @@ func NewMCPDiscovery(controller CoreDataModel, options *DiscoveryOptions) *MCPDi
 }
 
 // HandleCacheEvents populates local cache based on events received from controller
-func (d *MCPDiscovery) HandleCacheEvents(config model.Config, event model.Event) {
+func (d *Discovery) HandleCacheEvents(config model.Config, event model.Event) {
 	d.cacheMutex.Lock()
 	defer d.cacheMutex.Unlock()
 	services := convertServices(config)
@@ -104,22 +104,22 @@ func (d *MCPDiscovery) HandleCacheEvents(config model.Config, event model.Event)
 // basis to purge all caches, the purge maybe necessary since
 // controller's configStore only keeps track of one sink.Change
 // object at a time everytime apply is called.
-func (d *MCPDiscovery) Run(stop <-chan struct{}) {
+func (d *Discovery) Run(stop <-chan struct{}) {
 	if err := d.initializeCache(); err != nil {
 		log.Warnf("Run: %s", err)
 	}
 }
 
-func (d *MCPDiscovery) Provider() serviceregistry.ProviderID {
+func (d *Discovery) Provider() serviceregistry.ProviderID {
 	return serviceregistry.MCP
 }
 
-func (d *MCPDiscovery) Cluster() string {
+func (d *Discovery) Cluster() string {
 	return d.ClusterID
 }
 
 // Services list declarations of all SyntheticServiceEntries in the system
-func (d *MCPDiscovery) Services() ([]*model.Service, error) {
+func (d *Discovery) Services() ([]*model.Service, error) {
 	if err := d.initializeCache(); err != nil {
 		return nil, err
 	}
@@ -133,7 +133,7 @@ func (d *MCPDiscovery) Services() ([]*model.Service, error) {
 }
 
 // GetProxyServiceInstances returns service instances co-located with a given proxy
-func (d *MCPDiscovery) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
+func (d *Discovery) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
 	out := make([]*model.ServiceInstance, 0)
 
 	// There is only one IP for kube registry
@@ -149,7 +149,7 @@ func (d *MCPDiscovery) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Se
 }
 
 // InstancesByPort implements a service catalog operation
-func (d *MCPDiscovery) InstancesByPort(svc *model.Service, servicePort int, labels labels.Collection) ([]*model.ServiceInstance, error) {
+func (d *Discovery) InstancesByPort(svc *model.Service, servicePort int, labels labels.Collection) ([]*model.ServiceInstance, error) {
 	if err := d.initializeCache(); err != nil {
 		return nil, err
 	}
@@ -170,14 +170,14 @@ func (d *MCPDiscovery) InstancesByPort(svc *model.Service, servicePort int, labe
 	return out, nil
 }
 
-func (d *MCPDiscovery) uid(cfg model.Config) string {
+func (d *Discovery) uid(cfg model.Config) string {
 	return "kubernetes://" + cfg.Name + "." + cfg.Namespace
 }
 
 // Considered running this in the Run func, however
 // it is a little too early to populate the cache then
 // since the controller does not receive any data then
-func (d *MCPDiscovery) initializeCache() error {
+func (d *Discovery) initializeCache() error {
 	sseConfigs, err := d.List(schemas.SyntheticServiceEntry.Type, model.NamespaceAll)
 	if err != nil {
 		return err
@@ -195,25 +195,25 @@ func (d *MCPDiscovery) initializeCache() error {
 	return nil
 }
 
-func (d *MCPDiscovery) mergeCachedServices(newServices map[string]*model.Service) {
+func (d *Discovery) mergeCachedServices(newServices map[string]*model.Service) {
 	for hostname, newSvc := range newServices {
 		d.cacheServices[hostname] = newSvc
 	}
 }
 
-func (d *MCPDiscovery) mergeCacheByEndpoint(newServicesInstances map[string][]*model.ServiceInstance) {
+func (d *Discovery) mergeCacheByEndpoint(newServicesInstances map[string][]*model.ServiceInstance) {
 	for ip, svcInst := range newServicesInstances {
 		d.cacheByEndpointIP[ip] = svcInst
 	}
 }
 
-func (d *MCPDiscovery) mergeCacheByHostName(newServicesInstances map[host.Name][]*model.ServiceInstance) {
+func (d *Discovery) mergeCacheByHostName(newServicesInstances map[host.Name][]*model.ServiceInstance) {
 	for hostname, svcInst := range newServicesInstances {
 		d.cacheByHostName[hostname] = svcInst
 	}
 }
 
-func (d *MCPDiscovery) convertInstances(
+func (d *Discovery) convertInstances(
 	cfg model.Config,
 	services map[string]*model.Service,
 ) (map[string][]*model.ServiceInstance, map[host.Name][]*model.ServiceInstance) {
@@ -394,7 +394,7 @@ func convertServices(cfg model.Config) map[string]*model.Service {
 	return out
 }
 
-func (d *MCPDiscovery) convertEndpoint(cfg model.Config, service *model.Service, servicePort *networking.Port,
+func (d *Discovery) convertEndpoint(cfg model.Config, service *model.Service, servicePort *networking.Port,
 	endpoint *networking.ServiceEntry_Endpoint) *model.ServiceInstance {
 	var instancePort uint32
 	var family model.AddressFamily
@@ -467,45 +467,45 @@ func notReadyEndpoints(conf model.Config) map[string]int {
 }
 
 // GetService Not Supported
-func (d *MCPDiscovery) GetService(hostname host.Name) (*model.Service, error) {
+func (d *Discovery) GetService(hostname host.Name) (*model.Service, error) {
 	log.Warnf("GetService %s", errUnsupported)
 	return nil, nil
 }
 
 // ManagementPorts Not Supported
-func (d *MCPDiscovery) ManagementPorts(addr string) model.PortList {
+func (d *Discovery) ManagementPorts(addr string) model.PortList {
 	log.Warnf("ManagementPorts %s", errUnsupported)
 	return nil
 }
 
 // WorkloadHealthCheckInfo Not Supported
-func (d *MCPDiscovery) WorkloadHealthCheckInfo(addr string) model.ProbeList {
+func (d *Discovery) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 	log.Warnf("WorkloadHealthCheckInfo %s", errUnsupported)
 	return nil
 }
 
 // GetIstioServiceAccounts Not Supported
-func (d *MCPDiscovery) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
+func (d *Discovery) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
 	log.Warnf("GetIstioServiceAccounts %s", errUnsupported)
 	return nil
 }
 
 // GetProxyWorkloadLabels Not Supported
-func (d *MCPDiscovery) GetProxyWorkloadLabels(*model.Proxy) (labels.Collection, error) {
+func (d *Discovery) GetProxyWorkloadLabels(*model.Proxy) (labels.Collection, error) {
 	log.Warnf("GetProxyWorkloadLabels %s", errUnsupported)
 	return nil, nil
 }
 
-// model Controller
+// model controller
 
 // AppendServiceHandler Not Supported
-func (d *MCPDiscovery) AppendServiceHandler(f func(*model.Service, model.Event)) error {
+func (d *Discovery) AppendServiceHandler(f func(*model.Service, model.Event)) error {
 	log.Warnf("AppendServiceHandler %s", errUnsupported)
 	return nil
 }
 
 // AppendInstanceHandler Not Supported
-func (d *MCPDiscovery) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
+func (d *Discovery) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
 	log.Warnf("AppendInstanceHandler %s", errUnsupported)
 	return nil
 }

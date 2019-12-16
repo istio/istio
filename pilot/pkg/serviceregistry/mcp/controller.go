@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package coredatamodel
+package mcp
 
 import (
 	"errors"
@@ -38,11 +38,11 @@ var (
 	errUnsupported = errors.New("this operation is not supported by mcp controller")
 )
 
-const ledgerLogf = "error tracking pilot config versions for coredatamodel distribution: %v"
+const ledgerLogf = "error tracking pilot config versions for mcp distribution: %v"
 
-// CoreDataModel is a combined interface for ConfigStoreCache
+// Controller is a combined interface for ConfigStoreCache
 // and MCP Updater
-type CoreDataModel interface {
+type Controller interface {
 	model.ConfigStoreCache
 	sink.Updater
 }
@@ -55,9 +55,9 @@ type Options struct {
 	ConfigLedger ledger.Ledger
 }
 
-// Controller is a temporary storage for the changes received
+// controller is a temporary storage for the changes received
 // via MCP server
-type Controller struct {
+type controller struct {
 	configStoreMu sync.RWMutex
 	// keys [type][namespace][name]
 	configStore             map[string]map[string]map[string]*model.Config
@@ -71,8 +71,8 @@ type Controller struct {
 	synced   map[string]bool
 }
 
-// NewController provides a new CoreDataModel controller
-func NewController(options *Options) CoreDataModel {
+// NewController provides a new Controller controller
+func NewController(options *Options) Controller {
 	var supportedCfg schema.Set
 	descriptorsByMessageName := make(map[string]schema.Instance, len(schemas.Istio))
 	synced := make(map[string]bool)
@@ -89,7 +89,7 @@ func NewController(options *Options) CoreDataModel {
 		supportedCfg = append(supportedCfg, descriptor)
 	}
 
-	return &Controller{
+	return &controller{
 		configStore:             make(map[string]map[string]map[string]*model.Config),
 		options:                 options,
 		descriptorsByCollection: descriptorsByMessageName,
@@ -102,13 +102,13 @@ func NewController(options *Options) CoreDataModel {
 
 // ConfigDescriptor returns all the ConfigDescriptors that this
 // controller is responsible for
-func (c *Controller) ConfigDescriptor() schema.Set {
+func (c *controller) ConfigDescriptor() schema.Set {
 	return c.supportedConfig
 }
 
 // List returns all the config that is stored by type and namespace
 // if namespace is empty string it returns config for all the namespaces
-func (c *Controller) List(typ, namespace string) (out []model.Config, err error) {
+func (c *controller) List(typ, namespace string) (out []model.Config, err error) {
 	_, ok := c.ConfigDescriptor().GetByType(typ)
 	if !ok {
 		return nil, fmt.Errorf("list unknown type %s", typ)
@@ -139,7 +139,7 @@ func (c *Controller) List(typ, namespace string) (out []model.Config, err error)
 
 // Apply receives changes from MCP server and creates the
 // corresponding config
-func (c *Controller) Apply(change *sink.Change) error {
+func (c *controller) Apply(change *sink.Change) error {
 	descriptor, ok := c.descriptorsByCollection[change.Collection]
 	if !ok || change.Collection == schemas.SyntheticServiceEntry.Collection {
 		return fmt.Errorf("apply type not supported %s", change.Collection)
@@ -228,7 +228,7 @@ func (c *Controller) Apply(change *sink.Change) error {
 }
 
 // HasSynced returns true if the first batch of items has been popped
-func (c *Controller) HasSynced() bool {
+func (c *controller) HasSynced() bool {
 	var notReady []string
 
 	c.syncedMu.Lock()
@@ -248,53 +248,53 @@ func (c *Controller) HasSynced() bool {
 }
 
 // RegisterEventHandler registers a handler using the type as a key
-func (c *Controller) RegisterEventHandler(typ string, handler func(model.Config, model.Config, model.Event)) {
+func (c *controller) RegisterEventHandler(typ string, handler func(model.Config, model.Config, model.Event)) {
 	c.eventHandlers[typ] = append(c.eventHandlers[typ], handler)
 }
 
-func (c *Controller) Version() string {
+func (c *controller) Version() string {
 	return c.ledger.RootHash()
 }
 
-func (c *Controller) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
+func (c *controller) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
 	return c.ledger.GetPreviousValue(version, key)
 }
 
 // Run is not implemented
-func (c *Controller) Run(stop <-chan struct{}) {
+func (c *controller) Run(stop <-chan struct{}) {
 	log.Warnf("Run: %s", errUnsupported)
 }
 
 // Get is not implemented
-func (c *Controller) Get(typ, name, namespace string) *model.Config {
+func (c *controller) Get(typ, name, namespace string) *model.Config {
 	log.Warnf("get %s", errUnsupported)
 	return nil
 }
 
 // Update is not implemented
-func (c *Controller) Update(config model.Config) (newRevision string, err error) {
+func (c *controller) Update(config model.Config) (newRevision string, err error) {
 	log.Warnf("update %s", errUnsupported)
 	return "", errUnsupported
 }
 
 // Create is not implemented
-func (c *Controller) Create(config model.Config) (revision string, err error) {
+func (c *controller) Create(config model.Config) (revision string, err error) {
 	log.Warnf("create %s", errUnsupported)
 	return "", errUnsupported
 }
 
 // Delete is not implemented
-func (c *Controller) Delete(typ, name, namespace string) error {
+func (c *controller) Delete(typ, name, namespace string) error {
 	return errUnsupported
 }
 
-func (c *Controller) sync(collection string) {
+func (c *controller) sync(collection string) {
 	c.syncedMu.Lock()
 	c.synced[collection] = true
 	c.syncedMu.Unlock()
 }
 
-func (c *Controller) serviceEntryEvents(currentStore, prevStore map[string]map[string]*model.Config) {
+func (c *controller) serviceEntryEvents(currentStore, prevStore map[string]map[string]*model.Config) {
 	dispatch := func(model model.Config, event model.Event) {}
 	if handlers, ok := c.eventHandlers[schemas.ServiceEntry.Type]; ok {
 		dispatch = func(config model.Config, event model.Event) {
