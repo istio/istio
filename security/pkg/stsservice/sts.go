@@ -80,7 +80,7 @@ type StsErrorResponse struct {
 	ErrorDescription string `json:"error_description"`
 	// OPTIONAL. A URI identifying a human-readable web page with information
 	// about the Error.
-	ErrorUri string `json:"error_uri"`
+	ErrorURI string `json:"error_uri"`
 }
 
 // TokenManager contains methods for generating token.
