@@ -34,21 +34,15 @@ func Serialize(e *Entry) (*mcp.Resource, error) {
 		return nil, err
 	}
 
-	createTime, err := types.TimestampProto(e.Metadata.CreateTime)
+	metadata, err := SerializeMetadata(e.Metadata)
 	if err != nil {
-		scope.Errorf("Error parsing resource create_time for event (%v): %v", e, err)
+		scope.Errorf("Error serializing metadata for event (%v): %v", e, err)
 		return nil, err
 	}
 
 	entry := &mcp.Resource{
-		Metadata: &mcp.Metadata{
-			Name:        e.Metadata.Name.String(),
-			CreateTime:  createTime,
-			Version:     string(e.Metadata.Version),
-			Annotations: e.Metadata.Annotations,
-			Labels:      e.Metadata.Labels,
-		},
-		Body: a,
+		Metadata: metadata,
+		Body:     a,
 	}
 
 	return entry, nil
@@ -76,6 +70,23 @@ func SerializeAll(entries []*Entry) ([]*mcp.Resource, error) {
 	return result, nil
 }
 
+// SerializeMetadata converts the given metadata to its enveloped form.
+func SerializeMetadata(m Metadata) (*mcp.Metadata, error) {
+	createTime, err := types.TimestampProto(m.CreateTime)
+	if err != nil {
+		scope.Errorf("Error serializing resource create_time: %v", err)
+		return nil, err
+	}
+
+	return &mcp.Metadata{
+		Name:        m.Name.String(),
+		CreateTime:  createTime,
+		Version:     string(m.Version),
+		Annotations: m.Annotations,
+		Labels:      m.Labels,
+	}, nil
+}
+
 // Deserialize an entry from an envelope.
 func Deserialize(e *mcp.Resource) (*Entry, error) {
 	p, err := types.EmptyAny(e.Body)
@@ -83,9 +94,9 @@ func Deserialize(e *mcp.Resource) (*Entry, error) {
 		return nil, fmt.Errorf("error unmarshaling proto: %v", err)
 	}
 
-	createTime, err := types.TimestampFromProto(e.Metadata.CreateTime)
+	metadata, err := DeserializeMetadata(e.Metadata)
 	if err != nil {
-		return nil, fmt.Errorf("error unmarshaling create time: %v", err)
+		return nil, err
 	}
 
 	if err = types.UnmarshalAny(e.Body, p); err != nil {
@@ -93,14 +104,8 @@ func Deserialize(e *mcp.Resource) (*Entry, error) {
 	}
 
 	return &Entry{
-		Metadata: Metadata{
-			Name:        Name{e.Metadata.Name},
-			CreateTime:  createTime,
-			Version:     Version(e.Metadata.Version),
-			Annotations: e.Metadata.Annotations,
-			Labels:      e.Metadata.Labels,
-		},
-		Item: p,
+		Metadata: metadata,
+		Item:     p,
 	}, nil
 }
 
@@ -124,4 +129,20 @@ func DeserializeAll(es []*mcp.Resource) ([]*Entry, error) {
 		result[i] = r
 	}
 	return result, nil
+}
+
+// DeserializeMetadata extracts metadata portion of the envelope
+func DeserializeMetadata(m *mcp.Metadata) (Metadata, error) {
+	createTime, err := types.TimestampFromProto(m.CreateTime)
+	if err != nil {
+		return Metadata{}, fmt.Errorf("error unmarshaling create time: %v", err)
+	}
+
+	return Metadata{
+		Name:        Name{m.Name},
+		CreateTime:  createTime,
+		Version:     Version(m.Version),
+		Annotations: m.Annotations,
+		Labels:      m.Labels,
+	}, nil
 }
