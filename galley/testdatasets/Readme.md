@@ -8,13 +8,13 @@ The general directory/file structure is as follows:
 
 ```plain
 # Area specific test data set.
-galley/testdata/<area>/dataset/...
+galley/testdatasets/<area>/dataset/...
 
 # Custom entry-point code for the data set, in a given area.
-galley/testdata/<area>/dataset.go
+galley/testdatasets/<area>/dataset.go
 
 # Generated Go file for test assets
-galley/testdata/<area>/dataset.gen.go
+galley/testdatasets/<area>/dataset.gen.go
 ```
 
 ## Conversion Test Data
@@ -85,4 +85,4 @@ The expected file structure is as follows:
 To add a new test data fileset:
  1. Create a new, appropriately named folder under dataset.
  2. Create the input, expected, and (optionally) the mesh config files.
- 3. Call ```go generate``` on dataset.go
+ 3. Run `BUILD_WITH_CONTAINER=1 make go-gen` from the repository root.
