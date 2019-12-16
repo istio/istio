@@ -199,7 +199,7 @@ func NewSDSAgent(discAddr string, tlsRequired bool) *SDSAgent {
 		ac.RequireCerts = true
 		// For local debugging - the discoveryAddress is set to localhost, but the cert issued for normal SA.
 		if discHost == "localhost" {
-			discHost = "istiod.istio-system"
+			discHost = "istiod.istio-system.svc"
 		}
 		ac.SAN = discHost
 	}

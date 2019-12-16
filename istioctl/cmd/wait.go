@@ -57,11 +57,13 @@ func waitCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "wait [flags] <type> <name>[.<namespace>]",
 		Short: "Wait for an Istio resource",
-		Long: `Waits for the specified condition to be true of an Istio resource.  For example:
+		Long:  `Waits for the specified condition to be true of an Istio resource.`,
+		Example: `
+# Wait until the bookinfo virtual service has been distributed to all proxies in the mesh
+istioctl experimental wait --for=distribution virtualservice bookinfo.default
 
-istioctl experimental wait --for=distribution virtual-service bookinfo.default
-
-will block until the bookinfo virtual service has been distributed to all proxies in the mesh.
+# Wait until 99% of the proxies receive the distribution, timing out after 5 minutes
+istioctl experimental wait --for=distribution --threshold=.99 --timeout=300 virtualservice bookinfo.default
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			printVerbosef(cmd, "kubeconfig %s", kubeconfig)

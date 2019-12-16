@@ -57,14 +57,8 @@ function compareWithGolden() {
   local FILE_UNDER_TEST
 
   case "${TEST_MODE}" in
-   "script")
-    FILE_UNDER_TEST="${SCRIPT_DIR}/../../tools/packaging/common/istio-iptables.sh"
-   ;;
    "golang")
     FILE_UNDER_TEST="${ISTIO_OUT}/istio-iptables --dry-run"
-   ;;
-   "script_clean")
-    FILE_UNDER_TEST="${SCRIPT_DIR}/../../tools/packaging/common/istio-clean-iptables.sh"
    ;;
    "golang_clean")
     FILE_UNDER_TEST="${ISTIO_OUT}/istio-clean-iptables --dry-run"
@@ -99,7 +93,6 @@ TEST_MODES=( "$@" )
 SCRIPT_NAME=$0
 SCRIPT_DIR=$(dirname "$SCRIPT_NAME")
 if [[ ${#TEST_MODES[@]} -eq 0 ]] ; then
-    TEST_MODES+=("script")
     if [[ "x${REFRESH_GOLDEN:-false}x" != "xtruex" ]] ; then
         TEST_MODES+=("golang")
     fi
