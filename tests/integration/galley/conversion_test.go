@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/galley/testdata/conversion"
+	"istio.io/istio/galley/testdatasets/conversion"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
