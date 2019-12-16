@@ -128,27 +128,6 @@ func getNumericValue(value interface{}, unit config.Params_MetricDatum_Unit) (fl
 		return fv.Float(), nil
 	}
 
-	//原始代码如下：
-	// switch v := value.(type) {
-	// case string:
-	// 	value, err := strconv.ParseFloat(v, 64)
-	// 	if err != nil {
-	// 		return 0, fmt.Errorf("can't parse string %s into float", v)
-	// 	}
-	// 	return value, nil
-	// case int:
-	// 	return float64(v), nil
-	// case int64:
-	// 	return float64(v), nil
-	// case float32:
-	// 	return float64(v), nil
-	// case float64:
-	// 	return v, nil
-	// case time.Duration:
-	// 	return getDurationNumericValue(v, unit), nil
-	// default:
-	// 	return 0, fmt.Errorf("unsupported value type %T. Only strings and numeric values are accepted", v)
-	// }
 }
 
 func getDurationNumericValue(v time.Duration, unit config.Params_MetricDatum_Unit) float64 {
