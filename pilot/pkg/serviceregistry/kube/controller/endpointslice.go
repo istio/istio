@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,16 +15,16 @@
 package controller
 
 import (
-	"fmt"
 	"sync"
 
+	"istio.io/istio/pilot/pkg/features"
 	v1 "k8s.io/api/core/v1"
 	discoveryv1alpha1 "k8s.io/api/discovery/v1alpha1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/informers"
+	"k8s.io/client-go/listers/discovery/v1alpha1"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
@@ -38,7 +38,7 @@ type endpointSliceController struct {
 	endpointCache *endpointSliceCache
 }
 
-var _ edsController = &endpointSliceController{}
+var _ kubeEndpointsController = &endpointSliceController{}
 
 func newEndpointSliceController(c *Controller, sharedInformers informers.SharedInformerFactory) *endpointSliceController {
 	epSliceInformer := sharedInformers.Discovery().V1alpha1().EndpointSlices().Informer()
@@ -46,12 +46,16 @@ func newEndpointSliceController(c *Controller, sharedInformers informers.SharedI
 	// Investigate if we need this, or if EndpointSlice is makes this not relevant
 	return &endpointSliceController{
 		cache:         c.createCacheHandler(epSliceInformer, "EndpointSlice"),
-		endpointCache: newendpointSliceCache(),
+		endpointCache: newEndpointSliceCache(),
 	}
 }
 
-func (e endpointSliceController) Get() cacheHandler {
-	return e.cache
+func (e endpointSliceController) HasSynced() bool {
+	return e.cache.informer.HasSynced()
+}
+
+func (e endpointSliceController) Run(stopCh <-chan struct{}) {
+	e.cache.informer.Run(stopCh)
 }
 
 func (e endpointSliceController) updateEDSSlice(c *Controller, slice *discoveryv1alpha1.EndpointSlice, event model.Event) {
@@ -82,11 +86,11 @@ func (e endpointSliceController) updateEDSSlice(c *Controller, slice *discoveryv
 				}
 
 				var labels map[string]string
-				locality := GetLocalityFromTopology(e.Topology)
+				locality := getLocalityFromTopology(e.Topology)
 				sa, uid := "", ""
 				if pod != nil {
 					sa = kube.SecureNamingSAN(pod)
-					uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
+					uid = createUID(pod.Name, pod.Namespace)
 					labels = configKube.ConvertLabels(pod.ObjectMeta)
 				}
 
@@ -124,17 +128,6 @@ func (e endpointSliceController) updateEDSSlice(c *Controller, slice *discoveryv
 
 	log.Infof("Handle EDS endpoint %s in namespace %s", svcName, slice.Namespace)
 
-	if features.EnableHeadlessService.Get() {
-		if obj, _, _ := c.services.informer.GetIndexer().GetByKey(kube.KeyFunc(svcName, slice.Namespace)); obj != nil {
-			svc := obj.(*v1.Service)
-			// if the service is headless service, trigger a full push.
-			if svc.Spec.ClusterIP == v1.ClusterIPNone {
-				c.xdsUpdater.ConfigUpdate(&model.PushRequest{Full: true, NamespacesUpdated: map[string]struct{}{slice.Namespace: {}}})
-				return
-			}
-		}
-	}
-
 	_ = c.xdsUpdater.EDSUpdate(c.clusterID, string(hostname), slice.Namespace, e.endpointCache.Get(hostname))
 }
 
@@ -157,24 +150,38 @@ func (e endpointSliceController) AppendInstanceHandler(c *Controller) {
 			}
 		}
 
+		// Headless services are handled differently
+		if features.EnableHeadlessService.Get() {
+			svcName := ep.Labels[discoveryv1alpha1.LabelServiceName]
+			if obj, _, _ := c.services.informer.GetIndexer().GetByKey(kube.KeyFunc(svcName, ep.Namespace)); obj != nil {
+				svc := obj.(*v1.Service)
+				// if the service is headless service, trigger a full push.
+				if svc.Spec.ClusterIP == v1.ClusterIPNone {
+					c.xdsUpdater.ConfigUpdate(&model.PushRequest{Full: true, NamespacesUpdated: map[string]struct{}{ep.Namespace: {}}})
+					return nil
+				}
+			}
+		}
+
+		// Otherwise, do standard endpoint update
 		e.updateEDSSlice(c, ep, event)
 
 		return nil
 	})
 }
 
-func (e endpointSliceController) GetEndpointServiceInstances(c *Controller, proxy *model.Proxy, proxyNamespace string) []*model.ServiceInstance {
+func (e endpointSliceController) GetProxyServiceInstances(c *Controller, proxy *model.Proxy, proxyNamespace string) []*model.ServiceInstance {
 	endpointsForPodInSameNS := make([]*model.ServiceInstance, 0)
 	endpointsForPodInDifferentNS := make([]*model.ServiceInstance, 0)
 
 	for _, item := range e.cache.informer.GetStore().List() {
-		slice := *item.(*discoveryv1alpha1.EndpointSlice)
+		slice := item.(*discoveryv1alpha1.EndpointSlice)
 		endpoints := &endpointsForPodInSameNS
 		if slice.Namespace != proxyNamespace {
 			endpoints = &endpointsForPodInDifferentNS
 		}
 
-		*endpoints = append(*endpoints, c.getProxyServiceInstancesByEndpointSlice(slice, proxy)...)
+		*endpoints = append(*endpoints, getProxyServiceInstancesByEndpointSlice(c, slice, proxy)...)
 	}
 
 	// Put the endpointsForPodInSameNS in front of endpointsForPodInDifferentNS so that Pilot will
@@ -184,13 +191,52 @@ func (e endpointSliceController) GetEndpointServiceInstances(c *Controller, prox
 	return append(endpointsForPodInSameNS, endpointsForPodInDifferentNS...)
 }
 
+func getProxyServiceInstancesByEndpointSlice(c *Controller, slice *discoveryv1alpha1.EndpointSlice, proxy *model.Proxy) []*model.ServiceInstance {
+	out := make([]*model.ServiceInstance, 0)
+
+	hostname := kube.ServiceHostname(slice.Labels[discoveryv1alpha1.LabelServiceName], slice.Namespace, c.domainSuffix)
+	c.RLock()
+	svc := c.servicesMap[hostname]
+	c.RUnlock()
+
+	if svc == nil {
+		return out
+	}
+
+	for _, port := range slice.Ports {
+		if port.Name == nil || port.Port == nil {
+			continue
+		}
+		svcPort, exists := svc.Ports.Get(*port.Name)
+		if !exists {
+			continue
+		}
+
+		podIP := proxy.IPAddresses[0]
+
+		// consider multiple IP scenarios
+		for _, ip := range proxy.IPAddresses {
+			for _, ep := range slice.Endpoints {
+				for _, a := range ep.Addresses {
+					if a == ip {
+						out = append(out, c.getEndpoints(podIP, ip, *port.Port, svcPort, svc))
+						// If the endpoint isn't ready, report this
+						if ep.Conditions.Ready != nil && !*ep.Conditions.Ready && c.metrics != nil {
+							c.metrics.AddMetric(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return out
+}
+
 func (e *endpointSliceController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int,
 	labelsList labels.Collection) ([]*model.ServiceInstance, error) {
 	esLabelSelector := klabels.Set(map[string]string{discoveryv1alpha1.LabelServiceName: svc.Attributes.Name}).AsSelectorPreValidated()
-	var slices []*discoveryv1alpha1.EndpointSlice
-	err := cache.ListAllByNamespace(e.cache.informer.GetIndexer(), svc.Attributes.Namespace, esLabelSelector, func(i interface{}) {
-		slices = append(slices, i.(*discoveryv1alpha1.EndpointSlice))
-	})
+	slices, err := v1alpha1.NewEndpointSliceLister(e.cache.informer.GetIndexer()).EndpointSlices(svc.Attributes.Namespace).List(esLabelSelector)
 	if err != nil {
 		log.Infof("get endpoints(%s, %s) => error %v", svc.Attributes.Name, svc.Attributes.Namespace, err)
 		return nil, nil
@@ -220,12 +266,12 @@ func (e *endpointSliceController) InstancesByPort(c *Controller, svc *model.Serv
 					continue
 				}
 
-				az, sa, uid := "", "", ""
+				sa, uid := "", ""
 				if pod != nil {
-					az = c.GetPodLocality(pod)
 					sa = kube.SecureNamingSAN(pod)
-					uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
+					uid = createUID(pod.Name, pod.Namespace)
 				}
+				az := getLocalityFromTopology(e.Topology)
 				tlsMode := kube.PodTLSMode(pod)
 
 				// identify the port by name. K8S EndpointPort uses the service port name
@@ -260,12 +306,23 @@ func (e *endpointSliceController) InstancesByPort(c *Controller, svc *model.Serv
 	return out, nil
 }
 
+func getLocalityFromTopology(topology map[string]string) string {
+	locality := topology[NodeRegionLabelGA]
+	if _, f := topology[NodeZoneLabelGA]; f {
+		locality += "/" + topology[NodeZoneLabelGA]
+	}
+	if _, f := topology[IstioSubzoneLabel]; f {
+		locality += "/" + topology[IstioSubzoneLabel]
+	}
+	return locality
+}
+
 type endpointSliceCache struct {
 	mu                         sync.RWMutex
 	endpointsByServiceAndSlice map[host.Name]map[string][]*model.IstioEndpoint
 }
 
-func newendpointSliceCache() *endpointSliceCache {
+func newEndpointSliceCache() *endpointSliceCache {
 	out := &endpointSliceCache{
 		endpointsByServiceAndSlice: make(map[host.Name]map[string][]*model.IstioEndpoint),
 	}
@@ -275,6 +332,9 @@ func newendpointSliceCache() *endpointSliceCache {
 func (e *endpointSliceCache) Update(hostname host.Name, slice string, endpoints []*model.IstioEndpoint) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	if len(endpoints) == 0 {
+		delete(e.endpointsByServiceAndSlice[hostname], slice)
+	}
 	if _, f := e.endpointsByServiceAndSlice[hostname]; !f {
 		e.endpointsByServiceAndSlice[hostname] = make(map[string][]*model.IstioEndpoint)
 	}

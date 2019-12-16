@@ -1239,7 +1239,6 @@ func createEndpoints(controller *Controller, name, namespace string, portNames, 
 	}
 
 	// Create endpoint slice as well
-
 	esps := make([]discoveryv1alpha1.EndpointPort, 0)
 	for _, name := range portNames {
 		n := name // Create a stable reference to take the pointer from

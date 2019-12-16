@@ -255,10 +255,11 @@ var (
 	)
 
 	EnableEndpointSliceController = env.RegisterBoolVar(
-		"PILOT_ENABLE_ENDPOINT_SLICE_CONTROLLER",
+		"PILOT_USE_ENDPOINT_SLICE",
 		false,
 		"If enabled, Pilot will use EndpointSlices as the source of endpoints for Kubernetes services. "+
-			"By default, this is false, and Endpoints will be used. This requires the Kubernetes EndpointSlice controller to be enabled.",
+			"By default, this is false, and Endpoints will be used. This requires the Kubernetes EndpointSlice controller to be enabled. "+
+			"Currently this is mutual exclusive - either Endpoints or EndpointSlices will be used",
 	).Get()
 
 	EnableCRDValidation = env.RegisterBoolVar(

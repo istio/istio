@@ -26,7 +26,6 @@ import (
 
 	"github.com/yl2chen/cidranger"
 	v1 "k8s.io/api/core/v1"
-	discoveryv1alpha1 "k8s.io/api/discovery/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/informers"
@@ -37,7 +36,6 @@ import (
 	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -118,17 +116,37 @@ type Options struct {
 
 	// NetworksWatcher observes changes to the mesh networks config.
 	NetworksWatcher mesh.NetworksWatcher
+
+	// EndpointMode decides what source to use to get endpoint information
+	EndpointMode EndpointMode
 }
+
+// EndpointMode decides what source to use to get endpoint information
+type EndpointMode int
+
+const (
+	// EndpointsOnly type will use only Kubernetes Endpoints
+	EndpointsOnly EndpointMode = iota
+
+	// EndpointSliceOnly type will use only Kubernetes EndpointSlices
+	EndpointSliceOnly
+
+	// TODO: add other modes. Likely want a mode with Endpoints+EndpointSlices that are not controlled by
+	// Kubernetes Controller (e.g. made by user and not duplicated with Endpoints), or a mode with both that
+	// does deduping. Simply doing both won't work for now, since not all Kubernetes components support EndpointSlice.
+)
 
 var _ serviceregistry.Instance = &Controller{}
 
 // Controller is a collection of synchronized resource watchers
 // Caches are thread-safe
 type Controller struct {
-	client          kubernetes.Interface
-	queue           kube.Queue
-	services        cacheHandler
-	endpoints       edsController
+	client    kubernetes.Interface
+	queue     kube.Queue
+	services  cacheHandler
+	endpoints kubeEndpointsController
+
+	// TODO we can disable this when we only have EndpointSlice enabled
 	nodes           cacheHandler
 	pods            *PodCache
 	metrics         model.Metrics
@@ -180,10 +198,11 @@ func NewController(client kubernetes.Interface, options Options) *Controller {
 	svcInformer := sharedInformers.Core().V1().Services().Informer()
 	out.services = out.createCacheHandler(svcInformer, "Services")
 
-	if features.EnableEndpointSliceController {
-		out.endpoints = newEndpointSliceController(out, sharedInformers)
-	} else {
+	switch options.EndpointMode {
+	case EndpointsOnly:
 		out.endpoints = newEndpointsController(out, sharedInformers)
+	case EndpointSliceOnly:
+		out.endpoints = newEndpointSliceController(out, sharedInformers)
 	}
 
 	nodeInformer := sharedInformers.Core().V1().Nodes().Informer()
@@ -265,7 +284,7 @@ func compareEndpoints(a, b *v1.Endpoints) bool {
 // HasSynced returns true after the initial state synchronization
 func (c *Controller) HasSynced() bool {
 	if !c.services.informer.HasSynced() ||
-		!c.endpoints.Get().informer.HasSynced() ||
+		!c.endpoints.HasSynced() ||
 		!c.pods.informer.HasSynced() ||
 		!c.nodes.informer.HasSynced() {
 		return false
@@ -293,7 +312,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	cache.WaitForCacheSync(stop, c.nodes.informer.HasSynced, c.pods.informer.HasSynced,
 		c.services.informer.HasSynced)
 
-	go c.endpoints.Get().informer.Run(stop)
+	go c.endpoints.Run(stop)
 
 	<-stop
 	log.Infof("Controller terminated")
@@ -324,14 +343,6 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 	c.RLock()
 	defer c.RUnlock()
 	return c.servicesMap[hostname], nil
-}
-
-func GetLocalityFromTopology(topology map[string]string) string {
-	locality := topology[NodeZoneLabelGA]
-	if _, f := topology[NodeRegionLabelGA]; f {
-		locality += "/" + topology[NodeRegionLabelGA]
-	}
-	return locality
 }
 
 // GetPodLocality retrieves the locality for a pod.
@@ -499,7 +510,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 		}
 
 		// 3. Headless service
-		out = c.endpoints.GetEndpointServiceInstances(c, proxy, proxyNamespace)
+		out = c.endpoints.GetProxyServiceInstances(c, proxy, proxyNamespace)
 	}
 
 	if len(out) == 0 {
@@ -601,84 +612,6 @@ func findPortFromMetadata(svcPort v1.ServicePort, podPorts []model.PodPort) (int
 	return 0, fmt.Errorf("no matching port found for %+v", svcPort)
 }
 
-func (c *Controller) getProxyServiceInstancesByEndpoint(endpoints v1.Endpoints, proxy *model.Proxy) []*model.ServiceInstance {
-	out := make([]*model.ServiceInstance, 0)
-
-	hostname := kube.ServiceHostname(endpoints.Name, endpoints.Namespace, c.domainSuffix)
-	c.RLock()
-	svc := c.servicesMap[hostname]
-	c.RUnlock()
-
-	if svc != nil {
-		for _, ss := range endpoints.Subsets {
-			for _, port := range ss.Ports {
-				svcPort, exists := svc.Ports.Get(port.Name)
-				if !exists {
-					continue
-				}
-
-				podIP := proxy.IPAddresses[0]
-
-				// consider multiple IP scenarios
-				for _, ip := range proxy.IPAddresses {
-					if hasProxyIP(ss.Addresses, ip) {
-						out = append(out, c.getEndpoints(podIP, ip, port.Port, svcPort, svc))
-					}
-
-					if hasProxyIP(ss.NotReadyAddresses, ip) {
-						out = append(out, c.getEndpoints(podIP, ip, port.Port, svcPort, svc))
-						if c.metrics != nil {
-							c.metrics.AddMetric(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
-						}
-					}
-				}
-			}
-		}
-	}
-
-	return out
-}
-
-func (c *Controller) getProxyServiceInstancesByEndpointSlice(slice discoveryv1alpha1.EndpointSlice, proxy *model.Proxy) []*model.ServiceInstance {
-	out := make([]*model.ServiceInstance, 0)
-
-	hostname := kube.ServiceHostname(slice.Labels[discoveryv1alpha1.LabelServiceName], slice.Namespace, c.domainSuffix)
-	c.RLock()
-	svc := c.servicesMap[hostname]
-	c.RUnlock()
-
-	if svc != nil {
-		for _, port := range slice.Ports {
-			if port.Name == nil || port.Port == nil {
-				continue
-			}
-			svcPort, exists := svc.Ports.Get(*port.Name)
-			if !exists {
-				continue
-			}
-
-			podIP := proxy.IPAddresses[0]
-
-			// consider multiple IP scenarios
-			for _, ip := range proxy.IPAddresses {
-				for _, ep := range slice.Endpoints {
-					for _, a := range ep.Addresses {
-						if a == ip {
-							out = append(out, c.getEndpoints(podIP, ip, *port.Port, svcPort, svc))
-							// If the endpoint isn't ready, report this
-							if ep.Conditions.Ready != nil && !*ep.Conditions.Ready && c.metrics != nil {
-								c.metrics.AddMetric(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-
-	return out
-}
-
 func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod, service *v1.Service, proxy *model.Proxy) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 
@@ -691,6 +624,7 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod, service *v1.Serv
 		return out
 	}
 
+	podIP := proxy.IPAddresses[0]
 	for _, port := range service.Spec.Ports {
 		svcPort, exists := svc.Ports.Get(port.Name)
 		if !exists {
@@ -702,8 +636,6 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod, service *v1.Serv
 			log.Warnf("Failed to find port for service %s/%s: %v", service.Namespace, service.Name, err)
 			continue
 		}
-
-		podIP := proxy.IPAddresses[0]
 
 		// consider multiple IP scenarios
 		for _, ip := range proxy.IPAddresses {
@@ -871,7 +803,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 				if pod != nil {
 					locality = c.GetPodLocality(pod)
 					sa = kube.SecureNamingSAN(pod)
-					uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
+					uid = createUID(pod.Name, pod.Namespace)
 					labelMap = configKube.ConvertLabels(pod.ObjectMeta)
 				}
 
@@ -1000,4 +932,8 @@ func FindPort(pod *v1.Pod, svcPort *v1.ServicePort) (int, error) {
 	}
 
 	return 0, fmt.Errorf("no suitable port for manifest: %s", pod.UID)
+}
+
+func createUID(podName, namespace string) string {
+	return "kubernetes://" + podName + "." + namespace
 }

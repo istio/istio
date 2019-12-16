@@ -15,8 +15,6 @@
 package controller
 
 import (
-	"fmt"
-
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
@@ -31,30 +29,20 @@ import (
 	"istio.io/pkg/log"
 )
 
-// Pilot can get EDS information from Kubernetes from two mutually exclusive sources, Endpoints and
-// EndpointSlices. The edsController abstracts these details and provides a common interface that
-// both sources implement
-type edsController interface {
-	Get() cacheHandler
-	AppendInstanceHandler(c *Controller)
-	InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int,
-		labelsList labels.Collection) ([]*model.ServiceInstance, error)
-	GetEndpointServiceInstances(c *Controller, proxy *model.Proxy, proxyNamespace string) []*model.ServiceInstance
-}
-
 type endpointsController struct {
 	cache cacheHandler
 }
 
-var _ edsController = &endpointsController{}
+var _ kubeEndpointsController = &endpointsController{}
 
 func newEndpointsController(c *Controller, sharedInformers informers.SharedInformerFactory) *endpointsController {
 	epInformer := sharedInformers.Core().V1().Endpoints().Informer()
 	return &endpointsController{createEDSCacheHandler(c, epInformer, "Endpoints")}
 }
 
-func (e *endpointsController) GetEndpointServiceInstances(c *Controller, proxy *model.Proxy, proxyNamespace string) []*model.ServiceInstance {
+func (e *endpointsController) GetProxyServiceInstances(c *Controller, proxy *model.Proxy, proxyNamespace string) []*model.ServiceInstance {
 	endpointsForPodInSameNS := make([]*model.ServiceInstance, 0)
+	// TODO we may be able to remove this, endpoints should be in same NS?
 	endpointsForPodInDifferentNS := make([]*model.ServiceInstance, 0)
 
 	for _, item := range e.cache.informer.GetStore().List() {
@@ -64,7 +52,7 @@ func (e *endpointsController) GetEndpointServiceInstances(c *Controller, proxy *
 			endpoints = &endpointsForPodInDifferentNS
 		}
 
-		*endpoints = append(*endpoints, c.getProxyServiceInstancesByEndpoint(ep, proxy)...)
+		*endpoints = append(*endpoints, getProxyServiceInstancesByEndpoint(c, ep, proxy)...)
 	}
 
 	// Put the endpointsForPodInSameNS in front of endpointsForPodInDifferentNS so that Pilot will
@@ -72,6 +60,44 @@ func (e *endpointsController) GetEndpointServiceInstances(c *Controller, proxy *
 	// referring to the same IP/port, the one in endpointsForPodInSameNS will be used. (The other one
 	// in endpointsForPodInDifferentNS will thus be rejected by Pilot).
 	return append(endpointsForPodInSameNS, endpointsForPodInDifferentNS...)
+}
+
+func getProxyServiceInstancesByEndpoint(c *Controller, endpoints v1.Endpoints, proxy *model.Proxy) []*model.ServiceInstance {
+	out := make([]*model.ServiceInstance, 0)
+
+	hostname := kube.ServiceHostname(endpoints.Name, endpoints.Namespace, c.domainSuffix)
+	c.RLock()
+	svc := c.servicesMap[hostname]
+	c.RUnlock()
+
+	if svc != nil {
+		for _, ss := range endpoints.Subsets {
+			for _, port := range ss.Ports {
+				svcPort, exists := svc.Ports.Get(port.Name)
+				if !exists {
+					continue
+				}
+
+				podIP := proxy.IPAddresses[0]
+
+				// consider multiple IP scenarios
+				for _, ip := range proxy.IPAddresses {
+					if hasProxyIP(ss.Addresses, ip) {
+						out = append(out, c.getEndpoints(podIP, ip, port.Port, svcPort, svc))
+					}
+
+					if hasProxyIP(ss.NotReadyAddresses, ip) {
+						out = append(out, c.getEndpoints(podIP, ip, port.Port, svcPort, svc))
+						if c.metrics != nil {
+							c.metrics.AddMetric(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return out
 }
 
 func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int,
@@ -109,7 +135,7 @@ func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service,
 			if pod != nil {
 				az = c.GetPodLocality(pod)
 				sa = kube.SecureNamingSAN(pod)
-				uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
+				uid = createUID(pod.Name, pod.Namespace)
 			}
 			tlsMode := kube.PodTLSMode(pod)
 
@@ -184,8 +210,12 @@ func (e *endpointsController) AppendInstanceHandler(c *Controller) {
 	})
 }
 
-func (e *endpointsController) Get() cacheHandler {
-	return e.cache
+func (e endpointsController) HasSynced() bool {
+	return e.cache.informer.HasSynced()
+}
+
+func (e endpointsController) Run(stopCh <-chan struct{}) {
+	e.cache.informer.Run(stopCh)
 }
 
 func createEDSCacheHandler(c *Controller, informer cache.SharedIndexInformer, otype string) cacheHandler {
