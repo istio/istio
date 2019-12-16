@@ -254,6 +254,13 @@ var (
 			"legacy deployments that have not yet been migrated to the new safe regular expressions.",
 	)
 
+	EnableEndpointSliceController = env.RegisterBoolVar(
+		"PILOT_ENABLE_ENDPOINT_SLICE_CONTROLLER",
+		false,
+		"If enabled, Pilot will use EndpointSlices as the source of endpoints for Kubernetes services. "+
+			"By default, this is false, and Endpoints will be used. This requires the Kubernetes EndpointSlice controller to be enabled.",
+	).Get()
+
 	EnableCRDValidation = env.RegisterBoolVar(
 		"PILOT_ENABLE_CRD_VALIDATION",
 		false,

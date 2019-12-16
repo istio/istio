@@ -1,0 +1,224 @@
+// Copyright 2017 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package controller
+
+import (
+	"fmt"
+
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/tools/cache"
+
+	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/config/schemas"
+
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	configKube "istio.io/istio/pkg/config/kube"
+	"istio.io/istio/pkg/config/labels"
+	"istio.io/pkg/log"
+)
+
+// Pilot can get EDS information from Kubernetes from two mutually exclusive sources, Endpoints and
+// EndpointSlices. The edsController abstracts these details and provides a common interface that
+// both sources implement
+type edsController interface {
+	Get() cacheHandler
+	AppendInstanceHandler(c *Controller)
+	InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int,
+		labelsList labels.Collection) ([]*model.ServiceInstance, error)
+	GetEndpointServiceInstances(c *Controller, proxy *model.Proxy, proxyNamespace string) []*model.ServiceInstance
+}
+
+type endpointsController struct {
+	cache cacheHandler
+}
+
+var _ edsController = &endpointsController{}
+
+func newEndpointsController(c *Controller, sharedInformers informers.SharedInformerFactory) *endpointsController {
+	epInformer := sharedInformers.Core().V1().Endpoints().Informer()
+	return &endpointsController{createEDSCacheHandler(c, epInformer, "Endpoints")}
+}
+
+func (e *endpointsController) GetEndpointServiceInstances(c *Controller, proxy *model.Proxy, proxyNamespace string) []*model.ServiceInstance {
+	endpointsForPodInSameNS := make([]*model.ServiceInstance, 0)
+	endpointsForPodInDifferentNS := make([]*model.ServiceInstance, 0)
+
+	for _, item := range e.cache.informer.GetStore().List() {
+		ep := *item.(*v1.Endpoints)
+		endpoints := &endpointsForPodInSameNS
+		if ep.Namespace != proxyNamespace {
+			endpoints = &endpointsForPodInDifferentNS
+		}
+
+		*endpoints = append(*endpoints, c.getProxyServiceInstancesByEndpoint(ep, proxy)...)
+	}
+
+	// Put the endpointsForPodInSameNS in front of endpointsForPodInDifferentNS so that Pilot will
+	// first use endpoints from endpointsForPodInSameNS. This makes sure if there are two endpoints
+	// referring to the same IP/port, the one in endpointsForPodInSameNS will be used. (The other one
+	// in endpointsForPodInDifferentNS will thus be rejected by Pilot).
+	return append(endpointsForPodInSameNS, endpointsForPodInDifferentNS...)
+}
+
+func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int,
+	labelsList labels.Collection) ([]*model.ServiceInstance, error) {
+	item, exists, err := e.cache.informer.GetStore().GetByKey(kube.KeyFunc(svc.Attributes.Name, svc.Attributes.Namespace))
+	if err != nil {
+		log.Infof("get endpoints(%s, %s) => error %v", svc.Attributes.Name, svc.Attributes.Namespace, err)
+		return nil, nil
+	}
+	if !exists {
+		return nil, nil
+	}
+
+	// Locate all ports in the actual service
+	svcPortEntry, exists := svc.Ports.GetByPort(reqSvcPort)
+	if !exists {
+		return nil, nil
+	}
+	ep := item.(*v1.Endpoints)
+	var out []*model.ServiceInstance
+	for _, ss := range ep.Subsets {
+		for _, ea := range ss.Addresses {
+			var podLabels labels.Instance
+			pod := c.pods.getPodByIP(ea.IP)
+			if pod != nil {
+				podLabels = configKube.ConvertLabels(pod.ObjectMeta)
+			}
+
+			// check that one of the input labels is a subset of the labels
+			if !labelsList.HasSubsetOf(podLabels) {
+				continue
+			}
+
+			az, sa, uid := "", "", ""
+			if pod != nil {
+				az = c.GetPodLocality(pod)
+				sa = kube.SecureNamingSAN(pod)
+				uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
+			}
+			tlsMode := kube.PodTLSMode(pod)
+
+			// identify the port by name. K8S EndpointPort uses the service port name
+			for _, port := range ss.Ports {
+				if port.Name == "" || // 'name optional if single port is defined'
+					svcPortEntry.Name == port.Name {
+
+					out = append(out, &model.ServiceInstance{
+						Endpoint: model.NetworkEndpoint{
+							Address:     ea.IP,
+							Port:        int(port.Port),
+							ServicePort: svcPortEntry,
+							UID:         uid,
+							Network:     c.endpointNetwork(ea.IP),
+							Locality:    az,
+						},
+						Service:        svc,
+						Labels:         podLabels,
+						ServiceAccount: sa,
+						TLSMode:        tlsMode,
+					})
+				}
+			}
+		}
+	}
+
+	return out, nil
+}
+
+func (e *endpointsController) AppendInstanceHandler(c *Controller) {
+	if e.cache.handler == nil {
+		return
+	}
+	e.cache.handler.Append(func(old, curr interface{}, event model.Event) error {
+		ep, ok := curr.(*v1.Endpoints)
+		if !ok {
+			tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
+			if !ok {
+				log.Errorf("Couldn't get object from tombstone %#v", curr)
+				return nil
+			}
+			ep, ok = tombstone.Obj.(*v1.Endpoints)
+			if !ok {
+				log.Errorf("Tombstone contained object that is not an endpoints %#v", curr)
+				return nil
+			}
+		}
+
+		log.Debugf("Handle event %s for endpoint %s in namespace %s", event, ep.Name, ep.Namespace)
+
+		// headless service cluster discovery type is ORIGINAL_DST, we do not need update EDS.
+		if features.EnableHeadlessService.Get() {
+			if obj, _, _ := c.services.informer.GetIndexer().GetByKey(kube.KeyFunc(ep.Name, ep.Namespace)); obj != nil {
+				svc := obj.(*v1.Service)
+				// if the service is headless service, trigger a full push.
+				if svc.Spec.ClusterIP == v1.ClusterIPNone {
+					c.xdsUpdater.ConfigUpdate(&model.PushRequest{
+						Full:              true,
+						NamespacesUpdated: map[string]struct{}{ep.Namespace: {}},
+						// TODO: extend and set service instance type, so no need to re-init push context
+						ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
+					})
+					return nil
+				}
+			}
+		}
+
+		c.updateEDS(ep, event)
+
+		return nil
+	})
+}
+
+func (e *endpointsController) Get() cacheHandler {
+	return e.cache
+}
+
+func createEDSCacheHandler(c *Controller, informer cache.SharedIndexInformer, otype string) cacheHandler {
+	handler := &kube.ChainHandler{Funcs: []kube.Handler{c.notify}}
+
+	informer.AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			// TODO: filtering functions to skip over un-referenced resources (perf)
+			AddFunc: func(obj interface{}) {
+				incrementEvent(otype, "add")
+				c.queue.Push(kube.NewTask(handler.Apply, nil, obj, model.EventAdd))
+			},
+			UpdateFunc: func(old, cur interface{}) {
+				// Avoid pushes if only resource version changed (kube-scheduller, cluster-autoscaller, etc)
+				oldE := old.(*v1.Endpoints)
+				curE := cur.(*v1.Endpoints)
+
+				if !compareEndpoints(oldE, curE) {
+					incrementEvent(otype, "update")
+					c.queue.Push(kube.NewTask(handler.Apply, old, cur, model.EventUpdate))
+				} else {
+					incrementEvent(otype, "updatesame")
+				}
+			},
+			DeleteFunc: func(obj interface{}) {
+				incrementEvent(otype, "delete")
+				// Deleting the endpoints results in an empty set from EDS perspective - only
+				// deleting the service should delete the resources. The full sync replaces the
+				// maps.
+				// c.updateEDS(obj.(*v1.Endpoints))
+				c.queue.Push(kube.NewTask(handler.Apply, nil, obj, model.EventDelete))
+			},
+		})
+
+	return cacheHandler{informer: informer, handler: handler}
+}
