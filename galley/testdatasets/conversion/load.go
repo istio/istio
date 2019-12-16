@@ -36,10 +36,7 @@ func Load() ([]*TestInfo, error) {
 			continue
 		}
 
-		baseFileName, idxSuffix, index, err := parseFileName(asset)
-		if err != nil {
-			return nil, err
-		}
+		baseFileName, idxSuffix, index := parseFileName(asset)
 
 		// Skip if the asset is a meshconfig file. We will pick it up when processing the input file.
 		if strings.HasSuffix(baseFileName, "_meshconfig") {
@@ -124,22 +121,22 @@ func generateTestName(baseFileName string) string {
 // testName will be foo/bar.
 // suffix will be either _1, _2 etc, or it will be empty if there is a single stage.
 // stage is the stage number for the files. If no numeric suffix is defined, stage will default to 0.
-func parseFileName(name string) (baseName, suffix string, stage int, err error) {
+func parseFileName(name string) (baseName, suffix string, stage int) {
 	// nameNoExtension is foo/bar_1 or foo/bar
 	nameNoExtension := name[:len(name)-len(".yaml")]
 
 	parts := strings.Split(nameNoExtension, "_")
 	if len(parts) == 0 {
-		return nameNoExtension, "", 0, nil
+		return nameNoExtension, "", 0
 	}
 
 	suffix = parts[len(parts)-1]
 	i, err := strconv.ParseInt(suffix, 10, 32)
 	if err != nil {
-		return nameNoExtension, "", 0, nil
+		return nameNoExtension, "", 0
 	}
 
 	suffix = "_" + suffix
 	baseName = nameNoExtension[0 : len(nameNoExtension)-len(suffix)]
-	return baseName, suffix, int(i), nil
+	return baseName, suffix, int(i)
 }
