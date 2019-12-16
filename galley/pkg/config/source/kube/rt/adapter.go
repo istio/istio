@@ -29,13 +29,15 @@ import (
 
 // Adapter provides core functions that are necessary to interact with a Kubernetes resource.
 type Adapter struct {
-	extractObject   extractObjectFn
-	extractResource extractResourceFn
-	newInformer     newInformerFn
-	parseJSON       parseJSONFn
-	getStatus       getStatusFn
-	isEqual         isEqualFn
-	isBuiltIn       bool
+	extractObject                 extractObjectFn
+	extractResource               extractResourceFn
+	newInformer                   newInformerFn
+	parseJSON                     parseJSONFn
+	getStatus                     getStatusFn
+	isEqual                       isEqualFn
+	isBuiltIn                     bool
+	isDefaultExcluded             bool
+	isRequiredForServiceDiscovery bool
 }
 
 // ExtractObject extracts the k8s object metadata from the given object of this type.
@@ -71,6 +73,16 @@ func (p *Adapter) IsEqual(o1, o2 interface{}) bool {
 // IsBuiltIn returns true if the adapter uses built-in client libraries.
 func (p *Adapter) IsBuiltIn() bool {
 	return p.isBuiltIn
+}
+
+// IsDefaultExcluded returns true if the adapter is excluded from the default set of resources to watch.
+func (p *Adapter) IsDefaultExcluded() bool {
+	return p.isDefaultExcluded
+}
+
+// IsRequiredForServiceDiscovery returns true if the adapter is required for service discovery.
+func (p *Adapter) IsRequiredForServiceDiscovery() bool {
+	return p.isRequiredForServiceDiscovery
 }
 
 // JSONToEntry parses the K8s Resource in JSON form and converts it to resource entry.
