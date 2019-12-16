@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package coredatamodel_test
+package mcp_test
 
 import (
 	"fmt"
@@ -24,8 +24,8 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 
-	"istio.io/istio/pilot/pkg/config/coredatamodel"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/mcp"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
@@ -33,8 +33,8 @@ import (
 )
 
 var (
-	d          *coredatamodel.MCPDiscovery
-	controller coredatamodel.CoreDataModel
+	d          *mcp.Discovery
+	controller mcp.Controller
 	fx         *FakeXdsUpdater
 	namespace  = "random-namespace"
 	name       = "test-synthetic-se"
@@ -570,12 +570,12 @@ func initDiscovery() {
 	fx = NewFakeXDS()
 	fx.EDSErr <- nil
 	testControllerOptions.XDSUpdater = fx
-	controller = coredatamodel.NewSyntheticServiceEntryController(testControllerOptions)
-	options := &coredatamodel.DiscoveryOptions{
+	controller = mcp.NewSyntheticServiceEntryController(testControllerOptions)
+	options := &mcp.DiscoveryOptions{
 		ClusterID:    "test",
 		DomainSuffix: "cluster.local",
 	}
-	d = coredatamodel.NewMCPDiscovery(controller, options)
+	d = mcp.NewDiscovery(controller, options)
 }
 
 func testSetup(g *gomega.GomegaWithT) {

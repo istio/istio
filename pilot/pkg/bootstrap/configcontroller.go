@@ -33,12 +33,12 @@ import (
 	"istio.io/pkg/log"
 
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
-	"istio.io/istio/pilot/pkg/config/coredatamodel"
 	"istio.io/istio/pilot/pkg/config/kube/crd/controller"
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pilot/pkg/config/memory"
 	configmonitor "istio.io/istio/pilot/pkg/config/monitor"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/mcp"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schemas"
 	configz "istio.io/istio/pkg/mcp/configz/client"
@@ -122,7 +122,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	var conns []*grpc.ClientConn
 	var configStores []model.ConfigStoreCache
 
-	s.mcpOptions = &coredatamodel.Options{
+	s.mcpOptions = &mcp.Options{
 		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
 		ConfigLedger: buildLedger(args.Config),
 		XDSUpdater:   s.EnvoyXdsServer,
@@ -296,7 +296,7 @@ func (s *Server) mcpController(
 		collections = append(collections, sink.CollectionOptions{Name: c.Collection, Incremental: false})
 	}
 
-	mcpController := coredatamodel.NewController(s.mcpOptions)
+	mcpController := mcp.NewController(s.mcpOptions)
 	sinkOptions := &sink.Options{
 		CollectionOptions: collections,
 		Updater:           mcpController,
@@ -317,17 +317,17 @@ func (s *Server) sseMCPController(args *PilotArgs,
 	clients *[]*sink.Client,
 	configStores *[]model.ConfigStoreCache) {
 	clientNodeID := "SSEMCP"
-	s.incrementalMcpOptions = &coredatamodel.Options{
+	s.incrementalMcpOptions = &mcp.Options{
 		ClusterID:    s.clusterID,
 		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
 		XDSUpdater:   s.EnvoyXdsServer,
 	}
-	ctl := coredatamodel.NewSyntheticServiceEntryController(s.incrementalMcpOptions)
-	s.discoveryOptions = &coredatamodel.DiscoveryOptions{
+	ctl := mcp.NewSyntheticServiceEntryController(s.incrementalMcpOptions)
+	s.discoveryOptions = &mcp.DiscoveryOptions{
 		ClusterID:    s.clusterID,
 		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
 	}
-	s.mcpDiscovery = coredatamodel.NewMCPDiscovery(ctl, s.discoveryOptions)
+	s.mcpDiscovery = mcp.NewDiscovery(ctl, s.discoveryOptions)
 	incrementalSinkOptions := &sink.Options{
 		CollectionOptions: []sink.CollectionOptions{
 			{
