@@ -56,7 +56,6 @@ var (
 	eventTag = monitoring.MustCreateLabel("event")
 	nameTag  = monitoring.MustCreateLabel("name")
 
-	// experiment on getting some monitoring on config errors.
 	k8sEvents = monitoring.NewSum(
 		"pilot_k8s_cfg_events",
 		"Events from k8s config.",
@@ -68,10 +67,15 @@ var (
 		"Errors converting k8s CRDs",
 		monitoring.WithLabels(nameTag),
 	)
+
+	k8sTotalErrors = monitoring.NewSum(
+		"pilot_total_k8s_object_errors",
+		"Total Errors converting k8s CRDs",
+	)
 )
 
 func init() {
-	monitoring.MustRegister(k8sEvents, k8sErrors)
+	monitoring.MustRegister(k8sEvents, k8sErrors, k8sTotalErrors)
 }
 
 // NewController creates a new Kubernetes controller for CRDs
@@ -189,6 +193,7 @@ func handleValidationFailure(obj interface{}, err error) {
 		log.Debugf("CRD validation failed for unknown Kind: %s", err)
 		k8sErrors.With(nameTag.Value("unknown")).Record(1)
 	}
+	k8sTotalErrors.Increment()
 }
 
 func incrementEvent(kind, event string) {
