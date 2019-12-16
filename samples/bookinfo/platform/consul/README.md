@@ -1,3 +1,7 @@
+# Disclaimer
+
+Warning: this example is not included in Istio's release verification testing, so it may not function exactly as documented.
+
 # Consul Adapter for Istio on Docker
 
 Make Istio run in docker environment by integrating Consul as a service registry.
