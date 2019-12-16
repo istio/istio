@@ -151,8 +151,6 @@ type Args struct { // nolint:maligned
 	EnableProfiling bool
 	PprofPort       uint
 
-	UseOldProcessor bool
-
 	Snapshots       []string
 	TriggerSnapshot string
 }
@@ -183,7 +181,6 @@ func DefaultArgs() *Args {
 		MonitoringPort:              15014,
 		EnableProfiling:             false,
 		PprofPort:                   9094,
-		UseOldProcessor:             false,
 		WatchConfigFiles:            false,
 		EnableConfigAnalysis:        false,
 		Liveness: probe.Options{
