@@ -31,8 +31,25 @@ const (
 func ValidateConfig(failOnMissingValidation bool, values *v1alpha1.Values, icpls *v1alpha2.IstioControlPlaneSpec) util.Errors {
 	var validationErrors util.Errors
 	validationErrors = util.AppendErrs(validationErrors, validateSubTypes(reflect.ValueOf(values).Elem(), failOnMissingValidation, values, icpls))
-
+	validationErrors = util.AppendErrs(validationErrors, validateFeatures(values, icpls))
 	return validationErrors
+}
+
+// validateFeatures check whether the config sematically make sense. For example, feature X and feature Y can't be enabled together.
+func validateFeatures(values *v1alpha1.Values, _ *v1alpha2.IstioControlPlaneSpec) util.Errors {
+	// When automatic mutual TLS is enabled, we check control plane security must also be enabled.
+	g := values.GetGlobal()
+	if g == nil {
+		return nil
+	}
+	m := g.GetMtls()
+	if m == nil {
+		return nil
+	}
+	if m.GetAuto().Value && !g.GetControlPlaneSecurityEnabled().Value {
+		return []error{fmt.Errorf("security: auto mtls is enabled, but control plane security is not enabled")}
+	}
+	return nil
 }
 
 func validateSubTypes(e reflect.Value, failOnMissingValidation bool, values *v1alpha1.Values, icpls *v1alpha2.IstioControlPlaneSpec) util.Errors {

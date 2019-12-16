@@ -74,3 +74,33 @@ func TestValidate(t *testing.T) {
 		}
 	}
 }
+
+func TestValidateFeatures(t *testing.T) {
+	tests := []struct {
+		name       string
+		toValidate *v1alpha1.Values
+		validated  bool
+	}{
+		{
+			name: "automtls checks control plane security",
+			toValidate: &v1alpha1.Values{
+				Global: &v1alpha1.GlobalConfig{
+					ControlPlaneSecurityEnabled: &types.BoolValue{Value: false},
+					Mtls: &v1alpha1.MTLSConfig{
+						Auto: &types.BoolValue{Value: true},
+					},
+				},
+			},
+			validated: false,
+		},
+	}
+	for _, tt := range tests {
+		err := validateFeatures(tt.toValidate, nil)
+		if len(err) != 0 && tt.validated {
+			t.Fatalf("Test %s failed with errors: %+v but supposed to succeed", tt.name, err)
+		}
+		if len(err) == 0 && !tt.validated {
+			t.Fatalf("Test %s failed as it is supposed to fail but succeeded", tt.name)
+		}
+	}
+}
