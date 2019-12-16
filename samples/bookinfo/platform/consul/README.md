@@ -25,7 +25,7 @@ The ingress controller is still under construction, routing functionalities can 
 To build all images for the bookinfo sample for the consul adapter, run:
 
 ```bash
-samples/bookinfo/src/build-docker-services.sh
+samples/bookinfo/src/build-services.sh
 ```
 
 For Linux users, configure the `DOCKER_GATEWAY` environment variable
