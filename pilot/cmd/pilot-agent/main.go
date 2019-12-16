@@ -19,6 +19,8 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	stsserver "istio.io/istio/security/pkg/stsservice/server"
+	"istio.io/istio/security/pkg/stsservice/tokenmanagers/google"
 	"net"
 	"os"
 	"strings"
@@ -67,6 +69,7 @@ var (
 	pilotIdentity string
 	mixerIdentity string
 	statusPort    uint16
+	stsPort       int
 
 	// proxy config flags (named identically)
 	configPath               string
@@ -476,29 +479,29 @@ var (
 				go waitForCompletion(ctx, statusServer.Run)
 			}
 
-			//// If security token service (STS) port is not zero, start STS server and
-			//// listens on that port for STS requests.
-			//// For STS, see https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16.
-			//if stsPort.Get() > 0 {
-			//	localHostAddr := "127.0.0.1"
-			//	if proxyIPv6 {
-			//		localHostAddr = "[::1]"
-			//	}
-			//	tokenManager, err := google.CreateTokenManager(trustDomain)
-			//	if err != nil {
-			//		cancel()
-			//		return err
-			//	}
-			//	stsServer, err := stsservice.NewServer(stsservice.Config{
-			//		LocalHostAddr:      localHostAddr,
-			//		LocalPort:          stsPort.Get(),
-			//	}, tokenManager)
-			//	if err != nil {
-			//		cancel()
-			//		return err
-			//	}
-			//	defer stsServer.Stop()
-			//}
+			// If security token service (STS) port is not zero, start STS server and
+			// listens on that port for STS requests.
+			// For STS, see https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16.
+			if stsPort > 0 {
+				localHostAddr := "127.0.0.1"
+				if proxyIPv6 {
+					localHostAddr = "[::1]"
+				}
+				tokenManager, err := google.CreateTokenManager(trustDomain)
+				if err != nil {
+					cancel()
+					return err
+				}
+				stsServer, err := stsserver.NewServer(stsserver.Config{
+					LocalHostAddr:      localHostAddr,
+					LocalPort:          stsPort,
+				}, tokenManager)
+				if err != nil {
+					cancel()
+					return err
+				}
+				defer stsServer.Stop()
+			}
 
 			log.Infof("PilotSAN %#v", pilotSAN)
 
@@ -703,7 +706,8 @@ func init() {
 
 	proxyCmd.PersistentFlags().Uint16Var(&statusPort, "statusPort", 0,
 		"HTTP Port on which to serve pilot agent status. If zero, agent status will not be provided.")
-
+	proxyCmd.PersistentFlags().IntVar(&stsPort, "stsPort", 0,
+		"HTTP Port on which to serve pilot agent status. If zero, agent status will not be provided.")
 	// Flags for proxy configuration
 	values := mesh.DefaultProxyConfig()
 	proxyCmd.PersistentFlags().StringVar(&configPath, "configPath", values.ConfigPath,
