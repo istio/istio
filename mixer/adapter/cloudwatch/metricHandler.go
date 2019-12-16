@@ -16,6 +16,7 @@ package cloudwatch
 
 import (
 	"fmt"
+	"reflect"
 	"strconv"
 	"time"
 
@@ -33,6 +34,8 @@ const (
 	// https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch_limits.html
 	metricDatumLimit = 20
 )
+
+var floatType = reflect.TypeOf(float64(0))
 
 func (h *handler) sendMetricsToCloudWatch(metricData []*cloudwatch.MetricDatum) (int, error) {
 	cloudWatchCallCount := 0
@@ -93,25 +96,59 @@ func (h *handler) generateMetricData(insts []*metric.Instance) []*cloudwatch.Met
 
 func getNumericValue(value interface{}, unit config.Params_MetricDatum_Unit) (float64, error) {
 	switch v := value.(type) {
+	case float64:
+		return v, nil
+	case float32:
+		return float64(v), nil
+	case int64:
+		return float64(v), nil
+	case int32:
+		return float64(v), nil
+	case int:
+		return float64(v), nil
+	case uint64:
+		return float64(v), nil
+	case uint32:
+		return float64(v), nil
+	case uint:
+		return float64(v), nil
 	case string:
 		value, err := strconv.ParseFloat(v, 64)
 		if err != nil {
 			return 0, fmt.Errorf("can't parse string %s into float", v)
 		}
 		return value, nil
-	case int:
-		return float64(v), nil
-	case int64:
-		return float64(v), nil
-	case float32:
-		return float64(v), nil
-	case float64:
-		return v, nil
-	case time.Duration:
-		return getDurationNumericValue(v, unit), nil
 	default:
-		return 0, fmt.Errorf("unsupported value type %T. Only strings and numeric values are accepted", v)
+		v := reflect.ValueOf(value)
+		v = reflect.Indirect(v)
+		if !v.Type().ConvertibleTo(floatType) {
+			return 0, fmt.Errorf("can't parse %v into float64", v.Type())
+		}
+		fv := v.Convert(floatType)
+		return fv.Float(), nil
 	}
+
+	//原始代码如下：
+	// switch v := value.(type) {
+	// case string:
+	// 	value, err := strconv.ParseFloat(v, 64)
+	// 	if err != nil {
+	// 		return 0, fmt.Errorf("can't parse string %s into float", v)
+	// 	}
+	// 	return value, nil
+	// case int:
+	// 	return float64(v), nil
+	// case int64:
+	// 	return float64(v), nil
+	// case float32:
+	// 	return float64(v), nil
+	// case float64:
+	// 	return v, nil
+	// case time.Duration:
+	// 	return getDurationNumericValue(v, unit), nil
+	// default:
+	// 	return 0, fmt.Errorf("unsupported value type %T. Only strings and numeric values are accepted", v)
+	// }
 }
 
 func getDurationNumericValue(v time.Duration, unit config.Params_MetricDatum_Unit) float64 {
