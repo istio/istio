@@ -20,8 +20,8 @@ import (
 )
 
 func TestGetLocalityFromTopology(t *testing.T) {
-	cases := []struct{
-		name string
+	cases := []struct {
+		name     string
 		topology map[string]string
 		locality string
 	}{
@@ -29,7 +29,7 @@ func TestGetLocalityFromTopology(t *testing.T) {
 			"all standard kubernetes labels",
 			map[string]string{
 				NodeRegionLabelGA: "region",
-				NodeZoneLabelGA: "zone",
+				NodeZoneLabelGA:   "zone",
 			},
 			"region/zone",
 		},
@@ -37,7 +37,7 @@ func TestGetLocalityFromTopology(t *testing.T) {
 			"all standard kubernetes labels and Istio custom labels",
 			map[string]string{
 				NodeRegionLabelGA: "region",
-				NodeZoneLabelGA: "zone",
+				NodeZoneLabelGA:   "zone",
 				IstioSubzoneLabel: "subzone",
 			},
 			"region/zone/subzone",
