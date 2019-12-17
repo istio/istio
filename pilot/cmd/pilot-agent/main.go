@@ -62,14 +62,15 @@ const trustworthyJWTPath = "/var/run/secrets/tokens/istio-token"
 // TODO: Move most of this to pkg.
 
 var (
-	role          = &model.Proxy{}
-	proxyIP       string
-	registry      serviceregistry.ServiceRegistry
-	trustDomain   string
-	pilotIdentity string
-	mixerIdentity string
-	statusPort    uint16
-	stsPort       int
+	role                       = &model.Proxy{}
+	proxyIP          string
+	registry         serviceregistry.ServiceRegistry
+	trustDomain      string
+	pilotIdentity    string
+	mixerIdentity    string
+	statusPort       uint16
+	stsPort          int
+	gCPProjectNumber int
 
 	// proxy config flags (named identically)
 	configPath               string
@@ -487,7 +488,7 @@ var (
 				if proxyIPv6 {
 					localHostAddr = "[::1]"
 				}
-				tokenManager, err := google.CreateTokenManager(trustDomain)
+				tokenManager, err := google.CreateTokenManager(trustDomain, gCPProjectNumber)
 				if err != nil {
 					cancel()
 					return err
@@ -708,6 +709,8 @@ func init() {
 		"HTTP Port on which to serve pilot agent status. If zero, agent status will not be provided.")
 	proxyCmd.PersistentFlags().IntVar(&stsPort, "stsPort", 0,
 		"HTTP Port on which to serve pilot agent status. If zero, agent status will not be provided.")
+	proxyCmd.PersistentFlags().IntVar(&gCPProjectNumber, "gCPProjectNumber", 0,
+		"The Google Cloud Platform (GCP) project number where Istio is deployed.")
 	// Flags for proxy configuration
 	values := mesh.DefaultProxyConfig()
 	proxyCmd.PersistentFlags().StringVar(&configPath, "configPath", values.ConfigPath,

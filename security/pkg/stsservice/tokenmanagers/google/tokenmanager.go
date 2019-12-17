@@ -41,7 +41,7 @@ const (
     tokenType              = "urn:ietf:params:oauth:token-type:access_token"
 	federatedTokenEndpoint = "https://securetoken.googleapis.com/v1/identitybindingtoken"
 	// https://cloud.google.com/iam/docs/reference/credentials/rest/v1/projects.serviceAccounts/generateAccessToken
-	accessTokenEndpoint    = "https://iamcredentials.googleapis.com/v1/{name=projects/*/serviceAccounts/*}:generateAccessToken"
+	accessTokenEndpoint    = "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/service-%d@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken"
 	// In GenerateAccessTokenRequest, the `name` field should be in the format `projects/-/serviceAccounts/{account or project ID}`
 	serviceAccountPrefix = "projects/-/serviceAccounts/"
 )
@@ -55,6 +55,7 @@ type TokenManager struct {
 	// tokens is the cache for fetched tokens.
 	// map key is timestamp of token, map value is tokenInfo.
 	tokens        sync.Map
+	gCPProjectNumber int
 }
 
 type tokenInfo struct {
@@ -68,7 +69,7 @@ type tokensDump struct {
 }
 
 // CreateTokenManager creates a token manager that fetches token from a Google OAuth 2.0 authorization server.
-func CreateTokenManager(trustDomain string) (*TokenManager, error) {
+func CreateTokenManager(trustDomain string, gCPProjectNumber int) (*TokenManager, error) {
 	caCertPool, err := x509.SystemCertPool()
 	if err != nil {
 		tokenManagerLog.Errorf("Failed to get SystemCertPool: %v", err)
@@ -84,6 +85,7 @@ func CreateTokenManager(trustDomain string) (*TokenManager, error) {
 			},
 		},
 		trustDomain: trustDomain,
+		gCPProjectNumber: gCPProjectNumber,
 	}
 	return tm, nil
 }
@@ -222,8 +224,10 @@ func (tm *TokenManager) fetchAccessToken(federatedToken federatedTokenResponse, 
 	respData := accessTokenResponse{}
 
 	jsonQuery := tm.constructGenerateAccessTokenRequest(federatedToken, sub)
-	req, _ := http.NewRequest("POST", accessTokenEndpoint, bytes.NewBuffer(jsonQuery))
+	endpoint := fmt.Sprintf(accessTokenEndpoint, tm.gCPProjectNumber)
+	req, _ := http.NewRequest("POST", endpoint, bytes.NewBuffer(jsonQuery))
 	req.Header.Set("Content-Type", contentType)
+	req.Header.Add("Authorization", "Bearer " + federatedToken.AccessToken)
 	resp, err := tm.sendRequestWithRetry(req)
 	if err != nil {
 		tokenManagerLog.Errorf("Failed to exchange access token (HTTP status %d): %s", resp.Status,
