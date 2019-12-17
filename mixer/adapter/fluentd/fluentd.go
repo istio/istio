@@ -227,9 +227,10 @@ func (h *handler) HandleLogEntry(ctx context.Context, insts []*logentry.Instance
 				}
 			}
 			if h.types[i.Name].Variables[k] == descriptor.IP_ADDRESS {
-				if ip, ok := v.(net.IP); ok {
+				switch ip := v.(type) {
+				case net.IP:
 					i.Variables[k] = ip.String()
-				} else if ip, ok := v.([]byte); ok {
+				case []byte:
 					i.Variables[k] = net.IP(ip).String()
 				}
 			}
