@@ -9297,6 +9297,10 @@ var _chartsIstioControlIstioAutoinjectFilesInjectionTemplateYaml = []byte(`templ
   {{- if (isset .ObjectMeta.Annotations `+"`"+`sidecar.istio.io/bootstrapOverride`+"`"+`) }}
     - --templateFile=/etc/istio/custom-bootstrap/envoy_bootstrap.json
   {{- end }}
+  {{- if .Values.global.proxy.lifecycle }}
+    lifecycle:
+      {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}
+    {{- end }}
     env:
     - name: POD_NAME
       valueFrom:
@@ -10319,6 +10323,7 @@ var _chartsIstioControlIstioAutoinjectValuesYaml = []byte(`sidecarInjectorWebhoo
   #   container.apparmor.security.beta.kubernetes.io/istio-init: runtime/default
   #   container.apparmor.security.beta.kubernetes.io/istio-proxy: runtime/default
   injectedAnnotations: {}
+  lifecycle: {}
 
   # If set, will use the value as injection label. The value must match the 'release' label of the injector,
   # except when 1.2 istio-injection label is used, which must be set to "enabled".
@@ -11289,42 +11294,13 @@ webhooks:
         - UPDATE
         apiGroups:
         - rbac.istio.io
-        apiVersions:
-        - "*"
-        resources:
-        - "*"
-      - operations:
-        - CREATE
-        - UPDATE
-        apiGroups:
         - security.istio.io
-        apiVersions:
-        - "*"
-        resources:
-        - "*"
-      - operations:
-        - CREATE
-        - UPDATE
-        apiGroups:
         - authentication.istio.io
-        apiVersions:
-        - "*"
-        resources:
-        - "*"
-      - operations:
-        - CREATE
-        - UPDATE
-        apiGroups:
         - networking.istio.io
         apiVersions:
         - "*"
         resources:
-        - destinationrules
-        - envoyfilters
-        - gateways
-        - serviceentries
-        - sidecars
-        - virtualservices
+        - "*"
     failurePolicy: Fail
     sideEffects: None
   - name: mixer.validation.istio.io
@@ -11345,37 +11321,10 @@ webhooks:
         resources:
         - rules
         - attributemanifests
-        - circonuses
-        - deniers
-        - fluentds
-        - kubernetesenvs
-        - listcheckers
-        - memquotas
-        - noops
-        - opas
-        - prometheuses
-        - rbacs
-        - solarwindses
-        - stackdrivers
-        - cloudwatches
-        - dogstatsds
-        - statsds
-        - stdios
-        - apikeys
-        - authorizations
-        - checknothings
-        # - kuberneteses
-        - listentries
-        - logentries
-        - metrics
-        - quotas
-        - reportnothings
-        - tracespans
         - adapters
         - handlers
         - instances
         - templates
-        - zipkins
     failurePolicy: Fail
     sideEffects: None
 {{- end }}
@@ -12007,9 +11956,14 @@ metadata:
     release: {{ .Release.Name }}
 data:
 
+  # Configuration file for the mesh networks to be used by the Split Horizon EDS.
   meshNetworks: |-
-    # Network config
-{{ toYaml .Values.pilot.meshNetworks | trim | indent 4 }}
+  {{- if .Values.global.meshNetworks }}
+    networks:
+{{ toYaml .Values.global.meshNetworks | trim | indent 6 }}
+  {{- else }}
+    networks: {}
+  {{- end }}
 
   values.yaml: |-
 {{ toYaml .Values.pilot | trim | indent 4 }}
@@ -13394,10 +13348,6 @@ pilot:
 
 
   ## Mesh config settings
-
-  # Used to override control-plane networs
-  meshNetworks:
-    networks: {}
 
   # Install the mesh config map, generated from values.yaml.
   # If false, pilot wil use default values (by default) or user-supplied values.
