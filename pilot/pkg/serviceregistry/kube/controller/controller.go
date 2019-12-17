@@ -44,6 +44,7 @@ import (
 	configKube "istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/queue"
 )
 
 const (
@@ -142,18 +143,20 @@ var _ serviceregistry.Instance = &Controller{}
 // Caches are thread-safe
 type Controller struct {
 	client    kubernetes.Interface
-	queue     kube.Queue
-	services  cacheHandler
+	queue     queue.Instance
+	services  cache.SharedIndexInformer
 	endpoints kubeEndpointsController
 
 	// TODO we can disable this when we only have EndpointSlice enabled
-	nodes           cacheHandler
+	nodes           cache.SharedIndexInformer
 	pods            *PodCache
 	metrics         model.Metrics
 	networksWatcher mesh.NetworksWatcher
 	xdsUpdater      model.XDSUpdater
 	domainSuffix    string
 	clusterID       string
+
+	serviceHandlers []func(*model.Service, model.Event)
 
 	stop chan struct{}
 
@@ -170,22 +173,17 @@ type Controller struct {
 	networkForRegistry string
 }
 
-type cacheHandler struct {
-	informer cache.SharedIndexInformer
-	handler  *kube.ChainHandler
-}
-
 // NewController creates a new Kubernetes controller
 // Created by bootstrap and multicluster (see secretcontroler).
 func NewController(client kubernetes.Interface, options Options) *Controller {
 	log.Infof("Service controller watching namespace %q for services, endpoints, nodes and pods, refresh %s",
 		options.WatchedNamespace, options.ResyncPeriod)
 
-	// Queue requires a time duration for a retry delay after a handler error
-	out := &Controller{
+	// The queue requires a time duration for a retry delay after a handler error
+	c := &Controller{
 		domainSuffix:               options.DomainSuffix,
 		client:                     client,
-		queue:                      kube.NewQueue(1 * time.Second),
+		queue:                      queue.NewQueue(1 * time.Second),
 		clusterID:                  options.ClusterID,
 		xdsUpdater:                 options.XDSUpdater,
 		servicesMap:                make(map[host.Name]*model.Service),
@@ -195,23 +193,24 @@ func NewController(client kubernetes.Interface, options Options) *Controller {
 
 	sharedInformers := informers.NewSharedInformerFactoryWithOptions(client, options.ResyncPeriod, informers.WithNamespace(options.WatchedNamespace))
 
-	svcInformer := sharedInformers.Core().V1().Services().Informer()
-	out.services = out.createCacheHandler(svcInformer, "Services")
+	c.services = sharedInformers.Core().V1().Services().Informer()
+	registerHandlers(c.services, c.queue, "Services", c.onServiceEvent)
 
 	switch options.EndpointMode {
 	case EndpointsOnly:
-		out.endpoints = newEndpointsController(out, sharedInformers)
+		c.endpoints = newEndpointsController(c, sharedInformers)
 	case EndpointSliceOnly:
-		out.endpoints = newEndpointSliceController(out, sharedInformers)
+		c.endpoints = newEndpointSliceController(c, sharedInformers)
 	}
 
-	nodeInformer := sharedInformers.Core().V1().Nodes().Informer()
-	out.nodes = out.createCacheHandler(nodeInformer, "Nodes")
+	c.nodes = sharedInformers.Core().V1().Nodes().Informer()
+	registerHandlers(c.nodes, c.queue, "Nodes", c.onNodeEvent)
 
 	podInformer := sharedInformers.Core().V1().Pods().Informer()
-	out.pods = newPodCache(out.createCacheHandler(podInformer, "Pod"), out)
+	c.pods = newPodCache(podInformer, c)
+	registerHandlers(podInformer, c.queue, "Pods", c.pods.onEvent)
 
-	return out
+	return c
 }
 
 func (c *Controller) Provider() serviceregistry.ProviderID {
@@ -222,46 +221,98 @@ func (c *Controller) Cluster() string {
 	return c.clusterID
 }
 
-// notify is the first handler in the handler chain.
-// Returning an error causes repeated execution of the entire chain.
-func (c *Controller) notify(_, _ interface{}, _ model.Event) error {
+func (c *Controller) checkReadyForEvents() error {
 	if !c.HasSynced() {
 		return errors.New("waiting till full synchronization")
 	}
 	return nil
 }
 
-// createCacheHandler registers handlers for a specific event.
-// Current implementation queues the events in queue.go, and the handler is run with
-// some throttling.
-// Used for Service, Endpoint, Node and Pod.
-// See config/kube for CRD events.
-// See config/ingress for Ingress objects
-func (c *Controller) createCacheHandler(informer cache.SharedIndexInformer, otype string) cacheHandler {
-	handler := &kube.ChainHandler{Funcs: []kube.Handler{c.notify}}
+func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
+	if err := c.checkReadyForEvents(); err != nil {
+		return err
+	}
+
+	svc, ok := curr.(*v1.Service)
+	if !ok {
+		tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			log.Errorf("Couldn't get object from tombstone %#v", curr)
+			return nil
+		}
+		svc, ok = tombstone.Obj.(*v1.Service)
+		if !ok {
+			log.Errorf("Tombstone contained object that is not a service %#v", curr)
+			return nil
+		}
+	}
+
+	log.Debugf("Handle event %s for service %s in namespace %s", event, svc.Name, svc.Namespace)
+
+	svcConv := kube.ConvertService(*svc, c.domainSuffix, c.clusterID)
+	switch event {
+	case model.EventDelete:
+		c.Lock()
+		delete(c.servicesMap, svcConv.Hostname)
+		delete(c.externalNameSvcInstanceMap, svcConv.Hostname)
+		c.Unlock()
+		// EDS needs to just know when service is deleted.
+		c.xdsUpdater.SvcUpdate(c.clusterID, svc.Name, svc.Namespace, event)
+	default:
+		// instance conversion is only required when service is added/updated.
+		instances := kube.ExternalNameServiceInstances(*svc, svcConv)
+		c.Lock()
+		c.servicesMap[svcConv.Hostname] = svcConv
+		if instances == nil {
+			delete(c.externalNameSvcInstanceMap, svcConv.Hostname)
+		} else {
+			c.externalNameSvcInstanceMap[svcConv.Hostname] = instances
+		}
+		c.Unlock()
+		c.xdsUpdater.SvcUpdate(c.clusterID, svc.Name, svc.Namespace, event)
+	}
+
+	// Notify service handlers.
+	for _, f := range c.serviceHandlers {
+		f(svcConv, event)
+	}
+
+	return nil
+}
+
+func (c *Controller) onNodeEvent(_ interface{}, _ model.Event) error {
+	return c.checkReadyForEvents()
+}
+
+func registerHandlers(informer cache.SharedIndexInformer, q queue.Instance, otype string,
+	handler func(interface{}, model.Event) error) {
 
 	informer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			// TODO: filtering functions to skip over un-referenced resources (perf)
 			AddFunc: func(obj interface{}) {
 				incrementEvent(otype, "add")
-				c.queue.Push(kube.NewTask(handler.Apply, nil, obj, model.EventAdd))
+				q.Push(func() error {
+					return handler(obj, model.EventAdd)
+				})
 			},
 			UpdateFunc: func(old, cur interface{}) {
 				if !reflect.DeepEqual(old, cur) {
 					incrementEvent(otype, "update")
-					c.queue.Push(kube.NewTask(handler.Apply, old, cur, model.EventUpdate))
+					q.Push(func() error {
+						return handler(cur, model.EventUpdate)
+					})
 				} else {
 					incrementEvent(otype, "updatesame")
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
 				incrementEvent(otype, "delete")
-				c.queue.Push(kube.NewTask(handler.Apply, nil, obj, model.EventDelete))
+				q.Push(func() error {
+					return handler(obj, model.EventDelete)
+				})
 			},
 		})
-
-	return cacheHandler{informer: informer, handler: handler}
 }
 
 // compareEndpoints returns true if the two endpoints are the same in aspects Pilot cares about
@@ -283,10 +334,10 @@ func compareEndpoints(a, b *v1.Endpoints) bool {
 
 // HasSynced returns true after the initial state synchronization
 func (c *Controller) HasSynced() bool {
-	if !c.services.informer.HasSynced() ||
+	if !c.services.HasSynced() ||
 		!c.endpoints.HasSynced() ||
 		!c.pods.informer.HasSynced() ||
-		!c.nodes.informer.HasSynced() {
+		!c.nodes.HasSynced() {
 		return false
 	}
 	return true
@@ -304,13 +355,13 @@ func (c *Controller) Run(stop <-chan struct{}) {
 		c.queue.Run(stop)
 	}()
 
-	go c.services.informer.Run(stop)
+	go c.services.Run(stop)
 	go c.pods.informer.Run(stop)
-	go c.nodes.informer.Run(stop)
+	go c.nodes.Run(stop)
 
 	// To avoid endpoints without labels or ports, wait for sync.
-	cache.WaitForCacheSync(stop, c.nodes.informer.HasSynced, c.pods.informer.HasSynced,
-		c.services.informer.HasSynced)
+	cache.WaitForCacheSync(stop, c.nodes.HasSynced, c.pods.informer.HasSynced,
+		c.services.HasSynced)
 
 	go c.endpoints.Run(stop)
 
@@ -354,7 +405,7 @@ func (c *Controller) GetPodLocality(pod *v1.Pod) string {
 
 	// NodeName is set by the scheduler after the pod is created
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#late-initialization
-	node, exists, err := c.nodes.informer.GetStore().GetByKey(pod.Spec.NodeName)
+	node, exists, err := c.nodes.GetStore().GetByKey(pod.Spec.NodeName)
 	if !exists || err != nil {
 		log.Warnf("unable to get node %q for pod %q: %v", pod.Spec.NodeName, pod.Name, err)
 		return ""
@@ -489,7 +540,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 			proxyNamespace = pod.Namespace
 			// 1. find proxy service by label selector, if not any, there may exist headless service
 			// failover to 3
-			svcLister := listerv1.NewServiceLister(c.services.informer.GetIndexer())
+			svcLister := listerv1.NewServiceLister(c.services.GetIndexer())
 			if services, err := svcLister.GetPodServices(pod); err == nil && len(services) > 0 {
 				for _, svc := range services {
 					out = append(out, c.getProxyServiceInstancesByPod(pod, svc, proxy)...)
@@ -544,7 +595,7 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 	}
 
 	// Find the Service associated with the pod.
-	svcLister := listerv1.NewServiceLister(c.services.informer.GetIndexer())
+	svcLister := listerv1.NewServiceLister(c.services.GetIndexer())
 	services, err := svcLister.GetPodServices(dummyPod)
 	if err != nil {
 		return nil, fmt.Errorf("error getting instances: %v", err)
@@ -720,56 +771,12 @@ func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []
 
 // AppendServiceHandler implements a service catalog operation
 func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) error {
-	c.services.handler.Append(func(old, curr interface{}, event model.Event) error {
-		svc, ok := curr.(*v1.Service)
-		if !ok {
-			tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
-			if !ok {
-				log.Errorf("Couldn't get object from tombstone %#v", curr)
-				return nil
-			}
-			svc, ok = tombstone.Obj.(*v1.Service)
-			if !ok {
-				log.Errorf("Tombstone contained object that is not a service %#v", curr)
-				return nil
-			}
-		}
-
-		log.Debugf("Handle event %s for service %s in namespace %s", event, svc.Name, svc.Namespace)
-
-		svcConv := kube.ConvertService(*svc, c.domainSuffix, c.clusterID)
-		switch event {
-		case model.EventDelete:
-			c.Lock()
-			delete(c.servicesMap, svcConv.Hostname)
-			delete(c.externalNameSvcInstanceMap, svcConv.Hostname)
-			c.Unlock()
-			// EDS needs to just know when service is deleted.
-			c.xdsUpdater.SvcUpdate(c.clusterID, svc.Name, svc.Namespace, event)
-		default:
-			// instance conversion is only required when service is added/updated.
-			instances := kube.ExternalNameServiceInstances(*svc, svcConv)
-			c.Lock()
-			c.servicesMap[svcConv.Hostname] = svcConv
-			if instances == nil {
-				delete(c.externalNameSvcInstanceMap, svcConv.Hostname)
-			} else {
-				c.externalNameSvcInstanceMap[svcConv.Hostname] = instances
-			}
-			c.Unlock()
-			c.xdsUpdater.SvcUpdate(c.clusterID, svc.Name, svc.Namespace, event)
-		}
-
-		f(svcConv, event)
-
-		return nil
-	})
+	c.serviceHandlers = append(c.serviceHandlers, f)
 	return nil
 }
 
 // AppendInstanceHandler implements a service catalog operation
-func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
-	c.endpoints.AppendInstanceHandler(c)
+func (c *Controller) AppendInstanceHandler(func(*model.ServiceInstance, model.Event)) error {
 	return nil
 }
 

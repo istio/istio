@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schemas"
+	"istio.io/istio/pkg/queue"
 )
 
 // In 1.0, the Gateway is defined in the namespace where the actual controller runs, and needs to be managed by
@@ -68,10 +69,10 @@ type controller struct {
 	mesh         *meshconfig.MeshConfig
 	domainSuffix string
 
-	client   kubernetes.Interface
-	queue    kube.Queue
-	informer cache.SharedIndexInformer
-	handler  *kube.ChainHandler
+	client                 kubernetes.Interface
+	queue                  queue.Instance
+	informer               cache.SharedIndexInformer
+	virtualServiceHandlers []func(model.Config, model.Config, model.Event)
 }
 
 var (
@@ -86,10 +87,9 @@ var (
 // NewController creates a new Kubernetes controller
 func NewController(client kubernetes.Interface, mesh *meshconfig.MeshConfig,
 	options kubecontroller.Options) model.ConfigStoreCache {
-	handler := &kube.ChainHandler{}
 
 	// queue requires a time duration for a retry delay after a handler error
-	queue := kube.NewQueue(1 * time.Second)
+	q := queue.NewQueue(1 * time.Second)
 
 	if ingressNamespace == "" {
 		ingressNamespace = constants.IstioIngressNamespace
@@ -97,69 +97,74 @@ func NewController(client kubernetes.Interface, mesh *meshconfig.MeshConfig,
 
 	log.Infof("Ingress controller watching namespaces %q", options.WatchedNamespace)
 	informer := v1beta1.NewFilteredIngressInformer(client, options.WatchedNamespace, options.ResyncPeriod, cache.Indexers{}, nil)
-	informer.AddEventHandler(
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				queue.Push(kube.NewTask(handler.Apply, nil, obj, model.EventAdd))
-			},
-			UpdateFunc: func(old, cur interface{}) {
-				if !reflect.DeepEqual(old, cur) {
-					queue.Push(kube.NewTask(handler.Apply, old, cur, model.EventUpdate))
-				}
-			},
-			DeleteFunc: func(obj interface{}) {
-				queue.Push(kube.NewTask(handler.Apply, nil, obj, model.EventDelete))
-			},
-		})
 
-	// first handler in the chain blocks until the cache is fully synchronized
-	// it does this by returning an error to the chain handler
-	handler.Append(func(_, obj interface{}, event model.Event) error {
-		if !informer.HasSynced() {
-			return errors.New("waiting till full synchronization")
-		}
-		if ingress, ok := obj.(*extensionsv1beta1.Ingress); ok {
-			log.Infof("ingress event %s for %s/%s", event, ingress.Namespace, ingress.Name)
-		}
-		return nil
-	})
-
-	return &controller{
+	c := &controller{
 		mesh:         mesh,
 		domainSuffix: options.DomainSuffix,
 		client:       client,
-		queue:        queue,
+		queue:        q,
 		informer:     informer,
-		handler:      handler,
 	}
+
+	informer.AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				q.Push(func() error {
+					return c.onEvent(obj, model.EventAdd)
+				})
+			},
+			UpdateFunc: func(old, cur interface{}) {
+				if !reflect.DeepEqual(old, cur) {
+					q.Push(func() error {
+						return c.onEvent(cur, model.EventUpdate)
+					})
+				}
+			},
+			DeleteFunc: func(obj interface{}) {
+				q.Push(func() error {
+					return c.onEvent(obj, model.EventDelete)
+				})
+			},
+		})
+
+	return c
+}
+
+func (c *controller) onEvent(obj interface{}, event model.Event) error {
+	if !c.informer.HasSynced() {
+		return errors.New("waiting till full synchronization")
+	}
+
+	ingress, ok := obj.(*extensionsv1beta1.Ingress)
+	if !ok || !shouldProcessIngress(c.mesh, ingress) {
+		return nil
+	}
+	log.Infof("ingress event %s for %s/%s", event, ingress.Namespace, ingress.Name)
+
+	// In 1.0, Pilot has a single function, clearCache, which ignores
+	// the inputs.
+	// In future we may do smarter processing - but first we'll do
+	// major refactoring. No need to recompute everything and generate
+	// multiple events.
+
+	// TODO: This works well for Add and Delete events, but not so for Update:
+	// An updated ingress may also trigger an Add or Delete for one of its constituent sub-rules.
+	for _, f := range c.virtualServiceHandlers {
+		f(model.Config{}, model.Config{
+			ConfigMeta: model.ConfigMeta{
+				Type: schemas.VirtualService.Type,
+			},
+		}, event)
+	}
+
+	return nil
 }
 
 func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model.Config, model.Event)) {
-	c.handler.Append(func(_, curr interface{}, event model.Event) error {
-		ingress, ok := curr.(*extensionsv1beta1.Ingress)
-		if !ok || !shouldProcessIngress(c.mesh, ingress) {
-			return nil
-		}
-
-		// In 1.0, Pilot has a single function, clearCache, which ignores
-		// the inputs.
-		// In future we may do smarter processing - but first we'll do
-		// major refactoring. No need to recompute everything and generate
-		// multiple events.
-
-		// TODO: This works well for Add and Delete events, but not so for Update:
-		// An updated ingress may also trigger an Add or Delete for one of its constituent sub-rules.
-		switch typ {
-		case schemas.VirtualService.Type:
-			f(model.Config{}, model.Config{
-				ConfigMeta: model.ConfigMeta{
-					Type: typ,
-				},
-			}, event)
-		}
-
-		return nil
-	})
+	switch typ {
+	case schemas.VirtualService.Type:
+		c.virtualServiceHandlers = append(c.virtualServiceHandlers, f)
+	}
 }
 
 func (c *controller) Version() string {
