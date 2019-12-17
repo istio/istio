@@ -8,9 +8,14 @@ metadata:
     release: {{ .Release.Name }}
 data:
 
+  # Configuration file for the mesh networks to be used by the Split Horizon EDS.
   meshNetworks: |-
-    # Network config
-{{ toYaml .Values.pilot.meshNetworks | trim | indent 4 }}
+  {{- if .Values.global.meshNetworks }}
+    networks:
+{{ toYaml .Values.global.meshNetworks | trim | indent 6 }}
+  {{- else }}
+    networks: {}
+  {{- end }}
 
   values.yaml: |-
 {{ toYaml .Values.pilot | trim | indent 4 }}

@@ -85,10 +85,6 @@ pilot:
 
   ## Mesh config settings
 
-  # Used to override control-plane networs
-  meshNetworks:
-    networks: {}
-
   # Install the mesh config map, generated from values.yaml.
   # If false, pilot wil use default values (by default) or user-supplied values.
   configMap: true
