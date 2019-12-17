@@ -138,6 +138,9 @@ var (
 	// K8SCoreV1Pods is the name of collection k8s/core/v1/pods
 	K8SCoreV1Pods = collection.NewName("k8s/core/v1/pods")
 
+	// K8SCoreV1Secrets is the name of collection k8s/core/v1/secrets
+	K8SCoreV1Secrets = collection.NewName("k8s/core/v1/secrets")
+
 	// K8SCoreV1Services is the name of collection k8s/core/v1/services
 	K8SCoreV1Services = collection.NewName("k8s/core/v1/services")
 
@@ -227,6 +230,7 @@ func CollectionNames() []collection.Name {
 		K8SCoreV1Namespaces,
 		K8SCoreV1Nodes,
 		K8SCoreV1Pods,
+		K8SCoreV1Secrets,
 		K8SCoreV1Services,
 		K8SExtensionsV1Beta1Ingresses,
 		K8SNetworkingIstioIoV1Alpha3Destinationrules,

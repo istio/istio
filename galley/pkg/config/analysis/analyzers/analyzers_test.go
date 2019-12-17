@@ -245,6 +245,16 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "gatewaySecret",
+		inputFiles: []string{"testdata/gateway-secrets.yaml"},
+		analyzer:   &gateway.SecretAnalyzer{},
+		expected: []message{
+			{msg.ReferencedResourceNotFound, "Gateway defaultgateway-bogusCredentialName"},
+			{msg.ReferencedResourceNotFound, "Gateway customgateway-wrongnamespace"},
+			{msg.ReferencedResourceNotFound, "Gateway bogusgateway"},
+		},
+	},
+	{
 		name:       "istioInjection",
 		inputFiles: []string{"testdata/injection.yaml"},
 		analyzer:   &injection.Analyzer{},
