@@ -208,8 +208,9 @@ func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model
 	c.kinds[typ].handler.Append(func(old, curr interface{}, ev model.Event) error {
 		var currItem, oldItem crd.IstioObject
 		var currConfig, oldConfig *model.Config
-		ok := false
 		var err error
+
+		ok := false
 
 		if currItem, ok = curr.(crd.IstioObject); !ok {
 			log.Warnf("New Object can not be converted to Istio Object %v", curr)
