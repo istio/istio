@@ -628,6 +628,29 @@ func TestAuthnFilterConfig(t *testing.T) {
 		},
 	},
 		{
+			name: "only-mtls-alpha-fallback",
+			alphaPolicyIn: &authn_alpha_api.Policy{
+				Peers: []*authn_alpha_api.PeerAuthenticationMethod{{
+					Params: &authn_alpha_api.PeerAuthenticationMethod_Mtls{&authn_alpha_api.MutualTls{}},
+				}},
+			},
+			expected: &http_conn.HttpFilter{
+				Name: "istio_authn",
+				ConfigType: &http_conn.HttpFilter_Config{
+					Config: pilotutil.MessageToStruct(&authn_filter.FilterConfig{
+						Policy: &authn_alpha.Policy{
+							Peers: []*authn_alpha.PeerAuthenticationMethod{
+								{
+									Params: &authn_alpha.PeerAuthenticationMethod_Mtls{
+										Mtls: &authn_alpha.MutualTls{},
+									},
+								},
+							},
+						}}),
+				},
+			},
+		},
+		{
 			name: "single-request-authn-rule",
 			in: []*model.Config{
 				{
