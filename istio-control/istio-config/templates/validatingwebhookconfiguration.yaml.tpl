@@ -34,42 +34,9 @@ webhooks:
         - UPDATE
         apiGroups:
         - rbac.istio.io
-        apiVersions:
-        - "*"
-        resources:
-        - "*"
-      - operations:
-        - CREATE
-        - UPDATE
-        apiGroups:
         - security.istio.io
-        apiVersions:
-        - "*"
-        resources:
-        - "*"
-      - operations:
-        - CREATE
-        - UPDATE
-        apiGroups:
         - authentication.istio.io
-        apiVersions:
-        - "*"
-        resources:
-        - "*"
-      - operations:
-        - CREATE
-        - UPDATE
-        apiGroups:
         - networking.istio.io
-        apiVersions:
-        - "*"
-        resources:
-        - destinationrules
-        - envoyfilters
-        - gateways
-        - serviceentries
-        - sidecars
-        - virtualservices
     failurePolicy: Fail
     sideEffects: None
   - name: mixer.validation.istio.io
@@ -90,37 +57,10 @@ webhooks:
         resources:
         - rules
         - attributemanifests
-        - circonuses
-        - deniers
-        - fluentds
-        - kubernetesenvs
-        - listcheckers
-        - memquotas
-        - noops
-        - opas
-        - prometheuses
-        - rbacs
-        - solarwindses
-        - stackdrivers
-        - cloudwatches
-        - dogstatsds
-        - statsds
-        - stdios
-        - apikeys
-        - authorizations
-        - checknothings
-        # - kuberneteses
-        - listentries
-        - logentries
-        - metrics
-        - quotas
-        - reportnothings
-        - tracespans
         - adapters
         - handlers
         - instances
         - templates
-        - zipkins
     failurePolicy: Fail
     sideEffects: None
 {{- end }}
