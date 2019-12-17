@@ -159,6 +159,34 @@ func (p *Provider) initKnownAdapters() {
 			isRequiredForServiceDiscovery: true,
 		},
 
+		asTypesKey("", "Secret"): {
+			extractObject: defaultExtractObject,
+			extractResource: func(o interface{}) (proto.Message, error) {
+				if obj, ok := o.(*v1.Secret); ok {
+					return obj, nil
+				}
+				return nil, fmt.Errorf("unable to convert to v1.Secret: %T", o)
+			},
+			newInformer: func() (cache.SharedIndexInformer, error) {
+				informer, err := p.sharedInformerFactory()
+				if err != nil {
+					return nil, err
+				}
+
+				return informer.Core().V1().Secrets().Informer(), nil
+			},
+			parseJSON: func(input []byte) (interface{}, error) {
+				out := &v1.Secret{}
+				if _, _, err := deserializer.Decode(input, nil, out); err != nil {
+					return nil, err
+				}
+				return out, nil
+			},
+			getStatus: noStatus,
+			isEqual:   resourceVersionsMatch,
+			isBuiltIn: true,
+		},
+
 		asTypesKey("", "Endpoints"): {
 			extractObject: defaultExtractObject,
 			extractResource: func(o interface{}) (proto.Message, error) {

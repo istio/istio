@@ -182,6 +182,10 @@ collections:
   ### K8s collections ###
 
   # Built-in K8s collections
+  - name: "k8s/apps/v1/deployments"
+    proto: "k8s.io.api.apps.v1.Deployment"
+    protoPackage: "k8s.io/api/apps/v1"
+
   - name: "k8s/core/v1/endpoints"
     proto: "k8s.io.api.core.v1.Endpoints"
     protoPackage: "k8s.io/api/core/v1"
@@ -198,9 +202,9 @@ collections:
     proto: "k8s.io.api.core.v1.Pod"
     protoPackage: "k8s.io/api/core/v1"
 
-  - name: "k8s/apps/v1/deployments"
-    proto: "k8s.io.api.apps.v1.Deployment"
-    protoPackage: "k8s.io/api/apps/v1"
+  - name: "k8s/core/v1/secrets"
+    proto: "k8s.io.api.core.v1.Secret"
+    protoPackage: "k8s.io/api/core/v1"
 
   - name: "k8s/core/v1/services"
     proto: "k8s.io.api.core.v1.ServiceSpec"
@@ -361,25 +365,26 @@ snapshots:
       - "istio/networking/v1alpha3/sidecars"
       - "istio/networking/v1alpha3/virtualservices"
       - "istio/networking/v1alpha3/synthetic/serviceentries"
-      - "k8s/core/v1/namespaces"
-      - "k8s/core/v1/services"
-      - "k8s/core/v1/pods"
       - "k8s/apps/v1/deployments"
+      - "k8s/core/v1/namespaces"
+      - "k8s/core/v1/pods"
+      - "k8s/core/v1/secrets"
+      - "k8s/core/v1/services"
 
 # Configuration for input sources
 sources:
   # Kubernetes specific configuration.
   - type: kubernetes
     resources:
-    - collection: "k8s/extensions/v1beta1/ingresses"
-      kind: "Ingress"
-      plural: "ingresses"
-      group: "extensions"
-      version: "v1beta1"
+    - collection: "k8s/apps/v1/deployments"
+      kind: "Deployment"
+      plural: "Deployments"
+      group: "apps"
+      version: "v1"
 
-    - collection: "k8s/core/v1/services"
-      kind: "Service"
-      plural: "services"
+    - collection: "k8s/core/v1/endpoints"
+      kind: "Endpoints"
+      plural: "endpoints"
       version: "v1"
 
     - collection: "k8s/core/v1/namespaces"
@@ -399,16 +404,23 @@ sources:
       plural: "pods"
       version: "v1"
 
-    - collection: "k8s/apps/v1/deployments"
-      kind: "Deployment"
-      plural: "Deployments"
-      group: "apps"
+    - collection: "k8s/core/v1/secrets"
+      kind: "Secret"
+      plural: "secrets"
       version: "v1"
 
-    - collection: "k8s/core/v1/endpoints"
-      kind: "Endpoints"
-      plural: "endpoints"
+    - collection: "k8s/core/v1/services"
+      kind: "Service"
+      plural: "services"
       version: "v1"
+
+    - collection: "k8s/extensions/v1beta1/ingresses"
+      kind: "Ingress"
+      plural: "ingresses"
+      group: "extensions"
+      version: "v1beta1"
+
+
 
     - collection: "k8s/networking.istio.io/v1alpha3/virtualservices"
       kind: "VirtualService"
@@ -582,11 +594,13 @@ transforms:
       "k8s/rbac.istio.io/v1alpha1/serviceroles": "istio/rbac/v1alpha1/serviceroles"
       "k8s/security.istio.io/v1beta1/authorizationpolicies": "istio/security/v1beta1/authorizationpolicies"
       "k8s/security.istio.io/v1beta1/requestauthentications": "istio/security/v1beta1/requestauthentications"
-      "k8s/core/v1/namespaces": "k8s/core/v1/namespaces"
-      "k8s/core/v1/services": "k8s/core/v1/services"
-      "k8s/core/v1/pods": "k8s/core/v1/pods"
       "k8s/apps/v1/deployments": "k8s/apps/v1/deployments"
-      "istio/mesh/v1alpha1/MeshConfig": "istio/mesh/v1alpha1/MeshConfig"`)
+      "k8s/core/v1/namespaces": "k8s/core/v1/namespaces"
+      "k8s/core/v1/pods": "k8s/core/v1/pods"
+      "k8s/core/v1/secrets": "k8s/core/v1/secrets"
+      "k8s/core/v1/services": "k8s/core/v1/services"
+      "istio/mesh/v1alpha1/MeshConfig": "istio/mesh/v1alpha1/MeshConfig"
+`)
 
 func metadataYamlBytes() ([]byte, error) {
 	return _metadataYaml, nil
