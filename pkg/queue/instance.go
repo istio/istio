@@ -12,52 +12,38 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package kube
+package queue
 
 import (
 	"sync"
 	"time"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/pkg/log"
 )
 
-// Queue of work tickets processed using a rate-limiting loop
-type Queue interface {
-	// Push a ticket
-	Push(Task)
+// Task to be performed.
+type Task func() error
+
+// Instance of work tickets processed using a rate-limiting loop
+type Instance interface {
+	// Push a task.
+	Push(task Task)
 	// Run the loop until a signal on the channel
 	Run(<-chan struct{})
 }
 
-// Handler specifies a function to apply on an object for a given event type
-type Handler func(old, curr interface{}, event model.Event) error
-
-// Task object for the event watchers; processes until handler succeeds
-type Task struct {
-	Handler Handler
-	Old     interface{}
-	Curr    interface{}
-	Event   model.Event
-}
-
-// NewTask creates a task from a work item
-func NewTask(handler Handler, old, curr interface{}, event model.Event) Task {
-	return Task{Handler: handler, Old: old, Curr: curr, Event: event}
-}
-
 type queueImpl struct {
 	delay   time.Duration
-	queue   []Task
+	tasks   []Task
 	cond    *sync.Cond
 	closing bool
 }
 
 // NewQueue instantiates a queue with a processing function
-func NewQueue(errorDelay time.Duration) Queue {
+func NewQueue(errorDelay time.Duration) Instance {
 	return &queueImpl{
 		delay:   errorDelay,
-		queue:   make([]Task, 0),
+		tasks:   make([]Task, 0),
 		closing: false,
 		cond:    sync.NewCond(&sync.Mutex{}),
 	}
@@ -67,7 +53,7 @@ func (q *queueImpl) Push(item Task) {
 	q.cond.L.Lock()
 	defer q.cond.L.Unlock()
 	if !q.closing {
-		q.queue = append(q.queue, item)
+		q.tasks = append(q.tasks, item)
 	}
 	q.cond.Signal()
 }
@@ -82,46 +68,25 @@ func (q *queueImpl) Run(stop <-chan struct{}) {
 
 	for {
 		q.cond.L.Lock()
-		for !q.closing && len(q.queue) == 0 {
+		for !q.closing && len(q.tasks) == 0 {
 			q.cond.Wait()
 		}
 
-		if len(q.queue) == 0 {
+		if len(q.tasks) == 0 {
 			q.cond.L.Unlock()
 			// We must be shutting down.
 			return
 		}
 
-		var item Task
-		item, q.queue = q.queue[0], q.queue[1:]
+		var task Task
+		task, q.tasks = q.tasks[0], q.tasks[1:]
 		q.cond.L.Unlock()
 
-		if err := item.Handler(item.Old, item.Curr, item.Event); err != nil {
+		if err := task(); err != nil {
 			log.Infof("Work item handle failed (%v), retry after delay %v", err, q.delay)
 			time.AfterFunc(q.delay, func() {
-				q.Push(item)
+				q.Push(task)
 			})
 		}
-
 	}
-}
-
-// ChainHandler applies handlers in a sequence
-type ChainHandler struct {
-	Funcs []Handler
-}
-
-// Apply is the handler function
-func (ch *ChainHandler) Apply(old, curr interface{}, event model.Event) error {
-	for _, f := range ch.Funcs {
-		if err := f(old, curr, event); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// Append a handler as the last handler in the chain
-func (ch *ChainHandler) Append(h Handler) {
-	ch.Funcs = append(ch.Funcs, h)
 }

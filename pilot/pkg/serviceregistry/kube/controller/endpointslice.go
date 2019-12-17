@@ -24,42 +24,46 @@ import (
 	"k8s.io/client-go/listers/discovery/v1alpha1"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/istio/pilot/pkg/features"
+	"istio.io/pkg/log"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
 	configKube "istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/pkg/log"
 )
 
 type endpointSliceController struct {
-	cache         cacheHandler
+	c             *Controller
+	informer      cache.SharedIndexInformer
 	endpointCache *endpointSliceCache
 }
 
 var _ kubeEndpointsController = &endpointSliceController{}
 
 func newEndpointSliceController(c *Controller, sharedInformers informers.SharedInformerFactory) *endpointSliceController {
-	epSliceInformer := sharedInformers.Discovery().V1alpha1().EndpointSlices().Informer()
+	informer := sharedInformers.Discovery().V1alpha1().EndpointSlices().Informer()
 	// TODO Endpoints has a special cache, to filter out irrelevant updates to kube-system
 	// Investigate if we need this, or if EndpointSlice is makes this not relevant
-	return &endpointSliceController{
-		cache:         c.createCacheHandler(epSliceInformer, "EndpointSlice"),
+	out := &endpointSliceController{
+		c:             c,
+		informer:      informer,
 		endpointCache: newEndpointSliceCache(),
 	}
+	registerHandlers(c.services, c.queue, "EndpointSlice", out.onEvent)
+	return out
 }
 
-func (e endpointSliceController) HasSynced() bool {
-	return e.cache.informer.HasSynced()
+func (e *endpointSliceController) HasSynced() bool {
+	return e.informer.HasSynced()
 }
 
-func (e endpointSliceController) Run(stopCh <-chan struct{}) {
-	e.cache.informer.Run(stopCh)
+func (e *endpointSliceController) Run(stopCh <-chan struct{}) {
+	e.informer.Run(stopCh)
 }
 
-func (e endpointSliceController) updateEDSSlice(c *Controller, slice *discoveryv1alpha1.EndpointSlice, event model.Event) {
+func (e *endpointSliceController) updateEDSSlice(c *Controller, slice *discoveryv1alpha1.EndpointSlice, event model.Event) {
 	svcName := slice.Labels[discoveryv1alpha1.LabelServiceName]
 	hostname := kube.ServiceHostname(svcName, slice.Namespace, c.domainSuffix)
 
@@ -132,50 +136,49 @@ func (e endpointSliceController) updateEDSSlice(c *Controller, slice *discoveryv
 	_ = c.xdsUpdater.EDSUpdate(c.clusterID, string(hostname), slice.Namespace, e.endpointCache.Get(hostname))
 }
 
-func (e endpointSliceController) AppendInstanceHandler(c *Controller) {
-	if e.cache.handler == nil {
-		return
+func (e *endpointSliceController) onEvent(curr interface{}, event model.Event) error {
+	if err := e.c.checkReadyForEvents(); err != nil {
+		return err
 	}
-	e.cache.handler.Append(func(old, curr interface{}, event model.Event) error {
-		ep, ok := curr.(*discoveryv1alpha1.EndpointSlice)
+
+	ep, ok := curr.(*discoveryv1alpha1.EndpointSlice)
+	if !ok {
+		tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
-			if !ok {
-				log.Errorf("Couldn't get object from tombstone %#v", curr)
-				return nil
-			}
-			ep, ok = tombstone.Obj.(*discoveryv1alpha1.EndpointSlice)
-			if !ok {
-				log.Errorf("Tombstone contained an object that is not an endpoints slice %#v", curr)
+			log.Errorf("Couldn't get object from tombstone %#v", curr)
+			return nil
+		}
+		ep, ok = tombstone.Obj.(*discoveryv1alpha1.EndpointSlice)
+		if !ok {
+			log.Errorf("Tombstone contained an object that is not an endpoints slice %#v", curr)
+			return nil
+		}
+	}
+
+	// Headless services are handled differently
+	if features.EnableHeadlessService.Get() {
+		svcName := ep.Labels[discoveryv1alpha1.LabelServiceName]
+		if obj, _, _ := e.c.services.GetIndexer().GetByKey(kube.KeyFunc(svcName, ep.Namespace)); obj != nil {
+			svc := obj.(*v1.Service)
+			// if the service is headless service, trigger a full push.
+			if svc.Spec.ClusterIP == v1.ClusterIPNone {
+				e.c.xdsUpdater.ConfigUpdate(&model.PushRequest{Full: true, NamespacesUpdated: map[string]struct{}{ep.Namespace: {}}})
 				return nil
 			}
 		}
+	}
 
-		// Headless services are handled differently
-		if features.EnableHeadlessService.Get() {
-			svcName := ep.Labels[discoveryv1alpha1.LabelServiceName]
-			if obj, _, _ := c.services.informer.GetIndexer().GetByKey(kube.KeyFunc(svcName, ep.Namespace)); obj != nil {
-				svc := obj.(*v1.Service)
-				// if the service is headless service, trigger a full push.
-				if svc.Spec.ClusterIP == v1.ClusterIPNone {
-					c.xdsUpdater.ConfigUpdate(&model.PushRequest{Full: true, NamespacesUpdated: map[string]struct{}{ep.Namespace: {}}})
-					return nil
-				}
-			}
-		}
+	// Otherwise, do standard endpoint update
+	e.updateEDSSlice(e.c, ep, event)
 
-		// Otherwise, do standard endpoint update
-		e.updateEDSSlice(c, ep, event)
-
-		return nil
-	})
+	return nil
 }
 
-func (e endpointSliceController) GetProxyServiceInstances(c *Controller, proxy *model.Proxy, proxyNamespace string) []*model.ServiceInstance {
+func (e *endpointSliceController) GetProxyServiceInstances(c *Controller, proxy *model.Proxy, proxyNamespace string) []*model.ServiceInstance {
 	endpointsForPodInSameNS := make([]*model.ServiceInstance, 0)
 	endpointsForPodInDifferentNS := make([]*model.ServiceInstance, 0)
 
-	for _, item := range e.cache.informer.GetStore().List() {
+	for _, item := range e.informer.GetStore().List() {
 		slice := item.(*discoveryv1alpha1.EndpointSlice)
 		endpoints := &endpointsForPodInSameNS
 		if slice.Namespace != proxyNamespace {
@@ -237,7 +240,7 @@ func getProxyServiceInstancesByEndpointSlice(c *Controller, slice *discoveryv1al
 func (e *endpointSliceController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int,
 	labelsList labels.Collection) ([]*model.ServiceInstance, error) {
 	esLabelSelector := klabels.Set(map[string]string{discoveryv1alpha1.LabelServiceName: svc.Attributes.Name}).AsSelectorPreValidated()
-	slices, err := v1alpha1.NewEndpointSliceLister(e.cache.informer.GetIndexer()).EndpointSlices(svc.Attributes.Namespace).List(esLabelSelector)
+	slices, err := v1alpha1.NewEndpointSliceLister(e.informer.GetIndexer()).EndpointSlices(svc.Attributes.Namespace).List(esLabelSelector)
 	if err != nil {
 		log.Infof("get endpoints(%s, %s) => error %v", svc.Attributes.Name, svc.Attributes.Namespace, err)
 		return nil, nil
