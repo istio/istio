@@ -430,7 +430,14 @@ func RunPortForwarder(fw *PortForward, readyFunc func(fw *PortForward) error) er
 		}
 
 		// wait for interrupt (or connection close)
-		<-fw.StopChannel
+		select {
+		case err := <-errCh:
+			if err != nil {
+				return fmt.Errorf("running port forward process error: %v", err)
+			}
+		case <-fw.StopChannel:
+		}
+
 		return nil
 	}
 }
