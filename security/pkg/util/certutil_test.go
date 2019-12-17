@@ -30,7 +30,6 @@ const (
 	//  Not After : Dec 26 08:12:31 2019 GMT
 	testCertChainWithoutIntermediateFile = "testdata/cert-chain-without-intermediate.pem"
 	// This cert has:
-	Validity
 	//  Not Before: Dec 16 08:12:59 2019 GMT
 	//  Not After : Dec 17 08:12:59 2019 GMT
 	testCertChainWithIntermediateFile = "testdata/cert-chain-with-intermediate.pem"
@@ -183,11 +182,8 @@ func TestGetMinimumTTL(t *testing.T) {
 
 	cu := NewCertUtil(50) // Grace period percentage is set to 50
 	for id, c := range testCases {
-		waitTime, err := cu.GetMinimumTTL(c.cert, c.now, c.workloadTTL)
+		waitTime := cu.GetMinimumTTL(c.cert, c.now, c.workloadTTL)
 
-		if err != nil {
-			t.Errorf("%s: unexpected error: %v", id, err)
-		}
 		if int(waitTime.Seconds()) != c.expectedWaitTime {
 			t.Errorf("%s: incorrect waittime. Expected %ds, but got %ds.", id, c.expectedWaitTime, int(waitTime.Seconds()))
 		}

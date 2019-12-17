@@ -28,7 +28,7 @@ type CertUtil interface {
 	// GetWaitTime returns the waiting time before renewing the certificate.
 	GetWaitTime([]byte, time.Time, time.Duration) (time.Duration, error)
 	// GetMinimumTTL returns the minimum duration of either the expire date of the intermediate certificate or the workload TTL
-	GetMinimumTTL(certBytes []byte, now time.Time, workloadTTL time.Duration) (time.Duration, error)
+	GetMinimumTTL(certBytes []byte, now time.Time, workloadTTL time.Duration) time.Duration
 }
 
 // CertUtilImpl is the implementation of CertUtil, for production use.
@@ -76,10 +76,11 @@ func (cu CertUtilImpl) GetWaitTime(certBytes []byte, now time.Time, minGracePeri
 
 // GetMinimumTTL returns the minimum duration for either the workload TTL or if any intermediate cert will expire before
 // the time until the intermediate cert will expire
-func (cu CertUtilImpl) GetMinimumTTL(certBytes []byte, now time.Time, workloadTTL time.Duration) (time.Duration, error) {
+func (cu CertUtilImpl) GetMinimumTTL(certBytes []byte, now time.Time, workloadTTL time.Duration) time.Duration {
 	cert, certErr := util.ParsePemEncodedCertificate(certBytes)
 	if certErr != nil {
-		return time.Duration(0), certErr
+		// Return as fallback the workload ttl
+		return workloadTTL
 	}
 
 	timeToExpire := cert.NotAfter.Sub(now)
@@ -87,8 +88,8 @@ func (cu CertUtilImpl) GetMinimumTTL(certBytes []byte, now time.Time, workloadTT
 	// Intermediate certificate will expire before workload ttl
 	if timeToExpire.Seconds() < workloadTTL.Seconds() {
 		log.Warnf("Intermediate certificate will expire before workload TTL, setting TTL to expire duration: %f", timeToExpire.Seconds())
-		return timeToExpire, nil
+		return timeToExpire
 	}
 
-	return workloadTTL, nil
+	return workloadTTL
 }

@@ -478,8 +478,9 @@ func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string
 
 	certChainPEM := sc.ca.GetCAKeyCertBundle().GetCertChainPem()
 
-	// Check if intermediate expire date is smaller than the workload TTL
-	ttl, err := sc.certUtil.GetMinimumTTL(certChainPEM, time.Now(), sc.certTTL)
+	// Check if time duration until (intermediate) certificate will expire is smaller than the workload TTL
+	// If so return the duration until the certificate will expire
+	ttl := sc.certUtil.GetMinimumTTL(certChainPEM, time.Now(), sc.certTTL)
 
 	certPEM, signErr := sc.ca.Sign(csrPEM, strings.Split(id, ","), ttl, sc.forCA)
 	if signErr != nil {
