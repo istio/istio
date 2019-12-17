@@ -3,4 +3,7 @@ kind: ClusterRbacConfig
 metadata:
   name: default
 spec:
-  mode: 'ON'
+  mode: 'ON_WITH_EXCLUSION'
+  exclusion:
+    namespaces: ["ns1", "ns2", "ns3"]
+---

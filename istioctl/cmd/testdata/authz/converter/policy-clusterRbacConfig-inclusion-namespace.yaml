@@ -5,4 +5,5 @@ metadata:
 spec:
   mode: 'ON_WITH_INCLUSION'
   inclusion:
-    namespaces: ["default", "ns2"]
+    namespaces: ["ns1", "ns2", "ns3"]
+---
