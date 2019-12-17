@@ -222,11 +222,9 @@ func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model
 		// olditem can be nil for new entries. So we should default it.
 		if olditem, ok = old.(crd.IstioObject); !ok {
 			oldconfig = &model.Config{}
-		} else {
-			if oldconfig, err = crd.ConvertObject(s, olditem, c.client.domainSuffix); err != nil {
-				log.Warnf("error translating old object for schema %#v : %v\n Object:\n%#v", s, err, old)
-				return nil
-			}
+		} else if oldconfig, err = crd.ConvertObject(s, olditem, c.client.domainSuffix); err != nil {
+			log.Warnf("error translating old object for schema %#v : %v\n Object:\n%#v", s, err, old)
+			return nil
 		}
 
 		f(*oldconfig, *currconfig, ev)
