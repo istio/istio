@@ -126,6 +126,7 @@ type Options struct {
 type EndpointMode int
 
 const (
+
 	// EndpointsOnly type will use only Kubernetes Endpoints
 	EndpointsOnly EndpointMode = iota
 
@@ -136,6 +137,15 @@ const (
 	// Kubernetes Controller (e.g. made by user and not duplicated with Endpoints), or a mode with both that
 	// does deduping. Simply doing both won't work for now, since not all Kubernetes components support EndpointSlice.
 )
+
+var EndpointModeNames = map[EndpointMode]string{
+	EndpointsOnly:     "EndpointsOnly",
+	EndpointSliceOnly: "EndpointSliceOnly",
+}
+
+func (m EndpointMode) String() string {
+	return EndpointModeNames[m]
+}
 
 var _ serviceregistry.Instance = &Controller{}
 
