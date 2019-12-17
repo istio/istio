@@ -27,6 +27,8 @@ import (
 type CertUtil interface {
 	// GetWaitTime returns the waiting time before renewing the certificate.
 	GetWaitTime([]byte, time.Time, time.Duration) (time.Duration, error)
+	// GetMinimumTTL returns the minimum duration of either the expire date of the intermediate certificate or the workload TTL
+	GetMinimumTTL(certBytes []byte, now time.Time, workloadTTL time.Duration) (time.Duration, error)
 }
 
 // CertUtilImpl is the implementation of CertUtil, for production use.
@@ -41,7 +43,7 @@ func NewCertUtil(gracePeriodPercentage int) CertUtilImpl {
 	}
 }
 
-// GetWaitTime returns the waititng time before renewing the cert, based on current time, the timestamps in cert and
+// GetWaitTime returns the waiting time before renewing the cert, based on current time, the timestamps in cert and
 // graceperiod.
 func (cu CertUtilImpl) GetWaitTime(certBytes []byte, now time.Time, minGracePeriod time.Duration) (time.Duration, error) {
 	cert, certErr := util.ParsePemEncodedCertificate(certBytes)
@@ -70,4 +72,23 @@ func (cu CertUtilImpl) GetWaitTime(certBytes []byte, now time.Time, minGracePeri
 		return time.Duration(0), fmt.Errorf("got a certificate that should be renewed now")
 	}
 	return waitTime, nil
+}
+
+// GetMinimumTTL returns the minimum duration for either the workload TTL or if any intermediate cert will expire before
+// the time until the intermediate cert will expire
+func (cu CertUtilImpl) GetMinimumTTL(certBytes []byte, now time.Time, workloadTTL time.Duration) (time.Duration, error) {
+	cert, certErr := util.ParsePemEncodedCertificate(certBytes)
+	if certErr != nil {
+		return time.Duration(0), certErr
+	}
+
+	timeToExpire := cert.NotAfter.Sub(now)
+
+	// Intermediate certificate will expire before workload ttl
+	if timeToExpire.Seconds() < workloadTTL.Seconds() {
+		log.Warnf("Intermediate certificate will expire before workload TTL, setting TTL to expire duration: %f", timeToExpire.Seconds())
+		return timeToExpire, nil
+	}
+
+	return workloadTTL, nil
 }

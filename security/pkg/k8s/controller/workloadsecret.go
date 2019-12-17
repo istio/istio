@@ -477,7 +477,11 @@ func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string
 	}
 
 	certChainPEM := sc.ca.GetCAKeyCertBundle().GetCertChainPem()
-	certPEM, signErr := sc.ca.Sign(csrPEM, strings.Split(id, ","), sc.certTTL, sc.forCA)
+
+	// Check if intermediate expire date is smaller than the workload TTL
+	ttl, err := sc.certUtil.GetMinimumTTL(certChainPEM, time.Now(), sc.certTTL)
+
+	certPEM, signErr := sc.ca.Sign(csrPEM, strings.Split(id, ","), ttl, sc.forCA)
 	if signErr != nil {
 		k8sControllerLog.Errorf("CSR signing error (%v)", signErr.Error())
 		sc.monitoring.GetCertSignError(signErr.(*caerror.Error).ErrorType()).Increment()

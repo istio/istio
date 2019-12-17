@@ -25,6 +25,15 @@ const (
 	//   NotBefore = 2017-08-23 19:00:40 +0000 UTC
 	//   NotAfter  = 2017-08-24 19:00:40 +0000 UTC
 	testCertFile = "testdata/cert-util.pem"
+	// This cert has:
+	//  Not Before: Dec 16 08:12:31 2019 GMT
+	//  Not After : Dec 26 08:12:31 2019 GMT
+	testCertChainWithoutIntermediateFile = "testdata/cert-chain-without-intermediate.pem"
+	// This cert has:
+	Validity
+	//  Not Before: Dec 16 08:12:59 2019 GMT
+	//  Not After : Dec 17 08:12:59 2019 GMT
+	testCertChainWithIntermediateFile = "testdata/cert-chain-with-intermediate.pem"
 )
 
 func TestGetWaitTime(t *testing.T) {
@@ -112,6 +121,75 @@ func TestGetWaitTime(t *testing.T) {
 			if int(waitTime.Seconds()) != c.expectedWaitTime {
 				t.Errorf("%s: incorrect waittime. Expected %ds, but got %ds.", id, c.expectedWaitTime, int(waitTime.Seconds()))
 			}
+		}
+	}
+}
+
+func TestGetMinimumTTL(t *testing.T) {
+	testCertChainWithoutIntermediate, err := ioutil.ReadFile(testCertChainWithoutIntermediateFile)
+	if err != nil {
+		t.Errorf("cannot read testing cert file")
+		return
+	}
+	testCertChainWithIntermediate, err := ioutil.ReadFile(testCertChainWithIntermediateFile)
+	if err != nil {
+		t.Errorf("cannot read testing cert file")
+		return
+	}
+	// Dec 26 08:12:31 2019 GMT
+	testCases := map[string]struct {
+		cert             []byte
+		now              time.Time
+		expectedWaitTime int
+		workloadTTL      time.Duration
+	}{
+		"Workload TTL is greater than cert-chain expire delta (without intermediate)": {
+			// Now = 2019-12-26 04:12:31 +0000 UTC
+			// workload TTL is 24h and certificate will expire in 4h
+			// workload TTL is greater than the duration until the certificate will expire so 14400s -> 4h should be returned
+			cert:             testCertChainWithoutIntermediate,
+			now:              time.Date(2019, time.December, 26, 4, 12, 31, 0, time.UTC),
+			expectedWaitTime: 14400,
+			workloadTTL:      24 * time.Hour,
+		},
+		"Workload TTL is smaller than cert-chain expire delta (without intermediate)": {
+			// Now = 2019-12-26 04:12:31 +0000 UTC
+			// workload TTL is 2h and certificate will expire in 4h
+			// workload TTL is greater than the duration until the certificate will expire so 7200s -> 2h should be returned
+			cert:             testCertChainWithoutIntermediate,
+			now:              time.Date(2019, time.December, 26, 4, 12, 31, 0, time.UTC),
+			expectedWaitTime: 7200,
+			workloadTTL:      2 * time.Hour,
+		},
+		"Workload TTL is greater than cert-chain expire delta (with intermediate)": {
+			// Now = 2019-12-17 04:12:59 +0000 UTC
+			// workload TTL is 24h and intermediate certificate will expire in 4h
+			// workload TTL is greater than the duration until the certificate will expire so 14400s -> 4h should be returned
+			cert:             testCertChainWithIntermediate,
+			now:              time.Date(2019, time.December, 17, 4, 12, 59, 0, time.UTC),
+			expectedWaitTime: 14400,
+			workloadTTL:      24 * time.Hour,
+		},
+		"Workload TTL is smaller than cert-chain expire delta (with intermediate)": {
+			// Now = 2019-12-17 04:12:59 +0000 UTC
+			// workload TTL is 24h and intermediate certificate will expire in 4h
+			// workload TTL is greater than the duration until the certificate will expire so 14400s -> 4h should be returned
+			cert:             testCertChainWithIntermediate,
+			now:              time.Date(2019, time.December, 17, 4, 12, 59, 0, time.UTC),
+			expectedWaitTime: 7200,
+			workloadTTL:      2 * time.Hour,
+		},
+	}
+
+	cu := NewCertUtil(50) // Grace period percentage is set to 50
+	for id, c := range testCases {
+		waitTime, err := cu.GetMinimumTTL(c.cert, c.now, c.workloadTTL)
+
+		if err != nil {
+			t.Errorf("%s: unexpected error: %v", id, err)
+		}
+		if int(waitTime.Seconds()) != c.expectedWaitTime {
+			t.Errorf("%s: incorrect waittime. Expected %ds, but got %ds.", id, c.expectedWaitTime, int(waitTime.Seconds()))
 		}
 	}
 }
