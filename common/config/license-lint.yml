@@ -122,6 +122,10 @@ whitelisted_modules:
   - github.com/xeipuuv/gojsonpointer
   - github.com/xeipuuv/gojsonreference
   - github.com/xi2/xz
+
+  # The core library is MIT licensed, but a submodule imports a BSD-3 license that licensee fails to correctly identify
+  - github.com/vektah/gqlparser
+
   - github.com/ziutek/mymysql
   - gopkg.in/check.v1
   - gopkg.in/mgo.v2
