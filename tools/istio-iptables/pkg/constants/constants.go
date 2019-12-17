@@ -91,9 +91,9 @@ const (
 // Constants for syscall
 const (
 	// sys/socket.h
-	SO_ORIGINAL_DST = 80
+	SoOriginalDst = 80
 )
 
 const (
-	IPTABLES_PROBE_PORT = 15002
+	IptablesProbePort = 15002
 )

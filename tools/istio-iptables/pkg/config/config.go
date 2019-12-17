@@ -24,8 +24,8 @@ import (
 
 // Command line options
 type Config struct {
-	DryRun                  bool   `json:"DRY_RUN"`
-	RestoreFormat           bool   `json:"RESTORE_FORMAT"`
+	EnableInboundIPv6s      net.IP `json:"ENABLE_INBOUND_IPV6"`
+	HostIP                  net.IP `json:"HOST_IP"`
 	ProxyPort               string `json:"PROXY_PORT"`
 	InboundCapturePort      string `json:"INBOUND_CAPTURE_PORT"`
 	ProxyUID                string `json:"PROXY_UID"`
@@ -39,8 +39,8 @@ type Config struct {
 	OutboundIPRangesInclude string `json:"OUTBOUND_IPRANGES_INCLUDE"`
 	OutboundIPRangesExclude string `json:"OUTBOUND_IPRANGES_EXCLUDE"`
 	KubevirtInterfaces      string `json:"KUBEVIRT_INTERFACES"`
-	EnableInboundIPv6s      net.IP `json:"ENABLE_INBOUND_IPV6"`
-	HostIP                  net.IP `json:"HOST_IP"`
+	DryRun                  bool   `json:"DRY_RUN"`
+	RestoreFormat           bool   `json:"RESTORE_FORMAT"`
 	SkipRuleApply           bool   `json:"SKIP_RULE_APPLY"`
 	SkipValidation          bool   `json:"SKIP_VALIDATION"`
 }
