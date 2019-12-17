@@ -1037,7 +1037,8 @@ func (k *KubeInfo) waitForIstioOperator() error {
 	timeout := time.Now().Add(istioOperatorTimeout)
 	for {
 		if time.Now().After(timeout) {
-			return errors.New("timeout waiting for istio operator to deploy Istio")
+			log.Error("timeout waiting for istio operator to deploy Istio")
+			return util.FetchAndSaveClusterLogs("istio-operator", k.TmpDir, k.KubeConfig)
 		}
 
 		out, err := util.ShellSilent(get)
