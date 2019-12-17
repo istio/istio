@@ -19,25 +19,68 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pkg/config/schemas"
+	"istio.io/pkg/log"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	configKube "istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 type endpointsController struct {
-	cache cacheHandler
+	c        *Controller
+	informer cache.SharedIndexInformer
 }
 
 var _ kubeEndpointsController = &endpointsController{}
 
 func newEndpointsController(c *Controller, sharedInformers informers.SharedInformerFactory) *endpointsController {
-	epInformer := sharedInformers.Core().V1().Endpoints().Informer()
-	return &endpointsController{createEDSCacheHandler(c, epInformer, "Endpoints")}
+	informer := sharedInformers.Core().V1().Endpoints().Informer()
+	out := &endpointsController{
+		c:        c,
+		informer: informer,
+	}
+	out.registerEndpointsHandler()
+	return out
+}
+
+func (e *endpointsController) registerEndpointsHandler() {
+	e.informer.AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			// TODO: filtering functions to skip over un-referenced resources (perf)
+			AddFunc: func(obj interface{}) {
+				incrementEvent("Endpoints", "add")
+				e.c.queue.Push(func() error {
+					return e.onEvent(obj, model.EventAdd)
+				})
+			},
+			UpdateFunc: func(old, cur interface{}) {
+				// Avoid pushes if only resource version changed (kube-scheduller, cluster-autoscaller, etc)
+				oldE := old.(*v1.Endpoints)
+				curE := cur.(*v1.Endpoints)
+
+				if !compareEndpoints(oldE, curE) {
+					incrementEvent("Endpoints", "update")
+					e.c.queue.Push(func() error {
+						return e.onEvent(cur, model.EventUpdate)
+					})
+				} else {
+					incrementEvent("Endpoints", "updatesame")
+				}
+			},
+			DeleteFunc: func(obj interface{}) {
+				incrementEvent("Endpoints", "delete")
+				// Deleting the endpoints results in an empty set from EDS perspective - only
+				// deleting the service should delete the resources. The full sync replaces the
+				// maps.
+				// c.updateEDS(obj.(*v1.Endpoints))
+				e.c.queue.Push(func() error {
+					return e.onEvent(obj, model.EventDelete)
+				})
+			},
+		})
 }
 
 func (e *endpointsController) GetProxyServiceInstances(c *Controller, proxy *model.Proxy, proxyNamespace string) []*model.ServiceInstance {
@@ -45,7 +88,7 @@ func (e *endpointsController) GetProxyServiceInstances(c *Controller, proxy *mod
 	// TODO we may be able to remove this, endpoints should be in same NS?
 	endpointsForPodInDifferentNS := make([]*model.ServiceInstance, 0)
 
-	for _, item := range e.cache.informer.GetStore().List() {
+	for _, item := range e.informer.GetStore().List() {
 		ep := *item.(*v1.Endpoints)
 		endpoints := &endpointsForPodInSameNS
 		if ep.Namespace != proxyNamespace {
@@ -102,7 +145,7 @@ func getProxyServiceInstancesByEndpoint(c *Controller, endpoints v1.Endpoints, p
 
 func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int,
 	labelsList labels.Collection) ([]*model.ServiceInstance, error) {
-	item, exists, err := e.cache.informer.GetStore().GetByKey(kube.KeyFunc(svc.Attributes.Name, svc.Attributes.Namespace))
+	item, exists, err := e.informer.GetStore().GetByKey(kube.KeyFunc(svc.Attributes.Name, svc.Attributes.Namespace))
 	if err != nil {
 		log.Infof("get endpoints(%s, %s) => error %v", svc.Attributes.Name, svc.Attributes.Namespace, err)
 		return nil, nil
@@ -166,89 +209,53 @@ func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service,
 	return out, nil
 }
 
-func (e *endpointsController) AppendInstanceHandler(c *Controller) {
-	if e.cache.handler == nil {
-		return
+func (e *endpointsController) onEvent(curr interface{}, event model.Event) error {
+	if err := e.c.checkReadyForEvents(); err != nil {
+		return err
 	}
-	e.cache.handler.Append(func(old, curr interface{}, event model.Event) error {
-		ep, ok := curr.(*v1.Endpoints)
+
+	ep, ok := curr.(*v1.Endpoints)
+	if !ok {
+		tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
-			if !ok {
-				log.Errorf("Couldn't get object from tombstone %#v", curr)
-				return nil
-			}
-			ep, ok = tombstone.Obj.(*v1.Endpoints)
-			if !ok {
-				log.Errorf("Tombstone contained object that is not an endpoints %#v", curr)
+			log.Errorf("Couldn't get object from tombstone %#v", curr)
+			return nil
+		}
+		ep, ok = tombstone.Obj.(*v1.Endpoints)
+		if !ok {
+			log.Errorf("Tombstone contained object that is not an endpoints %#v", curr)
+			return nil
+		}
+	}
+
+	log.Debugf("Handle event %s for endpoint %s in namespace %s", event, ep.Name, ep.Namespace)
+
+	// headless service cluster discovery type is ORIGINAL_DST, we do not need update EDS.
+	if features.EnableHeadlessService.Get() {
+		if obj, _, _ := e.c.services.GetIndexer().GetByKey(kube.KeyFunc(ep.Name, ep.Namespace)); obj != nil {
+			svc := obj.(*v1.Service)
+			// if the service is headless service, trigger a full push.
+			if svc.Spec.ClusterIP == v1.ClusterIPNone {
+				e.c.xdsUpdater.ConfigUpdate(&model.PushRequest{
+					Full:              true,
+					NamespacesUpdated: map[string]struct{}{ep.Namespace: {}},
+					// TODO: extend and set service instance type, so no need to re-init push context
+					ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
+				})
 				return nil
 			}
 		}
+	}
 
-		log.Debugf("Handle event %s for endpoint %s in namespace %s", event, ep.Name, ep.Namespace)
+	e.c.updateEDS(ep, event)
 
-		// headless service cluster discovery type is ORIGINAL_DST, we do not need update EDS.
-		if features.EnableHeadlessService.Get() {
-			if obj, _, _ := c.services.informer.GetIndexer().GetByKey(kube.KeyFunc(ep.Name, ep.Namespace)); obj != nil {
-				svc := obj.(*v1.Service)
-				// if the service is headless service, trigger a full push.
-				if svc.Spec.ClusterIP == v1.ClusterIPNone {
-					c.xdsUpdater.ConfigUpdate(&model.PushRequest{
-						Full:              true,
-						NamespacesUpdated: map[string]struct{}{ep.Namespace: {}},
-						// TODO: extend and set service instance type, so no need to re-init push context
-						ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
-					})
-					return nil
-				}
-			}
-		}
-
-		c.updateEDS(ep, event)
-
-		return nil
-	})
+	return nil
 }
 
-func (e endpointsController) HasSynced() bool {
-	return e.cache.informer.HasSynced()
+func (e *endpointsController) HasSynced() bool {
+	return e.informer.HasSynced()
 }
 
-func (e endpointsController) Run(stopCh <-chan struct{}) {
-	e.cache.informer.Run(stopCh)
-}
-
-func createEDSCacheHandler(c *Controller, informer cache.SharedIndexInformer, otype string) cacheHandler {
-	handler := &kube.ChainHandler{Funcs: []kube.Handler{c.notify}}
-
-	informer.AddEventHandler(
-		cache.ResourceEventHandlerFuncs{
-			// TODO: filtering functions to skip over un-referenced resources (perf)
-			AddFunc: func(obj interface{}) {
-				incrementEvent(otype, "add")
-				c.queue.Push(kube.NewTask(handler.Apply, nil, obj, model.EventAdd))
-			},
-			UpdateFunc: func(old, cur interface{}) {
-				// Avoid pushes if only resource version changed (kube-scheduller, cluster-autoscaller, etc)
-				oldE := old.(*v1.Endpoints)
-				curE := cur.(*v1.Endpoints)
-
-				if !compareEndpoints(oldE, curE) {
-					incrementEvent(otype, "update")
-					c.queue.Push(kube.NewTask(handler.Apply, old, cur, model.EventUpdate))
-				} else {
-					incrementEvent(otype, "updatesame")
-				}
-			},
-			DeleteFunc: func(obj interface{}) {
-				incrementEvent(otype, "delete")
-				// Deleting the endpoints results in an empty set from EDS perspective - only
-				// deleting the service should delete the resources. The full sync replaces the
-				// maps.
-				// c.updateEDS(obj.(*v1.Endpoints))
-				c.queue.Push(kube.NewTask(handler.Apply, nil, obj, model.EventDelete))
-			},
-		})
-
-	return cacheHandler{informer: informer, handler: handler}
+func (e *endpointsController) Run(stopCh <-chan struct{}) {
+	e.informer.Run(stopCh)
 }

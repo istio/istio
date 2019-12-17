@@ -38,9 +38,11 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
+
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	queue2 "istio.io/istio/pkg/queue"
+
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -60,10 +62,9 @@ type StatusSyncer struct {
 	// Name of service (ingressgateway default) to find the IP
 	ingressService string
 
-	queue    kube.Queue
+	queue    queue2.Instance
 	informer cache.SharedIndexInformer
 	elector  *leaderelection.LeaderElector
-	handler  *kube.ChainHandler
 }
 
 // Run the syncer until stopCh is closed
@@ -90,9 +91,8 @@ func NewStatusSyncer(mesh *meshconfig.MeshConfig,
 		electionID = fmt.Sprintf("%v-%v", ingressElectionID, ingressClass)
 	}
 
-	handler := &kube.ChainHandler{}
 	// queue requires a time duration for a retry delay after a handler error
-	queue := kube.NewQueue(1 * time.Second)
+	queue := queue2.NewQueue(1 * time.Second)
 
 	informer := cache.NewSharedIndexInformer(
 		&cache.ListWatch{
@@ -113,7 +113,6 @@ func NewStatusSyncer(mesh *meshconfig.MeshConfig,
 		ingressClass:        ingressClass,
 		defaultIngressClass: defaultIngressClass,
 		ingressService:      mesh.IngressService,
-		handler:             handler,
 	}
 
 	callbacks := leaderelection.LeaderCallbacks{
@@ -163,17 +162,16 @@ func NewStatusSyncer(mesh *meshconfig.MeshConfig,
 
 	st.elector = le
 
-	// Register handler at the beginning
-	handler.Append(func(old, curr interface{}, event model.Event) error {
-		addrs, err := st.runningAddresses(ingressNamespace)
-		if err != nil {
-			return err
-		}
-
-		return st.updateStatus(sliceToStatus(addrs))
-	})
-
 	return &st, nil
+}
+
+func (s *StatusSyncer) onEvent() error {
+	addrs, err := s.runningAddresses(ingressNamespace)
+	if err != nil {
+		return err
+	}
+
+	return s.updateStatus(sliceToStatus(addrs))
 }
 
 func (s *StatusSyncer) runUpdateStatus(ctx context.Context) {
@@ -191,7 +189,7 @@ func (s *StatusSyncer) runUpdateStatus(ctx context.Context) {
 		}
 	}
 	err := wait.PollUntil(updateInterval, func() (bool, error) {
-		s.queue.Push(kube.NewTask(s.handler.Apply, "", "Start leading", model.EventUpdate))
+		s.queue.Push(s.onEvent)
 		return false, nil
 	}, ctx.Done())
 

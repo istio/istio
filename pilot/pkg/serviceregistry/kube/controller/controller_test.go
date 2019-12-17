@@ -136,10 +136,16 @@ func (fx *FakeXdsUpdater) Clear() {
 }
 
 func newFakeController() (*Controller, *FakeXdsUpdater) {
-	return newFakeControllerWithWatcher(nil)
+	return newFakeControllerWithOptions(fakeControllerOptions{})
 }
 
-func newFakeControllerWithWatcher(networksWatcher mesh.NetworksWatcher) (*Controller, *FakeXdsUpdater) {
+type fakeControllerOptions struct {
+	networksWatcher mesh.NetworksWatcher
+	serviceHandler  func(service *model.Service, event model.Event)
+	instanceHandler func(instance *model.ServiceInstance, event model.Event)
+}
+
+func newFakeControllerWithOptions(opts fakeControllerOptions) (*Controller, *FakeXdsUpdater) {
 	fx := NewFakeXDS()
 
 	clientSet := fake.NewSimpleClientset()
@@ -149,10 +155,15 @@ func newFakeControllerWithWatcher(networksWatcher mesh.NetworksWatcher) (*Contro
 		DomainSuffix:     domainSuffix,
 		XDSUpdater:       fx,
 		Metrics:          &model.Environment{},
-		NetworksWatcher:  networksWatcher,
+		NetworksWatcher:  opts.networksWatcher,
 	})
-	_ = c.AppendInstanceHandler(func(instance *model.ServiceInstance, event model.Event) {})
-	_ = c.AppendServiceHandler(func(service *model.Service, event model.Event) {})
+
+	if opts.instanceHandler != nil {
+		_ = c.AppendInstanceHandler(opts.instanceHandler)
+	}
+	if opts.serviceHandler != nil {
+		_ = c.AppendServiceHandler(opts.serviceHandler)
+	}
 	go c.Run(c.stop)
 	return c, fx
 }
@@ -181,7 +192,7 @@ func TestServices(t *testing.T) {
 		},
 	})
 
-	ctl, fx := newFakeControllerWithWatcher(networksWatcher)
+	ctl, fx := newFakeControllerWithOptions(fakeControllerOptions{networksWatcher: networksWatcher})
 	defer ctl.Stop()
 	t.Parallel()
 	ns := "ns-test"
@@ -1006,7 +1017,14 @@ func TestController_Service(t *testing.T) {
 }
 
 func TestController_ExternalNameService(t *testing.T) {
-	controller, fx := newFakeController()
+	deleteWg := sync.WaitGroup{}
+	controller, fx := newFakeControllerWithOptions(fakeControllerOptions{
+		serviceHandler: func(_ *model.Service, e model.Event) {
+			if e == model.EventDelete {
+				deleteWg.Done()
+			}
+		},
+	})
 	defer controller.Stop()
 	// Use a timeout to keep the test from hanging.
 
@@ -1101,20 +1119,12 @@ func TestController_ExternalNameService(t *testing.T) {
 		}
 	}
 
-	wg := sync.WaitGroup{}
-	wg.Add(len(k8sSvcs))
-	deleteHandler := func(_ *model.Service, e model.Event) {
-		if e == model.EventDelete {
-			wg.Done()
-		}
-	}
-	if err := controller.AppendServiceHandler(deleteHandler); err != nil {
-		t.Fatalf("Failed to append service handler: %+v", err)
-	}
+	deleteWg.Add(len(k8sSvcs))
 	for _, s := range k8sSvcs {
 		deleteExternalNameService(controller, s.Name, s.Namespace, t, fx.Events)
 	}
-	wg.Wait()
+	deleteWg.Wait()
+
 	svcList, _ = controller.Services()
 	if len(svcList) != 0 {
 		t.Fatalf("Should have 0 services at this point")
@@ -1616,7 +1626,7 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 
 	// Now delete pod2, from PodCache and send Endpoints. This simulates the case that endpoint comes
 	// when PodCache does not yet have entry for the pod.
-	_ = controller.pods.event(nil, pod2, model.EventDelete)
+	_ = controller.pods.onEvent(pod2, model.EventDelete)
 
 	pod2Ips := []string{"172.0.1.2"}
 	createEndpoints(controller, "pod2", "nsA", portNames, pod2Ips, t)
