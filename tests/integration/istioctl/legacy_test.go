@@ -12,29 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package galley
+package istioctl
 
 import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
-	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/resource"
-)
-
-var (
-	env *kube.Environment
+	"istio.io/istio/pkg/test/framework/label"
 )
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("galley_test", m).
-		SetupOnEnv(environment.Kube, istio.Setup(nil, nil)).
-		SetupOnEnv(environment.Kube, func(ctx resource.Context) error {
-			env = ctx.Environment().(*kube.Environment)
-			return nil
-		}).
+		NewSuite("nop-test", m).
+		Label(label.CustomSetup).
 		Run()
+}
+
+// Legacy CI targets try to call this folder and fail if there are no tests. Until that is cleaned up,
+// Have a nop test.
+func TestNothing(t *testing.T) {
+	// You can specify additional constraints using the more verbose form
+	framework.NewTest(t).
+		Label(label.Postsubmit).
+		RequiresEnvironment(environment.Native).
+		Run(func(ctx framework.TestContext) {})
 }
