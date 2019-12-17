@@ -570,6 +570,7 @@ func (k *KubeInfo) Teardown() error {
 		}
 		if *useOperator {
 			//save operator logs
+			log.Info("Saving istio-operator logs")
 			if err := util.FetchAndSaveClusterLogs("istio-operator", k.TmpDir, k.KubeConfig); err != nil {
 				log.Errorf("Failed to save operator logs: %v", err)
 			}
