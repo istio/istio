@@ -29,3 +29,7 @@ func (f FakeCertUtil) GetWaitTime(certBytes []byte, now time.Time, minGracePerio
 	}
 	return f.Duration, nil
 }
+
+func (f FakeCertUtil) GetMinimumTTL(certBytes []byte, now time.Time, workloadTTL time.Duration) time.Duration {
+	return f.Duration
+}
