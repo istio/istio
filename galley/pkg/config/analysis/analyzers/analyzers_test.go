@@ -46,10 +46,11 @@ type message struct {
 }
 
 type testCase struct {
-	name       string
-	inputFiles []string
-	analyzer   analysis.Analyzer
-	expected   []message
+	name           string
+	inputFiles     []string
+	meshConfigFile string // Optional
+	analyzer       analysis.Analyzer
+	expected       []message
 }
 
 // Some notes on setting up tests for Analyzers:
@@ -70,6 +71,15 @@ var testGrid = []testCase{
 			{msg.MisplacedAnnotation, "Pod grafana-test"},
 			{msg.MisplacedAnnotation, "Deployment fortio-deploy"},
 			{msg.MisplacedAnnotation, "Namespace staging"},
+		},
+	},
+	{
+		name:           "mtlsAnalyzerAutoMtlsSkips",
+		inputFiles:     []string{"testdata/mtls-global-dr-no-meshpolicy.yaml"},
+		meshConfigFile: "testdata/mesh-with-automtls.yaml",
+		analyzer:       &auth.MTLSAnalyzer{},
+		expected:       []message{
+			// With autoMtls enabled, we should not generate a message
 		},
 	},
 	{
@@ -372,6 +382,14 @@ func TestAnalyzers(t *testing.T) {
 			}
 
 			sa := local.NewSourceAnalyzer(metadata.MustGet(), analysis.Combine("testCombined", testCase.analyzer), "", "istio-system", cr, true)
+
+			// If a mesh config file is specified, use it instead of the defaults
+			if testCase.meshConfigFile != "" {
+				err := sa.AddFileKubeMeshConfigSource(testCase.meshConfigFile)
+				if err != nil {
+					t.Fatalf("Error applying mesh config file %s: %v", testCase.meshConfigFile, err)
+				}
+			}
 
 			var files []io.Reader
 			for _, f := range testCase.inputFiles {
