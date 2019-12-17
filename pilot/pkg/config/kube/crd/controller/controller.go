@@ -206,23 +206,30 @@ func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model
 		return
 	}
 	c.kinds[typ].handler.Append(func(old, curr interface{}, ev model.Event) error {
-		curritem, ok := curr.(crd.IstioObject)
-		if ok {
-			config, err := crd.ConvertObject(s, curritem, c.client.domainSuffix)
-			if err != nil {
-				log.Warnf("error translating object for schema %#v : %v\n Object:\n%#v", s, err, curr)
-			} else {
-				olditem, ok := old.(crd.IstioObject)
-				oldconfig := &model.Config{}
-				if ok {
-					oldconfig, err = crd.ConvertObject(s, olditem, c.client.domainSuffix)
-					if err != nil {
-						log.Warnf("error translating object for schema %#v : %v\n Object:\n%#v", s, err, old)
-					}
-				}
-				f(*oldconfig, *config, ev)
-			}
+		var currItem, oldItem crd.IstioObject
+		var currConfig, oldConfig *model.Config
+		var err error
+
+		ok := false
+
+		if currItem, ok = curr.(crd.IstioObject); !ok {
+			log.Warnf("New Object can not be converted to Istio Object %v", curr)
+			return nil
 		}
+		if currConfig, err = crd.ConvertObject(s, currItem, c.client.domainSuffix); err != nil {
+			log.Warnf("error translating new object for schema %#v : %v\n Object:\n%#v", s, err, curr)
+			return nil
+		}
+		// oldItem can be nil for new entries. So we should default it.
+		if oldItem, ok = old.(crd.IstioObject); !ok {
+			oldConfig = &model.Config{}
+		} else if oldConfig, err = crd.ConvertObject(s, oldItem, c.client.domainSuffix); err != nil {
+			log.Warnf("error translating old object for schema %#v : %v\n Object:\n%#v", s, err, old)
+			return nil
+		}
+
+		f(*oldConfig, *currConfig, ev)
+
 		return nil
 	})
 }
