@@ -135,9 +135,9 @@ func TestAsymmetricMeshNetworkWithGatewayIP(t *testing.T) {
 			}
 
 			vmSvcClusterName := "outbound|7070||httpbin.com"
-			k8sSvcClusterName := fmt.Sprintf("outbound|%d||%s.%s.svc.cluster.local",
-				echoConfig.Ports[0].ServicePort,
-				echoConfig.Service, echoConfig.Namespace.Name())
+			// k8sSvcClusterName := fmt.Sprintf("outbound|%d||%s.%s.svc.cluster.local",
+			//	echoConfig.Ports[0].ServicePort,
+			//	echoConfig.Service, echoConfig.Namespace.Name())
 			// Now get the EDS from the k8s pod to see if the VM IP is there.
 			if err := checkEDSInPod(t, instance, vmSvcClusterName, "1.1.1.1"); err != nil {
 				t.Fatal(err)
