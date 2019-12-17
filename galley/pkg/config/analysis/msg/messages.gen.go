@@ -27,7 +27,7 @@ var (
 
 	// PodMissingProxy defines a diag.MessageType for message "PodMissingProxy".
 	// Description: A pod is missing the Istio proxy.
-	PodMissingProxy = diag.NewMessageType(diag.Warning, "IST0103", "The pod is missing its Istio proxy. Run 'kubectl delete pod %s -n %s' to restart it")
+	PodMissingProxy = diag.NewMessageType(diag.Warning, "IST0103", "The pod is missing the Istio proxy. This can often be resolved by restarting or redeploying the workload.")
 
 	// GatewayPortNotOnWorkload defines a diag.MessageType for message "GatewayPortNotOnWorkload".
 	// Description: Unhandled gateway port
@@ -84,6 +84,10 @@ var (
 	// DeploymentRequiresServiceAssociated defines a diag.MessageType for message "DeploymentRequiresServiceAssociated".
 	// Description: The resulting pods of a service mesh deployment must be associated with at least one service.
 	DeploymentRequiresServiceAssociated = diag.NewMessageType(diag.Warning, "IST0117", "No service associated with this deployment. Service mesh deployments must be associated with a service.")
+
+	// PortNameIsNotUnderNamingConvention defines a diag.MessageType for message "PortNameIsNotUnderNamingConvention".
+	// Description: Port name is not under naming convention. Protocol detection is applied to the port.
+	PortNameIsNotUnderNamingConvention = diag.NewMessageType(diag.Info, "IST0118", "Port name %s (port: %d, targetPort: %s) doesn't follow the naming convention of Istio port.")
 )
 
 // NewInternalError returns a new diag.Message based on InternalError.
@@ -125,12 +129,10 @@ func NewNamespaceNotInjected(entry *resource.Entry, namespace string, namespace2
 }
 
 // NewPodMissingProxy returns a new diag.Message based on PodMissingProxy.
-func NewPodMissingProxy(entry *resource.Entry, pod string, namespace string) diag.Message {
+func NewPodMissingProxy(entry *resource.Entry) diag.Message {
 	return diag.NewMessage(
 		PodMissingProxy,
 		originOrNil(entry),
-		pod,
-		namespace,
 	)
 }
 
@@ -273,6 +275,17 @@ func NewDeploymentRequiresServiceAssociated(entry *resource.Entry, deployment st
 		DeploymentRequiresServiceAssociated,
 		originOrNil(entry),
 		deployment,
+	)
+}
+
+// NewPortNameIsNotUnderNamingConvention returns a new diag.Message based on PortNameIsNotUnderNamingConvention.
+func NewPortNameIsNotUnderNamingConvention(entry *resource.Entry, portName string, port int, targetPort string) diag.Message {
+	return diag.NewMessage(
+		PortNameIsNotUnderNamingConvention,
+		originOrNil(entry),
+		portName,
+		port,
+		targetPort,
 	)
 }
 

@@ -68,23 +68,15 @@ const (
 )
 
 var (
-	defaultInboundCircuitBreakerThresholds = v2Cluster.CircuitBreakers_Thresholds{
-		// This disables circuit breaking by default by setting highest possible values.
-		// See: https://www.envoyproxy.io/docs/envoy/v1.11.1/faq/disable_circuit_breaking
-		MaxRetries:         &wrappers.UInt32Value{Value: math.MaxUint32},
-		MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
-		MaxConnections:     &wrappers.UInt32Value{Value: math.MaxUint32},
-		MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
-	}
-	defaultOutboundCircuitBreakerThresholds = v2Cluster.CircuitBreakers_Thresholds{
+	// This disables circuit breaking by default by setting highest possible values.
+	// See: https://www.envoyproxy.io/docs/envoy/v1.11.1/faq/disable_circuit_breaking
+	defaultCircuitBreakerThresholds = v2Cluster.CircuitBreakers_Thresholds{
 		// DefaultMaxRetries specifies the default for the Envoy circuit breaker parameter max_retries. This
 		// defines the maximum number of parallel retries a given Envoy will allow to the upstream cluster. Envoy defaults
 		// this value to 3, however that has shown to be insufficient during periods of pod churn (e.g. rolling updates),
 		// where multiple endpoints in a cluster are terminated. In these scenarios the circuit breaker can kick
 		// in before Pilot is able to deliver an updated endpoint list to Envoy, leading to client-facing 503s.
-		MaxRetries: &wrappers.UInt32Value{Value: math.MaxUint32},
-		// This disables circuit breaking by default by setting highest possible values.
-		// See: https://www.envoyproxy.io/docs/envoy/v1.11.1/faq/disable_circuit_breaking
+		MaxRetries:         &wrappers.UInt32Value{Value: math.MaxUint32},
 		MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
 		MaxConnections:     &wrappers.UInt32Value{Value: math.MaxUint32},
 		MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
@@ -104,16 +96,10 @@ var (
 )
 
 // getDefaultCircuitBreakerThresholds returns a copy of the default circuit breaker thresholds for the given traffic direction.
-func getDefaultCircuitBreakerThresholds(direction model.TrafficDirection) *v2Cluster.CircuitBreakers_Thresholds {
-	if direction == model.TrafficDirectionInbound {
-		thresholds := defaultInboundCircuitBreakerThresholds
-		return &thresholds
-	}
-	thresholds := defaultOutboundCircuitBreakerThresholds
+func getDefaultCircuitBreakerThresholds() *v2Cluster.CircuitBreakers_Thresholds {
+	thresholds := defaultCircuitBreakerThresholds
 	return &thresholds
 }
-
-// TODO: Need to do inheritance of DestRules based on domain suffix match
 
 // BuildClusters returns the list of clusters for the given proxy. This is the CDS output
 // For outbound: Cluster for each service/subset hostname or cidr with SNI set to service hostname
@@ -706,8 +692,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginPara
 		if destinationRule.TrafficPolicy != nil {
 			// only connection pool settings make sense on the inbound path.
 			// upstream TLS settings/outlier detection/load balancer don't apply here.
-			applyConnectionPool(pluginParams.Push, localCluster, destinationRule.TrafficPolicy.ConnectionPool,
-				model.TrafficDirectionInbound)
+			applyConnectionPool(pluginParams.Push, localCluster, destinationRule.TrafficPolicy.ConnectionPool)
 			localCluster.Metadata = util.BuildConfigInfoMetadata(cfg.ConfigMeta)
 		}
 	}
@@ -857,7 +842,7 @@ type buildClusterOpts struct {
 func applyTrafficPolicy(opts buildClusterOpts, proxy *model.Proxy) {
 	connectionPool, outlierDetection, loadBalancer, tls := SelectTrafficPolicyComponents(opts.policy, opts.port)
 
-	applyConnectionPool(opts.push, opts.cluster, connectionPool, opts.direction)
+	applyConnectionPool(opts.push, opts.cluster, connectionPool)
 	applyOutlierDetection(opts.cluster, outlierDetection)
 	applyLoadBalancer(opts.cluster, loadBalancer, opts.port, proxy, opts.push.Mesh)
 
@@ -871,12 +856,12 @@ func applyTrafficPolicy(opts buildClusterOpts, proxy *model.Proxy) {
 }
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
-func applyConnectionPool(push *model.PushContext, cluster *apiv2.Cluster, settings *networking.ConnectionPoolSettings, direction model.TrafficDirection) {
+func applyConnectionPool(push *model.PushContext, cluster *apiv2.Cluster, settings *networking.ConnectionPoolSettings) {
 	if settings == nil {
 		return
 	}
 
-	threshold := getDefaultCircuitBreakerThresholds(direction)
+	threshold := getDefaultCircuitBreakerThresholds()
 	var idleTimeout *types.Duration
 
 	if settings.Http != nil {
@@ -1026,10 +1011,6 @@ func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettin
 	}
 	applyLocalityLBSetting(proxy.Locality, cluster, localityLbSettings)
 
-	if lb == nil {
-		return
-	}
-
 	// The following order is important. If cluster type has been identified as Original DST since Resolution is PassThrough,
 	// and port is named as redis-xxx we end up creating a cluster with type Original DST and LbPolicy as MAGLEV which would be
 	// rejected by Envoy.
@@ -1046,6 +1027,10 @@ func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettin
 	// Redis protocol must be defaulted with MAGLEV to benefit from client side sharding.
 	if features.EnableRedisFilter.Get() && port != nil && port.Protocol == protocol.Redis {
 		cluster.LbPolicy = apiv2.Cluster_MAGLEV
+		return
+	}
+
+	if lb == nil {
 		return
 	}
 
@@ -1276,7 +1261,7 @@ func buildDefaultPassthroughCluster(push *model.PushContext, proxy *model.Proxy)
 		LbPolicy:             lbPolicyClusterProvided(proxy),
 	}
 	passthroughSettings := &networking.ConnectionPoolSettings{}
-	applyConnectionPool(push, cluster, passthroughSettings, model.TrafficDirectionOutbound)
+	applyConnectionPool(push, cluster, passthroughSettings)
 	return cluster
 }
 

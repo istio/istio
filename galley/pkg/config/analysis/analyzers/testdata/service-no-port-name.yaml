@@ -1,0 +1,30 @@
+# If port is unnamed or port name doesn't follow <protocol>[-<suffix>], the analyzer will report warning.
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service1
+  namespace: my-namespace1
+spec:
+  selector:
+    app: my-service1
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+    - protocol: TCP
+      port: 8081
+      targetPort: 8081
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service2
+  namespace: my-namespace2
+spec:
+  selector:
+    app: my-service2
+  ports:
+    - name: foo
+      protocol: TCP
+      port: 8080
+      targetPort: 8080

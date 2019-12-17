@@ -15,7 +15,8 @@
 package bootstrap
 
 import (
-	"istio.io/istio/pilot/pkg/config/clusterregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+
 	"istio.io/pkg/log"
 )
 
@@ -23,7 +24,7 @@ import (
 // clusters and initialize the multicluster structures.
 func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 	if hasKubeRegistry(args.Service.Registries) {
-		mc, err := clusterregistry.NewMulticluster(s.kubeClient,
+		mc, err := controller.NewMulticluster(s.kubeClient,
 			args.Config.ClusterRegistriesNamespace,
 			args.Config.ControllerOptions.WatchedNamespace,
 			args.Config.ControllerOptions.DomainSuffix,

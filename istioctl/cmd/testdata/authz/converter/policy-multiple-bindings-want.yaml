@@ -1,0 +1,133 @@
+# Generated from ClusterRbacConfig with mode ON_WITH_INCLUSION on namespace "default". This policy will deny all requests to namespace "default" by default.
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: generated-namespace-deny-all
+  namespace: default
+spec:
+  {}
+---
+# Generated for service "productpage.default.svc.cluster.local" found in ServiceRole "role" at rule 0
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: generated-role-rule0-svc0-target0
+  namespace: default
+spec:
+  rules:
+  - from:
+    - source:
+        ipBlocks:
+        - 10.0.0.1
+        namespaces:
+        - source.namespace-1
+        principals:
+        - user-1
+        - source.principal-1
+        requestPrincipals:
+        - request.auth.principal-1
+    to:
+    - operation:
+        methods:
+        - GET
+    when:
+    - key: request.auth.audiences
+      values:
+      - request.auth.audiences-1
+    - key: request.auth.claims[group]
+      values:
+      - group-1
+    - key: request.auth.claims[issuer]
+      values:
+      - request.auth.claims[issuer]-1
+    - key: request.auth.claims[subject]
+      values:
+      - request.auth.claims[subject]-1
+    - key: request.auth.presenter
+      values:
+      - request.auth.presenter-1
+    - key: request.headers[User-Agent]
+      values:
+      - request.headers[User-Agent]-1
+    - key: source.principal
+      values:
+      - source.principal-1
+  - from:
+    - source:
+        ipBlocks:
+        - 10.0.0.2
+        namespaces:
+        - source.namespace-2
+        principals:
+        - user-2
+        - source.principal-2
+        requestPrincipals:
+        - request.auth.principal-2
+    to:
+    - operation:
+        methods:
+        - GET
+    when:
+    - key: request.auth.audiences
+      values:
+      - request.auth.audiences-2
+    - key: request.auth.claims[group]
+      values:
+      - group-2
+    - key: request.auth.claims[issuer]
+      values:
+      - request.auth.claims[issuer]-2
+    - key: request.auth.claims[subject]
+      values:
+      - request.auth.claims[subject]-2
+    - key: request.auth.presenter
+      values:
+      - request.auth.presenter-2
+    - key: request.headers[User-Agent]
+      values:
+      - request.headers[User-Agent]-2
+    - key: source.principal
+      values:
+      - source.principal-2
+  - from:
+    - source:
+        ipBlocks:
+        - 10.0.0.3
+        namespaces:
+        - source.namespace-3
+        principals:
+        - user-3
+        - source.principal-3
+        requestPrincipals:
+        - request.auth.principal-3
+    to:
+    - operation:
+        methods:
+        - GET
+    when:
+    - key: request.auth.audiences
+      values:
+      - request.auth.audiences-3
+    - key: request.auth.claims[group]
+      values:
+      - group-3
+    - key: request.auth.claims[issuer]
+      values:
+      - request.auth.claims[issuer]-3
+    - key: request.auth.claims[subject]
+      values:
+      - request.auth.claims[subject]-3
+    - key: request.auth.presenter
+      values:
+      - request.auth.presenter-3
+    - key: request.headers[User-Agent]
+      values:
+      - request.headers[User-Agent]-3
+    - key: source.principal
+      values:
+      - source.principal-3
+  selector:
+    matchLabels:
+      app: productpage
+      version: v1
+---

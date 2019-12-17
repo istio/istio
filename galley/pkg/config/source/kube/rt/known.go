@@ -62,9 +62,11 @@ func (p *Provider) initKnownAdapters() {
 				}
 				return out, nil
 			},
-			getStatus: noStatus,
-			isEqual:   resourceVersionsMatch,
-			isBuiltIn: true,
+			getStatus:                     noStatus,
+			isEqual:                       resourceVersionsMatch,
+			isBuiltIn:                     true,
+			isDefaultExcluded:             true,
+			isRequiredForServiceDiscovery: true,
 		},
 
 		asTypesKey("", "Namespace"): {
@@ -90,9 +92,11 @@ func (p *Provider) initKnownAdapters() {
 				}
 				return out, nil
 			},
-			getStatus: noStatus,
-			isEqual:   resourceVersionsMatch,
-			isBuiltIn: true,
+			getStatus:                     noStatus,
+			isEqual:                       resourceVersionsMatch,
+			isBuiltIn:                     true,
+			isDefaultExcluded:             true,
+			isRequiredForServiceDiscovery: true,
 		},
 
 		asTypesKey("", "Node"): {
@@ -118,9 +122,11 @@ func (p *Provider) initKnownAdapters() {
 				}
 				return out, nil
 			},
-			getStatus: noStatus,
-			isEqual:   resourceVersionsMatch,
-			isBuiltIn: true,
+			getStatus:                     noStatus,
+			isEqual:                       resourceVersionsMatch,
+			isBuiltIn:                     true,
+			isDefaultExcluded:             true,
+			isRequiredForServiceDiscovery: true,
 		},
 
 		asTypesKey("", "Pod"): {
@@ -146,9 +152,11 @@ func (p *Provider) initKnownAdapters() {
 				}
 				return out, nil
 			},
-			getStatus: noStatus,
-			isEqual:   resourceVersionsMatch,
-			isBuiltIn: true,
+			getStatus:                     noStatus,
+			isEqual:                       resourceVersionsMatch,
+			isBuiltIn:                     true,
+			isDefaultExcluded:             true,
+			isRequiredForServiceDiscovery: true,
 		},
 
 		asTypesKey("", "Endpoints"): {
@@ -188,8 +196,10 @@ func (p *Provider) initKnownAdapters() {
 				// Endpoint updates can be noisy. Make sure that the subsets have actually changed.
 				return reflect.DeepEqual(r1.Subsets, r2.Subsets)
 			},
-			getStatus: noStatus,
-			isBuiltIn: true,
+			getStatus:                     noStatus,
+			isBuiltIn:                     true,
+			isDefaultExcluded:             true,
+			isRequiredForServiceDiscovery: true,
 		},
 		asTypesKey("extensions", "Ingress"): {
 			extractObject: defaultExtractObject,

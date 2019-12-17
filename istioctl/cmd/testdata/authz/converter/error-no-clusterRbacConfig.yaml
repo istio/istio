@@ -1,0 +1,21 @@
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: role
+  namespace: default
+spec:
+  rules:
+  - services: ["productpage"]
+    methods: ["GET", "POST"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRoleBinding
+metadata:
+  name: binding
+  namespace: default
+spec:
+  subjects:
+  - user: "user"
+  roleRef:
+    kind: ServiceRole
+    name: "role"

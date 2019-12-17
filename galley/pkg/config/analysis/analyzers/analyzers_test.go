@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/deprecation"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/service"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/sidecar"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/virtualservice"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
@@ -249,6 +250,22 @@ var testGrid = []testCase{
 		expected: []message{
 			{msg.IstioProxyVersionMismatch, "Pod details-v1-pod-old.enabled-namespace"},
 		},
+	},
+	{
+		name:       "portNameNotFollowConvention",
+		inputFiles: []string{"testdata/service-no-port-name.yaml"},
+		analyzer:   &service.PortNameAnalyzer{},
+		expected: []message{
+			{msg.PortNameIsNotUnderNamingConvention, "Service my-service1.my-namespace1"},
+			{msg.PortNameIsNotUnderNamingConvention, "Service my-service1.my-namespace1"},
+			{msg.PortNameIsNotUnderNamingConvention, "Service my-service2.my-namespace2"},
+		},
+	},
+	{
+		name:       "namedPort",
+		inputFiles: []string{"testdata/service-port-name.yaml"},
+		analyzer:   &service.PortNameAnalyzer{},
+		expected:   []message{},
 	},
 	{
 		name:       "sidecarDefaultSelector",

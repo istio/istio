@@ -1487,19 +1487,25 @@ func ValidateAuthenticationPolicy(name, namespace string, msg proto.Message) err
 }
 
 func validateWorkloadSelector(selector *type_beta.WorkloadSelector) error {
+	var errs error
 	if selector != nil {
 		for k, v := range selector.MatchLabels {
-			if k == "" || v == "" {
-				return fmt.Errorf("selector has empty key or values")
+			if k == "" {
+				errs = appendErrors(errs,
+					fmt.Errorf("empty key is not supported in selector: %q", fmt.Sprintf("%s=%s", k, v)))
+			}
+			if strings.Contains(k, "*") || strings.Contains(v, "*") {
+				errs = appendErrors(errs,
+					fmt.Errorf("wildcard is not supported in selector: %q", fmt.Sprintf("%s=%s", k, v)))
 			}
 		}
 	}
 
-	return nil
+	return errs
 }
 
 // ValidateAuthorizationPolicy checks that AuthorizationPolicy is well-formed.
-func ValidateAuthorizationPolicy(_, _ string, msg proto.Message) error {
+func ValidateAuthorizationPolicy(name, namespace string, msg proto.Message) error {
 	in, ok := msg.(*security_beta.AuthorizationPolicy)
 	if !ok {
 		return fmt.Errorf("cannot cast to AuthorizationPolicy")
@@ -1509,17 +1515,46 @@ func ValidateAuthorizationPolicy(_, _ string, msg proto.Message) error {
 		return err
 	}
 
-	for _, rule := range in.GetRules() {
+	var errs error
+	for i, rule := range in.GetRules() {
+		if rule.From != nil && len(rule.From) == 0 {
+			errs = appendErrors(errs, fmt.Errorf("`from` must not be empty, found at rule %d in %s.%s", i, name, namespace))
+		}
+		for _, from := range rule.From {
+			if from.Source == nil {
+				errs = appendErrors(errs, fmt.Errorf("`from.source` must not be nil, found at rule %d in %s.%s", i, name, namespace))
+			} else {
+				src := from.Source
+				if len(src.Principals) == 0 && len(src.RequestPrincipals) == 0 && len(src.Namespaces) == 0 && len(src.IpBlocks) == 0 {
+					errs = appendErrors(errs, fmt.Errorf("`from.source` must not be empty, found at rule %d in %s.%s", i, name, namespace))
+				}
+				errs = appendErrors(errs, security.ValidateIPs(from.Source.GetIpBlocks()))
+			}
+		}
+		if rule.To != nil && len(rule.To) == 0 {
+			errs = appendErrors(errs, fmt.Errorf("`to` must not be empty, found at rule %d in %s.%s", i, name, namespace))
+		}
+		for _, to := range rule.To {
+			if to.Operation == nil {
+				errs = appendErrors(errs, fmt.Errorf("`to.operation` must not be nil, found at rule %d in %s.%s", i, name, namespace))
+			} else {
+				op := to.Operation
+				if len(op.Ports) == 0 && len(op.Methods) == 0 && len(op.Paths) == 0 && len(op.Hosts) == 0 {
+					errs = appendErrors(errs, fmt.Errorf("`to.operation` must not be empty, found at rule %d in %s.%s", i, name, namespace))
+				}
+				errs = appendErrors(errs, security.ValidatePorts(to.Operation.GetPorts()))
+			}
+		}
 		for _, condition := range rule.GetWhen() {
 			if condition.GetKey() == "" || len(condition.GetValues()) == 0 {
-				return fmt.Errorf("condition has empty key or values")
+				errs = appendErrors(errs, fmt.Errorf("`condition` must not have empty key or values, found at %q in %s.%s", condition, name, namespace))
 			}
 			if err := security.ValidateAttribute(condition.GetKey(), condition.GetValues()); err != nil {
-				return fmt.Errorf("invalid condition: %v", err)
+				errs = appendErrors(errs, fmt.Errorf("invalid condition in %s.%s: %v", name, namespace, err))
 			}
 		}
 	}
-	return nil
+	return errs
 }
 
 // ValidateRequestAuthentication checks that request authentication spec is well-formed.
