@@ -18,9 +18,11 @@ import (
 	"testing"
 
 	networking "istio.io/api/networking/v1alpha3"
+
+	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 )
 
-func TestIsCatchAll(t *testing.T) {
+func TestIsCatchAllMatch(t *testing.T) {
 	cases := []struct {
 		name  string
 		match *networking.HTTPMatchRequest
@@ -105,9 +107,91 @@ func TestIsCatchAll(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			match := isCatchAll(tt.match)
+			match := isCatchAllMatch(tt.match)
 			if match != tt.want {
 				t.Errorf("Unexpected catchAllMatch want %v, got %v", tt.want, match)
+			}
+		})
+	}
+}
+
+func TestIsCatchAllRoute(t *testing.T) {
+	cases := []struct {
+		name  string
+		route *route.Route
+		want  bool
+	}{
+		{
+			name: "catch all prefix",
+			route: &route.Route{
+				Name: "catch-all",
+				Match: &route.RouteMatch{
+					PathSpecifier: &route.RouteMatch_Prefix{
+						Prefix: "/",
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "catch all regex",
+			route: &route.Route{
+				Name: "catch-all",
+				Match: &route.RouteMatch{
+					PathSpecifier: &route.RouteMatch_Regex{
+						Regex: "*",
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "uri regex with headers",
+			route: &route.Route{
+				Name: "non-catch-all",
+				Match: &route.RouteMatch{
+					PathSpecifier: &route.RouteMatch_Regex{
+						Regex: "*",
+					},
+					Headers: []*route.HeaderMatcher{
+						{
+							Name: "Authentication",
+							HeaderMatchSpecifier: &route.HeaderMatcher_RegexMatch{
+								RegexMatch: "Bearer .+?\\..+?\\..+?",
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "uri regex with query params",
+			route: &route.Route{
+				Name: "non-catch-all",
+				Match: &route.RouteMatch{
+					PathSpecifier: &route.RouteMatch_Regex{
+						Regex: "*",
+					},
+					QueryParameters: []*route.QueryParameterMatcher{
+						{
+							Name: "Authentication",
+							QueryParameterMatchSpecifier: &route.QueryParameterMatcher_PresentMatch{
+								PresentMatch: true,
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			catchall := isCatchAllRoute(tt.route)
+			if catchall != tt.want {
+				t.Errorf("Unexpected catchAllMatch want %v, got %v", tt.want, catchall)
 			}
 		})
 	}
