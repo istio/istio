@@ -52,7 +52,7 @@ type v1beta1PolicyApplier struct {
 
 func (a *v1beta1PolicyApplier) JwtFilter(isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
 	if len(a.processedJwtRules) == 0 {
-		log.Debugf("RequestAuthentication (beta policy) not found, fallback to alpha if available")
+		log.Debugf("JwtFilter: RequestAuthentication (beta policy) not found, fallback to alpha if available")
 		return a.alphaApplier.JwtFilter(isXDSMarshalingToAnyEnabled)
 	}
 
@@ -113,6 +113,10 @@ func convertToIstioAuthnFilterConfig(jwtRules []*v1beta1.JWT) *authn_filter.Filt
 // ensure Authn Filter won't reject the request, but still transform the attributes, e.g. request.auth.principal.
 // proxyType does not matter here, exists only for legacy reason.
 func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
+	if len(a.processedJwtRules) == 0 {
+		log.Debugf("AuthnFilter: RequestAuthentication (beta policy) not found, fallback to alpha if available")
+		return a.alphaApplier.AuthNFilter(proxyType, isXDSMarshalingToAnyEnabled)
+	}
 	out := &http_conn.HttpFilter{
 		Name: authn_model.AuthnFilterName,
 	}
@@ -129,9 +133,7 @@ func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, isXDSMarsha
 }
 
 func (a *v1beta1PolicyApplier) InboundFilterChain(sdsUdsPath string, meta *model.NodeMetadata) []plugin.FilterChain {
-	// TODO(diemtvu) implement this.
-	log.Errorf("InboundFilterChain is not yet implemented")
-	return nil
+	return a.alphaApplier.InboundFilterChain(sdsUdsPath, meta)
 }
 
 // NewPolicyApplier returns new applier for v1beta1 authentication policies.
