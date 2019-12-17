@@ -25,6 +25,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	coreV1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
+	discoveryv1alpha1 "k8s.io/api/discovery/v1alpha1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
@@ -885,6 +886,7 @@ func TestWorkloadHealthCheckInfoPrometheusPort(t *testing.T) {
 
 func TestManagementPorts(t *testing.T) {
 	controller, _ := newFakeController()
+	defer controller.Stop()
 
 	pod := generatePodWithProbes("128.0.0.1", "pod1", "nsA", "", "node1", "/ready", intstr.Parse("8080"), "/live", intstr.Parse("9090"))
 	addPods(t, controller, pod)
@@ -919,6 +921,7 @@ func TestManagementPorts(t *testing.T) {
 
 func TestController_Service(t *testing.T) {
 	controller, fx := newFakeController()
+	defer controller.Stop()
 	// Use a timeout to keep the test from hanging.
 
 	createService(controller, "svc1", "nsA",
@@ -1004,6 +1007,7 @@ func TestController_Service(t *testing.T) {
 
 func TestController_ExternalNameService(t *testing.T) {
 	controller, fx := newFakeController()
+	defer controller.Stop()
 	// Use a timeout to keep the test from hanging.
 
 	k8sSvcs := []*coreV1.Service{
@@ -1205,6 +1209,7 @@ func TestCompareEndpoints(t *testing.T) {
 }
 
 func createEndpoints(controller *Controller, name, namespace string, portNames, ips []string, t *testing.T) {
+	var portNum int32 = 1001
 	eas := make([]coreV1.EndpointAddress, 0)
 	for _, ip := range ips {
 		eas = append(eas, coreV1.EndpointAddress{IP: ip, TargetRef: &v1.ObjectReference{
@@ -1216,7 +1221,7 @@ func createEndpoints(controller *Controller, name, namespace string, portNames, 
 
 	eps := make([]coreV1.EndpointPort, 0)
 	for _, name := range portNames {
-		eps = append(eps, coreV1.EndpointPort{Name: name, Port: 1001})
+		eps = append(eps, coreV1.EndpointPort{Name: name, Port: portNum})
 	}
 
 	endpoint := &coreV1.Endpoints{
@@ -1232,9 +1237,36 @@ func createEndpoints(controller *Controller, name, namespace string, portNames, 
 	if _, err := controller.client.CoreV1().Endpoints(namespace).Create(endpoint); err != nil {
 		t.Fatalf("failed to create endpoints %s in namespace %s (error %v)", name, namespace, err)
 	}
+
+	// Create endpoint slice as well
+	esps := make([]discoveryv1alpha1.EndpointPort, 0)
+	for _, name := range portNames {
+		n := name // Create a stable reference to take the pointer from
+		esps = append(esps, discoveryv1alpha1.EndpointPort{Name: &n, Port: &portNum})
+	}
+
+	endpointSlice := &discoveryv1alpha1.EndpointSlice{
+		ObjectMeta: metaV1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			Labels: map[string]string{
+				discoveryv1alpha1.LabelServiceName: name,
+			},
+		},
+		Endpoints: []discoveryv1alpha1.Endpoint{
+			{
+				Addresses: ips,
+			},
+		},
+		Ports: esps,
+	}
+	if _, err := controller.client.DiscoveryV1alpha1().EndpointSlices(namespace).Create(endpointSlice); err != nil {
+		t.Errorf("failed to create endpoint slice %s in namespace %s (error %v)", name, namespace, err)
+	}
 }
 
 func updateEndpoints(controller *Controller, name, namespace string, portNames, ips []string, t *testing.T) {
+	var portNum int32 = 1001
 	eas := make([]coreV1.EndpointAddress, 0)
 	for _, ip := range ips {
 		eas = append(eas, coreV1.EndpointAddress{IP: ip})
@@ -1242,7 +1274,7 @@ func updateEndpoints(controller *Controller, name, namespace string, portNames, 
 
 	eps := make([]coreV1.EndpointPort, 0)
 	for _, name := range portNames {
-		eps = append(eps, coreV1.EndpointPort{Name: name, Port: 1001})
+		eps = append(eps, coreV1.EndpointPort{Name: name, Port: portNum})
 	}
 
 	endpoint := &coreV1.Endpoints{
@@ -1257,6 +1289,30 @@ func updateEndpoints(controller *Controller, name, namespace string, portNames, 
 	}
 	if _, err := controller.client.CoreV1().Endpoints(namespace).Update(endpoint); err != nil {
 		t.Fatalf("failed to update endpoints %s in namespace %s (error %v)", name, namespace, err)
+	}
+
+	// Update endpoint slice as well
+	esps := make([]discoveryv1alpha1.EndpointPort, 0)
+	for _, name := range portNames {
+		esps = append(esps, discoveryv1alpha1.EndpointPort{Name: &name, Port: &portNum})
+	}
+	endpointSlice := &discoveryv1alpha1.EndpointSlice{
+		ObjectMeta: metaV1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			Labels: map[string]string{
+				discoveryv1alpha1.LabelServiceName: name,
+			},
+		},
+		Endpoints: []discoveryv1alpha1.Endpoint{
+			{
+				Addresses: ips,
+			},
+		},
+		Ports: esps,
+	}
+	if _, err := controller.client.DiscoveryV1alpha1().EndpointSlices(namespace).Update(endpointSlice); err != nil {
+		t.Errorf("failed to create endpoint slice %s in namespace %s (error %v)", name, namespace, err)
 	}
 }
 
