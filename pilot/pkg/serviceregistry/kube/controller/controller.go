@@ -36,7 +36,6 @@ import (
 	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -45,7 +44,6 @@ import (
 	configKube "istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/schemas"
 )
 
 const (
@@ -118,17 +116,37 @@ type Options struct {
 
 	// NetworksWatcher observes changes to the mesh networks config.
 	NetworksWatcher mesh.NetworksWatcher
+
+	// EndpointMode decides what source to use to get endpoint information
+	EndpointMode EndpointMode
 }
+
+// EndpointMode decides what source to use to get endpoint information
+type EndpointMode int
+
+const (
+	// EndpointsOnly type will use only Kubernetes Endpoints
+	EndpointsOnly EndpointMode = iota
+
+	// EndpointSliceOnly type will use only Kubernetes EndpointSlices
+	EndpointSliceOnly
+
+	// TODO: add other modes. Likely want a mode with Endpoints+EndpointSlices that are not controlled by
+	// Kubernetes Controller (e.g. made by user and not duplicated with Endpoints), or a mode with both that
+	// does deduping. Simply doing both won't work for now, since not all Kubernetes components support EndpointSlice.
+)
 
 var _ serviceregistry.Instance = &Controller{}
 
 // Controller is a collection of synchronized resource watchers
 // Caches are thread-safe
 type Controller struct {
-	client          kubernetes.Interface
-	queue           kube.Queue
-	services        cacheHandler
-	endpoints       cacheHandler
+	client    kubernetes.Interface
+	queue     kube.Queue
+	services  cacheHandler
+	endpoints kubeEndpointsController
+
+	// TODO we can disable this when we only have EndpointSlice enabled
 	nodes           cacheHandler
 	pods            *PodCache
 	metrics         model.Metrics
@@ -180,8 +198,12 @@ func NewController(client kubernetes.Interface, options Options) *Controller {
 	svcInformer := sharedInformers.Core().V1().Services().Informer()
 	out.services = out.createCacheHandler(svcInformer, "Services")
 
-	epInformer := sharedInformers.Core().V1().Endpoints().Informer()
-	out.endpoints = out.createEDSCacheHandler(epInformer, "Endpoints")
+	switch options.EndpointMode {
+	case EndpointsOnly:
+		out.endpoints = newEndpointsController(out, sharedInformers)
+	case EndpointSliceOnly:
+		out.endpoints = newEndpointSliceController(out, sharedInformers)
+	}
 
 	nodeInformer := sharedInformers.Core().V1().Nodes().Informer()
 	out.nodes = out.createCacheHandler(nodeInformer, "Nodes")
@@ -259,45 +281,10 @@ func compareEndpoints(a, b *v1.Endpoints) bool {
 	return true
 }
 
-func (c *Controller) createEDSCacheHandler(informer cache.SharedIndexInformer, otype string) cacheHandler {
-	handler := &kube.ChainHandler{Funcs: []kube.Handler{c.notify}}
-
-	informer.AddEventHandler(
-		cache.ResourceEventHandlerFuncs{
-			// TODO: filtering functions to skip over un-referenced resources (perf)
-			AddFunc: func(obj interface{}) {
-				incrementEvent(otype, "add")
-				c.queue.Push(kube.NewTask(handler.Apply, nil, obj, model.EventAdd))
-			},
-			UpdateFunc: func(old, cur interface{}) {
-				// Avoid pushes if only resource version changed (kube-scheduller, cluster-autoscaller, etc)
-				oldE := old.(*v1.Endpoints)
-				curE := cur.(*v1.Endpoints)
-
-				if !compareEndpoints(oldE, curE) {
-					incrementEvent(otype, "update")
-					c.queue.Push(kube.NewTask(handler.Apply, old, cur, model.EventUpdate))
-				} else {
-					incrementEvent(otype, "updatesame")
-				}
-			},
-			DeleteFunc: func(obj interface{}) {
-				incrementEvent(otype, "delete")
-				// Deleting the endpoints results in an empty set from EDS perspective - only
-				// deleting the service should delete the resources. The full sync replaces the
-				// maps.
-				// c.updateEDS(obj.(*v1.Endpoints))
-				c.queue.Push(kube.NewTask(handler.Apply, nil, obj, model.EventDelete))
-			},
-		})
-
-	return cacheHandler{informer: informer, handler: handler}
-}
-
 // HasSynced returns true after the initial state synchronization
 func (c *Controller) HasSynced() bool {
 	if !c.services.informer.HasSynced() ||
-		!c.endpoints.informer.HasSynced() ||
+		!c.endpoints.HasSynced() ||
 		!c.pods.informer.HasSynced() ||
 		!c.nodes.informer.HasSynced() {
 		return false
@@ -325,7 +312,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	cache.WaitForCacheSync(stop, c.nodes.informer.HasSynced, c.pods.informer.HasSynced,
 		c.services.informer.HasSynced)
 
-	go c.endpoints.informer.Run(stop)
+	go c.endpoints.Run(stop)
 
 	<-stop
 	log.Infof("Controller terminated")
@@ -478,66 +465,7 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 		return inScopeInstances, nil
 	}
 
-	item, exists, err := c.endpoints.informer.GetStore().GetByKey(kube.KeyFunc(svc.Attributes.Name, svc.Attributes.Namespace))
-	if err != nil {
-		log.Infof("get endpoint(%s, %s) => error %v", svc.Attributes.Name, svc.Attributes.Namespace, err)
-		return nil, nil
-	}
-	if !exists {
-		return nil, nil
-	}
-
-	// Locate all ports in the actual service
-	svcPortEntry, exists := svc.Ports.GetByPort(reqSvcPort)
-	if !exists {
-		return nil, nil
-	}
-	ep := item.(*v1.Endpoints)
-	var out []*model.ServiceInstance
-	for _, ss := range ep.Subsets {
-		for _, ea := range ss.Addresses {
-			var podLabels labels.Instance
-			pod := c.pods.getPodByIP(ea.IP)
-			if pod != nil {
-				podLabels = configKube.ConvertLabels(pod.ObjectMeta)
-			}
-			// check that one of the input labels is a subset of the labels
-			if !labelsList.HasSubsetOf(podLabels) {
-				continue
-			}
-
-			az, sa, uid := "", "", ""
-			if pod != nil {
-				az = c.GetPodLocality(pod)
-				sa = kube.SecureNamingSAN(pod)
-				uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
-			}
-			tlsMode := kube.PodTLSMode(pod)
-
-			// identify the port by name. K8S EndpointPort uses the service port name
-			for _, port := range ss.Ports {
-				if port.Name == "" || // 'name optional if single port is defined'
-					svcPortEntry.Name == port.Name {
-					out = append(out, &model.ServiceInstance{
-						Endpoint: model.NetworkEndpoint{
-							Address:     ea.IP,
-							Port:        int(port.Port),
-							ServicePort: svcPortEntry,
-							UID:         uid,
-							Network:     c.endpointNetwork(ea.IP),
-							Locality:    az,
-						},
-						Service:        svc,
-						Labels:         podLabels,
-						ServiceAccount: sa,
-						TLSMode:        tlsMode,
-					})
-				}
-			}
-		}
-	}
-
-	return out, nil
+	return c.endpoints.InstancesByPort(c, svc, reqSvcPort, labelsList)
 }
 
 // GetProxyServiceInstances returns service instances co-located with a given proxy
@@ -582,23 +510,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 		}
 
 		// 3. Headless service
-		endpointsForPodInSameNS := make([]*model.ServiceInstance, 0)
-		endpointsForPodInDifferentNS := make([]*model.ServiceInstance, 0)
-		for _, item := range c.endpoints.informer.GetStore().List() {
-			ep := *item.(*v1.Endpoints)
-			endpoints := &endpointsForPodInSameNS
-			if ep.Namespace != proxyNamespace {
-				endpoints = &endpointsForPodInDifferentNS
-			}
-
-			*endpoints = append(*endpoints, c.getProxyServiceInstancesByEndpoint(ep, proxy)...)
-		}
-
-		// Put the endpointsForPodInSameNS in front of endpointsForPodInDifferentNS so that Pilot will
-		// first use endpoints from endpointsForPodInSameNS. This makes sure if there are two endpoints
-		// referring to the same IP/port, the one in endpointsForPodInSameNS will be used. (The other one
-		// in endpointsForPodInDifferentNS will thus be rejected by Pilot).
-		out = append(endpointsForPodInSameNS, endpointsForPodInDifferentNS...)
+		out = c.endpoints.GetProxyServiceInstances(c, proxy, proxyNamespace)
 	}
 
 	if len(out) == 0 {
@@ -700,44 +612,6 @@ func findPortFromMetadata(svcPort v1.ServicePort, podPorts []model.PodPort) (int
 	return 0, fmt.Errorf("no matching port found for %+v", svcPort)
 }
 
-func (c *Controller) getProxyServiceInstancesByEndpoint(endpoints v1.Endpoints, proxy *model.Proxy) []*model.ServiceInstance {
-	out := make([]*model.ServiceInstance, 0)
-
-	hostname := kube.ServiceHostname(endpoints.Name, endpoints.Namespace, c.domainSuffix)
-	c.RLock()
-	svc := c.servicesMap[hostname]
-	c.RUnlock()
-
-	if svc != nil {
-		for _, ss := range endpoints.Subsets {
-			for _, port := range ss.Ports {
-				svcPort, exists := svc.Ports.Get(port.Name)
-				if !exists {
-					continue
-				}
-
-				podIP := proxy.IPAddresses[0]
-
-				// consider multiple IP scenarios
-				for _, ip := range proxy.IPAddresses {
-					if hasProxyIP(ss.Addresses, ip) {
-						out = append(out, c.getEndpoints(podIP, ip, port.Port, svcPort, svc))
-					}
-
-					if hasProxyIP(ss.NotReadyAddresses, ip) {
-						out = append(out, c.getEndpoints(podIP, ip, port.Port, svcPort, svc))
-						if c.metrics != nil {
-							c.metrics.AddMetric(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
-						}
-					}
-				}
-			}
-		}
-	}
-
-	return out
-}
-
 func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod, service *v1.Service, proxy *model.Proxy) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 
@@ -750,6 +624,7 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod, service *v1.Serv
 		return out
 	}
 
+	podIP := proxy.IPAddresses[0]
 	for _, port := range service.Spec.Ports {
 		svcPort, exists := svc.Ports.Get(port.Name)
 		if !exists {
@@ -761,8 +636,6 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod, service *v1.Serv
 			log.Warnf("Failed to find port for service %s/%s: %v", service.Namespace, service.Name, err)
 			continue
 		}
-
-		podIP := proxy.IPAddresses[0]
 
 		// consider multiple IP scenarios
 		for _, ip := range proxy.IPAddresses {
@@ -895,49 +768,8 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 }
 
 // AppendInstanceHandler implements a service catalog operation
-func (c *Controller) AppendInstanceHandler(_ func(*model.ServiceInstance, model.Event)) error {
-	if c.endpoints.handler == nil {
-		return nil
-	}
-	c.endpoints.handler.Append(func(old, curr interface{}, event model.Event) error {
-		ep, ok := curr.(*v1.Endpoints)
-		if !ok {
-			tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
-			if !ok {
-				log.Errorf("Couldn't get object from tombstone %#v", curr)
-				return nil
-			}
-			ep, ok = tombstone.Obj.(*v1.Endpoints)
-			if !ok {
-				log.Errorf("Tombstone contained an object that is not an endpoint %#v", curr)
-				return nil
-			}
-		}
-
-		log.Debugf("Handle event %s for endpoint %s in namespace %s", event, ep.Name, ep.Namespace)
-
-		// headless service cluster discovery type is ORIGINAL_DST, we do not need update EDS.
-		if features.EnableHeadlessService.Get() {
-			if obj, _, _ := c.services.informer.GetIndexer().GetByKey(kube.KeyFunc(ep.Name, ep.Namespace)); obj != nil {
-				svc := obj.(*v1.Service)
-				// if the service is headless service, trigger a full push.
-				if svc.Spec.ClusterIP == v1.ClusterIPNone {
-					c.xdsUpdater.ConfigUpdate(&model.PushRequest{
-						Full:              true,
-						NamespacesUpdated: map[string]struct{}{ep.Namespace: {}},
-						// TODO: extend and set service instance type, so no need to re-init push context
-						ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
-					})
-					return nil
-				}
-			}
-		}
-
-		c.updateEDS(ep, event)
-
-		return nil
-	})
-
+func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
+	c.endpoints.AppendInstanceHandler(c)
 	return nil
 }
 
@@ -971,7 +803,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 				if pod != nil {
 					locality = c.GetPodLocality(pod)
 					sa = kube.SecureNamingSAN(pod)
-					uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
+					uid = createUID(pod.Name, pod.Namespace)
 					labelMap = configKube.ConvertLabels(pod.ObjectMeta)
 				}
 
@@ -1100,4 +932,8 @@ func FindPort(pod *v1.Pod, svcPort *v1.ServicePort) (int, error) {
 	}
 
 	return 0, fmt.Errorf("no suitable port for manifest: %s", pod.UID)
+}
+
+func createUID(podName, namespace string) string {
+	return "kubernetes://" + podName + "." + namespace
 }

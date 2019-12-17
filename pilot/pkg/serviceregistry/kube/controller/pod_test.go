@@ -130,7 +130,7 @@ func testPodCache(t *testing.T, c *Controller, fx *FakeXdsUpdater) {
 		generatePod("128.0.0.3", "cpod3", "nsb", "", "", map[string]string{"app": "prod-app-2"}, map[string]string{}),
 	}
 	cache.WaitForCacheSync(c.stop, c.nodes.informer.HasSynced, c.pods.informer.HasSynced,
-		c.services.informer.HasSynced, c.endpoints.informer.HasSynced)
+		c.services.informer.HasSynced, c.endpoints.HasSynced)
 
 	for _, pod := range pods {
 		pod := pod
@@ -168,6 +168,7 @@ func TestPodCacheEvents(t *testing.T) {
 	t.Parallel()
 	handler := &kube.ChainHandler{}
 	c, fx := newFakeController()
+	defer c.Stop()
 	podCache := newPodCache(cacheHandler{handler: handler}, c)
 
 	f := podCache.event

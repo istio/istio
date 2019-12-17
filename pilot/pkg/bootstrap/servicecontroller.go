@@ -17,6 +17,7 @@ package bootstrap
 import (
 	"fmt"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -83,9 +84,14 @@ func (s *Server) initKubeRegistry(serviceControllers *aggregate.Controller, args
 	args.Config.ControllerOptions.Metrics = s.environment
 	args.Config.ControllerOptions.XDSUpdater = s.EnvoyXdsServer
 	args.Config.ControllerOptions.NetworksWatcher = s.environment.NetworksWatcher
-	kubectl := kubecontroller.NewController(s.kubeClient, args.Config.ControllerOptions)
-	s.kubeRegistry = kubectl
-	serviceControllers.AddRegistry(kubectl)
+	if features.EnableEndpointSliceController {
+		args.Config.ControllerOptions.EndpointMode = kubecontroller.EndpointSliceOnly
+	} else {
+		args.Config.ControllerOptions.EndpointMode = kubecontroller.EndpointsOnly
+	}
+	kubeRegistry := kubecontroller.NewController(s.kubeClient, args.Config.ControllerOptions)
+	s.kubeRegistry = kubeRegistry
+	serviceControllers.AddRegistry(kubeRegistry)
 	return
 }
 
