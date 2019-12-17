@@ -3,6 +3,7 @@ package validation
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"strconv"
 	"time"
@@ -66,13 +67,13 @@ func NewValidator(config *config.Config) *Validator {
 		Config: &Config{
 			ServerListenAddress: ":" + config.InboundCapturePort,
 			ServerOriginalPort:  constants.IPTABLES_PROBE_PORT,
-			ServerOriginalIP:    config.HostIp,
+			ServerOriginalIP:    config.HostIP,
 		},
 	}
 }
 
 // Write human readable response
-func echo(conn net.Conn, echo []byte) {
+func echo(conn io.WriteCloser, echo []byte) {
 	_, _ = conn.Write(echo)
 	_ = conn.Close()
 }

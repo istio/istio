@@ -40,7 +40,7 @@ type Config struct {
 	OutboundIPRangesExclude string `json:"OUTBOUND_IPRANGES_EXCLUDE"`
 	KubevirtInterfaces      string `json:"KUBEVIRT_INTERFACES"`
 	EnableInboundIPv6s      net.IP `json:"ENABLE_INBOUND_IPV6"`
-	HostIp                  net.IP `json:"HOST_IP"`
+	HostIP                  net.IP `json:"HOST_IP"`
 	SkipRuleApply           bool   `json:"SKIP_RULE_APPLY"`
 	SkipValidation          bool   `json:"SKIP_VALIDATION"`
 }

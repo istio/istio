@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	"github.com/coreos/etcd/pkg/cpuutil"
+
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
