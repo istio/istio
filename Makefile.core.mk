@@ -527,6 +527,8 @@ security-racetest:
 
 .PHONY: common-racetest
 common-racetest:
+	# Execute bash shell unit tests scripts
+	./tests/scripts/istio-iptables-test.sh
 	RACE_TEST=true go test ${T} -race ./pkg/...
 
 #-----------------------------------------------------------------------------
