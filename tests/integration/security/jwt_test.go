@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -83,7 +84,7 @@ func TestAuthnJwt(t *testing.T) {
 							},
 						},
 					},
-					ExpectAuthenticated: true,
+					ExpectResponseCode: response.StatusCodeOK,
 				},
 				{
 					Name: "jwt-simple-expired-token",
@@ -98,7 +99,7 @@ func TestAuthnJwt(t *testing.T) {
 							},
 						},
 					},
-					ExpectAuthenticated: false,
+					ExpectResponseCode: response.StatusUnauthorized,
 				},
 				{
 					Name: "jwt-simple-no-token",
@@ -110,7 +111,7 @@ func TestAuthnJwt(t *testing.T) {
 							Scheme:   scheme.HTTP,
 						},
 					},
-					ExpectAuthenticated: false,
+					ExpectResponseCode: response.StatusUnauthorized,
 				},
 				{
 					Name: "jwt-excluded-paths-no-token[/health_check]",
@@ -123,7 +124,7 @@ func TestAuthnJwt(t *testing.T) {
 							Scheme:   scheme.HTTP,
 						},
 					},
-					ExpectAuthenticated: true,
+					ExpectResponseCode: response.StatusCodeOK,
 				},
 				{
 					Name: "jwt-excluded-paths-no-token[/guest-us]",
@@ -136,7 +137,7 @@ func TestAuthnJwt(t *testing.T) {
 							Scheme:   scheme.HTTP,
 						},
 					},
-					ExpectAuthenticated: true,
+					ExpectResponseCode: response.StatusCodeOK,
 				},
 				{
 					Name: "jwt-excluded-paths-no-token[/index.html]",
@@ -149,7 +150,7 @@ func TestAuthnJwt(t *testing.T) {
 							Scheme:   scheme.HTTP,
 						},
 					},
-					ExpectAuthenticated: false,
+					ExpectResponseCode: response.StatusUnauthorized,
 				},
 				{
 					Name: "jwt-excluded-paths-valid-token",
@@ -165,7 +166,7 @@ func TestAuthnJwt(t *testing.T) {
 							},
 						},
 					},
-					ExpectAuthenticated: true,
+					ExpectResponseCode: response.StatusCodeOK,
 				},
 				{
 					Name: "jwt-included-paths-no-token[/index.html]",
@@ -178,7 +179,7 @@ func TestAuthnJwt(t *testing.T) {
 							Scheme:   scheme.HTTP,
 						},
 					},
-					ExpectAuthenticated: true,
+					ExpectResponseCode: response.StatusCodeOK,
 				},
 				{
 					Name: "jwt-included-paths-no-token[/something-confidential]",
@@ -191,7 +192,7 @@ func TestAuthnJwt(t *testing.T) {
 							Scheme:   scheme.HTTP,
 						},
 					},
-					ExpectAuthenticated: false,
+					ExpectResponseCode: response.StatusUnauthorized,
 				},
 				{
 					Name: "jwt-included-paths-valid-token",
@@ -207,7 +208,7 @@ func TestAuthnJwt(t *testing.T) {
 							},
 						},
 					},
-					ExpectAuthenticated: true,
+					ExpectResponseCode: response.StatusCodeOK,
 				},
 				{
 					Name: "jwt-two-issuers-no-token",
@@ -219,7 +220,7 @@ func TestAuthnJwt(t *testing.T) {
 							Scheme:   scheme.HTTP,
 						},
 					},
-					ExpectAuthenticated: false,
+					ExpectResponseCode: response.StatusUnauthorized,
 				},
 				{
 					Name: "jwt-two-issuers-token2",
@@ -234,7 +235,7 @@ func TestAuthnJwt(t *testing.T) {
 							},
 						},
 					},
-					ExpectAuthenticated: true,
+					ExpectResponseCode: response.StatusCodeOK,
 				},
 				{
 					Name: "jwt-two-issuers-token1",
@@ -249,7 +250,7 @@ func TestAuthnJwt(t *testing.T) {
 							},
 						},
 					},
-					ExpectAuthenticated: false,
+					ExpectResponseCode: response.StatusUnauthorized,
 				},
 				{
 					Name: "jwt-two-issuers-invalid-token",
@@ -265,7 +266,7 @@ func TestAuthnJwt(t *testing.T) {
 							},
 						},
 					},
-					ExpectAuthenticated: false,
+					ExpectResponseCode: response.StatusUnauthorized,
 				},
 				{
 					Name: "jwt-two-issuers-token1[/testing-istio-jwt]",
@@ -281,7 +282,7 @@ func TestAuthnJwt(t *testing.T) {
 							},
 						},
 					},
-					ExpectAuthenticated: true,
+					ExpectResponseCode: response.StatusCodeOK,
 				},
 				{
 					Name: "jwt-two-issuers-token2[/testing-istio-jwt]",
@@ -297,7 +298,7 @@ func TestAuthnJwt(t *testing.T) {
 							},
 						},
 					},
-					ExpectAuthenticated: false,
+					ExpectResponseCode: response.StatusUnauthorized,
 				},
 				{
 					Name: "jwt-wrong-issuers",
@@ -313,7 +314,7 @@ func TestAuthnJwt(t *testing.T) {
 							},
 						},
 					},
-					ExpectAuthenticated: false,
+					ExpectResponseCode: response.StatusUnauthorized,
 				},
 			}
 
@@ -329,13 +330,12 @@ func TestAuthnJwt(t *testing.T) {
 // TestRequestAuthentication tests beta authn policy for jwt.
 func TestRequestAuthentication(t *testing.T) {
 	testIssuer1Token := jwt.TokenIssuer1
-	testIssuer2Token := jwt.TokenIssuer2
 
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
-				Prefix: "authn-jwt",
+				Prefix: "req-authn",
 				Inject: true,
 			})
 
@@ -345,10 +345,9 @@ func TestRequestAuthentication(t *testing.T) {
 			}
 			jwtPolicies := tmpl.EvaluateAllOrFail(t, namespaceTmpl,
 				file.AsStringOrFail(t, "testdata/requestauthn/simple-jwt-policy.yaml.tmpl"),
-				// file.AsStringOrFail(t, "testdata/jwt/two-issuers.yaml.tmpl")
 			)
 			g.ApplyConfigOrFail(t, ns, jwtPolicies...)
-			// defer g.DeleteConfigOrFail(t, ns, jwtPolicies...)
+			defer g.DeleteConfigOrFail(t, ns, jwtPolicies...)
 
 			var a, b, c, d, e echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).
@@ -365,6 +364,49 @@ func TestRequestAuthentication(t *testing.T) {
 					Request: connection.Checker{
 						From: a,
 						Options: echo.CallOptions{
+							Target:   c,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								authHeaderKey: {"Bearer " + testIssuer1Token},
+							},
+						},
+					},
+					ExpectResponseCode: response.StatusCodeOK,
+				},
+				{
+					Name: "jwt-simple-expired-token",
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   c,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								authHeaderKey: {"Bearer " + jwt.TokenExpired},
+							},
+						},
+					},
+					ExpectResponseCode: response.StatusCodeOK,
+				},
+				{
+					Name: "jwt-simple-no-token",
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   c,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+						},
+					},
+					ExpectResponseCode: response.StatusCodeOK,
+				},
+				// Following app b is configured with authorization, only request with valid JWT succeed.
+				{
+					Name: "jwt-simple-valid-token",
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
 							Target:   b,
 							PortName: "http",
 							Scheme:   scheme.HTTP,
@@ -373,7 +415,7 @@ func TestRequestAuthentication(t *testing.T) {
 							},
 						},
 					},
-					ExpectAuthenticated: true,
+					ExpectResponseCode: response.StatusCodeOK,
 				},
 				{
 					Name: "jwt-simple-expired-token",
@@ -388,7 +430,7 @@ func TestRequestAuthentication(t *testing.T) {
 							},
 						},
 					},
-					ExpectAuthenticated: false,
+					ExpectResponseCode: response.StatusCodeForbidden,
 				},
 				{
 					Name: "jwt-simple-no-token",
@@ -400,119 +442,10 @@ func TestRequestAuthentication(t *testing.T) {
 							Scheme:   scheme.HTTP,
 						},
 					},
-					ExpectAuthenticated: false,
-				},
-				{
-					Name: "jwt-two-issuers-no-token",
-					Request: connection.Checker{
-						From: a,
-						Options: echo.CallOptions{
-							Target:   e,
-							PortName: "http",
-							Scheme:   scheme.HTTP,
-						},
-					},
-					ExpectAuthenticated: false,
-				},
-				{
-					Name: "jwt-two-issuers-token2",
-					Request: connection.Checker{
-						From: a,
-						Options: echo.CallOptions{
-							Target:   e,
-							PortName: "http",
-							Scheme:   scheme.HTTP,
-							Headers: map[string][]string{
-								authHeaderKey: {"Bearer " + testIssuer2Token},
-							},
-						},
-					},
-					ExpectAuthenticated: true,
-				},
-				{
-					Name: "jwt-two-issuers-token1",
-					Request: connection.Checker{
-						From: a,
-						Options: echo.CallOptions{
-							Target:   e,
-							PortName: "http",
-							Scheme:   scheme.HTTP,
-							Headers: map[string][]string{
-								authHeaderKey: {"Bearer " + testIssuer1Token},
-							},
-						},
-					},
-					ExpectAuthenticated: false,
-				},
-				{
-					Name: "jwt-two-issuers-invalid-token",
-					Request: connection.Checker{
-						From: a,
-						Options: echo.CallOptions{
-							Target:   e,
-							PortName: "http",
-							Path:     "/testing-istio-jwt",
-							Scheme:   scheme.HTTP,
-							Headers: map[string][]string{
-								authHeaderKey: {"Bearer " + jwt.TokenInvalid},
-							},
-						},
-					},
-					ExpectAuthenticated: false,
-				},
-				{
-					Name: "jwt-two-issuers-token1[/testing-istio-jwt]",
-					Request: connection.Checker{
-						From: a,
-						Options: echo.CallOptions{
-							Target:   e,
-							PortName: "http",
-							Scheme:   scheme.HTTP,
-							Path:     "/testing-istio-jwt",
-							Headers: map[string][]string{
-								authHeaderKey: {"Bearer " + testIssuer1Token},
-							},
-						},
-					},
-					ExpectAuthenticated: true,
-				},
-				{
-					Name: "jwt-two-issuers-token2[/testing-istio-jwt]",
-					Request: connection.Checker{
-						From: a,
-						Options: echo.CallOptions{
-							Target:   e,
-							PortName: "http",
-							Scheme:   scheme.HTTP,
-							Path:     "/testing-istio-jwt",
-							Headers: map[string][]string{
-								authHeaderKey: {"Bearer " + testIssuer2Token},
-							},
-						},
-					},
-					ExpectAuthenticated: false,
-				},
-				{
-					Name: "jwt-wrong-issuers",
-					Request: connection.Checker{
-						From: a,
-						Options: echo.CallOptions{
-							Target:   e,
-							Path:     "/wrong_issuer",
-							PortName: "http",
-							Scheme:   scheme.HTTP,
-							Headers: map[string][]string{
-								authHeaderKey: {"Bearer " + testIssuer1Token},
-							},
-						},
-					},
-					ExpectAuthenticated: false,
+					ExpectResponseCode: response.StatusCodeForbidden,
 				},
 			}
 			for _, c := range testCases {
-				if c.Name == "jwt-two-issuers-no-token" {
-					return
-				}
 				t.Run(c.Name, func(t *testing.T) {
 					retry.UntilSuccessOrFail(t, c.CheckAuthn,
 						retry.Delay(250*time.Millisecond), retry.Timeout(30*time.Second))
