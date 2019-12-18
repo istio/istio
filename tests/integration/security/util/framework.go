@@ -49,7 +49,8 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 		Pilot:  p,
 	}
 
-	// for headless service, the port and target port must be equal
+	// for headless service with selector, the port and target port must be equal
+	// Ref: https://kubernetes.io/docs/concepts/services-networking/service/#headless-services
 	if headless {
 		out.Ports[0].ServicePort = 8090
 	}
