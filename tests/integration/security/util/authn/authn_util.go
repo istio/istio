@@ -41,8 +41,7 @@ func (c *TestCase) CheckAuthn() error {
 		return fmt.Errorf("%s: no response", c)
 	}
 	if results[0].Code != c.ExpectResponseCode {
-		return fmt.Errorf("%s: got response code %s, err %s",
-			c, c.ExpectResponseCode, results[0].Code, err)
+		return fmt.Errorf("%s: got response code %s, err %s", c, results[0].Code, err)
 	}
 	return nil
 }

@@ -344,23 +344,23 @@ func TestRequestAuthentication(t *testing.T) {
 				"Namespace": ns.Name(),
 			}
 			jwtPolicies := tmpl.EvaluateAllOrFail(t, namespaceTmpl,
-				file.AsStringOrFail(t, "testdata/requestauthn/simple-jwt-policy.yaml.tmpl"),
+				file.AsStringOrFail(t, "testdata/requestauthn/b-authn-authz.yaml.tmpl"),
+				file.AsStringOrFail(t, "testdata/requestauthn/c-authn.yaml.tmpl"),
 			)
 			g.ApplyConfigOrFail(t, ns, jwtPolicies...)
 			defer g.DeleteConfigOrFail(t, ns, jwtPolicies...)
 
-			var a, b, c, d, e echo.Instance
+			var a, b, c, d echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).
 				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
 				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
 				With(&c, util.EchoConfig("c", ns, false, nil, g, p)).
 				With(&d, util.EchoConfig("d", ns, false, nil, g, p)).
-				With(&e, util.EchoConfig("e", ns, false, nil, g, p)).
 				BuildOrFail(t)
 
 			testCases := []authn.TestCase{
 				{
-					Name: "jwt-simple-valid-token-noauthz",
+					Name: "valid-token-noauthz",
 					Request: connection.Checker{
 						From: a,
 						Options: echo.CallOptions{
@@ -375,7 +375,7 @@ func TestRequestAuthentication(t *testing.T) {
 					ExpectResponseCode: response.StatusCodeOK,
 				},
 				{
-					Name: "jwt-simple-expired-token-noauthz",
+					Name: "expired-token-noauthz",
 					Request: connection.Checker{
 						From: a,
 						Options: echo.CallOptions{
@@ -390,7 +390,7 @@ func TestRequestAuthentication(t *testing.T) {
 					ExpectResponseCode: response.StatusCodeOK,
 				},
 				{
-					Name: "jwt-simple-no-token-noauthz",
+					Name: "no-token-noauthz",
 					Request: connection.Checker{
 						From: a,
 						Options: echo.CallOptions{
@@ -403,7 +403,7 @@ func TestRequestAuthentication(t *testing.T) {
 				},
 				// Following app b is configured with authorization, only request with valid JWT succeed.
 				{
-					Name: "jwt-simple-valid-token",
+					Name: "valid-token",
 					Request: connection.Checker{
 						From: a,
 						Options: echo.CallOptions{
@@ -418,7 +418,7 @@ func TestRequestAuthentication(t *testing.T) {
 					ExpectResponseCode: response.StatusCodeOK,
 				},
 				{
-					Name: "jwt-simple-expired-token",
+					Name: "expired-token",
 					Request: connection.Checker{
 						From: a,
 						Options: echo.CallOptions{
@@ -433,7 +433,7 @@ func TestRequestAuthentication(t *testing.T) {
 					ExpectResponseCode: response.StatusCodeForbidden,
 				},
 				{
-					Name: "jwt-simple-no-token",
+					Name: "no-token",
 					Request: connection.Checker{
 						From: a,
 						Options: echo.CallOptions{
@@ -443,6 +443,18 @@ func TestRequestAuthentication(t *testing.T) {
 						},
 					},
 					ExpectResponseCode: response.StatusCodeForbidden,
+				},
+				{
+					Name: "no-authn-authz",
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   d,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+						},
+					},
+					ExpectResponseCode: response.StatusCodeOK,
 				},
 			}
 			for _, c := range testCases {

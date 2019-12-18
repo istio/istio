@@ -2,20 +2,7 @@
 apiVersion: "security.istio.io/v1beta1"
 kind: "RequestAuthentication"
 metadata:
-  name: "jwt-simple-for-c"
-  namespace: {{ .Namespace }}
-spec:
-  selector:
-    matchLabels:
-      app: c
-  jwtRules:
-  - issuer: "test-issuer-1@istio.io"
-    jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
----
-apiVersion: "security.istio.io/v1beta1"
-kind: "RequestAuthentication"
-metadata:
-  name: "jwt-simple-for-b"
+  name: "requst-authn-for-b"
   namespace: {{ .Namespace }}
 spec:
   selector:
@@ -29,7 +16,7 @@ spec:
 apiVersion: "security.istio.io/v1beta1"
 kind: AuthorizationPolicy
 metadata:
-  name: policy-b
+  name: authz-b
   namespace: "{{ .Namespace }}"
 spec:
   selector:
