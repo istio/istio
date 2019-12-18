@@ -23,7 +23,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn/factory"
-	"istio.io/pkg/log"
 )
 
 // Plugin implements Istio mTLS auth
