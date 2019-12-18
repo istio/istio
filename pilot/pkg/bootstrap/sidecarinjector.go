@@ -133,7 +133,7 @@ func patchCertLoop(client kubernetes.Interface, stopCh <-chan struct{}) error {
 
 				if oldConfig.ResourceVersion != newConfig.ResourceVersion {
 					for i, w := range newConfig.Webhooks {
-						if w.Name == webhookConfigName.Get() && !bytes.Equal(newConfig.Webhooks[i].ClientConfig.CABundle, caCertPem) {
+						if w.Name == webhookName && !bytes.Equal(newConfig.Webhooks[i].ClientConfig.CABundle, caCertPem) {
 							log.Infof("Detected a change in CABundle, patching MutatingWebhookConfiguration again")
 							shouldPatch <- struct{}{}
 							break
