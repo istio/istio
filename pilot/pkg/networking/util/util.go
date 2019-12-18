@@ -170,11 +170,11 @@ func BuildAddress(bind string, port uint32) *core.Address {
 	}
 }
 
-// GetNetworkEndpointAddress returns an Envoy v2 API `Address` that represents this NetworkEndpoint
-func GetNetworkEndpointAddress(n *model.NetworkEndpoint) *core.Address {
+// GetEndpointAddress returns an Envoy v2 API `Address` that represents this IstioEndpoint
+func GetEndpointAddress(n *model.IstioEndpoint) *core.Address {
 	switch n.Family {
 	case model.AddressFamilyTCP:
-		return BuildAddress(n.Address, uint32(n.Port))
+		return BuildAddress(n.Address, n.EndpointPort)
 	case model.AddressFamilyUnix:
 		return &core.Address{Address: &core.Address_Pipe{Pipe: &core.Pipe{Path: n.Address}}}
 	default:

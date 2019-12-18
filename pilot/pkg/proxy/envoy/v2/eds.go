@@ -140,13 +140,13 @@ func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string
 	return ep
 }
 
-func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint, tlsMode string, push *model.PushContext) (*endpoint.LbEndpoint, error) {
-	err := model.ValidateNetworkEndpointAddress(e)
+func toEnvoyEndpoint(e *model.IstioEndpoint, push *model.PushContext) (*endpoint.LbEndpoint, error) {
+	err := model.ValidateEndpointAddress(e)
 	if err != nil {
 		return nil, err
 	}
 
-	addr := util.GetNetworkEndpointAddress(e)
+	addr := util.GetEndpointAddress(e)
 
 	epWeight := e.LbWeight
 	if epWeight == 0 {
@@ -166,7 +166,7 @@ func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint, tlsMode string, pu
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
 	// Istio endpoint level tls transport socket configuation depends on this logic
 	// Do not remove
-	ep.Metadata = util.BuildLbEndpointMetadata(e.UID, e.Network, tlsMode, push)
+	ep.Metadata = util.BuildLbEndpointMetadata(e.UID, e.Network, e.TLSMode, push)
 
 	return ep, nil
 }
@@ -282,26 +282,13 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 				}
 
 				// This loses track of grouping (shards)
-				endpoints, err := registry.InstancesByPort(svc, port.Port, labels.Collection{})
+				instances, err := registry.InstancesByPort(svc, port.Port, labels.Collection{})
 				if err != nil {
 					return err
 				}
 
-				for _, ep := range endpoints {
-					entries = append(entries, &model.IstioEndpoint{
-						Family:          ep.Endpoint.Family,
-						Address:         ep.Endpoint.Address,
-						EndpointPort:    uint32(ep.Endpoint.Port),
-						ServicePortName: port.Name,
-						Labels:          ep.Labels,
-						UID:             ep.Endpoint.UID,
-						ServiceAccount:  ep.ServiceAccount,
-						Network:         ep.Endpoint.Network,
-						Locality:        ep.GetLocality(),
-						LbWeight:        ep.Endpoint.LbWeight,
-						Attributes:      ep.Service.Attributes,
-						TLSMode:         ep.TLSMode,
-					})
+				for _, inst := range instances {
+					entries = append(entries, inst.Endpoint)
 				}
 			}
 
@@ -554,7 +541,7 @@ func (s *DiscoveryServer) deleteService(cluster, serviceName, namespace string) 
 func localityLbEndpointsFromInstances(instances []*model.ServiceInstance, push *model.PushContext) []*endpoint.LocalityLbEndpoints {
 	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
 	for _, instance := range instances {
-		lbEp, err := networkEndpointToEnvoyEndpoint(&instance.Endpoint, instance.TLSMode, push)
+		lbEp, err := toEnvoyEndpoint(instance.Endpoint, push)
 		if err != nil {
 			adsLog.Errorf("EDS: Unexpected pilot model endpoint v1 to v2 conversion: %v", err)
 			totalXDSInternalErrors.Increment()

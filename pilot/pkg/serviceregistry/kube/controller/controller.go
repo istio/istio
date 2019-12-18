@@ -626,17 +626,19 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 			}
 			// Construct the ServiceInstance
 			out = append(out, &model.ServiceInstance{
-				Endpoint: model.NetworkEndpoint{
-					Address:     proxy.IPAddresses[0],
-					Port:        targetPort,
-					ServicePort: svcPort,
-					Network:     c.endpointNetwork(proxy.IPAddresses[0]),
-					Locality:    util.LocalityToString(proxy.Locality),
+				Service:     modelService,
+				ServicePort: svcPort,
+				Endpoint: &model.IstioEndpoint{
+					Address:         proxy.IPAddresses[0],
+					EndpointPort:    uint32(targetPort),
+					ServicePortName: svcPort.Name,
+					// Kubernetes service will only have a single instance of labels, and we return early if there are no labels.
+					Labels:         proxy.WorkloadLabels[0],
+					ServiceAccount: svcAccount,
+					Network:        c.endpointNetwork(proxy.IPAddresses[0]),
+					Locality:       util.LocalityToString(proxy.Locality),
+					Attributes:     model.ServiceAttributes{Name: svc.Name, Namespace: svc.Namespace},
 				},
-				Service: modelService,
-				// Kubernetes service will only have a single instance of labels, and we return early if there are no labels.
-				Labels:         proxy.WorkloadLabels[0],
-				ServiceAccount: svcAccount,
 			})
 		}
 	}
@@ -711,23 +713,27 @@ func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.Collecti
 func (c *Controller) getEndpoints(podIP, address string, endpointPort int32, svcPort *model.Port, svc *model.Service) *model.ServiceInstance {
 	podLabels, _ := c.pods.labelsByIP(podIP)
 	pod := c.pods.getPodByIP(podIP)
-	az, sa := "", ""
+	locality, sa, uid := "", "", ""
 	if pod != nil {
-		az = c.GetPodLocality(pod)
+		locality = c.GetPodLocality(pod)
 		sa = kube.SecureNamingSAN(pod)
+		uid = createUID(pod.Name, pod.Namespace)
 	}
 	return &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
-			Address:     address,
-			Port:        int(endpointPort),
-			ServicePort: svcPort,
-			Network:     c.endpointNetwork(address),
-			Locality:    az,
+		Service:     svc,
+		ServicePort: svcPort,
+		Endpoint: &model.IstioEndpoint{
+			Address:         address,
+			EndpointPort:    uint32(endpointPort),
+			ServicePortName: svcPort.Name,
+			Labels:          podLabels,
+			UID:             uid,
+			ServiceAccount:  sa,
+			Network:         c.endpointNetwork(address),
+			Locality:        locality,
+			Attributes:      model.ServiceAttributes{Name: svc.Attributes.Name, Namespace: svc.Attributes.Namespace},
+			TLSMode:         kube.PodTLSMode(pod),
 		},
-		Service:        svc,
-		Labels:         podLabels,
-		ServiceAccount: sa,
-		TLSMode:        kube.PodTLSMode(pod),
 	}
 }
 
@@ -751,8 +757,8 @@ func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []
 	}
 
 	for _, si := range instances {
-		if si.ServiceAccount != "" {
-			saSet[si.ServiceAccount] = true
+		if si.Endpoint.ServiceAccount != "" {
+			saSet[si.Endpoint.ServiceAccount] = true
 		}
 	}
 

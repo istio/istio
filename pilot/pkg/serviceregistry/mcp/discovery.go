@@ -161,7 +161,7 @@ func (d *Discovery) InstancesByPort(svc *model.Service, servicePort int, labels 
 	if found {
 		for _, instance := range instances {
 			if instance.Service.Hostname == svc.Hostname &&
-				labels.HasSubsetOf(instance.Labels) &&
+				labels.HasSubsetOf(instance.Endpoint.Labels) &&
 				portMatchSingle(instance, servicePort) {
 				out = append(out, instance)
 			}
@@ -231,15 +231,20 @@ func (d *Discovery) convertInstances(
 				// NOTE: these are excluded from byIP since GetProxyServiceInstances
 				// can not work on hostnames
 				svcInstance := &model.ServiceInstance{
-					Endpoint: model.NetworkEndpoint{
-						UID:         d.uid(cfg),
-						Address:     string(service.Hostname),
-						Port:        int(serviceEntryPort.Number),
-						ServicePort: convertPort(serviceEntryPort),
+					Endpoint: &model.IstioEndpoint{
+						UID:             d.uid(cfg),
+						Address:         string(service.Hostname),
+						EndpointPort:    serviceEntryPort.Number,
+						ServicePortName: serviceEntryPort.Name,
+						Labels:          nil,
+						TLSMode:         model.DisabledTLSModeLabel,
+						Attributes: model.ServiceAttributes{
+							Name:      service.Attributes.Name,
+							Namespace: service.Attributes.Namespace,
+						},
 					},
-					Service: service,
-					Labels:  nil,
-					TLSMode: model.DisabledTLSModeLabel,
+					Service:     service,
+					ServicePort: convertPort(serviceEntryPort),
 				}
 				if svcInstances, exist := byHost[service.Hostname]; exist {
 					svcInstances = append(svcInstances, svcInstance)
@@ -292,7 +297,7 @@ func (d *Discovery) convertInstances(
 
 // returns true if an instance's port matches with any in the provided list
 func portMatchSingle(instance *model.ServiceInstance, port int) bool {
-	return port == 0 || port == instance.Endpoint.ServicePort.Port
+	return port == 0 || port == instance.ServicePort.Port
 }
 
 func convertPort(port *networking.Port) *model.Port {
@@ -414,19 +419,24 @@ func (d *Discovery) convertEndpoint(cfg model.Config, service *model.Service, se
 	tlsMode := model.GetTLSModeFromEndpointLabels(endpoint.Labels)
 
 	return &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
-			UID:         d.uid(cfg),
-			Address:     addr,
-			Family:      family,
-			Port:        int(instancePort),
-			ServicePort: convertPort(servicePort),
-			Network:     endpoint.Network,
-			Locality:    endpoint.Locality,
-			LbWeight:    endpoint.Weight,
+		Endpoint: &model.IstioEndpoint{
+			UID:             d.uid(cfg),
+			Address:         addr,
+			Family:          family,
+			EndpointPort:    instancePort,
+			ServicePortName: servicePort.Name,
+			Network:         endpoint.Network,
+			Locality:        endpoint.Locality,
+			LbWeight:        endpoint.Weight,
+			Labels:          endpoint.Labels,
+			TLSMode:         tlsMode,
+			Attributes: model.ServiceAttributes{
+				Name:      service.Attributes.Name,
+				Namespace: service.Attributes.Namespace,
+			},
 		},
-		Service: service,
-		Labels:  endpoint.Labels,
-		TLSMode: tlsMode,
+		Service:     service,
+		ServicePort: convertPort(servicePort),
 	}
 }
 
@@ -436,13 +446,18 @@ func convertNotReadyEndpoints(service *model.Service, servicePort *networking.Po
 	out := make([]*model.ServiceInstance, 0)
 	family := model.AddressFamilyTCP
 	out = append(out, &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
-			Address:     ip,
-			Family:      family,
-			Port:        port,
-			ServicePort: convertPort(servicePort),
+		Endpoint: &model.IstioEndpoint{
+			Address:         ip,
+			Family:          family,
+			EndpointPort:    uint32(port),
+			ServicePortName: servicePort.Name,
+			Attributes: model.ServiceAttributes{
+				Name:      service.Attributes.Name,
+				Namespace: service.Attributes.Namespace,
+			},
 		},
-		Service: service,
+		Service:     service,
+		ServicePort: convertPort(servicePort),
 	})
 	return out
 }

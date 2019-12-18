@@ -44,11 +44,11 @@ var (
 	blackholeStructMarshalling *listener.Filter
 
 	dummyServiceInstance = &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
-			Port:        15006,
-			ServicePort: &model.Port{},
+		Service:     &model.Service{},
+		ServicePort: &model.Port{},
+		Endpoint: &model.IstioEndpoint{
+			EndpointPort: 15006,
 		},
-		Service: &model.Service{},
 	}
 )
 

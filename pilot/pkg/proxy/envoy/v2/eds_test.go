@@ -299,27 +299,29 @@ func addTestClientEndpoints(server *bootstrap.Server) {
 		},
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance("test-1.default", &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
-			Address: fmt.Sprintf("10.10.10.10"),
-			Port:    80,
-			ServicePort: &model.Port{
-				Name:     "http",
-				Port:     80,
-				Protocol: protocol.HTTP,
-			},
-			Locality: asdcLocality,
+		Endpoint: &model.IstioEndpoint{
+			Address:         fmt.Sprintf("10.10.10.10"),
+			ServicePortName: "http",
+			EndpointPort:    80,
+			Locality:        asdcLocality,
+		},
+		ServicePort: &model.Port{
+			Name:     "http",
+			Port:     80,
+			Protocol: protocol.HTTP,
 		},
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance("test-1.default", &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
-			Address: fmt.Sprintf("10.10.10.11"),
-			Port:    80,
-			ServicePort: &model.Port{
-				Name:     "http",
-				Port:     80,
-				Protocol: protocol.HTTP,
-			},
-			Locality: asdc2Locality,
+		Endpoint: &model.IstioEndpoint{
+			Address:         fmt.Sprintf("10.10.10.11"),
+			ServicePortName: "http",
+			EndpointPort:    80,
+			Locality:        asdc2Locality,
+		},
+		ServicePort: &model.Port{
+			Name:     "http",
+			Port:     80,
+			Protocol: protocol.HTTP,
 		},
 	})
 	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
@@ -686,18 +688,19 @@ func addUdsEndpoint(server *bootstrap.Server) {
 		Resolution:   model.ClientSideLB,
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance("localuds.cluster.local", &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
-			Family:  model.AddressFamilyUnix,
-			Address: udsPath,
-			Port:    0,
-			ServicePort: &model.Port{
-				Name:     "grpc",
-				Port:     0,
-				Protocol: protocol.GRPC,
-			},
-			Locality: "localhost",
+		Endpoint: &model.IstioEndpoint{
+			Family:          model.AddressFamilyUnix,
+			Address:         udsPath,
+			EndpointPort:    0,
+			ServicePortName: "grpc",
+			Locality:        "localhost",
+			Labels:          map[string]string{"socket": "unix"},
 		},
-		Labels: map[string]string{"socket": "unix"},
+		ServicePort: &model.Port{
+			Name:     "grpc",
+			Port:     0,
+			Protocol: protocol.GRPC,
+		},
 	})
 
 	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
@@ -725,15 +728,16 @@ func addLocalityEndpoints(server *bootstrap.Server, hostname host.Name) {
 	}
 	for i, locality := range localities {
 		server.EnvoyXdsServer.MemRegistry.AddInstance(hostname, &model.ServiceInstance{
-			Endpoint: model.NetworkEndpoint{
-				Address: fmt.Sprintf("10.0.0.%v", i),
-				Port:    80,
-				ServicePort: &model.Port{
-					Name:     "http",
-					Port:     80,
-					Protocol: protocol.HTTP,
-				},
-				Locality: locality,
+			Endpoint: &model.IstioEndpoint{
+				Address:         fmt.Sprintf("10.0.0.%v", i),
+				EndpointPort:    80,
+				ServicePortName: "http",
+				Locality:        locality,
+			},
+			ServicePort: &model.Port{
+				Name:     "http",
+				Port:     80,
+				Protocol: protocol.HTTP,
 			},
 		})
 	}
@@ -753,14 +757,15 @@ func addEdsCluster(server *bootstrap.Server, hostName string, portName string, a
 	})
 
 	server.EnvoyXdsServer.MemRegistry.AddInstance(host.Name(hostName), &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
-			Address: address,
-			Port:    port,
-			ServicePort: &model.Port{
-				Name:     portName,
-				Port:     port,
-				Protocol: protocol.HTTP,
-			},
+		Endpoint: &model.IstioEndpoint{
+			Address:         address,
+			EndpointPort:    uint32(port),
+			ServicePortName: portName,
+		},
+		ServicePort: &model.Port{
+			Name:     portName,
+			Port:     port,
+			Protocol: protocol.HTTP,
 		},
 	})
 	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
@@ -780,14 +785,15 @@ func updateServiceResolution(server *bootstrap.Server) {
 	})
 
 	server.EnvoyXdsServer.MemRegistry.AddInstance("edsdns.svc.cluster.local", &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
-			Address: "somevip.com",
-			Port:    8080,
-			ServicePort: &model.Port{
-				Name:     "http",
-				Port:     8080,
-				Protocol: protocol.HTTP,
-			},
+		Endpoint: &model.IstioEndpoint{
+			Address:         "somevip.com",
+			EndpointPort:    8080,
+			ServicePortName: "http",
+		},
+		ServicePort: &model.Port{
+			Name:     "http",
+			Port:     8080,
+			Protocol: protocol.HTTP,
 		},
 	})
 	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
@@ -810,14 +816,15 @@ func addOverlappingEndpoints(server *bootstrap.Server) {
 		},
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance("overlapping.cluster.local", &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
-			Address: "10.0.0.53",
-			Port:    53,
-			ServicePort: &model.Port{
-				Name:     "tcp-dns",
-				Port:     53,
-				Protocol: protocol.TCP,
-			},
+		Endpoint: &model.IstioEndpoint{
+			Address:         "10.0.0.53",
+			EndpointPort:    53,
+			ServicePortName: "tcp-dns",
+		},
+		ServicePort: &model.Port{
+			Name:     "tcp-dns",
+			Port:     53,
+			Protocol: protocol.TCP,
 		},
 	})
 	server.EnvoyXdsServer.Push(&model.PushRequest{Full: true})

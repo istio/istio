@@ -82,11 +82,11 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(node *model.Proxy, push *m
 // TODO: trace decorators, inbound timeouts
 func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(
 	node *model.Proxy, push *model.PushContext, instance *model.ServiceInstance, clusterName string) *xdsapi.RouteConfiguration {
-	traceOperation := fmt.Sprintf("%s:%d/*", instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
+	traceOperation := fmt.Sprintf("%s:%d/*", instance.Service.Hostname, instance.ServicePort.Port)
 	defaultRoute := istio_route.BuildDefaultHTTPInboundRoute(node, clusterName, traceOperation)
 
 	inboundVHost := &route.VirtualHost{
-		Name:    fmt.Sprintf("%s|http|%d", model.TrafficDirectionInbound, instance.Endpoint.ServicePort.Port),
+		Name:    fmt.Sprintf("%s|http|%d", model.TrafficDirectionInbound, instance.ServicePort.Port),
 		Domains: []string{"*"},
 		Routes:  []*route.Route{defaultRoute},
 	}
@@ -103,7 +103,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(
 		Node:             node,
 		ServiceInstance:  instance,
 		Service:          instance.Service,
-		Port:             instance.Endpoint.ServicePort,
+		Port:             instance.ServicePort,
 		Push:             push,
 	}
 
