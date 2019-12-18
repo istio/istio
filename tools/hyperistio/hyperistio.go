@@ -189,7 +189,7 @@ func startPilot() error {
 	}
 	log.Println("Using mock configs: ", args.Config.FileDir)
 	// Create and setup the controller.
-	s, err := bootstrap.NewServer(args)
+	s, err := bootstrap.NewServer(&args)
 	if err != nil {
 		return err
 	}
