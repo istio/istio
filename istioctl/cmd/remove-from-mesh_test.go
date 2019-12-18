@@ -159,14 +159,14 @@ func TestRemoveFromMesh(t *testing.T) {
 			expectedOutput:    "deployment \"details-v1.default\" updated successfully with Istio sidecar un-injected.\n",
 		},
 		{
-			description:       "service not exists",
+			description:       "service does not exist",
 			args:              strings.Split("experimental remove-from-mesh service test", " "),
 			expectedException: true,
 			k8sConfigs:        cannedK8sConfig,
 			expectedOutput:    "Error: service \"test\" does not exist, skip\n",
 		},
 		{
-			description:       "deployment not exists",
+			description:       "deployment does not exist",
 			args:              strings.Split("experimental remove-from-mesh deployment test", " "),
 			expectedException: true,
 			k8sConfigs:        cannedK8sConfig,
@@ -187,7 +187,7 @@ func TestRemoveFromMesh(t *testing.T) {
 			expectedOutput:    "Error: expecting external service name\n",
 		},
 		{
-			description:       "service does not exist",
+			description:       "external-service does not exist",
 			args:              strings.Split("experimental remove-from-mesh external-service test", " "),
 			expectedException: true,
 			k8sConfigs:        cannedK8sConfig,

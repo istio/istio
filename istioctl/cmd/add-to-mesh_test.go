@@ -126,7 +126,7 @@ var (
 func TestAddToMesh(t *testing.T) {
 	cases := []testcase{
 		{
-			description:       "Invalid command args -missing service name",
+			description:       "Invalid command args - missing service name",
 			args:              strings.Split("experimental add-to-mesh service", " "),
 			expectedException: true,
 			expectedOutput:    "Error: expecting service name\n",
@@ -162,7 +162,7 @@ func TestAddToMesh(t *testing.T) {
 			namespace: "default",
 		},
 		{
-			description: "service not exists",
+			description: "service does not exist",
 			args: strings.Split("experimental add-to-mesh service test --meshConfigFile testdata/mesh-config.yaml"+
 				" --injectConfigFile testdata/inject-config.yaml"+
 				" --valuesFile testdata/inject-values.yaml", " "),
@@ -171,7 +171,7 @@ func TestAddToMesh(t *testing.T) {
 			expectedOutput:    "Error: services \"test\" not found\n",
 		},
 		{
-			description: "deployment not exists",
+			description: "deployment does not exist",
 			args: strings.Split("experimental add-to-mesh deployment test --meshConfigFile testdata/mesh-config.yaml"+
 				" --injectConfigFile testdata/inject-config.yaml"+
 				" --valuesFile testdata/inject-values.yaml", " "),
