@@ -286,7 +286,7 @@ istioctl analyze -L
 		fmt.Sprintf("Output format: one of %v", msgOutputFormatKeys))
 	analysisCmd.PersistentFlags().StringVar(&meshCfgFile, "meshConfigFile", "",
 		"Overrides the mesh config values to use for analysis.")
-	analysisCmd.PersistentFlags().BoolVar(&allNamespaces, "all-namespaces", false,
+	analysisCmd.PersistentFlags().BoolVarP(&allNamespaces, "all-namespaces", "A", false,
 		"Analyze all namespaces")
 	return analysisCmd
 }
