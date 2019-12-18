@@ -545,7 +545,6 @@ $(HOME)/.helm:
 
 # create istio-init.yaml
 istio-init.yaml: $(HOME)/.helm
-	mkdir -p $(ISTIO_OUT)/install/kubernetes
 	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
 	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/$@
 	$(HELM) template --name=istio --namespace=istio-system \
@@ -556,7 +555,6 @@ istio-init.yaml: $(HOME)/.helm
 # creates istio-demo.yaml istio-remote.yaml
 # Ensure that values-$filename is present in $(ISTIO_OUT)/install/kubernetes/helm/istio
 istio-demo.yaml istio-remote.yaml istio-minimal.yaml: $(HOME)/.helm
-	mkdir -p $(ISTIO_OUT)/install/kubernetes
 	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
 	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/$@
 	$(HELM) template \
