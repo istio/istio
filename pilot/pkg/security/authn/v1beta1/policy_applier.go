@@ -57,10 +57,6 @@ func (a *v1beta1PolicyApplier) JwtFilter(isXDSMarshalingToAnyEnabled bool) *http
 	}
 
 	filterConfigProto := convertToEnvoyJwtConfig(a.processedJwtRules)
-	for _, c := range a.processedJwtRules {
-		log.Infof("incfly debug, rules %v", *c)
-	}
-	log.Infof("incfly debug, filterConfigProto %v", *filterConfigProto)
 
 	if filterConfigProto == nil {
 		return nil

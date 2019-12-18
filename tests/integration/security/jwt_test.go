@@ -360,7 +360,7 @@ func TestRequestAuthentication(t *testing.T) {
 
 			testCases := []authn.TestCase{
 				{
-					Name: "jwt-simple-valid-token",
+					Name: "jwt-simple-valid-token-noauthz",
 					Request: connection.Checker{
 						From: a,
 						Options: echo.CallOptions{
@@ -375,7 +375,7 @@ func TestRequestAuthentication(t *testing.T) {
 					ExpectResponseCode: response.StatusCodeOK,
 				},
 				{
-					Name: "jwt-simple-expired-token",
+					Name: "jwt-simple-expired-token-noauthz",
 					Request: connection.Checker{
 						From: a,
 						Options: echo.CallOptions{
@@ -390,7 +390,7 @@ func TestRequestAuthentication(t *testing.T) {
 					ExpectResponseCode: response.StatusCodeOK,
 				},
 				{
-					Name: "jwt-simple-no-token",
+					Name: "jwt-simple-no-token-noauthz",
 					Request: connection.Checker{
 						From: a,
 						Options: echo.CallOptions{

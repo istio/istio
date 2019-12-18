@@ -118,7 +118,6 @@ func (policy *AuthenticationPolicies) GetJwtPoliciesForWorkload(namespace string
 			configs = append(configs, &rootConfig[idx])
 		}
 	}
-	log.Infof("incfly debug, jwt policy is %v, for namespace %v, workloadLabels %v, root ns %v", configs, namespace, workloadLabels, policy.rootNamespace)
 	log.Infof("map a %v, map b%v", policy.requestAuthentications[namespace], policy.requestAuthentications[policy.rootNamespace])
 	return configs
 }
