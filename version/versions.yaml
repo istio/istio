@@ -10,6 +10,27 @@
 - operatorVersion: 1.3.3
   supportedIstioVersions: ">=1.3.0,<=1.3.3"
   recommendedIstioVersions: 1.3.3
+- operatorVersion: 1.3.4
+  supportedIstioVersions: ">=1.3.0,<=1.3.4"
+  recommendedIstioVersions: 1.3.4
+- operatorVersion: 1.3.5
+  supportedIstioVersions: ">=1.3.0,<=1.3.5"
+  recommendedIstioVersions: 1.3.5
+- operatorVersion: 1.3.6
+  supportedIstioVersions: ">=1.3.0,<=1.3.6"
+  recommendedIstioVersions: 1.3.6
+- operatorVersion: 1.3.7
+  supportedIstioVersions: ">=1.3.0,<=1.3.7"
+  recommendedIstioVersions: 1.3.7
 - operatorVersion: 1.4.0
   supportedIstioVersions: ">=1.3.3, <1.6"
   recommendedIstioVersions: 1.4.0
+- operatorVersion: 1.4.1
+  supportedIstioVersions: ">=1.3.3, <1.6"
+  recommendedIstioVersions: 1.4.1
+- operatorVersion: 1.4.2
+  supportedIstioVersions: ">=1.3.3, <1.6"
+  recommendedIstioVersions: 1.4.2
+- operatorVersion: 1.4.3
+  supportedIstioVersions: ">=1.3.3, <1.6"
+  recommendedIstioVersions: 1.4.3
