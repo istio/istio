@@ -44,14 +44,14 @@ var redisOpTimeout = 5 * time.Second
 
 // buildInboundNetworkFilters generates a TCP proxy network filter on the inbound path
 func buildInboundNetworkFilters(push *model.PushContext, node *model.Proxy, instance *model.ServiceInstance) []*listener.Filter {
-	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, instance.Endpoint.ServicePort.Name,
-		instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
+	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, instance.ServicePort.Name,
+		instance.Service.Hostname, instance.ServicePort.Port)
 	tcpProxy := &tcp_proxy.TcpProxy{
 		StatPrefix:       clusterName,
 		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: clusterName},
 	}
 	tcpFilter := setAccessLogAndBuildTCPFilter(push, node, tcpProxy)
-	return buildNetworkFiltersStack(node, instance.Endpoint.ServicePort, tcpFilter, clusterName, clusterName)
+	return buildNetworkFiltersStack(node, instance.ServicePort, tcpFilter, clusterName, clusterName)
 }
 
 // setAccessLog sets the AccessLog configuration in the given TcpProxy instance.

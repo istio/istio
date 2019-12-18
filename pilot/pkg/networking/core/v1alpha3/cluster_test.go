@@ -292,48 +292,48 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 
 	instances := []*model.ServiceInstance{
 		{
-			Service: service,
-			Endpoint: model.NetworkEndpoint{
-				Address:     "192.168.1.1",
-				Port:        10001,
-				ServicePort: servicePort[0],
-				Locality:    "region1/zone1/subzone1",
-				LbWeight:    40,
+			Service:     service,
+			ServicePort: servicePort[0],
+			Endpoint: &model.IstioEndpoint{
+				Address:      "192.168.1.1",
+				EndpointPort: 10001,
+				Locality:     "region1/zone1/subzone1",
+				LbWeight:     40,
+				TLSMode:      model.IstioMutualTLSModeLabel,
 			},
-			TLSMode: model.IstioMutualTLSModeLabel,
 		},
 		{
-			Service: service,
-			Endpoint: model.NetworkEndpoint{
-				Address:     "192.168.1.2",
-				Port:        10001,
-				ServicePort: servicePort[0],
-				Locality:    "region1/zone1/subzone2",
-				LbWeight:    20,
+			Service:     service,
+			ServicePort: servicePort[0],
+			Endpoint: &model.IstioEndpoint{
+				Address:      "192.168.1.2",
+				EndpointPort: 10001,
+				Locality:     "region1/zone1/subzone2",
+				LbWeight:     20,
+				TLSMode:      model.IstioMutualTLSModeLabel,
 			},
-			TLSMode: model.IstioMutualTLSModeLabel,
 		},
 		{
-			Service: service,
-			Endpoint: model.NetworkEndpoint{
-				Address:     "192.168.1.3",
-				Port:        10001,
-				ServicePort: servicePort[0],
-				Locality:    "region2/zone1/subzone1",
-				LbWeight:    40,
+			Service:     service,
+			ServicePort: servicePort[0],
+			Endpoint: &model.IstioEndpoint{
+				Address:      "192.168.1.3",
+				EndpointPort: 10001,
+				Locality:     "region2/zone1/subzone1",
+				LbWeight:     40,
+				TLSMode:      model.IstioMutualTLSModeLabel,
 			},
-			TLSMode: model.IstioMutualTLSModeLabel,
 		},
 		{
-			Service: service,
-			Endpoint: model.NetworkEndpoint{
-				Address:     "192.168.1.1",
-				Port:        10001,
-				ServicePort: servicePort[1],
-				Locality:    "region1/zone1/subzone1",
-				LbWeight:    0,
+			Service:     service,
+			ServicePort: servicePort[1],
+			Endpoint: &model.IstioEndpoint{
+				Address:      "192.168.1.1",
+				EndpointPort: 10001,
+				Locality:     "region1/zone1/subzone1",
+				LbWeight:     0,
+				TLSMode:      model.IstioMutualTLSModeLabel,
 			},
-			TLSMode: model.IstioMutualTLSModeLabel,
 		},
 	}
 
@@ -1290,33 +1290,33 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 	}
 	instances := []*model.ServiceInstance{
 		{
-			Service: service,
-			Endpoint: model.NetworkEndpoint{
-				Address:     "192.168.1.1",
-				Port:        10001,
-				ServicePort: servicePort,
-				Locality:    "region1/zone1/subzone1",
-				LbWeight:    30,
+			Service:     service,
+			ServicePort: servicePort,
+			Endpoint: &model.IstioEndpoint{
+				Address:      "192.168.1.1",
+				EndpointPort: 10001,
+				Locality:     "region1/zone1/subzone1",
+				LbWeight:     30,
 			},
 		},
 		{
-			Service: service,
-			Endpoint: model.NetworkEndpoint{
-				Address:     "192.168.1.2",
-				Port:        10001,
-				ServicePort: servicePort,
-				Locality:    "region1/zone1/subzone1",
-				LbWeight:    30,
+			Service:     service,
+			ServicePort: servicePort,
+			Endpoint: &model.IstioEndpoint{
+				Address:      "192.168.1.2",
+				EndpointPort: 10001,
+				Locality:     "region1/zone1/subzone1",
+				LbWeight:     30,
 			},
 		},
 		{
-			Service: service,
-			Endpoint: model.NetworkEndpoint{
-				Address:     "192.168.1.3",
-				Port:        10001,
-				ServicePort: servicePort,
-				Locality:    "region2/zone1/subzone1",
-				LbWeight:    40,
+			Service:     service,
+			ServicePort: servicePort,
+			Endpoint: &model.IstioEndpoint{
+				Address:      "192.168.1.3",
+				EndpointPort: 10001,
+				Locality:     "region2/zone1/subzone1",
+				LbWeight:     40,
 			},
 		},
 	}
@@ -1462,11 +1462,11 @@ func TestBuildInboundClustersDefaultCircuitBreakerThresholds(t *testing.T) {
 
 	instances := []*model.ServiceInstance{
 		{
-			Service: service,
-			Endpoint: model.NetworkEndpoint{
-				Address:     "192.168.1.1",
-				Port:        10001,
-				ServicePort: servicePort,
+			Service:     service,
+			ServicePort: servicePort,
+			Endpoint: &model.IstioEndpoint{
+				Address:      "192.168.1.1",
+				EndpointPort: 10001,
 			},
 		},
 	}

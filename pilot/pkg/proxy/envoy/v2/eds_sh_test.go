@@ -286,19 +286,19 @@ func initRegistry(server *bootstrap.Server, clusterNum int, gatewaysIP []string,
 	})
 	for i := 0; i < numOfEndpoints; i++ {
 		memRegistry.AddInstance("service5.default.svc.cluster.local", &model.ServiceInstance{
-			Endpoint: model.NetworkEndpoint{
-				Address: fmt.Sprintf("10.%d.0.%d", clusterNum, i+1),
-				Port:    2080,
-				ServicePort: &model.Port{
-					Name:     "http-main",
-					Port:     1080,
-					Protocol: protocol.HTTP,
-				},
-				Network:  id,
-				Locality: "az",
-				UID:      "kubernetes://dummy",
+			Endpoint: &model.IstioEndpoint{
+				Address:      fmt.Sprintf("10.%d.0.%d", clusterNum, i+1),
+				EndpointPort: 2080,
+				Network:      id,
+				Locality:     "az",
+				UID:          "kubernetes://dummy",
+				Labels:       svcLabels,
 			},
-			Labels: svcLabels,
+			ServicePort: &model.Port{
+				Name:     "http-main",
+				Port:     1080,
+				Protocol: protocol.HTTP,
+			},
 		})
 	}
 }

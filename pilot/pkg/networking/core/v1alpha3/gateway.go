@@ -129,7 +129,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 		var si *model.ServiceInstance
 		services := make(map[host.Name]struct{}, len(node.ServiceInstances))
 		for _, w := range node.ServiceInstances {
-			if w.Endpoint.Port == int(portNumber) {
+			if w.Endpoint.EndpointPort == portNumber {
 				if si == nil {
 					si = w
 				}

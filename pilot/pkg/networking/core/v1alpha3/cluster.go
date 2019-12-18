@@ -429,11 +429,11 @@ func buildLocalityLbEndpoints(push *model.PushContext, proxyNetworkView map[stri
 			// Endpoint's network doesn't match the set of networks that the proxy wants to see.
 			continue
 		}
-		host := util.BuildAddress(instance.Endpoint.Address, uint32(instance.Endpoint.Port))
+		addr := util.BuildAddress(instance.Endpoint.Address, instance.Endpoint.EndpointPort)
 		ep := &endpoint.LbEndpoint{
 			HostIdentifier: &endpoint.LbEndpoint_Endpoint{
 				Endpoint: &endpoint.Endpoint{
-					Address: host,
+					Address: addr,
 				},
 			},
 			LoadBalancingWeight: &wrappers.UInt32Value{
@@ -443,7 +443,7 @@ func buildLocalityLbEndpoints(push *model.PushContext, proxyNetworkView map[stri
 		if instance.Endpoint.LbWeight > 0 {
 			ep.LoadBalancingWeight.Value = instance.Endpoint.LbWeight
 		}
-		ep.Metadata = util.BuildLbEndpointMetadata(instance.Endpoint.UID, instance.Endpoint.Network, instance.TLSMode, push)
+		ep.Metadata = util.BuildLbEndpointMetadata(instance.Endpoint.UID, instance.Endpoint.Network, instance.Endpoint.TLSMode, push)
 		locality := instance.GetLocality()
 		lbEndpoints[locality] = append(lbEndpoints[locality], ep)
 	}
@@ -467,8 +467,8 @@ func buildLocalityLbEndpoints(push *model.PushContext, proxyNetworkView map[stri
 	return localityLbEndpoints
 }
 
-func buildInboundLocalityLbEndpoints(bind string, port int) []*endpoint.LocalityLbEndpoints {
-	address := util.BuildAddress(bind, uint32(port))
+func buildInboundLocalityLbEndpoints(bind string, port uint32) []*endpoint.LocalityLbEndpoints {
+	address := util.BuildAddress(bind, port)
 	lbEndpoint := &endpoint.LbEndpoint{
 		HostIdentifier: &endpoint.LbEndpoint_Endpoint{
 			Endpoint: &endpoint.Endpoint{
@@ -545,17 +545,17 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(proxy *model.Proxy,
 		for _, instance := range instances {
 			// Filter out service instances with the same port as we are going to mark them as duplicates any way
 			// in normalizeClusters method.
-			if !have[instance.Endpoint.ServicePort] {
+			if !have[instance.ServicePort] {
 				pluginParams := &plugin.InputParams{
 					Node:            proxy,
 					ServiceInstance: instance,
-					Port:            instance.Endpoint.ServicePort,
+					Port:            instance.ServicePort,
 					Push:            push,
 					Bind:            actualLocalHost,
 				}
 				localCluster := configgen.buildInboundClusterForPortOrUDS(pluginParams)
 				clusters = append(clusters, localCluster)
-				have[instance.Endpoint.ServicePort] = true
+				have[instance.ServicePort] = true
 			}
 		}
 
@@ -563,7 +563,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(proxy *model.Proxy,
 		for _, port := range managementPorts {
 			clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, port.Name,
 				ManagementClusterHostname, port.Port)
-			localityLbEndpoints := buildInboundLocalityLbEndpoints(actualLocalHost, port.Port)
+			localityLbEndpoints := buildInboundLocalityLbEndpoints(actualLocalHost, uint32(port.Port))
 			mgmtCluster := buildDefaultCluster(push, clusterName, apiv2.Cluster_STATIC, localityLbEndpoints,
 				model.TrafficDirectionInbound, proxy, nil, false)
 			setUpstreamProtocol(proxy, mgmtCluster, port, model.TrafficDirectionInbound)
@@ -612,22 +612,26 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(proxy *model.Proxy,
 				// We didn't find a matching instance. Create a dummy one because we need the right
 				// params to generate the right cluster name. LDS would have setup the cluster as
 				// as inbound|portNumber|portName|SidecarScopeID
+				attrs := model.ServiceAttributes{
+					Name:      sidecarScope.Config.Name,
+					Namespace: sidecarScope.Config.Namespace,
+				}
 				instance = &model.ServiceInstance{
-					Endpoint: model.NetworkEndpoint{},
 					Service: &model.Service{
-						Hostname: host.Name(sidecarScopeID),
-						Attributes: model.ServiceAttributes{
-							Name:      sidecarScope.Config.Name,
-							Namespace: sidecarScope.Config.Namespace,
-						},
+						Hostname:   host.Name(sidecarScopeID),
+						Attributes: attrs,
+					},
+					Endpoint: &model.IstioEndpoint{
+						Attributes: attrs,
 					},
 				}
 			}
 
 			instance.Endpoint.Family = endpointFamily
 			instance.Endpoint.Address = endpointAddress
-			instance.Endpoint.ServicePort = listenPort
-			instance.Endpoint.Port = port
+			instance.ServicePort = listenPort
+			instance.Endpoint.ServicePortName = listenPort.Name
+			instance.Endpoint.EndpointPort = uint32(port)
 
 			pluginParams := &plugin.InputParams{
 				Node:            proxy,
@@ -646,36 +650,30 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(proxy *model.Proxy,
 
 func (configgen *ConfigGeneratorImpl) findServiceInstanceForIngressListener(instances []*model.ServiceInstance,
 	ingressListener *networking.IstioIngressListener) *model.ServiceInstance {
-	var instance *model.ServiceInstance
 	// Search by port
 	for _, realInstance := range instances {
-		if realInstance.Endpoint.Port == int(ingressListener.Port.Number) {
-			instance = &model.ServiceInstance{
-				Endpoint:       realInstance.Endpoint,
-				Service:        realInstance.Service,
-				Labels:         realInstance.Labels,
-				ServiceAccount: realInstance.ServiceAccount,
-			}
-			break
+		if realInstance.Endpoint.EndpointPort == ingressListener.Port.Number {
+			instanceCopy := *realInstance
+			return &instanceCopy
 		}
 	}
 
-	return instance
+	return nil
 }
 
 func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginParams *plugin.InputParams) *apiv2.Cluster {
 	instance := pluginParams.ServiceInstance
-	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, instance.Endpoint.ServicePort.Name,
-		instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
-	localityLbEndpoints := buildInboundLocalityLbEndpoints(pluginParams.Bind, instance.Endpoint.Port)
+	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, instance.ServicePort.Name,
+		instance.Service.Hostname, instance.ServicePort.Port)
+	localityLbEndpoints := buildInboundLocalityLbEndpoints(pluginParams.Bind, instance.Endpoint.EndpointPort)
 	localCluster := buildDefaultCluster(pluginParams.Push, clusterName, apiv2.Cluster_STATIC, localityLbEndpoints,
 		model.TrafficDirectionInbound, pluginParams.Node, nil, false)
 	// If stat name is configured, build the alt statname.
 	if len(pluginParams.Push.Mesh.InboundClusterStatName) != 0 {
 		localCluster.AltStatName = altStatName(pluginParams.Push.Mesh.InboundClusterStatName,
-			string(instance.Service.Hostname), "", instance.Endpoint.ServicePort, instance.Service.Attributes)
+			string(instance.Service.Hostname), "", instance.ServicePort, instance.Service.Attributes)
 	}
-	setUpstreamProtocol(pluginParams.Node, localCluster, instance.Endpoint.ServicePort, model.TrafficDirectionInbound)
+	setUpstreamProtocol(pluginParams.Node, localCluster, instance.ServicePort, model.TrafficDirectionInbound)
 	// call plugins
 	for _, p := range configgen.Plugins {
 		p.OnInboundCluster(pluginParams, localCluster)

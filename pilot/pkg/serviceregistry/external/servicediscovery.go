@@ -98,16 +98,16 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 							Address:         instance.Endpoint.Address,
 							EndpointPort:    uint32(port.Port),
 							ServicePortName: port.Name,
-							Labels:          instance.Labels,
+							Labels:          instance.Endpoint.Labels,
 							UID:             instance.Endpoint.UID,
-							ServiceAccount:  instance.ServiceAccount,
+							ServiceAccount:  instance.Endpoint.ServiceAccount,
 							Network:         instance.Endpoint.Network,
 							Locality:        instance.Endpoint.Locality,
 							Attributes: model.ServiceAttributes{
 								Name:      instance.Service.Attributes.Name,
 								Namespace: instance.Service.Attributes.Namespace,
 							},
-							TLSMode: instance.TLSMode,
+							TLSMode: instance.Endpoint.TLSMode,
 						})
 					}
 				}
@@ -198,7 +198,7 @@ func (d *ServiceEntryStore) InstancesByPort(svc *model.Service, port int,
 	if found {
 		for _, instance := range instances {
 			if instance.Service.Hostname == svc.Hostname &&
-				labels.HasSubsetOf(instance.Labels) &&
+				labels.HasSubsetOf(instance.Endpoint.Labels) &&
 				portMatchSingle(instance, port) {
 				out = append(out, instance)
 			}
@@ -259,7 +259,7 @@ func (d *ServiceEntryStore) update() {
 
 // returns true if an instance's port matches with any in the provided list
 func portMatchSingle(instance *model.ServiceInstance, port int) bool {
-	return port == 0 || port == instance.Endpoint.ServicePort.Port
+	return port == 0 || port == instance.ServicePort.Port
 }
 
 // GetProxyServiceInstances lists service instances co-located with a given proxy
@@ -290,7 +290,7 @@ func (d *ServiceEntryStore) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.C
 		instances, found := d.ip2instance[ip]
 		if found {
 			for _, instance := range instances {
-				out = append(out, instance.Labels)
+				out = append(out, instance.Endpoint.Labels)
 			}
 		}
 	}

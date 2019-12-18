@@ -199,7 +199,7 @@ func TestInstances(t *testing.T) {
 	}
 	for _, inst := range instances {
 		found := false
-		for key, val := range inst.Labels {
+		for key, val := range inst.Endpoint.Labels {
 			if key == filterTagKey && val == filterTagVal {
 				found = true
 			}
@@ -219,9 +219,9 @@ func TestInstances(t *testing.T) {
 		t.Errorf("Instances() did not filter by port => %q, want 2", len(instances))
 	}
 	for _, inst := range instances {
-		if inst.Endpoint.ServicePort.Port != filterPort {
+		if inst.ServicePort.Port != filterPort {
 			t.Errorf("Instances() did not filter by port => %q, want %q",
-				inst.Endpoint.ServicePort.Name, filterPort)
+				inst.ServicePort.Name, filterPort)
 		}
 	}
 }
