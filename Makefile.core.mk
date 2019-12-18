@@ -197,12 +197,8 @@ default: init build test
 
 .PHONY: init
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
-<<<<<<< HEAD
 init: $(ISTIO_OUT)/istio_is_init
 	mkdir -p ${TARGET_OUT}/logs
-=======
-init: check-go-version $(ISTIO_OUT)/istio_is_init | $(ISTIO_OUT)
->>>>>>> Clean up directory creation
 
 # Sync is the same as init in release branch. In master this pulls from master.
 sync: init
