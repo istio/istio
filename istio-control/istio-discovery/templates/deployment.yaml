@@ -91,6 +91,8 @@ spec:
 {{- end }}
           - --keepaliveMaxServerConnectionAge
           - "{{ .Values.pilot.keepaliveMaxServerConnectionAge }}"
+          # TODO: make default
+          - --disable-install-crds=true
           ports:
           - containerPort: 8080
           - containerPort: 15010
@@ -101,6 +103,11 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 5
             timeoutSeconds: 5
+          envFrom:
+          # Allow an istiod configmap injecting user-specified env.
+          - configMapRef:
+              name: istiod
+              optional: true
           env:
           - name: POD_NAME
             valueFrom:
@@ -132,6 +139,14 @@ spec:
             value: "{{ .Values.pilot.enableProtocolSniffingForOutbound }}"
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
             value: "{{ .Values.pilot.enableProtocolSniffingForInbound }}"
+{{- if .Values.global.istiod.enabled }}
+          - name: WEBHOOK
+            value: istiod
+          - name: ISTIOD_ADDR
+            value: istio-pilot.{{ .Release.Namespace }}.svc:15012
+          - name: PILOT_EXTERNAL_GALLEY
+            value: "false"
+{{- end }}
           resources:
 {{- if .Values.pilot.resources }}
 {{ toYaml .Values.pilot.resources | trim | indent 12 }}
@@ -141,6 +156,22 @@ spec:
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
+          {{ if .Values.global.istiod.enabled }}
+          - name: istio-token
+            mountPath: /var/run/secrets/tokens
+            readOnly: true
+          - name: local-certs
+            mountPath: /var/run/secrets/istio-dns
+          - name: cacerts
+            mountPath: /etc/cacerts
+            readOnly: true
+          - name: inject
+            mountPath: /var/lib/istio/inject
+            readOnly: true
+          - name: istiod
+            mountPath: /var/lib/istio/local
+            readOnly: true
+          {{ end }}
 {{- if .Values.global.controlPlaneSecurityEnabled }}
         - name: istio-proxy
 {{- if contains "/" .Values.global.proxy.image }}
@@ -215,6 +246,35 @@ spec:
           {{- end }}
 {{- end }}
       volumes:
+      {{- if .Values.global.istiod.enabled }}
+      # Technically not needed on this pod - but it helps debugging/testing SDS
+      # Should be removed after everything works.
+      - emptyDir:
+          medium: Memory
+        name: local-certs
+      - name: istio-token
+        projected:
+          sources:
+            - serviceAccountToken:
+                audience: {{ .Values.global.sds.token.aud }}
+                expirationSeconds: 43200
+                path: istio-token
+      - name: istiod
+        configMap:
+          name: istiod
+          optional: true
+      # Optional: user-generated root
+      - name: cacerts
+        secret:
+          secretName: cacerts
+          optional: true
+      # Optional - image should have
+      - name: inject
+        configMap:
+          name: inject
+          optional: true
+
+      {{ else }}
       {{- if .Values.global.sds.enabled }}
       - hostPath:
           path: /var/run/sds
@@ -227,6 +287,8 @@ spec:
               expirationSeconds: 43200
               path: istio-token
       {{- end }}
+      {{- end }}
+
       - name: config-volume
         configMap:
           name: istio{{ .Values.version }}

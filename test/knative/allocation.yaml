@@ -9,10 +9,10 @@ spec:
         - name: istio-proxy
           resources:
             limits:
-              cpu: 10m
+              cpu: 500m
               memory: 100Mi
             requests:
-              cpu: 10m
+              cpu: 100m
               memory: 100Mi
 
 ---
@@ -28,8 +28,11 @@ spec:
         - name: discovery
           resources:
             limits:
-              cpu: 10m
+              cpu: 500m
               memory: 100Mi
             requests:
-              cpu: 10m
+              cpu: 100m
               memory: 100Mi
+          env:
+          - name: ISTIOD_ADDR
+            value: istio-pilot.istio-micro.svc:15012
