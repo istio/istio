@@ -128,8 +128,8 @@ WAIT_TIMEOUT ?= 240s
 
 IOP_OPTS="-f test/kind/user-values.yaml"
 
+KIND_CONFIG ?= --config ${TOP}/kind.yaml
 ifeq ($(MOUNT), 1)
-	KIND_CONFIG ?= --config ${TOP}/kind.yaml
 	KIND_CLUSTER ?= local
 else
 	# Customize this if you want to run tests in different kind clusters in parallel
@@ -139,7 +139,6 @@ else
 	# so failures can be debugged.
 	KIND_CLUSTER ?= test
 	LOCALVOL=""
-	KIND_CONFIG =
 endif
 
 KUBECONFIG ?= ~/.kube/config
@@ -199,9 +198,10 @@ else
 	docker run --privileged \
 		-v /var/run/docker.sock:/var/run/docker.sock  \
 		-e GOPATH=${TOP} \
+		-v ${BASE}:/workspace \
 		-it --entrypoint /bin/bash --rm \
 		$(BUILD_IMAGE) -c \
-		"/usr/local/bin/kind create cluster --loglevel debug --name ${KIND_CLUSTER} --wait 60s ${KIND_CONFIG} --image $(BUILD_IMAGE)"
+		"/usr/local/bin/kind create cluster --loglevel debug --name ${KIND_CLUSTER} --wait 60s --config /workspace/test/kind/kind-docker.yaml  --image $(BUILD_IMAGE)"
 endif
 	#kind create cluster --loglevel debug --name ${KIND_CLUSTER} --wait 60s ${KIND_CONFIG} --image $(BUILD_IMAGE)
 

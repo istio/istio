@@ -2,17 +2,8 @@ kind: Cluster
 apiVersion: kind.sigs.k8s.io/v1alpha3
 nodes:
 - role: control-plane
-  extraMounts:
-  - containerPath: TOP
-    hostPath: TOP
 
 - role: worker
-  extraPortMappings:
-  # Setting this prevents running 2 kind containers at the same time.
-  # Unless this is part of the sed substitution.
-  # However it allows testing ingress gateway !
-  - containerPort: 30080
-    hostPort: 30080
 
 kubeadmConfigPatches:
   - |
@@ -24,6 +15,7 @@ kubeadmConfigPatches:
       extraArgs:
         "service-account-issuer": "kubernetes.default.svc"
         "service-account-signing-key-file": "/etc/kubernetes/pki/sa.key"
+
 
 #kubeadmConfigPatches:
 #  - |

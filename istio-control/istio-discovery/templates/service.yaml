@@ -13,6 +13,8 @@ spec:
     name: grpc-xds # direct
   - port: 15011
     name: https-xds # mTLS
+  - port: 15012
+    name: https-dns # mTLS with k8s-signed cert
   - port: 8080
     name: http-legacy-discovery # direct
   - port: 15014
