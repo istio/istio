@@ -196,7 +196,6 @@ func (c *kubeInterface) ExtensionsV1beta1() extensionsv1beta1.ExtensionsV1beta1I
 	return c.extensions
 }
 
-
 func (c *kubeInterface) FlowcontrolV1alpha1() flowcontrolv1alpha1.FlowcontrolV1alpha1Interface {
 	panic("not implemented")
 }
