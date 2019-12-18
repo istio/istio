@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn/factory"
+	"istio.io/pkg/log"
 )
 
 // Plugin implements Istio mTLS auth
@@ -71,8 +72,11 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 	for i := range mutable.Listener.FilterChains {
 		if in.ListenerProtocol == plugin.ListenerProtocolHTTP || mutable.FilterChains[i].ListenerProtocol == plugin.ListenerProtocolHTTP {
 			// Adding Jwt filter and authn filter, if needed.
+			log.Infof("incfly debug, invoke build filter, jwt filter")
 			if filter := applier.JwtFilter(util.IsXDSMarshalingToAnyEnabled(in.Node)); filter != nil {
 				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
+			} else {
+				log.Infof("incfly debug, invoke build filter, jwt filter nil, returned")
 			}
 			if filter := applier.AuthNFilter(in.Node.Type, util.IsXDSMarshalingToAnyEnabled(in.Node)); filter != nil {
 				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
