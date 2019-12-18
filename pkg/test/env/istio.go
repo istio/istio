@@ -73,8 +73,7 @@ var (
 	IstioTop = TOP.ValueOrDefaultFunc(getDefaultIstioTop)
 
 	// IstioSrc is the location of istio source ($TOP/src/istio.io/istio
-//	IstioSrc = path.Join(IstioTop, "src/istio.io/istio")
-	IstioSrc = path.Join("/work")
+	IstioSrc = path.Join(IstioTop, "src/istio.io/istio")
 
 	// IstioBin is the location of the binary output directory
 	IstioBin = verifyFile(ISTIO_BIN, ISTIO_BIN.ValueOrDefaultFunc(getDefaultIstioBin))
@@ -84,12 +83,8 @@ var (
 
 	// TODO: Some of these values are overlapping. We should re-align them.
 
-	// IstioRoot is the root of the Istio source repository.
-	IstioRoot = path.Join(GOPATH.ValueOrDefault(build.Default.GOPATH), "/src/istio.io/istio")
-
 	// ChartsDir is the Kubernetes Helm chart directory in the repository
-//	ChartsDir = path.Join(IstioRoot, "install/kubernetes/helm")
-	ChartsDir = path.Join("/work/install/kubernetes/helm")
+	ChartsDir = path.Join(IstioSrc, "install/kubernetes/helm")
 
 	// IstioChartDir is the Kubernetes Helm chart directory in the repository
 	IstioChartDir = path.Join(ChartsDir, "istio")
@@ -97,7 +92,7 @@ var (
 	CrdsFilesDir = path.Join(ChartsDir, "istio-init/files")
 
 	// BookInfoRoot is the root folder for the bookinfo samples
-	BookInfoRoot = path.Join(IstioRoot, "samples/bookinfo")
+	BookInfoRoot = path.Join(IstioSrc, "samples/bookinfo")
 
 	// BookInfoKube is the book info folder that contains Yaml deployment files.
 	BookInfoKube = path.Join(BookInfoRoot, "platform/kube")
@@ -106,10 +101,15 @@ var (
 	ServiceAccountFilePath = path.Join(ChartsDir, "helm-service-account.yaml")
 
 	// RedisInstallFilePath is the redis installation file.
-	RedisInstallFilePath = path.Join(IstioRoot, "pkg/test/framework/components/redis/redis.yaml")
+	RedisInstallFilePath = path.Join(IstioSrc, "pkg/test/framework/components/redis/redis.yaml")
 )
 
 func getDefaultIstioTop() string {
+	// If running in build container, use expected build container path "/work"
+	inBuildContainer := os.Getenv("IN_BUILD_CONTAINER")
+	if inBuildContainer == "1" {
+		return "/work"
+	}
 	// Assume it is run inside istio.io/istio
 	current, err := os.Getwd()
 	if err != nil {
