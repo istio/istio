@@ -17,8 +17,6 @@
 # Init script downloads or updates envoy and the go dependencies. Called from Makefile, which sets
 # the needed environment variables.
 
-ROOTDIR=$(cd "$(dirname "$0")"/..; pwd)
-
 set -o errexit
 set -o nounset
 set -o pipefail
