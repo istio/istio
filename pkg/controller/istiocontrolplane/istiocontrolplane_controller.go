@@ -248,7 +248,7 @@ func (r *ReconcileIstioControlPlane) getOrCreateReconciler(icp *v1alpha2.IstioCo
 
 // Watch changes for Istio resources managed by the operator
 func watchIstioResources(c controller.Controller) error {
-	for _, t := range append(namespacedResources, nonNamespacedResources...) {
+	for _, t := range watchedResources {
 		u := &unstructured.Unstructured{}
 		u.SetGroupVersionKind(schema.GroupVersionKind{
 			Kind:    t.Kind,

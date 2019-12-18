@@ -40,16 +40,41 @@ const (
 )
 
 var (
+	// watchedResources contains all resources we will watch and reconcile when changed
+	// Ideally this would also contain Istio CRDs, but there is a race condition here - we cannot watch
+	// a type that does not yet exist.
+	watchedResources = []schema.GroupVersionKind{
+		{Group: "autoscaling", Version: "v2beta1", Kind: "HorizontalPodAutoscaler"},
+		{Group: "policy", Version: "v1beta1", Kind: "PodDisruptionBudget"},
+		{Group: "apps", Version: "v1", Kind: "StatefulSet"},
+		{Group: "apps", Version: "v1", Kind: "Deployment"},
+		{Group: "apps", Version: "v1", Kind: "DaemonSet"},
+		{Group: "extensions", Version: "v1beta1", Kind: "Ingress"},
+		{Group: "", Version: "v1", Kind: "Service"},
+		{Group: "", Version: "v1", Kind: "Endpoints"},
+		{Group: "", Version: "v1", Kind: "ConfigMap"},
+		{Group: "", Version: "v1", Kind: "PersistentVolumeClaim"},
+		{Group: "", Version: "v1", Kind: "Pod"},
+		{Group: "", Version: "v1", Kind: "Secret"},
+		{Group: "", Version: "v1", Kind: "ServiceAccount"},
+		{Group: "rbac.authorization.k8s.io", Version: "v1beta1", Kind: "RoleBinding"},
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "RoleBinding"},
+		{Group: "rbac.authorization.k8s.io", Version: "v1beta1", Kind: "Role"},
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "Role"},
+		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: "MutatingWebhookConfiguration"},
+		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: "ValidatingWebhookConfiguration"},
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRole"},
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRoleBinding"},
+		{Group: "apiextensions.k8s.io", Version: "v1beta1", Kind: "CustomResourceDefinition"},
+	}
+
 	// ordered by which types should be deleted, first to last
 	namespacedResources = []schema.GroupVersionKind{
 		{Group: "autoscaling", Version: "v2beta1", Kind: "HorizontalPodAutoscaler"},
 		{Group: "policy", Version: "v1beta1", Kind: "PodDisruptionBudget"},
-		{Group: "apps", Version: "v1beta1", Kind: "Deployment"},
-		{Group: "apps", Version: "v1beta1", Kind: "StatefulSet"},
+		{Group: "apps", Version: "v1", Kind: "StatefulSet"},
 		{Group: "apps", Version: "v1", Kind: "Deployment"},
 		{Group: "apps", Version: "v1", Kind: "DaemonSet"},
-		{Group: "extensions", Version: "v1beta1", Kind: "DaemonSet"},
-		{Group: "extensions", Version: "v1beta1", Kind: "Deployment"},
 		{Group: "extensions", Version: "v1beta1", Kind: "Ingress"},
 		{Group: "", Version: "v1", Kind: "Service"},
 		{Group: "", Version: "v1", Kind: "Endpoints"},
