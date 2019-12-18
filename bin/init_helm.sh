@@ -78,9 +78,9 @@ if [ ! -f "${ISTIO_OUT}/version.helm.${HELM_VER}" ] ; then
     TD=$(mktemp -d)
     # Install helm. Please keep it in sync with .circleci
     cd "${TD}" && \
-        ${DOWNLOAD_COMMAND} "${TD}/helm.tgz" "https://storage.googleapis.com/kubernetes-helm/helm-${HELM_VER}-${LOCAL_OS}-amd64.tar.gz" && \
+        ${DOWNLOAD_COMMAND} "${TD}/helm.tgz" "https://storage.googleapis.com/kubernetes-helm/helm-${HELM_VER}-${LOCAL_OS}-${GOARCH}.tar.gz" && \
         tar xfz helm.tgz && \
-        mv ${LOCAL_OS}-amd64/helm "${ISTIO_OUT}/helm-${HELM_VER}" && \
+        mv ${LOCAL_OS}-"${GOARCH}"/helm "${ISTIO_OUT}/helm-${HELM_VER}" && \
         cp "${ISTIO_OUT}/helm-${HELM_VER}" "${ISTIO_OUT}/helm" && \
         rm -rf "${TD}" && \
         touch "${ISTIO_OUT}/version.helm.${HELM_VER}"
