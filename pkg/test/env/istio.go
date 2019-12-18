@@ -48,6 +48,10 @@ var (
 	// nolint: golint, stylecheck
 	ISTIO_OUT Variable = "ISTIO_OUT"
 
+	// REPO_ROOT environment variable
+	// nolint: golint, stylecheck
+	REPO_ROOT Variable = "REPO_ROOT"
+
 	// HUB is the Docker hub to be used for images.
 	// nolint: golint, stylecheck
 	HUB Variable = "HUB"
@@ -69,11 +73,8 @@ var (
 	// nolint: golint, stylecheck
 	ISTIO_TEST_KUBE_CONFIG Variable = "ISTIO_TEST_KUBE_CONFIG"
 
-	// IstioTop has the top of the istio tree, matches the env variable from make.
-	IstioTop = TOP.ValueOrDefaultFunc(getDefaultIstioTop)
-
 	// IstioSrc is the location of istio source ($TOP/src/istio.io/istio
-	IstioSrc = path.Join(IstioTop, "src/istio.io/istio")
+	IstioSrc = REPO_ROOT.ValueOrDefaultFunc(getDefaultIstioSrc)
 
 	// IstioBin is the location of the binary output directory
 	IstioBin = verifyFile(ISTIO_BIN, ISTIO_BIN.ValueOrDefaultFunc(getDefaultIstioBin))
@@ -104,12 +105,7 @@ var (
 	RedisInstallFilePath = path.Join(IstioSrc, "pkg/test/framework/components/redis/redis.yaml")
 )
 
-func getDefaultIstioTop() string {
-	// If running in build container, use expected build container path "/work"
-	inBuildContainer := os.Getenv("IN_BUILD_CONTAINER")
-	if inBuildContainer == "1" {
-		return "/work"
-	}
+func getDefaultIstioSrc() string {
 	// Assume it is run inside istio.io/istio
 	current, err := os.Getwd()
 	if err != nil {
