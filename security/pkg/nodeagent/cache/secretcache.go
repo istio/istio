@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"strings"
 	"sync"
@@ -69,6 +70,15 @@ const (
 	// Timeout the K8s update/delete notification threads. This is to make sure to unblock the
 	// secret watch main thread in case those child threads got stuck due to any reason.
 	notifyK8sSecretTimeout = 30 * time.Second
+
+	// The well-known path for an existing certificate chain file
+	existingCertChainFile = "/etc/certs/cert-chain.pem"
+
+	// The well-known path for an existing key file
+	existingKeyFile = "/etc/certs/key.pem"
+
+	// The well-known path for an existing root certificate file
+	existingRootCertFile = "/etc/certs/root-cert.pem"
 )
 
 type k8sJwtPayload struct {
@@ -567,11 +577,68 @@ func (sc *SecretCache) generateGatewaySecret(token string, connKey ConnKey, t ti
 	}, nil
 }
 
+// If there is an existing secret under a well known path, return true.
+// Otherwise, return false.
+func (sc *SecretCache) secretExists() bool {
+	b, err := ioutil.ReadFile(existingCertChainFile)
+	if err != nil || len(b) == 0 {
+		return false
+	}
+	b, err = ioutil.ReadFile(existingRootCertFile)
+	if err != nil || len(b) == 0 {
+		return false
+	}
+	b, err = ioutil.ReadFile(existingKeyFile)
+	if err != nil || len(b) == 0 {
+		return false
+	}
+
+	return true
+}
+
+// Generate a secret item from the existing secret
+func (sc *SecretCache) generateSecretFromExistingSecret(token string, connKey ConnKey) (*model.SecretItem, error) {
+	certChain, err := ioutil.ReadFile(existingCertChainFile)
+	if err != nil {
+		return nil, err
+	}
+	keyPEM, err := ioutil.ReadFile(existingKeyFile)
+	if err != nil {
+		return nil, err
+	}
+	rootCertPEM, err := ioutil.ReadFile(existingRootCertFile)
+	if err != nil {
+		return nil, err
+	}
+
+	t := time.Now()
+	var certExpireTime time.Time
+	if certExpireTime, err = nodeagentutil.ParseCertAndGetExpiryTimestamp(certChain); err != nil {
+		cacheLog.Errorf("failed to extract expire time from the certificate: %v", err)
+		return nil, fmt.Errorf("failed to extract expire time from the certificate: %v", err)
+	}
+
+	// Set the rootCert
+	sc.rootCert = rootCertPEM
+
+	return &model.SecretItem{
+		CertificateChain: certChain,
+		PrivateKey:       keyPEM,
+		ResourceName:     connKey.ResourceName,
+		Token:            token,
+		CreatedTime:      t,
+		ExpireTime:       certExpireTime,
+		Version:          t.String(),
+	}, nil
+}
+
 func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey ConnKey, t time.Time) (*model.SecretItem, error) {
 	// If node agent works as ingress gateway agent, searches for kubernetes secret instead of sending
 	// CSR to CA.
 	if !sc.fetcher.UseCaClient {
 		return sc.generateGatewaySecret(token, connKey, t)
+	} else if sc.secretExists() {
+		return sc.generateSecretFromExistingSecret(token, connKey)
 	}
 	conIDresourceNamePrefix := cacheLogPrefix(connKey.ConnectionID, connKey.ResourceName)
 	// call authentication provider specific plugins to exchange token if necessary.
