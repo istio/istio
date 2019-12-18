@@ -55,6 +55,8 @@ const (
 	defaultRefreshPeriod = 5 * time.Minute
 
 	defaultClusterRegistriesNamespace = "istio-system"
+
+	mixerClusterControllerPrefix = "mixer-cluster-"
 )
 
 var (
@@ -130,7 +132,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 	// provide this basic functionality before.
 	b.Lock()
 	defer b.Unlock()
-	_, found := b.controllers[path]
+	_, found := b.controllers[mixerClusterControllerPrefix+path]
 	if !found {
 		clientset, err := b.newClientFn(path, env)
 		if err != nil {
@@ -140,8 +142,8 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		if err != nil {
 			return nil, fmt.Errorf("could not create new cache controller: %v", err)
 		}
-		controllers[path] = controller
-		b.controllers[path] = controller
+		controllers[mixerClusterControllerPrefix+path] = controller
+		b.controllers[mixerClusterControllerPrefix+path] = controller
 	} else {
 		for clusterID := range b.controllers {
 			controllers[clusterID] = b.controllers[clusterID]
@@ -230,8 +232,10 @@ func (h *handler) GenerateKubernetesAttributes(ctx context.Context, inst *ktmpl.
 }
 
 func (h *handler) Close() error {
-	for clusterID := range h.builder.controllers {
-		_ = h.builder.deleteCacheController(clusterID)
+	for clusterID := range h.k8sCache {
+		if !strings.HasPrefix(clusterID, mixerClusterControllerPrefix) {
+			_ = h.builder.deleteCacheController(clusterID)
+		}
 	}
 	h.builder.Lock()
 	h.builder.kubeHandler = nil
