@@ -408,6 +408,7 @@ func generateServiceEntry(u *unstructured.Unstructured, o *vmServiceOpts) error 
 		Ports:      ports,
 		Endpoints:  eps,
 		Resolution: v1alpha3.ServiceEntry_STATIC,
+		Location:   v1alpha3.ServiceEntry_MESH_INTERNAL,
 	}
 
 	// Because we are placing into an Unstructured, place as a map instead
