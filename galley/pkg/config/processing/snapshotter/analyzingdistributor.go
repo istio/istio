@@ -260,6 +260,7 @@ func filterBySuppressions(suppressions []AnalysisSuppression, messages diag.Mess
 			if m.Origin != nil && s.Code == m.Type.Code() && s.ResourceName == m.Origin.FriendlyName() {
 				scope.Analysis.Debugf("Suppressing code %s on resource %s due to suppressions list", m.Type.Code(), m.Origin.FriendlyName())
 				suppress = true
+				break
 			}
 		}
 		if !suppress {
