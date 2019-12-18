@@ -1,5 +1,5 @@
-apiVersion: "security.istio.io/v1beta1"
-kind: "RequestAuthentication"
+apiVersion: "authentication.istio.io/v1alpha1"
+kind: "Policy"
 metadata:
   name: "jwt-simple-for-b"
   namespace: {{ .Namespace }}
