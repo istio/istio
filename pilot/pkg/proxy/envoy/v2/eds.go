@@ -656,7 +656,9 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 	}
 }
 
-func (s *DiscoveryServer) generateEndpoints(clusterName string, proxy *model.Proxy, push *model.PushContext, edsUpdatedServices map[string]struct{}) *xdsapi.ClusterLoadAssignment {
+func (s *DiscoveryServer) generateEndpoints(
+	clusterName string, proxy *model.Proxy, push *model.PushContext, edsUpdatedServices map[string]struct{},
+) *xdsapi.ClusterLoadAssignment {
 	_, _, hostname, _ := model.ParseSubsetKey(clusterName)
 	if edsUpdatedServices != nil {
 		if _, ok := edsUpdatedServices[string(hostname)]; !ok {
