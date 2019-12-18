@@ -150,6 +150,10 @@ func (e *testConfig) Config() echo.Config {
 	}
 }
 
+func (e *testConfig) PodName() string {
+	return ""
+}
+
 func (e *testConfig) Workloads() ([]echo.Workload, error) {
 	return []echo.Workload{e}, nil
 }

@@ -112,6 +112,9 @@ type Workload interface {
 	Logs() (string, error)
 	// LogsOrFail returns the logs for the app container, or aborts if an error is found
 	LogsOrFail(t test.Failer) string
+
+	// PodName returns name of the workload pod.
+	PodName() string
 }
 
 // Sidecar provides an interface to execute queries against a single Envoy sidecar.

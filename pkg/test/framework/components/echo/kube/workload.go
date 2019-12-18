@@ -137,3 +137,7 @@ func (w *workload) LogsOrFail(t test.Failer) string {
 	}
 	return logs
 }
+
+func (w *workload) PodName() string {
+	return w.pod.Name
+}

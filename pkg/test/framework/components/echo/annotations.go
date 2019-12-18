@@ -50,6 +50,7 @@ var (
 	SidecarTrafficIncludeInboundPorts     = workloadAnnotation(annotation.SidecarTrafficIncludeInboundPorts.Name, "")
 	SidecarTrafficExcludeInboundPorts     = workloadAnnotation(annotation.SidecarTrafficExcludeInboundPorts.Name, "")
 	SidecarTrafficKubeVirtInterfaces      = workloadAnnotation(annotation.SidecarTrafficKubevirtInterfaces.Name, "")
+	SidecarBootstrapOverride              = workloadAnnotation(annotation.SidecarBootstrapOverride.Name, "")
 
 	KubeServiceAccountsOnVMA = serviceAnnotation(annotation.AlphaKubernetesServiceAccounts.Name, "")
 	CanonicalServiceAccounts = serviceAnnotation(annotation.AlphaCanonicalServiceAccounts.Name, "")
