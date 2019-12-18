@@ -81,4 +81,4 @@ tests/e2e/local/minikube/docker-machine-driver-hyperkit
 tools/istioctl.bash
 vendor
 # Contains the built artifacts
-/out
+out/

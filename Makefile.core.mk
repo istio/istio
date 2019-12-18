@@ -99,8 +99,6 @@ $(shell mkdir -p $(dir $(JUNIT_OUT)))
 
 # scratch dir: this shouldn't be simply 'docker' since that's used for docker.save to store tar.gz files
 ISTIO_DOCKER:=${ISTIO_OUT_LINUX}/docker_temp
-# Config file used for building istio:proxy container.
-DOCKER_PROXY_CFG?=Dockerfile.proxy
 
 # scratch dir for building isolated images. Please don't remove it again - using
 # ISTIO_DOCKER results in slowdown, all files (including multiple copies of envoy) will be
@@ -131,10 +129,10 @@ export ISTIO_ENVOY_LINUX_VERSION ?= ${ISTIO_ENVOY_VERSION}
 export ISTIO_ENVOY_LINUX_DEBUG_URL ?= ${ISTIO_ENVOY_DEBUG_URL}
 export ISTIO_ENVOY_LINUX_RELEASE_URL ?= ${ISTIO_ENVOY_RELEASE_URL}
 # Variables for the extracted debug/release Envoy artifacts.
-export ISTIO_ENVOY_LINUX_DEBUG_DIR ?= ${TARGET_OUT}/debug
+export ISTIO_ENVOY_LINUX_DEBUG_DIR ?= ${TARGET_OUT_LINUX}/debug
 export ISTIO_ENVOY_LINUX_DEBUG_NAME ?= envoy-debug-${ISTIO_ENVOY_LINUX_VERSION}
 export ISTIO_ENVOY_LINUX_DEBUG_PATH ?= ${ISTIO_ENVOY_LINUX_DEBUG_DIR}/${ISTIO_ENVOY_LINUX_DEBUG_NAME}
-export ISTIO_ENVOY_LINUX_RELEASE_DIR ?= ${TARGET_OUT}/release
+export ISTIO_ENVOY_LINUX_RELEASE_DIR ?= ${TARGET_OUT_LINUX}/release
 export ISTIO_ENVOY_LINUX_RELEASE_NAME ?= envoy-${ISTIO_ENVOY_VERSION}
 export ISTIO_ENVOY_LINUX_RELEASE_PATH ?= ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${ISTIO_ENVOY_LINUX_RELEASE_NAME}
 
@@ -199,9 +197,6 @@ default: init build test
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
 init: $(ISTIO_OUT)/istio_is_init
 	mkdir -p ${TARGET_OUT}/logs
-
-# Sync is the same as init in release branch. In master this pulls from master.
-sync: init
 
 # I tried to make this dependent on what I thought was the appropriate
 # lock file, but it caused the rule for that file to get run (which
@@ -270,8 +265,17 @@ BINARIES:=./istioctl/cmd/istioctl \
 # List of binaries included in releases
 RELEASE_BINARIES:=pilot-discovery pilot-agent sidecar-injector mixc mixs mixgen node_agent node_agent_k8s istio_ca istioctl galley sdsclient
 
+# We always build Linux containers even if not running in a Linux. Linux binaries
+# are needed for packaging in Docker. On other GOOS_LOCAL, such as darwin, we need
+# to specially build Linux binaries. Otherwise, the default build target will build
+# Linux on Linux platforms.
+BUILD_DEPS:=
+ifneq ($(GOOS_LOCAL),"linux")
+BUILD_DEPS += build-linux
+endif
+
 .PHONY: build
-build: depend build-linux
+build: depend $(BUILD_DEPS)
 	STATIC=0 GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS='-extldflags -static -s -w' common/scripts/gobuild.sh $(ISTIO_OUT)/ $(BINARIES)
 
 # The build-linux target is responsible for building binaries used within containers.
@@ -549,7 +553,7 @@ istio-init.yaml: $(HOME)/.helm
 		install/kubernetes/helm/istio-init >> install/kubernetes/$@
 
 # creates istio-demo.yaml istio-remote.yaml
-# Ensure that values-$filename is present in $(ISTIO_OUT)/install/kubernetes/helm/istio
+# Ensure that values-$filename is present in install/kubernetes/helm/istio
 istio-demo.yaml istio-remote.yaml istio-minimal.yaml: $(HOME)/.helm
 	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
 	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/$@
