@@ -126,6 +126,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	}
 
 	if !cfg.SkipWaitForValidationWebhook {
+		scopes.CI.Infof("Waiting for validating webhook")
 
 		// Wait for Galley & the validation webhook to come online before applying Istio configurations.
 		if _, _, err = env.WaitUntilServiceEndpointsAreReady(cfg.SystemNamespace, "istio-galley"); err != nil {

@@ -45,7 +45,7 @@ var (
 // here to reuse a single install across tests.
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("pilot_test", m).
+		NewSuite("ingress_test", m).
 		Label(label.CustomSetup).
 		RequireEnvironment(environment.Kube).
 		SetupOnEnv(environment.Kube, istio.Setup(&i, func(cfg *istio.Config) {

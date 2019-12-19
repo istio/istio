@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/test"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -66,6 +67,7 @@ func UntilSuccess(fn func() error, options ...Option) error {
 	_, e := Do(func() (interface{}, bool, error) {
 		err := fn()
 		if err != nil {
+			log.Debugf("UntilSuccess attempt failed, retrying: %v", err)
 			return nil, false, err
 		}
 
