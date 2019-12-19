@@ -28,7 +28,10 @@ func TestManifestMigrate(t *testing.T) {
 		desc string
 	}{
 		{
-			desc: "values",
+			desc: "default_values",
+		},
+		{
+			desc: "overlay_values",
 		},
 	}
 	for _, tt := range tests {

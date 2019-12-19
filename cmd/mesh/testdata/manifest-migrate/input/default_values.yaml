@@ -480,7 +480,7 @@ certmanager:
   tolerations: []
   podAntiAffinityLabelSelector: []
   podAntiAffinityTermLabelSelector: []
-istio_cni:
+cni:
   enabled: false
   hub: gcr.io/istio-release
   tag: master-latest-daily
