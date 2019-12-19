@@ -683,6 +683,7 @@ VirtualService: bookinfo
 			execClientConfig: canned14Config,
 			configs:          cannedIstioConfig,
 			k8sConfigs:       cannedK8sEnv,
+			namespace:        "default",
 			args:             strings.Split("x describe svc productpage", " "),
 			expectedOutput: `Service: productpage
    Port:  9080/auto-detect targets pod port 9080

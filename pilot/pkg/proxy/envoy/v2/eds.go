@@ -656,6 +656,54 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 	}
 }
 
+func (s *DiscoveryServer) generateEndpoints(
+	clusterName string, proxy *model.Proxy, push *model.PushContext, edsUpdatedServices map[string]struct{},
+) *xdsapi.ClusterLoadAssignment {
+	_, _, hostname, _ := model.ParseSubsetKey(clusterName)
+	if edsUpdatedServices != nil {
+		if _, ok := edsUpdatedServices[string(hostname)]; !ok {
+			// Cluster was not updated, skip recomputing. This happens when we get an incremental update for a
+			// specific Hostname. On connect or for full push edsUpdatedServices will be empty.
+			return nil
+		}
+	}
+
+	l := s.loadAssignmentsForClusterIsolated(proxy, push, clusterName)
+
+	if l == nil {
+		return nil
+	}
+
+	// If networks are set (by default they aren't) apply the Split Horizon
+	// EDS filter on the endpoints
+	if push.Networks != nil && len(push.Networks.Networks) > 0 {
+		endpoints := EndpointsByNetworkFilter(push, proxy.Metadata.Network, l.Endpoints)
+		filteredCLA := &xdsapi.ClusterLoadAssignment{
+			ClusterName: l.ClusterName,
+			Endpoints:   endpoints,
+			Policy:      l.Policy,
+		}
+		l = filteredCLA
+	}
+
+	// If locality aware routing is enabled, prioritize endpoints or set their lb weight.
+	if push.Mesh.LocalityLbSetting != nil {
+		// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
+		clonedCLA := util.CloneClusterLoadAssignment(l)
+		l = &clonedCLA
+
+		// Failover should only be enabled when there is an outlier detection, otherwise Envoy
+		// will never detect the hosts are unhealthy and redirect traffic.
+		enableFailover, loadBalancerSettings := getOutlierDetectionAndLoadBalancerSettings(push, proxy, clusterName)
+		var localityLbSettings = push.Mesh.LocalityLbSetting
+		if loadBalancerSettings != nil && loadBalancerSettings.LocalityLbSetting != nil {
+			localityLbSettings = loadBalancerSettings.LocalityLbSetting
+		}
+		loadbalancer.ApplyLocalityLBSetting(proxy.Locality, l, localityLbSettings, enableFailover)
+	}
+	return l
+}
+
 // pushEds is pushing EDS updates for a single connection. Called the first time
 // a client connects, for incremental updates and for full periodic updates.
 func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, version string, edsUpdatedServices map[string]struct{}) error {
@@ -668,47 +716,9 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 	// For 1.1+Sidecar - it's the small set of explicitly imported clusters, using the isolated DestinationRules
 	for _, clusterName := range con.Clusters {
 
-		_, _, hostname, _ := model.ParseSubsetKey(clusterName)
-		if edsUpdatedServices != nil {
-			if _, ok := edsUpdatedServices[string(hostname)]; !ok {
-				// Cluster was not updated, skip recomputing. This happens when we get an incremental update for a
-				// specific Hostname. On connect or for full push edsUpdatedServices will be empty.
-				continue
-			}
-		}
-
-		l := s.loadAssignmentsForClusterIsolated(con.node, push, clusterName)
-
+		l := s.generateEndpoints(clusterName, con.node, push, edsUpdatedServices)
 		if l == nil {
 			continue
-		}
-
-		// If networks are set (by default they aren't) apply the Split Horizon
-		// EDS filter on the endpoints
-		if push.Networks != nil && len(push.Networks.Networks) > 0 {
-			endpoints := EndpointsByNetworkFilter(push, con.node.Metadata.Network, l.Endpoints)
-			filteredCLA := &xdsapi.ClusterLoadAssignment{
-				ClusterName: l.ClusterName,
-				Endpoints:   endpoints,
-				Policy:      l.Policy,
-			}
-			l = filteredCLA
-		}
-
-		// If locality aware routing is enabled, prioritize endpoints or set their lb weight.
-		if push.Mesh.LocalityLbSetting != nil {
-			// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
-			clonedCLA := util.CloneClusterLoadAssignment(l)
-			l = &clonedCLA
-
-			// Failover should only be enabled when there is an outlier detection, otherwise Envoy
-			// will never detect the hosts are unhealthy and redirect traffic.
-			enableFailover, loadBalancerSettings := getOutlierDetectionAndLoadBalancerSettings(push, con.node, clusterName)
-			var localityLbSettings = push.Mesh.LocalityLbSetting
-			if loadBalancerSettings != nil && loadBalancerSettings.LocalityLbSetting != nil {
-				localityLbSettings = loadBalancerSettings.LocalityLbSetting
-			}
-			loadbalancer.ApplyLocalityLBSetting(con.node.Locality, l, localityLbSettings, enableFailover)
 		}
 
 		for _, e := range l.Endpoints {

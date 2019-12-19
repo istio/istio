@@ -769,11 +769,48 @@ func (s *DiscoveryServer) edsz(w http.ResponseWriter, req *http.Request) {
 	if req.Form.Get("push") != "" {
 		AdsPushAll(s)
 	}
+	var con *XdsConnection
+	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
+		adsClientsMutex.RLock()
+		defer adsClientsMutex.RUnlock()
+		connections, ok := adsSidecarIDConnectionsMap[proxyID]
+		// We can't guarantee the Pilot we are connected to has a connection to the proxy we requested
+		// There isn't a great way around this, but for debugging purposes its suitable to have the caller retry.
+		if !ok || len(connections) == 0 {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte("Proxy not connected to this Pilot instance. It may be connected to another instance."))
+			return
+		}
+
+		mostRecent := ""
+		for key := range connections {
+			if mostRecent == "" || key > mostRecent {
+				mostRecent = key
+			}
+		}
+		con = connections[mostRecent]
+	}
 
 	edsClusterMutex.RLock()
 	defer edsClusterMutex.RUnlock()
 	comma := false
-	if len(edsClusters) > 0 {
+	if con != nil {
+		_, _ = fmt.Fprintln(w, "[")
+		for _, clusterName := range con.Clusters {
+			if comma {
+				_, _ = fmt.Fprint(w, ",\n")
+			} else {
+				comma = true
+			}
+			cla := s.generateEndpoints(clusterName, con.node, s.globalPushContext(), nil)
+			jsonm := &jsonpb.Marshaler{Indent: "  "}
+			dbgString, _ := jsonm.MarshalToString(cla)
+			if _, err := w.Write([]byte(dbgString)); err != nil {
+				return
+			}
+		}
+		_, _ = fmt.Fprintln(w, "]")
+	} else if len(edsClusters) > 0 {
 		_, _ = fmt.Fprintln(w, "[")
 		for cluster := range edsClusters {
 			if comma {
