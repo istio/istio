@@ -20,17 +20,32 @@ import (
 	"fmt"
 	"net"
 	"syscall"
-
-	"github.com/coreos/etcd/pkg/cpuutil"
+	"unsafe"
 
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
+var nativeByteOrder binary.ByteOrder
+
+func init() {
+	       var x uint16 = 0x0102
+	       var lowerByte = *(*byte)(unsafe.Pointer(&x))
+	       switch lowerByte {
+		       case 0x01:
+		               nativeByteOrder = binary.BigEndian
+		       case 0x02:
+		               nativeByteOrder = binary.LittleEndian
+		       default:
+		               panic("Could not determine native byte order.")
+		       }
+	}
+
 // <arpa/inet.h>
 func ntohs(n16 uint16) uint16 {
-	var bytes [2]byte
-	binary.BigEndian.PutUint16(bytes[:], n16)
-	return cpuutil.ByteOrder().Uint16(bytes[:])
+	if nativeByteOrder == binary.BigEndian {
+		return n16
+	}
+	return (n16&0xff00)>>8 | (n16&0xff)<<8
 }
 
 // Recover the original address from redirect socket. Supposed to work for tcp over ipv4 and ipv6.

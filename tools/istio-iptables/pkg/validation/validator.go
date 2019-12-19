@@ -129,7 +129,7 @@ func (s *Service) Run() error {
 }
 
 func (c *Client) Run() error {
-	serverOriginalAddress := c.Config.ServerOriginalIP.String() + ":" + strconv.Itoa(int(c.Config.ServerOriginalPort))
+	serverOriginalAddress := fmt.Sprintf("%s:%d", c.Config.ServerOriginalIP, c.Config.ServerOriginalPort)
 	conn, err := net.Dial("tcp", serverOriginalAddress)
 	if err != nil {
 		fmt.Printf("Error connecting to %s: %s\n", serverOriginalAddress, err.Error())
