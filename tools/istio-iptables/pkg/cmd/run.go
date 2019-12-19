@@ -50,7 +50,6 @@ func NewIptablesConfigurator(cfg *config.Config) *IptablesConfigurator {
 		ext:      ext,
 		cfg:      cfg,
 	}
-	configurator.cfg.HostIP, _ = configurator.ext.GetLocalIP()
 	return configurator
 }
 
@@ -342,8 +341,6 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	if err != nil {
 		panic(err)
 	}
-	// HostIP is used by iptables failure detection
-	iptConfigurator.cfg.HostIP = podIP
 
 	// Check if pod's ip is ipv4 or ipv6, in case of ipv6 set variable
 	// to program ip6tablesOrFail

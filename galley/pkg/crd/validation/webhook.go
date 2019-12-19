@@ -155,7 +155,7 @@ func (p *WebhookParameters) String() string {
 	fmt.Fprintf(buf, "WebhookName: %s\n", p.WebhookName)
 	fmt.Fprintf(buf, "DeploymentName: %s\n", p.DeploymentName)
 	fmt.Fprintf(buf, "ServiceName: %s\n", p.ServiceName)
-	fmt.Fprintf(buf, "EnableValidation: %v\n", p.EnableValidation)
+	fmt.Fprintf(buf, "RunValidation: %v\n", p.EnableValidation)
 	fmt.Fprintf(buf, "EnableReconcileWebhookConfiguration: %v\n", p.EnableReconcileWebhookConfiguration)
 
 	return buf.String()

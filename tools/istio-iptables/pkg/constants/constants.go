@@ -79,7 +79,8 @@ const (
 	Clean                     = "clean"
 	RestoreFormat             = "restore-format"
 	SkipRuleApply             = "skip-rule-apply"
-	SkipValidation            = "skip-validation"
+	RunValidation             = "run-validation"
+	IptablesProbePort         = "iptables-probe-port"
 )
 
 // Constants for iptables commands
@@ -95,5 +96,5 @@ const (
 )
 
 const (
-	IptablesProbePort = 15002
+	DefaultIptablesProbePort = 15002
 )

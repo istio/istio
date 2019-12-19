@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"istio.io/istio/tools/istio-iptables/pkg/config"
-	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
 type Validator struct {
@@ -47,7 +46,8 @@ func (validator *Validator) Run() error {
 		validator.Config,
 	}
 	sError := make(chan error, 1)
-	sTimeout := time.After(30 * time.Second)
+	sTimer := time.NewTimer(30 * time.Second)
+	defer sTimer.Stop()
 	go func() {
 		sError <- s.Run()
 	}()
@@ -64,7 +64,7 @@ func (validator *Validator) Run() error {
 		}
 	}()
 	select {
-	case <-sTimeout:
+	case <- sTimer.C:
 		return errors.New("validation timeout")
 	case err := <-sError:
 		if err == nil {
@@ -76,12 +76,12 @@ func (validator *Validator) Run() error {
 	}
 }
 
-func NewValidator(config *config.Config) *Validator {
+func NewValidator(config *config.Config, hostIP net.IP) *Validator {
 	return &Validator{
 		Config: &Config{
 			ServerListenAddress: ":" + config.InboundCapturePort,
-			ServerOriginalPort:  constants.IptablesProbePort,
-			ServerOriginalIP:    config.HostIP,
+			ServerOriginalPort:  config.IptablesProbePort,
+			ServerOriginalIP:    hostIP,
 		},
 	}
 }

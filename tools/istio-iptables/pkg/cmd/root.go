@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"os"
+	"strconv"
 	"strings"
 
 	"istio.io/istio/tools/istio-iptables/pkg/validation"
@@ -38,8 +39,12 @@ var rootCmd = &cobra.Command{
 		if !config.SkipRuleApply {
 			iptConfigurator.run()
 		}
-		if !config.SkipValidation {
-			validator := validation.NewValidator(config)
+		if config.RunValidation {
+			hostIP, err := iptConfigurator.ext.GetLocalIP()
+			if err != nil {
+				panic(err)
+			}
+			validator := validation.NewValidator(config, hostIP)
 			return validator.Run()
 		}
 		return nil
@@ -64,8 +69,9 @@ func constructConfig() *config.Config {
 		DryRun:                  viper.GetBool(constants.DryRun),
 		EnableInboundIPv6s:      nil,
 		RestoreFormat:           viper.GetBool(constants.RestoreFormat),
+		IptablesProbePort: uint16(viper.GetUint(constants.IptablesProbePort)),
 		SkipRuleApply:           viper.GetBool(constants.SkipRuleApply),
-		SkipValidation:          viper.GetBool(constants.SkipValidation),
+		RunValidation:           viper.GetBool(constants.RunValidation),
 	}
 }
 
@@ -187,17 +193,24 @@ func init() {
 	}
 	viper.SetDefault(constants.RestoreFormat, true)
 
+	rootCmd.Flags().String(constants.IptablesProbePort,  strconv.Itoa(constants.DefaultIptablesProbePort) , "set listen port for failure detection")
+	if err := viper.BindPFlag(constants.IptablesProbePort, rootCmd.Flags().Lookup(constants.IptablesProbePort)); err != nil {
+		handleError(err)
+	}
+	viper.SetDefault(constants.IptablesProbePort, strconv.Itoa(constants.DefaultIptablesProbePort))
+
+
 	rootCmd.Flags().Bool(constants.SkipRuleApply, false, "Skip iptables apply")
 	if err := viper.BindPFlag(constants.SkipRuleApply, rootCmd.Flags().Lookup(constants.SkipRuleApply)); err != nil {
 		handleError(err)
 	}
 	viper.SetDefault(constants.SkipRuleApply, false)
 
-	rootCmd.Flags().Bool(constants.SkipValidation, true, "Skip validate iptables")
-	if err := viper.BindPFlag(constants.SkipValidation, rootCmd.Flags().Lookup(constants.SkipValidation)); err != nil {
+	rootCmd.Flags().Bool(constants.RunValidation, false, "Skip validate iptables")
+	if err := viper.BindPFlag(constants.RunValidation, rootCmd.Flags().Lookup(constants.RunValidation)); err != nil {
 		handleError(err)
 	}
-	viper.SetDefault(constants.SkipValidation, true)
+	viper.SetDefault(constants.RunValidation, false)
 }
 
 func Execute() {
