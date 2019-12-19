@@ -138,6 +138,20 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 					},
 					Spec: &securityBeta.RequestAuthentication{},
 				},
+				{
+					ConfigMeta: ConfigMeta{
+						Type:      "request-authentication",
+						Name:      "global-with-selector",
+						Namespace: "istio-config",
+					},
+					Spec: &securityBeta.RequestAuthentication{
+						Selector: &selectorpb.WorkloadSelector{
+							MatchLabels: map[string]string{
+								"app": "httpbin",
+							},
+						},
+					},
+				},
 			},
 		},
 		{
@@ -161,6 +175,20 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 					},
 					Spec: &securityBeta.RequestAuthentication{},
 				},
+				{
+					ConfigMeta: ConfigMeta{
+						Type:      "request-authentication",
+						Name:      "global-with-selector",
+						Namespace: "istio-config",
+					},
+					Spec: &securityBeta.RequestAuthentication{
+						Selector: &selectorpb.WorkloadSelector{
+							MatchLabels: map[string]string{
+								"app": "httpbin",
+							},
+						},
+					},
+				},
 			},
 		},
 		{
@@ -183,6 +211,20 @@ func TestGetJwtPoliciesForWorkload(t *testing.T) {
 						Namespace: "istio-config",
 					},
 					Spec: &securityBeta.RequestAuthentication{},
+				},
+				{
+					ConfigMeta: ConfigMeta{
+						Type:      "request-authentication",
+						Name:      "global-with-selector",
+						Namespace: "istio-config",
+					},
+					Spec: &securityBeta.RequestAuthentication{
+						Selector: &selectorpb.WorkloadSelector{
+							MatchLabels: map[string]string{
+								"app": "httpbin",
+							},
+						},
+					},
 				},
 			},
 		},
@@ -232,7 +274,11 @@ func createTestConfigs() []*Config {
 		},
 	}
 	configs = append(configs, createTestConfig("default", rootNamespace, nil),
-		createTestConfig("should-be-ignored", rootNamespace, nil),
+		createTestConfig("global-with-selector", rootNamespace, &selectorpb.WorkloadSelector{
+			MatchLabels: map[string]string{
+				"app": "httpbin",
+			},
+		}),
 		createTestConfig("default", "foo", nil),
 		createTestConfig("default", "bar", nil),
 		createTestConfig("with-selector", "foo", selector))
