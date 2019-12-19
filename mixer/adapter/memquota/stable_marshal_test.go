@@ -32,11 +32,11 @@ func Test_StableMarshal(t *testing.T) {
 			name: "ConfigParam",
 			msg1: &config.Params{
 				Quotas: []config.Params_Quota{
-					config.Params_Quota{
+					{
 						Name:      "one",
 						MaxAmount: 15,
 						Overrides: []config.Params_Override{
-							config.Params_Override{
+							{
 								Dimensions: map[string]string{
 									"foo":  "bar",
 									"fool": "barl",
@@ -44,7 +44,7 @@ func Test_StableMarshal(t *testing.T) {
 								},
 								MaxAmount: 25,
 							},
-							config.Params_Override{
+							{
 								Dimensions: map[string]string{
 									"monkey": "see",
 									"Monkey": "do",
@@ -58,9 +58,9 @@ func Test_StableMarshal(t *testing.T) {
 			},
 			msg2: &config.Params{
 				Quotas: []config.Params_Quota{
-					config.Params_Quota{
+					{
 						Overrides: []config.Params_Override{
-							config.Params_Override{
+							{
 								Dimensions: map[string]string{
 									"fo":   "sure",
 									"foo":  "bar",
@@ -68,7 +68,7 @@ func Test_StableMarshal(t *testing.T) {
 								},
 								MaxAmount: 25,
 							},
-							config.Params_Override{
+							{
 								Dimensions: map[string]string{
 									"Monkey": "do",
 									"monkey": "see",
