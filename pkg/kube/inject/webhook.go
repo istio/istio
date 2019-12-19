@@ -63,7 +63,7 @@ const (
 // Webhook implements a mutating webhook for automatic proxy injection.
 type Webhook struct {
 	mu                     sync.RWMutex
-	sidecarConfig          *Config
+	Config                 *Config
 	sidecarTemplateVersion string
 	meshConfig             *meshconfig.MeshConfig
 	valuesConfig           string
@@ -80,9 +80,10 @@ type Webhook struct {
 	keyFile    string
 	cert       *tls.Certificate
 	mon        *monitor
+	env        *model.Environment
 }
 
-func loadConfig(injectFile, meshFile, valuesFile string) (*Config, *meshconfig.MeshConfig, string, error) {
+func loadConfig(injectFile, meshFile, valuesFile string, env *model.Environment) (*Config, *meshconfig.MeshConfig, string, error) {
 	data, err := ioutil.ReadFile(injectFile)
 	if err != nil {
 		return nil, nil, "", err
@@ -98,16 +99,21 @@ func loadConfig(injectFile, meshFile, valuesFile string) (*Config, *meshconfig.M
 		return nil, nil, "", err
 	}
 
-	meshConfig, err := mesh.ReadMeshConfig(meshFile)
-	if err != nil {
-		return nil, nil, "", err
+	var meshConfig *meshconfig.MeshConfig
+	if env != nil {
+		meshConfig = env.Mesh()
+	} else {
+		meshConfig, err = mesh.ReadMeshConfig(meshFile)
+		if err != nil {
+			return nil, nil, "", err
+		}
 	}
 
-	log.Infof("New configuration: sha256sum %x", sha256.Sum256(data))
-	log.Infof("Policy: %v", c.Policy)
-	log.Infof("AlwaysInjectSelector: %v", c.AlwaysInjectSelector)
-	log.Infof("NeverInjectSelector: %v", c.NeverInjectSelector)
-	log.Infof("Template: |\n  %v", strings.Replace(c.Template, "\n", "\n  ", -1))
+	log.Debugf("New inject configuration: sha256sum %x", sha256.Sum256(data))
+	log.Debugf("Policy: %v", c.Policy)
+	log.Debugf("AlwaysInjectSelector: %v", c.AlwaysInjectSelector)
+	log.Debugf("NeverInjectSelector: %v", c.NeverInjectSelector)
+	log.Debugf("Template: |\n  %v", strings.Replace(c.Template, "\n", "\n  ", -1))
 
 	return &c, meshConfig, string(valuesConfig), nil
 }
@@ -143,11 +149,15 @@ type WebhookParameters struct {
 	// HealthCheckFile specifies the path to the health check file
 	// that is periodically updated.
 	HealthCheckFile string
+
+	Env *model.Environment
 }
 
 // NewWebhook creates a new instance of a mutating webhook for automatic sidecar injection.
 func NewWebhook(p WebhookParameters) (*Webhook, error) {
-	sidecarConfig, meshConfig, valuesConfig, err := loadConfig(p.ConfigFile, p.MeshFile, p.ValuesFile)
+	// TODO: pass a pointer to mesh config from Pilot bootstrap, no need to watch and load 2 times
+	// This is needed before we implement advanced merging / patching of mesh config
+	sidecarConfig, meshConfig, valuesConfig, err := loadConfig(p.ConfigFile, p.MeshFile, p.ValuesFile, p.Env)
 	if err != nil {
 		return nil, err
 	}
@@ -163,6 +173,9 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	// watch the parent directory of the target files so we can catch
 	// symlink updates of k8s ConfigMaps volumes.
 	for _, file := range []string{p.ConfigFile, p.MeshFile, p.CertFile, p.KeyFile} {
+		if file == p.MeshFile && p.Env != nil {
+			continue
+		}
 		watchDir, _ := filepath.Split(file)
 		if err := watcher.Watch(watchDir); err != nil {
 			return nil, fmt.Errorf("could not watch %v: %v", file, err)
@@ -173,7 +186,7 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		server: &http.Server{
 			Addr: fmt.Sprintf(":%v", p.Port),
 		},
-		sidecarConfig:          sidecarConfig,
+		Config:                 sidecarConfig,
 		sidecarTemplateVersion: sidecarTemplateVersionHash(sidecarConfig.Template),
 		meshConfig:             meshConfig,
 		configFile:             p.ConfigFile,
@@ -186,12 +199,20 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		certFile:               p.CertFile,
 		keyFile:                p.KeyFile,
 		cert:                   &pair,
+		env:                    p.Env,
 	}
 	// mtls disabled because apiserver webhook cert usage is still TBD.
 	wh.server.TLSConfig = &tls.Config{GetCertificate: wh.getCert}
 	h := http.NewServeMux()
 	h.HandleFunc("/inject", wh.serveInject)
 
+	if p.Env != nil {
+		p.Env.Watcher.AddMeshHandler(func() {
+			wh.mu.Lock()
+			wh.meshConfig = p.Env.Mesh()
+			wh.mu.Unlock()
+		})
+	}
 	mon, err := startMonitor(h, p.MonitoringPort)
 
 	if err != nil {
@@ -227,7 +248,7 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 		select {
 		case <-timerC:
 			timerC = nil
-			sidecarConfig, meshConfig, valuesConfig, err := loadConfig(wh.configFile, wh.meshFile, wh.valuesFile)
+			sidecarConfig, meshConfig, valuesConfig, err := loadConfig(wh.configFile, wh.meshFile, wh.valuesFile, wh.env)
 			if err != nil {
 				log.Errorf("update error: %v", err)
 				break
@@ -240,7 +261,7 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 				break
 			}
 			wh.mu.Lock()
-			wh.sidecarConfig = sidecarConfig
+			wh.Config = sidecarConfig
 			wh.valuesConfig = valuesConfig
 			wh.sidecarTemplateVersion = version
 			wh.meshConfig = meshConfig
@@ -248,6 +269,7 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 			wh.mu.Unlock()
 		case event := <-wh.watcher.Event:
 			// use a timer to debounce configuration updates
+			log.Infoa("Injector watch", event.Name)
 			if (event.IsModify() || event.IsCreate()) && timerC == nil {
 				timerC = time.After(watchDebounceDelay)
 			}
@@ -609,7 +631,7 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 	log.Debugf("Object: %v", string(req.Object.Raw))
 	log.Debugf("OldObject: %v", string(req.OldObject.Raw))
 
-	if !injectRequired(ignoredNamespaces, wh.sidecarConfig, &pod.Spec, &pod.ObjectMeta) {
+	if !injectRequired(ignoredNamespaces, wh.Config, &pod.Spec, &pod.ObjectMeta) {
 		log.Infof("Skipping %s/%s due to policy check", pod.ObjectMeta.Namespace, podName)
 		totalSkippedInjections.Increment()
 		return &v1beta1.AdmissionResponse{
@@ -668,7 +690,7 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 		deployMeta.Name = pod.Name
 	}
 
-	spec, iStatus, err := InjectionData(wh.sidecarConfig.Template, wh.valuesConfig, wh.sidecarTemplateVersion, typeMetadata, deployMeta, &pod.Spec, &pod.ObjectMeta, wh.meshConfig.DefaultConfig, wh.meshConfig) // nolint: lll
+	spec, iStatus, err := InjectionData(wh.Config.Template, wh.valuesConfig, wh.sidecarTemplateVersion, typeMetadata, deployMeta, &pod.Spec, &pod.ObjectMeta, wh.meshConfig.DefaultConfig, wh.meshConfig) // nolint: lll
 	if err != nil {
 		handleError(fmt.Sprintf("Injection data: err=%v spec=%v\n", err, iStatus))
 		return toAdmissionResponse(err)
@@ -677,7 +699,7 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 	annotations := map[string]string{annotation.SidecarStatus.Name: iStatus}
 
 	// Add all additional injected annotations
-	for k, v := range wh.sidecarConfig.InjectedAnnotations {
+	for k, v := range wh.Config.InjectedAnnotations {
 		annotations[k] = v
 	}
 
