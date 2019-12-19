@@ -534,7 +534,7 @@ func TestGetCertOptionsFromExistingCert(t *testing.T) {
 		t.Errorf("certificate IsCA does not match (old: %t) vs (new: %t)",
 			oldRootCert.IsCA, newRootCert.IsCA)
 	}
-  if oldRootCert.Version != newRootCert.Version {
+	if oldRootCert.Version != newRootCert.Version {
 		t.Errorf("certificate Version does not match (old: %d) vs (new: %d)",
 			oldRootCert.Version, newRootCert.Version)
 	}
