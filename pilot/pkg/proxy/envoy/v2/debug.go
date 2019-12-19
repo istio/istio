@@ -680,7 +680,7 @@ func (s *DiscoveryServer) InjectTemplateHandler(webhook *inject.Webhook) func(ht
 			return
 		}
 
-		w.Write([]byte(webhook.Config.Template))
+		_, _ = w.Write([]byte(webhook.Config.Template))
 	}
 }
 
