@@ -49,21 +49,21 @@ type preCheckExecClient interface {
 	checkMutatingWebhook() error
 }
 
-func installPreCheck(istioNamespaceFlag string, restClientGetter genericclioptions.RESTClientGetter, writer io.Writer) error {
+func installPreCheck(v *verifyInstallArgs, nsList []string, writer io.Writer) error {
 	fmt.Fprintf(writer, "\n")
 	fmt.Fprintf(writer, "Checking the cluster to make sure it is ready for Istio installation...\n")
 	fmt.Fprintf(writer, "\n")
 	fmt.Fprintf(writer, "#1. Kubernetes-api\n")
 	fmt.Fprintf(writer, "-----------------------\n")
 	var errs error
-	c, err := clientExecFactory(restClientGetter)
+	c, err := clientExecFactory(v.kubeConfigFlags)
 	if err != nil {
 		errs = multierror.Append(errs, fmt.Errorf("failed to initialize the Kubernetes client: %v", err))
 		fmt.Fprintf(writer, "Failed to initialize the Kubernetes client: %v.\n", err)
 	} else {
 		fmt.Fprintf(writer, "Can initialize the Kubernetes client.\n")
 	}
-	v, err := c.serverVersion()
+	version, err := c.serverVersion()
 	if err != nil {
 		errs = multierror.Append(errs, fmt.Errorf("failed to query the Kubernetes API Server: %v", err))
 		fmt.Fprintf(writer, "Failed to query the Kubernetes API Server: %v.\n", err)
@@ -75,28 +75,45 @@ func installPreCheck(istioNamespaceFlag string, restClientGetter genericclioptio
 	fmt.Fprintf(writer, "\n")
 	fmt.Fprintf(writer, "#2. Kubernetes-version\n")
 	fmt.Fprintf(writer, "-----------------------\n")
-	res, err := checkKubernetesVersion(v)
+	res, err := checkKubernetesVersion(version)
 	if err != nil {
 		errs = multierror.Append(errs, err)
 		fmt.Fprint(writer, err)
 	} else if !res {
-		msg := fmt.Sprintf("The Kubernetes API version: %v is lower than the minimum version: "+minK8SVersion, v)
+		msg := fmt.Sprintf("The Kubernetes API version: %v is lower than the minimum version: "+minK8SVersion, version)
 		errs = multierror.Append(errs, errors.New(msg))
 		fmt.Fprintf(writer, msg+"\n")
 	} else {
-		fmt.Fprintf(writer, "Istio is compatible with Kubernetes: %v.\n", v)
+		fmt.Fprintf(writer, "Istio is compatible with Kubernetes: %v.\n", version)
 	}
 
 	fmt.Fprintf(writer, "\n")
 	fmt.Fprintf(writer, "#3. Istio-existence\n")
 	fmt.Fprintf(writer, "-----------------------\n")
-	_, err = c.getNameSpace(istioNamespaceFlag)
-	if err == nil {
-		msg := fmt.Sprintf("Istio cannot be installed because the Istio namespace '%v' is already in use", istioNamespaceFlag)
+	reportNs := ""
+	installNs := ""
+	if len(nsList) == 0 {
+		_, err = c.getNameSpace(v.istioNamespace)
+		if err == nil {
+			reportNs = v.istioNamespace
+		}
+		installNs = v.istioNamespace
+	} else {
+		for _, ns := range nsList {
+			if _, err = c.getNameSpace(ns); err == nil {
+				reportNs += ns + ","
+			}
+			installNs += ns + ","
+		}
+		reportNs = strings.TrimRight(reportNs, ",")
+		installNs = strings.TrimRight(installNs, ",")
+	}
+	if reportNs != "" {
+		msg := fmt.Sprintf("Istio cannot be installed because the Istio namespace '%v' is already in use", reportNs)
 		errs = multierror.Append(errs, errors.New(msg))
 		fmt.Fprintf(writer, msg+"\n")
 	} else {
-		fmt.Fprintf(writer, "Istio will be installed in the %v namespace.\n", istioNamespaceFlag)
+		fmt.Fprintf(writer, "Istio will be installed in the %v namespace.\n", installNs)
 	}
 
 	fmt.Fprintf(writer, "\n")
@@ -115,49 +132,49 @@ func installPreCheck(istioNamespaceFlag string, restClientGetter genericclioptio
 			name:      "Namespace",
 		},
 		{
-			namespace: istioNamespaceFlag,
+			namespace: v.istioNamespace,
 			group:     "rbac.authorization.k8s.io",
 			version:   "v1beta1",
 			name:      "ClusterRole",
 		},
 		{
-			namespace: istioNamespaceFlag,
+			namespace: v.istioNamespace,
 			group:     "rbac.authorization.k8s.io",
 			version:   "v1beta1",
 			name:      "ClusterRoleBinding",
 		},
 		{
-			namespace: istioNamespaceFlag,
+			namespace: v.istioNamespace,
 			group:     "apiextensions.k8s.io",
 			version:   "v1beta1",
 			name:      "CustomResourceDefinition",
 		},
 		{
-			namespace: istioNamespaceFlag,
+			namespace: v.istioNamespace,
 			group:     "rbac.authorization.k8s.io",
 			version:   "v1beta1",
 			name:      "Role",
 		},
 		{
-			namespace: istioNamespaceFlag,
+			namespace: v.istioNamespace,
 			group:     "",
 			version:   "v1",
 			name:      "ServiceAccount",
 		},
 		{
-			namespace: istioNamespaceFlag,
+			namespace: v.istioNamespace,
 			group:     "",
 			version:   "v1",
 			name:      "Service",
 		},
 		{
-			namespace: istioNamespaceFlag,
+			namespace: v.istioNamespace,
 			group:     "extensions",
 			version:   "v1beta1",
 			name:      "Deployments",
 		},
 		{
-			namespace: istioNamespaceFlag,
+			namespace: v.istioNamespace,
 			group:     "",
 			version:   "v1",
 			name:      "ConfigMap",

@@ -17,6 +17,7 @@ package install
 import (
 	"bytes"
 	"fmt"
+	"strings"
 	"testing"
 
 	authorizationapi "k8s.io/api/authorization/v1beta1"
@@ -35,6 +36,7 @@ type testcase struct {
 	description       string
 	config            *mockClientExecPreCheckConfig
 	expectedException bool
+	args              []string
 }
 
 var (
@@ -137,6 +139,37 @@ func TestPreCheck(t *testing.T) {
 				namespace: "test",
 			},
 		},
+		{description: "valid case: perform pre-check via -s option",
+			config: &mockClientExecPreCheckConfig{
+				version:   version1_13,
+				namespace: "test",
+			},
+			args: strings.Split("--pre-check -s defaultNamespace=istio-test", " "),
+		},
+		{description: "valid case: perform pre-check via -f option",
+			config: &mockClientExecPreCheckConfig{
+				version:   version1_13,
+				namespace: "test",
+			},
+			args:              strings.Split("--pre-check -f testdata/istio_v1alpha2_istiocontrolplane_cr.yaml", " "),
+			expectedException: false,
+		},
+		{description: "invalid case: perform pre-check via -f option",
+			config: &mockClientExecPreCheckConfig{
+				version:   version1_13,
+				namespace: "istio-pilot",
+			},
+			args:              strings.Split("--pre-check -f testdata/istio_v1alpha2_istiocontrolplane_cr.yaml", " "),
+			expectedException: true,
+		},
+		{description: "invalid case: perform pre-check via -s option",
+			config: &mockClientExecPreCheckConfig{
+				version:   version1_13,
+				namespace: "istio-system",
+			},
+			args:              strings.Split("--pre-check -s defaultNamespace=istio-system", " "),
+			expectedException: true,
+		},
 	}
 
 	for i, c := range cases {
@@ -152,6 +185,9 @@ func verifyOutput(t *testing.T, c testcase) {
 	clientExecFactory = mockPreCheckClient(c.config)
 	var out bytes.Buffer
 	verifyInstallCmd := NewVerifyCommand()
+	if c.args != nil {
+		verifyInstallCmd.SetArgs(c.args)
+	}
 	verifyInstallCmd.SetOutput(&out)
 	fErr := verifyInstallCmd.Execute()
 	output := out.String()
