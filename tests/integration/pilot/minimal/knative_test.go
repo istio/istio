@@ -41,12 +41,19 @@ func TestKnative(t *testing.T) {
 				Prefix: "knative",
 				Inject: true,
 			})
-			if err := env.Accessor.Apply("knative-serving", "testdata/crds.yaml"); err != nil {
+			if err := env.Accessor.Apply("knative-serving", "testdata/knative-crds.yaml"); err != nil {
 				t.Fatal(err)
 			}
-			if err := env.Accessor.Apply("knative-serving", "testdata/serving.yaml"); err != nil {
+			if err := env.Accessor.Apply("knative-serving", "testdata/knative-serving.yaml"); err != nil {
 				t.Fatal(err)
 			}
+			defer func() {
+				if !ctx.Settings().NoCleanup {
+					if err := env.Accessor.Delete("knative-serving", "testdata/knative-serving.yaml"); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}()
 			settings, err := image.SettingsFromCommandLine()
 			if err != nil {
 				t.Fatal(err)
