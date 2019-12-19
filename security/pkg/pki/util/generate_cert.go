@@ -164,10 +164,7 @@ func GetCertOptionsFromExistingCert(certBytes []byte) (opts CertOptions, err err
 	if len(orgs) > 0 {
 		opts.Org = orgs[0]
 	}
-	if len(cert.Subject.CommonName) > 0 {
-		opts.Host = cert.Subject.CommonName
-		opts.IsDualUse = true
-	}
+	// TODO(JimmyCYJ): parse other fields from certificate, e.g. CommonName.
 	return opts, nil
 }
 
@@ -177,12 +174,7 @@ func MergeCertOptions(defaultOpts, deltaOpts CertOptions) CertOptions {
 	if len(deltaOpts.Org) > 0 {
 		defaultOpts.Org = deltaOpts.Org
 	}
-	if len(deltaOpts.Host) > 0 {
-		defaultOpts.Host = deltaOpts.Host
-		if deltaOpts.IsDualUse {
-			defaultOpts.IsDualUse = true
-		}
-	}
+	// TODO(JimmyCYJ): merge other fields, e.g. Host, IsDualUse, etc.
 	return defaultOpts
 }
 
