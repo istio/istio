@@ -358,13 +358,13 @@ ${ISTIO_OUT}/release/istioctl-win.exe: depend
 	STATIC=0 GOOS=windows LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
 
 # generate the istioctl completion files
-${ISTIO_OUT}/istioctl.bash: istioctl
+${ISTIO_OUT}/release/istioctl.bash: istioctl
 	${ISTIO_OUT}/istioctl collateral --bash && \
-	mv istioctl.bash ${ISTIO_OUT}/istioctl.bash
+	mv istioctl.bash ${ISTIO_OUT}/release/istioctl.bash
 
-${ISTIO_OUT}/_istioctl: istioctl
+${ISTIO_OUT}/release/_istioctl: istioctl
 	${ISTIO_OUT}/istioctl collateral --zsh && \
-	mv _istioctl ${ISTIO_OUT}/_istioctl
+	mv _istioctl ${ISTIO_OUT}/release/_istioctl
 
 .PHONY: binaries-test
 binaries-test:
@@ -375,7 +375,7 @@ binaries-test:
 istioctl-all: ${ISTIO_OUT}/release/istioctl-linux ${ISTIO_OUT}/release/istioctl-osx ${ISTIO_OUT}/release/istioctl-win.exe
 
 .PHONY: istioctl.completion
-istioctl.completion: ${ISTIO_OUT}/istioctl.bash ${ISTIO_OUT}/_istioctl
+istioctl.completion: ${ISTIO_OUT}/release/istioctl.bash ${ISTIO_OUT}/release/_istioctl
 
 # istioctl-install builds then installs istioctl into $GOPATH/BIN
 # Used for debugging istioctl during dev work
