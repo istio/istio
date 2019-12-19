@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mcp_test
+package serviceentry_test
 
 import (
 	"fmt"
@@ -23,49 +23,127 @@ import (
 	"github.com/onsi/gomega"
 
 	"istio.io/api/annotation"
+	mcpapi "istio.io/api/mcp/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/mcp"
+	"istio.io/istio/pilot/pkg/serviceregistry/synthetic/serviceentry"
 	"istio.io/istio/pkg/config/schemas"
+	"istio.io/istio/pkg/mcp/sink"
 )
 
-type FakeXdsUpdater struct {
-	Events    chan string
-	Endpoints chan []*model.IstioEndpoint
-	EDSErr    chan error
-}
-
-func NewFakeXDS() *FakeXdsUpdater {
-	return &FakeXdsUpdater{
-		EDSErr:    make(chan error, 100),
-		Events:    make(chan string, 100),
-		Endpoints: make(chan []*model.IstioEndpoint, 100),
+var (
+	gateway = &networking.Gateway{
+		Servers: []*networking.Server{
+			{
+				Port: &networking.Port{
+					Number:   443,
+					Name:     "https",
+					Protocol: "HTTP",
+				},
+				Hosts: []string{"*.secure.example.com"},
+			},
+		},
 	}
-}
 
-func (f *FakeXdsUpdater) ConfigUpdate(req *model.PushRequest) {
-	f.Events <- "ConfigUpdate"
-}
+	serviceEntry = &networking.ServiceEntry{
+		Hosts: []string{"example.com"},
+		Ports: []*networking.Port{
+			{
+				Name:     "http",
+				Number:   7878,
+				Protocol: "http",
+			},
+		},
+		Location:   networking.ServiceEntry_MESH_INTERNAL,
+		Resolution: networking.ServiceEntry_STATIC,
+		Endpoints: []*networking.ServiceEntry_Endpoint{
+			{
+				Address: "127.0.0.1",
+				Ports: map[string]uint32{
+					"http": 4433,
+				},
+				Labels: map[string]string{"label": "random-label"},
+			},
+		},
+	}
 
-func (f *FakeXdsUpdater) EDSUpdate(shard, hostname, ns string, entry []*model.IstioEndpoint) error {
-	f.Events <- "EDSUpdate"
-	f.Endpoints <- entry
-	return <-f.EDSErr
-}
+	syntheticServiceEntry0 = &networking.ServiceEntry{
+		Hosts: []string{"svc.example2.com"},
+		Ports: []*networking.Port{
+			{Number: 80, Name: "http-port", Protocol: "http"},
+			{Number: 8080, Name: "http-alt-port", Protocol: "http"},
+		},
+		Location:   networking.ServiceEntry_MESH_EXTERNAL,
+		Resolution: networking.ServiceEntry_DNS,
+		Endpoints: []*networking.ServiceEntry_Endpoint{
+			{
+				Address: "2.2.2.2",
+				Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
+			},
+			{
+				Address: "3.3.3.3",
+				Ports:   map[string]uint32{"http-port": 1080},
+			},
+			{
+				Address: "4.4.4.4",
+				Ports:   map[string]uint32{"http-port": 1080},
+				Labels:  map[string]string{"foo": "bar"},
+			},
+		},
+	}
 
-func (f *FakeXdsUpdater) SvcUpdate(shard, hostname string, namespace string, event model.Event) {
-}
+	syntheticServiceEntry1 = &networking.ServiceEntry{
+		Hosts: []string{"example2.com"},
+		Ports: []*networking.Port{
+			{Number: 80, Name: "http-port", Protocol: "http"},
+			{Number: 8080, Name: "http-alt-port", Protocol: "http"},
+		},
+		Location:   networking.ServiceEntry_MESH_EXTERNAL,
+		Resolution: networking.ServiceEntry_DNS,
+		Endpoints: []*networking.ServiceEntry_Endpoint{
+			{
+				Address: "2.2.2.2",
+				Ports:   map[string]uint32{"http-port": 9080, "http-alt-port": 18081},
+			},
+			{
+				Address: "3.3.3.3",
+				Ports:   map[string]uint32{"http-port": 1080},
+			},
+			{
+				Address: "5.5.5.5",
+				Ports:   map[string]uint32{"http-port": 1081},
+				Labels:  map[string]string{"foo1": "bar1"},
+			},
+		},
+	}
 
-func (f *FakeXdsUpdater) WorkloadUpdate(id string, labels map[string]string, annotations map[string]string) {
-}
+	syntheticServiceEntry2 = &networking.ServiceEntry{
+		Hosts: []string{"example3.com"},
+		Ports: []*networking.Port{
+			{Number: 80, Name: "http-port2", Protocol: "http"},
+			{Number: 8080, Name: "http-alt-port2", Protocol: "http"},
+		},
+		Location:   networking.ServiceEntry_MESH_EXTERNAL,
+		Resolution: networking.ServiceEntry_DNS,
+		Endpoints: []*networking.ServiceEntry_Endpoint{
+			{
+				Address: "2.2.2.2",
+				Ports:   map[string]uint32{"http-port2": 7082, "http-alt-port2": 18082},
+				Labels:  map[string]string{"foo3": "bar3"},
+			},
+		},
+	}
 
-func (f *FakeXdsUpdater) ProxyUpdate(clusterID, ip string) {
-}
+	testControllerOptions = &serviceentry.Options{
+		DomainSuffix: "cluster.local",
+		ConfigLedger: &model.DisabledLedger{},
+	}
+)
 
 func TestIncrementalControllerHasSynced(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := mcp.NewSyntheticServiceEntryController(testControllerOptions)
+	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
 	g.Expect(controller.HasSynced()).To(gomega.BeFalse())
 
 	for i, se := range []*networking.ServiceEntry{syntheticServiceEntry0, syntheticServiceEntry1} {
@@ -84,7 +162,7 @@ func TestIncrementalControllerHasSynced(t *testing.T) {
 
 func TestIncrementalControllerConfigDescriptor(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := mcp.NewSyntheticServiceEntryController(testControllerOptions)
+	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
 
 	descriptor := controller.ConfigDescriptor()
 	g.Expect(descriptor.Types()).To(gomega.HaveLen(1))
@@ -93,7 +171,7 @@ func TestIncrementalControllerConfigDescriptor(t *testing.T) {
 
 func TestIncrementalControllerListInvalidType(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := mcp.NewSyntheticServiceEntryController(testControllerOptions)
+	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
 
 	c, err := controller.List("gateway", "some-phony-name-space")
 	g.Expect(c).To(gomega.BeNil())
@@ -103,7 +181,7 @@ func TestIncrementalControllerListInvalidType(t *testing.T) {
 
 func TestIncrementalControllerListCorrectTypeNoData(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := mcp.NewSyntheticServiceEntryController(testControllerOptions)
+	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
 
 	c, err := controller.List(schemas.SyntheticServiceEntry.Type, "some-phony-name-space")
 	g.Expect(c).To(gomega.BeNil())
@@ -112,7 +190,7 @@ func TestIncrementalControllerListCorrectTypeNoData(t *testing.T) {
 
 func TestIncrementalControllerListAllNameSpace(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := mcp.NewSyntheticServiceEntryController(testControllerOptions)
+	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
 
 	syntheticServiceEntry2 := proto.Clone(syntheticServiceEntry1).(*networking.ServiceEntry)
 	syntheticServiceEntry2.Ports = serviceEntry.Ports
@@ -154,7 +232,7 @@ func TestIncrementalControllerListAllNameSpace(t *testing.T) {
 
 func TestIncrementalControllerListSpecificNameSpace(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := mcp.NewSyntheticServiceEntryController(testControllerOptions)
+	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
 
 	syntheticServiceEntry2 := proto.Clone(syntheticServiceEntry1).(*networking.ServiceEntry)
 	syntheticServiceEntry2.Ports = serviceEntry.Ports
@@ -199,7 +277,7 @@ func TestIncrementalControllerListSpecificNameSpace(t *testing.T) {
 
 func TestIncrementalControllerApplyInvalidType(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := mcp.NewSyntheticServiceEntryController(testControllerOptions)
+	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
 
 	message := convertToResource(g,
 		schemas.Gateway.MessageName,
@@ -218,7 +296,7 @@ func TestIncrementalControllerApplyInvalidType(t *testing.T) {
 
 func TestIncrementalControllerApplyMetadataNameIncludesNamespace(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := mcp.NewSyntheticServiceEntryController(testControllerOptions)
+	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
 
 	message := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
 
@@ -244,7 +322,7 @@ func TestIncrementalControllerApplyMetadataNameWithoutNamespace(t *testing.T) {
 	fx := NewFakeXDS()
 	fx.EDSErr <- nil
 	testControllerOptions.XDSUpdater = fx
-	controller := mcp.NewSyntheticServiceEntryController(testControllerOptions)
+	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
 
 	message0 := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
 	change0 := convertToChange([]proto.Message{message0},
@@ -282,7 +360,7 @@ func TestIncrementalControllerApplyMetadataNameWithoutNamespace(t *testing.T) {
 
 func TestIncrementalControllerApplyChangeNoObjects(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := mcp.NewSyntheticServiceEntryController(testControllerOptions)
+	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
 
 	message := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
 	change := convertToChange([]proto.Message{message},
@@ -317,7 +395,7 @@ func TestIncrementalControllerApplyChangeNoObjects(t *testing.T) {
 
 func TestIncrementalControllerApplyInvalidResource(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := mcp.NewSyntheticServiceEntryController(testControllerOptions)
+	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
 
 	se := proto.Clone(syntheticServiceEntry1).(*networking.ServiceEntry)
 	se.Hosts = nil
@@ -340,7 +418,7 @@ func TestIncrementalControllerApplyInvalidResource(t *testing.T) {
 
 func TestIncrementalControllerApplyInvalidResource_BadTimestamp(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	controller := mcp.NewSyntheticServiceEntryController(testControllerOptions)
+	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
 
 	message0 := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
 	change := convertToChange(
@@ -366,7 +444,7 @@ func TestApplyNonIncrementalChange(t *testing.T) {
 
 	fx := NewFakeXDS()
 	testControllerOptions.XDSUpdater = fx
-	controller := mcp.NewSyntheticServiceEntryController(testControllerOptions)
+	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
 
 	message := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
 
@@ -409,7 +487,7 @@ func TestApplyNonIncrementalAnnotations(t *testing.T) {
 	fx := NewFakeXDS()
 	fx.EDSErr <- nil
 	testControllerOptions.XDSUpdater = fx
-	controller := mcp.NewSyntheticServiceEntryController(testControllerOptions)
+	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
 	message := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
 
 	steps := []struct {
@@ -477,7 +555,7 @@ func TestApplyIncrementalChangeRemove(t *testing.T) {
 
 	fx := NewFakeXDS()
 	testControllerOptions.XDSUpdater = fx
-	controller := mcp.NewSyntheticServiceEntryController(testControllerOptions)
+	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
 
 	message0 := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
 
@@ -560,7 +638,7 @@ func TestApplyIncrementalChange(t *testing.T) {
 
 	fx := NewFakeXDS()
 	testControllerOptions.XDSUpdater = fx
-	controller := mcp.NewSyntheticServiceEntryController(testControllerOptions)
+	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
 
 	message0 := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
 
@@ -614,7 +692,7 @@ func TestApplyIncrementalChangeEndpiontVersionWithoutServiceVersion(t *testing.T
 
 	fx := NewFakeXDS()
 	testControllerOptions.XDSUpdater = fx
-	controller := mcp.NewSyntheticServiceEntryController(testControllerOptions)
+	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
 
 	message0 := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
 
@@ -664,7 +742,7 @@ func TestApplyIncrementalChangesAnnotations(t *testing.T) {
 	fx := NewFakeXDS()
 	fx.EDSErr <- nil
 	testControllerOptions.XDSUpdater = fx
-	controller := mcp.NewSyntheticServiceEntryController(testControllerOptions)
+	controller := serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
 
 	message := convertToResource(g, schemas.SyntheticServiceEntry.MessageName, syntheticServiceEntry0)
 
@@ -734,4 +812,119 @@ func TestApplyIncrementalChangesAnnotations(t *testing.T) {
 			g.Expect(update).To(gomega.Equal(s.want))
 		})
 	}
+}
+
+func convertToChange(resources []proto.Message, names []string, options ...func(*sink.Change)) *sink.Change {
+	out := new(sink.Change)
+	for i, res := range resources {
+		obj := &sink.Object{
+			Metadata: &mcpapi.Metadata{
+				Name: names[i],
+			},
+			Body: res,
+		}
+		out.Objects = append(out.Objects, obj)
+	}
+	// apply options
+	for _, option := range options {
+		option(out)
+	}
+	return out
+}
+
+func setIncremental() func(*sink.Change) {
+	return func(c *sink.Change) {
+		c.Incremental = true
+	}
+}
+
+func setRemoved(removed []string) func(*sink.Change) {
+	return func(c *sink.Change) {
+		c.Removed = removed
+	}
+}
+
+func setCollection(collection string) func(*sink.Change) {
+	return func(c *sink.Change) {
+		c.Collection = collection
+	}
+}
+
+func setAnnotations(a map[string]string) func(*sink.Change) {
+	return func(c *sink.Change) {
+		for _, obj := range c.Objects {
+			obj.Metadata.Annotations = a
+		}
+	}
+}
+
+func setTypeURL(url string) func(*sink.Change) {
+	return func(c *sink.Change) {
+		for _, obj := range c.Objects {
+			obj.TypeURL = url
+		}
+	}
+}
+
+func convertToResource(g *gomega.GomegaWithT, typeURL string, resource proto.Message) (messages proto.Message) {
+	marshaled, err := proto.Marshal(resource)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	message, err := makeMessage(marshaled, typeURL)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	return message
+}
+
+func convertToResources(g *gomega.GomegaWithT, typeURL string, resources []proto.Message) (messages []proto.Message) {
+	for _, resource := range resources {
+		message := convertToResource(g, typeURL, resource)
+		messages = append(messages, message)
+	}
+	return messages
+}
+
+func makeMessage(value []byte, typeURL string) (proto.Message, error) {
+	resource := &types.Any{
+		TypeUrl: fmt.Sprintf("type.googleapis.com/%s", typeURL),
+		Value:   value,
+	}
+
+	var dynamicAny types.DynamicAny
+	err := types.UnmarshalAny(resource, &dynamicAny)
+	if err == nil {
+		return dynamicAny.Message, nil
+	}
+
+	return nil, err
+}
+
+var _ model.XDSUpdater = &FakeXdsUpdater{}
+
+type FakeXdsUpdater struct {
+	Events    chan string
+	Endpoints chan []*model.IstioEndpoint
+	EDSErr    chan error
+}
+
+func NewFakeXDS() *FakeXdsUpdater {
+	return &FakeXdsUpdater{
+		EDSErr:    make(chan error, 100),
+		Events:    make(chan string, 100),
+		Endpoints: make(chan []*model.IstioEndpoint, 100),
+	}
+}
+
+func (f *FakeXdsUpdater) ConfigUpdate(*model.PushRequest) {
+	f.Events <- "ConfigUpdate"
+}
+
+func (f *FakeXdsUpdater) EDSUpdate(_, _, _ string, entry []*model.IstioEndpoint) error {
+	f.Events <- "EDSUpdate"
+	f.Endpoints <- entry
+	return <-f.EDSErr
+}
+
+func (f *FakeXdsUpdater) SvcUpdate(_, _ string, _ string, _ model.Event) {
+}
+
+func (f *FakeXdsUpdater) ProxyUpdate(_, _ string) {
 }

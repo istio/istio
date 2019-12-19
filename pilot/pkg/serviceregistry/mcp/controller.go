@@ -21,14 +21,13 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/pkg/ledger"
-
 	"github.com/gogo/protobuf/types"
 
+	"istio.io/pkg/ledger"
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/mcp/sink"
@@ -261,30 +260,30 @@ func (c *controller) GetResourceAtVersion(version string, key string) (resourceV
 }
 
 // Run is not implemented
-func (c *controller) Run(stop <-chan struct{}) {
+func (c *controller) Run(<-chan struct{}) {
 	log.Warnf("Run: %s", errUnsupported)
 }
 
 // Get is not implemented
-func (c *controller) Get(typ, name, namespace string) *model.Config {
+func (c *controller) Get(_, _, _ string) *model.Config {
 	log.Warnf("get %s", errUnsupported)
 	return nil
 }
 
 // Update is not implemented
-func (c *controller) Update(config model.Config) (newRevision string, err error) {
+func (c *controller) Update(model.Config) (newRevision string, err error) {
 	log.Warnf("update %s", errUnsupported)
 	return "", errUnsupported
 }
 
 // Create is not implemented
-func (c *controller) Create(config model.Config) (revision string, err error) {
+func (c *controller) Create(model.Config) (revision string, err error) {
 	log.Warnf("create %s", errUnsupported)
 	return "", errUnsupported
 }
 
 // Delete is not implemented
-func (c *controller) Delete(typ, name, namespace string) error {
+func (c *controller) Delete(_, _, _ string) error {
 	return errUnsupported
 }
 
