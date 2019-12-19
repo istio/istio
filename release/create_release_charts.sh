@@ -76,7 +76,7 @@ function copy_installer_charts() {
 function copy_operator_data() {
     cp -R "${OPERATOR_BASE_DIR}/data/profiles" "${OUTPUT_DIR}"
     cp -R "${OPERATOR_BASE_DIR}/data/examples" "${OUTPUT_DIR}"
-    cp "${OPERATOR_BASE_DIR}/version/versions.yaml" "${OUTPUT_DIR}"
+    cp "${OPERATOR_BASE_DIR}/data/versions.yaml" "${OUTPUT_DIR}"
 }
 
 copy_installer_charts

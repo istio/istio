@@ -97,13 +97,26 @@ func getVersionCompatibleMap(versionsURI string, binVersion *goversion.Version,
 	if err = yaml.Unmarshal(b, &versions); err != nil {
 		return nil, err
 	}
-	var myVersionMap *version.CompatibilityMapping
+
+	var myVersionMap, closestVersionMap *version.CompatibilityMapping
 	for _, v := range versions {
 		if v.OperatorVersion.Equal(binVersion) {
 			myVersionMap = v
 			break
 		}
+		if v.OperatorVersionRange.Check(binVersion) {
+			myVersionMap = v
+		}
+		if (closestVersionMap == nil || v.OperatorVersion.GreaterThan(closestVersionMap.OperatorVersion)) &&
+			v.OperatorVersion.LessThanOrEqual(binVersion) {
+			closestVersionMap = v
+		}
 	}
+
+	if myVersionMap == nil {
+		myVersionMap = closestVersionMap
+	}
+
 	if myVersionMap == nil {
 		return nil, fmt.Errorf("this operator version %s was not found in the version map", binVersion.String())
 	}
