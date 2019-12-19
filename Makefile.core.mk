@@ -350,11 +350,11 @@ RELEASE_LDFLAGS='-extldflags -static -s -w'
 DEBUG_LDFLAGS='-extldflags "-static"'
 
 # Non-static istioctl targets. These are typically a build artifact.
-${ISTIO_OUT}/istioctl-linux: depend
+${ISTIO_OUT}/release/istioctl-linux: depend
 	STATIC=0 GOOS=linux LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
-${ISTIO_OUT}/istioctl-osx: depend
+${ISTIO_OUT}/release/istioctl-osx: depend
 	STATIC=0 GOOS=darwin LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
-${ISTIO_OUT}/istioctl-win.exe: depend
+${ISTIO_OUT}/release/istioctl-win.exe: depend
 	STATIC=0 GOOS=windows LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
 
 # generate the istioctl completion files
@@ -372,7 +372,7 @@ binaries-test:
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS
 .PHONY: istioctl-all
-istioctl-all: ${ISTIO_OUT}/istioctl-linux ${ISTIO_OUT}/istioctl-osx ${ISTIO_OUT}/istioctl-win.exe
+istioctl-all: ${ISTIO_OUT}/release/istioctl-linux ${ISTIO_OUT}/release/istioctl-osx ${ISTIO_OUT}/release/istioctl-win.exe
 
 .PHONY: istioctl.completion
 istioctl.completion: ${ISTIO_OUT}/istioctl.bash ${ISTIO_OUT}/_istioctl
