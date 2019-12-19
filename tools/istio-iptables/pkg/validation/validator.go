@@ -64,7 +64,7 @@ func (validator *Validator) Run() error {
 		}
 	}()
 	select {
-	case <- sTimer.C:
+	case <-sTimer.C:
 		return errors.New("validation timeout")
 	case err := <-sError:
 		if err == nil {

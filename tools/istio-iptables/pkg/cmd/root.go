@@ -69,7 +69,7 @@ func constructConfig() *config.Config {
 		DryRun:                  viper.GetBool(constants.DryRun),
 		EnableInboundIPv6s:      nil,
 		RestoreFormat:           viper.GetBool(constants.RestoreFormat),
-		IptablesProbePort: uint16(viper.GetUint(constants.IptablesProbePort)),
+		IptablesProbePort:       uint16(viper.GetUint(constants.IptablesProbePort)),
 		SkipRuleApply:           viper.GetBool(constants.SkipRuleApply),
 		RunValidation:           viper.GetBool(constants.RunValidation),
 	}
@@ -193,12 +193,11 @@ func init() {
 	}
 	viper.SetDefault(constants.RestoreFormat, true)
 
-	rootCmd.Flags().String(constants.IptablesProbePort,  strconv.Itoa(constants.DefaultIptablesProbePort) , "set listen port for failure detection")
+	rootCmd.Flags().String(constants.IptablesProbePort, strconv.Itoa(constants.DefaultIptablesProbePort), "set listen port for failure detection")
 	if err := viper.BindPFlag(constants.IptablesProbePort, rootCmd.Flags().Lookup(constants.IptablesProbePort)); err != nil {
 		handleError(err)
 	}
 	viper.SetDefault(constants.IptablesProbePort, strconv.Itoa(constants.DefaultIptablesProbePort))
-
 
 	rootCmd.Flags().Bool(constants.SkipRuleApply, false, "Skip iptables apply")
 	if err := viper.BindPFlag(constants.SkipRuleApply, rootCmd.Flags().Lookup(constants.SkipRuleApply)); err != nil {
