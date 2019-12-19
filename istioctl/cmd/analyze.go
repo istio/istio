@@ -308,7 +308,7 @@ istioctl analyze -L
 		"Analyze all namespaces")
 	analysisCmd.PersistentFlags().StringArrayVar(&suppress, "suppress", []string{},
 		"Suppress reporting a message code on a specific resource. Values are supplied in the form "+
-			"<code>=<resource> (e.g. '--suppress \"IST0102=namespace default\"'). Can be repeated.")
+			`<code>=<resource> (e.g. '--suppress "IST0102=namespace default"'). Can be repeated.`)
 	return analysisCmd
 }
 
