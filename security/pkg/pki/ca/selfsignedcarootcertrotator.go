@@ -170,7 +170,7 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 
 	oldCertOptions, err := util.GetCertOptionsFromExistingCert(caSecret.Data[caCertID])
 	if err != nil {
-		rootCertRotatorLog.Warnf("Failed to generate cert options from existing root certificate (%v), " +
+		rootCertRotatorLog.Warnf("Failed to generate cert options from existing root certificate (%v), "+
 			"new root certificate may not match old root certificate", err)
 	}
 	options := util.CertOptions{
