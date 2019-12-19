@@ -406,7 +406,7 @@ else
 endif
 test: | $(JUNIT_REPORT)
 	KUBECONFIG="$${KUBECONFIG:-$${REPO_ROOT}/tests/util/kubeconfig}" \
-	$(MAKE) -f Makefile.core.mk --keep-going $(TEST_OBJ) \
+	$(MAKE) -f Makefile.core.mk -e --keep-going $(TEST_OBJ) \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 GOTEST_PARALLEL ?= '-test.parallel=1'
@@ -491,7 +491,7 @@ common-coverage:
 
 RACE_TESTS ?= pilot-racetest mixer-racetest security-racetest galley-test common-racetest istioctl-racetest
 racetest: $(JUNIT_REPORT)
-	$(MAKE) -f Makefile.core.mk --keep-going $(RACE_TESTS) \
+	$(MAKE) -f Makefile.core.mk -e --keep-going $(RACE_TESTS) \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 .PHONY: pilot-racetest
