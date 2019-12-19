@@ -519,15 +519,16 @@ var (
 // dedupes the string array and also ignores the empty string.
 func dedupeStrings(in []string) []string {
 	stringMap := map[string]bool{}
+	unique := make([]string, 0)
 	for _, c := range in {
 		if len(c) > 0 {
-			stringMap[c] = true
+			if _, ok := stringMap[c]; !ok {
+				stringMap[c] = true
+				unique = append(unique, c)
+			}
 		}
 	}
-	unique := make([]string, 0)
-	for c := range stringMap {
-		unique = append(unique, c)
-	}
+
 	return unique
 }
 
