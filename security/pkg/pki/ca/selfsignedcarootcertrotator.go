@@ -167,6 +167,11 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 	}
 
 	rootCertRotatorLog.Infof("Refresh root certificate, root cert is about to expire: %s", err.Error())
+
+	oldCertOptions, err := util.GetCertOptionsFromExistingCert(caSecret.Data[caCertID])
+	if err != nil {
+		rootCertRotatorLog.Warnf("Failed to extract org information from old root cert, uses org (%s) from config", org)
+	}
 	options := util.CertOptions{
 		TTL:           rotator.config.caCertTTL,
 		SignerPrivPem: caSecret.Data[caPrivateKeyID],
@@ -176,6 +181,7 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 		RSAKeySize:    caKeySize,
 		IsDualUse:     rotator.config.dualUse,
 	}
+	options = util.MergeCertOptions(options, oldCertOptions)
 	pemCert, pemKey, ckErr := util.GenRootCertFromExistingKey(options)
 	if ckErr != nil {
 		rootCertRotatorLog.Errorf("unable to generate CA cert and key for self-signed CA: %s", ckErr.Error())
