@@ -144,7 +144,8 @@ func TestHandler_Close(t *testing.T) {
 	}
 
 	b.Lock()
-	if got, want := len(b.controllers), 0; got != want {
+	// should always have the local controller
+	if got, want := len(b.controllers), 1; got != want {
 		t.Errorf("Got %d controllers, want %d", got, want)
 	}
 	b.Unlock()
