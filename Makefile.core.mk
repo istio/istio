@@ -108,7 +108,7 @@ DOCKER_BUILD_TOP:=${ISTIO_OUT_LINUX}/docker_build
 DOCKERX_BUILD_TOP:=${ISTIO_OUT_LINUX}/dockerx_build
 
 # dir where tar.gz files from docker.save are stored
-ISTIO_DOCKER_TAR:=${ISTIO_OUT_LINUX}/docker
+ISTIO_DOCKER_TAR:=${ISTIO_OUT_LINUX}/release/docker
 
 # Populate the git version for istio/proxy (i.e. Envoy)
 ifeq ($(PROXY_REPO_SHA),)
