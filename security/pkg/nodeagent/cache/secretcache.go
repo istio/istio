@@ -72,13 +72,13 @@ const (
 	notifyK8sSecretTimeout = 30 * time.Second
 
 	// The well-known path for an existing certificate chain file
-	existingCertChainFile = "/etc/certs/cert-chain.pem"
+	existingCertChainFile = "./etc/certs/cert-chain.pem"
 
 	// The well-known path for an existing key file
-	existingKeyFile = "/etc/certs/key.pem"
+	existingKeyFile = "./etc/certs/key.pem"
 
 	// The well-known path for an existing root certificate file
-	existingRootCertFile = "/etc/certs/root-cert.pem"
+	existingRootCertFile = "./etc/certs/root-cert.pem"
 )
 
 type k8sJwtPayload struct {
@@ -577,9 +577,19 @@ func (sc *SecretCache) generateGatewaySecret(token string, connKey ConnKey, t ti
 	}, nil
 }
 
-// If there is an existing secret under a well known path, return true.
+// If there is an existing root certificate under a well known path, return true.
 // Otherwise, return false.
-func (sc *SecretCache) secretExists() bool {
+func (sc *SecretCache) rootCertificateExists() bool {
+	b, err := ioutil.ReadFile(existingRootCertFile)
+	if err != nil || len(b) == 0 {
+		return false
+	}
+	return true
+}
+
+// If there is an existing private key and certificate under a well known path, return true.
+// Otherwise, return false.
+func (sc *SecretCache) keyCertificateExists() bool {
 	b, err := ioutil.ReadFile(existingCertChainFile)
 	if err != nil || len(b) == 0 {
 		return false
@@ -596,8 +606,39 @@ func (sc *SecretCache) secretExists() bool {
 	return true
 }
 
-// Generate a secret item from the existing secret
-func (sc *SecretCache) generateSecretFromExistingSecret(token string, connKey ConnKey) (*model.SecretItem, error) {
+// Generate a root certificate item from the existing root certificate file
+// under a well known path.
+func (sc *SecretCache) generateRootCertFromExistingFile(token string, connKey ConnKey) (*model.SecretItem, error) {
+	rootCert, err := ioutil.ReadFile(existingRootCertFile)
+	if err != nil {
+		return nil, err
+	}
+
+	t := time.Now()
+	var certExpireTime time.Time
+	if certExpireTime, err = nodeagentutil.ParseCertAndGetExpiryTimestamp(rootCert); err != nil {
+		cacheLog.Errorf("failed to extract expire time from the root certificate: %v", err)
+		return nil, fmt.Errorf("failed to extract expire time from the root certificate: %v", err)
+	}
+
+	// Set the rootCert
+	sc.rootCertMutex.Lock()
+	sc.rootCert = rootCert
+	sc.rootCertMutex.Unlock()
+
+	return &model.SecretItem{
+		ResourceName: connKey.ResourceName,
+		RootCert:     rootCert,
+		ExpireTime:   certExpireTime,
+		Token:        token,
+		CreatedTime:  t,
+		Version:      t.String(),
+	}, nil
+}
+
+// Generate a key and certificate item from the existing key certificate files
+// under a well known path.
+func (sc *SecretCache) generateKeyCertFromExistingFiles(token string, connKey ConnKey) (*model.SecretItem, error) {
 	certChain, err := ioutil.ReadFile(existingCertChainFile)
 	if err != nil {
 		return nil, err
@@ -619,7 +660,9 @@ func (sc *SecretCache) generateSecretFromExistingSecret(token string, connKey Co
 	}
 
 	// Set the rootCert
+	sc.rootCertMutex.Lock()
 	sc.rootCert = rootCertPEM
+	sc.rootCertMutex.Unlock()
 
 	return &model.SecretItem{
 		CertificateChain: certChain,
@@ -637,9 +680,12 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 	// CSR to CA.
 	if !sc.fetcher.UseCaClient {
 		return sc.generateGatewaySecret(token, connKey, t)
-	} else if sc.secretExists() {
-		return sc.generateSecretFromExistingSecret(token, connKey)
+	} else if sc.rootCertificateExists() && connKey.ResourceName == RootCertReqResourceName {
+		return sc.generateRootCertFromExistingFile(token, connKey)
+	} else if sc.keyCertificateExists() && connKey.ResourceName == WorkloadKeyCertResourceName {
+		return sc.generateKeyCertFromExistingFiles(token, connKey)
 	}
+
 	conIDresourceNamePrefix := cacheLogPrefix(connKey.ConnectionID, connKey.ResourceName)
 	// call authentication provider specific plugins to exchange token if necessary.
 	numOutgoingRequests.With(RequestType.Value(TokenExchange)).Increment()
