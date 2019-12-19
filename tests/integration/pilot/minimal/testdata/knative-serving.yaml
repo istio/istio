@@ -368,57 +368,57 @@ spec:
   selector:
     role: webhook
 ---
-#apiVersion: admissionregistration.k8s.io/v1beta1
-#kind: MutatingWebhookConfiguration
-#metadata:
-#  labels:
-#    serving.knative.dev/release: "v0.11.0"
-#  name: webhook.serving.knative.dev
-#webhooks:
-#- admissionReviewVersions:
-#  - v1beta1
-#  clientConfig:
-#    service:
-#      name: webhook
-#      namespace: knative-serving
-#  failurePolicy: Fail
-#  name: webhook.serving.knative.dev
-#---
-#apiVersion: admissionregistration.k8s.io/v1beta1
-#kind: ValidatingWebhookConfiguration
-#metadata:
-#  labels:
-#    serving.knative.dev/release: "v0.11.0"
-#  name: validation.webhook.serving.knative.dev
-#webhooks:
-#- admissionReviewVersions:
-#  - v1beta1
-#  clientConfig:
-#    service:
-#      name: webhook
-#      namespace: knative-serving
-#  failurePolicy: Fail
-#  name: validation.webhook.serving.knative.dev
-#---
-#apiVersion: admissionregistration.k8s.io/v1beta1
-#kind: ValidatingWebhookConfiguration
-#metadata:
-#  labels:
-#    serving.knative.dev/release: "v0.11.0"
-#  name: config.webhook.serving.knative.dev
-#webhooks:
-#- admissionReviewVersions:
-#  - v1beta1
-#  clientConfig:
-#    service:
-#      name: webhook
-#      namespace: knative-serving
-#  failurePolicy: Fail
-#  name: config.webhook.serving.knative.dev
-#  namespaceSelector:
-#    matchExpressions:
-#    - key: serving.knative.dev/release
-#      operator: Exists
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: MutatingWebhookConfiguration
+metadata:
+  labels:
+    serving.knative.dev/release: "v0.11.0"
+  name: webhook.serving.knative.dev
+webhooks:
+- admissionReviewVersions:
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook
+      namespace: knative-serving
+  failurePolicy: Fail
+  name: webhook.serving.knative.dev
+---
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
+  labels:
+    serving.knative.dev/release: "v0.11.0"
+  name: validation.webhook.serving.knative.dev
+webhooks:
+- admissionReviewVersions:
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook
+      namespace: knative-serving
+  failurePolicy: Fail
+  name: validation.webhook.serving.knative.dev
+---
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
+  labels:
+    serving.knative.dev/release: "v0.11.0"
+  name: config.webhook.serving.knative.dev
+webhooks:
+- admissionReviewVersions:
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook
+      namespace: knative-serving
+  failurePolicy: Fail
+  name: config.webhook.serving.knative.dev
+  namespaceSelector:
+    matchExpressions:
+    - key: serving.knative.dev/release
+      operator: Exists
 ---
 apiVersion: v1
 kind: Secret
