@@ -45,9 +45,11 @@ const (
 	HelmValuesEnabledSubpath = "enabled"
 	// HelmValuesNamespaceSubpath is the subpath from the component root to the namespace parameter.
 	HelmValuesNamespaceSubpath = "namespace"
-
 	// devDbg generates lots of output useful in development.
 	devDbg = false
+	// maxFallbackNum is the max number of previous versions that NewTranslator()
+	// or NewReverseTranslator() will attempt by giving configs for that version.
+	maxFallbackNum = 1
 )
 
 var (
@@ -109,10 +111,22 @@ type Translation struct {
 
 // NewTranslator creates a new Translator for minorVersion and returns a ptr to it.
 func NewTranslator(minorVersion version.MinorVersion) (*Translator, error) {
+	return newTranslator(minorVersion, maxFallbackNum)
+}
+
+func newTranslator(minorVersion version.MinorVersion, fallbackNum uint) (*Translator, error) {
 	v := fmt.Sprintf("%s.%d", minorVersion.MajorVersion, minorVersion.Minor)
 	f := "translateConfig/translateConfig-" + v + ".yaml"
 	b, err := vfs.ReadFile(f)
 	if err != nil {
+		if fallbackNum > 0 && minorVersion.Minor > 0 {
+			major := minorVersion.Major
+			minor := minorVersion.Minor - 1
+			previous := version.NewMinorVersion(major, minor)
+			log.Warnf("could not read translateConfig file for version %s, fallback to version %s",
+				minorVersion, previous)
+			return newTranslator(previous, fallbackNum-1)
+		}
 		return nil, fmt.Errorf("could not read translateConfig file %s: %s", f, err)
 	}
 	t := &Translator{}
@@ -124,6 +138,7 @@ func NewTranslator(minorVersion version.MinorVersion) (*Translator, error) {
 	for c, f := range t.ToFeature {
 		t.featureToComponents[f] = append(t.featureToComponents[f], c)
 	}
+	t.Version = minorVersion
 	return t, nil
 }
 
