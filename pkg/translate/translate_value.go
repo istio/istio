@@ -138,15 +138,27 @@ func (t *ReverseTranslator) initK8SMapping(valueTree map[string]interface{}) err
 
 // NewReverseTranslator creates a new ReverseTranslator for minorVersion and returns a ptr to it.
 func NewReverseTranslator(minorVersion version.MinorVersion) (*ReverseTranslator, error) {
+	return newReverseTranslator(minorVersion, maxFallbackNum)
+}
+
+func newReverseTranslator(minorVersion version.MinorVersion, fallbackNum uint) (*ReverseTranslator, error) {
 	t := ReverseTranslators[minorVersion]
 	if t == nil {
+		if fallbackNum > 0 && minorVersion.Minor > 0 {
+			major := minorVersion.Major
+			minor := minorVersion.Minor - 1
+			previous := version.NewMinorVersion(major, minor)
+			log.Warnf("no value.yaml translator available for version %s, fallback to version %s",
+				minorVersion, previous)
+			return newReverseTranslator(previous, fallbackNum-1)
+		}
 		return nil, fmt.Errorf("no value.yaml translator available for version %s", minorVersion)
 	}
-
 	err := t.initAPIAndComponentMapping(minorVersion)
 	if err != nil {
 		return nil, fmt.Errorf("error initialize API mapping: %s", err)
 	}
+	t.Version = minorVersion
 	return t, nil
 }
 

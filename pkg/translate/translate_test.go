@@ -198,3 +198,49 @@ func errToString(err error) string {
 	}
 	return err.Error()
 }
+
+func TestNewTranslator(t *testing.T) {
+	tests := []struct {
+		name         string
+		minorVersion version.MinorVersion
+		wantVer      string
+		wantErr      bool
+	}{
+		{
+			name:         "version 1.3",
+			minorVersion: version.NewMinorVersion(1, 3),
+			wantVer:      "1.3",
+			wantErr:      false,
+		},
+		{
+			name:         "version 1.4",
+			minorVersion: version.NewMinorVersion(1, 4),
+			wantVer:      "1.4",
+			wantErr:      false,
+		},
+		{
+			name:         "version 1.5",
+			minorVersion: version.NewMinorVersion(1, 5),
+			wantVer:      "1.4",
+			wantErr:      false,
+		},
+		{
+			name:         "version 1.6",
+			minorVersion: version.NewMinorVersion(1, 6),
+			wantVer:      "",
+			wantErr:      true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := NewTranslator(tt.minorVersion)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("NewTranslator() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != nil && tt.wantVer != got.Version.String() {
+				t.Errorf("NewTranslator() got = %v, want %v", got.Version.String(), tt.wantVer)
+			}
+		})
+	}
+}
