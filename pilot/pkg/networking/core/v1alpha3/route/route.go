@@ -335,7 +335,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 	}
 
 	out := &route.Route{
-		Match:    translateRouteMatch(match),
+		Match:    translateRouteMatch(match, node),
 		Metadata: util.BuildConfigInfoMetadata(virtualService.ConfigMeta),
 	}
 
@@ -566,14 +566,14 @@ func translateAppendHeaders(headers map[string]string, appendFlag bool) []*core.
 }
 
 // translateRouteMatch translates match condition
-func translateRouteMatch(in *networking.HTTPMatchRequest) *route.RouteMatch {
+func translateRouteMatch(in *networking.HTTPMatchRequest, node *model.Proxy) *route.RouteMatch {
 	out := &route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}}
 	if in == nil {
 		return out
 	}
 
 	for name, stringMatch := range in.Headers {
-		matcher := translateHeaderMatch(name, stringMatch)
+		matcher := translateHeaderMatch(name, stringMatch, node)
 		out.Headers = append(out.Headers, &matcher)
 	}
 
@@ -589,7 +589,7 @@ func translateRouteMatch(in *networking.HTTPMatchRequest) *route.RouteMatch {
 		case *networking.StringMatch_Prefix:
 			out.PathSpecifier = &route.RouteMatch_Prefix{Prefix: m.Prefix}
 		case *networking.StringMatch_Regex:
-			if features.EnableUnsafeRegex.Get() {
+			if features.EnableUnsafeRegex.Get() || !util.IsIstioVersionGE14(node) {
 				out.PathSpecifier = &route.RouteMatch_Regex{Regex: m.Regex}
 			} else {
 				out.PathSpecifier = &route.RouteMatch_SafeRegex{
@@ -609,17 +609,17 @@ func translateRouteMatch(in *networking.HTTPMatchRequest) *route.RouteMatch {
 	out.CaseSensitive = &wrappers.BoolValue{Value: !in.IgnoreUriCase}
 
 	if in.Method != nil {
-		matcher := translateHeaderMatch(HeaderMethod, in.Method)
+		matcher := translateHeaderMatch(HeaderMethod, in.Method, node)
 		out.Headers = append(out.Headers, &matcher)
 	}
 
 	if in.Authority != nil {
-		matcher := translateHeaderMatch(HeaderAuthority, in.Authority)
+		matcher := translateHeaderMatch(HeaderAuthority, in.Authority, node)
 		out.Headers = append(out.Headers, &matcher)
 	}
 
 	if in.Scheme != nil {
-		matcher := translateHeaderMatch(HeaderScheme, in.Scheme)
+		matcher := translateHeaderMatch(HeaderScheme, in.Scheme, node)
 		out.Headers = append(out.Headers, &matcher)
 	}
 
@@ -649,7 +649,7 @@ func translateQueryParamMatch(name string, in *networking.StringMatch) route.Que
 }
 
 // translateHeaderMatch translates to HeaderMatcher
-func translateHeaderMatch(name string, in *networking.StringMatch) route.HeaderMatcher {
+func translateHeaderMatch(name string, in *networking.StringMatch, node *model.Proxy) route.HeaderMatcher {
 	out := route.HeaderMatcher{
 		Name: name,
 	}
@@ -662,7 +662,7 @@ func translateHeaderMatch(name string, in *networking.StringMatch) route.HeaderM
 		// Golang has a slightly different regex grammar
 		out.HeaderMatchSpecifier = &route.HeaderMatcher_PrefixMatch{PrefixMatch: m.Prefix}
 	case *networking.StringMatch_Regex:
-		if features.EnableUnsafeRegex.Get() {
+		if features.EnableUnsafeRegex.Get() || !util.IsIstioVersionGE14(node) {
 			out.HeaderMatchSpecifier = &route.HeaderMatcher_RegexMatch{RegexMatch: m.Regex}
 		} else {
 			out.HeaderMatchSpecifier = &route.HeaderMatcher_SafeRegexMatch{
@@ -746,7 +746,7 @@ func BuildDefaultHTTPInboundRoute(node *model.Proxy, clusterName string, operati
 	notimeout := ptypes.DurationProto(0 * time.Second)
 
 	val := &route.Route{
-		Match: translateRouteMatch(nil),
+		Match: translateRouteMatch(nil, node),
 		Decorator: &route.Decorator{
 			Operation: operation,
 		},
