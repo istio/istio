@@ -42,6 +42,9 @@ func TestGetVersionCompatibleMap(t *testing.T) {
 
 	goVerNonexistent, _ := goversion.NewVersion("0.0.999")
 	goVer133, _ := goversion.NewVersion("1.3.3")
+	goVer137, _ := goversion.NewVersion("1.3.7")
+	goVer1331, _ := goversion.NewVersion("1.3.3.1")
+	goVer1399, _ := goversion.NewVersion("1.3.9.9")
 
 	l := NewLogger(true, os.Stdout, os.Stderr)
 
@@ -53,13 +56,16 @@ func TestGetVersionCompatibleMap(t *testing.T) {
 	if err := yaml.Unmarshal(b, &vs); err != nil {
 		t.Fatal(err)
 	}
-	var curCm, ver133Cm *version.CompatibilityMapping
+	var curCm, ver133Cm, ver137Cm *version.CompatibilityMapping
 	for i := range vs {
 		if binversion.OperatorBinaryGoVersion.Equal(vs[i].OperatorVersion) {
 			curCm = &vs[i]
 		}
 		if goVer133.Equal(vs[i].OperatorVersion) {
 			ver133Cm = &vs[i]
+		}
+		if goVer137.Equal(vs[i].OperatorVersion) {
+			ver137Cm = &vs[i]
 		}
 	}
 
@@ -127,6 +133,46 @@ func TestGetVersionCompatibleMap(t *testing.T) {
 			want: nil,
 			wantErr: fmt.Errorf("this operator version %s was not found in the version map",
 				goVerNonexistent.String()),
+		},
+		{
+			name: "read previous version if not found from testdata",
+			args: args{
+				versionsURI: testdataVersionsFilePath,
+				binVersion:  goVer1331,
+				l:           l,
+			},
+			want:    ver133Cm,
+			wantErr: nil,
+		},
+		{
+			name: "read previous version if not found in built-in version map",
+			args: args{
+				versionsURI: nonexistentFilePath,
+				binVersion:  goVer1331,
+				l:           l,
+			},
+			want:    ver133Cm,
+			wantErr: nil,
+		},
+		{
+			name: "read version matching range only from testdata",
+			args: args{
+				versionsURI: testdataVersionsFilePath,
+				binVersion:  goVer1399,
+				l:           l,
+			},
+			want:    ver137Cm,
+			wantErr: nil,
+		},
+		{
+			name: "read version matching range only in built-in version map",
+			args: args{
+				versionsURI: nonexistentFilePath,
+				binVersion:  goVer1399,
+				l:           l,
+			},
+			want:    ver137Cm,
+			wantErr: nil,
 		},
 	}
 	for _, tt := range tests {

@@ -108,22 +108,25 @@ func TestVersions(t *testing.T) {
 			desc: "simple",
 			yamlStr: `
 operatorVersion: 1.3.0
-supportedIstioVersions: 1.3.0
+operatorVersionRange: 1.3.0
 recommendedIstioVersions: 1.3.0
+supportedIstioVersions: 1.3.0
 `,
 		},
 		{
 			desc: "complex",
 			yamlStr: `
 operatorVersion: 1.3.0
-supportedIstioVersions: "> 1.1, < 1.4.0, = 1.5.2"
-recommendedIstioVersions: ">= 1, < 1.4"
+operatorVersionRange: 1.3.0
+recommendedIstioVersions: '>= 1, < 1.4'
+supportedIstioVersions: '> 1.1, < 1.4.0, = 1.5.2'
 `,
 		},
 		{
 			desc: "partial",
 			yamlStr: `
 operatorVersion: 1.3.0
+operatorVersionRange: 1.3.0
 supportedIstioVersions: "> 1.1, < 1.4.0"
 `,
 		},
