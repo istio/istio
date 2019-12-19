@@ -114,6 +114,12 @@ message CertManagerConfig {
   string podDnsPolicy = 10;
 
   TypeMapStringInterface podDnsConfig = 11;
+
+  TypeSliceOfMapStringInterface podAntiAffinityLabelSelector = 12 [deprecated=true];
+
+  TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 13 [deprecated=true];
+
+  TypeSliceOfMapStringInterface tolerations = 14 [deprecated=true];
 }
 
 // Mirrors Resources for unmarshaling.
@@ -659,6 +665,20 @@ message IngressGatewayConfig {
 
   // Ports to explicitly check for readiness
   string applicationPorts = 33;
+
+  string externalTrafficPolicy = 34;
+
+  TypeSliceOfMapStringInterface tolerations = 35 [deprecated=true];
+
+  TypeSliceOfMapStringInterface ingressPorts = 36;
+
+  TypeSliceOfMapStringInterface additionalContainers = 37;
+
+  TypeSliceOfMapStringInterface configVolumes = 38;
+
+  google.protobuf.BoolValue certificates = 39;
+
+  google.protobuf.BoolValue tls = 40;
 }
 
 // Secret Discovery Service (SDS) Configuration for ingress gateway.
