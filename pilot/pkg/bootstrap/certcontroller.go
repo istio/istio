@@ -36,7 +36,7 @@ const (
 
 	// Default CA certificate path
 	// Currently, custom CA path is not supported; no API to get custom CA cert yet.
-	defaultCACertPath = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+	defaultCACertPath = "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 )
 
 var (
