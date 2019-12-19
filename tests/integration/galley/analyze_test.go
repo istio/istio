@@ -33,8 +33,6 @@ import (
 const (
 	serviceRoleBindingFile = "testdata/servicerolebinding.yaml"
 	serviceRoleFile        = "testdata/servicerole.yaml"
-	reviewsVsAndDrFile     = "testdata/reviews-vs-and-dr.yaml"
-	reviewsSvcFile         = "testdata/reviews-svc.yaml"
 )
 
 var analyzerFoundIssuesError = cmd.AnalyzerFoundIssuesError{}
