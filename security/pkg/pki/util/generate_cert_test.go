@@ -551,3 +551,71 @@ func TestAppendRootCerts(t *testing.T) {
 		}
 	}
 }
+
+func TestGetCertOptionsFromExistingCert(t *testing.T) {
+	caCertTTL := 24 * time.Hour
+	oldOrg := "old org"
+	caKeySize := 512
+
+	caCertOptions := CertOptions{
+		TTL:          caCertTTL,
+		Org:          oldOrg,
+		IsCA:         true,
+		IsSelfSigned: true,
+		RSAKeySize:   caKeySize,
+		IsDualUse:    false,
+	}
+
+	oldRootCertPem, oldRootKeyPem, err := GenCertKeyFromOptions(caCertOptions)
+	if err != nil {
+		t.Errorf("failed to generate root certificate from options: %v", err)
+	}
+	// Rotate root certificate
+	oldCertOptions, err := GetCertOptionsFromExistingCert(oldRootCertPem)
+	if err != nil {
+		t.Errorf("failed to generate cert options from existing root certificate: %v", err)
+	}
+
+	defaultOrg := "default org"
+	// Create a default cert options
+	newCertOptions := CertOptions{
+		TTL:           caCertTTL,
+		SignerPrivPem: oldRootKeyPem,
+		Org:           defaultOrg,
+		IsCA:          true,
+		IsSelfSigned:  true,
+		RSAKeySize:    caKeySize,
+		IsDualUse:     false,
+	}
+	// Merge cert options
+	newCertOptions = MergeCertOptions(newCertOptions, oldCertOptions)
+	if newCertOptions.Org != oldOrg && newCertOptions.Org == defaultOrg {
+		t.Error("Org in cert options should be overwritten")
+	}
+	newRootCertPem, newRootKeyPem, err := GenRootCertFromExistingKey(newCertOptions)
+	if err != nil {
+		t.Errorf("failed to generate root certificate from existing key: %v", err)
+	}
+	if !bytes.Equal(oldRootKeyPem, newRootKeyPem) {
+		t.Errorf("private key should not change")
+	}
+
+	oldRootCert, _ := ParsePemEncodedCertificate(oldRootCertPem)
+	newRootCert, _ := ParsePemEncodedCertificate(newRootCertPem)
+	if oldRootCert.Subject.String() != newRootCert.Subject.String() {
+		t.Errorf("certificate Subject does not match (old: %s) vs (new: %s)",
+			oldRootCert.Subject.String(), newRootCert.Subject.String())
+	}
+	if oldRootCert.Issuer.String() != newRootCert.Issuer.String() {
+		t.Errorf("certificate Issuer does not match (old: %s) vs (new: %s)",
+			oldRootCert.Issuer.String(), newRootCert.Issuer.String())
+	}
+	if oldRootCert.IsCA != newRootCert.IsCA {
+		t.Errorf("certificate IsCA does not match (old: %t) vs (new: %t)",
+			oldRootCert.IsCA, newRootCert.IsCA)
+	}
+  if oldRootCert.Version != newRootCert.Version {
+		t.Errorf("certificate Version does not match (old: %d) vs (new: %d)",
+			oldRootCert.Version, newRootCert.Version)
+	}
+}

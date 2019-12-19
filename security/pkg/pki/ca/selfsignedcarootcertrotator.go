@@ -169,7 +169,8 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 
 	oldCertOptions, err := util.GetCertOptionsFromExistingCert(caSecret.Data[caCertID])
 	if err != nil {
-		rootCertRotatorLog.Warnf("Failed to extract org information from old root cert, uses org (%s) from config", org)
+		rootCertRotatorLog.Warnf("Failed to generate cert options from existing root certificate (%v), " +
+			"new root certificate may not match old root certificate", err)
 	}
 	options := util.CertOptions{
 		TTL:           rotator.config.caCertTTL,
@@ -180,6 +181,9 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 		RSAKeySize:    caKeySize,
 		IsDualUse:     rotator.config.dualUse,
 	}
+	// options should be consistent with the one used in NewSelfSignedIstioCAOptions().
+	// This is to make sure when rotate the root cert, we don't make unnecessary changes
+	// to the certificate or add extra fields to the certificate.
 	options = util.MergeCertOptions(options, oldCertOptions)
 	pemCert, pemKey, ckErr := util.GenRootCertFromExistingKey(options)
 	if ckErr != nil {
