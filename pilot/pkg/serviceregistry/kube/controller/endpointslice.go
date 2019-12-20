@@ -35,8 +35,7 @@ import (
 )
 
 type endpointSliceController struct {
-	c             *Controller
-	informer      cache.SharedIndexInformer
+	kubeEndpoints
 	endpointCache *endpointSliceCache
 }
 
@@ -47,20 +46,14 @@ func newEndpointSliceController(c *Controller, sharedInformers informers.SharedI
 	// TODO Endpoints has a special cache, to filter out irrelevant updates to kube-system
 	// Investigate if we need this, or if EndpointSlice is makes this not relevant
 	out := &endpointSliceController{
-		c:             c,
-		informer:      informer,
+		kubeEndpoints: kubeEndpoints{
+			c:        c,
+			informer: informer,
+		},
 		endpointCache: newEndpointSliceCache(),
 	}
 	registerHandlers(c.services, c.queue, "EndpointSlice", out.onEvent)
 	return out
-}
-
-func (e *endpointSliceController) HasSynced() bool {
-	return e.informer.HasSynced()
-}
-
-func (e *endpointSliceController) Run(stopCh <-chan struct{}) {
-	e.informer.Run(stopCh)
 }
 
 func (e *endpointSliceController) updateEDSSlice(c *Controller, slice *discoveryv1alpha1.EndpointSlice, event model.Event) {
@@ -172,27 +165,6 @@ func (e *endpointSliceController) onEvent(curr interface{}, event model.Event) e
 	e.updateEDSSlice(e.c, ep, event)
 
 	return nil
-}
-
-func (e *endpointSliceController) GetProxyServiceInstances(c *Controller, proxy *model.Proxy, proxyNamespace string) []*model.ServiceInstance {
-	endpointsForPodInSameNS := make([]*model.ServiceInstance, 0)
-	endpointsForPodInDifferentNS := make([]*model.ServiceInstance, 0)
-
-	for _, item := range e.informer.GetStore().List() {
-		slice := item.(*discoveryv1alpha1.EndpointSlice)
-		endpoints := &endpointsForPodInSameNS
-		if slice.Namespace != proxyNamespace {
-			endpoints = &endpointsForPodInDifferentNS
-		}
-
-		*endpoints = append(*endpoints, getProxyServiceInstancesByEndpointSlice(c, slice, proxy)...)
-	}
-
-	// Put the endpointsForPodInSameNS in front of endpointsForPodInDifferentNS so that Pilot will
-	// first use endpoints from endpointsForPodInSameNS. This makes sure if there are two endpoints
-	// referring to the same IP/port, the one in endpointsForPodInSameNS will be used. (The other one
-	// in endpointsForPodInDifferentNS will thus be rejected by Pilot).
-	return append(endpointsForPodInSameNS, endpointsForPodInDifferentNS...)
 }
 
 func getProxyServiceInstancesByEndpointSlice(c *Controller, slice *discoveryv1alpha1.EndpointSlice, proxy *model.Proxy) []*model.ServiceInstance {

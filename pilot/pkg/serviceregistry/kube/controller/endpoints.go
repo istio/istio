@@ -30,8 +30,7 @@ import (
 )
 
 type endpointsController struct {
-	c        *Controller
-	informer cache.SharedIndexInformer
+	kubeEndpoints
 }
 
 var _ kubeEndpointsController = &endpointsController{}
@@ -39,8 +38,10 @@ var _ kubeEndpointsController = &endpointsController{}
 func newEndpointsController(c *Controller, sharedInformers informers.SharedInformerFactory) *endpointsController {
 	informer := sharedInformers.Core().V1().Endpoints().Informer()
 	out := &endpointsController{
-		c:        c,
-		informer: informer,
+		kubeEndpoints: kubeEndpoints{
+			c:        c,
+			informer: informer,
+		},
 	}
 	out.registerEndpointsHandler()
 	return out
@@ -81,28 +82,6 @@ func (e *endpointsController) registerEndpointsHandler() {
 				})
 			},
 		})
-}
-
-func (e *endpointsController) GetProxyServiceInstances(c *Controller, proxy *model.Proxy, proxyNamespace string) []*model.ServiceInstance {
-	endpointsForPodInSameNS := make([]*model.ServiceInstance, 0)
-	// TODO we may be able to remove this, endpoints should be in same NS?
-	endpointsForPodInDifferentNS := make([]*model.ServiceInstance, 0)
-
-	for _, item := range e.informer.GetStore().List() {
-		ep := *item.(*v1.Endpoints)
-		endpoints := &endpointsForPodInSameNS
-		if ep.Namespace != proxyNamespace {
-			endpoints = &endpointsForPodInDifferentNS
-		}
-
-		*endpoints = append(*endpoints, getProxyServiceInstancesByEndpoint(c, ep, proxy)...)
-	}
-
-	// Put the endpointsForPodInSameNS in front of endpointsForPodInDifferentNS so that Pilot will
-	// first use endpoints from endpointsForPodInSameNS. This makes sure if there are two endpoints
-	// referring to the same IP/port, the one in endpointsForPodInSameNS will be used. (The other one
-	// in endpointsForPodInDifferentNS will thus be rejected by Pilot).
-	return append(endpointsForPodInSameNS, endpointsForPodInDifferentNS...)
 }
 
 func getProxyServiceInstancesByEndpoint(c *Controller, endpoints v1.Endpoints, proxy *model.Proxy) []*model.ServiceInstance {
@@ -251,12 +230,4 @@ func (e *endpointsController) onEvent(curr interface{}, event model.Event) error
 	e.c.updateEDS(ep, event)
 
 	return nil
-}
-
-func (e *endpointsController) HasSynced() bool {
-	return e.informer.HasSynced()
-}
-
-func (e *endpointsController) Run(stopCh <-chan struct{}) {
-	e.informer.Run(stopCh)
 }
