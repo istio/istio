@@ -33,7 +33,7 @@ import (
 var rootCmd = &cobra.Command{
 	Use:  "istio-iptables",
 	Long: "Script responsible for setting up port forwarding for Istio sidecar.",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string)  {
 		config := constructConfig()
 		iptConfigurator := NewIptablesConfigurator(config)
 		if !config.SkipRuleApply {
@@ -42,12 +42,15 @@ var rootCmd = &cobra.Command{
 		if config.RunValidation {
 			hostIP, err := iptConfigurator.ext.GetLocalIP()
 			if err != nil {
+				// Assume it is not handled by istio-cni and won't reuse the ValidationErrorCode
 				panic(err)
 			}
 			validator := validation.NewValidator(config, hostIP)
-			return validator.Run()
+
+			if validator.Run() != nil {
+				os.Exit(constants.ValidationErrorCode)
+			}
 		}
-		return nil
 	},
 }
 
