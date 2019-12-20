@@ -124,7 +124,7 @@ func (w *watcher) handleEvent(c event.Kind, obj interface{}) {
 		return
 	}
 
-	r := rt.ToResourceEntry(object, &w.resource, res)
+	r := rt.ToResource(object, &w.resource, res)
 
 	if w.statusCtl != nil && !w.adapter.IsBuiltIn() {
 		w.statusCtl.UpdateResourceStatus(
@@ -132,9 +132,9 @@ func (w *watcher) handleEvent(c event.Kind, obj interface{}) {
 	}
 
 	e := event.Event{
-		Kind:   c,
-		Source: w.resource.Collection.Name,
-		Entry:  r,
+		Kind:     c,
+		Source:   w.resource.Collection.Name,
+		Resource: r,
 	}
 
 	w.handler.Handle(e)

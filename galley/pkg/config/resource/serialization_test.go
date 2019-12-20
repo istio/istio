@@ -29,13 +29,13 @@ import (
 )
 
 func TestSerialization_Basic(t *testing.T) {
-	e := Entry{
+	e := Instance{
 		Metadata: Metadata{
 			FullName:   NewFullName("ns1", "res1"),
 			CreateTime: time.Unix(1, 1).UTC(),
 			Version:    "v1",
 		},
-		Item: parseStruct(`{ "foo": "bar" }`),
+		Message: parseStruct(`{ "foo": "bar" }`),
 	}
 
 	env, err := Serialize(&e)
@@ -71,13 +71,13 @@ func TestSerialization_Basic(t *testing.T) {
 }
 
 func TestSerialize_Error(t *testing.T) {
-	e := Entry{
+	e := Instance{
 		Metadata: Metadata{
 			FullName:   NewFullName("ns1", "res1"),
 			CreateTime: time.Unix(1, 1).UTC(),
 			Version:    "v1",
 		},
-		Item: &invalidProto{},
+		Message: &invalidProto{},
 	}
 
 	_, err := Serialize(&e)
@@ -93,13 +93,13 @@ func TestMustSerialize(t *testing.T) {
 		}
 	}()
 
-	e := Entry{
+	e := Instance{
 		Metadata: Metadata{
 			FullName:   NewFullName("ns1", "res1"),
 			CreateTime: time.Unix(1, 1).UTC(),
 			Version:    "v1",
 		},
-		Item: &types.Empty{},
+		Message: &types.Empty{},
 	}
 
 	_ = MustSerialize(&e)
@@ -112,26 +112,26 @@ func TestMustSerialize_Panic(t *testing.T) {
 		}
 	}()
 
-	e := Entry{
+	e := Instance{
 		Metadata: Metadata{
 			FullName:   NewFullName("ns1", "res1"),
 			CreateTime: time.Unix(1, 1).UTC(),
 			Version:    "v1",
 		},
-		Item: &invalidProto{},
+		Message: &invalidProto{},
 	}
 
 	_ = MustSerialize(&e)
 }
 
 func TestSerialize_InvalidTimestamp_Error(t *testing.T) {
-	e := Entry{
+	e := Instance{
 		Metadata: Metadata{
 			FullName:   NewFullName("ns1", "res1"),
 			CreateTime: time.Unix(math.MinInt64, math.MinInt64).UTC(),
 			Version:    "v1",
 		},
-		Item: &types.Empty{},
+		Message: &types.Empty{},
 	}
 	_, err := Serialize(&e)
 	if err == nil {
@@ -140,13 +140,13 @@ func TestSerialize_InvalidTimestamp_Error(t *testing.T) {
 }
 
 func TestDeserialize_Error(t *testing.T) {
-	e := Entry{
+	e := Instance{
 		Metadata: Metadata{
 			FullName:   NewFullName("ns1", "res1"),
 			CreateTime: time.Unix(1, 1).UTC(),
 			Version:    "v1",
 		},
-		Item: &types.Empty{},
+		Message: &types.Empty{},
 	}
 
 	env, err := Serialize(&e)
@@ -162,13 +162,13 @@ func TestDeserialize_Error(t *testing.T) {
 }
 
 func TestDeserialize_InvalidTimestamp_Error(t *testing.T) {
-	e := Entry{
+	e := Instance{
 		Metadata: Metadata{
 			FullName:   NewFullName("ns1", "res1"),
 			CreateTime: time.Unix(1, 1).UTC(),
 			Version:    "v1",
 		},
-		Item: &types.Empty{},
+		Message: &types.Empty{},
 	}
 
 	env, err := Serialize(&e)
@@ -184,13 +184,13 @@ func TestDeserialize_InvalidTimestamp_Error(t *testing.T) {
 }
 
 func TestDeserialize_Any_Error(t *testing.T) {
-	e := Entry{
+	e := Instance{
 		Metadata: Metadata{
 			FullName:   NewFullName("ns1", "res1"),
 			CreateTime: time.Unix(1, 1).UTC(),
 			Version:    "v1",
 		},
-		Item: &types.Empty{},
+		Message: &types.Empty{},
 	}
 
 	env, err := Serialize(&e)
@@ -209,13 +209,13 @@ func TestDeserialize_Any_Error(t *testing.T) {
 }
 
 func TestMustDeserialize(t *testing.T) {
-	e := Entry{
+	e := Instance{
 		Metadata: Metadata{
 			FullName:   NewFullName("ns1", "res1"),
 			CreateTime: time.Unix(1, 1).UTC(),
 			Version:    "v1",
 		},
-		Item: &types.Empty{},
+		Message: &types.Empty{},
 	}
 
 	s := MustSerialize(&e)
@@ -230,13 +230,13 @@ func TestMustDeserialize(t *testing.T) {
 }
 
 func TestMustDeserialize_Panic(t *testing.T) {
-	e := Entry{
+	e := Instance{
 		Metadata: Metadata{
 			FullName:   NewFullName("ns1", "res1"),
 			CreateTime: time.Unix(1, 1).UTC(),
 			Version:    "v1",
 		},
-		Item: &types.Empty{},
+		Message: &types.Empty{},
 	}
 
 	s := MustSerialize(&e)
@@ -253,14 +253,14 @@ func TestMustDeserialize_Panic(t *testing.T) {
 }
 
 func TestDeserializeAll(t *testing.T) {
-	entries := []*Entry{
+	entries := []*Instance{
 		{
 			Metadata: Metadata{
 				FullName:   NewFullName("ns1", "res1"),
 				CreateTime: time.Unix(1, 1).UTC(),
 				Version:    "v1",
 			},
-			Item: parseStruct(`{"foo": "bar"}`),
+			Message: parseStruct(`{"foo": "bar"}`),
 		},
 		{
 			Metadata: Metadata{
@@ -268,7 +268,7 @@ func TestDeserializeAll(t *testing.T) {
 				CreateTime: time.Unix(1, 1).UTC(),
 				Version:    "v2",
 			},
-			Item: parseStruct(`{"bar": "foo"}`),
+			Message: parseStruct(`{"bar": "foo"}`),
 		},
 	}
 
@@ -288,14 +288,14 @@ func TestDeserializeAll(t *testing.T) {
 }
 
 func TestSerializeAll_Error(t *testing.T) {
-	entries := []*Entry{
+	entries := []*Instance{
 		{
 			Metadata: Metadata{
 				FullName:   NewFullName("ns1", "res1"),
 				CreateTime: time.Unix(1, 1).UTC(),
 				Version:    "v1",
 			},
-			Item: &invalidProto{},
+			Message: &invalidProto{},
 		},
 		{
 			Metadata: Metadata{
@@ -303,7 +303,7 @@ func TestSerializeAll_Error(t *testing.T) {
 				CreateTime: time.Unix(1, 1).UTC(),
 				Version:    "v2",
 			},
-			Item: &types.Empty{},
+			Message: &types.Empty{},
 		},
 	}
 
@@ -313,14 +313,14 @@ func TestSerializeAll_Error(t *testing.T) {
 }
 
 func TestDeserializeAll_Error(t *testing.T) {
-	entries := []*Entry{
+	entries := []*Instance{
 		{
 			Metadata: Metadata{
 				FullName:   NewFullName("ns1", "res1"),
 				CreateTime: time.Unix(1, 1).UTC(),
 				Version:    "v1",
 			},
-			Item: &types.Empty{},
+			Message: &types.Empty{},
 		},
 		{
 			Metadata: Metadata{
@@ -328,7 +328,7 @@ func TestDeserializeAll_Error(t *testing.T) {
 				CreateTime: time.Unix(2, 2).UTC(),
 				Version:    "v2",
 			},
-			Item: &types.Empty{},
+			Message: &types.Empty{},
 		},
 	}
 

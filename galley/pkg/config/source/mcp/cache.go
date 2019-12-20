@@ -32,7 +32,7 @@ type cache struct {
 	mu                 sync.RWMutex
 	collection         collection.Name
 	handler            event.Handler
-	resources          map[resource.FullName]*resource.Entry
+	resources          map[resource.FullName]*resource.Instance
 	synced             bool
 	started            bool
 	fullUpdateReceived bool
@@ -43,7 +43,7 @@ func newCache(c collection.Name) *cache {
 
 	return &cache{
 		collection: c,
-		resources:  make(map[resource.FullName]*resource.Entry),
+		resources:  make(map[resource.FullName]*resource.Instance),
 	}
 }
 
@@ -65,7 +65,7 @@ func (c *cache) apply(change *sink.Change) error {
 func (c *cache) applyFull(change *sink.Change) error {
 	// For full updates, save off the old resources and clear out the map.
 	oldResources := c.resources
-	c.resources = make(map[resource.FullName]*resource.Entry)
+	c.resources = make(map[resource.FullName]*resource.Instance)
 	c.fullUpdateReceived = true
 
 	// Add/update resources.
@@ -195,23 +195,23 @@ func (c *cache) dispatchEvent(e event.Event) {
 	}
 }
 
-func (c *cache) dispatchFor(entry *resource.Entry, kind event.Kind) {
+func (c *cache) dispatchFor(entry *resource.Instance, kind event.Kind) {
 	e := event.Event{
-		Source: c.collection,
-		Entry:  entry,
-		Kind:   kind,
+		Source:   c.collection,
+		Resource: entry,
+		Kind:     kind,
 	}
 	c.dispatchEvent(e)
 }
 
-func deserializeEntry(obj *sink.Object) (*resource.Entry, error) {
+func deserializeEntry(obj *sink.Object) (*resource.Instance, error) {
 	metadata, err := resource.DeserializeMetadata(obj.Metadata)
 	if err != nil {
 		return nil, err
 	}
-	return &resource.Entry{
+	return &resource.Instance{
 		Metadata: metadata,
-		Item:     obj.Body,
+		Message:  obj.Body,
 		Origin:   defaultOrigin,
 	}, nil
 }

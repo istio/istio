@@ -59,7 +59,7 @@ func (a *Analyzer) Metadata() analysis.Metadata {
 func (a *Analyzer) Analyze(c analysis.Context) {
 	injectedNamespaces := make(map[string]bool)
 
-	c.ForEach(metadata.K8SCoreV1Namespaces, func(r *resource.Entry) bool {
+	c.ForEach(metadata.K8SCoreV1Namespaces, func(r *resource.Instance) bool {
 
 		ns := r.Metadata.FullName.String()
 		if util.IsSystemNamespace(resource.Namespace(ns)) {
@@ -86,8 +86,8 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 		return true
 	})
 
-	c.ForEach(metadata.K8SCoreV1Pods, func(r *resource.Entry) bool {
-		pod := r.Item.(*v1.Pod)
+	c.ForEach(metadata.K8SCoreV1Pods, func(r *resource.Instance) bool {
+		pod := r.Message.(*v1.Pod)
 
 		if !injectedNamespaces[pod.GetNamespace()] {
 			return true

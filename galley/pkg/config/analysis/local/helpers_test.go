@@ -26,24 +26,24 @@ import (
 	"istio.io/istio/galley/pkg/config/testing/data"
 )
 
-func createTestEvent(t *testing.T, k event.Kind, r *resource.Entry) event.Event {
+func createTestEvent(t *testing.T, k event.Kind, r *resource.Instance) event.Event {
 	t.Helper()
 	return event.Event{
-		Kind:   k,
-		Source: data.Collection1,
-		Entry:  r,
+		Kind:     k,
+		Source:   data.Collection1,
+		Resource: r,
 	}
 }
 
-func createTestResource(t *testing.T, ns, name, version string) *resource.Entry {
+func createTestResource(t *testing.T, ns, name, version string) *resource.Instance {
 	t.Helper()
 	rname := resource.NewFullName(resource.Namespace(ns), resource.LocalName(name))
-	return &resource.Entry{
+	return &resource.Instance{
 		Metadata: resource.Metadata{
 			FullName: rname,
 			Version:  resource.Version(version),
 		},
-		Item: &types.Empty{},
+		Message: &types.Empty{},
 		Origin: &rt.Origin{
 			FullName: rname,
 		},

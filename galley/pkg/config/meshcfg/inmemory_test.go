@@ -56,11 +56,11 @@ func TestInMemorySource_SetBeforeStart(t *testing.T) {
 		{
 			Kind:   event.Added,
 			Source: IstioMeshconfig,
-			Entry: &resource.Entry{
+			Resource: &resource.Instance{
 				Metadata: resource.Metadata{
 					FullName: ResourceName,
 				},
-				Item: Default(),
+				Message: Default(),
 			},
 		},
 		{
@@ -87,11 +87,11 @@ func TestInMemorySource_SetAfterStart(t *testing.T) {
 		{
 			Kind:   event.Added,
 			Source: IstioMeshconfig,
-			Entry: &resource.Entry{
+			Resource: &resource.Instance{
 				Metadata: resource.Metadata{
 					FullName: ResourceName,
 				},
-				Item: Default(),
+				Message: Default(),
 			},
 		},
 		{
@@ -119,11 +119,11 @@ func TestInMemorySource_DoubleStart(t *testing.T) {
 		{
 			Kind:   event.Added,
 			Source: IstioMeshconfig,
-			Entry: &resource.Entry{
+			Resource: &resource.Instance{
 				Metadata: resource.Metadata{
 					FullName: ResourceName,
 				},
-				Item: Default(),
+				Message: Default(),
 			},
 		},
 		{
@@ -154,11 +154,11 @@ func TestInMemorySource_StartStop(t *testing.T) {
 		{
 			Kind:   event.Added,
 			Source: IstioMeshconfig,
-			Entry: &resource.Entry{
+			Resource: &resource.Instance{
 				Metadata: resource.Metadata{
 					FullName: ResourceName,
 				},
-				Item: Default(),
+				Message: Default(),
 			},
 		},
 		{
@@ -187,11 +187,11 @@ func TestInMemorySource_ResetOnUpdate(t *testing.T) {
 		{
 			Kind:   event.Added,
 			Source: IstioMeshconfig,
-			Entry: &resource.Entry{
+			Resource: &resource.Instance{
 				Metadata: resource.Metadata{
 					FullName: ResourceName,
 				},
-				Item: Default(),
+				Message: Default(),
 			},
 		},
 		{

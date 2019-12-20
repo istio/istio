@@ -44,7 +44,7 @@ func benchmarkService(b *testing.B, reuse bool) {
 
 	b.StopTimer()
 
-	service := &resource.Entry{
+	service := &resource.Instance{
 		Metadata: resource.Metadata{
 			FullName:   resource.NewFullName(benchNamespace, "someservice"),
 			Version:    resource.Version("v1"),
@@ -64,7 +64,7 @@ func benchmarkService(b *testing.B, reuse bool) {
 				"Label5": "LabelValue5",
 			},
 		},
-		Item: &coreV1.ServiceSpec{
+		Message: &coreV1.ServiceSpec{
 			ClusterIP: "10.0.0.1",
 			Ports: []coreV1.ServicePort{
 				{
@@ -108,7 +108,7 @@ func benchmarkService(b *testing.B, reuse bool) {
 	}
 }
 
-func convertService(c *converter.Instance, service *resource.Entry, outMeta *resource.Metadata, out *networking.ServiceEntry) error {
+func convertService(c *converter.Instance, service *resource.Instance, outMeta *resource.Metadata, out *networking.ServiceEntry) error {
 	if outMeta == nil {
 		outMeta = newMetadata()
 	}
@@ -191,7 +191,7 @@ func benchmarkEndpoints(b *testing.B, reuse bool) {
 		endpoints.Subsets = append(endpoints.Subsets, subset)
 	}
 
-	entry := &resource.Entry{
+	entry := &resource.Instance{
 		Metadata: resource.Metadata{
 			FullName:   resource.NewFullName(benchNamespace, "someservice"),
 			Version:    resource.Version("v1"),
@@ -211,7 +211,7 @@ func benchmarkEndpoints(b *testing.B, reuse bool) {
 				"Label5": "LabelValue5",
 			},
 		},
-		Item: endpoints,
+		Message: endpoints,
 	}
 
 	c := converter.New(domainSuffix, pods)
@@ -236,7 +236,7 @@ func benchmarkEndpoints(b *testing.B, reuse bool) {
 	}
 }
 
-func convertEndpoints(c *converter.Instance, endpoints *resource.Entry, outMeta *resource.Metadata, out *networking.ServiceEntry) error {
+func convertEndpoints(c *converter.Instance, endpoints *resource.Instance, outMeta *resource.Metadata, out *networking.ServiceEntry) error {
 	if outMeta == nil {
 		outMeta = newMetadata()
 	}

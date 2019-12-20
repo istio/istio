@@ -50,7 +50,7 @@ func New(domain string, pods pod.Cache) *Instance {
 
 // Convert applies the conversion function from k8s Service and Endpoints to ServiceEntry. The
 // ServiceEntry is passed as an argument (out) in order to enable object reuse in the future.
-func (i *Instance) Convert(service *resource.Entry, endpoints *resource.Entry, outMeta *resource.Metadata,
+func (i *Instance) Convert(service *resource.Instance, endpoints *resource.Instance, outMeta *resource.Metadata,
 	out *networking.ServiceEntry) error {
 	// we want to build the endpoints and then services
 	// as availability of endpoints can impact determining
@@ -62,13 +62,13 @@ func (i *Instance) Convert(service *resource.Entry, endpoints *resource.Entry, o
 }
 
 // convertService applies the k8s Service to the output.
-func (i *Instance) convertService(service *resource.Entry, outMeta *resource.Metadata, out *networking.ServiceEntry) {
+func (i *Instance) convertService(service *resource.Instance, outMeta *resource.Metadata, out *networking.ServiceEntry) {
 	if service == nil {
 		// For testing only. Production code will always provide a non-nil service.
 		return
 	}
 
-	spec := service.Item.(*coreV1.ServiceSpec)
+	spec := service.Message.(*coreV1.ServiceSpec)
 	location := networking.ServiceEntry_MESH_INTERNAL
 	endpoints := out.Endpoints
 	if len(endpoints) == 0 {
@@ -167,12 +167,12 @@ func convertExportTo(annotations resource.StringMap) []string {
 }
 
 // convertEndpoints applies the k8s Endpoints to the output.
-func (i *Instance) convertEndpoints(endpoints *resource.Entry, outMeta *resource.Metadata, out *networking.ServiceEntry) {
+func (i *Instance) convertEndpoints(endpoints *resource.Instance, outMeta *resource.Metadata, out *networking.ServiceEntry) {
 	if endpoints == nil {
 		return
 	}
 
-	spec := endpoints.Item.(*coreV1.Endpoints)
+	spec := endpoints.Message.(*coreV1.Endpoints)
 	// Store the subject alternate names in a set to avoid duplicates.
 	subjectAltNameSet := make(map[string]struct{})
 	eps := make([]*networking.ServiceEntry_Endpoint, 0)

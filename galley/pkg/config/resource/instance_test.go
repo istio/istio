@@ -21,36 +21,36 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestEntry_IsEmpty_False(t *testing.T) {
+func TestInstance_IsEmpty_False(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	e := Entry{
-		Item: &types.Empty{},
+	e := Instance{
+		Message: &types.Empty{},
 	}
 
 	g.Expect(e.IsEmpty()).To(BeFalse())
 }
 
-func TestEntry_IsEmpty_True(t *testing.T) {
+func TestInstance_IsEmpty_True(t *testing.T) {
 	g := NewGomegaWithT(t)
-	e := Entry{}
+	e := Instance{}
 
 	g.Expect(e.IsEmpty()).To(BeTrue())
 }
 
-func TestEntry_Clone_Empty(t *testing.T) {
+func TestInstance_Clone_Empty(t *testing.T) {
 	g := NewGomegaWithT(t)
-	e := &Entry{}
+	e := &Instance{}
 
 	c := e.Clone()
 	g.Expect(c).To(Equal(e))
 }
 
-func TestEntry_Clone_NonEmpty(t *testing.T) {
+func TestInstance_Clone_NonEmpty(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	e := &Entry{
-		Item: &types.Empty{},
+	e := &Instance{
+		Message: &types.Empty{},
 	}
 
 	c := e.Clone()

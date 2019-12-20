@@ -55,7 +55,7 @@ var (
 // shouldProcessIngress determines whether the given ingress resource should be processed
 // by the controller, based on its ingress class annotation.
 // See https://github.com/kubernetes/ingress/blob/master/examples/PREREQUISITES.md#ingress-class
-func shouldProcessIngress(m *meshconfig.MeshConfig, r *resource.Entry) bool {
+func shouldProcessIngress(m *meshconfig.MeshConfig, r *resource.Instance) bool {
 	class, exists := "", false
 	if r.Metadata.Annotations != nil {
 		class, exists = r.Metadata.Annotations[annotation.IoKubernetesIngressClass.Name]

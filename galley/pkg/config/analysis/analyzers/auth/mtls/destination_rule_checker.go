@@ -43,7 +43,7 @@ type destination struct {
 	targetService TargetService
 	usesMTLS      bool
 	isPrivate     bool
-	resource      *resource.Entry
+	resource      *resource.Instance
 }
 
 // destinations is a list of destinations that supports being sorted by
@@ -100,7 +100,7 @@ func (dc *DestinationRuleChecker) TargetServices() []TargetService {
 }
 
 // AddDestinationRule adds a DestinationRule to the checker.
-func (dc *DestinationRuleChecker) AddDestinationRule(resource *resource.Entry, rule *v1alpha3.DestinationRule) {
+func (dc *DestinationRuleChecker) AddDestinationRule(resource *resource.Instance, rule *v1alpha3.DestinationRule) {
 	// By default Destination rules are exported publicly.
 	isPrivate := false
 	for _, export := range rule.ExportTo {
@@ -152,7 +152,7 @@ func (dc *DestinationRuleChecker) AddDestinationRule(resource *resource.Entry, r
 // considered for routing are only rules that match a superset of the hosts
 // specified by the TargetService FQDN. This means you can check, for example,
 // the hostname '*.svc.cluster.local' to see if strict MTLS is enforced globally.
-func (dc *DestinationRuleChecker) DoesNamespaceUseMTLSToService(srcNamespace, dstNamespace resource.Namespace, ts TargetService) (bool, *resource.Entry) {
+func (dc *DestinationRuleChecker) DoesNamespaceUseMTLSToService(srcNamespace, dstNamespace resource.Namespace, ts TargetService) (bool, *resource.Instance) {
 	var matchingDestination *destination
 	// First, check for a destination rule for src namespace only if the
 	// namespace isn't the root namespace. Pilot has this behavior to ensure that the

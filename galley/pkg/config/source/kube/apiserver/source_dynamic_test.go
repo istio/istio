@@ -118,7 +118,7 @@ func TestReport(t *testing.T) {
 	s.Start()
 	defer s.Stop()
 
-	e := resource.Entry{
+	e := resource.Instance{
 		Origin: &rt.Origin{
 			Collection: basicmeta.Collection1,
 			FullName:   resource.NewFullName("foo", "bar"),
@@ -497,15 +497,15 @@ func mockCrdWatch(cl *extfake.Clientset) *mock.Watch {
 	return w
 }
 
-func toEntry(obj *unstructured.Unstructured) *resource.Entry {
-	return &resource.Entry{
+func toEntry(obj *unstructured.Unstructured) *resource.Instance {
+	return &resource.Instance{
 		Metadata: resource.Metadata{
 			FullName:    resource.NewFullName(resource.Namespace(obj.GetNamespace()), resource.LocalName(obj.GetName())),
 			Labels:      obj.GetLabels(),
 			Annotations: obj.GetAnnotations(),
 			Version:     resource.Version(obj.GetResourceVersion()),
 		},
-		Item: &types.Struct{
+		Message: &types.Struct{
 			Fields: make(map[string]*types.Value),
 		},
 	}
