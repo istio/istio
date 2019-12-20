@@ -84,7 +84,7 @@ type Webhook struct {
 }
 
 // env will be used for other things besides meshConfig - when webhook is running in Istiod it can take advantage
-// of the config and endpoint cache. 
+// of the config and endpoint cache.
 //nolint directives: interfacer
 func loadConfig(injectFile, meshFile, valuesFile string, env *model.Environment) (*Config, *meshconfig.MeshConfig, string, error) {
 	data, err := ioutil.ReadFile(injectFile)

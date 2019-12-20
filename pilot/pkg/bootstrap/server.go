@@ -29,9 +29,6 @@ import (
 
 	"istio.io/istio/pkg/kube/inject"
 
-	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pilot/pkg/serviceregistry/mcp"
-
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	prom "github.com/prometheus/client_golang/prometheus"
