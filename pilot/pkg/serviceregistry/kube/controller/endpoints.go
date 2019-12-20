@@ -21,12 +21,10 @@ import (
 
 	"istio.io/pkg/log"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	configKube "istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/schemas"
 )
 
 type endpointsController struct {
@@ -208,26 +206,9 @@ func (e *endpointsController) onEvent(curr interface{}, event model.Event) error
 		}
 	}
 
-	log.Debugf("Handle event %s for endpoint %s in namespace %s", event, ep.Name, ep.Namespace)
+	return e.handleEvent(e, ep.Name, ep.Namespace, event, curr)
+}
 
-	// headless service cluster discovery type is ORIGINAL_DST, we do not need update EDS.
-	if features.EnableHeadlessService.Get() {
-		if obj, _, _ := e.c.services.GetIndexer().GetByKey(kube.KeyFunc(ep.Name, ep.Namespace)); obj != nil {
-			svc := obj.(*v1.Service)
-			// if the service is headless service, trigger a full push.
-			if svc.Spec.ClusterIP == v1.ClusterIPNone {
-				e.c.xdsUpdater.ConfigUpdate(&model.PushRequest{
-					Full:              true,
-					NamespacesUpdated: map[string]struct{}{ep.Namespace: {}},
-					// TODO: extend and set service instance type, so no need to re-init push context
-					ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
-				})
-				return nil
-			}
-		}
-	}
-
-	e.c.updateEDS(ep, event)
-
-	return nil
+func (e *endpointsController) updateEDS(ep interface{}, event model.Event) {
+	e.c.updateEDS(ep.(*v1.Endpoints), event)
 }

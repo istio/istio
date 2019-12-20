@@ -15,10 +15,16 @@
 package controller
 
 import (
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/schemas"
+	"istio.io/pkg/log"
+
 	v1 "k8s.io/api/core/v1"
 	discoveryv1alpha1 "k8s.io/api/discovery/v1alpha1"
+
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -31,6 +37,7 @@ type kubeEndpointsController interface {
 	InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int,
 		labelsList labels.Collection) ([]*model.ServiceInstance, error)
 	GetProxyServiceInstances(c *Controller, proxy *model.Proxy, proxyNamespace string) []*model.ServiceInstance
+	updateEDS(obj interface{}, event model.Event)
 }
 
 type kubeEndpoints struct {
@@ -38,6 +45,7 @@ type kubeEndpoints struct {
 	informer cache.SharedIndexInformer
 }
 
+// GetProxyServiceInstances returns service instances of the given proxy.
 func (e *kubeEndpoints) GetProxyServiceInstances(c *Controller, proxy *model.Proxy, proxyNamespace string) []*model.ServiceInstance {
 	var otherNamespaceEndpoints []*model.ServiceInstance
 	sameNamespaceEndpoints := make([]*model.ServiceInstance, 0)
@@ -45,15 +53,13 @@ func (e *kubeEndpoints) GetProxyServiceInstances(c *Controller, proxy *model.Pro
 	for _, item := range e.informer.GetStore().List() {
 		var proxyServiceInstances []*model.ServiceInstance
 		namespace := ""
-		switch item.(type) {
-		case v1.Endpoints:
-			ep := *item.(*v1.Endpoints)
-			namespace = ep.Namespace
-			proxyServiceInstances = getProxyServiceInstancesByEndpoint(c, ep, proxy)
-		case discoveryv1alpha1.EndpointSlice:
-			slice := item.(*discoveryv1alpha1.EndpointSlice)
-			namespace = slice.Namespace
-			proxyServiceInstances = getProxyServiceInstancesByEndpointSlice(c, slice, proxy)
+		switch item := item.(type) {
+		case *v1.Endpoints:
+			namespace = item.Namespace
+			proxyServiceInstances = getProxyServiceInstancesByEndpoint(c, *item, proxy)
+		case *discoveryv1alpha1.EndpointSlice:
+			namespace = item.Namespace
+			proxyServiceInstances = getProxyServiceInstancesByEndpointSlice(c, item, proxy)
 		}
 		if namespace == proxyNamespace {
 			sameNamespaceEndpoints = append(sameNamespaceEndpoints, proxyServiceInstances...)
@@ -78,4 +84,29 @@ func (e *kubeEndpoints) HasSynced() bool {
 
 func (e *kubeEndpoints) Run(stopCh <-chan struct{}) {
 	e.informer.Run(stopCh)
+}
+
+func (e *kubeEndpoints) handleEvent(epc kubeEndpointsController, name string, namespace string, event model.Event, obj interface{}) error {
+	log.Debugf("Handle event %s for endpoint %s in namespace %s", event, name, namespace)
+
+	// headless service cluster discovery type is ORIGINAL_DST, we do not need update EDS.
+	if features.EnableHeadlessService.Get() {
+		if obj, _, _ := e.c.services.GetIndexer().GetByKey(kube.KeyFunc(name, namespace)); obj != nil {
+			svc := obj.(*v1.Service)
+			// if the service is headless service, trigger a full push.
+			if svc.Spec.ClusterIP == v1.ClusterIPNone {
+				e.c.xdsUpdater.ConfigUpdate(&model.PushRequest{
+					Full:              true,
+					NamespacesUpdated: map[string]struct{}{namespace: {}},
+					// TODO: extend and set service instance type, so no need to re-init push context
+					ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
+				})
+				return nil
+			}
+		}
+	}
+
+	epc.updateEDS(obj, event)
+
+	return nil
 }

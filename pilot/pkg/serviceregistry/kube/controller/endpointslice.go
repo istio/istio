@@ -17,7 +17,6 @@ package controller
 import (
 	"sync"
 
-	v1 "k8s.io/api/core/v1"
 	discoveryv1alpha1 "k8s.io/api/discovery/v1alpha1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/informers"
@@ -26,7 +25,6 @@ import (
 
 	"istio.io/pkg/log"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
@@ -56,9 +54,10 @@ func newEndpointSliceController(c *Controller, sharedInformers informers.SharedI
 	return out
 }
 
-func (e *endpointSliceController) updateEDSSlice(c *Controller, slice *discoveryv1alpha1.EndpointSlice, event model.Event) {
+func (esc *endpointSliceController) updateEDS(es interface{}, event model.Event) {
+	slice := es.(*discoveryv1alpha1.EndpointSlice)
 	svcName := slice.Labels[discoveryv1alpha1.LabelServiceName]
-	hostname := kube.ServiceHostname(svcName, slice.Namespace, c.domainSuffix)
+	hostname := kube.ServiceHostname(svcName, slice.Namespace, esc.c.domainSuffix)
 
 	endpoints := make([]*model.IstioEndpoint, 0)
 	if event != model.EventDelete {
@@ -68,14 +67,14 @@ func (e *endpointSliceController) updateEDSSlice(c *Controller, slice *discovery
 				continue
 			}
 			for _, a := range e.Addresses {
-				pod := c.pods.getPodByIP(a)
+				pod := esc.c.pods.getPodByIP(a)
 				if pod == nil {
 					// This can not happen in usual case
 					if e.TargetRef != nil && e.TargetRef.Kind == "Pod" {
 						log.Warnf("Endpoint without pod %s %s.%s", a, svcName, slice.Namespace)
 
-						if c.metrics != nil {
-							c.metrics.AddMetric(model.EndpointNoPod, string(hostname), nil, a)
+						if esc.c.metrics != nil {
+							esc.c.metrics.AddMetric(model.EndpointNoPod, string(hostname), nil, a)
 						}
 						// TODO: keep them in a list, and check when pod events happen !
 						continue
@@ -112,7 +111,7 @@ func (e *endpointSliceController) updateEDSSlice(c *Controller, slice *discovery
 						Labels:          labels,
 						UID:             uid,
 						ServiceAccount:  sa,
-						Network:         c.endpointNetwork(a),
+						Network:         esc.c.endpointNetwork(a),
 						Locality:        locality,
 						Attributes:      model.ServiceAttributes{Name: svcName, Namespace: slice.Namespace},
 						TLSMode:         tlsMode,
@@ -122,11 +121,11 @@ func (e *endpointSliceController) updateEDSSlice(c *Controller, slice *discovery
 		}
 	}
 
-	e.endpointCache.Update(hostname, slice.Name, endpoints)
+	esc.endpointCache.Update(hostname, slice.Name, endpoints)
 
 	log.Infof("Handle EDS endpoint %s in namespace %s", svcName, slice.Namespace)
 
-	_ = c.xdsUpdater.EDSUpdate(c.clusterID, string(hostname), slice.Namespace, e.endpointCache.Get(hostname))
+	_ = esc.c.xdsUpdater.EDSUpdate(esc.c.clusterID, string(hostname), slice.Namespace, esc.endpointCache.Get(hostname))
 }
 
 func (e *endpointSliceController) onEvent(curr interface{}, event model.Event) error {
@@ -148,23 +147,7 @@ func (e *endpointSliceController) onEvent(curr interface{}, event model.Event) e
 		}
 	}
 
-	// Headless services are handled differently
-	if features.EnableHeadlessService.Get() {
-		svcName := ep.Labels[discoveryv1alpha1.LabelServiceName]
-		if obj, _, _ := e.c.services.GetIndexer().GetByKey(kube.KeyFunc(svcName, ep.Namespace)); obj != nil {
-			svc := obj.(*v1.Service)
-			// if the service is headless service, trigger a full push.
-			if svc.Spec.ClusterIP == v1.ClusterIPNone {
-				e.c.xdsUpdater.ConfigUpdate(&model.PushRequest{Full: true, NamespacesUpdated: map[string]struct{}{ep.Namespace: {}}})
-				return nil
-			}
-		}
-	}
-
-	// Otherwise, do standard endpoint update
-	e.updateEDSSlice(e.c, ep, event)
-
-	return nil
+	return e.handleEvent(e, ep.Name, ep.Namespace, event, curr)
 }
 
 func getProxyServiceInstancesByEndpointSlice(c *Controller, slice *discoveryv1alpha1.EndpointSlice, proxy *model.Proxy) []*model.ServiceInstance {
