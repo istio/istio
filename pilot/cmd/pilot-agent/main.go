@@ -70,7 +70,7 @@ var (
 	mixerIdentity    string
 	statusPort       uint16
 	stsPort          int
-	gCPProjectNumber int
+	gCPProjectNumber string
 
 	// proxy config flags (named identically)
 	configPath               string
@@ -709,7 +709,7 @@ func init() {
 		"HTTP Port on which to serve pilot agent status. If zero, agent status will not be provided.")
 	proxyCmd.PersistentFlags().IntVar(&stsPort, "stsPort", 0,
 		"HTTP Port on which to serve pilot agent status. If zero, agent status will not be provided.")
-	proxyCmd.PersistentFlags().IntVar(&gCPProjectNumber, "gCPProjectNumber", 0,
+	proxyCmd.PersistentFlags().StringVar(&gCPProjectNumber, "gCPProjectNumber", "",
 		"The Google Cloud Platform (GCP) project number where Istio is deployed.")
 	// Flags for proxy configuration
 	values := mesh.DefaultProxyConfig()
