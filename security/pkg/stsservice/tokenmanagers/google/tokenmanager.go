@@ -95,7 +95,7 @@ type federatedTokenResponse struct {
 	AccessToken     string `json:"access_token"`
 	IssuedTokenType string `json:"issued_token_type"`
 	TokenType       string `json:"token_type"`
-	ExpiresIn       int32  `json:"expires_in"` // Expiration time in seconds
+	ExpiresIn       int64  `json:"expires_in"` // Expiration time in seconds
 }
 
 // GenerateToken takes STS request parameters and fetches token, returns StsResponseParameters in JSON.
@@ -118,10 +118,10 @@ func (tm *TokenManager) GenerateToken(parameters stsservice.StsRequestParameters
 // Content-Type: application/json
 // {
 //    audience: <trust domain>
-//    grant_type: urn:ietf:params:oauth:grant-type:token-exchange
-//    requested_token_type: urn:ietf:params:oauth:token-type:access_token
-//    subject_token_type: urn:ietf:params:oauth:token-type:jwt
-//    subject_token: <jwt token>
+//    grantType: urn:ietf:params:oauth:grant-type:token-exchange
+//    requestedTokenType: urn:ietf:params:oauth:token-type:access_token
+//    subjectTokenType: urn:ietf:params:oauth:token-type:jwt
+//    subjectToken: <jwt token>
 //    scope: https://www.googleapis.com/auth/cloud-platform
 // }
 func (tm *TokenManager) constructFederatedTokenRequest(parameters stsservice.StsRequestParameters) *http.Request {
@@ -131,10 +131,10 @@ func (tm *TokenManager) constructFederatedTokenRequest(parameters stsservice.Sts
 	}
 	query := map[string]string{
 		"audience":           tm.trustDomain,
-		"grant_type":          parameters.GrantType,
-		"requested_token_type": tokenType,
-		"subject_token_type":   parameters.SubjectTokenType,
-		"subject_token":       parameters.SubjectToken,
+		"grantType":          parameters.GrantType,
+		"requestedTokenType": tokenType,
+		"subjectTokenType":   parameters.SubjectTokenType,
+		"subjectToken":       parameters.SubjectToken,
 		"scope":              reqScope,
 	}
 	jsonQuery, _ := json.Marshal(query)
@@ -155,15 +155,15 @@ func (tm *TokenManager) fetchFederatedToken(parameters stsservice.StsRequestPara
 	if err != nil {
 		tokenManagerLog.Errorf("Failed to exchange federated token (HTTP status %s): %v", resp.Status,
 			err)
-		return respData, fmt.Errorf("failed to exchange federated token (HTTP status %s): %v", resp.Status,
+		return nil, fmt.Errorf("failed to exchange federated token (HTTP status %s): %v", resp.Status,
 			err)
 	}
 	defer resp.Body.Close()
 
 	respDump, _ := httputil.DumpResponse(resp, true)
-	tokenManagerLog.Infof("Received federated token response: %s", string(respDump))
+	tokenManagerLog.Debugf("Received federated token response: \n%s", string(respDump))
 
-	body, _ := ioutil.ReadAll(resp.Body)
+	body, err := ioutil.ReadAll(resp.Body)
 	if err := json.Unmarshal(body, respData); err != nil {
 		tokenManagerLog.Errorf("Failed to unmarshal federated token response data: %v", err)
 		return respData, fmt.Errorf("failed to unmarshal federated token response data: %v", err)
@@ -201,12 +201,12 @@ type accessTokenRequest struct {
 	name      string `json:"name"`
 	delegates []string `json:"delegates"`
 	scope     []string `json:"scope"`
-	lifeTime  duration.Duration `json:"life_time"`
+	lifeTime  duration.Duration `json:"lifetime"`
 }
 
 type accessTokenResponse struct {
-	AccessToken     string `json:"access_token"`
-	ExpireTime      duration.Duration `json:"expire_time"`
+	AccessToken     string `json:"accessToken"`
+	ExpireTime      duration.Duration `json:"expireTime"`
 }
 
 // constructFederatedTokenRequest returns an HTTP request for access token.
@@ -242,15 +242,17 @@ func (tm *TokenManager) fetchAccessToken(federatedToken *federatedTokenResponse)
 		return respData, fmt.Errorf("failed to exchange access token (HTTP status %s): %v", resp.Status, err)
 	}
 	defer resp.Body.Close()
+	respDump, _ := httputil.DumpResponse(resp, true)
+	tokenManagerLog.Infof("Received access token response: \n%s", string(respDump))
 
 	body, _ := ioutil.ReadAll(resp.Body)
 	if err := json.Unmarshal(body, respData); err != nil {
-		tokenManagerLog.Errorf("Failed to unmarshal federated token response data: %v", err)
-		return respData, fmt.Errorf("failed to unmarshal federated token response data: %v", err)
+		tokenManagerLog.Errorf("Failed to unmarshal access token response data: %v", err)
+		return respData, fmt.Errorf("failed to unmarshal access token response data: %v", err)
 	}
 	if respData.AccessToken == "" {
-		tokenManagerLog.Errora("federated token response does not have access token", string(body))
-		return respData, errors.New("federated token response does not have access token. " + string(body))
+		tokenManagerLog.Errora("access token response does not have access token", string(body))
+		return respData, errors.New("access token response does not have access token. " + string(body))
 	}
 	tokenManagerLog.Debug("successfully exchanged an access token")
 	tokenReceivedTime := time.Now()

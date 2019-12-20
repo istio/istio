@@ -50,7 +50,7 @@ func TestAccessToken(t *testing.T) {
 	}
 	stsRespJSON, err := tm.GenerateToken(stsReq)
 	if err != nil {
-		t.Fatalf("failed to call exchange token %v", err)
+		t.Fatalf("failed to call exchange token: %v", err)
 	}
 	stsResp := stsservice.StsResponseParameters{}
 	if err := json.Unmarshal(stsRespJSON, stsResp); err != nil {

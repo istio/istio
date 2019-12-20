@@ -17,7 +17,6 @@ package mock
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/golang/protobuf/ptypes/duration"
 	"net"
 	"net/http"
 	"reflect"
@@ -26,7 +25,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gorilla/mux"
+	"github.com/golang/protobuf/ptypes/duration"
 
 	"istio.io/pkg/log"
 )
@@ -41,10 +40,10 @@ var (
 
 type federatedTokenRequest struct {
 	Audience           string `json:"audience"`
-	GrantType          string `json:"grant_type"`
-	RequestedTokenType string `json:"requested_token_type"`
-	SubjectTokenType   string `json:"subject_token_type"`
-	SubjectToken       string `json:"subject_token"`
+	GrantType          string `json:"grantType"`
+	RequestedTokenType string `json:"requestedTokenType"`
+	SubjectTokenType   string `json:"subjectTokenType"`
+	SubjectToken       string `json:"subjectToken"`
 	Scope              string `json:"scope"`
 }
 
@@ -59,12 +58,12 @@ type accessTokenRequest struct {
 	name      string `json:"name"`
 	delegates []string `json:"delegates"`
 	scope     []string `json:"scope"`
-	lifeTime  duration.Duration `json:"life_time"`
+	lifeTime  duration.Duration `json:"lifetime"`
 }
 
 type accessTokenResponse struct {
-	AccessToken     string `json:"access_token"`
-	ExpireTime      duration.Duration `json:"expire_time"`
+	AccessToken     string `json:"accessToken"`
+	ExpireTime      duration.Duration `json:"expireTime"`
 }
 
 // MockServer is the in-memory secure token service.
@@ -105,13 +104,13 @@ func StartNewServer(t *testing.T) (*MockServer, error) {
 
 // Start starts the mock server.
 func (ms *MockServer) Start() error {
-	router := mux.NewRouter()
-	router.HandleFunc("/v1/identitybindingtoken", ms.getFederatedToken).Methods("POST")
 	atEndpoint := fmt.Sprintf("/v1/projects/-/serviceAccounts/service-%d@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken", FakeProjectNum)
-	router.HandleFunc(atEndpoint, ms.getAccessToken).Methods("POST")
+	mux := http.NewServeMux()
+	mux.HandleFunc("/v1/identitybindingtoken", ms.getFederatedToken)
+	mux.HandleFunc(atEndpoint, ms.getAccessToken)
 	server := &http.Server{
 		Addr:    ":",
-		Handler: router,
+		Handler: mux,
 	}
 	ln, err := net.Listen("tcp", ":0")
 	if err != nil {
@@ -165,7 +164,6 @@ func (ms *MockServer) getFederatedToken(w http.ResponseWriter, req *http.Request
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-
 	resp := federatedTokenResponse{
 		AccessToken:     FakeFederatedToken,
 		IssuedTokenType: "urn:ietf:params:oauth:token-type:access_token",
