@@ -116,10 +116,9 @@ spec:
 					if c["type"] == "Ready" {
 						if c["status"] != "True" {
 							return fmt.Errorf("rotue not ready, status: %+v", c)
-						} else {
-							t.Logf("route is ready")
-							return nil
 						}
+						t.Logf("route is ready")
+						return nil
 					}
 				}
 				return nil
