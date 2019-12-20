@@ -27,8 +27,8 @@ var (
 	// EntryN1I1V1 is a test resource.Entry
 	EntryN1I1V1 = &resource.Entry{
 		Metadata: resource.Metadata{
-			Name:    resource.NewName("n1", "i1"),
-			Version: "v1",
+			FullName: resource.NewFullName("n1", "i1"),
+			Version:  "v1",
 		},
 		Item: parseStruct(`
 {
@@ -39,8 +39,8 @@ var (
 	// EntryN1I1V1ClusterScoped is a test resource.Entry that is cluster scoped.
 	EntryN1I1V1ClusterScoped = &resource.Entry{
 		Metadata: resource.Metadata{
-			Name:    resource.NewName("", "i1"),
-			Version: "v1",
+			FullName: resource.NewFullName("", "i1"),
+			Version:  "v1",
 		},
 		Item: parseStruct(`
 {
@@ -51,8 +51,8 @@ var (
 	// EntryN1I1V1Broken is a test resource.Entry
 	EntryN1I1V1Broken = &resource.Entry{
 		Metadata: resource.Metadata{
-			Name:    resource.NewName("n1", "i1"),
-			Version: "v1",
+			FullName: resource.NewFullName("n1", "i1"),
+			Version:  "v1",
 		},
 		Item: nil,
 	}
@@ -60,8 +60,8 @@ var (
 	// EntryN1I1V2 is a test resource.Entry
 	EntryN1I1V2 = &resource.Entry{
 		Metadata: resource.Metadata{
-			Name:    resource.NewName("n1", "i1"),
-			Version: "v2",
+			FullName: resource.NewFullName("n1", "i1"),
+			Version:  "v2",
 		},
 		Item: parseStruct(`
 {
@@ -72,8 +72,8 @@ var (
 	// EntryN2I2V1 is a test resource.Entry
 	EntryN2I2V1 = &resource.Entry{
 		Metadata: resource.Metadata{
-			Name:    resource.NewName("n2", "i2"),
-			Version: "v1",
+			FullName: resource.NewFullName("n2", "i2"),
+			Version:  "v1",
 		},
 		Item: parseStruct(`
 {
@@ -84,8 +84,8 @@ var (
 	// EntryN2I2V2 is a test resource.Entry
 	EntryN2I2V2 = &resource.Entry{
 		Metadata: resource.Metadata{
-			Name:    resource.NewName("n2", "i2"),
-			Version: "v2",
+			FullName: resource.NewFullName("n2", "i2"),
+			Version:  "v2",
 		},
 		Item: parseStruct(`{
 	"n2_i2": "v2"
@@ -95,8 +95,8 @@ var (
 	// EntryN3I3V1 is a test resource.Entry
 	EntryN3I3V1 = &resource.Entry{
 		Metadata: resource.Metadata{
-			Name:    resource.NewName("n3", "i3"),
-			Version: "v1",
+			FullName: resource.NewFullName("n3", "i3"),
+			Version:  "v1",
 		},
 		Item: parseStruct(`{
 	"n3_i3": "v1"
@@ -106,8 +106,8 @@ var (
 	// EntryI1V1NoNamespace is a test resource.Entry
 	EntryI1V1NoNamespace = &resource.Entry{
 		Metadata: resource.Metadata{
-			Name:    resource.NewName("", "i1"),
-			Version: "v1",
+			FullName: resource.NewFullName("", "i1"),
+			Version:  "v1",
 		},
 		Item: parseStruct(`{
 		"n1_i1": "v1"

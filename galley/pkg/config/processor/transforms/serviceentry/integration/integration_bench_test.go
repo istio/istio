@@ -125,13 +125,13 @@ func BenchmarkEndpointChurn(b *testing.B) {
 		Distributor:        distributor,
 		EnabledSnapshots:   []string{metadata.SyntheticServiceEntry},
 	}
-	processor, err := processor.Initialize(processorSettings)
+	p, err := processor.Initialize(processorSettings)
 	if err != nil {
 		b.Fatal(err)
 	}
 
 	distributor.waitForSnapshot()
-	go processor.Start()
+	go p.Start()
 
 	lenUpdateEvents := len(updateEntries)
 	updateIndex := 0
@@ -159,7 +159,7 @@ func BenchmarkEndpointChurn(b *testing.B) {
 	distributor.await()
 
 	b.StopTimer()
-	processor.Stop()
+	p.Stop()
 	b.StartTimer()
 }
 
@@ -295,7 +295,7 @@ func (d *fakeDistributor) waitForSnapshot() {
 	d.snapshotCond.L.Unlock()
 }
 
-func (d *fakeDistributor) Distribute(name string, s *snapshotter.Snapshot) {
+func (d *fakeDistributor) Distribute(string, *snapshotter.Snapshot) {
 	d.cond.Broadcast()
 
 	d.counter++
@@ -310,10 +310,6 @@ func (d *fakeDistributor) await() {
 	d.cond.L.Lock()
 	defer d.cond.L.Unlock()
 	d.cond.Wait()
-}
-
-func (d *fakeDistributor) ClearSnapshot(name string) {
-	// Do nothing.
 }
 
 func newEndpoints(ips ...string) coreV1.Endpoints {

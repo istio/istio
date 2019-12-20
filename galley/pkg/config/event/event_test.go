@@ -29,8 +29,8 @@ import (
 func TestEvent_String(t *testing.T) {
 	e := resource.Entry{
 		Metadata: resource.Metadata{
-			Name:    resource.NewName("ns1", "rs1"),
-			Version: "v1",
+			FullName: resource.NewFullName("ns1", "rs1"),
+			Version:  "v1",
 		},
 		Item: &types.Empty{},
 	}
@@ -77,8 +77,8 @@ func TestEvent_String(t *testing.T) {
 func TestEvent_DetailedString(t *testing.T) {
 	e := resource.Entry{
 		Metadata: resource.Metadata{
-			Name:    resource.NewName("ns1", "rs1"),
-			Version: "v1",
+			FullName: resource.NewFullName("ns1", "rs1"),
+			Version:  "v1",
 		},
 		Item: &types.Empty{},
 	}
@@ -129,7 +129,7 @@ func TestEvent_Clone(t *testing.T) {
 
 	r := resource.Entry{
 		Metadata: resource.Metadata{
-			Name: resource.NewName("ns1", "rs1"),
+			FullName: resource.NewFullName("ns1", "rs1"),
 			Labels: map[string]string{
 				"foo": "bar",
 			},
@@ -160,7 +160,7 @@ func TestEvent_AddFor(t *testing.T) {
 
 	r := resource.Entry{
 		Metadata: resource.Metadata{
-			Name: resource.NewName("ns1", "rs1"),
+			FullName: resource.NewFullName("ns1", "rs1"),
 			Labels: map[string]string{
 				"foo": "bar",
 			},
@@ -184,7 +184,7 @@ func TestEvent_UpdateFor(t *testing.T) {
 
 	r := resource.Entry{
 		Metadata: resource.Metadata{
-			Name: resource.NewName("ns1", "rs1"),
+			FullName: resource.NewFullName("ns1", "rs1"),
 			Labels: map[string]string{
 				"foo": "bar",
 			},
@@ -206,7 +206,7 @@ func TestEvent_UpdateFor(t *testing.T) {
 func TestEvent_DeleteFor(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	n := resource.NewName("ns1", "rs1")
+	n := resource.NewFullName("ns1", "rs1")
 	v := resource.Version("v1")
 	e := DeleteFor(collection.NewName("boo"), n, v)
 
@@ -215,8 +215,8 @@ func TestEvent_DeleteFor(t *testing.T) {
 		Source: collection.NewName("boo"),
 		Entry: &resource.Entry{
 			Metadata: resource.Metadata{
-				Name:    n,
-				Version: v,
+				FullName: n,
+				Version:  v,
 			},
 		},
 	}
@@ -228,7 +228,7 @@ func TestEvent_UpdateForResource(t *testing.T) {
 
 	r := resource.Entry{
 		Metadata: resource.Metadata{
-			Name: resource.NewName("ns1", "rs1"),
+			FullName: resource.NewFullName("ns1", "rs1"),
 			Labels: map[string]string{
 				"foo": "bar",
 			},

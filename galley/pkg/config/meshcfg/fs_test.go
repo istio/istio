@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"istio.io/api/mesh/v1alpha1"
+
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
@@ -53,7 +54,7 @@ func TestFsSource_NoInitialFile(t *testing.T) {
 			Source: IstioMeshconfig,
 			Entry: &resource.Entry{
 				Metadata: resource.Metadata{
-					Name: resource.NewName("istio-system", "meshconfig"),
+					FullName: resource.NewFullName("istio-system", "meshconfig"),
 				},
 				Item: Default(),
 			},
@@ -88,7 +89,7 @@ func TestFsSource_NoInitialFile_UpdateAfterStart(t *testing.T) {
 			Source: IstioMeshconfig,
 			Entry: &resource.Entry{
 				Metadata: resource.Metadata{
-					Name: resource.NewName("istio-system", "meshconfig"),
+					FullName: resource.NewFullName("istio-system", "meshconfig"),
 				},
 				Item: Default(),
 			},
@@ -138,7 +139,7 @@ func TestFsSource_InitialFile_UpdateAfterStart(t *testing.T) {
 			Source: IstioMeshconfig,
 			Entry: &resource.Entry{
 				Metadata: resource.Metadata{
-					Name: resource.NewName("istio-system", "meshconfig"),
+					FullName: resource.NewFullName("istio-system", "meshconfig"),
 				},
 				Item: mcfg,
 			},
@@ -188,7 +189,7 @@ func TestFsSource_InitialFile(t *testing.T) {
 			Source: IstioMeshconfig,
 			Entry: &resource.Entry{
 				Metadata: resource.Metadata{
-					Name: resource.NewName("istio-system", "meshconfig"),
+					FullName: resource.NewFullName("istio-system", "meshconfig"),
 				},
 				Item: mcfg,
 			},
@@ -224,7 +225,7 @@ func TestFsSource_StartStopStart(t *testing.T) {
 			Source: IstioMeshconfig,
 			Entry: &resource.Entry{
 				Metadata: resource.Metadata{
-					Name: resource.NewName("istio-system", "meshconfig"),
+					FullName: resource.NewFullName("istio-system", "meshconfig"),
 				},
 				Item: mcfg,
 			},
@@ -267,7 +268,7 @@ func TestFsSource_FileRemoved_NoChange(t *testing.T) {
 			Source: IstioMeshconfig,
 			Entry: &resource.Entry{
 				Metadata: resource.Metadata{
-					Name: resource.NewName("istio-system", "meshconfig"),
+					FullName: resource.NewFullName("istio-system", "meshconfig"),
 				},
 				Item: mcfg,
 			},
@@ -310,7 +311,7 @@ func TestFsSource_BogusFile_NoChange(t *testing.T) {
 			Source: IstioMeshconfig,
 			Entry: &resource.Entry{
 				Metadata: resource.Metadata{
-					Name: resource.NewName("istio-system", "meshconfig"),
+					FullName: resource.NewFullName("istio-system", "meshconfig"),
 				},
 				Item: mcfg,
 			},
@@ -390,7 +391,7 @@ func TestFsSource_YamlToJSONError(t *testing.T) {
 			Source: IstioMeshconfig,
 			Entry: &resource.Entry{
 				Metadata: resource.Metadata{
-					Name: resource.NewName("istio-system", "meshconfig"),
+					FullName: resource.NewFullName("istio-system", "meshconfig"),
 				},
 				Item: Default(),
 			},

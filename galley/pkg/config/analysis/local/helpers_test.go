@@ -37,15 +37,15 @@ func createTestEvent(t *testing.T, k event.Kind, r *resource.Entry) event.Event 
 
 func createTestResource(t *testing.T, ns, name, version string) *resource.Entry {
 	t.Helper()
-	rname := resource.NewName(ns, name)
+	rname := resource.NewFullName(resource.Namespace(ns), resource.LocalName(name))
 	return &resource.Entry{
 		Metadata: resource.Metadata{
-			Name:    rname,
-			Version: resource.Version(version),
+			FullName: rname,
+			Version:  resource.Version(version),
 		},
 		Item: &types.Empty{},
 		Origin: &rt.Origin{
-			Name: rname,
+			FullName: rname,
 		},
 	}
 }

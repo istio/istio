@@ -101,7 +101,7 @@ func TestVirtualService_AddUpdateDelete(t *testing.T) {
 		event.FullSyncFor(metadata.IstioNetworkingV1Alpha3Virtualservices),
 		event.AddFor(metadata.IstioNetworkingV1Alpha3Virtualservices, vs1()),
 		event.UpdateFor(metadata.IstioNetworkingV1Alpha3Virtualservices, vs1v2()),
-		event.DeleteFor(metadata.IstioNetworkingV1Alpha3Virtualservices, vs1v2().Metadata.Name, vs1v2().Metadata.Version),
+		event.DeleteFor(metadata.IstioNetworkingV1Alpha3Virtualservices, vs1v2().Metadata.FullName, vs1v2().Metadata.Version),
 	))
 }
 

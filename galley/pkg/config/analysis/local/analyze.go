@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/mesh/v1alpha1"
+
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/meshcfg"
@@ -35,6 +36,7 @@ import (
 	"istio.io/istio/galley/pkg/config/processing/transformer"
 	"istio.io/istio/galley/pkg/config/processor"
 	"istio.io/istio/galley/pkg/config/processor/transforms"
+	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
@@ -60,8 +62,8 @@ type SourceAnalyzer struct {
 	sources              []precedenceSourceInput
 	analyzer             *analysis.CombinedAnalyzer
 	transformerProviders transformer.Providers
-	namespace            string
-	istioNamespace       string
+	namespace            resource.Namespace
+	istioNamespace       resource.Namespace
 
 	// Which kube resources are used by this analyzer
 	// Derived from metadata and the specified analyzer and transformer providers
@@ -80,7 +82,7 @@ type AnalysisResult struct {
 
 // NewSourceAnalyzer creates a new SourceAnalyzer with no sources. Use the Add*Source methods to add sources in ascending precedence order,
 // then execute Analyze to perform the analysis
-func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, namespace, istioNamespace string,
+func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, namespace, istioNamespace resource.Namespace,
 	cr snapshotter.CollectionReporterFn, serviceDiscovery bool) *SourceAnalyzer {
 
 	// collectionReporter hook function defaults to no-op
@@ -123,9 +125,9 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 		return result, fmt.Errorf("at least one file and/or Kubernetes source must be provided")
 	}
 
-	var namespaces []string
+	var namespaces []resource.Namespace
 	if sa.namespace != "" {
-		namespaces = []string{sa.namespace}
+		namespaces = []resource.Namespace{sa.namespace}
 	}
 
 	var colsInSnapshots collection.Names
@@ -236,7 +238,7 @@ func (sa *SourceAnalyzer) addRunningKubeMeshConfigSource(k kube.Interfaces) erro
 		return fmt.Errorf("error getting KubeClient: %v", err)
 	}
 
-	meshConfigMap, err := client.CoreV1().ConfigMaps(sa.istioNamespace).Get(meshConfigMapName, metav1.GetOptions{})
+	meshConfigMap, err := client.CoreV1().ConfigMaps(string(sa.istioNamespace)).Get(meshConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("could not read configmap %q from namespace %q: %v", meshConfigMapName, sa.istioNamespace, err)
 	}

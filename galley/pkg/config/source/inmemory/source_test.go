@@ -51,8 +51,8 @@ func TestInMemory_Set_BeforeSync(t *testing.T) {
 
 	r := &resource.Entry{
 		Metadata: resource.Metadata{
-			Name:    resource.NewName("ns1", "l1"),
-			Version: "v1",
+			FullName: resource.NewFullName("ns1", "l1"),
+			Version:  "v1",
 		},
 		Item: &types.Empty{},
 	}
@@ -85,8 +85,8 @@ func TestInMemory_Set_Add(t *testing.T) {
 
 	r := &resource.Entry{
 		Metadata: resource.Metadata{
-			Name:    resource.NewName("ns1", "l1"),
-			Version: "v1",
+			FullName: resource.NewFullName("ns1", "l1"),
+			Version:  "v1",
 		},
 		Item: &types.Empty{},
 	}
@@ -129,15 +129,15 @@ func TestInMemory_Set_Update(t *testing.T) {
 
 	r1 := &resource.Entry{
 		Metadata: resource.Metadata{
-			Name:    resource.NewName("ns1", "l1"),
-			Version: "v1",
+			FullName: resource.NewFullName("ns1", "l1"),
+			Version:  "v1",
 		},
 		Item: &types.Empty{},
 	}
 	r2 := &resource.Entry{
 		Metadata: resource.Metadata{
-			Name:    resource.NewName("ns1", "l1"),
-			Version: "v2",
+			FullName: resource.NewFullName("ns1", "l1"),
+			Version:  "v2",
 		},
 		Item: &types.Empty{},
 	}

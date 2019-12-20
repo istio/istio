@@ -15,6 +15,7 @@ package sidecar
 
 import (
 	"istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/meta/metadata"
@@ -43,12 +44,12 @@ func (a *DefaultSelectorAnalyzer) Metadata() analysis.Metadata {
 
 // Analyze implements Analyzer
 func (a *DefaultSelectorAnalyzer) Analyze(c analysis.Context) {
-	nsToSidecars := make(map[string][]*resource.Entry)
+	nsToSidecars := make(map[resource.Namespace][]*resource.Entry)
 
 	c.ForEach(metadata.IstioNetworkingV1Alpha3Sidecars, func(r *resource.Entry) bool {
 		s := r.Item.(*v1alpha3.Sidecar)
 
-		ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
+		ns := r.Metadata.FullName.Namespace
 
 		if s.WorkloadSelector == nil {
 			nsToSidecars[ns] = append(nsToSidecars[ns], r)
@@ -61,7 +62,7 @@ func (a *DefaultSelectorAnalyzer) Analyze(c analysis.Context) {
 		if len(sList) > 1 {
 			sNames := getNames(sList)
 			for _, r := range sList {
-				c.Report(metadata.IstioNetworkingV1Alpha3Sidecars, msg.NewMultipleSidecarsWithoutWorkloadSelectors(r, sNames, ns))
+				c.Report(metadata.IstioNetworkingV1Alpha3Sidecars, msg.NewMultipleSidecarsWithoutWorkloadSelectors(r, sNames, string(ns)))
 			}
 		}
 	}

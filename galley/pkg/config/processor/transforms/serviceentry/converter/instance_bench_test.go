@@ -46,7 +46,7 @@ func benchmarkService(b *testing.B, reuse bool) {
 
 	service := &resource.Entry{
 		Metadata: resource.Metadata{
-			Name:       resource.NewName(benchNamespace, "someservice"),
+			FullName:   resource.NewFullName(benchNamespace, "someservice"),
 			Version:    resource.Version("v1"),
 			CreateTime: time.Now(),
 			Annotations: resource.StringMap{
@@ -193,7 +193,7 @@ func benchmarkEndpoints(b *testing.B, reuse bool) {
 
 	entry := &resource.Entry{
 		Metadata: resource.Metadata{
-			Name:       resource.NewName(benchNamespace, "someservice"),
+			FullName:   resource.NewFullName(benchNamespace, "someservice"),
 			Version:    resource.Version("v1"),
 			CreateTime: time.Now(),
 			Annotations: resource.StringMap{
@@ -255,7 +255,7 @@ func min(a, b int) int {
 
 func addPod(pods fakePodCache, ip, serviceAccountName string) {
 	pods[ip] = pod.Info{
-		FullName:           resource.NewName(benchNamespace, "SomePod"),
+		FullName:           resource.NewFullName(benchNamespace, "SomePod"),
 		NodeName:           "SomeNode",
 		Locality:           "locality",
 		ServiceAccountName: serviceAccountName,

@@ -94,7 +94,7 @@ func TestCollection_Delete(t *testing.T) {
 	col.Set(data.Event1Col1AddItem1.Entry)
 	col.Start()
 
-	col.Remove(data.Event1Col1AddItem1.Entry.Metadata.Name)
+	col.Remove(data.Event1Col1AddItem1.Entry.Metadata.FullName)
 
 	expected := []event.Event{
 		data.Event1Col1AddItem1,
@@ -115,7 +115,7 @@ func TestCollection_Delete_NoItem(t *testing.T) {
 	col.Set(data.EntryN1I1V1)
 	col.Start()
 
-	col.Remove(data.EntryN2I2V2.Metadata.Name)
+	col.Remove(data.EntryN2I2V2.Metadata.FullName)
 
 	expected := []event.Event{
 		data.Event1Col1AddItem1,

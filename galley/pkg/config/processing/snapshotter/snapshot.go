@@ -84,7 +84,7 @@ func (s *Snapshot) Collections() []string {
 }
 
 // Find the resource with the given name and collection.
-func (s *Snapshot) Find(cpl collection.Name, name resource.Name) *resource.Entry {
+func (s *Snapshot) Find(cpl collection.Name, name resource.FullName) *resource.Entry {
 	c := s.set.Collection(cpl)
 	if c == nil {
 		return nil

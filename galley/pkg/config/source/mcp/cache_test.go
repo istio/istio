@@ -351,7 +351,7 @@ func resourceName(e event.Event) string {
 	if e.Entry == nil {
 		return ""
 	}
-	return e.Entry.Metadata.Name.String()
+	return e.Entry.Metadata.FullName.String()
 }
 
 func protoTime(t time.Time) *types.Timestamp {
@@ -426,13 +426,13 @@ func (e output) toEvent() event.Event {
 		return event.FullSyncFor(colName)
 	}
 
-	fullName, _ := resource.NewFullName(e.name)
+	fullName, _ := resource.ParseFullName(e.name)
 	return event.Event{
 		Kind:   e.kind,
 		Source: colName,
 		Entry: &resource.Entry{
 			Metadata: resource.Metadata{
-				Name:       fullName,
+				FullName:   fullName,
 				CreateTime: eventTime,
 				Version:    "v1",
 			},

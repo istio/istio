@@ -62,7 +62,7 @@ var (
 		"Label4": "LabelValue4",
 		"Label5": "LabelValue5",
 	}
-	benchServiceName = "service1"
+	benchServiceName = resource.LocalName("service1")
 )
 
 func BenchmarkEndpointNoChange(b *testing.B) {
@@ -176,8 +176,8 @@ func loadNodesAndPods(handler event.Handler) {
 			Source: metadata.K8SCoreV1Nodes,
 			Entry: &resource.Entry{
 				Metadata: resource.Metadata{
-					Name:       resource.NewName("", nodeName),
-					Version:    resource.Version("0"),
+					FullName:   resource.NewFullName("", resource.LocalName(nodeName)),
+					Version:    "0",
 					CreateTime: createTime,
 					Labels: resource.StringMap{
 						pod.LabelZoneRegion:        region,
@@ -197,14 +197,14 @@ func loadNodesAndPods(handler event.Handler) {
 			Source: metadata.K8SCoreV1Pods,
 			Entry: &resource.Entry{
 				Metadata: resource.Metadata{
-					Name:       resource.NewName(namespace, podName),
-					Version:    resource.Version("0"),
+					FullName:   resource.NewFullName(namespace, resource.LocalName(podName)),
+					Version:    "0",
 					CreateTime: createTime,
 				},
 				Item: &coreV1.Pod{
 					ObjectMeta: metaV1.ObjectMeta{
 						Name:      podName,
-						Namespace: namespace,
+						Namespace: namespace.String(),
 					},
 					Spec: coreV1.PodSpec{
 						NodeName:           nodeName,
@@ -223,8 +223,8 @@ func loadNodesAndPods(handler event.Handler) {
 func newService() *resource.Entry {
 	return &resource.Entry{
 		Metadata: resource.Metadata{
-			Name:        resource.NewName(namespace, benchServiceName),
-			Version:     resource.Version("0"),
+			FullName:    resource.NewFullName(namespace, benchServiceName),
+			Version:     "0",
 			CreateTime:  createTime,
 			Labels:      labels,
 			Annotations: annos,
@@ -262,16 +262,16 @@ func newEndpoints(ips ...string) *resource.Entry {
 	}
 	return &resource.Entry{
 		Metadata: resource.Metadata{
-			Name:        resource.NewName(namespace, benchServiceName),
-			Version:     resource.Version("0"),
+			FullName:    resource.NewFullName(namespace, benchServiceName),
+			Version:     "0",
 			CreateTime:  createTime,
 			Labels:      labels,
 			Annotations: annos,
 		},
 		Item: &coreV1.Endpoints{
 			ObjectMeta: metaV1.ObjectMeta{
-				Name:              benchServiceName,
-				Namespace:         namespace,
+				Name:              benchServiceName.String(),
+				Namespace:         namespace.String(),
 				CreationTimestamp: metaV1.Time{Time: createTime},
 				Labels:            labels,
 				Annotations:       annos,

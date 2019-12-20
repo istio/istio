@@ -60,9 +60,9 @@ func (c *ConflictingMeshGatewayHostsAnalyzer) Analyze(ctx analysis.Context) {
 }
 
 func combineResourceEntryNames(rList []*resource.Entry) string {
-	names := []string{}
+	names := make([]string, 0, len(rList))
 	for _, r := range rList {
-		names = append(names, r.Metadata.Name.String())
+		names = append(names, r.Metadata.FullName.String())
 	}
 	return strings.Join(names, ",")
 }
@@ -71,7 +71,7 @@ func initMeshGatewayHosts(ctx analysis.Context) map[util.ScopedFqdn][]*resource.
 	hostsVirtualServices := map[util.ScopedFqdn][]*resource.Entry{}
 	ctx.ForEach(metadata.IstioNetworkingV1Alpha3Virtualservices, func(r *resource.Entry) bool {
 		vs := r.Item.(*v1alpha3.VirtualService)
-		vsNamespace, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
+		vsNamespace := r.Metadata.FullName.Namespace
 		vsAttachedToMeshGateway := false
 		// No entry in gateways imply "mesh" by default
 		if len(vs.Gateways) == 0 {
@@ -93,7 +93,7 @@ func initMeshGatewayHosts(ctx analysis.Context) map[util.ScopedFqdn][]*resource.
 			}
 
 			for _, h := range vs.Hosts {
-				scopedFqdn := util.NewScopedFqdn(hostsNamespaceScope, vsNamespace, h)
+				scopedFqdn := util.NewScopedFqdn(string(hostsNamespaceScope), vsNamespace, h)
 				vsNames := hostsVirtualServices[scopedFqdn]
 				if len(vsNames) == 0 {
 					hostsVirtualServices[scopedFqdn] = []*resource.Entry{r}

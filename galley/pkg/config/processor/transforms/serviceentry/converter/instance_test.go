@@ -44,7 +44,7 @@ const (
 )
 
 var (
-	fullName = resource.NewName(namespace, serviceName)
+	fullName = resource.NewFullName(namespace, serviceName)
 
 	tnow = time.Now()
 
@@ -59,8 +59,8 @@ func TestServiceDefaults(t *testing.T) {
 
 	service := &resource.Entry{
 		Metadata: resource.Metadata{
-			Name:    fullName,
-			Version: version,
+			FullName: fullName,
+			Version:  version,
 
 			CreateTime: tnow,
 			Labels: resource.StringMap{
@@ -85,7 +85,7 @@ func TestServiceDefaults(t *testing.T) {
 	}
 
 	expectedMeta := resource.Metadata{
-		Name:       service.Metadata.Name,
+		FullName:   service.Metadata.FullName,
 		CreateTime: tnow,
 		Labels: resource.StringMap{
 			"l1": "v1",
@@ -130,7 +130,7 @@ func TestServiceResolution(t *testing.T) {
 			name: "DNS resolution",
 			service: &resource.Entry{
 				Metadata: resource.Metadata{
-					Name:       fullName,
+					FullName:   fullName,
 					CreateTime: tnow,
 				},
 				Item: &coreV1.ServiceSpec{
@@ -144,7 +144,7 @@ func TestServiceResolution(t *testing.T) {
 			name: "NONE resolution",
 			service: &resource.Entry{
 				Metadata: resource.Metadata{
-					Name:       fullName,
+					FullName:   fullName,
 					CreateTime: tnow,
 				},
 				Item: &coreV1.ServiceSpec{
@@ -157,7 +157,7 @@ func TestServiceResolution(t *testing.T) {
 			name: "STATIC resolution",
 			endpoints: &resource.Entry{
 				Metadata: resource.Metadata{
-					Name:       fullName,
+					FullName:   fullName,
 					CreateTime: tnow,
 				},
 				Item: &coreV1.Endpoints{
@@ -182,7 +182,7 @@ func TestServiceResolution(t *testing.T) {
 			},
 			service: &resource.Entry{
 				Metadata: resource.Metadata{
-					Name:       fullName,
+					FullName:   fullName,
 					CreateTime: tnow,
 				},
 				Item: &coreV1.ServiceSpec{
@@ -195,7 +195,7 @@ func TestServiceResolution(t *testing.T) {
 			name: "STATIC resolution",
 			endpoints: &resource.Entry{
 				Metadata: resource.Metadata{
-					Name:       fullName,
+					FullName:   fullName,
 					CreateTime: tnow,
 				},
 				Item: &coreV1.Endpoints{
@@ -231,7 +231,7 @@ func TestServiceResolution(t *testing.T) {
 			},
 			service: &resource.Entry{
 				Metadata: resource.Metadata{
-					Name:       fullName,
+					FullName:   fullName,
 					CreateTime: tnow,
 				},
 				Item: &coreV1.ServiceSpec{
@@ -273,7 +273,7 @@ func TestServiceExportTo(t *testing.T) {
 
 	service := &resource.Entry{
 		Metadata: resource.Metadata{
-			Name:       fullName,
+			FullName:   fullName,
 			Version:    resource.Version("v1"),
 			CreateTime: tnow,
 			Annotations: resource.StringMap{
@@ -286,7 +286,7 @@ func TestServiceExportTo(t *testing.T) {
 	}
 
 	expectedMeta := resource.Metadata{
-		Name:       fullName,
+		FullName:   fullName,
 		CreateTime: tnow,
 		Annotations: resource.StringMap{
 			annotation.NetworkingExportTo.Name:            "c, a, b",
@@ -314,7 +314,7 @@ func TestNoNamespaceShouldUseDefault(t *testing.T) {
 	ip := "10.0.0.1"
 	service := &resource.Entry{
 		Metadata: resource.Metadata{
-			Name:       resource.NewName("", serviceName),
+			FullName:   resource.NewFullName("", serviceName),
 			Version:    resource.Version("v1"),
 			CreateTime: tnow,
 		},
@@ -324,7 +324,7 @@ func TestNoNamespaceShouldUseDefault(t *testing.T) {
 	}
 
 	expectedMeta := resource.Metadata{
-		Name:       service.Metadata.Name,
+		FullName:   service.Metadata.FullName,
 		CreateTime: tnow,
 		Annotations: resource.StringMap{
 			annotation.AlphaNetworkingServiceVersion.Name: "v1",
@@ -402,7 +402,7 @@ func TestServicePortValidation(t *testing.T) {
 
 			service := &resource.Entry{
 				Metadata: resource.Metadata{
-					Name:       fullName,
+					FullName:   fullName,
 					Version:    resource.Version("v1"),
 					CreateTime: tnow,
 				},
@@ -419,7 +419,7 @@ func TestServicePortValidation(t *testing.T) {
 			}
 
 			expectedMeta := resource.Metadata{
-				Name:       service.Metadata.Name,
+				FullName:   service.Metadata.FullName,
 				CreateTime: tnow,
 				Annotations: resource.StringMap{
 					annotation.AlphaNetworkingServiceVersion.Name: version,
@@ -476,7 +476,7 @@ func TestServicePorts(t *testing.T) {
 
 			service := &resource.Entry{
 				Metadata: resource.Metadata{
-					Name:       fullName,
+					FullName:   fullName,
 					Version:    resource.Version("v1"),
 					CreateTime: tnow,
 				},
@@ -493,7 +493,7 @@ func TestServicePorts(t *testing.T) {
 			}
 
 			expectedMeta := resource.Metadata{
-				Name:       service.Metadata.Name,
+				FullName:   service.Metadata.FullName,
 				CreateTime: tnow,
 				Annotations: resource.StringMap{
 					annotation.AlphaNetworkingServiceVersion.Name: version,
@@ -546,7 +546,7 @@ func TestClusterIPWithNoResolution(t *testing.T) {
 
 			service := &resource.Entry{
 				Metadata: resource.Metadata{
-					Name:       fullName,
+					FullName:   fullName,
 					Version:    resource.Version("v1"),
 					CreateTime: tnow,
 				},
@@ -556,7 +556,7 @@ func TestClusterIPWithNoResolution(t *testing.T) {
 			}
 
 			expectedMeta := resource.Metadata{
-				Name:       service.Metadata.Name,
+				FullName:   service.Metadata.FullName,
 				CreateTime: tnow,
 				Annotations: resource.StringMap{
 					annotation.AlphaNetworkingServiceVersion.Name: version,
@@ -584,7 +584,7 @@ func TestExternalService(t *testing.T) {
 	externalName := "myexternalsvc"
 	service := &resource.Entry{
 		Metadata: resource.Metadata{
-			Name:       fullName,
+			FullName:   fullName,
 			Version:    resource.Version("v1"),
 			CreateTime: tnow,
 		},
@@ -602,7 +602,7 @@ func TestExternalService(t *testing.T) {
 	}
 
 	expectedMeta := resource.Metadata{
-		Name:       service.Metadata.Name,
+		FullName:   service.Metadata.FullName,
 		CreateTime: tnow,
 		Annotations: resource.StringMap{
 			annotation.AlphaNetworkingServiceVersion.Name: version,
@@ -640,7 +640,7 @@ func TestEndpointsWithNoSubsets(t *testing.T) {
 
 	endpoints := &resource.Entry{
 		Metadata: resource.Metadata{
-			Name:       fullName,
+			FullName:   fullName,
 			Version:    resource.Version("v1"),
 			CreateTime: tnow,
 		},
@@ -674,21 +674,21 @@ func TestEndpoints(t *testing.T) {
 		ip1: {
 			NodeName:           "node1",
 			Locality:           l1,
-			FullName:           resource.NewName(namespace, "pod1"),
+			FullName:           resource.NewFullName(namespace, "pod1"),
 			ServiceAccountName: "sa1",
 			Labels:             podLabels,
 		},
 		ip2: {
 			NodeName:           "node2",
 			Locality:           l2,
-			FullName:           resource.NewName(namespace, "pod2"),
+			FullName:           resource.NewFullName(namespace, "pod2"),
 			ServiceAccountName: "sa2",
 			Labels:             podLabels,
 		},
 		ip3: {
 			NodeName:           "node1", // Also on node1
 			Locality:           l1,
-			FullName:           resource.NewName(namespace, "pod3"),
+			FullName:           resource.NewFullName(namespace, "pod3"),
 			ServiceAccountName: "sa1", // Same service account as pod1 to test duplicates.
 			Labels:             podLabels,
 		},
@@ -696,7 +696,7 @@ func TestEndpoints(t *testing.T) {
 
 	endpoints := &resource.Entry{
 		Metadata: resource.Metadata{
-			Name:       fullName,
+			FullName:   fullName,
 			Version:    resource.Version("v1"),
 			CreateTime: tnow,
 		},
@@ -801,7 +801,7 @@ func TestEndpointsPodNotFound(t *testing.T) {
 
 	endpoints := &resource.Entry{
 		Metadata: resource.Metadata{
-			Name:       fullName,
+			FullName:   fullName,
 			Version:    resource.Version("v1"),
 			CreateTime: tnow,
 		},
@@ -855,7 +855,7 @@ func TestEndpointsNodeNotFound(t *testing.T) {
 	cache := fakePodCache{
 		ip: {
 			NodeName:           "node1",
-			FullName:           resource.NewName(namespace, "pod1"),
+			FullName:           resource.NewFullName(namespace, "pod1"),
 			ServiceAccountName: "sa1",
 			Labels:             podLabels,
 		},
@@ -863,7 +863,7 @@ func TestEndpointsNodeNotFound(t *testing.T) {
 
 	endpoints := &resource.Entry{
 		Metadata: resource.Metadata{
-			Name:       fullName,
+			FullName:   fullName,
 			Version:    resource.Version("v1"),
 			CreateTime: tnow,
 		},

@@ -38,7 +38,7 @@ const (
 // Info for a Pod.
 type Info struct {
 	IP       string
-	FullName resource.Name
+	FullName resource.FullName
 	Labels   map[string]string
 	Locality string
 
@@ -96,7 +96,7 @@ func (pc *cacheImpl) Handle(e event.Event) {
 
 func (pc *cacheImpl) handleNode(e event.Event) {
 	// Nodes don't have namespaces.
-	_, nodeName := e.Entry.Metadata.Name.InterpretAsNamespaceAndName()
+	nodeName := string(e.Entry.Metadata.FullName.Name)
 
 	switch e.Kind {
 	case event.Added, event.Updated:
@@ -144,7 +144,7 @@ func (pc *cacheImpl) handlePod(e event.Event) {
 			serviceAccountName := kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.Namespace)
 			pod := Info{
 				IP:                 ip,
-				FullName:           e.Entry.Metadata.Name,
+				FullName:           e.Entry.Metadata.FullName,
 				NodeName:           nodeName,
 				Locality:           locality,
 				Labels:             pod.Labels,
@@ -163,7 +163,7 @@ func (pc *cacheImpl) handlePod(e event.Event) {
 		} else {
 			// The resource was either not available or failed parsing. Look it up by brute force.
 			for podIP, info := range pc.pods {
-				if info.FullName == e.Entry.Metadata.Name {
+				if info.FullName == e.Entry.Metadata.FullName {
 					ip = podIP
 					break
 				}

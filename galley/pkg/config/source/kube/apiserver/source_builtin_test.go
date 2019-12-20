@@ -22,12 +22,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/pkg/log"
+
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/testing/k8smeta"
 	"istio.io/istio/galley/pkg/testing/mock"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -396,7 +397,7 @@ func TestEndpoints(t *testing.T) {
 func toResource(objectMeta metav1.Object, item proto.Message) *resource.Entry {
 	return &resource.Entry{
 		Metadata: resource.Metadata{
-			Name:        resource.NewName(objectMeta.GetNamespace(), objectMeta.GetName()),
+			FullName:    resource.NewFullName(resource.Namespace(objectMeta.GetNamespace()), resource.LocalName(objectMeta.GetName())),
 			Version:     resource.Version(objectMeta.GetResourceVersion()),
 			CreateTime:  fakeCreateTime,
 			Labels:      objectMeta.GetLabels(),

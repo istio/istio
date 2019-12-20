@@ -62,9 +62,10 @@ func (a *ValidationAnalyzer) Analyze(ctx analysis.Context) {
 	c := collection.NewName(a.s.Collection)
 
 	ctx.ForEach(c, func(r *resource.Entry) bool {
-		ns, name := r.Metadata.Name.InterpretAsNamespaceAndName()
+		ns := r.Metadata.FullName.Namespace
+		name := r.Metadata.FullName.Name
 
-		err := a.s.Validate(name, ns, r.Item)
+		err := a.s.Validate(string(name), string(ns), r.Item)
 		if err != nil {
 			if multiErr, ok := err.(*multierror.Error); ok {
 				for _, err := range multiErr.WrappedErrors() {

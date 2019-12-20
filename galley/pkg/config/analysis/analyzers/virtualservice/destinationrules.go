@@ -59,7 +59,7 @@ func (d *DestinationRuleAnalyzer) analyzeVirtualService(r *resource.Entry, ctx a
 	destHostsAndSubsets map[hostAndSubset]bool) {
 
 	vs := r.Item.(*v1alpha3.VirtualService)
-	ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
+	ns := r.Metadata.FullName.Namespace
 
 	destinations := getRouteDestinations(vs)
 
@@ -71,7 +71,7 @@ func (d *DestinationRuleAnalyzer) analyzeVirtualService(r *resource.Entry, ctx a
 	}
 }
 
-func (d *DestinationRuleAnalyzer) checkDestinationSubset(vsNamespace string, destination *v1alpha3.Destination,
+func (d *DestinationRuleAnalyzer) checkDestinationSubset(vsNamespace resource.Namespace, destination *v1alpha3.Destination,
 	destHostsAndSubsets map[hostAndSubset]bool) bool {
 
 	name := util.GetResourceNameFromHost(vsNamespace, destination.GetHost())
@@ -97,7 +97,7 @@ func initDestHostsAndSubsets(ctx analysis.Context) map[hostAndSubset]bool {
 	hostsAndSubsets := make(map[hostAndSubset]bool)
 	ctx.ForEach(metadata.IstioNetworkingV1Alpha3Destinationrules, func(r *resource.Entry) bool {
 		dr := r.Item.(*v1alpha3.DestinationRule)
-		drNamespace, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
+		drNamespace := r.Metadata.FullName.Namespace
 
 		for _, ss := range dr.GetSubsets() {
 			hs := hostAndSubset{

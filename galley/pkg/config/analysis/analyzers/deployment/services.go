@@ -19,6 +19,7 @@ import (
 	k8s_labels "k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/annotation"
+
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
@@ -104,7 +105,7 @@ func (s *ServiceAssociationAnalyzer) findMatchingServices(d *apps_v1.Deployment,
 		sSelector := k8s_labels.SelectorFromSet(s.Selector)
 		pLabels := k8s_labels.Set(d.Spec.Template.Labels)
 		if sSelector.Matches(pLabels) {
-			matchingSvcs = append(matchingSvcs, ServiceSpecWithName{r.Metadata.Name.String(), s})
+			matchingSvcs = append(matchingSvcs, ServiceSpecWithName{r.Metadata.FullName.String(), s})
 		}
 
 		return true
@@ -150,7 +151,7 @@ func inMesh(r *resource.Entry, c analysis.Context) bool {
 
 	// In case the annotation is not present but there is a auto-injection label on the namespace,
 	// return the auto-injection label status
-	if niv, nivok := getNamesSidecarInjectionStatus(d.Namespace, c); nivok {
+	if niv, nivok := getNamesSidecarInjectionStatus(resource.Namespace(d.Namespace), c); nivok {
 		return niv
 	}
 
@@ -168,10 +169,10 @@ func getPodSidecarInjectionStatus(d *apps_v1.Deployment) (enabled bool, ok bool)
 // autoInjectionEnabled returns two booleans: enabled and ok.
 // enabled is true when namespace ns has 'istio-injection' label set to 'enabled'
 // ok is true when the namespace doesn't have the label 'istio-injection'
-func getNamesSidecarInjectionStatus(ns string, c analysis.Context) (enabled bool, ok bool) {
+func getNamesSidecarInjectionStatus(ns resource.Namespace, c analysis.Context) (enabled bool, ok bool) {
 	enabled, ok = false, false
 
-	namespace := c.Find(metadata.K8SCoreV1Namespaces, resource.NewName("", ns))
+	namespace := c.Find(metadata.K8SCoreV1Namespaces, resource.NewFullName("", resource.LocalName(ns)))
 	if namespace != nil {
 		enabled, ok = namespace.Metadata.Labels[injection.InjectionLabelName] == injection.InjectionLabelEnableValue, true
 	}

@@ -53,7 +53,7 @@ func (s *GatewayAnalyzer) Analyze(c analysis.Context) {
 func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Entry, c analysis.Context) {
 	vs := r.Item.(*v1alpha3.VirtualService)
 
-	vsNs, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
+	vsNs := r.Metadata.FullName.Namespace
 	for _, gwName := range vs.Gateways {
 		// This is a special-case accepted value
 		if gwName == util.MeshGateway {

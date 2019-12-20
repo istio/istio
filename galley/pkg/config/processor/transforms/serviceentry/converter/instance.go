@@ -107,13 +107,13 @@ func (i *Instance) convertService(service *resource.Entry, outMeta *resource.Met
 	for _, port := range spec.Ports {
 		p, err := convertPort(port)
 		if err != nil {
-			scope.Processing.Warnf("convertService: failed to convert port %v for service %s (skipping): %v", port, service.Metadata.Name, err)
+			scope.Processing.Warnf("convertService: failed to convert port %v for service %s (skipping): %v", port, service.Metadata.FullName, err)
 			continue
 		}
 		ports = append(ports, p)
 	}
 
-	host := serviceHostname(service.Metadata.Name, i.domain)
+	host := serviceHostname(service.Metadata.FullName, i.domain)
 
 	// Store everything in the ServiceEntry.
 	out.Hosts = []string{host}
@@ -130,7 +130,7 @@ func (i *Instance) convertService(service *resource.Entry, outMeta *resource.Met
 	out.ExportTo = convertExportTo(service.Metadata.Annotations)
 
 	// Convert Metadata
-	outMeta.Name = service.Metadata.Name
+	outMeta.FullName = service.Metadata.FullName
 	outMeta.Labels = service.Metadata.Labels.Clone()
 
 	// Convert the creation time.
@@ -270,8 +270,9 @@ func convertExternalServiceEndpoints(
 }
 
 // serviceHostname produces FQDN for a k8s service
-func serviceHostname(fullName resource.Name, domainSuffix string) string {
-	namespace, name := fullName.InterpretAsNamespaceAndName()
+func serviceHostname(fullName resource.FullName, domainSuffix string) string {
+	namespace := string(fullName.Namespace)
+	name := string(fullName.Name)
 	if namespace == "" {
 		namespace = coreV1.NamespaceDefault
 	}
