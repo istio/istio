@@ -81,7 +81,6 @@ const (
 	SkipRuleApply             = "skip-rule-apply"
 	RunValidation             = "run-validation"
 	IptablesProbePort         = "iptables-probe-port"
-	HostIP                    = "host-ip"
 )
 
 // Constants for iptables commands
