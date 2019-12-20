@@ -76,7 +76,7 @@ func (e *Event) Clone() Event {
 func (e Event) String() string {
 	switch e.Kind {
 	case Added, Updated, Deleted:
-		return fmt.Sprintf("[Event](%s: %v/%v)", e.Kind.String(), e.Source, e.Entry.Metadata.Name)
+		return fmt.Sprintf("[Event](%s: %v/%v)", e.Kind.String(), e.Source, e.Entry.Metadata.FullName)
 	case FullSync:
 		return fmt.Sprintf("[Event](%s: %v)", e.Kind.String(), e.Source)
 	default:
@@ -105,11 +105,11 @@ func DeleteForResource(source collection.Name, r *resource.Entry) Event {
 }
 
 // DeleteFor creates a Delete event for the given source and name.
-func DeleteFor(source collection.Name, name resource.Name, v resource.Version) Event {
+func DeleteFor(source collection.Name, name resource.FullName, v resource.Version) Event {
 	return DeleteForResource(source, &resource.Entry{
 		Metadata: resource.Metadata{
-			Name:    name,
-			Version: v,
+			FullName: name,
+			Version:  v,
 		},
 	})
 }

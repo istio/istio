@@ -79,7 +79,7 @@ func SerializeMetadata(m Metadata) (*mcp.Metadata, error) {
 	}
 
 	return &mcp.Metadata{
-		Name:        m.Name.String(),
+		Name:        m.FullName.String(),
 		CreateTime:  createTime,
 		Version:     string(m.Version),
 		Annotations: m.Annotations,
@@ -138,8 +138,13 @@ func DeserializeMetadata(m *mcp.Metadata) (Metadata, error) {
 		return Metadata{}, fmt.Errorf("error unmarshaling create time: %v", err)
 	}
 
+	name, err := ParseFullName(m.Name)
+	if err != nil {
+		return Metadata{}, fmt.Errorf("error unmarshaling name: %v", err)
+	}
+
 	return Metadata{
-		Name:        Name{m.Name},
+		FullName:    name,
 		CreateTime:  createTime,
 		Version:     Version(m.Version),
 		Annotations: m.Annotations,

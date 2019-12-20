@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,67 +15,82 @@
 package resource
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 )
 
-// Name of the resource. It is unique within a given set of resource of the same collection.
-type Name struct{ string }
+// Namespace containing the resource.
+type Namespace string
 
-// NewName returns a Name from namespace and name.
-func NewName(namespace, local string) Name {
-	if namespace == "" {
-		return Name{string: local}
-	}
-
-	return Name{string: namespace + "/" + local}
+func (n Namespace) String() string {
+	return string(n)
 }
 
-// NewFullName returns a given name as a resource Name, validating it for correctness
-func NewFullName(name string) (Name, error) {
-	if name == "" {
-		return Name{string: ""}, errors.New("invalid name: can not be empty")
-	}
+// LocalName that uniquely identifies the resource within the Namespace.
+type LocalName string
 
-	ns, n := splitNamespaceAndName(name)
+func (n LocalName) String() string {
+	return string(n)
+}
 
-	if ns == "" {
-		return Name{string: ""}, fmt.Errorf("invalid name %s: namespace must not be empty", name)
-	}
-	if n == "" {
-		return Name{string: ""}, fmt.Errorf("invalid name %s: name must not be empty", name)
-	}
+// FullName is a name that uniquely identifies a resource within the mesh.
+type FullName struct {
+	Namespace Namespace
+	Name      LocalName
+}
 
-	return Name{string: name}, nil
+// String interface implementation.
+func (n FullName) String() string {
+	if len(n.Namespace) == 0 {
+		return string(n.Name)
+	}
+	return string(n.Namespace) + "/" + string(n.Name)
 }
 
 // NewShortOrFullName tries to parse the given name to resource.Name. If the name does not include namespace information,
 // the defaultNamespace is used.
-func NewShortOrFullName(defaultNamespace, name string) Name {
-	ns, host := splitNamespaceAndName(name)
-	if ns == "" {
-		return NewName(defaultNamespace, host)
-	}
-	return NewName(ns, host)
-}
-
-// String interface implementation.
-func (n Name) String() string {
-	return n.string
-}
-
-// splitNamespaceAndName tries to split the string as namespace and name
-func splitNamespaceAndName(name string) (string, string) {
+func NewShortOrFullName(defaultNamespace Namespace, name string) FullName {
 	parts := strings.SplitN(name, "/", 2)
 	if len(parts) == 1 {
-		return "", parts[0]
+		return FullName{
+			Namespace: defaultNamespace,
+			Name:      LocalName(parts[0]),
+		}
 	}
 
-	return parts[0], parts[1]
+	return FullName{
+		Namespace: Namespace(parts[0]),
+		Name:      LocalName(parts[1]),
+	}
 }
 
-// InterpretAsNamespaceAndName tries to split the name as namespace and name
-func (n Name) InterpretAsNamespaceAndName() (string, string) {
-	return splitNamespaceAndName(n.String())
+// Validate that the Name and Namespace are set.
+func (n FullName) Validate() error {
+	if len(n.Name) == 0 {
+		return fmt.Errorf("invalid name '%s': name must not be empty", n.String())
+	}
+	return nil
+}
+
+// NewFullName creates a new FullName from the given Namespace and Name.
+func NewFullName(ns Namespace, n LocalName) FullName {
+	return FullName{
+		Namespace: ns,
+		Name:      n,
+	}
+}
+
+// ParseFullName parses the given name string that was serialized via FullName.String()
+func ParseFullName(name string) (FullName, error) {
+	return ParseFullNameWithDefaultNamespace("", name)
+}
+
+// ParseFullName parses the given name string using defaultNamespace if no namespace is found.
+func ParseFullNameWithDefaultNamespace(defaultNamespace Namespace, name string) (FullName, error) {
+	out := NewShortOrFullName(defaultNamespace, name)
+
+	if err := out.Validate(); err != nil {
+		return FullName{}, fmt.Errorf("failed parsing name '%v': %v", name, err)
+	}
+	return out, nil
 }

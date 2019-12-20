@@ -61,8 +61,8 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 
 	c.ForEach(metadata.K8SCoreV1Namespaces, func(r *resource.Entry) bool {
 
-		ns := r.Metadata.Name.String()
-		if util.IsSystemNamespace(ns) {
+		ns := r.Metadata.FullName.String()
+		if util.IsSystemNamespace(resource.Namespace(ns)) {
 			return true
 		}
 
@@ -72,7 +72,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 			// TODO: if Istio is installed with sidecarInjectorWebhook.enableNamespacesByDefault=true
 			// (in the istio-sidecar-injector configmap), we need to reverse this logic and treat this as an injected namespace
 
-			c.Report(metadata.K8SCoreV1Namespaces, msg.NewNamespaceNotInjected(r, r.Metadata.Name.String(), r.Metadata.Name.String()))
+			c.Report(metadata.K8SCoreV1Namespaces, msg.NewNamespaceNotInjected(r, r.Metadata.FullName.String(), r.Metadata.FullName.String()))
 			return true
 		}
 
@@ -81,7 +81,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 			return true
 		}
 
-		injectedNamespaces[r.Metadata.Name.String()] = true
+		injectedNamespaces[r.Metadata.FullName.String()] = true
 
 		return true
 	})

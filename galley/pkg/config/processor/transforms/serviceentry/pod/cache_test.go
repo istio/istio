@@ -42,7 +42,7 @@ const (
 )
 
 var (
-	fullName = resource.NewName(namespace, podName)
+	fullName = resource.NewFullName(namespace, podName)
 
 	labels = map[string]string{
 		"l1": "v1",
@@ -335,8 +335,8 @@ func TestNoNamespaceAndNoServiceAccount(t *testing.T) {
 		Source: metadata.K8SCoreV1Pods,
 		Entry: &resource.Entry{
 			Metadata: resource.Metadata{
-				Name:    fullName,
-				Version: resource.Version("v1"),
+				FullName: fullName,
+				Version:  "v1",
 			},
 			Item: &coreV1.Pod{
 				ObjectMeta: metaV1.ObjectMeta{
@@ -374,8 +374,8 @@ func TestWrongCollectionShouldNotPanic(t *testing.T) {
 		Source: metadata.K8SCoreV1Services,
 		Entry: &resource.Entry{
 			Metadata: resource.Metadata{
-				Name:    resource.NewName("ns", "myservice"),
-				Version: resource.Version("v1"),
+				FullName: resource.NewFullName("ns", "myservice"),
+				Version:  "v1",
 			},
 			Item: &coreV1.Service{},
 		},
@@ -468,8 +468,8 @@ func TestDeleteWithNoItemShouldUseFullName(t *testing.T) {
 			Source: metadata.K8SCoreV1Pods,
 			Entry: &resource.Entry{
 				Metadata: resource.Metadata{
-					Name:    fullName,
-					Version: resource.Version("v1"),
+					FullName: fullName,
+					Version:  "v1",
 				},
 			},
 		},
@@ -506,7 +506,7 @@ func TestDeleteNotFoundWithMissingItemShouldNotPanic(t *testing.T) {
 		Source: metadata.K8SCoreV1Pods,
 		Entry: &resource.Entry{
 			Metadata: resource.Metadata{
-				Name: fullName,
+				FullName: fullName,
 			},
 		},
 	})
@@ -526,9 +526,9 @@ func TestPodWithNoIPShouldBeIgnored(t *testing.T) {
 }
 
 func applyEvents(l *listener, h event.Handler, events []event.Event) {
-	for _, event := range events {
+	for _, e := range events {
 		l.reset()
-		h.Handle(event)
+		h.Handle(e)
 	}
 }
 
@@ -572,7 +572,7 @@ func (b *podEntryBuilder) Phase(phase coreV1.PodPhase) *podEntryBuilder {
 func (b *podEntryBuilder) Build() *resource.Entry {
 	return &resource.Entry{
 		Metadata: resource.Metadata{
-			Name: fullName,
+			FullName: fullName,
 		},
 		Item: &coreV1.Pod{
 			ObjectMeta: metaV1.ObjectMeta{
@@ -602,8 +602,8 @@ func nodeEntry(region, zone string) *resource.Entry {
 	}
 	return &resource.Entry{
 		Metadata: resource.Metadata{
-			Name:   resource.NewName("", nodeName),
-			Labels: labels,
+			FullName: resource.NewFullName("", nodeName),
+			Labels:   labels,
 		},
 	}
 }

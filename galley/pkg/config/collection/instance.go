@@ -29,7 +29,7 @@ type Instance struct {
 	mu          sync.RWMutex // TODO: This lock will most likely cause contention. We should investigate whether removing it would help.
 	collection  collection.Name
 	generation  int64
-	entries     map[resource.Name]*resource.Entry
+	entries     map[resource.FullName]*resource.Entry
 	copyOnWrite bool
 }
 
@@ -37,7 +37,7 @@ type Instance struct {
 func New(collection collection.Name) *Instance {
 	return &Instance{
 		collection: collection,
-		entries:    make(map[resource.Name]*resource.Entry),
+		entries:    make(map[resource.FullName]*resource.Entry),
 	}
 }
 
@@ -47,7 +47,7 @@ func (c *Instance) Name() collection.Name {
 }
 
 // Get the instance with the given name
-func (c *Instance) Get(name resource.Name) *resource.Entry {
+func (c *Instance) Get(name resource.FullName) *resource.Entry {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.entries[name]
@@ -84,11 +84,11 @@ func (c *Instance) Set(r *resource.Entry) {
 	defer c.mu.Unlock()
 	c.doCopyOnWrite()
 	c.generation++
-	c.entries[r.Metadata.Name] = r
+	c.entries[r.Metadata.FullName] = r
 }
 
 // Remove an entry from the collection.
-func (c *Instance) Remove(n resource.Name) {
+func (c *Instance) Remove(n resource.FullName) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.doCopyOnWrite()
@@ -102,7 +102,7 @@ func (c *Instance) Clear() {
 	defer c.mu.Unlock()
 	c.doCopyOnWrite()
 	c.generation++
-	c.entries = make(map[resource.Name]*resource.Entry)
+	c.entries = make(map[resource.FullName]*resource.Entry)
 }
 
 func (c *Instance) doCopyOnWrite() { // TODO: we should optimize copy-on write.
@@ -110,7 +110,7 @@ func (c *Instance) doCopyOnWrite() { // TODO: we should optimize copy-on write.
 		return
 	}
 
-	m := make(map[resource.Name]*resource.Entry)
+	m := make(map[resource.FullName]*resource.Entry)
 	for k, v := range c.entries {
 		m[k] = v
 	}

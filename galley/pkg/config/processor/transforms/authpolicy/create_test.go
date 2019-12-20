@@ -311,7 +311,7 @@ func setup(g *GomegaWithT, i int) (event.Transformer, *fixtures.Source, *fixture
 func input() *resource.Entry {
 	return &resource.Entry{
 		Metadata: resource.Metadata{
-			Name: resource.NewName("ns", "ap"),
+			FullName: resource.NewFullName("ns", "ap"),
 		},
 		Item: &authn.Policy{
 			PeerIsOptional: true,
@@ -329,7 +329,7 @@ func input() *resource.Entry {
 func output() *resource.Entry {
 	return &resource.Entry{
 		Metadata: resource.Metadata{
-			Name: resource.NewName("ns", "ap"),
+			FullName: resource.NewFullName("ns", "ap"),
 		},
 		Item: &authn.Policy{
 			PeerIsOptional: true,

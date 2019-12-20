@@ -30,7 +30,7 @@ type Collection struct {
 	mu         sync.RWMutex // TODO: We should be able to get rid of this mutex.
 	collection collection.Name
 	handler    event.Handler
-	resources  map[resource.Name]*resource.Entry
+	resources  map[resource.FullName]*resource.Entry
 	synced     bool
 }
 
@@ -42,7 +42,7 @@ func NewCollection(c collection.Name) *Collection {
 
 	return &Collection{
 		collection: c,
-		resources:  make(map[resource.Name]*resource.Entry),
+		resources:  make(map[resource.FullName]*resource.Entry),
 	}
 }
 
@@ -82,12 +82,12 @@ func (c *Collection) Set(entry *resource.Entry) {
 	defer c.mu.Unlock()
 
 	kind := event.Added
-	_, found := c.resources[entry.Metadata.Name]
+	_, found := c.resources[entry.Metadata.FullName]
 	if found {
 		kind = event.Updated
 	}
 
-	c.resources[entry.Metadata.Name] = entry
+	c.resources[entry.Metadata.FullName] = entry
 
 	if c.synced {
 		c.dispatchFor(entry, kind)
@@ -111,7 +111,7 @@ func (c *Collection) Clear() {
 		}
 	}
 
-	c.resources = make(map[resource.Name]*resource.Entry)
+	c.resources = make(map[resource.FullName]*resource.Entry)
 }
 
 func (c *Collection) dispatchEvent(e event.Event) {
@@ -133,7 +133,7 @@ func (c *Collection) dispatchFor(entry *resource.Entry, kind event.Kind) {
 }
 
 // Remove the entry from the collection
-func (c *Collection) Remove(n resource.Name) {
+func (c *Collection) Remove(n resource.FullName) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -162,7 +162,7 @@ func (c *Collection) AllSorted() []*resource.Entry {
 	}
 
 	sort.Slice(result, func(i, j int) bool {
-		return strings.Compare(result[i].Metadata.Name.String(), result[j].Metadata.Name.String()) < 0
+		return strings.Compare(result[i].Metadata.FullName.String(), result[j].Metadata.FullName.String()) < 0
 	})
 
 	return result

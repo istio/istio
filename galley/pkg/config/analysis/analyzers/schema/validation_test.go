@@ -23,6 +23,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	"istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/analysis/testing/fixtures"
 	"istio.io/istio/galley/pkg/config/meta/metadata"
@@ -50,7 +51,7 @@ func TestCorrectArgs(t *testing.T) {
 			{
 				Item: &v1alpha3.VirtualService{},
 				Metadata: resource.Metadata{
-					Name: resource.NewName("ns", "name"),
+					FullName: resource.NewFullName("ns", "name"),
 				},
 			},
 		},

@@ -31,7 +31,7 @@ import (
 func TestSerialization_Basic(t *testing.T) {
 	e := Entry{
 		Metadata: Metadata{
-			Name:       NewName("ns1", "res1"),
+			FullName:   NewFullName("ns1", "res1"),
 			CreateTime: time.Unix(1, 1).UTC(),
 			Version:    "v1",
 		},
@@ -43,7 +43,7 @@ func TestSerialization_Basic(t *testing.T) {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
-	if env.Metadata.Name != e.Metadata.Name.String() {
+	if env.Metadata.Name != e.Metadata.FullName.String() {
 		t.Fatalf("unexpected name: %v", env.Metadata.Name)
 	}
 
@@ -73,7 +73,7 @@ func TestSerialization_Basic(t *testing.T) {
 func TestSerialize_Error(t *testing.T) {
 	e := Entry{
 		Metadata: Metadata{
-			Name:       NewName("ns1", "res1"),
+			FullName:   NewFullName("ns1", "res1"),
 			CreateTime: time.Unix(1, 1).UTC(),
 			Version:    "v1",
 		},
@@ -95,7 +95,7 @@ func TestMustSerialize(t *testing.T) {
 
 	e := Entry{
 		Metadata: Metadata{
-			Name:       NewName("ns1", "res1"),
+			FullName:   NewFullName("ns1", "res1"),
 			CreateTime: time.Unix(1, 1).UTC(),
 			Version:    "v1",
 		},
@@ -114,7 +114,7 @@ func TestMustSerialize_Panic(t *testing.T) {
 
 	e := Entry{
 		Metadata: Metadata{
-			Name:       NewName("ns1", "res1"),
+			FullName:   NewFullName("ns1", "res1"),
 			CreateTime: time.Unix(1, 1).UTC(),
 			Version:    "v1",
 		},
@@ -127,7 +127,7 @@ func TestMustSerialize_Panic(t *testing.T) {
 func TestSerialize_InvalidTimestamp_Error(t *testing.T) {
 	e := Entry{
 		Metadata: Metadata{
-			Name:       NewName("ns1", "res1"),
+			FullName:   NewFullName("ns1", "res1"),
 			CreateTime: time.Unix(math.MinInt64, math.MinInt64).UTC(),
 			Version:    "v1",
 		},
@@ -142,7 +142,7 @@ func TestSerialize_InvalidTimestamp_Error(t *testing.T) {
 func TestDeserialize_Error(t *testing.T) {
 	e := Entry{
 		Metadata: Metadata{
-			Name:       NewName("ns1", "res1"),
+			FullName:   NewFullName("ns1", "res1"),
 			CreateTime: time.Unix(1, 1).UTC(),
 			Version:    "v1",
 		},
@@ -164,7 +164,7 @@ func TestDeserialize_Error(t *testing.T) {
 func TestDeserialize_InvalidTimestamp_Error(t *testing.T) {
 	e := Entry{
 		Metadata: Metadata{
-			Name:       NewName("ns1", "res1"),
+			FullName:   NewFullName("ns1", "res1"),
 			CreateTime: time.Unix(1, 1).UTC(),
 			Version:    "v1",
 		},
@@ -186,7 +186,7 @@ func TestDeserialize_InvalidTimestamp_Error(t *testing.T) {
 func TestDeserialize_Any_Error(t *testing.T) {
 	e := Entry{
 		Metadata: Metadata{
-			Name:       NewName("ns1", "res1"),
+			FullName:   NewFullName("ns1", "res1"),
 			CreateTime: time.Unix(1, 1).UTC(),
 			Version:    "v1",
 		},
@@ -211,7 +211,7 @@ func TestDeserialize_Any_Error(t *testing.T) {
 func TestMustDeserialize(t *testing.T) {
 	e := Entry{
 		Metadata: Metadata{
-			Name:       NewName("ns1", "res1"),
+			FullName:   NewFullName("ns1", "res1"),
 			CreateTime: time.Unix(1, 1).UTC(),
 			Version:    "v1",
 		},
@@ -232,7 +232,7 @@ func TestMustDeserialize(t *testing.T) {
 func TestMustDeserialize_Panic(t *testing.T) {
 	e := Entry{
 		Metadata: Metadata{
-			Name:       NewName("ns1", "res1"),
+			FullName:   NewFullName("ns1", "res1"),
 			CreateTime: time.Unix(1, 1).UTC(),
 			Version:    "v1",
 		},
@@ -256,7 +256,7 @@ func TestDeserializeAll(t *testing.T) {
 	entries := []*Entry{
 		{
 			Metadata: Metadata{
-				Name:       NewName("ns1", "res1"),
+				FullName:   NewFullName("ns1", "res1"),
 				CreateTime: time.Unix(1, 1).UTC(),
 				Version:    "v1",
 			},
@@ -264,7 +264,7 @@ func TestDeserializeAll(t *testing.T) {
 		},
 		{
 			Metadata: Metadata{
-				Name:       NewName("ns2", "res2"),
+				FullName:   NewFullName("ns2", "res2"),
 				CreateTime: time.Unix(1, 1).UTC(),
 				Version:    "v2",
 			},
@@ -291,7 +291,7 @@ func TestSerializeAll_Error(t *testing.T) {
 	entries := []*Entry{
 		{
 			Metadata: Metadata{
-				Name:       NewName("ns1", "res1"),
+				FullName:   NewFullName("ns1", "res1"),
 				CreateTime: time.Unix(1, 1).UTC(),
 				Version:    "v1",
 			},
@@ -299,7 +299,7 @@ func TestSerializeAll_Error(t *testing.T) {
 		},
 		{
 			Metadata: Metadata{
-				Name:       NewName("ns2", "res2"),
+				FullName:   NewFullName("ns2", "res2"),
 				CreateTime: time.Unix(1, 1).UTC(),
 				Version:    "v2",
 			},
@@ -316,7 +316,7 @@ func TestDeserializeAll_Error(t *testing.T) {
 	entries := []*Entry{
 		{
 			Metadata: Metadata{
-				Name:       NewName("ns1", "res1"),
+				FullName:   NewFullName("ns1", "res1"),
 				CreateTime: time.Unix(1, 1).UTC(),
 				Version:    "v1",
 			},
@@ -324,7 +324,7 @@ func TestDeserializeAll_Error(t *testing.T) {
 		},
 		{
 			Metadata: Metadata{
-				Name:       NewName("ns2", "res2"),
+				FullName:   NewFullName("ns2", "res2"),
 				CreateTime: time.Unix(2, 2).UTC(),
 				Version:    "v2",
 			},

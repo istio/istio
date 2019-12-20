@@ -42,7 +42,7 @@ type status struct {
 
 type key struct {
 	col collection.Name
-	res resource.Name
+	res resource.FullName
 }
 
 var statusPool = sync.Pool{

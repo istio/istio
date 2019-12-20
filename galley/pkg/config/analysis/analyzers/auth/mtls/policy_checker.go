@@ -68,7 +68,7 @@ func (w TargetService) String() string {
 type PolicyChecker struct {
 	meshMTLSModeAndResource ModeAndResource
 
-	namespaceToMTLSMode        map[string]ModeAndResource
+	namespaceToMTLSMode        map[resource.Namespace]ModeAndResource
 	serviceToMTLSMode          map[TargetService]ModeAndResource
 	fqdnToPortNameToPortNumber map[string]map[string]uint32
 }
@@ -109,7 +109,7 @@ type ModeAndResource struct {
 // NewPolicyChecker creates a new PolicyChecker instance.
 func NewPolicyChecker(fqdnToPortNameToPortNumber map[string]map[string]uint32) *PolicyChecker {
 	return &PolicyChecker{
-		namespaceToMTLSMode:        make(map[string]ModeAndResource),
+		namespaceToMTLSMode:        make(map[resource.Namespace]ModeAndResource),
 		serviceToMTLSMode:          make(map[TargetService]ModeAndResource),
 		fqdnToPortNameToPortNumber: fqdnToPortNameToPortNumber,
 	}
@@ -154,7 +154,7 @@ func (pc *PolicyChecker) AddPolicy(r *resource.Entry, p *v1alpha1.Policy) error 
 		return err
 	}
 	modeAndResource := ModeAndResource{Resource: r, MTLSMode: mode}
-	namespace, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
+	namespace := r.Metadata.FullName.Namespace
 	if len(p.Targets) == 0 {
 		// Rule targets the namespace.
 		pc.namespaceToMTLSMode[namespace] = modeAndResource
@@ -223,7 +223,7 @@ func (pc *PolicyChecker) IsServiceMTLSEnforced(w TargetService) (ModeAndResource
 	}
 
 	// Check if enforced on namespace
-	namespace, _ := util.GetResourceNameFromHost("", w.FQDN()).InterpretAsNamespaceAndName()
+	namespace := util.GetResourceNameFromHost("", w.FQDN()).Namespace
 	if namespace == "" {
 		return ModeAndResource{}, fmt.Errorf("unable to extract namespace from fqdn: %s", w.FQDN())
 	}

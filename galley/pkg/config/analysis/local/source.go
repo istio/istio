@@ -88,7 +88,7 @@ func (ph *precedenceHandler) handleFullSync(e event.Event) {
 // For each event, only pass it along to the downstream handler if the source it came from
 // had equal or higher precedence on the current resource
 func (ph *precedenceHandler) handleEvent(e event.Event) {
-	key := fmt.Sprintf("%s/%s", e.Source, e.Entry.Metadata.Name)
+	key := fmt.Sprintf("%s/%s", e.Source, e.Entry.Metadata.FullName)
 	curPrecedence, ok := ph.src.resourcePriority[key]
 	if ok && ph.precedence < curPrecedence {
 		return

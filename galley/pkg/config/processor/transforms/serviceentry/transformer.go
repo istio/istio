@@ -42,9 +42,9 @@ type serviceEntryTransformer struct {
 
 	converter *converter.Instance
 
-	services  map[resource.Name]*resource.Entry
-	endpoints map[resource.Name]*resource.Entry
-	ipToName  map[string]map[resource.Name]struct{}
+	services  map[resource.FullName]*resource.Entry
+	endpoints map[resource.FullName]*resource.Entry
+	ipToName  map[string]map[resource.FullName]struct{}
 
 	podHandler  event.Handler
 	nodeHandler event.Handler
@@ -63,9 +63,9 @@ var _ event.Transformer = &serviceEntryTransformer{}
 
 // Start implements event.Transformer
 func (t *serviceEntryTransformer) Start() {
-	t.ipToName = make(map[string]map[resource.Name]struct{})
-	t.services = make(map[resource.Name]*resource.Entry)
-	t.endpoints = make(map[resource.Name]*resource.Entry)
+	t.ipToName = make(map[string]map[resource.FullName]struct{})
+	t.services = make(map[resource.FullName]*resource.Entry)
+	t.endpoints = make(map[resource.FullName]*resource.Entry)
 
 	podCache, cacheHandler := pod.NewCache(pod.Listener{
 		PodAdded:   t.podUpdated,
@@ -155,7 +155,7 @@ func (t *serviceEntryTransformer) Handle(e event.Event) {
 
 func (t *serviceEntryTransformer) handleEndpointsEvent(e event.Event) {
 	endpoints := e.Entry
-	name := e.Entry.Metadata.Name
+	name := e.Entry.Metadata.FullName
 
 	switch e.Kind {
 	case event.Added, event.Updated:
@@ -181,7 +181,7 @@ func (t *serviceEntryTransformer) handleEndpointsEvent(e event.Event) {
 
 func (t *serviceEntryTransformer) handleServiceEvent(e event.Event) {
 	service := e.Entry
-	name := e.Entry.Metadata.Name
+	name := e.Entry.Metadata.FullName
 
 	switch e.Kind {
 	case event.Added, event.Updated:
@@ -199,7 +199,7 @@ func (t *serviceEntryTransformer) handleServiceEvent(e event.Event) {
 	}
 }
 
-func (t *serviceEntryTransformer) doUpdate(name resource.Name) {
+func (t *serviceEntryTransformer) doUpdate(name resource.FullName) {
 	// Look up the service associated with the endpoints.
 	service, ok := t.services[name]
 	if !ok {
@@ -225,13 +225,13 @@ func (t *serviceEntryTransformer) dispatch(e event.Event) {
 	}
 }
 
-func (t *serviceEntryTransformer) sendDelete(name resource.Name) {
+func (t *serviceEntryTransformer) sendDelete(name resource.FullName) {
 	e := event.Event{
 		Kind:   event.Deleted,
 		Source: metadata.IstioNetworkingV1Alpha3SyntheticServiceentries,
 		Entry: &resource.Entry{
 			Metadata: resource.Metadata{
-				Name: name,
+				FullName: name,
 			},
 		},
 	}
@@ -256,7 +256,7 @@ func (t *serviceEntryTransformer) podUpdated(p pod.Info) {
 	}
 }
 
-func (t *serviceEntryTransformer) updateEndpointIPs(name resource.Name, newRE *resource.Entry) {
+func (t *serviceEntryTransformer) updateEndpointIPs(name resource.FullName, newRE *resource.Entry) {
 	newIPs := getEndpointIPs(newRE)
 	var prevIPs map[string]struct{}
 
@@ -275,21 +275,21 @@ func (t *serviceEntryTransformer) updateEndpointIPs(name resource.Name, newRE *r
 	for newIP := range newIPs {
 		names := t.ipToName[newIP]
 		if names == nil {
-			names = make(map[resource.Name]struct{})
+			names = make(map[resource.FullName]struct{})
 			t.ipToName[newIP] = names
 		}
 		names[name] = struct{}{}
 	}
 }
 
-func (t *serviceEntryTransformer) deleteEndpointIPs(name resource.Name, endpoints *resource.Entry) {
+func (t *serviceEntryTransformer) deleteEndpointIPs(name resource.FullName, endpoints *resource.Entry) {
 	ips := getEndpointIPs(endpoints)
 	for ip := range ips {
 		t.deleteEndpointIP(name, ip)
 	}
 }
 
-func (t *serviceEntryTransformer) deleteEndpointIP(name resource.Name, ip string) {
+func (t *serviceEntryTransformer) deleteEndpointIP(name resource.FullName, ip string) {
 	if names := t.ipToName[ip]; names != nil {
 		// Remove the name from the names map for this IP.
 		delete(names, name)

@@ -34,7 +34,7 @@ type DestinationHostAnalyzer struct{}
 var _ analysis.Analyzer = &DestinationHostAnalyzer{}
 
 type hostAndSubset struct {
-	host   resource.Name
+	host   resource.FullName
 	subset string
 }
 
@@ -66,10 +66,9 @@ func (a *DestinationHostAnalyzer) analyzeVirtualService(r *resource.Entry, ctx a
 	serviceEntryHosts map[util.ScopedFqdn]*v1alpha3.ServiceEntry) {
 
 	vs := r.Item.(*v1alpha3.VirtualService)
-	ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
 
 	for _, d := range getRouteDestinations(vs) {
-		s := getDestinationHost(ns, d.GetHost(), serviceEntryHosts)
+		s := getDestinationHost(r.Metadata.FullName.Namespace, d.GetHost(), serviceEntryHosts)
 		if s == nil {
 			ctx.Report(metadata.IstioNetworkingV1Alpha3Virtualservices,
 				msg.NewReferencedResourceNotFound(r, "host", d.GetHost()))
@@ -79,11 +78,11 @@ func (a *DestinationHostAnalyzer) analyzeVirtualService(r *resource.Entry, ctx a
 	}
 }
 
-func getDestinationHost(sourceNs, host string, serviceEntryHosts map[util.ScopedFqdn]*v1alpha3.ServiceEntry) *v1alpha3.ServiceEntry {
+func getDestinationHost(sourceNs resource.Namespace, host string, serviceEntryHosts map[util.ScopedFqdn]*v1alpha3.ServiceEntry) *v1alpha3.ServiceEntry {
 	// Check explicitly defined ServiceEntries as well as services discovered from the platform
 
 	// ServiceEntries can be either namespace scoped or exposed to all namespaces
-	nsScopedFqdn := util.NewScopedFqdn(sourceNs, sourceNs, host)
+	nsScopedFqdn := util.NewScopedFqdn(string(sourceNs), sourceNs, host)
 	if s, ok := serviceEntryHosts[nsScopedFqdn]; ok {
 		return s
 	}
@@ -106,7 +105,7 @@ func getDestinationHost(sourceNs, host string, serviceEntryHosts map[util.Scoped
 		}
 
 		// Skip over entries not visible to the current virtual service namespace
-		if scope != util.ExportToAllNamespaces && scope != sourceNs {
+		if scope != util.ExportToAllNamespaces && scope != string(sourceNs) {
 			continue
 		}
 
@@ -126,13 +125,12 @@ func initServiceEntryHostMap(ctx analysis.Context) map[util.ScopedFqdn]*v1alpha3
 
 	extractFn := func(r *resource.Entry) bool {
 		s := r.Item.(*v1alpha3.ServiceEntry)
-		ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
-		hostsNamespaceScope := ns
+		hostsNamespaceScope := string(r.Metadata.FullName.Namespace)
 		if util.IsExportToAllNamespaces(s.ExportTo) {
 			hostsNamespaceScope = util.ExportToAllNamespaces
 		}
 		for _, h := range s.GetHosts() {
-			result[util.NewScopedFqdn(hostsNamespaceScope, ns, h)] = s
+			result[util.NewScopedFqdn(hostsNamespaceScope, r.Metadata.FullName.Namespace, h)] = s
 		}
 		return true
 	}
