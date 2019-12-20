@@ -55,7 +55,7 @@ func cleanup(dryRun bool) {
 
 	defer func() {
 		for _, cmd := range []string{dep.IPTABLESSAVE, dep.IP6TABLESSAVE} {
-			ext.RunOrFail(cmd)
+			ext.Run(cmd)
 		}
 	}()
 
