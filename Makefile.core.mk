@@ -47,28 +47,8 @@ export GO_TOP
 
 GO ?= go
 
-LOCAL_ARCH := $(shell uname -m)
-ifeq ($(LOCAL_ARCH),x86_64)
-GOARCH_LOCAL := amd64
-else ifeq ($(shell echo $(LOCAL_ARCH) | head -c 5),armv8)
-GOARCH_LOCAL := arm64
-else ifeq ($(shell echo $(LOCAL_ARCH) | head -c 4),armv)
-GOARCH_LOCAL := arm
-else
-GOARCH_LOCAL := $(LOCAL_ARCH)
-endif
-export GOARCH ?= $(GOARCH_LOCAL)
-
-LOCAL_OS := $(shell uname)
-ifeq ($(LOCAL_OS),Linux)
-   export GOOS_LOCAL = linux
-else ifeq ($(LOCAL_OS),Darwin)
-   export GOOS_LOCAL = darwin
-else
-   $(error "This system's OS $(LOCAL_OS) isn't recognized/supported")
-endif
-
-export GOOS ?= $(GOOS_LOCAL)
+GOARCH_LOCAL := $(TARGET_ARCH)
+GOOS_LOCAL := $(TARGET_OS)
 
 export ENABLE_COREDUMP ?= false
 
@@ -101,14 +81,21 @@ endif
 # Environment for tests, the directory containing istio and deps binaries.
 # Typically same as GOPATH/bin, so tests work seemlessly with IDEs.
 
-export ISTIO_BIN=$(GO_TOP)/bin
+export ISTIO_BIN=$(GOBIN)
 # Using same package structure as pkg/
-export OUT_DIR=$(GO_TOP)/out
-export ISTIO_OUT:=$(OUT_DIR)/$(GOOS)_$(GOARCH)/$(BUILDTYPE_DIR)
-export ISTIO_OUT_LINUX:=$(OUT_DIR)/linux_amd64/$(BUILDTYPE_DIR)
-export HELM=$(ISTIO_OUT)/helm
+
+export ISTIO_OUT:=$(TARGET_OUT)
+export ISTIO_OUT_LINUX:=$(TARGET_OUT_LINUX)
+export HELM=helm
 export ARTIFACTS ?= $(ISTIO_OUT)
+export JUNIT_OUT ?= $(ARTIFACTS)/junit.xml
 export REPO_ROOT := $(shell git rev-parse --show-toplevel)
+
+# Make directories needed by the build system
+$(shell mkdir -p $(ISTIO_OUT))
+$(shell mkdir -p $(ISTIO_OUT_LINUX))
+$(shell mkdir -p $(ISTIO_OUT_LINUX)/logs)
+$(shell mkdir -p $(dir $(JUNIT_OUT)))
 
 # scratch dir: this shouldn't be simply 'docker' since that's used for docker.save to store tar.gz files
 ISTIO_DOCKER:=${ISTIO_OUT_LINUX}/docker_temp
@@ -121,7 +108,7 @@ DOCKER_BUILD_TOP:=${ISTIO_OUT_LINUX}/docker_build
 DOCKERX_BUILD_TOP:=${ISTIO_OUT_LINUX}/dockerx_build
 
 # dir where tar.gz files from docker.save are stored
-ISTIO_DOCKER_TAR:=${ISTIO_OUT_LINUX}/docker
+ISTIO_DOCKER_TAR:=${ISTIO_OUT_LINUX}/release/docker
 
 # Populate the git version for istio/proxy (i.e. Envoy)
 ifeq ($(PROXY_REPO_SHA),)
@@ -142,10 +129,10 @@ export ISTIO_ENVOY_LINUX_VERSION ?= ${ISTIO_ENVOY_VERSION}
 export ISTIO_ENVOY_LINUX_DEBUG_URL ?= ${ISTIO_ENVOY_DEBUG_URL}
 export ISTIO_ENVOY_LINUX_RELEASE_URL ?= ${ISTIO_ENVOY_RELEASE_URL}
 # Variables for the extracted debug/release Envoy artifacts.
-export ISTIO_ENVOY_LINUX_DEBUG_DIR ?= ${OUT_DIR}/linux_amd64/debug
+export ISTIO_ENVOY_LINUX_DEBUG_DIR ?= ${TARGET_OUT_LINUX}/debug
 export ISTIO_ENVOY_LINUX_DEBUG_NAME ?= envoy-debug-${ISTIO_ENVOY_LINUX_VERSION}
 export ISTIO_ENVOY_LINUX_DEBUG_PATH ?= ${ISTIO_ENVOY_LINUX_DEBUG_DIR}/${ISTIO_ENVOY_LINUX_DEBUG_NAME}
-export ISTIO_ENVOY_LINUX_RELEASE_DIR ?= ${OUT_DIR}/linux_amd64/release
+export ISTIO_ENVOY_LINUX_RELEASE_DIR ?= ${TARGET_OUT_LINUX}/release
 export ISTIO_ENVOY_LINUX_RELEASE_NAME ?= envoy-${ISTIO_ENVOY_VERSION}
 export ISTIO_ENVOY_LINUX_RELEASE_PATH ?= ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${ISTIO_ENVOY_LINUX_RELEASE_NAME}
 
@@ -154,7 +141,7 @@ export ISTIO_ENVOY_LINUX_RELEASE_PATH ?= ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${ISTI
 export ISTIO_ENVOY_MACOS_VERSION ?= 1.0.2
 export ISTIO_ENVOY_MACOS_RELEASE_URL ?= https://github.com/istio/proxy/releases/download/${ISTIO_ENVOY_MACOS_VERSION}/istio-proxy-${ISTIO_ENVOY_MACOS_VERSION}-macos.tar.gz
 # Variables for the extracted debug/release Envoy artifacts.
-export ISTIO_ENVOY_MACOS_RELEASE_DIR ?= ${OUT_DIR}/darwin_amd64/release
+export ISTIO_ENVOY_MACOS_RELEASE_DIR ?= ${TARGET_OUT}/release
 export ISTIO_ENVOY_MACOS_RELEASE_NAME ?= envoy-${ISTIO_ENVOY_MACOS_VERSION}
 export ISTIO_ENVOY_MACOS_RELEASE_PATH ?= ${ISTIO_ENVOY_MACOS_RELEASE_DIR}/${ISTIO_ENVOY_MACOS_RELEASE_NAME}
 
@@ -209,13 +196,13 @@ default: init build test
 .PHONY: init
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
 init: $(ISTIO_OUT)/istio_is_init
-	mkdir -p ${OUT_DIR}/logs
+	mkdir -p ${TARGET_OUT}/logs
 
 # I tried to make this dependent on what I thought was the appropriate
 # lock file, but it caused the rule for that file to get run (which
 # seems to be about obtaining a new version of the 3rd party libraries).
 $(ISTIO_OUT)/istio_is_init: bin/init.sh istio.deps | $(ISTIO_OUT)
-	ISTIO_OUT=$(ISTIO_OUT) bin/init.sh
+	ISTIO_OUT=$(ISTIO_OUT) ISTIO_BIN=$(ISTIO_BIN) bin/init.sh
 	touch $(ISTIO_OUT)/istio_is_init
 
 # init.sh downloads envoy
@@ -228,12 +215,7 @@ ${ISTIO_ENVOY_MACOS_RELEASE_PATH}: init
 # Developers must manually run `dep ensure` if adding new deps
 depend: init | $(ISTIO_OUT)
 
-OUTPUT_DIRS = $(ISTIO_OUT) $(ISTIO_BIN)
-DIRS_TO_CLEAN+=${ISTIO_OUT}
-ifneq ($(ISTIO_OUT),$(ISTIO_OUT_LINUX))
-  OUTPUT_DIRS += $(ISTIO_OUT_LINUX)
-  DIRS_TO_CLEAN += $(ISTIO_OUT_LINUX)
-endif
+DIRS_TO_CLEAN := $(ISTIO_OUT)
 
 $(OUTPUT_DIRS):
 	@mkdir -p $@
@@ -258,7 +240,7 @@ fmt: format-go format-python tidy-go
 
 # Build with -i to store the build caches into $GOPATH/pkg
 buildcache:
-	GOBUILDFLAGS=-i $(MAKE) -f Makefile.core.mk build
+	GOBUILDFLAGS=-i $(MAKE) -e -f Makefile.core.mk build
 
 # List of all binaries to build
 BINARIES:=./istioctl/cmd/istioctl \
@@ -283,10 +265,23 @@ BINARIES:=./istioctl/cmd/istioctl \
 # List of binaries included in releases
 RELEASE_BINARIES:=pilot-discovery pilot-agent sidecar-injector mixc mixs mixgen node_agent node_agent_k8s istio_ca istioctl galley sdsclient
 
-.PHONY: build
-build: depend
-	STATIC=0 GOOS=$(GOOS) GOARCH=$(GOARCH) LDFLAGS='-extldflags -static -s -w' common/scripts/gobuild.sh $(ISTIO_OUT)/ $(BINARIES)
+# We always build Linux containers even if not running in a Linux. Linux binaries
+# are needed for packaging in Docker. On other GOOS_LOCAL, such as darwin, we need
+# to specially build Linux binaries. Otherwise, the default build target will build
+# Linux on Linux platforms.
+BUILD_DEPS:=
+ifneq ($(GOOS_LOCAL),"linux")
+BUILD_DEPS += build-linux
+endif
 
+.PHONY: build
+build: depend $(BUILD_DEPS)
+	STATIC=0 GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS='-extldflags -static -s -w' common/scripts/gobuild.sh $(ISTIO_OUT)/ $(BINARIES)
+
+# The build-linux target is responsible for building binaries used within containers.
+# This target should be expanded upon as we add more Linux architectures: i.e. buld-arm64.
+# Then a new build target can be created such as build-container-bin that builds these
+# various platform images.
 .PHONY: build-linux
 build-linux: depend
 	STATIC=0 GOOS=linux GOARCH=amd64 LDFLAGS='-extldflags -static -s -w' common/scripts/gobuild.sh $(ISTIO_OUT_LINUX)/ $(BINARIES)
@@ -355,21 +350,21 @@ RELEASE_LDFLAGS='-extldflags -static -s -w'
 DEBUG_LDFLAGS='-extldflags "-static"'
 
 # Non-static istioctl targets. These are typically a build artifact.
-${ISTIO_OUT}/istioctl-linux: depend
+${ISTIO_OUT}/release/istioctl-linux: depend
 	STATIC=0 GOOS=linux LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
-${ISTIO_OUT}/istioctl-osx: depend
+${ISTIO_OUT}/release/istioctl-osx: depend
 	STATIC=0 GOOS=darwin LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
-${ISTIO_OUT}/istioctl-win.exe: depend
+${ISTIO_OUT}/release/istioctl-win.exe: depend
 	STATIC=0 GOOS=windows LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
 
 # generate the istioctl completion files
-${ISTIO_OUT}/istioctl.bash: istioctl
+${ISTIO_OUT}/release/istioctl.bash: istioctl
 	${ISTIO_OUT}/istioctl collateral --bash && \
-	mv istioctl.bash ${ISTIO_OUT}/istioctl.bash
+	mv istioctl.bash ${ISTIO_OUT}/release/istioctl.bash
 
-${ISTIO_OUT}/_istioctl: istioctl
+${ISTIO_OUT}/release/_istioctl: istioctl
 	${ISTIO_OUT}/istioctl collateral --zsh && \
-	mv _istioctl ${ISTIO_OUT}/_istioctl
+	mv _istioctl ${ISTIO_OUT}/release/_istioctl
 
 .PHONY: binaries-test
 binaries-test:
@@ -377,10 +372,10 @@ binaries-test:
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS
 .PHONY: istioctl-all
-istioctl-all: ${ISTIO_OUT}/istioctl-linux ${ISTIO_OUT}/istioctl-osx ${ISTIO_OUT}/istioctl-win.exe
+istioctl-all: ${ISTIO_OUT}/release/istioctl-linux ${ISTIO_OUT}/release/istioctl-osx ${ISTIO_OUT}/release/istioctl-win.exe
 
 .PHONY: istioctl.completion
-istioctl.completion: ${ISTIO_OUT}/istioctl.bash ${ISTIO_OUT}/_istioctl
+istioctl.completion: ${ISTIO_OUT}/release/istioctl.bash ${ISTIO_OUT}/release/_istioctl
 
 # istioctl-install builds then installs istioctl into $GOPATH/BIN
 # Used for debugging istioctl during dev work
@@ -401,13 +396,9 @@ ${ISTIO_BIN}/go-junit-report:
 	unset GOOS && unset GOARCH && CGO_ENABLED=1 go get -u github.com/jstemmer/go-junit-report
 
 with_junit_report: | $(JUNIT_REPORT)
-	$(MAKE) $(TARGET) 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
+	$(MAKE) -e $(TARGET) 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 # Run coverage tests
-JUNIT_OUT ?= $(ARTIFACTS)/junit.xml
-$(JUNIT_OUT):
-	mkdir -p $(dir $(JUNIT_OUT))
-
 ifeq ($(WHAT),)
        TEST_OBJ = common-test pilot-test mixer-test security-test galley-test istioctl-test
 else
@@ -415,7 +406,7 @@ else
 endif
 test: | $(JUNIT_REPORT)
 	KUBECONFIG="$${KUBECONFIG:-$${REPO_ROOT}/tests/util/kubeconfig}" \
-	$(MAKE) -f Makefile.core.mk --keep-going $(TEST_OBJ) \
+	$(MAKE) -e -f Makefile.core.mk --keep-going $(TEST_OBJ) \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 GOTEST_PARALLEL ?= '-test.parallel=1'
@@ -500,8 +491,7 @@ common-coverage:
 
 RACE_TESTS ?= pilot-racetest mixer-racetest security-racetest galley-test common-racetest istioctl-racetest
 racetest: $(JUNIT_REPORT)
-	mkdir -p $(dir $(JUNIT_OUT))
-	$(MAKE) -f Makefile.core.mk --keep-going $(RACE_TESTS) \
+	$(MAKE) -e -f Makefile.core.mk --keep-going $(RACE_TESTS) \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 .PHONY: pilot-racetest
@@ -534,15 +524,11 @@ common-racetest:
 #-----------------------------------------------------------------------------
 # Target: clean
 #-----------------------------------------------------------------------------
-.PHONY: clean clean.go
+.PHONY: clean
 
-clean: clean.go
+clean:
 	rm -rf $(DIRS_TO_CLEAN)
 	rm -f $(FILES_TO_CLEAN)
-
-clean.go: ; $(info $(H) cleaning...)
-	$(eval GO_CLEAN_FLAGS := -i -r)
-	$(Q) $(GO) clean $(GO_CLEAN_FLAGS)
 
 #-----------------------------------------------------------------------------
 # Target: docker
@@ -554,14 +540,11 @@ include tools/istio-docker.mk
 
 push: docker.push
 
-$(HELM): $(ISTIO_OUT)
-	bin/init_helm.sh
-
 $(HOME)/.helm:
 	$(HELM) init --client-only
 
 # create istio-init.yaml
-istio-init.yaml: $(HELM) $(HOME)/.helm
+istio-init.yaml: $(HOME)/.helm
 	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
 	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/$@
 	$(HELM) template --name=istio --namespace=istio-system \
@@ -571,7 +554,7 @@ istio-init.yaml: $(HELM) $(HOME)/.helm
 
 # creates istio-demo.yaml istio-remote.yaml
 # Ensure that values-$filename is present in install/kubernetes/helm/istio
-istio-demo.yaml istio-remote.yaml istio-minimal.yaml: $(HELM) $(HOME)/.helm
+istio-demo.yaml istio-remote.yaml istio-minimal.yaml: $(HOME)/.helm
 	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
 	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/$@
 	$(HELM) template \
@@ -587,18 +570,18 @@ istio-demo.yaml istio-remote.yaml istio-minimal.yaml: $(HELM) $(HOME)/.helm
 		install/kubernetes/helm/istio >> install/kubernetes/$@
 
 e2e_files = istio-auth-non-mcp.yaml \
-			istio-auth-sds.yaml \
-			istio-non-mcp.yaml \
-			istio.yaml \
-			istio-auth.yaml \
-			istio-auth-mcp.yaml \
-			istio-auth-multicluster.yaml \
-			istio-mcp.yaml \
-			istio-one-namespace.yaml \
-			istio-one-namespace-auth.yaml \
-			istio-one-namespace-trust-domain.yaml \
-			istio-multicluster.yaml \
-			istio-multicluster-split-horizon.yaml \
+		istio-auth-sds.yaml \
+		istio-non-mcp.yaml \
+		istio.yaml \
+		istio-auth.yaml \
+		istio-auth-mcp.yaml \
+		istio-auth-multicluster.yaml \
+		istio-mcp.yaml \
+		istio-one-namespace.yaml \
+		istio-one-namespace-auth.yaml \
+		istio-one-namespace-trust-domain.yaml \
+		istio-multicluster.yaml \
+		istio-multicluster-split-horizon.yaml
 
 FILES_TO_CLEAN+=install/consul/istio.yaml \
                 install/kubernetes/istio-auth.yaml \
@@ -608,7 +591,7 @@ FILES_TO_CLEAN+=install/consul/istio.yaml \
                 install/kubernetes/istio-one-namespace-trust-domain.yaml \
                 install/kubernetes/istio-one-namespace.yaml \
                 install/kubernetes/istio.yaml \
-                samples/bookinfo/platform/consul/bookinfo.sidecars.yaml \
+                samples/bookinfo/platform/consul/bookinfo.sidecars.yaml 
 
 #-----------------------------------------------------------------------------
 # Target: environment and tools
