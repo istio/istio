@@ -54,9 +54,11 @@ func (s *ServiceRoleServicesAnalyzer) Analyze(ctx analysis.Context) {
 }
 
 // analyzeRoleBinding apply analysis for the service field of the given ServiceRole
-func (s *ServiceRoleServicesAnalyzer) analyzeServiceRoleServices(r *resource.Entry, ctx analysis.Context, nsm map[string][]util.ScopedFqdn) {
+func (s *ServiceRoleServicesAnalyzer) analyzeServiceRoleServices(r *resource.Entry, ctx analysis.Context,
+	nsm map[resource.Namespace][]util.ScopedFqdn) {
+
 	sr := r.Item.(*v1alpha1.ServiceRole)
-	ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
+	ns := r.Metadata.FullName.Namespace
 
 	for _, rs := range sr.Rules {
 		for _, svc := range rs.Services {
@@ -70,12 +72,13 @@ func (s *ServiceRoleServicesAnalyzer) analyzeServiceRoleServices(r *resource.Ent
 }
 
 // buildNamespaceServiceMap returns a map where the index is a namespace and the boolean
-func (s *ServiceRoleServicesAnalyzer) buildNamespaceServiceMap(ctx analysis.Context) map[string][]util.ScopedFqdn {
-	nsm := map[string][]util.ScopedFqdn{}
+func (s *ServiceRoleServicesAnalyzer) buildNamespaceServiceMap(ctx analysis.Context) map[resource.Namespace][]util.ScopedFqdn {
+	nsm := map[resource.Namespace][]util.ScopedFqdn{}
 
 	ctx.ForEach(metadata.K8SCoreV1Services, func(r *resource.Entry) bool {
-		rns, rs := r.Metadata.Name.InterpretAsNamespaceAndName()
-		nsm[rns] = append(nsm[rns], util.NewScopedFqdn(rns, rns, rs))
+		rns := r.Metadata.FullName.Namespace
+		rs := r.Metadata.FullName.Name
+		nsm[rns] = append(nsm[rns], util.NewScopedFqdn(string(rns), rns, string(rs)))
 		return true
 	})
 

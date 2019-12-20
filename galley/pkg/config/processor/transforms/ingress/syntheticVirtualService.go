@@ -22,6 +22,7 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/synthesize"
@@ -33,17 +34,17 @@ type syntheticVirtualService struct {
 	host string
 
 	// Keep track of resource name. Depending on the ingresses that participate, the name can change.
-	name    resource.Name
+	name    resource.FullName
 	version resource.Version
 
 	// ingresses that are represented in this Virtual Service
 	ingresses []*resource.Entry
 }
 
-func (s *syntheticVirtualService) attachIngress(e *resource.Entry) (resource.Name, resource.Version) {
+func (s *syntheticVirtualService) attachIngress(e *resource.Entry) (resource.FullName, resource.Version) {
 	var found bool
 	for i, existing := range s.ingresses {
-		if existing.Metadata.Name == e.Metadata.Name {
+		if existing.Metadata.FullName == e.Metadata.FullName {
 			s.ingresses[i] = e
 			found = true
 			break
@@ -55,42 +56,40 @@ func (s *syntheticVirtualService) attachIngress(e *resource.Entry) (resource.Nam
 	}
 
 	sort.SliceStable(s.ingresses, func(i, j int) bool {
-		return strings.Compare(s.ingresses[i].Metadata.Name.String(), s.ingresses[j].Metadata.Name.String()) < 0
+		return strings.Compare(s.ingresses[i].Metadata.FullName.String(), s.ingresses[j].Metadata.FullName.String()) < 0
 	})
 
 	oldName := s.name
 	oldVersion := s.version
 
-	s.name = generateSyntheticVirtualServiceName(s.host, s.ingresses[0].Metadata.Name)
+	s.name = generateSyntheticVirtualServiceName(s.host, s.ingresses[0].Metadata.FullName)
 	s.version = s.generateVersion()
 
 	return oldName, oldVersion
 }
 
-func generateSyntheticVirtualServiceName(host string, ingressName resource.Name) resource.Name {
-	_, name := ingressName.InterpretAsNamespaceAndName()
-
+func generateSyntheticVirtualServiceName(host string, name resource.FullName) resource.FullName {
 	namePrefix := strings.Replace(host, ".", "-", -1)
 
-	newName := namePrefix + "-" + name + "-" + IstioIngressGatewayName
-	newNamespace := IstioIngressNamespace
+	name.Name = resource.LocalName(namePrefix + "-" + string(name.Name) + "-" + IstioIngressGatewayName)
+	name.Namespace = IstioIngressNamespace
 
-	return resource.NewName(newNamespace, newName)
+	return name
 }
 
-func (s *syntheticVirtualService) detachIngress(e *resource.Entry) (resource.Name, resource.Version) {
+func (s *syntheticVirtualService) detachIngress(e *resource.Entry) (resource.FullName, resource.Version) {
 	for i, existing := range s.ingresses {
-		if existing.Metadata.Name == e.Metadata.Name {
+		if existing.Metadata.FullName == e.Metadata.FullName {
 			s.ingresses = append(s.ingresses[:i], s.ingresses[i+1:]...)
 			oldName := s.name
 			oldVersion := s.version
 
 			if i == 0 {
 				if len(s.ingresses) == 0 {
-					s.name = resource.Name{}
-					s.version = resource.Version("")
+					s.name = resource.FullName{}
+					s.version = ""
 				} else {
-					s.name = generateSyntheticVirtualServiceName(s.host, s.ingresses[0].Metadata.Name)
+					s.name = generateSyntheticVirtualServiceName(s.host, s.ingresses[0].Metadata.FullName)
 					s.version = s.generateVersion()
 				}
 			}
@@ -112,10 +111,12 @@ func (s *syntheticVirtualService) generateEntry(domainSuffix string) *resource.E
 	// host.
 
 	first := s.ingresses[0]
-	namespace, name := first.Metadata.Name.InterpretAsNamespaceAndName()
+
+	namespace := first.Metadata.FullName.Namespace
+	name := first.Metadata.FullName.Name
 
 	meta := first.Metadata.Clone()
-	meta.Name = s.name
+	meta.FullName = s.name
 	meta.Version = s.version
 	if meta.Annotations != nil {
 		delete(meta.Annotations, annotation.IoKubernetesIngressClass.Name)
@@ -174,11 +175,11 @@ func (s *syntheticVirtualService) generateEntry(domainSuffix string) *resource.E
 
 func (s *syntheticVirtualService) generateVersion() resource.Version {
 	i := 0
-	return synthesize.VersionIter("ing", func() (n resource.Name, v resource.Version, ok bool) {
+	return synthesize.VersionIter("ing", func() (n resource.FullName, v resource.Version, ok bool) {
 		if i < len(s.ingresses) {
 			ing := s.ingresses[i]
 			i++
-			n = ing.Metadata.Name
+			n = ing.Metadata.FullName
 			v = ing.Metadata.Version
 			ok = true
 		}

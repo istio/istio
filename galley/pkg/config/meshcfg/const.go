@@ -24,4 +24,4 @@ import (
 var IstioMeshconfig = collection.NewName("istio/mesh/v1alpha1/MeshConfig")
 
 // ResourceName for the Istio Mesh Config resource
-var ResourceName = resource.NewName("istio-system", "meshconfig")
+var ResourceName = resource.NewFullName("istio-system", "meshconfig")

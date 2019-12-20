@@ -18,5 +18,5 @@ package resource
 type Origin interface {
 	FriendlyName() string
 
-	Namespace() string
+	Namespace() Namespace
 }

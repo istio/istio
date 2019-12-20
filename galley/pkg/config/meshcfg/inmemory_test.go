@@ -58,7 +58,7 @@ func TestInMemorySource_SetBeforeStart(t *testing.T) {
 			Source: IstioMeshconfig,
 			Entry: &resource.Entry{
 				Metadata: resource.Metadata{
-					Name: ResourceName,
+					FullName: ResourceName,
 				},
 				Item: Default(),
 			},
@@ -89,7 +89,7 @@ func TestInMemorySource_SetAfterStart(t *testing.T) {
 			Source: IstioMeshconfig,
 			Entry: &resource.Entry{
 				Metadata: resource.Metadata{
-					Name: ResourceName,
+					FullName: ResourceName,
 				},
 				Item: Default(),
 			},
@@ -121,7 +121,7 @@ func TestInMemorySource_DoubleStart(t *testing.T) {
 			Source: IstioMeshconfig,
 			Entry: &resource.Entry{
 				Metadata: resource.Metadata{
-					Name: ResourceName,
+					FullName: ResourceName,
 				},
 				Item: Default(),
 			},
@@ -156,7 +156,7 @@ func TestInMemorySource_StartStop(t *testing.T) {
 			Source: IstioMeshconfig,
 			Entry: &resource.Entry{
 				Metadata: resource.Metadata{
-					Name: ResourceName,
+					FullName: ResourceName,
 				},
 				Item: Default(),
 			},
@@ -189,7 +189,7 @@ func TestInMemorySource_ResetOnUpdate(t *testing.T) {
 			Source: IstioMeshconfig,
 			Entry: &resource.Entry{
 				Metadata: resource.Metadata{
-					Name: ResourceName,
+					FullName: ResourceName,
 				},
 				Item: Default(),
 			},

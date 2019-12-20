@@ -16,6 +16,7 @@ package util
 
 import (
 	"istio.io/api/mesh/v1alpha1"
+
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/galley/pkg/config/resource"
@@ -35,6 +36,6 @@ func MeshConfig(ctx analysis.Context) *v1alpha1.MeshConfig {
 	return mc
 }
 
-func IsSystemNamespace(ns string) bool {
-	return (ns == "kube-system" || ns == "kube-public")
+func IsSystemNamespace(ns resource.Namespace) bool {
+	return ns == "kube-system" || ns == "kube-public"
 }

@@ -35,10 +35,10 @@ func (ctx *Context) Report(c collection.Name, t diag.Message) {
 }
 
 // Find implements analysis.Context
-func (ctx *Context) Find(c collection.Name, name resource.Name) *resource.Entry { return nil }
+func (ctx *Context) Find(c collection.Name, name resource.FullName) *resource.Entry { return nil }
 
 // Exists implements analysis.Context
-func (ctx *Context) Exists(c collection.Name, name resource.Name) bool { return false }
+func (ctx *Context) Exists(c collection.Name, name resource.FullName) bool { return false }
 
 // ForEach implements analysis.Context
 func (ctx *Context) ForEach(c collection.Name, fn analysis.IteratorFn) {

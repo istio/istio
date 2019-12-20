@@ -54,7 +54,7 @@ func TestInstance_Basics(t *testing.T) {
 
 	g.Expect(inst.Generation()).To(Equal(int64(2)))
 
-	inst.Remove(data.EntryN1I1V1.Metadata.Name)
+	inst.Remove(data.EntryN1I1V1.Metadata.FullName)
 
 	g.Expect(inst.Size()).To(Equal(1))
 
@@ -100,7 +100,7 @@ func TestInstance_Clone(t *testing.T) {
 	})
 	g.Expect(fe).To(HaveLen(2))
 
-	inst.Remove(data.EntryN1I1V1.Metadata.Name)
+	inst.Remove(data.EntryN1I1V1.Metadata.FullName)
 
 	g.Expect(inst2.Size()).To(Equal(2))
 	g.Expect(inst2.Generation()).To(Equal(int64(2)))
@@ -144,12 +144,12 @@ func TestInstance_Get(t *testing.T) {
 	inst.Set(data.EntryN1I1V1)
 	inst.Set(data.EntryN3I3V1)
 
-	e := inst.Get(data.EntryN1I1V1.Metadata.Name)
+	e := inst.Get(data.EntryN1I1V1.Metadata.FullName)
 	g.Expect(e).To(Equal(data.EntryN1I1V1))
 
-	e = inst.Get(data.EntryN3I3V1.Metadata.Name)
+	e = inst.Get(data.EntryN3I3V1.Metadata.FullName)
 	g.Expect(e).To(Equal(data.EntryN3I3V1))
 
-	e = inst.Get(data.EntryN2I2V2.Metadata.Name)
+	e = inst.Get(data.EntryN2I2V2.Metadata.FullName)
 	g.Expect(e).To(BeNil())
 }

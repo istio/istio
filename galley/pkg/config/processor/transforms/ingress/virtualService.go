@@ -42,7 +42,7 @@ type virtualServiceXform struct {
 
 	mu sync.Mutex
 
-	ingresses map[resource.Name]*resource.Entry
+	ingresses map[resource.FullName]*resource.Entry
 	vsByHost  map[string]*syntheticVirtualService
 }
 
@@ -70,7 +70,7 @@ func getVirtualServiceXformProvider() transformer.Provider {
 func (g *virtualServiceXform) start() {
 	g.vsByHost = make(map[string]*syntheticVirtualService)
 
-	g.ingresses = make(map[resource.Name]*resource.Entry)
+	g.ingresses = make(map[resource.FullName]*resource.Entry)
 }
 
 // Stop implements processing.Transformer
@@ -97,10 +97,10 @@ func (g *virtualServiceXform) handle(e event.Event, h event.Handler) {
 		g.processIngress(e.Entry, h)
 
 	case event.Deleted:
-		ing, exists := g.ingresses[e.Entry.Metadata.Name]
+		ing, exists := g.ingresses[e.Entry.Metadata.FullName]
 		if exists {
 			g.removeIngress(ing, h)
-			delete(g.ingresses, e.Entry.Metadata.Name)
+			delete(g.ingresses, e.Entry.Metadata.FullName)
 		}
 
 	default:
@@ -112,7 +112,7 @@ func (g *virtualServiceXform) processIngress(newIngress *resource.Entry, h event
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
-	g.ingresses[newIngress.Metadata.Name] = newIngress
+	g.ingresses[newIngress.Metadata.FullName] = newIngress
 
 	// Extract the hosts from Ingress and find all relevant Synthetic Virtual Service entries.
 	iterateHosts(newIngress, func(host string) {
@@ -143,7 +143,7 @@ func (g *virtualServiceXform) processIngress(newIngress *resource.Entry, h event
 
 	// It is possible that the ingress may have been removed from a Synthetic Virtual Service. Find and
 	// update/remove those
-	oldIngress, found := g.ingresses[newIngress.Metadata.Name]
+	oldIngress, found := g.ingresses[newIngress.Metadata.FullName]
 	if found {
 		iterateRemovedHosts(oldIngress, newIngress, func(host string) {
 			svs := g.vsByHost[host]
@@ -225,14 +225,14 @@ func (g *virtualServiceXform) notifyUpdate(h event.Handler, k event.Kind, svs *s
 	h.Handle(e)
 }
 
-func (g *virtualServiceXform) notifyDelete(h event.Handler, name resource.Name, v resource.Version) {
+func (g *virtualServiceXform) notifyDelete(h event.Handler, name resource.FullName, v resource.Version) {
 	e := event.Event{
 		Kind:   event.Deleted,
 		Source: metadata.IstioNetworkingV1Alpha3Virtualservices,
 		Entry: &resource.Entry{
 			Metadata: resource.Metadata{
-				Name:    name,
-				Version: v,
+				FullName: name,
+				Version:  v,
 			},
 		},
 	}
@@ -272,7 +272,7 @@ func createStringMatch(s string) *v1alpha3.StringMatch {
 	}
 }
 
-func ingressBackendToHTTPRoute(backend *ingress.IngressBackend, namespace string, domainSuffix string) *v1alpha3.HTTPRoute {
+func ingressBackendToHTTPRoute(backend *ingress.IngressBackend, namespace resource.Namespace, domainSuffix string) *v1alpha3.HTTPRoute {
 	if backend == nil {
 		return nil
 	}

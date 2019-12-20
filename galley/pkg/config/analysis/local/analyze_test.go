@@ -81,11 +81,11 @@ func TestAnalyzersRun(t *testing.T) {
 	cancel := make(chan struct{})
 
 	r := createTestResource(t, "ns", "resource", "v1")
-	msg := msg.NewInternalError(r, "msg")
+	m := msg.NewInternalError(r, "msg")
 	a := &testAnalyzer{
 		fn: func(ctx analysis.Context) {
-			ctx.Exists(data.Collection1, resource.NewName("", ""))
-			ctx.Report(data.Collection1, msg)
+			ctx.Exists(data.Collection1, resource.NewFullName("", ""))
+			ctx.Report(data.Collection1, m)
 		},
 	}
 
@@ -100,7 +100,7 @@ func TestAnalyzersRun(t *testing.T) {
 
 	result, err := sa.Analyze(cancel)
 	g.Expect(err).To(BeNil())
-	g.Expect(result.Messages).To(ConsistOf(msg))
+	g.Expect(result.Messages).To(ConsistOf(m))
 	g.Expect(collectionAccessed).To(Equal(data.Collection1))
 	g.Expect(result.ExecutedAnalyzers).To(ConsistOf(a.Metadata().Name))
 }
@@ -146,7 +146,7 @@ func TestAddRunningKubeSource(t *testing.T) {
 func TestAddRunningKubeSourceWithMeshCfg(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	istioNamespace := "istio-system"
+	istioNamespace := resource.Namespace("istio-system")
 
 	cfg := &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -162,7 +162,7 @@ func TestAddRunningKubeSourceWithMeshCfg(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error getting client for mock kube: %v", err)
 	}
-	if _, err := client.CoreV1().ConfigMaps(istioNamespace).Create(cfg); err != nil {
+	if _, err := client.CoreV1().ConfigMaps(istioNamespace.String()).Create(cfg); err != nil {
 		t.Fatalf("Error creating mesh config configmap: %v", err)
 	}
 

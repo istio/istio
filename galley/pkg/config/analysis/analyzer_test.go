@@ -48,11 +48,11 @@ func (a *analyzer) Analyze(ctx Context) {
 
 type context struct{}
 
-func (ctx *context) Report(c collection.Name, t diag.Message)                   {}
-func (ctx *context) Find(c collection.Name, name resource.Name) *resource.Entry { return nil }
-func (ctx *context) Exists(c collection.Name, name resource.Name) bool          { return false }
-func (ctx *context) ForEach(c collection.Name, fn IteratorFn)                   {}
-func (ctx *context) Canceled() bool                                             { return false }
+func (ctx *context) Report(c collection.Name, t diag.Message)                       {}
+func (ctx *context) Find(c collection.Name, name resource.FullName) *resource.Entry { return nil }
+func (ctx *context) Exists(c collection.Name, name resource.FullName) bool          { return false }
+func (ctx *context) ForEach(c collection.Name, fn IteratorFn)                       {}
+func (ctx *context) Canceled() bool                                                 { return false }
 
 func TestCombinedAnalyzer(t *testing.T) {
 	g := NewGomegaWithT(t)

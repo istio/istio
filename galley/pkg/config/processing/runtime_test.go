@@ -181,7 +181,7 @@ func TestRuntime_MeshConfig_Causing_Restart(t *testing.T) {
 	g.Eventually(f.p.acc.Events).Should(ConsistOf(
 		event.AddFor(meshcfg.IstioMeshconfig, &resource.Entry{
 			Metadata: resource.Metadata{
-				Name: meshcfg.ResourceName,
+				FullName: meshcfg.ResourceName,
 			},
 			Item: meshcfg.Default(),
 		}),
@@ -448,7 +448,7 @@ func (t *testProcessor) HasStarted() bool {
 func meshConfigEntry(m *v1alpha1.MeshConfig) *resource.Entry { // nolint:interfacer
 	return &resource.Entry{
 		Metadata: resource.Metadata{
-			Name: resource.NewName("istio-system", "meshconfig"),
+			FullName: resource.NewFullName("istio-system", "meshconfig"),
 		},
 		Item: m,
 	}

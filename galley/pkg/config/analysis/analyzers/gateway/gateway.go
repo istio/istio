@@ -85,7 +85,7 @@ func (*IngressGatewayPortAnalyzer) analyzeGateway(r *resource.Entry, c analysis.
 		if gwSelector.Matches(podLabels) {
 			gwSelectorMatches++
 			c.ForEach(metadata.K8SCoreV1Services, func(rSvc *resource.Entry) bool {
-				nsSvc, _ := rSvc.Metadata.Name.InterpretAsNamespaceAndName()
+				nsSvc := string(rSvc.Metadata.FullName.Namespace)
 				if nsSvc != pod.ObjectMeta.Namespace {
 					return true // Services only select pods in their namespace
 				}

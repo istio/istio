@@ -20,7 +20,7 @@ import (
 
 // Metadata about a resource.
 type Metadata struct {
-	Name        Name
+	FullName    FullName
 	CreateTime  time.Time
 	Version     Version
 	Labels      StringMap

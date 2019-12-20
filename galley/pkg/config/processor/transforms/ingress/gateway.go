@@ -87,7 +87,7 @@ func (g *gatewayXform) handle(e event.Event, h event.Handler) {
 			Source: metadata.IstioNetworkingV1Alpha3Gateways,
 			Entry:  gw,
 		}
-		evt.Entry.Metadata.Name = generateSyntheticGatewayName(e.Entry.Metadata.Name)
+		evt.Entry.Metadata.FullName = generateSyntheticGatewayName(e.Entry.Metadata.FullName)
 		evt.Entry.Metadata.Version = generateSyntheticVersion(e.Entry.Metadata.Version)
 
 		h.Handle(evt)
@@ -98,7 +98,8 @@ func (g *gatewayXform) handle(e event.Event, h event.Handler) {
 }
 
 func (g *gatewayXform) convertIngressToGateway(e *resource.Entry) *resource.Entry {
-	namespace, name := e.Metadata.Name.InterpretAsNamespaceAndName()
+	namespace := e.Metadata.FullName.Namespace
+	name := e.Metadata.FullName.Name
 
 	var gateway *v1alpha3.Gateway
 	if e.Item != nil {
@@ -152,7 +153,7 @@ func (g *gatewayXform) convertIngressToGateway(e *resource.Entry) *resource.Entr
 
 	gw := &resource.Entry{
 		Metadata: resource.Metadata{
-			Name:        generateSyntheticGatewayName(e.Metadata.Name),
+			FullName:    generateSyntheticGatewayName(e.Metadata.FullName),
 			Version:     generateSyntheticVersion(e.Metadata.Version),
 			CreateTime:  e.Metadata.CreateTime,
 			Annotations: ann,
@@ -165,12 +166,10 @@ func (g *gatewayXform) convertIngressToGateway(e *resource.Entry) *resource.Entr
 	return gw
 }
 
-func generateSyntheticGatewayName(name resource.Name) resource.Name {
-	_, n := name.InterpretAsNamespaceAndName()
-	newName := n + "-" + IstioIngressGatewayName
-	newNamespace := IstioIngressNamespace
-
-	return resource.NewName(newNamespace, newName)
+func generateSyntheticGatewayName(name resource.FullName) resource.FullName {
+	name.Name = name.Name + "-" + IstioIngressGatewayName
+	name.Namespace = IstioIngressNamespace
+	return name
 }
 
 func generateSyntheticVersion(v resource.Version) resource.Version {

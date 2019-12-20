@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/meta/metadata"
@@ -47,7 +48,7 @@ func (a *SelectorAnalyzer) Metadata() analysis.Metadata {
 
 // Analyze implements Analyzer
 func (a *SelectorAnalyzer) Analyze(c analysis.Context) {
-	podsToSidecars := make(map[resource.Name][]*resource.Entry)
+	podsToSidecars := make(map[resource.FullName][]*resource.Entry)
 
 	// This is using an unindexed approach for matching selectors.
 	// Using an index for selectoes is problematic because selector != label
@@ -60,13 +61,13 @@ func (a *SelectorAnalyzer) Analyze(c analysis.Context) {
 			return true
 		}
 
-		sNs, _ := rs.Metadata.Name.InterpretAsNamespaceAndName()
+		sNs := rs.Metadata.FullName.Namespace
 		sel := labels.SelectorFromSet(s.WorkloadSelector.Labels)
 
 		foundPod := false
 		c.ForEach(metadata.K8SCoreV1Pods, func(rp *resource.Entry) bool {
 			pod := rp.Item.(*v1.Pod)
-			pNs, _ := rp.Metadata.Name.InterpretAsNamespaceAndName()
+			pNs := rp.Metadata.FullName.Namespace
 			podLabels := labels.Set(pod.ObjectMeta.Labels)
 
 			// Only attempt to match in the same namespace
@@ -76,7 +77,7 @@ func (a *SelectorAnalyzer) Analyze(c analysis.Context) {
 
 			if sel.Matches(podLabels) {
 				foundPod = true
-				podsToSidecars[rp.Metadata.Name] = append(podsToSidecars[rp.Metadata.Name], rs)
+				podsToSidecars[rp.Metadata.FullName] = append(podsToSidecars[rp.Metadata.FullName], rs)
 			}
 
 			return true
@@ -94,11 +95,11 @@ func (a *SelectorAnalyzer) Analyze(c analysis.Context) {
 			continue
 		}
 
-		pNs, pName := p.InterpretAsNamespaceAndName()
 		sNames := getNames(sList)
 
 		for _, rs := range sList {
-			c.Report(metadata.IstioNetworkingV1Alpha3Sidecars, msg.NewConflictingSidecarWorkloadSelectors(rs, sNames, pNs, pName))
+			c.Report(metadata.IstioNetworkingV1Alpha3Sidecars, msg.NewConflictingSidecarWorkloadSelectors(rs, sNames,
+				p.Namespace.String(), p.Name.String()))
 		}
 	}
 }

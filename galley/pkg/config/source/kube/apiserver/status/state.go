@@ -84,7 +84,7 @@ func newState() *state {
 
 // set the last observed state of a resource status, based on the watch events. This can trigger creation of new
 // work, if the state is not as expected.
-func (s *state) setObserved(col collection.Name, res resource.Name, version resource.Version, status interface{}) {
+func (s *state) setObserved(col collection.Name, res resource.FullName, version resource.Version, status interface{}) {
 	s.mu.Lock()
 	k := key{col: col, res: res}
 

@@ -114,7 +114,7 @@ func (s *InMemorySource) send(k event.Kind) {
 	case event.Added, event.Updated:
 		e.Entry = &resource.Entry{
 			Metadata: resource.Metadata{
-				Name: ResourceName,
+				FullName: ResourceName,
 			},
 			Item: proto.Clone(s.current),
 		}

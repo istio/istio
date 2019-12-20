@@ -128,7 +128,7 @@ func (w *watcher) handleEvent(c event.Kind, obj interface{}) {
 
 	if w.statusCtl != nil && !w.adapter.IsBuiltIn() {
 		w.statusCtl.UpdateResourceStatus(
-			w.resource.Collection.Name, r.Metadata.Name, r.Metadata.Version, w.adapter.GetStatus(obj))
+			w.resource.Collection.Name, r.Metadata.FullName, r.Metadata.Version, w.adapter.GetStatus(obj))
 	}
 
 	e := event.Event{

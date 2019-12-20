@@ -46,7 +46,7 @@ type KubeSource struct {
 	name      string
 	resources schema.KubeResources
 	source    *inmemory.Source
-	defaultNs string
+	defaultNs resource.Namespace
 
 	versionCtr int64
 	shas       map[kubeResourceKey]resourceSha
@@ -64,12 +64,12 @@ type kubeResource struct {
 func (r *kubeResource) newKey() kubeResourceKey {
 	return kubeResourceKey{
 		kind:     r.spec.Kind,
-		fullName: r.entry.Metadata.Name,
+		fullName: r.entry.Metadata.FullName,
 	}
 }
 
 type kubeResourceKey struct {
-	fullName resource.Name
+	fullName resource.FullName
 	kind     string
 }
 
@@ -92,7 +92,7 @@ func NewKubeSource(resources schema.KubeResources) *KubeSource {
 }
 
 // SetDefaultNamespace enables injecting a default namespace for resources where none is already specified
-func (s *KubeSource) SetDefaultNamespace(defaultNs string) {
+func (s *KubeSource) SetDefaultNamespace(defaultNs resource.Namespace) {
 	s.defaultNs = defaultNs
 }
 
@@ -158,7 +158,7 @@ func (s *KubeSource) ApplyContent(name, yamlText string) error {
 		if !found || oldSha != r.sha {
 			s.versionCtr++
 			r.entry.Metadata.Version = resource.Version(fmt.Sprintf("v%d", s.versionCtr))
-			scope.Source.Debuga("KubeSource.ApplyContent: Set: ", r.spec.Collection.Name, r.entry.Metadata.Name)
+			scope.Source.Debuga("KubeSource.ApplyContent: Set: ", r.spec.Collection.Name, r.entry.Metadata.FullName)
 			s.source.Get(r.spec.Collection.Name).Set(r.entry)
 			s.shas[key] = r.sha
 		}
@@ -264,7 +264,7 @@ func (s *KubeSource) parseChunk(r schema.KubeResources, yamlChunk []byte) (kubeR
 	if !resourceSpec.ClusterScoped {
 		if objMeta.GetNamespace() == "" && s.defaultNs != "" {
 			scope.Source.Debugf("KubeSource.parseChunk: namespace not specified for %q, using %q", objMeta.GetName(), s.defaultNs)
-			objMeta.SetNamespace(s.defaultNs)
+			objMeta.SetNamespace(string(s.defaultNs))
 		}
 	} else {
 		// Clear the namespace if there is any specified.
