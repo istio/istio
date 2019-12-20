@@ -306,9 +306,9 @@ istioctl analyze -L
 		"Overrides the mesh config values to use for analysis.")
 	analysisCmd.PersistentFlags().BoolVar(&allNamespaces, "all-namespaces", false,
 		"Analyze all namespaces")
-	analysisCmd.PersistentFlags().StringArrayVar(&suppress, "suppress", []string{},
+	analysisCmd.PersistentFlags().StringArrayVarP(&suppress, "suppress", "S", []string{},
 		"Suppress reporting a message code on a specific resource. Values are supplied in the form "+
-			`<code>=<resource> (e.g. '--suppress "IST0102=namespace default"'). Can be repeated.`)
+			`<code>=<resource> (e.g. '--suppress "IST0102=DestinationRule primary-dr.default"'). Can be repeated.`)
 	return analysisCmd
 }
 
