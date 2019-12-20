@@ -46,6 +46,7 @@ import (
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver/status"
 	"istio.io/istio/galley/pkg/config/util/kuberesource"
+	"istio.io/istio/galley/pkg/envvar"
 	"istio.io/istio/galley/pkg/server/process"
 	"istio.io/istio/galley/pkg/server/settings"
 	configz "istio.io/istio/pkg/mcp/configz/server"
@@ -169,11 +170,12 @@ func (p *Processing) Start() (err error) {
 
 	p.reporter = mcpMetricReporter("galley")
 
+	mcpSourceRateLimiter := mcprate.NewRateLimiter(envvar.MCPSourceReqFreq.Get(), envvar.MCPSourceReqBurstSize.Get())
 	options := &source.Options{
 		Watcher:            p.mcpCache,
 		Reporter:           p.reporter,
 		CollectionsOptions: source.CollectionOptionsFromSlice(m.AllCollectionsInSnapshots(metadata.SnapshotNames())),
-		ConnRateLimiter:    mcprate.NewRateLimiter(time.Second, 100), // TODO(Nino-K): https://github.com/istio/istio/issues/12074
+		ConnRateLimiter:    mcpSourceRateLimiter,
 	}
 
 	md := grpcMetadata.MD{
@@ -192,9 +194,10 @@ func (p *Processing) Start() (err error) {
 		}
 	}
 
+	sourceServerRateLimiter := rate.NewLimiter(rate.Every(envvar.SourceServerStreamFreq.Get()), envvar.SourceServerStreamBurstSize.Get())
 	serverOptions := &source.ServerOptions{
 		AuthChecker: checker,
-		RateLimiter: rate.NewLimiter(rate.Every(time.Second), 100), // TODO(Nino-K): https://github.com/istio/istio/issues/12074
+		RateLimiter: sourceServerRateLimiter,
 		Metadata:    md,
 	}
 

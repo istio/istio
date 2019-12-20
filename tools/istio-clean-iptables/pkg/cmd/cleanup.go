@@ -55,7 +55,8 @@ func cleanup(dryRun bool) {
 
 	defer func() {
 		for _, cmd := range []string{dep.IPTABLESSAVE, dep.IP6TABLESSAVE} {
-			ext.RunOrFail(cmd)
+			// iptables-save is best efforts
+			_ = ext.Run(cmd)
 		}
 	}()
 

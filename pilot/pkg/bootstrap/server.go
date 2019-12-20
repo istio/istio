@@ -43,8 +43,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
-	kubelib "istio.io/istio/pkg/kube"
-
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
@@ -54,12 +52,16 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/external"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pilot/pkg/serviceregistry/mcp"
+	"istio.io/istio/pilot/pkg/serviceregistry/synthetic/serviceentry"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schemas"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
+	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/security/pkg/k8s/chiron"
 )
 
@@ -106,25 +108,25 @@ type Server struct {
 	// TODO(nmittler): Consider alternatives to exposing these directly
 	EnvoyXdsServer *envoyv2.DiscoveryServer
 
-	clusterID             string
-	environment           *model.Environment
-	configController      model.ConfigStoreCache
-	kubeClient            kubernetes.Interface
-	startFuncs            []startFunc
-	multicluster          *kubecontroller.Multicluster
-	httpServer            *http.Server
-	grpcServer            *grpc.Server
-	secureHTTPServer      *http.Server
-	secureGRPCServer      *grpc.Server
-	secureHTTPServerDNS   *http.Server
-	secureGRPCServerDNS   *grpc.Server
-	mux                   *http.ServeMux
-	kubeRegistry          *kubecontroller.Controller
-	mcpDiscovery          *mcp.Discovery
-	discoveryOptions      *mcp.DiscoveryOptions
-	incrementalMcpOptions *mcp.Options
-	mcpOptions            *mcp.Options
-	certController        *chiron.WebhookController
+	clusterID                      string
+	environment                    *model.Environment
+	configController               model.ConfigStoreCache
+	kubeClient                     kubernetes.Interface
+	startFuncs                     []startFunc
+	multicluster                   *kubecontroller.Multicluster
+	httpServer                     *http.Server
+	grpcServer                     *grpc.Server
+	secureHTTPServer               *http.Server
+	secureGRPCServer               *grpc.Server
+	secureHTTPServerDNS            *http.Server
+	secureGRPCServerDNS            *grpc.Server
+	mux                            *http.ServeMux
+	kubeRegistry                   *kubecontroller.Controller
+	sseDiscovery                   *serviceentry.Discovery
+	sseDiscoveryOptions            *serviceentry.DiscoveryOptions
+	incrementalSSEDiscoveryOptions *serviceentry.Options
+	mcpOptions                     *mcp.Options
+	certController                 *chiron.WebhookController
 
 	ConfigStores []model.ConfigStoreCache
 
