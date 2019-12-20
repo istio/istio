@@ -127,8 +127,10 @@ spec:
           - --lightstepAccessToken
           - {{ $.Values.global.tracer.lightstep.accessToken }}
           - --lightstepSecure={{ $.Values.global.tracer.lightstep.secure }}
+          {{- if $.Values.global.tracer.lightstep.secure }}
           - --lightstepCacertPath
           - {{ $.Values.global.tracer.lightstep.cacertPath }}
+          {{- end }}
         {{- else if eq $.Values.global.proxy.tracer "zipkin" }}
           - --zipkinAddress
           {{- if $.Values.global.tracer.zipkin.address }}
