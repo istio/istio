@@ -15,6 +15,7 @@
 package v1alpha3
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"strconv"
@@ -107,6 +108,8 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 	clusters := make([]*apiv2.Cluster, 0)
 	instances := proxy.ServiceInstances
 
+	debug, _ := json.MarshalIndent(proxy, "howardjohn", "  ")
+	log.Errorf("howardjohn: %s", debug)
 	outboundClusters := configgen.buildOutboundClusters(proxy, push)
 
 	switch proxy.Type {
