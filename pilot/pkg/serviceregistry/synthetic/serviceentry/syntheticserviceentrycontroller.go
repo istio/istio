@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mcp
+package serviceentry
 
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -25,6 +26,7 @@ import (
 
 	"istio.io/api/annotation"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/ledger"
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -34,10 +36,26 @@ import (
 )
 
 var (
+	errUnsupported      = errors.New("this operation is not supported by mcp controller")
 	endpointKey         = annotation.AlphaNetworkingEndpointsVersion.Name
 	serviceKey          = annotation.AlphaNetworkingServiceVersion.Name
 	notReadyEndpointkey = annotation.AlphaNetworkingNotReadyEndpoints.Name
 )
+
+// Controller is a combined interface for ConfigStoreCache
+// and MCP Updater
+type Controller interface {
+	model.ConfigStoreCache
+	sink.Updater
+}
+
+// Options stores the configurable attributes of a Control
+type Options struct {
+	ClusterID    string
+	DomainSuffix string
+	XDSUpdater   model.XDSUpdater
+	ConfigLedger ledger.Ledger
+}
 
 // SyntheticServiceEntryController is a temporary storage for the changes received
 // via MCP server
@@ -131,7 +149,7 @@ func (c *SyntheticServiceEntryController) dispatch(config model.Config, event mo
 }
 
 // RegisterEventHandler registers a handler using the type as a key
-func (c *SyntheticServiceEntryController) RegisterEventHandler(typ string, handler func(model.Config, model.Config, model.Event)) {
+func (c *SyntheticServiceEntryController) RegisterEventHandler(_ string, handler func(model.Config, model.Config, model.Event)) {
 	// TODO: investigate why it is called more than one
 	if c.eventHandler == nil {
 		c.eventHandler = handler
@@ -145,36 +163,36 @@ func (c *SyntheticServiceEntryController) Version() string {
 }
 
 // GetResourceAtVersion is not implemented
-func (c *SyntheticServiceEntryController) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
+func (c *SyntheticServiceEntryController) GetResourceAtVersion(string, string) (resourceVersion string, err error) {
 	log.Warnf("getResourceAtVersion: %s", errUnsupported)
 	return "", nil
 }
 
 // Run is not implemented
-func (c *SyntheticServiceEntryController) Run(stop <-chan struct{}) {
+func (c *SyntheticServiceEntryController) Run(<-chan struct{}) {
 	log.Warnf("run: %s", errUnsupported)
 }
 
 // Get is not implemented
-func (c *SyntheticServiceEntryController) Get(typ, name, namespace string) *model.Config {
+func (c *SyntheticServiceEntryController) Get(string, string, string) *model.Config {
 	log.Warnf("get %s", errUnsupported)
 	return nil
 }
 
 // Update is not implemented
-func (c *SyntheticServiceEntryController) Update(config model.Config) (newRevision string, err error) {
+func (c *SyntheticServiceEntryController) Update(model.Config) (newRevision string, err error) {
 	log.Warnf("update %s", errUnsupported)
 	return "", errUnsupported
 }
 
 // Create is not implemented
-func (c *SyntheticServiceEntryController) Create(config model.Config) (revision string, err error) {
+func (c *SyntheticServiceEntryController) Create(model.Config) (revision string, err error) {
 	log.Warnf("create %s", errUnsupported)
 	return "", errUnsupported
 }
 
 // Delete is not implemented
-func (c *SyntheticServiceEntryController) Delete(typ, name, namespace string) error {
+func (c *SyntheticServiceEntryController) Delete(string, string, string) error {
 	log.Warnf("delete %s", errUnsupported)
 	return errUnsupported
 }
@@ -228,8 +246,8 @@ func (c *SyntheticServiceEntryController) convertToConfig(obj *sink.Object) (con
 		Spec: obj.Body,
 	}
 
-	schema, _ := c.ConfigDescriptor().GetByType(schemas.SyntheticServiceEntry.Type)
-	if err = schema.Validate(conf.Name, conf.Namespace, conf.Spec); err != nil {
+	s, _ := c.ConfigDescriptor().GetByType(schemas.SyntheticServiceEntry.Type)
+	if err = s.Validate(conf.Name, conf.Namespace, conf.Spec); err != nil {
 		log.Warnf("Discarding incoming MCP resource: validation failed (%s/%s): %v", conf.Namespace, conf.Name, err)
 		return nil, err
 	}
@@ -397,4 +415,12 @@ func version(anno map[string]string, key string) string {
 
 func hostName(name, namespace, domainSuffix string) string {
 	return name + "." + namespace + ".svc." + domainSuffix
+}
+
+func extractNameNamespace(metadataName string) (string, string) {
+	segments := strings.Split(metadataName, "/")
+	if len(segments) == 2 {
+		return segments[0], segments[1]
+	}
+	return "", segments[0]
 }

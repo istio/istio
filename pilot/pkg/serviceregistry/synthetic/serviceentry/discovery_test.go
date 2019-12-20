@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mcp_test
+package serviceentry_test
 
 import (
 	"fmt"
@@ -25,7 +25,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/mcp"
+	"istio.io/istio/pilot/pkg/serviceregistry/synthetic/serviceentry"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
@@ -33,8 +33,8 @@ import (
 )
 
 var (
-	d          *mcp.Discovery
-	controller mcp.Controller
+	d          *serviceentry.Discovery
+	controller serviceentry.Controller
 	fx         *FakeXdsUpdater
 	namespace  = "random-namespace"
 	name       = "test-synthetic-se"
@@ -572,12 +572,12 @@ func initDiscovery() {
 	fx = NewFakeXDS()
 	fx.EDSErr <- nil
 	testControllerOptions.XDSUpdater = fx
-	controller = mcp.NewSyntheticServiceEntryController(testControllerOptions)
-	options := &mcp.DiscoveryOptions{
+	controller = serviceentry.NewSyntheticServiceEntryController(testControllerOptions)
+	options := &serviceentry.DiscoveryOptions{
 		ClusterID:    "test",
 		DomainSuffix: "cluster.local",
 	}
-	d = mcp.NewDiscovery(controller, options)
+	d = serviceentry.NewDiscovery(controller, options)
 }
 
 func testSetup(g *gomega.GomegaWithT) {

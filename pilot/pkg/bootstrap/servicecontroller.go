@@ -17,9 +17,9 @@ package bootstrap
 import (
 	"fmt"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/pkg/log"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
@@ -52,8 +52,8 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 				return err
 			}
 		case serviceregistry.MCP:
-			if s.mcpDiscovery != nil {
-				serviceControllers.AddRegistry(s.mcpDiscovery)
+			if s.sseDiscovery != nil {
+				serviceControllers.AddRegistry(s.sseDiscovery)
 			}
 		case serviceregistry.Consul:
 			if err := s.initConsulRegistry(serviceControllers, args); err != nil {

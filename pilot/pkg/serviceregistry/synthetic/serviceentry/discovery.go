@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mcp
+package serviceentry
 
 import (
 	"net"
@@ -104,7 +104,7 @@ func (d *Discovery) HandleCacheEvents(config model.Config, event model.Event) {
 // basis to purge all caches, the purge maybe necessary since
 // controller's configStore only keeps track of one sink.Change
 // object at a time everytime apply is called.
-func (d *Discovery) Run(stop <-chan struct{}) {
+func (d *Discovery) Run(<-chan struct{}) {
 	if err := d.initializeCache(); err != nil {
 		log.Warnf("Run: %s", err)
 	}
@@ -482,25 +482,25 @@ func notReadyEndpoints(conf model.Config) map[string]int {
 }
 
 // GetService Not Supported
-func (d *Discovery) GetService(hostname host.Name) (*model.Service, error) {
+func (d *Discovery) GetService(host.Name) (*model.Service, error) {
 	log.Warnf("GetService %s", errUnsupported)
 	return nil, nil
 }
 
 // ManagementPorts Not Supported
-func (d *Discovery) ManagementPorts(addr string) model.PortList {
+func (d *Discovery) ManagementPorts(string) model.PortList {
 	log.Warnf("ManagementPorts %s", errUnsupported)
 	return nil
 }
 
 // WorkloadHealthCheckInfo Not Supported
-func (d *Discovery) WorkloadHealthCheckInfo(addr string) model.ProbeList {
+func (d *Discovery) WorkloadHealthCheckInfo(string) model.ProbeList {
 	log.Warnf("WorkloadHealthCheckInfo %s", errUnsupported)
 	return nil
 }
 
 // GetIstioServiceAccounts Not Supported
-func (d *Discovery) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
+func (d *Discovery) GetIstioServiceAccounts(*model.Service, []int) []string {
 	log.Warnf("GetIstioServiceAccounts %s", errUnsupported)
 	return nil
 }
@@ -514,13 +514,13 @@ func (d *Discovery) GetProxyWorkloadLabels(*model.Proxy) (labels.Collection, err
 // model controller
 
 // AppendServiceHandler Not Supported
-func (d *Discovery) AppendServiceHandler(f func(*model.Service, model.Event)) error {
+func (d *Discovery) AppendServiceHandler(func(*model.Service, model.Event)) error {
 	log.Warnf("AppendServiceHandler %s", errUnsupported)
 	return nil
 }
 
 // AppendInstanceHandler Not Supported
-func (d *Discovery) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
+func (d *Discovery) AppendInstanceHandler(func(*model.ServiceInstance, model.Event)) error {
 	log.Warnf("AppendInstanceHandler %s", errUnsupported)
 	return nil
 }

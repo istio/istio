@@ -41,6 +41,7 @@ import (
 	configmonitor "istio.io/istio/pilot/pkg/config/monitor"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/mcp"
+	"istio.io/istio/pilot/pkg/serviceregistry/synthetic/serviceentry"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schemas"
 	configz "istio.io/istio/pkg/mcp/configz/client"
@@ -319,17 +320,17 @@ func (s *Server) sseMCPController(args *PilotArgs,
 	clients *[]*sink.Client,
 	configStores *[]model.ConfigStoreCache) {
 	clientNodeID := "SSEMCP"
-	s.incrementalMcpOptions = &mcp.Options{
+	s.incrementalSSEDiscoveryOptions = &serviceentry.Options{
 		ClusterID:    s.clusterID,
 		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
 		XDSUpdater:   s.EnvoyXdsServer,
 	}
-	ctl := mcp.NewSyntheticServiceEntryController(s.incrementalMcpOptions)
-	s.discoveryOptions = &mcp.DiscoveryOptions{
+	ctl := serviceentry.NewSyntheticServiceEntryController(s.incrementalSSEDiscoveryOptions)
+	s.sseDiscoveryOptions = &serviceentry.DiscoveryOptions{
 		ClusterID:    s.clusterID,
 		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
 	}
-	s.mcpDiscovery = mcp.NewDiscovery(ctl, s.discoveryOptions)
+	s.sseDiscovery = serviceentry.NewDiscovery(ctl, s.sseDiscoveryOptions)
 	incrementalSinkOptions := &sink.Options{
 		CollectionOptions: []sink.CollectionOptions{
 			{
