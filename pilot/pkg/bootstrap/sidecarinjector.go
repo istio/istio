@@ -62,6 +62,7 @@ func (s *Server) initSidecarInjector(args *PilotArgs) error {
 			ConfigFile:          filepath.Join(injectPath, "config"),
 			ValuesFile:          filepath.Join(injectPath, "values"),
 			MeshFile:            args.Mesh.ConfigFile,
+			Env:                 s.environment,
 			CertFile:            filepath.Join(dnsCertDir, "cert-chain.pem"),
 			KeyFile:             filepath.Join(dnsCertDir, "key.pem"),
 			Port:                args.InjectionOptions.Port,
@@ -74,6 +75,9 @@ func (s *Server) initSidecarInjector(args *PilotArgs) error {
 		if err != nil {
 			return fmt.Errorf("failed to create injection webhook: %v", err)
 		}
+		// Patch cert if a webhook config name is provided.
+		// This requires RBAC permissions - a low-priv Istiod should not attempt to patch but rely on
+		// operator or CI/CD
 		if webhookConfigName.Get() != "" {
 			s.addStartFunc(func(stop <-chan struct{}) error {
 				if err := patchCertLoop(s.kubeClient, stop); err != nil {
@@ -82,6 +86,7 @@ func (s *Server) initSidecarInjector(args *PilotArgs) error {
 				return nil
 			})
 		}
+		s.webhook = wh
 		s.addStartFunc(func(stop <-chan struct{}) error {
 			go wh.Run(stop)
 			return nil
