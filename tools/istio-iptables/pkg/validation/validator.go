@@ -15,24 +15,30 @@
 package validation
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"net"
 	"strconv"
+	"strings"
 	"time"
 
 	"istio.io/istio/tools/istio-iptables/pkg/config"
 )
 
-var istioLocalIPv6 = net.IP {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6}
+var istioLocalIPv6 = net.IP{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6}
+
+type ReturnCode int
+
+const (
+	DONE ReturnCode = iota
+)
 
 type Validator struct {
 	Config *Config
 }
 
 type Config struct {
-	ServerListenAddress string
+	ServerListenAddress []string
 	ServerOriginalPort  uint16
 	ServerOriginalIP    net.IP
 }
@@ -67,10 +73,10 @@ func (validator *Validator) Run() error {
 	}()
 	select {
 	case <-sTimer.C:
-		return errors.New("validation timeout")
+		return fmt.Errorf("validation timeout")
 	case err := <-sError:
 		if err == nil {
-			fmt.Println("validation passed!")
+			fmt.Println("validation passed")
 		} else {
 			fmt.Println("validation failed:" + err.Error())
 		}
@@ -78,24 +84,34 @@ func (validator *Validator) Run() error {
 	}
 }
 
+// TODO(lambdai): remove this if iptables only need to redirect to outbound proxy port on A call A
+func genListenerAddress(ip net.IP, ports []string) []string {
+	addresses := make([]string, 0, len(ports))
+	for _, port := range ports {
+		if ip.To4() != nil {
+			addresses = append(addresses, fmt.Sprintf("%s:%s", ip.String(), port))
+		} else {
+			addresses = append(addresses, fmt.Sprintf("[%s]:%s", ip.String(), port))
+		}
+	}
+	return addresses
+}
+
 func NewValidator(config *config.Config, hostIP net.IP) *Validator {
 	fmt.Println("in new validator: " + hostIP.String())
 	// It's tricky here:
 	// Connect to 127.0.0.6 will redirect to 127.0.0.1
-	// Connect to ::6       will redirect to ::6
+	// Connect to ::6       will redirect to ::1
 	isIpv6 := hostIP.To4() == nil
-	listenIP := net.IPv4(127, 0,0,1)
-	serverIP := net.IPv4(127, 0,0,6)
-	formatString := "%s:%s"
+	listenIP := net.IPv4(127, 0, 0, 1)
+	serverIP := net.IPv4(127, 0, 0, 6)
 	if isIpv6 {
-		listenIP = istioLocalIPv6
+		listenIP = net.IPv6loopback
 		serverIP = istioLocalIPv6
-		formatString = "[%s]:%s"
 	}
-	fmt.Printf("%s:%s", listenIP.String(), config.ProxyPort)
 	return &Validator{
 		Config: &Config{
-			ServerListenAddress: fmt.Sprintf(formatString, listenIP.String(), config.ProxyPort),
+			ServerListenAddress: genListenerAddress(listenIP, []string{config.ProxyPort, config.InboundCapturePort}),
 			ServerOriginalPort:  config.IptablesProbePort,
 			ServerOriginalIP:    serverIP,
 		},
@@ -108,15 +124,8 @@ func echo(conn io.WriteCloser, echo []byte) {
 	_ = conn.Close()
 }
 
-func (s *Service) Run() error {
-	l, err := net.Listen("tcp", s.Config.ServerListenAddress)
-	if err != nil {
-		fmt.Println("Error on listening:", err.Error())
-		return err
-	}
-	// Close the listener when the application closes.
+func restoreOriginalAddress(l net.Listener, config *Config, c chan<- ReturnCode) {
 	defer l.Close()
-	fmt.Println("Listening on " + s.Config.ServerListenAddress)
 	for {
 		conn, err := l.Accept()
 		if err != nil {
@@ -135,18 +144,55 @@ func (s *Service) Run() error {
 		echo(conn, []byte(strconv.Itoa(int(port))))
 		// Handle connections
 		// Since the write amount is small it should fit in sock buffer and never blocks.
-		if port != s.Config.ServerOriginalPort {
+		if port != config.ServerOriginalPort {
 			// This could be probe request from no where
 			continue
 		}
 		// Server recovers the magical original port
+		c <- DONE
+		return
+	}
+
+}
+
+func (s *Service) Run() error {
+	// at most 2 message: ipv4 and ipv6
+	c := make(chan ReturnCode, 2)
+	//listeners := make([]net.Listener, len(s.Config.ServerListenAddress))
+	hasAtLeastOneListener := false
+	for _, addr := range s.Config.ServerListenAddress {
+		l, err := net.Listen("tcp", addr)
+		fmt.Println("Listening on " + addr)
+		if err != nil {
+			fmt.Println("Error on listening:", err.Error())
+			continue
+		}
+
+			hasAtLeastOneListener = true
+			go restoreOriginalAddress(l, s.Config, c)
+
+	}
+	if hasAtLeastOneListener {
+		// bump at least one since we currently support either v4 or v6
+		<-c
 		return nil
+	} else {
+		return fmt.Errorf("no listener available: %s", strings.Join(s.Config.ServerListenAddress, ","))
 	}
 }
 
 func (c *Client) Run() error {
+	laddr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
 	serverOriginalAddress := fmt.Sprintf("%s:%d", c.Config.ServerOriginalIP, c.Config.ServerOriginalPort)
-	conn, err := net.Dial("tcp", serverOriginalAddress)
+	if c.Config.ServerOriginalIP.To4() == nil {
+		laddr, err = net.ResolveTCPAddr("tcp", "[::1]:0")
+		serverOriginalAddress = fmt.Sprintf("[%s]:%d", c.Config.ServerOriginalIP, c.Config.ServerOriginalPort)
+	}
+	raddr, err := net.ResolveTCPAddr("tcp", serverOriginalAddress)
+	if err != nil {
+		return err
+	}
+	conn, err := net.DialTCP("tcp", laddr, raddr)
 	if err != nil {
 		fmt.Printf("Error connecting to %s: %s\n", serverOriginalAddress, err.Error())
 		return err

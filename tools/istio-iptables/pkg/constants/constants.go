@@ -81,6 +81,7 @@ const (
 	SkipRuleApply             = "skip-rule-apply"
 	RunValidation             = "run-validation"
 	IptablesProbePort         = "iptables-probe-port"
+	HostIP                    = "host-ip"
 )
 
 // Constants for iptables commands
@@ -97,4 +98,8 @@ const (
 
 const (
 	DefaultIptablesProbePort = 15002
+)
+
+const (
+	ValidationErrorCode = 126
 )

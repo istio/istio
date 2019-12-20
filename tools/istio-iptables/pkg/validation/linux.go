@@ -71,7 +71,7 @@ func GetOriginalDestination(conn net.Conn) (daddr net.IP, dport uint16, err erro
 	} else if ip.To16() != nil {
 		isIpv4 = false
 	} else {
-		err = errors.New("neither ipv6 nor ipv4 original addr: " + ip.String())
+		err = fmt.Errorf("neither ipv6 nor ipv4 original addr: %s", ip)
 		return
 	}
 
@@ -108,7 +108,7 @@ func GetOriginalDestination(conn net.Conn) (daddr net.IP, dport uint16, err erro
 	// See sockaddr_in6 and sockaddr_in
 	dport = ntohs(addr.Addr.Port)
 
-	fmt.Println("local addr ", conn.LocalAddr())
-	fmt.Println("original addr ", ip, ":", dport)
+	fmt.Printf("local addr %s\n", conn.LocalAddr())
+	fmt.Printf("original addr %s:%d\n", ip,dport)
 	return
 }
