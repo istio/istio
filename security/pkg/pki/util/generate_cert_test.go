@@ -609,6 +609,9 @@ func TestGenRootCertFromExistingKey(t *testing.T) {
 		t.Errorf("private key should not change")
 	}
 	keyLen, err := getPublicKeySizeInBits(newRootKeyPem)
+	if err != nil {
+		t.Errorf("failed to parse private key: %v", err)
+	}
 	if keyLen != caKeySize {
 		t.Errorf("Public key size should not change, (got %d) vs (expected %d)",
 			keyLen, caKeySize)
