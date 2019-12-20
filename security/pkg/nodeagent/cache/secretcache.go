@@ -216,12 +216,29 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 
 	conIDresourceNamePrefix := cacheLogPrefix(connectionID, resourceName)
 
-	// When there are existing root certificate, or private key and certificate under
+	// When there are existing root certificates, or private key and certificate under
 	// a well known path, they are used in the SDS response.
+	// In the current implementation, the file update events are not handled and if
+	// the files are updated, a user may restart Envoy to pick up the updated files.
+	// TODO (lei-tang): if updating files are supported, add a file watcher for
+	// the files under the well known path.
+	sdsFromFile := false
+	var err error
 	if sc.rootCertificateExists() && connKey.ResourceName == RootCertReqResourceName {
-		return sc.generateRootCertFromExistingFile(token, connKey)
+		sdsFromFile = true
+		ns, err = sc.generateRootCertFromExistingFile(token, connKey)
 	} else if sc.keyCertificateExists() && connKey.ResourceName == WorkloadKeyCertResourceName {
-		return sc.generateKeyCertFromExistingFiles(token, connKey)
+		sdsFromFile = true
+		ns, err = sc.generateKeyCertFromExistingFiles(token, connKey)
+	}
+	if sdsFromFile {
+		if err != nil {
+			cacheLog.Errorf("%s failed to generate secret for proxy: %v",
+				conIDresourceNamePrefix, err)
+			return nil, err
+		}
+		sc.secrets.Store(connKey, *ns)
+		return ns, nil
 	}
 
 	if resourceName != RootCertReqResourceName {
@@ -585,7 +602,7 @@ func (sc *SecretCache) generateGatewaySecret(token string, connKey ConnKey, t ti
 	}, nil
 }
 
-// If there is an existing root certificate under a well known path, return true.
+// If there is existing root certificates under a well known path, return true.
 // Otherwise, return false.
 func (sc *SecretCache) rootCertificateExists() bool {
 	b, err := ioutil.ReadFile(existingRootCertFile)
