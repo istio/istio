@@ -521,7 +521,7 @@ func parseSnippet(ctx Context, lineIndex *int, lines []string) snippetInfo {
 		case outputStreamKey:
 			info.outputSource = outputStream(value)
 			if _, ok := outputStreams[info.outputSource]; !ok {
-				ctx.Fatalf("snippet %s: unsupported %s: %s. %s Must be in %v",
+				ctx.Fatalf("snippet %s: unsupported %s: %s. %s must be in %v",
 					info.name, key, value, info.outputSource, outputStreams)
 			}
 		default:
@@ -584,7 +584,7 @@ func parseSnippet(ctx Context, lineIndex *int, lines []string) snippetInfo {
 					case sourceKey:
 						currentVerifier.outputSource = outputStream(value)
 						if _, ok := outputStreams[currentVerifier.outputSource]; !ok {
-							ctx.Fatalf("snippet %s: unsupported %s: %s. %s Must be in %v",
+							ctx.Fatalf("snippet %s: unsupported %s: %s. %s must be in %v",
 								info.name, sourceKey, value, currentVerifier.outputSource, outputStreams)
 						}
 					default:
