@@ -15,6 +15,7 @@
 package snapshotter
 
 import (
+	"path/filepath"
 	"sync"
 
 	"istio.io/istio/galley/pkg/config/analysis"
@@ -156,18 +157,34 @@ func (d *AnalyzingDistributor) analyzeAndDistribute(cancelCh chan struct{}, name
 	d.s.Analyzer.Analyze(ctx)
 	scope.Analysis.Debugf("Finished analyzing the current snapshot, found messages: %v", ctx.messages)
 
-	// Only keep messages for resources in namespaces we want to analyze if the
-	// message doesn't have an origin (meaning we can't determine the
-	// namespace). Also kept are cluster-level resources where the namespace is
-	// the empty string. If no such limit is specified, keep them all.
 	var msgs diag.Messages
-	if len(namespaces) == 0 {
-		msgs = ctx.messages
-	} else {
-		msgs = filterByNamespaces(namespaces, ctx.messages)
+FilterMessages:
+	for _, m := range ctx.messages {
+		// Only keep messages for resources in namespaces we want to analyze if the
+		// message doesn't have an origin (meaning we can't determine the
+		// namespace). Also kept are cluster-level resources where the namespace is
+		// the empty string. If no such limit is specified, keep them all.
+		if len(namespaces) > 0 && m.Origin != nil && m.Origin.Namespace() != "" {
+			if _, ok := namespaces[m.Origin.Namespace()]; !ok {
+				continue FilterMessages
+			}
+		}
+
+		// Filter out any messages that match our suppressions.
+		for _, s := range d.s.Suppressions {
+			if m.Origin == nil || s.Code != m.Type.Code() {
+				continue
+			}
+
+			if match, err := filepath.Match(s.ResourceName, m.Origin.FriendlyName()); err != nil || !match {
+				continue
+			}
+			scope.Analysis.Debugf("Suppressing code %s on resource %s due to suppressions list", m.Type.Code(), m.Origin.FriendlyName())
+			continue FilterMessages
+		}
+
+		msgs = append(msgs, m)
 	}
-	// Filter out any messages that match our suppressions
-	msgs = filterBySuppressions(d.s.Suppressions, msgs)
 
 	if !ctx.Canceled() {
 		d.s.StatusUpdater.Update(msgs.SortedDedupedCopy())
@@ -236,37 +253,4 @@ func (c *context) Canceled() bool {
 	default:
 		return false
 	}
-}
-
-func filterByNamespaces(namespaces map[string]struct{}, messages diag.Messages) diag.Messages {
-	var msgs diag.Messages
-	for _, m := range messages {
-		if m.Origin != nil && m.Origin.Namespace() != "" {
-			if _, ok := namespaces[m.Origin.Namespace()]; !ok {
-				continue
-			}
-		}
-		msgs = append(msgs, m)
-	}
-
-	return msgs
-}
-
-func filterBySuppressions(suppressions []AnalysisSuppression, messages diag.Messages) diag.Messages {
-	var msgs diag.Messages
-	for _, m := range messages {
-		suppress := false
-		for _, s := range suppressions {
-			if m.Origin != nil && s.Code == m.Type.Code() && s.ResourceName == m.Origin.FriendlyName() {
-				scope.Analysis.Debugf("Suppressing code %s on resource %s due to suppressions list", m.Type.Code(), m.Origin.FriendlyName())
-				suppress = true
-				break
-			}
-		}
-		if !suppress {
-			msgs = append(msgs, m)
-		}
-	}
-
-	return msgs
 }
