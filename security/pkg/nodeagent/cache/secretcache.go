@@ -215,6 +215,15 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 	}
 
 	conIDresourceNamePrefix := cacheLogPrefix(connectionID, resourceName)
+
+	// When there are existing root certificate, or private key and certificate under
+	// a well known path, they are used in the SDS response.
+	if sc.rootCertificateExists() && connKey.ResourceName == RootCertReqResourceName {
+		return sc.generateRootCertFromExistingFile(token, connKey)
+	} else if sc.keyCertificateExists() && connKey.ResourceName == WorkloadKeyCertResourceName {
+		return sc.generateKeyCertFromExistingFiles(token, connKey)
+	}
+
 	if resourceName != RootCertReqResourceName {
 		// If working as Citadel agent, send request for normal key/cert pair.
 		// If working as ingress gateway agent, fetch key/cert or root cert from SecretFetcher. Resource name for
@@ -248,7 +257,6 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 	if sc.rootCert == nil {
 		cacheLog.Errorf("%s failed to get root cert for proxy", conIDresourceNamePrefix)
 		return nil, errors.New("failed to get root cert")
-
 	}
 
 	t := time.Now()
@@ -594,10 +602,6 @@ func (sc *SecretCache) keyCertificateExists() bool {
 	if err != nil || len(b) == 0 {
 		return false
 	}
-	b, err = ioutil.ReadFile(existingRootCertFile)
-	if err != nil || len(b) == 0 {
-		return false
-	}
 	b, err = ioutil.ReadFile(existingKeyFile)
 	if err != nil || len(b) == 0 {
 		return false
@@ -680,10 +684,6 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 	// CSR to CA.
 	if !sc.fetcher.UseCaClient {
 		return sc.generateGatewaySecret(token, connKey, t)
-	} else if sc.rootCertificateExists() && connKey.ResourceName == RootCertReqResourceName {
-		return sc.generateRootCertFromExistingFile(token, connKey)
-	} else if sc.keyCertificateExists() && connKey.ResourceName == WorkloadKeyCertResourceName {
-		return sc.generateKeyCertFromExistingFiles(token, connKey)
 	}
 
 	conIDresourceNamePrefix := cacheLogPrefix(connKey.ConnectionID, connKey.ResourceName)
