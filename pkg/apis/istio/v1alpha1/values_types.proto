@@ -273,6 +273,8 @@ message EgressGatewayConfig {
 
   // Enables cross-cluster access using SNI matching.
   ZeroVPNConfig zvpn = 19;
+
+  TypeSliceOfMapStringInterface tolerations = 20 [deprecated=true];
 }
 
 // EnvoyMetricsConfig is a set of configuration options for Envoy metrics.
@@ -328,6 +330,8 @@ message GalleyConfig {
 
   // K8s rolling update strategy
   TypeIntOrStringForPB rollingMaxUnavailable = 10 [deprecated=true];
+
+  TypeSliceOfMapStringInterface tolerations = 11 [deprecated=true];
 }
 
 // GatewayLabelsConfig is a set of Configuration for gateway labels.
@@ -1493,6 +1497,8 @@ message SecurityConfig {
 
   // How long workload certs are valid for
   string workloadCertTtl = 13;
+
+  TypeSliceOfMapStringInterface tolerations = 14 [deprecated=true];
 }
 
 // ServiceConfig is described in istio.io documentation.
@@ -1566,6 +1572,8 @@ message SidecarInjectorConfig {
 
   // Enable objectSelector to filter out pods with no need for sidecar before calling istio-sidecar-injector.
   TypeMapStringInterface objectSelector = 21;
+
+  TypeSliceOfMapStringInterface tolerations = 22 [deprecated=true];
 }
 
 // Configuration for stdio adapter in mixer, recommended for debug usage only.
@@ -1681,6 +1689,8 @@ message TracingConfig {
 
   // See EgressGatewayConfig.
   TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 14 [deprecated=true];
+
+  TypeSliceOfMapStringInterface tolerations = 15 [deprecated=true];
 }
 
 message TracingOpencensusConfig {
@@ -1868,6 +1878,8 @@ message KialiConfig {
 
   // See PodAntiAffinityLabelSelector.
   TypeSliceOfMapStringInterface podAntiAffinityTermLabelSelector = 13 [deprecated=true];
+
+  TypeSliceOfMapStringInterface tolerations = 14 [deprecated=true];
 }
 
 message Values {
