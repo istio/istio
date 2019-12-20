@@ -128,8 +128,8 @@ func (esc *endpointSliceController) updateEDS(es interface{}, event model.Event)
 	_ = esc.c.xdsUpdater.EDSUpdate(esc.c.clusterID, string(hostname), slice.Namespace, esc.endpointCache.Get(hostname))
 }
 
-func (e *endpointSliceController) onEvent(curr interface{}, event model.Event) error {
-	if err := e.c.checkReadyForEvents(); err != nil {
+func (esc *endpointSliceController) onEvent(curr interface{}, event model.Event) error {
+	if err := esc.c.checkReadyForEvents(); err != nil {
 		return err
 	}
 
@@ -147,7 +147,7 @@ func (e *endpointSliceController) onEvent(curr interface{}, event model.Event) e
 		}
 	}
 
-	return e.handleEvent(e, ep.Name, ep.Namespace, event, curr)
+	return esc.handleEvent(esc, ep.Name, ep.Namespace, event, curr)
 }
 
 func getProxyServiceInstancesByEndpointSlice(c *Controller, slice *discoveryv1alpha1.EndpointSlice, proxy *model.Proxy) []*model.ServiceInstance {
@@ -192,10 +192,10 @@ func getProxyServiceInstancesByEndpointSlice(c *Controller, slice *discoveryv1al
 	return out
 }
 
-func (e *endpointSliceController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int,
+func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int,
 	labelsList labels.Collection) ([]*model.ServiceInstance, error) {
 	esLabelSelector := klabels.Set(map[string]string{discoveryv1alpha1.LabelServiceName: svc.Attributes.Name}).AsSelectorPreValidated()
-	slices, err := v1alpha1.NewEndpointSliceLister(e.informer.GetIndexer()).EndpointSlices(svc.Attributes.Namespace).List(esLabelSelector)
+	slices, err := v1alpha1.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(svc.Attributes.Namespace).List(esLabelSelector)
 	if err != nil {
 		log.Infof("get endpoints(%s, %s) => error %v", svc.Attributes.Name, svc.Attributes.Namespace, err)
 		return nil, nil
