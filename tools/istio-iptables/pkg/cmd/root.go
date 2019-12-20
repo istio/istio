@@ -205,11 +205,11 @@ func init() {
 	}
 	viper.SetDefault(constants.SkipRuleApply, false)
 
-	rootCmd.Flags().Bool(constants.RunValidation, false, "Skip validate iptables")
+	rootCmd.Flags().Bool(constants.RunValidation, true, "Skip validate iptables")
 	if err := viper.BindPFlag(constants.RunValidation, rootCmd.Flags().Lookup(constants.RunValidation)); err != nil {
 		handleError(err)
 	}
-	viper.SetDefault(constants.RunValidation, false)
+	viper.SetDefault(constants.RunValidation, true)
 }
 
 func Execute() {

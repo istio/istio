@@ -25,6 +25,8 @@ import (
 	"istio.io/istio/tools/istio-iptables/pkg/config"
 )
 
+var istioLocalIPv6 = net.IP {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6}
+
 type Validator struct {
 	Config *Config
 }
@@ -46,7 +48,7 @@ func (validator *Validator) Run() error {
 		validator.Config,
 	}
 	sError := make(chan error, 1)
-	sTimer := time.NewTimer(30 * time.Second)
+	sTimer := time.NewTimer(300 * time.Second)
 	defer sTimer.Stop()
 	go func() {
 		sError <- s.Run()
@@ -77,11 +79,25 @@ func (validator *Validator) Run() error {
 }
 
 func NewValidator(config *config.Config, hostIP net.IP) *Validator {
+	fmt.Println("in new validator: " + hostIP.String())
+	// It's tricky here:
+	// Connect to 127.0.0.6 will redirect to 127.0.0.1
+	// Connect to ::6       will redirect to ::6
+	isIpv6 := hostIP.To4() == nil
+	listenIP := net.IPv4(127, 0,0,1)
+	serverIP := net.IPv4(127, 0,0,6)
+	formatString := "%s:%s"
+	if isIpv6 {
+		listenIP = istioLocalIPv6
+		serverIP = istioLocalIPv6
+		formatString = "[%s]:%s"
+	}
+	fmt.Printf("%s:%s", listenIP.String(), config.ProxyPort)
 	return &Validator{
 		Config: &Config{
-			ServerListenAddress: ":" + config.InboundCapturePort,
+			ServerListenAddress: fmt.Sprintf(formatString, listenIP.String(), config.ProxyPort),
 			ServerOriginalPort:  config.IptablesProbePort,
-			ServerOriginalIP:    hostIP,
+			ServerOriginalIP:    serverIP,
 		},
 	}
 }
