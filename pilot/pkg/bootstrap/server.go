@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pkg/kube/inject"
+
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	prom "github.com/prometheus/client_golang/prometheus"
@@ -134,6 +136,9 @@ type Server struct {
 
 	// for test
 	forceStop bool
+
+	// webhook is the injection webhook, or nil if injection disabled
+	webhook *inject.Webhook
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
@@ -273,7 +278,7 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 
 func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	s.mux = http.NewServeMux()
-	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController(), args.DiscoveryOptions.EnableProfiling)
+	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController(), args.DiscoveryOptions.EnableProfiling, s.webhook)
 
 	// When the mesh config or networks change, do a full push.
 	s.environment.AddMeshHandler(func() {
