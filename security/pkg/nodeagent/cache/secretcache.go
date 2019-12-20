@@ -224,16 +224,16 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 	// the files under the well known path.
 	sdsFromFile := false
 	var err error
-	if sc.rootCertificateExists() && connKey.ResourceName == RootCertReqResourceName {
+	if connKey.ResourceName == RootCertReqResourceName && sc.rootCertificateExists() {
 		sdsFromFile = true
 		ns, err = sc.generateRootCertFromExistingFile(token, connKey)
-	} else if sc.keyCertificateExists() && connKey.ResourceName == WorkloadKeyCertResourceName {
+	} else if connKey.ResourceName == WorkloadKeyCertResourceName && sc.keyCertificateExists() {
 		sdsFromFile = true
 		ns, err = sc.generateKeyCertFromExistingFiles(token, connKey)
 	}
 	if sdsFromFile {
 		if err != nil {
-			cacheLog.Errorf("%s failed to generate secret for proxy: %v",
+			cacheLog.Errorf("%s failed to generate secret for proxy: %v, by loading from files",
 				conIDresourceNamePrefix, err)
 			return nil, err
 		}
@@ -638,8 +638,8 @@ func (sc *SecretCache) generateRootCertFromExistingFile(token string, connKey Co
 	t := time.Now()
 	var certExpireTime time.Time
 	if certExpireTime, err = nodeagentutil.ParseCertAndGetExpiryTimestamp(rootCert); err != nil {
-		cacheLog.Errorf("failed to extract expire time from the root certificate: %v", err)
-		return nil, fmt.Errorf("failed to extract expire time from the root certificate: %v", err)
+		cacheLog.Errorf("failed to extract expiration time in the root certificate loaded from file: %v", err)
+		return nil, fmt.Errorf("failed to extract expiration time in the root certificate loaded from file: %v", err)
 	}
 
 	// Set the rootCert
@@ -676,8 +676,8 @@ func (sc *SecretCache) generateKeyCertFromExistingFiles(token string, connKey Co
 	t := time.Now()
 	var certExpireTime time.Time
 	if certExpireTime, err = nodeagentutil.ParseCertAndGetExpiryTimestamp(certChain); err != nil {
-		cacheLog.Errorf("failed to extract expire time from the certificate: %v", err)
-		return nil, fmt.Errorf("failed to extract expire time from the certificate: %v", err)
+		cacheLog.Errorf("failed to extract expiration time in the certificate loaded from file: %v", err)
+		return nil, fmt.Errorf("failed to extract expiration time in the certificate loaded from file: %v", err)
 	}
 
 	// Set the rootCert
