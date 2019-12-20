@@ -224,12 +224,13 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 	// the files under the well known path.
 	sdsFromFile := false
 	var err error
-	if connKey.ResourceName == RootCertReqResourceName && sc.rootCertificateExists() {
+	if connKey.ResourceName == RootCertReqResourceName && sc.rootCertificateExist(existingRootCertFile) {
 		sdsFromFile = true
-		ns, err = sc.generateRootCertFromExistingFile(token, connKey)
-	} else if connKey.ResourceName == WorkloadKeyCertResourceName && sc.keyCertificateExists() {
+		ns, err = sc.generateRootCertFromExistingFile(existingRootCertFile, token, connKey)
+	} else if connKey.ResourceName == WorkloadKeyCertResourceName &&
+		sc.keyCertificateExist(existingCertChainFile, existingKeyFile) {
 		sdsFromFile = true
-		ns, err = sc.generateKeyCertFromExistingFiles(token, connKey)
+		ns, err = sc.generateKeyCertFromExistingFiles(existingCertChainFile, existingKeyFile, token, connKey)
 	}
 	if sdsFromFile {
 		if err != nil {
@@ -604,8 +605,8 @@ func (sc *SecretCache) generateGatewaySecret(token string, connKey ConnKey, t ti
 
 // If there is existing root certificates under a well known path, return true.
 // Otherwise, return false.
-func (sc *SecretCache) rootCertificateExists() bool {
-	b, err := ioutil.ReadFile(existingRootCertFile)
+func (sc *SecretCache) rootCertificateExist(filePath string) bool {
+	b, err := ioutil.ReadFile(filePath)
 	if err != nil || len(b) == 0 {
 		return false
 	}
@@ -614,12 +615,12 @@ func (sc *SecretCache) rootCertificateExists() bool {
 
 // If there is an existing private key and certificate under a well known path, return true.
 // Otherwise, return false.
-func (sc *SecretCache) keyCertificateExists() bool {
-	b, err := ioutil.ReadFile(existingCertChainFile)
+func (sc *SecretCache) keyCertificateExist(certPath, keyPath string) bool {
+	b, err := ioutil.ReadFile(certPath)
 	if err != nil || len(b) == 0 {
 		return false
 	}
-	b, err = ioutil.ReadFile(existingKeyFile)
+	b, err = ioutil.ReadFile(keyPath)
 	if err != nil || len(b) == 0 {
 		return false
 	}
@@ -629,8 +630,8 @@ func (sc *SecretCache) keyCertificateExists() bool {
 
 // Generate a root certificate item from the existing root certificate file
 // under a well known path.
-func (sc *SecretCache) generateRootCertFromExistingFile(token string, connKey ConnKey) (*model.SecretItem, error) {
-	rootCert, err := ioutil.ReadFile(existingRootCertFile)
+func (sc *SecretCache) generateRootCertFromExistingFile(rootCertPath, token string, connKey ConnKey) (*model.SecretItem, error) {
+	rootCert, err := ioutil.ReadFile(rootCertPath)
 	if err != nil {
 		return nil, err
 	}
@@ -659,16 +660,12 @@ func (sc *SecretCache) generateRootCertFromExistingFile(token string, connKey Co
 
 // Generate a key and certificate item from the existing key certificate files
 // under a well known path.
-func (sc *SecretCache) generateKeyCertFromExistingFiles(token string, connKey ConnKey) (*model.SecretItem, error) {
-	certChain, err := ioutil.ReadFile(existingCertChainFile)
+func (sc *SecretCache) generateKeyCertFromExistingFiles(certChainPath, keyPath, token string, connKey ConnKey) (*model.SecretItem, error) {
+	certChain, err := ioutil.ReadFile(certChainPath)
 	if err != nil {
 		return nil, err
 	}
-	keyPEM, err := ioutil.ReadFile(existingKeyFile)
-	if err != nil {
-		return nil, err
-	}
-	rootCertPEM, err := ioutil.ReadFile(existingRootCertFile)
+	keyPEM, err := ioutil.ReadFile(keyPath)
 	if err != nil {
 		return nil, err
 	}
@@ -679,11 +676,6 @@ func (sc *SecretCache) generateKeyCertFromExistingFiles(token string, connKey Co
 		cacheLog.Errorf("failed to extract expiration time in the certificate loaded from file: %v", err)
 		return nil, fmt.Errorf("failed to extract expiration time in the certificate loaded from file: %v", err)
 	}
-
-	// Set the rootCert
-	sc.rootCertMutex.Lock()
-	sc.rootCert = rootCertPEM
-	sc.rootCertMutex.Unlock()
 
 	return &model.SecretItem{
 		CertificateChain: certChain,
