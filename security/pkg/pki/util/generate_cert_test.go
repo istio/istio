@@ -636,62 +636,62 @@ func TestGenRootCertFromExistingKey(t *testing.T) {
 		t.Errorf("public key algorithm does not match (old: %s) vs (new: %s)",
 			oldRootCert.PublicKeyAlgorithm.String(), newRootCert.PublicKeyAlgorithm.String())
 	}
- }
+}
 
- func getPublicKeySizeInBits(keyPem []byte) (int, error) {
- 	privateKey, err := ParsePemEncodedKey(keyPem)
- 	if err != nil {
- 		return 0, err
+func getPublicKeySizeInBits(keyPem []byte) (int, error) {
+	privateKey, err := ParsePemEncodedKey(keyPem)
+	if err != nil {
+		return 0, err
 	}
 	k := privateKey.(*rsa.PrivateKey)
-	return k.PublicKey.Size()*8, nil
- }
+	return k.PublicKey.Size() * 8, nil
+}
 
- // TestMergeCertOptions verifies that cert option fields are overwritten.
- func TestMergeCertOptions(t *testing.T) {
-	 certTTL := 240 * time.Hour
-	 org := "old org"
-	 keySize := 512
-	 defaultCertOptions := CertOptions{
-		 TTL:          certTTL,
-		 Org:          org,
-		 IsCA:         true,
-		 IsSelfSigned: true,
-		 RSAKeySize:   keySize,
-		 IsDualUse:    false,
-	 }
+// TestMergeCertOptions verifies that cert option fields are overwritten.
+func TestMergeCertOptions(t *testing.T) {
+	certTTL := 240 * time.Hour
+	org := "old org"
+	keySize := 512
+	defaultCertOptions := CertOptions{
+		TTL:          certTTL,
+		Org:          org,
+		IsCA:         true,
+		IsSelfSigned: true,
+		RSAKeySize:   keySize,
+		IsDualUse:    false,
+	}
 
-	 deltaCertTTL := 1 * time.Hour
-	 deltaOrg := "delta org"
-	 deltaKeySize := 1024
-	 deltaCertOptions := CertOptions{
-		 TTL:          deltaCertTTL,
-		 Org:          deltaOrg,
-		 IsCA:         true,
-		 IsSelfSigned: true,
-		 RSAKeySize:   deltaKeySize,
-		 IsDualUse:    true,
-	 }
+	deltaCertTTL := 1 * time.Hour
+	deltaOrg := "delta org"
+	deltaKeySize := 1024
+	deltaCertOptions := CertOptions{
+		TTL:          deltaCertTTL,
+		Org:          deltaOrg,
+		IsCA:         true,
+		IsSelfSigned: true,
+		RSAKeySize:   deltaKeySize,
+		IsDualUse:    true,
+	}
 
-	 mergedCertOptions := MergeCertOptions(defaultCertOptions, deltaCertOptions)
-	 if mergedCertOptions.Org != deltaCertOptions.Org {
-	 	t.Errorf("Org does not match, (get %s) vs (expected %s)",
-	 		mergedCertOptions.Org, deltaCertOptions.Org)
-	 }
-	 if mergedCertOptions.TTL != defaultCertOptions.TTL {
-		 t.Errorf("TTL does not match, (get %s) vs (expected %s)",
-			 mergedCertOptions.TTL.String(), deltaCertOptions.TTL.String())
-	 }
-	 if mergedCertOptions.IsCA != defaultCertOptions.IsCA {
-		 t.Errorf("IsCA does not match, (get %t) vs (expected %t)",
-			 mergedCertOptions.IsCA, deltaCertOptions.IsCA)
-	 }
-	 if mergedCertOptions.RSAKeySize != defaultCertOptions.RSAKeySize {
-		 t.Errorf("TTL does not match, (get %d) vs (expected %d)",
-			 mergedCertOptions.RSAKeySize, deltaCertOptions.RSAKeySize)
-	 }
-	 if mergedCertOptions.IsDualUse != defaultCertOptions.IsDualUse {
-		 t.Errorf("IsDualUse does not match, (get %t) vs (expected %t)",
-			 mergedCertOptions.IsDualUse, deltaCertOptions.IsDualUse)
-	 }
- }
+	mergedCertOptions := MergeCertOptions(defaultCertOptions, deltaCertOptions)
+	if mergedCertOptions.Org != deltaCertOptions.Org {
+		t.Errorf("Org does not match, (get %s) vs (expected %s)",
+			mergedCertOptions.Org, deltaCertOptions.Org)
+	}
+	if mergedCertOptions.TTL != defaultCertOptions.TTL {
+		t.Errorf("TTL does not match, (get %s) vs (expected %s)",
+			mergedCertOptions.TTL.String(), deltaCertOptions.TTL.String())
+	}
+	if mergedCertOptions.IsCA != defaultCertOptions.IsCA {
+		t.Errorf("IsCA does not match, (get %t) vs (expected %t)",
+			mergedCertOptions.IsCA, deltaCertOptions.IsCA)
+	}
+	if mergedCertOptions.RSAKeySize != defaultCertOptions.RSAKeySize {
+		t.Errorf("TTL does not match, (get %d) vs (expected %d)",
+			mergedCertOptions.RSAKeySize, deltaCertOptions.RSAKeySize)
+	}
+	if mergedCertOptions.IsDualUse != defaultCertOptions.IsDualUse {
+		t.Errorf("IsDualUse does not match, (get %t) vs (expected %t)",
+			mergedCertOptions.IsDualUse, deltaCertOptions.IsDualUse)
+	}
+}
