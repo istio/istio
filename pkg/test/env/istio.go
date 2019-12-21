@@ -113,7 +113,7 @@ func getDefaultIstioSrc() string {
 	}
 	idx := strings.Index(current, filepath.Join("/src", "istio.io", "istio"))
 	if idx > 0 {
-		return current[0:idx]
+		return filepath.Join(current[0:idx], "/src", "istio.io", "istio")
 	}
 	return current // launching from GOTOP (for example in goland)
 }
