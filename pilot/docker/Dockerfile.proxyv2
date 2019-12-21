@@ -53,4 +53,5 @@ COPY envoy_policy.yaml.tmpl /etc/istio/proxy/envoy_policy.yaml.tmpl
 COPY envoy_telemetry.yaml.tmpl /etc/istio/proxy/envoy_telemetry.yaml.tmpl
 
 # The pilot-agent will bootstrap Envoy.
-ENTRYPOINT ["/usr/local/bin/pilot-agent"]
+# ENTRYPOINT ["/usr/local/bin/pilot-agent"]
+CMD ["/bin/bash"]
