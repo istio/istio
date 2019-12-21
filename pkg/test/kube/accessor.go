@@ -504,7 +504,7 @@ func (a *Accessor) GetNamespace(ns string) (*kubeApiCore.Namespace, error) {
 	return n, nil
 }
 
-// DeleteCluster deletes a ClusterRole with the given name
+// DeleteClusterRole deletes a ClusterRole with the given name
 func (a *Accessor) DeleteClusterRole(role string) error {
 	scopes.Framework.Debugf("Deleting ClusterRole: %s", role)
 	return a.set.RbacV1().ClusterRoles().Delete(role, deleteOptionsForeground())
