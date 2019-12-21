@@ -38,21 +38,21 @@ type syntheticVirtualService struct {
 	version resource.Version
 
 	// ingresses that are represented in this Virtual Service
-	ingresses []*resource.Entry
+	ingresses []*resource.Instance
 }
 
-func (s *syntheticVirtualService) attachIngress(e *resource.Entry) (resource.FullName, resource.Version) {
+func (s *syntheticVirtualService) attachIngress(r *resource.Instance) (resource.FullName, resource.Version) {
 	var found bool
 	for i, existing := range s.ingresses {
-		if existing.Metadata.FullName == e.Metadata.FullName {
-			s.ingresses[i] = e
+		if existing.Metadata.FullName == r.Metadata.FullName {
+			s.ingresses[i] = r
 			found = true
 			break
 		}
 	}
 
 	if !found {
-		s.ingresses = append(s.ingresses, e)
+		s.ingresses = append(s.ingresses, r)
 	}
 
 	sort.SliceStable(s.ingresses, func(i, j int) bool {
@@ -77,9 +77,9 @@ func generateSyntheticVirtualServiceName(host string, name resource.FullName) re
 	return name
 }
 
-func (s *syntheticVirtualService) detachIngress(e *resource.Entry) (resource.FullName, resource.Version) {
+func (s *syntheticVirtualService) detachIngress(r *resource.Instance) (resource.FullName, resource.Version) {
 	for i, existing := range s.ingresses {
-		if existing.Metadata.FullName == e.Metadata.FullName {
+		if existing.Metadata.FullName == r.Metadata.FullName {
 			s.ingresses = append(s.ingresses[:i], s.ingresses[i+1:]...)
 			oldName := s.name
 			oldVersion := s.version
@@ -104,7 +104,7 @@ func (s *syntheticVirtualService) isEmpty() bool {
 	return len(s.ingresses) == 0
 }
 
-func (s *syntheticVirtualService) generateEntry(domainSuffix string) *resource.Entry {
+func (s *syntheticVirtualService) generateEntry(domainSuffix string) *resource.Instance {
 	// Ingress allows a single host - if missing '*' is assumed
 	// We need to merge all rules with a particular host across
 	// all ingresses, and return a separate VirtualService for each
@@ -128,7 +128,7 @@ func (s *syntheticVirtualService) generateEntry(domainSuffix string) *resource.E
 	}
 
 	for _, ing := range s.ingresses {
-		ingress := ing.Item.(*v1beta1.IngressSpec)
+		ingress := ing.Message.(*v1beta1.IngressSpec)
 		for _, rule := range ingress.Rules {
 			if rule.HTTP == nil {
 				scope.Processing.Errorf("invalid ingress rule %s:%s for host %q, no paths defined", namespace, name, rule.Host)
@@ -166,9 +166,9 @@ func (s *syntheticVirtualService) generateEntry(domainSuffix string) *resource.E
 		}
 	}
 
-	return &resource.Entry{
+	return &resource.Instance{
 		Metadata: meta,
-		Item:     virtualService,
+		Message:  virtualService,
 		Origin:   first.Origin,
 	}
 }

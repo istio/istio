@@ -52,7 +52,7 @@ func (s *ServiceAssociationAnalyzer) Metadata() analysis.Metadata {
 	}
 }
 func (s *ServiceAssociationAnalyzer) Analyze(c analysis.Context) {
-	c.ForEach(metadata.K8SAppsV1Deployments, func(r *resource.Entry) bool {
+	c.ForEach(metadata.K8SAppsV1Deployments, func(r *resource.Instance) bool {
 		if inMesh(r, c) {
 			s.analyzeDeployment(r, c)
 		}
@@ -61,8 +61,8 @@ func (s *ServiceAssociationAnalyzer) Analyze(c analysis.Context) {
 }
 
 // analyzeDeployment analyzes the specific service mesh deployment
-func (s *ServiceAssociationAnalyzer) analyzeDeployment(r *resource.Entry, c analysis.Context) {
-	d := r.Item.(*apps_v1.Deployment)
+func (s *ServiceAssociationAnalyzer) analyzeDeployment(r *resource.Instance, c analysis.Context) {
+	d := r.Message.(*apps_v1.Deployment)
 
 	// Find matching services with resulting pod from deployment
 	matchingSvcs := s.findMatchingServices(d, c)
@@ -99,8 +99,8 @@ func (s *ServiceAssociationAnalyzer) analyzeDeployment(r *resource.Entry, c anal
 func (s *ServiceAssociationAnalyzer) findMatchingServices(d *apps_v1.Deployment, c analysis.Context) []ServiceSpecWithName {
 	matchingSvcs := make([]ServiceSpecWithName, 0)
 
-	c.ForEach(metadata.K8SCoreV1Services, func(r *resource.Entry) bool {
-		s := r.Item.(*core_v1.ServiceSpec)
+	c.ForEach(metadata.K8SCoreV1Services, func(r *resource.Instance) bool {
+		s := r.Message.(*core_v1.ServiceSpec)
 
 		sSelector := k8s_labels.SelectorFromSet(s.Selector)
 		pLabels := k8s_labels.Set(d.Spec.Template.Labels)
@@ -141,8 +141,8 @@ func servicePortMap(svcs []ServiceSpecWithName) PortMap {
 }
 
 // inMesh returns true if deployment is in the service mesh (has sidecar)
-func inMesh(r *resource.Entry, c analysis.Context) bool {
-	d := r.Item.(*apps_v1.Deployment)
+func inMesh(r *resource.Instance, c analysis.Context) bool {
+	d := r.Message.(*apps_v1.Deployment)
 
 	// If Pod has annotation, return the injection annotation value
 	if piv, pivok := getPodSidecarInjectionStatus(d); pivok {

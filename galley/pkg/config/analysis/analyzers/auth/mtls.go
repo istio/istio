@@ -103,7 +103,7 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 	// number. Tracking this means we can normalize to port number later.
 	fqdnToNameToPort := make(map[string]map[string]uint32)
 
-	c.ForEach(metadata.K8SCoreV1Services, func(r *resource.Entry) bool {
+	c.ForEach(metadata.K8SCoreV1Services, func(r *resource.Instance) bool {
 		svcNs := r.Metadata.FullName.Namespace
 		svcName := r.Metadata.FullName.Name
 
@@ -119,7 +119,7 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 			return true
 		}
 
-		svc := r.Item.(*v1.ServiceSpec)
+		svc := r.Message.(*v1.ServiceSpec)
 
 		svcSelector := k8s_labels.SelectorFromSet(svc.Selector)
 		fqdn := util.ConvertHostToFQDN(svcNs, string(svcName))
@@ -148,13 +148,13 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 		// checking). If we find no pods at all that match, also assume there's
 		// no sidecar.
 		var foundMatchingPods bool
-		c.ForEach(metadata.K8SCoreV1Pods, func(pr *resource.Entry) bool {
+		c.ForEach(metadata.K8SCoreV1Pods, func(pr *resource.Instance) bool {
 			// If it's not in our namespace, we're not interested
 			podNs := pr.Metadata.FullName.Namespace
 			if podNs != svcNs {
 				return true
 			}
-			pod := pr.Item.(*v1.Pod)
+			pod := pr.Message.(*v1.Pod)
 			podLabels := k8s_labels.Set(pod.ObjectMeta.Labels)
 
 			if svcSelector.Empty() || !svcSelector.Matches(podLabels) {
@@ -189,7 +189,7 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 	// implicitly defined.
 	namespaces := make(map[resource.Namespace]struct{})
 
-	c.ForEach(metadata.K8SCoreV1Namespaces, func(r *resource.Entry) bool {
+	c.ForEach(metadata.K8SCoreV1Namespaces, func(r *resource.Instance) bool {
 		namespaces[resource.Namespace(r.Metadata.FullName.Name)] = struct{}{}
 		return true
 	})
@@ -197,18 +197,18 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 	pc := mtls.NewPolicyChecker(fqdnToNameToPort)
 	meshPolicyResource := c.Find(metadata.IstioAuthenticationV1Alpha1Meshpolicies, resource.NewFullName("", "default"))
 	if meshPolicyResource != nil {
-		err := pc.AddMeshPolicy(meshPolicyResource, meshPolicyResource.Item.(*v1alpha1.Policy))
+		err := pc.AddMeshPolicy(meshPolicyResource, meshPolicyResource.Message.(*v1alpha1.Policy))
 		if err != nil {
 			c.Report(metadata.IstioAuthenticationV1Alpha1Meshpolicies, msg.NewInternalError(meshPolicyResource, err.Error()))
 			return
 		}
 	}
 
-	c.ForEach(metadata.IstioAuthenticationV1Alpha1Policies, func(r *resource.Entry) bool {
+	c.ForEach(metadata.IstioAuthenticationV1Alpha1Policies, func(r *resource.Instance) bool {
 		ns := r.Metadata.FullName.Namespace
 		namespaces[ns] = struct{}{}
 
-		err := pc.AddPolicy(r, r.Item.(*v1alpha1.Policy))
+		err := pc.AddPolicy(r, r.Message.(*v1alpha1.Policy))
 		if err != nil {
 			// AddPolicy can return a NamedPortInPolicyNotFoundError - if it
 			// does we can print a useful message.
@@ -225,11 +225,11 @@ func (s *MTLSAnalyzer) Analyze(c analysis.Context) {
 	})
 
 	drc := mtls.NewDestinationRuleChecker(rootNamespace)
-	c.ForEach(metadata.IstioNetworkingV1Alpha3Destinationrules, func(r *resource.Entry) bool {
+	c.ForEach(metadata.IstioNetworkingV1Alpha3Destinationrules, func(r *resource.Instance) bool {
 		ns := r.Metadata.FullName.Namespace
 		namespaces[ns] = struct{}{}
 
-		drc.AddDestinationRule(r, r.Item.(*v1alpha3.DestinationRule))
+		drc.AddDestinationRule(r, r.Message.(*v1alpha3.DestinationRule))
 		return true
 	})
 

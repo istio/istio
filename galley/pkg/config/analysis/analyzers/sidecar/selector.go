@@ -48,13 +48,13 @@ func (a *SelectorAnalyzer) Metadata() analysis.Metadata {
 
 // Analyze implements Analyzer
 func (a *SelectorAnalyzer) Analyze(c analysis.Context) {
-	podsToSidecars := make(map[resource.FullName][]*resource.Entry)
+	podsToSidecars := make(map[resource.FullName][]*resource.Instance)
 
 	// This is using an unindexed approach for matching selectors.
 	// Using an index for selectoes is problematic because selector != label
 	// We can match a label to a selector, but we can't generate a selector from a label.
-	c.ForEach(metadata.IstioNetworkingV1Alpha3Sidecars, func(rs *resource.Entry) bool {
-		s := rs.Item.(*v1alpha3.Sidecar)
+	c.ForEach(metadata.IstioNetworkingV1Alpha3Sidecars, func(rs *resource.Instance) bool {
+		s := rs.Message.(*v1alpha3.Sidecar)
 
 		// For this analysis, ignore Sidecars with no workload selectors specified at all.
 		if s.WorkloadSelector == nil || len(s.WorkloadSelector.Labels) == 0 {
@@ -65,8 +65,8 @@ func (a *SelectorAnalyzer) Analyze(c analysis.Context) {
 		sel := labels.SelectorFromSet(s.WorkloadSelector.Labels)
 
 		foundPod := false
-		c.ForEach(metadata.K8SCoreV1Pods, func(rp *resource.Entry) bool {
-			pod := rp.Item.(*v1.Pod)
+		c.ForEach(metadata.K8SCoreV1Pods, func(rp *resource.Instance) bool {
+			pod := rp.Message.(*v1.Pod)
 			pNs := rp.Metadata.FullName.Namespace
 			podLabels := labels.Set(pod.ObjectMeta.Labels)
 

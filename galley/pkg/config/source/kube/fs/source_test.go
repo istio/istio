@@ -250,7 +250,7 @@ func TestAddUpdateDelete_K8sResources(t *testing.T) {
 	g.Eventually(acc.EventsWithoutOrigins).Should(HaveLen(1))
 	g.Expect(acc.EventsWithoutOrigins()[0].Source).To(Equal(k8smeta.K8SCoreV1Services))
 	g.Expect(acc.EventsWithoutOrigins()[0].Kind).To(Equal(event.Added))
-	g.Expect(acc.EventsWithoutOrigins()[0].Entry.Metadata.FullName).To(Equal(resource.NewFullName("kube-system", "kube-dns")))
+	g.Expect(acc.EventsWithoutOrigins()[0].Resource.Metadata.FullName).To(Equal(resource.NewFullName("kube-system", "kube-dns")))
 
 	acc.Clear()
 	deleteFiles(t, dir, "bar.yaml")
@@ -259,7 +259,7 @@ func TestAddUpdateDelete_K8sResources(t *testing.T) {
 	g.Eventually(acc.EventsWithoutOrigins).Should(HaveLen(1))
 	g.Expect(acc.EventsWithoutOrigins()[0].Source).To(Equal(k8smeta.K8SCoreV1Services))
 	g.Expect(acc.EventsWithoutOrigins()[0].Kind).To(Equal(event.Deleted))
-	g.Expect(acc.EventsWithoutOrigins()[0].Entry.Metadata.FullName).To(Equal(resource.NewFullName("kube-system", "kube-dns")))
+	g.Expect(acc.EventsWithoutOrigins()[0].Resource.Metadata.FullName).To(Equal(resource.NewFullName("kube-system", "kube-dns")))
 }
 
 func TestMultiStart(t *testing.T) {
@@ -383,7 +383,7 @@ func startOrFail(t *testing.T, s event.Source) *fixtures.Accumulator {
 	return acc
 }
 
-func withVersion(r *resource.Entry, v string) *resource.Entry { // nolint:unparam
+func withVersion(r *resource.Instance, v string) *resource.Instance { // nolint:unparam
 	r = r.Clone()
 	r.Metadata.Version = resource.Version(v)
 	return r

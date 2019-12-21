@@ -48,7 +48,7 @@ func TestKubeSource_ApplyContent(t *testing.T) {
 	g.Expect(acc.Events()).To(HaveLen(2))
 	g.Expect(acc.Events()[0].Kind).To(Equal(event.FullSync))
 	g.Expect(acc.Events()[1].Kind).To(Equal(event.Added))
-	g.Expect(acc.Events()[1].Entry.Metadata.FullName).To(Equal(data.EntryN1I1V1.Metadata.FullName))
+	g.Expect(acc.Events()[1].Resource.Metadata.FullName).To(Equal(data.EntryN1I1V1.Metadata.FullName))
 }
 
 func TestKubeSource_ApplyContent_BeforeStart(t *testing.T) {
@@ -70,7 +70,7 @@ func TestKubeSource_ApplyContent_BeforeStart(t *testing.T) {
 
 	g.Expect(acc.Events()).To(HaveLen(2))
 	g.Expect(acc.Events()[0].Kind).To(Equal(event.Added))
-	g.Expect(acc.Events()[0].Entry.Metadata.FullName).To(Equal(data.EntryN1I1V1.Metadata.FullName))
+	g.Expect(acc.Events()[0].Resource.Metadata.FullName).To(Equal(data.EntryN1I1V1.Metadata.FullName))
 	g.Expect(acc.Events()[1].Kind).To(Equal(event.FullSync))
 }
 
@@ -103,15 +103,15 @@ func TestKubeSource_ApplyContent_Unchanged0Add1(t *testing.T) {
 	g.Expect(events).To(HaveLen(6))
 	g.Expect(events[0].Kind).To(Equal(event.FullSync))
 	g.Expect(events[1].Kind).To(Equal(event.Added))
-	g.Expect(events[1].Entry).To(Equal(data.EntryN1I1V1))
+	g.Expect(events[1].Resource).To(Equal(data.EntryN1I1V1))
 	g.Expect(events[2].Kind).To(Equal(event.Added))
-	g.Expect(events[2].Entry).To(Equal(withVersion(data.EntryN2I2V1, "v2")))
+	g.Expect(events[2].Resource).To(Equal(withVersion(data.EntryN2I2V1, "v2")))
 	g.Expect(events[3].Kind).To(Equal(event.Updated))
-	g.Expect(events[3].Entry).To(Equal(withVersion(data.EntryN2I2V2, "v3")))
+	g.Expect(events[3].Resource).To(Equal(withVersion(data.EntryN2I2V2, "v3")))
 	g.Expect(events[4].Kind).To(Equal(event.Added))
-	g.Expect(events[4].Entry).To(Equal(withVersion(data.EntryN3I3V1, "v4")))
+	g.Expect(events[4].Resource).To(Equal(withVersion(data.EntryN3I3V1, "v4")))
 	g.Expect(events[5].Kind).To(Equal(event.Deleted))
-	g.Expect(events[5].Entry.Metadata.FullName).To(Equal(data.EntryN1I1V1.Metadata.FullName))
+	g.Expect(events[5].Resource.Metadata.FullName).To(Equal(data.EntryN1I1V1.Metadata.FullName))
 }
 
 func TestKubeSource_RemoveContent(t *testing.T) {
@@ -146,7 +146,7 @@ func TestKubeSource_RemoveContent(t *testing.T) {
 	g.Expect(events[4].Kind).To(Equal(event.Deleted))
 	g.Expect(events[5].Kind).To(Equal(event.Deleted))
 
-	if events[4].Entry.Metadata.FullName == data.EntryN1I1V1.Metadata.FullName {
+	if events[4].Resource.Metadata.FullName == data.EntryN1I1V1.Metadata.FullName {
 		g.Expect(events[4:]).To(ConsistOf(
 			event.DeleteForResource(data.Collection1, data.EntryN1I1V1),
 			event.DeleteForResource(data.Collection1, withVersion(data.EntryN2I2V1, "v2"))))
@@ -176,19 +176,19 @@ func TestKubeSource_Clear(t *testing.T) {
 	g.Expect(events).To(HaveLen(5))
 	g.Expect(events[0].Kind).To(Equal(event.FullSync))
 	g.Expect(events[1].Kind).To(Equal(event.Added))
-	g.Expect(events[1].Entry).To(Equal(data.EntryN1I1V1))
+	g.Expect(events[1].Resource).To(Equal(data.EntryN1I1V1))
 	g.Expect(events[2].Kind).To(Equal(event.Added))
-	g.Expect(events[2].Entry).To(Equal(withVersion(data.EntryN2I2V1, "v2")))
+	g.Expect(events[2].Resource).To(Equal(withVersion(data.EntryN2I2V1, "v2")))
 
 	g.Expect(events[3].Kind).To(Equal(event.Deleted))
 	g.Expect(events[4].Kind).To(Equal(event.Deleted))
 
-	if events[3].Entry.Metadata.FullName == data.EntryN1I1V1.Metadata.FullName {
-		g.Expect(events[3].Entry.Metadata.FullName).To(Equal(data.EntryN1I1V1.Metadata.FullName))
-		g.Expect(events[4].Entry.Metadata.FullName).To(Equal(data.EntryN2I2V1.Metadata.FullName))
+	if events[3].Resource.Metadata.FullName == data.EntryN1I1V1.Metadata.FullName {
+		g.Expect(events[3].Resource.Metadata.FullName).To(Equal(data.EntryN1I1V1.Metadata.FullName))
+		g.Expect(events[4].Resource.Metadata.FullName).To(Equal(data.EntryN2I2V1.Metadata.FullName))
 	} else {
-		g.Expect(events[3].Entry.Metadata.FullName).To(Equal(data.EntryN2I2V1.Metadata.FullName))
-		g.Expect(events[4].Entry.Metadata.FullName).To(Equal(data.EntryN1I1V1.Metadata.FullName))
+		g.Expect(events[3].Resource.Metadata.FullName).To(Equal(data.EntryN2I2V1.Metadata.FullName))
+		g.Expect(events[4].Resource.Metadata.FullName).To(Equal(data.EntryN1I1V1.Metadata.FullName))
 	}
 }
 
@@ -362,14 +362,14 @@ func setupKubeSourceWithK8sMeta() (*KubeSource, *fixtures.Accumulator) {
 	return s, acc
 }
 
-func withVersion(r *resource.Entry, v string) *resource.Entry {
+func withVersion(r *resource.Instance, v string) *resource.Instance {
 	r = r.Clone()
 	r.Metadata.Version = resource.Version(v)
 	return r
 }
 
-func removeEntryOrigins(resources []*resource.Entry) []*resource.Entry {
-	result := make([]*resource.Entry, len(resources))
+func removeEntryOrigins(resources []*resource.Instance) []*resource.Instance {
+	result := make([]*resource.Instance, len(resources))
 	for i, r := range resources {
 		r = r.Clone()
 		r.Origin = nil

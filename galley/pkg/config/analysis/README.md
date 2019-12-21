@@ -43,17 +43,17 @@ func (s *GatewayAnalyzer) Analyze(c analysis.Context) {
     // in the current snapshot. The available collections, and how they map to k8s resources,
     // are defined in galley/pkg/config/processor/metadata/metadata.yaml
     // Available resources are listed under the "localAnalysis" and "syntheticServiceEntry" snapshots in that file.
-    c.ForEach(metadata.IstioNetworkingV1Alpha3Virtualservices, func(r *resource.Entry) bool {
+    c.ForEach(metadata.IstioNetworkingV1Alpha3Virtualservices, func(r *resource.Instance) bool {
         s.analyzeVirtualService(r, c)
         return true
     })
 }
 
-func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Entry, c analysis.Context) {
+func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Instance, c analysis.Context) {
     // The actual resource entry, represented as a protobuf message, can be obtained via
-    // the Item property of resource.Entry. It will need to be cast to the appropriate type.
+    // the Item property of resource.Instance. It will need to be cast to the appropriate type.
     //
-    // Since the resource.Entry also contains important metadata not included in the protobuf
+    // Since the resource.Instance also contains important metadata not included in the protobuf
     // message (such as the resource namespace/name) it's often useful to not do this casting
     // too early.
     vs := r.Item.(*v1alpha3.VirtualService)

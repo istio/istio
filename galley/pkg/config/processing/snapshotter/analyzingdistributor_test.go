@@ -43,7 +43,7 @@ func (u *updaterMock) Update(messages diag.Messages) {
 type analyzerMock struct {
 	analyzeCalls       []*Snapshot
 	collectionToAccess collection.Name
-	entriesToReport    []*resource.Entry
+	resourcesToReport  []*resource.Instance
 }
 
 // Analyze implements Analyzer
@@ -52,7 +52,7 @@ func (a *analyzerMock) Analyze(c analysis.Context) {
 
 	c.Exists(a.collectionToAccess, resource.NewFullName("", ""))
 
-	for _, r := range a.entriesToReport {
+	for _, r := range a.resourcesToReport {
 		c.Report(a.collectionToAccess, msg.NewInternalError(r, ""))
 	}
 
@@ -73,7 +73,7 @@ func TestAnalyzeAndDistributeSnapshots(t *testing.T) {
 	u := &updaterMock{}
 	a := &analyzerMock{
 		collectionToAccess: data.Collection1,
-		entriesToReport: []*resource.Entry{
+		resourcesToReport: []*resource.Instance{
 			{
 				Origin: &rt.Origin{
 					Collection: data.Collection1,
@@ -139,7 +139,7 @@ func TestAnalyzeNamespaceMessageHasNoOrigin(t *testing.T) {
 	u := &updaterMock{}
 	a := &analyzerMock{
 		collectionToAccess: data.Collection1,
-		entriesToReport: []*resource.Entry{
+		resourcesToReport: []*resource.Instance{
 			{},
 		},
 	}
@@ -169,7 +169,7 @@ func TestAnalyzeNamespaceMessageHasOriginWithNoNamespace(t *testing.T) {
 	u := &updaterMock{}
 	a := &analyzerMock{
 		collectionToAccess: data.Collection1,
-		entriesToReport: []*resource.Entry{
+		resourcesToReport: []*resource.Instance{
 			{
 				Origin: fakeOrigin{
 					friendlyName: "myFriendlyName",
@@ -213,7 +213,7 @@ func TestAnalyzeSortsMessages(t *testing.T) {
 	}
 	a := &analyzerMock{
 		collectionToAccess: data.Collection1,
-		entriesToReport: []*resource.Entry{
+		resourcesToReport: []*resource.Instance{
 			{Origin: o1},
 			{Origin: o2},
 		},

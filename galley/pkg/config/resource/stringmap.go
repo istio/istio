@@ -41,8 +41,8 @@ func (s StringMap) CloneOrCreate() StringMap {
 }
 
 // Remove the given name from the string map
-func (s *StringMap) Delete(name string) {
+func (s StringMap) Delete(name string) {
 	if s != nil {
-		delete(*s, name)
+		delete(s, name)
 	}
 }

@@ -44,10 +44,10 @@ func (a *DefaultSelectorAnalyzer) Metadata() analysis.Metadata {
 
 // Analyze implements Analyzer
 func (a *DefaultSelectorAnalyzer) Analyze(c analysis.Context) {
-	nsToSidecars := make(map[resource.Namespace][]*resource.Entry)
+	nsToSidecars := make(map[resource.Namespace][]*resource.Instance)
 
-	c.ForEach(metadata.IstioNetworkingV1Alpha3Sidecars, func(r *resource.Entry) bool {
-		s := r.Item.(*v1alpha3.Sidecar)
+	c.ForEach(metadata.IstioNetworkingV1Alpha3Sidecars, func(r *resource.Instance) bool {
+		s := r.Message.(*v1alpha3.Sidecar)
 
 		ns := r.Metadata.FullName.Namespace
 

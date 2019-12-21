@@ -348,10 +348,10 @@ func sortEvents(events []event.Event) {
 }
 
 func resourceName(e event.Event) string {
-	if e.Entry == nil {
+	if e.Resource == nil {
 		return ""
 	}
-	return e.Entry.Metadata.FullName.String()
+	return e.Resource.Metadata.FullName.String()
 }
 
 func protoTime(t time.Time) *types.Timestamp {
@@ -430,14 +430,14 @@ func (e output) toEvent() event.Event {
 	return event.Event{
 		Kind:   e.kind,
 		Source: colName,
-		Entry: &resource.Entry{
+		Resource: &resource.Instance{
 			Metadata: resource.Metadata{
 				FullName:   fullName,
 				CreateTime: eventTime,
 				Version:    "v1",
 			},
-			Item:   e.body,
-			Origin: defaultOrigin,
+			Message: e.body,
+			Origin:  defaultOrigin,
 		},
 	}
 }

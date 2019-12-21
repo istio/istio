@@ -28,8 +28,8 @@ func MeshConfig(ctx analysis.Context) *v1alpha1.MeshConfig {
 	// Only one MeshConfig should exist in practice, but getting it this way avoids needing
 	// to plumb through the name or enforce/expose a constant.
 	var mc *v1alpha1.MeshConfig
-	ctx.ForEach(metadata.IstioMeshV1Alpha1MeshConfig, func(r *resource.Entry) bool {
-		mc = r.Item.(*v1alpha1.MeshConfig)
+	ctx.ForEach(metadata.IstioMeshV1Alpha1MeshConfig, func(r *resource.Instance) bool {
+		mc = r.Message.(*v1alpha1.MeshConfig)
 		return true
 	})
 

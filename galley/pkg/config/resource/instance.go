@@ -19,23 +19,23 @@ import (
 	"github.com/gogo/protobuf/proto"
 )
 
-// Entry is the abstract representation of a versioned config resource in Istio.
-type Entry struct {
+// Instance is the abstract representation of a versioned config resource in Istio.
+type Instance struct {
 	Metadata Metadata
-	Item     proto.Message
+	Message  proto.Message
 	Origin   Origin
 }
 
-// IsEmpty returns true if the resource Entry.Item is nil.
-func (r *Entry) IsEmpty() bool {
-	return r.Item == nil
+// IsEmpty returns true if the resource Instance.Message is nil.
+func (r *Instance) IsEmpty() bool {
+	return r.Message == nil
 }
 
 // Clone returns a deep-copy of this entry. Warning, this is expensive!
-func (r *Entry) Clone() *Entry {
-	result := &Entry{}
-	if r.Item != nil {
-		result.Item = proto.Clone(r.Item)
+func (r *Instance) Clone() *Instance {
+	result := &Instance{}
+	if r.Message != nil {
+		result.Message = proto.Clone(r.Message)
 	}
 	result.Metadata = r.Metadata.Clone()
 	return result

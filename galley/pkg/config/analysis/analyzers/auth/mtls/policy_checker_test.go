@@ -261,7 +261,7 @@ peers:
 				if err != nil {
 					t.Fatalf("expected: %v, got error when parsing yaml: %v", tc.want, err)
 				}
-				r := resource.Entry{Metadata: resource.Metadata{FullName: resource.NewFullName("", "default")}}
+				r := resource.Instance{Metadata: resource.Metadata{FullName: resource.NewFullName("", "default")}}
 				if err := pc.AddMeshPolicy(&r, meshpb); err != nil {
 					t.Fatal(err)
 				}
@@ -272,7 +272,7 @@ peers:
 				if err != nil {
 					t.Fatalf("expected: %v, got error when parsing yaml: %v", tc.want, err)
 				}
-				r := resource.Entry{Metadata: resource.Metadata{FullName: resource.NewFullName(tc.policy.namespace, "somePolicy")}}
+				r := resource.Instance{Metadata: resource.Metadata{FullName: resource.NewFullName(tc.policy.namespace, "somePolicy")}}
 				err = pc.AddPolicy(&r, pb)
 				if err != nil {
 					t.Fatalf("expected: %v, got error when adding policy: %v", tc.want, err)
@@ -405,7 +405,7 @@ peers:
 			if err != nil {
 				t.Fatalf("expected: %v, got error when parsing yaml: %v", tc.want, err)
 			}
-			r := resource.Entry{Metadata: resource.Metadata{FullName: resource.NewFullName("", "default")}}
+			r := resource.Instance{Metadata: resource.Metadata{FullName: resource.NewFullName("", "default")}}
 			if err := pc.AddMeshPolicy(&r, meshpb); err != nil {
 				t.Fatal(err)
 			}
@@ -416,7 +416,7 @@ peers:
 				if err != nil {
 					t.Fatalf("expected: %v, got error when parsing yaml: %v", tc.want, err)
 				}
-				r := resource.Entry{Metadata: resource.Metadata{FullName: resource.NewFullName(p.namespace, "somePolicy")}}
+				r := resource.Instance{Metadata: resource.Metadata{FullName: resource.NewFullName(p.namespace, "somePolicy")}}
 				err = pc.AddPolicy(&r, pb)
 				if err != nil {
 					t.Fatalf("expected: %v, got error when adding policy: %v", tc.want, err)

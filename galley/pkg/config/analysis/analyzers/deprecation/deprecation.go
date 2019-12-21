@@ -49,23 +49,23 @@ func (*FieldAnalyzer) Metadata() analysis.Metadata {
 
 // Analyze implements analysis.Analyzer
 func (fa *FieldAnalyzer) Analyze(ctx analysis.Context) {
-	ctx.ForEach(metadata.IstioNetworkingV1Alpha3Virtualservices, func(r *resource.Entry) bool {
+	ctx.ForEach(metadata.IstioNetworkingV1Alpha3Virtualservices, func(r *resource.Instance) bool {
 		fa.analyzeVirtualService(r, ctx)
 		return true
 	})
-	ctx.ForEach(metadata.IstioNetworkingV1Alpha3Envoyfilters, func(r *resource.Entry) bool {
+	ctx.ForEach(metadata.IstioNetworkingV1Alpha3Envoyfilters, func(r *resource.Instance) bool {
 		fa.analyzeEnvoyFilter(r, ctx)
 		return true
 	})
-	ctx.ForEach(metadata.IstioRbacV1Alpha1Servicerolebindings, func(r *resource.Entry) bool {
+	ctx.ForEach(metadata.IstioRbacV1Alpha1Servicerolebindings, func(r *resource.Instance) bool {
 		fa.analyzeServiceRoleBinding(r, ctx)
 		return true
 	})
 }
 
-func (*FieldAnalyzer) analyzeVirtualService(r *resource.Entry, ctx analysis.Context) {
+func (*FieldAnalyzer) analyzeVirtualService(r *resource.Instance, ctx analysis.Context) {
 
-	vs := r.Item.(*v1alpha3.VirtualService)
+	vs := r.Message.(*v1alpha3.VirtualService)
 
 	for _, httpRoute := range vs.Http {
 		if httpRoute.WebsocketUpgrade {
@@ -130,9 +130,9 @@ func (*FieldAnalyzer) analyzeVirtualService(r *resource.Entry, ctx analysis.Cont
 	}
 }
 
-func (*FieldAnalyzer) analyzeEnvoyFilter(r *resource.Entry, ctx analysis.Context) {
+func (*FieldAnalyzer) analyzeEnvoyFilter(r *resource.Instance, ctx analysis.Context) {
 
-	ef := r.Item.(*v1alpha3.EnvoyFilter)
+	ef := r.Message.(*v1alpha3.EnvoyFilter)
 
 	if len(ef.WorkloadLabels) > 0 {
 		ctx.Report(metadata.IstioNetworkingV1Alpha3Envoyfilters,
@@ -145,9 +145,9 @@ func (*FieldAnalyzer) analyzeEnvoyFilter(r *resource.Entry, ctx analysis.Context
 	}
 }
 
-func (*FieldAnalyzer) analyzeServiceRoleBinding(r *resource.Entry, ctx analysis.Context) {
+func (*FieldAnalyzer) analyzeServiceRoleBinding(r *resource.Instance, ctx analysis.Context) {
 
-	srb := r.Item.(*v1alpha1.ServiceRoleBinding)
+	srb := r.Message.(*v1alpha1.ServiceRoleBinding)
 
 	for _, subject := range srb.Subjects {
 		if subject.Group != "" {

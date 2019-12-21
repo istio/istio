@@ -74,17 +74,17 @@ type snapshotGroup struct {
 func (a *accumulator) Handle(e event.Event) {
 	switch e.Kind {
 	case event.Added:
-		a.collection.Set(e.Entry)
+		a.collection.Set(e.Resource)
 		monitoring.RecordStateTypeCount(e.Source.String(), a.collection.Size())
-		monitorEntry(e.Source, e.Entry.Metadata.FullName, true)
+		monitorEntry(e.Source, e.Resource.Metadata.FullName, true)
 
 	case event.Updated:
-		a.collection.Set(e.Entry)
+		a.collection.Set(e.Resource)
 
 	case event.Deleted:
-		a.collection.Remove(e.Entry.Metadata.FullName)
+		a.collection.Remove(e.Resource.Metadata.FullName)
 		monitoring.RecordStateTypeCount(e.Source.String(), a.collection.Size())
-		monitorEntry(e.Source, e.Entry.Metadata.FullName, false)
+		monitorEntry(e.Source, e.Resource.Metadata.FullName, false)
 
 	case event.FullSync:
 		atomic.AddInt32(&a.syncCount, 1)

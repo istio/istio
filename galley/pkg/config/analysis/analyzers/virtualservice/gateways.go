@@ -44,14 +44,14 @@ func (s *GatewayAnalyzer) Metadata() analysis.Metadata {
 
 // Analyze implements Analyzer
 func (s *GatewayAnalyzer) Analyze(c analysis.Context) {
-	c.ForEach(metadata.IstioNetworkingV1Alpha3Virtualservices, func(r *resource.Entry) bool {
+	c.ForEach(metadata.IstioNetworkingV1Alpha3Virtualservices, func(r *resource.Instance) bool {
 		s.analyzeVirtualService(r, c)
 		return true
 	})
 }
 
-func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Entry, c analysis.Context) {
-	vs := r.Item.(*v1alpha3.VirtualService)
+func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Instance, c analysis.Context) {
+	vs := r.Message.(*v1alpha3.VirtualService)
 
 	vsNs := r.Metadata.FullName.Namespace
 	for _, gwName := range vs.Gateways {

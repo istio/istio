@@ -103,7 +103,7 @@ func (m Mode) String() string {
 // specified the mode.
 type ModeAndResource struct {
 	MTLSMode Mode
-	Resource *resource.Entry
+	Resource *resource.Instance
 }
 
 // NewPolicyChecker creates a new PolicyChecker instance.
@@ -117,7 +117,7 @@ func NewPolicyChecker(fqdnToPortNameToPortNumber map[string]map[string]uint32) *
 
 // AddMeshPolicy adds a mesh-level policy to the checker. Note that there can
 // only be at most one mesh level policy in effect.
-func (pc *PolicyChecker) AddMeshPolicy(r *resource.Entry, p *v1alpha1.Policy) error {
+func (pc *PolicyChecker) AddMeshPolicy(r *resource.Instance, p *v1alpha1.Policy) error {
 	mode, err := parsePolicyMTLSMode(p)
 	if err != nil {
 		return err
@@ -148,7 +148,7 @@ func (e NamedPortInPolicyNotFoundError) Error() string {
 // If the Policy uses a named port, and the port cannot be looked up in the map
 // provided to NewPolicyChecker, then an error of type
 // NamedPortInPolicyNotFoundError is returned.
-func (pc *PolicyChecker) AddPolicy(r *resource.Entry, p *v1alpha1.Policy) error {
+func (pc *PolicyChecker) AddPolicy(r *resource.Instance, p *v1alpha1.Policy) error {
 	mode, err := parsePolicyMTLSMode(p)
 	if err != nil {
 		return err

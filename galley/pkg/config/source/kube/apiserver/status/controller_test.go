@@ -197,7 +197,7 @@ func TestBasicReconcilation_NewStatus(t *testing.T) {
 
 	k, cl := setupClientWithReactors(r, nil)
 
-	e := resource.Entry{
+	e := resource.Instance{
 		Origin: &rt.Origin{
 			Collection: basicmeta.Collection1,
 			FullName:   resource.NewFullName("foo", "bar"),
@@ -237,7 +237,7 @@ func TestBasicReconcilation_NewStatusOldNonMap(t *testing.T) {
 
 	k, cl := setupClientWithReactors(r, nil)
 
-	e := resource.Entry{
+	e := resource.Instance{
 		Origin: &rt.Origin{
 			Collection: basicmeta.Collection1,
 			FullName:   resource.NewFullName("foo", "bar"),
@@ -273,7 +273,7 @@ func TestBasicReconcilation_UpdateError(t *testing.T) {
 
 	k, cl := setupClientWithReactors(r, fmt.Errorf("cheese not found"))
 
-	e := resource.Entry{
+	e := resource.Instance{
 		Origin: &rt.Origin{
 			Collection: basicmeta.Collection1,
 			FullName:   resource.NewFullName("foo", "bar"),
@@ -308,7 +308,7 @@ func TestBasicReconcilation_GetError(t *testing.T) {
 		return
 	})
 
-	e := resource.Entry{
+	e := resource.Instance{
 		Origin: &rt.Origin{
 			Collection: basicmeta.Collection1,
 			FullName:   resource.NewFullName("foo", "bar"),
@@ -340,7 +340,7 @@ func TestBasicReconcilation_VersionMismatch(t *testing.T) {
 
 	k, cl := setupClientWithReactors(r, nil)
 
-	e := resource.Entry{
+	e := resource.Instance{
 		Origin: &rt.Origin{
 			Collection: basicmeta.Collection1,
 			FullName:   resource.NewFullName("foo", "bar"),
