@@ -56,16 +56,16 @@ func (a *DestinationHostAnalyzer) Analyze(ctx analysis.Context) {
 	// Precompute the set of service entry hosts that exist (there can be more than one defined per ServiceEntry CRD)
 	serviceEntryHosts := initServiceEntryHostMap(ctx)
 
-	ctx.ForEach(metadata.IstioNetworkingV1Alpha3Virtualservices, func(r *resource.Entry) bool {
+	ctx.ForEach(metadata.IstioNetworkingV1Alpha3Virtualservices, func(r *resource.Instance) bool {
 		a.analyzeVirtualService(r, ctx, serviceEntryHosts)
 		return true
 	})
 }
 
-func (a *DestinationHostAnalyzer) analyzeVirtualService(r *resource.Entry, ctx analysis.Context,
+func (a *DestinationHostAnalyzer) analyzeVirtualService(r *resource.Instance, ctx analysis.Context,
 	serviceEntryHosts map[util.ScopedFqdn]*v1alpha3.ServiceEntry) {
 
-	vs := r.Item.(*v1alpha3.VirtualService)
+	vs := r.Message.(*v1alpha3.VirtualService)
 
 	for _, d := range getRouteDestinations(vs) {
 		s := getDestinationHost(r.Metadata.FullName.Namespace, d.GetHost(), serviceEntryHosts)
@@ -123,8 +123,8 @@ func getDestinationHost(sourceNs resource.Namespace, host string, serviceEntryHo
 func initServiceEntryHostMap(ctx analysis.Context) map[util.ScopedFqdn]*v1alpha3.ServiceEntry {
 	result := make(map[util.ScopedFqdn]*v1alpha3.ServiceEntry)
 
-	extractFn := func(r *resource.Entry) bool {
-		s := r.Item.(*v1alpha3.ServiceEntry)
+	extractFn := func(r *resource.Instance) bool {
+		s := r.Message.(*v1alpha3.ServiceEntry)
 		hostsNamespaceScope := string(r.Metadata.FullName.Namespace)
 		if util.IsExportToAllNamespaces(s.ExportTo) {
 			hostsNamespaceScope = util.ExportToAllNamespaces
@@ -141,7 +141,7 @@ func initServiceEntryHostMap(ctx analysis.Context) map[util.ScopedFqdn]*v1alpha3
 	return result
 }
 
-func checkServiceEntryPorts(ctx analysis.Context, r *resource.Entry, d *v1alpha3.Destination, s *v1alpha3.ServiceEntry) {
+func checkServiceEntryPorts(ctx analysis.Context, r *resource.Instance, d *v1alpha3.Destination, s *v1alpha3.ServiceEntry) {
 	if d.GetPort() == nil {
 		// If destination port isn't specified, it's only a problem if the service being referenced exposes multiple ports.
 		if len(s.GetPorts()) > 1 {

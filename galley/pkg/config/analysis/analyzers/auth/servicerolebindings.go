@@ -43,14 +43,14 @@ func (s *ServiceRoleBindingAnalyzer) Metadata() analysis.Metadata {
 
 // Analyze implements Analyzer
 func (s *ServiceRoleBindingAnalyzer) Analyze(ctx analysis.Context) {
-	ctx.ForEach(metadata.IstioRbacV1Alpha1Servicerolebindings, func(r *resource.Entry) bool {
+	ctx.ForEach(metadata.IstioRbacV1Alpha1Servicerolebindings, func(r *resource.Instance) bool {
 		s.analyzeRoleBinding(r, ctx)
 		return true
 	})
 }
 
-func (s *ServiceRoleBindingAnalyzer) analyzeRoleBinding(r *resource.Entry, ctx analysis.Context) {
-	srb := r.Item.(*v1alpha1.ServiceRoleBinding)
+func (s *ServiceRoleBindingAnalyzer) analyzeRoleBinding(r *resource.Instance, ctx analysis.Context) {
+	srb := r.Message.(*v1alpha1.ServiceRoleBinding)
 	ns := r.Metadata.FullName.Namespace
 
 	// If no servicerole is defined at all, just skip. The field is required, but that should be enforced elsewhere.

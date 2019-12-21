@@ -95,7 +95,7 @@ func TestAuthPolicy_AddUpdateDelete(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	r2 := input()
-	r2.Item.(*authn.Policy).OriginIsOptional = true
+	r2.Message.(*authn.Policy).OriginIsOptional = true
 
 	for i := 0; i < 2; i++ {
 		xform, src, acc := setup(g, i)
@@ -278,7 +278,7 @@ func TestAuthPolicy_InvalidProto(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	r := input()
-	r.Item = &types.Struct{}
+	r.Message = &types.Struct{}
 
 	for i := 0; i < 2; i++ {
 		xform, src, acc := setup(g, i)
@@ -308,12 +308,12 @@ func setup(g *GomegaWithT, i int) (event.Transformer, *fixtures.Source, *fixture
 	return xforms[i], src, acc
 }
 
-func input() *resource.Entry {
-	return &resource.Entry{
+func input() *resource.Instance {
+	return &resource.Instance{
 		Metadata: resource.Metadata{
 			FullName: resource.NewFullName("ns", "ap"),
 		},
-		Item: &authn.Policy{
+		Message: &authn.Policy{
 			PeerIsOptional: true,
 			Peers: []*authn.PeerAuthenticationMethod{
 				{
@@ -326,12 +326,12 @@ func input() *resource.Entry {
 	}
 }
 
-func output() *resource.Entry {
-	return &resource.Entry{
+func output() *resource.Instance {
+	return &resource.Instance{
 		Metadata: resource.Metadata{
 			FullName: resource.NewFullName("ns", "ap"),
 		},
-		Item: &authn.Policy{
+		Message: &authn.Policy{
 			PeerIsOptional: true,
 			Peers: []*authn.PeerAuthenticationMethod{
 				{

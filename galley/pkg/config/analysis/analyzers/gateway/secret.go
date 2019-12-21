@@ -47,8 +47,8 @@ func (a *SecretAnalyzer) Metadata() analysis.Metadata {
 
 // Analyze implements analysis.Analyzer
 func (a *SecretAnalyzer) Analyze(ctx analysis.Context) {
-	ctx.ForEach(metadata.IstioNetworkingV1Alpha3Gateways, func(r *resource.Entry) bool {
-		gw := r.Item.(*v1alpha3.Gateway)
+	ctx.ForEach(metadata.IstioNetworkingV1Alpha3Gateways, func(r *resource.Instance) bool {
+		gw := r.Message.(*v1alpha3.Gateway)
 
 		gwNs := getGatewayNamespace(ctx, gw)
 
@@ -80,8 +80,8 @@ func getGatewayNamespace(ctx analysis.Context, gw *v1alpha3.Gateway) resource.Na
 	var ns resource.Namespace
 
 	gwSelector := labels.SelectorFromSet(gw.Selector)
-	ctx.ForEach(metadata.K8SCoreV1Pods, func(rPod *resource.Entry) bool {
-		pod := rPod.Item.(*v1.Pod)
+	ctx.ForEach(metadata.K8SCoreV1Pods, func(rPod *resource.Instance) bool {
+		pod := rPod.Message.(*v1.Pod)
 		if gwSelector.Matches(labels.Set(pod.ObjectMeta.Labels)) {
 			ns = rPod.Metadata.FullName.Namespace
 			return false

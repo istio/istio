@@ -200,7 +200,7 @@ func (c *context) Report(_ collection.Name, m diag.Message) {
 }
 
 // Find implements analysis.Context
-func (c *context) Find(col collection.Name, name resource.FullName) *resource.Entry {
+func (c *context) Find(col collection.Name, name resource.FullName) *resource.Instance {
 	c.collectionReporter(col)
 	return c.sn.Find(col, name)
 }

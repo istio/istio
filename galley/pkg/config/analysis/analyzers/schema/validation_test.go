@@ -47,9 +47,9 @@ func TestCorrectArgs(t *testing.T) {
 		},
 	}
 	ctx := &fixtures.Context{
-		Entries: []*resource.Entry{
+		Resources: []*resource.Instance{
 			{
-				Item: &v1alpha3.VirtualService{},
+				Message: &v1alpha3.VirtualService{},
 				Metadata: resource.Metadata{
 					FullName: resource.NewFullName("ns", "name"),
 				},
@@ -93,9 +93,9 @@ func TestSchemaValidationWrapper(t *testing.T) {
 	t.Run("NoErrors", func(t *testing.T) {
 		g := NewGomegaWithT(t)
 		ctx := &fixtures.Context{
-			Entries: []*resource.Entry{
+			Resources: []*resource.Instance{
 				{
-					Item: m1,
+					Message: m1,
 				},
 			},
 		}
@@ -107,9 +107,9 @@ func TestSchemaValidationWrapper(t *testing.T) {
 		g := NewGomegaWithT(t)
 
 		ctx := &fixtures.Context{
-			Entries: []*resource.Entry{
+			Resources: []*resource.Instance{
 				{
-					Item: m2,
+					Message: m2,
 				},
 			},
 		}
@@ -121,9 +121,9 @@ func TestSchemaValidationWrapper(t *testing.T) {
 	t.Run("MultiError", func(t *testing.T) {
 		g := NewGomegaWithT(t)
 		ctx := &fixtures.Context{
-			Entries: []*resource.Entry{
+			Resources: []*resource.Instance{
 				{
-					Item: m3,
+					Message: m3,
 				},
 			},
 		}

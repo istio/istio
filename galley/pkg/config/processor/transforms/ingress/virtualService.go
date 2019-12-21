@@ -42,7 +42,7 @@ type virtualServiceXform struct {
 
 	mu sync.Mutex
 
-	ingresses map[resource.FullName]*resource.Entry
+	ingresses map[resource.FullName]*resource.Instance
 	vsByHost  map[string]*syntheticVirtualService
 }
 
@@ -70,7 +70,7 @@ func getVirtualServiceXformProvider() transformer.Provider {
 func (g *virtualServiceXform) start() {
 	g.vsByHost = make(map[string]*syntheticVirtualService)
 
-	g.ingresses = make(map[resource.FullName]*resource.Entry)
+	g.ingresses = make(map[resource.FullName]*resource.Instance)
 }
 
 // Stop implements processing.Transformer
@@ -89,18 +89,18 @@ func (g *virtualServiceXform) handle(e event.Event, h event.Handler) {
 
 	switch e.Kind {
 	case event.Added, event.Updated:
-		if !shouldProcessIngress(g.options.MeshConfig, e.Entry) {
+		if !shouldProcessIngress(g.options.MeshConfig, e.Resource) {
 			scope.Processing.Debugf("virtualServiceXform: Skipping ingress event: %v", e)
 			return
 		}
 
-		g.processIngress(e.Entry, h)
+		g.processIngress(e.Resource, h)
 
 	case event.Deleted:
-		ing, exists := g.ingresses[e.Entry.Metadata.FullName]
+		ing, exists := g.ingresses[e.Resource.Metadata.FullName]
 		if exists {
 			g.removeIngress(ing, h)
-			delete(g.ingresses, e.Entry.Metadata.FullName)
+			delete(g.ingresses, e.Resource.Metadata.FullName)
 		}
 
 	default:
@@ -108,7 +108,7 @@ func (g *virtualServiceXform) handle(e event.Event, h event.Handler) {
 	}
 }
 
-func (g *virtualServiceXform) processIngress(newIngress *resource.Entry, h event.Handler) {
+func (g *virtualServiceXform) processIngress(newIngress *resource.Instance, h event.Handler) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
@@ -167,7 +167,7 @@ func (g *virtualServiceXform) processIngress(newIngress *resource.Entry, h event
 	}
 }
 
-func (g *virtualServiceXform) removeIngress(oldIngress *resource.Entry, h event.Handler) {
+func (g *virtualServiceXform) removeIngress(oldIngress *resource.Instance, h event.Handler) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
@@ -192,20 +192,20 @@ func (g *virtualServiceXform) removeIngress(oldIngress *resource.Entry, h event.
 	})
 }
 
-func iterateHosts(i *resource.Entry, fn func(string)) {
-	spec := i.Item.(*v1beta1.IngressSpec)
+func iterateHosts(i *resource.Instance, fn func(string)) {
+	spec := i.Message.(*v1beta1.IngressSpec)
 	for _, r := range spec.Rules {
 		host := getHost(&r)
 		fn(host)
 	}
 }
 
-func iterateRemovedHosts(o, n *resource.Entry, fn func(string)) {
+func iterateRemovedHosts(o, n *resource.Instance, fn func(string)) {
 	// Use N^2 algorithm, to avoid garbage generation.
 loop:
-	for _, ro := range o.Item.(*v1beta1.IngressSpec).Rules {
+	for _, ro := range o.Message.(*v1beta1.IngressSpec).Rules {
 		if n != nil {
-			for _, rn := range n.Item.(*v1beta1.IngressSpec).Rules {
+			for _, rn := range n.Message.(*v1beta1.IngressSpec).Rules {
 				if getHost(&ro) == getHost(&rn) {
 					continue loop
 				}
@@ -218,9 +218,9 @@ loop:
 
 func (g *virtualServiceXform) notifyUpdate(h event.Handler, k event.Kind, svs *syntheticVirtualService) {
 	e := event.Event{
-		Kind:   k,
-		Source: metadata.IstioNetworkingV1Alpha3Virtualservices,
-		Entry:  svs.generateEntry(g.options.DomainSuffix),
+		Kind:     k,
+		Source:   metadata.IstioNetworkingV1Alpha3Virtualservices,
+		Resource: svs.generateEntry(g.options.DomainSuffix),
 	}
 	h.Handle(e)
 }
@@ -229,7 +229,7 @@ func (g *virtualServiceXform) notifyDelete(h event.Handler, name resource.FullNa
 	e := event.Event{
 		Kind:   event.Deleted,
 		Source: metadata.IstioNetworkingV1Alpha3Virtualservices,
-		Entry: &resource.Entry{
+		Resource: &resource.Instance{
 			Metadata: resource.Metadata{
 				FullName: name,
 				Version:  v,

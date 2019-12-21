@@ -47,13 +47,13 @@ func (s *Snapshot) Resources(col string) []*mcp.Resource {
 
 	result := make([]*mcp.Resource, 0, c.Size())
 
-	s.set.Collection(collection.NewName(col)).ForEach(func(e *resource.Entry) bool {
+	s.set.Collection(collection.NewName(col)).ForEach(func(r *resource.Instance) bool {
 		// TODO: We should add (LRU based) caching of serialized content here.
-		r, err := resource.Serialize(e)
+		rs, err := resource.Serialize(r)
 		if err != nil {
-			scope.Processing.Errorf("Unable to serialize resource.Entry: %v", err)
+			scope.Processing.Errorf("Unable to serialize resource.Instance: %v", err)
 		} else {
-			result = append(result, r)
+			result = append(result, rs)
 		}
 		return true
 	})
@@ -84,7 +84,7 @@ func (s *Snapshot) Collections() []string {
 }
 
 // Find the resource with the given name and collection.
-func (s *Snapshot) Find(cpl collection.Name, name resource.FullName) *resource.Entry {
+func (s *Snapshot) Find(cpl collection.Name, name resource.FullName) *resource.Instance {
 	c := s.set.Collection(cpl)
 	if c == nil {
 		return nil

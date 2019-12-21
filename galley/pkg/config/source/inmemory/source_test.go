@@ -49,12 +49,12 @@ func TestInMemory_Register_Empty(t *testing.T) {
 func TestInMemory_Set_BeforeSync(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	r := &resource.Entry{
+	r := &resource.Instance{
 		Metadata: resource.Metadata{
 			FullName: resource.NewFullName("ns1", "l1"),
 			Version:  "v1",
 		},
-		Item: &types.Empty{},
+		Message: &types.Empty{},
 	}
 
 	i := New(data.CollectionNames[:1])
@@ -67,9 +67,9 @@ func TestInMemory_Set_BeforeSync(t *testing.T) {
 
 	expected := []event.Event{
 		{
-			Kind:   event.Added,
-			Source: data.Collection1,
-			Entry:  r,
+			Kind:     event.Added,
+			Source:   data.Collection1,
+			Resource: r,
 		},
 		{
 			Kind:   event.FullSync,
@@ -83,12 +83,12 @@ func TestInMemory_Set_BeforeSync(t *testing.T) {
 func TestInMemory_Set_Add(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	r := &resource.Entry{
+	r := &resource.Instance{
 		Metadata: resource.Metadata{
 			FullName: resource.NewFullName("ns1", "l1"),
 			Version:  "v1",
 		},
-		Item: &types.Empty{},
+		Message: &types.Empty{},
 	}
 
 	i := New(data.CollectionNames[:1])
@@ -115,9 +115,9 @@ func TestInMemory_Set_Add(t *testing.T) {
 			Source: data.Collection1,
 		},
 		{
-			Kind:   event.Added,
-			Source: data.Collection1,
-			Entry:  r,
+			Kind:     event.Added,
+			Source:   data.Collection1,
+			Resource: r,
 		},
 	}
 
@@ -127,19 +127,19 @@ func TestInMemory_Set_Add(t *testing.T) {
 func TestInMemory_Set_Update(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	r1 := &resource.Entry{
+	r1 := &resource.Instance{
 		Metadata: resource.Metadata{
 			FullName: resource.NewFullName("ns1", "l1"),
 			Version:  "v1",
 		},
-		Item: &types.Empty{},
+		Message: &types.Empty{},
 	}
-	r2 := &resource.Entry{
+	r2 := &resource.Instance{
 		Metadata: resource.Metadata{
 			FullName: resource.NewFullName("ns1", "l1"),
 			Version:  "v2",
 		},
-		Item: &types.Empty{},
+		Message: &types.Empty{},
 	}
 
 	i := New(data.CollectionNames[:1])
@@ -167,14 +167,14 @@ func TestInMemory_Set_Update(t *testing.T) {
 			Source: data.Collection1,
 		},
 		{
-			Kind:   event.Added,
-			Source: data.Collection1,
-			Entry:  r1,
+			Kind:     event.Added,
+			Source:   data.Collection1,
+			Resource: r1,
 		},
 		{
-			Kind:   event.Updated,
-			Source: data.Collection1,
-			Entry:  r2,
+			Kind:     event.Updated,
+			Source:   data.Collection1,
+			Resource: r2,
 		},
 	}
 

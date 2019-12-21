@@ -47,17 +47,17 @@ func (s *ServiceRoleServicesAnalyzer) Metadata() analysis.Metadata {
 // Analyze implements Analyzer
 func (s *ServiceRoleServicesAnalyzer) Analyze(ctx analysis.Context) {
 	nsm := s.buildNamespaceServiceMap(ctx)
-	ctx.ForEach(metadata.IstioRbacV1Alpha1Serviceroles, func(r *resource.Entry) bool {
+	ctx.ForEach(metadata.IstioRbacV1Alpha1Serviceroles, func(r *resource.Instance) bool {
 		s.analyzeServiceRoleServices(r, ctx, nsm)
 		return true
 	})
 }
 
 // analyzeRoleBinding apply analysis for the service field of the given ServiceRole
-func (s *ServiceRoleServicesAnalyzer) analyzeServiceRoleServices(r *resource.Entry, ctx analysis.Context,
+func (s *ServiceRoleServicesAnalyzer) analyzeServiceRoleServices(r *resource.Instance, ctx analysis.Context,
 	nsm map[resource.Namespace][]util.ScopedFqdn) {
 
-	sr := r.Item.(*v1alpha1.ServiceRole)
+	sr := r.Message.(*v1alpha1.ServiceRole)
 	ns := r.Metadata.FullName.Namespace
 
 	for _, rs := range sr.Rules {
@@ -75,7 +75,7 @@ func (s *ServiceRoleServicesAnalyzer) analyzeServiceRoleServices(r *resource.Ent
 func (s *ServiceRoleServicesAnalyzer) buildNamespaceServiceMap(ctx analysis.Context) map[resource.Namespace][]util.ScopedFqdn {
 	nsm := map[resource.Namespace][]util.ScopedFqdn{}
 
-	ctx.ForEach(metadata.K8SCoreV1Services, func(r *resource.Entry) bool {
+	ctx.ForEach(metadata.K8SCoreV1Services, func(r *resource.Instance) bool {
 		rns := r.Metadata.FullName.Namespace
 		rs := r.Metadata.FullName.Name
 		nsm[rns] = append(nsm[rns], util.NewScopedFqdn(string(rns), rns, string(rs)))

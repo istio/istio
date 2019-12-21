@@ -94,7 +94,7 @@ func genEvent(ctr *int) Event {
 
 	return Event{
 		Kind: Added,
-		Entry: &resource.Entry{
+		Resource: &resource.Instance{
 			Metadata: resource.Metadata{
 				Version: resource.Version(vStr),
 			},
@@ -104,7 +104,7 @@ func genEvent(ctr *int) Event {
 
 func matchesEventSequence(ctr *int, e Event) bool {
 	*ctr++
-	i, err := strconv.ParseInt(string(e.Entry.Metadata.Version), 10, 64)
+	i, err := strconv.ParseInt(string(e.Resource.Metadata.Version), 10, 64)
 	if err != nil {
 		return false
 	}

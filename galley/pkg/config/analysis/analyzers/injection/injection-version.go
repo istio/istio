@@ -37,7 +37,7 @@ const sidecarInjectorName = "sidecarInjectorWebhook"
 // podVersion is a helper struct for tracking a resource with its detected
 // proxy version.
 type podVersion struct {
-	Entry        *resource.Entry
+	Resource     *resource.Instance
 	ProxyVersion string
 }
 
@@ -58,7 +58,7 @@ func (a *VersionAnalyzer) Analyze(c analysis.Context) {
 	injectedNamespaces := make(map[string]struct{})
 
 	// Collect the list of namespaces that have istio injection enabled.
-	c.ForEach(metadata.K8SCoreV1Namespaces, func(r *resource.Entry) bool {
+	c.ForEach(metadata.K8SCoreV1Namespaces, func(r *resource.Instance) bool {
 		if r.Metadata.Labels[InjectionLabelName] == InjectionLabelEnableValue {
 			injectedNamespaces[r.Metadata.FullName.String()] = struct{}{}
 		}
@@ -68,8 +68,8 @@ func (a *VersionAnalyzer) Analyze(c analysis.Context) {
 
 	injectorVersions := make(map[string]struct{})
 	var podVersions []podVersion
-	c.ForEach(metadata.K8SCoreV1Pods, func(r *resource.Entry) bool {
-		pod := r.Item.(*v1.Pod)
+	c.ForEach(metadata.K8SCoreV1Pods, func(r *resource.Instance) bool {
+		pod := r.Message.(*v1.Pod)
 
 		// Check if this is a sidecar injector pod - if it is, note its version.
 		if v := tryReturnSidecarInjectorVersion(pod); v != "" {
@@ -98,7 +98,7 @@ func (a *VersionAnalyzer) Analyze(c analysis.Context) {
 			}
 			// Note the pod/version to check later after we've collected all injector versions.
 			podVersions = append(podVersions, podVersion{
-				Entry:        r,
+				Resource:     r,
 				ProxyVersion: v})
 
 		}
@@ -109,7 +109,7 @@ func (a *VersionAnalyzer) Analyze(c analysis.Context) {
 	for iv := range injectorVersions {
 		for _, pv := range podVersions {
 			if pv.ProxyVersion != iv {
-				c.Report(metadata.K8SCoreV1Pods, msg.NewIstioProxyVersionMismatch(pv.Entry, pv.ProxyVersion, iv))
+				c.Report(metadata.K8SCoreV1Pods, msg.NewIstioProxyVersionMismatch(pv.Resource, pv.ProxyVersion, iv))
 			}
 		}
 	}

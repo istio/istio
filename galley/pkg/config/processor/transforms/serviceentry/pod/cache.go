@@ -96,12 +96,12 @@ func (pc *cacheImpl) Handle(e event.Event) {
 
 func (pc *cacheImpl) handleNode(e event.Event) {
 	// Nodes don't have namespaces.
-	nodeName := string(e.Entry.Metadata.FullName.Name)
+	nodeName := string(e.Resource.Metadata.FullName.Name)
 
 	switch e.Kind {
 	case event.Added, event.Updated:
 		// Just update the node information directly
-		labels := e.Entry.Metadata.Labels
+		labels := e.Resource.Metadata.Labels
 
 		region := labels[LabelZoneRegion]
 		zone := labels[LabelZoneFailureDomain]
@@ -127,7 +127,7 @@ func (pc *cacheImpl) handleNode(e event.Event) {
 func (pc *cacheImpl) handlePod(e event.Event) {
 	switch e.Kind {
 	case event.Added, event.Updated:
-		pod := e.Entry.Item.(*coreV1.Pod)
+		pod := e.Resource.Message.(*coreV1.Pod)
 
 		ip := pod.Status.PodIP
 		if ip == "" {
@@ -144,7 +144,7 @@ func (pc *cacheImpl) handlePod(e event.Event) {
 			serviceAccountName := kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.Namespace)
 			pod := Info{
 				IP:                 ip,
-				FullName:           e.Entry.Metadata.FullName,
+				FullName:           e.Resource.Metadata.FullName,
 				NodeName:           nodeName,
 				Locality:           locality,
 				Labels:             pod.Labels,
@@ -158,12 +158,12 @@ func (pc *cacheImpl) handlePod(e event.Event) {
 		}
 	case event.Deleted:
 		var ip string
-		if pod, ok := e.Entry.Item.(*coreV1.Pod); ok {
+		if pod, ok := e.Resource.Message.(*coreV1.Pod); ok {
 			ip = pod.Status.PodIP
 		} else {
 			// The resource was either not available or failed parsing. Look it up by brute force.
 			for podIP, info := range pc.pods {
-				if info.FullName == e.Entry.Metadata.FullName {
+				if info.FullName == e.Resource.Metadata.FullName {
 					ip = podIP
 					break
 				}

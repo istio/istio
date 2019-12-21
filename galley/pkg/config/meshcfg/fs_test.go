@@ -52,11 +52,11 @@ func TestFsSource_NoInitialFile(t *testing.T) {
 		{
 			Kind:   event.Added,
 			Source: IstioMeshconfig,
-			Entry: &resource.Entry{
+			Resource: &resource.Instance{
 				Metadata: resource.Metadata{
 					FullName: resource.NewFullName("istio-system", "meshconfig"),
 				},
-				Item: Default(),
+				Message: Default(),
 			},
 		},
 		{
@@ -87,11 +87,11 @@ func TestFsSource_NoInitialFile_UpdateAfterStart(t *testing.T) {
 		{
 			Kind:   event.Added,
 			Source: IstioMeshconfig,
-			Entry: &resource.Entry{
+			Resource: &resource.Instance{
 				Metadata: resource.Metadata{
 					FullName: resource.NewFullName("istio-system", "meshconfig"),
 				},
-				Item: Default(),
+				Message: Default(),
 			},
 		},
 		{
@@ -137,11 +137,11 @@ func TestFsSource_InitialFile_UpdateAfterStart(t *testing.T) {
 		{
 			Kind:   event.Added,
 			Source: IstioMeshconfig,
-			Entry: &resource.Entry{
+			Resource: &resource.Instance{
 				Metadata: resource.Metadata{
 					FullName: resource.NewFullName("istio-system", "meshconfig"),
 				},
-				Item: mcfg,
+				Message: mcfg,
 			},
 		},
 		{
@@ -187,11 +187,11 @@ func TestFsSource_InitialFile(t *testing.T) {
 		{
 			Kind:   event.Added,
 			Source: IstioMeshconfig,
-			Entry: &resource.Entry{
+			Resource: &resource.Instance{
 				Metadata: resource.Metadata{
 					FullName: resource.NewFullName("istio-system", "meshconfig"),
 				},
-				Item: mcfg,
+				Message: mcfg,
 			},
 		},
 		{
@@ -223,11 +223,11 @@ func TestFsSource_StartStopStart(t *testing.T) {
 		{
 			Kind:   event.Added,
 			Source: IstioMeshconfig,
-			Entry: &resource.Entry{
+			Resource: &resource.Instance{
 				Metadata: resource.Metadata{
 					FullName: resource.NewFullName("istio-system", "meshconfig"),
 				},
-				Item: mcfg,
+				Message: mcfg,
 			},
 		},
 		{
@@ -266,11 +266,11 @@ func TestFsSource_FileRemoved_NoChange(t *testing.T) {
 		{
 			Kind:   event.Added,
 			Source: IstioMeshconfig,
-			Entry: &resource.Entry{
+			Resource: &resource.Instance{
 				Metadata: resource.Metadata{
 					FullName: resource.NewFullName("istio-system", "meshconfig"),
 				},
-				Item: mcfg,
+				Message: mcfg,
 			},
 		},
 		{
@@ -309,11 +309,11 @@ func TestFsSource_BogusFile_NoChange(t *testing.T) {
 		{
 			Kind:   event.Added,
 			Source: IstioMeshconfig,
-			Entry: &resource.Entry{
+			Resource: &resource.Instance{
 				Metadata: resource.Metadata{
 					FullName: resource.NewFullName("istio-system", "meshconfig"),
 				},
-				Item: mcfg,
+				Message: mcfg,
 			},
 		},
 		{
@@ -389,11 +389,11 @@ func TestFsSource_YamlToJSONError(t *testing.T) {
 		{
 			Kind:   event.Added,
 			Source: IstioMeshconfig,
-			Entry: &resource.Entry{
+			Resource: &resource.Instance{
 				Metadata: resource.Metadata{
 					FullName: resource.NewFullName("istio-system", "meshconfig"),
 				},
-				Item: Default(),
+				Message: Default(),
 			},
 		},
 		{

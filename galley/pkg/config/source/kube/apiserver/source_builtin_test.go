@@ -394,8 +394,8 @@ func TestEndpoints(t *testing.T) {
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(expected))
 }
 
-func toResource(objectMeta metav1.Object, item proto.Message) *resource.Entry {
-	return &resource.Entry{
+func toResource(objectMeta metav1.Object, item proto.Message) *resource.Instance {
+	return &resource.Instance{
 		Metadata: resource.Metadata{
 			FullName:    resource.NewFullName(resource.Namespace(objectMeta.GetNamespace()), resource.LocalName(objectMeta.GetName())),
 			Version:     resource.Version(objectMeta.GetResourceVersion()),
@@ -403,7 +403,7 @@ func toResource(objectMeta metav1.Object, item proto.Message) *resource.Entry {
 			Labels:      objectMeta.GetLabels(),
 			Annotations: objectMeta.GetAnnotations(),
 		},
-		Item: item,
+		Message: item,
 	}
 }
 

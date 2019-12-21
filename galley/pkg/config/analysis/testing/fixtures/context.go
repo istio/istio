@@ -23,8 +23,8 @@ import (
 
 // Context is a test fixture of analysis.Context
 type Context struct {
-	Entries []*resource.Entry
-	Reports []diag.Message
+	Resources []*resource.Instance
+	Reports   []diag.Message
 }
 
 var _ analysis.Context = &Context{}
@@ -35,14 +35,14 @@ func (ctx *Context) Report(c collection.Name, t diag.Message) {
 }
 
 // Find implements analysis.Context
-func (ctx *Context) Find(c collection.Name, name resource.FullName) *resource.Entry { return nil }
+func (ctx *Context) Find(c collection.Name, name resource.FullName) *resource.Instance { return nil }
 
 // Exists implements analysis.Context
 func (ctx *Context) Exists(c collection.Name, name resource.FullName) bool { return false }
 
 // ForEach implements analysis.Context
 func (ctx *Context) ForEach(c collection.Name, fn analysis.IteratorFn) {
-	for _, r := range ctx.Entries {
+	for _, r := range ctx.Resources {
 		fn(r)
 	}
 }

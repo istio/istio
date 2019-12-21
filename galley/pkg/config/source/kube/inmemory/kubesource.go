@@ -56,15 +56,15 @@ type KubeSource struct {
 type resourceSha [sha1.Size]byte
 
 type kubeResource struct {
-	entry *resource.Entry
-	spec  schema.KubeResource
-	sha   resourceSha
+	resource *resource.Instance
+	spec     schema.KubeResource
+	sha      resourceSha
 }
 
 func (r *kubeResource) newKey() kubeResourceKey {
 	return kubeResourceKey{
 		kind:     r.spec.Kind,
-		fullName: r.entry.Metadata.FullName,
+		fullName: r.resource.Metadata.FullName,
 	}
 }
 
@@ -157,9 +157,9 @@ func (s *KubeSource) ApplyContent(name, yamlText string) error {
 		oldSha, found := s.shas[key]
 		if !found || oldSha != r.sha {
 			s.versionCtr++
-			r.entry.Metadata.Version = resource.Version(fmt.Sprintf("v%d", s.versionCtr))
-			scope.Source.Debuga("KubeSource.ApplyContent: Set: ", r.spec.Collection.Name, r.entry.Metadata.FullName)
-			s.source.Get(r.spec.Collection.Name).Set(r.entry)
+			r.resource.Metadata.Version = resource.Version(fmt.Sprintf("v%d", s.versionCtr))
+			scope.Source.Debuga("KubeSource.ApplyContent: Set: ", r.spec.Collection.Name, r.resource.Metadata.FullName)
+			s.source.Get(r.spec.Collection.Name).Set(r.resource)
 			s.shas[key] = r.sha
 		}
 		newKeys[key] = r.spec.Collection.Name
@@ -277,8 +277,8 @@ func (s *KubeSource) parseChunk(r schema.KubeResources, yamlChunk []byte) (kubeR
 	}
 
 	return kubeResource{
-		spec:  resourceSpec,
-		sha:   sha1.Sum(yamlChunk),
-		entry: rt.ToResourceEntry(objMeta, &resourceSpec, item),
+		spec:     resourceSpec,
+		sha:      sha1.Sum(yamlChunk),
+		resource: rt.ToResource(objMeta, &resourceSpec, item),
 	}, nil
 }

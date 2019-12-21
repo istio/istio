@@ -26,17 +26,17 @@ import (
 var scope = log.RegisterScope("resource", "Core resource model scope", 0)
 
 // Serialize converts a resource entry into its enveloped form.
-func Serialize(e *Entry) (*mcp.Resource, error) {
+func Serialize(r *Instance) (*mcp.Resource, error) {
 
-	a, err := types.MarshalAny(e.Item)
+	a, err := types.MarshalAny(r.Message)
 	if err != nil {
-		scope.Errorf("Error serializing proto from source e: %v:", e)
+		scope.Errorf("Error serializing proto from source r: %v:", r)
 		return nil, err
 	}
 
-	metadata, err := SerializeMetadata(e.Metadata)
+	metadata, err := SerializeMetadata(r.Metadata)
 	if err != nil {
-		scope.Errorf("Error serializing metadata for event (%v): %v", e, err)
+		scope.Errorf("Error serializing metadata for event (%v): %v", r, err)
 		return nil, err
 	}
 
@@ -49,8 +49,8 @@ func Serialize(e *Entry) (*mcp.Resource, error) {
 }
 
 // MustSerialize converts a resource entry into its enveloped form or panics if it cannot.
-func MustSerialize(e *Entry) *mcp.Resource {
-	m, err := Serialize(e)
+func MustSerialize(r *Instance) *mcp.Resource {
+	m, err := Serialize(r)
 	if err != nil {
 		panic(fmt.Sprintf("resource.MustSerialize: %v", err))
 	}
@@ -58,10 +58,10 @@ func MustSerialize(e *Entry) *mcp.Resource {
 }
 
 // SerializeAll envelopes and returns all the entries.
-func SerializeAll(entries []*Entry) ([]*mcp.Resource, error) {
-	result := make([]*mcp.Resource, len(entries))
-	for i, e := range entries {
-		r, err := Serialize(e)
+func SerializeAll(resources []*Instance) ([]*mcp.Resource, error) {
+	result := make([]*mcp.Resource, len(resources))
+	for i, r := range resources {
+		r, err := Serialize(r)
 		if err != nil {
 			return nil, err
 		}
@@ -88,7 +88,7 @@ func SerializeMetadata(m Metadata) (*mcp.Metadata, error) {
 }
 
 // Deserialize an entry from an envelope.
-func Deserialize(e *mcp.Resource) (*Entry, error) {
+func Deserialize(e *mcp.Resource) (*Instance, error) {
 	p, err := types.EmptyAny(e.Body)
 	if err != nil {
 		return nil, fmt.Errorf("error unmarshaling proto: %v", err)
@@ -103,14 +103,14 @@ func Deserialize(e *mcp.Resource) (*Entry, error) {
 		return nil, fmt.Errorf("error unmarshaling body: %v", err)
 	}
 
-	return &Entry{
+	return &Instance{
 		Metadata: metadata,
-		Item:     p,
+		Message:  p,
 	}, nil
 }
 
 // MustDeserialize deserializes an entry from an envelope or panics.
-func MustDeserialize(e *mcp.Resource) *Entry {
+func MustDeserialize(e *mcp.Resource) *Instance {
 	m, err := Deserialize(e)
 	if err != nil {
 		panic(fmt.Sprintf("resource.MustDeserialize: %v", err))
@@ -119,8 +119,8 @@ func MustDeserialize(e *mcp.Resource) *Entry {
 }
 
 // DeserializeAll extracts all entries from the given envelopes and returns.
-func DeserializeAll(es []*mcp.Resource) ([]*Entry, error) {
-	result := make([]*Entry, len(es))
+func DeserializeAll(es []*mcp.Resource) ([]*Instance, error) {
+	result := make([]*Instance, len(es))
 	for i, e := range es {
 		r, err := Deserialize(e)
 		if err != nil {
