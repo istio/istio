@@ -93,7 +93,7 @@ func TestQuotaCache(t *testing.T) {
 		t.Fatalf("Unexpected quota ok count %v, reject count %v", ok, reject)
 	}
 	// Less than 5 time of Quota is called.
-	if s.GetMixerQuotaCount() >= 5 {
+	if s.GetMixerQuotaCount() >= 6 {
 		t.Fatalf("%s quota called count %v should not be more than 5",
 			tag, s.GetMixerQuotaCount())
 	}
