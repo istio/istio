@@ -72,6 +72,8 @@ message CNIConfig {
   TypeMapStringInterface podAnnotations = 10 [deprecated=true];
 
   string psp_cluster_role = 11;
+
+  string logLevel = 12;
 }
 
 // Configuration for CPU target utilization for HorizontalPodAutoscaler target.
@@ -1145,14 +1147,46 @@ message TelemetryConfig {
   // Controls whether telemetry is exported for Pilot.
   google.protobuf.BoolValue enabled = 1;
 
+  // Use telemetry v1.
+  TelemetryV1Config v1 = 2;
+
   // Use telemetry v2.
   TelemetryV2Config v2 = 3;
+}
+
+// Controls whether pilot will configure telemetry v1.
+message TelemetryV1Config {
+  // Controls whether pilot will configure telemetry v1.
+  google.protobuf.BoolValue enabled = 1;
 }
 
 // Controls whether pilot will configure telemetry v2.
 message TelemetryV2Config {
   // Controls whether pilot will configure telemetry v2.
   google.protobuf.BoolValue enabled = 1;
+
+  TelemetryV2PrometheusConfig prometheus = 2;
+
+  TelemetryV2StackDriverConfig stackdriver = 3;
+}
+
+// Conrols telemetry v2 prometheus settings.
+message TelemetryV2PrometheusConfig {
+  // Controls whether stats envoyfilter would be enabled or not.
+  google.protobuf.BoolValue enabled = 1;
+}
+
+// Conrols telemetry v2 stackdriver settings.
+message TelemetryV2StackDriverConfig {
+  google.protobuf.BoolValue enabled = 1;
+
+  google.protobuf.BoolValue logging = 2;
+
+  google.protobuf.BoolValue monitoring = 3;
+
+  google.protobuf.BoolValue topology = 4;
+
+  TypeMapStringInterface configOverride = 5;
 }
 
 // PilotConfigSource describes information about a configuration store inside a
@@ -1466,6 +1500,14 @@ message SecurityConfig {
   //
   // Setting to false if you want to use your own root CA for Citade Deployment.
   google.protobuf.BoolValue selfSigned = 4;
+
+  // The trust domain corresponds to the trust root of a system
+  // Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
+  // Indicate the domain used in SPIFFE identity URL
+  // The default depends on the environment.
+  //   kubernetes: cluster.local
+  //    else:  default dns domain
+  string trustDomain = 5;
 
   // The DNS Certs specifies the customized DNS name and corresponding service account.
   //

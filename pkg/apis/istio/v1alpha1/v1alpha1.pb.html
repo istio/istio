@@ -2,7 +2,7 @@
 title: v1alpha1
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 85
+number_of_entries: 88
 ---
 <h2 id="AddonIngressConfig">AddonIngressConfig</h2>
 <section>
@@ -208,6 +208,15 @@ No
 </tr>
 <tr id="CNIConfig-psp_cluster_role">
 <td><code>pspClusterRole</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="CNIConfig-logLevel">
+<td><code>logLevel</code></td>
 <td><code>string</code></td>
 <td>
 </td>
@@ -5337,6 +5346,22 @@ No
 No
 </td>
 </tr>
+<tr id="SecurityConfig-trustDomain">
+<td><code>trustDomain</code></td>
+<td><code>string</code></td>
+<td>
+<p>The trust domain corresponds to the trust root of a system
+Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
+Indicate the domain used in SPIFFE identity URL
+The default depends on the environment.
+  kubernetes: cluster.local
+   else:  default dns domain</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
 <tr id="SecurityConfig-dnsCerts">
 <td><code>dnsCerts</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
@@ -5925,11 +5950,50 @@ No
 No
 </td>
 </tr>
+<tr id="TelemetryConfig-v1">
+<td><code>v1</code></td>
+<td><code><a href="#TelemetryV1Config">TelemetryV1Config</a></code></td>
+<td>
+<p>Use telemetry v1.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
 <tr id="TelemetryConfig-v2">
 <td><code>v2</code></td>
 <td><code><a href="#TelemetryV2Config">TelemetryV2Config</a></code></td>
 <td>
 <p>Use telemetry v2.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TelemetryV1Config">TelemetryV1Config</h2>
+<section>
+<p>Controls whether pilot will configure telemetry v1.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TelemetryV1Config-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+<p>Controls whether pilot will configure telemetry v1.</p>
 
 </td>
 <td>
@@ -5959,6 +6023,114 @@ No
 <td>
 <p>Controls whether pilot will configure telemetry v2.</p>
 
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TelemetryV2Config-prometheus">
+<td><code>prometheus</code></td>
+<td><code><a href="#TelemetryV2PrometheusConfig">TelemetryV2PrometheusConfig</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TelemetryV2Config-stackdriver">
+<td><code>stackdriver</code></td>
+<td><code><a href="#TelemetryV2StackDriverConfig">TelemetryV2StackDriverConfig</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TelemetryV2PrometheusConfig">TelemetryV2PrometheusConfig</h2>
+<section>
+<p>Conrols telemetry v2 prometheus settings.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TelemetryV2PrometheusConfig-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+<p>Controls whether stats envoyfilter would be enabled or not.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TelemetryV2StackDriverConfig">TelemetryV2StackDriverConfig</h2>
+<section>
+<p>Conrols telemetry v2 stackdriver settings.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TelemetryV2StackDriverConfig-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TelemetryV2StackDriverConfig-logging">
+<td><code>logging</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TelemetryV2StackDriverConfig-monitoring">
+<td><code>monitoring</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TelemetryV2StackDriverConfig-topology">
+<td><code>topology</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TelemetryV2StackDriverConfig-configOverride">
+<td><code>configOverride</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
 </td>
 <td>
 No
