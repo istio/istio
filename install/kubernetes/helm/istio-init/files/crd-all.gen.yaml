@@ -4317,8 +4317,8 @@ spec:
     categories:
     - istio-io
     - policy-istio-io
-    kind: AttributeManifest
-    listKind: AttributeManifestList
+    kind: attributemanifest
+    listKind: attributemanifestList
     plural: attributemanifests
     singular: attributemanifest
   scope: Namespaced
@@ -4393,8 +4393,8 @@ spec:
     categories:
     - istio-io
     - policy-istio-io
-    kind: Handler
-    listKind: HandlerList
+    kind: handler
+    listKind: handlerList
     plural: handlers
     singular: handler
   scope: Namespaced
@@ -4557,8 +4557,8 @@ spec:
     categories:
     - istio-io
     - policy-istio-io
-    kind: Instance
-    listKind: InstanceList
+    kind: instance
+    listKind: instanceList
     plural: instances
     singular: instance
   scope: Namespaced
@@ -4619,8 +4619,8 @@ spec:
     categories:
     - istio-io
     - policy-istio-io
-    kind: Rule
-    listKind: RuleList
+    kind: rule
+    listKind: ruleList
     plural: rules
     singular: rule
   scope: Namespaced
