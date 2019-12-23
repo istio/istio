@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/environment"
+	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
@@ -455,6 +456,86 @@ func TestRequestAuthentication(t *testing.T) {
 						},
 					},
 					ExpectResponseCode: response.StatusCodeOK,
+				},
+			}
+			for _, c := range testCases {
+				t.Run(c.Name, func(t *testing.T) {
+					retry.UntilSuccessOrFail(t, c.CheckAuthn,
+						retry.Delay(250*time.Millisecond), retry.Timeout(30*time.Second))
+				})
+			}
+		})
+}
+
+var (
+	ingr ingress.Instance
+)
+
+// TestRequestAuthentication tests beta authn policy for jwt on ingress.
+// The policy is also set at global namespace, with authorization on ingressgateway.
+func TestRequestAuthenticationOnIngress(t *testing.T) {
+	// testIssuer1Token := jwt.TokenIssuer1
+
+	framework.NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		Run(func(ctx framework.TestContext) {
+			var ingr ingress.Instance
+			var err error
+			if ingr, err = ingress.New(ctx, ingress.Config{
+				Istio: ist,
+			}); err != nil {
+				t.Fatal(err)
+			}
+			t.Log(ingr)
+
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "req-authn",
+				Inject: true,
+			})
+
+			// Apply the policy.
+			namespaceTmpl := map[string]string{
+				"Namespace": ns.Name(),
+			}
+			jwtPolicies := tmpl.EvaluateAllOrFail(t, namespaceTmpl,
+				file.AsStringOrFail(t, "testdata/requestauthn/ingress-authn-authz.yaml.tmpl"),
+			)
+			g.ApplyConfigOrFail(t, ns, jwtPolicies...)
+			defer g.DeleteConfigOrFail(t, ns, jwtPolicies...)
+
+			var a, b echo.Instance
+			echoboot.NewBuilderOrFail(ctx, ctx).
+				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
+				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
+				BuildOrFail(t)
+
+			testCases := []authn.TestCase{
+				{
+					Name: "expired-token",
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   b,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								authHeaderKey: {"Bearer " + jwt.TokenExpired},
+							},
+						},
+					},
+					ExpectResponseCode: response.StatusCodeForbidden,
+				},
+				{
+					Name: "no-token",
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   b,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+						},
+					},
+					ExpectResponseCode: response.StatusCodeForbidden,
 				},
 			}
 			for _, c := range testCases {
