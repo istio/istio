@@ -711,7 +711,7 @@ func init() {
 	proxyCmd.PersistentFlags().Uint16Var(&statusPort, "statusPort", 0,
 		"HTTP Port on which to serve pilot agent status. If zero, agent status will not be provided.")
 	proxyCmd.PersistentFlags().IntVar(&stsPort, "stsPort", 0,
-		"HTTP Port on which to serve pilot agent status. If zero, agent status will not be provided.")
+		"HTTP Port on which to serve Security Token Service (STS). If zero, STS service will not be provided.")
 	proxyCmd.PersistentFlags().StringVar(&gCPProjectNumber, "gCPProjectNumber", "",
 		"The Google Cloud Platform (GCP) project number where Istio is deployed.")
 	// Flags for proxy configuration

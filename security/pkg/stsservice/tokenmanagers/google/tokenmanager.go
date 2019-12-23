@@ -45,7 +45,7 @@ const (
 )
 
 var (
-	tokenManagerLog        = log.RegisterScope("tokenManagerLog", "STS token manager debugging", 0)
+	tokenManagerLog        = log.RegisterScope("tokenManager", "STS token manager debugging", 0)
 	federatedTokenEndpoint = "https://securetoken.googleapis.com/v1/identitybindingtoken"
 	// https://cloud.google.com/iam/docs/reference/credentials/rest/v1/projects.serviceAccounts/generateAccessToken
 	accessTokenEndpoint = "https://iamcredentials.googleapis.com/v1/projects/-/" +
@@ -60,16 +60,6 @@ type TokenManager struct {
 	// map key is timestamp of token, map value is tokenInfo.
 	tokens           sync.Map
 	gCPProjectNumber string
-}
-
-type tokenInfo struct {
-	tokenType  string `json:"token_type"`
-	issueTime  string `json:"issue_time"`
-	expireTime string `json:"expire_time"`
-}
-
-type tokensDump struct {
-	tokens []tokenInfo `json:"tokens"`
 }
 
 // CreateTokenManager creates a token manager that fetches token from a Google OAuth 2.0 authorization server.
@@ -182,10 +172,10 @@ func (tm *TokenManager) fetchFederatedToken(parameters stsservice.StsRequestPara
 	}
 	tokenManagerLog.Debug("successfully exchanged a federated token")
 	tokenReceivedTime := time.Now()
-	tm.tokens.Store(tokenReceivedTime.String(), tokenInfo{
-		tokenType:  federatedToken,
-		issueTime:  tokenReceivedTime.String(),
-		expireTime: tokenReceivedTime.Add(time.Duration(respData.ExpiresIn) * time.Second).String()})
+	tm.tokens.Store(tokenReceivedTime.String(), stsservice.TokenInfo{
+		TokenType:  federatedToken,
+		IssueTime:  tokenReceivedTime.String(),
+		ExpireTime: tokenReceivedTime.Add(time.Duration(respData.ExpiresIn) * time.Second).String()})
 	return respData, nil
 }
 
@@ -277,10 +267,10 @@ func (tm *TokenManager) fetchAccessToken(federatedToken *federatedTokenResponse)
 	tokenManagerLog.Debug("successfully exchanged an access token")
 	tokenReceivedTime := time.Now()
 	expireTime, _ := ptypes.Duration(&respData.ExpireTime)
-	tm.tokens.Store(tokenReceivedTime.String(), tokenInfo{
-		tokenType:  accessToken,
-		issueTime:  tokenReceivedTime.String(),
-		expireTime: tokenReceivedTime.Add(expireTime).String()})
+	tm.tokens.Store(tokenReceivedTime.String(), stsservice.TokenInfo{
+		TokenType:  accessToken,
+		IssueTime:  tokenReceivedTime.String(),
+		ExpireTime: tokenReceivedTime.Add(expireTime).String()})
 	return respData, nil
 }
 
@@ -299,14 +289,14 @@ func (tm *TokenManager) generateSTSResp(atResp *accessTokenResponse) ([]byte, er
 
 // DumpTokenStatus dumps all token status in JSON
 func (tm *TokenManager) DumpTokenStatus() ([]byte, error) {
-	tokenStatus := make([]tokenInfo, 0)
+	tokenStatus := make([]stsservice.TokenInfo, 0)
 	tm.tokens.Range(func(k interface{}, v interface{}) bool {
-		token := v.(tokenInfo)
+		token := v.(stsservice.TokenInfo)
 		tokenStatus = append(tokenStatus, token)
 		return true
 	})
-	td := tokensDump{
-		tokens: tokenStatus,
+	td := stsservice.TokensDump{
+		Tokens: tokenStatus,
 	}
 	statusJSON, err := json.MarshalIndent(td, "", " ")
 	return statusJSON, err

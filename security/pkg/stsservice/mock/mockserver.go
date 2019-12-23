@@ -227,7 +227,7 @@ func (ms *AuthorizationServer) getAccessToken(w http.ResponseWriter, req *http.R
 		ms.t.Errorf("Content-Type header does not match\nwant %s\n got %s",
 			"application/json", req.Header.Get("Content-Type"))
 	}
-	if reflect.DeepEqual(want.Scope, request.Scope) {
+	if !reflect.DeepEqual(want.Scope, request.Scope) {
 		ms.t.Errorf("wrong federatedTokenRequest\nwant %+v\n got %+v", want, request)
 		w.WriteHeader(http.StatusBadRequest)
 		return
