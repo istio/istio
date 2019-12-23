@@ -17,6 +17,7 @@ package mixer
 import (
 	"context"
 	"fmt"
+	"istio.io/istio/pkg/test/scopes"
 	"os"
 	"strings"
 	"testing"
@@ -270,6 +271,6 @@ func FetchRequestCount(t *testing.T, prometheus prometheus.Instance, service, ad
 }
 
 func AllowRuleSync(t *testing.T) {
-	t.Log("Sleeping to allow rules to take effect...")
+	scopes.Framework.Infof("Sleeping to allow rules to take effect...")
 	time.Sleep(15 * time.Second)
 }

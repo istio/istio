@@ -22,6 +22,8 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"os"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -52,9 +54,29 @@ var (
 type kubeComponent struct {
 	id        resource.ID
 	namespace string
+	ctx         resource.Context
 	env       *kube.Environment
 }
 
+func (c *kubeComponent) Dump() {
+	scopes.CI.Errorf("Dumping ingress")
+	s, err := c.adminRequest("/config_dump")
+
+	d, err := c.ctx.CreateTmpDirectory("ingress-state")
+	if err != nil {
+		scopes.CI.Errorf("Unable to create directory for dumping Istio contents: %v", err)
+		return
+	}
+
+
+	fname := path.Join(d, "dump.json")
+	if err = ioutil.WriteFile(fname, []byte(s), os.ModePerm); err != nil {
+		scopes.CI.Errorf("failed writing")
+	}
+
+}
+
+var _ resource.Dumper = &kubeComponent{}
 // getHTTPAddressInner returns the ingress gateway address for plain text http requests.
 func getHTTPAddressInner(env *kube.Environment, ns string) (interface{}, bool, error) {
 	// In Minikube, we don't have the ingress gateway. Instead we do a little bit of trickery to to get the Node
@@ -175,7 +197,7 @@ func newKube(ctx resource.Context, cfg Config) Instance {
 	c.id = ctx.TrackResource(c)
 	c.namespace = cfg.Istio.Settings().IngressNamespace
 	c.env = ctx.Environment().(*kube.Environment)
-
+	c.ctx = ctx
 	return c
 }
 
