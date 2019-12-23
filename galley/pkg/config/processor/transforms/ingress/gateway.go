@@ -68,27 +68,27 @@ func (g *gatewayXform) handle(e event.Event, h event.Handler) {
 
 	switch e.Kind {
 	case event.Added, event.Updated:
-		if !shouldProcessIngress(g.options.MeshConfig, e.Entry) {
+		if !shouldProcessIngress(g.options.MeshConfig, e.Resource) {
 			return
 		}
 
-		gw := g.convertIngressToGateway(e.Entry)
+		gw := g.convertIngressToGateway(e.Resource)
 		evt := event.Event{
-			Kind:   e.Kind,
-			Source: metadata.IstioNetworkingV1Alpha3Gateways,
-			Entry:  gw,
+			Kind:     e.Kind,
+			Source:   metadata.IstioNetworkingV1Alpha3Gateways,
+			Resource: gw,
 		}
 		h.Handle(evt)
 
 	case event.Deleted:
-		gw := g.convertIngressToGateway(e.Entry)
+		gw := g.convertIngressToGateway(e.Resource)
 		evt := event.Event{
-			Kind:   e.Kind,
-			Source: metadata.IstioNetworkingV1Alpha3Gateways,
-			Entry:  gw,
+			Kind:     e.Kind,
+			Source:   metadata.IstioNetworkingV1Alpha3Gateways,
+			Resource: gw,
 		}
-		evt.Entry.Metadata.Name = generateSyntheticGatewayName(e.Entry.Metadata.Name)
-		evt.Entry.Metadata.Version = generateSyntheticVersion(e.Entry.Metadata.Version)
+		evt.Resource.Metadata.FullName = generateSyntheticGatewayName(e.Resource.Metadata.FullName)
+		evt.Resource.Metadata.Version = generateSyntheticVersion(e.Resource.Metadata.Version)
 
 		h.Handle(evt)
 
@@ -97,12 +97,13 @@ func (g *gatewayXform) handle(e event.Event, h event.Handler) {
 	}
 }
 
-func (g *gatewayXform) convertIngressToGateway(e *resource.Entry) *resource.Entry {
-	namespace, name := e.Metadata.Name.InterpretAsNamespaceAndName()
+func (g *gatewayXform) convertIngressToGateway(r *resource.Instance) *resource.Instance {
+	namespace := r.Metadata.FullName.Namespace
+	name := r.Metadata.FullName.Name
 
 	var gateway *v1alpha3.Gateway
-	if e.Item != nil {
-		i := e.Item.(*ingress.IngressSpec)
+	if r.Message != nil {
+		i := r.Message.(*ingress.IngressSpec)
 
 		gateway = &v1alpha3.Gateway{
 			Selector: IstioIngressWorkloadLabels,
@@ -147,30 +148,28 @@ func (g *gatewayXform) convertIngressToGateway(e *resource.Entry) *resource.Entr
 		})
 	}
 
-	ann := e.Metadata.Annotations.Clone()
+	ann := r.Metadata.Annotations.Clone()
 	ann.Delete(annotation.IoKubernetesIngressClass.Name)
 
-	gw := &resource.Entry{
+	gw := &resource.Instance{
 		Metadata: resource.Metadata{
-			Name:        generateSyntheticGatewayName(e.Metadata.Name),
-			Version:     generateSyntheticVersion(e.Metadata.Version),
-			CreateTime:  e.Metadata.CreateTime,
+			FullName:    generateSyntheticGatewayName(r.Metadata.FullName),
+			Version:     generateSyntheticVersion(r.Metadata.Version),
+			CreateTime:  r.Metadata.CreateTime,
 			Annotations: ann,
-			Labels:      e.Metadata.Labels,
+			Labels:      r.Metadata.Labels,
 		},
-		Item:   gateway,
-		Origin: e.Origin,
+		Message: gateway,
+		Origin:  r.Origin,
 	}
 
 	return gw
 }
 
-func generateSyntheticGatewayName(name resource.Name) resource.Name {
-	_, n := name.InterpretAsNamespaceAndName()
-	newName := n + "-" + IstioIngressGatewayName
-	newNamespace := IstioIngressNamespace
-
-	return resource.NewName(newNamespace, newName)
+func generateSyntheticGatewayName(name resource.FullName) resource.FullName {
+	name.Name = name.Name + "-" + IstioIngressGatewayName
+	name.Namespace = IstioIngressNamespace
+	return name
 }
 
 func generateSyntheticVersion(v resource.Version) resource.Version {

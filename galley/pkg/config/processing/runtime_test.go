@@ -45,9 +45,9 @@ func TestRuntime_Startup_NoMeshConfig(t *testing.T) {
 	defer f.rt.Stop()
 
 	coll := basicmeta.Collection1
-	r := &resource.Entry{
+	r := &resource.Instance{
 		Metadata: resource.Metadata{},
-		Item:     &types.Empty{},
+		Message:  &types.Empty{},
 	}
 	f.src.Get(coll).Set(r)
 
@@ -81,9 +81,9 @@ func TestRuntime_Startup_MeshConfig_Arrives(t *testing.T) {
 	defer f.rt.Stop()
 
 	coll := basicmeta.Collection1
-	r := &resource.Entry{
+	r := &resource.Instance{
 		Metadata: resource.Metadata{},
-		Item:     &types.Empty{},
+		Message:  &types.Empty{},
 	}
 	f.src.Get(coll).Set(r)
 
@@ -106,9 +106,9 @@ func TestRuntime_Startup_Stop(t *testing.T) {
 	f.rt.Start()
 
 	coll := basicmeta.Collection1
-	r := &resource.Entry{
+	r := &resource.Instance{
 		Metadata: resource.Metadata{},
-		Item:     &types.Empty{},
+		Message:  &types.Empty{},
 	}
 	f.src.Get(coll).Set(r)
 
@@ -128,9 +128,9 @@ func TestRuntime_Start_Start_Stop(t *testing.T) {
 	f.rt.Start() // Double start
 
 	coll := basicmeta.Collection1
-	r := &resource.Entry{
+	r := &resource.Instance{
 		Metadata: resource.Metadata{},
-		Item:     &types.Empty{},
+		Message:  &types.Empty{},
 	}
 	f.src.Get(coll).Set(r)
 
@@ -148,9 +148,9 @@ func TestRuntime_Start_Stop_Stop(t *testing.T) {
 	f.rt.Start()
 
 	coll := basicmeta.Collection1
-	r := &resource.Entry{
+	r := &resource.Instance{
 		Metadata: resource.Metadata{},
-		Item:     &types.Empty{},
+		Message:  &types.Empty{},
 	}
 	f.src.Get(coll).Set(r)
 
@@ -171,19 +171,19 @@ func TestRuntime_MeshConfig_Causing_Restart(t *testing.T) {
 	defer f.rt.Stop()
 
 	coll := basicmeta.Collection1
-	r := &resource.Entry{
+	r := &resource.Instance{
 		Metadata: resource.Metadata{},
-		Item:     &types.Empty{},
+		Message:  &types.Empty{},
 	}
 	f.src.Get(coll).Set(r)
 
 	f.meshsrc.Set(meshcfg.Default())
 	g.Eventually(f.p.acc.Events).Should(ConsistOf(
-		event.AddFor(meshcfg.IstioMeshconfig, &resource.Entry{
+		event.AddFor(meshcfg.IstioMeshconfig, &resource.Instance{
 			Metadata: resource.Metadata{
-				Name: meshcfg.ResourceName,
+				FullName: meshcfg.ResourceName,
 			},
-			Item: meshcfg.Default(),
+			Message: meshcfg.Default(),
 		}),
 		event.FullSyncFor(meshcfg.IstioMeshconfig),
 		event.AddFor(coll, r),
@@ -208,9 +208,9 @@ func TestRuntime_Event_Before_Start(t *testing.T) {
 	f := initFixture()
 
 	coll := basicmeta.Collection1
-	r := &resource.Entry{
+	r := &resource.Instance{
 		Metadata: resource.Metadata{},
-		Item:     &types.Empty{},
+		Message:  &types.Empty{},
 	}
 	f.src.Start()
 	f.src.Get(coll).Set(r)
@@ -445,11 +445,11 @@ func (t *testProcessor) HasStarted() bool {
 	return t.started
 }
 
-func meshConfigEntry(m *v1alpha1.MeshConfig) *resource.Entry { // nolint:interfacer
-	return &resource.Entry{
+func meshConfigEntry(m *v1alpha1.MeshConfig) *resource.Instance { // nolint:interfacer
+	return &resource.Instance{
 		Metadata: resource.Metadata{
-			Name: resource.NewName("istio-system", "meshconfig"),
+			FullName: resource.NewFullName("istio-system", "meshconfig"),
 		},
-		Item: m,
+		Message: m,
 	}
 }

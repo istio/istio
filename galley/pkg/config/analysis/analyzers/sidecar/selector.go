@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/meta/metadata"
@@ -26,8 +27,8 @@ import (
 )
 
 // SelectorAnalyzer validates, per namespace, that:
-// * Sidecars that define a workload selector match at least one pod
-// * there aren't multiple Sidecar resources that select overlapping pods
+// * sidecar resources that define a workload selector match at least one pod
+// * there aren't multiple sidecar resources that select overlapping pods
 type SelectorAnalyzer struct{}
 
 var _ analysis.Analyzer = &SelectorAnalyzer{}
@@ -36,6 +37,8 @@ var _ analysis.Analyzer = &SelectorAnalyzer{}
 func (a *SelectorAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name: "sidecar.SelectorAnalyzer",
+		Description: "Validates that sidecars that define a workload selector " +
+			"match at least one pod, and that there aren't multiple sidecar resources that select overlapping pods",
 		Inputs: collection.Names{
 			metadata.IstioNetworkingV1Alpha3Sidecars,
 			metadata.K8SCoreV1Pods,
@@ -45,26 +48,26 @@ func (a *SelectorAnalyzer) Metadata() analysis.Metadata {
 
 // Analyze implements Analyzer
 func (a *SelectorAnalyzer) Analyze(c analysis.Context) {
-	podsToSidecars := make(map[resource.Name][]*resource.Entry)
+	podsToSidecars := make(map[resource.FullName][]*resource.Instance)
 
 	// This is using an unindexed approach for matching selectors.
 	// Using an index for selectoes is problematic because selector != label
 	// We can match a label to a selector, but we can't generate a selector from a label.
-	c.ForEach(metadata.IstioNetworkingV1Alpha3Sidecars, func(rs *resource.Entry) bool {
-		s := rs.Item.(*v1alpha3.Sidecar)
+	c.ForEach(metadata.IstioNetworkingV1Alpha3Sidecars, func(rs *resource.Instance) bool {
+		s := rs.Message.(*v1alpha3.Sidecar)
 
 		// For this analysis, ignore Sidecars with no workload selectors specified at all.
 		if s.WorkloadSelector == nil || len(s.WorkloadSelector.Labels) == 0 {
 			return true
 		}
 
-		sNs, _ := rs.Metadata.Name.InterpretAsNamespaceAndName()
+		sNs := rs.Metadata.FullName.Namespace
 		sel := labels.SelectorFromSet(s.WorkloadSelector.Labels)
 
 		foundPod := false
-		c.ForEach(metadata.K8SCoreV1Pods, func(rp *resource.Entry) bool {
-			pod := rp.Item.(*v1.Pod)
-			pNs, _ := rp.Metadata.Name.InterpretAsNamespaceAndName()
+		c.ForEach(metadata.K8SCoreV1Pods, func(rp *resource.Instance) bool {
+			pod := rp.Message.(*v1.Pod)
+			pNs := rp.Metadata.FullName.Namespace
 			podLabels := labels.Set(pod.ObjectMeta.Labels)
 
 			// Only attempt to match in the same namespace
@@ -74,7 +77,7 @@ func (a *SelectorAnalyzer) Analyze(c analysis.Context) {
 
 			if sel.Matches(podLabels) {
 				foundPod = true
-				podsToSidecars[rp.Metadata.Name] = append(podsToSidecars[rp.Metadata.Name], rs)
+				podsToSidecars[rp.Metadata.FullName] = append(podsToSidecars[rp.Metadata.FullName], rs)
 			}
 
 			return true
@@ -92,11 +95,11 @@ func (a *SelectorAnalyzer) Analyze(c analysis.Context) {
 			continue
 		}
 
-		pNs, pName := p.InterpretAsNamespaceAndName()
 		sNames := getNames(sList)
 
 		for _, rs := range sList {
-			c.Report(metadata.IstioNetworkingV1Alpha3Sidecars, msg.NewConflictingSidecarWorkloadSelectors(rs, sNames, pNs, pName))
+			c.Report(metadata.IstioNetworkingV1Alpha3Sidecars, msg.NewConflictingSidecarWorkloadSelectors(rs, sNames,
+				p.Namespace.String(), p.Name.String()))
 		}
 	}
 }

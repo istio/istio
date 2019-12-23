@@ -25,7 +25,7 @@ import (
 	u "istio.io/istio/tests/util"
 )
 
-// RawVM interfaces different cloud venders to support e2e testing with VM
+// RawVM interfaces different cloud vendors to support e2e testing with VM
 type RawVM interface {
 	Cleanable
 	GetInternalIP() (string, error)

@@ -74,17 +74,17 @@ type snapshotGroup struct {
 func (a *accumulator) Handle(e event.Event) {
 	switch e.Kind {
 	case event.Added:
-		a.collection.Set(e.Entry)
+		a.collection.Set(e.Resource)
 		monitoring.RecordStateTypeCount(e.Source.String(), a.collection.Size())
-		monitorEntry(e.Source, e.Entry.Metadata.Name, true)
+		monitorEntry(e.Source, e.Resource.Metadata.FullName, true)
 
 	case event.Updated:
-		a.collection.Set(e.Entry)
+		a.collection.Set(e.Resource)
 
 	case event.Deleted:
-		a.collection.Remove(e.Entry.Metadata.Name)
+		a.collection.Remove(e.Resource.Metadata.FullName)
 		monitoring.RecordStateTypeCount(e.Source.String(), a.collection.Size())
-		monitorEntry(e.Source, e.Entry.Metadata.Name, false)
+		monitorEntry(e.Source, e.Resource.Metadata.FullName, false)
 
 	case event.FullSync:
 		atomic.AddInt32(&a.syncCount, 1)
@@ -106,13 +106,12 @@ func (a *accumulator) reset() {
 	a.collection.Clear()
 }
 
-func monitorEntry(col collection.Name, resourceName resource.Name, added bool) {
-	namespace, name := resourceName.InterpretAsNamespaceAndName()
+func monitorEntry(col collection.Name, resourceName resource.FullName, added bool) {
 	value := 1
 	if !added {
 		value = 0
 	}
-	monitoring.RecordDetailedStateType(namespace, name, col, value)
+	monitoring.RecordDetailedStateType(string(resourceName.Namespace), string(resourceName.Name), col, value)
 }
 
 // NewSnapshotter returns a new Snapshotter.

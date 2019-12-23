@@ -152,84 +152,8 @@ istioio.Script{
 }
 ```
 
-You can embed snippets directly in the input. Snippets must be surrounded by the
-tokens `# $snippet` and `# $endsnippet`, each of which must be placed on their own
-line and must be at the start of that line. For example:
-
-```bash
-# $snippet dostuff.sh syntax="bash"
-$ kubectl apply -f @samples/bookinfo/platform/kube/rbac/namespace-policy.yaml@
-# $endsnippet
-```
-
-This will run the command
-`kubectl apply -f samples/bookinfo/platform/kube/rbac/namespace-policy.yaml` and
-also generate the snippet.
-
-Snippets that reference files in the
-[Istio Github repository](`https://github.com/istio/istio`), as shown above, should
-surround those links with `@`. The reference will be converted into an actual link
-when rendering the page on `istio.io`.
-
-The `$snippet` line supports a number of fields separated by whitespace. The first
-field is the name of the snippet and is required. After the name, a number of
-arguments in the form of `<key>="<value>"` may be provided. The following arguments
-are supported:
-
-- **syntax**: Sets the syntax for the command text. This is used to properly
-highlight the output on istio.io.
-- **outputis**: Sets the syntax for the output of the last command in the snippet.
-If set, and the snippet contains expected output, verification will automatically
-be performed against this expected output. By default, the commands and
-output will be merged into a single snippet. This can be overridden with
-`outputsnippet`.
-- **outputsnippet**: A boolean value, which if "true" indicates that the output for
-the last command of the snippet should appear in a separate snippet. The name of
-the generated snippet will append "_output.txt" to the name of the current snippet.
-
-You can indicate that a snippet should display output via `outputis`. Additionally,
-you can verify the output of the last command in the snippet against expected
-results with the `# $snippetoutput` annotation.
-
-Example with verified output:
-
-```bash
-# $snippet mysnippet syntax="bash" outputis="text" outputsnippet="true"
-$ kubectl apply -f @samples/bookinfo/platform/kube/rbac/namespace-policy.yaml@
-# $snippetoutput verifier="token"
-servicerole.rbac.istio.io/service-viewer created
-servicerolebinding.rbac.istio.io/bind-service-viewer created
-# $endsnippet
-```
-
-This will run the command
-`kubectl apply -f samples/bookinfo/platform/kube/rbac/namespace-policy.yaml` and
-will use the token-based verifier to verify that the output matches:
-
-```text
-servicerole.rbac.istio.io/service-viewer created
-servicerolebinding.rbac.istio.io/bind-service-viewer created
-```
-
-Since `outputsnippet="true"`, it will then create a separate snippet for the actual output of
-the last command:
-
-```bash
-# $snippet enforcing_namespace_level_access_control_apply.sh_output.txt syntax="text"
-servicerole.rbac.istio.io/service-viewer created
-servicerolebinding.rbac.istio.io/bind-service-viewer created
-# $endsnippet
-```
-
-The following verifiers are supported:
-
-- **token**: the default verifier, if not specified. Performs a token-based comparison of expected
-and actual output. The syntax supports the wildcard `?` character to skip comparison
-for a given token.
-- **contains**: verifies that the output contains the given string.
-- **notContains**: verifies that the output does not contain the given string.
-
-See the `istioio.Script` API for additional configuration options.
+See [istioio.Script](../../../pkg/test/istioio/script.go) for the available
+configuration options.
 
 ## YAML Snippets
 

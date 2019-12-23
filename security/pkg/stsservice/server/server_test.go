@@ -161,7 +161,7 @@ func setUpServerAndClient(t *testing.T) (*mock.FakeTokenManager, *http.Client, *
 	tokenManager := mock.CreateFakeTokenManager()
 	addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:3333")
 	if err != nil {
-		log.Fatalf("failed to create address %v", err)
+		t.Fatalf("failed to create address %v", err)
 	}
 	config := Config{LocalHostAddr: addr.IP.String(), LocalPort: addr.Port}
 	ipPort := addr.String()
@@ -169,6 +169,7 @@ func setUpServerAndClient(t *testing.T) (*mock.FakeTokenManager, *http.Client, *
 	hTTPClient := &http.Client{
 		Transport: &http.Transport{
 			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				t.Logf("set up server address to dial %s", addr)
 				addr = ipPort
 				return net.Dial(network, addr)
 			},
@@ -310,7 +311,7 @@ func genStsRequest(reqType stsReqType, serverAddr string) (req *http.Request) {
 func genStsResponse(respType stsRespType, param stsservice.StsResponseParameters,
 	serverErr error, tokenInfo *stsservice.TokenInfo) (resp *http.Response) {
 	resp = &http.Response{
-		Header: make(http.Header, 0),
+		Header: make(http.Header),
 	}
 	resp.Header.Add("Content-Type", "application/json")
 	if respType == successStsResp {

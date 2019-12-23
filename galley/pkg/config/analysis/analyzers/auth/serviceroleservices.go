@@ -27,7 +27,7 @@ import (
 	"istio.io/istio/galley/pkg/config/resource"
 )
 
-// ServiceRoleServicesAnalyzer checks the validity of services referred in a Service Role
+// ServiceRoleServicesAnalyzer checks the validity of services referred in a service role
 type ServiceRoleServicesAnalyzer struct{}
 
 var _ analysis.Analyzer = &ServiceRoleServicesAnalyzer{}
@@ -35,7 +35,8 @@ var _ analysis.Analyzer = &ServiceRoleServicesAnalyzer{}
 // Metadata implements Analyzer
 func (s *ServiceRoleServicesAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name: "auth.ServiceRoleServicesAnalyzer",
+		Name:        "auth.ServiceRoleServicesAnalyzer",
+		Description: "Checks the validity of services referred in a service role",
 		Inputs: collection.Names{
 			metadata.IstioRbacV1Alpha1Serviceroles,
 			metadata.K8SCoreV1Services,
@@ -46,16 +47,18 @@ func (s *ServiceRoleServicesAnalyzer) Metadata() analysis.Metadata {
 // Analyze implements Analyzer
 func (s *ServiceRoleServicesAnalyzer) Analyze(ctx analysis.Context) {
 	nsm := s.buildNamespaceServiceMap(ctx)
-	ctx.ForEach(metadata.IstioRbacV1Alpha1Serviceroles, func(r *resource.Entry) bool {
+	ctx.ForEach(metadata.IstioRbacV1Alpha1Serviceroles, func(r *resource.Instance) bool {
 		s.analyzeServiceRoleServices(r, ctx, nsm)
 		return true
 	})
 }
 
 // analyzeRoleBinding apply analysis for the service field of the given ServiceRole
-func (s *ServiceRoleServicesAnalyzer) analyzeServiceRoleServices(r *resource.Entry, ctx analysis.Context, nsm map[string][]util.ScopedFqdn) {
-	sr := r.Item.(*v1alpha1.ServiceRole)
-	ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
+func (s *ServiceRoleServicesAnalyzer) analyzeServiceRoleServices(r *resource.Instance, ctx analysis.Context,
+	nsm map[resource.Namespace][]util.ScopedFqdn) {
+
+	sr := r.Message.(*v1alpha1.ServiceRole)
+	ns := r.Metadata.FullName.Namespace
 
 	for _, rs := range sr.Rules {
 		for _, svc := range rs.Services {
@@ -69,12 +72,13 @@ func (s *ServiceRoleServicesAnalyzer) analyzeServiceRoleServices(r *resource.Ent
 }
 
 // buildNamespaceServiceMap returns a map where the index is a namespace and the boolean
-func (s *ServiceRoleServicesAnalyzer) buildNamespaceServiceMap(ctx analysis.Context) map[string][]util.ScopedFqdn {
-	nsm := map[string][]util.ScopedFqdn{}
+func (s *ServiceRoleServicesAnalyzer) buildNamespaceServiceMap(ctx analysis.Context) map[resource.Namespace][]util.ScopedFqdn {
+	nsm := map[resource.Namespace][]util.ScopedFqdn{}
 
-	ctx.ForEach(metadata.K8SCoreV1Services, func(r *resource.Entry) bool {
-		rns, rs := r.Metadata.Name.InterpretAsNamespaceAndName()
-		nsm[rns] = append(nsm[rns], util.NewScopedFqdn(rns, rns, rs))
+	ctx.ForEach(metadata.K8SCoreV1Services, func(r *resource.Instance) bool {
+		rns := r.Metadata.FullName.Namespace
+		rs := r.Metadata.FullName.Name
+		nsm[rns] = append(nsm[rns], util.NewScopedFqdn(string(rns), rns, string(rs)))
 		return true
 	})
 

@@ -29,7 +29,7 @@ type Instance struct {
 	mu          sync.RWMutex // TODO: This lock will most likely cause contention. We should investigate whether removing it would help.
 	collection  collection.Name
 	generation  int64
-	entries     map[resource.Name]*resource.Entry
+	resources   map[resource.FullName]*resource.Instance
 	copyOnWrite bool
 }
 
@@ -37,7 +37,7 @@ type Instance struct {
 func New(collection collection.Name) *Instance {
 	return &Instance{
 		collection: collection,
-		entries:    make(map[resource.Name]*resource.Entry),
+		resources:  make(map[resource.FullName]*resource.Instance),
 	}
 }
 
@@ -47,10 +47,10 @@ func (c *Instance) Name() collection.Name {
 }
 
 // Get the instance with the given name
-func (c *Instance) Get(name resource.Name) *resource.Entry {
+func (c *Instance) Get(name resource.FullName) *resource.Instance {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.entries[name]
+	return c.resources[name]
 }
 
 // Generation of the current state of the collection.Instance
@@ -64,14 +64,14 @@ func (c *Instance) Generation() int64 {
 func (c *Instance) Size() int {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return len(c.entries)
+	return len(c.resources)
 }
 
 // ForEach executes the given function for each entry
-func (c *Instance) ForEach(fn func(e *resource.Entry) bool) {
+func (c *Instance) ForEach(fn func(e *resource.Instance) bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	for _, e := range c.entries {
+	for _, e := range c.resources {
 		if !fn(e) {
 			break
 		}
@@ -79,21 +79,21 @@ func (c *Instance) ForEach(fn func(e *resource.Entry) bool) {
 }
 
 // Set an entry in the collection
-func (c *Instance) Set(r *resource.Entry) {
+func (c *Instance) Set(r *resource.Instance) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.doCopyOnWrite()
 	c.generation++
-	c.entries[r.Metadata.Name] = r
+	c.resources[r.Metadata.FullName] = r
 }
 
 // Remove an entry from the collection.
-func (c *Instance) Remove(n resource.Name) {
+func (c *Instance) Remove(n resource.FullName) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.doCopyOnWrite()
 	c.generation++
-	delete(c.entries, n)
+	delete(c.resources, n)
 }
 
 // Clear the contents of this instance.
@@ -102,7 +102,7 @@ func (c *Instance) Clear() {
 	defer c.mu.Unlock()
 	c.doCopyOnWrite()
 	c.generation++
-	c.entries = make(map[resource.Name]*resource.Entry)
+	c.resources = make(map[resource.FullName]*resource.Instance)
 }
 
 func (c *Instance) doCopyOnWrite() { // TODO: we should optimize copy-on write.
@@ -110,11 +110,11 @@ func (c *Instance) doCopyOnWrite() { // TODO: we should optimize copy-on write.
 		return
 	}
 
-	m := make(map[resource.Name]*resource.Entry)
-	for k, v := range c.entries {
+	m := make(map[resource.FullName]*resource.Instance)
+	for k, v := range c.resources {
 		m[k] = v
 	}
-	c.entries = m
+	c.resources = m
 	c.copyOnWrite = false
 }
 
@@ -126,7 +126,7 @@ func (c *Instance) Clone() *Instance {
 	return &Instance{
 		collection:  c.collection,
 		generation:  c.generation,
-		entries:     c.entries,
+		resources:   c.resources,
 		copyOnWrite: true,
 	}
 }

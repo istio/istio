@@ -30,7 +30,7 @@ type Collection struct {
 	mu         sync.RWMutex // TODO: We should be able to get rid of this mutex.
 	collection collection.Name
 	handler    event.Handler
-	resources  map[resource.Name]*resource.Entry
+	resources  map[resource.FullName]*resource.Instance
 	synced     bool
 }
 
@@ -42,7 +42,7 @@ func NewCollection(c collection.Name) *Collection {
 
 	return &Collection{
 		collection: c,
-		resources:  make(map[resource.Name]*resource.Entry),
+		resources:  make(map[resource.FullName]*resource.Instance),
 	}
 }
 
@@ -77,17 +77,17 @@ func (c *Collection) Dispatch(handler event.Handler) {
 }
 
 // Set the entry in the collection
-func (c *Collection) Set(entry *resource.Entry) {
+func (c *Collection) Set(entry *resource.Instance) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	kind := event.Added
-	_, found := c.resources[entry.Metadata.Name]
+	_, found := c.resources[entry.Metadata.FullName]
 	if found {
 		kind = event.Updated
 	}
 
-	c.resources[entry.Metadata.Name] = entry
+	c.resources[entry.Metadata.FullName] = entry
 
 	if c.synced {
 		c.dispatchFor(entry, kind)
@@ -102,16 +102,16 @@ func (c *Collection) Clear() {
 	if c.synced {
 		for _, entry := range c.resources {
 			e := event.Event{
-				Kind:   event.Deleted,
-				Source: c.collection,
-				Entry:  entry,
+				Kind:     event.Deleted,
+				Source:   c.collection,
+				Resource: entry,
 			}
 
 			c.dispatchEvent(e)
 		}
 	}
 
-	c.resources = make(map[resource.Name]*resource.Entry)
+	c.resources = make(map[resource.FullName]*resource.Instance)
 }
 
 func (c *Collection) dispatchEvent(e event.Event) {
@@ -123,26 +123,26 @@ func (c *Collection) dispatchEvent(e event.Event) {
 	}
 }
 
-func (c *Collection) dispatchFor(entry *resource.Entry, kind event.Kind) {
+func (c *Collection) dispatchFor(r *resource.Instance, kind event.Kind) {
 	e := event.Event{
-		Source: c.collection,
-		Entry:  entry,
-		Kind:   kind,
+		Source:   c.collection,
+		Resource: r,
+		Kind:     kind,
 	}
 	c.dispatchEvent(e)
 }
 
 // Remove the entry from the collection
-func (c *Collection) Remove(n resource.Name) {
+func (c *Collection) Remove(n resource.FullName) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	entry, found := c.resources[n]
 	if found {
 		e := event.Event{
-			Kind:   event.Deleted,
-			Source: c.collection,
-			Entry:  entry,
+			Kind:     event.Deleted,
+			Source:   c.collection,
+			Resource: entry,
 		}
 
 		delete(c.resources, n)
@@ -152,17 +152,17 @@ func (c *Collection) Remove(n resource.Name) {
 
 // AllSorted returns all entries in this collection, in sort order.
 // Warning: This is not performant!
-func (c *Collection) AllSorted() []*resource.Entry {
+func (c *Collection) AllSorted() []*resource.Instance {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	var result []*resource.Entry
+	var result []*resource.Instance
 	for _, e := range c.resources {
 		result = append(result, e)
 	}
 
 	sort.Slice(result, func(i, j int) bool {
-		return strings.Compare(result[i].Metadata.Name.String(), result[j].Metadata.Name.String()) < 0
+		return strings.Compare(result[i].Metadata.FullName.String(), result[j].Metadata.FullName.String()) < 0
 	})
 
 	return result

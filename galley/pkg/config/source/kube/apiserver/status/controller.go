@@ -33,7 +33,7 @@ import (
 type Controller interface {
 	Start(p *rt.Provider, resources []schema.KubeResource)
 	Stop()
-	UpdateResourceStatus(col collection.Name, name resource.Name, version resource.Version, status interface{})
+	UpdateResourceStatus(col collection.Name, name resource.FullName, version resource.Version, status interface{})
 	Report(messages diag.Messages)
 }
 
@@ -101,7 +101,7 @@ func (c *ControllerImpl) Stop() {
 
 // UpdateResourceStatus is called by the source to relay the currently observed status of a resource.
 func (c *ControllerImpl) UpdateResourceStatus(
-	col collection.Name, name resource.Name, version resource.Version, status interface{}) {
+	col collection.Name, name resource.FullName, version resource.Version, status interface{}) {
 
 	// Extract the subfield this controller manages
 	// If the status field was something other than a map, treat it like it was an empty map
@@ -152,7 +152,8 @@ mainloop:
 			continue
 		}
 
-		ns, n := st.key.res.InterpretAsNamespaceAndName()
+		ns := string(st.key.res.Namespace)
+		n := string(st.key.res.Name)
 		u, err := iface.Namespace(ns).Get(n, metav1.GetOptions{ResourceVersion: string(st.observedVersion)})
 		if err != nil {
 			scope.Source.Errorf("Unable to read the resource while trying to update status: %v(%v): %v",

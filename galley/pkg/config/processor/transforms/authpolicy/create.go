@@ -46,10 +46,10 @@ func handler(destination collection.Name) func(e event.Event, h event.Handler) {
 	return func(e event.Event, h event.Handler) {
 		e = e.WithSource(destination)
 
-		if e.Entry != nil && e.Entry.Item != nil {
-			policy, ok := e.Entry.Item.(*authn.Policy)
+		if e.Resource != nil && e.Resource.Message != nil {
+			policy, ok := e.Resource.Message.(*authn.Policy)
 			if !ok {
-				scope.Processing.Errorf("unexpected proto found when converting authn.Policy: %v", reflect.TypeOf(e.Entry.Item))
+				scope.Processing.Errorf("unexpected proto found when converting authn.Policy: %v", reflect.TypeOf(e.Resource.Message))
 				return
 			}
 

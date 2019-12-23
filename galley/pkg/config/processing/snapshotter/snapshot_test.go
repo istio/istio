@@ -52,8 +52,8 @@ func TestSnapshot_SerializeError(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	set := coll.NewSet([]collection.Name{data.Collection1})
-	e := data.Event1Col1AddItem1.Entry.Clone()
-	e.Item = nil
+	e := data.Event1Col1AddItem1.Resource.Clone()
+	e.Message = nil
 	set.Collection(data.Collection1).Set(e)
 	sn := &Snapshot{set: set}
 
@@ -65,7 +65,7 @@ func TestSnapshot_WrongCollection(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	set := coll.NewSet([]collection.Name{data.Collection1})
-	set.Collection(data.Collection1).Set(data.Event1Col1AddItem1.Entry)
+	set.Collection(data.Collection1).Set(data.Event1Col1AddItem1.Resource)
 	sn := &Snapshot{set: set}
 
 	g.Expect(sn.Version("foo")).To(Equal(""))

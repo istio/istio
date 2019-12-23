@@ -12,14 +12,14 @@ spec:
   egress:
   - port:
       number: 23145
-      protocol: TCP
-      name: outbound-tcp
+      protocol: HTTP_PROXY
+      name: outbound-egress
     bind: 7.7.7.7
     hosts:
     - "*/bookinfo.com"
     - "*/private.com"
     # bookinfo.com is on port 9999.
-    # private.com wont get imported
+    # private.com won't get imported
   - hosts:
     - "ns1/*"
     - "*/*.tcp.com"

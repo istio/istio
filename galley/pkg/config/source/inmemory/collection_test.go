@@ -55,7 +55,7 @@ func TestCollection_Start_Element(t *testing.T) {
 	acc := &fixtures.Accumulator{}
 	col.Dispatch(acc)
 
-	col.Set(data.Event1Col1AddItem1.Entry)
+	col.Set(data.Event1Col1AddItem1.Resource)
 	col.Start()
 
 	expected := []event.Event{data.Event1Col1AddItem1, event.FullSyncFor(data.Collection1)}
@@ -70,10 +70,10 @@ func TestCollection_Update(t *testing.T) {
 	acc := &fixtures.Accumulator{}
 	col.Dispatch(acc)
 
-	col.Set(data.Event1Col1AddItem1.Entry)
+	col.Set(data.Event1Col1AddItem1.Resource)
 	col.Start()
 
-	col.Set(data.Event1Col1UpdateItem1.Entry)
+	col.Set(data.Event1Col1UpdateItem1.Resource)
 
 	expected := []event.Event{
 		data.Event1Col1AddItem1,
@@ -91,10 +91,10 @@ func TestCollection_Delete(t *testing.T) {
 	acc := &fixtures.Accumulator{}
 	col.Dispatch(acc)
 
-	col.Set(data.Event1Col1AddItem1.Entry)
+	col.Set(data.Event1Col1AddItem1.Resource)
 	col.Start()
 
-	col.Remove(data.Event1Col1AddItem1.Entry.Metadata.Name)
+	col.Remove(data.Event1Col1AddItem1.Resource.Metadata.FullName)
 
 	expected := []event.Event{
 		data.Event1Col1AddItem1,
@@ -115,7 +115,7 @@ func TestCollection_Delete_NoItem(t *testing.T) {
 	col.Set(data.EntryN1I1V1)
 	col.Start()
 
-	col.Remove(data.EntryN2I2V2.Metadata.Name)
+	col.Remove(data.EntryN2I2V2.Metadata.FullName)
 
 	expected := []event.Event{
 		data.Event1Col1AddItem1,
@@ -174,7 +174,7 @@ func TestCollection_StopStart(t *testing.T) {
 	acc := &fixtures.Accumulator{}
 	col.Dispatch(acc)
 
-	col.Set(data.Event1Col1AddItem1.Entry)
+	col.Set(data.Event1Col1AddItem1.Resource)
 	col.Start()
 
 	expected := []event.Event{
@@ -198,7 +198,7 @@ func TestCollection_AllSorted(t *testing.T) {
 	col.Set(data.EntryN1I1V1)
 	col.Set(data.EntryN2I2V2)
 
-	expected := []*resource.Entry{
+	expected := []*resource.Instance{
 		data.EntryN1I1V1,
 		data.EntryN2I2V2,
 	}

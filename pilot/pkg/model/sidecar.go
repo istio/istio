@@ -23,6 +23,7 @@ import (
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 const (
@@ -180,9 +181,9 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		out.namespaceDependencies[s.Attributes.Namespace] = struct{}{}
 	}
 
-	if ps.Env.Mesh.OutboundTrafficPolicy != nil {
+	if ps.Mesh.OutboundTrafficPolicy != nil {
 		out.OutboundTrafficPolicy = &networking.OutboundTrafficPolicy{
-			Mode: networking.OutboundTrafficPolicy_Mode(ps.Env.Mesh.OutboundTrafficPolicy.Mode),
+			Mode: networking.OutboundTrafficPolicy_Mode(ps.Mesh.OutboundTrafficPolicy.Mode),
 		}
 	}
 
@@ -249,9 +250,9 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 	}
 
 	if r.OutboundTrafficPolicy == nil {
-		if ps.Env.Mesh.OutboundTrafficPolicy != nil {
+		if ps.Mesh.OutboundTrafficPolicy != nil {
 			out.OutboundTrafficPolicy = &networking.OutboundTrafficPolicy{
-				Mode: networking.OutboundTrafficPolicy_Mode(ps.Env.Mesh.OutboundTrafficPolicy.Mode),
+				Mode: networking.OutboundTrafficPolicy_Mode(ps.Mesh.OutboundTrafficPolicy.Mode),
 			}
 		}
 	} else {
@@ -480,59 +481,18 @@ func (ilw *IstioEgressListenerWrapper) selectVirtualServices(virtualServices []C
 func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, configNamespace string) []*Service {
 
 	importedServices := make([]*Service, 0)
+	wildcardHosts, wnsFound := ilw.listenerHosts[wildcardNamespace]
 	for _, s := range services {
 		configNamespace := s.Attributes.Namespace
+
 		// Check if there is an explicit import of form ns/* or ns/host
 		if importedHosts, nsFound := ilw.listenerHosts[configNamespace]; nsFound {
-			hostFound := false
-			for _, importedHost := range importedHosts {
-				// Check if the hostnames match per usual hostname matching rules
-				if importedHost.Matches(s.Hostname) {
-					// If a listener is defined with port, we should match services with port.
-					needsPortMatch := ilw.IstioListener != nil && ilw.IstioListener.Port != nil
-					portMatched := false
-					if needsPortMatch {
-						for _, port := range s.Ports {
-							if port.Port == int(ilw.IstioListener.Port.GetNumber()) {
-								portMatched = true
-								break
-							}
-						}
-					} else {
-						importedServices = append(importedServices, s)
-						hostFound = true
-						break
-					}
-					// If there is a port match, we should trim the service ports to the port specified by listener.
-					if portMatched {
-						for _, port := range s.Ports {
-							if port.Port == int(ilw.IstioListener.Port.GetNumber()) {
-								ports := []*Port{}
-								sc := s.DeepCopy()
-								ports = append(ports, port)
-								sc.Ports = ports
-								importedServices = append(importedServices, sc)
-								hostFound = true
-								break
-							}
-						}
-					}
-				}
-			}
-			if hostFound {
-				continue
-			}
+			importedServices = append(importedServices, matchingServices(importedHosts, s, ilw)...)
 		}
 
 		// Check if there is an import of form */host or */*
-		if importedHosts, wnsFound := ilw.listenerHosts[wildcardNamespace]; wnsFound {
-			for _, importedHost := range importedHosts {
-				// Check if the hostnames match per usual hostname matching rules
-				if importedHost.Matches(s.Hostname) {
-					importedServices = append(importedServices, s)
-					break
-				}
-			}
+		if wnsFound {
+			importedServices = append(importedServices, matchingServices(wildcardHosts, s, ilw)...)
 		}
 	}
 
@@ -555,4 +515,44 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 		}
 	}
 	return filteredServices
+}
+
+func matchingServices(importedHosts []host.Name, service *Service, ilw *IstioEgressListenerWrapper) []*Service {
+	// If a listener is defined with a port, we should match services with port except in the following case.
+	//  - If Port's protocol is proxy protocol(HTTP_PROXY) in which case the egress listener is used as generic egress http proxy.
+	needsPortMatch := ilw.IstioListener != nil && ilw.IstioListener.Port.GetNumber() != 0 &&
+		protocol.Parse(ilw.IstioListener.Port.Protocol) != protocol.HTTP_PROXY
+	importedServices := make([]*Service, 0)
+
+	for _, importedHost := range importedHosts {
+		// Check if the hostnames match per usual hostname matching rules
+		if importedHost.Matches(service.Hostname) {
+			portMatched := false
+			if needsPortMatch {
+				for _, port := range service.Ports {
+					if port.Port == int(ilw.IstioListener.Port.GetNumber()) {
+						portMatched = true
+						break
+					}
+				}
+			} else {
+				importedServices = append(importedServices, service)
+				break
+			}
+			// If there is a port match, we should trim the service ports to the port specified by listener.
+			if portMatched {
+				for _, port := range service.Ports {
+					if port.Port == int(ilw.IstioListener.Port.GetNumber()) {
+						ports := []*Port{}
+						sc := service.DeepCopy()
+						ports = append(ports, port)
+						sc.Ports = ports
+						importedServices = append(importedServices, sc)
+						break
+					}
+				}
+			}
+		}
+	}
+	return importedServices
 }

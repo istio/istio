@@ -20,8 +20,8 @@ import (
 )
 
 const (
-	startSnippetLineFormat = "$snippet %s%s\n"
-	endSnippetLine         = "$endsnippet\n"
+	startSnippetLineFormat = "# $snippet %s%s\n"
+	endSnippetLine         = "# $endsnippet\n"
 	syntaxFormat           = " syntax=\"%s\""
 	outputisFormat         = " outputis=\"%s\""
 )
@@ -78,10 +78,8 @@ func (s Snippet) run(ctx Context) {
 	// End the snippet
 	snippetContent += endSnippetLine + "\n"
 
-	// Write the snippet.
-	if _, err := ctx.SnippetsFile.Write([]byte(snippetContent)); err != nil {
-		ctx.Fatalf("failed writing snippet %s: %v", snippetName, err)
-	}
+	// Write out the snippet.
+	ctx.addSnippet(s.Name, input.Name(), snippetContent)
 }
 
 func (s Snippet) getName(input Input) string {

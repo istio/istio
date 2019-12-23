@@ -15,6 +15,7 @@
 package converter
 
 import (
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -26,8 +27,11 @@ import (
 
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/pod"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/pkg/config/constants"
 	configKube "istio.io/istio/pkg/config/kube"
+	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 // Instance of the converter.
@@ -46,7 +50,7 @@ func New(domain string, pods pod.Cache) *Instance {
 
 // Convert applies the conversion function from k8s Service and Endpoints to ServiceEntry. The
 // ServiceEntry is passed as an argument (out) in order to enable object reuse in the future.
-func (i *Instance) Convert(service *resource.Entry, endpoints *resource.Entry, outMeta *resource.Metadata,
+func (i *Instance) Convert(service *resource.Instance, endpoints *resource.Instance, outMeta *resource.Metadata,
 	out *networking.ServiceEntry) error {
 	// we want to build the endpoints and then services
 	// as availability of endpoints can impact determining
@@ -58,13 +62,13 @@ func (i *Instance) Convert(service *resource.Entry, endpoints *resource.Entry, o
 }
 
 // convertService applies the k8s Service to the output.
-func (i *Instance) convertService(service *resource.Entry, outMeta *resource.Metadata, out *networking.ServiceEntry) {
+func (i *Instance) convertService(service *resource.Instance, outMeta *resource.Metadata, out *networking.ServiceEntry) {
 	if service == nil {
 		// For testing only. Production code will always provide a non-nil service.
 		return
 	}
 
-	spec := service.Item.(*coreV1.ServiceSpec)
+	spec := service.Message.(*coreV1.ServiceSpec)
 	location := networking.ServiceEntry_MESH_INTERNAL
 	endpoints := out.Endpoints
 	if len(endpoints) == 0 {
@@ -101,10 +105,15 @@ func (i *Instance) convertService(service *resource.Entry, outMeta *resource.Met
 
 	ports := make([]*networking.Port, 0, len(spec.Ports))
 	for _, port := range spec.Ports {
-		ports = append(ports, convertPort(port))
+		p, err := convertPort(port)
+		if err != nil {
+			scope.Processing.Warnf("convertService: failed to convert port %v for service %s (skipping): %v", port, service.Metadata.FullName, err)
+			continue
+		}
+		ports = append(ports, p)
 	}
 
-	host := serviceHostname(service.Metadata.Name, i.domain)
+	host := serviceHostname(service.Metadata.FullName, i.domain)
 
 	// Store everything in the ServiceEntry.
 	out.Hosts = []string{host}
@@ -121,7 +130,7 @@ func (i *Instance) convertService(service *resource.Entry, outMeta *resource.Met
 	out.ExportTo = convertExportTo(service.Metadata.Annotations)
 
 	// Convert Metadata
-	outMeta.Name = service.Metadata.Name
+	outMeta.FullName = service.Metadata.FullName
 	outMeta.Labels = service.Metadata.Labels.Clone()
 
 	// Convert the creation time.
@@ -158,12 +167,12 @@ func convertExportTo(annotations resource.StringMap) []string {
 }
 
 // convertEndpoints applies the k8s Endpoints to the output.
-func (i *Instance) convertEndpoints(endpoints *resource.Entry, outMeta *resource.Metadata, out *networking.ServiceEntry) {
+func (i *Instance) convertEndpoints(endpoints *resource.Instance, outMeta *resource.Metadata, out *networking.ServiceEntry) {
 	if endpoints == nil {
 		return
 	}
 
-	spec := endpoints.Item.(*coreV1.Endpoints)
+	spec := endpoints.Message.(*coreV1.Endpoints)
 	// Store the subject alternate names in a set to avoid duplicates.
 	subjectAltNameSet := make(map[string]struct{})
 	eps := make([]*networking.ServiceEntry_Endpoint, 0)
@@ -261,18 +270,52 @@ func convertExternalServiceEndpoints(
 }
 
 // serviceHostname produces FQDN for a k8s service
-func serviceHostname(fullName resource.Name, domainSuffix string) string {
-	namespace, name := fullName.InterpretAsNamespaceAndName()
+func serviceHostname(fullName resource.FullName, domainSuffix string) string {
+	namespace := string(fullName.Namespace)
+	name := string(fullName.Name)
 	if namespace == "" {
 		namespace = coreV1.NamespaceDefault
 	}
 	return name + "." + namespace + ".svc." + domainSuffix
 }
 
-func convertPort(port coreV1.ServicePort) *networking.Port {
+func convertPort(port coreV1.ServicePort) (*networking.Port, error) {
+	if err := validatePortName(port.Name); err != nil {
+		return nil, err
+	}
+	if err := validateProtocol(string(port.Protocol)); err != nil {
+		return nil, err
+	}
+	if err := validatePort(port.Port); err != nil {
+		return nil, err
+	}
+
 	return &networking.Port{
 		Name:     port.Name,
 		Number:   uint32(port.Port),
 		Protocol: string(configKube.ConvertProtocol(port.Port, port.Name, port.Protocol)),
+	}, nil
+}
+
+func validatePortName(name string) error {
+	if !labels.IsDNS1123Label(name) {
+		return fmt.Errorf("invalid port name: %q", name)
 	}
+	return nil
+}
+
+func validateProtocol(protocolStr string) error {
+	// Empty string is used for protocol sniffing.
+	if protocolStr != "" && protocol.Parse(protocolStr) == protocol.Unsupported {
+		return fmt.Errorf("unsupported protocol: %q", protocolStr)
+	}
+	return nil
+}
+
+// ValidatePort checks that the network port is in range
+func validatePort(port int32) error {
+	if 1 <= port && port <= 65535 {
+		return nil
+	}
+	return fmt.Errorf("port number %d must be in the range 1..65535", port)
 }

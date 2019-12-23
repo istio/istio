@@ -113,7 +113,7 @@ func VerifyBookinfoTraces(t *testing.T, namespace string, traces []zipkin.Trace)
 	for _, trace := range traces {
 		// compare each candidate trace with the wanted trace
 		for _, s := range trace.Spans {
-			// find the root span of candidate trace and do recursive comparation
+			// find the root span of candidate trace and do recursive comparison
 			if s.ParentSpanID == "" && CompareTrace(t, s, wtr) {
 				return true
 			}

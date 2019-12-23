@@ -15,10 +15,14 @@
 package external
 
 import (
+	"reflect"
 	"sync"
 	"time"
 
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schemas"
@@ -28,14 +32,12 @@ import (
 // merge with aggregate (caching, events), and possibly merge both into the
 // config directory, for a single top-level cache and event system.
 
-type serviceHandler func(*model.Service, model.Event)
-type instanceHandler func(*model.ServiceInstance, model.Event)
+var _ serviceregistry.Instance = &ServiceEntryStore{}
 
 // ServiceEntryStore communicates with ServiceEntry CRDs and monitors for changes
 type ServiceEntryStore struct {
-	serviceHandlers  []serviceHandler
-	instanceHandlers []instanceHandler
-	store            model.IstioConfigStore
+	XdsUpdater model.XDSUpdater
+	store      model.IstioConfigStore
 
 	storeMutex sync.RWMutex
 
@@ -49,48 +51,88 @@ type ServiceEntryStore struct {
 }
 
 // NewServiceDiscovery creates a new ServiceEntry discovery service
-func NewServiceDiscovery(callbacks model.ConfigStoreCache, store model.IstioConfigStore) *ServiceEntryStore {
+func NewServiceDiscovery(configController model.ConfigStoreCache, store model.IstioConfigStore, xdsUpdater model.XDSUpdater) *ServiceEntryStore {
 	c := &ServiceEntryStore{
-		serviceHandlers:  make([]serviceHandler, 0),
-		instanceHandlers: make([]instanceHandler, 0),
-		store:            store,
-		ip2instance:      map[string][]*model.ServiceInstance{},
-		instances:        map[host.Name]map[string][]*model.ServiceInstance{},
-		updateNeeded:     true,
+		XdsUpdater:   xdsUpdater,
+		store:        store,
+		ip2instance:  map[string][]*model.ServiceInstance{},
+		instances:    map[host.Name]map[string][]*model.ServiceInstance{},
+		updateNeeded: true,
 	}
-	if callbacks != nil {
-		callbacks.RegisterEventHandler(schemas.ServiceEntry.Type, func(config model.Config, event model.Event) {
+	if configController != nil {
+		configController.RegisterEventHandler(schemas.ServiceEntry.Type, func(old, curr model.Config, event model.Event) {
 			// Recomputing the index here is too expensive.
 			c.changeMutex.Lock()
 			c.lastChange = time.Now()
 			c.updateNeeded = true
 			c.changeMutex.Unlock()
 
-			// TODO : Currently any update to ServiceEntry triggers a full push. We need to identify what has actually
-			// changed and call appropriate handlers - for example call only service handler for the changed services
-			// and call instance handlers only when instance update happens. This requires us to rework the handlers to
-			// have both old and new objects so that they can compare and be smart.
-			services := convertServices(config)
-			for _, handler := range c.serviceHandlers {
-				for _, service := range services {
-					go handler(service, event)
+			cs := convertServices(curr)
+
+			// If it is add/delete event we should always do a full push. If it is update event, we should do full push,
+			// only when services have changed - otherwise, just push endpoint updates.
+			fp := true
+			if event == model.EventUpdate {
+				// This is not needed, update should always have old populated, but just in case.
+				if old.Spec != nil {
+					os := convertServices(old)
+					fp = servicesChanged(os, cs)
+				} else {
+					log.Warnf("Spec is not available in the old service entry during update, proceeding with full push %v", old)
 				}
+			}
+
+			if fp {
+				pushReq := &model.PushRequest{
+					Full:               true,
+					NamespacesUpdated:  map[string]struct{}{curr.Namespace: {}},
+					ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
+				}
+				c.XdsUpdater.ConfigUpdate(pushReq)
+			} else {
+				instances := convertInstances(curr, cs)
+				endpoints := make([]*model.IstioEndpoint, 0)
+				for _, instance := range instances {
+					for _, port := range instance.Service.Ports {
+						endpoints = append(endpoints, &model.IstioEndpoint{
+							Address:         instance.Endpoint.Address,
+							EndpointPort:    uint32(port.Port),
+							ServicePortName: port.Name,
+							Labels:          instance.Endpoint.Labels,
+							UID:             instance.Endpoint.UID,
+							ServiceAccount:  instance.Endpoint.ServiceAccount,
+							Network:         instance.Endpoint.Network,
+							Locality:        instance.Endpoint.Locality,
+							Attributes: model.ServiceAttributes{
+								Name:      instance.Service.Attributes.Name,
+								Namespace: instance.Service.Attributes.Namespace,
+							},
+							TLSMode: instance.Endpoint.TLSMode,
+						})
+					}
+				}
+				_ = c.XdsUpdater.EDSUpdate(c.Cluster(), curr.Name, curr.Namespace, endpoints)
 			}
 		})
 	}
-
 	return c
 }
 
-// AppendServiceHandler adds service resource event handler
+func (d *ServiceEntryStore) Provider() serviceregistry.ProviderID {
+	return serviceregistry.External
+}
+
+func (d *ServiceEntryStore) Cluster() string {
+	return ""
+}
+
+// AppendServiceHandler adds service resource event handler. Service Entries does not use these handlers.
 func (d *ServiceEntryStore) AppendServiceHandler(f func(*model.Service, model.Event)) error {
-	d.serviceHandlers = append(d.serviceHandlers, f)
 	return nil
 }
 
-// AppendInstanceHandler adds instance event handler.
+// AppendInstanceHandler adds instance event handler. Service Entries does not use these handlers.
 func (d *ServiceEntryStore) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
-	d.instanceHandlers = append(d.instanceHandlers, f)
 	return nil
 }
 
@@ -156,7 +198,7 @@ func (d *ServiceEntryStore) InstancesByPort(svc *model.Service, port int,
 	if found {
 		for _, instance := range instances {
 			if instance.Service.Hostname == svc.Hostname &&
-				labels.HasSubsetOf(instance.Labels) &&
+				labels.HasSubsetOf(instance.Endpoint.Labels) &&
 				portMatchSingle(instance, port) {
 				out = append(out, instance)
 			}
@@ -217,7 +259,7 @@ func (d *ServiceEntryStore) update() {
 
 // returns true if an instance's port matches with any in the provided list
 func portMatchSingle(instance *model.ServiceInstance, port int) bool {
-	return port == 0 || port == instance.Endpoint.ServicePort.Port
+	return port == 0 || port == instance.ServicePort.Port
 }
 
 // GetProxyServiceInstances lists service instances co-located with a given proxy
@@ -248,7 +290,7 @@ func (d *ServiceEntryStore) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.C
 		instances, found := d.ip2instance[ip]
 		if found {
 			for _, instance := range instances {
-				out = append(out, instance.Labels)
+				out = append(out, instance.Endpoint.Labels)
 			}
 		}
 	}
@@ -260,4 +302,27 @@ func (d *ServiceEntryStore) GetIstioServiceAccounts(svc *model.Service, ports []
 	//for service entries, there is no istio auth, no service accounts, etc. It is just a
 	// service, with service instances, and dns.
 	return nil
+}
+
+// This method compares if services have changed, that needs full push.
+func servicesChanged(os []*model.Service, ns []*model.Service) bool {
+	// Length of services have changed, needs full push.
+	if len(os) != len(ns) {
+		return true
+	}
+	oldservicehosts := make(map[string]*model.Service, len(os))
+	newservicehosts := make(map[string]*model.Service, len(ns))
+
+	for _, s := range os {
+		oldservicehosts[string(s.Hostname)] = s
+	}
+	for _, s := range ns {
+		newservicehosts[string(s.Hostname)] = s
+	}
+	for host, service := range oldservicehosts {
+		if !reflect.DeepEqual(service, newservicehosts[host]) {
+			return true
+		}
+	}
+	return false
 }

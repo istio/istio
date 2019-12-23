@@ -56,8 +56,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		IPAddresses:  []string{"1.1.1.1"},
 		ID:           "someID",
 		DNSDomain:    "foo.com",
-		Metadata:     &model.NodeMetadata{IstioVersion: "1.3.0"},
-		IstioVersion: &model.IstioVersion{Major: 1, Minor: 3},
+		Metadata:     &model.NodeMetadata{IstioVersion: "1.4.0"},
+		IstioVersion: &model.IstioVersion{Major: 1, Minor: 4},
 	}
 	gatewayNames := map[string]bool{"some-gateway": true}
 
@@ -69,6 +69,29 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(len(routes)).To(gomega.Equal(1))
 	})
 
+	t.Run("for virtual service with catch all route", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithCatchAllRoute, serviceRegistry, 8080, gatewayNames)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+	})
+
+	t.Run("for virtual service with top level catch all route", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithCatchAllRouteWeightedDestination, serviceRegistry, 8080, gatewayNames)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+	})
+
+	t.Run("for virtual service with multi prefix catch all route", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithCatchAllMultiPrefixRoute, serviceRegistry, 8080, gatewayNames)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+	})
+
 	t.Run("for virtual service with regex matching on URI", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
@@ -76,6 +99,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		g.Expect(routes[0].GetMatch().GetSafeRegex().GetRegex()).To(gomega.Equal("\\/(.?)\\/status"))
+		g.Expect(routes[0].GetMatch().GetSafeRegex().GetGoogleRe2().GetMaxProgramSize().GetValue()).To(gomega.Equal(uint32(1024)))
+
 	})
 
 	t.Run("for virtual service with unsafe regex matching on URI", func(t *testing.T) {
@@ -117,9 +142,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		ttl := time.Nanosecond * 100
 		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
-			Env: &model.Environment{
-				Mesh: &meshConfig,
-			},
+			Mesh: &meshConfig,
 		}
 		push.SetDestinationRules([]model.Config{
 			{
@@ -177,9 +200,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
-			Env: &model.Environment{
-				Mesh: &meshConfig,
-			},
+			Mesh: &meshConfig,
 		}
 		push.SetDestinationRules([]model.Config{
 			{
@@ -222,9 +243,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
-			Env: &model.Environment{
-				Mesh: &meshConfig,
-			},
+			Mesh: &meshConfig,
 		}
 
 		push.SetDestinationRules([]model.Config{
@@ -278,9 +297,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
-			Env: &model.Environment{
-				Mesh: &meshConfig,
-			},
+			Mesh: &meshConfig,
 		}
 
 		push.SetDestinationRules([]model.Config{
@@ -306,9 +323,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
-			Env: &model.Environment{
-				Mesh: &meshConfig,
-			},
+			Mesh: &meshConfig,
 		}
 
 		push.SetDestinationRules([]model.Config{
@@ -353,9 +368,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
-			Env: &model.Environment{
-				Mesh: &meshConfig,
-			},
+			Mesh: &meshConfig,
 		}
 		push.SetDestinationRules([]model.Config{
 			{
@@ -373,9 +386,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
-			Env: &model.Environment{
-				Mesh: &meshConfig,
-			},
+			Mesh: &meshConfig,
 		}
 		push.SetDestinationRules([]model.Config{
 			{
@@ -472,6 +483,150 @@ var virtualServicePlain = model.Config{
 							Port: &networking.PortSelector{
 								Number: 8484,
 							},
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithCatchAllRoute = model.Config{
+	ConfigMeta: model.ConfigMeta{
+		Type:    schemas.VirtualService.Type,
+		Version: schemas.VirtualService.Version,
+		Name:    "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "non-catch-all",
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Prefix{
+								Prefix: "/route/v1",
+							},
+						},
+					},
+					{
+						Name: "catch-all",
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Prefix{
+								Prefix: "/",
+							},
+						},
+					},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "*.example.org",
+							Port: &networking.PortSelector{
+								Number: 8484,
+							},
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithCatchAllMultiPrefixRoute = model.Config{
+	ConfigMeta: model.ConfigMeta{
+		Type:    schemas.VirtualService.Type,
+		Version: schemas.VirtualService.Version,
+		Name:    "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "catch-all",
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Prefix{
+								Prefix: "/",
+							},
+						},
+						SourceLabels: map[string]string{
+							"matchingNoSrc": "xxx",
+						},
+					},
+					{
+						Name: "specific match",
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Prefix{
+								Prefix: "/a",
+							},
+						},
+					},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "*.example.org",
+							Port: &networking.PortSelector{
+								Number: 8484,
+							},
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithCatchAllRouteWeightedDestination = model.Config{
+	ConfigMeta: model.ConfigMeta{
+		Type:    schemas.VirtualService.Type,
+		Version: schemas.VirtualService.Version,
+		Name:    "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{"headers.test.istio.io"},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "headers-only",
+						Headers: map[string]*networking.StringMatch{
+							"version": {
+								MatchType: &networking.StringMatch_Exact{
+									Exact: "v2",
+								},
+							},
+						},
+						SourceLabels: map[string]string{
+							"version": "v1",
+						},
+					},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host:   "c-weighted.extsvc.com",
+							Subset: "v2",
+						},
+						Weight: 100,
+					},
+				},
+			},
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host:   "c-weighted.extsvc.com",
+							Subset: "v1",
 						},
 						Weight: 100,
 					},

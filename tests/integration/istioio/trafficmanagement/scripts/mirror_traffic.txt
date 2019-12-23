@@ -26,14 +26,14 @@ $ kubectl -n istio-io-mirror exec ${SLEEP_POD} -c sleep -- curl -o /dev/null -s 
 # $snippet check_logs_v1_1.sh syntax="bash" outputis="text"
 $ export V1_POD=$(kubectl -n istio-io-mirror get pod -l app=httpbin,version=v1 -o jsonpath={.items..metadata.name})
 $ kubectl -n istio-io-mirror logs ${V1_POD} -c httpbin
-# $snippetoutput verifier="contains"
+# $verify verifier="contains"
 ISTIO_IO_MIRROR_TEST_1
 # $endsnippet
 
 # $snippet check_logs_v2_1.sh syntax="bash" outputis="text"
 $ export V2_POD=$(kubectl -n istio-io-mirror get pod -l app=httpbin,version=v2 -o jsonpath={.items..metadata.name})
 $ kubectl -n istio-io-mirror logs ${V2_POD} -c httpbin
-# $snippetoutput verifier="notContains"
+# $verify verifier="notContains"
 ISTIO_IO_MIRROR_TEST_1
 # $endsnippet
 
@@ -70,13 +70,13 @@ $ kubectl -n istio-io-mirror exec ${SLEEP_POD} -c sleep -- curl --retry 3 -o /de
 # $snippet check_logs_v1_2.sh syntax="bash" outputis="text"
 $ export V1_POD=$(kubectl -n istio-io-mirror get pod -l app=httpbin,version=v1 -o jsonpath={.items..metadata.name})
 $ kubectl -n istio-io-mirror logs ${V1_POD} -c httpbin
-# $snippetoutput verifier="contains"
+# $verify verifier="contains"
 ISTIO_IO_MIRROR_TEST_2
 # $endsnippet
 
 # $snippet check_logs_v2_2.sh syntax="bash" outputis="text"
 $ export V2_POD=$(kubectl -n istio-io-mirror get pod -l app=httpbin,version=v2 -o jsonpath={.items..metadata.name})
 $ kubectl -n istio-io-mirror logs ${V2_POD} -c httpbin
-# $snippetoutput verifier="contains"
+# $verify verifier="contains"
 ISTIO_IO_MIRROR_TEST_2
 # $endsnippet

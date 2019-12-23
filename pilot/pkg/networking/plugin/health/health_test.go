@@ -31,7 +31,7 @@ import (
 func TestBuildHealthCheckFilters(t *testing.T) {
 	cases := []struct {
 		probes   model.ProbeList
-		endpoint *model.NetworkEndpoint
+		endpoint *model.IstioEndpoint
 		expected plugin.FilterChain
 	}{
 		{
@@ -43,8 +43,8 @@ func TestBuildHealthCheckFilters(t *testing.T) {
 					Path: "/health",
 				},
 			},
-			endpoint: &model.NetworkEndpoint{
-				Port: 8080,
+			endpoint: &model.IstioEndpoint{
+				EndpointPort: 8080,
 			},
 			expected: plugin.FilterChain{
 				HTTP: []*http_conn.HttpFilter{
@@ -72,8 +72,8 @@ func TestBuildHealthCheckFilters(t *testing.T) {
 					Path: "/health",
 				},
 			},
-			endpoint: &model.NetworkEndpoint{
-				Port: 8080,
+			endpoint: &model.IstioEndpoint{
+				EndpointPort: 8080,
 			},
 			expected: plugin.FilterChain{
 				HTTP: []*http_conn.HttpFilter{
@@ -109,8 +109,8 @@ func TestBuildHealthCheckFilters(t *testing.T) {
 					Path: "/live",
 				},
 			},
-			endpoint: &model.NetworkEndpoint{
-				Port: 8080,
+			endpoint: &model.IstioEndpoint{
+				EndpointPort: 8080,
 			},
 			expected: plugin.FilterChain{
 				HTTP: []*http_conn.HttpFilter{
@@ -161,8 +161,8 @@ func TestBuildHealthCheckFilters(t *testing.T) {
 					Path: "/health",
 				},
 			},
-			endpoint: &model.NetworkEndpoint{
-				Port: 8080,
+			endpoint: &model.IstioEndpoint{
+				EndpointPort: 8080,
 			},
 			expected: plugin.FilterChain{
 				HTTP: []*http_conn.HttpFilter{
@@ -193,8 +193,8 @@ func TestBuildHealthCheckFilters(t *testing.T) {
 					Path: "/health",
 				},
 			},
-			endpoint: &model.NetworkEndpoint{
-				Port: 8080,
+			endpoint: &model.IstioEndpoint{
+				EndpointPort: 8080,
 			},
 			expected: plugin.FilterChain{},
 		},
@@ -202,7 +202,7 @@ func TestBuildHealthCheckFilters(t *testing.T) {
 
 	for _, c := range cases {
 		var filterChain plugin.FilterChain
-		buildHealthCheckFilters(&filterChain, c.probes, c.endpoint, true)
+		buildHealthCheckFilters(&filterChain, c.probes, c.endpoint)
 		if !reflect.DeepEqual(c.expected, filterChain) {
 			t.Errorf("buildHealthCheckFilters(%#v on endpoint %#v), got:\n%#v\nwanted:\n%#v\n", c.probes, c.endpoint, filterChain, c.expected)
 		}

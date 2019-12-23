@@ -56,7 +56,13 @@ func NewServiceMetadata(hostname string, labels map[string]string, t mockTest) *
 			},
 			Hostname: host.Name(hostname),
 		},
-		Labels: labels,
+		Endpoint: &model.IstioEndpoint{
+			Attributes: model.ServiceAttributes{
+				Name:      name,
+				Namespace: namespace,
+			},
+			Labels: labels,
+		},
 	}
 
 	serviceMetadata, err := authz_model.NewServiceMetadata(name, namespace, serviceInstance)
@@ -186,33 +192,37 @@ func AuthzPolicyTag(name string) string {
 	return fmt.Sprintf("UserFromPolicy[%s]", name)
 }
 
-func SimpleAuthzPolicy(name string, namespace string) *model.Config {
+func SimpleAuthorizationProto(name string) *authpb.AuthorizationPolicy {
+	return &authpb.AuthorizationPolicy{
+		Rules: []*authpb.Rule{
+			{
+				From: []*authpb.Rule_From{
+					{
+						Source: &authpb.Source{
+							Principals: []string{AuthzPolicyTag(name)},
+						},
+					},
+				},
+				To: []*authpb.Rule_To{
+					{
+						Operation: &authpb.Operation{
+							Methods: []string{"GET"},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func SimpleAuthorizationPolicy(name string, namespace string) *model.Config {
 	return &model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:      schemas.AuthorizationPolicy.Type,
 			Name:      name,
 			Namespace: namespace,
 		},
-		Spec: &authpb.AuthorizationPolicy{
-			Rules: []*authpb.Rule{
-				{
-					From: []*authpb.Rule_From{
-						{
-							Source: &authpb.Source{
-								Principals: []string{AuthzPolicyTag(name)},
-							},
-						},
-					},
-					To: []*authpb.Rule_To{
-						{
-							Operation: &authpb.Operation{
-								Methods: []string{"GET"},
-							},
-						},
-					},
-				},
-			},
-		},
+		Spec: SimpleAuthorizationProto(name),
 	}
 }
 

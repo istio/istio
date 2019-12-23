@@ -33,7 +33,8 @@ var _ analysis.Analyzer = &GatewayAnalyzer{}
 // Metadata implements Analyzer
 func (s *GatewayAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name: "virtualservice.GatewayAnalyzer",
+		Name:        "virtualservice.GatewayAnalyzer",
+		Description: "Checks the gateways associated with each virtual service",
 		Inputs: collection.Names{
 			metadata.IstioNetworkingV1Alpha3Gateways,
 			metadata.IstioNetworkingV1Alpha3Virtualservices,
@@ -43,16 +44,16 @@ func (s *GatewayAnalyzer) Metadata() analysis.Metadata {
 
 // Analyze implements Analyzer
 func (s *GatewayAnalyzer) Analyze(c analysis.Context) {
-	c.ForEach(metadata.IstioNetworkingV1Alpha3Virtualservices, func(r *resource.Entry) bool {
+	c.ForEach(metadata.IstioNetworkingV1Alpha3Virtualservices, func(r *resource.Instance) bool {
 		s.analyzeVirtualService(r, c)
 		return true
 	})
 }
 
-func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Entry, c analysis.Context) {
-	vs := r.Item.(*v1alpha3.VirtualService)
+func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Instance, c analysis.Context) {
+	vs := r.Message.(*v1alpha3.VirtualService)
 
-	vsNs, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
+	vsNs := r.Metadata.FullName.Namespace
 	for _, gwName := range vs.Gateways {
 		// This is a special-case accepted value
 		if gwName == util.MeshGateway {

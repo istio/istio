@@ -18,13 +18,13 @@ package resource
 type StringMap map[string]string
 
 // Clone the StringMap
-func (s *StringMap) Clone() StringMap {
-	if *s == nil {
+func (s StringMap) Clone() StringMap {
+	if s == nil {
 		return nil
 	}
 
-	m := make(map[string]string, len(*s))
-	for k, v := range *s {
+	m := make(map[string]string, len(s))
+	for k, v := range s {
 		m[k] = v
 	}
 
@@ -32,7 +32,7 @@ func (s *StringMap) Clone() StringMap {
 }
 
 // CloneOrCreate clones a StringMap. It creates the map if it doesn't exist.
-func (s *StringMap) CloneOrCreate() StringMap {
+func (s StringMap) CloneOrCreate() StringMap {
 	m := s.Clone()
 	if m == nil {
 		m = make(map[string]string)
@@ -41,8 +41,8 @@ func (s *StringMap) CloneOrCreate() StringMap {
 }
 
 // Remove the given name from the string map
-func (s *StringMap) Delete(name string) {
+func (s StringMap) Delete(name string) {
 	if s != nil {
-		delete(*s, name)
+		delete(s, name)
 	}
 }

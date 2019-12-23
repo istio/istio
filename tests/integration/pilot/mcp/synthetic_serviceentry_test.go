@@ -23,7 +23,7 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/istio/galley/pkg/metadata"
+	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
@@ -143,7 +143,7 @@ func TestSyntheticServiceEntry(t *testing.T) {
 	// apply a sse
 	applyConfig(serviceEntry, testParams, t)
 
-	collection := metadata.IstioNetworkingV1alpha3SyntheticServiceentries.Collection.String()
+	collection := metadata.IstioNetworkingV1Alpha3SyntheticServiceentries.String()
 
 	if err := g.WaitForSnapshot(collection, syntheticServiceEntryValidator(testParams)); err != nil {
 		t.Fatalf("failed waiting for %s:\n%v\n", collection, err)
@@ -205,7 +205,7 @@ func TestSyntheticServiceEntry(t *testing.T) {
 					return true, nil
 				})
 
-			// need to verify endpionts with retry since env.(*kubeEnv.Environment).GetEndpoints
+			// need to verify endpoints with retry since env.(*kubeEnv.Environment).GetEndpoints
 			// not always fetches endpoints immediately
 			if err := validateEndpointsWithRetry(5, 10*time.Second, t, ctx, client, testParams); err != nil {
 				t.Fatal(err)
@@ -293,8 +293,10 @@ func validateSse(response *structpath.Instance, params testParam) error {
 
 func syntheticServiceEntryValidator(params testParam) galley.SnapshotValidatorFunc {
 	return galley.NewSingleObjectSnapshotValidator(params.namespace.Name(), func(ns string, actual *galley.SnapshotObject) error {
+		sp := metadata.MustGet().AllCollections().Get(metadata.IstioNetworkingV1Alpha3SyntheticServiceentries.String())
+		typeURL := "type.googleapis.com/" + sp.MessageName
 		v := structpath.ForProto(actual)
-		if err := v.Equals(metadata.IstioNetworkingV1alpha3SyntheticServiceentries.TypeURL.String(), "{.TypeURL}").
+		if err := v.Equals(typeURL, "{.TypeURL}").
 			Equals(fmt.Sprintf("%s/%s", params.namespace.Name(), params.svcName), "{.Metadata.name}").
 			Check(); err != nil {
 			return err

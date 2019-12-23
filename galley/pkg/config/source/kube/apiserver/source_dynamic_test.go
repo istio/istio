@@ -118,10 +118,10 @@ func TestReport(t *testing.T) {
 	s.Start()
 	defer s.Stop()
 
-	e := resource.Entry{
+	e := resource.Instance{
 		Origin: &rt.Origin{
 			Collection: basicmeta.Collection1,
-			Name:       resource.NewName("foo", "bar"),
+			FullName:   resource.NewFullName("foo", "bar"),
 			Version:    resource.Version("v1"),
 		},
 	}
@@ -241,7 +241,7 @@ func TestEvents_WatchUpdatesStatusCtl(t *testing.T) {
 	g.Eventually(sc.latestStatusCall).ShouldNot(BeNil())
 	g.Expect(sc.latestStatusCall()).To(Equal(&statusInput{
 		col:     basicmeta.Collection1,
-		name:    resource.NewName("ns", "i1"),
+		name:    resource.NewFullName("ns", "i1"),
 		version: "v1",
 		status:  nil,
 	}))
@@ -258,7 +258,7 @@ func TestEvents_WatchUpdatesStatusCtl(t *testing.T) {
 
 	g.Expect(sc.latestStatusCall()).To(Equal(&statusInput{
 		col:     basicmeta.Collection1,
-		name:    resource.NewName("ns", "i1"),
+		name:    resource.NewFullName("ns", "i1"),
 		version: "rv2",
 		status:  "stat",
 	}))
@@ -497,15 +497,15 @@ func mockCrdWatch(cl *extfake.Clientset) *mock.Watch {
 	return w
 }
 
-func toEntry(obj *unstructured.Unstructured) *resource.Entry {
-	return &resource.Entry{
+func toEntry(obj *unstructured.Unstructured) *resource.Instance {
+	return &resource.Instance{
 		Metadata: resource.Metadata{
-			Name:        resource.NewName(obj.GetNamespace(), obj.GetName()),
+			FullName:    resource.NewFullName(resource.Namespace(obj.GetNamespace()), resource.LocalName(obj.GetName())),
 			Labels:      obj.GetLabels(),
 			Annotations: obj.GetAnnotations(),
 			Version:     resource.Version(obj.GetResourceVersion()),
 		},
-		Item: &types.Struct{
+		Message: &types.Struct{
 			Fields: make(map[string]*types.Value),
 		},
 	}
@@ -544,7 +544,7 @@ type statusCtl struct {
 
 type statusInput struct {
 	col     collection.Name
-	name    resource.Name
+	name    resource.FullName
 	version resource.Version
 	status  interface{}
 }
@@ -560,7 +560,7 @@ func (s *statusCtl) Stop() {
 }
 
 func (s *statusCtl) UpdateResourceStatus(
-	col collection.Name, name resource.Name, version resource.Version, status interface{}) {
+	col collection.Name, name resource.FullName, version resource.Version, status interface{}) {
 	i := &statusInput{
 		col:     col,
 		name:    name,

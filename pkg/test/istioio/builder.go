@@ -84,20 +84,21 @@ func (b *Builder) Build() func(ctx framework.TestContext) {
 	return func(ctx framework.TestContext) {
 		scopes.CI.Infof("Executing test %s (%d steps)", ctx.Name(), len(b.steps))
 
-		snippetsFile, err := os.Create(filepath.Join(ctx.WorkDir(), b.snippetsFileName))
+		snippetFile, err := os.Create(filepath.Join(ctx.WorkDir(), b.snippetsFileName))
 		if err != nil {
 			ctx.Fatalf("failed creating snippets file: %v", err)
 		}
-		defer func() { _ = snippetsFile.Close() }()
+		defer func() { _ = snippetFile.Close() }()
 
 		// Write the header to the snippets file.
-		if _, err := snippetsFile.WriteString(fmt.Sprintf(snippetsFileHeaderFormat, ctx.Name())); err != nil {
+		if _, err := snippetFile.WriteString(fmt.Sprintf(snippetsFileHeaderFormat, ctx.Name())); err != nil {
 			ctx.Fatalf("failed writing header to snippets file: %v", err)
 		}
 
 		eCtx := Context{
-			TestContext:  ctx,
-			SnippetsFile: snippetsFile,
+			TestContext: ctx,
+			snippetFile: snippetFile,
+			snippetMap:  make(map[string]string),
 		}
 
 		// Run cleanup functions at the end.

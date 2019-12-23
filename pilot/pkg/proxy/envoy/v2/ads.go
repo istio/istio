@@ -165,7 +165,7 @@ func receiveThread(con *XdsConnection, reqChannel chan *xdsapi.DiscoveryRequest,
 		select {
 		case reqChannel <- req:
 		case <-con.stream.Context().Done():
-			adsLog.Errorf("ADS: %q %s terminated with stream closed", con.PeerAddr, con.ConID)
+			adsLog.Infof("ADS: %q %s terminated with stream closed", con.PeerAddr, con.ConID)
 			return
 		}
 	}
@@ -222,6 +222,16 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				if err != nil {
 					return err
 				}
+			}
+
+			con.mu.Lock()
+			if !con.added {
+				con.added = true
+				con.mu.Unlock()
+				s.addCon(con.ConID, con)
+				defer s.removeCon(con.ConID, con)
+			} else {
+				con.mu.Unlock()
 			}
 
 			switch discReq.TypeUrl {
@@ -362,15 +372,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				adsLog.Warnf("ADS: Unknown watched resources %s", discReq.String())
 			}
 
-			con.mu.Lock()
-			if !con.added {
-				con.added = true
-				con.mu.Unlock()
-				s.addCon(con.ConID, con)
-				defer s.removeCon(con.ConID, con)
-			} else {
-				con.mu.Unlock()
-			}
 		case pushEv := <-con.pushChannel:
 			// It is called when config changes.
 			// This is not optimized yet - we should detect what changed based on event and only
@@ -498,7 +499,7 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		return err
 	}
 
-	if err := con.node.SetServiceInstances(pushEv.push.Env); err != nil {
+	if err := con.node.SetServiceInstances(pushEv.push.ServiceDiscovery); err != nil {
 		return err
 	}
 	if util.IsLocalityEmpty(con.node.Locality) {
@@ -714,7 +715,6 @@ func (conn *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
 	t := time.NewTimer(SendTimeout)
 	go func() {
 		err := conn.stream.Send(res)
-		done <- err
 		conn.mu.Lock()
 		if res.Nonce != "" {
 			switch res.TypeUrl {
@@ -732,6 +732,7 @@ func (conn *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
 			conn.RouteVersionInfoSent = res.VersionInfo
 		}
 		conn.mu.Unlock()
+		done <- err
 	}()
 	select {
 	case <-t.C:

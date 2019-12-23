@@ -15,7 +15,6 @@
 package istioio
 
 import (
-	"fmt"
 	"io/ioutil"
 	"path/filepath"
 
@@ -115,30 +114,21 @@ func Evaluate(selector InputSelector, data map[string]interface{}) InputSelector
 
 		input := selector.SelectInput(ctx)
 
-		// Read the input file.
-		content, err := input.ReadAll()
+		// Read the input template.
+		templateContent, err := input.ReadAll()
 		if err != nil {
 			ctx.Fatalf("failed reading input %s: %v", input.Name(), err)
 		}
 
 		// Evaluate the input file as a template.
-		output, err := tmpl.Evaluate(content, data)
+		output, err := tmpl.Evaluate(templateContent, data)
 		if err != nil {
 			ctx.Fatalf("failed evaluating template %s: %v", input.Name(), err)
 		}
 
-		// Generate a file with a dynamically assigned name.
-		f, err := ioutil.TempFile(ctx.WorkDir(), fmt.Sprintf("*-%s", filepath.Base(input.Name())))
-		if err != nil {
-			ctx.Fatalf("failed creating template output for %s: %v", input.Name(), err)
+		return Inline{
+			FileName: input.Name(),
+			Value:    output,
 		}
-		defer func() { _ = f.Close() }()
-
-		// Write the content to the file.
-		if _, err := f.Write([]byte(output)); err != nil {
-			ctx.Fatalf("failed writing template output for %s: %v", input.Name(), err)
-		}
-
-		return Path(f.Name())
 	})
 }

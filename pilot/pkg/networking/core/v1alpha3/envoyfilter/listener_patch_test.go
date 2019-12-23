@@ -16,6 +16,8 @@ package envoyfilter
 
 import (
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -34,9 +36,13 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+
+	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/test/env"
 )
 
 var (
@@ -72,22 +78,22 @@ func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyCo
 
 func buildPatchStruct(config string) *types.Struct {
 	val := &types.Struct{}
-	jsonpb.Unmarshal(strings.NewReader(config), val)
+	_ = jsonpb.Unmarshal(strings.NewReader(config), val)
 	return val
 }
 
-func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, mesh meshconfig.MeshConfig,
+func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, meshConfig meshconfig.MeshConfig,
 	configStore model.IstioConfigStore) *model.Environment {
-	env := &model.Environment{
+	e := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
 		IstioConfigStore: configStore,
-		Mesh:             &mesh,
+		Watcher:          mesh.NewFixedWatcher(&meshConfig),
 	}
 
-	env.PushContext = model.NewPushContext()
-	_ = env.PushContext.InitContext(env, nil, nil)
+	e.PushContext = model.NewPushContext()
+	_ = e.PushContext.InitContext(e, nil, nil)
 
-	return env
+	return e
 }
 
 func TestApplyListenerPatches(t *testing.T) {
@@ -643,9 +649,9 @@ func TestApplyListenerPatches(t *testing.T) {
 	}
 	gatewayProxy := &model.Proxy{Type: model.Router, ConfigNamespace: "not-default"}
 	serviceDiscovery := &fakes.ServiceDiscovery{}
-	env := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
+	e := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
 	push := model.NewPushContext()
-	push.InitContext(env, nil, nil)
+	_ = push.InitContext(e, nil, nil)
 
 	type args struct {
 		patchContext networking.EnvoyFilter_PatchContext
@@ -713,4 +719,91 @@ func TestApplyListenerPatches(t *testing.T) {
 			}
 		})
 	}
+}
+
+// This benchmark measures the performance of Telemetry V2 EnvoyFilter patches. The intent here is to
+// measure overhead of using EnvoyFilters rather than native code.
+func BenchmarkTelemetryV2Filters(b *testing.B) {
+	l := []*xdsapi.Listener{
+		{
+			Name: "another-listener",
+			Address: &core.Address{
+				Address: &core.Address_SocketAddress{
+					SocketAddress: &core.SocketAddress{
+						PortSpecifier: &core.SocketAddress_PortValue{
+							PortValue: 80,
+						},
+					},
+				},
+			},
+			ListenerFilters: []*listener.ListenerFilter{{Name: "envoy.tls_inspector"}},
+			FilterChains: []*listener.FilterChain{
+				{
+					Filters: []*listener.Filter{
+						{
+							Name: xdsutil.HTTPConnectionManager,
+							ConfigType: &listener.Filter_TypedConfig{
+								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
+									XffNumTrustedHops: 4,
+									HttpFilters: []*http_conn.HttpFilter{
+										{Name: "http-filter3"},
+										{Name: xdsutil.Router},
+										{Name: "http-filter2"},
+									},
+								}),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	path := filepath.Join(env.IstioSrc, "tests/integration/telemetry/stats/prometheus/testdata")
+	files, err := ioutil.ReadDir(path)
+	if err != nil {
+		b.Fatalf("failed to read telemetry v2 Envoy Filters")
+	}
+	if len(files) != 2 {
+		// Cheap attempt to make sure someone notices this test exists if they make changes to the folder and break things.
+		b.Fatalf("Expected to find 2 EnvoyFilters for telemetry v2.")
+	}
+	var configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch
+	for _, patchFile := range files {
+		f, err := ioutil.ReadFile(filepath.Join(path, patchFile.Name()))
+		if err != nil {
+			b.Fatalf("failed to read file %v", patchFile)
+		}
+		configs, _, err := crd.ParseInputs(string(f))
+		if err != nil {
+			b.Fatalf("failed to unmarshal EnvoyFilter: %v", err)
+		}
+		for _, c := range configs {
+			configPatches = append(configPatches, c.Spec.(*networking.EnvoyFilter).ConfigPatches...)
+		}
+	}
+
+	sidecarProxy := &model.Proxy{
+		Type:            model.SidecarProxy,
+		ConfigNamespace: "not-default",
+		Metadata: &model.NodeMetadata{
+			IstioVersion: "1.2.2",
+			Raw: map[string]interface{}{
+				"foo": "sidecar",
+				"bar": "proxy",
+			},
+		},
+	}
+	serviceDiscovery := &fakes.ServiceDiscovery{}
+	e := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
+	push := model.NewPushContext()
+	_ = push.InitContext(e, nil, nil)
+
+	var got interface{}
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		got = ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, sidecarProxy, push,
+			l, false)
+	}
+	_ = got
 }

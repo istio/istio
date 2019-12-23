@@ -22,42 +22,44 @@ import (
 	envoy_api_v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
-	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/external"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schemas"
-	"istio.io/pkg/log"
 )
 
 // SetupDiscoveryServer creates a DiscoveryServer with the provided configs using the mem registry
 func SetupDiscoveryServer(t testing.TB, cfgs ...model.Config) *DiscoveryServer {
 	m := mesh.DefaultMeshConfig()
+	env := &model.Environment{
+		Watcher:         mesh.NewFixedWatcher(&m),
+		NetworksWatcher: mesh.NewFixedNetworksWatcher(nil),
+		PushContext:     model.NewPushContext(),
+	}
+	s := NewDiscoveryServer(env, []string{})
 	store := memory.Make(schemas.Istio)
 	configController := memory.NewController(store)
 	istioConfigStore := model.MakeIstioStore(configController)
 	serviceControllers := aggregate.NewController()
-	serviceEntryStore := external.NewServiceDiscovery(configController, istioConfigStore)
+	serviceEntryStore := external.NewServiceDiscovery(configController, istioConfigStore, s)
 	go configController.Run(make(chan struct{}))
-	serviceEntryRegistry := aggregate.Registry{
-		Name:             "ServiceEntries",
+	serviceEntryRegistry := serviceregistry.Simple{
+		ProviderID:       "ServiceEntries",
 		Controller:       serviceEntryStore,
 		ServiceDiscovery: serviceEntryStore,
 	}
 	serviceControllers.AddRegistry(serviceEntryRegistry)
 
-	env := &model.Environment{
-		Mesh:             &m,
-		MeshNetworks:     nil,
-		IstioConfigStore: istioConfigStore,
-		ServiceDiscovery: serviceControllers,
-		PushContext:      model.NewPushContext(),
-	}
+	env.IstioConfigStore = istioConfigStore
+	env.ServiceDiscovery = serviceControllers
+
 	for _, cfg := range cfgs {
 		if _, err := configController.Create(cfg); err != nil {
 			t.Fatal(err)
@@ -66,7 +68,6 @@ func SetupDiscoveryServer(t testing.TB, cfgs ...model.Config) *DiscoveryServer {
 	if err := env.PushContext.InitContext(env, env.PushContext, nil); err != nil {
 		t.Fatal(err)
 	}
-	s := NewDiscoveryServer(env, v1alpha3.NewConfigGenerator([]plugin.Plugin{}))
 	if err := s.updateServiceShards(s.globalPushContext()); err != nil {
 		t.Fatalf("Failed to update service shards: %v", err)
 	}
@@ -144,7 +145,7 @@ func BenchmarkEDS(b *testing.B) {
 					clonedCLA := util.CloneClusterLoadAssignment(l)
 					l = &clonedCLA
 
-					loadbalancer.ApplyLocalityLBSetting(proxy.Locality, l, s.Env.Mesh.LocalityLbSetting, true)
+					loadbalancer.ApplyLocalityLBSetting(proxy.Locality, l, s.Env.Mesh().LocalityLbSetting, true)
 					loadAssignments = append(loadAssignments, l)
 				}
 				response = endpointDiscoveryResponse(loadAssignments, version, push.Version)

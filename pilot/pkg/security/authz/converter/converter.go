@@ -15,34 +15,31 @@
 package converter
 
 import (
-	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"reflect"
 	"sort"
 	"strings"
 	"text/template"
 
-	"github.com/ghodss/yaml"
+	"github.com/gogo/protobuf/proto"
 
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
-	"k8s.io/client-go/kubernetes"
-
-	"istio.io/api/mesh/v1alpha1"
 	rbac_v1alpha1 "istio.io/api/rbac/v1alpha1"
 	rbac_v1beta1 "istio.io/api/security/v1beta1"
 	"istio.io/api/type/v1beta1"
-	"istio.io/istio/pilot/cmd"
-	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
-	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
-	"istio.io/istio/pilot/pkg/security/trustdomain"
-	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/schemas"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/log"
+)
+
+var (
+	allowAllPolicy = &rbac_v1beta1.AuthorizationPolicy{
+		Rules: []*rbac_v1beta1.Rule{
+			{},
+		},
+	}
+	emptySource    = &rbac_v1beta1.Source{}
+	emptyOperation = &rbac_v1beta1.Operation{}
 )
 
 // WorkloadLabels is the workload labels, for example, app: productpage.
@@ -52,479 +49,546 @@ type WorkloadLabels map[string]string
 // This service is defined in same namespace as the ServiceRole that's using it.
 type ServiceToWorkloadLabels map[string]WorkloadLabels
 
-type Converter struct {
-	K8sClient *kubernetes.Clientset
-
-	v1alpha1Policies             *model.AuthorizationPolicies
-	RootNamespace                string
-	NamespaceToServiceToSelector map[string]ServiceToWorkloadLabels
-	AuthorizationPolicies        []model.Config
-	ConvertedPolicies            strings.Builder
+type v1beta1Policy struct {
+	model.AuthorizationPolicyConfig
+	comment string
 }
 
-const (
-	// Properties that are promoted to first class fields.
-	sourceNamespace      = "source.namespace"
-	sourceIP             = "source.ip"
-	requestAuthPrincipal = "request.auth.principal"
-)
+type converter struct {
+	authorizationPolicies        *model.AuthorizationPolicies
+	namespaceToServiceToSelector map[string]ServiceToWorkloadLabels
+	allowNoClusterRbacConfig     bool
+	generatedPolicies            []*v1beta1Policy
+}
 
-const (
-	rbacNamespaceAllow = `apiVersion: security.istio.io/v1beta1
+func (p v1beta1Policy) write(out io.Writer) error {
+	v1beta1PolicyTemplate := `# {{ .Comment }}
+apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: {{ .ScopeName }}-allow-all
+  name: {{ .Name }}
   namespace: {{ .Namespace }}
 spec:
-  rules:
-    - {}
+  {{ .Spec }}
 ---
 `
-	rbacNamespaceDeny = `apiVersion: security.istio.io/v1beta1
-kind: AuthorizationPolicy
-metadata:
-  name: {{ .ScopeName }}-deny-all
-  namespace: {{ .Namespace }}
-spec:
-  {}
----
-`
-)
 
-const (
-	istioConfigMapKey = "mesh"
-)
-
-func New(k8sClient *kubernetes.Clientset, v1PolicyFiles, serviceFiles []string,
-	meshConfigFile, istioNamespace, meshConfigMapName string) (*Converter, error) {
-	v1alpha1Policies, err := getV1alpha1Policies(v1PolicyFiles)
+	v1beta1Template, err := template.New("").Parse(v1beta1PolicyTemplate)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read policies: %v", err)
+		return err
 	}
 
-	rootNamespace, err := getRootNamespace(k8sClient, meshConfigFile, meshConfigMapName, istioNamespace)
-	if err != nil {
-		log.Warnf("failed to get root namespace: %v", err)
+	spec := "{}"
+	if p.AuthorizationPolicy != nil {
+		if spec, err = protomarshal.ToYAML(p.AuthorizationPolicy); err != nil {
+			return fmt.Errorf("failed to marshal generated policy: %v", err)
+		}
+		specs := strings.Split(spec, "\n")
+		spec = strings.Join(specs, "\n  ")
+		spec = strings.TrimSpace(spec)
 	}
 
-	namespaceToServiceToSelector, err := getNamespaceToServiceToSelector(k8sClient, serviceFiles, v1alpha1Policies.ListNamespacesOfToV1alpha1Policies())
-	if err != nil {
-		log.Warnf("failed to get services: %v", err)
+	data := map[string]string{
+		"Comment":   p.comment,
+		"Name":      p.Name,
+		"Namespace": p.Namespace,
+		"Spec":      spec,
 	}
 
-	converter := Converter{
-		K8sClient:                    k8sClient,
-		v1alpha1Policies:             v1alpha1Policies,
-		RootNamespace:                rootNamespace,
-		NamespaceToServiceToSelector: namespaceToServiceToSelector,
-		AuthorizationPolicies:        []model.Config{},
-	}
-	return &converter, nil
-}
-
-func getV1alpha1Policies(v1PolicyFiles []string) (*model.AuthorizationPolicies, error) {
-	var configs []model.Config
-	if len(v1PolicyFiles) != 0 {
-		for _, fileName := range v1PolicyFiles {
-			rbacFileBuf, err := ioutil.ReadFile(fileName)
-			if err != nil {
-				return nil, fmt.Errorf("failed to read file %s", fileName)
-			}
-			configFromFile, _, err := crd.ParseInputs(string(rbacFileBuf))
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse file: %v", err)
-			}
-			configs = append(configs, configFromFile...)
-		}
-	}
-	// TODO: get from K8s API server.
-
-	store := model.MakeIstioStore(memory.Make(schemas.Istio))
-	for _, config := range configs {
-		if _, err := store.Create(config); err != nil {
-			return nil, fmt.Errorf("failed to add config: %s", err)
-		}
-	}
-	env := &model.Environment{
-		IstioConfigStore: store,
-	}
-	authzPolicies, err := model.GetAuthorizationPolicies(env)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create authz policies: %s", err)
-	}
-	return authzPolicies, nil
-}
-
-// getRootNamespace returns the root namespace configured in the MeshConfig.
-func getRootNamespace(k8sClient *kubernetes.Clientset, meshConfigFile, meshConfigMapName, istioNamespace string) (string, error) {
-	var meshConfig *v1alpha1.MeshConfig
-	var err error
-	if meshConfigFile != "" {
-		if meshConfig, err = cmd.ReadMeshConfig(meshConfigFile); err != nil {
-			return "", fmt.Errorf("failed to read the provided ConfigMap %s: %s", meshConfigFile, err)
-		}
-	} else {
-		istioConfigMap, err := k8sClient.CoreV1().ConfigMaps(istioNamespace).Get(meshConfigMapName, metav1.GetOptions{})
-		if err != nil {
-			return "", fmt.Errorf("failed to get ConfigMap named %s in namespace %s. "+
-				"Run `kubectl -n %s get configmap %s` to see if it exists", meshConfigMapName, istioNamespace,
-				istioNamespace, meshConfigMapName)
-		}
-		istioMeshConfig, exists := istioConfigMap.Data[istioConfigMapKey]
-		if !exists {
-			return "", fmt.Errorf("missing ConfigMap key %q", istioConfigMapKey)
-		}
-		meshConfig, err = mesh.ApplyMeshConfigDefaults(istioMeshConfig)
-		if err != nil {
-			return "", fmt.Errorf("failed to parse Istio MeshConfig: %s", err)
-		}
-	}
-	return meshConfig.RootNamespace, nil
-}
-
-// getNamespaceToServiceToSelector returns the mapping between service and selector.
-func getNamespaceToServiceToSelector(k8sClient *kubernetes.Clientset, serviceFiles, namespaces []string) (map[string]ServiceToWorkloadLabels, error) {
-	var services []v1.Service
-	if len(serviceFiles) != 0 {
-		for _, filename := range serviceFiles {
-			fileBuf, err := ioutil.ReadFile(filename)
-			if err != nil {
-				return nil, err
-			}
-			reader := bytes.NewReader(fileBuf)
-			yamlDecoder := kubeyaml.NewYAMLOrJSONDecoder(reader, 512*1024)
-			for {
-				svc := v1.Service{}
-				err = yamlDecoder.Decode(&svc)
-				if err == io.EOF {
-					break
-				}
-				if err != nil {
-					return nil, fmt.Errorf("failed to parse k8s Service file: %s", err)
-				}
-				services = append(services, svc)
-			}
-		}
-	} else {
-		for _, ns := range namespaces {
-			rets, err := k8sClient.CoreV1().Services(ns).List(metav1.ListOptions{})
-			if err != nil {
-				return nil, err
-			}
-			services = append(services, rets.Items...)
-		}
+	if err := v1beta1Template.Execute(out, data); err != nil {
+		return fmt.Errorf("failed to write the config to string: %v", err)
 	}
 
-	namespaceToServiceToSelector := make(map[string]ServiceToWorkloadLabels)
-	for _, svc := range services {
-		if len(svc.Spec.Selector) == 0 {
-			log.Warnf("ignored service with empty selector: %s.%s", svc.Name, svc.Namespace)
-			continue
-		}
-		if _, found := namespaceToServiceToSelector[svc.Namespace]; !found {
-			namespaceToServiceToSelector[svc.Namespace] = make(ServiceToWorkloadLabels)
-		}
-		namespaceToServiceToSelector[svc.Namespace][svc.Name] = svc.Spec.Selector
-	}
-
-	return namespaceToServiceToSelector, nil
-}
-
-// ConvertV1alpha1ToV1beta1 converts RBAC v1alphal1 to v1beta1 for local policy files.
-func (c *Converter) ConvertV1alpha1ToV1beta1() error {
-	if err := c.convert(c.v1alpha1Policies); err != nil {
-		return fmt.Errorf("failed to convert policies: %v", err)
-	}
-	for _, authzPolicy := range c.AuthorizationPolicies {
-		err := c.parseConfigToString(authzPolicy)
-		if err != nil {
-			return fmt.Errorf("failed to parse config to string: %v", err)
-		}
-	}
 	return nil
 }
 
-// convert is the main function that converts RBAC v1alphal1 to v1beta1 for local policy files
-func (c *Converter) convert(authzPolicies *model.AuthorizationPolicies) error {
-	// Convert ClusterRbacConfig to AuthorizationPolicy
-	err := c.convertClusterRbacConfig(authzPolicies)
-	if err != nil {
-		// Users might not have access to the cluster-wide RBAC config, so instead of returning an error,
-		// output a warning instead.
-		log.Warnf("failed to convert ClusterRbacConfig: %s", err)
+// Convert converts v1alphal1 RBAC policies to v1beta1 authorization policies.
+func Convert(authorizationPolicies *model.AuthorizationPolicies, namespaceToServiceToSelector map[string]ServiceToWorkloadLabels,
+	allowNoClusterRbacConfig bool) (string, error) {
+	converter := converter{
+		authorizationPolicies:        authorizationPolicies,
+		namespaceToServiceToSelector: namespaceToServiceToSelector,
+		allowNoClusterRbacConfig:     allowNoClusterRbacConfig,
 	}
-	namespaces := authzPolicies.ListNamespacesOfToV1alpha1Policies()
-	if len(namespaces) == 0 {
-		// Similarly, a user might want to convert ClusterRbacConfig only.
-		log.Warn("no namespace found for ServiceRole and ServiceRoleBinding")
-		return nil
+	return converter.convert()
+}
+
+func (c *converter) addV1beta1Policy(policies ...*v1beta1Policy) {
+	c.generatedPolicies = append(c.generatedPolicies, policies...)
+}
+
+func (c *converter) convert() (string, error) {
+	if err := c.convertClusterRbacConfig(); err != nil {
+		return "", err
 	}
-	// Build a model for each ServiceRole and associated list of ServiceRoleBinding
+
+	namespaces := c.authorizationPolicies.ListV1alpha1Namespaces()
+	log.Infof("found v1alpha1 RBAC policies in %d namespaces: %s", len(namespaces), namespaces)
 	for _, ns := range namespaces {
-		bindingsKeyList := authzPolicies.ListServiceRoleBindings(ns)
-		for _, roleConfig := range authzPolicies.ListServiceRoles(ns) {
-			roleName := roleConfig.Name
-			if bindings, found := bindingsKeyList[roleName]; found {
-				role := roleConfig.Spec.(*rbac_v1alpha1.ServiceRole)
-				m := authz_model.NewModelV1alpha1(trustdomain.NewTrustDomainBundle("", nil), role, bindings)
-				err := c.v1alpha1ModelTov1beta1Policy(m, ns)
+		bindingsForRole := c.authorizationPolicies.ListServiceRoleBindings(ns)
+		for _, role := range c.authorizationPolicies.ListServiceRoles(ns) {
+			if bindings, found := bindingsForRole[role.Name]; found {
+				policies, err := c.convertRoleAndBindings(role, bindings, ns)
 				if err != nil {
-					return err
+					log.Errorf("failed to convert ServiceRole %q in namespace %s: %v", role.Name, ns, err)
+					return "", err
 				}
+				var names []string
+				for _, p := range policies {
+					names = append(names, p.Name)
+				}
+				log.Infof("converted ServiceRole %q in namespace %s to %d authorization policies: %s",
+					role.Name, ns, len(policies), names)
+				c.addV1beta1Policy(policies...)
+			} else {
+				log.Warnf("ignored ServiceRole %q in namespace %s for missing ServiceRoleBinding", role.Name, ns)
 			}
 		}
 	}
-	return nil
+
+	var out strings.Builder
+	for _, p := range c.generatedPolicies {
+		if err := p.write(&out); err != nil {
+			return "", fmt.Errorf("failed to write the config to string: %v", err)
+		}
+	}
+
+	log.Warnf("PLEASE ALWAYS REVIEW THE CONVERTED POLICIES BEFORE APPLYING.")
+	return out.String(), nil
 }
 
-// convertClusterRbacConfig converts ClusterRbacConfig to AuthorizationPolicy.
-func (c *Converter) convertClusterRbacConfig(authzPolicies *model.AuthorizationPolicies) error {
-	clusterRbacConfig := authzPolicies.GetClusterRbacConfig()
+func (c *converter) convertClusterRbacConfig() error {
+	clusterRbacConfig := c.authorizationPolicies.GetClusterRbacConfig()
 	if clusterRbacConfig == nil {
-		return fmt.Errorf("no ClusterRbacConfig found")
-	}
-	// RbacConfig_ON_WITH_INCLUSION doesn't require the config root namespace.
-	if clusterRbacConfig.Mode == rbac_v1alpha1.RbacConfig_ON_WITH_INCLUSION {
-		// Support namespace-level only.
-		if len(clusterRbacConfig.Inclusion.Services) > 0 {
-			return fmt.Errorf("service-level ClusterRbacConfig (found in ON_WITH_INCLUSION rule) is not supported")
+		if c.allowNoClusterRbacConfig {
+			log.Error("no ClusterRbacConfig found in the cluster, ignored with --allowNoClusterRbacConfig")
+			return nil
 		}
-		// For each namespace in RbacConfig_ON_WITH_INCLUSION, we simply generate a deny-all rule for that namespace.
-		return c.generateClusterRbacConfig(rbacNamespaceDeny, clusterRbacConfig.Inclusion.Namespaces, false)
+		log.Error("no ClusterRbacConfig found in the cluster. To ignore this error, pass: --allowNoClusterRbacConfig")
+		return fmt.Errorf("no ClusterRbacConfig")
 	}
+
+	rootNamespace := c.authorizationPolicies.RootNamespace
 	switch clusterRbacConfig.Mode {
 	case rbac_v1alpha1.RbacConfig_OFF:
-		return c.generateClusterRbacConfig(rbacNamespaceAllow, []string{c.RootNamespace}, true)
+		name := "generated-global-allow-all"
+		comment := "Generated from ClusterRbacConfig with mode OFF. This policy is in root namespace and will allow " +
+			"all requests in the mesh by default."
+		c.addV1beta1Policy(createPolicy(name, rootNamespace, comment, allowAllPolicy))
+		log.Infof("converted ClusterRbacConfig with mode OFF to authorization policy %q in root namespace %q",
+			name, rootNamespace)
 	case rbac_v1alpha1.RbacConfig_ON:
-		return c.generateClusterRbacConfig(rbacNamespaceDeny, []string{c.RootNamespace}, true)
-	case rbac_v1alpha1.RbacConfig_ON_WITH_EXCLUSION:
-		// Support namespace-level only.
-		if len(clusterRbacConfig.Exclusion.Services) > 0 {
-			return fmt.Errorf("service-level ClusterRbacConfig (found in ON_WITH_EXCLUSION rule) is not supported")
-		}
-		// First generate a cluster-wide deny rule.
-		err := c.generateClusterRbacConfig(rbacNamespaceDeny, []string{c.RootNamespace}, true)
-		if err != nil {
-			return fmt.Errorf("failed to convert ClusterRbacConfig: %v", err)
-		}
-		// For each namespace in RbacConfig_ON_WITH_EXCLUSION, we simply generate an allow-rule rule for that namespace.
-		return c.generateClusterRbacConfig(rbacNamespaceAllow, clusterRbacConfig.Exclusion.Namespaces, false)
-	}
-	return nil
-}
-
-func (c *Converter) generateClusterRbacConfig(template string, namespaces []string, isRootNamespace bool) error {
-	clusterRbacConfigData := map[string]string{
-		"ScopeName": "",
-		"Namespace": "",
-	}
-	for _, ns := range namespaces {
-		clusterRbacConfigData["Namespace"] = ns
-		clusterRbacConfigData["ScopeName"] = ns
-		if isRootNamespace {
-			clusterRbacConfigData["ScopeName"] = "global"
-		}
-		policy, err := fillTemplate(template, clusterRbacConfigData)
-		if err != nil {
-			return fmt.Errorf("failed to convert ClusterRbacConfig: %v", err)
-		}
-		c.ConvertedPolicies.WriteString(policy)
-	}
-	return nil
-}
-
-func fillTemplate(config string, data interface{}) (string, error) {
-	tmpl, err := template.New("").Parse(config)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse template: %v", err)
-	}
-	var outString bytes.Buffer
-	err = tmpl.Execute(&outString, data)
-	if err != nil {
-		return "", fmt.Errorf("failed to write template: %v", err)
-	}
-	return outString.String(), nil
-}
-
-// v1alpha1ModelTov1beta1Policy converts the policy of one ServiceRole and a list of associated
-// ServiceRoleBinding to the equivalent AuthorizationPolicy.
-func (c *Converter) v1alpha1ModelTov1beta1Policy(v1alpha1Model *authz_model.Model, namespace string) error {
-	if v1alpha1Model == nil {
-		return fmt.Errorf("internal error: No v1alpha1 model")
-	}
-	if len(v1alpha1Model.Permissions) == 0 {
-		return fmt.Errorf("invalid input: ServiceRole has no permissions")
-	}
-	if len(v1alpha1Model.Principals) == 0 {
-		return fmt.Errorf("principals are empty")
-	}
-	sources, err := convertBindingToSources(v1alpha1Model.Principals)
-	if err != nil {
-		return fmt.Errorf("cannot convert binding to sources: %v", err)
-	}
-
-	createAuthzConfig := func(name string, selector *v1beta1.WorkloadSelector, operation *rbac_v1beta1.Operation) model.Config {
-		return model.Config{
-			ConfigMeta: model.ConfigMeta{
-				Type:      schemas.AuthorizationPolicy.Type,
-				Name:      name,
-				Namespace: namespace,
-			},
-			Spec: &rbac_v1beta1.AuthorizationPolicy{
-				Selector: selector,
-				Rules: []*rbac_v1beta1.Rule{
-					{
-						From: sources,
-						To: []*rbac_v1beta1.Rule_To{
-							{
-								Operation: operation,
-							},
-						},
-					},
+		name := "generated-global-deny-all"
+		comment := "Generated from ClusterRbacConfig with mode ON. " +
+			"This policy is in root namespace and will deny all requests in the mesh by default."
+		c.addV1beta1Policy(createPolicy(name, rootNamespace, comment, nil))
+		log.Infof("converted ClusterRbacConfig with mode ON to authorization policy %q in root namespace %q",
+			name, rootNamespace)
+	case rbac_v1alpha1.RbacConfig_ON_WITH_INCLUSION:
+		for _, service := range clusterRbacConfig.Inclusion.GetServices() {
+			svc, namespace, selectors, err := c.extractService(service)
+			if err != nil {
+				return err
+			}
+			if len(selectors) == 0 {
+				log.Warnf("ignored service %q in ClusterRbacConfig: no such service in cluster", service)
+				continue
+			}
+			name := fmt.Sprintf("generated-service-%s-deny-all", svc)
+			comment := fmt.Sprintf("Generated from ClusterRbacConfig with mode ON_WITH_INCLUSION on service %q. "+
+				"This policy will deny all requests to service %q by default.", service, service)
+			denyAll := &rbac_v1beta1.AuthorizationPolicy{
+				Selector: &v1beta1.WorkloadSelector{
+					MatchLabels: selectors[0],
 				},
-			},
+			}
+			c.addV1beta1Policy(createPolicy(name, namespace, comment, denyAll))
+			log.Infof("converted ClusterRbacConfig with mode ON_WITH_INCLUSION on service %q to "+
+				"authorization policy %q in namespace %q",
+				service, name, namespace)
+		}
+		for _, ns := range clusterRbacConfig.Inclusion.GetNamespaces() {
+			name := "generated-namespace-deny-all"
+			comment := fmt.Sprintf("Generated from ClusterRbacConfig with mode ON_WITH_INCLUSION on namespace %q. "+
+				"This policy will deny all requests to namespace %q by default.", ns, ns)
+			c.addV1beta1Policy(createPolicy(name, ns, comment, nil))
+			log.Infof("converted ClusterRbacConfig with mode ON_WITH_INCLUSION on namespace %q to "+
+				"authorization policy %q in namespace %q",
+				ns, name, ns)
+		}
+	case rbac_v1alpha1.RbacConfig_ON_WITH_EXCLUSION:
+		for _, service := range clusterRbacConfig.Exclusion.GetServices() {
+			svc, namespace, selectors, err := c.extractService(service)
+			if err != nil {
+				return err
+			}
+			if len(selectors) == 0 {
+				log.Warnf("ignored service %q in ClusterRbacConfig: no such service in cluster", service)
+				continue
+			}
+
+			name := fmt.Sprintf("generated-service-%s-allow-all", svc)
+			comment := fmt.Sprintf("Generated from ClusterRbacConfig with mode ON_WITH_EXCLUSION on service %q. "+
+				"This policy will allow all requests to service %q by default.", service, service)
+			allowAll := &rbac_v1beta1.AuthorizationPolicy{
+				Selector: &v1beta1.WorkloadSelector{
+					MatchLabels: selectors[0],
+				},
+				Rules: []*rbac_v1beta1.Rule{
+					{},
+				},
+			}
+			c.addV1beta1Policy(createPolicy(name, namespace, comment, allowAll))
+			log.Infof("converted ClusterRbacConfig with mode ON_WITH_EXCLUSION on service %q to "+
+				"authorization policy %q in namespace %q",
+				service, name, namespace)
+			log.Warnf("ClusterRbacConfig with mode ON_WITH_EXCLUSION is used with service. Note that every " +
+				"ServiceRole in the cluster will be converted even if it's not specified by the service in ClusterRbacConfig. " +
+				"Please review the converted policies and remove the unneeded ones before applying.")
+		}
+
+		name := "generated-global-deny-all"
+		comment := "Generated from ClusterRbacConfig with mode ON_WITH_EXCLUSION. " +
+			"This policy is in root namespace and will deny all requests in the mesh by default."
+		c.addV1beta1Policy(createPolicy(name, rootNamespace, comment, nil))
+		log.Infof("converted ClusterRbacConfig with mode ON_WITH_EXCLUSION to authorization policy %q in root namespace %q",
+			name, rootNamespace)
+
+		for _, ns := range clusterRbacConfig.Exclusion.GetNamespaces() {
+			name := "generated-namespace-allow-all"
+			comment := fmt.Sprintf("Generated from ClusterRbacConfig with mode ON_WITH_EXCLUSION on namespace %q. "+
+				"This policy will allow all requests to namespace %q by default.", ns, ns)
+			c.addV1beta1Policy(createPolicy(name, ns, comment, allowAllPolicy))
+			log.Infof("converted ClusterRbacConfig with mode ON_WITH_EXCLUSION on namespace %q to "+
+				"authorization policy %q in namespace %q",
+				ns, name, ns)
+		}
+	}
+	return nil
+}
+
+func createPolicy(name, namespace, comment string, policy *rbac_v1beta1.AuthorizationPolicy) *v1beta1Policy {
+	return &v1beta1Policy{
+		AuthorizationPolicyConfig: model.AuthorizationPolicyConfig{
+			Name:                name,
+			Namespace:           namespace,
+			AuthorizationPolicy: policy,
+		},
+		comment: comment,
+	}
+}
+
+func (c *converter) extractService(service string) (string, string, []WorkloadLabels, error) {
+	splits := strings.Split(service, ".")
+	if len(splits) < 2 {
+		return "", "", nil, fmt.Errorf("invalid service in ClusterRbacConfig: %s", service)
+	}
+	namespace := splits[1]
+	selectors, err := c.getSelectors(service, namespace, nil)
+	if err != nil {
+		return "", "", nil, err
+	}
+	if len(selectors) > 1 {
+		return "", "", nil, fmt.Errorf("wildcard is not supported in ClusterRbacConfig: %s", service)
+	}
+	return splits[0], namespace, selectors, nil
+}
+
+func (c *converter) convertRoleAndBindings(role model.ServiceRoleConfig, bindings []*rbac_v1alpha1.ServiceRoleBinding,
+	namespace string) ([]*v1beta1Policy, error) {
+	basePolicy, err := createBasePolicy(bindings)
+	if err != nil {
+		return nil, err
+	}
+
+	var ret []*v1beta1Policy
+	for i, rule := range role.ServiceRole.Rules {
+		copiedBasePolicy := proto.Clone(basePolicy).(*rbac_v1beta1.AuthorizationPolicy)
+		generatedPolicy, err := addAccessRuleToBasePolicy(rule, copiedBasePolicy)
+		if err != nil {
+			return nil, err
+		}
+
+		for j, service := range rule.Services {
+			selectors, err := c.getSelectors(service, namespace, rule.Constraints)
+			if err != nil {
+				return nil, err
+			}
+
+			if len(selectors) == 0 {
+				log.Warnf("ignored service %q in ServiceRole %q: no such service in cluster", role.Name, service)
+			}
+			for k, selector := range selectors {
+				copiedPolicy := proto.Clone(generatedPolicy).(*rbac_v1beta1.AuthorizationPolicy)
+				if len(selector) != 0 {
+					copiedPolicy.Selector = &v1beta1.WorkloadSelector{
+						MatchLabels: selector,
+					}
+				}
+				ret = append(ret, &v1beta1Policy{
+					comment: fmt.Sprintf("Generated for service %q found in ServiceRole %q at rule %d", service, role.Name, i),
+					AuthorizationPolicyConfig: model.AuthorizationPolicyConfig{
+						Name:                fmt.Sprintf("generated-%s-rule%d-svc%d-target%d", role.Name, i, j, k),
+						Namespace:           namespace,
+						AuthorizationPolicy: copiedPolicy,
+					},
+				})
+			}
+		}
+		if len(rule.Services) == 0 {
+			ret = append(ret, &v1beta1Policy{
+				comment: fmt.Sprintf("Generated for ServiceRole %q at rule %d", role.Name, i),
+				AuthorizationPolicyConfig: model.AuthorizationPolicyConfig{
+					Name:                fmt.Sprintf("generated-%s-rule%d", role.Name, i),
+					Namespace:           namespace,
+					AuthorizationPolicy: generatedPolicy,
+				},
+			})
+		}
+	}
+	return ret, nil
+}
+
+func createBasePolicy(bindings []*rbac_v1alpha1.ServiceRoleBinding) (*rbac_v1beta1.AuthorizationPolicy, error) {
+	policy := &rbac_v1beta1.AuthorizationPolicy{}
+	for _, binding := range bindings {
+		for _, subject := range binding.Subjects {
+			source := &rbac_v1beta1.Source{}
+			var when []*rbac_v1beta1.Condition
+
+			if subject.User != "" && subject.User != "*" {
+				source.Principals = []string{
+					subject.User,
+				}
+			}
+
+			if subject.Group != "" && subject.Group != "*" {
+				when = append(when, &rbac_v1beta1.Condition{
+					Key:    "request.auth.claims[group]",
+					Values: []string{subject.Group},
+				})
+			}
+
+			for k, v := range subject.Properties {
+				if k == "source.principal" {
+					source.Principals = append(source.Principals, v)
+				}
+				if v == "*" {
+					// Ignore wildcard for property other than source.principal.
+					log.Warnf("ignored property %q with wildcard value", k)
+					continue
+				}
+				switch k {
+				case "source.ip":
+					source.IpBlocks = []string{v}
+				case "source.namespace":
+					source.Namespaces = []string{v}
+				case "request.auth.principal":
+					source.RequestPrincipals = []string{v}
+				default:
+					when = append(when, &rbac_v1beta1.Condition{
+						Key:    k,
+						Values: []string{v},
+					})
+				}
+			}
+			rule := &rbac_v1beta1.Rule{
+				When: when,
+			}
+			if !reflect.DeepEqual(emptySource, source) {
+				rule.From = []*rbac_v1beta1.Rule_From{
+					{
+						Source: source,
+					},
+				}
+			}
+			policy.Rules = append(policy.Rules, rule)
 		}
 	}
 
-	for _, accessRule := range v1alpha1Model.Permissions {
-		operation, err := convertAccessRuleToOperation(&accessRule)
-		if err != nil {
-			return fmt.Errorf("cannot convert access rule to operation: %v", err)
-		}
+	if len(policy.Rules) == 0 {
+		return nil, fmt.Errorf("basePolicy must has at least 1 rule")
+	}
+	return policy, nil
+}
 
-		if len(accessRule.Services) == 0 {
-			authzConfig := createAuthzConfig("all-workloads", nil, operation)
-			c.AuthorizationPolicies = append(c.AuthorizationPolicies, authzConfig)
+func addAccessRuleToBasePolicy(rule *rbac_v1alpha1.AccessRule, basePolicy *rbac_v1beta1.AuthorizationPolicy) (
+	*rbac_v1beta1.AuthorizationPolicy, error) {
+	operation := &rbac_v1beta1.Operation{}
+	var when []*rbac_v1beta1.Condition
+	for _, path := range rule.Paths {
+		if path != "*" {
+			operation.Paths = append(operation.Paths, path)
 		}
-		for _, service := range accessRule.Services {
-			for j, selector := range c.getSelectors(service, namespace) {
-				name := fmt.Sprintf("service-%s-%d", strings.ReplaceAll(service, "*", "wildcard"), j)
-				authzConfig := createAuthzConfig(name, &v1beta1.WorkloadSelector{
-					MatchLabels: selector,
-				}, operation)
-				c.AuthorizationPolicies = append(c.AuthorizationPolicies, authzConfig)
+	}
+	for _, method := range rule.Methods {
+		if method != "*" {
+			operation.Methods = append(operation.Methods, method)
+		}
+	}
+	for _, constraint := range rule.Constraints {
+		if strings.HasPrefix(constraint.Key, "destination.labels") {
+			continue
+		}
+		switch constraint.Key {
+		case "destination.ip", "destination.user":
+			return nil, fmt.Errorf("%s is no longer supported in v1beta1 authorization policy", constraint.Key)
+		case "destination.port":
+			operation.Ports = constraint.Values
+		case "destination.namespace":
+		default:
+			var values []string
+			for _, v := range constraint.Values {
+				if v == "*" {
+					log.Warnf("ignored constraint %q with wildcard value", constraint.Key)
+					continue
+				}
+				values = append(values, v)
+			}
+			if len(values) > 0 {
+				when = append(when, &rbac_v1beta1.Condition{
+					Key:    constraint.Key,
+					Values: values,
+				})
 			}
 		}
 	}
-	return nil
+
+	for _, r := range basePolicy.Rules {
+		if !reflect.DeepEqual(operation, emptyOperation) {
+			copiedOperation := proto.Clone(operation).(*rbac_v1beta1.Operation)
+			r.To = []*rbac_v1beta1.Rule_To{
+				{
+					Operation: copiedOperation,
+				},
+			}
+		}
+		r.When = append(r.When, when...)
+
+		// Sort the conditions to generate a stable output.
+		sort.SliceStable(r.When, func(i, j int) bool {
+			return r.When[i].Key < r.When[j].Key
+		})
+	}
+
+	return basePolicy, nil
 }
 
-// getSelector gets the workload label for the service in the given namespace.
-func (c *Converter) getSelectors(serviceFullName, namespace string) []WorkloadLabels {
-	if serviceFullName == "*" {
+func (c *converter) getSelectors(service, namespace string, constraints []*rbac_v1alpha1.AccessRule_Constraint) (
+	[]WorkloadLabels, error) {
+	selectorsFromService := getSelectorsFromService(service, c.namespaceToServiceToSelector[namespace])
+	selectorsFromConstraint, err := getSelectorsFromConstraints(constraints)
+	if err != nil {
+		return nil, err
+	}
+	return mergeSelectors(selectorsFromService, selectorsFromConstraint)
+}
+
+func getSelectorsFromService(service string, serviceToSelectors ServiceToWorkloadLabels) []WorkloadLabels {
+	if service == "*" {
 		return []WorkloadLabels{
-			// An empty workload selects all workloads in the namespace.
+			// Empty selects all workloads in the namespace.
 			{},
 		}
 	}
 
-	var serviceName string
+	var selectorsFromService []WorkloadLabels
+	var trimmedService string
 	var prefixMatch, suffixMatch bool
-	if strings.HasPrefix(serviceFullName, "*") {
+	if strings.HasPrefix(service, "*") {
 		suffixMatch = true
-		serviceName = strings.TrimPrefix(serviceFullName, "*")
-	} else if strings.HasSuffix(serviceFullName, "*") {
+		trimmedService = strings.TrimPrefix(service, "*")
+	} else if strings.HasSuffix(service, "*") {
 		prefixMatch = true
-		serviceName = strings.TrimSuffix(serviceFullName, "*")
+		trimmedService = strings.TrimSuffix(service, "*")
 	} else {
-		serviceName = strings.Split(serviceFullName, ".")[0]
+		trimmedService = strings.Split(service, ".")[0]
 	}
 
-	var selectors []WorkloadLabels
-
-	// Sort the services in the map to make sure the output is stable.
 	var targetServices []string
-	for svc := range c.NamespaceToServiceToSelector[namespace] {
+	for svc := range serviceToSelectors {
 		targetServices = append(targetServices, svc)
 	}
+	// Sort the services in the map to make sure the output is stable.
 	sort.Strings(targetServices)
+
 	for _, targetService := range targetServices {
-		selector := c.NamespaceToServiceToSelector[namespace][targetService]
+		selector := serviceToSelectors[targetService]
 		if prefixMatch {
-			if strings.HasPrefix(targetService, serviceName) {
-				selectors = append(selectors, selector)
+			if strings.HasPrefix(targetService, trimmedService) {
+				selectorsFromService = append(selectorsFromService, selector)
 			}
 		} else if suffixMatch {
-			if strings.HasSuffix(targetService, serviceName) {
-				selectors = append(selectors, selector)
+			if strings.HasSuffix(targetService, trimmedService) {
+				selectorsFromService = append(selectorsFromService, selector)
 			}
 		} else {
-			if targetService == serviceName {
-				selectors = append(selectors, selector)
+			if targetService == trimmedService {
+				selectorsFromService = append(selectorsFromService, selector)
 			}
 		}
 	}
-	return selectors
+	return selectorsFromService
 }
 
-// TODO(pitlv2109): Handle cases with workload selector from destination.labels and other constraints
-// convertAccessRuleToOperation converts one Access Rule to the equivalent Operation.
-func convertAccessRuleToOperation(rule *authz_model.Permission) (*rbac_v1beta1.Operation, error) {
-	if rule == nil {
-		return nil, fmt.Errorf("invalid input: No rule found in ServiceRole")
-	}
-	operation := rbac_v1beta1.Operation{}
-	operation.Methods = rule.Methods
-	operation.Paths = rule.Paths
-	// TODO(pitlv2109): Handle destination.port
-	return &operation, nil
-}
-
-// TODO(pitlv2109): Handle properties that are not promoted to first class fields.
-// convertBindingToSources converts Subjects to the equivalent Sources.
-func convertBindingToSources(principals []authz_model.Principal) ([]*rbac_v1beta1.Rule_From, error) {
-	ruleFrom := []*rbac_v1beta1.Rule_From{}
-	for _, subject := range principals {
-		// TODO(pitlv2109): Handle group
-		if subject.Group != "" {
-			return nil, fmt.Errorf("serviceRoleBinding with group is not supported")
-		}
-		from := rbac_v1beta1.Rule_From{
-			Source: &rbac_v1beta1.Source{},
-		}
-		if len(subject.Users) != 0 {
-			from.Source.Principals = subject.Users
-		}
-		if len(subject.Properties) == 0 {
-			ruleFrom = append(ruleFrom, &from)
-			continue
-		}
-		// NOTICE: Only select the first element in the properties list.
-		for k, v := range subject.Properties[0] {
-			switch k {
-			case sourceNamespace:
-				from.Source.Namespaces = v
-			case sourceIP:
-				from.Source.IpBlocks = v
-			case requestAuthPrincipal:
-				from.Source.RequestPrincipals = v
-			default:
-				return nil, fmt.Errorf("property %s is not supported", k)
+func getSelectorsFromConstraints(constraints []*rbac_v1alpha1.AccessRule_Constraint) ([]WorkloadLabels, error) {
+	var selectors [][]WorkloadLabels
+	for _, constraint := range constraints {
+		if strings.HasPrefix(constraint.Key, "destination.labels[") {
+			k := strings.TrimPrefix(constraint.Key, "destination.labels[")
+			k = strings.TrimSuffix(k, "]")
+			var selector []WorkloadLabels
+			for _, v := range constraint.Values {
+				selector = append(selector, WorkloadLabels{
+					k: v,
+				})
 			}
+			selectors = append(selectors, selector)
 		}
-		ruleFrom = append(ruleFrom, &from)
 	}
-	return ruleFrom, nil
+
+	var last []WorkloadLabels
+	for _, cur := range selectors {
+		merged, err := mergeSelectors(last, cur)
+		if err != nil {
+			return nil, err
+		}
+		last = merged
+	}
+
+	return last, nil
 }
 
-// parseConfigToString parses data from `config` to string.
-func (c *Converter) parseConfigToString(config model.Config) error {
-	schema := schemas.AuthorizationPolicy
-	obj, err := crd.ConvertConfig(schema, config)
-	if err != nil {
-		return fmt.Errorf("could not decode %v: %v", config.Name, err)
+func mergeSelectors(selectors1 []WorkloadLabels, selectors2 []WorkloadLabels) ([]WorkloadLabels, error) {
+	if len(selectors1) == 0 {
+		return selectors2, nil
+	} else if len(selectors2) == 0 {
+		return selectors1, nil
 	}
-	configInBytes, err := yaml.Marshal(obj)
-	if err != nil {
-		return fmt.Errorf("could not marshal %v: %v", config.Name, err)
-	}
-	configLines := strings.Split(string(configInBytes), "\n")
-	for i, configLine := range configLines {
-		if i == len(configLines)-1 && configLine == "" {
-			c.ConvertedPolicies.WriteString("---\n")
-		} else if !strings.Contains(configLine, "creationTimestamp: null") {
-			c.ConvertedPolicies.WriteString(fmt.Sprintf("%s\n", configLine))
+
+	var mergedSelectors []WorkloadLabels
+	for _, s1 := range selectors1 {
+		for _, s2 := range selectors2 {
+			merged, err := mergeWorkloadLabels(s1, s2)
+			if err != nil {
+				return nil, err
+			}
+			mergedSelectors = append(mergedSelectors, merged)
 		}
 	}
-	return nil
+	return mergedSelectors, nil
+}
+
+func mergeWorkloadLabels(labels1 WorkloadLabels, labels2 WorkloadLabels) (WorkloadLabels, error) {
+	mergedLabels := make(WorkloadLabels)
+	for k, v := range labels1 {
+		mergedLabels[k] = v
+	}
+	for k, v := range labels2 {
+		if previousValue, found := mergedLabels[k]; found && previousValue != v {
+			return nil, fmt.Errorf("duplicate workload label %q with conflict values: %q, %q", k, previousValue, v)
+		}
+		mergedLabels[k] = v
+	}
+	return mergedLabels, nil
 }

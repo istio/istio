@@ -46,10 +46,10 @@ func TestNewNodeAgent(t *testing.T) {
 			config: &Config{
 				CAClientConfig: caclient.Config{
 					CAAddress: "something",
-					Env:       "somethig else",
+					Env:       "something else",
 				},
 			},
-			expectedErr: "invalid env somethig else specified",
+			expectedErr: "invalid env something else specified",
 		},
 	}
 

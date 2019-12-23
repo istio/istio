@@ -56,7 +56,7 @@ func convertToEnvoyFilterWrapper(local *Config) *EnvoyFilterWrapper {
 			Match:     cp.Match,
 			Operation: cp.Patch.Operation,
 		}
-		// there wont be an error here because validation catches mismatched types
+		// there won't be an error here because validation catches mismatched types
 		cpw.Value, _ = xds.BuildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value)
 		if cp.Match == nil {
 			// create a match all object

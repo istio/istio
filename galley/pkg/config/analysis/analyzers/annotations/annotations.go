@@ -26,83 +26,22 @@ import (
 	"istio.io/istio/galley/pkg/config/resource"
 )
 
-// K8sAnalyzer checks for misplayed and invalid Istio annotations in K8s resources
+// K8sAnalyzer checks for misplaced and invalid Istio annotations in K8s resources
 type K8sAnalyzer struct{}
 
 var (
-	// Currently we don't have an Istio API that enumerates Istio annotations.
-	// This slice is currently hand-crafted, but
-	// could be generated similarly to https://istio.io/docs/reference/config/annotations/
-	istioAnnotations = []*annotation.Instance{
-		&annotation.AlphaCanonicalServiceAccounts,
-		&annotation.AlphaIdentity,
-		&annotation.AlphaKubernetesServiceAccounts,
-		&annotation.OperatorInstallChartOwner,
-		&annotation.OperatorInstallOwnerGeneration,
-		&annotation.OperatorInstallVersion,
-		&annotation.IoKubernetesIngressClass,
-		&annotation.AlphaNetworkingEndpointsVersion,
-		&annotation.AlphaNetworkingNotReadyEndpoints,
-		&annotation.AlphaNetworkingServiceVersion,
-		&annotation.NetworkingExportTo,
-		&annotation.PolicyCheck,
-		&annotation.PolicyCheckBaseRetryWaitTime,
-		&annotation.PolicyCheckMaxRetryWaitTime,
-		&annotation.PolicyCheckRetries,
-		&annotation.PolicyLang,
-		&annotation.SidecarStatusReadinessApplicationPorts,
-		&annotation.SidecarStatusReadinessFailureThreshold,
-		&annotation.SidecarStatusReadinessInitialDelaySeconds,
-		&annotation.SidecarStatusReadinessPeriodSeconds,
-		&annotation.SecurityAutoMTLS,
-		&annotation.SidecarBootstrapOverride,
-		&annotation.SidecarComponentLogLevel,
-		&annotation.SidecarControlPlaneAuthPolicy,
-		&annotation.SidecarDiscoveryAddress,
-		&annotation.SidecarInject,
-		&annotation.SidecarInterceptionMode,
-		&annotation.SidecarLogLevel,
-		&annotation.SidecarProxyCPU,
-		&annotation.SidecarProxyImage,
-		&annotation.SidecarProxyMemory,
-		&annotation.SidecarRewriteAppHTTPProbers,
-		&annotation.SidecarStatsInclusionPrefixes,
-		&annotation.SidecarStatsInclusionRegexps,
-		&annotation.SidecarStatsInclusionSuffixes,
-		&annotation.SidecarStatus,
-		&annotation.SidecarUserVolume,
-		&annotation.SidecarUserVolumeMount,
-		&annotation.SidecarStatusPort,
-		&annotation.SidecarTrafficExcludeInboundPorts,
-		&annotation.SidecarTrafficExcludeOutboundIPRanges,
-		&annotation.SidecarTrafficExcludeOutboundPorts,
-		&annotation.SidecarTrafficIncludeInboundPorts,
-		&annotation.SidecarTrafficIncludeOutboundIPRanges,
-		&annotation.SidecarTrafficKubevirtInterfaces,
-	}
-
-	// Currently we don't have an Istio API that enumerates Istio annotations ResourceTypes
-	// (This map is currently hand-crafted. ResourceTypes could be a []string, not an enum.)
-	resourceTypeNames = map[annotation.ResourceTypes]string{
-		annotation.Any:          "Any",
-		annotation.Ingress:      "Ingress",
-		annotation.Pod:          "Pod",
-		annotation.Service:      "Service",
-		annotation.ServiceEntry: "ServiceEntry",
-	}
+	istioAnnotations = annotation.AllResourceAnnotations()
 )
 
 // Metadata implements analyzer.Analyzer
 func (*K8sAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name: "annotations.K8sAnalyzer",
+		Name:        "annotations.K8sAnalyzer",
+		Description: "Checks for misplaced and invalid Istio annotations in Kubernetes resources",
 		Inputs: collection.Names{
-			metadata.K8SCoreV1Endpoints,
 			metadata.K8SCoreV1Namespaces,
 			metadata.K8SCoreV1Services,
 			metadata.K8SCoreV1Pods,
-			metadata.K8SExtensionsV1Beta1Ingresses,
-			metadata.K8SCoreV1Nodes,
 			metadata.K8SAppsV1Deployments,
 		},
 	}
@@ -110,37 +49,25 @@ func (*K8sAnalyzer) Metadata() analysis.Metadata {
 
 // Analyze implements analysis.Analyzer
 func (fa *K8sAnalyzer) Analyze(ctx analysis.Context) {
-	ctx.ForEach(metadata.K8SCoreV1Endpoints, func(r *resource.Entry) bool {
-		fa.allowAnnotations(r, ctx, "Endpoints", metadata.K8SCoreV1Endpoints)
-		return true
-	})
-	ctx.ForEach(metadata.K8SCoreV1Namespaces, func(r *resource.Entry) bool {
+	ctx.ForEach(metadata.K8SCoreV1Namespaces, func(r *resource.Instance) bool {
 		fa.allowAnnotations(r, ctx, "Namespace", metadata.K8SCoreV1Namespaces)
 		return true
 	})
-	ctx.ForEach(metadata.K8SCoreV1Nodes, func(r *resource.Entry) bool {
-		fa.allowAnnotations(r, ctx, "Node", metadata.K8SCoreV1Nodes)
-		return true
-	})
-	ctx.ForEach(metadata.K8SCoreV1Pods, func(r *resource.Entry) bool {
-		fa.allowAnnotations(r, ctx, "Pod", metadata.K8SCoreV1Pods)
-		return true
-	})
-	ctx.ForEach(metadata.K8SCoreV1Services, func(r *resource.Entry) bool {
+	ctx.ForEach(metadata.K8SCoreV1Services, func(r *resource.Instance) bool {
 		fa.allowAnnotations(r, ctx, "Service", metadata.K8SCoreV1Services)
 		return true
 	})
-	ctx.ForEach(metadata.K8SExtensionsV1Beta1Ingresses, func(r *resource.Entry) bool {
-		fa.allowAnnotations(r, ctx, "Ingress", metadata.K8SExtensionsV1Beta1Ingresses)
+	ctx.ForEach(metadata.K8SCoreV1Pods, func(r *resource.Instance) bool {
+		fa.allowAnnotations(r, ctx, "Pod", metadata.K8SCoreV1Pods)
 		return true
 	})
-	ctx.ForEach(metadata.K8SAppsV1Deployments, func(r *resource.Entry) bool {
+	ctx.ForEach(metadata.K8SAppsV1Deployments, func(r *resource.Instance) bool {
 		fa.allowAnnotations(r, ctx, "Deployment", metadata.K8SAppsV1Deployments)
 		return true
 	})
 }
 
-func (*K8sAnalyzer) allowAnnotations(r *resource.Entry, ctx analysis.Context, kind string, collectionType collection.Name) {
+func (*K8sAnalyzer) allowAnnotations(r *resource.Instance, ctx analysis.Context, kind string, collectionType collection.Name) {
 	if len(r.Metadata.Annotations) == 0 {
 		return
 	}
@@ -226,12 +153,10 @@ func lookupAnnotation(ann string) *annotation.Instance {
 }
 
 func resourceTypesAsStrings(resourceTypes []annotation.ResourceTypes) []string {
-	retval := make([]string, len(resourceTypes))
-	var ok bool
-	for i, resourceType := range resourceTypes {
-		retval[i], ok = resourceTypeNames[resourceType]
-		if !ok {
-			retval[i] = "Unknown"
+	retval := []string{}
+	for _, resourceType := range resourceTypes {
+		if s := resourceType.String(); s != "Unknown" {
+			retval = append(retval, s)
 		}
 	}
 	return retval

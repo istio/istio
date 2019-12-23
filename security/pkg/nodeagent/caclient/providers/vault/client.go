@@ -175,7 +175,7 @@ func loginVaultK8sAuthMethod(client *api.Client, loginPath, role, sa string) (st
 	return resp.Auth.ClientToken, nil
 }
 
-// signCsrByVault signs the CSR and return the signed certifcate and the CA certificate chain
+// signCsrByVault signs the CSR and return the signed certificate and the CA certificate chain
 // Return the signed certificate chain when succeed.
 // client: the Vault client
 // csrSigningPath: the path for signing a CSR

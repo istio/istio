@@ -26,13 +26,13 @@ func TestGetResourceNameFromHost(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	// FQDN, same namespace
-	g.Expect(GetResourceNameFromHost("default", "foo.default.svc.cluster.local")).To(Equal(resource.NewName("default", "foo")))
+	g.Expect(GetResourceNameFromHost("default", "foo.default.svc.cluster.local")).To(Equal(resource.NewFullName("default", "foo")))
 	// FQDN, cross namespace
-	g.Expect(GetResourceNameFromHost("default", "foo.other.svc.cluster.local")).To(Equal(resource.NewName("other", "foo")))
+	g.Expect(GetResourceNameFromHost("default", "foo.other.svc.cluster.local")).To(Equal(resource.NewFullName("other", "foo")))
 	// short name
-	g.Expect(GetResourceNameFromHost("default", "foo")).To(Equal(resource.NewName("default", "foo")))
+	g.Expect(GetResourceNameFromHost("default", "foo")).To(Equal(resource.NewFullName("default", "foo")))
 	// bogus FQDN (gets treated like a short name)
-	g.Expect(GetResourceNameFromHost("default", "foo.svc.cluster.local")).To(Equal(resource.NewName("default", "foo.svc.cluster.local")))
+	g.Expect(GetResourceNameFromHost("default", "foo.svc.cluster.local")).To(Equal(resource.NewFullName("default", "foo.svc.cluster.local")))
 }
 
 func TestGetScopedFqdnHostname(t *testing.T) {

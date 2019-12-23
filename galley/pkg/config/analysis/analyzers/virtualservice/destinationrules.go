@@ -35,7 +35,8 @@ var _ analysis.Analyzer = &DestinationRuleAnalyzer{}
 // Metadata implements Analyzer
 func (d *DestinationRuleAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name: "virtualservice.DestionationRuleAnalyzer",
+		Name:        "virtualservice.DestinationRuleAnalyzer",
+		Description: "Checks the destination rules associated with each virtual service",
 		Inputs: collection.Names{
 			metadata.IstioNetworkingV1Alpha3Virtualservices,
 			metadata.IstioNetworkingV1Alpha3Destinationrules,
@@ -48,17 +49,17 @@ func (d *DestinationRuleAnalyzer) Analyze(ctx analysis.Context) {
 	// To avoid repeated iteration, precompute the set of existing destination host+subset combinations
 	destHostsAndSubsets := initDestHostsAndSubsets(ctx)
 
-	ctx.ForEach(metadata.IstioNetworkingV1Alpha3Virtualservices, func(r *resource.Entry) bool {
+	ctx.ForEach(metadata.IstioNetworkingV1Alpha3Virtualservices, func(r *resource.Instance) bool {
 		d.analyzeVirtualService(r, ctx, destHostsAndSubsets)
 		return true
 	})
 }
 
-func (d *DestinationRuleAnalyzer) analyzeVirtualService(r *resource.Entry, ctx analysis.Context,
+func (d *DestinationRuleAnalyzer) analyzeVirtualService(r *resource.Instance, ctx analysis.Context,
 	destHostsAndSubsets map[hostAndSubset]bool) {
 
-	vs := r.Item.(*v1alpha3.VirtualService)
-	ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
+	vs := r.Message.(*v1alpha3.VirtualService)
+	ns := r.Metadata.FullName.Namespace
 
 	destinations := getRouteDestinations(vs)
 
@@ -70,7 +71,7 @@ func (d *DestinationRuleAnalyzer) analyzeVirtualService(r *resource.Entry, ctx a
 	}
 }
 
-func (d *DestinationRuleAnalyzer) checkDestinationSubset(vsNamespace string, destination *v1alpha3.Destination,
+func (d *DestinationRuleAnalyzer) checkDestinationSubset(vsNamespace resource.Namespace, destination *v1alpha3.Destination,
 	destHostsAndSubsets map[hostAndSubset]bool) bool {
 
 	name := util.GetResourceNameFromHost(vsNamespace, destination.GetHost())
@@ -94,9 +95,9 @@ func (d *DestinationRuleAnalyzer) checkDestinationSubset(vsNamespace string, des
 
 func initDestHostsAndSubsets(ctx analysis.Context) map[hostAndSubset]bool {
 	hostsAndSubsets := make(map[hostAndSubset]bool)
-	ctx.ForEach(metadata.IstioNetworkingV1Alpha3Destinationrules, func(r *resource.Entry) bool {
-		dr := r.Item.(*v1alpha3.DestinationRule)
-		drNamespace, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
+	ctx.ForEach(metadata.IstioNetworkingV1Alpha3Destinationrules, func(r *resource.Instance) bool {
+		dr := r.Message.(*v1alpha3.DestinationRule)
+		drNamespace := r.Metadata.FullName.Namespace
 
 		for _, ss := range dr.GetSubsets() {
 			hs := hostAndSubset{

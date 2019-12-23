@@ -32,6 +32,10 @@ import (
 	"istio.io/istio/pkg/config/labels"
 )
 
+const (
+	clusterID = ""
+)
+
 type mockServer struct {
 	server      *httptest.Server
 	services    map[string][]string
@@ -155,7 +159,7 @@ func newServer() *mockServer {
 func TestInstances(t *testing.T) {
 	ts := newServer()
 	defer ts.server.Close()
-	controller, err := NewController(ts.server.URL)
+	controller, err := NewController(ts.server.URL, clusterID)
 	if err != nil {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
@@ -195,7 +199,7 @@ func TestInstances(t *testing.T) {
 	}
 	for _, inst := range instances {
 		found := false
-		for key, val := range inst.Labels {
+		for key, val := range inst.Endpoint.Labels {
 			if key == filterTagKey && val == filterTagVal {
 				found = true
 			}
@@ -215,9 +219,9 @@ func TestInstances(t *testing.T) {
 		t.Errorf("Instances() did not filter by port => %q, want 2", len(instances))
 	}
 	for _, inst := range instances {
-		if inst.Endpoint.ServicePort.Port != filterPort {
+		if inst.ServicePort.Port != filterPort {
 			t.Errorf("Instances() did not filter by port => %q, want %q",
-				inst.Endpoint.ServicePort.Name, filterPort)
+				inst.ServicePort.Name, filterPort)
 		}
 	}
 }
@@ -225,7 +229,7 @@ func TestInstances(t *testing.T) {
 func TestInstancesBadHostname(t *testing.T) {
 	ts := newServer()
 	defer ts.server.Close()
-	controller, err := NewController(ts.server.URL)
+	controller, err := NewController(ts.server.URL, clusterID)
 	if err != nil {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
@@ -247,7 +251,7 @@ func TestInstancesBadHostname(t *testing.T) {
 
 func TestInstancesError(t *testing.T) {
 	ts := newServer()
-	controller, err := NewController(ts.server.URL)
+	controller, err := NewController(ts.server.URL, clusterID)
 	if err != nil {
 		ts.server.Close()
 		t.Errorf("could not create Consul Controller: %v", err)
@@ -273,7 +277,7 @@ func TestInstancesError(t *testing.T) {
 func TestGetService(t *testing.T) {
 	ts := newServer()
 	defer ts.server.Close()
-	controller, err := NewController(ts.server.URL)
+	controller, err := NewController(ts.server.URL, clusterID)
 	if err != nil {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
@@ -294,7 +298,7 @@ func TestGetService(t *testing.T) {
 
 func TestGetServiceError(t *testing.T) {
 	ts := newServer()
-	controller, err := NewController(ts.server.URL)
+	controller, err := NewController(ts.server.URL, clusterID)
 	if err != nil {
 		ts.server.Close()
 		t.Errorf("could not create Consul Controller: %v", err)
@@ -313,7 +317,7 @@ func TestGetServiceError(t *testing.T) {
 func TestGetServiceBadHostname(t *testing.T) {
 	ts := newServer()
 	defer ts.server.Close()
-	controller, err := NewController(ts.server.URL)
+	controller, err := NewController(ts.server.URL, clusterID)
 	if err != nil {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
@@ -330,7 +334,7 @@ func TestGetServiceBadHostname(t *testing.T) {
 func TestGetServiceNoInstances(t *testing.T) {
 	ts := newServer()
 	defer ts.server.Close()
-	controller, err := NewController(ts.server.URL)
+	controller, err := NewController(ts.server.URL, clusterID)
 	if err != nil {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
@@ -347,7 +351,7 @@ func TestGetServiceNoInstances(t *testing.T) {
 func TestServices(t *testing.T) {
 	ts := newServer()
 	defer ts.server.Close()
-	controller, err := NewController(ts.server.URL)
+	controller, err := NewController(ts.server.URL, clusterID)
 	if err != nil {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
@@ -377,7 +381,7 @@ func TestServices(t *testing.T) {
 
 func TestServicesError(t *testing.T) {
 	ts := newServer()
-	controller, err := NewController(ts.server.URL)
+	controller, err := NewController(ts.server.URL, clusterID)
 	if err != nil {
 		ts.server.Close()
 		t.Errorf("could not create Consul Controller: %v", err)
@@ -396,7 +400,7 @@ func TestServicesError(t *testing.T) {
 func TestGetProxyServiceInstances(t *testing.T) {
 	ts := newServer()
 	defer ts.server.Close()
-	controller, err := NewController(ts.server.URL)
+	controller, err := NewController(ts.server.URL, clusterID)
 	if err != nil {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
@@ -417,7 +421,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 
 func TestGetProxyServiceInstancesError(t *testing.T) {
 	ts := newServer()
-	controller, err := NewController(ts.server.URL)
+	controller, err := NewController(ts.server.URL, clusterID)
 	if err != nil {
 		ts.server.Close()
 		t.Errorf("could not create Consul Controller: %v", err)
@@ -436,7 +440,7 @@ func TestGetProxyServiceInstancesError(t *testing.T) {
 func TestGetProxyServiceInstancesWithMultiIPs(t *testing.T) {
 	ts := newServer()
 	defer ts.server.Close()
-	controller, err := NewController(ts.server.URL)
+	controller, err := NewController(ts.server.URL, clusterID)
 	if err != nil {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
@@ -458,7 +462,7 @@ func TestGetProxyServiceInstancesWithMultiIPs(t *testing.T) {
 func TestGetProxyWorkloadLabels(t *testing.T) {
 	ts := newServer()
 	defer ts.server.Close()
-	controller, err := NewController(ts.server.URL)
+	controller, err := NewController(ts.server.URL, clusterID)
 	if err != nil {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
@@ -517,7 +521,7 @@ func TestGetProxyWorkloadLabels(t *testing.T) {
 
 func TestGetServiceByCache(t *testing.T) {
 	ts := newServer()
-	controller, err := NewController(ts.server.URL)
+	controller, err := NewController(ts.server.URL, clusterID)
 	if err != nil {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
@@ -540,7 +544,7 @@ func TestGetServiceByCache(t *testing.T) {
 func TestGetInstanceByCacheAfterChanged(t *testing.T) {
 	ts := newServer()
 	defer ts.server.Close()
-	controller, err := NewController(ts.server.URL)
+	controller, err := NewController(ts.server.URL, clusterID)
 	if err != nil {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}

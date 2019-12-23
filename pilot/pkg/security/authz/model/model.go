@@ -88,11 +88,11 @@ func NewServiceMetadata(name string, namespace string, service *model.ServiceIns
 
 	return &ServiceMetadata{
 		Name:   string(service.Service.Hostname),
-		Labels: service.Labels,
+		Labels: service.Endpoint.Labels,
 		Attributes: map[string]string{
 			attrDestName:      name,
 			attrDestNamespace: namespace,
-			attrDestUser:      extractActualServiceAccount(service.ServiceAccount),
+			attrDestUser:      extractActualServiceAccount(service.Endpoint.ServiceAccount),
 		},
 	}, nil
 }

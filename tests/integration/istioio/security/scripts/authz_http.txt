@@ -113,16 +113,16 @@ for deploy in "productpage-v1" "details-v1" "ratings-v1" "reviews-v1" "reviews-v
   fi
 done
 
-# $snippet enabling_istio_authorization.sh syntax="bash"
+# $snippet enabling_istio_authorization syntax="bash"
 $ kubectl apply -f @samples/bookinfo/platform/kube/rbac/rbac-config-ON.yaml@
 # $endsnippet
 
 # Verify we don't have access.
 verify 403 "RBAC: access denied"
 
-# $snippet enforcing_namespace_level_access_control_apply.sh syntax="bash" outputis="text" outputsnippet="true"
+# $snippet enforcing_namespace_level_access_control_apply syntax="bash" outputis="text" outputsnippet="true"
 $ kubectl apply -f @samples/bookinfo/platform/kube/rbac/namespace-policy.yaml@
-# $snippetoutput
+# $verify
 servicerole.rbac.istio.io/service-viewer created
 servicerolebinding.rbac.istio.io/bind-service-viewer created
 # $endsnippet
@@ -130,40 +130,40 @@ servicerolebinding.rbac.istio.io/bind-service-viewer created
 # Verify we now have access.
 verify 200 "William Shakespeare" "Book Details" "Book Reviews"
 
-# $snippet enforcing_namespace_level_access_control_delete.sh syntax="bash"
+# $snippet enforcing_namespace_level_access_control_delete syntax="bash"
 $ kubectl delete -f @samples/bookinfo/platform/kube/rbac/namespace-policy.yaml@
 # $endsnippet
 
 # Verify that we're back to no access.
 verify 403 "RBAC: access denied"
 
-# $snippet enforcing_service_level_access_control_step1_apply.sh syntax="bash"
+# $snippet enforcing_service_level_access_control_step1_apply syntax="bash"
 $ kubectl apply -f @samples/bookinfo/platform/kube/rbac/productpage-policy.yaml@
 # $endsnippet
 
 verify 200 "William Shakespeare" "Error fetching product details" "Error fetching product reviews"
 
-# $snippet enforcing_service_level_access_control_step2_apply.sh syntax="bash"
+# $snippet enforcing_service_level_access_control_step2_apply syntax="bash"
 $ kubectl apply -f @samples/bookinfo/platform/kube/rbac/details-reviews-policy.yaml@
 # $endsnippet
 
 verify 200 "William Shakespeare" "Book Details" "Book Reviews"
 
-# $snippet enforcing_service_level_access_control_step3_apply.sh syntax="bash"
+# $snippet enforcing_service_level_access_control_step3_apply syntax="bash"
 $ kubectl apply -f @samples/bookinfo/platform/kube/rbac/ratings-policy.yaml@
 # $endsnippet
 
-# $snippet remove_istio_authorization_policy.sh syntax="bash"
+# $snippet remove_istio_authorization_policy syntax="bash"
 $ kubectl delete -f @samples/bookinfo/platform/kube/rbac/ratings-policy.yaml@
 $ kubectl delete -f @samples/bookinfo/platform/kube/rbac/details-reviews-policy.yaml@
 $ kubectl delete -f @samples/bookinfo/platform/kube/rbac/productpage-policy.yaml@
 # $endsnippet
 
-# $snippet remove_istio_authorization_policy_alternative.sh syntax="bash"
+# $snippet remove_istio_authorization_policy_alternative syntax="bash"
 $ kubectl delete servicerole --all
 $ kubectl delete servicerolebinding --all
 # $endsnippet
 
-# $snippet disabling_istio_authorization.sh syntax="bash"
+# $snippet disabling_istio_authorization syntax="bash"
 $ kubectl delete -f @samples/bookinfo/platform/kube/rbac/rbac-config-ON.yaml@
 # $endsnippet

@@ -17,10 +17,13 @@ package v2
 import (
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"io"
 	"net/http"
 	"net/http/pprof"
 	"sort"
+
+	"istio.io/istio/pkg/kube/inject"
 
 	"istio.io/istio/pilot/pkg/features"
 
@@ -30,15 +33,57 @@ import (
 
 	authn "istio.io/api/authentication/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/model"
 	networking_core "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_alpha1 "istio.io/istio/pilot/pkg/security/authn/v1alpha1"
-	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pkg/config/host"
 )
+
+var indexTmpl = template.Must(template.New("index").Parse(`<html>
+<head>
+<title>Pilot Debug Console</title>
+</head>
+<style>
+#endpoints {
+  font-family: "Trebuchet MS", Arial, Helvetica, sans-serif;
+  border-collapse: collapse;
+}
+
+#endpoints td, #endpoints th {
+  border: 1px solid #ddd;
+  padding: 8px;
+}
+
+#endpoints tr:nth-child(even){background-color: #f2f2f2;}
+
+#endpoints tr:hover {background-color: #ddd;}
+
+#endpoints th {
+  padding-top: 12px;
+  padding-bottom: 12px;
+  text-align: left;
+  background-color: black;
+  color: white;
+}
+</style>
+<body>
+<br/>
+<table id="endpoints">
+<tr><th>Endpoint</th><th>Description</th></tr>
+{{range .}}
+	<tr>
+	<td><a href='{{.Href}}'>{{.Name}}</a></td><td>{{.Help}}</td>
+	</tr>
+{{end}}
+</table>
+<br/>
+</body>
+</html>
+`))
 
 const (
 	// configNameNotApplicable is used to represent the name of the authentication policy or
@@ -47,7 +92,7 @@ const (
 )
 
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
-func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller, enableProfiling bool) {
+func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller, enableProfiling bool, webhook *inject.Webhook) {
 	// For debugging and load testing v2 we add an memory registry.
 	s.MemRegistry = NewMemServiceDiscovery(
 		map[host.Name]*model.Service{ // mock.HelloService.Hostname: mock.HelloService,
@@ -55,37 +100,49 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	s.MemRegistry.EDSUpdater = s
 	s.MemRegistry.ClusterID = "v2-debug"
 
-	sctl.AddRegistry(aggregate.Registry{
+	sctl.AddRegistry(serviceregistry.Simple{
 		ClusterID:        "v2-debug",
-		Name:             serviceregistry.ServiceRegistry("memAdapter"),
+		ProviderID:       "memAdapter",
 		ServiceDiscovery: s.MemRegistry,
 		Controller:       s.MemRegistry.controller,
 	})
 
 	if enableProfiling {
-		mux.HandleFunc("/debug/pprof/", pprof.Index)
-		mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
-		mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
-		mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
-		mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+		s.addDebugHandler(mux, "/debug/pprof/", "Displays pprof index", pprof.Index)
+		s.addDebugHandler(mux, "/debug/pprof/cmdline", "The command line invocation of the current program", pprof.Cmdline)
+		s.addDebugHandler(mux, "/debug/pprof/profile", "CPU profile", pprof.Profile)
+		s.addDebugHandler(mux, "/debug/pprof/symbol", "Symbol looks up the program counters listed in the request", pprof.Symbol)
+		s.addDebugHandler(mux, "/debug/pprof/trace", "A trace of execution of the current program.", pprof.Trace)
 	}
 
+	mux.HandleFunc("/debug", s.Debug)
 	mux.HandleFunc("/ready", s.ready)
 
-	mux.HandleFunc("/debug/edsz", s.edsz)
-	mux.HandleFunc("/debug/adsz", s.adsz)
-	mux.HandleFunc("/debug/cdsz", cdsz)
-	mux.HandleFunc("/debug/syncz", Syncz)
-	mux.HandleFunc("/debug/config_distribution", s.distributedVersions)
+	s.addDebugHandler(mux, "/debug/edsz", "Status and debug interface for EDS", s.edsz)
+	s.addDebugHandler(mux, "/debug/adsz", "Status and debug interface for ADS", s.adsz)
+	s.addDebugHandler(mux, "/debug/adsz?push=true", "Initiates push of the current state to all connected endpoints", s.adsz)
+	s.addDebugHandler(mux, "/debug/cdsz", "Status and debug interface for CDS", cdsz)
 
-	mux.HandleFunc("/debug/registryz", s.registryz)
-	mux.HandleFunc("/debug/endpointz", s.endpointz)
-	mux.HandleFunc("/debug/endpointShardz", s.endpointShardz)
-	mux.HandleFunc("/debug/configz", s.configz)
+	s.addDebugHandler(mux, "/debug/syncz", "Synchronization status of all Envoys connected to this Pilot instance", Syncz)
+	s.addDebugHandler(mux, "/debug/config_distribution", "Version status of all Envoys connected to this Pilot instance", s.distributedVersions)
 
-	mux.HandleFunc("/debug/authenticationz", s.Authenticationz)
-	mux.HandleFunc("/debug/config_dump", s.ConfigDump)
-	mux.HandleFunc("/debug/push_status", s.PushStatusHandler)
+	s.addDebugHandler(mux, "/debug/registryz", "Debug support for registry", s.registryz)
+	s.addDebugHandler(mux, "/debug/endpointz", "Debug support for endpoints", s.endpointz)
+	s.addDebugHandler(mux, "/debug/endpointShardz", "Info about the endpoint shards", s.endpointShardz)
+	s.addDebugHandler(mux, "/debug/configz", "Debug support for config", s.configz)
+
+	s.addDebugHandler(mux, "/debug/authenticationz", "Dumps the authn tls-check info", s.Authenticationz)
+	s.addDebugHandler(mux, "/debug/authorizationz", "Internal authorization policies", s.Authorizationz)
+	s.addDebugHandler(mux, "/debug/config_dump", "ConfigDump in the form of the Envoy admin config dump API for passed in proxyID", s.ConfigDump)
+	s.addDebugHandler(mux, "/debug/push_status", "Last PushContext Details", s.PushStatusHandler)
+
+	s.addDebugHandler(mux, "/debug/inject", "Active inject template", s.InjectTemplateHandler(webhook))
+}
+
+func (s *DiscoveryServer) addDebugHandler(mux *http.ServeMux, path string, help string,
+	handler func(http.ResponseWriter, *http.Request)) {
+	s.debugHandlers[path] = help
+	mux.HandleFunc(path, handler)
 }
 
 // SyncStatus is the synchronization status between Pilot and a given Envoy
@@ -187,8 +244,8 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 				}
 				for _, svc := range all {
 					_, _ = fmt.Fprintf(w, "%s:%s %v %s:%d %v %s\n", ss.Hostname,
-						p.Name, svc.Endpoint.Family, svc.Endpoint.Address, svc.Endpoint.Port, svc.Labels,
-						svc.ServiceAccount)
+						p.Name, svc.Endpoint.Family, svc.Endpoint.Address, svc.Endpoint.EndpointPort, svc.Endpoint.Labels,
+						svc.Endpoint.ServiceAccount)
 				}
 			}
 		}
@@ -388,8 +445,9 @@ func (s *DiscoveryServer) Authenticationz(w http.ResponseWriter, req *http.Reque
 		}
 		mostRecentProxy = connections[mostRecent].node
 		svc, _ := s.Env.ServiceDiscovery.Services()
-		autoMTLSEnabled := s.Env.Mesh.GetEnableAutoMtls() != nil && s.Env.Mesh.GetEnableAutoMtls().Value
-		info := []*AuthenticationDebug{}
+		meshConfig := s.Env.Mesh()
+		autoMTLSEnabled := meshConfig.GetEnableAutoMtls() != nil && meshConfig.GetEnableAutoMtls().Value
+		info := make([]*AuthenticationDebug, 0)
 		for _, ss := range svc {
 			if ss.MeshExternal {
 				// Skip external services
@@ -409,6 +467,23 @@ func (s *DiscoveryServer) Authenticationz(w http.ResponseWriter, req *http.Reque
 
 	w.WriteHeader(http.StatusBadRequest)
 	_, _ = w.Write([]byte("You must provide a proxyID in the query string"))
+}
+
+// AuthorizationDebug holds debug information for authorization policy.
+type AuthorizationDebug struct {
+	AuthorizationPolicies *model.AuthorizationPolicies `json:"authorization_policies"`
+}
+
+// Authorizationz dumps the internal authorization policies.
+func (s *DiscoveryServer) Authorizationz(w http.ResponseWriter, req *http.Request) {
+	w.Header().Add("Content-Type", "application/json")
+
+	info := AuthorizationDebug{
+		AuthorizationPolicies: s.globalPushContext().AuthzPolicies,
+	}
+	if b, err := json.MarshalIndent(info, "  ", "  "); err == nil {
+		_, _ = w.Write(b)
+	}
 }
 
 // AnalyzeMTLSSettings returns mTLS compatibility status between client and server policies.
@@ -432,7 +507,7 @@ func AnalyzeMTLSSettings(autoMTLSEnabled bool, hostname host.Name, port *model.P
 		destinationRuleName = configName(&destConfig.ConfigMeta)
 	}
 
-	output := []*AuthenticationDebug{}
+	output := make([]*AuthenticationDebug, 0)
 
 	clientTLSModes := collectTLSSettingsForPort(rule, port)
 	var subsets []string
@@ -465,7 +540,7 @@ func AnalyzeMTLSSettings(autoMTLSEnabled bool, hostname host.Name, port *model.P
 // - "AUTO": auto mTLS feature is enabled, client TLS (destination rule) is not set and pilot can auto detect client (m)TLS settings.
 // - "OK": both client and server TLS settings are set correctly.
 // - "CONFLICT": both client and server TLS settings are set, but could be incompatible.
-func EvaluateTLSState(autoMTLSEnabled bool, clientMode *networking.TLSSettings, serverMode authn_model.MutualTLSMode) string {
+func EvaluateTLSState(autoMTLSEnabled bool, clientMode *networking.TLSSettings, serverMode model.MutualTLSMode) string {
 	const okState string = "OK"
 	const conflictState string = "CONFLICT"
 	const autoState string = "AUTO"
@@ -479,9 +554,9 @@ func EvaluateTLSState(autoMTLSEnabled bool, clientMode *networking.TLSSettings, 
 		return okState
 	}
 
-	if (serverMode == authn_model.MTLSDisable && clientMode.GetMode() == networking.TLSSettings_DISABLE) ||
-		(serverMode == authn_model.MTLSStrict && clientMode.GetMode() == networking.TLSSettings_ISTIO_MUTUAL) ||
-		(serverMode == authn_model.MTLSPermissive &&
+	if (serverMode == model.MTLSDisable && clientMode.GetMode() == networking.TLSSettings_DISABLE) ||
+		(serverMode == model.MTLSStrict && clientMode.GetMode() == networking.TLSSettings_ISTIO_MUTUAL) ||
+		(serverMode == model.MTLSPermissive &&
 			(clientMode.GetMode() == networking.TLSSettings_ISTIO_MUTUAL || clientMode.GetMode() == networking.TLSSettings_DISABLE)) {
 		return okState
 	}
@@ -545,7 +620,7 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 // configDump converts the connection internal state into an Envoy Admin API config dump proto
 // It is used in debugging to create a consistent object for comparison between Envoy and Pilot outputs
 func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump, error) {
-	dynamicActiveClusters := []*adminapi.ClustersConfigDump_DynamicCluster{}
+	dynamicActiveClusters := make([]*adminapi.ClustersConfigDump_DynamicCluster, 0)
 	clusters := s.generateRawClusters(conn.node, s.globalPushContext())
 
 	for _, cs := range clusters {
@@ -559,14 +634,15 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 		return nil, err
 	}
 
-	dynamicActiveListeners := []*adminapi.ListenersConfigDump_DynamicListener{}
+	dynamicActiveListeners := make([]*adminapi.ListenersConfigDump_DynamicListener, 0)
 	listeners := s.generateRawListeners(conn, s.globalPushContext())
 	for _, cs := range listeners {
-		dynamicActiveListeners = append(dynamicActiveListeners, &adminapi.ListenersConfigDump_DynamicListener{Listener: cs})
+		dynamicActiveListeners = append(dynamicActiveListeners, &adminapi.ListenersConfigDump_DynamicListener{
+			ActiveState: &adminapi.ListenersConfigDump_DynamicListenerState{Listener: cs}})
 	}
 	listenersAny, err := util.MessageToAnyWithError(&adminapi.ListenersConfigDump{
-		VersionInfo:            versionInfo(),
-		DynamicActiveListeners: dynamicActiveListeners,
+		VersionInfo:      versionInfo(),
+		DynamicListeners: dynamicActiveListeners,
 	})
 	if err != nil {
 		return nil, err
@@ -575,7 +651,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	routes := s.generateRawRoutes(conn, s.globalPushContext())
 	routeConfigAny := util.MessageToAny(&adminapi.RoutesConfigDump{})
 	if len(routes) > 0 {
-		dynamicRouteConfig := []*adminapi.RoutesConfigDump_DynamicRouteConfig{}
+		dynamicRouteConfig := make([]*adminapi.RoutesConfigDump_DynamicRouteConfig, 0)
 		for _, rs := range routes {
 			dynamicRouteConfig = append(dynamicRouteConfig, &adminapi.RoutesConfigDump_DynamicRouteConfig{RouteConfig: rs})
 		}
@@ -592,12 +668,28 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	return configDump, nil
 }
 
+// InjectTemplateHandler dumps the injection template
+// Replaces dumping the template at startup.
+func (s *DiscoveryServer) InjectTemplateHandler(webhook *inject.Webhook) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, req *http.Request) {
+		// TODO: we should split the inject template into smaller modules (separate one for dump core, etc),
+		// and allow pods to select which patches will be selected. When this happen, this should return
+		// all inject templates or take a param to select one.
+		if webhook == nil {
+			w.WriteHeader(404)
+			return
+		}
+
+		_, _ = w.Write([]byte(webhook.Config.Template))
+	}
+}
+
 // PushStatusHandler dumps the last PushContext
 func (s *DiscoveryServer) PushStatusHandler(w http.ResponseWriter, req *http.Request) {
 	if model.LastPushStatus == nil {
 		return
 	}
-	out, err := model.LastPushStatus.JSON()
+	out, err := model.LastPushStatus.StatusJSON()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = fmt.Fprintf(w, "unable to marshal push information: %v", err)
@@ -640,6 +732,34 @@ func (s *DiscoveryServer) ready(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(200)
 }
 
+// lists all the supported debug endpoints.
+func (s *DiscoveryServer) Debug(w http.ResponseWriter, req *http.Request) {
+	type debugEndpoint struct {
+		Name string
+		Href string
+		Help string
+	}
+	var deps []debugEndpoint
+
+	for k, v := range s.debugHandlers {
+		deps = append(deps, debugEndpoint{
+			Name: k,
+			Href: k,
+			Help: v,
+		})
+	}
+
+	sort.Slice(deps, func(i, j int) bool {
+		return deps[i].Name < deps[j].Name
+	})
+
+	if err := indexTmpl.Execute(w, deps); err != nil {
+		adsLog.Errorf("Error in rendering index template %v", err)
+		w.WriteHeader(500)
+	}
+	w.WriteHeader(200)
+}
+
 // edsz implements a status and debug interface for EDS.
 // It is mapped to /debug/edsz on the monitor port (15014).
 func (s *DiscoveryServer) edsz(w http.ResponseWriter, req *http.Request) {
@@ -649,11 +769,48 @@ func (s *DiscoveryServer) edsz(w http.ResponseWriter, req *http.Request) {
 	if req.Form.Get("push") != "" {
 		AdsPushAll(s)
 	}
+	var con *XdsConnection
+	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
+		adsClientsMutex.RLock()
+		defer adsClientsMutex.RUnlock()
+		connections, ok := adsSidecarIDConnectionsMap[proxyID]
+		// We can't guarantee the Pilot we are connected to has a connection to the proxy we requested
+		// There isn't a great way around this, but for debugging purposes its suitable to have the caller retry.
+		if !ok || len(connections) == 0 {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte("Proxy not connected to this Pilot instance. It may be connected to another instance."))
+			return
+		}
+
+		mostRecent := ""
+		for key := range connections {
+			if mostRecent == "" || key > mostRecent {
+				mostRecent = key
+			}
+		}
+		con = connections[mostRecent]
+	}
 
 	edsClusterMutex.RLock()
 	defer edsClusterMutex.RUnlock()
 	comma := false
-	if len(edsClusters) > 0 {
+	if con != nil {
+		_, _ = fmt.Fprintln(w, "[")
+		for _, clusterName := range con.Clusters {
+			if comma {
+				_, _ = fmt.Fprint(w, ",\n")
+			} else {
+				comma = true
+			}
+			cla := s.generateEndpoints(clusterName, con.node, s.globalPushContext(), nil)
+			jsonm := &jsonpb.Marshaler{Indent: "  "}
+			dbgString, _ := jsonm.MarshalToString(cla)
+			if _, err := w.Write([]byte(dbgString)); err != nil {
+				return
+			}
+		}
+		_, _ = fmt.Fprintln(w, "]")
+	} else if len(edsClusters) > 0 {
 		_, _ = fmt.Fprintln(w, "[")
 		for cluster := range edsClusters {
 			if comma {

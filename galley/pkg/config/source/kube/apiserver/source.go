@@ -107,7 +107,6 @@ func (s *Source) Start() {
 		return
 	}
 	s.started = true
-	s.mu.Unlock()
 
 	// Create a set of pending resources. These will be matched up with incoming CRD events for creating watchers for
 	// each resource that we expect.
@@ -118,6 +117,8 @@ func (s *Source) Start() {
 		key := asKey(r.Group, r.Kind)
 		s.expectedResources[key] = r
 	}
+	// Releasing the lock here to avoid deadlock on crdWatcher between the existing one and a newly started one.
+	s.mu.Unlock()
 
 	// Start the CRD listener. When the listener is fully-synced, the listening of actual resources will start.
 	scope.Source.Infof("Beginning CRD Discovery, to figure out resources that are available...")
@@ -147,7 +148,7 @@ func (s *Source) onCrdEvent(e event.Event) {
 
 	switch e.Kind {
 	case event.Added:
-		crd := e.Entry.Item.(*v1beta1.CustomResourceDefinitionSpec)
+		crd := e.Resource.Message.(*v1beta1.CustomResourceDefinitionSpec)
 		g := crd.Group
 		k := crd.Names.Kind
 		key := asKey(g, k)
@@ -197,6 +198,7 @@ func (s *Source) startWatchers() {
 		scope.Source.Infof("  Source:       %s", r.CanonicalResourceName())
 		scope.Source.Infof("  Name:  		 %s", r.Collection)
 		scope.Source.Infof("  Built-in:     %v", a.IsBuiltIn())
+		scope.Source.Infof("  Disabled:     %v", r.Disabled)
 		if !a.IsBuiltIn() {
 			scope.Source.Infof("  Found:  %v", found)
 		}

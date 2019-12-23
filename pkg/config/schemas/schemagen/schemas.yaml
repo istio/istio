@@ -156,3 +156,12 @@ schemas:
     messageName: "istio.security.v1beta1.AuthorizationPolicy"
     collection: "istio/security/v1beta1/authorizationpolicies"
     description: "describes the authorization policy."
+
+  - type: "request-authentication"
+    plural: "requestauthentications"
+    group: "security"
+    version: "v1beta1"
+    messageName: "istio.security.v1beta1.RequestAuthentication"
+    collection: "istio/security/v1beta1/requestauthentications"
+    validate: "ValidateRequestAuthentication"
+    description: "describes the request authentication."

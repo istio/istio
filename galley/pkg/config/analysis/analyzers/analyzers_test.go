@@ -16,6 +16,8 @@ package analyzers
 
 import (
 	"fmt"
+	"io"
+	"os"
 	"regexp"
 	"testing"
 
@@ -24,9 +26,11 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/annotations"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/auth"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/deployment"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/deprecation"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/service"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/sidecar"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/virtualservice"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
@@ -42,10 +46,11 @@ type message struct {
 }
 
 type testCase struct {
-	name       string
-	inputFiles []string
-	analyzer   analysis.Analyzer
-	expected   []message
+	name           string
+	inputFiles     []string
+	meshConfigFile string // Optional
+	analyzer       analysis.Analyzer
+	expected       []message
 }
 
 // Some notes on setting up tests for Analyzers:
@@ -65,6 +70,97 @@ var testGrid = []testCase{
 			{msg.MisplacedAnnotation, "Service details"},
 			{msg.MisplacedAnnotation, "Pod grafana-test"},
 			{msg.MisplacedAnnotation, "Deployment fortio-deploy"},
+			{msg.MisplacedAnnotation, "Namespace staging"},
+		},
+	},
+	{
+		name:           "mtlsAnalyzerAutoMtlsSkips",
+		inputFiles:     []string{"testdata/mtls-global-dr-no-meshpolicy.yaml"},
+		meshConfigFile: "testdata/mesh-with-automtls.yaml",
+		analyzer:       &auth.MTLSAnalyzer{},
+		expected:       []message{
+			// With autoMtls enabled, we should not generate a message
+		},
+	},
+	{
+		name:       "mtlsAnalyzerGlobalDestinationRuleNoMeshPolicy",
+		inputFiles: []string{"testdata/mtls-global-dr-no-meshpolicy.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected: []message{
+			{msg.MTLSPolicyConflict, "DestinationRule default.istio-system"},
+		},
+	},
+	{
+		name:       "mtlsAnalyzerIgnoresIstioControlPlane",
+		inputFiles: []string{"testdata/mtls-ignores-istio-control-plane.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected:   []message{
+			// no messages, this test case verifies no false positives
+		},
+	},
+	{
+		name:       "mtlsAnalyzerIgnoresSystemNamespaces",
+		inputFiles: []string{"testdata/mtls-ignores-system-namespaces.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected:   []message{
+			// no messages, this test case verifies no false positives
+		},
+	},
+	{
+		name:       "mtlsAnalyzerNoDestinationRule",
+		inputFiles: []string{"testdata/mtls-no-dr.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected: []message{
+			{msg.MTLSPolicyConflict, "Policy default.missing-dr"},
+		},
+	},
+	{
+		name:       "mtlsAnalyzerNoPolicy",
+		inputFiles: []string{"testdata/mtls-no-policy.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected: []message{
+			{msg.MTLSPolicyConflict, "DestinationRule no-policy-service-dr.no-policy"},
+		},
+	},
+	{
+		name:       "mtlsAnalyzerNoSidecar",
+		inputFiles: []string{"testdata/mtls-no-sidecar.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected: []message{
+			{msg.DestinationRuleUsesMTLSForWorkloadWithoutSidecar, "DestinationRule default.istio-system"},
+		},
+	},
+	{
+		name:       "mtlsAnalyzerWithExports",
+		inputFiles: []string{"testdata/mtls-exports.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected: []message{
+			{msg.MTLSPolicyConflict, "Policy default.primary"},
+		},
+	},
+	{
+		name:       "mtlsAnalyzerWithMeshPolicy",
+		inputFiles: []string{"testdata/mtls-meshpolicy.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected: []message{
+			{msg.MTLSPolicyConflict, "MeshPolicy default"},
+		},
+	},
+	{
+		name:       "mtlsAnalyzerWithPermissiveMeshPolicy",
+		inputFiles: []string{"testdata/mtls-meshpolicy-permissive.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected:   []message{
+			// no messages, this test case verifies no false positives
+		},
+	},
+	{
+		name:       "mtlsAnalyzerWithPort",
+		inputFiles: []string{"testdata/mtls-with-port.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected: []message{
+			{msg.MTLSPolicyConflict, "DestinationRule default.my-namespace"},
+			{msg.MTLSPolicyConflict, "Policy default.my-namespace"},
 		},
 	},
 	{
@@ -148,7 +244,16 @@ var testGrid = []testCase{
 			{msg.GatewayPortNotOnWorkload, "Gateway httpbin8002-gateway"},
 		},
 	},
-
+	{
+		name:       "gatewaySecret",
+		inputFiles: []string{"testdata/gateway-secrets.yaml"},
+		analyzer:   &gateway.SecretAnalyzer{},
+		expected: []message{
+			{msg.ReferencedResourceNotFound, "Gateway defaultgateway-bogusCredentialName"},
+			{msg.ReferencedResourceNotFound, "Gateway customgateway-wrongnamespace"},
+			{msg.ReferencedResourceNotFound, "Gateway bogusgateway"},
+		},
+	},
 	{
 		name:       "istioInjection",
 		inputFiles: []string{"testdata/injection.yaml"},
@@ -165,6 +270,22 @@ var testGrid = []testCase{
 		expected: []message{
 			{msg.IstioProxyVersionMismatch, "Pod details-v1-pod-old.enabled-namespace"},
 		},
+	},
+	{
+		name:       "portNameNotFollowConvention",
+		inputFiles: []string{"testdata/service-no-port-name.yaml"},
+		analyzer:   &service.PortNameAnalyzer{},
+		expected: []message{
+			{msg.PortNameIsNotUnderNamingConvention, "Service my-service1.my-namespace1"},
+			{msg.PortNameIsNotUnderNamingConvention, "Service my-service1.my-namespace1"},
+			{msg.PortNameIsNotUnderNamingConvention, "Service my-service2.my-namespace2"},
+		},
+	},
+	{
+		name:       "namedPort",
+		inputFiles: []string{"testdata/service-port-name.yaml"},
+		analyzer:   &service.PortNameAnalyzer{},
+		expected:   []message{},
 	},
 	{
 		name:       "sidecarDefaultSelector",
@@ -230,6 +351,17 @@ var testGrid = []testCase{
 			{msg.ReferencedResourceNotFound, "VirtualService httpbin-bogus"},
 		},
 	},
+	{
+		name:       "serviceMultipleDeployments",
+		inputFiles: []string{"testdata/deployment-multi-service.yaml"},
+		analyzer:   &deployment.ServiceAssociationAnalyzer{},
+		expected: []message{
+			{msg.DeploymentAssociatedToMultipleServices, "Deployment multiple-svc-multiple-prot.bookinfo"},
+			{msg.DeploymentAssociatedToMultipleServices, "Deployment multiple-without-port.bookinfo"},
+			{msg.DeploymentRequiresServiceAssociated, "Deployment no-services.bookinfo"},
+			{msg.DeploymentRequiresServiceAssociated, "Deployment ann-enabled-ns-disabled.injection-disabled-ns"},
+		},
+	},
 }
 
 // regex patterns for analyzer names that should be explicitly ignored for testing
@@ -259,9 +391,26 @@ func TestAnalyzers(t *testing.T) {
 				requestedInputsByAnalyzer[analyzerName][col] = struct{}{}
 			}
 
-			sa := local.NewSourceAnalyzer(metadata.MustGet(), analysis.Combine("testCombined", testCase.analyzer), "", cr, true)
+			sa := local.NewSourceAnalyzer(metadata.MustGet(), analysis.Combine("testCombined", testCase.analyzer), "", "istio-system", cr, true)
 
-			err := sa.AddFileKubeSource(testCase.inputFiles)
+			// If a mesh config file is specified, use it instead of the defaults
+			if testCase.meshConfigFile != "" {
+				err := sa.AddFileKubeMeshConfigSource(testCase.meshConfigFile)
+				if err != nil {
+					t.Fatalf("Error applying mesh config file %s: %v", testCase.meshConfigFile, err)
+				}
+			}
+
+			var files []io.Reader
+			for _, f := range testCase.inputFiles {
+				of, err := os.Open(f)
+				if err != nil {
+					t.Fatalf("Error opening test file: %q", f)
+				}
+				files = append(files, of)
+			}
+
+			err := sa.AddReaderKubeSource(files)
 			if err != nil {
 				t.Fatalf("Error setting up file kube source on testcase %s: %v", testCase.name, err)
 			}
@@ -308,6 +457,20 @@ func TestAnalyzers(t *testing.T) {
 	})
 }
 
+// Verify that all of the analyzers tested here are also registered in All()
+func TestAnalyzersInAll(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	var allNames []string
+	for _, a := range All() {
+		allNames = append(allNames, a.Metadata().Name)
+	}
+
+	for _, tc := range testGrid {
+		g.Expect(allNames).To(ContainElement(tc.analyzer.Metadata().Name))
+	}
+}
+
 func TestAnalyzersHaveUniqueNames(t *testing.T) {
 	g := NewGomegaWithT(t)
 
@@ -319,6 +482,14 @@ func TestAnalyzersHaveUniqueNames(t *testing.T) {
 			"Analyzers should be registered in All() exactly once and have a unique name.", n))
 
 		existingNames[n] = struct{}{}
+	}
+}
+
+func TestAnalyzersHaveDescription(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	for _, a := range All() {
+		g.Expect(a.Metadata().Description).ToNot(Equal(""))
 	}
 }
 

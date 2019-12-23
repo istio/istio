@@ -468,6 +468,17 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
 		},
 		{
+			// Verifies that pods can have multiple containers
+			in:                           "multi-container.yaml",
+			want:                         "multi-container.yaml.injected",
+			includeIPRanges:              DefaultIncludeIPRanges,
+			includeInboundPorts:          DefaultIncludeInboundPorts,
+			statusPort:                   DefaultStatusPort,
+			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
+			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
+			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+		},
+		{
 			// Verifies that the status params behave properly.
 			in:                           "status_params.yaml",
 			want:                         "status_params.yaml.injected",

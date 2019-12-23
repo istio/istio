@@ -58,16 +58,15 @@ func NewBuilder(trustDomainBundle trustdomain.Bundle, serviceInstance *model.Ser
 			rbacLog.Errorf("no service for serviceInstance: %v", serviceInstance)
 			return nil
 		}
-		serviceName := serviceInstance.Service.Attributes.Name
 		serviceNamespace := serviceInstance.Service.Attributes.Namespace
-		serviceMetadata, err := authz_model.NewServiceMetadata(serviceName, serviceNamespace, serviceInstance)
-		if err != nil {
-			rbacLog.Errorf("failed to create ServiceMetadata for %s: %s", serviceName, err)
-			return nil
-		}
-
 		serviceHostname := string(serviceInstance.Service.Hostname)
 		if policies.IsRBACEnabled(serviceHostname, serviceNamespace) {
+			serviceName := serviceInstance.Service.Attributes.Name
+			serviceMetadata, err := authz_model.NewServiceMetadata(serviceName, serviceNamespace, serviceInstance)
+			if err != nil {
+				rbacLog.Errorf("failed to create ServiceMetadata for %s: %s", serviceName, err)
+				return nil
+			}
 			generator = v1alpha1.NewGenerator(trustDomainBundle, serviceMetadata, policies, policies.IsGlobalPermissiveEnabled())
 			rbacLog.Debugf("v1alpha1 RBAC enabled for service %s", serviceHostname)
 		}

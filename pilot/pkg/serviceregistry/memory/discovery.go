@@ -118,14 +118,19 @@ func MakeInstance(service *model.Service, port *model.Port, version int, az stri
 	}
 
 	return &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
-			Address:     MakeIP(service, version),
-			Port:        target,
-			ServicePort: port,
-			Locality:    az,
+		Endpoint: &model.IstioEndpoint{
+			Address:         MakeIP(service, version),
+			EndpointPort:    uint32(target),
+			ServicePortName: port.Name,
+			Labels:          map[string]string{"version": fmt.Sprintf("v%d", version)},
+			Locality:        az,
+			Attributes: model.ServiceAttributes{
+				Name:      service.Attributes.Name,
+				Namespace: service.Attributes.Namespace,
+			},
 		},
-		Service: service,
-		Labels:  map[string]string{"version": fmt.Sprintf("v%d", version)},
+		Service:     service,
+		ServicePort: port,
 	}
 }
 
@@ -270,3 +275,15 @@ func (sd *ServiceDiscovery) GetIstioServiceAccounts(svc *model.Service, ports []
 	}
 	return make([]string, 0)
 }
+
+type MockController struct{}
+
+func (c *MockController) AppendServiceHandler(f func(*model.Service, model.Event)) error {
+	return nil
+}
+
+func (c *MockController) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
+	return nil
+}
+
+func (c *MockController) Run(<-chan struct{}) {}

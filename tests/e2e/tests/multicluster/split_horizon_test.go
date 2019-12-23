@@ -117,7 +117,7 @@ func setTestConfig() error {
 	// Extra system configuration required for the pilot tests.
 	tc.extraConfig = make(map[string]*deployableConfig)
 
-	// Deplyment configration for the primary cluster
+	// Deployment configuration for the primary cluster
 	if kc, ok := tc.Kube.Clusters[primaryCluster]; ok {
 		tc.extraConfig[primaryCluster] = &deployableConfig{
 			Namespace:      "sample",

@@ -174,7 +174,7 @@ func startPilot() error {
 		Service: bootstrap.ServiceArgs{
 			// Using the Mock service registry, which provides the hello and world services.
 			Registries: []string{
-				string(serviceregistry.MockRegistry)},
+				string(serviceregistry.Mock)},
 		},
 		MeshConfig:       &mcfg,
 		KeepaliveOptions: keepalive.DefaultOption(),
@@ -189,7 +189,7 @@ func startPilot() error {
 	}
 	log.Println("Using mock configs: ", args.Config.FileDir)
 	// Create and setup the controller.
-	s, err := bootstrap.NewServer(args)
+	s, err := bootstrap.NewServer(&args)
 	if err != nil {
 		return err
 	}

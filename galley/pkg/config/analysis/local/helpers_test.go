@@ -16,6 +16,8 @@ package local
 // Test helpers common to this package
 
 import (
+	"testing"
+
 	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/galley/pkg/config/event"
@@ -24,24 +26,26 @@ import (
 	"istio.io/istio/galley/pkg/config/testing/data"
 )
 
-func createTestEvent(k event.Kind, r *resource.Entry) event.Event {
+func createTestEvent(t *testing.T, k event.Kind, r *resource.Instance) event.Event {
+	t.Helper()
 	return event.Event{
-		Kind:   k,
-		Source: data.Collection1,
-		Entry:  r,
+		Kind:     k,
+		Source:   data.Collection1,
+		Resource: r,
 	}
 }
 
-func createTestResource(ns, name, version string) *resource.Entry {
-	rname := resource.NewName(ns, name)
-	return &resource.Entry{
+func createTestResource(t *testing.T, ns, name, version string) *resource.Instance {
+	t.Helper()
+	rname := resource.NewFullName(resource.Namespace(ns), resource.LocalName(name))
+	return &resource.Instance{
 		Metadata: resource.Metadata{
-			Name:    rname,
-			Version: resource.Version(version),
+			FullName: rname,
+			Version:  resource.Version(version),
 		},
-		Item: &types.Empty{},
+		Message: &types.Empty{},
 		Origin: &rt.Origin{
-			Name: rname,
+			FullName: rname,
 		},
 	}
 }

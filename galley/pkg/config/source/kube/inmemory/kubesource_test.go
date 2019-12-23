@@ -43,12 +43,12 @@ func TestKubeSource_ApplyContent(t *testing.T) {
 	actual := s.Get(data.Collection1).AllSorted()
 	g.Expect(actual).To(HaveLen(1))
 
-	g.Expect(actual[0].Metadata.Name).To(Equal(data.EntryN1I1V1.Metadata.Name))
+	g.Expect(actual[0].Metadata.FullName).To(Equal(data.EntryN1I1V1.Metadata.FullName))
 
 	g.Expect(acc.Events()).To(HaveLen(2))
 	g.Expect(acc.Events()[0].Kind).To(Equal(event.FullSync))
 	g.Expect(acc.Events()[1].Kind).To(Equal(event.Added))
-	g.Expect(acc.Events()[1].Entry.Metadata.Name).To(Equal(data.EntryN1I1V1.Metadata.Name))
+	g.Expect(acc.Events()[1].Resource.Metadata.FullName).To(Equal(data.EntryN1I1V1.Metadata.FullName))
 }
 
 func TestKubeSource_ApplyContent_BeforeStart(t *testing.T) {
@@ -66,11 +66,11 @@ func TestKubeSource_ApplyContent_BeforeStart(t *testing.T) {
 	actual := s.Get(data.Collection1).AllSorted()
 	g.Expect(actual).To(HaveLen(1))
 
-	g.Expect(actual[0].Metadata.Name).To(Equal(data.EntryN1I1V1.Metadata.Name))
+	g.Expect(actual[0].Metadata.FullName).To(Equal(data.EntryN1I1V1.Metadata.FullName))
 
 	g.Expect(acc.Events()).To(HaveLen(2))
 	g.Expect(acc.Events()[0].Kind).To(Equal(event.Added))
-	g.Expect(acc.Events()[0].Entry.Metadata.Name).To(Equal(data.EntryN1I1V1.Metadata.Name))
+	g.Expect(acc.Events()[0].Resource.Metadata.FullName).To(Equal(data.EntryN1I1V1.Metadata.FullName))
 	g.Expect(acc.Events()[1].Kind).To(Equal(event.FullSync))
 }
 
@@ -86,8 +86,8 @@ func TestKubeSource_ApplyContent_Unchanged0Add1(t *testing.T) {
 
 	actual := s.Get(data.Collection1).AllSorted()
 	g.Expect(actual).To(HaveLen(2))
-	g.Expect(actual[0].Metadata.Name).To(Equal(data.EntryN1I1V1.Metadata.Name))
-	g.Expect(actual[1].Metadata.Name).To(Equal(data.EntryN2I2V1.Metadata.Name))
+	g.Expect(actual[0].Metadata.FullName).To(Equal(data.EntryN1I1V1.Metadata.FullName))
+	g.Expect(actual[1].Metadata.FullName).To(Equal(data.EntryN2I2V1.Metadata.FullName))
 
 	err = s.ApplyContent("foo", kubeyaml.JoinString(data.YamlN2I2V2, data.YamlN3I3V1))
 	g.Expect(err).To(BeNil())
@@ -96,22 +96,22 @@ func TestKubeSource_ApplyContent_Unchanged0Add1(t *testing.T) {
 
 	actual = s.Get(data.Collection1).AllSorted()
 	g.Expect(actual).To(HaveLen(2))
-	g.Expect(actual[0].Metadata.Name).To(Equal(data.EntryN2I2V2.Metadata.Name))
-	g.Expect(actual[1].Metadata.Name).To(Equal(data.EntryN3I3V1.Metadata.Name))
+	g.Expect(actual[0].Metadata.FullName).To(Equal(data.EntryN2I2V2.Metadata.FullName))
+	g.Expect(actual[1].Metadata.FullName).To(Equal(data.EntryN3I3V1.Metadata.FullName))
 
 	events := acc.EventsWithoutOrigins()
 	g.Expect(events).To(HaveLen(6))
 	g.Expect(events[0].Kind).To(Equal(event.FullSync))
 	g.Expect(events[1].Kind).To(Equal(event.Added))
-	g.Expect(events[1].Entry).To(Equal(data.EntryN1I1V1))
+	g.Expect(events[1].Resource).To(Equal(data.EntryN1I1V1))
 	g.Expect(events[2].Kind).To(Equal(event.Added))
-	g.Expect(events[2].Entry).To(Equal(withVersion(data.EntryN2I2V1, "v2")))
+	g.Expect(events[2].Resource).To(Equal(withVersion(data.EntryN2I2V1, "v2")))
 	g.Expect(events[3].Kind).To(Equal(event.Updated))
-	g.Expect(events[3].Entry).To(Equal(withVersion(data.EntryN2I2V2, "v3")))
+	g.Expect(events[3].Resource).To(Equal(withVersion(data.EntryN2I2V2, "v3")))
 	g.Expect(events[4].Kind).To(Equal(event.Added))
-	g.Expect(events[4].Entry).To(Equal(withVersion(data.EntryN3I3V1, "v4")))
+	g.Expect(events[4].Resource).To(Equal(withVersion(data.EntryN3I3V1, "v4")))
 	g.Expect(events[5].Kind).To(Equal(event.Deleted))
-	g.Expect(events[5].Entry.Metadata.Name).To(Equal(data.EntryN1I1V1.Metadata.Name))
+	g.Expect(events[5].Resource.Metadata.FullName).To(Equal(data.EntryN1I1V1.Metadata.FullName))
 }
 
 func TestKubeSource_RemoveContent(t *testing.T) {
@@ -146,7 +146,7 @@ func TestKubeSource_RemoveContent(t *testing.T) {
 	g.Expect(events[4].Kind).To(Equal(event.Deleted))
 	g.Expect(events[5].Kind).To(Equal(event.Deleted))
 
-	if events[4].Entry.Metadata.Name == data.EntryN1I1V1.Metadata.Name {
+	if events[4].Resource.Metadata.FullName == data.EntryN1I1V1.Metadata.FullName {
 		g.Expect(events[4:]).To(ConsistOf(
 			event.DeleteForResource(data.Collection1, data.EntryN1I1V1),
 			event.DeleteForResource(data.Collection1, withVersion(data.EntryN2I2V1, "v2"))))
@@ -176,19 +176,19 @@ func TestKubeSource_Clear(t *testing.T) {
 	g.Expect(events).To(HaveLen(5))
 	g.Expect(events[0].Kind).To(Equal(event.FullSync))
 	g.Expect(events[1].Kind).To(Equal(event.Added))
-	g.Expect(events[1].Entry).To(Equal(data.EntryN1I1V1))
+	g.Expect(events[1].Resource).To(Equal(data.EntryN1I1V1))
 	g.Expect(events[2].Kind).To(Equal(event.Added))
-	g.Expect(events[2].Entry).To(Equal(withVersion(data.EntryN2I2V1, "v2")))
+	g.Expect(events[2].Resource).To(Equal(withVersion(data.EntryN2I2V1, "v2")))
 
 	g.Expect(events[3].Kind).To(Equal(event.Deleted))
 	g.Expect(events[4].Kind).To(Equal(event.Deleted))
 
-	if events[3].Entry.Metadata.Name == data.EntryN1I1V1.Metadata.Name {
-		g.Expect(events[3].Entry.Metadata.Name).To(Equal(data.EntryN1I1V1.Metadata.Name))
-		g.Expect(events[4].Entry.Metadata.Name).To(Equal(data.EntryN2I2V1.Metadata.Name))
+	if events[3].Resource.Metadata.FullName == data.EntryN1I1V1.Metadata.FullName {
+		g.Expect(events[3].Resource.Metadata.FullName).To(Equal(data.EntryN1I1V1.Metadata.FullName))
+		g.Expect(events[4].Resource.Metadata.FullName).To(Equal(data.EntryN2I2V1.Metadata.FullName))
 	} else {
-		g.Expect(events[3].Entry.Metadata.Name).To(Equal(data.EntryN2I2V1.Metadata.Name))
-		g.Expect(events[4].Entry.Metadata.Name).To(Equal(data.EntryN1I1V1.Metadata.Name))
+		g.Expect(events[3].Resource.Metadata.FullName).To(Equal(data.EntryN2I2V1.Metadata.FullName))
+		g.Expect(events[4].Resource.Metadata.FullName).To(Equal(data.EntryN1I1V1.Metadata.FullName))
 	}
 }
 
@@ -265,7 +265,7 @@ func TestKubeSource_Service(t *testing.T) {
 
 	actual := s.Get(k8smeta.K8SCoreV1Services).AllSorted()
 	g.Expect(actual).To(HaveLen(1))
-	g.Expect(actual[0].Metadata.Name).To(Equal(resource.NewName("kube-system", "kube-dns")))
+	g.Expect(actual[0].Metadata.FullName).To(Equal(resource.NewFullName("kube-system", "kube-dns")))
 }
 
 func TestSameNameDifferentKind(t *testing.T) {
@@ -296,17 +296,17 @@ func TestKubeSource_DefaultNamespace(t *testing.T) {
 	s.Start()
 	defer s.Stop()
 
-	defaultNs := "default"
+	defaultNs := resource.Namespace("default")
 	s.SetDefaultNamespace(defaultNs)
 
 	err := s.ApplyContent("foo", data.YamlI1V1NoNamespace)
 	g.Expect(err).To(BeNil())
 
-	_, expectedName := data.EntryI1V1NoNamespace.Metadata.Name.InterpretAsNamespaceAndName()
+	expectedName := data.EntryI1V1NoNamespace.Metadata.FullName.Name
 
 	actual := s.Get(data.Collection1).AllSorted()
 	g.Expect(actual).To(HaveLen(1))
-	g.Expect(actual[0].Metadata.Name).To(Equal(resource.NewName(defaultNs, expectedName)))
+	g.Expect(actual[0].Metadata.FullName).To(Equal(resource.NewFullName(defaultNs, expectedName)))
 }
 
 func TestKubeSource_DefaultNamespaceSkipClusterScoped(t *testing.T) {
@@ -318,7 +318,7 @@ func TestKubeSource_DefaultNamespaceSkipClusterScoped(t *testing.T) {
 	s.Start()
 	defer s.Stop()
 
-	defaultNs := "default"
+	defaultNs := resource.Namespace("default")
 	s.SetDefaultNamespace(defaultNs)
 
 	err := s.ApplyContent("foo", data.YamlI1V1NoNamespaceKind2)
@@ -326,7 +326,21 @@ func TestKubeSource_DefaultNamespaceSkipClusterScoped(t *testing.T) {
 
 	actual := s.Get(data.Collection2).AllSorted()
 	g.Expect(actual).To(HaveLen(1))
-	g.Expect(actual[0].Metadata.Name).To(Equal(data.EntryI1V1NoNamespace.Metadata.Name))
+	g.Expect(actual[0].Metadata.FullName).To(Equal(data.EntryI1V1NoNamespace.Metadata.FullName))
+}
+
+func TestKubeSource_CanHandleDocumentSeparatorInComments(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	s, _ := setupKubeSource()
+	s.Start()
+	defer s.Stop()
+
+	s.SetDefaultNamespace("default")
+
+	err := s.ApplyContent("foo", data.YamlI1V1WithCommentContainingDocumentSeparator)
+	g.Expect(err).To(BeNil())
+	g.Expect(s.ContentNames()).To(Equal(map[string]struct{}{"foo": {}}))
 }
 
 func setupKubeSource() (*KubeSource, *fixtures.Accumulator) {
@@ -348,14 +362,14 @@ func setupKubeSourceWithK8sMeta() (*KubeSource, *fixtures.Accumulator) {
 	return s, acc
 }
 
-func withVersion(r *resource.Entry, v string) *resource.Entry {
+func withVersion(r *resource.Instance, v string) *resource.Instance {
 	r = r.Clone()
 	r.Metadata.Version = resource.Version(v)
 	return r
 }
 
-func removeEntryOrigins(resources []*resource.Entry) []*resource.Entry {
-	result := make([]*resource.Entry, len(resources))
+func removeEntryOrigins(resources []*resource.Instance) []*resource.Instance {
+	result := make([]*resource.Instance, len(resources))
 	for i, r := range resources {
 		r = r.Clone()
 		r.Origin = nil

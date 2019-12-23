@@ -82,7 +82,7 @@ func (g *v1alpha1Generator) Generate(forTCPFilter bool) *http_config.RBAC {
 				enforcedBindings = append(enforcedBindings, binding)
 			}
 		}
-		role := roleConfig.Spec.(*istio_rbac.ServiceRole)
+		role := roleConfig.ServiceRole
 		if p := g.generatePolicy(g.trustDomainBundle, role, enforcedBindings, forTCPFilter); p != nil {
 			rbacLog.Debugf("generated policy for role: %s", roleName)
 			enforcedConfig.Policies[roleName] = p

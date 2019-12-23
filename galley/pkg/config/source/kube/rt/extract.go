@@ -23,31 +23,31 @@ import (
 	"istio.io/istio/galley/pkg/config/resource"
 )
 
-// ToResourceEntry converts the given object and proto to a resource.Entry
-func ToResourceEntry(object metav1.Object, r *schema.KubeResource, item proto.Message) *resource.Entry {
+// ToResource converts the given object and proto to a resource.Instance
+func ToResource(object metav1.Object, r *schema.KubeResource, item proto.Message) *resource.Instance {
 	var o *Origin
 
-	name := resource.NewName(object.GetNamespace(), object.GetName())
+	name := resource.NewFullName(resource.Namespace(object.GetNamespace()), resource.LocalName(object.GetName()))
 	version := resource.Version(object.GetResourceVersion())
 
 	if r != nil {
 		o = &Origin{
-			Name:       name,
+			FullName:   name,
 			Collection: r.Collection.Name,
 			Kind:       r.Kind,
 			Version:    version,
 		}
 	}
 
-	return &resource.Entry{
+	return &resource.Instance{
 		Metadata: resource.Metadata{
-			Name:        name,
+			FullName:    name,
 			Version:     version,
 			Annotations: object.GetAnnotations(),
 			Labels:      object.GetLabels(),
 			CreateTime:  object.GetCreationTimestamp().Time,
 		},
-		Item:   item,
-		Origin: o,
+		Message: item,
+		Origin:  o,
 	}
 }

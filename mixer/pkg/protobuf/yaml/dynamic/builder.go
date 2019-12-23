@@ -274,7 +274,7 @@ func (c Builder) buildPrimitiveField(v interface{}, fd *descriptor.FieldDescript
 		}
 
 		if err != nil {
-			return nil, fmt.Errorf("unable to build primitve encoder for:%v %v. %v", fld.name, val, err)
+			return nil, fmt.Errorf("unable to build primitive encoder for:%v %v. %v", fld.name, val, err)
 		}
 
 		// now enc != nil

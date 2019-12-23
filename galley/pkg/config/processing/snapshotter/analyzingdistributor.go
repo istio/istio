@@ -65,7 +65,7 @@ type AnalyzingDistributorSettings struct {
 	CollectionReporter CollectionReporterFn
 
 	// Namespaces that should be analyzed
-	AnalysisNamespaces []string
+	AnalysisNamespaces []resource.Namespace
 }
 
 // NewAnalyzingDistributor returns a new instance of AnalyzingDistributor.
@@ -107,7 +107,7 @@ func (d *AnalyzingDistributor) Distribute(name string, s *Snapshot) {
 		d.cancelAnalysis = nil
 	}
 
-	namespaces := make(map[string]struct{})
+	namespaces := make(map[resource.Namespace]struct{})
 	for _, ns := range d.s.AnalysisNamespaces {
 		namespaces[ns] = struct{}{}
 	}
@@ -128,7 +128,7 @@ func (d *AnalyzingDistributor) isAnalysisSnapshot(s string) bool {
 	return false
 }
 
-func (d *AnalyzingDistributor) analyzeAndDistribute(cancelCh chan struct{}, name string, s *Snapshot, namespaces map[string]struct{}) {
+func (d *AnalyzingDistributor) analyzeAndDistribute(cancelCh chan struct{}, name string, s *Snapshot, namespaces map[resource.Namespace]struct{}) {
 	// For analysis, we use a combined snapshot
 	ctx := &context{
 		sn:                 d.getCombinedSnapshot(),
@@ -140,15 +140,16 @@ func (d *AnalyzingDistributor) analyzeAndDistribute(cancelCh chan struct{}, name
 	d.s.Analyzer.Analyze(ctx)
 	scope.Analysis.Debugf("Finished analyzing the current snapshot, found messages: %v", ctx.messages)
 
-	// Only keep messages for resources in namespaces we want to analyze
-	// If the message doesn't have an origin (meaning we can't determine the namespace) fail open and keep it
-	// If no such limit is specified, keep them all.
+	// Only keep messages for resources in namespaces we want to analyze if the
+	// message doesn't have an origin (meaning we can't determine the
+	// namespace). Also kept are cluster-level resources where the namespace is
+	// the empty string. If no such limit is specified, keep them all.
 	var msgs diag.Messages
 	if len(namespaces) == 0 {
 		msgs = ctx.messages
 	} else {
 		for _, m := range ctx.messages {
-			if m.Origin != nil {
+			if m.Origin != nil && m.Origin.Namespace() != "" {
 				if _, ok := namespaces[m.Origin.Namespace()]; !ok {
 					continue
 				}
@@ -158,7 +159,7 @@ func (d *AnalyzingDistributor) analyzeAndDistribute(cancelCh chan struct{}, name
 	}
 
 	if !ctx.Canceled() {
-		d.s.StatusUpdater.Update(msgs.SortedCopy())
+		d.s.StatusUpdater.Update(msgs.SortedDedupedCopy())
 	}
 
 	// Execution only reaches this point for trigger snapshot group
@@ -194,18 +195,18 @@ type context struct {
 var _ analysis.Context = &context{}
 
 // Report implements analysis.Context
-func (c *context) Report(col collection.Name, m diag.Message) {
+func (c *context) Report(_ collection.Name, m diag.Message) {
 	c.messages.Add(m)
 }
 
 // Find implements analysis.Context
-func (c *context) Find(col collection.Name, name resource.Name) *resource.Entry {
+func (c *context) Find(col collection.Name, name resource.FullName) *resource.Instance {
 	c.collectionReporter(col)
 	return c.sn.Find(col, name)
 }
 
 // Exists implements analysis.Context
-func (c *context) Exists(col collection.Name, name resource.Name) bool {
+func (c *context) Exists(col collection.Name, name resource.FullName) bool {
 	c.collectionReporter(col)
 	return c.Find(col, name) != nil
 }

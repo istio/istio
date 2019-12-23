@@ -34,14 +34,15 @@ type DestinationHostAnalyzer struct{}
 var _ analysis.Analyzer = &DestinationHostAnalyzer{}
 
 type hostAndSubset struct {
-	host   resource.Name
+	host   resource.FullName
 	subset string
 }
 
 // Metadata implements Analyzer
 func (a *DestinationHostAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name: "virtualservice.DestinationHostAnalyzer",
+		Name:        "virtualservice.DestinationHostAnalyzer",
+		Description: "Checks the destination hosts associated with each virtual service",
 		Inputs: collection.Names{
 			metadata.IstioNetworkingV1Alpha3SyntheticServiceentries,
 			metadata.IstioNetworkingV1Alpha3Serviceentries,
@@ -55,20 +56,19 @@ func (a *DestinationHostAnalyzer) Analyze(ctx analysis.Context) {
 	// Precompute the set of service entry hosts that exist (there can be more than one defined per ServiceEntry CRD)
 	serviceEntryHosts := initServiceEntryHostMap(ctx)
 
-	ctx.ForEach(metadata.IstioNetworkingV1Alpha3Virtualservices, func(r *resource.Entry) bool {
+	ctx.ForEach(metadata.IstioNetworkingV1Alpha3Virtualservices, func(r *resource.Instance) bool {
 		a.analyzeVirtualService(r, ctx, serviceEntryHosts)
 		return true
 	})
 }
 
-func (a *DestinationHostAnalyzer) analyzeVirtualService(r *resource.Entry, ctx analysis.Context,
+func (a *DestinationHostAnalyzer) analyzeVirtualService(r *resource.Instance, ctx analysis.Context,
 	serviceEntryHosts map[util.ScopedFqdn]*v1alpha3.ServiceEntry) {
 
-	vs := r.Item.(*v1alpha3.VirtualService)
-	ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
+	vs := r.Message.(*v1alpha3.VirtualService)
 
 	for _, d := range getRouteDestinations(vs) {
-		s := getDestinationHost(ns, d.GetHost(), serviceEntryHosts)
+		s := getDestinationHost(r.Metadata.FullName.Namespace, d.GetHost(), serviceEntryHosts)
 		if s == nil {
 			ctx.Report(metadata.IstioNetworkingV1Alpha3Virtualservices,
 				msg.NewReferencedResourceNotFound(r, "host", d.GetHost()))
@@ -78,11 +78,11 @@ func (a *DestinationHostAnalyzer) analyzeVirtualService(r *resource.Entry, ctx a
 	}
 }
 
-func getDestinationHost(sourceNs, host string, serviceEntryHosts map[util.ScopedFqdn]*v1alpha3.ServiceEntry) *v1alpha3.ServiceEntry {
+func getDestinationHost(sourceNs resource.Namespace, host string, serviceEntryHosts map[util.ScopedFqdn]*v1alpha3.ServiceEntry) *v1alpha3.ServiceEntry {
 	// Check explicitly defined ServiceEntries as well as services discovered from the platform
 
 	// ServiceEntries can be either namespace scoped or exposed to all namespaces
-	nsScopedFqdn := util.NewScopedFqdn(sourceNs, sourceNs, host)
+	nsScopedFqdn := util.NewScopedFqdn(string(sourceNs), sourceNs, host)
 	if s, ok := serviceEntryHosts[nsScopedFqdn]; ok {
 		return s
 	}
@@ -105,7 +105,7 @@ func getDestinationHost(sourceNs, host string, serviceEntryHosts map[util.Scoped
 		}
 
 		// Skip over entries not visible to the current virtual service namespace
-		if scope != util.ExportToAllNamespaces && scope != sourceNs {
+		if scope != util.ExportToAllNamespaces && scope != string(sourceNs) {
 			continue
 		}
 
@@ -123,15 +123,14 @@ func getDestinationHost(sourceNs, host string, serviceEntryHosts map[util.Scoped
 func initServiceEntryHostMap(ctx analysis.Context) map[util.ScopedFqdn]*v1alpha3.ServiceEntry {
 	result := make(map[util.ScopedFqdn]*v1alpha3.ServiceEntry)
 
-	extractFn := func(r *resource.Entry) bool {
-		s := r.Item.(*v1alpha3.ServiceEntry)
-		ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
-		hostsNamespaceScope := ns
+	extractFn := func(r *resource.Instance) bool {
+		s := r.Message.(*v1alpha3.ServiceEntry)
+		hostsNamespaceScope := string(r.Metadata.FullName.Namespace)
 		if util.IsExportToAllNamespaces(s.ExportTo) {
 			hostsNamespaceScope = util.ExportToAllNamespaces
 		}
 		for _, h := range s.GetHosts() {
-			result[util.NewScopedFqdn(hostsNamespaceScope, ns, h)] = s
+			result[util.NewScopedFqdn(hostsNamespaceScope, r.Metadata.FullName.Namespace, h)] = s
 		}
 		return true
 	}
@@ -142,7 +141,7 @@ func initServiceEntryHostMap(ctx analysis.Context) map[util.ScopedFqdn]*v1alpha3
 	return result
 }
 
-func checkServiceEntryPorts(ctx analysis.Context, r *resource.Entry, d *v1alpha3.Destination, s *v1alpha3.ServiceEntry) {
+func checkServiceEntryPorts(ctx analysis.Context, r *resource.Instance, d *v1alpha3.Destination, s *v1alpha3.ServiceEntry) {
 	if d.GetPort() == nil {
 		// If destination port isn't specified, it's only a problem if the service being referenced exposes multiple ports.
 		if len(s.GetPorts()) > 1 {

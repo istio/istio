@@ -90,6 +90,13 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 		m = cfg.MeshConfig
 	}
 
+	if cfg.ServiceArgs.Registries == nil {
+		cfg.ServiceArgs = bootstrap.ServiceArgs{
+			// A ServiceEntry registry is added by default, which is what we want. Don't include any other registries.
+			Registries: []string{},
+		}
+	}
+
 	bootstrapArgs := bootstrap.PilotArgs{
 		Namespace:        e.SystemNamespace,
 		DiscoveryOptions: options,
@@ -100,10 +107,7 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 		},
 		MeshConfig: m,
 		// Use the config store for service entries as well.
-		Service: bootstrap.ServiceArgs{
-			// A ServiceEntry registry is added by default, which is what we want. Don't include any other registries.
-			Registries: []string{},
-		},
+		Service: cfg.ServiceArgs,
 		// Include all of the default plugins for integration with Mixer, etc.
 		Plugins:   bootstrap.DefaultPlugins,
 		ForceStop: true,
@@ -120,11 +124,11 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 		Address: galleyHostPort,
 	})
 
-	bootstrapArgs.MCPMaxMessageSize = bootstrap.DefaultMCPMaxMsgSize
+	bootstrapArgs.MCPMaxMessageSize = 1024 * 1024 * 4
 
 	var err error
 	// Create the server for the discovery service.
-	if instance.server, err = bootstrap.NewServer(bootstrapArgs); err != nil {
+	if instance.server, err = bootstrap.NewServer(&bootstrapArgs); err != nil {
 		return nil, err
 	}
 
@@ -134,7 +138,7 @@ func newNative(ctx resource.Context, cfg Config) (Instance, error) {
 	}
 
 	time.Sleep(1 * time.Second)
-	if instance.client, err = newClient(instance.server.GRPCListeningAddr.(*net.TCPAddr)); err != nil {
+	if instance.client, err = newClient(instance.server.GRPCListener.Addr().(*net.TCPAddr)); err != nil {
 		return nil, err
 	}
 
@@ -163,7 +167,7 @@ func (c *nativeComponent) Close() (err error) {
 
 // GetDiscoveryAddress gets the discovery address for pilot.
 func (c *nativeComponent) GetDiscoveryAddress() *net.TCPAddr {
-	return c.server.GRPCListeningAddr.(*net.TCPAddr)
+	return c.server.GRPCListener.Addr().(*net.TCPAddr)
 }
 
 // GetSecureDiscoveryAddress gets the discovery address for pilot.

@@ -35,10 +35,10 @@ var (
 
 type v1beta1Generator struct {
 	trustDomainBundle trustdomain.Bundle
-	policies          []model.Config
+	policies          []model.AuthorizationPolicyConfig
 }
 
-func NewGenerator(trustDomainBundle trustdomain.Bundle, policies []model.Config) policy.Generator {
+func NewGenerator(trustDomainBundle trustdomain.Bundle, policies []model.AuthorizationPolicyConfig) policy.Generator {
 	return &v1beta1Generator{
 		trustDomainBundle: trustDomainBundle,
 		policies:          policies,
@@ -54,8 +54,7 @@ func (g *v1beta1Generator) Generate(forTCPFilter bool) *http_config.RBAC {
 	}
 
 	for _, config := range g.policies {
-		spec := config.Spec.(*istio_rbac.AuthorizationPolicy)
-		for i, rule := range spec.Rules {
+		for i, rule := range config.AuthorizationPolicy.Rules {
 			if p := g.generatePolicy(g.trustDomainBundle, rule, forTCPFilter); p != nil {
 				name := fmt.Sprintf("ns[%s]-policy[%s]-rule[%d]", config.Namespace, config.Name, i)
 				rbac.Policies[name] = p

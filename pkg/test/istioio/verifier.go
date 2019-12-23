@@ -21,16 +21,19 @@ import (
 	"unicode"
 )
 
+const (
+	tokenVerifierKey = "token"
+)
+
 // verifier for output of a shell command.
 type verifier func(ctx Context, name, expectedOutput, actualOutput string)
 
 // verifiers supported by in the command scripts.
 var verifiers = map[string]verifier{
-	"":            verifyTokens, // Default
-	"token":       verifyTokens,
-	"contains":    verifyContains,
-	"notContains": verifyNotContains,
-	"lineRegex":   verifyLineRegex,
+	tokenVerifierKey: verifyTokens,
+	"contains":       verifyContains,
+	"notContains":    verifyNotContains,
+	"lineRegex":      verifyLineRegex,
 }
 
 // verifyTokens tokenizes the output and compares against the tokens from the given file.
@@ -96,7 +99,6 @@ func verifyContains(ctx Context, name, expectedOutput, actualOutput string) {
 	if !strings.Contains(actualOutput, expectedOutput) {
 		ctx.Fatalf("verification failed for command %s: output does not contain expected text.\nExpected:\n%s\nOutput:\n%s",
 			name, expectedOutput, actualOutput)
-		return
 	}
 }
 
@@ -104,7 +106,6 @@ func verifyNotContains(ctx Context, name, expectedOutput, actualOutput string) {
 	if strings.Contains(actualOutput, expectedOutput) {
 		ctx.Fatalf("verification failed for command %s: output contains not expected text.\nNot Expected:\n%s\nOutput:\n%s",
 			name, expectedOutput, actualOutput)
-		return
 	}
 }
 
@@ -124,5 +125,4 @@ func verifyLineRegex(ctx Context, name, expectedOutput, actualOutput string) {
 			return
 		}
 	}
-
 }

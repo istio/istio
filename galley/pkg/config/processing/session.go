@@ -260,6 +260,7 @@ func (s *session) handleMeshEvent(e event.Event) {
 		go s.terminate()
 
 	case starting:
+		scope.Processing.Infof("session.handleMeshEvent: Received initial mesh event, applying it: %+v", e)
 		s.applyMeshEvent(e)
 
 	case buffering:
@@ -280,7 +281,7 @@ func (s *session) applyMeshEvent(e event.Event) {
 	switch e.Kind {
 	case event.Added, event.Updated:
 		scope.Processing.Infof("session.handleMeshEvent: received an add/update mesh config event: %v", e)
-		s.meshCfg = proto.Clone(e.Entry.Item).(*v1alpha1.MeshConfig)
+		s.meshCfg = proto.Clone(e.Resource.Message).(*v1alpha1.MeshConfig)
 	case event.Deleted:
 		scope.Processing.Infof("session.handleMeshEvent: received a delete mesh config event: %v", e)
 		s.meshCfg = meshcfg.Default()

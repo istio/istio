@@ -28,7 +28,7 @@ var (
 
 	cdsReject = monitoring.NewGauge(
 		"pilot_xds_cds_reject",
-		"Pilot rejected CSD configs.",
+		"Pilot rejected CDS configs.",
 		monitoring.WithLabels(nodeTag, errTag),
 	)
 
@@ -158,9 +158,10 @@ var (
 
 func recordSendError(metric monitoring.Metric, err error) {
 	s, ok := status.FromError(err)
-	// Unavailable code will be sent when a connection is closing down. This is very normal,
+	// Unavailable or canceled code will be sent when a connection is closing down. This is very normal,
 	// due to the XDS connection being dropped every 30 minutes, or a pod shutting down.
-	if !ok || s.Code() != codes.Unavailable {
+	isError := s.Code() != codes.Unavailable && s.Code() != codes.Canceled
+	if !ok || isError {
 		metric.Increment()
 	}
 }

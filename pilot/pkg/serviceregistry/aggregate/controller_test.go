@@ -28,19 +28,6 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 )
 
-// MockController specifies a mock Controller for testing
-type MockController struct{}
-
-func (c *MockController) AppendServiceHandler(f func(*model.Service, model.Event)) error {
-	return nil
-}
-
-func (c *MockController) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
-	return nil
-}
-
-func (c *MockController) Run(<-chan struct{}) {}
-
 var discovery1 *memory.ServiceDiscovery
 var discovery2 *memory.ServiceDiscovery
 
@@ -57,16 +44,16 @@ func buildMockController() *Controller {
 			memory.ExtHTTPSService.Hostname: memory.ExtHTTPSService,
 		}, 2)
 
-	registry1 := Registry{
-		Name:             serviceregistry.ServiceRegistry("mockAdapter1"),
+	registry1 := serviceregistry.Simple{
+		ProviderID:       serviceregistry.ProviderID("mockAdapter1"),
 		ServiceDiscovery: discovery1,
-		Controller:       &MockController{},
+		Controller:       &memory.MockController{},
 	}
 
-	registry2 := Registry{
-		Name:             serviceregistry.ServiceRegistry("mockAdapter2"),
+	registry2 := serviceregistry.Simple{
+		ProviderID:       serviceregistry.ProviderID("mockAdapter2"),
 		ServiceDiscovery: discovery2,
-		Controller:       &MockController{},
+		Controller:       &memory.MockController{},
 	}
 
 	ctls := NewController()
@@ -88,18 +75,18 @@ func buildMockControllerForMultiCluster() *Controller {
 			memory.WorldService.Hostname: memory.WorldService,
 		}, 2)
 
-	registry1 := Registry{
-		Name:             serviceregistry.ServiceRegistry("mockAdapter1"),
+	registry1 := serviceregistry.Simple{
+		ProviderID:       serviceregistry.ProviderID("mockAdapter1"),
 		ClusterID:        "cluster-1",
 		ServiceDiscovery: discovery1,
-		Controller:       &MockController{},
+		Controller:       &memory.MockController{},
 	}
 
-	registry2 := Registry{
-		Name:             serviceregistry.ServiceRegistry("mockAdapter2"),
+	registry2 := serviceregistry.Simple{
+		ProviderID:       serviceregistry.ProviderID("mockAdapter2"),
 		ClusterID:        "cluster-2",
 		ServiceDiscovery: discovery2,
-		Controller:       &MockController{},
+		Controller:       &memory.MockController{},
 	}
 
 	ctls := NewController()
@@ -482,14 +469,14 @@ func TestManagementPorts(t *testing.T) {
 
 func TestAddRegistry(t *testing.T) {
 
-	registries := []Registry{
+	registries := []serviceregistry.Simple{
 		{
-			Name:      "registry1",
-			ClusterID: "cluster1",
+			ProviderID: "registry1",
+			ClusterID:  "cluster1",
 		},
 		{
-			Name:      "registry2",
-			ClusterID: "cluster2",
+			ProviderID: "registry2",
+			ClusterID:  "cluster2",
 		},
 	}
 	ctrl := NewController()
@@ -502,14 +489,14 @@ func TestAddRegistry(t *testing.T) {
 }
 
 func TestDeleteRegistry(t *testing.T) {
-	registries := []Registry{
+	registries := []serviceregistry.Simple{
 		{
-			Name:      "registry1",
-			ClusterID: "cluster1",
+			ProviderID: "registry1",
+			ClusterID:  "cluster1",
 		},
 		{
-			Name:      "registry2",
-			ClusterID: "cluster2",
+			ProviderID: "registry2",
+			ClusterID:  "cluster2",
 		},
 	}
 	ctrl := NewController()
@@ -523,14 +510,14 @@ func TestDeleteRegistry(t *testing.T) {
 }
 
 func TestGetRegistries(t *testing.T) {
-	registries := []Registry{
+	registries := []serviceregistry.Simple{
 		{
-			Name:      "registry1",
-			ClusterID: "cluster1",
+			ProviderID: "registry1",
+			ClusterID:  "cluster1",
 		},
 		{
-			Name:      "registry2",
-			ClusterID: "cluster2",
+			ProviderID: "registry2",
+			ClusterID:  "cluster2",
 		},
 	}
 	ctrl := NewController()

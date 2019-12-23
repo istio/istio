@@ -17,6 +17,7 @@ package envoy
 import (
 	"fmt"
 	"net/http"
+	"os"
 
 	"istio.io/istio/pkg/test/deps"
 	"istio.io/istio/pkg/test/util"
@@ -28,10 +29,14 @@ var (
 )
 
 func init() {
+	envoyBaseURL := "https://storage.googleapis.com/istio-build/proxy"
+	if override, f := os.LookupEnv("ISTIO_ENVOY_BASE_URL"); f {
+		envoyBaseURL = override
+	}
 	for _, dep := range deps.Istio {
 		if dep.Name == "PROXY_REPO_SHA" {
 			LatestStableSHA = dep.LastStableSHA
-			LinuxReleaseURL = fmt.Sprintf("https://storage.googleapis.com/istio-build/proxy/envoy-alpha-%s.tar.gz", LatestStableSHA)
+			LinuxReleaseURL = fmt.Sprintf("%s/envoy-alpha-%s.tar.gz", envoyBaseURL, LatestStableSHA)
 			return
 		}
 	}

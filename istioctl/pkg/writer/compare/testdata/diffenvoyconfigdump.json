@@ -179,8 +179,9 @@
         {
             "@type": "type.googleapis.com/envoy.admin.v2alpha.ListenersConfigDump",
             "versionInfo": "2018-05-29 20:35:10.051043472 +0000 UTC m=+615.036247510",
-            "dynamicActiveListeners": [
-                {
+            "dynamicListeners": [
+              {
+                "activeState": {
                     "versionInfo": "2018-05-29 20:34:55.438944238 +0000 UTC m=+600.424148258",
                     "listener": {
                         "name": "172.21.134.116_443",
@@ -261,8 +262,10 @@
                             "bindToPort": false
                         }
                     }
-                },
-                {
+                }
+              },
+              {
+                "activeState" : {
                     "versionInfo": "2018-05-29 20:34:55.438944238 +0000 UTC m=+600.424148258",
                     "listener": {
                         "name": "0.0.0.0_8080",
@@ -398,6 +401,7 @@
                         }
                     }
                 }
+              }
             ]
         },
         {

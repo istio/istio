@@ -247,7 +247,7 @@ message Params {
 
             // These fields apply only to UpdateSinkOpt calls. The corresponding sink field
             // is updated if and only if the Update field is true.
-            // Upate sink destination.
+            // Update sink destination.
             bool UpdateDestination = 5;
             // Update sink filter.
             bool UpdateFilter = 6;

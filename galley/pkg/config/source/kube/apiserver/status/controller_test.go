@@ -82,7 +82,7 @@ func TestNoReconcilation(t *testing.T) {
 	k, cl := setupClient()
 
 	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeSource().Resources())
-	c.UpdateResourceStatus(basicmeta.Collection1, resource.NewName("foo", "bar"), "v1", "s1")
+	c.UpdateResourceStatus(basicmeta.Collection1, resource.NewFullName("foo", "bar"), "v1", "s1")
 	defer c.Stop()
 
 	g.Consistently(cl.Actions).Should(BeEmpty())
@@ -106,7 +106,7 @@ func TestBasicReconcilation_BeforeUpdate(t *testing.T) {
 	k, cl := setupClientWithReactors(r, nil)
 
 	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeSource().Resources())
-	c.UpdateResourceStatus(basicmeta.Collection1, resource.NewName("foo", "bar"), "v1", s)
+	c.UpdateResourceStatus(basicmeta.Collection1, resource.NewFullName("foo", "bar"), "v1", s)
 	c.Report(diag.Messages{})
 	defer c.Stop()
 
@@ -136,7 +136,7 @@ func TestBasicReconcilation_AfterUpdate(t *testing.T) {
 	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeSource().Resources())
 	c.Report(diag.Messages{})
 	c.UpdateResourceStatus(
-		basicmeta.Collection1, resource.NewName("foo", "bar"), "v1", s)
+		basicmeta.Collection1, resource.NewFullName("foo", "bar"), "v1", s)
 	defer c.Stop()
 
 	g.Eventually(cl.Actions).Should(HaveLen(2))
@@ -167,7 +167,7 @@ func TestBasicReconcilation_AfterUpdate_Othersubfield(t *testing.T) {
 	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeSource().Resources())
 	c.Report(diag.Messages{})
 	c.UpdateResourceStatus(
-		basicmeta.Collection1, resource.NewName("foo", "bar"), "v1", s)
+		basicmeta.Collection1, resource.NewFullName("foo", "bar"), "v1", s)
 	defer c.Stop()
 
 	g.Eventually(cl.Actions).Should(HaveLen(2))
@@ -197,10 +197,10 @@ func TestBasicReconcilation_NewStatus(t *testing.T) {
 
 	k, cl := setupClientWithReactors(r, nil)
 
-	e := resource.Entry{
+	e := resource.Instance{
 		Origin: &rt.Origin{
 			Collection: basicmeta.Collection1,
-			Name:       resource.NewName("foo", "bar"),
+			FullName:   resource.NewFullName("foo", "bar"),
 			Version:    resource.Version("v1"),
 		},
 	}
@@ -215,7 +215,8 @@ func TestBasicReconcilation_NewStatus(t *testing.T) {
 	u := cl.Actions()[1].(k8stesting.UpdateActionImpl).Object.(*unstructured.Unstructured)
 
 	actualStatusMap := u.Object["status"].(map[string]interface{})
-	g.Expect(actualStatusMap[subfield]).To(ConsistOf(m.Unstructured(false)))
+
+	g.Expect(actualStatusMap[subfield]).To(ConsistOf(expectedMessage(m).Unstructured(false)))
 }
 
 func TestBasicReconcilation_NewStatusOldNonMap(t *testing.T) {
@@ -236,10 +237,10 @@ func TestBasicReconcilation_NewStatusOldNonMap(t *testing.T) {
 
 	k, cl := setupClientWithReactors(r, nil)
 
-	e := resource.Entry{
+	e := resource.Instance{
 		Origin: &rt.Origin{
 			Collection: basicmeta.Collection1,
-			Name:       resource.NewName("foo", "bar"),
+			FullName:   resource.NewFullName("foo", "bar"),
 			Version:    resource.Version("v1"),
 		},
 	}
@@ -254,7 +255,7 @@ func TestBasicReconcilation_NewStatusOldNonMap(t *testing.T) {
 	u := cl.Actions()[1].(k8stesting.UpdateActionImpl).Object.(*unstructured.Unstructured)
 
 	actualStatusMap := u.Object["status"].(map[string]interface{})
-	g.Expect(actualStatusMap[subfield]).To(ConsistOf(m.Unstructured(false)))
+	g.Expect(actualStatusMap[subfield]).To(ConsistOf(expectedMessage(m).Unstructured(false)))
 }
 
 func TestBasicReconcilation_UpdateError(t *testing.T) {
@@ -272,10 +273,10 @@ func TestBasicReconcilation_UpdateError(t *testing.T) {
 
 	k, cl := setupClientWithReactors(r, fmt.Errorf("cheese not found"))
 
-	e := resource.Entry{
+	e := resource.Instance{
 		Origin: &rt.Origin{
 			Collection: basicmeta.Collection1,
-			Name:       resource.NewName("foo", "bar"),
+			FullName:   resource.NewFullName("foo", "bar"),
 			Version:    resource.Version("v1"),
 		},
 	}
@@ -290,7 +291,7 @@ func TestBasicReconcilation_UpdateError(t *testing.T) {
 	u := cl.Actions()[1].(k8stesting.UpdateActionImpl).Object.(*unstructured.Unstructured)
 
 	actualStatusMap := u.Object["status"].(map[string]interface{})
-	g.Expect(actualStatusMap[subfield]).To(ConsistOf(m.Unstructured(false)))
+	g.Expect(actualStatusMap[subfield]).To(ConsistOf(expectedMessage(m).Unstructured(false)))
 }
 
 func TestBasicReconcilation_GetError(t *testing.T) {
@@ -307,10 +308,10 @@ func TestBasicReconcilation_GetError(t *testing.T) {
 		return
 	})
 
-	e := resource.Entry{
+	e := resource.Instance{
 		Origin: &rt.Origin{
 			Collection: basicmeta.Collection1,
-			Name:       resource.NewName("foo", "bar"),
+			FullName:   resource.NewFullName("foo", "bar"),
 			Version:    resource.Version("v1"),
 		},
 	}
@@ -339,10 +340,10 @@ func TestBasicReconcilation_VersionMismatch(t *testing.T) {
 
 	k, cl := setupClientWithReactors(r, nil)
 
-	e := resource.Entry{
+	e := resource.Instance{
 		Origin: &rt.Origin{
 			Collection: basicmeta.Collection1,
-			Name:       resource.NewName("foo", "bar"),
+			FullName:   resource.NewFullName("foo", "bar"),
 			Version:    resource.Version("v1"), // message for an older version
 		},
 	}
@@ -384,4 +385,13 @@ func setupClientWithReactors(retVal runtime.Object, updateErrVal error) (*mock.K
 	})
 
 	return k, cl
+}
+
+func expectedMessage(m diag.Message) *diag.Message {
+	return &diag.Message{
+		Type:       m.Type,
+		Parameters: m.Parameters,
+		Origin:     m.Origin,
+		DocRef:     DocRef,
+	}
 }

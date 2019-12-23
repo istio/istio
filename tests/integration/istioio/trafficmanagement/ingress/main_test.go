@@ -31,19 +31,9 @@ func TestMain(m *testing.M) {
 	// Integration test for the ingress SDS Gateway flow.
 	framework.
 		NewSuite("trafficmanagement_ingress", m).
-		Skip("TODO: this test needs work").
 		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
+		SetupOnEnv(environment.Kube, istio.Setup(&inst, nil)).
 		RequireEnvironment(environment.Kube).
 		Run()
 
-}
-
-func setupConfig(cfg *istio.Config) {
-	if cfg == nil {
-		return
-	}
-	// Enable SDS key/certificate provisioning for ingress gateway.
-	cfg.Values["gateways.istio-ingressgateway.sds.enabled"] = "true"
-	cfg.Values["gateways.istio-egressgateway.enabled"] = "false"
 }

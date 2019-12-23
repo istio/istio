@@ -97,13 +97,17 @@ func TestMessages_SortedCopy(t *testing.T) {
 		testOrigin("B"),
 		"B",
 	)
+	// Oops, we have a duplicate (identical to firstMsg) - it should be removed.
+	thirdMsg := NewMessage(
+		NewMessageType(Error, "B1", "Template: %q"),
+		testOrigin("B"),
+		"B",
+	)
 
-	msgs := Messages{secondMsg, firstMsg}
-	sameMsgs := Messages{secondMsg, firstMsg}
+	msgs := Messages{thirdMsg, secondMsg, firstMsg}
 	expectedMsgs := Messages{firstMsg, secondMsg}
 
-	newMsgs := msgs.SortedCopy()
+	newMsgs := msgs.SortedDedupedCopy()
 
-	g.Expect(msgs).To(Equal(sameMsgs))
 	g.Expect(newMsgs).To(Equal(expectedMsgs))
 }

@@ -32,7 +32,8 @@ var _ analysis.Analyzer = &ServiceRoleBindingAnalyzer{}
 // Metadata implements Analyzer
 func (s *ServiceRoleBindingAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name: "auth.ServiceRoleBindingAnalyzer",
+		Name:        "auth.ServiceRoleBindingAnalyzer",
+		Description: "Checks the validity of service role bindings",
 		Inputs: collection.Names{
 			metadata.IstioRbacV1Alpha1Serviceroles,
 			metadata.IstioRbacV1Alpha1Servicerolebindings,
@@ -42,22 +43,22 @@ func (s *ServiceRoleBindingAnalyzer) Metadata() analysis.Metadata {
 
 // Analyze implements Analyzer
 func (s *ServiceRoleBindingAnalyzer) Analyze(ctx analysis.Context) {
-	ctx.ForEach(metadata.IstioRbacV1Alpha1Servicerolebindings, func(r *resource.Entry) bool {
+	ctx.ForEach(metadata.IstioRbacV1Alpha1Servicerolebindings, func(r *resource.Instance) bool {
 		s.analyzeRoleBinding(r, ctx)
 		return true
 	})
 }
 
-func (s *ServiceRoleBindingAnalyzer) analyzeRoleBinding(r *resource.Entry, ctx analysis.Context) {
-	srb := r.Item.(*v1alpha1.ServiceRoleBinding)
-	ns, _ := r.Metadata.Name.InterpretAsNamespaceAndName()
+func (s *ServiceRoleBindingAnalyzer) analyzeRoleBinding(r *resource.Instance, ctx analysis.Context) {
+	srb := r.Message.(*v1alpha1.ServiceRoleBinding)
+	ns := r.Metadata.FullName.Namespace
 
 	// If no servicerole is defined at all, just skip. The field is required, but that should be enforced elsewhere.
 	if srb.RoleRef == nil {
 		return
 	}
 
-	if !ctx.Exists(metadata.IstioRbacV1Alpha1Serviceroles, resource.NewName(ns, srb.RoleRef.Name)) {
+	if !ctx.Exists(metadata.IstioRbacV1Alpha1Serviceroles, resource.NewFullName(ns, resource.LocalName(srb.RoleRef.Name))) {
 		ctx.Report(metadata.IstioRbacV1Alpha1Servicerolebindings, msg.NewReferencedResourceNotFound(r, "service role", srb.RoleRef.Name))
 	}
 }

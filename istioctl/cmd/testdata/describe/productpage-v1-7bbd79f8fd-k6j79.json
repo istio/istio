@@ -2903,8 +2903,8 @@
      "last_updated": "2019-09-10T20:23:49.975Z"
     }
    ],
-   "dynamic_active_listeners": [
-    {
+   "dynamic_listeners": [
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "172.30.150.216_9080",
@@ -3281,8 +3281,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.396Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "172.30.150.216_15020",
@@ -3314,8 +3314,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.396Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "172.21.0.1_443",
@@ -3395,8 +3395,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.400Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "172.21.180.254_8888",
@@ -3476,8 +3476,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.428Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "172.21.119.174_443",
@@ -3557,8 +3557,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.432Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "172.21.119.174_31400",
@@ -3638,8 +3638,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.435Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "172.21.119.174_15031",
@@ -3719,8 +3719,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.439Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "172.21.94.88_6379",
@@ -3800,8 +3800,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.443Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "172.21.86.223_443",
@@ -3881,8 +3881,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.447Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "172.21.119.174_15030",
@@ -3962,8 +3962,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.451Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "172.21.119.174_15443",
@@ -4043,8 +4043,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.455Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "172.21.231.113_443",
@@ -4124,8 +4124,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.459Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "172.21.187.84_8888",
@@ -4205,8 +4205,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.463Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "172.21.0.10_53",
@@ -4286,8 +4286,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.467Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "172.21.123.123_6379",
@@ -4367,8 +4367,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.471Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "172.21.119.174_15029",
@@ -4448,8 +4448,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.475Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "172.21.119.174_15032",
@@ -4529,8 +4529,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.479Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "0.0.0.0_8888",
@@ -4676,8 +4676,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.483Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "172.21.207.32_12345",
@@ -4757,8 +4757,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.487Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "172.21.155.185_15011",
@@ -4838,8 +4838,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.491Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "0.0.0.0_6379",
@@ -4991,8 +4991,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.495Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "172.21.83.172_443",
@@ -5072,8 +5072,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.499Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "0.0.0.0_12345",
@@ -5219,8 +5219,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.503Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "0.0.0.0_80",
@@ -5362,8 +5362,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.507Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "0.0.0.0_3000",
@@ -5505,8 +5505,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.512Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "172.21.0.10_9153",
@@ -5698,8 +5698,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.520Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "0.0.0.0_8085",
@@ -5841,8 +5841,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.524Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "0.0.0.0_8086",
@@ -5984,8 +5984,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.528Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "172.21.242.41_9994",
@@ -6177,8 +6177,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.536Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "172.21.119.174_15020",
@@ -6370,8 +6370,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.545Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "0.0.0.0_8080",
@@ -6513,8 +6513,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.549Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "172.21.146.60_15443",
@@ -6706,8 +6706,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.557Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "0.0.0.0_15014",
@@ -6849,8 +6849,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.561Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "0.0.0.0_15004",
@@ -6992,8 +6992,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.565Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "172.21.212.181_44134",
@@ -7185,8 +7185,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.586Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "0.0.0.0_8084",
@@ -7328,8 +7328,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.591Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "0.0.0.0_15010",
@@ -7471,8 +7471,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.595Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "172.21.31.35_9090",
@@ -7664,8 +7664,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.603Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "0.0.0.0_9091",
@@ -7807,8 +7807,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.608Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "172.21.71.150_80",
@@ -8000,8 +8000,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.616Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "172.21.71.150_443",
@@ -8193,8 +8193,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.624Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "172.21.198.136_443",
@@ -8386,8 +8386,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.633Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "172.21.45.168_42422",
@@ -8579,8 +8579,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.641Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "0.0.0.0_9090",
@@ -8722,8 +8722,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.645Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "0.0.0.0_8060",
@@ -8865,8 +8865,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.649Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "0.0.0.0_9080",
@@ -9008,8 +9008,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.654Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "0.0.0.0_9901",
@@ -9151,8 +9151,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.659Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "172.21.58.5_443",
@@ -9344,8 +9344,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.667Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "virtualOutbound",
@@ -9435,8 +9435,8 @@
       "use_original_dst": true
      },
      "last_updated": "2019-09-10T20:23:51.671Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-10T20:22:19Z/15",
      "listener": {
       "name": "virtualInbound",
@@ -10144,8 +10144,8 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-10T20:23:51.678Z"
-    },
-    {
+    }},
+    {"active_state" :{
      "version_info": "2019-09-11T17:00:00Z/20",
      "listener": {
       "name": "172.21.95.172_9080",
@@ -10337,7 +10337,7 @@
       "continue_on_listener_filters_timeout": true
      },
      "last_updated": "2019-09-11T17:00:00.586Z"
-    }
+    }}
    ]
   },
   {

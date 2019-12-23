@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
 
 	k8ssecret "istio.io/istio/security/pkg/k8s/secret"
 	mockca "istio.io/istio/security/pkg/pki/ca/mock"
@@ -114,8 +115,8 @@ func TestSecretController(t *testing.T) {
 	}
 	testCases := map[string]struct {
 		existingSecret   *v1.Secret
-		saToAdd          *v1.ServiceAccount
-		saToDelete       *v1.ServiceAccount
+		saToAdd          interface{}
+		saToDelete       interface{}
 		expectedActions  []ktesting.Action
 		gracePeriodRatio float32
 		injectFailure    bool
@@ -128,6 +129,12 @@ func TestSecretController(t *testing.T) {
 			},
 			gracePeriodRatio: 1.4,
 			shouldFail:       true,
+		},
+		"missed delete of serviceAccount": {
+			saToDelete:       createMissedServiceAccount("test", "test-ns"),
+			expectedActions:  []ktesting.Action{},
+			gracePeriodRatio: defaultGracePeriodRatio,
+			shouldFail:       false,
 		},
 		"adding service account creates new secret": {
 			saToAdd: createServiceAccount("test", "test-ns"),
@@ -688,6 +695,17 @@ func createServiceAccount(name, namespace string) *v1.ServiceAccount {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
+		},
+	}
+}
+
+func createMissedServiceAccount(name, namespace string) *cache.DeletedFinalStateUnknown {
+	return &cache.DeletedFinalStateUnknown{
+		Obj: &v1.ServiceAccount{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: namespace,
+			},
 		},
 	}
 }

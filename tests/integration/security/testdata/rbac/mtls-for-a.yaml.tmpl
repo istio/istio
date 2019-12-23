@@ -1,0 +1,12 @@
+apiVersion: authentication.istio.io/v1alpha1
+kind: Policy
+metadata:
+  name: "mtls-on-for-a"
+  namespace: {{ .Namespace }}
+spec:
+  targets:
+  - name: "a"
+{{if eq .mtls "true" }}
+  peers:
+  - mtls: {}
+{{end}}

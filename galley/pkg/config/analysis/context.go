@@ -21,7 +21,7 @@ import (
 )
 
 // IteratorFn is used to iterate over a set of collection entries. It must return true to keep iterating.
-type IteratorFn func(r *resource.Entry) bool
+type IteratorFn func(r *resource.Instance) bool
 
 // Context is an analysis context that is passed to individual analyzers.
 type Context interface {
@@ -29,10 +29,10 @@ type Context interface {
 	Report(c collection.Name, t diag.Message)
 
 	// Find a resource in the collection. If not found, nil is returned
-	Find(c collection.Name, name resource.Name) *resource.Entry
+	Find(c collection.Name, name resource.FullName) *resource.Instance
 
 	// Exists returns true if the specified resource exists in the context, false otherwise
-	Exists(c collection.Name, name resource.Name) bool
+	Exists(c collection.Name, name resource.FullName) bool
 
 	// ForEach iterates over all the entries of a given collection.
 	ForEach(c collection.Name, fn IteratorFn)

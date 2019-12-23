@@ -46,6 +46,8 @@ lint-python:
 
 lint-markdown:
 	@${FINDFILES} -name '*.md' -print0 | ${XARGS} mdl --ignore-front-matter --style common/config/mdl.rb
+
+lint-links:
 	@${FINDFILES} -name '*.md' -print0 | ${XARGS} awesome_bot --skip-save-results --allow_ssl --allow-timeout --allow-dupe --allow-redirect --white-list ${MARKDOWN_LINT_WHITELIST}
 
 lint-sass:
@@ -96,7 +98,7 @@ update-common:
 	@git clone -q --depth 1 --single-branch --branch $(UPDATE_BRANCH) https://github.com/istio/common-files $(TMP)/common-files
 	@cd $(TMP)/common-files ; git rev-parse HEAD >files/common/.commonfiles.sha
 	@rm -fr common
-	@cp -ar $(TMP)/common-files/files/* $(shell pwd)
+	@cp -a $(TMP)/common-files/files/* $(shell pwd)
 	@rm -fr $(TMP)/common-files
 
 update-common-protos:
@@ -104,7 +106,7 @@ update-common-protos:
 	@git clone -q --depth 1 --single-branch --branch $(UPDATE_BRANCH) https://github.com/istio/common-files $(TMP)/common-files
 	@cd $(TMP)/common-files ; git rev-parse HEAD > common-protos/.commonfiles.sha
 	@rm -fr common-protos
-	@cp -ar $(TMP)/common-files/common-protos/* $(shell pwd)/common-protos
+	@cp -a $(TMP)/common-files/common-protos $(shell pwd)
 	@rm -fr $(TMP)/common-files
 
 check-clean-repo:

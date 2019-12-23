@@ -23,11 +23,13 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 
-	mesh "istio.io/api/mesh/v1alpha1"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	authpb "istio.io/api/security/v1beta1"
 	selectorpb "istio.io/api/type/v1beta1"
+
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schemas"
 )
@@ -67,7 +69,12 @@ func TestGetAuthorizationPolicies(t *testing.T) {
 			name:   "add ServiceRole",
 			config: []Config{roleCfg},
 			want: &RolesAndBindings{
-				Roles:    []Config{roleCfg},
+				Roles: []ServiceRoleConfig{
+					{
+						Name:        roleCfg.Name,
+						ServiceRole: roleCfg.Spec.(*rbacproto.ServiceRole),
+					},
+				},
 				Bindings: map[string][]*rbacproto.ServiceRoleBinding{}},
 		},
 		{
@@ -91,7 +98,12 @@ func TestGetAuthorizationPolicies(t *testing.T) {
 			name:   "add ServiceRoleBinding and ServiceRole",
 			config: []Config{roleCfg, bindingCfg},
 			want: &RolesAndBindings{
-				Roles: []Config{roleCfg},
+				Roles: []ServiceRoleConfig{
+					{
+						Name:        roleCfg.Name,
+						ServiceRole: roleCfg.Spec.(*rbacproto.ServiceRole),
+					},
+				},
 				Bindings: map[string][]*rbacproto.ServiceRoleBinding{
 					"test-role-1": {bindingCfg.Spec.(*rbacproto.ServiceRoleBinding)},
 				},
@@ -102,7 +114,7 @@ func TestGetAuthorizationPolicies(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			authzPolicies := createFakeAuthorizationPolicies(c.config, t)
-			got := authzPolicies.namespaceToV1alpha1Policies[testNS]
+			got := authzPolicies.NamespaceToV1alpha1Policies[testNS]
 			if !reflect.DeepEqual(c.want, got) {
 				t.Errorf("want:\n%s\n, got:\n%s\n", c.want, got)
 			}
@@ -159,7 +171,7 @@ func TestAuthorizationPolicies_ListNamespacesOfServiceRoles(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			authzPolicies := createFakeAuthorizationPolicies(tc.configs, t)
 
-			got := authzPolicies.ListNamespacesOfToV1alpha1Policies()
+			got := authzPolicies.ListV1alpha1Namespaces()
 			if diff := cmp.Diff(tc.want, got, cmpopts.SortSlices(func(a, b string) bool { return a < b })); diff != "" {
 				t.Errorf("want:%v\n got: %v diff %v\n", tc.want, got, diff)
 			}
@@ -185,7 +197,7 @@ func TestAuthorizationPolicies_ListServiceRolesRoles(t *testing.T) {
 		name    string
 		ns      string
 		configs []Config
-		want    []Config
+		want    []ServiceRoleConfig
 	}{
 		{
 			name: "no roles",
@@ -216,8 +228,11 @@ func TestAuthorizationPolicies_ListServiceRolesRoles(t *testing.T) {
 				newConfig("role", "bar", role),
 				newConfig("binding", "bar", binding),
 			},
-			want: []Config{
-				newConfig("role", "bar", role),
+			want: []ServiceRoleConfig{
+				{
+					Name:        "role",
+					ServiceRole: role,
+				},
 			},
 		},
 		{
@@ -228,9 +243,15 @@ func TestAuthorizationPolicies_ListServiceRolesRoles(t *testing.T) {
 				newConfig("role-1", "bar", role),
 				newConfig("role-2", "bar", role),
 			},
-			want: []Config{
-				newConfig("role-1", "bar", role),
-				newConfig("role-2", "bar", role),
+			want: []ServiceRoleConfig{
+				{
+					Name:        "role-1",
+					ServiceRole: role,
+				},
+				{
+					Name:        "role-2",
+					ServiceRole: role,
+				},
 			},
 		},
 	}
@@ -400,7 +421,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		ns             string
 		workloadLabels map[string]string
 		configs        []Config
-		want           []Config
+		want           []AuthorizationPolicyConfig
 	}{
 		{
 			name: "no policies",
@@ -422,8 +443,12 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			configs: []Config{
 				newConfig("authz-1", "bar", policy),
 			},
-			want: []Config{
-				newConfig("authz-1", "bar", policy),
+			want: []AuthorizationPolicyConfig{
+				{
+					Name:                "authz-1",
+					Namespace:           "bar",
+					AuthorizationPolicy: policy,
+				},
 			},
 		},
 		{
@@ -434,9 +459,17 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 				newConfig("authz-1", "bar", policy),
 				newConfig("authz-2", "bar", policy),
 			},
-			want: []Config{
-				newConfig("authz-1", "bar", policy),
-				newConfig("authz-2", "bar", policy),
+			want: []AuthorizationPolicyConfig{
+				{
+					Name:                "authz-1",
+					Namespace:           "bar",
+					AuthorizationPolicy: policy,
+				},
+				{
+					Name:                "authz-2",
+					Namespace:           "bar",
+					AuthorizationPolicy: policy,
+				},
 			},
 		},
 		{
@@ -449,8 +482,12 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			configs: []Config{
 				newConfig("authz-1", "bar", policyWithSelector),
 			},
-			want: []Config{
-				newConfig("authz-1", "bar", policyWithSelector),
+			want: []AuthorizationPolicyConfig{
+				{
+					Name:                "authz-1",
+					Namespace:           "bar",
+					AuthorizationPolicy: policyWithSelector,
+				},
 			},
 		},
 		{
@@ -464,8 +501,12 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			configs: []Config{
 				newConfig("authz-1", "bar", policyWithSelector),
 			},
-			want: []Config{
-				newConfig("authz-1", "bar", policyWithSelector),
+			want: []AuthorizationPolicyConfig{
+				{
+					Name:                "authz-1",
+					Namespace:           "bar",
+					AuthorizationPolicy: policyWithSelector,
+				},
 			},
 		},
 		{
@@ -498,8 +539,12 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			configs: []Config{
 				newConfig("authz-1", "istio-config", policy),
 			},
-			want: []Config{
-				newConfig("authz-1", "istio-config", policy),
+			want: []AuthorizationPolicyConfig{
+				{
+					Name:                "authz-1",
+					Namespace:           "istio-config",
+					AuthorizationPolicy: policy,
+				},
 			},
 		},
 		{
@@ -508,8 +553,12 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			configs: []Config{
 				newConfig("authz-1", "istio-config", policy),
 			},
-			want: []Config{
-				newConfig("authz-1", "istio-config", policy),
+			want: []AuthorizationPolicyConfig{
+				{
+					Name:                "authz-1",
+					Namespace:           "istio-config",
+					AuthorizationPolicy: policy,
+				},
 			},
 		},
 		{
@@ -519,9 +568,17 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 				newConfig("authz-1", "istio-config", policy),
 				newConfig("authz-2", "bar", policy),
 			},
-			want: []Config{
-				newConfig("authz-1", "istio-config", policy),
-				newConfig("authz-2", "bar", policy),
+			want: []AuthorizationPolicyConfig{
+				{
+					Name:                "authz-1",
+					Namespace:           "istio-config",
+					AuthorizationPolicy: policy,
+				},
+				{
+					Name:                "authz-2",
+					Namespace:           "bar",
+					AuthorizationPolicy: policy,
+				},
 			},
 		},
 	}
@@ -560,7 +617,9 @@ func TestAuthorizationPolicies_IsRBACEnabled(t *testing.T) {
 						Mode: rbacproto.RbacConfig_ON,
 					}),
 			},
-			want: true,
+			service:   "product.default.svc",
+			namespace: "default",
+			want:      true,
 		},
 		{
 			name: "enabled with permissive",
@@ -571,7 +630,9 @@ func TestAuthorizationPolicies_IsRBACEnabled(t *testing.T) {
 						EnforcementMode: rbacproto.EnforcementMode_PERMISSIVE,
 					}),
 			},
-			want: true,
+			service:   "product.default.svc",
+			namespace: "default",
+			want:      true,
 		},
 		{
 			name: "enabled by inclusion.service",
@@ -617,7 +678,9 @@ func TestAuthorizationPolicies_IsRBACEnabled(t *testing.T) {
 						Mode: rbacproto.RbacConfig_ON,
 					}),
 			},
-			want: true,
+			service:   "override.svc",
+			namespace: "ns",
+			want:      true,
 		},
 		{
 			name: "disabled by default",
@@ -630,6 +693,29 @@ func TestAuthorizationPolicies_IsRBACEnabled(t *testing.T) {
 						Mode: rbacproto.RbacConfig_OFF,
 					}),
 			},
+		},
+		{
+			name: "disabled-if-service-empty",
+			config: []Config{
+				newConfig("default", "",
+					&rbacproto.RbacConfig{
+						Mode: rbacproto.RbacConfig_ON,
+					}),
+			},
+			service:   "",
+			namespace: "default",
+			want:      false,
+		},
+		{
+			name: "disabled-if-ns-empty",
+			config: []Config{
+				newConfig("default", "",
+					&rbacproto.RbacConfig{
+						Mode: rbacproto.RbacConfig_ON,
+					}),
+			},
+			service: "product.default.svc",
+			want:    false,
 		},
 		{
 			name: "disabled by exclusion.service",
@@ -675,7 +761,7 @@ func createFakeAuthorizationPolicies(configs []Config, t *testing.T) *Authorizat
 	}
 	environment := &Environment{
 		IstioConfigStore: MakeIstioStore(store),
-		Mesh:             &mesh.MeshConfig{RootNamespace: "istio-config"},
+		Watcher:          mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-config"}),
 	}
 	authzPolicies, err := GetAuthorizationPolicies(environment)
 	if err != nil {

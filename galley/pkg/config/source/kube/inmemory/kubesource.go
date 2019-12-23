@@ -15,12 +15,16 @@
 package inmemory
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/sha1"
 	"fmt"
+	"io"
+	"strings"
 	"sync"
 
-	"github.com/ghodss/yaml"
+	"k8s.io/apimachinery/pkg/util/yaml"
+
 	"github.com/hashicorp/go-multierror"
 	kubeJson "k8s.io/apimachinery/pkg/runtime/serializer/json"
 
@@ -31,7 +35,6 @@ import (
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/inmemory"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
-	"istio.io/istio/galley/pkg/config/util/kubeyaml"
 )
 
 var inMemoryKubeNameDiscriminator int64
@@ -43,7 +46,7 @@ type KubeSource struct {
 	name      string
 	resources schema.KubeResources
 	source    *inmemory.Source
-	defaultNs string
+	defaultNs resource.Namespace
 
 	versionCtr int64
 	shas       map[kubeResourceKey]resourceSha
@@ -53,20 +56,20 @@ type KubeSource struct {
 type resourceSha [sha1.Size]byte
 
 type kubeResource struct {
-	entry *resource.Entry
-	spec  schema.KubeResource
-	sha   resourceSha
+	resource *resource.Instance
+	spec     schema.KubeResource
+	sha      resourceSha
 }
 
 func (r *kubeResource) newKey() kubeResourceKey {
 	return kubeResourceKey{
 		kind:     r.spec.Kind,
-		fullName: r.entry.Metadata.Name,
+		fullName: r.resource.Metadata.FullName,
 	}
 }
 
 type kubeResourceKey struct {
-	fullName resource.Name
+	fullName resource.FullName
 	kind     string
 }
 
@@ -89,7 +92,7 @@ func NewKubeSource(resources schema.KubeResources) *KubeSource {
 }
 
 // SetDefaultNamespace enables injecting a default namespace for resources where none is already specified
-func (s *KubeSource) SetDefaultNamespace(defaultNs string) {
+func (s *KubeSource) SetDefaultNamespace(defaultNs resource.Namespace) {
 	s.defaultNs = defaultNs
 }
 
@@ -154,9 +157,9 @@ func (s *KubeSource) ApplyContent(name, yamlText string) error {
 		oldSha, found := s.shas[key]
 		if !found || oldSha != r.sha {
 			s.versionCtr++
-			r.entry.Metadata.Version = resource.Version(fmt.Sprintf("v%d", s.versionCtr))
-			scope.Source.Debuga("KubeSource.ApplyContent: Set: ", r.spec.Collection.Name, r.entry.Metadata.Name)
-			s.source.Get(r.spec.Collection.Name).Set(r.entry)
+			r.resource.Metadata.Version = resource.Version(fmt.Sprintf("v%d", s.versionCtr))
+			scope.Source.Debuga("KubeSource.ApplyContent: Set: ", r.spec.Collection.Name, r.resource.Metadata.FullName)
+			s.source.Get(r.spec.Collection.Name).Set(r.resource)
 			s.shas[key] = r.sha
 		}
 		newKeys[key] = r.spec.Collection.Name
@@ -196,11 +199,29 @@ func (s *KubeSource) RemoveContent(name string) {
 func (s *KubeSource) parseContent(r schema.KubeResources, name, yamlText string) ([]kubeResource, error) {
 	var resources []kubeResource
 	var errs error
-	for i, chunk := range kubeyaml.Split([]byte(yamlText)) {
-		chunk = bytes.TrimSpace(chunk)
+
+	reader := bufio.NewReader(strings.NewReader(yamlText))
+	decoder := yaml.NewYAMLReader(reader)
+	chunkCount := -1
+
+	for {
+		chunkCount++
+		doc, err := decoder.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			e := fmt.Errorf("error reading documents in %s[%d]: %v", name, chunkCount, err)
+			scope.Source.Warnf("%v - skipping", e)
+			scope.Source.Debugf("Failed to parse yamlText chunk: %v", yamlText)
+			errs = multierror.Append(errs, e)
+			break
+		}
+
+		chunk := bytes.TrimSpace(doc)
 		r, err := s.parseChunk(r, chunk)
 		if err != nil {
-			e := fmt.Errorf("error processing %s[%d]: %v", name, i, err)
+			e := fmt.Errorf("error processing %s[%d]: %v", name, chunkCount, err)
 			scope.Source.Warnf("%v - skipping", e)
 			scope.Source.Debugf("Failed to parse yaml chunk: %v", string(chunk))
 			errs = multierror.Append(errs, e)
@@ -208,12 +229,13 @@ func (s *KubeSource) parseContent(r schema.KubeResources, name, yamlText string)
 		}
 		resources = append(resources, r)
 	}
+
 	return resources, errs
 }
 
 func (s *KubeSource) parseChunk(r schema.KubeResources, yamlChunk []byte) (kubeResource, error) {
 	// Convert to JSON
-	jsonChunk, err := yaml.YAMLToJSON(yamlChunk)
+	jsonChunk, err := yaml.ToJSON(yamlChunk)
 	if err != nil {
 		return kubeResource{}, fmt.Errorf("failed converting YAML to JSON: %v", err)
 	}
@@ -242,7 +264,7 @@ func (s *KubeSource) parseChunk(r schema.KubeResources, yamlChunk []byte) (kubeR
 	if !resourceSpec.ClusterScoped {
 		if objMeta.GetNamespace() == "" && s.defaultNs != "" {
 			scope.Source.Debugf("KubeSource.parseChunk: namespace not specified for %q, using %q", objMeta.GetName(), s.defaultNs)
-			objMeta.SetNamespace(s.defaultNs)
+			objMeta.SetNamespace(string(s.defaultNs))
 		}
 	} else {
 		// Clear the namespace if there is any specified.
@@ -255,8 +277,8 @@ func (s *KubeSource) parseChunk(r schema.KubeResources, yamlChunk []byte) (kubeR
 	}
 
 	return kubeResource{
-		spec:  resourceSpec,
-		sha:   sha1.Sum(yamlChunk),
-		entry: rt.ToResourceEntry(objMeta, &resourceSpec, item),
+		spec:     resourceSpec,
+		sha:      sha1.Sum(yamlChunk),
+		resource: rt.ToResource(objMeta, &resourceSpec, item),
 	}, nil
 }

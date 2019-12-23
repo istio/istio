@@ -607,7 +607,7 @@ type Params_LogInfo_SinkInfo struct {
 	UniqueWriterIdentity bool `protobuf:"varint,4,opt,name=UniqueWriterIdentity,proto3" json:"UniqueWriterIdentity,omitempty"`
 	// These fields apply only to UpdateSinkOpt calls. The corresponding sink field
 	// is updated if and only if the Update field is true.
-	// Upate sink destination.
+	// Update sink destination.
 	UpdateDestination bool `protobuf:"varint,5,opt,name=UpdateDestination,proto3" json:"UpdateDestination,omitempty"`
 	// Update sink filter.
 	UpdateFilter bool `protobuf:"varint,6,opt,name=UpdateFilter,proto3" json:"UpdateFilter,omitempty"`

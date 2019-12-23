@@ -89,6 +89,7 @@ type Config struct {
 	SDSTokenPath        string
 	ControlPlaneAuth    bool
 	DisableReportCalls  bool
+	OutlierLogPath      string
 }
 
 // newTemplateParams creates a new template configuration for the given configuration.
@@ -100,7 +101,13 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 		cfg.PilotSubjectAltName = defaultPilotSAN()
 	}
 	if cfg.PlatEnv == nil {
-		cfg.PlatEnv = platform.NewGCP()
+		if platform.IsGCP() {
+			cfg.PlatEnv = platform.NewGCP()
+		} else if platform.IsAWS() {
+			cfg.PlatEnv = platform.NewAWS()
+		} else {
+			cfg.PlatEnv = &platform.Unknown{}
+		}
 	}
 
 	// Remove duplicates from the node IPs.
@@ -117,7 +124,8 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 		option.SDSTokenPath(cfg.SDSTokenPath),
 		option.SDSUDSPath(cfg.SDSUDSPath),
 		option.ControlPlaneAuth(cfg.ControlPlaneAuth),
-		option.DisableReportCalls(cfg.DisableReportCalls))
+		option.DisableReportCalls(cfg.DisableReportCalls),
+		option.OutlierLogPath(cfg.OutlierLogPath))
 
 	// Support passing extra info from node environment as metadata
 	sdsEnabled := cfg.SDSTokenPath != "" && cfg.SDSUDSPath != ""
@@ -152,7 +160,7 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 	return option.NewTemplateParams(opts...)
 }
 
-// substituteValues substitutes variables known to the boostrap like pod_ip.
+// substituteValues substitutes variables known to the bootstrap like pod_ip.
 // "http.{pod_ip}_" with pod_id = [10.3.3.3,10.4.4.4] --> [http.10.3.3.3_,http.10.4.4.4_]
 func substituteValues(patterns []string, varName string, values []string) []string {
 	ret := make([]string, 0, len(patterns))

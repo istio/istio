@@ -24,8 +24,6 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 
-	"istio.io/istio/pilot/pkg/networking/util"
-
 	apiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/proto"
@@ -40,10 +38,11 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	authn_model "istio.io/istio/pilot/pkg/security/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schemas"
 )
@@ -75,18 +74,7 @@ var (
 )
 
 func TestHTTPCircuitBreakerThresholds(t *testing.T) {
-	directionInfos := []struct {
-		direction    model.TrafficDirection
-		clusterIndex int
-	}{
-		{
-			direction:    model.TrafficDirectionOutbound,
-			clusterIndex: 0,
-		}, {
-			direction:    model.TrafficDirectionInbound,
-			clusterIndex: 4,
-		},
-	}
+	clusterIndexes := []int{0, 4}
 	settings := []*networking.ConnectionPoolSettings{
 		nil,
 		{
@@ -98,31 +86,30 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 			},
 		}}
 
-	for _, directionInfo := range directionInfos {
-		for _, s := range settings {
-			settingsName := "default"
-			if s != nil {
-				settingsName = "override"
-			}
-			testName := fmt.Sprintf("%s-%s", directionInfo.direction, settingsName)
-			t.Run(testName, func(t *testing.T) {
-				g := NewGomegaWithT(t)
-				clusters, err := buildTestClusters("*.example.org", 0, model.SidecarProxy, nil, testMesh,
-					&networking.DestinationRule{
-						Host: "*.example.org",
-						TrafficPolicy: &networking.TrafficPolicy{
-							ConnectionPool: s,
-						},
-					})
-				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(len(clusters)).To(Equal(8))
-				cluster := clusters[directionInfo.clusterIndex]
+	for _, s := range settings {
+		testName := "default"
+		if s != nil {
+			testName = "override"
+		}
+		t.Run(testName, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			clusters, err := buildTestClusters("*.example.org", 0, model.SidecarProxy, nil, testMesh,
+				&networking.DestinationRule{
+					Host: "*.example.org",
+					TrafficPolicy: &networking.TrafficPolicy{
+						ConnectionPool: s,
+					},
+				})
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(len(clusters)).To(Equal(8))
+			for _, index := range clusterIndexes {
+				cluster := clusters[index]
 				g.Expect(len(cluster.CircuitBreakers.Thresholds)).To(Equal(1))
 				thresholds := cluster.CircuitBreakers.Thresholds[0]
 
 				if s == nil {
 					// Assume the correct defaults for this direction.
-					g.Expect(thresholds).To(Equal(getDefaultCircuitBreakerThresholds(directionInfo.direction)))
+					g.Expect(thresholds).To(Equal(getDefaultCircuitBreakerThresholds()))
 				} else {
 					// Verify that the values were set correctly.
 					g.Expect(thresholds.MaxPendingRequests).To(Not(BeNil()))
@@ -134,8 +121,8 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 					g.Expect(thresholds.MaxRetries).To(Not(BeNil()))
 					g.Expect(thresholds.MaxRetries.Value).To(Equal(uint32(s.Http.MaxRetries)))
 				}
-			})
-		}
+			}
+		})
 	}
 }
 
@@ -305,48 +292,48 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 
 	instances := []*model.ServiceInstance{
 		{
-			Service: service,
-			Endpoint: model.NetworkEndpoint{
-				Address:     "192.168.1.1",
-				Port:        10001,
-				ServicePort: servicePort[0],
-				Locality:    "region1/zone1/subzone1",
-				LbWeight:    40,
+			Service:     service,
+			ServicePort: servicePort[0],
+			Endpoint: &model.IstioEndpoint{
+				Address:      "192.168.1.1",
+				EndpointPort: 10001,
+				Locality:     "region1/zone1/subzone1",
+				LbWeight:     40,
+				TLSMode:      model.IstioMutualTLSModeLabel,
 			},
-			TLSMode: model.IstioMutualTLSModeLabel,
 		},
 		{
-			Service: service,
-			Endpoint: model.NetworkEndpoint{
-				Address:     "192.168.1.2",
-				Port:        10001,
-				ServicePort: servicePort[0],
-				Locality:    "region1/zone1/subzone2",
-				LbWeight:    20,
+			Service:     service,
+			ServicePort: servicePort[0],
+			Endpoint: &model.IstioEndpoint{
+				Address:      "192.168.1.2",
+				EndpointPort: 10001,
+				Locality:     "region1/zone1/subzone2",
+				LbWeight:     20,
+				TLSMode:      model.IstioMutualTLSModeLabel,
 			},
-			TLSMode: model.IstioMutualTLSModeLabel,
 		},
 		{
-			Service: service,
-			Endpoint: model.NetworkEndpoint{
-				Address:     "192.168.1.3",
-				Port:        10001,
-				ServicePort: servicePort[0],
-				Locality:    "region2/zone1/subzone1",
-				LbWeight:    40,
+			Service:     service,
+			ServicePort: servicePort[0],
+			Endpoint: &model.IstioEndpoint{
+				Address:      "192.168.1.3",
+				EndpointPort: 10001,
+				Locality:     "region2/zone1/subzone1",
+				LbWeight:     40,
+				TLSMode:      model.IstioMutualTLSModeLabel,
 			},
-			TLSMode: model.IstioMutualTLSModeLabel,
 		},
 		{
-			Service: service,
-			Endpoint: model.NetworkEndpoint{
-				Address:     "192.168.1.1",
-				Port:        10001,
-				ServicePort: servicePort[1],
-				Locality:    "region1/zone1/subzone1",
-				LbWeight:    0,
+			Service:     service,
+			ServicePort: servicePort[1],
+			Endpoint: &model.IstioEndpoint{
+				Address:      "192.168.1.1",
+				EndpointPort: 10001,
+				Locality:     "region1/zone1/subzone1",
+				LbWeight:     0,
+				TLSMode:      model.IstioMutualTLSModeLabel,
 			},
-			TLSMode: model.IstioMutualTLSModeLabel,
 		},
 	}
 
@@ -418,7 +405,7 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 
 	proxy.ServiceInstances, _ = serviceDiscovery.GetProxyServiceInstances(proxy)
 
-	clusters := configgen.BuildClusters(env, proxy, env.PushContext)
+	clusters := configgen.BuildClusters(proxy, env.PushContext)
 	var err error
 	if len(env.PushContext.ProxyStatus[model.DuplicatedClusters.Name()]) > 0 {
 		err = fmt.Errorf("duplicate clusters detected %#v", env.PushContext.ProxyStatus[model.DuplicatedClusters.Name()])
@@ -493,11 +480,11 @@ func TestBuildGatewayClustersWithRingHashLbDefaultMinRingSize(t *testing.T) {
 	g.Expect(cluster.ConnectTimeout).To(Equal(ptypes.DurationProto(time.Duration(10000000001))))
 }
 
-func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, mesh meshconfig.MeshConfig, configStore model.IstioConfigStore) *model.Environment {
+func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, meshConfig meshconfig.MeshConfig, configStore model.IstioConfigStore) *model.Environment {
 	env := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
 		IstioConfigStore: configStore,
-		Mesh:             &mesh,
+		Watcher:          mesh.NewFixedWatcher(&meshConfig),
 	}
 
 	env.PushContext = model.NewPushContext()
@@ -681,9 +668,9 @@ func TestBuildSidecarClustersWithMeshWideTCPKeepalive(t *testing.T) {
 
 func buildTestClustersWithTCPKeepalive(configType ConfigType) ([]*apiv2.Cluster, error) {
 	// Set mesh wide defaults.
-	mesh := testMesh
+	m := testMesh
 	if configType != None {
-		mesh.TcpKeepalive = &networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive{
+		m.TcpKeepalive = &networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive{
 			Time: &types.Duration{
 				Seconds: MeshWideTCPKeepaliveSeconds,
 				Nanos:   0,
@@ -707,7 +694,7 @@ func buildTestClustersWithTCPKeepalive(configType ConfigType) ([]*apiv2.Cluster,
 		destinationRuleTCPKeepalive = &networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive{}
 	}
 
-	return buildTestClusters("foo.example.org", 0, model.SidecarProxy, nil, mesh,
+	return buildTestClusters("foo.example.org", 0, model.SidecarProxy, nil, m,
 		&networking.DestinationRule{
 			Host: "*.example.org",
 			Subsets: []*networking.Subset{
@@ -808,7 +795,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 		proxy           *model.Proxy
 		autoMTLSEnabled bool
 		meshExternal    bool
-		serviceMTLSMode authn_model.MutualTLSMode
+		serviceMTLSMode model.MutualTLSMode
 		want            *networking.TLSSettings
 		wantCtxType     mtlsContextType
 	}{
@@ -818,7 +805,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			false, false, authn_model.MTLSUnknown,
+			false, false, model.MTLSUnknown,
 			tlsSettings,
 			userSupplied,
 		},
@@ -835,7 +822,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			false, false, authn_model.MTLSUnknown,
+			false, false, model.MTLSUnknown,
 			&networking.TLSSettings{
 				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
 				CaCertificates:    constants.DefaultRootCert,
@@ -856,7 +843,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 				TLSClientKey:       "/custom/key.pem",
 				TLSClientRootCert:  "/custom/root.pem",
 			}},
-			false, false, authn_model.MTLSUnknown,
+			false, false, model.MTLSUnknown,
 			&networking.TLSSettings{
 				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
 				CaCertificates:    "/custom/root.pem",
@@ -873,7 +860,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			[]string{"spiffee://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			true, false, authn_model.MTLSStrict,
+			true, false, model.MTLSStrict,
 			&networking.TLSSettings{
 				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
 				CaCertificates:    constants.DefaultRootCert,
@@ -890,7 +877,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			[]string{"spiffee://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			true, false, authn_model.MTLSPermissive,
+			true, false, model.MTLSPermissive,
 			&networking.TLSSettings{
 				Mode:              networking.TLSSettings_ISTIO_MUTUAL,
 				CaCertificates:    constants.DefaultRootCert,
@@ -907,7 +894,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			[]string{"spiffee://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			true, false, authn_model.MTLSDisable,
+			true, false, model.MTLSDisable,
 			nil,
 			userSupplied,
 		},
@@ -917,7 +904,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			[]string{"spiffee://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			true, false, authn_model.MTLSUnknown,
+			true, false, model.MTLSUnknown,
 			nil,
 			userSupplied,
 		},
@@ -927,7 +914,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			[]string{"spiffee://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			true, true, authn_model.MTLSUnknown,
+			true, true, model.MTLSUnknown,
 			nil,
 			userSupplied,
 		},
@@ -937,7 +924,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			[]string{"spiffee://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			false, false, authn_model.MTLSDisable,
+			false, false, model.MTLSDisable,
 			nil,
 			userSupplied,
 		},
@@ -1303,33 +1290,33 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 	}
 	instances := []*model.ServiceInstance{
 		{
-			Service: service,
-			Endpoint: model.NetworkEndpoint{
-				Address:     "192.168.1.1",
-				Port:        10001,
-				ServicePort: servicePort,
-				Locality:    "region1/zone1/subzone1",
-				LbWeight:    30,
+			Service:     service,
+			ServicePort: servicePort,
+			Endpoint: &model.IstioEndpoint{
+				Address:      "192.168.1.1",
+				EndpointPort: 10001,
+				Locality:     "region1/zone1/subzone1",
+				LbWeight:     30,
 			},
 		},
 		{
-			Service: service,
-			Endpoint: model.NetworkEndpoint{
-				Address:     "192.168.1.2",
-				Port:        10001,
-				ServicePort: servicePort,
-				Locality:    "region1/zone1/subzone1",
-				LbWeight:    30,
+			Service:     service,
+			ServicePort: servicePort,
+			Endpoint: &model.IstioEndpoint{
+				Address:      "192.168.1.2",
+				EndpointPort: 10001,
+				Locality:     "region1/zone1/subzone1",
+				LbWeight:     30,
 			},
 		},
 		{
-			Service: service,
-			Endpoint: model.NetworkEndpoint{
-				Address:     "192.168.1.3",
-				Port:        10001,
-				ServicePort: servicePort,
-				Locality:    "region2/zone1/subzone1",
-				LbWeight:    40,
+			Service:     service,
+			ServicePort: servicePort,
+			Endpoint: &model.IstioEndpoint{
+				Address:      "192.168.1.3",
+				EndpointPort: 10001,
+				Locality:     "region2/zone1/subzone1",
+				LbWeight:     40,
 			},
 		},
 	}
@@ -1340,7 +1327,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 	configStore := &fakes.IstioConfigStore{}
 	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 
-	localityLbEndpoints := buildLocalityLbEndpoints(env, model.GetNetworkView(nil), service, 8080, nil)
+	localityLbEndpoints := buildLocalityLbEndpoints(env.PushContext, model.GetNetworkView(nil), service, 8080, nil)
 	g.Expect(len(localityLbEndpoints)).To(Equal(2))
 	for _, ep := range localityLbEndpoints {
 		if ep.Locality.Region == "region1" {
@@ -1434,14 +1421,14 @@ func TestBuildClustersDefaultCircuitBreakerThresholds(t *testing.T) {
 	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 	proxy := &model.Proxy{Metadata: &model.NodeMetadata{}}
 
-	clusters := configgen.BuildClusters(env, proxy, env.PushContext)
+	clusters := configgen.BuildClusters(proxy, env.PushContext)
 	g.Expect(len(clusters)).ShouldNot(Equal(0))
 
 	for _, cluster := range clusters {
 		if cluster.Name != "BlackHoleCluster" {
 			fmt.Println(cluster.CircuitBreakers)
 			g.Expect(cluster.CircuitBreakers).NotTo(BeNil())
-			g.Expect(cluster.CircuitBreakers.Thresholds[0]).To(Equal(getDefaultCircuitBreakerThresholds(model.TrafficDirectionOutbound)))
+			g.Expect(cluster.CircuitBreakers.Thresholds[0]).To(Equal(getDefaultCircuitBreakerThresholds()))
 		}
 	}
 }
@@ -1475,22 +1462,22 @@ func TestBuildInboundClustersDefaultCircuitBreakerThresholds(t *testing.T) {
 
 	instances := []*model.ServiceInstance{
 		{
-			Service: service,
-			Endpoint: model.NetworkEndpoint{
-				Address:     "192.168.1.1",
-				Port:        10001,
-				ServicePort: servicePort,
+			Service:     service,
+			ServicePort: servicePort,
+			Endpoint: &model.IstioEndpoint{
+				Address:      "192.168.1.1",
+				EndpointPort: 10001,
 			},
 		},
 	}
 
-	clusters := configgen.buildInboundClusters(env, proxy, env.PushContext, instances, []*model.Port{servicePort})
+	clusters := configgen.buildInboundClusters(proxy, env.PushContext, instances, []*model.Port{servicePort})
 	g.Expect(len(clusters)).ShouldNot(Equal(0))
 
 	for _, cluster := range clusters {
 		fmt.Println(cluster.CircuitBreakers)
 		g.Expect(cluster.CircuitBreakers).NotTo(BeNil())
-		g.Expect(cluster.CircuitBreakers.Thresholds[0]).To(Equal(getDefaultCircuitBreakerThresholds(model.TrafficDirectionInbound)))
+		g.Expect(cluster.CircuitBreakers.Thresholds[0]).To(Equal(getDefaultCircuitBreakerThresholds()))
 	}
 }
 
@@ -1522,7 +1509,7 @@ func TestRedisProtocolWithPassThroughResolutionAtGateway(t *testing.T) {
 
 	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 
-	clusters := configgen.BuildClusters(env, proxy, env.PushContext)
+	clusters := configgen.BuildClusters(proxy, env.PushContext)
 	g.Expect(len(clusters)).ShouldNot(Equal(0))
 	for _, cluster := range clusters {
 		if cluster.Name == "outbound|6379||redis.com" {
@@ -1564,7 +1551,7 @@ func TestRedisProtocolClusterAtGateway(t *testing.T) {
 
 	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 
-	clusters := configgen.BuildClusters(env, proxy, env.PushContext)
+	clusters := configgen.BuildClusters(proxy, env.PushContext)
 	g.Expect(len(clusters)).ShouldNot(Equal(0))
 	for _, cluster := range clusters {
 		if cluster.Name == "outbound|6379||redis.com" {
@@ -1591,7 +1578,7 @@ func TestAltStatName(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -1604,7 +1591,7 @@ func TestAltStatName(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "reviews",
 				Namespace:       "namespace1",
 			},
@@ -1617,7 +1604,7 @@ func TestAltStatName(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "reviews",
 				Namespace:       "namespace1",
 			},
@@ -1630,7 +1617,7 @@ func TestAltStatName(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.ConsulRegistry),
+				ServiceRegistry: string(serviceregistry.Consul),
 				Name:            "foo",
 				Namespace:       "bar",
 			},
@@ -1643,7 +1630,7 @@ func TestAltStatName(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -1656,7 +1643,7 @@ func TestAltStatName(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -1669,7 +1656,7 @@ func TestAltStatName(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -1682,7 +1669,7 @@ func TestAltStatName(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -1695,7 +1682,7 @@ func TestAltStatName(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -1708,7 +1695,7 @@ func TestAltStatName(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -1721,7 +1708,7 @@ func TestAltStatName(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -1734,7 +1721,7 @@ func TestAltStatName(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -1747,7 +1734,7 @@ func TestAltStatName(t *testing.T) {
 			"v1",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -1760,7 +1747,7 @@ func TestAltStatName(t *testing.T) {
 			"v1",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.KubernetesRegistry),
+				ServiceRegistry: string(serviceregistry.Kubernetes),
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -2011,4 +1998,52 @@ func TestAutoMTLSClusterPerPortStrictMode(t *testing.T) {
 		cluster := clusters[i]
 		g.Expect(cluster.TlsContext).To(BeNil())
 	}
+}
+
+func TestApplyLoadBalancer(t *testing.T) {
+	testcases := []struct {
+		name             string
+		lbSettings       *networking.LoadBalancerSettings
+		discoveryType    apiv2.Cluster_DiscoveryType
+		port             *model.Port
+		expectedLbPolicy apiv2.Cluster_LbPolicy
+	}{
+		{
+			name:             "lb = nil ORIGINAL_DST discovery type",
+			discoveryType:    apiv2.Cluster_ORIGINAL_DST,
+			expectedLbPolicy: apiv2.Cluster_CLUSTER_PROVIDED,
+		},
+		{
+			name:             "lb = nil redis protocol",
+			discoveryType:    apiv2.Cluster_EDS,
+			port:             &model.Port{Protocol: protocol.Redis},
+			expectedLbPolicy: apiv2.Cluster_MAGLEV,
+		},
+		// TODO: add more to cover all cases
+	}
+
+	proxy := model.Proxy{
+		Type:         model.SidecarProxy,
+		IstioVersion: &model.IstioVersion{Major: 1, Minor: 5},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			cluster := &apiv2.Cluster{
+				ClusterDiscoveryType: &apiv2.Cluster_Type{Type: test.discoveryType},
+			}
+
+			if test.port != nil && test.port.Protocol == protocol.Redis {
+				os.Setenv("PILOT_ENABLE_REDIS_FILTER", "true")
+				defer os.Unsetenv("PILOT_ENABLE_REDIS_FILTER")
+			}
+
+			applyLoadBalancer(cluster, test.lbSettings, test.port, &proxy, &meshconfig.MeshConfig{})
+
+			if cluster.LbPolicy != test.expectedLbPolicy {
+				t.Errorf("cluster LbPolicy %s != expected %s", cluster.LbPolicy, test.expectedLbPolicy)
+			}
+		})
+	}
+
 }

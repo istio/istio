@@ -189,7 +189,7 @@ func TestHandleTraceSpan(t *testing.T) {
 			vals: []*tracespan.Instance{
 				{
 					Name:              "tracespan.test",
-					SpanName:          "/com.exmaple.Service.Method",
+					SpanName:          "/com.example.Service.Method",
 					StartTime:         start,
 					EndTime:           end,
 					SourceName:        "exampleclient.default",
@@ -220,7 +220,7 @@ func TestHandleTraceSpan(t *testing.T) {
 					},
 					ParentSpanID: trace.SpanID{},
 					SpanKind:     trace.SpanKindServer,
-					Name:         "/com.exmaple.Service.Method",
+					Name:         "/com.example.Service.Method",
 					StartTime:    start,
 					EndTime:      end,
 					Attributes: map[string]interface{}{
@@ -255,7 +255,7 @@ func TestHandleTraceSpan(t *testing.T) {
 			vals: []*tracespan.Instance{
 				{
 					Name:              "tracespan.test",
-					SpanName:          "/com.exmaple.Service.Method",
+					SpanName:          "/com.example.Service.Method",
 					StartTime:         start,
 					EndTime:           end,
 					SourceName:        "exampleclient.default",
@@ -286,7 +286,7 @@ func TestHandleTraceSpan(t *testing.T) {
 					},
 					ParentSpanID: trace.SpanID{0xb2, 0xfb, 0x4a, 0x1d, 0x1a, 0x96, 0xd3, 0x12},
 					SpanKind:     trace.SpanKindClient,
-					Name:         "/com.exmaple.Service.Method",
+					Name:         "/com.example.Service.Method",
 					StartTime:    start,
 					EndTime:      end,
 					Attributes: map[string]interface{}{

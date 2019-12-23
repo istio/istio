@@ -291,6 +291,7 @@ func checkHTTPFilter(resp *xdsapi.DiscoveryResponse) (success bool, e error) {
 						return false, fmt.Errorf("failed to unmarshall HCM (Any) from 1.1.1.1_80 listener: %v", err)
 					}
 				} else {
+					// nolint: staticcheck
 					if err := conversion.StructToMessage(networkFilter.GetConfig(), hcm); err != nil {
 						return false, fmt.Errorf("failed to unmarshall HCM (Struct) from 1.1.1.1_80 listener: %v", err)
 					}

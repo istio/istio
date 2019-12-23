@@ -21,13 +21,14 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/istio/galley/pkg/config/analysis"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
 )
 
-// Analyzer checks conditions related to Istio injection
+// Analyzer checks conditions related to Istio sidecar injection.
 type Analyzer struct{}
 
 var _ analysis.Analyzer = &Analyzer{}
@@ -36,8 +37,8 @@ var _ analysis.Analyzer = &Analyzer{}
 // In theory, there can be alternatives using Mutatingwebhookconfiguration, but they're very uncommon
 // See https://istio.io/docs/ops/troubleshooting/injection/ for more info.
 const (
-	injectionLabelName        = "istio-injection"
-	injectionLabelEnableValue = "enabled"
+	InjectionLabelName        = "istio-injection"
+	InjectionLabelEnableValue = "enabled"
 
 	istioProxyName = "istio-proxy"
 )
@@ -45,7 +46,8 @@ const (
 // Metadata implements Analyzer
 func (a *Analyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name: "injection.Analyzer",
+		Name:        "injection.Analyzer",
+		Description: "Checks conditions related to Istio sidecar injection",
 		Inputs: collection.Names{
 			metadata.K8SCoreV1Namespaces,
 			metadata.K8SCoreV1Pods,
@@ -57,43 +59,42 @@ func (a *Analyzer) Metadata() analysis.Metadata {
 func (a *Analyzer) Analyze(c analysis.Context) {
 	injectedNamespaces := make(map[string]bool)
 
-	c.ForEach(metadata.K8SCoreV1Namespaces, func(r *resource.Entry) bool {
+	c.ForEach(metadata.K8SCoreV1Namespaces, func(r *resource.Instance) bool {
 
-		// Ignore system namespaces
-		// TODO: namespaces can in theory be anything, so we need to make this more configurable
-		if strings.HasPrefix(r.Metadata.Name.String(), "kube-") || strings.HasPrefix(r.Metadata.Name.String(), "istio-") {
+		ns := r.Metadata.FullName.String()
+		if util.IsSystemNamespace(resource.Namespace(ns)) {
 			return true
 		}
 
-		injectionLabel := r.Metadata.Labels[injectionLabelName]
+		injectionLabel := r.Metadata.Labels[InjectionLabelName]
 
 		if injectionLabel == "" {
 			// TODO: if Istio is installed with sidecarInjectorWebhook.enableNamespacesByDefault=true
 			// (in the istio-sidecar-injector configmap), we need to reverse this logic and treat this as an injected namespace
 
-			c.Report(metadata.K8SCoreV1Namespaces, msg.NewNamespaceNotInjected(r, r.Metadata.Name.String(), r.Metadata.Name.String()))
+			c.Report(metadata.K8SCoreV1Namespaces, msg.NewNamespaceNotInjected(r, r.Metadata.FullName.String(), r.Metadata.FullName.String()))
 			return true
 		}
 
 		// If it has any value other than the enablement value, they are deliberately not injecting it, so ignore
-		if r.Metadata.Labels[injectionLabelName] != injectionLabelEnableValue {
+		if r.Metadata.Labels[InjectionLabelName] != InjectionLabelEnableValue {
 			return true
 		}
 
-		injectedNamespaces[r.Metadata.Name.String()] = true
+		injectedNamespaces[r.Metadata.FullName.String()] = true
 
 		return true
 	})
 
-	c.ForEach(metadata.K8SCoreV1Pods, func(r *resource.Entry) bool {
-		pod := r.Item.(*v1.Pod)
+	c.ForEach(metadata.K8SCoreV1Pods, func(r *resource.Instance) bool {
+		pod := r.Message.(*v1.Pod)
 
 		if !injectedNamespaces[pod.GetNamespace()] {
 			return true
 		}
 
 		// If a pod has injection explicitly disabled, no need to check further
-		if val := pod.GetAnnotations()[annotation.SidecarInject.Name]; strings.ToLower(val) == "false" {
+		if val := pod.GetAnnotations()[annotation.SidecarInject.Name]; strings.EqualFold(val, "false") {
 			return true
 		}
 
@@ -106,7 +107,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 		}
 
 		if proxyImage == "" {
-			c.Report(metadata.K8SCoreV1Pods, msg.NewPodMissingProxy(r, pod.Name, pod.GetNamespace()))
+			c.Report(metadata.K8SCoreV1Pods, msg.NewPodMissingProxy(r))
 		}
 
 		return true

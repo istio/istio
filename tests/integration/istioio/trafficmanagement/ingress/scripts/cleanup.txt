@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+
+# Copyright Istio Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+set -u
+
+# $snippet delete_gateway syntax="bash"
+$ kubectl delete gateway mygateway
+$ kubectl delete --ignore-not-found=true virtualservice httpbin helloworld-v1
+$ kubectl delete --ignore-not-found=true -n istio-system secret httpbin-credential \
+helloworld-credential
+# $endsnippet
+
+{{- if .isSnippet -}}
+# Only include this in snippets. Keep the files around for debugging.
+
+# $snippet delete_temp_dirs syntax="bash"
+$ rm -rf httpbin.example.com helloworld-v1.example.com mtls-go-example \
+httpbin.new.example.com
+# $endsnippet
+
+# $snippet delete_ingressgatway_yaml syntax="bash"
+$ rm -f {{ .yamlDir }}/istio-ingressgateway.yaml
+# $endsnippet
+{{- end -}}
+
+# $snippet delete_services syntax="bash"
+$ kubectl delete service --ignore-not-found=true helloworld-v1 httpbin
+# $endsnippet
+
+# NOTE: Need to add this to istio.io
+# $snippet delete_deployments syntax="bash"
+$ kubectl delete deployment --ignore-not-found=true helloworld-v1 httpbin
+# $endsnippet
