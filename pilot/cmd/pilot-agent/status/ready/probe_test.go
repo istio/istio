@@ -57,7 +57,7 @@ func TestEnvoyStatsCompleteAndSuccessful(t *testing.T) {
 
 	server := createAndStartServer(liveServerStats)
 	defer server.Close()
-	probe := Probe{AdminPort: 1234}
+	probe := Probe{LocalHostAddr: "localhost", AdminPort: 1234}
 
 	err := probe.Check()
 
@@ -70,7 +70,7 @@ func TestEnvoyStatsIncompleteCDS(t *testing.T) {
 
 	server := createAndStartServer(stats)
 	defer server.Close()
-	probe := Probe{AdminPort: 1234}
+	probe := Probe{LocalHostAddr: "localhost", AdminPort: 1234}
 
 	err := probe.Check()
 
@@ -84,7 +84,7 @@ func TestEnvoyStatsIncompleteLDS(t *testing.T) {
 
 	server := createAndStartServer(stats)
 	defer server.Close()
-	probe := Probe{AdminPort: 1234}
+	probe := Probe{LocalHostAddr: "localhost", AdminPort: 1234}
 
 	err := probe.Check()
 
@@ -98,7 +98,7 @@ func TestEnvoyStatsCompleteAndRejectedCDS(t *testing.T) {
 
 	server := createAndStartServer(stats)
 	defer server.Close()
-	probe := Probe{AdminPort: 1234}
+	probe := Probe{LocalHostAddr: "localhost", AdminPort: 1234}
 
 	err := probe.Check()
 
@@ -111,7 +111,7 @@ func TestEnvoyCheckFailsIfStatsUnparsableNoSeparator(t *testing.T) {
 
 	server := createAndStartServer(stats)
 	defer server.Close()
-	probe := Probe{AdminPort: 1234}
+	probe := Probe{LocalHostAddr: "localhost", AdminPort: 1234}
 
 	err := probe.Check()
 
@@ -125,7 +125,7 @@ func TestEnvoyCheckFailsIfStatsUnparsableNoNumber(t *testing.T) {
 
 	server := createAndStartServer(stats)
 	defer server.Close()
-	probe := Probe{AdminPort: 1234}
+	probe := Probe{LocalHostAddr: "localhost", AdminPort: 1234}
 
 	err := probe.Check()
 
@@ -138,7 +138,7 @@ func TestEnvoyInitializing(t *testing.T) {
 
 	server := createAndStartServer(initServerStats)
 	defer server.Close()
-	probe := Probe{AdminPort: 1234}
+	probe := Probe{LocalHostAddr: "localhost", AdminPort: 1234}
 
 	err := probe.Check()
 
@@ -150,7 +150,7 @@ func TestEnvoyNoClusterManagerStats(t *testing.T) {
 
 	server := createAndStartServer(onlyServerStats)
 	defer server.Close()
-	probe := Probe{AdminPort: 1234}
+	probe := Probe{LocalHostAddr: "localhost", AdminPort: 1234}
 
 	err := probe.Check()
 
@@ -162,7 +162,7 @@ func TestEnvoyNoServerStats(t *testing.T) {
 
 	server := createAndStartServer(noServerStats)
 	defer server.Close()
-	probe := Probe{AdminPort: 1234}
+	probe := Probe{LocalHostAddr: "localhost", AdminPort: 1234}
 
 	err := probe.Check()
 
@@ -184,7 +184,7 @@ func TestEnvoyInitializingWithVirtualInboundListener(t *testing.T) {
 
 	server := createHTTPServer(funcMap)
 	defer server.Close()
-	probe := Probe{AdminPort: 1234, receivedFirstUpdate: true, NodeType: model.SidecarProxy}
+	probe := Probe{LocalHostAddr: "localhost", AdminPort: 1234, receivedFirstUpdate: true, NodeType: model.SidecarProxy}
 
 	err := probe.Check()
 
