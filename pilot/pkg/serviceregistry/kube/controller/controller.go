@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/yl2chen/cidranger"
+	"go.uber.org/atomic"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -142,11 +143,15 @@ var _ serviceregistry.Instance = &Controller{}
 // Controller is a collection of synchronized resource watchers
 // Caches are thread-safe
 type Controller struct {
-	client          kubernetes.Interface
-	queue           queue.Instance
+	client kubernetes.Interface
+	queue  queue.Instance
+
 	sharedInformers informers.SharedInformerFactory
-	services        cache.SharedIndexInformer
-	endpoints       kubeEndpointsController
+	// whether all the informers has synced
+	synced atomic.Bool
+
+	services  cache.SharedIndexInformer
+	endpoints kubeEndpointsController
 
 	// TODO we can disable this when we only have EndpointSlice enabled
 	nodes           cache.SharedIndexInformer
@@ -282,7 +287,7 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 }
 
 func (c *Controller) onNodeEvent(_ interface{}, _ model.Event) error {
-	return c.checkReadyForEvents()
+	return nil
 }
 
 func registerHandlers(informer cache.SharedIndexInformer, q queue.Instance, otype string,
@@ -335,6 +340,9 @@ func compareEndpoints(a, b *v1.Endpoints) bool {
 
 // HasSynced returns true after the initial state synchronization
 func (c *Controller) HasSynced() bool {
+	if c.synced.Load() {
+		return true
+	}
 	if !c.services.HasSynced() ||
 		!c.endpoints.HasSynced() ||
 		!c.pods.informer.HasSynced() ||
@@ -357,6 +365,8 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	if !cache.WaitForNamedCacheSync(c.clusterID+" kube controller", stop, c.HasSynced) {
 		return
 	}
+
+	c.synced.Store(true)
 
 	go func() {
 		c.queue.Run(stop)
