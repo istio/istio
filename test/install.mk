@@ -46,6 +46,7 @@ run-build-ingress:
 	  --set global.istioNamespace=istio-micro \
 	  --set global.k8sIngress.enabled=true \
       --set global.controlPlaneSecurityEnabled=false \
+	  --set global.mtls.auto=false \
       > test/knative/istio-ingress.gen.yaml
 
 run-build-citadel:
