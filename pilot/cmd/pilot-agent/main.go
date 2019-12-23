@@ -48,6 +48,7 @@ import (
 	envoyDiscovery "istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/bootstrap/option"
+	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
@@ -71,7 +72,6 @@ var (
 	mixerIdentity    string
 	statusPort       uint16
 	stsPort          int
-	gCPProjectNumber string
 
 	// proxy config flags (named identically)
 	configPath               string
@@ -482,10 +482,11 @@ var (
 				go waitForCompletion(ctx, statusServer.Run)
 			}
 
-			// If security token service (STS) port is not zero, start STS server and
-			// listens on that port for STS requests.
+			// If security token service (STS) port is not zero, and Istio is running on
+			// GCP, start STS server and listen on STS port for STS requests.
 			// For STS, see https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16.
-			if stsPort > 0 {
+			gCPProjectNumber := getGcpProjectNumber()
+			if stsPort > 0 && len(gCPProjectNumber) > 0 {
 				localHostAddr := "127.0.0.1"
 				if proxyIPv6 {
 					localHostAddr = "[::1]"
@@ -544,6 +545,16 @@ var (
 		},
 	}
 )
+
+func getGcpProjectNumber() string {
+	if platform.IsGCP() {
+		md := platform.NewGCP().Metadata()
+		if projNum, found := md[platform.GCPProjectNumber]; found {
+			return projNum
+		}
+	}
+	return ""
+}
 
 // dedupes the string array and also ignores the empty string.
 func dedupeStrings(in []string) []string {
@@ -712,8 +723,6 @@ func init() {
 		"HTTP Port on which to serve pilot agent status. If zero, agent status will not be provided.")
 	proxyCmd.PersistentFlags().IntVar(&stsPort, "stsPort", 0,
 		"HTTP Port on which to serve Security Token Service (STS). If zero, STS service will not be provided.")
-	proxyCmd.PersistentFlags().StringVar(&gCPProjectNumber, "gCPProjectNumber", "",
-		"The Google Cloud Platform (GCP) project number where Istio is deployed.")
 	// Flags for proxy configuration
 	values := mesh.DefaultProxyConfig()
 	proxyCmd.PersistentFlags().StringVar(&configPath, "configPath", values.ConfigPath,
