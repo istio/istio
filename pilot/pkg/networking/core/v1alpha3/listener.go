@@ -2250,17 +2250,25 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *plugin.
 		mutable.Listener.FilterChains[i].Metadata = opt.metadata
 
 		if opt.thriftOpts != nil && features.EnableThriftFilter.Get() {
+			var quotas []model.Config
 			// Add the TCP filters first.. and then the Thrift filter
 			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, chain.TCP...)
 
 			thriftProxies[i] = buildThriftProxy(opt.thriftOpts)
+
+			if pluginParams.Service != nil {
+				quotas = opts.push.IstioConfigStore.QuotaSpecByDestination(&model.ServiceInstance{
+					Service: pluginParams.Service,
+				})
+			}
 
 			// If the RLS service was provided, add the RLS to the Thrift filter
 			// chain. Rate limiting is only applied client-side.
 			if rlsUri := features.ThriftRatelimitService.Get(); rlsUri != "" &&
 				mutable.Listener.TrafficDirection == core.TrafficDirection_OUTBOUND &&
 				pluginParams.Service != nil &&
-				pluginParams.Service.Hostname != "" {
+				pluginParams.Service.Hostname != "" &&
+				len(quotas) > 0 {
 				rateLimitConfig := buildThriftRatelimit(rlsUri, fmt.Sprint(pluginParams.Service.Hostname))
 				rateLimitFilter := &thrift_proxy.ThriftFilter{
 					Name: "envoy.filters.thrift.rate_limit",
