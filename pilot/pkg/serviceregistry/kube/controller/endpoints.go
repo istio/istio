@@ -256,7 +256,3 @@ func (e *endpointsController) onEvent(curr interface{}, event model.Event) error
 func (e *endpointsController) HasSynced() bool {
 	return e.informer.HasSynced()
 }
-
-func (e *endpointsController) Run(stopCh <-chan struct{}) {
-	e.informer.Run(stopCh)
-}

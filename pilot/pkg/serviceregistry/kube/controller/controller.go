@@ -142,10 +142,11 @@ var _ serviceregistry.Instance = &Controller{}
 // Controller is a collection of synchronized resource watchers
 // Caches are thread-safe
 type Controller struct {
-	client    kubernetes.Interface
-	queue     queue.Instance
-	services  cache.SharedIndexInformer
-	endpoints kubeEndpointsController
+	client          kubernetes.Interface
+	queue           queue.Instance
+	sharedInformers informers.SharedInformerFactory
+	services        cache.SharedIndexInformer
+	endpoints       kubeEndpointsController
 
 	// TODO we can disable this when we only have EndpointSlice enabled
 	nodes           cache.SharedIndexInformer
@@ -192,7 +193,7 @@ func NewController(client kubernetes.Interface, options Options) *Controller {
 	}
 
 	sharedInformers := informers.NewSharedInformerFactoryWithOptions(client, options.ResyncPeriod, informers.WithNamespace(options.WatchedNamespace))
-
+	c.sharedInformers = sharedInformers
 	c.services = sharedInformers.Core().V1().Services().Informer()
 	registerHandlers(c.services, c.queue, "Services", c.onServiceEvent)
 
@@ -350,20 +351,16 @@ func (c *Controller) Run(stop <-chan struct{}) {
 		c.initNetworkLookup()
 	}
 
+	// start all the informers
+	go c.sharedInformers.Start(stop)
+
+	if !cache.WaitForNamedCacheSync(c.clusterID+" kube controller", stop, c.HasSynced) {
+		return
+	}
+
 	go func() {
-		cache.WaitForCacheSync(stop, c.HasSynced)
 		c.queue.Run(stop)
 	}()
-
-	go c.services.Run(stop)
-	go c.pods.informer.Run(stop)
-	go c.nodes.Run(stop)
-
-	// To avoid endpoints without labels or ports, wait for sync.
-	cache.WaitForCacheSync(stop, c.nodes.HasSynced, c.pods.informer.HasSynced,
-		c.services.HasSynced)
-
-	go c.endpoints.Run(stop)
 
 	<-stop
 	log.Infof("Controller terminated")

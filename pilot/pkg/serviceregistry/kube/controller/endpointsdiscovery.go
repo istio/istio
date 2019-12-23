@@ -24,7 +24,6 @@ import (
 // both sources implement.
 type kubeEndpointsController interface {
 	HasSynced() bool
-	Run(stopCh <-chan struct{})
 	InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int,
 		labelsList labels.Collection) ([]*model.ServiceInstance, error)
 	GetProxyServiceInstances(c *Controller, proxy *model.Proxy, proxyNamespace string) []*model.ServiceInstance

@@ -59,10 +59,6 @@ func (e *endpointSliceController) HasSynced() bool {
 	return e.informer.HasSynced()
 }
 
-func (e *endpointSliceController) Run(stopCh <-chan struct{}) {
-	e.informer.Run(stopCh)
-}
-
 func (e *endpointSliceController) updateEDSSlice(c *Controller, slice *discoveryv1alpha1.EndpointSlice, event model.Event) {
 	svcName := slice.Labels[discoveryv1alpha1.LabelServiceName]
 	hostname := kube.ServiceHostname(svcName, slice.Namespace, c.domainSuffix)
