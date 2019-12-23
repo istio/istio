@@ -327,6 +327,8 @@ values:
     enableTracing: true
     imagePullPolicy: IfNotPresent
     imagePullSecrets: []
+    istiod:
+      enabled: true
     k8sIngress:
       enableHttps: false
       enabled: false
@@ -458,7 +460,7 @@ values:
     envSecrets: {}
     image:
       repository: grafana/grafana
-      tag: 6.4.3
+      tag: 6.5.2
     ingress:
       annotations: null
       enabled: false
@@ -612,7 +614,7 @@ values:
     scrapeInterval: 15s
     security:
       enabled: true
-    tag: v2.12.0
+    tag: v2.15.0
     tolerations: []
   security:
     dnsCerts:
