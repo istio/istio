@@ -56,15 +56,15 @@ type federatedTokenResponse struct {
 }
 
 type accessTokenRequest struct {
-	name      string `json:"name"`
-	delegates []string `json:"delegates"`
-	scope     []string `json:"scope"`
+	name      string            `json:"name"`
+	delegates []string          `json:"delegates"`
+	scope     []string          `json:"scope"`
 	lifeTime  duration.Duration `json:"lifetime"`
 }
 
 type accessTokenResponse struct {
-	AccessToken     string `json:"accessToken"`
-	ExpireTime      duration.Duration `json:"expireTime"`
+	AccessToken string            `json:"accessToken"`
+	ExpireTime  duration.Duration `json:"expireTime"`
 }
 
 // AuthorizationServer is the in-memory secure token service.
@@ -76,17 +76,17 @@ type AuthorizationServer struct {
 
 	// These fields are needed to handle accessTokenRequest
 	expectedFederatedTokenRequest federatedTokenRequest
-	expectedAccessTokenRequest accessTokenRequest
+	expectedAccessTokenRequest    accessTokenRequest
 
-	mutex              sync.RWMutex
+	mutex                       sync.RWMutex
 	generateFederatedTokenError error
-	generateAccessTokenError error
+	generateAccessTokenError    error
 }
 
 // StartNewServer creates a mock server and starts it
 func StartNewServer(t *testing.T) (*AuthorizationServer, error) {
 	server := &AuthorizationServer{
-		t:            t,
+		t: t,
 		expectedFederatedTokenRequest: federatedTokenRequest{
 			Audience:           FakeTrustDomain,
 			GrantType:          "urn:ietf:params:oauth:grant-type:token-exchange",
@@ -96,8 +96,8 @@ func StartNewServer(t *testing.T) (*AuthorizationServer, error) {
 			Scope:              "https://www.googleapis.com/auth/cloud-platform",
 		},
 		expectedAccessTokenRequest: accessTokenRequest{
-			name:           fmt.Sprintf("projects/-/serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken", FakeProjectNum),
-			scope:          []string{"https://www.googleapis.com/auth/cloud-platform"},
+			name:  fmt.Sprintf("projects/-/serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken", FakeProjectNum),
+			scope: []string{"https://www.googleapis.com/auth/cloud-platform"},
 		},
 	}
 	return server, server.Start()

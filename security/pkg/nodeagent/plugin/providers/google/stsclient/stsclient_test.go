@@ -16,8 +16,9 @@ package stsclient
 
 import (
 	"context"
-	"istio.io/istio/security/pkg/stsservice/mock"
 	"testing"
+
+	"istio.io/istio/security/pkg/stsservice/mock"
 )
 
 func TestGetFederatedToken(t *testing.T) {

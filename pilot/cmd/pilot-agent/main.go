@@ -19,14 +19,15 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	stsserver "istio.io/istio/security/pkg/stsservice/server"
-	"istio.io/istio/security/pkg/stsservice/tokenmanagers/google"
 	"net"
 	"os"
 	"strings"
 	"sync"
 	"text/template"
 	"time"
+
+	stsserver "istio.io/istio/security/pkg/stsservice/server"
+	"istio.io/istio/security/pkg/stsservice/tokenmanagers/google"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
@@ -495,8 +496,8 @@ var (
 					return err
 				}
 				stsServer, err := stsserver.NewServer(stsserver.Config{
-					LocalHostAddr:      localHostAddr,
-					LocalPort:          stsPort,
+					LocalHostAddr: localHostAddr,
+					LocalPort:     stsPort,
 				}, tokenManager)
 				if err != nil {
 					cancel()
