@@ -309,9 +309,6 @@ docker.save: dockerx.save
 $(foreach TGT,$(filter-out docker.app,$(DOCKER_TARGETS)),$(eval push.$(TGT): | $(TGT) ; \
 	time (set -e && for distro in $(DOCKER_BUILD_VARIANTS); do tag=$(TAG)-$$$${distro}; docker push $(HUB)/$(subst docker.,,$(TGT)):$$$${tag%-$(DEFAULT_DISTRIBUTION)}; done)))
 
-push.docker.app: docker.app
-	time (docker push $(HUB)/app:$(TAG))
-
 define run_vulnerability_scanning
         $(eval RESULTS_DIR := vulnerability_scan_results)
         $(eval CURL_RESPONSE := $(shell curl -s --create-dirs -o $(RESULTS_DIR)/$(1) -w "%{http_code}" http://imagescanner.cloud.ibm.com/scan?image="docker.io/$(2)")) \
@@ -324,6 +321,12 @@ $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_PUSH_TARGETS+=push.$(TGT)))
 
 # Will build and push docker images.
 docker.push: $(DOCKER_PUSH_TARGETS)
+
+# Build and push docker images using dockerx
+dockerx.push: dockerx
+	$(foreach TGT,$(DOCKER_TARGETS), time ( \
+		set -e && for distro in $(DOCKER_BUILD_VARIANTS); do tag=$(TAG)-$${distro}; docker push $(HUB)/$(subst docker.,,$(TGT)):$${tag%-$(DEFAULT_DISTRIBUTION)}; done); \
+	)
 
 # Scan images for security vulnerabilities using the ImageScanner tool
 docker.scan_images: $(DOCKER_PUSH_TARGETS)
