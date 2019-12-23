@@ -24,8 +24,8 @@ import (
 )
 
 const (
-	statCdsRejected  = "cluster_manager.cds.update_success"
-	statsCdsSuccess  = "cluster_manager.cds.update_rejected"
+	statCdsRejected  = "cluster_manager.cds.update_rejected"
+	statsCdsSuccess  = "cluster_manager.cds.update_success"
 	statLdsRejected  = "listener_manager.lds.update_rejected"
 	statsLdsSuccess  = "listener_manager.lds.update_success"
 	statServerState  = "server.state"
