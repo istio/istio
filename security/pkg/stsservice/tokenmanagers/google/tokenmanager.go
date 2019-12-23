@@ -45,7 +45,8 @@ const (
 )
 
 var (
-	tokenManagerLog        = log.RegisterScope("tokenManagerLog", "STS token manager debugging", 0)
+	tokenManagerLog        = log.RegisterScope("tokenManager", "STS token manager debugging", 0)
+
 	federatedTokenEndpoint = "https://securetoken.googleapis.com/v1/identitybindingtoken"
 	// https://cloud.google.com/iam/docs/reference/credentials/rest/v1/projects.serviceAccounts/generateAccessToken
 	accessTokenEndpoint = "https://iamcredentials.googleapis.com/v1/projects/-/" +
