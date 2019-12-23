@@ -288,24 +288,26 @@ $(foreach TGT,$(filter-out docker.app,$(DOCKER_TARGETS)),$(eval tar.$(TGT): $(TG
 			   ); \
 		  )))
 
-tar.docker.app: docker.app | $(ISTIO_DOCKER_TAR)
-	time ( docker save -o ${ISTIO_DOCKER_TAR}/app.tar $(HUB)/app:$(TAG) && \
-             gzip ${ISTIO_DOCKER_TAR}/app.tar )
-
 # create a DOCKER_TAR_TARGETS that's each of DOCKER_TARGETS with a tar. prefix DOCKER_TAR_TARGETS:=
 $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_TAR_TARGETS+=tar.$(TGT)))
 
 # this target saves a tar.gz of each docker image to ${ISTIO_OUT_LINUX}/docker/
-docker.save: $(DOCKER_TAR_TARGETS)
+dockerx.save: dockerx $(ISTIO_DOCKER_TAR)
+	$(foreach TGT,$(filter-out docker.app,$(DOCKER_TARGETS)), \
+	$(foreach VARIANT,$(DOCKER_BUILD_VARIANTS), time ( \
+		 docker save -o ${ISTIO_DOCKER_TAR}/$(subst docker.,,$(TGT))$(subst -$(DEFAULT_DISTRIBUTION),,-$(VARIANT)).tar $(HUB)/$(subst docker.,,$(TGT)):$(subst -$(DEFAULT_DISTRIBUTION),,$(TAG)-$(VARIANT)) && \
+		 gzip -f ${ISTIO_DOCKER_TAR}/$(subst docker.,,$(TGT))$(subst -$(DEFAULT_DISTRIBUTION),,-$(VARIANT)).tar \
+		   ); \
+	 ))
+
+#docker.save: $(DOCKER_TAR_TARGETS) # Legacy target when used with old docker versions
+docker.save: dockerx.save
 
 # for each docker.XXX target create a push.docker.XXX target that pushes
 # the local docker image to another hub
 # a possible optimization is to use tag.$(TGT) as a dependency to do the tag for us
 $(foreach TGT,$(filter-out docker.app,$(DOCKER_TARGETS)),$(eval push.$(TGT): | $(TGT) ; \
 	time (set -e && for distro in $(DOCKER_BUILD_VARIANTS); do tag=$(TAG)-$$$${distro}; docker push $(HUB)/$(subst docker.,,$(TGT)):$$$${tag%-$(DEFAULT_DISTRIBUTION)}; done)))
-
-push.docker.app: docker.app
-	time (docker push $(HUB)/app:$(TAG))
 
 define run_vulnerability_scanning
         $(eval RESULTS_DIR := vulnerability_scan_results)
@@ -319,6 +321,12 @@ $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_PUSH_TARGETS+=push.$(TGT)))
 
 # Will build and push docker images.
 docker.push: $(DOCKER_PUSH_TARGETS)
+
+# Build and push docker images using dockerx
+dockerx.push: dockerx
+	$(foreach TGT,$(DOCKER_TARGETS), time ( \
+		set -e && for distro in $(DOCKER_BUILD_VARIANTS); do tag=$(TAG)-$${distro}; docker push $(HUB)/$(subst docker.,,$(TGT)):$${tag%-$(DEFAULT_DISTRIBUTION)}; done); \
+	)
 
 # Scan images for security vulnerabilities using the ImageScanner tool
 docker.scan_images: $(DOCKER_PUSH_TARGETS)
