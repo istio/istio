@@ -48,7 +48,8 @@ var (
 	tokenManagerLog        = log.RegisterScope("tokenManagerLog", "STS token manager debugging", 0)
 	federatedTokenEndpoint = "https://securetoken.googleapis.com/v1/identitybindingtoken"
 	// https://cloud.google.com/iam/docs/reference/credentials/rest/v1/projects.serviceAccounts/generateAccessToken
-	accessTokenEndpoint = "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken"
+	accessTokenEndpoint = "https://iamcredentials.googleapis.com/v1/projects/-/" +
+		"serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken"
 )
 
 // TokenManager supports token exchange with Google OAuth 2.0 authorization server.
@@ -124,7 +125,7 @@ func (tm *TokenManager) GenerateToken(parameters stsservice.StsRequestParameters
 //    requestedTokenType: urn:ietf:params:oauth:token-type:access_token
 //    subjectTokenType: urn:ietf:params:oauth:token-type:jwt
 //    subjectToken: <jwt token>
-//    scope: https://www.googleapis.com/auth/cloud-platform
+//    Scope: https://www.googleapis.com/auth/cloud-platform
 // }
 func (tm *TokenManager) constructFederatedTokenRequest(parameters stsservice.StsRequestParameters) *http.Request {
 	reqScope := scope
@@ -137,7 +138,7 @@ func (tm *TokenManager) constructFederatedTokenRequest(parameters stsservice.Sts
 		"requestedTokenType": tokenType,
 		"subjectTokenType":   parameters.SubjectTokenType,
 		"subjectToken":       parameters.SubjectToken,
-		"scope":              reqScope,
+		"Scope":              reqScope,
 	}
 	jsonQuery, _ := json.Marshal(query)
 	req, _ := http.NewRequest("POST", federatedTokenEndpoint, bytes.NewBuffer(jsonQuery))
@@ -170,7 +171,7 @@ func (tm *TokenManager) fetchFederatedToken(parameters stsservice.StsRequestPara
 	respDump, _ := httputil.DumpResponse(resp, true)
 	tokenManagerLog.Debugf("Received federated token response: \n%s", string(respDump))
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, _ := ioutil.ReadAll(resp.Body)
 	if err := json.Unmarshal(body, respData); err != nil {
 		tokenManagerLog.Errorf("Failed to unmarshal federated token response data: %v", err)
 		return respData, fmt.Errorf("failed to unmarshal federated token response data: %v", err)
@@ -210,10 +211,10 @@ func (tm *TokenManager) sendRequestWithRetry(req *http.Request) (resp *http.Resp
 }
 
 type accessTokenRequest struct {
-	name      string            `json:"name"`
-	delegates []string          `json:"delegates"`
-	scope     []string          `json:"scope"`
-	lifeTime  duration.Duration `json:"lifetime"`
+	Name      string            `json:"Name"` // nolint: structcheck, unused
+	Delegates []string          `json:"Delegates"`
+	Scope     []string          `json:"Scope"`
+	LifeTime  duration.Duration `json:"lifetime"` // nolint: structcheck, unused
 }
 
 type accessTokenResponse struct {
@@ -223,18 +224,19 @@ type accessTokenResponse struct {
 
 // constructFederatedTokenRequest returns an HTTP request for access token.
 // Example of an access token request:
-// POST https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/service-<GCP project number>@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken
+// POST https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/
+// service-<GCP project number>@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken
 // Content-Type: application/json
 // Authorization: Bearer <federated token>
 // {
-//  "delegates": [],
-//  "scope": [
+//  "Delegates": [],
+//  "Scope": [
 //      https://www.googleapis.com/auth/cloud-platform
 //  ],
 // }
 func (tm *TokenManager) constructGenerateAccessTokenRequest(fResp *federatedTokenResponse) *http.Request {
 	query := accessTokenRequest{}
-	query.scope = append(query.scope, scope)
+	query.Scope = append(query.Scope, scope)
 
 	jsonQuery, _ := json.Marshal(query)
 	endpoint := fmt.Sprintf(accessTokenEndpoint, tm.gCPProjectNumber)

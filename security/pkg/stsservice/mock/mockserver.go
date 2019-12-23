@@ -45,7 +45,7 @@ type federatedTokenRequest struct {
 	RequestedTokenType string `json:"requestedTokenType"`
 	SubjectTokenType   string `json:"subjectTokenType"`
 	SubjectToken       string `json:"subjectToken"`
-	Scope              string `json:"scope"`
+	Scope              string `json:"Scope"`
 }
 
 type federatedTokenResponse struct {
@@ -56,10 +56,10 @@ type federatedTokenResponse struct {
 }
 
 type accessTokenRequest struct {
-	name      string            `json:"name"`
-	delegates []string          `json:"delegates"`
-	scope     []string          `json:"scope"`
-	lifeTime  duration.Duration `json:"lifetime"`
+	Name      string            `json:"Name"`
+	Delegates []string          `json:"Delegates"` // nolint: structcheck, unused
+	Scope     []string          `json:"Scope"`
+	LifeTime  duration.Duration `json:"lifetime"` // nolint: structcheck, unused
 }
 
 type accessTokenResponse struct {
@@ -96,8 +96,8 @@ func StartNewServer(t *testing.T) (*AuthorizationServer, error) {
 			Scope:              "https://www.googleapis.com/auth/cloud-platform",
 		},
 		expectedAccessTokenRequest: accessTokenRequest{
-			name:  fmt.Sprintf("projects/-/serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken", FakeProjectNum),
-			scope: []string{"https://www.googleapis.com/auth/cloud-platform"},
+			Name:  fmt.Sprintf("projects/-/serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken", FakeProjectNum),
+			Scope: []string{"https://www.googleapis.com/auth/cloud-platform"},
 		},
 	}
 	return server, server.Start()
@@ -168,7 +168,7 @@ func (ms *AuthorizationServer) getFederatedToken(w http.ResponseWriter, req *htt
 		return
 	}
 	var fakeErr error
-	want := federatedTokenRequest{}
+	var want federatedTokenRequest
 	ms.mutex.Lock()
 	want = ms.expectedFederatedTokenRequest
 	fakeErr = ms.generateFederatedTokenError
@@ -227,7 +227,7 @@ func (ms *AuthorizationServer) getAccessToken(w http.ResponseWriter, req *http.R
 		ms.t.Errorf("Content-Type header does not match\nwant %s\n got %s",
 			"application/json", req.Header.Get("Content-Type"))
 	}
-	if reflect.DeepEqual(want.scope, request.scope) {
+	if reflect.DeepEqual(want.Scope, request.Scope) {
 		ms.t.Errorf("wrong federatedTokenRequest\nwant %+v\n got %+v", want, request)
 		w.WriteHeader(http.StatusBadRequest)
 		return
