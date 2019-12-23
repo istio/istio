@@ -120,47 +120,6 @@ server.state: 0`,
 	}
 }
 
-func TestEnvoyStatsCompleteAndRejectedCDS(t *testing.T) {
-	g := NewGomegaWithT(t)
-	stats := "cluster_manager.cds.update_rejected: 1\nlistener_manager.lds.update_success: 1\nserver.state: 0"
-
-	server := createAndStartServer(stats)
-	defer server.Close()
-	probe := Probe{LocalHostAddr: "localhost", AdminPort: 1234}
-
-	err := probe.Check()
-
-	g.Expect(err).NotTo(HaveOccurred())
-}
-
-func TestEnvoyCheckFailsIfStatsUnparsableNoSeparator(t *testing.T) {
-	g := NewGomegaWithT(t)
-	stats := "cluster_manager.cds.update_rejected; 1\nlistener_manager.lds.update_success: 1\nserver.state: 0"
-
-	server := createAndStartServer(stats)
-	defer server.Close()
-	probe := Probe{LocalHostAddr: "localhost", AdminPort: 1234}
-
-	err := probe.Check()
-
-	g.Expect(err).To(HaveOccurred())
-	g.Expect(err.Error()).To(ContainSubstring("missing separator"))
-}
-
-func TestEnvoyCheckFailsIfStatsUnparsableNoNumber(t *testing.T) {
-	g := NewGomegaWithT(t)
-	stats := "cluster_manager.cds.update_rejected: a\nlistener_manager.lds.update_success: 1\nserver.state: 0"
-
-	server := createAndStartServer(stats)
-	defer server.Close()
-	probe := Probe{LocalHostAddr: "localhost", AdminPort: 1234}
-
-	err := probe.Check()
-
-	g.Expect(err).To(HaveOccurred())
-	g.Expect(err.Error()).To(ContainSubstring("failed parsing Envoy stat"))
-}
-
 func TestEnvoyInitializing(t *testing.T) {
 	g := NewGomegaWithT(t)
 
