@@ -21,32 +21,34 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/duration"
 	"io/ioutil"
-	"istio.io/istio/security/pkg/stsservice"
-	"istio.io/pkg/log"
 	"net/http"
 	"net/http/httputil"
 	"sync"
 	"time"
+
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/duration"
+
+	"istio.io/istio/security/pkg/stsservice"
+	"istio.io/pkg/log"
 )
 
 const (
-	httpTimeOutInSec       = 5
-	maxRequestRetry        = 5
-	contentType            = "application/json"
-	scope                  = "https://www.googleapis.com/auth/cloud-platform"
-    tokenType              = "urn:ietf:params:oauth:token-type:access_token"
-	federatedToken         = "federated token"
-	accessToken            = "access token"
+	httpTimeOutInSec = 5
+	maxRequestRetry  = 5
+	contentType      = "application/json"
+	scope            = "https://www.googleapis.com/auth/cloud-platform"
+	tokenType        = "urn:ietf:params:oauth:token-type:access_token"
+	federatedToken   = "federated token"
+	accessToken      = "access token"
 )
 
 var (
-	tokenManagerLog = log.RegisterScope("tokenManagerLog", "STS token manager debugging", 0)
+	tokenManagerLog        = log.RegisterScope("tokenManagerLog", "STS token manager debugging", 0)
 	federatedTokenEndpoint = "https://securetoken.googleapis.com/v1/identitybindingtoken"
 	// https://cloud.google.com/iam/docs/reference/credentials/rest/v1/projects.serviceAccounts/generateAccessToken
-	accessTokenEndpoint    = "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken"
+	accessTokenEndpoint = "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken"
 )
 
 // TokenManager supports token exchange with Google OAuth 2.0 authorization server.
@@ -55,7 +57,7 @@ type TokenManager struct {
 	trustDomain string
 	// tokens is the cache for fetched tokens.
 	// map key is timestamp of token, map value is tokenInfo.
-	tokens        sync.Map
+	tokens           sync.Map
 	gCPProjectNumber string
 }
 
@@ -85,7 +87,7 @@ func CreateTokenManager(trustDomain string, gCPProjectNumber string) (*TokenMana
 				},
 			},
 		},
-		trustDomain: trustDomain,
+		trustDomain:      trustDomain,
 		gCPProjectNumber: gCPProjectNumber,
 	}
 	return tm, nil
@@ -208,15 +210,15 @@ func (tm *TokenManager) sendRequestWithRetry(req *http.Request) (resp *http.Resp
 }
 
 type accessTokenRequest struct {
-	name      string `json:"name"`
-	delegates []string `json:"delegates"`
-	scope     []string `json:"scope"`
+	name      string            `json:"name"`
+	delegates []string          `json:"delegates"`
+	scope     []string          `json:"scope"`
 	lifeTime  duration.Duration `json:"lifetime"`
 }
 
 type accessTokenResponse struct {
-	AccessToken     string `json:"accessToken"`
-	ExpireTime      duration.Duration `json:"expireTime"`
+	AccessToken string            `json:"accessToken"`
+	ExpireTime  duration.Duration `json:"expireTime"`
 }
 
 // constructFederatedTokenRequest returns an HTTP request for access token.
@@ -238,7 +240,7 @@ func (tm *TokenManager) constructGenerateAccessTokenRequest(fResp *federatedToke
 	endpoint := fmt.Sprintf(accessTokenEndpoint, tm.gCPProjectNumber)
 	req, _ := http.NewRequest("POST", endpoint, bytes.NewBuffer(jsonQuery))
 	req.Header.Add("Content-Type", contentType)
-	req.Header.Add("Authorization", "Bearer " + fResp.AccessToken)
+	req.Header.Add("Authorization", "Bearer "+fResp.AccessToken)
 	reqDump, _ := httputil.DumpRequest(req, true)
 	tokenManagerLog.Debugf("Prepared access token request: \n%s", string(reqDump))
 	return req
@@ -284,10 +286,10 @@ func (tm *TokenManager) fetchAccessToken(federatedToken *federatedTokenResponse)
 func (tm *TokenManager) generateSTSResp(atResp *accessTokenResponse) ([]byte, error) {
 	expireTime, _ := ptypes.Duration(&atResp.ExpireTime)
 	stsRespParam := stsservice.StsResponseParameters{
-		AccessToken: atResp.AccessToken,
+		AccessToken:     atResp.AccessToken,
 		IssuedTokenType: tokenType,
-		TokenType: "Bearer",
-		ExpiresIn: int64(expireTime.Seconds()),
+		TokenType:       "Bearer",
+		ExpiresIn:       int64(expireTime.Seconds()),
 	}
 	statusJSON, err := json.MarshalIndent(stsRespParam, "", " ")
 	return statusJSON, err

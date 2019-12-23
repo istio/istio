@@ -17,10 +17,11 @@ package google
 import (
 	"encoding/json"
 	"errors"
-	"istio.io/istio/security/pkg/stsservice"
-	"istio.io/istio/security/pkg/stsservice/mock"
 	"strings"
 	"testing"
+
+	"istio.io/istio/security/pkg/stsservice"
+	"istio.io/istio/security/pkg/stsservice/mock"
 )
 
 // TestAccessToken verifies that token manager could successfully call server and get access token.
@@ -36,17 +37,17 @@ func TestAccessToken(t *testing.T) {
 
 	testCases := map[string]struct {
 		genFederatedTokenError error
-		genAccessTokenError error
-		expectedError       string
-	} {
+		genAccessTokenError    error
+		expectedError          string
+	}{
 		"token manager returns valid STS success response": {},
 		"token manager failed to return federated token": {
 			genFederatedTokenError: errors.New("fake error in generating federated access token"),
-			expectedError: "failed to exchange federated token",
+			expectedError:          "failed to exchange federated token",
 		},
 		"token manager failed to return access token": {
 			genAccessTokenError: errors.New("fake error in generating access token"),
-			expectedError: "failed to exchange access token",
+			expectedError:       "failed to exchange access token",
 		},
 	}
 
@@ -89,12 +90,11 @@ func verifyToken(t *testing.T, tCase string, stsRespJSON []byte, actualErr error
 
 func defaultSTSRequest() stsservice.StsRequestParameters {
 	return stsservice.StsRequestParameters{
-		GrantType: "urn:ietf:params:oauth:grant-type:token-exchange",
-		Audience: mock.FakeTrustDomain,
-		Scope: scope,
-		SubjectToken: mock.FakeSubjectToken,
+		GrantType:        "urn:ietf:params:oauth:grant-type:token-exchange",
+		Audience:         mock.FakeTrustDomain,
+		Scope:            scope,
+		SubjectToken:     mock.FakeSubjectToken,
 		SubjectTokenType: "urn:ietf:params:oauth:token-type:jwt",
-
 	}
 }
 

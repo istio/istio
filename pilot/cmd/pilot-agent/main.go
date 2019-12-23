@@ -19,14 +19,15 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	stsserver "istio.io/istio/security/pkg/stsservice/server"
-	"istio.io/istio/security/pkg/stsservice/tokenmanagers/google"
 	"net"
 	"os"
 	"strings"
 	"sync"
 	"text/template"
 	"time"
+
+	stsserver "istio.io/istio/security/pkg/stsservice/server"
+	"istio.io/istio/security/pkg/stsservice/tokenmanagers/google"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
@@ -62,7 +63,7 @@ const trustworthyJWTPath = "/var/run/secrets/tokens/istio-token"
 // TODO: Move most of this to pkg.
 
 var (
-	role                       = &model.Proxy{}
+	role             = &model.Proxy{}
 	proxyIP          string
 	registry         serviceregistry.ServiceRegistry
 	trustDomain      string
@@ -494,8 +495,8 @@ var (
 					return err
 				}
 				stsServer, err := stsserver.NewServer(stsserver.Config{
-					LocalHostAddr:      localHostAddr,
-					LocalPort:          stsPort,
+					LocalHostAddr: localHostAddr,
+					LocalPort:     stsPort,
 				}, tokenManager)
 				if err != nil {
 					cancel()

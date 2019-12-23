@@ -19,10 +19,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"istio.io/istio/security/pkg/stsservice"
-	"istio.io/pkg/log"
 	"net/http"
 	"net/http/httputil"
+
+	"istio.io/istio/security/pkg/stsservice"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -216,4 +217,3 @@ func (s *Server) Stop() {
 		stsServerLog.Errorf("failed to shut down STS server: %v", err)
 	}
 }
-
