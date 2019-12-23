@@ -210,7 +210,6 @@ func NewController(client kubernetes.Interface, options Options) *Controller {
 	}
 
 	c.nodes = sharedInformers.Core().V1().Nodes().Informer()
-	registerHandlers(c.nodes, c.queue, "Nodes", c.onNodeEvent)
 
 	podInformer := sharedInformers.Core().V1().Pods().Informer()
 	c.pods = newPodCache(podInformer, c)
@@ -283,10 +282,6 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 		f(svcConv, event)
 	}
 
-	return nil
-}
-
-func (c *Controller) onNodeEvent(_ interface{}, _ model.Event) error {
 	return nil
 }
 
