@@ -66,7 +66,7 @@ func TestGCPMetadata(t *testing.T) {
 			"numeric project id error",
 			func() bool { return true },
 			func() (string, error) { return "pid", nil },
-			func() (string, error) { return "", errors.New("error")  },
+			func() (string, error) { return "", errors.New("error") },
 			func() (string, error) { return "location", nil },
 			func() (string, error) { return "cluster", nil },
 			func() (string, error) { return "instance", nil },

@@ -64,14 +64,14 @@ const trustworthyJWTPath = "/var/run/secrets/tokens/istio-token"
 // TODO: Move most of this to pkg.
 
 var (
-	role             = &model.Proxy{}
-	proxyIP          string
-	registryID       serviceregistry.ProviderID
-	trustDomain      string
-	pilotIdentity    string
-	mixerIdentity    string
-	statusPort       uint16
-	stsPort          int
+	role          = &model.Proxy{}
+	proxyIP       string
+	registryID    serviceregistry.ProviderID
+	trustDomain   string
+	pilotIdentity string
+	mixerIdentity string
+	statusPort    uint16
+	stsPort       int
 
 	// proxy config flags (named identically)
 	configPath               string
