@@ -2,7 +2,7 @@
 title: v1alpha1
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 88
+number_of_entries: 89
 ---
 <h2 id="AddonIngressConfig">AddonIngressConfig</h2>
 <section>
@@ -1903,6 +1903,17 @@ No
 No
 </td>
 </tr>
+<tr id="GlobalConfig-istiod">
+<td><code>istiod</code></td>
+<td><code><a href="#IstiodConfig">IstiodConfig</a></code></td>
+<td>
+<p>Specifies the configution of istiod</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
 <tr id="GlobalConfig-defaultNodeSelector" class="deprecated ">
 <td><code>defaultNodeSelector</code></td>
 <td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
@@ -2497,6 +2508,32 @@ No
 <td><code>suffix</code></td>
 <td><code>string</code></td>
 <td>
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="IstiodConfig">IstiodConfig</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="IstiodConfig-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+<p>If enabled, all control plane functionality will be handled by a single deployment.</p>
+
 </td>
 <td>
 No

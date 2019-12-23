@@ -562,7 +562,15 @@ message GlobalConfig {
   // Specifies the Istio control plane’s telemetry Pod IP address or remote cluster DNS resolvable hostname
   string remoteTelemetryAddress = 49;
 
-  // The next available key is 54
+  // Specifies the configution of istiod
+  IstiodConfig istiod = 54;
+  // The next available key is 55
+}
+
+
+message IstiodConfig {
+  // If enabled, all control plane functionality will be handled by a single deployment.
+  google.protobuf.BoolValue enabled = 1;
 }
 
 // GlobalLoggingConfig specifies the global logging level settings for the Istio control plane components.
