@@ -153,11 +153,16 @@ func (tm *TokenManager) fetchFederatedToken(parameters stsservice.StsRequestPara
 	req := tm.constructFederatedTokenRequest(parameters)
 	resp, err := tm.sendRequestWithRetry(req)
 	if err != nil {
-		tokenManagerLog.Errorf("Failed to exchange federated token (HTTP status %s): %v", resp.Status,
+		respCode := 0
+		if resp != nil {
+			respCode = resp.StatusCode
+		}
+		tokenManagerLog.Errorf("Failed to exchange federated token (HTTP status %d): %v", respCode,
 			err)
-		return nil, fmt.Errorf("failed to exchange federated token (HTTP status %s): %v", resp.Status,
+		return nil, fmt.Errorf("failed to exchange federated token (HTTP status %d): %v", respCode,
 			err)
 	}
+	// resp should not be nil.
 	defer resp.Body.Close()
 
 	respDump, _ := httputil.DumpResponse(resp, true)
@@ -186,13 +191,18 @@ func (tm *TokenManager) fetchFederatedToken(parameters stsservice.StsRequestPara
 func (tm *TokenManager) sendRequestWithRetry(req *http.Request) (resp *http.Response, err error) {
 	for i := 0; i < maxRequestRetry; i++ {
 		resp, err = tm.hTTPClient.Do(req)
-		if err == nil {
+		if resp != nil && resp.StatusCode == http.StatusOK {
 			return resp, err
 		}
 		if resp != nil && resp.StatusCode >= http.StatusBadRequest && resp.StatusCode < http.StatusInternalServerError {
 			return resp, err
 		}
 		time.Sleep(10 * time.Millisecond)
+	}
+	if resp != nil && resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := ioutil.ReadAll(resp.Body)
+		defer resp.Body.Close()
+		return resp, fmt.Errorf("HTTP Status %d, body: %s", resp.StatusCode, string(bodyBytes))
 	}
 	return resp, err
 }
@@ -229,6 +239,8 @@ func (tm *TokenManager) constructGenerateAccessTokenRequest(fResp *federatedToke
 	req, _ := http.NewRequest("POST", endpoint, bytes.NewBuffer(jsonQuery))
 	req.Header.Add("Content-Type", contentType)
 	req.Header.Add("Authorization", "Bearer " + fResp.AccessToken)
+	reqDump, _ := httputil.DumpRequest(req, true)
+	tokenManagerLog.Debugf("Prepared access token request: \n%s", string(reqDump))
 	return req
 }
 
@@ -238,12 +250,16 @@ func (tm *TokenManager) fetchAccessToken(federatedToken *federatedTokenResponse)
 	req := tm.constructGenerateAccessTokenRequest(federatedToken)
 	resp, err := tm.sendRequestWithRetry(req)
 	if err != nil {
-		tokenManagerLog.Errorf("Failed to exchange access token (HTTP status %s): %v", resp.Status, err)
-		return respData, fmt.Errorf("failed to exchange access token (HTTP status %s): %v", resp.Status, err)
+		respCode := 0
+		if resp != nil {
+			respCode = resp.StatusCode
+		}
+		tokenManagerLog.Errorf("failed to exchange access token (HTTP status %d): %v", respCode, err)
+		return respData, fmt.Errorf("failed to exchange access token (HTTP status %d): %v", respCode, err)
 	}
 	defer resp.Body.Close()
 	respDump, _ := httputil.DumpResponse(resp, true)
-	tokenManagerLog.Infof("Received access token response: \n%s", string(respDump))
+	tokenManagerLog.Debugf("Received access token response: \n%s", string(respDump))
 
 	body, _ := ioutil.ReadAll(resp.Body)
 	if err := json.Unmarshal(body, respData); err != nil {
@@ -256,22 +272,22 @@ func (tm *TokenManager) fetchAccessToken(federatedToken *federatedTokenResponse)
 	}
 	tokenManagerLog.Debug("successfully exchanged an access token")
 	tokenReceivedTime := time.Now()
-	expireTimeInSec, _ := ptypes.Duration(&respData.ExpireTime)
+	expireTime, _ := ptypes.Duration(&respData.ExpireTime)
 	tm.tokens.Store(tokenReceivedTime.String(), tokenInfo{
 		tokenType:  accessToken,
 		issueTime:  tokenReceivedTime.String(),
-		expireTime: tokenReceivedTime.Add(expireTimeInSec).String()})
+		expireTime: tokenReceivedTime.Add(expireTime).String()})
 	return respData, nil
 }
 
 // generateSTSResp takes accessTokenResponse and generates StsResponseParameters in JSON.
 func (tm *TokenManager) generateSTSResp(atResp *accessTokenResponse) ([]byte, error) {
-	expireTimeInSec, _ := ptypes.Duration(&atResp.ExpireTime)
+	expireTime, _ := ptypes.Duration(&atResp.ExpireTime)
 	stsRespParam := stsservice.StsResponseParameters{
 		AccessToken: atResp.AccessToken,
 		IssuedTokenType: tokenType,
 		TokenType: "Bearer",
-		ExpiresIn: int64(expireTimeInSec.Seconds()),
+		ExpiresIn: int64(expireTime.Seconds()),
 	}
 	statusJSON, err := json.MarshalIndent(stsRespParam, "", " ")
 	return statusJSON, err

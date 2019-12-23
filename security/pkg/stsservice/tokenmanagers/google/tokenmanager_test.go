@@ -16,22 +16,16 @@ package google
 
 import (
 	"encoding/json"
-	"istio.io/istio/security/pkg/stsservice/mock"
+	"errors"
 	"istio.io/istio/security/pkg/stsservice"
+	"istio.io/istio/security/pkg/stsservice/mock"
+	"strings"
 	"testing"
 )
 
+// TestAccessToken verifies that token manager could successfully call server and get access token.
 func TestAccessToken(t *testing.T) {
-	tm, _ := CreateTokenManager(mock.FakeTrustDomain, mock.FakeProjectNum)
-
-	ms, err := mock.StartNewServer(t)
-	if err != nil {
-		t.Fatalf("failed to start a mock server: %v", err)
-	}
-	originalFederatedTokenEndpoint := federatedTokenEndpoint
-	federatedTokenEndpoint = ms.URL + "/v1/identitybindingtoken"
-	originalAccessTokenEndpoint := accessTokenEndpoint
-	accessTokenEndpoint = ms.URL + "/v1/projects/-/serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken"
+	tm, ms, originalFederatedTokenEndpoint, originalAccessTokenEndpoint := setUpTest(t)
 	defer func() {
 		if err := ms.Stop(); err != nil {
 			t.Logf("failed to stop mock server: %v", err)
@@ -40,7 +34,61 @@ func TestAccessToken(t *testing.T) {
 		accessTokenEndpoint = originalAccessTokenEndpoint
 	}()
 
-	stsReq := stsservice.StsRequestParameters{
+	testCases := map[string]struct {
+		genFederatedTokenError error
+		genAccessTokenError error
+		expectedError       string
+	} {
+		"token manager returns valid STS success response": {},
+		"token manager failed to return federated token": {
+			genFederatedTokenError: errors.New("fake error in generating federated access token"),
+			expectedError: "failed to exchange federated token",
+		},
+		"token manager failed to return access token": {
+			genAccessTokenError: errors.New("fake error in generating access token"),
+			expectedError: "failed to exchange access token",
+		},
+	}
+
+	for k, tc := range testCases {
+		if tc.genAccessTokenError != nil {
+			ms.SetGenAcsTokenError(tc.genAccessTokenError)
+		}
+		if tc.genFederatedTokenError != nil {
+			ms.SetGenFedTokenError(tc.genFederatedTokenError)
+		}
+		stsRespJSON, err := tm.GenerateToken(defaultSTSRequest())
+		verifyToken(t, k, stsRespJSON, err, tc.expectedError)
+		ms.SetGenAcsTokenError(nil)
+		ms.SetGenFedTokenError(nil)
+	}
+}
+
+// verifyToken verifies the received STS response parameters and error match expectation.
+func verifyToken(t *testing.T, tCase string, stsRespJSON []byte, actualErr error, expErr string) {
+	if len(expErr) != 0 && actualErr != nil {
+		if !strings.Contains(actualErr.Error(), expErr) {
+			t.Errorf("(Test case %s), error does not match, want: %v vs get: %v",
+				tCase, expErr, actualErr)
+		}
+		return
+	} else if len(expErr) == 0 && actualErr == nil {
+		stsResp := &stsservice.StsResponseParameters{}
+		if err := json.Unmarshal(stsRespJSON, stsResp); err != nil {
+			t.Errorf("(Test case %s), failed to unmarshal STS response: %v", tCase, err)
+		}
+		if stsResp.AccessToken != mock.FakeAccessToken {
+			t.Errorf("(Test case %s), access token got: %q, expected: %q",
+				tCase, stsResp.AccessToken, mock.FakeAccessToken)
+		}
+	} else {
+		t.Errorf("(Test case %s), error does not match: want %s vs get: %v",
+			tCase, expErr, actualErr)
+	}
+}
+
+func defaultSTSRequest() stsservice.StsRequestParameters {
+	return stsservice.StsRequestParameters{
 		GrantType: "urn:ietf:params:oauth:grant-type:token-exchange",
 		Audience: mock.FakeTrustDomain,
 		Scope: scope,
@@ -48,15 +96,18 @@ func TestAccessToken(t *testing.T) {
 		SubjectTokenType: "urn:ietf:params:oauth:token-type:jwt",
 
 	}
-	stsRespJSON, err := tm.GenerateToken(stsReq)
+}
+
+// setUpTest sets up token manager, authorization server.
+func setUpTest(t *testing.T) (*TokenManager, *mock.AuthorizationServer, string, string) {
+	tm, _ := CreateTokenManager(mock.FakeTrustDomain, mock.FakeProjectNum)
+	ms, err := mock.StartNewServer(t)
 	if err != nil {
-		t.Fatalf("failed to call exchange token: %v", err)
+		t.Fatalf("failed to start a mock server: %v", err)
 	}
-	stsResp := stsservice.StsResponseParameters{}
-	if err := json.Unmarshal(stsRespJSON, stsResp); err != nil {
-		t.Errorf("failed to unmarshal STS response")
-	}
-	if stsResp.AccessToken != mock.FakeAccessToken {
-		t.Errorf("Access token got %q, expected %q", stsResp.AccessToken, mock.FakeFederatedToken)
-	}
+	originalFederatedTokenEndpoint := federatedTokenEndpoint
+	federatedTokenEndpoint = ms.URL + "/v1/identitybindingtoken"
+	originalAccessTokenEndpoint := accessTokenEndpoint
+	accessTokenEndpoint = ms.URL + "/v1/projects/-/serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken"
+	return tm, ms, originalFederatedTokenEndpoint, originalAccessTokenEndpoint
 }

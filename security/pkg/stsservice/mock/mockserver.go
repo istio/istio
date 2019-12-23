@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -66,8 +67,8 @@ type accessTokenResponse struct {
 	ExpireTime      duration.Duration `json:"expireTime"`
 }
 
-// MockServer is the in-memory secure token service.
-type MockServer struct {
+// AuthorizationServer is the in-memory secure token service.
+type AuthorizationServer struct {
 	Port   int
 	URL    string
 	server *http.Server
@@ -83,8 +84,8 @@ type MockServer struct {
 }
 
 // StartNewServer creates a mock server and starts it
-func StartNewServer(t *testing.T) (*MockServer, error) {
-	server := &MockServer{
+func StartNewServer(t *testing.T) (*AuthorizationServer, error) {
+	server := &AuthorizationServer{
 		t:            t,
 		expectedFederatedTokenRequest: federatedTokenRequest{
 			Audience:           FakeTrustDomain,
@@ -95,19 +96,32 @@ func StartNewServer(t *testing.T) (*MockServer, error) {
 			Scope:              "https://www.googleapis.com/auth/cloud-platform",
 		},
 		expectedAccessTokenRequest: accessTokenRequest{
-			name:           fmt.Sprintf("projects/-/serviceAccounts/service-%d@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken", FakeProjectNum),
+			name:           fmt.Sprintf("projects/-/serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken", FakeProjectNum),
 			scope:          []string{"https://www.googleapis.com/auth/cloud-platform"},
 		},
 	}
 	return server, server.Start()
 }
 
+func (ms *AuthorizationServer) SetGenFedTokenError(err error) {
+	ms.mutex.Lock()
+	defer ms.mutex.Unlock()
+	ms.generateFederatedTokenError = err
+}
+
+func (ms *AuthorizationServer) SetGenAcsTokenError(err error) {
+	ms.mutex.Lock()
+	defer ms.mutex.Unlock()
+	ms.generateAccessTokenError = err
+}
+
 // Start starts the mock server.
-func (ms *MockServer) Start() error {
-	atEndpoint := fmt.Sprintf("/v1/projects/-/serviceAccounts/service-%d@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken", FakeProjectNum)
+func (ms *AuthorizationServer) Start() error {
+	atEndpoint := fmt.Sprintf("/v1/projects/-/serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken", FakeProjectNum)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/identitybindingtoken", ms.getFederatedToken)
 	mux.HandleFunc(atEndpoint, ms.getAccessToken)
+	ms.t.Logf("Registered handler for endpoints:\n%s\n%s", atEndpoint, "/v1/identitybindingtoken")
 	server := &http.Server{
 		Addr:    ":",
 		Handler: mux,
@@ -136,7 +150,7 @@ func (ms *MockServer) Start() error {
 }
 
 // Stop stops he mock server.
-func (ms *MockServer) Stop() error {
+func (ms *AuthorizationServer) Stop() error {
 	if ms.server == nil {
 		return nil
 	}
@@ -144,7 +158,7 @@ func (ms *MockServer) Stop() error {
 	return ms.server.Close()
 }
 
-func (ms *MockServer) getFederatedToken(w http.ResponseWriter, req *http.Request) {
+func (ms *AuthorizationServer) getFederatedToken(w http.ResponseWriter, req *http.Request) {
 	decoder := json.NewDecoder(req.Body)
 	var request federatedTokenRequest
 	err := decoder.Decode(&request)
@@ -153,15 +167,25 @@ func (ms *MockServer) getFederatedToken(w http.ResponseWriter, req *http.Request
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-
+	var fakeErr error
 	want := federatedTokenRequest{}
 	ms.mutex.Lock()
 	want = ms.expectedFederatedTokenRequest
+	fakeErr = ms.generateFederatedTokenError
 	ms.mutex.Unlock()
 
+	if req.Header.Get("Content-Type") != "application/json" {
+		ms.t.Errorf("Content-Type header does not match\nwant %s\n got %s",
+			"application/json", req.Header.Get("Content-Type"))
+	}
 	if !reflect.DeepEqual(want, request) {
 		ms.t.Errorf("wrong federatedTokenRequest\nwant %+v\n got %+v", want, request)
 		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	if fakeErr != nil {
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	resp := federatedTokenResponse{
@@ -173,7 +197,7 @@ func (ms *MockServer) getFederatedToken(w http.ResponseWriter, req *http.Request
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
-func (ms *MockServer) getAccessToken(w http.ResponseWriter, req *http.Request) {
+func (ms *AuthorizationServer) getAccessToken(w http.ResponseWriter, req *http.Request) {
 	decoder := json.NewDecoder(req.Body)
 	var request accessTokenRequest
 	err := decoder.Decode(&request)
@@ -183,17 +207,36 @@ func (ms *MockServer) getAccessToken(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	var fakeErr error
 	want := accessTokenRequest{}
 	ms.mutex.Lock()
 	want = ms.expectedAccessTokenRequest
+	fakeErr = ms.generateAccessTokenError
 	ms.mutex.Unlock()
 
-	if !reflect.DeepEqual(want, request) {
+	if req.Header.Get("Authorization") != "" {
+		auth := req.Header.Get("Authorization")
+		if strings.TrimPrefix(auth, "Bearer ") != FakeFederatedToken {
+			ms.t.Errorf("Authorization header does not match\nwant %s\ngot %s",
+				FakeFederatedToken, auth)
+		}
+	} else {
+		ms.t.Error("missing Authorization header")
+	}
+	if req.Header.Get("Content-Type") != "application/json" {
+		ms.t.Errorf("Content-Type header does not match\nwant %s\n got %s",
+			"application/json", req.Header.Get("Content-Type"))
+	}
+	if reflect.DeepEqual(want.scope, request.scope) {
 		ms.t.Errorf("wrong federatedTokenRequest\nwant %+v\n got %+v", want, request)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
+	if fakeErr != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 	resp := accessTokenResponse{
 		AccessToken: FakeAccessToken,
 		ExpireTime: duration.Duration{
