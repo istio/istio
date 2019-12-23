@@ -45,7 +45,7 @@ type v1beta1PolicyApplier struct {
 	// TODO: add mTLS configs.
 
 	// processedJwtRules is the consolidate JWT rules from all jwtPolicies.
-	processedJwtRules []*v1beta1.JWT
+	processedJwtRules []*v1beta1.JWTRule
 
 	alphaApplier authn.PolicyApplier
 }
@@ -73,7 +73,7 @@ func (a *v1beta1PolicyApplier) JwtFilter(isXDSMarshalingToAnyEnabled bool) *http
 }
 
 // All explaining code link can be removed before merging.
-func convertToIstioAuthnFilterConfig(jwtRules []*v1beta1.JWT) *authn_filter.FilterConfig {
+func convertToIstioAuthnFilterConfig(jwtRules []*v1beta1.JWTRule) *authn_filter.FilterConfig {
 	p := authn_alpha.Policy{
 		// Targets are not used in the authn filter.
 		// Origin will be optional since we don't reject req.
@@ -138,7 +138,7 @@ func (a *v1beta1PolicyApplier) InboundFilterChain(sdsUdsPath string, meta *model
 
 // NewPolicyApplier returns new applier for v1beta1 authentication policies.
 func NewPolicyApplier(jwtPolicies []*model.Config, policy *authn_alpha_api.Policy) authn.PolicyApplier {
-	processedJwtRules := []*v1beta1.JWT{}
+	processedJwtRules := []*v1beta1.JWTRule{}
 
 	// TODO(diemtvu) should we need to deduplicate JWT with the same issuer.
 	// https://github.com/istio/istio/issues/19245
@@ -161,7 +161,7 @@ func NewPolicyApplier(jwtPolicies []*model.Config, policy *authn_alpha_api.Polic
 	}
 }
 
-func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWT) *envoy_jwt.JwtAuthentication {
+func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule) *envoy_jwt.JwtAuthentication {
 	if len(jwtRules) == 0 {
 		return nil
 	}

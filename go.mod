@@ -153,7 +153,7 @@ require (
 	gopkg.in/ory-am/dockertest.v3 v3.3.4 // indirect
 	gopkg.in/square/go-jose.v2 v2.3.1
 	gopkg.in/yaml.v2 v2.2.4
-	istio.io/api v0.0.0-20191120195622-f0abe0c81e59
+	istio.io/api v0.0.0-20191223191706-48d712f99a7b
 	istio.io/gogo-genproto v0.0.0-20191024203824-d079cc8b1d55
 	istio.io/operator v0.0.0-20191217224023-e693bf39719a
 	istio.io/pkg v0.0.0-20191113122952-4f521de9c8ca

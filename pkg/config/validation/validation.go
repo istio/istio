@@ -1581,7 +1581,7 @@ func ValidateRequestAuthentication(name, namespace string, msg proto.Message) er
 	return errs
 }
 
-func validateJwtRule(rule *security_beta.JWT) (errs error) {
+func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
 	if rule == nil {
 		return nil
 	}
