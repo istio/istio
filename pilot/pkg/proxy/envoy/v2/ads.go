@@ -224,6 +224,16 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 			}
 
+			con.mu.Lock()
+			if !con.added {
+				con.added = true
+				con.mu.Unlock()
+				s.addCon(con.ConID, con)
+				defer s.removeCon(con.ConID, con)
+			} else {
+				con.mu.Unlock()
+			}
+
 			switch discReq.TypeUrl {
 			case ClusterType:
 				if con.CDSWatch {
@@ -362,15 +372,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				adsLog.Warnf("ADS: Unknown watched resources %s", discReq.String())
 			}
 
-			con.mu.Lock()
-			if !con.added {
-				con.added = true
-				con.mu.Unlock()
-				s.addCon(con.ConID, con)
-				defer s.removeCon(con.ConID, con)
-			} else {
-				con.mu.Unlock()
-			}
 		case pushEv := <-con.pushChannel:
 			// It is called when config changes.
 			// This is not optimized yet - we should detect what changed based on event and only
@@ -714,7 +715,6 @@ func (conn *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
 	t := time.NewTimer(SendTimeout)
 	go func() {
 		err := conn.stream.Send(res)
-		done <- err
 		conn.mu.Lock()
 		if res.Nonce != "" {
 			switch res.TypeUrl {
@@ -732,6 +732,7 @@ func (conn *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
 			conn.RouteVersionInfoSent = res.VersionInfo
 		}
 		conn.mu.Unlock()
+		done <- err
 	}()
 	select {
 	case <-t.C:
