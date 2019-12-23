@@ -9,6 +9,7 @@ bases:
 
 patchesStrategicMerge:
   - allocation.yaml
+  - disable-automtls.yaml
 
 #commonLabels:
 #  release: istio-minimal
