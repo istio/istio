@@ -108,8 +108,10 @@ containers:
   - --lightstepAccessToken
   - "{{ .ProxyConfig.GetTracing.GetLightstep.GetAccessToken }}"
   - --lightstepSecure={{ .ProxyConfig.GetTracing.GetLightstep.GetSecure }}
+{{- if .ProxyConfig.GetTracing.GetLightstep.GetSecure }}
   - --lightstepCacertPath
   - "{{ .ProxyConfig.GetTracing.GetLightstep.GetCacertPath }}"
+{{- end }}
 {{- else if eq .Values.global.proxy.tracer "zipkin" }}
   - --zipkinAddress
   - "{{ .ProxyConfig.GetTracing.GetZipkin.GetAddress }}"
