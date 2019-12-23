@@ -29,7 +29,7 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/howeyc/fsnotify"
 	"k8s.io/api/admissionregistration/v1beta1"
-	rbacv1 "k8s.io/api/rbac/v1"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -305,18 +305,17 @@ func NewWebhookConfigController(p WebhookParameters) (*WebhookConfigController, 
 		createInformerWebhookSource: defaultCreateInformerWebhookSource,
 	}
 
-	galleyClusterRoleName := "istio-galley-" + whc.webhookParameters.DeploymentAndServiceNamespace
-	galleyClusterRole, err := whc.webhookParameters.Clientset.RbacV1().ClusterRoles().Get(
-		galleyClusterRoleName, metav1.GetOptions{})
+	galleyNamespace, err := whc.webhookParameters.Clientset.CoreV1().Namespaces().Get(
+		whc.webhookParameters.DeploymentAndServiceNamespace, metav1.GetOptions{})
 	if err != nil {
-		scope.Warnf("Could not find clusterrole: %s to set ownerRef. "+
-			"The validatingwebhookconfiguration must be deleted manually.",
-			galleyClusterRoleName)
+		scope.Warnf("Could not find %s namespace to set ownerRef. "+
+			"The validatingwebhookconfiguration must be deleted manually",
+			whc.webhookParameters.DeploymentAndServiceNamespace)
 	} else {
 		whc.ownerRefs = []metav1.OwnerReference{
 			*metav1.NewControllerRef(
-				galleyClusterRole,
-				rbacv1.SchemeGroupVersion.WithKind("ClusterRole"),
+				galleyNamespace,
+				corev1.SchemeGroupVersion.WithKind("Namespace"),
 			),
 		}
 	}

@@ -34,7 +34,6 @@ import (
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	v1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -102,23 +101,22 @@ var (
 		},
 	}
 
-	dummyNamespace   = "istio-system"
-	dummyClusterRole = &rbacv1.ClusterRole{
+	dummyNamespace = &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "istio-galley-istio-system",
+			Name: "istio-system",
 			UID:  "deadbeef",
 		},
 	}
 
-	dummyClient = fake.NewSimpleClientset(dummyClusterRole)
+	dummyClient = fake.NewSimpleClientset(dummyNamespace)
 
 	createFakeWebhookSource   = fcache.NewFakeControllerSource
 	createFakeEndpointsSource = func() cache.ListerWatcher {
 		source := fcache.NewFakeControllerSource()
 		source.Add(&v1.Endpoints{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      dummyClusterRole.Name,
-				Namespace: dummyNamespace,
+				Name:      dummyNamespace.Name,
+				Namespace: dummyNamespace.Namespace,
 			},
 			Subsets: []v1.EndpointSubset{{
 				Addresses: []v1.EndpointAddress{{
@@ -196,9 +194,9 @@ func createTestWebhook(
 		CACertFile:                    caFile,
 		Clientset:                     cl,
 		WebhookName:                   config.Name,
-		DeploymentName:                dummyClusterRole.Name,
-		ServiceName:                   dummyClusterRole.Name,
-		DeploymentAndServiceNamespace: dummyNamespace,
+		DeploymentName:                dummyNamespace.Name,
+		ServiceName:                   dummyNamespace.Name,
+		DeploymentAndServiceNamespace: dummyNamespace.Namespace,
 	}
 	wh, err := NewWebhook(options)
 	if err != nil {
