@@ -24,7 +24,6 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	discoveryv1alpha1 "k8s.io/api/discovery/v1alpha1"
-
 	"k8s.io/client-go/tools/cache"
 )
 
