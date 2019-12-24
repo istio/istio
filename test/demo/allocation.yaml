@@ -78,11 +78,6 @@ spec:
             requests:
               cpu: 50m
               memory: 100Mi
-        - name: istio-proxy
-          resources:
-            requests:
-              cpu: 50m
-              memory: 100Mi
 ---
 
 apiVersion: apps/v1
@@ -95,11 +90,6 @@ spec:
     spec:
       containers:
         - name: mixer
-          resources:
-            requests:
-              cpu: 50m
-              memory: 100Mi
-        - name: istio-proxy
           resources:
             requests:
               cpu: 50m
@@ -151,11 +141,6 @@ spec:
             requests:
               cpu: 50m
               memory: 100Mi
-        - name: istio-proxy
-          resources:
-            requests:
-              cpu: 50m
-              memory: 100Mi
 
 ---
 apiVersion: apps/v1
@@ -175,11 +160,7 @@ spec:
           env:
             - name: foo
               value: bar
-        - name: istio-proxy
-          resources:
-            requests:
-              cpu: 50m
-              memory: 100Mi
+
 ---
 apiVersion: apps/v1
 kind: Deployment

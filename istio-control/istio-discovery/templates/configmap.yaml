@@ -99,7 +99,7 @@ data:
     disableMixerHttpReports: false
     {{- end }}
 
-    {{- if .Values.pilot.policy.enabled }}
+    {{- if not .Values.global.disablePolicyChecks }}
 
     # Set the following variable to true to disable policy checks by the Mixer.
     # Note that metrics will still be reported to the Mixer.
