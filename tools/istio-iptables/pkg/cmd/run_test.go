@@ -20,29 +20,6 @@ import (
 	"testing"
 )
 
-func TestHandleInboundIpv6RulesWithoutEnableInboundIpv6s(t *testing.T) {
-	cfg := constructConfig()
-	iptConfigurator := NewIptablesConfigurator(cfg)
-	ipv6Range := NetworkRange{
-		IsWildcard: false,
-		IPNets:     nil,
-	}
-	iptConfigurator.handleInboundIpv6Rules(ipv6Range, ipv6Range)
-	actual := FormatIptablesCommands(iptConfigurator.iptables.BuildV6())
-	expected := []string{
-		"ip6tables -t filter -A INPUT -m state --state ESTABLISHED -j ACCEPT",
-		"ip6tables -t filter -A INPUT -i lo -d ::1 -j ACCEPT",
-		"ip6tables -t filter -A INPUT -j REJECT",
-	}
-	if !reflect.DeepEqual(actual, expected) {
-		t.Errorf("Output mismatch. Expected: %#v ; Actual: %#v", expected, actual)
-	}
-	actual = FormatIptablesCommands(iptConfigurator.iptables.BuildV4())
-	if !reflect.DeepEqual(actual, []string{}) {
-		t.Errorf("Expected output to be empty; instead got: %#v", actual)
-	}
-}
-
 func TestHandleInboundIpv6RulesWithEmptyInboundPorts(t *testing.T) {
 	cfg := constructConfig()
 	iptConfigurator := NewIptablesConfigurator(cfg)
