@@ -1,0 +1,32 @@
+metadata:
+  name: readiness_gate_replace
+  annotations:
+    sidecar.istio.io/status: '{
+        "version":"",
+          "initContainers":[
+            "istio-init"
+          ],
+          "containers":[
+            "istio-proxy"
+          ],
+          "volumes":[
+            "istio-envoy",
+            "istio-certs"
+          ],
+          "imagePullSecrets":[
+            "istio-image-pull-secrets"
+          ],
+          "readinessGates":[
+            "g1"
+          ]
+       }'
+spec:
+  initContainers:
+    - name: c0
+  containers:
+    - name: c1
+  volumes:
+    - name: v0
+  readinessGates:
+    - conditionType: f0
+    - conditionType: g1
