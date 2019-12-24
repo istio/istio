@@ -958,6 +958,23 @@ func applyOutlierDetection(cluster *apiv2.Cluster, outlier *networking.OutlierDe
 		out.EnforcingConsecutive_5Xx = &wrappers.UInt32Value{Value: uint32(0)}             // defaults to 100
 		out.ConsecutiveGatewayFailure = &wrappers.UInt32Value{Value: uint32(outlier.ConsecutiveErrors)}
 	}
+
+	setConsecErrs := func(errs, enforcing **wrappers.UInt32Value, v uint32) {
+		*errs =  &wrappers.UInt32Value{Value: v}
+
+		if v > 0 {
+			v = 100
+		}
+		*enforcing = &wrappers.UInt32Value{Value: v}
+	}
+
+	if c5xx := outlier.Consecutive_5XxErrors; c5xx != nil {
+		setConsecErrs(&out.Consecutive_5Xx, &out.EnforcingConsecutive_5Xx, c5xx.GetValue())
+	}
+	if cgateway := outlier.ConsecutiveGatewayErrors; cgateway != nil {
+		setConsecErrs(&out.ConsecutiveGatewayFailure, &out.EnforcingConsecutiveGatewayFailure, cgateway.GetValue())
+	}
+
 	if outlier.Interval != nil {
 		out.Interval = gogo.DurationToProtoDuration(outlier.Interval)
 	}
