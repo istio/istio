@@ -59,4 +59,7 @@ spec:
 {{- if .Values.certmanager.tolerations }}
       tolerations:
 {{ toYaml .Values.certmanager.tolerations | indent 6 }}
+{{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
 {{- end }}

@@ -65,6 +65,9 @@ spec:
 {{- if .Values.mixer.telemetry.tolerations }}
       tolerations:
 {{ toYaml .Values.mixer.telemetry.tolerations | indent 6 }}
+{{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
 {{- end }}
       containers:
       - name: mixer

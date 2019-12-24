@@ -312,5 +312,8 @@ spec:
 {{- if .Values.pilot.tolerations }}
       tolerations:
 {{ toYaml .Values.pilot.tolerations | indent 6 }}
+{{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
 {{- end }}
 ---
