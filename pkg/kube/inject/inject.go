@@ -141,6 +141,7 @@ type SidecarInjectionSpec struct {
 	Volumes             []corev1.Volume               `yaml:"volumes"`
 	DNSConfig           *corev1.PodDNSConfig          `yaml:"dnsConfig"`
 	ImagePullSecrets    []corev1.LocalObjectReference `yaml:"imagePullSecrets"`
+	ReadinessGates      []corev1.PodReadinessGate     `yaml:"readinessGates"`
 }
 
 // SidecarTemplateData is the data object to which the templated
@@ -529,6 +530,9 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *
 	for _, c := range sic.ImagePullSecrets {
 		status.ImagePullSecrets = append(status.ImagePullSecrets, c.Name)
 	}
+	for _, c := range sic.ReadinessGates {
+		status.ReadinessGates = append(status.ReadinessGates, string(c.ConditionType))
+	}
 	statusAnnotationValue, err := json.Marshal(status)
 	if err != nil {
 		return nil, "", fmt.Errorf("error encoded injection status: %v", err)
@@ -733,6 +737,7 @@ func IntoObject(sidecarTemplate string, valuesConfig string, meshconfig *meshcon
 
 	podSpec.Containers = append(podSpec.Containers, spec.Containers...)
 	podSpec.Volumes = append(podSpec.Volumes, spec.Volumes...)
+	podSpec.ReadinessGates = append(podSpec.ReadinessGates, spec.ReadinessGates...)
 
 	podSpec.DNSConfig = spec.DNSConfig
 
@@ -1064,6 +1069,7 @@ type SidecarInjectionStatus struct {
 	Containers       []string `json:"containers"`
 	Volumes          []string `json:"volumes"`
 	ImagePullSecrets []string `json:"imagePullSecrets"`
+	ReadinessGates   []string `json:"readinessGates"`
 }
 
 // helper function to generate a template version identifier from a
