@@ -332,7 +332,7 @@ lint: lint-go-split lint-python lint-copyright-banner lint-scripts lint-dockerfi
 go-gen:
 	@mkdir -p /tmp/bin
 	@go build -o /tmp/bin/mixgen "${REPO_ROOT}/mixer/tools/mixgen/main.go"
-	@PATH=${PATH}:/tmp/bin go generate ./...
+	@PATH="${PATH}":/tmp/bin go generate ./...
 
 gen: go-gen mirror-licenses format update-crds
 
