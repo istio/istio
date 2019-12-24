@@ -431,8 +431,8 @@ const (
 	AllPortsLiteral = "*"
 )
 
-// isValidNodeType verifies that the NodeType is one of the declared constants in the model
-func isValidNodeType(nType NodeType) bool {
+// IsApplicationNodeType verifies that the NodeType is one of the declared constants in the model
+func IsApplicationNodeType(nType NodeType) bool {
 	switch nType {
 	case SidecarProxy, Router:
 		return true
@@ -609,7 +609,7 @@ func ParseServiceNodeWithMetadata(s string, metadata *NodeMetadata) (*Proxy, err
 		return out, fmt.Errorf("missing parts in the service node %q", s)
 	}
 
-	if !isValidNodeType(NodeType(parts[0])) {
+	if !IsApplicationNodeType(NodeType(parts[0])) {
 		return out, fmt.Errorf("invalid node type (valid types: sidecar, router in the service node %q", s)
 	}
 	out.Type = NodeType(parts[0])
