@@ -13,7 +13,7 @@ FROM istionightly/base_debug
 RUN mkdir -p /etc/dnscerts
 
 # Micro pilot+mock mixer+echo, local kube
-COPY hyperistio kube-apiserver etcd kubectl /usr/local/bin/
+COPY kube-apiserver etcd kubectl /usr/local/bin/
 COPY *.yaml /var/lib/istio/config/
 COPY certs/ /var/lib/istio/
 COPY certs/default/* /etc/certs/
