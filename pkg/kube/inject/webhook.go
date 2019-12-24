@@ -329,6 +329,22 @@ func removeImagePullSecrets(imagePullSecrets []corev1.LocalObjectReference, remo
 	return patch
 }
 
+func removeReadinessGates(readinessGates []corev1.PodReadinessGate, removed []string, path string) (patch []rfc6902PatchOperation) {
+	conditionTypes := map[string]bool{}
+	for _, conditionType := range removed {
+		conditionTypes[conditionType] = true
+	}
+	for i := len(readinessGates) - 1; i >= 0; i-- {
+		if _, ok := conditionTypes[string(readinessGates[i].ConditionType)]; ok {
+			patch = append(patch, rfc6902PatchOperation{
+				Op:   "remove",
+				Path: fmt.Sprintf("%v/%v", path, i),
+			})
+		}
+	}
+	return patch
+}
+
 func addContainer(target, added []corev1.Container, basePath string) (patch []rfc6902PatchOperation) {
 	saJwtSecretMountName := ""
 	var saJwtSecretMount corev1.VolumeMount
@@ -386,6 +402,27 @@ func addVolume(target, added []corev1.Volume, basePath string) (patch []rfc6902P
 		if first {
 			first = false
 			value = []corev1.Volume{add}
+		} else {
+			path += "/-"
+		}
+		patch = append(patch, rfc6902PatchOperation{
+			Op:    "add",
+			Path:  path,
+			Value: value,
+		})
+	}
+	return patch
+}
+
+func addReadinessGates(target, added []corev1.PodReadinessGate, basePath string) (patch []rfc6902PatchOperation) {
+	first := len(target) == 0
+	var value interface{}
+	for _, add := range added {
+		value = add
+		path := basePath
+		if first {
+			first = false
+			value = []corev1.PodReadinessGate{add}
 		} else {
 			path += "/-"
 		}
@@ -503,6 +540,7 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotation
 	patch = append(patch, removeContainers(pod.Spec.Containers, prevStatus.Containers, "/spec/containers")...)
 	patch = append(patch, removeVolumes(pod.Spec.Volumes, prevStatus.Volumes, "/spec/volumes")...)
 	patch = append(patch, removeImagePullSecrets(pod.Spec.ImagePullSecrets, prevStatus.ImagePullSecrets, "/spec/imagePullSecrets")...)
+	patch = append(patch, removeReadinessGates(pod.Spec.ReadinessGates, prevStatus.ReadinessGates, "/spec/readinessGates")...)
 
 	rewrite := ShouldRewriteAppHTTPProbers(pod.Annotations, sic)
 	addAppProberCmd := func() {
@@ -525,6 +563,10 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotation
 	patch = append(patch, addContainer(pod.Spec.Containers, sic.Containers, "/spec/containers")...)
 	patch = append(patch, addVolume(pod.Spec.Volumes, sic.Volumes, "/spec/volumes")...)
 	patch = append(patch, addImagePullSecrets(pod.Spec.ImagePullSecrets, sic.ImagePullSecrets, "/spec/imagePullSecrets")...)
+
+	if sic.ReadinessGates != nil {
+		patch = append(patch, addReadinessGates(pod.Spec.ReadinessGates, sic.ReadinessGates, "/spec/readinessGates")...)
+	}
 
 	if sic.DNSConfig != nil {
 		patch = append(patch, addPodDNSConfig(sic.DNSConfig, "/spec/dnsConfig")...)
