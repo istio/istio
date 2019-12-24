@@ -153,7 +153,7 @@ require (
 	gopkg.in/yaml.v2 v2.2.4
 	istio.io/api v0.0.0-20191120195622-f0abe0c81e59
 	istio.io/gogo-genproto v0.0.0-20191024203824-d079cc8b1d55
-	istio.io/operator v0.0.0-20191218174523-cdf2d7fa778e
+	istio.io/operator v0.0.0-20191223222718-4f86f733e5bc
 	istio.io/pkg v0.0.0-20191113122952-4f521de9c8ca
 	k8s.io/api v0.17.0
 	k8s.io/apiextensions-apiserver v0.17.0
