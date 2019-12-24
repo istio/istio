@@ -18,9 +18,8 @@ import (
 	"fmt"
 	"strings"
 
-	"gopkg.in/yaml.v2"
-
 	goversion "github.com/hashicorp/go-version"
+	"gopkg.in/yaml.v2"
 )
 
 // CompatibilityMapping is a mapping from an Istio operator version and the corresponding recommended and
@@ -128,6 +127,10 @@ func (v *CompatibilityMapping) UnmarshalYAML(unmarshal func(interface{}) error) 
 
 // IsVersionString checks whether the given string is a version string
 func IsVersionString(path string) bool {
+	_, err := goversion.NewSemver(path)
+	if err != nil {
+		return false
+	}
 	vs := Version{}
 	return yaml.Unmarshal([]byte(path), &vs) == nil
 }
