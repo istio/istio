@@ -98,10 +98,10 @@ func genApplyManifests(setOverlay []string, inFilename string, force bool, dryRu
 
 	if gotError {
 		l.logAndPrint("\n\n✘ Errors were logged during apply operation. Please check component installation logs above.\n")
-	} else {
-		l.logAndPrint("\n\n✔ Installation complete\n")
+		return fmt.Errorf("errors were logged during apply operation")
 	}
 
+	l.logAndPrint("\n\n✔ Installation complete\n")
 	return nil
 }
 
