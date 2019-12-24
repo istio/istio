@@ -447,7 +447,7 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) er
 	proxy.SetSidecarScope(s.globalPushContext())
 	proxy.SetGatewaysForProxy(s.globalPushContext())
 
-	// First request so initalize connection id and start tracking it.
+	// First request so initialize connection id and start tracking it.
 	con.mu.Lock()
 	con.node = proxy
 	con.ConID = connectionID(node.Id)
