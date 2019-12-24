@@ -121,4 +121,7 @@ spec:
 {{- if .Values.security.tolerations }}
       tolerations:
 {{ toYaml .Values.security.tolerations | indent 6 }}
+{{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
 {{- end }}

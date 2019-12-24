@@ -95,6 +95,13 @@ spec:
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}
+{{- if .Values.tracing.tolerations }}
+      tolerations:
+{{ toYaml .Values.tracing.tolerations | indent 6 }}
+{{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
+{{- end }}
 {{- if eq .Values.tracing.jaeger.spanStorageType "badger" }}
       volumes:
       - name: data

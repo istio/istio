@@ -65,6 +65,9 @@ spec:
 {{- if .Values.nodeagent.tolerations }}
       tolerations:
 {{ toYaml .Values.nodeagent.tolerations | indent 6 }}
+{{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
 {{- end }}
   updateStrategy:
     type: RollingUpdate

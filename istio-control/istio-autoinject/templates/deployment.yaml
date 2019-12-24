@@ -133,4 +133,7 @@ spec:
 {{- if .Values.sidecarInjectorWebhook.tolerations }}
       tolerations:
 {{ toYaml .Values.sidecarInjectorWebhook.tolerations | indent 6 }}
+{{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
 {{- end }}

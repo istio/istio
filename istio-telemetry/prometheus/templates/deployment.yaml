@@ -73,4 +73,7 @@ spec:
 {{- if .Values.prometheus.tolerations }}
       tolerations:
 {{ toYaml .Values.prometheus.tolerations | indent 6 }}
+{{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
 {{- end }}
