@@ -1,0 +1,82 @@
+[
+  {
+    "op": "remove",
+    "path": "/spec/readinessGates/1"
+  },
+  {
+    "op": "add",
+    "path": "/spec/initContainers/-",
+    "value": {
+      "name": "istio-init",
+      "image": "example.com/init:latest",
+      "resources": {}
+    }
+  },
+  {
+    "op": "add",
+    "path": "/spec/containers/-",
+    "value": {
+      "name": "istio-proxy",
+      "image": "example.com/proxy:latest",
+      "args": [
+        "--statusPort",
+        "15020"
+      ],
+      "env": [
+        {
+          "name": "ISTIO_KUBE_APP_PROBERS",
+          "value": "{}"
+        }
+      ],
+      "resources": {}
+    }
+  },
+  {
+    "op": "add",
+    "path": "/spec/volumes/-",
+    "value": {
+      "name": "istio-envoy",
+      "emptyDir": {
+        "medium": "Memory"
+      }
+    }
+  },
+  {
+    "op": "add",
+    "path": "/spec/volumes/-",
+    "value": {
+      "name": "istio-certs",
+      "secret": {
+        "secretName": "istio.default"
+      }
+    }
+  },
+  {
+    "op": "add",
+    "path": "/spec/imagePullSecrets",
+    "value": [
+      {
+        "name": "istio-image-pull-secrets"
+      }
+    ]
+  },
+  {
+    "op": "add",
+    "path": "/spec/readinessGates/-",
+    "value": {
+      "conditionType": "g2"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/metadata/annotations/sidecar.istio.io~1status",
+    "value": "{\"version\":\"unit-test-fake-version\",\"initContainers\":[\"istio-init\"],\"containers\":[\"istio-proxy\"],\"volumes\":[\"istio-envoy\",\"istio-certs\"],\"imagePullSecrets\":[\"istio-image-pull-secrets\"],\"readinessGates\":[\"g2\"]}"
+  },
+  {
+    "op": "add",
+    "path": "/metadata/labels",
+    "value": {
+      "security.istio.io/tlsMode": "istio"
+    }
+  }
+]

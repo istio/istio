@@ -639,6 +639,25 @@ func TestWebhookInject(t *testing.T) {
 			wantFile:     "TestWebhookInject_validationOrder.patch",
 			templateFile: "TestWebhookInject_validationOrder_template.yaml",
 		},
+		{
+			inputFile:    "TestWebhookInject_readiness_gates_add.yaml",
+			wantFile:     "TestWebhookInject_readiness_gates_add.patch",
+			templateFile: "TestWebhookInject_readiness_gates_add_template.yaml",
+		},
+		{
+			inputFile:    "TestWebhookInject_readiness_gates_merge.yaml",
+			wantFile:     "TestWebhookInject_readiness_gates_merge.patch",
+			templateFile: "TestWebhookInject_readiness_gates_merge_template.yaml",
+		},
+		{
+			inputFile:    "TestWebhookInject_readiness_gates_replace.yaml",
+			wantFile:     "TestWebhookInject_readiness_gates_replace.patch",
+			templateFile: "TestWebhookInject_readiness_gates_replace_template.yaml",
+		},
+		{
+			inputFile: "TestWebhookInject_readiness_gates_remove.yaml",
+			wantFile:  "TestWebhookInject_readiness_gates_remove.patch",
+		},
 	}
 
 	for i, c := range cases {
