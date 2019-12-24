@@ -18,14 +18,17 @@ import (
 	goversion "github.com/hashicorp/go-version"
 
 	pkgversion "istio.io/operator/pkg/version"
+	buildversion "istio.io/pkg/version"
 )
 
 const (
-	// OperatorVersionString is the version string of this operator binary.
-	OperatorVersionString = "1.4.3"
+	// OperatorCodeBaseVersion is the version string from the code base.
+	OperatorCodeBaseVersion = "1.5.0"
 )
 
 var (
+	// OperatorVersionString is the version string of this operator binary.
+	OperatorVersionString string
 	// OperatorBinaryVersion is the Istio operator version.
 	OperatorBinaryVersion pkgversion.Version
 	// OperatorBinaryGoVersion is the Istio operator version in go-version format.
@@ -34,12 +37,17 @@ var (
 
 func init() {
 	var err error
-	operatorVer := OperatorVersionString
-	OperatorBinaryGoVersion, err = goversion.NewVersion(operatorVer)
+	OperatorVersionString := OperatorCodeBaseVersion
+	// If dockerinfo has a tag (e.g., specified by LDFlags), we will use it as the version of operator
+	tag := buildversion.DockerInfo.Tag
+	if pkgversion.IsVersionString(tag) {
+		OperatorVersionString = tag
+	}
+	OperatorBinaryGoVersion, err = goversion.NewVersion(OperatorVersionString)
 	if err != nil {
 		panic(err)
 	}
-	v, err := pkgversion.NewVersionFromString(operatorVer)
+	v, err := pkgversion.NewVersionFromString(OperatorVersionString)
 	if err != nil {
 		panic(err)
 	}

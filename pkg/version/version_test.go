@@ -188,3 +188,54 @@ func errToString(err error) string {
 	}
 	return err.Error()
 }
+
+func TestIsVersionString(t *testing.T) {
+	tests := []struct {
+		name string
+		ver  string
+		want bool
+	}{
+		{
+			name: "empty",
+			ver:  "",
+			want: false,
+		},
+		{
+			name: "unknown",
+			ver:  "unknown",
+			want: false,
+		},
+		{
+			name: "release branch dev",
+			ver:  "1.4-dev",
+			want: true,
+		},
+		{
+			name: "release",
+			ver:  "1.4.5",
+			want: true,
+		},
+		{
+			name: "incorrect",
+			ver:  "1.4.xxx",
+			want: false,
+		},
+		{
+			name: "dev sha",
+			ver:  "a3703b76cf4745f3d56bf653ed751509be116351",
+			want: false,
+		},
+		{
+			name: "dev sha digit prefix",
+			ver:  "60023b76cf4745f3d56bf653ed751509be116351",
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := IsVersionString(tt.ver); got != tt.want {
+				t.Errorf("IsVersionString() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
