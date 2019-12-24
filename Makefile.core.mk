@@ -258,7 +258,6 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./pkg/test/echo/cmd/client \
   ./pkg/test/echo/cmd/server \
   ./mixer/test/policybackend \
-  ./tools/hyperistio \
   ./tools/istio-iptables \
   ./tools/istio-clean-iptables
 
