@@ -87,7 +87,6 @@ deb/docker: build deb/fpm ${ISTIO_OUT}/release/istio.deb
 	cp tools/packaging/deb/Dockerfile tools/packaging/deb/deb_test.sh ${OUT_DIR}/deb
 	cp tests/testdata/config/*.yaml ${OUT_DIR}/deb
 	cp -a tests/testdata/certs ${OUT_DIR}/deb
-	cp ${ISTIO_OUT}/hyperistio ${OUT_DIR}/deb
 	cp ${GOPATH}/bin/{kube-apiserver,etcd,kubectl} ${OUT_DIR}/deb
 	cp ${ISTIO_OUT}/istio-sidecar.deb ${OUT_DIR}/deb/istio-sidecar.deb
 	cp ${ISTIO_OUT}/istio.deb ${OUT_DIR}/deb/istio.deb
@@ -97,7 +96,7 @@ deb/test:
 	docker run --cap-add=NET_ADMIN --rm -v ${ISTIO_GO}/tools/packaging/deb/deb_test.sh:/tmp/deb_test.sh istio_deb /tmp/deb_test.sh
 
 # For the test, by default use a local pilot.
-# Set it to 172.18.0.1 to run against a pilot or hyperistio running in IDE.
+# Set it to 172.18.0.1 to run against a pilot running in IDE.
 # You may need to enable 15007 in the local machine firewall for this to work.
 DEB_PILOT_IP ?= 127.0.0.1
 DEB_CMD ?= /bin/bash

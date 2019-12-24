@@ -23,5 +23,4 @@ istio.io/istio/tests/integration2/qualification
 istio.io/istio/tests/local
 istio.io/istio/tests/util
 istio.io/istio/tools/githubContrib
-istio.io/istio/tools/hyperistio
 istio.io/istio/tools/license
