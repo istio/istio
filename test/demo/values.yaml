@@ -3,6 +3,7 @@
 # Includes components used in the demo, defaults to alpha3 rules.
 # Note: please only put common configuration for the demo profiles here.
 global:
+  controlPlaneSecurityEnabled: false
   defaultPodDisruptionBudget:
     enabled:
       false
