@@ -45,65 +45,68 @@ message Params {
 ## Example configuration
 
 ```yaml
-apiVersion: "config.istio.io/v1alpha2"
+apiVersion: config.istio.io/v1alpha2
 kind: rule
 metadata:
- name: authorization
- namespace: istio-config-default
+ name: auth
+ namespace: istio-system
 spec:
- selector: "true"
  actions:
- - handler: opaHandler.opa.istio-config-default
+ - handler: opa-handler.handler.istio-system
    instances:
-   - authzInstance.authorization.istio-config-default
+   - authz-instance.instance.istio-system
+
+---
+
+apiVersion: config.istio.io/v1alpha2
+kind: instance
+metadata:
+  name: authz-instance
+  namespace: istio-system
+spec:
+  compiledTemplate: authorization
+  params:
+    subject:
+      user: source.uid | ""
+    action:
+      namespace: destination.namespace | "default"
+      service: destination.service.host | ""
+      path: request.path | ""
+      method: request.method | ""
 
 ---
 
 apiVersion: "config.istio.io/v1alpha2"
-kind: authorization
+kind: handler
 metadata:
- name: authzInstance
- namespace: istio-config-default
+ name: opa-handler
+ namespace: istio-system
 spec:
- subject:
-   user: source.uid | ""
- action:
-   namespace: destination.namespace | "default"
-   service: destination.service | ""
-   method: request.method | ""
-   path: request.path | ""
-
----
-
-apiVersion: "config.istio.io/v1alpha2"
-kind: opa
-metadata:
- name: opaHandler
- namespace: istio-config-default
-spec:
- policy:
-   - |+
-     package mixerauthz
-    policy = [
-      {
-        "rule": {
-          "verbs": [
-            "storage.buckets.get"
-          ],
-          "users": [
-            "bucket-admins"
-          ]
+ compiledAdapter: opa
+ params:
+   policy:
+     - |+
+       package mixerauthz
+      policy = [
+        {
+          "rule": {
+            "verbs": [
+              "storage.buckets.get"
+            ],
+            "users": [
+              "bucket-admins"
+            ]
+          }
         }
+      ]
+
+      default allow = false
+
+      allow = true {
+        rule = policy[_].rule
+        input.subject.user = rule.users[_]
+        input.action.method = rule.verbs[_]
       }
-    ]
-
-    default allow = false
-
-    allow = true {
-      rule = policy[_].rule
-      input.subject.user = rule.users[_]
-      input.action.method = rule.verbs[_]
-    }
  checkMethod: "data.mixerauthz.allow"
  failClose: true
 ```
