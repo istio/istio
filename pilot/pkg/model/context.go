@@ -431,8 +431,8 @@ const (
 	AllPortsLiteral = "*"
 )
 
-// IsApplicationNodeType verifies that the NodeType is one of the declared constants in the model
-func IsApplicationNodeType(nType NodeType) bool {
+// isValidNodeType verifies that the NodeType is one of the declared constants in the model
+func isValidNodeType(nType NodeType) bool {
 	switch nType {
 	case SidecarProxy, Router:
 		return true
@@ -609,23 +609,21 @@ func ParseServiceNodeWithMetadata(s string, metadata *NodeMetadata) (*Proxy, err
 		return out, fmt.Errorf("missing parts in the service node %q", s)
 	}
 
-	out.Type = NodeType(parts[0])
-
-	if !IsApplicationNodeType(out.Type) {
+	if !isValidNodeType(NodeType(parts[0])) {
 		return out, fmt.Errorf("invalid node type (valid types: sidecar, router in the service node %q", s)
 	}
+	out.Type = NodeType(parts[0])
 
 	// Get all IP Addresses from Metadata
 	if len(metadata.InstanceIPs) > 0 {
-		ipAddresses, err := parseIPAddresses(metadata.InstanceIPs)
-		if err == nil {
-			out.IPAddresses = ipAddresses
+		if hasValidIPAddresses(metadata.InstanceIPs) {
+			out.IPAddresses = metadata.InstanceIPs
 		} else if isValidIPAddress(parts[1]) {
-			//Fail back, use IP from node id
+			//Fall back, use IP from node id
 			out.IPAddresses = append(out.IPAddresses, parts[1])
 		}
 	} else if isValidIPAddress(parts[1]) {
-		// Get IP from node id, it's only for backward-compatible, IP should come from metadata
+		// Get IP from node id, it's only for backward-compatibility, IP should come from metadata
 		out.IPAddresses = append(out.IPAddresses, parts[1])
 	}
 
@@ -717,17 +715,17 @@ func ParsePort(addr string) int {
 	return port
 }
 
-// parseIPAddresses extracts IPs from a string
-func parseIPAddresses(ipAddresses []string) ([]string, error) {
+// hasValidIPAddresses returns true of passes in slice has all valid ips, otherwise returns false.
+func hasValidIPAddresses(ipAddresses []string) bool {
 	if len(ipAddresses) == 0 {
-		return ipAddresses, fmt.Errorf("no valid IP address")
+		return false
 	}
 	for _, ipAddress := range ipAddresses {
 		if !isValidIPAddress(ipAddress) {
-			return ipAddresses, fmt.Errorf("invalid IP address %q", ipAddress)
+			return false
 		}
 	}
-	return ipAddresses, nil
+	return true
 }
 
 // Tell whether the given IP address is valid or not
