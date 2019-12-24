@@ -16,7 +16,7 @@ spec:
         readiness.status.sidecar.istio.io/failureThreshold: "300"
         readiness.status.sidecar.istio.io/initialDelaySeconds: "100"
         readiness.status.sidecar.istio.io/periodSeconds: "200"
-        sidecar.istio.io/status: '{"version":"unit-test-fake-version","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"unit-test-fake-version","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null,"readinessGates":null}'
         status.sidecar.istio.io/port: "123"
       creationTimestamp: null
       labels:
