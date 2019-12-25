@@ -434,12 +434,12 @@ func TestJwtAuthNPolicy(t *testing.T) {
 }
 
 func TestEnvoyFilters(t *testing.T) {
-	proxyVersionRegex, _ := regexp.Compile("1\\.4.*")
+	proxyVersionRegex := regexp.MustCompile("1\\.4.*")
 	envoyFilters := []*EnvoyFilterWrapper{
 		{
 			workloadSelector: map[string]string{"app": "v1"},
 			Patches: map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper{
-				networking.EnvoyFilter_LISTENER: []*EnvoyFilterConfigPatchWrapper{
+				networking.EnvoyFilter_LISTENER: {
 					{
 						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
 							Proxy: &networking.EnvoyFilter_ProxyMatch{
@@ -454,7 +454,7 @@ func TestEnvoyFilters(t *testing.T) {
 		{
 			workloadSelector: map[string]string{"app": "v1"},
 			Patches: map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper{
-				networking.EnvoyFilter_CLUSTER: []*EnvoyFilterConfigPatchWrapper{
+				networking.EnvoyFilter_CLUSTER: {
 					{
 						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
 							Proxy: &networking.EnvoyFilter_ProxyMatch{
@@ -485,34 +485,54 @@ func TestEnvoyFilters(t *testing.T) {
 		expectedClusterPatches  int
 	}{
 		{
-			name:                    "proxy matches two envoyfilters",
-			proxy:                   &Proxy{Metadata: &NodeMetadata{IstioVersion: "1.4.0"}, ConfigNamespace: "test-ns", WorkloadLabels: labels.Collection{{"app": "v1"}}},
+			name: "proxy matches two envoyfilters",
+			proxy: &Proxy{
+				Metadata:        &NodeMetadata{IstioVersion: "1.4.0"},
+				ConfigNamespace: "test-ns",
+				WorkloadLabels:  labels.Collection{{"app": "v1"}},
+			},
 			expectedListenerPatches: 2,
 			expectedClusterPatches:  2,
 		},
 		{
-			name:                    "proxy in root namespace matches an envoyfilter",
-			proxy:                   &Proxy{Metadata: &NodeMetadata{IstioVersion: "1.4.0"}, ConfigNamespace: "istio-system", WorkloadLabels: labels.Collection{{"app": "v1"}}},
+			name: "proxy in root namespace matches an envoyfilter",
+			proxy: &Proxy{
+				Metadata:        &NodeMetadata{IstioVersion: "1.4.0"},
+				ConfigNamespace: "istio-system",
+				WorkloadLabels:  labels.Collection{{"app": "v1"}},
+			},
 			expectedListenerPatches: 1,
 			expectedClusterPatches:  1,
 		},
 
 		{
-			name:                    "proxy matches no envoyfilter",
-			proxy:                   &Proxy{Metadata: &NodeMetadata{IstioVersion: "1.4.0"}, ConfigNamespace: "test-ns", WorkloadLabels: labels.Collection{{"app": "v2"}}},
+			name: "proxy matches no envoyfilter",
+			proxy: &Proxy{
+				Metadata:        &NodeMetadata{IstioVersion: "1.4.0"},
+				ConfigNamespace: "test-ns",
+				WorkloadLabels:  labels.Collection{{"app": "v2"}},
+			},
 			expectedListenerPatches: 0,
 			expectedClusterPatches:  0,
 		},
 
 		{
-			name:                    "proxy matches envoyfilter in root ns",
-			proxy:                   &Proxy{Metadata: &NodeMetadata{IstioVersion: "1.4.0"}, ConfigNamespace: "test-n2", WorkloadLabels: labels.Collection{{"app": "v1"}}},
+			name: "proxy matches envoyfilter in root ns",
+			proxy: &Proxy{
+				Metadata:        &NodeMetadata{IstioVersion: "1.4.0"},
+				ConfigNamespace: "test-n2",
+				WorkloadLabels:  labels.Collection{{"app": "v1"}},
+			},
 			expectedListenerPatches: 1,
 			expectedClusterPatches:  1,
 		},
 		{
-			name:                    "proxy version matches no envoyfilters",
-			proxy:                   &Proxy{Metadata: &NodeMetadata{IstioVersion: "1.3.0"}, ConfigNamespace: "test-ns", WorkloadLabels: labels.Collection{{"app": "v1"}}},
+			name: "proxy version matches no envoyfilters",
+			proxy: &Proxy{
+				Metadata:        &NodeMetadata{IstioVersion: "1.3.0"},
+				ConfigNamespace: "test-ns",
+				WorkloadLabels:  labels.Collection{{"app": "v1"}},
+			},
 			expectedListenerPatches: 0,
 			expectedClusterPatches:  0,
 		},

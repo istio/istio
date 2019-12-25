@@ -52,19 +52,19 @@ func ApplyRouteConfigurationPatches(
 		}
 	}
 
-	doVirtualHostListOperation(proxy, patchContext, efw.Patches, routeConfiguration)
+	doVirtualHostListOperation(patchContext, efw.Patches, routeConfiguration)
 
 	return routeConfiguration
 }
 
-func doVirtualHostListOperation(proxy *model.Proxy, patchContext networking.EnvoyFilter_PatchContext,
+func doVirtualHostListOperation(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	routeConfiguration *xdsapi.RouteConfiguration) {
 
 	virtualHostsRemoved := false
 	// first do removes/merges
 	for _, vhost := range routeConfiguration.VirtualHosts {
-		doVirtualHostOperation(proxy, patchContext, patches, routeConfiguration, vhost, &virtualHostsRemoved)
+		doVirtualHostOperation(patchContext, patches, routeConfiguration, vhost, &virtualHostsRemoved)
 	}
 
 	// now for the adds
@@ -90,7 +90,7 @@ func doVirtualHostListOperation(proxy *model.Proxy, patchContext networking.Envo
 	}
 }
 
-func doVirtualHostOperation(proxy *model.Proxy, patchContext networking.EnvoyFilter_PatchContext,
+func doVirtualHostOperation(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	routeConfiguration *xdsapi.RouteConfiguration, virtualHost *route.VirtualHost, virtualHostRemoved *bool) {
 
@@ -109,17 +109,17 @@ func doVirtualHostOperation(proxy *model.Proxy, patchContext networking.EnvoyFil
 			}
 		}
 	}
-	doHTTPRouteListOperation(proxy, patchContext, patches, routeConfiguration, virtualHost)
+	doHTTPRouteListOperation(patchContext, patches, routeConfiguration, virtualHost)
 }
 
-func doHTTPRouteListOperation(proxy *model.Proxy, patchContext networking.EnvoyFilter_PatchContext,
+func doHTTPRouteListOperation(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	routeConfiguration *xdsapi.RouteConfiguration, virtualHost *route.VirtualHost) {
 
 	routesRemoved := false
 	// Apply the route level removes/merges if any.
 	for index := range virtualHost.Routes {
-		doHTTPRouteOperation(proxy, patchContext, patches, routeConfiguration, virtualHost, index, &routesRemoved)
+		doHTTPRouteOperation(patchContext, patches, routeConfiguration, virtualHost, index, &routesRemoved)
 	}
 
 	// now for the adds
@@ -146,7 +146,7 @@ func doHTTPRouteListOperation(proxy *model.Proxy, patchContext networking.EnvoyF
 	}
 }
 
-func doHTTPRouteOperation(proxy *model.Proxy, patchContext networking.EnvoyFilter_PatchContext,
+func doHTTPRouteOperation(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	routeConfiguration *xdsapi.RouteConfiguration, virtualHost *route.VirtualHost, routeIndex int, routesRemoved *bool) {
 	for _, cp := range patches[networking.EnvoyFilter_HTTP_ROUTE] {
