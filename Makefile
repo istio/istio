@@ -66,8 +66,6 @@ GID = `grep docker /etc/group | cut -f3 -d:`
 PWD = $(shell pwd)
 
 $(info Building with the build container: $(IMG).)
-export GOBIN ?= $(TARGET_OUT)
-
 # Determine the timezone across various platforms to pass into the
 # docker run operation. This operation assumes zoneinfo is within
 # the path of the file.
@@ -110,6 +108,7 @@ RUN = $(CONTAINER_CLI) run --sig-proxy=true -u $(UID):$(GID) --rm \
 	-e TARGET_OUT_LINUX="$(TARGET_OUT_LINUX)" \
 	-e USER="${USER}" \
 	-e GOPATH="/work" \
+	-e GOBIN="/work/bin" \
 	$(ENV_VARS) \
 	-v /etc/passwd:/etc/passwd:ro \
 	$(DOCKER_SOCKET_MOUNT) \
