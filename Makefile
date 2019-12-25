@@ -66,6 +66,7 @@ GID = `grep docker /etc/group | cut -f3 -d:`
 PWD = $(shell pwd)
 
 $(info Building with the build container: $(IMG).)
+
 # Determine the timezone across various platforms to pass into the
 # docker run operation. This operation assumes zoneinfo is within
 # the path of the file.
