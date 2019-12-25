@@ -42,47 +42,6 @@ func TestEnvoyStatsCompleteAndSuccessful(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 }
 
-func TestEnvoyStatsIncompleteCDS(t *testing.T) {
-	g := NewGomegaWithT(t)
-	stats := "listener_manager.lds.update_success: 1\nserver.state: 0"
-
-	server := createAndStartServer(stats)
-	defer server.Close()
-	probe := Probe{AdminPort: 1234}
-
-	err := probe.Check()
-
-	g.Expect(err).To(HaveOccurred())
-	g.Expect(err.Error()).To(ContainSubstring("cds updates: 0 successful, 0 rejected; lds updates: 1 successful, 0 rejected"))
-}
-
-func TestEnvoyStatsIncompleteLDS(t *testing.T) {
-	g := NewGomegaWithT(t)
-	stats := "cluster_manager.cds.update_success: 1\nserver.state: 0"
-
-	server := createAndStartServer(stats)
-	defer server.Close()
-	probe := Probe{AdminPort: 1234}
-
-	err := probe.Check()
-
-	g.Expect(err).To(HaveOccurred())
-	g.Expect(err.Error()).To(ContainSubstring("cds updates: 0 successful, 1 rejected; lds updates: 0 successful, 0 rejected"))
-}
-
-func TestEnvoyStatsCompleteAndRejectedCDS(t *testing.T) {
-	g := NewGomegaWithT(t)
-	stats := "cluster_manager.cds.update_rejected: 1\nlistener_manager.lds.update_success: 1\nserver.state: 0"
-
-	server := createAndStartServer(stats)
-	defer server.Close()
-	probe := Probe{AdminPort: 1234}
-
-	err := probe.Check()
-
-	g.Expect(err).NotTo(HaveOccurred())
-}
-
 func TestEnvoyStats(t *testing.T) {
 	prefix := "config not received from Pilot (is Pilot running?): "
 	cases := []struct {
