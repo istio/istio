@@ -647,7 +647,18 @@ func TestApplyListenerPatches(t *testing.T) {
 			},
 		},
 	}
-	gatewayProxy := &model.Proxy{Type: model.Router, ConfigNamespace: "not-default"}
+
+	gatewayProxy := &model.Proxy{
+		Type:            model.Router,
+		ConfigNamespace: "not-default",
+		Metadata: &model.NodeMetadata{
+			IstioVersion: "1.2.2",
+			Raw: map[string]interface{}{
+				"foo": "sidecar",
+				"bar": "proxy",
+			},
+		},
+	}
 	serviceDiscovery := &fakes.ServiceDiscovery{}
 	e := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
 	push := model.NewPushContext()
