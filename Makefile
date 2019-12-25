@@ -108,8 +108,8 @@ RUN = $(CONTAINER_CLI) run -t -i --sig-proxy=true -u $(UID):$(GID) --rm \
 	-e TARGET_OUT="$(TARGET_OUT)" \
 	-e TARGET_OUT_LINUX="$(TARGET_OUT_LINUX)" \
 	-e USER="${USER}" \
-        -e ISTIO_BIN="$(TARGET_OUT)" \
-        -e GOPATH="/work" \
+    -e ISTIO_BIN="$(TARGET_OUT)" \
+    -e GOPATH="/work" \
 	$(ENV_VARS) \
 	-v /etc/passwd:/etc/passwd:ro \
 	$(DOCKER_SOCKET_MOUNT) \
