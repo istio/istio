@@ -39,22 +39,21 @@ func ApplyRouteConfigurationPatches(
 	// In case the patches cause panic, use the route generated before to reduce the influence.
 	out = routeConfiguration
 
-	envoyFilterWrappers := push.EnvoyFilters(proxy)
-	for _, efw := range envoyFilterWrappers {
-		// only merge is applicable for route configuration.
-		for _, cp := range efw.Patches[networking.EnvoyFilter_ROUTE_CONFIGURATION] {
-			if cp.Operation != networking.EnvoyFilter_Patch_MERGE {
-				continue
-			}
-
-			if commonConditionMatch(proxy, patchContext, cp) &&
-				routeConfigurationMatch(patchContext, routeConfiguration, cp) {
-				proto.Merge(routeConfiguration, cp.Value)
-			}
+	efw := push.EnvoyFilters(proxy)
+	// only merge is applicable for route configuration.
+	for _, cp := range efw.Patches[networking.EnvoyFilter_ROUTE_CONFIGURATION] {
+		if cp.Operation != networking.EnvoyFilter_Patch_MERGE {
+			continue
 		}
 
-		doVirtualHostListOperation(proxy, patchContext, efw.Patches, routeConfiguration)
+		if commonConditionMatch(patchContext, cp) &&
+			routeConfigurationMatch(patchContext, routeConfiguration, cp) {
+			proto.Merge(routeConfiguration, cp.Value)
+		}
 	}
+
+	doVirtualHostListOperation(proxy, patchContext, efw.Patches, routeConfiguration)
+
 	return routeConfiguration
 }
 
@@ -73,7 +72,7 @@ func doVirtualHostListOperation(proxy *model.Proxy, patchContext networking.Envo
 		if cp.Operation != networking.EnvoyFilter_Patch_ADD {
 			continue
 		}
-		if commonConditionMatch(proxy, patchContext, cp) &&
+		if commonConditionMatch(patchContext, cp) &&
 			routeConfigurationMatch(patchContext, routeConfiguration, cp) {
 			routeConfiguration.VirtualHosts = append(routeConfiguration.VirtualHosts, proto.Clone(cp.Value).(*route.VirtualHost))
 		}
@@ -96,7 +95,7 @@ func doVirtualHostOperation(proxy *model.Proxy, patchContext networking.EnvoyFil
 	routeConfiguration *xdsapi.RouteConfiguration, virtualHost *route.VirtualHost, virtualHostRemoved *bool) {
 
 	for _, cp := range patches[networking.EnvoyFilter_VIRTUAL_HOST] {
-		if commonConditionMatch(proxy, patchContext, cp) &&
+		if commonConditionMatch(patchContext, cp) &&
 			routeConfigurationMatch(patchContext, routeConfiguration, cp) &&
 			virtualHostMatch(virtualHost, cp) {
 
@@ -128,7 +127,7 @@ func doHTTPRouteListOperation(proxy *model.Proxy, patchContext networking.EnvoyF
 		if cp.Operation != networking.EnvoyFilter_Patch_ADD {
 			continue
 		}
-		if commonConditionMatch(proxy, patchContext, cp) &&
+		if commonConditionMatch(patchContext, cp) &&
 			routeConfigurationMatch(patchContext, routeConfiguration, cp) &&
 			virtualHostMatch(virtualHost, cp) {
 			virtualHost.Routes = append(virtualHost.Routes, proto.Clone(cp.Value).(*route.Route))
@@ -151,7 +150,7 @@ func doHTTPRouteOperation(proxy *model.Proxy, patchContext networking.EnvoyFilte
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	routeConfiguration *xdsapi.RouteConfiguration, virtualHost *route.VirtualHost, routeIndex int, routesRemoved *bool) {
 	for _, cp := range patches[networking.EnvoyFilter_HTTP_ROUTE] {
-		if commonConditionMatch(proxy, patchContext, cp) &&
+		if commonConditionMatch(patchContext, cp) &&
 			routeConfigurationMatch(patchContext, routeConfiguration, cp) &&
 			virtualHostMatch(virtualHost, cp) &&
 			routeMatch(virtualHost.Routes[routeIndex], cp) {

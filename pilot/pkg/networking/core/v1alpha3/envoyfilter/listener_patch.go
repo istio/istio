@@ -45,33 +45,38 @@ func ApplyListenerPatches(
 	// In case the patches cause panic, use the listeners generated before to reduce the influence.
 	out = listeners
 
-	envoyFilterWrappers := push.EnvoyFilters(proxy)
-	return doListenerListOperation(proxy, patchContext, envoyFilterWrappers, listeners, skipAdds)
+	envoyFilterWrapper := push.EnvoyFilters(proxy)
+	if envoyFilterWrapper == nil {
+		return
+	}
+
+	return doListenerListOperation(proxy, patchContext, envoyFilterWrapper, listeners, skipAdds)
 }
 
-func doListenerListOperation(proxy *model.Proxy, patchContext networking.EnvoyFilter_PatchContext,
-	envoyFilterWrappers []*model.EnvoyFilterWrapper,
-	listeners []*xdsapi.Listener, skipAdds bool) []*xdsapi.Listener {
+func doListenerListOperation(
+	proxy *model.Proxy,
+	patchContext networking.EnvoyFilter_PatchContext,
+	envoyFilterWrapper *model.EnvoyFilterWrapper,
+	listeners []*xdsapi.Listener,
+	skipAdds bool) []*xdsapi.Listener {
 	listenersRemoved := false
-	for _, efw := range envoyFilterWrappers {
-		// do all the changes for a single envoy filter crd object. [including adds]
-		// then move on to the next one
 
-		// only removes/merges plus next level object operations [add/remove/merge]
-		for _, listener := range listeners {
-			if listener.Name == "" {
-				// removed by another op
-				continue
-			}
-			doListenerOperation(proxy, patchContext, efw.Patches, listener, &listenersRemoved)
-		}
-		// adds at listener level if enabled
-		if skipAdds {
+	// do all the changes for a single envoy filter crd object. [including adds]
+	// then move on to the next one
+
+	// only removes/merges plus next level object operations [add/remove/merge]
+	for _, listener := range listeners {
+		if listener.Name == "" {
+			// removed by another op
 			continue
 		}
-		for _, cp := range efw.Patches[networking.EnvoyFilter_LISTENER] {
+		doListenerOperation(proxy, patchContext, envoyFilterWrapper.Patches, listener, &listenersRemoved)
+	}
+	// adds at listener level if enabled
+	if !skipAdds {
+		for _, cp := range envoyFilterWrapper.Patches[networking.EnvoyFilter_LISTENER] {
 			if cp.Operation == networking.EnvoyFilter_Patch_ADD {
-				if !commonConditionMatch(proxy, patchContext, cp) {
+				if !commonConditionMatch(patchContext, cp) {
 					continue
 				}
 
@@ -81,6 +86,7 @@ func doListenerListOperation(proxy *model.Proxy, patchContext networking.EnvoyFi
 			}
 		}
 	}
+
 	if listenersRemoved {
 		tempArray := make([]*xdsapi.Listener, 0, len(listeners))
 		for _, l := range listeners {
@@ -97,7 +103,7 @@ func doListenerOperation(proxy *model.Proxy, patchContext networking.EnvoyFilter
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	listener *xdsapi.Listener, listenersRemoved *bool) {
 	for _, cp := range patches[networking.EnvoyFilter_LISTENER] {
-		if !commonConditionMatch(proxy, patchContext, cp) ||
+		if !commonConditionMatch(patchContext, cp) ||
 			!listenerMatch(listener, cp) {
 			continue
 		}
@@ -127,7 +133,7 @@ func doFilterChainListOperation(proxy *model.Proxy, patchContext networking.Envo
 	}
 	for _, cp := range patches[networking.EnvoyFilter_FILTER_CHAIN] {
 		if cp.Operation == networking.EnvoyFilter_Patch_ADD {
-			if !commonConditionMatch(proxy, patchContext, cp) ||
+			if !commonConditionMatch(patchContext, cp) ||
 				!listenerMatch(listener, cp) {
 				continue
 			}
@@ -150,7 +156,7 @@ func doFilterChainOperation(proxy *model.Proxy, patchContext networking.EnvoyFil
 	listener *xdsapi.Listener,
 	fc *xdslistener.FilterChain, filterChainRemoved *bool) {
 	for _, cp := range patches[networking.EnvoyFilter_FILTER_CHAIN] {
-		if !commonConditionMatch(proxy, patchContext, cp) ||
+		if !commonConditionMatch(patchContext, cp) ||
 			!listenerMatch(listener, cp) ||
 			!filterChainMatch(fc, cp) {
 			continue
@@ -178,7 +184,7 @@ func doNetworkFilterListOperation(proxy *model.Proxy, patchContext networking.En
 		doNetworkFilterOperation(proxy, patchContext, patches, listener, fc, fc.Filters[i], &networkFiltersRemoved)
 	}
 	for _, cp := range patches[networking.EnvoyFilter_NETWORK_FILTER] {
-		if !commonConditionMatch(proxy, patchContext, cp) ||
+		if !commonConditionMatch(patchContext, cp) ||
 			!listenerMatch(listener, cp) ||
 			!filterChainMatch(fc, cp) {
 			continue
@@ -251,7 +257,7 @@ func doNetworkFilterOperation(proxy *model.Proxy, patchContext networking.EnvoyF
 	listener *xdsapi.Listener, fc *xdslistener.FilterChain,
 	filter *xdslistener.Filter, networkFilterRemoved *bool) {
 	for _, cp := range patches[networking.EnvoyFilter_NETWORK_FILTER] {
-		if !commonConditionMatch(proxy, patchContext, cp) ||
+		if !commonConditionMatch(patchContext, cp) ||
 			!listenerMatch(listener, cp) ||
 			!filterChainMatch(fc, cp) ||
 			!networkFilterMatch(filter, cp) {
@@ -327,7 +333,7 @@ func doHTTPFilterListOperation(proxy *model.Proxy, patchContext networking.Envoy
 		doHTTPFilterOperation(proxy, patchContext, patches, listener, fc, filter, httpFilter, &httpFiltersRemoved)
 	}
 	for _, cp := range patches[networking.EnvoyFilter_HTTP_FILTER] {
-		if !commonConditionMatch(proxy, patchContext, cp) ||
+		if !commonConditionMatch(patchContext, cp) ||
 			!listenerMatch(listener, cp) ||
 			!filterChainMatch(fc, cp) ||
 			!networkFilterMatch(filter, cp) {
@@ -410,7 +416,7 @@ func doHTTPFilterOperation(proxy *model.Proxy, patchContext networking.EnvoyFilt
 	listener *xdsapi.Listener, fc *xdslistener.FilterChain, filter *xdslistener.Filter,
 	httpFilter *http_conn.HttpFilter, httpFilterRemoved *bool) {
 	for _, cp := range patches[networking.EnvoyFilter_HTTP_FILTER] {
-		if !commonConditionMatch(proxy, patchContext, cp) ||
+		if !commonConditionMatch(patchContext, cp) ||
 			!listenerMatch(listener, cp) ||
 			!filterChainMatch(fc, cp) ||
 			!networkFilterMatch(filter, cp) ||
@@ -589,7 +595,7 @@ func proxyMatch(proxy *model.Proxy, cp *model.EnvoyFilterConfigPatchWrapper) boo
 	return true
 }
 
-func commonConditionMatch(proxy *model.Proxy, patchContext networking.EnvoyFilter_PatchContext,
+func commonConditionMatch(patchContext networking.EnvoyFilter_PatchContext,
 	cp *model.EnvoyFilterConfigPatchWrapper) bool {
-	return patchContextMatch(patchContext, cp) && proxyMatch(proxy, cp)
+	return patchContextMatch(patchContext, cp)
 }
