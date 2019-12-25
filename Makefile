@@ -108,15 +108,17 @@ RUN = $(CONTAINER_CLI) run -t -i --sig-proxy=true -u $(UID):$(GID) --rm \
 	-e TARGET_OUT="$(TARGET_OUT)" \
 	-e TARGET_OUT_LINUX="$(TARGET_OUT_LINUX)" \
 	-e USER="${USER}" \
+        -e ISTIO_BIN="$(TARGET_OUT)" \
+        -e GOPATH="/work" \
 	$(ENV_VARS) \
 	-v /etc/passwd:/etc/passwd:ro \
 	$(DOCKER_SOCKET_MOUNT) \
 	$(CONTAINER_OPTIONS) \
-	--mount type=bind,source="$(PWD)",destination="/work" \
+	--mount type=bind,source="$(GOPATH)",destination="/work" \
 	--mount type=volume,source=go,destination="/go" \
 	--mount type=volume,source=gocache,destination="/gocache" \
 	$(CONDITIONAL_HOST_MOUNTS) \
-	-w /work $(IMG)
+	-w /work/src/istio.io/istio $(IMG)
 
 MAKE = $(RUN) make --no-print-directory -e -f Makefile.core.mk
 
