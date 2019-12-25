@@ -434,7 +434,7 @@ func TestJwtAuthNPolicy(t *testing.T) {
 }
 
 func TestEnvoyFilters(t *testing.T) {
-	proxyVersionRegex := regexp.MustCompile("1\\.4.*")
+	proxyVersionRegex := regexp.MustCompile(`1\.4.*`)
 	envoyFilters := []*EnvoyFilterWrapper{
 		{
 			workloadSelector: map[string]string{"app": "v1"},
@@ -458,7 +458,7 @@ func TestEnvoyFilters(t *testing.T) {
 					{
 						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
 							Proxy: &networking.EnvoyFilter_ProxyMatch{
-								ProxyVersion: "1\\.4.*",
+								ProxyVersion: `1\\.4.*`,
 							},
 						},
 						ProxyVersionRegex: proxyVersionRegex,
