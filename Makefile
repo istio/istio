@@ -100,7 +100,7 @@ ifdef TAG
 ENV_VARS+=-e TAG="$(TAG)"
 endif
 
-RUN = $(CONTAINER_CLI) run -t -i --sig-proxy=true -u $(UID):$(GID) --rm \
+RUN = $(CONTAINER_CLI) run --sig-proxy=true -u $(UID):$(GID) --rm \
 	-e IN_BUILD_CONTAINER="$(BUILD_WITH_CONTAINER)" \
 	-e TZ="$(TIMEZONE)" \
 	-e TARGET_ARCH="$(TARGET_ARCH)" \
