@@ -40,7 +40,7 @@ spec:
 )
 
 func waitForValidationWebhook(accessor *kube.Accessor, cfg Config) error {
-	dummyValidationRule = fmt.Sprintf(dummyValidationRule, cfg.SystemNamespace)
+	dummyValidationRule = fmt.Sprintf(dummyValidationRule, cfg.ConfigNamespace)
 
 	defer func() {
 		e := accessor.DeleteContents("", dummyValidationRule)
