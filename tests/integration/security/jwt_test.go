@@ -482,7 +482,6 @@ func TestRequestAuthenticationOnIngress(t *testing.T) {
 			}); err != nil {
 				t.Fatal(err)
 			}
-			t.Log(ingr)
 
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "req-authn",
@@ -587,14 +586,14 @@ func TestRequestAuthenticationOnIngress(t *testing.T) {
 				},
 				{
 					Name:               "allow with sub-1 token on any.com",
-					Host:               "any.com",
+					Host:               "any-request-principlal-ok.com",
 					Path:               "/",
 					Token:              jwt.TokenIssuer1,
 					ExpectResponseCode: 200,
 				},
 				{
 					Name:               "allow with sub-2 token on any.com",
-					Host:               "any.com",
+					Host:               "any-request-principlal-ok.com",
 					Path:               "/",
 					Token:              jwt.TokenIssuer2,
 					ExpectResponseCode: 200,
@@ -607,7 +606,7 @@ func TestRequestAuthenticationOnIngress(t *testing.T) {
 					ExpectResponseCode: 403,
 				},
 				{
-					Name:               "healthz",
+					Name:               "allow healthz",
 					Host:               "example.com",
 					Path:               "/healthz",
 					ExpectResponseCode: 200,
