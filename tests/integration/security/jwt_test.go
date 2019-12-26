@@ -15,6 +15,8 @@
 package security
 
 import (
+	"fmt"
+	"net/http"
 	"testing"
 	"time"
 
@@ -467,15 +469,9 @@ func TestRequestAuthentication(t *testing.T) {
 		})
 }
 
-var (
-	ingr ingress.Instance
-)
-
 // TestRequestAuthentication tests beta authn policy for jwt on ingress.
 // The policy is also set at global namespace, with authorization on ingressgateway.
 func TestRequestAuthenticationOnIngress(t *testing.T) {
-	// testIssuer1Token := jwt.TokenIssuer1
-
 	framework.NewTest(t).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
@@ -495,13 +491,21 @@ func TestRequestAuthenticationOnIngress(t *testing.T) {
 
 			// Apply the policy.
 			namespaceTmpl := map[string]string{
-				"Namespace": ns.Name(),
+				"Namespace":     ns.Name(),
+				"RootNamespace": rootNamespace,
 			}
-			jwtPolicies := tmpl.EvaluateAllOrFail(t, namespaceTmpl,
-				file.AsStringOrFail(t, "testdata/requestauthn/ingress-authn-authz.yaml.tmpl"),
-			)
-			g.ApplyConfigOrFail(t, ns, jwtPolicies...)
-			defer g.DeleteConfigOrFail(t, ns, jwtPolicies...)
+
+			applyPolicy := func(filename string, ns namespace.Instance) []string {
+				policy := tmpl.EvaluateAllOrFail(t, namespaceTmpl, file.AsStringOrFail(t, filename))
+				g.ApplyConfigOrFail(t, ns, policy...)
+				return policy
+			}
+
+			securityPolicies := applyPolicy("testdata/requestauthn/global-jwt.yaml.tmpl", rootNS{})
+			ingressCfgs := applyPolicy("testdata/requestauthn/ingress.yaml.tmpl", ns)
+
+			defer g.DeleteConfigOrFail(t, rootNS{}, securityPolicies...)
+			defer g.DeleteConfigOrFail(t, ns, ingressCfgs...)
 
 			var a, b echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).
@@ -509,9 +513,10 @@ func TestRequestAuthenticationOnIngress(t *testing.T) {
 				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
 				BuildOrFail(t)
 
+			// These test cases verify in-mesh traffic doesn't need tokens.
 			testCases := []authn.TestCase{
 				{
-					Name: "expired-token",
+					Name: "in-mesh-with-expired-token",
 					Request: connection.Checker{
 						From: a,
 						Options: echo.CallOptions{
@@ -523,10 +528,10 @@ func TestRequestAuthenticationOnIngress(t *testing.T) {
 							},
 						},
 					},
-					ExpectResponseCode: response.StatusCodeForbidden,
+					ExpectResponseCode: response.StatusCodeOK,
 				},
 				{
-					Name: "no-token",
+					Name: "in-mesh-without-token",
 					Request: connection.Checker{
 						From: a,
 						Options: echo.CallOptions{
@@ -535,7 +540,7 @@ func TestRequestAuthenticationOnIngress(t *testing.T) {
 							Scheme:   scheme.HTTP,
 						},
 					},
-					ExpectResponseCode: response.StatusCodeForbidden,
+					ExpectResponseCode: response.StatusCodeOK,
 				},
 			}
 			for _, c := range testCases {
@@ -544,5 +549,101 @@ func TestRequestAuthenticationOnIngress(t *testing.T) {
 						retry.Delay(250*time.Millisecond), retry.Timeout(30*time.Second))
 				})
 			}
+
+			// These test cases verify requests go through ingress will be checked for validate token.
+			ingTestCases := []struct {
+				Name               string
+				Host               string
+				Path               string
+				Token              string
+				ExpectResponseCode int
+			}{
+				{
+					Name:               "deny without token",
+					Host:               "example.com",
+					Path:               "/",
+					ExpectResponseCode: 403,
+				},
+				{
+					Name:               "allow with sub-1 token",
+					Host:               "example.com",
+					Path:               "/",
+					Token:              jwt.TokenIssuer1,
+					ExpectResponseCode: 200,
+				},
+				{
+					Name:               "deny with sub-2 token",
+					Host:               "example.com",
+					Path:               "/",
+					Token:              jwt.TokenIssuer2,
+					ExpectResponseCode: 403,
+				},
+				{
+					Name:               "deny with expired token",
+					Host:               "example.com",
+					Path:               "/",
+					Token:              jwt.TokenExpired,
+					ExpectResponseCode: 403,
+				},
+				{
+					Name:               "allow with sub-1 token on any.com",
+					Host:               "any.com",
+					Path:               "/",
+					Token:              jwt.TokenIssuer1,
+					ExpectResponseCode: 200,
+				},
+				{
+					Name:               "allow with sub-2 token on any.com",
+					Host:               "any.com",
+					Path:               "/",
+					Token:              jwt.TokenIssuer2,
+					ExpectResponseCode: 200,
+				},
+				{
+					Name:               "deny with token on other host",
+					Host:               "other-host.com",
+					Path:               "/",
+					Token:              jwt.TokenIssuer1,
+					ExpectResponseCode: 403,
+				},
+				{
+					Name:               "healthz",
+					Host:               "example.com",
+					Path:               "/healthz",
+					ExpectResponseCode: 200,
+				},
+			}
+
+			for _, c := range ingTestCases {
+				t.Run(c.Name, func(t *testing.T) {
+					retry.UntilSuccessOrFail(t, func() error {
+						return checkIngress(ingr, c.Host, c.Path, c.Token, c.ExpectResponseCode)
+					},
+						retry.Delay(250*time.Millisecond), retry.Timeout(30*time.Second))
+				})
+			}
 		})
+}
+
+func checkIngress(ingr ingress.Instance, host string, path string, token string, expectResponseCode int) error {
+	endpointAddress := ingr.HTTPAddress()
+	opts := ingress.CallOptions{
+		Host:     host,
+		Path:     path,
+		CallType: ingress.PlainText,
+		Address:  endpointAddress,
+	}
+	if len(token) != 0 {
+		opts.Headers = http.Header{
+			"Authorization": []string{
+				fmt.Sprintf("Bearer %s", token),
+			},
+		}
+	}
+	response, err := ingr.Call(opts)
+
+	if response.Code != expectResponseCode {
+		return fmt.Errorf("got response code %d, err %s", response.Code, err)
+	}
+	return nil
 }
