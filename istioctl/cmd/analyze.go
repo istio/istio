@@ -157,7 +157,10 @@ istioctl analyze -L
 
 			// If we're not using kube (files only), add defaults for some resources we expect to be provided by Istio
 			if !useKube {
-				sa.AddDefaultResources()
+				err := sa.AddDefaultResources()
+				if err != nil {
+					return err
+				}
 			}
 
 			// If files are provided, treat them (collectively) as a source.

@@ -20,6 +20,7 @@ import (
 
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/scope"
 )
 
 // precedenceSource is a processor.Source implementation that combines multiple sources in precedence order
@@ -64,6 +65,8 @@ func (ph *precedenceHandler) Handle(e event.Event) {
 	ph.src.eventStateMu.Lock()
 	defer ph.src.eventStateMu.Unlock()
 
+	scope.Analysis.Errorf("CRWILSON_DEBUG2a: %v -> %v", fmt.Sprintf("%s/%s", e.Source, e.Resource.Metadata.FullName), e)
+
 	switch e.Kind {
 	case event.Added, event.Updated, event.Deleted:
 		ph.handleEvent(e)
@@ -81,6 +84,7 @@ func (ph *precedenceHandler) handleFullSync(e event.Event) {
 	if ph.src.expectedCounts[e.Source] > 0 {
 		return
 	}
+	scope.Analysis.Errorf("CRWILSON_DEBUG1a: %v -> %v", fmt.Sprintf("%s/%s", e.Source, e.Resource.Metadata.FullName), e)
 	ph.src.handler.Handle(e)
 }
 
@@ -93,6 +97,7 @@ func (ph *precedenceHandler) handleEvent(e event.Event) {
 	if ok && ph.precedence < curPrecedence {
 		return
 	}
+	scope.Analysis.Errorf("CRWILSON_DEBUG0a: %v -> %v", key, e)
 	ph.src.resourcePriority[key] = ph.precedence
 	ph.src.handler.Handle(e)
 }
@@ -107,6 +112,7 @@ func (s *precedenceSource) Dispatch(h event.Handler) {
 	// Inject a precedenceHandler for each source
 	// precedence is based on index position (higher index, higher precedence)
 	for i, input := range s.inputs {
+		scope.Analysis.Errorf("CRWILSON_DEBUG3a: %v", input)
 		ph := &precedenceHandler{
 			precedence: i,
 			src:        s,
@@ -119,6 +125,8 @@ func (s *precedenceSource) Dispatch(h event.Handler) {
 func (s *precedenceSource) Start() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	scope.Analysis.Errorf("CRWILSON_DEBUG4a")
+	fmt.Println("CRWILSON_DEBUG4b")
 
 	if s.started {
 		return

@@ -106,18 +106,22 @@ func (*IngressGatewayPortAnalyzer) analyzeGateway(r *resource.Instance, c analys
 		return true
 	})
 
+	// Report if we found no pods matching this gateway's selector
 	if gwSelectorMatches == 0 {
-		// We found no service for the Gateway's workload selector.  If the Gateway doesn't select
-		// the Istio system ingress gateway complain about a missing referenced resource.  (We
-		// don't want to complain about missing system resources, because a user may want to analyze
-		// only his own application files.)
-		// https://github.com/istio/istio/issues/19579 should make this unnecessary
-		if len(gw.Selector) != 1 || gw.Selector["istio"] != "ingressgateway" {
-			c.Report(collections.IstioNetworkingV1Alpha3Gateways.Name(), msg.NewReferencedResourceNotFound(r, "selector", gwSelector.String()))
-			return
-		}
-		// The unreferenced Ingress is the System ingress, pretend we have found it.
-		servicePorts = defaultIngressGatewayPorts
+		c.Report(collections.IstioNetworkingV1Alpha3Gateways.Name(), msg.NewReferencedResourceNotFound(r, "selector", gwSelector.String()))
+		return
+
+		// // We found no service for the Gateway's workload selector.  If the Gateway doesn't select
+		// // the Istio system ingress gateway complain about a missing referenced resource.  (We
+		// // don't want to complain about missing system resources, because a user may want to analyze
+		// // only his own application files.)
+		// // https://github.com/istio/istio/issues/19579 should make this unnecessary
+		// if len(gw.Selector) != 1 || gw.Selector["istio"] != "ingressgateway" {
+		// 	c.Report(metadata.IstioNetworkingV1Alpha3Gateways, msg.NewReferencedResourceNotFound(r, "selector", gwSelector.String()))
+		// 	return
+		// }
+		// // The unreferenced Ingress is the System ingress, pretend we have found it.
+		// servicePorts = defaultIngressGatewayPorts
 	}
 
 	// Check each Gateway port against what the workload ingress service offers

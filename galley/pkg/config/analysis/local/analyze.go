@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"strings"
 
 	"github.com/hashicorp/go-multierror"
 
@@ -239,8 +240,11 @@ func (sa *SourceAnalyzer) AddFileKubeMeshConfig(file string) error {
 	return nil
 }
 
-func (sa *SourceAnalyzer) AddDefaultResources() {
-	//TODO
+// AddDefaultResources TODO Comment me
+func (sa *SourceAnalyzer) AddDefaultResources() error {
+	//TODO: look at mesh config to see what to add
+	r := strings.NewReader(defaultIstioIngress)
+	return sa.AddReaderKubeSource([]io.Reader{r})
 }
 
 func (sa *SourceAnalyzer) addRunningKubeMeshConfigSource(k kube.Interfaces) error {

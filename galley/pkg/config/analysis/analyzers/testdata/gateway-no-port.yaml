@@ -20,3 +20,31 @@ spec:
       protocol: HTTP
     hosts:
     - "*"
+# TODO: These should be default resources
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    istio: ingressgateway
+  name: dummy-default-ingressgateway-pod
+  namespace: istio-system
+spec:
+  containers:
+    - args:
+      name: istio-proxy
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dummy-default-ingressgateway-service
+  namespace: istio-system
+spec:
+  ports:
+  - name: http2
+    nodePort: 31380
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    istio: ingressgateway
