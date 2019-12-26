@@ -240,17 +240,26 @@ func (sa *SourceAnalyzer) AddFileKubeMeshConfig(file string) error {
 	return nil
 }
 
-// AddDefaultResources TODO Comment me
+// AddDefaultResources adds some basic dummy Istio resources, based on mesh configuration.
+// This is useful for files-only analysis cases where we don't expect the user to be including istio system resources
+// and don't want to generate false positives because they aren't there.
+// Respect mesh config when deciding which default resources should be generated
 func (sa *SourceAnalyzer) AddDefaultResources() error {
-	//TODO: look at mesh config to see what to add
+	var readers []io.Reader
 
-	ingressResources, err := getDefaultIstioIngress(sa.istioNamespace.String())
-	if err != nil {
-		return err
+	if sa.meshCfg.GetIngressControllerMode() != v1alpha1.MeshConfig_OFF {
+		ingressResources, err := getDefaultIstioIngress(sa.istioNamespace.String(), sa.meshCfg.GetIngressService())
+		if err != nil {
+			return err
+		}
+		readers = append(readers, strings.NewReader(ingressResources))
 	}
 
-	r := strings.NewReader(ingressResources)
-	return sa.AddReaderKubeSource([]io.Reader{r})
+	if len(readers) == 0 {
+		return nil
+	}
+
+	return sa.AddReaderKubeSource(readers)
 }
 
 func (sa *SourceAnalyzer) addRunningKubeMeshConfigSource(k kube.Interfaces) error {

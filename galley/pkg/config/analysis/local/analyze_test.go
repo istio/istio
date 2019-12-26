@@ -213,6 +213,30 @@ func TestAddReaderKubeSourceSkipsBadEntries(t *testing.T) {
 	g.Expect(sa.sources).To(HaveLen(1))
 }
 
+func TestDefaultResourcesRespectsMeshConfig(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	sa := NewSourceAnalyzer(basicmeta.MustGet(), blankCombinedAnalyzer, "", "", nil, false)
+
+	// With ingress off, we shouldn't generate any default resources
+	ingressOffMeshCfg := tempFileFromString(t, "ingressControllerMode: 'OFF'")
+	defer func() { _ = os.Remove(ingressOffMeshCfg.Name()) }()
+
+	err := sa.AddFileKubeMeshConfig(ingressOffMeshCfg.Name())
+	g.Expect(err).To(BeNil())
+	sa.AddDefaultResources()
+	g.Expect(sa.sources).To(BeEmpty())
+
+	// With ingress on, though, we should.
+	ingressStrictMeshCfg := tempFileFromString(t, "ingressControllerMode: 'STRICT'")
+	defer func() { _ = os.Remove(ingressStrictMeshCfg.Name()) }()
+
+	err = sa.AddFileKubeMeshConfig(ingressStrictMeshCfg.Name())
+	g.Expect(err).To(BeNil())
+	sa.AddDefaultResources()
+	g.Expect(sa.sources).To(HaveLen(1))
+}
+
 func TestResourceFiltering(t *testing.T) {
 	g := NewGomegaWithT(t)
 

@@ -25,7 +25,7 @@ kind: Pod
 metadata:
   labels:
     istio: ingressgateway
-  name: dummy-default-ingressgateway-pod
+  name: {{.ingressService}}-dummypod
   namespace: {{.namespace}}
 spec:
   containers:
@@ -35,7 +35,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: dummy-default-ingressgateway-service
+  name: {{.ingressService}}
   namespace: {{.namespace}}
 spec:
   ports:
@@ -63,8 +63,8 @@ spec:
     istio: ingressgateway
 `
 
-func getDefaultIstioIngress(namespace string) (string, error) {
-	result, err := generate(defaultIstioIngress, map[string]string{"namespace": namespace})
+func getDefaultIstioIngress(namespace, ingressService string) (string, error) {
+	result, err := generate(defaultIstioIngress, map[string]string{"namespace": namespace, "ingressService": ingressService})
 	if err != nil {
 		return "", err
 	}
