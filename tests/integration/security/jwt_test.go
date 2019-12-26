@@ -484,7 +484,7 @@ func TestRequestAuthenticationOnIngress(t *testing.T) {
 			}
 
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
-				Prefix: "req-authn",
+				Prefix: "req-authn-ingress",
 				Inject: true,
 			})
 
@@ -597,6 +597,12 @@ func TestRequestAuthenticationOnIngress(t *testing.T) {
 					Path:               "/",
 					Token:              jwt.TokenIssuer2,
 					ExpectResponseCode: 200,
+				},
+				{
+					Name:               "deny without token on any.com",
+					Host:               "any-request-principlal-ok.com",
+					Path:               "/",
+					ExpectResponseCode: 403,
 				},
 				{
 					Name:               "deny with token on other host",
