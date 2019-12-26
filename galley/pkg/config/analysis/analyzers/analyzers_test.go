@@ -510,7 +510,7 @@ func extractFields(msgs diag.Messages) []message {
 
 func prettyPrintMessages(msgs diag.Messages) string {
 	var sb strings.Builder
-	fmt.Fprintf(&sb, "Result messages:\n")
+	fmt.Fprintf(&sb, "Analyzer messages: %d\n", len(msgs))
 	for _, m := range msgs {
 		fmt.Fprintf(&sb, "\t%s\n", m.String())
 	}
