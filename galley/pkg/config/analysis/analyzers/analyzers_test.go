@@ -402,6 +402,13 @@ func TestAnalyzers(t *testing.T) {
 				}
 			}
 
+			// Include default resources
+			err := sa.AddDefaultResources()
+			if err != nil {
+				t.Fatalf("Error adding default resources: %v", err)
+			}
+
+			// Gather test files
 			var files []io.Reader
 			for _, f := range testCase.inputFiles {
 				of, err := os.Open(f)
@@ -411,12 +418,14 @@ func TestAnalyzers(t *testing.T) {
 				files = append(files, of)
 			}
 
-			err := sa.AddReaderKubeSource(files)
+			// Include resources from test files
+			err = sa.AddReaderKubeSource(files)
 			if err != nil {
 				t.Fatalf("Error setting up file kube source on testcase %s: %v", testCase.name, err)
 			}
 			cancel := make(chan struct{})
 
+			// Run the analysis
 			result, err := sa.Analyze(cancel)
 			if err != nil {
 				t.Fatalf("Error running analysis on testcase %s: %v", testCase.name, err)

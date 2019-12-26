@@ -243,7 +243,13 @@ func (sa *SourceAnalyzer) AddFileKubeMeshConfig(file string) error {
 // AddDefaultResources TODO Comment me
 func (sa *SourceAnalyzer) AddDefaultResources() error {
 	//TODO: look at mesh config to see what to add
-	r := strings.NewReader(defaultIstioIngress)
+
+	ingressResources, err := getDefaultIstioIngress(sa.istioNamespace.String())
+	if err != nil {
+		return err
+	}
+
+	r := strings.NewReader(ingressResources)
 	return sa.AddReaderKubeSource([]io.Reader{r})
 }
 

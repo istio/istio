@@ -30,20 +30,8 @@ import (
 // IngressGatewayPortAnalyzer checks a gateway's ports against the gateway's Kubernetes service ports.
 type IngressGatewayPortAnalyzer struct{}
 
-var (
-	// The ports from install/kubernetes/istio.yaml's istio-ingressgateway service.
-	// Use this only if we validate a Gateway that selects the system gateway and
-	// the user doesn't supply it.
-	defaultIngressGatewayPorts = map[uint32]bool{
-		80:    true,
-		443:   true,
-		31400: true,
-		15443: true,
-	}
-
-	// (compile-time check that we implement the interface)
-	_ analysis.Analyzer = &IngressGatewayPortAnalyzer{}
-)
+// (compile-time check that we implement the interface)
+var _ analysis.Analyzer = &IngressGatewayPortAnalyzer{}
 
 // Metadata implements analysis.Analyzer
 func (*IngressGatewayPortAnalyzer) Metadata() analysis.Metadata {
@@ -110,18 +98,6 @@ func (*IngressGatewayPortAnalyzer) analyzeGateway(r *resource.Instance, c analys
 	if gwSelectorMatches == 0 {
 		c.Report(collections.IstioNetworkingV1Alpha3Gateways.Name(), msg.NewReferencedResourceNotFound(r, "selector", gwSelector.String()))
 		return
-
-		// // We found no service for the Gateway's workload selector.  If the Gateway doesn't select
-		// // the Istio system ingress gateway complain about a missing referenced resource.  (We
-		// // don't want to complain about missing system resources, because a user may want to analyze
-		// // only his own application files.)
-		// // https://github.com/istio/istio/issues/19579 should make this unnecessary
-		// if len(gw.Selector) != 1 || gw.Selector["istio"] != "ingressgateway" {
-		// 	c.Report(metadata.IstioNetworkingV1Alpha3Gateways, msg.NewReferencedResourceNotFound(r, "selector", gwSelector.String()))
-		// 	return
-		// }
-		// // The unreferenced Ingress is the System ingress, pretend we have found it.
-		// servicePorts = defaultIngressGatewayPorts
 	}
 
 	// Check each Gateway port against what the workload ingress service offers
