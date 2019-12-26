@@ -15,6 +15,7 @@
 package v2
 
 import (
+	"context"
 	"errors"
 	"io"
 	"sync"
@@ -214,13 +215,12 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 			}
 			// This should be only set for the first request. Guard with ID check regardless.
 			if discReq.Node != nil && discReq.Node.Id != "" {
-				if err = s.initConnection(discReq.Node, con); err != nil {
+				if err, cancel := s.initConnection(discReq.Node, con); err != nil {
 					return err
+				} else if cancel != nil {
+					defer cancel()
 				}
 			}
-
-			// initConnection would have added the connection, so remove it when it is closed/terminated.
-			defer s.removeCon(con.ConID, con)
 
 			switch discReq.TypeUrl {
 			case ClusterType:
@@ -400,7 +400,7 @@ func listEqualUnordered(a []string, b []string) bool {
 
 // update the node associated with the connection, after receiving a a packet from envoy, also adds the connection
 // to the tracking map.
-func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) error {
+func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) (error, func()) {
 	initialized := false
 
 	con.mu.RLock() // may not be needed - once per connection, but locking for consistency.
@@ -408,22 +408,22 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) er
 	con.mu.RUnlock()
 
 	if initialized {
-		return nil // only need to init the node on first request in the stream
+		return nil, nil // only need to init the node on first request in the stream
 	}
 
 	meta, err := model.ParseMetadata(node.Metadata)
 	if err != nil {
-		return err
+		return err, nil
 	}
 	proxy, err := model.ParseServiceNodeWithMetadata(node.Id, meta)
 	if err != nil {
-		return err
+		return err, nil
 	}
 	// Update the config namespace associated with this proxy
 	proxy.ConfigNamespace = model.GetProxyConfigNamespace(proxy)
 
 	if err := proxy.SetServiceInstances(s.Env); err != nil {
-		return err
+		return err, nil
 	}
 
 	// Get the locality from the proxy's service instances.
@@ -440,7 +440,7 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) er
 	}
 
 	if err := proxy.SetWorkloadLabels(s.Env); err != nil {
-		return err
+		return err, nil
 	}
 
 	// Set the sidecarScope and merged gateways associated with this proxy
@@ -452,9 +452,10 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) er
 	con.node = proxy
 	con.ConID = connectionID(node.Id)
 	s.addCon(con.ConID, con)
+	context.WithCancel(context.Background())
 	con.mu.Unlock()
 
-	return nil
+	return nil, func() { s.removeCon(con.ConID, con) }
 }
 
 // DeltaAggregatedResources is not implemented.

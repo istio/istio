@@ -615,15 +615,10 @@ func ParseServiceNodeWithMetadata(s string, metadata *NodeMetadata) (*Proxy, err
 	out.Type = NodeType(parts[0])
 
 	// Get all IP Addresses from Metadata
-	if len(metadata.InstanceIPs) > 0 {
-		if hasValidIPAddresses(metadata.InstanceIPs) {
-			out.IPAddresses = metadata.InstanceIPs
-		} else if isValidIPAddress(parts[1]) {
-			//Fall back, use IP from node id
-			out.IPAddresses = append(out.IPAddresses, parts[1])
-		}
+	if hasValidIPAddresses(metadata.InstanceIPs) {
+		out.IPAddresses = metadata.InstanceIPs
 	} else if isValidIPAddress(parts[1]) {
-		// Get IP from node id, it's only for backward-compatibility, IP should come from metadata
+		//Fall back, use IP from node id, it's only for backward-compatibility, IP should come from metadata
 		out.IPAddresses = append(out.IPAddresses, parts[1])
 	}
 
@@ -715,7 +710,7 @@ func ParsePort(addr string) int {
 	return port
 }
 
-// hasValidIPAddresses returns true of passes in slice has all valid ips, otherwise returns false.
+// hasValidIPAddresses returns true if the input ips are all valid, otherwise returns false.
 func hasValidIPAddresses(ipAddresses []string) bool {
 	if len(ipAddresses) == 0 {
 		return false
