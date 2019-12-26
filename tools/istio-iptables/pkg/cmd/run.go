@@ -31,6 +31,11 @@ import (
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
 
+var (
+	// TODO: Add a description.
+	disableRedirectionOnLocalLoopbackVar = env.RegisterBoolVar(constants.DisableRedirectionOnLocalLoopback, false, "")
+)
+
 type IptablesConfigurator struct {
 	iptables *builder.IptablesBuilderImpl
 	//TODO(abhide): Fix dep.Dependencies with better interface
@@ -38,13 +43,7 @@ type IptablesConfigurator struct {
 	cfg *config.Config
 }
 
-func NewIptablesConfigurator(cfg *config.Config) *IptablesConfigurator {
-	var ext dep.Dependencies
-	if cfg.DryRun {
-		ext = &dep.StdoutStubDependencies{}
-	} else {
-		ext = &dep.RealDependencies{}
-	}
+func NewIptablesConfigurator(cfg *config.Config, ext dep.Dependencies) *IptablesConfigurator {
 	return &IptablesConfigurator{
 		iptables: builder.NewIptablesBuilder(),
 		ext:      ext,
@@ -90,6 +89,7 @@ func (iptConfigurator *IptablesConfigurator) separateV4V6(cidrList string) (Netw
 
 func (iptConfigurator *IptablesConfigurator) logConfig() {
 	// Dump out our environment for debugging purposes.
+	// TODO: Remove printing of obsolete environment variables, e.g. ISTIO_SERVICE_CIDR.
 	fmt.Println("Environment:")
 	fmt.Println("------------")
 	fmt.Println(fmt.Sprintf("ENVOY_PORT=%s", os.Getenv("ENVOY_PORT")))
@@ -309,36 +309,6 @@ func (iptConfigurator *IptablesConfigurator) run() {
 		_ = iptConfigurator.ext.Run(dep.IP6TABLESSAVE)
 	}()
 
-	// TODO: more flexibility - maybe a whitelist of users to be captured for output instead of a blacklist.
-	if iptConfigurator.cfg.ProxyUID == "" {
-		usr, err := iptConfigurator.ext.LookupUser()
-		var userID string
-		// Default to the UID of ENVOY_USER and root
-		if err != nil {
-			userID = "1337"
-		} else {
-			userID = usr.Uid
-		}
-		// If ENVOY_UID is not explicitly defined (as it would be in k8s env), we add root to the list,
-		// for ca agent.
-		iptConfigurator.cfg.ProxyUID = userID + ",0"
-	}
-
-	// for TPROXY as its uid and gid are same
-	if iptConfigurator.cfg.ProxyGID == "" {
-		iptConfigurator.cfg.ProxyGID = iptConfigurator.cfg.ProxyUID
-	}
-
-	podIP, err := iptConfigurator.ext.GetLocalIP()
-	if err != nil {
-		panic(err)
-	}
-	// Check if pod's ip is ipv4 or ipv6, in case of ipv6 set variable
-	// to program ip6tablesOrFail
-	if podIP.To4() == nil {
-		iptConfigurator.cfg.EnableInboundIPv6s = podIP
-	}
-
 	//
 	// Since OUTBOUND_IP_RANGES_EXCLUDE could carry ipv4 and ipv6 ranges
 	// need to split them in different arrays one for ipv4 and one for ipv6
@@ -359,7 +329,7 @@ func (iptConfigurator *IptablesConfigurator) run() {
 
 	iptConfigurator.logConfig()
 
-	if iptConfigurator.cfg.EnableInboundIPv6s != nil {
+	if iptConfigurator.cfg.EnableInboundIPv6 {
 		//TODO: (abhide): Move this out of this method
 		iptConfigurator.ext.RunOrFail(dep.IP, "-6", "addr", "add", "::6/128", "dev", "lo")
 	}
@@ -397,7 +367,7 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	// 127.0.0.6 is bind connect from inbound passthrough cluster
 	iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-s", "127.0.0.6/32", "-j", constants.RETURN)
 
-	if env.RegisterStringVar("DISABLE_REDIRECTION_ON_LOCAL_LOOPBACK", "", "").Get() == "" {
+	if !disableRedirectionOnLocalLoopbackVar.Get() {
 		// Redirect app calls back to itself via Envoy when using the service VIP or endpoint
 		// address, e.g. appN => Envoy (client) => Envoy (server) => appN.
 		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "!", "-d", "127.0.0.1/32", "-j", constants.ISTIOINREDIRECT)
@@ -428,7 +398,7 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	}
 
 	iptConfigurator.handleInboundIpv4Rules(ipv4RangesInclude)
-	if iptConfigurator.cfg.EnableInboundIPv6s != nil {
+	if iptConfigurator.cfg.EnableInboundIPv6 {
 		iptConfigurator.handleInboundIpv6Rules(ipv6RangesExclude, ipv6RangesInclude)
 	}
 

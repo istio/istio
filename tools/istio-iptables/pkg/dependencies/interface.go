@@ -14,11 +14,6 @@
 
 package dependencies
 
-import (
-	"net"
-	"os/user"
-)
-
 const (
 	IPTABLES      = "iptables"
 	IPTABLESSAVE  = "iptables-save"
@@ -29,10 +24,6 @@ const (
 
 // Dependencies is used as abstraction for the commands used from the operating system
 type Dependencies interface {
-	// GetLocalIP returns the local IP address
-	GetLocalIP() (net.IP, error)
-	// LookupUser returns user, which runs this executable
-	LookupUser() (*user.User, error)
 	// RunOrFail runs a command and panics, if it fails
 	RunOrFail(cmd string, args ...string)
 	// Run runs a command
