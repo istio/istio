@@ -19,6 +19,7 @@ import (
 	"io"
 	"os"
 	"regexp"
+	"strings"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -421,8 +422,7 @@ func TestAnalyzers(t *testing.T) {
 				t.Fatalf("Error running analysis on testcase %s: %v", testCase.name, err)
 			}
 
-			actualMsgs := extractFields(result.Messages)
-			g.Expect(actualMsgs).To(ConsistOf(testCase.expected))
+			g.Expect(extractFields(result.Messages)).To(ConsistOf(testCase.expected), "%v", prettyPrintMessages(result.Messages))
 		})
 	}
 
@@ -494,7 +494,7 @@ func TestAnalyzersHaveDescription(t *testing.T) {
 }
 
 // Pull just the fields we want to check out of diag.Message
-func extractFields(msgs []diag.Message) []message {
+func extractFields(msgs diag.Messages) []message {
 	result := make([]message, 0)
 	for _, m := range msgs {
 		expMsg := message{
@@ -506,4 +506,13 @@ func extractFields(msgs []diag.Message) []message {
 		result = append(result, expMsg)
 	}
 	return result
+}
+
+func prettyPrintMessages(msgs diag.Messages) string {
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "Result messages:\n")
+	for _, m := range msgs {
+		fmt.Fprintf(&sb, "\t%s\n", m.String())
+	}
+	return sb.String()
 }

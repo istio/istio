@@ -267,8 +267,3 @@ func (sa *SourceAnalyzer) addRunningKubeMeshConfigSource(k kube.Interfaces) erro
 	sa.meshCfg = cfg
 	return nil
 }
-
-// addMeshConfigSource adds a mesh config source. The last added source takes precedence over the others, without any sort of merging.
-func (sa *SourceAnalyzer) addMeshConfigSource() {
-
-}
