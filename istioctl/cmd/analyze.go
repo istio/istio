@@ -129,17 +129,6 @@ istioctl analyze -L
 			// for file resources that don't have one specified.
 			selectedNamespace := handlers.HandleNamespace(namespace, defaultNamespace)
 
-			var k cfgKube.Interfaces
-			if useKube {
-				// Set up the kube client
-				config := kube.BuildClientCmd(kubeconfig, configContext)
-				restConfig, err := config.ClientConfig()
-				if err != nil {
-					return err
-				}
-				k = cfgKube.NewInterfaces(restConfig)
-			}
-
 			// If we've explicitly asked for all namespaces, blank the selectedNamespace var out
 			if allNamespaces {
 				selectedNamespace = ""
@@ -149,8 +138,26 @@ istioctl analyze -L
 				resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil, true)
 
 			// If we're using kube, use that as a base source.
-			if k != nil {
+			if useKube {
+				// Set up the kube client
+				config := kube.BuildClientCmd(kubeconfig, configContext)
+				restConfig, err := config.ClientConfig()
+				if err != nil {
+					return err
+				}
+				k := cfgKube.NewInterfaces(restConfig)
 				sa.AddRunningKubeSource(k)
+			}
+
+			// If we explicitly specify mesh config, use it.
+			// This takes precedence over default mesh config or mesh config from a running Kube instance.
+			if meshCfgFile != "" {
+				_ = sa.AddFileKubeMeshConfig(meshCfgFile)
+			}
+
+			// If we're not using kube (files only), add defaults for some resources we expect to be provided by Istio
+			if !useKube {
+				sa.AddDefaultResources()
 			}
 
 			// If files are provided, treat them (collectively) as a source.
@@ -160,12 +167,6 @@ istioctl analyze -L
 					fmt.Fprintf(cmd.ErrOrStderr(), "Error(s) adding files: %v", err)
 					parseErrors++
 				}
-			}
-
-			// If we explicitly specify mesh config, use it.
-			// This takes precedence over default mesh config or mesh config from a running Kube instance.
-			if meshCfgFile != "" {
-				_ = sa.AddFileKubeMeshConfigSource(meshCfgFile)
 			}
 
 			// Do the analysis

@@ -138,9 +138,9 @@ func TestAddRunningKubeSource(t *testing.T) {
 	sa := NewSourceAnalyzer(k8smeta.MustGet(), blankCombinedAnalyzer, "", "", nil, false)
 
 	sa.AddRunningKubeSource(mk)
-	g.Expect(sa.sources).To(HaveLen(2))
-	g.Expect(sa.sources[0].src).To(BeAssignableToTypeOf(&meshcfg.InMemorySource{})) // Base default meshcfg
-	g.Expect(sa.sources[1].src).To(BeAssignableToTypeOf(&apiserver.Source{}))       // All other resources via api server
+	g.Expect(sa.sources).To(HaveLen(1))
+	g.Expect(sa.sources[0].src).To(BeAssignableToTypeOf(&apiserver.Source{})) // All other resources via api server
+	g.Expect(sa.meshCfg).To(BeAssignableToTypeOf(&meshcfg.InMemorySource{}))  // Base default meshcfg
 }
 
 func TestAddRunningKubeSourceWithMeshCfg(t *testing.T) {
@@ -193,7 +193,7 @@ func TestAddReaderKubeSource(t *testing.T) {
 	tmpMeshFile := tempFileFromString(t, "")
 	defer func() { _ = os.Remove(tmpMeshFile.Name()) }()
 
-	err = sa.AddFileKubeMeshConfigSource(tmpMeshFile.Name())
+	err = sa.AddFileKubeMeshConfig(tmpMeshFile.Name())
 	g.Expect(err).To(BeNil())
 	g.Expect(sa.sources).To(HaveLen(3))
 	g.Expect(sa.sources[2].src).To(BeAssignableToTypeOf(&meshcfg.InMemorySource{})) // meshcfg read from a file
