@@ -138,9 +138,9 @@ func TestAddRunningKubeSource(t *testing.T) {
 	sa := NewSourceAnalyzer(k8smeta.MustGet(), blankCombinedAnalyzer, "", "", nil, false)
 
 	sa.AddRunningKubeSource(mk)
+	g.Expect(*sa.meshCfg).To(Equal(*meshcfg.Default())) // Base default meshcfg
 	g.Expect(sa.sources).To(HaveLen(1))
-	g.Expect(sa.sources[0].src).To(BeAssignableToTypeOf(&apiserver.Source{})) // All other resources via api server
-	g.Expect(sa.meshCfg).To(BeAssignableToTypeOf(&meshcfg.InMemorySource{}))  // Base default meshcfg
+	g.Expect(sa.sources[0].src).To(BeAssignableToTypeOf(&apiserver.Source{})) // Resources via api server
 }
 
 func TestAddRunningKubeSourceWithMeshCfg(t *testing.T) {
@@ -148,12 +148,14 @@ func TestAddRunningKubeSourceWithMeshCfg(t *testing.T) {
 
 	istioNamespace := resource.Namespace("istio-system")
 
+	testRootNamespace := "testNamespace"
+
 	cfg := &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: meshConfigMapName,
 		},
 		Data: map[string]string{
-			meshConfigMapKey: "",
+			meshConfigMapKey: fmt.Sprintf("rootNamespace: %s", testRootNamespace),
 		},
 	}
 
@@ -169,10 +171,9 @@ func TestAddRunningKubeSourceWithMeshCfg(t *testing.T) {
 	sa := NewSourceAnalyzer(k8smeta.MustGet(), blankCombinedAnalyzer, "", istioNamespace, nil, false)
 
 	sa.AddRunningKubeSource(mk)
-	g.Expect(sa.sources).To(HaveLen(3))
-	g.Expect(sa.sources[0].src).To(BeAssignableToTypeOf(&meshcfg.InMemorySource{})) // Base default meshcfg
-	g.Expect(sa.sources[1].src).To(BeAssignableToTypeOf(&meshcfg.InMemorySource{})) // in-cluster meshcfg
-	g.Expect(sa.sources[2].src).To(BeAssignableToTypeOf(&apiserver.Source{}))       // All other resources via api server
+	g.Expect(sa.meshCfg.RootNamespace).To(Equal(testRootNamespace))
+	g.Expect(sa.sources).To(HaveLen(1))
+	g.Expect(sa.sources[0].src).To(BeAssignableToTypeOf(&apiserver.Source{})) // Resources via api server
 }
 
 func TestAddReaderKubeSource(t *testing.T) {
@@ -185,18 +186,18 @@ func TestAddReaderKubeSource(t *testing.T) {
 
 	err := sa.AddReaderKubeSource([]io.Reader{tmpfile})
 	g.Expect(err).To(BeNil())
-	g.Expect(sa.sources).To(HaveLen(2))
-	g.Expect(sa.sources[0].src).To(BeAssignableToTypeOf(&meshcfg.InMemorySource{})) // Base default meshcfg
-	g.Expect(sa.sources[1].src).To(BeAssignableToTypeOf(&inmemory.KubeSource{}))    // All other resources via files
+	g.Expect(*sa.meshCfg).To(Equal(*meshcfg.Default())) // Base default meshcfg
+	g.Expect(sa.sources).To(HaveLen(1))
+	g.Expect(sa.sources[0].src).To(BeAssignableToTypeOf(&inmemory.KubeSource{})) // Resources via files
 
 	// Note that a blank file for mesh cfg is equivalent to specifying all the defaults
-	tmpMeshFile := tempFileFromString(t, "")
+	testRootNamespace := "testNamespace"
+	tmpMeshFile := tempFileFromString(t, fmt.Sprintf("rootNamespace: %s", testRootNamespace))
 	defer func() { _ = os.Remove(tmpMeshFile.Name()) }()
 
 	err = sa.AddFileKubeMeshConfig(tmpMeshFile.Name())
 	g.Expect(err).To(BeNil())
-	g.Expect(sa.sources).To(HaveLen(3))
-	g.Expect(sa.sources[2].src).To(BeAssignableToTypeOf(&meshcfg.InMemorySource{})) // meshcfg read from a file
+	g.Expect(sa.meshCfg.RootNamespace).To(Equal(testRootNamespace)) // Should be mesh config from the file now
 }
 
 func TestAddReaderKubeSourceSkipsBadEntries(t *testing.T) {
@@ -209,7 +210,7 @@ func TestAddReaderKubeSourceSkipsBadEntries(t *testing.T) {
 
 	err := sa.AddReaderKubeSource([]io.Reader{tmpfile})
 	g.Expect(err).To(Not(BeNil()))
-	g.Expect(sa.sources).To(HaveLen(2))
+	g.Expect(sa.sources).To(HaveLen(1))
 }
 
 func TestResourceFiltering(t *testing.T) {

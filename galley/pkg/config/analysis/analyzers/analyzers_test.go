@@ -395,7 +395,7 @@ func TestAnalyzers(t *testing.T) {
 
 			// If a mesh config file is specified, use it instead of the defaults
 			if testCase.meshConfigFile != "" {
-				err := sa.AddFileKubeMeshConfigSource(testCase.meshConfigFile)
+				err := sa.AddFileKubeMeshConfig(testCase.meshConfigFile)
 				if err != nil {
 					t.Fatalf("Error applying mesh config file %s: %v", testCase.meshConfigFile, err)
 				}
