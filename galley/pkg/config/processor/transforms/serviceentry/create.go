@@ -25,13 +25,13 @@ import (
 // GetProviders creates transformer providers for Synthetic Service entries
 func GetProviders() xformer.Providers {
 	inputs := collection.Names{
-		metadata.K8SCoreV1Endpoints,
-		metadata.K8SCoreV1Nodes,
-		metadata.K8SCoreV1Pods,
-		metadata.K8SCoreV1Services,
+		metadata.K8SCoreV1Endpoints.Name,
+		metadata.K8SCoreV1Nodes.Name,
+		metadata.K8SCoreV1Pods.Name,
+		metadata.K8SCoreV1Services.Name,
 	}
 	outputs := collection.Names{
-		metadata.IstioNetworkingV1Alpha3SyntheticServiceentries,
+		metadata.IstioNetworkingV1Alpha3SyntheticServiceentries.Name,
 	}
 
 	createFn := func(o processing.ProcessorOptions) event.Transformer {

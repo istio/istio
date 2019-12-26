@@ -17,50 +17,43 @@ package codegen
 import (
 	"sort"
 	"strings"
+
+	"istio.io/istio/galley/pkg/config/meta/schema/ast"
 )
 
 const staticSnapshotsTemplate = `
 // GENERATED FILE -- DO NOT EDIT
 //
 
-package {{.PackageName}}
+package {{ .PackageName }}
 
 var (
-{{range .Entries}}
-	// {{.VarName}} is the name of snapshot {{.Name}}
-	{{.VarName}} = "{{.Name}}"
-{{end}}
+{{ range .Entries }}
+	{{ commentBlock (wordWrap (printf "%s %s" .VariableName .Description) 70) 1 }}
+	{{ .VariableName }} = "{{ .Name }}"
+{{ end }}
 )
 
 // SnapshotNames returns the snapshot names declared in this package.
 func SnapshotNames() []string {
 	return []string {
-		{{range .Entries}}{{.VarName}},
-		{{end}}
+		{{ range .Entries }}{{ .VariableName }},
+		{{ end }}
 	}
 }
 `
 
 // StaticSnapshots generates a Go file for static-declaring Snapshot names.
-func StaticSnapshots(packageName string, snapshots []string) (string, error) {
-	var entries []entry
-
-	for _, s := range snapshots {
-		entries = append(entries, entry{Name: s, VarName: asSnapshotVarName(s)})
-	}
-	sort.Slice(entries, func(i, j int) bool {
-		return strings.Compare(entries[i].Name, entries[j].Name) < 0
+func StaticSnapshots(packageName string, m *ast.Metadata) (string, error) {
+	sort.Slice(m.Snapshots, func(i, j int) bool {
+		return strings.Compare(m.Snapshots[i].Name, m.Snapshots[j].Name) < 0
 	})
 
 	context := struct {
-		Entries     []entry
+		Entries     []*ast.Snapshot
 		PackageName string
-	}{Entries: entries, PackageName: packageName}
+	}{Entries: m.Snapshots, PackageName: packageName}
 
 	// Calculate the Go packages that needs to be imported for the proto types to be registered.
 	return applyTemplate(staticSnapshotsTemplate, context)
-}
-
-func asSnapshotVarName(n string) string {
-	return CamelCase(n)
 }

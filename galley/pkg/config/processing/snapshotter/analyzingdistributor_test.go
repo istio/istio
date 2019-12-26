@@ -72,17 +72,17 @@ func TestAnalyzeAndDistributeSnapshots(t *testing.T) {
 
 	u := &updaterMock{}
 	a := &analyzerMock{
-		collectionToAccess: data.Collection1,
+		collectionToAccess: data.K8SCollection1,
 		resourcesToReport: []*resource.Instance{
 			{
 				Origin: &rt.Origin{
-					Collection: data.Collection1,
+					Collection: data.K8SCollection1,
 					FullName:   resource.NewFullName("includedNamespace", "r1"),
 				},
 			},
 			{
 				Origin: &rt.Origin{
-					Collection: data.Collection1,
+					Collection: data.K8SCollection1,
 					FullName:   resource.NewFullName("excludedNamespace", "r2"),
 				},
 			},
@@ -138,7 +138,7 @@ func TestAnalyzeNamespaceMessageHasNoOrigin(t *testing.T) {
 
 	u := &updaterMock{}
 	a := &analyzerMock{
-		collectionToAccess: data.Collection1,
+		collectionToAccess: data.K8SCollection1,
 		resourcesToReport: []*resource.Instance{
 			{},
 		},
@@ -168,7 +168,7 @@ func TestAnalyzeNamespaceMessageHasOriginWithNoNamespace(t *testing.T) {
 
 	u := &updaterMock{}
 	a := &analyzerMock{
-		collectionToAccess: data.Collection1,
+		collectionToAccess: data.K8SCollection1,
 		resourcesToReport: []*resource.Instance{
 			{
 				Origin: fakeOrigin{
@@ -204,15 +204,15 @@ func TestAnalyzeSortsMessages(t *testing.T) {
 
 	u := &updaterMock{}
 	o1 := &rt.Origin{
-		Collection: data.Collection1,
+		Collection: data.K8SCollection1,
 		FullName:   resource.NewFullName("includedNamespace", "r2"),
 	}
 	o2 := &rt.Origin{
-		Collection: data.Collection1,
+		Collection: data.K8SCollection1,
 		FullName:   resource.NewFullName("includedNamespace", "r1"),
 	}
 	a := &analyzerMock{
-		collectionToAccess: data.Collection1,
+		collectionToAccess: data.K8SCollection1,
 		resourcesToReport: []*resource.Instance{
 			{Origin: o1},
 			{Origin: o2},

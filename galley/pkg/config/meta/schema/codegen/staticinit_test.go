@@ -19,6 +19,8 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+
+	"istio.io/istio/galley/pkg/config/meta/schema/ast"
 )
 
 func TestStaticInit(t *testing.T) {
@@ -55,7 +57,11 @@ import (
 		t.Run("", func(t *testing.T) {
 			g := NewGomegaWithT(t)
 
-			s, err := StaticInit(c.packageName, c.packages)
+			m := ast.Metadata{}
+			for _, p := range c.packages {
+				m.Resources = append(m.Resources, &ast.Resource{ProtoPackage: p})
+			}
+			s, err := StaticInit(c.packageName, &m)
 			if c.err != "" {
 				g.Expect(err).NotTo(BeNil())
 				g.Expect(err.Error()).To(Equal(s))

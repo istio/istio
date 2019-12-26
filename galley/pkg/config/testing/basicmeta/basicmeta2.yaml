@@ -12,48 +12,42 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 collections:
-  - name: "collection1"
-    proto: "google.protobuf.Struct"
-    protoPackage: "github.com/gogo/protobuf/types"
+  - name: "k8s/collection1"
+    kind: "Kind1"
+    group: "testdata.istio.io"
 
   - name: "collection1out"
-    proto: "google.protobuf.Struct"
-    protoPackage: "github.com/gogo/protobuf/types"
+    kind: "Kind1"
+    group: "testdata.istio.io"
 
-  - name: "collection2"
-    proto: "google.protobuf.Struct"
-    protoPackage: "github.com/gogo/protobuf/types"
+  - name: "k8s/collection2"
+    kind: "Kind2"
+    group: "testdata.istio.io"
 
   - name: "collection2out"
+    kind: "Kind2"
+    group: "testdata.istio.io"
+
+resources:
+  - kind: "Kind1"
+    plural: "Kind1s"
+    group: "testdata.istio.io"
+    version: "v1alpha1"
     proto: "google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
 
-# Configuration for input sources
-sources:
-  # Kubernetes specific configuration.
-  - type: kubernetes
-    resources:
-      # Test data sources
-      - collection: "collection1"
-        kind: "Kind1"
-        plural: "Kind1s"
-        group: "testdata.istio.io"
-        version: "v1alpha1"
+  - kind: "Kind2"
+    plural: "Kind2s"
+    group: "testdata.istio.io"
+    version: "v1alpha1"
+    optional: true
+    clusterScoped: true
+    proto: "google.protobuf.Struct"
+    protoPackage: "github.com/gogo/protobuf/types"
 
-      - collection: "collection2"
-        kind: "Kind2"
-        plural: "Kind2s"
-        group: "testdata.istio.io"
-        version: "v1alpha1"
-        optional: true
-        clusterScoped: true
-
-
-# Transform specific configurations
 transforms:
   - type: direct
     mapping:
-      "collection1": "collection1out"
-      "collection2": "collection2out"
+      "k8s/collection1": "collection1out"
+      "k8s/collection2": "collection2out"

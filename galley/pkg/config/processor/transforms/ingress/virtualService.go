@@ -47,8 +47,8 @@ type virtualServiceXform struct {
 }
 
 func getVirtualServiceXformProvider() transformer.Provider {
-	inputs := collection.Names{metadata.K8SExtensionsV1Beta1Ingresses}
-	outputs := collection.Names{metadata.IstioNetworkingV1Alpha3Virtualservices}
+	inputs := collection.Names{metadata.K8SExtensionsV1Beta1Ingresses.Name}
+	outputs := collection.Names{metadata.IstioNetworkingV1Alpha3Virtualservices.Name}
 
 	createFn := func(o processing.ProcessorOptions) event.Transformer {
 		xform := &virtualServiceXform{
@@ -219,7 +219,7 @@ loop:
 func (g *virtualServiceXform) notifyUpdate(h event.Handler, k event.Kind, svs *syntheticVirtualService) {
 	e := event.Event{
 		Kind:     k,
-		Source:   metadata.IstioNetworkingV1Alpha3Virtualservices,
+		Source:   metadata.IstioNetworkingV1Alpha3Virtualservices.Name,
 		Resource: svs.generateEntry(g.options.DomainSuffix),
 	}
 	h.Handle(e)
@@ -228,7 +228,7 @@ func (g *virtualServiceXform) notifyUpdate(h event.Handler, k event.Kind, svs *s
 func (g *virtualServiceXform) notifyDelete(h event.Handler, name resource.FullName, v resource.Version) {
 	e := event.Event{
 		Kind:   event.Deleted,
-		Source: metadata.IstioNetworkingV1Alpha3Virtualservices,
+		Source: metadata.IstioNetworkingV1Alpha3Virtualservices.Name,
 		Resource: &resource.Instance{
 			Metadata: resource.Metadata{
 				FullName: name,

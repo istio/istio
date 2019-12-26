@@ -24,8 +24,8 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/meta/schema"
 	"istio.io/istio/galley/pkg/config/meta/schema/collection"
+	"istio.io/istio/galley/pkg/config/meta/schema/resource"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver/status"
@@ -34,11 +34,13 @@ import (
 
 var (
 	// crdKubeResource is metadata for listening to CRD resource on the API Server.
-	crdKubeResource = schema.KubeResource{
-		Group:   "apiextensions.k8s.io",
-		Version: "v1beta1",
-		Plural:  "customresourcedefinitions",
-		Kind:    "CustomResourceDefinition",
+	crdKubeResource = collection.Schema{
+		Schema: resource.Schema{
+			Group:   "apiextensions.k8s.io",
+			Version: "v1beta1",
+			Plural:  "customresourcedefinitions",
+			Kind:    "CustomResourceDefinition",
+		},
 	}
 )
 
@@ -56,7 +58,7 @@ type Source struct { // nolint:maligned
 
 	// Set of resources that we're waiting CRD events for. As CRD events arrive, if they match to entries in
 	// expectedResources, the watchers for those resources will be created.
-	expectedResources map[string]schema.KubeResource
+	expectedResources map[string]collection.Schema
 
 	// Set of resources that have been found so far.
 	foundResources map[string]bool
@@ -111,9 +113,9 @@ func (s *Source) Start() {
 	// Create a set of pending resources. These will be matched up with incoming CRD events for creating watchers for
 	// each resource that we expect.
 	// We also keep track of what resources have been found in the metadata.
-	s.expectedResources = make(map[string]schema.KubeResource)
+	s.expectedResources = make(map[string]collection.Schema)
 	s.foundResources = make(map[string]bool)
-	for _, r := range s.options.Resources {
+	for _, r := range s.options.Schemas.All() {
 		key := asKey(r.Group, r.Kind)
 		s.expectedResources[key] = r
 	}
@@ -178,7 +180,7 @@ func (s *Source) startWatchers() {
 	// must be called under lock
 
 	// sort resources by name for consistent logging
-	resources := make([]schema.KubeResource, 0, len(s.expectedResources))
+	resources := make([]collection.Schema, 0, len(s.expectedResources))
 	for _, r := range s.expectedResources {
 		resources = append(resources, r)
 	}
@@ -196,7 +198,7 @@ func (s *Source) startWatchers() {
 
 		scope.Source.Infof("[%d]", i)
 		scope.Source.Infof("  Source:       %s", r.CanonicalResourceName())
-		scope.Source.Infof("  Name:  		 %s", r.Collection)
+		scope.Source.Infof("  Name:  		 %s", r.Name)
 		scope.Source.Infof("  Built-in:     %v", a.IsBuiltIn())
 		scope.Source.Infof("  Disabled:     %v", r.Disabled)
 		if !a.IsBuiltIn() {
@@ -206,12 +208,12 @@ func (s *Source) startWatchers() {
 		// Send a Full Sync event immediately for custom resources that were never found, or that are disabled.
 		// For everything else, create a watcher.
 		if (!a.IsBuiltIn() && !found) || r.Disabled {
-			scope.Source.Debuga("Source.Start: sending immediate FullSync for: ", r.Collection.Name)
-			s.handlers.Handle(event.FullSyncFor(r.Collection.Name))
+			scope.Source.Debuga("Source.Start: sending immediate FullSync for: ", r.Name)
+			s.handlers.Handle(event.FullSyncFor(r.Name))
 		} else {
 			col := newWatcher(r, a, s.statusCtl)
 			col.dispatch(s.handlers)
-			s.watchers[r.Collection.Name] = col
+			s.watchers[r.Name] = col
 		}
 	}
 

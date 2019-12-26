@@ -36,15 +36,15 @@ func (s *GatewayAnalyzer) Metadata() analysis.Metadata {
 		Name:        "virtualservice.GatewayAnalyzer",
 		Description: "Checks the gateways associated with each virtual service",
 		Inputs: collection.Names{
-			metadata.IstioNetworkingV1Alpha3Gateways,
-			metadata.IstioNetworkingV1Alpha3Virtualservices,
+			metadata.IstioNetworkingV1Alpha3Gateways.Name,
+			metadata.IstioNetworkingV1Alpha3Virtualservices.Name,
 		},
 	}
 }
 
 // Analyze implements Analyzer
 func (s *GatewayAnalyzer) Analyze(c analysis.Context) {
-	c.ForEach(metadata.IstioNetworkingV1Alpha3Virtualservices, func(r *resource.Instance) bool {
+	c.ForEach(metadata.IstioNetworkingV1Alpha3Virtualservices.Name, func(r *resource.Instance) bool {
 		s.analyzeVirtualService(r, c)
 		return true
 	})
@@ -60,8 +60,8 @@ func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Instance, c analysis
 			continue
 		}
 
-		if !c.Exists(metadata.IstioNetworkingV1Alpha3Gateways, resource.NewShortOrFullName(vsNs, gwName)) {
-			c.Report(metadata.IstioNetworkingV1Alpha3Virtualservices, msg.NewReferencedResourceNotFound(r, "gateway", gwName))
+		if !c.Exists(metadata.IstioNetworkingV1Alpha3Gateways.Name, resource.NewShortOrFullName(vsNs, gwName)) {
+			c.Report(metadata.IstioNetworkingV1Alpha3Virtualservices.Name, msg.NewReferencedResourceNotFound(r, "gateway", gwName))
 		}
 	}
 }

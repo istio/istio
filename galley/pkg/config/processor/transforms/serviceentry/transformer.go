@@ -79,7 +79,7 @@ func (t *serviceEntryTransformer) Start() {
 	t.converter = converter.New(t.options.DomainSuffix, podCache)
 
 	statsCtx, err := tag.New(context.Background(), tag.Insert(monitoring.CollectionTag,
-		metadata.IstioNetworkingV1Alpha3SyntheticServiceentries.String()))
+		metadata.IstioNetworkingV1Alpha3SyntheticServiceentries.Name.String()))
 	if err != nil {
 		scope.Processing.Errorf("Error creating monitoring context for counting state: %v", err)
 		statsCtx = nil
@@ -99,7 +99,7 @@ func (t *serviceEntryTransformer) Stop() {
 // DispatchFor implements event.Transformer
 func (t *serviceEntryTransformer) DispatchFor(c collection.Name, h event.Handler) {
 	switch c {
-	case metadata.IstioNetworkingV1Alpha3SyntheticServiceentries:
+	case metadata.IstioNetworkingV1Alpha3SyntheticServiceentries.Name:
 		t.handler = event.CombineHandlers(t.handler, h)
 	}
 }
@@ -136,16 +136,16 @@ func (t *serviceEntryTransformer) Handle(e event.Event) {
 	}
 
 	switch e.Source {
-	case metadata.K8SCoreV1Endpoints:
+	case metadata.K8SCoreV1Endpoints.Name:
 		// Update the projections
 		t.handleEndpointsEvent(e)
-	case metadata.K8SCoreV1Services:
+	case metadata.K8SCoreV1Services.Name:
 		// Update the projections
 		t.handleServiceEvent(e)
-	case metadata.K8SCoreV1Nodes:
+	case metadata.K8SCoreV1Nodes.Name:
 		// Update the pod cache.
 		t.nodeHandler.Handle(e)
-	case metadata.K8SCoreV1Pods:
+	case metadata.K8SCoreV1Pods.Name:
 		// Update the pod cache.
 		t.podHandler.Handle(e)
 	default:
@@ -228,7 +228,7 @@ func (t *serviceEntryTransformer) dispatch(e event.Event) {
 func (t *serviceEntryTransformer) sendDelete(name resource.FullName) {
 	e := event.Event{
 		Kind:   event.Deleted,
-		Source: metadata.IstioNetworkingV1Alpha3SyntheticServiceentries,
+		Source: metadata.IstioNetworkingV1Alpha3SyntheticServiceentries.Name,
 		Resource: &resource.Instance{
 			Metadata: resource.Metadata{
 				FullName: name,
@@ -242,7 +242,7 @@ func (t *serviceEntryTransformer) sendDelete(name resource.FullName) {
 func (t *serviceEntryTransformer) sendUpdate(r *resource.Instance) {
 	e := event.Event{
 		Kind:     event.Updated,
-		Source:   metadata.IstioNetworkingV1Alpha3SyntheticServiceentries,
+		Source:   metadata.IstioNetworkingV1Alpha3SyntheticServiceentries.Name,
 		Resource: r,
 	}
 

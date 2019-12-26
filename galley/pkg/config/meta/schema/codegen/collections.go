@@ -15,8 +15,11 @@
 package codegen
 
 import (
+	"fmt"
 	"sort"
 	"strings"
+
+	"istio.io/istio/galley/pkg/config/meta/schema/ast"
 )
 
 const staticCollectionsTemplate = `
@@ -27,46 +30,88 @@ package {{.PackageName}}
 
 import (
 	"istio.io/istio/galley/pkg/config/meta/schema/collection"
+	"istio.io/istio/galley/pkg/config/meta/schema/resource"
+	"istio.io/istio/pkg/config/validation"
 )
 
 var (
-{{range .Entries}}
-	// {{.VarName}} is the name of collection {{.Name}}
-	{{.VarName}} = collection.NewName("{{.Name}}")
-{{end}}
-)
-
-// CollectionNames returns the collection names declared in this package.
-func CollectionNames() []collection.Name {
-	return []collection.Name {
-		{{range .Entries}}{{.VarName}},
-		{{end}}
+{{ range .Entries }}
+	{{ commentBlock (wordWrap (printf "%s %s" .Collection.VariableName .Collection.Description) 70) 1 }}
+	{{ .Collection.VariableName}} = collection.Schema {
+		Name: collection.NewName("{{ .Collection.Name }}"),
+		Disabled: {{ .Collection.Disabled }},
+		Schema: resource.Schema {
+			Group: "{{ .Resource.Group }}",
+			Kind: "{{ .Resource.Kind }}",
+			Plural: "{{ .Resource.Plural }}",
+			Version: "{{ .Resource.Version }}",
+			Proto: "{{ .Resource.Proto }}",
+			ProtoPackage: "{{ .Resource.ProtoPackage }}",
+			ClusterScoped: {{ .Resource.ClusterScoped }},
+			ValidateProto: validation.{{ .Resource.Validate }},
+		},
 	}
-}
+{{ end }}
+
+	// All contains all collections in the system.
+	All = collection.NewSchemasBuilder().
+	{{- range .Entries }}
+		MustAdd({{ .Collection.VariableName }}).
+	{{- end }}
+		Build()
+
+	// Istio contains only Istio collections.
+	Istio = collection.NewSchemasBuilder().
+	{{- range .Entries }}
+		{{- if (hasPrefix .Collection.Name "istio/") }}
+		MustAdd({{ .Collection.VariableName }}).
+		{{- end}}
+	{{- end }}
+		Build()
+
+	// Kube contains only kubernetes collections.
+	Kube = collection.NewSchemasBuilder().
+	{{- range .Entries }}
+		{{- if (hasPrefix .Collection.Name "k8s/") }}
+		MustAdd({{ .Collection.VariableName }}).
+		{{- end }}
+	{{- end }}
+		Build()
+)
 `
 
-// StaticCollections generates a Go file for static-importing Proto packages, so that they get registered statically.
-func StaticCollections(packageName string, collections []string) (string, error) {
-	var entries []entry
+type colEntry struct {
+	Collection *ast.Collection
+	Resource   *ast.Resource
+}
 
-	for _, col := range collections {
-		entries = append(entries, entry{Name: col, VarName: asColVarName(col)})
+// StaticCollections generates a Go file for static-importing Proto packages, so that they get registered statically.
+func StaticCollections(packageName string, m *ast.Metadata) (string, error) {
+	entries := make([]colEntry, 0, len(m.Collections))
+	for _, c := range m.Collections {
+		r := m.FindResourceForGroupKind(c.Group, c.Kind)
+		if r == nil {
+			return "", fmt.Errorf("failed to find resource (%s/%s) for collection %s", c.Group, c.Kind, c.Name)
+		}
+
+		entries = append(entries, colEntry{
+			Collection: c,
+			Resource:   r,
+		})
 	}
+
 	sort.Slice(entries, func(i, j int) bool {
-		return strings.Compare(entries[i].Name, entries[j].Name) < 0
+		return strings.Compare(entries[i].Collection.Name, entries[j].Collection.Name) < 0
 	})
 
 	context := struct {
-		Entries     []entry
+		Entries     []colEntry
 		PackageName string
-	}{Entries: entries, PackageName: packageName}
+	}{
+		Entries:     entries,
+		PackageName: packageName,
+	}
 
 	// Calculate the Go packages that needs to be imported for the proto types to be registered.
 	return applyTemplate(staticCollectionsTemplate, context)
-}
-
-func asColVarName(n string) string {
-	n = camelCase(n, "/")
-	n = camelCase(n, ".")
-	return n
 }

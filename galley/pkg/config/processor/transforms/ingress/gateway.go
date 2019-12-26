@@ -42,8 +42,8 @@ type gatewayXform struct {
 var _ event.Transformer = &gatewayXform{}
 
 func getGatewayXformProvider() transformer.Provider {
-	inputs := collection.Names{metadata.K8SExtensionsV1Beta1Ingresses}
-	outputs := collection.Names{metadata.IstioNetworkingV1Alpha3Gateways}
+	inputs := collection.Names{metadata.K8SExtensionsV1Beta1Ingresses.Name}
+	outputs := collection.Names{metadata.IstioNetworkingV1Alpha3Gateways.Name}
 
 	createFn := func(o processing.ProcessorOptions) event.Transformer {
 		xform := &gatewayXform{}
@@ -75,7 +75,7 @@ func (g *gatewayXform) handle(e event.Event, h event.Handler) {
 		gw := g.convertIngressToGateway(e.Resource)
 		evt := event.Event{
 			Kind:     e.Kind,
-			Source:   metadata.IstioNetworkingV1Alpha3Gateways,
+			Source:   metadata.IstioNetworkingV1Alpha3Gateways.Name,
 			Resource: gw,
 		}
 		h.Handle(evt)
@@ -84,7 +84,7 @@ func (g *gatewayXform) handle(e event.Event, h event.Handler) {
 		gw := g.convertIngressToGateway(e.Resource)
 		evt := event.Event{
 			Kind:     e.Kind,
-			Source:   metadata.IstioNetworkingV1Alpha3Gateways,
+			Source:   metadata.IstioNetworkingV1Alpha3Gateways.Name,
 			Resource: gw,
 		}
 		evt.Resource.Metadata.FullName = generateSyntheticGatewayName(e.Resource.Metadata.FullName)

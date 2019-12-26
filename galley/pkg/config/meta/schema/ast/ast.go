@@ -19,6 +19,9 @@ import (
 	"fmt"
 
 	"github.com/ghodss/yaml"
+
+	"istio.io/istio/pkg/config/validation"
+	"istio.io/istio/pkg/util/strcase"
 )
 
 // Direct transform's name. Used for parsing.
@@ -27,8 +30,8 @@ const Direct = "direct"
 // Metadata is the top-level container.
 type Metadata struct {
 	Collections       []*Collection       `json:"collections"`
+	Resources         []*Resource         `json:"resources"`
 	Snapshots         []*Snapshot         `json:"snapshots"`
-	Sources           []Source            `json:"sources"`
 	TransformSettings []TransformSettings `json:"transforms"`
 }
 
@@ -37,19 +40,20 @@ var _ json.Unmarshaler = &Metadata{}
 // Collection metadata. Describes basic structure of collections.
 type Collection struct {
 	Name         string `json:"name"`
-	Proto        string `json:"proto"`
-	ProtoPackage string `json:"protoPackage"`
+	VariableName string `json:"variableName"`
+	Description  string `json:"description"`
+	Group        string `json:"group"`
+	Kind         string `json:"kind"`
+	Disabled     bool   `json:"disabled"`
 }
 
 // Snapshot metadata. Describes the snapshots that should be produced.
 type Snapshot struct {
-	Name        string   `json:"name"`
-	Strategy    string   `json:"strategy"`
-	Collections []string `json:"collections"`
-}
-
-// Source configuration metadata.
-type Source interface {
+	Name         string   `json:"name"`
+	Strategy     string   `json:"strategy"`
+	Collections  []string `json:"collections"`
+	VariableName string   `json:"variableName"`
+	Description  string   `json:"description"`
 }
 
 // TransformSettings configuration metadata.
@@ -57,22 +61,17 @@ type TransformSettings interface {
 	Type() string
 }
 
-// KubeSource is configuration for K8s based input sources.
-type KubeSource struct {
-	Resources []*Resource `json:"resources"`
-}
-
-var _ Source = &KubeSource{}
-
-// Resource metadata for a Kubernetes Resource.
+// Resource metadata for resources contained within a collection.
 type Resource struct {
-	Collection    string `json:"collection"`
 	Group         string `json:"group"`
 	Version       string `json:"version"`
 	Kind          string `json:"kind"`
 	Plural        string `json:"plural"`
-	Disabled      bool   `json:"disabled"`
 	ClusterScoped bool   `json:"clusterScoped"`
+	Proto         string `json:"proto"`
+	ProtoPackage  string `json:"protoPackage"`
+	Validate      string `json:"validate"`
+	Description   string `json:"description"`
 }
 
 // DirectTransformSettings configuration
@@ -90,12 +89,22 @@ func (d *DirectTransformSettings) Type() string {
 // for testing purposes
 var jsonUnmarshal = json.Unmarshal
 
+// FindResourceForGroupKind looks up a resource with the given group and kind. Returns nil if not found.
+func (m *Metadata) FindResourceForGroupKind(group, kind string) *Resource {
+	for _, r := range m.Resources {
+		if r.Group == group && r.Kind == kind {
+			return r
+		}
+	}
+	return nil
+}
+
 // UnmarshalJSON implements json.Unmarshaler
-func (s *Metadata) UnmarshalJSON(data []byte) error {
+func (m *Metadata) UnmarshalJSON(data []byte) error {
 	var in struct {
 		Collections []*Collection     `json:"collections"`
+		Resources   []*Resource       `json:"resources"`
 		Snapshots   []*Snapshot       `json:"snapshots"`
-		Sources     []json.RawMessage `json:"sources"`
 		Transforms  []json.RawMessage `json:"transforms"`
 	}
 
@@ -103,40 +112,58 @@ func (s *Metadata) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	s.Collections = in.Collections
-	s.Snapshots = in.Snapshots
+	m.Collections = in.Collections
+	m.Resources = in.Resources
+	m.Snapshots = in.Snapshots
 
-	for _, src := range in.Sources {
-		m := make(map[string]interface{})
-		if err := jsonUnmarshal(src, &m); err != nil {
-			return err
-		}
-
-		if m["type"] == "kubernetes" {
-			ks := &KubeSource{}
-			if err := jsonUnmarshal(src, &ks); err != nil {
-				return err
-			}
-			s.Sources = append(s.Sources, ks)
-		} else {
-			return fmt.Errorf("unable to parse source: %v", string([]byte(src)))
-		}
-	}
-
+	// Parse the transforms manually.
 	for _, xform := range in.Transforms {
-		m := make(map[string]interface{})
-		if err := jsonUnmarshal(xform, &m); err != nil {
+		rawMap := make(map[string]interface{})
+		if err := jsonUnmarshal(xform, &rawMap); err != nil {
 			return err
 		}
 
-		if m["type"] == Direct {
+		if rawMap["type"] == Direct {
 			dt := &DirectTransformSettings{}
 			if err := jsonUnmarshal(xform, &dt); err != nil {
 				return err
 			}
-			s.TransformSettings = append(s.TransformSettings, dt)
+			m.TransformSettings = append(m.TransformSettings, dt)
 		} else {
 			return fmt.Errorf("unable to parse transform: %v", string([]byte(xform)))
+		}
+	}
+
+	// Process resources.
+	for i, r := range m.Resources {
+		if r.Validate == "" {
+			validateFn := "Validate" + asResourceVariableName(r.Kind)
+			if !validation.IsValidateFunc(validateFn) {
+				validateFn = "EmptyValidate"
+			}
+			m.Resources[i].Validate = validateFn
+		}
+	}
+
+	// Process collections.
+	for i, c := range m.Collections {
+		// If no variable name was specified, use default.
+		if c.VariableName == "" {
+			m.Collections[i].VariableName = asCollectionVariableName(c.Name)
+		}
+
+		if c.Description == "" {
+			m.Collections[i].Description = "describes the collection " + c.Name
+		}
+	}
+
+	// Process snapshots.
+	for i, s := range m.Snapshots {
+		if s.VariableName == "" {
+			m.Snapshots[i].VariableName = asSnapshotVariableName(s.Name)
+		}
+		if s.Description == "" {
+			m.Snapshots[i].Description = "describes the snapshot " + s.Name
 		}
 	}
 
@@ -151,4 +178,18 @@ func Parse(yamlText string) (*Metadata, error) {
 		return nil, err
 	}
 	return &s, nil
+}
+
+func asResourceVariableName(n string) string {
+	return strcase.CamelCase(n)
+}
+
+func asCollectionVariableName(n string) string {
+	n = strcase.CamelCaseWithSeparator(n, "/")
+	n = strcase.CamelCaseWithSeparator(n, ".")
+	return n
+}
+
+func asSnapshotVariableName(name string) string {
+	return strcase.CamelCase(name)
 }

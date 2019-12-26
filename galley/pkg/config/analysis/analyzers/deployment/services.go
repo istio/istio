@@ -45,14 +45,14 @@ func (s *ServiceAssociationAnalyzer) Metadata() analysis.Metadata {
 		Name:        "deployment.MultiServiceAnalyzer",
 		Description: "Checks association between services and pods",
 		Inputs: collection.Names{
-			metadata.K8SCoreV1Services,
-			metadata.K8SAppsV1Deployments,
-			metadata.K8SCoreV1Namespaces,
+			metadata.K8SCoreV1Services.Name,
+			metadata.K8SAppsV1Deployments.Name,
+			metadata.K8SCoreV1Namespaces.Name,
 		},
 	}
 }
 func (s *ServiceAssociationAnalyzer) Analyze(c analysis.Context) {
-	c.ForEach(metadata.K8SAppsV1Deployments, func(r *resource.Instance) bool {
+	c.ForEach(metadata.K8SAppsV1Deployments.Name, func(r *resource.Instance) bool {
 		if inMesh(r, c) {
 			s.analyzeDeployment(r, c)
 		}
@@ -69,7 +69,7 @@ func (s *ServiceAssociationAnalyzer) analyzeDeployment(r *resource.Instance, c a
 
 	// If there isn't any matching service, generate message: At least one service is needed.
 	if len(matchingSvcs) == 0 {
-		c.Report(metadata.K8SAppsV1Deployments, msg.NewDeploymentRequiresServiceAssociated(r, d.Name))
+		c.Report(metadata.K8SAppsV1Deployments.Name, msg.NewDeploymentRequiresServiceAssociated(r, d.Name))
 		return
 	}
 
@@ -90,7 +90,7 @@ func (s *ServiceAssociationAnalyzer) analyzeDeployment(r *resource.Instance, c a
 			}
 
 			// Reporting the message for the deployment, port and conflicting services.
-			c.Report(metadata.K8SAppsV1Deployments, msg.NewDeploymentAssociatedToMultipleServices(r, d.Name, port, svcNames))
+			c.Report(metadata.K8SAppsV1Deployments.Name, msg.NewDeploymentAssociatedToMultipleServices(r, d.Name, port, svcNames))
 		}
 	}
 }
@@ -99,7 +99,7 @@ func (s *ServiceAssociationAnalyzer) analyzeDeployment(r *resource.Instance, c a
 func (s *ServiceAssociationAnalyzer) findMatchingServices(d *apps_v1.Deployment, c analysis.Context) []ServiceSpecWithName {
 	matchingSvcs := make([]ServiceSpecWithName, 0)
 
-	c.ForEach(metadata.K8SCoreV1Services, func(r *resource.Instance) bool {
+	c.ForEach(metadata.K8SCoreV1Services.Name, func(r *resource.Instance) bool {
 		s := r.Message.(*core_v1.ServiceSpec)
 
 		sSelector := k8s_labels.SelectorFromSet(s.Selector)
@@ -172,7 +172,7 @@ func getPodSidecarInjectionStatus(d *apps_v1.Deployment) (enabled bool, ok bool)
 func getNamesSidecarInjectionStatus(ns resource.Namespace, c analysis.Context) (enabled bool, ok bool) {
 	enabled, ok = false, false
 
-	namespace := c.Find(metadata.K8SCoreV1Namespaces, resource.NewFullName("", resource.LocalName(ns)))
+	namespace := c.Find(metadata.K8SCoreV1Namespaces.Name, resource.NewFullName("", resource.LocalName(ns)))
 	if namespace != nil {
 		enabled, ok = namespace.Metadata.Labels[injection.InjectionLabelName] == injection.InjectionLabelEnableValue, true
 	}

@@ -173,7 +173,7 @@ func loadNodesAndPods(handler event.Handler) {
 		nodeName := "node" + strconv.Itoa(i)
 		handler.Handle(event.Event{
 			Kind:   event.Added,
-			Source: metadata.K8SCoreV1Nodes,
+			Source: metadata.K8SCoreV1Nodes.Name,
 			Resource: &resource.Instance{
 				Metadata: resource.Metadata{
 					FullName:   resource.NewFullName("", resource.LocalName(nodeName)),
@@ -194,7 +194,7 @@ func loadNodesAndPods(handler event.Handler) {
 		saIndex = (saIndex + 1) % len(serviceAccounts)
 		handler.Handle(event.Event{
 			Kind:   event.Added,
-			Source: metadata.K8SCoreV1Pods,
+			Source: metadata.K8SCoreV1Pods.Name,
 			Resource: &resource.Instance{
 				Metadata: resource.Metadata{
 					FullName:   resource.NewFullName(namespace, resource.LocalName(podName)),

@@ -74,9 +74,9 @@ func init() {
 }
 
 func collectionOf(nonLegacyKind string) string { // nolint: unparam
-	for _, r := range metadata.MustGet().KubeSource().Resources() {
+	for _, r := range metadata.MustGet().KubeCollections().All() {
 		if r.Kind == nonLegacyKind {
-			return metadata.MustGet().DirectTransformSettings().Mapping()[r.Collection.Name].String()
+			return metadata.MustGet().DirectTransformSettings().Mapping()[r.Name].String()
 		}
 	}
 

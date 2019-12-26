@@ -14,67 +14,87 @@
 
 package codegen
 
-import "strings"
+import (
+	"bytes"
+	"strings"
+	"text/template"
+)
 
-type entry struct {
-	Name    string
-	VarName string
+const (
+	commentLinePrefix = "// "
+)
+
+func applyTemplate(tmpl string, i interface{}) (string, error) {
+	t := template.New("tmpl").Funcs(template.FuncMap{
+		"wordWrap":     wordWrap,
+		"commentBlock": commentBlock,
+		"hasPrefix":    strings.HasPrefix,
+	})
+
+	t2 := template.Must(t.Parse(tmpl))
+
+	var b bytes.Buffer
+	if err := t2.Execute(&b, i); err != nil {
+		return "", err
+	}
+
+	return b.String(), nil
 }
 
-// CamelCase converts the string into camel case string
-func CamelCase(s string) string {
-	if s == "" {
-		return ""
+func commentBlock(in []string, indentTabs int) string {
+	// Copy the input array.
+	in = append([]string{}, in...)
+
+	// Apply the tabs and comment prefix to each line.
+	for lineIndex := range in {
+		prefix := ""
+		for tabIndex := 0; lineIndex > 0 && tabIndex < indentTabs; tabIndex++ {
+			prefix += "\t"
+		}
+		prefix += commentLinePrefix
+		in[lineIndex] = prefix + in[lineIndex]
 	}
-	t := make([]byte, 0, 32)
-	i := 0
-	if s[0] == '_' {
-		// Need a capital letter; drop the '_'.
-		t = append(t, 'X')
-		i++
-	}
-	// Invariant: if the next letter is lower case, it must be converted
-	// to upper case.
-	// That is, we process a word at a time, where words are marked by _ or
-	// upper case letter. Digits are treated as words.
-	for ; i < len(s); i++ {
-		c := s[i]
-		if c == '_' && i+1 < len(s) && isASCIILower(s[i+1]) {
-			continue // Skip the underscore in s.
-		}
-		if isASCIIDigit(c) {
-			t = append(t, c)
-			continue
-		}
-		// Assume we have a letter now - if not, it's a bogus identifier.
-		// The next word is a sequence of characters that must start upper case.
-		if isASCIILower(c) {
-			c ^= ' ' // Make it a capital letter.
-		}
-		t = append(t, c) // Guaranteed not lower case.
-		// Accept lower case sequence that follows.
-		for i+1 < len(s) && isASCIILower(s[i+1]) {
-			i++
-			t = append(t, s[i])
-		}
-	}
-	return string(t)
+
+	// Join the lines with carriage returns.
+	return strings.Join(in, "\n")
 }
 
-func camelCase(n string, sep string) string {
-	p := strings.Split(n, sep)
-	for i := 0; i < len(p); i++ {
-		p[i] = CamelCase(p[i])
+func wordWrap(in string, maxLineLength int) []string {
+	// First, split the input based on any user-created lines (i.e. the string contains "\n").
+	inputLines := strings.Split(in, "\n")
+	outputLines := make([]string, 0)
+
+	line := ""
+	for i, inputLine := range inputLines {
+		if i > 0 {
+			// Process a user-defined carriage return.
+			outputLines = append(outputLines, line)
+			line = ""
+		}
+
+		words := strings.Split(inputLine, " ")
+
+		for len(words) > 0 {
+			// Take the next word.
+			word := words[0]
+			words = words[1:]
+
+			if len(line)+len(word) > maxLineLength {
+				// Need to word wrap - emit the current line.
+				outputLines = append(outputLines, line)
+				line = ""
+			}
+
+			// Add the word to the current line.
+			if len(line) > 0 {
+				line += " "
+			}
+			line += word
+		}
 	}
-	return strings.Join(p, "")
-}
 
-// Is c an ASCII lower-case letter?
-func isASCIILower(c byte) bool {
-	return 'a' <= c && c <= 'z'
-}
+	// Emit the final line
+	outputLines = append(outputLines, line)
 
-// Is c an ASCII digit?
-func isASCIIDigit(c byte) bool {
-	return '0' <= c && c <= '9'
+	return outputLines
 }

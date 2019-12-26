@@ -133,7 +133,7 @@ func TestParse(t *testing.T) {
 }
 
 func TestExtractObject(t *testing.T) {
-	for _, r := range k8smeta.MustGet().KubeSource().Resources() {
+	for _, r := range k8smeta.MustGet().KubeCollections().All() {
 		a := rt.DefaultProvider().GetAdapter(r)
 
 		t.Run(r.Kind, func(t *testing.T) {
@@ -153,7 +153,7 @@ func TestExtractObject(t *testing.T) {
 }
 
 func TestExtractResource(t *testing.T) {
-	for _, r := range k8smeta.MustGet().KubeSource().Resources() {
+	for _, r := range k8smeta.MustGet().KubeCollections().All() {
 		a := rt.DefaultProvider().GetAdapter(r)
 
 		t.Run(r.Kind, func(t *testing.T) {
@@ -178,7 +178,7 @@ func parse(t *testing.T, input []byte, group, kind string) (metaV1.Object, proto
 	g := NewGomegaWithT(t)
 
 	pr := rt.DefaultProvider()
-	a := pr.GetAdapter(k8smeta.MustGet().KubeSource().Resources().MustFind(group, kind))
+	a := pr.GetAdapter(k8smeta.MustGet().KubeCollections().MustFindByGroupAndKind(group, kind))
 	obj, err := a.ParseJSON(input)
 	g.Expect(err).To(BeNil())
 

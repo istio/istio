@@ -19,18 +19,61 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+
+	"istio.io/istio/galley/pkg/config/meta/schema/ast"
 )
 
 func TestStaticCollections(t *testing.T) {
 	var cases = []struct {
 		packageName string
-		collections []string
+		m           *ast.Metadata
 		err         string
 		output      string
 	}{
 		{
 			packageName: "pkg",
-			collections: []string{"foo", "bar"},
+			m: &ast.Metadata{
+				Collections: []*ast.Collection{
+					{
+						Name:         "foo",
+						VariableName: "Foo",
+						Description:  "describes a really cool foo thing",
+						Group:        "foo.group",
+						Kind:         "fookind",
+						Disabled:     true,
+					},
+					{
+						Name:         "bar",
+						VariableName: "Bar",
+						Description:  "describes a really cool bar thing",
+						Group:        "bar.group",
+						Kind:         "barkind",
+						Disabled:     false,
+					},
+				},
+				Resources: []*ast.Resource{
+					{
+						Group:         "foo.group",
+						Version:       "v1",
+						Kind:          "fookind",
+						Plural:        "fookinds",
+						ClusterScoped: true,
+						Proto:         "google.protobuf.Struct",
+						ProtoPackage:  "github.com/gogo/protobuf/types",
+						Validate:      "EmptyValidate",
+					},
+					{
+						Group:         "bar.group",
+						Version:       "v1",
+						Kind:          "barkind",
+						Plural:        "barkinds",
+						ClusterScoped: false,
+						Proto:         "google.protobuf.Struct",
+						ProtoPackage:  "github.com/gogo/protobuf/types",
+						Validate:      "EmptyValidate",
+					},
+				},
+			},
 			output: `
 // GENERATED FILE -- DO NOT EDIT
 //
@@ -39,26 +82,60 @@ package pkg
 
 import (
 	"istio.io/istio/galley/pkg/config/meta/schema/collection"
+	"istio.io/istio/galley/pkg/config/meta/schema/resource"
+	"istio.io/istio/pkg/config/validation"
 )
 
 var (
 
-	// Bar is the name of collection bar
-	Bar = collection.NewName("bar")
-
-	// Foo is the name of collection foo
-	Foo = collection.NewName("foo")
-
-)
-
-// CollectionNames returns the collection names declared in this package.
-func CollectionNames() []collection.Name {
-	return []collection.Name {
-		Bar,
-		Foo,
-		
+	// Bar describes a really cool bar thing
+	Bar = collection.Schema {
+		Name: collection.NewName("bar"),
+		Disabled: false,
+		Schema: resource.Schema {
+			Group: "bar.group",
+			Kind: "barkind",
+			Plural: "barkinds",
+			Version: "v1",
+			Proto: "google.protobuf.Struct",
+			ProtoPackage: "github.com/gogo/protobuf/types",
+			ClusterScoped: false,
+			ValidateProto: validation.EmptyValidate,
+		},
 	}
-}`,
+
+	// Foo describes a really cool foo thing
+	Foo = collection.Schema {
+		Name: collection.NewName("foo"),
+		Disabled: true,
+		Schema: resource.Schema {
+			Group: "foo.group",
+			Kind: "fookind",
+			Plural: "fookinds",
+			Version: "v1",
+			Proto: "google.protobuf.Struct",
+			ProtoPackage: "github.com/gogo/protobuf/types",
+			ClusterScoped: true,
+			ValidateProto: validation.EmptyValidate,
+		},
+	}
+
+
+	// All contains all collections in the system.
+	All = collection.NewSchemasBuilder().
+		MustAdd(Bar).
+		MustAdd(Foo).
+		Build()
+
+	// Istio contains only Istio collections.
+	Istio = collection.NewSchemasBuilder().
+		Build()
+
+	// Kube contains only kubernetes collections.
+	Kube = collection.NewSchemasBuilder().
+		Build()
+)
+`,
 		},
 	}
 
@@ -66,7 +143,7 @@ func CollectionNames() []collection.Name {
 		t.Run("", func(t *testing.T) {
 			g := NewGomegaWithT(t)
 
-			s, err := StaticCollections(c.packageName, c.collections)
+			s, err := StaticCollections(c.packageName, c.m)
 			if c.err != "" {
 				g.Expect(err).NotTo(BeNil())
 				g.Expect(err.Error()).To(Equal(s))

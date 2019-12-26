@@ -40,9 +40,9 @@ func ConstructKindMapping(allKinds []string, metadata *Metadata) (*Mapping, erro
 	// Create a mapping of kind <=> collection for known non-legacy Mixer kinds.
 	kindToCollection := make(map[string]string)
 	collectionToKind := make(map[string]string)
-	for _, r := range metadata.KubeSource().Resources() {
+	for _, r := range metadata.KubeCollections().All() {
 		if _, ok := mixerKindMap[r.Kind]; ok {
-			source := r.Collection.Name
+			source := r.Name
 			target := metadata.DirectTransformSettings().Mapping()[source]
 			kindToCollection[r.Kind] = target.String()
 			collectionToKind[target.String()] = r.Kind

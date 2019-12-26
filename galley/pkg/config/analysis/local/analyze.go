@@ -67,7 +67,7 @@ type SourceAnalyzer struct {
 
 	// Which kube resources are used by this analyzer
 	// Derived from metadata and the specified analyzer and transformer providers
-	kubeResources schema.KubeResources
+	kubeResources collection.Schemas
 
 	// Hook function called when a collection is used in analysis
 	collectionReporter snapshotter.CollectionReporterFn
@@ -93,8 +93,8 @@ func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, 
 	transformerProviders := transforms.Providers(m)
 
 	// Get the closure of all input collections for our analyzer, paying attention to transforms
-	kubeResources := kuberesource.DisableExcludedKubeResources(
-		m.KubeSource().Resources(),
+	kubeResources := kuberesource.DisableExcludedCollections(
+		m.KubeCollections(),
 		transformerProviders,
 		analyzer.Metadata().Inputs,
 		kuberesource.DefaultExcludedResourceKinds(),
@@ -135,7 +135,8 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 		colsInSnapshots = append(colsInSnapshots, collection.NewName(c))
 	}
 
-	result.SkippedAnalyzers = sa.analyzer.RemoveSkipped(colsInSnapshots, sa.kubeResources.DisabledCollections(), sa.transformerProviders)
+	result.SkippedAnalyzers = sa.analyzer.RemoveSkipped(colsInSnapshots, sa.kubeResources.DisabledCollectionNames(),
+		sa.transformerProviders)
 	result.ExecutedAnalyzers = sa.analyzer.AnalyzerNames()
 
 	updater := &snapshotter.InMemoryStatusUpdater{}
@@ -194,7 +195,7 @@ func (sa *SourceAnalyzer) AddReaderKubeSource(readers []io.Reader) error {
 		}
 	}
 
-	sa.sources = append(sa.sources, precedenceSourceInput{src: src, cols: sa.kubeResources.Collections()})
+	sa.sources = append(sa.sources, precedenceSourceInput{src: src, cols: sa.kubeResources.CollectionNames()})
 
 	return errs
 }
@@ -203,8 +204,8 @@ func (sa *SourceAnalyzer) AddReaderKubeSource(readers []io.Reader) error {
 // Also adds a meshcfg source from the running cluster
 func (sa *SourceAnalyzer) AddRunningKubeSource(k kube.Interfaces) {
 	o := apiserver.Options{
-		Client:    k,
-		Resources: sa.kubeResources,
+		Client:  k,
+		Schemas: sa.kubeResources,
 	}
 
 	if err := sa.addRunningKubeMeshConfigSource(k); err != nil {
@@ -212,7 +213,7 @@ func (sa *SourceAnalyzer) AddRunningKubeSource(k kube.Interfaces) {
 	}
 
 	src := apiserverNew(o)
-	sa.sources = append(sa.sources, precedenceSourceInput{src: src, cols: sa.kubeResources.Collections()})
+	sa.sources = append(sa.sources, precedenceSourceInput{src: src, cols: sa.kubeResources.CollectionNames()})
 }
 
 // AddFileKubeMeshConfigSource adds a mesh config source based on the specified meshconfig yaml file

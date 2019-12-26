@@ -30,14 +30,14 @@ import (
 func GetProviders() transformer.Providers {
 	return []transformer.Provider{
 		transformer.NewSimpleTransformerProvider(
-			metadata.K8SAuthenticationIstioIoV1Alpha1Policies,
-			metadata.IstioAuthenticationV1Alpha1Policies,
-			handler(metadata.IstioAuthenticationV1Alpha1Policies),
+			metadata.K8SAuthenticationIstioIoV1Alpha1Policies.Name,
+			metadata.IstioAuthenticationV1Alpha1Policies.Name,
+			handler(metadata.IstioAuthenticationV1Alpha1Policies.Name),
 		),
 		transformer.NewSimpleTransformerProvider(
-			metadata.K8SAuthenticationIstioIoV1Alpha1Meshpolicies,
-			metadata.IstioAuthenticationV1Alpha1Meshpolicies,
-			handler(metadata.IstioAuthenticationV1Alpha1Meshpolicies),
+			metadata.K8SAuthenticationIstioIoV1Alpha1Meshpolicies.Name,
+			metadata.IstioAuthenticationV1Alpha1Meshpolicies.Name,
+			handler(metadata.IstioAuthenticationV1Alpha1Meshpolicies.Name),
 		),
 	}
 }

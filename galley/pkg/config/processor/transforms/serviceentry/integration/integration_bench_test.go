@@ -26,7 +26,7 @@ import (
 
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/meta/metadata"
-	"istio.io/istio/galley/pkg/config/meta/schema"
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"istio.io/istio/galley/pkg/config/processor"
 	"istio.io/istio/galley/pkg/config/processor/transforms"
@@ -113,7 +113,7 @@ func BenchmarkEndpointChurn(b *testing.B) {
 	}
 
 	m := metadata.MustGet()
-	src := newSource(b, ki, m.KubeSource().Resources())
+	src := newSource(b, ki, m.KubeCollections())
 	distributor := newFakeDistributor(b.N)
 	transformProviders := transforms.Providers(metadata.MustGet())
 
@@ -361,11 +361,11 @@ func newKubeClient(b *testing.B, ki kube.Interfaces) kubernetes.Interface {
 	return kubeClient
 }
 
-func newSource(b *testing.B, ifaces kube.Interfaces, resources schema.KubeResources) event.Source {
+func newSource(b *testing.B, ifaces kube.Interfaces, resources collection.Schemas) event.Source {
 	o := apiserver.Options{
 		Client:       ifaces,
 		ResyncPeriod: 0,
-		Resources:    resources,
+		Schemas:      resources,
 	}
 	src := apiserver.New(o)
 	if src == nil {

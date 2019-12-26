@@ -22,6 +22,7 @@ import (
 	"os"
 
 	"istio.io/istio/galley/pkg/config/meta/schema"
+	"istio.io/istio/galley/pkg/config/meta/schema/ast"
 	"istio.io/istio/galley/pkg/config/meta/schema/codegen"
 )
 
@@ -36,17 +37,27 @@ func main() {
 	input := os.Args[2]
 	output := os.Args[3]
 
-	c, err := readMetadata(input)
+	// Read the input file
+	b, err := ioutil.ReadFile(input)
 	if err != nil {
-		fmt.Printf("Error reading metadata: %v", err)
+		fmt.Printf("unable to read input file: %v", err)
 		os.Exit(-2)
 	}
 
-	var packages []string
-	for _, r := range c.AllCollections().All() {
-		packages = append(packages, r.ProtoPackage)
+	// Parse the file.
+	m, err := ast.Parse(string(b))
+	if err != nil {
+		fmt.Printf("failed parsing input file: %v", err)
+		os.Exit(-3)
 	}
-	contents, err := codegen.StaticInit(pkg, packages)
+
+	// Validate the input.
+	if _, err := schema.Build(m); err != nil {
+		fmt.Printf("failed building metadata: %v", err)
+		os.Exit(-4)
+	}
+
+	contents, err := codegen.StaticInit(pkg, m)
 	if err != nil {
 		fmt.Printf("Error applying static init template: %v", err)
 		os.Exit(-3)

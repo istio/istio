@@ -38,8 +38,8 @@ func (s *ServiceRoleServicesAnalyzer) Metadata() analysis.Metadata {
 		Name:        "auth.ServiceRoleServicesAnalyzer",
 		Description: "Checks the validity of services referred in a service role",
 		Inputs: collection.Names{
-			metadata.IstioRbacV1Alpha1Serviceroles,
-			metadata.K8SCoreV1Services,
+			metadata.IstioRbacV1Alpha1Serviceroles.Name,
+			metadata.K8SCoreV1Services.Name,
 		},
 	}
 }
@@ -47,7 +47,7 @@ func (s *ServiceRoleServicesAnalyzer) Metadata() analysis.Metadata {
 // Analyze implements Analyzer
 func (s *ServiceRoleServicesAnalyzer) Analyze(ctx analysis.Context) {
 	nsm := s.buildNamespaceServiceMap(ctx)
-	ctx.ForEach(metadata.IstioRbacV1Alpha1Serviceroles, func(r *resource.Instance) bool {
+	ctx.ForEach(metadata.IstioRbacV1Alpha1Serviceroles.Name, func(r *resource.Instance) bool {
 		s.analyzeServiceRoleServices(r, ctx, nsm)
 		return true
 	})
@@ -64,7 +64,7 @@ func (s *ServiceRoleServicesAnalyzer) analyzeServiceRoleServices(r *resource.Ins
 		for _, svc := range rs.Services {
 			if svc != "*" && !s.existMatchingService(svc, nsm[ns]) {
 				// Report when the specific service doesn't exist
-				ctx.Report(metadata.IstioRbacV1Alpha1Serviceroles,
+				ctx.Report(metadata.IstioRbacV1Alpha1Serviceroles.Name,
 					msg.NewReferencedResourceNotFound(r, "service", svc))
 			}
 		}
@@ -75,7 +75,7 @@ func (s *ServiceRoleServicesAnalyzer) analyzeServiceRoleServices(r *resource.Ins
 func (s *ServiceRoleServicesAnalyzer) buildNamespaceServiceMap(ctx analysis.Context) map[resource.Namespace][]util.ScopedFqdn {
 	nsm := map[resource.Namespace][]util.ScopedFqdn{}
 
-	ctx.ForEach(metadata.K8SCoreV1Services, func(r *resource.Instance) bool {
+	ctx.ForEach(metadata.K8SCoreV1Services.Name, func(r *resource.Instance) bool {
 		rns := r.Metadata.FullName.Namespace
 		rs := r.Metadata.FullName.Name
 		nsm[rns] = append(nsm[rns], util.NewScopedFqdn(string(rns), rns, string(rs)))

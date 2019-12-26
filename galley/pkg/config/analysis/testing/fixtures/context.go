@@ -30,18 +30,18 @@ type Context struct {
 var _ analysis.Context = &Context{}
 
 // Report implements analysis.Context
-func (ctx *Context) Report(c collection.Name, t diag.Message) {
+func (ctx *Context) Report(_ collection.Name, t diag.Message) {
 	ctx.Reports = append(ctx.Reports, t)
 }
 
 // Find implements analysis.Context
-func (ctx *Context) Find(c collection.Name, name resource.FullName) *resource.Instance { return nil }
+func (ctx *Context) Find(collection.Name, resource.FullName) *resource.Instance { return nil }
 
 // Exists implements analysis.Context
-func (ctx *Context) Exists(c collection.Name, name resource.FullName) bool { return false }
+func (ctx *Context) Exists(collection.Name, resource.FullName) bool { return false }
 
 // ForEach implements analysis.Context
-func (ctx *Context) ForEach(c collection.Name, fn analysis.IteratorFn) {
+func (ctx *Context) ForEach(_ collection.Name, fn analysis.IteratorFn) {
 	for _, r := range ctx.Resources {
 		fn(r)
 	}

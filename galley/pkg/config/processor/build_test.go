@@ -50,7 +50,7 @@ func TestProcessor(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	meshSrc := meshcfg.NewInmemory()
-	src := inmemory.NewKubeSource(metadata.MustGet().KubeSource().Resources())
+	src := inmemory.NewKubeSource(metadata.MustGet().KubeCollections())
 	srcs := []event.Source{
 		meshSrc,
 		src,

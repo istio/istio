@@ -47,7 +47,7 @@ func (o *Origin) FriendlyName() string {
 // Namespace implements resource.Origin
 func (o *Origin) Namespace() resource.Namespace {
 	// Special case: the namespace of a namespace resource is its own name
-	if o.Collection == metadata.K8SCoreV1Namespaces {
+	if o.Collection == metadata.K8SCoreV1Namespaces.Name {
 		return resource.Namespace(o.FullName.Name)
 	}
 

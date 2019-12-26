@@ -42,7 +42,7 @@ func (a *analyzer) Metadata() Metadata {
 }
 
 // Analyze implements Analyzer
-func (a *analyzer) Analyze(ctx Context) {
+func (a *analyzer) Analyze(Context) {
 	a.ran = true
 }
 

@@ -84,8 +84,8 @@ func TestAnalyzersRun(t *testing.T) {
 	m := msg.NewInternalError(r, "msg")
 	a := &testAnalyzer{
 		fn: func(ctx analysis.Context) {
-			ctx.Exists(data.Collection1, resource.NewFullName("", ""))
-			ctx.Report(data.Collection1, m)
+			ctx.Exists(data.K8SCollection1, resource.NewFullName("", ""))
+			ctx.Report(data.K8SCollection1, m)
 		},
 	}
 
@@ -101,7 +101,7 @@ func TestAnalyzersRun(t *testing.T) {
 	result, err := sa.Analyze(cancel)
 	g.Expect(err).To(BeNil())
 	g.Expect(result.Messages).To(ConsistOf(m))
-	g.Expect(collectionAccessed).To(Equal(data.Collection1))
+	g.Expect(collectionAccessed).To(Equal(data.K8SCollection1))
 	g.Expect(result.ExecutedAnalyzers).To(ConsistOf(a.Metadata().Name))
 }
 
@@ -116,8 +116,8 @@ func TestFilterOutputByNamespace(t *testing.T) {
 	msg2 := msg.NewInternalError(r2, "msg")
 	a := &testAnalyzer{
 		fn: func(ctx analysis.Context) {
-			ctx.Report(data.Collection1, msg1)
-			ctx.Report(data.Collection1, msg2)
+			ctx.Report(data.K8SCollection1, msg1)
+			ctx.Report(data.K8SCollection1, msg2)
 		},
 	}
 
@@ -227,7 +227,7 @@ func TestResourceFiltering(t *testing.T) {
 	usedCollection := k8smeta.K8SCoreV1Services
 	a := &testAnalyzer{
 		fn:     func(_ analysis.Context) {},
-		inputs: []collection.Name{usedCollection},
+		inputs: []collection.Name{usedCollection.Name},
 	}
 	mk := mock.NewKube()
 
@@ -235,11 +235,11 @@ func TestResourceFiltering(t *testing.T) {
 	sa.AddRunningKubeSource(mk)
 
 	// All but the used collection should be disabled
-	for _, r := range recordedOptions.Resources {
-		if r.Collection.Name == usedCollection {
-			g.Expect(r.Disabled).To(BeFalse(), fmt.Sprintf("%s should not be disabled", r.Collection.Name))
+	for _, r := range recordedOptions.Schemas.All() {
+		if r.Name == usedCollection.Name {
+			g.Expect(r.Disabled).To(BeFalse(), fmt.Sprintf("%s should not be disabled", r.Name))
 		} else {
-			g.Expect(r.Disabled).To(BeTrue(), fmt.Sprintf("%s should be disabled", r.Collection.Name))
+			g.Expect(r.Disabled).To(BeTrue(), fmt.Sprintf("%s should be disabled", r.Name))
 		}
 	}
 }

@@ -14,6 +14,11 @@
 
 package collection
 
+import (
+	"sort"
+	"strings"
+)
+
 // Names is a collection of names
 type Names []Name
 
@@ -22,4 +27,11 @@ func (n Names) Clone() Names {
 	r := make([]Name, len(n))
 	copy(r, n)
 	return r
+}
+
+// Sort the names in ascending order.
+func (n Names) Sort() {
+	sort.SliceStable(n, func(i, j int) bool {
+		return strings.Compare((n)[i].String(), (n)[j].String()) < 0
+	})
 }

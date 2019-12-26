@@ -45,7 +45,7 @@ func TestParseDynamic(t *testing.T) {
 }
 
 func TestExtractObjectDynamic(t *testing.T) {
-	for _, r := range basicmeta.MustGet().KubeSource().Resources() {
+	for _, r := range basicmeta.MustGet().KubeCollections().All() {
 		a := rt.DefaultProvider().GetAdapter(r)
 
 		t.Run(r.Kind, func(t *testing.T) {
@@ -65,7 +65,7 @@ func TestExtractObjectDynamic(t *testing.T) {
 }
 
 func TestExtractResourceDynamic(t *testing.T) {
-	for _, r := range basicmeta.MustGet().KubeSource().Resources() {
+	for _, r := range basicmeta.MustGet().KubeCollections().All() {
 		a := rt.DefaultProvider().GetAdapter(r)
 
 		t.Run(r.Kind, func(t *testing.T) {
@@ -90,7 +90,7 @@ func parseDynamic(t *testing.T, input []byte, kind string) (metaV1.Object, proto
 	g := NewGomegaWithT(t)
 
 	pr := rt.DefaultProvider()
-	a := pr.GetAdapter(basicmeta.MustGet().KubeSource().Resources().MustFind("testdata.istio.io", kind))
+	a := pr.GetAdapter(basicmeta.MustGet().KubeCollections().MustFindByGroupAndKind("testdata.istio.io", kind))
 
 	obj, err := a.ParseJSON(input)
 	g.Expect(err).To(BeNil())

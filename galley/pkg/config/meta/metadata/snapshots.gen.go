@@ -5,13 +5,13 @@ package metadata
 
 var (
 
-	// Default is the name of snapshot default
+	// Default describes the snapshot default
 	Default = "default"
 
-	// LocalAnalysis is the name of snapshot localAnalysis
+	// LocalAnalysis describes the snapshot localAnalysis
 	LocalAnalysis = "localAnalysis"
 
-	// SyntheticServiceEntry is the name of snapshot syntheticServiceEntry
+	// SyntheticServiceEntry describes the snapshot syntheticServiceEntry
 	SyntheticServiceEntry = "syntheticServiceEntry"
 )
 

@@ -18,11 +18,20 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/onsi/gomega"
 
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 )
+
+// ExpectEqual expects that o1 and o2 are equal. If not, fails with the diff.
+func ExpectEqual(t *testing.T, o1 interface{}, o2 interface{}) {
+	t.Helper()
+	if diff := cmp.Diff(o1, o2); diff != "" {
+		t.Fatal(diff)
+	}
+}
 
 // Expect calls gomega.Eventually to wait until the accumulator accumulated specified events.
 func Expect(t *testing.T, acc *Accumulator, expected ...event.Event) {

@@ -26,8 +26,18 @@ import (
 func TestNames_Clone(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	n := collection.Names{data.Collection1, data.Collection2}
+	n := collection.Names{data.K8SCollection1, data.Collection2}
 
 	n2 := n.Clone()
 	g.Expect(n2).To(Equal(n))
+}
+
+func TestNames_Sort(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	n := collection.Names{data.Collection2, data.Collection3, data.K8SCollection1}
+	expected := collection.Names{data.Collection2, data.Collection3, data.K8SCollection1}
+
+	n.Sort()
+	g.Expect(n).To(Equal(expected))
 }

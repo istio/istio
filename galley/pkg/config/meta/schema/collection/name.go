@@ -17,24 +17,24 @@ package collection
 import "regexp"
 
 // Name of a collection.
-type Name struct{ string }
+type Name string
 
 var validNameRegex = regexp.MustCompile(`^[a-zA-Z0-9_][a-zA-Z0-9_\.]*(/[a-zA-Z0-9_][a-zA-Z0-9_\.]*)*$`)
 
 // EmptyName is a sentinel value
-var EmptyName = Name{}
+var EmptyName = Name("")
 
 // NewName returns a strongly typed collection. Panics if the name is not valid.
 func NewName(n string) Name {
 	if !IsValidName(n) {
 		panic("collection.NewName: invalid collection name: " + n)
 	}
-	return Name{n}
+	return Name(n)
 }
 
 // String interface method implementation.
-func (t Name) String() string {
-	return t.string
+func (n Name) String() string {
+	return string(n)
 }
 
 // IsValidName returns true if the given collection is a valid name.

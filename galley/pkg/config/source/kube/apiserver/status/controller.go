@@ -21,7 +21,6 @@ import (
 	"k8s.io/client-go/dynamic"
 
 	"istio.io/istio/galley/pkg/config/analysis/diag"
-	"istio.io/istio/galley/pkg/config/meta/schema"
 	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/scope"
@@ -31,7 +30,7 @@ import (
 // Controller is the interface for a status controller. It is mainly used to separate implementation from
 // interface, so that code can be tested separately.
 type Controller interface {
-	Start(p *rt.Provider, resources []schema.KubeResource)
+	Start(p *rt.Provider, resources []collection.Schema)
 	Stop()
 	UpdateResourceStatus(col collection.Name, name resource.FullName, version resource.Version, status interface{})
 	Report(messages diag.Messages)
@@ -62,7 +61,7 @@ func NewController(subfield string) *ControllerImpl {
 }
 
 // Start the controller. This will reset the internal state.
-func (c *ControllerImpl) Start(p *rt.Provider, resources []schema.KubeResource) {
+func (c *ControllerImpl) Start(p *rt.Provider, resources []collection.Schema) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -81,7 +80,7 @@ func (c *ControllerImpl) Start(p *rt.Provider, resources []schema.KubeResource) 
 		if err != nil {
 			scope.Source.Errorf("Unable to create a dynamic resource interface for resource %v", r.CanonicalResourceName())
 		}
-		ifaces[r.Collection.Name] = iface
+		ifaces[r.Name] = iface
 	}
 
 	c.wg.Add(1)

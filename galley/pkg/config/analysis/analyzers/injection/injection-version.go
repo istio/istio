@@ -47,8 +47,8 @@ func (a *VersionAnalyzer) Metadata() analysis.Metadata {
 		Name:        "injection.VersionAnalyzer",
 		Description: "Checks the version of auto-injection configured with the running proxies on pods",
 		Inputs: collection.Names{
-			metadata.K8SCoreV1Namespaces,
-			metadata.K8SCoreV1Pods,
+			metadata.K8SCoreV1Namespaces.Name,
+			metadata.K8SCoreV1Pods.Name,
 		},
 	}
 }
@@ -58,7 +58,7 @@ func (a *VersionAnalyzer) Analyze(c analysis.Context) {
 	injectedNamespaces := make(map[string]struct{})
 
 	// Collect the list of namespaces that have istio injection enabled.
-	c.ForEach(metadata.K8SCoreV1Namespaces, func(r *resource.Instance) bool {
+	c.ForEach(metadata.K8SCoreV1Namespaces.Name, func(r *resource.Instance) bool {
 		if r.Metadata.Labels[InjectionLabelName] == InjectionLabelEnableValue {
 			injectedNamespaces[r.Metadata.FullName.String()] = struct{}{}
 		}
@@ -68,7 +68,7 @@ func (a *VersionAnalyzer) Analyze(c analysis.Context) {
 
 	injectorVersions := make(map[string]struct{})
 	var podVersions []podVersion
-	c.ForEach(metadata.K8SCoreV1Pods, func(r *resource.Instance) bool {
+	c.ForEach(metadata.K8SCoreV1Pods.Name, func(r *resource.Instance) bool {
 		pod := r.Message.(*v1.Pod)
 
 		// Check if this is a sidecar injector pod - if it is, note its version.
@@ -109,7 +109,7 @@ func (a *VersionAnalyzer) Analyze(c analysis.Context) {
 	for iv := range injectorVersions {
 		for _, pv := range podVersions {
 			if pv.ProxyVersion != iv {
-				c.Report(metadata.K8SCoreV1Pods, msg.NewIstioProxyVersionMismatch(pv.Resource, pv.ProxyVersion, iv))
+				c.Report(metadata.K8SCoreV1Pods.Name, msg.NewIstioProxyVersionMismatch(pv.Resource, pv.ProxyVersion, iv))
 			}
 		}
 	}

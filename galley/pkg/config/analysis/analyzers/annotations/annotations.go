@@ -39,30 +39,30 @@ func (*K8sAnalyzer) Metadata() analysis.Metadata {
 		Name:        "annotations.K8sAnalyzer",
 		Description: "Checks for misplaced and invalid Istio annotations in Kubernetes resources",
 		Inputs: collection.Names{
-			metadata.K8SCoreV1Namespaces,
-			metadata.K8SCoreV1Services,
-			metadata.K8SCoreV1Pods,
-			metadata.K8SAppsV1Deployments,
+			metadata.K8SCoreV1Namespaces.Name,
+			metadata.K8SCoreV1Services.Name,
+			metadata.K8SCoreV1Pods.Name,
+			metadata.K8SAppsV1Deployments.Name,
 		},
 	}
 }
 
 // Analyze implements analysis.Analyzer
 func (fa *K8sAnalyzer) Analyze(ctx analysis.Context) {
-	ctx.ForEach(metadata.K8SCoreV1Namespaces, func(r *resource.Instance) bool {
-		fa.allowAnnotations(r, ctx, "Namespace", metadata.K8SCoreV1Namespaces)
+	ctx.ForEach(metadata.K8SCoreV1Namespaces.Name, func(r *resource.Instance) bool {
+		fa.allowAnnotations(r, ctx, "Namespace", metadata.K8SCoreV1Namespaces.Name)
 		return true
 	})
-	ctx.ForEach(metadata.K8SCoreV1Services, func(r *resource.Instance) bool {
-		fa.allowAnnotations(r, ctx, "Service", metadata.K8SCoreV1Services)
+	ctx.ForEach(metadata.K8SCoreV1Services.Name, func(r *resource.Instance) bool {
+		fa.allowAnnotations(r, ctx, "Service", metadata.K8SCoreV1Services.Name)
 		return true
 	})
-	ctx.ForEach(metadata.K8SCoreV1Pods, func(r *resource.Instance) bool {
-		fa.allowAnnotations(r, ctx, "Pod", metadata.K8SCoreV1Pods)
+	ctx.ForEach(metadata.K8SCoreV1Pods.Name, func(r *resource.Instance) bool {
+		fa.allowAnnotations(r, ctx, "Pod", metadata.K8SCoreV1Pods.Name)
 		return true
 	})
-	ctx.ForEach(metadata.K8SAppsV1Deployments, func(r *resource.Instance) bool {
-		fa.allowAnnotations(r, ctx, "Deployment", metadata.K8SAppsV1Deployments)
+	ctx.ForEach(metadata.K8SAppsV1Deployments.Name, func(r *resource.Instance) bool {
+		fa.allowAnnotations(r, ctx, "Deployment", metadata.K8SAppsV1Deployments.Name)
 		return true
 	})
 }

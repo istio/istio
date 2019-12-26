@@ -19,20 +19,32 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/google/go-cmp/cmp"
+
 	"istio.io/istio/galley/pkg/config/meta/schema/ast"
 	"istio.io/istio/galley/pkg/config/meta/schema/collection"
+	"istio.io/istio/galley/pkg/config/meta/schema/resource"
+	"istio.io/istio/pkg/config/validation"
+	"istio.io/istio/pkg/util/strcase"
+)
+
+const (
+	kubeCollectionPrefix = "k8s/"
 )
 
 // Metadata is the top-level container.
 type Metadata struct {
-	collections       collection.Specs
+	collections       collection.Schemas
+	kubeCollections   collection.Schemas
 	snapshots         map[string]*Snapshot
-	sources           []Source
 	transformSettings []TransformSettings
 }
 
 // AllCollections is all known collections
-func (m *Metadata) AllCollections() collection.Specs { return m.collections }
+func (m *Metadata) AllCollections() collection.Schemas { return m.collections }
+
+// KubeCollections is collections for Kubernetes.
+func (m *Metadata) KubeCollections() collection.Schemas { return m.kubeCollections }
 
 // AllSnapshots returns all known snapshots
 func (m *Metadata) AllSnapshots() []*Snapshot {
@@ -41,25 +53,6 @@ func (m *Metadata) AllSnapshots() []*Snapshot {
 		result = append(result, s)
 	}
 	return result
-}
-
-// AllSources is all known sources
-func (m *Metadata) AllSources() []Source {
-	result := make([]Source, len(m.sources))
-	copy(result, m.sources)
-	return result
-}
-
-// KubeSource is a temporary convenience function for getting the Kubernetes Source. As the infrastructure
-// is generified, then this method should disappear.
-func (m *Metadata) KubeSource() *KubeSource {
-	for _, s := range m.sources {
-		if ks, ok := s.(*KubeSource); ok {
-			return ks
-		}
-	}
-
-	panic("Metadata.KubeSource: KubeSource not found")
 }
 
 // TransformSettings is all known transformSettings
@@ -107,6 +100,13 @@ func (m *Metadata) AllCollectionsInSnapshots(snapshotNames []string) []string {
 	return result
 }
 
+func (m *Metadata) Equal(o *Metadata) bool {
+	return cmp.Equal(m.collections, o.collections) &&
+		cmp.Equal(m.kubeCollections, o.kubeCollections) &&
+		cmp.Equal(m.snapshots, o.snapshots) &&
+		cmp.Equal(m.transformSettings, o.transformSettings)
+}
+
 // Snapshot metadata. Describes the snapshots that should be produced.
 type Snapshot struct {
 	Name        string
@@ -114,92 +114,9 @@ type Snapshot struct {
 	Strategy    string
 }
 
-// Source configuration metadata.
-type Source interface {
-}
-
 // TransformSettings is configuration that is supplied to a particular transform.
 type TransformSettings interface {
 	Type() string
-}
-
-// KubeSource is configuration for K8s based input sources.
-type KubeSource struct {
-	resources []*KubeResource
-}
-
-// Resources is all known K8s resources
-func (k *KubeSource) Resources() KubeResources {
-	result := make([]KubeResource, len(k.resources))
-	for i, r := range k.resources {
-		result[i] = *r
-	}
-	return result
-}
-
-var _ Source = &KubeSource{}
-
-// KubeResource metadata for a Kubernetes KubeResource.
-type KubeResource struct {
-	Collection    collection.Spec
-	Group         string
-	Version       string
-	Kind          string
-	Plural        string
-	Disabled      bool
-	ClusterScoped bool
-}
-
-// KubeResources is an array of resources
-type KubeResources []KubeResource
-
-// CanonicalResourceName of the resource.
-func (i KubeResource) CanonicalResourceName() string {
-	if i.Group == "" {
-		return "core/" + i.Version + "/" + i.Kind
-	}
-	return i.Group + "/" + i.Version + "/" + i.Kind
-}
-
-// Collections returns the name of collections for this set of resources
-func (k KubeResources) Collections() []collection.Name {
-	result := make([]collection.Name, 0, len(k))
-	for _, res := range k {
-		result = append(result, res.Collection.Name)
-	}
-
-	return result
-}
-
-// Find searches and returns the resource spec with the given group/kind
-func (k KubeResources) Find(group, kind string) (KubeResource, bool) {
-	for _, rs := range k {
-		if rs.Group == group && rs.Kind == kind {
-			return rs, true
-		}
-	}
-
-	return KubeResource{}, false
-}
-
-// MustFind calls Find and panics if not found.
-func (k KubeResources) MustFind(group, kind string) KubeResource {
-	r, found := k.Find(group, kind)
-	if !found {
-		panic(fmt.Sprintf("KubeSource.MustFind: unable to find %s/%s", group, kind))
-	}
-	return r
-}
-
-// DisabledCollections returns the names of disabled collections
-func (k KubeResources) DisabledCollections() collection.Names {
-	disabledCollections := make([]collection.Name, 0)
-	for _, r := range k {
-		if r.Disabled {
-			disabledCollections = append(disabledCollections, r.Collection.Name)
-		}
-	}
-	return disabledCollections
 }
 
 // DirectTransformSettings configuration
@@ -224,6 +141,10 @@ func (d *DirectTransformSettings) Mapping() map[collection.Name]collection.Name 
 	return m
 }
 
+func (d *DirectTransformSettings) Equal(o *DirectTransformSettings) bool {
+	return cmp.Equal(d.mapping, o.mapping)
+}
+
 // ParseAndBuild parses the given metadata file and returns the strongly typed schema.
 func ParseAndBuild(yamlText string) (*Metadata, error) {
 	mast, err := ast.Parse(yamlText)
@@ -236,18 +157,87 @@ func ParseAndBuild(yamlText string) (*Metadata, error) {
 
 // Build strongly-typed Metadata from parsed AST.
 func Build(astm *ast.Metadata) (*Metadata, error) {
-	b := collection.NewSpecsBuilder()
+	resourceKey := func(group, kind string) string {
+		return group + "/" + kind
+	}
+
+	resources := make(map[string]resource.Schema)
+	for i, ar := range astm.Resources {
+		if ar.Kind == "" {
+			return nil, fmt.Errorf("resource %d missing type", i)
+		}
+		if ar.Plural == "" {
+			return nil, fmt.Errorf("resource %d missing plural", i)
+		}
+		if ar.Version == "" {
+			return nil, fmt.Errorf("resource %d missing version", i)
+		}
+		if ar.Proto == "" {
+			return nil, fmt.Errorf("resource %d missing proto", i)
+		}
+		if ar.ProtoPackage == "" {
+			return nil, fmt.Errorf("resource %d missing protoPackage", i)
+		}
+
+		if ar.Validate == "" {
+			validateFn := "Validate" + strcase.CamelCase(ar.Kind)
+			if !validation.IsValidateFunc(validateFn) {
+				validateFn = "EmptyValidate"
+			}
+			ar.Validate = validateFn
+		}
+
+		r := resource.Schema{
+			ClusterScoped: ar.ClusterScoped,
+			Kind:          ar.Kind,
+			Plural:        ar.Plural,
+			Group:         ar.Group,
+			Version:       ar.Version,
+			Proto:         ar.Proto,
+			ProtoPackage:  ar.ProtoPackage,
+			ValidateProto: validation.GetValidateFunc(ar.Validate),
+		}
+
+		if r.ValidateProto == nil {
+			return nil, fmt.Errorf("failed locating proto validation function %s", ar.Validate)
+		}
+
+		key := resourceKey(r.Group, r.Kind)
+		if _, ok := resources[key]; ok {
+			return nil, fmt.Errorf("found duplicate resource for resource (%s)", key)
+		}
+		resources[key] = r
+	}
+
+	cBuilder := collection.NewSchemasBuilder()
+	kubeBuilder := collection.NewSchemasBuilder()
 	for _, c := range astm.Collections {
-		s, err := collection.NewSpec(c.Name, c.ProtoPackage, c.Proto)
+		key := resourceKey(c.Group, c.Kind)
+		r, found := resources[key]
+		if !found {
+			return nil, fmt.Errorf("failed locating resource (%s) for collection %s", key, c.Name)
+		}
+
+		s, err := collection.NewSchema(c.Name, r)
 		if err != nil {
 			return nil, err
 		}
 
-		if err = b.Add(s); err != nil {
+		// Store the disabled state.
+		s.Disabled = c.Disabled
+
+		if err = cBuilder.Add(s); err != nil {
 			return nil, err
 		}
+
+		if isKubeCollection(s.Name) {
+			if err = kubeBuilder.Add(s); err != nil {
+				return nil, err
+			}
+		}
 	}
-	collections := b.Build()
+	collections := cBuilder.Build()
+	kubeCollections := kubeBuilder.Build()
 
 	snapshots := make(map[string]*Snapshot)
 	for _, s := range astm.Snapshots {
@@ -257,7 +247,7 @@ func Build(astm *ast.Metadata) (*Metadata, error) {
 		}
 
 		for _, c := range s.Collections {
-			col, found := collections.Lookup(c)
+			col, found := collections.Find(c)
 			if !found {
 				return nil, fmt.Errorf("collection not found: %v", c)
 			}
@@ -266,52 +256,17 @@ func Build(astm *ast.Metadata) (*Metadata, error) {
 		snapshots[sn.Name] = sn
 	}
 
-	var sources []Source
-	for _, s := range astm.Sources {
-		switch v := s.(type) {
-		case *ast.KubeSource:
-			var resources []*KubeResource
-			for i, r := range v.Resources {
-				if r == nil {
-					return nil, fmt.Errorf("invalid KubeResource entry at position: %d", i)
-				}
-				col, ok := collections.Lookup(r.Collection)
-				if !ok {
-					return nil, fmt.Errorf("collection not found: %v", r.Collection)
-				}
-				res := &KubeResource{
-					Collection:    col,
-					Kind:          r.Kind,
-					Plural:        r.Plural,
-					Version:       r.Version,
-					Group:         r.Group,
-					Disabled:      r.Disabled,
-					ClusterScoped: r.ClusterScoped,
-				}
-
-				resources = append(resources, res)
-			}
-			src := &KubeSource{
-				resources: resources,
-			}
-			sources = append(sources, src)
-
-		default:
-			return nil, fmt.Errorf("unrecognized source type: %T", s)
-		}
-	}
-
 	var transforms []TransformSettings
 	for _, t := range astm.TransformSettings {
 		switch v := t.(type) {
 		case *ast.DirectTransformSettings:
 			mapping := make(map[collection.Name]collection.Name)
 			for k, val := range v.Mapping {
-				from, ok := collections.Lookup(k)
+				from, ok := collections.Find(k)
 				if !ok {
 					return nil, fmt.Errorf("collection not found: %v", k)
 				}
-				to, ok := collections.Lookup(val)
+				to, ok := collections.Find(val)
 				if !ok {
 					return nil, fmt.Errorf("collection not found: %v", v)
 				}
@@ -329,8 +284,12 @@ func Build(astm *ast.Metadata) (*Metadata, error) {
 
 	return &Metadata{
 		collections:       collections,
+		kubeCollections:   kubeCollections,
 		snapshots:         snapshots,
-		sources:           sources,
 		transformSettings: transforms,
 	}, nil
+}
+
+func isKubeCollection(n collection.Name) bool {
+	return strings.HasPrefix(n.String(), kubeCollectionPrefix)
 }

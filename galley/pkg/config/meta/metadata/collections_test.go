@@ -17,8 +17,7 @@ package metadata
 import "testing"
 
 func TestCollectionNames(t *testing.T) {
-
-	c := CollectionNames()
+	c := All.CollectionNames()
 	if len(c) != len(MustGet().AllCollections().CollectionNames()) {
 		t.Fatalf("Unexpected number of collections: %v", len(c))
 	}

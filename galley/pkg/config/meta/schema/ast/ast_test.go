@@ -34,23 +34,21 @@ func TestParse(t *testing.T) {
 		{
 			input: `
 collections:
-  - name:         "istio/meshconfig"
-    proto:        "istio.mesh.v1alpha1.MeshConfig"
-    protoPackage: "istio.io/api/mesh/v1alpha1"
+  - name:  "istio/meshconfig"
+    kind:  "VirtualService"
+    group: "networking.istio.io"
 
 snapshots:
   - name: "default"
     collections:
       - "istio/meshconfig"
 
-sources:
-  - type: kubernetes
-    resources:
-    - collection:   "k8s/networking.istio.io/v1alpha3/virtualservices"
-      kind:         "VirtualService"
-      group:        "networking.istio.io"
-      version:      "v1alpha3"
-  
+resources:
+  - kind:    "VirtualService"
+    group:   "networking.istio.io"
+    version: "v1alpha3"
+    proto:   "istio.mesh.v1alpha1.MeshConfig"
+
 transforms:
   - type: direct
     mapping:
@@ -60,8 +58,10 @@ transforms:
 				Collections: []*Collection{
 					{
 						Name:         "istio/meshconfig",
-						Proto:        "istio.mesh.v1alpha1.MeshConfig",
-						ProtoPackage: "istio.io/api/mesh/v1alpha1",
+						VariableName: "IstioMeshconfig",
+						Description:  "describes the collection istio/meshconfig",
+						Kind:         "VirtualService",
+						Group:        "networking.istio.io",
 					},
 				},
 				Snapshots: []*Snapshot{
@@ -70,18 +70,17 @@ transforms:
 						Collections: []string{
 							"istio/meshconfig",
 						},
+						VariableName: "Default",
+						Description:  "describes the snapshot default",
 					},
 				},
-				Sources: []Source{
-					&KubeSource{
-						Resources: []*Resource{
-							{
-								Collection: "k8s/networking.istio.io/v1alpha3/virtualservices",
-								Kind:       "VirtualService",
-								Group:      "networking.istio.io",
-								Version:    "v1alpha3",
-							},
-						},
+				Resources: []*Resource{
+					{
+						Kind:     "VirtualService",
+						Group:    "networking.istio.io",
+						Version:  "v1alpha3",
+						Proto:    "istio.mesh.v1alpha1.MeshConfig",
+						Validate: "ValidateVirtualService",
 					},
 				},
 				TransformSettings: []TransformSettings{
@@ -105,50 +104,25 @@ transforms:
 	}
 }
 
-func TestParseErrors(t *testing.T) {
+func TestTransformParseError(t *testing.T) {
 	var cases = []string{
 		`
 collections:
-  - name:         "istio/meshconfig"
-    proto:        "istio.mesh.v1alpha1.MeshConfig"
-    protoPackage: "istio.io/api/mesh/v1alpha1"
+  - name:  "istio/meshconfig"
+    kind:  "VirtualService"
+    group: "networking.istio.io"
 
 snapshots:
   - name: "default"
     collections:
       - "istio/meshconfig"
 
-sources:
-  - type: foo
-    resources:
-    - collection:   "k8s/networking.istio.io/v1alpha3/virtualservices"
-      kind:         "VirtualService"
-      group:        "networking.istio.io"
-      version:      "v1alpha3"
-  
-transforms:
-  - type: direct
-    mapping:
-      "k8s/networking.istio.io/v1alpha3/destinationrules": "istio/networking/v1alpha3/destinationrules"
-`,
-		`
-collections:
-  - name:         "istio/meshconfig"
+resources:
+  - kind:         "VirtualService"
+    group:        "networking.istio.io"
+    version:      "v1alpha3"
     proto:        "istio.mesh.v1alpha1.MeshConfig"
     protoPackage: "istio.io/api/mesh/v1alpha1"
-
-snapshots:
-  - name: "default"
-    collections:
-      - "istio/meshconfig"
-
-sources:
-  - type: kubernetes
-    resources:
-    - collection:   "k8s/networking.istio.io/v1alpha3/virtualservices"
-      kind:         "VirtualService"
-      group:        "networking.istio.io"
-      version:      "v1alpha3"
   
 transforms:
   - type: foo
@@ -169,22 +143,21 @@ transforms:
 func TestParseErrors_Unmarshal(t *testing.T) {
 	input := `
 collections:
-  - name:         "istio/meshconfig"
-    proto:        "istio.mesh.v1alpha1.MeshConfig"
-    protoPackage: "istio.io/api/mesh/v1alpha1"
+  - name:  "istio/meshconfig"
+    kind:   "VirtualService"
+    group:  "networking.istio.io"
 
 snapshots:
   - name: "default"
     collections:
       - "istio/meshconfig"
 
-sources:
-  - type: kubernetes
-    resources:
-    - collection:   "k8s/networking.istio.io/v1alpha3/virtualservices"
-      kind:         "VirtualService"
-      group:        "networking.istio.io"
-      version:      "v1alpha3"
+resources:
+  - kind:         "VirtualService"
+    group:        "networking.istio.io"
+    version:      "v1alpha3"
+    proto:        "istio.mesh.v1alpha1.MeshConfig"
+    protoPackage: "istio.io/api/mesh/v1alpha1"
   
 transforms:
   - type: direct
@@ -192,7 +165,9 @@ transforms:
       "k8s/networking.istio.io/v1alpha3/destinationrules": "istio/networking/v1alpha3/destinationrules"
 `
 
-	for i := 0; i < 5; i++ {
+	// This is fragile! It assumes the exact number of calls from the code.
+	expectedCalls := 3
+	for i := 0; i < expectedCalls; i++ {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			g := NewGomegaWithT(t)
 

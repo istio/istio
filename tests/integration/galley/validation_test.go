@@ -165,7 +165,7 @@ func TestEnsureNoMissingCRDs(t *testing.T) {
 
 			recognized := make(map[string]struct{})
 
-			for _, r := range metadata.MustGet().KubeSource().Resources() {
+			for _, r := range metadata.MustGet().KubeCollections().All() {
 				s := strings.Join([]string{r.Group, r.Version, r.Kind}, "/")
 				recognized[s] = struct{}{}
 			}

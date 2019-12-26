@@ -63,11 +63,11 @@ var (
 	serviceName = resource.NewFullName(namespace, "svc1")
 	createTime  = time.Now()
 
-	nodeCollection         = metadata.K8SCoreV1Nodes
-	podCollection          = metadata.K8SCoreV1Pods
-	serviceCollection      = metadata.K8SCoreV1Services
-	endpointsCollection    = metadata.K8SCoreV1Endpoints
-	serviceEntryCollection = metadata.IstioNetworkingV1Alpha3SyntheticServiceentries
+	nodeCollection         = metadata.K8SCoreV1Nodes.Name
+	podCollection          = metadata.K8SCoreV1Pods.Name
+	serviceCollection      = metadata.K8SCoreV1Services.Name
+	endpointsCollection    = metadata.K8SCoreV1Endpoints.Name
+	serviceEntryCollection = metadata.IstioNetworkingV1Alpha3SyntheticServiceentries.Name
 	serviceAnnotations     = resource.StringMap{
 		"ak1": "av1",
 	}
@@ -84,7 +84,7 @@ func TestInvalidCollectionShouldNotPanic(t *testing.T) {
 	defer rt.Stop()
 	src.Handlers.Handle(event.Event{
 		Kind:   event.Added,
-		Source: metadata.IstioNetworkingV1Alpha3Gateways,
+		Source: metadata.IstioNetworkingV1Alpha3Gateways.Name,
 		Resource: &resource.Instance{
 			Metadata: resource.Metadata{
 				FullName: resource.NewFullName("ns", "svc1"),
@@ -102,19 +102,19 @@ func TestLifecycle(t *testing.T) {
 	stages := []stage{
 		{
 			name:  "NodeSync",
-			event: event.FullSyncFor(metadata.K8SCoreV1Nodes),
+			event: event.FullSyncFor(metadata.K8SCoreV1Nodes.Name),
 		},
 		{
 			name:  "PodSync",
-			event: event.FullSyncFor(metadata.K8SCoreV1Pods),
+			event: event.FullSyncFor(metadata.K8SCoreV1Pods.Name),
 		},
 		{
 			name:  "ServiceSync",
-			event: event.FullSyncFor(metadata.K8SCoreV1Services),
+			event: event.FullSyncFor(metadata.K8SCoreV1Services.Name),
 		},
 		{
 			name:  "EndpointSync",
-			event: event.FullSyncFor(metadata.K8SCoreV1Endpoints),
+			event: event.FullSyncFor(metadata.K8SCoreV1Endpoints.Name),
 			validator: func(ctx pipelineContext) {
 				expectNotifications(ctx.t, ctx.acc, 1)
 			},
@@ -382,19 +382,19 @@ func TestAddOrder(t *testing.T) {
 	initialStages := []stage{
 		{
 			name:  "NodeSync",
-			event: event.FullSyncFor(metadata.K8SCoreV1Nodes),
+			event: event.FullSyncFor(metadata.K8SCoreV1Nodes.Name),
 		},
 		{
 			name:  "PodSync",
-			event: event.FullSyncFor(metadata.K8SCoreV1Pods),
+			event: event.FullSyncFor(metadata.K8SCoreV1Pods.Name),
 		},
 		{
 			name:  "ServiceSync",
-			event: event.FullSyncFor(metadata.K8SCoreV1Services),
+			event: event.FullSyncFor(metadata.K8SCoreV1Services.Name),
 		},
 		{
 			name:  "EndpointSync",
-			event: event.FullSyncFor(metadata.K8SCoreV1Endpoints),
+			event: event.FullSyncFor(metadata.K8SCoreV1Endpoints.Name),
 		},
 	}
 
@@ -557,19 +557,19 @@ func TestDeleteOrder(t *testing.T) {
 	syncStages := []stage{
 		{
 			name:  "NodeSync",
-			event: event.FullSyncFor(metadata.K8SCoreV1Nodes),
+			event: event.FullSyncFor(metadata.K8SCoreV1Nodes.Name),
 		},
 		{
 			name:  "PodSync",
-			event: event.FullSyncFor(metadata.K8SCoreV1Pods),
+			event: event.FullSyncFor(metadata.K8SCoreV1Pods.Name),
 		},
 		{
 			name:  "ServiceSync",
-			event: event.FullSyncFor(metadata.K8SCoreV1Services),
+			event: event.FullSyncFor(metadata.K8SCoreV1Services.Name),
 		},
 		{
 			name:  "EndpointSync",
-			event: event.FullSyncFor(metadata.K8SCoreV1Endpoints),
+			event: event.FullSyncFor(metadata.K8SCoreV1Endpoints.Name),
 			validator: func(ctx pipelineContext) {
 				expectNotifications(ctx.t, ctx.acc, 1)
 			},
@@ -678,10 +678,10 @@ func TestReceiveEndpointsBeforeService(t *testing.T) {
 	defer rt.Stop()
 
 	syncEvents := []event.Event{
-		event.FullSyncFor(metadata.K8SCoreV1Nodes),
-		event.FullSyncFor(metadata.K8SCoreV1Pods),
-		event.FullSyncFor(metadata.K8SCoreV1Services),
-		event.FullSyncFor(metadata.K8SCoreV1Endpoints),
+		event.FullSyncFor(metadata.K8SCoreV1Nodes.Name),
+		event.FullSyncFor(metadata.K8SCoreV1Pods.Name),
+		event.FullSyncFor(metadata.K8SCoreV1Services.Name),
+		event.FullSyncFor(metadata.K8SCoreV1Endpoints.Name),
 	}
 
 	for _, e := range syncEvents {
@@ -781,11 +781,11 @@ func newHandler() (*processing.Runtime, *fixtures.Source, *snapshotter.InMemoryD
 		Source:       event.CombineSources(src, meshSrc),
 		ProcessorProvider: func(o processing.ProcessorOptions) event.Processor {
 			xforms := serviceentry.GetProviders().Create(o)
-			xforms[0].DispatchFor(metadata.IstioNetworkingV1Alpha3SyntheticServiceentries, a)
+			xforms[0].DispatchFor(metadata.IstioNetworkingV1Alpha3SyntheticServiceentries.Name, a)
 			settings := []snapshotter.SnapshotOptions{
 				{
 					Group:       "syntheticServiceEntry",
-					Collections: []collection.Name{metadata.IstioNetworkingV1Alpha3SyntheticServiceentries},
+					Collections: []collection.Name{metadata.IstioNetworkingV1Alpha3SyntheticServiceentries.Name},
 					Strategy:    strategy.NewImmediate(),
 					Distributor: dst,
 				},

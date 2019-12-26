@@ -29,7 +29,6 @@ import (
 	kubeJson "k8s.io/apimachinery/pkg/runtime/serializer/json"
 
 	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/meta/schema"
 	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
 	"istio.io/istio/galley/pkg/config/scope"
@@ -44,7 +43,7 @@ type KubeSource struct {
 	mu sync.Mutex
 
 	name      string
-	resources schema.KubeResources
+	schemas   *collection.Schemas
 	source    *inmemory.Source
 	defaultNs resource.Namespace
 
@@ -57,13 +56,13 @@ type resourceSha [sha1.Size]byte
 
 type kubeResource struct {
 	resource *resource.Instance
-	spec     schema.KubeResource
+	schema   collection.Schema
 	sha      resourceSha
 }
 
 func (r *kubeResource) newKey() kubeResourceKey {
 	return kubeResourceKey{
-		kind:     r.spec.Kind,
+		kind:     r.schema.Kind,
 		fullName: r.resource.Metadata.FullName,
 	}
 }
@@ -76,18 +75,18 @@ type kubeResourceKey struct {
 var _ event.Source = &KubeSource{}
 
 // NewKubeSource returns a new in-memory Source that works with Kubernetes resources.
-func NewKubeSource(resources schema.KubeResources) *KubeSource {
+func NewKubeSource(schemas collection.Schemas) *KubeSource {
 	name := fmt.Sprintf("kube-inmemory-%d", inMemoryKubeNameDiscriminator)
 	inMemoryKubeNameDiscriminator++
 
-	s := inmemory.New(resources.Collections())
+	s := inmemory.New(schemas.CollectionNames())
 
 	return &KubeSource{
-		name:      name,
-		resources: resources,
-		source:    s,
-		shas:      make(map[kubeResourceKey]resourceSha),
-		byFile:    make(map[string]map[kubeResourceKey]collection.Name),
+		name:    name,
+		schemas: &schemas,
+		source:  s,
+		shas:    make(map[kubeResourceKey]resourceSha),
+		byFile:  make(map[string]map[kubeResourceKey]collection.Name),
 	}
 }
 
@@ -146,7 +145,7 @@ func (s *KubeSource) ApplyContent(name, yamlText string) error {
 	defer s.mu.Unlock()
 
 	// We hold off on dealing with parseErr until the end, since partial success is possible
-	resources, parseErrs := s.parseContent(s.resources, name, yamlText)
+	resources, parseErrs := s.parseContent(s.schemas, name, yamlText)
 
 	oldKeys := s.byFile[name]
 	newKeys := make(map[kubeResourceKey]collection.Name)
@@ -158,13 +157,13 @@ func (s *KubeSource) ApplyContent(name, yamlText string) error {
 		if !found || oldSha != r.sha {
 			s.versionCtr++
 			r.resource.Metadata.Version = resource.Version(fmt.Sprintf("v%d", s.versionCtr))
-			scope.Source.Debuga("KubeSource.ApplyContent: Set: ", r.spec.Collection.Name, r.resource.Metadata.FullName)
-			s.source.Get(r.spec.Collection.Name).Set(r.resource)
+			scope.Source.Debuga("KubeSource.ApplyContent: Set: ", r.schema.Name, r.resource.Metadata.FullName)
+			s.source.Get(r.schema.Name).Set(r.resource)
 			s.shas[key] = r.sha
 		}
-		newKeys[key] = r.spec.Collection.Name
+		newKeys[key] = r.schema.Name
 		if oldKeys != nil {
-			scope.Source.Debuga("KubeSource.ApplyContent: Delete: ", r.spec.Collection.Name, key)
+			scope.Source.Debuga("KubeSource.ApplyContent: Delete: ", r.schema.Name, key)
 			delete(oldKeys, key)
 		}
 	}
@@ -196,7 +195,7 @@ func (s *KubeSource) RemoveContent(name string) {
 	}
 }
 
-func (s *KubeSource) parseContent(r schema.KubeResources, name, yamlText string) ([]kubeResource, error) {
+func (s *KubeSource) parseContent(r *collection.Schemas, name, yamlText string) ([]kubeResource, error) {
 	var resources []kubeResource
 	var errs error
 
@@ -233,7 +232,7 @@ func (s *KubeSource) parseContent(r schema.KubeResources, name, yamlText string)
 	return resources, errs
 }
 
-func (s *KubeSource) parseChunk(r schema.KubeResources, yamlChunk []byte) (kubeResource, error) {
+func (s *KubeSource) parseChunk(r *collection.Schemas, yamlChunk []byte) (kubeResource, error) {
 	// Convert to JSON
 	jsonChunk, err := yaml.ToJSON(yamlChunk)
 	if err != nil {
@@ -246,9 +245,9 @@ func (s *KubeSource) parseChunk(r schema.KubeResources, yamlChunk []byte) (kubeR
 		return kubeResource{}, fmt.Errorf("failed interpreting jsonChunk: %v", err)
 	}
 
-	resourceSpec, found := r.Find(groupVersionKind.Group, groupVersionKind.Kind)
+	resourceSpec, found := r.FindByGroupAndKind(groupVersionKind.Group, groupVersionKind.Kind)
 	if !found {
-		return kubeResource{}, fmt.Errorf("failed finding spec for group/kind: %s/%s", groupVersionKind.Group, groupVersionKind.Kind)
+		return kubeResource{}, fmt.Errorf("failed finding schema for group/kind: %s/%s", groupVersionKind.Group, groupVersionKind.Kind)
 	}
 
 	t := rt.DefaultProvider().GetAdapter(resourceSpec)
@@ -277,7 +276,7 @@ func (s *KubeSource) parseChunk(r schema.KubeResources, yamlChunk []byte) (kubeR
 	}
 
 	return kubeResource{
-		spec:     resourceSpec,
+		schema:   resourceSpec,
 		sha:      sha1.Sum(yamlChunk),
 		resource: rt.ToResource(objMeta, &resourceSpec, item),
 	}, nil

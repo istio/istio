@@ -19,20 +19,32 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+
+	"istio.io/istio/galley/pkg/config/meta/schema/ast"
 )
 
 func TestStaticSnapshots(t *testing.T) {
 	var cases = []struct {
 		packageName string
-		snapshots   []string
+		snapshots   []*ast.Snapshot
 		err         string
 		output      string
 	}{
 		{
 			packageName: "pkg",
-			snapshots:   []string{"foo", "bar"},
+			snapshots: []*ast.Snapshot{
+				{
+					Name:         "foo",
+					VariableName: "Foo",
+					Description:  "this is a really cool foo snapshot",
+				},
+				{
+					Name:         "bar",
+					VariableName: "Bar",
+					Description:  "this is a really cool bar snapshot",
+				},
+			},
 			output: `
-
 // GENERATED FILE -- DO NOT EDIT
 //
 
@@ -40,10 +52,10 @@ package pkg
 
 var (
 
-	// Bar is the name of snapshot bar
+	// Bar this is a really cool bar snapshot
 	Bar = "bar"
 
-	// Foo is the name of snapshot foo
+	// Foo this is a really cool foo snapshot
 	Foo = "foo"
 
 )
@@ -63,7 +75,9 @@ func SnapshotNames() []string {
 		t.Run("", func(t *testing.T) {
 			g := NewGomegaWithT(t)
 
-			s, err := StaticSnapshots(c.packageName, c.snapshots)
+			s, err := StaticSnapshots(c.packageName, &ast.Metadata{
+				Snapshots: c.snapshots,
+			})
 			if c.err != "" {
 				g.Expect(err).NotTo(BeNil())
 				g.Expect(err.Error()).To(Equal(s))

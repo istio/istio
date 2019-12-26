@@ -262,7 +262,7 @@ func getDeploymentCondition(status appsv1.DeploymentStatus, condType appsv1.Depl
 }
 
 func findResourceInSpec(kind string) string {
-	for _, r := range metadata.MustGet().KubeSource().Resources() {
+	for _, r := range metadata.MustGet().KubeCollections().All() {
 		if r.Kind == kind {
 			return r.Plural
 		}

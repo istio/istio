@@ -15,9 +15,9 @@
 package codegen
 
 import (
-	"bytes"
 	"sort"
-	"text/template"
+
+	"istio.io/istio/galley/pkg/config/meta/schema/ast"
 )
 
 const importInitTemplate = `
@@ -37,13 +37,13 @@ import (
 `
 
 // StaticInit generates a Go file for static-importing Proto packages, so that they get registered statically.
-func StaticInit(packageName string, packages []string) (string, error) {
+func StaticInit(packageName string, m *ast.Metadata) (string, error) {
 	// Single instance and sort names
 	names := make(map[string]struct{})
 
-	for _, p := range packages {
-		if p != "" {
-			names[p] = struct{}{}
+	for _, r := range m.Resources {
+		if r.ProtoPackage != "" {
+			names[r.ProtoPackage] = struct{}{}
 		}
 	}
 
@@ -59,17 +59,4 @@ func StaticInit(packageName string, packages []string) (string, error) {
 	}{Packages: sorted, PackageName: packageName}
 
 	return applyTemplate(importInitTemplate, context)
-}
-
-func applyTemplate(tmpl string, i interface{}) (string, error) {
-	t := template.New("tmpl")
-
-	t2 := template.Must(t.Parse(tmpl))
-
-	var b bytes.Buffer
-	if err := t2.Execute(&b, i); err != nil {
-		return "", err
-	}
-
-	return b.String(), nil
 }

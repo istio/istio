@@ -28,7 +28,7 @@ import (
 
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/meshcfg"
-	"istio.io/istio/galley/pkg/config/meta/schema"
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processor"
 	"istio.io/istio/galley/pkg/config/source/kube"
@@ -87,7 +87,7 @@ loop:
 			netListen = func(network, address string) (net.Listener, error) { return nil, e }
 		case 7:
 			args.ConfigPath = "aaa"
-			fsNew = func(_ string, _ schema.KubeResources, _ bool) (event.Source, error) { return nil, e }
+			fsNew = func(_ string, _ collection.Schemas, _ bool) (event.Source, error) { return nil, e }
 		default:
 			break loop
 
