@@ -215,7 +215,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 			}
 			// This should be only set for the first request. Guard with ID check regardless.
 			if discReq.Node != nil && discReq.Node.Id != "" {
-				if err, cancel := s.initConnection(discReq.Node, con); err != nil {
+				if cancel, err := s.initConnection(discReq.Node, con); err != nil {
 					return err
 				} else if cancel != nil {
 					defer cancel()
@@ -400,7 +400,7 @@ func listEqualUnordered(a []string, b []string) bool {
 
 // update the node associated with the connection, after receiving a a packet from envoy, also adds the connection
 // to the tracking map.
-func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) (error, func()) {
+func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) (func(), error) {
 	initialized := false
 
 	con.mu.RLock() // may not be needed - once per connection, but locking for consistency.
@@ -413,17 +413,17 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) (e
 
 	meta, err := model.ParseMetadata(node.Metadata)
 	if err != nil {
-		return err, nil
+		return nil, err
 	}
 	proxy, err := model.ParseServiceNodeWithMetadata(node.Id, meta)
 	if err != nil {
-		return err, nil
+		return nil, err
 	}
 	// Update the config namespace associated with this proxy
 	proxy.ConfigNamespace = model.GetProxyConfigNamespace(proxy)
 
 	if err := proxy.SetServiceInstances(s.Env); err != nil {
-		return err, nil
+		return nil, err
 	}
 
 	// Get the locality from the proxy's service instances.
@@ -440,7 +440,7 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) (e
 	}
 
 	if err := proxy.SetWorkloadLabels(s.Env); err != nil {
-		return err, nil
+		return nil, err
 	}
 
 	// Set the sidecarScope and merged gateways associated with this proxy
@@ -455,7 +455,7 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) (e
 	context.WithCancel(context.Background())
 	con.mu.Unlock()
 
-	return nil, func() { s.removeCon(con.ConID, con) }
+	return func() { s.removeCon(con.ConID, con) }, nil
 }
 
 // DeltaAggregatedResources is not implemented.
