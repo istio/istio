@@ -35,7 +35,7 @@ func TestEnvoyStatsCompleteAndSuccessful(t *testing.T) {
 
 	server := createAndStartServer(liveServerStats)
 	defer server.Close()
-	probe := Probe{LocalHostAddr: "localhost", AdminPort: 1234}
+	probe := Probe{AdminPort: 1234}
 
 	err := probe.Check()
 
@@ -79,7 +79,7 @@ server.state: 0`,
 		t.Run(tt.name, func(t *testing.T) {
 			server := createAndStartServer(tt.stats)
 			defer server.Close()
-			probe := Probe{LocalHostAddr: "localhost", AdminPort: 1234}
+			probe := Probe{AdminPort: 1234}
 
 			err := probe.Check()
 
@@ -103,7 +103,7 @@ func TestEnvoyInitializing(t *testing.T) {
 
 	server := createAndStartServer(initServerStats)
 	defer server.Close()
-	probe := Probe{LocalHostAddr: "localhost", AdminPort: 1234}
+	probe := Probe{AdminPort: 1234}
 
 	err := probe.Check()
 
@@ -115,7 +115,7 @@ func TestEnvoyNoClusterManagerStats(t *testing.T) {
 
 	server := createAndStartServer(onlyServerStats)
 	defer server.Close()
-	probe := Probe{LocalHostAddr: "localhost", AdminPort: 1234}
+	probe := Probe{AdminPort: 1234}
 
 	err := probe.Check()
 
@@ -127,7 +127,7 @@ func TestEnvoyNoServerStats(t *testing.T) {
 
 	server := createAndStartServer(noServerStats)
 	defer server.Close()
-	probe := Probe{LocalHostAddr: "localhost", AdminPort: 1234}
+	probe := Probe{AdminPort: 1234}
 
 	err := probe.Check()
 

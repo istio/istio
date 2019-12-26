@@ -60,6 +60,11 @@ func (s *Stats) String() string {
 
 // GetServerState returns the current Envoy state by checking the "server.state" stat.
 func GetServerState(localHostAddr string, adminPort uint16) (*uint64, error) {
+	// If the localHostAddr was not set, we use 'localhost' to void emppty host in URL.
+	if localHostAddr == "" {
+		localHostAddr = "localhost"
+	}
+
 	stats, err := doHTTPGet(fmt.Sprintf("http://%s:%d/stats?usedonly&filter=%s", localHostAddr, adminPort, statServerState))
 	if err != nil {
 		return nil, err
@@ -81,6 +86,11 @@ func GetServerState(localHostAddr string, adminPort uint16) (*uint64, error) {
 
 // GetUpdateStatusStats returns the version stats for CDS and LDS.
 func GetUpdateStatusStats(localHostAddr string, adminPort uint16) (*Stats, error) {
+	// If the localHostAddr was not set, we use 'localhost' to void emppty host in URL.
+	if localHostAddr == "" {
+		localHostAddr = "localhost"
+	}
+
 	stats, err := doHTTPGet(fmt.Sprintf("http://%s:%d/stats?usedonly&filter=%s", localHostAddr, adminPort, updateStatsRegex))
 	if err != nil {
 		return nil, err
