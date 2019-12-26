@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	envoy_api_v2_auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+
 	"github.com/golang/protobuf/ptypes"
 
 	apiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -503,7 +505,7 @@ func TestBuildSidecarClustersWithIstioMutualAndSNI(t *testing.T) {
 
 	cluster := clusters[1]
 	g.Expect(cluster.Name).To(Equal("outbound|8080|foobar|foo.example.org"))
-	g.Expect(cluster.TlsContext.GetSni()).To(Equal("foo.com"))
+	g.Expect(getTlsContext(t, cluster).GetSni()).To(Equal("foo.com"))
 
 	clusters, err = buildSniTestClustersForSidecar("")
 	g.Expect(err).NotTo(HaveOccurred())
@@ -512,7 +514,7 @@ func TestBuildSidecarClustersWithIstioMutualAndSNI(t *testing.T) {
 
 	cluster = clusters[1]
 	g.Expect(cluster.Name).To(Equal("outbound|8080|foobar|foo.example.org"))
-	g.Expect(cluster.TlsContext.GetSni()).To(Equal("outbound_.8080_.foobar_.foo.example.org"))
+	g.Expect(getTlsContext(t, cluster).GetSni()).To(Equal("outbound_.8080_.foobar_.foo.example.org"))
 }
 
 func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T) {
@@ -567,15 +569,15 @@ func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T
 	for _, c := range clusters {
 		if strings.Contains(c.Name, "outbound") {
 			actualOutboundClusterCount++
-			tlsContext := c.TlsContext.CommonTlsContext
+			tlsContext := getTlsContext(t, c)
 			g.Expect(tlsContext).NotTo(BeNil())
 
-			tlsCerts := tlsContext.TlsCertificates
+			tlsCerts := tlsContext.CommonTlsContext.TlsCertificates
 			g.Expect(tlsCerts).To(HaveLen(1))
 
 			g.Expect(tlsCerts[0].PrivateKey.GetFilename()).To(Equal(expectedClientKeyPath))
 			g.Expect(tlsCerts[0].CertificateChain.GetFilename()).To(Equal(expectedClientCertPath))
-			g.Expect(tlsContext.GetValidationContext().TrustedCa.GetFilename()).To(Equal(expectedRootCertPath))
+			g.Expect(tlsContext.CommonTlsContext.GetValidationContext().TrustedCa.GetFilename()).To(Equal(expectedRootCertPath))
 		}
 	}
 	g.Expect(actualOutboundClusterCount).To(Equal(expectedOutboundClusterCount))
@@ -1839,7 +1841,7 @@ func TestAutoMTLSClusterPlaintextMode(t *testing.T) {
 
 	// mTLS is disabled by authN policy so autoMTLS does not kick in. No cluster should have TLS context.
 	for _, cluster := range clusters {
-		g.Expect(cluster.TlsContext).To(BeNil())
+		g.Expect(getTlsContext(t, cluster)).To(BeNil())
 	}
 }
 
@@ -1885,16 +1887,16 @@ func TestAutoMTLSClusterStrictMode(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	// For port 8080, (m)TLS settings is automatically added, thus its cluster should have TLS context.
-	g.Expect(clusters[0].TlsContext).To(BeNil())
+	g.Expect(getTlsContext(t, clusters[0])).ToNot(BeNil())
 	g.Expect(clusters[0].TransportSocketMatches).To(HaveLen(2))
 
 	// For 9090, use the TLS settings are explicitly specified in DR (which disable TLS)
-	g.Expect(clusters[1].TlsContext).To(BeNil())
+	g.Expect(getTlsContext(t, clusters[1])).To(BeNil())
 
 	// Sanity check: make sure TLS is not accidentally added to other clusters.
 	for i := 2; i < len(clusters); i++ {
 		cluster := clusters[i]
-		g.Expect(cluster.TlsContext).To(BeNil())
+		g.Expect(getTlsContext(t, cluster)).To(BeNil())
 	}
 }
 
@@ -1939,7 +1941,7 @@ func TestAutoMTLSClusterStrictMode_SkipForExternal(t *testing.T) {
 
 	// Service is external, use the TLS settings specified in DR.
 	for _, cluster := range clusters {
-		g.Expect(cluster.TlsContext).To(BeNil())
+		g.Expect(getTlsContext(t, cluster)).To(BeNil())
 	}
 }
 
@@ -1987,16 +1989,16 @@ func TestAutoMTLSClusterPerPortStrictMode(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	// For port 8080, (m)TLS settings is automatically added, thus its cluster should have TLS context.
-	g.Expect(clusters[0].TlsContext).To(BeNil())
+	g.Expect(getTlsContext(t, clusters[0])).ToNot(BeNil())
 	g.Expect(clusters[0].TransportSocketMatches).To(HaveLen(2))
 
 	// For 9090, authn policy disable mTLS, so it should not have TLS context.
-	g.Expect(clusters[1].TlsContext).To(BeNil())
+	g.Expect(getTlsContext(t, clusters[1])).To(BeNil())
 
 	// Sanity check: make sure TLS is not accidentally added to other clusters.
 	for i := 2; i < len(clusters); i++ {
 		cluster := clusters[i]
-		g.Expect(cluster.TlsContext).To(BeNil())
+		g.Expect(getTlsContext(t, cluster)).To(BeNil())
 	}
 }
 
@@ -2046,4 +2048,19 @@ func TestApplyLoadBalancer(t *testing.T) {
 		})
 	}
 
+}
+
+// Helper function to extract TLS context from a cluster
+func getTlsContext(t *testing.T, c *apiv2.Cluster) *envoy_api_v2_auth.UpstreamTlsContext {
+	t.Helper()
+	if c.TransportSocket == nil {
+		return nil
+	}
+	tlsContext := &envoy_api_v2_auth.UpstreamTlsContext{}
+	err := ptypes.UnmarshalAny(c.TransportSocket.GetTypedConfig(), tlsContext)
+
+	if err != nil {
+		t.Fatalf("Failed to unmarshall tls context: %v", err)
+	}
+	return tlsContext
 }
