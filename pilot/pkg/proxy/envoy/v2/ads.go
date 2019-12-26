@@ -15,7 +15,6 @@
 package v2
 
 import (
-	"context"
 	"errors"
 	"io"
 	"sync"
@@ -452,7 +451,6 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) (f
 	con.node = proxy
 	con.ConID = connectionID(node.Id)
 	s.addCon(con.ConID, con)
-	context.WithCancel(context.Background())
 	con.mu.Unlock()
 
 	return func() { s.removeCon(con.ConID, con) }, nil
