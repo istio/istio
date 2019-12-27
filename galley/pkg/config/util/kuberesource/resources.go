@@ -15,16 +15,16 @@
 package kuberesource
 
 import (
-	"istio.io/istio/galley/pkg/config/meta/metadata"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/processing/transformer"
+	"istio.io/istio/galley/pkg/config/schema"
+	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
 )
 
-// DisableExcludedCollections is a helper that filters a KubeResources list to disable some resources
+// DisableExcludedCollections is a helper that filters collection.Schemas to disable some resources
 // The first filter behaves in the same way as existing logic:
 // - Builtin types are excluded by default.
-// - If ServiceDiscovery is enabled, any built-in type should be readded.
+// - If ServiceDiscovery is enabled, any built-in type should be re-added.
 // In addition, any resources not needed as inputs by the specified collections are disabled
 func DisableExcludedCollections(in collection.Schemas, providers transformer.Providers,
 	requiredCols collection.Names, excludedResourceKinds []string, enableServiceDiscovery bool) collection.Schemas {
@@ -63,7 +63,7 @@ func DisableExcludedCollections(in collection.Schemas, providers transformer.Pro
 // DefaultExcludedResourceKinds returns the default list of resource kinds to exclude.
 func DefaultExcludedResourceKinds() []string {
 	resources := make([]string, 0)
-	for _, r := range metadata.MustGet().KubeCollections().All() {
+	for _, r := range schema.MustGet().KubeCollections().All() {
 		a := rt.DefaultProvider().GetAdapter(r)
 		if a.IsDefaultExcluded() {
 			resources = append(resources, r.Kind)

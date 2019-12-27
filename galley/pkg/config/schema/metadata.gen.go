@@ -1,7 +1,7 @@
-// Code generated for package metadata by go-bindata DO NOT EDIT. (@generated)
+// Code generated for package schema by go-bindata DO NOT EDIT. (@generated)
 // sources:
 // metadata.yaml
-package metadata
+package schema
 
 import (
 	"fmt"

@@ -1,11 +1,11 @@
 // GENERATED FILE -- DO NOT EDIT
 //
 
-package metadata
+package collections
 
 import (
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
-	"istio.io/istio/galley/pkg/config/meta/schema/resource"
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/validation"
 )
 

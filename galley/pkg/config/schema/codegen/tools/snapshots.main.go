@@ -21,9 +21,9 @@ import (
 	"io/ioutil"
 	"os"
 
-	"istio.io/istio/galley/pkg/config/meta/schema"
-	"istio.io/istio/galley/pkg/config/meta/schema/ast"
-	"istio.io/istio/galley/pkg/config/meta/schema/codegen"
+	"istio.io/istio/galley/pkg/config/schema"
+	"istio.io/istio/galley/pkg/config/schema/ast"
+	"istio.io/istio/galley/pkg/config/schema/codegen"
 )
 
 // Utility for generating snapshots.gen.go. Called from gen.go

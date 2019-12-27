@@ -21,9 +21,9 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 )
 
 // SelectorAnalyzer validates, per namespace, that:
@@ -40,8 +40,8 @@ func (a *SelectorAnalyzer) Metadata() analysis.Metadata {
 		Description: "Validates that sidecars that define a workload selector " +
 			"match at least one pod, and that there aren't multiple sidecar resources that select overlapping pods",
 		Inputs: collection.Names{
-			metadata.IstioNetworkingV1Alpha3Sidecars.Name,
-			metadata.K8SCoreV1Pods.Name,
+			collections.IstioNetworkingV1Alpha3Sidecars.Name,
+			collections.K8SCoreV1Pods.Name,
 		},
 	}
 }
@@ -53,7 +53,7 @@ func (a *SelectorAnalyzer) Analyze(c analysis.Context) {
 	// This is using an unindexed approach for matching selectors.
 	// Using an index for selectoes is problematic because selector != label
 	// We can match a label to a selector, but we can't generate a selector from a label.
-	c.ForEach(metadata.IstioNetworkingV1Alpha3Sidecars.Name, func(rs *resource.Instance) bool {
+	c.ForEach(collections.IstioNetworkingV1Alpha3Sidecars.Name, func(rs *resource.Instance) bool {
 		s := rs.Message.(*v1alpha3.Sidecar)
 
 		// For this analysis, ignore Sidecars with no workload selectors specified at all.
@@ -65,7 +65,7 @@ func (a *SelectorAnalyzer) Analyze(c analysis.Context) {
 		sel := labels.SelectorFromSet(s.WorkloadSelector.Labels)
 
 		foundPod := false
-		c.ForEach(metadata.K8SCoreV1Pods.Name, func(rp *resource.Instance) bool {
+		c.ForEach(collections.K8SCoreV1Pods.Name, func(rp *resource.Instance) bool {
 			pod := rp.Message.(*v1.Pod)
 			pNs := rp.Metadata.FullName.Namespace
 			podLabels := labels.Set(pod.ObjectMeta.Labels)
@@ -84,7 +84,7 @@ func (a *SelectorAnalyzer) Analyze(c analysis.Context) {
 		})
 
 		if !foundPod {
-			c.Report(metadata.IstioNetworkingV1Alpha3Sidecars.Name, msg.NewReferencedResourceNotFound(rs, "selector", sel.String()))
+			c.Report(collections.IstioNetworkingV1Alpha3Sidecars.Name, msg.NewReferencedResourceNotFound(rs, "selector", sel.String()))
 		}
 
 		return true
@@ -98,7 +98,7 @@ func (a *SelectorAnalyzer) Analyze(c analysis.Context) {
 		sNames := getNames(sList)
 
 		for _, rs := range sList {
-			c.Report(metadata.IstioNetworkingV1Alpha3Sidecars.Name, msg.NewConflictingSidecarWorkloadSelectors(rs, sNames,
+			c.Report(collections.IstioNetworkingV1Alpha3Sidecars.Name, msg.NewConflictingSidecarWorkloadSelectors(rs, sNames,
 				p.Namespace.String(), p.Name.String()))
 		}
 	}

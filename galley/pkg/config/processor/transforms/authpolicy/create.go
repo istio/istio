@@ -20,9 +20,9 @@ import (
 	authn "istio.io/api/authentication/v1alpha1"
 
 	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/processing/transformer"
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/galley/pkg/config/scope"
 )
 
@@ -30,14 +30,14 @@ import (
 func GetProviders() transformer.Providers {
 	return []transformer.Provider{
 		transformer.NewSimpleTransformerProvider(
-			metadata.K8SAuthenticationIstioIoV1Alpha1Policies.Name,
-			metadata.IstioAuthenticationV1Alpha1Policies.Name,
-			handler(metadata.IstioAuthenticationV1Alpha1Policies.Name),
+			collections.K8SAuthenticationIstioIoV1Alpha1Policies.Name,
+			collections.IstioAuthenticationV1Alpha1Policies.Name,
+			handler(collections.IstioAuthenticationV1Alpha1Policies.Name),
 		),
 		transformer.NewSimpleTransformerProvider(
-			metadata.K8SAuthenticationIstioIoV1Alpha1Meshpolicies.Name,
-			metadata.IstioAuthenticationV1Alpha1Meshpolicies.Name,
-			handler(metadata.IstioAuthenticationV1Alpha1Meshpolicies.Name),
+			collections.K8SAuthenticationIstioIoV1Alpha1Meshpolicies.Name,
+			collections.IstioAuthenticationV1Alpha1Meshpolicies.Name,
+			handler(collections.IstioAuthenticationV1Alpha1Meshpolicies.Name),
 		),
 	}
 }

@@ -26,8 +26,8 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/analysis/testing/fixtures"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema"
 )
 
@@ -37,7 +37,7 @@ func TestCorrectArgs(t *testing.T) {
 	m1 := &v1alpha3.VirtualService{}
 
 	testSchema := schema.Instance{
-		Collection: metadata.IstioNetworkingV1Alpha3Virtualservices.Name.String(),
+		Collection: collections.IstioNetworkingV1Alpha3Virtualservices.Name.String(),
 		Validate: func(name, ns string, msg proto.Message) (errs error) {
 			g.Expect(name).To(Equal("name"))
 			g.Expect(ns).To(Equal("ns"))
@@ -61,14 +61,14 @@ func TestCorrectArgs(t *testing.T) {
 }
 
 func TestSchemaValidationWrapper(t *testing.T) {
-	testCol := metadata.IstioNetworkingV1Alpha3Virtualservices
+	testCol := collections.IstioNetworkingV1Alpha3Virtualservices.Name
 
 	m1 := &v1alpha3.VirtualService{}
 	m2 := &v1alpha3.VirtualService{}
 	m3 := &v1alpha3.VirtualService{}
 
 	testSchema := schema.Instance{
-		Collection: testCol.Name.String(),
+		Collection: testCol.String(),
 		Validate: func(_, _ string, msg proto.Message) (errs error) {
 			if msg == m1 {
 				return nil
@@ -87,7 +87,7 @@ func TestSchemaValidationWrapper(t *testing.T) {
 
 	t.Run("CheckMetadataInputs", func(t *testing.T) {
 		g := NewGomegaWithT(t)
-		g.Expect(a.Metadata().Inputs).To(ConsistOf(testCol.Name))
+		g.Expect(a.Metadata().Inputs).To(ConsistOf(testCol))
 	})
 
 	t.Run("NoErrors", func(t *testing.T) {

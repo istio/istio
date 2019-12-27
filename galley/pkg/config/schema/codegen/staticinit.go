@@ -17,7 +17,7 @@ package codegen
 import (
 	"sort"
 
-	"istio.io/istio/galley/pkg/config/meta/schema/ast"
+	"istio.io/istio/galley/pkg/config/schema/ast"
 )
 
 const importInitTemplate = `

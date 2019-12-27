@@ -17,7 +17,8 @@ package conformance
 import (
 	"testing"
 
-	"istio.io/istio/galley/pkg/config/meta/metadata"
+	"istio.io/istio/galley/pkg/config/schema"
+	"istio.io/istio/galley/pkg/config/schema/snapshots"
 	"istio.io/istio/pkg/test/framework"
 )
 
@@ -37,7 +38,7 @@ func TestMissingMCPTests(t *testing.T) {
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
 			collections := make(map[string]struct{})
-			for _, col := range metadata.MustGet().AllCollectionsInSnapshots(metadata.SnapshotNames()) {
+			for _, col := range schema.MustGet().AllCollectionsInSnapshots(snapshots.SnapshotNames()) {
 				collections[col] = struct{}{}
 			}
 

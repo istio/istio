@@ -25,13 +25,14 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"istio.io/istio/galley/pkg/config/processor"
 	"istio.io/istio/galley/pkg/config/processor/transforms"
 	"istio.io/istio/galley/pkg/config/processor/transforms/serviceentry/pod"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema"
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/snapshots"
 	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
 	"istio.io/istio/galley/pkg/testing/mock"
@@ -112,10 +113,10 @@ func BenchmarkEndpointChurn(b *testing.B) {
 		newEndpoints(ips...),
 	}
 
-	m := metadata.MustGet()
+	m := schema.MustGet()
 	src := newSource(b, ki, m.KubeCollections())
 	distributor := newFakeDistributor(b.N)
-	transformProviders := transforms.Providers(metadata.MustGet())
+	transformProviders := transforms.Providers(schema.MustGet())
 
 	processorSettings := processor.Settings{
 		Metadata:           m,
@@ -123,7 +124,7 @@ func BenchmarkEndpointChurn(b *testing.B) {
 		Source:             src,
 		TransformProviders: transformProviders,
 		Distributor:        distributor,
-		EnabledSnapshots:   []string{metadata.SyntheticServiceEntry},
+		EnabledSnapshots:   []string{snapshots.SyntheticServiceEntry},
 	}
 	p, err := processor.Initialize(processorSettings)
 	if err != nil {

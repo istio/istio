@@ -1,7 +1,7 @@
 // GENERATED FILE -- DO NOT EDIT
 //
 
-package metadata
+package collections
 
 import (
 	// Pull in all the known proto types to ensure we get their types registered.

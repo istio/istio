@@ -19,9 +19,9 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 )
 
 // ServiceRoleBindingAnalyzer checks the validity of service role bindings
@@ -35,15 +35,15 @@ func (s *ServiceRoleBindingAnalyzer) Metadata() analysis.Metadata {
 		Name:        "auth.ServiceRoleBindingAnalyzer",
 		Description: "Checks the validity of service role bindings",
 		Inputs: collection.Names{
-			metadata.IstioRbacV1Alpha1Serviceroles.Name,
-			metadata.IstioRbacV1Alpha1Servicerolebindings.Name,
+			collections.IstioRbacV1Alpha1Serviceroles.Name,
+			collections.IstioRbacV1Alpha1Servicerolebindings.Name,
 		},
 	}
 }
 
 // Analyze implements Analyzer
 func (s *ServiceRoleBindingAnalyzer) Analyze(ctx analysis.Context) {
-	ctx.ForEach(metadata.IstioRbacV1Alpha1Servicerolebindings.Name, func(r *resource.Instance) bool {
+	ctx.ForEach(collections.IstioRbacV1Alpha1Servicerolebindings.Name, func(r *resource.Instance) bool {
 		s.analyzeRoleBinding(r, ctx)
 		return true
 	})
@@ -58,7 +58,7 @@ func (s *ServiceRoleBindingAnalyzer) analyzeRoleBinding(r *resource.Instance, ct
 		return
 	}
 
-	if !ctx.Exists(metadata.IstioRbacV1Alpha1Serviceroles.Name, resource.NewFullName(ns, resource.LocalName(srb.RoleRef.Name))) {
-		ctx.Report(metadata.IstioRbacV1Alpha1Servicerolebindings.Name, msg.NewReferencedResourceNotFound(r, "service role", srb.RoleRef.Name))
+	if !ctx.Exists(collections.IstioRbacV1Alpha1Serviceroles.Name, resource.NewFullName(ns, resource.LocalName(srb.RoleRef.Name))) {
+		ctx.Report(collections.IstioRbacV1Alpha1Servicerolebindings.Name, msg.NewReferencedResourceNotFound(r, "service role", srb.RoleRef.Name))
 	}
 }

@@ -20,54 +20,36 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	"istio.io/istio/galley/pkg/config/meta/schema/ast"
+	"istio.io/istio/galley/pkg/config/schema/ast"
 )
 
-func TestStaticSnapshots(t *testing.T) {
+func TestStaticInit(t *testing.T) {
 	var cases = []struct {
 		packageName string
-		snapshots   []*ast.Snapshot
+		packages    []string
 		err         string
 		output      string
 	}{
 		{
 			packageName: "pkg",
-			snapshots: []*ast.Snapshot{
-				{
-					Name:         "foo",
-					VariableName: "Foo",
-					Description:  "this is a really cool foo snapshot",
-				},
-				{
-					Name:         "bar",
-					VariableName: "Bar",
-					Description:  "this is a really cool bar snapshot",
-				},
-			},
+			packages:    []string{"foo", "bar"},
 			output: `
 // GENERATED FILE -- DO NOT EDIT
 //
 
 package pkg
 
-var (
+import (
+	// Pull in all the known proto types to ensure we get their types registered.
 
-	// Bar this is a really cool bar snapshot
-	Bar = "bar"
 
-	// Foo this is a really cool foo snapshot
-	Foo = "foo"
+	// Register protos in "bar"
+	_ "bar"
 
-)
+	// Register protos in "foo"
+	_ "foo"
 
-// SnapshotNames returns the snapshot names declared in this package.
-func SnapshotNames() []string {
-	return []string {
-		Bar,
-		Foo,
-		
-	}
-}`,
+)`,
 		},
 	}
 
@@ -75,9 +57,11 @@ func SnapshotNames() []string {
 		t.Run("", func(t *testing.T) {
 			g := NewGomegaWithT(t)
 
-			s, err := StaticSnapshots(c.packageName, &ast.Metadata{
-				Snapshots: c.snapshots,
-			})
+			m := ast.Metadata{}
+			for _, p := range c.packages {
+				m.Resources = append(m.Resources, &ast.Resource{ProtoPackage: p})
+			}
+			s, err := StaticInit(c.packageName, &m)
 			if c.err != "" {
 				g.Expect(err).NotTo(BeNil())
 				g.Expect(err.Error()).To(Equal(s))
@@ -87,4 +71,11 @@ func SnapshotNames() []string {
 			}
 		})
 	}
+}
+
+func TestApplyTemplate_Error(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	_, err := applyTemplate(staticCollectionsTemplate, struct{}{})
+	g.Expect(err).ToNot(BeNil())
 }

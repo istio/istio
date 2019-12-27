@@ -12,13 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package metadata
+package collections
 
-import "testing"
+import (
+	"testing"
+
+	"istio.io/istio/galley/pkg/config/schema"
+)
 
 func TestCollectionNames(t *testing.T) {
 	c := All.CollectionNames()
-	if len(c) != len(MustGet().AllCollections().CollectionNames()) {
+	if len(c) != len(schema.MustGet().AllCollections().CollectionNames()) {
 		t.Fatalf("Unexpected number of collections: %v", len(c))
 	}
 }

@@ -22,7 +22,7 @@ import (
 	"github.com/onsi/gomega"
 
 	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collection"
 )
 
 // ExpectEqual expects that o1 and o2 are equal. If not, fails with the diff.

@@ -25,11 +25,11 @@ import (
 	"istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processing/transformer"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/galley/pkg/config/synthesize"
 )
 
@@ -42,8 +42,8 @@ type gatewayXform struct {
 var _ event.Transformer = &gatewayXform{}
 
 func getGatewayXformProvider() transformer.Provider {
-	inputs := collection.Names{metadata.K8SExtensionsV1Beta1Ingresses.Name}
-	outputs := collection.Names{metadata.IstioNetworkingV1Alpha3Gateways.Name}
+	inputs := collection.Names{collections.K8SExtensionsV1Beta1Ingresses.Name}
+	outputs := collection.Names{collections.IstioNetworkingV1Alpha3Gateways.Name}
 
 	createFn := func(o processing.ProcessorOptions) event.Transformer {
 		xform := &gatewayXform{}
@@ -75,7 +75,7 @@ func (g *gatewayXform) handle(e event.Event, h event.Handler) {
 		gw := g.convertIngressToGateway(e.Resource)
 		evt := event.Event{
 			Kind:     e.Kind,
-			Source:   metadata.IstioNetworkingV1Alpha3Gateways.Name,
+			Source:   collections.IstioNetworkingV1Alpha3Gateways.Name,
 			Resource: gw,
 		}
 		h.Handle(evt)
@@ -84,7 +84,7 @@ func (g *gatewayXform) handle(e event.Event, h event.Handler) {
 		gw := g.convertIngressToGateway(e.Resource)
 		evt := event.Event{
 			Kind:     e.Kind,
-			Source:   metadata.IstioNetworkingV1Alpha3Gateways.Name,
+			Source:   collections.IstioNetworkingV1Alpha3Gateways.Name,
 			Resource: gw,
 		}
 		evt.Resource.Metadata.FullName = generateSyntheticGatewayName(e.Resource.Metadata.FullName)

@@ -1,7 +1,7 @@
 // GENERATED FILE -- DO NOT EDIT
 //
 
-package metadata
+package snapshots
 
 var (
 

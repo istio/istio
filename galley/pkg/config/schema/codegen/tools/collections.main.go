@@ -21,12 +21,12 @@ import (
 	"io/ioutil"
 	"os"
 
-	"istio.io/istio/galley/pkg/config/meta/schema"
-	"istio.io/istio/galley/pkg/config/meta/schema/ast"
-	"istio.io/istio/galley/pkg/config/meta/schema/codegen"
+	"istio.io/istio/galley/pkg/config/schema"
+	"istio.io/istio/galley/pkg/config/schema/ast"
+	"istio.io/istio/galley/pkg/config/schema/codegen"
 )
 
-// Utility for generating staticinit.gen.go. Called from gen.go
+// Utility for generating collections.gen.go. Called from gen.go
 func main() {
 	if len(os.Args) != 4 {
 		fmt.Printf("Invalid args: %v", os.Args)
@@ -57,7 +57,7 @@ func main() {
 		os.Exit(-4)
 	}
 
-	contents, err := codegen.StaticInit(pkg, m)
+	contents, err := codegen.StaticCollections(pkg, m)
 	if err != nil {
 		fmt.Printf("Error applying static init template: %v", err)
 		os.Exit(-3)
@@ -67,13 +67,4 @@ func main() {
 		fmt.Printf("Error writing output file: %v", err)
 		os.Exit(-4)
 	}
-}
-
-func readMetadata(path string) (*schema.Metadata, error) {
-	b, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("unable to read input file: %v", err)
-	}
-
-	return schema.ParseAndBuild(string(b))
 }

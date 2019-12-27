@@ -27,11 +27,11 @@ import (
 	"istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/galley/pkg/config/event"
-	"istio.io/istio/galley/pkg/config/meta/metadata"
-	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processing/transformer"
 	"istio.io/istio/galley/pkg/config/resource"
+	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/collections"
 	"istio.io/istio/galley/pkg/config/scope"
 )
 
@@ -47,8 +47,8 @@ type virtualServiceXform struct {
 }
 
 func getVirtualServiceXformProvider() transformer.Provider {
-	inputs := collection.Names{metadata.K8SExtensionsV1Beta1Ingresses.Name}
-	outputs := collection.Names{metadata.IstioNetworkingV1Alpha3Virtualservices.Name}
+	inputs := collection.Names{collections.K8SExtensionsV1Beta1Ingresses.Name}
+	outputs := collection.Names{collections.IstioNetworkingV1Alpha3Virtualservices.Name}
 
 	createFn := func(o processing.ProcessorOptions) event.Transformer {
 		xform := &virtualServiceXform{
@@ -219,7 +219,7 @@ loop:
 func (g *virtualServiceXform) notifyUpdate(h event.Handler, k event.Kind, svs *syntheticVirtualService) {
 	e := event.Event{
 		Kind:     k,
-		Source:   metadata.IstioNetworkingV1Alpha3Virtualservices.Name,
+		Source:   collections.IstioNetworkingV1Alpha3Virtualservices.Name,
 		Resource: svs.generateEntry(g.options.DomainSuffix),
 	}
 	h.Handle(e)
@@ -228,7 +228,7 @@ func (g *virtualServiceXform) notifyUpdate(h event.Handler, k event.Kind, svs *s
 func (g *virtualServiceXform) notifyDelete(h event.Handler, name resource.FullName, v resource.Version) {
 	e := event.Event{
 		Kind:   event.Deleted,
-		Source: metadata.IstioNetworkingV1Alpha3Virtualservices.Name,
+		Source: collections.IstioNetworkingV1Alpha3Virtualservices.Name,
 		Resource: &resource.Instance{
 			Metadata: resource.Metadata{
 				FullName: name,

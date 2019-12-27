@@ -12,22 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package metadata
+package schema
 
 import (
 	"fmt"
-
-	"istio.io/istio/galley/pkg/config/meta/schema"
 )
 
 // Get returns the contained resources.yaml file, in parsed form.
-func Get() (*schema.Metadata, error) {
+func Get() (*Metadata, error) {
 	b, err := Asset("metadata.yaml")
 	if err != nil {
 		return nil, err
 	}
 
-	m, err := schema.ParseAndBuild(string(b))
+	m, err := ParseAndBuild(string(b))
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +34,7 @@ func Get() (*schema.Metadata, error) {
 }
 
 // MustGet calls Get and panics if it returns and error.
-func MustGet() *schema.Metadata {
+func MustGet() *Metadata {
 	s, err := Get()
 	if err != nil {
 		panic(fmt.Sprintf("metadata.MustGet: %v", err))

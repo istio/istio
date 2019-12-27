@@ -17,7 +17,7 @@ package collection
 import (
 	"fmt"
 
-	"istio.io/istio/galley/pkg/config/meta/schema/resource"
+	"istio.io/istio/galley/pkg/config/schema/resource"
 )
 
 // Schema is the metadata for a resource collection.

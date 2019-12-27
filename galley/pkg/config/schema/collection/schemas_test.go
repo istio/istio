@@ -20,7 +20,7 @@ import (
 	_ "github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
 
-	"istio.io/istio/galley/pkg/config/meta/schema/resource"
+	"istio.io/istio/galley/pkg/config/schema/resource"
 )
 
 func TestSchemas_Basic(t *testing.T) {
