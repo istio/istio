@@ -22,6 +22,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"strings"
+	"time"
 
 	testUtil "istio.io/istio/pkg/test/util"
 	testsUtil "istio.io/istio/tests/util"
@@ -147,6 +148,11 @@ func (i *Istioctl) KubeInject(src, dest, kubeconfig string) error {
 
 	_, err := i.run(`kube-inject -f %s -o %s -n %s -i %s --meshConfigMapName=istio %s %s`,
 		src, dest, i.namespace, i.istioNamespace, injectCfgMapStr, kubeconfigStr)
+	return err
+}
+
+func (i *Istioctl) Wait(typ, namespace, name string, timeout time.Duration) error {
+	_, err := i.run("x wait --timeout %d %s %s.%s", timeout.Seconds(), typ, name, namespace)
 	return err
 }
 

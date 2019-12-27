@@ -187,10 +187,20 @@ func KubeApply(namespace, yamlFileName string, kubeconfig string) error {
 	return err
 }
 
+// KubeApplyOut kubectl apply from file and return output
+func KubeApplyOut(namespace, yamlFileName string, kubeconfig string) (string, error) {
+	return Shell(kubeCommand("apply", namespace, yamlFileName, kubeconfig))
+}
+
 // KubeCommand executes the given kubectl command with the given yaml file
 func KubeCommand(command, namespace, yamlFileName string, kubeconfig string) error {
 	_, err := Shell(kubeCommand(command, namespace, yamlFileName, kubeconfig))
 	return err
+}
+
+// KubeCommandOut executes the given kubectl command with the given yaml file
+func KubeCommandOut(command, namespace, yamlFileName string, kubeconfig string) (string, error) {
+	return Shell(kubeCommand(command, namespace, yamlFileName, kubeconfig))
 }
 
 // KubeGetYaml kubectl get yaml content for given resource.

@@ -15,8 +15,10 @@
 package multicluster
 
 import (
+	"context"
 	"flag"
 	"fmt"
+	"golang.org/x/sync/errgroup"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -225,8 +227,48 @@ type deployableConfig struct {
 	// (e.g the default global authentication policy) and need to be modified for tests.
 	Removes    []resource
 	applied    []string
+	appliedOut []string
 	removed    []string
 	kubeconfig string
+}
+
+func (c *deployableConfig) Wait(istioctls []*framework.Istioctl) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	g, _ := errgroup.WithContext(ctx)
+	// Wait until the deployments are ready
+
+	g.Go(func() error {return util.CheckDeployments(c.Namespace, maxDeploymentTimeout, c.kubeconfig)})
+
+	for _, singleOut := range c.appliedOut {
+		for _, line := range strings.Split(singleOut, "\n") {
+			// output line is in format:
+			// FullyQualifiedType/name [updated|create|unchanged]
+			// such as
+			// virtualservice.networking.istio.io/frontend created
+			parts := strings.Split(line, " ")
+			if parts[1] == "unchanged"{
+				continue
+			}
+			resourceId := strings.Split(parts[0], "/")
+			if !strings.HasSuffix(resourceId[0], "istio.io") {
+				continue
+			}
+			simpleTypeName := strings.Split(resourceId[0], ".")[0]
+			for _, i := range istioctls {
+				if i == nil {
+					continue
+				}
+				g.Go(func() error {return i.Wait(simpleTypeName, c.Namespace, resourceId[1], maxDeploymentTimeout)})
+			}
+		}
+	}
+
+	if err := g.Wait(); err != nil {
+		cancel()
+		_ = c.Teardown()
+		return err
+	}
+	return nil
 }
 
 // Setup pushes the config and waits for it to propagate to all nodes in the cluster.
@@ -268,18 +310,14 @@ func (c *deployableConfig) Setup() error {
 		if len(yamlFile.LabelSeletor) > 0 {
 			kubeCmd += " -l " + yamlFile.LabelSeletor
 		}
-		if err := util.KubeCommand(kubeCmd, c.Namespace, yamlFile.Name, c.kubeconfig); err != nil {
+		out, err := util.KubeCommandOut(kubeCmd, c.Namespace, yamlFile.Name, c.kubeconfig)
+		if err != nil {
 			// Run the teardown function now and return
 			_ = c.Teardown()
 			return err
 		}
+		c.appliedOut = append(c.appliedOut, out)
 		c.applied = append(c.applied, yamlFile.Name)
-	}
-
-	// Wait until the deployments are ready
-	if err := util.CheckDeployments(c.Namespace, maxDeploymentTimeout, c.kubeconfig); err != nil {
-		_ = c.Teardown()
-		return err
 	}
 
 	return nil
@@ -360,6 +398,10 @@ func (t *testConfig) Setup() (err error) {
 	// Deploy additional configuration/apps
 	for _, ec := range t.extraConfig {
 		err = ec.Setup()
+		if err != nil {
+			return
+		}
+		err = ec.Wait([]*framework.Istioctl{t.Kube.Istioctl, t.Kube.RemoteIstioctl})
 		if err != nil {
 			return
 		}
