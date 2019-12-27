@@ -17,6 +17,7 @@ package model
 import (
 	"fmt"
 	"reflect"
+	"regexp"
 	"testing"
 	"time"
 
@@ -433,10 +434,37 @@ func TestJwtAuthNPolicy(t *testing.T) {
 }
 
 func TestEnvoyFilters(t *testing.T) {
+	proxyVersionRegex := regexp.MustCompile(`1\.4.*`)
 	envoyFilters := []*EnvoyFilterWrapper{
 		{
 			workloadSelector: map[string]string{"app": "v1"},
-			Patches:          nil,
+			Patches: map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper{
+				networking.EnvoyFilter_LISTENER: {
+					{
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{
+								ProxyVersion: "1\\.4.*",
+							},
+						},
+						ProxyVersionRegex: proxyVersionRegex,
+					},
+				},
+			},
+		},
+		{
+			workloadSelector: map[string]string{"app": "v1"},
+			Patches: map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper{
+				networking.EnvoyFilter_CLUSTER: {
+					{
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{
+								ProxyVersion: `1\\.4.*`,
+							},
+						},
+						ProxyVersionRegex: proxyVersionRegex,
+					},
+				},
+			},
 		},
 	}
 
@@ -451,43 +479,82 @@ func TestEnvoyFilters(t *testing.T) {
 	}
 
 	cases := []struct {
-		name     string
-		proxy    *Proxy
-		expected int
+		name                    string
+		proxy                   *Proxy
+		expectedListenerPatches int
+		expectedClusterPatches  int
 	}{
 		{
-			name:     "proxy matches two envoyfilters",
-			proxy:    &Proxy{ConfigNamespace: "test-ns", WorkloadLabels: labels.Collection{{"app": "v1"}}},
-			expected: 2,
+			name: "proxy matches two envoyfilters",
+			proxy: &Proxy{
+				Metadata:        &NodeMetadata{IstioVersion: "1.4.0"},
+				ConfigNamespace: "test-ns",
+				WorkloadLabels:  labels.Collection{{"app": "v1"}},
+			},
+			expectedListenerPatches: 2,
+			expectedClusterPatches:  2,
 		},
 		{
-			name:     "proxy in root namespace matches an envoyfilter",
-			proxy:    &Proxy{ConfigNamespace: "istio-system", WorkloadLabels: labels.Collection{{"app": "v1"}}},
-			expected: 1,
+			name: "proxy in root namespace matches an envoyfilter",
+			proxy: &Proxy{
+				Metadata:        &NodeMetadata{IstioVersion: "1.4.0"},
+				ConfigNamespace: "istio-system",
+				WorkloadLabels:  labels.Collection{{"app": "v1"}},
+			},
+			expectedListenerPatches: 1,
+			expectedClusterPatches:  1,
 		},
 
 		{
-			name:     "proxy matches no envoyfilter",
-			proxy:    &Proxy{ConfigNamespace: "test-ns", WorkloadLabels: labels.Collection{{"app": "v2"}}},
-			expected: 0,
+			name: "proxy matches no envoyfilter",
+			proxy: &Proxy{
+				Metadata:        &NodeMetadata{IstioVersion: "1.4.0"},
+				ConfigNamespace: "test-ns",
+				WorkloadLabels:  labels.Collection{{"app": "v2"}},
+			},
+			expectedListenerPatches: 0,
+			expectedClusterPatches:  0,
 		},
 
 		{
-			name:     "proxy matches envoyfilter in root ns",
-			proxy:    &Proxy{ConfigNamespace: "test-n2", WorkloadLabels: labels.Collection{{"app": "v1"}}},
-			expected: 1,
+			name: "proxy matches envoyfilter in root ns",
+			proxy: &Proxy{
+				Metadata:        &NodeMetadata{IstioVersion: "1.4.0"},
+				ConfigNamespace: "test-n2",
+				WorkloadLabels:  labels.Collection{{"app": "v1"}},
+			},
+			expectedListenerPatches: 1,
+			expectedClusterPatches:  1,
+		},
+		{
+			name: "proxy version matches no envoyfilters",
+			proxy: &Proxy{
+				Metadata:        &NodeMetadata{IstioVersion: "1.3.0"},
+				ConfigNamespace: "test-ns",
+				WorkloadLabels:  labels.Collection{{"app": "v1"}},
+			},
+			expectedListenerPatches: 0,
+			expectedClusterPatches:  0,
 		},
 	}
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			filters := push.EnvoyFilters(tt.proxy)
-			if len(filters) != tt.expected {
-				t.Errorf("Expect %d envoy filters, but got %d", len(filters), tt.expected)
+			filter := push.EnvoyFilters(tt.proxy)
+			if filter == nil {
+				if tt.expectedClusterPatches != 0 || tt.expectedListenerPatches != 0 {
+					t.Errorf("Got no envoy filter")
+				}
+				return
+			}
+			if len(filter.Patches[networking.EnvoyFilter_CLUSTER]) != tt.expectedClusterPatches {
+				t.Errorf("Expect %d envoy filter cluster patches, but got %d", tt.expectedClusterPatches, len(filter.Patches[networking.EnvoyFilter_CLUSTER]))
+			}
+			if len(filter.Patches[networking.EnvoyFilter_LISTENER]) != tt.expectedListenerPatches {
+				t.Errorf("Expect %d envoy filter listener patches, but got %d", tt.expectedListenerPatches, len(filter.Patches[networking.EnvoyFilter_LISTENER]))
 			}
 		})
 	}
-
 }
 
 func TestSidecarScope(t *testing.T) {
