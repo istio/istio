@@ -39,6 +39,10 @@ func ApplyClusterPatches(
 	out = clusters
 
 	efw := push.EnvoyFilters(proxy)
+	if efw == nil {
+		return out
+	}
+
 	clustersRemoved := false
 	for _, cp := range efw.Patches[networking.EnvoyFilter_CLUSTER] {
 		if cp.Operation != networking.EnvoyFilter_Patch_REMOVE &&
