@@ -1058,17 +1058,17 @@ func (configgen *ConfigGeneratorImpl) buildHTTPProxy(node *model.Proxy,
 	push *model.PushContext, proxyInstances []*model.ServiceInstance) *xdsapi.Listener {
 	httpProxyPort := push.Mesh.ProxyHttpPort
 	noneMode := node.GetInterceptionMode() == model.InterceptionNone
-	_, actualLocalHostAddress := getActualWildcardAndLocalHost(node)
-
-	if httpProxyPort == 0 && noneMode { // make sure http proxy is enabled for 'none' interception.
-		httpProxyPort = int32(features.DefaultPortHTTPProxy)
-	}
-	// enable HTTP PROXY port if necessary; this will add an RDS route for this port
 	if httpProxyPort == 0 {
-		return nil
+		// make sure http proxy is enabled for 'none' interception.
+		if noneMode {
+			httpProxyPort = int32(features.DefaultPortHTTPProxy)
+		} else {
+			return nil
+		}
 	}
 
-	listenAddress := actualLocalHostAddress
+	// enable HTTP PROXY port if necessary; this will add an RDS route for this port
+	_, listenAddress := getActualWildcardAndLocalHost(node)
 
 	httpOpts := &core.Http1ProtocolOptions{
 		AllowAbsoluteUrl: proto.BoolTrue,
@@ -1111,7 +1111,7 @@ func (configgen *ConfigGeneratorImpl) buildHTTPProxy(node *model.Proxy,
 		Push:             push,
 	}
 	if err := buildCompleteFilterChain(pluginParams, mutable, opts); err != nil {
-		log.Warna("buildSidecarListeners ", err.Error())
+		log.Warna("buildHTTPProxy filter chain error  ", err.Error())
 		return nil
 	}
 	return l
