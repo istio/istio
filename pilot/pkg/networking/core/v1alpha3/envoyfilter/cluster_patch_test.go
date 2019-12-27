@@ -293,6 +293,5 @@ func TestApplyClusterPatches(t *testing.T) {
 				t.Errorf("ApplyClusterPatches(): %s mismatch (-want +got):\n%s", tc.name, diff)
 			}
 		})
-		return
 	}
 }
