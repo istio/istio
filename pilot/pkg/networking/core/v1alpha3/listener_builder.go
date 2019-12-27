@@ -21,6 +21,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	gogoproto "github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -28,6 +29,8 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
@@ -35,7 +38,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -67,7 +69,6 @@ type ListenerBuilder struct {
 	outboundListeners      []*xdsapi.Listener
 	virtualListener        *xdsapi.Listener
 	virtualInboundListener *xdsapi.Listener
-	useInboundFilterChain  bool
 }
 
 func insertOriginalListenerName(chain *listener.FilterChain, listenerName string) {
@@ -132,16 +133,6 @@ func reduceInboundListenerToFilterChains(listeners []*xdsapi.Listener) ([]*liste
 }
 
 func (builder *ListenerBuilder) aggregateVirtualInboundListener() *ListenerBuilder {
-	// Deprecated by envoyproxy. Replaced
-	// 1. filter chains in this listener
-	// 2. explicit original_dst listener filter
-	// UseOriginalDst: proto.BoolTrue,
-	builder.virtualInboundListener.UseOriginalDst = nil
-	builder.virtualInboundListener.ListenerFilters = append(builder.virtualInboundListener.ListenerFilters,
-		&listener.ListenerFilter{
-			Name: xdsutil.OriginalDestination,
-		},
-	)
 	// TODO: Trim the inboundListeners properly. Those that have been added to filter chains should
 	// be removed while those that haven't been added need to remain in the inboundListeners list.
 	filterChains, needTLS := reduceInboundListenerToFilterChains(builder.inboundListeners)
@@ -183,8 +174,6 @@ func (builder *ListenerBuilder) aggregateVirtualInboundListener() *ListenerBuild
 func NewListenerBuilder(node *model.Proxy) *ListenerBuilder {
 	builder := &ListenerBuilder{
 		node: node,
-		// The extra inbound listener has no side effect for iptables that doesn't redirect to 15006
-		useInboundFilterChain: true,
 	}
 	return builder
 }
@@ -293,15 +282,17 @@ func (builder *ListenerBuilder) buildVirtualOutboundListener(
 
 	actualWildcard, _ := getActualWildcardAndLocalHost(node)
 
+	listenerFilters := []*listener.ListenerFilter{{Name: wellknown.OriginalDestination}}
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
 	ipTablesListener := &xdsapi.Listener{
 		Name:             VirtualOutboundListenerName,
 		Address:          util.BuildAddress(actualWildcard, uint32(push.Mesh.ProxyListenPort)),
 		Transparent:      isTransparentProxy,
-		UseOriginalDst:   proto.BoolTrue,
 		FilterChains:     filterChains,
+		ListenerFilters:  listenerFilters,
 		TrafficDirection: core.TrafficDirection_OUTBOUND,
 	}
+
 	configgen.onVirtualOutboundListener(node, push, ipTablesListener)
 	builder.virtualListener = ipTablesListener
 	return builder
@@ -323,17 +314,20 @@ func (builder *ListenerBuilder) buildVirtualInboundListener(
 	if util.IsProtocolSniffingEnabledForInbound(node) {
 		filterChains = append(filterChains, newHTTPPassThroughFilterChain(configgen, node, push)...)
 	}
+
+	// `use_original_dst` was deprecated by envoy.
+	// Use an original_dst listener filter instead.
+	listenerFilters := []*listener.ListenerFilter{{Name: xdsutil.OriginalDestination}}
 	builder.virtualInboundListener = &xdsapi.Listener{
 		Name:             VirtualInboundListenerName,
 		Address:          util.BuildAddress(actualWildcard, ProxyInboundListenPort),
 		Transparent:      isTransparentProxy,
-		UseOriginalDst:   proto.BoolTrue,
 		TrafficDirection: core.TrafficDirection_INBOUND,
 		FilterChains:     filterChains,
+		ListenerFilters:  listenerFilters,
 	}
-	if builder.useInboundFilterChain {
-		builder.aggregateVirtualInboundListener()
-	}
+
+	builder.aggregateVirtualInboundListener()
 	return builder
 }
 
