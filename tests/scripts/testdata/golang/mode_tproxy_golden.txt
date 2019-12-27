@@ -61,4 +61,3 @@ iptables -t nat -I PREROUTING 1 -i eth2 -d 1.1.0.0/16 -j ISTIO_REDIRECT
 iptables -t nat -A ISTIO_OUTPUT -d 1.1.0.0/16 -j ISTIO_REDIRECT
 iptables -t nat -A ISTIO_OUTPUT -j RETURN
 iptables-save 
-ip6tables-save 

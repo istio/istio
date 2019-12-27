@@ -92,6 +92,11 @@ const (
 
 // Constants for iptables commands
 const (
+	IPTABLES         = "iptables"
 	IPTABLESRESTORE  = "iptables-restore"
+	IPTABLESSAVE     = "iptables-save"
+	IP6TABLES        = "ip6tables"
 	IP6TABLESRESTORE = "ip6tables-restore"
+	IP6TABLESSAVE    = "ip6tables-save"
+	IP               = "ip"
 )

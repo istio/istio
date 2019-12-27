@@ -14,14 +14,6 @@
 
 package dependencies
 
-const (
-	IPTABLES      = "iptables"
-	IPTABLESSAVE  = "iptables-save"
-	IP6TABLES     = "ip6tables"
-	IP6TABLESSAVE = "ip6tables-save"
-	IP            = "ip"
-)
-
 // Dependencies is used as abstraction for the commands used from the operating system
 type Dependencies interface {
 	// RunOrFail runs a command and panics, if it fails

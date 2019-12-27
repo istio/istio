@@ -54,13 +54,13 @@ func cleanup(dryRun bool) {
 	}
 
 	defer func() {
-		for _, cmd := range []string{dep.IPTABLESSAVE, dep.IP6TABLESSAVE} {
+		for _, cmd := range []string{constants.IPTABLESSAVE, constants.IP6TABLESSAVE} {
 			// iptables-save is best efforts
 			_ = ext.Run(cmd)
 		}
 	}()
 
-	for _, cmd := range []string{dep.IPTABLES, dep.IP6TABLES} {
+	for _, cmd := range []string{constants.IPTABLES, constants.IP6TABLES} {
 		removeOldChains(ext, cmd)
 	}
 }

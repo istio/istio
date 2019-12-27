@@ -117,19 +117,22 @@ func (iptConfigurator *IptablesConfigurator) handleInboundPortsInclude() {
 			// In the ISTIOINBOUND chain, '-j ISTIODIVERT' reroutes to the loopback
 			// interface.
 			// Mark all inbound packets.
-			iptConfigurator.iptables.AppendRuleV4(constants.ISTIODIVERT, constants.MANGLE, "-j", constants.MARK, "--set-mark", iptConfigurator.cfg.InboundTProxyMark)
+			iptConfigurator.iptables.AppendRuleV4(constants.ISTIODIVERT, constants.MANGLE, "-j", constants.MARK, "--set-mark",
+				iptConfigurator.cfg.InboundTProxyMark)
 			iptConfigurator.iptables.AppendRuleV4(constants.ISTIODIVERT, constants.MANGLE, "-j", constants.ACCEPT)
 			// Route all packets marked in chain ISTIODIVERT using routing table ${INBOUND_TPROXY_ROUTE_TABLE}.
 			//TODO: (abhide): Move this out of this method
 			iptConfigurator.ext.RunOrFail(
-				dep.IP, "-f", "inet", "rule", "add", "fwmark", iptConfigurator.cfg.InboundTProxyMark, "lookup", iptConfigurator.cfg.InboundTProxyRouteTable)
+				constants.IP, "-f", "inet", "rule", "add", "fwmark", iptConfigurator.cfg.InboundTProxyMark, "lookup",
+				iptConfigurator.cfg.InboundTProxyRouteTable)
 			// In routing table ${INBOUND_TPROXY_ROUTE_TABLE}, create a single default rule to route all traffic to
 			// the loopback interface.
 			//TODO: (abhide): Move this out of this method
-			err := iptConfigurator.ext.Run(dep.IP, "-f", "inet", "route", "add", "local", "default", "dev", "lo", "table", iptConfigurator.cfg.InboundTProxyRouteTable)
+			err := iptConfigurator.ext.Run(constants.IP, "-f", "inet", "route", "add", "local", "default", "dev", "lo", "table",
+				iptConfigurator.cfg.InboundTProxyRouteTable)
 			if err != nil {
 				//TODO: (abhide): Move this out of this method
-				iptConfigurator.ext.RunOrFail(dep.IP, "route", "show", "table", "all")
+				iptConfigurator.ext.RunOrFail(constants.IP, "route", "show", "table", "all")
 			}
 			// Create a new chain for redirecting inbound traffic to the common Envoy
 			// port.
@@ -305,8 +308,10 @@ func (iptConfigurator *IptablesConfigurator) handleInboundIpv4Rules(ipv4RangesIn
 func (iptConfigurator *IptablesConfigurator) run() {
 	defer func() {
 		// Best effort since we don't know if the commands exist
-		_ = iptConfigurator.ext.Run(dep.IPTABLESSAVE)
-		_ = iptConfigurator.ext.Run(dep.IP6TABLESSAVE)
+		_ = iptConfigurator.ext.Run(constants.IPTABLESSAVE)
+		if iptConfigurator.cfg.EnableInboundIPv6 {
+			_ = iptConfigurator.ext.Run(constants.IP6TABLESSAVE)
+		}
 	}()
 
 	//
@@ -331,7 +336,7 @@ func (iptConfigurator *IptablesConfigurator) run() {
 
 	if iptConfigurator.cfg.EnableInboundIPv6 {
 		//TODO: (abhide): Move this out of this method
-		iptConfigurator.ext.RunOrFail(dep.IP, "-6", "addr", "add", "::6/128", "dev", "lo")
+		iptConfigurator.ext.RunOrFail(constants.IP, "-6", "addr", "add", "::6/128", "dev", "lo")
 	}
 
 	// Create a new chain for redirecting outbound traffic to the common Envoy port.
