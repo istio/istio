@@ -123,6 +123,9 @@ const (
 	MonitoringPort  = "MONITORING_PORT"
 	EnableProfiling = "ENABLE_PROFILING"
 	DebugPort       = "DEBUG_PORT"
+
+	pkcs8Key      = "PKCS8_KEY"
+	pkcs8KeysFlag = "pkcs8Key"
 )
 
 var (
@@ -208,6 +211,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache, gatewaySecr
 			os.Exit(1)
 		}
 		workloadSdsCacheOptions.TrustDomain = serverOptions.TrustDomain
+		workloadSdsCacheOptions.Pkcs8Keys = serverOptions.Pkcs8Keys
 		workloadSdsCacheOptions.Plugins = sds.NewPlugins(serverOptions.PluginNames)
 		workloadSecretCache = cache.NewSecretCache(wSecretFetcher, sds.NotifyProxy, workloadSdsCacheOptions)
 	} else {
@@ -254,6 +258,7 @@ var (
 		"Debug endpoints dump SDS configuration and connection data from this port").Get()
 	enableProfilingEnv = env.RegisterBoolVar(EnableProfiling, true,
 		"Enabling profiling when monitoring Citadel agent").Get()
+	pkcs8KeyEnv                        = env.RegisterBoolVar(pkcs8Key, false, "Whether to generate PKCS#8 private keys").Get()
 )
 
 func applyEnvVars(cmd *cobra.Command) {
@@ -283,6 +288,10 @@ func applyEnvVars(cmd *cobra.Command) {
 
 	if !cmd.Flag(trustDomainFlag).Changed {
 		serverOptions.TrustDomain = trustDomainEnv
+	}
+
+	if !cmd.Flag(pkcs8KeysFlag).Changed {
+		serverOptions.Pkcs8Keys = pkcs8KeyEnv
 	}
 
 	if !cmd.Flag(vaultAddressFlag).Changed {
@@ -409,6 +418,8 @@ func main() {
 		"Vault sign CSR path")
 	rootCmd.PersistentFlags().StringVar(&serverOptions.VaultTLSRootCert, vaultTLSRootCertFlag, "",
 		"Vault TLS root certificate")
+	rootCmd.PersistentFlags().BoolVar(&serverOptions.Pkcs8Keys, pkcs8KeysFlag,
+		false, "Whether to generate PKCS#8 private keys")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
