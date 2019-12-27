@@ -59,8 +59,8 @@ export TARGET_OUT ?= $(shell pwd)/out/$(TARGET_OS)_$(TARGET_ARCH)
 export TARGET_OUT_LINUX ?= $(shell pwd)/out/linux_amd64
 
 ifeq ($(BUILD_WITH_CONTAINER),1)
-export TARGET_OUT = /work/out/$(TARGET_OS)_$(TARGET_ARCH)
-export TARGET_OUT_LINUX = /work/out/linux_amd64
+export TARGET_OUT = /work/src/istio.io/istio/out/$(TARGET_OS)_$(TARGET_ARCH)
+export TARGET_OUT_LINUX = /work/src/istio.io/istio/out/linux_amd64
 CONTAINER_CLI ?= docker
 DOCKER_SOCKET_MOUNT ?= -v /var/run/docker.sock:/var/run/docker.sock
 IMG ?= gcr.io/istio-testing/build-tools:$(IMAGE_VERSION)
@@ -116,11 +116,11 @@ RUN = $(CONTAINER_CLI) run -t -i --sig-proxy=true -u $(UID):$(GID) --rm \
 	-v /etc/passwd:/etc/passwd:ro \
 	$(DOCKER_SOCKET_MOUNT) \
 	$(CONTAINER_OPTIONS) \
-	--mount type=bind,source="$(PWD)",destination="/work" \
+	--mount type=bind,source="$(PWD)",destination="/work/src/istio.io/istio" \
 	--mount type=volume,source=go,destination="/go" \
 	--mount type=volume,source=gocache,destination="/gocache" \
 	$(CONDITIONAL_HOST_MOUNTS) \
-	-w /work $(IMG)
+	-w /work/src/istio.io/istio $(IMG)
 
 MAKE = $(RUN) make --no-print-directory -e -f Makefile.core.mk
 
