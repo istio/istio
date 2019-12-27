@@ -258,7 +258,7 @@ var (
 		"Debug endpoints dump SDS configuration and connection data from this port").Get()
 	enableProfilingEnv = env.RegisterBoolVar(EnableProfiling, true,
 		"Enabling profiling when monitoring Citadel agent").Get()
-	pkcs8KeyEnv                        = env.RegisterBoolVar(pkcs8Key, false, "Whether to generate PKCS#8 private keys").Get()
+	pkcs8KeyEnv = env.RegisterBoolVar(pkcs8Key, false, "Whether to generate PKCS#8 private keys").Get()
 )
 
 func applyEnvVars(cmd *cobra.Command) {
