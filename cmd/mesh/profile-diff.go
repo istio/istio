@@ -16,6 +16,7 @@ package mesh
 
 import (
 	"fmt"
+	"os"
 
 	"istio.io/operator/pkg/util"
 
@@ -59,7 +60,8 @@ func profileDiff(rootArgs *rootArgs, args []string) error {
 	if diff == "" {
 		fmt.Println("Profiles are identical")
 	} else {
-		return fmt.Errorf("difference of profiles are:\n%s", diff)
+		fmt.Printf("Difference of profiles:\n%s", diff)
+		os.Exit(1)
 	}
 
 	return nil
