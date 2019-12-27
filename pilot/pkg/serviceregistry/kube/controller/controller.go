@@ -126,7 +126,6 @@ type Options struct {
 type EndpointMode int
 
 const (
-
 	// EndpointsOnly type will use only Kubernetes Endpoints
 	EndpointsOnly EndpointMode = iota
 

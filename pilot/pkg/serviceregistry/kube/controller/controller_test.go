@@ -192,6 +192,7 @@ func TestServices(t *testing.T) {
 	})
 
 	for mode, name := range EndpointModeNames {
+		mode := mode
 		t.Run(name, func(t *testing.T) {
 			ctl, fx := newFakeControllerWithOptions(fakeControllerOptions{networksWatcher: networksWatcher, mode: mode})
 			defer ctl.Stop()
@@ -422,6 +423,7 @@ func TestController_GetPodLocality(t *testing.T) {
 
 func TestGetProxyServiceInstances(t *testing.T) {
 	for mode, name := range EndpointModeNames {
+		mode := mode
 		t.Run(name, func(t *testing.T) {
 			controller, fx := newFakeControllerWithOptions(fakeControllerOptions{mode: mode})
 			defer controller.Stop()
@@ -696,6 +698,7 @@ func TestGetProxyServiceInstancesWithMultiIPs(t *testing.T) {
 
 	for _, c := range testCases {
 		for mode, name := range EndpointModeNames {
+			mode := mode
 			t.Run(fmt.Sprintf("%s_%s", c.name, name), func(t *testing.T) {
 				// Setup kube caches
 				controller, fx := newFakeControllerWithOptions(fakeControllerOptions{mode: mode})
@@ -734,6 +737,7 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 	defer spiffe.SetTrustDomain(oldTrustDomain)
 
 	for mode, name := range EndpointModeNames {
+		mode := mode
 		t.Run(name, func(t *testing.T) {
 			controller, fx := newFakeControllerWithOptions(fakeControllerOptions{mode: mode})
 			defer controller.Stop()
@@ -920,6 +924,7 @@ func TestManagementPorts(t *testing.T) {
 
 func TestController_Service(t *testing.T) {
 	for mode, name := range EndpointModeNames {
+		mode := mode
 		t.Run(name, func(t *testing.T) {
 			controller, fx := newFakeControllerWithOptions(fakeControllerOptions{mode: mode})
 			defer controller.Stop()
@@ -1010,6 +1015,7 @@ func TestController_Service(t *testing.T) {
 
 func TestController_ExternalNameService(t *testing.T) {
 	for mode, name := range EndpointModeNames {
+		mode := mode
 		t.Run(name, func(t *testing.T) {
 			deleteWg := sync.WaitGroup{}
 			controller, fx := newFakeControllerWithOptions(fakeControllerOptions{
@@ -1534,6 +1540,7 @@ func addNodes(t *testing.T, controller *Controller, nodes ...*coreV1.Node) {
 
 func TestEndpointUpdate(t *testing.T) {
 	for mode, name := range EndpointModeNames {
+		mode := mode
 		t.Run(name, func(t *testing.T) {
 			controller, fx := newFakeControllerWithOptions(fakeControllerOptions{mode: mode})
 			defer controller.Stop()
@@ -1597,6 +1604,7 @@ func TestEndpointUpdate(t *testing.T) {
 // Validates that when Pilot sees Endpoint before the corresponding Pod, it loads Pod from K8S and proceed.
 func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 	for mode, name := range EndpointModeNames {
+		mode := mode
 		t.Run(name, func(t *testing.T) {
 			controller, fx := newFakeControllerWithOptions(fakeControllerOptions{mode: mode})
 			// Setup kube caches
