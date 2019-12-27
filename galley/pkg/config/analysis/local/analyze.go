@@ -248,7 +248,7 @@ func (sa *SourceAnalyzer) AddDefaultResources() error {
 	var readers []io.Reader
 
 	if sa.meshCfg.GetIngressControllerMode() != v1alpha1.MeshConfig_OFF {
-		ingressResources, err := getDefaultIstioIngress(sa.istioNamespace.String(), sa.meshCfg.GetIngressService())
+		ingressResources, err := getDefaultIstioIngressGateway(sa.istioNamespace.String(), sa.meshCfg.GetIngressService())
 		if err != nil {
 			return err
 		}

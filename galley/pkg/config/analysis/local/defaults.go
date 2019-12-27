@@ -19,7 +19,7 @@ import (
 	"html/template"
 )
 
-const defaultIstioIngress = `
+const defaultIstioIngressGateway = `
 apiVersion: v1
 kind: Pod
 metadata:
@@ -63,8 +63,8 @@ spec:
     istio: ingressgateway
 `
 
-func getDefaultIstioIngress(namespace, ingressService string) (string, error) {
-	result, err := generate(defaultIstioIngress, map[string]string{"namespace": namespace, "ingressService": ingressService})
+func getDefaultIstioIngressGateway(namespace, ingressService string) (string, error) {
+	result, err := generate(defaultIstioIngressGateway, map[string]string{"namespace": namespace, "ingressService": ingressService})
 	if err != nil {
 		return "", err
 	}
