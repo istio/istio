@@ -719,19 +719,19 @@ allChainsLabel:
 
 			// TODO(yxue) avoid bypassing authN using TCP
 			// Build filter chain options for listener configured with protocol sniffing
-			fcm := listener.FilterChainMatch{}
 			if chain.FilterChainMatch != nil {
-				fcm = *chain.FilterChainMatch
+				filterChainMatch = &(*chain.FilterChainMatch)
+			} else {
+				filterChainMatch = &listener.FilterChainMatch{}
 			}
-			fcm.ApplicationProtocols = filterChainMatchOption[id].ApplicationProtocols
-			fcm.TransportProtocol = filterChainMatchOption[id].TransportProtocol
+			filterChainMatch.ApplicationProtocols = filterChainMatchOption[id].ApplicationProtocols
+			filterChainMatch.TransportProtocol = filterChainMatchOption[id].TransportProtocol
 
 			if filterChainMatchOption[id].Protocol == plugin.ListenerProtocolHTTP {
 				httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, pluginParams)
 			} else {
 				tcpNetworkFilters = buildInboundNetworkFilters(pluginParams.Push, pluginParams.Node, pluginParams.ServiceInstance)
 			}
-			filterChainMatch = &fcm
 		default:
 			log.Warnf("Unsupported inbound protocol %v for port %#v", pluginParams.ListenerProtocol,
 				pluginParams.ServiceInstance.ServicePort)
