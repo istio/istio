@@ -1634,15 +1634,6 @@ func (configgen *ConfigGeneratorImpl) onVirtualOutboundListener(
 // that the health check ports are distinct from the service ports.
 func buildSidecarInboundMgmtListeners(node *model.Proxy, push *model.PushContext, managementPorts model.PortList, managementIP string) []*xdsapi.Listener {
 	listeners := make([]*xdsapi.Listener, 0, len(managementPorts))
-
-	if managementIP == "" {
-		managementIP = LocalhostAddress
-		addr := net.ParseIP(node.IPAddresses[0])
-		if addr != nil && addr.To4() == nil {
-			managementIP = LocalhostIPv6Address
-		}
-	}
-
 	// assumes that inbound connections/requests are sent to the endpoint address
 	for _, mPort := range managementPorts {
 		switch mPort.Protocol {
