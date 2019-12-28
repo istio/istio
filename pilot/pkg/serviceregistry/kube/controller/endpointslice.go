@@ -18,10 +18,10 @@ import (
 	"sync"
 
 	v1 "k8s.io/api/core/v1"
-	discoveryv1alpha1 "k8s.io/api/discovery/v1alpha1"
+	discovery "k8s.io/api/discovery/v1beta1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/informers"
-	"k8s.io/client-go/listers/discovery/v1alpha1"
+	discoverylister "k8s.io/client-go/listers/discovery/v1beta1"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/pkg/log"
@@ -43,7 +43,7 @@ type endpointSliceController struct {
 var _ kubeEndpointsController = &endpointSliceController{}
 
 func newEndpointSliceController(c *Controller, sharedInformers informers.SharedInformerFactory) *endpointSliceController {
-	informer := sharedInformers.Discovery().V1alpha1().EndpointSlices().Informer()
+	informer := sharedInformers.Discovery().V1beta1().EndpointSlices().Informer()
 	// TODO Endpoints has a special cache, to filter out irrelevant updates to kube-system
 	// Investigate if we need this, or if EndpointSlice is makes this not relevant
 	out := &endpointSliceController{
@@ -63,8 +63,8 @@ func (e *endpointSliceController) Run(stopCh <-chan struct{}) {
 	e.informer.Run(stopCh)
 }
 
-func (e *endpointSliceController) updateEDSSlice(c *Controller, slice *discoveryv1alpha1.EndpointSlice, event model.Event) {
-	svcName := slice.Labels[discoveryv1alpha1.LabelServiceName]
+func (e *endpointSliceController) updateEDSSlice(c *Controller, slice *discovery.EndpointSlice, event model.Event) {
+	svcName := slice.Labels[discovery.LabelServiceName]
 	hostname := kube.ServiceHostname(svcName, slice.Namespace, c.domainSuffix)
 
 	endpoints := make([]*model.IstioEndpoint, 0)
@@ -141,14 +141,14 @@ func (e *endpointSliceController) onEvent(curr interface{}, event model.Event) e
 		return err
 	}
 
-	ep, ok := curr.(*discoveryv1alpha1.EndpointSlice)
+	ep, ok := curr.(*discovery.EndpointSlice)
 	if !ok {
 		tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
 		if !ok {
 			log.Errorf("1 Couldn't get object from tombstone %#v", curr)
 			return nil
 		}
-		ep, ok = tombstone.Obj.(*discoveryv1alpha1.EndpointSlice)
+		ep, ok = tombstone.Obj.(*discovery.EndpointSlice)
 		if !ok {
 			log.Errorf("Tombstone contained an object that is not an endpoints slice %#v", curr)
 			return nil
@@ -157,7 +157,7 @@ func (e *endpointSliceController) onEvent(curr interface{}, event model.Event) e
 
 	// Headless services are handled differently
 	if features.EnableHeadlessService.Get() {
-		svcName := ep.Labels[discoveryv1alpha1.LabelServiceName]
+		svcName := ep.Labels[discovery.LabelServiceName]
 		if obj, _, _ := e.c.services.GetIndexer().GetByKey(kube.KeyFunc(svcName, ep.Namespace)); obj != nil {
 			svc := obj.(*v1.Service)
 			// if the service is headless service, trigger a full push.
@@ -179,7 +179,7 @@ func (e *endpointSliceController) GetProxyServiceInstances(c *Controller, proxy 
 	endpointsForPodInDifferentNS := make([]*model.ServiceInstance, 0)
 
 	for _, item := range e.informer.GetStore().List() {
-		slice := item.(*discoveryv1alpha1.EndpointSlice)
+		slice := item.(*discovery.EndpointSlice)
 		endpoints := &endpointsForPodInSameNS
 		if slice.Namespace != proxyNamespace {
 			endpoints = &endpointsForPodInDifferentNS
@@ -195,10 +195,10 @@ func (e *endpointSliceController) GetProxyServiceInstances(c *Controller, proxy 
 	return append(endpointsForPodInSameNS, endpointsForPodInDifferentNS...)
 }
 
-func getProxyServiceInstancesByEndpointSlice(c *Controller, slice *discoveryv1alpha1.EndpointSlice, proxy *model.Proxy) []*model.ServiceInstance {
+func getProxyServiceInstancesByEndpointSlice(c *Controller, slice *discovery.EndpointSlice, proxy *model.Proxy) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 
-	hostname := kube.ServiceHostname(slice.Labels[discoveryv1alpha1.LabelServiceName], slice.Namespace, c.domainSuffix)
+	hostname := kube.ServiceHostname(slice.Labels[discovery.LabelServiceName], slice.Namespace, c.domainSuffix)
 	c.RLock()
 	svc := c.servicesMap[hostname]
 	c.RUnlock()
@@ -239,8 +239,8 @@ func getProxyServiceInstancesByEndpointSlice(c *Controller, slice *discoveryv1al
 
 func (e *endpointSliceController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int,
 	labelsList labels.Collection) ([]*model.ServiceInstance, error) {
-	esLabelSelector := klabels.Set(map[string]string{discoveryv1alpha1.LabelServiceName: svc.Attributes.Name}).AsSelectorPreValidated()
-	slices, err := v1alpha1.NewEndpointSliceLister(e.informer.GetIndexer()).EndpointSlices(svc.Attributes.Namespace).List(esLabelSelector)
+	esLabelSelector := klabels.Set(map[string]string{discovery.LabelServiceName: svc.Attributes.Name}).AsSelectorPreValidated()
+	slices, err := discoverylister.NewEndpointSliceLister(e.informer.GetIndexer()).EndpointSlices(svc.Attributes.Namespace).List(esLabelSelector)
 	if err != nil {
 		log.Infof("get endpoints(%s, %s) => error %v", svc.Attributes.Name, svc.Attributes.Namespace, err)
 		return nil, nil

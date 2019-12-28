@@ -17,5 +17,6 @@ kubeadmConfigPatches:
   controllerManager:
     extraArgs:
       "controllers": "*,endpointslice"
+      "feature-gates": "EndpointSlice=true"
       # Reduce number to allow testing multiple slices without requiring 100+ pods
       "max-endpoints-per-slice": "3"

@@ -25,7 +25,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	coreV1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
-	discoveryv1alpha1 "k8s.io/api/discovery/v1alpha1"
+	discovery "k8s.io/api/discovery/v1beta1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
@@ -1254,28 +1254,28 @@ func createEndpoints(controller *Controller, name, namespace string, portNames, 
 	}
 
 	// Create endpoint slice as well
-	esps := make([]discoveryv1alpha1.EndpointPort, 0)
+	esps := make([]discovery.EndpointPort, 0)
 	for _, name := range portNames {
 		n := name // Create a stable reference to take the pointer from
-		esps = append(esps, discoveryv1alpha1.EndpointPort{Name: &n, Port: &portNum})
+		esps = append(esps, discovery.EndpointPort{Name: &n, Port: &portNum})
 	}
 
-	endpointSlice := &discoveryv1alpha1.EndpointSlice{
+	endpointSlice := &discovery.EndpointSlice{
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 			Labels: map[string]string{
-				discoveryv1alpha1.LabelServiceName: name,
+				discovery.LabelServiceName: name,
 			},
 		},
-		Endpoints: []discoveryv1alpha1.Endpoint{
+		Endpoints: []discovery.Endpoint{
 			{
 				Addresses: ips,
 			},
 		},
 		Ports: esps,
 	}
-	if _, err := controller.client.DiscoveryV1alpha1().EndpointSlices(namespace).Create(endpointSlice); err != nil {
+	if _, err := controller.client.DiscoveryV1beta1().EndpointSlices(namespace).Create(endpointSlice); err != nil {
 		t.Errorf("failed to create endpoint slice %s in namespace %s (error %v)", name, namespace, err)
 	}
 }
@@ -1307,26 +1307,26 @@ func updateEndpoints(controller *Controller, name, namespace string, portNames, 
 	}
 
 	// Update endpoint slice as well
-	esps := make([]discoveryv1alpha1.EndpointPort, 0)
+	esps := make([]discovery.EndpointPort, 0)
 	for _, name := range portNames {
-		esps = append(esps, discoveryv1alpha1.EndpointPort{Name: &name, Port: &portNum})
+		esps = append(esps, discovery.EndpointPort{Name: &name, Port: &portNum})
 	}
-	endpointSlice := &discoveryv1alpha1.EndpointSlice{
+	endpointSlice := &discovery.EndpointSlice{
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 			Labels: map[string]string{
-				discoveryv1alpha1.LabelServiceName: name,
+				discovery.LabelServiceName: name,
 			},
 		},
-		Endpoints: []discoveryv1alpha1.Endpoint{
+		Endpoints: []discovery.Endpoint{
 			{
 				Addresses: ips,
 			},
 		},
 		Ports: esps,
 	}
-	if _, err := controller.client.DiscoveryV1alpha1().EndpointSlices(namespace).Update(endpointSlice); err != nil {
+	if _, err := controller.client.DiscoveryV1beta1().EndpointSlices(namespace).Update(endpointSlice); err != nil {
 		t.Errorf("failed to create endpoint slice %s in namespace %s (error %v)", name, namespace, err)
 	}
 }
