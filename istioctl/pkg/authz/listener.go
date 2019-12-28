@@ -127,7 +127,9 @@ func ParseListener(listener *v2.Listener) *ParsedListener {
 	for _, fc := range listener.FilterChains {
 		tlsContext := &auth.DownstreamTlsContext{}
 		if fc.TransportSocket != nil && fc.TransportSocket.Name == "tls" {
-			ptypes.UnmarshalAny(fc.TransportSocket.GetTypedConfig(), tlsContext)
+			if err := ptypes.UnmarshalAny(fc.TransportSocket.GetTypedConfig(), tlsContext); err != nil {
+				continue
+			}
 		} else {
 			tlsContext = fc.TlsContext
 		}
