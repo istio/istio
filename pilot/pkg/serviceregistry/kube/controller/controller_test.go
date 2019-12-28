@@ -166,7 +166,7 @@ func newFakeControllerWithOptions(opts fakeControllerOptions) (*Controller, *Fak
 	}
 	c.stop = make(chan struct{})
 	// Run in initiation to prevent calling each test
-	// TODO: fix it, so we can remove `stop` chanel
+	// TODO: fix it, so we can remove `stop` channel
 	go c.Run(c.stop)
 	return c, fx
 }
