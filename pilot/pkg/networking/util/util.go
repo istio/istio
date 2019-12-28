@@ -77,10 +77,6 @@ const (
 	// endpoint level plantext transport socket configuration
 	EnvoyRawBufferSocketName = "envoy.transport_sockets.raw_buffer"
 
-	// EnvoyTlsSocketName matched with hardcoded built-in Envoy transport name which determines
-	// endpoint level TLS transport socket configuration
-	EnvoyTlsSocketName = "envoy.transport_sockets.tls"
-
 	// EnvoyTLSSocketName matched with hardcoded built-in Envoy transport name which determines endpoint
 	// level tls transport socket configuration
 	EnvoyTLSSocketName = "envoy.transport_sockets.tls"
