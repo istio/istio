@@ -119,11 +119,11 @@ var (
 		Name:     collection.NewName("istio/mesh/v1alpha1/MeshConfig"),
 		Disabled: false,
 		Schema: resource.Schema{
-			Group:         "authentication.istio.io",
+			Group:         "",
 			Kind:          "MeshConfig",
 			Plural:        "meshconfigs",
 			Version:       "v1alpha1",
-			Proto:         "istio.authentication.v1alpha1.Policy",
+			Proto:         "istio.mesh.v1alpha1.MeshConfig",
 			ProtoPackage:  "istio.io/api/mesh/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,

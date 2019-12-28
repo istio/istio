@@ -35,8 +35,8 @@ func TestParse(t *testing.T) {
 			input: `
 collections:
   - name:  "istio/meshconfig"
-    kind:  "VirtualService"
-    group: "networking.istio.io"
+    kind:  "MeshConfig"
+    group: ""
 
 snapshots:
   - name: "default"
@@ -44,10 +44,11 @@ snapshots:
       - "istio/meshconfig"
 
 resources:
-  - kind:    "VirtualService"
-    group:   "networking.istio.io"
-    version: "v1alpha3"
-    proto:   "istio.mesh.v1alpha1.MeshConfig"
+  - kind:         "VirtualService"
+    group:        "networking.istio.io"
+    version:      "v1alpha3"
+    proto:        "istio.networking.v1alpha3.VirtualService"
+    protoPackage: "istio.io/api/networking/v1alpha3"
 
 transforms:
   - type: direct
@@ -60,8 +61,8 @@ transforms:
 						Name:         "istio/meshconfig",
 						VariableName: "IstioMeshconfig",
 						Description:  "describes the collection istio/meshconfig",
-						Kind:         "VirtualService",
-						Group:        "networking.istio.io",
+						Kind:         "MeshConfig",
+						Group:        "",
 					},
 				},
 				Snapshots: []*Snapshot{
@@ -76,11 +77,12 @@ transforms:
 				},
 				Resources: []*Resource{
 					{
-						Kind:     "VirtualService",
-						Group:    "networking.istio.io",
-						Version:  "v1alpha3",
-						Proto:    "istio.mesh.v1alpha1.MeshConfig",
-						Validate: "ValidateVirtualService",
+						Kind:         "VirtualService",
+						Group:        "networking.istio.io",
+						Version:      "v1alpha3",
+						Proto:        "istio.networking.v1alpha3.VirtualService",
+						ProtoPackage: "istio.io/api/networking/v1alpha3",
+						Validate:     "ValidateVirtualService",
 					},
 				},
 				TransformSettings: []TransformSettings{
@@ -109,8 +111,8 @@ func TestTransformParseError(t *testing.T) {
 		`
 collections:
   - name:  "istio/meshconfig"
-    kind:  "VirtualService"
-    group: "networking.istio.io"
+    kind:  "MeshConfig"
+    group: ""
 
 snapshots:
   - name: "default"
@@ -121,8 +123,8 @@ resources:
   - kind:         "VirtualService"
     group:        "networking.istio.io"
     version:      "v1alpha3"
-    proto:        "istio.mesh.v1alpha1.MeshConfig"
-    protoPackage: "istio.io/api/mesh/v1alpha1"
+    proto:        "istio.networking.v1alpha3.VirtualService"
+    protoPackage: "istio.io/api/networking/v1alpha3"
   
 transforms:
   - type: foo

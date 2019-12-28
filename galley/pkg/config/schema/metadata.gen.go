@@ -101,7 +101,7 @@ collections:
 
   - name: "istio/mesh/v1alpha1/MeshConfig"
     kind: "MeshConfig"
-    group: "authentication.istio.io"
+    group: ""
 
   - name: "istio/mixer/v1/config/client/quotaspecs"
     kind: "QuotaSpec"
@@ -530,9 +530,9 @@ resources:
 
   - kind: "MeshConfig"
     plural: "meshconfigs"
-    group: "authentication.istio.io"
+    group: ""
     version: "v1alpha1"
-    proto: "istio.authentication.v1alpha1.Policy"
+    proto: "istio.mesh.v1alpha1.MeshConfig"
     protoPackage: "istio.io/api/mesh/v1alpha1"
     description: "describes the configuration for the Istio mesh."
 
