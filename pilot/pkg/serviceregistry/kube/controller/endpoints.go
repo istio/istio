@@ -57,11 +57,10 @@ func (e *endpointsController) registerEndpointsHandler() {
 				})
 			},
 			UpdateFunc: func(old, cur interface{}) {
-				// Avoid pushes if only resource version changed (kube-scheduller, cluster-autoscaller, etc)
 				oldE := old.(*v1.Endpoints)
 				curE := cur.(*v1.Endpoints)
 
-				if !compareEndpoints(oldE, curE) {
+				if curE.ResourceVersion != oldE.ResourceVersion || !compareEndpoints(oldE, curE) {
 					incrementEvent("Endpoints", "update")
 					e.c.queue.Push(func() error {
 						return e.onEvent(cur, model.EventUpdate)
