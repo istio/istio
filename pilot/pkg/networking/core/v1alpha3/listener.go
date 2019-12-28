@@ -1636,10 +1636,10 @@ func buildSidecarInboundMgmtListeners(node *model.Proxy, push *model.PushContext
 	listeners := make([]*xdsapi.Listener, 0, len(managementPorts))
 
 	if managementIP == "" {
-		managementIP = "127.0.0.1"
+		managementIP = LocalhostAddress
 		addr := net.ParseIP(node.IPAddresses[0])
 		if addr != nil && addr.To4() == nil {
-			managementIP = "::1"
+			managementIP = LocalhostIPv6Address
 		}
 	}
 
