@@ -714,14 +714,13 @@ allChainsLabel:
 
 			// TODO(yxue) avoid bypassing authN using TCP
 			// Build filter chain options for listener configured with protocol sniffing
+			fcm := listener.FilterChainMatch{}
 			if chain.FilterChainMatch != nil {
-				filterChainMatch = chain.FilterChainMatch
-			} else {
-				filterChainMatch = &listener.FilterChainMatch{}
+				fcm = *chain.FilterChainMatch
 			}
-			filterChainMatch.ApplicationProtocols = filterChainMatchOption[id].ApplicationProtocols
-			filterChainMatch.TransportProtocol = filterChainMatchOption[id].TransportProtocol
-
+			fcm.ApplicationProtocols = filterChainMatchOption[id].ApplicationProtocols
+			fcm.TransportProtocol = filterChainMatchOption[id].TransportProtocol
+			filterChainMatch = &fcm
 			if filterChainMatchOption[id].Protocol == plugin.ListenerProtocolHTTP {
 				httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, pluginParams)
 			} else {
