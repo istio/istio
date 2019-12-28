@@ -49,7 +49,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/util/gogo"
@@ -464,13 +463,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 			// Traffic sent to our service VIP is redirected by remote
 			// services' kubeproxy to our specific endpoint IP.
 			listenerOpts := buildListenerOpts{
-				push:           push,
-				proxy:          node,
-				proxyInstances: node.ServiceInstances,
-				proxyLabels:    node.WorkloadLabels,
-				bind:           bind,
-				port:           int(endpoint.EndpointPort),
-				bindToPort:     false,
+				push:       push,
+				proxy:      node,
+				bind:       bind,
+				port:       int(endpoint.EndpointPort),
+				bindToPort: false,
 			}
 
 			pluginParams := &plugin.InputParams{
@@ -543,13 +540,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 			}
 
 			listenerOpts := buildListenerOpts{
-				push:           push,
-				proxy:          node,
-				proxyInstances: node.ServiceInstances,
-				proxyLabels:    node.WorkloadLabels,
-				bind:           bind,
-				port:           listenPort.Port,
-				bindToPort:     bindToPort,
+				push:       push,
+				proxy:      node,
+				bind:       bind,
+				port:       listenPort.Port,
+				bindToPort: bindToPort,
 			}
 
 			// we don't need to set other fields of the endpoint here as
@@ -913,13 +908,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 
 			for _, service := range services {
 				listenerOpts := buildListenerOpts{
-					push:           push,
-					proxy:          node,
-					proxyInstances: node.ServiceInstances,
-					proxyLabels:    node.WorkloadLabels,
-					bind:           bind,
-					port:           listenPort.Port,
-					bindToPort:     bindToPort,
+					push:       push,
+					proxy:      node,
+					bind:       bind,
+					port:       listenPort.Port,
+					bindToPort: bindToPort,
 				}
 
 				// The listener protocol is determined by the protocol of egress listener port.
@@ -972,13 +965,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 			for _, service := range services {
 				for _, servicePort := range service.Ports {
 					listenerOpts := buildListenerOpts{
-						push:           push,
-						proxy:          node,
-						proxyInstances: node.ServiceInstances,
-						proxyLabels:    node.WorkloadLabels,
-						port:           servicePort.Port,
-						bind:           bind,
-						bindToPort:     bindToPort,
+						push:       push,
+						proxy:      node,
+						port:       servicePort.Port,
+						bind:       bind,
+						bindToPort: bindToPort,
 					}
 
 					// The listener protocol is determined by the protocol of service port.
@@ -1078,11 +1069,10 @@ func (configgen *ConfigGeneratorImpl) buildHTTPProxy(node *model.Proxy,
 	}
 
 	opts := buildListenerOpts{
-		push:           push,
-		proxy:          node,
-		proxyInstances: proxyInstances,
-		bind:           listenAddress,
-		port:           int(httpProxyPort),
+		push:  push,
+		proxy: node,
+		bind:  listenAddress,
+		port:  int(httpProxyPort),
 		filterChainOpts: []*filterChainOpts{{
 			httpOpts: &httpListenerOpts{
 				rds:              RDSHttpProxy,
@@ -1745,12 +1735,8 @@ type filterChainOpts struct {
 // buildListenerOpts are the options required to build a Listener
 type buildListenerOpts struct {
 	// nolint: maligned
-	push  *model.PushContext
-	proxy *model.Proxy
-	// TODO: Remove this variable and make sure consumers use proxy.ServiceInstances
-	proxyInstances []*model.ServiceInstance
-	// TODO: Remove this variable as it is not used anywhere.
-	proxyLabels       labels.Collection
+	push              *model.PushContext
+	proxy             *model.Proxy
 	bind              string
 	port              int
 	filterChainOpts   []*filterChainOpts
