@@ -40,6 +40,10 @@ func ApplyRouteConfigurationPatches(
 	out = routeConfiguration
 
 	efw := push.EnvoyFilters(proxy)
+	if efw == nil {
+		return out
+	}
+
 	// only merge is applicable for route configuration.
 	for _, cp := range efw.Patches[networking.EnvoyFilter_ROUTE_CONFIGURATION] {
 		if cp.Operation != networking.EnvoyFilter_Patch_MERGE {
