@@ -1643,12 +1643,6 @@ func buildSidecarInboundMgmtListeners(node *model.Proxy, push *model.PushContext
 		}
 	}
 
-	// NOTE: We should not generate inbound listeners when the proxy does not have any IPtables traffic capture
-	// as it would interfere with the workloads listening on the same port
-	if node.GetInterceptionMode() == model.InterceptionNone {
-		return nil
-	}
-
 	// assumes that inbound connections/requests are sent to the endpoint address
 	for _, mPort := range managementPorts {
 		switch mPort.Protocol {
