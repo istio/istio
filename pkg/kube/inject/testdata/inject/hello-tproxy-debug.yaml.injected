@@ -89,12 +89,17 @@ spec:
             cpu: 10m
             memory: 30Mi
         securityContext:
+          allowPrivilegeEscalation: true
           capabilities:
             add:
             - NET_ADMIN
+            drop:
+            - ALL
           privileged: true
           readOnlyRootFilesystem: false
-          runAsUser: 1337
+          runAsGroup: 1337
+          runAsNonRoot: false
+          runAsUser: 0
         volumeMounts:
         - mountPath: /etc/istio/proxy
           name: istio-envoy
@@ -122,10 +127,18 @@ spec:
         name: istio-init
         resources: {}
         securityContext:
+          allowPrivilegeEscalation: true
           capabilities:
             add:
             - NET_ADMIN
+            - NET_RAW
+            drop:
+            - ALL
           privileged: true
+          readOnlyRootFilesystem: false
+          runAsGroup: 0
+          runAsNonRoot: false
+          runAsUser: 0
       volumes:
       - emptyDir:
           medium: Memory
