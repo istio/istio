@@ -164,6 +164,9 @@ func newFakeControllerWithOptions(opts fakeControllerOptions) (*Controller, *Fak
 	if opts.serviceHandler != nil {
 		_ = c.AppendServiceHandler(opts.serviceHandler)
 	}
+	c.stop = make(chan struct{})
+	// Run in initiation to prevent calling each test
+	// TODO: fix it, so we can remove `stop` chanel
 	go c.Run(c.stop)
 	return c, fx
 }
