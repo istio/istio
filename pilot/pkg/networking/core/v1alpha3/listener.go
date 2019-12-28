@@ -721,6 +721,7 @@ allChainsLabel:
 			// Build filter chain options for listener configured with protocol sniffing
 			fcm := listener.FilterChainMatch{}
 			if chain.FilterChainMatch != nil {
+				log.Infof("------filter chain match address %p", chain.FilterChainMatch)
 				fcm = *chain.FilterChainMatch
 			}
 			fcm.ApplicationProtocols = filterChainMatchOption[id].ApplicationProtocols
