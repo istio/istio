@@ -57,6 +57,8 @@ target "$image-$variant" {
     args = {
       BASE_VERSION = "${BASE_VERSION}"
       BASE_DISTRIBUTION = "${variant}"
+      proxy_version = "istio-proxy:${PROXY_REPO_SHA}"
+      istio_version = "${VERSION}"
     }
 }
 EOF
