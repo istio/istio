@@ -51,7 +51,7 @@ func newEndpointSliceController(c *Controller, sharedInformers informers.SharedI
 		informer:      informer,
 		endpointCache: newEndpointSliceCache(),
 	}
-	registerHandlers(c.services, c.queue, "EndpointSlice", out.onEvent)
+	registerHandlers(informer, c.queue, "EndpointSlice", out.onEvent)
 	return out
 }
 
@@ -145,7 +145,7 @@ func (e *endpointSliceController) onEvent(curr interface{}, event model.Event) e
 	if !ok {
 		tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			log.Errorf("Couldn't get object from tombstone %#v", curr)
+			log.Errorf("1 Couldn't get object from tombstone %#v", curr)
 			return nil
 		}
 		ep, ok = tombstone.Obj.(*discoveryv1alpha1.EndpointSlice)
