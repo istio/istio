@@ -45,7 +45,7 @@ var (
 )
 
 func genApplyManifests(setOverlay []string, inFilename string, force bool, dryRun bool, verbose bool,
-	kubeConfigPath string, context string, waitTimeout time.Duration, l *Logger) error {
+	kubeConfigPath string, context string, wait bool, waitTimeout time.Duration, l *Logger) error {
 	overlayFromSet, err := MakeTreeFromSetList(setOverlay, force, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate tree from the set overlay, error: %v", err)
@@ -58,6 +58,7 @@ func genApplyManifests(setOverlay []string, inFilename string, force bool, dryRu
 	opts := &kubectlcmd.Options{
 		DryRun:      dryRun,
 		Verbose:     verbose,
+		Wait:        wait,
 		WaitTimeout: waitTimeout,
 		Kubeconfig:  kubeConfigPath,
 		Context:     context,
