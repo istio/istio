@@ -720,7 +720,7 @@ allChainsLabel:
 			// TODO(yxue) avoid bypassing authN using TCP
 			// Build filter chain options for listener configured with protocol sniffing
 			if chain.FilterChainMatch != nil {
-				filterChainMatch = &(*chain.FilterChainMatch)
+				filterChainMatch = chain.FilterChainMatch
 			} else {
 				filterChainMatch = &listener.FilterChainMatch{}
 			}
