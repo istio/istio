@@ -36,7 +36,6 @@ import (
 	pstruct "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/mitchellh/hashstructure"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
@@ -116,7 +115,7 @@ var FallThroughFilterChainPassthroughService = &model.Service{
 	},
 }
 
-var MessageCache, _ = lru.New(5000)
+var messageCache, _ = lru.New(10)
 
 func getMaxCidrPrefix(addr string) uint32 {
 	ip := net.ParseIP(addr)
@@ -199,8 +198,21 @@ func GetByAddress(listeners []*xdsapi.Listener, addr core.Address) *xdsapi.Liste
 
 // MessageToAnyWithError converts from proto message to proto Any
 func MessageToAnyWithError(msg proto.Message) (*any.Any, error) {
-	hash, _ := hashstructure.Hash(msg, nil)
-	if value, ok := MessageCache.Get(hash); ok {
+	b := proto.NewBuffer(nil)
+	b.SetDeterministic(true)
+	err := b.Marshal(msg)
+	if err != nil {
+		return nil, err
+	}
+	return &any.Any{
+		TypeUrl: "type.googleapis.com/" + proto.MessageName(msg),
+		Value:   b.Bytes(),
+	}, nil
+}
+
+// MessageToAnyWithError converts from proto message to proto Any and caches it for future use
+func MessageToAnyCachedWithError(msg proto.Message) (*any.Any, error) {
+	if value, ok := messageCache.Get(msg); ok {
 		return value.(*any.Any), nil
 	}
 	b := proto.NewBuffer(nil)
@@ -213,13 +225,23 @@ func MessageToAnyWithError(msg proto.Message) (*any.Any, error) {
 		TypeUrl: "type.googleapis.com/" + proto.MessageName(msg),
 		Value:   b.Bytes(),
 	}
-	MessageCache.Add(hash, am)
+	messageCache.Add(msg, am)
 	return am, nil
 }
 
 // MessageToAny converts from proto message to proto Any
 func MessageToAny(msg proto.Message) *any.Any {
 	out, err := MessageToAnyWithError(msg)
+	if err != nil {
+		log.Error(fmt.Sprintf("error marshaling Any %s: %v", msg.String(), err))
+		return nil
+	}
+	return out
+}
+
+// MessageToAny converts from proto message to proto Any and caches it for future use
+func MessageToAnyCached(msg proto.Message) *any.Any {
+	out, err := MessageToAnyCachedWithError(msg)
 	if err != nil {
 		log.Error(fmt.Sprintf("error marshaling Any %s: %v", msg.String(), err))
 		return nil

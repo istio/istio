@@ -581,6 +581,28 @@ func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T
 	g.Expect(actualOutboundClusterCount).To(Equal(expectedOutboundClusterCount))
 }
 
+func BenchmarkBuildClusters(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		buildTestClustersWithProxyMetadataWithIps("*.example.org", 0, false, model.SidecarProxy, nil, testMesh,
+			&networking.DestinationRule{
+				Host: "*.example.org",
+				TrafficPolicy: &networking.TrafficPolicy{
+					ConnectionPool: &networking.ConnectionPoolSettings{
+						Http: &networking.ConnectionPoolSettings_HTTPSettings{
+							Http1MaxPendingRequests: 1,
+							IdleTimeout:             &types.Duration{Seconds: 15},
+						},
+					},
+				},
+			},
+			nil, // authnPolicy
+			&model.NodeMetadata{},
+			model.MaxIstioVersion,
+			[]string{"6.6.6.6", "::1"},
+		)
+	}
+}
+
 func buildSniTestClustersForSidecar(sniValue string) ([]*apiv2.Cluster, error) {
 	return buildSniTestClustersWithMetadata(sniValue, model.SidecarProxy, &model.NodeMetadata{})
 }

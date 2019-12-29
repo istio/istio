@@ -38,8 +38,12 @@ func (conn *XdsConnection) clusters(response []*xdsapi.Cluster, noncePrefix stri
 	}
 
 	for _, c := range response {
-		cc := util.MessageToAny(c)
-		out.Resources = append(out.Resources, cc)
+		if c.Name == util.BlackHoleCluster || c.Name == util.PassthroughCluster ||
+			c.Name == util.InboundPassthroughClusterIpv4 || c.Name == util.InboundPassthroughClusterIpv6 {
+			out.Resources = append(out.Resources, util.MessageToAnyCached(c))
+		} else {
+			out.Resources = append(out.Resources, util.MessageToAny(c))
+		}
 	}
 
 	return out

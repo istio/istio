@@ -93,6 +93,11 @@ var (
 			Name: util.EnvoyRawBufferSocketName,
 		},
 	}
+
+	// Use pre-built clusters so that we do not rebuild them for every proxy.
+	blackholeCluster           *apiv2.Cluster
+	outboundPassThroughCluster = make(map[apiv2.Cluster_LbPolicy]*apiv2.Cluster)
+	inboundPassThroughClusters = make([]*apiv2.Cluster, 2)
 )
 
 // getDefaultCircuitBreakerThresholds returns a copy of the default circuit breaker thresholds for the given traffic direction.
@@ -115,7 +120,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 	case model.SidecarProxy:
 		// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
 		// DO NOT CALL PLUGINS for these two clusters.
-		outboundClusters = append(outboundClusters, buildBlackHoleCluster(push), buildDefaultPassthroughCluster(push, proxy))
+		outboundClusters = append(outboundClusters, buildBlackHoleCluster(push), defaultOutboundPassthroughCluster(push, proxy))
 		outboundClusters = envoyfilter.ApplyClusterPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, proxy, push, outboundClusters)
 		// Let ServiceDiscovery decide which IP and Port are used for management if
 		// there are multiple IPs
@@ -488,30 +493,34 @@ func generateInboundPassthroughClusters(push *model.PushContext, proxy *model.Pr
 	ipv4, ipv6 := ipv4AndIpv6Support(proxy)
 	clusters := make([]*apiv2.Cluster, 0, 2)
 	if ipv4 {
-		inboundPassthroughClusterIpv4 := buildDefaultPassthroughCluster(push, proxy)
-		inboundPassthroughClusterIpv4.Name = util.InboundPassthroughClusterIpv4
-		inboundPassthroughClusterIpv4.UpstreamBindConfig = &core.BindConfig{
-			SourceAddress: &core.SocketAddress{
-				Address: util.InboundPassthroughBindIpv4,
-				PortSpecifier: &core.SocketAddress_PortValue{
-					PortValue: uint32(0),
+		if inboundPassThroughClusters[0] == nil {
+			inboundPassThroughClusters[0] = buildDefaultPassthroughCluster(push, proxy)
+			inboundPassThroughClusters[0].Name = util.InboundPassthroughClusterIpv4
+			inboundPassThroughClusters[0].UpstreamBindConfig = &core.BindConfig{
+				SourceAddress: &core.SocketAddress{
+					Address: util.InboundPassthroughBindIpv4,
+					PortSpecifier: &core.SocketAddress_PortValue{
+						PortValue: uint32(0),
+					},
 				},
-			},
+			}
 		}
-		clusters = append(clusters, inboundPassthroughClusterIpv4)
+		clusters = append(clusters, inboundPassThroughClusters[0])
 	}
 	if ipv6 {
-		inboundPassthroughClusterIpv6 := buildDefaultPassthroughCluster(push, proxy)
-		inboundPassthroughClusterIpv6.Name = util.InboundPassthroughClusterIpv6
-		inboundPassthroughClusterIpv6.UpstreamBindConfig = &core.BindConfig{
-			SourceAddress: &core.SocketAddress{
-				Address: util.InboundPassthroughBindIpv6,
-				PortSpecifier: &core.SocketAddress_PortValue{
-					PortValue: uint32(0),
+		if inboundPassThroughClusters[1] == nil {
+			inboundPassThroughClusters[1] = buildDefaultPassthroughCluster(push, proxy)
+			inboundPassThroughClusters[1].Name = util.InboundPassthroughClusterIpv6
+			inboundPassThroughClusters[1].UpstreamBindConfig = &core.BindConfig{
+				SourceAddress: &core.SocketAddress{
+					Address: util.InboundPassthroughBindIpv6,
+					PortSpecifier: &core.SocketAddress_PortValue{
+						PortValue: uint32(0),
+					},
 				},
-			},
+			}
 		}
-		clusters = append(clusters, inboundPassthroughClusterIpv6)
+		clusters = append(clusters, inboundPassThroughClusters[1])
 	}
 	return clusters
 }
@@ -1240,13 +1249,22 @@ func setUpstreamProtocol(node *model.Proxy, cluster *apiv2.Cluster, port *model.
 // generates a cluster that sends traffic to dummy localport 0
 // This cluster is used to catch all traffic to unresolved destinations in virtual service
 func buildBlackHoleCluster(push *model.PushContext) *apiv2.Cluster {
-	cluster := &apiv2.Cluster{
-		Name:                 util.BlackHoleCluster,
-		ClusterDiscoveryType: &apiv2.Cluster_Type{Type: apiv2.Cluster_STATIC},
-		ConnectTimeout:       gogo.DurationToProtoDuration(push.Mesh.ConnectTimeout),
-		LbPolicy:             apiv2.Cluster_ROUND_ROBIN,
+	if blackholeCluster == nil {
+		blackholeCluster = &apiv2.Cluster{
+			Name:                 util.BlackHoleCluster,
+			ClusterDiscoveryType: &apiv2.Cluster_Type{Type: apiv2.Cluster_STATIC},
+			ConnectTimeout:       gogo.DurationToProtoDuration(push.Mesh.ConnectTimeout),
+			LbPolicy:             apiv2.Cluster_ROUND_ROBIN,
+		}
 	}
-	return cluster
+	return blackholeCluster
+}
+
+func defaultOutboundPassthroughCluster(push *model.PushContext, proxy *model.Proxy) *apiv2.Cluster {
+	if _, exists := outboundPassThroughCluster[lbPolicyClusterProvided(proxy)]; !exists {
+		outboundPassThroughCluster[lbPolicyClusterProvided(proxy)] = buildDefaultPassthroughCluster(push, proxy)
+	}
+	return outboundPassThroughCluster[lbPolicyClusterProvided(proxy)]
 }
 
 // generates a cluster that sends traffic to the original destination.

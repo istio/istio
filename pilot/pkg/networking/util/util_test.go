@@ -513,39 +513,25 @@ func TestGetByAddress(t *testing.T) {
 	}
 }
 
-func TestMessageToAnyCache(t *testing.T) {
+func TestMessageToAnyCached(t *testing.T) {
 	// Call MessageToAny to populate the cache.
-	cluster := MessageToAny(buildFakeCluster())
+	cluster := buildFakeCluster()
+	ac := MessageToAnyCached(cluster)
 
-	if !MessageCache.Contains(buildFakeCluster().String()) {
+	if !messageCache.Contains(cluster) {
 		t.Fatal("Expected to be in cache, but not available")
 	}
 
-	if MessageToAny(buildFakeCluster()) != cluster {
+	if MessageToAnyCached(cluster) != ac {
 		t.Fatal("Cache is not returning the same any structure")
 	}
 
 }
 
-func BenchmarkMessageToAny(b *testing.B) {
-	// inHCM := &http_conn.HttpConnectionManager{
-	// 	CodecType:  http_conn.HttpConnectionManager_HTTP1,
-	// 	StatPrefix: "123",
-	// 	HttpFilters: []*http_conn.HttpFilter{
-	// 		{
-	// 			Name: "filter1",
-	// 			ConfigType: &http_conn.HttpFilter_TypedConfig{
-	// 				TypedConfig: &any.Any{},
-	// 			},
-	// 		},
-	// 	},
-	// 	ServerName:        "scooby",
-	// 	XffNumTrustedHops: 2,
-	// }
+func BenchmarkMessageToAnyCached(b *testing.B) {
 	c := buildFakeCluster()
 	for n := 0; n < b.N; n++ {
-	//	MessageToAny(inHCM)
-		MessageToAny(c)
+		MessageToAnyCached(c)
 	}
 }
 
