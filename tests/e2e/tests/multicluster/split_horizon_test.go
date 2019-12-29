@@ -18,12 +18,13 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"golang.org/x/sync/errgroup"
 	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 
 	"github.com/hashicorp/go-multierror"
 
@@ -237,7 +238,7 @@ func (c *deployableConfig) Wait(istioctls []*framework.Istioctl) error {
 	g, _ := errgroup.WithContext(ctx)
 	// Wait until the deployments are ready
 
-	g.Go(func() error {return util.CheckDeployments(c.Namespace, maxDeploymentTimeout, c.kubeconfig)})
+	g.Go(func() error { return util.CheckDeployments(c.Namespace, maxDeploymentTimeout, c.kubeconfig) })
 
 	for _, singleOut := range c.appliedOut {
 		for _, line := range strings.Split(singleOut, "\n") {
@@ -246,7 +247,7 @@ func (c *deployableConfig) Wait(istioctls []*framework.Istioctl) error {
 			// such as
 			// virtualservice.networking.istio.io/frontend created
 			parts := strings.Split(line, " ")
-			if parts[1] == "unchanged"{
+			if parts[1] == "unchanged" {
 				continue
 			}
 			resourceId := strings.Split(parts[0], "/")
@@ -258,7 +259,7 @@ func (c *deployableConfig) Wait(istioctls []*framework.Istioctl) error {
 				if i == nil {
 					continue
 				}
-				g.Go(func() error {return i.Wait(simpleTypeName, c.Namespace, resourceId[1], maxDeploymentTimeout)})
+				g.Go(func() error { return i.Wait(simpleTypeName, c.Namespace, resourceId[1], maxDeploymentTimeout) })
 			}
 		}
 	}
