@@ -582,24 +582,132 @@ func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T
 }
 
 func BenchmarkBuildClusters(b *testing.B) {
-	for n := 0; n < b.N; n++ {
-		buildTestClustersWithProxyMetadataWithIps("*.example.org", 0, false, model.SidecarProxy, nil, testMesh,
-			&networking.DestinationRule{
-				Host: "*.example.org",
-				TrafficPolicy: &networking.TrafficPolicy{
-					ConnectionPool: &networking.ConnectionPoolSettings{
-						Http: &networking.ConnectionPoolSettings_HTTPSettings{
-							Http1MaxPendingRequests: 1,
-							IdleTimeout:             &types.Duration{Seconds: 15},
-						},
-					},
-				},
+	serviceHostname := "*.example.org"
+	configgen := NewConfigGenerator([]plugin.Plugin{})
+
+	serviceDiscovery := &fakes.ServiceDiscovery{}
+
+	servicePort := model.PortList{
+		&model.Port{
+			Name:     "default",
+			Port:     8080,
+			Protocol: protocol.HTTP,
+		},
+		&model.Port{
+			Name:     "auto",
+			Port:     9090,
+			Protocol: protocol.Unsupported,
+		},
+	}
+
+	serviceAttribute := model.ServiceAttributes{
+		Namespace: TestServiceNamespace,
+	}
+	service := &model.Service{
+		Hostname:     host.Name(serviceHostname),
+		Address:      "1.1.1.1",
+		ClusterVIPs:  make(map[string]string),
+		Ports:        servicePort,
+		Resolution:   0,
+		MeshExternal: false,
+		Attributes:   serviceAttribute,
+	}
+
+	instances := []*model.ServiceInstance{
+		{
+			Service:     service,
+			ServicePort: servicePort[0],
+			Endpoint: &model.IstioEndpoint{
+				Address:      "192.168.1.1",
+				EndpointPort: 10001,
+				Locality:     "region1/zone1/subzone1",
+				LbWeight:     40,
+				TLSMode:      model.IstioMutualTLSModeLabel,
 			},
-			nil, // authnPolicy
-			&model.NodeMetadata{},
-			model.MaxIstioVersion,
-			[]string{"6.6.6.6", "::1"},
-		)
+		},
+		{
+			Service:     service,
+			ServicePort: servicePort[0],
+			Endpoint: &model.IstioEndpoint{
+				Address:      "192.168.1.2",
+				EndpointPort: 10001,
+				Locality:     "region1/zone1/subzone2",
+				LbWeight:     20,
+				TLSMode:      model.IstioMutualTLSModeLabel,
+			},
+		},
+		{
+			Service:     service,
+			ServicePort: servicePort[0],
+			Endpoint: &model.IstioEndpoint{
+				Address:      "192.168.1.3",
+				EndpointPort: 10001,
+				Locality:     "region2/zone1/subzone1",
+				LbWeight:     40,
+				TLSMode:      model.IstioMutualTLSModeLabel,
+			},
+		},
+		{
+			Service:     service,
+			ServicePort: servicePort[1],
+			Endpoint: &model.IstioEndpoint{
+				Address:      "192.168.1.1",
+				EndpointPort: 10001,
+				Locality:     "region1/zone1/subzone1",
+				LbWeight:     0,
+				TLSMode:      model.IstioMutualTLSModeLabel,
+			},
+		},
+	}
+
+	serviceDiscovery.ServicesReturns([]*model.Service{service}, nil)
+	serviceDiscovery.GetProxyServiceInstancesReturns(instances, nil)
+	serviceDiscovery.InstancesByPortReturns(instances, nil)
+
+	configStore := &fakes.IstioConfigStore{
+		ListStub: func(typ, namespace string) (configs []model.Config, e error) {
+			if typ == schemas.DestinationRule.Type {
+				return []model.Config{
+					{ConfigMeta: model.ConfigMeta{
+						Type:    schemas.DestinationRule.Type,
+						Version: schemas.DestinationRule.Version,
+						Name:    "acme",
+					},
+						Spec: &networking.DestinationRule{
+							Host: "*.example.org",
+							TrafficPolicy: &networking.TrafficPolicy{
+								ConnectionPool: &networking.ConnectionPoolSettings{
+									Http: &networking.ConnectionPoolSettings_HTTPSettings{
+										Http1MaxPendingRequests: 1,
+										IdleTimeout:             &types.Duration{Seconds: 15},
+									},
+								},
+							},
+						},
+					}}, nil
+			}
+			return nil, nil
+		},
+	}
+	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
+
+	proxy := &model.Proxy{
+		ClusterID:    "some-cluster-id",
+		Type:         model.SidecarProxy,
+		IPAddresses:  []string{"6.6.6.6", "::1"},
+		DNSDomain:    "com",
+		Metadata:     &model.NodeMetadata{},
+		IstioVersion: model.MaxIstioVersion,
+	}
+
+	proxy.SetSidecarScope(env.PushContext)
+
+	proxy.ServiceInstances, _ = serviceDiscovery.GetProxyServiceInstances(proxy)
+
+	b.ResetTimer()
+
+	for n := 0; n < b.N; n++ {
+		configgen.BuildClusters(proxy, env.PushContext)
 	}
 }
 
