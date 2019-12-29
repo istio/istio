@@ -221,8 +221,9 @@ func TestNewTranslator(t *testing.T) {
 		{
 			name:         "version 1.5",
 			minorVersion: version.NewMinorVersion(1, 5),
-			wantVer:      "1.4",
-			wantErr:      false,
+			//TODO Once we add translate configs for 1.5, update wantVer to "1.5"
+			wantVer: "1.4",
+			wantErr: false,
 		},
 		{
 			name:         "version 1.6",
