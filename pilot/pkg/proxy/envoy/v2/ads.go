@@ -400,10 +400,8 @@ func listEqualUnordered(a []string, b []string) bool {
 // update the node associated with the connection, after receiving a a packet from envoy, also adds the connection
 // to the tracking map.
 func (s *DiscoveryServer) initConnection(node *core.Node, con *XdsConnection) (func(), error) {
-	initialized := false
-
 	con.mu.RLock() // may not be needed - once per connection, but locking for consistency.
-	initialized = con.node != nil
+	initialized := con.node != nil
 	con.mu.RUnlock()
 
 	if initialized {
