@@ -35,6 +35,8 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 	pstruct "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
+	lru "github.com/hashicorp/golang-lru"
+	"github.com/mitchellh/hashstructure"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
@@ -113,6 +115,8 @@ var FallThroughFilterChainPassthroughService = &model.Service{
 		Name: PassthroughCluster,
 	},
 }
+
+var MessageCache, _ = lru.New(5000)
 
 func getMaxCidrPrefix(addr string) uint32 {
 	ip := net.ParseIP(addr)
@@ -195,16 +199,22 @@ func GetByAddress(listeners []*xdsapi.Listener, addr core.Address) *xdsapi.Liste
 
 // MessageToAnyWithError converts from proto message to proto Any
 func MessageToAnyWithError(msg proto.Message) (*any.Any, error) {
+	hash, _ := hashstructure.Hash(msg, nil)
+	if value, ok := MessageCache.Get(hash); ok {
+		return value.(*any.Any), nil
+	}
 	b := proto.NewBuffer(nil)
 	b.SetDeterministic(true)
 	err := b.Marshal(msg)
 	if err != nil {
 		return nil, err
 	}
-	return &any.Any{
+	am := &any.Any{
 		TypeUrl: "type.googleapis.com/" + proto.MessageName(msg),
 		Value:   b.Bytes(),
-	}, nil
+	}
+	MessageCache.Add(hash, am)
+	return am, nil
 }
 
 // MessageToAny converts from proto message to proto Any
