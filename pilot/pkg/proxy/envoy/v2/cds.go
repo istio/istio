@@ -48,8 +48,10 @@ func (conn *XdsConnection) clusters(response []*xdsapi.Cluster, noncePrefix stri
 	return out
 }
 
+// isCacheable returns true if a cluster's proto conversion to "any" can be cached, false otherwise.
 func isCacheable(c *xdsapi.Cluster) bool {
-	return c.Name == util.BlackHoleCluster || c.Name == util.PassthroughCluster || c.Name == util.InboundPassthroughClusterIpv4 || c.Name == util.InboundPassthroughClusterIpv6
+	return c.Name == util.BlackHoleCluster || c.Name == util.PassthroughCluster ||
+		c.Name == util.InboundPassthroughClusterIpv4 || c.Name == util.InboundPassthroughClusterIpv6
 }
 
 func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext, version string) error {

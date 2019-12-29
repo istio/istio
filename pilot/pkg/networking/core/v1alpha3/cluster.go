@@ -94,9 +94,11 @@ var (
 		},
 	}
 
-	// Use pre-built clusters so that we do not rebuild them for every proxy.
-	blackholeCluster           *apiv2.Cluster
+	// Cache well known clusters, so that we do not build them for every proxy, every time.
+	blackholeCluster *apiv2.Cluster
+	// OutboundPassThroughCluster uses different LbPolicy based on proxy version. So cache them by LbPolicy.
 	outboundPassThroughCluster = make(map[apiv2.Cluster_LbPolicy]*apiv2.Cluster)
+	// InboundPassThroughCluster is built for IPv4 and IPv6 based on node metadata. index 0 contains IPv4 and 1 contains IPv6.
 	inboundPassThroughClusters = make([]*apiv2.Cluster, 2)
 )
 
@@ -1260,6 +1262,7 @@ func buildBlackHoleCluster(push *model.PushContext) *apiv2.Cluster {
 	return blackholeCluster
 }
 
+// defaultOutboundPassthroughCluster returns from cache if it exists, otherwise it is built.
 func defaultOutboundPassthroughCluster(push *model.PushContext, proxy *model.Proxy) *apiv2.Cluster {
 	if _, exists := outboundPassThroughCluster[lbPolicyClusterProvided(proxy)]; !exists {
 		outboundPassThroughCluster[lbPolicyClusterProvided(proxy)] = buildDefaultPassthroughCluster(push, proxy)
