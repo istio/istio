@@ -38,8 +38,7 @@ func (conn *XdsConnection) clusters(response []*xdsapi.Cluster, noncePrefix stri
 	}
 
 	for _, c := range response {
-		if c.Name == util.BlackHoleCluster || c.Name == util.PassthroughCluster ||
-			c.Name == util.InboundPassthroughClusterIpv4 || c.Name == util.InboundPassthroughClusterIpv6 {
+		if isCacheable(c) {
 			out.Resources = append(out.Resources, util.MessageToAnyCached(c))
 		} else {
 			out.Resources = append(out.Resources, util.MessageToAny(c))
@@ -47,6 +46,10 @@ func (conn *XdsConnection) clusters(response []*xdsapi.Cluster, noncePrefix stri
 	}
 
 	return out
+}
+
+func isCacheable(c *xdsapi.Cluster) bool {
+	return c.Name == util.BlackHoleCluster || c.Name == util.PassthroughCluster || c.Name == util.InboundPassthroughClusterIpv4 || c.Name == util.InboundPassthroughClusterIpv6
 }
 
 func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext, version string) error {
