@@ -235,6 +235,7 @@ type deployableConfig struct {
 
 func (c *deployableConfig) Wait(istioctls []*framework.Istioctl) error {
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	g, _ := errgroup.WithContext(ctx)
 	// Wait until the deployments are ready
 
@@ -250,22 +251,21 @@ func (c *deployableConfig) Wait(istioctls []*framework.Istioctl) error {
 			if parts[1] == "unchanged" {
 				continue
 			}
-			resourceId := strings.Split(parts[0], "/")
-			if !strings.HasSuffix(resourceId[0], "istio.io") {
+			resourceID := strings.Split(parts[0], "/")
+			if !strings.HasSuffix(resourceID[0], "istio.io") {
 				continue
 			}
-			simpleTypeName := strings.Split(resourceId[0], ".")[0]
+			simpleTypeName := strings.Split(resourceID[0], ".")[0]
 			for _, i := range istioctls {
 				if i == nil {
 					continue
 				}
-				g.Go(func() error { return i.Wait(simpleTypeName, c.Namespace, resourceId[1], maxDeploymentTimeout) })
+				g.Go(func() error { return i.Wait(simpleTypeName, c.Namespace, resourceID[1], maxDeploymentTimeout) })
 			}
 		}
 	}
 
 	if err := g.Wait(); err != nil {
-		cancel()
 		_ = c.Teardown()
 		return err
 	}
