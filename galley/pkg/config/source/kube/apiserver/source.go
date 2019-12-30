@@ -223,10 +223,17 @@ func (s *Source) startWatchers() {
 		s.statusCtl.Start(s.provider, resources)
 	}
 
+	var wg sync.WaitGroup
 	for c, w := range s.watchers {
+		w := w
 		scope.Source.Debuga("Source.Start: starting watcher: ", c)
-		w.start(s.options.SyncTimeout)
+		wg.Add(1)
+		go func() {
+			w.start(s.options.SyncTimeout)
+			wg.Done()
+		}()
 	}
+	wg.Wait()
 }
 
 // Stop implements processor.Source
