@@ -129,7 +129,7 @@ func (s *Source) Start() {
 	a := s.provider.GetAdapter(crdKubeResource.Resource())
 	s.crdWatcher = newWatcher(crdKubeResource, a, s.statusCtl)
 	s.crdWatcher.dispatch(event.HandlerFromFn(s.onCrdEvent))
-	s.crdWatcher.start(0) // Don't time out for CRD discovery stage
+	s.crdWatcher.start(s.options.SyncTimeout)
 }
 
 func (s *Source) onCrdEvent(e event.Event) {

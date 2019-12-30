@@ -92,11 +92,11 @@ func (w *watcher) start(syncTimeout time.Duration) {
 	if syncTimeout > 0 {
 		// If we time out waiting for this (e.g. if the current user doesn't have permissions to list or watch a resource),
 		// then log and send a FullSync so we don't get blocked
-		finished := make(chan struct{}, 1)
+		finished := make(chan struct{})
 		go func() {
 			if cache.WaitForCacheSync(done, informer.HasSynced) {
 				// Send the FullSync event after the cache syncs.
-				w.handler.Handle(event.FullSyncFor(w.schema))
+				go w.handler.Handle(event.FullSyncFor(w.schema))
 			}
 			close(finished)
 		}()
