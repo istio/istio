@@ -20,6 +20,7 @@ import (
 	"io"
 	"io/ioutil"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/go-multierror"
 
@@ -48,9 +49,10 @@ import (
 )
 
 const (
-	domainSuffix      = "cluster.local"
-	meshConfigMapKey  = "mesh"
-	meshConfigMapName = "istio"
+	domainSuffix       = "cluster.local"
+	meshConfigMapKey   = "mesh"
+	meshConfigMapName  = "istio"
+	defaultSyncTimeout = 10 * time.Second
 )
 
 // Patch table
@@ -218,8 +220,9 @@ func (sa *SourceAnalyzer) AddReaderKubeSource(readers []io.Reader) error {
 // Also tries to get mesh config from the running cluster, if it can
 func (sa *SourceAnalyzer) AddRunningKubeSource(k kube.Interfaces) {
 	o := apiserver.Options{
-		Client:  k,
-		Schemas: sa.kubeResources,
+		Client:      k,
+		Schemas:     sa.kubeResources,
+		SyncTimeout: defaultSyncTimeout,
 	}
 
 	if err := sa.addRunningKubeMeshConfigSource(k); err != nil {

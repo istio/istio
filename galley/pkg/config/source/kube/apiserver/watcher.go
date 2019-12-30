@@ -51,7 +51,7 @@ func newWatcher(r collection.Schema, a *rt.Adapter, s status.Controller) *watche
 	}
 }
 
-func (w *watcher) start(allowTimeout bool) {
+func (w *watcher) start(syncTimeout time.Duration) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.done != nil {
@@ -68,7 +68,6 @@ func (w *watcher) start(allowTimeout bool) {
 		w.handler.Handle(event.FullSyncFor(w.schema))
 		return
 	}
-	scope.Source.Debugf("DEBUG0a: Got informer for %q (%q)", w.schema.Name(), w.schema.Resource().CanonicalName())
 
 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) { w.handleEvent(event.Added, obj) },
@@ -87,33 +86,27 @@ func (w *watcher) start(allowTimeout bool) {
 	done := make(chan struct{})
 	w.done = done
 
-	scope.Source.Debugf("DEBUG0b: Running informer for %q (%q)", w.schema.Name(), w.schema.Resource().CanonicalName())
-
 	// Start CRD shared informer and wait for it to sync.
 	go informer.Run(done)
 
-	if allowTimeout {
+	if syncTimeout > 0 {
 		// If we time out waiting for this (e.g. if the current user doesn't have permissions to list or watch a resource),
 		// then log and send a FullSync so we don't get blocked
 		finished := make(chan struct{}, 1)
 		go func() {
-			scope.Source.Debugf("DEBUG0d: Waiting on cache sync for %q (%q)", w.schema, w.schema.Resource().CanonicalName())
 			if cache.WaitForCacheSync(done, informer.HasSynced) {
 				// Send the FullSync event after the cache syncs.
-				scope.Source.Debugf("DEBUG0e: Sending FullSync for %q (%q)", w.schema, w.schema.Resource().CanonicalName())
 				w.handler.Handle(event.FullSyncFor(w.schema))
 			}
-			scope.Source.Debugf("DEBUG0f: Finished waiting on cache sync for %q (%q)", w.schema, w.schema.Resource().CanonicalName())
 			close(finished)
 		}()
 		select {
 		case <-finished:
 			// Proceed normally
-		case <-time.After(10 * time.Second): // TODO: Extract this const somewhere?
-			scope.Source.Errorf("Timed out waiting for sync from informer for %q (%q), sending FullSync anyway", w.schema, w.schema.Resource().CanonicalName())
+		case <-time.After(syncTimeout):
+			scope.Source.Errorf("Timed out waiting for sync from informer for %q (%q), sending FullSync anyway", w.schema.Name(), w.schema.Resource().CanonicalName())
 			w.handler.Handle(event.FullSyncFor(w.schema))
 		}
-		scope.Source.Debugf("DEBUG0c: Finished informer for %q (%q)", w.schema, w.schema.Resource().CanonicalName())
 	} else {
 		// If we're not using timeout, then wait synchronously for this
 		// Send the FullSync event after the cache syncs.

@@ -129,7 +129,7 @@ func (s *Source) Start() {
 	a := s.provider.GetAdapter(crdKubeResource.Resource())
 	s.crdWatcher = newWatcher(crdKubeResource, a, s.statusCtl)
 	s.crdWatcher.dispatch(event.HandlerFromFn(s.onCrdEvent))
-	s.crdWatcher.start(false)
+	s.crdWatcher.start(0) // Don't time out for CRD discovery stage
 }
 
 func (s *Source) onCrdEvent(e event.Event) {
@@ -225,7 +225,7 @@ func (s *Source) startWatchers() {
 
 	for c, w := range s.watchers {
 		scope.Source.Debuga("Source.Start: starting watcher: ", c)
-		w.start(true)
+		w.start(s.options.SyncTimeout)
 	}
 }
 
