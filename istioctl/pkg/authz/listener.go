@@ -22,6 +22,8 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"istio.io/istio/pilot/pkg/networking/util"
+
 	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
@@ -126,7 +128,7 @@ func ParseListener(listener *v2.Listener) *ParsedListener {
 
 	for _, fc := range listener.FilterChains {
 		tlsContext := &auth.DownstreamTlsContext{}
-		if fc.TransportSocket != nil && fc.TransportSocket.Name == "tls" {
+		if fc.TransportSocket != nil && fc.TransportSocket.Name == util.EnvoyTLSSocketName {
 			if err := ptypes.UnmarshalAny(fc.TransportSocket.GetTypedConfig(), tlsContext); err != nil {
 				continue
 			}

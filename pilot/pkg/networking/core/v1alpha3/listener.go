@@ -2349,6 +2349,7 @@ func appendListenerFilters(filters []*listener.ListenerFilter) []*listener.Liste
 	return filters
 }
 
+// nolint: interfacer
 func buildDownstreamTlsTransportSocket(tlsContext *auth.DownstreamTlsContext) *core.TransportSocket {
 	if tlsContext == nil {
 		return nil

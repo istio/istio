@@ -505,7 +505,7 @@ func TestBuildSidecarClustersWithIstioMutualAndSNI(t *testing.T) {
 
 	cluster := clusters[1]
 	g.Expect(cluster.Name).To(Equal("outbound|8080|foobar|foo.example.org"))
-	g.Expect(getTlsContext(t, cluster).GetSni()).To(Equal("foo.com"))
+	g.Expect(getTLSContext(t, cluster).GetSni()).To(Equal("foo.com"))
 
 	clusters, err = buildSniTestClustersForSidecar("")
 	g.Expect(err).NotTo(HaveOccurred())
@@ -514,7 +514,7 @@ func TestBuildSidecarClustersWithIstioMutualAndSNI(t *testing.T) {
 
 	cluster = clusters[1]
 	g.Expect(cluster.Name).To(Equal("outbound|8080|foobar|foo.example.org"))
-	g.Expect(getTlsContext(t, cluster).GetSni()).To(Equal("outbound_.8080_.foobar_.foo.example.org"))
+	g.Expect(getTLSContext(t, cluster).GetSni()).To(Equal("outbound_.8080_.foobar_.foo.example.org"))
 }
 
 func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T) {
@@ -569,7 +569,7 @@ func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T
 	for _, c := range clusters {
 		if strings.Contains(c.Name, "outbound") {
 			actualOutboundClusterCount++
-			tlsContext := getTlsContext(t, c)
+			tlsContext := getTLSContext(t, c)
 			g.Expect(tlsContext).NotTo(BeNil())
 
 			tlsCerts := tlsContext.CommonTlsContext.TlsCertificates
@@ -1841,7 +1841,7 @@ func TestAutoMTLSClusterPlaintextMode(t *testing.T) {
 
 	// mTLS is disabled by authN policy so autoMTLS does not kick in. No cluster should have TLS context.
 	for _, cluster := range clusters {
-		g.Expect(getTlsContext(t, cluster)).To(BeNil())
+		g.Expect(getTLSContext(t, cluster)).To(BeNil())
 	}
 }
 
@@ -1888,16 +1888,16 @@ func TestAutoMTLSClusterStrictMode(t *testing.T) {
 
 	// For port 8080, (m)TLS settings is automatically added, thus its cluster should have TLS context.
 	// TlsContext is nil because we use socket match instead
-	g.Expect(getTlsContext(t, clusters[0])).To(BeNil())
+	g.Expect(getTLSContext(t, clusters[0])).To(BeNil())
 	g.Expect(clusters[0].TransportSocketMatches).To(HaveLen(2))
 
 	// For 9090, use the TLS settings are explicitly specified in DR (which disable TLS)
-	g.Expect(getTlsContext(t, clusters[1])).To(BeNil())
+	g.Expect(getTLSContext(t, clusters[1])).To(BeNil())
 
 	// Sanity check: make sure TLS is not accidentally added to other clusters.
 	for i := 2; i < len(clusters); i++ {
 		cluster := clusters[i]
-		g.Expect(getTlsContext(t, cluster)).To(BeNil())
+		g.Expect(getTLSContext(t, cluster)).To(BeNil())
 	}
 }
 
@@ -1942,7 +1942,7 @@ func TestAutoMTLSClusterStrictMode_SkipForExternal(t *testing.T) {
 
 	// Service is external, use the TLS settings specified in DR.
 	for _, cluster := range clusters {
-		g.Expect(getTlsContext(t, cluster)).To(BeNil())
+		g.Expect(getTLSContext(t, cluster)).To(BeNil())
 	}
 }
 
@@ -1991,16 +1991,16 @@ func TestAutoMTLSClusterPerPortStrictMode(t *testing.T) {
 
 	// For port 8080, (m)TLS settings is automatically added, thus its cluster should have TLS context.
 	// TlsContext is nil because we use socket match instead
-	g.Expect(getTlsContext(t, clusters[0])).To(BeNil())
+	g.Expect(getTLSContext(t, clusters[0])).To(BeNil())
 	g.Expect(clusters[0].TransportSocketMatches).To(HaveLen(2))
 
 	// For 9090, authn policy disable mTLS, so it should not have TLS context.
-	g.Expect(getTlsContext(t, clusters[1])).To(BeNil())
+	g.Expect(getTLSContext(t, clusters[1])).To(BeNil())
 
 	// Sanity check: make sure TLS is not accidentally added to other clusters.
 	for i := 2; i < len(clusters); i++ {
 		cluster := clusters[i]
-		g.Expect(getTlsContext(t, cluster)).To(BeNil())
+		g.Expect(getTLSContext(t, cluster)).To(BeNil())
 	}
 }
 
@@ -2053,7 +2053,7 @@ func TestApplyLoadBalancer(t *testing.T) {
 }
 
 // Helper function to extract TLS context from a cluster
-func getTlsContext(t *testing.T, c *apiv2.Cluster) *envoy_api_v2_auth.UpstreamTlsContext {
+func getTLSContext(t *testing.T, c *apiv2.Cluster) *envoy_api_v2_auth.UpstreamTlsContext {
 	t.Helper()
 	if c.TransportSocket == nil {
 		return nil

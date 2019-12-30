@@ -1179,7 +1179,10 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.TLSSetting
 	}
 
 	if tlsContext != nil {
-		cluster.TransportSocket = &core.TransportSocket{Name: util.EnvoyTLSSocketName, ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(tlsContext)}}
+		cluster.TransportSocket = &core.TransportSocket{
+			Name:       util.EnvoyTLSSocketName,
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(tlsContext)},
+		}
 	}
 	// convert to transport socket matcher if the mode was auto detected
 	if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL && mtlsCtxType == autoDetected && util.IsIstioVersionGE14(proxy) {
