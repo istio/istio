@@ -25,6 +25,7 @@ package model
 import (
 	"bytes"
 	"fmt"
+	"hash/fnv"
 	"sort"
 	"strconv"
 	"strings"
@@ -699,4 +700,16 @@ func copyInternal(v interface{}) interface{} {
 		panic(err)
 	}
 	return copied
+}
+
+func (ep *IstioEndpoint) HashUint32() uint32 {
+	if ep == nil {
+		return 0
+	}
+
+	s := fmt.Sprintf("%s-%s-%s-%d-%d", ep.Address, ep.Network, ep.Locality, ep.LbWeight, ep.EndpointPort)
+	h := fnv.New32a()
+	h.Write([]byte(s))
+
+	return h.Sum32()
 }

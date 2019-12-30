@@ -106,8 +106,12 @@ github.com/circonus-labs/circonus-gometrics v2.3.1+incompatible/go.mod h1:nmEj6D
 github.com/circonus-labs/circonusllhist v0.1.4 h1:G5qJPuD16akpIXMUR7KcfBvrQOVm95+qyqUm+SEAZks=
 github.com/circonus-labs/circonusllhist v0.1.4/go.mod h1:kMXHVDlOchFAehlya5ePtbp5jckzBHf4XRpQvBOLI+I=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
-github.com/cncf/udpa/go v0.0.0-20191209042840-269d4d468f6f h1:WBZRG4aNOuI15bLRrCgN8fCq8E5Xuty6jGbmSNEvSsU=
+github.com/cncf/udpa v0.0.0-20191224132323-b0644318a8ba h1:evhLpAtH9VV074ljyzPruZAmr92Jluc5tivHCqd/wns=
+github.com/cncf/udpa/go v0.0.0-20191127193423-5f054cc4b1a0 h1:JDgYvo/W+p3kUtiLXK+zh9o+pXYNLLzsl0d6cqwGelw=
+github.com/cncf/udpa/go v0.0.0-20191127193423-5f054cc4b1a0/go.mod h1:M8M6+tZqaGXZJjfX53e64911xZQV5JYwmTeXPW+k8Sc=
 github.com/cncf/udpa/go v0.0.0-20191209042840-269d4d468f6f/go.mod h1:M8M6+tZqaGXZJjfX53e64911xZQV5JYwmTeXPW+k8Sc=
+github.com/cncf/udpa/go v0.0.0-20191224132323-b0644318a8ba h1:cYYb2drthxywcQU4GX9DcpeQcARXckhwtRaQ8i1J9s4=
+github.com/cncf/udpa/go v0.0.0-20191224132323-b0644318a8ba/go.mod h1:M8M6+tZqaGXZJjfX53e64911xZQV5JYwmTeXPW+k8Sc=
 github.com/cockroachdb/datadriven v0.0.0-20190809214429-80d97fb3cbaa/go.mod h1:zn76sxSg3SzpJ0PPJaLDCu+Bu0Lg3sKTORVIj19EIF8=
 github.com/codahale/hdrhistogram v0.0.0-20161010025455-3a0bb77429bd h1:qMd81Ts1T2OTKmB4acZcyKaMtRnY5Y44NuXGX2GFJ1w=
 github.com/codahale/hdrhistogram v0.0.0-20161010025455-3a0bb77429bd/go.mod h1:sE/e/2PUdi/liOCUjSTXgM1o87ZssimdTWN964YiIeI=

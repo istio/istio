@@ -15,11 +15,14 @@
 package v2
 
 import (
+	"fmt"
+	"math"
 	"strconv"
 	"sync"
 	"time"
 
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
@@ -124,7 +127,7 @@ type EndpointShards struct {
 	// Shards is used to track the shards. EDS updates are grouped by shard.
 	// Current implementation uses the registry name as key - in multicluster this is the
 	// name of the k8s cluster, derived from the config (secret).
-	Shards map[string][]*model.IstioEndpoint
+	Shards map[string]*EndpointGroups
 
 	// ServiceAccounts has the concatenation of all service accounts seen so far in endpoints.
 	// This is updated on push, based on shards. If the previous list is different than
@@ -132,6 +135,18 @@ type EndpointShards struct {
 	// Due to the larger time, it is still possible that connection errors will occur while
 	// CDS is updated.
 	ServiceAccounts map[string]bool
+}
+
+// EndpointGroups slices endpoints within a shard into small groups. It makes pushing efficient by
+// pushing only a small subset of endpoints within the shard. The related xDS resource is called EGDS.
+type EndpointGroups struct {
+	NamePrefix string
+
+	SliceCount uint32
+
+	IstioEndpoints []*model.IstioEndpoint
+
+	IstioEndpointGroups map[string][]*model.IstioEndpoint
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
@@ -160,6 +175,7 @@ func (s *DiscoveryServer) Register(rpcs *grpc.Server) {
 	ads.RegisterAggregatedDiscoveryServiceServer(rpcs, s)
 }
 
+// Start starts the discovery server instance
 func (s *DiscoveryServer) Start(stopCh <-chan struct{}) {
 	adsLog.Infof("Starting ADS server")
 	go s.handleUpdates(stopCh)
@@ -396,4 +412,120 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 
 func (s *DiscoveryServer) sendPushes(stopCh <-chan struct{}) {
 	doSendPushes(stopCh, s.concurrentPushLimit, s.pushQueue)
+}
+
+func (g *EndpointGroups) accept(newEps []*model.IstioEndpoint) map[string]struct{} {
+	prevEps := g.IstioEndpoints
+	g.IstioEndpoints = newEps
+
+	if len(newEps) > len(prevEps)*2 || len(newEps) < len(prevEps)/2 {
+		return g.reshard()
+	}
+
+	// Calculate the diff in memory
+
+	added := make([]*model.IstioEndpoint, len(newEps))
+
+MainAddedLoop:
+	for _, nep := range newEps {
+		for _, pep := range prevEps {
+			if cmp.Equal(nep, pep) == true {
+				continue MainAddedLoop
+			}
+		}
+
+		added = append(added, nep)
+	}
+
+	removed := make([]*model.IstioEndpoint, len(prevEps))
+
+MainRemovedLoop:
+	for _, pep := range prevEps {
+		for _, nep := range newEps {
+			if cmp.Equal(pep, nep) == true {
+				continue MainRemovedLoop
+			}
+		}
+
+		// The endpoint was not found in new list. Mark it removed.
+		removed = append(removed, pep)
+	}
+
+	names := g.updateEndpointGroups(added, removed)
+
+	return names
+}
+
+// updateEndpointGroups accepts changed groups with mapped endpoints. It does the update
+// by replacing existing groups entirely.
+func (g *EndpointGroups) updateEndpointGroups(updated []*model.IstioEndpoint, removed []*model.IstioEndpoint) map[string]struct{} {
+	updatedGroupKeys := make(map[string]struct{})
+
+	// Merge keys of changed groups.
+	for _, ep := range updated {
+		updatedGroupKeys[g.makeGroupKey(ep)] = struct{}{}
+	}
+
+	for _, ep := range removed {
+		updatedGroupKeys[g.makeGroupKey(ep)] = struct{}{}
+	}
+
+	// Now reconstruct the group of changed.
+	updatedGroups := make(map[string][]*model.IstioEndpoint, g.SliceCount)
+	for _, ep := range g.IstioEndpoints {
+		key := g.makeGroupKey(ep)
+
+		if _, f := updatedGroupKeys[key]; !f {
+			_, f := updatedGroups[key]
+			if !f {
+				updatedGroups[key] = make([]*model.IstioEndpoint, 50)
+			}
+
+			updatedGroups[key] = append(updatedGroups[key], ep)
+		}
+	}
+
+	// Changed EGDS resource names
+	names := make(map[string]struct{})
+
+	for key, eps := range updatedGroups {
+		g.IstioEndpointGroups[key] = eps
+		names[key] = struct{}{}
+	}
+
+	return names
+}
+
+func (g *EndpointGroups) makeGroupKey(ep *model.IstioEndpoint) string {
+	index := ep.HashUint32() % g.SliceCount
+	key := fmt.Sprintf("%s-%d", g.NamePrefix, index)
+
+	return key
+}
+
+func (g *EndpointGroups) reshard() map[string]struct{} {
+	eps := g.IstioEndpoints
+
+	// Reset the group map first
+	g.IstioEndpointGroups = make(map[string][]*model.IstioEndpoint)
+
+	// Total number of slices
+	g.SliceCount = uint32(math.Ceil(float64(len(eps)) / 50))
+
+	// Changed EGDS resource names
+	names := make(map[string]struct{})
+
+	for _, ep := range eps {
+		key := g.makeGroupKey(ep)
+
+		if group, f := g.IstioEndpointGroups[key]; !f {
+			g.IstioEndpointGroups[key] = make([]*model.IstioEndpoint, 50)
+		} else {
+			group = append(group, ep)
+		}
+
+		names[key] = struct{}{}
+	}
+
+	return names
 }

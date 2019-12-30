@@ -16,6 +16,7 @@ package v2
 
 import (
 	"reflect"
+	"fmt"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -61,7 +62,7 @@ import (
 //
 // TODO: for selector-less services (mesh expansion), skip pod processing
 // TODO: optimize the code path for ExternalEndpoint, no additional processing needed
-// TODO: if a service doesn't have split traffic - we can also skip pod and lable processing
+// TODO: if a service doesn't have split traffic - we can also skip pod and label processing
 // TODO: efficient label processing. In alpha3, the destination policies are set per service, so
 // we may only need to search in a small list.
 
@@ -135,7 +136,7 @@ func buildEnvoyLbEndpoint(uid string, family model.AddressFamily, address string
 	}
 
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
-	// Istio endpoint level tls transport socket configuation depends on this logic
+	// Istio endpoint level tls transport socket configuration depends on this logic
 	// Do not remove
 	ep.Metadata = util.BuildLbEndpointMetadata(uid, network, tlsMode, push)
 
@@ -166,7 +167,7 @@ func toEnvoyEndpoint(e *model.IstioEndpoint, push *model.PushContext) (*endpoint
 	}
 
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
-	// Istio endpoint level tls transport socket configuation depends on this logic
+	// Istio endpoint level tls transport socket configuration depends on this logic
 	// Do not remove
 	ep.Metadata = util.BuildLbEndpointMetadata(e.UID, e.Network, e.TLSMode, push)
 
@@ -457,7 +458,7 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 		// Return an error to force a full sync, which will also cause the
 		// EndpointsShardsByService to be initialized with all services.
 		ep = &EndpointShards{
-			Shards:          map[string][]*model.IstioEndpoint{},
+			Shards:          map[string]*EndpointGroups{},
 			ServiceAccounts: map[string]bool{},
 		}
 		s.EndpointShardsByService[serviceName][namespace] = ep
@@ -486,8 +487,15 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 	}
 
 	ep.mutex.Lock()
-	ep.Shards[clusterID] = istioEndpoints
 	ep.ServiceAccounts = serviceAccounts
+	egdsGroup, f := ep.Shards[clusterID]
+	if !f {
+		egdsGroup = &EndpointGroups{
+			NamePrefix: fmt.Sprintf("%s-%s-%s", serviceName, namespace, clusterID),
+		}
+	}
+
+	egdsUpdates := egdsGroup.accept(istioEndpoints)
 	ep.mutex.Unlock()
 
 	// for internal update: this called by DiscoveryServer.Push --> updateServiceShards,
@@ -504,6 +512,7 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 			ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(): {}},
 			EdsUpdates:         edsUpdates,
 			Reason:             []model.TriggerReason{model.EndpointUpdate},
+			EGDSUpdates:        egdsUpdates,
 		})
 	}
 }
@@ -625,7 +634,7 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 	// Service resolution type might have changed and Cluster may be still in the EDS cluster list of "XdsConnection.Clusters".
 	// This can happen if a ServiceEntry's resolution is changed from STATIC to DNS which changes the Envoy cluster type from
 	// EDS to STRICT_DNS. When pushEds is called before Envoy sends the updated cluster list via Endpoint request which in turn
-	// will update "XdsConnection.Clusters", we might accidentally send EDS updates for STRICT_DNS cluster. This check gaurds
+	// will update "XdsConnection.Clusters", we might accidentally send EDS updates for STRICT_DNS cluster. This check guards
 	// against such behavior and returns nil. When the updated cluster warms up in Envoy, it would update with new endpoints
 	// automatically.
 	// Gateways use EDS for Passthrough cluster. So we should allow Passthrough here.
@@ -895,7 +904,9 @@ func buildLocalityLbEndpointsFromShards(
 	shards.mutex.Lock()
 	// The shards are updated independently, now need to filter and merge
 	// for this cluster
-	for _, endpoints := range shards.Shards {
+	for _, group := range shards.Shards {
+		endpoints := group.IstioEndpoints
+
 		for _, ep := range endpoints {
 			if svcPort.Name != ep.ServicePortName {
 				continue

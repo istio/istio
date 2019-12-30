@@ -32,7 +32,7 @@ require (
 	github.com/census-instrumentation/opencensus-proto v0.2.1
 	github.com/circonus-labs/circonus-gometrics v2.3.1+incompatible
 	github.com/circonus-labs/circonusllhist v0.1.4 // indirect
-	github.com/cncf/udpa/go v0.0.0-20191209042840-269d4d468f6f
+	github.com/cncf/udpa/go v0.0.0-20191224132323-b0644318a8ba
 	github.com/codahale/hdrhistogram v0.0.0-20161010025455-3a0bb77429bd // indirect
 	github.com/containerd/containerd v1.3.2 // indirect
 	github.com/coreos/etcd v3.3.15+incompatible

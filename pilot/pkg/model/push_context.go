@@ -224,6 +224,8 @@ type PushRequest struct {
 	// This is used by incremental eds.
 	EdsUpdates map[string]struct{}
 
+	EGDSUpdates map[string]struct{}
+
 	// Push stores the push context to use for the update. This may initially be nil, as we will
 	// debounce changes before a PushContext is eventually created.
 	Push *PushContext
