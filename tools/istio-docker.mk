@@ -319,14 +319,14 @@ endef
 
 # create a DOCKER_PUSH_TARGETS that's each of DOCKER_TARGETS with a push. prefix
 DOCKER_PUSH_TARGETS:=
-$(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_PUSH_TARGETS+=push.$(TGT)))
+$(foreach TGT,$(filter-out docker.app,$(DOCKER_TARGETS)),$(eval DOCKER_PUSH_TARGETS+=push.$(TGT)))
 
 # Will build and push docker images.
 docker.push: $(DOCKER_PUSH_TARGETS)
 
 # Build and push docker images using dockerx
 dockerx.push: dockerx
-	$(foreach TGT,$(DOCKER_TARGETS), time ( \
+	$(foreach TGT,$(DOCKER_PUSH_TARGETS), time ( \
 		set -e && for distro in $(DOCKER_BUILD_VARIANTS); do tag=$(TAG)-$${distro}; docker push $(HUB)/$(subst docker.,,$(TGT)):$${tag%-$(DEFAULT_DISTRIBUTION)}; done); \
 	)
 
