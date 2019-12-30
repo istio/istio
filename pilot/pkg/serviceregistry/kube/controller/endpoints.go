@@ -15,6 +15,8 @@
 package controller
 
 import (
+	"fmt"
+
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
@@ -60,7 +62,10 @@ func (e *endpointsController) registerEndpointsHandler() {
 				// Avoid pushes if only resource version changed (kube-scheduller, cluster-autoscaller, etc)
 				oldE := old.(*v1.Endpoints)
 				curE := cur.(*v1.Endpoints)
+				fmt.Printf("rv %s %s\n", oldE.ResourceVersion, curE.ResourceVersion)
 				if oldE.ResourceVersion != curE.ResourceVersion && !compareEndpoints(oldE, curE) {
+					fmt.Printf("endpoint update\n")
+
 					incrementEvent("Endpoints", "update")
 					e.c.queue.Push(func() error {
 						return e.onEvent(cur, model.EventUpdate)

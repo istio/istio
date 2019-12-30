@@ -23,6 +23,7 @@ import (
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/google/uuid"
 	coreV1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	discoveryv1alpha1 "k8s.io/api/discovery/v1alpha1"
@@ -1294,8 +1295,9 @@ func updateEndpoints(controller *Controller, name, namespace string, portNames, 
 
 	endpoint := &coreV1.Endpoints{
 		ObjectMeta: metaV1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
+			Name:            name,
+			Namespace:       namespace,
+			ResourceVersion: uuid.New().String(), // update should set a new resource version
 		},
 		Subsets: []coreV1.EndpointSubset{{
 			Addresses: eas,
