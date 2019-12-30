@@ -1996,7 +1996,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 		}
 		filterChains = append(filterChains, &listener.FilterChain{
 			FilterChainMatch: match,
-			TransportSocket:  buildDownstreamTlsTransportSocket(chain.tlsContext),
+			TransportSocket:  buildDownstreamTLSTransportSocket(chain.tlsContext),
 		})
 	}
 
@@ -2350,7 +2350,7 @@ func appendListenerFilters(filters []*listener.ListenerFilter) []*listener.Liste
 }
 
 // nolint: interfacer
-func buildDownstreamTlsTransportSocket(tlsContext *auth.DownstreamTlsContext) *core.TransportSocket {
+func buildDownstreamTLSTransportSocket(tlsContext *auth.DownstreamTlsContext) *core.TransportSocket {
 	if tlsContext == nil {
 		return nil
 	}
