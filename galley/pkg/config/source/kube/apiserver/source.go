@@ -129,7 +129,7 @@ func (s *Source) Start() {
 	a := s.provider.GetAdapter(crdKubeResource.Resource())
 	s.crdWatcher = newWatcher(crdKubeResource, a, s.statusCtl)
 	s.crdWatcher.dispatch(event.HandlerFromFn(s.onCrdEvent))
-	s.crdWatcher.start()
+	s.crdWatcher.start(false)
 }
 
 func (s *Source) onCrdEvent(e event.Event) {
@@ -225,7 +225,7 @@ func (s *Source) startWatchers() {
 
 	for c, w := range s.watchers {
 		scope.Source.Debuga("Source.Start: starting watcher: ", c)
-		w.start()
+		w.start(true)
 	}
 }
 
