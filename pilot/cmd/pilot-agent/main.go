@@ -30,6 +30,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
+
 	stsserver "istio.io/istio/security/pkg/stsservice/server"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager"
 
@@ -59,21 +60,21 @@ import (
 
 const (
 	trustworthyJWTPath = "/var/run/secrets/tokens/istio-token"
-	localHostIPv4 = "127.0.0.1"
-	localHostIPv6 = "[::1]"
+	localHostIPv4      = "127.0.0.1"
+	localHostIPv6      = "[::1]"
 )
 
 // TODO: Move most of this to pkg.
 
 var (
-	role          = &model.Proxy{}
-	proxyIP       string
-	registryID    serviceregistry.ProviderID
-	trustDomain   string
-	pilotIdentity string
-	mixerIdentity string
-	statusPort    uint16
-	stsPort       int
+	role               = &model.Proxy{}
+	proxyIP            string
+	registryID         serviceregistry.ProviderID
+	trustDomain        string
+	pilotIdentity      string
+	mixerIdentity      string
+	statusPort         uint16
+	stsPort            int
 	tokenManagerPlugin string
 
 	// proxy config flags (named identically)
