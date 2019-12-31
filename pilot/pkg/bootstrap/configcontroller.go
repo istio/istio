@@ -101,11 +101,11 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	}
 
 	// Wrap the config controller with a cache.
-	aggregateMcpController, err := configaggregate.MakeCache(s.ConfigStores)
+	aggregateConfigController, err := configaggregate.MakeCache(s.ConfigStores)
 	if err != nil {
 		return err
 	}
-	s.configController = aggregateMcpController
+	s.configController = aggregateConfigController
 
 	// Create the config store.
 	s.environment.IstioConfigStore = model.MakeIstioStore(s.configController)
@@ -125,7 +125,8 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	var conns []*grpc.ClientConn
 	var configStores []model.ConfigStoreCache
 
-	s.mcpOptions = &mcp.Options{
+	mcpOptions := &mcp.Options{
+		ClusterID:    s.clusterID,
 		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
 		ConfigLedger: buildLedger(args.Config),
 		XDSUpdater:   s.EnvoyXdsServer,
@@ -164,7 +165,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			return err
 		}
 		conns = append(conns, conn)
-		s.mcpController(conn, reporter, &clients, &configStores)
+		s.mcpController(mcpOptions, conn, reporter, &clients, &configStores)
 
 		// create MCP SyntheticServiceEntryController
 		if resourceContains(configSource.SubscribedResources, meshconfig.Resource_SERVICE_REGISTRY) {
@@ -285,21 +286,18 @@ func mcpSecurityOptions(ctx context.Context, cancel context.CancelFunc, configSo
 }
 
 func (s *Server) mcpController(
+	opts *mcp.Options,
 	conn *grpc.ClientConn,
 	reporter monitoring.Reporter,
 	clients *[]*sink.Client,
 	configStores *[]model.ConfigStoreCache) {
 	clientNodeID := ""
-	collections := make([]sink.CollectionOptions, 0, len(schemas.Istio)-1)
+	collections := make([]sink.CollectionOptions, 0, len(schemas.Istio))
 	for _, c := range schemas.Istio {
-		// do not register SSEs for this controller as there is a dedicated controller
-		if c.Collection == schemas.SyntheticServiceEntry.Collection {
-			continue
-		}
 		collections = append(collections, sink.CollectionOptions{Name: c.Collection, Incremental: false})
 	}
 
-	mcpController := mcp.NewController(s.mcpOptions)
+	mcpController := mcp.NewController(opts)
 	sinkOptions := &sink.Options{
 		CollectionOptions: collections,
 		Updater:           mcpController,
@@ -320,17 +318,17 @@ func (s *Server) sseMCPController(args *PilotArgs,
 	clients *[]*sink.Client,
 	configStores *[]model.ConfigStoreCache) {
 	clientNodeID := "SSEMCP"
-	s.incrementalSSEDiscoveryOptions = &serviceentry.Options{
+	sseOptions := &serviceentry.Options{
 		ClusterID:    s.clusterID,
 		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
 		XDSUpdater:   s.EnvoyXdsServer,
 	}
-	ctl := serviceentry.NewSyntheticServiceEntryController(s.incrementalSSEDiscoveryOptions)
-	s.sseDiscoveryOptions = &serviceentry.DiscoveryOptions{
+	ctl := serviceentry.NewSyntheticServiceEntryController(sseOptions)
+	sseDiscoveryOptions := &serviceentry.DiscoveryOptions{
 		ClusterID:    s.clusterID,
 		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
 	}
-	s.sseDiscovery = serviceentry.NewDiscovery(ctl, s.sseDiscoveryOptions)
+	s.sseDiscovery = serviceentry.NewDiscovery(ctl, sseDiscoveryOptions)
 	incrementalSinkOptions := &sink.Options{
 		CollectionOptions: []sink.CollectionOptions{
 			{
