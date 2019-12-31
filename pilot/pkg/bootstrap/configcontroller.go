@@ -170,12 +170,6 @@ func (s *Server) initMCPConfigController(args *PilotArgs) (err error) {
 
 		// create MCP SyntheticServiceEntryController
 		if resourceContains(configSource.SubscribedResources, meshconfig.Resource_SERVICE_REGISTRY) {
-			conn, err := grpcDial(ctx, configSource, args)
-			if err != nil {
-				log.Errorf("Unable to dial MCP Server %q: %v", configSource.Address, err)
-				return err
-			}
-			conns = append(conns, conn)
 			s.sseMCPController(args, conn, reporter, &clients, &configStores)
 		}
 	}
