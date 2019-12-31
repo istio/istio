@@ -48,7 +48,6 @@ type Controller interface {
 
 // Options stores the configurable attributes of a Control
 type Options struct {
-	ClusterID    string
 	DomainSuffix string
 	XDSUpdater   model.XDSUpdater
 	ConfigLedger ledger.Ledger

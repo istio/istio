@@ -126,7 +126,6 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	var configStores []model.ConfigStoreCache
 
 	mcpOptions := &mcp.Options{
-		ClusterID:    s.clusterID,
 		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
 		ConfigLedger: buildLedger(args.Config),
 		XDSUpdater:   s.EnvoyXdsServer,
