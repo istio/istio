@@ -67,7 +67,7 @@ var (
 
 	// Tracks connections, increment on each new connection.
 	connectionNumber = int64(0)
-	sdsServiceLog    = log.RegisterScope("sdsServiceLog", "SDS service debugging", 0)
+	sdsServiceLog    = log.RegisterScope("sds", "SDS service debugging", 0)
 )
 
 type discoveryStream interface {
@@ -259,7 +259,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 				key.ConnectionID = con.conID
 				addConn(key, con)
 				firstRequestFlag = true
-				sdsServiceLog.Infoa("New connection ", discReq)
+				sdsServiceLog.Infof("%s new connection", sdsLogPrefix(con.conID, resourceName))
 			}
 			conID := con.conID
 			con.proxyID = discReq.Node.Id
@@ -342,7 +342,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 					conIDresourceNamePrefix, discReq.Node.Id, err)
 				return err
 			}
-			sdsServiceLog.Infoa("Pushed secret for ", discReq)
+			sdsServiceLog.Infof("%s pushed secret", conIDresourceNamePrefix)
 		case <-con.pushChannel:
 			con.mutex.RLock()
 			proxyID := con.proxyID
@@ -578,12 +578,12 @@ func pushSDS(con *sdsConnection) error {
 
 	// Update metrics after push to avoid adding latency to SDS push.
 	if secret.RootCert != nil {
-		sdsServiceLog.Infof("%s pushed root cert to proxy\n", conIDresourceNamePrefix)
-		sdsServiceLog.Debugf("%s pushed root cert %+v to proxy\n", conIDresourceNamePrefix,
+		sdsServiceLog.Infof("%s pushed root cert to proxy", conIDresourceNamePrefix)
+		sdsServiceLog.Debugf("%s pushed root cert %+v to proxy", conIDresourceNamePrefix,
 			string(secret.RootCert))
 	} else {
-		sdsServiceLog.Infof("%s pushed key/cert pair to proxy\n", conIDresourceNamePrefix)
-		sdsServiceLog.Debugf("%s pushed certificate chain %+v to proxy\n",
+		sdsServiceLog.Infof("%s pushed key/cert pair to proxy", conIDresourceNamePrefix)
+		sdsServiceLog.Debugf("%s pushed certificate chain %+v to proxy",
 			conIDresourceNamePrefix, string(secret.CertificateChain))
 	}
 	totalPushCounts.Increment()
@@ -678,6 +678,6 @@ func constructConnectionID(proxyID string) string {
 
 // sdsLogPrefix returns a unified log prefix.
 func sdsLogPrefix(conID, resourceName string) string {
-	lPrefix := fmt.Sprintf("CONNECTION ID: %s, RESOURCE NAME: %s, EVENT:", conID, resourceName)
+	lPrefix := fmt.Sprintf("node:%s resource:%s", conID, resourceName)
 	return lPrefix
 }
