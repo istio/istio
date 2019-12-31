@@ -26,13 +26,12 @@ import (
 	"text/template"
 	"time"
 
-	stsserver "istio.io/istio/security/pkg/stsservice/server"
-	"istio.io/istio/security/pkg/stsservice/tokenmanagers/google"
-
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
+	stsserver "istio.io/istio/security/pkg/stsservice/server"
+	"istio.io/istio/security/pkg/stsservice/tokenmanager"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -48,7 +47,6 @@ import (
 	envoyDiscovery "istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/bootstrap/option"
-	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
@@ -59,7 +57,11 @@ import (
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 
-const trustworthyJWTPath = "/var/run/secrets/tokens/istio-token"
+const (
+	trustworthyJWTPath = "/var/run/secrets/tokens/istio-token"
+	localHostIPv4 = "127.0.0.1"
+	localHostIPv6 = "[::1]"
+)
 
 // TODO: Move most of this to pkg.
 
@@ -72,6 +74,7 @@ var (
 	mixerIdentity string
 	statusPort    uint16
 	stsPort       int
+	tokenManagerPlugin string
 
 	// proxy config flags (named identically)
 	configPath               string
@@ -463,9 +466,9 @@ var (
 			ctx, cancel := context.WithCancel(context.Background())
 			// If a status port was provided, start handling status probes.
 			if statusPort > 0 {
-				localHostAddr := "127.0.0.1"
+				localHostAddr := localHostIPv4
 				if proxyIPv6 {
-					localHostAddr = "[::1]"
+					localHostAddr = localHostIPv6
 				}
 				prober := kubeAppProberNameVar.Get()
 				statusServer, err := status.NewServer(status.Config{
@@ -485,17 +488,13 @@ var (
 			// If security token service (STS) port is not zero, and Istio is running on
 			// GCP, start STS server and listen on STS port for STS requests.
 			// For STS, see https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16.
-			gCPProjectNumber := getGcpProjectNumber()
-			if stsPort > 0 && len(gCPProjectNumber) > 0 {
-				localHostAddr := "127.0.0.1"
+			if stsPort > 0 {
+				localHostAddr := localHostIPv4
 				if proxyIPv6 {
-					localHostAddr = "[::1]"
+					localHostAddr = localHostIPv6
 				}
-				tokenManager, err := google.CreateTokenManager(trustDomain, gCPProjectNumber)
-				if err != nil {
-					cancel()
-					return err
-				}
+				tokenManager := tokenmanager.CreateTokenManager(tokenManagerPlugin,
+					tokenmanager.Config{TrustDomain: trustDomain})
 				stsServer, err := stsserver.NewServer(stsserver.Config{
 					LocalHostAddr: localHostAddr,
 					LocalPort:     stsPort,
@@ -545,16 +544,6 @@ var (
 		},
 	}
 )
-
-func getGcpProjectNumber() string {
-	if platform.IsGCP() {
-		md := platform.NewGCP().Metadata()
-		if projNum, found := md[platform.GCPProjectNumber]; found {
-			return projNum
-		}
-	}
-	return ""
-}
 
 // dedupes the string array and also ignores the empty string.
 func dedupeStrings(in []string) []string {
@@ -723,6 +712,8 @@ func init() {
 		"HTTP Port on which to serve pilot agent status. If zero, agent status will not be provided.")
 	proxyCmd.PersistentFlags().IntVar(&stsPort, "stsPort", 0,
 		"HTTP Port on which to serve Security Token Service (STS). If zero, STS service will not be provided.")
+	proxyCmd.PersistentFlags().StringVar(&tokenManagerPlugin, "tokenManagerPlugin", "",
+		"Token provider specific plugin name.")
 	// Flags for proxy configuration
 	values := mesh.DefaultProxyConfig()
 	proxyCmd.PersistentFlags().StringVar(&configPath, "configPath", values.ConfigPath,

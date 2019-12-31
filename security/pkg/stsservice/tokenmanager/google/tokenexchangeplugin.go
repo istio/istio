@@ -45,31 +45,31 @@ const (
 )
 
 var (
-	tokenManagerLog        = log.RegisterScope("tokenManager", "STS token manager debugging", 0)
+	pluginLog              = log.RegisterScope("tokenManagerGooglePlugin", "token manager plugin debugging", 0)
 	federatedTokenEndpoint = "https://securetoken.googleapis.com/v1/identitybindingtoken"
 	// https://cloud.google.com/iam/docs/reference/credentials/rest/v1/projects.serviceAccounts/generateAccessToken
 	accessTokenEndpoint = "https://iamcredentials.googleapis.com/v1/projects/-/" +
 		"serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken"
 )
 
-// TokenManager supports token exchange with Google OAuth 2.0 authorization server.
-type TokenManager struct {
+// Plugin supports token exchange with Google OAuth 2.0 authorization server.
+type Plugin struct {
 	hTTPClient  *http.Client
 	trustDomain string
 	// tokens is the cache for fetched tokens.
-	// map key is timestamp of token, map value is tokenInfo.
+	// map key is token type, map value is tokenInfo.
 	tokens           sync.Map
 	gCPProjectNumber string
 }
 
-// CreateTokenManager creates a token manager that fetches token from a Google OAuth 2.0 authorization server.
-func CreateTokenManager(trustDomain string, gCPProjectNumber string) (*TokenManager, error) {
+// CreateTokenManagerPlugin creates a plugin that fetches token from a Google OAuth 2.0 authorization server.
+func CreateTokenManagerPlugin(trustDomain string, gCPProjectNumber string) (*Plugin, error) {
 	caCertPool, err := x509.SystemCertPool()
 	if err != nil {
-		tokenManagerLog.Errorf("Failed to get SystemCertPool: %v", err)
+		pluginLog.Errorf("Failed to get SystemCertPool: %v", err)
 		return nil, err
 	}
-	tm := &TokenManager{
+	p := &Plugin{
 		hTTPClient: &http.Client{
 			Timeout: httpTimeOutInSec * time.Second,
 			Transport: &http.Transport{
@@ -81,7 +81,7 @@ func CreateTokenManager(trustDomain string, gCPProjectNumber string) (*TokenMana
 		trustDomain:      trustDomain,
 		gCPProjectNumber: gCPProjectNumber,
 	}
-	return tm, nil
+	return p, nil
 }
 
 type federatedTokenResponse struct {
@@ -92,17 +92,17 @@ type federatedTokenResponse struct {
 }
 
 // GenerateToken takes STS request parameters and fetches token, returns StsResponseParameters in JSON.
-func (tm *TokenManager) GenerateToken(parameters stsservice.StsRequestParameters) ([]byte, error) {
-	tokenManagerLog.Debugf("Start to fetch token with STS request parameters: %v", parameters)
-	ftResp, err := tm.fetchFederatedToken(parameters)
+func (p *Plugin) ExchangeToken(parameters stsservice.StsRequestParameters) ([]byte, error) {
+	pluginLog.Debugf("Start to fetch token with STS request parameters: %v", parameters)
+	ftResp, err := p.fetchFederatedToken(parameters)
 	if err != nil {
 		return nil, err
 	}
-	atResp, err := tm.fetchAccessToken(ftResp)
+	atResp, err := p.fetchAccessToken(ftResp)
 	if err != nil {
 		return nil, err
 	}
-	return tm.generateSTSResp(atResp)
+	return p.generateSTSResp(atResp)
 }
 
 // constructFederatedTokenRequest returns an HTTP request for federated token.
@@ -117,13 +117,13 @@ func (tm *TokenManager) GenerateToken(parameters stsservice.StsRequestParameters
 //    subjectToken: <jwt token>
 //    Scope: https://www.googleapis.com/auth/cloud-platform
 // }
-func (tm *TokenManager) constructFederatedTokenRequest(parameters stsservice.StsRequestParameters) *http.Request {
+func (p *Plugin) constructFederatedTokenRequest(parameters stsservice.StsRequestParameters) *http.Request {
 	reqScope := scope
 	if len(parameters.Scope) != 0 {
 		reqScope = parameters.Scope
 	}
 	query := map[string]string{
-		"audience":           tm.trustDomain,
+		"audience":           p.trustDomain,
 		"grantType":          parameters.GrantType,
 		"requestedTokenType": tokenType,
 		"subjectTokenType":   parameters.SubjectTokenType,
@@ -133,24 +133,28 @@ func (tm *TokenManager) constructFederatedTokenRequest(parameters stsservice.Sts
 	jsonQuery, _ := json.Marshal(query)
 	req, _ := http.NewRequest("POST", federatedTokenEndpoint, bytes.NewBuffer(jsonQuery))
 	req.Header.Set("Content-Type", contentType)
-	reqDump, _ := httputil.DumpRequest(req, true)
-	tokenManagerLog.Debugf("Generated federated token request: %s", string(reqDump))
+	if pluginLog.DebugEnabled() {
+		reqDump, _ := httputil.DumpRequest(req, false)
+		pluginLog.Debugf("Prepared federated token request: \n%s", string(reqDump))
+	} else {
+		pluginLog.Info("Prepared federated token request")
+	}
 	return req
 }
 
 // fetchFederatedToken exchanges a third-party issued Json Web Token for an OAuth2.0 access token
 // which asserts a third-party identity within an identity namespace.
-func (tm *TokenManager) fetchFederatedToken(parameters stsservice.StsRequestParameters) (*federatedTokenResponse, error) {
+func (p *Plugin) fetchFederatedToken(parameters stsservice.StsRequestParameters) (*federatedTokenResponse, error) {
 	respData := &federatedTokenResponse{}
 
-	req := tm.constructFederatedTokenRequest(parameters)
-	resp, err := tm.sendRequestWithRetry(req)
+	req := p.constructFederatedTokenRequest(parameters)
+	resp, err := p.sendRequestWithRetry(req)
 	if err != nil {
 		respCode := 0
 		if resp != nil {
 			respCode = resp.StatusCode
 		}
-		tokenManagerLog.Errorf("Failed to exchange federated token (HTTP status %d): %v", respCode,
+		pluginLog.Errorf("Failed to exchange federated token (HTTP status %d): %v", respCode,
 			err)
 		return nil, fmt.Errorf("failed to exchange federated token (HTTP status %d): %v", respCode,
 			err)
@@ -158,21 +162,25 @@ func (tm *TokenManager) fetchFederatedToken(parameters stsservice.StsRequestPara
 	// resp should not be nil.
 	defer resp.Body.Close()
 
-	respDump, _ := httputil.DumpResponse(resp, true)
-	tokenManagerLog.Debugf("Received federated token response: \n%s", string(respDump))
+	if pluginLog.DebugEnabled() {
+		respDump, _ := httputil.DumpResponse(resp, false)
+		pluginLog.Debugf("Received federated token response: \n%s", string(respDump))
+	} else {
+		pluginLog.Info("Received federated token response")
+	}
 
 	body, _ := ioutil.ReadAll(resp.Body)
 	if err := json.Unmarshal(body, respData); err != nil {
-		tokenManagerLog.Errorf("Failed to unmarshal federated token response data: %v", err)
+		pluginLog.Errorf("Failed to unmarshal federated token response data: %v", err)
 		return respData, fmt.Errorf("failed to unmarshal federated token response data: %v", err)
 	}
 	if respData.AccessToken == "" {
-		tokenManagerLog.Errora("federated token response does not have access token", string(body))
+		pluginLog.Errora("federated token response does not have access token", string(body))
 		return respData, errors.New("federated token response does not have access token. " + string(body))
 	}
-	tokenManagerLog.Debug("successfully exchanged a federated token")
+	pluginLog.Debug("successfully exchanged a federated token")
 	tokenReceivedTime := time.Now()
-	tm.tokens.Store(tokenReceivedTime.String(), stsservice.TokenInfo{
+	p.tokens.Store(federatedToken, stsservice.TokenInfo{
 		TokenType:  federatedToken,
 		IssueTime:  tokenReceivedTime.String(),
 		ExpireTime: tokenReceivedTime.Add(time.Duration(respData.ExpiresIn) * time.Second).String()})
@@ -181,9 +189,9 @@ func (tm *TokenManager) fetchFederatedToken(parameters stsservice.StsRequestPara
 
 // Send HTTP request every 0.01 seconds until successfully receive response or hit max retry numbers.
 // If response code is 4xx, return immediately without retry.
-func (tm *TokenManager) sendRequestWithRetry(req *http.Request) (resp *http.Response, err error) {
+func (p *Plugin) sendRequestWithRetry(req *http.Request) (resp *http.Response, err error) {
 	for i := 0; i < maxRequestRetry; i++ {
-		resp, err = tm.hTTPClient.Do(req)
+		resp, err = p.hTTPClient.Do(req)
 		if resp != nil && resp.StatusCode == http.StatusOK {
 			return resp, err
 		}
@@ -201,9 +209,9 @@ func (tm *TokenManager) sendRequestWithRetry(req *http.Request) (resp *http.Resp
 }
 
 type accessTokenRequest struct {
-	Name      string            `json:"Name"` // nolint: structcheck, unused
-	Delegates []string          `json:"Delegates"`
-	Scope     []string          `json:"Scope"`
+	Name      string            `json:"name"` // nolint: structcheck, unused
+	Delegates []string          `json:"delegates"`
+	Scope     []string          `json:"scope"`
 	LifeTime  duration.Duration `json:"lifetime"` // nolint: structcheck, unused
 }
 
@@ -224,50 +232,61 @@ type accessTokenResponse struct {
 //      https://www.googleapis.com/auth/cloud-platform
 //  ],
 // }
-func (tm *TokenManager) constructGenerateAccessTokenRequest(fResp *federatedTokenResponse) *http.Request {
+func (p *Plugin) constructGenerateAccessTokenRequest(fResp *federatedTokenResponse) *http.Request {
 	query := accessTokenRequest{}
 	query.Scope = append(query.Scope, scope)
 
 	jsonQuery, _ := json.Marshal(query)
-	endpoint := fmt.Sprintf(accessTokenEndpoint, tm.gCPProjectNumber)
+	endpoint := fmt.Sprintf(accessTokenEndpoint, p.gCPProjectNumber)
 	req, _ := http.NewRequest("POST", endpoint, bytes.NewBuffer(jsonQuery))
 	req.Header.Add("Content-Type", contentType)
 	req.Header.Add("Authorization", "Bearer "+fResp.AccessToken)
-	reqDump, _ := httputil.DumpRequest(req, true)
-	tokenManagerLog.Debugf("Prepared access token request: \n%s", string(reqDump))
+	if pluginLog.DebugEnabled() {
+		dumpReq := req
+		dumpReq.Header.Set("Authorization", "redacted")
+		reqDump, _ := httputil.DumpRequest(dumpReq, false)
+		pluginLog.Debugf("Prepared access token request: \n%s", string(reqDump))
+	} else {
+		pluginLog.Info("Prepared access token request")
+	}
 	return req
 }
 
-func (tm *TokenManager) fetchAccessToken(federatedToken *federatedTokenResponse) (*accessTokenResponse, error) {
+func (p *Plugin) fetchAccessToken(federatedToken *federatedTokenResponse) (*accessTokenResponse, error) {
 	respData := &accessTokenResponse{}
 
-	req := tm.constructGenerateAccessTokenRequest(federatedToken)
-	resp, err := tm.sendRequestWithRetry(req)
+	req := p.constructGenerateAccessTokenRequest(federatedToken)
+	resp, err := p.sendRequestWithRetry(req)
 	if err != nil {
 		respCode := 0
 		if resp != nil {
 			respCode = resp.StatusCode
 		}
-		tokenManagerLog.Errorf("failed to exchange access token (HTTP status %d): %v", respCode, err)
+		pluginLog.Errorf("failed to exchange access token (HTTP status %d): %v", respCode, err)
 		return respData, fmt.Errorf("failed to exchange access token (HTTP status %d): %v", respCode, err)
 	}
 	defer resp.Body.Close()
-	respDump, _ := httputil.DumpResponse(resp, true)
-	tokenManagerLog.Debugf("Received access token response: \n%s", string(respDump))
+
+	if pluginLog.DebugEnabled() {
+		respDump, _ := httputil.DumpResponse(resp, false)
+		pluginLog.Debugf("Received access token response: \n%s", string(respDump))
+	} else {
+		pluginLog.Info("Received access token response")
+	}
 
 	body, _ := ioutil.ReadAll(resp.Body)
 	if err := json.Unmarshal(body, respData); err != nil {
-		tokenManagerLog.Errorf("Failed to unmarshal access token response data: %v", err)
+		pluginLog.Errorf("Failed to unmarshal access token response data: %v", err)
 		return respData, fmt.Errorf("failed to unmarshal access token response data: %v", err)
 	}
 	if respData.AccessToken == "" {
-		tokenManagerLog.Errora("access token response does not have access token", string(body))
+		pluginLog.Errora("access token response does not have access token", string(body))
 		return respData, errors.New("access token response does not have access token. " + string(body))
 	}
-	tokenManagerLog.Debug("successfully exchanged an access token")
+	pluginLog.Debug("successfully exchanged an access token")
 	tokenReceivedTime := time.Now()
 	expireTime, _ := ptypes.Duration(&respData.ExpireTime)
-	tm.tokens.Store(tokenReceivedTime.String(), stsservice.TokenInfo{
+	p.tokens.Store(accessToken, stsservice.TokenInfo{
 		TokenType:  accessToken,
 		IssueTime:  tokenReceivedTime.String(),
 		ExpireTime: tokenReceivedTime.Add(expireTime).String()})
@@ -275,7 +294,7 @@ func (tm *TokenManager) fetchAccessToken(federatedToken *federatedTokenResponse)
 }
 
 // generateSTSResp takes accessTokenResponse and generates StsResponseParameters in JSON.
-func (tm *TokenManager) generateSTSResp(atResp *accessTokenResponse) ([]byte, error) {
+func (p *Plugin) generateSTSResp(atResp *accessTokenResponse) ([]byte, error) {
 	expireTime, _ := ptypes.Duration(&atResp.ExpireTime)
 	stsRespParam := stsservice.StsResponseParameters{
 		AccessToken:     atResp.AccessToken,
@@ -288,9 +307,9 @@ func (tm *TokenManager) generateSTSResp(atResp *accessTokenResponse) ([]byte, er
 }
 
 // DumpTokenStatus dumps all token status in JSON
-func (tm *TokenManager) DumpTokenStatus() ([]byte, error) {
+func (p *Plugin) DumpPluginStatus() ([]byte, error) {
 	tokenStatus := make([]stsservice.TokenInfo, 0)
-	tm.tokens.Range(func(k interface{}, v interface{}) bool {
+	p.tokens.Range(func(k interface{}, v interface{}) bool {
 		token := v.(stsservice.TokenInfo)
 		tokenStatus = append(tokenStatus, token)
 		return true

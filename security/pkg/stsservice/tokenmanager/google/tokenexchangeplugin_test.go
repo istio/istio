@@ -58,7 +58,7 @@ func TestAccessToken(t *testing.T) {
 		if tc.genFederatedTokenError != nil {
 			ms.SetGenFedTokenError(tc.genFederatedTokenError)
 		}
-		stsRespJSON, err := tm.GenerateToken(defaultSTSRequest())
+		stsRespJSON, err := tm.ExchangeToken(defaultSTSRequest())
 		verifyToken(t, k, stsRespJSON, err, tc.expectedError)
 		ms.SetGenAcsTokenError(nil)
 		ms.SetGenFedTokenError(nil)
@@ -99,8 +99,8 @@ func defaultSTSRequest() stsservice.StsRequestParameters {
 }
 
 // setUpTest sets up token manager, authorization server.
-func setUpTest(t *testing.T) (*TokenManager, *mock.AuthorizationServer, string, string) {
-	tm, _ := CreateTokenManager(mock.FakeTrustDomain, mock.FakeProjectNum)
+func setUpTest(t *testing.T) (*Plugin, *mock.AuthorizationServer, string, string) {
+	tm, _ := CreateTokenManagerPlugin(mock.FakeTrustDomain, mock.FakeProjectNum)
 	ms, err := mock.StartNewServer(t)
 	if err != nil {
 		t.Fatalf("failed to start a mock server: %v", err)
