@@ -24,8 +24,6 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 
-	"istio.io/istio/tests/integration/security/util"
-
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 
@@ -36,6 +34,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/native"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
+	"istio.io/istio/tests/integration/security/util"
 )
 
 func verifyListener(listener *xdsapi.Listener, t *testing.T) error {

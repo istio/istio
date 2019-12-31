@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"path"
 	"strings"
 	"sync"
 	"text/template"
@@ -49,6 +50,7 @@ import (
 	envoyDiscovery "istio.io/istio/pilot/pkg/proxy/envoy"
 	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/bootstrap/option"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/config/constants"
@@ -69,15 +71,18 @@ const (
 // TODO: Move most of this to pkg.
 
 var (
-	role               = &model.Proxy{}
-	proxyIP            string
-	registryID         serviceregistry.ProviderID
-	trustDomain        string
-	pilotIdentity      string
-	mixerIdentity      string
-	statusPort         uint16
-	stsPort            int
-	tokenManagerPlugin string
+	role                        = &model.Proxy{}
+	proxyIP                     string
+	registryID                  serviceregistry.ProviderID
+	trustDomain                 string
+	pilotIdentity               string
+	mixerIdentity               string
+	statusPort                  uint16
+	stsPort                     int
+	tokenManagerPlugin          string
+	tlsServerDNSServerCertChain string
+	tlsServerDNSKey             string
+	tlsServerDNSRootCert        string
 
 	// proxy config flags (named identically)
 	configPath               string
@@ -219,6 +224,13 @@ var (
 			tlsCertsToWatch = []string{
 				tlsServerCertChain, tlsServerKey, tlsServerRootCert,
 				tlsClientCertChain, tlsClientKey, tlsClientRootCert,
+			}
+			tlsServerDNSCertPath := env.RegisterStringVar(bootstrap.IstioMetaPrefix+model.NodeMetadataTLSServerDNSCert, "", "").Get()
+			if tlsServerDNSCertPath != "" {
+				tlsServerDNSServerCertChain = path.Join(tlsServerDNSCertPath, constants.CertChainFilename)
+				tlsServerDNSKey = path.Join(tlsServerDNSCertPath, constants.KeyFilename)
+				tlsServerDNSRootCert = path.Join(tlsServerDNSCertPath, constants.RootCertFilename)
+				tlsCertsToWatch = append(tlsCertsToWatch, tlsServerDNSServerCertChain, tlsServerDNSKey, tlsServerDNSRootCert)
 			}
 
 			proxyConfig := mesh.DefaultProxyConfig()
