@@ -119,8 +119,14 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	return nil
 }
 
-func (s *Server) initMCPConfigController(args *PilotArgs) error {
+func (s *Server) initMCPConfigController(args *PilotArgs) (err error) {
 	ctx, cancel := context.WithCancel(context.Background())
+	defer func() {
+		if err != nil {
+			cancel()
+		}
+	}()
+
 	var clients []*sink.Client
 	var conns []*grpc.ClientConn
 	var configStores []model.ConfigStoreCache
@@ -136,12 +142,10 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 		if strings.Contains(configSource.Address, fsScheme+"://") {
 			srcAddress, err := url.Parse(configSource.Address)
 			if err != nil {
-				cancel()
 				return fmt.Errorf("invalid config URL %s %v", configSource.Address, err)
 			}
 			if srcAddress.Scheme == fsScheme {
 				if srcAddress.Path == "" {
-					cancel()
 					return fmt.Errorf("invalid fs config URL %s, contains no file path", configSource.Address)
 				}
 				store := memory.MakeWithLedger(schemas.Istio, buildLedger(args.Config))
@@ -149,7 +153,6 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 
 				err := s.makeFileMonitor(srcAddress.Path, configController)
 				if err != nil {
-					cancel()
 					return err
 				}
 				configStores = append(configStores, configController)
@@ -157,10 +160,9 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			}
 		}
 
-		conn, err := grpcDial(ctx, cancel, configSource, args)
+		conn, err := grpcDial(ctx, configSource, args)
 		if err != nil {
 			log.Errorf("Unable to dial MCP Server %q: %v", configSource.Address, err)
-			cancel()
 			return err
 		}
 		conns = append(conns, conn)
@@ -168,10 +170,9 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 
 		// create MCP SyntheticServiceEntryController
 		if resourceContains(configSource.SubscribedResources, meshconfig.Resource_SERVICE_REGISTRY) {
-			conn, err := grpcDial(ctx, cancel, configSource, args)
+			conn, err := grpcDial(ctx, configSource, args)
 			if err != nil {
 				log.Errorf("Unable to dial MCP Server %q: %v", configSource.Address, err)
-				cancel()
 				return err
 			}
 			conns = append(conns, conn)
@@ -186,8 +187,8 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			client := clients[i]
 			wg.Add(1)
 			go func() {
+				defer wg.Done()
 				client.Run(ctx)
-				wg.Done()
 			}()
 		}
 
@@ -223,7 +224,7 @@ func resourceContains(resources []meshconfig.Resource, resource meshconfig.Resou
 	return false
 }
 
-func mcpSecurityOptions(ctx context.Context, cancel context.CancelFunc, configSource *meshconfig.ConfigSource) (grpc.DialOption, error) {
+func mcpSecurityOptions(ctx context.Context, configSource *meshconfig.ConfigSource) (grpc.DialOption, error) {
 	securityOption := grpc.WithInsecure()
 	if configSource.TlsSettings != nil &&
 		configSource.TlsSettings.Mode != networkingapi.TLSSettings_DISABLE {
@@ -261,7 +262,6 @@ func mcpSecurityOptions(ctx context.Context, cancel context.CancelFunc, configSo
 					log.Infof("%v not found. Checking again in %v", requiredFiles[0], requiredMCPCertCheckFreq)
 					select {
 					case <-ctx.Done():
-						cancel()
 						return nil, ctx.Err()
 					case <-time.After(requiredMCPCertCheckFreq):
 						// retry
@@ -274,7 +274,6 @@ func mcpSecurityOptions(ctx context.Context, cancel context.CancelFunc, configSo
 
 			watcher, err := creds.WatchFiles(ctx.Done(), credentialOption)
 			if err != nil {
-				cancel()
 				return nil, err
 			}
 			transportCreds := creds.CreateForClient(configSource.TlsSettings.Sni, watcher)
@@ -375,9 +374,9 @@ func (s *Server) makeFileMonitor(fileDir string, configController model.ConfigSt
 	return nil
 }
 
-func grpcDial(ctx context.Context, cancel context.CancelFunc,
-	configSource *meshconfig.ConfigSource, args *PilotArgs) (conn *grpc.ClientConn, err error) {
-	securityOption, err := mcpSecurityOptions(ctx, cancel, configSource)
+func grpcDial(ctx context.Context,
+	configSource *meshconfig.ConfigSource, args *PilotArgs) (*grpc.ClientConn, error) {
+	securityOption, err := mcpSecurityOptions(ctx, configSource)
 	if err != nil {
 		return nil, err
 	}
