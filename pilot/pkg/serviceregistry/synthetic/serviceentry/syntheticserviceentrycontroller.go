@@ -149,8 +149,8 @@ func (c *SyntheticServiceEntryController) dispatch(config model.Config, event mo
 }
 
 // RegisterEventHandler registers a handler using the type as a key
+// Note: currently it is not called
 func (c *SyntheticServiceEntryController) RegisterEventHandler(_ string, handler func(model.Config, model.Config, model.Event)) {
-	// TODO: investigate why it is called more than one
 	if c.eventHandler == nil {
 		c.eventHandler = handler
 	}
@@ -201,6 +201,8 @@ func (c *SyntheticServiceEntryController) removeConfig(configName []string) {
 	if len(configName) == 0 {
 		return
 	}
+
+	namespacesUpdated := map[string]struct{}{}
 	c.configStoreMu.Lock()
 	defer c.configStoreMu.Unlock()
 
@@ -215,7 +217,16 @@ func (c *SyntheticServiceEntryController) removeConfig(configName []string) {
 			if len(byNamespace) == 0 {
 				delete(byNamespace, namespace)
 			}
+			namespacesUpdated[namespace] = struct{}{}
 		}
+	}
+
+	if c.XDSUpdater != nil {
+		c.XDSUpdater.ConfigUpdate(&model.PushRequest{
+			Full:               true,
+			ConfigTypesUpdated: map[string]struct{}{schemas.SyntheticServiceEntry.Type: {}},
+			NamespacesUpdated:  namespacesUpdated,
+		})
 	}
 }
 
