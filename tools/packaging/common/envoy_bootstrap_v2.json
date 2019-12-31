@@ -264,11 +264,7 @@
               "trusted_ca": {
                 "filename": "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
               },
-              "verify_subject_alt_name": [
-                {{- range $a, $s := .pilot_SAN }}
-                "{{$s}}"
-                {{- end}}
-              ]
+              "verify_subject_alt_name": {{ toJSON .pilot_SAN }}
             }
             {{ else }}
             "tls_certificate_sds_secret_configs":[
@@ -309,11 +305,7 @@
             ],
             "combined_validation_context":{
               "default_validation_context":{
-                "verify_subject_alt_name":[
-                  {{- range $a, $s := .pilot_SAN }}
-                  "{{$s}}"
-                  {{- end}}
-                ]
+                "verify_subject_alt_name": {{ toJSON .pilot_SAN }}
               },
               "validation_context_sds_secret_config":{
                 "name":"ROOTCA",
@@ -373,11 +365,7 @@
               "trusted_ca": {
                 "filename": "/etc/certs/root-cert.pem"
               },
-              "verify_subject_alt_name": [
-                {{- range $a, $s := .pilot_SAN }}
-                "{{$s}}"
-                {{- end}}
-              ]
+              "verify_subject_alt_name": {{ toJSON .pilot_SAN }}
             }
           }
         },
