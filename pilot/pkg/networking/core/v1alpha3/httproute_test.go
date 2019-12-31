@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -646,6 +647,48 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 				c.routeName, c.expectedHosts, c.fallthroughRoute, c.registryOnly)
 		})
 	}
+}
+
+func TestSidecarOutboundHTTPRouteConfigWithFallthroughRouteEnabled(t *testing.T) {
+
+	t.Run("sidecar config with fallthrough route enabled", func(t *testing.T) {
+		p := &fakePlugin{}
+		configgen := NewConfigGenerator([]plugin.Plugin{p})
+		routeName := "80"
+		env := buildListenerEnv([]*model.Service{})
+		if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
+			t.Fatalf("failed to initialize push context")
+		}
+		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
+		_ = os.Setenv(features.EnableFallthroughRoute.Name, "1")
+		vHostCache := make(map[int][]*route.VirtualHost)
+		config := configgen.buildSidecarOutboundHTTPRouteConfig(&env, &proxy, env.PushContext, routeName, vHostCache)
+
+		if config == nil {
+			t.Fatalf("got nil route for %s", routeName)
+		}
+
+		if len(config.VirtualHosts) != 1 {
+			t.Fatalf("expected a single VirtualHost")
+		}
+		vhost := config.VirtualHosts[0]
+
+		if vhost.Name != util.PassthroughRouteName {
+			t.Fatalf("vhost name is %s", vhost.Name)
+		}
+		if len(vhost.Routes) != 1 {
+			t.Fatalf("expected a single routes for VirtualHost %s", vhost.Name)
+		}
+		route := vhost.Routes[0].GetRoute()
+
+		if route.GetCluster() != util.PassthroughCluster {
+			t.Fatalf("route cluster is %s", route.GetCluster())
+		}
+		timeout := route.GetTimeout().String()
+		if timeout != "" {
+			t.Fatalf("route timeout is %s", timeout)
+		}
+	})
 }
 
 func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
