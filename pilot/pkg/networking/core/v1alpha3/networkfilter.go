@@ -225,7 +225,7 @@ func buildThriftFilter(statPrefix string) *listener.Filter {
 	}
 
 	out := &listener.Filter{
-		Name: wellknown.ThriftProxy,
+		Name:       wellknown.ThriftProxy,
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(thriftProxy)},
 	}
 

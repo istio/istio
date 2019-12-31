@@ -31,9 +31,9 @@ import (
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
 	grpc_stats "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/grpc_stats/v2alpha"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	ratelimit "github.com/envoyproxy/go-control-plane/envoy/config/ratelimit/v2"
 	thrift_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/thrift_proxy/v2alpha1"
 	thrift_ratelimit "github.com/envoyproxy/go-control-plane/envoy/config/filter/thrift/rate_limit/v2alpha1"
+	ratelimit "github.com/envoyproxy/go-control-plane/envoy/config/ratelimit/v2"
 	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/ptypes"
@@ -627,7 +627,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPort
 	return httpOpts
 }
 
-func (configgen *ConfigGeneratorImpl) buildSidecarThriftListenerOptsForPortOrUDS(node *model.Proxy, pluginParams *plugin.InputParams) *thriftListenerOpts {
+func (configgen *ConfigGeneratorImpl) buildSidecarThriftListenerOptsForPortOrUDS(pluginParams *plugin.InputParams) *thriftListenerOpts {
 	clusterName := pluginParams.InboundClusterName
 	if clusterName == "" {
 		// In case of unix domain sockets, the service port will be 0. So use the port name to distinguish the
@@ -734,7 +734,7 @@ allChainsLabel:
 
 		case plugin.ListenerProtocolThrift:
 			filterChainMatch = chain.FilterChainMatch
-			thriftOpts = configgen.buildSidecarThriftListenerOptsForPortOrUDS(node, pluginParams)
+			thriftOpts = configgen.buildSidecarThriftListenerOptsForPortOrUDS(pluginParams)
 
 		case plugin.ListenerProtocolTCP:
 			filterChainMatch = chain.FilterChainMatch
@@ -2056,18 +2056,16 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 	return connectionManager
 }
 
-func buildThriftRatelimit(ratelimitServiceUri, domain string) *thrift_ratelimit.RateLimit {
-	var thriftRateLimit  *thrift_ratelimit.RateLimit
-
-	thriftRateLimit = &thrift_ratelimit.RateLimit{
-		Domain: domain,
-		Timeout: ptypes.DurationProto(20 * time.Millisecond),
+func buildThriftRatelimit(rlsCluster, domain string) *thrift_ratelimit.RateLimit {
+	thriftRateLimit := &thrift_ratelimit.RateLimit{
+		Domain:          domain,
+		Timeout:         ptypes.DurationProto(20 * time.Millisecond),
 		FailureModeDeny: false,
 		RateLimitService: &ratelimit.RateLimitServiceConfig{
 			GrpcService: &core.GrpcService{
 				TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
 					EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
-						ClusterName: features.ThriftRatelimitService.Get(),
+						ClusterName: rlsCluster,
 					},
 				},
 			},
@@ -2263,12 +2261,12 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *plugin.
 
 			// If the RLS service was provided, add the RLS to the Thrift filter
 			// chain. Rate limiting is only applied client-side.
-			if rlsUri := features.ThriftRatelimitService.Get(); rlsUri != "" &&
+			if rlsURI := features.ThriftRatelimitService.Get(); rlsURI != "" &&
 				mutable.Listener.TrafficDirection == core.TrafficDirection_OUTBOUND &&
 				pluginParams.Service != nil &&
 				pluginParams.Service.Hostname != "" &&
 				len(quotas) > 0 {
-				rateLimitConfig := buildThriftRatelimit(rlsUri, fmt.Sprint(pluginParams.Service.Hostname))
+				rateLimitConfig := buildThriftRatelimit(rlsURI, fmt.Sprint(pluginParams.Service.Hostname))
 				rateLimitFilter := &thrift_proxy.ThriftFilter{
 					Name: "envoy.filters.thrift.rate_limit",
 				}
@@ -2281,8 +2279,7 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *plugin.
 				} else {
 					rateLimitFilter.ConfigType = &thrift_proxy.ThriftFilter_Config{Config: util.MessageToStruct(rateLimitConfig)}
 				}
-				thriftProxies[i].ThriftFilters = append(thriftProxies[i].ThriftFilters, rateLimitFilter)
-				thriftProxies[i].ThriftFilters = append(thriftProxies[i].ThriftFilters, routerFilter)
+				thriftProxies[i].ThriftFilters = append(thriftProxies[i].ThriftFilters, rateLimitFilter, routerFilter)
 
 			}
 

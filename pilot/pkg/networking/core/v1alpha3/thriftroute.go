@@ -17,6 +17,7 @@ package v1alpha3
 import (
 	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	thrift_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/thrift_proxy/v2alpha1"
+
 	"istio.io/istio/pilot/pkg/features"
 )
 

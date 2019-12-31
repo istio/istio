@@ -573,9 +573,9 @@ func TestOutboundListenerConfig_WithSidecar(t *testing.T) {
 
 func TestOutboundRateLimitedThriftListenerConfig(t *testing.T) {
 	svcName := "thrift-service-unlimited"
-	svcIp := "127.0.22.2"
+	svcIP := "127.0.22.2"
 	limitedSvcName := "thrift-service"
-	limitedSvcIp := "127.0.22.3"
+	limitedSvcIP := "127.0.22.3"
 	if err := os.Setenv("PILOT_ENABLE_THRIFT_FILTER", "true"); err != nil {
 		t.Error(err.Error())
 	}
@@ -587,8 +587,8 @@ func TestOutboundRateLimitedThriftListenerConfig(t *testing.T) {
 		_ = os.Unsetenv(features.ThriftRatelimitService.Name)
 	}()
 	services := []*model.Service{
-		buildService(svcName + ".default.svc.cluster.local", svcIp, protocol.Thrift, tnow),
-		buildService(limitedSvcName + ".default.svc.cluster.local", limitedSvcIp, protocol.Thrift, tnow)}
+		buildService(svcName+".default.svc.cluster.local", svcIP, protocol.Thrift, tnow),
+		buildService(limitedSvcName+".default.svc.cluster.local", limitedSvcIP, protocol.Thrift, tnow)}
 
 	p := &fakePlugin{}
 	sidecarConfig := &model.Config{
@@ -618,9 +618,9 @@ func TestOutboundRateLimitedThriftListenerConfig(t *testing.T) {
 				return []model.Config{
 					{
 						Spec: &client.QuotaRule{
-							Quotas:               []*client.Quota{
+							Quotas: []*client.Quota{
 								{
-									Quota: "test",
+									Quota:  "test",
 									Charge: 1,
 								},
 							},
@@ -650,7 +650,7 @@ func TestOutboundRateLimitedThriftListenerConfig(t *testing.T) {
 	listeners := configgen.buildSidecarOutboundListeners(&proxy, env.PushContext)
 
 	var thriftProxy thrift_proxy.ThriftProxy
-	thriftListener := findListenerByAddress(listeners, svcIp)
+	thriftListener := findListenerByAddress(listeners, svcIP)
 	chains := thriftListener.GetFilterChains()
 	filters := chains[len(chains)-1].Filters
 	err := ptypes.UnmarshalAny(filters[len(filters)-1].GetTypedConfig(), &thriftProxy)
@@ -660,7 +660,7 @@ func TestOutboundRateLimitedThriftListenerConfig(t *testing.T) {
 	if len(thriftProxy.ThriftFilters) > 0 {
 		t.Fatal("No thrift filters should have been applied")
 	}
-	thriftListener = findListenerByAddress(listeners, limitedSvcIp)
+	thriftListener = findListenerByAddress(listeners, limitedSvcIP)
 	chains = thriftListener.GetFilterChains()
 	filters = chains[len(chains)-1].Filters
 	err = ptypes.UnmarshalAny(filters[len(filters)-1].GetTypedConfig(), &thriftProxy)
@@ -672,7 +672,7 @@ func TestOutboundRateLimitedThriftListenerConfig(t *testing.T) {
 	}
 	var rateLimitApplied bool
 	for _, filter := range thriftProxy.ThriftFilters {
-		if filter.Name =="envoy.filters.thrift.rate_limit" {
+		if filter.Name == "envoy.filters.thrift.rate_limit" {
 			rateLimitApplied = true
 			break
 		}
