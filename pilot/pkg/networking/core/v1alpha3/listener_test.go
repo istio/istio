@@ -26,6 +26,7 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_filter "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
+	thrift_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/thrift_proxy/v2alpha1"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
@@ -39,6 +40,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/networking/plugin/mixer/client"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/host"
@@ -567,6 +569,118 @@ func TestOutboundListenerConfig_WithSidecar(t *testing.T) {
 	services = append(services, service4)
 	testOutboundListenerConfigWithSidecarWithCaptureModeNone(t, services...)
 	testOutboundListenerConfigWithSidecarWithUseRemoteAddress(t, services...)
+}
+
+func TestOutboundRateLimitedThriftListenerConfig(t *testing.T) {
+	svcName := "thrift-service-unlimited"
+	svcIp := "127.0.22.2"
+	limitedSvcName := "thrift-service"
+	limitedSvcIp := "127.0.22.3"
+	if err := os.Setenv("PILOT_ENABLE_THRIFT_FILTER", "true"); err != nil {
+		t.Error(err.Error())
+	}
+	if err := os.Setenv(features.ThriftRatelimitService.Name, "ratelimit.svc.cluster.local"); err != nil {
+		t.Error(err.Error())
+	}
+	defer func() {
+		_ = os.Unsetenv(features.EnableThriftFilter.Name)
+		_ = os.Unsetenv(features.ThriftRatelimitService.Name)
+	}()
+	services := []*model.Service{
+		buildService(svcName + ".default.svc.cluster.local", svcIp, protocol.Thrift, tnow),
+		buildService(limitedSvcName + ".default.svc.cluster.local", limitedSvcIp, protocol.Thrift, tnow)}
+
+	p := &fakePlugin{}
+	sidecarConfig := &model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Name:      "foo",
+			Namespace: "not-default",
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					// None
+					CaptureMode: networking.CaptureMode_NONE,
+					Hosts:       []string{"*/*"},
+				},
+			},
+		},
+	}
+
+	configgen := NewConfigGenerator([]plugin.Plugin{p})
+
+	serviceDiscovery := new(fakes.ServiceDiscovery)
+	serviceDiscovery.ServicesReturns(services, nil)
+
+	configStore := &fakes.IstioConfigStore{
+		QuotaSpecByDestinationStub: func(s *model.ServiceInstance) []model.Config {
+			if s.Service.Hostname.Matches(host.Name(limitedSvcName + ".default.svc.cluster.local")) {
+				return []model.Config{
+					{
+						Spec: &client.QuotaRule{
+							Quotas:               []*client.Quota{
+								{
+									Quota: "test",
+									Charge: 1,
+								},
+							},
+						},
+					},
+				}
+			}
+			return []model.Config{}
+		},
+	}
+
+	m := mesh.DefaultMeshConfig()
+	env := model.Environment{
+		PushContext:      model.NewPushContext(),
+		ServiceDiscovery: serviceDiscovery,
+		IstioConfigStore: configStore,
+		Watcher:          mesh.NewFixedWatcher(&m),
+	}
+
+	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
+		t.Error(err.Error())
+	}
+
+	proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
+	proxy.ServiceInstances = proxyInstances
+
+	listeners := configgen.buildSidecarOutboundListeners(&proxy, env.PushContext)
+
+	var thriftProxy thrift_proxy.ThriftProxy
+	thriftListener := findListenerByAddress(listeners, svcIp)
+	chains := thriftListener.GetFilterChains()
+	filters := chains[len(chains)-1].Filters
+	err := ptypes.UnmarshalAny(filters[len(filters)-1].GetTypedConfig(), &thriftProxy)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	if len(thriftProxy.ThriftFilters) > 0 {
+		t.Fatal("No thrift filters should have been applied")
+	}
+	thriftListener = findListenerByAddress(listeners, limitedSvcIp)
+	chains = thriftListener.GetFilterChains()
+	filters = chains[len(chains)-1].Filters
+	err = ptypes.UnmarshalAny(filters[len(filters)-1].GetTypedConfig(), &thriftProxy)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	if len(thriftProxy.ThriftFilters) == 0 {
+		t.Fatal("Thrift rate limit filter should have been applied")
+	}
+	var rateLimitApplied bool
+	for _, filter := range thriftProxy.ThriftFilters {
+		if filter.Name =="envoy.filters.thrift.rate_limit" {
+			rateLimitApplied = true
+			break
+		}
+	}
+	if !rateLimitApplied {
+		t.Error("No rate limit applied when one should have been")
+	}
+
 }
 
 func TestGetActualWildcardAndLocalHost(t *testing.T) {

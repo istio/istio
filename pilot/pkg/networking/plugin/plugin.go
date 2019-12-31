@@ -79,6 +79,8 @@ func ModelProtocolToListenerProtocol(node *model.Proxy, p protocol.Instance,
 	case protocol.TCP, protocol.HTTPS, protocol.TLS,
 		protocol.Mongo, protocol.Redis, protocol.MySQL:
 		return ListenerProtocolTCP
+	case protocol.Thrift:
+		return ListenerProtocolThrift
 	case protocol.UDP:
 		return ListenerProtocolUnknown
 	default:

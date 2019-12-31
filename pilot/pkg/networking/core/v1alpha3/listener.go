@@ -2083,7 +2083,6 @@ func buildThriftRatelimit(ratelimitServiceUri, domain string) *thrift_ratelimit.
 
 func buildThriftProxy(thriftOpts *thriftListenerOpts) *thrift_proxy.ThriftProxy {
 	return &thrift_proxy.ThriftProxy{
-		StatPrefix:  thriftOpts.statPrefix,
 		Transport:   thriftOpts.transport,
 		Protocol:    thriftOpts.protocol,
 		RouteConfig: thriftOpts.routeConfig,
