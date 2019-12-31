@@ -17,6 +17,7 @@ package serviceentry
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -99,17 +100,17 @@ func (c *SyntheticServiceEntryController) List(typ, namespace string) (out []mod
 				out = append(out, *config)
 			}
 		}
-		return out, nil
+	} else {
+		byNamespace := c.configStore[namespace]
+		for _, config := range byNamespace {
+			out = append(out, *config)
+		}
 	}
 
-	byNamespace, ok := c.configStore[namespace]
-	if !ok {
-		return nil, nil
-	}
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].Name < out[j].Name
+	})
 
-	for _, config := range byNamespace {
-		out = append(out, *config)
-	}
 	return out, nil
 }
 
@@ -122,15 +123,14 @@ func (c *SyntheticServiceEntryController) Apply(change *sink.Change) error {
 
 	defer atomic.AddUint32(&c.synced, 1)
 
-	if len(change.Objects) == 0 {
-		return nil
-	}
-
 	if change.Incremental {
 		// removed first
 		c.removeConfig(change.Removed)
 		c.incrementalUpdate(change.Objects)
 	} else {
+		if len(change.Objects) == 0 {
+			return nil
+		}
 		c.configStoreUpdate(change.Objects)
 	}
 
