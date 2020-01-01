@@ -1376,9 +1376,9 @@ func TestFindServiceInstanceForIngressListener(t *testing.T) {
 		},
 	}
 	configgen := NewConfigGenerator([]plugin.Plugin{})
-	instance := configgen.findServiceInstanceForIngressListener(instances, ingress)
-	if instance == nil {
-		t.Fatal("Expected to return a valid instance, but got nil")
+	instance := configgen.findOrCreateServiceInstance(instances, ingress, "sidecar", "sidecarns")
+	if instance == nil || instance.Service.Hostname.Matches("sidecar.sidecarns") {
+		t.Fatal("Expected to return a valid instance, but got nil/default instance")
 	}
 	if instance == instances[0] {
 		t.Fatal("Expected to return a copy of instance, but got the same instance")
