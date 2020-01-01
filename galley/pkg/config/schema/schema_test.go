@@ -27,7 +27,7 @@ import (
 )
 
 var (
-	virtualServiceResource = resource.Schema{
+	virtualServiceResource = resource.Builder{
 		ProtoPackage:  "istio.io/api/networking/v1alpha3",
 		Proto:         "istio.networking.v1alpha3.VirtualService",
 		Version:       "v1alpha3",
@@ -35,7 +35,7 @@ var (
 		Plural:        "VirtualServices",
 		Group:         "networking.istio.io",
 		ValidateProto: validation.ValidateVirtualService,
-	}
+	}.Build()
 )
 
 func TestSchema_ParseAndBuild(t *testing.T) {
@@ -85,23 +85,26 @@ transforms:
 				collections: func() collection.Schemas {
 					b := collection.NewSchemasBuilder()
 					b.MustAdd(
-						collection.MustNewSchema(
-							"k8s/networking.istio.io/v1alpha3/virtualservices",
-							virtualServiceResource),
+						collection.Builder{
+							Name:   "k8s/networking.istio.io/v1alpha3/virtualservices",
+							Schema: virtualServiceResource,
+						}.MustBuild(),
 					)
 					b.MustAdd(
-						collection.MustNewSchema(
-							"istio/networking.istio.io/v1alpha3/virtualservices",
-							virtualServiceResource),
+						collection.Builder{
+							Name:   "istio/networking.istio.io/v1alpha3/virtualservices",
+							Schema: virtualServiceResource,
+						}.MustBuild(),
 					)
 					return b.Build()
 				}(),
 				kubeCollections: func() collection.Schemas {
 					b := collection.NewSchemasBuilder()
 					b.MustAdd(
-						collection.MustNewSchema(
-							"k8s/networking.istio.io/v1alpha3/virtualservices",
-							virtualServiceResource),
+						collection.Builder{
+							Name:   "k8s/networking.istio.io/v1alpha3/virtualservices",
+							Schema: virtualServiceResource,
+						}.MustBuild(),
 					)
 					return b.Build()
 				}(),
@@ -311,10 +314,13 @@ func TestSchemaBasic(t *testing.T) {
 	g.Expect(err).To(BeNil())
 
 	b := collection.NewSchemasBuilder()
-	b.MustAdd(collection.MustNewSchema("k8s/networking.istio.io/v1alpha3/virtualservices",
-		virtualServiceResource))
-	b.MustAdd(collection.MustNewSchema("istio/networking.istio.io/v1alpha3/virtualservices",
-		virtualServiceResource))
+	b.MustAdd(collection.Builder{
+		Name:   "k8s/networking.istio.io/v1alpha3/virtualservices",
+		Schema: virtualServiceResource,
+	}.MustBuild())
+	b.MustAdd(collection.Builder{Name: "istio/networking.istio.io/v1alpha3/virtualservices",
+		Schema: virtualServiceResource,
+	}.MustBuild())
 	fixtures.ExpectEqual(t, s.AllCollections(), b.Build())
 	g.Expect(s.AllCollectionsInSnapshots([]string{"default"})).To(ConsistOf("istio/networking.istio.io/v1alpha3/virtualservices"))
 	g.Expect(func() { s.AllCollectionsInSnapshots([]string{"bogus"}) }).To(Panic())
@@ -339,8 +345,10 @@ func TestSchemaBasic(t *testing.T) {
 		}))
 
 	fixtures.ExpectEqual(t, s.KubeCollections().All(), []collection.Schema{
-		collection.MustNewSchema("k8s/networking.istio.io/v1alpha3/virtualservices",
-			virtualServiceResource),
+		collection.Builder{
+			Name:   "k8s/networking.istio.io/v1alpha3/virtualservices",
+			Schema: virtualServiceResource,
+		}.MustBuild(),
 	})
 
 	g.Expect(s.AllSnapshots()).To(HaveLen(1))

@@ -12,10 +12,10 @@ import (
 var (
 
 	// K8SAppsV1Deployments describes the collection k8s/apps/v1/deployments
-	K8SAppsV1Deployments = collection.Schema{
-		Name:     collection.NewName("k8s/apps/v1/deployments"),
+	K8SAppsV1Deployments = collection.Builder{
+		Name:     "k8s/apps/v1/deployments",
 		Disabled: false,
-		Schema: resource.Schema{
+		Schema: resource.Builder{
 			Group:         "apps",
 			Kind:          "Deployment",
 			Plural:        "deployments",
@@ -24,14 +24,14 @@ var (
 			ProtoPackage:  "k8s.io/api/apps/v1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		},
-	}
+		}.Build(),
+	}.MustBuild()
 
 	// K8SCoreV1Endpoints describes the collection k8s/core/v1/endpoints
-	K8SCoreV1Endpoints = collection.Schema{
-		Name:     collection.NewName("k8s/core/v1/endpoints"),
+	K8SCoreV1Endpoints = collection.Builder{
+		Name:     "k8s/core/v1/endpoints",
 		Disabled: false,
-		Schema: resource.Schema{
+		Schema: resource.Builder{
 			Group:         "",
 			Kind:          "Endpoints",
 			Plural:        "endpoints",
@@ -40,14 +40,14 @@ var (
 			ProtoPackage:  "k8s.io/api/core/v1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		},
-	}
+		}.Build(),
+	}.MustBuild()
 
 	// K8SCoreV1Namespaces describes the collection k8s/core/v1/namespaces
-	K8SCoreV1Namespaces = collection.Schema{
-		Name:     collection.NewName("k8s/core/v1/namespaces"),
+	K8SCoreV1Namespaces = collection.Builder{
+		Name:     "k8s/core/v1/namespaces",
 		Disabled: false,
-		Schema: resource.Schema{
+		Schema: resource.Builder{
 			Group:         "",
 			Kind:          "Namespace",
 			Plural:        "namespaces",
@@ -56,14 +56,14 @@ var (
 			ProtoPackage:  "k8s.io/api/core/v1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		},
-	}
+		}.Build(),
+	}.MustBuild()
 
 	// K8SCoreV1Nodes describes the collection k8s/core/v1/nodes
-	K8SCoreV1Nodes = collection.Schema{
-		Name:     collection.NewName("k8s/core/v1/nodes"),
+	K8SCoreV1Nodes = collection.Builder{
+		Name:     "k8s/core/v1/nodes",
 		Disabled: false,
-		Schema: resource.Schema{
+		Schema: resource.Builder{
 			Group:         "",
 			Kind:          "Node",
 			Plural:        "nodes",
@@ -72,14 +72,14 @@ var (
 			ProtoPackage:  "k8s.io/api/core/v1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		},
-	}
+		}.Build(),
+	}.MustBuild()
 
 	// K8SCoreV1Pods describes the collection k8s/core/v1/pods
-	K8SCoreV1Pods = collection.Schema{
-		Name:     collection.NewName("k8s/core/v1/pods"),
+	K8SCoreV1Pods = collection.Builder{
+		Name:     "k8s/core/v1/pods",
 		Disabled: false,
-		Schema: resource.Schema{
+		Schema: resource.Builder{
 			Group:         "",
 			Kind:          "Pod",
 			Plural:        "pods",
@@ -88,14 +88,14 @@ var (
 			ProtoPackage:  "k8s.io/api/core/v1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		},
-	}
+		}.Build(),
+	}.MustBuild()
 
 	// K8SCoreV1Services describes the collection k8s/core/v1/services
-	K8SCoreV1Services = collection.Schema{
-		Name:     collection.NewName("k8s/core/v1/services"),
+	K8SCoreV1Services = collection.Builder{
+		Name:     "k8s/core/v1/services",
 		Disabled: false,
-		Schema: resource.Schema{
+		Schema: resource.Builder{
 			Group:         "",
 			Kind:          "Service",
 			Plural:        "services",
@@ -104,15 +104,15 @@ var (
 			ProtoPackage:  "k8s.io/api/core/v1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		},
-	}
+		}.Build(),
+	}.MustBuild()
 
 	// K8SExtensionsV1Beta1Ingresses describes the collection
 	// k8s/extensions/v1beta1/ingresses
-	K8SExtensionsV1Beta1Ingresses = collection.Schema{
-		Name:     collection.NewName("k8s/extensions/v1beta1/ingresses"),
+	K8SExtensionsV1Beta1Ingresses = collection.Builder{
+		Name:     "k8s/extensions/v1beta1/ingresses",
 		Disabled: false,
-		Schema: resource.Schema{
+		Schema: resource.Builder{
 			Group:         "extensions",
 			Kind:          "Ingress",
 			Plural:        "ingresses",
@@ -121,8 +121,8 @@ var (
 			ProtoPackage:  "k8s.io/api/extensions/v1beta1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		},
-	}
+		}.Build(),
+	}.MustBuild()
 
 	// All contains all collections in the system.
 	All = collection.NewSchemasBuilder().

@@ -144,7 +144,7 @@ func TestSyntheticServiceEntry(t *testing.T) {
 	// apply a sse
 	applyConfig(serviceEntry, testParams, t)
 
-	collection := collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Name.String()
+	collection := collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Name().String()
 
 	if err := g.WaitForSnapshot(collection, syntheticServiceEntryValidator(testParams)); err != nil {
 		t.Fatalf("failed waiting for %s:\n%v\n", collection, err)
@@ -294,8 +294,8 @@ func validateSse(response *structpath.Instance, params testParam) error {
 
 func syntheticServiceEntryValidator(params testParam) galley.SnapshotValidatorFunc {
 	return galley.NewSingleObjectSnapshotValidator(params.namespace.Name(), func(ns string, actual *galley.SnapshotObject) error {
-		sp := schema.MustGet().AllCollections().MustFind(collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Name.String())
-		typeURL := "type.googleapis.com/" + sp.Proto
+		sp := schema.MustGet().AllCollections().MustFind(collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Name().String())
+		typeURL := "type.googleapis.com/" + sp.Proto()
 		v := structpath.ForProto(actual)
 		if err := v.Equals(typeURL, "{.TypeURL}").
 			Equals(fmt.Sprintf("%s/%s", params.namespace.Name(), params.svcName), "{.Metadata.name}").

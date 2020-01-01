@@ -38,8 +38,8 @@ func (d *DestinationRuleAnalyzer) Metadata() analysis.Metadata {
 		Name:        "virtualservice.DestinationRuleAnalyzer",
 		Description: "Checks the destination rules associated with each virtual service",
 		Inputs: collection.Names{
-			collections.IstioNetworkingV1Alpha3Virtualservices.Name,
-			collections.IstioNetworkingV1Alpha3Destinationrules.Name,
+			collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
+			collections.IstioNetworkingV1Alpha3Destinationrules.Name(),
 		},
 	}
 }
@@ -49,7 +49,7 @@ func (d *DestinationRuleAnalyzer) Analyze(ctx analysis.Context) {
 	// To avoid repeated iteration, precompute the set of existing destination host+subset combinations
 	destHostsAndSubsets := initDestHostsAndSubsets(ctx)
 
-	ctx.ForEach(collections.IstioNetworkingV1Alpha3Virtualservices.Name, func(r *resource.Instance) bool {
+	ctx.ForEach(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), func(r *resource.Instance) bool {
 		d.analyzeVirtualService(r, ctx, destHostsAndSubsets)
 		return true
 	})
@@ -65,7 +65,7 @@ func (d *DestinationRuleAnalyzer) analyzeVirtualService(r *resource.Instance, ct
 
 	for _, destination := range destinations {
 		if !d.checkDestinationSubset(ns, destination, destHostsAndSubsets) {
-			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name,
+			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
 				msg.NewReferencedResourceNotFound(r, "host+subset in destinationrule", fmt.Sprintf("%s+%s", destination.GetHost(), destination.GetSubset())))
 		}
 	}
@@ -95,7 +95,7 @@ func (d *DestinationRuleAnalyzer) checkDestinationSubset(vsNamespace resource.Na
 
 func initDestHostsAndSubsets(ctx analysis.Context) map[hostAndSubset]bool {
 	hostsAndSubsets := make(map[hostAndSubset]bool)
-	ctx.ForEach(collections.IstioNetworkingV1Alpha3Destinationrules.Name, func(r *resource.Instance) bool {
+	ctx.ForEach(collections.IstioNetworkingV1Alpha3Destinationrules.Name(), func(r *resource.Instance) bool {
 		dr := r.Message.(*v1alpha3.DestinationRule)
 		drNamespace := r.Metadata.FullName.Namespace
 

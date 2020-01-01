@@ -116,7 +116,7 @@ func runTest(t *testing.T, ctx resource.Context, fset *conversion.FileSet, gal g
 		var validator galley.SnapshotValidatorFunc
 
 		switch collection {
-		case collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Name.String():
+		case collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Name().String():
 			// The synthetic service entry includes the resource versions for service and
 			// endpoints as annotations, which are volatile. This prevents us from using
 			// golden files for validation. Instead, we use the structpath library to
@@ -136,8 +136,8 @@ func runTest(t *testing.T, ctx resource.Context, fset *conversion.FileSet, gal g
 func syntheticServiceEntryValidator(ns string) galley.SnapshotValidatorFunc {
 	return galley.NewSingleObjectSnapshotValidator(ns, func(ns string, actual *galley.SnapshotObject) error {
 		v := structpath.ForProto(actual)
-		sp := schema.MustGet().AllCollections().MustFind(collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Name.String())
-		typeURL := "type.googleapis.com/" + sp.Proto
+		sp := schema.MustGet().AllCollections().MustFind(collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Name().String())
+		typeURL := "type.googleapis.com/" + sp.Proto()
 		if err := v.Equals(typeURL, "{.TypeURL}").
 			Equals(fmt.Sprintf("%s/kube-dns", ns), "{.Metadata.name}").
 			Check(); err != nil {

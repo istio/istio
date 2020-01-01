@@ -49,7 +49,7 @@ func TestRuntime_Startup_NoMeshConfig(t *testing.T) {
 		Metadata: resource.Metadata{},
 		Message:  &types.Empty{},
 	}
-	f.src.Get(coll.Name).Set(r)
+	f.src.Get(coll.Name()).Set(r)
 
 	g.Consistently(f.p.acc.Events).Should(HaveLen(0))
 	g.Consistently(f.p.HasStarted).Should(BeFalse())
@@ -66,7 +66,7 @@ func TestRuntime_Startup_MeshConfig_Arrives_No_Resources(t *testing.T) {
 
 	g.Eventually(f.p.acc.Events).Should(HaveLen(3))
 	g.Eventually(f.p.acc.Events).Should(ConsistOf(
-		event.FullSyncFor(basicmeta.K8SCollection1.Name),
+		event.FullSyncFor(basicmeta.K8SCollection1.Name()),
 		event.FullSyncFor(meshcfg.IstioMeshconfig),
 		event.AddFor(meshcfg.IstioMeshconfig, meshConfigEntry(meshcfg.Default())),
 	))
@@ -85,13 +85,13 @@ func TestRuntime_Startup_MeshConfig_Arrives(t *testing.T) {
 		Metadata: resource.Metadata{},
 		Message:  &types.Empty{},
 	}
-	f.src.Get(coll.Name).Set(r)
+	f.src.Get(coll.Name()).Set(r)
 
 	f.meshsrc.Set(meshcfg.Default())
 	g.Eventually(f.p.acc.Events).Should(HaveLen(4))
 	g.Eventually(f.p.acc.Events).Should(ConsistOf(
-		event.AddFor(basicmeta.K8SCollection1.Name, r),
-		event.FullSyncFor(basicmeta.K8SCollection1.Name),
+		event.AddFor(basicmeta.K8SCollection1.Name(), r),
+		event.FullSyncFor(basicmeta.K8SCollection1.Name()),
 		event.FullSyncFor(meshcfg.IstioMeshconfig),
 		event.AddFor(meshcfg.IstioMeshconfig, meshConfigEntry(meshcfg.Default())),
 	))
@@ -110,7 +110,7 @@ func TestRuntime_Startup_Stop(t *testing.T) {
 		Metadata: resource.Metadata{},
 		Message:  &types.Empty{},
 	}
-	f.src.Get(coll.Name).Set(r)
+	f.src.Get(coll.Name()).Set(r)
 
 	f.meshsrc.Set(meshcfg.Default())
 
@@ -132,7 +132,7 @@ func TestRuntime_Start_Start_Stop(t *testing.T) {
 		Metadata: resource.Metadata{},
 		Message:  &types.Empty{},
 	}
-	f.src.Get(coll.Name).Set(r)
+	f.src.Get(coll.Name()).Set(r)
 
 	f.meshsrc.Set(meshcfg.Default())
 	g.Eventually(f.p.acc.Events).Should(HaveLen(4))
@@ -152,7 +152,7 @@ func TestRuntime_Start_Stop_Stop(t *testing.T) {
 		Metadata: resource.Metadata{},
 		Message:  &types.Empty{},
 	}
-	f.src.Get(coll.Name).Set(r)
+	f.src.Get(coll.Name()).Set(r)
 
 	f.meshsrc.Set(meshcfg.Default())
 
@@ -175,7 +175,7 @@ func TestRuntime_MeshConfig_Causing_Restart(t *testing.T) {
 		Metadata: resource.Metadata{},
 		Message:  &types.Empty{},
 	}
-	f.src.Get(coll.Name).Set(r)
+	f.src.Get(coll.Name()).Set(r)
 
 	f.meshsrc.Set(meshcfg.Default())
 	g.Eventually(f.p.acc.Events).Should(ConsistOf(
@@ -186,8 +186,8 @@ func TestRuntime_MeshConfig_Causing_Restart(t *testing.T) {
 			Message: meshcfg.Default(),
 		}),
 		event.FullSyncFor(meshcfg.IstioMeshconfig),
-		event.AddFor(coll.Name, r),
-		event.FullSyncFor(coll.Name),
+		event.AddFor(coll.Name(), r),
+		event.FullSyncFor(coll.Name()),
 	))
 
 	oldSessionID := f.rt.currentSessionID()
@@ -213,7 +213,7 @@ func TestRuntime_Event_Before_Start(t *testing.T) {
 		Message:  &types.Empty{},
 	}
 	f.src.Start()
-	f.src.Get(coll.Name).Set(r)
+	f.src.Get(coll.Name()).Set(r)
 
 	g.Consistently(f.p.acc.Events).Should(HaveLen(0))
 }
@@ -306,7 +306,7 @@ func TestRuntime_MeshEvent_WhileRunning(t *testing.T) {
 
 	f.meshsrc.Set(meshcfg.Default())
 	g.Eventually(f.p.acc.Events).Should(ConsistOf(
-		event.FullSyncFor(basicmeta.K8SCollection1.Name),
+		event.FullSyncFor(basicmeta.K8SCollection1.Name()),
 		event.FullSyncFor(meshcfg.IstioMeshconfig),
 		event.AddFor(meshcfg.IstioMeshconfig, meshConfigEntry(meshcfg.Default())),
 	))
@@ -319,7 +319,7 @@ func TestRuntime_MeshEvent_WhileRunning(t *testing.T) {
 
 	g.Eventually(f.rt.currentSessionID).Should(Equal(oldSessionID + 1))
 	g.Eventually(f.p.acc.Events).Should(And(
-		ContainElement(event.FullSyncFor(basicmeta.K8SCollection1.Name)),
+		ContainElement(event.FullSyncFor(basicmeta.K8SCollection1.Name())),
 		ContainElement(event.FullSyncFor(meshcfg.IstioMeshconfig)),
 		ContainElement(event.AddFor(meshcfg.IstioMeshconfig, meshConfigEntry(meshcfg.Default())))))
 

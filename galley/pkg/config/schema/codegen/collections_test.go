@@ -89,10 +89,10 @@ import (
 var (
 
 	// Bar describes a really cool bar thing
-	Bar = collection.Schema {
-		Name: collection.NewName("bar"),
+	Bar = collection.Builder {
+		Name: "bar",
 		Disabled: false,
-		Schema: resource.Schema {
+		Schema: resource.Builder {
 			Group: "bar.group",
 			Kind: "barkind",
 			Plural: "barkinds",
@@ -101,14 +101,14 @@ var (
 			ProtoPackage: "github.com/gogo/protobuf/types",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		},
-	}
+		}.Build(),
+	}.MustBuild()
 
 	// Foo describes a really cool foo thing
-	Foo = collection.Schema {
-		Name: collection.NewName("foo"),
+	Foo = collection.Builder {
+		Name: "foo",
 		Disabled: true,
-		Schema: resource.Schema {
+		Schema: resource.Builder {
 			Group: "foo.group",
 			Kind: "fookind",
 			Plural: "fookinds",
@@ -117,8 +117,8 @@ var (
 			ProtoPackage: "github.com/gogo/protobuf/types",
 			ClusterScoped: true,
 			ValidateProto: validation.EmptyValidate,
-		},
-	}
+		}.Build(),
+	}.MustBuild()
 
 
 	// All contains all collections in the system.

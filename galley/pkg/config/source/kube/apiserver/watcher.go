@@ -57,14 +57,14 @@ func (w *watcher) start() {
 		panic("watcher.start: already started")
 	}
 
-	scope.Source.Debugf("Starting watcher for %q (%q)", w.schema.Name, w.schema.CanonicalResourceName())
+	scope.Source.Debugf("Starting watcher for %q (%q)", w.schema.Name(), w.schema.CanonicalResourceName())
 
 	informer, err := w.adapter.NewInformer()
 	if err != nil {
 		scope.Source.Errorf("unable to start watcher for %q: %v", w.schema.CanonicalResourceName(), err)
 		// Send a FullSync event, even if the informer is not available. This will ensure that the processing backend
 		// will still work, in absence of CRDs.
-		w.handler.Handle(event.FullSyncFor(w.schema.Name))
+		w.handler.Handle(event.FullSyncFor(w.schema.Name()))
 		return
 	}
 
@@ -89,7 +89,7 @@ func (w *watcher) start() {
 	go informer.Run(done)
 	// Send the FullSync event after the cache syncs.
 	if cache.WaitForCacheSync(done, informer.HasSynced) {
-		go w.handler.Handle(event.FullSyncFor(w.schema.Name))
+		go w.handler.Handle(event.FullSyncFor(w.schema.Name()))
 	}
 }
 
@@ -124,16 +124,16 @@ func (w *watcher) handleEvent(c event.Kind, obj interface{}) {
 		return
 	}
 
-	r := rt.ToResource(object, &w.schema, res)
+	r := rt.ToResource(object, w.schema, res)
 
 	if w.statusCtl != nil && !w.adapter.IsBuiltIn() {
 		w.statusCtl.UpdateResourceStatus(
-			w.schema.Name, r.Metadata.FullName, r.Metadata.Version, w.adapter.GetStatus(obj))
+			w.schema.Name(), r.Metadata.FullName, r.Metadata.Version, w.adapter.GetStatus(obj))
 	}
 
 	e := event.Event{
 		Kind:     c,
-		Source:   w.schema.Name,
+		Source:   w.schema.Name(),
 		Resource: r,
 	}
 

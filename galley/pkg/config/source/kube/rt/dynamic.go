@@ -25,11 +25,11 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/istio/galley/pkg/config/schema/collection"
+	"istio.io/istio/galley/pkg/config/schema/resource"
 	"istio.io/istio/galley/pkg/config/util/pb"
 )
 
-func (p *Provider) getDynamicAdapter(c collection.Schema) *Adapter {
+func (p *Provider) getDynamicAdapter(c resource.Schema) *Adapter {
 	return &Adapter{
 		extractObject: func(o interface{}) metav1.Object {
 			res, ok := o.(*unstructured.Unstructured)

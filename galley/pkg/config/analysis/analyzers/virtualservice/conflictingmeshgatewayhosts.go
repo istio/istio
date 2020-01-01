@@ -40,7 +40,7 @@ func (c *ConflictingMeshGatewayHostsAnalyzer) Metadata() analysis.Metadata {
 		Name:        "virtualservice.ConflictingMeshGatewayHostsAnalyzer",
 		Description: "Checks if multiple virtual services associated with the mesh gateway have conflicting hosts",
 		Inputs: collection.Names{
-			collections.IstioNetworkingV1Alpha3Virtualservices.Name,
+			collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
 		},
 	}
 }
@@ -52,7 +52,7 @@ func (c *ConflictingMeshGatewayHostsAnalyzer) Analyze(ctx analysis.Context) {
 		if len(vsList) > 1 {
 			vsNames := combineResourceEntryNames(vsList)
 			for i := range vsList {
-				ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name,
+				ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
 					msg.NewConflictingMeshGatewayVirtualServiceHosts(vsList[i], vsNames, string(scopedFqdn)))
 			}
 		}
@@ -69,7 +69,7 @@ func combineResourceEntryNames(rList []*resource.Instance) string {
 
 func initMeshGatewayHosts(ctx analysis.Context) map[util.ScopedFqdn][]*resource.Instance {
 	hostsVirtualServices := map[util.ScopedFqdn][]*resource.Instance{}
-	ctx.ForEach(collections.IstioNetworkingV1Alpha3Virtualservices.Name, func(r *resource.Instance) bool {
+	ctx.ForEach(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), func(r *resource.Instance) bool {
 		vs := r.Message.(*v1alpha3.VirtualService)
 		vsNamespace := r.Metadata.FullName.Namespace
 		vsAttachedToMeshGateway := false

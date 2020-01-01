@@ -37,7 +37,7 @@ var _ snapshot.GroupIndexFn = IndexFunction
 // snapshot is used.
 func IndexFunction(collection string, _ *mcp.SinkNode) string {
 	switch collection {
-	case collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Name.String():
+	case collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Name().String():
 		return SyntheticServiceEntry
 	default:
 		return Default

@@ -37,7 +37,7 @@ func TestCorrectArgs(t *testing.T) {
 	m1 := &v1alpha3.VirtualService{}
 
 	testSchema := schema.Instance{
-		Collection: collections.IstioNetworkingV1Alpha3Virtualservices.Name.String(),
+		Collection: collections.IstioNetworkingV1Alpha3Virtualservices.Name().String(),
 		Validate: func(name, ns string, msg proto.Message) (errs error) {
 			g.Expect(name).To(Equal("name"))
 			g.Expect(ns).To(Equal("ns"))
@@ -61,7 +61,7 @@ func TestCorrectArgs(t *testing.T) {
 }
 
 func TestSchemaValidationWrapper(t *testing.T) {
-	testCol := collections.IstioNetworkingV1Alpha3Virtualservices.Name
+	testCol := collections.IstioNetworkingV1Alpha3Virtualservices.Name()
 
 	m1 := &v1alpha3.VirtualService{}
 	m2 := &v1alpha3.VirtualService{}

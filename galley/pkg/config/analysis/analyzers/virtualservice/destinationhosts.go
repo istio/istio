@@ -44,9 +44,9 @@ func (a *DestinationHostAnalyzer) Metadata() analysis.Metadata {
 		Name:        "virtualservice.DestinationHostAnalyzer",
 		Description: "Checks the destination hosts associated with each virtual service",
 		Inputs: collection.Names{
-			collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Name,
-			collections.IstioNetworkingV1Alpha3Serviceentries.Name,
-			collections.IstioNetworkingV1Alpha3Virtualservices.Name,
+			collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Name(),
+			collections.IstioNetworkingV1Alpha3Serviceentries.Name(),
+			collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
 		},
 	}
 }
@@ -56,7 +56,7 @@ func (a *DestinationHostAnalyzer) Analyze(ctx analysis.Context) {
 	// Precompute the set of service entry hosts that exist (there can be more than one defined per ServiceEntry CRD)
 	serviceEntryHosts := initServiceEntryHostMap(ctx)
 
-	ctx.ForEach(collections.IstioNetworkingV1Alpha3Virtualservices.Name, func(r *resource.Instance) bool {
+	ctx.ForEach(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), func(r *resource.Instance) bool {
 		a.analyzeVirtualService(r, ctx, serviceEntryHosts)
 		return true
 	})
@@ -70,7 +70,7 @@ func (a *DestinationHostAnalyzer) analyzeVirtualService(r *resource.Instance, ct
 	for _, d := range getRouteDestinations(vs) {
 		s := getDestinationHost(r.Metadata.FullName.Namespace, d.GetHost(), serviceEntryHosts)
 		if s == nil {
-			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name,
+			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
 				msg.NewReferencedResourceNotFound(r, "host", d.GetHost()))
 			continue
 		}
@@ -135,8 +135,8 @@ func initServiceEntryHostMap(ctx analysis.Context) map[util.ScopedFqdn]*v1alpha3
 		return true
 	}
 
-	ctx.ForEach(collections.IstioNetworkingV1Alpha3Serviceentries.Name, extractFn)
-	ctx.ForEach(collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Name, extractFn)
+	ctx.ForEach(collections.IstioNetworkingV1Alpha3Serviceentries.Name(), extractFn)
+	ctx.ForEach(collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Name(), extractFn)
 
 	return result
 }
@@ -149,7 +149,7 @@ func checkServiceEntryPorts(ctx analysis.Context, r *resource.Instance, d *v1alp
 			for _, p := range s.GetPorts() {
 				portNumbers = append(portNumbers, int(p.GetNumber()))
 			}
-			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name,
+			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
 				msg.NewVirtualServiceDestinationPortSelectorRequired(r, d.GetHost(), portNumbers))
 			return
 		}
@@ -166,7 +166,7 @@ func checkServiceEntryPorts(ctx analysis.Context, r *resource.Instance, d *v1alp
 		}
 	}
 	if !foundPort {
-		ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name,
+		ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
 			msg.NewReferencedResourceNotFound(r, "host:port", fmt.Sprintf("%s:%d", d.GetHost(), d.GetPort().GetNumber())))
 	}
 }

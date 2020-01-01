@@ -187,7 +187,12 @@ func Build(astm *ast.Metadata) (*Metadata, error) {
 			ar.Validate = validateFn
 		}
 
-		r := resource.Schema{
+		validateFn := validation.GetValidateFunc(ar.Validate)
+		if validateFn == nil {
+			return nil, fmt.Errorf("failed locating proto validation function %s", ar.Validate)
+		}
+
+		r := resource.Builder{
 			ClusterScoped: ar.ClusterScoped,
 			Kind:          ar.Kind,
 			Plural:        ar.Plural,
@@ -195,14 +200,10 @@ func Build(astm *ast.Metadata) (*Metadata, error) {
 			Version:       ar.Version,
 			Proto:         ar.Proto,
 			ProtoPackage:  ar.ProtoPackage,
-			ValidateProto: validation.GetValidateFunc(ar.Validate),
-		}
+			ValidateProto: validateFn,
+		}.Build()
 
-		if r.ValidateProto == nil {
-			return nil, fmt.Errorf("failed locating proto validation function %s", ar.Validate)
-		}
-
-		key := resourceKey(r.Group, r.Kind)
+		key := resourceKey(r.Group(), r.Kind())
 		if _, ok := resources[key]; ok {
 			return nil, fmt.Errorf("found duplicate resource for resource (%s)", key)
 		}
@@ -218,19 +219,20 @@ func Build(astm *ast.Metadata) (*Metadata, error) {
 			return nil, fmt.Errorf("failed locating resource (%s) for collection %s", key, c.Name)
 		}
 
-		s, err := collection.NewSchema(c.Name, r)
+		s, err := collection.Builder{
+			Name:     c.Name,
+			Disabled: c.Disabled,
+			Schema:   r,
+		}.Build()
 		if err != nil {
 			return nil, err
 		}
-
-		// Store the disabled state.
-		s.Disabled = c.Disabled
 
 		if err = cBuilder.Add(s); err != nil {
 			return nil, err
 		}
 
-		if isKubeCollection(s.Name) {
+		if isKubeCollection(s.Name()) {
 			if err = kubeBuilder.Add(s); err != nil {
 				return nil, err
 			}
@@ -251,7 +253,7 @@ func Build(astm *ast.Metadata) (*Metadata, error) {
 			if !found {
 				return nil, fmt.Errorf("collection not found: %v", c)
 			}
-			sn.Collections = append(sn.Collections, col.Name)
+			sn.Collections = append(sn.Collections, col.Name())
 		}
 		snapshots[sn.Name] = sn
 	}
@@ -270,7 +272,7 @@ func Build(astm *ast.Metadata) (*Metadata, error) {
 				if !ok {
 					return nil, fmt.Errorf("collection not found: %v", v)
 				}
-				mapping[from.Name] = to.Name
+				mapping[from.Name()] = to.Name()
 			}
 			tr := &DirectTransformSettings{
 				mapping: mapping,

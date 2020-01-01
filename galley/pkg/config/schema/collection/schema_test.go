@@ -26,23 +26,29 @@ import (
 func TestSchema_NewSchema(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	s, err := NewSchema("foo", resource.Schema{
-		ProtoPackage: "github.com/gogo/protobuf/types",
-		Proto:        "google.protobuf.Empty",
-	})
+	s, err := Builder{
+		Name: "foo",
+		Schema: resource.Builder{
+			ProtoPackage: "github.com/gogo/protobuf/types",
+			Proto:        "google.protobuf.Empty",
+		}.Build(),
+	}.Build()
 	g.Expect(err).To(BeNil())
-	g.Expect(s.Name).To(Equal(NewName("foo")))
-	g.Expect(s.ProtoPackage).To(Equal("github.com/gogo/protobuf/types"))
-	g.Expect(s.Proto).To(Equal("google.protobuf.Empty"))
+	g.Expect(s.Name()).To(Equal(NewName("foo")))
+	g.Expect(s.ProtoPackage()).To(Equal("github.com/gogo/protobuf/types"))
+	g.Expect(s.Proto()).To(Equal("google.protobuf.Empty"))
 }
 
 func TestSchema_NewSchema_Error(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	_, err := NewSchema("$", resource.Schema{
-		ProtoPackage: "github.com/gogo/protobuf/types",
-		Proto:        "google.protobuf.Empty",
-	})
+	_, err := Builder{
+		Name: "$",
+		Schema: resource.Builder{
+			ProtoPackage: "github.com/gogo/protobuf/types",
+			Proto:        "google.protobuf.Empty",
+		}.Build(),
+	}.Build()
 	g.Expect(err).NotTo(BeNil())
 }
 
@@ -53,13 +59,16 @@ func TestSchema_MustNewSchema(t *testing.T) {
 		g.Expect(r).To(BeNil())
 	}()
 
-	s := MustNewSchema("foo", resource.Schema{
-		ProtoPackage: "github.com/gogo/protobuf/types",
-		Proto:        "google.protobuf.Empty",
-	})
-	g.Expect(s.Name).To(Equal(NewName("foo")))
-	g.Expect(s.ProtoPackage).To(Equal("github.com/gogo/protobuf/types"))
-	g.Expect(s.Proto).To(Equal("google.protobuf.Empty"))
+	s := Builder{
+		Name: "foo",
+		Schema: resource.Builder{
+			ProtoPackage: "github.com/gogo/protobuf/types",
+			Proto:        "google.protobuf.Empty",
+		}.Build(),
+	}.MustBuild()
+	g.Expect(s.Name()).To(Equal(NewName("foo")))
+	g.Expect(s.ProtoPackage()).To(Equal("github.com/gogo/protobuf/types"))
+	g.Expect(s.Proto()).To(Equal("google.protobuf.Empty"))
 }
 
 func TestSchema_MustNewSchema_Error(t *testing.T) {
@@ -69,19 +78,23 @@ func TestSchema_MustNewSchema_Error(t *testing.T) {
 		g.Expect(r).NotTo(BeNil())
 	}()
 
-	MustNewSchema("$", resource.Schema{
-		ProtoPackage: "github.com/gogo/protobuf/types",
-		Proto:        "google.protobuf.Empty",
-	})
+	Builder{Name: "$",
+		Schema: resource.Builder{
+			ProtoPackage: "github.com/gogo/protobuf/types",
+			Proto:        "google.protobuf.Empty",
+		}.Build(),
+	}.MustBuild()
 }
 
 func TestSchema_NewProtoInstance(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	s, err := NewSchema("foo", resource.Schema{
-		ProtoPackage: "github.com/gogo/protobuf/types",
-		Proto:        "google.protobuf.Empty",
-	})
+	s, err := Builder{
+		Name: "foo",
+		Schema: resource.Builder{
+			ProtoPackage: "github.com/gogo/protobuf/types",
+			Proto:        "google.protobuf.Empty",
+		}.Build()}.Build()
 	g.Expect(err).To(BeNil())
 
 	p := s.NewProtoInstance()
@@ -90,13 +103,12 @@ func TestSchema_NewProtoInstance(t *testing.T) {
 
 func TestSchema_String(t *testing.T) {
 	g := NewGomegaWithT(t)
-	b := NewSchemasBuilder()
 
-	s := MustNewSchema("foo", resource.Schema{
+	s := Builder{Name: "foo", Schema: resource.Builder{
 		ProtoPackage: "github.com/gogo/protobuf/types",
 		Proto:        "google.protobuf.Empty",
-	})
-	b.MustAdd(s)
+	}.Build(),
+	}.MustBuild()
 
 	g.Expect(s.String()).To(Equal(`[Schema](foo, "github.com/gogo/protobuf/types", google.protobuf.Empty)`))
 }

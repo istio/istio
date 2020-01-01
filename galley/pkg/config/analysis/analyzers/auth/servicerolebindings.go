@@ -35,15 +35,15 @@ func (s *ServiceRoleBindingAnalyzer) Metadata() analysis.Metadata {
 		Name:        "auth.ServiceRoleBindingAnalyzer",
 		Description: "Checks the validity of service role bindings",
 		Inputs: collection.Names{
-			collections.IstioRbacV1Alpha1Serviceroles.Name,
-			collections.IstioRbacV1Alpha1Servicerolebindings.Name,
+			collections.IstioRbacV1Alpha1Serviceroles.Name(),
+			collections.IstioRbacV1Alpha1Servicerolebindings.Name(),
 		},
 	}
 }
 
 // Analyze implements Analyzer
 func (s *ServiceRoleBindingAnalyzer) Analyze(ctx analysis.Context) {
-	ctx.ForEach(collections.IstioRbacV1Alpha1Servicerolebindings.Name, func(r *resource.Instance) bool {
+	ctx.ForEach(collections.IstioRbacV1Alpha1Servicerolebindings.Name(), func(r *resource.Instance) bool {
 		s.analyzeRoleBinding(r, ctx)
 		return true
 	})
@@ -58,7 +58,7 @@ func (s *ServiceRoleBindingAnalyzer) analyzeRoleBinding(r *resource.Instance, ct
 		return
 	}
 
-	if !ctx.Exists(collections.IstioRbacV1Alpha1Serviceroles.Name, resource.NewFullName(ns, resource.LocalName(srb.RoleRef.Name))) {
-		ctx.Report(collections.IstioRbacV1Alpha1Servicerolebindings.Name, msg.NewReferencedResourceNotFound(r, "service role", srb.RoleRef.Name))
+	if !ctx.Exists(collections.IstioRbacV1Alpha1Serviceroles.Name(), resource.NewFullName(ns, resource.LocalName(srb.RoleRef.Name))) {
+		ctx.Report(collections.IstioRbacV1Alpha1Servicerolebindings.Name(), msg.NewReferencedResourceNotFound(r, "service role", srb.RoleRef.Name))
 	}
 }

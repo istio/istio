@@ -136,7 +136,7 @@ func TestExtractObject(t *testing.T) {
 	for _, r := range k8smeta.MustGet().KubeCollections().All() {
 		a := rt.DefaultProvider().GetAdapter(r)
 
-		t.Run(r.Kind, func(t *testing.T) {
+		t.Run(r.Kind(), func(t *testing.T) {
 			t.Run("WrongTypeShouldReturnNil", func(t *testing.T) {
 				out := a.ExtractObject(struct{}{})
 				g := NewGomegaWithT(t)
@@ -144,7 +144,7 @@ func TestExtractObject(t *testing.T) {
 			})
 
 			t.Run("Success", func(t *testing.T) {
-				out := a.ExtractObject(empty(r.Kind))
+				out := a.ExtractObject(empty(r.Kind()))
 				g := NewGomegaWithT(t)
 				g.Expect(out).ToNot(BeNil())
 			})
@@ -156,7 +156,7 @@ func TestExtractResource(t *testing.T) {
 	for _, r := range k8smeta.MustGet().KubeCollections().All() {
 		a := rt.DefaultProvider().GetAdapter(r)
 
-		t.Run(r.Kind, func(t *testing.T) {
+		t.Run(r.Kind(), func(t *testing.T) {
 			t.Run("WrongTypeShouldReturnNil", func(t *testing.T) {
 				_, err := a.ExtractResource(struct{}{})
 				g := NewGomegaWithT(t)
@@ -164,7 +164,7 @@ func TestExtractResource(t *testing.T) {
 			})
 
 			t.Run("Success", func(t *testing.T) {
-				out, err := a.ExtractResource(empty(r.Kind))
+				out, err := a.ExtractResource(empty(r.Kind()))
 				g := NewGomegaWithT(t)
 				g.Expect(err).To(BeNil())
 				g.Expect(out).ToNot(BeNil())

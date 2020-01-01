@@ -227,7 +227,7 @@ func TestResourceFiltering(t *testing.T) {
 	usedCollection := k8smeta.K8SCoreV1Services
 	a := &testAnalyzer{
 		fn:     func(_ analysis.Context) {},
-		inputs: []collection.Name{usedCollection.Name},
+		inputs: []collection.Name{usedCollection.Name()},
 	}
 	mk := mock.NewKube()
 
@@ -236,10 +236,10 @@ func TestResourceFiltering(t *testing.T) {
 
 	// All but the used collection should be disabled
 	for _, r := range recordedOptions.Schemas.All() {
-		if r.Name == usedCollection.Name {
-			g.Expect(r.Disabled).To(BeFalse(), fmt.Sprintf("%s should not be disabled", r.Name))
+		if r.Name() == usedCollection.Name() {
+			g.Expect(r.IsDisabled()).To(BeFalse(), fmt.Sprintf("%s should not be disabled", r.Name()))
 		} else {
-			g.Expect(r.Disabled).To(BeTrue(), fmt.Sprintf("%s should be disabled", r.Name))
+			g.Expect(r.IsDisabled()).To(BeTrue(), fmt.Sprintf("%s should be disabled", r.Name()))
 		}
 	}
 }

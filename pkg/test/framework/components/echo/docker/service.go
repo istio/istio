@@ -65,7 +65,7 @@ spec:
 var (
 	serviceEntryTemplate *template.Template
 
-	serviceEntryCollection = collections.IstioNetworkingV1Alpha3Serviceentries.Name.String()
+	serviceEntryCollection = collections.IstioNetworkingV1Alpha3Serviceentries.Name().String()
 )
 
 func init() {

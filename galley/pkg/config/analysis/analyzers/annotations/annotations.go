@@ -39,30 +39,30 @@ func (*K8sAnalyzer) Metadata() analysis.Metadata {
 		Name:        "annotations.K8sAnalyzer",
 		Description: "Checks for misplaced and invalid Istio annotations in Kubernetes resources",
 		Inputs: collection.Names{
-			collections.K8SCoreV1Namespaces.Name,
-			collections.K8SCoreV1Services.Name,
-			collections.K8SCoreV1Pods.Name,
-			collections.K8SAppsV1Deployments.Name,
+			collections.K8SCoreV1Namespaces.Name(),
+			collections.K8SCoreV1Services.Name(),
+			collections.K8SCoreV1Pods.Name(),
+			collections.K8SAppsV1Deployments.Name(),
 		},
 	}
 }
 
 // Analyze implements analysis.Analyzer
 func (fa *K8sAnalyzer) Analyze(ctx analysis.Context) {
-	ctx.ForEach(collections.K8SCoreV1Namespaces.Name, func(r *resource.Instance) bool {
-		fa.allowAnnotations(r, ctx, "Namespace", collections.K8SCoreV1Namespaces.Name)
+	ctx.ForEach(collections.K8SCoreV1Namespaces.Name(), func(r *resource.Instance) bool {
+		fa.allowAnnotations(r, ctx, "Namespace", collections.K8SCoreV1Namespaces.Name())
 		return true
 	})
-	ctx.ForEach(collections.K8SCoreV1Services.Name, func(r *resource.Instance) bool {
-		fa.allowAnnotations(r, ctx, "Service", collections.K8SCoreV1Services.Name)
+	ctx.ForEach(collections.K8SCoreV1Services.Name(), func(r *resource.Instance) bool {
+		fa.allowAnnotations(r, ctx, "Service", collections.K8SCoreV1Services.Name())
 		return true
 	})
-	ctx.ForEach(collections.K8SCoreV1Pods.Name, func(r *resource.Instance) bool {
-		fa.allowAnnotations(r, ctx, "Pod", collections.K8SCoreV1Pods.Name)
+	ctx.ForEach(collections.K8SCoreV1Pods.Name(), func(r *resource.Instance) bool {
+		fa.allowAnnotations(r, ctx, "Pod", collections.K8SCoreV1Pods.Name())
 		return true
 	})
-	ctx.ForEach(collections.K8SAppsV1Deployments.Name, func(r *resource.Instance) bool {
-		fa.allowAnnotations(r, ctx, "Deployment", collections.K8SAppsV1Deployments.Name)
+	ctx.ForEach(collections.K8SAppsV1Deployments.Name(), func(r *resource.Instance) bool {
+		fa.allowAnnotations(r, ctx, "Deployment", collections.K8SAppsV1Deployments.Name())
 		return true
 	})
 }

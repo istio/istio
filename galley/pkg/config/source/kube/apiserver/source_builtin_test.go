@@ -90,7 +90,7 @@ func TestBasic(t *testing.T) {
 		t.Fatalf("failed creating node: %v", err)
 	}
 
-	expected := event.AddFor(k8smeta.K8SCoreV1Nodes.Name, toResource(node, &node.Spec))
+	expected := event.AddFor(k8smeta.K8SCoreV1Nodes.Name(), toResource(node, &node.Spec))
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(expected))
 }
 
@@ -129,7 +129,7 @@ func TestNodes(t *testing.T) {
 		t.Fatalf("failed creating node: %v", err)
 	}
 
-	expected := event.AddFor(k8smeta.K8SCoreV1Nodes.Name, toResource(node, &node.Spec))
+	expected := event.AddFor(k8smeta.K8SCoreV1Nodes.Name(), toResource(node, &node.Spec))
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(expected))
 
 	acc.Clear()
@@ -142,7 +142,7 @@ func TestNodes(t *testing.T) {
 		t.Fatalf("failed updating node: %v", err)
 	}
 
-	expected = event.UpdateFor(k8smeta.K8SCoreV1Nodes.Name, toResource(node, &node.Spec))
+	expected = event.UpdateFor(k8smeta.K8SCoreV1Nodes.Name(), toResource(node, &node.Spec))
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(expected))
 
 	acc.Clear()
@@ -158,7 +158,7 @@ func TestNodes(t *testing.T) {
 	if err = client.CoreV1().Nodes().Delete(node.Name, nil); err != nil {
 		t.Fatalf("failed deleting node: %v", err)
 	}
-	expected = event.DeleteForResource(k8smeta.K8SCoreV1Nodes.Name, toResource(node, &node.Spec))
+	expected = event.DeleteForResource(k8smeta.K8SCoreV1Nodes.Name(), toResource(node, &node.Spec))
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(expected))
 }
 
@@ -207,7 +207,7 @@ func TestPods(t *testing.T) {
 	if pod, err = client.CoreV1().Pods(namespace).Create(pod); err != nil {
 		t.Fatalf("failed creating pod: %v", err)
 	}
-	expected := event.AddFor(k8smeta.K8SCoreV1Pods.Name, toResource(pod, pod))
+	expected := event.AddFor(k8smeta.K8SCoreV1Pods.Name(), toResource(pod, pod))
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(expected))
 
 	acc.Clear()
@@ -219,7 +219,7 @@ func TestPods(t *testing.T) {
 	if _, err = client.CoreV1().Pods(namespace).Update(pod); err != nil {
 		t.Fatalf("failed updating pod: %v", err)
 	}
-	expected = event.UpdateFor(k8smeta.K8SCoreV1Pods.Name, toResource(pod, pod))
+	expected = event.UpdateFor(k8smeta.K8SCoreV1Pods.Name(), toResource(pod, pod))
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(expected))
 
 	acc.Clear()
@@ -236,7 +236,7 @@ func TestPods(t *testing.T) {
 	if err = client.CoreV1().Pods(namespace).Delete(pod.Name, nil); err != nil {
 		t.Fatalf("failed deleting pod: %v", err)
 	}
-	expected = event.DeleteForResource(k8smeta.K8SCoreV1Pods.Name, toResource(pod, pod))
+	expected = event.DeleteForResource(k8smeta.K8SCoreV1Pods.Name(), toResource(pod, pod))
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(expected))
 }
 
@@ -280,7 +280,7 @@ func TestServices(t *testing.T) {
 	if svc, err = client.CoreV1().Services(namespace).Create(svc); err != nil {
 		t.Fatalf("failed creating service: %v", err)
 	}
-	expected := event.AddFor(k8smeta.K8SCoreV1Services.Name, toResource(svc, &svc.Spec))
+	expected := event.AddFor(k8smeta.K8SCoreV1Services.Name(), toResource(svc, &svc.Spec))
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(expected))
 
 	acc.Clear()
@@ -292,7 +292,7 @@ func TestServices(t *testing.T) {
 	if _, err = client.CoreV1().Services(namespace).Update(svc); err != nil {
 		t.Fatalf("failed updating service: %v", err)
 	}
-	expected = event.UpdateFor(k8smeta.K8SCoreV1Services.Name, toResource(svc, &svc.Spec))
+	expected = event.UpdateFor(k8smeta.K8SCoreV1Services.Name(), toResource(svc, &svc.Spec))
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(expected))
 
 	acc.Clear()
@@ -309,7 +309,7 @@ func TestServices(t *testing.T) {
 	if err = client.CoreV1().Services(namespace).Delete(svc.Name, nil); err != nil {
 		t.Fatalf("failed deleting service: %v", err)
 	}
-	expected = event.DeleteForResource(k8smeta.K8SCoreV1Services.Name, toResource(svc, &svc.Spec))
+	expected = event.DeleteForResource(k8smeta.K8SCoreV1Services.Name(), toResource(svc, &svc.Spec))
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(expected))
 }
 
@@ -360,7 +360,7 @@ func TestEndpoints(t *testing.T) {
 	if eps, err = client.CoreV1().Endpoints(namespace).Create(eps); err != nil {
 		t.Fatalf("failed creating endpoints: %v", err)
 	}
-	expected := event.AddFor(k8smeta.K8SCoreV1Endpoints.Name, toResource(eps, eps))
+	expected := event.AddFor(k8smeta.K8SCoreV1Endpoints.Name(), toResource(eps, eps))
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(expected))
 
 	acc.Clear()
@@ -372,7 +372,7 @@ func TestEndpoints(t *testing.T) {
 	if _, err = client.CoreV1().Endpoints(namespace).Update(eps); err != nil {
 		t.Fatalf("failed updating endpoints: %v", err)
 	}
-	expected = event.UpdateFor(k8smeta.K8SCoreV1Endpoints.Name, toResource(eps, eps))
+	expected = event.UpdateFor(k8smeta.K8SCoreV1Endpoints.Name(), toResource(eps, eps))
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(expected))
 
 	acc.Clear()
@@ -390,7 +390,7 @@ func TestEndpoints(t *testing.T) {
 	if err = client.CoreV1().Endpoints(namespace).Delete(eps.Name, nil); err != nil {
 		t.Fatalf("failed deleting endpoints: %v", err)
 	}
-	expected = event.DeleteForResource(k8smeta.K8SCoreV1Endpoints.Name, toResource(eps, eps))
+	expected = event.DeleteForResource(k8smeta.K8SCoreV1Endpoints.Name(), toResource(eps, eps))
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(expected))
 }
 

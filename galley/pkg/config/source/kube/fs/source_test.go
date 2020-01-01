@@ -65,8 +65,8 @@ func TestInitialFile(t *testing.T) {
 	defer s.Stop()
 
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
-		event.FullSyncFor(basicmeta.K8SCollection1.Name),
-		event.AddFor(basicmeta.K8SCollection1.Name, data.EntryN1I1V1)))
+		event.FullSyncFor(basicmeta.K8SCollection1.Name()),
+		event.AddFor(basicmeta.K8SCollection1.Name(), data.EntryN1I1V1)))
 
 	acc.Clear()
 
@@ -91,7 +91,7 @@ func TestInitialFileWatcherEnabled(t *testing.T) {
 	defer s.Stop()
 
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
-		event.FullSyncFor(basicmeta.K8SCollection1.Name),
+		event.FullSyncFor(basicmeta.K8SCollection1.Name()),
 		event.AddFor(data.K8SCollection1, data.EntryN1I1V1)))
 
 	acc.Clear()
@@ -115,7 +115,7 @@ func TestAddDeleteMultipleTimes(t *testing.T) {
 	copyFile(t, dir, "foo.yaml", data.YamlN1I1V1)
 	appsignals.Notify("test", syscall.SIGUSR1)
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
-		event.FullSyncFor(basicmeta.K8SCollection1.Name),
+		event.FullSyncFor(basicmeta.K8SCollection1.Name()),
 		event.AddFor(data.K8SCollection1, data.EntryN1I1V1)))
 
 	acc.Clear()
@@ -151,7 +151,7 @@ func TestAddDeleteMultipleTimes1(t *testing.T) {
 	appsignals.Notify("test", syscall.SIGUSR1)
 
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
-		event.FullSyncFor(basicmeta.K8SCollection1.Name),
+		event.FullSyncFor(basicmeta.K8SCollection1.Name()),
 		event.AddFor(data.K8SCollection1, data.EntryN1I1V1)))
 
 	acc.Clear()
@@ -176,7 +176,7 @@ func TestAddUpdateDelete(t *testing.T) {
 	appsignals.Notify("test", syscall.SIGUSR1)
 
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
-		event.FullSyncFor(basicmeta.K8SCollection1.Name),
+		event.FullSyncFor(basicmeta.K8SCollection1.Name()),
 		event.AddFor(data.K8SCollection1, data.EntryN1I1V1)))
 
 	acc.Clear()
@@ -208,7 +208,7 @@ func TestAddUpdateDeleteWithWatcherEnabled(t *testing.T) {
 	copyFile(t, dir, "foo.yaml", data.YamlN1I1V1)
 
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
-		event.FullSyncFor(basicmeta.K8SCollection1.Name),
+		event.FullSyncFor(basicmeta.K8SCollection1.Name()),
 		event.AddFor(data.K8SCollection1, data.EntryN1I1V1)))
 
 	acc.Clear()
@@ -235,20 +235,20 @@ func TestAddUpdateDelete_K8sResources(t *testing.T) {
 	defer s.Stop()
 
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
-		event.FullSyncFor(k8smeta.K8SCoreV1Endpoints.Name),
-		event.FullSyncFor(k8smeta.K8SExtensionsV1Beta1Ingresses.Name),
-		event.FullSyncFor(k8smeta.K8SCoreV1Namespaces.Name),
-		event.FullSyncFor(k8smeta.K8SCoreV1Nodes.Name),
-		event.FullSyncFor(k8smeta.K8SCoreV1Pods.Name),
-		event.FullSyncFor(k8smeta.K8SAppsV1Deployments.Name),
-		event.FullSyncFor(k8smeta.K8SCoreV1Services.Name)))
+		event.FullSyncFor(k8smeta.K8SCoreV1Endpoints.Name()),
+		event.FullSyncFor(k8smeta.K8SExtensionsV1Beta1Ingresses.Name()),
+		event.FullSyncFor(k8smeta.K8SCoreV1Namespaces.Name()),
+		event.FullSyncFor(k8smeta.K8SCoreV1Nodes.Name()),
+		event.FullSyncFor(k8smeta.K8SCoreV1Pods.Name()),
+		event.FullSyncFor(k8smeta.K8SAppsV1Deployments.Name()),
+		event.FullSyncFor(k8smeta.K8SCoreV1Services.Name())))
 
 	acc.Clear()
 	copyFile(t, dir, "bar.yaml", data.GetService())
 	appsignals.Notify("test", syscall.SIGUSR1)
 
 	g.Eventually(acc.EventsWithoutOrigins).Should(HaveLen(1))
-	g.Expect(acc.EventsWithoutOrigins()[0].Source).To(Equal(k8smeta.K8SCoreV1Services.Name))
+	g.Expect(acc.EventsWithoutOrigins()[0].Source).To(Equal(k8smeta.K8SCoreV1Services.Name()))
 	g.Expect(acc.EventsWithoutOrigins()[0].Kind).To(Equal(event.Added))
 	g.Expect(acc.EventsWithoutOrigins()[0].Resource.Metadata.FullName).To(Equal(resource.NewFullName("kube-system", "kube-dns")))
 
@@ -257,7 +257,7 @@ func TestAddUpdateDelete_K8sResources(t *testing.T) {
 	appsignals.Notify("test", syscall.SIGUSR1)
 
 	g.Eventually(acc.EventsWithoutOrigins).Should(HaveLen(1))
-	g.Expect(acc.EventsWithoutOrigins()[0].Source).To(Equal(k8smeta.K8SCoreV1Services.Name))
+	g.Expect(acc.EventsWithoutOrigins()[0].Source).To(Equal(k8smeta.K8SCoreV1Services.Name()))
 	g.Expect(acc.EventsWithoutOrigins()[0].Kind).To(Equal(event.Deleted))
 	g.Expect(acc.EventsWithoutOrigins()[0].Resource.Metadata.FullName).To(Equal(resource.NewFullName("kube-system", "kube-dns")))
 }

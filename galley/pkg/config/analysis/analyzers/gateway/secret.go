@@ -38,23 +38,23 @@ func (a *SecretAnalyzer) Metadata() analysis.Metadata {
 		Name:        "gateway.SecretAnalyzer",
 		Description: "Checks a gateway's referenced secrets for correctness",
 		Inputs: collection.Names{
-			collections.IstioNetworkingV1Alpha3Gateways.Name,
-			collections.K8SCoreV1Pods.Name,
-			collections.K8SCoreV1Secrets.Name,
+			collections.IstioNetworkingV1Alpha3Gateways.Name(),
+			collections.K8SCoreV1Pods.Name(),
+			collections.K8SCoreV1Secrets.Name(),
 		},
 	}
 }
 
 // Analyze implements analysis.Analyzer
 func (a *SecretAnalyzer) Analyze(ctx analysis.Context) {
-	ctx.ForEach(collections.IstioNetworkingV1Alpha3Gateways.Name, func(r *resource.Instance) bool {
+	ctx.ForEach(collections.IstioNetworkingV1Alpha3Gateways.Name(), func(r *resource.Instance) bool {
 		gw := r.Message.(*v1alpha3.Gateway)
 
 		gwNs := getGatewayNamespace(ctx, gw)
 
 		// If we can't find a namespace for the gateway, it's because there's no matching selector. Exit early with a different message.
 		if gwNs == "" {
-			ctx.Report(collections.IstioNetworkingV1Alpha3Gateways.Name,
+			ctx.Report(collections.IstioNetworkingV1Alpha3Gateways.Name(),
 				msg.NewReferencedResourceNotFound(r, "selector", labels.SelectorFromSet(gw.Selector).String()))
 			return true
 		}
@@ -66,8 +66,8 @@ func (a *SecretAnalyzer) Analyze(ctx analysis.Context) {
 			}
 
 			cn := tls.GetCredentialName()
-			if !ctx.Exists(collections.K8SCoreV1Secrets.Name, resource.NewShortOrFullName(gwNs, cn)) {
-				ctx.Report(collections.IstioNetworkingV1Alpha3Gateways.Name, msg.NewReferencedResourceNotFound(r, "credentialName", cn))
+			if !ctx.Exists(collections.K8SCoreV1Secrets.Name(), resource.NewShortOrFullName(gwNs, cn)) {
+				ctx.Report(collections.IstioNetworkingV1Alpha3Gateways.Name(), msg.NewReferencedResourceNotFound(r, "credentialName", cn))
 			}
 		}
 		return true
@@ -80,7 +80,7 @@ func getGatewayNamespace(ctx analysis.Context, gw *v1alpha3.Gateway) resource.Na
 	var ns resource.Namespace
 
 	gwSelector := labels.SelectorFromSet(gw.Selector)
-	ctx.ForEach(collections.K8SCoreV1Pods.Name, func(rPod *resource.Instance) bool {
+	ctx.ForEach(collections.K8SCoreV1Pods.Name(), func(rPod *resource.Instance) bool {
 		pod := rPod.Message.(*v1.Pod)
 		if gwSelector.Matches(labels.Set(pod.ObjectMeta.Labels)) {
 			ns = rPod.Metadata.FullName.Namespace

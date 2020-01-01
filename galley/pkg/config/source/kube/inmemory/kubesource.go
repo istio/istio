@@ -62,7 +62,7 @@ type kubeResource struct {
 
 func (r *kubeResource) newKey() kubeResourceKey {
 	return kubeResourceKey{
-		kind:     r.schema.Kind,
+		kind:     r.schema.Kind(),
 		fullName: r.resource.Metadata.FullName,
 	}
 }
@@ -157,13 +157,13 @@ func (s *KubeSource) ApplyContent(name, yamlText string) error {
 		if !found || oldSha != r.sha {
 			s.versionCtr++
 			r.resource.Metadata.Version = resource.Version(fmt.Sprintf("v%d", s.versionCtr))
-			scope.Source.Debuga("KubeSource.ApplyContent: Set: ", r.schema.Name, r.resource.Metadata.FullName)
-			s.source.Get(r.schema.Name).Set(r.resource)
+			scope.Source.Debuga("KubeSource.ApplyContent: Set: ", r.schema.Name(), r.resource.Metadata.FullName)
+			s.source.Get(r.schema.Name()).Set(r.resource)
 			s.shas[key] = r.sha
 		}
-		newKeys[key] = r.schema.Name
+		newKeys[key] = r.schema.Name()
 		if oldKeys != nil {
-			scope.Source.Debuga("KubeSource.ApplyContent: Delete: ", r.schema.Name, key)
+			scope.Source.Debuga("KubeSource.ApplyContent: Delete: ", r.schema.Name(), key)
 			delete(oldKeys, key)
 		}
 	}
@@ -260,7 +260,7 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, yamlChunk []byte) (kubeRe
 	// If namespace is blank and we have a default set, fill in the default
 	// (This mirrors the behavior if you kubectl apply a resource without a namespace defined)
 	// Don't do this for cluster scoped resources
-	if !resourceSpec.ClusterScoped {
+	if !resourceSpec.IsClusterScoped() {
 		if objMeta.GetNamespace() == "" && s.defaultNs != "" {
 			scope.Source.Debugf("KubeSource.parseChunk: namespace not specified for %q, using %q", objMeta.GetName(), s.defaultNs)
 			objMeta.SetNamespace(string(s.defaultNs))
@@ -278,6 +278,6 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, yamlChunk []byte) (kubeRe
 	return kubeResource{
 		schema:   resourceSpec,
 		sha:      sha1.Sum(yamlChunk),
-		resource: rt.ToResource(objMeta, &resourceSpec, item),
+		resource: rt.ToResource(objMeta, resourceSpec, item),
 	}, nil
 }

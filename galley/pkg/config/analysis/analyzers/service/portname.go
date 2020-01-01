@@ -36,14 +36,14 @@ func (s *PortNameAnalyzer) Metadata() analysis.Metadata {
 		Name:        "service.PortNameAnalyzer",
 		Description: "Checks the port names associated with each service",
 		Inputs: collection.Names{
-			collections.K8SCoreV1Services.Name,
+			collections.K8SCoreV1Services.Name(),
 		},
 	}
 }
 
 // Analyze implements Analyzer
 func (s *PortNameAnalyzer) Analyze(c analysis.Context) {
-	c.ForEach(collections.K8SCoreV1Services.Name, func(r *resource.Instance) bool {
+	c.ForEach(collections.K8SCoreV1Services.Name(), func(r *resource.Instance) bool {
 		s.analyzeService(r, c)
 		return true
 	})
@@ -53,7 +53,7 @@ func (s *PortNameAnalyzer) analyzeService(r *resource.Instance, c analysis.Conte
 	svc := r.Message.(*v1.ServiceSpec)
 	for _, port := range svc.Ports {
 		if instance := configKube.ConvertProtocol(port.Port, port.Name, port.Protocol); instance.IsUnsupported() {
-			c.Report(collections.K8SCoreV1Services.Name, msg.NewPortNameIsNotUnderNamingConvention(
+			c.Report(collections.K8SCoreV1Services.Name(), msg.NewPortNameIsNotUnderNamingConvention(
 				r, port.Name, int(port.Port), port.TargetPort.String()))
 		}
 	}

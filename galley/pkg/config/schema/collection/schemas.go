@@ -45,11 +45,11 @@ func NewSchemasBuilder() *SchemasBuilder {
 
 // Add a new collection to the schemas.
 func (b *SchemasBuilder) Add(s Schema) error {
-	if _, found := b.schemas.byCollection[s.Name.String()]; found {
-		return fmt.Errorf("collection already exists: %v", s.Name)
+	if _, found := b.schemas.byCollection[s.Name().String()]; found {
+		return fmt.Errorf("collection already exists: %v", s.Name())
 	}
 
-	b.schemas.byCollection[s.Name.String()] = s
+	b.schemas.byCollection[s.Name().String()] = s
 	return nil
 }
 
@@ -64,7 +64,7 @@ func (b *SchemasBuilder) MustAdd(s Schema) *SchemasBuilder {
 // UnregisterSchemas unregisters all schemas in s from this builder.
 func (b *SchemasBuilder) UnregisterSchemas(s Schemas) *SchemasBuilder {
 	for _, info := range s.All() {
-		b.Remove(info.Name)
+		b.Remove(info.Name())
 	}
 	return b
 }
@@ -102,12 +102,12 @@ func (s Schemas) MustFind(collection string) Schema {
 // FindByGroupAndKind searches and returns the resource spec with the given group/kind
 func (s Schemas) FindByGroupAndKind(group, kind string) (Schema, bool) {
 	for _, rs := range s.byCollection {
-		if rs.Group == group && rs.Kind == kind {
+		if rs.Group() == group && rs.Kind() == kind {
 			return rs, true
 		}
 	}
 
-	return Schema{}, false
+	return nil, false
 }
 
 // MustFind calls FindByGroupAndKind and panics if not found.
@@ -135,7 +135,7 @@ func (s Schemas) CollectionNames() Names {
 	result := make(Names, 0, len(s.byCollection))
 
 	for _, info := range s.byCollection {
-		result = append(result, info.Name)
+		result = append(result, info.Name())
 	}
 
 	sort.Slice(result, func(i, j int) bool {
@@ -149,8 +149,8 @@ func (s Schemas) CollectionNames() Names {
 func (s Schemas) DisabledCollectionNames() Names {
 	disabledCollections := make(Names, 0)
 	for _, i := range s.byCollection {
-		if i.Disabled {
-			disabledCollections = append(disabledCollections, i.Name)
+		if i.IsDisabled() {
+			disabledCollections = append(disabledCollections, i.Name())
 		}
 	}
 	return disabledCollections

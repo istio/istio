@@ -34,14 +34,15 @@ import (
 
 var (
 	// crdKubeResource is metadata for listening to CRD resource on the API Server.
-	crdKubeResource = collection.Schema{
-		Schema: resource.Schema{
+	crdKubeResource = collection.Builder{
+		Name: "k8s/crd",
+		Schema: resource.Builder{
 			Group:   "apiextensions.k8s.io",
 			Version: "v1beta1",
 			Plural:  "customresourcedefinitions",
 			Kind:    "CustomResourceDefinition",
-		},
-	}
+		}.Build(),
+	}.MustBuild()
 )
 
 // Source is an implementation of processing.KubeSource
@@ -116,7 +117,7 @@ func (s *Source) Start() {
 	s.expectedResources = make(map[string]collection.Schema)
 	s.foundResources = make(map[string]bool)
 	for _, r := range s.options.Schemas.All() {
-		key := asKey(r.Group, r.Kind)
+		key := asKey(r.Group(), r.Kind())
 		s.expectedResources[key] = r
 	}
 	// Releasing the lock here to avoid deadlock on crdWatcher between the existing one and a newly started one.
@@ -194,26 +195,26 @@ func (s *Source) startWatchers() {
 	for i, r := range resources {
 		a := s.provider.GetAdapter(r)
 
-		found := s.foundResources[asKey(r.Group, r.Kind)]
+		found := s.foundResources[asKey(r.Group(), r.Kind())]
 
 		scope.Source.Infof("[%d]", i)
 		scope.Source.Infof("  Source:       %s", r.CanonicalResourceName())
-		scope.Source.Infof("  Name:  		 %s", r.Name)
+		scope.Source.Infof("  Name:  		 %s", r.Name())
 		scope.Source.Infof("  Built-in:     %v", a.IsBuiltIn())
-		scope.Source.Infof("  Disabled:     %v", r.Disabled)
+		scope.Source.Infof("  Disabled:     %v", r.IsDisabled())
 		if !a.IsBuiltIn() {
 			scope.Source.Infof("  Found:  %v", found)
 		}
 
 		// Send a Full Sync event immediately for custom resources that were never found, or that are disabled.
 		// For everything else, create a watcher.
-		if (!a.IsBuiltIn() && !found) || r.Disabled {
-			scope.Source.Debuga("Source.Start: sending immediate FullSync for: ", r.Name)
-			s.handlers.Handle(event.FullSyncFor(r.Name))
+		if (!a.IsBuiltIn() && !found) || r.IsDisabled() {
+			scope.Source.Debuga("Source.Start: sending immediate FullSync for: ", r.Name())
+			s.handlers.Handle(event.FullSyncFor(r.Name()))
 		} else {
 			col := newWatcher(r, a, s.statusCtl)
 			col.dispatch(s.handlers)
-			s.watchers[r.Name] = col
+			s.watchers[r.Name()] = col
 		}
 	}
 

@@ -74,8 +74,8 @@ func init() {
 
 func collectionOf(nonLegacyKind string) string { // nolint: unparam
 	for _, r := range schema.MustGet().KubeCollections().All() {
-		if r.Kind == nonLegacyKind {
-			return schema.MustGet().DirectTransformSettings().Mapping()[r.Name].String()
+		if r.Kind() == nonLegacyKind {
+			return schema.MustGet().DirectTransformSettings().Mapping()[r.Name()].String()
 		}
 	}
 

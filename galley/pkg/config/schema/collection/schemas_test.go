@@ -27,10 +27,13 @@ func TestSchemas_Basic(t *testing.T) {
 	g := NewGomegaWithT(t)
 	b := NewSchemasBuilder()
 
-	s := MustNewSchema("foo", resource.Schema{
-		ProtoPackage: "github.com/gogo/protobuf/types",
-		Proto:        "google.protobuf.Empty",
-	})
+	s := Builder{
+		Name: "foo",
+		Schema: resource.Builder{
+			ProtoPackage: "github.com/gogo/protobuf/types",
+			Proto:        "google.protobuf.Empty",
+		}.Build(),
+	}.MustBuild()
 	err := b.Add(s)
 	g.Expect(err).To(BeNil())
 
@@ -47,10 +50,13 @@ func TestSchemas_MustAdd(t *testing.T) {
 	}()
 	b := NewSchemasBuilder()
 
-	s := MustNewSchema("foo", resource.Schema{
-		ProtoPackage: "github.com/gogo/protobuf/types",
-		Proto:        "google.protobuf.Empty",
-	})
+	s := Builder{
+		Name: "foo",
+		Schema: resource.Builder{
+			ProtoPackage: "github.com/gogo/protobuf/types",
+			Proto:        "google.protobuf.Empty",
+		}.Build(),
+	}.MustBuild()
 	b.MustAdd(s)
 }
 
@@ -62,10 +68,13 @@ func TestSchemas_MustRegister_Panic(t *testing.T) {
 	}()
 	b := NewSchemasBuilder()
 
-	s := MustNewSchema("foo", resource.Schema{
-		ProtoPackage: "github.com/gogo/protobuf/types",
-		Proto:        "google.protobuf.Empty",
-	})
+	s := Builder{
+		Name: "foo",
+		Schema: resource.Builder{
+			ProtoPackage: "github.com/gogo/protobuf/types",
+			Proto:        "google.protobuf.Empty",
+		}.Build(),
+	}.MustBuild()
 	b.MustAdd(s)
 	b.MustAdd(s)
 }
@@ -74,13 +83,16 @@ func TestSchemasBuilder_Remove(t *testing.T) {
 	g := NewGomegaWithT(t)
 	b := NewSchemasBuilder()
 
-	s := MustNewSchema("foo", resource.Schema{
-		ProtoPackage: "github.com/gogo/protobuf/types",
-		Proto:        "google.protobuf.Empty",
-	})
+	s := Builder{
+		Name: "foo",
+		Schema: resource.Builder{
+			ProtoPackage: "github.com/gogo/protobuf/types",
+			Proto:        "google.protobuf.Empty",
+		}.Build(),
+	}.MustBuild()
 	b.MustAdd(s)
 
-	b.Remove(s.Name)
+	b.Remove(s.Name())
 
 	schemas := b.Build()
 	g.Expect(schemas.All()).To(HaveLen(0))
@@ -89,10 +101,13 @@ func TestSchemasBuilder_Remove(t *testing.T) {
 func TestSchemasBuilder_RemoveSpecs(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	s := MustNewSchema("foo", resource.Schema{
-		ProtoPackage: "github.com/gogo/protobuf/types",
-		Proto:        "google.protobuf.Empty",
-	})
+	s := Builder{
+		Name: "foo",
+		Schema: resource.Builder{
+			ProtoPackage: "github.com/gogo/protobuf/types",
+			Proto:        "google.protobuf.Empty",
+		}.Build(),
+	}.MustBuild()
 
 	b1 := NewSchemasBuilder()
 	b1.MustAdd(s)
@@ -110,10 +125,13 @@ func TestSchemas_Find(t *testing.T) {
 	g := NewGomegaWithT(t)
 	b := NewSchemasBuilder()
 
-	s := MustNewSchema("foo", resource.Schema{
-		ProtoPackage: "github.com/gogo/protobuf/types",
-		Proto:        "google.protobuf.Empty",
-	})
+	s := Builder{
+		Name: "foo",
+		Schema: resource.Builder{
+			ProtoPackage: "github.com/gogo/protobuf/types",
+			Proto:        "google.protobuf.Empty",
+		}.Build(),
+	}.MustBuild()
 
 	b.MustAdd(s)
 	schemas := b.Build()
@@ -135,10 +153,13 @@ func TestSchemas_MustFind(t *testing.T) {
 
 	b := NewSchemasBuilder()
 
-	s := MustNewSchema("foo", resource.Schema{
-		ProtoPackage: "github.com/gogo/protobuf/types",
-		Proto:        "google.protobuf.Empty",
-	})
+	s := Builder{
+		Name: "foo",
+		Schema: resource.Builder{
+			ProtoPackage: "github.com/gogo/protobuf/types",
+			Proto:        "google.protobuf.Empty",
+		}.Build(),
+	}.MustBuild()
 
 	b.MustAdd(s)
 	schemas := b.Build()
@@ -156,10 +177,13 @@ func TestSchemas_MustFind_Panic(t *testing.T) {
 
 	b := NewSchemasBuilder()
 
-	s := MustNewSchema("foo", resource.Schema{
-		ProtoPackage: "github.com/gogo/protobuf/types",
-		Proto:        "google.protobuf.Empty",
-	})
+	s := Builder{
+		Name: "foo",
+		Schema: resource.Builder{
+			ProtoPackage: "github.com/gogo/protobuf/types",
+			Proto:        "google.protobuf.Empty",
+		}.Build(),
+	}.MustBuild()
 
 	b.MustAdd(s)
 	schemas := b.Build()
@@ -171,12 +195,15 @@ func TestSchema_FindByGroupAndKind(t *testing.T) {
 	g := NewGomegaWithT(t)
 	b := NewSchemasBuilder()
 
-	s := MustNewSchema("foo", resource.Schema{
-		ProtoPackage: "github.com/gogo/protobuf/types",
-		Proto:        "google.protobuf.Empty",
-		Group:        "mygroup",
-		Kind:         "Empty",
-	})
+	s := Builder{
+		Name: "foo",
+		Schema: resource.Builder{
+			ProtoPackage: "github.com/gogo/protobuf/types",
+			Proto:        "google.protobuf.Empty",
+			Group:        "mygroup",
+			Kind:         "Empty",
+		}.Build(),
+	}.MustBuild()
 
 	b.MustAdd(s)
 	schemas := b.Build()
@@ -193,12 +220,15 @@ func TestSchema_MustFind(t *testing.T) {
 	g := NewGomegaWithT(t)
 	b := NewSchemasBuilder()
 
-	s := MustNewSchema("foo", resource.Schema{
-		ProtoPackage: "github.com/gogo/protobuf/types",
-		Proto:        "google.protobuf.Empty",
-		Group:        "mygroup",
-		Kind:         "Empty",
-	})
+	s := Builder{
+		Name: "foo",
+		Schema: resource.Builder{
+			ProtoPackage: "github.com/gogo/protobuf/types",
+			Proto:        "google.protobuf.Empty",
+			Group:        "mygroup",
+			Kind:         "Empty",
+		}.Build(),
+	}.MustBuild()
 
 	b.MustAdd(s)
 	schemas := b.Build()
@@ -223,14 +253,20 @@ func TestSchemas_CollectionNames(t *testing.T) {
 	g := NewGomegaWithT(t)
 	b := NewSchemasBuilder()
 
-	s1 := MustNewSchema("foo", resource.Schema{
-		ProtoPackage: "github.com/gogo/protobuf/types",
-		Proto:        "google.protobuf.Empty",
-	})
-	s2 := MustNewSchema("bar", resource.Schema{
-		ProtoPackage: "github.com/gogo/protobuf/types",
-		Proto:        "google.protobuf.Empty",
-	})
+	s1 := Builder{
+		Name: "foo",
+		Schema: resource.Builder{
+			ProtoPackage: "github.com/gogo/protobuf/types",
+			Proto:        "google.protobuf.Empty",
+		}.Build(),
+	}.MustBuild()
+	s2 := Builder{
+		Name: "bar",
+		Schema: resource.Builder{
+			ProtoPackage: "github.com/gogo/protobuf/types",
+			Proto:        "google.protobuf.Empty",
+		}.Build(),
+	}.MustBuild()
 	b.MustAdd(s1)
 	b.MustAdd(s2)
 
@@ -243,14 +279,20 @@ func TestSchemas_Validate(t *testing.T) {
 	g := NewGomegaWithT(t)
 	b := NewSchemasBuilder()
 
-	s1 := MustNewSchema("foo", resource.Schema{
-		ProtoPackage: "github.com/gogo/protobuf/types",
-		Proto:        "google.protobuf.Empty",
-	})
-	s2 := MustNewSchema("bar", resource.Schema{
-		ProtoPackage: "github.com/gogo/protobuf/types",
-		Proto:        "google.protobuf.Empty",
-	})
+	s1 := Builder{
+		Name: "foo",
+		Schema: resource.Builder{
+			ProtoPackage: "github.com/gogo/protobuf/types",
+			Proto:        "google.protobuf.Empty",
+		}.Build(),
+	}.MustBuild()
+	s2 := Builder{
+		Name: "bar",
+		Schema: resource.Builder{
+			ProtoPackage: "github.com/gogo/protobuf/types",
+			Proto:        "google.protobuf.Empty",
+		}.Build(),
+	}.MustBuild()
 	b.MustAdd(s1)
 	b.MustAdd(s2)
 
@@ -262,10 +304,13 @@ func TestSchemas_Validate_Error(t *testing.T) {
 	g := NewGomegaWithT(t)
 	b := NewSchemasBuilder()
 
-	s1 := MustNewSchema("foo", resource.Schema{
-		ProtoPackage: "github.com/gogo/protobuf/types",
-		Proto:        "zoo",
-	})
+	s1 := Builder{
+		Name: "foo",
+		Schema: resource.Builder{
+			ProtoPackage: "github.com/gogo/protobuf/types",
+			Proto:        "zoo",
+		}.Build(),
+	}.MustBuild()
 	b.MustAdd(s1)
 
 	err := b.Build().Validate()

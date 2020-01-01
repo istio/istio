@@ -20,31 +20,50 @@ import (
 	"istio.io/istio/galley/pkg/config/schema/resource"
 )
 
-// Schema is the metadata for a resource collection.
-type Schema struct {
+// Schema for a collection.
+type Schema interface {
+	resource.Schema
+
+	// Name of the collection.
+	Name() Name
+
+	// IsDisabled indicates whether or not this collection is disabled.
+	IsDisabled() bool
+
+	// Disable creates a disabled copy of this Schema.
+	Disable() Schema
+
+	// Equal is a helper function for testing equality between Schema instances. This supports comparison
+	// with the cmp library.
+	Equal(other Schema) bool
+}
+
+// Config for the creation of a Schema
+type Builder struct {
 	// Schema for the resources contained within the collection.
 	resource.Schema
 
 	// Name of the collection.
-	Name     Name
+	Name     string
 	Disabled bool
 }
 
-// NewSchema returns a new instance of Schema, or error if the input is not valid.
-func NewSchema(name string, resourceSchema resource.Schema) (Schema, error) {
-	if !IsValidName(name) {
-		return Schema{}, fmt.Errorf("invalid collection name: %s", name)
+// Build a Schema instance.
+func (b Builder) Build() (Schema, error) {
+	if !IsValidName(b.Name) {
+		return nil, fmt.Errorf("invalid collection name: %s", b.Name)
 	}
 
-	return Schema{
-		Name:   NewName(name),
-		Schema: resourceSchema,
+	return &immutableSchema{
+		name:     NewName(b.Name),
+		disabled: b.Disabled,
+		Schema:   b.Schema,
 	}, nil
 }
 
-// MustNewSchema calls NewSchema and panics if it fails.
-func MustNewSchema(name string, resourceSchema resource.Schema) Schema {
-	s, err := NewSchema(name, resourceSchema)
+// MustBuild calls Build and panics if it fails.
+func (b Builder) MustBuild() Schema {
+	s, err := b.Build()
 	if err != nil {
 		panic(fmt.Sprintf("MustNewSchema: %v", err))
 	}
@@ -52,7 +71,43 @@ func MustNewSchema(name string, resourceSchema resource.Schema) Schema {
 	return s
 }
 
+type immutableSchema struct {
+	resource.Schema
+	name     Name
+	disabled bool
+}
+
 // String interface method implementation.
-func (s *Schema) String() string {
-	return fmt.Sprintf("[Schema](%s, %q, %s)", s.Name, s.ProtoPackage, s.Proto)
+func (s *immutableSchema) String() string {
+	return fmt.Sprintf("[Schema](%s, %q, %s)", s.name, s.ProtoPackage(), s.Proto())
+}
+
+func (s *immutableSchema) Name() Name {
+	return s.name
+}
+
+func (s *immutableSchema) IsDisabled() bool {
+	return s.disabled
+}
+
+func (s *immutableSchema) Disable() Schema {
+	if s.disabled {
+		return s
+	}
+
+	cpy := *s
+	cpy.disabled = true
+	return &cpy
+}
+
+func (s *immutableSchema) Equal(o Schema) bool {
+	return s.name == o.Name() &&
+		s.disabled == o.IsDisabled() &&
+		s.IsClusterScoped() == o.IsClusterScoped() &&
+		s.Kind() == o.Kind() &&
+		s.Plural() == o.Plural() &&
+		s.Group() == o.Group() &&
+		s.Version() == o.Version() &&
+		s.Proto() == o.Proto() &&
+		s.ProtoPackage() == o.ProtoPackage()
 }

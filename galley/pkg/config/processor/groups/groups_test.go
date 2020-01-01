@@ -31,6 +31,6 @@ func TestDefault(t *testing.T) {
 
 func TestSyntheticServiceEntry(t *testing.T) {
 	g := NewGomegaWithT(t)
-	actual := groups.IndexFunction(collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Name.String(), nil)
+	actual := groups.IndexFunction(collections.IstioNetworkingV1Alpha3SyntheticServiceentries.Name().String(), nil)
 	g.Expect(actual).To(Equal(groups.SyntheticServiceEntry))
 }

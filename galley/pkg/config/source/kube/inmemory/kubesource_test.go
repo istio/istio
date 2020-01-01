@@ -263,7 +263,7 @@ func TestKubeSource_Service(t *testing.T) {
 	err := s.ApplyContent("foo", data.GetService())
 	g.Expect(err).To(BeNil())
 
-	actual := s.Get(k8smeta.K8SCoreV1Services.Name).AllSorted()
+	actual := s.Get(k8smeta.K8SCoreV1Services.Name()).AllSorted()
 	g.Expect(actual).To(HaveLen(1))
 	g.Expect(actual[0].Metadata.FullName).To(Equal(resource.NewFullName("kube-system", "kube-dns")))
 }

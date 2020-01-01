@@ -82,7 +82,7 @@ func TestNoReconcilation(t *testing.T) {
 	k, cl := setupClient()
 
 	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
-	c.UpdateResourceStatus(basicmeta.K8SCollection1.Name, resource.NewFullName("foo", "bar"), "v1", "s1")
+	c.UpdateResourceStatus(basicmeta.K8SCollection1.Name(), resource.NewFullName("foo", "bar"), "v1", "s1")
 	defer c.Stop()
 
 	g.Consistently(cl.Actions).Should(BeEmpty())
@@ -106,7 +106,7 @@ func TestBasicReconcilation_BeforeUpdate(t *testing.T) {
 	k, cl := setupClientWithReactors(r, nil)
 
 	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
-	c.UpdateResourceStatus(basicmeta.K8SCollection1.Name, resource.NewFullName("foo", "bar"), "v1", s)
+	c.UpdateResourceStatus(basicmeta.K8SCollection1.Name(), resource.NewFullName("foo", "bar"), "v1", s)
 	c.Report(diag.Messages{})
 	defer c.Stop()
 
@@ -136,7 +136,7 @@ func TestBasicReconcilation_AfterUpdate(t *testing.T) {
 	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
 	c.Report(diag.Messages{})
 	c.UpdateResourceStatus(
-		basicmeta.K8SCollection1.Name, resource.NewFullName("foo", "bar"), "v1", s)
+		basicmeta.K8SCollection1.Name(), resource.NewFullName("foo", "bar"), "v1", s)
 	defer c.Stop()
 
 	g.Eventually(cl.Actions).Should(HaveLen(2))
@@ -167,7 +167,7 @@ func TestBasicReconcilation_AfterUpdate_Othersubfield(t *testing.T) {
 	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
 	c.Report(diag.Messages{})
 	c.UpdateResourceStatus(
-		basicmeta.K8SCollection1.Name, resource.NewFullName("foo", "bar"), "v1", s)
+		basicmeta.K8SCollection1.Name(), resource.NewFullName("foo", "bar"), "v1", s)
 	defer c.Stop()
 
 	g.Eventually(cl.Actions).Should(HaveLen(2))
@@ -199,7 +199,7 @@ func TestBasicReconcilation_NewStatus(t *testing.T) {
 
 	e := resource.Instance{
 		Origin: &rt.Origin{
-			Collection: basicmeta.K8SCollection1.Name,
+			Collection: basicmeta.K8SCollection1.Name(),
 			FullName:   resource.NewFullName("foo", "bar"),
 			Version:    resource.Version("v1"),
 		},
@@ -239,7 +239,7 @@ func TestBasicReconcilation_NewStatusOldNonMap(t *testing.T) {
 
 	e := resource.Instance{
 		Origin: &rt.Origin{
-			Collection: basicmeta.K8SCollection1.Name,
+			Collection: basicmeta.K8SCollection1.Name(),
 			FullName:   resource.NewFullName("foo", "bar"),
 			Version:    resource.Version("v1"),
 		},
@@ -275,7 +275,7 @@ func TestBasicReconcilation_UpdateError(t *testing.T) {
 
 	e := resource.Instance{
 		Origin: &rt.Origin{
-			Collection: basicmeta.K8SCollection1.Name,
+			Collection: basicmeta.K8SCollection1.Name(),
 			FullName:   resource.NewFullName("foo", "bar"),
 			Version:    resource.Version("v1"),
 		},
@@ -310,7 +310,7 @@ func TestBasicReconcilation_GetError(t *testing.T) {
 
 	e := resource.Instance{
 		Origin: &rt.Origin{
-			Collection: basicmeta.K8SCollection1.Name,
+			Collection: basicmeta.K8SCollection1.Name(),
 			FullName:   resource.NewFullName("foo", "bar"),
 			Version:    resource.Version("v1"),
 		},
@@ -342,7 +342,7 @@ func TestBasicReconcilation_VersionMismatch(t *testing.T) {
 
 	e := resource.Instance{
 		Origin: &rt.Origin{
-			Collection: basicmeta.K8SCollection1.Name,
+			Collection: basicmeta.K8SCollection1.Name(),
 			FullName:   resource.NewFullName("foo", "bar"),
 			Version:    resource.Version("v1"), // message for an older version
 		},

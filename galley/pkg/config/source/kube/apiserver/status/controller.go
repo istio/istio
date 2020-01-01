@@ -72,7 +72,7 @@ func (c *ControllerImpl) Start(p *rt.Provider, resources []collection.Schema) {
 
 	ifaces := make(map[collection.Name]dynamic.NamespaceableResourceInterface)
 	for _, r := range resources {
-		if r.Disabled {
+		if r.IsDisabled() {
 			continue
 		}
 
@@ -80,7 +80,7 @@ func (c *ControllerImpl) Start(p *rt.Provider, resources []collection.Schema) {
 		if err != nil {
 			scope.Source.Errorf("Unable to create a dynamic resource interface for resource %v", r.CanonicalResourceName())
 		}
-		ifaces[r.Name] = iface
+		ifaces[r.Name()] = iface
 	}
 
 	c.wg.Add(1)

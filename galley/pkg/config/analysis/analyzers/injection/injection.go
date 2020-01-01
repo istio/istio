@@ -50,8 +50,8 @@ func (a *Analyzer) Metadata() analysis.Metadata {
 		Name:        "injection.Analyzer",
 		Description: "Checks conditions related to Istio sidecar injection",
 		Inputs: collection.Names{
-			collections.K8SCoreV1Namespaces.Name,
-			collections.K8SCoreV1Pods.Name,
+			collections.K8SCoreV1Namespaces.Name(),
+			collections.K8SCoreV1Pods.Name(),
 		},
 	}
 }
@@ -60,7 +60,7 @@ func (a *Analyzer) Metadata() analysis.Metadata {
 func (a *Analyzer) Analyze(c analysis.Context) {
 	injectedNamespaces := make(map[string]bool)
 
-	c.ForEach(collections.K8SCoreV1Namespaces.Name, func(r *resource.Instance) bool {
+	c.ForEach(collections.K8SCoreV1Namespaces.Name(), func(r *resource.Instance) bool {
 
 		ns := r.Metadata.FullName.String()
 		if util.IsSystemNamespace(resource.Namespace(ns)) {
@@ -73,7 +73,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 			// TODO: if Istio is installed with sidecarInjectorWebhook.enableNamespacesByDefault=true
 			// (in the istio-sidecar-injector configmap), we need to reverse this logic and treat this as an injected namespace
 
-			c.Report(collections.K8SCoreV1Namespaces.Name, msg.NewNamespaceNotInjected(r, r.Metadata.FullName.String(), r.Metadata.FullName.String()))
+			c.Report(collections.K8SCoreV1Namespaces.Name(), msg.NewNamespaceNotInjected(r, r.Metadata.FullName.String(), r.Metadata.FullName.String()))
 			return true
 		}
 
@@ -87,7 +87,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 		return true
 	})
 
-	c.ForEach(collections.K8SCoreV1Pods.Name, func(r *resource.Instance) bool {
+	c.ForEach(collections.K8SCoreV1Pods.Name(), func(r *resource.Instance) bool {
 		pod := r.Message.(*v1.Pod)
 
 		if !injectedNamespaces[pod.GetNamespace()] {
@@ -108,7 +108,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 		}
 
 		if proxyImage == "" {
-			c.Report(collections.K8SCoreV1Pods.Name, msg.NewPodMissingProxy(r))
+			c.Report(collections.K8SCoreV1Pods.Name(), msg.NewPodMissingProxy(r))
 		}
 
 		return true

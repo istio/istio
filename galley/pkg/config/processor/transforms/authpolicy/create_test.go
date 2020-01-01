@@ -36,19 +36,19 @@ func TestAuthPolicy_Input_Output(t *testing.T) {
 	xform, _, _ := setup(g, 0)
 
 	g.Expect(xform.Inputs()).To(Equal(collection.Names{
-		collections.K8SAuthenticationIstioIoV1Alpha1Policies.Name,
+		collections.K8SAuthenticationIstioIoV1Alpha1Policies.Name(),
 	}))
 	g.Expect(xform.Outputs()).To(Equal(collection.Names{
-		collections.IstioAuthenticationV1Alpha1Policies.Name,
+		collections.IstioAuthenticationV1Alpha1Policies.Name(),
 	}))
 
 	xform, _, _ = setup(g, 1)
 
 	g.Expect(xform.Inputs()).To(Equal(collection.Names{
-		collections.K8SAuthenticationIstioIoV1Alpha1Meshpolicies.Name,
+		collections.K8SAuthenticationIstioIoV1Alpha1Meshpolicies.Name(),
 	}))
 	g.Expect(xform.Outputs()).To(Equal(collection.Names{
-		collections.IstioAuthenticationV1Alpha1Meshpolicies.Name,
+		collections.IstioAuthenticationV1Alpha1Meshpolicies.Name(),
 	}))
 }
 

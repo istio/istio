@@ -12,10 +12,10 @@ import (
 var (
 
 	// Collection2 describes the collection collection2
-	Collection2 = collection.Schema{
-		Name:     collection.NewName("collection2"),
+	Collection2 = collection.Builder{
+		Name:     "collection2",
 		Disabled: false,
-		Schema: resource.Schema{
+		Schema: resource.Builder{
 			Group:         "testdata.istio.io",
 			Kind:          "Kind1",
 			Plural:        "Kind1s",
@@ -24,14 +24,14 @@ var (
 			ProtoPackage:  "github.com/gogo/protobuf/types",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		},
-	}
+		}.Build(),
+	}.MustBuild()
 
 	// K8SCollection1 describes the collection k8s/collection1
-	K8SCollection1 = collection.Schema{
-		Name:     collection.NewName("k8s/collection1"),
+	K8SCollection1 = collection.Builder{
+		Name:     "k8s/collection1",
 		Disabled: false,
-		Schema: resource.Schema{
+		Schema: resource.Builder{
 			Group:         "testdata.istio.io",
 			Kind:          "Kind1",
 			Plural:        "Kind1s",
@@ -40,8 +40,8 @@ var (
 			ProtoPackage:  "github.com/gogo/protobuf/types",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		},
-	}
+		}.Build(),
+	}.MustBuild()
 
 	// All contains all collections in the system.
 	All = collection.NewSchemasBuilder().

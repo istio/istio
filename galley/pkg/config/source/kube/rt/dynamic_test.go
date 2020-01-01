@@ -48,7 +48,7 @@ func TestExtractObjectDynamic(t *testing.T) {
 	for _, r := range basicmeta.MustGet().KubeCollections().All() {
 		a := rt.DefaultProvider().GetAdapter(r)
 
-		t.Run(r.Kind, func(t *testing.T) {
+		t.Run(r.Kind(), func(t *testing.T) {
 			t.Run("WrongTypeShouldReturnNil", func(t *testing.T) {
 				out := a.ExtractObject(struct{}{})
 				g := NewGomegaWithT(t)
@@ -68,7 +68,7 @@ func TestExtractResourceDynamic(t *testing.T) {
 	for _, r := range basicmeta.MustGet().KubeCollections().All() {
 		a := rt.DefaultProvider().GetAdapter(r)
 
-		t.Run(r.Kind, func(t *testing.T) {
+		t.Run(r.Kind(), func(t *testing.T) {
 			t.Run("WrongTypeShouldReturnNil", func(t *testing.T) {
 				_, err := a.ExtractResource(struct{}{})
 				g := NewGomegaWithT(t)

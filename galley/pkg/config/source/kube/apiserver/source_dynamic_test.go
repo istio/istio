@@ -119,7 +119,7 @@ func TestReport(t *testing.T) {
 
 	e := resource.Instance{
 		Origin: &rt.Origin{
-			Collection: basicmeta.K8SCollection1.Name,
+			Collection: basicmeta.K8SCollection1.Name(),
 			FullName:   resource.NewFullName("foo", "bar"),
 			Version:    resource.Version("v1"),
 		},
@@ -146,7 +146,7 @@ func TestEvents(t *testing.T) {
 	defer s.Stop()
 
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
-		event.FullSyncFor(basicmeta.K8SCollection1.Name),
+		event.FullSyncFor(basicmeta.K8SCollection1.Name()),
 	))
 	acc.Clear()
 
@@ -167,7 +167,7 @@ func TestEvents(t *testing.T) {
 	w.Send(watch.Event{Type: watch.Added, Object: obj})
 
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
-		event.AddFor(basicmeta.K8SCollection1.Name, toEntry(obj)),
+		event.AddFor(basicmeta.K8SCollection1.Name(), toEntry(obj)),
 	))
 
 	acc.Clear()
@@ -178,7 +178,7 @@ func TestEvents(t *testing.T) {
 	w.Send(watch.Event{Type: watch.Modified, Object: obj})
 
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
-		event.UpdateFor(basicmeta.K8SCollection1.Name, toEntry(obj))))
+		event.UpdateFor(basicmeta.K8SCollection1.Name(), toEntry(obj))))
 
 	acc.Clear()
 
@@ -192,7 +192,7 @@ func TestEvents(t *testing.T) {
 	w.Send(watch.Event{Type: watch.Deleted, Object: obj})
 
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
-		event.DeleteForResource(basicmeta.K8SCollection1.Name, toEntry(obj))))
+		event.DeleteForResource(basicmeta.K8SCollection1.Name(), toEntry(obj))))
 }
 
 func TestEvents_WatchUpdatesStatusCtl(t *testing.T) {
@@ -213,7 +213,7 @@ func TestEvents_WatchUpdatesStatusCtl(t *testing.T) {
 	defer s.Stop()
 
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
-		event.FullSyncFor(basicmeta.K8SCollection1.Name),
+		event.FullSyncFor(basicmeta.K8SCollection1.Name()),
 	))
 	acc.Clear()
 
@@ -234,12 +234,12 @@ func TestEvents_WatchUpdatesStatusCtl(t *testing.T) {
 	w.Send(watch.Event{Type: watch.Added, Object: obj})
 
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
-		event.AddFor(basicmeta.K8SCollection1.Name, toEntry(obj)),
+		event.AddFor(basicmeta.K8SCollection1.Name(), toEntry(obj)),
 	))
 
 	g.Eventually(sc.latestStatusCall).ShouldNot(BeNil())
 	g.Expect(sc.latestStatusCall()).To(Equal(&statusInput{
-		col:     basicmeta.K8SCollection1.Name,
+		col:     basicmeta.K8SCollection1.Name(),
 		name:    resource.NewFullName("ns", "i1"),
 		version: "v1",
 		status:  nil,
@@ -253,10 +253,10 @@ func TestEvents_WatchUpdatesStatusCtl(t *testing.T) {
 	w.Send(watch.Event{Type: watch.Modified, Object: obj})
 
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
-		event.UpdateFor(basicmeta.K8SCollection1.Name, toEntry(obj))))
+		event.UpdateFor(basicmeta.K8SCollection1.Name(), toEntry(obj))))
 
 	g.Expect(sc.latestStatusCall()).To(Equal(&statusInput{
-		col:     basicmeta.K8SCollection1.Name,
+		col:     basicmeta.K8SCollection1.Name(),
 		name:    resource.NewFullName("ns", "i1"),
 		version: "rv2",
 		status:  "stat",
@@ -274,7 +274,7 @@ func TestEvents_WatchUpdatesStatusCtl(t *testing.T) {
 	w.Send(watch.Event{Type: watch.Deleted, Object: obj})
 
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
-		event.DeleteForResource(basicmeta.K8SCollection1.Name, toEntry(obj))))
+		event.DeleteForResource(basicmeta.K8SCollection1.Name(), toEntry(obj))))
 }
 
 func TestEvents_CRDEventAfterFullSync(t *testing.T) {
@@ -293,7 +293,7 @@ func TestEvents_CRDEventAfterFullSync(t *testing.T) {
 	defer s.Stop()
 
 	g.Eventually(acc.Events).Should(ConsistOf(
-		event.FullSyncFor(basicmeta.K8SCollection1.Name),
+		event.FullSyncFor(basicmeta.K8SCollection1.Name()),
 	))
 
 	acc.Clear()
@@ -371,7 +371,7 @@ func TestSource_WatcherFailsCreatingInformer(t *testing.T) {
 
 	// we should get a full sync event, even if the watcher doesn't properly start.
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
-		event.FullSyncFor(basicmeta.K8SCollection1.Name),
+		event.FullSyncFor(basicmeta.K8SCollection1.Name()),
 	))
 
 	s.Stop()
@@ -408,8 +408,8 @@ func TestSource_WatcherFailsCreatingInformer(t *testing.T) {
 	defer s.Stop()
 
 	g.Eventually(acc.EventsWithoutOrigins).Should(ConsistOf(
-		event.FullSyncFor(basicmeta.K8SCollection1.Name),
-		event.AddFor(basicmeta.K8SCollection1.Name, toEntry(obj)),
+		event.FullSyncFor(basicmeta.K8SCollection1.Name()),
+		event.AddFor(basicmeta.K8SCollection1.Name(), toEntry(obj)),
 	))
 }
 
@@ -513,19 +513,19 @@ func toEntry(obj *unstructured.Unstructured) *resource.Instance {
 func toCrd(r collection.Schema) *v1beta1.CustomResourceDefinition {
 	return &v1beta1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
-			Name:            r.Plural + "." + r.Group,
+			Name:            r.Plural() + "." + r.Group(),
 			ResourceVersion: "v1",
 		},
 
 		Spec: v1beta1.CustomResourceDefinitionSpec{
-			Group: r.Group,
+			Group: r.Group(),
 			Names: v1beta1.CustomResourceDefinitionNames{
-				Plural: r.Plural,
-				Kind:   r.Kind,
+				Plural: r.Plural(),
+				Kind:   r.Kind(),
 			},
 			Versions: []v1beta1.CustomResourceDefinitionVersion{
 				{
-					Name: r.Version,
+					Name: r.Version(),
 				},
 			},
 			Scope: v1beta1.NamespaceScoped,

@@ -37,10 +37,10 @@ import (
 var (
 {{ range .Entries }}
 	{{ commentBlock (wordWrap (printf "%s %s" .Collection.VariableName .Collection.Description) 70) 1 }}
-	{{ .Collection.VariableName}} = collection.Schema {
-		Name: collection.NewName("{{ .Collection.Name }}"),
+	{{ .Collection.VariableName}} = collection.Builder {
+		Name: "{{ .Collection.Name }}",
 		Disabled: {{ .Collection.Disabled }},
-		Schema: resource.Schema {
+		Schema: resource.Builder {
 			Group: "{{ .Resource.Group }}",
 			Kind: "{{ .Resource.Kind }}",
 			Plural: "{{ .Resource.Plural }}",
@@ -49,8 +49,8 @@ var (
 			ProtoPackage: "{{ .Resource.ProtoPackage }}",
 			ClusterScoped: {{ .Resource.ClusterScoped }},
 			ValidateProto: validation.{{ .Resource.Validate }},
-		},
-	}
+		}.Build(),
+	}.MustBuild()
 {{ end }}
 
 	// All contains all collections in the system.
