@@ -650,14 +650,12 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(proxy *model.Proxy,
 
 func (configgen *ConfigGeneratorImpl) findServiceInstanceForIngressListener(instances []*model.ServiceInstance,
 	ingressListener *networking.IstioIngressListener) *model.ServiceInstance {
-	// Search by port
 	for _, realInstance := range instances {
 		if realInstance.Endpoint.EndpointPort == ingressListener.Port.Number {
-			instanceCopy := *realInstance
-			return &instanceCopy
+			// We need to create a copy of the matched instance, as the passed in instance is modified later while building clusters/listeners.
+			return realInstance.DeepCopy()
 		}
 	}
-
 	return nil
 }
 
