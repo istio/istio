@@ -208,6 +208,7 @@ dockerx:
 		DOCKER_ALL_VARIANTS="$(DOCKER_ALL_VARIANTS)" \
 		ISTIO_DOCKER_TAR=$(ISTIO_DOCKER_TAR) \
 		BASE_VERSION=$(BASE_VERSION) \
+		DOCKERX_PUSH=$(DOCKERX_PUSH) \
 		./tools/buildx-gen.sh $(DOCKERX_BUILD_TOP) $(DOCKER_TARGETS)
 	DOCKER_CLI_EXPERIMENTAL=enabled docker buildx bake -f $(DOCKERX_BUILD_TOP)/docker-bake.hcl $(DOCKER_BUILD_VARIANTS)
 
@@ -330,6 +331,13 @@ dockerx.push: dockerx
 	$(foreach TGT,$(DOCKER_TARGETS), time ( \
 		set -e && for distro in $(DOCKER_BUILD_VARIANTS); do tag=$(TAG)-$${distro}; docker push $(HUB)/$(subst docker.,,$(TGT)):$${tag%-$(DEFAULT_DISTRIBUTION)}; done); \
 	)
+
+# Build and push docker images using dockerx. Pushing is done inline as an optimization
+# This is not done in the dockerx.push target because it requires using the docker-container driver.
+# See https://github.com/docker/buildx#working-with-builder-instances for info to set this up
+dockerx.pushx: DOCKERX_PUSH=true
+dockerx.pushx: dockerx
+	@:
 
 # Scan images for security vulnerabilities using the ImageScanner tool
 docker.scan_images: $(DOCKER_PUSH_TARGETS)
