@@ -30,7 +30,7 @@ spec:
                 runtime: envoy.wasm.runtime.null
                 code:
                   local:
-                    inline_string: envoy.wasm.stats
+                    inline_string: envoy.wasm.metadata_exchange
 ---
 {{- if .Values.telemetry.v2.prometheus.enabled }}
 apiVersion: networking.istio.io/v1alpha3
