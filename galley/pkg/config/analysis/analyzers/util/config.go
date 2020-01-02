@@ -40,6 +40,7 @@ func IsSystemNamespace(ns resource.Namespace) bool {
 	return ns == "kube-system" || ns == "kube-public"
 }
 
-func IsIstioSystemNamespace(ns resource.Namespace) bool {
-	return ns == "istio-system"
+func IsIstioControlPlane(labels map[string]string) bool {
+	_, ok := labels["istio"]
+	return ok
 }

@@ -21,6 +21,8 @@ kind: Service
 metadata:
   name: my-service2
   namespace: istio-system
+  labels:
+    istio: xxx
 spec:
   selector:
     app: my-service2

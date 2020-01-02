@@ -48,7 +48,12 @@ func (s *PortNameAnalyzer) Analyze(c analysis.Context) {
 		svcNs := r.Metadata.FullName.Namespace
 
 		// Skip system namespaces entirely
-		if util.IsSystemNamespace(svcNs) || util.IsIstioSystemNamespace(svcNs) {
+		if util.IsSystemNamespace(svcNs) {
+			return true
+		}
+
+		// Skip port name check for istio control plane
+		if util.IsIstioControlPlane(r.Metadata.Labels) {
 			return true
 		}
 
