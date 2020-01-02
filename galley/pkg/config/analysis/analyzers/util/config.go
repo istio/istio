@@ -39,3 +39,7 @@ func MeshConfig(ctx analysis.Context) *v1alpha1.MeshConfig {
 func IsSystemNamespace(ns resource.Namespace) bool {
 	return ns == "kube-system" || ns == "kube-public"
 }
+
+func IsIstioSystemNamespace(ns resource.Namespace) bool {
+	return ns == "istio-system"
+}
