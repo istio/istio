@@ -9,3 +9,34 @@ rules:
   - apiGroups: ["extensions", "apps"]
     resources: ["replicasets"]
     verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: istio-analyze
+rules:
+- apiGroups: [
+  "authentication.istio.io",
+  "config.istio.io",
+  "networking.istio.io",
+  "rbac.istio.io",
+  "security.istio.io"]
+  resources: ["*"]
+  verbs: ["list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  resourceNames: ["*"]
+  verbs: ["list", "watch"]
+- apiGroups: [""]
+  resources: ["endpoints", "namespaces", "nodes", "pods", "secrets", "services"]
+  verbs: ["list", "watch"]
+- apiGroups: ["extensions"]
+  resources: ["ingresses"]
+  verbs: ["list", "watch"]
+- apiGroups: ["apiextensions.k8s.io"]
+  resources: ["customresourcedefinitions"]
+  verbs: ["list", "watch"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  resourceNames: ["istio"]
+  verbs: ["get"]
