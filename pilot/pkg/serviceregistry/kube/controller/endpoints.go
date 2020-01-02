@@ -62,7 +62,6 @@ func (e *endpointsController) registerEndpointsHandler() {
 				// Avoid pushes if only resource version changed (kube-scheduller, cluster-autoscaller, etc)
 				oldE := old.(*v1.Endpoints)
 				curE := cur.(*v1.Endpoints)
-				fmt.Printf("rv %s %s\n", oldE.ResourceVersion, curE.ResourceVersion)
 				if oldE.ResourceVersion != curE.ResourceVersion && !compareEndpoints(oldE, curE) {
 					fmt.Printf("endpoint update\n")
 
