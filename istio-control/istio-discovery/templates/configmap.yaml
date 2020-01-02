@@ -143,6 +143,11 @@ data:
     # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty.
     sdsUdsPath: {{ .Values.global.sds.udsPath | quote }}
 
+    {{- else if .Values.global.istiod.enabled }}
+
+    # Used by pilot-agent
+    sdsUdsPath: "unix:/etc/istio/proxy/SDS"
+
     {{- else }}
 
     # Set expected values when SDS is disabled
@@ -258,7 +263,14 @@ data:
 
     {{- $defPilotHostname := printf "istio-pilot.%s" .Release.Namespace }}
     {{- $pilotAddress := .Values.global.remotePilotAddress | default $defPilotHostname }}
-    {{- if .Values.global.controlPlaneSecurityEnabled }}
+
+    {{- if .Values.global.istiod.enabled }}
+      # If port is 15012, will use SDS.
+      # controlPlaneAuthPolicy is for mounted secrets, will wait for the files.
+      controlPlaneAuthPolicy: NONE
+      discoveryAddress: {{ $defPilotHostname }}.svc:15012
+
+    {{- else if .Values.global.controlPlaneSecurityEnabled }}
       #
       # Mutual TLS authentication between sidecars and istio control plane.
       controlPlaneAuthPolicy: MUTUAL_TLS

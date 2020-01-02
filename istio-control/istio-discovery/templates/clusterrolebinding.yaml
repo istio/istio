@@ -15,7 +15,6 @@ subjects:
     name: istio-pilot-service-account
     namespace: {{ .Release.Namespace }}
 ---
-{{ end }}
 {{ if .Values.global.istiod.enabled }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -34,4 +33,5 @@ subjects:
     namespace: {{ .Release.Namespace }}
 
 ---
+{{ end }}
 {{ end }}

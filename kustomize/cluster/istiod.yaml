@@ -82,7 +82,7 @@ rules:
       - "certificatesigningrequests"
       - "certificatesigningrequests/approval"
       - "certificatesigningrequests/status"
-    verbs: ["update", "create", "get", "delete"]
+    verbs: ["update", "create", "get", "delete", "watch"]
   # Citadel subset
   - apiGroups: [""]
     resources: ["configmaps"]

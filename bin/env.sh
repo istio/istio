@@ -69,7 +69,7 @@ function klog() {
     local container=${3}
     shift; shift; shift
 
-    kubectl --namespace=$ns log $(kubectl --namespace=$ns get -l $label pod -o=jsonpath='{.items[0].metadata.name}') $container $*
+    kubectl --namespace=$ns logs $(kubectl --namespace=$ns get -l $label pod -o=jsonpath='{.items[0].metadata.name}') $container $*
 }
 
 # Kubernetes exec wrapper

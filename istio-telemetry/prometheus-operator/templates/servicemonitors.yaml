@@ -115,7 +115,7 @@ spec:
       action: replace
       targetLabel: pod_name
 ---
-{{- if .Values.prometheusOperator.security.enabled }}
+{{- if .Values.security.enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -218,7 +218,7 @@ spec:
       action: replace
       targetLabel: pod_name
 ---
-{{- if .Values.prometheusOperator.security.enabled }}
+{{- if .Values.security.enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
