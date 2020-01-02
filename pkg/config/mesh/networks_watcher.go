@@ -64,8 +64,8 @@ func NewNetworksWatcher(fileWatcher filewatcher.FileWatcher, filename string) (N
 	}
 
 	ResolveHostsInNetworksConfig(meshNetworks)
-	networksJson, _ := (&jsonpb.Marshaler{}).MarshalToString(meshNetworks)
-	log.Infof("mesh networks configuration: %s", networksJson)
+	networksdump, _ := (&jsonpb.Marshaler{}).MarshalToString(meshNetworks)
+	log.Infof("mesh networks configuration: %s", networksdump)
 
 	w := &networksWatcher{
 		networks: meshNetworks,
@@ -85,8 +85,8 @@ func NewNetworksWatcher(fileWatcher filewatcher.FileWatcher, filename string) (N
 		w.mutex.Lock()
 		if !reflect.DeepEqual(meshNetworks, w.networks) {
 			ResolveHostsInNetworksConfig(meshNetworks)
-			networksJson, _ := (&jsonpb.Marshaler{}).MarshalToString(meshNetworks)
-			log.Infof("mesh networks configuration updated to: %s", networksJson)
+			networksdump, _ := (&jsonpb.Marshaler{}).MarshalToString(meshNetworks)
+			log.Infof("mesh networks configuration updated to: %s", networksdump)
 
 			// Store the new config.
 			atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&w.networks)), unsafe.Pointer(meshNetworks))

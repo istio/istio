@@ -41,11 +41,11 @@ const (
 func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.FileWatcher) error {
 	defer func() {
 		if s.environment.Watcher != nil {
-			meshJson, _ := (&jsonpb.Marshaler{}).MarshalToString(s.environment.Mesh())
-			log.Infof("mesh configuration: %s", meshJson)
+			meshdump, _ := (&jsonpb.Marshaler{}).MarshalToString(s.environment.Mesh())
+			log.Infof("mesh configuration: %s", meshdump)
 			log.Infof("version: %s", version.Info.String())
-			argsJson, _ := json.Marshal(args)
-			log.Infof("flags: %s", argsJson)
+			argsdump, _ := json.Marshal(args)
+			log.Infof("flags: %s", argsdump)
 		}
 	}()
 
