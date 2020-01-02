@@ -91,6 +91,7 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		EnableAutoMtls:                    &types.BoolValue{Value: false},
 		ThriftConfig:                      &meshconfig.MeshConfig_ThriftConfig{},
 		LocalityLbSetting:                 &v1alpha3.LocalityLoadBalancerSetting{},
+		EgdsGroupSize:                     50,
 	}
 }
 

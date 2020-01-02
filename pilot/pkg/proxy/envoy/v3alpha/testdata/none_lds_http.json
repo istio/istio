@@ -1,0 +1,1231 @@
+{
+    "0.0.0.0_7071": {
+      "name": "0.0.0.0_7071",
+      "address": {
+        "Address": {
+          "SocketAddress": {
+            "address": "0.0.0.0",
+            "PortSpecifier": {
+              "PortValue": 7071
+            }
+          }
+        }
+      },
+      "filter_chains": [
+        {
+          "filters": [
+            {
+              "name": "envoy.http_connection_manager",
+              "ConfigType": {
+                "Config": {
+                  "fields": {
+                    "access_log": {
+                      "Kind": {
+                        "ListValue": {
+                          "values": [
+                            {
+                              "Kind": {
+                                "StructValue": {
+                                  "fields": {
+                                    "config": {
+                                      "Kind": {
+                                        "StructValue": {
+                                          "fields": {
+                                            "path": {
+                                              "Kind": {
+                                                "StringValue": "/dev/stdout"
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "name": {
+                                      "Kind": {
+                                        "StringValue": "envoy.file_access_log"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "forward_client_cert_details": {
+                      "Kind": {
+                        "StringValue": "APPEND_FORWARD"
+                      }
+                    },
+                    "generate_request_id": {
+                      "Kind": {
+                        "BoolValue": true
+                      }
+                    },
+                    "http_filters": {
+                      "Kind": {
+                        "ListValue": {
+                          "values": [
+                            {
+                              "Kind": {
+                                "StructValue": {
+                                  "fields": {
+                                    "config": {
+                                      "Kind": {
+                                        "StructValue": {
+                                          "fields": {
+                                            "default_destination_service": {
+                                              "Kind": {
+                                                "StringValue": "default"
+                                              }
+                                            },
+                                            "mixer_attributes": {
+                                              "Kind": {
+                                                "StructValue": {
+                                                  "fields": {
+                                                    "attributes": {
+                                                      "Kind": {
+                                                        "StructValue": {
+                                                          "fields": {
+                                                            "context.reporter.kind": {
+                                                              "Kind": {
+                                                                "StructValue": {
+                                                                  "fields": {
+                                                                    "string_value": {
+                                                                      "Kind": {
+                                                                        "StringValue": "inbound"
+                                                                      }
+                                                                    }
+                                                                  }
+                                                                }
+                                                              }
+                                                            },
+                                                            "context.reporter.uid": {
+                                                              "Kind": {
+                                                                "StructValue": {
+                                                                  "fields": {
+                                                                    "string_value": {
+                                                                      "Kind": {
+                                                                        "StringValue": "kubernetes://test-1.none"
+                                                                      }
+                                                                    }
+                                                                  }
+                                                                }
+                                                              }
+                                                            },
+                                                            "destination.ip": {
+                                                              "Kind": {
+                                                                "StructValue": {
+                                                                  "fields": {
+                                                                    "bytes_value": {
+                                                                      "Kind": {
+                                                                        "StringValue": "AAAAAAAAAAAAAP//AAAAAA=="
+                                                                      }
+                                                                    }
+                                                                  }
+                                                                }
+                                                              }
+                                                            },
+                                                            "destination.namespace": {
+                                                              "Kind": {
+                                                                "StructValue": {
+                                                                  "fields": {
+                                                                    "string_value": {
+                                                                      "Kind": {
+                                                                        "StringValue": "none"
+                                                                      }
+                                                                    }
+                                                                  }
+                                                                }
+                                                              }
+                                                            },
+                                                            "destination.port": {
+                                                              "Kind": {
+                                                                "StructValue": {
+                                                                  "fields": {
+                                                                    "int64_value": {
+                                                                      "Kind": {
+                                                                        "StringValue": "7071"
+                                                                      }
+                                                                    }
+                                                                  }
+                                                                }
+                                                              }
+                                                            },
+                                                            "destination.uid": {
+                                                              "Kind": {
+                                                                "StructValue": {
+                                                                  "fields": {
+                                                                    "string_value": {
+                                                                      "Kind": {
+                                                                        "StringValue": "kubernetes://test-1.none"
+                                                                      }
+                                                                    }
+                                                                  }
+                                                                }
+                                                              }
+                                                            }
+                                                          }
+                                                        }
+                                                      }
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            },
+                                            "service_configs": {
+                                              "Kind": {
+                                                "StructValue": {
+                                                  "fields": {
+                                                    "default": {
+                                                      "Kind": {
+                                                        "StructValue": {}
+                                                      }
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            },
+                                            "transport": {
+                                              "Kind": {
+                                                "StructValue": {
+                                                  "fields": {
+                                                    "check_cluster": {
+                                                      "Kind": {
+                                                        "StringValue": "outbound|9091||istio-mixer.istio-system"
+                                                      }
+                                                    },
+                                                    "network_fail_policy": {
+                                                      "Kind": {
+                                                        "StructValue": {
+                                                          "fields": {
+                                                            "policy": {
+                                                              "Kind": {
+                                                                "StringValue": "FAIL_CLOSE"
+                                                              }
+                                                            }
+                                                          }
+                                                        }
+                                                      }
+                                                    },
+                                                    "report_cluster": {
+                                                      "Kind": {
+                                                        "StringValue": "outbound|9091||istio-mixer.istio-system"
+                                                      }
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "name": {
+                                      "Kind": {
+                                        "StringValue": "mixer"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "Kind": {
+                                "StructValue": {
+                                  "fields": {
+                                    "name": {
+                                      "Kind": {
+                                        "StringValue": "envoy.cors"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "Kind": {
+                                "StructValue": {
+                                  "fields": {
+                                    "name": {
+                                      "Kind": {
+                                        "StringValue": "envoy.fault"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "Kind": {
+                                "StructValue": {
+                                  "fields": {
+                                    "name": {
+                                      "Kind": {
+                                        "StringValue": "envoy.router"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "route_config": {
+                      "Kind": {
+                        "StructValue": {
+                          "fields": {
+                            "name": {
+                              "Kind": {
+                                "StringValue": "inbound|7071|httplocal|s1http.none"
+                              }
+                            },
+                            "validate_clusters": {
+                              "Kind": {
+                                "BoolValue": false
+                              }
+                            },
+                            "virtual_hosts": {
+                              "Kind": {
+                                "ListValue": {
+                                  "values": [
+                                    {
+                                      "Kind": {
+                                        "StructValue": {
+                                          "fields": {
+                                            "domains": {
+                                              "Kind": {
+                                                "ListValue": {
+                                                  "values": [
+                                                    {
+                                                      "Kind": {
+                                                        "StringValue": "*"
+                                                      }
+                                                    }
+                                                  ]
+                                                }
+                                              }
+                                            },
+                                            "name": {
+                                              "Kind": {
+                                                "StringValue": "inbound|http|7071"
+                                              }
+                                            },
+                                            "routes": {
+                                              "Kind": {
+                                                "ListValue": {
+                                                  "values": [
+                                                    {
+                                                      "Kind": {
+                                                        "StructValue": {
+                                                          "fields": {
+                                                            "decorator": {
+                                                              "Kind": {
+                                                                "StructValue": {
+                                                                  "fields": {
+                                                                    "operation": {
+                                                                      "Kind": {
+                                                                        "StringValue": "s1http.none:7071/*"
+                                                                      }
+                                                                    }
+                                                                  }
+                                                                }
+                                                              }
+                                                            },
+                                                            "match": {
+                                                              "Kind": {
+                                                                "StructValue": {
+                                                                  "fields": {
+                                                                    "prefix": {
+                                                                      "Kind": {
+                                                                        "StringValue": "/"
+                                                                      }
+                                                                    }
+                                                                  }
+                                                                }
+                                                              }
+                                                            },
+                                                            "per_filter_config": {
+                                                              "Kind": {
+                                                                "StructValue": {
+                                                                  "fields": {
+                                                                    "mixer": {
+                                                                      "Kind": {
+                                                                        "StructValue": {
+                                                                          "fields": {
+                                                                            "mixer_attributes": {
+                                                                              "Kind": {
+                                                                                "StructValue": {
+                                                                                  "fields": {
+                                                                                    "attributes": {
+                                                                                      "Kind": {
+                                                                                        "StructValue": {
+                                                                                          "fields": {
+                                                                                            "destination.service.host": {
+                                                                                              "Kind": {
+                                                                                                "StructValue": {
+                                                                                                  "fields": {
+                                                                                                    "string_value": {
+                                                                                                      "Kind": {
+                                                                                                        "StringValue": "s1http.none"
+                                                                                                      }
+                                                                                                    }
+                                                                                                  }
+                                                                                                }
+                                                                                              }
+                                                                                            },
+                                                                                            "destination.service.name": {
+                                                                                              "Kind": {
+                                                                                                "StructValue": {
+                                                                                                  "fields": {
+                                                                                                    "string_value": {
+                                                                                                      "Kind": {
+                                                                                                        "StringValue": "s1http.none"
+                                                                                                      }
+                                                                                                    }
+                                                                                                  }
+                                                                                                }
+                                                                                              }
+                                                                                            },
+                                                                                            "destination.service.namespace": {
+                                                                                              "Kind": {
+                                                                                                "StructValue": {
+                                                                                                  "fields": {
+                                                                                                    "string_value": {
+                                                                                                      "Kind": {
+                                                                                                        "StringValue": "none"
+                                                                                                      }
+                                                                                                    }
+                                                                                                  }
+                                                                                                }
+                                                                                              }
+                                                                                            }
+                                                                                          }
+                                                                                        }
+                                                                                      }
+                                                                                    }
+                                                                                  }
+                                                                                }
+                                                                              }
+                                                                            }
+                                                                          }
+                                                                        }
+                                                                      }
+                                                                    }
+                                                                  }
+                                                                }
+                                                              }
+                                                            },
+                                                            "route": {
+                                                              "Kind": {
+                                                                "StructValue": {
+                                                                  "fields": {
+                                                                    "cluster": {
+                                                                      "Kind": {
+                                                                        "StringValue": "inbound|7071|httplocal|s1http.none"
+                                                                      }
+                                                                    },
+                                                                    "max_grpc_timeout": {
+                                                                      "Kind": {
+                                                                        "StringValue": "0s"
+                                                                      }
+                                                                    },
+                                                                    "timeout": {
+                                                                      "Kind": {
+                                                                        "StringValue": "0s"
+                                                                      }
+                                                                    }
+                                                                  }
+                                                                }
+                                                              }
+                                                            }
+                                                          }
+                                                        }
+                                                      }
+                                                    }
+                                                  ]
+                                                }
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "server_name": {
+                      "Kind": {
+                        "StringValue": "istio-envoy"
+                      }
+                    },
+                    "set_current_client_cert_details": {
+                      "Kind": {
+                        "StructValue": {
+                          "fields": {
+                            "dns": {
+                              "Kind": {
+                                "BoolValue": true
+                              }
+                            },
+                            "subject": {
+                              "Kind": {
+                                "BoolValue": true
+                              }
+                            },
+                            "uri": {
+                              "Kind": {
+                                "BoolValue": true
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "stat_prefix": {
+                      "Kind": {
+                        "StringValue": "0.0.0.0_7071"
+                      }
+                    },
+                    "stream_idle_timeout": {
+                      "Kind": {
+                        "StringValue": "0s"
+                      }
+                    },
+                    "tracing": {
+                      "Kind": {
+                        "StructValue": {
+                          "fields": {
+                            "client_sampling": {
+                              "Kind": {
+                                "StructValue": {
+                                  "fields": {
+                                    "value": {
+                                      "Kind": {
+                                        "NumberValue": 100
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            "overall_sampling": {
+                              "Kind": {
+                                "StructValue": {
+                                  "fields": {
+                                    "value": {
+                                      "Kind": {
+                                        "NumberValue": 100
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            "random_sampling": {
+                              "Kind": {
+                                "StructValue": {
+                                  "fields": {
+                                    "value": {
+                                      "Kind": {
+                                        "NumberValue": 100
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "upgrade_configs": {
+                      "Kind": {
+                        "ListValue": {
+                          "values": [
+                            {
+                              "Kind": {
+                                "StructValue": {
+                                  "fields": {
+                                    "upgrade_type": {
+                                      "Kind": {
+                                        "StringValue": "websocket"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "use_remote_address": {
+                      "Kind": {
+                        "BoolValue": false
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "listener_filters": null
+    },
+    "127.0.0.1_15002": {
+      "name": "127.0.0.1_15002",
+      "address": {
+        "Address": {
+          "SocketAddress": {
+            "address": "127.0.0.1",
+            "PortSpecifier": {
+              "PortValue": 15002
+            }
+          }
+        }
+      },
+      "filter_chains": [
+        {
+          "filters": [
+            {
+              "name": "envoy.http_connection_manager",
+              "ConfigType": {
+                "Config": {
+                  "fields": {
+                    "access_log": {
+                      "Kind": {
+                        "ListValue": {
+                          "values": [
+                            {
+                              "Kind": {
+                                "StructValue": {
+                                  "fields": {
+                                    "config": {
+                                      "Kind": {
+                                        "StructValue": {
+                                          "fields": {
+                                            "path": {
+                                              "Kind": {
+                                                "StringValue": "/dev/stdout"
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "name": {
+                                      "Kind": {
+                                        "StringValue": "envoy.file_access_log"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "generate_request_id": {
+                      "Kind": {
+                        "BoolValue": true
+                      }
+                    },
+                    "http_filters": {
+                      "Kind": {
+                        "ListValue": {
+                          "values": [
+                            {
+                              "Kind": {
+                                "StructValue": {
+                                  "fields": {
+                                    "name": {
+                                      "Kind": {
+                                        "StringValue": "envoy.cors"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "Kind": {
+                                "StructValue": {
+                                  "fields": {
+                                    "name": {
+                                      "Kind": {
+                                        "StringValue": "envoy.fault"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "Kind": {
+                                "StructValue": {
+                                  "fields": {
+                                    "name": {
+                                      "Kind": {
+                                        "StringValue": "envoy.router"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "http_protocol_options": {
+                      "Kind": {
+                        "StructValue": {
+                          "fields": {
+                            "allow_absolute_url": {
+                              "Kind": {
+                                "BoolValue": true
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "rds": {
+                      "Kind": {
+                        "StructValue": {
+                          "fields": {
+                            "config_source": {
+                              "Kind": {
+                                "StructValue": {
+                                  "fields": {
+                                    "ads": {
+                                      "Kind": {
+                                        "StructValue": {}
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            "route_config_name": {
+                              "Kind": {
+                                "StringValue": "http_proxy"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "stat_prefix": {
+                      "Kind": {
+                        "StringValue": "127.0.0.1_15002"
+                      }
+                    },
+                    "stream_idle_timeout": {
+                      "Kind": {
+                        "StringValue": "0s"
+                      }
+                    },
+                    "tracing": {
+                      "Kind": {
+                        "StructValue": {
+                          "fields": {
+                            "client_sampling": {
+                              "Kind": {
+                                "StructValue": {
+                                  "fields": {
+                                    "value": {
+                                      "Kind": {
+                                        "NumberValue": 100
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            "operation_name": {
+                              "Kind": {
+                                "StringValue": "EGRESS"
+                              }
+                            },
+                            "overall_sampling": {
+                              "Kind": {
+                                "StructValue": {
+                                  "fields": {
+                                    "value": {
+                                      "Kind": {
+                                        "NumberValue": 100
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            "random_sampling": {
+                              "Kind": {
+                                "StructValue": {
+                                  "fields": {
+                                    "value": {
+                                      "Kind": {
+                                        "NumberValue": 100
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "upgrade_configs": {
+                      "Kind": {
+                        "ListValue": {
+                          "values": [
+                            {
+                              "Kind": {
+                                "StructValue": {
+                                  "fields": {
+                                    "upgrade_type": {
+                                      "Kind": {
+                                        "StringValue": "websocket"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "use_remote_address": {
+                      "Kind": {
+                        "BoolValue": false
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "listener_filters": null
+    },
+    "127.0.0.1_2001": {
+      "name": "127.0.0.1_2001",
+      "address": {
+        "Address": {
+          "SocketAddress": {
+            "address": "127.0.0.1",
+            "PortSpecifier": {
+              "PortValue": 2001
+            }
+          }
+        }
+      },
+      "filter_chains": [
+        {
+          "filters": [
+            {
+              "name": "envoy.http_connection_manager",
+              "ConfigType": {
+                "Config": {
+                  "fields": {
+                    "access_log": {
+                      "Kind": {
+                        "ListValue": {
+                          "values": [
+                            {
+                              "Kind": {
+                                "StructValue": {
+                                  "fields": {
+                                    "config": {
+                                      "Kind": {
+                                        "StructValue": {
+                                          "fields": {
+                                            "path": {
+                                              "Kind": {
+                                                "StringValue": "/dev/stdout"
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "name": {
+                                      "Kind": {
+                                        "StringValue": "envoy.file_access_log"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "generate_request_id": {
+                      "Kind": {
+                        "BoolValue": true
+                      }
+                    },
+                    "http_filters": {
+                      "Kind": {
+                        "ListValue": {
+                          "values": [
+                            {
+                              "Kind": {
+                                "StructValue": {
+                                  "fields": {
+                                    "config": {
+                                      "Kind": {
+                                        "StructValue": {
+                                          "fields": {
+                                            "default_destination_service": {
+                                              "Kind": {
+                                                "StringValue": "default"
+                                              }
+                                            },
+                                            "forward_attributes": {
+                                              "Kind": {
+                                                "StructValue": {
+                                                  "fields": {
+                                                    "attributes": {
+                                                      "Kind": {
+                                                        "StructValue": {
+                                                          "fields": {
+                                                            "source.uid": {
+                                                              "Kind": {
+                                                                "StructValue": {
+                                                                  "fields": {
+                                                                    "string_value": {
+                                                                      "Kind": {
+                                                                        "StringValue": "kubernetes://test-1.none"
+                                                                      }
+                                                                    }
+                                                                  }
+                                                                }
+                                                              }
+                                                            }
+                                                          }
+                                                        }
+                                                      }
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            },
+                                            "mixer_attributes": {
+                                              "Kind": {
+                                                "StructValue": {
+                                                  "fields": {
+                                                    "attributes": {
+                                                      "Kind": {
+                                                        "StructValue": {
+                                                          "fields": {
+                                                            "context.reporter.kind": {
+                                                              "Kind": {
+                                                                "StructValue": {
+                                                                  "fields": {
+                                                                    "string_value": {
+                                                                      "Kind": {
+                                                                        "StringValue": "outbound"
+                                                                      }
+                                                                    }
+                                                                  }
+                                                                }
+                                                              }
+                                                            },
+                                                            "context.reporter.uid": {
+                                                              "Kind": {
+                                                                "StructValue": {
+                                                                  "fields": {
+                                                                    "string_value": {
+                                                                      "Kind": {
+                                                                        "StringValue": "kubernetes://test-1.none"
+                                                                      }
+                                                                    }
+                                                                  }
+                                                                }
+                                                              }
+                                                            },
+                                                            "source.namespace": {
+                                                              "Kind": {
+                                                                "StructValue": {
+                                                                  "fields": {
+                                                                    "string_value": {
+                                                                      "Kind": {
+                                                                        "StringValue": "none"
+                                                                      }
+                                                                    }
+                                                                  }
+                                                                }
+                                                              }
+                                                            },
+                                                            "source.uid": {
+                                                              "Kind": {
+                                                                "StructValue": {
+                                                                  "fields": {
+                                                                    "string_value": {
+                                                                      "Kind": {
+                                                                        "StringValue": "kubernetes://test-1.none"
+                                                                      }
+                                                                    }
+                                                                  }
+                                                                }
+                                                              }
+                                                            }
+                                                          }
+                                                        }
+                                                      }
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            },
+                                            "service_configs": {
+                                              "Kind": {
+                                                "StructValue": {
+                                                  "fields": {
+                                                    "default": {
+                                                      "Kind": {
+                                                        "StructValue": {
+                                                          "fields": {
+                                                            "disable_check_calls": {
+                                                              "Kind": {
+                                                                "BoolValue": true
+                                                              }
+                                                            }
+                                                          }
+                                                        }
+                                                      }
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            },
+                                            "transport": {
+                                              "Kind": {
+                                                "StructValue": {
+                                                  "fields": {
+                                                    "check_cluster": {
+                                                      "Kind": {
+                                                        "StringValue": "outbound|9091||istio-mixer.istio-system"
+                                                      }
+                                                    },
+                                                    "network_fail_policy": {
+                                                      "Kind": {
+                                                        "StructValue": {
+                                                          "fields": {
+                                                            "policy": {
+                                                              "Kind": {
+                                                                "StringValue": "FAIL_CLOSE"
+                                                              }
+                                                            }
+                                                          }
+                                                        }
+                                                      }
+                                                    },
+                                                    "report_cluster": {
+                                                      "Kind": {
+                                                        "StringValue": "outbound|9091||istio-mixer.istio-system"
+                                                      }
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "name": {
+                                      "Kind": {
+                                        "StringValue": "mixer"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "Kind": {
+                                "StructValue": {
+                                  "fields": {
+                                    "name": {
+                                      "Kind": {
+                                        "StringValue": "envoy.cors"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "Kind": {
+                                "StructValue": {
+                                  "fields": {
+                                    "name": {
+                                      "Kind": {
+                                        "StringValue": "envoy.fault"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "Kind": {
+                                "StructValue": {
+                                  "fields": {
+                                    "name": {
+                                      "Kind": {
+                                        "StringValue": "envoy.router"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "rds": {
+                      "Kind": {
+                        "StructValue": {
+                          "fields": {
+                            "config_source": {
+                              "Kind": {
+                                "StructValue": {
+                                  "fields": {
+                                    "ads": {
+                                      "Kind": {
+                                        "StructValue": {}
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            "route_config_name": {
+                              "Kind": {
+                                "StringValue": "2001"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "stat_prefix": {
+                      "Kind": {
+                        "StringValue": "127.0.0.1_2001"
+                      }
+                    },
+                    "stream_idle_timeout": {
+                      "Kind": {
+                        "StringValue": "0s"
+                      }
+                    },
+                    "tracing": {
+                      "Kind": {
+                        "StructValue": {
+                          "fields": {
+                            "client_sampling": {
+                              "Kind": {
+                                "StructValue": {
+                                  "fields": {
+                                    "value": {
+                                      "Kind": {
+                                        "NumberValue": 100
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            "operation_name": {
+                              "Kind": {
+                                "StringValue": "EGRESS"
+                              }
+                            },
+                            "overall_sampling": {
+                              "Kind": {
+                                "StructValue": {
+                                  "fields": {
+                                    "value": {
+                                      "Kind": {
+                                        "NumberValue": 100
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            "random_sampling": {
+                              "Kind": {
+                                "StructValue": {
+                                  "fields": {
+                                    "value": {
+                                      "Kind": {
+                                        "NumberValue": 100
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "upgrade_configs": {
+                      "Kind": {
+                        "ListValue": {
+                          "values": [
+                            {
+                              "Kind": {
+                                "StructValue": {
+                                  "fields": {
+                                    "upgrade_type": {
+                                      "Kind": {
+                                        "StringValue": "websocket"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "use_remote_address": {
+                      "Kind": {
+                        "BoolValue": false
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "listener_filters": null
+    }
+  }

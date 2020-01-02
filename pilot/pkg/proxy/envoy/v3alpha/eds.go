@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v2
+package v3alpha
 
 import (
-	"reflect"
 	"fmt"
 	"strconv"
 	"sync"
@@ -39,8 +38,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 // EDS returns the list of endpoints (IP:port and in future labels) associated with a real
@@ -273,11 +271,12 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 	// may individually update their endpoints incrementally
 	for _, svc := range push.Services(nil) {
 		for _, registry := range nonK8sRegistries {
-			// skip the service in case this svc does not belong to the registry.
-			if svc.Attributes.ServiceRegistry != string(registry.Provider()) {
+			// in case this svc does not belong to the registry
+			if svc, _ := registry.GetService(svc.Hostname); svc == nil {
 				continue
 			}
-			endpoints := make([]*model.IstioEndpoint, 0)
+
+			entries := make([]*model.IstioEndpoint, 0)
 			for _, port := range svc.Ports {
 				if port.Protocol == protocol.UDP {
 					continue
@@ -290,11 +289,11 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 				}
 
 				for _, inst := range instances {
-					endpoints = append(endpoints, inst.Endpoint)
+					entries = append(entries, inst.Endpoint)
 				}
 			}
 
-			s.edsUpdate(registry.Cluster(), string(svc.Hostname), svc.Attributes.Namespace, endpoints, true)
+			s.edsUpdate(registry.Cluster(), string(svc.Hostname), svc.Attributes.Namespace, entries, true)
 		}
 	}
 
@@ -441,7 +440,6 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 				Full:              false,
 				NamespacesUpdated: map[string]struct{}{namespace: {}},
 				EdsUpdates:        map[string]struct{}{serviceName: {}},
-				Reason:            []model.TriggerReason{model.EndpointUpdate},
 			})
 		}
 		return
@@ -470,28 +468,31 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 
 	// 2. Update data for the specific cluster. Each cluster gets independent
 	// updates containing the full list of endpoints for the service in that cluster.
-	serviceAccounts := map[string]bool{}
 	for _, e := range istioEndpoints {
 		if e.ServiceAccount != "" {
-			serviceAccounts[e.ServiceAccount] = true
-		}
-	}
+			ep.mutex.Lock()
+			_, f = ep.ServiceAccounts[e.ServiceAccount]
+			if !f {
+				ep.ServiceAccounts[e.ServiceAccount] = true
+			}
+			ep.mutex.Unlock()
 
-	if !reflect.DeepEqual(serviceAccounts, ep.ServiceAccounts) {
-		adsLog.Debugf("Updating service accounts now, svc %v, before service account %v, after %v",
-			serviceName, ep.ServiceAccounts, serviceAccounts)
-		if !internal {
-			requireFull = true
-			adsLog.Infof("Full push, service accounts changed, %v", serviceName)
+			if !f && !internal {
+				// The entry has a service account that was not previously associated.
+				// Requires a CDS push and full sync.
+				adsLog.Infof("Endpoint updating service account %s %s", e.ServiceAccount, serviceName)
+				requireFull = true
+				break
+			}
 		}
 	}
 
 	ep.mutex.Lock()
-	ep.ServiceAccounts = serviceAccounts
 	egdsGroup, f := ep.Shards[clusterID]
 	if !f {
 		egdsGroup = &EndpointGroups{
 			NamePrefix: fmt.Sprintf("%s-%s-%s", serviceName, namespace, clusterID),
+			GroupSize:  s.Env.Mesh().EgdsGroupSize,
 		}
 	}
 
@@ -509,9 +510,8 @@ func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace str
 		s.ConfigUpdate(&model.PushRequest{
 			Full:               requireFull,
 			NamespacesUpdated:  map[string]struct{}{namespace: {}},
-			ConfigTypesUpdated: map[resource.GroupVersionKind]struct{}{collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(): {}},
+			ConfigTypesUpdated: map[string]struct{}{schemas.ServiceEntry.Type: {}},
 			EdsUpdates:         edsUpdates,
-			Reason:             []model.TriggerReason{model.EndpointUpdate},
 			EgdsUpdates:        egdsUpdates,
 		})
 	}
@@ -697,17 +697,25 @@ func (s *DiscoveryServer) generateEndpoints(
 	}
 
 	// If locality aware routing is enabled, prioritize endpoints or set their lb weight.
-	// Failover should only be enabled when there is an outlier detection, otherwise Envoy
-	// will never detect the hosts are unhealthy and redirect traffic.
-	enableFailover, lb := getOutlierDetectionAndLoadBalancerSettings(push, proxy, clusterName)
-	lbSetting := loadbalancer.GetLocalityLbSetting(push.Mesh.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
-	if lbSetting != nil {
+	if push.Mesh.LocalityLbSetting != nil {
 		// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
 		clonedCLA := util.CloneClusterLoadAssignment(l)
 		l = &clonedCLA
-		loadbalancer.ApplyLocalityLBSetting(proxy.Locality, l, lbSetting, enableFailover)
+
+		// Failover should only be enabled when there is an outlier detection, otherwise Envoy
+		// will never detect the hosts are unhealthy and redirect traffic.
+		enableFailover, loadBalancerSettings := getOutlierDetectionAndLoadBalancerSettings(push, proxy, clusterName)
+		var localityLbSettings = push.Mesh.LocalityLbSetting
+		if loadBalancerSettings != nil && loadBalancerSettings.LocalityLbSetting != nil {
+			localityLbSettings = loadBalancerSettings.LocalityLbSetting
+		}
+		loadbalancer.ApplyLocalityLBSetting(proxy.Locality, l, localityLbSettings, enableFailover)
 	}
 	return l
+}
+
+func (s *DiscoveryServer) pushEgds(push *model.PushContext, con *XdsConnection, version string, egdsUpdatedGroups map[string]struct{}) error {
+	return nil
 }
 
 // pushEds is pushing EDS updates for a single connection. Called the first time
@@ -716,7 +724,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 	pushStart := time.Now()
 	loadAssignments := make([]*xdsapi.ClusterLoadAssignment, 0)
 	endpoints := 0
-	empty := 0
+	empty := make([]string, 0)
 
 	// All clusters that this endpoint is watching. For 1.0 - it's typically all clusters in the mesh.
 	// For 1.1+Sidecar - it's the small set of explicitly imported clusters, using the isolated DestinationRules
@@ -732,7 +740,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 		}
 
 		if len(l.Endpoints) == 0 {
-			empty++
+			empty = append(empty, clusterName)
 		}
 		loadAssignments = append(loadAssignments, l)
 	}
@@ -751,7 +759,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, v
 		adsLog.Infof("EDS: PUSH for node:%s clusters:%d endpoints:%d empty:%v",
 			con.node.ID, len(con.Clusters), endpoints, empty)
 	} else {
-		adsLog.Debugf("EDS: PUSH INC for node:%s clusters:%d endpoints:%d empty:%v",
+		adsLog.Infof("EDS: PUSH INC for node:%s clusters:%d endpoints:%d empty:%v",
 			con.node.ID, len(con.Clusters), endpoints, empty)
 	}
 	return nil

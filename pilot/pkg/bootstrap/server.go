@@ -56,7 +56,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
-	securityModel "istio.io/istio/pilot/pkg/security/model"
+	envoyv3 "istio.io/istio/pilot/pkg/proxy/envoy/v3alpha"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/external"
@@ -173,7 +173,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		basePort:       args.BasePort,
 		clusterID:      getClusterID(args),
 		environment:    e,
-		EnvoyXdsServer: envoyv2.NewDiscoveryServer(e, args.Plugins),
+		EnvoyXdsServer: envoyv3.NewDiscoveryServer(e, args.Plugins),
 		forceStop:      args.ForceStop,
 		mux:            http.NewServeMux(),
 	}
